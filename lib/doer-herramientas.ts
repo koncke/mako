@@ -19,8 +19,8 @@ import { toolsDelRegistro, porId, leeDatosDeClientes, type Vista } from './api-m
 import { llevaDatosPersonales } from './mako-pedidos';
 import type { ToolDef } from './anthropic';
 import type { Area } from './api-mako/tipos';
-import { registroParaLaApp } from './relevancia-app';
-import { sinVerboAlArranque } from './mako-intencion-app';
+import { registroParaLaApp, puertaDeDestructivas } from './relevancia-app';
+import { sinVerboAlArranque, ordenDelPedido, pideQuitar } from './mako-intencion-app';
 
 /** Las de Calendly. A un negocio sin Calendly no le sirven, y su receta («buscá el lead,
  *  pedile el email, ofrecé 3 huecos») le gana a la de Google: con un evento sin lead,
@@ -260,14 +260,21 @@ export function herramientasDelTurno<T extends { name: string }>(p: EntradaTurno
   // resto de las nombradas; y las lecturas que dan el id de lo que entró). Lo que se elige es una tarjeta que la persona confirma.
   const buscaEnTodo = !!v.buscaEnTodo && (v.intencion === 'actuar' || v.intencion === 'consultar' || v.intencion === 'pensar');
   const conAcciones = v.intencion === 'actuar';
+  // En la app, las operaciones que quitan, cortan o cancelan algo no entran por el ÁREA que se nombra sino por la COSA que se nombra
+  // (lib/relevancia-app.ts, `nombraLaCosa`): el 21/10/2026 se midió que `area-negocio` abría `reiniciar_personalidad` en «eliminá las
+  // muletillas». WhatsApp (otra vista) no pasa por acá y sigue como estaba.
+  const deLaApp = p.vista.canal === 'app';
+  const sinOrden = deLaApp ? sinVerboAlArranque(sobre) : '';
+  const quita = deLaApp && pideQuitar(sobre);
   const delRegistro = buscaEnTodo
     ? registroParaLaApp({
-        vista: p.vista, areas, texto: sinVerboAlArranque(sobre), relevanteA, relevancia: v.relevancia ?? '', conAcciones, excluir, presupuesto: PRESUPUESTO_REGISTRO_CHARS,
+        vista: p.vista, areas, texto: sinOrden || sinVerboAlArranque(sobre), relevanteA, relevancia: v.relevancia ?? '', quita, orden: ordenDelPedido(sobre), conAcciones, excluir, presupuesto: PRESUPUESTO_REGISTRO_CHARS,
       })
     : areas.length
       ? toolsDelRegistro({
           vista: p.vista, areas, incluirAcciones: v.intencion === 'actuar',
           excluir, maxChars: PRESUPUESTO_REGISTRO_CHARS, relevanteA,
+          ...(deLaApp ? { donde: puertaDeDestructivas(sinOrden, quita) } : {}),
         })
       : [];
   /**

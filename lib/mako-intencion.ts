@@ -787,7 +787,7 @@ const OTRO_INFINITIVO = /[,;.]\s*(?:y\s+|tambien\s+|despues\s+|luego\s+)?[a-z]{2
  * «llamá a Juan» y «una llamada con Ana mañana» siguen siendo de la agenda (la palabra que sigue es una preposición, un
  * artículo o un día). Sobre el texto sin tildes.
  */
-const NOMBRADO = /\b(?:que\s+se\s+)?(?:llam(?:a|e|an|en)|(?<!\b(?:la|una|las|unas|esa|esta|esas|estas|mi|mis|tu|tus|su|sus|otra|otras|dos|tres|proxima|primera|segunda|ultima)\s+)llamad[oa]s?|titulad[oa]s?)\s+(?!(?:con|a|para|de|del|el|la|los|las|manana|hoy|que|por|en|al|un|una|y|o|esta|este|lunes|martes|miercoles|jueves|viernes|sabado|domingo|ahora|luego|despues|temprano|tarde)\b)[^\s,.;:]+/g;
+const NOMBRADO = /\b(?:que\s+se\s+)?(?:llam(?:a|e|an|en)|(?<=\b(?:etiqueta|automatizacion|campana|plantilla|secuencia|lista|hoja|producto|proyecto|curso|modulo|evento|columna|carpeta|grupo|segmento|flujo|funnel|embudo|landing|pagina|formulario|audiencia|anuncio|regla|tag|cuenta|vista|tablero|kpi|oferta|diseno|video|tema|avatar|guion|angulo|componente|filtro|contacto|cliente|lead|grafico|tarea|nota|estrategia|integracion|canal|chat|bot|chatbot|workspace|negocio|marca|dashboard|informe|reporte|categoria|etapa|pipeline)(?:e?s)?\s+)llamad[oa]s?|titulad[oa]s?)\s+(?!(?:con|a|para|de|del|el|la|los|las|manana|hoy|que|por|en|al|un|una|y|o|esta|este|lunes|martes|miercoles|jueves|viernes|sabado|domingo|ahora|luego|despues|temprano|tarde)\b)[^\s,.;:]+/g;
 
 /** ¿Pide crear, mover, cambiar o cancelar una reunión? Recibe el texto sin tildes. */
 function esPedidoAgenda(n: string): boolean {
@@ -967,6 +967,8 @@ export function makoPreguntoAlgo(ultimoDeMako: string | null | undefined): boole
 const NEGATIVA = /^[\s¡!¿?]*(no|nop|cancela|cancel[áa]|mejor no|dejalo|déjalo)(?![a-záéíóúñ])/i;
 
 /** Acuses y saludos cortos que la app no toma por un pedido. Sobre el texto sin tildes ni signos. */
+/** Los acuses que, después de una pregunta de MaKo, aceptan lo que ofreció. */
+const ACUSE_QUE_ACEPTA = /^(?:ah )?(?:bueno|buenisimo|entendido|vale|me parece bien|esta bien|ok(?:ey)?(?: gracias)?|ahi va|joya|genial|perfecto|barbaro)$/;
 const ACUSE_DE_LA_APP = /^(?:ah )?(?:bueno|buenisimo|entendido|entendi|vale|ya esta|ya entendi|me parece bien|esta bien|ok(?:ey)? gracias|ahi va|mmm+(?: no se)?|hmm+|eh|uh|buenas tardes|buenas noches|buenos dias|buen dia|buenas|tardes|noches|dias|ok|okey|listo|joya|genial|perfecto|barbaro)$/;
 
 export function clasificarIntencion(
@@ -1232,8 +1234,11 @@ export function clasificarIntencion(
   // 6-quater) EN LA APP, UN VERBO DE HACER AL ARRANQUE («creame…», «mandale…», «poné…», «quiero crear…», «¿podés cambiar…?»)
   //           es un pedido: MaKo propone con una tarjeta. Va antes de 7 y de 8: «¿podés cambiar la hora?» termina en «?» y
   //           «mandá un mail» está en `IMPERATIVO` (pensar, que no escribe). Ver lib/mako-intencion-app.ts.
+  //           ⚠️ Una familia sola (`fam.actua`, sin verbo de hacer) NO es una orden: «ahí hice la prueba con el reel de hoy», «sos una
+  //           estrella», «el link de la agenda no anda» caen en una familia y son un comentario o una queja. Va con `adivina`: la
+  //           familia pone el área y la búsqueda en todo el registro, y la adivinanza no crea un borrador del plan (el bug del 25/08).
   if (ctx.canal === 'app' && (pideHacerAlApp(t) || fam?.actua)) {
-    return { intencion: 'actuar', dudosa: false, ...deLaApp, porque: 'canal app: pide hacer algo; propone con tarjeta' };
+    return { intencion: 'actuar', dudosa: false, ...(pideHacerAlApp(t) ? {} : { adivina: true }), ...deLaApp, porque: pideHacerAlApp(t) ? 'canal app: pide hacer algo; propone con tarjeta' : 'canal app: nombra algo que se hace, sin pedirlo; propone con tarjeta' };
   }
 
   // 7) Escritura sobre la cuenta.
@@ -1275,7 +1280,10 @@ export function clasificarIntencion(
   //     no se reconocía caía acá y llegaba con sólo `ver_plan` y `listar_pendientes`: CRM 41 de 91, núcleo 23 de 40.
   if (ctx.canal === 'app') {
     // Un acuse o un saludo que el clasificador no conoce («bueno», «entendido», «buenas tardes») no es un pedido: charla, sin herramientas.
-    if (ACUSE_DE_LA_APP.test(n.replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim())) return { intencion: 'charlar', dudosa: false, porque: 'canal app: acuse o saludo' };
+    const acuse = n.replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+    // «me parece bien», «vale», «está bien», «bueno» a «¿querés que pase a Rosana a Agendado?» SON el sí (los acuses no están en CONFIRMACION).
+    if (ctx.makoPregunto && ACUSE_QUE_ACEPTA.test(acuse)) return { intencion: 'actuar', dudosa: false, porque: 'canal app: acepta lo que MaKo le acaba de ofrecer', sigueOfrecimiento: true };
+    if (ACUSE_DE_LA_APP.test(acuse)) return { intencion: 'charlar', dudosa: false, porque: 'canal app: acuse o saludo' };
     return { intencion: 'actuar', dudosa: false, adivina: true, ...deLaApp, porque: 'canal app: sin señal clara; propone con tarjeta' };
   }
   return { intencion: 'capturar', dudosa: true, alternativa: 'pensar', porque: 'sin señal clara: se guarda para no perderlo' };

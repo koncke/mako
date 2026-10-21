@@ -39,10 +39,12 @@ import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { clasificarIntencion, RELEVANCIA_AGENDA } from '../lib/mako-intencion';
-import { pideHacerAlApp, familiasDe } from '../lib/mako-intencion-app';
-import { herramientasDelChat } from '../lib/mako-turno-app-reglas';
+import { pideHacerAlApp, familiasDe, pideQuitar, sinVerboAlArranque } from '../lib/mako-intencion-app';
+import { herramientasDelChat, entraAlChat } from '../lib/mako-turno-app-reglas';
 import { herramientasDelTurno } from '../lib/doer-herramientas';
-import type { Vista } from '../lib/api-mako/registro';
+import { esDestructiva, nombraLaCosa, lecturasQueNombra, INSTRUCCION_QUITAR_SIN_OBJETO } from '../lib/relevancia-app';
+import { REGISTRO, porId, type Vista } from '../lib/api-mako/registro';
+import { alcanceMinimo } from '../lib/api-mako/tipos';
 
 const RAIZ = join(__dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -62,10 +64,10 @@ const vistaWa: Vista = { canal: 'whatsapp', alcance: 'ejecutar', ws: 13, rol: 'a
 type Caso = [texto: string, operaciones: string[]];
 
 /** El turno de la app: lo MISMO que corre lib/mako-turno-app.ts (`canal: 'app'` + `herramientasDelChat`). */
-function turnoApp(texto: string, ctx: { hayPendientes?: boolean } = {}) {
+function turnoApp(texto: string, ctx: { hayPendientes?: boolean; makoPregunto?: boolean } = {}) {
   const veredicto = clasificarIntencion(texto, { canal: 'app', ...ctx });
   const t = herramientasDelChat({ veredicto, texto, agendaAbierta: false, deSiempre: DE_SIEMPRE, vista: vistaApp, hayPendientes: !!ctx.hayPendientes });
-  return { veredicto, nombres: t.tools.map((x) => x.name), delRegistro: t.delRegistro.map((x) => x.name) };
+  return { veredicto, nombres: t.tools.map((x) => x.name), delRegistro: t.delRegistro.map((x) => x.name), instruccion: t.instruccion };
 }
 /** El turno de WhatsApp: el clasificador sin `canal`. */
 function turnoWhatsApp(texto: string) {
@@ -834,8 +836,10 @@ test('una adivinanza de la app no crea un borrador del plan ni cancela una propu
       if (r.veredicto.adivina) assert.ok(!r.nombres.includes('cancelar_accion'), `«${f}» (pendientes ${hayPendientes}) trae cancelar_accion con una adivinanza`);
     }
   }
-  // Un «no» o un «cancelá» explícito con una propuesta abierta SÍ la trae: es `confirmar`.
-  assert.ok(turnoApp('no, cancelá eso', { hayPendientes: true }).nombres.includes('cancelar_accion'));
+  // Un «no» o un «cancelá» explícito con una propuesta abierta es `confirmar`; cancelar es el botón de la tarjeta, no una herramienta del modelo.
+  const no = turnoApp('no, cancelá eso', { hayPendientes: true });
+  assert.equal(no.veredicto.intencion, 'confirmar');
+  assert.ok(!no.nombres.includes('cancelar_accion'));
   // Una orden real trae lo suyo aunque el veredicto no sea una adivinanza.
   assert.equal(clasificarIntencion('creá una tarea para llamar al contador', { canal: 'app' }).adivina, undefined);
 });
@@ -884,18 +888,19 @@ test('en una pregunta no viaja una lectura que gasta IA de otra área', () => {
   assert.ok(!turnoApp('¿quién me escribió hoy?').nombres.includes('recomendar_mensajes_whatsapp'));
 });
 
-test('una acción viaja con la lectura que le da el id', () => {
-  const CASOS: Array<[string, string[]]> = [
-    ['dividí el clip del video Promo en el segundo 10', ['ver_proyecto_video', 'listar_proyectos_video']],
-    ['silenciá el clip 2', ['ver_proyecto_video', 'listar_proyectos_video']],
-    ['renombrá la landing del webinar a Masterclass', ['listar_landings_creadas']],
-    ['pausá el sitio del webinar', ['listar_landings_creadas']],
-    ['quitá la torta de orígenes de la hoja comercial', ['leer_hoja_dashboard']],
-    ['sacá la dependencia entre la landing y el dominio', ['listar_dependencias_plan']],
-    ['agregale un texto que diga 50% off al video Promo', ['ver_proyecto_video', 'listar_proyectos_video']],
+test('una acción viaja con la lectura que le da el id, y la acción pedida llega con ella', () => {
+  const CASOS: Array<[frase: string, acciones: string[], lecturas: string[]]> = [
+    ['dividí el clip del video Promo en el segundo 10', ['dividir_clip_video'], ['ver_proyecto_video', 'listar_proyectos_video']],
+    ['silenciá el clip 2', ['silenciar_clip_video'], ['ver_proyecto_video', 'listar_proyectos_video']],
+    ['renombrá la landing del webinar a Masterclass', ['renombrar_landing', 'renombrar_landing_creada'], ['listar_landings_creadas']],
+    ['pausá el sitio del webinar', ['pausar_landing'], ['listar_landings_creadas']],
+    ['quitá la torta de orígenes de la hoja comercial', ['quitar_componente_dashboard'], ['leer_hoja_dashboard']],
+    ['sacá la dependencia entre la landing y el dominio', ['quitar_dependencia_plan'], ['listar_dependencias_plan']],
+    ['agregale un texto que diga 50% off al video Promo', ['agregar_texto_video', 'agregar_elemento_video'], ['ver_proyecto_video', 'listar_proyectos_video']],
   ];
-  for (const [f, lecturas] of CASOS) {
+  for (const [f, acciones, lecturas] of CASOS) {
     const nombres = turnoApp(f).nombres;
+    assert.ok(acciones.some((a) => nombres.includes(a)), `«${f}» no trae la acción pedida (${acciones.join(' | ')}): llegó la inversa o ninguna`);
     assert.ok(lecturas.some((l) => nombres.includes(l)), `«${f}» no trae ${lecturas.join(' | ')} (la lectura que da el id)`);
   }
 });
@@ -905,7 +910,9 @@ test('un sustantivo o una tercera persona al arranque no es una orden', () => {
     'marca registrada', 'factura electrónica', 'copia de seguridad', 'carga lenta la app', 'cobra caro el closer', 'responde siempre tarde el setter',
     'abre a las 9 el local', 'suma 2 + 2', 'deja de inventar', 'deja que lo piense', 'cierra a las 20 el local', 'baja de ventas este mes',
   ]) assert.equal(pideHacerAlApp(f), false, `«${f}» se leyó como una orden`);
-  for (const f of ['marcá el lead como calificado', 'marcalo como calificado', 'pausá la campaña', 'pausala', 'cargá el plan de pagos', 'cargalo', 'facturale a Juan', 'copiá el diseño', 'dejale una nota a Juan', 'programá el análisis', '¿le podés poner subtítulos al video Promo?', '¿me podés cambiar la hora?', '¿les puedes mandar el link?']) {
+  for (const f of ['marcá el lead como calificado', 'marcalo como calificado', 'pausá la campaña', 'pausala', 'cargá el plan de pagos', 'cargalo', 'facturale a Juan', 'copiá el diseño', 'dejale una nota a Juan', 'programá el análisis', '¿le podés poner subtítulos al video Promo?', '¿me podés cambiar la hora?', '¿les puedes mandar el link?',
+    'cargá 3 tareas para mañana', 'cargá tareas: llamar al contador y grabar el VSL', 'cargá en el plan llamar al contador', 'sumá 3 tareas al proyecto Lanzamiento',
+    'guardá como tarea llamar a Juan', 'dejá como tarea llamar al contador', 'programá para el lunes la tarea de llamar al contador', 'pausá el sitio del webinar']) {
     assert.equal(pideHacerAlApp(f), true, `«${f}» dejó de ser una orden`);
   }
 });
@@ -918,6 +925,191 @@ test('el peso de un turno: la charla no viaja con herramientas y el registro no 
     const chars = t.delRegistro.reduce((n, x) => n + JSON.stringify(x).length, 0);
     assert.ok(chars <= MAX, `«${f}»: el registro pesa ${chars} caracteres (tope ${MAX})`);
   }
+});
+
+// --- 6. La segunda revisión adversarial (21/10/2026): la red es la tarjeta, no la regla ---------------------------------------------
+// docs/hallazgos-ia.md, «La red es la tarjeta, no la regla». Una primera ronda de reglas dejó 11 errores medidos en la app: cada regla
+// nueva dejaba afuera una frase legítima y metía otra irreversible. Acá se prueba la RED (nada que cambie algo corre sin tarjeta), la
+// PUERTA de las destructivas (por la COSA que se nombra, no por el área) y cada una de las frases de la nota de la revisión.
+
+const BATERIAS: Caso[] = [
+  ...NUCLEO, ...CRM, ...AUTOMATIONS_CLIENTS, ...PLAN, ...CALENDARIO, ...DASHBOARD, ...VIDEO, ...IMAGEN, ...COBROS, ...EQUIPO, ...NEGOCIO,
+  ...CONTENIDO, ...EXPERIMENTOS, ...LANDING, ...ADS, ...VIDEO_ED_AVATAR, ...PREGUNTAS_EDITOR_AVATAR, ...IMAGEN_AVATAR, ...GENERATOR_AVATAR,
+];
+const quitan = (r: { nombres: string[]; delRegistro: string[] }): string[] => r.nombres.filter((n) => r.delRegistro.includes(n) && esDestructiva(porId(n)!));
+
+test('la red es la tarjeta: en el chat de la app nada que cambie algo corre sin dejar una tarjeta', () => {
+  let viajan = 0;
+  for (const rol of ['admin', 'miembro'] as const) for (const ws of [13, 1]) {
+    const vista: Vista = { canal: 'app', alcance: 'proponer', ws, rol, tabs: null };
+    for (const d of REGISTRO) {
+      if (!entraAlChat(d.id, vista)) continue;
+      viajan++;
+      // Un control (confirmar_accion, cancelar_accion) cambia algo SIN tarjeta; una lectura no cambia nada; una acción siempre deja pendiente o propuesta.
+      assert.ok(d.tipo === 'lectura' || d.tipo === 'accion', `«${d.id}» (${d.tipo}) viaja por el chat de la app y corre sin que nadie toque una tarjeta`);
+      if (d.tipo === 'accion') {
+        assert.ok(d.confirmacion === 'chat' || d.confirmacion === 'pantalla', `«${d.id}» no declara cómo se confirma`);
+        assert.equal(alcanceMinimo(d), 'proponer', `«${d.id}» pide un alcance mayor que proponer: en la app no hay quien lo dé`);
+      }
+    }
+  }
+  assert.ok(viajan > 600, `sólo ${viajan} operaciones viajan: cambió el registro y este test ya no mira nada`);
+  // Lo irreversible y lo que quita algo son ACCIONES con tarjeta, ni lecturas ni controles.
+  const peligrosas = REGISTRO.filter((d) => d.tipo !== 'lectura' && (esDestructiva(d) || (d.tipo === 'accion' && d.reversible === false)));
+  assert.ok(peligrosas.length > 100, `sólo ${peligrosas.length} operaciones peligrosas`);
+  for (const d of peligrosas) if (entraAlChat(d.id, vistaApp)) assert.equal(d.tipo, 'accion', `«${d.id}» quita o es irreversible y no deja tarjeta`);
+  // Lo único que EJECUTA una pendiente es confirmarPendiente (lib/api-mako/acciones.ts): ejecutarOperacion, el camino de las herramientas, no.
+  assert.doesNotMatch(leer('lib/api-mako/ejecutar.ts'), /\.ejecutar\(/, 'ejecutarOperacion llama a run.ejecutar: una herramienta ejecutaría sin la tarjeta');
+  assert.ok(!entraAlChat('confirmar_accion', vistaApp) && !entraAlChat('cancelar_accion', vistaApp));
+});
+
+test('en ninguna frase de las baterías viaja un control, y toda destructiva que viaja NOMBRÓ su cosa', () => {
+  const sinCosa: string[] = [];
+  for (const [f] of BATERIAS) for (const ctx of [{}, { hayPendientes: true }]) {
+    const r = turnoApp(f, ctx);
+    for (const n of ['confirmar_accion', 'cancelar_accion']) assert.ok(!r.nombres.includes(n), `«${f}» ${JSON.stringify(ctx)} trae ${n}`);
+    for (const n of quitan(r)) if (!pideQuitar(f) || !nombraLaCosa(porId(n)!, sinVerboAlArranque(f))) sinCosa.push(`«${f}» → ${n}`);
+  }
+  assert.deepEqual(sinCosa, [], 'una operación que quita algo viajó sin que el pedido nombrara su cosa');
+});
+
+test('«llamada» es un nombre sólo detrás de un sustantivo que se nombra; sin él es la reunión, con o sin una tarjeta abierta', () => {
+  for (const f of [
+    'cancelá llamada pendiente con Juan', 'cancelá nuestra llamada pendiente con Juan', 'cancelá la siguiente llamada agendada',
+    'cancelá la 2da llamada agendada', 'cancelá cualquier llamada agendada hoy', 'cancelá ambas llamadas agendadas con Juan',
+  ]) for (const ctx of [{}, { hayPendientes: true }]) {
+    const r = turnoApp(f, ctx);
+    assert.equal(r.veredicto.relevancia, RELEVANCIA_AGENDA, `«${f}» ${JSON.stringify(ctx)} dejó de ser agenda (${r.veredicto.intencion}: ${r.veredicto.porque})`);
+    assert.ok(r.nombres.includes('proponer_cancelar_reunion'), `«${f}» ${JSON.stringify(ctx)} no trae proponer_cancelar_reunion`);
+  }
+  for (const f of ['creá una etiqueta llamada Caliente', 'creá una secuencia llamada Reactivación', 'creá un contacto llamado Juan', 'creá una plantilla titulada Bienvenida']) {
+    assert.doesNotMatch(clasificarIntencion(f, { canal: 'app' }).porque, /agenda/, `«${f}» se leyó como agenda`);
+  }
+});
+
+test('una familia sola, sin un verbo de hacer, es una adivinanza: pone el área pero no crea un borrador del plan', () => {
+  for (const f of [
+    'ahí hice la prueba con el reel de hoy', 'el reel de hoy anduvo bárbaro', 'sos una estrella', 'se me borró todo automáticamente',
+    'los mails a todos los leads llegaron a spam', 'esto pasa todos los lunes', 'el link de la agenda no anda',
+  ]) for (const hayPendientes of [false, true]) {
+    const r = turnoApp(f, { hayPendientes });
+    assert.equal(r.veredicto.adivina, true, `«${f}» (pendientes ${hayPendientes}) ya no es una adivinanza (${r.veredicto.porque})`);
+    assert.ok(!r.nombres.includes('proponer_tareas_plan'), `«${f}» (pendientes ${hayPendientes}) trae proponer_tareas_plan`);
+    assert.ok(!r.nombres.includes('cancelar_accion'), `«${f}» (pendientes ${hayPendientes}) trae cancelar_accion`);
+  }
+  // Una orden que cae en una familia sigue siendo una orden.
+  assert.equal(clasificarIntencion('mandá un mail a todos mis leads con la promo', { canal: 'app' }).adivina, undefined);
+  assert.equal(clasificarIntencion('creá una automatización que corra todos los lunes', { canal: 'app' }).adivina, undefined);
+});
+
+test('un mensaje o un envío no trae un borrado, y el área de una palabra («muletillas», «guion», «comunidad») tampoco abre los de su área', () => {
+  for (const f of [
+    'escribile a Juan que mañana lo llamo', 'mandale un WhatsApp a Juan diciendo que mañana lo llamo', 'envíale un mensaje por WhatsApp a Juan Pérez',
+    'mandale a Juan el link de Calendly', 'programá el broadcast de Black Friday para el viernes a las 10',
+    'Mandá a aprobar a Meta la plantilla del paso 3 de la secuencia de bienvenida', 'me cobraron dos veces', 'leeme la conversación con Juan', 'corregí el texto del flyer',
+    // Una queja que nombra la cosa tampoco es un pedido de quitarla.
+    'el borrador salió mal', 'se me borró la landing', 'el audio no se escucha',
+  ]) {
+    const r = turnoApp(f);
+    assert.deepEqual(quitan(r), [], `«${f}» trae operaciones que quitan algo`);
+  }
+  const muletillas = turnoApp('eliminá las muletillas del video Promo');
+  assert.ok(muletillas.nombres.includes('eliminar_muletillas_video'));
+  assert.ok(!muletillas.nombres.includes('reiniciar_personalidad'), 'reiniciar_personalidad (borra el quiz de voz entero) viaja por «muletillas»');
+  assert.deepEqual(quitan(turnoApp('borrá las muletillas')).filter((n) => n !== 'eliminar_muletillas_video'), []);
+  const guion = turnoApp('eliminá el guion viejo');
+  assert.ok(guion.nombres.includes('borrar_guion_anuncio') && !guion.nombres.includes('proponer_eliminar_entidad_meta'));
+  assert.deepEqual(quitan(turnoApp('borrá lo que publicó Juan en la comunidad')), [], '«publicó» abre las destructivas de Meta Ads');
+  assert.ok(!familiasDe('borrá lo que publicó Juan en la comunidad')?.ids.includes('area-ads'), '«publicó» (sin tilde, «publico») se leyó como el público de una campaña');
+  assert.ok(!turnoApp('borrá el reporte de Marketing').nombres.includes('borrar_identidad_fiscal'));
+});
+
+test('lo que se quita llega por su nombre: la cosa de la operación, o una palabra con la que se la nombra', () => {
+  const DESTRUCTIVAS: Caso[] = [
+    ['borrá el audio 3', ['borrar_audio']], ['borrá la nota de voz de bienvenida', ['borrar_audio']], ['suspendé al miembro Pedro', ['suspender_miembro']],
+    ['anulá el link de Juan', ['anular_link_pago']], ['cancelá el análisis', ['cancelar_analisis_dashboard']],
+    ['borrá la foto de mi cara de marca', ['borrar_foto_cara_de_marca']], ['sacá a Juan de la secuencia Bienvenida', ['sacar_lead_de_secuencia']],
+    ['dejá de recordarle la cuota a Ana', ['cortar_recordatorio_cuota']], ['sacá la dependencia entre la landing y el dominio', ['quitar_dependencia_plan']],
+    ['pausá el sitio del webinar', ['pausar_landing']], ['eliminá el dominio', ['quitar_dominio_landing']], ['sacá el filtro', ['quitar_filtro_dashboard']],
+    ['quitá el gráfico de leads de la hoja de Marketing', ['quitar_componente_dashboard']], ['sacá la torta de orígenes', ['quitar_componente_dashboard']], ['borrá el clip 3 del video', ['borrar_elementos_video']],
+    // Las que dicen «chat» de un contacto (el área `chats` no es la de `whatsapp`: las abre la cosa, no el área).
+    ['borrá el historial del chat de Juan', ['borrar_chat_whatsapp_empresa']], ['ocultá el chat de mi vieja', ['ocultar_contacto_whatsapp_empresa']],
+    ['marcá como leído el chat de Juan', ['marcar_leido_whatsapp_oficial']], ['descartá el mensaje que le armaste a Juan', ['descartar_borrador_whatsapp_empresa']],
+  ];
+  assert.deepEqual(faltan(DESTRUCTIVAS), []);
+});
+
+test('si le piden quitar algo y no nombra la cosa, no llega una operación parecida: MaKo pregunta cuál', () => {
+  for (const f of ['borrá la nota', 'pausá todo', 'borrá esto', 'suspendé a Pedro', 'sacá a Juan de Bienvenida', 'eliminá la cuenta', 'anulá eso']) {
+    const r = turnoApp(f);
+    assert.deepEqual(quitan(r), [], `«${f}» trae ${quitan(r).join(', ')}: una operación que quita algo que el pedido no nombra`);
+    assert.ok((r.instruccion ?? '').includes(INSTRUCCION_QUITAR_SIN_OBJETO), `«${f}»: MaKo no recibe la instrucción de preguntar cuál`);
+  }
+  // Si nombra la cosa, la operación llega y no hay nada que preguntar; y una queja no es un pedido de quitar.
+  const nombra = turnoApp('borrá el audio 3');
+  assert.ok(nombra.nombres.includes('borrar_audio'));
+  assert.ok(!(nombra.instruccion ?? '').includes(INSTRUCCION_QUITAR_SIN_OBJETO));
+  for (const f of ['se me borró todo', 'me cobraron dos veces', 'el borrador salió mal']) assert.equal(pideQuitar(f), false, `«${f}» se leyó como un pedido de quitar`);
+  for (const f of ['borrá la landing', 'editá mi último video y sacale las muletillas', 'no puedo eliminar la landing', 'dale de baja a Juan', 'pausala']) assert.equal(pideQuitar(f), true, `«${f}» no se leyó como un pedido de quitar`);
+});
+
+test('«irreversible» no es «destructiva»: enviar, invitar y crear no pasan por la puerta de lo que se quita', () => {
+  for (const id of ['invitar_miembro_equipo', 'enviar_broadcast', 'crear_secuencia_email', 'proponer_lead', 'levantar_ticket', 'destilar_voz', 'responder_huecos_voz']) {
+    const d = porId(id);
+    assert.ok(d, `${id} no existe en el registro`);
+    assert.equal(esDestructiva(d), false, `${id} cuenta como destructiva`);
+  }
+  assert.deepEqual(faltan([
+    ['invitá a Ana a MaKo', ['invitar_miembro_equipo']], ['invitá a ana@mail.com', ['invitar_miembro_equipo', 'invitar_cliente_curso_cs']],
+    ['destilá la voz de mis anuncios', ['destilar_voz']], ['completá la guía de voz', ['responder_huecos_voz']],
+  ]), []);
+});
+
+test('lo que llega con una acción: la lectura que da el id llega en TODO turno de la app, no sólo en la búsqueda por todo el registro', () => {
+  for (const [f, acciones, lecturas] of [
+    ['poné el enlace de la agenda en la landing', ['poner_enlace_landing'], ['listar_landings_creadas', 'ver_secciones_landing']],
+    ['cambia el formulario de la landing: agrega el teléfono', ['configurar_formulario_landing'], ['listar_landings_creadas']],
+    ['cambiá el botón de la landing del webinar', ['cambiar_texto_landing'], ['listar_landings_creadas']],
+    ['agregá un gráfico de leads por semana al dashboard', ['agregar_grafico_dashboard'], ['leer_hoja_dashboard', 'ver_catalogo_dashboard']],
+  ] as Array<[string, string[], string[]]>) {
+    const nombres = turnoApp(f).nombres;
+    assert.ok(acciones.some((a) => nombres.includes(a)), `«${f}» no trae ${acciones.join(' | ')}`);
+    assert.ok(lecturas.some((l) => nombres.includes(l)), `«${f}» trae la acción y no la lectura que da el id (${lecturas.join(' | ')})`);
+  }
+  // Y en todas las frases de las baterías: la acción pedida llega con una de las lecturas que nombra (si nombra alguna que viaje por el chat).
+  const sinLectura: string[] = [];
+  for (const [f, ops] of BATERIAS) {
+    const r = turnoApp(f);
+    for (const n of ops) {
+      const d = porId(n);
+      if (!d || d.tipo === 'lectura' || !r.delRegistro.includes(n)) continue;
+      const dan = lecturasQueNombra(d).filter((l) => entraAlChat(l, vistaApp));
+      if (dan.length && !dan.some((l) => r.nombres.includes(l))) sinLectura.push(`«${f}» → ${n} sin ${dan.join(' | ')}`);
+    }
+  }
+  assert.deepEqual(sinLectura, []);
+});
+
+test('un acuse después de una pregunta de MaKo es el sí a lo que ofreció; sin pregunta, es charla', () => {
+  for (const f of ['me parece bien', 'vale', 'está bien', 'bueno', 'entendido', 'ahí va']) {
+    const con = turnoApp(f, { makoPregunto: true });
+    assert.equal(con.veredicto.intencion, 'actuar', `«${f}» después de una pregunta de MaKo quedó en ${con.veredicto.intencion}`);
+    assert.equal(con.veredicto.sigueOfrecimiento, true);
+    assert.equal(turnoApp(f).veredicto.intencion, 'charlar', `«${f}» sin pregunta dejó de ser charla`);
+  }
+  // Un saludo no acepta nada, ni después de una pregunta.
+  assert.equal(turnoApp('buenas tardes', { makoPregunto: true }).veredicto.intencion, 'charlar');
+});
+
+test('completar o abrir de nuevo una tarea llega a cerrarla o reabrirla aunque «tarea» y el nombre llenen el área', () => {
+  assert.deepEqual(faltan([
+    ['completá la tarea de grabar', ['proponer_cierre_tareas', 'cerrar_tareas_plan']], ['completá la tarea de grabar el reel', ['proponer_cierre_tareas', 'cerrar_tareas_plan']],
+    ['abre de nuevo la tarea de grabar', ['actualizar_avance_tarea']],
+    ['cargá 3 tareas para mañana', ['proponer_tareas_plan']], ['cargá tareas: llamar al contador y grabar el VSL', ['proponer_tareas_plan']],
+    ['cargá en el plan llamar al contador', ['proponer_tareas_plan']], ['sumá 3 tareas al proyecto Lanzamiento', ['proponer_tareas_plan']],
+    ['guardá como tarea llamar a Juan', ['proponer_tareas_plan']], ['dejá como tarea llamar al contador', ['proponer_tareas_plan']],
+    ['programá para el lunes la tarea de llamar al contador', ['proponer_tareas_plan']],
+  ]), []);
 });
 
 // Probado rompiéndolo (20/10/2026), una rotura por vez, con todo en verde antes. 85 roturas, cada una con su fallo (29 de la tanda 1, 9 de las 2 y 3, 5 de la 4, 5 de la 5, 4 de la 6, 26 de los arreglos de la revisión adversarial y 7 de las frases del chat de Video / AI Avatar):

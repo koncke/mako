@@ -282,13 +282,6 @@ export function raices(texto: string): string[] {
  * la descripción también nombra lo que necesita antes. Empates: el orden declarado,
  * que pone las lecturas primero.
  */
-/** Cuántos puntos le da un mensaje a UNA operación (lo mismo que suma `ordenarPorRelevancia`): 2 por cada raíz en su id o título, 1 en su descripción. */
-export function puntajeDeRelevancia(d: OperacionDef, mensaje: string): number {
-  const fuerte = normalizar(`${d.id} ${d.titulo}`);
-  const debil = normalizar(d.descripcion);
-  return raices(mensaje).reduce((n, r) => n + (fuerte.includes(r) ? 2 : debil.includes(r) ? 1 : 0), 0);
-}
-
 export function ordenarPorRelevancia<T extends OperacionDef>(defs: readonly T[], mensaje: string): T[] {
   const rs = raices(mensaje);
   if (!rs.length) return [...defs];

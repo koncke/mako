@@ -50,7 +50,7 @@ const VERBOS: ReadonlyArray<readonly [string, ...string[]]> = [
   ['replicar', 'replica'], ['traducir', 'traduce', 'traduci'], ['subtitular', 'subtitula'], ['recortar', 'recorta'],
   ['dividir', 'divide', 'dividi'], ['mezclar', 'mezcla'], ['reemplazar', 'reemplaza'], ['ajustar', 'ajusta'], ['aplicar', 'aplica'],
   ['diseñar', 'disena'], ['completar', 'completa'], ['vincular', 'vincula'], ['desvincular', 'desvincula'],
-  ['conectar', 'conecta'], ['inscribir', 'inscribe', 'inscribi'], ['dar de baja', 'da de baja'], ['responder', 'responde'],
+  ['conectar', 'conecta'], ['inscribir', 'inscribe', 'inscribi'], ['dar de baja', 'da de baja'], ['anular', 'anula'], ['retirar', 'retira'], ['responder', 'responde'],
   ['contestar', 'contesta'], ['reembolsar', 'reembolsa'], ['cobrar', 'cobra'], ['facturar', 'factura'], ['pagar', 'paga'],
   ['dejar', 'deja'], ['mantener', 'mantiene', 'mantene'], ['reiniciar', 'reinicia'], ['restaurar', 'restaura'], ['deshacer', 'deshace', 'deshaz'],
   ['revertir', 'revierte', 'reverti'], ['transferir', 'transfiere', 'transferi'], ['fijar', 'fija'], ['destacar', 'destaca'],
@@ -68,22 +68,44 @@ const AMBIGUAS: ReadonlySet<string> = new Set([
   'marca', 'factura', 'copia', 'carga', 'programa', 'etiqueta', 'pausa', 'baja', 'suma', 'paga', 'cobra', 'abre', 'deja', 'registra',
   'responde', 'contesta', 'cierra', 'corta', 'guarda', 'monta', 'graba', 'filma', 'reporta', 'aplica', 'ajusta', 'completa',
 ]);
-const TODAS_LAS_FORMAS = [...new Set(VERBOS.flatMap(([, ...f]) => f))].sort((a, b) => b.length - a.length);
-const FORMAS = TODAS_LAS_FORMAS.filter((x) => !AMBIGUAS.has(x));
-const FORMAS_AMBIGUAS = TODAS_LAS_FORMAS.filter((x) => AMBIGUAS.has(x));
 /** Lo que sigue a una forma ambigua para que sea una orden: un artículo, un posesivo, un demostrativo o «todo». */
 const OBJETO = '(?:el|la|los|las|un|una|unos|unas|mi|mis|su|sus|tu|tus|ese|esa|esos|esas|este|esta|estos|estas|todo|todos|todas)';
-const INFINITIVOS = [...new Set(VERBOS.map(([i]) => i))].sort((a, b) => b.length - a.length);
+/**
+ * Y lo que también lo es sin artículo (21/10/2026, la segunda revisión: «cargá 3 tareas para mañana», «cargá tareas: llamar al
+ * contador», «cargá en el plan…», «guardá como tarea…», «programá para el lunes la tarea…» caían en la adivinanza y se quedaban
+ * sin `proponer_tareas_plan`): un número y un sustantivo, «en» / «para» con su artículo, «como» y un sustantivo, o el objeto en
+ * plural de siempre. NO lo es «abre a las 9», «suma 2 + 2», «deja de inventar», «baja en ventas», «carga lenta».
+ */
+const CONTINUA = `(?:${OBJETO}\\b|\\d+\\s+[a-z]{4,}|en\\s+${OBJETO}\\b|como\\s+(?:${OBJETO}\\s+)?[a-z]{4,}|para\\s+(?:${OBJETO}\\b|manana|hoy|pasado)|(?:tareas?|notas?|recordatorios?)\\b)`;
 const alt = (xs: string[]) => xs.map((x) => x.replace(/ /g, '\\s+')).join('|');
 
-/** La orden arranca el mensaje: «creame una landing», «mandale un mail a Juan», «poné una tarea». */
-const ORDEN = new RegExp(`^(?:(?:${alt(FORMAS)})(?:${CLITICOS})?(?![a-z])|(?:${alt(FORMAS_AMBIGUAS)})(?:${CLITICOS}(?![a-z])|\\s+${OBJETO}\\b))`);
-/** El pedido indirecto: «quiero crear una landing», «necesito agregar un lead», «¿podés cambiar la hora?». */
-const PEDIDO_INDIRECTO = new RegExp(
-  `^(?:(?:quiero|queremos|queria|quisiera|necesito|necesitamos|necesitaria|me gustaria|nos gustaria)\\s+(?:poder\\s+)?(?:${alt(INFINITIVOS)})(?:${CLITICOS})?(?![a-z])` +
-  `|(?:me\\s+|nos\\s+|le\\s+|les\\s+|te\\s+)?(?:podes|puedes|podrias|pueden|podria)\\s+(?:por favor\\s+)?(?:${alt(INFINITIVOS)})(?:${CLITICOS})?(?![a-z])` +
-  `|(?:hazme|haceme)\\s+el\\s+favor\\s+de\\s+(?:${alt(INFINITIVOS)})(?![a-z]))`,
-);
+type Verbos = ReadonlyArray<readonly [string, ...string[]]>;
+/** Las dos formas de pedir (la orden al arranque y el pedido indirecto) para un conjunto de verbos. */
+function reglasDe(vs: Verbos): { orden: RegExp; pedido: RegExp; enElTexto: RegExp } {
+  const formas = [...new Set(vs.flatMap(([, ...fs]) => fs))].sort((a, b) => b.length - a.length);
+  const seguras = formas.filter((x) => !AMBIGUAS.has(x));
+  const ambiguas = formas.filter((x) => AMBIGUAS.has(x));
+  const infinitivos = [...new Set(vs.map(([i]) => i))].sort((a, b) => b.length - a.length);
+  return {
+    // En cualquier lugar del texto, como palabra entera: la orden («sacale las muletillas»), el infinitivo («no puedo borrar la landing»),
+    // y las formas ambiguas sólo con pronombre pegado. «borrador», «se me borró» o «la pausa» no cuentan.
+    enElTexto: new RegExp(`\\b(?:(?:${alt(seguras)}|${alt(infinitivos)})(?:${CLITICOS})?(?![a-z])${ambiguas.length ? `|(?:${alt(ambiguas)})(?:${CLITICOS}(?![a-z])|(?=\\s+${CONTINUA}))` : ''})`),
+    orden: new RegExp(`^(?:(?:${alt(seguras)})(?:${CLITICOS})?(?![a-z])${ambiguas.length ? `|(?:${alt(ambiguas)})(?:${CLITICOS}(?![a-z])|(?=\\s+${CONTINUA}))` : ''})`),
+    pedido: new RegExp(
+      `^(?:(?:quiero|queremos|queria|quisiera|necesito|necesitamos|necesitaria|me gustaria|nos gustaria)\\s+(?:poder\\s+)?(?:${alt(infinitivos)})(?:${CLITICOS})?(?![a-z])` +
+      `|(?:me\\s+|nos\\s+|le\\s+|les\\s+|te\\s+)?(?:podes|puedes|podrias|pueden|podria)\\s+(?:por favor\\s+)?(?:${alt(infinitivos)})(?:${CLITICOS})?(?![a-z])` +
+      `|(?:hazme|haceme)\\s+el\\s+favor\\s+de\\s+(?:${alt(infinitivos)})(?![a-z]))`,
+    ),
+  };
+}
+/** La orden arranca el mensaje: «creame una landing», «mandale un mail a Juan», «poné una tarea». / El pedido indirecto: «quiero crear una landing», «¿podés cambiar la hora?». */
+const { orden: ORDEN, pedido: PEDIDO_INDIRECTO } = reglasDe(VERBOS);
+/** Los verbos de QUITAR, cortar o cancelar algo: abren la puerta de las operaciones destructivas (lib/relevancia-app.ts). */
+const DE_QUITAR = new Set([
+  'quitar', 'sacar', 'archivar', 'desvincular', 'suspender', 'reembolsar', 'desactivar', 'apagar', 'eliminar', 'borrar', 'descartar', 'ocultar',
+  'cancelar', 'restablecer', 'reiniciar', 'revertir', 'rechazar', 'despublicar', 'desconectar', 'pausar', 'dar de baja', 'anular', 'retirar',
+]);
+const { enElTexto: QUITAR_EN_EL_TEXTO } = reglasDe(VERBOS.filter(([inf]) => DE_QUITAR.has(inf)));
 
 /**
  * ¿El mensaje arranca pidiéndole a MaKo que HAGA algo (crear, agregar, cambiar, mandar…)? Sólo se mira el arranque: lo que
@@ -95,6 +117,23 @@ export function pideHacerAlApp(texto: string): boolean {
   if (!t) return false;
   const arranque = t.replace(PRELUDIO, '');
   return ORDEN.test(arranque) || PEDIDO_INDIRECTO.test(arranque);
+}
+
+/** La orden que arranca el pedido («invitá», «quiero crear», «¿podés cambiar»), o '' si no hay. */
+export function ordenDelPedido(texto: string): string {
+  const arranque = norm(texto).trim().replace(PRELUDIO, '');
+  const m = ORDEN.exec(arranque) ?? PEDIDO_INDIRECTO.exec(arranque);
+  return m ? m[0].trim() : '';
+}
+
+/**
+ * ¿El mensaje PIDE quitar, borrar, cancelar o cortar algo («borrá…», «editá el video y sacale las muletillas», «¿podés eliminar…?», «no
+ * puedo borrar la landing», «dale de baja a Juan»)? Es la mitad de lo que abre una operación destructiva en la app: la otra es nombrar su
+ * cosa (lib/relevancia-app.ts → `nombraLaCosa`). Una queja no la abre: «se me borró todo», «me cobraron dos veces», «el borrador salió mal».
+ */
+export function pideQuitar(texto: string): boolean {
+  const n = norm(texto);
+  return QUITAR_EN_EL_TEXTO.test(n) || /\bde\s+baja\b/.test(n);
 }
 
 /**
@@ -141,6 +180,8 @@ const FAMILIAS: readonly Familia[] = [
   { id: 'perfil-negocio', test: /\bmi negocio se llama\b|\b(?:mi|el) (?:negocio|perfil|marca)\b[^.\n]{0,30}\b(?:corregi\w*|cambi\w+|se llama)\b/, areas: ['negocio'], relevancia: 'guardar campo perfil negocio nombre corregir', actua: true },
   { id: 'contenido-programado', test: /\b(?:reel|reels|story|stories|post|posts|carrusel|publicacion|contenido)\b[^.\n]{0,40}\b(?:para el|el|este|manana|hoy)\b|\b(?:programa\w*|agend\w*)\b[^.\n]{0,20}\b(?:reel|post|story|carrusel|publicacion)\b/, areas: ['calendario'], relevancia: 'crear evento calendario contenido publicacion reel post programar', actua: true, ganaALaAgenda: true },
   // ── Plan, Calendario y Dashboard (tanda 2) ──
+  { id: 'completar-tarea', test: /^complet\w+\s+(?:la|las|esa|esta)\s+tareas?\b/, areas: ['plan'], relevancia: 'cerrar tareas plan cierre', actua: true },
+  { id: 'reabrir-tarea', test: /^(?:abr\w+|reabr\w+)\s+de nuevo\s+(?:la|las|esa|esta)\s+tareas?\b/, areas: ['plan'], relevancia: 'actualizar avance tarea reabrir', actua: true },
   { id: 'pasar-tarea', test: /^pasa\s+(?:la|las)\s+tareas?\b/, areas: ['plan'], relevancia: 'mover tarea plan columna', actua: true },
   // ── Video, imagen y creaciones (tanda 3) ──
   { id: 'velocidad-video', test: /\b(?:acelera\w*|ralentiz\w*|enlentec\w*|velocidad)\b/, areas: ['video'], relevancia: 'cambiar velocidad video', actua: true },
@@ -160,14 +201,15 @@ const FAMILIAS: readonly Familia[] = [
   { id: 'seccion-landing', test: /\bseccion(?:es)?\b[^.\n]{0,40}\b(?:arriba|abajo|primero|ultimo|al final|al principio|antes|despues)\b|\b(?:mover|mueve|move\w*|borr\w+|ocult\w+|elimin\w+|sac\w+)\b[^.\n]{0,15}\bseccion/, areas: ['landing'], relevancia: 'acomodar seccion landing', actua: true },
   { id: 'enlace-landing', test: /\b(?:link|enlace)\b[^.\n]{0,15}\b(?:vsl|agenda)\b/, areas: ['landing'], relevancia: 'poner enlace landing', actua: true },
   { id: 'link-privado-landing', test: /\blink privado\b/, areas: ['landing'], relevancia: 'compartir borrador landing', actua: true },
-  // ── Palabras de área (las ops destructivas SÓLO entran si el texto nombra su área: revisión adversarial del 20/10/2026) ──
+  // ── Palabras de área: suman el área para las lecturas y las acciones que no quitan nada. Lo que QUITA algo no entra por el área sino por
+  //    la COSA que el pedido nombra (lib/relevancia-app.ts, `nombraLaCosa`): el 21/10/2026 `area-negocio` abría `reiniciar_personalidad` en «eliminá las muletillas» ──
   { id: 'area-crm', test: /\bcrm\b|\bdiagnostico de\b|\bplan de pagos\b|\bcuotas?\b|\bofertas?\b|\bcalendly\b|\basign\w+\b/, areas: ['crm'], relevancia: '' },
   { id: 'area-whatsapp', test: /\bbloque\w+\b/, areas: ['whatsapp'], relevancia: 'bloquear contacto whatsapp' },
   { id: 'area-etiqueta', test: /\betiquetas?\b/, areas: ['crm'], relevancia: 'etiqueta' },
   { id: 'area-estrategia', test: /\bestrategia\b/, areas: ['chatbot'], relevancia: 'estrategia secuencia' },
   { id: 'area-equipo', test: /\bavisos?\b|\breportes?\b|\bidentidad fiscal\b/, areas: ['equipo'], relevancia: '' },
   { id: 'area-negocio', test: /\bmuletillas?\b|\blead magnets?\b|\bquiz\b|\barchivero\b|\bplan de mako\b|\bmi plan\b/, areas: ['negocio'], relevancia: '' },
-  { id: 'area-ads', test: /\bpublicos?\b|\bretargeting\b|\bformularios? instantaneos?\b|\bguion(?:es)?\b|\bangulos?\b|\bvocabulario\b/, areas: ['ads'], relevancia: '' },
+  { id: 'area-ads', test: /\bpublicos\b|\bpublico\s+(?:frio|caliente|similar|objetivo)\b|\bretargeting\b|\bformularios? instantaneos?\b|\bguion(?:es)?\b|\bangulos?\b|\bvocabulario\b/, areas: ['ads'], relevancia: '' },
   { id: 'area-partners', test: /\bpartners?\b/, areas: ['cs'], relevancia: 'llevar partners' },
   { id: 'sabes-del-negocio', test: /\bque (?:sabes|sabe|conoces|conoce|hay) (?:de|sobre) mi (?:negocio|empresa|marca)\b/, areas: ['negocio'], relevancia: 'contexto negocio perfil' },
   // ── Video, imagen y AI Avatar (las frases del chat de video: frases-video-imagen-1-2.json) ──
