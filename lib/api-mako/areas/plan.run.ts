@@ -35,7 +35,9 @@ import { listTareas, editarTarea, moverTarea } from '@/lib/todo';
 import { cerrarConEvidencia, type CierreEnElActo } from '@/lib/plan-cerrar';
 import { rutaParaRevisar } from '@/lib/operaciones-reglas';
 // Las columnas del kanban (16/10/2026): claves, etiquetas y qué es un pendiente, de UN lugar.
-import { esEstado, estaPendiente, etiquetaEstado, motivoAtoradaOk } from '@/lib/todo-estados';
+import { ESTADOS, esEstado, estaPendiente, motivoAtoradaOk, type EstadoTarea } from '@/lib/todo-estados';
+import { etiquetasDeColumnasPlan, leerColumnasPlan, cambiarColumnasPlan } from '@/lib/plan-columnas-server';
+import { aplicarCambioColumnas, claveDeTarea, columnasEnOrden, destinoDeClave, etiquetaDeClave, nuevoIdColumna, propiaDeEstado, type CambioColumnas } from '@/lib/plan-columnas';
 import {
   getPropuesta, getPropuestaPorRef, listPropuestasPendientes, estadoDePropuesta, resumenPropuestasPorRefs,
   descartarPropuesta, crearPropuesta,
@@ -192,6 +194,19 @@ export const RUNNERS: Runners = {
     },
   },
 
+  ver_columnas_plan: {
+    leer: async () => {
+      const config = await leerColumnasPlan();
+      const deSiempre = new Map(ESTADOS.map((s) => [s.key as string, s.label]));
+      return json({
+        columnas: columnasEnOrden(config, true).map((c) => (c.propia
+          ? { columna: c.clave, nombre: c.label, propia: true, estado: c.estado }
+          : { columna: c.clave, nombre: c.label, de_siempre: deSiempre.get(c.clave) })),
+        dondeSeCambia: 'En el Plan, «⋯» de cada columna: «Cambiar el nombre», «Agregar columna» y «Quitar columna» (sólo el admin).',
+      });
+    },
+  },
+
   ver_tarea_plan: {
     leer: async (input, ctx) => {
       const id = str(input, 'id');
@@ -217,7 +232,9 @@ export const RUNNERS: Runners = {
         // una «Sin priorizar» del cliente salía «media» y una del dueño «futuro», y el detalle era
         // la única vista donde MaKo no sabía en qué columna estaba la tarea ni por qué se atoró.
         score: t.score, score_razon: t.scoreRazon, prioridad: prioridadParaAgente(t),
-        estado: t.estado, columna: etiquetaEstado(t.estado),
+        // La columna con el nombre del NEGOCIO (lib/plan-columnas.ts): el que la persona ve en su tablero.
+        // La columna donde la VE la persona: la propia si está en una (revisión del 21/10/2026), si no la de su estado.
+        estado: t.estado, columna: await (async () => { const cfg = await leerColumnasPlan(); return etiquetaDeClave(cfg, claveDeTarea({ estado: t.estado, columna: t.columna }, cfg)); })(),
         ...(t.estado === 'en_seguimiento' ? { atorada_por: t.motivoAtorada } : {}),
         avance_pct: t.avance,
         deadline: t.deadline, deadline_razon: t.deadlineRazon, quarter: t.quarter, en_prioridad: t.enPrioridad,
@@ -794,6 +811,44 @@ export const RUNNERS: Runners = {
    * (`trasMover`) es una sola. Sin `orden`: va arriba de la columna destino, como una tarjeta
    * recién soltada ahí.
    */
+  /**
+   * LAS COLUMNAS DEL PLAN (20/10/2026, docs/pedidos-crm.md B1): la misma regla que el «⋯» de una columna
+   * (lib/plan-columnas.ts). `preparar` la prueba contra lo guardado para decir qué va a pasar; `ejecutar` la aplica con
+   * compare-and-set. El id de una columna nueva se acuña al ejecutar, no viene del modelo.
+   */
+  editar_columna_plan: {
+    preparar: async (input) => {
+      const cambio = str(input, 'cambio');
+      const columna = str(input, 'columna');
+      const nombre = str(input, 'nombre');
+      const config = await leerColumnasPlan();
+      const prueba: CambioColumnas | null = cambio === 'renombrar' ? { tipo: 'renombrar', clave: columna, nombre: nombre || null }
+        : cambio === 'agregar' ? { tipo: 'agregar', despuesDe: columna, nombre, id: nuevoIdColumna() }
+        : cambio === 'quitar' ? { tipo: 'quitar', id: columna } : null;
+      if (!prueba) return { error: 'Cambio inválido: usa renombrar, agregar o quitar.' };
+      if (!destinoDeClave(config, columna)) return { error: `No hay una columna «${columna}» en este plan. Míralas con ver_columnas_plan.` };
+      const r = aplicarCambioColumnas(config, prueba);
+      if (!r.ok) return { error: r.error };
+      const antes = etiquetaDeClave(config, columna);
+      if (prueba.tipo === 'renombrar' && etiquetaDeClave(r.config, columna) === antes) return { error: `La columna ya se llama «${antes}».`, yaEstaba: true };
+      const resumen = prueba.tipo === 'renombrar' ? `Cambiarle el nombre a la columna «${antes}»: «${etiquetaDeClave(r.config, columna)}»`
+        : prueba.tipo === 'agregar' ? `Agregar la columna «${nombre.trim()}» a la derecha de «${antes}»`
+        : `Quitar la columna «${antes}» (sus tareas vuelven a la de su estado)`;
+      return { payload: { cambio, columna, nombre: nombre || null }, resumen };
+    },
+    ejecutar: async (payload): Promise<Ejecutado> => {
+      const columna = String(payload.columna ?? '');
+      const nombre = typeof payload.nombre === 'string' ? payload.nombre : null;
+      const c: CambioColumnas | null = payload.cambio === 'renombrar' ? { tipo: 'renombrar', clave: columna, nombre }
+        : payload.cambio === 'agregar' ? { tipo: 'agregar', despuesDe: columna, nombre: nombre ?? '', id: nuevoIdColumna() }
+        : payload.cambio === 'quitar' ? { tipo: 'quitar', id: columna } : null;
+      if (!c) return { ok: false, resumen: 'Cambio inválido.' };
+      const r = await cambiarColumnasPlan(c);
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: c.tipo === 'quitar' ? 'Columna quitada: sus tareas volvieron a la de su estado.' : `Listo: las columnas son ${columnasEnOrden(r.config, false).map((x) => `«${x.label}»`).join(', ')}.` };
+    },
+  },
+
   mover_tarea_plan: {
     preparar: async (input, ctx) => {
       const tab = await leerTablero(ctx.ws);
@@ -803,15 +858,29 @@ export const RUNNERS: Runners = {
       // El validador ya filtra por el enum; esto es la segunda puerta para quien llame sin él.
       if (!esEstado(estado) || estado === 'hecho') return { error: 'Columna inválida: usa por_hacer, en_curso, en_seguimiento o no_cumple. Para completarla, cerrar_tareas_plan.' };
       const motivo = estado === 'en_seguimiento' ? motivoAtoradaOk(input.motivo) : null;
-      const destino = etiquetaEstado(estado);
+      const etiqueta = await etiquetasDeColumnasPlan();
+      // Una columna PROPIA de ese estado (mig 0317), si la pidió: tiene que existir y ser de ESE estado.
+      const pedida = str(input, 'columna');
+      // Las columnas siempre: también dicen DÓNDE está hoy la tarea, si es en una propia (revisión del 21/10/2026).
+      const config = await leerColumnasPlan();
+      const propia = pedida ? propiaDeEstado(config, estado, pedida) : null;
+      if (pedida && !propia) {
+        // El error dice cuáles HAY: `ver_columnas_plan` no viaja en todos los turnos (y no existe por WhatsApp).
+        const hay = config.propias.filter((p) => p.estado === estado).map((p) => `«${p.nombre}»`);
+        return { error: `No hay una columna «${pedida}» en ${etiqueta(estado)}.${hay.length ? ` Las de ese estado: ${hay.join(', ')}.` : ' Ese estado no tiene columnas propias.'}` };
+      }
+      const columna = propia?.id ?? null;
+      const destino = columna ? etiquetaDeClave(config, columna) : etiqueta(estado);
       // «Ya está así» es un éxito sin nada que hacer para un flujo o un token (yaEstaba), y un
       // rechazo con la razón para una persona.
-      if (t.estado === estado && (estado !== 'en_seguimiento' || !motivo || motivo === t.motivoAtorada)) {
+      // «Ya está» y «desde» por la columna donde la VE la persona (`claveDeTarea`): una columna propia quitada ya no es la suya.
+      const ahora = claveDeTarea({ estado: t.estado, columna: t.columna }, config);
+      if (ahora === (columna ?? estado) && (estado !== 'en_seguimiento' || !motivo || motivo === t.motivoAtorada)) {
         return { error: `La tarea «${recortar(t.titulo, 120)}» ya está en ${destino}.`, yaEstaba: true };
       }
-      const desde = etiquetaEstado(t.estado);
+      const desde = etiquetaDeClave(config, ahora);
       return {
-        payload: { id: t.id, estado, motivo },
+        payload: { id: t.id, estado, motivo, columna },
         resumen: `Mover «${recortar(t.titulo, 120)}» de ${desde} a ${destino}${motivo ? ` (${motivo})` : ''}`,
       };
     },
@@ -821,21 +890,26 @@ export const RUNNERS: Runners = {
       if (!esEstado(estado) || estado === 'hecho') return { ok: false, resumen: 'Columna inválida.' };
       // `undefined` y no null cuando no vino: un reordenamiento dentro de Atorada no borra el motivo.
       const motivo = typeof payload.motivo === 'string' && payload.motivo ? payload.motivo : undefined;
+      const etiqueta = await etiquetasDeColumnasPlan();
+      const columna = typeof payload.columna === 'string' && payload.columna ? payload.columna : null;
+      // Siempre: el «desde» del historial es la columna donde estaba la tarea, también si era una propia.
+      const config = await leerColumnasPlan();
+      const desdeDe = (estado: EstadoTarea, col: string | null | undefined) => etiquetaDeClave(config, claveDeTarea({ estado, columna: col ?? null }, config));
       const entrada = (antes: string) => ({
         id: genHistId(), ts: Date.now(), actor: 'ia' as const,
-        text: `MaKo la movió de ${antes} a ${etiquetaEstado(estado)}${motivo ? ` — ${motivo}` : ''}`.slice(0, 220),
+        text: `MaKo la movió de ${antes} a ${columna ? etiquetaDeClave(config, columna) : etiqueta(estado)}${motivo ? ` — ${motivo}` : ''}`.slice(0, 220),
       });
       if (await usaPlanBoard(ctx.ws)) {
         const t = (await listPlanBoard()).tareas.find((x) => x.id === id);
         if (!t) return { ok: false, resumen: 'La tarea ya no existe.' };
-        const e = entrada(etiquetaEstado(t.estado ?? 'por_hacer'));
-        const r = await moverPlanTarea(id, estado, undefined, { motivo, historial: [e, ...(t.historial ?? [])].slice(0, 40) });
+        const e = entrada(desdeDe(t.estado ?? 'por_hacer', t.columna));
+        const r = await moverPlanTarea(id, estado, undefined, { motivo, columna, historial: [e, ...(t.historial ?? [])].slice(0, 40) });
         return r.ok ? { ok: true, resumen: `«${t.title}»: ${e.text}` } : { ok: false, resumen: r.error };
       }
       const t = (await listTareas()).find((x) => x.id === Number(id));
       if (!t) return { ok: false, resumen: 'La tarea ya no existe.' };
-      const e = entrada(etiquetaEstado(t.estado));
-      const r = await moverTarea(t.id, estado, undefined, { motivo, historial: [e, ...t.historial].slice(0, 40) });
+      const e = entrada(desdeDe(t.estado, t.columna));
+      const r = await moverTarea(t.id, estado, undefined, { motivo, columna, historial: [e, ...t.historial].slice(0, 40) });
       return r.ok ? { ok: true, resumen: `«${t.titulo}»: ${e.text}` } : { ok: false, resumen: r.error };
     },
   },

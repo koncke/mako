@@ -23,6 +23,7 @@ import { hrefPlanDeCliente } from '@/app/plan/board/filtro-cliente';
 // se lee de la base lo corre el server (./ficha-lectura.ts → `analisisDeFila`).
 import type { AnalisisEntregaVista } from '@/lib/closing-entrega-contrato';
 import type { ContactoCliente } from '@/lib/cs-contacto';
+import type { CobroTarjeta } from './aviso-tarjeta';
 
 // ⛔ ACÁ VIVÍAN `entregasDe` (la etapa de cada servicio, para el renglón «Entrega» del
 // Resumen) y `conteoDeTrabajo` / `fraseConteo` (el renglón «Trabajo»). Se fueron el 06/10/2026
@@ -188,4 +189,6 @@ export type FichaExtra = {
    * La regla es UNA (`ultimoContacto`, lib/cs-contacto.ts) y la usa también la alerta al dueño.
    */
   contactoUltimo?: ContactoCliente | null;
+  /** Su cobro, para el aviso de la tarjeta (./cobro-tarjeta.ts). null = al día o no se pudo leer. */
+  cobro?: CobroTarjeta;
 };

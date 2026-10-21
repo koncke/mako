@@ -5681,12 +5681,11 @@ curso-sacar-un-curso, curso-purga-entregas, curso-grabar-notas, curso-vista-prev
 - **El aviso, el más urgente primero** (`avanceDeCliente`, app/customer-success/aviso-tarjeta.ts, puro y con test):
   «Sin entrar al curso» (invitado y nunca entró: rojo; entró pero hace más de 14 días: amarillo) y después «N días sin
   moverse». Computadora y teléfono usan la MISMA función.
-- **«Pago fallido» del prototipo NO está:** el estado del cobro de cada cliente no llega al tablero (leerlo es una
-  lectura por cliente). Si se suma, que sea una lectura en lote al armar la pantalla, y entra primero en el orden.
+- **«Pago fallido» del prototipo:** hecho el 20/10 como se anotó acá (ver la entrada de abajo, «El cobro en la tarjeta»).
 - **La barra es la etapa del servicio** (la 2 de 5), no el avance del curso: es lo que el tablero de la entrega mira.
 - Los números del tablero de trabajo (proyectos, tareas, recurrentes) quedaron en un chip; «los tres o ninguno» sigue.
 
-**Sin hacer:** «Pago fallido»; la foto en el teléfono (`ClienteCs` no trae `avatar_url`); la vista Tabla y Avance.
+**Sin hacer:** la vista Tabla y Avance. («Pago fallido» y la foto en el teléfono, hechos el 20/10.)
 **Vive en:** app/customer-success/ClienteCard.tsx y KanbanEntrega.tsx · app/m/cs/CustomerSuccessM.tsx · *17/10/2026 noche, chat «CRM» (claude4).*
 
 ⚠️ **Una `}` en el CSS de KanbanEntrega rompe sus tests sin tocar la pantalla (18/10/2026).** tests/cs-kanban-fases.test.ts
@@ -5694,3 +5693,49 @@ lee la regla `.ke-col` con `[^}]*`: un `${FONDO_COLUMNA}` interpolado —y despu
 la cortaban antes del `max-height`, y el test decía «sin tope, la columna crece», que se lee como una regresión del
 scroll y no lo es. Regla: en ese CSS, valores escritos (no interpolados) y ninguna llave dentro de un comentario.
 *18/10/2026, chat «CRM» (claude4).*
+
+## El cobro en la tarjeta de un cliente: «Pago rechazado» y «Cuota vencida» (20/10/2026)
+
+- **Una lectura para toda la cartera, no una por cliente** (`cobrosDeLaCartera`, app/customer-success/cobro-tarjeta.ts):
+  `cobros` (estado `fallido`/`pagado`) y `pagos` (`pagado = false` y `fecha_esperada < hoy`) con `.in('lead_id', ids)`,
+  las dos a la vez y en paralelo con el resto de la pantalla. La usan la computadora y el teléfono.
+- **«Rechazado» mira el ÚLTIMO cobro, y cuenta CUÁNDO SE PAGÓ, no cuándo se creó.** Ordenando por `created_at`, un pago
+  hecho después del rechazo ya es «el último» y el aviso se va solo; el caso que necesita `pagado_at` es un link creado
+  ANTES del rechazo y pagado DESPUÉS. La primera versión del test no lo tenía y la rotura «sin mirar si pagó después»
+  salía en verde: si se toca la regla, ese caso es el que la prueba.
+- **«Hoy» es el del negocio** (`hoyEnTz(tzActual())`): una cuota que vence hoy todavía no está vencida.
+- **Nunca tira:** una lectura caída devuelve `null` y la tarjeta no avisa nada. Un «Pago rechazado» inventado es peor.
+- **El orden del aviso:** «Pago rechazado» (rojo) le gana a todo; «Cuota vencida» (amarillo) va después de «Sin entrar al
+  curso» (rojo) y antes de «Sin entrar · N d» y de los días sin moverse.
+- **La cara en el teléfono** sale de la MISMA cadena que la computadora (`useFotoContacto`): lo elegido, la foto de
+  WhatsApp guardada (`leads.foto_auto_url`), su WhatsApp y su email (Gravatar con `d=404`). El teléfono ya leía los
+  teléfonos de los ganados sólo para wa.me; ahora los lee siempre, junto con la foto guardada (una consulta).
+
+**Sin hacer:** nada de esto se vio en pantalla (sin RAM para el build). De B2 quedan la foto de Instagram, la vista
+«Prioridades» del Plan y Proyectos del teléfono (docs/pedidos-crm.md).
+**Vive en:** app/customer-success/aviso-tarjeta.ts y cobro-tarjeta.ts · app/m/cs/page.tsx y CustomerSuccessM.tsx · test
+tests/cs-tarjeta-cobro.test.ts · *20/10/2026 noche, chat «CRM» (claude4).*
+
+## Lo que encontró la revisión del cobro en la tarjeta (21/10/2026)
+
+- **La hora del rechazo es la del EVENTO del rechazo** (`lead_audit` «Pago rechazado», que escribe sólo
+  `aplicarPagoFallido`). Ni `created_at` (cuándo se creó el link: un pago de la cuota 1 hecho DESPUÉS de crear el link de
+  la cuota 2 tapaba el rechazo de la 2) ni `updated_at` (segunda revisión: abrir un link vencido le crea otra sesión y lo
+  toca, y un rechazo viejo pasaba a tapar un pago posterior). Fechá un hecho con un dato que sólo escriba ese hecho.
+  **Y el evento es del LEAD, no del cobro** (tercera revisión): el de un link que después se anuló o se reembolsó
+  inventaba un rechazo. `logLeadEvent` escribe «<concepto>: <motivo>» (lib/cobros.ts, cortado en 300): cada cobro
+  fallido toma sólo los eventos de SU concepto (`cuandoFallo`, aviso-tarjeta.ts). ⚠️ **Sin hacer, y no es raro:** dos
+  cobros con el mismo concepto se confunden, y compartirlo es lo NORMAL (cuarta revisión): la landing crea otro cobro con
+  el nombre del producto en cada reintento después de un rechazo, el link de cuota usa «Cuota N» y la agencia repite «MaKo
+  · cliente · mensual» cada mes. Un rechazo posterior que se anuló o se reembolsó deja «Pago rechazado» en rojo y tapa
+  los demás avisos. Lo limpio es guardar el id del cobro en el evento (o un `rechazado_at` en cobros, escrito por
+  `aplicarPagoFallido`, lib/cobros.ts) y fechar cada fallido sólo con lo suyo. ⚠️ El test de ayer fijaba el mismo supuesto equivocado (fechaba el rechazo
+  por `created_at`) y por eso pasaba: un test que arma los datos con la misma idea que el código no la prueba.
+- **Una renovación rechazada queda «pagado»**: `aplicarPagoFallido` no vuelve atrás un cobro pagado; sólo escribe el
+  motivo «Falló el cobro de la renovación…», y no crea cuota. Es el caso más común de las suscripciones. La tarjeta
+  usa la MISMA regla que la ficha (`esRenovacionFallida`, lib/cobrado-lead.ts).
+- **La cartera de a tandas y paginada**: un `.in()` viaja en la URL y PostgREST corta en 1.000 filas sin avisar; con
+  un fallido viejo adentro y su pago afuera salía un «Pago rechazado» falso.
+
+**Vive en:** app/customer-success/aviso-tarjeta.ts y cobro-tarjeta.ts · tests/cs-tarjeta-cobro.test.ts ·
+*21/10/2026, chat «CRM» (claude4), revisión del Cerebro.*

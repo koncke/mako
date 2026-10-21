@@ -54,6 +54,7 @@ import { useVerMas } from './VerMas';
 // COMPARTIDO con la barra de lote: devuelve una RRULE y no sabe a quién se le aplica.
 import { AccionesLote, AccionesLoteProyectos, opcionesRepeticion, canonRRule, VALOR_PERSONALIZADO, RepeticionModal } from './AccionesLote';
 import { Dropdown } from '@/app/components/Dropdown';
+import { TOPE_NOMBRE_COLUMNA, claveDeTarea, columnasEnOrden, destinoDeClave } from '@/lib/plan-columnas';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { ImportarModal } from './ImportarModal';
 import { ReunionExtractModal } from './ReunionExtractModal';
@@ -405,6 +406,19 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
   // La COLUMNA desde la que se creó: la tarea nace con ESE estado (decisión 4 del 16/10/2026).
   // Hasta ese día era la BANDA de prioridad de la columna, que se mandaba como sugerencia al Perro.
   const [nuevaTareaEstado, setNuevaTareaEstado] = useState<EstadoTarea | null>(null);
+  /** El «＋» de una columna PROPIA (lib/plan-columnas.ts): la tarea nace en su estado y después se mueve ahí. */
+  const [nuevaTareaColumna, setNuevaTareaColumna] = useState<string | null>(null);
+  /**
+   * LA RECIÉN CREADA QUE VA A UNA COLUMNA PROPIA (revisión del 21/10/2026). El `onDone` del modal corre con el `board` del
+   * render del clic, cuyo `tasks` todavía no tiene la tarea: `mover` no la encontraba y no hacía nada, en silencio. Se
+   * mueve en un efecto, cuando el tablero YA la trae (con el `board` de ese render).
+   */
+  const [aColumnaPropia, setAColumnaPropia] = useState<{ id: string; estado: EstadoTarea; columna: string } | null>(null);
+  useEffect(() => {
+    if (!aColumnaPropia || !board.tasks.some((t) => t.id === aColumnaPropia.id)) return;
+    setAColumnaPropia(null);
+    void board.mover(aColumnaPropia.id, aColumnaPropia.estado, undefined, undefined, aColumnaPropia.columna);
+  }, [aColumnaPropia, board]);
   const [eliminarTaskId, setEliminarTaskId] = useState<string | null>(null);
   const [eliminarProjId, setEliminarProjId] = useState<string | null>(null);
   const [asignarTaskId, setAsignarTaskId] = useState<string | null>(null);
@@ -1467,7 +1481,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
              prioridad: «cuando tú muevas una tarjeta, yo no debería preguntarte cuál es la nueva
              prioridad» → «Es correcto» (Mauricio, 12/10). `tablero` = `conFin` sin filtrar: decide
              si existe la columna «No cumplen tu criterio». */
-          : <Kanban tasks={visibles} tablero={conFin} board={board} orden={ordenKanban} dir={dirKanban} frenanA={frenanA} ask={ask} sel={selTareasVista} setSel={setSelTareasVista} onOpen={setOpenId} onNew={(e) => { setNuevaTareaEstado(e ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId} />)}
+          : <Kanban tasks={visibles} tablero={conFin} board={board} orden={ordenKanban} dir={dirKanban} frenanA={frenanA} ask={ask} sel={selTareasVista} setSel={setSelTareasVista} onOpen={setOpenId} onNew={(e, col) => { setNuevaTareaEstado(e ?? null); setNuevaTareaColumna(col ?? null); setNuevaTarea(true); }} onWarn={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId} />)}
         {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={doneFilter} q={q} campos={campos} fOrigen={fOrigen} pasaCliente={pasaClienteProy} sortMode={sortMode} sortDir={sortDir} tabla={tabla}
           onSoltar={(id, sugerido) => setSoltada({ entidad: 'proyecto', id, sugerido })} />}
         {view === 'recurrentes' && <RecurrentesView tareas={recurrentesVisibles} proyectos={proyRecurrentesVisibles} board={board} topProjectId={topProjectId} tabla={tabla} onOpen={setOpenId} onOpenProj={setOpenProj} onEliminar={setEliminarTaskId}
@@ -1521,7 +1535,14 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
           }}
           onClose={() => setSoltada(null)} />
       )}
-      {nuevaTarea && <CrearTareaModal proyectoInicial={nuevaTareaProj} estadoInicial={nuevaTareaEstado} onCrear={crearConGuardian} onDone={(id) => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaEstado(null); setOpenId(id); setMakoHintId(id); }} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaEstado(null); }} />}
+      {nuevaTarea && <CrearTareaModal proyectoInicial={nuevaTareaProj} estadoInicial={nuevaTareaEstado} etiqueta={(e) => (nuevaTareaColumna ? board.etiquetaClave(nuevaTareaColumna) : board.etiqueta(e))} onCrear={crearConGuardian}
+        onDone={(id) => {
+          // Nacida desde una columna propia: a esa columna, arriba de todo (el alta sólo sabe de estados). En un efecto: ver
+          // `aColumnaPropia`.
+          if (nuevaTareaColumna && nuevaTareaEstado) setAColumnaPropia({ id, estado: nuevaTareaEstado, columna: nuevaTareaColumna });
+          setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaEstado(null); setNuevaTareaColumna(null); setOpenId(id); setMakoHintId(id);
+        }}
+        onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaEstado(null); setNuevaTareaColumna(null); }} />}
       {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} taskAbierta={!!openTask} trabajando={trabajandoIA.has(openProjLabel.id)} onAsignarCliente={() => setAsignarCli({ tipo: 'proyecto', id: openProjLabel.id })} onPortada={(ancla) => setPortadaDe({ id: openProjLabel.id, ancla })} onIcono={(ancla) => setIconoDe({ id: openProjLabel.id, ancla })} onEncuadre={(y) => board.patchLabelLog(openProjLabel.id, { portadaY: y }, 'Acomodó la portada')}
         onBack={welcomeVisible ? () => setOpenProj(null) : undefined} backLabel="Volver"
         onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} ask={ask} onPrioridad={() => setSoltada({ entidad: 'proyecto', id: openProjLabel.id })} onMako={() => setMakoProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onEliminarTask={setEliminarTaskId} onSoltarTask={board.repo.prioridadManual ? (id, sugerido, lugar) => setSoltada({ entidad: 'tarea', id, sugerido, lugar }) : undefined} onClose={() => setOpenProj(null)} />}
@@ -2486,9 +2507,11 @@ function BloqueColumna({ t, board }: { t: BoardTask; board: Board }) {
       <label style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
         <span style={{ ...rotulo, flex: 'none' }}>Columna</span>
         <span style={{ width: 8, height: 8, borderRadius: '50%', background: COLOR_ESTADO[e], flex: 'none' }} />
-        <select value={e} onChange={(ev) => { void board.mover(t.id, ev.target.value as EstadoTarea); }} aria-label="Columna del kanban"
+        {/* TODAS las columnas, también las propias (lib/plan-columnas.ts): la ficha mueve a donde mueve el tablero. */}
+        <select value={claveDeTarea({ estado: e, columna: t.columna }, board.columnas?.config)} aria-label="Columna del kanban"
+          onChange={(ev) => { const d = destinoDeClave(board.columnas?.config, ev.target.value); if (d) void board.mover(t.id, d.estado, undefined, undefined, board.columnas ? d.columna : undefined); }}
           style={{ flex: 1, minWidth: 0, padding: '5px 6px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, fontWeight: 600, fontFamily: SANS, cursor: 'pointer' }}>
-          {ESTADOS.filter((x) => x.key === e || x.key !== 'hecho' || !esRecurrente(t)).map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
+          {columnasEnOrden(board.columnas?.config, true).filter((x) => x.estado === e || x.estado !== 'hecho' || !esRecurrente(t)).map((x) => <option key={x.clave} value={x.clave}>{x.label}</option>)}
         </select>
       </label>
       {e === 'en_seguimiento' && (
@@ -3239,7 +3262,8 @@ function BloqueoChip({ porQue, compacto = false }: { porQue: string[]; compacto?
  * tarjeta» (23/09/2026). Con el orden MANUAL (el de siempre desde el 16/10) el lugar es el
  * dato: el `orden` nuevo sale de la de arriba y la de abajo (`ordenAlSoltar`).
  */
-type Insercion = { destino: EstadoTarea; idx: number };
+/** `destino` es la CLAVE de la columna: el estado, o el id de una propia (lib/plan-columnas.ts). */
+type Insercion = { destino: string; idx: number };
 
 /**
  * El número que le corresponde a una tarjeta soltada ENTRE otras dos — hoy sólo lo usa la
@@ -3281,8 +3305,8 @@ function Kanban({ tasks, tablero, board, orden, dir, frenanA, ask, sel, setSel, 
    */
   orden: OrdenModo; dir: 'desc' | 'asc';
   frenanA: (id: string) => string[]; ask: (msg: string, onOk: () => void) => void; onOpen: (id: string) => void;
-  /** El «＋» de una columna: la tarea nace con ESE estado (decisión 4 del 16/10/2026). */
-  onNew: (estado?: EstadoTarea) => void;
+  /** El «＋» de una columna: la tarea nace con ESE estado (decisión 4 del 16/10/2026) y, si es propia, ahí. */
+  onNew: (estado?: EstadoTarea, columna?: string | null) => void;
   onWarn: (id: string) => void; onOpenProj: (id: string) => void; onEliminar: (id: string) => void;
   /**
    * LO TILDADO, Y VIENE DE AFUERA. Vivía acá adentro hasta el 04/10/2026, y por eso se
@@ -3362,17 +3386,42 @@ function Kanban({ tasks, tablero, board, orden, dir, frenanA, ask, sel, setSel, 
   const cmp = comparar(orden, dir === 'asc' ? 1 : -1);
   const columnas = columnasPorEstado(tasks, tablero, manual
     ? undefined
-    : (items) => [...items].sort((a, b) => cmp({ score: a.score, titulo: a.title, deadline: a.deadline, creado: a.num }, { score: b.score, titulo: b.title, deadline: b.deadline, creado: b.num }) || b.num - a.num));
+    : (items) => [...items].sort((a, b) => cmp({ score: a.score, titulo: a.title, deadline: a.deadline, creado: a.num }, { score: b.score, titulo: b.title, deadline: b.deadline, creado: b.num }) || b.num - a.num),
+    board.columnas?.config);
+  /** En qué columna se dibuja una tarjeta (lib/plan-columnas.ts): la propia si es de su estado, si no la de su estado. */
+  const claveDe = useCallback((t: BoardTask) => claveDeTarea({ estado: estadoDe(t), columna: t.columna }, board.columnas?.config), [board.columnas]);
+  /** La columna recién agregada abre su nombre para escribirlo (como «Agregar etapa» del CRM, que pide el nombre). */
+  const [recienAgregada, setRecienAgregada] = useState<string | null>(null);
+  const agregarColumna = async (despuesDe: string) => {
+    const usados = new Set(columnas.map((c) => c.label.toLowerCase()));
+    let nombre = 'Nueva columna';
+    for (let i = 2; usados.has(nombre.toLowerCase()); i++) nombre = `Nueva columna ${i}`;
+    const antes = new Set((board.columnas?.config.propias ?? []).map((p) => p.id));
+    const cfg = await board.cambiarColumnas({ tipo: 'agregar', despuesDe, nombre });
+    const nueva = cfg?.propias.find((p) => !antes.has(p.id));
+    if (nueva) setRecienAgregada(nueva.id);
+  };
+  /** Quitar una columna propia: sus tareas NO se tocan, se dibujan en la de su estado. Se pregunta con cuántas son. */
+  const quitarColumna = (clave: string, label: string, estado: EstadoTarea) => {
+    const n = tablero.filter((t) => claveDe(t) === clave).length;
+    const msg = n ? `¿Quitar la columna «${label}»? ${n === 1 ? 'Su tarea vuelve' : `Sus ${n} tareas vuelven`} a «${board.etiqueta(estado)}».` : `¿Quitar la columna «${label}»?`;
+    ask(msg, () => { void board.cambiarColumnas({ tipo: 'quitar', id: clave }); });
+  };
   /**
    * SOLTAR = MOVER. Sin pop-up de prioridad (decisión 2 del 16/10/2026). Si entra a «Atorada»
    * desde otra columna, abre el campo del motivo — ya, sin esperar al server: si el server dice
    * que no, la tarjeta vuelve a su columna y el campo deja de dibujarse solo.
    */
-  const soltarEn = (id: string, destino: EstadoTarea, ordenNuevo?: number) => {
+  const soltarEn = (id: string, destino: string, ordenNuevo?: number) => {
     const t = board.tasks.find((x) => x.id === id);
-    if (!t) return;
-    if (destino === 'en_seguimiento' && estadoDe(t) !== 'en_seguimiento') setMotivoDe(id);
-    void board.mover(id, destino, ordenNuevo);
+    const d = destinoDeClave(board.columnas?.config, destino);
+    if (!t || !d) return;
+    if (d.estado === 'en_seguimiento' && estadoDe(t) !== 'en_seguimiento') setMotivoDe(id);
+    // La columna va SIEMPRE: soltar en «En proceso» saca a la tarjeta de «En revisión» aunque el estado sea el mismo.
+    // ⚠️ SALVO que este tablero no conozca las columnas (`board.columnas` null: uno embebido, como Admin › Clientes ›
+    // tablero, que es el MISMO negocio): ahí sólo ve las de siempre, y mandar `null` le borraba a la tarjeta su columna
+    // propia al reordenarla (revisión del 21/10/2026). Sin decirla, `mover` la conserva si el estado no cambia.
+    void board.mover(id, d.estado, ordenNuevo, undefined, board.columnas ? d.columna : undefined);
   };
   // EL ARRASTRE CON EL DEDO. El mouse sigue por HTML5 drag-and-drop (ya funciona y ya está
   // probado); esto corre sólo cuando el puntero NO es un mouse. Ver arrastre-tactil.ts: ahí
@@ -3381,9 +3430,9 @@ function Kanban({ tasks, tablero, board, orden, dir, frenanA, ask, sel, setSel, 
   // hueco: la tarjeta va arriba de la columna destino.
   const colDe = useCallback((id: string) => {
     const t = tasks.find((x) => x.id === id);
-    return t ? estadoDe(t) : null;
-  }, [tasks]);
-  const tactil = useArrastreTactil<EstadoTarea>((id, destino) => soltarEn(id, destino), colDe, puedeMover);
+    return t ? claveDe(t) : null;
+  }, [tasks, claveDe]);
+  const tactil = useArrastreTactil<string>((id, destino) => soltarEn(id, destino), colDe, puedeMover);
   return (
     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columnas.length}, minmax(0, 1fr))`, gap: 14, padding: '18px 30px 30px', flex: '1 0 auto', alignItems: 'flex-start' }} className="mako-board">
       <style>{`@media (max-width:1000px){.mako-board{grid-template-columns:repeat(2,1fr)!important}}@media (max-width:560px){.mako-board{grid-template-columns:1fr!important;padding:14px 16px 24px!important}}`}</style>
@@ -3395,8 +3444,11 @@ function Kanban({ tasks, tablero, board, orden, dir, frenanA, ask, sel, setSel, 
           <AccionesLote elegidas={elegidas} board={board} ask={ask} onLimpiar={() => setSel(new Set())} estilo={{ boxShadow: '0 8px 24px rgba(18,21,27,.14)' }} />
         </div>
       )}
-      {columnas.map(({ estado: e, label, items }) => (
-        <ColumnaKanban key={e} estado={e} label={label} items={items} board={board} manual={manual} puedeMover={puedeMover}
+      {columnas.map(({ clave, estado: e, label, items, propia }) => (
+        <ColumnaKanban key={clave} clave={clave} estado={e} propia={propia} label={label} items={items} board={board} manual={manual} puedeMover={puedeMover}
+          claveDe={claveDe} editarAlMontar={recienAgregada === clave} onEditado={() => setRecienAgregada(null)}
+          agregar={board.columnas?.editables && e !== 'no_cumple' ? () => { void agregarColumna(clave); } : undefined}
+          quitar={board.columnas?.editables && propia ? () => quitarColumna(clave, label, e) : undefined}
           ins={ins} setIns={setIns} rects={rects} empujarScroll={empujarScroll} pararScroll={pararScroll}
           arrastrado={arrastrado} setArrastrado={setArrastrado} agarrar={agarrar} tactil={tactil}
           soltarEn={soltarEn} motivoDe={motivoDe} setMotivoDe={setMotivoDe}
@@ -3411,20 +3463,29 @@ function Kanban({ tasks, tablero, board, orden, dir, frenanA, ask, sel, setSel, 
  * sin techo (en el tablero del dueño, 248 de 424 el 16/10/2026) y la única que se corta con
  * «Ver más» (`useVerMas`, que es un hook). Las demás se ven enteras, como siempre.
  */
-function ColumnaKanban({ estado: e, label, items, board, manual, puedeMover, ins, setIns, rects, empujarScroll, pararScroll, arrastrado, setArrastrado, agarrar, tactil, soltarEn, motivoDe, setMotivoDe, frenanA, sel, alternarSel, onOpen, onNew, onWarn, onOpenProj, onEliminar }: {
-  estado: EstadoTarea; label: string; items: BoardTask[]; board: Board; manual: boolean; puedeMover: boolean;
+function ColumnaKanban({ clave: e, estado: estadoCol, propia, claveDe, editarAlMontar, onEditado, agregar, quitar, label, items, board, manual, puedeMover, ins, setIns, rects, empujarScroll, pararScroll, arrastrado, setArrastrado, agarrar, tactil, soltarEn, motivoDe, setMotivoDe, frenanA, sel, alternarSel, onOpen, onNew, onWarn, onOpenProj, onEliminar }: {
+  /**
+   * LA CLAVE de la columna (lib/plan-columnas.ts): el estado en las de siempre, el id en las propias. Es lo que usa el
+   * arrastre (`data-columna`, el hueco, soltar); `estado` es lo que decide el color, «Ver más» y el motivo de Atorada.
+   */
+  clave: string; estado: EstadoTarea; propia: boolean;
+  claveDe: (t: BoardTask) => string;
+  /** Recién agregada: abre su nombre para escribirlo. */
+  editarAlMontar?: boolean; onEditado?: () => void;
+  agregar?: () => void; quitar?: () => void;
+  label: string; items: BoardTask[]; board: Board; manual: boolean; puedeMover: boolean;
   ins: Insercion | null; setIns: Dispatch<SetStateAction<Insercion | null>>; rects: { current: Record<string, number[]> };
   empujarScroll: (y: number) => void; pararScroll: () => void;
   arrastrado: string | null; setArrastrado: (id: string | null) => void;
   agarrar: (id: string | null, desde?: { nodo: HTMLElement; dx: number; dy: number }) => void;
-  tactil: ArrastreTactil<EstadoTarea>;
-  soltarEn: (id: string, destino: EstadoTarea, orden?: number) => void;
+  tactil: ArrastreTactil<string>;
+  soltarEn: (id: string, destino: string, orden?: number) => void;
   motivoDe: string | null; setMotivoDe: (id: string | null) => void;
   frenanA: (id: string) => string[]; sel: ReadonlySet<string>; alternarSel: (id: string) => void;
-  onOpen: (id: string) => void; onNew: (estado?: EstadoTarea) => void; onWarn: (id: string) => void; onOpenProj: (id: string) => void; onEliminar: (id: string) => void;
+  onOpen: (id: string) => void; onNew: (estado?: EstadoTarea, columna?: string | null) => void; onWarn: (id: string) => void; onOpenProj: (id: string) => void; onEliminar: (id: string) => void;
 }) {
-  const color = COLOR_ESTADO[e];
-  const { visibles, boton } = useVerMas(items, { inicial: e === 'hecho' ? COMPLETADAS_A_LA_VISTA : Number.MAX_SAFE_INTEGER, estilo: 'texto' });
+  const color = COLOR_ESTADO[estadoCol];
+  const { visibles, boton } = useVerMas(items, { inicial: estadoCol === 'hecho' ? COMPLETADAS_A_LA_VISTA : Number.MAX_SAFE_INTEGER, estilo: 'texto' });
   // El hueco se dibuja en la posición exacta donde va a caer, sólo en la columna sobre la que
   // está el puntero y sólo con el orden manual (con otro orden el lugar lo decide el criterio).
   const hueco = (i: number) => (ins?.destino === e && ins.idx === i
@@ -3467,7 +3528,7 @@ function ColumnaKanban({ estado: e, label, items, board, manual, puedeMover, ins
         const yo = board.tasks.find((t) => t.id === id);
         if (!yo) return;
         // Sin orden manual, el lugar no se elige: va arriba de la columna (el server lo pone).
-        if (!manual || crudo < 0) { if (estadoDe(yo) !== e) soltarEn(id, e); return; }
+        if (!manual || crudo < 0) { if (claveDe(yo) !== e) soltarEn(id, e); return; }
         // La lista SIN la que se está moviendo: si se la deja adentro, el punto medio se
         // calcula contra su propio `orden` y la tarjeta «no se mueve».
         //
@@ -3493,11 +3554,16 @@ function ColumnaKanban({ estado: e, label, items, board, manual, puedeMover, ins
       data-columna={e}
       aria-label={`${label}: ${items.length}`}
       style={{ display: 'flex', flexDirection: 'column', minWidth: 0, background: encima ? 'var(--primary-bg)' : FONDO_COLUMNA, border: 'none', borderRadius: 26, padding: '12px 10px 10px', boxShadow: encima ? `inset 0 0 0 2px ${color}` : 'none', transition: 'background .12s, box-shadow .12s' }}>
-      <ColHeader label={label} color={color} count={items.length} />
+      <ColHeader label={label} color={color} count={items.length}
+        // «Columnas editables como en el CRM» (Martín, 18/10 pt 9): el NOMBRE, sólo el admin y sólo en el tablero del
+        // negocio que mira (`board.columnas`, ./useBoard.ts).
+        renombrar={board.columnas?.editables ? (nombre) => board.renombrarColumna(e, nombre) : undefined}
+        renombrada={!propia && !!board.columnas?.config.nombres[estadoCol]}
+        agregar={agregar} quitar={quitar} editarAlMontar={editarAlMontar} onEditado={onEditado} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9, minHeight: 30, paddingRight: 2 }}>
         {/* card gris translúcida para crear (arriba de todo, más bajita que las tarjetas). Nace
             en ESTA columna: es la decisión 4 del 16/10/2026. */}
-        <button onClick={() => onNew(e)} style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, border: '1.5px dashed var(--border-strong)', background: 'transparent', borderRadius: 10, padding: '9px 10px', cursor: 'pointer', color: 'var(--faint)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, opacity: 0.8, transition: 'border-color .12s, color .12s' }}
+        <button onClick={() => onNew(estadoCol, propia ? e : null)} style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, border: '1.5px dashed var(--border-strong)', background: 'transparent', borderRadius: 10, padding: '9px 10px', cursor: 'pointer', color: 'var(--faint)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, opacity: 0.8, transition: 'border-color .12s, color .12s' }}
           aria-label={`Nueva tarea en ${label}`}
           onMouseEnter={(ev) => { ev.currentTarget.style.borderColor = 'var(--primary)'; ev.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(ev) => { ev.currentTarget.style.borderColor = 'var(--border-strong)'; ev.currentTarget.style.color = 'var(--faint)'; }}>＋ Nueva tarea</button>
         {items.length === 0 && !hueco(0) && <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', padding: '10px 0' }}>—</div>}
@@ -3511,7 +3577,7 @@ function ColumnaKanban({ estado: e, label, items, board, manual, puedeMover, ins
                 recurrente no puede tener deadline, así que titilaría para siempre. Mira la
                 PRIORIDAD (no la columna): una Alta sin fecha falta en cualquier estado. */}
             <CardTile t={t} board={board} frenanA={frenanA(t.id)} warn={displayPrio(t) === 'alta' && t.progress < 100 && !t.deadline && !esRecurrente(t)} onOpen={onOpen} onWarn={onWarn} onOpenProj={onOpenProj} onEliminar={onEliminar} tactil={tactil} onAgarrar={puedeMover ? agarrar : undefined} oculta={arrastrado === t.id} elegida={sel.has(t.id)} haySeleccion={sel.size > 0} onElegir={alternarSel} />
-            {motivoDe === t.id && e === 'en_seguimiento' && (
+            {motivoDe === t.id && estadoCol === 'en_seguimiento' && (
               <CampoMotivo inicial={t.motivoAtorada ?? ''}
                 onGuardar={(m) => { setMotivoDe(null); if (m.trim() !== (t.motivoAtorada ?? '')) board.setMotivoAtorada(t.id, m.trim() || null); }}
                 onCerrar={() => setMotivoDe(null)} />
@@ -3552,13 +3618,69 @@ function CampoMotivo({ inicial, onGuardar, onCerrar }: { inicial: string; onGuar
   );
 }
 
-function ColHeader({ label, color, count }: { label: string; color: string; count: number }) {
+/**
+ * LA CABECERA DE UNA COLUMNA. Con `renombrar` (el admin, en el tablero de su negocio) el nombre se edita EN SU LUGAR,
+ * como una etapa del CRM: clic en el texto, o «⋯» › «Cambiar el nombre». Enter o salir guarda; Esc no.
+ */
+function ColHeader({ label, color, count, renombrar, renombrada, agregar, quitar, editarAlMontar, onEditado }: {
+  label: string; color: string; count: number;
+  renombrar?: (nombre: string | null) => Promise<boolean>;
+  /** Tiene un nombre del negocio: se ofrece volver al de siempre. */
+  renombrada?: boolean;
+  /** «Agregar columna» a su derecha, y «Quitar columna» (sólo las propias). */
+  agregar?: () => void; quitar?: () => void;
+  /** Recién agregada: abre su nombre para escribirlo. */
+  editarAlMontar?: boolean; onEditado?: () => void;
+}) {
+  const [editando, setEditando] = useState(!!editarAlMontar && !!renombrar);
+  const cancelado = useRef(false);
+  const guardar = (valor: string) => {
+    setEditando(false);
+    onEditado?.();
+    if (cancelado.current) { cancelado.current = false; return; }
+    const n = valor.replace(/\s+/g, ' ').trim();
+    if (n && n !== label && renombrar) void renombrar(n);
+  };
+  const estiloNombre: CSSProperties = { fontSize: 12, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--dim)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
   return (
     <div style={{ flex: 'none', marginBottom: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 3px 8px' }}>
         <span style={{ width: 9, height: 9, borderRadius: '50%', background: color, flex: 'none' }} />
-        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--dim)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+        {editando ? (
+          <input autoFocus data-nodrag defaultValue={label} maxLength={TOPE_NOMBRE_COLUMNA} aria-label={`Nombre de la columna ${label}`}
+            onBlur={(ev) => guardar(ev.target.value)}
+            onKeyDown={(ev) => {
+              if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur();
+              if (ev.key === 'Escape') { cancelado.current = true; (ev.target as HTMLInputElement).blur(); }
+            }}
+            style={{ flex: 1, minWidth: 0, fontFamily: SANS, fontWeight: 600, fontSize: 13, color: 'var(--ink)', background: 'var(--surface-2)', border: '1px solid var(--primary)', borderRadius: 7, padding: '3px 7px' }} />
+        ) : renombrar ? (
+          <button type="button" onClick={() => setEditando(true)} title="Cambiar el nombre"
+            style={{ ...estiloNombre, border: 'none', background: 'transparent', padding: 0, cursor: 'text', fontFamily: 'inherit', textAlign: 'left' }}>{label}</button>
+        ) : (
+          <span style={estiloNombre}>{label}</span>
+        )}
         <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', background: 'var(--surface-2)', borderRadius: 999, padding: '1px 8px', flex: 'none' }}>{count}</span>
+        {(renombrar || agregar || quitar) && !editando && (
+          <span style={{ marginLeft: 'auto', flex: 'none' }}>
+            <Dropdown value="" placeholder="⋯" align="right" resetAfterSelect sinFlecha
+              ariaLabel={`Opciones de la columna ${label}`}
+              buttonStyle={{ width: 26, height: 26, padding: 0, justifyContent: 'center', border: '1px solid transparent', background: 'transparent', color: 'var(--dim)', fontSize: 16, lineHeight: 1 }}
+              options={[
+                ...(renombrar ? [{ value: 'renombrar', label: 'Cambiar el nombre', icono: 'renombrar' as const }] : []),
+                ...(agregar ? [{ value: 'agregar', label: 'Agregar columna', icono: 'agregar' as const }] : []),
+                ...(renombrar && renombrada ? [{ value: 'volver', label: 'Volver al nombre de siempre', icono: 'restaurar' as const }] : []),
+                // ⚠️ LA OPCIÓN NO EXISTE CUANDO NO SE PUEDE (Martín, 29/09, sobre el CRM): las de siempre no se quitan.
+                ...(quitar ? [{ value: 'quitar', label: 'Quitar columna', icono: 'borrar' as const }] : []),
+              ]}
+              onChange={(v) => {
+                if (v === 'renombrar') setEditando(true);
+                if (v === 'agregar') agregar?.();
+                if (v === 'volver') void renombrar?.(null);
+                if (v === 'quitar') quitar?.();
+              }} />
+          </span>
+        )}
       </div>
     </div>
   );

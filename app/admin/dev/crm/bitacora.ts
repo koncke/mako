@@ -2643,4 +2643,41 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '20 oct', hora: '22:16', chat: 'CRM', sesion: 'local_64949e84-3d68-4c31-bf78-5caa382ebc37', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La tarjeta de un lead con tres diseños, datos que se arrastran y la vista en vivo',
+    puntos: [
+      'En producción desde el run 175. Es la otra mitad del pedido de las cards del 20/10 («por si el usuario quiere más o menos info»).',
+      'En «⋯» › «Personalizar tarjetas» se elige el diseño: Completa, Compacta o Avance (la barra de su recorrido).',
+      'Los datos se ordenan arrastrándolos (o con las flechas), y la tarjeta de arriba muestra en vivo cómo va a quedar con un lead de verdad.',
+      '«Volver a lo de siempre» deja la tarjeta como venía. La elección es de cada persona y vale en todos sus funnels.',
+      'No se vio en pantalla: se revisa en /crm › ⋯ › Personalizar tarjetas.',
+    ],
+    commits: [
+      { sha: '99bc8b095', msg: 'CRM: la tarjeta con diseños, datos que se arrastran para acomodarlos y la vista en vivo', lineas: 504, archivos: 12 },
+    ],
+    archivos: [
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '20 oct', hora: '22:56', chat: 'CRM', sesion: 'local_64949e84-3d68-4c31-bf78-5caa382ebc37', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La ficha: Reuniones y Tracking bloque por bloque, y el clic derecho adentro',
+    puntos: [
+      'En producción desde el run 178. Son los pedidos del 14/10: Reuniones y Tracking «personalizables» como el Dashboard, y el clic derecho en todo el CRM.',
+      'Reuniones: la R2, «Agendar» y lo que salió de la llamada son bloques propios. Tracking: el video visto, la actividad en la página y la grabación de la visita.',
+      'Las fichas ya guardadas se ven igual: el bloque viejo dibuja lo que su hoja no puso aparte.',
+      'Clic derecho en la ficha: las opciones del «⋯», WhatsApp y copiar el teléfono o el email. Sobre un campo, un link o texto seleccionado queda el menú del navegador.',
+      'No se vio en pantalla: se revisa en /crm, abriendo un lead.',
+    ],
+    commits: [
+      { sha: '42ae2d6cb', msg: 'Ficha: Reuniones y Tracking partidos en bloques, sin tocar las fichas guardadas', lineas: 309, archivos: 13 },
+      { sha: 'c19122948', msg: 'CRM: el clic derecho también dentro de la ficha del lead', lineas: 219, archivos: 4 },
+    ],
+    archivos: [
+    ],
+    revisar: '/crm',
+  },
 ];

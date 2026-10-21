@@ -47,7 +47,7 @@
 // (`sugerencias_crm`, lib/api-mako/areas/crm.run.ts) y tests/sugerencias-crm.test.ts.
 // =============================================================================
 
-import { disparadoresDe, TRIGGER_AVISO_MAKO, type FilaDisparadores } from './disparadores';
+import { disparadoresDe, TRIGGER_AVISO_MAKO, type FilaDisparadores, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER } from './disparadores';
 import { TRIGGER_ETAPA, TRIGGER_ENTREGA } from './nutricion-etapa';
 import { PLANTILLAS, PLANTILLAS_REEMPLAZADAS, plantillaPorId, canalesDe } from './plantillas-automatizaciones';
 import { etapaNoShowDe, TERMINAL_DEL_PIPELINE, type FunnelTransition, type Stage } from './pipeline';
@@ -76,6 +76,18 @@ export const UMBRALES_SUGERENCIAS = {
   callarDias: 30,
   hechaDias: 1,
   tope: 8,
+  /** Clase 2 (20/10/2026): la ventana del historial y cuántas veces es «repetir un gesto». */
+  gestosDias: 14,
+  /** «Movés a mano 5 o más leads de la misma etapa A a la misma B en 14 días». */
+  gestosMovimientos: 5,
+  /** «Marcás No show a mano 3 veces». */
+  gestosNoShow: 3,
+  /** «Pegás el link de Fathom a mano 3 veces». */
+  gestosFathom: 3,
+  /** «Mandás el mismo mensaje a 3 o más leads de una etapa» (20/10/2026). */
+  gestosMensaje: 3,
+  /** Un mensaje más corto que esto («ok», «gracias», «¿pudiste ver?») no es una secuencia: es una respuesta. */
+  mensajeMinimoLetras: 25,
 } as const;
 
 // ── El dato ──────────────────────────────────────────────────────────────────
@@ -139,6 +151,26 @@ export type EntradaSugerencias = {
   hoy: string;
   /** ms */
   ahora: number;
+  /**
+   * CLASE 2 (20/10/2026): los gestos A MANO de una persona en los últimos `gestosDias` días en este CRM (el historial
+   * del lead: `lead_audit` con un email de autor; lo que hizo MaKo o una automatización no cuenta). Ausente o null =
+   * no se pudieron leer: no hay sugerencias de clase 2.
+   */
+  gestos?: {
+    movimientos: ReadonlyArray<{ desde: string; hacia: string }>; noShowsAMano: number; fathomAMano?: number;
+    /** Los mensajes que una persona mandó a mano: el texto ya normalizado (`textoComparable`), a qué lead y en qué etapa
+     *  está ese lead hoy. Ausente = no se pudieron leer (esa sugerencia se calla). */
+    mensajes?: ReadonlyArray<{ texto: string; muestra: string; lead: number; etapa: string }>;
+  } | null;
+  /** CLASE 4 (20/10/2026): lo nuevo que llegó en esos días (conversaciones de Instagram y Messenger). null = no se leyó. */
+  nuevos?: {
+    dmInstagram: number; dmMessenger: number;
+    /** Las landings y campañas de Meta que trajeron leads sin estar conectadas a ningún CRM (cayeron al principal), sólo
+     *  si el negocio tiene más de un CRM. Ausente = no se leyó. */
+    sinCrm?: ReadonlyArray<{ tipo: 'landing' | 'campaña'; nombre: string; leads: number }>;
+    /** Leads de ESTE CRM que volvieron a la landing o miraron el VSL dos veces, el más reciente primero. Ausente = no se leyó. */
+    volvieron?: ReadonlyArray<{ lead: number; nombre: string; etapa: string }>;
+  } | null;
 };
 
 export type AccionSugerencia =
@@ -149,7 +181,8 @@ export type AccionSugerencia =
 export type Sugerencia = {
   /** estable: `<plantilla>:<etapa>` o el nombre de la situación. Es lo que se calla. */
   id: string;
-  clase: 1 | 3;
+  /** 1: armás el CRM · 2: repetís un gesto · 3: el tablero llega a un estado · 4: llega algo nuevo (docs/sugerencias-mako-crm.md). */
+  clase: ClaseSugerencia;
   /** UNA línea (`TOPE_TEXTO`) */
   texto: string;
   /** la etapa de la que habla (key), si habla de una */
@@ -164,8 +197,10 @@ export type Sugerencia = {
  * qué dice, qué hace «Hacerlo» y si ESTA persona lo puede hacer. Ni la plantilla ni la etapa viajan: al
  * crear, el server vuelve a calcular y decide él (lib/sugerencias-crm-server.ts).
  */
+export type ClaseSugerencia = 1 | 2 | 3 | 4;
+
 export type SugerenciaDePantalla = {
-  id: string; clase: 1 | 3; texto: string;
+  id: string; clase: ClaseSugerencia; texto: string;
   tipo: AccionSugerencia['tipo'];
   href?: string; pedido?: string;
   /** false = no se le ofrece «Hacerlo» (crear automatizaciones y conectar integraciones son del admin) */
@@ -275,6 +310,34 @@ export function yaExiste(automs: readonly AutomatizacionSug[], q: Pregunta): boo
 
 // ── El motor ─────────────────────────────────────────────────────────────────
 
+/**
+ * El texto de un mensaje para compararlo con otro (clase 2, «el mismo mensaje a 3 leads»): sin mayúsculas, acentos ni
+ * signos, y sin el primer nombre del lead («Hola Ana, …» y «Hola Juan, …» son el MISMO mensaje).
+ */
+export function textoComparable(texto: string, nombreLead?: string | null): string {
+  const plano = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const palabras = plano(texto).replace(/[^\p{L}\p{N}]+/gu, ' ').trim().split(' ').filter(Boolean);
+  const nombre = plano(nombreLead ?? '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim().split(' ')[0] ?? '';
+  return (nombre.length >= 2 ? palabras.filter((w) => w !== nombre) : palabras).join(' ');
+}
+
+/**
+ * EL ID DE UNA SUGERENCIA: lo que «Ahora no» guarda y relee (`claveCallada`, `parsearCalladas`) y lo que acepta la ruta
+ * (app/api/crm/mako/route.ts). Una sola regla para los tres. ⚠️ Un id con «.», «/», «>» o «ñ» la ruta lo rechazaba y la
+ * sugerencia volvía en cada carga sin poder callarse (revisión del 21/10/2026): lo que viene de afuera (una URL, el
+ * nombre de una campaña, dos keys de etapa) va como un hash corto.
+ */
+export const ID_SUGERENCIA = /^[a-z0-9:_-]{1,120}$/i;
+const hashCorto = (s: string): string => {
+  let h = 0x811c9dc5;
+  for (const ch of s) { h ^= ch.codePointAt(0) ?? 0; h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(36);
+};
+/** «Hace 5 veces que mueves de A a B»: un id por par de etapas. */
+export const idGestoMover = (desde: string, hacia: string): string => `gesto-mover:${hashCorto(`${desde}>${hacia}`)}`;
+/** «Llegaron leads de la landing X»: un id por landing o campaña. */
+export const idSinCrm = (tipo: 'landing' | 'campaña', nombre: string): string => `sin-crm:${tipo === 'campaña' ? 'campana' : 'landing'}:${hashCorto(nombre)}`;
+
 const DIA_MS = 86_400_000;
 const dia = (s: string | null | undefined): string => String(s ?? '').slice(0, 10);
 const comillas = (s: string) => `«${s.trim()}»`;
@@ -318,8 +381,8 @@ export function sugerenciasDelCrm(e: EntradaSugerencias, tope: number = UMBRALES
     const c = canalesDe(p);
     return !(c.includes('whatsapp') && !c.includes('email') && !c.includes('instagram') && !c.includes('messenger'));
   };
-  /** Una de clase 1 o 3 que crea la plantilla en una etapa de VENTA de este CRM. */
-  const enEtapa = (clase: 1 | 3, plantilla: string, etapa: string, texto: string) => {
+  /** Una que crea la plantilla en una etapa de VENTA de este CRM. */
+  const enEtapa = (clase: ClaseSugerencia, plantilla: string, etapa: string, texto: string) => {
     if (!sirve(plantilla) || existe({ donde: 'venta', plantilla, funnelId: e.funnel.id, etapa })) return;
     ofrecer({ id: `${plantilla}:${etapa}`, clase, texto, etapa, accion: { tipo: 'plantilla', plantilla, disparador: venta(etapa) }, soloAdmin: true });
   };
@@ -368,6 +431,122 @@ export function sugerenciasDelCrm(e: EntradaSugerencias, tope: number = UMBRALES
         id: 'manual-vencida', clase: 3, etapa: 'manual', soloAdmin: false,
         texto: `${vencidas} leads con la nutrición manual vencida. ¿Los reviso contigo?`,
         accion: { tipo: 'chat', pedido: `En este CRM hay ${vencidas} leads en ${comillas(label('manual'))} con el plazo vencido. ¿Quiénes son y a qué etapa conviene pasar a cada uno?` },
+      });
+    }
+  }
+
+  // ── CLASE 2: repetís un gesto (20/10/2026) ───────────────────────────────────
+  // Va antes que la 1: si el gesto pide lo mismo que el CRM armado (reagendar a los No show), gana el texto que dice
+  // por qué se ofrece ahora («marcaste 3 No show a mano»). `ofrecer` se queda con la primera de cada id.
+  if (e.gestos) {
+    const pasos = new Set(pipeline.map((s) => s.key));
+    const veces = new Map<string, number>();
+    for (const m of e.gestos.movimientos) {
+      // Sólo de un paso del recorrido a otro: ganar, perder o mandar a nutrición son decisiones, no rutina.
+      if (!pasos.has(m.desde) || !pasos.has(m.hacia) || m.desde === m.hacia || m.hacia === TERMINAL_DEL_PIPELINE) continue;
+      const k = `${m.desde}>${m.hacia}`;
+      veces.set(k, (veces.get(k) ?? 0) + 1);
+    }
+    for (const [k, n] of [...veces].sort((a, b) => b[1] - a[1])) {
+      if (n < U.gestosMovimientos) continue;
+      const [desde, hacia] = k.split('>');
+      ofrecer({
+        id: idGestoMover(desde, hacia), clase: 2, etapa: hacia, soloAdmin: false,
+        texto: `Hace ${n} veces que mueves de ${comillas(label(desde))} a ${comillas(label(hacia))}. ¿Lo hago solo?`,
+        accion: {
+          tipo: 'chat',
+          pedido: `En este CRM moví a mano ${n} leads de ${comillas(label(desde))} a ${comillas(label(hacia))} en las últimas dos semanas. ¿Qué tenían en común, y qué automatización los movería sola?`,
+        },
+      });
+    }
+    const r1 = pipeline.find((s) => s.kind === 'reunion');
+    const noShow = r1 ? etapaNoShowDe(e.etapas as Stage[], e.transiciones as FunnelTransition[], r1.key, 'r1') : null;
+    if (noShow && e.gestos.noShowsAMano >= U.gestosNoShow) {
+      enEtapa(2, 'lead-no-asistio', noShow, `Marcaste ${e.gestos.noShowsAMano} No show a mano. ¿Les escribo solo para reagendar?`);
+    }
+    // «Mandás el mismo mensaje a 3 o más leads de una etapa → dejarlo como secuencia de esa etapa». Cuenta LEADS distintos
+    // (mandárselo dos veces al mismo es insistir, no repetir) y la etapa en la que están HOY; una por etapa, la del mensaje
+    // más repetido. No hay plantilla para «este texto en esta etapa»: la arma MaKo por el chat, con el texto.
+    const enCrm = new Set(e.etapas.map((s) => s.key));
+    const grupos = new Map<string, { etapa: string; muestra: string; leads: Set<number> }>();
+    for (const m of e.gestos.mensajes ?? []) {
+      if (m.texto.length < U.mensajeMinimoLetras || !enCrm.has(m.etapa)) continue;
+      const k = `${m.etapa}|${m.texto}`;
+      const g = grupos.get(k) ?? { etapa: m.etapa, muestra: m.muestra, leads: new Set<number>() };
+      g.leads.add(m.lead);
+      grupos.set(k, g);
+    }
+    for (const g of [...grupos.values()].sort((a, b) => b.leads.size - a.leads.size)) {
+      const n = g.leads.size;
+      if (n < U.gestosMensaje) continue;
+      ofrecer({
+        id: `gesto-mensaje:${g.etapa}`, clase: 2, etapa: g.etapa, soloAdmin: false,
+        texto: `Mandaste el mismo mensaje a ${n} leads de ${comillas(label(g.etapa))}. ¿Lo dejo como secuencia de esa etapa?`,
+        accion: {
+          tipo: 'chat',
+          pedido: `En este CRM mandé a mano el mismo mensaje a ${n} leads de ${comillas(label(g.etapa))}: ${comillas(g.muestra)}. Ármame una automatización de esa etapa que lo mande sola.`,
+        },
+      });
+    }
+    // «Pegás el link de Fathom a mano 3 veces → conectar Fathom». Con Fathom conectado no hay nada que ofrecer, y si la
+    // clase 3 ya lo pidió (reuniones sin asistencia), gana la suya (va antes).
+    const pegados = e.gestos.fathomAMano ?? 0;
+    if (e.conectado.fathom === false && pegados >= U.gestosFathom) {
+      ofrecer({
+        id: 'conectar-fathom', clase: 2, etapa: null, soloAdmin: true,
+        texto: `Pegaste ${pegados} veces el link de Fathom a mano. ¿Lo conectas para que llegue solo?`,
+        accion: { tipo: 'link', href: '/integraciones?abrir=fathom' },
+      });
+    }
+  }
+
+  // ── CLASE 4: llega algo nuevo (20/10/2026) ───────────────────────────────────
+  // «El primer DM de Instagram o Messenger → que MaKo los conteste»: las plantillas que ya existen, si no hay una
+  // automatización viva que ya reciba esos mensajes.
+  if (e.nuevos) {
+    const dm = (n: number, plantilla: string, trigger: string, red: string) => {
+      if (n <= 0 || !sirve(plantilla) || existe({ donde: 'evento', plantilla, trigger, subtipo: 'dm' })) return;
+      ofrecer({
+        id: plantilla, clase: 4, etapa: null, soloAdmin: true,
+        texto: `Te ${n === 1 ? 'escribió 1 persona' : `escribieron ${n} personas`} por ${red}. ¿Que MaKo conteste los mensajes?`,
+        accion: { tipo: 'plantilla', plantilla, disparador: null },
+      });
+    };
+    dm(e.nuevos.dmInstagram, 'instagram-te-escribieron', TRIGGER_INSTAGRAM, 'Instagram');
+    dm(e.nuevos.dmMessenger, 'messenger-te-escribieron', TRIGGER_MESSENGER, 'Messenger');
+    // «El primer lead de un formulario o una landing que no estaba conectado a ningún CRM → conectarlo a uno». En MaKo
+    // un lead de una landing o una campaña sin asignar cae al CRM principal; el server sólo lo manda si hay otro CRM a
+    // donde conectarla. Uno por landing o campaña (el id lleva su nombre: «Ahora no» calla ésa y no las demás).
+    for (const f of e.nuevos.sinCrm ?? []) {
+      if (f.leads <= 0) continue;
+      ofrecer({
+        id: idSinCrm(f.tipo, f.nombre), clase: 4, etapa: null, soloAdmin: true,
+        texto: `${f.leads === 1 ? 'Llegó 1 lead' : `Llegaron ${f.leads} leads`} de la ${f.tipo} ${comillas(f.nombre)}, que no está en ningún CRM. ¿La conecto?`,
+        accion: {
+          tipo: 'chat',
+          pedido: `La ${f.tipo} ${comillas(f.nombre)} no está conectada a ningún CRM: sus leads caen al CRM principal. ¿A qué CRM conviene conectarla? Si es a éste, conéctala.`,
+        },
+      });
+    }
+    // «Un lead que vuelve a la landing o mira el VSL dos veces → avisarle al closer». No hay disparador para «volvió»
+    // (no se puede armar la automatización): con uno, su ficha; con varios, MaKo arma la lista para el closer por el chat.
+    const volvieron = e.nuevos.volvieron ?? [];
+    if (volvieron.length === 1) {
+      const v = volvieron[0];
+      ofrecer({
+        id: 'volvieron', clase: 4, etapa: v.etapa, soloAdmin: false,
+        texto: `${comillas(v.nombre)} volvió a mirar tu landing o el VSL. ¿Abro su ficha?`,
+        accion: { tipo: 'link', href: `/crm/${v.lead}` },
+      });
+    } else if (volvieron.length > 1) {
+      const quienes = volvieron.slice(0, 10).map((v) => `${v.nombre} (${label(v.etapa)})`).join(', ');
+      ofrecer({
+        id: 'volvieron', clase: 4, etapa: null, soloAdmin: false,
+        texto: `${volvieron.length} leads volvieron a mirar tu landing o el VSL. ¿Te armo la lista para el closer?`,
+        accion: {
+          tipo: 'chat',
+          pedido: `Estos leads de este CRM volvieron a la landing o miraron el VSL dos veces en las últimas dos semanas: ${quienes}${volvieron.length > 10 ? ` y ${volvieron.length - 10} más` : ''}. Ármame la lista para el closer: a quién llamar primero y qué decirle.`,
+        },
       });
     }
   }
@@ -426,7 +605,8 @@ export function parsearCalladas(raw: string | null | undefined): Record<string, 
   if (!j || typeof j !== 'object' || Array.isArray(j)) return {};
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(j as Record<string, unknown>)) {
-    if (/^\d+\|[a-z0-9:_-]{1,120}$/i.test(k) && typeof v === 'string' && Number.isFinite(Date.parse(v))) out[k] = v;
+    const [crm, id] = k.split('|');
+    if (/^\d+$/.test(crm ?? '') && ID_SUGERENCIA.test(id ?? '') && k.split('|').length === 2 && typeof v === 'string' && Number.isFinite(Date.parse(v))) out[k] = v;
   }
   return out;
 }

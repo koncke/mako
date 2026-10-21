@@ -301,7 +301,10 @@ test('las DOS puertas montan la MISMA ficha con la MISMA lectura', () => {
   const ini = acc.indexOf('export async function getLeadFullAction');
   const cuerpo = acc.slice(ini, acc.indexOf('\nexport ', ini + 10));
   assert.match(cuerpo, /leerInsumosDatosLead\(lead\),/);
-  assert.match(cuerpo, /const \{ faltantes, datos \} = await datosSinMarcarDeLead\(lead, insumos\);/);
+  // Desde el 20/10/2026 va en la MISMA tanda que el replay (no después: una ida y vuelta menos al abrir la ficha).
+  // El cobro va ÚLTIMO desde el 21/10: lo fija la regla de las dos puertas de la ficha (tests/muestra-pagos.test.ts).
+  assert.match(cuerpo, /replayDeLead\(lead\.visitor_id, ultimaActividad\), datosSinMarcarDeLead\(lead, insumos\), funnelsP, cobroP\]\);/);
+  assert.match(cuerpo, /const \{ faltantes, datos \} = sinMarcar;/);
   assert.doesNotMatch(cuerpo, /faltantesDeLead\(|estadoDatosDeLead\(/, 'getLeadFullAction vuelve a contar «N sin marcar» por su cuenta');
   const cuenta = sinComentarios(leer('lib/datos-del-lead.ts'));
   assert.match(cuenta, /const extraReq = \{[^}]*grabable: i\.grabable \}/);
