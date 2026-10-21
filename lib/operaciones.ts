@@ -374,7 +374,9 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   let preguntasIds: string[] = [];
   const preguntas = sanearPreguntas(e.preguntas);
   if (preguntas.length) {
-    try { preguntasIds = await guardarPreguntas(preguntas); } catch (err) { console.error('[operaciones] preguntas:', err instanceof Error ? err.message : err); }
+    // Si no se pudieron guardar, la vuelta NO avanza las marcas (`turnosOk`): una pregunta de wrap_up sale de una línea del
+    // transcript, y con la marca adelante nadie la volvía a leer (la revisión de caja-voz, 20/10/2026).
+    try { preguntasIds = await guardarPreguntas(preguntas); } catch (err) { turnosOk = false; console.error('[operaciones] preguntas:', err instanceof Error ? err.message : err); }
   }
 
   // Los acuses de la vuelta anterior: sólo sobre un pedido TOMADO, o sobre un aviso de la

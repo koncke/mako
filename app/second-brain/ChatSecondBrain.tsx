@@ -488,7 +488,9 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
   /** Un texto de más de 1.000 caracteres no entra a la caja: queda como un documento pegado (#864, como Claude). Una imagen
    *  pegada la toma la caja única (pegar.ts → alPegar). */
   const pegarLargo = (e: ClipboardEvent<HTMLTextAreaElement>) => {
-    if (e.clipboardData.files.length) return;
+    // Una celda de Excel o un párrafo de Word viajan como texto Y como imagen: con texto, manda el texto (la revisión de
+    // caja-voz, 20/10/2026: salir con cualquier archivo dejaba un pegado de 5.000 caracteres crudo en la caja, sin archivarse).
+    if (e.clipboardData.files.length && !Array.from(e.clipboardData.types).includes('text/plain')) return;
     const pegado = e.clipboardData.getData('text/plain');
     if (esPegadoLargo(pegado)) { e.preventDefault(); ponerPegados([...pegadosRef.current, { id: idLocal('p'), texto: pegado }]); }
   };
@@ -748,7 +750,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
                   que unificaras el chat del Ops Center en todos lados, su diseño y funcionalidades»). Arriba, los textos
                   largos pegados como documento. */}
               <CajaChat texto={texto} onTexto={(v) => { setFaltaMic(null); setTexto(v); }} onMandar={enviarCaja}
-                enviando={!!trabajo} apagado={!cargado || !!errorCarga} placeholder="Escríbele a MaKo" tituloMandar="Mandar (Enter)"
+                ocupado={!!trabajo} apagado={!cargado || !!errorCarga} placeholder="Escríbele a MaKo" tituloMandar="Mandar (Enter)"
                 enterManda campo={caja} seguir={seguirHilo} onErrorMic={setFaltaMic} adjuntos={adjuntosCaja}
                 hayAlgoMas={pegados.length > 0} onPegar={pegarLargo}
                 arriba={pegados.length > 0 ? (
