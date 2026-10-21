@@ -760,4 +760,74 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/second-brain',
   },
+  {
+    fecha: '20 oct', hora: '22:05', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: el chat del editor de landings deja adjuntar documentos, ya en producción',
+    puntos: [
+      'En producción desde el run 174 (deploy de e0cf9a317): el «+» del Ops Center en el chat del editor, lo adjuntado como material del pedido, el chip de «Lo que vendes» y varios archivos en la caja de crear.',
+      'No se vio con clics: está probado con tests. Se prueba creando o abriendo una landing en el ws3 (no tiene ninguna) y usando el chat de la izquierda.',
+    ],
+    revisar: '/web-generator?ws=3',
+  },
+  {
+    fecha: '20 oct', hora: '23:10', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: '«Créame una landing para mi otro producto»: MaKo pregunta cuál también cuando el pedido trae más palabras',
+    puntos: [
+      'La revisión del Cerebro encontró que la primera versión se equivocaba en los dos sentidos: «una landing de ventas para mi otro producto» se creaba sobre el producto que ya había, y nombrar ese mismo producto la frenaba con un aviso falso.',
+      'Ahora MaKo compara con los nombres de tus productos. Si pides «otro» y no dices cuál, pregunta: con varios, te muestra sus nombres; con uno solo, te pide cuál es el otro. Cuando contestas, aunque sea con una palabra, sigue.',
+      'También se fija en las instrucciones y el título, y entiende «otro de mis productos» y «otro servicio».',
+    ],
+    commits: [
+      { sha: 'd71f85d0d', msg: 'Ops Center 1.15, rehecha tras la revisión: el producto de la landing contra los NOMBRES del catálogo', lineas: 274, archivos: 6 },
+    ],
+    archivos: [
+      'lib/mako-pedidos.ts — productoDeLanding (reemplaza a faltaElOtroProducto) y pideOtroProducto',
+      'lib/api-mako/areas/landing-editor.run.ts y .def.ts — el parámetro `producto` y el guardia del preparar',
+      'lib/api-mako/areas/landing-contenido.helpers.ts — el producto al pedido, con conProducto',
+      'tests/ops-center-landing-receta.test.ts — la batería, un caso por hallazgo de la revisión',
+    ],
+  },
+  {
+    fecha: '21 oct', hora: '00:13', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Una landing «para mi producto nuevo» ya no se arma sobre el producto que tienes',
+    puntos: [
+      'La segunda revisión del Cerebro probó 60 frases reales y encontró dos fallas: si MaKo anotaba el producto como «mi otro producto», creaba igual; y «una landing para un producto nuevo» con un solo producto cargado le pegaba ése.',
+      'Ahora «nuevo», «segundo», «distinto» y «aparte» también cuentan como otro, igual que «mi otro curso» o «mi otra mentoría». Si no dice cuál es, MaKo pregunta.',
+      'Antes de crear, la tarjeta para confirmar dice para qué producto es la landing.',
+      'Tampoco frena por un «no menciones otros productos» en las instrucciones, y «el Curso avanzado» es ése aunque también tengas uno que se llame «Curso».',
+    ],
+    commits: [
+      { sha: '284e0c927', msg: 'Ops Center 1.15, tras la segunda revisión: una referencia en `producto` no salta el guardia', lineas: 492, archivos: 5 },
+    ],
+    archivos: [
+      'lib/mako-pedidos.ts — esReferenciaVaga, pideOtroProducto (destino, sin negar) y productosNombrados (el nombre largo; con «otro», sólo dicho como ése)',
+      'lib/api-mako/areas/landing-editor.run.ts — lo que decide el guardia reemplaza al producto que mandó el modelo',
+      'lib/api-mako/areas/landing-contenido.helpers.ts — el producto adelante en el resumen que se confirma',
+      'tests/ops-center-landing-receta.test.ts — las 60 frases de la revisión y 12 más, 30 roturas en rojo',
+    ],
+  },
+  {
+    fecha: '21 oct', hora: '02:23', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Para crear una landing, MaKo ya no adivina el producto: si no está claro, te pregunta con opciones',
+    puntos: [
+      'La tercera revisión probó unas 200 frases y encontró que MaKo seguía eligiendo mal: «Ya tengo la landing de la Mentoría; créame una para mi otro producto» la armaba sobre la Mentoría.',
+      'Ahora elige solo si nombras un producto de tu catálogo y no hablas de otro. Si no, te pregunta para cuál es: tus productos, «Un producto nuevo» o «El negocio en general».',
+      'Si eliges uno nuevo, te pide su nombre y de qué se trata. La tarjeta para confirmar dice para qué producto queda la landing.',
+      'El chat del editor de landings sigue igual que antes.',
+    ],
+    commits: [
+      { sha: 'bc42804f0', msg: 'Ops Center 1.15: el producto de la landing ya no se adivina; si no es seguro, se pregunta con opciones', lineas: 903, archivos: 7 },
+    ],
+    archivos: [
+      'lib/editor-landing/producto-de-landing.ts — productoDeLanding: elige sólo lo seguro, si no pregunta con opciones',
+      'lib/api-mako/areas/landing-editor.run.ts y .def.ts — el guardia en todo pedido y el parámetro producto_nuevo',
+      'lib/api-mako/areas/landing-contenido.helpers.ts — el producto, uno nuevo o el negocio, adelante en la tarjeta',
+      'lib/mako-pedidos.ts — de vuelta como en producción (el chat del editor)',
+      'tests/ops-center-landing-receta.test.ts — las ~200 frases de las tres revisiones, 42 roturas en rojo',
+    ],
+  },
 ];
