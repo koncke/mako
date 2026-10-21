@@ -37,13 +37,24 @@ export type PropuestaGuardada = {
 };
 
 /** `c`: cuándo se creó (ordena el hilo); `t`: su último cambio (gana al unir dos copias). En ms. */
+/**
+ * La propuesta de la API que trajo un mensaje. `version` y `cuantas` dicen qué tenía la fila cuando el editor la leyó
+ * (un dato: el cierre va por el CONTENIDO de lo aplicado, lib/editor-video/propuestas.ts → restarOperaciones).
+ * Opcionales: un hilo guardado antes del 20/10 no los tiene.
+ */
+export type RefPropuestaApi = {
+  id: string; canal: string; version?: number; cuantas?: number;
+  /** El server confirmó el cierre de lo que tenía este mensaje. Sin esto, el editor lo reintenta (chat/propuestas.ts). */
+  cerrada?: boolean;
+};
+
 export type MensajeGuardado =
   | { id: string; c: number; t: number; de: 'yo'; texto: string; alcance: string | null }
   | {
       id: string; c: number; t: number; de: 'mako'; texto: string; error?: boolean;
       cambios?: CambioChat[]; descartes?: string[]; estado?: EstadoPropuesta; aviso?: string; propuesta?: PropuestaGuardada;
       /** Llegó por la API de MaKo (video_editor_propuestas, mig 0302): se cierra en la base al resolverla. */
-      propuestaApi?: { id: string; canal: string };
+      propuestaApi?: RefPropuestaApi;
       /** Una burbuja de un pedido que no es del proyecto abierto (chat/pedidos.ts): sus links, de adentro de la app. */
       links?: Array<{ texto: string; href: string }>;
     };
@@ -122,8 +133,16 @@ function mensaje(x: unknown): MensajeGuardado | null {
   if (p) m.propuesta = p;
   if (ESTADOS.includes(x.estado as EstadoPropuesta)) m.estado = x.estado as EstadoPropuesta;
   if (typeof x.aviso === 'string' && x.aviso) m.aviso = x.aviso.slice(0, 500);
-  const api = x.propuestaApi as { id?: unknown; canal?: unknown } | undefined;
-  if (api && typeof api.id === 'string' && UUID.test(api.id) && typeof api.canal === 'string') m.propuestaApi = { id: api.id, canal: api.canal.slice(0, 20) };
+  const api = x.propuestaApi as { id?: unknown; canal?: unknown; version?: unknown; cuantas?: unknown } | undefined;
+  if (api && typeof api.id === 'string' && UUID.test(api.id) && typeof api.canal === 'string') {
+    const entero = (v: unknown) => (typeof v === 'number' && Number.isInteger(v) && v >= 0 && v < 1e6 ? v : undefined);
+    const version = entero(api.version);
+    const cuantas = entero(api.cuantas);
+    m.propuestaApi = {
+      id: api.id, canal: api.canal.slice(0, 20), ...(version !== undefined ? { version } : {}), ...(cuantas !== undefined ? { cuantas } : {}),
+      ...((api as { cerrada?: unknown }).cerrada === true ? { cerrada: true } : {}),
+    };
+  }
   // Los links de una burbuja: sólo de ADENTRO de la app (`/algo`, nunca `//otro.com` ni `javascript:`), pocos y cortos.
   const links = (Array.isArray(x.links) ? x.links : []).slice(0, 4).flatMap((l) => {
     const o = l as { texto?: unknown; href?: unknown };

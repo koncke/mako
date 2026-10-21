@@ -12,6 +12,7 @@ import { useTimelineStore } from "@/app/video-editor/_opencut/timeline/timeline-
 import { useEditorActions } from "@/app/video-editor/_opencut/actions/use-editor-actions";
 import { loadFontAtlas } from "@/app/video-editor/_opencut/fonts/google-fonts";
 import { nombreProyectoNuevo } from "@/app/video-editor/_opencut/inicio/nombre";
+import { SIN_PROYECTO_AQUI } from "@/app/video-editor/_opencut/chat/foco";
 import {
 	initializeGpuRenderer,
 	isGpuAvailable,
@@ -19,10 +20,12 @@ import {
 
 interface EditorProviderProps {
 	projectId: string;
+	/** El `?propuesta=` del link: si el proyecto no está en este navegador, se dice en vez de abrir uno vacío. */
+	propuesta?: string | null;
 	children: React.ReactNode;
 }
 
-export function EditorProvider({ projectId, children }: EditorProviderProps) {
+export function EditorProvider({ projectId, propuesta = null, children }: EditorProviderProps) {
 	const activeProject = useEditor((e) => e.project.getActiveOrNull());
 	const router = useRouter();
 	const [isLoading, setIsLoading] = useState(true);
@@ -56,7 +59,12 @@ export function EditorProvider({ projectId, children }: EditorProviderProps) {
 					(err.message.includes("not found") ||
 						err.message.includes("does not exist"));
 
-				if (isNotFound) {
+				// ⚠️ Con `?propuesta=` el proyecto vacío sería mentir: la persona vino a aceptar cambios de OTRO proyecto,
+				// que vive en otro navegador (chat/foco.ts).
+				if (isNotFound && propuesta) {
+					setError(SIN_PROYECTO_AQUI);
+					setIsLoading(false);
+				} else if (isNotFound) {
 					try {
 						// Un id que no existe (p. ej. «Editar en el editor» de Video
 						// Generator) abre un proyecto nuevo con el nombre MMDD de CapCut.
@@ -89,7 +97,7 @@ export function EditorProvider({ projectId, children }: EditorProviderProps) {
 		return () => {
 			cancelled = true;
 		};
-	}, [projectId, router]);
+	}, [projectId, propuesta, router]);
 
 	if (error) {
 		return (

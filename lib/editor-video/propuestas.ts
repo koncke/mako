@@ -104,5 +104,42 @@ export function lineaDeOperacion(titulo: string, op: OperacionChat, vista: Leido
   return `${titulo}${nombres.length ? `: ${nombres.join(', ')}` : ''}${detalle}`.slice(0, 200);
 }
 
+/** Una operación como texto estable: JSON con las claves ordenadas (jsonb las reordena al guardar). */
+export function claveDeOperacion(op: unknown): string {
+  const ordenar = (v: unknown): unknown => {
+    if (Array.isArray(v)) return v.map(ordenar);
+    if (v && typeof v === 'object') {
+      const o = v as Record<string, unknown>;
+      return Object.fromEntries(Object.keys(o).sort().map((k) => [k, ordenar(o[k])]));
+    }
+    return v;
+  };
+  return JSON.stringify(ordenar(op));
+}
+
+/**
+ * Los índices de `de` que QUEDAN después de sacar cada una de `quitar` (cada una saca una sola igual, por contenido).
+ *
+ * ⚠️ POR CONTENIDO, NO POR CANTIDAD NI POR VERSIÓN. Cerrar «los primeros N» o «hasta la versión V» se rompe en cuanto
+ * la vista del editor quedó vieja: dos pestañas que aceptan lo mismo, o una búsqueda en vuelo mientras se acepta, y se
+ * cierran cambios que el editor nunca vio (revisión del 21/10). Sacar EXACTAMENTE lo que el editor aplicó no depende
+ * de cuándo lo vio: lo que ya no está no se saca dos veces, y lo que llegó después queda.
+ */
+export function restarOperaciones(de: readonly unknown[], quitar: readonly unknown[]): number[] {
+  const porSacar = new Map<string, number>();
+  for (const q of quitar) {
+    const k = claveDeOperacion(q);
+    porSacar.set(k, (porSacar.get(k) ?? 0) + 1);
+  }
+  const quedan: number[] = [];
+  de.forEach((op, i) => {
+    const k = claveDeOperacion(op);
+    const n = porSacar.get(k) ?? 0;
+    if (n > 0) porSacar.set(k, n - 1);
+    else quedan.push(i);
+  });
+  return quedan;
+}
+
 /** Por dónde llegó una propuesta, para la persona. */
 export const CANAL_TEXTO: Record<string, string> = { whatsapp: 'WhatsApp', app: 'el chat de MaKo', http: 'la API' };

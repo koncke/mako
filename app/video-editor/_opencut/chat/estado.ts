@@ -4,7 +4,17 @@
 
 import { create } from "zustand";
 
-export const useChatAbierto = create<{ abierto: boolean; setAbierto: (v: boolean) => void }>()((set) => ({
+//
+// `foco` es el mensaje al que el panel tiene que ir al abrirse: el de la propuesta que trajo el link
+// `?propuesta=<id>` (chat/propuestas.ts → enfocarPropuesta). El panel baja hasta él, lo resalta y lo suelta.
+export const useChatAbierto = create<{
+	abierto: boolean;
+	setAbierto: (v: boolean) => void;
+	foco: string | null;
+	setFoco: (id: string | null) => void;
+}>()((set) => ({
 	abierto: false,
 	setAbierto: (abierto) => set({ abierto }),
+	foco: null,
+	setFoco: (foco) => set({ foco }),
 }));
