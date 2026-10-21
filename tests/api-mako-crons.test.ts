@@ -9,7 +9,8 @@
 //   · lo que llega por la API pasa por el MISMO saneador que lo de la pantalla: `ignorar` y `cron.dias`
 //     viajan como textos (el validador no tiene listas de números) y salen como números;
 //   · `preparar()` chequea todo lo que se puede saber sin escribir (`prepararDisparadores`), y guarda por
-//     la MISMA puerta que la pantalla (`guardarDisparadores`).
+//     la MISMA puerta que la pantalla (`guardarDisparadores`), a través de `publicarCrons` (21/10/2026): en una
+//     ACTIVA, cambiar a quién le escribe pregunta antes por la duplicada, como Activar.
 //
 // PROBADO ROMPIÉNDOLO: ver `ROTURAS` al pie.
 import { test } from 'node:test';
@@ -67,7 +68,9 @@ test('el runner chequea en preparar() y guarda por la puerta de la pantalla', ()
   assert.match(prep, /await prepararDisparadores\(id, input\.crons\)/, 'preparar() no chequea contra el negocio: el rechazo llegaría al confirmar, con la pendiente consumida');
   assert.match(prep, /yaEstaba: true/, '«ya está así» no es un fallo para un flujo ni para un token');
   assert.doesNotMatch(prep, /guardarDisparadores|tzDeWorkspace/, 'preparar() no escribe (y tzDeWorkspace escribe la zona si falta)');
-  assert.match(r.slice(r.indexOf('ejecutar:')), /await guardarDisparadores\(id, payload\.crons\)/);
+  // Guarda que cambió a propósito (21/10/2026): el «sí» va por `publicarCrons`, que pregunta por la duplicada y después
+  // escribe por `guardarDisparadores` (tests/automations-activar-todos-los-caminos.test.ts, (e)).
+  assert.match(r.slice(r.indexOf('ejecutar:')), /await publicarCrons\(id, payload\.crons, \{ aunqueDuplique: payload\.aunqueDuplique === true \}\)/);
   // Y `prepararDisparadores` hace lo mismo que el guardado, sin escribir.
   const g = sinComentarios(leer('lib/disparadores-guardar.ts'));
   const p = g.slice(g.indexOf('export async function prepararDisparadores('), g.indexOf('export async function guardarDisparadores('));
@@ -81,3 +84,5 @@ test('el runner chequea en preparar() y guarda por la puerta de la pantalla', ()
 // Base: 3 / 0. Las cuatro, 2 / 1: la def con `confirmacion: 'chat'` · `preparar()` sin
 // `prepararDisparadores` (sólo el saneador) · la def sin `cron.dias` (el validador los tira) ·
 // `prepararDisparadores` con un `.update(` adentro. Restaurado: 3 / 0.
+// 21/10/2026 (`roturas-eventos.json`): el «sí» guarda directo con `guardarDisparadores`, sin `publicarCrons` → 2 / 1.
+// Restaurado: 3 / 0.

@@ -5490,6 +5490,30 @@ tests/crear-ia-recurrente.test.ts · *20/10/2026, claude4.*
   recibe hoy el aviso; si se prendiera todo lo pausado, el peor grupo es el de ws11 (#282, #284 y una más, 3 a la misma
   etapa). No hay etapas con 5 automatizaciones legítimas: no hace falta volver a una regla de texto. Regla que queda
   (AGENTS.md): una heurística sobre texto libre PROPONE u ORDENA; lo que decide es un hecho, y la persona compara.
+- **⚠️ «UN EVENTO NO TIENE COHORTE QUE SE PISE» ERA FALSO** (revisión del Cerebro de cc8a82e6d, 21/10). La regla por
+  hechos comparaba sólo la etapa, la entrega y la etiqueta, y daba por sentado que dos CRON por evento (un DM, un pago,
+  «Se agrega etiqueta», «Agendó sin confirmar») no alcanzan a la misma gente. Pero `enrolarPorEvento` (lib/nutricion.ts)
+  inscribe al lead en TODAS las activas del disparador: el unique es (lead, automatización), y `unaPorSecuencia` deduplica
+  dentro de una, no entre dos. Lo más común: «Duplicar» una de DM o de pago (la copia nace pausada con el mismo CRON) y
+  prender la copia; por Instagram y Messenger los dos mensajes salen al instante. Ahora el mismo disparador con el mismo
+  evento (`subtipo`) es la misma gente, y «Se agrega etiqueta» (cualquiera) cruza con «Se le puso la N» si no ignora la
+  N. «A mano» no. El test lo ata al motor: si `disparaPorEvento` dispara dos CRON con el MISMO evento, `mismaCohorte` las
+  ve juntas. Medido en la base (sólo lectura, 21/10): hoy no hay dos activas del mismo evento en ningún negocio.
+- **Cambiar a quién le escribe una ACTIVA, o por dónde, es activarla de nuevo para esa gente.** Por la API de MaKo,
+  `cambiar_crons_secuencia` pasaba una activa a la etapa de otra sin preguntar, y `asignar_audio_paso` pasaba a WhatsApp
+  el primer mensaje (de email) de una activa, al lado de una gemela de WhatsApp. La regla por hechos hizo esto último
+  NUEVO: antes del canal, un email y un WhatsApp no se distinguían. Ahora los CRON de una persona por la API van por
+  `publicarCrons` (lib/disparadores-guardar.ts, la misma pregunta que `publicarPasos`), y el audio que cambia el canal
+  del primer mensaje va por `publicarPasos`; la propuesta lo dice y el «sí» lleva `aunqueDuplique`. El lienzo sigue
+  guardando el CRON en vivo y lo DICE al lado de «Activar» (`dupActiva`). Un test barre quién llama a
+  `guardarDisparadores`: uno nuevo tiene que preguntar o estar en la lista con su motivo.
+- **Bajos de la misma revisión.** El arranque cortaba con `slice` por unidades UTF-16: partía un emoji y dejaba medio par
+  suelto, «�» en pantalla, y la pendiente del Doer o de la API (que lleva el aviso) no se podía guardar en
+  `mako_acciones_pendientes`. Ahora corta por grafemas (`Intl.Segmenter`), así que una familia 👨‍👩‍👧 queda entera. Los
+  días de dos Recurrentes se comparan sólo en la MISMA zona: «lunes 23:30» de Tijuana y «martes 00:30» de Ciudad de
+  México salen en el mismo instante. Además, a menos de 12 horas se pisan aunque sean días distintos (las 23:30 y las
+  00:30), también con la vuelta del mes (el 28 a las 23 y el 1 a la 1; el día va hasta el 28, `DIA_MES_MAX`). Y una PAUSADA que se publica ya no lee todas las automatizaciones con sus
+  pasos: primero mira si está activa, y después lee sólo las activas.
 - **Un aviso que se calcula no se borra.** El del CRON nuevo en una activa colgaba del guardado (se lo comía el
   `onError(null)` del guardado siguiente, y se perdía si se cambiaba de automatización antes de que volviera). Ahora se
   CALCULA de lo que hay (sus CRON de ahora y lo publicado, `dupActiva`) y se dice al lado de «Activar» mientras sea así.
@@ -5500,9 +5524,12 @@ tests/crear-ia-recurrente.test.ts · *20/10/2026, claude4.*
 **Lo que quedó SIN hacer:** los 31 borradores de #282 y el de #284 siguen pendientes (aprobar o descartar lo decide
 Martín) · el aviso de duplicada no mira la hora del día ni la reentrada (dos Recurrentes el MISMO día a horas
 distintas avisan: el lead recibe los dos; un `ordinal` mensual, «el primer lunes», se toma como que se pisa) ni el
-horario de envío propio de cada una · cambiarle los CRON a una activa por la API de MaKo no pregunta (la pantalla lo dice al abrirla) ·
-cambiar el audio, la espera o la vista previa de un paso por la API no pregunta (no cambian el texto) · el conteo está en la
-automatización abierta, no en la fila de la lista · nada se vio con clics en un navegador.
+horario de envío propio de cada una · dos eventos «de antes» del mismo tipo en funnels distintos avisan igual (el
+motor barre por el funnel de la FILA y el CRON no lo lleva: `higiene`, lib/disparadores.ts) · dos CRON de cohortes
+distintas con «también al grupo de MaKo» le escriben los dos al grupo y no avisan · en el lienzo, guardar un CRON en
+una activa no pregunta (por diseño: se guarda en vivo y el aviso queda al lado de «Activar») · la espera o la vista
+previa de un paso por la API no preguntan (no cambian ni a quién ni por dónde) · el conteo está en la automatización
+abierta, no en la fila de la lista · nada se vio con clics en un navegador.
 
 **Vive en:** lib/mensajes-por-aprobar.ts · lib/setting-secuencias.ts (`leerPorAprobar`) · app/automations/SecuenciaPerfil.tsx
 (la línea, `notaChat`, `conAvisoDuplicada`) · app/automations/ChatMako.tsx (`nota`) · lib/automatizacion-duplicada.ts ·

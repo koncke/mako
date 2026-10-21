@@ -100,11 +100,15 @@ jobs:
           if [ "$c" -eq 2 ]; then echo "::warning::no pude calcular los tests afectados: la fase siguiente corre la suite completa"; exit 0; fi
           exit $c
 
+      # ⚠️ 21/10/2026, run 200 (06ce1cb25): «Tipos» murió con exit 134 a los 297 s, con 5.082 MB de los 5.120 del tope («heap out of memory»); los runs
+      # anteriores habían pasado a los 177-213 s: el programa está en el borde del tope desde hace días, y el tope sube cada vez que lo cruza
+      # (2048 → 3072 → 4096 → 5120 el 13-14/10). 6144 es un PARCHE que da ~1 GB de aire (el runner tiene 7,9 GB: queda lugar para el SO y el runner);
+      # no es la solución: lo que el tsc pidió pasó de >4.083 MB (14/10) a >5.082 MB (21/10), ~1 GB en una semana. Ver docs/hallazgos-infra.md.
       - name: Tipos
         run: |
           set +e
           SECONDS=0
-          node --max-old-space-size=5120 node_modules/typescript/bin/tsc --noEmit
+          node --max-old-space-size=6144 node_modules/typescript/bin/tsc --noEmit
           c=$?
           echo "tipos: $SECONDS s (código $c)" | tee -a "$GITHUB_STEP_SUMMARY"
           exit $c
