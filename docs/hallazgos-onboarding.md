@@ -2414,3 +2414,12 @@ Pedido de Martín (punto 15 del feedback del 18/10), en cuatro commits de la ram
 - **Las preguntas con opciones no aceptan texto** (lib/onboarding-arranque.ts:570 y :586 devuelven «Elige una de las opciones.»), y la pantalla tampoco avisa que se puede escribir otra cosa.
 - **Lo que contestó en «¿qué querés que MaKo resuelva primero?» no se usa:** `rutaDeEntrada` (lib/onboarding-arranque.ts:194) no tiene llamadores, y la salida siempre va a /second-brain sin guía ni soporte visible.
 - **«Lo justo» estaba desplegado y el onboarding igual duró 45 minutos** (22:22→23:07 UTC, contra «menos de 5» del saludo). El diagnóstico obvio, que el límite de 3 piezas (6470c86f6) no estaba en producción, era el equivocado: 3413c63aa estaba READY desde las 21:35 UTC. La causa es la de arriba: el corte lo decide el modelo.
+
+## Lo que encontró la revisión de onboarding-v3 antes de subirla (20/10/2026)
+
+El detalle está en las notas compartidas, `revision-onboarding-v3-20-10.md`.
+- **«Confirmar» un dato no sirve si un texto que no es «sí» se guarda igual.** «Sí» con tilde no matcheaba `s[ií]`, porque `` no corta después de una letra acentuada, y se guardaba como el nombre del negocio. **Regla:** con algo pendiente de confirmar, nada se escribe sin un sí explícito; otro texto es una propuesta nueva.
+- **Un chat que se COPIA al terminar necesita candado e insert en lote.** Con dos caminos que crean (el POST de la pantalla y la primera visita a /second-brain) y una ventana de segundos, salen duplicados o se adopta una copia a medio hacer.
+- **«Quién lo hizo» se guarda:** sin eso, el hilo de la dueña se le crea al primer admin que entra.
+- **Una capa que se decide en el cliente no arranca visible en el HTML del server.** `useState(true)` la pinta en cada carga, antes de leer el sessionStorage.
+

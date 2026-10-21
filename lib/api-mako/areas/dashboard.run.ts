@@ -29,6 +29,7 @@
 import 'server-only';
 import { after } from 'next/server';
 import type { Ctx, Ejecutado, Preparado, Runners, SalidaLectura } from '../tipos';
+import { quienChatea } from '../tipos';
 import { linkPantalla } from '../link';
 import { PREFIJO_FLUJO } from '../canal';
 import { getSupabaseServer } from '@/lib/supabase';
@@ -152,7 +153,8 @@ async function personasDeLaCuenta(ws: number): Promise<{ informes: PersonaInform
 async function resolver(input: In, ctx: Ctx, modo: 'leer' | 'persona'): Promise<Resuelto | Fallo> {
   const http = ctx.canal === 'http';
   const { informes, miembros } = await personasDeLaCuenta(ctx.ws);
-  const e = elegirPersona({ informes, miembros, pedido: str(input, 'persona'), sinPersonaVaElInicial: modo === 'leer', enFlujo: enFlujo(ctx) });
+  // En la app, «mi hoja» es la de quien chatea (`quienChatea`): con 2 o más informes ya no pide un email.
+  const e = elegirPersona({ informes, miembros, pedido: str(input, 'persona'), sinPersonaVaElInicial: modo === 'leer', enFlujo: enFlujo(ctx), quienChatea: quienChatea(ctx) });
   if (!e.ok) return { error: e.error, ...(http || !e.disponibles.length ? {} : { disponibles: e.disponibles }) };
   const lectura: TableroVersionado = e.persona
     ? await infra('leer el informe', () => leerTableroVisible(e.persona!.sub))

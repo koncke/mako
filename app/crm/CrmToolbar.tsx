@@ -39,6 +39,7 @@ import { Confirm } from '@/app/_ui/Confirm';
 import { LapizIcon } from './iconos';
 import { BANDAS_KANBAN } from './filtros-guardados';
 import { EstiloTarjetas } from '@/app/_ui/TarjetaKanban';
+import { Tooltip } from '@/app/_ui/Tooltip';
 // El CUBO del desplegable de funnels (punto 24): el ícono `producto` del set de los menús, el
 // mismo que dibuja un funnel en el resto de la app. No se dibuja uno propio.
 import { IconoFunnel, IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
@@ -219,12 +220,14 @@ function MenuItem({ icon, label, onClick, href }: {
     : <button type="button" onClick={onClick} style={style} {...handlers}>{inner}</button>;
 }
 
-export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas }: {
+export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas, onPersonalizarTarjetas }: {
   onImportar: () => void;
   onExportar: () => void;
   onNuevo: () => void;
   /** Abre el pop-up de etapas del funnel que el tablero está dibujando. */
   onEditarEtapas: () => void;
+  /** Qué datos muestra la tarjeta de un lead, para quien mira (20/10/2026). */
+  onPersonalizarTarjetas?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   useEscape(open, () => setOpen(false));
@@ -276,6 +279,12 @@ export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas
                 había que irse, cambiar a ciegas y volver a ver si había quedado bien. */}
             <MenuItem icon={<FunnelIcon size={15} />} label="Editar las etapas"
               onClick={() => { setOpen(false); onEditarEtapas(); }} />
+            {/* «Las cards, las debería poder personalizar también, por si el usuario quiere más o menos info»
+                (Martín, 20/10/2026). Un pop-up con una casilla por dato; es de quien mira, no del funnel. */}
+            {onPersonalizarTarjetas && (
+              <MenuItem icon={<IconoMenu nombre="configurar" size={15} />} label="Personalizar tarjetas"
+                onClick={() => { setOpen(false); onPersonalizarTarjetas(); }} />
+            )}
             {/* ⚠️ ACÁ HABÍA TRES RENGLONES MÁS, y se fueron el 14/10/2026. Martín: «ya
                 eliminarías en los 3 puntos los botones de "avisos y resumen"... Y elimina el
                 botón de "CRM Automático", para eso ya llevamos todo a Automations».
@@ -311,17 +320,21 @@ export function VistaSelector({ vista, onVista, pendientes }: {
   void pendientes;
   // ⚠️ PESTAÑAS PÍLDORA (17/10/2026, la familia del prototipo docs/prototipos/coherencia-1710.html): «Tablero · Lista»,
   //    las dos vistas que existen (decidido: las del prototipo se mapean a las de hoy). El ícono sigue saliendo de
-  //    app/_ui/iconos-vista (el mismo que Customer Success), ahora con su nombre al lado: una píldora con sólo un
-  //    dibujo no dice qué vista es. El estilo es el de `.tk-ptab` (app/_ui/TarjetaKanban.tsx).
+  //    app/_ui/iconos-vista (el mismo que Customer Success). El estilo es el de `.tk-ptab` (app/_ui/TarjetaKanban.tsx).
+  // ⚠️ SÓLO EL ÍCONO, CON TOOLTIP (20/10/2026, Martín: «Los botones de "Tablero y lista" solo con íconos debería
+  //    estar»). El nombre de la vista sigue en el tooltip de la casa y en el `aria-label`: el teléfono no tiene este
+  //    selector, así que el tooltip no esconde nada que haga falta (la regla de app/_ui/Tooltip.tsx).
   const NOMBRE: Record<CrmVista, string> = { kanban: 'Tablero', tabla: 'Lista' };
   return (
     <div className="tk-ptabs" role="tablist" aria-label="Cómo ver los leads" style={{ flex: 'none', padding: 0, overflow: 'visible' }}>
       <EstiloTarjetas />
       {(['kanban', 'tabla'] as const).map((v) => (
-        <button key={v} type="button" role="tab" className="tk-ptab" onClick={() => onVista(v)} aria-selected={vista === v}
-          title={ICONO_VISTA[v].titulo} aria-label={ICONO_VISTA[v].titulo} style={{ height: 34, padding: '0 14px' }}>
-          {ICONO_VISTA[v].icono}{NOMBRE[v]}
-        </button>
+        <Tooltip key={v} text={NOMBRE[v]} side="bottom">
+          <button type="button" role="tab" className="tk-ptab" onClick={() => onVista(v)} aria-selected={vista === v}
+            aria-label={NOMBRE[v]} style={{ height: 34, width: 40, padding: 0, justifyContent: 'center' }}>
+            {ICONO_VISTA[v].icono}
+          </button>
+        </Tooltip>
       ))}
     </div>
   );

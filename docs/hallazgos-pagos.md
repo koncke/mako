@@ -268,6 +268,19 @@ el MRR un 85% (hallazgos-crm.md).
   US$1.875, y el 13/10 se marcó pagada sólo una.
 - **La regla.** Antes de tocar General por un «ya está cobrado», se leen los pagos del lead y su historial.
 
+### «Clientes por cobrar» no veía las suscripciones: una suscripción no genera cuotas (20/10/2026)
+
+- **El síntoma** (Martín, llamada con Leila del 19/10): la lista de a quién cobrarle no mostraba a ningún cliente de
+  mensualidad. Leía sólo cuotas impagas (`getOutstandingDetalle`), y una suscripción manual se registra mes a mes.
+- **La regla, la de toda la app** (`cobradoDelLead`, en lib/suscripciones-por-cobrar.ts): entra un mes manual sin
+  registrar, una renovación de la pasarela rechazada, o la próxima mensualidad manual dentro de la ventana. Una de la
+  pasarela al día no entra: se cobra sola.
+- **Lo que NO cambia: el número de Outstanding.** La app no llama deuda a un mes sin registrar (dice «Falta
+  registrar», en ámbar: puede estar cobrado y no anotado). Por eso se suma a la LISTA (`getPorCobrar`, lib/pagos.ts), y
+  el Outstanding sigue saliendo de las cuotas.
+- **Una fila sin cuota no ofrece «Cobrada»:** abre la ficha, donde se registra el mes. General y el teléfono descartaban
+  toda fila sin cuota; ahora las dos usan `cobroDeFila` (app/m/dashboard/modelo.ts). tests/suscripciones-por-cobrar.test.ts.
+
 ### Cliente de agencia (#866 y #867)
 
 No es de esta tab: es la pasarela y la cuenta de la agencia. Está en

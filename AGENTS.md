@@ -1625,6 +1625,12 @@ código nuevo:
       Second Brain de cualquier negocio, el del super admin incluido, es UN grafo: lo que separa la vista son los filtros
       (pedido ya el 17/10 y el 18/10, pt 4). Se verifica mirando lo que se DIBUJA, no el código: dos raíces o dos racimos
       separados también son dos cerebros.
+    - **UN VERDE QUE SÓLO DICE «TE FALTAN N COMMITS DE MAIN» SE MANDA IGUAL** (20/10/2026). Pasa cuando pasaron todos los tests y
+      las guardas, y lo único rojo es `tu rama no tiene origin/main mergeado` (scripts/antes-de-subir.mjs:276). Se manda el sha
+      diciéndolo, y el merge lo hace el Cerebro, con Actions chequeando los tipos.
+      - El candado `C:/dev/pesado.lock` no tiene cola, y con pushes seguidos un chat que espera siempre queda atrás. El 20/10 Onboarding
+        corrió su VERDE tres veces y Pagos esperó dos horas.
+      - Esto deja de hacer falta cuando el candado tenga cola y se mergee main al tomarlo (encargado a Infra el 20/10).
     - **Un jefe se abre con un mensaje de Martín en el chat del Cerebro, en la app.** `start_session` sólo corre en un
       turno que empieza con palabras de Martín: con un pedido que llega por el Ops Center contesta «Start sessions only on
       the user's own words» (docs/hallazgos-operaciones.md, «Los dos topes»). Una sesión de la nube no abre chats de la PC:

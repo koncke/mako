@@ -22,6 +22,8 @@
 // falló, y la pantalla lo dice distinto de una columna vacía.
 // =============================================================================
 
+import { getCamposTarjetaCrm } from '@/lib/perfil';
+import type { CampoTarjetaLead } from '@/lib/tarjeta-kanban';
 import 'server-only';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { tzDeWorkspace, TZ_DEFAULT, hoyEnWorkspace } from '@/lib/timezone';
@@ -241,6 +243,8 @@ export type TableroCrmM = {
   columnas: Array<{ key: string; titulo: string; total: string | null; cuantos: number; movible: boolean; sale: boolean; camino: boolean }>;
   tarjetas: TarjetaCrmM[];
   proximo: ProximoCrmM | null;
+  /** Qué muestra la tarjeta para quien mira (20/10/2026): la MISMA elección que en la computadora (lib/perfil.ts). */
+  campos: CampoTarjetaLead[];
 };
 
 const BANDA_ORDEN = ['pipeline', 'nutricion', 'salidas'];
@@ -338,6 +342,7 @@ export async function tableroCrm(funnelPedido: number | null): Promise<TableroCr
       }),
       tarjetas,
       proximo,
+      campos: (await getCamposTarjetaCrm()).campos,
     };
   } catch (e) {
     console.error(`[m/crm] tablero: ${msg(e)}`);

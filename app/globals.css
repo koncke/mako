@@ -55,6 +55,10 @@
   --bg: #F4F6F9;
   --surface: #FFFFFF;
   --surface-2: #F5F7FA;
+  /* EL BLOQUE DE UNA COLUMNA DE KANBAN (CRM, Clients, Plan, teléfono), el del prototipo coherencia-1710. NO es
+     `--surface-2`: ése es #F5F7FA sobre una página #F4F6F9 —el mismo color— y la columna no se veía (Martín, 20/10:
+     «que las columnas no sean invisibles»). Un tono que se lee CONTRA el fondo; lo mide tests/tarjetas-familia.test.ts. */
+  --fondo-columna: rgba(216, 222, 233, .55);
   /* El velo del hover: se pinta ENCIMA del fondo que tenga el boton, sea cual sea.
      Ver `.crm-hover` en app/_ui/ui.css: un color solido no serviria, porque hay
      botones azules, rojos, crema y transparentes en la misma barra. */
@@ -324,6 +328,7 @@
   --bg: #22262E;
   --surface: #2A2F39;
   --surface-2: #333944;
+  --fondo-columna: rgba(0, 0, 0, .16);
   --border: #383D47;
   --border-strong: #4A5160;
   --ink: #F3F5F8;

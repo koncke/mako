@@ -91,6 +91,8 @@ export type PersonaChat = {
   actor: string;
   /** de quién son las sesiones (chartKeyDePersona) */
   chartKey: string;
+  /** la persona de la sesión (`usuarios.id`): «mi hoja» del Dashboard y de General es la suya (`Ctx.quien`) */
+  quien?: { sub: string; email: string; nombre: string };
 };
 
 export type FalloPersona = { error: string; status: 400 | 401 | 403 };
@@ -111,7 +113,9 @@ export async function personaDelRequest(): Promise<PersonaChat | FalloPersona> {
   if (!puedeVerKey('mako', rolWs, capa)) return { error: 'MaKo no está en tu cuenta.', status: 403 };
   const chartKey = chartKeyDePersona(sesion);
   if (!chartKey) return { error: 'Tu sesión venció.', status: 401 };
-  return { ws, rol: rolWs === 'admin' ? 'admin' : 'miembro', actor: sesion.email || sesion.nombre || sesion.sub, chartKey };
+  // Sólo una persona de verdad (`usuarios.id`): una sesión 'dev' o 'password' no tiene un informe propio.
+  const quien = /^\d+$/.test(String(sesion.sub)) ? { sub: String(sesion.sub), email: (sesion.email ?? '').toLowerCase(), nombre: sesion.nombre ?? '' } : undefined;
+  return { ws, rol: rolWs === 'admin' ? 'admin' : 'miembro', actor: sesion.email || sesion.nombre || sesion.sub, chartKey, quien };
 }
 
 // ── Las sesiones de la persona ───────────────────────────────────────────────
@@ -383,7 +387,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       ws, canal: 'app', canalKey,
       // `proponer`: este turno deja pendientes y propuestas; confirmar es de la persona
       // (confirmar_accion pide `ejecutar` y además no viaja: dos cortes).
-      alcance: 'proponer', rol: persona.rol, turnStart, mensajeUsuario: textoPersona || textoMemoria, actor: persona.actor,
+      alcance: 'proponer', rol: persona.rol, turnStart, mensajeUsuario: textoPersona || textoMemoria, actor: persona.actor, quien: persona.quien,
       aPersona: (t) => { const x = (t ?? '').trim(); if (x && !paraLaPersona.includes(x)) paraLaPersona.push(x); },
       // Lo que el ticket sabe sin que lo escriba el modelo: el pedido textual, lo último que dijo MaKo y el error.
       contextoTicket: () => ({
@@ -552,7 +556,7 @@ async function anotarEnHilo(sessionId: number, texto: string): Promise<void> {
 function ctxDeTarjeta(persona: PersonaChat, sessionId: number, aPersona?: (t: string) => void): Ctx {
   // Sin `turnStart`: el toque es un acto aparte del turno que propuso. Sin `bandeja`: este
   // chat ve SÓLO su clave. `rol` es el real: gatingOk se vuelve a mirar al confirmar.
-  return { ws: persona.ws, canal: 'app', canalKey: canalKeyDeSesion(sessionId), alcance: 'ejecutar', rol: persona.rol, actor: persona.actor, aPersona };
+  return { ws: persona.ws, canal: 'app', canalKey: canalKeyDeSesion(sessionId), alcance: 'ejecutar', rol: persona.rol, actor: persona.actor, quien: persona.quien, aPersona };
 }
 
 const NO_ES_TUYA: ResultadoTarjeta = { ok: false, error: 'No encuentro ese chat' };
