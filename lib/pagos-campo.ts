@@ -26,7 +26,7 @@
 import { centavos } from './pagos-diferencia';
 import { formatoMonto, normalizarMoneda } from './pasarela-moneda';
 import { VENTA_SIN_COBRO, ventaTipoDe, type VentaTipo } from './venta-tipo';
-import { mesesDePlata, noEsDeuda, sumarMeses } from './cobrado-lead';
+import { esPlataSuelta, mesesDePlata, noEsDeuda, sumarMeses } from './cobrado-lead';
 
 type Resultado<T> = ({ ok: true } & T) | { ok: false; error: string; faltan?: string[] };
 
@@ -324,8 +324,8 @@ export type CuotaDeseada = { id?: number | null; numero?: number | null; monto_u
  *               iguales (mismo monto y vencimiento), después cada protegida con una deseada (no se pueden borrar,
  *               y sin deseada la deuda se duplicaba) y al final, por orden, las que se pueden cambiar enteras.
  *   · 'slots' — un plan uniforme (inicial = número 0, cuota N = número N): se casa por número. Una pagada cubre
- *               su número; es la regla de `savePlanPagos` de siempre. ⚠️ Salvo un pago SUELTO (21/10/2026): una seña de
- *               US$100 con el número 1 tapaba la cuota 1 de US$1.000, y el plan quedaba US$900 corto sin que nadie lo viera.
+ *               su número; es la regla de `savePlanPagos` de siempre. ⚠️ «Número» es el LUGAR en el plan, no el de la
+ *               fila (21/10/2026): ver `lugar` adentro.
  */
 export type ModoReconciliar = 'porId' | 'lista' | 'slots';
 
@@ -367,10 +367,24 @@ export function reconciliarCuotas(
   } = {},
 ): PlanDeCuotas {
   const out: PlanDeCuotas = { actualizar: [], insertar: [], borrar: [], conservar: [] };
+  // ⚠️ EN 'slots' LA CUOTA N ES LA N-ÉSIMA DEL PLAN, NO LA FILA CON EL NÚMERO N (21/10/2026, revisión de f2ec0c948, alta).
+  // Un pago suelto toma un número (`registrarPagoSuelto`: el siguiente), y el plan armado después vive en números
+  // corridos: la seña es la #1 y las cuotas, la #0, #2, #3 y #4. Casando por el número de la fila, la seña tapaba la
+  // cuota 1 (el plan quedaba US$900 corto) o, sin taparla, cada «Cambiar el plan» de la ficha insertaba una cuota de más
+  // y dejaba la última sin tocar: US$1.000 de deuda fantasma por cambio. Las del plan son las que no nacieron cobradas
+  // ni están devueltas, en orden: el inicial (la fila 0) es el lugar 0, y las demás, 1, 2, 3…
+  const lugarDe = new Map<number, number>();
+  if (modo === 'slots') {
+    let k = 0;
+    for (const q of existentes.filter((x) => !x.nacio_cobrada && !x.devuelta).slice().sort((a, b) => a.numero - b.numero)) {
+      lugarDe.set(q.id, q.numero === 0 ? 0 : ++k);
+    }
+  }
+  const lugar = (q: CuotaExistente): number | null => (modo === 'slots' ? (lugarDe.get(q.id) ?? null) : q.numero);
   const impagas = existentes
-    .filter((q) => !q.pagado && !q.devuelta && (modo !== 'slots' || !opts.soloNumeros || opts.soloNumeros.has(q.numero)))
+    .filter((q) => !q.pagado && !q.devuelta && (modo !== 'slots' || (lugar(q) != null && (!opts.soloNumeros || opts.soloNumeros.has(lugar(q) as number)))))
     .slice().sort((a, b) => a.numero - b.numero);
-  const pagadasNum = new Set(existentes.filter((q) => q.pagado && !q.nacio_cobrada).map((q) => q.numero));
+  const pagadasNum = new Set(existentes.filter((q) => q.pagado && lugar(q) != null).map((q) => lugar(q) as number));
   const usados = new Set(existentes.map((q) => q.numero));
   const libres = new Set(impagas.map((q) => q.id));
   const prot = (q: CuotaExistente): readonly Proteccion[] => q.protegida ?? [];
@@ -401,7 +415,7 @@ export function reconciliarCuotas(
       else sinCasar.push(d);
     }
   } else if (modo === 'slots') {
-    const porNumero = new Map(impagas.map((q) => [q.numero, q]));
+    const porNumero = new Map(impagas.map((q) => [lugar(q) as number, q]));
     for (const d of validas) {
       const n = d.numero;
       // La pagada cubre su número. En un ajuste (`soloNumeros`), sólo si ese número era del plan: una pagada que no
@@ -588,7 +602,7 @@ export function pagosPrevios(existentes: ReadonlyArray<FilaPrevia>): { hayPlan: 
   const vivas = existentes.filter((q) => !noEsDeuda({
     pagado: !!q.pagado, fecha_esperada: q.fecha_esperada ?? null, proveedor: q.proveedor ?? null, cobro_id: q.cobro_id ?? null, baja_at: q.baja_at ?? null,
   }));
-  const esSuelta = (q: FilaPrevia) => !!q.pagado && (!!q.nacio_cobrada || !!q.proveedor);
+  const esSuelta = (q: FilaPrevia) => esPlataSuelta(q);
   const sueltos = vivas.filter(esSuelta);
   return {
     hayPlan: vivas.some((q) => !esSuelta(q)),

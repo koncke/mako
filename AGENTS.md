@@ -1850,7 +1850,8 @@ horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, un
   con un plan no se toca; en una suscripción, los meses ya cobrados sueltos son las primeras cuotas y las fechas van
   desde el cierre (como cuenta `cobradoDelLead`); un pago único con un pago previo no se arma. Nunca nace una cuota por
   un mes ya cobrado, y lo que no se hizo vuelve en `sinTocar` y el asistente lo MUESTRA: nada se descarta en silencio.
-- **Lo cobrado suelto de una suscripción se cuenta por PLATA, con `mesesDePlata`** (lib/cobrado-lead.ts, 21/10/2026), y
+- **Lo cobrado suelto de una suscripción se cuenta por PLATA, con `mesesDePlata`** (lib/cobrado-lead.ts, 21/10/2026; qué es
+  plata suelta, `esPlataSuelta`; en 'slots' la cuota N es la N-ésima del plan, no la fila con el número N), y
   qué es un plan lo dice `pagosPrevios` (lib/pagos-campo.ts): ninguna lectura nueva cuenta filas como meses ni arma su
   propia regla. Lo que gana un lead sin pasar por `updateLead` escribe también su `fecha_cierre`.
 - **Los meses se suman con `sumarMeses` (lib/cobrado-lead.ts)**, que topa al último día del mes: `new Date(y, m + n, d)`

@@ -105,6 +105,9 @@ export type Cobrado = {
     fuente: 'pasarela' | 'manual';
     /** Meses que ya tendrían que estar registrados y no lo están (sólo la manual). */
     sinRegistrar: number;
+    /** Los meses que cubre lo cobrado: las cuotas del plan, una por mes, y la plata suelta por plata (`mesesDePlata`).
+     *  Es con lo que se cuenta `sinRegistrar`, y desde dónde vence el primer mes sin registrar («A quién cobrar»). */
+    mesesCubiertos: number;
   };
   /** Lo cobrado en su moneda ORIGINAL, donde no fue en dólares (`pagos.moneda` + `monto_original`). */
   monedas: Array<{ moneda: string; monto: number }>;
@@ -133,13 +136,29 @@ function diasEntre(desde: string, hasta: string): number {
  * cubría un mes entero. Un 10% por mes de tolerancia: el tipo de cambio de un cobro en otra moneda. `enteros`: si da
  * meses enteros; si no, `meses` son los que llega a cubrir (la seña, 0). La usan `cobradoDelLead` y el asistente de
  * Ganado (`planDelAsistente`, lib/pagos-campo.ts), así los dos cuentan igual.
+ *
+ * ⚠️ LA TOLERANCIA ES FIJA, UN 10% DE UNA MENSUALIDAD (revisión de f2ec0c948, medio): multiplicada por los meses, las
+ * ventanas se pisaban desde 4,5 mensualidades y TODO monto daba «meses enteros». Un año prepagado a −5% de cambio
+ * (US$5.700) contaba 11 meses y la cobranza le reclamaba uno a quien pagó el año; 6 meses con 10% de descuento (US$2.700)
+ * contaban 5. Lo que no cae cerca de un número entero de mensualidades no son meses enteros: el asistente no arma y lo dice.
  */
 export function mesesDePlata(plata: number, mensualidad: number): { meses: number; enteros: boolean } {
   if (!(mensualidad > 0) || !(plata > 0)) return { meses: 0, enteros: !(plata > 0) };
   const k = Math.round(plata / mensualidad);
-  const enteros = k >= 1 && Math.abs(plata - k * mensualidad) <= 0.1 * mensualidad * k;
+  const enteros = k >= 1 && Math.abs(plata - k * mensualidad) <= 0.1 * mensualidad;
   return { meses: enteros ? k : Math.floor(plata / mensualidad), enteros };
 }
+
+/**
+ * ⚠️ ¿ES PLATA SUELTA, NO UNA CUOTA DEL PLAN? (revisión de f2ec0c948, medio): la MISMA regla para la ficha
+ * (`cobradoDelLead`) y para el asistente (`pagosPrevios`, lib/pagos-campo.ts). Con dos reglas, el cobro de un link de
+ * US$1.500 contaba 3 meses en el asistente y 1 en la ficha, que pedía «Registrar el mes cobrado» para siempre. Es plata
+ * suelta lo cobrado que nació cobrado (un pago suelto, una mensualidad a mano) y el cobro de un link: la pasarela inserta
+ * esa fila sin `nacio_cobrada`, y una cuota del plan cobrada por link vale una mensualidad, así que contarla por plata da
+ * lo mismo.
+ */
+export const esPlataSuelta = (q: { pagado?: boolean | null; nacio_cobrada?: boolean | null; proveedor?: string | null }): boolean =>
+  !!q.pagado && (!!q.nacio_cobrada || !!q.proveedor);
 
 /** La fecha `meses` después de `iso`, con el día capado al último del mes (31/01 + 1 = 28/02 o 29/02). */
 export function sumarMeses(iso: string, meses: number): string {
@@ -254,17 +273,18 @@ export function cobradoDelLead(e: EntradaCobrado): Cobrado {
       while (f < hoy && k < 1200) { k++; f = sumarMeses(ancla, k); }
       proximaRenovacion = finPlazo && f >= finPlazo ? null : f;
     }
+    // Los meses que cubre lo cobrado: las cuotas del plan, una por mes; la plata suelta (un adelanto, una seña, el cobro
+    // de un link), por plata (`esPlataSuelta`, `mesesDePlata`), con la MISMA regla que el asistente de Ganado.
+    const sueltas = cobradas.filter(esPlataSuelta);
+    const plataSuelta = sueltas.reduce((s, q) => s + num(q.monto_usd), 0);
+    const mesesCubiertos = cobradas.length - sueltas.length + (suscripcionMonto ? mesesDePlata(plataSuelta, suscripcionMonto).meses : sueltas.length);
     // Una manual se registra mes a mes: los meses que ya empezaron y no tienen su cobrada, avisan.
     let sinRegistrar = 0;
     if (fuente === 'manual' && estado === 'activa' && fechaCierre && fechaCierre <= hoy) {
       let esperadas = 1;
       while (sumarMeses(fechaCierre, esperadas) <= hoy && esperadas < 1200) esperadas++;
       if (suscripcionMeses) esperadas = Math.min(esperadas, suscripcionMeses);
-      // Las cuotas cobradas, una por mes; lo que nació cobrado (un adelanto, una seña), por plata (`mesesDePlata`).
-      const sueltas = cobradas.filter((q) => q.nacio_cobrada);
-      const plataSuelta = sueltas.reduce((s, q) => s + num(q.monto_usd), 0);
-      const meses = cobradas.length - sueltas.length + (suscripcionMonto ? mesesDePlata(plataSuelta, suscripcionMonto).meses : sueltas.length);
-      sinRegistrar = Math.max(0, esperadas - meses);
+      sinRegistrar = Math.max(0, esperadas - mesesCubiertos);
     }
     const totalUsd = suscripcionMonto && suscripcionMeses ? redondo(suscripcionMonto * suscripcionMeses) : null;
     const pct = totalUsd ? Math.min(100, Math.round((cobradoUsd / totalUsd) * 100)) : null;
@@ -294,6 +314,7 @@ export function cobradoDelLead(e: EntradaCobrado): Cobrado {
         renovacionFallida,
         fuente,
         sinRegistrar,
+        mesesCubiertos,
       },
       cuadra: null,
     };
