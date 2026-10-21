@@ -66,7 +66,7 @@ import {
   linksDePedidos, nombreDeSub, tituloDe, type IrA,
 } from '@/lib/chat-mako-reglas';
 import type { ChatDeAntes, ChatDeOffer } from '@/lib/chat-mako-indice';
-import type { MensajeChat, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
+import type { MensajeChat, PropuestaPantalla, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 import '@/app/admin/operaciones/centro.css';
 import '@/app/_chat/chat.css';
 
@@ -81,7 +81,7 @@ const TOPE_PEDIDOS_MS = 15_000;
 /** El tope de texto de esa ruta: lo más largo no se le pregunta (contestaría 400). */
 const MAX_TEXTO_PEDIDOS = 4_000;
 
-type Abierta = { sesion: SesionChat; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[] };
+type Abierta = { sesion: SesionChat; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[]; pantallas?: PropuestaPantalla[] };
 type ItemMsg = Extract<ItemHilo, { k: 'msg' }>;
 /** Lo elegido en la barra: una conversación, un chat que todavía no tiene (el jefe sin nada, o «Nuevo chat»), un
  *  chat de antes (de «Pregúntale a MaKo»: se lee y no se escribe), o un chat de Claude Code (su clave del Centro). */
@@ -266,7 +266,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
     const l = await pedir<Abierta>(`${RUTA}?sessionId=${id}`);
     if (!vigente()) return;
     if (!l.ok) { setErrorCarga(l.reintentable ? l.error : 'No pude abrir el chat.'); setCargado(true); return; }
-    setItems(itemsDeSesion(l.datos.mensajes ?? [], l.datos.propuestas ?? []));
+    setItems(itemsDeSesion(l.datos.mensajes ?? [], l.datos.propuestas ?? [], l.datos.pantallas ?? []));
     setCargado(true);
   }, []);
 

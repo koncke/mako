@@ -910,4 +910,23 @@ export const BITACORA: Hito[] = [
       'tests/chat-abrir.test.ts, tests/_revisar-hilo-hijo.ts',
     ],
   },
+  {
+    fecha: '20 oct', hora: '23:15', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Lo que MaKo te propone se confirma en el chat, sin ir a otra pantalla',
+    pedido: 'Ops Center = lo principal en MaKo (ola 1, 1.10)',
+    revisar: '/admin/operaciones',
+    puntos: [
+      'Cuando MaKo propone algo con datos, ves los datos en el chat, los corriges y lo confirmas ahí mismo.',
+      'Si cierras el chat sin confirmar, al volver la propuesta sigue ahí.',
+      'Ahora sólo 7 de cada 351 acciones te mandan a otra pantalla.',
+      'Lo que mueve plata se sigue confirmando en su pantalla hasta que lo decidas, y las ediciones de video se aceptan en el editor.',
+      'Si no eres administrador, ves la propuesta pero no la confirmas.',
+    ],
+    archivos: [
+      'app/_chat/FormularioEnChat.tsx, app/_chat/acciones-formulario.ts, app/mako/revisar/formulario.tsx',
+      'lib/mako-turno-app.ts (formularioDe, pantallasDelChat), lib/propuestas.ts (propuestasPendientesDelChat)',
+      'tests/chat-adentro.test.ts, tests/_adentro-hijo.ts',
+    ],
+  },
 ];

@@ -76,9 +76,11 @@ import { GRAMATICA } from '@/lib/mako-gramatica';
 import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import { conWs } from '@/lib/ws-tab';
 import { BloqueHilo } from '@/app/_chat/BloqueHilo';
+import { FormularioEnChat } from '@/app/_chat/FormularioEnChat';
+import { ACCIONES_FORMULARIO } from '@/app/_chat/acciones-formulario';
 // Las clases del bloque (`ch-bloque…`) viven en la hoja de la pieza única de chat.
 import '@/app/_chat/chat.css';
-import type { MensajeChat, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
+import type { MensajeChat, PropuestaPantalla, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 
 const RUTA = '/api/crm/analyst';
 /** El maxDuration de la ruta es 300 s: el corte del navegador va 5 s después. */
@@ -119,7 +121,7 @@ const CSS_PROPIO = `
 type Adjunto = { id: string; file: File; nombre: string; tipo: 'image' | 'document' };
 type Envio = { texto: string; adjuntos: Adjunto[]; voz?: { url: string; secs: number; blob: Blob } };
 type Trabajo = { fase: 'subiendo' | 'revisando'; pct: number; desde: number; fuente: string };
-type Abierta = { lead: { id: number; nombre: string }; sesion: SesionChat | null; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[] };
+type Abierta = { lead: { id: number; nombre: string }; sesion: SesionChat | null; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[]; pantallas?: PropuestaPantalla[] };
 type ItemMsg = Extract<ItemHilo, { k: 'msg' }>;
 type ItemPropuesta = Extract<ItemHilo, { k: 'propuesta' }>;
 
@@ -191,7 +193,7 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
       return;
     }
     sesionRef.current = l.datos.sesion;
-    setItems(itemsDeSesion(l.datos.mensajes ?? [], l.datos.propuestas ?? []));
+    setItems(itemsDeSesion(l.datos.mensajes ?? [], l.datos.propuestas ?? [], l.datos.pantallas ?? []));
     setErrorCarga(null);
     setCargadoPara(id);
   }, []);
@@ -507,6 +509,17 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
 
     // Lo que dibuja el resultado (lib/chat-bloques.ts): la MISMA pieza del Ops Center y del teléfono.
     if (x.k === 'bloque') return <FilaMako><BloqueHilo b={x.b} /></FilaMako>;
+
+    if (x.k === 'pantalla' && x.p.form) {
+      return (
+        <FilaMako>
+          <div className="ch-tarjeta">
+            <p className="ch-tarjeta__resumen"><strong>{x.p.titulo}</strong></p>
+            <FormularioEnChat f={x.p.form} acciones={ACCIONES_FORMULARIO} abrirEnApp={{ titulo: 'Abrir en la app', href: x.p.escritorio }} />
+          </div>
+        </FilaMako>
+      );
+    }
 
     if (x.k === 'pantalla') {
       return (

@@ -39,7 +39,7 @@ import { identidadDe } from '@/lib/tickets-db';
 import { registrarError } from '@/lib/errores-app';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
 import { confirmarPendiente, cancelarPendiente } from '@/lib/api-mako/acciones';
-import type { Ctx } from '@/lib/api-mako/tipos';
+import { esAccion, type Ctx } from '@/lib/api-mako/tipos';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
 import { clasificarIntencion, makoPreguntoAlgo } from '@/lib/mako-intencion';
 import { preguntoReunionOTarea } from '@/lib/doer-herramientas';
@@ -64,11 +64,13 @@ import { aGuardar, bloqueDeResultado, bloquesGuardados, type Bloque } from '@/li
 import { archivarPdfsDelChat, archivarPegadosDelChat, borrarAdjuntos, subirAdjuntos, urlFirmadaDeAdjunto } from '@/lib/chat-mako-adjuntos';
 import { partirPegados, recortarMensaje, textoParaTitulo } from '@/lib/chat-pegado';
 import { archivoATexto } from '@/lib/archivo-a-texto';
-import { aFila } from '@/lib/bandeja-filas';
+import { aFila, plano } from '@/lib/bandeja-filas';
+import { getPropuesta, propuestasPendientesDelChat } from '@/lib/propuestas';
 import { puedeVerKey } from '@/lib/movil-rutas';
 import { bloquesDeAdjuntos, placeholderDeAdjunto, promptDeAdjunto, type AdjuntoListo } from '@/lib/mako-adjuntos';
 import {
-  chartKeyDePersona, canalKeyDeSesion, herramientasDelChat, tarjetaDePendiente, linksDeUnaAccion, abrirDeResultado,
+  chartKeyDePersona, canalKeyDeSesion, herramientasDelChat, tarjetaDePendiente, linksDeUnaAccion, abrirDeResultado, idDePropuesta,
+  type FormularioPropuesta, type PropuestaPantalla,
   propuestaDePantalla, sinLinksDeRevision, MENSAJE_BORRADOR_APP, mensajeLeadApp, TEXTO_SOLO_TARJETA,
   historialParaModelo, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA,
   type LinkCapturado, type MensajeChat, type RespuestaTurno, type ResultadoTarjeta, type SesionChat, type TarjetaPendiente,
@@ -150,16 +152,48 @@ const tarjetasVigentes = async (ws: number, canalKey: string, desde?: number): P
 };
 
 /** Los mensajes de la sesión y las acciones que esperan confirmación en ella. */
-export async function abrirSesion(persona: PersonaChat, sessionId: number): Promise<{ sesion: SesionChat; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[] } | null> {
+export async function abrirSesion(persona: PersonaChat, sessionId: number): Promise<{ sesion: SesionChat; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[]; pantallas: PropuestaPantalla[] } | null> {
   return runWithWorkspace(persona.ws, async () => {
     const s = await sesionDe(persona, sessionId);
     if (!s) return null;
-    const [mensajes, propuestas] = await Promise.all([
+    const [mensajes, propuestas, pantallas] = await Promise.all([
       getSessionMessagesConBloques(s.id),
       tarjetasVigentes(persona.ws, canalKeyDeSesion(s.id)),
+      pantallasDelChat(persona, canalKeyDeSesion(s.id)).catch(() => [] as PropuestaPantalla[]),
     ]);
-    return { sesion: aSesion(s), mensajes: mensajes.map((m) => aMensajeChat(persona.ws, m)), propuestas };
+    return { sesion: aSesion(s), mensajes: mensajes.map((m) => aMensajeChat(persona.ws, m)), propuestas, pantallas };
   });
+}
+
+/**
+ * El formulario de una propuesta genérica, para confirmarla ADENTRO del chat (1.10, docs/ops-center-principal.md §2.5):
+ * los mismos datos planos que arma /mako/revisar/<id>. null = no va adentro: no es genérica, ya no está pendiente, su
+ * operación no existe, o mueve plata (eso espera a la D2 y se sigue confirmando en su pantalla).
+ */
+async function formularioDe(propuestaId: string, rol: PersonaChat['rol']): Promise<FormularioPropuesta | null> {
+  const prop = await getPropuesta(propuestaId).catch(() => null);
+  if (!prop || prop.tipo !== 'accion' || prop.estado !== 'pendiente') return null;
+  const def = porId(String(prop.datos.operacion ?? ''));
+  if (!def || !esAccion(def) || def.costo === 'dinero') return null;
+  const payload = prop.datos.payload && typeof prop.datos.payload === 'object' && !Array.isArray(prop.datos.payload) ? prop.datos.payload as Record<string, unknown> : {};
+  return {
+    propuestaId: prop.id, payload, puedeDecidir: rol === 'admin',
+    operacion: { id: def.id, titulo: def.titulo, descripcion: def.descripcion, escribe: def.escribe, reversible: def.reversible, parametros: def.parametros.map(plano) },
+  };
+}
+
+/** La propuesta de pantalla con su formulario, si va adentro. */
+async function conFormulario(p: PropuestaPantalla, rol: PersonaChat['rol']): Promise<PropuestaPantalla> {
+  const id = p.clase === 'accion' ? idDePropuesta(p.escritorio) : null;
+  const form = id ? await formularioDe(id, rol) : null;
+  return form ? { ...p, form } : p;
+}
+
+/** Las propuestas genéricas que siguen pendientes de ESTE chat: al volver, están, con su formulario. */
+async function pantallasDelChat(persona: PersonaChat, canalKey: string): Promise<PropuestaPantalla[]> {
+  const props = await propuestasPendientesDelChat(canalKey);
+  return Promise.all(props.map((pr) => conFormulario(
+    propuestaDePantalla({ clase: 'accion', url: `/mako/revisar/${pr.id}`, operacion: String(pr.datos.operacion ?? '') }), persona.rol)));
 }
 
 /** Un mensaje guardado, para la pantalla: sus adjuntos sin el path (lib/chat-mako-bloques.ts). */
@@ -498,7 +532,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
 
     // ── Lo que sale ────────────────────────────────────────────────────────────
     const propuestas = await tarjetasVigentes(ws, canalKey, turnStart).catch(() => [] as TarjetaPendiente[]);
-    const pantallas = capturados.map(propuestaDePantalla);
+    // Las genéricas, con su formulario: se confirman ADENTRO del chat (1.10).
+    const pantallas = await Promise.all(capturados.map((l) => conFormulario(propuestaDePantalla(l), persona.rol)));
     const borrador = capturados.find((c) => c.clase === 'borrador') ?? null;
     const lead = capturados.find((c) => c.clase === 'lead') ?? null;
 

@@ -34,7 +34,7 @@ import { Markdown } from '@/app/_components/Markdown';
 import { conWs } from '@/lib/ws-tab';
 import { TITULO_INBOX } from '@/lib/movil-rutas';
 import { GRAMATICA } from '@/lib/mako-gramatica';
-import type { MensajeChat, RespuestaTurno, ResultadoTarjeta, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
+import type { MensajeChat, PropuestaPantalla, RespuestaTurno, ResultadoTarjeta, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 import {
   CabeceraM, FilaM, ListaM, PieM, PildoraM, SeccionM, SheetM, SkeletonFilas, VacioM, ErrorM, useConexion, horaCorta,
 } from '../_ui';
@@ -48,6 +48,8 @@ import {
 import { ArchivosHilo } from '@/app/_chat/ArchivosHilo';
 import { ConectarDelAviso } from '@/app/_chat/ConectarDelAviso';
 import { BloqueHilo } from '@/app/_chat/BloqueHilo';
+import { FormularioEnChat } from '@/app/_chat/FormularioEnChat';
+import { ACCIONES_FORMULARIO } from '@/app/_chat/acciones-formulario';
 import { PegadosHilo, TextoPlegable } from '@/app/_chat/PegadoHilo';
 import { partirPegados } from '@/lib/chat-pegado';
 
@@ -58,7 +60,7 @@ type ChatDeOfferM = { id: number; titulo: string; updatedAt: string };
 /** El maxDuration de /api/m/mako es 420 s (tanda 7: confirmar replicar_landing): el corte del navegador va 5 s después. */
 const TOPE_MS = 425_000;
 
-type Abierta = { sesion: SesionChat; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[] };
+type Abierta = { sesion: SesionChat; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[]; pantallas?: PropuestaPantalla[] };
 type Trabajo = { fase: 'subiendo' | 'revisando'; pct: number; desde: number; fuente: string };
 
 export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats, reabrirChats = 0 }: {
@@ -76,7 +78,7 @@ export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats
   const { enLinea } = useConexion();
   const [sesiones, setSesiones] = useState<SesionChat[]>(sesionesIniciales);
   const [sesion, setSesion] = useState<SesionChat | null>(inicial?.sesion ?? null);
-  const [items, setItems] = useState<ItemHilo[]>(() => (inicial ? itemsDeSesion(inicial.mensajes, inicial.propuestas) : []));
+  const [items, setItems] = useState<ItemHilo[]>(() => (inicial ? itemsDeSesion(inicial.mensajes, inicial.propuestas, inicial.pantallas ?? []) : []));
   const [cargando, setCargando] = useState(false);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
   const [trabajo, setTrabajo] = useState<Trabajo | null>(null);
@@ -123,7 +125,7 @@ export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats
       const l = leerRespuesta<Abierta>(res.status, await res.text());
       if (!l.ok) { setErrorCarga(l.reintentable ? l.error : 'No pude abrir el chat.'); return; }
       setSesion(l.datos.sesion);
-      setItems(itemsDeSesion(l.datos.mensajes, l.datos.propuestas));
+      setItems(itemsDeSesion(l.datos.mensajes, l.datos.propuestas, l.datos.pantallas ?? []));
       alFondo(false);
     } catch {
       setErrorCarga('No pude abrir el chat. Revisa la red.');
@@ -366,6 +368,16 @@ function Item({ x, onAbrir, onReintentar, onRecargar }: {
   }
   // Lo que dibuja el resultado (lib/chat-bloques.ts): la MISMA pieza de la computadora.
   if (x.k === 'bloque') return <li className="m-mako-msg m-mako-msg--mk"><BloqueHilo b={x.b} /></li>;
+  if (x.k === 'pantalla' && x.p.form) {
+    return (
+      <li className="m-mako-msg m-mako-msg--mk">
+        <div className="ch-tarjeta">
+          <p className="ch-tarjeta__resumen"><strong>{x.p.titulo}</strong></p>
+          <FormularioEnChat f={x.p.form} acciones={ACCIONES_FORMULARIO} abrirEnApp={{ titulo: 'Abrir en la app', href: x.p.href }} />
+        </div>
+      </li>
+    );
+  }
   if (x.k === 'pantalla') {
     return (
       <li className="m-mako-fila">

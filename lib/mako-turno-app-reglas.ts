@@ -15,7 +15,7 @@
 import { herramientasDelTurno, type EntradaTurno, type Turno } from './doer-herramientas';
 import { porId, visible, REGISTRO, type Vista } from './api-mako/registro';
 import { canalKeyDe } from './api-mako/canal';
-import { AREA_INFO, esAccion } from './api-mako/tipos';
+import { AREA_INFO, esAccion, type Parametro } from './api-mako/tipos';
 import { rutaMovil, TITULO_INBOX } from './movil-rutas';
 import { consecuenciaDeshacer, lineasDelPayload, type LineaDetalle } from './inbox-movil-reglas';
 import type { Pendiente } from './mako-pendientes';
@@ -245,7 +245,26 @@ export type PropuestaPantalla = {
   /** el botón («Abrir en el editor», «Abrir en Chats», «Abrir para revisar») y la línea de debajo del título */
   boton: string;
   nota: string;
+  /** El MISMO formulario de /mako/revisar, para confirmar ADENTRO del chat (1.10). Sólo una propuesta genérica pendiente
+   *  que no mueve plata (eso espera a la D2); sin esto, el botón lleva a la pantalla. */
+  form?: FormularioPropuesta;
 };
+
+/** Lo que el chat necesita para desplegar el formulario de una propuesta (los datos PLANOS de RevisarAccion.tsx). */
+export type FormularioPropuesta = {
+  propuestaId: string;
+  operacion: { id: string; titulo: string; descripcion: string; escribe: string; reversible: boolean; parametros: Parametro[] };
+  /** el input validado que quedó guardado al proponer */
+  payload: Record<string, unknown>;
+  /** sólo el admin del negocio confirma (ctxDeBandeja) */
+  puedeDecidir: boolean;
+};
+
+/** El id de una propuesta genérica en su ruta (`/mako/revisar/<id>`), o null. */
+export function idDePropuesta(escritorio: string): string | null {
+  const m = /^\/mako\/revisar\/([A-Za-z0-9_-]{1,80})$/.exec(escritorio.split(/[?#]/)[0]);
+  return m ? m[1] : null;
+}
 
 export function propuestaDePantalla(l: LinkCapturado): PropuestaPantalla {
   // La propuesta de video y el borrador de WhatsApp se abren EN su pantalla: con la query (la propuesta, la conversación).

@@ -37,7 +37,7 @@ import '@/app/_chat/chat.css';
 import {
   idLocal, itemsDeRespuesta, itemsDeSesion, conTarjeta, leerRespuesta, trasTarjeta, type EstadoPropuesta, type ItemHilo,
 } from '@/app/m/mako/chat-ui';
-import type { MensajeChat, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
+import type { MensajeChat, PropuestaPantalla, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 
 const RUTA = '/api/crm/mako';
 /** El maxDuration de la ruta es 420 s (tanda 7: confirmar replicar_landing): el corte del navegador va 5 s después. */
@@ -50,7 +50,7 @@ const ARRANQUES = ['¿Cómo está mi CRM?', '¿Qué reuniones tengo?', '¿Qué h
 
 type Envio = { texto: string; voz?: { url: string; secs: number; blob: Blob } };
 type Trabajo = { desde: number };
-type Abierta = { sesion: SesionChat | null; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[] };
+type Abierta = { sesion: SesionChat | null; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[]; pantallas?: PropuestaPantalla[] };
 type ItemMsg = Extract<ItemHilo, { k: 'msg' }>;
 type ItemPropuesta = Extract<ItemHilo, { k: 'propuesta' }>;
 
@@ -87,7 +87,7 @@ export function ChatMakoCrm({ funnelId, pedido }: {
     const l = leerRespuesta<Abierta>(status, cuerpo);
     if (!l.ok) { setErrorCarga(l.reintentable ? l.error : 'No pude abrir el chat.'); setCargado(true); return; }
     sesionRef.current = l.datos.sesion;
-    setItems(itemsDeSesion(l.datos.mensajes ?? [], l.datos.propuestas ?? []));
+    setItems(itemsDeSesion(l.datos.mensajes ?? [], l.datos.propuestas ?? [], l.datos.pantallas ?? []));
     setErrorCarga(null);
     setCargado(true);
   }, [funnelId]);

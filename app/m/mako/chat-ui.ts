@@ -101,9 +101,13 @@ const conSusBloques = (m: MensajeChat, i: number): ItemHilo[] => [
   aMensaje(m, i), ...(m.bloques ?? []).map((b, j): ItemHilo => ({ k: 'bloque', id: `b${i}-${j}-${m.created_at ?? ''}`, b })),
 ];
 
-/** El hilo de una sesión recién abierta: los mensajes guardados y, al final, lo que espera. */
-export function itemsDeSesion(mensajes: readonly MensajeChat[], propuestas: readonly TarjetaPendiente[]): ItemHilo[] {
-  return [...mensajes.flatMap(conSusBloques), ...propuestas.map(aPropuesta)];
+/** El hilo de una sesión recién abierta: los mensajes guardados y, al final, lo que espera (las tarjetas y, desde la
+ *  1.10, las propuestas de pantalla pendientes de este chat, con su formulario). */
+export function itemsDeSesion(mensajes: readonly MensajeChat[], propuestas: readonly TarjetaPendiente[], pantallas: readonly PropuestaPantalla[] = []): ItemHilo[] {
+  return [
+    ...mensajes.flatMap(conSusBloques), ...propuestas.map(aPropuesta),
+    ...pantallas.map((p): ItemHilo => ({ k: 'pantalla', id: `s-${p.escritorio}`, p })),
+  ];
 }
 
 /**

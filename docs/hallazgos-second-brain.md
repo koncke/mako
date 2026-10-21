@@ -1990,6 +1990,8 @@ Probado en `tests/chat-bloques.test.ts`, que confirma `crear_diseno_imagen` de p
     la computadora. El alto tope tiene que achicar el ANCHO: `--r` (ancho / alto) en `.ch-creado__mini`.
   - **Un navegador sin ventana no baja de ~500 px de ancho.** La captura «de 390» no era la del teléfono. El teléfono
     se mira en un `iframe` de 390, y así también aplican los tamaños de letra del teléfono.
+  - **La vista previa sin Tailwind miente con los anchos.** La app pone `box-sizing: border-box` a todo
+    (`app/globals.css`). Una página de prueba con sólo los tokens no lo trae, y los campos «se salían» de la tarjeta.
   - **La pieza no puede importar CSS**, o no se dibuja en un test de node. Sus clases van en `chat.css`, que el teléfono
     carga con `PegadoHilo.tsx` y el MaKo Analyst de la ficha importa aparte.
 
@@ -2030,6 +2032,39 @@ Probado en `tests/chat-bloques.test.ts`, que confirma `crear_diseno_imagen` de p
 **Sin hacer:**
 - `?propuesta=` todavía abre el panel con TODAS las propuestas: es del Video Editor (1.14).
 - El borrador lleva a `/whatsapp`, todavía no a la conversación en `/chats`: es del CRM.
-- La propuesta de pantalla (`k: 'pantalla'`) no se guarda en el hilo: al recargar no está.
+- La propuesta de video y el borrador de WhatsApp no vuelven al recargar: viven en sus tablas, sin la clave del chat. Las
+  genéricas sí vuelven desde la 1.10.
 - El «Hecho» de /mako/revisar aparece al volver a abrir el chat, no en vivo en una pestaña abierta.
 - Las propuestas creadas antes del 20/10 no tienen la clave de su chat: no vuelven.
+
+## Confirmar ADENTRO del chat: el formulario de /mako/revisar en la tarjeta (20/10/2026, ola 1, pieza 1.10)
+
+**Vive en:**
+- `app/_chat/FormularioEnChat.tsx`, con sus acciones en `app/_chat/acciones-formulario.ts`;
+- `app/mako/revisar/formulario.tsx`: los campos, que comparte con `RevisarAccion.tsx`;
+- `formularioDe`, `conFormulario` y `pantallasDelChat` en `lib/mako-turno-app.ts`;
+- `propuestasPendientesDelChat` en `lib/propuestas.ts`.
+
+Probado en `tests/chat-adentro.test.ts`, que reabre un chat por el camino real (`tests/_adentro-hijo.ts`).
+
+- **Antes:** el 42% de lo que el chat puede hacer (148 de 350) mandaba a otra pantalla, y 121 de esas a /mako/revisar.
+- **Ahora:** una propuesta genérica despliega en la tarjeta el MISMO formulario de su pantalla:
+  - los mismos campos y la misma validación;
+  - los mismos botones («Confirmar acción», «Descartar propuesta»);
+  - la misma acción (`confirmarAccionAction`), que vuelve a validar, a mirar que sea el admin y a preparar contra la base.
+  - «Abrir en la app» queda como salida secundaria.
+  - Al terminar, lo que dibuja el resultado (su G5 o su «Abrir») queda en la tarjeta, sin recargar.
+- **Al reabrir el chat, sus propuestas pendientes vuelven con el formulario.** Se buscan por la clave del chat que guarda
+  la propuesta desde la 1.8. Antes una propuesta de pantalla se veía sólo en la sesión de la pantalla donde nació: al
+  recargar quedaba «Te lo dejé listo para que lo confirmes» sin nada para confirmar.
+- **La cuenta del 20/10:** se confirman afuera 52 de 351 (14,8%). 45 son las dos excepciones declaradas en §2.5:
+  - 34 ediciones de video que se aceptan en el editor (D7a);
+  - 11 que mueven plata (D2): vuelven SIN formulario y se confirman en su pantalla.
+  Sin ellas quedan 7 (2%): 4 de `/plan/revisar`, 2 de `/crm/revisar` y el borrador de WhatsApp. El test falla si una
+  pantalla nueva se suma a las de afuera.
+- **Regla:** quien no es admin ve el formulario y no lo confirma. La acción lo vuelve a mirar igual (`ctxDeBandeja`).
+
+**Sin hacer:**
+- `/plan/revisar` (el borrador de tareas) y `/crm/revisar` (`TablaRevisionLeads`) todavía no entran con su vista: la 1.10 b.
+- Lo que mueve plata espera a la D2.
+- Los campos se rotulan con el nombre del parámetro (`leadId`, `email`), igual que en /mako/revisar: mejorarlo es de las dos.
