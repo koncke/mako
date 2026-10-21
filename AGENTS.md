@@ -1996,6 +1996,13 @@ no es la de los tramos, un empate o una negación rara. Un test fija que no hay 
 destructiva sin ese toque. Detalle: docs/hallazgos-infra.md («Re-revisar una punta arreglada»), hallazgos-onboarding e
 hallazgos-ia.
 
+**El corolario para lo que DICE MaKo (21/10/2026, el guardia de promesas 1.5):** un filtro sobre el texto del modelo
+NUNCA borra una oración. El guardia por raíces de palabras borraba 8 de 14 respuestas verdaderas («Sí, ya te la
+agendé» después de confirmar la tarjeta pasaba a «En este mensaje no hice nada») y atajaba 3 de 18 falsas, medido con
+los «Hecho:» que el código anota de verdad. Borrar una verdad le miente al cliente peor que dejar pasar una mentira.
+Lo que no tiene respaldo se MARCA con una nota corta, y el respaldo fuerte lo pone el código: lo ejecutado en el turno
+y la tarjeta confirmada, que ya se ven en el hilo. Los tests usan el resumen REAL de ejecución, no el de la propuesta.
+
 # Tres topes del entorno que no dan error: te dan otra cosa
 
 Los tres se descubrieron el mismo día, los tres escribiendo código nuevo, y los tres

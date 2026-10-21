@@ -31,7 +31,8 @@ import { resumenDeCambios, revisarOperaciones, vistaDeLinea, type CambioChat } f
 import { aceptarPropuesta, deshacerPropuesta } from "./aplicar";
 import { datosDeLinea, disponiblesChat } from "./contexto";
 import { cambiarHilo, cambiarMensaje, cargarHilo, conId, leerHilo, suscribir, type EstadoPropuesta, type Hilo, type MensajeMako } from "./hilo";
-import { resolverEnServidor } from "./propuestas";
+import { marcarCerrada, resolverEnServidor, traerPropuestas } from "./propuestas";
+import { useChatAbierto } from "./estado";
 import { storageService } from "@/app/video-editor/_opencut/services/storage/service";
 import Link from "@/app/_ui/Link";
 import { PLAZO_PEDIDOS_MS, burbujasDe, cuerpoPedidos, interpretacionDe, objetosDeProyectos, textoActual } from "./pedidos";
@@ -375,6 +376,22 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 		if (el) el.scrollTop = el.scrollHeight;
 	}, [hilo.mensajes.length, hilo.corriendo]);
 
+	// El foco no sobrevive al panel: cerrado antes de los 4 s, quedaba en el store y al reabrirse saltaba a la propuesta
+	// vieja en vez de quedarse abajo, donde está lo nuevo (revisión del 20/10).
+	useEffect(() => () => useChatAbierto.getState().setFoco(null), []);
+
+	// ⚠️ DESPUÉS de bajar: la propuesta del link (`?propuesta=`, chat/propuestas.ts) se busca, se centra y se resalta
+	// unos segundos. Si todavía no está en el hilo, espera a que llegue (depende de la cantidad de mensajes).
+	const foco = useChatAbierto((s) => s.foco);
+	useEffect(() => {
+		if (!foco) return;
+		const el = hiloRef.current?.querySelector<HTMLElement>(`[data-mensaje="${CSS.escape(foco)}"]`);
+		if (!el) return;
+		el.scrollIntoView({ block: "center" });
+		const t = setTimeout(() => useChatAbierto.getState().setFoco(null), 4000);
+		return () => clearTimeout(t);
+	}, [foco, hilo.mensajes.length]);
+
 	const enviar = (instruccion: string, alc: "video" | "seleccion" = alcanceReal, op: { interpretar?: boolean } = {}) => {
 		if (hilo.corriendo || !instruccion.trim() || !proyectoId) return;
 		void pedirEdicion(editorRef.current, instruccion, alc, op);
@@ -406,9 +423,19 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 		}
 		// Lo que al aplicar no se pudo (un clip que ya no estaba, un corte sin video debajo) se dice.
 		cambiarMensaje(proyectoId, m.id, { estado: "aplicada", aplicada: r.aplicada, descartes: r.descartes.length ? r.descartes : m.descartes });
-		// Una propuesta de la API (por WhatsApp, por la API): se cierra también en la base (chat/propuestas.ts).
-		if (m.propuestaApi) resolverEnServidor(m.propuestaApi.id, "aplicada", r.descartes);
+		// Una propuesta de la API (por WhatsApp, por la API): se cierra también en la base (chat/propuestas.ts), SÓLO lo
+		// que este mensaje tenía. Lo que se sumó después sigue abierto y se trae como un mensaje nuevo.
+		if (m.propuestaApi) void resolverEnServidor(m.propuestaApi.id, "aplicada", r.descartes, m.propuesta.operaciones).then((c) => alCerrar(m.id, c));
 		toast.success("Cambio aplicado");
+	};
+
+	/**
+	 * Lo que contestó la base al cerrar: si lo confirmó, se anota (si no, la próxima búsqueda lo reintenta); lo que se
+	 * pidió mientras tanto sigue abierto y se trae, y `traerPropuestas` lo avisa.
+	 */
+	const alCerrar = (mensajeId: string, c: { cerrada: boolean; quedan: number }) => {
+		if (c.cerrada) marcarCerrada(proyectoId, mensajeId);
+		if (c.quedan) void traerPropuestas(editorRef.current);
 	};
 
 	const restaurar = (m: MensajeMako) => {
@@ -463,7 +490,12 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 							{m.texto}
 						</div>
 					) : (
-						<div key={m.id} className="grid gap-2">
+						<div
+							key={m.id}
+							data-mensaje={m.id}
+							className="grid gap-2 rounded-[14px] transition-shadow"
+							style={foco === m.id ? { boxShadow: "0 0 0 2px var(--cc-accent)" } : undefined}
+						>
 							<div
 								className="self-start rounded-[12px] px-3 py-2 text-[12.5px] leading-[1.5] whitespace-pre-wrap"
 								style={m.error ? { background: "color-mix(in srgb, var(--destructive) 18%, transparent)", color: "var(--destructive)" } : { background: "var(--cc-raised)", color: "var(--cc-text)" }}
@@ -492,7 +524,7 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 									onAplicarIgual={() => void aceptar(m, true)}
 									onDescartar={() => {
 										cambiarMensaje(proyectoId, m.id, { estado: "descartada", aviso: undefined });
-										if (m.propuestaApi) resolverEnServidor(m.propuestaApi.id, "descartada");
+										if (m.propuestaApi) void resolverEnServidor(m.propuestaApi.id, "descartada", [], m.propuesta?.operaciones ?? []).then((c) => alCerrar(m.id, c));
 									}}
 									onRestaurar={() => restaurar(m)}
 								/>

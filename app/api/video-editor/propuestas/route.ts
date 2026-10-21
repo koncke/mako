@@ -19,7 +19,8 @@ import { veEditorVideo } from '@/app/video-editor/acceso';
 import { tabEnCapa } from '@/lib/capas';
 import { personaDeSesion } from '@/lib/chart-chats-reglas';
 import { idDelMotor } from '@/lib/editor-video/espejo';
-import { propuestasAbiertas, resolverPropuesta } from '@/lib/editor-video/propuestas-server';
+import { propuestasAbiertas, resolverPropuesta, TOPE_INCLUIR } from '@/lib/editor-video/propuestas-server';
+import { validarOperaciones } from '@/lib/editor-video/chat-catalogo';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -48,7 +49,9 @@ export async function GET(req: NextRequest) {
   if ('error' in p) return fallo(p.error, p.status);
   const proyecto = req.nextUrl.searchParams.get('proyecto');
   if (!idDelMotor(proyecto)) return fallo('Falta el proyecto.', 400);
-  const r = await propuestasAbiertas(p.ws, proyecto);
+  // Las que el editor pide por id (la del link y las de su hilo) llegan siempre, aunque haya más de 20 abiertas.
+  const incluir = req.nextUrl.searchParams.getAll('propuesta').filter((x) => UUID.test(x)).slice(0, TOPE_INCLUIR);
+  const r = await propuestasAbiertas(p.ws, proyecto, incluir);
   if (!r.ok) return r.sinTabla ? responder({ ok: true, propuestas: [] }) : fallo('No se pudieron leer las propuestas.', 500);
   return responder({ ok: true, propuestas: r.propuestas });
 }
@@ -61,8 +64,11 @@ export async function PATCH(req: NextRequest) {
   if (!body || typeof body.id !== 'string' || !UUID.test(body.id)) return fallo('Falta la propuesta.', 400);
   if (body.estado !== 'aplicada' && body.estado !== 'descartada') return fallo('El estado no es válido.', 400);
   const descartes = Array.isArray(body.descartes) ? body.descartes.filter((d): d is string => typeof d === 'string') : [];
-  const r = await resolverPropuesta({ ws: p.ws, id: body.id, estado: body.estado, persona: p.persona, descartes });
-  if (r.ok) return responder({ ok: true });
+  // Las operaciones que el editor tenía en ese mensaje: se cierran ESAS, por contenido (lib/editor-video/propuestas.ts).
+  const vistas = Array.isArray(body.ops) ? validarOperaciones(body.ops.slice(0, 40)).operaciones : undefined;
+  const r = await resolverPropuesta({ ws: p.ws, id: body.id, estado: body.estado, persona: p.persona, descartes, vistas });
+  if (r.ok) return responder({ ok: true, quedan: r.quedan });
   if ('yaResuelta' in r) return responder({ ok: false, yaResuelta: true, error: 'Ya se había resuelto.' });
+  if ('cambio' in r) return responder({ ok: false, cambio: true, error: 'La propuesta cambió mientras se cerraba: se vuelve a intentar.' });
   return r.sinTabla ? responder({ ok: false, error: 'Las propuestas todavía no se guardan.' }) : fallo('No se pudo cerrar la propuesta.', 500);
 }
