@@ -9975,3 +9975,18 @@ del estado plegado.
 **Sin hacer:** el chat de adentro sigue siendo `ChatMakoCrm`; cuando Ops Center 3 saque la pieza única del chat del
 Ops Center, se cambia el de adentro, no la barra (app/crm/mako-crm/PanelMakoCrm.tsx).
 **Vive en:** app/crm/mako-crm/PanelMakoCrm.tsx · app/crm/CrmBoard.tsx (el padding del `<main>`). *20/10/2026, chat «CRM» (claude4).*
+
+## Partir un bloque de la ficha sin migrar lo guardado: el bloque viejo mira a sus hermanos (20/10/2026)
+
+**Pedido:** Martín, 14/10: Reuniones y Tracking «personalizables bloque por bloque, como el Dashboard». Cada tab era UN
+bloque que envolvía la tarjeta vieja (`reunion-1` = ReunionesCard; `visitas` = ComportamientoCard), con `incluye`.
+**La trampa:** al darle componente propio a `reunion-2`, `agendar-reunion`, etc., las fichas guardadas por funnel se
+rompen de dos formas opuestas: las que tienen los bloques sueltos (las plantillas ya los traían, sin dibujarse) verían
+la R2 DOS veces, y las que tienen sólo `reunion-1` la PERDERÍAN. Migrar lo guardado (o «expandir» al leer) además
+deshace lo que alguien quitó a propósito.
+**Arreglo:** `PropsBloque.hermanos` (los ids de la misma hoja, desde Armador) y el bloque viejo dibuja su parte MÁS lo
+que su hoja no puso aparte (`partesDeReunion1`, `partesDeVisitas`). Nada guardado cambia; las dos fichas se ven bien.
+**Regla:** para partir un bloque que envuelve a otros, la tarjeta recibe `partes` y el bloque viejo mira a sus hermanos;
+no se migra la configuración guardada.
+**Vive en:** app/crm/lead-view/ficha/reglas-reuniones.ts · reglas-tracking.ts · Armador.tsx · ReunionesCard.tsx ·
+ComportamientoCard.tsx. Test: tests/crm-ficha-bloques-partidos.test.ts. *20/10/2026, chat «CRM» (claude4).*

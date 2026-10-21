@@ -35,6 +35,7 @@
 
 import 'server-only';
 import { getTenantDb } from './workspace';
+import { hoyEnWorkspace } from './timezone';
 import { relojDe, promesaDe, type Reloj } from './cs-contrato';
 import { leerTodo, type ConsultaPaginada } from './supabase-paginado';
 import { senalDe, ordenCartera, type HechosCliente, type Senal } from './cs-senal';
@@ -80,6 +81,10 @@ export type ClienteCartera = HechosCliente & {
    *  días» es cierto; «N mensajes» quedaría corto y nadie lo notaría. */
   ultimoMensajeHace: number | null;
 };
+
+/** Días de calendario de `desde` a `hasta` (YYYY-MM-DD los dos). */
+const diasDeCalendario = (desde: string, hasta: string): number =>
+  Math.round((Date.parse(`${hasta.slice(0, 10)}T00:00:00Z`) - Date.parse(`${desde.slice(0, 10)}T00:00:00Z`)) / 86_400_000);
 
 const dias = (iso: string | Date | null | undefined): number | null => {
   if (!iso) return null;
@@ -174,7 +179,10 @@ export async function cartera(): Promise<ClienteCartera[]> {
   const mensajesDe = porLead(mensajes.filas);
   const estadoDe = new Map(estados.filas.map((e) => [e.lead_id, e.estado]));
 
-  const hoy = new Date().toISOString().slice(0, 10);
+  // ⚠️ EL DÍA DEL NEGOCIO Y `<` (20/10/2026, revisión adversarial): con el día UTC y `<=`, de noche en México una cuota
+  // de mañana —y a cualquier hora una de HOY— salía «vencida» acá (y en MaKo y en el Dashboard), mientras la ficha, General
+  // y el cron decían «vence hoy». Vencida es la que venció ANTES de hoy, como `getCuotasPendientes` y `renglonDeCuota`.
+  const hoy = await hoyEnWorkspace();
   // El contacto se afirma con las DOS lecturas: si una falló, «no hay
   // conversación» podría ser «no miré la mitad».
   const contactoLeido = sesiones.ok && mensajes.ok;
@@ -182,7 +190,7 @@ export async function cartera(): Promise<ClienteCartera[]> {
   const filas: ClienteCartera[] = leads.map((l) => {
     const ses = sesionesDe.get(l.id) ?? [];
     const impagas = cuotasDe.get(l.id) ?? [];
-    const vencidas = impagas.filter((p) => p.fecha_vencimiento && p.fecha_vencimiento <= hoy);
+    const vencidas = impagas.filter((p) => p.fecha_vencimiento && p.fecha_vencimiento.slice(0, 10) < hoy);
     const vencidaMasVieja = vencidas.map((p) => p.fecha_vencimiento!).sort()[0] ?? null;
 
     // La última sesión y el último WhatsApp, por FECHA (ver `ultimoContacto`).
@@ -217,7 +225,8 @@ export async function cartera(): Promise<ClienteCartera[]> {
       diasDesdeElCierre: dias(l.fecha_cierre),
       cobrosLeidos: cuotas.ok,
       cuotasVencidas: vencidas.length,
-      cuotaVencidaDias: dias(vencidaMasVieja),
+      // Los días, contra el día del negocio (no contra el instante UTC): «hace 1 día» es ayer acá.
+      cuotaVencidaDias: vencidaMasVieja ? diasDeCalendario(vencidaMasVieja, hoy) : null,
       cuotasImpagasSinFecha: impagas.filter((p) => !p.fecha_vencimiento).length,
       contactoLeido,
       ultimoContactoHace,

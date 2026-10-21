@@ -14,7 +14,12 @@
 //     que acaba de vencer, y sólo sobre ESAS filas (`vencidasDesde`). Lo viejo (frenado por el
 //     anti-ban de 20 h, por el tope, por un canal apagado) lo sigue barriendo la corrida de cada hora:
 //     si el tick lo mirara, cada fila frenada correría el motor de su negocio cada minuto.
-//   · No inscribe por cohorte ni evalúa desenlaces: eso sigue en la corrida de cada hora.
+//   · No evalúa desenlaces ni inscribe por cohorte, SALVO UN RECURRENTE QUE LLEGA A SU HORA (20/10/2026): el d2 de
+//     #284 del ws11, «martes 16:15», salía a las 22:00 con la corrida de la hora. Ahora una lectura de las
+//     automatizaciones activas de todos los negocios (medido ese día: 20 filas, 0,1 ms en la base) dice qué negocio
+//     tiene una ocurrencia que acaba de vencer (`negociosConRecurrenteVencido`), y ahí se inscribe SÓLO lo de los CRON
+//     con horario (`comprometerInscripciones({ soloRecurrentes })`, el mismo compare-and-set de la corrida de la hora)
+//     antes de mover lo vencido. Si esa lectura falla, el tick sigue: el Recurrente sale a la hora en punto.
 //   · El tope de WhatsApp es el de la HORA, compartido con la corrida de cada hora (`cupoPorHora`):
 //     con un cupo de 6 por corrida, 60 corridas por hora mandarían 360 desde la línea del cliente.
 //   · El TURNO del negocio (lib/motor-turno.ts): dos corridas del motor sobre el mismo negocio a la
@@ -30,14 +35,15 @@ import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { getSupabaseServer } from '@/lib/supabase';
 import { listarWorkspaces, runWithWorkspace } from '@/lib/workspace';
-import { procesarEnvios, getSecuenciasActivas } from '@/lib/nutricion';
+import { procesarEnvios, getSecuenciasActivas, comprometerInscripciones } from '@/lib/nutricion';
 import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags';
 import { ESPERA_CORRIDA_HASTA_MS, VENTANA_FRESCA_MIN, desdeFresco } from '@/lib/espera-duracion';
 import { KEY_HORARIO_ENVIO, horarioVigente, acabaDeAbrir } from '@/lib/horario-envio';
+import { CLAVE_PREFIJO, sanearConfigAutomatizacion, abrioAlgunaPropia, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
 import { KEY_TIMEZONE } from '@/lib/timezone';
 // LA regla de lectura de la zona (undécima tanda): la misma del motor y las pantallas; sin zona, `ZONA_POR_DEFECTO`.
 import { zonaDeLoGuardado } from '@/lib/zona-negocio-reglas';
-import { negociosDelTick, correSinCanales, type MotivoTick } from '@/lib/motor-tick';
+import { negociosDelTick, correSinCanales, negociosConRecurrenteVencido, type MotivoTick, type FilaRecurrente } from '@/lib/motor-tick';
 import { conTurnoDelMotor } from '@/lib/motor-turno';
 
 export const dynamic = 'force-dynamic';
@@ -79,15 +85,31 @@ export async function GET(request: NextRequest) {
       const h = horarioVigente(r.value);
       if (h) conHorario.set(Number(r.workspace_id), h);
     }
+    // Y los horarios PROPIOS de una automatización (20/10/2026, lib/config-automatizacion.ts): si abre el de una, el
+    // negocio se barre igual (lo que venció mientras estaba cerrada sale al abrir, como con el del negocio).
+    // Sólo las que tienen un horario PRENDIDO (las demás no abren nada), y tolerante (revisión del 20/10/2026): si falla, el
+    // tick sigue con los horarios del negocio; lo que venció mientras una estaba cerrada lo barre la corrida de la hora.
+    const { data: propias, error: eProp } = await db.from('app_settings').select('workspace_id, value')
+      .like('key', `${CLAVE_PREFIJO}%`).like('value', '%"activo":true%').limit(1000);
+    if (eProp) console.error(`[cron:nutricion-tick] horarios propios: ${eProp.message}`);
+    const propiasDe = new Map<number, ConfigAutomatizacion[]>();
+    for (const r of (propias ?? []) as Array<{ workspace_id: number | string; value: string }>) {
+      const c = sanearConfigAutomatizacion(r.value);
+      if (!c.horario || !c.horario.activo) continue;
+      const ws = Number(r.workspace_id);
+      propiasDe.set(ws, [...(propiasDe.get(ws) ?? []), c]);
+    }
     let abrieronConVencido: number[] = [];
-    if (conHorario.size) {
+    if (conHorario.size || propiasDe.size) {
       const { data: zonas, error: eZ } = await db.from('app_settings').select('workspace_id, value')
-        .eq('key', KEY_TIMEZONE).in('workspace_id', [...conHorario.keys()]);
+        .eq('key', KEY_TIMEZONE).in('workspace_id', [...new Set([...conHorario.keys(), ...propiasDe.keys()])]);
       if (eZ) throw new Error(`zonas: ${eZ.message}`);
       const zonaDe = new Map(((zonas ?? []) as Array<{ workspace_id: number | string; value: string }>).map((z) => [Number(z.workspace_id), z.value]));
-      const abiertos = [...conHorario.entries()]
-        .filter(([ws, h]) => acabaDeAbrir(ahora, zonaDeLoGuardado(zonaDe.get(ws)), h, VENTANA_FRESCA_MIN))
-        .map(([ws]) => ws);
+      const abiertos = [...new Set([...conHorario.keys(), ...propiasDe.keys()])].filter((ws) => {
+        const tz = zonaDeLoGuardado(zonaDe.get(ws));
+        const h = conHorario.get(ws);
+        return (!!h && acabaDeAbrir(ahora, tz, h, VENTANA_FRESCA_MIN)) || abrioAlgunaPropia(propiasDe.get(ws) ?? [], ahora, tz, VENTANA_FRESCA_MIN);
+      });
       if (abiertos.length) {
         const { data: viejas, error: eV } = await db.from('nutricion_inscripciones')
           .select('workspace_id').in('estado', ESTADOS_QUE_SE_MUEVEN).lte('proximo_envio_at', ahoraIso).in('workspace_id', abiertos).limit(1000);
@@ -96,25 +118,40 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // 3. Los RECURRENTES que acaban de llegar a su hora, en TODOS los negocios: todos sus CRON (las columnas y
+    //    `disparadores`), así que se leen las activas enteras. Tolerante: una lectura que falla no frena las esperas.
+    let conRecurrente: number[] = [];
+    const { data: secs, error: eSecs } = await db.from('nutricion_secuencias')
+      .select('workspace_id, trigger_tipo, etapa, etapas, funnel_id, producto_id, etiqueta_id, cron, cron_proxima_at, disparadores')
+      .eq('activa', true).is('archivada_at', null).limit(1000);
+    if (eSecs) console.error(`[cron:nutricion-tick] recurrentes: ${eSecs.message}`);
+    else conRecurrente = negociosConRecurrenteVencido((secs ?? []) as FilaRecurrente[], ahora, Date.parse(desde));
+
     // Nada que hacer: el caso de casi todos los minutos. Sin leer los workspaces.
-    if (!conVencidoFresco.length && !abrieronConVencido.length) return Response.json({ ok: true, negocios: 0 });
+    if (!conVencidoFresco.length && !abrieronConVencido.length && !conRecurrente.length) return Response.json({ ok: true, negocios: 0 });
 
     const activos = new Set((await listarWorkspaces()).filter((w) => w.estado === 'activo').map((w) => w.id));
-    const objetivo = negociosDelTick({ activos, conVencidoFresco, abrieronConVencido });
+    const objetivo = negociosDelTick({ activos, conVencidoFresco, abrieronConVencido, conRecurrente });
     if (url.searchParams.get('dry') === '1') return Response.json({ ok: true, modo: 'dry-run', desde, objetivo });
 
     // El tope de las esperas cortas, UNO para toda la ruta (lib/espera-duracion.ts).
     const esperarHastaMs = Date.now() + ESPERA_CORRIDA_HASTA_MS;
     const resultados: Array<{ ws: number; motivo: MotivoTick; [k: string]: unknown }> = [];
-    for (const { ws, motivo } of objetivo) {
+    for (const { ws, motivo, recurrente } of objetivo) {
       try {
         const r = await runWithWorkspace(ws, () => conTurnoDelMotor(ws, async () => {
           // Con los dos canales apagados corre lo que no los usa: los pasos «⚡ Acción» y los mensajes
           // por Instagram o Messenger, que no tienen interruptor del negocio (`correSinCanales`, la
           // MISMA pregunta que hace la corrida de cada hora). Sin nada de eso, no hay nada que mover.
           const [waOn, emailOn] = await Promise.all([envioWhatsappHabilitado(), envioEmailHabilitado()]);
-          if (!waOn && !emailOn && !(await getSecuenciasActivas()).some((s) => s.pasos.some(correSinCanales))) return { modo: 'off' };
-          return procesarEnvios({ esperarHastaMs, cupoPorHora: true, ...(motivo === 'vencio' ? { vencidasDesde: desde } : {}) });
+          // El Recurrente que llegó a su hora inscribe ANTES de mover lo vencido: sus inscriptos nacen con el primer envío
+          // ahora, adentro de la ventana fresca, y salen en esta misma corrida. Sin canales, sólo el grupo de MaKo (como
+          // la corrida de cada hora: con los canales apagados no se inscribe a nadie).
+          const inscriptas = recurrente ? await comprometerInscripciones({ soloRecurrentes: true, ...(!waOn && !emailOn ? { soloGrupo: true } : {}) }) : null;
+          const conInscriptas = inscriptas == null ? {} : { inscriptas };
+          if (!waOn && !emailOn && !(await getSecuenciasActivas()).some((s) => s.pasos.some(correSinCanales))) return { modo: 'off', ...conInscriptas };
+          const proc = await procesarEnvios({ esperarHastaMs, cupoPorHora: true, ...(motivo !== 'abrio' ? { vencidasDesde: desde } : {}) });
+          return { ...proc, ...conInscriptas };
         }));
         resultados.push(r.corrio ? { ws, motivo, ...r.resultado } : { ws, motivo, saltado: r.porque === 'ocupado' ? 'otra corrida tiene el turno' : 'no pude leer el turno' });
       } catch (err) {

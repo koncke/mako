@@ -135,4 +135,47 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm/2739?ws=3&tab=pagos',
   },
+  {
+    fecha: '19 oct', hora: '—', chat: '—', cuenta: 'claude4', actor: 'martin', tipo: 'prompt',
+    titulo: 'La cuota sin nombre, y las suscripciones que no se ven por cobrar',
+    pedido: 'cuota ausente por cobrar',
+    puntos: [
+      'Llamada con Leila (24:15), pasada por el Cerebro: en el teléfono sale un aviso de cuota por cobrar que no dice de quién es, ni cuánto, ni lleva a la ficha.',
+      'En la misma llamada: «Clientes por cobrar» no muestra las suscripciones (docs/investigacion-ops-center-19-10.md).',
+    ],
+  },
+  {
+    fecha: '21 oct', hora: '00:30', chat: 'Pagos', sesion: 'local_d0cd6fc8-e2f9-4ee9-b76a-19264ced015f', cuenta: 'claude4', actor: 'claude', tipo: 'correccion',
+    titulo: 'Hecho: el aviso de la cuota dice de quién es, y «Clientes por cobrar» lista las suscripciones',
+    puntos: [
+      'El aviso nombra al cliente en el título («Francisco · Cuota vencida → cobrar»), dice la cuota, cuánto y cuándo venció, y lleva a la ficha del lead: en la lista de avisos, en el push y en el correo.',
+      '⚠️ **Más amplio que la cobranza:** todo aviso sobre un lead llevaba a Configuraciones. El lead llegaba hasta el envío y nadie lo usaba para el link.',
+      '«Clientes por cobrar» suma las suscripciones: un mes sin registrar, una renovación rechazada o la próxima mensualidad manual. En el Dashboard, General, el teléfono y la API. Su fila abre la ficha, donde se registra el mes. El número de Outstanding no cambia.',
+    ],
+    commits: [{ sha: '908d73d9f', msg: 'Avisos y cobranza: la cuota dice de quién es, y «Clientes por cobrar» lista las suscripciones', lineas: 659, archivos: 23 }],
+    archivos: [
+      'lib/aviso-lead.ts — el link, el texto y el título de un aviso sobre un lead',
+      'lib/suscripciones-por-cobrar.ts — qué suscripción se cobra, con la regla de cobradoDelLead',
+      'lib/pagos.ts — `getPorCobrar`: las cuotas y las suscripciones',
+      'tests/aviso-lead.test.ts y tests/suscripciones-por-cobrar.test.ts — probados rompiéndolos',
+    ],
+    revisar: '/general?ws=3',
+  },
+  {
+    fecha: '21 oct', hora: '01:30', chat: 'Pagos', sesion: 'local_d0cd6fc8-e2f9-4ee9-b76a-19264ced015f', cuenta: 'claude4', actor: 'claude', tipo: 'correccion',
+    titulo: 'Hecho: marcar un cobro dos veces ya no lo cambia, y la ficha cuenta «hoy» con la zona del negocio',
+    pedido: 'cobro idempotente y hoy del negocio (Cerebro, 20/10)',
+    puntos: [
+      'Marcar como cobrada una cuota que ya estaba cobrada (una lista vieja, otra pestaña, una tarjeta de MaKo confirmada tarde) ya no le cambia la fecha, el monto ni la moneda al cobro, y el historial no lo anota dos veces.',
+      'La pantalla dice «Ya estaba cobrada» y no ofrece «Deshacer»: deshacer habría desmarcado el cobro de otra persona. Pasa en General, el teléfono, el Dashboard, la ficha y MaKo.',
+      'La ficha, Clients y «Marcar pagada» cuentan el día con la zona del negocio: de noche, una cuota que vence hoy ya no sale vencida en la ficha, y un cobro de las 20 h queda en el día correcto.',
+    ],
+    commits: [{ sha: 'a34a63769', msg: 'Pagos: marcar un cobro dos veces no lo cambia, y «hoy» es el día del negocio en la ficha y en Clients', lineas: 405, archivos: 21 }],
+    archivos: [
+      'lib/pagos.ts — `marcarPago` y `cobrarCuota` devuelven `yaEstaba`',
+      'app/crm/lead-view/ficha/FichaPorBloques.tsx y app/customer-success/PagosCliente.tsx — el día del negocio',
+      'tests/pagos-cobro-idempotente.test.ts — probado rompiéndolo',
+    ],
+    revisar: '/crm/2739?ws=3&tab=pagos',
+  },
 ];

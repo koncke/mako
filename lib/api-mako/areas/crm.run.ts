@@ -18,7 +18,7 @@
 // =============================================================================
 
 import { getCamposTarjetaCrm } from '@/lib/perfil';
-import { CAMPOS_TARJETA_DEFAULT, CAMPOS_TARJETA_LEAD, NOMBRE_CAMPO_TARJETA } from '@/lib/tarjeta-kanban';
+import { CAMPOS_TARJETA_DEFAULT, CAMPOS_TARJETA_LEAD, DETALLE_DISENO_TARJETA, DISENOS_TARJETA, NOMBRE_CAMPO_TARJETA, NOMBRE_DISENO_TARJETA } from '@/lib/tarjeta-kanban';
 import 'server-only';
 import type { Ctx, Ejecutado, Runners, SalidaLectura } from '../tipos';
 import { runMakoTool } from '@/lib/mako-tools';
@@ -139,6 +139,8 @@ const noExiste = (id: unknown) => `No existe el lead #${String(id)} en este work
 /** La cuota que se pidió marcar ya la había cobrado su link (17/10/2026): queda con ese pago, no se marca dos veces. */
 const yaCobradaPorLink = (p: Pasarela) =>
   `Esa cuota ya estaba pagada por su link de ${NOMBRE_PASARELA[p]}: quedó cobrada con ese pago (no la marqué a mano, para no contar la plata dos veces).`;
+/** La cuota ya estaba cobrada al confirmar (alguien la marcó entre la tarjeta y el «sí»): no se tocó (20/10/2026). */
+const YA_ESTABA_COBRADA = 'Esa cuota ya estaba cobrada: no cambié nada (ni la fecha ni el monto del cobro).';
 
 /** Lecturas por lead: el «no existe» es un error del que llama (400), no nuestro. */
 async function conLead(input: Record<string, unknown>, fn: (lead: Lead) => Promise<SalidaLectura>) {
@@ -1032,8 +1034,10 @@ export const RUNNERS: Runners = {
 
   ver_campos_tarjeta_crm: {
     leer: async () => {
-      const { campos, guardable } = await getCamposTarjetaCrm();
+      const { campos, diseno, guardable } = await getCamposTarjetaCrm();
       return json({
+        diseno: { diseno, nombre: NOMBRE_DISENO_TARJETA[diseno] },
+        disenos: DISENOS_TARJETA.map((d) => ({ diseno: d, nombre: NOMBRE_DISENO_TARJETA[d], detalle: DETALLE_DISENO_TARJETA[d] })),
         campos: campos.map((c) => ({ campo: c, nombre: NOMBRE_CAMPO_TARJETA[c] })),
         catalogo: CAMPOS_TARJETA_LEAD.map((c) => ({ campo: c, nombre: NOMBRE_CAMPO_TARJETA[c], deSiempre: CAMPOS_TARJETA_DEFAULT.includes(c) })),
         guardable,
@@ -1394,6 +1398,8 @@ export const RUNNERS: Runners = {
     }),
   },
   marcar_pago_cobrado: {
+    // El estado se mira al proponer y otra vez al ejecutar (`yaEstaba`, lib/pagos.ts): entre la tarjeta y el «sí» pueden
+    // pasar dos horas y alguien pudo marcarla en la ficha.
     preparar: async (input, ctx) => {
       const lead = await leadDe(input.leadId);
       if (!lead) return { error: noExiste(input.leadId) };
@@ -1449,14 +1455,18 @@ export const RUNNERS: Runners = {
           monto, fecha: fechaPago, resto: payload.resto === 'descuento' ? 'descuento' : 'pendiente', ...cobro,
         });
         if (r.porLink) { invalidar('pagos', 'leads'); return { ok: true, resumen: yaCobradaPorLink(r.porLink) }; }
+        // Alguien la cobró entre la propuesta y el «sí»: no se tocó nada (ni el historial).
+        if (r.yaEstaba) return { ok: true, resumen: YA_ESTABA_COBRADA };
         const plata = textoDelCobro(r.monto ?? r.original, { ...cobro, moneda: r.moneda, montoOriginal: r.montoOriginal });
         const nota = `Cuota cobrada (${fechaPago}) · ${plata}${r.monto != null && r.monto !== r.original ? ` (era de USD ${r.original})` : ''}${r.pendiente != null ? ` · quedan USD ${r.pendiente} pendientes` : r.descuento > 0 ? ` · USD ${r.descuento} de descuento` : ''}`;
         await logLeadEvent(Number(payload.leadId), 'Pago registrado', nota, autorDe(ctx));
         invalidar('pagos', 'leads');
         return { ok: true, resumen: `Listo: cuota cobrada el ${fechaPago} por ${plata}${r.pendiente != null ? `; quedan ${r.pendiente} USD pendientes en una cuota nueva` : ''}.` };
       }
-      const { quitada, porLink } = await marcarPago(Number(payload.pagoId), pagado, fechaPago);
+      const { quitada, porLink, yaEstaba } = await marcarPago(Number(payload.pagoId), pagado, fechaPago);
       if (porLink) { invalidar('pagos', 'leads'); return { ok: true, resumen: yaCobradaPorLink(porLink) }; }
+      // Cambió entre la propuesta y el «sí» (alguien la marcó o la desmarcó en la ficha): no se tocó nada.
+      if (yaEstaba) return { ok: true, resumen: pagado ? YA_ESTABA_COBRADA : 'Esa cuota ya estaba sin cobrar: no cambié nada.' };
       await logLeadEvent(Number(payload.leadId), pagado ? 'Pago registrado' : quitada ? 'Pago quitado' : 'Pago desmarcado', pagado ? `Cuota marcada como pagada${fechaPago ? ` (${fechaPago})` : ''}` : quitada ? 'Se quitó un pago registrado a mano' : 'Cuota desmarcada', autorDe(ctx));
       invalidar('pagos', 'leads');
       // Un pago que nació cobrado (suelto o mensualidad a mano) no vuelve como deuda: se quita (mig 0295).

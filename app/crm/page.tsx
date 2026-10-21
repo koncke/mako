@@ -259,6 +259,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       partners={partners}
       puedeCrearCrm={puedeCrearCrm}
       camposTarjeta={camposTarjeta.campos}
+      disenoTarjeta={camposTarjeta.diseno}
       camposGuardables={camposTarjeta.guardable}
     />
     <PanelMakoCrm funnelId={funnelId} />

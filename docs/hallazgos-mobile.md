@@ -7,6 +7,38 @@ Corridas del 11/10/2026: la v1 (relevo de 7 agentes + 11 de implementación + 1 
 el diseño v2 a la tarde, y a la noche la implementación v2 (12 agentes + la integración) con el desvío
 de teléfonos PRENDIDO. Lo de la v2 está en su propia sección, más abajo.
 
+## El Ops Center al medio de la barra y como portada (20/10/2026, pedido del Ops Center bb885d5f)
+
+Martín: «Que en Mobile, el Ops Center esté donde está el Dashboard, que sea la tab principal». La barra es CRM · Chats ·
+Ops Center · Plan · More; la app entra ahí (`ENTRADA_MOVIL`, en el borde de `/inicio`, en `app/inicio` y en `/m` pelado), y
+el Dashboard (/m/hoy) encabeza lo diario de More. El lugar del medio tiene la id `mako`, la misma de su fila de More, así
+que More no lo repite sin una regla aparte. Para el super admin sin mirar un cliente el lugar abre el Centro
+(/m/operaciones); para los demás, su chat (/m/second-brain).
+
+**El diagnóstico obvio era el equivocado: `quienOpera()` NO sirve en el teléfono.** Parece la pregunta justa («¿es Martín
+en lo suyo?») y es la que usa escritorio, pero mira `estaImpersonando()`, que cuenta CUALQUIER `?ws=` de la pestaña. En el
+teléfono el super admin siempre lleva el `?ws=` de su negocio (la puerta se lo pone), así que ahí `quienOpera()` siempre
+dice que no: la rama `|| await quienOpera()` de /m/second-brain, que debía mandarlo al grafo, era código muerto en el
+teléfono y nadie lo notó. **La regla:** en /m la pregunta es `ctx.sesion.rol === 'admin' && !ctx.impersonando`
+(`contextoMovil` sí distingue el negocio propio); es la de la fila del Centro en More, la de la barra (app/m/layout.tsx) y
+la de /m/second-brain.
+
+**Trampas al mover un lugar de la barra (no dan error):**
+- El primer destino del super admin no lo decide `/inicio` sino la puerta: sin `?ws=`, `requireMovil` lo redirige a donde
+  diga (era el Dashboard; ahora el Centro). Cambiar sólo la entrada lo dejaba en el Dashboard.
+- El número de «lo que espera una decisión» (`app/m/badges.ts`) colgaba de la id del lugar del Dashboard (`hoy`): al sacar
+  el lugar, el número desaparece en silencio. Ahora va en More y en la fila del Dashboard.
+- La cabecera buscaba el Dashboard en `DESTINOS_MOVIL` con `find(...)!`: sin él, `undefined` en el «volver» de Avisos.
+- **El ícono declarado no es el que se dibuja** (21/10/2026, Martín lo vio en su Android: «Pusiste a Ops Center con el logo
+  del Second Brain»). La fila de More dice `icon: 'cerebro'`, pero More y la sidebar dibujan el Ops Center con la CRIATURA de
+  MaKo (`criatura(…, estrella)`), aparte del dato. Al subirlo a la barra se copió el dato y salió el cerebro. Ahora el
+  destino lleva `criatura: true` y ShellM dibuja `<Criatura estrella>`, que flota y parpadea. **Regla:** al mover algo a
+  otro lugar, mirá CÓMO se dibuja donde estaba, no sólo sus datos. La pantalla del Centro tampoco volvía a More: es raíz.
+- **La entrada de MaKo al abrir la app** (21/10/2026, mismo pedido): es la de app/onboarding/EntradaMako.tsx, reusada con
+  un `destino`, una vez por apertura (sessionStorage) y volando a la criatura de la barra. Copiarla la habría dejado vieja.
+  ⚠️ Va con `next/dynamic` en ShellM: importada de frente, su criatura arrastra `criatura.css` al índice de app/m/_ui y
+  tumba los tests de node que lo importan (run 182 cayó en tests/m-offer.test.ts; es la misma trampa del `.module.css`).
+
 ## Las tabs de CREACIÓN en el teléfono: editores, AI Avatar y writers (17/10/2026, «Mobile 1»)
 
 Pedido de Martín (17/10, 12:56): «Implementa completamente MaKo Mobile en todas las tabs, porque hay muchas que aun no se

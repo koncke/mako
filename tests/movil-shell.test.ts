@@ -169,7 +169,7 @@ test('/m apaga el cromo de escritorio sin volverse público', () => {
 });
 
 test('el título de la pestaña en /m usa los nombres de la barra', () => {
-  // El lugar del medio se llama Dashboard desde el 17/10/2026 noche (abre la misma portada).
+  // El Dashboard (el lugar del medio hasta el 20/10/2026, hoy una fila de More) conserva su nombre.
   assert.equal(tituloDe('/m/hoy'), 'MaKo - Dashboard');
   assert.equal(tituloDe('/m/chats'), 'MaKo - Chats');
   assert.equal(tituloDe('/m/inbox'), 'MaKo - Avisos', 'la campana se titula Avisos (prototipo v3), como su cabecera');
@@ -194,8 +194,11 @@ test('el manifest abre el repartidor y conserva la identidad', () => {
 
 test('la cabecera por defecto: título en la raíz, volver fijo en la subpantalla', () => {
   const t = (titulo: string, padre: { href: string; label: string } | null, trabajo = false, conBarra = true) => ({ titulo, padre, trabajo, conBarra });
-  // Las raíces de la barra: el nombre, sin volver.
-  assert.deepEqual(cabeceraPorRuta('/m/hoy'), t('Dashboard', null));
+  // Las raíces de la barra: el nombre, sin volver. El Ops Center es el del medio desde el 20/10/2026 (un chat: de trabajo,
+  // con la barra); el Dashboard pasó a More y vuelve a More.
+  assert.deepEqual(cabeceraPorRuta('/m/second-brain'), t('Ops Center', null, true, true));
+  assert.deepEqual(cabeceraPorRuta('/m/hoy'), t('Dashboard', { href: '/m/mas', label: 'More' }));
+  assert.deepEqual(cabeceraPorRuta('/m/inbox').padre, { href: '/m/hoy', label: 'Dashboard' }, 'Avisos vuelve al Dashboard');
   assert.deepEqual(cabeceraPorRuta('/m/crm'), t('CRM', null));
   assert.deepEqual(cabeceraPorRuta('/m/chats'), t('Chats', null));
   // Inbox dejó la barra (v3): es la campana de General, se titula Avisos y vuelve a General.
@@ -216,8 +219,9 @@ test('la cabecera por defecto: título en la raíz, volver fijo en la subpantall
   assert.deepEqual(cabeceraPorRuta('/m/cuenta/instalar'), t('', { href: '/m/cuenta', label: 'My Profile' }));
   assert.deepEqual(cabeceraPorRuta('/m/raro'), t('', { href: '/m/hoy', label: 'Dashboard' }));
   // Pantallas de trabajo: sin título grande y sin barra de abajo.
-  // «Ops Center» desde el 18/10/2026 (la fila del negocio se llama así: nav.ts → MAKO_NAV).
-  assert.deepEqual(cabeceraPorRuta('/m/second-brain'), t('Ops Center', { href: '/m/mas', label: 'More' }, true, false));
+  // «Ops Center» desde el 18/10/2026 (la fila del negocio se llama así: nav.ts → MAKO_NAV). Desde el 20/10/2026 es el lugar
+  // del medio de la barra: una raíz de trabajo, que CONSERVA la barra (sin ella no hay salida).
+  assert.deepEqual(cabeceraPorRuta('/m/second-brain/mapa').padre, { href: '/m/second-brain', label: 'Ops Center' });
   assert.deepEqual(cabeceraPorRuta('/m/video/7'), t('', { href: '/m/video', label: 'Video' }, true, false));
   assert.deepEqual(cabeceraPorRuta('/m/landing/3'), t('', { href: '/m/landing', label: 'Web Generator' }, true, false));
   assert.equal(esTrabajo('/m/video'), false, 'la LISTA de videos es una sección normal');
@@ -235,9 +239,10 @@ test('la cabecera por defecto: título en la raíz, volver fijo en la subpantall
 
 test('el nivel de una pantalla: ir más adentro desliza; cambiar de tab y volver, no', () => {
   // Cambiar de tab: 0 → 0.
-  for (const p of ['/m/hoy', '/m/crm', '/m/chats', '/m/plan', '/m/mas']) assert.equal(nivel(p), 0, p);
-  // Inbox se abre desde la campana de General: un nivel más adentro.
-  assert.equal(nivel('/m/inbox'), 1);
+  for (const p of ['/m/second-brain', '/m/crm', '/m/chats', '/m/plan', '/m/mas']) assert.equal(nivel(p), 0, p);
+  // El Dashboard es una fila de More desde el 20/10/2026 (un nivel adentro), y Avisos se abre desde su campana: uno más.
+  assert.equal(nivel('/m/hoy'), 1);
+  assert.equal(nivel('/m/inbox'), 2);
   // More → una sección (la MISMA profundidad de URL, pero un nivel más adentro).
   assert.equal(nivel('/m/dashboard'), 1);
   assert.equal(nivel('/m/cuenta'), 1);
@@ -324,8 +329,38 @@ test('More: el Ops Center (con la Ticketera adentro) sólo para el super admin, 
   const mas = leer('app/m/mas/page.tsx').replace(/\/\/.*$/gm, '');
   assert.match(mas, /const veOpsCenter = ctx\.sesion\.rol === 'admin' && !ctx\.impersonando;/,
     'la fila va detrás de la pregunta de super admin (la misma de getSesionAdmin), sin mirar a un cliente');
-  assert.match(mas, /\{veOpsCenter && <FilaM navegacion leading=\{criatura\('Ops Center', true\)\} titulo="Ops Center" href=\{RUTA_CENTRO\} \/>\}/);
-  assert.match(mas, /const RUTA_CENTRO = '\/m\/operaciones'/, 'el Centro, con la Ticketera adentro (16/10/2026)');
+  // Desde el 20/10/2026 el Centro es el lugar del medio de la barra del super admin: la fila sólo queda si no está ahí.
+  assert.match(mas, /\{veOpsCenter && !centroEnBarra && <FilaM navegacion leading=\{criatura\('Ops Center', true\)\} titulo="Ops Center" href=\{RUTA_CENTRO_M\} \/>\}/);
+  assert.match(leer('lib/movil-rutas.ts'), /export const RUTA_CENTRO_M = '\/m\/operaciones';/, 'el Centro, con la Ticketera adentro (16/10/2026)');
+  assert.match(mas, /const centroEnBarra = barraMovil\(ctx\.rol, ctx\.capa, veOpsCenter\)\.some\(\(b\) => b\.href === RUTA_CENTRO_M\);/);
+  assert.match(leer('app/m/layout.tsx'), /barraMovil\(ctx\?\.rol \?\? null, ctx\?\.capa \?\? null, ctx\?\.sesion\.rol === 'admin' && !ctx\.impersonando\)/, 'la barra con la MISMA pregunta que la fila');
   // No es una tab del negocio: si estuviera en SECCIONES_MAS podría subir a la barra de un rol.
   assert.doesNotMatch(leer('lib/movil-rutas.ts'), /id: 'decisiones'/);
+});
+
+// Martín (21/10/2026, pedido del Ops Center 91ebee6f): «Pusiste a Ops Center con el logo del Second Brain. Cuando el logo es
+// la criatura de MaKo. Quiero que se mueva, parpadee, como siempre». Probado rompiéndolo: con el `<Icon>` de siempre en
+// ShellM cae el match del shell; sin `criatura: true` en el destino caen los dos de la barra; con `padre` de More en el
+// Centro cae el último.
+test('el Ops Center de la barra es la criatura de MaKo, que flota y parpadea, y su pantalla no vuelve a More', () => {
+  assert.equal(barraMovil('admin', 'completo').find((b) => b.id === 'mako')?.criatura, true);
+  assert.equal(barraMovil('admin', 'superadmin', true).find((b) => b.id === 'mako')?.criatura, true, 'también el Centro del super admin');
+  assert.ok(barraMovil('admin', 'completo').filter((b) => b.id !== 'mako').every((b) => !b.criatura), 'sólo el Ops Center');
+  const shell = sinComentariosTs(leer('app/m/_ui/ShellM.tsx'));
+  assert.match(shell, /\{d\.criatura\s*\?\s*<span \{\.\.\.\{ \[DESTINO_ENTRADA\]: '' \}\}[^>]*><Criatura nombre=\{d\.label\} estrella size=\{24\} \/><\/span>\s*:\s*<Icon name=\{d\.icon\} size=\{26\} \/>\}/);
+  assert.match(sinComentariosTs(leer('app/m/operaciones/page.tsx')), /<CabeceraM titulo="Ops Center" padre=\{null\} \/>/, 'el Centro es una raíz: sin «‹ More»');
+});
+
+// Martín (21/10/2026, pedido e180365d): «tampoco veo me haya salido la animación de la criatura, la misma del onboarding.
+// Al iniciar la app en mobile». Probado rompiéndolo: sin el `sessionStorage` sale en cada montaje; sin el destino de la
+// barra vuela a la foto del onboarding (que en /m no existe); sin la guarda de /m/configurar se pisa con la del onboarding.
+test('al abrir la app, la MISMA entrada de MaKo del onboarding, una vez por apertura, y vuela al Ops Center de la barra', () => {
+  const shell = sinComentariosTs(leer('app/m/_ui/ShellM.tsx'));
+  // La MISMA pieza, cargada diferida: un import estático arrastra su .css a los tests de node (run 182).
+  assert.match(shell, /const EntradaMako = dynamic\(\(\) => import\('@\/app\/onboarding\/EntradaMako'\)\.then\(\(m\) => m\.EntradaMako\), \{ ssr: false \}\);/, 'una copia de la animación se queda vieja');
+  assert.doesNotMatch(shell, /^import \{ EntradaMako \}/m, 'importada de frente, su .css tumba los tests de node');
+  assert.match(shell, /if \(sessionStorage\.getItem\(LS_ENTRADA\)\) return;\s*sessionStorage\.setItem\(LS_ENTRADA, '1'\);/);
+  assert.match(shell, /if \(cliente \|\| limpia\(pathname\) === RUTA_CONFIGURAR\) return;/);
+  assert.match(shell, /\{entrada && <EntradaMako destino=\{`\[\$\{DESTINO_ENTRADA\}\]`\} onFin=\{\(\) => setEntrada\(false\)\} \/>\}/);
+  assert.match(shell, /const DESTINO_ENTRADA = 'data-mako-foto-barra';/);
 });

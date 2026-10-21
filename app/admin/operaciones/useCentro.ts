@@ -84,8 +84,9 @@ export type DatosCentro = {
   deshacer?: AccionDeshacer;
 };
 
-/** Un archivo elegido (o pegado) en la caja, con su vista previa local. */
-export type AdjuntoCaja = { id: string; file: File; tipo: 'image' | 'document'; url: string };
+/** Un archivo elegido (o pegado) en la caja, con su vista previa local. `estado`: lo que la miniatura dice mientras no
+ *  está listo (la caja del Web Generator lo LEE antes de mandar, app/web-generator/editor/adjuntos-agente.ts). */
+export type AdjuntoCaja = { id: string; file: File; tipo: 'image' | 'document'; url: string; estado?: 'leyendo' | 'error' };
 /** Una captura chica va tal cual (el texto de una captura se lee mejor en PNG); una foto grande se achica (Vercel corta
  *  un POST de más de ~4,5 MB). */
 const TAL_CUAL_BYTES = 1_500_000;
@@ -616,6 +617,8 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     adjuntosDe, puedeAdjuntar, sumarAdjuntos, quitarAdjunto, vaciarAdjuntos,
     /** Se pegó una imagen en un chat que todavía no recibe adjuntos. */
     sinAdjuntos: () => avisar('Este chat aún no recibe imágenes', 'bad'),
+    /** «Pegar» del «+» sin nada que pegar (20/10/2026). */
+    sinImagen: (puedeLeer: boolean) => avisar(puedeLeer ? 'No hay una imagen copiada' : 'Este navegador no deja pegar', 'bad'),
     puedeAbrirEn, apertura, abrirChat, mandarTextoA,
     cuentaElegida, elegirCuenta, cuentasDe, destinoDeChat, modelo, setModelo, esfuerzo, setEsfuerzo,
     menu, delMenu, abrirMenu, cerrarMenu: () => setMenu(null), elegirEnMenu,

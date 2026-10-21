@@ -15,10 +15,9 @@
 // deja cambiarla; tocar el título deja renombrarlo EN EL LUGAR (Enter guarda, Escape lo deja como estaba). Sin chips de cuenta
 // ni estado: «esos botones al lado de la criatura NO van, para eso está el "+"» (la cuenta se elige en el «+» de la caja).
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '@/app/_components/icons';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
-import { conVinetas, enterEnLista, estaAbajo } from '@/lib/centro-caja';
 import { historialDelChat, nombreCuenta, textoDeEnvio, trabajaSinEscribir, type CarteroP, type ChatCentro, type Envio, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
 import { Modal } from '@/app/_ui';
 import { SIN_MARCAS, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
@@ -32,11 +31,9 @@ import { Hilo, TANDA_HILO } from './Hilo';
 import type { Responder } from './PreguntaChat';
 import type { PreguntaChat as PreguntaChatT } from '@/lib/centro-preguntas-chat';
 import { Pregunta } from './Pregunta';
-import { BotonMandar } from './Microfono';
-import { BotonEmojis } from './Emojis';
-import { ListaAdjuntos, MasCaja, alPegar, alSoltar, traeArchivos, type AdjuntosDeCaja } from './AdjuntosCaja';
+import { alSoltar, traeArchivos, type AdjuntosDeCaja } from './AdjuntosCaja';
+import { CajaChat } from '@/app/_chat/CajaChat';
 import { TareasVinculadas, irAlTurno } from './Avance';
-import { LinksDeLaCaja, ResalteDeLinks, hayLinks } from './ConLinks';
 import { Muneco, animoDe } from './Muneco';
 
 const ESTADO_CHAT: Record<ChatCentro['estado'], string> = { trabajando: 'Trabajando', abierto: 'Abierto', cerrado: 'Cerrado', sin_dato: '' };
@@ -120,42 +117,13 @@ export function Conversacion({
   useEffect(() => { setFaltaMic(null); }, [chat.clave]);
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
-  /** Dónde va el cursor después de que una lista cambió el texto (la viñeta, el ítem siguiente). */
-  const cursor = useRef<number | null>(null);
-  /** La capa que pinta los links (17/10/2026): se corre con el scroll del <textarea>. */
-  const resalte = useRef<HTMLDivElement | null>(null);
-  const conLinks = hayLinks(texto);
 
   // Como un chat: abre mostrando lo último, y baja cuando llega algo nuevo.
   useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [chat.clave, lineas.length]);
-  // El renglón crece con lo que se escribe, hasta el tope del CSS. Y el scroll lo acompaña (18/10/2026, Martín: «la caja
-  // crece y el chat no lo acompaña»): la conversación, que se achica cuando la caja crece, sigue abajo si estaba abajo
-  // (se mide ANTES de crecer); y la caja, pasado su tope, sigue al cursor (el `height = 'auto'` le reseteaba el scroll).
-  useLayoutEffect(() => {
-    const el = caja.current;
-    if (!el) return;
-    const h = hilo.current;
-    const conversacionAbajo = h ? estaAbajo(h) : false;
-    const antes = el.scrollTop;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
-    el.scrollTop = el.selectionEnd >= el.value.length ? el.scrollHeight : antes;
-    if (h && conversacionAbajo) h.scrollTop = h.scrollHeight;
-    if (cursor.current != null) { el.setSelectionRange(cursor.current, cursor.current); cursor.current = null; }
-  }, [texto]);
+  // El campo que crece y el scroll que lo acompaña son de la caja única (app/_chat/CajaChat.tsx): le pasa la conversación.
+  const seguirHilo = useCallback(() => hilo.current, []);
   // Elegir un chat deja el cursor en su caja, como cualquier app de chat.
   useEffect(() => { if (envio.puede) caja.current?.focus({ preventScroll: true }); }, [chat.clave, envio.puede]);
-
-  const tecla = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    // Enter manda; Shift+Enter baja de renglón. Mientras se compone un acento (IME), Enter es del teclado. Adentro de una
-    // lista, Enter arma el ítem siguiente y en uno vacío la corta (lib/centro-caja.ts → enterEnLista).
-    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-      e.preventDefault();
-      const l = enterEnLista(texto, e.currentTarget.selectionStart, e.currentTarget.selectionEnd);
-      if (l) { cursor.current = l.cursor; onTexto(l.texto); return; }
-      onMandar();
-    }
-  };
 
   const estado = textoDeEnvio(envio);
   const cuenta = nombreCuenta(chat.cuenta);
@@ -293,44 +261,13 @@ export function Conversacion({
         {preguntas.length > 0 && <Pregunta key={chat.clave} preguntas={preguntas} responder={responder} />}
         {envio.puede ? (
           <div className="co-caja">
-            {/* Respondiendo a un mensaje: su cita arriba de la caja, con la ✕ para soltarla (WhatsApp). */}
-            {wa?.cita && <CitaCaja cita={wa.cita} onQuitar={() => wa.onCitar(null)} verTodo={verTodo} />}
-            <ListaAdjuntos a={adjuntos} />
-            {/* UNA FILA, como WhatsApp (17/10/2026; Martín: «que ocupe todo el ancho, con el "+" incluido... el botón de audio
-                y el de enviar son UNO»): el «+» a la izquierda, el campo en el medio y un solo botón a la derecha (Microfono.tsx
-                → BotonMandar). Lo elegido en el «+» que no es «Automático» va abajo, en la línea de estado. */}
-            <div className="co-caja__fila">
-              <MasCaja a={adjuntos} apagado={enviando} resumen={null}>
-                {(cerrar) => <>{selectores}<TareasVinculadas tareas={tareas} onIr={(u) => { cerrar(); verTodo(); window.setTimeout(() => irAlTurno(u), 80); }} /></>}
-              </MasCaja>
-              {/* Los emojis, en su botón junto al campo (WhatsApp; Emojis.tsx). */}
-              <BotonEmojis campo={caja} valor={texto} onValor={onTexto} apagado={enviando} />
-              {/* Un link se ve azul mientras se escribe (la capa de abajo) y se abre desde su chip (17/10/2026). */}
-              <div className="co-caja__campo">
-              {conLinks && <ResalteDeLinks texto={texto} capa={(el) => { resalte.current = el; }} />}
-              <textarea
-                ref={caja}
-                className={conLinks ? 'co-caja__texto--resalte' : undefined}
-                onScroll={(e) => { if (resalte.current) resalte.current.scrollTop = e.currentTarget.scrollTop; }}
-                rows={1}
-                value={texto}
-                onChange={(e) => {
-                  // «- » y «* » al principio de un renglón se vuelven viñeta mientras se escribe (lib/centro-caja.ts).
-                  const v = conVinetas(e.target.value, e.target.selectionStart);
-                  if (v.texto !== e.target.value) cursor.current = v.cursor;
-                  onTexto(v.texto);
-                }}
-                onKeyDown={tecla}
-                onPaste={(e) => alPegar(e, adjuntos)}
-                placeholder={`Escribe a ${chat.titulo}`}
-                aria-label={`Escribe a ${chat.titulo}`}
-                disabled={enviando}
-              />
-              </div>
-              <BotonMandar valor={texto} onValor={(v) => { setFaltaMic(null); onTexto(v); }} onError={setFaltaMic} enviando={enviando}
-                hayQueMandar={!!texto.trim() || !!adjuntos?.items.length} onMandar={onMandar} titulo="Firmar y mandar (Enter)" />
-            </div>
-            <LinksDeLaCaja texto={texto} />
+            {/* La caja ÚNICA (app/_chat/CajaChat.tsx, 20/10/2026): la misma en toda la app. Arriba, la cita del mensaje que se
+                responde (con su ✕, WhatsApp); en el «+», con qué corre y las tareas del chat. */}
+            <CajaChat texto={texto} onTexto={(v) => { setFaltaMic(null); onTexto(v); }} onMandar={onMandar} enviando={enviando}
+              placeholder={`Escribe a ${chat.titulo}`} tituloMandar="Firmar y mandar (Enter)" enterManda
+              adjuntos={adjuntos} campo={caja} seguir={seguirHilo} onErrorMic={setFaltaMic}
+              arriba={wa?.cita ? <CitaCaja cita={wa.cita} onQuitar={() => wa.onCitar(null)} verTodo={verTodo} /> : null}
+              mas={(cerrar) => <>{selectores}<TareasVinculadas tareas={tareas} onIr={(u) => { cerrar(); verTodo(); window.setTimeout(() => irAlTurno(u), 80); }} /></>} />
           </div>
         ) : envio.por === 'leyendo_clave' ? (
           <div className="co-caja co-caja--quieta" aria-busy="true"><p>&nbsp;</p></div>

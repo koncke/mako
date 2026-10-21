@@ -234,7 +234,8 @@ test('editar con `disparadores` los guarda YA por action «disparadores» (la de
   assert.match(otra, /if \(edicionTocaPasos\(r\)\) \{\s*if \(!edicionVigente\(r\.base, pasos\)\) \{ setErr\('Cambiaste el flujo: pídelo de nuevo'\); return false; \}\s*fotoAntes\(\);\s*setPasos\(nuevos\);\s*\}/);
   assert.match(otra, /if \(r\.disparadores\?\.length\) crons\.guardar\(r\.disparadores\);/);
   assert.doesNotMatch(otra, /setEditandoIA\(false\)/, 'el chat se cierra al terminar: el resumen y la pregunta no se ven');
-  assert.match(PERFIL, /const crons = useDisparadores\(secuencia as SecuenciaConDisparadores, \{ onCambio, onError: \(m\) => setErr\(m\) \}\);/);
+  // Revisión del 20/10/2026, noche (tests/automations-aviso-todos-caminos.test.ts): y el aviso de duplicada al guardar un CRON de una activa.
+  assert.match(PERFIL, /const crons = useDisparadores\(secuencia as SecuenciaConDisparadores, \{ onCambio, onError: \(m\) => setErr\(m\), onGuardado: \(n, p\) => alGuardarCronsRef\.current\(n, p\) \}\);/);
   // `crons.guardar` es el POST del panel del CRON (y relee la lista: `onCambio`).
   const editor = sinComentarios(leer('app/automations/EditorDisparadores.tsx'));
   assert.match(tramo(editor, 'const guardar = (nueva: Disparador[]) => {', '\n  };', 600), /const body = \{ action: 'disparadores', secuenciaId: secuencia\.id, disparadores: nueva \};/);
@@ -252,27 +253,21 @@ const SEC = {
   id: 7, clave: 'bienvenida', nombre: 'Bienvenida', etapa: 'nuevo', trigger_tipo: 'manual',
   activa: false, pasos: [PASO], inscriptos: 0, enviados: 0, estrategia: null, metricas: {},
 } as unknown as SecuenciaDto;
-const dibujarPerfil = (makoAlAbrir: boolean) => renderToStaticMarkup(createElement(SecuenciaPerfil, {
-  secuencia: SEC, secuencias: [SEC], productos: [], disparadores: [], onAbrirClave: () => {}, objetivos: [],
-  etiquetaEtapa: (k: string) => k, rolAdmin: true, audios: [], negocio: 'Mi negocio', canalCaido: false, tz: null,
-  onAudioNuevo: () => {}, onCambio: () => {}, makoAlAbrir,
-} as Parameters<typeof SecuenciaPerfil>[0]));
+/** El chat solo, como lo monta el lienzo en la sidebar (un portal no se dibuja en el server). */
+const dibujarChatSolo = () => renderToStaticMarkup(createElement(ChatMako, { secuenciaId: 7, pasos: [PASO], publicadas: 1, onListo: () => true, onVolver: () => {} } as Parameters<typeof ChatMako>[0]));
 
-test('abierto al entrar: el lienzo con makoAlAbrir monta el chat; ?mako=1 y la fila que nace con un pedido lo piden', () => {
-  // Dibujado de verdad: con `makoAlAbrir` el chat está, y el ✦ encendido; sin él, no.
-  const con = dibujarPerfil(true);
-  assert.match(con, /data-crear-ia="editar"[\s\S]*data-chat-mako="editar"/, 'makoAlAbrir no abrió el chat');
-  const sin = dibujarPerfil(false);
-  assert.doesNotMatch(sin, /data-chat-mako/, 'el chat se abre solo sin que nadie lo pida');
-  // Por `abrirMako`, la del ✦, en el flanco y sólo si está cerrado.
-  assert.match(PERFIL, /if \(makoAlAbrir !== makoPedido\) \{\s*setMakoPedido\(makoAlAbrir\);\s*if \(makoAlAbrir && !editandoIA\) abrirMako\(\);\s*\}/);
+// ⚠️ 20/10/2026 (Martín: «que quede SIEMPRE abierto en donde está la sidebar»): el chat ya no se abre. Está siempre, por
+// portal en la ranura de la lista (tests/automations-chat-siempre.test.ts); `?mako=1` y la fila que nace con un pedido
+// sólo sacan a la sidebar de la lista.
+test('abierto al entrar: el chat está siempre; ?mako=1 y la fila que nace con un pedido lo ponen a la vista', () => {
+  assert.match(dibujarChatSolo(), /data-chat-mako="editar"/);
+  assert.doesNotMatch(PERFIL, /makoAlAbrir|abrirMako/, 'volvió el abrir y cerrar del chat');
   // La lista lo pasa a ESA automatización (después de elegirla: `cambiarA` lo limpia).
   // (17/10, #882) Detrás puede venir `cron`: abrir con su CRON abierto (tests/crear-al-instante.test.ts).
   assert.match(LISTA, /export type AbrirSecuencia = \{ id: number; mako\?: true; pedido\?: string(?:; cron\?: true)? \};/);
   // (17/10/2026: «crea otra» desde el chat de la abierta cambia sin la pregunta de lo no publicado: `creaDesdeElChat`.)
-  assert.match(LISTA, /setAbrirVisto\(abrir\);\s*if \(!creaDesdeElChat\.current\) elegir\(abrir\.id\);\s*else if \(abrir\.id !== selId\) \{ setSinPublicar\(false\); cambiarA\(abrir\.id\); \}\s*(?:\/\/[^\n]*\n\s*)*setMakoPara\(abrir\.mako \? abrir\.id : null\);/);
-  assert.match(LISTA, /makoAlAbrir=\{makoPara === sel\.id\}/);
-  assert.match(tramo(LISTA, 'const cambiarA = (id: number) => {', '\n  };', 900), /setMakoPara\(null\);/);
+  assert.match(LISTA, /setAbrirVisto\(abrir\);\s*if \(!creaDesdeElChat\.current\) elegir\(abrir\.id\);\s*else if \(abrir\.id !== selId\) \{ setSinPublicar\(false\); cambiarA\(abrir\.id\); \}\s*(?:\/\/[^\n]*\n\s*)*if \(abrir\.mako\) setEnLaLista\(false\);/);
+  assert.match(tramo(LISTA, 'const cambiarA = (id: number) => {', '\n  };', 900), /setPedidoPara\(null\); setEnLaLista\(false\);/);
   // La tab: la fila que nace con un pedido de «Pídeselo a MaKo» (decimotercera, punto 2), y el link `?sec=<id>&mako=1`.
   assert.match(tramo(APP, 'const crearNueva = async (pedido?: string) => {', '\n  };', 1900), /setAbrirSec\(\{ id, mako: true, pedido \}\);/);
   const ancla = APP.slice(APP.indexOf("const sec = params.get('sec');"), APP.indexOf('const etiquetaEtapa = useCallback('));
@@ -290,13 +285,14 @@ test('abierto al entrar: el lienzo con makoAlAbrir monta el chat; ?mako=1 y la f
 // ── 6. La barra vieja ────────────────────────────────────────────────────────────────────────────
 
 test('la barra vieja («Pídele un cambio» + «Agregar») ya no se monta: en su lugar va el chat', () => {
-  const html = dibujarPerfil(true);
+  const html = dibujarChatSolo();
   assert.doesNotMatch(html, /<input[^>]*placeholder="Pídele un cambio"/, 'volvió la barra de una línea');
   assert.doesNotMatch(html, />Agregar<\/button>/, 'volvió el «Agregar» de la barra');
   assert.match(html, /<textarea[^>]*placeholder="Pídele un cambio"/);
   assert.doesNotMatch(PERFIL, /<CrearConIA\b/);
   // 13/10/2026: entre `pasos` y `onListo` va `publicadas` (con algo publicado, MaKo no crea: el 409 de la decimotercera).
-  assert.match(PERFIL, /<ChatMako secuenciaId=\{secuencia\.id\} pasos=\{pasos\} publicadas=\{secuencia\.pasos\?\.length \?\? 0\} onListo=\{alListoIA\} /);
+  // (20/10/2026: en la sidebar, con la «←» en el renglón de abajo.)
+  assert.match(PERFIL, /<ChatMako secuenciaId=\{secuencia\.id\} pasos=\{pasos\} publicadas=\{secuencia\.pasos\?\.length \?\? 0\} onListo=\{alListoIA\}\s/);
   const galeria = sinComentarios(leer('app/automations/GaleriaPlantillas.tsx'));
   assert.doesNotMatch(galeria, /<CrearConIA\b|<ChatMako\b/);
   // Decimotercera (punto 2): la galería sólo PIDE; la fila nace en la tab y MaKo trabaja en su lienzo.

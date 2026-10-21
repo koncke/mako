@@ -1587,6 +1587,16 @@ código nuevo:
     **El turno (`turnoApp`) lo usan TRES chats** (el Second Brain, el teléfono y el MaKo Analyst de un lead): lo que
     escribe FUERA del hilo (guardar archivos, El Archivero, cualquier efecto nuevo) va detrás de una opción que prende
     quien llama (`guardarAdjuntos`), nunca para todos. El PDF de un lead no es un documento del negocio.
+  - **Un chat de tab adjunta con las piezas de la caja del Ops Center** (regla de Martín del 18/10/2026: un solo chat en
+    toda la app): el «+» (`MasCaja`), las miniaturas (`ListaAdjuntos`) y pegar y soltar (`alPegar`, `alSoltar`) de
+    app/admin/operaciones/AdjuntosCaja.tsx y pegar.ts, nunca un ⊕ propio. Fuera del Centro: se importa `centro.css`
+    (AdjuntosCaja trae sólo chat.css) en la pantalla que monta el chat, NUNCA en un módulo que cargan los tests (en node un
+    `.css` no carga: si el chat es un módulo compartido, `MasCaja` y `ListaAdjuntos` entran con `next/dynamic` y pegar y
+    soltar vienen de pegar.ts); y, si la pantalla tiene su propio tema (el editor de landings), se redefinen bajo su
+    raíz los tokens que usan (`--surface`, `--surface-2`, `--border`, `--ink`, `--dim`, `--velo-hover`, `--focus-ring`):
+    si no, el menú sale con los colores de la app sobre el oscuro del editor. Lo que una pantalla suma (leer el archivo
+    antes de mandar) va por `AdjuntoCaja.estado`, que la miniatura dibuja. El molde: el chat del editor
+    (app/web-generator/editor/paneles/PanelAgente.tsx, 20/10/2026).
   - **EL MODELO JUSTO Y LA INSTRUCCIÓN PRECISA: los tokens son la capacidad** (17/10/2026). Martín: «quiero que los jefes
     y el cerebro tengan la capacidad de ahorrar tokens, dando instrucciones precisas y eligiendo qué modelo de IA debe
     correr». Medido esa noche: con nueve chats abiertos, la ventana de 5 horas de una cuenta Max llegó al 95% en
@@ -1604,6 +1614,11 @@ código nuevo:
       pide `indice_segundo_cerebro` (~300 tokens) y después `recuperar_del_segundo_cerebro` con su pregunta o con ids
       (lib/cerebro-recuperar.ts, sin IA). Medido en dos workspaces reales: 118-190 tokens por pregunta contra 459-678 del
       grafo entero y 1.105-1.606 del vault. `leer_segundo_cerebro_como_archivos` es para un área ENTERA, no para contestar.
+  - **UNA SOLA CAJA PARA HABLAR CON MaKo: `app/_chat/CajaChat.tsx`** (20/10/2026; Martín: «Te pedí que unificaras el chat
+    del Ops Center en todos lados, su diseño y funcionalidades»). Ninguna pantalla nueva arma su <textarea>, usa
+    `ComposerWhatsApp` o `ChatHilo`, ni su botón de mandar para hablar con MaKo: usa la pieza y le pasa su motor por props.
+    Si falta algo, se le suma a la pieza (y lo tienen todas), nunca a una copia. tests/chat-unico.test.ts lleva la lista de
+    las que faltan, cada una con su chat, y falla si aparece una nueva.
   - **TODO LO QUE SE TERMINA LLEVA SU `revisar`** (17/10/2026; Martín: «se terminaron y pushearon cosas y no las puedo ver
     en Review»). El hito de la bitácora o el cierre (`cartero.mjs cierre … --revisar`) trae la ruta INTERNA donde Martín
     lo prueba (`/crm?lead=…`, `/general`, `/automations/…`). Sin eso, su «Ya está» sólo lleva a la tab del área.
@@ -1812,6 +1827,15 @@ horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, un
   escribe una sola: `fijarZonaDelNegocio`, con su origen.
 - **Dos zonas se comparan después de `zonaCanonica`**: Cal.com y Chrome contestan alias (`America/Buenos_Aires`) y Node
   24 devuelve el nombre viejo de ICU.
+- **«Hoy» es el día del NEGOCIO, nunca `new Date().toISOString().slice(0, 10)`** (20/10/2026): eso es el día UTC, y de 18
+  a 24 h en México ya es mañana (la ficha daba vencida una cuota que vence hoy). En el server, `hoyEnWorkspace()`; en un
+  componente, `hoyEnTz(useTzWorkspace())` (app/crm/lead-view/useTzWorkspace.ts). Una función de plata no tiene un
+  `hoy` por default: lo pide, o lo saca del negocio. tests/pagos-cobro-idempotente.test.ts barre Pagos y Clients.
+- **Marcar un cobro es idempotente**: `marcarPago` y `cobrarCuota` no tocan una cuota que ya está como se pide y
+  devuelven `yaEstaba`. Quien marca lo DICE («Ya estaba cobrada») y no ofrece Deshacer: sería desmarcar el cobro de otro.
+  **Y la escritura es CONDICIONAL** (`siSigue` + `.select('id')`, lib/pagos.ts): leer el estado y compararlo en memoria
+  no alcanza con dos pantallas a la vez. Cero filas tocadas = otro llegó antes. `cobrarCuota` escribe el cobro ENTERO
+  (pagado, fecha, hora, monto, moneda) en esa sola escritura, nunca el monto primero y la marca después.
 
 # Una herramienta de laboratorio montada en el layout raíz es una herramienta EN PRODUCCIÓN
 
@@ -1949,6 +1973,23 @@ envíes un mensaje al grupo de MaKo diciendo que se solucionó eso. Con una acla
 - **NO necesita el OK de Martín** (17/10/2026, 10:09: «No necesitas mi aprobacion, manda el mensaje tranquilamente al
   grupo»): lo manda el jefe que arregló, con la herramienta y sus topes. Si el clasificador de permisos de Claude Code
   lo bloquea, se le dice a Martín en una línea, en el chat del jefe, con el comando exacto para que lo apruebe ahí.
+
+# Leer texto libre con reglas falla en lo obvio: la red es que la persona CONFIRME lo que se entendió
+
+Dos piezas leían texto con heurísticas: el onboarding (cifras, opciones, el «sí», el nombre del negocio) y el
+clasificador del chat de la app (qué herramientas ve MaKo). Cada ronda de reglas cerraba los casos marcados y abría otros,
+medido con revisiones adversariales y un escéptico por hallazgo (20-21/10/2026). En el onboarding fueron tres rondas,
+cada una con errores nuevos: «2 palos por mes» (pesos) se guardaba como «Más de $80.000» (dólares) y «Sí, es así»
+proponía «así» como nombre del negocio. En el clasificador fueron dos: «cancelá llamada pendiente con Juan» terminaba en
+`cancelar_accion`, que corre sin tarjeta.
+
+**La regla:** lo que se interpreta de un texto libre y se GUARDA como dato del cliente, o se EJECUTA sin vuelta atrás,
+pasa por un toque de la persona que ve lo que se entendió («Entendí $3.000 – $10.000 por mes. ¿Es así?»; la tarjeta de
+MaKo para una destructiva). Las reglas siguen sirviendo para PROPONER bien; la red es el toque. Así un error de lectura
+cuesta un clic y no un dato malo. Un texto que no da una lectura clara no adivina: pregunta. Eso incluye una moneda que
+no es la de los tramos, un empate o una negación rara. Un test fija que no hay ningún camino de guardado o de ejecución
+destructiva sin ese toque. Detalle: docs/hallazgos-infra.md («Re-revisar una punta arreglada»), hallazgos-onboarding e
+hallazgos-ia.
 
 # Tres topes del entorno que no dan error: te dan otra cosa
 
@@ -9446,3 +9487,14 @@ CRM, Clients y Plan, en computadora y teléfono, dibujan sus tarjetas con `app/_
 tengan coherencia»; prototipo docs/prototipos/coherencia-1710.html). Un tablero nuevo NO escribe su propia tarjeta: usa
 `TarjetaPersona` (una persona) o `TarjetaTarea` (una tarea), y le pasa a la raíz su arrastre y su clic. En el teléfono, la
 tarjeta va adentro de `KanbanM`. Detalle y trampas: docs/hallazgos-ui.md.
+
+## Lo que se guarda POR AUTOMATIZACIÓN fuera de su fila viaja con «Duplicar» (20/10/2026)
+
+La configuración propia de una automatización (horario, horas a la misma persona) vive en `app_settings`
+(`automatizacion.config:<id>`), no en `nutricion_secuencias`. Algo NUEVO que se guarde por id de automatización fuera de
+la fila se copia en `duplicarSecuencia` (lib/secuencia-duplicar.ts, por una dependencia OBLIGATORIA como `copiarConfig`) y
+en «Copiar flujo» pegado en el MISMO negocio (`crearDesdeCopia` con `configDe`, lib/flujo-copia-negocio.ts) y, si no se
+puede copiar, la copia se borra. Y un aviso que defiende algo (el de automatización duplicada) va en TODOS los caminos que
+lo prenden, no sólo en el botón de la pantalla donde se pensó. Y un panel del NEGOCIO reusado adentro de algo de UNA automatización revisa cada
+cosa que guarda: el huso de la tuerca guardaba `mako.timezone` de todo el negocio. Detalle: docs/hallazgos-chatbot.md
+(«La revisión adversarial lo frenó»).

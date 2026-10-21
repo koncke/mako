@@ -55,6 +55,9 @@
 // =============================================================================
 
 import '../gamma.css';
+// Las piezas de la caja del Ops Center en el chat del agente (paneles/PanelAgente.tsx no puede cargar CSS: lo importan
+// módulos que cargan los tests).
+import '@/app/admin/operaciones/centro.css';
 import {
   useCallback, useEffect, useMemo, useRef, useState,
   type CSSProperties, type DragEvent as DragEventReact,

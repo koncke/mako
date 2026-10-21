@@ -86,6 +86,19 @@ export function nombreArchivoLoQueVendes(negocio: string): string {
   return slug ? `lo-que-vende-${slug}.pdf` : 'lo-que-vendes.pdf';
 }
 
+/** ¿Ese nombre es el de un «Lo que vendes»? La vuelta de `nombreArchivoLoQueVendes` (un test fija que van juntas). */
+export const esNombreLoQueVendes = (nombre: string): boolean => /^lo-que-vende(s|-[a-z0-9-]+)\.pdf$/.test(nombre);
+
+/**
+ * El «Lo que vendes» que dejó el onboarding en El Archivero (`archivarLoQueVendes`), para ofrecerlo como chip en el chat
+ * del Web Generator (20/10/2026). Sólo el del onboarding (un PDF que subió la persona con ese nombre no es «el de MaKo»);
+ * si hay más de uno (el negocio cambió de nombre), el último. null si no hay.
+ */
+export function elegirLoQueVendes<T extends { nombre: string; mime: string | null; origen?: string | null; created_at?: string | null }>(files: readonly T[]): T | null {
+  const suyos = files.filter((f) => f.origen === 'onboarding' && f.mime === 'application/pdf' && esNombreLoQueVendes(f.nombre));
+  return suyos.reduce<T | null>((ultimo, f) => (!ultimo || String(f.created_at ?? '') >= String(ultimo.created_at ?? '') ? f : ultimo), null);
+}
+
 /** Los bytes del PDF. Nunca tira por el contenido: lo que no entra se corta en líneas y páginas. */
 export function pdfDeLoQueVendes(piezas: PiezasSabidas, meta: MetaLoQueVendes): Uint8Array {
   return documentoLoQueVendes(piezas, meta).bytes();

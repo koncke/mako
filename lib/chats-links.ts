@@ -16,10 +16,22 @@
 export const RUTA_CHATS = '/chats';
 
 /** Los parámetros que lee ChatsApp. */
-export const PARAM_CHATS = { clave: 'c', lead: 'lead', linea: 'linea', chat: 'chat' } as const;
+export const PARAM_CHATS = { clave: 'c', lead: 'lead', linea: 'linea', chat: 'chat', vista: 'vista' } as const;
 
 /** La conversación de un lead (`lead:<id>`): junta todos sus canales. */
 export const rutaChatsDeLead = (leadId: number): string => `${RUTA_CHATS}?${PARAM_CHATS.lead}=${leadId}`;
+
+/**
+ * UNA BANDEJA (`?vista=`), hoy sólo «Borradores»: a donde lleva «N mensajes esperando que los apruebes» de una
+ * automatización (lib/mensajes-por-aprobar.ts, 20/10/2026). ChatsApp la pone en el filtro, con «Mostrar: Todas» (un
+ * borrador de una conversación cerrada también espera), y saca el parámetro de la URL: después el filtro es de quien
+ * lo toca. Una vista que no está acá no hace nada.
+ */
+export const VISTAS_CON_LINK = ['borradores'] as const;
+export type VistaConLink = (typeof VISTAS_CON_LINK)[number];
+export const rutaChatsDeVista = (v: VistaConLink): string => `${RUTA_CHATS}?${PARAM_CHATS.vista}=${v}`;
+export const vistaDeLink = (raw: string | null | undefined): VistaConLink | null =>
+  VISTAS_CON_LINK.find((v) => v === raw?.trim()) ?? null;
 
 /** Una conversación por su clave (`lead:12`, `wa:<linea>:<tel>`, `ig:<id>`, `fb:<id>`). */
 export const rutaChatsDeClave = (clave: string): string => `${RUTA_CHATS}?${PARAM_CHATS.clave}=${encodeURIComponent(clave)}`;

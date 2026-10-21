@@ -53,6 +53,8 @@
 // =============================================================================
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { hoyEnTz } from '@/lib/date-utils';
+import { useTzWorkspace } from '../useTzWorkspace';
 import { createPortal } from 'react-dom';
 import { EstiloDeLaHoja } from './EstiloDeLaHoja';
 import { csvDelLead, nombreArchivoLead } from './exportar-lead';
@@ -84,6 +86,8 @@ import { PASOS_FICHA_EDICION, RECORRIDO_FICHA_EDICION } from './recorrido-ficha'
 import { AuditHistory } from '../AuditHistory';
 import { useRefrescarFicha } from '../ficha-cambio';
 import { useRouter } from '@/app/_ui/Link';
+import { MenuContextual } from '@/app/_ui/MenuContextual';
+import { OPCION_FICHA, menuPropioEn, opcionesFicha, type IdOpcionFicha } from './menu-contextual-ficha';
 import { ModalLlevarAPartners } from '@/app/partners/LlevarAPartners';
 import { HistorialFicha } from './HistorialFicha';
 import { Armador } from './Armador';
@@ -132,7 +136,10 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   // El `router.refresh()` más, en el pop-up, la relectura de la ficha (lead-view/ficha-cambio.tsx).
   const refrescar = useRefrescarFicha();
   const etapa = lead.pipeline_stage && stages.some((s) => s.key === lead.pipeline_stage) ? lead.pipeline_stage : deriveStageKey(lead);
-  const hoy = new Date().toISOString().slice(0, 10);
+  // ⚠️ EL DÍA DEL NEGOCIO, no el UTC (20/10/2026): con `toISOString()`, de 18 a 24 h en México la ficha ya estaba en
+  // mañana y una cuota que vence hoy salía vencida acá y no en General ni en lo que dice MaKo. La zona es la de General
+  // (`tzActual` → `zonaDelNegocio`), por el hook de la ficha; hasta que llega, Tijuana, igual en el server y en el cliente.
+  const hoy = hoyEnTz(useTzWorkspace());
   const { toast, show, clear } = useToast();
 
   const ff = useFichaDelFunnel(data.ficha ?? null, {
@@ -185,6 +192,8 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   // La hoja que se está mirando (la clave de `?tab=`), para el chat de edición: la avisa LeadTabs.
   const [activa, setActiva] = useState<string>(initialTab ?? 'resumen');
   const raizRef = useRef<HTMLDivElement>(null);
+  /** El clic derecho dentro de la ficha (20/10/2026): dónde se abrió el menú; null = cerrado. */
+  const [menuFicha, setMenuFicha] = useState<{ x: number; y: number; n: number } | null>(null);
   const [senal, setSenal] = useState<{ id: StepId; label: string } | null>(null);
   const ctx: CtxFicha = {
     data, lead, stages, etapa, hoy,
@@ -561,6 +570,47 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
         else if (v === 'partners-ver' && lead.cliente_ws != null) router.push(`/partners?cuenta=${lead.cliente_ws}`);
       }} />
   );
+  // ── EL CLIC DERECHO DENTRO DE LA FICHA (20/10/2026; docs/pedidos-crm.md, D3) ─────────────────────────────────────
+  // Martín (14/10): «implementa el click derecho en todo el CRM». Las opciones son las del «⋯» de arriba más las rápidas
+  // del lead (./menu-contextual-ficha.ts); cada una hace LO MISMO que su renglón del «⋯», sin un camino propio.
+  const telDigitos = String(lead.telefono ?? '').replace(/\D/g, '');
+  const copiar = (texto: string, que: string) => {
+    void navigator.clipboard?.writeText(texto).then(() => show(`${que} copiado`), () => show('No se pudo copiar', undefined, 'bad'));
+  };
+  const elegirMenuFicha = (id: IdOpcionFicha) => {
+    switch (id) {
+      case 'analyst': setPanel('analizar'); return;
+      case 'whatsapp': if (telDigitos) window.open(`https://wa.me/${telDigitos}`, '_blank', 'noopener'); return;
+      case 'copiar_telefono': if (lead.telefono) copiar(String(lead.telefono), 'Teléfono'); return;
+      case 'copiar_email': if (lead.email) copiar(String(lead.email), 'Email'); return;
+      case 'copiar_link': copiarLink(); return;
+      case 'exportar_csv': exportarCsv(); return;
+      case 'exportar_pdf': exportarPdf(); return;
+      case 'historial': setHistorial(true); return;
+      case 'guia': if (!enEdicion) alternarEdicion(true); guia.reabrir(); return;
+      case 'partners_llevar': setAPartners(true); return;
+      case 'partners_ver': if (lead.cliente_ws != null) router.push(`/partners?cuenta=${lead.cliente_ws}`); return;
+    }
+  };
+  const alClicDerechoFicha = (e: { target: EventTarget | null; clientX: number; clientY: number; preventDefault: () => void }) => {
+    const seleccion = String(window.getSelection?.() ?? '').trim();
+    if (!menuPropioEn(e.target as Element | null, seleccion.length > 0)) return;
+    e.preventDefault();
+    setMenuFicha((m) => ({ x: e.clientX, y: e.clientY, n: (m?.n ?? 0) + 1 }));
+  };
+  const cerrarMenuFicha = useCallback(() => setMenuFicha(null), []);
+  const ventanaMenuFicha = menuFicha ? (
+    <MenuContextual key={menuFicha.n} punto={{ x: menuFicha.x, y: menuFicha.y }} etiqueta="Acciones de la ficha"
+      items={opcionesFicha({
+        conTelefono: !!telDigitos,
+        conEmail: !!lead.email,
+        conHistorial: !!ff.ficha,
+        puedeEditar: !!puede,
+        partners: data.partners ? (lead.cliente_ws != null ? 'ver' : 'llevar') : null,
+      }).map((o) => (o === null ? null : { id: o, label: OPCION_FICHA[o].texto, icono: OPCION_FICHA[o].icono }))}
+      onElegir={(id) => elegirMenuFicha(id as IdOpcionFicha)} onCerrar={cerrarMenuFicha} />
+  ) : null;
+
   // El historial de la ficha (el «⋯»): al volver a una versión, la ficha se relee y gana la foto más nueva (`masNueva`).
   const ventanaHistorial = historial && ff.ficha ? (
     <HistorialFicha funnelId={ff.ficha.funnel.id} nombre={ff.ficha.funnel.nombre} onCerrar={() => setHistorial(false)} onVolvio={() => refrescar()} />
@@ -570,7 +620,7 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
     <ModalLlevarAPartners leadId={lead.id} nombre={lead.nombre ?? ''} email={lead.email ?? null}
       onCerrar={() => setAPartners(false)} onListo={() => refrescar()} />
   ) : null;
-  const acciones = <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>{boton}{menu}{ventanaPartners}{ventanaHistorial}</span>;
+  const acciones = <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>{boton}{menu}{ventanaPartners}{ventanaHistorial}{ventanaMenuFicha}</span>;
 
   // El panel del AI Analyst: aparte de la ficha (por portal), a la izquierda, y la ficha se corre a la derecha para
   // dejarle lugar (el `<style>` vive sólo mientras está abierto). El clic adentro no cierra la ficha: el evento sube
@@ -609,7 +659,8 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   ) : null;
 
   return (
-    <div ref={raizRef} className={['fb', enEdicion && 'fb--editando', ...estilo.clases].filter(Boolean).join(' ')} style={estilo.vars as CSSProperties}>
+    <div ref={raizRef} className={['fb', enEdicion && 'fb--editando', ...estilo.clases].filter(Boolean).join(' ')} style={estilo.vars as CSSProperties}
+      onContextMenu={alClicDerechoFicha}>
       <style>{CSS_FICHA}</style>
       <LeadTabs initial={initialTab} irA={irA} fija={{ fondo: fondoTabs, arriba: arribaTabs }} actions={acciones} tabs={tabs} sangria={sangria} onActiva={setActiva}
         onChange={(key) => { setUltima(key); if (nueva && key !== nueva.id) cerrarSinVolver(); onTab?.(key); }}
