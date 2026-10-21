@@ -903,4 +903,21 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/second-brain?ws=3',
   },
+  {
+    fecha: '21 oct', hora: '08:53', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Contestar escribiendo vuelve a cerrar las preguntas de MaKo',
+    puntos: [
+      'La corrección anterior dejaba esperando los diseños que no elegiste, y con eso las preguntas siguientes de MaKo ya no se cerraban cuando las contestabas escribiendo, en ninguna parte del chat.',
+      'Ahora escribir contesta la pregunta que MaKo acaba de hacer. Los diseños de antes se contestan sólo si tocas uno.',
+      'Si dos productos tuyos se llaman igual salvo por las mayúsculas, MaKo usa el primero en vez de una pregunta que no se podía mostrar.',
+    ],
+    commits: [
+      { sha: '131ce5e7b', msg: 'Chat de MaKo, 7ª revisión: escribir contesta la pregunta del turno actual, aunque haya un selector viejo abierto', lineas: 54, archivos: 4 },
+    ],
+    archivos: [
+      'app/m/mako/chat-ui.ts — conRespuestas: escribir contesta sólo el selector del turno actual',
+      'lib/editor-landing/producto-de-landing.ts — dos productos iguales salvo por mayúsculas',
+    ],
+  },
 ];

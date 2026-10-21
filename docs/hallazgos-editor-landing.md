@@ -2136,7 +2136,8 @@ Pedido de Martín (20/10): «que Ops Center sea lo principal en MaKo… crear we
   «Curso de C++» (el primero que coincidía), de «Descuento 50» el «Descuento 50%» y de «?» un «🚀». Sólo se saca la
   puntuación que no cambia el nombre (comillas, puntos, comas, paréntesis, guiones); un nombre que queda vacío no se
   compara. Dos del catálogo con la misma clave («Mentoría» y «Mentoria»): vale el que coincide EXACTO con lo mandado, y si
-  todos se llaman igual, el primero (abajo sólo llega el nombre). Se pregunta sólo si no coincide exacto con ninguno: una
+  todos se llaman igual SIN MIRAR mayúsculas, el primero (abajo sólo llega el nombre, y el G1 ve «Mentoría» y «MENTORÍA»
+  como la misma opción: con las dos, la pregunta no se podía dibujar). Se pregunta sólo si no coincide exacto con ninguno: una
   pregunta cuyas opciones vuelven a preguntar (la 6ª revisión) es peor que ninguna.
 - **Un `producto_nuevo` que nombra uno del catálogo pregunta sólo si no dice nada más** («no es Kairos», «uno parecido a
   la Mentoría 1 a 1»). Uno que lo nombra Y dice qué es («Mentoría grupal para emprendedoras» con «Mentoría») es nuevo:
@@ -2197,18 +2198,10 @@ Pedido de Martín (20/10): «que Ops Center sea lo principal en MaKo… crear we
   y lo contestado vale en CADA render) y el merge no lo trajo: decía «Respondiste» con el mensaje sin mandar, y al
   recargar volvía activo porque `conRespuestas` sólo miraba la `pregunta`. Ahora Elegir hace lo mismo que PreguntaHilo,
   BloqueHilo le pasa `ocupado`, y `conRespuestas` cuenta también el `elegir`.
-- **Una respuesta no cierra DOS selectores.** MaKo guarda en el mismo mensaje lo que dibujan las lecturas y su
-  pregunta (el G2 de diseños y el G1 del producto), y `conRespuestas` cerraba los dos con el primer mensaje: tocar
-  «Mentoría» dejaba los diseños apagados con «Respondiste: Mentoría». Con varios esperando el mismo mensaje, cada uno se
-  cierra sólo con lo que manda un toque suyo (`respuestasDeElegir` en bloques-web.ts, la misma fuente que el botón); lo
-  escrito que no es de ninguno los deja abiertos. Con uno solo, escribir lo contesta, como siempre.
-  - **Para eso, lo que manda cada botón tiene que decir de cuál vino.** El G1 y el G2 tenían los mismos «Elige tú» y
-    «Saltear»: el del G1 cerraba el G2. Ahora el G2 manda «Diseño: saltear» y el G1 los suyos de una constante del marco
-    (`ELIGE_TU_PREGUNTA`, lib/chat-bloques.ts), la misma que reconoce el hilo.
-  - **Un selector que quedó abierto sigue esperando** en los turnos siguientes: tocado más tarde se cierra él, no la
-    pregunta nueva, y no vuelve a abrirse al recargar. Mirar sólo «el primer mensaje que lo sigue» lo reabría.
-  - **«Listo» con varias se reconoce armándolo como el botón** (títulos en el orden de las opciones, unidos con «, »), no
-    partiendo por comas: un título puede tener una («Precios, planes»).
+- **El G2 de diseños y el G1 del producto salen en el MISMO mensaje:** a cuál contesta cada mensaje de la persona lo
+  decide el chat de MaKo (`conRespuestas`), y su cosecha está en docs/hallazgos-second-brain.md («Varios selectores en el
+  hilo»). Lo que toca a esta área es que el G2 mande textos que digan de cuál vienen («Diseño: saltear»,
+  `respuestasDeElegir` en bloques-web.ts, la misma fuente que el botón).
 - **Una lectura que dibuja tiene que leer el pedido.** `listar_disenos_landing` dibujaba el G2 sin mirar
   `ctx.mensajeUsuario`: siempre los mismos tres, también en una presentación o con el diseño ya nombrado. Ahora
   `elegirDisenoPara` los ordena por el pedido y no dibuja nada en esos dos casos. «MaKo» es también el nombre de la app:
