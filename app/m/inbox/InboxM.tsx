@@ -378,7 +378,8 @@ function SheetDecision({ item, ahora, onCerrar, onResuelto, onYaNo }: {
     return correr(op.decision, op.decision === 'rechazar', () => resolverConfirmacionMovil(it.id, op.decision), op.decision);
   };
   const abrirEnCompu = () => {
-    document.cookie = cookieVistaEscritorio();
+    // Sólo ESA pantalla en la computadora (20/10/2026): cualquier otra vuelve al teléfono.
+    document.cookie = cookieVistaEscritorio(it.linkEscritorio);
     window.location.href = conWs(it.linkEscritorio, ws);
   };
   const irAFicha = (href: string) => { onCerrar(); router.push(href); };

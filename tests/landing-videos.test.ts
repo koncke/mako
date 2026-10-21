@@ -264,7 +264,9 @@ test('CABLEADO: el CRM desglosa la retención por video', () => {
   // 4. Y la tarjeta tiene que DEJAR DE pintar «Retención del VSL» en singular
   //    cuando hay varios: ese rótulo sobre el máximo de todos es la mentira.
   const card = leer('../app/crm/lead-view/ComportamientoCard.tsx');
-  assert.ok(/\{!varios && \(/.test(card), 'con varios videos el número único no se puede seguir mostrando');
+  // 20/10/2026 (la ficha por bloques, docs/pedidos-crm.md D2): la parte del video se dibuja sólo si su bloque la pide
+  // (`ver.video`), y la regla sigue: con varios videos, nunca el número único.
+  assert.ok(/\{(?:ver\.video && )?!varios && \(/.test(card), 'con varios videos el número único no se puede seguir mostrando');
   assert.ok(/Retención por video/.test(card), 'falta el desglose');
 });
 

@@ -457,12 +457,17 @@ test('el chat: permiso del CRM, el hilo sólo al abrir, y el rincón marcado', (
     assert.ok(tramos.length >= 2, `${nombre}: no encontré los fetch`);
     for (const t of tramos) assert.match(t.slice(0, 600), /AbortSignal\.timeout\(/, `${nombre}: un fetch sin corte`);
   }
-  // El botón plegado y el panel abierto, A LA IZQUIERDA desde el 16/10/2026 (Martín: «El botón de MaKo siempre a la
-  // izquierda»), pegados a la barra lateral; ya no ocupan el rincón de abajo a la derecha.
-  // Probado rompiéndolo (16/10/2026): volver a `right: 20` → 1 fallo; el panel con `right: 0` → 1 fallo.
+  // La BARRA FIJA A LA DERECHA desde el 20/10/2026 (regla del 18/10: «Editar = el patrón de Web Generator»; y a la
+  // izquierda, con `left: RAIL + 20`, quedaba DEBAJO de la sidebar abierta: Martín no la veía). Plegada, una pestaña en
+  // el borde derecho a media altura; abierta, la barra entera a la derecha, y el tablero le deja el lugar.
+  // Probado rompiéndolo (20/10/2026): el PanelMakoCrm de antes (a la izquierda, sobre RAIL) → 1 fallo.
   assert.match(panel, /<button type="button" data-boton-mako-crm onClick=\{abrir\}/);
-  assert.match(panel, /position: 'fixed', left: RAIL \+ 20, bottom: 12/);
-  assert.match(panel, /<aside aria-label="MaKo"\n\s*style=\{\{\n\s*position: 'fixed', top: 'var\(--barra-agencia, 0px\)', left: RAIL, bottom: 0/);
+  assert.match(panel, /position: 'fixed', right: 0, top: '50%', transform: 'translateY\(-50%\)'/);
+  assert.match(panel, /<aside aria-label="MaKo" data-panel-mako-crm\n\s*style=\{\{\n\s*position: 'fixed', top: 'var\(--barra-agencia, 0px\)', right: 0, bottom: 0/);
+  assert.doesNotMatch(panel, /\bRAIL\b/, 'el panel volvió a medirse con el riel de la sidebar plegada');
+  // Abre sola en una pantalla ancha y recuerda si la plegaron; abierta, el tablero le deja el lugar.
+  assert.match(panel, /pref === '1' \|\| \(pref == null && window\.innerWidth >= ANCHO_PARA_ABRIR\)/);
+  assert.match(leer('app/crm/CrmBoard.tsx'), /padding: '16px calc\(44px \+ var\(--ancho-panel-mako, 0px\)\) 60px 44px'/);
   assert.doesNotMatch(panel, /data-esquina-ocupada/);
   // Y con el MUÑECO del CRM, no la estrella (16/10/2026). Probado rompiéndolo: volver a <MakoLogo> → 1 fallo.
   assert.match(panel, /<Muneco titulo="CRM" animo="despierto" size=\{LADO_LOGO\} \/>/);

@@ -49,7 +49,8 @@ import {
 import { crearDesdePlantilla, motivoDePlantillaVieja, PlantillaInvalidaError, type DbPlantilla } from '@/lib/plantilla-crear';
 import { esWsPlataforma } from './integraciones.helpers';
 import { listarEtiquetas } from '@/lib/etiquetas';
-import { crearFlujoConIA, hayIAParaCrear, armarContexto } from '@/lib/flujo-ia-crear';
+import { crearFlujoConIA, hayIAParaCrear, armarContexto, contarCohorte } from '@/lib/flujo-ia-crear';
+import { conConteos } from '@/lib/flujo-ia-crear-core';
 import { preguntaAntes, preguntaParaWhatsApp, respuestaDeTexto, sanearRespuestas } from '@/lib/flujo-ia-preguntas';
 import { TOPE_RONDAS, type RespuestaMako } from '@/lib/automatizacion-chat';
 import { falloDeIA } from '@/lib/flujo-ia';
@@ -572,15 +573,16 @@ export const RUNNERS: Runners = {
       }
       // DUODÉCIMA TANDA (docs/diseno-duodecima-tanda.md §2.4): las MISMAS preguntas que la pantalla (`preguntaAntes`),
       // con el MISMO contexto que va a usar crear (`armarContexto`: sólo lee), sin escribir. Si falta un dato decisivo,
-      // vuelve la pregunta numerada para que el doer la haga en el grupo; la respuesta llega en `canal`, `producto` o
-      // `evento` (el número, el nombre o «Elige tú»; otra cosa va como texto al pedido).
+      // vuelve la pregunta numerada para que el doer la haga en el grupo; la respuesta llega en `canal`, `producto`,
+      // `evento`, `horario` o `quien` (el número, el nombre o «Elige tú»; otra cosa va como texto al pedido). «¿A quién le
+      // llega?» va con cuántos hay hoy en cada opción, como en la pantalla (`conConteos`).
       const { ctx: cx } = await armarContexto(ctx.ws, pedido);
       const respuestas: RespuestaMako[] = [];
       for (let ronda = 0; ronda < TOPE_RONDAS; ronda++) {
         const p = preguntaAntes(pedido, cx, respuestas);
         if (!p) break;
         const dado = str(input, p.sobre);
-        if (!dado) return { error: preguntaParaWhatsApp(p), faltan: [p.sobre] };
+        if (!dado) return { error: preguntaParaWhatsApp(await conConteos(p, contarCohorte)), faltan: [p.sobre] };
         respuestas.push(respuestaDeTexto(p, dado));
       }
       return { payload: { pedido, respuestas }, resumen: `Crear con IA: «${pedido.length > 120 ? `${pedido.slice(0, 119)}…` : pedido}» (nace pausada)` };

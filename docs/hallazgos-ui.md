@@ -4191,3 +4191,21 @@ cambia la barra a clara, también las cambia a ellas (ya pasó con el selector K
 
 **Vive en:** `app/_ui/ui.css` (la barra clara, `--sidebar-hover`) · `app/globals.css` (`--criatura-tinta`) ·
 `app/admin/operaciones/Muneco.tsx` · `app/_components/Sidebar.tsx` · test: `tests/sidebar-nueva.test.ts`
+
+## Un color «de superficie» no es un color de columna: `--surface-2` es el mismo gris que la página (20/10/2026)
+
+**Síntoma:** Martín, el 20/10: «Muchos cambios que te había pedido aún no están, como que las columnas no sean
+invisibles». El 18/10 se había «arreglado» (pt 8) pasando el fondo de la columna de `--surface-2` al 55 % a
+`--surface-2` entero, con su test en verde, y se dio por hecho.
+**Causa:** en el tema claro `--bg` (la página) es #F4F6F9 y `--surface-2` es #F5F7FA: el mismo color, y hasta un poco
+más claro. El arreglo cambió el valor y nunca lo comparó contra lo que tiene detrás; el test fijaba el NOMBRE de la
+variable, no que se viera.
+- ⚠️ **El diagnóstico obvio era el equivocado:** «falta opacidad» llevó a subir la opacidad de algo que no contrastaba.
+  El prototipo (coherencia-1710) no usa una superficie: usa un tono para columnas, `rgba(216,222,233,.55)` en claro y
+  `rgba(0,0,0,.16)` en oscuro.
+**Arreglo:** `--fondo-columna` en app/globals.css (claro y oscuro), y `FONDO_COLUMNA` apunta a ella en el CRM, Clients,
+el Plan y el kanban del teléfono. El test mezcla el color de la columna SOBRE el de la página y pide una diferencia de 8
+o más (con `--surface-2` da 1,7).
+**Regla:** un color de fondo se prueba contra lo que tiene detrás, no por su nombre. Un test de «usa la variable X»
+no dice que se vea.
+**Vive en:** app/globals.css · lib/tarjeta-kanban.ts · tests/tarjetas-familia.test.ts (§9). *20/10/2026, chat «CRM» (claude4).*

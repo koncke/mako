@@ -596,8 +596,10 @@ test('?llamada= abre la ficha: un entero positivo o nada, y /closing?call= se tr
 
 test('un video o una página insertada no se achican por debajo de 3 × 4 en la grilla (C4)', () => {
   const ed = sinComentarios(leer('app/dashboard/EditorInforme.tsx'));
-  // El mínimo de un elemento sale del catálogo (TIPOS_ELEMENTO), no de una tabla propia del editor.
-  assert.match(ed, /const minimoDe = \(c: Componente\): \{ w: number; h: number \} => \(esElemento\(c\) \? minimoDeElemento\(c\.tipo\) : \{ w: 2, h: 2 \}\);/);
+  // El mínimo de un elemento sale del catálogo (TIPOS_ELEMENTO), no de una tabla propia del editor. Desde el 20/10/2026
+  // la regla vive en el catálogo (`minimoDeComponente`): la usa también mover desde la API (lib/graficos-mover.ts).
+  assert.match(sinComentarios(leer('lib/graficos-catalogo.ts')), /export const minimoDeComponente = \(c: Componente\): \{ w: number; h: number \} => \(esElemento\(c\) \? minimoDeElemento\(c\.tipo\) : \{ w: 2, h: 2 \}\);/);
+  assert.match(ed, /const minimoDe = minimoDeComponente;/);
   for (const t of ['video', 'insertado']) assert.deepEqual(minimoDeElemento(t), { w: 3, h: 4 }, t);
   assert.match(ed, /const m = minimoDe\(c\); return \{ i: c\.id, x: c\.x, y: c\.y, w: c\.w, h: c\.h, minW: m\.w, minH: m\.h \};/);
 });

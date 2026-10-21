@@ -30,6 +30,7 @@ import { leerOrdenManual } from '@/lib/crm-orden';
 // sugerencias NO se calculan en este render: las pide el botón una vez y salen de la caché del
 // server (lib/sugerencias-crm-server.ts).
 import { PanelMakoCrm } from './mako-crm/PanelMakoCrm';
+import { getCamposTarjetaCrm } from '@/lib/perfil';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -139,6 +140,8 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   // closer, que completaba los dos pasos y recién al final leía «Solo el administrador puede crear un CRM». La MISMA
   // pregunta que la acción, para que las dos no digan cosas distintas. Sin poder leerlo, no se ofrece.
   const pPuedeCrear = getRolWsEfectivo().then((r) => r === 'admin', () => false);
+  // Qué muestra la tarjeta de un lead para quien mira (20/10/2026). Nunca tira: sin fila propia, lo de siempre.
+  const pCampos = getCamposTarjetaCrm();
 
   try {
     // Las etapas van en la misma ola (antes serializaban al frente).
@@ -202,7 +205,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
 
   // Con la etapa de ENTRADA pegada: a ella caen los agregados cuya etapa ya no existe acá.
   const validStageKeys = etapasDelTablero(stages);
-  const [[anunciosObj, adMap], ordenManual, cursoAlGanar, partners, puedeCrearCrm] = await Promise.all([pAtrib, pOrden, pCurso, pPartners, pPuedeCrear]);
+  const [[anunciosObj, adMap], ordenManual, cursoAlGanar, partners, puedeCrearCrm, camposTarjeta] = await Promise.all([pAtrib, pOrden, pCurso, pPartners, pPuedeCrear, pCampos]);
   const atrib = { anuncios: new Map(Object.entries(anunciosObj)), adMap };
   const crmLeads: CrmLead[] = leads.map((l) => mapToCrmLead(l, campMap, validStageKeys, atrib));
 
@@ -255,6 +258,9 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       cursoAlGanar={cursoAlGanar}
       partners={partners}
       puedeCrearCrm={puedeCrearCrm}
+      camposTarjeta={camposTarjeta.campos}
+      disenoTarjeta={camposTarjeta.diseno}
+      camposGuardables={camposTarjeta.guardable}
     />
     <PanelMakoCrm funnelId={funnelId} />
     </>

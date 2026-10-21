@@ -36,7 +36,7 @@ import { esRecurrente } from '@/lib/plan-recurrentes';
 import { getUsuarioActual } from '@/lib/auth';
 import { getSupabaseServer } from '@/lib/supabase';
 import { getWorkspaceActual } from '@/lib/workspace';
-import { textoVence, type CobroM } from '@/app/m/dashboard/modelo';
+import { cobroDeFila, type CobroM } from '@/app/m/dashboard/modelo';
 import type { BoardTask, Label } from '@/app/plan/board/types';
 import type { DesgloseItem, DesgloseData } from '../_components/Desglose';
 import type { AlertaVista, DatosGeneral, Leido, OkrVista } from './datos-tipos';
@@ -291,13 +291,10 @@ export async function armarDatosGeneral(): Promise<DatosGeneral> {
     mes = { ok: true, d: { comparativo: v.comparativo, desgloses: desglosesDelMes(mtdBreak, agendasMTD, senalesMTD) } };
   }
 
-  // Sólo las filas con una cuota que marcar («Marcar cobrada» marca la PRÓXIMA), con el MISMO renglón que el teléfono
-  // (app/m/dashboard/datos.ts: «US$500 · vence el jue»). Lo fija tests/general-cobranza.test.ts.
-  const cobros: CobroM[] = cobranza.ok ? cobranza.datos.filas.flatMap((f) => (f.cuota ? [{
-    leadId: f.leadId, pagoId: f.cuota.pagoId, nombre: f.nombre,
-    linea: `${fmtValor(f.cuota.monto, 'usd')} · ${textoVence(f.cuota.vence, f.dias)}`,
-    urgencia: f.urgencia,
-  }] : [])) : [];
+  // Las filas con una cuota que marcar («Marcar cobrada» marca la PRÓXIMA) y, desde el 20/10/2026, las suscripciones por
+  // cobrar, con el MISMO renglón que el teléfono (`cobroDeFila`, app/m/dashboard/modelo.ts: «US$500 · vence el jue»).
+  // Lo fija tests/general-cobranza.test.ts.
+  const cobros: CobroM[] = cobranza.ok ? cobranza.datos.filas.flatMap((f) => { const c = cobroDeFila(f, (n) => fmtValor(n, 'usd')); return c ? [c] : []; }) : [];
 
   // Los funnels que se pueden elegir en un bloque (lib/general-piezas.ts, `piezaPorFunnel`), hasta el tope, contados.
   const atables = (funnels ?? []).slice(0, TOPE_FUNNELS);

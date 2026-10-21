@@ -138,6 +138,27 @@ quedó.
   - Sale un documento maestro con el plan por olas y por chat.
 - **Después:** reparto por olas a los chats de área. Lo transversal (los bloques en el chat, la confirmación adentro, los sub-chats) va a Ops Center 3.
 - Las tabs quedan.
+- **Mapa hecho (20/10):** docs/ops-center-principal.md, con 510 acciones en 18 áreas (97 sí, 150 parcial, 250 no), el plan por olas, 11 decisiones y la crítica en el Anexo C. Los mapas por área están en docs/ops-center-principal/.
+- **Ola 1 repartida (20/10):**
+  - Ops Center 3: 1.1, 1.7, 1.8, 1.10, 1.11, 1.9, 1.3 y 1.5;
+  - MaKo Alert: 1.2, el clasificador, que es el freno principal;
+  - Web Generator: 1.12, 1.13 y 1.15;
+  - Video: 1.14 y 1.15;
+  - Ticketera: 1.6 y 1.17;
+  - Dashboard: la 1.5, Experimentos y Closing;
+  - Automations: la 1.16, ya en producción.
+- **Sin chat:** Ads Manager (1.4 y la ola 2 de Meta). Se abre cuando Martín lo pida.
+- **D1** arrancó con la A, la recomendada: propone con tarjeta y nada se hace sin el toque. Debate le pregunta a Martín D1 a D11 con formularios.
+- **La ola 2** se reparte cuando la ola 1 esté en producción.
+
+### 15. «Veo MaKo mobile roto, como si estuviera en desktop, solucionalo» (Ops Center, 19:36, pedido d4bc0840)
+- **Causa:** «General» (Horario y Criterio) no tiene pantalla en el teléfono. Su hoja «Abrir en la computadora» pone la cookie `mako_vista=escritorio` por 12 h y para TODA la app (lib/movil-dispositivo.ts), y ningún botón la borra (`cookieVistaMovil` no tiene llamadores).
+  - El desvío (`pedidoMovil`) está bien: con un teléfono sin la cookie, todo va a /m.
+- **Encargo:** **Sidebar**, urgente.
+  - El botón «Volver a la versión del teléfono».
+  - «Abrir en la computadora» sólo para ESA pantalla.
+  - Después, General con su pantalla en /m.
+- **El cierre** del pedido lo hace el Cerebro con el deploy.
 
 ## Lo demás que salió de la llamada 864249059 (no es del onboarding)
 

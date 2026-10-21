@@ -6667,6 +6667,57 @@ alcanzar, aunque se cumpliera al pie de la letra:
 **Vive en:** `scripts/tests-afectados.mjs` · `scripts/antes-de-subir.mjs` · `scripts/modulos-ts.mjs` · `scripts/replay-fallos-ci.mjs` ·
 `docs/fallos-ci-integracion.jsonl` · `.github/workflows/integracion.yml` · `scripts/claude-hooks/pre-push` · `tests/tests-afectados.test.ts`
 
+## El candado de lo pesado: un `mkdir` sin cola premia al que pregunta más seguido, y el que espera vuelve con la rama vieja (20/10/2026)
+
+**El síntoma** (medido por el Cerebro el 20/10): Pagos esperó **casi dos horas** el candado `C:/dev/pesado.lock` viendo cómo Video
+Generator y Web Generator se lo pasaban entre ellos; y Onboarding corrió su `antes-de-subir` **tres veces** con los 2.563 tests en
+verde, porque cada vez `origin/main` había avanzado mientras esperaba y la última línea era `ROJO: te faltan N commits`.
+
+**La causa real —y el diagnóstico obvio, «hay demasiados chats pidiendo lo pesado», era el equivocado—:** el candado era una
+convención a mano (`mkdir` atómico + un `quien.txt` de texto libre) y **cada chat reintentaba en su propio loop**. Un `mkdir` no
+tiene orden: gana el que justo pregunta cuando se libera, o sea el que pregunta más seguido. Con N esperando, el que lleva más
+esperando no tiene ninguna ventaja. La espera, además, hacía que la rama saliera vieja (el VERDE valía para un sha que ya no era el
+tope) — dos costos de un mismo defecto: **esperar y preparar la rama eran pasos separados**.
+
+**Qué quedó** (`scripts/candado-pesado.mjs`, lo llama `scripts/antes-de-subir.mjs`):
+- **El mutex sigue siendo el mismo `mkdir pesado.lock`** a propósito: así un chat que todavía lo toma a mano y uno que usa la herramienta
+  **se excluyen entre sí** sin que nadie tenga que migrar a la vez. Lo nuevo es lo de al lado: `pesado.cola/` con un **turno por
+  espera** (`<hora ms>-<pid>-<azar>.json`) y **sólo el primero** de la fila intenta el `mkdir`. Se ve todo con `antes-de-subir --cola`.
+- **Un proceso muerto no traba**, y es lo que más se rompe en la práctica (la PC se duerme, el chat se cierra con la app): un turno se
+  limpia si su pid no vive o dejó de latir (10 min); un dueño, si su pid no vive o pasó `MAKO_PESADO_VENCE_MIN` (90). Todo en `pesado.log`.
+- **Al TOMAR el candado, `git fetch` + `merge origin/main`** (nunca rebase), recién ahí y no antes: la espera ya no cuesta un rojo. Si choca:
+  `merge --abort`, se suelta el candado y el ROJO dice los archivos. La línea `VERDE <sha>` es del sha DESPUÉS del merge.
+
+**Las trampas que aparecieron al probarlo:**
+- **Un candado tomado a mano no tiene pid.** No se le puede preguntar si vive: sólo vence por edad (90 min). Y un chat que lo tomó a mano y
+  después corre `antes-de-subir` esperaría a SU PROPIO candado; el aviso lo dice y existe `--ya-tengo-el-candado`. La regla nueva
+  (AGENTS.md) es no tomarlo a mano para esto.
+- **Una PC sin `user.email` no puede commitear el merge** y `git merge` falla con «unable to auto-detect email address», que el código
+  leía como «chocó en 0 archivos». Pasa en un clon o un worktree recién hecho. Ahora se firma con la identidad de Claude si no hay
+  ninguna, y si el merge falla por otra causa el ROJO dice cuál (`no es un choque de archivos`).
+- **`core.autocrlf=true` (el default de Git para Windows) reescribe con CRLF al hacer `merge --abort`**, y el `status` de otra
+  configuración ve el archivo «modificado». No pasa en la herramienta (todo usa la misma config), sí en una prueba que mezcla las dos:
+  las copias de prueba fijan `core.autocrlf=false`.
+- **El `git fetch` de entrada falló UNA vez en la primera corrida real** (con el candado esperado 8 min y ~12 chats abiertos) y avisó
+  «¿sin red?» sin más; a mano y desde Node andaba en 3 s. Los worktrees comparten UN `.git`, y con una docena de chats bajando a la vez
+  un fetch puede chocar con el lock del otro. Ahora reintenta 3 veces (pausas crecientes) y el aviso trae la causa que dio git. Si igual
+  no baja, sigue con el `origin/main` que tiene (el VERDE vale contra esa copia: la línea lo deja ver con el ⚠).
+- **Dos errores de tipos que `--rapido` no vio y cayeron en Actions (run 173).** (1) Un `.ts` que importa un `.mjs` sin JSDoc recibe los tipos
+  que TS DEDUCE: el default `aviso = () => {}` quedó como `() => void` (un `aviso` que recibe el texto no compilaba) y `tomarTurno`, que devuelve
+  `{ soltar } | { vencio }`, dejó a `soltar` «posiblemente undefined» aun después de mirar `vencio`. (2) `--rapido` mide la RAM 20 s y, sin
+  4 GB libres para el tsc acotado, deja los tipos a Actions: la línea lo decía (`los chequea Actions`) y Actions cumplió, a costa de un run.
+  **La regla que queda:** un módulo `.mjs` que un test `.ts` importa lleva JSDoc en lo exportado con parámetros de función o retornos en unión
+  (ahora `tomarTurno`, `anotarse`, `intentarTomar`); y un VERDE que dice «tipos: los chequea Actions» sobre un test NUEVO no es un VERDE de tipos —
+  hay que volver a correrlo con RAM (sin `--rapido` espera hasta 90 s) antes de pasarle la punta al Cerebro.
+- **La primera versión de la prueba de la cola no agarraba el orden por pid** (los pids de los tres chats crecían con la hora, así que
+  ordenar por pid o por hora daba lo mismo). Se vio al romperlo a propósito: ahora el más viejo tiene el pid más alto.
+
+**Sin hacer:** `~/.claude/guardia/memoria.mjs` (la lista de comandos «pesados» del vigía) sigue sin saber de `antes-de-subir`; lo agrega el
+Cerebro. Y el candado no cubre el `mobile-build.lock` de los Mobile: es otro recurso con otra cola.
+
+**Vive en:** `scripts/candado-pesado.mjs` · `scripts/antes-de-subir.mjs` (`traerMain`, `--cola`, `--ya-tengo-el-candado`, `--sin-merge`) ·
+`tests/candado-pesado.test.ts` (12 pruebas; 14 roturas a propósito, todas dan rojo) · `AGENTS.md` («El candado de lo pesado ahora tiene COLA»)
+
 ## Un script de roturas no se corta con `head`, y un worktree no tiene `.env.local` (16/10/2026)
 
 - ⚠️ **`node romper-*.mjs | head -3` puede matar el script en la mitad de una rotura.** Cuando `head` cierra el pipe,

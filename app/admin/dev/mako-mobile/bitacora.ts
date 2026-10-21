@@ -180,4 +180,23 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['app/m/offer/modelo.ts', 'app/m/offer/HiloOfferM.tsx', 'app/m/offer/OfferM.tsx', 'app/m/offer/offer.css', 'tests/m-offer.test.ts', 'docs/hallazgos-mobile.md'],
   },
+  {
+    fecha: '20 oct', hora: '19:36', chat: 'Sidebar', sesion: "local_789aebfb-8196-468e-96d2-1f4964c12a1c", cuenta: 'claude4', actor: 'martin', tipo: 'prompt',
+    titulo: 'MaKo Mobile se veía como el escritorio',
+    pedido: 'Veo MaKo mobile roto, como si estuviera en desktop, solucionalo',
+    puntos: ['Llegó por el Ops Center, con una captura de su Android: la barra de escritorio y Configuración del negocio › General.'],
+  },
+  {
+    fecha: '20 oct', hora: '21:30', chat: 'Sidebar', sesion: "local_789aebfb-8196-468e-96d2-1f4964c12a1c", cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: «Abrir en la computadora» abre sólo esa pantalla, y siempre hay «Volver al teléfono»',
+    pedido: 'Veo MaKo mobile roto, como si estuviera en desktop, solucionalo',
+    puntos: [
+      'La causa: tocar una fila «En la computadora» (General) dejaba toda la app en la versión de computadora 12 horas, sin vuelta.',
+      'Ahora abre sólo esa pantalla; cualquier otra vuelve al teléfono.',
+      'En el teléfono, la versión de computadora muestra abajo «Volver al teléfono».',
+      'Sin probar en su Android ni en ningún teléfono: lo fijan los tests. General (Horario y Criterio) todavía no tiene pantalla en el teléfono.',
+    ],
+    archivos: ['lib/movil-dispositivo.ts', 'proxy.ts', 'lib/movil-guard.ts', 'app/_components/VueltaAlTelefono.tsx', 'app/m/_ui/EnComputadoraM.tsx', 'tests/movil-vuelta-telefono.test.ts'],
+    revisar: '/configuraciones',
+  },
 ];

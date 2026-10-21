@@ -355,17 +355,20 @@ test('crear: el disparador que quedó PUESTO viaja en `listo` y la tarjeta CRON 
   const ok = ruta.indexOf('puesto = valor;');
   // Duodécima tanda: el CRON lo pone `deps.ponerDisparador` (guarda por `guardarDisparadores`). Con el nombre viejo
   // esta línea quedó VACÍA (indexOf -1 y `ok > -1` pasa siempre): se exige que la puerta exista.
-  const pone = ruta.indexOf('await deps.ponerDisparador(id, valor);');
+  // 20/10/2026: con el horario del Recurrente (`rec?.cron`), null si no es uno.
+  const pone = ruta.indexOf('await deps.ponerDisparador(id, valor, rec?.cron ?? null);');
   assert.ok(pone > 0 && ok > pone && ok < ruta.indexOf('} catch (e) {', ok), 'sólo si ponerDisparador no tiró');
   // El core lo devuelve (`disparador: puesto`) y la ruta lo manda en `listo` (décima tanda).
-  assert.match(ruta, /etiquetasNuevas: creadas, disparador: puesto,\n\s*\};/);
-  assert.match(ruta, /etiquetasNuevas: r\.etiquetasNuevas, disparador: r\.disparador \}\);/);
+  // 20/10/2026: con el texto de «Creé…» y, si es un Recurrente, su horario (la tarjeta CRON lo siembra igual).
+  assert.match(ruta, /etiquetasNuevas: creadas, disparador: puesto, texto,\n\s*\.\.\.\(rec && puesto \? \{ cron: rec\.cron \} : \{\}\),\n\s*\};/);
+  assert.match(ruta, /etiquetasNuevas: r\.etiquetasNuevas, disparador: r\.disparador, texto: r\.texto, \.\.\.\(r\.cron \? \{ cron: r\.cron \} : \{\}\) \}\);/);
   const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   // Sexta tanda (varios CRON): lo puesto se pinta en el PRIMERO de la lista (`useDisparadores`).
   // Verificado sacando el `sembrarPrimero` (09/10/2026, cuatro archivos, base 71 / 0): 70 / 1, cae éste.
   // Duodécima tanda: se siembra con `disparadorDeValorIA` (lo MISMO que guardó el server), no con `disparoDeValor`, que
   // no entiende `instagram:dm`. Roto volviendo a `disparoDeValor(puesto, disparo)` (12/10): 24 / 1, cae éste.
-  assert.match(perfil, /const puesto = r\.disparador \? disparadorDeValorIA\(r\.disparador\)\[0\] : undefined;\n\s*if \(puesto\) crons\.sembrarPrimero\(puesto\);/);
+  // 20/10/2026: un Recurrente con su horario, con `recurrenteDeValorIA` (lo mismo que guardó el server).
+  assert.match(perfil, /const puesto = r\.disparador \? \(r\.cron \? recurrenteDeValorIA\(r\.disparador, r\.cron\) : disparadorDeValorIA\(r\.disparador\)\)\[0\] : undefined;\n\s*if \(puesto\) crons\.sembrarPrimero\(puesto\);/);
 });
 
 // ── Cancelar en «Revisando el flujo» dejaba la automatización guardada y la pantalla sin salida ──
@@ -406,6 +409,7 @@ test('el ejemplo de crear se traduce entero y pasa validarGrafo y validarIA', ()
   assert.deepEqual(validarIA(r.pasos, ctx), []);
   assert.equal(r.pasos.find((p) => p.paso_ia === true)?.objetivo, 'Que agende una llamada');
   // AI Step v2 (décima tanda): el «MaKo contesta» de «Si responde» se pliega adentro de su tarjeta AI Step: 7 → 6
-  // (undécima: UNA tarjeta AI Step con los casos adentro).
-  assert.equal(r.pasos.length, 6);
+  // (undécima: UNA tarjeta AI Step con los casos adentro). 20/10/2026: 6 → 5, el ejemplo ya no trae el
+  // «avisar_al_equipo» (con la regla 8 de antes, el modelo le ponía avisos a lo que no los pedía: #284 de ws11).
+  assert.equal(r.pasos.length, 5);
 });

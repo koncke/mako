@@ -59,19 +59,57 @@ export function tipoDeDispositivo(ua: string | null | undefined, chMobile?: stri
   return 'escritorio';
 }
 
-/** ¿Este request va a MaKo Mobile? Teléfono y sin haber pedido la versión completa. */
-export function vaAMovil(d: Dispositivo, vista: string | null | undefined): boolean {
-  return d === 'telefono' && vista !== VISTA_ESCRITORIO;
+/**
+ * LA VISTA DE ESCRITORIO DE UNA SOLA PANTALLA (20/10/2026). Martín, desde su Android: «Veo MaKo mobile roto, como si
+ * estuviera en desktop». Tocó «General» de Configuración del negocio (no tiene pantalla en el teléfono), la hoja «Abrir
+ * en la computadora» puso `mako_vista=escritorio` por 12 h para TODA la app, y no había vuelta: `cookieVistaMovil`
+ * existía pero nadie la llamaba, y una ruta /m con la cookie puesta va al escritorio.
+ *
+ * Desde ese día «Abrir en la computadora» guarda la RUTA (`escritorio:/configuraciones`) y sólo ESA ruta se abre en la
+ * versión de computadora; cualquier otra vuelve al teléfono. `escritorio` a secas sigue siendo «toda la app» (la
+ * «Versión de computadora» de More), y la vuelta es el botón «Volver al teléfono» (app/_components/VueltaAlTelefono.tsx).
+ */
+const PREFIJO_RUTA = `${VISTA_ESCRITORIO}:`;
+
+/** La ruta de un href, sin query ni #, sin la barra del final: `/configuraciones?tab=x` → `/configuraciones`. */
+export function rutaDeHref(href: string): string {
+  const p = (href ?? '').split(/[?#]/)[0].replace(/\/+$/, '');
+  return p.startsWith('/') ? p : `/${p}`;
+}
+
+/** ¿La cookie de vista pide escritorio en ESTA ruta? Global (`escritorio`) en todas; con ruta, sólo en ésa. */
+export function vistaEscritorioEn(vista: string | null | undefined, pathname: string | null | undefined): boolean {
+  if (!vista) return false;
+  if (vista === VISTA_ESCRITORIO) return true;
+  if (!vista.startsWith(PREFIJO_RUTA)) return false;
+  let ruta: string;
+  try { ruta = decodeURIComponent(vista.slice(PREFIJO_RUTA.length)); } catch { return false; }
+  return !!ruta && rutaDeHref(pathname ?? '') === rutaDeHref(ruta);
+}
+
+/** ¿Es la vista de escritorio de TODA la app (la «Versión de computadora»), y no la de una pantalla? */
+export function vistaEscritorioGlobal(vista: string | null | undefined): boolean {
+  return vista === VISTA_ESCRITORIO;
+}
+
+/**
+ * ¿Este request va a MaKo Mobile? Teléfono y sin haber pedido la versión de computadora PARA ESTA RUTA. Sin `pathname`
+ * (lo de antes del 20/10/2026), una cookie de una sola pantalla no cuenta: va al teléfono.
+ */
+export function vaAMovil(d: Dispositivo, vista: string | null | undefined, pathname: string = ''): boolean {
+  return d === 'telefono' && !vistaEscritorioEn(vista, pathname);
 }
 
 /**
  * La cookie que escribe «Versión completa» (desde el navegador: `document.cookie =
  * cookieVistaEscritorio()`, y después `window.location.href = conWs('/inicio', ws)`).
+ * Con `ruta` (20/10/2026), sólo ESA pantalla se abre en la computadora: es lo que usa «Abrir en la computadora».
  * Sin `Secure` a propósito: es una preferencia de vista, no una credencial, y en
  * local (http) una cookie Secure no se escribe.
  */
-export function cookieVistaEscritorio(): string {
-  return `${VISTA_COOKIE}=${VISTA_ESCRITORIO}; Path=/; Max-Age=${VISTA_ESCRITORIO_SEG}; SameSite=Lax`;
+export function cookieVistaEscritorio(ruta?: string): string {
+  const valor = ruta ? `${PREFIJO_RUTA}${encodeURIComponent(rutaDeHref(ruta))}` : VISTA_ESCRITORIO;
+  return `${VISTA_COOKIE}=${valor}; Path=/; Max-Age=${VISTA_ESCRITORIO_SEG}; SameSite=Lax`;
 }
 
 /** La que la borra (volver a la vista del teléfono). */

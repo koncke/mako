@@ -38,7 +38,14 @@ export type AdjuntosDeCaja = {
 // Pegar una imagen: pegar.ts (sin CSS, para que su test lo importe).
 export { alPegar, alSoltar, traeArchivos } from './pegar';
 
-/** Lo adjuntado, arriba del texto: sólo la miniatura (sin el nombre, como Claude). Tocarla la amplía. */
+/** Lo que dice la miniatura de un documento: su extensión («PDF», «DOCX», «XLSX»). Decía «PDF» para todos desde que la
+ *  caja toma Word, Excel y texto (18/10/2026). */
+export const etiquetaDoc = (nombre: string): string => /\.([a-z0-9]{1,5})$/i.exec(nombre)?.[1]?.toUpperCase() ?? 'DOC';
+
+/**
+ * Lo adjuntado, arriba del texto: sólo la miniatura (sin el nombre, como Claude). Tocarla la amplía. `data-estado`: la que
+ * todavía no está lista (la caja del Web Generator la lee antes de mandar; su hoja la dibuja leyéndose o en rojo).
+ */
 export function ListaAdjuntos({ a }: { a: AdjuntosDeCaja | undefined }) {
   const [viendo, setViendo] = useState<AdjuntoCaja | null>(null);
   if (!a?.items.length) return null;
@@ -46,10 +53,10 @@ export function ListaAdjuntos({ a }: { a: AdjuntosDeCaja | undefined }) {
     <>
       <ul className="co-miniaturas" aria-label="Archivos para mandar">
         {a.items.map((x) => (
-          <li key={x.id} className="co-miniatura">
+          <li key={x.id} className="co-miniatura" data-estado={x.estado}>
             <button type="button" className="co-miniatura__ver" onClick={() => setViendo(x)} aria-label={`Ver ${x.file.name}`} title={x.file.name}>
               {/* eslint-disable-next-line @next/next/no-img-element -- la vista previa local (blob:) */}
-              {x.tipo === 'image' ? <img src={x.url} alt="" /> : <span className="co-miniatura__doc"><IconoChat nombre="archivo" size={18} /><span>PDF</span></span>}
+              {x.tipo === 'image' ? <img src={x.url} alt="" /> : <span className="co-miniatura__doc"><IconoChat nombre="archivo" size={18} /><span>{etiquetaDoc(x.file.name)}</span></span>}
             </button>
             <button type="button" className="co-miniatura__quitar" onClick={() => a.onQuitar(x.id)} aria-label={`Quitar ${x.file.name}`}>
               <Icon name="x" size={12} />

@@ -1805,3 +1805,20 @@ del cartero; `nav.ts` no se tocó (el Sidebar compara con `OPS_CENTER.key`); la 
   - No se sube si el chat ya hizo esa pregunta con `preguntar` (`preguntasSinRepetir`).
 - **Y del lado del cartero:** lo que un chat le muestra a Martín al terminar NO es sólo su texto. Cualquier forma de cerrar que la app dibuje
   (hoy, `wrap_up`) tiene que llegar al Ops Center, o el Ops Center miente sobre en qué quedó el chat.
+
+## Lo que encontró la revisión de la caja única y del wrap_up como pregunta, antes de subirla (20/10/2026)
+
+Revisión adversarial de la rama `caja-voz` (cartero 1.17.2). No subió hasta arreglar lo importante. El detalle está en las notas compartidas, `revision-caja-voz-20-10.md`.
+- **Una pregunta armada de un wrap_up no se cierra sola.** Martín contesta como le sale: el botón de la app, la caja del Ops Center o Remote Control. Sólo el formulario la cerraba, y quedaba «Espera tu respuesta» para siempre, con una orden vieja que se podía firmar días después. **Regla:** una pregunta de wrap_up queda superada con cualquier mensaje posterior en ese chat.
+- **Deduplicar dentro de una vuelta no alcanza:** `vigilar` da una vuelta cada 10 s y el mismo wrap_up (o `preguntar` + el wrap_up que exige la app) llega en vueltas distintas. Se deduplica contra lo guardado.
+- **Una línea de transcript de más de 4 MB (`LECTURA_MAX`) deja al chat MUDO:** sin salto de línea en la ventana, la marca no avanza y no sube nada más de ese chat. Ya pasaba en 1.16.1. Un PDF de ~3,5 MB adjunto en la app alcanza.
+- **Apagar la caja mientras MaKo trabaja es una regresión** en el Ops Center del cliente: «mandando» (el botón) no es «apagar el campo».
+
+## La miniatura de la caja decía «PDF» para un Word (20/10/2026, desde el chat del Web Generator)
+
+- **Síntoma:** desde el 18/10 la caja toma Word, Excel, PowerPoint y texto, pero `ListaAdjuntos` (AdjuntosCaja.tsx)
+  dibujaba todo documento con el rótulo fijo «PDF». Se vio al usar las piezas en el chat del editor de landings.
+- **Ahora:** la extensión del archivo (`etiquetaDoc`: «DOCX», «XLSX»…). Y `AdjuntoCaja` tiene un `estado` opcional
+  («leyendo» / «error») que la miniatura pone en `data-estado`: el Centro no lo usa; el editor lo pinta con su hoja.
+- **Sin hacer:** tocar la miniatura de un Word abre el `Visor`, que lo pone en un iframe con su `blob:`: el navegador no
+  lo muestra (lo baja o queda en blanco). Pasa igual en el Centro.

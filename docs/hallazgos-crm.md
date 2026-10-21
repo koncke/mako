@@ -9956,3 +9956,37 @@ app/m/crm/acciones.ts · test: deshacer-movimiento-venta · *17/10/2026, agente 
 
 **Sin hacer:** la foto de Instagram (no se guarda: la URL vence); la tabla («Lista») sigue con su diseño de tabla.
 **Vive en:** app/crm/CrmBoard.tsx · app/crm/CrmToolbar.tsx (`VistaSelector`) · app/m/crm/datos.ts y TableroCrm.tsx · *17/10/2026 noche, chat «CRM» (claude4).*
+
+## El chat con MaKo del CRM existía y nadie lo veía: el botón estaba debajo de la sidebar (20/10/2026)
+
+**Síntoma:** Martín, el 20/10: «No veo el chat con MaKo que te había pedido». `ChatMakoCrm` estaba montado en /crm desde
+el 13/10.
+**Causa:** el botón plegado iba en `left: RAIL + 20` con `RAIL = 68`, el ancho de la sidebar PLEGADA
+(app/_components/Sidebar.tsx). Abierta (lo normal) mide `FULL = 244` y tiene `zIndex: 60`, más que el 50 del panel: el
+botón quedaba debajo, invisible, y ningún test lo podía ver (la posición era la pedida el 16/10).
+**Arreglo:** la regla del 18/10 («Editar = el patrón de Web Generator: el chat con MaKo como barra fija a la derecha»)
+pisa la del 16/10 («el botón a la izquierda»). La barra está a la derecha, abre sola en una pantalla de 1280 px o más,
+recuerda si la persona la plegó (localStorage) y, plegada, es una pestaña en el borde derecho a media altura. Abierta, el
+tablero le deja el lugar con `--ancho-panel-mako`.
+- ⚠️ **No se llama `--ancho-mako-crm`:** tests/sugerencias-crm.test.ts exige que CrmBoard no contenga «mako-crm» (el
+  panel es de otro frente), y una variable con ese texto lo rompía sin tener nada que ver.
+**Regla:** algo `position: fixed` que se calcula con un ancho de la sidebar usa el que tiene AHORA, no una constante
+del estado plegado.
+**Sin hacer:** el chat de adentro sigue siendo `ChatMakoCrm`; cuando Ops Center 3 saque la pieza única del chat del
+Ops Center, se cambia el de adentro, no la barra (app/crm/mako-crm/PanelMakoCrm.tsx).
+**Vive en:** app/crm/mako-crm/PanelMakoCrm.tsx · app/crm/CrmBoard.tsx (el padding del `<main>`). *20/10/2026, chat «CRM» (claude4).*
+
+## Partir un bloque de la ficha sin migrar lo guardado: el bloque viejo mira a sus hermanos (20/10/2026)
+
+**Pedido:** Martín, 14/10: Reuniones y Tracking «personalizables bloque por bloque, como el Dashboard». Cada tab era UN
+bloque que envolvía la tarjeta vieja (`reunion-1` = ReunionesCard; `visitas` = ComportamientoCard), con `incluye`.
+**La trampa:** al darle componente propio a `reunion-2`, `agendar-reunion`, etc., las fichas guardadas por funnel se
+rompen de dos formas opuestas: las que tienen los bloques sueltos (las plantillas ya los traían, sin dibujarse) verían
+la R2 DOS veces, y las que tienen sólo `reunion-1` la PERDERÍAN. Migrar lo guardado (o «expandir» al leer) además
+deshace lo que alguien quitó a propósito.
+**Arreglo:** `PropsBloque.hermanos` (los ids de la misma hoja, desde Armador) y el bloque viejo dibuja su parte MÁS lo
+que su hoja no puso aparte (`partesDeReunion1`, `partesDeVisitas`). Nada guardado cambia; las dos fichas se ven bien.
+**Regla:** para partir un bloque que envuelve a otros, la tarjeta recibe `partes` y el bloque viejo mira a sus hermanos;
+no se migra la configuración guardada.
+**Vive en:** app/crm/lead-view/ficha/reglas-reuniones.ts · reglas-tracking.ts · Armador.tsx · ReunionesCard.tsx ·
+ComportamientoCard.tsx. Test: tests/crm-ficha-bloques-partidos.test.ts. *20/10/2026, chat «CRM» (claude4).*

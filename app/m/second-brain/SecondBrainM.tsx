@@ -35,10 +35,9 @@ import {
   elegidosPorMako, esCorto, miniMapa, primeraLinea, totalBuscable, type DondeBuscar,
 } from './modelo';
 import { ArchiveroM } from './ArchiveroM';
-import { SUBTITULO_CONSTRUCCION, SUBTITULO_SECOND_BRAIN, TITULO_SECOND_BRAIN, VistaCerebro } from '@/app/second-brain/VistaCerebro';
+import { SUBTITULO_SECOND_BRAIN, SUBTITULO_UNIDO, TITULO_SECOND_BRAIN, VistaCerebro } from '@/app/second-brain/VistaCerebro';
 // El «atrás» de Android cierra el grafo (la capa de arriba) y no la pantalla: la misma pieza del Ops Center.
 import { useAtrasCierra } from '@/app/admin/operaciones/atras';
-import { ConstruccionM } from './ConstruccionM';
 
 type Hoja = { tipo: 'area'; area: AreaId } | { tipo: 'dato'; id: string };
 
@@ -76,7 +75,7 @@ export function MapaChico({ cerebro, nuevos }: { cerebro: Cerebro<string>; nuevo
   const { puntos, lineas } = useMemo(() => miniMapa(cerebro, 340, 200), [cerebro]);
   if (!puntos.length) return null;
   return (
-    <div className="m-second-brain-mapa" role="img" aria-label="El mapa de tu negocio">
+    <div className="m-second-brain-mapa" role="img" aria-label="El Second Brain de tu negocio">
       <svg viewBox="0 0 340 200" preserveAspectRatio="xMidYMid meet" aria-hidden focusable="false">
         <g className="m-second-brain-mapa__aristas">
           {lineas.map((l, i) => <line key={i} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} />)}
@@ -99,15 +98,15 @@ export function MapaChico({ cerebro, nuevos }: { cerebro: Cerebro<string>; nuevo
   );
 }
 
-export function SecondBrainM({ cerebro, areaInicial, construccion = null }: {
+export function SecondBrainM({ cerebro, grafo = cerebro, areaInicial }: {
+  /** El negocio: las listas, la búsqueda y las hojas de esta pantalla. */
   cerebro: Cerebro;
+  /** Lo que se DIBUJA (la foto y el grafo entero): para quien opera, UN cerebro con la construcción de MaKo adentro
+   *  (mapa/page.tsx). Martín, 20/10/2026: «En ningún caso jamás los cerebros se deben dividir en 2»; hasta ese día acá
+   *  había un «Negocio · Construcción» que cambiaba un grafo por otro. */
+  grafo?: Cerebro<string>;
   areaInicial: AreaId | null;
-  /** La construcción de MaKo: sólo para quien opera (el servidor la manda null a los demás, mapa/page.tsx). */
-  construccion?: Cerebro<string> | null;
 }) {
-  // Las dos capas del super admin, como en la computadora (VistaCerebro.tsx): el negocio y la construcción de MaKo.
-  const [capa, setCapa] = useState<'negocio' | 'construccion'>('negocio');
-  const enObra = capa === 'construccion' && construccion != null;
   const ws = useWs();
   const [q, setQ] = useState('');
   const [donde, setDonde] = useState<DondeBuscar>('nombre');
@@ -202,7 +201,6 @@ export function SecondBrainM({ cerebro, areaInicial, construccion = null }: {
    *  hiciera su `pushState` antes de que ese «atrás» termine lo pisaría y se cerraría sola. */
   const editarDesdeElGrafo = (area: AreaId) => {
     setGrafoAbierto(false);
-    setCapa('negocio');
     window.setTimeout(() => abrirArea(area), 350);
   };
   const abrirNodo = (n: NodoCerebro) => {
@@ -279,24 +277,16 @@ export function SecondBrainM({ cerebro, areaInicial, construccion = null }: {
       <CabeceraM accion={accion} grande={false} />
       <section className="m-second-brain-lienzo" data-tema="oscuro" aria-label={TITULO_SECOND_BRAIN}>
         <h1 className="m-second-brain-titulo" data-m-titulo-grande>{TITULO_SECOND_BRAIN}</h1>
-        <p className="m-second-brain-sub">{enObra ? SUBTITULO_CONSTRUCCION : SUBTITULO_SECOND_BRAIN}</p>
-        {construccion && (
-          <div className="m-second-brain-capas">
-            <SegmentadoM<'negocio' | 'construccion'> etiqueta="Qué grafo ver" valor={capa} onCambio={setCapa}
-              opciones={[{ id: 'negocio', label: 'Negocio' }, { id: 'construccion', label: 'Construcción' }]} />
-          </div>
-        )}
-        {/* La foto del mapa es la puerta al grafo de verdad: tocarla lo abre. */}
-        {(enObra ? construccion.nodos.length > 1 : cerebro.cuenta.total > 0) && (
+        <p className="m-second-brain-sub">{grafo.taxonomia?.capas?.length ? SUBTITULO_UNIDO : SUBTITULO_SECOND_BRAIN}</p>
+        {/* La foto del mapa es la puerta al grafo de verdad: tocarla lo abre. UNA foto, del cerebro entero. */}
+        {grafo.cuenta.total > 0 && (
           <button type="button" className="m-second-brain-abrir" onClick={() => setGrafoAbierto(true)} aria-label="Abrir el grafo">
-            {enObra ? <MapaChico cerebro={construccion} nuevos={[]} /> : <MapaChico cerebro={cerebro} nuevos={nuevos} />}
+            <MapaChico cerebro={grafo} nuevos={nuevos} />
             <span className="m-second-brain-abrir__txt" aria-hidden>Abrir el grafo</span>
           </button>
         )}
       </section>
 
-      {enObra && <ConstruccionM cerebro={construccion} />}
-      {!enObra && (<>
 
       <div className="m-second-brain-buscar" role="search">
         <span className="m-second-brain-buscar__ico" aria-hidden><Icon name="search" size={18} /></span>
@@ -432,23 +422,21 @@ export function SecondBrainM({ cerebro, areaInicial, construccion = null }: {
           {vista?.tipo === 'dato' && (
             nodoAbierto
               ? <VistaDato key={claveVista} cerebro={cerebro} nodo={nodoAbierto} onArea={abrirArea} onNodo={abrirNodo} />
-              : <VacioM frase="Este dato ya no está en tu mapa." />
+              : <VacioM frase="Este dato ya no está en tu Second Brain." />
           )}
         </div>
       </SheetM>
 
       <ArchiveroM abierto={subir} onCerrar={() => setSubir(false)} />
-      </>)}
 
       {/* El grafo, a pantalla entera, encima de la lista. En `#m-root` y no en el <body>: ahí viven los tokens del
-          teléfono (`[data-m]`: los tamaños de letra, el toque de 44). Un solo grafo: el negocio y, para el super admin,
-          la construcción de MaKo juntos, con las capas como filtro (VistaCerebro). */}
+          teléfono (`[data-m]`: los tamaños de letra, el toque de 44). UN cerebro: el negocio y, para el super admin,
+          la construcción de MaKo colgada de la misma raíz, con las capas como filtro (VistaCerebro). */}
       {montado && grafoAbierto && createPortal(
         <div className="m-second-brain-grafo" data-tema="oscuro" role="dialog" aria-label={TITULO_SECOND_BRAIN}>
           <VistaCerebro
             movil
-            cerebro={cerebro}
-            construccion={construccion}
+            cerebro={grafo}
             funnelPanel={null}
             alCerrar={() => setGrafoAbierto(false)}
             alEditarArea={editarDesdeElGrafo}

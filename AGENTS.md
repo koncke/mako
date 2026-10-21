@@ -419,6 +419,21 @@ tests así se llevó la RAM de la PC y se cayó la app con todos los chats. El s
 **espera RAM** antes de cada una (el piso se deriva: zona roja del vigía + lo que pide cada proceso). Nunca corras
 `node --test tests/*.test.ts` a mano en esta máquina.
 
+⚠️ **El candado de lo pesado ahora tiene COLA y vive DENTRO de `antes-de-subir`** (20/10/2026). Antes era `mkdir C:/dev/pesado.lock`
+a mano y cada chat reintentaba en su loop: ganaba el que preguntaba más seguido (Pagos esperó casi 2 h), y el que esperaba 40 min
+volvía con `origin/main` adelantado y su VERDE salía ROJO sólo por «te faltan N commits». Ahora **no tomes el candado a mano para
+correr `antes-de-subir`: la herramienta se anota sola** en `C:/dev/pesado.cola/` (turnos por hora de llegada: entra el más VIEJO), lo
+toma con el mismo `mkdir` de siempre (por eso un `mkdir` a mano y la cola **se excluyen entre sí**), lo firma (`quien.txt` + `dueno.json`:
+chat, cuenta, sha, pid, desde) y lo suelta al terminar, también con Ctrl+C. **Al tomarlo hace `git fetch` + `merge origin/main`** (merge,
+nunca rebase: el commit del jefe no se reescribe) y el `VERDE <sha>` vale para el sha NUEVO; si el merge choca, aborta (la rama queda
+como estaba), suelta el candado y el `ROJO` nombra los archivos — mergeá a mano y volvé a correr.
+- **Ver la fila sin tocar nada:** `node scripts/antes-de-subir.mjs --cola` (quién lo tiene, desde cuándo, y los que esperan en orden).
+- **Un proceso muerto no traba:** un turno se limpia si su pid no vive o si no late hace 10 min; un dueño, si su pid no vive o si pasó
+  `MAKO_PESADO_VENCE_MIN` (90). Un candado tomado a mano no tiene pid: sólo se libera cuando lo soltás, o a los 90 min.
+- **Si tomaste el candado a mano** para otra cosa (un `tsc` suelto, un build) y después corrés `antes-de-subir`, esperaría a su propio
+  candado: usá `--ya-tengo-el-candado`. `MAKO_SIN_COLA=1` lo saltea (para una máquina sin otros chats); en Actions no se usa.
+- Un `ROJO: esperé el candado…` no es un rojo del código (sale con 99): la fila estaba larga.
+
 ⚠️ **Por qué es rápido: los tests que no tocan estado global corren JUNTOS en un proceso** (`--test-isolation=none`, con
 `scripts/cache-lecturas.cjs` memorizando las lecturas de archivos). El costo de las barredoras no era el regex: ~68 leen los mismos
 ~5.400 archivos y, con `node --test`, cada archivo de test es un proceso aparte que los vuelve a leer (12 barredoras: 193 s
@@ -1497,7 +1512,13 @@ código nuevo:
   un toque: app/second-brain/apaisar.ts). El super admin ve UN grafo: el negocio y la construcción de MaKo juntos (`unirCerebros`,
   lib/cerebro-union.ts) y las capas son un atajo del filtro de carpetas. Un grafo más para el super admin se suma como CAPA de ése (su
   taxonomía, sus carpetas), nunca como un segundo `<Grafo>`. Lo fija tests/second-brain-grafo-movil.test.ts; el porqué, en
-  docs/hallazgos-second-brain.md. **Y el «Negocio» se arma con lo que MaKo SABE hoy** (18/10/2026; Martín: «No te quedes con la vieja
+  docs/hallazgos-second-brain.md. **NINGÚN CEREBRO SE DIVIDE EN DOS** (20/10/2026; Martín: «En ningún caso jamás los cerebros se
+  deben dividir en 2»): UNA raíz y UN solo componente, en el de cualquier negocio y en el del super admin. Un racimo sin aristas
+  laterales se engancha a la raíz (`puentesARaiz`, lib/cerebro-union.ts) ANTES del layout; la construcción cuelga de la raíz del
+  negocio y la física corre entera en el servidor (lib/cerebro-union-servidor.ts vía lib/second-brain-opera.ts). Ninguna pantalla
+  junta dos cerebros ni elige entre dos (nada de «Negocio · Construcción»): una parte se mira con el filtro. Que sea un solo
+  `<Grafo>` no alcanza: el 17/10 era uno y se veían dos nubes. Lo fija tests/second-brain-un-cerebro.test.ts.
+  **Y el «Negocio» se arma con lo que MaKo SABE hoy** (18/10/2026; Martín: «No te quedes con la vieja
   estructura de nodos»): una fuente nueva del producto (clientes, reuniones, lo que venga) entra en `agregarLoVivo`
   (lib/cerebro-vivo.ts) con su tope y su `.catch`; un área sin datos NO dibuja un nodo `falta:` (se dice en la raíz); y lo que tiene
   su propio racimo no cuelga además del nodo de área (tests/second-brain-negocio-vivo.test.ts).
@@ -1562,6 +1583,16 @@ código nuevo:
     **El turno (`turnoApp`) lo usan TRES chats** (el Second Brain, el teléfono y el MaKo Analyst de un lead): lo que
     escribe FUERA del hilo (guardar archivos, El Archivero, cualquier efecto nuevo) va detrás de una opción que prende
     quien llama (`guardarAdjuntos`), nunca para todos. El PDF de un lead no es un documento del negocio.
+  - **Un chat de tab adjunta con las piezas de la caja del Ops Center** (regla de Martín del 18/10/2026: un solo chat en
+    toda la app): el «+» (`MasCaja`), las miniaturas (`ListaAdjuntos`) y pegar y soltar (`alPegar`, `alSoltar`) de
+    app/admin/operaciones/AdjuntosCaja.tsx y pegar.ts, nunca un ⊕ propio. Fuera del Centro: se importa `centro.css`
+    (AdjuntosCaja trae sólo chat.css) en la pantalla que monta el chat, NUNCA en un módulo que cargan los tests (en node un
+    `.css` no carga: si el chat es un módulo compartido, `MasCaja` y `ListaAdjuntos` entran con `next/dynamic` y pegar y
+    soltar vienen de pegar.ts); y, si la pantalla tiene su propio tema (el editor de landings), se redefinen bajo su
+    raíz los tokens que usan (`--surface`, `--surface-2`, `--border`, `--ink`, `--dim`, `--velo-hover`, `--focus-ring`):
+    si no, el menú sale con los colores de la app sobre el oscuro del editor. Lo que una pantalla suma (leer el archivo
+    antes de mandar) va por `AdjuntoCaja.estado`, que la miniatura dibuja. El molde: el chat del editor
+    (app/web-generator/editor/paneles/PanelAgente.tsx, 20/10/2026).
   - **EL MODELO JUSTO Y LA INSTRUCCIÓN PRECISA: los tokens son la capacidad** (17/10/2026). Martín: «quiero que los jefes
     y el cerebro tengan la capacidad de ahorrar tokens, dando instrucciones precisas y eligiendo qué modelo de IA debe
     correr». Medido esa noche: con nueve chats abiertos, la ventana de 5 horas de una cuenta Max llegó al 95% en
@@ -1617,6 +1648,12 @@ código nuevo:
       Second Brain de cualquier negocio, el del super admin incluido, es UN grafo: lo que separa la vista son los filtros
       (pedido ya el 17/10 y el 18/10, pt 4). Se verifica mirando lo que se DIBUJA, no el código: dos raíces o dos racimos
       separados también son dos cerebros.
+    - **UN VERDE QUE SÓLO DICE «TE FALTAN N COMMITS DE MAIN» SE MANDA IGUAL** (20/10/2026). Pasa cuando pasaron todos los tests y
+      las guardas, y lo único rojo es `tu rama no tiene origin/main mergeado` (scripts/antes-de-subir.mjs:276). Se manda el sha
+      diciéndolo, y el merge lo hace el Cerebro, con Actions chequeando los tipos.
+      - El candado `C:/dev/pesado.lock` no tiene cola, y con pushes seguidos un chat que espera siempre queda atrás. El 20/10 Onboarding
+        corrió su VERDE tres veces y Pagos esperó dos horas.
+      - Esto deja de hacer falta cuando el candado tenga cola y se mergee main al tomarlo (encargado a Infra el 20/10).
     - **Un jefe se abre con un mensaje de Martín en el chat del Cerebro, en la app.** `start_session` sólo corre en un
       turno que empieza con palabras de Martín: con un pedido que llega por el Ops Center contesta «Start sessions only on
       the user's own words» (docs/hallazgos-operaciones.md, «Los dos topes»). Una sesión de la nube no abre chats de la PC:

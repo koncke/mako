@@ -67,6 +67,7 @@ import { esPiezaGeneral, piezaGeneral } from '@/lib/general-piezas';
 import { insertableDe, videoDe } from '@/lib/embeds';
 import type { Formato } from '@/lib/graficos-constructores';
 import type { SalidaCaja, VistaCaja } from '@/lib/graficos-ia-elemento';
+import { moverComponente, type Movida } from '@/lib/graficos-mover';
 
 /** Para comparar lo que escribe una persona: sin acentos, sin mayúsculas, sin espacios de más. */
 export const normalizar = (s: string): string =>
@@ -81,7 +82,7 @@ const lista = (xs: readonly string[]) => xs.join(', ');
 export type PersonaInforme = { sub: string; email: string; nombre: string };
 /** Una persona de la cuenta: el rol dentro del negocio (`rol_ws`; null = admin). */
 export type MiembroCuenta = PersonaInforme & { rol: 'admin' | 'closer' | 'setter' };
-export type ComoSeEligio = 'nombrada' | 'unico_informe' | 'unico_admin' | 'inicial';
+export type ComoSeEligio = 'nombrada' | 'quien_chatea' | 'unico_informe' | 'unico_admin' | 'inicial';
 export type Eleccion =
   | { ok: true; persona: PersonaInforme | null; guardado: boolean; como: ComoSeEligio }
   | { ok: false; error: string; disponibles: string[] };
@@ -96,6 +97,9 @@ export const ERROR_PERSONA_EN_FLUJO = 'En una automatización elige la persona d
  *   · `sinPersonaVaElInicial`: para LEER una hoja, sin nadie se mira el inicial; para escribir (y para el
  *     AI Analyst, que guarda por persona) hace falta una persona.
  *   · `enFlujo`: en una automatización la persona es obligatoria.
+ *   · `quienChatea`: en la app, la persona de la sesión (`quienChatea(ctx)`, lib/api-mako/tipos.ts). Sin nombrar a
+ *     nadie, «mi hoja» es la SUYA, como en la pantalla (que lee el informe de quien mira), aunque la cuenta tenga varios
+ *     informes guardados (20/10/2026, Ops Center = lo principal, 1.5: con 2 o más informes ya no pide un email).
  * Un closer o un setter no tienen informe propio (su Dashboard es la hoja Closing, en memoria): se rechaza.
  */
 export function elegirPersona(p: {
@@ -104,6 +108,7 @@ export function elegirPersona(p: {
   pedido?: string | null;
   sinPersonaVaElInicial: boolean;
   enFlujo: boolean;
+  quienChatea?: PersonaInforme | null;
 }): Eleccion {
   const admins = p.miembros.filter((m) => m.rol === 'admin');
   const disponibles = [...new Set([...p.informes.map((i) => i.email), ...admins.map((a) => a.email)].filter(Boolean))];
@@ -129,6 +134,15 @@ export function elegirPersona(p: {
     return { ok: true, persona: limpia(una), guardado, como: 'nombrada' };
   }
   if (p.enFlujo) return { ok: false, error: ERROR_PERSONA_EN_FLUJO, disponibles };
+  if (p.quienChatea) {
+    const yo = p.quienChatea;
+    const guardado = p.informes.some((i) => i.sub === yo.sub);
+    const m = p.miembros.find((x) => x.sub === yo.sub);
+    if (!guardado && m && m.rol !== 'admin') {
+      return { ok: false, error: `Eres ${m.rol}: tu Dashboard es la hoja Closing y no tienes un informe propio.`, disponibles: [] };
+    }
+    return { ok: true, persona: limpia(yo), guardado, como: 'quien_chatea' };
+  }
   if (p.informes.length === 1) return { ok: true, persona: limpia(p.informes[0]), guardado: true, como: 'unico_informe' };
   if (p.informes.length > 1) return { ok: false, error: `Hay ${p.informes.length} informes guardados en la cuenta: di de quién es (su email).`, disponibles };
   if (p.sinPersonaVaElInicial) return { ok: true, persona: null, guardado: false, como: 'inicial' };
@@ -151,6 +165,7 @@ export function etiquetaPersona(e: Extract<Eleccion, { ok: true }>, http: boolea
   const sinGuardar = ' (todavía no guardó uno: se parte del inicial)';
   switch (e.como) {
     case 'nombrada': return `el informe de ${quien}${e.guardado ? '' : sinGuardar}`;
+    case 'quien_chatea': return `tu informe${e.guardado ? '' : ' (todavía no guardaste uno: se parte del inicial)'}`;
     case 'unico_informe': return http ? 'el único informe guardado de la cuenta' : `el informe de ${quien}, el único guardado de la cuenta`;
     case 'unico_admin': return http ? `el informe de la única persona admin de la cuenta${sinGuardar}` : `el informe de ${quien}, la única persona admin de la cuenta${sinGuardar}`;
     case 'inicial': return 'el informe inicial de MaKo (nadie guardó uno todavía)';
@@ -753,6 +768,8 @@ export type Cambio =
   | { op: 'agregar_componente'; hojaId: string; componente: Componente; lugar: 'abajo' | 'arriba' }
   | { op: 'reemplazar_componente'; hojaId: string; componente: Componente }
   | { op: 'quitar_componente'; hojaId: string; componenteId: string }
+  /** Mover una tarjeta o cambiarle el ancho con la grilla de la pantalla (lib/graficos-mover.ts, 20/10/2026). */
+  | { op: 'mover_componente'; hojaId: string; componenteId: string; movida: Movida }
   | { op: 'agregar_filtro'; hojaId: string; control: ControlVista }
   | { op: 'quitar_filtro'; hojaId: string; controlId: string }
   | { op: 'agregar_conector'; hojaId: string; conector: Conector }
@@ -882,6 +899,11 @@ export function aplicarCambio(t: Tablero, c: Cambio): Aplicado {
       const componentes = [...h.componentes];
       componentes[j] = comp;
       return conHoja({ ...h, componentes });
+    }
+    case 'mover_componente': {
+      const r = moverComponente(h.componentes, c.componenteId, c.movida);
+      if (!r.ok) return r.yaEstaba ? { ok: false, error: r.error, yaEstaba: true } : { ok: false, error: r.error };
+      return conHoja({ ...h, componentes: r.componentes });
     }
     case 'quitar_componente': {
       if (!h.componentes.some((x) => x.id === c.componenteId)) return { ok: false, error: 'Ese componente ya no está en la hoja.', yaEstaba: true };
