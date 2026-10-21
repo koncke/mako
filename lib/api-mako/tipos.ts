@@ -363,8 +363,9 @@ export type Ctx = {
   /** Por dónde una herramienta le DIBUJA algo a la persona (lib/chat-bloques.ts): una LECTURA con el `bloque` de su salida
    *  («A quién cobrar», un gráfico) o una PROPUESTA de pantalla con `extra.bloque` (el antes y el después del Video Editor).
    *  Lo pone sólo el turno de la app (`turnoApp`), que lo guarda con la respuesta de MaKo. El modelo no lo ve; sin esto
-   *  (WhatsApp, HTTP) se descarta. El camino es de Pagos (20/10/2026, la 2.27); las propuestas, 21/10. */
-  aDibujar?: (b: Bloque) => void;
+   *  (WhatsApp, HTTP) se descarta. El camino es de Pagos (20/10/2026, la 2.27); las propuestas, 21/10.
+   *  Devuelve `false` si NO lo dibujó (el tope de bloques del mensaje): así el `siSeDibuja` de una lectura no se dice. */
+  aDibujar?: (b: Bloque) => boolean | void;
   /** Sólo en la app: los archivos que la persona adjuntó en el mensaje de ESTE turno, ya guardados (su `ref` es la de
    *  /api/mako/chat?adjunto=). El estado de cuenta del lead toma el comprobante de acá (la 2.28). */
   adjuntos?: readonly { ref: string; nombre: string; tipo: 'image' | 'document' }[];
@@ -394,10 +395,12 @@ export const quienChatea = (ctx: Pick<Ctx, 'canal' | 'quien'>): { sub: string; e
 // ── Lo que devuelven los runners ─────────────────────────────────────────────
 
 /** Igual que el `ToolRunner` de lib/anthropic.ts: texto, o «esto salió mal por
- *  adentro de un resultado válido». Para `formatos`, además el tipo y cabeceras. */
+ *  adentro de un resultado válido». Para `formatos`, además el tipo y cabeceras.
+ *  `siSeDibuja`: lo que el modelo lee además de `content` SÓLO si el `bloque` se dibujó de verdad («la persona ya lo ve:
+ *  no repitas la tabla»). Dicho siempre, con el bloque descartado, el modelo callaba algo que nadie veía (21/10). */
 export type SalidaLectura =
   | string
-  | { content: string; isError?: boolean; formato?: Formato; headers?: Record<string, string>; paraLaPersona?: string; bloque?: Bloque };
+  | { content: string; isError?: boolean; formato?: Formato; headers?: Record<string, string>; paraLaPersona?: string; bloque?: Bloque; siSeDibuja?: string };
 
 /** Lo que una acción `chat` deja listo ANTES del «sí»: el payload saneado (lo que
  *  se va a ejecutar, con ids resueltos) y el resumen que lee la persona. `faltan`

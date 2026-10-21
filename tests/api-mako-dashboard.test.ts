@@ -340,7 +340,11 @@ test('el markdown de un resultado: la tabla con su unidad, el total y lo que no 
   const md = resultadoMarkdown(g, r, { desde: '2026-09-01', hasta: '2026-10-11', topeFilas: 1 }).join('\n');
   assert.match(md, /Gasto en anuncios \(US\$\)/);
   assert.match(md, /\| Mes \|/);
-  assert.match(md, /\(y 1 filas más\)/, 'un recorte callado se lee como un total');
+  // En el tiempo el corte se queda con lo más NUEVO, como el gráfico del chat (2.7, revisión del 21/10): lo que no entra
+  // es lo de antes, y lo dice.
+  assert.match(md, /\(y 1 filas antes\)/, 'un recorte callado se lee como un total');
+  assert.match(md, /\| oct \/ 2026 \|/, 'la fila que queda es la más nueva');
+  assert.doesNotMatch(md, /sep 2026/);
   assert.match(md, /Total: /);
   const tot = juntarTotales([
     { columnas: [{ id: 'a', nombre: 'A', formato: 'numero' }], filas: [], totales: [1], fuera: 0, clase: null },

@@ -25,6 +25,7 @@ import { ErrorM } from '@/app/m/_ui';
 import { ChatMako } from '../mako/ChatMako';
 import { SecondBrainCentroM } from './SecondBrainCentroM';
 import { datosDelCentroSiOpera } from '@/app/admin/operaciones/datos';
+import { hiloParaQuienYaTermino } from '@/lib/onboarding-arranque-server';
 import '../mako/mako.css';
 
 export const dynamic = 'force-dynamic';
@@ -55,6 +56,10 @@ export default async function SecondBrainPagina({ searchParams }: {
   // barra (app/m/layout.tsx), NO `quienOpera`: en el teléfono el super admin siempre lleva el `?ws=` de su negocio, y para
   // `quienOpera` eso ya es «mirando un cliente» (contextoMovil sí distingue su negocio propio). Mirando uno: su chat.
   if (ctx.sesion.rol === 'admin' && !ctx.impersonando) redirect(await rutaConWs(RUTA_CENTRO_M));
+
+  // El chat «Onboarding» de quien terminó antes de que existiera, también desde el teléfono (20/10/2026, revisión del
+  // Cerebro): se crea una vez, con las mismas reglas que en la computadora, y como es el más reciente es el que se abre.
+  await hiloParaQuienYaTermino().catch(() => null);
 
   const persona = await personaDelRequest();
   if ('error' in persona) return <ErrorM frase={persona.error} />;

@@ -112,7 +112,7 @@ test('el cableado: Offer y el arranque pasan por la guardia, y el análisis no c
   // Una falta NO llega a la IA, y el aviso del bloqueo va al equipo de la plataforma, no al cliente.
   const srv = sinComentarios(leer('lib/onboarding-guardia-server.ts'));
   const iFalta = srv.indexOf('if (f) return registrarFalta(');
-  const iContar = srv.indexOf('await guardar(contar(e, p.tipo))');
+  const iContar = srv.indexOf('await guardar(contarTodos(e, tipos))');
   assert.ok(iFalta > 0 && iFalta < iContar, 'una falta se cuenta como un turno y sigue a la IA');
   assert.match(srv, /getDestinatariosDe\(plataforma\)/);
   assert.match(srv, /from: REMITENTE_MAKO/);
