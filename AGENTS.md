@@ -2014,6 +2014,12 @@ los «Hecho:» que el código anota de verdad. Borrar una verdad le miente al cl
 Lo que no tiene respaldo se MARCA con una nota corta, y el respaldo fuerte lo pone el código: lo ejecutado en el turno
 y la tarjeta confirmada, que ya se ven en el hilo. Los tests usan el resumen REAL de ejecución, no el de la propuesta.
 
+**El corolario para un AVISO (21/10/2026, la duplicada de Automations):** si se avisa o no, lo decide un HECHO, nunca el
+parecido de un texto. Tres rondas de reglas sobre el parecido de dos mensajes (un umbral, una firma calculada, una firma
+fija) dejaban pasar duplicados de verdad y avisaban de más. Ahora se avisa siempre que el hecho se da (otra activa le
+escribe a la misma gente, por el mismo canal, con horarios que se pisan) y el aviso MUESTRA los dos textos para que la
+persona compare. Un parecido de texto sólo puede ordenar o resaltar. Detalle: docs/hallazgos-chatbot.md.
+
 # Tres topes del entorno que no dan error: te dan otra cosa
 
 Los tres se descubrieron el mismo día, los tres escribiendo código nuevo, y los tres
@@ -5103,8 +5109,15 @@ la ruta lo que su pantalla le esconde. El detalle, en [docs/hallazgos-seguridad.
 - **Todo handler de `app/api/cron` empieza con `checkCronAuth(req)`** (tiempo constante, fail-closed), y ninguna ruta
   lee `CRON_SECRET` por su cuenta.
 - **Un GET no escribe** (el de `chat-agent/onboarding/resumen` desarchivaba automatizaciones con un link).
-- **Toda función SQL nueva lleva su `revoke … from public, anon, authenticated`**: Supabase le daba EXECUTE directo a la
-  clave pública. La 0280 cambió el default; se mide con `has_function_privilege('anon', …)`, no leyendo la migración.
+- **Toda función SQL nueva lleva su `revoke … from public, anon, authenticated` Y su `grant execute … to service_role`** (el de una
+  función de trigger no hace falta), en su migración: **no es redundante.** La 0280 creía dejar las nuevas cerradas y NO lo hacía: el
+  EXECUTE de PUBLIC es un default GLOBAL de Postgres y un `alter default privileges … in schema` no lo saca, así que la 0310 y la 0318
+  nacieron ejecutables por la clave anon (la que viaja al navegador). La 0319 puso el default global y cerró las existentes;
+  `tests/migraciones-funciones-cerradas.test.ts` frena en Actions toda migración que cree una función sin ese revoke. Se mide con
+  `has_function_privilege('anon', …)` (`scripts/medir-funciones-publicas.mjs`), no leyendo la migración ni su comentario. Un PROCEDURE
+  se revoca con `on procedure` (o `on routine`, que sirve para todo). El default global de la 0319 también le da EXECUTE a service_role a
+  lo que postgres cree en CUALQUIER esquema; una extensión que haga pedidos de red (http, pg_net, dblink) NO debe vivir en `public` (la
+  clave anon la llamaría por /rest/v1/rpc: SSRF). Detalle: docs/hallazgos-seguridad.md («El EXECUTE de PUBLIC es un default GLOBAL»).
 
 # Un canal PROPONE; una persona confirma. Nada escribe directo
 
@@ -9523,6 +9536,8 @@ en «Copiar flujo» pegado en el MISMO negocio (`crearDesdeCopia` con `configDe`
 puede copiar, la copia se borra. Y un aviso que defiende algo (el de automatización duplicada) va en TODOS los caminos que
 lo prenden, no sólo en el botón de la pantalla donde se pensó: por eso vive en la puerta del server (`setSecuenciaActiva`
 pregunta; `aunqueDuplique` recién después de «… igual») y tests/automations-activar-todos-los-caminos.test.ts barre los
-llamadores. Un camino nuevo que prende una automatización tiene que manejar `duplicada` o ese test falla. Y un panel del NEGOCIO reusado adentro de algo de UNA automatización revisa cada
+llamadores. Un camino nuevo que prende una automatización tiene que manejar `duplicada` o ese test falla. Y publicar los
+pasos de una ACTIVA también es prender: un camino de una PERSONA escribe por `publicarPasos` (lib/nutricion.ts), nunca
+`setSecuenciaPasos` directo (ése es del sistema, que no tiene a quién preguntarle). Y un panel del NEGOCIO reusado adentro de algo de UNA automatización revisa cada
 cosa que guarda: el huso de la tuerca guardaba `mako.timezone` de todo el negocio. Detalle: docs/hallazgos-chatbot.md
 («La revisión adversarial lo frenó»).

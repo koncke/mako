@@ -14,7 +14,8 @@
 import 'server-only';
 import type { Ctx, Runners, SalidaLectura } from '../tipos';
 import { crearRunnerAcciones, ejecutarAccion } from '@/lib/mako-doer-acciones';
-import { getSecuenciasConStats, setSecuenciaPasos, planificarInscripciones, planificarEnvios, inscribirEnSecuencia, PasosInvalidosError, type PasoSecuencia, type InscripcionManual } from '@/lib/nutricion';
+import { getSecuenciasConStats, setSecuenciaPasos, publicarPasos, duplicadaDeLaActivacion, DuplicadaError, planificarInscripciones, planificarEnvios, inscribirEnSecuencia, PasosInvalidosError, type PasoSecuencia, type InscripcionManual } from '@/lib/nutricion';
+import { avisoDuplicada } from '@/lib/automatizacion-duplicada';
 import { motivoNoInscribe, motivoNoSale, SALIDAS_QUE_YA_ESTABAN } from '@/lib/nutricion-inscripcion-manual';
 import { sacarDeSecuencia, type SalidaManual } from '@/lib/nutricion-salida-manual';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
@@ -1238,11 +1239,15 @@ export const RUNNERS: Runners = {
       if (!pasos.length) return { error: 'La lista de pasos está vacía.', faltan: ['pasos'] };
       const borrados = s.pasos.length > pasos.length ? ` y borrar ${s.pasos.length - pasos.length}` : '';
       if (avisosAudio) avisos.push('los pasos de audio a leads que todavía no son clientes quedan como borrador para que alguien los mande');
+      // ⚠️ REESCRIBIR UNA ACTIVA ES PUBLICAR LO NUEVO (revisión del 21/10/2026): si con estos pasos le escribe lo mismo a la
+      // misma gente que otra activa, la PROPUESTA lo dice, y sólo entonces el «sí» lleva `aunqueDuplique` (`publicarPasos`).
+      const otra = await duplicadaDeLaActivacion(id, { pasos: relinear(pasos), soloSiActiva: true });
+      if (otra) avisos.push(avisoDuplicada(otra));
       return {
         // `relinear`: la cadena vuelve a seguir el orden de la lista nueva. Sin esto, un paso
         // agregado al final quedaba suelto (el anterior decía «termina») y uno borrado del medio
         // dejaba a su anterior apuntando a la nada: `validarGrafo` los rechazaba.
-        payload: { secuenciaId: id, pasos: relinear(pasos) },
+        payload: { secuenciaId: id, pasos: relinear(pasos), ...(otra ? { aunqueDuplique: true } : {}) },
         resumen: `Reescribir los pasos de «${s.nombre}»: quedan ${pasos.length}${borrados}`
           + `${cambiosDeTexto.length ? `. Textos que cambian: ${cambiosDeTexto.join(' · ')}` : ''}`
           + `${avisos.length ? `. Ojo: ${avisos.join('; ')}` : ''}`,
@@ -1251,7 +1256,13 @@ export const RUNNERS: Runners = {
     ejecutar: async (payload) => {
       const id = Number(payload.secuenciaId);
       if (!(await secuenciaVigente(id))) return { ok: false, resumen: 'La secuencia ya no existe o se archivó.' };
-      await setSecuenciaPasos(id, payload.pasos as PasoSecuencia[]);
+      try {
+        await publicarPasos(id, payload.pasos as PasoSecuencia[], { aunqueDuplique: payload.aunqueDuplique === true });
+      } catch (e) {
+        // La gemela apareció entre la propuesta y el «sí»: no se escribió nada.
+        if (e instanceof DuplicadaError) return { ok: false, resumen: `No guardé los pasos de la secuencia #${id}: ${e.message}. Si es a propósito, pídemelo otra vez.` };
+        throw e;
+      }
       return { ok: true, resumen: `Pasos de la secuencia #${id} guardados.` };
     },
   },

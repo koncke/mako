@@ -146,6 +146,16 @@ o «lo miro y te paso» en un turno que no corrió ninguna herramienta es una me
 «Eso no lo llegué a hacer en este mensaje: pídemelo otra vez y lo hago». Una pregunta («¿te lo cargo?») y una propuesta
 que termina pidiendo el «sí» no son promesas: el «sí» que sigue las hace.
 
+⚠️ **En el chat de la APP, ese mismo camino borraba verdades (desde main; lo encontró la revisión del guardia del 21/10).**
+`sanearSalida` corría el borrado de promesas cuando el turno no había usado herramientas, y en la app eso es lo normal
+cuando MaKo contesta desde el hilo. «Sí, ya te la agendé. Cualquier cosa te aviso.», después de confirmar la tarjeta: «te
+aviso» contaba como promesa y se borraba esa oración. Lo que quedaba tenía menos de 15 letras, así que la respuesta salía
+ENTERA como «Eso no lo llegué a hacer: pídemelo otra vez y lo hago». La persona lo pedía de nuevo y se agendaba dos veces.
+«Cualquier cosa te aviso» y «si querés, te armo…» son ofertas, no promesas. **Regla:** en el chat de la app ninguna
+oración se borra por lo que dice (las groserías sí). Una promesa de algo inmediato sin herramientas («déjame ver»,
+«dame un segundo», «voy a revisar», «estoy buscando»: `promesasFirmesDe`) queda, con su nota (`NOTA_SIN_HACER`), y nunca
+junto a la de un hecho. El doer de WhatsApp sigue como estaba: allá una respuesta suya es el final del turno.
+
 ⚠️ **Y el prompt FABRICABA la promesa.** El system de un turno sin herramientas decía, textual, «si te piden un dato del
 negocio, dilo en una línea («eso lo miro y te lo paso»)», y el camino barato «di que lo miras enseguida». El 13/10 en el
 ws13 MaKo contestó exactamente «Eso lo miro y te lo paso.», y el siguiente mensaje de la persona fue «Pasamelo». Un

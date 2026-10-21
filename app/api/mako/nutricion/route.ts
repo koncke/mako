@@ -10,7 +10,7 @@
 
 import type { NextRequest } from 'next/server';
 import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
-import { getSecuenciasConStats, type PasoSecuencia } from '@/lib/nutricion';
+import { getSecuenciasConStats, DuplicadaError, type PasoSecuencia } from '@/lib/nutricion';
 import { generarSecuencia, aplicarSecuencia } from '@/lib/nutricion-generator';
 import { estadoPlantillasSecuencia } from '@/lib/nutricion-plantillas';
 
@@ -45,7 +45,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const g = await guard();
   if (g) return g;
-  let body: { action?: string; secuenciaId?: number; orden?: number; pasos?: PasoSecuencia[] };
+  let body: { action?: string; secuenciaId?: number; orden?: number; pasos?: PasoSecuencia[]; aunqueDuplique?: unknown };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
   try {
@@ -59,7 +59,8 @@ export async function POST(req: NextRequest) {
     }
     if (body.action === 'aplicar') {
       if (!Array.isArray(body.pasos)) return Response.json({ ok: false, error: 'faltan los pasos a guardar' }, { status: 400 });
-      await aplicarSecuencia(secuenciaId, body.pasos);
+      // Aprobar una ACTIVA pregunta por la duplicada (21/10/2026): 409 `duplicada`, y con «… igual» vuelve con `aunqueDuplique`.
+      await aplicarSecuencia(secuenciaId, body.pasos, { aunqueDuplique: body.aunqueDuplique === true });
       return Response.json({ ok: true });
     }
     if (body.action === 'plantilla') {
@@ -76,6 +77,7 @@ export async function POST(req: NextRequest) {
     }
     return Response.json({ ok: false, error: 'action inválida' }, { status: 400 });
   } catch (e) {
+    if (e instanceof DuplicadaError) return Response.json({ ok: false, error: e.message, duplicada: e.otra }, { status: 409 });
     console.error(`[api:mako/nutricion POST] ${msg(e)}`);
     return Response.json({ ok: false, error: msg(e) }, { status: 400 });
   }
