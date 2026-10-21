@@ -2036,7 +2036,10 @@ y la tarjeta confirmada, que ya se ven en el hilo. Los tests usan el resumen REA
 parecido de un texto. Tres rondas de reglas sobre el parecido de dos mensajes (un umbral, una firma calculada, una firma
 fija) dejaban pasar duplicados de verdad y avisaban de más. Ahora se avisa siempre que el hecho se da (otra activa le
 escribe a la misma gente, por el mismo canal, con horarios que se pisan) y el aviso MUESTRA los dos textos para que la
-persona compare. Un parecido de texto sólo puede ordenar o resaltar. Detalle: docs/hallazgos-chatbot.md.
+persona compare. Un parecido de texto sólo puede ordenar o resaltar. Y el hecho se saca del MOTOR, no de lo que se
+supone: «un evento no tiene cohorte que se pise» era falso, porque `enrolarPorEvento` inscribe al lead en TODAS las
+activas del disparador. El test ata la regla a la función que inscribe (`mismaCohorte` contra `disparaPorEvento`).
+Detalle: docs/hallazgos-chatbot.md.
 
 # Tres topes del entorno que no dan error: te dan otra cosa
 
