@@ -9990,3 +9990,46 @@ que su hoja no puso aparte (`partesDeReunion1`, `partesDeVisitas`). Nada guardad
 no se migra la configuración guardada.
 **Vive en:** app/crm/lead-view/ficha/reglas-reuniones.ts · reglas-tracking.ts · Armador.tsx · ReunionesCard.tsx ·
 ComportamientoCard.tsx. Test: tests/crm-ficha-bloques-partidos.test.ts. *20/10/2026, chat «CRM» (claude4).*
+
+## Las sugerencias que faltaban: lo que la base NO sabe y casi se cuenta igual (20/10/2026, noche)
+
+- **WhatsApp no sabe quién mandó un saliente.** `wa_mensajes` no tiene autor y las automatizaciones mandan por la MISMA
+  función que Chats (`enviarYEspejar`). «El mismo mensaje a 3 leads» contado ahí habría dicho «mandaste el mismo
+  mensaje a 30 leads» por una secuencia. Se cuentan Instagram/Messenger (`ig_mensajes` saliente: sólo lo escribe el
+  envío manual) y email (`email_mensajes` con `autor`). Para sumar WhatsApp hace falta marcar el autor al enviar (una
+  columna en `wa_mensajes`: migración que numera el Cerebro).
+- **«Sin CRM» no existe en la base.** Un lead de una landing o una campaña sin asignar cae al CRM principal
+  (`funnel_id` null), igual que uno asignado a propósito. Se vuelve a mirar la asignación de HOY (`landing.config`,
+  `meta.campanas`), y con un solo CRM no se sugiere nada (no hay a dónde conectarla). El formulario de Meta no se
+  asigna por formulario sino por campaña: el aviso dice «la campaña».
+- **Esas dos lecturas van ESTRICTAS** (`getSettingEstricto`, `leerCampanasAsignadasEstricto`): `getSetting` devuelve
+  null si falla, `parsearConfig(null)` es `[]` y TODA landing parecería suelta. El test rompe eso a propósito.
+- **«Volvió» es un día DESPUÉS del que entró.** `landing_visits` y `vsl_events` no tienen `lead_id` (se cruzan por
+  `leads.visitor_id`) ni filtran por fecha en los helpers de `lib/leads.ts`; la visita del día del alta no es volver,
+  y el autoplay (`auto = true`) no es mirar el VSL.
+- **La ficha de un lead vive en `/crm/<id>`; `/crm?lead=<id>` no abre nada** (la página sólo lee `funnel` y
+  `embudo`). La primera versión del aviso lo usaba. `lib/cerebro-vivo.ts:229` todavía arma ese link.
+
+**Sin hacer:** WhatsApp en «el mismo mensaje» (falta el autor en `wa_mensajes`); el link de `lib/cerebro-vivo.ts`.
+**Vive en:** lib/sugerencias-crm.ts y lib/sugerencias-crm-server.ts · test tests/sugerencias-crm-gestos.test.ts ·
+*20/10/2026 noche, chat «CRM» (claude4).*
+
+## Lo que encontró la revisión de las sugerencias (21/10/2026)
+
+- **El id de una sugerencia tiene que sobrevivir a TRES lugares**: lo arma el motor, lo valida la ruta y lo relee
+  «Ahora no» (`parsearCalladas`). Un id con «.», «/», «>» o «ñ» (una URL, el nombre de una campaña, «lead>agenda»)
+  la ruta lo rechazaba con 400 y la sugerencia volvía en cada carga sin poder callarse. Ahora hay una sola regla
+  (`ID_SUGERENCIA`) y lo que viene de afuera va como un hash corto (`idGestoMover`, `idSinCrm`). El test hace la ida y
+  vuelta de «Ahora no» con CADA familia de id.
+- **Un clic en el VSL pueden ser dos plays**: el snippet v16/v17 con Wistia manda dos filas a milisegundos
+  (lib/video-id.ts), y una página con dos videos o una recarga también. «Volvió a mirar el VSL» cuenta DÍAS y sólo los
+  plays POSTERIORES al alta, por hora: un play un día después del alta (la regla de las visitas). ⚠️ La primera versión
+  del arreglo comparaba por día y un VSL mirado el 14 y el 15 a la mañana, antes del formulario del 15 a la tarde, se
+  leía «volvió» (segunda revisión del 21/10). Sin el alta, plays en dos días distintos.
+- **Las pruebas no son del negocio**: las visitas con `prueba` (`?mko_test`), la vista previa del editor y el lead
+  PRUEBA de la prueba del Pixel (`origen_lead = 'prueba'`) ya no cuentan como «volvió». Es la misma regla que los
+  gráficos (`noEsDelNegocio`).
+
+**Sin hacer (bajo):** «Hacerlo» por el chat no calla la sugerencia en el server; puede volver en la próxima carga.
+**Vive en:** lib/sugerencias-crm.ts y sugerencias-crm-server.ts · app/api/crm/mako/route.ts ·
+tests/sugerencias-crm-gestos.test.ts · *21/10/2026, chat «CRM» (claude4), revisión del Cerebro.*

@@ -53,7 +53,8 @@ test('2. un chat OCULTO no se busca, no se lee en el hilo, y la API de MaKo no l
   const buscar = chats.slice(chats.indexOf('async function buscarChats'), chats.indexOf('export async function hiloDeChat'));
   const hilo = chats.slice(chats.indexOf('export async function hiloDeChat'));
   assert.match(buscar, /telefonosOcultos\(\)/, 'el buscador no mira los ocultos');
-  assert.match(buscar, /ocultos\?\.has\(ultimos10\(tel\)\)/, 'el buscador arma la identidad de un teléfono oculto');
+  // Con la regla de identidad de un teléfono (`TelefonosDe`, 21/10/2026): el número entero, no sus últimos 10.
+  assert.match(buscar, /ocultos\?\.has\(tel\)/, 'el buscador arma la identidad de un teléfono oculto');
   assert.match(hilo, /telefonosOcultos\(\)/, 'el hilo no mira los ocultos');
   assert.match(hilo, /ocultos\.has\(/, 'el hilo lee los mensajes de un teléfono oculto');
   const api = sinComentarios(leer('lib/api-mako/areas/chats.run.ts'));

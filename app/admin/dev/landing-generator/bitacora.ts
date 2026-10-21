@@ -947,4 +947,14 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/second-brain?ws=3',
   },
+  {
+    fecha: '21 oct', hora: '12:25', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: lo que escribes contesta la pregunta que MaKo acaba de hacer, ya en producción',
+    puntos: [
+      'En producción desde el run 208 (deploy de 893fed4f8). Si quedó abierta una pregunta de antes y escribes algo parecido a una de sus opciones, ahora se contesta la pregunta de ahora; la de antes, sólo si tocas uno de sus botones.',
+      'No se vio con clics: está probado con tests. Se prueba en el ws3: en el Ops Center, «armame una landing», elige un diseño sin elegir el producto, y después contesta escribiendo la pregunta siguiente de MaKo.',
+    ],
+    revisar: '/second-brain?ws=3',
+  },
 ];

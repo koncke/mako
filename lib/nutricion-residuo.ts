@@ -208,8 +208,9 @@ export type CtxResiduo = {
   ahoraMs: number;
   /** Los `lead_id` con al menos una fila de `pagos` con `pagado = true`. */
   pagados: ReadonlySet<number>;
-  /** Los teléfonos de `wa_bloqueados`, en dígitos. */
-  bloqueados: ReadonlySet<string>;
+  /** Los teléfonos de `wa_bloqueados`, con la regla de identidad de un teléfono (`TelefonosDe`, lib/numero-whatsapp.ts):
+   *  bloqueado con 542233550684, el lead con 2233550684 también está bloqueado. */
+  bloqueados: { has(telefono: string): boolean };
   /** Los `lead_id` con una inscripción en `ESTADOS_OCUPADO` en una secuencia que NO es del residuo. */
   ocupados: ReadonlySet<number>;
 };

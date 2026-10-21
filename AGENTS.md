@@ -1064,6 +1064,13 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
   confirma una PERSONA (un «sí» en WhatsApp o la bandeja `/mako/pendientes`); `pantalla`
   deja una propuesta con link a una pantalla editable. **Lo que cuesta plata es `pantalla`
   y `rolMinimo: 'admin'`, sin excepción** (el test lo exige).
+  Toda superficie que muestra una pendiente para CONFIRMARLA (la tarjeta del chat, el teléfono, la bandeja
+  `/mako/pendientes`) pinta con `lineasDelPayload`: lo que se aprueba se ve ENTERO, hasta `MAX_TEXTO`, y el `max` de un
+  parámetro que se aprueba mirándolo no lo pasa (21/10/2026: la bandeja cortaba en 240 y el email salía con 2.000).
+  Una lista de objetos se pinta elemento por elemento, nunca como «N elementos».
+- **Un teléfono de WhatsApp se compara con `mismoContacto` / `TelefonosDe`** (lib/numero-whatsapp.ts), nunca con `===`
+  ni con un `Set` de strings: bloquear, desbloquear, ocultar y marcar una lista. El mismo contacto llega con y sin país,
+  con el 9 de Argentina o el 1 de México (21/10/2026: un bloqueado seguía recibiendo la secuencia).
 - **`gating.soloPlataforma`** en lo que la PLATAFORMA decide sobre los negocios y un negocio no puede deshacer en el
   suyo (exigir el 2FA): se resuelve por la capa en `vistaDe`, y el runner lo vuelve a preguntar. Un `gating.tab` no
   sirve para esto: las capas `completo` y `agencia` ven todas las tabs.
@@ -2044,6 +2051,31 @@ algo?» invertía el sí, y DICE_SI («perfecto», «está bien») anotaba como 
 pregunta del toque repite lo que confirma (así el guard de pestaña vieja la distingue). Ahí deciden sólo los botones y un
 sí o un no pelados, y lo demás escrito se SUMA a lo anterior, no lo pisa. Y al exportar a CSV texto que escribió otro, lo
 que empieza con = + - @ va con una comilla simple adelante (docs/hallazgos-seguridad.md).
+
+**Con un nombre esperando, una palabra que es sí y también nombre no confirma (séptima revisión, 21/10/2026).** «Simón»,
+«Vale», «Listo» son un sí y son nombres reales: con un pendiente, se pregunta cuál de los dos es (`siAlPendiente`). La duda
+es de la palabra SUELTA: «Claro, así se llama» es un sí (octava revisión). Y un texto del usuario que se recorta se corta
+por punto de código (`cortar`), nunca con `slice`: un emoji partido no se puede guardar en Postgres.
+
+**Un arreglo no puede ser más ancho que el caso (octava revisión, 21/10/2026).** Las dos regresiones de esa ronda salieron
+de cerrar un caso con una regla que alcanzaba a más («semanal» en cualquier parte del precio, la duda para toda frase que
+empieza con «Claro»). Antes de pasar la punta, las frases de la revisión anterior se corren en la punta y en producción, y
+se mira el diff.
+
+**Las opciones del toque son todas las lecturas; la lectura sólo ordena (novena revisión, 21/10/2026).** Si una lectura con
+reglas decide QUÉ opciones se muestran, cada error de lectura deja a la persona sin la respuesta correcta, y cada regla
+nueva mueve casos de lugar (el cobro tuvo cuatro vueltas). Las opciones se arman con todo lo que el texto PERMITE
+(`opcionesDeCobro`), y la lectura sólo elige cuál va primera.
+
+**Una lectura por defecto no se propone, y la entrada se normaliza antes de leer (décima revisión, 21/10/2026).** La caída
+de una lectura sin ninguna señal (el `return` del final) se marca y se pregunta sin recomendar: si no, «Entendí que…»
+afirma algo que el texto no dijo, y un «Sí» lo guarda. Y lo que varía en la forma y no en el fondo (números en letras,
+«x», enumeraciones) se normaliza UNA vez al entrar (`precioEnDigitos`), no con más alternativas en cada regex.
+
+**La lectura y la red usan el mismo extractor (undécima revisión, 21/10/2026).** Si la lectura tiene su propio parser, la
+opción correcta está pero el «Sí» guarda otra; la lectura toma la primera de lo que extrae la red (`nsDelPrecio`). Y
+normalizar la entrada arrastra a la forma nueva todo defecto que la lectura ya tenía: después de normalizar, se mide
+contra la respuesta correcta otra vez.
 
 **El corolario para lo que DICE MaKo (21/10/2026, el guardia de promesas 1.5):** un filtro sobre el texto del modelo
 NUNCA borra una oración. El guardia por raíces de palabras borraba 8 de 14 respuestas verdaderas («Sí, ya te la

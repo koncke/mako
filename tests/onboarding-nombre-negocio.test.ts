@@ -91,7 +91,7 @@ test('un sí con más palabras de acuerdo es un sí, y un sí con otra cosa no a
     'Exactamente', 'Claro que sí', 'Obvio', 'Dale, perfecto', 'Sí, Florencia Ayelen Carballo', 'Sí, tal cual 👍',
     // La tercera revisión (21/10): estas proponían «así», «perfecto», «mi negocio», «sisi», «Vale»… y perdían el nombre bueno.
     'Sí, es así', 'Sí, es perfecto', 'Sí, es exacto', 'Sí, es eso', 'Sí, es el nombre', 'Sí, es mi negocio', 'Sí, mejor así',
-    'Sí, en realidad sí', 'sisi', 'Si es asi', 'Sí, es mi marca personal', 'Vale', 'Listo', 'Ajá', 'Simón', 'Ándale', 'Eso mismo',
+    'Sí, en realidad sí', 'sisi', 'Si es asi', 'Sí, es mi marca personal', 'Ajá', 'Eso mismo',
     'es así', 'es ese', 'Sí, mi emprendimiento', 'Sí, es mi negocio']) {
     assert.deepEqual(responder(PENDIENTE, { texto: t }), guarda, `«${t}»`);
   }
@@ -104,6 +104,12 @@ test('un sí con más palabras de acuerdo es un sí, y un sí con otra cosa no a
     const duda = responder(PENDIENTE, { texto: t });
     assert.equal(duda.ok, false, `«${t}»`);
     assert.match(duda.ok ? '' : duda.error, /¿Tu negocio se llama «Florencia Ayelen Carballo»\? Dime sí o no, o escribe el nombre\./);
+  }
+  // «Vale», «Listo», «Simón», «Ándale» eran un sí (tercera revisión), pero también son nombres reales: con otro nombre
+  // esperando, se pregunta cuál de los dos es (séptima revisión, 21/10; tests/onboarding-septima-revision.test.ts).
+  for (const t of ['Vale', 'Listo', 'Simón', 'Ándale']) {
+    const duda = responder(PENDIENTE, { texto: t });
+    assert.match(duda.ok ? '' : duda.error, new RegExp(`^«${t}», ¿es el nombre de tu negocio\\?`), `«${t}»`);
   }
   // «No, Acme» y «Sí, pero es Acme»: el nombre nuevo, que se vuelve a confirmar.
   assert.deepEqual(responder(PENDIENTE, { texto: 'No, Acme Estudio' }), { ok: true, patch: { negocioPorConfirmar: { escrito: 'No, Acme Estudio', nombre: 'Acme Estudio' } } });
