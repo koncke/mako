@@ -83,7 +83,7 @@ test('(d) las pantallas de /email: «Guardar igual» al guardar el copy o la sec
 // ── La firma del negocio no cuenta como parecido ────────────────────────────────────────────
 
 test('la firma del negocio (saludo, quien escribe, el nombre) no hace parecidos dos mensajes distintos', async () => {
-  const { duplicadaDe, parecido, palabrasDeFirma } = await import('../lib/automatizacion-duplicada');
+  const { duplicadaDe, parecido, palabrasDeFirma, arranqueDe, palabrasSinFirma } = await import('../lib/automatizacion-duplicada');
   const msg = (id: string, cuerpo: string) => ({ id, canal: 'whatsapp', cuerpo, siguiente: null }) as never;
   const cron = { trigger_tipo: 'etapa_actual', etapa: 'clase', funnel_id: 4 };
   const SALUDO = 'Hola {{nombre}}, soy Leila de LíderMente 🙌 ';
@@ -94,16 +94,37 @@ test('la firma del negocio (saludo, quien escribe, el nombre) no hace parecidos 
   // Con «Te escribe Leila de LíderMente», igual.
   const c = { ...b, pasos: [msg('c', 'Te escribe Leila de LíderMente. Te dejo el link de la grabación')] };
   assert.equal(duplicadaDe(c, [{ ...a, pasos: [msg('a2', 'Te escribe Leila de LíderMente. ¿Pudiste ver la clase?')] }]), null);
-  // Con 3 o más del negocio, lo que se repite en la mayoría también es firma («leila», «lidermente»).
-  const firma = palabrasDeFirma([`${SALUDO}uno dos tres`, `${SALUDO}cuatro cinco`, `${SALUDO}seis siete`]);
-  assert.ok(firma.has('leila') && firma.has('lidermente') && firma.has('hola'));
+  // ⚠️ La firma es sólo lo FIJO (el relleno y el nombre del negocio): nada que se calcule de los otros textos (revisión del
+  // 21/10/2026: «lo que se repite en la mayoría» borraba la señal del par). Y sólo al ARRANQUE del mensaje.
+  const firma = palabrasDeFirma('LíderMente');
+  assert.ok(firma.has('hola') && firma.has('lidermente') && !firma.has('leila') && !firma.has('huayacan'));
+  assert.equal(arranqueDe('¡Holaa {{nombre}}! Paso a recordarte'), '¡Holaa {{nombre}}');
+  assert.equal(arranqueDe('Hola, soy Leila de LíderMente y te escribo por la clase de mañana'), 'Hola, soy Leila de LíderMente y te escribo ');
+  // La misma palabra de la firma, más adelante en el mensaje, es contenido.
+  assert.ok(palabrasSinFirma('¡Hola! Mañana en LíderMente', firma).has('lidermente'));
+  assert.ok(!palabrasSinFirma('Hola, soy de LíderMente. Mañana hay clase', firma).has('lidermente'));
   // Y el caso de verdad (#282 y #284, el mismo recordatorio) se sigue viendo, también con el nombre del negocio afuera.
   const T282 = '¡Holaa {{nombre}}! Paso a recordarte que mañana miércoles nos vemos en la clase presencial de LíderMente en Gnius Huayacán (7.30pm a 9.30 pm) 🔥\n\n¿Contamos contigo mañana? 😊';
   const T284 = 'Holaa {{nombre}}! Mañana miércoles tenemos la sesión presencial de LíderMente a las 7:30 pm en Huayacán. ¿Cuento contigo?';
-  assert.ok(parecido(T282, T284, palabrasDeFirma([T282, T284], 'LíderMente')) >= 0.5);
+  assert.ok(parecido(T282, T284, firma) >= 0.55, `parecido ${parecido(T282, T284, firma).toFixed(3)}`);
+  const otraEtapa = { trigger_tipo: 'etapa_actual', etapa: 'bienvenida', funnel_id: 4 };
   const x = { id: 282, nombre: '#282', activa: true, disparadores: [cron], pasos: [msg('x', T282)] };
   const y = { id: 284, nombre: '#284', disparadores: [cron], pasos: [msg('y', T284)] };
   assert.deepEqual(duplicadaDe(y, [x], { negocio: 'LíderMente' }), { id: 282, nombre: '#282' });
+  // Con 3, 4, 5 y 6 automatizaciones en el negocio, otras que dicen «Huayacán» (pausadas o de otra etapa) no la apagan.
+  for (const n of [3, 4, 5, 6]) {
+    const terceras = Array.from({ length: n - 2 }, (_, i) => ({
+      id: 900 + i, nombre: `t${i}`, activa: i % 2 === 0, disparadores: [otraEtapa], pasos: [msg(`t${i}`, 'Hola {{nombre}}, te esperamos en Huayacán 🙌')],
+    }));
+    assert.deepEqual(duplicadaDe(y, [x, ...terceras], { negocio: 'LíderMente' }), { id: 282, nombre: '#282' }, `con ${n} automatizaciones dejó de avisar`);
+  }
+  // Una copia PAUSADA de Duplicar, y otra copia editada (otra hora) que se activa: avisa por #282.
+  const copia = { ...x, id: 285, nombre: '#285', activa: false };
+  const editada = { id: 286, nombre: '#286', disparadores: [cron], pasos: [msg('e', `${T282.replace('7.30pm a 9.30 pm', '7.45pm a 9.45 pm')} ¡Te esperamos!`)] };
+  assert.deepEqual(duplicadaDe(editada, [x, copia], { negocio: 'LíderMente' }), { id: 282, nombre: '#282' }, 'una copia pausada borraba lo que el par compartía');
+  assert.doesNotMatch(FUENTE.get('lib/automatizacion-duplicada.ts')!, /veces\.set\(|piso = /, 'volvió «lo que se repite en la mayoría»');
+  // «… igual» de «MaKo escribe tu nutrición» se apaga al cambiar de secuencia o de texto.
+  assert.match(FUENTE.get('app/_components/NutricionGenerar.tsx')!, /useEffect\(\(\) => \{ setActivarIgual\(null\); \}, \[sel\?\.id, draft\]\);/);
   // El server le pasa el nombre del negocio (y las pantallas, el suyo).
   assert.match(FUENTE.get('lib/nutricion.ts')!, /const negocio = ws == null \? '' : await getWorkspace\(ws\)\.then\(\(w\) => w\?\.nombre \?\? ''\)\.catch\(\(\) => ''\);/);
   assert.match(FUENTE.get('app/automations/SimuladorWhatsApp.tsx')!, /disparadoresDeSecuencia, \{ negocio \}\);/);
@@ -293,3 +314,10 @@ test('(c) el escritorio: el interruptor, Publicar y el «⋯» vuelven a pregunt
 //   P8. la propuesta de la API sin el aviso               F4. el server sin el nombre del negocio
 //   P9. la API de mensajes publica sin preguntar          S1. el barrido sin los .mts  → 8 / 3
 // Restaurado: 11 / 0. (P4 no caía con la primera versión: el test miraba el orden y no la condición; se sumó.)
+//
+// La firma, sólo lo fijo y sólo al arranque (21/10/2026, `roturas-firma.json`). Base 11 / 0. Cada una → 10 / 1:
+//   R1. la firma en todo el texto        R4. sin el relleno
+//   R2. el arranque sin tope de palabras R5. sin el nombre del negocio
+//   R3. el arranque sin el fin de frase  R6. «Guardar igual» queda colgado
+// Restaurado: 11 / 0. (R7, meter en la firma lo que el par comparte, NO cambia nada: la firma sólo sale del arranque, y
+// el contenido compartido está en el cuerpo. Es la defensa del diseño, no un hueco del test.)

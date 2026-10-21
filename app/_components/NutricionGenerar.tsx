@@ -74,6 +74,10 @@ export function NutricionGenerar({ onAplicado }: { onAplicado?: () => void } = {
    * prenderla): se ofrece «… igual» con el rótulo de lo que se frenó. null = nada que preguntar.
    */
   const [activarIgual, setActivarIgual] = useState<'Guardar igual' | 'Activar igual' | null>(null);
+  // ⚠️ «… IGUAL» CONFIRMA SÓLO LA GEMELA QUE SE ACABA DE VER (revisión del 21/10/2026): se apaga al cambiar de secuencia o
+  // de texto (Volver, otra secuencia, Reescribir, generar, editar un paso). Quedaba colgado y publicaba otra secuencia, u
+  // otro texto, con `aunqueDuplique` sin mostrar su gemela.
+  useEffect(() => { setActivarIgual(null); }, [sel?.id, draft]);
   const [estados, setEstados] = useState<Record<number, string>>({}); // orden → status plantilla
   const [submitting, setSubmitting] = useState<number | null>(null);   // orden en envío a Meta
   const [cola, setCola] = useState<number[]>([]);                      // modo "todas": ids que faltan revisar

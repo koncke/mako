@@ -99,23 +99,49 @@ export const PALABRAS_DE_RELLENO: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * LA FIRMA: el relleno, el nombre del negocio, y lo que se repite en el primer mensaje de la mayoría de sus automatizaciones
- * (con 3 o más; con 2 no se puede saber qué es firma y qué es contenido). Sale de la comparación.
+ * LA FIRMA: sólo lo FIJO, el relleno y el nombre del negocio. ⚠️ NADA QUE SE CALCULE DE LOS TEXTOS (revisión del 21/10/2026):
+ * la primera versión sumaba «lo que se repite en el primer mensaje de la mayoría», y contaba al PAR que se compara y a
+ * todas las otras, pausadas y de otra etapa: con 3 a 5 automatizaciones, UNA más que dijera «Huayacán» sacaba esa palabra
+ * de #282 contra #284 (0,53 → 0,47) y dejaba de avisar; una copia pausada de Duplicar borraba todo lo que el par
+ * compartía. Otra heurística de texto que borra señal (AGENTS.md, «una heurística sobre el texto»).
  */
-export function palabrasDeFirma(textos: readonly string[], negocio = ''): Set<string> {
-  const out = new Set<string>([...PALABRAS_DE_RELLENO, ...palabrasConPeso(negocio)]);
-  if (textos.length >= 3) {
-    const veces = new Map<string, number>();
-    for (const t of textos) for (const w of palabrasConPeso(t)) veces.set(w, (veces.get(w) ?? 0) + 1);
-    const piso = Math.max(3, Math.ceil(textos.length * 0.6));
-    for (const [w, n] of veces) if (n >= piso) out.add(w);
-  }
-  return out;
+export function palabrasDeFirma(negocio = ''): Set<string> {
+  return new Set<string>([...PALABRAS_DE_RELLENO, ...palabrasConPeso(negocio)]);
 }
 
-/** Dice entre las palabras con peso de dos textos (0 a 1), sin las de `fuera` (la firma). */
-export function parecido(a: string, b: string, fuera: ReadonlySet<string> = SIN_FUERA): number {
-  const pa = palabrasConPeso(a, fuera); const pb = palabrasConPeso(b, fuera);
+/** Cuántas palabras mira el arranque, como mucho (el saludo y quien escribe: «Hola {{nombre}}, soy Leila de LíderMente»). */
+export const ARRANQUE_PALABRAS = 8;
+
+/**
+ * EL ARRANQUE DE UN MENSAJE: hasta el primer fin de frase (. ! ? ¿ ¡ o un salto de línea) después de la primera palabra, o
+ * las primeras `ARRANQUE_PALABRAS` palabras. Ahí va el saludo; la firma se saca SÓLO de ahí (`palabrasSinFirma`).
+ */
+export function arranqueDe(texto: string): string {
+  let vioLetra = false; let enPalabra = false; let palabras = 0;
+  for (let i = 0; i < texto.length; i++) {
+    const letra = /\p{L}/u.test(texto[i]);
+    if (letra && !enPalabra && ++palabras > ARRANQUE_PALABRAS) return texto.slice(0, i);
+    enPalabra = letra;
+    if (letra) vioLetra = true;
+    else if (vioLetra && /[.!?¿¡\n]/.test(texto[i])) return texto.slice(0, i);
+  }
+  return texto;
+}
+
+/**
+ * Las palabras con peso SIN LA FIRMA: la firma sale sólo del arranque. La misma palabra más adelante es contenido («Te
+ * esperamos en LíderMente…» al final del mensaje sigue contando).
+ */
+export function palabrasSinFirma(texto: string, firma: ReadonlySet<string>): Set<string> {
+  const limpio = texto.replace(/\{\{[^}]*\}\}/g, ' ');
+  const arranque = arranqueDe(limpio);
+  const resto = palabrasConPeso(limpio.slice(arranque.length));
+  return new Set([...palabrasConPeso(arranque, firma), ...resto]);
+}
+
+/** Dice entre las palabras con peso de dos textos (0 a 1); con `firma`, sin la firma de su arranque. */
+export function parecido(a: string, b: string, firma: ReadonlySet<string> = SIN_FUERA): number {
+  const pa = palabrasSinFirma(a, firma); const pb = palabrasSinFirma(b, firma);
   if (!pa.size || !pb.size) return 0;
   let comunes = 0;
   for (const w of pa) if (pb.has(w)) comunes++;
@@ -136,15 +162,15 @@ export function duplicadaDe(
 ): { id: number; nombre: string } | null {
   const mio = primerMensaje(esta.pasos);
   if (!mio) return null;
-  // La firma, con los primeros mensajes de TODAS las del negocio (ésta incluida): lo que no dice de qué habla cada una.
-  const firma = palabrasDeFirma([mio, ...otras.filter((x) => x.id !== esta.id).map((x) => primerMensaje(x.pasos)).filter(Boolean)], o.negocio);
-  const pocas = palabrasConPeso(mio, firma).size < MIN_PALABRAS;
+  // La firma es lo FIJO (el relleno y el nombre del negocio), y sale sólo del arranque de cada mensaje.
+  const firma = palabrasDeFirma(o.negocio);
+  const pocas = palabrasSinFirma(mio, firma).size < MIN_PALABRAS;
   for (const otra of otras) {
     if (otra.id === esta.id || !otra.activa) continue;
     if (!esta.disparadores.some((a) => otra.disparadores.some((b) => mismaCohorte(a, b)))) continue;
     const suyo = primerMensaje(otra.pasos);
     if (!suyo) continue;
-    const mismo = pocas || palabrasConPeso(suyo, firma).size < MIN_PALABRAS ? igualNormalizado(mio, suyo) : parecido(mio, suyo, firma) >= UMBRAL_PARECIDO;
+    const mismo = pocas || palabrasSinFirma(suyo, firma).size < MIN_PALABRAS ? igualNormalizado(mio, suyo) : parecido(mio, suyo, firma) >= UMBRAL_PARECIDO;
     if (mismo) return { id: otra.id, nombre: otra.nombre };
   }
   return null;

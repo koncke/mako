@@ -5468,11 +5468,15 @@ tests/crear-ia-recurrente.test.ts · *20/10/2026, claude4.*
   los pasos Y la etapa o el disparador nuevos antes de escribir nada (`duplicadaDeLaActivacion` con `columnas`); la API
   lo dice en la propuesta. El barrido lista a cada uno que escribe los pasos: o va por `publicarPasos`, o está en la
   lista del sistema con su motivo. Y mira los `.mts`: las mudanzas quedaban fuera de la red.
-- **La firma del negocio no es parecido.** «Hola {{nombre}}, soy Leila de LíderMente» al principio de todo hacía
-  «parecidos» dos mensajes cortos distintos (0,55: preguntaba en cada Activar, y una pregunta que se contesta sin leer
-  desarma el aviso). Ahora salen de la comparación el relleno (saludos, «te escribe»), el nombre del negocio y, con 3 o
-  más automatizaciones, lo que se repite en el primer mensaje de la mayoría (`palabrasDeFirma`). #282 contra #284 sigue
-  dando 0,53 con el nombre afuera: se sigue viendo.
+- **La firma del negocio no es parecido, y la firma es sólo lo FIJO.** «Hola {{nombre}}, soy Leila de LíderMente» al
+  principio de todo hacía «parecidos» dos mensajes cortos distintos (0,55: preguntaba en cada Activar, y una pregunta que
+  se contesta sin leer desarma el aviso). ⚠️ El primer arreglo fue una REGRESIÓN: sumaba a la firma «lo que se repite en
+  el primer mensaje de la mayoría», y contaba al PAR que se compara y a todas las otras (pausadas, de otra etapa). Con 3 a
+  5 automatizaciones, UNA más que dijera «Huayacán» sacaba esa palabra de #282 contra #284 (0,53 → 0,47) y dejaba de
+  avisar; una copia pausada de Duplicar borraba todo lo que el par compartía. Ahora la firma es el relleno de una lista
+  fija y el nombre del negocio (`palabrasDeFirma`), y sale SÓLO del arranque del mensaje (hasta el primer fin de frase o
+  8 palabras, `arranqueDe`); la misma palabra más adelante es contenido. #282 contra #284: 0,57, con 3 a 6
+  automatizaciones y con copias. Regla: una heurística sobre el texto que se calcula de los OTROS textos borra señal.
 - **Un aviso que se calcula no se borra.** El del CRON nuevo en una activa colgaba del guardado (se lo comía el
   `onError(null)` del guardado siguiente, y se perdía si se cambiaba de automatización antes de que volviera). Ahora se
   CALCULA de lo que hay (sus CRON de ahora y lo publicado, `dupActiva`) y se dice al lado de «Activar» mientras sea así.
