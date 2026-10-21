@@ -13,12 +13,25 @@
 // ⚠️ LOS LINKS VAN POR `Link` (app/_ui/Link.tsx), que le suma el `?ws=` de quien mira: el bloque guarda la ruta sola.
 
 import { useEffect, useState, type CSSProperties } from 'react';
+import dynamic from 'next/dynamic';
 import Link, { useWs } from '@/app/_ui/Link';
+import { RedDeBloque } from '@/app/dashboard/RedDeBloque';
 import { conWs } from '@/lib/ws-tab';
 import { MAX_CONSULTAS, ROTULO_PASO, leerConsulta, proporcion, razon, type Bloque, type BloqueCreado } from '@/lib/chat-bloques';
+import { esBloqueWeb } from '@/lib/editor-landing/bloques-web';
+
+/** Los bloques del Web Generator (la tarjeta de una landing, elegir entre 3, lo publicado, el dominio), aparte: traen la
+ *  hoja del contenido de las landings (~100 KB) y sólo se cargan cuando un hilo tiene uno. */
+const BloqueWeb = dynamic(() => import('@/app/web-generator/BloqueWeb').then((m) => m.BloqueWeb));
 
 type Pregunta = Extract<Bloque, { t: 'pregunta' }>;
 type Trabajo = Extract<Bloque, { t: 'trabajo' }>;
+
+/** G16 (el Dashboard, 2.7): con la pieza del Dashboard, que arrastra recharts. Por `next/dynamic`: entra cuando hay uno. */
+const GraficoHilo = dynamic(() => import('./bloques/GraficoHilo'), {
+  ssr: false,
+  loading: () => <div className="ch-bloque" data-bloque="grafico" aria-busy="true"><p className="ch-bloque__titulo">Dibujando el gráfico…</p></div>,
+});
 
 /** Cada cuánto pregunta la pantalla cómo va un trabajo largo: arranca en 3 s y se estira hasta 15 s. */
 const CONSULTA_INICIAL_MS = 3_000;
@@ -36,6 +49,7 @@ export function BloqueHilo({ b, onResponder, respondida, onTermina, ocupado }: {
   /** Un trabajo largo (G6) terminó mientras se miraba: quien lo lanzó (su tarjeta, su formulario) deja de decir «En curso». */
   onTermina?: (ok: boolean | null) => void;
 }) {
+  if (esBloqueWeb(b)) return <BloqueWeb b={b} onResponder={onResponder} respondida={respondida} ocupado={ocupado} />;
   if (b.t === 'creado') return <Creado b={b} />;
   if (b.t === 'antes_despues') {
     return (
@@ -55,6 +69,9 @@ export function BloqueHilo({ b, onResponder, respondida, onTermina, ocupado }: {
     );
   }
   if (b.t === 'trabajo') return <TrabajoHilo b={b} onTermina={onTermina} />;
+  // La red atrapa el pedazo que no carga (el import de `next/dynamic` rechazado tira al dibujar): sin ella, subía a
+  // app/error.tsx y se caía la pantalla entera, chat incluido. Adentro, GraficoHilo tiene la suya para el dibujo.
+  if (b.t === 'grafico') return <RedDeBloque nombre={b.titulo} reiniciarCon={[b]}><GraficoHilo b={b} /></RedDeBloque>;
   return <PreguntaHilo b={b} onResponder={onResponder} respondida={respondida} ocupado={ocupado} />;
 }
 

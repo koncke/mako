@@ -301,8 +301,8 @@ const ORDEN_WS: Record<string, string> = {
  * «lo que estás viendo».
  */
 function exportarWorkspaces(filas: Workspace[]) {
-  const cab = ['Cliente', 'Slug', 'Plan', 'Estado', 'Miembros', 'Alta', 'Llegó por', 'Quería resolver'];
-  const cuerpo = filas.map((w) => [w.nombre, w.slug ?? '', capaDef(w.capa).nombre, w.estado, w.usuarios, w.created_at.slice(0, 10), w.llegada?.origen ?? '', w.llegada?.interes ?? '']);
+  const cab = ['Cliente', 'Slug', 'Plan', 'Estado', 'Miembros', 'Alta', 'Llegó por', 'Quería resolver', 'A corregir en su oferta'];
+  const cuerpo = filas.map((w) => [w.nombre, w.slug ?? '', capaDef(w.capa).nombre, w.estado, w.usuarios, w.created_at.slice(0, 10), w.llegada?.origen ?? '', w.llegada?.interes ?? '', w.llegada?.pdfNota ?? '']);
   // ⚠️ El escape vive en lib/csv-celda.ts (la única vía: tests/csv-una-sola-via.test.ts). El nombre, el origen y lo que «quería resolver» son texto libre del
   // cliente: un «=HYPERLINK(…)» se abría como fórmula en el Excel de la agencia.
   const csv = armarCsv([cab, ...cuerpo], { sep: ';' });
@@ -361,9 +361,11 @@ function TablaWorkspaces({ filas, onAbrir, onNuevo, opcionesDe, elegirAccion, ac
                 <td>{w.estado === 'activo'
                   ? <span style={chip('var(--good-bg)', 'var(--good)')}>activo</span>
                   : <span style={chip('var(--surface-2)', 'var(--dim)')}>pausado</span>}</td>
-                {/* Cómo llegó (la encuesta del onboarding, 17/10/2026); lo que quería resolver, al pasar el mouse. */}
+                {/* Cómo llegó (la encuesta del onboarding, 17/10/2026); lo que quería resolver, al pasar el mouse. Si dijo que el PDF
+                    de su oferta tenía algo mal, se marca y la nota se lee al pasar el mouse (quinta revisión, 21/10). */}
                 <td title={w.llegada?.interes ? `Quería: ${w.llegada.interes}` : undefined} style={{ color: w.llegada?.origen ? undefined : 'var(--faint)' }}>
                   {w.llegada?.origen ?? '—'}
+                  {w.llegada?.pdfNota && <span title={`A corregir en su oferta: ${w.llegada.pdfNota}`} style={{ ...chip('var(--warn-bg)', 'var(--warn)'), marginLeft: 6 }}>Oferta a corregir</span>}
                 </td>
                 <td className="num">{w.usuarios}</td>
                 <td className="num" onClick={(e) => e.stopPropagation()}>

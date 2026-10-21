@@ -45,10 +45,19 @@ const TITULOS: ReadonlyArray<[PiezaKey, string]> = [
   ['objecion', 'Lo que tu cliente quiere evitar'],
   ['urgencia', 'Cupos y fechas'],
   ['frase', 'En una frase'],
+  // Sin título no salía (20/10/2026, Florencia: su Meet gratis de 1 h y el 40 % que vuelve no estaban en el PDF).
+  ['escalera', 'Qué ofreces antes y después'],
   ['otras', 'Otras cosas que vendes'],
 ];
 
 const SIN_DATO = /^\s*sin dato\s*:?\s*/i;
+
+/**
+ * ¿Lo que sigue a «sin dato:» trae datos? El modelo marcó «sin dato» una pieza que tenía su mejor número (20/10/2026,
+ * Florencia: «sin dato: en 200 casos, 100% llegó a defender…», porque faltaba el plazo), y el PDF le decía «Todavía no lo
+ * tienes claro» sobre eso. Con un número o una explicación larga, se muestra como lo que contó.
+ */
+export const traeDatos = (t: string): boolean => /\d/.test(t) || t.split(/\s+/).filter(Boolean).length >= 12;
 
 export type ApartadoLoQueVendes = { pieza: PiezaKey; titulo: string; texto: string; sinDato: boolean };
 
@@ -60,8 +69,8 @@ export function apartadosLoQueVendes(piezas: PiezasSabidas): ApartadoLoQueVendes
     const valor = (piezas[k]?.valor ?? '').replace(/\s*\[de:[^\]]*\]/gi, '').trim();
     const delArranque = PIEZAS_DEL_ARRANQUE.includes(k);
     if (!valor && !delArranque) continue;
-    const sinDato = !valor || SIN_DATO.test(valor);
     const texto = valor.replace(SIN_DATO, '').trim();
+    const sinDato = !valor || (SIN_DATO.test(valor) && !traeDatos(texto));
     out.push({ pieza: k, titulo, texto, sinDato });
   }
   return out;

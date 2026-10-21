@@ -11,6 +11,9 @@
 // que no baje.
 //
 // Probado rompiéndolo (21/10/2026, con la base en 0 fallos):
+//   · (la cuarta revisión) sin sacar lo citado → 1 fallo (2); sin mirar la condición → 1 fallo (2); sin el «:» → 1 fallo (2);
+//     la promesa en cualquier oración, como antes → 1 fallo (2); la nota de promesa con respaldo → 1 fallo (3); la
+//     grosería con el mínimo de 15 letras → 1 fallo (3);
 //   · el camino de promesas borrando otra vez en la app → 3 fallos (1, 3 y 4);
 //   · un pretérito sin tilde en la lista («cargue», que también es subjuntivo) → 1 fallo (2);
 //   · sin mirar la negación → 1 fallo (2);
@@ -94,6 +97,29 @@ const FRASES: Array<[string, Clase]> = [
   ['Te dejé la tarjeta en el mensaje anterior: confirmala cuando puedas.', 'N'],
   ['¿Quieres que te arme la automatización de bienvenida?', 'N'],
   ['Te armé la propuesta: confírmala abajo cuando quieras.', 'N'],
+  // (la cuarta revisión) Lo que NO es de MaKo: citas, borradores, copys; y lo condicional.
+  ['Juan te respondió: «Ya te mandé el comprobante, fíjate.»', 'N'],
+  ['María escribió en el grupo: «Confirmé la reunión del jueves».', 'N'],
+  ['Pedro dijo: «Cancelé la llamada del viernes porque viajo.»', 'N'],
+  ['Cuando el lead escribe «ya te envié el comprobante», la automatización lo pasa a Pagado.', 'N'],
+  ['Si ya te mandé el link, ignora este mensaje.', 'N'],
+  ['Mensaje de seguimiento: «Hola Ana, ya te agendé la llamada para el jueves.»', 'N'],
+  ['Te propongo este mensaje para Juan: «Hola Juan, te mandé el link de la reunión. Nos vemos el jueves.»', 'N'],
+  ['Juan escribió ayer: “Ya hice la transferencia, avísame si llegó.”', 'N'],
+  ['Te dejo este copy para el anuncio: "Hace 6 meses armé mi primer funnel y vendí 3 lugares."', 'N'],
+  ['Esto escribió Ana:\n> Envié el formulario el lunes.\n> ¿Lo recibiste?', 'N'],
+  // (la cuarta revisión) Lo que se cumple en el mismo mensaje, o es una oferta: no es una promesa pendiente.
+  ['Déjame ver... Juan está en Seguimiento desde el lunes y no respondió el último mensaje.', 'N'],
+  ['Dame un segundo… Sí: tienes 3 reuniones esta semana.', 'N'],
+  ['Voy a armar un ejemplo rápido:\n1. Hola Ana, ¿cómo va todo?\n2. ¿Pudiste ver lo que te mandé?', 'N'],
+  ['En cuanto me pases el CSV, voy a cargar los leads.', 'N'],
+  ['Si me dices que sí, voy a crear la automatización de bienvenida.', 'N'],
+  ['Si quieres, voy a armarte un borrador del mensaje.', 'N'],
+  // (la cuarta revisión) Lo que presenta, en el mismo mensaje, lo que hizo: está a la vista.
+  ['Te armé un resumen de la semana:\n- 5 leads nuevos\n- 2 reuniones agendadas', 'N'],
+  ['Te escribí tres versiones del copy:\n1. Versión corta\n2. Versión larga\n3. Versión con pregunta', 'N'],
+  ['Hice la cuenta: con 14 leads y 3 ventas, tu conversión es del 21 %.', 'N'],
+  ['Como te mandé arriba, el link de la reunión es el mismo.', 'N'],
   // Datos de estado (lo que hay en el CRM)
   ['Juan quedó agendado ayer por tu closer.', 'D'],
   ['Esta semana quedaron cargados 8 leads nuevos desde Meta.', 'D'],
@@ -110,6 +136,9 @@ const MIXTAS: Array<{ texto: string; corrio: boolean; respaldado: boolean; nota:
   { texto: 'Listo, ya moví a Juan a Ganado. Cualquier cosa te aviso.', corrio: false, respaldado: false, nota: NOTA_SIN_RESPALDO },
   { texto: 'Déjame ver el plan y te cuento cómo viene la semana.', corrio: false, respaldado: false, nota: NOTA_SIN_HACER },
   { texto: 'Déjame ver el plan y te cuento cómo viene la semana.', corrio: true, respaldado: false, nota: null },
+  // (la cuarta revisión) Con respaldo, ninguna nota de promesa al lado de la verdad.
+  { texto: 'Sí, ya te la agendé. Dame un segundo y te paso el link de Meet.', corrio: false, respaldado: true, nota: null },
+  { texto: 'Perfecto, ya pausé la campaña de Meta. Déjame ver si hay otra activa.', corrio: false, respaldado: true, nota: null },
 ];
 
 const VARIANTES = [
@@ -122,8 +151,13 @@ const NOTAS = [NOTA_SIN_RESPALDO, NOTA_SIN_HACER];
 const sinNotas = (t: string) => NOTAS.reduce((x, n) => x.replace(`\n\n${n}`, ''), t);
 const cuantasNotas = (t: string) => NOTAS.reduce((k, n) => k + (t.split(n).length - 1), 0);
 
-/** Lo medido el 21/10/2026 en 8ddfc38af+: de las H, cuántas llevan nota sin respaldo. Sólo puede subir. */
-const MEDIDO = { conNota: 26, de: 36 };
+/**
+ * Lo medido el 21/10/2026: de las H, cuántas llevan nota sin respaldo. Sólo puede subir. 26 en 08dc4ce9f; 25 desde la cuarta
+ * revisión, a propósito: «Ya te armé el informe semanal: lo tenés en el Dashboard.» presenta con «:» y ya no se marca.
+ * Fuera del banco, la revisión midió que el «Hecho» de otra cosa respalda 25 de 30 pedidos NUEVOS que el clasificador no
+ * ve como pedido: es cobertura, y queda como número.
+ */
+const MEDIDO = { conNota: 25, de: 36 };
 
 test('1. ninguna oración se borra, en ninguna variante', () => {
   const borradas: string[] = [];
@@ -139,6 +173,8 @@ test('2. ninguna nota en lo que no afirma nada ni en un dato', () => {
 });
 
 test('3. nunca dos notas, y las mixtas llevan la que les toca', () => {
+  // La grosería se saca y lo demás queda, aunque sea corto (la cuarta revisión).
+  assert.equal(sanearSalida('Sí, ya te la agendé. ¡Qué cagada lo de Pedro!', { corrioHerramientas: false, hecho: { respaldado: true } }).texto, 'Sí, ya te la agendé.');
   for (const [f] of FRASES) for (const v of VARIANTES) assert.ok(cuantasNotas(sanearSalida(f, v).texto) <= 1, f);
   for (const m of MIXTAS) {
     const r = sanearSalida(m.texto, { corrioHerramientas: m.corrio, hecho: { respaldado: m.respaldado } }).texto;

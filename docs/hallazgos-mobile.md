@@ -1594,3 +1594,32 @@ barra de escritorio y Configuración del negocio › General (Horario, Criterio 
 **Vive en:** `lib/movil-dispositivo.ts` (`vistaEscritorioEn`, `cookieVistaEscritorio(ruta)`) · `proxy.ts` ·
 `lib/movil-guard.ts` (`prefiereMovil`, `vistaEscritorioEnTelefono`) · `app/layout.tsx` ·
 `app/m/_ui/EnComputadoraM.tsx` · test: `tests/movil-vuelta-telefono.test.ts`
+
+## Nada que traiga .css adentro de ShellM: el índice de app/m/_ui lo reexporta (20/10/2026)
+
+**Síntoma:** tests/m-offer.test.ts cayó al cargar con `SyntaxError: Unexpected token '.'` en
+app/admin/operaciones/criatura.css, sin que nadie tocara Offer. **Lo obvio era lo equivocado:** no había un error de
+sintaxis ni en m-offer ni en lo que importa directo. La entrada de MaKo al abrir la app (EntradaMako → CriaturaMako →
+Criatura → criatura.css) se había montado en ShellM, y `app/m/_ui/index.ts` reexporta ShellM: todo test que importa algo
+de `@/app/m/_ui` (HojasOfferM lo hace) arrastraba el .css. **Regla:** lo que trae CSS no se IMPORTA directo en ShellM:
+o se monta en app/m/layout.tsx, o se carga diferido con `dynamic(() => import(…))` (así quedó la entrada el 21/10, run
+182). Lo fija tests/movil-entrada.test.ts.
+
+*20/10/2026, chat «Onboarding» (claude4).*
+
+## Dos ramas hicieron el mismo pedido, y al juntarlas el teléfono mostraba DOS entradas de MaKo (21/10/2026)
+
+**Síntoma:** al mergear main en onboarding-v3, el VERDE cayó en tests/movil-entrada.test.ts («ShellM no monta la
+entrada»). El test no estaba roto: ShellM ahora SÍ montaba una entrada. Martín había pedido lo mismo dos veces, el 18/10
+(punto 2) y el 21/10 (pedidos del Ops Center 91ebee6f y e180365d), y dos chats lo hicieron por su lado:
+- onboarding-v3: EntradaMobile, en el layout, con un script antes de pintar.
+- main: en ShellM, diferida, que vuela a la criatura de la barra y arranca en `false` (no se pinta en el server).
+
+Juntas, salían dos seguidas. **Lo obvio era «arreglar el test»**: lo que había que arreglar eran dos implementaciones del
+mismo pedido. Quedó la de main, porque es la más nueva, sale del pedido literal del 21/10 y no tiene el problema del
+server. La de onboarding-v3 se fue. Quedó UNA clave de sessionStorage (`CLAVE_ENTRADA_MOVIL`, app/m/_ui/entrada.ts),
+que leen ShellM y el final del onboarding, para que quien termina el onboarding en el teléfono no la vea dos veces.
+**Regla:** un test que «se rompe» porque otro chat hizo lo mismo no se ajusta: se elige UNA implementación y se borra la
+otra. Antes de hacer un pedido de Martín, `git log origin/main --grep` con sus palabras: puede estar hecho.
+
+*21/10/2026, chat «Onboarding» (claude4).*

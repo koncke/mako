@@ -2016,7 +2016,20 @@ MaKo para una destructiva). Las reglas siguen sirviendo para PROPONER bien; la r
 cuesta un clic y no un dato malo. Un texto que no da una lectura clara no adivina: pregunta. Eso incluye una moneda que
 no es la de los tramos, un empate o una negación rara. Un test fija que no hay ningún camino de guardado o de ejecución
 destructiva sin ese toque. Detalle: docs/hallazgos-infra.md («Re-revisar una punta arreglada»), hallazgos-onboarding e
-hallazgos-ia.
+hallazgos-ia. En el onboarding el patrón vive en lib/onboarding-arranque.ts (`elegirOpcion`,
+`opcionPorConfirmar`) y lo fija un barrido en tests/onboarding-opcion-escrita.test.ts.
+
+**Con el toque, no se corta por palabra (quinta revisión, 21/10/2026).** Una palabra de acuerdo no confirma un pendiente,
+pero tampoco puede impedir que un NOMBRE sea esa palabra («Claro», «Listo», «Dale» son negocios y personas reales): sin
+nada esperando, se propone y el toque decide. Y si la confirmación exige un campo nuevo en el pedido (la pregunta que
+contesta), el server distingue «no lo mandó» —una pestaña con el JS de antes del despliegue: «recarga la página»— de
+«mandó otro»; si no, esa pestaña queda en un error en bucle.
+
+**La confirmación tiene la polaridad de la pregunta que confirma (sexta revisión, 21/10/2026).** «¿Lo tomo como que falta
+algo?» invertía el sí, y DICE_SI («perfecto», «está bien») anotaba como corrección a quien decía que todo estaba bien. La
+pregunta del toque repite lo que confirma (así el guard de pestaña vieja la distingue). Ahí deciden sólo los botones y un
+sí o un no pelados, y lo demás escrito se SUMA a lo anterior, no lo pisa. Y al exportar a CSV texto que escribió otro, lo
+que empieza con = + - @ va con una comilla simple adelante (docs/hallazgos-seguridad.md).
 
 **El corolario para lo que DICE MaKo (21/10/2026, el guardia de promesas 1.5):** un filtro sobre el texto del modelo
 NUNCA borra una oración. El guardia por raíces de palabras borraba 8 de 14 respuestas verdaderas («Sí, ya te la
@@ -2024,6 +2037,12 @@ agendé» después de confirmar la tarjeta pasaba a «En este mensaje no hice na
 los «Hecho:» que el código anota de verdad. Borrar una verdad le miente al cliente peor que dejar pasar una mentira.
 Lo que no tiene respaldo se MARCA con una nota corta, y el respaldo fuerte lo pone el código: lo ejecutado en el turno
 y la tarjeta confirmada, que ya se ven en el hilo. Los tests usan el resumen REAL de ejecución, no el de la propuesta.
+
+**El corolario para un AVISO (21/10/2026, la duplicada de Automations):** si se avisa o no, lo decide un HECHO, nunca el
+parecido de un texto. Tres rondas de reglas sobre el parecido de dos mensajes (un umbral, una firma calculada, una firma
+fija) dejaban pasar duplicados de verdad y avisaban de más. Ahora se avisa siempre que el hecho se da (otra activa le
+escribe a la misma gente, por el mismo canal, con horarios que se pisan) y el aviso MUESTRA los dos textos para que la
+persona compare. Un parecido de texto sólo puede ordenar o resaltar. Detalle: docs/hallazgos-chatbot.md.
 
 # Tres topes del entorno que no dan error: te dan otra cosa
 
@@ -9547,6 +9566,8 @@ en «Copiar flujo» pegado en el MISMO negocio (`crearDesdeCopia` con `configDe`
 puede copiar, la copia se borra. Y un aviso que defiende algo (el de automatización duplicada) va en TODOS los caminos que
 lo prenden, no sólo en el botón de la pantalla donde se pensó: por eso vive en la puerta del server (`setSecuenciaActiva`
 pregunta; `aunqueDuplique` recién después de «… igual») y tests/automations-activar-todos-los-caminos.test.ts barre los
-llamadores. Un camino nuevo que prende una automatización tiene que manejar `duplicada` o ese test falla. Y un panel del NEGOCIO reusado adentro de algo de UNA automatización revisa cada
+llamadores. Un camino nuevo que prende una automatización tiene que manejar `duplicada` o ese test falla. Y publicar los
+pasos de una ACTIVA también es prender: un camino de una PERSONA escribe por `publicarPasos` (lib/nutricion.ts), nunca
+`setSecuenciaPasos` directo (ése es del sistema, que no tiene a quién preguntarle). Y un panel del NEGOCIO reusado adentro de algo de UNA automatización revisa cada
 cosa que guarda: el huso de la tuerca guardaba `mako.timezone` de todo el negocio. Detalle: docs/hallazgos-chatbot.md
 («La revisión adversarial lo frenó»).

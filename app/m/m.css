@@ -799,3 +799,4 @@
   border: 1px solid currentColor; border-radius: 5px; padding: 0 4px; opacity: .6;
 }
 @media (prefers-reduced-motion: reduce) { .m-secciones-tab__op { transition: none; } }
+

@@ -824,7 +824,7 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
         // persona confirma sabiéndolo, y sólo entonces el «sí» lleva `aunqueDuplique` (`setSecuenciaActiva` pregunta).
         const otra = activa ? await runWithWorkspace(ws, () => duplicadaDeLaActivacion(secuenciaId)) : null;
         return proponer('nutricion_toggle', { secuenciaId, activa, ...(otra ? { aunqueDuplique: true } : {}) },
-          `${activa ? 'Activar' : 'Pausar'} la secuencia de nutrición "${sec.nombre}"${otra ? `. ${avisoDuplicada(otra.nombre)}` : ''}`);
+          `${activa ? 'Activar' : 'Pausar'} la secuencia de nutrición "${sec.nombre}"${otra ? `. ${avisoDuplicada(otra)}` : ''}`);
       }
 
       case 'proponer_renombrar_campana': {
