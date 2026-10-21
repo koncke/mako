@@ -295,12 +295,15 @@ export const DEFS: readonly OperacionDef[] = [
     // propósito: cerrar por chat pasa por proponer_cierre_tareas, que pide la evidencia.
     id: 'mover_tarea_plan', area: 'plan', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Mover una tarea de columna',
-    descripcion: 'Mueve UNA tarea a otra columna del kanban: por_hacer (Por iniciar), en_curso (En proceso), en_seguimiento (Atorada) o no_cumple (No cumplen tu criterio). Atorada admite un motivo corto. No toca la prioridad. Sacarla de Completada la reabre en 0%; para completarla usa cerrar_tareas_plan.',
+    // CORTA A PROPÓSITO (tercera revisión del 21/10/2026): viaja también a WhatsApp, y el parámetro `columna` la había
+    // alargado 103 caracteres: el corte voraz del presupuesto de 12.000 dejaba afuera `actualizar_avance_tarea` en «ya lo
+    // hice». Con esto mide lo mismo que antes de la columna (828).
+    descripcion: 'Mueve UNA tarea a otra columna: por_hacer (Por iniciar), en_curso (En proceso), en_seguimiento (Atorada) o no_cumple (No cumplen tu criterio). Sacarla de Completada la reabre en 0%; para completarla usa cerrar_tareas_plan.',
     parametros: [
-      { nombre: 'id', tipo: 'string', descripcion: 'id de la tarea (de listar_tareas_plan), o «#412».', obligatorio: true, max: 80 },
+      { nombre: 'id', tipo: 'string', descripcion: 'id (de listar_tareas_plan) o «#412».', obligatorio: true, max: 80 },
       { nombre: 'estado', tipo: 'string', descripcion: 'la columna destino.', obligatorio: true, enum: ['por_hacer', 'en_curso', 'en_seguimiento', 'no_cumple'] },
-      { nombre: 'motivo', tipo: 'string', descripcion: 'solo con en_seguimiento: por qué está atorada, en una línea.', max: 140 },
-      { nombre: 'columna', tipo: 'string', descripcion: 'opcional: una columna propia de ese estado, por su nombre.', max: 40 },
+      { nombre: 'motivo', tipo: 'string', descripcion: 'solo con en_seguimiento: por qué está atorada, corto.', max: 140 },
+      { nombre: 'columna', tipo: 'string', descripcion: 'una propia de ese estado, por su nombre.', max: 40 },
     ],
     escribe: 'el estado, la columna, el lugar en la columna y el historial de la tarea (plan_tareas o experimento_tareas)',
     canales: TODOS, costo: 'gratis', gating: TAB,

@@ -28,6 +28,7 @@
 // Y la tercera revisión (21/10/2026, archivo en 7 / 0, una rotura por vez):
 //   · mover sólo por la clave `c_…` (la lista le da a MaKo el NOMBRE, y ver_columnas_plan no viaja)       → 6 / 1
 //   · el error de una columna que no existe sin decir cuáles hay                                        → 6 / 1
+//   · mover_tarea_plan más largo que 828 (con las dos frases que se le sacaron)                         → 6 / 1
 // Correr: node --import tsx --test tests/plan-columnas-propias.test.ts
 // =============================================================================
 
@@ -41,6 +42,7 @@ import {
   type ConfigColumnasPlan,
 } from '../lib/plan-columnas';
 import { columnasPorEstado } from '../app/plan/board/kanban';
+import { aToolDef, porId } from '../lib/api-mako/registro';
 
 const RAIZ = join(__dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -152,5 +154,8 @@ test('MaKo mueve a una columna propia por el NOMBRE que le da la lista (tercera 
   assert.match(run, /const propia = pedida \? propiaDeEstado\(config, estado, pedida\) : null;/);
   assert.match(run, /Las de ese estado: \$\{hay\.join\(', '\)\}/, 'el error dice cuáles hay: ver_columnas_plan no viaja en todos los turnos');
   const def = leer('lib/api-mako/areas/plan.def.ts');
-  assert.match(def, /\{ nombre: 'columna', tipo: 'string', descripcion: 'opcional: una columna propia de ese estado, por su nombre\.', max: 40 \}/, 'corto: viaja también a WhatsApp');
+  assert.match(def, /\{ nombre: 'columna', tipo: 'string', descripcion: 'una propia de ese estado, por su nombre\.', max: 40 \}/);
+  // Viaja también a WhatsApp: más larga, el corte voraz del presupuesto de 12.000 deja afuera otra herramienta del plan
+  // («ya lo hice» perdía actualizar_avance_tarea, medido por SHA). 828 es lo que medía antes del parámetro.
+  assert.ok(JSON.stringify(aToolDef(porId('mover_tarea_plan')!)).length <= 828, 'mover_tarea_plan no crece: correría el presupuesto de WhatsApp');
 });
