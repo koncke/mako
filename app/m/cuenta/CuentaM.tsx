@@ -54,7 +54,7 @@ import {
 } from '../_ui';
 import type { Perfil, VistaPerfil } from '@/lib/perfil';
 import { SECCIONES_CUENTA } from '@/lib/ajustes-secciones';
-import { InformacionPersonal } from '@/app/perfil/InformacionPersonal';
+import { InformacionPersonal, type NegocioDelPerfil } from '@/app/perfil/InformacionPersonal';
 import {
   comoDesbloquear, filaInstalar, resumenAvisos, rielNotificaciones, segundaAvisos, tiposParaRol, toastDeActivar,
   toastDePrueba, vistaAvisos, type VistaAvisos,
@@ -78,6 +78,8 @@ export type DatosCuenta = {
   esAdmin: boolean;
   /** «Información personal» (la misma de la computadora, en una hoja). null = no se pudo leer. */
   perfil: { perfil: Perfil; vista: VistaPerfil } | null;
+  /** El nombre del negocio para la hoja de Información personal (`nombreDelNegocioAction`). null = no se leyó. */
+  nombreNegocio: NegocioDelPerfil | null;
 };
 
 type ClaveCuenta = 'info' | 'seguridad' | 'notificaciones' | 'instalar' | 'ia';
@@ -175,7 +177,7 @@ export function CuentaM({ datos }: { datos: DatosCuenta }) {
           // lo pisaría la restauración de esa entrada del historial.
           onCerrar={() => { setHoja(null); window.setTimeout(() => router.refresh(), 400); }}>
           <div className="m-cuenta-ajustes">
-            <InformacionPersonal inicial={datos.perfil.perfil} vista={datos.perfil.vista} sinTitulo />
+            <InformacionPersonal inicial={datos.perfil.perfil} vista={datos.perfil.vista} negocio={datos.nombreNegocio} sinTitulo />
           </div>
         </SheetM>
       )}

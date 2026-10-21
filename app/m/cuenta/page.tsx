@@ -30,15 +30,18 @@ import { getNotifPush, leerPerfil, usuarioPropio } from '@/lib/perfil';
 import { TITULO_NEGOCIO, seccionesCuenta } from '@/lib/ajustes-secciones';
 import { PantallaM } from '../_ui/PantallaM';
 import { CuentaM, type DatosCuenta } from './CuentaM';
+import { nombreDelNegocioAction } from '@/app/configuraciones/negocio-actions';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CuentaPagina() {
   const ctx = await requireMovil();
-  const [salida, propio, push, perfil] = await Promise.all([
+  const [salida, propio, push, perfil, nombreNegocio] = await Promise.all([
     salidaDeVista(), usuarioPropio(), getNotifPush(),
     // «Información personal», la misma de la computadora: se lee acá para que la hoja abra sin esperar.
     leerPerfil().catch(() => null),
+    // El nombre del negocio, con la MISMA lectura que «Tu negocio» (21/10/2026): va en la hoja de quien lo puede cambiar.
+    nombreDelNegocioAction().catch(() => null),
   ]);
 
   // Tu nombre y tu foto salen de TU fila (lo último que guardaste en Información personal); la
@@ -59,6 +62,7 @@ export default async function CuentaPagina() {
     guardable: propio != null,
     esAdmin: (propio?.rol ?? ctx.rol) === 'admin',
     perfil,
+    nombreNegocio,
   };
 
   return (

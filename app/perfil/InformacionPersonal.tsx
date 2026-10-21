@@ -19,6 +19,10 @@ import { DIAL_DEFAULT, splitTelefono, unirTelefono } from '@/lib/paises';
 import { Dropdown } from '../components/Dropdown';
 import { TelefonoConPais } from '../_components/TelefonoConPais';
 import { CuerpoGrupo, FilaAjustes, GrupoAjustes, TituloAjustes } from '../_ui/Ajustes';
+import { useRouter } from '@/app/_ui/Link';
+import { guardarNombreNegocioAction } from '@/app/configuraciones/negocio-actions';
+import { NOMBRE_NEGOCIO_MAX, muestraEmpresa, muestraNegocio, type NegocioDelPerfil } from '@/lib/nombre-negocio';
+export type { NegocioDelPerfil };
 
 const TZ_OPTS = [
   { value: 'America/Tijuana', label: 'Tijuana (PT)' },
@@ -29,17 +33,19 @@ const TZ_OPTS = [
   { value: 'Europe/Madrid', label: 'Madrid (CET)' },
 ];
 
-type Campo = 'nombre' | 'cargo' | 'empresa' | 'web' | 'bio' | 'telefono' | 'timezone';
+type Campo = 'nombre' | 'cargo' | 'empresa' | 'negocio' | 'web' | 'bio' | 'telefono' | 'timezone';
 const ROTULO: Record<Campo, string> = {
-  nombre: 'Nombre', cargo: 'Cargo', empresa: 'Empresa', web: 'Sitio web', bio: 'Sobre ti', telefono: 'Teléfono', timezone: 'Zona horaria',
+  nombre: 'Nombre', cargo: 'Cargo', empresa: 'Empresa', negocio: 'Nombre del negocio', web: 'Sitio web', bio: 'Sobre ti', telefono: 'Teléfono', timezone: 'Zona horaria',
 };
 // Inventado: un placeholder con el nombre de un cliente real (era el de Mauricio y su negocio) se le
 // muestra a todos los workspaces, y desde el 15/10/2026 también en la hoja del teléfono (/m/cuenta).
-const EJEMPLO: Partial<Record<Campo, string>> = { nombre: 'Ana Torres', cargo: 'Fundadora', empresa: 'Estudio Norte', web: 'https://…' };
+const EJEMPLO: Partial<Record<Campo, string>> = { nombre: 'Ana Torres', cargo: 'Fundadora', empresa: 'Estudio Norte', negocio: 'Estudio Norte', web: 'https://…' };
 
-export function InformacionPersonal({ inicial, vista, sinTitulo = false }: {
+export function InformacionPersonal({ inicial, vista, sinTitulo = false, negocio = null }: {
   inicial: Perfil;
   vista: VistaPerfil;
+  /** El nombre del negocio, leído en el server con `nombreDelNegocioAction`. null = no se muestra. */
+  negocio?: NegocioDelPerfil | null;
   /** En la hoja del teléfono (/m/cuenta) el título lo pone la hoja. */
   sinTitulo?: boolean;
 }) {
@@ -55,6 +61,8 @@ export function InformacionPersonal({ inicial, vista, sinTitulo = false }: {
   const [subiendo, setSubiendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const router = useRouter();
+  const [nombreNegocio, setNombreNegocio] = useState(negocio?.nombre ?? '');
 
   const persistir = async (p: Perfil): Promise<boolean> => {
     try {
@@ -75,11 +83,27 @@ export function InformacionPersonal({ inicial, vista, sinTitulo = false }: {
     if (c === 'telefono') {
       const { lada, resto } = splitTelefono(perfil.telefono ?? '');
       setTel({ lada, numero: resto });
-    } else setBorrador(String(perfil[c] ?? ''));
+    } else if (c === 'negocio') setBorrador(nombreNegocio);
+    else setBorrador(String(perfil[c] ?? ''));
+  };
+
+  /** El nombre del negocio se guarda con la MISMA acción y la MISMA regla que «Tu negocio», y se vuelve a dibujar la app
+   *  (el encabezado y la barra lo muestran). */
+  const guardarNegocio = async () => {
+    setOcupado(true); setError(null);
+    try {
+      const r = await guardarNombreNegocioAction(borrador);
+      if (!r.ok) { setError(r.error); return; }
+      setNombreNegocio(r.nombre);
+      setEditando(null);
+      router.refresh();
+    } catch { setError('No se pudo guardar'); }
+    finally { setOcupado(false); }
   };
 
   const guardar = async () => {
     if (!editando) return;
+    if (editando === 'negocio') { await guardarNegocio(); return; }
     const valor = editando === 'telefono'
       ? (tel.numero.replace(/\D/g, '') ? `+${unirTelefono(tel.lada, tel.numero)}` : '')
       : borrador;
@@ -135,7 +159,7 @@ export function InformacionPersonal({ inicial, vista, sinTitulo = false }: {
           <textarea id={`perfil-${c}`} className="aj-campo" style={{ height: 'auto', minHeight: 96, padding: 12, lineHeight: 1.5, resize: 'vertical' }}
             value={borrador} autoFocus onChange={(e) => setBorrador(e.target.value)} placeholder="Algo sobre ti o tu negocio (opcional)." />
         ) : (
-          <input id={`perfil-${c}`} className="aj-campo" value={borrador} autoFocus placeholder={EJEMPLO[c]}
+          <input id={`perfil-${c}`} className="aj-campo" value={borrador} autoFocus placeholder={EJEMPLO[c]} maxLength={c === 'negocio' ? NOMBRE_NEGOCIO_MAX : undefined}
             onChange={(e) => setBorrador(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void guardar(); if (e.key === 'Escape') setEditando(null); }} />
         )}
         <div className="aj-acciones">
@@ -170,7 +194,9 @@ export function InformacionPersonal({ inicial, vista, sinTitulo = false }: {
         />
         {fila('nombre', perfil.nombre)}
         {fila('cargo', perfil.cargo)}
-        {fila('empresa', perfil.empresa)}
+        {/* Para el admin del negocio, el nombre del NEGOCIO en el lugar de «Empresa» (`muestraEmpresa`). */}
+        {muestraNegocio(negocio) && fila('negocio', nombreNegocio)}
+        {muestraEmpresa(negocio) && fila('empresa', perfil.empresa)}
         {fila('web', perfil.web)}
         {fila('bio', perfil.bio)}
         {perfil.avatarUrl && editando === null && !subiendo && (
