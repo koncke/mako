@@ -129,7 +129,7 @@ test('«Marcar cobrada»: sesión, acceso a la tab (CRM o Dashboard) y la cuota 
   const cuerpo = src.slice(ini, src.indexOf('\n}\n', ini));
   // (16/10/2026: devuelve si quitó un pago que nació cobrado, mig 0295; la guarda sigue pegada a la escritura.)
   // (17/10/2026: también `porLink`, el link de la cuota ya cobrado: tests/pagos-link-ya-pagado.test.ts.)
-  assert.match(cuerpo, /\): Promise<\{ quitada: boolean \}> \{\n  await exigirAccesoAMarcarPago\(pagoId, leadId\);\n  const \{ quitada, porLink \} = await marcarPago\(/, 'la guarda va ANTES de escribir');
+  assert.match(cuerpo, /\): Promise<\{ quitada: boolean; yaEstaba: boolean \}> \{\n  await exigirAccesoAMarcarPago\(pagoId, leadId\);\n  const \{ quitada, porLink, yaEstaba \} = await marcarPago\(/, 'la guarda va ANTES de escribir');
   const g = src.slice(src.indexOf('async function exigirAccesoAMarcarPago('), src.indexOf('\n}\n', src.indexOf('async function exigirAccesoAMarcarPago(')));
   assert.match(g, /if \(rol == null\) throw/);
   assert.match(g, /tabEnCapa\('crm', capa\)/);
