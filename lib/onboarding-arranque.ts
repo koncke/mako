@@ -203,11 +203,17 @@ export const PDF_NO = 'Está bien: lo anoto para trabajarlo dentro de la app. Ah
  *  como que falta algo?» invertía el sí, y «Está perfecto» se anotaba como corrección), y con lo que confirma adentro: una
  *  pregunta fija no la distingue el guard de pestaña vieja. */
 export const pdfConfirmarPregunta = (escrito: string): string => {
-  // Pasado el tope se suma a lo último con « · »: la pregunta repite lo ÚLTIMO sumado, así cambia y el guard de pestaña
-  // vieja la distingue (novena revisión, 21/10: con lo último de 60 caracteres o más quedaba igual).
-  const ultimo = escrito.split(' · ').pop() ?? escrito;
-  return `Escribiste «${cortar(ultimo, 60) === ultimo ? ultimo : `${cortar(ultimo, 60).trimEnd()}…`}». ¿Lo tomo como que está todo bien?`;
+  // Pasado el tope se suma a lo último con un salto de línea (`SUMA_PDF`), que la persona no puede escribir: `limpiarRespuesta`
+  // los aplana (décima revisión, 21/10: con « · » se partía también lo que escribió). La pregunta repite lo ÚLTIMO sumado, y
+  // cuántas cosas más van, así cambia con cada suma y el guard de pestaña vieja la distingue (novena y décima).
+  const tramos = escrito.split(SUMA_PDF);
+  const ultimo = tramos[tramos.length - 1];
+  const mas = tramos.length - 1;
+  const citado = cortar(ultimo, 60) === ultimo ? ultimo : `${cortar(ultimo, 60).trimEnd()}…`;
+  return `Escribiste «${citado}»${mas ? ` (y ${mas} ${mas === 1 ? 'cosa' : 'cosas'} más)` : ''}. ¿Lo tomo como que está todo bien?`;
 };
+/** Cómo se suma una corrección a lo último pasado el tope: un salto de línea, que lo escrito no trae. */
+export const SUMA_PDF = '\n';
 /** Cuántas cosas escritas se suman al PDF antes de pedir el botón (séptima revisión, 21/10: la nota no tenía tope). */
 export const PDF_TOPE_ESCRITAS = 5;
 export const PDF_BIEN = 'Sí, está todo bien';
@@ -216,7 +222,7 @@ export const PDF_FALTA = 'No, hay algo para corregir';
 export const PDF_SIN_DETALLE = 'Dijo que algo no está bien, sin detalle.';
 /** Lo que MaKo dijo que anota con un «no» al PDF: lo escrito, sumado, o la marca sin detalle. null = no dijo que no. */
 export const notaDelPdf = (e: EstadoArranque): string | null =>
-  e.pdfOk === 'no' ? (e.pdfEscritas?.length ? e.pdfEscritas.join(' · ') : PDF_SIN_DETALLE) : null;
+  e.pdfOk === 'no' ? (e.pdfEscritas?.length ? e.pdfEscritas.join(SUMA_PDF).split(SUMA_PDF).join(' · ') : PDF_SIN_DETALLE) : null;
 
 export const ORIGENES = ['Instagram', 'YouTube', 'TikTok', 'Un anuncio', 'Me lo recomendaron', 'Google', 'Otro'] as const;
 
@@ -1032,7 +1038,8 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
   // que el producto no sabe cobrar (por año, por semana) se dice, sin recomendar nada.
   if (h.cobroLeido && (etapa === 'cobro' || e.cobro)) {
     const opciones = (h.cobroOpciones ?? opcionesDeCobro(null, h.cobroLeido)).map(etiquetaCobro);
-    const pregunta = h.cobroLeido.periodo ? cobroSinPropuesta(h.cobroLeido.periodo) : `Entendí que cobras así: «${etiquetaCobro(h.cobroLeido)}». ¿Lo cargo así?`;
+    const pregunta = h.cobroLeido.periodo ? cobroSinPropuesta(h.cobroLeido.periodo)
+      : h.cobroLeido.porDefecto ? COBRO_SIN_LECTURA : `Entendí que cobras así: «${etiquetaCobro(h.cobroLeido)}». ¿Lo cargo así?`;
     preguntar(despues, 'cobro', pregunta, e.cobro ? etiquetaCobro(e.cobro) : undefined, opciones);
     if (etapa === 'cobro') return { antes, despues };
   }
@@ -1139,7 +1146,10 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
   // La respuesta viaja con la PREGUNTA que contesta (cuarta revisión, 21/10): todas las confirmaciones tienen el mismo botón
   // («Sí, es eso», «Sí, se llama así»), así que el texto del botón no alcanza. Un toque o un «sí» de una pestaña vieja
   // confirmaba una lectura que esa pantalla nunca mostró. Con una confirmación abierta, sin la pregunta tampoco vale.
-  const confirma = !!ultimo?.opciones?.some((o) => o === SI_ES_ESO || o === NEGOCIO_CONFIRMAR[0] || o === NOMBRE_CONFIRMAR[0] || o === PDF_BIEN);
+  // El cobro con una lectura recomendada también es una confirmación: un sí elige la primera (décima revisión, 21/10: sin «Sí,
+  // es eso» la guarda ya no la veía).
+  const confirma = !!ultimo?.opciones?.some((o) => o === SI_ES_ESO || o === NEGOCIO_CONFIRMAR[0] || o === NOMBRE_CONFIRMAR[0] || o === PDF_BIEN)
+    || (etapa === 'cobro' && !!h.cobroLeido && recomienda(h.cobroLeido));
   if (r.pregunta !== undefined && r.pregunta !== ultimo?.texto) return { ok: false, error: 'La pregunta cambió.', cambio: true };
   // Sin la pregunta es una pantalla de ANTES del despliegue (quinta revisión, 21/10): «La pregunta cambió» la dejaba en un
   // bucle, porque su código nunca la manda. Se le dice que recargue.
@@ -1251,7 +1261,7 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
       // Pasado el tope, lo nuevo se suma a lo último, hasta que no entra (octava revisión, 21/10: se descartaba y MaKo decía
       // «Ya lo anoté»). Un error nunca dice que anotó lo que no anotó.
       if (partes.length >= PDF_TOPE_ESCRITAS) {
-        const junta = `${partes[partes.length - 1]} · ${texto}`;
+        const junta = `${partes[partes.length - 1]}${SUMA_PDF}${texto}`;
         if (Array.from(junta).length > TOPE_RESPUESTA) return { ok: false, error: `No entra más texto. Toca «${PDF_BIEN}» o «${PDF_FALTA}».` };
         return { ok: true, patch: { pdfEscritas: [...partes.slice(0, -1), junta] } };
       }
@@ -1276,7 +1286,7 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
     if (!leido) return { ok: false, error: 'Ahora no estoy esperando eso.' };
     const opciones = h.cobroOpciones ?? opcionesDeCobro(null, leido);
     const elegida = opciones.find((c) => normal(etiquetaCobro(c)) === normal(texto))
-      ?? (opcion === undefined && !leido.periodo && siONo(texto) === 'si' ? opciones[0] : undefined);
+      ?? (opcion === undefined && recomienda(leido) && siONo(texto) === 'si' ? opciones[0] : undefined);
     if (elegida) return { ok: true, patch: { cobro: { tipo: elegida.tipo, meses: elegida.meses } } };
     return { ok: false, error: 'Toca la opción que corresponde.' };
   }
@@ -1391,7 +1401,24 @@ export function sinMarca(v: string | null | undefined): string {
 
 /** Cómo cobra lo que vende: pago único o suscripción (con los meses, si los dijo). `periodo` sólo en lo LEÍDO: cobra por
  *  año o por semana, que el producto no sabe cobrar (sólo único o mensual), así que no se propone y se pregunta. */
-export type Cobro = { tipo: 'unico' | 'suscripcion'; meses: number | null; periodo?: Periodo };
+export type Cobro = { tipo: 'unico' | 'suscripcion'; meses: number | null; periodo?: Periodo; porDefecto?: true };
+/** ¿La lectura se puede recomendar? No si es algo que el producto no cobra (`periodo`) ni si no salió de ninguna señal
+ *  (`porDefecto`): ahí las opciones van en orden fijo y un sí no elige (décima revisión, 21/10). */
+export const recomienda = (c: Cobro): boolean => !c.periodo && !c.porDefecto;
+/** La pregunta del cobro cuando el precio no dice cómo se cobra. */
+export const COBRO_SIN_LECTURA = 'No me queda claro cómo cobras: ¿cuál uso?';
+/** Haber negado las cuotas o lo mensual es una señal de pago único. */
+const NEGO_LO_PERIODICO = /\b(?:sin|nada de|no es|no hay|no son|ni)\s+(?:(?:las?|los?|un|una)\s+)?(?:\S+\s+)?(?:cuotas|mensualidad(?:es)?|mensual(?:es)?|suscripcion|membresia)\b/;
+
+/**
+ * EL PRECIO EN DÍGITOS, una vez, antes de leerlo (décima revisión, 21/10/2026: con «Tres cuotas mensuales» faltaba la
+ * opción de 3 meses, y la única suscripción que quedaba era la sin fin). Lo leen `cobroDelPrecio` y `opcionesDeCobro`. Sin
+ * tildes, en minúscula, con los números en letras en cifras («tres» → «3», «treinta y seis» → «36», `conNumerosEnLetras`) y
+ * la puntuación pegada a una palabra separada, para que «tres,» también se lea.
+ */
+export function precioEnDigitos(precio: string | null | undefined): string {
+  return conNumerosEnLetras(normal((precio ?? '').trim()).replace(/([a-z])([,;:.!?)(])/g, '$1 $2'));
+}
 /** Cada cuánto se cobra, cuando no es por mes: el producto no lo sabe cobrar, así que no se propone (`cobroSinPropuesta`). */
 export type Periodo = 'anual' | 'semanal' | 'quincenal' | 'bimestral' | 'trimestral' | 'semestral';
 const CADA: Record<Periodo, string> = {
@@ -1413,7 +1440,7 @@ export const cobroSinPropuesta = (periodo: Periodo): string =>
 const PERIODICIDAD = '(?:(semanal|quincenal|mensual|bimestral|trimestral|semestral|anual)(?:es|mente)?\\b|(?:por|a la|al|cada|x)\\s+(semana|quincena|mes|ano)\\b|\\/\\s?(semana|mes|ano)\\b)';
 const MONTO = '(?:(?:usd|us\\$|u\\$s|\\$|mxn|ars|eur)\\s*)?\\d[\\d.,]*(?:\\s*(?:usd|dolares|pesos|mxn|ars|euros?))?';
 /** «N cuotas (de USD X) semanales». */
-const RE_CUOTAS_CON = new RegExp(`(\\d{1,2})\\s*(?:cuotas|pagos|mensualidades)(?:\\s+de\\s+${MONTO})?\\s+${PERIODICIDAD}`);
+const RE_CUOTAS_CON = new RegExp(`\\b(\\d{1,2})\\s*(?:cuotas|pagos|mensualidades)(?:\\s+de\\s+${MONTO})?\\s+${PERIODICIDAD}`);
 /** Un monto o una palabra de cobro con su periodicidad pegada: «USD 50 por semana», «membresía anual», «pago semanal». */
 const RE_PEGADO = new RegExp(`(?:${MONTO}|\\b(?:pagos?|cobros?|cuotas?|abonos?|suscripcion(?:es)?|membresias?|plan(?:es)?))\\s*${PERIODICIDAD}`, 'g');
 const POR_NOMBRE: Record<string, Periodo | 'mensual'> = { semana: 'semanal', quincena: 'quincenal', mes: 'mensual', ano: 'anual' };
@@ -1428,7 +1455,7 @@ const periodoDe = (m: RegExpMatchArray, desde: number): Periodo | 'mensual' =>
  * ⚠️ Es una PROPUESTA: se confirma con un toque antes de llegar al producto (etapa 'cobro', cuarta revisión, 21/10).
  */
 export function cobroDelPrecio(precio: string | null | undefined): Cobro {
-  const crudo = (precio ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  const crudo = precioEnDigitos(precio);
   if (!crudo.trim() || /pago unico|un (?:solo|unico) pago|en un (?:solo )?pago|de contado|al contado/.test(crudo)) return { tipo: 'unico', meses: null };
   if (/sin interes(?:es)?|\bmsi\b/.test(crudo) && !/membresia|suscripcion|cobro automatico|recurrente|debito automatico/.test(crudo)) return { tipo: 'unico', meses: null };
   // Lo negado no cuenta (cuarta revisión, 21/10: «sin mensualidades», «nada de cuotas», «no es mensual» salían suscripción),
@@ -1455,13 +1482,18 @@ export function cobroDelPrecio(precio: string | null | undefined): Cobro {
   const mensual = recurrente || /\bmensual(?:es|mente)?\b|por mes|al mes|cada mes|mes a mes|\/\s?mes/.test(t);
   const conTarjeta = /con (?:la |tu |mi |su )?tarjeta/.test(t) && /cuotas|pagos|mensualidades/.test(t);
   if ((/sin interes(?:es)?|\bmsi\b/.test(t) && !recurrente) || (conTarjeta && !mensual)) return { tipo: 'unico', meses: null };
-  const cuotas = t.match(/(\d{1,2})\s*(?:cuotas|pagos|mensualidades)\b/);
+  const cuotas = t.match(/\b(\d{1,2})\s*(?:cuotas|pagos|mensualidades)\b/);
   if (cuotas) return { tipo: 'suscripcion', meses: Number(cuotas[1]) || null };
   // Lo anual (o cada dos, tres o seis meses) pegado al pago, DESPUÉS de las cuotas (sexta revisión: un precio anual en «12
   // cuotas» es la suscripción de 12 meses).
   if (pegados[0]) return { tipo: 'suscripcion', meses: null, periodo: pegados[0] };
-  if (!/mensual|por mes|al mes|cada mes|mes a mes|\/\s?mes|cuotas|mensualidad/.test(t)) return { tipo: 'unico', meses: null };
-  const meses = t.match(/(\d{1,2})\s*meses\b/);
+  // Sin ninguna señal de cobro, la lectura es POR DEFECTO, y una lectura por defecto no se propone (décima revisión, 21/10:
+  // «Renovación anual de USD 1.500», «Membresía USD 29» o «Suscripción de 6 meses» proponían «Pago único», y un «Sí» lo
+  // guardaba). Sí es una señal haber negado las cuotas o lo mensual («sin mensualidades», cuarta revisión).
+  if (!/mensual|por mes|al mes|cada mes|mes a mes|\/\s?mes|cuotas|mensualidad/.test(t)) {
+    return NEGO_LO_PERIODICO.test(crudo) ? { tipo: 'unico', meses: null } : { tipo: 'unico', meses: null, porDefecto: true };
+  }
+  const meses = t.match(/\b(\d{1,2})\s*meses\b/);
   return { tipo: 'suscripcion', meses: meses ? Number(meses[1]) || null : null };
 }
 
@@ -1473,14 +1505,26 @@ export function cobroDelPrecio(precio: string | null | undefined): Cobro {
  * (`cobroDelPrecio`) sólo ORDENA: va primera, salvo que sea algo que el producto no cobra (`periodo`); nunca saca una opción.
  */
 export function opcionesDeCobro(precio: string | null | undefined, leido: Cobro = cobroDelPrecio(precio)): Cobro[] {
-  const t = (precio ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
-  const ns: number[] = [];
-  for (const m of t.matchAll(/(\d{1,2})\s*(?:cuotas|pagos|meses|mensualidades)\b/g)) {
-    const n = Number(m[1]);
-    if (n >= 2 && n <= 36 && !ns.includes(n)) ns.push(n);
+  // Sobre el precio en dígitos (décima revisión, 21/10: «tres cuotas» no sumaba la de 3 meses). Las N de cuotas, pagos,
+  // partes o mensualidades van primero y sin tope; las de «meses» (que pueden ser la duración, no el cobro) llenan hasta 6.
+  const t = precioEnDigitos(precio);
+  const deCuotas: number[] = [];
+  const deMeses: number[] = [];
+  const sumar = (lista: number[], n: number) => { if (n >= 2 && n <= 60 && !deCuotas.includes(n) && !deMeses.includes(n)) lista.push(n); };
+  // «3 cuotas», y cada número de una enumeración: «3, 6 o 12 cuotas», «3 o 6 pagos».
+  for (const m of t.matchAll(/\b(\d{1,2}(?:(?:\s*,\s*\d{1,2})*\s+(?:o|y|u)\s+\d{1,2})?)\s*(cuotas|pagos|partes|mensualidades|meses)\b/g)) {
+    for (const n of m[1].match(/\d{1,2}/g) ?? []) sumar(m[2] === 'meses' ? deMeses : deCuotas, Number(n));
   }
-  const todas: Cobro[] = [{ tipo: 'unico', meses: null }, { tipo: 'suscripcion', meses: null }, ...ns.slice(0, 4).map((n) => ({ tipo: 'suscripcion' as const, meses: n }))];
-  if (leido.periodo) return todas;
+  // «cuotas: 3», «10 x USD 120», «USD 120 mensuales x 10».
+  for (const m of t.matchAll(/\b(?:cuotas|pagos|mensualidades)\s*:\s*(\d{1,2})\b|\b(\d{1,2})\s*x\s*(?=usd|us\$|u\$s|\$|mxn|ars|eur)|\bx\s*(\d{1,2})\b/g)) {
+    sumar(deCuotas, Number(m[1] ?? m[2] ?? m[3]));
+  }
+  // Lo que dice la N sin escribirla: «cuotas a 30, 60 y 90 días» son 3; un plan «trimestral» o «semestral» dura 3 o 6 meses.
+  for (const m of t.matchAll(/\bcuotas\s+a\s+(\d{1,3}(?:\s*,\s*\d{1,3})*\s+(?:y|e)\s+\d{1,3})\s+dias\b/g)) sumar(deCuotas, (m[1].match(/\d+/g) ?? []).length);
+  for (const m of t.matchAll(/\b(bimestral|trimestral|semestral)(?:es)?\b/g)) sumar(deMeses, { bimestral: 2, trimestral: 3, semestral: 6 }[m[1] as 'bimestral'] ?? 0);
+  const ns = [...deCuotas, ...deMeses.slice(0, Math.max(0, 6 - deCuotas.length))];
+  const todas: Cobro[] = [{ tipo: 'unico', meses: null }, { tipo: 'suscripcion', meses: null }, ...ns.map((n) => ({ tipo: 'suscripcion' as const, meses: n }))];
+  if (!recomienda(leido)) return todas;
   const primera: Cobro = { tipo: leido.tipo, meses: leido.meses };
   return [primera, ...todas.filter((c) => !mismoCobro(c, primera))];
 }

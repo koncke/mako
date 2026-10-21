@@ -13,7 +13,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   COBRO_MENSUAL, COBRO_UNICO, PDF_BIEN, cobroDelPrecio, cobroSinPropuesta, etiquetaCobro, leerRespuesta, mensajesDeArranque, opcionesDeCobro,
-  pdfConfirmarPregunta, type Cobro, type EstadoArranque, type HechosArranque, type Respuesta,
+  pdfConfirmarPregunta, recomienda, SUMA_PDF, type Cobro, type EstadoArranque, type HechosArranque, type Respuesta,
 } from '../lib/onboarding-arranque';
 import { preguntaQueContesta } from '../app/onboarding/arranque-ui';
 
@@ -24,8 +24,6 @@ const H: HechosArranque = {
 const E: EstadoArranque = { nombre: 'Ana', negocio: 'Acme', pdfOk: 'si' };
 const responder = (e: EstadoArranque, r: Respuesta, h = H) => leerRespuesta(e, h, { ...preguntaQueContesta(mensajesDeArranque(e, h)), ...r });
 const conPrecio = (precio: string): HechosArranque => ({ ...H, cobroLeido: cobroDelPrecio(precio), cobroOpciones: opcionesDeCobro(precio) });
-const U: Cobro = { tipo: 'unico', meses: null };
-const M: Cobro = { tipo: 'suscripcion', meses: null };
 const N = (meses: number): Cobro => ({ tipo: 'suscripcion', meses });
 
 test('1. la opción que el producto puede guardar está siempre, aunque la lectura falle', () => {
@@ -34,11 +32,16 @@ test('1. la opción que el producto puede guardar está siempre, aunque la lectu
   const casos: [string, Cobro][] = [
     ['USD 997 en 3 cuotas mensuales, incluye 1:1 semanal', N(3)], ['Mentoría 1 a 1 semanal: 3 cuotas de USD 400', N(3)],
     ['Clases 2x semana: 3 cuotas mensuales de USD 80', N(3)], ['Sesiones 1:1 semanales, 6 cuotas de USD 200', N(6)],
-    ['Entrenamiento 3x semana: USD 150 por mes', M], ['Mentoría con llamada 1:1 quincenal: 3 cuotas', N(3)],
+    ['Mentoría con llamada 1:1 quincenal: 3 cuotas', N(3)],
     ['3 cuotas mensuales de USD 300, con una llamada semanal', N(3)], ['USD 2000, 10 cuotas, clases 2 veces por semana', N(10)],
     ['Programa anual: 12 cuotas de USD 99', N(12)], ['USD 1.200 anuales, se puede pagar en 6 cuotas', N(6)], ['Contrato de 12 meses pagando 6 cuotas mensuales de 150 USD', N(6)],
-    ['USD 100 al mes durante 12 meses', N(12)], ['USD 100 x mes', M], ['150 USD por mes', M], ['USD 997', U], ['Programa anual USD 1.500', U],
-    ['Precio semanal: USD 25', U], ['USD 300 cada 3 meses', U], ['1.500 USD en un solo pago o 3 cuotas', N(3)], ['USD 1.200 de contado o en 12 cuotas con tarjeta', N(12)],
+    ['USD 100 al mes durante 12 meses', N(12)], ['1.500 USD en un solo pago o 3 cuotas', N(3)], ['USD 1.200 de contado o en 12 cuotas con tarjeta', N(12)],
+    // La décima: en letras, en una enumeración, con «x», una segunda N con la lectura semanal, «pagos» o «mensualidades» con
+    // periodo, y una N mayor a 12. Los de «Pago único» o la mensual no van acá: están siempre, no pueden fallar.
+    ['Tres cuotas mensuales de USD 300', N(3)], ['seis mensualidades de USD 100', N(6)], ['dos pagos de USD 500', N(2)], ['USD 300 por mes durante tres meses', N(3)],
+    ['10 x USD 120 mensuales', N(10)], ['USD 120 mensuales x 10', N(10)], ['USD 900 en 3 o 6 cuotas', N(3)], ['Elegí 3, 6 o 12 cuotas', N(6)],
+    ['Programa de 6 meses, USD 997 en 3 cuotas, con llamada 1:1 semanal', N(3)], ['Mentoría 1 a 1 semanal: 6 pagos de USD 200', N(6)],
+    ['Clases 2x semana: 4 mensualidades de USD 80', N(4)], ['USD 4.800 en 24 cuotas, sesión 1:1 semanal', N(24)], ['USD 30 por mes, 48 cuotas, clase 1:1 semanal', N(48)],
   ];
   for (const [precio, correcta] of casos) {
     const ops = opcionesDeCobro(precio).map(etiquetaCobro);
@@ -47,13 +50,14 @@ test('1. la opción que el producto puede guardar está siempre, aunque la lectu
 });
 
 test('2. la lectura sólo ordena: va primera, nunca saca una opción; lo que el producto no cobra no recomienda', () => {
-  for (const precio of ['USD 997', '6 cuotas mensuales de USD 100', 'USD 100 por mes', '8 cuotas semanales de USD 25', 'Membresía anual USD 400', 'Programa de 6 meses USD 1.800']) {
+  for (const precio of ['USD 997', '6 cuotas mensuales de USD 100', 'USD 100 por mes', '8 cuotas semanales de USD 25', 'Membresía anual USD 400', 'Programa de 6 meses USD 1.800',
+    'USD 1.200 en 12 cuotas, 12 meses de acceso, o de contado']) {
     const ops = opcionesDeCobro(precio);
     const etiquetas = ops.map(etiquetaCobro);
     assert.ok(etiquetas.includes(COBRO_UNICO) && etiquetas.includes(COBRO_MENSUAL), `«${precio}» sin las dos de siempre`);
     assert.equal(new Set(etiquetas).size, etiquetas.length, `«${precio}» repite una opción`);
     const leido = cobroDelPrecio(precio);
-    if (!leido.periodo) assert.equal(etiquetas[0], etiquetaCobro(leido), `«${precio}»: la leída no va primera`);
+    if (recomienda(leido)) assert.equal(etiquetas[0], etiquetaCobro(leido), `«${precio}»: la leída no va primera`);
     else assert.deepEqual(etiquetas.slice(0, 2), [COBRO_UNICO, COBRO_MENSUAL], `«${precio}»: recomendó algo que el producto no cobra`);
   }
   // «Suscripción mensual» dice que no termina: se elegía creyendo que eran los meses de las cuotas.
@@ -69,7 +73,7 @@ test('3. la etapa cobro muestra todas, y el toque o un sí deciden', () => {
   assert.deepEqual(responder(E, { opcion: 2, opcionTexto: 'Suscripción de 3 meses' }, h), { ok: true, patch: { cobro: { tipo: 'suscripcion', meses: 3 } } });
   assert.equal(responder(E, { texto: 'sí' }, h).ok, false, 'un sí no elige cuando no hay recomendada');
   // Con una lectura que el producto cobra, va primera y un sí la elige.
-  const h2 = conPrecio('Programa de 6 meses USD 1.800');
+  const h2 = conPrecio('Programa de 6 meses: USD 1.800 de contado');
   const m2 = mensajesDeArranque(E, h2).despues.at(-1);
   assert.equal(m2?.texto, 'Entendí que cobras así: «Pago único». ¿Lo cargo así?');
   assert.deepEqual(m2?.opciones, [COBRO_UNICO, COBRO_MENSUAL, 'Suscripción de 6 meses']);
@@ -91,7 +95,7 @@ test('4. PDF: al sumar pasado el tope, la pregunta cambia, y un toque de una pes
   const despues: EstadoArranque = { ...antes, ...(r.ok ? r.patch : {}) };
   const pregunta = mensajesDeArranque(despues, H).despues.at(-1)?.texto;
   assert.notEqual(pregunta, vio.pregunta, 'la pregunta quedó igual al sumar');
-  assert.equal(pregunta, pdfConfirmarPregunta(`${larga} · Pero el precio es 200, no 997`));
+  assert.equal(pregunta, pdfConfirmarPregunta(`${larga}${SUMA_PDF}Pero el precio es 200, no 997`));
   assert.match(pregunta ?? '', /«Pero el precio es 200, no 997»/);
   assert.deepEqual(leerRespuesta(despues, H, { opcion: 0, opcionTexto: PDF_BIEN, ...vio }), { ok: false, error: 'La pregunta cambió.', cambio: true });
 });

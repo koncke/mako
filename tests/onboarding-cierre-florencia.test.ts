@@ -63,7 +63,8 @@ test('cómo cobra sale de lo que dijo del precio', () => {
     assert.deepEqual(cobroDelPrecio(p), { tipo: 'unico', meses: null }, p);
   }
   assert.deepEqual(cobroDelPrecio('4 mensualidades'), { tipo: 'suscripcion', meses: 4 }, 'sin tarjeta, las mensualidades son suscripción');
-  assert.deepEqual(cobroDelPrecio('Programa de 12 meses, 3.000 USD'), { tipo: 'unico', meses: null }, 'la duración no es el cobro');
+  // La duración no es el cobro, y sin una señal la lectura es por defecto: no se propone (décima revisión, 21/10).
+  assert.deepEqual(cobroDelPrecio('Programa de 12 meses, 3.000 USD'), { tipo: 'unico', meses: null, porDefecto: true }, 'la duración no es el cobro');
   assert.deepEqual(cobroDelPrecio(''), { tipo: 'unico', meses: null });
 });
 

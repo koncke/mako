@@ -88,7 +88,7 @@ test('3. lo anual o semanal no se propone como mensual: se pregunta sin lectura,
   const m = mensajesDeArranque(e, h).despues.at(-1);
   assert.equal(m?.texto, cobroSinPropuesta('anual'));
   assert.deepEqual(m?.opciones, [COBRO_UNICO, COBRO_MENSUAL], 'sin «Sí, es eso»: no hay lectura que confirmar');
-  assert.ok(!/Suscripción mensual»/.test(m?.texto ?? ''), 'volvió a proponer «Suscripción mensual»');
+  assert.ok(!(m?.texto ?? '').includes(`«${COBRO_MENSUAL}»`), 'volvió a proponer la suscripción mensual');
   // Un sí no guarda nada: no hay qué confirmar. La opción, sí, sin el periodo (el producto no lo sabe cobrar).
   assert.equal(responder(e, { texto: 'sí' }, h).ok, false);
   assert.equal(responder(e, { opcion: 0, opcionTexto: SI_ES_ESO }, h).ok, false);

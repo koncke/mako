@@ -2707,6 +2707,32 @@ aceptaba la opción exacta: todo esto entraba nuevo.
   de lo último, y al sumarle algo quedaba igual: el guard de pestaña vieja no veía el cambio. Ahora repite lo último que
   se sumó.
 
+**Y la décima (punta 5d353db16): la red estaba bien; la entrada, no.**
+- ⚠️ **Los números en letras se normalizan ANTES de leer, una vez.** La novena prometía «la opción correcta está siempre»,
+  y con «Tres cuotas mensuales de USD 300» la única suscripción ofrecida era la sin fin, propuesta primera. Es justo el
+  caso que motivó el «(sin fin)». La red juntaba sólo dígitos pegados a la palabra. Sumar «tres|seis|doce…» a cada regex
+  hubiera sido otra lista. **Regla:** se cambia la ENTRADA: `precioEnDigitos` pasa el precio a cifras una sola vez
+  (reusa `conNumerosEnLetras`, la de la facturación), y lo leen `cobroDelPrecio` y `opcionesDeCobro`. La red también
+  junta las enumeraciones («3, 6 o 12 cuotas»: las tres), «10 x USD 120», «cuotas: 3» y «en 3 partes». Las de cuotas van
+  antes que las de «meses», sin tope.
+- ⚠️ **Una lectura POR DEFECTO no es una lectura, y no se propone.** «Renovación anual de USD 1.500», «Membresía USD 29»
+  o «Suscripción de 6 meses» no tenían ninguna señal que la lectura entendiera, caían al `return unico` del final, y eso
+  se proponía como «Entendí que cobras así: Pago único», y un «Sí» lo guardaba. **Regla:** la caída sin señal se marca
+  (`porDefecto`) y se pregunta sin recomendar («No me queda claro cómo cobras»): orden fijo y un sí no elige
+  (`recomienda`). Sólo se propone lo que salió de una señal: pago único, contado, cuotas, mensual o lo periódico negado.
+  Con eso, un precio pelado («USD 997») también pregunta: un toque más, pero ninguna propuesta inventada.
+- **La guarda de pestaña vieja reconoce las confirmaciones por el TEXTO DEL BOTÓN, y el cobro perdió su «Sí, es eso».**
+  Una pantalla sin la pregunta volvía a poder guardar con un «Sí». Ahora el cobro con lectura recomendada cuenta como
+  confirmación por la etapa.
+- **El separador de lo sumado no puede ser algo que la persona escriba.** « · » partía también lo que escribió («Precio:
+  200 · Garantía: 30 días» se citaba a medias). Ahora es un salto de línea (`SUMA_PDF`), que `limpiarRespuesta` aplana en
+  lo escrito. Y la pregunta cuenta lo sumado («(y 1 cosa más)»): cambia aunque lo nuevo empiece igual que lo anterior.
+- **Un caso que está siempre por construcción no prueba nada.** 7 de los 20 precios del test de la novena tenían como
+  respuesta «Pago único» o la mensual, que siempre están. Se cambiaron por casos que pueden fallar: en letras,
+  enumeraciones, una N mayor a 12 y una segunda N con la lectura semanal. Y una medición contra la lectura vieja de
+  producción («está entre las opciones en las 204») no ve lo que producción también hacía mal: se mide contra la
+  respuesta CORRECTA.
+
 **Sin hacer:** «Vendo 20 a 500 dólares» se sigue leyendo como un rango; la confirmación lo muestra y se corrige con un
 toque. Las etiquetas de los tramos dicen «$» sin «USD» (lib/fase-diagnostico.ts): es una decisión de copy, no de este
 chat. Vive en lib/onboarding-arranque.ts (`cifraDe`). Cobrar por año o por semana necesita un intervalo en el producto

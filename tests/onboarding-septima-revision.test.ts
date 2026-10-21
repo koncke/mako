@@ -16,7 +16,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  NOMBRE_CONFIRMAR, NEGOCIO_CONFIRMAR, PDF_BIEN, PDF_FALTA, PDF_TOPE_ESCRITAS, cobroDelPrecio, cortar, leerRespuesta, limpiarRespuesta,
+  NOMBRE_CONFIRMAR, NEGOCIO_CONFIRMAR, PDF_BIEN, PDF_FALTA, PDF_TOPE_ESCRITAS, SUMA_PDF, cobroDelPrecio, cortar, leerRespuesta, limpiarRespuesta,
   mensajesDeArranque, pdfConfirmarPregunta, siAlPendiente, siONoPelado, type EstadoArranque, type HechosArranque, type Respuesta,
 } from '../lib/onboarding-arranque';
 import { preguntaQueContesta } from '../app/onboarding/arranque-ui';
@@ -79,7 +79,7 @@ test('3. al toque del PDF cuentan los sí y no de una palabra, y lo escrito tien
   // Pasado el tope, lo nuevo se suma a lo último (octava revisión: se descartaba diciendo «Ya lo anoté»), y no crece más
   // que una respuesta: tests/onboarding-octava-revision.test.ts.
   const r = responder(lleno, { texto: 'una más' });
-  assert.deepEqual(r, { ok: true, patch: { pdfEscritas: ['cosa 0', 'cosa 1', 'cosa 2', 'cosa 3', 'cosa 4 · una más'] } }, 'la nota seguía creciendo');
+  assert.deepEqual(r, { ok: true, patch: { pdfEscritas: ['cosa 0', 'cosa 1', 'cosa 2', 'cosa 3', `cosa 4${SUMA_PDF}una más`] } }, 'la nota seguía creciendo');
   const sinLugar = responder({ ...E, pdfEscritas: [...lleno.pdfEscritas!.slice(0, -1), 'x'.repeat(295)] }, { texto: 'una más' });
   assert.match(sinLugar.ok ? '' : sinLugar.error, new RegExp(`Toca «${PDF_BIEN}» o «${PDF_FALTA}»`));
   assert.deepEqual(responder(lleno, { opcion: 1, opcionTexto: PDF_FALTA }), { ok: true, patch: { pdfOk: 'no' } }, 'los botones siguen andando');

@@ -2039,6 +2039,11 @@ reglas decide QUÉ opciones se muestran, cada error de lectura deja a la persona
 nueva mueve casos de lugar (el cobro tuvo cuatro vueltas). Las opciones se arman con todo lo que el texto PERMITE
 (`opcionesDeCobro`), y la lectura sólo elige cuál va primera.
 
+**Una lectura por defecto no se propone, y la entrada se normaliza antes de leer (décima revisión, 21/10/2026).** La caída
+de una lectura sin ninguna señal (el `return` del final) se marca y se pregunta sin recomendar: si no, «Entendí que…»
+afirma algo que el texto no dijo, y un «Sí» lo guarda. Y lo que varía en la forma y no en el fondo (números en letras,
+«x», enumeraciones) se normaliza UNA vez al entrar (`precioEnDigitos`), no con más alternativas en cada regex.
+
 **El corolario para lo que DICE MaKo (21/10/2026, el guardia de promesas 1.5):** un filtro sobre el texto del modelo
 NUNCA borra una oración. El guardia por raíces de palabras borraba 8 de 14 respuestas verdaderas («Sí, ya te la
 agendé» después de confirmar la tarjeta pasaba a «En este mensaje no hice nada») y atajaba 3 de 18 falsas, medido con

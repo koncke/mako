@@ -1,5 +1,17 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 21/10/2026 — DÉCIMA REVISIÓN (de 5d353db16): LA ENTRADA EN DÍGITOS Y SIN LECTURAS POR DEFECTO
+
+<sub>Chat «Onboarding», claude4, rama onboarding-v3. En producción está 689f75560
+(side-session-notes/local_797d5445…/revision-onboarding-decima-21-10.md).</sub>
+
+- El precio se pasa a dígitos una vez (`precioEnDigitos`): «tres cuotas» trae la de 3 meses. La red junta enumeraciones,
+  «x N», «cuotas: N» y «partes»; las N de cuotas van antes que las de meses, sin tope (hasta 60).
+- Una lectura sin señal (`porDefecto`) no se propone: «No me queda claro cómo cobras: ¿cuál uso?», orden fijo, un sí no
+  elige. Incluye el precio pelado («USD 997»). La guarda de pestaña vieja ve el cobro con lectura recomendada.
+- PDF: lo sumado va con `SUMA_PDF` (un salto de línea) y la pregunta cuenta lo sumado. Tests:
+  tests/onboarding-decima-revision.test.ts.
+
 ## ESTADO AL 21/10/2026 — NOVENA REVISIÓN (de 82321e397): EL COBRO CAMBIA DE RED
 
 <sub>Chat «Onboarding», claude4, rama onboarding-v3. En producción está 689f75560
