@@ -11,6 +11,9 @@
 //   · el teléfono (`moverEnTablero`): a una propia, el Deshacer vuelve a la de antes, y una que ya no existe se rechaza.
 // =============================================================================
 
+// Un módulo y no un script global: sin esto TypeScript lo junta con los demás hijos y chocan (TS2300/TS2451).
+export {};
+
 type Fila = Record<string, unknown>;
 
 const db: Record<string, Fila[]> = { experimento_tareas: [], plan_tareas: [], app_settings: [] };
