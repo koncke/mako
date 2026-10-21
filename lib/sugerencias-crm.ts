@@ -47,7 +47,7 @@
 // (`sugerencias_crm`, lib/api-mako/areas/crm.run.ts) y tests/sugerencias-crm.test.ts.
 // =============================================================================
 
-import { disparadoresDe, TRIGGER_AVISO_MAKO, type FilaDisparadores } from './disparadores';
+import { disparadoresDe, TRIGGER_AVISO_MAKO, type FilaDisparadores, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER } from './disparadores';
 import { TRIGGER_ETAPA, TRIGGER_ENTREGA } from './nutricion-etapa';
 import { PLANTILLAS, PLANTILLAS_REEMPLAZADAS, plantillaPorId, canalesDe } from './plantillas-automatizaciones';
 import { etapaNoShowDe, TERMINAL_DEL_PIPELINE, type FunnelTransition, type Stage } from './pipeline';
@@ -76,6 +76,12 @@ export const UMBRALES_SUGERENCIAS = {
   callarDias: 30,
   hechaDias: 1,
   tope: 8,
+  /** Clase 2 (20/10/2026): la ventana del historial y cuántas veces es «repetir un gesto». */
+  gestosDias: 14,
+  /** «Movés a mano 5 o más leads de la misma etapa A a la misma B en 14 días». */
+  gestosMovimientos: 5,
+  /** «Marcás No show a mano 3 veces». */
+  gestosNoShow: 3,
 } as const;
 
 // ── El dato ──────────────────────────────────────────────────────────────────
@@ -139,6 +145,14 @@ export type EntradaSugerencias = {
   hoy: string;
   /** ms */
   ahora: number;
+  /**
+   * CLASE 2 (20/10/2026): los gestos A MANO de una persona en los últimos `gestosDias` días en este CRM (el historial
+   * del lead: `lead_audit` con un email de autor; lo que hizo MaKo o una automatización no cuenta). Ausente o null =
+   * no se pudieron leer: no hay sugerencias de clase 2.
+   */
+  gestos?: { movimientos: ReadonlyArray<{ desde: string; hacia: string }>; noShowsAMano: number } | null;
+  /** CLASE 4 (20/10/2026): lo nuevo que llegó en esos días (conversaciones de Instagram y Messenger). null = no se leyó. */
+  nuevos?: { dmInstagram: number; dmMessenger: number } | null;
 };
 
 export type AccionSugerencia =
@@ -149,7 +163,8 @@ export type AccionSugerencia =
 export type Sugerencia = {
   /** estable: `<plantilla>:<etapa>` o el nombre de la situación. Es lo que se calla. */
   id: string;
-  clase: 1 | 3;
+  /** 1: armás el CRM · 2: repetís un gesto · 3: el tablero llega a un estado · 4: llega algo nuevo (docs/sugerencias-mako-crm.md). */
+  clase: ClaseSugerencia;
   /** UNA línea (`TOPE_TEXTO`) */
   texto: string;
   /** la etapa de la que habla (key), si habla de una */
@@ -164,8 +179,10 @@ export type Sugerencia = {
  * qué dice, qué hace «Hacerlo» y si ESTA persona lo puede hacer. Ni la plantilla ni la etapa viajan: al
  * crear, el server vuelve a calcular y decide él (lib/sugerencias-crm-server.ts).
  */
+export type ClaseSugerencia = 1 | 2 | 3 | 4;
+
 export type SugerenciaDePantalla = {
-  id: string; clase: 1 | 3; texto: string;
+  id: string; clase: ClaseSugerencia; texto: string;
   tipo: AccionSugerencia['tipo'];
   href?: string; pedido?: string;
   /** false = no se le ofrece «Hacerlo» (crear automatizaciones y conectar integraciones son del admin) */
@@ -318,8 +335,8 @@ export function sugerenciasDelCrm(e: EntradaSugerencias, tope: number = UMBRALES
     const c = canalesDe(p);
     return !(c.includes('whatsapp') && !c.includes('email') && !c.includes('instagram') && !c.includes('messenger'));
   };
-  /** Una de clase 1 o 3 que crea la plantilla en una etapa de VENTA de este CRM. */
-  const enEtapa = (clase: 1 | 3, plantilla: string, etapa: string, texto: string) => {
+  /** Una que crea la plantilla en una etapa de VENTA de este CRM. */
+  const enEtapa = (clase: ClaseSugerencia, plantilla: string, etapa: string, texto: string) => {
     if (!sirve(plantilla) || existe({ donde: 'venta', plantilla, funnelId: e.funnel.id, etapa })) return;
     ofrecer({ id: `${plantilla}:${etapa}`, clase, texto, etapa, accion: { tipo: 'plantilla', plantilla, disparador: venta(etapa) }, soloAdmin: true });
   };
@@ -370,6 +387,53 @@ export function sugerenciasDelCrm(e: EntradaSugerencias, tope: number = UMBRALES
         accion: { tipo: 'chat', pedido: `En este CRM hay ${vencidas} leads en ${comillas(label('manual'))} con el plazo vencido. ¿Quiénes son y a qué etapa conviene pasar a cada uno?` },
       });
     }
+  }
+
+  // ── CLASE 2: repetís un gesto (20/10/2026) ───────────────────────────────────
+  // Va antes que la 1: si el gesto pide lo mismo que el CRM armado (reagendar a los No show), gana el texto que dice
+  // por qué se ofrece ahora («marcaste 3 No show a mano»). `ofrecer` se queda con la primera de cada id.
+  if (e.gestos) {
+    const pasos = new Set(pipeline.map((s) => s.key));
+    const veces = new Map<string, number>();
+    for (const m of e.gestos.movimientos) {
+      // Sólo de un paso del recorrido a otro: ganar, perder o mandar a nutrición son decisiones, no rutina.
+      if (!pasos.has(m.desde) || !pasos.has(m.hacia) || m.desde === m.hacia || m.hacia === TERMINAL_DEL_PIPELINE) continue;
+      const k = `${m.desde}>${m.hacia}`;
+      veces.set(k, (veces.get(k) ?? 0) + 1);
+    }
+    for (const [k, n] of [...veces].sort((a, b) => b[1] - a[1])) {
+      if (n < U.gestosMovimientos) continue;
+      const [desde, hacia] = k.split('>');
+      ofrecer({
+        id: `gesto-mover:${k}`, clase: 2, etapa: hacia, soloAdmin: false,
+        texto: `Hace ${n} veces que mueves de ${comillas(label(desde))} a ${comillas(label(hacia))}. ¿Lo hago solo?`,
+        accion: {
+          tipo: 'chat',
+          pedido: `En este CRM moví a mano ${n} leads de ${comillas(label(desde))} a ${comillas(label(hacia))} en las últimas dos semanas. ¿Qué tenían en común, y qué automatización los movería sola?`,
+        },
+      });
+    }
+    const r1 = pipeline.find((s) => s.kind === 'reunion');
+    const noShow = r1 ? etapaNoShowDe(e.etapas as Stage[], e.transiciones as FunnelTransition[], r1.key, 'r1') : null;
+    if (noShow && e.gestos.noShowsAMano >= U.gestosNoShow) {
+      enEtapa(2, 'lead-no-asistio', noShow, `Marcaste ${e.gestos.noShowsAMano} No show a mano. ¿Les escribo solo para reagendar?`);
+    }
+  }
+
+  // ── CLASE 4: llega algo nuevo (20/10/2026) ───────────────────────────────────
+  // «El primer DM de Instagram o Messenger → que MaKo los conteste»: las plantillas que ya existen, si no hay una
+  // automatización viva que ya reciba esos mensajes.
+  if (e.nuevos) {
+    const dm = (n: number, plantilla: string, trigger: string, red: string) => {
+      if (n <= 0 || !sirve(plantilla) || existe({ donde: 'evento', plantilla, trigger, subtipo: 'dm' })) return;
+      ofrecer({
+        id: plantilla, clase: 4, etapa: null, soloAdmin: true,
+        texto: `Te ${n === 1 ? 'escribió 1 persona' : `escribieron ${n} personas`} por ${red}. ¿Que MaKo conteste los mensajes?`,
+        accion: { tipo: 'plantilla', plantilla, disparador: null },
+      });
+    };
+    dm(e.nuevos.dmInstagram, 'instagram-te-escribieron', TRIGGER_INSTAGRAM, 'Instagram');
+    dm(e.nuevos.dmMessenger, 'messenger-te-escribieron', TRIGGER_MESSENGER, 'Messenger');
   }
 
   // ── CLASE 1: el CRM armado ───────────────────────────────────────────────────

@@ -37,6 +37,7 @@ import { nombreVisible } from '@/lib/lead-funnel-reglas';
 import { entregasDeProductos } from '@/lib/entrega-servicio';
 import type { EntregaConfig } from '@/lib/servicio-etapas';
 import { leerTodo, type ConsultaPaginada } from '@/lib/supabase-paginado';
+import { CAMPO_ETAPA } from '@/lib/etapa-historial';
 import { credWs } from '@/lib/credenciales';
 import { estadoMedios } from '@/lib/disparadores-canales';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
@@ -134,6 +135,42 @@ async function cuotasDe(leadIds: ReadonlySet<number>, hoy: string): Promise<{ ve
   return { vencidas, pendientes };
 }
 
+/**
+ * CLASE 2 (20/10/2026): los gestos A MANO de una PERSONA en estos leads, en los últimos `gestosDias` días: los cambios de
+ * etapa y los «No asistió» a la R1 del historial (`lead_audit`). Una persona firma con su email; MaKo, una automatización,
+ * Meta o una importación firman con otro nombre y no cuentan. Paginado con tope: si en 14 días hay más de 10.000 líneas,
+ * tira (y el motor se calla esta clase) en vez de leer todo.
+ */
+async function gestosAMano(leadIds: ReadonlySet<number>, ahora: number): Promise<NonNullable<EntradaSugerencias['gestos']>> {
+  const desde = new Date(ahora - UMBRALES_SUGERENCIAS.gestosDias * 86_400_000).toISOString();
+  const filas = await leerTodo<{ lead_id: number; campo: string; valor_anterior: string | null; valor_nuevo: string | null; autor: string | null }>(
+    await getTenantDb(), 'lead_audit', 'id, lead_id, campo, valor_anterior, valor_nuevo, autor', {
+      orden: 'id', maxPaginas: 10, paralelo: 4,
+      filtros: (q) => q.gte('created_at', desde).in('campo', [CAMPO_ETAPA, 'Asistió R1']) as unknown as ConsultaPaginada,
+    });
+  const movimientos: Array<{ desde: string; hacia: string }> = [];
+  let noShowsAMano = 0;
+  for (const f of filas) {
+    if (!leadIds.has(Number(f.lead_id)) || !String(f.autor ?? '').includes('@')) continue;
+    if (f.campo === CAMPO_ETAPA && f.valor_anterior && f.valor_nuevo) movimientos.push({ desde: f.valor_anterior, hacia: f.valor_nuevo });
+    else if (f.campo === 'Asistió R1' && f.valor_nuevo === 'No') noShowsAMano++;
+  }
+  return { movimientos, noShowsAMano };
+}
+
+/** CLASE 4 (20/10/2026): las conversaciones NUEVAS de Instagram y Messenger (`facebook`) de esos días. Tira si no se leyó. */
+async function dmsNuevos(ahora: number): Promise<NonNullable<EntradaSugerencias['nuevos']>> {
+  const desde = new Date(ahora - UMBRALES_SUGERENCIAS.gestosDias * 86_400_000).toISOString();
+  const { data, error } = await (await getTenantDb()).from('ig_conversaciones').select('plataforma').gte('created_at', desde).limit(1000);
+  if (error) throw new Error(`conversaciones: ${error.message}`);
+  let dmInstagram = 0; let dmMessenger = 0;
+  for (const r of (data ?? []) as Array<{ plataforma: string | null }>) {
+    if (r.plataforma === 'facebook') dmMessenger++;
+    else if (r.plataforma === 'instagram') dmInstagram++;
+  }
+  return { dmInstagram, dmMessenger };
+}
+
 const aLeadSug = (l: Lead, etapa: string): LeadSug => ({
   etapa, creado: l.created_at ?? null,
   r1: l.fecha_junta_1, asistioR1: l.asistio_j1, r2: l.fecha_junta_2, asistioR2: l.asistio_j2,
@@ -165,7 +202,14 @@ async function calcular(ws: number, crm: CrmDeLaPantalla): Promise<Calculo> {
 
   const casa = (leadsCrudos ?? []).filter((l) => l.de_fila == null);
   const leads: LeadSug[] | null = leadsCrudos ? casa.map((l) => aLeadSug(l, etapaVigenteDe(l, cfg.stages))) : null;
-  const cuotas = leadsCrudos ? await cuotasDe(new Set(casa.map((l) => l.id)), hoy).catch(avisar('cuotas')) : null;
+  const idsCasa = new Set(casa.map((l) => l.id));
+  const ahora = Date.now();
+  // Las tres lecturas que dependen de los leads, a la vez. Lo que falla se abstiene (null): esa clase se calla.
+  const [cuotas, gestos, nuevos] = await Promise.all([
+    leadsCrudos ? cuotasDe(idsCasa, hoy).catch(avisar('cuotas')) : Promise.resolve(null),
+    leadsCrudos ? gestosAMano(idsCasa, ahora).catch(avisar('gestos')) : Promise.resolve(null),
+    dmsNuevos(ahora).catch(avisar('conversaciones nuevas')),
+  ]);
   const { plazos } = sanearPlazosPorEtapa(umbrales?.porEtapa, new Set(cfg.stages.map((s) => s.key)));
   const canal = canalEfectivo(cfg.canal, diag?.canal);
   const entradas = [...cfg.entradas];
@@ -178,7 +222,8 @@ async function calcular(ws: number, crm: CrmDeLaPantalla): Promise<Calculo> {
     },
     etapas: cfg.stages, transiciones: cfg.transitions, plazos,
     automatizaciones: automs, leads, cuotas,
-    conectado: { whatsapp: medios, fathom }, hoy, ahora: Date.now(),
+    conectado: { whatsapp: medios, fathom }, hoy, ahora,
+    gestos, nuevos,
   };
 
   // El conteo por etapa es el del tablero: TODAS las tarjetas, también las agregadas.
