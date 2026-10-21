@@ -383,7 +383,7 @@ export function ListaPlan({ listas, columnasTareas, proyectos, recurrentes, fech
           </PieM>
         ) : undefined}
       >
-        {detalle && <DetalleTarea item={detalle} fecha={fecha} />}
+        {detalle && <DetalleTarea item={detalle} fecha={fecha} columnaDe={columnaDe} />}
       </SheetM>
 
       <SheetM abierto={verProy} onCerrar={() => setVerProy(false)} titulo={proyAbierto?.nombre ?? ''} id="proyecto">
@@ -494,7 +494,9 @@ function FilaTarea({ item, fecha, estado, enLinea, onCompletar, onAbrir }: {
 /** La columna de un ítem del kanban (las filas de Prioridades no la traen). */
 const estadoDeItem = (it: ItemPlan): TareaKanbanM['estado'] | null => ('estado' in it ? (it as TareaKanbanM).estado : null);
 
-function DetalleTarea({ item, fecha }: { item: ItemPlan; fecha: string }) {
+function DetalleTarea({ item, fecha, columnaDe }: { item: ItemPlan; fecha: string; columnaDe: ReadonlyMap<string, string> }) {
+  // El nombre de la columna como la dibuja el tablero (con los del negocio, lib/plan-columnas.ts).
+  const nombreColumna = (e: TareaKanbanM['estado']) => columnaDe.get(e) ?? etiquetaEstado(e);
   const vence = textoVence(item.deadline, fecha);
   const k = 'estado' in item ? (item as TareaKanbanM) : null;
   return (
@@ -505,8 +507,8 @@ function DetalleTarea({ item, fecha }: { item: ItemPlan; fecha: string }) {
         <FilaDatoM k="Prioridad" v={k?.prioridad === 'sin_priorizar'
           ? <PildoraM tono="neutro">Sin priorizar</PildoraM>
           : <PildoraM tono={TONO_BANDA[item.banda]}>{ROTULO_BANDA[item.banda]}</PildoraM>} />
-        {k && <FilaDatoM k="Columna" v={etiquetaEstado(k.estado)} />}
-        {k?.motivo && <FilaDatoM k="Atorada por" v={k.motivo} />}
+        {k && <FilaDatoM k="Columna" v={nombreColumna(k.estado)} />}
+        {k?.motivo && <FilaDatoM k={`${nombreColumna('en_seguimiento')} por`} v={k.motivo} />}
         {vence && <FilaDatoM k="Plazo" v={vence.charAt(0).toUpperCase() + vence.slice(1)} />}
         {item.esInstancia && <FilaDatoM k="Se repite" v="Sí" />}
       </ListaM>

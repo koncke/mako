@@ -16,17 +16,29 @@ import { esRecurrente, llevaDeadline, recurrenciaOk, textoRepeticionCorto } from
 // DE QUIÉN es una tarjeta (mig 0172). Mismo criterio que arriba: el predicado y los
 // textos salen del módulo compartido, que también leen los dos pickers y Customer Success.
 import { clienteDe, SIN_CLIENTE } from '@/lib/plan-clientes';
-import { alCrear, trasMover, motivoParaNoMover, etiquetaEstado } from '@/lib/todo-estados';
+import { alCrear, trasMover, motivoParaNoMover } from '@/lib/todo-estados';
 // EL KANBAN POR ESTADO (16/10/2026): la columna que le toca a un avance nuevo y el lugar de
 // «arriba de todo», con la misma regla que el server. Ver app/plan/board/kanban.ts.
 import { avanceLocal, ordenTopeLocal } from './kanban';
+import { conNombreDeColumna, etiquetaDeColumna, type NombresColumnasPlan } from '@/lib/plan-columnas';
+import { renombrarColumnaPlanAction } from './columnas-actions';
 
 export type GuardScore = { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number };
 
 const now = () => Date.now();
 
-export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user: BoardUser, repo: Repo, initialDeps: Dep[] = []) {
+/**
+ * LOS NOMBRES DE LAS COLUMNAS (20/10/2026, docs/pedidos-crm.md B1): los del negocio de la pantalla, y si se pueden
+ * cambiar (el admin). Sin esto (`null`, un tablero embebido de OTRO negocio) se dibujan los de siempre y no se editan:
+ * los nombres que hay en el contexto serían los del negocio que mira, no los del dueño del tablero.
+ */
+export type ColumnasDelBoard = { nombres: NombresColumnasPlan; editables: boolean } | null;
+
+export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user: BoardUser, repo: Repo, initialDeps: Dep[] = [], columnasIniciales: ColumnasDelBoard = null) {
   const [tasks, setTasks] = useState<BoardTask[]>(initialTasks);
+  const [columnas, setColumnas] = useState<ColumnasDelBoard>(columnasIniciales);
+  /** El nombre que se DIBUJA de una columna (lib/plan-columnas.ts): el toast, el historial y la pantalla dicen el mismo. */
+  const etiqueta = (e: EstadoTarea): string => etiquetaDeColumna(columnas?.nombres, e);
   const [labels, setLabels] = useState<Label[]>(initialLabels);
   // Las dependencias NO viven adentro de la tarea (mig 0140: tabla propia). El autosave de
   // acá abajo upsertea la FILA ENTERA desde el estado del navegador, así que un campo
@@ -287,8 +299,8 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     const cambiaCol = desde !== estado;
     const cambiaMotivo = !cambiaCol && r.motivo !== (t.motivoAtorada ?? null);
     if (!cambiaCol && !cambiaMotivo && lugar === t.orden) return true;
-    const texto = cambiaCol ? `Movió a ${etiquetaEstado(estado)}${r.motivo ? ` — ${r.motivo}` : ''}`
-      : cambiaMotivo ? (r.motivo ? `Atorada: ${r.motivo}` : 'Le quitó el motivo') : null;
+    const texto = cambiaCol ? `Movió a ${etiqueta(estado)}${r.motivo ? ` — ${r.motivo}` : ''}`
+      : cambiaMotivo ? (r.motivo ? `${etiqueta('en_seguimiento')}: ${r.motivo}` : 'Le quitó el motivo') : null;
     const entry: Hist | null = texto ? { id: uid(), ts: now(), actor: 'user', text: texto.slice(0, 220) } : null;
     const historial = entry ? [entry, ...t.historial].slice(0, HIST_CAP) : undefined;
     const antes: AntesDeMover = { estado: desde, progress: t.progress, motivoAtorada: t.motivoAtorada ?? null, orden: t.orden };
@@ -296,7 +308,7 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
       ? { ...x, estado: r.estado, progress: r.progreso, motivoAtorada: r.motivo, orden: lugar, ...(entry ? { historial: [entry, ...x.historial].slice(0, HIST_CAP) } : {}) }
       : x)));
     // El TOAST es corto (3-4 palabras, la regla de la casa): el motivo va al historial, no acá.
-    show(cambiaCol ? `Movió a ${etiquetaEstado(estado)}` : cambiaMotivo ? 'Motivo guardado' : 'Cambió el lugar', () => { void deshacerMover(id, antes, entry?.id); });
+    show(cambiaCol ? `Movió a ${etiqueta(estado)}` : cambiaMotivo ? 'Motivo guardado' : 'Cambió el lugar', () => { void deshacerMover(id, antes, entry?.id); });
     try {
       const canon = await repo.mover(id, estado, lugar, { motivo, historial });
       if (canon) { confirmarAvance({ id, progress: canon.progress }); setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, estado: canon.estado ?? x.estado, progress: canon.progress, motivoAtorada: canon.motivoAtorada ?? null, orden: canon.orden ?? x.orden } : x))); }
@@ -865,8 +877,26 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
       c ? `Cliente: ${c.nombre}` : SIN_CLIENTE);
   };
 
+  /**
+   * CAMBIARLE EL NOMBRE A UNA COLUMNA. `null` o vacío la vuelve al de siempre. Se ve al instante y, si el server dice que
+   * no, vuelve el de antes con su razón (lo mismo que el CRM con una etapa).
+   */
+  const renombrarColumna = async (e: EstadoTarea, nombre: string | null): Promise<boolean> => {
+    if (!columnas?.editables) return false;
+    const r = conNombreDeColumna(columnas.nombres, e, nombre);
+    if (!r.ok) { show(r.error); return false; }
+    const antes = columnas;
+    setColumnas({ ...columnas, nombres: r.nombres });
+    const s = await renombrarColumnaPlanAction(e, nombre).catch(() => ({ ok: false as const, error: 'No pude guardar el nombre. Prueba de nuevo.' }));
+    if (!s.ok) { setColumnas(antes); show(s.error); return false; }
+    setColumnas({ ...antes, nombres: s.nombres });
+    return true;
+  };
+
   return {
     tasks, labels, user, repo, deps, addDep, delDep,
+    // ⚠️ `columnas`, `etiqueta` Y `renombrarColumna` VAN EN ESTE `return` (20/10/2026): la advertencia de abajo.
+    columnas, etiqueta, renombrarColumna,
     labelById: (id: string) => labels.find((l) => l.id === id) ?? null,
     create, remove, removeSilent, patch, moveTo, setScore, applyGuardian, aplicarPerroServer, aplicarCascadaManual, soltarCandadoManual, toggleEnPrioridad, setChecklist, replaceTask,
     // ⚠️ `mover` Y `setMotivoAtorada` (16/10/2026): el kanban por estado. Misma advertencia que

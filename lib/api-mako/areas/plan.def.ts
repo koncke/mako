@@ -305,6 +305,27 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'gratis', gating: TAB,
   },
   {
+    // «COLUMNAS EDITABLES COMO EN EL CRM» (Martín, 18/10 pt 9; 20/10/2026): el NOMBRE de cada columna, por negocio
+    // (lib/plan-columnas.ts). Sólo por la app: por WhatsApp el presupuesto de herramientas del turno ya está justo
+    // (tests/agenda-whatsapp.test.ts), y renombrar una columna se hace mirando el tablero.
+    id: 'ver_columnas_plan', area: 'plan', tipo: 'lectura',
+    titulo: 'Las columnas del kanban del plan',
+    descripcion: 'Las columnas del kanban del plan, con el nombre que les puso el negocio: la clave (por_hacer, en_curso, en_seguimiento, hecho, no_cumple), el nombre que se ve y el de siempre. Al hablarle a la persona usa el nombre que se ve. No requiere parámetros.',
+    parametros: [],
+    salida: 'json', canales: ['app'], costo: 'gratis', gating: TAB,
+  },
+  {
+    id: 'renombrar_columna_plan', area: 'plan', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Cambiarle el nombre a una columna del plan',
+    descripcion: 'Le cambia el NOMBRE a una columna del kanban del plan: la columna sigue siendo la misma y ninguna tarea se mueve. Un nombre vacío la vuelve al de siempre. No puede llamarse como otra columna; hasta 30 letras. Sólo el admin del negocio.',
+    parametros: [
+      { nombre: 'columna', tipo: 'string', descripcion: 'la clave de la columna (de ver_columnas_plan).', obligatorio: true, enum: ['por_hacer', 'en_curso', 'en_seguimiento', 'hecho', 'no_cumple'] },
+      { nombre: 'nombre', tipo: 'string', descripcion: 'el nombre nuevo; vacío para volver al de siempre.', max: 30 },
+    ],
+    escribe: 'los nombres de las columnas del plan del negocio (app_settings, plan.columnas)',
+    canales: ['app'], costo: 'gratis', gating: TAB_ADMIN,
+  },
+  {
     // «Re-priorizar todo» (16/10/2026, decisión 9): el mismo trabajo que el botón de los tres puntos
     // del tablero. Llama al Perro (la red gratis: el Plan nunca paga IA), así que no sale por HTTP —
     // un token en la máquina de un tercero no debería poder quemar cuota en bucle— y es de admin.

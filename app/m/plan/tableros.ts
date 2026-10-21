@@ -27,6 +27,7 @@
 
 import { prioFromScore, prioFiltroDe, type BoardTask, type Label, type Prio, type PrioFiltro, type EstadoTarea } from '@/app/plan/board/types';
 import { columnasPorEstado } from '@/app/plan/board/kanban';
+import type { NombresColumnasPlan } from '@/lib/plan-columnas';
 import { cuandoDe } from '@/app/plan/board/cuando';
 import { esRecurrente, sinRecurrentes, soloRecurrentes, textoRepeticionCorto, recurrenciaDe } from '@/lib/plan-recurrentes';
 import type { ItemPlan } from '@/app/plan/board/hoy';
@@ -53,7 +54,8 @@ export type RecurrenteM = {
   proyecto: ItemPlan['proyecto'];
 };
 
-type Entrada = { tareas: BoardTask[]; proyectos: Label[]; hoy: string; conNum: boolean };
+/** `nombres`: los de las columnas del negocio (lib/plan-columnas.ts, 20/10/2026), los mismos que la computadora. */
+type Entrada = { tareas: BoardTask[]; proyectos: Label[]; hoy: string; conNum: boolean; nombres?: NombresColumnasPlan | null };
 
 function proyectoDe(t: BoardTask, porId: Map<string, Label>): ItemPlan['proyecto'] {
   const p = t.labels.map((id) => porId.get(id)).find((x): x is Label => !!x) ?? null;
@@ -90,12 +92,12 @@ export const COMPLETADAS_EN_EL_TELEFONO = 30;
  * con las mismas reglas que escritorio (`columnasPorEstado`, app/plan/board/kanban.ts). Sin las
  * recurrentes (tienen su vista), como `hoyDelTablero`.
  */
-export function tareasDelTablero({ tareas, proyectos, hoy, conNum }: Entrada): TableroTareasM {
+export function tareasDelTablero({ tareas, proyectos, hoy, conNum, nombres }: Entrada): TableroTareasM {
   const porId = mapa(proyectos);
   const conFin = sinRecurrentes(tareas);
   const columnas: ColumnaTareasM[] = [];
   const out: TareaKanbanM[] = [];
-  for (const c of columnasPorEstado(conFin, conFin)) {
+  for (const c of columnasPorEstado(conFin, conFin, undefined, nombres)) {
     columnas.push({ key: c.estado, titulo: c.label, cuantos: c.items.length });
     const viajan = c.estado === 'hecho' ? c.items.slice(0, COMPLETADAS_EN_EL_TELEFONO) : c.items;
     for (const t of viajan) {

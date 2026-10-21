@@ -16,9 +16,10 @@
 // =============================================================================
 
 import {
-  columnasDelKanban, estadoTrasProgreso, etiquetaEstado, ordenEntre,
+  columnasDelKanban, estadoTrasProgreso, ordenEntre,
   type EstadoTarea, type ResponsableTipo,
 } from '@/lib/todo-estados';
+import { etiquetaDeColumna, type NombresColumnasPlan } from '@/lib/plan-columnas';
 import { estadoDe, prioFiltroDe, PCOLOR, PRIOS_FILTRO, PFILTRO_LABEL, type BoardTask, type PrioFiltro } from './types';
 
 /**
@@ -74,12 +75,14 @@ export function columnasPorEstado<T extends { estado?: EstadoTarea; progress: nu
   visibles: readonly T[],
   tablero: readonly { estado?: EstadoTarea; progress: number }[],
   ordenar: (items: T[]) => T[] = enOrdenManual,
+  /** Los nombres que el negocio le puso a sus columnas (lib/plan-columnas.ts); sin ellos, los de siempre. */
+  nombres?: NombresColumnasPlan | null,
 ): ColumnaEstado<T>[] {
   const hay = new Set<EstadoTarea>(tablero.map((t) => estadoDe(t)));
   for (const t of visibles) hay.add(estadoDe(t));
   return columnasDelKanban((e) => hay.has(e)).map((estado) => ({
     estado,
-    label: etiquetaEstado(estado),
+    label: etiquetaDeColumna(nombres, estado),
     items: ordenar(visibles.filter((t) => estadoDe(t) === estado)),
   }));
 }

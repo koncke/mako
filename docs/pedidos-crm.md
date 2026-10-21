@@ -13,16 +13,16 @@ Cuento **pedidos**: cada número de las listas de Martín es uno (las filas que 
 
 | | Hecho | Parcial | No hecho | Sin confirmar | Total |
 |---|---|---|---|---|---|
-| Del 13/10 al 20/10 (tablas A, B, C, D e I) | 86 | 3 | 6 | 0 | 95 |
+| Del 13/10 al 20/10 (tablas A, B, C, D e I) | 86 | 4 | 5 | 0 | 95 |
 | Hasta el 12/10 (tablas E, F, G y H) | 164 | 4 | 1 | 1 | 170 |
-| **Todo** | **250** | **7** | **7** | **1** | **265** |
+| **Todo** | **250** | **8** | **6** | **1** | **265** |
 
-- **No hecho (7):** A1 (el chat con la pieza única del Ops Center), B1 (columnas editables del Plan), B2 (tres de las cinco
-  cosas del prototipo de tarjetas: la foto de Instagram, la vista «Prioridades» del Plan y Proyectos del teléfono), C1
-  (Google Calendar en «Asignar evento») y H1, que ya no aplica (Chatwoot se borró). O sea, 6 que cuentan.
-- **Parcial (7):** B4, C2, D5, E1, F1, F2 y H2.
+- **No hecho (6):** A1 (el chat con la pieza única del Ops Center), B2 (tres de las cinco cosas del prototipo de
+  tarjetas: la foto de Instagram, la vista «Prioridades» del Plan y Proyectos del teléfono), C1 (Google Calendar en
+  «Asignar evento») y H1, que ya no aplica (Chatwoot se borró). O sea, 5 que cuentan.
+- **Parcial (8):** B1, B4, C2, D5, E1, F1, F2 y H2.
 - **Sin confirmar (1):** E2, el título «MaKo - CRM» de la pestaña (no se midió en un navegador).
-- En filas: 73 Hecho, 8 Parcial, 4 No hecho y 1 Sin confirmar (86 filas; B2 es Parcial: 2 de sus 5 puntos).
+- En filas: 73 Hecho, 9 Parcial, 3 No hecho y 1 Sin confirmar (86 filas; B2 es Parcial: 2 de sus 5 puntos).
 - De los 5 puntos que Martín mandó hoy, 4 se cerraron hoy (A2, A3, A4 y A5) y el quinto (A6, la etapa de reunión con su
   evento) ya estaba hecho desde el 16/10. Lo que sigue abierto de hoy es A1 (la pieza única del chat); la otra mitad
   del pedido de las cards (D1: diseños, arrastrar y vista en vivo) se hizo esa misma noche.
@@ -63,7 +63,7 @@ Cuento **pedidos**: cada número de las listas de Martín es uno (las filas que 
 
 | # | Pedido | Estado | Dónde / commit | Nota |
 |---|---|---|---|---|
-| B1 | Plan: «columnas editables como en el CRM» (18/10 pt 9) | No hecho | `app/plan/board/BoardShell.tsx` (no hay renombrar ni editar columna) | El registro del 18/10 lo dejó «después del 20/10». |
+| B1 | Plan: «columnas editables como en el CRM» (18/10 pt 9) | Parcial | Hecho el 20/10: cambiarle el nombre a cada columna (clic en el nombre o «⋯» › «Cambiar el nombre», sólo el admin), por negocio, en la computadora, el teléfono y MaKo (`ver_columnas_plan`, `renombrar_columna_plan`) · `lib/plan-columnas.ts`, `app/plan/board/BoardShell.tsx`; test `tests/plan-columnas-nombre.test.ts` | Falta agregar y borrar columnas propias (como «Agregar etapa»): necesita una columna nueva en `plan_tareas` y `experimento_tareas` (migración que numera el Cerebro). Los tableros embebidos de otro negocio (la ficha de un cliente, el admin) siguen con los nombres de siempre. |
 | B2 | Lo del prototipo de tarjetas que no entró (17/10 22:40, pt 8): «Pago fallido» en la tarjeta de un cliente, la foto de Instagram, la vista «Prioridades» del Plan, el tablero de Proyectos del teléfono y la foto del cliente en el teléfono (5 puntos) | Parcial (2 de 5) | Hecho el 20/10: «Pago rechazado» y «Cuota vencida» en la tarjeta (`cobroDelCliente` en `app/customer-success/aviso-tarjeta.ts`, una lectura para la cartera en `cobro-tarjeta.ts`, computadora y teléfono) y la foto del cliente en el teléfono (`CaraCliente` en `app/m/cs/CustomerSuccessM.tsx`); test `tests/cs-tarjeta-cobro.test.ts` | Prototipo `docs/prototipos/coherencia-1710.html`. Faltan la foto de Instagram (no se guarda), la vista «Prioridades» del Plan y Proyectos del teléfono. |
 | B3 | Clients: «el desplegable dice "VSL Funnel" con el nombre viejo» (18/10 pt 14) | Hecho | `44b4b111b` (sin el desplegable) · `app/customer-success/EtapasEntregaModal.tsx` | El CRM y el producto llevan dos nombres a propósito desde el 13/10 (`renombrarFunnel` en `lib/funnels.ts`): «VSL FUNNEL» es el nombre del PRODUCTO, que no cambia al renombrar el CRM. Lo confuso era el desplegable de Clients, que lo mostraba al lado del nombre del programa; se fue el 18/10. Hoy sólo se ve dentro de «Editar etapas», y ahí mismo se renombra. |
 | B4 | Plan: «el check gris a la derecha, al lado de la basura» (18/10 pt 9) | Parcial | `ad2bac4b6` (computadora) · `app/m/plan/ListaPlan.tsx` (teléfono) | En la computadora está. El Plan del teléfono sigue completando con el círculo; falta que Martín diga si también va el check. |
@@ -189,7 +189,7 @@ Del pedido más reciente al más viejo. Entre paréntesis, lo que depende de una
 
 1. **A1** · El chat del CRM con la pieza única del Ops Center: `app/crm/mako-crm/ChatMakoCrm.tsx` y `PanelMakoCrm.tsx`, cuando `app/_chat/CajaChat.tsx` (rama `chat-unico`) llegue a `main`.
 2. **D5** · Las plantillas de Automations que reemplacen al «CRM automático» (T1 a T6) y recién entonces apagar el motor: `lib/plantillas-automatizaciones.ts`, `lib/crm-auto.ts`. **Espera** a que el pedido B de Automations llegue a main (toca los mismos archivos): lo avisa el Cerebro y ahí se acuerda con Automations quién la hace.
-3. **B1** · Columnas editables en el Plan: `app/plan/board/BoardShell.tsx`.
+3. **B1** · Lo que falta de las columnas editables del Plan: agregar y borrar columnas propias (una migración en `plan_tareas` y `experimento_tareas`; el nombre ya se edita desde el 20/10): `lib/plan-columnas.ts`, `app/plan/board/BoardShell.tsx`.
 4. **B4** · Plan del teléfono con el check gris en vez del círculo (si Martín lo quiere): `app/m/plan/ListaPlan.tsx`.
 5. **B2** · Lo que queda del prototipo de tarjetas: la foto de Instagram, la vista «Prioridades» del Plan y Proyectos del teléfono: `app/plan/`, `app/m/plan/` («Pago fallido» y la foto del cliente en el teléfono, hechos el 20/10).
 6. **C1** y **C2** · Google Calendar en «Asignar evento» (decidido que no por la API de Google; decide Martín) y crear el evento desde MaKo en vez de abrir Calendly o Cal.com: `app/crm/EventosDeEtapaModal.tsx`.

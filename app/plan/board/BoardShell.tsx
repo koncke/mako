@@ -54,6 +54,7 @@ import { useVerMas } from './VerMas';
 // COMPARTIDO con la barra de lote: devuelve una RRULE y no sabe a quién se le aplica.
 import { AccionesLote, AccionesLoteProyectos, opcionesRepeticion, canonRRule, VALOR_PERSONALIZADO, RepeticionModal } from './AccionesLote';
 import { Dropdown } from '@/app/components/Dropdown';
+import { TOPE_NOMBRE_COLUMNA } from '@/lib/plan-columnas';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { ImportarModal } from './ImportarModal';
 import { ReunionExtractModal } from './ReunionExtractModal';
@@ -1521,7 +1522,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
           }}
           onClose={() => setSoltada(null)} />
       )}
-      {nuevaTarea && <CrearTareaModal proyectoInicial={nuevaTareaProj} estadoInicial={nuevaTareaEstado} onCrear={crearConGuardian} onDone={(id) => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaEstado(null); setOpenId(id); setMakoHintId(id); }} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaEstado(null); }} />}
+      {nuevaTarea && <CrearTareaModal proyectoInicial={nuevaTareaProj} estadoInicial={nuevaTareaEstado} etiqueta={board.etiqueta} onCrear={crearConGuardian} onDone={(id) => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaEstado(null); setOpenId(id); setMakoHintId(id); }} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaEstado(null); }} />}
       {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} taskAbierta={!!openTask} trabajando={trabajandoIA.has(openProjLabel.id)} onAsignarCliente={() => setAsignarCli({ tipo: 'proyecto', id: openProjLabel.id })} onPortada={(ancla) => setPortadaDe({ id: openProjLabel.id, ancla })} onIcono={(ancla) => setIconoDe({ id: openProjLabel.id, ancla })} onEncuadre={(y) => board.patchLabelLog(openProjLabel.id, { portadaY: y }, 'Acomodó la portada')}
         onBack={welcomeVisible ? () => setOpenProj(null) : undefined} backLabel="Volver"
         onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} ask={ask} onPrioridad={() => setSoltada({ entidad: 'proyecto', id: openProjLabel.id })} onMako={() => setMakoProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onEliminarTask={setEliminarTaskId} onSoltarTask={board.repo.prioridadManual ? (id, sugerido, lugar) => setSoltada({ entidad: 'tarea', id, sugerido, lugar }) : undefined} onClose={() => setOpenProj(null)} />}
@@ -2488,7 +2489,7 @@ function BloqueColumna({ t, board }: { t: BoardTask; board: Board }) {
         <span style={{ width: 8, height: 8, borderRadius: '50%', background: COLOR_ESTADO[e], flex: 'none' }} />
         <select value={e} onChange={(ev) => { void board.mover(t.id, ev.target.value as EstadoTarea); }} aria-label="Columna del kanban"
           style={{ flex: 1, minWidth: 0, padding: '5px 6px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, fontWeight: 600, fontFamily: SANS, cursor: 'pointer' }}>
-          {ESTADOS.filter((x) => x.key === e || x.key !== 'hecho' || !esRecurrente(t)).map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
+          {ESTADOS.filter((x) => x.key === e || x.key !== 'hecho' || !esRecurrente(t)).map((x) => <option key={x.key} value={x.key}>{board.etiqueta(x.key)}</option>)}
         </select>
       </label>
       {e === 'en_seguimiento' && (
@@ -3362,7 +3363,8 @@ function Kanban({ tasks, tablero, board, orden, dir, frenanA, ask, sel, setSel, 
   const cmp = comparar(orden, dir === 'asc' ? 1 : -1);
   const columnas = columnasPorEstado(tasks, tablero, manual
     ? undefined
-    : (items) => [...items].sort((a, b) => cmp({ score: a.score, titulo: a.title, deadline: a.deadline, creado: a.num }, { score: b.score, titulo: b.title, deadline: b.deadline, creado: b.num }) || b.num - a.num));
+    : (items) => [...items].sort((a, b) => cmp({ score: a.score, titulo: a.title, deadline: a.deadline, creado: a.num }, { score: b.score, titulo: b.title, deadline: b.deadline, creado: b.num }) || b.num - a.num),
+    board.columnas?.nombres);
   /**
    * SOLTAR = MOVER. Sin pop-up de prioridad (decisión 2 del 16/10/2026). Si entra a «Atorada»
    * desde otra columna, abre el campo del motivo — ya, sin esperar al server: si el server dice
@@ -3493,7 +3495,11 @@ function ColumnaKanban({ estado: e, label, items, board, manual, puedeMover, ins
       data-columna={e}
       aria-label={`${label}: ${items.length}`}
       style={{ display: 'flex', flexDirection: 'column', minWidth: 0, background: encima ? 'var(--primary-bg)' : FONDO_COLUMNA, border: 'none', borderRadius: 26, padding: '12px 10px 10px', boxShadow: encima ? `inset 0 0 0 2px ${color}` : 'none', transition: 'background .12s, box-shadow .12s' }}>
-      <ColHeader label={label} color={color} count={items.length} />
+      <ColHeader label={label} color={color} count={items.length}
+        // «Columnas editables como en el CRM» (Martín, 18/10 pt 9): el NOMBRE, sólo el admin y sólo en el tablero del
+        // negocio que mira (`board.columnas`, ./useBoard.ts).
+        renombrar={board.columnas?.editables ? (nombre) => board.renombrarColumna(e, nombre) : undefined}
+        renombrada={!!board.columnas?.nombres[e]} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9, minHeight: 30, paddingRight: 2 }}>
         {/* card gris translúcida para crear (arriba de todo, más bajita que las tarjetas). Nace
             en ESTA columna: es la decisión 4 del 16/10/2026. */}
@@ -3552,13 +3558,59 @@ function CampoMotivo({ inicial, onGuardar, onCerrar }: { inicial: string; onGuar
   );
 }
 
-function ColHeader({ label, color, count }: { label: string; color: string; count: number }) {
+/**
+ * LA CABECERA DE UNA COLUMNA. Con `renombrar` (el admin, en el tablero de su negocio) el nombre se edita EN SU LUGAR,
+ * como una etapa del CRM: clic en el texto, o «⋯» › «Cambiar el nombre». Enter o salir guarda; Esc no.
+ */
+function ColHeader({ label, color, count, renombrar, renombrada }: {
+  label: string; color: string; count: number;
+  renombrar?: (nombre: string | null) => Promise<boolean>;
+  /** Tiene un nombre del negocio: se ofrece volver al de siempre. */
+  renombrada?: boolean;
+}) {
+  const [editando, setEditando] = useState(false);
+  const cancelado = useRef(false);
+  const guardar = (valor: string) => {
+    setEditando(false);
+    if (cancelado.current) { cancelado.current = false; return; }
+    const n = valor.replace(/\s+/g, ' ').trim();
+    if (n && n !== label && renombrar) void renombrar(n);
+  };
+  const estiloNombre: CSSProperties = { fontSize: 12, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--dim)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
   return (
     <div style={{ flex: 'none', marginBottom: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 3px 8px' }}>
         <span style={{ width: 9, height: 9, borderRadius: '50%', background: color, flex: 'none' }} />
-        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--dim)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+        {editando ? (
+          <input autoFocus data-nodrag defaultValue={label} maxLength={TOPE_NOMBRE_COLUMNA} aria-label={`Nombre de la columna ${label}`}
+            onBlur={(ev) => guardar(ev.target.value)}
+            onKeyDown={(ev) => {
+              if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur();
+              if (ev.key === 'Escape') { cancelado.current = true; (ev.target as HTMLInputElement).blur(); }
+            }}
+            style={{ flex: 1, minWidth: 0, fontFamily: SANS, fontWeight: 600, fontSize: 13, color: 'var(--ink)', background: 'var(--surface-2)', border: '1px solid var(--primary)', borderRadius: 7, padding: '3px 7px' }} />
+        ) : renombrar ? (
+          <button type="button" onClick={() => setEditando(true)} title="Cambiar el nombre"
+            style={{ ...estiloNombre, border: 'none', background: 'transparent', padding: 0, cursor: 'text', fontFamily: 'inherit', textAlign: 'left' }}>{label}</button>
+        ) : (
+          <span style={estiloNombre}>{label}</span>
+        )}
         <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', background: 'var(--surface-2)', borderRadius: 999, padding: '1px 8px', flex: 'none' }}>{count}</span>
+        {renombrar && !editando && (
+          <span style={{ marginLeft: 'auto', flex: 'none' }}>
+            <Dropdown value="" placeholder="⋯" align="right" resetAfterSelect sinFlecha
+              ariaLabel={`Opciones de la columna ${label}`}
+              buttonStyle={{ width: 26, height: 26, padding: 0, justifyContent: 'center', border: '1px solid transparent', background: 'transparent', color: 'var(--dim)', fontSize: 16, lineHeight: 1 }}
+              options={[
+                { value: 'renombrar', label: 'Cambiar el nombre', icono: 'renombrar' as const },
+                ...(renombrada ? [{ value: 'volver', label: 'Volver al nombre de siempre', icono: 'restaurar' as const }] : []),
+              ]}
+              onChange={(v) => {
+                if (v === 'renombrar') setEditando(true);
+                if (v === 'volver') void renombrar(null);
+              }} />
+          </span>
+        )}
       </div>
     </div>
   );

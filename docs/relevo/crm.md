@@ -63,6 +63,10 @@ D4 completo (20/10, noche): las sugerencias de MaKo suman el mismo mensaje a 3 l
 quién escribió), la landing o campaña sin CRM y el lead que vuelve a la landing o mira el VSL dos veces. Van por el chat
 (no hay plantilla para ninguna). D5 espera a que el pedido B de Automations llegue a main (lo avisa el Cerebro).
 
+B1, primera parte (20/10, noche): las columnas del Plan se renombran (clic en el nombre o «⋯» › «Cambiar el nombre»,
+sólo el admin), por negocio, en la computadora, el teléfono y MaKo. Agregar y borrar columnas propias espera una
+migración (hallazgos-plan, «Las columnas del Plan se renombran»). No visto en pantalla: se revisa en /plan.
+
 ## 0-Ω17. 20/10/2026 (chat «CRM», cuenta `claude4`): Chats lento, EN PRODUCCIÓN (run 165)
 
 Lo vio Martín en la llamada con Leila del 19/10 (minuto 55:12). Arreglo `b7817fe9f` (+ `87464faa8`), VERDE `3107dbeca`.

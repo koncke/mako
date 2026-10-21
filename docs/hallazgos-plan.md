@@ -7265,3 +7265,26 @@ borrador pendiente en /plan/revisar, cruzado contra el tablero.
 **Vive en:** lib/reunion-clasificar.ts (`esClienteMako`, `clasificarReunion`, `motivoDelTipo`) · lib/plan-fathom.ts
 (`clientesMako`, `listReunionesRecientes`) · lib/closing.ts (`getLeadsByEmail` trae `cliente_ws`) ·
 tests/reunion-clasificar-clientes.test.ts
+
+## Las columnas del Plan se renombran, no se inventan: la columna ES el estado (20/10/2026)
+
+«Columnas editables como en el CRM» (Martín, 18/10 pt 9). Lo que no se ve en el código:
+
+- **La columna del Plan es el ESTADO de la tarea**, con un CHECK en `plan_tareas` y en `experimento_tareas` y ~10
+  lectores que deciden con él (qué es pendiente, qué se completa, qué cuenta el Perro). Por eso se edita lo que en el
+  CRM se edita de una etapa del sistema: el NOMBRE. La clave no cambia nunca (lib/todo-estados.ts ya lo decía: «las
+  CLAVES no se renombran nunca: cambian las ETIQUETAS»). Cada negocio guarda sus nombres en `app_settings`
+  (`plan.columnas`), y el toast, el historial, el selector de la ficha, el teléfono y MaKo dicen el mismo.
+- **Un tablero embebido es de OTRO negocio.** La ficha de un cliente y el admin dibujan el plan de otro workspace,
+  pero el contexto del server es el de quien mira: leer los nombres ahí daría los del negocio equivocado. Esos
+  tableros reciben `columnas = null` (los de siempre, sin editar); sólo /plan y /plan/agencia pasan los suyos.
+- **Escribir lee ESTRICTO** (`getSettingEstricto` + `cambiarSettingSi`): `getSetting` devuelve null si falla, y
+  guardar «sólo el nuevo» borraría los demás nombres sin un error.
+- **MaKo, sólo por la app** (`ver_columnas_plan`, `renombrar_columna_plan`): el presupuesto de herramientas del turno
+  de WhatsApp ya está justo (tests/agenda-whatsapp.test.ts), y renombrar una columna se hace mirando el tablero.
+
+**Sin hacer:** agregar y borrar columnas propias (como «Agregar etapa» del CRM) necesita decir en qué columna está una
+tarea además de su estado: una columna nueva en las dos tablas (migración que numera el Cerebro). Los tableros
+embebidos de otro negocio, con sus nombres. Nada se vio en pantalla.
+**Vive en:** lib/plan-columnas.ts y plan-columnas-server.ts · app/plan/board/useBoard.ts y BoardShell.tsx ·
+app/m/plan/ · lib/api-mako/areas/plan.* · test tests/plan-columnas-nombre.test.ts · *20/10/2026 noche, chat «CRM» (claude4).*
