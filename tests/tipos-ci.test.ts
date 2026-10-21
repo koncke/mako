@@ -450,7 +450,8 @@ test('de punta a punta con TIPOS_TANDAS=4 (con y sin raíces): una instanciació
   });
   const tmp = mkdtempSync(join(tmpdir(), 'tipos-ci-tmp-'));
   try {
-    for (const env of [{ TIPOS_TANDAS: '4' }, { TIPOS_TANDAS: '4', TIPOS_RAICES: '1', TEMP: tmp, TMP: tmp, TMPDIR: tmp }]) {
+    const entornos: Record<string, string>[] = [{ TIPOS_TANDAS: '4' }, { TIPOS_TANDAS: '4', TIPOS_RAICES: '1', TEMP: tmp, TMP: tmp, TMPDIR: tmp }];
+    for (const env of entornos) {
       const r = correrCli(dir, env);
       assert.equal(r.status, 1, `${JSON.stringify(env)}: el tsc da exit 2 y esto tiene que dar ERRORES DE TIPOS (exit 1), no OK:\n${r.out}${r.err}`);
       assert.match(r.out, /error TS2589/);
