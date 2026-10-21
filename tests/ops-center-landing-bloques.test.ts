@@ -51,6 +51,9 @@
 //   D1/D9 el G2 manda «Elige tú»/«Saltear» sin su prefijo → 12 / 1 · D2 el G1 no reconoce los suyos → 12 / 1
 //   D3  el G1 no usa la constante → 12 / 1 · D4 el G2 manda el rótulo → 12 / 1 · D5 «Listo» partido por comas → 12 / 1
 //   D6  «Listo» en cualquier orden → 12 / 1 · D7 un selector abierto deja de esperar → 12 / 1 · D8 ninguna es de nadie → 12 / 1
+//   (7ª revisión, sobre 13 / 0; las 4 en rojo y restauradas)
+//   F1  «escribir contesta» cuenta los de turnos viejos → 12 / 1 · F2 lo escrito cierra un viejo que no era suyo → 12 / 1
+//   F3  un «Saltear» nuevo cierra también los viejos → 12 / 1 · F4 el turno no se corta en el mensaje de la persona → 12 / 1
 //
 // Correr: node --import tsx --test tests/ops-center-landing-bloques.test.ts
 // =============================================================================
@@ -301,6 +304,26 @@ test('elegir: lo elegido sale como un mensaje que dice QUÉ se eligió, y el hil
   assert.deepEqual(dosTurnos('Diseño: Minimal'), ['Diseño: Minimal', 'Mentoría', null], 'el diseño viejo no contesta la pregunta nueva');
   assert.deepEqual(dosTurnos('Diseño: Minimal', 'Agendar'), ['Diseño: Minimal', 'Mentoría', 'Agendar']);
   assert.deepEqual(dosTurnos('Agendar'), [null, 'Mentoría', 'Agendar'], 'la nueva con lo suyo; el diseño sigue esperando');
+  // ESCRIBIR contesta la pregunta del turno actual aunque haya un selector viejo abierto (7ª revisión, regresión: en
+  // producción se cerraba, y con el viejo contando ninguna pregunta de la sesión se cerraba escribiendo).
+  assert.deepEqual(dosTurnos('que me escriban por WhatsApp'), [null, 'Mentoría', 'que me escriban por WhatsApp']);
+  // Lo escrito turnos después no contesta un selector viejo que no era suyo.
+  const sinPregunta = conRespuestas([
+    { k: 'bloque', id: 'g2', b: elegirDiseno() }, { k: 'bloque', id: 'g1', b: producto },
+    { k: 'msg', id: 'u1', role: 'user', texto: 'Un producto nuevo', at: null } as never,
+    { k: 'msg', id: 'm1', role: 'assistant', texto: '¿Cómo se llama y de qué se trata?', at: null } as never,
+    { k: 'msg', id: 'u2', role: 'user', texto: 'Taller de cerámica para principiantes', at: null } as never,
+  ]).filter((x) => x.k === 'bloque').map((x) => (x.k === 'bloque' ? x.respondida ?? null : null));
+  assert.deepEqual(sinPregunta, [null, 'Un producto nuevo'], 'los diseños siguen abiertos');
+  // Un «Saltear» de la pregunta nueva cierra ésa, no la vieja que también lo acepta.
+  const pagos = { t: 'pregunta' as const, pregunta: '¿Con qué cobras?', opciones: [{ titulo: 'Stripe' }, { titulo: 'Mercado Pago' }] };
+  const saltear = conRespuestas([
+    { k: 'bloque', id: 'g2', b: elegirDiseno() }, { k: 'bloque', id: 'g1', b: producto },
+    { k: 'msg', id: 'u1', role: 'user', texto: 'para la mentoría, elegí vos', at: null } as never,
+    { k: 'bloque', id: 'g1p', b: pagos },
+    { k: 'msg', id: 'u2', role: 'user', texto: 'Saltear', at: null } as never,
+  ]).filter((x) => x.k === 'bloque').map((x) => (x.k === 'bloque' ? x.respondida ?? null : null));
+  assert.deepEqual(saltear, [null, null, 'Saltear']);
   // Los que esperan cada mensaje son los de ESE turno: uno de un turno anterior, ya contestado, no cuenta.
   const tras = conRespuestas([
     { k: 'bloque', id: 'g1', b: producto }, { k: 'msg', id: 'u1', role: 'user', texto: 'Mentoría', at: null } as never,

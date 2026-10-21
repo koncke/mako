@@ -41,6 +41,7 @@
 //   (6ª revisión, sobre 7 / 0; las 3 en rojo y restauradas)
 //   E1  dos con la misma clave y el exacto vuelve a preguntar · E2 todos iguales vuelve a preguntar
 //   E3  la línea del producto no dice a qué camino aplica (en un turno viajan juntas)
+//   F5  «todos iguales» mirando mayúsculas (7ª revisión; la pregunta tendría dos opciones que el marco ve iguales)
 //
 // Correr: node --import tsx --test tests/ops-center-landing-receta.test.ts
 // =============================================================================
@@ -297,7 +298,10 @@ const DICHO: [string, string | null, string | null, string[] | null, Espera][] =
   ['cc12', 'Curso de C', null, ['Curso de C', 'Curso de C'], { catalogo: 'Curso de C' }],
   ['dt1', 'Mentoria', null, ['Mentoría', 'Mentoria'], { catalogo: 'Mentoria' }], ['dt2', 'Mentoría', null, ['Mentoría', 'Mentoria'], { catalogo: 'Mentoría' }],
   ['dt3', 'MENTORIA', null, ['Mentoría', 'Mentoria'], 'pregunta'], ['dt4', null, 'Mentoria', ['Mentoría', 'Mentoria'], { catalogo: 'Mentoria' }],
-  ['dt5', 'curso de c', null, ['Curso de C', 'Curso de C'], { catalogo: 'Curso de C' }], ['cc14', '?', null, ['--'], 'pregunta'], ['cc13', null, 'curso de c++', ['Curso de C++', 'Curso de C'], { catalogo: 'Curso de C++' }],
+  ['dt5', 'curso de c', null, ['Curso de C', 'Curso de C'], { catalogo: 'Curso de C' }],
+  // Que sólo difieren en mayúsculas: el primero (la pregunta tendría dos opciones que el marco ve iguales).
+  ['dt6', 'mentoría', null, ['Mentoría', 'MENTORÍA'], { catalogo: 'Mentoría' }],
+  ['dt7', 'CURSO DE C', null, ['Curso de C', 'Curso de C', 'curso de c'], { catalogo: 'Curso de C' }], ['cc14', '?', null, ['--'], 'pregunta'], ['cc13', null, 'curso de c++', ['Curso de C++', 'Curso de C'], { catalogo: 'Curso de C++' }],
   // Una referencia que NOMBRA uno del catálogo y no dice cuál es el nuevo (5ª revisión, #2): pregunta.
   ...['no es Kairos', 'otro que no sea Kairos', 'distinto de Kairos', 'el otro, no Kairos', 'uno diferente a Kairos', 'el que no es Kairos',
     'otro producto que no es Kairos', 'otro (no Kairos)', 'el de después de Kairos'].map((r, i): [string, string | null, string | null, string[] | null, Espera] => [`kr${i}`, null, r, ['Kairos'], 'pregunta']),

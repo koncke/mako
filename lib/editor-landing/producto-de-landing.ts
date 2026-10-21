@@ -59,7 +59,9 @@ const conClave = (s: string, productos: readonly ObjetoChat[] | null): ObjetoCha
   if (ps.length < 2) return ps;
   const iguales = ps.filter((p) => exacto(p.nombre) === exacto(s));
   if (iguales.length) return [iguales[0]];
-  return new Set(ps.map((p) => exacto(p.nombre))).size === 1 ? [ps[0]] : ps;
+  // «Todos iguales» con el criterio del G1 (sin mayúsculas): si no, la pregunta tendría dos opciones que el marco ve
+  // iguales y no la dibuja (sanearBloque, lib/chat-bloques.ts).
+  return new Set(ps.map((p) => exacto(p.nombre).toLowerCase())).size === 1 ? [ps[0]] : ps;
 };
 /**
  * ¿`nuevo` es una REFERENCIA a uno del catálogo («no es Kairos», «uno parecido a la Mentoría 1 a 1», «el de después de

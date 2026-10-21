@@ -152,21 +152,28 @@ function esRespuestaDe(b: Bloque, dicho: string): boolean {
  * apaga las opciones en el acto, no al recargar.
  * ⚠️ UNA respuesta no cierra DOS selectores (revisión del 21/10/2026): MaKo guarda en el mismo mensaje lo que dibujan
  *    las lecturas y su pregunta (el G2 de diseños y el G1 del producto), y tocar «Mentoría» apagaba también los diseños
- *    con «Respondiste: Mentoría». Cada mensaje de la persona cierra los selectores ABIERTOS de los que es (lo que manda un
- *    toque suyo); si no es de ninguno y hay uno solo abierto, escribir lo contesta, como siempre; si hay varios, quedan
- *    abiertos (abierto de más cuesta poco). Un selector que quedó abierto sigue esperando en los turnos siguientes: si
- *    se toca más tarde, se cierra él, no la pregunta nueva, y no vuelve a abrirse al recargar.
+ *    con «Respondiste: Mentoría». Cada mensaje de la persona cierra los selectores abiertos de los que es (lo que manda un
+ *    toque suyo); si es de uno del turno ACTUAL (los que vinieron después del mensaje anterior de la persona), sólo ése:
+ *    un «Saltear» de la pregunta nueva no cierra las viejas. Si no es de ninguno, escribir contesta, como siempre, pero
+ *    sólo si en el turno actual hay UNO abierto; con varios, quedan abiertos (abierto de más cuesta poco).
+ *    Un selector de un turno anterior que quedó abierto sigue esperando, pero sólo un toque SUYO lo cierra: tocado más
+ *    tarde se cierra él y no la pregunta nueva, y lo escrito turnos después no lo contesta (revisión del 21/10/2026:
+ *    contarlo para «uno solo abierto» dejaba sin cerrar, escribiendo, todas las preguntas siguientes de la sesión).
  */
 export function conRespuestas(xs: readonly ItemHilo[]): ItemHilo[] {
   const respondidas = new Map<number, string>();
   let abiertos: number[] = [];
+  let delTurno: number[] = [];
   xs.forEach((x, i) => {
-    if (esSelector(x)) { abiertos.push(i); return; }
-    if (!esDeLaPersona(x) || !abiertos.length) return;
+    if (esSelector(x)) { abiertos.push(i); delTurno.push(i); return; }
+    if (!esDeLaPersona(x)) return;
     const suyos = abiertos.filter((k) => esRespuestaDe((xs[k] as ItemBloque).b, x.texto));
-    const cierra = suyos.length ? suyos : abiertos.length === 1 ? abiertos : [];
+    const suyosDelTurno = suyos.filter((k) => delTurno.includes(k));
+    const abiertosDelTurno = delTurno.filter((k) => abiertos.includes(k));
+    const cierra = suyosDelTurno.length ? suyosDelTurno : suyos.length ? suyos : abiertosDelTurno.length === 1 ? abiertosDelTurno : [];
     for (const k of cierra) respondidas.set(k, x.texto);
     abiertos = abiertos.filter((k) => !cierra.includes(k));
+    delTurno = [];
   });
   return xs.map((x, i) => (esSelector(x) && respondidas.has(i) ? { ...x, respondida: respondidas.get(i)! } : x));
 }
