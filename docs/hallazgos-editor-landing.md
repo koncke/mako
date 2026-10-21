@@ -2135,6 +2135,9 @@ Pedido de Martín (20/10): «que Ops Center sea lo principal en MaKo… crear we
 - **El bloque no llega al modelo:** `confirmar_accion` le devuelve sólo «✅ Hecho: resumen». La API HTTP sí devuelve
   `datos` entero (con la sección): un cliente de la API que sea un modelo la lee. Es poco (1-3 KB un hero), pero es del
   marco decidir si `rest.ts` saca `bloque`.
+- **`crear` devuelve la landing COMPLETA y `duplicar` el resumen del Panel** (`LandingResumen`, con `primera` y `tema`):
+  la tarjeta se arma con `bloqueDeCompleta` en uno y con `bloqueLanding` en el otro. Los tests que leen el fuente daban
+  verde con el equivocado; lo vio el tsc.
 - **BloqueHilo los carga con `next/dynamic`** (traen la hoja del contenido, ~100 KB): en un test con
   `renderToStaticMarkup` el hilo no los dibuja; se dibuja BloqueWeb directo.
 

@@ -52,7 +52,7 @@ import {
 // El EDITOR del Web Generator (tanda 4): el MISMO server que llama /api/landing-generator (la
 // pantalla). Ningún `.from('landing_docs')` acá: tests/api-mako-landing-editor.test.ts lo frena.
 import * as docsEditor from '@/lib/editor-landing/server';
-import { bloqueDeCompleta, bloquePublicada } from '@/lib/editor-landing/bloques-chat';
+import { bloqueDeCompleta, bloqueLanding, bloquePublicada } from '@/lib/editor-landing/bloques-chat';
 import { publicar as publicarEnEditor, despublicar as despublicarEnEditor, sitioActivo as sitioActivoEnEditor } from '@/lib/editor-landing/publicar';
 import { listar as comentariosDelDiagnostico, cambiarEstado as estadoDeComentario, analizar as analizarDiagnostico } from '@/lib/editor-landing/diagnostico-server';
 // Tanda 7: el resto del editor (landing-editor.run.ts), sumado al final de RUNNERS.
@@ -978,7 +978,8 @@ export const RUNNERS: Runners = {
         const r = await docsEditor.duplicar(id);
         if (!r.ok) return { ok: false, resumen: r.status === 404 ? noExisteCreada(id) : `No se pudo duplicar (${r.error}).` };
         const link = linkEditor(r.doc.id, ctx.ws);
-        return { ok: true, resumen: `Listo: «${r.doc.titulo}» (id ${r.doc.id}), sin publicar. Se adapta en el editor: ${link}`, datos: { id: r.doc.id, titulo: r.doc.titulo, link, bloque: bloqueDeCompleta(r.doc, null, 'Copia') } };
+        // `duplicar` devuelve el resumen del Panel (LandingResumen, con `primera` y `tema`), no la landing completa.
+        return { ok: true, resumen: `Listo: «${r.doc.titulo}» (id ${r.doc.id}), sin publicar. Se adapta en el editor: ${link}`, datos: { id: r.doc.id, titulo: r.doc.titulo, link, bloque: bloqueLanding(r.doc, null, 'Copia') } };
       } catch (e) {
         return { ok: false, resumen: `No se pudo duplicar (${mensaje(e)}).` };
       }

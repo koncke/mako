@@ -240,7 +240,9 @@ console.log(JSON.stringify({ e, saneado: sanearBloque(e.datos?.bloque) }));
 test('las demás devuelven su bloque: duplicar, la presentación, en blanco, generar, replicar, publicar y el dominio', () => {
   const l = sinComentarios(leer('lib/api-mako/areas/landing.run.ts'));
   const e = sinComentarios(leer('lib/api-mako/areas/landing-editor.run.ts'));
-  assert.equal((l.match(/bloque: bloqueDeCompleta\(r\.doc, null, '(?:Nueva|Copia)'\)/g) ?? []).length, 3, 'crear desde diseño, la presentación y duplicar');
+  assert.equal((l.match(/bloque: bloqueDeCompleta\(r\.doc, null, 'Nueva'\)/g) ?? []).length, 2, 'crear desde diseño y la presentación');
+  // `duplicar` devuelve el resumen del Panel (LandingResumen), no la completa: lo vio el tsc.
+  assert.match(l, /bloque: bloqueLanding\(r\.doc, null, 'Copia'\)/, 'duplicar');
   assert.match(l, /const copia = await docsEditor\.abrir\(r\.id\)\.catch\(\(\) => null\);[\s\S]{0,700}\.\.\.\(copia\?\.ok \? \{ bloque: bloqueDeCompleta\(copia\.doc, null, 'Replicada'\) \} : \{\}\)/);
   assert.match(l, /const bloque = bloquePublicada\(\{ id, titulo: f\.titulo \?\? '', url \}\);[\s\S]{0,200}publicadaEl: r\.publicadoAt, bloque \}/);
   assert.match(e, /bloque: bloqueDeCompleta\(r\.doc, null, 'Nueva'\) \} \};/, 'en blanco');
