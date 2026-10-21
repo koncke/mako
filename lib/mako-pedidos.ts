@@ -182,13 +182,19 @@ export function productoDelPedido(texto: string, productos: readonly ObjetoChat[
 /** ¿El pedido es para «otro producto» («mi otro producto», «los otros productos»)? Sobre el texto plano. */
 export const pideOtroProducto = (texto: string): boolean => /\botr[ao]s?\s+productos?\b/.test(plano(nfc(texto)));
 
-/** Lo que no dice NADA del producto en un pedido de landing: el verbo, el objeto, los artículos y el «otro producto». */
+/**
+ * Lo que no dice NADA del producto en un pedido de landing: el verbo de pedir (con su pronombre, en tuteo o en voseo:
+ * lo escribe la persona), el objeto, los artículos y el «otro producto». Sobre el texto plano (sin tildes). El verbo va
+ * como regex y no como lista de palabras: es lo que el guard de voseo (tests/puente-panel-copy.test.ts) le prohíbe a una
+ * pantalla, y acá se LEE, no se dice.
+ */
+const VERBO_PEDIDO = /^(?:cre|hac|arm|gener)[ae](?:me|r)?$|^ha[zc]e?me$|^haz$|^(?:quiero|necesito|puedes|podrias|favor)$|^pod[e]s$/;
 const RELLENO_PEDIDO = new Set([
-  'crea', 'creame', 'crear', 'creá', 'haz', 'hazme', 'hace', 'haceme', 'arma', 'armame', 'armar', 'genera', 'generame',
-  'quiero', 'necesito', 'puedes', 'podes', 'podrias', 'me', 'te', 'una', 'un', 'la', 'el', 'los', 'las', 'mi', 'mis', 'tu',
-  'su', 'de', 'del', 'para', 'por', 'con', 'sobre', 'que', 'y', 'o', 'a', 'al', 'en', 'es', 'otra', 'otro', 'otras', 'otros',
-  'nueva', 'nuevo', 'landing', 'landings', 'pagina', 'web', 'sitio', 'presentacion', 'producto', 'productos', 'favor',
+  'me', 'te', 'una', 'un', 'la', 'el', 'los', 'las', 'mi', 'mis', 'tu', 'su', 'de', 'del', 'para', 'por', 'con', 'sobre',
+  'que', 'y', 'o', 'a', 'al', 'en', 'es', 'otra', 'otro', 'otras', 'otros', 'nueva', 'nuevo', 'landing', 'landings',
+  'pagina', 'web', 'sitio', 'presentacion', 'producto', 'productos',
 ]);
+const esRelleno = (w: string): boolean => RELLENO_PEDIDO.has(w) || VERBO_PEDIDO.test(w);
 
 /**
  * «Créame una landing para mi otro producto» con UN producto (o ninguno) en el catálogo: ese otro no está en MaKo, y
@@ -201,7 +207,7 @@ const RELLENO_PEDIDO = new Set([
  */
 export function faltaElOtroProducto(texto: string, productos: readonly ObjetoChat[]): string | null {
   if (!pideOtroProducto(texto) || productos.length > 1) return null;
-  const cuenta = plano(nfc(texto)).split(/[^a-z0-9ñ]+/).filter((w) => w.length > 1 && !RELLENO_PEDIDO.has(w));
+  const cuenta = plano(nfc(texto)).split(/[^a-z0-9ñ]+/).filter((w) => w.length > 1 && !esRelleno(w));
   if (cuenta.length >= 2) return null;
   return productos.length === 1
     ? `En el catálogo hay un solo producto («${productos[0].nombre}») y el pedido es para OTRO, que no está en MaKo. No la armes sobre «${productos[0].nombre}»: pregúntale a la persona cuál es ese otro producto (su nombre, a quién le sirve y qué recibe) y vuelve a proponer con eso en la idea.`
