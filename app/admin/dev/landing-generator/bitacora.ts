@@ -850,4 +850,23 @@ export const BITACORA: Hito[] = [
       'tests/ops-center-landing-receta.test.ts y tests/ops-center-landing-bloques.test.ts — 51 roturas en rojo',
     ],
   },
+  {
+    fecha: '21 oct', hora: '05:42', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Elegir el producto ya no apaga los diseños en el chat',
+    puntos: [
+      'Cuando MaKo te mostraba los diseños y te preguntaba el producto en el mismo mensaje, tocar el producto apagaba también los diseños con «Respondiste» y el producto. Ahora cada uno se contesta con lo suyo.',
+      'Si dos productos tuyos se llaman casi igual («Curso de C» y «Curso de C++»), MaKo ya no confunde uno con otro: si no está claro, pregunta.',
+      'Si MaKo no puede leer tus productos en ese momento, te pide volver a intentar en vez de crear la landing sin el producto que confirmaste.',
+    ],
+    commits: [
+      { sha: 'be32b7022', msg: 'Web Generator, 5ª revisión: una respuesta no cierra dos selectores, y el catálogo por su clave', lineas: 232, archivos: 8 },
+    ],
+    archivos: [
+      'app/m/mako/chat-ui.ts — conRespuestas: cada selector con lo que manda un toque suyo',
+      'lib/editor-landing/bloques-web.ts — lo que manda cada opción del elegir, en un solo lugar',
+      'lib/editor-landing/producto-de-landing.ts — la clave del catálogo, las referencias y reintentar sin catálogo',
+      'lib/doer-recetas.ts — «para qué producto» sólo con generar_landing_con_ia',
+    ],
+  },
 ];

@@ -2128,6 +2128,17 @@ Pedido de Martín (20/10): «que Ops Center sea lo principal en MaKo… crear we
   el catálogo vacío es un producto nuevo (tirarlo dejaba la landing sobre la oferta del brief), «Un producto nuevo» sin
   nombre pide el nombre, y si el catálogo no se pudo leer valen «El negocio en general» y un `producto_nuevo` con nombre.
   Sin ningún producto, la tarjeta lo dice: «sobre el perfil del negocio (sin un producto elegido)».
+- **Con el catálogo ilegible, un `producto` hace VOLVER A INTENTAR, no se tira ni se adivina.** Al confirmar en
+  /mako/revisar se vuelve a correr el preparar: si ahí la base fallaba, la tarjeta confirmada decía un producto y la
+  landing salía sin él. Distinguir sin catálogo un nombre de una referencia sería otra lista de palabras («Mentoría 1 a
+  1» está hecha toda de palabras vagas): el error pide reintentar.
+- **La clave del catálogo guarda los símbolos que cambian el nombre.** Borrarlos (`[^a-z0-9]`) hacía de «Curso de C» el
+  «Curso de C++» (el primero que coincidía), de «Descuento 50» el «Descuento 50%» y de «?» un «🚀». Sólo se saca la
+  puntuación que no cambia el nombre (comillas, puntos, comas, paréntesis, guiones); un nombre que queda vacío no se
+  compara, y dos del catálogo con la misma clave se preguntan, no se toma el primero.
+- **Un `producto_nuevo` que nombra uno del catálogo pregunta sólo si no dice nada más** («no es Kairos», «uno parecido a
+  la Mentoría 1 a 1»). Uno que lo nombra Y dice qué es («Mentoría grupal para emprendedoras» con «Mentoría») es nuevo:
+  si preguntara, la persona elegiría «Un producto nuevo», volvería lo mismo y no saldría nunca.
 - **La red es la tarjeta:** lo decidido REEMPLAZA a lo que mandó el modelo y va adelante en el resumen que se confirma
   («para el producto «X»», «para un producto nuevo, «X»», «para el negocio en general»): pegado al final de la idea, el
   corte de 140 caracteres lo escondía. Y la frase del producto en la idea nunca es lo que se corta: con una idea de 8.000,
@@ -2140,7 +2151,9 @@ Pedido de Martín (20/10): «que Ops Center sea lo principal en MaKo… crear we
   sin la regla que decían probar; una rotura que queda en verde pide una frase nueva. Ahora que el guardia no recibe el
   texto, una batería de frases contra la función pasaría sola: las ~190 frases van por el `preparar` de VERDAD (un
   proceso hijo con el catálogo de mentira), así una regla nueva que lea el texto se ve.
-- **La receta no nombra herramientas:** no siempre viajan las que nombraría (lo fija su test).
+- **La receta no nombra herramientas:** no siempre viajan las que nombraría (lo fija su test). Y la línea del producto
+  viaja SÓLO con generar_landing_con_ia, la única con dónde ponerlo: con las otras cuatro (en blanco, desde un diseño,
+  presentación, replicar) la pregunta se hacía y la respuesta se perdía, porque `validarInput` descarta lo no declarado.
 - **Trampa:** armar una regex uniendo templates con «+» la rompe el minificador del build en producción
   (tests/minificador-templates lo frena): en una lista con `join('|')`.
 
@@ -2179,6 +2192,11 @@ Pedido de Martín (20/10): «que Ops Center sea lo principal en MaKo… crear we
   y lo contestado vale en CADA render) y el merge no lo trajo: decía «Respondiste» con el mensaje sin mandar, y al
   recargar volvía activo porque `conRespuestas` sólo miraba la `pregunta`. Ahora Elegir hace lo mismo que PreguntaHilo,
   BloqueHilo le pasa `ocupado`, y `conRespuestas` cuenta también el `elegir`.
+- **Una respuesta no cierra DOS selectores.** MaKo guarda en el mismo mensaje lo que dibujan las lecturas y su
+  pregunta (el G2 de diseños y el G1 del producto), y `conRespuestas` cerraba los dos con el primer mensaje: tocar
+  «Mentoría» dejaba los diseños apagados con «Respondiste: Mentoría». Con varios esperando el mismo mensaje, cada uno se
+  cierra sólo con lo que manda un toque suyo (`respuestasDeElegir` en bloques-web.ts, la misma fuente que el botón); lo
+  escrito que no es de ninguno los deja abiertos. Con uno solo, escribir lo contesta, como siempre.
 - **Una lectura que dibuja tiene que leer el pedido.** `listar_disenos_landing` dibujaba el G2 sin mirar
   `ctx.mensajeUsuario`: siempre los mismos tres, también en una presentación o con el diseño ya nombrado. Ahora
   `elegirDisenoPara` los ordena por el pedido y no dibuja nada en esos dos casos. «MaKo» es también el nombre de la app:
@@ -2207,6 +2225,15 @@ Pedido de Martín (20/10): «que Ops Center sea lo principal en MaKo… crear we
 - Pregunta de más, a propósito: con catálogo, TODO pedido sin `producto` pregunta, también «landing para la Mentoría 1
   a 1» si el modelo no pasa el nombre. Si en el uso molesta, el arreglo es que el modelo lo pase (la receta lo pide),
   no una regla sobre el texto.
+- La API HTTP con escritura directa devuelve el `datos.bloque` de las acciones (la tarjeta, ~1,3 KB con la primera
+  sección): lo saca Dashboard en lib/api-mako/rutas-http.ts en su rama; no se tocó acá para no chocar.
+- La regla de cuándo dibujar los diseños es de palabras (`elegirDisenoPara`, bloques-chat.ts): «diapos», «ppt»,
+  «powerpoint» o «keynote» no cuentan como presentación, «mi curso de presentaciones en público» sí, y «editorial»,
+  «fresco», «tecnológico», «cálido» o «audaz» como palabras comunes cuentan como un diseño ya nombrado.
+- Tocar «Mentoría» en el G1 llega sin herramientas de landing: el clasificador no reconoce la respuesta a una pregunta
+  (lib/mako-intencion.ts, `clasificarIntencion`). Lo vio el escéptico de la 5ª revisión; falta verificarlo.
+- `producto_nuevo` «el otro que no es la mentoría individual» (no nombra el del catálogo) pasa como nombre: la red es
+  la tarjeta.
 - `publicar_landing` devuelve en `datos.url` la dirección de MaKo aunque la landing tenga un dominio propio verificado
   (`urlDeLanding(r.slug)` en landing.run.ts): el bloque de publicada tiene que recibir la del dominio.
 
