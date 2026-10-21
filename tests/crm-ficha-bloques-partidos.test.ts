@@ -36,16 +36,16 @@ test('el bloque que envolvía dibuja todo en una ficha vieja, y no repite lo que
 test('cada bloque nuevo se calla cuando no aplica', () => {
   const ctx = (lead: Record<string, unknown>, data: Record<string, unknown> = {}) => ({ lead, data } as never);
   const vacioR2 = REGLAS_REUNIONES['reunion-2'].estaVacio;
-  assert.equal(vacioR2(ctx({ fecha_junta_2: null, asistio_j2: null, fathom_links: [] }), {} as never), true, 'sin R2 no hay bloque');
-  assert.equal(vacioR2(ctx({ fecha_junta_2: '2026-10-20T15:00:00Z' }), {} as never), false);
+  assert.equal(vacioR2(ctx({ fecha_junta_2: null, asistio_j2: null, fathom_links: [] })), true, 'sin R2 no hay bloque');
+  assert.equal(vacioR2(ctx({ fecha_junta_2: '2026-10-20T15:00:00Z' })), false);
   const vacioAgendar = REGLAS_REUNIONES['agendar-reunion'].estaVacio;
-  assert.equal(vacioAgendar(ctx({ fecha_junta_1: '2026-10-19T15:00:00Z', sin_r2: false }), {} as never), false, 'después de la R1, sin R2: se ofrece');
-  assert.equal(vacioAgendar(ctx({ fecha_junta_1: '2026-10-19T15:00:00Z', sin_r2: true }), {} as never), true, 'cerrado sin R2: no se ofrece');
-  assert.equal(vacioAgendar(ctx({}), {} as never), true, 'sin ninguna reunión: no se ofrece');
-  assert.equal(REGLAS_REUNIONES['lo-que-salio-de-la-llamada'].estaVacio(ctx({ fathom_links: [{ url: 'https://fathom.video/x', label: 'R1' }] }), {} as never), false);
-  assert.equal(REGLAS_TRACKING['video-visto'].estaVacio(ctx({}, { vslEng: { plays: 0, sin_datos: true, max_pct: null } }), {} as never), true);
-  assert.equal(REGLAS_TRACKING['video-visto'].estaVacio(ctx({}, { vslEng: { plays: 2, max_pct: 40 } }), {} as never), false);
-  assert.equal(REGLAS_TRACKING['grabacion-de-visita'].estaVacio(ctx({}, { replay: null }), {} as never), true);
+  assert.equal(vacioAgendar(ctx({ fecha_junta_1: '2026-10-19T15:00:00Z', sin_r2: false })), false, 'después de la R1, sin R2: se ofrece');
+  assert.equal(vacioAgendar(ctx({ fecha_junta_1: '2026-10-19T15:00:00Z', sin_r2: true })), true, 'cerrado sin R2: no se ofrece');
+  assert.equal(vacioAgendar(ctx({})), true, 'sin ninguna reunión: no se ofrece');
+  assert.equal(REGLAS_REUNIONES['lo-que-salio-de-la-llamada'].estaVacio(ctx({ fathom_links: [{ url: 'https://fathom.video/x', label: 'R1' }] })), false);
+  assert.equal(REGLAS_TRACKING['video-visto'].estaVacio(ctx({}, { vslEng: { plays: 0, sin_datos: true, max_pct: null } })), true);
+  assert.equal(REGLAS_TRACKING['video-visto'].estaVacio(ctx({}, { vslEng: { plays: 2, max_pct: 40 } })), false);
+  assert.equal(REGLAS_TRACKING['grabacion-de-visita'].estaVacio(ctx({}, { replay: null })), true);
 });
 
 test('cada bloque nuevo tiene su componente, y la tarjeta dibuja sólo sus partes', () => {
