@@ -130,11 +130,11 @@ function filasDeEdicion(a: Hoja, b: Hoja): Fila[] {
  * agrega a SU informe). El título dice de quién es; lo creado, que siempre lleva su botón, pasa a un antes y después.
  */
 function enInformeDe(b: BloqueChat, de: string): BloqueChat {
-  const titulo = `${b.titulo}, en el informe de ${de}`;
-  if (b.t === 'creado') return { t: 'antes_despues', titulo, filas: [{ campo: b.estado ?? 'Nuevo', antes: '—', despues: b.nota ? `${b.titulo} (${b.nota})` : b.titulo }] };
+  const titulo = (t: string) => `${t}, en el informe de ${de}`;
+  if (b.t === 'creado') return { t: 'antes_despues', titulo: titulo(b.titulo), filas: [{ campo: b.estado ?? 'Nuevo', antes: '—', despues: b.nota ? `${b.titulo} (${b.nota})` : b.titulo }] };
   if (b.t === 'antes_despues') {
     const { abrir: _abrir, ...resto } = b;
-    return { ...resto, titulo };
+    return { ...resto, titulo: titulo(b.titulo) };
   }
   return b;
 }
