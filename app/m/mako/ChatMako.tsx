@@ -34,7 +34,7 @@ import { Markdown } from '@/app/_components/Markdown';
 import { conWs } from '@/lib/ws-tab';
 import { TITULO_INBOX } from '@/lib/movil-rutas';
 import { GRAMATICA } from '@/lib/mako-gramatica';
-import type { MensajeChat, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
+import type { MensajeChat, PropuestaPantalla, RespuestaTurno, ResultadoTarjeta, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 import {
   CabeceraM, FilaM, ListaM, PieM, PildoraM, SeccionM, SheetM, SkeletonFilas, VacioM, ErrorM, useConexion, horaCorta,
 } from '../_ui';
@@ -42,11 +42,14 @@ import { Composer, type Envio } from './Composer';
 import { SheetPropuesta } from './SheetPropuesta';
 import { postConProgreso } from './subir';
 import {
-  AVISO_LENTO_S, ERROR_INCIERTO, PILL_PROPUESTA, archivosDeRespuesta, duracion, fuenteDelTurno, idLocal, itemsDeRespuesta,
-  itemsDeSesion, leerRespuesta, textoConArchivos, type EstadoPropuesta, type ItemHilo,
+  AVISO_LENTO_S, ERROR_INCIERTO, PILL_PROPUESTA, archivosDeRespuesta, conTarjeta, duracion, fuenteDelTurno, idLocal, itemsDeRespuesta,
+  itemsDeSesion, leerRespuesta, textoConArchivos, trasTrabajo, conRespuestas, type EstadoPropuesta, type ItemHilo,
 } from './chat-ui';
 import { ArchivosHilo } from '@/app/_chat/ArchivosHilo';
 import { ConectarDelAviso } from '@/app/_chat/ConectarDelAviso';
+import { BloqueHilo } from '@/app/_chat/BloqueHilo';
+import { FormularioEnChat } from '@/app/_chat/FormularioEnChat';
+import { ACCIONES_FORMULARIO } from '@/app/_chat/acciones-formulario';
 import { PegadosHilo, TextoPlegable } from '@/app/_chat/PegadoHilo';
 import { partirPegados } from '@/lib/chat-pegado';
 
@@ -57,7 +60,7 @@ type ChatDeOfferM = { id: number; titulo: string; updatedAt: string };
 /** El maxDuration de /api/m/mako es 420 s (tanda 7: confirmar replicar_landing): el corte del navegador va 5 s después. */
 const TOPE_MS = 425_000;
 
-type Abierta = { sesion: SesionChat; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[] };
+type Abierta = { sesion: SesionChat; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[]; pantallas?: PropuestaPantalla[] };
 type Trabajo = { fase: 'subiendo' | 'revisando'; pct: number; desde: number; fuente: string };
 
 export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats, reabrirChats = 0 }: {
@@ -75,7 +78,7 @@ export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats
   const { enLinea } = useConexion();
   const [sesiones, setSesiones] = useState<SesionChat[]>(sesionesIniciales);
   const [sesion, setSesion] = useState<SesionChat | null>(inicial?.sesion ?? null);
-  const [items, setItems] = useState<ItemHilo[]>(() => (inicial ? itemsDeSesion(inicial.mensajes, inicial.propuestas) : []));
+  const [items, setItems] = useState<ItemHilo[]>(() => (inicial ? itemsDeSesion(inicial.mensajes, inicial.propuestas, inicial.pantallas ?? []) : []));
   const [cargando, setCargando] = useState(false);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
   const [trabajo, setTrabajo] = useState<Trabajo | null>(null);
@@ -122,7 +125,7 @@ export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats
       const l = leerRespuesta<Abierta>(res.status, await res.text());
       if (!l.ok) { setErrorCarga(l.reintentable ? l.error : 'No pude abrir el chat.'); return; }
       setSesion(l.datos.sesion);
-      setItems(itemsDeSesion(l.datos.mensajes, l.datos.propuestas));
+      setItems(itemsDeSesion(l.datos.mensajes, l.datos.propuestas, l.datos.pantallas ?? []));
       alFondo(false);
     } catch {
       setErrorCarga('No pude abrir el chat. Revisa la red.');
@@ -244,12 +247,9 @@ export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats
 
   // ── Las propuestas ──
   const propuestaAbierta = items.find((x): x is Extract<ItemHilo, { k: 'propuesta' }> => x.k === 'propuesta' && x.id === abierta) ?? null;
-  const alEstado = (pendienteId: number, estado: EstadoPropuesta, nota?: string, paraLaPersona?: string[]) => {
-    setItems((xs) => {
-      const sig = xs.map((x) => (x.k === 'propuesta' && x.t.pendienteId === pendienteId ? { ...x, estado, nota } : x));
-      const extra: ItemHilo[] = (paraLaPersona ?? []).filter((t) => t.trim()).map((t) => ({ k: 'aviso', id: idLocal('v'), texto: t, tono: 'mako' }));
-      return [...sig, ...extra];
-    });
+  /** `r`: lo que contestó la tarjeta (su «Abrir», los avisos y lo que dibuja el resultado: `conTarjeta`). */
+  const alEstado = (pendienteId: number, estado: EstadoPropuesta, nota?: string, r?: ResultadoTarjeta) => {
+    setItems((xs) => conTarjeta(xs, pendienteId, estado, nota, r));
   };
 
   // ── El dibujo ──
@@ -264,8 +264,10 @@ export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats
         : vacio ? <VacioM frase="Pregúntale por tus leads, tu agenda o tu plan." />
         : (
           <ol className="m-mako-hilo" aria-label="Conversación con MaKo">
-            {items.map((x) => (
-              <Item key={x.id} x={x}
+            {conRespuestas(items).map((x) => (
+              <Item key={x.id} x={x} ocupado={!!trabajo}
+                onResponder={(t) => { if (trabajo) return false; void enviar({ texto: t, adjuntos: [] }); return true; }}
+                onTrabajo={(id, ok) => setItems((xs) => trasTrabajo(xs, id, ok))}
                 onAbrir={(id) => setAbierta(id)}
                 onReintentar={reintentar}
                 onRecargar={sesion ? () => void abrir(sesion.id) : undefined} />
@@ -321,9 +323,15 @@ export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats
 /** La estrella de MaKo: sólo en lo que MaKo propone (no en cada mensaje suyo). */
 const MARCA_MAKO = <span className="m-mako-marca" aria-hidden><Icon name="mako" size={18} /></span>;
 
-function Item({ x, onAbrir, onReintentar, onRecargar }: {
+function Item({ x, onAbrir, onReintentar, onRecargar, onResponder, onTrabajo, ocupado }: {
   x: ItemHilo;
   onAbrir: (id: string) => void;
+  /** Contestar una pregunta con opciones (1.9): sale como el siguiente mensaje. `false` = no salió. */
+  onResponder: (texto: string) => boolean;
+  /** MaKo está trabajando: las opciones esperan. */
+  ocupado: boolean;
+  /** El trabajo largo de una tarjeta terminó (1.11): la fila deja de decir «En curso». */
+  onTrabajo: (pendienteId: number, ok: boolean) => void;
   onReintentar: (id: string) => void;
   onRecargar?: () => void;
 }) {
@@ -366,11 +374,27 @@ function Item({ x, onAbrir, onReintentar, onRecargar }: {
         </li>
       );
   }
+  // Lo que dibuja el resultado (lib/chat-bloques.ts): la MISMA pieza de la computadora.
+  if (x.k === 'bloque') {
+    const de = x.deTarjeta;
+    return <li className="m-mako-msg m-mako-msg--mk"><BloqueHilo b={x.b} onResponder={onResponder} respondida={x.respondida} ocupado={ocupado} onTermina={de != null ? (ok) => onTrabajo(de, ok) : undefined} /></li>;
+  }
+  if (x.k === 'pantalla' && x.p.form) {
+    return (
+      <li className="m-mako-msg m-mako-msg--mk">
+        <div className="ch-tarjeta">
+          <p className="ch-tarjeta__resumen"><strong>{x.p.titulo}</strong></p>
+          <FormularioEnChat f={x.p.form} acciones={ACCIONES_FORMULARIO} abrirEnApp={{ titulo: 'Abrir en la app', href: x.p.href }} />
+        </div>
+      </li>
+    );
+  }
   if (x.k === 'pantalla') {
     return (
       <li className="m-mako-fila">
         <ListaM>
-          <FilaM leading={MARCA_MAKO} titulo={x.p.titulo} segunda={`Se revisa en ${TITULO_INBOX}`} href={x.p.href} />
+          {/* Lo que se acepta en SU pantalla (el editor, Chats) dice dónde; lo demás, la bandeja del teléfono. */}
+          <FilaM leading={MARCA_MAKO} titulo={x.p.titulo} segunda={x.p.clase === 'editor' || x.p.clase === 'whatsapp' ? x.p.nota : `Se revisa en ${TITULO_INBOX}`} href={x.p.href} />
         </ListaM>
       </li>
     );
@@ -382,10 +406,10 @@ function Item({ x, onAbrir, onReintentar, onRecargar }: {
         <FilaM
           leading={MARCA_MAKO}
           titulo={x.t.resumen}
-          segunda={x.estado === 'pendiente' ? (x.t.consecuencia ?? x.t.titulo) : x.t.titulo}
+          segunda={x.estado === 'pendiente' ? (x.t.consecuencia ?? x.t.titulo) : x.estado === 'hecho' && x.abrir ? x.abrir.titulo : x.t.titulo}
           pill={<PildoraM tono={pill.tono}>{pill.texto}</PildoraM>}
           enCurso={x.estado === 'aplicando' ? true : undefined}
-          onClick={() => onAbrir(x.id)}
+          {...(x.estado === 'hecho' && x.abrir ? { href: x.abrir.href } : { onClick: () => onAbrir(x.id) })}
         />
       </ListaM>
     </li>

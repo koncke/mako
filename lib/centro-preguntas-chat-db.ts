@@ -41,7 +41,7 @@ async function anotarAbiertas(porChat: ReadonlyMap<string, readonly PreguntaChat
   try {
     const mapa = parsearMapa(await getSettingEstricto(CLAVE_ABIERTAS));
     for (const [local, ps] of porChat) {
-      // Una superada (un wrap_up que Martín contestó por otro lado) no espera a nadie.
+      // Una superada (un wrap_up después del cual el chat siguió) no espera a nadie.
       const n = ps.filter(estaAbierta).length;
       if (n) mapa[local] = n; else delete mapa[local];
     }
@@ -74,7 +74,8 @@ export async function guardarPreguntas(preguntas: readonly PreguntaChat[]): Prom
       const antes = lista(parsear(await getSettingEstricto(PREFIJO + local)));
       // Con los turnos del chat: una de wrap_up que llega cuando Martín ya contestó en la app entra superada.
       const turnos = sanearTurnos(parsear(await getSetting(PREFIJO_TURNOS + local)));
-      const juntas = superarPreguntas(unirPreguntas(antes, nuevas), turnos);
+      // Y ANTES de unir: una de wrap_up que ya quedó atrás no frena a la misma pregunta hecha de nuevo (revisión de la ola 1).
+      const juntas = superarPreguntas(unirPreguntas(superarPreguntas(antes, turnos), nuevas), turnos);
       await setSetting(PREFIJO + local, JSON.stringify(juntas));
       escritas.set(local, juntas);
       entraron.push(...nuevas.map((p) => p.id));
@@ -129,7 +130,7 @@ export async function marcarContestada(local: string, id: string, respuesta: Res
     const p = actuales.find((x) => x.id === id);
     if (!p) return { ok: false, error: 'Esa pregunta ya no está.' };
     if (p.respuesta) return { ok: false, error: 'Ya la contestaste.', yaContestada: true };
-    if (p.superada) return { ok: false, error: 'Ya la contestaste por otro lado: el chat siguió.', yaContestada: true };
+    if (p.superada) return { ok: false, error: 'Ya no espera tu respuesta: el chat siguió.', yaContestada: true };
     const nueva: PreguntaChat = { ...p, respuesta };
     const juntas = actuales.map((x) => (x.id === id ? nueva : x));
     await setSetting(PREFIJO + local, JSON.stringify(juntas));
