@@ -53,6 +53,7 @@ import { CONFIG_KEY as CLAVE_LANDINGS, parsearConfig, funnelIdsDeLanding } from 
 import { leerCampanasAsignadasEstricto } from '@/lib/campana-funnel';
 import { funnelIdDeCampana } from '@/lib/campana-config';
 import { TERMINAL_DEL_PIPELINE } from '@/lib/pipeline';
+import { conversacionesSocialesNuevas, salientesSocialesDesde } from '@/lib/canal-zernio';
 import {
   sugerenciasDelCrm, sinCalladas, parsearCalladas, conCallada, sinCallada, estaCallada, claveCallada,
   CLAVE_CALLADAS, UMBRALES_SUGERENCIAS, textoComparable,
@@ -164,17 +165,14 @@ async function gestosAMano(leadIds: ReadonlySet<number>, ahora: number): Promise
   return { movimientos, noShowsAMano, fathomAMano };
 }
 
-/** CLASE 4 (20/10/2026): las conversaciones NUEVAS de Instagram y Messenger (`facebook`) de esos días. Tira si no se leyó. */
+/**
+ * CLASE 4 (20/10/2026): las conversaciones NUEVAS de Instagram y Messenger de esos días. Tira si no se leyó. Las tablas
+ * del canal se leen por el canal (lib/canal-zernio.ts, tests/sin-instagram.test.ts).
+ */
 async function dmsNuevos(ahora: number): Promise<NonNullable<EntradaSugerencias['nuevos']>> {
   const desde = new Date(ahora - UMBRALES_SUGERENCIAS.gestosDias * 86_400_000).toISOString();
-  const { data, error } = await (await getTenantDb()).from('ig_conversaciones').select('plataforma').gte('created_at', desde).limit(1000);
-  if (error) throw new Error(`conversaciones: ${error.message}`);
-  let dmInstagram = 0; let dmMessenger = 0;
-  for (const r of (data ?? []) as Array<{ plataforma: string | null }>) {
-    if (r.plataforma === 'facebook') dmMessenger++;
-    else if (r.plataforma === 'instagram') dmInstagram++;
-  }
-  return { dmInstagram, dmMessenger };
+  const { instagram, messenger } = await conversacionesSocialesNuevas(desde);
+  return { dmInstagram: instagram, dmMessenger: messenger };
 }
 
 /** Un lead de la casa del CRM, con lo que miran los tres lectores de abajo. */
@@ -190,20 +188,12 @@ type LeadDeCasa = { id: number; nombre: string; etapa: string; creado: string | 
 async function mensajesAMano(casa: ReadonlyMap<number, LeadDeCasa>, ahora: number): Promise<NonNullable<NonNullable<EntradaSugerencias['gestos']>['mensajes']>> {
   const desde = new Date(ahora - UMBRALES_SUGERENCIAS.gestosDias * 86_400_000).toISOString();
   const db = await getTenantDb();
+  // Instagram y Messenger, por el canal (lib/canal-zernio.ts: sus tablas no se leen desde acá).
   const [ig, email] = await Promise.all([
-    db.from('ig_mensajes').select('conversacion_id, texto').eq('direccion', 'saliente').gte('created_at', desde).limit(3000),
+    salientesSocialesDesde(desde),
     db.from('email_mensajes').select('lead_id, texto').eq('direccion', 'saliente').not('autor', 'is', null).gte('created_at', desde).limit(3000),
   ]);
-  if (ig.error) throw new Error(`mensajes de Instagram: ${ig.error.message}`);
   if (email.error) throw new Error(`emails: ${email.error.message}`);
-  const igFilas = (ig.data ?? []) as Array<{ conversacion_id: number; texto: string | null }>;
-  const convIds = [...new Set(igFilas.map((f) => Number(f.conversacion_id)))];
-  const leadDeConv = new Map<number, number>();
-  for (let i = 0; i < convIds.length; i += 200) {
-    const { data, error } = await db.from('ig_conversaciones').select('id, lead_id').in('id', convIds.slice(i, i + 200));
-    if (error) throw new Error(`conversaciones: ${error.message}`);
-    for (const c of (data ?? []) as Array<{ id: number; lead_id: number | null }>) if (c.lead_id != null) leadDeConv.set(Number(c.id), Number(c.lead_id));
-  }
   const out: Array<{ texto: string; muestra: string; lead: number; etapa: string }> = [];
   const sumar = (leadId: number | undefined | null, texto: string | null) => {
     const l = leadId != null ? casa.get(Number(leadId)) : undefined;
@@ -211,7 +201,7 @@ async function mensajesAMano(casa: ReadonlyMap<number, LeadDeCasa>, ahora: numbe
     if (!l || !t) return;
     out.push({ texto: textoComparable(t, l.nombre), muestra: t.length > 160 ? `${t.slice(0, 159).trimEnd()}…` : t, lead: l.id, etapa: l.etapa });
   };
-  for (const f of igFilas) sumar(leadDeConv.get(Number(f.conversacion_id)), f.texto);
+  for (const f of ig) sumar(f.leadId, f.texto);
   for (const f of (email.data ?? []) as Array<{ lead_id: number | null; texto: string | null }>) sumar(f.lead_id, f.texto);
   return out;
 }

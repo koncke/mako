@@ -467,7 +467,7 @@ export function sugerenciasDelCrm(e: EntradaSugerencias, tope: number = UMBRALES
         texto: `Mandaste el mismo mensaje a ${n} leads de ${comillas(label(g.etapa))}. ¿Lo dejo como secuencia de esa etapa?`,
         accion: {
           tipo: 'chat',
-          pedido: `En este CRM mandé a mano el mismo mensaje a ${n} leads de ${comillas(label(g.etapa))}: ${comillas(g.muestra)}. Armame una automatización de esa etapa que lo mande sola.`,
+          pedido: `En este CRM mandé a mano el mismo mensaje a ${n} leads de ${comillas(label(g.etapa))}: ${comillas(g.muestra)}. Ármame una automatización de esa etapa que lo mande sola.`,
         },
       });
     }
@@ -507,7 +507,7 @@ export function sugerenciasDelCrm(e: EntradaSugerencias, tope: number = UMBRALES
         texto: `${f.leads === 1 ? 'Llegó 1 lead' : `Llegaron ${f.leads} leads`} de la ${f.tipo} ${comillas(f.nombre)}, que no está en ningún CRM. ¿La conecto?`,
         accion: {
           tipo: 'chat',
-          pedido: `La ${f.tipo} ${comillas(f.nombre)} no está conectada a ningún CRM: sus leads caen al CRM principal. ¿A qué CRM conviene conectarla? Si es a éste, conectala.`,
+          pedido: `La ${f.tipo} ${comillas(f.nombre)} no está conectada a ningún CRM: sus leads caen al CRM principal. ¿A qué CRM conviene conectarla? Si es a éste, conéctala.`,
         },
       });
     }
@@ -528,7 +528,7 @@ export function sugerenciasDelCrm(e: EntradaSugerencias, tope: number = UMBRALES
         texto: `${volvieron.length} leads volvieron a mirar tu landing o el VSL. ¿Te armo la lista para el closer?`,
         accion: {
           tipo: 'chat',
-          pedido: `Estos leads de este CRM volvieron a la landing o miraron el VSL dos veces en las últimas dos semanas: ${quienes}${volvieron.length > 10 ? ` y ${volvieron.length - 10} más` : ''}. Armame la lista para el closer: a quién llamar primero y qué decirle.`,
+          pedido: `Estos leads de este CRM volvieron a la landing o miraron el VSL dos veces en las últimas dos semanas: ${quienes}${volvieron.length > 10 ? ` y ${volvieron.length - 10} más` : ''}. Ármame la lista para el closer: a quién llamar primero y qué decirle.`,
         },
       });
     }

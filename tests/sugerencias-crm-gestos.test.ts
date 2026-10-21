@@ -140,7 +140,9 @@ test('clase 4: el lead de un formulario sin CRM ofrece conectarlo; el que vuelve
 test('el server: los mensajes de una PERSONA (sin WhatsApp), la asignación de HOY leída estricta, y la vuelta un día DESPUÉS', () => {
   const sv = leer('lib/sugerencias-crm-server.ts');
   const m = sv.slice(sv.indexOf('async function mensajesAMano'), sv.indexOf('const nombreDePagina'));
-  assert.match(m, /from\('ig_mensajes'\)\.select\('conversacion_id, texto'\)\.eq\('direccion', 'saliente'\)/);
+  // Instagram y Messenger por el canal (lib/canal-zernio.ts, tests/sin-instagram.test.ts), con su saliente a mano.
+  assert.match(m, /salientesSocialesDesde\(desde\)/);
+  assert.match(leer('lib/canal-zernio.ts'), /from\('ig_mensajes'\)\.select\('conversacion_id, texto'\)\.eq\('direccion', 'saliente'\)/);
   assert.match(m, /from\('email_mensajes'\)[^\n]*\.not\('autor', 'is', null\)/, 'un email cuenta sólo si lo mandó una persona desde Chats');
   assert.doesNotMatch(m, /wa_mensajes/, 'WhatsApp no sabe quién escribió: contaría las secuencias como gestos');
   const f = sv.slice(sv.indexOf('async function fuentesSinCrm'), sv.indexOf('async function leadsQueVolvieron'));

@@ -356,9 +356,8 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   // `replayDeLead` no tira y distingue «no pude leer».
   // Los datos sin marcar sólo necesitan los insumos de la primera tanda: van JUNTO con el replay, no después (20/10/2026,
   // docs/pedidos-crm.md C3: medido en el ws1, era una ida y vuelta más en serie al abrir la ficha).
-  const [insightGen, equipo, replay, funnels, cobro, sinMarcar] = await Promise.all([
-    insightGenP, equipoP, replayDeLead(lead.visitor_id, ultimaActividad), funnelsP, cobroP, datosSinMarcarDeLead(lead, insumos),
-  ]);
+  const [insightGen, equipo, replay, sinMarcar, funnels, cobro] = await Promise.all([
+    insightGenP, equipoP, replayDeLead(lead.visitor_id, ultimaActividad), datosSinMarcarDeLead(lead, insumos), funnelsP, cobroP]);
   const { pagos, stages, respuestas } = insumos;
   const campana = resolverNombreCampana(lead.utm_campaign, campMap);
   // El anuncio puede venir por meta_ad_id (instant form) o por utm_content (Calendly):
