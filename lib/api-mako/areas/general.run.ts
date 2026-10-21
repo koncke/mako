@@ -27,6 +27,7 @@
 import 'server-only';
 import { revalidatePath, revalidateTag } from 'next/cache';
 import type { Runners, Preparado, Ejecutado } from '../tipos';
+import { quienChatea } from '../tipos';
 import { TAG } from '@/lib/cache';
 import { hoyEnWorkspace } from '@/lib/timezone';
 import { diasAntes } from '@/lib/date-utils';
@@ -762,7 +763,7 @@ export const RUNNERS: Runners = {
         funnels: funnels ? funnels.map((f) => ({ id: f.id, nombre: f.nombre, principal: f.esDefault })) : 'no se pudieron leer',
       };
       const pedido = str(input, 'persona');
-      const e = elegirPersona(admins, pedido);
+      const e = elegirPersona(admins, pedido, quienChatea(ctx));
       if (!e.ok) return json({ ...base, error: e.error });
       const l = await informeDe(e.persona.sub);
       const quien = ctx.canal === 'http' && !pedido ? 'la única persona admin de la cuenta' : `${e.persona.nombre || e.persona.email} (${e.persona.email})`;
@@ -782,7 +783,7 @@ export const RUNNERS: Runners = {
   crear_hoja_general: {
     preparar: async (input, ctx): Promise<Preparado> => {
       const admins = await adminsDeLaCuenta(ctx.ws);
-      const e = elegirPersona(admins, str(input, 'persona'));
+      const e = elegirPersona(admins, str(input, 'persona'), quienChatea(ctx));
       if (!e.ok) return { error: e.error };
       const id = str(input, 'plantilla') ?? '';
       const pedido = str(input, 'pedido') ?? '';
@@ -832,7 +833,7 @@ export const RUNNERS: Runners = {
   editar_hoja_general_con_ia: {
     preparar: async (input, ctx): Promise<Preparado> => {
       const admins = await adminsDeLaCuenta(ctx.ws);
-      const e = elegirPersona(admins, str(input, 'persona'));
+      const e = elegirPersona(admins, str(input, 'persona'), quienChatea(ctx));
       if (!e.ok) return { error: e.error };
       const l = await informeDe(e.persona.sub);
       if (!l.tablero.hojas.length) return { error: 'Esa persona todavía no armó su General: crea una hoja primero con crear_hoja_general.' };
@@ -873,7 +874,7 @@ export const RUNNERS: Runners = {
   agregar_bloque_general: {
     preparar: async (input, ctx): Promise<Preparado> => {
       const admins = await adminsDeLaCuenta(ctx.ws);
-      const e = elegirPersona(admins, str(input, 'persona'));
+      const e = elegirPersona(admins, str(input, 'persona'), quienChatea(ctx));
       if (!e.ok) return { error: e.error };
       const pieza = str(input, 'bloque');
       if (!esPiezaGeneral(pieza)) return { error: `El bloque «${pieza ?? ''}» no existe. Son: ${PIEZAS_GENERAL.map((x) => x.id).join(', ')}.` };
@@ -929,7 +930,7 @@ export const RUNNERS: Runners = {
   configurar_bloque_general: {
     preparar: async (input, ctx): Promise<Preparado> => {
       const admins = await adminsDeLaCuenta(ctx.ws);
-      const e = elegirPersona(admins, str(input, 'persona'));
+      const e = elegirPersona(admins, str(input, 'persona'), quienChatea(ctx));
       if (!e.ok) return { error: e.error };
       const l = await informeDe(e.persona.sub);
       const hoja = l.tablero.hojas.find((h) => h.id === str(input, 'hoja'));

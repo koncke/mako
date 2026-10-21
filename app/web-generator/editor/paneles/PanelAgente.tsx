@@ -15,9 +15,25 @@
 //   · mientras la IA trabaja el input se bloquea con «Espera a que la IA termine» (Gamma §8);
 //   · la respuesta es un CAMBIO PROPUESTO con el toggle «Original | Modificado» y se acepta o
 //     se descarta entera; después de aceptar, «Restaurar» la vuelve atrás.
-// Lo que NO se copia: adjuntar archivos al chat (⊕), «Abrir archivos» y los chats guardados
-// del agente (Gamma guarda el historial del chat; acá vive en la memoria de la pestaña, como
-// pidió el diseño: no hay tabla para eso), y la búsqueda en la web.
+// Lo que NO se copia: «Abrir archivos» y los chats guardados del agente (Gamma guarda el
+// historial del chat; acá vive en la memoria de la pestaña, como pidió el diseño: no hay tabla
+// para eso), y la búsqueda en la web.
+//
+// ADJUNTAR (⊕), desde el 20/10/2026. El 11/10 no se copió a propósito; en el onboarding de Florencia
+// (llamada de Fathom 864249059, 18/10) ella no pudo darle su documento y el PDF «Lo que vendes» al chat
+// («No me permite») y Martín: «es un error… no te está permitiendo juntar documentos, yo lo voy a
+// solucionar». Son las piezas del Ops Center (un solo chat en toda la app, regla del 18/10): el «+»
+// (`MasCaja`), las miniaturas (`ListaAdjuntos`) y pegar y soltar (`alPegar`, `alSoltar`) de
+// app/admin/operaciones/AdjuntosCaja.tsx. Cada archivo se LEE al entrar (la ruta de Importar) y su
+// texto viaja con el pedido a «editar», que lo pone en el contexto como datos
+// (lib/editor-landing/adjuntos.ts). Si el onboarding dejó «Lo que vendes» en El Archivero, se ofrece
+// como chip. Lo puro (qué entra, qué se avisa, cuándo se manda) está en ../adjuntos-agente.ts.
+// Las piezas toman los colores del editor: CSS_AGENTE redefine sus tokens (--surface, --border…)
+// bajo `.gma-ag` (AGENTS.md, «Una pantalla oscura se hace redefiniendo TOKENS»).
+// ⚠️ ESTE ARCHIVO NO CARGA CSS. Lo importan módulos que cargan los tests (DialogoAnalitica, AskAgent…) y en
+//    node un `.css` no carga: tiró abajo tests/editor-landing-agente.test.ts (20/10/2026). Por eso el «+» y
+//    las miniaturas entran con `next/dynamic` (AdjuntosCaja.tsx trae chat.css), pegar y soltar vienen de
+//    pegar.ts (sin CSS) y centro.css lo importa EditorLanding.tsx, que ya traía gamma.css.
 //
 // Además de la pantalla, este archivo EXPORTA lo que comparte con el popover de una sección
 // (AskAgent.tsx) y con el historial y el modo Presentar: el pedido a las rutas, la revisión
@@ -48,11 +64,18 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type RefObject } from 'react';
 import type { Editor } from '@tiptap/react';
-import Link, { useRouter } from '@/app/_ui/Link';
+import dynamic from 'next/dynamic';
+import Link, { useRouter, useWs } from '@/app/_ui/Link';
+import { alPegar, alSoltar, traeArchivos } from '@/app/admin/operaciones/pegar';
+import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
+import { instruccionConAdjuntos, type AdjuntoEditar } from '@/lib/editor-landing/adjuntos';
 import { useEditorLanding, type CtxEditorLanding } from '../contexto';
 import { esPresentacion, formatoDe, terminoTarjeta, type ConfigLanding } from '@/lib/editor-landing/api-tipos';
 import type { JsonNodo } from '@/lib/editor-landing/doc';
-import { PLAZO_PEDIDOS_MS, cortadoPorUsuario, pedirDocs, pedirIA, pedirPedidos } from '../../cliente';
+import {
+  PLAZO_PEDIDOS_MS, bajarDelArchivero, cortadoPorUsuario, leerArchivo, pedirDocs, pedirIA, pedirLoQueVendes, pedirPedidos, type DocDelArchivero,
+} from '../../cliente';
+import { avisoDeAdjuntos, conLectura, ofreceDoc, paraEnviar, puedeMandar, queSumar, tipoDeAdjunto, type AdjuntoAgente } from '../adjuntos-agente';
 import {
   CLAVE_CAJA, RUTA_CREAR, alTerminar, alVolver, burbujasDe, cajaParaCrear, cuerpoPedidos, interpretacionDe, pulsar, sinTerminar,
   textoActual, trasNoAbrir, trasPapelera, trasRestaurar, vistaDeBurbuja, type BurbujaPedido, type EfectoPedido,
@@ -399,7 +422,8 @@ export function RevisionPropuesta({ propuesta, estado, aviso, onAceptar, onAplic
 // cuando llega. Se pierde al recargar la pestaña, como pidió el diseño.
 
 type Mensaje =
-  | { id: number; de: 'yo'; texto: string; seccion: string | null }
+  /** `adjuntos`: los nombres de los archivos que viajaron con el mensaje (se ven como chips en la burbuja). */
+  | { id: number; de: 'yo'; texto: string; seccion: string | null; adjuntos?: string[] }
   | { id: number; de: 'mako'; texto: string; error?: boolean; propuesta?: Propuesta; estado?: EstadoPropuesta; aviso?: string; aplicada?: Aplicada }
   /** Un pedido que NO es de la landing abierta (../pedidos-chat.ts): una burbuja de MaKo con sus botones. */
   | { id: number; de: 'pedido'; burbuja: BurbujaPedido };
@@ -466,11 +490,16 @@ export function tituloVivo(editor: Editor | null, id: string | null): string | n
  * «editar» con su texto; lo demás, como burbujas debajo de la respuesta («se contesta lo actual y se propone lo
  * otro»). Sin nada de esta landing, no se llama a «editar». `interpretar: false` = un pedido NUESTRO (una
  * sugerencia), que es de edición por definición y no gasta la vuelta.
+ *
+ * `adjuntos`: los archivos de la caja, ya leídos. Viajan a «editar» como contexto (lib/editor-landing/adjuntos.ts). Sin
+ * nada escrito, la instrucción es la nuestra (`instruccionConAdjuntos`) y no se interpreta.
  */
-async function pedirEdicion(ctx: CtxEditorLanding, instruccion: string, alcance: 'landing' | 'seccion', op: { interpretar?: boolean } = {}): Promise<void> {
+async function pedirEdicion(ctx: CtxEditorLanding, instruccion: string, alcance: 'landing' | 'seccion', op: { interpretar?: boolean; adjuntos?: readonly AdjuntoEditar[] } = {}): Promise<void> {
   const docId = ctx.docId;
   const editor = ctx.editor;
-  const texto = instruccion.trim();
+  const adjuntos = op.adjuntos ?? [];
+  const escrito = instruccion.trim();
+  const texto = instruccionConAdjuntos(escrito, adjuntos.length);
   if (!texto || !editor || editor.isDestroyed || (hilos.get(docId)?.corriendo)) return;
   // Lo que se manda se toma AHORA, con la página de ahora: la propuesta es de su página (cabecera).
   const todas = tarjetasDelDoc(editor.getJSON());
@@ -478,7 +507,10 @@ async function pedirEdicion(ctx: CtxEditorLanding, instruccion: string, alcance:
   const enviadas = activa ? [activa] : todas;
   cambiarHilo(docId, (h) => ({
     corriendo: true,
-    mensajes: [...h.mensajes, { id: ++ultimoId, de: 'yo', texto, seccion: activa ? tituloVivo(editor, idDe(activa)) : null }],
+    mensajes: [...h.mensajes, {
+      id: ++ultimoId, de: 'yo', texto: escrito, seccion: activa ? tituloVivo(editor, idDe(activa)) : null,
+      ...(adjuntos.length ? { adjuntos: adjuntos.map((a) => a.nombre) } : {}),
+    }],
   }));
   const corte = new AbortController();
   cortes.set(docId, corte);
@@ -489,7 +521,7 @@ async function pedirEdicion(ctx: CtxEditorLanding, instruccion: string, alcance:
 
   let paraEditar: string | null = texto;
   let burbujas: Mensaje[] = [];
-  if (op.interpretar !== false) {
+  if (op.interpretar !== false && escrito) {
     const ri = await pedirPedidos(cuerpoPedidos(texto, docId, ctx.titulo), { ms: PLAZO_PEDIDOS_MS, signal: corte.signal });
     // «Detener» mientras se interpretaba: no se sigue con nada.
     if (!ri.ok && cortadoPorUsuario(ri)) { terminar({ id: ++ultimoId, de: 'mako', texto: ri.error }); return; }
@@ -504,7 +536,8 @@ async function pedirEdicion(ctx: CtxEditorLanding, instruccion: string, alcance:
     return;
   }
   // T3: con una presentación, la IA edita diapositivas (ia.ts lee `params.formato` del pedido crudo).
-  const r = await pedirIA({ accion: 'editar', instruccion: paraEditar, tarjetas: enviadas, alcance: activa ? 'seccion' : 'landing', params: { formato: formatoDe(ctx.config) } }, { signal: corte.signal });
+  const conAdjuntos = adjuntos.length ? { adjuntos: [...adjuntos] } : {};
+  const r = await pedirIA({ accion: 'editar', instruccion: paraEditar, tarjetas: enviadas, alcance: activa ? 'seccion' : 'landing', ...conAdjuntos, params: { formato: formatoDe(ctx.config) } }, { signal: corte.signal });
   let msg: Mensaje;
   if (!r.ok) msg = { id: ++ultimoId, de: 'mako', texto: r.error, error: !cortadoPorUsuario(r) };
   else if ('tarjetas' in r) {
@@ -572,6 +605,27 @@ function BurbujaDePedido({ burbuja, onBoton }: { burbuja: BurbujaPedido; onBoton
   );
 }
 
+let ultimoAdjunto = 0;
+
+/** El «+» y las miniaturas del Ops Center, sin cargar su CSS en el import de este módulo (ver la cabecera). */
+const ListaAdjuntos = dynamic(() => import('@/app/admin/operaciones/AdjuntosCaja').then((m) => m.ListaAdjuntos));
+const MasCaja = dynamic(() => import('@/app/admin/operaciones/AdjuntosCaja').then((m) => m.MasCaja));
+
+/**
+ * El «Lo que vendes» del negocio (GET /api/landing-generator/importar), pedido UNA vez por negocio en la pestaña: el
+ * panel se colapsa y se vuelve a montar, y el documento no cambia mientras se edita. Por `ws`: el super admin cambia de
+ * negocio sin recargar y no tiene que ver el chip del otro. Si no vino, se vuelve a pedir la próxima.
+ */
+const loQueVendes = new Map<number | null, Promise<DocDelArchivero | null>>();
+function traerLoQueVendes(ws: number | null): Promise<DocDelArchivero | null> {
+  let p = loQueVendes.get(ws);
+  if (!p) {
+    p = pedirLoQueVendes().then((d) => { if (!d) loQueVendes.delete(ws); return d; });
+    loQueVendes.set(ws, p);
+  }
+  return p;
+}
+
 /** `onCerrar`: quien lo monta puede cerrarlo a su manera; si no, el panel se colapsa por el contexto. */
 export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
   const ctx = useEditorLanding();
@@ -580,6 +634,7 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
   const ctxVivo = useCallback(() => ctxRef.current, []);
   const { docId, titulo, editor, tarjetaActiva, modoIA, setPanelIzq, avisar, setPanelDer } = ctx;
   const router = useRouter();
+  const ws = useWs();
   const hilo = useHilo(docId);
   const sugerencias = sugerenciasDe(ctx.config);
   const [texto, setTexto] = useState('');
@@ -589,6 +644,31 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const hiloRef = useRef<HTMLDivElement>(null);
   const seccionActiva = tituloVivo(editor, tarjetaActiva);
+
+  // ── Los archivos de la caja (../adjuntos-agente.ts) ───────────────────────
+  // `caja` es la verdad (se lee sincrónico al sumar y al mandar); el estado, lo que se dibuja. Es UN objeto que no
+  // cambia de identidad: la limpieza al desmontar ve lo último sin leer un `ref.current` viejo.
+  const caja = useRef({ items: [] as AdjuntoAgente[], lecturas: new Map<string, AbortController>() });
+  const [adjuntos, setAdjuntos] = useState<AdjuntoAgente[]>([]);
+  const poner = useCallback((f: (xs: AdjuntoAgente[]) => AdjuntoAgente[]) => {
+    caja.current.items = f(caja.current.items);
+    setAdjuntos(caja.current.items);
+  }, []);
+  const [doc, setDoc] = useState<DocDelArchivero | null>(null);
+  const [trayendo, setTrayendo] = useState(false);
+  const [encima, setEncima] = useState(false);
+  useEffect(() => {
+    let vivo = true;
+    void traerLoQueVendes(ws).then((d) => { if (vivo) setDoc(d); });
+    return () => { vivo = false; };
+  }, [ws]);
+  useEffect(() => {
+    const c = caja.current;
+    return () => {
+      for (const l of c.lecturas.values()) l.abort();
+      for (const x of c.items) URL.revokeObjectURL(x.url);
+    };
+  }, []);
 
   // Gamma 5: con «Edición con IA» prendida, tocar una sección la vuelve el chip del chat. Se
   // CALCULA (no se dispara con un efecto): lo elegido vale para la sección en la que se eligió;
@@ -610,6 +690,63 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
     void pedirEdicion(ctxRef.current, instruccion, alc, op);
     setTexto('');
   };
+
+  /** Entran archivos (el «+», soltados o pegados): cada uno se LEE ya, para que al mandar esté su texto. */
+  const sumar = (fs: File[]) => {
+    const { tomar, aviso } = queSumar(caja.current.items, fs);
+    if (aviso) avisar(aviso);
+    if (!tomar.length) return;
+    const nuevos = tomar.map((file): AdjuntoAgente => ({ id: `a${++ultimoAdjunto}`, file, tipo: tipoDeAdjunto(file), url: URL.createObjectURL(file), estado: 'leyendo' }));
+    poner((xs) => [...xs, ...nuevos]);
+    for (const n of nuevos) {
+      const ac = new AbortController();
+      caja.current.lecturas.set(n.id, ac);
+      void leerArchivo(n.file, ac.signal).then((r) => {
+        if (ac.signal.aborted) return;
+        caja.current.lecturas.delete(n.id);
+        poner((xs) => conLectura(xs, n.id, r));
+      });
+    }
+  };
+  /** Después de mandar: la caja queda vacía (lo que viajó ya está en la burbuja). */
+  const soltarTodos = () => {
+    for (const l of caja.current.lecturas.values()) l.abort();
+    caja.current.lecturas.clear();
+    for (const x of caja.current.items) URL.revokeObjectURL(x.url);
+    poner(() => []);
+  };
+  const quitar = (id: string) => {
+    caja.current.lecturas.get(id)?.abort();
+    caja.current.lecturas.delete(id);
+    const x = caja.current.items.find((a) => a.id === id);
+    if (x) URL.revokeObjectURL(x.url);
+    poner((xs) => xs.filter((a) => a.id !== id));
+  };
+  const adj: AdjuntosDeCaja = {
+    items: adjuntos, puede: !hilo.corriendo && !!editor, onSumar: sumar, onQuitar: quitar,
+    onNoPuede: () => avisar('Espera a que la IA termine'),
+  };
+  const avisoAdj = avisoDeAdjuntos(adjuntos);
+
+  /** El chip de «Lo que vendes»: baja el PDF de El Archivero y entra como cualquier otro archivo. */
+  const traerDoc = async () => {
+    if (!doc || trayendo) return;
+    setTrayendo(true);
+    const f = await bajarDelArchivero(doc);
+    setTrayendo(false);
+    if (!f) { avisar('No pude traer «Lo que vendes»'); return; }
+    sumar([f]);
+  };
+
+  /** El ↑ (o Enter) de la caja: lo escrito y los archivos leídos. Lo que se ve en la caja es lo que viaja. */
+  const mandar = () => {
+    const items = caja.current.items;
+    if (hilo.corriendo || !editor || !puedeMandar(texto, items)) return;
+    void pedirEdicion(ctxRef.current, texto, alcanceReal, { adjuntos: paraEnviar(items) });
+    setTexto('');
+    soltarTodos();
+  };
+  const listo = puedeMandar(texto, adjuntos);
 
   const sugerir = (s: Sugerencia) => {
     if (s.alcance) setAlcance(s.alcance);
@@ -713,7 +850,14 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
   };
 
   return (
-    <aside className="gma gma-pb gma-ag" aria-label="Edición con IA">
+    <aside
+      className="gma gma-pb gma-ag"
+      aria-label="Edición con IA"
+      data-encima={encima ? '' : undefined}
+      onDragOver={(e) => { if (!traeArchivos(e.dataTransfer)) return; e.preventDefault(); if (!encima) setEncima(true); }}
+      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setEncima(false); }}
+      onDrop={(e) => { setEncima(false); alSoltar(e, adj); }}
+    >
       <EstilosPanelesB />
       <style href="gma-agente" precedence="medium">{CSS_AGENTE}</style>
       <header className="gma-ag-cab">
@@ -739,6 +883,7 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
           ? (
             <div key={m.id} className="gma-ag-burbuja" data-de="yo">
               {m.seccion && <span className="gma-ag-chip-msg"><Ico n="diseno" t={12} /> {m.seccion}</span>}
+              {m.adjuntos?.map((n, i) => <span key={`${i}:${n}`} className="gma-ag-chip-msg"><Ico n="archivo" t={12} /> {n}</span>)}
               {m.texto}
             </div>
           )
@@ -781,14 +926,23 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
             </button>
           )}
         </div>
+        {doc && ofreceDoc(doc, adjuntos) && (
+          <div className="gma-ag-docs">
+            <button type="button" className="gma-ag-chip gma-ag-chip-doc" onClick={() => void traerDoc()} disabled={trayendo || !adj.puede} title={`Adjuntar ${doc.nombre}`}>
+              {trayendo ? <span className="gma-pb-giro" aria-hidden /> : <Ico n="mas" t={12} />} Lo que vendes (PDF)
+            </button>
+          </div>
+        )}
         <div className="gma-ag-caja" data-ocupada={hilo.corriendo ? '' : undefined}>
+          <ListaAdjuntos a={adj} />
           <textarea
             ref={inputRef}
             className="gma-ag-input"
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
+            onPaste={(e) => alPegar(e, adj)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); enviar(texto); }
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); mandar(); }
             }}
             placeholder={hilo.corriendo ? 'Espera a que la IA termine' : 'Envía un mensaje al agente…'}
             disabled={hilo.corriendo || !editor}
@@ -796,11 +950,13 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
             aria-label="Mensaje al agente"
           />
           <div className="gma-ag-caja-pie">
+            <MasCaja a={adj} apagado={!adj.puede} />
             {hilo.corriendo
               ? <button type="button" className="gma-ag-enviar" data-detener="" onClick={detener} title="Detener generación" aria-label="Detener generación"><span className="gma-ag-cuadro" /></button>
-              : <button type="button" className="gma-ag-enviar" data-listo={texto.trim() ? '' : undefined} onClick={() => enviar(texto)} disabled={!texto.trim() || !editor} title="Enviar" aria-label="Enviar"><Ico n="flecha-arriba" t={15} /></button>}
+              : <button type="button" className="gma-ag-enviar" data-listo={listo ? '' : undefined} onClick={mandar} disabled={!listo || !editor} title="Enviar" aria-label="Enviar"><Ico n="flecha-arriba" t={15} /></button>}
           </div>
         </div>
+        {avisoAdj && <p className="gma-ag-aviso-adj" data-error={avisoAdj.error ? '' : undefined} role={avisoAdj.error ? 'alert' : 'status'}>{avisoAdj.texto}</p>}
       </footer>
     </aside>
   );
@@ -813,6 +969,8 @@ export default PanelAgente;
 // derecha.
 const CSS_AGENTE = `
 .gma-ag{display:flex;flex-direction:column;width:336px;max-width:100%;height:100%;min-height:0;background:var(--pb-fondo);border-right:1px solid var(--pb-borde)}
+.gma-ag{--surface:var(--pb-fondo);--surface-2:var(--pb-sup);--border:var(--pb-borde);--border-strong:var(--pb-borde);--ink:var(--pb-texto);--dim:var(--pb-tenue);--faint:var(--pb-suave);--velo-hover:var(--pb-sup);--focus-ring:0 0 0 2px var(--pb-vivo)}
+.gma-ag[data-encima]{box-shadow:inset 0 0 0 2px var(--pb-vivo)}
 .gma-ag-cab{display:flex;align-items:center;gap:8px;height:48px;flex:none;padding:0 8px 0 12px}
 .gma-ag-casa{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;flex:none;border-radius:50%;box-shadow:inset 0 0 0 1px var(--pb-borde);color:var(--pb-tenue);text-decoration:none}
 .gma-ag-casa:hover{color:var(--pb-texto);background:var(--pb-sup)}
@@ -839,7 +997,18 @@ const CSS_AGENTE = `
 .gma-ag-caja[data-ocupada]{background:var(--pb-sup)}
 .gma-ag-input{width:100%;min-height:40px;max-height:160px;resize:none;border:0;outline:none;background:transparent;color:var(--pb-texto);font:inherit;font-size:13.5px;line-height:1.45;padding:0}
 .gma-ag-input::placeholder{color:var(--pb-suave)}
-.gma-ag-caja-pie{display:flex;justify-content:flex-end}
+.gma-ag-caja-pie{display:flex;align-items:flex-end;justify-content:space-between;gap:8px}
+.gma-ag-caja-pie .ch-adjuntar{width:30px;height:30px}
+.gma-ag-caja>.co-miniaturas{margin:0 0 4px}
+.gma-ag .co-miniatura[data-estado="leyendo"] .co-miniatura__ver{opacity:.55}
+.gma-ag .co-miniatura[data-estado="leyendo"]::after{content:"";position:absolute;left:50%;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;border:2px solid var(--pb-azul);border-right-color:transparent;animation:gmaPbGiro .7s linear infinite;pointer-events:none}
+.gma-ag .co-miniatura[data-estado="error"] .co-miniatura__ver{box-shadow:0 0 0 1.5px var(--pb-mal);border-color:var(--pb-mal)}
+.gma-ag-docs{display:flex;flex-wrap:wrap;gap:6px}
+.gma-ag-chip-doc{border-style:dashed}
+.gma-ag-chip-doc:hover:not(:disabled){border-color:var(--pb-celeste2);background:var(--pb-celeste);color:var(--pb-tinta)}
+.gma-ag-chip-doc:disabled{opacity:.6;cursor:default}
+.gma-ag-aviso-adj{margin:0;font-size:12px;color:var(--pb-tenue)}
+.gma-ag-aviso-adj[data-error]{color:var(--pb-mal)}
 .gma-ag-enviar{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border:0;border-radius:50%;background:var(--pb-borde);color:var(--pb-fondo);cursor:pointer;transition:background .15s ease}
 .gma-ag-enviar[data-listo],.gma-ag-enviar[data-detener]{background:var(--pb-azul);color:var(--pb-azul-txt)}
 .gma-ag-enviar:disabled{cursor:default}

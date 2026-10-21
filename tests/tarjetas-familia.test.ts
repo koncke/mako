@@ -186,7 +186,7 @@ test('cada componente del kit monta sus estilos, y quien usa clases tk-* sueltas
 test('la columna con su bloque de fondo en los tres tableros, y «Próximo» plegado detrás del calendario', () => {
   const tk = leer('lib/tarjeta-kanban.ts');
   const valor = tk.match(/export const FONDO_COLUMNA = '([^']+)';/)?.[1];
-  assert.equal(valor, 'var(--surface-2)');
+  assert.equal(valor, 'var(--fondo-columna)');
   const crm = leer('app/crm/CrmBoard.tsx');
   for (const [f, t] of [['app/crm/CrmBoard.tsx', crm], ['app/plan/board/BoardShell.tsx', leer('app/plan/board/BoardShell.tsx')],
     ['app/customer-success/KanbanEntrega.tsx', leer('app/customer-success/KanbanEntrega.tsx')]] as const) {
@@ -200,4 +200,37 @@ test('la columna con su bloque de fondo en los tres tableros, y «Próximo» ple
   assert.match(crm, /if \(!verProximo\) return null;/, '«Próximo» se dibuja sólo desplegado');
   assert.match(crm, /onAlternar=\{hayProxima \? \(\) => setVerProximo\(\(v\) => !v\) : null\}/, 'el calendario lo despliega');
   assert.match(leer('app/crm/ReunionesProximas.tsx'), /onClick=\{onAlternar \?\? \(\(\) => setAbierto\(true\)\)\}/, 'con próxima reunión, el calendario no abre el pop-up');
+});
+
+// ── 9. La columna SE VE contra la página (20/10/2026) ───────────────────────────────────────────────────────────────
+// El 18/10 el fondo de la columna pasó a `--surface-2` y el test de arriba quedó verde, pero `--surface-2` es #F5F7FA
+// sobre una página #F4F6F9: el mismo color. Martín, el 20/10: «que las columnas no sean invisibles». Esto mezcla el
+// fondo de la columna SOBRE el de la página, en claro y en oscuro, y pide una diferencia que el ojo vea.
+// PROBADO ROMPIÉNDOLO (20/10/2026), con el archivo en 9 / 0: `--fondo-columna: var(--surface-2)` en claro → 8 / 1
+//   («claro: la columna se separa 1.7 de la página»).
+test('la columna se ve contra la página, en claro y en oscuro', () => {
+  const css = leer('app/globals.css');
+  const bloque = (inicio: string) => { const i = css.indexOf(inicio); return css.slice(i, css.indexOf('\n}', i)); };
+  const claro = bloque(':root {');
+  const oscuro = bloque('[data-tema="oscuro"] {');
+  const valor = (b: string, v: string): string => {
+    const m = b.match(new RegExp(`--${v}:\s*([^;]+);`))?.[1]?.trim() ?? '';
+    const ref = m.match(/^var\(--([\w-]+)\)$/);
+    return ref ? valor(b, ref[1]) : m;
+  };
+  const rgba = (c: string): [number, number, number, number] => {
+    const h = c.match(/^#([0-9a-f]{6})$/i);
+    if (h) return [0, 2, 4].map((i) => parseInt(h[1].slice(i, i + 2), 16)).concat(1) as [number, number, number, number];
+    const r = c.match(/^rgba?\(([^)]+)\)$/);
+    assert.ok(r, `no sé leer el color «${c}»`);
+    const [a, b, d, al = '1'] = r[1].split(',').map((x) => x.trim());
+    return [Number(a), Number(b), Number(d), Number(al)];
+  };
+  for (const [nombre, b] of [['claro', claro], ['oscuro', oscuro]] as const) {
+    const [br, bg, bb] = rgba(valor(b, 'bg'));
+    const [cr, cg, cb, ca] = rgba(valor(b, 'fondo-columna') || valor(claro, 'fondo-columna'));
+    const mezcla = [cr * ca + br * (1 - ca), cg * ca + bg * (1 - ca), cb * ca + bb * (1 - ca)];
+    const dist = Math.hypot(mezcla[0] - br, mezcla[1] - bg, mezcla[2] - bb);
+    assert.ok(dist >= 8, `${nombre}: la columna se separa ${dist.toFixed(1)} de la página (pide 8 o más)`);
+  }
 });

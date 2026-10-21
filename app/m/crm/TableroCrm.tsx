@@ -76,14 +76,16 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
     () => datos.columnas.map((c) => ({ key: c.key, titulo: c.titulo, total: c.total ?? undefined, cuantos: c.cuantos })),
     [datos.columnas],
   );
+  // Qué muestra la tarjeta (20/10/2026): la elección de quien mira, la misma que en la computadora.
+  const ve = useMemo(() => new Set<string>(datos.campos ?? []), [datos.campos]);
   const tarjetas: TarjetaKanban[] = useMemo(() => datos.tarjetas.map((t) => ({
     id: String(t.id),
     col: t.col,
     // Sin `href` (17/10/2026): tocar abre la ficha rápida (`onTocar`); desde ahí «Abrir ficha» lleva a la completa.
     // El nombre accesible lleva lo que dice el punto (el color solo no se lee).
     etiqueta: t.senal.dice ? `${t.nombre}, ${t.senal.dice}` : t.nombre,
-    contenido: <FilaLead t={t} />,
-  })), [datos.tarjetas]);
+    contenido: <FilaLead t={t} ve={ve} />,
+  })), [datos.tarjetas, ve]);
 
   const mover = async (id: string, destino: string): Promise<ResultadoMover> => {
     const leadId = Number(id);
@@ -203,14 +205,16 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
  * Las clases van sin `.m-crm-tablero` delante a propósito: la COPIA que sigue al dedo al arrastrar cuelga de #m-root
  * (KanbanM), fuera del tablero, y tiene que dibujarse igual.
  */
-function FilaLead({ t }: { t: TableroCrmM['tarjetas'][number] }) {
+function FilaLead({ t, ve }: { t: TableroCrmM['tarjetas'][number]; ve: ReadonlySet<string> }) {
   // La familia de tarjetas (17/10/2026): la cara con la insignia del canal, el nombre, «plata · por dónde llegó», la
   // señal (la reunión, el plazo que vence) y «Ver info», como en la computadora. Toda la tarjeta abre la ficha rápida:
   // la píldora es la pista, no un segundo botón adentro de otro.
-  const sub = subtituloLead(t.plata, t.canal);
+  // La foto, la plata y por dónde llegó, según «Personalizar tarjetas» de quien mira (20/10/2026; se elige en la
+  // computadora y vale acá). La señal (la reunión, el plazo) se queda: es el aviso de la fila.
+  const sub = subtituloLead(ve.has('plata') ? t.plata : null, ve.has('canal') ? t.canal : null);
   return (
     <span className="m-crm-tj" data-tono={t.senal.tono ?? undefined}>
-      <CaraTarjeta nombre={t.nombre} foto={t.foto} insignia={insigniaDeCanal(t.canal)} tam={46} />
+      {ve.has('foto') && <CaraTarjeta nombre={t.nombre} foto={t.foto} insignia={insigniaDeCanal(t.canal)} tam={46} />}
       <span className="m-crm-tj__txt">
         <span className="m-crm-tj__n">{t.nombre}</span>
         {sub && <span className="m-crm-tj__c">{sub}</span>}
