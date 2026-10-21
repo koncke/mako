@@ -1581,6 +1581,13 @@ movela al viernes a las 10», `proponer_mover_reunion` dejó de viajar en el tur
 **La regla:** antes de commitear una op, medir `JSON.stringify(aToolDef(def)).length` y correr el test del turno
 de WhatsApp. Una op grande que empata arriba se come el lugar de las chicas.
 
+**Pasó al revés el 21/10/2026 (Pagos).** Sumarle a `cobranza_lead` una frase en la descripción y el parámetro
+`comprobante` (~440 caracteres) dejó afuera a `cambiar_ficha_funnel` en el turno de «editando la ficha»
+(tests/ficha-editar-con-mako.test.ts: «cambia el nombre de esta hoja a Cierre»). Cualquiera de los dos solo ya
+pasaba el tope. Quedó sólo el parámetro, con 140 caracteres; medido, ese turno tolera entre 120 y 250 más en el área
+`crm`. **Lo que se le explica al modelo de UN parámetro va en el parámetro, no también en la descripción:** se paga dos
+veces en un presupuesto que comparten todas las del área.
+
 **Vive en:** lib/doer-herramientas.ts · lib/api-mako/registro.ts (`toolsDelRegistro`, `ordenarPorRelevancia`) ·
 lib/api-mako/areas/crm.def.ts (`cambiar_ficha_funnel`) · tests/ficha-api.test.ts ·
 *16/10/2026, chat «CRM» (claude3), corrida wf_e3cc574c-723 (`665f5bed1`).*
