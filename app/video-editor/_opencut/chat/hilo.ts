@@ -22,6 +22,7 @@ import {
 	unirHilos,
 	type EstadoPropuesta,
 	type MensajeGuardado,
+	type RefPropuestaApi,
 } from "@/lib/editor-video/chat-hilo";
 import type { CambioChat } from "./linea";
 import type { AplicadaChat, PropuestaChat } from "./aplicar";
@@ -46,7 +47,7 @@ export type Mensaje =
 			/** Sólo en memoria: lo que hace falta para «Restaurar» (el deshacer no sobrevive a recargar). */
 			aplicada?: AplicadaChat;
 			/** Una propuesta que llegó por la API de MaKo (./propuestas.ts): al aceptarla o descartarla se cierra en la base. */
-			propuestaApi?: { id: string; canal: string };
+			propuestaApi?: RefPropuestaApi;
 			/** Una burbuja de un pedido que no es del proyecto abierto (./pedidos.ts): a dónde lleva. Siempre de adentro de la app. */
 			links?: Array<{ texto: string; href: string }>;
 	  };

@@ -13,6 +13,8 @@ import 'server-only';
 import { chatClaude, type ClaudeMsg } from './anthropic';
 import { getActivePersona, MAKO_NUCLEO } from './mako-prompts';
 import { perfilNegocioTexto } from './onboarding';
+import { nombreDelNegocioActual } from './mako-context';
+import { rotuloDelNegocio } from './negocio-rotulo';
 import { metodologiaDeArea } from './mako-knowledge';
 import { META_RULES_TEXT } from './meta-rules';
 import { VARIABLES_LEAD } from './template-vars';
@@ -48,7 +50,7 @@ const VARS_DISPONIBLES = VARIABLES_LEAD.map((v) => `{{${v.key}}} (${v.descripcio
 
 // ── Prompts editables (registrados en prompt-registry) ───────────────────────
 
-export const WA_ADVISOR_SYSTEM_TEMPLATE = `Eres MaKo, asesor de reactivación de leads por WhatsApp del negocio de Martín. Tu trabajo es leer la conversación real con un lead y decir EXACTAMENTE qué escribirle para reabrir la conversación y moverlo al siguiente paso, aplicando la metodología de abajo. Escribes mensajes que un humano mandaría por WhatsApp: cortos, naturales, sin sonar a venta ni a bot.
+export const WA_ADVISOR_SYSTEM_TEMPLATE = `Eres MaKo, asesor de reactivación de leads por WhatsApp del negocio. Tu trabajo es leer la conversación real con un lead y decir EXACTAMENTE qué escribirle para reabrir la conversación y moverlo al siguiente paso, aplicando la metodología de abajo. Escribes mensajes que un humano mandaría por WhatsApp: cortos, naturales, sin sonar a venta ni a bot.
 
 TU METODOLOGÍA (la sigues al pie de la letra):
 {{metodologia}}
@@ -129,10 +131,11 @@ function ventanaTexto(abierta: boolean): string {
 
 /** System compartido (recomendaciones + chat), con la metodología + reglas Meta. */
 async function buildAdvisorSystem(query: string): Promise<string> {
-  const [persona, perfil, metodologia] = await Promise.all([
+  const [persona, perfil, metodologia, nombreNegocio] = await Promise.all([
     getActivePersona().catch(() => ''),
     perfilNegocioTexto().catch(() => ''),
     metodologiaDeArea('mensajes', query).catch(() => ''),
+    nombreDelNegocioActual().catch(() => null),
   ]);
   const nucleo = await getPromptText('mako.nucleo', MAKO_NUCLEO);
   const metaRules = await getPromptText('meta.rules.text', META_RULES_TEXT);
@@ -141,7 +144,8 @@ async function buildAdvisorSystem(query: string): Promise<string> {
     metaRules,
   });
   let out = `${persona}\n\n${nucleo}\n\n${system}`.trim();
-  if (perfil) out += `\n\nNEGOCIO DE MARTÍN (perfil del cliente):\n${perfil}`;
+  // El nombre del negocio, no «Martín» (1.5, lib/mako-context.ts → rotuloDelNegocio).
+  if (perfil) out += `\n\n${rotuloDelNegocio(nombreNegocio)}:\n${perfil}`;
   return out;
 }
 

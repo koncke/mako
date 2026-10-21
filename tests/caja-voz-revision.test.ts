@@ -7,7 +7,8 @@
 //      posterior (contestó en la app, en la caja o por Remote Control), o un wrap_up más nuevo. No cuenta como abierta, no
 //      se contesta, y el formulario no se toca. Las de `preguntar` no se tocan;
 //   2. la misma pregunta abierta no entra dos veces, aunque llegue en otra vuelta;
-//   3. la caja del cliente no se apaga mientras MaKo trabaja: `ocupado` sólo hace girar el botón;
+//   3. la caja del cliente no se apaga mientras MaKo trabaja: `ocupado` sólo hace girar la flecha; se puede dictar o grabar
+//      el siguiente, y quien dictaba no pierde el botón de terminar (revisión de la ola 1, 21/10/2026);
 //   4. el cartero (1.17.3): la pregunta de wrap_up lleva su origen, `armarPregunta` limpia como el servidor, un archivo
 //      malformado no tumba la vuelta, sube la última de cada chat con el tope antes de mandar, y la marca de un chat no
 //      avanza si su pregunta no entró (con un límite, para no dejarlo mudo);
@@ -19,7 +20,11 @@
 //   · `unirPreguntas` sin mirar el texto → 1 fallo (2);
 //   · la caja con `quieto = enviando || apagado || ocupado` → 1 fallo (3);
 //   · `preguntasSinRepetir` sin filtrar lo malformado → 1 fallo (4);
-//   · `marcasQueAvanzan` que avanza siempre → 1 fallo (4).
+//   · `marcasQueAvanzan` que avanza siempre → 1 fallo (4);
+//   · (21/10) `unirPreguntas` que deja la de wrap_up igual a una de `preguntar` → 1 fallo (2); que le saca el `origen`, como
+//     91fae9527 → 1 fallo (2); `superarPreguntas` sin mirar `tambienPreguntar` → 1 fallo (2); `sanearPregunta` sin
+//     guardarlo → 1 fallo (2);
+//   · (21/10) `BotonMandar` girando con `ocupado` aunque se dicte → 1 fallo (3); la caja pasándole `girando` → 1 fallo (3).
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -64,9 +69,9 @@ test('1. la pregunta de un wrap_up queda superada cuando el chat siguió sin el 
   assert.equal(sanearPregunta({ ...w, superada: yo.at })?.superada, yo.at, 'se guarda');
   assert.equal(sanearPreguntas([{ ...w, superada: yo.at }])[0].superada, undefined, 'lo que sube la PC nunca viene superado');
   assert.match(sinComentarios(leer('lib/centro-preguntas-chat-db.ts')), /const n = ps\.filter\(estaAbierta\)\.length;/, 'el globito no la cuenta');
-  assert.match(sinComentarios(leer('lib/centro-preguntas-chat-db.ts')), /if \(p\.superada\) return \{ ok: false, error: 'Ya la contestaste por otro lado: el chat siguió\.', yaContestada: true \};/, 'no se contesta');
+  assert.match(sinComentarios(leer('lib/centro-preguntas-chat-db.ts')), /if \(p\.superada\) return \{ ok: false, error: 'Ya no espera tu respuesta: el chat siguió\.', yaContestada: true \};/, 'no se contesta');
   assert.match(sinComentarios(leer('lib/centro-turnos-db.ts')), /await superarConTurnos\(turnos\)/, 'guardar los turnos la supera');
-  assert.match(sinComentarios(leer('lib/centro-preguntas-chat-db.ts')), /superarPreguntas\(unirPreguntas\(antes, nuevas\), turnos\)/, 'y guardar la pregunta también, si el turno llegó antes');
+  assert.match(sinComentarios(leer('lib/centro-preguntas-chat-db.ts')), /superarPreguntas\(unirPreguntas\(superarPreguntas\(antes, turnos\), nuevas\), turnos\)/, 'y guardar la pregunta también, si el turno llegó antes (y antes de unir)');
   assert.match(sinComentarios(leer('app/admin/operaciones/PreguntaChat.tsx')), /const abierta = !r && !p\.superada && !enviada && !!onResponder;/, 'el formulario no se toca');
 });
 
@@ -75,6 +80,20 @@ test('2. la misma pregunta abierta no entra dos veces', () => {
   const igual = pregunta(ID2, '2026-10-20T21:15:00.000Z', { origen: 'wrap_up', pregunta: '  ¿hago   el commit?' });
   assert.deepEqual(unirPreguntas([vieja], [igual]).map((p) => p.id), [ID1], 'otra vuelta, el mismo texto: no entra');
   assert.deepEqual(unirPreguntas([], [vieja, igual]).map((p) => p.id), [ID1], 'ni en la misma vuelta');
+  // Una de `preguntar` igual a una de wrap_up abierta (revisión de la ola 1): queda UNA, que sigue siendo de wrap_up (su
+  // respuesta lleva el message del botón) y que, como una de `preguntar`, cierra sólo una respuesta.
+  const dePreguntar = pregunta(ID2, '2026-10-20T21:15:00.000Z');
+  const unidas = unirPreguntas([vieja], [dePreguntar]);
+  assert.deepEqual(unidas.map((p) => [p.id, p.origen ?? null, p.tambienPreguntar ?? null]), [[ID1, 'wrap_up', true]], 'una sola, de wrap_up y también de preguntar');
+  assert.match(textoDeRespuesta(unidas[0], [0], null), /1\. Commit: Commiteá lo de hoy/, 'la respuesta lleva el message del botón (la segunda revisión)');
+  // Lo que se guarda y se relee: la marca sobrevive a la base.
+  const releida = sanearPregunta(JSON.parse(JSON.stringify(unidas[0])));
+  assert.equal(releida?.tambienPreguntar, true, 'se guarda');
+  const despues = [{ local: LOCAL, rol: 'otro', at: '2026-10-20T21:20:00.000Z' }];
+  assert.equal(superarPreguntas([releida!], despues).filter(estaAbierta).length, 1, 'otro chat no la cierra');
+  const otroWrap = pregunta(ID3, '2026-10-20T21:30:00.000Z', { origen: 'wrap_up', pregunta: '¿Y el push?' });
+  assert.equal(superarPreguntas([releida!, otroWrap], []).filter(estaAbierta).length, 2, 'ni un wrap_up más nuevo');
+  assert.equal(sanearPreguntas([{ ...releida!, tambienPreguntar: true }])[0].tambienPreguntar, undefined, 'la PC no la sube marcada');
   const contestada = { ...vieja, respuesta: { elegidas: [0], otra: null, at: '2026-10-20T21:12:00.000Z', trabajo: ID3 } };
   assert.equal(unirPreguntas([contestada], [igual]).length, 2, 'si la anterior ya se contestó, la nueva es otra pregunta');
   const superada = superarPreguntas([vieja], [{ local: LOCAL, rol: 'yo', at: '2026-10-20T21:12:00.000Z' }]);
@@ -86,8 +105,11 @@ test('3. la caja del cliente no se apaga mientras MaKo trabaja', () => {
   // La caja no se dibuja en node (AdjuntosCaja importa su CSS): se mira el código, como tests/chat-unico.test.ts.
   const c = sinComentarios(leer('app/_chat/CajaChat.tsx'));
   assert.match(c, /const quieto = enviando \|\| apagado;/, 'el campo, el «+» y los emojis se apagan sólo saliendo o sin cargar');
-  assert.match(c, /const girando = enviando \|\| ocupado;/, 'el botón gira también mientras MaKo trabaja');
-  assert.match(c, /<BotonMandar [\s\S]{0,200}?enviando=\{girando\}/, 'y no manda');
+  assert.match(c, /const girando = enviando \|\| ocupado;/, 'la barra de la nota de voz no manda mientras MaKo trabaja');
+  assert.match(c, /<BotonMandar [\s\S]{0,200}?enviando=\{enviando\} ocupado=\{ocupado\}/, 'el botón sabe que MaKo trabaja');
+  const boton = sinComentarios(leer('app/admin/operaciones/Microfono.tsx'));
+  assert.match(boton, /if \(enviando \|\| \(ocupado && hayQueMandar && !d\.escuchando && !d\.subiendo\)\) return <button type="button" className="co-enviar" disabled aria-label="Mandando">/,
+    'mientras trabaja, la flecha espera; el micrófono (y el botón de terminar de dictar) no');
   assert.match(c, /aria-label=\{p\.placeholder\}\s*disabled=\{quieto\}/, 'el <textarea> mira `quieto`, no `ocupado`');
   assert.match(leer('app/second-brain/ChatSecondBrain.tsx'), /ocupado=\{!!trabajo\} apagado=\{!cargado \|\| !!errorCarga\}/, 'el chat del cliente usa `ocupado`');
 });

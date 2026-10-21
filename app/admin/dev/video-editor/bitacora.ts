@@ -20,6 +20,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Las funciones de CapCut', detalle: 'Color, transiciones, animaciones, operaciones de clip, audio, subtítulos automáticos y eliminar fondo, enchufadas por ranuras', estado: 'sigue' },
   { titulo: 'Abrirlo a los clientes', detalle: 'Cuando Martín lo valide: sacar el candado del super admin y decidir en qué capas aparece', estado: 'cola' },
   { titulo: 'La vuelta a Ads Manager', detalle: 'Que el video exportado se suba al bucket del workspace y aparezca en «Mis creativos» para publicarlo', estado: 'cola' },
+  { titulo: 'Editar videos desde el Ops Center', detalle: 'El link de la propuesta abre ESA en el editor y las recetas preguntan lo que falta; falta la tarjeta «Original | Modificado» en el hilo (el bloque de Ops Center 3)', estado: 'sigue' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -238,5 +239,30 @@ export const BITACORA: Hito[] = [
       'app/video-editor/_opencut/preview/components/index.tsx — el reproductor no monta ni dibuja sin GPU',
       'tests/video-editor-sin-gpu.test.ts — la premisa medida con el WASM y la guarda',
     ],
+  },
+  {
+    fecha: '20 oct', hora: '—', chat: 'Cerebro', sesion: 'local_797d5445-2365-464d-ae3d-1d71aa7baa8c', cuenta: 'claude4', actor: 'martin', tipo: 'prompt',
+    titulo: 'Que en el Ops Center se pueda hacer todo, editar videos también',
+    pedido: 'comienza a implementar directamente toda mi idea de que Ops Center sea lo principal en MaKo... quiero que en Ops Center se pueda hacer todo, editar videos, crear webs, etc...',
+    puntos: [
+      'El plan está en docs/ops-center-principal.md: hoy los pedidos de edición reciben su herramienta 8 de 33 veces, y las 34 ediciones sólo se aceptan en el editor.',
+      'A este chat le tocan la 1.14 (la propuesta como tarjeta «Original | Modificado» con «Aceptar en el editor») y la 1.15 (las recetas de video e imagen).',
+    ],
+  },
+  {
+    fecha: '20 oct', hora: '21:20', chat: 'Video / AI Avatar', sesion: 'local_54b66516-3407-49c7-8bd9-ee08d420db69', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: '«Aceptar en el editor» abre ESA propuesta, y MaKo pregunta lo que falta antes de editar',
+    puntos: [
+      'El link que deja cada edición (?propuesta=) no lo leía nadie: la segunda vez que se abría, el chat del editor quedaba cerrado. Ahora se abre, baja hasta esa propuesta y la resalta; si ya se aceptó o se descartó, lo dice.',
+      'Las recetas de video, Generator, AI Avatar e imagen: si falta qué proyecto, cuánto cortar o un dato que es un hecho, MaKo pregunta una cosa con opciones reales en vez de inventar.',
+      'Falta la tarjeta en el hilo del Ops Center (el bloque de Ops Center 3) y que «cortá el principio del video» llegue a su herramienta (la 1.2 de MaKo Alert, que ya tiene las frases).',
+    ],
+    archivos: [
+      'app/video-editor/_opencut/chat/foco.ts — a qué propuesta va el chat, y qué dice si ya no está',
+      'app/video-editor/_opencut/chat/propuestas.ts — la primera búsqueda se reintenta hasta que el proyecto cargó',
+      'lib/doer-recetas.ts — las cuatro recetas y sus grupos de operaciones',
+      'tests/video-editor-propuesta-link.test.ts y tests/doer-recetas-video-imagen.test.ts — 10 y 8 roturas',
+    ],
+    revisar: '/video-editor',
   },
 ];

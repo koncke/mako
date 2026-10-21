@@ -59,7 +59,7 @@ import {
 	getBookmarkPreviewOverlaySource,
 } from "@/app/video-editor/_opencut/timeline/bookmarks/index";
 
-export function EditorPage({ projectId }: { projectId: string }) {
+export function EditorPage({ projectId, propuesta = null }: { projectId: string; propuesta?: string | null }) {
 	const editor = useEditor();
 	// Salir por «atrás» del navegador (y no por «Volver a la página de inicio»)
 	// también deja la miniatura del primer cuadro y el último cambio guardados:
@@ -91,11 +91,12 @@ export function EditorPage({ projectId }: { projectId: string }) {
 	// La copia de lectura del proyecto, para la API de MaKo: se sube un rato después de cada cambio (chat/espejo.ts).
 	useEffect(() => iniciarEspejo(editor), [editor]);
 	// Lo que la API propuso en este proyecto (por WhatsApp, por la API): aparece en el chat para aceptarlo (chat/propuestas.ts).
-	useEffect(() => iniciarPropuestas(editor), [editor]);
+	// Con `?propuesta=` (el «Aceptar en el editor» del Ops Center), el chat abre en ÉSA.
+	useEffect(() => iniciarPropuestas(editor, { foco: propuesta, proyecto: projectId }), [editor, propuesta, projectId]);
 
 	return (
 		<MobileGate>
-			<EditorProvider projectId={projectId}>
+			<EditorProvider projectId={projectId} propuesta={propuesta}>
 				<div className="flex h-full w-full flex-col overflow-hidden bg-(--cc-app)">
 					<AvisoRenderDegradado />
 					<EditorHeader />

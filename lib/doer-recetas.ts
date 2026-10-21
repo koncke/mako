@@ -7,6 +7,7 @@
 // =============================================================================
 
 import { EJEMPLO_BORRADOR, EJEMPLO_LEAD } from './respuesta-doer';
+import { OPERACIONES_API } from './editor-video/chat-api';
 
 /**
  * ⚠️ LAS RECETAS VIAJAN CON SU HERRAMIENTA, NO SIEMPRE.
@@ -67,6 +68,39 @@ const RECETA_PLAN = `CUANDO TE PASA UNA LISTA DE TAREAS PARA EL PLAN (aunque ven
    · BAJAS (con criterio): si en ver_plan viste tareas que esta lista deja OBSOLETAS o que ya están DUPLICADAS, propón borrarlas/fusionarlas en el campo "eliminar" (cada una con su "id" EXACTO de ver_plan + un "motivo" corto). Solo lo que de verdad ya no aplica o se funde con otra — NO borres por borrar. Cada baja la confirma el dueño/cliente con un checkbox en la app.
 3. TERMINA AHÍ. El mensaje con el link lo escribe el CÓDIGO, siempre igual ("${EJEMPLO_BORRADOR}"): no lo escribas tú y NO copies el link — cualquier cosa que contestes en este turno se reemplaza por ese mensaje. ⛔ NO pidas "confirma con un sí", NO repitas la lista de tareas en el chat, NO tires preguntas sueltas: TODO se resuelve en el link. ⛔ NO INVENTES NÚMEROS: cuántas tareas, cuántas preguntas o cuántas bajas salen EXACTAMENTE de lo que te devolvió la tool, o no los digas. ⛔ NO NOMBRES EL PROYECTO: tú propones uno y el Perro decide otro; prometer un nombre que después no está en el tablero es la peor forma de romper la confianza. Vale IGUAL para el dueño y para un cliente.`;
 
+// ── Video e imagen (Ops Center, pieza 1.15, 20/10/2026) ───────────────────────────────────
+// Sale de docs/ops-center-principal.md §4.10 y del mapa de video e imagen. EL CASO: «cortá el
+// principio del video» llegaba con un corte por defecto en silencio; lo que cambia el resultado
+// (qué proyecto, cuánto, dónde) se PREGUNTA, con opciones sacadas de los datos reales.
+// Cada una viaja con su herramienta: la del editor sólo con sus ESCRITURAS (en una pregunta, que
+// trae lecturas, no pesa), la del Generator con sus lecturas (el saldo y el puente son de ahí).
+
+/** Las 34 escrituras del Video Editor (lib/editor-video/chat-api.ts): todas dejan una PROPUESTA. */
+export const ESCRITURAS_EDITOR_VIDEO: ReadonlySet<string> = new Set(OPERACIONES_API.map((o) => o.id));
+
+/** Lo del Video Generator y el puente a Flow. Un test exige que toda operación de video del registro esté en uno de estos grupos. */
+export const OPERACIONES_GENERADOR_VIDEO: ReadonlySet<string> = new Set([
+  'listar_anuncios_video', 'ver_anuncio_video', 'ver_montaje_anuncio', 'contar_escenarios_reusables', 'listar_guiones_para_video',
+  'listar_formatos_video', 'listar_lugares_grabacion', 'ver_contexto_video', 'ver_voz_cliente', 'estado_onboarding_video',
+  'ver_saldo_flow', 'calcular_alcance_anuncio', 'ver_puente_flow', 'listar_trabajos_flow',
+]);
+
+/** Las escrituras del Image Editor (lib/api-mako/areas/imagen.def.ts). */
+export const ESCRITURAS_IMAGEN: ReadonlySet<string> = new Set(['crear_diseno_imagen', 'cambiar_textos_diseno_imagen', 'duplicar_diseno_imagen', 'borrar_diseno_imagen']);
+
+const RECETA_VIDEO_EDITOR = `EL VIDEO EDITOR: el proyecto vive en el navegador de quien lo editó y tú lees una COPIA, que puede estar vieja. Antes de cualquier cambio usa 'listar_proyectos_video' y 'ver_proyecto_video'. Las refs (v1, t2), los medios (m1) y los ids de transiciones, filtros y fuentes se copian EXACTOS de esa vista: nunca los inventes.
+SI FALTA UN DATO QUE CAMBIA EL RESULTADO, PREGUNTA UNA SOLA COSA con 2 o 3 opciones sacadas de los datos reales (con 'preguntar_al_usuario' si la tienes) y no propongas nada hasta tener la respuesta:
+- Qué proyecto, si hay más de uno o te dicen «el video» sin nombre: ofrece los 3 más recientes.
+- Cuánto cortar y dónde, si no te lo dicen («corta el principio»): ofrece cortes concretos con los clips y sus tiempos.
+- Un texto que es un hecho (fecha, precio, dirección, hora): pídelo, nunca lo rellenes.
+Todo cambio queda PROPUESTO hasta que una persona lo acepta en el editor: ⛔ nunca digas «listo», «aplicado» ni «ya está». El link lo pone el sistema: no lo escribas. ⛔ No borres un proyecto: no hay papelera. Lo que el editor no puede por chat (quitar el fondo, borrar silencios, exportar, música de biblioteca) se DICE así, no se simula.`;
+
+const RECETA_VIDEO_GENERADOR = `EL VIDEO GENERATOR: antes de prometer algo que genere, mira 'estado_onboarding_video', 'ver_contexto_video' y 'ver_puente_flow'. Antes de filmar, 'ver_saldo_flow' y 'calcular_alcance_anuncio': créditos null quiere decir que NUNCA se leyó, no que tenga cero; di la fecha de la lectura. El guion sale de Ads Writer ('listar_guiones_para_video') y va LITERAL: aquí no se escriben guiones. Qué guion, qué formato y qué lugar se preguntan con 2 o 3 opciones. ⛔ Filmar gasta créditos de Flow del cliente: una toma por vez, con el costo dicho («N créditos, te quedan M, leído el …»), nunca en lote, y una toma que falló no se reintenta sola. ⛔ Nunca muestres un prompt.`;
+
+const RECETA_AVATAR = `AI AVATAR: mira 'ver_avatares' antes de hablar de looks. Una cara o una voz se usan sólo con la autorización de su dueño, y no afirmes que la cara de marca es la del dueño. Antes de clonar una voz, el consentimiento explícito. ⛔ No digas que el avatar habla con la voz clonada: eso no está hecho. La voz usa el ElevenLabs del cliente, nunca el de la plataforma.`;
+
+const RECETA_IMAGEN = `EL IMAGE EDITOR: mira 'listar_disenos_imagen' y 'ver_diseno_imagen' antes de cambiar textos; 'listar_plantillas_imagen' trae primero las sugeridas para el negocio. Si falta qué diseño o el tamaño (post, story o banner), PREGUNTA UNA cosa con 2 o 3 opciones. Los textos que son hechos (fecha, precio, dirección) se piden, no se inventan, y si un hueco de la plantilla queda con el texto de ejemplo, DILO. No hay kit de marca (logo, colores): no lo prometas. Lo que el chat no puede (cambiar colores, poner el logo, descargar) se dice así. ⛔ Nunca metas datos de leads en un diseño.`;
+
 /**
  * Las recetas que viajan en ESTE turno: cada una sólo si viaja la herramienta que la usa.
  * Exportada para el test (tests/doer-recetas.test.ts).
@@ -82,5 +116,9 @@ export function recetasDelTurno(nombres: ReadonlySet<string>, ofrece: boolean): 
   if (nombres.has('proponer_agendar_reunion')) partes.push(RECETA_AGENDA);
   if (nombres.has('confirmar_accion')) partes.push(RECETA_CONFIRMAR);
   if (nombres.has('proponer_tareas_plan')) partes.push(RECETA_PLAN);
+  if ([...nombres].some((n) => ESCRITURAS_EDITOR_VIDEO.has(n))) partes.push(RECETA_VIDEO_EDITOR);
+  if ([...nombres].some((n) => OPERACIONES_GENERADOR_VIDEO.has(n))) partes.push(RECETA_VIDEO_GENERADOR);
+  if (nombres.has('ver_avatares')) partes.push(RECETA_AVATAR);
+  if ([...nombres].some((n) => ESCRITURAS_IMAGEN.has(n))) partes.push(RECETA_IMAGEN);
   return partes.length ? `\n\n${partes.join('\n\n')}` : '';
 }

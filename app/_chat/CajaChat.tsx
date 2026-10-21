@@ -126,7 +126,7 @@ function Caja({ p, grabacion }: { p: PropsCajaChat; grabacion: GrabacionVoz | nu
     // uno vacío la corta (lib/centro-caja.ts → enterEnLista). Fuera de una lista: en la computadora manda (Shift+Enter
     // baja de renglón); en el teléfono baja de renglón.
     if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
-    const l = enterEnLista(texto, e.currentTarget.selectionStart, e.currentTarget.selectionEnd);
+    const l = enterEnLista(texto, e.currentTarget.selectionStart, e.currentTarget.selectionEnd, { conUno: !p.enterManda });
     if (l) { e.preventDefault(); cursor.current = l.cursor; onTexto(l.texto); return; }
     if (p.enterManda) { e.preventDefault(); p.onMandar(); }
   };
@@ -169,13 +169,13 @@ function Caja({ p, grabacion }: { p: PropsCajaChat; grabacion: GrabacionVoz | nu
           />
         </div>
         {/* Con nota de voz y nada que mandar, el botón GRABA; si no, el de siempre (dicta, o la flecha con algo escrito). */}
-        {grabacion && !hayQueMandar && !girando ? (
+        {grabacion && !hayQueMandar && !enviando ? (
           <button type="button" className="co-enviar co-enviar--mic" onClick={() => void grabacion.start()} disabled={quieto}
             aria-label="Grabar una nota de voz" title="Grabar una nota de voz">
             <Icon name="mic" size={18} />
           </button>
         ) : (
-          <BotonMandar valor={texto} onValor={onTexto} onError={(m) => p.onErrorMic?.(m)} enviando={girando} apagado={apagado}
+          <BotonMandar valor={texto} onValor={onTexto} onError={(m) => p.onErrorMic?.(m)} enviando={enviando} ocupado={ocupado} apagado={apagado}
             hayQueMandar={hayQueMandar} onMandar={p.onMandar} titulo={p.tituloMandar} />
         )}
         </>)}
