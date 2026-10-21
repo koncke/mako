@@ -32,6 +32,7 @@ import { aceptarPropuesta, deshacerPropuesta } from "./aplicar";
 import { datosDeLinea, disponiblesChat } from "./contexto";
 import { cambiarHilo, cambiarMensaje, cargarHilo, conId, leerHilo, suscribir, type EstadoPropuesta, type Hilo, type MensajeMako } from "./hilo";
 import { resolverEnServidor } from "./propuestas";
+import { useChatAbierto } from "./estado";
 import { storageService } from "@/app/video-editor/_opencut/services/storage/service";
 import Link from "@/app/_ui/Link";
 import { PLAZO_PEDIDOS_MS, burbujasDe, cuerpoPedidos, interpretacionDe, objetosDeProyectos, textoActual } from "./pedidos";
@@ -375,6 +376,18 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 		if (el) el.scrollTop = el.scrollHeight;
 	}, [hilo.mensajes.length, hilo.corriendo]);
 
+	// ⚠️ DESPUÉS de bajar: la propuesta del link (`?propuesta=`, chat/propuestas.ts) se busca, se centra y se resalta
+	// unos segundos. Si todavía no está en el hilo, espera a que llegue (depende de la cantidad de mensajes).
+	const foco = useChatAbierto((s) => s.foco);
+	useEffect(() => {
+		if (!foco) return;
+		const el = hiloRef.current?.querySelector<HTMLElement>(`[data-mensaje="${CSS.escape(foco)}"]`);
+		if (!el) return;
+		el.scrollIntoView({ block: "center" });
+		const t = setTimeout(() => useChatAbierto.getState().setFoco(null), 4000);
+		return () => clearTimeout(t);
+	}, [foco, hilo.mensajes.length]);
+
 	const enviar = (instruccion: string, alc: "video" | "seleccion" = alcanceReal, op: { interpretar?: boolean } = {}) => {
 		if (hilo.corriendo || !instruccion.trim() || !proyectoId) return;
 		void pedirEdicion(editorRef.current, instruccion, alc, op);
@@ -463,7 +476,12 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 							{m.texto}
 						</div>
 					) : (
-						<div key={m.id} className="grid gap-2">
+						<div
+							key={m.id}
+							data-mensaje={m.id}
+							className="grid gap-2 rounded-[14px] transition-shadow"
+							style={foco === m.id ? { boxShadow: "0 0 0 2px var(--cc-accent)" } : undefined}
+						>
 							<div
 								className="self-start rounded-[12px] px-3 py-2 text-[12.5px] leading-[1.5] whitespace-pre-wrap"
 								style={m.error ? { background: "color-mix(in srgb, var(--destructive) 18%, transparent)", color: "var(--destructive)" } : { background: "var(--cc-raised)", color: "var(--cc-text)" }}

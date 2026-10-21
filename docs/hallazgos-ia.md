@@ -4582,3 +4582,27 @@ Las cifras quedan para la próxima vez que alguien calcule un costo o un tope.
 **El diagnóstico obvio era el equivocado:** «faltan operaciones en la API». Muchas existen (795 en el registro). El freno es que el turno de la APP usa el clasificador del grupo de WhatsApp: ante la duda anota el pedido como idea («capturar») y le saca a MaKo la herramienta de escribir. Además, el presupuesto de 12.000 caracteres deja afuera la operación que entiende el pedido, y viajan 18 operaciones muertas de Chatwoot.
 
 **Regla:** antes de pedir una operación nueva, medir si la frase natural la hace viajar (`herramientasDelChat` / `herramientasDelTurno`). Las frases medidas pasan a una batería guardián en `tests/`, la pieza 1.1. El mapa completo y el plan por olas: docs/ops-center-principal.md. Las correcciones del crítico, en su Anexo C: el turno también suma las áreas del clasificador, y sin IA propia la app no usa la red gratis.
+
+---
+
+## Las recetas de video e imagen: preguntar lo que cambia el resultado (20/10/2026, Ops Center 1.15)
+
+`lib/doer-recetas.ts` · `tests/doer-recetas-video-imagen.test.ts`
+
+**El caso.** «Cortá el principio del video» no dice qué proyecto ni cuánto, y nada le decía a
+MaKo que preguntara: proponía un corte por defecto en silencio. Es la misma familia que «todos los
+martes a las 3» (20/10): un dato que cambia el resultado nunca se rellena con un default.
+
+**Lo que se hizo.** Cuatro recetas en `recetasDelTurno` (editor, Generator, AI Avatar, Image
+Editor), con la regla de preguntar UNA cosa con 2 o 3 opciones sacadas de los datos reales.
+
+**Reglas que quedan:**
+- **La receta del editor viaja con sus 34 ESCRITURAS, no con sus lecturas.** Las lecturas
+  (`listar_proyectos_video`, `ver_proyecto_video`) son justo lo que trae una PREGUNTA, y la receta
+  pesaría en cada pregunta sin servir para nada. La del Generator sí viaja con lecturas: el saldo
+  y el puente son de ahí, y «créditos null es nunca se leyó» importa en la pregunta.
+- **Toda operación de video o imagen del registro tiene receta decidida.** El test cruza el
+  registro con los grupos de `doer-recetas.ts`: una operación nueva sin grupo pone el test rojo.
+- **«Cortá el principio del video» todavía no llega a su herramienta**: el clasificador lo anota
+  como idea (es la 1.2, MaKo Alert). El test lo tiene como `todo` con la frase exacta; la receta
+  está lista para cuando llegue.

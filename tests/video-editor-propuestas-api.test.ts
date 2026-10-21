@@ -201,7 +201,9 @@ test('11: la base suma con compare-and-set dentro de la ventana, revisa contra l
 
 test('12: el editor la muestra como un cambio más del chat, la acepta con el mismo «Aceptar» y la cierra en la base', () => {
   const p = leer('app', 'video-editor', '_opencut', 'chat', 'propuestas.ts');
-  assert.match(p, /export const idDeMensaje = \(propuestaId: string\) => `api-\$\{propuestaId\}`;/, 'un id estable: no se repite al volver a buscar');
+  // El id vive en chat/foco.ts desde el 20/10 (el link `?propuesta=` lo necesita sin cargar el motor).
+  assert.match(leer('app', 'video-editor', '_opencut', 'chat', 'foco.ts'), /export const idDeMensaje = \(propuestaId: string\) => `api-\$\{propuestaId\}`;/, 'un id estable: no se repite al volver a buscar');
+  assert.match(p, /import \{ focoDePropuesta, idDeMensaje \} from "\.\/foco";/);
   assert.match(p, /refsPrevias: refsPorId,/, 'las refs de la propuesta: «t2» es el de cuando se propuso');
   assert.match(p, /propuesta: \{ proyectoId, escenaId: p\.escenaId, refsPorId, elegidos: \[\], alcance: "video", operaciones \}/);
   assert.match(p, /useChatAbierto\.getState\(\)\.setAbierto\(true\);/);
@@ -209,7 +211,7 @@ test('12: el editor la muestra como un cambio más del chat, la acepta con el mi
   assert.equal((panel.match(/aceptarPropuesta\(/g) ?? []).length, 1, 'el MISMO «Aceptar»');
   assert.match(panel, /if \(m\.propuestaApi\) resolverEnServidor\(m\.propuestaApi\.id, "aplicada", r\.descartes\);/);
   assert.match(panel, /if \(m\.propuestaApi\) resolverEnServidor\(m\.propuestaApi\.id, "descartada"\);/);
-  assert.match(leer('app', 'video-editor', '_opencut', 'editor-page.tsx'), /useEffect\(\(\) => iniciarPropuestas\(editor\), \[editor\]\);/);
+  assert.match(leer('app', 'video-editor', '_opencut', 'editor-page.tsx'), /useEffect\(\(\) => iniciarPropuestas\(editor, \{ foco: propuesta \}\), \[editor, propuesta\]\);/);
   // Y el hilo guardado la recuerda (si no, al recargar no se cerraría en la base).
   const [g] = hiloParaGuardar([{ id: 'api-x', c: 1, t: 1, de: 'mako', texto: 'Propuesta', propuestaApi: { id: '0b9e5f4c-1a2b-4c3d-8e9f-0a1b2c3d4e5f', canal: 'whatsapp' } }]) as Array<{ propuestaApi?: unknown }>;
   assert.deepEqual(g.propuestaApi, { id: '0b9e5f4c-1a2b-4c3d-8e9f-0a1b2c3d4e5f', canal: 'whatsapp' });

@@ -1595,3 +1595,39 @@ antes `renderer.isDegraded`. Sin GPU, el editor sigue usable sin vista previa y 
 - **No se recorrió en un navegador real con la app**: se midió el WASM en un Chrome sin GPU y la guarda
   se probó por estructura. La prueba de punta a punta es abrir el editor en un Chrome con la aceleración
   de gráficos apagada (`chrome://settings/system`).
+
+---
+
+## El link `?propuesta=` no lo leía nadie (20/10/2026, Ops Center 1.14)
+
+`app/video-editor/[proyecto]/page.tsx` · `app/video-editor/_opencut/chat/propuestas.ts` ·
+`app/video-editor/_opencut/chat/foco.ts` · `app/video-editor/_opencut/chat/PanelChat.tsx` ·
+`tests/video-editor-propuesta-link.test.ts`
+
+**Síntoma.** Cada edición pedida por la API o por el Ops Center devuelve el link
+`/video-editor/<proyecto>?propuesta=<id>` para aceptarla. La primera vez que se abría, la propuesta
+llegaba nueva y el chat se abría solo. **La segunda vez** (volver a tocar el link, otra pestaña,
+recargar), el editor abría con el chat CERRADO: la propuesta ya estaba en el hilo, no era «nueva»,
+y nadie decía dónde estaba lo que la persona venía a aceptar.
+
+**Causa.** El `?propuesta=` no lo leía nadie: la página sólo leía `desde` y `plantilla`, y el
+editor traía todas las propuestas a los 1,5 s y abría el panel únicamente si llegaba una nueva. El
+link de la API y la página no estaban atados por nada.
+
+**Arreglo.** La página lee `propuesta` (sólo un uuid) y lo pasa hasta `EditorPage`; la primera
+búsqueda se reintenta hasta que el proyecto cargó (a los 1,5 s puede no estar), abre el chat, baja
+hasta esa propuesta y la resalta; si ya se aceptó, se descartó o no existe, lo dice.
+
+**Reglas que quedan:**
+- **Un link que arma un lado y lee otro va atado por un test.** El test compara el parámetro que
+  escribe `lib/api-mako/areas/video.run.ts` con el que lee la página: renombrarlo en un solo lado
+  lo pone rojo.
+- **`chat/propuestas.ts` carga el motor (WASM) al importarse**: un test no lo puede importar. Lo
+  puro que un test necesita va en un módulo aparte (`chat/foco.ts`, con `idDeMensaje`).
+- **El foco va DESPUÉS del «el chat baja solo»**: los dos son efectos del panel, y si el foco corre
+  primero, el scroll al final lo pisa. La primera rotura de prueba («borrar el baja-solo») pasaba,
+  porque comparar posiciones con un `indexOf` de −1 da verdadero: el test ahora exige que exista.
+
+**Lo que quedó SIN hacer:** la tarjeta «Original | Modificado» en el hilo del Ops Center (el
+bloque G4) es de la 1.7 de Ops Center 3; la API ya devuelve las filas en `extra.cambios` y el link.
+Mirarlo de punta a punta en el navegador con las migraciones 0298 a 0302 aplicadas.
