@@ -3,6 +3,39 @@
 <sub>Escrito por el Cerebro de la cuenta 3 el 16/10/2026 ~01:15 hora AR, con la ventana de 5 h al 97%.
 Material de primera mano. Lo de antes del 15/10 está en `docs/relevo/estrategia-3-cuentas.md`.</sub>
 
+## ⏩ Relevo del 21/10 noche (cuenta claude4 al 97 %) — LEER PRIMERO
+
+**Estado:** `integracion` = `main` en producción hasta el run 217. En `C:/dev/wt-push-q` puede quedar un merge local sin
+subir: mirar `git log origin/integracion..HEAD`. El resumen para Martín (qué salió hoy y qué le toca) está en
+`resumen-cerebro-21-10.md`, en la carpeta del proyecto en OneDrive.
+
+**Herramientas** (el scratchpad muere con la sesión; están copiadas en `C:/dev/cerebro-herramientas/`):
+- `sh esperar-deploy.sh <sha completo>`: espera el run de integracion y el deploy de Vercel. Se corre en segundo plano.
+- `node nota-revision.cjs <journal.jsonl del workflow> <salida.md> "<título>" <claves,separadas>`: arma la nota de una revisión.
+- `node unir-filas.cjs docs/hallazgos.md`: después de `git checkout -m docs/hallazgos.md`, une las filas del índice que chocaron.
+- Las notas de revisión van a `C:/Users/marti/AppData/Roaming/Claude/side-session-notes/local_797d5445-2365-464d-ae3d-1d71aa7baa8c/`.
+
+**Cómo se integra hoy:**
+1. `git merge --no-edit <sha>`.
+2. Tests: `MAKO_TESTS_SIN_ESPERA=1 node scripts/tests-afectados.mjs --base <HEAD de antes> --cortar --concurrencia 2 --tanda 100 --compartir`.
+3. Tipos: `node scripts/tsc-acotado.mjs <archivos>`. Si el vigía lo mata (exit 99, 0 bytes), probá con MENOS archivos: los 4 de un área entran donde los 18 no. Si un área ya los chequeó limpio y su punta no comparte archivos con lo que cambió en integracion (`comm` de las dos listas), alcanza.
+4. `MAKO_SIN_ANTES_DE_SUBIR=1 git push origin HEAD:refs/heads/integracion`.
+5. Esperar el deploy. Avisar «Ya está» a cada chat.
+6. Migraciones con `node C:/dev/wt-push-q/scripts/apply-migration.mjs <sql>`, corrido DESDE `dashboard-marketing/` (ahí está el `.env.local`).
+
+**Reglas aprendidas hoy:**
+- Lo visual (layout, CSS) entra sin revisión adversarial: Martín lo ve. Plata, privacidad, sesión y herramientas que usan todos, SIEMPRE con revisión.
+- Un chat con los tests en verde que sólo espera tipos no hace fila: manda «VERDE sin tipos» con la lista de archivos.
+- Si la fila del candado no avanza: `node scripts/antes-de-subir.mjs --cola`. Ver `docs/hallazgos-infra.md` («El candado se retiene mientras se espera RAM»).
+- Un bitácora/hito solo no se sube suelto (cuesta un build): va con el próximo lote.
+
+**Migraciones de hoy:** 0317 (Plan, columna propia), 0322 (PC del cliente; **NO volver a correrla nunca**: confirmaría las PC pendientes sin el «sí»), 0323 (pagos `resto_de` y `es_mensualidad`; idempotente, se corrió antes y después del deploy).
+
+**Pendiente de integrar:**
+- **Infra**: `e978851f5` (rama infra-ram-sin-candado: el candado no se retiene esperando RAM; arreglo de las 2 medias de `revision-infra-candado-tandas-21-10.md`) y `f8a05c031` (infra-tipos-piso: «Tipos» = tsc entero y las tandas sólo de respaldo con OK PARCIAL). Ambas en VERDE. Hay que verificar los arreglos con una revisión corta e integrar. Al integrar el candado, su entrada en hallazgos-infra va DENTRO de la sección que ya está, sin duplicar.
+
+**Pendiente de Martín:** está en el resumen de OneDrive (2FA, ejecutables 0.3.2, hilo de Google, pedido 9a143455, Florencia ws21, claves del ws1, Leila ws11, lectura de producción para Infra).
+
 ## Qué es este chat
 
 Martín tira ideas de todo tipo acá; el Cerebro las reparte al chat JEFE de cada tab (se llama como la tab:
