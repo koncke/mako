@@ -1693,6 +1693,41 @@ un flujo no hay «mío».
   elegir», el modelo preguntaba el email aunque el código ya no lo necesitara.
 
 Test: tests/api-mako-mi-hoja.test.ts (probado rompiéndolo, cinco roturas). **Nadie lo probó en el Ops Center.**
+
+## Compartir, exportar y mover desde el chat: las mismas piezas que la pantalla (20/10/2026, pieza 2.6)
+
+Las tres sólo se hacían en la pantalla. Ahora están en el registro (`dashboard.def.ts`), cada una sobre lo que ya usa la
+pantalla:
+- **`mover_componente_dashboard`** usa la grilla de la pantalla. El editor acomoda con react-grid-layout y
+  `verticalCompactor`, y `lib/graficos-mover.ts` llama a SUS funciones (`moveElement` y el compactador, desde
+  `react-grid-layout/core`, que no trae React y corre en el servidor). Un acomodo escrito a mano dejaría una hoja que la
+  pantalla reacomoda al abrirla, y el primer «Editar» la guardaría distinta. El mínimo de cada tarjeta es UNA regla
+  (`minimoDeComponente`, lib/graficos-catalogo.ts), que antes vivía adentro del editor.
+- **`exportar_hoja_dashboard`** es una lectura. Un modelo no le pasa un archivo a nadie: la persona recibe un link
+  (`paraLaPersona`) a `app/api/graficos/exportar`, que corre `leer_hoja_dashboard` en CSV por el choke point
+  (`ejecutarOperacion`) con SU sesión. Es el mismo CSV que da la API por HTTP, sin un CSV propio. Sólo existe en la app:
+  el link pide la sesión de quien lo abre.
+- **`compartir_dashboard`** crea el link de acceso con el mismo `crearShare` del botón «Compartir», sobre el informe de
+  quien chatea, y no lee `persona` (la pantalla tampoco deja compartir el de otro). El link no pasa por el modelo.
+  - Invitar por email quedó afuera a propósito: le escribe a un tercero, y es la decisión D3c de Martín (tarjeta en el
+    chat o pantalla de revisión). Cuando esté, el envío tiene que salir de la ruta (`invitar`, app/api/compartir/route.ts)
+    a un módulo compartido. Cinco tests de otras áreas fijan ese código, así que mudarlo es su propio trabajo.
+
+**Trampas:**
+- `nuevoElemento('experimento', [])` devuelve null: un experimento sin configuración no sanea. En un test, el spread de
+  null armó una tarjeta sin tipo, el mínimo cayó al de un gráfico, y parecía un error de mover.
+- Un ancho en palabras sólo topa con el mínimo en una sección (12) o en un experimento (4). Probarlo con un video (3) no
+  prueba nada: el cuarto ya son 3.
+- **Que la frase natural traiga la operación NO está resuelto:** «mové / poné al lado / cambiá el ancho» llegan, pero
+  «exportá», «descargame», «compartí», «mueve» y «hacé más ancho» caen en «capturar» o en «consultar». Es el clasificador
+  (pieza 1.2, de MaKo WhatsApp y Ops Center 3). Las frases medidas quedaron en la carpeta de notas del Cerebro
+  (`frases-dashboard-2-6.md`).
+
+Test: tests/api-mako-dashboard-compartir-exportar-mover.test.ts (probado rompiéndolo, seis roturas). **Nadie lo probó en el
+Ops Center.**
+**Vive en:** lib/graficos-mover.ts · lib/api-mako/areas/dashboard.def.ts · dashboard.run.ts · dashboard.helpers.ts ·
+app/api/graficos/exportar/route.ts · lib/graficos-catalogo.ts (`minimoDeComponente`).
+*20/10/2026, claude4 (chat Dashboard).*
 **Vive en:** lib/api-mako/tipos.ts · lib/mako-turno-app.ts · lib/api-mako/areas/dashboard.helpers.ts ·
 lib/api-mako/areas/dashboard.run.ts · lib/api-mako/areas/general.run.ts · lib/general-plantillas.ts.
 *20/10/2026, claude4 (chat Dashboard).*
