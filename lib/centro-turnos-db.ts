@@ -17,6 +17,7 @@ import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { ULTIMOS_VENTANA_MS, DESTINO_RE, resumirTurnos, sanearTurnos, unirTurnos, type TurnoChat } from './operaciones-reglas';
 import { getSupabaseServer } from './supabase';
 import { esYaEsta } from './centro-chats';
+import { superarConTurnos } from './centro-preguntas-chat-db';
 
 const PREFIJO = 'operaciones.turnos.';
 const parsear = (v: string | null): unknown => { try { return v ? JSON.parse(v) : []; } catch { return []; } };
@@ -34,6 +35,9 @@ export async function guardarTurnos(turnos: readonly TurnoChat[]): Promise<numbe
       await setSetting(PREFIJO + local, JSON.stringify(unirTurnos(antes, nuevos)));
       n++;
     }
+    // Lo que Martín (u otro chat) dijo después de una pregunta de wrap_up la deja atrás (20/10/2026): no espera más. Si
+    // falla, los turnos ya quedaron: la pregunta se supera con la próxima vuelta que traiga un turno.
+    await superarConTurnos(turnos).catch((err) => console.error('[operaciones] superar preguntas:', err instanceof Error ? err.message : err));
     return n;
   });
 }
