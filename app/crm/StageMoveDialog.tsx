@@ -19,6 +19,8 @@ import { stepsForStage, funnelReqInfo, unirPasos, type Step, type StepId } from 
 import { ventaTipoDe, type VentaTipo } from '@/lib/venta-tipo';
 import type { FathomLink } from '@/lib/leads';
 import { completeStageMoveAction, requisitosDeEtapaAction, type StageMoveCuota, type StageMoveResultado } from './actions';
+import { hoyEnTz } from '@/lib/date-utils';
+import { useTzWorkspace } from './lead-view/useTzWorkspace';
 import { autoReunionesAction } from './auto-actions';
 import type { CrmLead } from './CrmBoard';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
@@ -200,7 +202,10 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
 }) {
   const [pending, startTransition] = useTransition();
   const [err, setErr] = useState<string | null>(null);
-  const hoyISO = new Date().toISOString().slice(0, 10);
+  // ⚠️ EL DÍA DEL NEGOCIO (20/10/2026, revisión adversarial): con el UTC, un Ganado de la noche (México) proponía la
+  // cuota para mañana, y una suscripción cerrada el 30 a las 20 h nacía el 31: sus cuotas caían en diciembre y noviembre
+  // quedaba sin ninguna. La zona es la de la ficha y General (`useTzWorkspace` → `tzActual`).
+  const hoyISO = hoyEnTz(useTzWorkspace());
   const to = move.to;
   const label = stageMeta(stages, to)?.label ?? to;
   const esCierre = to === 'ganado' || to === 'facturando';
@@ -1196,7 +1201,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
               {i > 0 && <button type="button" onClick={() => setCuotas((arr) => arr.filter((_, xi) => xi !== i))} aria-label="Quitar cuota" style={{ flex: 'none', background: 'transparent', border: 'none', color: 'var(--faint)', cursor: 'pointer', fontSize: 15 }}>✕</button>}
             </div>
           ))}
-          <button type="button" onClick={() => { const last = cuotas[cuotas.length - 1]; const d = last?.fecha ? new Date(last.fecha + 'T00:00:00Z') : new Date(); d.setUTCMonth(d.getUTCMonth() + 1); setCuotas((arr) => [...arr, { monto: '', fecha: d.toISOString().slice(0, 10) }]); }} style={{ padding: 10, borderRadius: 10, border: '1.5px dashed var(--border-strong)', background: 'transparent', color: 'var(--primary)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>+ Agregar cuota</button>
+          <button type="button" onClick={() => { const last = cuotas[cuotas.length - 1]; const d = new Date((last?.fecha || hoyISO) + 'T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() + 1); setCuotas((arr) => [...arr, { monto: '', fecha: d.toISOString().slice(0, 10) }]); }} style={{ padding: 10, borderRadius: 10, border: '1.5px dashed var(--border-strong)', background: 'transparent', color: 'var(--primary)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>+ Agregar cuota</button>
           {sumaCuotas > 0 && (
             <div style={{ borderRadius: 10, padding: '9px 13px', fontSize: 13, fontWeight: 600, background: cuotasCuadran ? 'var(--good-bg)' : 'var(--bad-bg)', color: cuotasCuadran ? 'var(--good)' : 'var(--bad)', textAlign: 'left' }}>
               {cuotasCuadran

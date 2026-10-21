@@ -1879,3 +1879,14 @@ Revisión adversarial de la rama `caja-voz` (cartero 1.17.2). No subió hasta ar
   («leyendo» / «error») que la miniatura pone en `data-estado`: el Centro no lo usa; el editor lo pinta con su hoja.
 - **Sin hacer:** tocar la miniatura de un Word abre el `Visor`, que lo pone en un iframe con su `blob:`: el navegador no
   lo muestra (lo baja o queda en blanco). Pasa igual en el Centro.
+
+## El cartero nuevo se instala DESPUÉS del deploy del servidor que lo entiende (21/10/2026)
+
+La revisión de la ola 1 (cartero 1.17.3) encontró que el orden importa en una sola dirección. Un cartero viejo (1.16.1)
+contra el servidor nuevo anda: el servidor no pide versión y lo que no trae `origen` no se toca. Un cartero NUEVO contra
+el servidor viejo falla de dos maneras:
+- `?adjunto-turno=1` cae en `cicloCartero` y da 503: el chat con una captura queda en fallidos y mudo hasta el deploy;
+- el servidor viejo guarda las preguntas de wrap_up SIN `origen`, y después del deploy nunca se superan.
+
+**La regla:** primero el deploy, después `cartero.mjs instalar`. Y un cambio del protocolo cartero ↔ servidor se revisa en
+las dos combinaciones de versión. *Cerebro, claude4.*

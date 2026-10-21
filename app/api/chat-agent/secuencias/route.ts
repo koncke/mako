@@ -92,7 +92,7 @@ async function esPlataformaActual(): Promise<boolean> {
   return ws != null && (await esWsPlataforma(ws));
 }
 import { leerCopia, resumenDeCopia } from '@/lib/flujo-copia';
-import { crearDesdeCopia, limpiarCopia, guardarCopiaConToken, resolverCopia, FaltaTablaCopiasError } from '@/lib/flujo-copia-negocio';
+import { crearDesdeCopia, limpiarCopia, guardarCopiaConToken, resolverCopia, origenDeCopia, FaltaTablaCopiasError } from '@/lib/flujo-copia-negocio';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -446,7 +446,9 @@ export async function POST(req: NextRequest) {
       if (body.action === 'leer_copia') return Response.json({ ok: true, ...resumenDeCopia(copia) });
       if (body.action === 'limpiar_copia') return Response.json({ ok: true, pasos: await limpiarCopia(copia), copia });
       try {
-        const r = await crearDesdeCopia(copia);
+        // Pegada en el MISMO negocio, lleva la configuración propia de la original (como «Duplicar»).
+        const origen = await origenDeCopia(body.copia);
+        const r = await crearDesdeCopia(copia, { configDe: origen && origen.ws === ws ? origen.secuenciaId : null });
         return Response.json({ ok: true, secuenciaId: r.id, nombre: r.nombre, ...(r.aviso ? { aviso: r.aviso } : {}) });
       } catch (e) {
         if (e instanceof PasosInvalidosError) return Response.json({ ok: false, error: e.message }, { status: 400 });
