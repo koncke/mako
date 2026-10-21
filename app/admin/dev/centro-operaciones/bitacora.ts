@@ -929,4 +929,22 @@ export const BITACORA: Hito[] = [
       'tests/chat-adentro.test.ts, tests/_adentro-hijo.ts',
     ],
   },
+  {
+    fecha: '21 oct', hora: '00:05', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Lo que tarda minutos sigue solo, y el resultado aparece en el chat cuando termina',
+    pedido: 'Ops Center = lo principal en MaKo (ola 1, 1.11)',
+    revisar: '/admin/operaciones',
+    puntos: [
+      'Cuando confirmas algo que tarda, como replicar o crear una landing, el chat no se queda esperando: ves «En curso» y puedes seguir.',
+      'Cuando termina, en el mismo lugar aparece «Hecho» con su botón para abrirlo, sin recargar.',
+      'Si cerraste el chat a mitad, al volver ya está.',
+      'MaKo lo sabe: si le preguntas después, lo lee.',
+    ],
+    archivos: [
+      'lib/chat-trabajos.ts, app/_chat/BloqueHilo.tsx (TrabajoHilo), app/api/mako/chat/route.ts (?trabajo=)',
+      'lib/mako-turno-app.ts (confirmarDesdeTarjeta), app/mako/revisar/[id]/acciones.ts',
+      'tests/chat-trabajos.test.ts, tests/_trabajos-hijo.ts',
+    ],
+  },
 ];

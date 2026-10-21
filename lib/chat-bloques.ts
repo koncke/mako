@@ -49,8 +49,9 @@ export type Bloque =
   | BloqueCreado
   /** G4: lo que cambió, fila por fila. */
   | { t: 'antes_despues'; titulo: string; filas: { campo?: string; antes: string; despues: string }[]; abrir?: Abrir }
-  /** G6: un trabajo largo. `listo` es el G5 en que termina. */
-  | { t: 'trabajo'; titulo: string; pasos: { texto: string; estado: EstadoPaso }[]; listo?: BloqueCreado }
+  /** G6: un trabajo largo. `listo` es el G5 en que termina (o `abrir`, si no crea algo con miniatura). `consulta`: la
+   *  llave con que la pantalla pregunta cómo va (lib/chat-trabajos.ts, la 1.11). */
+  | { t: 'trabajo'; titulo: string; pasos: { texto: string; estado: EstadoPaso }[]; listo?: BloqueCreado; abrir?: Abrir; consulta?: string }
   /** G1: una pregunta con opciones; `varias` = se puede marcar más de una. */
   | { t: 'pregunta'; pregunta: string; opciones: { titulo: string; detalle?: string }[]; recomendada?: number; varias?: boolean };
 
@@ -148,7 +149,9 @@ export function sanearBloque(crudo: unknown): Bloque | null {
       });
       if (!titulo || !pasos.length) return null;
       const listo = o.listo && typeof o.listo === 'object' ? sanearCreado(o.listo as Record<string, unknown>) : null;
-      return { t: 'trabajo', titulo, pasos, ...(listo ? { listo } : {}) };
+      const abrir = o.abrir === undefined ? null : sanearAbrir(o.abrir);
+      const consulta = typeof o.consulta === 'string' && /^[1-9][0-9]{0,14}\.[A-Za-z0-9_-]{8,40}$/.test(o.consulta) ? o.consulta : null;
+      return { t: 'trabajo', titulo, pasos, ...(listo ? { listo } : {}), ...(abrir ? { abrir } : {}), ...(consulta ? { consulta } : {}) };
     }
     case 'pregunta': {
       const pregunta = texto(o.pregunta, 300);

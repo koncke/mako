@@ -476,6 +476,7 @@ export function errorCortoDeTarjeta(error: string | null | undefined): string {
 /** Lo que devuelven confirmarEnChatAction / cancelarEnChatAction (app/m/mako/acciones.ts). */
 export type ResultadoTarjeta =
   /** `bloques`: lo que el chat dibuja con el resultado, ya saneado (lib/chat-bloques.ts), para sumarlo SIN recargar */
-  | { ok: true; resumen: string; paraLaPersona: string[]; bloques?: Bloque[]; abrir?: Abrir }
+  /** `enCurso`: lo confirmado es un trabajo largo que sigue por detrás (1.11); su avance es el G6 de `bloques` */
+  | { ok: true; resumen: string; paraLaPersona: string[]; bloques?: Bloque[]; abrir?: Abrir; enCurso?: true }
   /** `ejecutada: true` = se ejecutó y falló: la pendiente quedó cerrada, no se reintenta */
   | { ok: false; error: string; ejecutada?: true; paraLaPersona?: string[] };

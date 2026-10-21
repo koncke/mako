@@ -2068,3 +2068,38 @@ Probado en `tests/chat-adentro.test.ts`, que reabre un chat por el camino real (
 - `/plan/revisar` (el borrador de tareas) y `/crm/revisar` (`TablaRevisionLeads`) todavía no entran con su vista: la 1.10 b.
 - Lo que mueve plata espera a la D2.
 - Los campos se rotulan con el nombre del parámetro (`leadId`, `email`), igual que en /mako/revisar: mejorarlo es de las dos.
+
+## Los trabajos largos siguen por detrás, y su resultado queda en el mismo mensaje (20/10/2026, ola 1, pieza 1.11)
+
+**Vive en:** `lib/chat-trabajos.ts` (`enSegundoPlano`, `estadoDeTrabajo`) · el camino largo de `confirmarDesdeTarjeta`
+(`lib/mako-turno-app.ts`) y de `confirmarAccionAction` (`app/mako/revisar/[id]/acciones.ts`) · `TrabajoHilo` en
+`app/_chat/BloqueHilo.tsx` · GET `/api/mako/chat?trabajo=`. Probado en `tests/chat-trabajos.test.ts`, de punta a punta con
+un runner que tarda 5,5 s (`tests/_trabajos-hijo.ts`).
+
+- **Síntoma:**
+  - confirmar algo lento dejaba la pantalla en «MaKo está escribiendo… puede tardar un par de minutos», sin avance
+    (replicar una landing: unos 275 s, con un tope de 420);
+  - con la pestaña cerrada a mitad, el resultado no aparecía en ningún lado.
+- **Causa:** la confirmación corría el trabajo ADENTRO del pedido, y el hilo se escribía recién al final.
+- **Regla:**
+  - una operación `lenta` se confirma y responde enseguida;
+  - se anota «En curso: …» con un G6 y el trabajo corre por detrás (`after()`, con el maxDuration de la ruta: el mismo
+    plazo de antes);
+  - al terminar, ESE mensaje se reescribe a «Hecho: …» con su G5 o su «Abrir»;
+  - el resultado lo ve quien consulta, quien vuelve con la pestaña cerrada y el modelo en el turno siguiente;
+  - si no se puede anotar el avance, corre como antes: un trabajo nunca se pierde por no poder mostrarse.
+- **La consulta es una LLAVE** (`<id del mensaje>.<token>`). El id solo no alcanza: con él, cualquiera del negocio leía
+  el mensaje de otro chat.
+- **Trampas:**
+  - Una propuesta de pantalla anota su «Hecho» en su hilo (1.8). Por detrás va con `sinAnotar`, o el hilo queda con dos
+    mensajes del mismo trabajo.
+  - `generar_landing_con_ia` ya estaba marcada `lenta`, pero `lenta` sólo llegaba al catálogo y al texto de la
+    referencia: ningún chat la usaba.
+
+**Sin hacer:**
+- El G6 tiene dos pasos (Confirmado → el trabajo): los runners no informan avance intermedio.
+- Un trabajo que pasa el maxDuration de la ruta queda «En curso» para siempre: falta el vigía que lo marque como cortado.
+- No están conectados `flow_trabajos` (las tomas de Flow), el render de video ni el análisis del Dashboard, que tiene su
+  propio `after` y su propia consulta.
+- En la pantalla abierta, la tarjeta queda en «En curso» aunque el G6 haya terminado. Al recargar se va.
+- «Créame una landing» termina con «Abrir en Web Generator»; su miniatura es de la tarjeta de la landing (1.12).

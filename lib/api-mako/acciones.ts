@@ -120,7 +120,8 @@ export async function proponerPantallaGenerica(def: AccionDef, input: Record<str
  * preparar contra la base y recién después se ejecuta. `marcarAplicada` antes de
  * ejecutar es lo que hace que dos clicks creen UNA sola cosa.
  */
-export async function aplicarPropuestaGenerica(propuestaId: string, inputEditado: Record<string, unknown> | null, ctx: Ctx): Promise<Ejecutado> {
+/** `sinAnotar`: el resultado lo anota otro (un trabajo largo, lib/chat-trabajos.ts, reescribe su «En curso»). */
+export async function aplicarPropuestaGenerica(propuestaId: string, inputEditado: Record<string, unknown> | null, ctx: Ctx, opciones?: { sinAnotar?: true }): Promise<Ejecutado> {
   return runWithWorkspace(ctx.ws, async () => {
     const prop = await getPropuesta(propuestaId);
     if (!prop || prop.tipo !== 'accion') return { ok: false, resumen: 'La propuesta no existe en este workspace.' };
@@ -163,7 +164,7 @@ export async function aplicarPropuestaGenerica(propuestaId: string, inputEditado
     await marcarResultado(propuestaId, { resumen: r.resumen, ok: r.ok, por: ctx.actor ?? null, ...(r.datos ?? {}) });
     // El chat de donde salió se entera, con lo que dibuja el resultado: como si se hubiera confirmado en su tarjeta.
     const bloque = r.ok ? bloqueDeResultado(r.datos) : null;
-    await anotarEnHiloDeOrigen(prop.datos.canalKey, r.ok ? `Hecho: ${r.resumen}` : `No se pudo: ${r.resumen}`, bloque ? [bloque] : []);
+    if (!opciones?.sinAnotar) await anotarEnHiloDeOrigen(prop.datos.canalKey, r.ok ? `Hecho: ${r.resumen}` : `No se pudo: ${r.resumen}`, bloque ? [bloque] : []);
     return r;
   });
 }

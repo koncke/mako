@@ -66,6 +66,8 @@ import { partirPegados, recortarMensaje, textoParaTitulo } from '@/lib/chat-pega
 import { archivoATexto } from '@/lib/archivo-a-texto';
 import { aFila, plano } from '@/lib/bandeja-filas';
 import { getPropuesta, propuestasPendientesDelChat } from '@/lib/propuestas';
+import { getPendiente } from '@/lib/mako-pendientes';
+import { enSegundoPlano } from '@/lib/chat-trabajos';
 import { puedeVerKey } from '@/lib/movil-rutas';
 import { bloquesDeAdjuntos, placeholderDeAdjunto, promptDeAdjunto, type AdjuntoListo } from '@/lib/mako-adjuntos';
 import {
@@ -599,6 +601,18 @@ const NO_ES_TUYA: ResultadoTarjeta = { ok: false, error: 'No encuentro ese chat'
 export async function confirmarDesdeTarjeta(persona: PersonaChat, sessionId: number, pendienteId: number): Promise<ResultadoTarjeta> {
   return runWithWorkspace(persona.ws, async () => {
     if (!(await sesionDe(persona, sessionId))) return NO_ES_TUYA;
+    // Un trabajo LARGO (1.11, lib/chat-trabajos.ts): se confirma por detrás y la respuesta vuelve enseguida, con el G6 que
+    // la pantalla consulta. Si no se puede anotar su avance, corre como siempre, acá abajo.
+    const pend = await getPendiente(persona.ws, pendienteId).catch(() => null);
+    const def = pend?.estado === 'pendiente' ? porId(pend.tipo) : undefined;
+    if (def && esAccion(def) && def.lenta) {
+      const ctx = ctxDeTarjeta(persona, sessionId);
+      const trabajo = await enSegundoPlano(persona.ws, sessionId, def.titulo, async () => {
+        const r = await confirmarPendiente(ctx, pendienteId);
+        return 'error' in r ? { ok: false, resumen: errorCortoDeTarjeta(r.error) } : r;
+      }, (r) => abrirDeResultado(def.id, r.datos));
+      if (trabajo) return { ok: true, resumen: `En curso: ${def.titulo}`, paraLaPersona: [], bloques: [trabajo], enCurso: true };
+    }
     const detalle: string[] = [];
     const r = await confirmarPendiente(ctxDeTarjeta(persona, sessionId, (t) => { if (t && !detalle.includes(t)) detalle.push(t); }), pendienteId);
     if ('error' in r) return { ok: false, error: errorCortoDeTarjeta(r.error), paraLaPersona: detalle };

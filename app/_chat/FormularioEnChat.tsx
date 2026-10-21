@@ -22,7 +22,8 @@ import type { FormularioPropuesta } from '@/lib/mako-turno-app-reglas';
 import type { Abrir, Bloque } from '@/lib/chat-bloques';
 import { BloqueHilo } from './BloqueHilo';
 
-export type ResultadoFormulario = { ok: true; resumen: string; bloques?: Bloque[]; abrir?: Abrir } | { ok: false; error: string };
+/** `enCurso`: un trabajo largo que sigue por detrás (1.11); su avance es el G6 de `bloques`. */
+export type ResultadoFormulario = { ok: true; resumen: string; bloques?: Bloque[]; abrir?: Abrir; enCurso?: true } | { ok: false; error: string };
 export type AccionesFormulario = {
   confirmar: (id: string, payload: Record<string, unknown>) => Promise<ResultadoFormulario>;
   descartar: (id: string) => Promise<ResultadoFormulario>;
@@ -30,7 +31,7 @@ export type AccionesFormulario = {
 
 type Fase =
   | { fase: 'editando' | 'confirmando' | 'descartando' }
-  | { fase: 'hecha'; resumen: string; bloques: Bloque[]; abrir?: Abrir }
+  | { fase: 'hecha'; resumen: string; bloques: Bloque[]; abrir?: Abrir; enCurso?: true }
   | { fase: 'descartada'; resumen: string };
 
 export function FormularioEnChat({ f, acciones, abrirEnApp }: {
@@ -57,7 +58,7 @@ export function FormularioEnChat({ f, acciones, abrirEnApp }: {
     setFase({ fase: 'confirmando' });
     try {
       const r = await acciones.confirmar(f.propuestaId, armado.payload);
-      if (r.ok) { setFase({ fase: 'hecha', resumen: r.resumen, bloques: r.bloques ?? [], abrir: r.abrir }); return; }
+      if (r.ok) { setFase({ fase: 'hecha', resumen: r.resumen, bloques: r.bloques ?? [], abrir: r.abrir, enCurso: r.enCurso }); return; }
       setError(r.error);
     } catch {
       // La acción pudo haber corrido igual: no se dice «no pasó», se dice que no se sabe.
@@ -83,7 +84,7 @@ export function FormularioEnChat({ f, acciones, abrirEnApp }: {
   if (fase.fase === 'hecha') {
     return (
       <div className="ch-form" data-fase="hecha">
-        <p className="ch-tarjeta__nota" role="status">{`Hecho: ${fase.resumen}`}</p>
+        <p className="ch-tarjeta__nota" role="status">{fase.enCurso ? fase.resumen : `Hecho: ${fase.resumen}`}</p>
         {fase.bloques.map((b, i) => <BloqueHilo key={i} b={b} />)}
         {fase.abrir && <div className="ch-tarjeta__botones"><Link className="ch-abrir" href={fase.abrir.href}>{fase.abrir.titulo}</Link></div>}
       </div>

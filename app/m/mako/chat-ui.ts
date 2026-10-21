@@ -36,7 +36,8 @@ import { GRAMATICA } from '@/lib/mako-gramatica';
  */
 export type ArchivoHilo = { nombre: string; tipo: TipoAdjunto; ref?: string; local?: string; archivero?: EstadoArchivero };
 
-export type EstadoPropuesta = 'pendiente' | 'aplicando' | 'hecho' | 'cancelada' | 'vencida' | 'resuelta' | 'fallo';
+/** `en_curso`: confirmada, y es un trabajo largo que sigue por detrás (1.11); su avance va en el G6 de abajo. */
+export type EstadoPropuesta = 'pendiente' | 'aplicando' | 'en_curso' | 'hecho' | 'cancelada' | 'vencida' | 'resuelta' | 'fallo';
 
 export type ItemHilo =
   | {
@@ -325,6 +326,7 @@ export type TrasTarjeta = {
 /** Traduce lo que contestó la acción a lo que ve la persona. */
 export function trasTarjeta(r: ResultadoTarjeta, accion: 'confirmar' | 'cancelar'): TrasTarjeta {
   if (r.ok) {
+    if (accion === 'confirmar' && r.enCurso) return { estado: 'en_curso', toast: 'Sigue por detrás', frase: null, haptico: 'success' };
     return accion === 'confirmar'
       ? { estado: 'hecho', toast: 'Acción ejecutada', frase: null, haptico: 'success' }
       : { estado: 'cancelada', toast: 'No se ejecutó', frase: null, haptico: null };
@@ -341,6 +343,7 @@ export function trasTarjeta(r: ResultadoTarjeta, accion: 'confirmar' | 'cancelar
 export const PILL_PROPUESTA: Record<EstadoPropuesta, { texto: string; tono: 'warn' | 'good' | 'neutro' | 'bad' }> = {
   pendiente: { texto: GRAMATICA.aprobacion.rotulo, tono: 'warn' },
   aplicando: { texto: GRAMATICA.ejecuta.rotulo, tono: 'neutro' },
+  en_curso: { texto: 'En curso', tono: 'neutro' },
   hecho: { texto: GRAMATICA.completo.rotulo, tono: 'good' },
   cancelada: { texto: 'No se ejecutó', tono: 'neutro' },
   vencida: { texto: 'Vencida', tono: 'neutro' },
