@@ -174,7 +174,9 @@ test('pt 10 y 4 (20/10): el Ops Center adentro de lo diario, todo desplegado, Pa
   assert.equal(pliegaLaBarra('/admin/operaciones'), true);
   assert.equal(pliegaLaBarra('/crm'), false);
   assert.equal(pliegaLaBarra('/second-brainx'), false);
-  assert.match(sb, /const fija = fijaGuardada && \(!enOpsCenter \|\| abiertaAca\);/);
+  // Desde el 21/10/2026 la misma regla pliega también en una ventana chica (tests/ventana-chica.test.ts).
+  assert.match(sb, /const plegadaAca = enOpsCenter \|\| angosta;/);
+  assert.match(sb, /const fija = fijaGuardada && \(!plegadaAca \|\| abiertaAca\);/);
   // La barra sigue el modo: blanca en claro, ACOTADA a la barra (en :root las --sidebar* siguen oscuras: son la «isla
   // oscura» de 43 archivos), y su hover con token. La palabra MaKo con la tinta de la barra.
   const ui = leer('app/_ui/ui.css');
