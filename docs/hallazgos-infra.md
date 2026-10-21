@@ -6689,9 +6689,9 @@ tope) — dos costos de un mismo defecto: **esperar y preparar la rama eran paso
   `merge --abort`, se suelta el candado y el ROJO dice los archivos. La línea `VERDE <sha>` es del sha DESPUÉS del merge.
 
 **Las trampas que aparecieron al probarlo:**
-- **Un candado tomado a mano no tiene pid.** No se le puede preguntar si vive: sólo vence por edad (90 min). Y un chat que lo tomó a mano y
-  después corre `antes-de-subir` esperaría a SU PROPIO candado; el aviso lo dice y existe `--ya-tengo-el-candado`. La regla nueva
-  (AGENTS.md) es no tomarlo a mano para esto.
+- **Un candado tomado a mano no tiene pid.** No se le puede preguntar si vive (el 20/10: sólo vencía por edad, 90 min). Y un chat que lo tomó a
+  mano y después corre `antes-de-subir` esperaría a SU PROPIO candado: el aviso lo dice y existe `--ya-tengo-el-candado`, pero el 21/10 pasó igual
+  (ver abajo) — un aviso en pantalla no lo ve quien corre el script en segundo plano. Ahora la cola lo resuelve sola.
 - **Una PC sin `user.email` no puede commitear el merge** y `git merge` falla con «unable to auto-detect email address», que el código
   leía como «chocó en 0 archivos». Pasa en un clon o un worktree recién hecho. Ahora se firma con la identidad de Claude si no hay
   ninguna, y si el merge falla por otra causa el ROJO dice cuál (`no es un choque de archivos`).
@@ -6712,11 +6712,47 @@ tope) — dos costos de un mismo defecto: **esperar y preparar la rama eran paso
 - **La primera versión de la prueba de la cola no agarraba el orden por pid** (los pids de los tres chats crecían con la hora, así que
   ordenar por pid o por hora daba lo mismo). Se vio al romperlo a propósito: ahora el más viejo tiene el pid más alto.
 
+### 21/10: la segunda trabada — un candado a mano que bloqueó 27 min a 7 chats, con la máquina ociosa
+
+**El síntoma** (el Cerebro): `C:/dev/pesado.lock` tenía un `quien.txt` SIN `dueno.json` («wt-crm-ficha2 · crm-ficha-v2 (claude4)
+antes-de-subir --rapido — 21/10 01:06»; `--cola` decía «tomado A MANO») y, a la vez, el `antes-de-subir` de ese MISMO worktree (pid 27780,
+arrancado a las 01:06:09) era el PRIMERO de la fila, esperando ese candado. Bloqueo mutuo hasta el tope de 90 min; no corría ningún `tsc`
+ni test. Al borrar el lock, el 27780 lo tomó en el acto.
+
+**El diagnóstico obvio —«una carrera del script entre el `mkdir` y escribir el pid»— era el equivocado.** El script deja una línea `toma`
+en `pesado.log` en CADA toma, justo después de escribir `dueno.json`, y a las 01:06 no hay ninguna. Lo que el log sí tiene es
+`suelta pid 17100` a las 01:06:07,3 y, 2,2 s después, el `anota-turno` del 27780: ese candado lo creó otro `mkdir` en esos dos segundos —el
+del propio chat, que ganó la carrera justo al soltarse el anterior— y después lanzó `antes-de-subir`, que se anotó detrás de SU candado. El
+texto del `quien.txt` es idéntico al que escribe el script porque el formato se dejó igual al de siempre, a propósito (compatibilidad): un chat
+que lo toma a mano y lo firma como lo ve en los avisos de espera lo escribe igual. **No se puede probar quién lo escribió** (el archivo no
+dice); lo que sí se puede es que el diseño no dependa de eso.
+
+**Qué quedó** (`scripts/candado-pesado.mjs`):
+- **Un candado a mano de MI worktree lo toma la cola, sin esperar** (`esMio`): el `quien.txt` empieza con `<worktree> · <rama>`. En un
+  `wt-…` alcanza el worktree (hay un chat por worktree); en el clon compartido hace falta también la misma rama. `wt-crm` no es `wt-crm-ficha2`.
+- **Un candado a mano que nadie usa ya no bloquea 90 min:** con alguien esperando se suelta a los 10 min si NO hay ningún proceso pesado vivo
+  (`procesosPesados`: los `node.exe` con `tsc`, `--test`, `next build`, vitest, jest, playwright, eslint; ~1 s, de a 30 s), y a los 30 min pase lo que
+  pase (el tope de los que tienen dueño sigue en 90). Si no se pudo mirar los procesos (`null`) NO se suelta: nunca a ciegas. Todo en `pesado.log`.
+- Costo asumido: un candado a mano de otro worktree que sólo mira una pantalla en Chrome (sin ningún proceso pesado) se libera a los 10 min.
+  El de ahora no es el caso (usa `antes-de-subir`), pero es la contrapartida de no poder preguntarle a un candado sin pid si vive.
+
+**Y lo que mi propia corrida de ese día mostró:** esperé 25 min en la fila (6 delante) y, al tomar el candado y mergear `origin/main` (+84 commits), una
+guarda nueva que vino en el merge frenó el VERDE **en 7 s**: un test mío tenía un literal que empieza con la letra de unidad de Windows
+(`scripts/rutas-windows-en-tests.mjs`; la unidad se arma aparte: `'C' + ':'`). Las guardas del push (~10 s, ~300 MB; el pre-push las corre sin
+candado) ahora corren ANTES de hacer fila —un rojo de guarda dice «no hice fila por esto» y tarda 8 s, medido con otro candado tomado— y otra vez al
+tomarlo, con main mergeado, que puede traer guardas y archivos nuevos. Verificado a mano (rompiendo el test a propósito con otro candado puesto), sin
+prueba automática: el efecto vive en `main()` del CLI y probarlo pide un repo roto.
+
+**Sigue abierto, y es la raíz:** un `mkdir` a mano le gana a la cola en el instante en que el dueño suelta (aquí por ~2 s). Lo de arriba lo hace
+inofensivo para `antes-de-subir`, no lo impide. Lo que lo impediría: que `soltar` ENTREGUE el candado al primero de la fila sin borrar el
+directorio (reescribe `dueno.json` con el pid del siguiente), así un `mkdir` a mano nunca lo ve libre mientras haya alguien esperando. No se hizo:
+cambia el contrato de `soltar`; hay que decidirlo.
+
 **Sin hacer:** `~/.claude/guardia/memoria.mjs` (la lista de comandos «pesados» del vigía) sigue sin saber de `antes-de-subir`; lo agrega el
 Cerebro. Y el candado no cubre el `mobile-build.lock` de los Mobile: es otro recurso con otra cola.
 
 **Vive en:** `scripts/candado-pesado.mjs` · `scripts/antes-de-subir.mjs` (`traerMain`, `--cola`, `--ya-tengo-el-candado`, `--sin-merge`) ·
-`tests/candado-pesado.test.ts` (12 pruebas; 14 roturas a propósito, todas dan rojo) · `AGENTS.md` («El candado de lo pesado ahora tiene COLA»)
+`tests/candado-pesado.test.ts` (17 pruebas; 24 roturas a propósito, todas dan rojo) · `AGENTS.md` («El candado de lo pesado ahora tiene COLA»)
 
 ## Un script de roturas no se corta con `head`, y un worktree no tiene `.env.local` (16/10/2026)
 
