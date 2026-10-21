@@ -2085,7 +2085,10 @@ seguía, así que tocar «Mentoría» apagaba los diseños con «Respondiste: Me
   suyo. Si es de uno del turno ACTUAL (los que vinieron después del mensaje anterior de la persona), sólo ése: un
   «Saltear» de la pregunta nueva no cierra las viejas. Si no es de ninguno, escribir contesta, como siempre, pero sólo
   si en el turno actual hay UNO abierto; con varios, quedan abiertos (abierto de más cuesta poco). Un selector de un
-  turno anterior sigue esperando, pero sólo un toque SUYO lo cierra.
+  turno anterior sigue esperando, pero sólo un toque SUYO lo cierra, comparado TAL CUAL con lo que manda su botón: los
+  del turno actual se comparan sin mayúsculas ni tildes, los viejos no. Si no, lo escrito que se parecía a una opción
+  vieja se la llevaba («curso kairos» escrito a la pregunta de Pagos cerraba el «¿Para qué producto?» de la landing, y
+  Pagos quedaba abierta).
 - **La trampa, una regresión en la vuelta del arreglo:** que el selector viejo siga esperando estaba bien, pero contarlo
   para «hay uno solo abierto» rompió escribir. Después de tocar «Mentoría», el G2 de diseños queda abierto a propósito,
   y desde ahí ninguna pregunta de la sesión (de ningún área) se cerraba escribiendo. La red «escribir contesta» es del
@@ -2097,7 +2100,10 @@ seguía, así que tocar «Mentoría» apagaba los diseños con «Respondiste: Me
 - **«Listo» con varias se reconoce armándolo como el botón** (títulos en el orden de las opciones, unidos con «, »), no
   partiendo por comas: un título puede tener una («Precios, planes»).
 - **SIN hacer:** en los hilos guardados antes de que el G2 mandara «Diseño: saltear», un «Saltear» pelado tocado en el
-  G2 se lo lleva el G1 al recargar. Es sólo historia y son pocos hilos (el G2 junto al G1 existe desde el 21/10).
+  G2 se lo lleva el G1 al recargar. Es sólo historia y son pocos hilos (el G2 junto al G1 existe desde el 21/10). Y lo
+  escrito IDÉNTICO a un botón viejo («Mentoría», con mayúscula y tilde) no se distingue de un toque: cierra el viejo.
+- **Cómo se midió:** la revisión comparó contra producción 9.000 hilos armados de 1 a 12 turnos (vivo y recargando): 0
+  diferencias con texto libre. Para tocar `conRespuestas`, esa comparación es la vara, no un caso suelto.
 
 ## «Abrir en la app», y lo confirmado afuera vuelve al hilo (20/10/2026, ola 1, pieza 1.8)
 
