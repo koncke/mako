@@ -75,7 +75,7 @@ import {
   chartKeyDePersona, canalKeyDeSesion, herramientasDelChat, tarjetaDePendiente, linksDeUnaAccion, abrirDeResultado, idDePropuesta,
   type FormularioPropuesta, type PropuestaPantalla,
   propuestaDePantalla, sinLinksDeRevision, MENSAJE_BORRADOR_APP, mensajeLeadApp, TEXTO_SOLO_TARJETA, TEXTO_SOLO_BLOQUE,
-  historialParaModelo, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA,
+  historialParaModelo, hechoEnElHilo, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA,
   type LinkCapturado, type MensajeChat, type RespuestaTurno, type ResultadoTarjeta, type SesionChat, type TarjetaPendiente,
 } from '@/lib/mako-turno-app-reglas';
 
@@ -483,14 +483,13 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const capturados: LinkCapturado[] = [];
     // Un turno que se re-arranca (la cascada de chatClaudeTools rota de cuenta) no repite
     // acciones: el mismo memo que el doer de WhatsApp.
-    const memo = crearMemoDeAcciones((n) => {
-      const d = porId(n);
-      return d ? d.tipo !== 'lectura' : NOMBRES_ACCION.has(n) && !n.startsWith('listar_');
-    });
+    const escribe = (n: string) => { const d = porId(n); return d ? d.tipo !== 'lectura' : NOMBRES_ACCION.has(n) && !n.startsWith('listar_'); };
+    const memo = crearMemoDeAcciones(escribe);
     // Desde que MaKo pregunta, no se propone nada en el turno (1.9): una lectura sí, para armar las opciones.
-    const guardia = crearGuardiaDePregunta((n) => { const d = porId(n); return d ? d.tipo !== 'lectura' : NOMBRES_ACCION.has(n) && !n.startsWith('listar_'); });
-    /** Cuántas herramientas corrieron DE VERDAD en el turno: el guardia de promesas lo necesita (1.5). */
+    const guardia = crearGuardiaDePregunta(escribe);
+    /** Cuántas herramientas corrieron DE VERDAD en el turno, y cuántas LEYERON sin error: el guardia de promesas (1.5). */
     let corridas = 0;
+    let leidas = 0;
     const runTool = async (name: string, input: Record<string, unknown>) => {
       // El contrato se aplica AL EJECUTAR: lo que no viajó no corre, aunque el modelo lo
       // llame (lo dice el texto, lo pide igual). Confirmar, menos que nada.
@@ -515,6 +514,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       herramientaActual = name;
       const out = conInstruccionDeTarjeta(await (NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input) : runRegistro(name, input)));
       memo.anotar(name, out);
+      if (!escribe(name) && (out as { isError?: unknown }).isError !== true) leidas++;
       const err = errorParaTicket(name, out);
       if (err) erroresDelTurno.push(err);
       else if (name === LEVANTAR_TICKET) ticketPropuesto = true;
@@ -604,8 +604,12 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // —el de la app y el teléfono de los clientes— no. Se saca la oración, no la respuesta entera (las promesas no: acá la
     // tarjeta y la pantalla dicen lo que quedó hecho).
     if (respuesta && !borrador && !lead) {
-      // Con lo que DE VERDAD corrió (1.5): sin ninguna herramienta, «déjame ver» y «Listo, ya lo armé» son mentira.
-      const saneo = sanearSalida(respuesta, { corrioHerramientas: corridas > 0, hecho: true });
+      // Con lo que DE VERDAD corrió (1.5): sin ninguna herramienta, «déjame ver» es mentira. Y lo que dice HECHO, con lo
+      // que lo respalda: en este chat el turno no ejecuta nada, así que «ya le mandé» sólo vale si lo anota el hilo.
+      const saneo = sanearSalida(respuesta, {
+        corrioHerramientas: corridas > 0,
+        hecho: { enElHilo: hechoEnElHilo(historial), leyo: leidas > 0, tarjeta: propuestas.length > 0 || retirado.pantallas.length > 0 },
+      });
       if (saneo.groserias.length) console.warn(`[mako-turno-app] ws=${ws} sesión=${s.id}: le saqué una grosería (${saneo.groserias.join(', ')})`);
       respuesta = saneo.texto;
     }

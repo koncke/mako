@@ -379,6 +379,14 @@ export function historialParaModelo(msgs: readonly MensajeChat[], max = 12): Arr
   return out;
 }
 
+/**
+ * El hilo que lee el modelo ya anota algo HECHO: el «Hecho: …» que deja una tarjeta confirmada o un trabajo largo
+ * (`anotarEnHilo`, lib/chat-trabajos.ts). Con eso, «sí, quedó agendada» puede ser verdad sin correr nada (1.5).
+ */
+export function hechoEnElHilo(historial: readonly { role: string; content: string }[]): boolean {
+  return historial.some((m) => m.role === 'assistant' && /^Hecho: /m.test(m.content));
+}
+
 /** «sábado, 11 de octubre de 2026, 20:45», en la zona que se pase. */
 export function hoyLegible(tz: string, ahora = new Date()): string {
   try {
