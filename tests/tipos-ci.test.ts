@@ -28,7 +28,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  argumentosDeTsc, clasificar, correrTsc, leerEstadisticas, miles, SALIDA_SIN_TIPOS, topeDeHeapMb, UMBRAL_AVISO, veredictoDeTipos,
+  argumentosDeTanda, argumentosDeTsc, clasificar, correrTsc, juntarTandas, leerEstadisticas, miles, SALIDA_SIN_TIPOS, tandasPedidas, topeDeHeapMb, UMBRAL_AVISO, veredictoDeTipos,
 } from '../scripts/tipos-ci.mjs';
 import * as TESTS_AFECTADOS from '../scripts/tests-afectados.mjs';
 
@@ -234,6 +234,7 @@ function correrCli(dir: string, env: Record<string, string> = {}) {
   const e: NodeJS.ProcessEnv = { ...process.env, GITHUB_STEP_SUMMARY: resumen, ...env };
   delete e.NODE_TEST_CONTEXT;
   if (!('TIPOS_HEAP_MB' in env)) delete e.TIPOS_HEAP_MB;
+  if (!('TIPOS_TANDAS' in env)) delete e.TIPOS_TANDAS;     // el entorno de afuera no cambia el paso que se prueba
   const r = spawnSync(process.execPath, [CLI, '-p', join(dir, 'tsconfig.json')], { encoding: 'utf8', env: e, timeout: 120_000 });
   let md = '';
   try { md = readFileSync(resumen, 'utf8'); } catch { /* sin resumen */ }
@@ -295,7 +296,119 @@ test('el paso «Tipos» del workflow llama a tipos-ci.mjs, y propaga su exit (no
   assert.match(script, /'typescript', 'bin', 'tsc'/, 'el script corre el tsc completo de node_modules');
 });
 
+// ---------------------------------------------------------------------------------------------------------------------------------
+// TANDAS (TIPOS_TANDAS): el chequeo completo repartido en procesos, el arreglo de fondo del 21/10/2026
+// ---------------------------------------------------------------------------------------------------------------------------------
+
+test('tandasPedidas: TIPOS_TANDAS es un entero de 1 a 8; cualquier otra cosa es 1 (el tsc de siempre)', () => {
+  assert.equal(tandasPedidas({ TIPOS_TANDAS: '3' }), 3);
+  assert.equal(tandasPedidas({ TIPOS_TANDAS: '8' }), 8);
+  for (const malo of [undefined, '', 'abc', '0', '-2', '9', '2.5x']) assert.equal(tandasPedidas({ TIPOS_TANDAS: malo }), malo === '2.5x' ? 2 : 1, `«${malo}»`);
+});
+
+test('argumentosDeTanda: el tope y --expose-gc son de node (van antes del script); la tanda va al final', () => {
+  const a = argumentosDeTanda({ topeMb: 6144, script: 'ruta/tandas.mjs', i: 2, K: 3, extra: ['-p', 'x.json'] });
+  assert.deepEqual(a, ['--max-old-space-size=6144', '--expose-gc', 'ruta/tandas.mjs', '-p', 'x.json', '--tanda', '2/3']);
+});
+
+const tanda = (estado: string, vivoMb: number | null, baseMb: number | null, segundos = 60, lineasDeError: string[] = []) => ({
+  clase: { estado },
+  segundos,
+  estadisticas: { archivos: 7723, tipos: null, instanciaciones: null, simbolos: null, vivoMb, baseMb, chequeados: 2500, chequeoS: segundos / 2, totalS: null },
+  lineasDeError,
+});
+
+test('juntarTandas: el estado más grave manda, las líneas de error no se repiten, el pico es el de la tanda más pesada', () => {
+  const ok = juntarTandas([tanda('ok', 3000, 1800), tanda('ok', 3300, 1800), tanda('ok', 2900, 1800)]);
+  assert.equal(ok.estado, 'ok');
+  assert.equal(ok.estadisticas.vivoMb, 3300, 'el pico es el de la tanda más pesada, no la suma');
+  assert.equal(ok.estadisticas.baseMb, 1800);
+  assert.equal(ok.segundos, 180);
+  assert.equal(ok.tandaFallida, null);
+
+  const e1 = 'a.ts(1,1): error TS2322: x';
+  const e2 = 'b.ts(2,2): error TS2339: y';
+  const err = juntarTandas([tanda('errores', 3000, 1800, 60, [e1, e2]), tanda('ok', 3000, 1800), tanda('errores', 3000, 1800, 60, [e2])]);
+  assert.equal(err.estado, 'errores');
+  assert.equal(err.errores, 2, 'el error que dos tandas informan (config, sintaxis) cuenta una vez');
+
+  const oom = juntarTandas([tanda('errores', 3000, 1800, 60, [e1]), tanda('sin-memoria', null, null), tanda('ok', 3000, 1800)]);
+  assert.equal(oom.estado, 'sin-memoria', 'una tanda que no llegó a un veredicto no se compensa con las otras');
+  assert.equal(oom.tandaFallida, 2);
+  assert.equal(juntarTandas([tanda('matado', null, null), tanda('sin-memoria', null, null)]).estado, 'sin-memoria', 'sin memoria antes que matado');
+  assert.equal(juntarTandas([tanda('sin-chequear', null, null), tanda('errores', 1, 1)]).estado, 'sin-chequear', 'sin veredicto antes que errores');
+  assert.equal(juntarTandas([tanda('ok', null, null)]).estadisticas.vivoMb, null, 'sin medir sigue siendo null, no 0');
+});
+
+test('veredictoDeTipos con tandas: la línea TIPOS-MEDIDA suma tandas= y base_mb= AL FINAL (la de siempre no cambia), y los avisos dicen cuál tanda', () => {
+  const e = { archivos: 7723, tipos: null, instanciaciones: null, simbolos: null, vivoMb: 3300, baseMb: 1800, chequeados: null, chequeoS: 90, totalS: null };
+  const v = veredictoDeTipos({ estado: 'ok', segundos: 200, topeMb: 6144, ramMb: 7941, cpu: 2, estadisticas: e, tandas: 3 });
+  assert.equal(v.lineas[0], 'TIPOS-MEDIDA estado=ok segundos=200 tope_mb=6144 ram_mb=7941 vivo_mb=3300 vivo_pct=54 archivos=7723 tipos=n/d instanciaciones=n/d chequeo_s=90 tandas=3 base_mb=1800');
+  const solo = veredictoDeTipos({ estado: 'ok', segundos: 134, topeMb: 6144, ramMb: 7941, estadisticas: { ...e, vivoMb: 5062 }, tandas: 1 });
+  assert.doesNotMatch(solo.lineas[0], /tandas=|base_mb=/, 'con una sola tanda la línea es la de siempre');
+  const aviso = veredictoDeTipos({ estado: 'ok', segundos: 200, topeMb: 6144, ramMb: 7941, estadisticas: { ...e, vivoMb: 5000 }, tandas: 3 });
+  assert.match(aviso.anotaciones.join('\n'), /La tanda más pesada \(de 3\) usó 5\.000 MB vivos/);
+  const oom = veredictoDeTipos({ estado: 'sin-memoria', segundos: 90, topeMb: 6144, ramMb: 7941, tandas: 3, tandaFallida: 2 });
+  assert.match(oom.lineas.join('\n'), /se quedó sin heap \(tanda 2\/3\) a los 90 s/);
+  assert.match(oom.anotaciones.join('\n'), /sin heap \(tanda 2\/3\) a los 90 s/);
+  assert.match(veredictoDeTipos({ estado: 'matado', segundos: 90, topeMb: 6144, ramMb: 7941, tandas: 3, tandaFallida: 3, signal: 'SIGKILL' }).lineas.join('\n'), /El tsc murió \(tanda 3\/3\) por SIGKILL/);
+  assert.match(v.resumen.join('\n'), /\| Tandas \| 3: pico por tanda 3\.300 MB, piso \(programa atado\) 1\.800 MB \|/);
+});
+
+test('leerEstadisticas lee también el piso (Base memory used) y los archivos chequeados de una tanda', () => {
+  const e = leerEstadisticas('Files:  7723\nFiles checked:  2500\nBase memory used:  1887436K\nMemory used:  3250000K\n');
+  assert.equal(e.baseMb, 1800);
+  assert.equal(e.chequeados, 2500);
+  assert.equal(e.vivoMb, 3099);
+  assert.equal(leerEstadisticas('Memory used: 69011K\n').baseMb, null, 'el tsc de siempre no tiene piso: null');
+});
+
+function proyectoVarios(archivos: Record<string, string>) {
+  const dir = mkdtempSync(join(tmpdir(), 'tipos-ci-tandas-'));
+  writeFileSync(join(dir, 'tsconfig.json'), JSON.stringify({ compilerOptions: { strict: true, noEmit: true, target: 'ES2017', module: 'esnext', moduleResolution: 'bundler', types: [] }, include: ['**/*.ts'] }));
+  for (const [ruta, texto] of Object.entries(archivos)) writeFileSync(join(dir, ruta), texto);
+  return dir;
+}
+const TRES = { 'a.ts': 'export const a: number = 1;\n', 'b.ts': "export const b: number = 'x';\n", 'c.ts': "import { a } from './a';\nexport const c: string = a;\n" };
+
+test('de punta a punta con TIPOS_TANDAS=3: los errores salen una vez cada uno, con exit 1, y cada tanda deja su línea TIPOS-TANDA', () => {
+  const dir = proyectoVarios(TRES);
+  try {
+    const r = correrCli(dir, { TIPOS_TANDAS: '3' });
+    assert.equal(r.status, 1, r.out + r.err);
+    assert.match(r.out, /── tanda 1\/3 ──/);
+    assert.match(r.out, /── tanda 3\/3 ──/);
+    assert.equal((r.out.match(/^TIPOS-TANDA \d\/3 estado=/gm) ?? []).length, 3, 'una línea por tanda');
+    assert.match(r.out, /Tipos: ERRORES DE TIPOS · 2 error\(es\)/, 'los dos errores del proyecto, sin repetir');
+    assert.match(r.out, /TIPOS-MEDIDA estado=errores .* tandas=3 base_mb=\d+/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('de punta a punta con TIPOS_TANDAS=3: un proyecto sano da exit 0 y mide el pico y el piso', () => {
+  const dir = proyectoVarios({ 'a.ts': TRES['a.ts'], 'b.ts': 'export const b: number = 2;\n', 'c.ts': 'export const c = 3;\n' });
+  try {
+    const r = correrCli(dir, { TIPOS_TANDAS: '3' });
+    assert.equal(r.status, 0, r.out + r.err);
+    const m = /TIPOS-MEDIDA estado=ok .*vivo_mb=(\d+) .* tandas=3 base_mb=(\d+)/.exec(r.out);
+    assert.ok(m, `la línea con tandas:\n${r.out}`);
+    assert.ok(Number(m[2]) > 20 && Number(m[1]) >= Number(m[2]), `el piso (${m[2]}) es real y el pico (${m[1]}) no baja de él`);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('de punta a punta con TIPOS_TANDAS=3: un OOM de verdad en la primera tanda da exit 98, dice «tanda 1/3» y NO sigue con las otras', () => {
+  const dir = proyectoVarios(TRES);
+  try {
+    const r = correrCli(dir, { TIPOS_TANDAS: '3', TIPOS_HEAP_MB: '30' });
+    assert.equal(r.status, SALIDA_SIN_TIPOS, r.out + r.err);
+    assert.match(r.out, /Tipos: SIN MEMORIA — NO son errores de tipos\. El tsc se quedó sin heap \(tanda 1\/3\)/);
+    assert.doesNotMatch(r.out, /── tanda 2\/3 ──/, 'una tanda sin veredicto corta: son minutos de runner');
+    assert.doesNotMatch(r.out, /ERRORES DE TIPOS/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 // =============================================================================
+// ⚠️ TANDAS (21/10/2026, tarde): 8 roturas, 8 rojas — TIPOS_TANDAS que acepta cualquier número → 1 · --tanda antes del script → 1 · los errores que mandan sobre el OOM al juntar → 1 · los errores contados repetidos → 1 ·
+//   el pico como suma de las tandas → 1 · que no corte en una tanda sin veredicto → 1 · tandas= siempre en la línea de siempre → 1 · el aviso que no dice la tanda → 2.
 // ⚠️ PROBADO ROMPIÉNDOLO (21/10/2026; se rompe UNA pieza, se corren estas pruebas, se restaura): 30 roturas, 30 rojas (una salió verde en la primera pasada y se reforzó).
 //   `clasificar` (7): un OOM que no mira el mensaje de V8 → 1 · sin SIGABRT → 1 · sin exit 134 → 1 · los «error TS» que ganan sobre el OOM → 2 · «matado» sin SIGKILL → 1 · sin exit 137 → 1 ·
 //     un fallo al lanzar que se lee como salida 0 → 1.

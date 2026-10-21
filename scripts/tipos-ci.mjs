@@ -21,6 +21,10 @@
 //   3. NO DEPENDE DE UN NÚMERO A MANO: el tope se deriva de la RAM del runner (RAM − 1,5 GB para el SO y el runner), con TIPOS_HEAP_MB para
 //      forzarlo. Si algún día el repo pasa a un runner más grande, el tope sube solo; si el runner se achica, el paso lo dice en vez de morir mudo.
 //
+// TANDAS (TIPOS_TANDAS=K, default 1 = el tsc de siempre): el chequeo completo repartido en K procesos, de a uno, cada uno con el programa entero atado pero chequeando sólo su pedazo
+// (scripts/tipos-por-tandas.mjs). Es el arreglo de fondo del 21/10/2026: el tsc guarda en memoria todo lo que instancia, y el programa crece ~1 GB de memoria viva por semana. Con K tandas
+// el pico por proceso baja hacia (piso + resto/K). Se decide K con los números de scripts/medir-tipos.mjs (docs/hallazgos-infra.md); acá sólo se enciende.
+//
 // Lo que NO hace: no arregla que el programa crezca (en 7 días pasó de >4,0 a >5,0 GB de heap). Eso se mide con los números de la línea
 // TIPOS-MEDIDA y se decide con ellos: docs/hallazgos-infra.md.
 //
@@ -84,7 +88,7 @@ export function clasificar({ status, signal = null, salida = '' }) {
  * sin separador de miles: «Types:                      15727», «Memory used:               69011K» (miles de BYTES, no KiB), «Check time:  1.06s».
  * ⚠️ Una línea que falta es null, no 0: un 0 de memoria viva se leería como «sobra aire». Puro.
  * @param {string} salida
- * @returns {{ archivos: number | null, tipos: number | null, instanciaciones: number | null, simbolos: number | null, vivoMb: number | null, chequeoS: number | null, totalS: number | null }}
+ * @returns {{ archivos: number | null, tipos: number | null, instanciaciones: number | null, simbolos: number | null, vivoMb: number | null, baseMb: number | null, chequeados: number | null, chequeoS: number | null, totalS: number | null }}
  */
 export function leerEstadisticas(salida) {
   const num = (nombre) => {
@@ -94,12 +98,15 @@ export function leerEstadisticas(salida) {
     return Number.isFinite(n) ? n : null;
   };
   const memoriaK = num('Memory used');
+  const baseK = num('Base memory used');
   return {
     archivos: num('Files'),
     tipos: num('Types'),
     instanciaciones: num('Instantiations'),
     simbolos: num('Symbols'),
     vivoMb: memoriaK == null ? null : Math.round((memoriaK * 1000) / 1048576),
+    baseMb: baseK == null ? null : Math.round((baseK * 1000) / 1048576),     // sólo en una tanda: el programa creado y atado, sin chequear un archivo (el piso)
+    chequeados: num('Files checked'),
     chequeoS: num('Check time'),
     totalS: num('Total time'),
   };
@@ -107,11 +114,12 @@ export function leerEstadisticas(salida) {
 
 /**
  * Qué se imprime, qué se anota y con qué exit sale. Puro (sin tocar el disco ni la consola): lo prueba un test.
- * @param {{ estado: string, errores?: number, segundos: number, topeMb: number, ramMb: number, cpu?: number, estadisticas?: ReturnType<typeof leerEstadisticas>, status?: number | null, signal?: string | null }} a
+ * @param {{ estado: string, errores?: number, segundos: number, topeMb: number, ramMb: number, cpu?: number, estadisticas?: Partial<ReturnType<typeof leerEstadisticas>>, status?: number | null, signal?: string | null, tandas?: number, tandaFallida?: number | null }} a
  * @returns {{ codigo: number, palabra: string, lineas: string[], anotaciones: string[], resumen: string[] }}
  */
-export function veredictoDeTipos({ estado, errores = 0, segundos, topeMb, ramMb, cpu = 0, estadisticas, status = null, signal = null }) {
+export function veredictoDeTipos({ estado, errores = 0, segundos, topeMb, ramMb, cpu = 0, estadisticas, status = null, signal = null, tandas = 1, tandaFallida = null }) {
   const e = estadisticas ?? {};
+  const enTanda = tandas > 1 && tandaFallida != null ? ` (tanda ${tandaFallida}/${tandas})` : '';
   const fraccion = e.vivoMb != null ? e.vivoMb / topeMb : null;
   const medida = [
     'TIPOS-MEDIDA',
@@ -125,6 +133,8 @@ export function veredictoDeTipos({ estado, errores = 0, segundos, topeMb, ramMb,
     `tipos=${e.tipos ?? 'n/d'}`,
     `instanciaciones=${e.instanciaciones ?? 'n/d'}`,
     `chequeo_s=${e.chequeoS ?? 'n/d'}`,
+    // Sólo con tandas, y al FINAL: quien lee la línea de siempre no ve cambiar ni una posición.
+    ...(tandas > 1 ? [`tandas=${tandas}`, `base_mb=${e.baseMb ?? 'n/d'}`] : []),
   ].join(' ');
   const lineas = [medida];
   const anotaciones = [];
@@ -136,7 +146,7 @@ export function veredictoDeTipos({ estado, errores = 0, segundos, topeMb, ramMb,
     palabra = 'OK';
     lineas.push(`Tipos: OK · ${Math.round(segundos)} s · memoria viva ${e.vivoMb == null ? 'sin medir' : `${miles(e.vivoMb)} MB de ${miles(topeMb)} (${Math.round(fraccion * 100)} %)`}`);
     if (fraccion != null && fraccion >= UMBRAL_AVISO) {
-      anotaciones.push(`::warning title=Tipos: al borde de la memoria::El tsc usó ${miles(e.vivoMb)} MB vivos de ${miles(topeMb)} (${Math.round(fraccion * 100)} %). Cuando pase del tope el paso muere por memoria (SIN MEMORIA, no errores de tipos). Hay que medir qué infla el programa o partirlo: docs/hallazgos-infra.md.`);
+      anotaciones.push(`::warning title=Tipos: al borde de la memoria::${tandas > 1 ? `La tanda más pesada (de ${tandas})` : 'El tsc'} usó ${miles(e.vivoMb)} MB vivos de ${miles(topeMb)} (${Math.round(fraccion * 100)} %). Cuando pase del tope el paso muere por memoria (SIN MEMORIA, no errores de tipos). Hay que medir qué infla el programa o partirlo: docs/hallazgos-infra.md.`);
     }
   } else if (estado === 'errores') {
     codigo = 1;
@@ -147,16 +157,16 @@ export function veredictoDeTipos({ estado, errores = 0, segundos, topeMb, ramMb,
     codigo = SALIDA_SIN_TIPOS;
     palabra = 'SIN MEMORIA';
     lineas.push(
-      `Tipos: SIN MEMORIA — NO son errores de tipos. El tsc se quedó sin heap a los ${Math.round(segundos)} s (${topes}) y no llegó a un veredicto.`,
+      `Tipos: SIN MEMORIA — NO son errores de tipos. El tsc se quedó sin heap${enTanda} a los ${Math.round(segundos)} s (${topes}) y no llegó a un veredicto.`,
       '  Qué hacer: no corregir código. Re-correr sólo sirve si el programa estaba justo en el borde. Si se repite: bajar lo que el tsc carga (partir el programa',
       '  en dos, o ver qué infla los tipos), subir el tope si el runner tiene RAM de sobra (TIPOS_HEAP_MB), o usar un runner con más RAM. docs/hallazgos-infra.md.',
     );
-    anotaciones.push(`::error title=Tipos: SIN MEMORIA (no son errores de tipos)::El tsc se quedó sin heap a los ${Math.round(segundos)} s con el tope de ${miles(topeMb)} MB (RAM del runner: ${miles(ramMb)} MB). No hay nada que corregir en el código: es el tamaño del programa.`);
+    anotaciones.push(`::error title=Tipos: SIN MEMORIA (no son errores de tipos)::El tsc se quedó sin heap${enTanda} a los ${Math.round(segundos)} s con el tope de ${miles(topeMb)} MB (RAM del runner: ${miles(ramMb)} MB). No hay nada que corregir en el código: es el tamaño del programa.`);
   } else if (estado === 'matado') {
     codigo = SALIDA_SIN_TIPOS;
     palabra = 'MATADO POR EL SISTEMA';
     lineas.push(
-      `Tipos: MATADO POR EL SISTEMA — NO son errores de tipos. El tsc murió por ${signal ?? `código ${status}`} a los ${Math.round(segundos)} s (${topes}).`,
+      `Tipos: MATADO POR EL SISTEMA — NO son errores de tipos. El tsc murió${enTanda} por ${signal ?? `código ${status}`} a los ${Math.round(segundos)} s (${topes}).`,
       '  Eso es el OOM-killer del runner: el tope de heap es mayor que la RAM física que quedaba. Bajar TIPOS_HEAP_MB no lo arregla (el tsc moriría igual por heap);',
       '  hay que bajar lo que carga el programa o usar un runner con más RAM.',
     );
@@ -174,10 +184,51 @@ export function veredictoDeTipos({ estado, errores = 0, segundos, topeMb, ramMb,
     '|---|---|',
     `| Memoria viva (tras GC) | ${e.vivoMb == null ? 'sin medir' : `${miles(e.vivoMb)} MB de ${miles(topeMb)} (${Math.round(fraccion * 100)} %)`} |`,
     `| Archivos / tipos / instanciaciones | ${[e.archivos, e.tipos, e.instanciaciones].map((x) => (x == null ? 'n/d' : miles(x))).join(' / ')} |`,
+    ...(tandas > 1 ? [`| Tandas | ${tandas}: pico por tanda ${e.vivoMb == null ? 'n/d' : `${miles(e.vivoMb)} MB`}, piso (programa atado) ${e.baseMb == null ? 'n/d' : `${miles(e.baseMb)} MB`} |`] : []),
     `| Runner | ${miles(ramMb)} MB de RAM${cpu ? `, ${cpu} CPU` : ''} |`,
     '',
   ];
   return { codigo, palabra, lineas, anotaciones, resumen };
+}
+
+/**
+ * Cuántas tandas se piden (TIPOS_TANDAS): un entero de 1 a 8; cualquier otra cosa es 1 (el tsc de siempre). Puro.
+ * @param {Record<string, string | undefined>} env
+ */
+export function tandasPedidas(env) {
+  const k = Number.parseInt(env.TIPOS_TANDAS ?? '', 10);
+  return Number.isInteger(k) && k >= 1 && k <= 8 ? k : 1;
+}
+
+/**
+ * Los argumentos de node + el driver de tandas (scripts/tipos-por-tandas.mjs). El `--expose-gc` es lo que hace que «Memory used» sea la memoria VIVA.
+ * @param {{ topeMb: number, script: string, i: number, K: number, extra?: string[] }} a
+ * @returns {string[]}
+ */
+export function argumentosDeTanda({ topeMb, script, i, K, extra = [] }) {
+  return [`--max-old-space-size=${topeMb}`, '--expose-gc', script, ...extra, '--tanda', `${i}/${K}`];
+}
+
+/**
+ * El resultado de varias tandas como si fuera UNO. El estado más grave manda (sin memoria > matado > sin veredicto > errores > ok): una tanda que no llegó a un veredicto no se compensa con las demás.
+ * Las líneas de error se juntan SIN repetir (un error de configuración o de sintaxis lo informan todas las tandas). El pico de memoria es el de la tanda más pesada, y el piso el del programa atado.
+ * Puro.
+ * @param {{ clase: { estado: string }, segundos: number, estadisticas: ReturnType<typeof leerEstadisticas>, lineasDeError?: string[] }[]} tandas
+ */
+export function juntarTandas(tandas) {
+  const orden = ['sin-memoria', 'matado', 'sin-chequear', 'errores', 'ok'];
+  const estado = orden.find((e) => tandas.some((t) => t.clase.estado === e)) ?? 'ok';
+  const tandaFallida = estado === 'ok' || estado === 'errores' ? null : tandas.findIndex((t) => t.clase.estado === estado) + 1;
+  const maximo = (k) => tandas.reduce((a, t) => { const v = t.estadisticas?.[k]; return v == null ? a : a == null || v > a ? v : a; }, /** @type {number | null} */ (null));
+  const lineas = new Set(tandas.flatMap((t) => t.lineasDeError ?? []));
+  return {
+    estado,
+    tandaFallida,
+    errores: lineas.size,
+    segundos: tandas.reduce((a, t) => a + t.segundos, 0),
+    // tipos/instanciaciones son de CADA proceso (se solapan): sumarlos mentiría; van por tanda en las líneas TIPOS-TANDA.
+    estadisticas: { archivos: tandas[0]?.estadisticas?.archivos ?? null, tipos: null, instanciaciones: null, simbolos: null, vivoMb: maximo('vivoMb'), baseMb: maximo('baseMb'), chequeados: null, chequeoS: tandas.reduce((a, t) => a + (t.estadisticas?.chequeoS ?? 0), 0) || null, totalS: null },
+  };
 }
 
 /**
@@ -192,13 +243,14 @@ export function argumentosDeTsc({ topeMb, tsc, extra = [] }) {
 /**
  * Corre el tsc, reenvía su salida EN VIVO (un paso colgado no tiene que quedar mudo) y devuelve cómo terminó. `lanzar` se inyecta en las
  * pruebas. La salida se acumula hasta 64 MB: un tsc con más que eso en errores ya no es una salida que alguien lea.
- * @param {{ topeMb: number, tsc: string, extra?: string[], cwd?: string, lanzar?: Function, salida?: { stdout: { write: Function }, stderr: { write: Function } } }} a
+ * `args`: los argumentos de node completos (para correr una tanda en vez del tsc).
+ * @param {{ topeMb: number, tsc: string, extra?: string[], cwd?: string, lanzar?: Function, salida?: { stdout: { write: Function }, stderr: { write: Function } }, args?: string[] }} a
  * @returns {Promise<{ status: number | null, signal: string | null, salida: string, segundos: number, fallo: Error | null }>}
  */
-export function correrTsc({ topeMb, tsc, extra = [], cwd = process.cwd(), lanzar = spawn, salida = process }) {
+export function correrTsc({ topeMb, tsc, extra = [], cwd = process.cwd(), lanzar = spawn, salida = process, args }) {
   return new Promise((resolver) => {
     const t0 = Date.now();
-    const hijo = lanzar(process.execPath, argumentosDeTsc({ topeMb, tsc, extra }), { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+    const hijo = lanzar(process.execPath, args ?? argumentosDeTsc({ topeMb, tsc, extra }), { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
     let acumulada = '';
     const juntar = (flujo, destino) => flujo.on('data', (b) => {
       destino.write(b);
@@ -218,9 +270,32 @@ async function main() {
   const topeMb = topeDeHeapMb({ totalMb: ramMb, env: process.env });
   const cpu = cpus().length;
   process.stdout.write(`tipos-ci: ${cpu} CPU, ${miles(ramMb)} MB de RAM · tope de heap ${miles(topeMb)} MB${process.env.TIPOS_HEAP_MB ? ' (forzado por TIPOS_HEAP_MB)' : ' (RAM − 1,5 GB)'}\n`);
-  const r = await correrTsc({ topeMb, tsc: join(raiz, 'node_modules', 'typescript', 'bin', 'tsc'), extra: process.argv.slice(2), cwd: raiz });
-  const clase = r.fallo ? { estado: 'sin-chequear' } : clasificar({ status: r.status, signal: r.signal, salida: r.salida });
-  const v = veredictoDeTipos({ ...clase, segundos: r.segundos, topeMb, ramMb, cpu, estadisticas: leerEstadisticas(r.salida), status: r.status, signal: r.signal });
+  const K = tandasPedidas(process.env);
+  const tsc = join(raiz, 'node_modules', 'typescript', 'bin', 'tsc');
+  let v;
+  if (K === 1) {
+    const r = await correrTsc({ topeMb, tsc, extra: process.argv.slice(2), cwd: raiz });
+    const clase = r.fallo ? { estado: 'sin-chequear' } : clasificar({ status: r.status, signal: r.signal, salida: r.salida });
+    v = veredictoDeTipos({ ...clase, segundos: r.segundos, topeMb, ramMb, cpu, estadisticas: leerEstadisticas(r.salida), status: r.status, signal: r.signal });
+  } else {
+    process.stdout.write(`tipos-ci: ${K} tandas (TIPOS_TANDAS), de a una\n`);
+    const script = join(raiz, 'scripts', 'tipos-por-tandas.mjs');
+    const hechas = [];
+    let ultima = { status: /** @type {number | null} */ (null), signal: /** @type {string | null} */ (null) };
+    for (let i = 1; i <= K; i++) {
+      process.stdout.write(`\n── tanda ${i}/${K} ──\n`);
+      const r = await correrTsc({ topeMb, tsc, args: argumentosDeTanda({ topeMb, script, i, K, extra: process.argv.slice(2) }), cwd: raiz });
+      const clase = r.fallo ? { estado: 'sin-chequear' } : clasificar({ status: r.status, signal: r.signal, salida: r.salida });
+      const estadisticas = leerEstadisticas(r.salida);
+      hechas.push({ clase, segundos: r.segundos, estadisticas, lineasDeError: r.salida.split('\n').map((l) => l.trim()).filter((l) => /error TS\d+/.test(l)) });
+      ultima = { status: r.status, signal: r.signal };
+      process.stdout.write(`TIPOS-TANDA ${i}/${K} estado=${clase.estado} segundos=${Math.round(r.segundos)} vivo_mb=${estadisticas.vivoMb ?? 'n/d'} base_mb=${estadisticas.baseMb ?? 'n/d'} chequeados=${estadisticas.chequeados ?? 'n/d'} tipos=${estadisticas.tipos ?? 'n/d'} instanciaciones=${estadisticas.instanciaciones ?? 'n/d'}\n`);
+      // Una tanda que no llegó a un veredicto (sin memoria, matada, muda) no se compensa con las otras: se corta ahí, que son minutos de runner.
+      if (['sin-memoria', 'matado', 'sin-chequear'].includes(clase.estado)) break;
+    }
+    const j = juntarTandas(hechas);
+    v = veredictoDeTipos({ estado: j.estado, errores: j.errores, segundos: j.segundos, topeMb, ramMb, cpu, estadisticas: j.estadisticas, status: ultima.status, signal: ultima.signal, tandas: K, tandaFallida: j.tandaFallida });
+  }
   process.stdout.write(`\n${v.lineas.join('\n')}\n${v.anotaciones.join('\n')}${v.anotaciones.length ? '\n' : ''}`);
   if (process.env.GITHUB_STEP_SUMMARY) {
     try { appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${v.resumen.join('\n')}\n`); } catch { /* el resumen es un lujo: el log ya lo dijo */ }

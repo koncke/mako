@@ -6726,6 +6726,42 @@ Tampoco se sabe si lo que crece es volumen (más archivos) o un tipo que explota
 
 **Vive en:** `.github/workflows/integracion.yml` (paso «Tipos») · `scripts/tipos-ci.mjs` · `tests/tipos-ci.test.ts` (30 roturas, 30 rojas) · `scripts/typecheck-lock.mjs` (el camino local)
 
+### 21/10, tarde — la primera medición real (run 203) y el arreglo de fondo: repartir el chequeo en TANDAS
+
+**La medición** (la primera línea `TIPOS-MEDIDA` de Actions, run 203, con el warning ya prendido): `estado=ok segundos=134 tope_mb=6144 ram_mb=7932 vivo_mb=5062 vivo_pct=82 archivos=7723 tipos=2077874 instanciaciones=7254272 chequeo_s=114`.
+O sea: **82 % del tope en el primer run que midió**, 114 s de los 134 son chequear, y a ~1 GB por semana el 6.144 se cruza en días.
+
+**Lo que se descartó, con el motivo:** subir el tope otra vez (el techo físico del runner es ~6,4 GB: queda a una semana); un runner con más RAM (plata de Martín: sólo si lo demás no alcanza);
+**partir `tests/` del resto en dos tsconfig** (la intuición: tests es el 23 % de los bytes) — un programa de tests importa los hubs de `lib/` (500 tests los importan), así que carga casi todo el resto y el pico apenas baja.
+Es una predicción, no una medición: `scripts/medir-tipos.mjs` la mide (experimento `partido-tests` / `partido-resto`) y decide.
+
+**Cómo está hecho el problema** (por qué se puede repartir): el `tsc` crea UN programa y UN `TypeChecker`, y el verificador no suelta nada de lo que instancia mientras chequea los 7.723 archivos. La memoria viva es
+**piso** (programa creado y atado: parsear y atar todo, no se puede repartir) **+ lo que se instancia al chequear** (eso sí). `scripts/tipos-por-tandas.mjs` crea el programa entero y chequea sólo un pedazo de los archivos
+(`program.getSemanticDiagnostics(archivo)`, contiguos en el orden de las rutas y balanceados por tamaño de fuente: los archivos de una carpeta comparten imports). Las K tandas corren **de a una** (la RAM del runner no da para dos),
+y su unión es lo que dice el tsc: cada archivo se chequea en exactamente una tanda. El pico por proceso baja hacia `piso + resto/K` — si los tipos que cada tanda instancia no se solapan casi todos.
+
+**Qué se probó y qué NO** (tests/tipos-por-tandas.test.ts, tests/tipos-ci.test.ts):
+- **Equivalencia con el tsc, con el tsc de verdad como oráculo:** sobre un proyecto con errores en tres carpetas, para K = 1, 2, 3 y 5 la unión de las tandas da EXACTAMENTE las líneas de error del tsc; lo mismo con un error de sintaxis
+  (se informa solo), una opción mal escrita, una combinación de opciones inválida (`moduleResolution: bundler` con `module: commonjs`) y `skipLibCheck`. **El oráculo corrigió tres suposiciones mías:** el tsc sale **2** con errores (también con `noEmit`),
+  un error de CONFIGURACIÓN (una opción mal escrita) NO corta lo semántico, y uno de SINTAXIS o de OPCIONES del programa SÍ lo corta.
+- **NO se midió el pico real por tanda en el programa de verdad** (7.723 archivos): esta PC tenía 1 GB libre. Es el número que decide K. Por eso existe `scripts/medir-tipos.mjs`.
+
+**La medición, UNA vez, en Actions** (`.github/workflows/medir-tipos.yml`: corre sólo al pushear la rama `medir-tipos` o a mano, permisos de lectura, ~15-20 min de runner): siete procesos de a uno — `tsc-real` (la referencia: tiene que dar ~5.062 MB / 134 s),
+`tandas-1` (con la curva de memoria cada ~500 archivos y los 25 archivos más lentos de chequear), `tandas-2`, `tandas-3`, `tandas-4`, `partido-resto` y `partido-tests` — con una línea `MEDIDA-TIPOS …` por proceso (`vivo_mb`, `base_mb` = el piso, `rss_mb`, segundos)
+y una tabla con una lectura mecánica en el resumen del run. **Criterio para elegir K:** el pico por proceso, con el tope de 6.144, no pasa de ~60 % (≈3.700 MB): deja ~2.400 MB de aire, que a ~1 GB por semana del programa entero
+(≈ 1/K por tanda) son varias semanas. Si ninguna K lo logra (solapamiento alto) el problema es VOLUMEN y quedan: project references con `composite` (cada proyecto lee los `.d.ts` de los de abajo; trabajo grande en un repo con tanta inferencia),
+o un runner con más RAM (plata).
+
+**Cómo se enciende:** `TIPOS_TANDAS=K` en el paso «Tipos» de `integracion.yml` (una línea; con 1 o sin ella es el tsc de siempre). `scripts/tipos-ci.mjs` corre las K tandas de a una, **corta en la primera que no llegue a un veredicto** (sin memoria,
+matada, muda: son minutos de runner), junta los errores sin repetir (uno de configuración lo informan todas) y deja `TIPOS-MEDIDA … tandas=K base_mb=…` más una línea `TIPOS-TANDA i/K …` por tanda. El warning del 80 % mira la tanda más pesada.
+
+**Trampas que aparecieron:**
+- **`getSemanticDiagnostics(archivo)` ya salta los `.d.ts` con `skipLibCheck`**, así que filtrarlos antes no cambia lo que se informa: sólo cambia el REPARTO (si no se filtran, la lib de TypeScript pesa en el balance y las tandas quedan desparejas). Se prueba por eso: los 8 fuentes, ningún `.d.ts`.
+- **`tipos` e `instanciaciones` de una tanda no se suman:** cada proceso cuenta los suyos y se solapan; van por tanda en las líneas `TIPOS-TANDA`.
+- **Los números del run 203 no son comparables 1 a 1 con los de una tanda:** `vivo_mb` de una tanda es lo vivo DESPUÉS de chequear SU pedazo; el comparable del chequeo entero es `tandas-1` / `tsc-real` en la misma medición.
+
+**Sin hacer:** correr la medición en Actions (la sube el Cerebro: rama `medir-tipos`), elegir K con la tabla y encenderlo (`TIPOS_TANDAS`). Hasta entonces el paso «Tipos» sigue como estaba (82 %).
+
 ## El candado de lo pesado: un `mkdir` sin cola premia al que pregunta más seguido, y el que espera vuelve con la rama vieja (20/10/2026)
 
 **El síntoma** (medido por el Cerebro el 20/10): Pagos esperó **casi dos horas** el candado `C:/dev/pesado.lock` viendo cómo Video

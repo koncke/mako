@@ -179,7 +179,9 @@ CON EL REPO:** el 14/10/2026 ya no entraba en 3072 (murió corriendo, con RAM li
 ⚠️ **Y 5120 TAMPOCO** (21/10/2026, run 200 de Actions: exit 134 con 5.082 MB): lo que pide el tsc pasó de >4.083 MB a >5.082 MB en una semana. En Actions el paso «Tipos» corre
 `scripts/tipos-ci.mjs`: el tope se deriva de la RAM del runner (6.144 en el de 7,9 GB), **un OOM sale como `SIN MEMORIA` (exit 98), nunca como errores de tipos**, y cada run deja la
 línea `TIPOS-MEDIDA` con la memoria viva real (`vivo_pct`; un warning desde el 80 %). **Subir el tope otra vez no es el arreglo:** con esos números se decide partir el programa, buscar
-qué infla los tipos o pedir un runner mayor (docs/hallazgos-infra.md → «El paso "Tipos" de Actions se quedó sin memoria»).
+qué infla los tipos o pedir un runner mayor (docs/hallazgos-infra.md → «El paso "Tipos" de Actions se quedó sin memoria»). **El arreglo de fondo en marcha (21/10):** el chequeo repartido en TANDAS
+(`scripts/tipos-por-tandas.mjs`: cada proceso ata el programa entero y chequea un pedazo; `TIPOS_TANDAS=K` en el paso «Tipos»; probado contra el tsc como oráculo) y la medición que elige K, UNA vez en Actions
+(`.github/workflows/medir-tipos.yml`, rama `medir-tipos`, `scripts/medir-tipos.mjs`). No se sube el tope: se elige K con la tabla.
 El detalle, en [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «El typecheck que
 "salía con 1 sin errores"».
 
