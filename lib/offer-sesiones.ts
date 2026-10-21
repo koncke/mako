@@ -255,6 +255,24 @@ export async function leerFila(id: number): Promise<FilaOffer | null> {
   return fila ? aFila(fila) : null;
 }
 
+/**
+ * Sólo la conversación de una sesión, SIN documentos ni borrador (20/10/2026): la lee el Ops Center del cliente
+ * (lib/chat-mako-indice.ts → hiloDeOffer) para mostrar Offer sin copiar nada. null = no es de este workspace.
+ */
+export async function leerConversacionOffer(id: number): Promise<{ id: number; titulo: string; mensajes: MensajeGuardado[]; updatedAt: string } | null> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from(TABLA).select('id, titulo, mensajes, updated_at').eq('id', id).limit(1);
+  if (error) throw fallo(`leer la conversación #${id}`, error.message);
+  const r = ((data ?? []) as unknown as Array<Record<string, unknown>>)[0];
+  if (!r) return null;
+  return {
+    id: num(r.id) ?? id,
+    titulo: typeof r.titulo === 'string' && r.titulo.trim() ? r.titulo : TITULO_DEFAULT,
+    mensajes: sanearMensajes(r.mensajes),
+    updatedAt: typeof r.updated_at === 'string' ? r.updated_at : '',
+  };
+}
+
 /** Contrato: la sesión como la ve la pantalla (con los nombres del funnel y de la oferta), o null. */
 export async function leerSesion(id: number): Promise<OfferSesionVista | null> {
   const f = await leerFila(id);

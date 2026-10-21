@@ -56,6 +56,11 @@ export function crearPostgrest(o: {
       }
       else if (v === 'is.null') out.push((f) => val(f) == null);
       else if (v === 'not.is.null') out.push((f) => val(f) != null);
+      // Como Postgres: `IS TRUE` sólo el true; `NOT (… IS TRUE)` también el null (20/10/2026, el cobro condicional).
+      else if (v === 'is.true') out.push((f) => val(f) === true);
+      else if (v === 'is.false') out.push((f) => val(f) === false);
+      else if (v === 'not.is.true') out.push((f) => val(f) !== true);
+      else if (v === 'not.is.false') out.push((f) => val(f) !== false);
       else if (/^(gte|lte|gt|lt)\./.test(v)) {
         const [op, ...resto] = v.split('.');
         const x = resto.join('.');
@@ -86,8 +91,36 @@ export function crearPostgrest(o: {
     });
   };
 
+  /**
+   * `cobrar_cuota_con_resto` (supabase/migrations/0318, 21/10/2026): la toma condicional de la cuota y su diferencia,
+   * JUNTAS (una llamada de node no se intercala con otra: es la transacción). Copia del SQL, que fija
+   * tests/pagos-cobro-idempotente.test.ts. Si el número choca con el índice único, no escribe NADA y contesta 23505.
+   */
+  function cobrarCuotaConResto(b: Fila): Response {
+    const pagos = db.pagos ?? [];
+    const c = pagos.find((p) => Number(p.id) === Number(b.p_pago) && Number(p.lead_id) === Number(b.p_lead) && Number(p.workspace_id) === Number(b.p_ws) && p.pagado !== true);
+    if (!c) return json(200, { tomada: false });
+    const numero = Math.max(0, ...pagos.filter((p) => Number(p.lead_id) === Number(b.p_lead)).map((p) => Number(p.numero) || 0)) + 1;
+    const resto = defaults('pagos', { workspace_id: b.p_ws, lead_id: b.p_lead, numero, monto_usd: b.p_resto, fecha_esperada: b.p_vence, pagado: false });
+    for (const un of (o.unicos ?? []).filter((x) => x.tabla === 'pagos' && x.donde(resto))) {
+      if (pagos.some((f) => un.donde(f) && un.columnas.every((col) => String(f[col]) === String(resto[col])))) {
+        return json(409, { code: '23505', message: `duplicate key value violates unique constraint "${un.nombre}"`, details: null, hint: null });
+      }
+    }
+    Object.assign(c, {
+      pagado: true, fecha_pago: b.p_fecha, pago_hora: b.p_hora, monto_usd: b.p_monto ?? c.monto_usd,
+      moneda: b.p_moneda != null ? b.p_moneda : b.p_limpiar_moneda ? null : c.moneda,
+      monto_original: b.p_moneda != null ? b.p_monto_original : b.p_limpiar_moneda ? null : c.monto_original,
+    });
+    pagos.push(resto);
+    return json(200, { tomada: true, resto: resto.id ?? null });
+  }
+
   async function responder(u: URL, init: RequestInit): Promise<Response> {
     const tabla = u.pathname.replace('/rest/v1/', '');
+    if (tabla === 'rpc/cobrar_cuota_con_resto' && 'pagos' in db) {
+      return cobrarCuotaConResto(typeof init.body === 'string' ? (JSON.parse(init.body) as Fila) : {});
+    }
     if (!(tabla in db)) { sinMock.add(tabla); return json(200, []); }
     const metodo = (init.method ?? 'GET').toUpperCase();
     const h = new Headers(init.headers);

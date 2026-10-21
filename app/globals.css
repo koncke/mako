@@ -55,6 +55,10 @@
   --bg: #F4F6F9;
   --surface: #FFFFFF;
   --surface-2: #F5F7FA;
+  /* EL BLOQUE DE UNA COLUMNA DE KANBAN (CRM, Clients, Plan, teléfono), el del prototipo coherencia-1710. NO es
+     `--surface-2`: ése es #F5F7FA sobre una página #F4F6F9 —el mismo color— y la columna no se veía (Martín, 20/10:
+     «que las columnas no sean invisibles»). Un tono que se lee CONTRA el fondo; lo mide tests/tarjetas-familia.test.ts. */
+  --fondo-columna: rgba(216, 222, 233, .55);
   /* El velo del hover: se pinta ENCIMA del fondo que tenga el boton, sea cual sea.
      Ver `.crm-hover` en app/_ui/ui.css: un color solido no serviria, porque hay
      botones azules, rojos, crema y transparentes en la misma barra. */
@@ -128,6 +132,12 @@
   --grafo-voz: #D9CE8F;
   --sidebar-text: #949CAA;
   --on-sidebar: #F3F5F8;
+  /* La CARA de las criaturas del Ops Center (ojos, boca) y su rubor (20/10/2026, feedback del 18/10 pt 10: «no quiero
+     que cambien las criaturas de color»). Iban con --ink y --bad, que se dan vuelta en oscuro: los ojos quedaban
+     blancos sobre cuerpos pastel. Los cuerpos son pasteles fijos (--grafo-*, --mako) pensados para un ojo OSCURO
+     (lib/centro-munecos.ts), así que la cara también es fija: no se redefine en ningún tema. */
+  --criatura-tinta: #22262E;
+  --criatura-rubor: #C0414D;
   /* Lo que se lee ENCIMA de un relleno --ink. No es lo mismo que --on-sidebar,
      aunque hoy coincidan en el tema por defecto: aquél significa «se lee sobre
      LA BARRA» y éste «se lee sobre LA TINTA». Se separaron el día que un tema
@@ -318,6 +328,7 @@
   --bg: #22262E;
   --surface: #2A2F39;
   --surface-2: #333944;
+  --fondo-columna: rgba(0, 0, 0, .16);
   --border: #383D47;
   --border-strong: #4A5160;
   --ink: #F3F5F8;

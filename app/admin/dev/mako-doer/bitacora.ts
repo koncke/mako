@@ -417,4 +417,25 @@ export const BITACORA: Hito[] = [
       'tests/aviso-arreglo.test.ts — 6 tests, 11 roturas',
     ],
   },
+  {
+    fecha: '20 oct', hora: '17:42', chat: 'MaKo Alert', sesion: 'local_d3ed9496-3ca1-4037-abc2-a59ce57d3f9d', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Hecho: «necesito que… lo pases a descalificados» es un pedido del CRM (ws13), ya en producción',
+    revisar: '/second-brain?ws=13',
+    puntos: [
+      'MaKo Alert vio en el ws13 (19/10 13:44 UTC) «necesito que busques… a Joan… y que lo agarres y lo pases a la sección descalificados» → MaKo contestó **«no tengo acceso a listar los leads de tu CRM ni a moverlos»**. El lead no se movió.',
+      '⚠️ **El diagnóstico obvio (un permiso o una herramienta que faltan) era el equivocado**: `proponer_cambio_etapa` existe. `esPedidoSobreLead` sólo leía imperativos («pasalo», «movelo»); con un modal + subjuntivo la frase caía a `capturar` dudosa con las tres herramientas del plan y NINGUNA de CRM, y Gemini flash-lite dedujo que no se podía. Ningún paso da error.',
+      'Ahora `MODAL_CRM` lo toma: la 2ª persona del subjuntivo (-s: pases, muevas), nunca la 3ª («necesito que el closer marque…»), nunca «que me pases el lead» (es un «dame») y modal y verbo en la MISMA oración. «descalificados» no estaba entre las palabras que sólo viven en el CRM.',
+      '**Sin hacer:** la pregunta con un modal («¿podés pasar a Joan a descalificados?») sigue siendo `consultar` y no trae las que escriben. Y no se probó el pedido de punta a punta en el grupo: el próximo pedido real lo dirá, y el vigía lo ve.',
+      'El aviso «ya quedó arreglado» salió al grupo del ws13 firmado por el Desarrollador, con el despliegue de producción Ready de 0570b4d8b como prueba.',
+    ],
+    commits: [
+      { sha: '4b0da1e0', msg: 'MaKo Alert: «necesito que… lo pases a descalificados» es un pedido de CRM, no un material para guardar', lineas: 51, archivos: 3 },
+    ],
+    archivos: [
+      'lib/mako-intencion.ts — `MODAL_CRM`, «descalificad[oa]s» en OBJETO_CRM, `marques` como tipo calificado',
+      'tests/crm-pedidos-whatsapp.test.ts — la frase literal del ws13 y los casos vecinos, 8 roturas con su fallo',
+      'docs/hallazgos-comunicacion.md — la entrada «No puedo», «déjame ver»…, caso del ws13',
+    ],
+  },
 ];

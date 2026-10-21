@@ -347,7 +347,9 @@ test('la página y la carcasa: guard de capa + onboarding, use client, sondeo s�
   const app = sinComentarios(leer('ChatsApp.tsx'));
   assert.match(app, /const SONDEO_MS = 15_000/);
   // El intervalo pregunta si la pestaña se ve ANTES de pedir: una pestaña olvidada no relee la lista.
-  assert.match(app, /setInterval\(\(\) => \{ if \(visible\(\)\) void cargarLista\(\); \}, SONDEO_MS\)/);
+  // Desde el 20/10/2026 el sondeo es la lectura RÁPIDA salvo cada COMPLETA_CADA vueltas (tests/chats-lista-rapida.test.ts);
+  // la regla de acá sigue: con la pestaña oculta no se lee nada.
+  assert.match(app, /setInterval\(\(\) => \{\s+if \(!visible\(\)\) return;\s+sondeos \+= 1;\s+void cargarLista\(/);
   assert.match(app, /const visible = \(\) => document\.visibilityState === 'visible'/);
   // La ficha del lead, la de siempre, sin bajarla en el server.
   assert.match(app, /dynamic\(\(\) => import\('\.\.\/crm\/LeadEditModal'\)[^)]*\)[^)]*\), \{ ssr: false \}\)/);

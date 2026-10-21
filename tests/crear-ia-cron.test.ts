@@ -158,8 +158,9 @@ test('2: lo que no entiende (o la pantalla no guardaría) → []', () => {
 
 test('3: lib/flujo-ia-crear.ts guarda por la puerta de la pantalla, ve los canales y va sin el modelo de respaldo', () => {
   const src = sinComentarios(leer('lib/flujo-ia-crear.ts'));
-  const poner = bloque(src, 'ponerDisparador: async (id, valor) => {', 'motivoDeDisparador:');
-  assert.match(poner, /const lista = disparadorDeValorIA\(valor\);/);
+  // 20/10/2026: con `cron` es un Recurrente (`recurrenteDeValorIA`: la cohorte con el horario que sacó el código).
+  const poner = bloque(src, 'ponerDisparador: async (id, valor, cron) => {', 'motivoDeDisparador:');
+  assert.match(poner, /const lista = cron \? recurrenteDeValorIA\(valor, cron\) : disparadorDeValorIA\(valor\);/);
   assert.match(poner, /if \(!lista\.length\) throw new TriggerInvalidoError\('no se entiende'\);/);
   assert.match(poner, /await guardarDisparadores\(id, lista\);/);
   assert.doesNotMatch(src, /setTriggerSecuencia/, 'volvió la puerta vieja: la lista de la 0241 queda en NULL');

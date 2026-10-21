@@ -1400,14 +1400,16 @@ a.co-link:hover { color: var(--primary-strong); }
 .co-borrador { flex: none; margin-right: 4px; color: var(--good); font-weight: 600; }
 /* El «+» como el «Adjuntar» de WhatsApp (AdjuntosCaja.tsx → MasCaja): círculos de color con el nombre debajo, y lo demás
    abajo, separado y con su título. */
-.co-mas-caja__tiles { grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.co-mas-caja__tiles { grid-template-columns: repeat(4, 1fr); gap: 4px; }
 .co-mas-caja__tile { min-height: 0; padding: 8px 4px; gap: 6px; border: 0; background: none; font-size: var(--fs-meta); color: var(--dim); }
 .co-mas-caja__tile:hover { background: var(--velo-hover); }
 .co-mas-caja__circulo { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; color: #fff; }
 .co-mas-caja__circulo--doc { background: #7f66ff; }
 .co-mas-caja__circulo--fotos { background: #007bfc; }
 .co-mas-caja__circulo--camara { background: #ff2e74; }
-@media (hover: hover) and (pointer: fine) { .co-mas-caja__tiles { grid-template-columns: repeat(2, 1fr); } .co-mas-caja__tile--camara { display: none; } }
+/* «Pegar» la captura copiada (20/10/2026): el teclado del teléfono no la ofrece en la caja. */
+.co-mas-caja__circulo--pegar { background: #00a884; }
+@media (hover: hover) and (pointer: fine) { .co-mas-caja__tiles { grid-template-columns: repeat(3, 1fr); } .co-mas-caja__tile--camara { display: none; } }
 .co-mas-caja__titulo { margin: 0 2px 2px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
 .co-mas-caja__opciones > .co-tareas { margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--border); }
 /* Los emojis (Emojis.tsx): la carita junto al campo y el panel de WhatsApp, la grilla arriba y las categorías abajo. */

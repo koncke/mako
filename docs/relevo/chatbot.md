@@ -1,5 +1,65 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **21/10/2026 (`claude4`): EL AVISO DE DUPLICADA, EN EL SERVER.** `setSecuenciaActiva` pregunta (409 `duplicada`) salvo con
+> `aunqueDuplique`; Publicar una activa también. Lo manejan el lienzo, el «⋯», el teléfono (/m/automations), /email (el
+> interruptor y «MaKo escribe tu nutrición») y la API de MaKo (lo dice en la propuesta). El aviso de una activa se
+> calcula (ya no se borra con el siguiente guardado del CRON). Test que barre los llamadores:
+> tests/automations-activar-todos-los-caminos.test.ts. **Sin hacer:** cambiar los CRON por la API de MaKo no pregunta.
+>
+> **20/10/2026 noche (`claude4`): LA PUNTA DE SEGUIMIENTO (después de 396a82847).** El aviso de duplicada sale por TODOS los
+> caminos que prenden algo (el interruptor, el «⋯» de la lista, un CRON nuevo en una activa) y compara lo PUBLICADO; con
+> `ignorar_ventana` y lo propio ilegible la corrida vuelve a cortar; «Copiar flujo» › «Crear» en el mismo negocio lleva la
+> configuración propia; el paso au-chat del recorrido señala la fila elegida cuando se ve la lista. Test:
+> tests/automations-aviso-todos-caminos.test.ts. **Sin hacer:** el aviso no está en el server (la API de MaKo no lo ve).
+>
+> **20/10/2026 noche (`claude4`): LA REVISIÓN DEL PEDIDO B, ARREGLADA.** El Cerebro frenó b0ff4dc42 (detalle en sus notas,
+> revision-automations-b-20-10.md). Arreglado: el huso de la tuerca es de sólo lectura (era el del NEGOCIO); «Duplicar»
+> copia la configuración propia (si no puede, borra la copia); las horas «misma persona» del negocio vuelven a editarse
+> («por defecto»); al entrar, la sidebar es la lista; Escape no corta un pedido escondido; las «Evento de MaKo» esperan
+> SU horario; y los menores (activo no booleano, apagado sin días, '{}' que no se borraba, lecturas que frenaban todo,
+> clics que se pisaban, la tuerca para el setter, «contesta sola» con su horario). Test:
+> tests/automations-config-revision.test.ts. Cosecha: docs/hallazgos-chatbot.md («La revisión adversarial lo frenó») y la
+> regla en AGENTS.md. **Sin hacer:** el chip «Espera a que abra» del lienzo sigue con el horario del negocio; el piso de
+> la línea entre automatizaciones lo decide Martín.
+>
+> **20/10/2026 noche (`claude4`): «NO SALIÓ», HECHO EN `undecima`.** Martín, 20/10 (llegó por el Cerebro, transcript
+> 9bc46b5e, 21:27Z): «Tambien revisa que Leila configuró una automatización recurrente y me dijo que no salió». Lo que
+> no salió era #282, que NO es un Recurrente (por etapa, sin horario): inscribió a 31 y los 31 mensajes quedaron como
+> borradores (WhatsApp no oficial a leads sin pago). El Recurrente de verdad es el d2 de #284, un CRON extra en
+> `disparadores`, que salía a la hora en punto. Ahora: (6) la automatización dice «N mensajes esperando que los
+> apruebes», por qué, y lleva a Chats › Borradores (`/chats?vista=borradores`); el chat lo dice al activarla; (7) el
+> tick reclama un Recurrente a su minuto, con el mismo compare-and-set; (8) Activar (y Publicar una activa) avisa si otra
+> activa le escribe algo parecido a la misma gente. Test: tests/recurrente-no-salio.test.ts. Cosecha:
+> docs/hallazgos-chatbot.md («Configuré una recurrente y no salió»). ⛔ #282, #284 y sus borradores sin tocar: lo decide
+> Martín. **Sin hacer:** el aviso de duplicada no mira el horario ni la reentrada, ni avisa por la API de MaKo; el conteo
+> no está en la fila de la lista; nada visto con clics.
+>
+> **20/10/2026 noche (`claude4`): EL PEDIDO A (el Recurrente de Leila), HECHO EN `undecima`.** «Crear con IA» saca del
+> pedido el horario (`horarioDelPedido`, lib/flujo-ia-recurrente.ts) y a quién («todos los del funnel X» = todas sus
+> etapas; si no lo dice, pregunta «¿A quién le llega?» con cuántos hay hoy), arma SÓLO lo pedido (regla 8 nueva + código:
+> sin «Avisar al equipo» ni «Si responde» que nadie pidió), dice qué hizo («Creé «X»: sale … a … (N hoy). Manda «…»» y,
+> al editar, tarjeta por tarjeta + «toca Publicar»), y el motor reinscribe en cada ocurrencia de un Recurrente a quien
+> terminó la anterior (`barridoEsEvento`). Test: tests/crear-ia-recurrente.test.ts. Cosecha: docs/hallazgos-chatbot.md
+> («Crear con IA» no podía poner un Recurrente…). ⛔ #284 y #282 sin tocar. **Y EL PEDIDO B:** con una automatización abierta, la sidebar ES
+> el chat de MaKo (por portal, siempre montado, sin ✕; «←» vuelve a la lista); en el título, la tuerca en lugar del logo;
+> Configuraciones de CADA automatización (horario propio o el del negocio, y las horas a la misma persona; el motor y el
+> tick las respetan; también desde el «⋯»; API de MaKo `configuracion_automatizacion` / `configurar_automatizacion`); el
+> menú de la lista sólo con el «?»; y el aviso de Prospección al Publicar o Probar. Test: tests/automations-chat-siempre.test.ts.
+> **Sin hacer:** el AI Step que contesta sola sigue con el horario del negocio; el chip «Espera a que abra» de la tarjeta
+> MaKo lee el del negocio; no se vio con clics; de la cola del 16/10, el botón de conectar WhatsApp y lo visual de «Probar».
+>
+> **20/10/2026 (`claude4`, chat jefe «Automations»): DOS PEDIDOS DE MARTÍN, CON EL TEXTO ENTERO** (regla de AGENTS.md:
+> nunca «los puntos N-M» sin el texto; el de abajo se perdió justamente así entre el 16 y el 17/10). En la bitácora, los
+> dos hitos `actor: "martin", tipo: "prompt"` del 16 y del 20/10.
+>
+> **16/10, 02:22 AR, «Feedback Automations», puntos 5 y 6 (transcript a8f8993e):**
+> 5. Es importante que "configuraciones" ya no viva para todo Automations, sino para cada chat en los 3 puntos... Porque por ejemplo, si estoy corriendo ads en Meta y llegan leads, ahí no hay riesgo, pero si tengo configurado eso y no salen mensajes si es un problema... Entonces cada usuario puede configurar eso desde los 3 puntos, como también el horario de oficina para cada automatización... Solo cuando se selecciona etapas o algún funnel que esté catalogado como "Prospección", debe saltar un warning para configurar eso al momento de darle a publicar o probar...  Y en el lugar donde hoy está el ícono de configuraciones que solo quede el "?" del tutorial...
+> 6. El ícono de configuraciones pasa a estar en donde hoy vive "Pedirle un cambio a MaKo" el icono de la estrella... Y mi idea es que al abrir una automatización, toda la sidebar se transforme en el chat con MaKo y que esté permanentemente abierta. Y con la flecha para atrás para cambiar a otra automatización.
+>
+> **20/10, 18:02 AR, puntos 4 y 5 (transcript 9bc46b5e; registro en docs/feedback-20-10.md):**
+> 4. También revisa el chat de Leila con Automations... Le pidió literalmente que creara una automatización usando el CRON de Recurrente, y creó cualquier cosa... Nuevamente, eso debería ser inteligente, no crear cosas por defecto...
+> 5. Y el chat de Automations yo ya te habia pedido que quede SIEMPRE abierto en donde está la sidebar de todas las automatizaciones, que se elimine el icono de MaKo ya que quedará siempre abierto, y en su lugar que allí vaya el ícono de configuraciones... Te habia pedido varias cosas, ¿No tienes el registro?
+
 > **17/10/2026 tarde (`claude4`, chat jefe «Automations», sesión local_f74a2156) — LA LISTA DEL CEREBRO, HECHA:**
 > - **Punta (rama `undecima`, con origin/main mergeado en 15e3dd0bf):** 1d48f3176 #894 (varios funnels en «Está en el
 >   funnel de»), cb51166a3 + f677f1cd1 los tres pedidos del ws9 (lib/mako-pedidos.ts), 8a2a5326f #847 (45 s por intento,

@@ -69,20 +69,22 @@ test('cada destino y cada sección de More hereda una key que EXISTE en nav.ts, 
     assert.ok(d.href.startsWith('/m/'), d.href);
   }
   assert.equal(DESTINOS_MOVIL.length, 5, 'la barra es de cinco, nunca más (veto de la casa y de iOS)');
-  // v3 (Martín, 14/10/2026): «el ícono del medio, abajo, va a ser General», y es donde se abre.
-  assert.equal(DESTINOS_MOVIL[2].href, HOME_MOVIL);
+  // El del medio: General (14/10/2026), el Dashboard (17/10/2026 noche) y, desde el 20/10/2026, el OPS CENTER, la tab
+  // principal (pedido bb885d5f). Probado rompiéndolo: con el Dashboard de vuelta al medio → caen éste y cuatro más.
+  assert.equal(DESTINOS_MOVIL[2].href, '/m/second-brain');
+  assert.equal(DESTINOS_MOVIL[2].id, 'mako', 'la MISMA id que su fila de More: así More no la repite');
   assert.equal(DESTINOS_MOVIL[DESTINOS_MOVIL.length - 1].href, RUTA_MAS, 'More va al final');
-  // Ninguna sección de More comparte ruta con un destino de la barra ni con otra sección, salvo el Second Brain
-  // (16/10/2026): la fila de Analyze (el admin) y la de abajo (closer y setter) son el MISMO chat, y nadie ve las
-  // dos (`gruposMas`; el test del admin de un cliente completo, abajo).
-  const hrefs = [...DESTINOS_MOVIL, ...SECCIONES_MAS.filter((s) => s.id !== 'mako')].map((d) => d.href);
+  // Ninguna sección de More comparte ruta con un destino de la barra ni con otra sección, salvo el Ops Center: su fila de
+  // More (`mako`), la oculta de Second Brain y, desde el 20/10/2026, el lugar del medio de la barra son el MISMO chat, y
+  // nadie lo ve dos veces (`gruposMas` saca lo que está en la barra; el test del admin de un cliente completo, abajo).
+  const hrefs = [...DESTINOS_MOVIL, ...SECCIONES_MAS.filter((s) => s.id !== 'mako' && s.id !== 'second-brain')].map((d) => d.href);
   assert.equal(new Set(hrefs).size, hrefs.length);
   assert.equal(SECCIONES_MAS.find((s) => s.id === 'mako')?.href, SECCIONES_MAS.find((s) => s.id === 'second-brain')?.href);
 });
 
-test('CRM · Chats · Dashboard · Plan · More; More por las familias de la sidebar', () => {
-  // 17/10/2026 noche (prototipo de coherencia, pedido 3): el lugar del medio se llama Dashboard y abre la portada de siempre.
-  assert.deepEqual(DESTINOS_MOVIL.map((d) => d.label), ['CRM', 'Chats', 'Dashboard', 'Plan', 'More']);
+test('CRM · Chats · Ops Center · Plan · More; More por las familias de la sidebar', () => {
+  // 20/10/2026 (pedido bb885d5f): el lugar del medio es el Ops Center; el Dashboard pasó a More.
+  assert.deepEqual(DESTINOS_MOVIL.map((d) => d.label), ['CRM', 'Chats', 'Ops Center', 'Plan', 'More']);
   // Chats hereda la key de la bandeja de escritorio (/whatsapp): quien no la ve, no ve la pestaña.
   // La key de la bandeja UNIFICADA (/chats); ve lo mismo que `whatsapp` en todas las capas (tests/chats-registro).
   assert.equal(DESTINOS_MOVIL.find((d) => d.id === 'chats')?.navKey, 'chats');
@@ -94,7 +96,7 @@ test('CRM · Chats · Dashboard · Plan · More; More por las familias de la sid
     // 17/10/2026 noche, la sidebar del prototipo: lo diario, Sales, Marketing y Create, en el orden de la sidebar.
     ['dashboard', 'graphics', 'diario', false],
     ['calendario', 'calendario', 'sales', false], ['automations', 'setting', 'sales', false],
-    ['cs', 'customer-success', 'sales', false], ['partners', 'partners', 'sales', false],
+    ['cs', 'customer-success', 'sales', false], ['partners', 'partners', null, true],
     ['offer', 'offer', 'marketing', false], ['landing', 'landing-writer', 'marketing', false], ['ads', 'ads-manager', 'marketing', false],
     ['video', 'video-generator', 'create', false], ['image', 'image-editor', 'create', false], ['copywriting', 'ads-writer', 'create', false],
     ['mako', 'mako', null, false],
@@ -115,25 +117,26 @@ test('CRM · Chats · Dashboard · Plan · More; More por las familias de la sid
 });
 
 test('admin de un cliente completo: la barra de cinco y More con todo, una caja por familia', () => {
-  assert.deepEqual(barra('admin', 'completo'), ['crm', 'chats', 'hoy', 'plan', 'mas']);
-  // Desde el 17/10/2026: Second Brain PRIMERO y sin título (arriba de todo, como en escritorio), y las dos familias.
-  // Probado rompiéndolo: con la caja de Second Brain al final en `gruposMas` → cae este assert.
-  // 17/10/2026 noche: lo diario sin título (las hojas del Dashboard), Sales, Marketing y Create.
+  assert.deepEqual(barra('admin', 'completo'), ['crm', 'chats', 'mako', 'plan', 'mas']);
+  // Desde el 20/10/2026 el Ops Center (`mako`) está en la barra, así que la caja de arriba (sin título) quedó vacía y no
+  // se dibuja; lo diario (las hojas del Dashboard; la portada /m/hoy la suma `masCompleto`), Sales, Marketing y Create.
   assert.deepEqual(mas('admin', 'completo'), [
-    ['mako'], ['dashboard'], ['calendario', 'automations', 'cs'], ['offer', 'landing', 'ads'],
+    ['dashboard'], ['calendario', 'automations', 'cs'], ['offer', 'landing', 'ads'],
     // Image (la copia de Canva) es fila de More desde el 17/10/2026, debajo de Video.
     ['video', 'image', 'copywriting'],
   ]);
-  assert.deepEqual(familias('admin', 'completo'), [null, null, 'Sales', 'Marketing', 'Create']);
+  // Lo diario con título desde el 20/10/2026 (en escritorio lleva rótulo y el Ops Center adentro).
+  assert.deepEqual(familias('admin', 'completo'), ['Today', 'Sales', 'Marketing', 'Create']);
 });
 
 test('quién ve qué en More: lo que nav.ts le da a cada rol, y nada más', () => {
-  // Closer: Dashboard (graphics, su hoja Closing) y MaKo. Setter: Dashboard (su hoja Chat Analyst, desde la v5
-  // del 12/10/2026), Automations (setting) y MaKo.
-  assert.deepEqual(mas('closer', 'completo'), [['mako'], ['dashboard']]);
-  assert.deepEqual(mas('setter', 'completo'), [['mako'], ['dashboard'], ['automations']]);
+  // Closer: Dashboard (graphics, su hoja Closing). Setter: Dashboard (su hoja Chat Analyst, desde la v5 del 12/10/2026) y
+  // Automations (setting). El Ops Center (MaKo) lo tienen los dos en la barra desde el 20/10/2026.
+  assert.deepEqual(barra('closer', 'completo'), ['crm', 'chats', 'mako', 'plan', 'mas']);
+  assert.deepEqual(mas('closer', 'completo'), [['dashboard']]);
+  assert.deepEqual(mas('setter', 'completo'), [['dashboard'], ['automations']]);
   // Una familia sin nada que el rol vea no deja una caja vacía.
-  assert.deepEqual(familias('closer', 'completo'), [null, null]);
+  assert.deepEqual(familias('closer', 'completo'), ['Today']);
   // El closer entra al Dashboard SÓLO por la hoja Closing (app/dashboard/page.tsx): en una capa
   // sin Closing (pm tiene graphics, no closing), More no le ofrece una fila que lo rebota a Today.
   assert.equal(puedeVerKey('graphics', 'closer', 'pm'), true, 'el nav solo se la daría');
@@ -146,8 +149,8 @@ test('quién ve qué en More: lo que nav.ts le da a cada rol, y nada más', () =
       assert.equal(puedeVerKey(k, rol, 'completo'), false, `${rol} ve ${k}`);
     }
   }
-  // Sin rol resuelto: nada gateado (sólo General y More, que se componen por rol).
-  assert.deepEqual(barra(null, 'completo'), ['hoy', 'mas']);
+  // Sin rol resuelto: nada gateado (sólo More; el Ops Center pide la key `mako`). La puerta lo manda a /login igual.
+  assert.deepEqual(barra(null, 'completo'), ['mas']);
   assert.deepEqual(seccionesMasVisibles(null, 'completo'), []);
   assert.equal(puedeVerKey('inexistente', 'admin', 'completo'), false);
 });
@@ -157,32 +160,44 @@ test('el hueco: si el rol no ve uno de los cuatro, lo ocupa la primera sección 
   // que ve, en el orden de la sidebar. Desde el 15/10/2026 Calendario (Operate, que la capa pm tiene desde el
   // 13/10: los deadlines del Plan) va antes que Dashboard (Analyze), y MaKo se queda en More.
   assert.equal(puedeVerKey('crm', 'admin', 'pm'), false);
-  // Las HOJAS del Dashboard no suben (17/10/2026 noche): son del lugar del medio. Sube Second Brain y las hojas quedan en More.
-  assert.deepEqual(barra('admin', 'pm'), ['calendario', 'mako', 'hoy', 'plan', 'mas']);
-  assert.deepEqual(mas('admin', 'pm'), [['dashboard']]);
-  // Un setter en pm: sólo ve MaKo de More, y sube (queda un hueco sin llenar: la barra es de cuatro).
-  assert.deepEqual(barra('setter', 'pm'), ['mako', 'hoy', 'plan', 'mas']);
+  // Desde el 20/10/2026 el lugar del medio es el Ops Center (un lugar FIJO: no sube a ocupar otro hueco), y las hojas del
+  // Dashboard vuelven a poder subir: el Dashboard ya no está en la barra.
+  assert.deepEqual(barra('admin', 'pm'), ['dashboard', 'calendario', 'mako', 'plan', 'mas']);
+  assert.deepEqual(mas('admin', 'pm'), []);
+  // Un setter en pm: de More sólo ve MaKo, que ya es el del medio (quedan dos huecos sin llenar).
+  assert.deepEqual(barra('setter', 'pm'), ['mako', 'plan', 'mas']);
   assert.deepEqual(mas('setter', 'pm'), []);
   // destinosVisibles sigue siendo la lista de los FIJOS que el rol ve.
-  assert.deepEqual(destinosVisibles('admin', 'pm').map((d) => d.id), ['hoy', 'plan', 'mas']);
+  assert.deepEqual(destinosVisibles('admin', 'pm').map((d) => d.id), ['mako', 'plan', 'mas']);
 });
 
 test('el lugar activo de una ruta', () => {
-  assert.equal(destinoActivo('/m/hoy'), 'hoy');
+  // El Dashboard y su campana son filas de More desde el 20/10/2026.
+  assert.equal(destinoActivo('/m/hoy'), 'mas');
+  assert.equal(destinoActivo('/m/inbox'), 'mas');
   assert.equal(destinoActivo('/m/crm/45'), 'crm');
   assert.equal(destinoActivo('/m/mas'), 'mas');
   // Una sección de More (y sus subpantallas) y la cuenta marcan More.
   assert.equal(destinoActivo('/m/ads'), 'mas');
   assert.equal(destinoActivo('/m/video/12'), 'mas');
-  assert.equal(destinoActivo('/m/second-brain'), 'mas');
   assert.equal(destinoActivo('/m/cuenta'), 'mas');
+  // El Ops Center del medio es dueño del chat, del grafo y de /m/mako; y para el super admin (su lugar abre el Centro),
+  // también del chat: los dos son su Ops Center.
+  assert.equal(destinoActivo('/m/second-brain'), 'mako');
+  assert.equal(destinoActivo('/m/second-brain/mapa'), 'mako');
+  assert.equal(destinoActivo('/m/mako'), 'mako');
+  const centro = barraMovil('admin', 'superadmin', true);
+  assert.equal(centro.find((b) => b.id === 'mako')?.href, '/m/operaciones', 'el super admin: su Ops Center es el Centro');
+  assert.equal(barraMovil('admin', 'superadmin').find((b) => b.id === 'mako')?.href, '/m/second-brain', 'mirando un cliente: el del cliente');
+  assert.equal(destinoActivo('/m/operaciones', centro), 'mako');
+  assert.equal(destinoActivo('/m/second-brain/mapa', centro), 'mako');
   // Salvo que haya subido a la barra: ahí se marca a sí misma.
   const pm = barraMovil('admin', 'pm');
   assert.equal(destinoActivo('/m/calendario', pm), 'calendario');
   assert.equal(destinoActivo('/m/calendario/x', pm), 'calendario');
-  // Las hojas del Dashboard marcan el lugar del medio (17/10/2026 noche), como en escritorio el Dashboard marca cada hoja.
-  assert.equal(destinoActivo('/m/dashboard', pm), 'hoy');
-  assert.equal(destinoActivo('/m/dashboard/x'), 'hoy');
+  // Las hojas del Dashboard subieron a la barra de la capa pm (20/10/2026); para el resto son de More.
+  assert.equal(destinoActivo('/m/dashboard', pm), 'dashboard');
+  assert.equal(destinoActivo('/m/dashboard/x'), 'mas');
   assert.equal(destinoActivo('/m/configurar'), null);
   assert.equal(destinoActivo('/crm'), null);
   assert.equal(destinoActivo('/mako'), null);

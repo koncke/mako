@@ -27,6 +27,16 @@ export function conSoloSuIA<T>(prender: boolean, fn: () => Promise<T>): Promise<
   return prender ? almacen.run({ soloSuIA: true }, fn) : fn();
 }
 
+/**
+ * Lo mismo, para el resto de una función async que ya está corriendo (el turno: envolver sus 300 líneas en un callback
+ * era re-indentarlas todas, y cada merge chocaba con todo). Prende el contexto para lo que sigue en ESA función y lo que
+ * ella lance —también `after()`—, y no se escapa a quien la llamó: su `await` sigue con el contexto de antes (medido el
+ * 21/10/2026 y fijado en tests/solo-su-ia.test.ts). Sólo después de un `await`, nunca en código sincrónico de quien llama.
+ */
+export function entrarSoloSuIA(prender: boolean): void {
+  if (prender) almacen.enterWith({ soloSuIA: true });
+}
+
 /** ¿Lo que corre ahora es de un negocio con su IA? (lo pregunta lib/ai-cheap.ts antes de dar una key). */
 export const soloSuIA = (): boolean => almacen.getStore()?.soloSuIA === true;
 

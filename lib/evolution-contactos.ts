@@ -101,7 +101,8 @@ export async function getNombresContacto(): Promise<Map<string, string>> {
   // El helper ordena por `id` (PK de evolution_contactos) en todas las páginas.
   const filas = await leerTodo<{ telefono: string; nombre: string | null }>(
     await getTenantDb(), 'evolution_contactos', 'telefono, nombre',
-    { filtros: (q) => q.not('nombre', 'is', null) },
+    // En olas de 4 páginas (Chats, 20/10/2026): de a una eran 6 páginas en serie, 2,5 s en el ws1.
+    { filtros: (q) => q.not('nombre', 'is', null), paralelo: 4 },
   );
   for (const r of filas) {
     const k = digs(r.telefono).slice(-10);

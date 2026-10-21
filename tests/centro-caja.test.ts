@@ -11,7 +11,8 @@
 //
 // Probado rompiéndolo (17/10/2026, con la base en 0 fallos):
 //   · `conVinetas` sin mirar dónde está el cursor → 1 fallo (1);
-//   · `enterEnLista` sin cortar en el ítem vacío → 1 fallo (2);
+//   · `enterEnLista` sin cortar en el ítem vacío → 1 fallo (2); (21/10) siguiendo con UN ítem donde Enter manda → 1 fallo (2);
+//     (la segunda revisión) mandando cualquier ítem solo, no sólo la pregunta → 1 fallo (2);
 //   · `textoParaMandar` sin pasar «• » a «- » → 1 fallo (3);
 //   · `borradorQueVale` prefiriendo el que tiene texto → 1 fallo (4).
 // Y el scroll que acompaña lo que se escribe (18/10/2026, Martín: «la caja crece y el chat no lo acompaña»):
@@ -39,6 +40,16 @@ test('2. Enter sigue la lista, y en un ítem vacío la corta', () => {
   assert.deepEqual(enterEnLista('• uno\n• ', 8, 8), { texto: '• uno\n', cursor: 6 }, 'el ítem vacío corta la lista');
   assert.equal(enterEnLista('Hola', 4, 4), null, 'fuera de una lista, Enter manda');
   assert.equal(enterEnLista('• uno', 1, 4), null, 'con algo seleccionado, lo de siempre');
+  // En la computadora (Enter manda), con UN solo ítem todavía no hay lista (revisión del 21/10/2026).
+  const una = '1. ¿Cuántos leads entraron ayer?';
+  assert.equal(enterEnLista(una, una.length, una.length, { conUno: false }), null, '«1. …» y Enter: se manda');
+  // Pero se EMPIEZA una lista con Enter (Martín, 17/10; la segunda revisión): sólo un ítem que es una pregunta se manda.
+  assert.deepEqual(enterEnLista('- mandale a Ana el link', 23, 23, { conUno: false }), { texto: '- mandale a Ana el link\n- ', cursor: 26 }, 'una lista se empieza con Enter');
+  assert.deepEqual(enterEnLista('1. Llamar a Ana', 15, 15, { conUno: false }), { texto: '1. Llamar a Ana\n2. ', cursor: 19 });
+  assert.deepEqual(enterEnLista('1. uno\n2. dos', 13, 13, { conUno: false }), { texto: '1. uno\n2. dos\n3. ', cursor: 17 }, 'con dos, la lista sigue');
+  assert.deepEqual(enterEnLista('• uno\n• ', 8, 8, { conUno: false }), { texto: '• uno\n', cursor: 6 }, 'y el ítem vacío la corta igual');
+  assert.match(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'app', '_chat', 'CajaChat.tsx'), 'utf8'),
+    /enterEnLista\(texto, e\.currentTarget\.selectionStart, e\.currentTarget\.selectionEnd, \{ conUno: !p\.enterManda \}\)/, 'la caja lo usa donde Enter manda');
 });
 
 test('3. lo que sale es Markdown, y la burbuja lo dibuja como lista', () => {
@@ -67,10 +78,13 @@ const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g,
 test('5. el scroll acompaña lo que se escribe: la conversación sigue abajo y la caja sigue al cursor', () => {
   assert.equal(estaAbajo({ scrollHeight: 1000, scrollTop: 960, clientHeight: 20 }), true, 'a 20 px del final está abajo');
   assert.equal(estaAbajo({ scrollHeight: 1000, scrollTop: 500, clientHeight: 300 }), false, 'leyendo más arriba no se la mueve');
-  const pc = leer('app/admin/operaciones/Conversacion.tsx');
-  const efecto = pc.slice(pc.indexOf('const conversacionAbajo'), pc.indexOf('}, [texto]);'));
-  assert.ok(efecto.indexOf('const conversacionAbajo = h ? estaAbajo(h) : false;') < efecto.indexOf("el.style.height = 'auto';"), 'se mide ANTES de agrandar la caja');
+  // Desde el 20/10/2026 vive en la caja única (app/_chat/CajaChat.tsx); cada pantalla le dice QUÉ sigue abajo.
+  const pieza = leer('app/_chat/CajaChat.tsx');
+  const efecto = pieza.slice(pieza.indexOf('const h = p.seguir?.()'), pieza.indexOf('}, [texto]);'));
+  assert.ok(efecto.indexOf('const abajo = h ? estaAbajo(h) : false;') < efecto.indexOf("el.style.height = 'auto';"), 'se mide ANTES de agrandar la caja');
   assert.match(efecto, /el\.scrollTop = el\.selectionEnd >= el\.value\.length \? el\.scrollHeight : antes;/, 'la caja no pierde su scroll al medirse');
-  assert.match(efecto, /if \(h && conversacionAbajo\) h\.scrollTop = h\.scrollHeight;/);
-  assert.match(leer('app/m/operaciones/ChatsMovil.tsx'), /estaAbajo\(cuerpo, 160\)\) cuerpo\.scrollTop = cuerpo\.scrollHeight;/, 'el teléfono también');
+  assert.match(efecto, /if \(h && abajo\) h\.scrollTop = h\.scrollHeight;/);
+  assert.match(efecto, /estaAbajo\(h, 160\)\) h\.scrollTop = h\.scrollHeight;/, 'el teléfono también (crece el CSS)');
+  assert.match(leer('app/admin/operaciones/Conversacion.tsx'), /seguir=\{seguirHilo\}/, 'la computadora: la conversación');
+  assert.match(leer('app/m/operaciones/ChatsMovil.tsx'), /seguir=\{seguirHoja\} altoMax=\{null\}/, 'el teléfono: la hoja');
 });

@@ -80,6 +80,11 @@ export type PropsBloque = {
   /** Se está personalizando la ficha (el bloque se ve, pero no se toca: lo cubre su marco). */
   editando: boolean;
   /**
+   * Los bloques puestos en la MISMA hoja (20/10/2026). Un bloque que envuelve a otros (`reunion-1`) no repite lo que la
+   * hoja ya puso aparte: así una ficha vieja (sólo `reunion-1`) se ve como siempre y una partida no se duplica.
+   */
+  hermanos?: readonly BloqueId[];
+  /**
    * LA TAB VA ÉPICA (16/10/2026, Martín: «que se pueda ver "epico" como lo tenemos en general»): pocas cosas, en grande.
    * La grilla ya le da más ancho y más aire (./armar.ts, `spansPorDispositivo`); el bloque decide cómo se agranda por
    * dentro (un número protagonista, sin metadata), como los bloques de General (app/general/bloques/comun.tsx). Es una

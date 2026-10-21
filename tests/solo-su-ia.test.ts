@@ -16,8 +16,9 @@
 // PROBADO ROMPIÉNDOLO (21/10/2026, arnés del scratchpad `romper-revision.mjs`, una rotura por vez, restaurada y comprobada
 // con sha256; base 5 / 0). Diez roturas, todas con su rojo: sacar el corte de `provDe`, de la red de la plataforma o del
 // orden por cuota → cada una 3 / 2; fallar abierta · decidir por persona · el turno fuera del contexto · los pedidos sin
-// el contexto · la voz sin `pii` · El Archivero sin preguntar · los pedidos con la clave cruda → cada una 4 / 1.
-// Restaurado: 5 / 0. Y antes del corte en `ordenarPorCuota`, el hijo mostró la fuga que el corte obvio dejaba (§2 de la
+// el contexto · la voz sin `pii` · El Archivero sin preguntar · los pedidos con la clave cruda → cada una 4 / 1. Y
+// después del merge de main, cuando el turno pasó a `entrarSoloSuIA` (sin re-indentarlo): el turno sin prenderlo, y el
+// contexto como un indicador global que se escapa → cada una 4 / 1. Restaurado: 5 / 0. Y antes del corte en `ordenarPorCuota`, el hijo mostró la fuga que el corte obvio dejaba (§2 de la
 // entrada de docs/hallazgos-ia.md del 21/10).
 //
 // Correr: npx tsx --test tests/solo-su-ia.test.ts
@@ -28,7 +29,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { conSoloSuIA, proveedorPermitido, soloSuIA } from '../lib/solo-su-ia';
+import { conSoloSuIA, entrarSoloSuIA, proveedorPermitido, soloSuIA } from '../lib/solo-su-ia';
 
 const RAIZ = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -98,13 +99,25 @@ test('el contexto: prendido sólo adentro, y con su OpenAI y nada más', async (
   });
   assert.equal(soloSuIA(), false, 'no se escapa a lo que sigue');
   await conSoloSuIA(false, async () => assert.equal(soloSuIA(), false));
+  // `entrarSoloSuIA` (el turno, sin re-indentarlo): prende el resto de ESA función async y lo que lance, y no se escapa
+  // a quien la llamó ni al pedido siguiente. Rota: que se escape → este test falla (el próximo negocio quedaría sin Gemini).
+  const turno = async () => {
+    await new Promise((ok) => setTimeout(ok, 1));
+    entrarSoloSuIA(true);
+    const adentro = soloSuIA();
+    const enUnTimer = await new Promise<boolean>((ok) => setTimeout(() => ok(soloSuIA()), 1));
+    return { adentro, enUnTimer };
+  };
+  assert.deepEqual(await turno(), { adentro: true, enUnTimer: true });
+  assert.equal(soloSuIA(), false, 'quien llamó sigue sin el contexto');
+  assert.equal(await (async () => { await new Promise((ok) => setTimeout(ok, 1)); return soloSuIA(); })(), false, 'el pedido siguiente, tampoco');
 });
 
 test('lo prenden los caminos del Ops Center: el turno (con El Archivero y los archivos adentro), los pedidos y la voz', () => {
   const t = sinComentarios(leer('lib/mako-turno-app.ts'));
-  // Rota: decidir por persona otra vez (`soloSuIA: !!pc || …`) → este test falla.
-  assert.match(t, /const negocio = await negocioConSuIA\(ws\);\s*return conSoloSuIA\(negocio\.suIA, async \(\) => \{/);
-  const dentro = t.slice(t.indexOf('return conSoloSuIA(negocio.suIA'));
+  // Rota: decidir por persona otra vez (`soloSuIA: !!pc || …`), o no prender el contexto → este test falla.
+  assert.match(t, /const negocio = await negocioConSuIA\(ws\);\s*entrarSoloSuIA\(negocio\.suIA\);/);
+  const dentro = t.slice(t.indexOf('entrarSoloSuIA(negocio.suIA)'));
   for (const paso of ['archivoATexto(', 'archivarPdfsDelChat(', 'archivarPegadosDelChat(', 'chatClaudeTools(']) {
     assert.ok(dentro.includes(paso), `${paso} corre adentro de «sólo su IA»`);
   }

@@ -33,9 +33,9 @@
 // app/second-brain/pagina.tsx). Arriba de la barra van «Ticketera» y, debajo, «Second Brain»: tocarlo cambia la lista a
 // los chats con MaKo (y el Mapa); si no, la lista son los chats de Claude Code. Abajo, el Uso y los Runners.
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type ReactNode } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { useRouter } from '@/app/_ui/Link';
+import Link, { useRouter } from '@/app/_ui/Link';
 import { Toast, useToast } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { useCentro, type Centro, type DatosCentro } from '@/app/admin/operaciones/useCentro';
@@ -48,12 +48,13 @@ import { cerebroDelCentro } from '@/app/tickets/bandeja/cerebro';
 import { useTicketsPorDecidir } from '@/app/tickets/bandeja/usarContador';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { CirculoNuevo } from '@/app/admin/operaciones/NuevoChat';
-import { Microfono } from '@/app/admin/operaciones/Microfono';
+import { CajaChat } from '@/app/_chat/CajaChat';
+import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import { HiloMako } from '@/app/_chat/HiloMako';
 import type { ItemPropuesta } from '@/app/_chat/TarjetaAccion';
 import {
-  archivosDeRespuesta, idLocal, itemsDeRespuesta, itemsDeSesion, leerRespuesta, problemaDeSeleccion, textoTapadoDeRespuesta, tipoDeElegido, trasTarjeta,
-  type EstadoPropuesta, type ItemHilo, type Leido,
+  archivosDeRespuesta, idLocal, itemsDeRespuesta, itemsDeSesion, conTarjeta, leerRespuesta, textoTapadoDeRespuesta, problemaDeSeleccion, tipoDeElegido, trasTarjeta,
+  trasTrabajo, type EstadoPropuesta, type ItemHilo, type Leido,
 } from '@/app/m/mako/chat-ui';
 import { achicarImagen } from '@/app/m/mako/subir';
 import { IconoChat } from '@/app/m/mako/iconos';
@@ -61,11 +62,11 @@ import { VolverDelGrafo } from './volver';
 import { caracteres, conPegados, esPegadoLargo, nombrePegado } from '@/lib/chat-pegado';
 import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import {
-  ARRANQUES_SECOND_BRAIN, AVISO_ANTES, JEFE_SECOND_BRAIN, SECCION_ANTES, SIN_TITULO, SUBS_VISIBLES, arbolDelJefe, colgarIrA, edadCorta, filtrarSubs,
+  ARRANQUES_SECOND_BRAIN, AVISO_ANTES, AVISO_OFFER, JEFE_SECOND_BRAIN, SECCION_ANTES, SECCION_OFFER, SIN_TITULO, SUBS_VISIBLES, arbolDelJefe, colgarIrA, edadCorta, filtrarSubs,
   linksDePedidos, nombreDeSub, tituloDe, type IrA,
 } from '@/lib/chat-mako-reglas';
-import type { ChatDeAntes } from '@/lib/chat-mako-indice';
-import type { MensajeChat, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
+import type { ChatDeAntes, ChatDeOffer } from '@/lib/chat-mako-indice';
+import type { MensajeChat, PropuestaPantalla, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 import '@/app/admin/operaciones/centro.css';
 import '@/app/_chat/chat.css';
 
@@ -80,11 +81,11 @@ const TOPE_PEDIDOS_MS = 15_000;
 /** El tope de texto de esa ruta: lo más largo no se le pregunta (contestaría 400). */
 const MAX_TEXTO_PEDIDOS = 4_000;
 
-type Abierta = { sesion: SesionChat; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[] };
+type Abierta = { sesion: SesionChat; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[]; pantallas?: PropuestaPantalla[] };
 type ItemMsg = Extract<ItemHilo, { k: 'msg' }>;
 /** Lo elegido en la barra: una conversación, un chat que todavía no tiene (el jefe sin nada, o «Nuevo chat»), un
  *  chat de antes (de «Pregúntale a MaKo»: se lee y no se escribe), o un chat de Claude Code (su clave del Centro). */
-type Elegido = { id: number } | { virtual: 'jefe' | 'nuevo' } | { antes: number } | { centro: string };
+type Elegido = { id: number } | { virtual: 'jefe' | 'nuevo' } | { antes: number } | { centro: string } | { offer: number };
 /** Un archivo elegido en la caja, antes de mandar. `url` es su vista previa (`blob:`): la usa también la burbuja
  *  mientras sale, y se suelta cuando vuelve guardado o cuando se quita. */
 type ArchivoElegido = { id: string; file: File; tipo: 'image' | 'document'; url: string };
@@ -211,6 +212,10 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
   /** Los chats de «Pregúntale a MaKo» (null = todavía no se pidieron: se piden al abrir la sección). */
   const [antes, setAntes] = useState<ChatDeAntes[] | null>(null);
   const [antesAbierta, setAntesAbierta] = useState(false);
+  /** Las conversaciones de Offer del negocio (20/10/2026, Martín: «el chat de OFFER no está llegando al Ops Center»): una
+   *  proyección de offer_sesiones (lib/chat-mako-indice.ts → chatsDeOffer), con la puerta de la tab. null = todavía no llegó. */
+  const [offer, setOffer] = useState<ChatDeOffer[] | null>(null);
+  const [offerAbierta, setOfferAbierta] = useState(true);
   const [ahora, setAhora] = useState(() => Date.now());
   const ocupadoRef = useRef(false);
   const sesionRef = useRef<number | null>(null);
@@ -229,7 +234,6 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
   const pegadosRef = useRef<Array<{ id: string; texto: string }>>([]);
   const ponerPegados = (xs: Array<{ id: string; texto: string }>) => { pegadosRef.current = xs; setPegados(xs); };
   const [soltando, setSoltando] = useState(false);
-  const entrada = useRef<HTMLInputElement>(null);
 
   useEffect(() => { const t = window.setInterval(() => setAhora(Date.now()), 60_000); return () => window.clearInterval(t); }, []);
 
@@ -262,14 +266,34 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
     const l = await pedir<Abierta>(`${RUTA}?sessionId=${id}`);
     if (!vigente()) return;
     if (!l.ok) { setErrorCarga(l.reintentable ? l.error : 'No pude abrir el chat.'); setCargado(true); return; }
-    setItems(itemsDeSesion(l.datos.mensajes ?? [], l.datos.propuestas ?? []));
+    setItems(itemsDeSesion(l.datos.mensajes ?? [], l.datos.propuestas ?? [], l.datos.pantallas ?? []));
     setCargado(true);
   }, []);
 
   const idAntes = elegido && 'antes' in elegido ? elegido.antes : null;
+  const idOffer = elegido && 'offer' in elegido ? elegido.offer : null;
+  // Las conversaciones de Offer, una vez (no en Ops Center: ahí la lista es la de Claude Code).
+  useEffect(() => {
+    if (ops) return;
+    let vivo = true;
+    void pedir<{ offer: ChatDeOffer[] }>(`${RUTA}?offer=1`).then((l) => { if (vivo) setOffer(l.ok ? l.datos.offer ?? [] : []); });
+    return () => { vivo = false; };
+  }, [ops]);
   useEffect(() => {
     if (!elegido) return;
     sesionRef.current = idElegido;
+    if (idOffer != null) {
+      // Una conversación de Offer: se LEE acá (sin copiarla) y se sigue en su tab.
+      let vivo = true;
+      setCargado(false); setErrorCarga(null);
+      void pedir<{ mensajes: MensajeChat[] }>(`${RUTA}?offerId=${idOffer}`).then((l) => {
+        if (!vivo) return;
+        if (!l.ok) { setErrorCarga(l.reintentable ? l.error : 'No pude abrir la conversación.'); setCargado(true); return; }
+        setItems(itemsDeSesion(l.datos.mensajes ?? [], []));
+        setCargado(true);
+      });
+      return () => { vivo = false; };
+    }
     if (idAntes != null) {
       let vivo = true;
       setCargado(false); setErrorCarga(null);
@@ -286,7 +310,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
     let vivo = true;
     void cargarHilo(idElegido, () => vivo);
     return () => { vivo = false; };
-  }, [elegido, idElegido, idAntes, cargarHilo]);
+  }, [elegido, idElegido, idAntes, idOffer, cargarHilo]);
 
   const claveCentro = elegido && 'centro' in elegido ? elegido.centro : null;
   // ⚠️ EL CHAT ABIERTO SE SIGUE AUNQUE LO RENOMBREN (17/10/2026: renombrarlo dejaba a Martín en un panel vacío). Su clave es
@@ -323,13 +347,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
 
   // Como un chat: abre mostrando lo último, y baja cuando llega algo nuevo.
   useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [items.length, trabajo, idElegido]);
-  // La caja crece con lo que se escribe, hasta el tope del CSS.
-  useLayoutEffect(() => {
-    const el = caja.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
-  }, [texto]);
+  // El campo que crece y el scroll que lo acompaña son de la caja única (app/_chat/CajaChat.tsx): le pasa la conversación.
+  const seguirHilo = useCallback(() => hilo.current, []);
 
   const desde = trabajo?.desde ?? null;
   useEffect(() => {
@@ -450,7 +469,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
     if (a) URL.revokeObjectURL(a.url);
     ponerElegidos(elegidosRef.current.filter((x) => x.id !== id));
   };
-  const puedeSoltar = idAntes == null && cargado && !errorCarga;
+  const puedeSoltar = idAntes == null && idOffer == null && cargado && !errorCarga;
   const conArchivos = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes('Files');
   const arrastre = {
     onDragOver: (e: DragEvent) => { if (!puedeSoltar || !conArchivos(e)) return; e.preventDefault(); setSoltando(true); },
@@ -461,9 +480,19 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
       void sumarArchivos(Array.from(e.dataTransfer.files));
     },
   };
-  const tecla = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    // Enter manda; Shift+Enter baja de renglón. Mientras se compone un acento (IME), Enter es del teclado.
-    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); enviarCaja(); }
+  /** Las fotos y los PDF de la caja, para la caja única: sólo fotos y PDF (lo que lee /api/mako/chat, lib/mako-adjuntos.ts). */
+  const adjuntosCaja: AdjuntosDeCaja = {
+    items: elegidos, puede: true, onSumar: (fs) => void sumarArchivos(fs), onQuitar: quitarArchivo, accept: ACCEPT_ADJUNTOS_CHAT,
+    onSinImagen: (puedeLeer) => setFaltaMic(puedeLeer ? 'No hay una imagen copiada' : 'Este navegador no deja pegar'),
+  };
+  /** Un texto de más de 1.000 caracteres no entra a la caja: queda como un documento pegado (#864, como Claude). Una imagen
+   *  pegada la toma la caja única (pegar.ts → alPegar). */
+  const pegarLargo = (e: ClipboardEvent<HTMLTextAreaElement>) => {
+    // Una celda de Excel o un párrafo de Word viajan como texto Y como imagen: con texto, manda el texto (la revisión de
+    // caja-voz, 20/10/2026: salir con cualquier archivo dejaba un pegado de 5.000 caracteres crudo en la caja, sin archivarse).
+    if (e.clipboardData.files.length && !Array.from(e.clipboardData.types).includes('text/plain')) return;
+    const pegado = e.clipboardData.getData('text/plain');
+    if (esPegadoLargo(pegado)) { e.preventDefault(); ponerPegados([...pegadosRef.current, { id: idLocal('p'), texto: pegado }]); }
   };
 
   /** Sólo lo que NO llegó (un 4xx): se saca y se manda de nuevo. */
@@ -476,12 +505,9 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
   };
 
   // ── Las tarjetas ──
-  const alEstado = (pendienteId: number, estado: EstadoPropuesta, nota?: string, paraLaPersona?: string[]) => {
-    setItems((xs) => {
-      const sig = xs.map((x) => (x.k === 'propuesta' && x.t.pendienteId === pendienteId ? { ...x, estado, nota } : x));
-      const extra: ItemHilo[] = (paraLaPersona ?? []).filter((t) => t.trim()).map((t) => ({ k: 'aviso', id: idLocal('v'), texto: t, tono: 'mako' }));
-      return [...sig, ...extra];
-    });
+  /** `r`: lo que contestó la tarjeta (su «Abrir», los avisos y lo que dibuja el resultado: `conTarjeta`). */
+  const alEstado = (pendienteId: number, estado: EstadoPropuesta, nota?: string, r?: ResultadoTarjeta) => {
+    setItems((xs) => conTarjeta(xs, pendienteId, estado, nota, r));
   };
   const correrTarjeta = async (x: ItemPropuesta, accion: 'confirmar' | 'cancelar') => {
     const sid = sesionRef.current;
@@ -493,7 +519,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
       const l = await postLargo<ResultadoTarjeta>({ action: accion, sessionId: sid, pendienteId: id });
       if (!l.ok) { alEstado(id, 'pendiente', l.reintentable ? l.error : 'No llegó la respuesta. Recarga el chat para ver si se ejecutó.'); return; }
       const d = trasTarjeta(l.datos, accion);
-      alEstado(id, d.estado ?? 'pendiente', d.frase ?? undefined, l.datos.paraLaPersona);
+      alEstado(id, d.estado ?? 'pendiente', d.frase ?? undefined, l.datos);
     } finally {
       setTarjeta(null);
     }
@@ -506,8 +532,12 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
   const esJefe = elegido != null && (('virtual' in elegido && elegido.virtual === 'jefe') || (arbol.jefe != null && idElegido === arbol.jefe.id));
   const sub = idElegido != null && !esJefe ? (sesiones ?? []).find((s) => s.id === idElegido) ?? null : null;
   const deAntes = idAntes != null ? (antes ?? []).find((a) => a.id === idAntes) ?? null : null;
-  const nombre = esJefe ? JEFE_SECOND_BRAIN : idAntes != null ? (deAntes?.titulo?.trim() || 'Chat de antes') : sub ? tituloDe(sub) : SIN_TITULO;
-  const nombreMuneco = esJefe ? JEFE_SECOND_BRAIN : idAntes != null ? SECCION_ANTES : nombreDeSub(sub ?? { titulo: null });
+  const deOffer = idOffer != null ? (offer ?? []).find((o) => o.id === idOffer) ?? null : null;
+  /** ¿El chat abierto se LEE y no se escribe? (los de antes, y los de Offer, que se siguen en su tab). */
+  const soloLeer = idAntes != null || idOffer != null;
+  const nombre = esJefe ? JEFE_SECOND_BRAIN : idOffer != null ? (deOffer?.titulo || SECCION_OFFER) : idAntes != null ? (deAntes?.titulo?.trim() || 'Chat de antes') : sub ? tituloDe(sub) : SIN_TITULO;
+  const nombreMuneco = esJefe ? JEFE_SECOND_BRAIN : idOffer != null ? SECCION_OFFER : idAntes != null ? SECCION_ANTES : nombreDeSub(sub ?? { titulo: null });
+  const delOffer = (offer ?? []).filter((o) => !busca.trim() || o.titulo.toLowerCase().includes(busca.trim().toLowerCase()));
   const animo = trabajo ? 'trabajando' : 'despierto';
   // El grafo se abre sin soltar el chat que estaba abierto: vuelve a él (17/10/2026: «nunca cambia de chat»).
   const hrefMapa = `${base}?panel=mapa${idElegido ? `&chat=${idElegido}` : urlCentro ? `&centro=${encodeURIComponent(urlCentro)}` : ''}`;
@@ -581,7 +611,9 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
           {veMapa && listaSB && (
             <button type="button" className="co-acceso" aria-pressed={mapa != null}
               onClick={() => { setConChat(true); router.push(mapa ? hrefVolver : hrefMapa); }}>
-              <Icon name={centro ? 'grid' : 'cerebro'} size={17} />Mapa
+              {/* «Second Brain», no «Mapa» (Martín, llamada con Florencia del 18/10 [00:50:28]: «no debería llamarse mapa,
+                  debería llamarse second brain»). La TAB es «Ops Center»; lo que se llama «Second Brain» es el grafo. */}
+              <Icon name={centro ? 'grid' : 'cerebro'} size={17} />Second Brain
             </button>
           )}
         </div>
@@ -621,6 +653,16 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
                 <button type="button" className="co-mas" onClick={() => setTodas(false)}>Mostrar menos</button>
               )}
               {busca.trim() && !subs.length && <p className="co-lista__vacio">Ningún chat con ese nombre.</p>}
+            </div>
+          )}
+          {/* Offer (20/10/2026): sus conversaciones, una por fila, como los sub-chats de un jefe. Sólo si se ve la tab y hay. */}
+          {delOffer.length > 0 && (
+            <div className="co-cuenta">
+              <button type="button" className="co-cuenta__cab" aria-expanded={offerAbierta} onClick={() => setOfferAbierta((v) => !v)}>
+                {SECCION_OFFER}
+                <span className={`co-chev${offerAbierta ? '' : ' co-chev--cerrado'}`} aria-hidden><Icon name="chevron" size={14} /></span>
+              </button>
+              {offerAbierta && delOffer.map((o) => fila(`o${o.id}`, { offer: o.id }, o.titulo, SECCION_OFFER, o.updatedAt, true))}
             </div>
           )}
           {/* Los chats de «Pregúntale a MaKo», de sólo lectura, plegados al final (los grupos por fecha de ChatGPT). */}
@@ -665,7 +707,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
             <Muneco titulo={nombreMuneco} animo={animo} size={34} />
             <div className="co-cab__texto">
               <h1 className="co-cab__titulo" title={nombre}>{nombre}</h1>
-              <span className="co-cab__meta">{esJefe ? 'Tu chat con MaKo' : idAntes != null ? SECCION_ANTES : JEFE_SECOND_BRAIN}</span>
+              <span className="co-cab__meta">{esJefe ? 'Tu chat con MaKo' : idOffer != null ? SECCION_OFFER : idAntes != null ? SECCION_ANTES : JEFE_SECOND_BRAIN}</span>
             </div>
           </header>
 
@@ -678,27 +720,41 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
             ) : !items.length && !trabajo ? (
               <div className="co-portada">
                 <Muneco titulo={nombreMuneco} animo="despierto" size={76} />
-                <p className="co-portada__nombre">{idAntes != null ? 'Este chat está vacío.' : '¿En qué te ayudo?'}</p>
-                {idAntes == null && <div className="ch-arranques">
+                <p className="co-portada__nombre">{soloLeer ? 'Este chat está vacío.' : '¿En qué te ayudo?'}</p>
+                {!soloLeer && <div className="ch-arranques">
                   {ARRANQUES_SECOND_BRAIN.map((a) => <button key={a} type="button" className="co-chip" onClick={() => enviar(a)}>{a}</button>)}
                 </div>}
               </div>
             ) : (
               <HiloMako items={items} quien={{ nombre: nombreMuneco }} ahora={ahora} escribiendo={trabajo ? { segs } : null}
-                tarjeta={tarjeta} onTarjeta={(x, a) => void correrTarjeta(x, a)} onReintentar={reintentar} onRecargar={recargar} />
+                tarjeta={tarjeta} onTarjeta={(x, a) => void correrTarjeta(x, a)} onReintentar={reintentar} onRecargar={recargar}
+                onResponder={(t) => enviar(t)} onTrabajo={(id, ok) => setItems((xs) => trasTrabajo(xs, id, ok))} />
             )}
           </div>
 
           <div className="co-caja-wrap">
-            {idAntes != null ? (
+            {idOffer != null ? (
+              // Se lee acá y se sigue en Offer, en ESA conversación (`?sesion=`), con el ?ws= del cliente que se está mirando.
+              <div className="co-caja co-caja--quieta">
+                <p>{AVISO_OFFER}</p>
+                <Link className="co-chip" href={`/offer?sesion=${idOffer}`}>Seguir en Offer</Link>
+              </div>
+            ) : idAntes != null ? (
               <div className="co-caja co-caja--quieta">
                 <p>{AVISO_ANTES}</p>
                 <button type="button" className="co-chip" onClick={() => elegir({ virtual: 'nuevo' })}>Seguir en uno nuevo</button>
               </div>
             ) : (
             <div className="co-caja">
-              {(elegidos.length > 0 || pegados.length > 0) && (
-                <ul className="ch-elegidos" aria-label="Archivos para mandar">
+              {/* La caja ÚNICA (app/_chat/CajaChat.tsx, 20/10/2026): la misma del Ops Center, en toda la app (Martín: «Te pedí
+                  que unificaras el chat del Ops Center en todos lados, su diseño y funcionalidades»). Arriba, los textos
+                  largos pegados como documento. */}
+              <CajaChat texto={texto} onTexto={(v) => { setFaltaMic(null); setTexto(v); }} onMandar={enviarCaja}
+                ocupado={!!trabajo} apagado={!cargado || !!errorCarga} placeholder="Escríbele a MaKo" tituloMandar="Mandar (Enter)"
+                enterManda campo={caja} seguir={seguirHilo} onErrorMic={setFaltaMic} adjuntos={adjuntosCaja}
+                hayAlgoMas={pegados.length > 0} onPegar={pegarLargo}
+                arriba={pegados.length > 0 ? (
+                <ul className="ch-elegidos" aria-label="Textos pegados">
                   {pegados.map((p) => (
                     <li key={p.id} className="ch-elegido ch-elegido--pegado">
                       <IconoChat nombre="archivo" size={20} />
@@ -708,45 +764,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
                       </button>
                     </li>
                   ))}
-                  {elegidos.map((a) => (
-                    <li key={a.id} className="ch-elegido">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- la vista previa local (blob:) */}
-                      {a.tipo === 'image' ? <img src={a.url} alt="" /> : <IconoChat nombre="archivo" size={20} />}
-                      <span className="ch-elegido__nombre" title={a.file.name}>{a.file.name}</span>
-                      <button type="button" className="ch-elegido__quitar" onClick={() => quitarArchivo(a.id)} aria-label={`Quitar ${a.file.name}`}>
-                        <Icon name="x" size={14} />
-                      </button>
-                    </li>
-                  ))}
                 </ul>
-              )}
-              <textarea
-                ref={caja} rows={1} value={texto}
-                onChange={(e) => setTexto(e.target.value)} onKeyDown={tecla}
-                onPaste={(e) => {
-                  // Una celda de Excel o un párrafo de Word viajan como texto Y como imagen: si hay texto, se pega el texto.
-                  const fs = Array.from(e.clipboardData.files);
-                  if (fs.length && !Array.from(e.clipboardData.types).includes('text/plain')) { e.preventDefault(); void sumarArchivos(fs); return; }
-                  // Un texto de más de 1.000 caracteres no entra a la caja: queda como un documento pegado (#864, como Claude).
-                  const pegado = e.clipboardData.getData('text/plain');
-                  if (esPegadoLargo(pegado)) { e.preventDefault(); ponerPegados([...pegadosRef.current, { id: idLocal('p'), texto: pegado }]); }
-                }}
-                placeholder="Escríbele a MaKo" aria-label="Escríbele a MaKo"
-                disabled={!cargado || !!errorCarga}
-              />
-              <div className="co-caja__barra">
-                <button type="button" className="ch-adjuntar" onClick={() => entrada.current?.click()} disabled={!cargado || !!errorCarga}
-                  aria-label="Adjuntar fotos o PDF" title="Adjuntar fotos o PDF">
-                  <Icon name="plus" size={18} />
-                </button>
-                <input ref={entrada} type="file" accept={ACCEPT_ADJUNTOS_CHAT} multiple hidden
-                  onChange={(e) => { const fs = Array.from(e.target.files ?? []); e.target.value = ''; void sumarArchivos(fs); }} />
-                <Microfono valor={texto} onValor={(v) => { setFaltaMic(null); setTexto(v); }} onError={setFaltaMic} apagado={!cargado || !!errorCarga} />
-                <button type="button" className="co-enviar" onClick={enviarCaja} disabled={!!trabajo || (!texto.trim() && !elegidos.length && !pegados.length) || !cargado || !!errorCarga}
-                  aria-label="Mandar" title="Mandar (Enter)">
-                  {trabajo ? <span className="co-enviar__giro" aria-hidden /> : <Icon name="flecha" size={18} />}
-                </button>
-              </div>
+                ) : null} />
             </div>
             )}
             <p className="co-caja__estado" aria-live="polite">{faltaMic ?? ''}</p>

@@ -99,4 +99,91 @@ export const NOMBRE_PRIORIDAD: Readonly<Record<PrioridadTarea, string>> = { 0: '
  * bloque de fondo, no vacía»). El de la familia del 17/10 era `--surface-2` al 55 %, que sobre el fondo de la página casi
  * no se ve: una columna sin tarjetas parecía un hueco. Lo fija tests/tarjetas-familia.test.ts.
  */
-export const FONDO_COLUMNA = 'var(--surface-2)';
+// ⚠️ Una VARIABLE con su valor claro y oscuro (app/globals.css), no `--surface-2`: el 18/10 se puso `--surface-2` y
+// era el mismo color que la página (#F5F7FA sobre #F4F6F9); el 20/10 Martín seguía viendo las columnas invisibles.
+export const FONDO_COLUMNA = 'var(--fondo-columna)';
+
+/**
+ * LO QUE MUESTRA LA TARJETA DE UN LEAD, a elección de cada persona (20/10/2026, Martín: «Las cards, las debería poder
+ * personalizar también, por si el usuario quiere más o menos info»). Se guarda POR PERSONA (`usuarios.perfil`, igual
+ * que sus avisos), la misma en todos los funnels: es cómo mira cada uno, y un closer y un setter quieren ver cosas
+ * distintas del mismo tablero; guardarlo por funnel le cambiaría la tarjeta a todo el equipo. El nombre va siempre.
+ * El ORDEN es el de la persona (lo arrastra en el pop-up, 20/10/2026); lo que no está en el catálogo se descarta (un dato
+ * viejo no rompe la pantalla).
+ */
+export const CAMPOS_TARJETA_LEAD = ['foto', 'plata', 'canal', 'vence', 'datos', 'agenda', 'fuera', 'empresa', 'telefono', 'campana', 'alta'] as const;
+export type CampoTarjetaLead = (typeof CAMPOS_TARJETA_LEAD)[number];
+export const NOMBRE_CAMPO_TARJETA: Readonly<Record<CampoTarjetaLead, string>> = {
+  foto: 'Foto o iniciales', plata: 'Plata', canal: 'Por dónde llegó', vence: 'Vencimientos', datos: 'Datos pendientes',
+  agenda: 'Reunión agendada', fuera: 'Fuera del funnel', empresa: 'Empresa', telefono: 'Teléfono', campana: 'Campaña',
+  alta: 'Fecha de alta',
+};
+/** Lo de siempre: la tarjeta del 17/10. Empresa, teléfono, campaña y fecha de alta son «más info». */
+export const CAMPOS_TARJETA_DEFAULT: readonly CampoTarjetaLead[] = ['foto', 'plata', 'canal', 'vence', 'datos', 'agenda', 'fuera'];
+
+/**
+ * Lo guardado, limpio y EN EL ORDEN DE LA PERSONA (el que arrastró): sin lo desconocido y sin repetidos. Sin nada
+ * guardado (o algo que no es una lista): lo de siempre.
+ */
+export function camposTarjetaDe(raw: unknown): CampoTarjetaLead[] {
+  if (!Array.isArray(raw)) return [...CAMPOS_TARJETA_DEFAULT];
+  const vistos = new Set<string>();
+  const out: CampoTarjetaLead[] = [];
+  for (const x of raw) {
+    if (typeof x !== 'string' || vistos.has(x) || !(CAMPOS_TARJETA_LEAD as readonly string[]).includes(x)) continue;
+    vistos.add(x);
+    out.push(x as CampoTarjetaLead);
+  }
+  return out;
+}
+
+/**
+ * LOS DISEÑOS DE LA TARJETA (13/10/2026, Martín: «Tener varios diseños template, como el que tenemos en Clientes, y
+ * otros»). Son plantillas de FORMA; los datos los elige la persona aparte:
+ *   · completa: la de la familia (17/10), con la cara y «Ver info»;
+ *   · compacta: la cara chica y menos aire, para ver más leads por columna;
+ *   · avance: como la de Clients, con la barra del paso del lead en su funnel («Paso N de M»).
+ */
+export const DISENOS_TARJETA = ['completa', 'compacta', 'avance'] as const;
+export type DisenoTarjeta = (typeof DISENOS_TARJETA)[number];
+export const NOMBRE_DISENO_TARJETA: Readonly<Record<DisenoTarjeta, string>> = { completa: 'Completa', compacta: 'Compacta', avance: 'Con avance' };
+export const DETALLE_DISENO_TARJETA: Readonly<Record<DisenoTarjeta, string>> = {
+  completa: 'La de siempre.', compacta: 'Más leads por columna.', avance: 'Con la barra del paso, como Clients.',
+};
+export type PrefsTarjetaLead = { diseno: DisenoTarjeta; campos: CampoTarjetaLead[] };
+
+/**
+ * Lo guardado en el perfil: `{ diseno, campos }` desde el 20/10/2026 noche; antes, sólo la lista de campos (se lee igual,
+ * con el diseño de siempre). Lo que no se entiende, lo de siempre.
+ */
+export function prefsTarjetaDe(raw: unknown): PrefsTarjetaLead {
+  if (Array.isArray(raw)) return { diseno: 'completa', campos: camposTarjetaDe(raw) };
+  if (raw && typeof raw === 'object') {
+    const o = raw as { diseno?: unknown; campos?: unknown };
+    const diseno = (DISENOS_TARJETA as readonly unknown[]).includes(o.diseno) ? (o.diseno as DisenoTarjeta) : 'completa';
+    return { diseno, campos: camposTarjetaDe(o.campos) };
+  }
+  return { diseno: 'completa', campos: [...CAMPOS_TARJETA_DEFAULT] };
+}
+
+/** El subtítulo de la tarjeta con la plata y el canal EN EL ORDEN que eligió la persona (y sólo los que eligió). */
+export function subtituloEnOrden(campos: readonly CampoTarjetaLead[], datos: { plata: string | null; canal: string | null | undefined }): string {
+  const partes: string[] = [];
+  for (const c of campos) {
+    if (c === 'plata' && datos.plata) partes.push(datos.plata);
+    if (c === 'canal') {
+      const k = String(datos.canal ?? '').trim();
+      if (k && k.toLowerCase() !== 'sin origen') partes.push(k);
+    }
+  }
+  return partes.join(' · ');
+}
+
+/** Mueve el dato `de` a la posición `a` («Personalizar tarjetas»: el arrastre y las flechas usan lo mismo). */
+export function moverCampo(campos: readonly CampoTarjetaLead[], de: number, a: number): CampoTarjetaLead[] {
+  const out = [...campos];
+  if (de < 0 || de >= out.length || a < 0 || a >= out.length || de === a) return out;
+  const [c] = out.splice(de, 1);
+  out.splice(a, 0, c);
+  return out;
+}

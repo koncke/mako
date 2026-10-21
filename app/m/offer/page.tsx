@@ -40,7 +40,7 @@ import { OfferM } from './OfferM';
 export const dynamic = 'force-dynamic';
 
 export default async function OfferMovilPagina({ searchParams }: {
-  searchParams: Promise<{ oferta?: string | string[]; funnel?: string | string[] }>;
+  searchParams: Promise<{ oferta?: string | string[]; funnel?: string | string[]; sesion?: string | string[] }>;
 }) {
   await requireMovil({ navKey: 'offer' });
   const q = await searchParams;
@@ -52,7 +52,12 @@ export default async function OfferMovilPagina({ searchParams }: {
 
   // Como escritorio: un link que nombra una oferta abre ESA (su conversación más reciente, o una nueva para
   // analizarla, que la crea la pantalla al montar). Sin link, la más reciente.
-  const pedido = entradaDelLink(leido.arbol, idDeParametro(q.oferta), idDeParametro(q.funnel));
+  // ?sesion=<id> (20/10/2026): «Seguir en Offer» desde el Ops Center abre ESA conversación, si es de este negocio (el árbol
+  // es del workspace). Si no está, lo de siempre.
+  const pedidaSesion = idDeParametro(q.sesion);
+  const pedido = pedidaSesion != null && todasLasSesiones(leido.arbol).some((s) => s.id === pedidaSesion)
+    ? { tipo: 'sesion' as const, id: pedidaSesion }
+    : entradaDelLink(leido.arbol, idDeParametro(q.oferta), idDeParametro(q.funnel));
   const ultima = pedido?.tipo === 'sesion' ? pedido : pedido ? null : masReciente(todasLasSesiones(leido.arbol));
   let sesion: OfferSesionVista | null = null;
   if (ultima) {

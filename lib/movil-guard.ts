@@ -27,8 +27,9 @@ import {
 } from './workspace';
 import { requireSesion } from './tab-access';
 import { onboardingPendiente } from './onboarding-state';
-import { HOME_MOVIL, puedeVerKey } from './movil-rutas';
-import { tipoDeDispositivo, vaAMovil, VISTA_COOKIE } from './movil-dispositivo';
+import { HOME_MOVIL, RUTA_CENTRO_M, puedeVerKey } from './movil-rutas';
+import { tipoDeDispositivo, vaAMovil, vistaEscritorioEn, vistaEscritorioGlobal, VISTA_COOKIE } from './movil-dispositivo';
+import { HEADER_RUTA } from './api-tab';
 import { rutaDeSalida } from './agencia-cartera';
 import { agenciaDeCliente } from './agencia';
 import { WS_PARAM, conWs } from './ws-tab';
@@ -84,7 +85,7 @@ export const contextoMovil = cache(async (): Promise<ContextoMovil | null> => {
  *   const ctx = await requireMovil({ navKey: 'crm' });
  *
  * · Sin sesión (o suspendida) → /login.
- * · Admin global sin cliente → /m/hoy de SU negocio (`?ws=` del workspace de plataforma):
+ * · Admin global sin cliente → su Ops Center (/m/operaciones) de SU negocio (`?ws=` del workspace de plataforma):
  *   /m es la app de UN negocio, y el suyo es la plataforma (antes iba a /inicio).
  * · Onboarding pendiente → /m/configurar (salvo `onboarding: false`, que lo usa
  *   esa misma pantalla para no redirigirse a sí misma).
@@ -101,7 +102,8 @@ export async function requireMovil(opts: { navKey?: string | null; onboarding?: 
   // El admin global SIN cliente ve /m de SU negocio (el workspace de plataforma), no su panel: hasta
   // el 12/10/2026 iba a /inicio, y eso obligaba a dejarlo fuera del desvío (Martín veía el escritorio
   // en el teléfono). Con `?ws=` en la URL, el resto de /m lo lleva solo (el Link de app/_ui).
-  if (ctx.ws == null && ctx.sesion.rol === 'admin') redirect(conWs(HOME_MOVIL, await wsSuperAdmin()));
+  // Desde el 20/10/2026 entra a SU Ops Center, el Centro (la tab principal del teléfono); hasta ese día, al Dashboard.
+  if (ctx.ws == null && ctx.sesion.rol === 'admin') redirect(conWs(RUTA_CENTRO_M, await wsSuperAdmin()));
   if (opts.onboarding !== false && (await onboardingPendiente())) redirect(await rutaConWs(RUTA_CONFIGURAR_MOVIL));
   if (opts.navKey && !puedeVerKey(opts.navKey, ctx.rol, ctx.capa)) redirect(await rutaConWs(HOME_MOVIL));
   return ctx;
@@ -131,5 +133,19 @@ export async function salidaDeVista(): Promise<{ salida: string; modoAgencia: bo
  */
 export async function prefiereMovil(): Promise<boolean> {
   const [h, c] = await Promise.all([headers(), cookies()]);
-  return vaAMovil(tipoDeDispositivo(h.get('user-agent'), h.get('sec-ch-ua-mobile')), c.get(VISTA_COOKIE)?.value);
+  // La ruta la pone SÓLO el proxy (`headersSeguros`): una cookie de UNA pantalla (20/10/2026) decide por ella.
+  return vaAMovil(tipoDeDispositivo(h.get('user-agent'), h.get('sec-ch-ua-mobile')), c.get(VISTA_COOKIE)?.value, h.get(HEADER_RUTA) ?? '');
+}
+
+/**
+ * ¿Es un TELÉFONO viendo la versión de computadora por la cookie de vista? Entonces la pantalla lleva «Volver al
+ * teléfono» (20/10/2026): sin eso, quien tocaba «Abrir en la computadora» quedaba 12 h sin MaKo Mobile. `global`: la
+ * pidió para toda la app («Versión de computadora»); si no, sólo para esta ruta.
+ */
+export async function vistaEscritorioEnTelefono(): Promise<{ global: boolean } | null> {
+  const [h, c] = await Promise.all([headers(), cookies()]);
+  if (tipoDeDispositivo(h.get('user-agent'), h.get('sec-ch-ua-mobile')) !== 'telefono') return null;
+  const vista = c.get(VISTA_COOKIE)?.value;
+  if (!vistaEscritorioEn(vista, h.get(HEADER_RUTA) ?? '')) return null;
+  return { global: vistaEscritorioGlobal(vista) };
 }

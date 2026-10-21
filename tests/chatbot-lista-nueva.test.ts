@@ -151,8 +151,9 @@ test('cada fila tiene su «⋯» (el menú de la casa): Activar o Pausar, Duplic
   // tanda (punto 5: «Quiero que en los 3 puntos exista la opción de renombrar»), segunda. Rotura (11/10/2026,
   // wf-undecima/w1-lista-ui/romper.mjs R3, `opcionesDeFila` sin «Renombrar»): base 10 / 0 → 9 / 1.
   // (14/10/2026: «Publicar en Creaciones», las estrellas, antes de Eliminar.)
-  assert.deepEqual(opcionesDeFila(true).map((o) => o.label), ['Pausar', 'Renombrar', 'Duplicar', 'Copiar flujo', 'Publicar en Creaciones', 'Eliminar']);
-  assert.deepEqual(opcionesDeFila(false).map((o) => o.label), ['Activar', 'Renombrar', 'Duplicar', 'Copiar flujo', 'Publicar en Creaciones', 'Eliminar']);
+  // (20/10/2026: «Configuraciones» de ESA automatización, después de «Renombrar»: Martín, 16/10 punto 5.)
+  assert.deepEqual(opcionesDeFila(true).map((o) => o.label), ['Pausar', 'Renombrar', 'Configuraciones', 'Duplicar', 'Copiar flujo', 'Publicar en Creaciones', 'Eliminar']);
+  assert.deepEqual(opcionesDeFila(false).map((o) => o.label), ['Activar', 'Renombrar', 'Configuraciones', 'Duplicar', 'Copiar flujo', 'Publicar en Creaciones', 'Eliminar']);
   const html = dibujar([SECUENCIA]);
   assert.match(html, /aria-label="Opciones de Bienvenida"/);
   // Su columna PROPIA, al lado del botón que abre: no tapa el nombre (y un botón no va adentro de otro).
@@ -168,9 +169,10 @@ test('cada fila tiene su «⋯» (el menú de la casa): Activar o Pausar, Duplic
 
 test('las acciones: Activar/Pausar por la puerta de siempre, Duplicar por `duplicar`, Eliminar ARCHIVA con la confirmación de la casa', () => {
   const lista = LISTA();
-  const accion = recorte(lista, 'const accionFila = async (j: SecuenciaDto, accion: string) => {', '\n  };', 2000);
+  // Revisión del 20/10/2026, noche (tests/automations-aviso-todos-caminos.test.ts): Activar desde el «⋯» pregunta antes (`o.sinAviso`).
+  const accion = recorte(lista, 'const accionFila = async (j: SecuenciaDto, accion: string, o?: { sinAviso?: boolean }) => {', '\n  };', 2700);
   assert.match(accion, /if \(accion === 'eliminar'\) \{ setErrFila\(null\); setAEliminar\(j\); return; \}/, 'Eliminar sin preguntar');
-  assert.match(accion, /pedir\('\/api\/whatsapp\/secuencias', 'PATCH', \{ id: j\.id, activa: !j\.activa \}\)/);
+  assert.match(accion, /pedir\('\/api\/whatsapp\/secuencias', 'PATCH', \{ id: j\.id, activa: !j\.activa, \.\.\.\(o\?\.sinAviso \? \{ aunqueDuplique: true \} : \{\}\) \}\)/);
   assert.match(accion, /pedir\(API_SECUENCIAS, 'POST', \{ action: 'duplicar', secuenciaId: j\.id \}\)/);
   // Lo que contesta mal queda pegado a ESA fila.
   assert.match(accion, /setErrFila\(\{ id: j\.id, texto: r\.error \|\| 'No se pudo cambiar' \}\)/);

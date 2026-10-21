@@ -25,6 +25,7 @@ import type {
 } from '@/lib/mako-turno-app-reglas';
 import { ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, type TipoAdjunto } from '@/lib/mako-adjuntos';
 import type { EstadoArchivero } from '@/lib/chat-mako-bloques';
+import type { Abrir, Bloque } from '@/lib/chat-bloques';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 import { CLAVE_TAPADA } from '@/lib/claves-en-el-chat';
 
@@ -36,7 +37,9 @@ import { CLAVE_TAPADA } from '@/lib/claves-en-el-chat';
  */
 export type ArchivoHilo = { nombre: string; tipo: TipoAdjunto; ref?: string; local?: string; archivero?: EstadoArchivero };
 
-export type EstadoPropuesta = 'pendiente' | 'aplicando' | 'hecho' | 'cancelada' | 'vencida' | 'resuelta' | 'fallo';
+/** `en_curso`: confirmada, y es un trabajo largo que sigue por detrás (1.11); su avance va en el G6 de abajo. */
+/** `incierta`: su trabajo largo se cortó y no se sabe si terminó (no es «falló»: no hay que pedirlo de nuevo sin mirar). */
+export type EstadoPropuesta = 'pendiente' | 'aplicando' | 'en_curso' | 'hecho' | 'cancelada' | 'vencida' | 'resuelta' | 'fallo' | 'incierta';
 
 export type ItemHilo =
   | {
@@ -58,11 +61,17 @@ export type ItemHilo =
        *  Second Brain los pide a /api/mako/pedidos; lib/chat-mako-reglas.ts → colgarIrA) */
       irA?: { titulo: string; link: string }[];
     }
-  | { k: 'propuesta'; id: string; t: TarjetaPendiente; estado: EstadoPropuesta; nota?: string }
+  /** `abrir`: después de confirmarla, el «Abrir en <tab>» del link que devolvió la acción (1.8). */
+  | { k: 'propuesta'; id: string; t: TarjetaPendiente; estado: EstadoPropuesta; nota?: string; abrir?: Abrir }
   | { k: 'pantalla'; id: string; p: PropuestaPantalla }
   /** `mako` = lo escribió el código para la persona (la agenda); `plataforma` = no pude.
    *  `conectar`: la integración que le falta al negocio (`RespuestaTurno.conectar`): un botón que abre su modal ahí mismo. */
-  | { k: 'aviso'; id: string; texto: string; tono: 'mako' | 'plataforma'; conectar?: string };
+  | { k: 'aviso'; id: string; texto: string; tono: 'mako' | 'plataforma'; conectar?: string }
+  /** Lo que el chat DIBUJA (lib/chat-bloques.ts, app/_chat/BloqueHilo.tsx): lo creado con su miniatura, el antes y el
+   *  después, un trabajo largo, una pregunta con opciones. Lo de MaKo, a la izquierda. */
+  /** `respondida`: una pregunta (G1) que la persona ya contestó (su mensaje siguiente), al recargar. */
+  /** `deTarjeta`: el G6 de un trabajo largo que lanzó esa tarjeta (1.11). */
+  | { k: 'bloque'; id: string; b: Bloque; respondida?: string; deTarjeta?: number };
 
 /** Lo que dice el botón de un aviso con `conectar`. La IA se nombra como la persona la piensa, no por el proveedor: el
  *  modal que abre es el de la que el negocio ya eligió (`iaParaConectar`, lib/mako-turno-app-reglas.ts). */
@@ -111,9 +120,62 @@ export const rutaDeArchivo = (ref: string): string => `/api/mako/chat?adjunto=${
 
 const aPropuesta = (t: TarjetaPendiente): ItemHilo => ({ k: 'propuesta', id: `p${t.pendienteId}`, t, estado: 'pendiente' });
 
-/** El hilo de una sesión recién abierta: los mensajes guardados y, al final, lo que espera. */
-export function itemsDeSesion(mensajes: readonly MensajeChat[], propuestas: readonly TarjetaPendiente[]): ItemHilo[] {
-  return [...mensajes.map(aMensaje), ...propuestas.map(aPropuesta)];
+/** Un mensaje guardado y, debajo, lo que dibuja (lo creado de un «Hecho: …» vuelve con su miniatura al recargar). */
+const conSusBloques = (m: MensajeChat, i: number): ItemHilo[] => {
+  // El «En curso: …» de un trabajo largo que sigue: su G6 consulta y dice cómo termina; la burbuja quedaba diciendo «En
+  // curso» al lado de un G6 terminado (la segunda revisión de la ola 1).
+  const sigue = (m.bloques ?? []).some((b) => b.t === 'trabajo' && !!b.consulta && b.pasos.some((p) => p.estado === 'en_curso'));
+  return [
+    ...(sigue ? [] : [aMensaje(m, i)]), ...(m.bloques ?? []).map((b, j): ItemHilo => ({ k: 'bloque', id: `b${i}-${j}-${m.created_at ?? ''}`, b })),
+  ];
+};
+
+/** El hilo de una sesión recién abierta: los mensajes guardados y, al final, lo que espera (las tarjetas y, desde la
+ *  1.10, las propuestas de pantalla pendientes de este chat, con su formulario). */
+export function itemsDeSesion(mensajes: readonly MensajeChat[], propuestas: readonly TarjetaPendiente[], pantallas: readonly PropuestaPantalla[] = []): ItemHilo[] {
+  return conRespuestas([
+    ...mensajes.flatMap(conSusBloques), ...propuestas.map(aPropuesta),
+    ...pantallas.map((p): ItemHilo => ({ k: 'pantalla', id: `s-${p.escritorio}`, p })),
+  ]);
+}
+
+/** Una pregunta (G1) seguida de un mensaje de la persona ya está contestada: con eso (1.9). Lo usan también las
+ *  pantallas al dibujar (revisión del 21/10/2026): contestar escribiendo apaga las opciones en el acto, no al recargar. */
+export function conRespuestas(xs: readonly ItemHilo[]): ItemHilo[] {
+  return xs.map((x, i) => {
+    if (x.k !== 'bloque' || x.b.t !== 'pregunta') return x;
+    const siguiente = xs.slice(i + 1).find((y): y is Extract<ItemHilo, { k: 'msg' }> => y.k === 'msg' && y.role === 'user');
+    return siguiente ? { ...x, respondida: siguiente.texto } : x;
+  });
+}
+
+/**
+ * Lo que se SUMA al hilo después de tocar una tarjeta: lo que el código escribió para la persona y lo que dibuja el
+ * resultado (`bloques`, la 1.7), sin recargar. Lo usan TODAS las pantallas del chat con MaKo: una no puede mostrar la
+ * miniatura y otra no.
+ */
+export function itemsTrasTarjeta(r: ResultadoTarjeta, pendienteId?: number): ItemHilo[] {
+  const avisos = (r.paraLaPersona ?? []).filter((t) => t.trim()).map((t): ItemHilo => ({ k: 'aviso', id: idLocal('v'), texto: t, tono: 'mako' }));
+  // El G6 de un trabajo largo sabe de qué tarjeta es: al terminar, ella deja de decir «En curso» (`trasTrabajo`).
+  const deTarjeta = r.ok && r.enCurso && pendienteId != null ? { deTarjeta: pendienteId } : {};
+  const bloques = r.ok ? (r.bloques ?? []).map((b): ItemHilo => ({ k: 'bloque', id: idLocal('b'), b, ...(b.t === 'trabajo' ? deTarjeta : {}) })) : [];
+  return [...avisos, ...bloques];
+}
+
+/** La tarjeta cuyo trabajo largo terminó mientras se miraba (1.11; revisión del 21/10/2026: quedaba «En curso»). */
+export function trasTrabajo(xs: readonly ItemHilo[], pendienteId: number, ok: boolean | null): ItemHilo[] {
+  return conTarjeta(xs, pendienteId, ok == null ? 'incierta' : ok ? 'hecho' : 'fallo');
+}
+
+/**
+ * El hilo después de tocar una tarjeta: la tarjeta con su estado nuevo (y su «Abrir», 1.8) y, al final, lo que vuelve
+ * (`itemsTrasTarjeta`). Sin `r` (mientras corre, o si no llegó la respuesta), sólo el estado. Lo usan TODAS las
+ * pantallas del chat con MaKo: antes cada una lo armaba a mano.
+ */
+export function conTarjeta(xs: readonly ItemHilo[], pendienteId: number, estado: EstadoPropuesta, nota?: string, r?: ResultadoTarjeta): ItemHilo[] {
+  const abrir = r?.ok ? r.abrir : undefined;
+  const sig = xs.map((x) => (x.k === 'propuesta' && x.t.pendienteId === pendienteId ? { ...x, estado, nota, ...(abrir ? { abrir } : {}) } : x));
+  return r ? [...sig, ...itemsTrasTarjeta(r, pendienteId)] : sig;
 }
 
 /**
@@ -124,7 +186,11 @@ export function itemsDeSesion(mensajes: readonly MensajeChat[], propuestas: read
 export function itemsDeRespuesta(r: RespuestaTurno, yaVistas: ReadonlySet<number> = new Set()): ItemHilo[] {
   const out: ItemHilo[] = [];
   r.mensajes.forEach((m) => {
-    if (m.role === 'assistant' && m.content.trim()) out.push({ ...aMensaje(m, 0), id: idLocal('a') });
+    // Con lo que dibuja (una pregunta con opciones, 1.9), debajo del mensaje.
+    if (m.role === 'assistant' && m.content.trim()) {
+      out.push({ ...aMensaje(m, 0), id: idLocal('a') });
+      for (const b of m.bloques ?? []) out.push({ k: 'bloque', id: idLocal('b'), b });
+    }
   });
   for (const t of r.paraLaPersona) if (t.trim()) out.push({ k: 'aviso', id: idLocal('v'), texto: t, tono: 'mako' });
   // Al negocio le falta una integración (su IA): no es un cartel de «no pude», lo dice MaKo y trae el botón para conectarla.
@@ -309,6 +375,7 @@ export type TrasTarjeta = {
 /** Traduce lo que contestó la acción a lo que ve la persona. */
 export function trasTarjeta(r: ResultadoTarjeta, accion: 'confirmar' | 'cancelar'): TrasTarjeta {
   if (r.ok) {
+    if (accion === 'confirmar' && r.enCurso) return { estado: 'en_curso', toast: 'Sigue por detrás', frase: null, haptico: 'success' };
     return accion === 'confirmar'
       ? { estado: 'hecho', toast: 'Acción ejecutada', frase: null, haptico: 'success' }
       : { estado: 'cancelada', toast: 'No se ejecutó', frase: null, haptico: null };
@@ -325,6 +392,8 @@ export function trasTarjeta(r: ResultadoTarjeta, accion: 'confirmar' | 'cancelar
 export const PILL_PROPUESTA: Record<EstadoPropuesta, { texto: string; tono: 'warn' | 'good' | 'neutro' | 'bad' }> = {
   pendiente: { texto: GRAMATICA.aprobacion.rotulo, tono: 'warn' },
   aplicando: { texto: GRAMATICA.ejecuta.rotulo, tono: 'neutro' },
+  en_curso: { texto: 'En curso', tono: 'neutro' },
+  incierta: { texto: 'Revísalo', tono: 'warn' },
   hecho: { texto: GRAMATICA.completo.rotulo, tono: 'good' },
   cancelada: { texto: 'No se ejecutó', tono: 'neutro' },
   vencida: { texto: 'Vencida', tono: 'neutro' },

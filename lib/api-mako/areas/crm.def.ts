@@ -530,6 +530,16 @@ export const DEFS: readonly OperacionDef[] = [
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
   {
+    // LA TARJETA PERSONALIZADA (20/10/2026): qué datos ve cada persona en la tarjeta de un lead. Es DE UNA PERSONA,
+    // así que sale sólo por la app y sólo como lectura, como el perfil (cabecera de equipo.def.ts, punto 3): por
+    // WhatsApp y HTTP no hay sesión que diga quién es. Se cambia en el CRM, «⋯» › «Personalizar tarjetas».
+    id: 'ver_campos_tarjeta_crm', area: 'crm', tipo: 'lectura',
+    titulo: 'Qué muestra la tarjeta de un lead',
+    descripcion: 'Qué datos ve la persona en cada tarjeta del tablero del CRM, en su orden (foto, plata, por dónde llegó, vencimientos, datos pendientes, reunión, fuera del funnel, empresa, teléfono, campaña, fecha de alta), con qué diseño (Completa, Compacta o Con avance) y el catálogo completo. Se elige en el CRM, «⋯» › «Personalizar tarjetas», y es de cada persona: vale en todos sus funnels.',
+    parametros: [],
+    salida: 'json', canales: ['app'], costo: 'gratis', gating: TAB,
+  },
+  {
     id: 'asignar_campana_funnels', area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Asignar una campaña a funnels',
     descripcion: 'PROPONE a qué funnels entran los leads nuevos de una campaña o un conjunto de Meta (queda pendiente hasta el «sí»): el primero es su funnel principal y en los demás se suma; [] la deja sin asignar. Reemplaza lo que tenía. Los leads que ya entraron no se mueven. Ids de listar_campanas_meta y de ver_campanas_funnels. Solo el administrador.',

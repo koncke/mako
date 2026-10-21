@@ -13,7 +13,8 @@ import { getTenantDb } from '../workspace';
 import { validarOperaciones, type OperacionChat } from './chat-catalogo';
 import { unirRefs } from './espejo';
 import { leerEspejo } from './espejo-server';
-import { VENTANA_JUNTAR_MS, leerVista, lineaDeOperacion, revisarContraCopia } from './propuestas';
+import { VENTANA_JUNTAR_MS, leerVista, lineaDeOperacion, restarOperaciones, revisarContraCopia } from './propuestas';
+import { filasDePropuesta, type FilaPropuesta } from './propuesta-bloque';
 
 const TABLA = 'video_editor_propuestas';
 const faltaLaTabla = (e: { code?: string | null } | null | undefined): boolean => e?.code === 'PGRST205' || e?.code === '42P01';
@@ -31,6 +32,8 @@ const COLUMNAS = 'id, proyecto_id, canal, escena_id, refs, operaciones, lineas, 
 /** Una propuesta como la lee el editor. */
 export type PropuestaAbierta = {
   id: string; canal: string; escenaId: string; refs: Array<[string, string]>; operaciones: OperacionChat[]; lineas: string[]; creada: string;
+  /** La versión de la fila cuando se leyó: se guarda en el mensaje del editor como dato (el cierre va por contenido). */
+  version: number;
 };
 const aAbierta = (f: Fila): PropuestaAbierta => ({
   id: f.id,
@@ -40,9 +43,17 @@ const aAbierta = (f: Fila): PropuestaAbierta => ({
   operaciones: validarOperaciones(f.operaciones).operaciones,
   lineas: Array.isArray(f.lineas) ? f.lineas.filter((l): l is string => typeof l === 'string') : [],
   creada: f.created_at,
+  version: Number(f.version) || 0,
 });
 
-export type Propuesto = { ok: true; id: string; nueva: boolean; lineas: string[]; sinRevisar?: true } | Falla | { ok: false; motivo: string };
+/**
+ * `filas`: la propuesta ENTERA (lo que ya tenía y esto) como «Original | Modificado» contra la copia, para la tarjeta
+ * del chat (./propuesta-bloque.ts); `total`, cuántos cambios tiene (la tarjeta muestra hasta 12); `nombre`, el del
+ * proyecto como se ve en el editor.
+ */
+export type Propuesto =
+  | { ok: true; id: string; nueva: boolean; lineas: string[]; filas: FilaPropuesta[]; total: number; nombre: string; sinRevisar?: true }
+  | Falla | { ok: false; motivo: string };
 
 /**
  * Suma una operación (ya validada en su forma) a la propuesta abierta del proyecto en este canal, o abre una. La
@@ -78,7 +89,11 @@ export async function proponerOperacion(p: {
         refs: unirRefs(copia.fila.refs, []), operaciones: [p.op], lineas: [linea], propuesto_por: p.actor, updated_at: ahora,
       }).select('id').single();
       if (e2) return falla(e2);
-      return { ok: true, id: (alta as { id: string }).id, nueva: true, lineas: [linea], ...(vista ? {} : { sinRevisar: true as const }) };
+      return {
+        ok: true, id: (alta as { id: string }).id, nueva: true, lineas: [linea],
+        filas: filasDePropuesta([p.op], copia.fila.vista), total: 1, nombre: copia.fila.nombre,
+        ...(vista ? {} : { sinRevisar: true as const }),
+      };
     }
 
     const lineas = [...(Array.isArray(abierta.lineas) ? (abierta.lineas as string[]) : []), linea];
@@ -86,30 +101,94 @@ export async function proponerOperacion(p: {
       operaciones: [...previas, p.op], lineas, refs: unirRefs(abierta.refs, copia.fila.refs), version: abierta.version + 1, updated_at: ahora,
     }).eq('workspace_id', p.ws).eq('id', abierta.id).eq('estado', 'abierta').eq('version', abierta.version).select('id');
     if (e3) return falla(e3);
-    if ((cambio ?? []).length) return { ok: true, id: abierta.id, nueva: false, lineas, ...(vista ? {} : { sinRevisar: true as const }) };
+    if ((cambio ?? []).length) {
+      const todas = [...previas, p.op];
+      return {
+        ok: true, id: abierta.id, nueva: false, lineas,
+        filas: filasDePropuesta(todas, copia.fila.vista), total: todas.length, nombre: copia.fila.nombre,
+        ...(vista ? {} : { sinRevisar: true as const }),
+      };
+    }
     // Otra acción la cambió en el medio (o se resolvió): se vuelve a leer, una vez.
   }
   return { ok: false, motivo: 'la propuesta cambió mientras se sumaba este cambio: vuelve a pedirlo' };
 }
 
-/** Las propuestas abiertas de un proyecto, de la más vieja a la más nueva (el editor las muestra en su chat). */
-export async function propuestasAbiertas(ws: number, proyecto: string): Promise<{ ok: true; propuestas: PropuestaAbierta[] } | Falla> {
+/** Cuántas abiertas trae el editor de un proyecto. */
+const TOPE_ABIERTAS = 20;
+/** Cuántas pide el editor por id, como mucho. */
+export const TOPE_INCLUIR = 40;
+
+/**
+ * Las propuestas abiertas de un proyecto, de la más vieja a la más nueva (el editor las muestra en su chat).
+ *
+ * ⚠️ LAS 20 MÁS NUEVAS, y las que pide el editor por id SIEMPRE. `incluir` son las que el editor tiene en su hilo
+ * (pendientes, o con el cierre sin confirmar) y la del link: con más de 20 abiertas, una que no viniera en el listado
+ * se daba por «resuelta en otra pestaña» sin estarlo (revisión del 21/10). Lo que se pide por id y no vuelve, no está
+ * abierto: eso sí se puede afirmar.
+ */
+export async function propuestasAbiertas(ws: number, proyecto: string, incluir: readonly string[] = []): Promise<{ ok: true; propuestas: PropuestaAbierta[] } | Falla> {
   const db = await getTenantDb();
   const { data, error } = await db.from(TABLA).select(COLUMNAS)
-    .eq('workspace_id', ws).eq('proyecto_id', proyecto).eq('estado', 'abierta').order('created_at', { ascending: true }).limit(20);
+    .eq('workspace_id', ws).eq('proyecto_id', proyecto).eq('estado', 'abierta').order('created_at', { ascending: false }).limit(TOPE_ABIERTAS);
   if (error) return falla(error);
-  return { ok: true, propuestas: ((data ?? []) as Fila[]).map(aAbierta) };
+  const filas = ((data ?? []) as Fila[]).reverse();
+  const faltan = [...new Set(incluir)].filter((id) => !filas.some((f) => f.id === id)).slice(0, TOPE_INCLUIR);
+  if (faltan.length) {
+    const { data: mas, error: e2 } = await db.from(TABLA).select(COLUMNAS)
+      .eq('workspace_id', ws).eq('proyecto_id', proyecto).eq('estado', 'abierta').in('id', faltan);
+    if (e2) return falla(e2);
+    filas.unshift(...((mas ?? []) as Fila[]));
+  }
+  return { ok: true, propuestas: filas.map(aAbierta) };
 }
 
-/** La cierra quien la miró en el editor: aplicada o descartada. Sólo una abierta (un segundo clic no la reescribe). */
+/** Una operación guardada como la ve el editor (validada), para compararla por contenido. */
+const comoLaVe = (op: unknown): unknown => validarOperaciones([op]).operaciones[0] ?? op;
+
+/**
+ * Cierra en la base lo que se aceptó o se descartó en el editor. `vistas` son las operaciones que el editor tenía en
+ * ESE mensaje: se sacan EXACTAMENTE ésas, por contenido (./propuestas.ts → restarOperaciones). Si no queda ninguna, la
+ * propuesta se cierra; si quedan (llegaron después), sigue abierta con el mismo id, y `quedan` lo dice. Sin `vistas`
+ * (un editor de antes del 20/10) se cierra entera, como antes.
+ *
+ * ⚠️ COMPARE-AND-SET POR VERSIÓN, y si choca dos veces contesta `cambio` y NO «ya resuelta»: la propuesta sigue
+ * abierta, y el editor reintenta el cierre en la próxima búsqueda (revisión del 21/10).
+ */
 export async function resolverPropuesta(p: {
   ws: number; id: string; estado: 'aplicada' | 'descartada'; persona: string; descartes: string[];
-}): Promise<{ ok: true } | Falla | { ok: false; yaResuelta: true }> {
+  vistas?: readonly OperacionChat[];
+}): Promise<{ ok: true; quedan: number } | Falla | { ok: false; yaResuelta: true } | { ok: false; cambio: true }> {
   const db = await getTenantDb();
-  const { data, error } = await db.from(TABLA).update({
-    estado: p.estado, resuelto_por: p.persona, resuelto_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-    descartes: p.descartes.slice(0, 40).map((d) => d.slice(0, 300)),
-  }).eq('workspace_id', p.ws).eq('id', p.id).eq('estado', 'abierta').select('id');
-  if (error) return falla(error);
-  return (data ?? []).length ? { ok: true } : { ok: false, yaResuelta: true };
+  const ahora = new Date().toISOString();
+  for (let intento = 0; intento < 2; intento++) {
+    const { data: leida, error: e1 } = await db.from(TABLA).select('id, operaciones, lineas, version')
+      .eq('workspace_id', p.ws).eq('id', p.id).eq('estado', 'abierta').limit(1);
+    if (e1) return falla(e1);
+    const fila = ((leida ?? [])[0] as { operaciones: unknown; lineas: unknown; version: number } | undefined) ?? null;
+    if (!fila) return { ok: false, yaResuelta: true };
+    const ops = Array.isArray(fila.operaciones) ? fila.operaciones : [];
+    const lineas = Array.isArray(fila.lineas) ? fila.lineas : [];
+    // Lo que ya no valida (una operación de una versión vieja del catálogo) ningún editor lo puede mostrar ni aceptar:
+    // se saca al cerrar, o la propuesta quedaría abierta para siempre.
+    const valida = ops.map((op) => validarOperaciones([op]).operaciones.length > 0);
+    const quedan = p.vistas ? restarOperaciones(ops.map(comoLaVe), p.vistas).filter((i) => valida[i]) : [];
+    // Nada de lo que el editor aplicó sigue acá (ya lo cerró otra pestaña): no hay nada que escribir.
+    if (p.vistas && quedan.length === ops.length) return { ok: true, quedan: ops.length };
+    const cambio = quedan.length === 0
+      ? {
+        estado: p.estado, resuelto_por: p.persona, resuelto_at: ahora, updated_at: ahora,
+        descartes: p.descartes.slice(0, 40).map((d) => d.slice(0, 300)),
+      }
+      : {
+        operaciones: quedan.map((i) => ops[i]),
+        lineas: lineas.length === ops.length ? quedan.map((i) => lineas[i]) : lineas,
+        version: (Number(fila.version) || 0) + 1, updated_at: ahora,
+      };
+    const { data, error } = await db.from(TABLA).update(cambio)
+      .eq('workspace_id', p.ws).eq('id', p.id).eq('estado', 'abierta').eq('version', fila.version).select('id');
+    if (error) return falla(error);
+    if ((data ?? []).length) return { ok: true, quedan: quedan.length };
+  }
+  return { ok: false, cambio: true };
 }

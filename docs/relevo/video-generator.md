@@ -29,3 +29,39 @@ trabajos en curso para que el rescate de 10 min no los reparta de nuevo.
 
 El server sólo manda pedidos de interfaz a extensiones ≥ 0.69.0: Mauricio sigue en el camino viejo
 hasta que actualice. No hay migración.
+
+## Ops Center: editar videos desde el chat (20/10/2026)
+
+*Rama `video-ops-center`, worktree `C:/dev/wt-video-ops`. El plan: `docs/ops-center-principal.md`
+(§2.4 a 2.7, §4.10 y §5) y `docs/ops-center-principal/mapa-video-imagen.md`.*
+
+**Ola 1, hecho:** la 1.14 del lado del editor (el `?propuesta=` abre ESA propuesta) y la 1.15 (las
+recetas de video, Generator, AI Avatar e imagen en `lib/doer-recetas.ts`). Las frases para la 1.2
+están en la carpeta compartida del Cerebro (`frases-video-imagen-1-2.json`), pasadas a MaKo Alert.
+
+**Ola 1, falta:**
+1. **La tarjeta G4 «Original | Modificado» en el hilo**, con «Aceptar en el editor». La API ya la
+   devuelve armada en `extra.bloque` (`lib/editor-video/propuesta-bloque.ts`, forma del G4 de la
+   rama ola1, probada contra su `sanearBloque`). Falta que el turno la cuelgue del mensaje de MaKo
+   y la dibuje al llegar: es la 1.8 de Ops Center 3. Mirarlo de punta a punta en el navegador con
+   las migraciones 0298 a 0302 aplicadas.
+2. **«cortá el principio del video» llega a su herramienta** cuando la 1.2 (MaKo Alert) esté: el
+   `todo` de `tests/doer-recetas-video-imagen.test.ts` pasa a ser un test común.
+
+**Ola 2 (del mapa):**
+- **2.22** Crear y abrir proyectos desde el chat: `abrir_en_editor_video` (anuncio, toma o montaje,
+  por `/video-editor/nuevo?desde=`) y `proyecto_nuevo_video` (vacío o con plantilla y huecos).
+  «armame un video con la plantilla de testimonio» termina en un proyecto con los textos dictados.
+- **2.24** Los bloques de video e imagen: galería de proyectos y diseños, reproductor 9:16, tarjeta
+  de costo, tarjeta del puente Flow, antes y después con miniatura, mini línea de tiempo. Salen de
+  un campo estructurado y se ven igual en la computadora y en Android.
+- **2.25** Exportar y descargar: el botón abre el editor con la exportación lista (`?exportar=`).
+- **2.26** El Video Generator por el chat: el plan de tomas, editar una toma, el escenario, filmar
+  UNA toma con la tarjeta de costo, releer el saldo. Nunca más de una toma por confirmación.
+
+**Decisiones D7 (de Martín, las pregunta Debate):** material en la nube y render en el servidor, o
+aceptar y exportar en el editor embebido (a); confirmar el gasto de Flow por toma o por anuncio (c);
+el Image Editor aplica directo o primero el historial (d); audios adjuntos para clonar la voz (e);
+Image Generator con Flow (f); música con catálogo propio (g). **La D7b («¿se despliega el worker de
+montaje?») ya no hace falta**: desde el 20/10 la cola la atiende un cron de Vercel
+(`app/api/cron/montaje`, rama `montaje-cola`), sin worker.

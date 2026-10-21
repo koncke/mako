@@ -4662,3 +4662,230 @@ rompía en todo lo demás. Lo no obvio, para el que toque esto después:
   prueba-ia-pc@…», la clave Run quedó con la ruta exacta (con la ñ) y SEGUÍA 15 s después, nada en Inicio, el Claude real
   de la PC contestó con `listar_tareas_plan` en 32 s, y desconectada desde MaKo el programa se sacó solo del arranque y se
   apagó. Defender: cero detecciones desde las 05:00. La Mac, sin probar.
+
+## Lo que midió la verificación del debate «quién paga el chat» (20/10/2026)
+
+Cuatro verificadores revisaron `docs/debate-ops-center-decisiones-20-10.md` contra producción antes de llevárselo a
+Martín. Ese día él decidió que nadie paga el Ops Center de los clientes: cada uno conecta sus cuentas de Claude y GPT.
+Las cifras quedan para la próxima vez que alguien calcule un costo o un tope.
+
+- **Un costo «por turno» sacado de `anthropic_usage` sale a la mitad.** La tabla anota una fila por PASO del loop de
+  herramientas (`lib/ai-cheap.ts`, `recordUsage` dentro del `for (let step…)`), y un turno son ~2,1 pasos (WhatsApp
+  2,26; el Ops Center 2,15; Offer 1,0). El documento llamó «turnos» a llamadas, y el empate «Haiku contra un plan de
+  US$47» daba ~3.450 turnos cuando son ~1.700-1.800. **Regla:** un tope por turnos se calcula agrupando las filas por el
+  recorte del pedido dentro del `motivo`, no contando filas.
+- **«Por mes» no es la suma de 30 días** cuando las features nacieron en el medio. Tres de las cuatro del chat
+  (`mako-chat` 09/10, `mako-doer` 11/10, `offer` 12/10) tenían 9 a 11 días: 296 de las 336 filas eran de las últimas
+  dos semanas, y el gasto real al ritmo de hoy era ~2× la suma cruda (Haiku: ~US$7 por mes todos los negocios, no 3,69).
+  Además, casi todos esos tokens los contó el tokenizador de Gemini, y no está medido cuántos cuenta Claude para el mismo
+  texto.
+- **Un turno del Ops Center NO carga las ~739 operaciones que ve un admin.** Viajan las 25 de siempre más las de las
+  áreas que nombra el pedido, con tope de 12.000 caracteres (`PRESUPUESTO_REGISTRO_CHARS`, `lib/doer-herramientas.ts`):
+  entre 0 y ~40 herramientas. Medido con el selector real: una llamada pesa ~9.300 tokens de entrada, y un turno ~21.000.
+- **MaKo no sabe si la Gemini del cliente es la gratis, que entrena.** No hay ninguna verificación antes de mandar; la
+  única señal es el texto de un 429 («…FreeTier…»), que se anota DESPUÉS (`anotarRebote429`, `lib/ia-cuotas.ts`). Con
+  eso está comprobado que el ws13 usa Gemini gratis: el doer de WhatsApp (`mako-doer-in`, pii) le mandó datos de su CRM
+  34 veces desde el 17/10. Y el ws14 tiene cargada la MISMA key que el ws13. El corte por pii frena las keys gratis de
+  MaKo, no la gratis PROPIA del cliente (`soloLasPropias` sólo descarta las copias de la plataforma). Es el hueco que
+  dejó abierto la decisión del 07/10 de no sacarle Gemini a quien sólo tiene Gemini (arriba, «Le sacaba Gemini a quien
+  sólo tiene Gemini»). **Sigue abierto y es de Martín:** cortarlo, pedirle una key paga, o que conecte su Claude.
+- **El censo de IA de los clientes (20/10):**
+  - 11 negocios activos: todos menos el ws9 de la plataforma y los ws3 y ws4 de prueba; el ws5 está pausado.
+  - Con Claude conectado hay dos. El ws11 tiene su propia clave. El ws10 tiene, a pedido de Martín, la clave del
+    crédito de la cuenta 2, y por eso comparte esos US$200 con el crédito de la plataforma.
+  - Sólo con Gemini hay cinco: ws13, ws15, ws17, ws18 y ws19.
+  - Sin ninguna key propia hay tres: ws20, ws21 y el ws1, cuyas siete keys de IA son copias de las de MaKo (salvo
+    Cerebras, que el chat no usa).
+  - Hasta el 20/10 hubo **0 llamadas** pagadas con la clave de Anthropic de un negocio. Ese día lo destrabó
+    25f9bbca6 (Ticketera): el turno con herramientas prueba la clave del negocio cuando ninguna barata contestó.
+
+**Dónde están los datos:** los scripts (sólo lectura) quedaron en el scratchpad del Cerebro del 20/10
+(`verif-debate/`). Lo que importa está acá.
+
+## La batería guardián del ruteo: 505 pares en `tests/`, con el piso por área (20/10/2026, ola 1, pieza 1.1)
+
+**Vive en:** `tests/ops-center-bateria.test.ts` · `tests/_bateria-ops-center-hijo.ts` · `tests/fixtures/ops-center-frases.json`
+(la batería) · `tests/fixtures/ops-center-frases-afuera.json` (lo que no entró, con su motivo).
+
+- **Qué mide:** si la operación de cada frase VIAJA al turno, por el camino real: el clasificador y la selección de
+  herramientas, la de la app (`herramientasDelChat`) y la de WhatsApp (`herramientasDelTurno`), con las de siempre reales.
+  Hoy los dos canales dan lo mismo, par por par.
+- **El piso del 20/10** (lo que llega / lo medido): núcleo 23/40 frases, CRM 40/89 frases, Automations 17/49 frases,
+  pagos 35/100 pares, Offer 9/12, Plan, Calendario y Dashboard 20/53, video e imagen 9/14, web y Ads 64/123.
+- **Regla: el piso es un trinquete.** Lo que deja de llegar hace caer el test. Lo que empieza a llegar TAMBIÉN, hasta que
+  se anota con `ACTUALIZAR_PISO=1` y se commitea con el arreglo. Así la 1.2 sube el piso de cada área en su tanda.
+- **En núcleo, CRM y Automations las operaciones de una frase son ALTERNATIVAS** («creame una landing» llega con
+  cualquiera de las que crean). Ahí se cuenta por frase. En las demás áreas se esperan todas y se cuenta por par. Contar
+  por par en las tres primeras daba 9 rojos falsos: frases donde llega una alternativa y otra no.
+- **Las de siempre llevan `server-only`** (`MAKO_TOOLS`, `MAKO_ACCION_TOOLS`): la medición corre en un node aparte con
+  `--conditions=react-server`. Medir sólo con sus nombres dio lo mismo, pero el turno real las pasa enteras.
+
+**Trampas al armarla:**
+- **Las baterías vivían donde se pierden.** De pagos, 33 de las 90 frases estaban sólo en el transcript de un agente
+  (se pasaron por la línea de comandos). Las de landing y Meta en voseo sobrevivían sólo en un `sim.out`: el `casos.json`
+  lo pisó la versión en tuteo. El `pedidos.json` de Offer lo pisó el agente de Automations. Los subagentes de una corrida
+  comparten el scratchpad: cada uno escribe con nombre propio, y lo medido pasa a `tests/` antes de terminar.
+- **Una frase sin su operación no mide nada.** Los scripts de Plan, Calendario y Dashboard, video, Offer y parte de
+  Automations no decían qué operación esperaban: 173 frases quedaron afuera.
+- **Cinco pares no pueden llegar por la app, y no es el ruteo:** `crear_modulo_curso`, `crear_clase_curso`,
+  `publicar_post_comunidad`, `crear_evento_comunidad` y `exigir_2fa_desde` no tienen el canal `app` en el registro.
+- **Inflar un `llegaHoy` agregando la clave no hace nada.** JSON se queda con la ÚLTIMA clave repetida, así que el
+  original lo pisa. Para romper el piso a mano se cambia el valor que ya está.
+- **La fecha del piso es la de Argentina:** `toISOString()` a las 21 de acá ya es el día siguiente.
+
+**Sin hacer:** las 229 frases de `tests/fixtures/ops-center-frases-afuera.json`:
+- 173 sin una operación explícita;
+- 40 con la batería vacía a propósito;
+- 8 con una operación que no existe: `crear_campana`, `agregar_conjunto` y `subir_creativos` de Meta;
+- 5 medidas con adjunto;
+- 3 «sí» que dependen del mensaje anterior.
+
+## MaKo pregunta con opciones, y la regla de no proponer la impone el código (20/10/2026, ola 1, pieza 1.9)
+
+**Vive en:** `lib/chat-pregunta.ts` (`TOOL_PREGUNTAR`, `crearGuardiaDePregunta`, `retirar`) · el turno de la app,
+`lib/mako-turno-app.ts`. Probado en `tests/chat-pregunta.test.ts`.
+
+- **Qué hace:** en el chat de la app viaja `preguntar_al_usuario` cuando el turno lleva herramientas. Lo que pasa el
+  modelo se sanea como un G1 (2 a 4 opciones distintas). Una pregunta que no calza vuelve como error y no se muestra.
+- **La regla que impone el código, no el prompt:**
+  - desde que pregunta, el turno rechaza toda acción, y una lectura sí corre, para armar las opciones;
+  - lo que propuso ANTES en el mismo turno se retira también en la base: las tarjetas quedan canceladas y las
+    propuestas de pantalla, descartadas, cada una con SU descarte (`aRetirar` + `retirarEnSuPantalla`): la genérica, el
+    borrador del plan, la ficha de lead, la propuesta de video y el borrador de WhatsApp;
+  - la pregunta se guarda con el mensaje: al recargar vuelve, y si ya hubo respuesta, se ve contestada.
+- **La persona contesta tocando** una opción, «Elige tú» o «Saltear», o escribiendo: es su siguiente mensaje. Las
+  cuatro pantallas lo mandan igual.
+- **Trampa (la revisión del 21/10): «retirar en la base» sólo descartaba la genérica** (/mako/revisar). El borrador del
+  plan, la ficha de lead, el video y el WhatsApp quedaban vivos en su pantalla, el mensaje decía «confírmalo abajo» sin
+  nada abajo, y al contestar MaKo armaba otro: dos. Se retira sólo lo que creó ESTE turno (`nueva`: una igual que ya
+  estaba pendiente no es suya), y con una pregunta no sale el mensaje del borrador ni el de la ficha.
+- **Trampa:** la frase del «Hecho» («todos los martes a las 3 a todo el funnel») hoy la clasifica `capturar`, sin
+  herramientas. La pregunta no viaja con ella hasta que el clasificador la mande a actuar: eso es la 1.2, con la D1.
+  `tests/chat-pregunta.test.ts` lo fija para que se vea el día que cambie.
+
+**Sin hacer:**
+- El modelo decide CUÁNDO preguntar (la descripción de la herramienta lo guía). Lo que el código impone es qué pasa
+  después.
+- En WhatsApp no hay G1: una pregunta allá sigue siendo texto.
+
+## El chat de la app: el negocio con SU nombre, y el guardia de promesas prendido (20/10/2026, ola 1, pieza 1.5)
+
+**Vive en:** `lib/negocio-rotulo.ts` · `lib/mako-context.ts` (`nombreDelNegocioActual`) · `afirmaHechoDe` y
+`sanearSalida({ hecho })` en `lib/doer-salida.ts` · `hechoEnElHilo` en `lib/mako-turno-app-reglas.ts` · los contadores
+`corridas` y `leidas` del turno, en `lib/mako-turno-app.ts`. Probado en `tests/chat-contexto-guardias.test.ts`.
+
+- **«NEGOCIO DE MARTÍN» en el system de TODOS los negocios:**
+  - Estaba en el chat de MaKo y en el asesor de WhatsApp. «del negocio de Martín» estaba además en la retrospectiva
+    (dos prompts) y en el asesor.
+  - Es el mismo caso del 08/10 (`tests/prompt-sin-dueno.test.ts`), que sólo miraba los encuadres de
+    `lib/prompt-defaults.ts`.
+  - Ahora el perfil va con el nombre del negocio, y el test barre TODO el código.
+  - ⚠️ El asesor de WhatsApp usa `renderPrompt('wa.advisor.system', …)`: un override guardado en Configuraciones puede
+    seguir diciendo «de Martín». No se miró la base.
+- **El guardia de promesas estaba APAGADO en la app:** `sanearSalida(respuesta, { corrioHerramientas: true })` con el
+  `true` fijo. Ahora:
+  - se cuenta lo que DE VERDAD corrió: lo rechazado (no permitido, o después de preguntar) no cuenta;
+  - lo que MaKo dice CLARO que hizo y el CÓDIGO no respalda QUEDA, con UNA nota al final: «No veo esa acción en este
+    chat: revísala antes de darla por hecha.» (`NOTA_SIN_RESPALDO`). Una afirmación clara es la de `afirmacionesDeHecho`:
+    primera persona, pretérito CON tilde («mandé»; sin tilde también es subjuntivo: «¿querés que te mande…?»), sin
+    negación, sin pregunta y sin hablar de lo propuesto («confírmala abajo»). Respalda (`RespaldoDeHecho.respaldado`) lo
+    que escribió en el turno (un control como `cancelar_accion`, si `salioBien`) o una tarjeta confirmada («Hecho: …»)
+    después del último PEDIDO de la persona (`confirmadoTrasElUltimoPedido`: un «gracias» no corta), salvo que este
+    mensaje sea un pedido. Una nota como máximo por respuesta: la del hecho primero, si no la de una promesa;
+  - un dato del contexto («tu landing está publicada») no se toca;
+  - el doer de WhatsApp sigue igual: `hecho` es una opción.
+- **Lo obvio era el error (la revisión del 21/10): «sin herramientas, lo que dice hecho es mentira».** Después de
+  confirmar una tarjeta, «¿quedó agendada?» se contesta desde el «Hecho: …» del hilo, sin correr nada, y el guardia lo
+  cambiaba por «pídemelo otra vez y lo hago»: la persona lo pedía de nuevo y se hacía dos veces. Al revés, con UNA
+  lectura corrida el guardia se apagaba entero y «ya le mandé el WhatsApp» pasaba. **Regla:** un guardia de «no lo
+  hiciste» mira qué lo respalda, no sólo si corrió algo; y lo que dice cuando corta no puede invitar a repetir.
+- **Y lo obvio fue el error dos veces más (las revisiones del 21/10).** «Con cualquier "Hecho:" en el hilo, no se juzga»
+  lo apagaba entero (en el Ops Center casi siempre hay uno). «Cruzar la frase con el "Hecho:" por las raíces de las
+  palabras» (ola1-seguimiento, no entró) borraba de nuevo las verdades: el «Hecho:» real es el resumen de EJECUCIÓN
+  («Listo: «Reunión con Ana López» quedó el mar 27 de oct…»), no comparte raíz con «agendé», y la respuesta corta habla
+  con un pronombre («Sí, ya te la agendé»). En un banco de 32 frases borraba 8 verdaderas de 14 y atajaba casi nada más.
+  Los tests pasaban porque usaban el resumen de la PROPUESTA («Agendar reunión con Ana»), que nunca se anota así.
+  **Regla:** borrar una verdad es peor que dejar pasar una mentira, así que el guardia NUNCA borra: agrega una nota. El
+  respaldo lo pone el código (lo ejecutado, lo confirmado después del pedido), nunca reglas sobre el texto. Y un test de
+  un guardia usa lo que el código anota DE VERDAD (`resultadoAgendar`), no un texto que se le parece.
+- **Y la tercera revisión cambió la red, no las reglas.** La versión que nunca borraba igual ponía la nota en 13 de 31
+  respuestas que no afirmaban nada (sin tildes, el subjuntivo y el pasado son la misma palabra; las negaciones; las
+  ofertas), dejaba pasar 17 de 35 afirmaciones y podía sumar dos notas que se contradecían. Ahora: PRECISIÓN ANTES QUE
+  COBERTURA. El banco de la revisión vive en tests/chat-guardia-banco.test.ts y mide, por sha, 0 oraciones borradas, 0
+  notas donde no se afirma nada y 0 respuestas con dos notas. Lo que se escapa es un NÚMERO (21/10: 26 de 36 llevan la
+  nota sin respaldo; se escapan los estados «ya está hecho», «ya quedó», el plural «lo agendamos» y «te dejé la tarjeta»),
+  y el test sólo pide que no baje. La red fuerte es lo que el código dibuja en el hilo, no el texto de MaKo.
+- **Lo obvio era el error: «traer `forzarTool` como WhatsApp».** El chat de la app piensa con razonamiento extendido
+  (`thinking: adaptive`), y con él Anthropic no admite `tool_choice: any`. Además `chatClaudeTools` lo pone en TODOS los
+  pasos: el turno nunca podría terminar con texto. WhatsApp lo hace con `chatCheapTools` y `toolChoicePrimerPaso`, que
+  la cascada de Claude no tiene. Por eso la guardia se apoya en lo que corrió, no en forzar.
+
+**Sin hacer:**
+- La persona de MaKo dice «el consultor IA de Martín Koncke» (`lib/mako-persona.ts`). Es la marca: cambiarla es una
+  decisión de Martín.
+- «Mi hoja» por quien chatea (`ctx.actor`, con 2 o más informes no pedir un email) es del Dashboard.
+- `forzarTool` en la app pide un primer paso sin razonamiento, en `lib/anthropic.ts`, que es compartido.
+## El Ops Center no hace lo que la app ya sabe hacer: el freno es el clasificador, no las operaciones (20/10/2026)
+
+**Síntoma:** en el Ops Center del cliente, la mitad de los pedidos naturales no recibe la herramienta que los resuelve. Medido con `herramientasDelChat` y frases reales por área:
+- CRM: 41 de 91;
+- Pagos: 29 de 90;
+- edición de video: 8 de 33;
+- Meta, con tuteo: 0 de 18.
+
+**El diagnóstico obvio era el equivocado:** «faltan operaciones en la API». Muchas existen (795 en el registro). El freno es que el turno de la APP usa el clasificador del grupo de WhatsApp: ante la duda anota el pedido como idea («capturar») y le saca a MaKo la herramienta de escribir. Además, el presupuesto de 12.000 caracteres deja afuera la operación que entiende el pedido, y viajan 18 operaciones muertas de Chatwoot.
+
+**Regla:** antes de pedir una operación nueva, medir si la frase natural la hace viajar (`herramientasDelChat` / `herramientasDelTurno`). Las frases medidas pasan a una batería guardián en `tests/`, la pieza 1.1. El mapa completo y el plan por olas: docs/ops-center-principal.md. Las correcciones del crítico, en su Anexo C: el turno también suma las áreas del clasificador, y sin IA propia la app no usa la red gratis.
+
+---
+
+## Las recetas de video e imagen: preguntar lo que cambia el resultado (20/10/2026, Ops Center 1.15)
+
+`lib/doer-recetas.ts` · `tests/doer-recetas-video-imagen.test.ts`
+
+**El caso.** «Cortá el principio del video» no dice qué proyecto ni cuánto, y nada le decía a
+MaKo que preguntara: proponía un corte por defecto en silencio. Es la misma familia que «todos los
+martes a las 3» (20/10): un dato que cambia el resultado nunca se rellena con un default.
+
+**Lo que se hizo.** Cuatro recetas en `recetasDelTurno` (editor, Generator, AI Avatar, Image
+Editor), con la regla de preguntar UNA cosa con 2 o 3 opciones sacadas de los datos reales.
+
+**Reglas que quedan:**
+- **La receta del editor viaja con sus 34 ESCRITURAS, no con sus lecturas.** Las lecturas
+  (`listar_proyectos_video`, `ver_proyecto_video`) son justo lo que trae una PREGUNTA, y la receta
+  pesaría en cada pregunta sin servir para nada. La del Generator sí viaja con lecturas: el saldo
+  y el puente son de ahí, y «créditos null es nunca se leyó» importa en la pregunta.
+- **Toda operación de video o imagen del registro tiene receta decidida.** El test cruza el
+  registro con los grupos de `doer-recetas.ts`: una operación nueva sin grupo pone el test rojo.
+- **«Cortá el principio del video» todavía no llega a su herramienta**: el clasificador lo anota
+  como idea (es la 1.2, MaKo Alert). El test lo tiene como `todo` con la frase exacta; la receta
+  está lista para cuando llegue.
+
+---
+
+## Lo que encontró la revisión de la tanda 1 del clasificador antes de subirla (20/10/2026)
+
+El detalle está en las notas compartidas, `revision-clasificador-tanda-1-20-10.md`.
+- **«WhatsApp no cambia» se mide comparando antes y después con las funciones reales y miles de frases, no con un test que fija un caso.** Un `replace` sin `ctx.canal` (`NOMBRADO`, que saca «llamada <nombre>») rompió en WhatsApp «cancelá la llamada pendiente con Juan»: dejó de cancelar, y con una pendiente vigente cancelaba OTRA cosa.
+- **Un default «actuar» con `dudosa:false` desarma los candados que miran `dudosa`:** un «ahí hice la prueba» volvió a crear un borrador del Plan (el bug del 25/08).
+- **Buscar la operación en TODO el registro trae escrituras de otra cosa cuando la pedida no existe** («borrá la nota» → borrar_audio), y las raíces de 5 letras matchean dentro de palabras («borra» en «borrador»). Una acción que llega sin la lectura que le da el id no «llega».
+
+
+## Un arnés «antes / después» mide un COMMIT sólo si extrae los árboles por SHA y corre un proceso por árbol (21/10/2026)
+
+La segunda revisión del clasificador de la app (f226f8c22) confirmó que WhatsApp no cambia: 245.146 líneas comparadas, 0
+diferencias. Comparó el veredicto entero, las herramientas EN ORDEN con un hash de descripción y schema, `delRegistro`,
+la instrucción y `turnoParaLaRed`, con 161 frases difíciles en 12 contextos más 59.296 literales de los tests. Con
+`canal: 'app'` cambian 3.244 de 7.962 líneas, así que la comparación detecta cambios cuando los hay. **El arnés del
+autor, que daba «0 de 16.968», no lo probaba**, aunque esta vez no escondía nada:
+- importaba de worktrees VIVOS: uno se movió de 7f904a03c a b0ce18002 durante la revisión, y el otro tenía cambios sin
+  commitear. Su número no estaba atado a ningún SHA;
+- cargaba los dos árboles en UN proceso. tsx resuelve `@/` con el tsconfig del cwd, así que `@/lib/capas` era el mismo
+  módulo para los dos lados;
+- su clave ordenaba los nombres de las herramientas y dejaba afuera porque, alternativa, aviso, descripciones, schemas e
+  instrucción, y fijaba un solo contexto.
+
+**La regla:** antes/después = `git archive <sha>` de cada lado a una carpeta propia, un proceso por árbol con su cwd, y
+comparar TODO lo que decide la salida, byte a byte. Y probar que la comparación detecta un cambio conocido: si con
+`canal: 'app'` también da 0, el arnés está ciego. Los scripts del revisor están en el scratchpad del Cerebro
+(rev-wa-f226/s/volcar.mts). *Cerebro, claude4.*

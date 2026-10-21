@@ -23,6 +23,38 @@ import type { FathomMeeting } from './fathom-api';
 
 export type TipoReunion = 'entrega' | 'ventas' | 'equipo' | 'otra';
 
+/** Lo que el clasificador mira de un lead del CRM. `cliente_ws` y `nombre` sólo los usa `esClienteMako`. */
+export type LeadDeReunion = { estado_lead: string | null; cliente_ws?: number | null; nombre?: string | null };
+
+/**
+ * QUIÉN TIENE SU PROPIA CUENTA DE MAKO (20/10/2026). Sólo lo arma el tablero del DUEÑO (el super admin): para él, alguien
+ * con un workspace en MaKo es un CLIENTE, y su llamada es de entrega aunque su lead siga en «abierto». El caso: las
+ * llamadas de feedback con Florencia (18/10, ya paga) y con Leila (19/10) quedaron descartadas como «ventas» porque sus
+ * leads decían prospecto, y no dejaron ni una tarea. En el tablero de un cliente esto no se arma: un usuario de MaKo no
+ * es cliente de Mauricio.
+ *   · `emails`: los usuarios de los OTROS workspaces (no el propio: ése es el equipo).
+ *   · `nombres`: los nombres completos de esos workspaces y de sus usuarios, normalizados. Es la red para cuando la cuenta
+ *     se abrió con OTRO correo (Florencia: el lead es su gmail personal, la cuenta es la de Consultesis).
+ */
+export type ClientesMako = { emails: ReadonlySet<string>; nombres: readonly string[] };
+
+const normNom = (s: string): string =>
+  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9ñ]+/g, ' ').trim();
+
+/**
+ * ¿Este invitado tiene su propia cuenta de MaKo? Por la base, de lo más duro a lo más blando: su correo es usuario de otro
+ * workspace; su lead apunta a una cuenta (`leads.cliente_ws`, el puente que escribe el alta por pago); o el nombre
+ * COMPLETO de su lead (dos palabras o más) es el de un usuario o está entero en el nombre de un workspace («Florencia
+ * Ayelen Carballo» en «mi marca personal: Florencia Ayelen Carballo»). Un nombre de pila solo no alcanza.
+ */
+export function esClienteMako(email: string, lead: LeadDeReunion | undefined, clientes: ClientesMako): boolean {
+  if (clientes.emails.has(email)) return true;
+  if (lead?.cliente_ws != null) return true;
+  const n = normNom(lead?.nombre ?? '');
+  if (n.split(' ').filter((w) => w.length >= 2).length < 2) return false;
+  return clientes.nombres.some((x) => x === n || ` ${x} `.includes(` ${n} `));
+}
+
 /** Emails (minúscula) de los invitados EXTERNOS. Espejo de fathom-api, sin server-only. */
 export function emailsInvitadosExternos(m: FathomMeeting): string[] {
   return (m.calendar_invitees ?? [])
@@ -56,15 +88,18 @@ export function emailsDeLaReunion(m: FathomMeeting): string[] {
 
 export function clasificarReunion(
   m: FathomMeeting,
-  leadsByEmail: Map<string, { estado_lead: string | null }>,
+  leadsByEmail: Map<string, LeadDeReunion>,
   equipoEmails: Set<string>,
+  clientes?: ClientesMako | null,
 ): TipoReunion {
   // El lead sigue mandando (una llamada de venta NO es una reunión de plan), pero
   // solo se lo busca entre los INVITADOS EXTERNOS: el host y los dueños de action
   // items son de casa, y si alguno figura en el CRM no convierte la reunión en venta.
+  // Y ANTES que el lead, si tiene su propia cuenta de MaKo (`esClienteMako`): es cliente, aunque el CRM diga prospecto.
   const externos = emailsInvitadosExternos(m);
   for (const e of externos) {
     const lead = leadsByEmail.get(e);
+    if (clientes && esClienteMako(e, lead, clientes)) return 'entrega';
     if (lead) return lead.estado_lead === 'ganado' ? 'entrega' : 'ventas';
   }
   // Para "¿es del equipo?" se mira TODO: invitados (externos o no), quien grabó y
@@ -85,11 +120,13 @@ export function clasificarReunion(
  */
 export function motivoDelTipo(
   m: FathomMeeting,
-  leadsByEmail: Map<string, { estado_lead: string | null }>,
+  leadsByEmail: Map<string, LeadDeReunion>,
   equipoEmails: Set<string>,
+  clientes?: ClientesMako | null,
 ): string {
   for (const e of emailsInvitadosExternos(m)) {
     const lead = leadsByEmail.get(e);
+    if (clientes && esClienteMako(e, lead, clientes)) return `${e} tiene su cuenta en MaKo: es una reunión de entrega.`;
     if (lead) return lead.estado_lead === 'ganado'
       ? `${e} es cliente tuyo: es una reunión de entrega.`
       : `${e} está en tu CRM como prospecto: es una llamada de ventas.`;

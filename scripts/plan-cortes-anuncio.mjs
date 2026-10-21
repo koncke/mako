@@ -30,10 +30,17 @@
 // adelante, que es lo que dejaba el bache de 1,4 s antes de "Nadie".
 //
 // uso: node plan-cortes.mjs <dir sts-N.mp3> <ntomas> <durvid> [aire] [minhueco] [minseg]
+//
+// ⚠️ <durvid> PUEDE SER UNA LISTA, una por toma: «10,8,10». Las tomas de un anuncio NO
+// duran todas lo mismo (medido: 10, 8 y 10), y con un solo número —el de la primera— una
+// toma más larga quedaba topeada en el largo de la primera: lo que se decía después de ese
+// tope no entraba en ningún tramo, sin un error. Un número solo vale para todas (el bash).
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 
-const DIR = process.argv[2], N = +process.argv[3], DURVID = +process.argv[4];
+const DIR = process.argv[2], N = +process.argv[3];
+const DURS = String(process.argv[4]).split(',').map(Number);
+const durDe = (i) => DURS[Math.min(i, DURS.length) - 1];
 const AIRE     = +(process.argv[5] ?? 0.07);
 const MINHUECO = +(process.argv[6] ?? 0.14);
 const MINSEG   = +(process.argv[7] ?? 0.20);
@@ -46,7 +53,22 @@ const CLAMP    = +(process.env.CLAMP ?? 0.35);    // margen para el error de Whi
 const TOPE_U = -24, PISO_U = -46;
 
 const log = (s) => process.stderr.write(s + '\n');
-const ff = (a) => { const r = spawnSync('ffmpeg', a, { encoding: 'utf8', maxBuffer: 1 << 26 }); return (r.stdout || '') + (r.stderr || ''); };
+// ⚠️ EL BINARIO SALE DE `FFMPEG` CUANDO ESTÁ. El montaje en Vercel (lib/montaje/pipeline.ts) no tiene
+// ffmpeg en el PATH: trae el de `ffmpeg-static` y lo pasa por acá. Sin la variable, igual que siempre.
+const FFMPEG = process.env.FFMPEG || 'ffmpeg';
+const ff = (a) => { const r = spawnSync(FFMPEG, a, { encoding: 'utf8', maxBuffer: 1 << 26 }); return (r.stdout || '') + (r.stderr || ''); };
+
+/**
+ * La duración del archivo. Con ffprobe si está; si no —`ffmpeg-static` no trae ffprobe—, del
+ * «Duration:» que imprime ffmpeg al abrirlo. Las dos leen el mismo encabezado del contenedor.
+ */
+function duracion(f) {
+  const p = spawnSync(process.env.FFPROBE || 'ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', f], { encoding: 'utf8' });
+  const n = +String(p.stdout || '').trim();
+  if (!p.error && p.status === 0 && Number.isFinite(n) && n > 0) return n;
+  const m = /Duration:\s*(\d+):(\d+):([\d.]+)/.exec(ff(['-hide_banner', '-i', f]));
+  return m ? +m[1] * 3600 + +m[2] * 60 + +m[3] : NaN;
+}
 
 // tramos con sonido por encima de `U`, a partir de los silencios que reporta ffmpeg
 function tramos(f, U, d, TOPE) {
@@ -74,7 +96,8 @@ for (let i = 1; i <= N; i++) {
   const ULO = Math.min(TOPE_U, Math.max(PISO_U, rms - DELTA_LO));
   const UHI = Math.min(-14, Math.max(-34, rms - DELTA_HI));
 
-  const durAud = +spawnSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', f], { encoding: 'utf8' }).stdout.trim();
+  const durAud = duracion(f);
+  const DURVID = durDe(i);
   const TOPE = Math.min(DURVID, durAud);
   durOriginal += DURVID;
 

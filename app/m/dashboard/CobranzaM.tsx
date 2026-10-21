@@ -52,7 +52,8 @@ export function CobranzaM({ filas, tz, error, fichaLead }: {
     return s;
   });
 
-  const deshacer = (f: CobroM) => {
+  // Sólo la fila de una CUOTA se marca; la de una suscripción (sin `pagoId`) se toca y abre su ficha (20/10/2026).
+  const deshacer = (f: CobroM & { pagoId: number }) => {
     ocultar(f.pagoId, false);
     empezar(async () => {
       try {
@@ -66,16 +67,18 @@ export function CobranzaM({ filas, tz, error, fichaLead }: {
     });
   };
 
-  const marcar = async (f: CobroM) => {
+  const marcar = async (f: CobroM & { pagoId: number }) => {
     if (enCurso.current || !enLinea) return;
     enCurso.current = true;
     setMarcando(f.pagoId);
     haptico('light');
     try {
-      await marcarPagoAction(f.pagoId, f.leadId, true, hoyEnTz(tz));
+      const r = await marcarPagoAction(f.pagoId, f.leadId, true, hoyEnTz(tz));
       ocultar(f.pagoId, true);
       haptico('success');
-      toast('Cuota cobrada', { deshacer: () => deshacer(f) });
+      // Ya estaba cobrada (la lista era vieja): sin Deshacer, que desmarcaría el cobro de otro.
+      if (r.yaEstaba) toast('Ya estaba cobrada');
+      else toast('Cuota cobrada', { deshacer: () => deshacer(f) });
     } catch (e) {
       console.error('[m/dashboard] marcar cobro:', e instanceof Error ? e.message : String(e));
       haptico('error');
@@ -86,7 +89,7 @@ export function CobranzaM({ filas, tz, error, fichaLead }: {
     }
   };
 
-  const vivas = filas.filter((f) => !ocultas.has(f.pagoId));
+  const vivas = filas.filter((f) => f.pagoId == null || !ocultas.has(f.pagoId));
   const vistas = todas ? vivas : vivas.slice(0, VISIBLES);
   const accion = vivas.length > VISIBLES ? (
     <button type="button" className="m-lnk" aria-expanded={todas} onClick={() => setTodas((t) => !t)}>
@@ -104,7 +107,7 @@ export function CobranzaM({ filas, tz, error, fichaLead }: {
         <ListaM>
           {vistas.map((f) => (
             <FilaM
-              key={f.pagoId}
+              key={`${f.leadId}:${f.pagoId ?? 'mensual'}`}
               avatar={f.nombre}
               titulo={f.nombre}
               segunda={(
@@ -114,19 +117,19 @@ export function CobranzaM({ filas, tz, error, fichaLead }: {
                 </>
               )}
               href={fichaLead ? `/m/crm/${f.leadId}` : undefined}
-              control={(
+              control={f.pagoId != null ? (
                 <Button
                   className="m-dash-cobrar"
                   variant="secondary"
                   size="md"
                   loading={marcando === f.pagoId}
                   disabled={!enLinea || (marcando != null && marcando !== f.pagoId)}
-                  onClick={() => { void marcar(f); }}
+                  onClick={() => { void marcar({ ...f, pagoId: f.pagoId as number }); }}
                   aria-label={`Marcar cobrada la cuota de ${f.nombre}`}
                 >
                   Marcar cobrado
                 </Button>
-              )}
+              ) : undefined}
             />
           ))}
         </ListaM>

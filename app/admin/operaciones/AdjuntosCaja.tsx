@@ -19,6 +19,7 @@ import { IconoChat } from '@/app/m/mako/iconos';
 import { ACCEPT_ADJUNTOS_CENTRO } from '@/lib/operaciones-reglas';
 import type { AdjuntoCaja } from './useCentro';
 import { Visor } from './Visor';
+import { imagenesDelPortapapeles } from './pegar';
 
 /** Lo que la caja necesita para adjuntar. `puede` = false: el Runner todavía no baja adjuntos (no se ofrece). */
 export type AdjuntosDeCaja = {
@@ -28,12 +29,23 @@ export type AdjuntosDeCaja = {
   onQuitar: (id: string) => void;
   /** Se pegó una imagen y este chat todavía no recibe adjuntos (su Runner es viejo): decirlo, no tragársela callado. */
   onNoPuede?: () => void;
+  /** «Pegar» del «+» sin una imagen copiada, o un navegador que no deja leer el portapapeles (20/10/2026). */
+  onSinImagen?: (puedeLeer: boolean) => void;
+  /** Lo que ofrece «Documento» (20/10/2026, la caja única): sin esto, lo del Ops Center (fotos, PDF, Office y texto). */
+  accept?: string;
 };
 
 // Pegar una imagen: pegar.ts (sin CSS, para que su test lo importe).
 export { alPegar, alSoltar, traeArchivos } from './pegar';
 
-/** Lo adjuntado, arriba del texto: sólo la miniatura (sin el nombre, como Claude). Tocarla la amplía. */
+/** Lo que dice la miniatura de un documento: su extensión («PDF», «DOCX», «XLSX»). Decía «PDF» para todos desde que la
+ *  caja toma Word, Excel y texto (18/10/2026). */
+export const etiquetaDoc = (nombre: string): string => /\.([a-z0-9]{1,5})$/i.exec(nombre)?.[1]?.toUpperCase() ?? 'DOC';
+
+/**
+ * Lo adjuntado, arriba del texto: sólo la miniatura (sin el nombre, como Claude). Tocarla la amplía. `data-estado`: la que
+ * todavía no está lista (la caja del Web Generator la lee antes de mandar; su hoja la dibuja leyéndose o en rojo).
+ */
 export function ListaAdjuntos({ a }: { a: AdjuntosDeCaja | undefined }) {
   const [viendo, setViendo] = useState<AdjuntoCaja | null>(null);
   if (!a?.items.length) return null;
@@ -41,10 +53,10 @@ export function ListaAdjuntos({ a }: { a: AdjuntosDeCaja | undefined }) {
     <>
       <ul className="co-miniaturas" aria-label="Archivos para mandar">
         {a.items.map((x) => (
-          <li key={x.id} className="co-miniatura">
+          <li key={x.id} className="co-miniatura" data-estado={x.estado}>
             <button type="button" className="co-miniatura__ver" onClick={() => setViendo(x)} aria-label={`Ver ${x.file.name}`} title={x.file.name}>
               {/* eslint-disable-next-line @next/next/no-img-element -- la vista previa local (blob:) */}
-              {x.tipo === 'image' ? <img src={x.url} alt="" /> : <span className="co-miniatura__doc"><IconoChat nombre="archivo" size={18} /><span>PDF</span></span>}
+              {x.tipo === 'image' ? <img src={x.url} alt="" /> : <span className="co-miniatura__doc"><IconoChat nombre="archivo" size={18} /><span>{etiquetaDoc(x.file.name)}</span></span>}
             </button>
             <button type="button" className="co-miniatura__quitar" onClick={() => a.onQuitar(x.id)} aria-label={`Quitar ${x.file.name}`}>
               <Icon name="x" size={12} />
@@ -91,11 +103,16 @@ export function MasCaja({ a, apagado, resumen, children }: {
     setAbierto(false);
     if (lista.length) a?.onSumar(lista);
   };
+  const pegarImagen = async () => {
+    setAbierto(false);
+    const fs = await imagenesDelPortapapeles().catch(() => null);
+    if (fs?.length) a?.onSumar(fs); else a?.onSinImagen?.(fs != null);
+  };
   const adjunta = !!a?.puede;
   return (
     <div className="co-mas-caja" ref={caja}>
       <button type="button" className="ch-adjuntar" aria-haspopup="menu" aria-expanded={abierto} disabled={apagado}
-        onClick={() => setAbierto((v) => !v)} aria-label="Más opciones" title="Adjuntar y elegir con qué corre">
+        onClick={() => setAbierto((v) => !v)} aria-label="Más opciones" title={children ? 'Adjuntar y elegir con qué corre' : 'Adjuntar'}>
         <Icon name="plus" size={18} />
       </button>
       {resumen && !abierto && <span className="co-mas-caja__resumen">{resumen}</span>}
@@ -115,6 +132,10 @@ export function MasCaja({ a, apagado, resumen, children }: {
               <button type="button" role="menuitem" className="co-mas-caja__tile co-mas-caja__tile--camara" onClick={() => camara.current?.click()}>
                 <span className="co-mas-caja__circulo co-mas-caja__circulo--camara"><Camara /></span><span>Cámara</span>
               </button>
+              {/* La captura que se copió (20/10/2026): el teclado del teléfono no la ofrece en la caja (pegar.ts). */}
+              <button type="button" role="menuitem" className="co-mas-caja__tile" onClick={pegarImagen}>
+                <span className="co-mas-caja__circulo co-mas-caja__circulo--pegar"><Icon name="copy" size={22} /></span><span>Pegar</span>
+              </button>
             </div>
           )}
           {children && (
@@ -125,7 +146,7 @@ export function MasCaja({ a, apagado, resumen, children }: {
           )}
         </div>
       )}
-      <input ref={archivo} type="file" accept={ACCEPT_ADJUNTOS_CENTRO} multiple hidden onChange={(e) => elegir(e.target.files, e.target)} />
+      <input ref={archivo} type="file" accept={a?.accept ?? ACCEPT_ADJUNTOS_CENTRO} multiple hidden onChange={(e) => elegir(e.target.files, e.target)} />
       <input ref={imagen} type="file" accept="image/*" multiple hidden onChange={(e) => elegir(e.target.files, e.target)} />
       <input ref={camara} type="file" accept="image/*" capture="environment" hidden onChange={(e) => elegir(e.target.files, e.target)} />
     </div>

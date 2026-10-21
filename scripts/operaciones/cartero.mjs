@@ -84,7 +84,13 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 
-export const VERSION = '1.16.0';
+// 1.17.1 = la 1.17.0 (lo adjuntado en la app) + la 1.16.1 (la huella de la semana en `medir`), juntas (20/10/2026).
+// 1.17.2: el cierre con `wrap_up` sube su resumen como turno y su pregunta como formulario (cierreWrapUp, 20/10/2026).
+// 1.17.3: lo que encontró la revisión de caja-voz (20/10/2026): la pregunta de un wrap_up va con `origen: 'wrap_up'` (MaKo la
+//         da por superada si Martín contesta por otro lado), sólo la ÚLTIMA de cada chat y con tope antes de mandar
+//         (`preguntasParaSubir`), la marca no avanza si no entró (`marcasQueAvanzan`), `armarPregunta` limpia como el
+//         servidor, y un archivo de pregunta malformado no tumba la vuelta.
+export const VERSION = '1.17.4';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -621,6 +627,8 @@ function textoDe(content) {
  */
 export function turnosDeLineas(lineas, pendiente = null) {
   const turnos = [];
+  /** Las preguntas de los cierres con `wrap_up` (1.17.2): van con la vuelta, como las de `preguntar`. */
+  const preguntas = [];
   let p = pendiente;
   const cerrar = () => { const t = cierreDe(p); if (t) turnos.push(t); p = null; };
   for (const l of lineas) {
@@ -630,7 +638,12 @@ export function turnosDeLineas(lineas, pendiente = null) {
     if (o.type === 'assistant') {
       // Lo que escribe la app en nombre del modelo («You've hit your session limit…») no es una respuesta del chat.
       if (o.isApiErrorMessage || o.message?.model === '<synthetic>') continue;
-      const t = textoDe(o.message?.content).trim();
+      // 1.17.2: un turno que cierra SÓLO con `wrap_up` (sin texto) igual dice algo: su resumen, y su pregunta como formulario.
+      const w = cierreWrapUp(o.message?.content);
+      const q = w ? preguntaDeWrapUp(w, o.timestamp) : null;
+      if (q) preguntas.push(q);
+      const delCierre = w ? [w.recap, q ? '' : w.ask].filter(Boolean).join('\n\n') : '';
+      const t = [textoDe(o.message?.content).trim(), delCierre].filter(Boolean).join('\n\n');
       if (!t || typeof o.uuid !== 'string') continue;
       const ultimo = { uuid: o.uuid, texto: t.slice(0, TOPE_TURNO), at: o.timestamp };
       // El primer texto del turno sale ya: «Voy a trabajar en…».
@@ -643,7 +656,9 @@ export function turnosDeLineas(lineas, pendiente = null) {
     const c = o.message?.content;
     if (Array.isArray(c) && c.some((b) => b && b.type === 'tool_result')) continue;
     const t = textoDe(c).replace(RECORDATORIO_RE, '').trim();
-    if (!t || AUTOMATICO_RE.test(t)) continue;
+    // 1.17.0 (20/10/2026): lo que Martín pegó o adjuntó en la app (una captura, un PDF), aunque no haya escrito nada.
+    const crudos = crudosDe(c);
+    if ((!t && !crudos.length) || (t && AUTOMATICO_RE.test(t))) continue;
     cerrar();
     const m = CRUZADO_RE.exec(t);
     if (m) {
@@ -657,9 +672,181 @@ export function turnosDeLineas(lineas, pendiente = null) {
         : { uuid: o.uuid, rol: 'otro', de, texto: cuerpo.slice(0, TOPE_TURNO), at: o.timestamp, trabajo: null });
       continue;
     }
-    turnos.push({ uuid: o.uuid, rol: 'yo', de: null, texto: t.slice(0, TOPE_TURNO_YO), at: o.timestamp, trabajo: null });
+    turnos.push({ uuid: o.uuid, rol: 'yo', de: null, texto: t.slice(0, TOPE_TURNO_YO), at: o.timestamp, trabajo: null, ...(crudos.length ? { crudos } : {}) });
   }
-  return { turnos, pendiente: p };
+  return { turnos, pendiente: p, preguntas };
+}
+
+// ── El cierre con `wrap_up` (1.17.2, 20/10/2026) ───────────────────────────────────────────────────────────────────
+// Martín: «Debate me dice que espera mi respuesta, pero ya respondí... Y no veo que se esté utilizando la funcionalidad que
+// creamos de respuestas múltiples en Ops Center». Medido: Debate terminó sus turnos SÓLO con herramientas (SendMessage y
+// `mcp__ccd_turn__wrap_up` con `recap`, `ask` y `actions`), sin una línea de texto, y el cartero subía sólo los bloques de
+// texto: en el Ops Center su último turno era de 12 minutos antes, sin pregunta. NO era que «no recibió la respuesta». Le
+// pasa a cualquier chat que cierra con wrap_up, que es lo que la app le pide a cada chat.
+const WRAP_UP = 'mcp__ccd_turn__wrap_up';
+
+/** El `wrap_up` de un mensaje del chat: su resumen, su pregunta y sus botones. null = el mensaje no cierra con wrap_up. */
+export function cierreWrapUp(content) {
+  if (!Array.isArray(content)) return null;
+  const b = content.find((x) => x && x.type === 'tool_use' && x.name === WRAP_UP && x.input && typeof x.input === 'object');
+  if (!b) return null;
+  const i = b.input;
+  const texto = (v) => (typeof v === 'string' ? v.trim() : '');
+  const actions = (Array.isArray(i.actions) ? i.actions : []).filter((a) => a && texto(a.label));
+  return { id: typeof b.id === 'string' ? b.id : null, recap: texto(i.recap), ask: texto(i.ask), actions };
+}
+
+/** Un uuid FIJO para un texto (el id del `tool_use`): releer el transcript sube la MISMA pregunta, y MaKo no la repite
+ *  (lib/centro-preguntas-chat.ts → unirPreguntas se queda con la que ya tiene, con su respuesta). */
+export function uuidDeTexto(s) {
+  const h = crypto.createHash('sha256').update(String(s)).digest('hex');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+
+/**
+ * La pregunta de un `wrap_up` con `ask` y DOS o más botones (`actions`): pregunta = ask, opciones = los botones (título =
+ * label, detalle = message), la primera recomendada, y las MISMAS reglas y topes que `preguntar` (armarPregunta). null = no
+ * se arma (sin ask, con un solo botón, o algo que no pasa las reglas): entonces el ask va como texto en el turno.
+ */
+export function preguntaDeWrapUp(w, at) {
+  if (!w?.ask || w.actions.length < TOPES_PREGUNTA.min) return null;
+  try {
+    const q = armarPregunta({
+      pregunta: w.ask.slice(0, TOPES_PREGUNTA.pregunta),
+      opciones: w.actions.slice(0, TOPES_PREGUNTA.max).map((a) => ({
+        titulo: a.label.trim().slice(0, TOPES_PREGUNTA.titulo),
+        detalle: typeof a.message === 'string' && a.message.trim() ? a.message.trim().replace(/\s+/g, ' ').slice(0, TOPES_PREGUNTA.detalle) : null,
+      })),
+      recomendada: 0,
+    }, '', Number.isFinite(Date.parse(at)) ? new Date(at) : new Date());
+    // `origen`: MaKo la da por superada cuando el chat sigue sin el formulario (lib/centro-preguntas-chat.ts).
+    return { ...q, id: uuidDeTexto(`wrap_up:${w.id ?? w.ask}`), origen: 'wrap_up' };
+  } catch {
+    return null;
+  }
+}
+
+/** Una pregunta con su chat y su texto como strings: lo demás (un archivo escrito a mano) no se mira acá. */
+const preguntaLegible = (q) => !!q && typeof q === 'object' && typeof q.local === 'string' && typeof q.pregunta === 'string';
+
+/**
+ * Las preguntas que suben juntas, sin repetir: la de un `wrap_up` no va si el mismo chat ya hizo esa pregunta con
+ * `preguntar`. ⚠️ NUNCA TIRA (1.17.3): corre antes del POST, y un `preguntas/<uuid>.json` malformado (`{"local":{…}}`)
+ * trababa TODAS las vueltas de la cuenta. Lo que no se puede leer viaja igual y el servidor lo descarta, como antes.
+ */
+export function preguntasSinRepetir(deArchivos, deCierres) {
+  const archivos = Array.isArray(deArchivos) ? deArchivos : [];
+  const cierres = (Array.isArray(deCierres) ? deCierres : []).filter(preguntaLegible);
+  const clave = (q) => `${q.local}\n${q.pregunta.replace(/\s+/g, ' ').trim().toLowerCase()}`;
+  const ya = new Set(archivos.filter(preguntaLegible).map(clave));
+  return [...archivos, ...cierres.filter((q) => !ya.has(clave(q)) && (ya.add(clave(q)), true))];
+}
+
+/** Copia de lib/centro-preguntas-chat.ts → MAX_PREGUNTAS_VUELTA: más, el servidor las corta (y se quedaba con las viejas). */
+export const MAX_PREGUNTAS_VUELTA = 20;
+
+/**
+ * Lo que sube la vuelta (1.17.3): de los cierres, sólo la ÚLTIMA pregunta de wrap_up de cada chat (las anteriores ya
+ * quedaron atrás: MaKo las daría por superadas igual), sin repetir las de `preguntar`, y el tope ANTES de mandar, con las
+ * más nuevas. `sinLugar`: los chats cuya pregunta no entró en el tope: su marca no avanza, y sale en la vuelta siguiente.
+ */
+export function preguntasParaSubir(deArchivos, deCierres, tope = MAX_PREGUNTAS_VUELTA) {
+  const ultima = new Map();
+  for (const q of (Array.isArray(deCierres) ? deCierres : []).filter(preguntaLegible)) {
+    const antes = ultima.get(q.local);
+    if (!antes || Date.parse(q.at) >= Date.parse(antes.at)) ultima.set(q.local, q);
+  }
+  const todas = preguntasSinRepetir(deArchivos, [...ultima.values()]);
+  if (todas.length <= tope) return { preguntas: todas, sinLugar: new Set() };
+  const t = (q) => { const n = Date.parse(q?.at); return Number.isFinite(n) ? n : 0; };
+  const quedan = [...todas].sort((a, b) => t(b) - t(a)).slice(0, tope);
+  const dentro = new Set(quedan);
+  return { preguntas: quedan, sinLugar: new Set(todas.filter((q) => !dentro.has(q) && q?.origen === 'wrap_up').map((q) => q.local)) };
+}
+
+/** Cuántas vueltas se retiene la marca de un chat por una pregunta que no entra: después sigue, con aviso (un chat MUDO
+ *  para siempre es peor que una pregunta perdida). Unos 5 minutos. */
+export const MAX_VUELTAS_RETENIDA = 30;
+
+/**
+ * Las marcas que se escriben después del POST (1.17.3). Un chat cuya pregunta de wrap_up no volvió en `preguntasIds` (o no
+ * entró en el tope) NO avanza: su pregunta sale de una línea del transcript, y con la marca adelante nadie la volvía a
+ * leer. La marca vieja queda con `retenida` (cuántas vueltas); a las `MAX_VUELTAS_RETENIDA`, avanza igual.
+ * `previaDe(archivo)`: lo que la marca tenía (para contar). Un servidor sin `preguntasIds` no retiene nada.
+ */
+/** @param {(m: string) => void} [avisar] */
+export function marcasQueAvanzan(marcas, subidas, sinLugar, preguntasIds, previaDe, avisar = (_m) => {}) {
+  const entraron = Array.isArray(preguntasIds) ? new Set(preguntasIds) : null;
+  const retener = new Set(sinLugar ?? []);
+  if (entraron) for (const q of subidas ?? []) if (q?.origen === 'wrap_up' && !entraron.has(q.id)) retener.add(q.local);
+  const out = [];
+  for (const m of marcas) {
+    const local = path.basename(m.archivo, '.json');
+    if (!retener.has(local)) { out.push(m); continue; }
+    const previa = previaDe(m.archivo);
+    // Sin una marca previa del MISMO transcript (un chat nuevo), no hay a qué volver: releerlo desde el principio sería peor.
+    if (!previa || previa.transcript !== m.transcript) { avisar(`PREGUNTA de ${local} no entró y el chat es nuevo: sigue sin ella`); out.push(m); continue; }
+    const veces = (Number.isInteger(previa.retenida) ? previa.retenida : 0) + 1;
+    if (veces >= MAX_VUELTAS_RETENIDA) { avisar(`PREGUNTA de ${local} no entró en ${veces} vueltas: el chat sigue sin ella`); out.push(m); continue; }
+    out.push({ ...previa, archivo: m.archivo, retenida: veces });
+  }
+  return out;
+}
+
+// ── Lo que Martín adjunta en la app de Claude (1.17.0, 20/10/2026) ───────────────────────────────────────────────────
+// Copia de lib/operaciones-reglas.ts → MIMES_ADJUNTO_TURNO, MAX_ADJUNTOS_TURNO y MAX_BYTES_ADJUNTO_TURNO.
+export const MIMES_ADJUNTO_TURNO = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+export const MAX_ADJUNTOS_TURNO = 8;
+export const MAX_BYTES_ADJUNTO_TURNO = 30 * 1024 * 1024;
+
+/** Las imágenes y los PDF de un mensaje de Martín, en base64, tal cual vienen (los mira `subirAdjuntosDeTurnos`). */
+function crudosDe(content) {
+  if (!Array.isArray(content)) return [];
+  return content.filter((b) => b && (b.type === 'image' || b.type === 'document') && b.source?.type === 'base64' && typeof b.source.data === 'string')
+    .slice(0, MAX_ADJUNTOS_TURNO).map((b) => b.source.data);
+}
+
+/**
+ * Sube DIRECTO al storage lo que Martín adjuntó (los `crudos` de cada turno) y deja en el turno sólo su `ref`. Cada uno se
+ * mira por sus BYTES (`mimePorFirma`: foto o PDF) y su tamaño; lo que no vale se deja afuera. Si la subida de un chat
+ * falla, sus turnos NO salen en esta vuelta (`fallidos`: su marca no avanza y vuelven en la siguiente). Nunca sale un
+ * `crudo` en el cuerpo de la vuelta: pesaría más de lo que deja pasar Vercel.
+ */
+export async function subirAdjuntosDeTurnos(url, token, turnos) {
+  const fallidos = new Set();
+  const listos = [];
+  for (const { crudos, ...t } of turnos) {
+    if (!crudos?.length) { listos.push(t); continue; }
+    if (fallidos.has(t.local)) continue;
+    const adjuntos = [];
+    try {
+      for (const [n, data] of crudos.entries()) {
+        const b = Buffer.from(data, 'base64');
+        const mime = mimePorFirma(b);
+        if (!mime || !MIMES_ADJUNTO_TURNO.includes(mime) || !b.length || b.length > MAX_BYTES_ADJUNTO_TURNO) continue;
+        const q = await fetch(`${url}/api/operaciones/cartero?adjunto-turno=1`, {
+          method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+          body: JSON.stringify({ local: t.local, uuid: t.uuid, n, mime, bytes: b.length }), signal: AbortSignal.timeout(30_000),
+        });
+        const firmada = (await q.json().catch(() => null))?.url;
+        if (!q.ok || typeof firmada !== 'string' || !/^https?:\/\//.test(firmada)) throw new Error(`MaKo no dio dónde subirlo (${q.status})`);
+        // Al storage, SIN el token del cartero (la URL firmada es la llave).
+        const s = await fetch(firmada, {
+          method: 'PUT', body: b, headers: { 'content-type': mime, 'x-upsert': 'true' },
+          signal: AbortSignal.timeout(60_000 + Math.ceil(b.length / 100_000) * 1000),
+        });
+        if (!s.ok) throw new Error(`el storage no lo tomó (${s.status})`);
+        adjuntos.push({ ref: `${t.local}/${t.uuid}/${n}`, mime, bytes: b.length });
+      }
+    } catch (e) {
+      fallidos.add(t.local);
+      log(`no pude subir lo que Martín adjuntó en ${t.local}: ${e instanceof Error ? e.message : e}`);
+      continue;
+    }
+    if (!adjuntos.length && !t.texto) continue;
+    listos.push(adjuntos.length ? { ...t, adjuntos } : t);
+  }
+  return { turnos: listos.filter((t) => !fallidos.has(t.local)), fallidos };
 }
 
 /** El cierre de un turno: su último texto, si no es el mismo que ya salió como el primero. null = nada que sumar. */
@@ -704,13 +891,17 @@ function turnosNuevos(c) {
   const r = turnosDeLineas(completo.toString('utf8').split('\n').filter(Boolean), pendiente);
   // Un chat que no está trabajando ya terminó su turno: su última respuesta es la que vale.
   if (r.pendiente && !ocupado) { const t = cierreDe(r.pendiente); if (t) r.turnos.push(t); r.pendiente = null; }
-  return { turnos: r.turnos.map((t) => ({ local: c.local, ...t })), marca: { archivo, transcript: c.transcript, offset, pendiente: r.pendiente } };
+  return {
+    turnos: r.turnos.map((t) => ({ local: c.local, ...t })), marca: { archivo, transcript: c.transcript, offset, pendiente: r.pendiente },
+    preguntas: (r.preguntas ?? []).map((q) => ({ ...q, local: c.local })),
+  };
 }
 
 /** Lo nuevo de todos los chats de la vuelta, con un tope (lo que no entra sale en la siguiente: su marca no avanza). */
 export function turnosDeLaVuelta(chats) {
   const turnos = [];
   const marcas = [];
+  const preguntas = [];
   for (const c of chats) {
     // Los chats cerrados hace días no cambian: no se leen (la app guarda cientos).
     const t = c.actividad ? Date.parse(c.actividad) : NaN;
@@ -721,8 +912,9 @@ export function turnosDeLaVuelta(chats) {
     if (turnos.length + n.turnos.length > MAX_TURNOS_VUELTA && turnos.length) break;
     turnos.push(...n.turnos.slice(-MAX_TURNOS_VUELTA));
     marcas.push(n.marca);
+    preguntas.push(...(n.preguntas ?? []));
   }
-  return { turnos, marcas };
+  return { turnos, marcas, preguntas };
 }
 
 function guardarMarcas(marcas) {
@@ -1103,12 +1295,20 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
   const cierres = archivosCierre.map((f) => leerJson(f, null)).filter(Boolean);
   // Las preguntas de los chats (1.14.0): son de la PC, como los cierres; las sube la vuelta que pase primero.
   const archivosPregunta = listar(PREGUNTAS);
-  const preguntas = archivosPregunta.map((f) => leerJson(f, null)).filter(Boolean);
+  const deArchivos = archivosPregunta.map((f) => leerJson(f, null)).filter(Boolean);
   // Lo que ALGÚN Runner de la PC puede entregar: el chat vivo, con un Runner abierto en su carpeta. MaKo reclama
   // sólo eso; lo demás queda escrito y sale cuando se abra ese Runner (no se vence en el buzón).
   const entregables = [...chats.values()].filter((c) => c.vivo && c.pipe && c.runner && !c.esRunner).map((c) => c.local);
   // Lo que se dijo en cada chat desde la vuelta anterior (sólo lo nuevo). Lo del Runner no: son sus vueltas.
-  const { turnos, marcas } = turnosDeLaVuelta([...chats.values()].filter((c) => !c.esRunner));
+  const delaVuelta = turnosDeLaVuelta([...chats.values()].filter((c) => !c.esRunner));
+  // Más las de los cierres con `wrap_up` (1.17.2): la última de cada chat, sin repetir una que el chat también hizo con
+  // `preguntar`, y con el tope antes de mandar (1.17.3).
+  const { preguntas, sinLugar } = preguntasParaSubir(deArchivos, delaVuelta.preguntas);
+  // Lo que Martín adjuntó en la app (1.17.0) sube ANTES, directo al storage: los turnos llevan sólo su `ref`. El chat cuya
+  // subida falló no sale ahora (ni su marca avanza): vuelve en la vuelta siguiente.
+  const subida = await subirAdjuntosDeTurnos(url, cfg.token, delaVuelta.turnos);
+  const turnos = subida.turnos;
+  const marcas = delaVuelta.marcas.filter((m) => !subida.fallidos.has(path.basename(m.archivo, '.json')));
   // Los chats de la nube que anotó el Runner de la app (no tienen canal ni transcript en esta PC: sólo se ven).
   const enNube = leerNube(cuenta).map((n) => ({ local: n.id, titulo: n.titulo, cuenta, vivo: false, estado: null, actividad: null, nube: true }));
   const r = await fetch(`${url}/api/operaciones/cartero`, {
@@ -1135,7 +1335,10 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
   // Lo que se subió ya está en MaKo: se borra de acá (sólo lo que se listó ANTES de subir).
   for (const f of archivosAcuse) fs.rmSync(f, { force: true });
   // Los turnos: la marca avanza sólo si MaKo los guardó (un servidor de antes no dice nada: los ignora igual).
-  if (salida.turnosOk !== false) guardarMarcas(marcas);
+  // 1.17.3: el chat cuya pregunta de wrap_up no entró no avanza (hasta MAX_VUELTAS_RETENIDA).
+  if (salida.turnosOk !== false) {
+    guardarMarcas(marcasQueAvanzan(marcas, preguntas, sinLugar, salida.preguntasIds, (f) => leerJson(f, null), log));
+  }
   // Un cierre se borra cuando MaKo dice que lo aplicó (`cierresIds`). El que no entró (su acuse todavía no llegó, o
   // un servidor de antes que no dice cuáles) se vuelve a subir en la vuelta siguiente, hasta un día.
   const aplicados = new Set(Array.isArray(salida.cierresIds) ? salida.cierresIds : []);
@@ -1348,7 +1551,35 @@ function cuotaDe(cuenta) {
  * Escribe lo mismo que la barra de estado (USO/<cuenta>.json, que sube `cuotaDe`) y las dos líneas que lee el corte del
  * 97% (~/.claude/guardia/corte-97.mjs): uso-cinco.txt y uso-semanal.txt, con la cuenta como 4º campo.
  */
-export function medir(cuenta, args, ahora = Date.now()) {
+/** Lo que separa dos reinicios semanales que son «el mismo» (la API devuelve el mismo instante con milisegundos distintos). */
+const MISMA_SEMANA_MS = 5 * 60_000;
+
+/**
+ * La HUELLA de la semana (1.16.1, 20/10/2026): cada cuenta reinicia su semana siempre a la misma hora, así que el reinicio
+ * dice de QUÉ cuenta es una medición, aunque el marcador (cuenta-activa.txt) diga otra. Pasó DOS veces: el 17/10 y el 20/10
+ * (un chat puso el marcador en claude1 con la app en la cuenta 4, y `medir` anotó la semana de la 4 a nombre de la 1; el
+ * Uso del Ops Center mostró los números de una cuenta en otra). null = la medición es de esta cuenta; si no, el motivo:
+ *   · A: el reinicio coincide con el de OTRA cuenta que todavía no venció → es de ésa;
+ *   · B: el reinicio de ESTA cuenta todavía no venció y el nuevo es otro → la semana no se mueve antes de vencer: o el
+ *        marcador está mal, o la cuenta se renovó (`renovada`, cuando Martín lo dice).
+ */
+export function problemaDeHuella(cuenta, reinicia, ahora, { renovada = false, dir = USO } = {}) {
+  const t = Date.parse(String(reinicia ?? ''));
+  if (!Number.isFinite(t)) return null;
+  for (const f of listar(dir)) {
+    const otra = path.basename(f, '.json');
+    if (otra === cuenta || !CUENTA_RE.test(otra)) continue;
+    const r = Date.parse(leerJson(f, null)?.semana?.reinicia ?? '');
+    if (Number.isFinite(r) && r > ahora && Math.abs(r - t) <= MISMA_SEMANA_MS) return `no anoté la cuota: es de ${otra}, no de ${cuenta} (el marcador está mal)`;
+  }
+  const propia = Date.parse(leerJson(path.join(dir, `${cuenta}.json`), null)?.semana?.reinicia ?? '');
+  if (!renovada && Number.isFinite(propia) && propia > ahora && Math.abs(propia - t) > MISMA_SEMANA_MS) {
+    return `no anoté la cuota: la semana de ${cuenta} se reinicia ${new Date(propia).toISOString()} y esta medición dice ${new Date(t).toISOString()} (el marcador está mal, o la cuenta se renovó: --renovada)`;
+  }
+  return null;
+}
+
+export function medir(cuenta, args, ahora = Date.now(), { renovada = false } = {}) {
   const [p5, r5, ps, rs] = args;
   const v = (p, r) => {
     const n = Number(p);
@@ -1359,6 +1590,9 @@ export function medir(cuenta, args, ahora = Date.now()) {
   const cinco = v(p5, r5);
   const semana = v(ps, rs);
   if (!cinco && !semana) throw new Error('uso: medir <5h %> <5h resetsAt> <semana %> <semana resetsAt>');
+  // Antes de escribir NADA (ni el JSON ni las dos líneas del corte del 97%): ¿esta semana es de esta cuenta?
+  const huella = problemaDeHuella(cuenta, semana?.reinicia, ahora, { renovada });
+  if (huella) { log(`[${cuenta}] ${huella}`); throw new Error(huella); }
   const medido = new Date(ahora).toISOString();
   escribirJson(path.join(USO, `${cuenta}.json`), { cinco, semana, medido, api: null });
   const linea = (w) => `${w.pct} ${w.reinicia ?? '-'} ${medido} ${cuenta}\n`;
@@ -1483,7 +1717,8 @@ function cierre(id, args) {
 // («Respuesta a tu pregunta «…» [pregunta <id>]: …»). Se valida ACÁ con las mismas reglas que el servidor
 // (lib/centro-preguntas-chat.ts), para que el chat sepa en el acto qué corregir: una pregunta que no vale se rechaza
 // entera, nunca se recorta.
-const TOPES_PREGUNTA = { pregunta: 300, contexto: 600, titulo: 80, detalle: 240, min: 2, max: 6 };
+// Copia de lib/centro-preguntas-chat.ts (MAX_PREGUNTA, MAX_CONTEXTO, MAX_TITULO_OPCION, MAX_DETALLE_OPCION…).
+const TOPES_PREGUNTA = { pregunta: 300, contexto: 600, titulo: 80, detalle: 300, min: 2, max: 6 };
 
 /** La sesión del chat que corre esto: la de la app (`local_…`) o la de la terminal (`cli_…`). null = no se sabe. */
 export function sesionQuePregunta(env = process.env) {
@@ -1499,7 +1734,10 @@ export function armarPregunta(x, local, ahora = new Date()) {
   const t = (v, max, campo, obligatorio, renglones = false) => {
     if (v == null || (typeof v === 'string' && !v.trim())) { if (obligatorio) throw new Error(`falta ${campo}`); return null; }
     if (typeof v !== 'string') throw new Error(`${campo} tiene que ser texto`);
-    const limpio = (renglones ? v.replace(/\r\n?/g, '\n').replace(/[^\S\n]+/g, ' ') : v.replace(/\s+/g, ' ')).trim();
+    // Sin los caracteres de control, como el servidor (1.17.3): un título hecho sólo de control quedaba vacío allá, y la
+    // pregunta se rechazaba después de que la PC la diera por buena.
+    const limpio = (renglones ? v.replace(/\r\n?/g, '\n').replace(/[^\S\n]+/g, ' ') : v.replace(/\s+/g, ' ')).replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').trim();
+    if (!limpio) { if (obligatorio) throw new Error(`falta ${campo}`); return null; }
     if (limpio.length > max) throw new Error(`${campo} se pasa de ${max} caracteres: acórtalo`);
     return limpio;
   };
@@ -1563,6 +1801,43 @@ function preguntar(archivo) {
   escribirJson(path.join(PREGUNTAS, `${q.id}.json`), q);
   log(`PREGUNTA ${q.id} de ${local}`);
   return { ok: true, id: q.id, sesion: local, sigue: 'Termina tu turno: Martín la contesta en tu chat del Ops Center y la respuesta te llega como un mensaje.' };
+}
+
+/**
+ * `retirar <id> [--chat <local_…>]` (1.17.4, 21/10/2026): el chat que hizo una pregunta dice que ya no hace falta (Martín:
+ * «no más preguntas»). La que todavía no subió se borra acá y no sale; la que ya está en el Ops Center queda superada: no
+ * espera y no se contesta. Sólo las del chat que la corre (o las del --chat que se pase). El id, entero o su comienzo.
+ */
+async function retirar(args) {
+  const iC = args.indexOf('--chat');
+  const local = iC >= 0 ? String(args[iC + 1] ?? '') : sesionQuePregunta();
+  if (!local || !DESTINO_RE.test(local)) throw new Error('no sé qué chat es: corre esto desde el chat que preguntó, o pasa --chat <local_…>');
+  const id = String(args.find((a, i) => !a.startsWith('--') && (iC < 0 || i !== iC + 1)) ?? '').trim().toLowerCase();
+  if (!/^[0-9a-f]{8}[0-9a-f-]{0,28}$/.test(id)) throw new Error('uso: retirar <id de la pregunta> [--chat <local_…>]');
+  // La que todavía no subió: se borra acá y no sale nunca.
+  const sinSubir = [];
+  for (const f of listar(PREGUNTAS)) {
+    const q = leerJson(f, null);
+    if (q && typeof q.id === 'string' && q.id.startsWith(id) && q.local === local) { fs.rmSync(f, { force: true }); sinSubir.push(q.id); }
+  }
+  if (sinSubir.length) log(`PREGUNTA ${sinSubir.join(', ')} de ${local} retirada antes de subir`);
+  const cfg = config();
+  if (!cfg.token) throw new Error('falta el token del Runner en esta PC');
+  const url = (cfg.url || 'https://hola-mako.com').replace(/\/$/, '');
+  const r = await fetch(`${url}/api/operaciones/cartero?retirar-pregunta=1`, {
+    method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${cfg.token}` },
+    body: JSON.stringify({ local, id }), signal: AbortSignal.timeout(30_000),
+  });
+  const o = await r.json().catch(() => ({}));
+  if (o?.ok === true) {
+    log(`PREGUNTA ${o.pregunta?.id ?? id} de ${local} retirada`);
+    return { ok: true, id: o.pregunta?.id ?? id, sesion: local, sigue: 'Ya no espera a Martín en el Ops Center.' };
+  }
+  if (sinSubir.length) return { ok: true, id: sinSubir[0], sesion: local, sigue: 'No había subido: no sale.' };
+  // Un servidor de antes de la 1.17.4 toma el pedido por una vuelta y contesta que falta la cuenta.
+  if (/falta la cuenta/.test(String(o?.error ?? ''))) throw new Error('MaKo todavía no sabe retirar preguntas: falta el deploy de la 1.17.4');
+  if (!o?.error) throw new Error(`MaKo contestó ${Number(r.status) || 0}`);
+  return { ok: false, id, sesion: local, error: o.error };
 }
 
 const archivoDeEsteModulo = () => path.resolve(decodeURIComponent(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')));
@@ -1764,6 +2039,7 @@ if (esMain) {
       case 'acuse': acuse(cuentaOpcional(), resto[0], resto[1], resto.slice(2).join(' ')); imprimir({ ok: true }); break;
       case 'cierre': cierre(resto[0], resto.slice(1)); imprimir({ ok: true }); break;
       case 'preguntar': imprimir(preguntar(resto[0])); break;
+      case 'retirar': imprimir(await retirar(resto)); break;
       case 'plan': imprimir(await planDelChat(resto)); break;
       case 'abrir': imprimir(abrir()); break;
       // El permiso local para abrir chats desde MaKo: lo prende Martín, una vez, pidiéndoselo al Runner.
@@ -1788,7 +2064,8 @@ if (esMain) {
         const activa = (() => { try { const c = fs.readFileSync(path.join(path.dirname(USO_APP), 'cuenta-activa.txt'), 'utf8').trim().split(/\s+/)[0]; return CUENTA_RE.test(c) ? c : null; } catch { return null; } })();
         const c = cuentaOpcional() ?? activa ?? cuentaDeLaApp(cfg, dirPropio(cfg));
         if (!c) throw new Error('esta carpeta no tiene la app de ninguna cuenta: medir --cuenta claudeN <5h %> <5h resetsAt> <semana %> <semana resetsAt>');
-        imprimir({ ok: true, cuenta: c, ...medir(c, resto) }); break;
+        // `--renovada` (1.16.1): Martín dijo que esta cuenta se renovó, y su semana cambia antes de vencer (problemaDeHuella, B).
+        imprimir({ ok: true, cuenta: c, ...medir(c, resto.filter((a) => a !== '--renovada'), Date.now(), { renovada: resto.includes('--renovada') }) }); break;
       }
       case 'uso': process.stdout.write(`${await uso()}\n`); break;
       case 'vigilar': { const i = resto.indexOf('--max-seg'); imprimir(await vigilar(cuentaOpcional(), i >= 0 ? Number(resto[i + 1]) : 100)); break; }

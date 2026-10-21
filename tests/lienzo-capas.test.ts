@@ -46,21 +46,16 @@ test('⚠️ el panel apaisado va encima de la esquina de avisos y de «Crear co
   assert.ok(!perfil.includes('{rolAdmin && pasos.length === 0 && ('), 'volvió la caja «Generar con IA» del lienzo vacío');
   // Decimotercera tanda: el chat también con el lienzo vacío (MaKo crea ahí), y mientras MaKo trabaja sube por encima de
   // la capa que tapa el lienzo (que a su vez va encima de «Publicar»). Quieto, su capa de siempre.
-  const ini = perfil.indexOf('{rolAdmin && editandoIA && (');
-  const fin = perfil.indexOf('<FlujoLienzo', ini);
-  assert.ok(ini >= 0 && fin > ini, 'no encontré la caja de «Crear con IA»');
-  const cajas = perfil.slice(ini, fin);
-  assert.ok(cajas.length < 1_200, `el recorte mide ${cajas.length}: está mirando otra cosa`);
-  const zIA = [...cajas.matchAll(/zIndex: chatTrabajando \? Z_CHAT_ENCIMA : (\d+)/g)].map((m) => Number(m[1]));
-  assert.equal(zIA.length, 1, 'la caja de «Crear con IA» (editar) declara su capa');
-  // Trabajando: la capa encima de «Publicar» y el chat encima de la capa, los dos debajo de 60 (AGENTS.md: un flotante
-  // va con z < 60) y de los modales.
+  // 20/10/2026: el chat de MaKo ya no flota sobre el lienzo: es la sidebar (por portal en la ranura de la lista), así que
+  // no tiene capa propia. La capa de MaKo trabajando sigue encima de «Publicar» y debajo de 60 (AGENTS.md: un flotante va
+  // con z < 60) y de los modales; empieza en `insetIzq`, así que el chat queda afuera y se sigue usando.
+  assert.ok(perfil.includes('{rolAdmin && ranuraChat && createPortal('), 'no encontré el chat de MaKo en la sidebar');
+  assert.ok(!perfil.includes('Z_CHAT_ENCIMA'), 'el chat volvió a flotar sobre el lienzo');
   const capa = numero(perfil, /const Z_CAPA_MAKO = (\d+);/, 'el z de la capa de MaKo');
-  const chat = numero(perfil, /const Z_CHAT_ENCIMA = (\d+);/, 'el z del chat encima de la capa');
-  assert.ok(capa > Z_ACCION_LIENZO && chat > capa && chat < 60, `la capa (${capa}) y el chat (${chat}) no quedan entre «Publicar» y 60`);
+  assert.ok(capa > Z_ACCION_LIENZO && capa < 60, `la capa (${capa}) no queda entre «Publicar» y 60`);
   const modales = numero(leer('../app/_components/pila-modales.ts'), /const Z_BASE = (\d+);/, 'la base de la pila de modales');
   assert.ok(Z_EDITOR_APAISADO > esquina, `el panel (${Z_EDITOR_APAISADO}) no le gana a la esquina de avisos (${esquina}): tapa «Revisar antes de enviar»`);
-  for (const z of zIA) assert.ok(Z_EDITOR_APAISADO > z, `el panel (${Z_EDITOR_APAISADO}) no le gana a la caja de «Crear con IA» (${z})`);
+  // (Acá se comparaba con el z del chat de «Crear con IA» flotando: desde el 20/10/2026 el chat es la sidebar, sin z propio.)
   assert.ok(Z_ACCION_LIENZO > Z_EDITOR_APAISADO, 'el error de «Publicar» queda debajo del panel que ese error abre');
   // Debajo de los modales (AGENTS.md: un aviso flotante va con z < 60; la pila arranca en 130).
   assert.ok(Z_ACCION_LIENZO < 60 && Z_ACCION_LIENZO < modales, `«Publicar» (${Z_ACCION_LIENZO}) taparía un modal`);

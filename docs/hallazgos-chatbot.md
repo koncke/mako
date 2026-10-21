@@ -5351,3 +5351,256 @@ en producción, no se hizo.
 - **La regla.** El que perdió se BORRA (lo creó esa misma llamada: sin charla ni historial, y `createLead` no dispara
   nada) y le pasa al que ganó el anuncio y la entrada sólo si no los tiene (`.is(null)`). Nunca se borra el que quedó
   unido. **Vive en:** lib/zernio-entrante.ts (`quitarHuerfano`) · tests/zernio-huerfano.test.ts · *17/10/2026, agente B4.*
+
+---
+
+## «Crear con IA» no podía poner un Recurrente, y el que se pusiera a mano llegaba una sola vez por lead (20/10/2026)
+
+Visto el 20/10/2026 (Leila, ws11, #284; diagnóstico del Cerebro en feedback-20-10). Pidió «cada semana los días martes a
+las 3 de la tarde ... a todos los que tenemos en el funnel principal» y salió «Llega a «1ª sesión sin costo»», sin
+horario, con 6 de 7 tarjetas que nadie pidió, y al editar MaKo contestó «Cambié 2». ⛔ #284 y #282 no se tocaron: lo
+decide Martín.
+
+- **El horario es un dato exacto: lo saca el CÓDIGO.** `opcionesCronIA` deja afuera el Recurrente a propósito y el
+  modelo, sin él, elegía la etapa de nombre más parecido («sesión»), sin avisar que el horario se perdía. Ahora
+  `horarioDelPedido` (lib/flujo-ia-recurrente.ts) lee el horario del pedido y `crearConIA` lo IMPONE; si falta el día o
+  la hora, MaKo pregunta con opciones que dicen el horario entero («Todos los martes a las 15:00»). Se guarda por la
+  puerta de la pantalla (`recurrenteDeValorIA` → `guardarDisparadores`).
+- **⚠️ La hora es la de AL LADO del horario.** El pedido de Leila trae dos: «a las 3 de la tarde» (cuándo sale) y «a las
+  7:30» (la sesión, que es contenido). Vale la más cercana a la frase del horario y sólo a 40 caracteres o menos
+  (`VENTANA_HORA`). Tomar «la primera hora del texto» o «la última» falla con este mismo pedido.
+- **A quién lo dice el pedido, no el modelo.** «Todos los del funnel X» son TODAS sus etapas (las salidas ya no vienen:
+  `productosConEtapas`); sin funnel ni etapa nombrados, se pregunta «¿A quién le llega?» con cuántos hay HOY en cada
+  opción. ⚠️ Ese número es la cohorte del MOTOR (`leadsDeCohorte`, con su ventana de 90 días), no los leads del embudo:
+  contar el embudo daría un número plausible y falso. Sin poder contar, va sin número.
+- **⚠️ Una etiqueta nombrada como TEMA no es a quién.** «La sesión de Lídermente» nombra una etiqueta de ws11; sólo
+  cuenta si el pedido habla de etiquetas.
+- **El diagnóstico obvio era el equivocado: las tarjetas de más NO venían de la plantilla.** `plantillaParaPedido` manda
+  todo «recordatorio» a «Un Lead Agendó Llamada», pero en ws11 no entró al prompt (medido en anthropic_usage: 3664 vs
+  3622 tokens, la diferencia del pedido). Salían del system: la regla 8 pedía flujos «completos» con el aviso al equipo
+  y el único ejemplo traía un `avisar_al_equipo`. Antes de culpar a la plantilla, mirá si entró (los tokens lo dicen).
+  Ahora la regla 8 dice «SÓLO lo que pide el pedido», el ejemplo no trae el aviso, y lo cumple el código: un aviso que el
+  pedido no pide se saca y queda como sugerencia (`pidioAviso`; «avísales» es al lead, no cuenta), y un «Si responde»
+  va sólo si el pedido habla de lo que contesta o un mensaje pregunta algo (`pidioRespuesta`). Un Recurrente o una
+  difusión no llevan plantilla.
+- **Un «Otra cosa» que CONTESTA no entra en un AI Step** (`respuestaAPasoIA`: «Lo demás» sólo avisa), y dejaba el «Si
+  responde» con tres tarjetas de IA. Al crear, pasa a ser un escenario más (`otraCosaComoCaso`): queda UN AI Step.
+- **Un apodo de la guía de voz no va en un mensaje para todos.** La guía de ws11 nombra «hermosa» cuatro veces y la regla
+  7 manda escribir con ella. En un Recurrente se saca donde se le HABLA a alguien (un saludo, una coma, el final) y el
+  primero se vuelve {{nombre}} (`sinApodos`). «Qué linda sesión» no se toca.
+- **Decir qué hizo.** «Creé «X»: sale todos los martes a las 15:00 a todos los de «Funnel principal» (37 hoy). Manda
+  «…». Quedó pausada.» (`detalleDeCreada`, con lo GUARDADO). Editar dice tarjeta por tarjeta «Cambié «…»: ahora «…»» y
+  «Está en el borrador: toca Publicar.» (`resumenEdicionDetalle`). «corté la flecha» era una reparación interna que le
+  llegaba a la clienta en jerga: ahora va al log.
+- **Trampa del motor: un Recurrente le llegaba UNA vez a cada lead.** Cada ocurrencia inscribe por el BARRIDO
+  (`aInscribir`, porEvento=false) y, con el unique (lead, secuencia), ni «Una sola vez» ni «Cada vez que vuelve a
+  entrar» reinscribían a quien ya lo recibió: un «todos los martes a todos» llegaba una vez y después sólo a los nuevos,
+  sin error. Ahora el barrido de un CRON CON horario cuenta como evento (`barridoEsEvento`, lib/reentrada.ts): corre una
+  vez por ocurrencia (la reclama el compare-and-set de `cron_proxima_at`), así que no repite en cada tick. Un barrido
+  sin horario sigue sin serlo. El Recurrente que crea la IA nace con «Cada vez que vuelve a entrar».
+
+**Regla:** un horario que dice el pedido lo extrae el código y se impone; si no se puede expresar, se pregunta, nunca se
+cambia por otro CRON. Un flujo creado con IA lleva sólo lo que el pedido pide.
+
+**Lo que quedó SIN hacer:** la sugerencia del aviso va como texto («pídemelo»), sin botones · «cada año» y «el primer
+lunes de cada mes» no se leen (el pedido sigue al modelo, como antes) · un Recurrente hecho A MANO en el editor no nace
+con «Cada vez que vuelve a entrar» (la reentrada se elige en el CRON) · #284 tiene un Recurrente puesto a mano los
+martes 16:15 con la reentrada de antes: le llega una vez por lead hasta que alguien elija «Cada vez» (lo decide Martín).
+
+**Vive en:** lib/flujo-ia-recurrente.ts · lib/flujo-ia-crear-core.ts (`crearConIA`, `detalleDeCreada`, `conConteos`) ·
+lib/flujo-ia-preguntas.ts (`preguntaAntes`) · lib/flujo-ia.ts (regla 8, `pidioAviso`, `pidioRespuesta`,
+`otraCosaComoCaso`, `resumenEdicionDetalle`) · lib/disparadores.ts (`recurrenteDeValorIA`) · lib/flujo-ia-crear.ts
+(`contarCohorte`) · lib/reentrada.ts (`barridoEsEvento`) · lib/nutricion.ts (`aInscribir`) · test:
+tests/crear-ia-recurrente.test.ts · *20/10/2026, claude4.*
+
+**«Configuré una recurrente y no salió» (Leila, ws11, 20/10, medido a las 21:31 UTC):** el diagnóstico obvio («el Recurrente no anda») era a medias. Pasaron tres cosas:
+- **Lo que no salió no era el Recurrente.** Era #282 «Recordatorio clase reactivación», disparada por la etapa: la corrida de las 21:00Z inscribió a los 31 leads de Reactivación, y los **31 mensajes quedaron como BORRADORES pendientes** (`wa_borradores`, origen nutricion). Por WhatsApp no oficial, a un lead sin `fecha_primer_pago` nunca se le manda directo: se deposita un borrador que alguien manda con un clic (la regla dura del PDF, `esLeadCliente` en lib/evolution-envio.ts). La pantalla de Automations no lo dice: la clienta cree que la automatización no anda.
+- **Un Recurrente sale a la hora en punto siguiente, no a su minuto.** El tick de cada minuto (app/api/cron/nutricion-tick) no inscribe por cohorte: eso lo hace sólo la corrida de cada hora (`comprometerInscripciones`, app/api/cron/nutricion, minuto 0). El de los martes 16:15 (21:15Z) seguía con `cron_proxima_at` 21:15Z a las 21:31Z: toca a las 22:00Z.
+- **Dos automatizaciones al mismo grupo con el mismo recordatorio.** #282 (por etapa) y el d2 de #284 (Recurrente) van a Reactivación del funnel 4 con casi el mismo texto. El motor no apila (espera a que se mande el borrador pendiente: `tieneBorradorNutriPendiente`), así que si se aprueban las dos, el lead recibe el recordatorio DOS veces. Nada avisa que hay otra automatización con la misma cohorte.
+
+**Regla:** antes de decir «no salió», mirar `wa_borradores` pendientes del ws y `cron_proxima_at` de cada disparador. Una automatización que deja borradores tiene que decirlo en su pantalla, con cuántos y dónde se aprueban.
+
+**Hecho el 20/10/2026 a la noche (`claude4`; #282, #284 y sus borradores sin tocar), y lo que no se ve en el código:**
+- **⚠️ #282 NO es un Recurrente, y el que sí es vive en el JSON.** Leído en la base: #282 es «Está en la etapa» sin
+  `cron`; el Recurrente es el d2 de #284, un CRON EXTRA (`disparadores[1]`, mig 0241). Mirar sólo la columna
+  `nutricion_secuencias.cron_proxima_at` no lo encuentra nunca (medido: 20 activas en todos los negocios, NINGUNA con
+  `cron` en las columnas). El tick lee las activas enteras y pregunta con `disparadoresDe`, la lista del motor
+  (`negociosConRecurrenteVencido`, lib/motor-tick.ts). Costo medido antes de decidir: 0,1 ms en la base.
+- **El tick reclama con el MISMO compare-and-set** (`comprometerInscripciones({ soloRecurrentes })`, que salta lo que no
+  tiene horario): una ocurrencia la gana una sola corrida, el tick o la de la hora. Inscribe ANTES de `procesarEnvios`:
+  el primer envío nace «ahora», cae en la ventana fresca y sale ese mismo minuto. Sólo lo fresco (10 min): una
+  ocurrencia vieja que nadie reclama (un CRON que el barrido no inscribe) correría ese negocio cada minuto. Si la
+  lectura falla, el tick sigue (las esperas no dependen de esto) y el Recurrente sale a la hora en punto, como antes.
+- **La pantalla lo dice.** Al lado de «Activar»: «31 mensajes esperando que los apruebes →» con «WhatsApp no oficial a
+  leads sin pago»; el link abre Chats en Borradores (`/chats?vista=borradores`, nuevo). El conteo es del server
+  (`por_aprobar`, sólo los del motor: `origen: 'nutricion'`); `null` = no se pudo leer y la pantalla calla. Al
+  activarla, el chat dice «Por WhatsApp no oficial, los mensajes a leads que no pagaron quedan para que los apruebes»
+  sólo si algún WhatsApp de la salida no sale solo, con `saleSolo` del motor y no una copia (`dejaBorradores`).
+- **El aviso de duplicada pregunta, no frena.** Al Activar, y al Publicar una ACTIVA (pausada, publicar no manda nada):
+  «Ojo: «X» ya le escribe algo parecido a la misma gente», con «Activar igual». Misma cohorte = un CRON de cada una con
+  la misma etapa del mismo funnel (sin funnel = todos), la misma entrega o la misma etiqueta; por evento no se compara.
+  Parecido = Dice de las palabras de 4 letras o más ≥ 0,5 (#282 contra #284: 0,61); con menos de 3, sólo si es el
+  MISMO texto. Compara lo de AHORA de ésta (lienzo y CRON) con lo PUBLICADO de las otras, que es lo que manda el motor.
+- **⚠️ Una defensa que no cubre TODOS los caminos que prenden algo no defiende** (revisión del Cerebro, 20/10 noche). La
+  primera versión preguntaba sólo en el interruptor del lienzo: el «⋯» de la lista (el camino más común para activar)
+  y un CRON agregado a una que YA está activa (se guarda en vivo, no habilita Publicar) prendían el doble recordatorio
+  de #282 y #284 sin una pregunta. Ahora es UNA función (`duplicadaAlActivar`) que usan el interruptor, el «⋯» (pregunta
+  antes del PATCH; «Activar igual» sigue sin volver a preguntar) y el guardado del CRON (avisa DESPUÉS de guardar, sólo
+  si recién ahí pasó a ser la misma gente: `onGuardado` de `useDisparadores`, llamado después de `onError(null)` o el
+  aviso se borraba en el mismo tick). Y al ACTIVAR se compara lo PUBLICADO de ésta (`abiertoPublicado`), no el
+  borrador del lienzo: Activar prende la fila, no lo que se está editando. Lo mismo la nota del chat (`dejaBorradores`).
+  Test: tests/automations-aviso-todos-caminos.test.ts.
+- **⚠️ Y LA LISTA DE CAMINOS SE SACA DEL REPO, NO DE LA MEMORIA** (segunda revisión, 21/10). Arreglados el «⋯» y el
+  CRON, seguían sin preguntar el TELÉFONO (/m/automations, que con `MOVIL_ACTIVO` es la pantalla de cualquier celular),
+  «MaKo escribe tu nutrición» › Aprobar en /email y la API de MaKo. La pregunta pasó al SERVER, a la única puerta que
+  prende (`setSecuenciaActiva` tira `DuplicadaError` sin `aunqueDuplique`; las rutas contestan 409 `duplicada`; Publicar
+  una ACTIVA pregunta lo mismo antes de escribir los pasos). Cada pantalla vuelve a preguntar con eso y manda
+  `aunqueDuplique` recién después de «… igual»; la API de MaKo lo dice en la PROPUESTA y sólo entonces el «sí» lo lleva.
+  Un camino que nadie actualizó no prende en silencio: recibe el aviso como error. tests/automations-activar-todos-los-caminos.test.ts
+  barre `git ls-files`: los llamadores de `setSecuenciaActiva`, quién escribe `activa: true` y qué pantalla hace PATCH con
+  `activa`; uno nuevo lo hace fallar hasta que alguien lo mire.
+- **Un aviso que se calcula no se borra.** El del CRON nuevo en una activa colgaba del guardado (se lo comía el
+  `onError(null)` del guardado siguiente, y se perdía si se cambiaba de automatización antes de que volviera). Ahora se
+  CALCULA de lo que hay (sus CRON de ahora y lo publicado, `dupActiva`) y se dice al lado de «Activar» mientras sea así.
+- **Guardas que cambiaron a propósito:** tests/motor-tick.test.ts fijaba «el tick no llama a
+  `comprometerInscripciones`»; ahora fija que la llama UNA vez y sólo con `soloRecurrentes`. Y `motivo === 'vencio'`
+  pasó a `motivo !== 'abrio'` (`recurrente` también mira sólo lo fresco), también en tests/espera-duracion.test.ts.
+
+**Lo que quedó SIN hacer:** los 31 borradores de #282 y el de #284 siguen pendientes (aprobar o descartar lo decide
+Martín) · el aviso de duplicada no mira el horario ni la reentrada (dos Recurrentes a la misma etapa en días distintos
+avisan igual) · cambiarle los CRON a una activa por la API de MaKo no pregunta (la pantalla lo dice al abrirla) · el conteo está en la
+automatización abierta, no en la fila de la lista · nada se vio con clics en un navegador.
+
+**Vive en:** lib/mensajes-por-aprobar.ts · lib/setting-secuencias.ts (`leerPorAprobar`) · app/automations/SecuenciaPerfil.tsx
+(la línea, `notaChat`, `conAvisoDuplicada`) · app/automations/ChatMako.tsx (`nota`) · lib/automatizacion-duplicada.ts ·
+lib/motor-tick.ts · app/api/cron/nutricion-tick/route.ts · lib/nutricion.ts (`soloRecurrentes`) · test:
+tests/recurrente-no-salio.test.ts · *20/10/2026, claude4.*
+
+## «El chat de MaKo siempre abierto en la sidebar»: el pedido no se perdió en el código, se perdió en el relevo (20/10/2026)
+
+**Síntoma.** El 20/10 Martín preguntó: «Te habia pedido varias cosas, ¿No tienes el registro?». Pedía el chat de Automations siempre abierto en la sidebar, sin el logo de MaKo y con la tuerca en su lugar.
+
+**Diagnósticos obvios, los dos equivocados:**
+- **«Nadie lo anotó»:** falso. El Cerebro reenvió el pedido textual al chat Automations el 16/10 a las 05:22 UTC (puntos 5 y 6 del «Feedback Automations»).
+- **«Se hizo y se revirtió»:** falso. `git log --all --since=2026-10-16` no tiene un solo commit que lo toque. El chat a la derecha es de la decimocuarta tanda (51a3ad96d, 12/10).
+
+**La causa real: un PUNTERO sin contenido entre cuentas.**
+1. El chat de la cuenta 3 dejó los puntos 5 y 6 al final de la cola.
+2. Al cerrar por cuota, el relevo escribió «lo visual de «Probar», 4c (Calendly) y los puntos 5-6», sin el texto (docs/relevo/chatbot.md:104).
+3. El Cerebro de la cuenta 4 lo leyó como si los puntos 5-6 fueran parte de «Probar».
+4. El chat nuevo buscó «el feedback del 16/10» y encontró OTRO documento con ese nombre (docs/feedback-16-10-crm-onboarding-second-brain.md, del CRM, de la tarde), donde el 5 y el 6 son otra cosa. Lo marcó «sin ubicar» (docs/relevo/chatbot.md:37).
+5. Le preguntó al Cerebro y la pregunta no tuvo respuesta. Al día siguiente el pedido ya no estaba en ninguna lista ni en docs/pendientes.md.
+
+Ya había pasado el 15/10 («Las doce cosas de Automations (vivían sólo en un mensaje entre chats)», bitácora): ese día se arregló para esas doce, pero no quedó como regla.
+
+**Reglas que quedan:**
+- Un pedido de Martín que llega por otro chat se pega LITERAL como hito `actor: "martin", tipo: "prompt"` en la bitácora del área, el mismo día, aunque vaya al final de la cola.
+- Un relevo nunca escribe «los puntos N-M del feedback del <fecha>»: copia el texto o cita el hito.
+- Un mismo día puede tener varios «feedback» (el 16/10 hubo dos), así que una fecha no identifica un documento.
+- Una pregunta a otro chat que queda sin respuesta no saca el pedido de la lista: va a docs/pendientes.md con «sin ubicar» y el transcript donde buscarlo. Los transcripts quedan en ~/.claude/projects/…/<sesión>.jsonl; este estaba en a8f8993e, 2026-10-16T05:22:05Z.
+
+**Vive en:**
+- docs/relevo/chatbot.md:37, :104, :119-120
+- app/admin/dev/chatbot/bitacora.ts:1638 (el último hito «prompt»)
+- app/automations/SecuenciaPerfil.tsx:1202 y app/automations/SimuladorWhatsApp.tsx:827 (lo que sigue sin hacer)
+
+**Hecho el 20/10/2026 a la noche (`claude4`), y lo que no se ve en el código:**
+- **El chat es la sidebar POR PORTAL, y la ranura no se desmonta.** El chat necesita el estado del lienzo (los pasos, el
+  borrador, `alListoIA`), así que lo sigue montando SecuenciaPerfil, por portal en una ranura de la lista flotante. La «←»
+  esconde la ranura (`display: none`), no la saca: un portal hacia un nodo que desaparece desmonta el chat, y con él un
+  pedido en vuelo de hasta cinco minutos. El muelle de la derecha quedó sólo para «Probar».
+- **⚠️ El modal NO se importa en la lista ni en el lienzo, ni siquiera por tipos.** Arrastra acciones del servidor y los
+  tests que dibujan SimuladorWhatsApp y SecuenciaPerfil caen AL IMPORTAR; además una guarda (automations-configuraciones)
+  lee el TEXTO y caza un `import type` igual. La tab lo pasa como componente (`Configuraciones`) y el tipo de sus props
+  vive en el módulo puro (`PropsConfiguraciones`, lib/config-automatizacion.ts).
+- **Qué es de cada automatización y qué no.** El horario de oficina (propio, «sin horario» o el del negocio) y las horas
+  entre dos mensajes a la misma persona sí; los topes por día y por hora NO: son el presupuesto anti-ban de UNA línea que
+  comparten todas, y un tope por automatización no la protege. Sin nada guardado vale la del negocio: así cada
+  automatización que ya existía arrancó con lo de su negocio sin escribir nada en producción.
+- **En el motor, `fueraDeHorario` pasó a ser «TODAS cerradas»** (o «no pude leer»); cada fila pregunta por la suya
+  (`fuera(insc.secuencia_id)`) y las cerradas sin nada que corra afuera ni se leen. Lo propio de todas sale de UNA lectura
+  estricta por corrida (`configsDeEnvio`): «no pude leer» no es «no tiene nada propio». El tick barre también cuando abre
+  el horario PROPIO de una automatización (`abrioAlgunaPropia`), o lo que venció de noche esperaba a la corrida de la hora.
+- **El id `au-mako` del recorrido ya existía y está prohibido**: era «MaKo en WhatsApp» (retirado en la undécima) y un
+  test lo veta. El paso del chat es `au-chat`. Y `marcasDeVoseo` marca «acá»: el texto dice «aquí».
+
+**La revisión adversarial lo frenó (Cerebro, 20/10/2026 noche), y lo que enseñó — arreglado el mismo día (`claude4`):**
+- **⚠️ Un control de UNA automatización que escribe algo del NEGOCIO.** La tuerca montaba el `HorarioEnvioPanel` de
+  siempre con otra `fuente`, pero el desplegable del huso seguía guardando `mako.timezone` (`saveZonaHorarioAction`):
+  elegir Madrid en «Leads Meta» dejaba a TODAS las demás mandando de madrugada, y la tarjeta decía «Sólo para esta
+  automatización». Reusar un panel del negocio adentro de algo por automatización obliga a revisar CADA cosa que guarda,
+  no sólo la `fuente` principal. Ahora, con `zonaSoloLectura`, el huso es texto («Huso del negocio: …»). **Regla:** en la configuración de una
+  automatización, lo del negocio se muestra y no se edita.
+- **⚠️ Una copia que pierde lo que vive FUERA de la fila.** `duplicarSecuencia` copia una lista blanca de columnas, y la
+  configuración propia está en `app_settings` (`automatizacion.config:<id>`): la copia de una «Prospección fría» de 9 a
+  18 con 48 h nacía mandando a las 3 AM con 20 h, sin aviso. `copiarConfig` es OBLIGATORIA en las dependencias (un
+  llamador nuevo que la olvide no compila) y, si falla, la copia se borra. Regla: todo lo que se guarde por id fuera de
+  la fila tiene que estar en «Duplicar».
+- **Esconder no es mudar.** `sinPersona` sacó las horas «misma persona» del NEGOCIO del único panel que las editaba: el
+  valor que heredan TODAS las que ya existían quedó sin pantalla. Volvieron al mismo panel, rotuladas «Misma persona, por
+  defecto» (`personaPorDefecto`).
+- **La elegida sola no es una elección.** `selId` cae en la primera para dibujar su lienzo; con `enLaLista` en false, la
+  sidebar arrancaba siendo SU chat y escondía la lista, «＋ Nueva» y el «?» (el recorrido salteaba tres pasos). Arranca en
+  la lista; el chat aparece al ELEGIR (clic, `?sec=`, la recién creada).
+- **Un listener en captura sobre `document` alcanza al componente escondido.** El Escape de ChatMako cancelaba el pedido
+  en vuelo aunque la ranura estuviera oculta (un Escape para cerrar un modal de la lista). Ahora mira si se ve
+  (`getClientRects`) y si hay un diálogo o menú abierto afuera.
+- **Las «Evento de MaKo» no pasan por el motor**: esperan la apertura en lib/flujos.ts (`aperturaDelNegocio`), que leía
+  sólo el horario del negocio. Ahora lee el de la fila (`filaDeIdCorrida` → `automatizacion.config:<id>`, en el negocio
+  donde VIVE la fila) con la zona del que la recibe.
+- **Una lectura nueva que falla no puede frenar lo que antes andaba.** «Lo propio ilegible» cortaba el carril del
+  recordatorio de TODAS (`limites-ilegibles`) y, en el tick, tiraba la ruta entera. Ahora el horario lo marca
+  ilegible (no sale prospección), el carril corre con las horas del negocio, y el tick sigue sin esa lectura. Lo mismo
+  la zona: sin ella se cierran SÓLO las que tienen horario (`cerradasAhora(…, null)`), no la de los anuncios.
+  ⚠️ Y ESE ARREGLO ABRIÓ UN HUECO (revisión de la misma noche): «el horario ya cerró la prospección» no vale con
+  `ignorar_ventana`, que saltea el bloque del horario; esa corrida mandaba TODO con las horas del negocio. El corte
+  volvió para cuando nada lo acotó (`configs === 'ilegible' && fueraDeHorario == null`). Un arreglo que se apoya en «lo
+  de arriba ya cortó» tiene que mirar los caminos donde lo de arriba no corre.
+- **«Copiar flujo» › «Crear» es otra copia que crea un id desde otro.** Pegado en el MISMO negocio (el token guarda el
+  negocio y la automatización de origen: `origenDeCopia`) lleva la configuración propia, como «Duplicar»; entre
+  negocios no (es de otro negocio). Va adentro del try que borra la copia si algo falla (`crearDesdeCopia`, `configDe`).
+- **Arrancar en la lista dejó muerto el paso au-chat del recorrido** (sólo buscaba el chat, y el «?» vive en la lista):
+  ahora también señala la fila elegida, y el texto dice las dos formas («Abre una y aquí le pides cambios a MaKo»).
+- **Menores:** un horario sin `activo` booleano se rechaza (`sanearHorario` lo leía como «apagado» = a las 3 AM);
+  apagado con los días vacíos se guarda (como el del negocio); «como el negocio» BORRA la clave (los '{}' se
+  acumulaban) y el tick lee sólo los prendidos, con tope; la tarjeta dice «manda a cualquier hora» con el propio
+  apagado; tres ▲ rápidos ya no guardan 21 en vez de 23 (estado optimista y cambios juntados en el respiro); la tuerca
+  la ve también el que no es admin (sólo lectura); el aviso de Prospección consulta una vez; «contesta sola» del AI
+  Step mira el horario de SU automatización (`horarioDeEnvioDe`). Test: tests/automations-config-revision.test.ts.
+
+**Lo que quedó SIN hacer:** el chip «Espera a que abra» de la tarjeta MaKo del lienzo lee el horario del negocio
+(`useFijarHorarioOficina`, app/automations/horario-oficina.tsx: el lienzo no lee la configuración de su automatización) ·
+las horas «misma persona» del negocio que se cambian abajo no refrescan el «Como el negocio (20 h)» de arriba hasta
+reabrir el modal · con «sin horario» propio, «contesta sola» sigue con su 9 a 21 de siempre (`puedeContestarSolo` sin
+`enHorario`) · el piso de la línea entre automatizaciones: con 3 h propias, «Leads Meta» le escribe 3 h después de un
+WhatsApp de «Prospección» (20 h); al revés se respeta. Si Martín quiere un piso, `max(horas de la fila, las del negocio)`
+sólo frente a envíos de OTRA (lib/nutricion.ts, `ventanaDe`) · una plantilla de SuperAdmin copiada a un cliente no lleva
+la configuración (es de otro negocio) · la sugerencia del aviso al equipo va como texto, sin botones · nada se vio con
+clics en un navegador · de la cola del 16/10: el botón de conectar WhatsApp (OnboardingChatAgent.tsx) y lo visual de
+«Probar» (nombres de persona, chips «antes de», «Prueba finalizada»).
+
+**Vive en:** app/automations/SimuladorWhatsApp.tsx (la ranura, `enLaLista`) · app/automations/SecuenciaPerfil.tsx (el
+portal, `BotonTuerca`, `conAvisoProspeccion`) · app/automations/ConfiguracionesBoton.tsx (el modal y el «?») ·
+app/automations/ConfigAutomatizacionPanel.tsx · lib/config-automatizacion.ts (+ `-db`) · lib/nutricion.ts
+(`procesarEnvios`) · app/api/cron/nutricion-tick/route.ts · lib/api-mako/areas/chatbot.* (`configuracion_automatizacion`,
+`configurar_automatizacion`) · lib/secuencia-duplicar.ts (`copiarConfig`) · lib/flujos.ts (`aperturaDelNegocio`) ·
+app/configuraciones/HorarioEnvioPanel.tsx (`zonaSoloLectura`) · app/automations/LimitesEnvioPanel.tsx (`personaPorDefecto`) ·
+test: tests/automations-chat-siempre.test.ts y tests/automations-config-revision.test.ts · *20/10/2026, claude4.*
+
+## La segunda revisión del pedido B (Cerebro, 20/10/2026 noche): lo que el arreglo dejó abierto
+
+La punta `396a82847` entró con estos defectos conocidos (revisión adversarial de 2 lentes + escépticos; detalle en las
+notas compartidas del Cerebro, `revision-automations-20-10-noche.md`). El motor quedó bien: ningún envío doble ni
+ocurrencia perdida del Recurrente.
+- **⚠️ Un arreglo que AFLOJA un corte tiene que recorrer todos los caminos que antes cortaban.** «Lo propio ilegible ya
+  no frena el carril» se hizo dentro de `if (!opts?.ignorarVentana)`: con `ignorar_ventana=1` y la configuración
+  ilegible, la corrida manda con las horas del negocio (antes devolvía `limites-ilegibles`). lib/nutricion.ts:3718-3755.
+- **El aviso de duplicada vive en UN camino de los varios que prenden algo**: no sale al Activar desde el «⋯» de la
+  lista ni al agregar un CRON a una activa (app/automations/SimuladorWhatsApp.tsx:634). Es el aviso que habría frenado
+  #282 + #284 de Leila.
+- **«Copiar flujo» › «Crear» en el MISMO negocio pierde la configuración propia**: sólo Duplicar llama a `copiarConfig`
+  (app/api/chat-agent/secuencias/route.ts:437, `crear_desde_copia`).
+
+**Lo que quedó SIN hacer** (pedido a Automations como punta de seguimiento): los tres de arriba · el aviso al Activar
+compara el borrador del lienzo y no lo publicado (SecuenciaPerfil.tsx:1062) · el paso `au-chat` del recorrido no
+aparece nunca para quien ya tiene automatizaciones (arranca en la lista). *20/10/2026, Cerebro, claude4.*

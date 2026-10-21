@@ -39,6 +39,12 @@
 // prototipo v3 ya dibujaba — Calendario, Second Brain, Experiments, Offer, Copywriting, Curso y
 // Comunidad —, cada una en su lugar de la sidebar. Con eso la capa pm (Plan, MaKo, Dashboard y
 // Calendario) llena los huecos de CRM y Chats con Calendario y Dashboard, y More le queda en MaKo.
+//
+// ⚠️ 20/10/2026, EL OPS CENTER ES LA TAB PRINCIPAL (pedido del Ops Center bb885d5f, Martín: «Que en Mobile, el Ops
+// Center esté donde está el Dashboard, que sea la tab principal»; docs/ops-center-principal.md): la barra es
+// CRM · Chats · Ops Center · Plan · More, y la app abre ahí (`ENTRADA_MOVIL`). El Dashboard (/m/hoy, la portada de antes)
+// pasa a ser la primera fila de lo diario en More. Para el super admin sin mirar un cliente el Ops Center es el Centro
+// (/m/operaciones); para los demás, su chat con MaKo (/m/second-brain), como en la sidebar de cada uno.
 // =============================================================================
 
 import { FAMILIAS, PRONTO, SUPERADMIN_MENU, TODOS_LOS_ITEMS, USER_NAV, type NavItem } from '@/app/_components/nav';
@@ -53,10 +59,10 @@ import { rutaDeTabVieja } from './ajustes-secciones';
 import { SECCIONES_CREACION, rutaEscritorioCreacion, rutaMovilCreacion, type IdCreacion } from './movil-creacion';
 
 /**
- * Los cinco destinos FIJOS de la barra. `hoy` es el DASHBOARD desde el 17/10/2026 noche (antes «General»): abre la
- * portada (/m/hoy), que es lo que en escritorio pasó a ser la hoja fija «Focus» del Dashboard.
+ * Los cinco destinos FIJOS de la barra. `mako` es el OPS CENTER desde el 20/10/2026, en el lugar del medio que era del
+ * Dashboard (`hoy`, que pasó a More): la misma id que su fila de More, así que More no la repite.
  */
-export type DestinoMovil = 'crm' | 'chats' | 'hoy' | 'plan' | 'mas';
+export type DestinoMovil = 'crm' | 'chats' | 'mako' | 'plan' | 'mas';
 /** Las secciones que viven en More. */
 export type IdSeccionMas =
   | 'calendario' | 'ads' | 'second-brain' | 'dashboard' | 'experimentos' | 'offer' | 'landing' | 'automations'
@@ -85,6 +91,8 @@ export type DefDestino = {
    * ver, y «More» se arma con lo que el rol ve.
    */
   navKey: string | null;
+  /** Se dibuja con la criatura de MaKo y no con `icon` (sólo el Ops Center; ver `ItemBarra`). `icon` queda de respaldo. */
+  criatura?: true;
 };
 
 export type DefSeccionMas = {
@@ -123,15 +131,33 @@ export type DefSeccionMas = {
  * Create. `masCompleto` las cruza con nav.ts por la KEY (antes por la posición: con cuatro familias, la tercera se perdía).
  */
 export const FAMILIAS_MAS = [
-  { id: 'diario', label: null },
+  // Con título desde el 20/10/2026: en la barra de escritorio lo diario lleva rótulo, se pliega y tiene el Ops Center adentro.
+  { id: 'diario', label: 'Today' },
   { id: 'sales', label: 'Sales' },
   { id: 'marketing', label: 'Marketing' },
   { id: 'create', label: 'Create' },
 ] as const;
 export type FamiliaMas = (typeof FAMILIAS_MAS)[number]['id'];
 
+/**
+ * El Dashboard del teléfono (la hoja Focus; la URL que se ve es /general). Fue la portada hasta el 20/10/2026 y sigue
+ * siendo adonde vuelve una puerta que no deja pasar: la ven todos los roles, así que nunca rebota en bucle.
+ */
 export const HOME_MOVIL = '/m/hoy';
+/** Su nombre en More y en el «volver» de sus pantallas (la campana de Avisos): el que tenía en la barra. */
+export const TITULO_HOME_MOVIL = 'Dashboard';
 export const RUTA_MAS = '/m/mas';
+
+/** El Ops Center de un cliente y su equipo: su chat con MaKo (la URL que se ve es /second-brain). */
+export const RUTA_OPS_CENTER_M = '/m/second-brain';
+/** El del super admin sin mirar un cliente: el Centro, con la Ticketera adentro (la URL que se ve es /admin/operaciones). */
+export const RUTA_CENTRO_M = '/m/operaciones';
+/**
+ * Adonde entra el teléfono (el login y el ícono de la app instalada pasan por /inicio): el Ops Center, la tab principal
+ * desde el 20/10/2026. Es la URL de ESCRITORIO, porque el teléfono ve las mismas rutas (lib/movil-desvio.ts); para el
+ * super admin, /m/second-brain lo pasa al Centro.
+ */
+export const ENTRADA_MOVIL = '/second-brain';
 
 /** La ruta interna de los chats (la URL que se ve es la de escritorio: /whatsapp). */
 export const RUTA_CHATS = '/m/chats';
@@ -144,10 +170,11 @@ export const DESTINOS_MOVIL: readonly DefDestino[] = [
   // La key de la bandeja UNIFICADA de escritorio (/chats, 14/10/2026). Ve lo mismo que `whatsapp` en todas las
   // capas (tests/chats-registro.test.ts fija la paridad), así que nadie pierde la pestaña al cambiarla.
   { id: 'chats', label: 'Chats', href: RUTA_CHATS, icon: 'chats', navKey: 'chats' },
-  // AL MEDIO y como portada (Martín, 14/10/2026). Desde el 17/10/2026 noche se llama DASHBOARD (prototipo de coherencia,
-  // pedido 3: «la barra de abajo del teléfono pasa a CRM · Chats · Dashboard · Plan · More»): en escritorio «Home» salió
-  // de la barra y el Dashboard abre en su hoja fija Focus, que es lo que era General. Abre la misma portada de siempre.
-  { id: 'hoy', label: 'Dashboard', href: HOME_MOVIL, icon: 'graphics', navKey: null },
+  // AL MEDIO y como portada: el OPS CENTER desde el 20/10/2026 (pedido bb885d5f: «Que en Mobile, el Ops Center esté donde
+  // está el Dashboard, que sea la tab principal»). Hasta ese día era el Dashboard (/m/hoy), que pasó a More. La key es la
+  // de la sidebar (nav.ts → MAKO_NAV): la ven el admin, el closer y el setter. Para el super admin sin mirar un cliente,
+  // `barraMovil` le cambia el destino por el Centro.
+  { id: 'mako', label: 'Ops Center', href: RUTA_OPS_CENTER_M, icon: 'cerebro', navKey: 'mako', criatura: true },
   { id: 'plan', label: 'Plan', href: '/m/plan', icon: 'todo', navKey: 'todo' },
   { id: 'mas', label: 'More', href: RUTA_MAS, icon: 'mas', navKey: null },
 ];
@@ -181,7 +208,9 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // (tests/curso-admin.test.ts y tests/comunidad-nav.test.ts); el rol, como en la sidebar, sólo admin.
   { id: 'cs', label: 'Clients', href: '/m/cs', icon: 'users', navKey: 'customer-success', familia: 'sales' },
   // MaKo Partners (17/10/2026): sólo el admin de una agencia (`soloCapas` del ítem de nav.ts, que `puedeVerKey` mira).
-  { id: 'partners', label: 'MaKo Partners', href: '/m/partners', icon: 'comunidad', navKey: 'partners', familia: 'sales' },
+  // MaKo Partners: del menú de la foto desde el 20/10/2026 (nav.ts → USER_NAV), así que su fila de More la arma el menú
+  // (`masCompleto`) y acá va OCULTA, como Report a problem y Business settings.
+  { id: 'partners', label: 'MaKo Partners', href: '/m/partners', icon: 'comunidad', navKey: 'partners', familia: null, oculta: true },
   // Marketing.
   { id: 'offer', label: 'Offer', href: '/m/offer', icon: 'tag', navKey: 'offer', familia: 'marketing' },
   { id: 'landing', label: 'Web Generator', href: '/m/landing', icon: 'web', navKey: 'landing-writer', familia: 'marketing' },
@@ -278,7 +307,7 @@ export const QUERY_DE_SECCION: Partial<Record<IdSeccionMas, readonly string[]>> 
   calendario: ['vista', 'fecha'], // app/calendario/page.tsx
   'second-brain': ['area', 'vista'], // app/second-brain/VistaCerebro.tsx (los arma `rutaSeccion`, lib/secciones-negocio.ts)
   experimentos: ['tab', 'desde', 'hasta', 'cierres', 'presupuesto', 'hipotesis'], // app/experimentos/page.tsx
-  offer: ['oferta', 'funnel'], // app/offer/page.tsx (el «Analizar oferta →» del CRM)
+  offer: ['oferta', 'funnel', 'sesion'], // app/offer/page.tsx (el «Analizar oferta →» del CRM; `sesion`: «Seguir en Offer» del Ops Center, 20/10/2026)
   copywriting: ['tab'], // app/ads-writer/tabs.ts (anuncios · guiones · analizar)
   'api-mako': ['tab'], // app/api-mako/page.tsx (docs · tokens · registro)
   curso: ['producto'], // app/customer-success/curso/pantalla.tsx (Clients › Classroom)
@@ -288,7 +317,12 @@ export const QUERY_DE_SECCION: Partial<Record<IdSeccionMas, readonly string[]>> 
 export type RolMovil = 'admin' | 'closer' | 'setter' | null;
 
 /** Un lugar de la barra: un destino fijo o una sección de More que subió a ocupar un hueco. */
-export type ItemBarra = { id: IdBarra; label: string; href: string; icon: string };
+/**
+ * `criatura`: el lugar se dibuja con la criatura de MaKo (la estrella que flota y parpadea, app/_components/Criatura.tsx) y
+ * no con un ícono de trazo. Sólo el Ops Center, como en la sidebar y en More (Martín, 21/10/2026: «Pusiste a Ops Center
+ * con el logo del Second Brain. Cuando el logo es la criatura de MaKo. Quiero que se mueva, parpadee, como siempre»).
+ */
+export type ItemBarra = { id: IdBarra; label: string; href: string; icon: string; criatura?: true };
 
 /** ¿La ruta es de MaKo Mobile? `/m` o `/m/...`, nunca `/m.js` ni `/mako`. */
 export function esRutaMovil(pathname: string | null | undefined): boolean {
@@ -342,15 +376,20 @@ export function seccionesMasVisibles(rol: RolMovil, capa: string | null | undefi
  * cuatro primeros (un setter sin Plan, la capa pm sin CRM), ese lugar lo toma la primera
  * sección de More que sí vea y que no esté ya en la barra. Si no queda ninguna, la barra
  * tiene menos de cinco (nunca un destino que la persona no puede abrir).
+ *
+ * `centro`: el super admin sin mirar un cliente (el mismo `veOpsCenter` de /m/mas). Su Ops Center es el Centro.
  */
-export function barraMovil(rol: RolMovil, capa: string | null | undefined): ItemBarra[] {
-  const visibles = new Set(destinosVisibles(rol, capa).map((d) => d.id));
-  // Las HOJAS del Dashboard son de su lugar de la barra (17/10/2026 noche): no suben a ocupar otro hueco al lado de él.
-  const reserva = seccionesMasVisibles(rol, capa).filter((s) => !(s.id === 'dashboard' && visibles.has('hoy')));
+export function barraMovil(rol: RolMovil, capa: string | null | undefined, centro = false): ItemBarra[] {
+  const visibles = new Set<IdBarra>(destinosVisibles(rol, capa).map((d) => d.id));
+  // Lo que ya es un lugar fijo (el Ops Center tiene la misma id que su fila de More) no sube a ocupar OTRO hueco.
+  const reserva = seccionesMasVisibles(rol, capa).filter((s) => !visibles.has(s.id));
   const out: ItemBarra[] = [];
   for (const d of DESTINOS_MOVIL) {
     if (d.id === 'mas') continue;
-    if (visibles.has(d.id)) { out.push({ id: d.id, label: d.label, href: d.href, icon: d.icon }); continue; }
+    if (visibles.has(d.id)) {
+      out.push({ id: d.id, label: d.label, href: d.id === 'mako' && centro ? RUTA_CENTRO_M : d.href, icon: d.icon, ...(d.criatura ? { criatura: true as const } : {}) });
+      continue;
+    }
     const s = reserva.shift();
     if (s) out.push({ id: s.id, label: s.label, href: s.href, icon: s.icon });
   }
@@ -482,13 +521,18 @@ export function masCompleto(rol: RolMovil, capa: string | null | undefined, admi
   const enBarra = new Set(DESTINOS_MOVIL.map((d) => d.navKey).filter((k): k is string => k != null));
   // Lo que ya está en la barra de ESTE rol, por su ruta del teléfono: General no tiene key en DESTINOS_MOVIL (es la
   // portada, `navKey: null`) y sin esto aparecía otra vez en su familia (visto a 390 px el 17/10/2026).
-  const barra = new Set(barraMovil(rol, capa).map((b) => b.href));
+  const barra = new Set(barraMovil(rol, capa, adminShell).map((b) => b.href));
   FAMILIAS.forEach((f) => {
     const familia = FAMILIAS_MAS.find((x) => x.id === f.key);
     if (!familia) return;
     const deFamilia = conPantalla.find((g) => g.familia === familia.id)?.secciones ?? [];
     const usadas = new Set<IdSeccionMas>();
     const filas: FilaMas[] = [];
+    // El Dashboard (la portada de antes, /m/hoy) encabeza lo diario desde que el Ops Center tomó su lugar en la barra
+    // (20/10/2026). Lo ve todo rol con sesión, como cuando estaba en la barra; no es una sección (no tiene key propia).
+    if (familia.id === 'diario' && rol && !barra.has(HOME_MOVIL)) {
+      filas.push({ tipo: 'pantalla', key: 'hoy', label: TITULO_HOME_MOVIL, icon: 'graphics', href: HOME_MOVIL, seccion: null });
+    }
     for (const t of f.bloques.flat()) {
       const visible = resolverTab(t, vista);
       if (!visible) continue;
@@ -548,11 +592,11 @@ export function destinoActivo(
   const p = (pathname ?? '').split(/[?#]/)[0].replace(/\/+$/, '');
   if (!esRutaMovil(p)) return null;
   for (const d of barra) if (dentro(p, d.href)) return d.id;
-  // La campana vive en General: sus pantallas marcan General.
-  if (dentro(p, RUTA_INBOX) && barra.some((d) => d.id === 'hoy')) return 'hoy';
-  // Las HOJAS del Dashboard (/m/dashboard) son del mismo lugar de la barra (17/10/2026 noche), como en escritorio el
-  // Dashboard marca Focus y cada hoja. Si el rol no tiene ese lugar, cae en More como cualquier sección.
-  if (dentro(p, '/m/dashboard') && barra.some((d) => d.id === 'hoy')) return 'hoy';
+  // El Ops Center del medio (20/10/2026) es dueño de todo lo suyo: el chat (y /m/mako, que redirige ahí), el grafo
+  // (/m/second-brain/mapa) y, para el super admin, también el Centro, aunque su lugar abra el otro.
+  if (barra.some((d) => d.id === 'mako') && (dentro(p, RUTA_OPS_CENTER_M) || dentro(p, '/m/mako') || dentro(p, RUTA_CENTRO_M))) return 'mako';
+  // El Dashboard y su campana (Avisos) son filas de More desde que el Ops Center tomó su lugar (20/10/2026).
+  if (dentro(p, HOME_MOVIL) || dentro(p, RUTA_INBOX)) return 'mas';
   if (seccionDeRuta(p) || dentro(p, '/m/cuenta')) return 'mas';
   return null;
 }
@@ -828,7 +872,9 @@ export function rutaEscritorio(href: string): string {
   const q = new URLSearchParams(query);
   let destino: string | null = null;
   let m: RegExpMatchArray | null;
-  if (p === '/m' || p === HOME_MOVIL) destino = '/general';
+  // /m pelado es la entrada de la app: el Ops Center desde el 20/10/2026 (`ENTRADA_MOVIL`); el Dashboard sigue en /general.
+  if (p === '/m') destino = ENTRADA_MOVIL;
+  else if (p === HOME_MOVIL) destino = '/general';
   else if ((m = p.match(/^\/m\/crm\/(\d+)\/chat$/))) destino = `/crm/${m[1]}/chat`;
   else if ((m = p.match(/^\/m\/crm\/([^/]+)$/))) destino = `/crm/${m[1]}`;
   else if (p === '/m/crm') destino = '/crm';

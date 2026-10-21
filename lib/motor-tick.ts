@@ -31,6 +31,8 @@
 import { esPasoAccion } from './nutricion-paso-accion';
 import { esNodoMensaje, type PasoGrafo } from './flujo-grafo';
 import { esCanalSocial } from './canal-social';
+// La lista de CRON de una automatización, la MISMA que lee el motor (el primero es el de las columnas). Pura.
+import { disparadoresDe, type FilaDisparadores } from './disparadores';
 
 /**
  * ¿Este paso tiene algo que correr con WhatsApp y email APAGADOS en el negocio? Lo preguntan las DOS
@@ -71,8 +73,39 @@ export function valorDeTurno(ahoraMs: number): string {
   return new Date(ahoraMs + TURNO_MS).toISOString();
 }
 
-/** Por qué el tick corre un negocio: lo que acaba de vencer, o el horario que acaba de abrir. */
-export type MotivoTick = 'vencio' | 'abrio';
+/**
+ * Por qué el tick corre un negocio: lo que acaba de vencer, el horario que acaba de abrir, o un RECURRENTE que acaba de
+ * llegar a su hora (y entonces primero se inscribe su cohorte).
+ */
+export type MotivoTick = 'vencio' | 'abrio' | 'recurrente';
+
+/** Lo que el tick lee de cada automatización activa para saber si un Recurrente llegó a su hora. */
+export type FilaRecurrente = FilaDisparadores & { workspace_id: number | string | null };
+
+/**
+ * LOS NEGOCIOS CON UN RECURRENTE QUE ACABA DE LLEGAR A SU HORA (20/10/2026). El d2 de #284 del ws11 era «martes 16:15»
+ * (21:15Z) y el tick no lo reclamaba: inscribir por cohorte era sólo de la corrida de cada hora, así que salía a las
+ * 22:00. Ahora un Recurrente sale a su minuto.
+ *
+ * Mira TODOS los CRON de cada automatización (`disparadoresDe`, la lista del motor: el primero en las columnas, los demás
+ * en `disparadores`, mig 0241) y sólo lo FRESCO: una ocurrencia vencida entre `desdeMs` y `ahoraMs`. Una vieja que nadie
+ * reclamó (un CRON que el barrido no inscribe) correría ese negocio cada minuto; ésa la sigue mirando la corrida de cada
+ * hora. Sin `cron_proxima_at` no hay ocurrencia que reclamar: la siembra la corrida de cada hora (sembrar no dispara).
+ */
+export function negociosConRecurrenteVencido(filas: readonly FilaRecurrente[], ahoraMs: number, desdeMs: number): number[] {
+  const out = new Set<number>();
+  for (const f of filas) {
+    const ws = Number(f.workspace_id);
+    if (!Number.isInteger(ws) || ws <= 0 || out.has(ws)) continue;
+    const vence = disparadoresDe(f).some((d) => {
+      if (!d.cron || !d.cron_proxima_at) return false;
+      const t = Date.parse(d.cron_proxima_at);
+      return Number.isFinite(t) && t <= ahoraMs && t >= desdeMs;
+    });
+    if (vence) out.add(ws);
+  }
+  return [...out].sort((a, b) => a - b);
+}
 
 /**
  * Los negocios que corre el tick, y cómo. Recibe lo que ya se leyó: los negocios ACTIVOS, los que
@@ -85,9 +118,15 @@ export function negociosDelTick(p: {
   activos: ReadonlySet<number>;
   conVencidoFresco: Iterable<number>;
   abrieronConVencido: Iterable<number>;
-}): Array<{ ws: number; motivo: MotivoTick }> {
+  /** Los que tienen un Recurrente que acaba de llegar a su hora (`negociosConRecurrenteVencido`). */
+  conRecurrente?: Iterable<number>;
+}): Array<{ ws: number; motivo: MotivoTick; recurrente?: true }> {
   const out = new Map<number, MotivoTick>();
   for (const ws of p.conVencidoFresco) if (p.activos.has(ws)) out.set(ws, 'vencio');
   for (const ws of p.abrieronConVencido) if (p.activos.has(ws)) out.set(ws, 'abrio');
-  return [...out.entries()].sort((a, b) => a[0] - b[0]).map(([ws, motivo]) => ({ ws, motivo }));
+  // El Recurrente NO pisa el motivo: inscribe antes y después corre lo de su motivo (`abrio` barre entero, `vencio` y
+  // `recurrente` sólo lo fresco, que es donde caen los que se acaban de inscribir).
+  const conRec = new Set<number>();
+  for (const ws of p.conRecurrente ?? []) if (p.activos.has(ws)) { conRec.add(ws); if (!out.has(ws)) out.set(ws, 'recurrente'); }
+  return [...out.entries()].sort((a, b) => a[0] - b[0]).map(([ws, motivo]) => ({ ws, motivo, ...(conRec.has(ws) ? { recurrente: true as const } : {}) }));
 }

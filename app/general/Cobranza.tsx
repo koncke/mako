@@ -28,10 +28,13 @@
 
 import { useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import Link, { useRouter } from '@/app/_ui/Link';
-import { Button, Toast, useToast } from '@/app/_ui';
+import { Button, ButtonLink, Toast, useToast } from '@/app/_ui';
 import { marcarPagoAction } from '@/app/crm/actions';
 import { hoyEnTz } from '@/lib/date-utils';
 import type { CobroM } from '@/app/m/dashboard/modelo';
+
+/** El pago que marca la fila; null en la de una suscripción, que no tiene cuota (20/10/2026). */
+const pagoDe = (f: CobroM): number | null => f.pagoId ?? null;
 import { TituloBloque } from './bloques/comun';
 
 const COLOR: Record<'vencida' | 'pronto' | 'al-dia', string> = { vencida: 'var(--bad)', pronto: 'var(--warn-fill)', 'al-dia': 'var(--faint)' };
@@ -64,7 +67,8 @@ export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, 
     return s;
   });
 
-  const deshacer = (f: CobroM) => {
+  // Sólo la fila de una CUOTA se marca; la de una suscripción (sin `pagoId`) abre su ficha (20/10/2026).
+  const deshacer = (f: CobroM & { pagoId: number }) => {
     ocultar(f.pagoId, false);
     empezar(async () => {
       try {
@@ -77,14 +81,16 @@ export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, 
     });
   };
 
-  const marcar = async (f: CobroM) => {
+  const marcar = async (f: CobroM & { pagoId: number }) => {
     if (enCurso.current) return;
     enCurso.current = true;
     setMarcando(f.pagoId);
     try {
-      await marcarPagoAction(f.pagoId, f.leadId, true, hoyEnTz(tz));
+      const r = await marcarPagoAction(f.pagoId, f.leadId, true, hoyEnTz(tz));
       ocultar(f.pagoId, true);
-      show('Cuota cobrada', () => deshacer(f));
+      // Ya estaba cobrada (la lista era vieja): sin Deshacer, que desmarcaría el cobro de otro.
+      if (r.yaEstaba) show('Ya estaba cobrada');
+      else show('Cuota cobrada', () => deshacer(f));
       empezar(() => router.refresh());
     } catch (e) {
       console.error('[general] marcar cobro:', e instanceof Error ? e.message : String(e));
@@ -95,7 +101,7 @@ export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, 
     }
   };
 
-  const vivas = filas.filter((f) => !ocultas.has(f.pagoId));
+  const vivas = filas.filter((f) => f.pagoId == null || !ocultas.has(f.pagoId));
   const vistas = todas ? vivas : vivas.slice(0, limite);
   const vencidas = vivas.filter((f) => f.urgencia === 'vencida').length;
 
@@ -132,7 +138,7 @@ export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, 
             const monto = corte > 0 ? f.linea.slice(0, corte) : null;
             const cuando = corte > 0 ? f.linea.slice(corte + 3) : f.linea;
             return (
-              <li key={f.pagoId} className="gb-fila" style={{ gap: 'clamp(10px, 2cqi, 16px)' }}>
+              <li key={`${f.leadId}:${f.pagoId ?? 'mensual'}`} className="gb-fila" style={{ gap: 'clamp(10px, 2cqi, 16px)' }}>
                 <span aria-hidden style={{ ...S.avatar, background: `color-mix(in srgb, ${c} 16%, transparent)`, color: f.urgencia ? c : 'var(--dim)', boxShadow: `inset 0 0 0 1.5px ${f.urgencia ? c : 'var(--border)'}` }}>{inicial(f.nombre)}</span>
                 <span style={S.texto}>
                   {muestra
@@ -141,11 +147,16 @@ export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, 
                   <span className="gb-d" style={{ color: f.urgencia === 'vencida' ? 'var(--bad)' : 'var(--dim)' }}>{cuando}</span>
                 </span>
                 {monto && <span className="gb-num" style={S.monto}>{monto}</span>}
-                <Button variant="secondary" size="sm" loading={marcando === f.pagoId}
-                  disabled={muestra || (marcando != null && marcando !== f.pagoId)}
-                  onClick={() => { void marcar(f); }} aria-label={`Marcar cobrada la cuota de ${f.nombre}`}>
-                  Cobrada
-                </Button>
+                {pagoDe(f) != null ? (
+                  <Button variant="secondary" size="sm" loading={marcando === f.pagoId}
+                    disabled={muestra || (marcando != null && marcando !== f.pagoId)}
+                    onClick={() => { void marcar({ ...f, pagoId: pagoDe(f) as number }); }} aria-label={`Marcar cobrada la cuota de ${f.nombre}`}>
+                    Cobrada
+                  </Button>
+                ) : !muestra && (
+                  // Una suscripción no tiene cuota que marcar: el mes se registra en su ficha, tab Pagos.
+                  <ButtonLink variant="secondary" size="sm" href={`/crm/${f.leadId}?tab=pagos`}>Abrir</ButtonLink>
+                )}
               </li>
             );
           })}

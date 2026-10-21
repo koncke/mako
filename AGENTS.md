@@ -419,6 +419,30 @@ tests así se llevó la RAM de la PC y se cayó la app con todos los chats. El s
 **espera RAM** antes de cada una (el piso se deriva: zona roja del vigía + lo que pide cada proceso). Nunca corras
 `node --test tests/*.test.ts` a mano en esta máquina.
 
+⚠️ **El candado de lo pesado ahora tiene COLA y vive DENTRO de `antes-de-subir`** (20/10/2026). Antes era `mkdir C:/dev/pesado.lock`
+a mano y cada chat reintentaba en su loop: ganaba el que preguntaba más seguido (Pagos esperó casi 2 h), y el que esperaba 40 min
+volvía con `origin/main` adelantado y su VERDE salía ROJO sólo por «te faltan N commits». Ahora **no tomes el candado a mano para
+correr `antes-de-subir`: la herramienta se anota sola** en `C:/dev/pesado.cola/` (turnos por hora de llegada: entra el más VIEJO), lo
+toma con el mismo `mkdir` de siempre (por eso un `mkdir` a mano y la cola **se excluyen entre sí**), lo firma (`quien.txt` + `dueno.json`:
+chat, cuenta, sha, pid, desde) y lo suelta al terminar, también con Ctrl+C. **Al tomarlo hace `git fetch` + `merge origin/main`** (merge,
+nunca rebase: el commit del jefe no se reescribe) y el `VERDE <sha>` vale para el sha NUEVO; si el merge choca, aborta (la rama queda
+como estaba), suelta el candado y el `ROJO` nombra los archivos — mergeá a mano y volvé a correr.
+- **Ver la fila sin tocar nada:** `node scripts/antes-de-subir.mjs --cola` (quién lo tiene, desde cuándo, y los que esperan en orden).
+- **Al soltar, el candado se ENTREGA** (21/10): con alguien esperando, `soltar` reescribe `dueno.json` con el pid del primero de la fila que siga vivo y NO
+  borra el directorio, así un `mkdir` a mano justo en ese instante falla y no se le cuela a la cola (le ganó por 2 s al chat de `wt-crm-ficha2`). El que
+  recibe se entera con el mismo sondeo de siempre (0,4 s); si nadie lo recibe en 30 s (el siguiente está colgado) se libera. Con la fila vacía se borra.
+- **Un proceso muerto no traba:** un turno se limpia si su pid no vive o si no late hace 10 min; un dueño, si su pid no vive o si pasó
+  `MAKO_PESADO_VENCE_MIN` (90). Un candado tomado a mano no tiene pid y no se le puede preguntar si vive, así que con alguien esperando se
+  suelta: **al instante si es de tu mismo worktree** (el quien.txt empieza con `<worktree> · <rama>`), a los 10 min si no hay ningún
+  proceso pesado vivo (`tsc`, `node --test`, `next build`, vitest…), o a los 30 min pase lo que pase. Queda en `pesado.log`.
+- **No tomes el candado a mano y después corras `antes-de-subir`** (21/10: el `mkdir` de `wt-crm-ficha2` ganó la carrera justo al soltarse el
+  anterior y su propio `antes-de-subir` se anotó DETRÁS de ese candado: 27 min y 7 chats parados). Ahora la cola reconoce el candado a mano
+  de tu worktree y lo toma, pero es un parche: el diseño es que `antes-de-subir` hace la fila solo. Si tomaste el candado a mano de verdad
+  (un `tsc` suelto, un build) y corrés `antes-de-subir` con otro nombre, usá `--ya-tengo-el-candado`. `MAKO_SIN_COLA=1` lo saltea; en Actions no se usa.
+- **Las guardas del push corren ANTES de hacer fila** (~10 s, livianas) y vuelven a correr al tomar el candado, ya con `origin/main` mergeado: el 21/10
+  una guarda frenó un VERDE en 7 s pero después de 25 min de espera. Un `ROJO` de guarda dice «no hice fila por esto».
+- Un `ROJO: esperé el candado…` no es un rojo del código (sale con 99): la fila estaba larga.
+
 ⚠️ **Por qué es rápido: los tests que no tocan estado global corren JUNTOS en un proceso** (`--test-isolation=none`, con
 `scripts/cache-lecturas.cjs` memorizando las lecturas de archivos). El costo de las barredoras no era el regex: ~68 leen los mismos
 ~5.400 archivos y, con `node --test`, cada archivo de test es un proceso aparte que los vuelve a leer (12 barredoras: 193 s
@@ -1502,7 +1526,13 @@ código nuevo:
   un toque: app/second-brain/apaisar.ts). El super admin ve UN grafo: el negocio y la construcción de MaKo juntos (`unirCerebros`,
   lib/cerebro-union.ts) y las capas son un atajo del filtro de carpetas. Un grafo más para el super admin se suma como CAPA de ése (su
   taxonomía, sus carpetas), nunca como un segundo `<Grafo>`. Lo fija tests/second-brain-grafo-movil.test.ts; el porqué, en
-  docs/hallazgos-second-brain.md. **Y el «Negocio» se arma con lo que MaKo SABE hoy** (18/10/2026; Martín: «No te quedes con la vieja
+  docs/hallazgos-second-brain.md. **NINGÚN CEREBRO SE DIVIDE EN DOS** (20/10/2026; Martín: «En ningún caso jamás los cerebros se
+  deben dividir en 2»): UNA raíz y UN solo componente, en el de cualquier negocio y en el del super admin. Un racimo sin aristas
+  laterales se engancha a la raíz (`puentesARaiz`, lib/cerebro-union.ts) ANTES del layout; la construcción cuelga de la raíz del
+  negocio y la física corre entera en el servidor (lib/cerebro-union-servidor.ts vía lib/second-brain-opera.ts). Ninguna pantalla
+  junta dos cerebros ni elige entre dos (nada de «Negocio · Construcción»): una parte se mira con el filtro. Que sea un solo
+  `<Grafo>` no alcanza: el 17/10 era uno y se veían dos nubes. Lo fija tests/second-brain-un-cerebro.test.ts.
+  **Y el «Negocio» se arma con lo que MaKo SABE hoy** (18/10/2026; Martín: «No te quedes con la vieja
   estructura de nodos»): una fuente nueva del producto (clientes, reuniones, lo que venga) entra en `agregarLoVivo`
   (lib/cerebro-vivo.ts) con su tope y su `.catch`; un área sin datos NO dibuja un nodo `falta:` (se dice en la raíz); y lo que tiene
   su propio racimo no cuelga además del nodo de área (tests/second-brain-negocio-vivo.test.ts).
@@ -1567,6 +1597,16 @@ código nuevo:
     **El turno (`turnoApp`) lo usan TRES chats** (el Second Brain, el teléfono y el MaKo Analyst de un lead): lo que
     escribe FUERA del hilo (guardar archivos, El Archivero, cualquier efecto nuevo) va detrás de una opción que prende
     quien llama (`guardarAdjuntos`), nunca para todos. El PDF de un lead no es un documento del negocio.
+  - **Un chat de tab adjunta con las piezas de la caja del Ops Center** (regla de Martín del 18/10/2026: un solo chat en
+    toda la app): el «+» (`MasCaja`), las miniaturas (`ListaAdjuntos`) y pegar y soltar (`alPegar`, `alSoltar`) de
+    app/admin/operaciones/AdjuntosCaja.tsx y pegar.ts, nunca un ⊕ propio. Fuera del Centro: se importa `centro.css`
+    (AdjuntosCaja trae sólo chat.css) en la pantalla que monta el chat, NUNCA en un módulo que cargan los tests (en node un
+    `.css` no carga: si el chat es un módulo compartido, `MasCaja` y `ListaAdjuntos` entran con `next/dynamic` y pegar y
+    soltar vienen de pegar.ts); y, si la pantalla tiene su propio tema (el editor de landings), se redefinen bajo su
+    raíz los tokens que usan (`--surface`, `--surface-2`, `--border`, `--ink`, `--dim`, `--velo-hover`, `--focus-ring`):
+    si no, el menú sale con los colores de la app sobre el oscuro del editor. Lo que una pantalla suma (leer el archivo
+    antes de mandar) va por `AdjuntoCaja.estado`, que la miniatura dibuja. El molde: el chat del editor
+    (app/web-generator/editor/paneles/PanelAgente.tsx, 20/10/2026).
   - **EL MODELO JUSTO Y LA INSTRUCCIÓN PRECISA: los tokens son la capacidad** (17/10/2026). Martín: «quiero que los jefes
     y el cerebro tengan la capacidad de ahorrar tokens, dando instrucciones precisas y eligiendo qué modelo de IA debe
     correr». Medido esa noche: con nueve chats abiertos, la ventana de 5 horas de una cuenta Max llegó al 95% en
@@ -1584,6 +1624,11 @@ código nuevo:
       pide `indice_segundo_cerebro` (~300 tokens) y después `recuperar_del_segundo_cerebro` con su pregunta o con ids
       (lib/cerebro-recuperar.ts, sin IA). Medido en dos workspaces reales: 118-190 tokens por pregunta contra 459-678 del
       grafo entero y 1.105-1.606 del vault. `leer_segundo_cerebro_como_archivos` es para un área ENTERA, no para contestar.
+  - **UNA SOLA CAJA PARA HABLAR CON MaKo: `app/_chat/CajaChat.tsx`** (20/10/2026; Martín: «Te pedí que unificaras el chat
+    del Ops Center en todos lados, su diseño y funcionalidades»). Ninguna pantalla nueva arma su <textarea>, usa
+    `ComposerWhatsApp` o `ChatHilo`, ni su botón de mandar para hablar con MaKo: usa la pieza y le pasa su motor por props.
+    Si falta algo, se le suma a la pieza (y lo tienen todas), nunca a una copia. tests/chat-unico.test.ts lleva la lista de
+    las que faltan, cada una con su chat, y falla si aparece una nueva.
   - **TODO LO QUE SE TERMINA LLEVA SU `revisar`** (17/10/2026; Martín: «se terminaron y pushearon cosas y no las puedo ver
     en Review»). El hito de la bitácora o el cierre (`cartero.mjs cierre … --revisar`) trae la ruta INTERNA donde Martín
     lo prueba (`/crm?lead=…`, `/general`, `/automations/…`). Sin eso, su «Ya está» sólo lleva a la tab del área.
@@ -1600,6 +1645,29 @@ código nuevo:
       todavía no lo está. Ni el «Ya está» ni un cierre del Plan salen antes.
     - **Lo que toca plata, seguridad o envíos a clientes pasa una revisión adversarial antes de subir.** La punta llega
       marcada «⚠️ REVISAR». Lo que encuentre la revisión vuelve al jefe como una punta aparte, con su test.
+    - **UN PEDIDO DE MARTÍN QUE LLEGA POR OTRO CHAT SE PEGA LITERAL, EL MISMO DÍA** (20/10/2026). Se pega como hito
+      `actor: "martin", tipo: "prompt"` en la bitácora del área, aunque vaya al final de la cola.
+      - Un relevo nunca escribe «los puntos N-M del feedback del <fecha>»: copia el texto o cita el hito. Una fecha no
+        identifica un documento, porque el 16/10 hubo dos «feedback».
+      - Una pregunta a otro chat que queda sin respuesta no saca el pedido de la lista: va a docs/pendientes.md con
+        «sin ubicar» y el transcript donde buscarlo.
+      - Pasó con el chat de Automations siempre abierto: pedido el 16/10, perdido en el relevo entre cuentas y vuelto a
+        pedir el 20/10 («¿No tienes el registro?»). Está en docs/hallazgos-chatbot.md.
+    - **TODO ARREGLO DE ALGO QUE REPORTÓ UN CLIENTE SE AVISA EN SU GRUPO DE MAKO** (20/10/2026; Martín: «siempre avisa al
+      grupo de MaKo de clientes correspondiente cuando solucionemos algo»).
+      - Va apenas está EN PRODUCCIÓN (deploy Ready), firmado «Desarrollador de MaKo» (`avisarArregloAlGrupo`, lib/aviso-arreglo.ts).
+      - No importa por dónde llegó el reporte: Martín, una llamada, el Ops Center o el vigía.
+      - El Cerebro le pasa a MaKo Alert el ws y qué se arregló en cada deploy, y MaKo Alert lo manda.
+    - **NINGÚN CEREBRO SE DIVIDE EN DOS** (20/10/2026; Martín: «En ningún caso jamás los cerebros se deben dividir en 2»). El
+      Second Brain de cualquier negocio, el del super admin incluido, es UN grafo: lo que separa la vista son los filtros
+      (pedido ya el 17/10 y el 18/10, pt 4). Se verifica mirando lo que se DIBUJA, no el código: dos raíces o dos racimos
+      separados también son dos cerebros.
+    - **UN VERDE QUE SÓLO DICE «TE FALTAN N COMMITS DE MAIN» SE MANDA IGUAL** (20/10/2026). Pasa cuando pasaron todos los tests y
+      las guardas, y lo único rojo es `tu rama no tiene origin/main mergeado` (scripts/antes-de-subir.mjs:276). Se manda el sha
+      diciéndolo, y el merge lo hace el Cerebro, con Actions chequeando los tipos.
+      - El candado `C:/dev/pesado.lock` no tiene cola, y con pushes seguidos un chat que espera siempre queda atrás. El 20/10 Onboarding
+        corrió su VERDE tres veces y Pagos esperó dos horas.
+      - Esto deja de hacer falta cuando el candado tenga cola y se mergee main al tomarlo (encargado a Infra el 20/10).
     - **Un jefe se abre con un mensaje de Martín en el chat del Cerebro, en la app.** `start_session` sólo corre en un
       turno que empieza con palabras de Martín: con un pedido que llega por el Ops Center contesta «Start sessions only on
       the user's own words» (docs/hallazgos-operaciones.md, «Los dos topes»). Una sesión de la nube no abre chats de la PC:
@@ -1769,6 +1837,26 @@ horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, un
   escribe una sola: `fijarZonaDelNegocio`, con su origen.
 - **Dos zonas se comparan después de `zonaCanonica`**: Cal.com y Chrome contestan alias (`America/Buenos_Aires`) y Node
   24 devuelve el nombre viejo de ICU.
+- **«Hoy» es el día del NEGOCIO, nunca `new Date().toISOString().slice(0, 10)`** (20/10/2026): eso es el día UTC, y de 18
+  a 24 h en México ya es mañana (la ficha daba vencida una cuota que vence hoy). En el server, `hoyEnWorkspace()`; en un
+  componente, `hoyEnTz(useTzWorkspace())` (app/crm/lead-view/useTzWorkspace.ts). Una función de plata no tiene un
+  `hoy` por default: lo pide, o lo saca del negocio. tests/pagos-cobro-idempotente.test.ts barre Pagos y Clients.
+- **Marcar un cobro es idempotente**: `marcarPago` y `cobrarCuota` no tocan una cuota que ya está como se pide y
+  devuelven `yaEstaba`. Quien marca lo DICE («Ya estaba cobrada») y no ofrece Deshacer: sería desmarcar el cobro de otro.
+  **Y la escritura es CONDICIONAL** (`siSigue` + `.select('id')`, lib/pagos.ts): leer el estado y compararlo en memoria
+  no alcanza con dos pantallas a la vez. Cero filas tocadas = otro llegó antes. `cobrarCuota` escribe el cobro ENTERO
+  (pagado, fecha, hora, monto, moneda) en esa sola escritura, nunca el monto primero y la marca después. Vale para
+  TODO escritor de una cuota, la pasarela incluida. **Un cobro con su diferencia pendiente va en UNA transacción**
+  (`cobrar_cuota_con_resto`, mig 0318): dos escrituras desde PostgREST no tienen un orden seguro (después de tomar la
+  cuota, una falla la dejaba sin su diferencia; antes, la dejaba como una cuota FANTASMA que la cobranza reclamaba). Lo
+  de después de cobrar va en `curarDespues`: corta primero (no tira) y sincroniza después, y el «ya estaba» de todo
+  escritor lo vuelve a correr, porque se puede repetir.
+- **El asistente de Ganado arma el plan UNA vez, y lo decide `planDelAsistente`** (lib/pagos-campo.ts, 21/10/2026):
+  con un plan no se toca; en una suscripción, los meses ya cobrados sueltos son las primeras cuotas y las fechas van
+  desde el cierre (como cuenta `cobradoDelLead`); un pago único con un pago previo no se arma. Nunca nace una cuota por
+  un mes ya cobrado, y lo que no se hizo vuelve en `sinTocar` y el asistente lo MUESTRA: nada se descarta en silencio.
+- **Los meses se suman con `sumarMeses` (lib/cobrado-lead.ts)**, que topa al último día del mes: `new Date(y, m + n, d)`
+  desborda un 29, 30 o 31 (31/10 + 1 mes = 01/12) y un plan de cuotas queda con meses sin cuota y meses con dos.
 
 # Una herramienta de laboratorio montada en el layout raíz es una herramienta EN PRODUCCIÓN
 
@@ -1906,6 +1994,30 @@ envíes un mensaje al grupo de MaKo diciendo que se solucionó eso. Con una acla
 - **NO necesita el OK de Martín** (17/10/2026, 10:09: «No necesitas mi aprobacion, manda el mensaje tranquilamente al
   grupo»): lo manda el jefe que arregló, con la herramienta y sus topes. Si el clasificador de permisos de Claude Code
   lo bloquea, se le dice a Martín en una línea, en el chat del jefe, con el comando exacto para que lo apruebe ahí.
+
+# Leer texto libre con reglas falla en lo obvio: la red es que la persona CONFIRME lo que se entendió
+
+Dos piezas leían texto con heurísticas: el onboarding (cifras, opciones, el «sí», el nombre del negocio) y el
+clasificador del chat de la app (qué herramientas ve MaKo). Cada ronda de reglas cerraba los casos marcados y abría otros,
+medido con revisiones adversariales y un escéptico por hallazgo (20-21/10/2026). En el onboarding fueron tres rondas,
+cada una con errores nuevos: «2 palos por mes» (pesos) se guardaba como «Más de $80.000» (dólares) y «Sí, es así»
+proponía «así» como nombre del negocio. En el clasificador fueron dos: «cancelá llamada pendiente con Juan» terminaba en
+`cancelar_accion`, que corre sin tarjeta.
+
+**La regla:** lo que se interpreta de un texto libre y se GUARDA como dato del cliente, o se EJECUTA sin vuelta atrás,
+pasa por un toque de la persona que ve lo que se entendió («Entendí $3.000 – $10.000 por mes. ¿Es así?»; la tarjeta de
+MaKo para una destructiva). Las reglas siguen sirviendo para PROPONER bien; la red es el toque. Así un error de lectura
+cuesta un clic y no un dato malo. Un texto que no da una lectura clara no adivina: pregunta. Eso incluye una moneda que
+no es la de los tramos, un empate o una negación rara. Un test fija que no hay ningún camino de guardado o de ejecución
+destructiva sin ese toque. Detalle: docs/hallazgos-infra.md («Re-revisar una punta arreglada»), hallazgos-onboarding e
+hallazgos-ia.
+
+**El corolario para lo que DICE MaKo (21/10/2026, el guardia de promesas 1.5):** un filtro sobre el texto del modelo
+NUNCA borra una oración. El guardia por raíces de palabras borraba 8 de 14 respuestas verdaderas («Sí, ya te la
+agendé» después de confirmar la tarjeta pasaba a «En este mensaje no hice nada») y atajaba 3 de 18 falsas, medido con
+los «Hecho:» que el código anota de verdad. Borrar una verdad le miente al cliente peor que dejar pasar una mentira.
+Lo que no tiene respaldo se MARCA con una nota corta, y el respaldo fuerte lo pone el código: lo ejecutado en el turno
+y la tarjeta confirmada, que ya se ven en el hilo. Los tests usan el resumen REAL de ejecución, no el de la propuesta.
 
 # Tres topes del entorno que no dan error: te dan otra cosa
 
@@ -4521,8 +4633,9 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   default cerrado y quien llama la afina con `pii`, EN POSITIVO (lo que no está revisado la lleva;
   molde: `CAJAS_SIN_DATOS_DE_CLIENTES`, lib/graficos-ia-elemento.ts).
 - ⛔ **D6b: UN NEGOCIO CON SU CLAUDE O SU GPT NO MANDA NADA A GEMINI NI A UNA IA O RED GRATIS** (Martín, 21/10/2026). Un
-  camino del Ops Center que llama a una IA corre adentro de `conSoloSuIA(negocio.suIA, …)` (lib/solo-su-ia.ts), con
-  `negocioConSuIA` (lib/ia-del-negocio.ts): por NEGOCIO y fallando cerrado. El corte vive en lib/ai-cheap.ts (`provDe`,
+  camino del Ops Center que llama a una IA corre adentro de `conSoloSuIA(negocio.suIA, …)` (lib/solo-su-ia.ts; el turno,
+  con `entrarSoloSuIA` después de su primer `await`), con `negocioConSuIA` (lib/ia-del-negocio.ts): por NEGOCIO y
+  fallando cerrado. El corte vive en lib/ai-cheap.ts (`provDe`,
   `provsGratisDePlataforma`) y en `ordenarPorCuota`: **una lectura nueva de una key barata, o una consulta nueva a un
   proveedor, pasa por ahí o suma su corte**, y tests/solo-su-ia.test.ts la tiene que ver (corre las entradas REALES de la
   cascada contra una base de mentira y cuenta a qué hosts sale). El 21/10 el corte obvio (`provDe`) no alcanzó: el orden
@@ -5003,8 +5116,15 @@ la ruta lo que su pantalla le esconde. El detalle, en [docs/hallazgos-seguridad.
 - **Todo handler de `app/api/cron` empieza con `checkCronAuth(req)`** (tiempo constante, fail-closed), y ninguna ruta
   lee `CRON_SECRET` por su cuenta.
 - **Un GET no escribe** (el de `chat-agent/onboarding/resumen` desarchivaba automatizaciones con un link).
-- **Toda función SQL nueva lleva su `revoke … from public, anon, authenticated`**: Supabase le daba EXECUTE directo a la
-  clave pública. La 0280 cambió el default; se mide con `has_function_privilege('anon', …)`, no leyendo la migración.
+- **Toda función SQL nueva lleva su `revoke … from public, anon, authenticated` Y su `grant execute … to service_role`** (el de una
+  función de trigger no hace falta), en su migración: **no es redundante.** La 0280 creía dejar las nuevas cerradas y NO lo hacía: el
+  EXECUTE de PUBLIC es un default GLOBAL de Postgres y un `alter default privileges … in schema` no lo saca, así que la 0310 y la 0318
+  nacieron ejecutables por la clave anon (la que viaja al navegador). La 0319 puso el default global y cerró las existentes;
+  `tests/migraciones-funciones-cerradas.test.ts` frena en Actions toda migración que cree una función sin ese revoke. Se mide con
+  `has_function_privilege('anon', …)` (`scripts/medir-funciones-publicas.mjs`), no leyendo la migración ni su comentario. Un PROCEDURE
+  se revoca con `on procedure` (o `on routine`, que sirve para todo). El default global de la 0319 también le da EXECUTE a service_role a
+  lo que postgres cree en CUALQUIER esquema; una extensión que haga pedidos de red (http, pg_net, dblink) NO debe vivir en `public` (la
+  clave anon la llamaría por /rest/v1/rpc: SSRF). Detalle: docs/hallazgos-seguridad.md («El EXECUTE de PUBLIC es un default GLOBAL»).
 
 # Un canal PROPONE; una persona confirma. Nada escribe directo
 
@@ -6003,6 +6123,9 @@ usuarios. Lo que pasa la prueba de arriba se pregunta así, y nunca en texto sue
 
 Martín la ve en tu chat del Ops Center como un formulario y elige. La respuesta te llega como un mensaje
 firmado: «Respuesta a tu pregunta «…» [pregunta <id>]: 2. …». Las reglas: lib/centro-preguntas-chat.ts.
+Si una pregunta tuya ya no hace falta (se resolvió por otro lado, o Martín dijo «no más preguntas»), **retírala**:
+`node ~/.claude/operaciones/cartero.mjs retirar <id>` (cartero 1.17.4; el id entero o sus primeros 8). Deja de esperarlo
+en el Ops Center; si todavía no había subido, no sale.
 
 # La cosecha: lo que aprende un subagente no vuelve solo
 
@@ -9410,3 +9533,16 @@ CRM, Clients y Plan, en computadora y teléfono, dibujan sus tarjetas con `app/_
 tengan coherencia»; prototipo docs/prototipos/coherencia-1710.html). Un tablero nuevo NO escribe su propia tarjeta: usa
 `TarjetaPersona` (una persona) o `TarjetaTarea` (una tarea), y le pasa a la raíz su arrastre y su clic. En el teléfono, la
 tarjeta va adentro de `KanbanM`. Detalle y trampas: docs/hallazgos-ui.md.
+
+## Lo que se guarda POR AUTOMATIZACIÓN fuera de su fila viaja con «Duplicar» (20/10/2026)
+
+La configuración propia de una automatización (horario, horas a la misma persona) vive en `app_settings`
+(`automatizacion.config:<id>`), no en `nutricion_secuencias`. Algo NUEVO que se guarde por id de automatización fuera de
+la fila se copia en `duplicarSecuencia` (lib/secuencia-duplicar.ts, por una dependencia OBLIGATORIA como `copiarConfig`) y
+en «Copiar flujo» pegado en el MISMO negocio (`crearDesdeCopia` con `configDe`, lib/flujo-copia-negocio.ts) y, si no se
+puede copiar, la copia se borra. Y un aviso que defiende algo (el de automatización duplicada) va en TODOS los caminos que
+lo prenden, no sólo en el botón de la pantalla donde se pensó: por eso vive en la puerta del server (`setSecuenciaActiva`
+pregunta; `aunqueDuplique` recién después de «… igual») y tests/automations-activar-todos-los-caminos.test.ts barre los
+llamadores. Un camino nuevo que prende una automatización tiene que manejar `duplicada` o ese test falla. Y un panel del NEGOCIO reusado adentro de algo de UNA automatización revisa cada
+cosa que guarda: el huso de la tuerca guardaba `mako.timezone` de todo el negocio. Detalle: docs/hallazgos-chatbot.md
+(«La revisión adversarial lo frenó»).

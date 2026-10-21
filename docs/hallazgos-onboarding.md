@@ -2386,3 +2386,40 @@ Pedido de Martín (punto 15 del feedback del 18/10), en cuatro commits de la ram
 - El modo plan sigue entrando a /plan: la capa Project Manager puede no ver /second-brain, y no se miró.
 - El chat del onboarding con el diseño del chat del Ops Center: después del 20/10.
 - Quedó CSS muerto de los anillos y de «Tócame» en `EntradaMako.tsx`.
+
+## Florencia (ws21, 18/10): el nombre del negocio, la conversación sin corte y el chat «Onboarding» que no llega a quien ya terminó (20/10/2026)
+
+- **El nombre: el diagnóstico obvio («el regex no entiende») es cierto, pero no es la causa de fondo.** `extraerNegocio` solo quita «se llama/es/son/somos» del principio, así que «(Es) mi marca personal: Florencia Ayelen Carballo» quedó tal cual en `workspaces.nombre`. De ahí pasó al funnel principal, al producto («Oferta de …»), al PDF y a su archivo en El Archivero.
+  - Lo que quitó la red fue 12ad33b25 (18/10 14:50). Para que el ws3 dejara de ofrecer «Consultesis» se sacaron las respuestas rápidas del nombre y del negocio, cuando el problema del ws3 era el RESET, arreglado en ese mismo commit.
+  - Desde entonces el nombre del alta («Consultora Argentina», medido por el slug) no se ofrece, y la respuesta libre lo pisa sin confirmar.
+  - El texto crudo que escribió la persona no se guarda en ningún lado, solo lo extraído.
+  - **Regla:** un dato que se copia a cinco lugares se confirma antes de escribirlo. Y un arreglo para el ws de prueba no saca lo que les sirve a los clientes reales.
+
+- **`preguntaAbierta` hizo al onboarding rehén del modelo.** 96971a73c (18/10) no deja pasar al PDF mientras el último mensaje de MaKo pregunte algo. Pero el cierre depende de que el modelo cumpla la regla 8, y su `listo` se parsea y nadie lo lee (lib/offer-reglas.ts:1113).
+  - Caso real: con las 3 piezas anotadas a las 22:43:34, MaKo siguió 6 preguntas y 10 minutos más (escalera, ventas, prueba, plazo, primera semana), que son justo las piezas del análisis que el punto 5 del 18/10 sacó. Antes había preguntado el precio 4 veces.
+  - **Regla:** que el onboarding terminó lo decide el código con lo medido (`faltanDelArranque`), nunca el modelo.
+
+- **Una respuesta rápida tocada se anota como palabras del dueño.** El turno #6 trajo UNA sola opción («Un plan de trabajo con hitos, tareas y seguimiento semanal»). Ella la tocó, y esa frase es hoy la 1ª sección del PDF y el `incluye` del producto. Los rangos de precio de las opciones también los inventó MaKo.
+
+- **«sin dato:» no es «[completar]».** `sinMarca` solo filtra la marca de cifras. Por eso «sin dato: en 200 casos, 100% llegó a defender…» llegó a la promesa del producto y al brief, y el PDF le dijo «Todavía no lo tienes claro» sobre su mejor dato. Además, 'escalera' no tiene título en el PDF (no sale) y TOPE_PIEZA = 400 corta las piezas con «…».
+
+- **Un link que no abre no le avisa al modelo** (app/offer/OfferApp.tsx:366-372). MaKo dijo «vi tu Instagram» sin haberlo leído: la guardia contó 2 lecturas pedidas y hay 1 documento guardado.
+
+- **El hilo «Onboarding» (b222b34fc) solo nace en la pantalla del onboarding al llegar a 'listo'.** /onboarding redirige a quien ya terminó, así que no cubre a nadie que haya terminado antes del deploy. Medido el 20/10: el único caso es el ws21, con 0 chats en chart_sessions. Hace falta un relleno aparte.
+
+**Vive en:** lib/onboarding-arranque.ts (extraerNegocio, sinMarca) · lib/onboarding-arranque-server.ts (cerrarArranque) · app/api/offer/route.ts (responder) · lib/offer-reglas.ts (mensajeDeMako) · app/offer/OfferApp.tsx · lib/lo-que-vendes-pdf.ts · *2026-10-20*
+
+**Lo que suma la llamada con Florencia (Fathom 864249059, 18/10):**
+- **«Me escribió en inglés» no fue MaKo:** ningún mensaje de la sesión 14 está en inglés. Fue el ChatGPT con el que ella armaba el texto largo, que después no entró por el tope de 12.000 caracteres del chat (`TOPE_MENSAJE`, app/api/offer/route.ts:115). Un texto largo tiene que ir como documento, por el mismo camino que el audio, no rebotar con un 413.
+- **Las preguntas con opciones no aceptan texto** (lib/onboarding-arranque.ts:570 y :586 devuelven «Elige una de las opciones.»), y la pantalla tampoco avisa que se puede escribir otra cosa.
+- **Lo que contestó en «¿qué querés que MaKo resuelva primero?» no se usa:** `rutaDeEntrada` (lib/onboarding-arranque.ts:194) no tiene llamadores, y la salida siempre va a /second-brain sin guía ni soporte visible.
+- **«Lo justo» estaba desplegado y el onboarding igual duró 45 minutos** (22:22→23:07 UTC, contra «menos de 5» del saludo). El diagnóstico obvio, que el límite de 3 piezas (6470c86f6) no estaba en producción, era el equivocado: 3413c63aa estaba READY desde las 21:35 UTC. La causa es la de arriba: el corte lo decide el modelo.
+
+## Lo que encontró la revisión de onboarding-v3 antes de subirla (20/10/2026)
+
+El detalle está en las notas compartidas, `revision-onboarding-v3-20-10.md`.
+- **«Confirmar» un dato no sirve si un texto que no es «sí» se guarda igual.** «Sí» con tilde no matcheaba `s[ií]`, porque `` no corta después de una letra acentuada, y se guardaba como el nombre del negocio. **Regla:** con algo pendiente de confirmar, nada se escribe sin un sí explícito; otro texto es una propuesta nueva.
+- **Un chat que se COPIA al terminar necesita candado e insert en lote.** Con dos caminos que crean (el POST de la pantalla y la primera visita a /second-brain) y una ventana de segundos, salen duplicados o se adopta una copia a medio hacer.
+- **«Quién lo hizo» se guarda:** sin eso, el hilo de la dueña se le crea al primer admin que entra.
+- **Una capa que se decide en el cliente no arranca visible en el HTML del server.** `useState(true)` la pinta en cada carga, antes de leer el sessionStorage.
+

@@ -1149,3 +1149,155 @@ reciben ese dato —acá el validador y el worker— antes de darlo por cerrado.
   lo soporta (es un array ordenado), lo que falta es el arrastre.
 - **El worker sigue sin contenedor**, así que nada de esto se probó de punta a punta contra
   un montaje real.
+
+---
+
+## §14 — La cola que nadie atendía (20/10/2026)
+
+`lib/montaje/pipeline.ts` · `lib/montaje/cola.ts` · `app/api/cron/montaje/route.ts` ·
+`scripts/plan-cortes-anuncio.mjs` · `next.config.ts` (`outputFileTracingIncludes`) ·
+`tests/montaje-cola.test.ts`
+
+**Síntoma.** En la llamada con Leila del 19/10, la pantalla del montaje decía «Lleva 68.646
+minutos esperando turno». Medido el 20/10 en `montaje_trabajos`: dos trabajos, #3 (ws1,
+01/09, 7 tomas) y #4 (ws11, 02/09, 8 tomas), los dos `pendiente` con `intentos = 0`. Nadie
+los había tomado nunca, y por eso las tomas tampoco llegaban al Video Editor.
+
+**Causa.** El proceso que ejecuta la cola era el worker en contenedor de §13, y ese
+contenedor nunca se desplegó («Provisionar el contenedor — necesita la cuenta de Martín»
+quedó como pendiente y ahí murió). Lo atiende ahora un cron de Vercel cada 2 minutos, con
+`ffmpeg-static`, que se despliega con todo lo demás.
+
+### ⚠️ El diagnóstico obvio era el equivocado: desplegar el contenedor no habría montado nada
+
+El bash que llamaba el worker lee la voz de cada toma de `sts-N.mp3`. Esos archivos los
+creaba sólo el script MANUAL (`montar-anuncio-vertical.sh`, con ElevenLabs): el worker
+bajaba los clips y llamaba al bash sin crearlos. El primer trabajo habría muerto en el plan
+de cortes. El pipeline en Node agrega el paso 0: la voz sale del audio del propio clip (la
+que generó Flow). **Regla:** antes de «desplegar lo que faltaba», correr lo que ya está
+escrito contra un caso real; un componente que nunca corrió no está «listo salvo el
+deploy».
+
+### `ffmpeg-static` 5.3.0 trae DOS ffmpeg distintos según el sistema
+
+El paquete fija el tag `b6.1.1`, pero el binario de Windows es ffmpeg **6.1.1** (gyan.dev) y
+el de Linux es **7.0.2** (johnvansickle; lo dice su `linux-x64.README`). La misma versión
+del paquete cambia de ffmpeg al cambiar de máquina. Consecuencia concreta: la sintaxis
+`-/filter_complex archivo` (§11.4) anda en Linux y **falla en Windows**. El pipeline pasa los
+filtros en línea, que anda en las dos. Y el build estático de Linux pierde la resolución
+DNS (glibc estática): **ffmpeg nunca recibe una url**, las tomas se bajan con `fetch`.
+
+### Sin ffprobe, la duración daba 0 sin un error
+
+`ffmpeg-static` no trae ffprobe, y `plan-cortes-anuncio.mjs` leía la duración SÓLO de
+ffprobe: sin él, `+''` es `0`, el tope de cada toma es 0 y el plan sale vacío o en `NaN`,
+sin una línea de error. Ahora cae a la línea `Duration:` de `ffmpeg -i`. `FFMPEG` y
+`FFPROBE` se leen del entorno.
+
+### Lo que tiene que viajar con la función, nadie lo importa
+
+ffmpeg, los cuatro scripts de ayuda y la Anton se ejecutan o se leen como archivos: el
+trazado de Next no los ve y la función llegaría sin ellos. Van en
+`outputFileTracingIncludes['/api/cron/montaje']`, y el test exige que cada
+`script('x.mjs')` del pipeline esté ahí. La ruta de ffmpeg se arma a mano: el `index.js` de
+`ffmpeg-static` usa `__dirname`, que empaquetado por Next deja de apuntar a node_modules. Si
+el binario llega sin permiso de ejecución, se copia a `/tmp` y se le hace `chmod` (el resto
+del disco de la función es de sólo lectura).
+
+### Tomar un trabajo le quema un intento
+
+`montaje_tomar` suma un intento al tomar y al tercero lo da por fallido. Si el cron tomara
+sin tener ffmpeg o la clave de Groq, cada corrida le quemaría un intento a un trabajo sin
+culpa. Pregunta por las herramientas ANTES de tomar.
+
+### La espera necesita un final
+
+Una fila sin vencimiento convierte cualquier caída del que la atiende en una espera eterna
+que se lee igual que una fila larga. El cron da de baja lo `pendiente` de más de 6 horas
+(`VENCE_HORAS`) con `motivo = 'vencido'`, y la pantalla tiene su texto: «quedó en la fila
+sin que nadie lo tomara». No «no se pudo montar», que haría pensar que el anuncio tiene algo
+mal. Seis horas y no menos porque el peor reintento vivo (tres rescates de 20 minutos) ronda
+la hora. La espera se dice en horas pasados los 60 minutos.
+
+### La duración de la primera toma para todas: arreglado
+
+El pendiente anotado el 16/09 (arriba) seguía en el port: el plan recibía un solo número,
+el de la primera toma, y topeaba ahí a todas. Ahora `<durvid>` acepta una lista
+(«10,8,10»), y el pipeline pasa una por toma. Un número solo sigue valiendo para todas (el
+bash). `segundosAntes` es la suma de las duraciones, no N × la primera.
+
+### Un test que busca basura en `/tmp` puede tropezar con la de otra corrida
+
+La primera pasada de roturas dio la base en 10 / 2 después de R11 («no limpia al
+fallar»): esa rotura dejó carpetas `montaje-<id>-*` y la corrida siguiente las encontró. Cada
+corrida del test usa ids propios.
+
+### Lo que encontró la revisión adversarial (20/10, noche)
+
+- **Vencer en una corrida que no puede montar es prometer en falso.** El cron vencía ANTES de mirar si
+  tenía ffmpeg y la clave de Groq, y el texto decía «arranca en el momento»: el cliente montaba de
+  nuevo y el trabajo nuevo tampoco lo tomaba nadie. Ahora pregunta primero; si falta algo no toca la
+  cola y avisa a la Ticketera (`registrarError`, origen `servidor`). El texto del vencido no promete
+  cuándo arranca.
+- **La columna `error` la lee el cliente.** Se guardaba el stderr de ffmpeg o la respuesta de Groq
+  (con el id de la organización), y la pantalla lo mostraba entero al agotarse los intentos. Ahora
+  `error` es una frase (`errorParaLaPersona`) y el detalle va al log; la pantalla no interpola
+  `estado.error` en el caso genérico, por si queda un trabajo viejo con el crudo.
+- **Una dependencia con descarga en el `postinstall` es un punto de falla de TODOS los deploys.**
+  Medido en una carpeta aparte con `FFMPEG_BINARIES_URL` cortada: como dependencia común, `npm ci`
+  sale 1; como `optionalDependencies`, sale 0 y no queda el binario (con la descarga sana, queda).
+  Next acepta un `outputFileTracingIncludes` que no encuentra nada (el glob devuelve una lista vacía).
+  Sin el binario, el cron no corre y avisa.
+- **Quién ve los dos trabajos viejos.** Al primer pase con todo en su lugar, el #3 (ws1, «El Verdadero
+  Origen del Incumplimiento») y el #4 (ws11, «Los 4 sistemas para tu negocio») quedan vencidos. Sus
+  anuncios siguen en el historial: al abrir el paso de montaje de cada uno se lee «Este montaje quedó en
+  la fila sin que nadie lo tomara y se dio de baja. Fue un problema nuestro, no de tu anuncio: puedes
+  montarlo de nuevo», con «Montar de nuevo». La API de MaKo (`ver_montaje_anuncio`) devuelve el mismo
+  texto. **En el teléfono decía «No se pudo montar»** (el motivo no llegaba a `/m/video`): corregido
+  en la segunda revisión, ahí dice «Se dio de baja: móntalo de nuevo en la computadora».
+
+### Lo que encontró la segunda revisión (21/10)
+
+- **Una clave de IA leída de `process.env` a secas falla en cada arranque en frío.** Las claves de
+  IA salen de la base y las copia `instrumentation.ts`, que Next 16 no espera (3 de cada 10 requests
+  sin la clave, medido). El cron leía `GROQ_API_KEY` así: en frío daba «falta GROQ_API_KEY», abría un
+  ticket FALSO y perdía la corrida; si la hidratación fallaba, la cola quedaba frenada. Ahora va con
+  `envCred` (`lib/credenciales.ts`), que espera la hidratación y si no, va a la base. **Regla:** en
+  una ruta nueva, toda clave de IA con `envCred`; `process.env` sólo para las variables de Vercel.
+- **«Montar de nuevo» perdía los cortes editados.** El botón re-encola sin plan; con el cron andando,
+  un montaje editado que fallaba volvía con los cortes automáticos, en «listo» y sin aviso. Ahora,
+  sin plan, se usan los del último trabajo fallido de ese anuncio, validados contra las tomas de
+  ahora (`planParaRemontar`). Con una toma rota (`material`) no: hay que re-filmar y las duraciones
+  cambian.
+- **Y la tercera revisión: reusar cortes sólo con las MISMAS tomas.** El primer arreglo validaba los
+  cortes viejos con `porQueNoSirveElPlan`, que mira cuántas tomas hay y cuánto duran en el guion, no
+  qué se filmó. Con una toma agregada, ésa quedaba fuera del anuncio; con una re-filmada (url nueva,
+  misma duración), se cortaba con los silencios de la vieja; con agregar o partir en el medio, los
+  tramos caían sobre otras tomas, y la pantalla decía «Se fue el silencio, no una palabra». Ahora se
+  reusan sólo si el ÚLTIMO trabajo del anuncio es el fallido y sus urls y segundos son iguales, uno
+  por uno, a los de ahora. **Regla:** un dato derivado (los cortes) se reusa sólo si su fuente (las
+  tomas) es la misma, no si «todavía pasa la validación».
+
+### El primer montaje en producción (21/10, run 189)
+
+- **El cron corrió a los minutos del deploy** y venció el #3 y el #4 con el texto nuevo, sin un
+  solo «falta» ni ticket. Sin acceso a los logs de Vercel, la prueba de vida fue la base: un
+  vencido sólo pasa en una corrida que ya verificó ffmpeg y la clave de Groq.
+- **El primer montaje real** (trabajo #5 del ws3, tres tomas de prueba encoladas a mano) llegó a
+  «listo» en menos de un minuto desde que se tomó: 24 s → 11,99 s, h264 720×1280, AAC 48 kHz,
+  −14,04 LUFS, los mismos cortes que en local. Con el ffmpeg 7.0.2 de Linux y sin fontconfig del
+  sistema, los subtítulos salen en Anton (el `fonts.conf` propio alcanza). Queda en el ws3 como
+  prueba.
+
+### Lo que quedó SIN hacer
+
+- **El worker del contenedor quedó muerto**: `worker/montar-cola.mjs`, `worker/Dockerfile`
+  y `app/api/montaje/worker/route.ts` (sin `MONTAJE_WORKER_TOKEN` contesta 404). Borrarlos o
+  dejarlos como camino alternativo es una decisión; si alguien los despliega, conviven
+  (`for update skip locked`), pero el worker seguiría sin `sts-N.mp3`.
+- **Avisarle a la persona cuando el anuncio está listo.** Hoy lo ve si tiene la pantalla
+  abierta o vuelve a entrar.
+- **El verificador de palabras** (`verificar-corte-anuncio.mjs`) sigue sin invocarse, igual
+  que en §13.
+- **Un deploy sin ffmpeg** (la descarga de GitHub falló): el build sigue y el cron avisa a la
+  Ticketera en cada corrida hasta que se redespliegue. Nadie lo reinstala solo.

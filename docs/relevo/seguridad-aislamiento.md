@@ -1,5 +1,15 @@
 # Relevo — Seguridad, cifrado y aislamiento entre clientes
 
+> **⏳ PENDIENTE DE UN PERMISO DE MARTÍN (21/10/2026): medir en producción qué funciones de `public` puede ejecutar la clave pública.**
+> La 0319 (`supabase/migrations/0319_funciones_sin_public.sql`) cierra el EXECUTE de PUBLIC —que la 0280 creía cerrado y no lo estaba—
+> con el default global y un bucle sobre el catálogo; el test `tests/migraciones-funciones-cerradas.test.ts` exige el revoke en toda
+> migración nueva. Lo que NO se hizo: la medición en producción (`node --env-file=C:/dev/mako-api/.env.local scripts/medir-funciones-publicas.mjs`,
+> sólo lectura, transacción `read only`). El clasificador de permisos de la sesión la denegó («Production Reads») y el Cerebro tampoco la corre
+> desde otra sesión: hacer en una lo que a otra le negaron sería saltear el permiso, y eso sólo lo habilita Martín. **Hay que correrla ANTES y
+> DESPUÉS de aplicar la 0319.** Esperado después: ninguna función de `public` que no sea de una extensión con la marca `A` (anon) o `U`
+> (authenticated), y `S` (service_role) en todas. Detalle en `docs/hallazgos-seguridad.md` → «El EXECUTE de PUBLIC es un default GLOBAL».
+> También abierto ahí: la 0318 de Pagos tiene que llevar su revoke/grant, y hay números de migración repetidos entre ramas (0318 ×2, 0319 ×2).
+
 > **17/10/2026 — los pendientes del área, cerrados por el agente «Pendientes B1» (rama `pend-b1-1710`, sin pushear: la
 > sube el Cerebro).** Lo que enseñó cada uno, en `docs/hallazgos-seguridad.md` → «Los pendientes de seguridad del
 > 17/10/2026». Estado de las secciones de abajo:

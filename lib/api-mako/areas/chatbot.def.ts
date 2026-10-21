@@ -244,7 +244,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'crear_automatizacion_con_ia', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Crear una automatización con IA',
-    descripcion: 'PROPONE crear una automatización nueva a partir de un pedido en palabras: MaKo arma el CRON, las tarjetas y el nombre (lo mismo que «Pídeselo a MaKo» en Automations); lo que contesta cuando el lead escribe va en UN AI Step con su objetivo y sus escenarios. Nace PAUSADA: no le escribe a nadie hasta que alguien la active. Si la persona mandó un audio, pasa la transcripción. Si falta un dato decisivo, el error trae UNA pregunta con opciones numeradas: hazla tal cual en el grupo y vuelve a llamar con lo que conteste en el parámetro que dice faltan (canal, producto o evento), junto con el mismo pedido.',
+    descripcion: 'PROPONE crear una automatización nueva a partir de un pedido en palabras: MaKo arma el CRON, las tarjetas y el nombre (lo mismo que «Pídeselo a MaKo» en Automations); lo que contesta cuando el lead escribe va en UN AI Step con su objetivo y sus escenarios. Nace PAUSADA: no le escribe a nadie hasta que alguien la active. Si la persona mandó un audio, pasa la transcripción. Si falta un dato decisivo, el error trae UNA pregunta con opciones numeradas: hazla tal cual en el grupo y vuelve a llamar con lo que conteste en el parámetro que dice faltan (canal, producto, evento, horario o quien), junto con el mismo pedido. Si el pedido dice cada cuánto sale («los martes a las 3»), MaKo arma un Recurrente con ESE horario.',
     parametros: [
       { nombre: 'pedido', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'qué tiene que hacer, con las palabras de la persona.' },
       // DUODÉCIMA TANDA (§2.4): las respuestas a las preguntas de MaKo (`preguntaAntes`). El código las resuelve contra
@@ -252,8 +252,11 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'canal', tipo: 'string', max: 500, descripcion: 'opcional: la respuesta a «¿Por dónde le escribo?» (el número o el nombre de la opción, o «Elige tú»).' },
       { nombre: 'producto', tipo: 'string', max: 500, descripcion: 'opcional: la respuesta a «¿De qué producto?» (el número o el nombre de la opción, o «Elige tú»).' },
       { nombre: 'evento', tipo: 'string', max: 500, descripcion: 'opcional: la respuesta a «¿Qué hace la persona?» (el número o el nombre de la opción, o «Elige tú»).' },
+      // EL RECURRENTE (20/10/2026, lib/flujo-ia-recurrente.ts): el horario que faltaba y a quién le llega.
+      { nombre: 'horario', tipo: 'string', max: 500, descripcion: 'opcional: la respuesta a «¿Cuándo sale?» (el número de la opción, o la hora o el día en palabras, o «Elige tú»).' },
+      { nombre: 'quien', tipo: 'string', max: 500, descripcion: 'opcional: la respuesta a «¿A quién le llega?» (el número o el nombre de la opción, o «Elige tú»).' },
     ],
-    reversible: true, escribe: 'inserta una fila pausada en nutricion_secuencias con el flujo que arma la IA (y las etiquetas nuevas que nombre)',
+    reversible: true, escribe: 'inserta una fila pausada en nutricion_secuencias con el flujo que arma la IA (y las etiquetas nuevas que nombre); si es un Recurrente, con «Cada vez que vuelve a entrar»',
     canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   // Crear desde la GALERÍA (undécima tanda): la MISMA función que «＋ Nueva» (`crearDesdePlantilla`, lib/plantilla-crear.ts),
@@ -314,6 +317,33 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'vistaPrevia', tipo: 'boolean', obligatorio: true, descripcion: 'false para mandar los links sin la tarjeta; true para volver a mandarlos con ella.' },
     ],
     reversible: true, escribe: 'cambia pasos[orden].sin_vista_previa en nutricion_secuencias',
+    canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
+  // CONFIGURACIONES DE UNA AUTOMATIZACIÓN (20/10/2026, Martín, 16/10 punto 5: «"configuraciones" ya no viva para todo
+  // Automations, sino para cada chat»): su horario y sus horas a la misma persona (lib/config-automatizacion.ts). Lo
+  // mismo que la tuerca del título. Sin http, como las demás nuevas.
+  {
+    id: 'configuracion_automatizacion', area: 'chatbot', tipo: 'lectura',
+    titulo: 'Configuración de una automatización',
+    descripcion: 'El horario de oficina y las horas entre dos mensajes a la misma persona de UNA automatización: los suyos si tiene, si no los del negocio (dice cuáles valen y de dónde salen). Úsala cuando pregunten a qué hora manda una automatización o cada cuánto le escribe a la misma persona. Pide antes el secuenciaId con listar_secuencias_nutricion.',
+    parametros: [pSecuenciaId],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB },
+  },
+  {
+    id: 'configurar_automatizacion', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Configurar una automatización',
+    descripcion: 'PROPONE el horario de oficina o las horas entre dos mensajes a la misma persona de UNA automatización (lo mismo que su tuerca en Automations). Sin nada propio, usa los del negocio. Pide antes el secuenciaId con listar_secuencias_nutricion.',
+    parametros: [
+      pSecuenciaId,
+      { nombre: 'horario', tipo: 'string', enum: ['propio', 'negocio', 'sin_horario'], descripcion: 'opcional: «propio» (con desde, hasta y dias), «negocio» para volver al del negocio, o «sin_horario» para que mande a cualquier hora.' },
+      { nombre: 'desde', tipo: 'number', minimo: 0, maximo: 23.5, descripcion: 'con horario propio: la hora en que abre (9.5 = 9:30).' },
+      { nombre: 'hasta', tipo: 'number', minimo: 0.5, maximo: 24, descripcion: 'con horario propio: la hora en que cierra (21 = hasta las 20:59).' },
+      { nombre: 'dias', tipo: 'string', max: 40, descripcion: 'con horario propio: los días separados por coma, 0 = domingo ("1,2,3,4,5"). Sin esto, todos.' },
+      { nombre: 'horasWhatsapp', tipo: 'number', entero: true, minimo: 3, maximo: 72, descripcion: 'opcional: horas entre dos WhatsApp a la misma persona en esta automatización.' },
+      { nombre: 'horasEmail', tipo: 'number', entero: true, minimo: 1, maximo: 168, descripcion: 'opcional: horas entre dos emails a la misma persona en esta automatización.' },
+      { nombre: 'personaNegocio', tipo: 'boolean', descripcion: 'opcional: true para volver a las horas del negocio.' },
+    ],
+    reversible: true, escribe: 'guarda automatizacion.config:<id> en app_settings (el horario y las horas a la misma persona de esa automatización)',
     canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   {

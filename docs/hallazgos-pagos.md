@@ -268,6 +268,19 @@ el MRR un 85% (hallazgos-crm.md).
   US$1.875, y el 13/10 se marcó pagada sólo una.
 - **La regla.** Antes de tocar General por un «ya está cobrado», se leen los pagos del lead y su historial.
 
+### «Clientes por cobrar» no veía las suscripciones: una suscripción no genera cuotas (20/10/2026)
+
+- **El síntoma** (Martín, llamada con Leila del 19/10): la lista de a quién cobrarle no mostraba a ningún cliente de
+  mensualidad. Leía sólo cuotas impagas (`getOutstandingDetalle`), y una suscripción manual se registra mes a mes.
+- **La regla, la de toda la app** (`cobradoDelLead`, en lib/suscripciones-por-cobrar.ts): entra un mes manual sin
+  registrar, una renovación de la pasarela rechazada, o la próxima mensualidad manual dentro de la ventana. Una de la
+  pasarela al día no entra: se cobra sola.
+- **Lo que NO cambia: el número de Outstanding.** La app no llama deuda a un mes sin registrar (dice «Falta
+  registrar», en ámbar: puede estar cobrado y no anotado). Por eso se suma a la LISTA (`getPorCobrar`, lib/pagos.ts), y
+  el Outstanding sigue saliendo de las cuotas.
+- **Una fila sin cuota no ofrece «Cobrada»:** abre la ficha, donde se registra el mes. General y el teléfono descartaban
+  toda fila sin cuota; ahora las dos usan `cobroDeFila` (app/m/dashboard/modelo.ts). tests/suscripciones-por-cobrar.test.ts.
+
 ### Cliente de agencia (#866 y #867)
 
 No es de esta tab: es la pasarela y la cuenta de la agencia. Está en
@@ -378,3 +391,149 @@ tests/moneda-negocio-pantalla.test.ts.
 - **Síntoma** (revisión del Deshacer del CRM): un movimiento del wizard reprogramó una cuota y después se deshizo. La cuota volvió a quedar vencida y el cron mandó un SEGUNDO «cuota vencida» por la misma deuda, con una cadencia nueva.
 - **Causa:** reprogramar una cuota pasa sus marcas `cuota-vencida`/`cuota-por-vencer` a epoch (`olvidarAvisosDeCuotas`, `lib/pagos.ts`), para que la fecha nueva vuelva a avisar. El Deshacer devolvía la fecha con un update directo y la marca quedaba en epoch.
 - **Regla:** todo lo que escriba la fecha de una cuota sin pasar por la reconciliación ni por `editarCuota` tiene que dejar el dedup coherente con esa fecha. Para volver atrás: `leerMarcasDeCobranza` ANTES y `reponerMarcasDeCobranza` después. Es compare-and-set contra `DEDUP_OLVIDADO` (`marcaAlDeshacer`, `lib/cobranza.ts`), así que un aviso que salió en el medio gana. El detalle del Deshacer está en `hallazgos-crm.md`.
+
+## Marcar un cobro dos veces lo cambiaba, y la ficha contaba «hoy» en UTC (20/10/2026)
+
+**Vive en:** `marcarPago` y `cobrarCuota` (lib/pagos.ts) · las acciones `marcarPagoAction` (app/crm/actions.ts) y
+`marcarPagoManualAction` (app/crm/[id]/deal-actions.ts) · `marcar_pago_cobrado` (lib/api-mako/areas/crm.run.ts) · las
+pantallas que marcan: General, el teléfono, las dos del Dashboard y la tab Pagos. Test:
+tests/pagos-cobro-idempotente.test.ts, que corre las funciones reales contra una base de mentira con el reloj a las 20 h
+de México.
+
+- **Síntoma:** se encontró armando «A quién cobrar» en el chat (la 2.27). Una lista guardada se toca días después.
+- **Causa 1:** `marcarPago(id, true, fecha)` no miraba si la cuota ya estaba cobrada. Pisaba `fecha_pago`, el cobro
+  saltaba de mes (y el Cash con él) y el historial decía «Pago registrado» otra vez. `cobrarCuota` le reescribía además
+  el monto y la moneda al cobro que ya había entrado. Pasaba con cualquier lista vieja: General en dos pestañas, el
+  Dashboard, una tarjeta de MaKo confirmada hasta dos horas después de proponerla (`preparar` mira el estado, pero
+  `ejecutar` no lo volvía a mirar).
+- **Causa 2:** el Deshacer del toast, después de un «ya estaba», habría desmarcado el cobro de OTRO. Y desmarcar dos
+  veces un pago que nació cobrado podía QUITARLO (`quitarSiNacioCobrada`).
+- **Regla:** los dos no tocan nada si la cuota ya está como se pide, y devuelven `yaEstaba`. Las acciones vuelven antes
+  del historial. Las pantallas dicen «Ya estaba cobrada» o «ya estaba sin cobrar», sin Deshacer. MaKo contesta que no
+  cambió nada. Ninguna pantalla vuelve a cobrar una cuota cobrada a propósito: para corregir un cobro, se desmarca o se
+  edita la cuota.
+- **Causa 3, el «hoy» en UTC:** FichaPorBloques y PagosCliente usaban `new Date().toISOString().slice(0, 10)`. Los modales
+  «Marcar pagada» y «Registrar pago» proponían ese día, y `marcarPago` y `savePlanPagos` lo usaban de default. De 18 a
+  24 h en México ya es mañana: la ficha daba vencida una cuota que vence hoy, y un cobro de la noche caía al día
+  siguiente. Ahora es el día del negocio: `hoyEnTz(useTzWorkspace())` en la ficha (la zona de General, `tzActual`) y
+  `hoyEnWorkspace()` en el server. `_getOutstandingDetalle` y `_getCuotasPendientes` ya no tienen un `hoy` por default.
+- **⚠️ Fuera de Pagos quedan días fijos en Tijuana**, que no son UTC pero tampoco son la zona del negocio:
+  app/crm/actions.ts:497 y :1807 (los requisitos para mover de etapa y el export de leads; son del CRM) y
+  app/m/dashboard/page.tsx:44 (los períodos del teléfono, que copian los de escritorio; son del Dashboard). **Sin hacer.**
+
+### Lo que encontró la revisión adversarial de ese arreglo (20/10/2026, noche)
+
+- **«Ya estaba» leído en memoria no alcanza: dos cobros A LA VEZ pasaban los dos.** `marcarPago` leía `pagado`,
+  comparaba y escribía sin condición. Con General en la computadora y en el teléfono, las dos marcas pasaban, la segunda
+  pisaba la fecha, y las dos ofrecían Deshacer. En `cobrarCuota` era peor, y nuevo del arreglo: escribía el monto y la
+  moneda ANTES de marcar e ignoraba el `yaEstaba` de su `marcarPago` interno. Con MaKo cobrando 300 mientras la ficha
+  guardaba 500 en pesos, la cuota quedaba mezclada, sobraba una cuota pendiente de 200, el historial anotaba una fecha
+  que no quedó, y lo cobrado del lead quedaba desfasado. **Regla:** la escritura es condicional (`siSigue`: sigue
+  impaga para cobrar, sigue cobrada para desmarcar) y mira cuántas filas tocó (`.select('id')`). `cobrarCuota` escribe
+  el cobro ENTERO en esa sola escritura, y lo de después (sincronizar, cortar recordatorios, anular links) va en
+  `trasCobrar`, el mismo para los dos. Si la diferencia pendiente no se puede guardar, la cuota vuelve a como estaba,
+  impaga.
+- **La trampa de la condición al revés:** la primera versión le pasó a `siSigue` el estado al revés. Para cobrar pedía
+  «cobrada», y ninguna marca escribía: todas devolvían «ya estaba». La agarró el test de la carrera, que mira que gane
+  exactamente uno, no sólo que el segundo pierda.
+- **La cartera de Clients contaba vencidas en UTC y con `<=`** (lib/cs-cartera.ts), y la deuda vencida del Dashboard la
+  copiaba (`filasCartera`, lib/graficos-datos-extra.ts). Una cuota de HOY salía vencida a cualquier hora («Cuota vencida
+  hace 0 días» en MaKo y en CS), mientras la ficha, General y el cron decían «vence hoy». Ahora usan el día del negocio y
+  `<`, como `getCuotasPendientes`, y los días se cuentan de calendario contra ese día.
+- **El asistente de Ganado armaba el plan con el día UTC** (app/crm/StageMoveDialog.tsx). Un pago único de la noche
+  proponía la cuota para mañana. «+ Agregar cuota» sin cuotas arrancaba del instante UTC. Ahora todo sale de
+  `hoyEnTz(useTzWorkspace())`. ⚠️ **«Noviembre sin cuota» NO era el UTC** (corregido el 21/10): era el desborde de fin de
+  mes, que pasa con el día correcto también. Está en la entrada de abajo.
+- **La hora del cobro era la del navegador** y el día, el del negocio: alguien en Buenos Aires anotaba un cobro de México
+  con el día de allá y la hora de acá. Ahora la hora también es la del negocio (`horaEnTz`, lib/date-utils.ts).
+
+### La segunda revisión: los bordes del cobro y los meses del asistente (21/10/2026)
+
+- **⚠️ El asistente de Ganado saltaba meses en una suscripción cerrada un 29, 30 o 31, con el día que sea.**
+  `sumarMesesISO` hacía `new Date(y, m - 1 + n, d)` sin tope. Cerrada el 31/10, las cuotas nacían el 01/12, 31/12, 31/01,
+  03/03, 31/03, 01/05…: noviembre, febrero, abril, junio y septiembre sin cuota, y otros meses con dos. «+ Agregar
+  cuota» desbordaba igual (31/01 → 03/03). El diagnóstico del 20/10 («el día UTC») era el obvio y el equivocado: arreglar
+  el día no lo arreglaba. **Regla:** los meses se suman con `sumarMeses` (lib/cobrado-lead.ts), la de las suscripciones,
+  que topa al último día y cuenta siempre desde el cierre (31/10 → 30/11 → 31/12 → 31/01 → 28/02).
+- **La primera cuota del asistente abierto desde el tablero nacía con el día de Tijuana.** El tablero no monta nada que
+  pida la zona, `useTzWorkspace` arranca en Tijuana y `useState` se quedaba con ese primer valor: en México, a las 00:30
+  la cuota nacía ayer, vencida. Ahora, cuando llega la zona, se corre la fecha que nadie tocó.
+- **`cobrarCuota` podía quedar a medias, y el reintento decía «ya estaba».** Tomaba la cuota y DESPUÉS leía las cuotas e
+  insertaba la diferencia. Un error en el medio la dejaba cobrada sin su diferencia y sin sincronizar, y el reintento no
+  lo curaba. Además, devolverla a impaga cuando fallaba la diferencia volvía mentira el «ya estaba cobrada» que otra
+  pantalla acababa de mostrar. **Regla:**
+  - ~~lo que acompaña al cobro (la diferencia) va ANTES de tomar la cuota~~ **superado el mismo 21/10:** dejaba una
+    cuota FANTASMA (ver «La tercera revisión», abajo). Ahora el cobro y la diferencia van en una transacción;
+  - el número de la diferencia se renumera una vez si otro escritor lo tomó (23505);
+  - el «ya estaba» CURA lo de después (sincronizar, cortar recordatorios), que se puede repetir.
+- **La pasarela marcaba sin condición una cuota recién cobrada a mano.** Si la transferencia a mano llegaba entre su
+  lectura y su escritura, la pisaba: dos pagos se veían como uno. Ahora la marca de la pasarela va con la misma escritura
+  condicional, y si la cuota ya no estaba impaga, el pago entra como una cuota nueva (las dos se ven).
+
+### La tercera revisión: la diferencia fantasma, el plan que se rehacía y el mes corrido (21/10/2026)
+
+- **⚠️ Dos escrituras desde PostgREST no tienen un orden seguro.** La diferencia DESPUÉS de tomar la cuota: un error en
+  el medio la dejaba cobrada sin su diferencia (o había que devolverla a impaga). ANTES: un error en la toma, o una
+  respuesta perdida, la dejaba como una cuota pendiente FANTASMA con el vencimiento de la cuota. La cobranza se la
+  reclamaba al cliente, era idéntica a la real (nadie podía saber cuál quitar) y el reintento agregaba otra. El
+  diagnóstico obvio («cambiar el orden») era el equivocado: los dos órdenes dejan un estado malo. **Regla:** el cobro
+  de menos va en UNA transacción, `cobrar_cuota_con_resto` (supabase/migrations/0318, `cobrarConResto` en lib/pagos.ts).
+  Si la respuesta se pierde con todo escrito, el reintento ve la cuota cobrada y la diferencia está una vez. Sin la
+  función, no se escribe nada y se dice («falta la migración 0318»). El cobro entero sigue siendo una sola escritura
+  condicional. La base de mentira de los tests tiene una copia en JS de la función (tests/_postgrest-de-mentira.ts),
+  fijada contra el .sql.
+- **⚠️ Volver a confirmar el asistente de Ganado sobre una suscripción ya cerrada rehacía TODAS sus cuotas desde hoy**
+  (alta, estaba en producción). Pasaba con «Completar datos», al pasar a Facturando o al volver a Ganado. La
+  reconciliación por orden actualizaba las impagas e insertaba de más: 15 cuotas para un plazo de 12, la deuda inflada
+  y la vencida escondida. Con la mensualidad vacía, se borraban todas. **Regla:** el plan se arma una vez. El server
+  (`completeStageMoveAction`) no lo rehace si el lead ya tiene cuotas, y el asistente no lo manda. Para cambiarlo está
+  la tab Pagos. ~~(un pago suelto no cuenta)~~: SÍ cuenta, ver la cuarta revisión abajo.
+- **El plan del asistente empezaba un mes después del cierre, y lo cobrado cuenta el día del cierre como el primer mes**
+  (`cobradoDelLead`, el inicial de `cuotasDelPlan`): un cliente al día quedaba para siempre en «Falta registrar 1 mes».
+  Ahora la primera cuota es el día del cierre. Un test cruza el plan con `cobradoDelLead` en cuatro fechas.
+  **⚠️ Sin hacer:** las suscripciones que el asistente YA armó tienen sus cuotas corridas un mes y siguen en ámbar.
+  Hay que medirlas (sólo lectura: suscripción a plazo, cuota 1 = cierre + 1 mes) y decidir si se corren.
+- **La pasarela no curaba su propio «ya estaba».** `curarDespues` sincronizaba antes de cortar: si sincronizar fallaba,
+  los recordatorios y el otro link seguían vivos, y el reintento del webhook volvía «ya estaba» sin curar. Al cliente
+  que pagó le seguían llegando recordatorios y podía pagar dos veces. Ahora corta primero (`trasCobrar` no tira), y el
+  «ya estaba» de la pasarela corre `curarDespues` con la fila que encontró.
+- **El casamiento por monto probaba sólo la primera impaga.** Si alguien la cobraba a mano en el medio, el pago entraba
+  como cuota nueva aunque quedara otra del mismo monto. Ahora prueba de a una, en orden.
+- **«+ Agregar cuota» sumaba desde la anterior.** Después de un 31, el día bajaba y no volvía (31/01 → 28/02 → 28/03).
+  ~~Ahora cuenta desde la primera.~~ Contar desde la primera por posición rompió otra cosa: ver la cuarta revisión.
+- **La fecha de cierre se escribía con el día UTC** (`updateLead`, lib/leads.ts). Un Ganado de las 19 h en México
+  cerraba mañana, y la venta del 31 contaba en el mes siguiente. Ahora es `hoyEnWorkspace()`.
+
+### La cuarta revisión: un pago suelto SÍ es parte del plan, y la 0318 nacía abierta a la clave pública (21/10/2026)
+
+- **⚠️ «Un pago suelto no es un plan» era el diagnóstico equivocado** (alta). Una suscripción registrada mes a mes (tres
+  mensualidades sueltas, sin cuotas de plan) que se abría desde el TABLERO para cargar el teléfono recibía 12 cuotas
+  MÁS desde hoy: 15 para un plazo de 12, $6.000 pendientes de un cliente al día y «Cuota vencida» al otro día. Y el que
+  pagó el primer mes suelto y se arrastraba a Ganado tenía la cuota de hoy impaga encima del mes ya cobrado. Desde la
+  ficha el mismo lead no recibía plan (ahí `tienePlan = pagos.length > 0`): el resultado dependía de por dónde se
+  abría. **Regla:** decide UNA función, `planDelAsistente` (lib/pagos-campo.ts), en el server. Con un plan (una cuota
+  que no nació cobrada, o una impaga) no se toca. En una suscripción, los meses cobrados sueltos SON las primeras
+  cuotas (uno por cobrada, como cuenta `cobradoDelLead`) y se arman sólo los que faltan. Un pago único con un pago
+  previo no se arma: sus cuotas las escribió la persona y no se puede saber si ya descontó lo cobrado. Nunca nace una
+  cuota por un mes ya cobrado.
+- **Lo que el asistente no hacía, lo callaba.** El server descartaba el plan con un `console.log` y la pantalla decía
+  que había guardado; el `sinTocar` de las cuotas con un link sin pagar tampoco lo mostraba nadie. Ahora el asistente
+  (StageMoveDialog) muestra `sinTocar` en una pantalla aparte, con un solo botón que cierra y NO vuelve a confirmar.
+- **El tablero no sabe si el lead tiene pagos** (`leadToMoveInfo` no trae `tienePlan`), y su cálculo local pedía «Plan de
+  pagos» siempre, aunque el server no lo pidiera. Sin el dato, ese paso lo decide sólo el server, que lee los pagos.
+- **El plan de la suscripción salía de hoy y no del cierre.** Armado días después del Ganado («Guardar y completar
+  después»), el cliente que pagaba a tiempo quedaba en «Falta registrar» del 1 al 20 de cada mes. El server ancla las
+  fechas en `fecha_cierre` (hoy sólo si el cierre es este mismo movimiento). Y la suscripción manda su plan sólo al
+  cerrar o si el asistente preguntó la mensualidad o el plazo: «Completar datos» por el teléfono lo mandaba entero.
+- **«+ Agregar cuota» contando desde la primera por posición** ignoraba el día elegido (anticipo el 21, mensualidades el
+  05: proponía el 21/12) y, al quitar una del medio, repetía una fecha. Ahora es `siguienteFechaDeCuota`
+  (lib/cobrado-lead.ts): la más tardía + 1 mes, en el día de la primera mensualidad, con el tope de fin de mes.
+- **⚠️ Trampa del entorno: la 0280 NO hace que las funciones nuevas nazcan cerradas.** Su `alter default privileges …
+  in schema public revoke execute … from public` es por esquema, y un revoke por esquema no saca el EXECUTE que da a
+  PUBLIC el default GLOBAL; anon lo hereda por PUBLIC. La 0318 sin revoke nacía con `{=X/postgres,…}`: la clave pública
+  entraba a la función (hoy sin daño: es invoker y `pagos` tiene RLS sin políticas). Medido en Postgres 16 con
+  `has_function_privilege`. **Regla:** toda función nueva lleva su `revoke … from public, anon, authenticated` y su
+  `grant … to service_role`, con el assert en el test (tests/pagos-cobro-idempotente.test.ts, 7). El arreglo de fondo
+  (el default de la 0280 y la 0310) es de Infra.
+- **El `for update` de la 0318 va `order by id`**, el orden en que toma las filas el delete de la reconciliación: en otro
+  orden, los dos podían esperarse y Postgres abortaba a uno (40P01).

@@ -108,3 +108,88 @@
 .ch-plegable__ver { border: 0; background: none; padding: 2px 4px; font: inherit; font-size: var(--fs-sm); font-weight: 600; color: var(--primary); cursor: pointer; }
 /* En la caja, antes de mandar: el pegado como una ficha más de la lista de archivos. */
 .ch-elegido--pegado .ch-elegido__nombre { max-width: 220px; }
+
+/* ── El marco de bloques (20/10/2026, pieza 1.7: lib/chat-bloques.ts, app/_chat/BloqueHilo.tsx) ─────────────────
+   Lo que el chat DIBUJA además del texto, igual en la computadora y en el teléfono: lo creado con su miniatura (G5), el
+   antes y el después (G4), un trabajo largo (G6) y una pregunta con opciones (G1). La cara es la de la tarjeta. */
+.ch-bloque {
+  width: min(480px, 100%); display: flex; flex-direction: column; gap: 10px; padding: 12px 14px;
+  border-radius: 14px 14px 14px 4px; background: var(--surface); border: 1px solid var(--border); box-sizing: border-box;
+}
+.ch-bloque .ch-bloque { width: 100%; border-radius: 12px; }
+.ch-bloque__titulo { margin: 0; font-size: var(--fs-md); font-weight: 600; line-height: 1.4; color: var(--ink); overflow-wrap: anywhere; }
+.ch-abrir {
+  display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; border-radius: 999px;
+  border: 1px solid var(--border-strong, var(--border)); background: var(--surface); color: var(--primary);
+  font: inherit; font-size: var(--fs-sm); font-weight: 600; text-decoration: none; cursor: pointer;
+}
+.ch-abrir:hover:not(:disabled) { background: var(--primary-bg); }
+.ch-abrir:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.ch-abrir:disabled { cursor: default; opacity: .6; }
+.ch-pildora {
+  flex: none; display: inline-block; padding: 2px 8px; border-radius: 999px; background: var(--good-bg); color: var(--good);
+  font-size: var(--fs-meta, 12px); font-weight: 600; line-height: 1.5; white-space: nowrap;
+}
+.ch-oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* G5: la miniatura con la forma del diseño (entre 9:16 y 16:9), sin ocupar toda la pantalla del teléfono. El ALTO tope
+   achica el ANCHO (`--r` = ancho / alto): con `max-height` la caja perdía la forma y la imagen salía recortada abajo. */
+.ch-creado__mini {
+  position: relative; box-sizing: border-box; width: min(100%, calc(min(320px, 45dvh) * var(--r, 1.333)));
+  overflow: hidden; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--surface-2, var(--border)); display: grid; place-items: center;
+}
+.ch-creado__mini img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; }
+.ch-creado__vacio { font-size: var(--fs-sm); color: var(--dim); }
+.ch-creado__pie { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.ch-creado__texto { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ch-creado__titulo { margin: 0; font-size: var(--fs-md); font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.ch-creado__nota { margin: 0; font-size: var(--fs-sm); color: var(--dim); }
+
+/* G4: «Original | Modificado» lado a lado; en angosto (el teléfono), uno arriba del otro. */
+.ch-ad { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; container-type: inline-size; }
+.ch-ad__fila { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; }
+.ch-ad__campo { grid-column: 1 / -1; font-size: var(--fs-sm); color: var(--dim); }
+.ch-ad__lado { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 8px; font-size: var(--fs-sm); line-height: 1.45; overflow-wrap: anywhere; }
+.ch-ad__lado--antes { background: var(--bad-bg); }
+.ch-ad__lado--despues { background: var(--good-bg); }
+.ch-ad__lado del, .ch-ad__lado ins { text-decoration: none; color: var(--ink); }
+.ch-ad__rotulo { font-size: var(--fs-meta, 12px); font-weight: 600; color: var(--dim); }
+@container (max-width: 360px) { .ch-ad__fila { grid-template-columns: minmax(0, 1fr); } }
+
+/* G6: los pasos de un trabajo largo; el que corre, latiendo. */
+.ch-pasos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ch-paso { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); color: var(--ink); }
+.ch-paso__marca { flex: none; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--border-strong, var(--border)); }
+.ch-paso[data-estado='listo'] .ch-paso__marca { background: var(--good); border-color: var(--good); }
+.ch-paso[data-estado='fallo'] .ch-paso__marca { background: var(--bad); border-color: var(--bad); }
+.ch-paso[data-estado='en_curso'] .ch-paso__marca { border-color: var(--primary); animation: ch-late 1.2s ease-in-out infinite; }
+.ch-paso[data-estado='pendiente'] { color: var(--dim); }
+.ch-paso[data-estado='incierto'] .ch-paso__marca { border-color: var(--warn-fill); background: var(--warn-bg); }
+@keyframes ch-late { 50% { background: var(--primary); } }
+@media (prefers-reduced-motion: reduce) { .ch-paso[data-estado='en_curso'] .ch-paso__marca { animation: none; background: var(--primary); } }
+
+/* G1: las opciones de una pregunta, cada una un botón grande (el dedo en el teléfono). */
+.ch-opciones { display: flex; flex-direction: column; gap: 6px; }
+.ch-opcion {
+  display: flex; flex-direction: column; gap: 2px; width: 100%; min-height: 44px; padding: 9px 12px; border-radius: 10px;
+  border: 1px solid var(--border-strong, var(--border)); background: var(--surface); color: var(--ink);
+  font: inherit; text-align: left; cursor: pointer;
+}
+.ch-opcion:hover:not(:disabled) { background: var(--primary-bg); }
+.ch-opcion:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.ch-opcion:disabled { cursor: default; }
+.ch-opcion[data-recomendada] { border-color: var(--primary); }
+.ch-opcion[aria-pressed='true'] { background: var(--primary-bg); border-color: var(--primary); }
+.ch-opcion__titulo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: var(--fs-md); font-weight: 600; }
+.ch-opcion__titulo .ch-pildora { background: var(--primary-bg); color: var(--primary); }
+.ch-opcion__detalle { font-size: var(--fs-sm); color: var(--dim); }
+
+/* G3: lo que no se deshace, en rojo pegado al botón de la tarjeta. */
+.ch-tarjeta__consecuencia--irreversible { color: var(--bad); font-weight: 600; }
+
+/* Confirmar ADENTRO del chat (20/10/2026, pieza 1.10: app/_chat/FormularioEnChat.tsx): el formulario de /mako/revisar en
+   la tarjeta, con sus campos en columna; «Abrir en la app» como salida secundaria, al lado de los botones. */
+.ch-form { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.ch-form__error { color: var(--bad); }
+.ch-form__afuera { align-self: center; font-size: var(--fs-sm); }

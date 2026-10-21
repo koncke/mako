@@ -68,7 +68,7 @@ import {
   ESTADOS_TERMINADOS, SIN_MARCAS, type JuntasLead, type FilaPrevia,
 } from '@/lib/nutricion-reinscripcion';
 // La «Reentrada» del CRON (14/10/2026, docs/diseno-mako-nada-por-detras.md §2.4-a): si un lead vuelve a entrar.
-import { reentradaDe, puedeReentrar, esReentrada, type Reentrada } from '@/lib/reentrada';
+import { reentradaDe, puedeReentrar, esReentrada, barridoEsEvento, type Reentrada } from '@/lib/reentrada';
 // El carril del recordatorio (undécima tanda, M3): la marca del emisor de hoy, compartida.
 import { estadoDeLaMarca, envioIncierto } from '@/lib/recordatorio-lead';
 import { decidirInscripcionManual, type PorQueNoSeInscribio } from '@/lib/nutricion-inscripcion-manual';
@@ -101,6 +101,9 @@ import { hoyEnTz } from '@/lib/date-utils';
 import { getSettingEstricto, cambiarSettingSi, setSetting } from '@/lib/settings';
 import { KEY_HORARIO_ENVIO, horarioVigente, dentroDelHorario, type HorarioEnvio } from '@/lib/horario-envio';
 import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes, type LimitesEnvio } from '@/lib/limites-envio';
+import { cerradasAhora, horarioDeLaAutomatizacion, personaHorasDeLaAutomatizacion, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
+import { configsDelNegocio, leerConfigAutomatizacion } from '@/lib/config-automatizacion-db';
+import { duplicadaAlActivar, avisoDuplicada } from '@/lib/automatizacion-duplicada';
 import {
   sanearHilos, planDePosicion, hiloSigueEn, hilosIniciales, aplicarAHilo, hilosVencidos, hilosNuevos, repartosDe,
   hayOtrosHilos, nodosDeLaFila, esFilaNueva, proximoDeEntrada, mensajeAnteriorDe, estadoDeCierrePermanente, vuelveALaCola,
@@ -700,11 +703,18 @@ async function equipoContestoDesdeElAviso(inscripcionId: number): Promise<boolea
  * Sin esto, «Activar» prendía un flujo que «Publicar» no habría dejado guardar (uno escrito por un
  * camino viejo, o anterior a una regla nueva), y el motor lo corría a ciegas. Apagar no valida.
  */
-export async function setSecuenciaActiva(id: number, activa: boolean): Promise<void> {
+export async function setSecuenciaActiva(id: number, activa: boolean, o: { aunqueDuplique?: boolean } = {}): Promise<void> {
   const supabase = (await getTenantDb());
   // La red de seguridad: quien PROPONE activar ya validó (`validarActivacion`), pero entre la
   // propuesta y el «sí» los pasos pueden haber cambiado.
   if (activa) await validarActivacion(id);
+  // ⚠️ Y PREGUNTA SI OTRA ACTIVA YA LE ESCRIBE LO MISMO A LA MISMA GENTE (revisión del 21/10/2026): es la ÚNICA puerta
+  // que prende una automatización, así que acá la cubren todos los caminos (el lienzo, el «⋯», el teléfono, /email, la
+  // API de MaKo). Quien llama pasa `aunqueDuplique` recién cuando la persona contestó «Activar igual».
+  if (activa && !o.aunqueDuplique) {
+    const otra = await duplicadaDeLaActivacion(id);
+    if (otra) throw new DuplicadaError(otra);
+  }
   const { error } = await supabase
     .from('nutricion_secuencias')
     .update({ activa, updated_at: ahoraISO() })
@@ -789,6 +799,33 @@ export { textoDelPaso };
  * archivo, una tarjeta suelta, un destino que no existe). Es un error del QUE GUARDA y no de la
  * base: las rutas lo contestan 400 con el mensaje, que es lo que la pantalla muestra.
  */
+/**
+ * OTRA AUTOMATIZACIÓN ACTIVA YA LE ESCRIBE ALGO PARECIDO A LA MISMA GENTE (lib/automatizacion-duplicada.ts). La tira
+ * `setSecuenciaActiva` (y la ruta de Publicar, con una activa): las rutas contestan 409 con `duplicada` y la pantalla
+ * pregunta; con «… igual», vuelve a pedirlo con `aunqueDuplique`. El mensaje es el aviso, listo para mostrar.
+ */
+export class DuplicadaError extends Error {
+  readonly otra: { id: number; nombre: string };
+  constructor(otra: { id: number; nombre: string }) { super(avisoDuplicada(otra.nombre)); this.name = 'DuplicadaError'; this.otra = otra; }
+}
+
+/**
+ * ¿LA AUTOMATIZACIÓN `id` (con `pasos`, si se van a publicar) TIENE UNA GEMELA ACTIVA? Con lo PUBLICADO de las otras y
+ * sus CRON guardados: la misma regla que la pantalla (`duplicadaAlActivar`). `soloSiActiva`: sólo si ésta ya está
+ * prendida (Publicar una pausada no le manda nada a nadie: se pregunta al activarla). Una lectura que falla TIRA.
+ */
+export async function duplicadaDeLaActivacion(id: number, o: { pasos?: readonly PasoGrafo[]; soloSiActiva?: boolean } = {}): Promise<{ id: number; nombre: string } | null> {
+  const supabase = (await getTenantDb());
+  const filas = await leerFilasDeSecuencias((cols) => supabase.from('nutricion_secuencias').select(cols).is('archivada_at', null), 'duplicadaDeLaActivacion');
+  const vistas = filas.map((r) => ({
+    id: Number(r.id), nombre: String(r.nombre ?? ''), activa: r.activa === true,
+    pasos: Array.isArray(r.pasos) ? (r.pasos as PasoGrafo[]) : [], crons: disparadoresDe(r),
+  }));
+  const esta = vistas.find((v) => v.id === id);
+  if (!esta || (o.soloSiActiva && !esta.activa)) return null;
+  return duplicadaAlActivar(esta, vistas, (v) => v.crons, o.pasos ? { pasos: o.pasos } : {});
+}
+
 export class PasosInvalidosError extends Error {
   /** La tarjeta a abrir cuando el error es de UNA (los datos que no existen, undécima tanda). null = del flujo. */
   readonly tarjeta: string | null;
@@ -1780,9 +1817,11 @@ async function aInscribir(
   const filas = await inscripcionesDe(db, candidatos, (q) => q.eq('secuencia_id', sec.id), prepara);
   const conFila = new Set(filas.map((f) => f.lead_id));
   const pendientes = candidatos.filter((id) => !conFila.has(id));
-  // El BARRIDO no es un evento: «Cada vez que vuelve a entrar» no reusa acá (lib/reentrada.ts, `solo_por_evento`).
+  // El BARRIDO no es un evento: «Cada vez que vuelve a entrar» no reusa acá (lib/reentrada.ts, `solo_por_evento`). SALVO
+  // en un Recurrente (20/10/2026, `barridoEsEvento`): su barrido corre una vez por ocurrencia, y cada una le vuelve a
+  // llegar a quien TERMINÓ la anterior.
   const modo = reentradaDeSecuencia(sec);
-  const reusables = reusaInscripciones(sec) ? [...(await reusablesDe(db, filas, () => modo, false)).values()] : [];
+  const reusables = reusaInscripciones(sec) ? [...(await reusablesDe(db, filas, () => modo, barridoEsEvento(sec))).values()] : [];
 
   const quienes = [...pendientes, ...reusables.map((r) => r.fila.lead_id)];
   // En tandas y paginado: con el `.in()` suelto, un lead que caía del corte se quedaba sin su
@@ -1839,7 +1878,12 @@ async function aInscribir(
 //   insert moría contra el unique — o sea que igual cortaba, pero con un mensaje que culpaba al
 //   insert y no a la lectura. `reunion_at` va sólo en la familia que prepara una reunión: fuera de
 //   ella la columna no dice nada, y no mandarla deja a las demás andando sin la 0205.
-export async function comprometerInscripciones(opts?: { soloGrupo?: boolean }): Promise<number> {
+//
+// · `soloRecurrentes` (20/10/2026): lo pide el TICK de cada minuto cuando un Recurrente llegó a su hora
+//   (`negociosConRecurrenteVencido`, lib/motor-tick.ts). Mira sólo los CRON con horario, con el MISMO
+//   compare-and-set: el tick y la corrida de cada hora no pueden reclamar la misma ocurrencia. Los demás
+//   (por etapa sin horario, por evento) siguen barriéndose a la hora en punto.
+export async function comprometerInscripciones(opts?: { soloGrupo?: boolean; soloRecurrentes?: boolean }): Promise<number> {
   const supabase = (await getTenantDb());
   const secuencias = await getSecuenciasActivas();
   let creadas = 0;
@@ -1854,6 +1898,7 @@ export async function comprometerInscripciones(opts?: { soloGrupo?: boolean }): 
       if (!barridoInscribe(sec)) continue;
       if (!barreElDisparador(sec) && !sec.disparador.grupo) continue;
       if (opts?.soloGrupo && !sec.disparador.grupo) continue;
+      if (opts?.soloRecurrentes && !sec.cron) continue;
       const agenda = decidirAgenda({ cron: sec.cron, cronProximaAt: sec.cron_proxima_at }, tz, ahora);
       if (agenda.proxima) {
         let reclamada = false;
@@ -2617,6 +2662,17 @@ async function horarioDeEnvio(): Promise<HorarioEnvio | null | 'ilegible'> {
 }
 
 /**
+ * EL HORARIO DE UNA AUTOMATIZACIÓN: el suyo si eligió uno, si no el del negocio (`horarioDeLaAutomatizacion`). Lo usa
+ * «contesta sola» del AI Step (revisión del 20/10/2026: seguía con el del negocio aunque la tuerca dijera otro). Estricto:
+ * si no puede leer lo propio, 'ilegible' (no sale sola).
+ */
+async function horarioDeEnvioDe(secuenciaId: number): Promise<HorarioEnvio | null | 'ilegible'> {
+  const [h, c] = await Promise.all([horarioDeEnvio(), leerConfigAutomatizacion(secuenciaId).catch(() => 'ilegible' as const)]);
+  if (h === 'ilegible' || c === 'ilegible') return 'ilegible';
+  return horarioDeLaAutomatizacion(c, h);
+}
+
+/**
  * Los LÍMITES de envío del negocio (décima tanda, GENERAL 4), una vez por corrida: lo que guardó en
  * Configuraciones › Límites encima de lo de fábrica (lib/limites-envio.ts). `'ilegible'` = la base no contestó.
  *
@@ -2625,6 +2681,15 @@ async function horarioDeEnvio(): Promise<HorarioEnvio | null | 'ilegible'> {
  */
 async function limitesDeEnvio(): Promise<LimitesEnvio | 'ilegible'> {
   try { return limitesVigentes(await getSettingEstricto(KEY_LIMITES_ENVIO), limitesDeFabrica(process.env)); } catch { return 'ilegible'; }
+}
+
+/**
+ * LO PROPIO DE CADA AUTOMATIZACIÓN (20/10/2026, lib/config-automatizacion.ts): su horario y sus horas a la misma persona,
+ * una vez por corrida y para todas. `'ilegible'` = la base no contestó: como con el horario y los límites del negocio,
+ * «no pude leer» no es «no tiene nada propio», y la corrida no manda.
+ */
+async function configsDeEnvio(): Promise<Map<number, ConfigAutomatizacion> | 'ilegible'> {
+  try { return await configsDelNegocio(); } catch { return 'ilegible'; }
 }
 
 /**
@@ -3674,24 +3739,58 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   // reunión era un emisor aparte que no miraba el horario —un «15 min antes» a las 8:45 no puede esperar a que
   // abra a las 9— y el aviso de un agendado al equipo salía del webhook a cualquier hora. Lo demás, como siempre:
   // espera a que abra. Con el horario ilegible, igual: «no sé si está abierto» no manda prospección.
+  //
+  // ⚠️ CADA AUTOMATIZACIÓN CON SU HORARIO (20/10/2026, Martín, 16/10 punto 5: «como también el horario de oficina para
+  // cada automatización»): el propio si eligió uno, si no el del negocio (`horarioDeLaAutomatizacion`,
+  // lib/config-automatizacion.ts). Lo propio de todas sale de UNA lectura, estricta como la del negocio
+  // (`configsDeEnvio`): sin leerla, no se manda prospección (`horario-ilegible`). Desde ese día `fueraDeHorario` es
+  // «TODAS cerradas» (o «no pude leer»); las cerradas de a una van en `cerradas`, y su fila corre lo que corre afuera.
   let fueraDeHorario: 'fuera-de-horario' | 'horario-ilegible' | 'zona-ilegible' | null = null;
-  if (!opts?.ignorarVentana) {
-    const horario = await horarioDeEnvio();
-    if (horario === 'ilegible') fueraDeHorario = 'horario-ilegible';
-    else if (horario && (await zonaDeLaVentana()) === ZONA_ILEGIBLE) fueraDeHorario = 'zona-ilegible';
-    else if (!(await dentroDeVentana(horario))) fueraDeHorario = 'fuera-de-horario';
-  }
+  const configs = await configsDeEnvio();
   // Sin nada que corra fuera del horario, el corte de siempre, sin leer nada más.
   const secuencias = await getSecuenciasActivas();
+  let cerradas = new Set<number>();
+  if (!opts?.ignorarVentana) {
+    const horario = await horarioDeEnvio();
+    if (horario === 'ilegible' || configs === 'ilegible') fueraDeHorario = 'horario-ilegible';
+    else {
+      const ids = secuencias.map((s) => s.id);
+      const conHorario = !!horario || ids.some((id) => horarioDeLaAutomatizacion(configs.get(id) ?? {}, horario) != null);
+      const tz = conHorario ? await zonaDeLaVentana() : null;
+      if (conHorario && tz === ZONA_ILEGIBLE) {
+        // Sin la zona, «no sé qué hora es ahí»: cerrada TODA la que tiene un horario (el propio o el del negocio), y la
+        // que no tiene ninguno sigue (revisión del 20/10/2026: con el negocio sin horario y UNA con el suyo, una falla
+        // leyendo la zona frenaba también a la de los leads del anuncio). Todas con horario: el corte de siempre.
+        cerradas = cerradasAhora(ids, configs, horario, Date.now(), null);
+        if (!ids.length || cerradas.size === ids.length) fueraDeHorario = 'zona-ilegible';
+      } else {
+        cerradas = cerradasAhora(ids, configs, horario, Date.now(), tz);
+        // Todas cerradas (o el negocio cerrado y ninguna con un horario propio abierto): el corte de siempre.
+        if (ids.length ? cerradas.size === ids.length : !(await dentroDeVentana(horario))) fueraDeHorario = 'fuera-de-horario';
+      }
+    }
+  }
+  /** ¿Esta automatización está fuera de SU horario en esta corrida? */
+  const fuera = (secId: number): boolean => fueraDeHorario != null || cerradas.has(secId);
   // ¿«MaKo en WhatsApp» sale fuera del horario? Lo dice CADA tarjeta (`esperaQueAbra`, lib/mako-tarjeta.ts, 15/10/2026): de
   // fábrica ESPERA a que abra (Martín). Hasta ese día lo decía una casilla del horario, y antes una regla escondida.
   const sigueIgual = (p: PasoGrafo | undefined): boolean => esTarjetaMako(p) && !esperaQueAbra((p?.accion as { params?: Record<string, unknown> } | null | undefined)?.params);
   const corrensFuera = secuencias.filter((s) => tieneCarril(s.pasos) || s.pasos.some(sigueIgual)).map((s) => s.id);
   if (fueraDeHorario && !corrensFuera.length) return { ...res, saltado: fueraDeHorario };
+  // Las cerradas que no tienen nada que corra afuera: sus filas ni se leen.
+  const soloCerradas = [...cerradas].filter((id) => !corrensFuera.includes(id));
   // LOS LÍMITES DEL NEGOCIO (décima tanda, GENERAL 4), una vez por corrida y estrictos: sin leerlos no se
   // manda nada (lo vencido sigue ahí para la próxima), como con el horario.
   const limites = await limitesDeEnvio();
-  if (limites === 'ilegible') return { ...res, saltado: 'limites-ilegibles' };
+  // ⚠️ SIN LO PROPIO DE CADA UNA, CORRE SÓLO LO QUE CORRE FUERA DEL HORARIO (revisión del 20/10/2026). `fueraDeHorario`
+  // ya es 'horario-ilegible' (no se manda prospección), y el carril del recordatorio y las tarjetas que no esperan
+  // siguen con las horas del NEGOCIO (el carril no pasa por el anti-ban). Cortar acá frenaba el «15 min antes» de
+  // TODAS las automatizaciones, también las que no tienen nada propio, por una lectura nueva.
+  // ⚠️ SALVO QUE NADA LO HAYA ACOTADO (revisión de la misma noche): con `ignorarVentana` el horario no se mira,
+  // `fueraDeHorario` queda en null y la corrida mandaría TODO con las horas del negocio («Prospección fría», con 48 h
+  // propias, a las 30 h). Sin lo propio y sin el corte del horario, no se manda.
+  if (limites === 'ilegible' || (configs === 'ilegible' && fueraDeHorario == null)) return { ...res, saltado: 'limites-ilegibles' };
+  const configsCorrida: ReadonlyMap<number, ConfigAutomatizacion> = configs === 'ilegible' ? new Map() : configs;
   const presupuesto = limites.wa.dia - (await enviosUltimas24h('whatsapp'));
   // Lo que ya salió en esta HORA, sólo para las corridas del cron (`cupoPorHora`).
   const enLaHora = opts?.cupoPorHora ? await enviosEnLaHora('whatsapp') : 0;
@@ -4009,6 +4108,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     if (cupoLleno()) q = q.in('secuencia_id', sinTopeWa);
     // Fuera del horario, sólo las automatizaciones que tienen algo que corre igual (el carril, «MaKo en WhatsApp»).
     if (fueraDeHorario) q = q.in('secuencia_id', corrensFuera);
+    // Las cerradas de a una (20/10/2026): fuera, salvo las que tienen algo que corre igual.
+    else if (soloCerradas.length) q = q.not('secuencia_id', 'in', `(${soloCerradas.join(',')})`);
     // LOS YA VISTOS SE EXCLUYEN EN EL SERVER, y el orden desempata por `id`. Antes se
     // filtraban en memoria después del `.limit(LOTE)`: las filas salteadas por «msg
     // <20h» no se actualizan, así que la vuelta siguiente releía LAS MISMAS LOTE
@@ -4064,8 +4165,22 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         asistio_j1?: boolean | null; asistio_j2?: boolean | null; estado_lead?: string | null;
       } & JuntasLead>).map((l) => [l.id, l]),
     );
-    // Ventana anti-baneo de 20h resuelta en batch (no 2 counts por lead en el loop).
-    const conEnvioReciente = await leadsConEnvioReciente(leadIds, { whatsapp: limites.wa.personaHoras, email: limites.email.personaHoras });
+    // Ventana anti-baneo de 20h resuelta en batch (no 2 counts por lead en el loop). 20/10/2026: con las horas de CADA
+    // automatización (las propias o las del negocio, `personaHorasDeLaAutomatizacion`): una lectura por ventana distinta
+    // del lote, que casi siempre es una sola.
+    const ventanaDe = (secId: number) => personaHorasDeLaAutomatizacion(configsCorrida.get(secId) ?? {}, limites);
+    const claveVentana = (v: { whatsapp: number; email: number }): string => `${v.whatsapp}:${v.email}`;
+    const porVentana = new Map<string, { v: { whatsapp: number; email: number }; leads: Set<number> }>();
+    for (const d of due) {
+      const v = ventanaDe(d.secuencia_id);
+      const g = porVentana.get(claveVentana(v)) ?? { v, leads: new Set<number>() };
+      g.leads.add(d.lead_id);
+      porVentana.set(claveVentana(v), g);
+    }
+    const recientesPorVentana = new Map<string, RecientesPorCanal>();
+    for (const [k, g] of porVentana) recientesPorVentana.set(k, await leadsConEnvioReciente([...g.leads], g.v));
+    const conEnvioRecienteDe = (secId: number): RecientesPorCanal =>
+      recientesPorVentana.get(claveVentana(ventanaDe(secId))) ?? { whatsapp: new Set<number>(), email: new Set<number>() };
     // Quién ya recibió algo alguna vez → decide cuál de los dos pasos de
     // apertura sale (presentarse o retomar). También en batch.
     const yaContactados = await leadsYaContactados(leadIds);
@@ -4105,9 +4220,11 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       const enRespuesta = insc.estado === 'respondio';
       // Fuera del horario: el carril (`esHiloDelCarril`) y la tarjeta «MaKo en WhatsApp» que dice «Lo manda igual»
       // (`sigueIgual`); la que espera, y todo lo demás, sale cuando abre.
-      const seMueve = (i: number): boolean => !!sec && (fueraDeHorario != null
+      // Fuera de SU horario (20/10/2026: cada automatización con el suyo, `fuera`).
+      const cerrada = fuera(insc.secuencia_id);
+      const seMueve = (i: number): boolean => !!sec && (cerrada
         ? esHiloDelCarril(sec.pasos, i) || sigueIgual(sec.pasos[i])
-        : seMueveEnLaCorrida(sec.pasos, i, { fueraDeHorario: fueraDeHorario != null }));
+        : seMueveEnLaCorrida(sec.pasos, i, { fueraDeHorario: cerrada }));
       let hs = sanearHilos(insc.hilos);
       if (sec && !hs && esFilaNueva(insc) && raicesSalida(sec.pasos).length > 1) {
         hs = await repartirAlEntrar(supabase, insc, sec.pasos, (n) => proximoEnvioDePaso(nodoPorId(sec.pasos, n) ?? undefined, lead));
@@ -4116,7 +4233,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       if (sec && hs) {
         const vencidos = hilosVencidos(hs, Date.now()).filter((x) => !hilosVistos.has(`${insc.id}:${x.h}:${x.nodo}`));
         // Fuera del horario, los que no corren igual se quedan como están (salen al abrir).
-        const libres = fueraDeHorario ? vencidos.filter((x) => seMueve(indicePorId(sec.pasos, x.nodo))) : vencidos;
+        const libres = cerrada ? vencidos.filter((x) => seMueve(indicePorId(sec.pasos, x.nodo))) : vencidos;
         // Y los que se quedan, si la fila tiene el carril pendiente, se aplazan para no taparlo (`aplazaParaNoTapar`).
         for (const x of vencidos) {
           if (libres.includes(x) || !aplazaParaNoTapar(sec.pasos, sanearHilos(insc.hilos), x.h)) continue;
@@ -4614,7 +4731,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // ⚠️ SIN EL FRENO DE 20 H PARA INSTAGRAM Y MESSENGER: protege a la línea NO oficial de WhatsApp
       // de un baneo, y por Meta la ventana es de 24 h — frenar 20 h un segundo DM lo dejaría afuera.
       // (Undécima tanda, M3 d: el carril del recordatorio tampoco, `pasaPorAntiBan`.)
-      if (!canalApagado && !esCanalSocial(paso.canal) && frenadoPorAntiBan(insc.lead_id, paso.canal, conEnvioReciente, enviadoEnCorrida)
+      if (!canalApagado && !esCanalSocial(paso.canal) && frenadoPorAntiBan(insc.lead_id, paso.canal, conEnvioRecienteDe(insc.secuencia_id), enviadoEnCorrida)
           && pasaPorAntiBan({ carril: carril != null, social: esCanalSocial(paso.canal), canalApagado })) {
         res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'msg <20h' });
         await aplazarSiTapa(insc, sec);
@@ -5713,8 +5830,9 @@ async function redactarRespuesta(c: CtxRespuesta, clas: { escenario: EscenarioSe
         tzActual().catch(() => TZ_DEFAULT),
         // EL TOPE Y EL HORARIO DEL NEGOCIO (décima tanda, GENERAL 4): el tope de Configuraciones › Límites,
         // y el horario de oficina si está prendido (si no, 9 a 21 como siempre). «No pude leer» no sale solo.
+        // 20/10/2026: el horario de ESTA automatización, si tiene uno propio (`horarioDeEnvioDe`).
         limitesDeEnvio(),
-        horarioDeEnvio(),
+        horarioDeEnvioDe(secuencia.id),
       ]);
       const hora = Number(new Intl.DateTimeFormat('en-US', { hour: 'numeric', hourCycle: 'h23', timeZone: tz }).format(new Date()));
       const d = limites === 'ilegible' || horario === 'ilegible'
@@ -5788,7 +5906,7 @@ async function contestarSolaPorRedes(
         .then((r) => (r.error ? Number.POSITIVE_INFINITY : (r.count ?? 0))),
       tzActual().catch(() => TZ_DEFAULT),
       limitesDeEnvio(),
-      horarioDeEnvio(),
+      horarioDeEnvioDe(secuencia.id),
     ]);
     if (limites === 'ilegible' || horario === 'ilegible') return { ok: false, motivo: 'no pude leer tus límites' };
     const { puedeContestarSolo } = await import('@/lib/setter-conversacion');

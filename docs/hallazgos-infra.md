@@ -138,6 +138,23 @@ scopes es por persona.
 
 **Vive en:** la configuración del proyecto en Vercel (no hay código del repo involucrado).
 
+**20/10/2026: se mudó otra vez, de `hola-mako/dashboard-marketing` a `koncke/mako`.** Otra vez el push siguió
+andando (GitHub redirige y avisa «This repository moved» en el `remote:`), y lo que se rompió fue lo que nadie mira:
+
+- **La API de GitHub no da error: contesta un JSON.** `GET /repos/hola-mako/dashboard-marketing/actions/runs`
+  devuelve un 301 con cuerpo `{"message":"Moved Permanently",…}`. `curl -s` sin `-L` imprime ese cuerpo, y un
+  script que lee `workflow_runs` ve **una lista vacía**. El que esperaba los runs del Cerebro decía «sin-run» y seguía
+  esperando: el diagnóstico obvio («el run está tardando») era el equivocado, el run había terminado verde hacía rato.
+- **El código de la app no se cayó por eso:** el `fetch` de Node sigue el 301 en un GET (mismo host, no suelta el
+  `Authorization`). Igual se cambió el default en `lib/github-commits.ts` (`REPO_DEFAULT`), `lib/metodo-verificar.ts`
+  y la ayuda de `GITHUB_REPO` en `lib/metodo-catalogo.ts`, para no depender de una redirección que GitHub puede soltar
+  el día que alguien cree un repo con el nombre viejo.
+- **Vercel:** esta vez el vínculo **sobrevivió**: los pushes de 0570b4d8b y 6eb209c4c (runs 162 y 163) se desplegaron solos a producción después de la mudanza. Igual se mira con la API, no se supone: la del 15/10 había soltado el `link` sin avisar.
+
+**La regla que suma:** todo script que le pregunte algo a la API de GitHub va con `curl -L` y mira `message` antes de
+leer la lista. Un «no hay run» más de 5 minutos después de un push es una consulta rota, no un run lento. Y el
+remoto del clon se apunta al nombre nuevo (`git remote set-url origin https://github.com/koncke/mako.git`).
+
 ## Supabase: leer y escribir sin perder datos
 
 ### ⚠️ `getSetting` devuelve `null` tanto si falló la lectura como si no hay fila, y eso expulsa a un cliente onboardeado al wizard
@@ -6650,6 +6667,109 @@ alcanzar, aunque se cumpliera al pie de la letra:
 **Vive en:** `scripts/tests-afectados.mjs` · `scripts/antes-de-subir.mjs` · `scripts/modulos-ts.mjs` · `scripts/replay-fallos-ci.mjs` ·
 `docs/fallos-ci-integracion.jsonl` · `.github/workflows/integracion.yml` · `scripts/claude-hooks/pre-push` · `tests/tests-afectados.test.ts`
 
+## El candado de lo pesado: un `mkdir` sin cola premia al que pregunta más seguido, y el que espera vuelve con la rama vieja (20/10/2026)
+
+**El síntoma** (medido por el Cerebro el 20/10): Pagos esperó **casi dos horas** el candado `C:/dev/pesado.lock` viendo cómo Video
+Generator y Web Generator se lo pasaban entre ellos; y Onboarding corrió su `antes-de-subir` **tres veces** con los 2.563 tests en
+verde, porque cada vez `origin/main` había avanzado mientras esperaba y la última línea era `ROJO: te faltan N commits`.
+
+**La causa real —y el diagnóstico obvio, «hay demasiados chats pidiendo lo pesado», era el equivocado—:** el candado era una
+convención a mano (`mkdir` atómico + un `quien.txt` de texto libre) y **cada chat reintentaba en su propio loop**. Un `mkdir` no
+tiene orden: gana el que justo pregunta cuando se libera, o sea el que pregunta más seguido. Con N esperando, el que lleva más
+esperando no tiene ninguna ventaja. La espera, además, hacía que la rama saliera vieja (el VERDE valía para un sha que ya no era el
+tope) — dos costos de un mismo defecto: **esperar y preparar la rama eran pasos separados**.
+
+**Qué quedó** (`scripts/candado-pesado.mjs`, lo llama `scripts/antes-de-subir.mjs`):
+- **El mutex sigue siendo el mismo `mkdir pesado.lock`** a propósito: así un chat que todavía lo toma a mano y uno que usa la herramienta
+  **se excluyen entre sí** sin que nadie tenga que migrar a la vez. Lo nuevo es lo de al lado: `pesado.cola/` con un **turno por
+  espera** (`<hora ms>-<pid>-<azar>.json`) y **sólo el primero** de la fila intenta el `mkdir`. Se ve todo con `antes-de-subir --cola`.
+- **Un proceso muerto no traba**, y es lo que más se rompe en la práctica (la PC se duerme, el chat se cierra con la app): un turno se
+  limpia si su pid no vive o dejó de latir (10 min); un dueño, si su pid no vive o pasó `MAKO_PESADO_VENCE_MIN` (90). Todo en `pesado.log`.
+- **Al TOMAR el candado, `git fetch` + `merge origin/main`** (nunca rebase), recién ahí y no antes: la espera ya no cuesta un rojo. Si choca:
+  `merge --abort`, se suelta el candado y el ROJO dice los archivos. La línea `VERDE <sha>` es del sha DESPUÉS del merge.
+
+**Las trampas que aparecieron al probarlo:**
+- **Un candado tomado a mano no tiene pid.** No se le puede preguntar si vive (el 20/10: sólo vencía por edad, 90 min). Y un chat que lo tomó a
+  mano y después corre `antes-de-subir` esperaría a SU PROPIO candado: el aviso lo dice y existe `--ya-tengo-el-candado`, pero el 21/10 pasó igual
+  (ver abajo) — un aviso en pantalla no lo ve quien corre el script en segundo plano. Ahora la cola lo resuelve sola.
+- **Una PC sin `user.email` no puede commitear el merge** y `git merge` falla con «unable to auto-detect email address», que el código
+  leía como «chocó en 0 archivos». Pasa en un clon o un worktree recién hecho. Ahora se firma con la identidad de Claude si no hay
+  ninguna, y si el merge falla por otra causa el ROJO dice cuál (`no es un choque de archivos`).
+- **`core.autocrlf=true` (el default de Git para Windows) reescribe con CRLF al hacer `merge --abort`**, y el `status` de otra
+  configuración ve el archivo «modificado». No pasa en la herramienta (todo usa la misma config), sí en una prueba que mezcla las dos:
+  las copias de prueba fijan `core.autocrlf=false`.
+- **El `git fetch` de entrada falló UNA vez en la primera corrida real** (con el candado esperado 8 min y ~12 chats abiertos) y avisó
+  «¿sin red?» sin más; a mano y desde Node andaba en 3 s. Los worktrees comparten UN `.git`, y con una docena de chats bajando a la vez
+  un fetch puede chocar con el lock del otro. Ahora reintenta 3 veces (pausas crecientes) y el aviso trae la causa que dio git. Si igual
+  no baja, sigue con el `origin/main` que tiene (el VERDE vale contra esa copia: la línea lo deja ver con el ⚠).
+- **Dos errores de tipos que `--rapido` no vio y cayeron en Actions (run 173).** (1) Un `.ts` que importa un `.mjs` sin JSDoc recibe los tipos
+  que TS DEDUCE: el default `aviso = () => {}` quedó como `() => void` (un `aviso` que recibe el texto no compilaba) y `tomarTurno`, que devuelve
+  `{ soltar } | { vencio }`, dejó a `soltar` «posiblemente undefined» aun después de mirar `vencio`. (2) `--rapido` mide la RAM 20 s y, sin
+  4 GB libres para el tsc acotado, deja los tipos a Actions: la línea lo decía (`los chequea Actions`) y Actions cumplió, a costa de un run.
+  **La regla que queda:** un módulo `.mjs` que un test `.ts` importa lleva JSDoc en lo exportado con parámetros de función o retornos en unión
+  (ahora `tomarTurno`, `anotarse`, `intentarTomar`); y un VERDE que dice «tipos: los chequea Actions» sobre un test NUEVO no es un VERDE de tipos —
+  hay que volver a correrlo con RAM (sin `--rapido` espera hasta 90 s) antes de pasarle la punta al Cerebro.
+- **La primera versión de la prueba de la cola no agarraba el orden por pid** (los pids de los tres chats crecían con la hora, así que
+  ordenar por pid o por hora daba lo mismo). Se vio al romperlo a propósito: ahora el más viejo tiene el pid más alto.
+
+### 21/10: la segunda trabada — un candado a mano que bloqueó 27 min a 7 chats, con la máquina ociosa
+
+**El síntoma** (el Cerebro): `C:/dev/pesado.lock` tenía un `quien.txt` SIN `dueno.json` («wt-crm-ficha2 · crm-ficha-v2 (claude4)
+antes-de-subir --rapido — 21/10 01:06»; `--cola` decía «tomado A MANO») y, a la vez, el `antes-de-subir` de ese MISMO worktree (pid 27780,
+arrancado a las 01:06:09) era el PRIMERO de la fila, esperando ese candado. Bloqueo mutuo hasta el tope de 90 min; no corría ningún `tsc`
+ni test. Al borrar el lock, el 27780 lo tomó en el acto.
+
+**El diagnóstico obvio —«una carrera del script entre el `mkdir` y escribir el pid»— era el equivocado.** El script deja una línea `toma`
+en `pesado.log` en CADA toma, justo después de escribir `dueno.json`, y a las 01:06 no hay ninguna. Lo que el log sí tiene es
+`suelta pid 17100` a las 01:06:07,3 y, 2,2 s después, el `anota-turno` del 27780: ese candado lo creó otro `mkdir` en esos dos segundos —el
+del propio chat, que ganó la carrera justo al soltarse el anterior— y después lanzó `antes-de-subir`, que se anotó detrás de SU candado. El
+texto del `quien.txt` es idéntico al que escribe el script porque el formato se dejó igual al de siempre, a propósito (compatibilidad): un chat
+que lo toma a mano y lo firma como lo ve en los avisos de espera lo escribe igual. **No se puede probar quién lo escribió** (el archivo no
+dice); lo que sí se puede es que el diseño no dependa de eso.
+
+**Qué quedó** (`scripts/candado-pesado.mjs`):
+- **Un candado a mano de MI worktree lo toma la cola, sin esperar** (`esMio`): el `quien.txt` empieza con `<worktree> · <rama>`. En un
+  `wt-…` alcanza el worktree (hay un chat por worktree); en el clon compartido hace falta también la misma rama. `wt-crm` no es `wt-crm-ficha2`.
+- **Un candado a mano que nadie usa ya no bloquea 90 min:** con alguien esperando se suelta a los 10 min si NO hay ningún proceso pesado vivo
+  (`procesosPesados`: los `node.exe` con `tsc`, `--test`, `next build`, vitest, jest, playwright, eslint; ~1 s, de a 30 s), y a los 30 min pase lo que
+  pase (el tope de los que tienen dueño sigue en 90). Si no se pudo mirar los procesos (`null`) NO se suelta: nunca a ciegas. Todo en `pesado.log`.
+- Costo asumido: un candado a mano de otro worktree que sólo mira una pantalla en Chrome (sin ningún proceso pesado) se libera a los 10 min.
+  El de ahora no es el caso (usa `antes-de-subir`), pero es la contrapartida de no poder preguntarle a un candado sin pid si vive.
+
+**Y lo que mi propia corrida de ese día mostró:** esperé 25 min en la fila (6 delante) y, al tomar el candado y mergear `origin/main` (+84 commits), una
+guarda nueva que vino en el merge frenó el VERDE **en 7 s**: un test mío tenía un literal que empieza con la letra de unidad de Windows
+(`scripts/rutas-windows-en-tests.mjs`; la unidad se arma aparte: `'C' + ':'`). Las guardas del push (~10 s, ~300 MB; el pre-push las corre sin
+candado) ahora corren ANTES de hacer fila —un rojo de guarda dice «no hice fila por esto» y tarda 8 s, medido con otro candado tomado— y otra vez al
+tomarlo, con main mergeado, que puede traer guardas y archivos nuevos. Verificado a mano (rompiendo el test a propósito con otro candado puesto), sin
+prueba automática: el efecto vive en `main()` del CLI y probarlo pide un repo roto.
+
+**La raíz, resuelta (decidido por el Cerebro el mismo 21/10): `soltar` ENTREGA el candado.** Un `mkdir` a mano le ganaba a la cola en el instante en que
+el dueño soltaba (aquí por ~2 s), porque soltar BORRABA el directorio y el siguiente tenía que volver a ganar el `mkdir`. Ahora, con alguien esperando,
+`soltar` reescribe `dueno.json` y `quien.txt` con los datos del primero de la fila que siga vivo y NO borra el directorio: un `mkdir` a mano justo en ese
+instante falla (EEXIST), nunca lo ve libre. Con la fila vacía se borra, como siempre. Lo que hubo que resolver:
+- **El que recibe se entera con el mismo sondeo de siempre** (0,4 s): `intentarTomar` mira primero si `dueno.json` ya tiene su pid —antes de mirar la cola:
+  su turno sigue ahí y, si no, se leería como «lo limpiaron»— y confirma con `recibido`. Medido en la prueba de punta a punta: no espera nada más por ser entrega.
+- **El siguiente muerto se saltea:** `leerCola` ya limpia los turnos de procesos muertos con el mismo `vivo`; se entrega al primero que quede. Un filtro
+  `vivo(t.pid)` extra en `soltar` salía VERDE al romperlo (era redundante) y se sacó.
+- **Un siguiente que está vivo pero colgado no puede quedarse con el candado 90 min:** una entrega sin `recibido` a los 30 s (`ENTREGA_VENCE_MS`) se libera.
+- **`dueno.json` se escribe por un temporal y un rename** para que nadie lo lea a medias, y un `dueno.json` que existe pero no se lee se trata como un candado
+  a mano con la edad de ESE archivo (recién escrito), no la del `quien.txt` viejo del dueño anterior: si no, la regla del candado ocioso (10 min) lo soltaría
+  en plena entrega. El rename atómico en sí no tiene prueba (sólo se vería con una lectura exacta a mitad de escritura); el efecto de ver el archivo a medias sí.
+- **Conviven versiones: cada worktree corre SU copia del script.** Un dueño nuevo que le entregara el candado a un esperador viejo lo dejaría esperando 90 min
+  un candado que ya es suyo y que su código no sabe reconocer (vería su propio pid como un dueño vivo). Por eso el turno lleva `entrega: 1` («sé recibir») y
+  `soltar` sólo entrega si el PRIMERO de la fila lo declara; si es viejo, borra el directorio y lo toma con su `mkdir` de siempre (el orden de la fila manda:
+  no se saltea al viejo). Lo vi recién al pensar el despliegue, ya con el VERDE en camino; sin esto la primera entrega a un chat sin `merge` de main era
+  la tercera trabada. La misma regla para cualquier cambio de protocolo del candado: **el que escribe el formato nuevo tiene que poder leer al viejo, y el
+  nuevo no debe depender de que el viejo lo entienda.**
+- **La prueba que movió esto, por una trampa de las pruebas:** con pids inventados (101, 202…) un `soltar` con el `vivo` real limpiaba los turnos y la prueba de
+  la cola ya no veía a nadie; ahora `soltar` recibe `vivo` y `ahora` como el resto.
+
+**Sin hacer:** `~/.claude/guardia/memoria.mjs` (la lista de comandos «pesados» del vigía) sigue sin saber de `antes-de-subir`; lo agrega el
+Cerebro. Y el candado no cubre el `mobile-build.lock` de los Mobile: es otro recurso con otra cola.
+
+**Vive en:** `scripts/candado-pesado.mjs` · `scripts/antes-de-subir.mjs` (`traerMain`, `--cola`, `--ya-tengo-el-candado`, `--sin-merge`) ·
+`tests/candado-pesado.test.ts` (21 pruebas; 32 roturas a propósito, todas dan rojo) · `AGENTS.md` («El candado de lo pesado ahora tiene COLA»)
+
 ## Un script de roturas no se corta con `head`, y un worktree no tiene `.env.local` (16/10/2026)
 
 - ⚠️ **`node romper-*.mjs | head -3` puede matar el script en la mitad de una rotura.** Cuando `head` cierra el pipe,
@@ -7038,3 +7158,52 @@ al borrar o renombrar un relevo, se buscan sus citas en `docs/pendientes.md` en 
 - **Síntoma:** el renombre «Second Brain» → «Ops Center» (465f85e6e) dio VERDE en local con 2402 tests, y Actions cayó en el run 140: `tests/notificaciones.test.ts` esperaba el título de pestaña «MaKo - Second Brain».
 - **Causa:** `tituloDe` arma el título de la pestaña con el NOMBRE de la entrada de la barra (`nav.ts`), pero `tests-afectados` no relaciona ese test con un cambio en `nav.ts`. En local corre lo afectado, y Actions corre las 422 barredoras.
 - **Regla:** quien renombre una entrada de la barra busca su nombre viejo, entre comillas, en `tests/` antes del VERDE (`grep -rn "'MaKo - <nombre viejo>'" tests`).
+
+## Re-revisar una punta «arreglada»: el arreglo trae errores nuevos, y verificar la lista no los ve (20/10/2026)
+
+Corrida `revision-puntas-20-10-noche` del Cerebro (20 agentes): cinco puntas antes de integrarlas, dos de ellas con
+los arreglos de una revisión anterior. **En las dos, el arreglo había abierto un defecto que antes no estaba**, y el
+test de cada arreglo pasaba:
+- Automations aflojó un corte («lo propio ilegible ya no frena») dentro de `if (!ignorarVentana)`, y con
+  `ignorar_ventana=1` la corrida pasó a mandar con las horas del negocio.
+- Onboarding confirmó «todo lo escrito» con `siONo`, y «Sí, está bien» pasó a proponer «está bien» como nombre del negocio.
+
+**La regla:** la re-revisión lleva DOS lentes por punta. Uno verifica la lista de la revisión anterior leyendo el código,
+no el mensaje del commit ni el test. El otro busca lo que el arreglo rompió. Cada hallazgo alto o medio pasa por un
+escéptico que intenta refutarlo. De 13 hallazgos que llegaron al escéptico, ninguno se cayó.
+
+**Y las heurísticas sobre frases en español se rompen en lo obvio** (Onboarding y Web Generator, mismo día):
+`m[2].startsWith('mil')` atrapa «millones» y multiplica por mil; una negación que salta «las dos palabras que siguen»
+también se aplica a las OPCIONES con las que se compara («tengo leads pero no cierran» cae en la opción equivocada);
+contar palabras sobrantes no dice si la persona nombró la cosa. Un parser de frases se prueba con una batería de
+frases reales, con tuteo, voseo y números en letras, no con los casos que lo motivaron. Los detalles por área los
+cosecha cada jefe con su arreglo (hallazgos-onboarding, hallazgos-editor-landing, hallazgos-video-*). Lo que entró sin
+arreglar está en hallazgos-chatbot («La segunda revisión del pedido B»). *Cerebro, claude4.*
+
+## Probar una carrera contra la base de mentira: una barrera en el `fetch` (20/10/2026, Pagos)
+
+- **Dos llamadas con `Promise.all` no prueban una carrera:** el orden de sus viajes a la base depende del event loop.
+  Para que las dos lean ANTES de que cualquiera escriba, el `fetch` de mentira retiene la lectura de esa fila hasta
+  que llegaron las dos, y las suelta juntas. Molde: tests/_cobro-idempotente-hijo.ts (`barrera(id, 2)`).
+- **Se mira que gane EXACTAMENTE uno, no sólo que el segundo pierda.** Una condición al revés hace que pierdan los dos,
+  y «el segundo dijo ya estaba» sale verde igual.
+- **tests/_postgrest-de-mentira.ts entiende `is.true`, `is.false`, `not.is.true` y `not.is.false`**, con la semántica
+  de Postgres: `NOT (x IS TRUE)` también matchea el null.
+- **La base de mentira contesta también un rpc de escritura** (21/10/2026): `cobrar_cuota_con_resto`, una copia en JS
+  de la función de la mig 0318, atómica porque una llamada de node no se intercala con otra. Respeta los `unicos` (si
+  el número choca, no escribe nada y contesta 23505). La copia se fija contra el .sql en tests/pagos-cobro-idempotente.test.ts:
+  sin eso, el test probaría la copia y no la función.
+
+## Un merge toma EN SILENCIO lo de main donde tu rama volvió a la base (21/10/2026, la ola 1 del Ops Center)
+
+- **Síntoma:** después de mergear origin/main en la ola 1, un test de la caja falló: la condición del botón de grabar
+  decía otra vez `!girando`, que la ola 1 había cambiado a `!enviando`. No hubo conflicto en ESA línea.
+- **Causa:** caja-voz entró a main por OTRO camino (una rama aparte desde main, con `a7f7900ff`, el cherry-pick de
+  `fce506711` que la ola 1 ya tenía). La base común quedó ANTES de caja-voz, con `!enviando`. La ola 1 pasó por
+  `!girando` y volvió a `!enviando`: para git, la ola 1 no cambió esa línea y main sí. Se queda con la de main, sin
+  avisar.
+- **Lo obvio era el error:** «si no hay conflicto, quedó lo mío». Un cambio que vuelve una línea a como estaba en la base
+  pierde contra el otro lado.
+- **Regla:** cuando lo mismo entra a main por dos caminos (una rama separada para subir antes, un cherry-pick), después
+  del merge comparar contra TU punta los archivos que tocaron los dos: `git diff HEAD --stat -- <archivos de los dos>`.
+  Lo que aparece y no es de otra rama, es tuyo perdido.

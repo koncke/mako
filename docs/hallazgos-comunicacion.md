@@ -48,6 +48,24 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## Un aviso sobre un lead no decía de quién ni llevaba a la ficha (20/10/2026)
+
+- **El síntoma** (Martín, llamada con Leila del 19/10, 24:15): en el teléfono, «Cuota vencida → cobrar», sin el
+  cliente, sin el monto y sin llevar a ningún lado.
+- **Medido en producción, sólo leyendo:** el ws1 escribe una fila por día a las 14:00 con el título repetido como texto
+  y el link a Configuraciones. Es la BITÁCORA de un evento de MaKo sin ninguna automatización prendida
+  (`emitirPorEvento`, lib/aviso-evento.ts). Desde el 17/10 la marca `sin_automatizacion` la esconde de las listas, pero
+  la del 16/10 y las anteriores no tienen la marca y se siguen viendo.
+- **La causa de fondo, más amplia que la cobranza:** `emitirAviso` recibía el `lead` y no lo usaba para el link. Todo
+  aviso sobre un lead (también los que corren por una automatización) llevaba a Configuraciones, en la fila, en el
+  push y en el correo.
+- **La regla** (lib/aviso-lead.ts, tests/aviso-lead.test.ts):
+  - un aviso con lead lleva a su ficha (`/crm/<id>`; el teléfono la abre en `/m/crm/<id>`);
+  - salvo un aviso `alDueno`: lo lee el super admin y el lead es de un cliente;
+  - la bitácora de un evento sin automatización dice quién, qué cuota, cuánto y cuándo venció;
+  - el TÍTULO nombra al cliente adelante («Francisco · Cuota vencida → cobrar»), en la fila y en el push: es lo primero
+    que se lee, y en el detalle el nombre quedaba escondido (`tituloConLead`).
+
 ## «Unificar Email en Chats» no era mudar una bandeja: Email no tiene bandeja (17/10/2026)
 
 El pedido fue «eliminar las tabs de Email y WhatsApp y unificarlo todo en Chats». Lo obvio era mover la bandeja de
@@ -127,6 +145,16 @@ o «lo miro y te paso» en un turno que no corrió ninguna herramienta es una me
 (`lib/doer-salida.ts`): el preámbulo lo prohíbe, y al salir se saca la ORACIÓN que promete (no se reescribe) y se suma
 «Eso no lo llegué a hacer en este mensaje: pídemelo otra vez y lo hago». Una pregunta («¿te lo cargo?») y una propuesta
 que termina pidiendo el «sí» no son promesas: el «sí» que sigue las hace.
+
+⚠️ **En el chat de la APP, ese mismo camino borraba verdades (desde main; lo encontró la revisión del guardia del 21/10).**
+`sanearSalida` corría el borrado de promesas cuando el turno no había usado herramientas, y en la app eso es lo normal
+cuando MaKo contesta desde el hilo. «Sí, ya te la agendé. Cualquier cosa te aviso.», después de confirmar la tarjeta: «te
+aviso» contaba como promesa y se borraba esa oración. Lo que quedaba tenía menos de 15 letras, así que la respuesta salía
+ENTERA como «Eso no lo llegué a hacer: pídemelo otra vez y lo hago». La persona lo pedía de nuevo y se agendaba dos veces.
+«Cualquier cosa te aviso» y «si querés, te armo…» son ofertas, no promesas. **Regla:** en el chat de la app ninguna
+oración se borra por lo que dice (las groserías sí). Una promesa de algo inmediato sin herramientas («déjame ver»,
+«dame un segundo», «voy a revisar», «estoy buscando»: `promesasFirmesDe`) queda, con su nota (`NOTA_SIN_HACER`), y nunca
+junto a la de un hecho. El doer de WhatsApp sigue como estaba: allá una respuesta suya es el final del turno.
 
 ⚠️ **Y el prompt FABRICABA la promesa.** El system de un turno sin herramientas decía, textual, «si te piden un dato del
 negocio, dilo en una línea («eso lo miro y te lo paso»)», y el camino barato «di que lo miras enseguida». El 13/10 en el
@@ -383,6 +411,47 @@ envíos y permisos. Lo que le rompía a un cliente quedó arreglado y fijado en 
   a otro, pero se acumulan filas huérfanas.
 
 ## WhatsApp no oficial (Evolution)
+
+### ⚠️ Un teléfono sin código de país no existe en WhatsApp, y el envío no lo completaba (ws11, 20/10/2026)
+
+**Síntoma:** Leila (ws11) le mandó a Martín una captura: en la ficha del lead #2313, «WhatsApp no oficial» → «Ese número
+no tiene WhatsApp». Martín: «Otro error que Leila me envía».
+
+**El diagnóstico obvio era el equivocado:** no era la línea desconectada ni un número mal tipeado. El lead tenía el número
+como lo cargó el cliente —10 dígitos, sin el 52— y `enviarTexto`, `enviarMedia` y `enviarAudio` sólo sacaban lo que no es
+dígito y lo mandaban tal cual. Evolution contesta `exists:false` (medido el 21/08: 542233550684 existe, 2233550684 no), y
+`motivoDeEvolution` lo dice bien, así que el error se ve como «ese número no existe» cuando el número es real.
+
+**No era un lead:** 53 de los 70 leads del ws11 están en 10 dígitos (7 con 52+10, 9 con 521+10, 1 con 54), y **27 de los 32
+borradores pendientes** (los recordatorios de la sesión de mañana) habrían fallado igual al aprobarlos. Nada da error antes:
+el borrador se crea bien, la cola lo muestra, y es el clic de «Enviar» del setter el que descubre que no sale.
+
+**La regla:** los datos del cliente no se tocan; el número se completa **en el envío**, con el país de la LÍNEA que manda
+(el dueño de la instancia: `evolution_instancias.numero`). `numeroParaWhatsApp` (lib/numero-whatsapp.ts, puro):
+- un número con el largo LOCAL del país de la línea (10 en MX, AR, CO, VE y EE.UU./Canadá; 9 en ES, CL y PE) se completa;
+- lo que ya trae país (52, 521, 54, 1…) no se toca; el «00» del principio se saca; un solo 0 (el de tránsito) no;
+- **sin línea conocida no se adivina:** la de MaKo no guarda su número, y un número de línea que no es de ningún país de la
+  tabla NO es México (`splitTelefono` cae a México para hidratar un selector; para enviar eso es adivinar). Con 10 dígitos,
+  «A este número le falta el código de país»;
+- si igual no existe, el modal dice «Ese número no tiene WhatsApp. Revisa que tenga el código de país.» (`motivoConPista`);
+  `motivoDeEvolution` no cambia: es el de todas las pantallas.
+
+**Dónde:** los cuatro caminos que le dan un número a Evolution —texto, media, audio (por ahí pasan los borradores) y la
+consulta del @lid (`fetchLidDeNumero`)— y `lineaDeEnvio`, que ahora devuelve el número de la línea. **No** se tocó lo que
+la línea de MaKo manda a grupos y destinatarios (lib/mako-grupo.ts, lib/mako-tarjeta.ts): esos números salen del selector
+con país, y `prepararContacto` (lib/mako-grupo.ts) ya dice «Revisa que esté con el código de país».
+
+**Medido con los datos reales del ws11** (sólo lectura): los 70 leads quedan en 52+10 (60), 521+10 (9) y 54 (1); de los 32
+borradores, 31 quedan bien y 1 —un borrador de nutrición sin lead, con 12 ceros— no se puede mandar nunca.
+
+**Sin hacer:** (1) el espejo del saliente guarda `telefono` como lo cargó el cliente y `chat_jid` con el número completo:
+si la bandeja une el hilo con el lead por el teléfono, hay que mirarlo con un envío real. (2) Brasil (largo 10 u 11) y el
+resto de los países no están en la tabla: su 10 dígitos da el error. (3) No medí de dónde entran los leads con 10 dígitos
+(formulario, importación, anuncios): lo correcto es que lleguen con país, y eso es de CRM. (4) Un borrador con el teléfono vacío o
+de ceros hay que descartarlo, no reintentarlo.
+
+**Vive en:** `lib/numero-whatsapp.ts` · `lib/evolution.ts` (`lineaDeEnvio`, `enviarTexto`, `enviarMedia`, `enviarAudio`,
+`fetchLidDeNumero`) · `tests/numero-whatsapp.test.ts` (16 roturas, cada una con su fallo) · *20/10/2026, sin subagentes.*
 
 ### El costo del WhatsApp escala con NÚMEROS CONECTADOS, no con mensajes enviados
 
@@ -848,6 +917,11 @@ visible de canal.
   automáticamente según la ETAPA del lead (10/07).
 
 ---
+
+**Lo que queda, de la revisión del Cerebro antes de subirlo (20/10):**
+- **Un número de EE.UU. guardado sin el 1, mandado desde una línea de México, se completa con 52.** Antes no salía (`exists:false`). Ahora puede llegar a un número mexicano real. Los dos son de 10 dígitos y no hay cómo distinguirlos sin la lada. Es raro en estos negocios; el arreglo de raíz es guardar el número con su país al cargarlo (`TelefonoConPais`).
+- **Un número internacional completo de 10 dígitos** (Noruega 47+8, Dinamarca 45+8, Singapur 65+8) mandado desde una línea de 10 dígitos locales se toma como local y se le antepone el país de la línea. Antes salía bien.
+- **Medido:** la línea del ws11 es `521…` (13 dígitos): el país sale 52 y sus 53 números de 10 dígitos se completan bien.
 
 ## WhatsApp oficial (Chatwoot y Meta)
 
@@ -10355,3 +10429,60 @@ doer de WhatsApp lo cortaba (la voz en su system y `sanearSalida` antes de manda
 corte antes de guardar: se saca la oración grosera, no la respuesta entera. Las promesas no se sacan ahí (la tarjeta y la
 pantalla dicen lo que quedó hecho). **Sin hacer:** otros caminos que usan `buildSystemPrompt` (el analista de un lead, el
 Second Brain) no se revisaron uno por uno. Test: tests/mako-app-sin-groserias.test.ts. *17/10/2026, B5 (claude4)*
+
+## Chats tardaba 17 s en abrir: el espejo de WhatsApp leído página por página, y releído cada 15 s (20/10/2026)
+
+**Síntoma:** Martín, en la llamada con Leila del 19/10 (minuto 55:12): «abrir la tab Chats tarda mucho».
+**Medido** (ws1 sólo con GET; `next start` local y un cronómetro de cada fetch del servidor, precargado con
+`--require`, sin tocar el código; después, el mismo `listarChats` desde un script con `runWithWorkspace`):
+
+| ws1, 265 chats | Antes | Después |
+|---|---|---|
+| Lista entera (al abrir y, antes, cada 15 s) | 17,3–18,5 s · 39 consultas | 4,1–5,6 s |
+| Lectura rápida, 3 páginas (la del teléfono) | 6,4–6,7 s | 1,9–2,1 s |
+
+Los números son desde Argentina (~230 ms por ida y vuelta a Supabase); en Vercel cada consulta cuesta menos y la
+proporción es la que importa. La investigación del 19/10 había medido 5,5–7,8 s en producción para la lista entera.
+
+**Causa:** `getConversacionesNoOficial` (lib/evolution-mensajes.ts) lee el espejo ENTERO (`wa_mensajes`, 18.885 filas en
+el ws1) para quedarse con el último mensaje de cada conversación, y lo hacía de a una página: 19 páginas en serie eran
+12,7 de los 17,4 s. Detrás, también en serie: la agenda entera (`evolution_contactos`, 5.597 contactos en 6 páginas,
+2,5 s), los leads de «Nutrición - Manual», los ocultos y los bloqueados, que no dependen del espejo. Y la computadora
+pedía todo eso de nuevo cada 15 s; el teléfono ya lo acotaba a 3 páginas.
+- ⚠️ **El diagnóstico obvio no alcanzaba:** «hay muchas consultas» (39) no era el problema; el problema era que iban
+  EN FILA. La línea de tiempo del cronómetro (inicio y fin de cada pedido) es lo que lo muestra; la suma por tabla no.
+- **El ws3 y el ws9 no lo reproducen:** sus espejos están vacíos (0 chats, 13 consultas, 1,7 s). Para medir esto hace
+  falta un negocio con volumen; se leyó el ws1 sólo con GET (el cronómetro confirma cero pedidos que no sean GET).
+
+**Arreglo:**
+1. `leerPorPaginas` acepta `paralelo`: las páginas salen en olas y se entregan en el mismo orden, cortando igual.
+   El espejo va en olas de 5 y la agenda en olas de 4.
+2. Lo que no depende del espejo arranca con él.
+3. La pantalla dibuja con la lectura rápida (`/api/chats?paginas=3`), lee todo una vez después, y el sondeo de cada
+   15 s es rápido y se FUSIONA con lo que hay (`fusionarRecientes`): reemplaza lo que trae, deja lo que no trae y suma
+   canales. Todo entero cada 20 sondeos (5 min).
+
+**Regla:** una lectura grande que alguien espera mirando la pantalla no va página por página, y un sondeo no relee lo
+que ya tiene.
+
+**Sin hacer:** la lectura entera sigue barriendo todo el espejo; lo de raíz es que la base devuelva el último mensaje
+por conversación (una vista o una función con `DISTINCT ON`, migración que numera el Cerebro). Una conversación cuyo
+último mensaje quedó más atrás de 3 páginas aparece con la lectura completa, no con la primera vista (unos segundos
+después). No visto en pantalla: el build no entró en la RAM de esa tarde.
+**Vive en:** lib/supabase-paginado.ts · lib/evolution-mensajes.ts · lib/evolution-contactos.ts · app/chats/ChatsApp.tsx ·
+app/chats/lista-reglas.ts · app/api/chats/route.ts. Tests: tests/paginado-paralelo.test.ts y
+tests/chats-lista-rapida.test.ts. *20/10/2026, chat «CRM» (claude4).*
+
+## Un link a una BANDEJA de Chats: `?vista=borradores`, con «Mostrar: Todas» (20/10/2026)
+
+Pedido por Automations: «31 mensajes esperando que los apruebes» lleva a donde se aprueban. Chats no tenía link a una
+bandeja (sólo a una conversación: `?c=`, `?lead=`, `?chat=`).
+- **⚠️ La bandeja sola no alcanza: «Mostrar» arranca en «Abiertas».** Un borrador del motor espera aunque la
+  conversación esté cerrada; con el filtro de siempre la bandeja Borradores se veía vacía o a medias. El link pone
+  `vista: 'borradores'` CON `mostrar: 'todas'` (y sin canal ni etapa).
+- **Va después de lo recordado:** el efecto que lee el filtro guardado del navegador corre antes (los efectos van en
+  orden); al revés, lo recordado pisaba «Todas». Y la URL vuelve a /chats: después el filtro es de quien lo toca.
+- Una vista que no está en `VISTAS_CON_LINK` no hace nada.
+
+**Vive en:** lib/chats-links.ts (`rutaChatsDeVista`, `vistaDeLink`) · app/chats/ChatsApp.tsx · test:
+tests/recurrente-no-salio.test.ts · *20/10/2026, claude4.*

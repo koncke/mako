@@ -1362,6 +1362,13 @@ cursor cae en otra letra (en el teléfono el campo tiene 10 px 14 px y 1 px de b
 **El Markdown de la casa es de todos.** Los links clickeables los pidió el Ops Center: `Markdown` los dibuja sólo con
 `enlaces` (opt-in), y los otros chats de MaKo quedan como estaban (tests/centro-links.test.ts lo vigila).
 
+**La misma tanda subida dos veces creaba una tarea de más** (la revisión de la ola 1, 21/10/2026). El «Voy a trabajar
+en…» que se dice con otra tarea abierta no crea otra, pero no quedaba anotado como visto. Si la vuelta no avanzaba sus
+marcas (fallaron las preguntas), la PC re-subía la tanda; la abierta ya estaba cerrada por el «Ya está» de la misma tanda,
+y ese «Voy a…» creaba una tarea que nadie cerraba. **Regla:** lo que se lee de una tanda tiene que dar lo mismo leído dos
+veces (`saltados`), y lo que depende de que la vuelta avance va DESPUÉS de saber si avanza: el Plan se anota después de
+las preguntas, sólo con `turnosOk` (lib/operaciones.ts).
+
 **Vive en:** lib/centro-plan-auto-reglas.ts y lib/centro-plan-auto.ts · app/admin/operaciones/Avance.tsx (YaEstaMensaje,
 TareasVinculadas) · lib/centro-munecos.ts · lib/links-texto.ts y app/admin/operaciones/ConLinks.tsx.
 
@@ -1540,6 +1547,27 @@ sin Runner y con número dice «Sin Runner · se mide a mano».
 
 **Regla:** cuando se arregla un error que ESCRIBE datos, en el mismo trabajo se buscan y corrigen los datos que ya
 escribió. Un dato sin fecha a la vista que nadie vuelve a medir se lee como vigente.
+
+**Segunda vez, 20/10/2026.** Martín: «El uso quedó mal en Mauricio... Que no vuelva a pasar nunca más». Un chat puso
+`~/.claude/cuenta-activa.txt` en claude1 durante unos minutos, con la app en la cuenta 4. A las 20:14 UTC el Runner midió con
+get_usage y `medir` anotó en `uso/claude1.json` la semana de la 4: 6% y 2%, con reinicio el 2026-10-27T20:00:00.496Z. Se
+subió a `operaciones_carteros`. El arreglo del 17/10 era el correcto (usar el marcador), pero el marcador MISMO puede estar
+mal, y nada lo contrastaba. Datos corregidos por el Cerebro: `uso/claude1.json.mal-20-10`, y la fila claude1 con
+`cuota=null`. **El arreglo de fondo es la huella de la semana:** cada cuenta reinicia su semana siempre a la misma hora, así
+que el reinicio dice de quién es una medición. `cuotaDe` ya la usaba para la línea de uso-semanal.txt, pero `medir` no.
+- Desde el cartero 1.16.1 (`problemaDeHuella`), `medir` no escribe nada si el reinicio coincide (±5 min) con el de OTRA
+  cuenta vigente; el error la nombra: «no anoté la cuota: es de claude4, no de claude1 (el marcador está mal)».
+- Tampoco escribe si mueve la semana de ESTA cuenta antes de que venza, salvo con `--renovada`, para cuando Martín dice que
+  esa cuenta se renovó.
+- MaKo hace lo mismo en `cicloCartero` (`cuentaDeLaSemana`, lib/centro-uso.ts), y así frena también a un cartero viejo.
+
+**Regla:** un dato que se anota a nombre de alguien se contrasta con una huella propia de ese alguien (acá, la hora de su
+reinicio). El marcador de cuenta es un dato más, y puede estar mal.
+**Los límites que quedan** (revisión del Cerebro, 20/10, antes de subirlo):
+- **Dos cuentas reales cuya semana reinicia con menos de 5 min de diferencia chocan siempre:** cada una rechaza a la otra, semana tras semana. Hoy no pasa: las conocidas reinician en días y horas distintos. Si pasa, el error lo dice en cada vuelta del Runner, y se resuelve achicando `MISMA_SEMANA_MS`, porque la API varía ~1 s.
+- **Una cuenta RENOVADA queda sin medir hasta que alguien pase `--renovada`** (B). La renovación la avisa Martín, y el Cerebro corre `medir --renovada`. Mientras tanto, la tarjeta envejece a «Sin medir hace X», que es lo seguro.
+- **Del lado de MaKo, una fila MALA que ya entró bloquea a la buena:** `cuentaDeLaSemana` le cree a la fila que llegó primero. Si vuelve a pasar, se limpia la fila mala (`cuota=null`), como la del 20/10.
+- **Sólo con la ventana de 5 h** (sin semana) no hay huella: `medir` la anota a nombre del marcador. El Runner manda siempre las dos.
 
 ## El menú que se cerraba solo, las fotos que no se veían y lo demás de WhatsApp (17/10/2026, quinto Ops Center)
 
@@ -1733,3 +1761,164 @@ del cartero; `nav.ts` no se tocó (el Sidebar compara con `OPS_CENTER.key`); la 
   - Un envío del Runner que queda retenido se le pasa ENTERO al Cerebro («REENVIAR A <sesión>: …»). El Cerebro se lo reenvía a ese chat, como su padre, y ahí sí entra.
   - Un chat nuevo se abre desde el Cerebro o en el mismo modo que el Runner.
 - **Chats en `auto` al 18/10:** Onboarding, Ops Center 3, CRM, Ticketera, Dashboard, Second Brain, MaKo Alert, Automations, Infra, Pagos y AI Avatar.
+
+## Un solo chat: la caja del Ops Center como UNA pieza (20/10/2026)
+
+- **Síntoma:** Martín: «Te pedí que unificaras el chat del Ops Center en todos lados, su diseño y funcionalidades... Y en el
+  onboarding y en otros lugares el chat sigue siendo diferente». La regla era del 18/10 y había quedado «después del 20/10».
+- **Causa:** no había una pieza para reusar. La caja del Ops Center vivía como JSX en línea en DOS archivos
+  (Conversacion.tsx y ChatsMovil.tsx). Cada pantalla de MaKo armó la suya (un <textarea>, `ComposerWhatsApp`, `ChatHilo`), y
+  el Ops Center de los clientes (ChatSecondBrain.tsx) tenía otra, con otro orden y sin el «+».
+- **Lo obvio era el error:** «copiar el composer del Ops Center». El onboarding lo hizo (rama onboarding-v3) y quedó una
+  TERCERA copia. Lo que unifica es una pieza y una guarda que impida la copia.
+- **El arreglo:**
+  - `app/_chat/CajaChat.tsx`, con todo lo de la caja del Ops Center. Lo de cada pantalla va por props: a quién, qué se manda,
+    qué va arriba (la cita, el texto largo pegado), qué va en el «+», qué acepta «Documento» (`accept`) y si Enter manda.
+  - Arrastrar y soltar sigue siendo de la PANTALLA, porque la zona es la conversación entera.
+  - La usan el Ops Center (computadora y teléfono) y el Ops Center de los clientes en la computadora.
+- **La trampa de la guarda:** buscar «mako» en el código es inútil (95 archivos con un campo de texto lo nombran). Sirve
+  «dibuja `HiloMako`, le habla a /api/mako/chat o /api/m/mako, o su caja le escribe "a MaKo"», más una caja propia. Así
+  encontró `app/whatsapp/WhatsAppAdvisor.tsx` («Pregúntale a MaKo…»), que el inventario del 20/10 no tenía.
+- **Regla:** en AGENTS.md («UNA SOLA CAJA PARA HABLAR CON MaKo»). tests/chat-unico.test.ts lleva la lista de lo que falta, y
+  una migración que no saca su archivo de «pendiente» falla.
+- **Lo que encontró la revisión de la ola 1 (21/10):**
+  - con Enter que manda (la computadora), «1. ¿Cuántos leads…?» seguía la lista y hacían falta tres Enter para mandarlo.
+    Ahora un ítem SOLO que es una pregunta se manda (`enterEnLista({ conUno: false })`); cualquier otro sigue la lista,
+    como pidió Martín el 17/10. ⚠️ El primer arreglo («con un solo ítem, manda») impedía EMPEZAR una lista con Enter: lo
+    encontró la segunda revisión. El teléfono sigue igual;
+  - con `ocupado` el botón giraba entero: no se podía dictar el siguiente mensaje, y quien dictaba perdía el botón de
+    terminar mientras el dictado seguía escribiendo. Ahora sólo la flecha espera (`BotonMandar ocupado`).
+- **Sin hacer:**
+  - **El chat de MaKo del teléfono** (app/m/mako/Composer.tsx, el Ops Center de los clientes en el celular). Tiene tres cosas
+    que la pieza no tiene: la nota de voz manteniendo apretado, el teclado de iOS (`visualViewport`) y la vista previa a
+    pantalla completa de lo adjuntado (VistaAdjuntosM). Migrarlo hoy le sacaría funciones. Primero se le suman a la pieza.
+  - **El hilo sigue siendo dos:** `Hilo` (Ops Center, turnos de Claude Code) y `HiloMako` (MaKo, con sus tarjetas).
+  - **Las otras pantallas**, cada una de su chat (la lista, en el test).
+
+## «Espera tu respuesta» sin pregunta: el chat cerró con el recuadro de la app, que no llega al Ops Center (20/10/2026)
+
+**Síntoma:** Martín: «Debate me dice que espera mi respuesta, pero ya respondí... Y no veo que se esté utilizando la funcionalidad que creamos de respuestas múltiples». En su Ops Center, el hilo de Debate terminaba en un mensaje de 40 minutos antes.
+
+**El diagnóstico obvio era el equivocado:** «Debate no recibió la respuesta». Sí la recibió: `operaciones.turnos.local_752add17…` tiene la respuesta de Martín de las 21:10Z.
+- Después, Debate cerró sus dos turnos SÓLO con herramientas: `SendMessage` y `mcp__ccd_turn__wrap_up`, con `recap`, `ask` y `actions` (botones). No escribió texto.
+- El cartero (`turnosDeLaVuelta`) sube sólo bloques de texto: ni el resumen ni la pregunta llegaron. El recuadro de próximo paso existe sólo en la app de Claude.
+- Le pasa a cualquier chat que cierra así, que es justo lo que el system prompt de la app empuja a hacer.
+
+**Regla:** una decisión para Martín va por `cartero.mjs preguntar` (AGENTS.md, desde el 17/10), y el turno termina con una línea de texto. El arreglo de fondo, encargado a Ops Center 3 el 20/10, es que el cartero suba el `recap` de un wrap_up como turno y su `ask`/`actions` como una pregunta de opciones.
+
+**Arreglado (20/10, Ops Center 3):**
+
+- **Arreglo (cartero 1.17.2):**
+  - El `wrap_up` se lee como un mensaje del chat: su `recap` es el texto del turno (`cierreWrapUp`).
+  - Con `ask` y dos o más botones se arma una PREGUNTA de las de 1.14.0 (`preguntaDeWrapUp`): pregunta = ask, opciones = los
+    botones (título = label, detalle = message), la primera recomendada, con las mismas reglas que `preguntar`. Martín la
+    contesta en el formulario, y la respuesta le llega al chat como siempre.
+  - Con un solo botón, el `ask` va como texto, porque no hay formulario de una sola opción.
+  - **El id de la pregunta es FIJO** (sale del id del `tool_use`): releer el transcript sube la misma, y MaKo no la repite
+    ni le pisa la respuesta (`unirPreguntas` se queda con la que tiene).
+  - No se sube si el chat ya hizo esa pregunta con `preguntar` (`preguntasSinRepetir`).
+- **Y del lado del cartero:** lo que un chat le muestra a Martín al terminar NO es sólo su texto. Cualquier forma de cerrar que la app dibuje
+  (hoy, `wrap_up`) tiene que llegar al Ops Center, o el Ops Center miente sobre en qué quedó el chat.
+
+**La pregunta de un wrap_up se SUPERA (20/10, la revisión de caja-voz; cartero 1.17.3):**
+- **Síntoma (comprobado con transcripts reales):** el arreglo de arriba volvía a dar el mismo síntoma por otro lado. La
+  pregunta del recuadro de la app quedaba abierta para siempre: 3, 6 y 8 abiertas por chat, y 31 de 31 con un mensaje
+  posterior en su chat. Martín contesta como le sale: el botón de la app, la caja del Ops Center o Remote Control. Sólo el
+  formulario la cerraba, y un clic días después le firmaba al chat una orden vencida.
+  - ⚠️ «Un mensaje posterior» NO es «Martín contestó» (la revisión de la ola 1 lo volvió a medir el 21/10: de 21 preguntas de
+    5 días, 14 las supera primero un mensaje de OTRO chat; 3 son relevos de la respuesta de Martín por el Cerebro y 4, la
+    misma pregunta hecha otra vez a los segundos). Por eso la pantalla dice «Ya no espera tu respuesta», no «Contestada».
+- **Arreglo:**
+  - la pregunta lleva `origen: 'wrap_up'`;
+  - queda `superada` cuando entra un turno `yo` u `otro` POSTERIOR a su `at`, o un wrap_up más nuevo del mismo chat
+    (`superarPreguntas`). Se aplica al guardar los turnos (`superarConTurnos`) y al guardar la pregunta, por si el turno
+    llegó antes;
+  - una superada no cuenta en el globito, no se contesta, y el formulario se lee como «Ya no espera tu respuesta»;
+  - las de `preguntar` no se tocan: ésas las cierra la respuesta. Y una de `preguntar` igual a una de wrap_up abierta no
+    se descarta en silencio: la que queda se marca `tambienPreguntar` (`unirPreguntas`), así la cierra sólo una respuesta.
+    Al guardar, las de antes se superan ANTES de unir: una que ya quedó atrás no frena a la misma pregunta hecha de nuevo.
+  - ⚠️ **Lo obvio era el error: «sacarle el `origen`» para que no la supere un turno** (91fae9527; lo encontró la segunda
+    revisión de la ola 1). El `origen` también decide el TEXTO de la respuesta: sin él, `textoDeRespuesta` no pone el
+    `message` del botón, y la copia del cliente (que todavía lo tenía) firmaba otro texto; la base no la marcaba y, sin
+    origen, ningún turno la superaba. Abierta para siempre, la queja de Martín otra vez. **Regla:** un campo que ya decide
+    algo no se reusa para decidir otra cosa: la marca nueva va aparte.
+- **La misma pregunta, dos veces:** `preguntasSinRepetir` deduplicaba dentro de UNA vuelta, y `vigilar` da una cada 10 s.
+  Ahora `unirPreguntas` descarta una nueva igual (mismo chat, mismo texto normalizado) a una que siga abierta. El cartero
+  sube la última de cada chat, con el tope ANTES de mandar y las más nuevas primero (el servidor se quedaba con las 20
+  más viejas).
+- **Sin perder la pregunta:**
+  - si MaKo no puede guardarla, la vuelta no avanza las marcas;
+  - si no volvió en `preguntasIds`, la marca de ESE chat no avanza (`marcasQueAvanzan`), con un tope de 30 vueltas
+    para no dejar al chat mudo;
+  - `armarPregunta` quita los caracteres de control como el servidor;
+  - un `preguntas/<uuid>.json` malformado ya no tumba todas las vueltas de la cuenta.
+- **La respuesta lleva el `message` del botón** (lo mismo que el clic en la app), hasta 300 caracteres.
+- **Regla:** una pregunta que no cerró quien la contesta tiene que cerrarse sola cuando la conversación siguió, o el Ops
+  Center miente igual que antes.
+
+## Lo que encontró la revisión de la caja única y del wrap_up como pregunta, antes de subirla (20/10/2026)
+
+Revisión adversarial de la rama `caja-voz` (cartero 1.17.2). No subió hasta arreglar lo importante. El detalle está en las notas compartidas, `revision-caja-voz-20-10.md`.
+- **Una pregunta armada de un wrap_up no se cierra sola.** Martín contesta como le sale: el botón de la app, la caja del Ops Center o Remote Control. Sólo el formulario la cerraba, y quedaba «Espera tu respuesta» para siempre, con una orden vieja que se podía firmar días después. **Regla:** una pregunta de wrap_up queda superada con cualquier mensaje posterior en ese chat.
+- **Deduplicar dentro de una vuelta no alcanza:** `vigilar` da una vuelta cada 10 s y el mismo wrap_up (o `preguntar` + el wrap_up que exige la app) llega en vueltas distintas. Se deduplica contra lo guardado.
+- **Una línea de transcript de más de 4 MB (`LECTURA_MAX`) deja al chat MUDO:** sin salto de línea en la ventana, la marca no avanza y no sube nada más de ese chat. Ya pasaba en 1.16.1. Un PDF de ~3,5 MB adjunto en la app alcanza.
+- **Apagar la caja mientras MaKo trabaja es una regresión** en el Ops Center del cliente: «mandando» (el botón) no es «apagar el campo».
+
+**Arreglado (20/10, Ops Center 3, cartero 1.17.3; tests/caja-voz-revision.test.ts):**
+- la pregunta superada, la deduplicación contra lo guardado y no perder la pregunta: arriba, en la entrada del wrap_up;
+- la caja: `ocupado` hace girar SÓLO el botón (el chat del cliente lo usa en vez de `enviando`);
+- un pegado de Word o Excel con texto e imagen vuelve a ser el documento «Texto pegado».
+
+**Sin hacer (no frenan; los tres de adjuntos de turnos):**
+- Los binarios de `operaciones-turnos/` quedan huérfanos cuando el turno sale de los 60 últimos: falta borrarlos en
+  `guardarTurnos`. El encabezado de `lib/operaciones-adjuntos.ts` («EL BINARIO NO QUEDA») miente.
+- La URL de subida firmada no ata el tipo ni el tamaño: un bucket propio con `file_size_limit` y `allowed_mime_types`.
+- Una línea de transcript de más de 4 MB (`LECTURA_MAX`; un PDF de ~3,5 MB en base64) deja al chat MUDO: la marca no
+  avanza. Hay que saltarla con aviso, y alinear `MAX_BYTES_ADJUNTO_TURNO` (30 MB) con lo que se lee de verdad.
+- `subirAdjuntosDeTurnos` corre sin el presupuesto `fin` de `vigilar`.
+- El subtítulo de la fila queda vacío en el hueco de un trabajo recién entregado (antes de que el Runner diga `busy`).
+
+## La miniatura de la caja decía «PDF» para un Word (20/10/2026, desde el chat del Web Generator)
+
+- **Síntoma:** desde el 18/10 la caja toma Word, Excel, PowerPoint y texto, pero `ListaAdjuntos` (AdjuntosCaja.tsx)
+  dibujaba todo documento con el rótulo fijo «PDF». Se vio al usar las piezas en el chat del editor de landings.
+- **Ahora:** la extensión del archivo (`etiquetaDoc`: «DOCX», «XLSX»…). Y `AdjuntoCaja` tiene un `estado` opcional
+  («leyendo» / «error») que la miniatura pone en `data-estado`: el Centro no lo usa; el editor lo pinta con su hoja.
+- **Sin hacer:** tocar la miniatura de un Word abre el `Visor`, que lo pone en un iframe con su `blob:`: el navegador no
+  lo muestra (lo baja o queda en blanco). Pasa igual en el Centro.
+
+## El cartero nuevo se instala DESPUÉS del deploy del servidor que lo entiende (21/10/2026)
+
+La revisión de la ola 1 (cartero 1.17.3) encontró que el orden importa en una sola dirección. Un cartero viejo (1.16.1)
+contra el servidor nuevo anda: el servidor no pide versión y lo que no trae `origen` no se toca. Un cartero NUEVO contra
+el servidor viejo falla de dos maneras:
+- `?adjunto-turno=1` cae en `cicloCartero` y da 503: el chat con una captura queda en fallidos y mudo hasta el deploy;
+- el servidor viejo guarda las preguntas de wrap_up SIN `origen`, y después del deploy nunca se superan.
+
+**La regla:** primero el deploy, después `cartero.mjs instalar`. Y un cambio del protocolo cartero ↔ servidor se revisa en
+las dos combinaciones de versión. *Cerebro, claude4.*
+
+## Un chat retira la pregunta que ya no hace falta (21/10/2026, cartero 1.17.4)
+
+**Vive en:** `retirarDeLaLista` (lib/centro-preguntas-chat.ts) · `retirarPregunta` (lib/centro-preguntas-chat-db.ts) ·
+`?retirar-pregunta=1` en app/api/operaciones/cartero/route.ts · `cartero.mjs retirar <id> [--chat <local_…>]`. Probado en
+tests/centro-preguntas-retirar.test.ts. La regla para los chats, en AGENTS.md.
+
+- **Síntoma:** Martín dijo «no más preguntas», y Debate no tenía cómo sacar la 53053bcb (y otras tres) de su chat del Ops
+  Center: una pregunta de `preguntar` la cierra sólo una respuesta, y la PC ya había borrado su archivo al subirla.
+- **El arreglo:** `retirar` borra la que todavía no subió (sólo la de ESE chat) y le pide a MaKo la que ya está, que queda
+  `superada`: no espera, no se contesta, y se lee como las superadas. Por el id entero o sus primeros 8, como lo nombra un
+  chat; con dos abiertas que empiezan igual no adivina.
+- **Trampa:** `sanearPregunta` guardaba `superada` sólo de una de wrap_up, así que marcar una de `preguntar` se borraba
+  en la lectura siguiente. Ahora la guarda de cualquier origen (lo que sube la PC sigue sin poder traerla).
+- **Trampa:** un cartero 1.17.4 contra un servidor viejo: el pedido cae en `cicloCartero`, que contesta «falta la cuenta
+  del cartero». El comando lo reconoce y dice «falta el deploy», en vez de decir que la retiró. Igual: deploy primero.
+- **Lo obvio era el error: «un 503 de producción en el log del cartero».** cartero.log tenía decenas de «no pude subir lo
+  que Martín adjuntó en local_22222222-…: MaKo no dio dónde subirlo (503)». Ese chat no existe: es el `OTRO` de
+  tests/centro-app-adjuntos.test.ts, cuya falla de mentira el cartero escribía en el log REAL (lee `CARTERO_DIR` al
+  cargarse, y el test no lo ponía). **Regla:** un test que importa el cartero pone `CARTERO_DIR` en una carpeta temporal
+  antes de importarlo; y una línea rara del log se busca primero en los tests (por el id), antes que en producción.
+
+**Sin hacer:** otros tests que importan cartero.mjs sin `CARTERO_DIR` (centro-abrir-pantalla, centro-largos,
+centro-textos, tickets-cartero…) no escriben el log hoy porque no llaman a lo que loguea; no hay una guarda que lo
+impida.

@@ -38,7 +38,7 @@ import { claveTiempo, clavesDelRango, fmtValor, periodoAnterior, type Resultado 
 import { firmaDe } from '@/lib/graficos-plantillas';
 import { pedidosDeHoja } from '@/app/dashboard/exportar';
 import {
-  ERROR_LECTURA, PERIODO_DEFAULT, deltaDe, etiquetaBarra, periodoDe, textoVence,
+  ERROR_LECTURA, PERIODO_DEFAULT, cobroDeFila, deltaDe, etiquetaBarra, periodoDe,
   type BarraM, type GraficoM, type HojaM, type ModoDelta, type NumeroM, type PeriodoM,
 } from './modelo';
 
@@ -188,14 +188,9 @@ export async function hojaComercial(periodo: PeriodoM, hoy: string): Promise<Hoj
   if (cob) {
     out.cobranza = {
       tz: cob.tz,
-      // Sólo las filas con una cuota que marcar: «Marcar cobrado» marca la PRÓXIMA cuota del lead.
-      filas: cob.filas.flatMap((f) => (f.cuota ? [{
-        leadId: f.leadId,
-        pagoId: f.cuota.pagoId,
-        nombre: f.nombre,
-        linea: `${fmtValor(f.cuota.monto, 'usd')} · ${textoVence(f.cuota.vence, f.dias)}`,
-        urgencia: f.urgencia,
-      }] : [])),
+      // Las filas con una cuota que marcar («Marcar cobrado» marca la PRÓXIMA cuota del lead) y, desde el 20/10/2026, las
+      // suscripciones por cobrar, que no tienen cuota (`cobroDeFila`, ./modelo.ts).
+      filas: cob.filas.flatMap((f) => { const c = cobroDeFila(f, (n) => fmtValor(n, 'usd')); return c ? [c] : []; }),
     };
   } else {
     if (cb && !cb.ok) log('cobranza', cb.error);
