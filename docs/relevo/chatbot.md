@@ -1,5 +1,11 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **20/10/2026 noche (`claude4`): LA PUNTA DE SEGUIMIENTO (después de 396a82847).** El aviso de duplicada sale por TODOS los
+> caminos que prenden algo (el interruptor, el «⋯» de la lista, un CRON nuevo en una activa) y compara lo PUBLICADO; con
+> `ignorar_ventana` y lo propio ilegible la corrida vuelve a cortar; «Copiar flujo» › «Crear» en el mismo negocio lleva la
+> configuración propia; el paso au-chat del recorrido señala la fila elegida cuando se ve la lista. Test:
+> tests/automations-aviso-todos-caminos.test.ts. **Sin hacer:** el aviso no está en el server (la API de MaKo no lo ve).
+>
 > **20/10/2026 noche (`claude4`): LA REVISIÓN DEL PEDIDO B, ARREGLADA.** El Cerebro frenó b0ff4dc42 (detalle en sus notas,
 > revision-automations-b-20-10.md). Arreglado: el huso de la tuerca es de sólo lectura (era el del NEGOCIO); «Duplicar»
 > copia la configuración propia (si no puede, borra la copia); las horas «misma persona» del negocio vuelven a editarse
