@@ -332,6 +332,13 @@ async function main(argv) {
       const s = sucio();
       if (s.length) { lineaFinal(`ROJO: el árbol tiene ${s.length} cambios sin commitear (${s.slice(0, 3).map((l) => l.slice(3)).join(', ')}${s.length > 3 ? '…' : ''}): un VERDE de acá no valdría para el sha — commitealos o sacalos y volvé a correr (no hice fila por esto)`); return 1; }
     }
+    // Las guardas del push son baratas (~10 s, ~300 MB; el pre-push las corre sin candado en cada push): se corren ANTES de hacer fila. El 21/10 una guarda
+    // frenó un VERDE en 7 s pero DESPUÉS de 25 min de espera. Se vuelven a correr ya mergeado main (puede traer guardas y archivos nuevos).
+    if (!o.solo) {
+      out('[antes-de-subir] guardas del push, antes de hacer fila (un rojo acá no cuesta espera)…');
+      const g = correrGuardas(out);
+      if (!g.ok) { lineaFinal(`ROJO: ${g.porque} (no hice fila por esto)`); return 1; }
+    }
     const rama = git(['rev-parse', '--abbrev-ref', 'HEAD']).trim();
     const datos = { chat: `${path.basename(RAIZ)} · ${rama}`, cuenta: cuentaActiva(), sha: git(['rev-parse', '--short=9', 'HEAD']).trim(), comando: `antes-de-subir ${argv.join(' ')}`.trim() };
     out('[antes-de-subir] candado de lo pesado: anotándome en la fila…');
