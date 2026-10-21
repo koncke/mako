@@ -782,6 +782,15 @@ En los tres casos, el grupo de WhatsApp sigue anotando como idea.
 > `anthropic_usage`, Gemini hace el **92%** de las 4.229 llamadas de IA, el **100%** de las 317 del Plan, el Perro y
 > las reuniones, y el **86%** de las de los negocios de clientes. Sacarla de todo deja la cascada gratis («el Plan
 > nunca paga IA») en Groq, Mistral y OpenRouter, que hoy hacen el 5%.
+>
+> **D6b: alcance decidido por el Cerebro (Martín: sin más preguntas, 21/10 01:30, «No hagas más preguntas e
+> implementalo al 100%»).**
+> - **Gemini nunca recibe datos de clientes.**
+> - Un negocio con su Claude o su GPT corre su Ops Center con su cuenta.
+> - Lo interno de la plataforma (Plan, Perro, reuniones) sigue con Gemini por ahora.
+>
+> Lo implementa Ticketera (la 3.15, «Tus cuentas de IA», con el mapa en `docs/ia-del-cliente.md`). La pregunta
+> `53053bcb` del alcance queda retirada: si Martín la contesta igual, se le avisa al Cerebro antes de cambiar nada.
 
 **D7. Video e imagen.**
 - a) ¿Material en la nube y render en un servidor de MaKo (con costo de infraestructura), o aceptar y exportar en el editor embebido en el chat?
