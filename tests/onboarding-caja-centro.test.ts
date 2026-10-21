@@ -10,36 +10,46 @@
 // ROTURAS (20/10/2026, arnés romper-caja.js del scratchpad; base 4/0): la caja sin las miniaturas arriba → 3/1 · el
 // arranque con la vista previa encima del chat → 3/1 · ChatOffer importa la caja (rompe los tests que lo cargan) → 3/1 ·
 // la caja no suma lo elegido → 3/1.
+// ROTURAS (20/10/2026 noche, revisión del Cerebro, romper.js + roturas-caja2.json; base 5/0; pasa también con
+// app/_chat/CajaChat.tsx de caja-voz copiada al árbol): arrastrar sale antes de frenar con sólo texto → 4/1 · soltar sale
+// antes de frenar → 4/1 · soltar suma archivos con sólo texto → 4/1 · la caja del onboarding sin las viñetas → 4/1.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
-/** Lo que hace a la caja del Ops Center: si falta en la del onboarding, ya no es «tal cual». */
-const PIEZAS = [
-  '<ListaAdjuntos a={adjuntos} />',
-  'className="co-caja__fila"',
-  '<MasCaja a={adjuntos}',
-  '<BotonEmojis campo={caja} valor={texto} onValor=',
-  'className="co-caja__campo"',
-  '<ResalteDeLinks texto={texto}',
-  'onPaste={(e) => alPegar(e, adjuntos)}',
-  'conVinetas(e.target.value, e.target.selectionStart)',
-  'enterEnLista(texto, e.currentTarget.selectionStart, e.currentTarget.selectionEnd)',
-  '<BotonMandar valor={texto}',
-  '<LinksDeLaCaja texto={texto} />',
-  'className="co-caja__estado"',
+/**
+ * Dónde vive la caja del Ops Center: la caja ÚNICA (app/_chat/CajaChat.tsx, rama caja-voz) cuando llega; hasta entonces,
+ * adentro de la conversación del Ops Center. Revisión del Cerebro (20/10): el test fijaba strings exactos de
+ * Conversacion.tsx y en el árbol con la caja única se caía aunque nada estuviera roto.
+ */
+const CAJA_DEL_CENTRO = existsSync(join(__dirname, '..', 'app/_chat/CajaChat.tsx')) ? 'app/_chat/CajaChat.tsx' : 'app/admin/operaciones/Conversacion.tsx';
+
+/** Lo que hace a la caja del Ops Center: si falta en la del onboarding, ya no es «tal cual». Por pieza, no por string. */
+const PIEZAS: [string, RegExp][] = [
+  ['los adjuntos arriba', /<ListaAdjuntos a=\{/],
+  ['la fila', /co-caja__fila/],
+  ['el «+»', /<MasCaja a=\{/],
+  ['los emojis', /<BotonEmojis campo=\{caja\} valor=\{texto\} onValor=/],
+  ['el campo', /className="co-caja__campo"/],
+  ['el resalte de links', /<ResalteDeLinks texto=\{texto\}/],
+  ['pegar archivos', /onPaste=\{\(e\) => [^\n]*alPegar\(e, /],
+  ['las viñetas', /conVinetas\(e\.target\.value, e\.target\.selectionStart\)/],
+  ['Enter en una lista', /enterEnLista\(texto, e\.currentTarget\.selectionStart, e\.currentTarget\.selectionEnd\)/],
+  ['el botón de mandar (micrófono)', /<BotonMandar valor=\{texto\}/],
+  ['los links abajo', /<LinksDeLaCaja texto=\{texto\} \/>/],
+  ['la línea de estado', /className="co-caja__estado"/],
 ];
 
 test('la caja del onboarding tiene las piezas de la del Ops Center, y ninguna propia', () => {
-  const centro = sinComentarios(leer('app/admin/operaciones/Conversacion.tsx'));
+  const centro = sinComentarios(leer(CAJA_DEL_CENTRO));
   const onb = sinComentarios(leer('app/offer/CajaDelCentro.tsx'));
-  for (const p of PIEZAS) {
-    assert.ok(centro.includes(p), `el Ops Center ya no tiene «${p}»: revisar la copia`);
-    assert.ok(onb.includes(p), `la caja del onboarding no tiene «${p}» del Ops Center`);
+  for (const [nombre, re] of PIEZAS) {
+    assert.match(centro, re, `el Ops Center (${CAJA_DEL_CENTRO}) ya no tiene ${nombre}: revisar la copia`);
+    assert.match(onb, re, `la caja del onboarding no tiene ${nombre} del Ops Center`);
   }
   for (const pieza of ['ListaAdjuntos', 'MasCaja', 'BotonEmojis', 'BotonMandar', 'ResalteDeLinks']) {
     assert.match(onb, new RegExp(`import \\{[^}]*\\b${pieza}\\b[^}]*\\} from '@/app/admin/operaciones/`), `${pieza} tiene que ser LA del Ops Center`);
@@ -66,7 +76,20 @@ test('el «+», pegar y soltar suman a la MISMA lista, que se lee al mandar', ()
   assert.match(app, /onQuitar: quitarArchivo,/);
   assert.match(app, /if \(lista\.ref\.current\.length\) \{ void enviarVista\(\); return; \}/, 'mandar con algo juntado tiene que leerlo antes del turno');
   const chat = sinComentarios(leer('app/offer/ChatOffer.tsx'));
-  assert.match(chat, /if \(!ocupado\) onArchivos\(Array\.from\(e\.dataTransfer\.files\)\);/);
+  assert.match(chat, /if \(!soloTexto && !ocupado\) onArchivos\(Array\.from\(e\.dataTransfer\.files\)\);/);
+});
+
+test('con sólo texto, un archivo arrastrado no se suma pero tampoco lo abre el navegador', () => {
+  // Revisión del Cerebro (20/10): con `soloTexto` los dos manejadores salían SIN preventDefault y Chrome abría el archivo
+  // en la pestaña: el dueño perdía el onboarding en la pregunta del nombre.
+  const chat = sinComentarios(leer('app/offer/ChatOffer.tsx'));
+  const arrastrar = chat.match(/const alArrastrar = [\s\S]*?\n {2}\};/)?.[0] ?? '';
+  const soltar = chat.match(/const alSoltar = [\s\S]*?\n {2}\};/)?.[0] ?? '';
+  for (const [nombre, f] of [['alArrastrar', arrastrar], ['alSoltar', soltar]]) {
+    const antes = f.slice(0, f.indexOf('e.preventDefault();'));
+    assert.ok(f.includes('e.preventDefault();'), `${nombre} sin preventDefault`);
+    assert.doesNotMatch(antes, /soloTexto|ocupado/, `${nombre} sale antes de frenar el archivo: el navegador lo abre`);
+  }
   assert.match(chat, /\{encima && caja && <div className="co-soltar" aria-hidden>Suelta para adjuntar<\/div>\}/);
 });
 

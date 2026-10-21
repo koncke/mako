@@ -391,16 +391,19 @@ export function ChatOffer({
 
   // Soltar archivos sobre el chat hace lo mismo que el clip.
   // Con sólo texto (el arranque pregunta el nombre o un código) no se adjunta: soltar no hace nada.
+  // Pero el archivo se frena SIEMPRE (revisión del Cerebro, 20/10): sin preventDefault Chrome lo abre en la pestaña y el
+  // dueño pierde el onboarding.
   const alArrastrar = (e: DragEvent<HTMLDivElement>) => {
-    if (soloTexto || ocupado || !Array.from(e.dataTransfer?.types ?? []).includes('Files')) return;
+    if (!Array.from(e.dataTransfer?.types ?? []).includes('Files')) return;
     e.preventDefault();
+    if (soloTexto || ocupado) return;
     if (!encima) setEncima(true);
   };
   const alSoltar = (e: DragEvent<HTMLDivElement>) => {
-    if (soloTexto || !e.dataTransfer?.files?.length) return;
+    if (!e.dataTransfer?.files?.length) return;
     e.preventDefault();
     setEncima(false);
-    if (!ocupado) onArchivos(Array.from(e.dataTransfer.files));
+    if (!soloTexto && !ocupado) onArchivos(Array.from(e.dataTransfer.files));
   };
 
   return (
