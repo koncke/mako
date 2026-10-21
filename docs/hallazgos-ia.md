@@ -4654,12 +4654,13 @@ Las cifras quedan para la próxima vez que alguien calcule un costo o un tope.
 - **El guardia de promesas estaba APAGADO en la app:** `sanearSalida(respuesta, { corrioHerramientas: true })` con el
   `true` fijo. Ahora:
   - se cuenta lo que DE VERDAD corrió: lo rechazado (no permitido, o después de preguntar) no cuenta;
-  - lo que dice HECHO («Listo, ya lo armé», «te creé…», «quedó programada») y el CÓDIGO no respalda QUEDA, con UNA nota
-    al final: «No veo esa acción en este chat: revísala antes de darla por hecha.» (`NOTA_SIN_RESPALDO`). Respalda
-    (`RespaldoDeHecho.respaldado`) lo que escribió en el turno (un control como `cancelar_accion`, si `salioBien`) o una
-    tarjeta confirmada («Hecho: …») DESPUÉS del último mensaje de la persona (`confirmadoTrasElUltimoPedido`), salvo que
-    este mensaje sea un pedido. Una lectura respalda un «quedó» (pudo leerlo), no un «ya le mandé»; con una tarjeta,
-    «te dejé X para confirmar» no lleva nota; con una pregunta, nada;
+  - lo que MaKo dice CLARO que hizo y el CÓDIGO no respalda QUEDA, con UNA nota al final: «No veo esa acción en este
+    chat: revísala antes de darla por hecha.» (`NOTA_SIN_RESPALDO`). Una afirmación clara es la de `afirmacionesDeHecho`:
+    primera persona, pretérito CON tilde («mandé»; sin tilde también es subjuntivo: «¿querés que te mande…?»), sin
+    negación, sin pregunta y sin hablar de lo propuesto («confírmala abajo»). Respalda (`RespaldoDeHecho.respaldado`) lo
+    que escribió en el turno (un control como `cancelar_accion`, si `salioBien`) o una tarjeta confirmada («Hecho: …»)
+    después del último PEDIDO de la persona (`confirmadoTrasElUltimoPedido`: un «gracias» no corta), salvo que este
+    mensaje sea un pedido. Una nota como máximo por respuesta: la del hecho primero, si no la de una promesa;
   - un dato del contexto («tu landing está publicada») no se toca;
   - el doer de WhatsApp sigue igual: `hecho` es una opción.
 - **Lo obvio era el error (la revisión del 21/10): «sin herramientas, lo que dice hecho es mentira».** Después de
@@ -4676,6 +4677,13 @@ Las cifras quedan para la próxima vez que alguien calcule un costo o un tope.
   **Regla:** borrar una verdad es peor que dejar pasar una mentira, así que el guardia NUNCA borra: agrega una nota. El
   respaldo lo pone el código (lo ejecutado, lo confirmado después del pedido), nunca reglas sobre el texto. Y un test de
   un guardia usa lo que el código anota DE VERDAD (`resultadoAgendar`), no un texto que se le parece.
+- **Y la tercera revisión cambió la red, no las reglas.** La versión que nunca borraba igual ponía la nota en 13 de 31
+  respuestas que no afirmaban nada (sin tildes, el subjuntivo y el pasado son la misma palabra; las negaciones; las
+  ofertas), dejaba pasar 17 de 35 afirmaciones y podía sumar dos notas que se contradecían. Ahora: PRECISIÓN ANTES QUE
+  COBERTURA. El banco de la revisión vive en tests/chat-guardia-banco.test.ts y mide, por sha, 0 oraciones borradas, 0
+  notas donde no se afirma nada y 0 respuestas con dos notas. Lo que se escapa es un NÚMERO (21/10: 26 de 36 llevan la
+  nota sin respaldo; se escapan los estados «ya está hecho», «ya quedó», el plural «lo agendamos» y «te dejé la tarjeta»),
+  y el test sólo pide que no baje. La red fuerte es lo que el código dibuja en el hilo, no el texto de MaKo.
 - **Lo obvio era el error: «traer `forzarTool` como WhatsApp».** El chat de la app piensa con razonamiento extendido
   (`thinking: adaptive`), y con él Anthropic no admite `tool_choice: any`. Además `chatClaudeTools` lo pone en TODOS los
   pasos: el turno nunca podría terminar con texto. WhatsApp lo hace con `chatCheapTools` y `toolChoicePrimerPaso`, que

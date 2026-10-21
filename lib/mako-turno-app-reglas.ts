@@ -407,8 +407,13 @@ export function historialParaModelo(msgs: readonly MensajeChat[], max = 12): Arr
  * respalda: un «Hecho:» de antes de su último pedido es de OTRA cosa (la segunda revisión: con cualquier «Hecho:» de los
  * últimos 12, «ya le mandé el WhatsApp a Juan» pasaba porque antes se había confirmado la reunión con Ana).
  */
-export function confirmadoTrasElUltimoPedido(historial: readonly { role: string; content: string }[]): boolean {
-  const ultimo = historial.map((m) => m.role).lastIndexOf('user');
+/** Un mensaje que PIDE hacer algo (la intención de lib/mako-intencion.ts): después de él, nada lo respalda todavía. */
+export const esPedido = (intencion: string): boolean => intencion === 'actuar' || intencion === 'confirmar';
+
+export function confirmadoTrasElUltimoPedido(historial: readonly { role: string; content: string }[], esPedido: (texto: string) => boolean = () => true): boolean {
+  // El último PEDIDO, no el último mensaje: un «gracias» en el medio no corta (la tercera revisión: «¿quedó agendada?»
+  // después de «gracias» llevaba la nota sobre algo que sí estaba en el chat).
+  const ultimo = historial.reduce((i, m, j) => (m.role === 'user' && esPedido(m.content) ? j : i), -1);
   return historial.slice(ultimo + 1).some((m) => m.role === 'assistant' && /^Hecho: /m.test(m.content));
 }
 

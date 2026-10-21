@@ -78,7 +78,7 @@ import {
   chartKeyDePersona, canalKeyDeSesion, herramientasDelChat, tarjetaDePendiente, linksDeUnaAccion, abrirDeResultado, idDePropuesta, aRetirar,
   type FormularioPropuesta, type PropuestaPantalla,
   propuestaDePantalla, sinLinksDeRevision, MENSAJE_BORRADOR_APP, mensajeLeadApp, TEXTO_SOLO_TARJETA, TEXTO_SOLO_BLOQUE,
-  historialParaModelo, confirmadoTrasElUltimoPedido, salioBien, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA,
+  historialParaModelo, confirmadoTrasElUltimoPedido, esPedido, salioBien, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA,
   type LinkCapturado, type MensajeChat, type RespuestaTurno, type ResultadoTarjeta, type SesionChat, type TarjetaPendiente,
 } from '@/lib/mako-turno-app-reglas';
 
@@ -616,10 +616,10 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       const saneo = sanearSalida(respuesta, {
         corrioHerramientas: corridas > 0,
         hecho: {
-          // El respaldo lo pone el CÓDIGO (la tercera revisión): lo que escribió en el turno, o una tarjeta confirmada después
-          // del último pedido. Si este mensaje ES un pedido, no hay nada después de él.
-          respaldado: escribieron > 0 || (intencion.intencion !== 'actuar' && intencion.intencion !== 'confirmar' && confirmadoTrasElUltimoPedido(historial)),
-          leyo: leidas > 0, tarjeta: propuestas.length > 0 || retirado.pantallas.length > 0, pregunta: !!pregunta,
+          // El respaldo lo pone el CÓDIGO: lo que escribió en el turno, o una tarjeta confirmada después del último PEDIDO
+          // (un «gracias» no corta). Si este mensaje ES un pedido, no hay nada después de él.
+          respaldado: escribieron > 0 || (!esPedido(intencion.intencion) && confirmadoTrasElUltimoPedido(historial,
+            (t) => esPedido(clasificarIntencion(t, { hayMedia: false }).intencion))),
         },
       });
       if (saneo.groserias.length) console.warn(`[mako-turno-app] ws=${ws} sesión=${s.id}: le saqué una grosería (${saneo.groserias.join(', ')})`);
