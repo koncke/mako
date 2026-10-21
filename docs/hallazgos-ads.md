@@ -4339,6 +4339,7 @@ lib/meta-login.ts · tests/meta-permisos-conectar.test.ts.
     (Martin)». La herramienta de prueba de Meta muestra ese id en pantalla. El lead entró en segundos por el webhook.
     Muestra la función, pero no prueba que la app en revisión lea leads: el revisor que pruebe con la cuenta del ws3 va
     a chocar con la lista vacía.
+- **No hay a quién reclamarle la demora de la verificación de acceso (probado el 21/10).** Meta dice que decide «en aproximadamente 5 días», y la nuestra llevaba 13. Ningún canal sirve: el reporte de errores, con la opción «El proceso de revisión o verificación de mi aplicación está tardando demasiado», contesta que no consulta casos concretos y manda al foro; el chat de soporte para empresas (IA de Meta) no deriva a una persona ni abre un caso por mail. Todo pasa por el panel de la app y el correo de contacto. No volver a buscar ese canal: se espera, y el vigía avisa (`vigia-revisiones/`, en la carpeta del proyecto).
 - **Tres trampas al grabar un video de revisión con la extensión de Chrome:**
   - La extensión trabaja sobre pestañas en segundo plano sin traerlas al frente. Lo que graba `gdigrab` es la pestaña
     VISIBLE: se pierde todo lo que se hizo en otra. Todo el recorrido va en UNA pestaña, navegando.
