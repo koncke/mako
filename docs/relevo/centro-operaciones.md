@@ -24,7 +24,20 @@
   estado `abierto` / `onAbierto` lo lleva el padre). Lo primero es medir en el teléfono por qué ESA hoja no queda en el
   historial (¿le falta el id que registra la entrada?, ¿el padre la reabre con `abierto`?), no escribir otro pushState.
 
-## PUNTO 4 DEL 18/10, SIN EMPEZAR (para después del 20/10, cuando se renueve la cuota): lo que Martín adjunta en la app
+## 20/10: el PUNTO 4 HECHO (cartero 1.17.0) y el «Pegar» del teléfono
+
+- **Lo que Martín adjunta en la app de Claude se ve en su burbuja**, con la marca «En la app de Claude». La PC saca los
+  bloques `image`/`document` en base64 de SU mensaje (no los de un `tool_result`), los mira por bytes, y los sube directo
+  al storage (`archivero`, `operaciones-turnos/<chat>/<turno>/<n>`, sin bucket ni migración nuevos) con una URL firmada
+  que pide con su token (`?adjunto-turno=1`, con `upsert`). El turno viaja con su `ref`; si la subida de un chat falla,
+  sus turnos no salen en esa vuelta y su marca no avanza. La pantalla los ve con una URL firmada de 10 minutos que da
+  `turnosCentroAction` (puedeOperar). tests/centro-app-adjuntos.test.ts.
+- **«Pegar» en el «+»**: lee la captura copiada con `navigator.clipboard.read()`. El teclado de Android no ofrece pegar
+  una imagen en un textarea, y esto lo reemplaza.
+- **Sin hacer:** no hay barrido de lo viejo. Lo de `operaciones-turnos/` queda en el storage; los turnos se guardan 60
+  por chat, así que lo más viejo deja de verse, pero el archivo sigue ahí. Sin probar de punta a punta con el Runner.
+
+## PUNTO 4 DEL 18/10 (el diseño, ya hecho el 20/10): lo que Martín adjunta en la app
 
 Martín: «cuando envío imágenes por aquí [la app de Claude] o adjunto cosas también deberían aparecer en el Center». No se
 empezó a medias: la cuenta estaba en 94% semanal. El diseño, para hacerlo de una:

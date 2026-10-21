@@ -39,7 +39,10 @@ export function TarjetaAccion({ x, enCurso, bloqueada, onCorrer }: {
       {abierta ? (
         <>
           {x.nota && <p className="ch-tarjeta__nota" role="alert">{x.nota}</p>}
-          <p className="ch-tarjeta__consecuencia">{t.consecuencia ?? 'MaKo lo ejecuta en cuanto confirmes.'}</p>
+          {/* G3 (lib/chat-bloques.ts): lo que no se deshace va en rojo, pegado al botón. */}
+          <p className={`ch-tarjeta__consecuencia${t.deshacer === false ? ' ch-tarjeta__consecuencia--irreversible' : ''}`}>
+            {t.consecuencia ?? 'MaKo lo ejecuta en cuanto confirmes.'}
+          </p>
           <div className="ch-tarjeta__botones">
             <Button variant="primary" size="sm" loading={enCurso === 'confirmar' || x.estado === 'aplicando'}
               disabled={bloqueada || enCurso === 'cancelar'} onClick={() => onCorrer('confirmar')}>

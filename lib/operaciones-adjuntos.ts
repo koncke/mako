@@ -20,7 +20,10 @@ import { createHash, randomUUID } from 'node:crypto';
 import { getSupabaseServer } from './supabase';
 import { BUCKET_ADJUNTOS } from './chart-chats';
 import { validarAdjuntos } from './mako-adjuntos';
-import { MAX_ADJUNTOS, MAX_BYTES_ADJUNTO, MAX_NOMBRE_ADJUNTO, MIMES_ADJUNTO, UUID_RE, leerFirmable, type AdjuntoPedido, type MimeAdjunto } from './operaciones-reglas';
+import {
+  DESTINO_RE, MAX_ADJUNTOS, MAX_BYTES_ADJUNTO, MAX_BYTES_ADJUNTO_TURNO, MAX_NOMBRE_ADJUNTO, MIMES_ADJUNTO, MIMES_ADJUNTO_TURNO, UUID_RE,
+  leerFirmable, refAdjuntoTurno, type AdjuntoPedido, type MimeAdjunto, type TurnoChat,
+} from './operaciones-reglas';
 
 /** Fuera de los `<ws>/…` del Archivero: los trabajos del Centro son de la plataforma, como sus tablas (mig 0285). */
 const rutaDe = (ref: string) => `operaciones/${ref}`;
@@ -82,6 +85,34 @@ export async function firmarSubidasCentro(lista: unknown): Promise<SubidasFirmad
     subidas.push({ ref, url: data.signedUrl });
   }
   return { ok: true, subidas };
+}
+
+// ── Lo que Martín adjuntó en la app de Claude (20/10/2026, cartero 1.17.0) ─────────────────────────────────────────────
+// La PC lo sube DIRECTO al storage con esta URL firmada (la pide con su token: lo valida la ruta); la pantalla lo ve con
+// otra, de 10 minutos, que sólo da `turnosCentroAction` (puedeOperar). El bucket es privado: sin URL firmada, nada.
+const rutaTurno = (ref: string) => `operaciones-turnos/${ref}`;
+const VER_TURNO_S = 10 * 60;
+
+/** La URL para que la PC suba un adjunto de un turno de Martín. Con `upsert`: una vuelta que se repite no falla. */
+export async function firmarAdjuntoDeTurno(x: unknown): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const o = (x ?? {}) as Record<string, unknown>;
+  if (typeof o.local !== 'string' || !DESTINO_RE.test(o.local)) return { ok: false, error: 'falta el chat' };
+  if (typeof o.uuid !== 'string' || !/^[\w-]{8,64}$/.test(o.uuid)) return { ok: false, error: 'falta el turno' };
+  if (typeof o.n !== 'number' || !Number.isInteger(o.n) || o.n < 0 || o.n > 7) return { ok: false, error: 'número inválido' };
+  if (typeof o.mime !== 'string' || !MIMES_ADJUNTO_TURNO.includes(o.mime)) return { ok: false, error: 'tipo inválido' };
+  if (typeof o.bytes !== 'number' || !Number.isInteger(o.bytes) || o.bytes < 1 || o.bytes > MAX_BYTES_ADJUNTO_TURNO) return { ok: false, error: 'tamaño inválido' };
+  const { data, error } = await bucket().createSignedUploadUrl(rutaTurno(refAdjuntoTurno(o.local, o.uuid, o.n)), { upsert: true });
+  return error || !data?.signedUrl ? { ok: false, error: 'no pude preparar la subida' } : { ok: true, url: data.signedUrl };
+}
+
+/** Los turnos con la URL firmada de cada adjunto (10 minutos), para dibujarlos. Si no se pueden firmar, van sin URL. */
+export async function conUrlsDeTurnos(turnos: TurnoChat[]): Promise<TurnoChat[]> {
+  const refs = turnos.flatMap((t) => t.adjuntos?.map((a) => a.ref) ?? []);
+  if (!refs.length) return turnos;
+  const { data } = await bucket().createSignedUrls(refs.map(rutaTurno), VER_TURNO_S).catch(() => ({ data: null }));
+  const urls = new Map<string, string>();
+  for (const d of data ?? []) if (d.path && d.signedUrl) urls.set(d.path, d.signedUrl);
+  return turnos.map((t) => (t.adjuntos?.length ? { ...t, adjuntos: t.adjuntos.map((a) => ({ ...a, url: urls.get(rutaTurno(a.ref)) })) } : t));
 }
 
 /** ¿Se le da este adjunto al cartero? Sólo si el trabajo está `tomado` hace poco y su texto firmado lo nombra. */

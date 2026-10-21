@@ -151,16 +151,13 @@ test('7: el chat del Runner no está en la lista del Ops Center', () => {
 
 test('8: un «Completado» sin ver avisa IGUAL que «Espera tu respuesta»: el mismo renglón y el mismo globito', () => {
   const quieto = { estado: 'abierto' as const, viejo: false };
-  const ya = { texto: 'el filtro del CRM', propio: false, tick: null, instante: 1, ya: true as const };
-  assert.equal(segundoRenglon(quieto, 0, null, ya, true), 'revisar', 'sin ver: para revisar');
-  assert.equal(segundoRenglon(quieto, 0, null, ya, false), 'ya', 'ya visto: el sello de siempre, sin aviso');
-  assert.equal(segundoRenglon(quieto, 0, null, ya), 'ya', 'sin saber si se vio, no avisa');
-  // 18/10/2026 (el ✓ del «Completado», tests/centro-ya-visto.test.ts): `sinVer` ya no exige que lo ÚLTIMO sea el «Ya está»;
-  // espera el ✓ aunque el chat haya escrito algo después.
-  assert.equal(segundoRenglon(quieto, 0, null, { ...ya, ya: undefined }, true), 'revisar', 'aunque lo último no sea el «Completado»');
-  assert.equal(segundoRenglon(quieto, 1, null, ya, true), 'espera', 'lo que pregunta el chat va primero');
-  assert.equal(segundoRenglon(quieto, 0, 'a medio escribir', ya, true), 'revisar', 'y le gana al borrador');
-  assert.equal(segundoRenglon({ estado: 'trabajando', viejo: false }, 0, null, ya, true), 'vivo', 'mientras trabaja, en qué');
+  // 20/10/2026 (tests/centro-subtitulo.test.ts): la fila dice «Trabajando…», «Espera tu respuesta» o nada; un «Completado»
+  // ya visto no lleva subtítulo.
+  assert.equal(segundoRenglon(quieto, 0, true), 'revisar', 'sin su ✓: espera tu respuesta');
+  assert.equal(segundoRenglon(quieto, 0, false), null, 'con su ✓: sin subtítulo');
+  assert.equal(segundoRenglon(quieto, 0), null, 'sin saber si se vio, no avisa');
+  assert.equal(segundoRenglon(quieto, 1, true), 'espera', 'lo que pregunta el chat va primero');
+  assert.equal(segundoRenglon({ estado: 'trabajando', viejo: false }, 0, true), 'vivo', 'mientras trabaja, «Trabajando…»');
   // El globito de la criatura y el orden de la lista cuentan las dos cosas.
   assert.equal(avisosDe(0, true), 1);
   assert.equal(avisosDe(2, true), 3);
@@ -168,10 +165,10 @@ test('8: un «Completado» sin ver avisa IGUAL que «Espera tu respuesta»: el m
   assert.equal(avisosDe(0, false), 0);
   // Las dos listas lo dibujan con el estilo de «Espera tu respuesta», y ya no hay un globito verde aparte.
   const pc = codigo('app/admin/operaciones/PiezasCentro.tsx');
-  assert.match(pc, /case 'revisar': return <span className="co-fila__l2 co-fila__l2--espera">Espera tu respuesta<\/span>;/, 'las mismas palabras (18/10/2026)');
+  assert.match(pc, /\{TEXTO_SEGUNDO_RENGLON\[r\]\}/, 'las mismas palabras (18/10/2026; la regla, en lib/centro-chats.ts)');
   assert.match(pc, /espera=\{k\.avisos\(c\)\}/, 'computadora: el globito de la criatura');
   const movil = codigo('app/m/operaciones/ChatsMovil.tsx');
-  assert.match(movil, /revisar: <span className="m-operaciones-espera">Espera tu respuesta<\/span>/);
+  assert.match(movil, /\{TEXTO_SEGUNDO_RENGLON\[renglon\]\}/);
   assert.match(movil, /espera=\{avisosDe\(espera, nuevo\)\}/, 'teléfono: el globito de la criatura');
   assert.match(movil, /const avisos = centro\.avisos;/, 'y el orden de la lista');
   assert.doesNotMatch(pc + movil, /co-aviso-ya|co-fila__hace--nuevo/, 'sin el globito verde de antes');

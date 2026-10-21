@@ -617,6 +617,8 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     adjuntosDe, puedeAdjuntar, sumarAdjuntos, quitarAdjunto, vaciarAdjuntos,
     /** Se pegó una imagen en un chat que todavía no recibe adjuntos. */
     sinAdjuntos: () => avisar('Este chat aún no recibe imágenes', 'bad'),
+    /** «Pegar» del «+» sin nada que pegar (20/10/2026). */
+    sinImagen: (puedeLeer: boolean) => avisar(puedeLeer ? 'No hay una imagen copiada' : 'Este navegador no deja pegar', 'bad'),
     puedeAbrirEn, apertura, abrirChat, mandarTextoA,
     cuentaElegida, elegirCuenta, cuentasDe, destinoDeChat, modelo, setModelo, esfuerzo, setEsfuerzo,
     menu, delMenu, abrirMenu, cerrarMenu: () => setMenu(null), elegirEnMenu,

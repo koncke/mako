@@ -47,6 +47,7 @@ import {
 } from './chat-ui';
 import { ArchivosHilo } from '@/app/_chat/ArchivosHilo';
 import { ConectarDelAviso } from '@/app/_chat/ConectarDelAviso';
+import { BloqueHilo } from '@/app/_chat/BloqueHilo';
 import { PegadosHilo, TextoPlegable } from '@/app/_chat/PegadoHilo';
 import { partirPegados } from '@/lib/chat-pegado';
 
@@ -244,10 +245,10 @@ export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats
 
   // ── Las propuestas ──
   const propuestaAbierta = items.find((x): x is Extract<ItemHilo, { k: 'propuesta' }> => x.k === 'propuesta' && x.id === abierta) ?? null;
-  const alEstado = (pendienteId: number, estado: EstadoPropuesta, nota?: string, paraLaPersona?: string[]) => {
+  /** `extra`: lo que vuelve de la tarjeta (`itemsTrasTarjeta`: los avisos y lo que dibuja el resultado). */
+  const alEstado = (pendienteId: number, estado: EstadoPropuesta, nota?: string, extra: readonly ItemHilo[] = []) => {
     setItems((xs) => {
       const sig = xs.map((x) => (x.k === 'propuesta' && x.t.pendienteId === pendienteId ? { ...x, estado, nota } : x));
-      const extra: ItemHilo[] = (paraLaPersona ?? []).filter((t) => t.trim()).map((t) => ({ k: 'aviso', id: idLocal('v'), texto: t, tono: 'mako' }));
       return [...sig, ...extra];
     });
   };
@@ -366,6 +367,8 @@ function Item({ x, onAbrir, onReintentar, onRecargar }: {
         </li>
       );
   }
+  // Lo que dibuja el resultado (lib/chat-bloques.ts): la MISMA pieza de la computadora.
+  if (x.k === 'bloque') return <li className="m-mako-msg m-mako-msg--mk"><BloqueHilo b={x.b} /></li>;
   if (x.k === 'pantalla') {
     return (
       <li className="m-mako-fila">
