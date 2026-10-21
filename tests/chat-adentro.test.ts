@@ -12,13 +12,17 @@
 //      no se deshace) y «Abrir en la app»; quien no es admin lo ve y no lo toca;
 //   3. al reabrir el chat, sus propuestas pendientes vuelven con el formulario (el camino real, tests/_adentro-hijo.ts):
 //      las de OTRO chat y las ya resueltas no; la que mueve plata vuelve SIN formulario;
-//   4. las tres caras del hilo dibujan el formulario, y la pantalla de revisión usa los MISMOS campos.
+//   4. las tres caras del hilo dibujan el formulario, y la pantalla de revisión usa los MISMOS campos;
+//   5. (revisión del 21/10/2026) el cliente lee rótulos de persona: ni el nombre del parámetro («leadId»), ni la ayuda
+//      escrita para el modelo, ni lo que escribe en la base («closing_analyses»); un id o un JSON van como los propuso MaKo.
 //
 // Probado rompiéndolo (20/10/2026, con la base en 0 fallos):
 //   · el formulario también para lo que mueve plata → 1 fallo (3);
 //   · `propuestasPendientesDelChat` sin filtrar por el chat → 1 fallo (3);
 //   · `puedeDecidir` siempre true → 1 fallo (3);
-//   · el hilo de la computadora sin el formulario → 1 fallo (4).
+//   · el hilo de la computadora sin el formulario → 1 fallo (4);
+//   · (21/10) el formulario del chat sin `paraCliente` → 1 fallo (5); `plano` sin el `rotulo` → 1 fallo (5); la
+//     consecuencia con `escribe` otra vez → 1 fallo (5); el id a la vista → 1 fallo (2).
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -84,7 +88,8 @@ const dibujar = async (f: FormularioPropuesta, conAcciones = true) => {
 test('2. el formulario: los campos de la operación, los botones de su pantalla y la consecuencia', async () => {
   const html = await dibujar(FORM);
   assert.match(html, /value="ana@nuevo\.com"/, 'con lo que propuso MaKo');
-  assert.match(html, /value="101"[^>]*disabled=""|disabled=""[^>]*value="101"/, 'lo que dice sobre qué se hace no se edita (fijoAlRevisar)');
+  // Desde el 21/10 el id no se ve (test 5): va como lo propuso MaKo.
+  assert.doesNotMatch(html, /value="101"/, 'el id no se muestra ni se edita');
   assert.match(html, />Confirmar acción</);
   assert.match(html, />Descartar propuesta</);
   assert.match(html, /href="\/mako\/revisar\/p-1[^"]*"[^>]*>Abrir en la app</, 'la salida secundaria');
@@ -124,4 +129,23 @@ test('4. las tres caras dibujan el formulario, con los mismos campos que su pant
   for (const f of ['app/second-brain/ChatSecondBrain.tsx', 'app/crm/mako-crm/ChatMakoCrm.tsx', 'app/crm/lead-view/MakoAnalystLead.tsx', 'app/m/mako/ChatMako.tsx']) {
     assert.match(leer(f), /itemsDeSesion\([^)]*pantallas \?\? \[\]\)/, `${f}: las propuestas pendientes vuelven al abrir`);
   }
+});
+
+test('5. el formulario del chat se lee como una persona: sin nombres de parámetro, ayudas del modelo ni tablas', async () => {
+  const conRotulo: FormularioPropuesta = {
+    ...FORM,
+    operacion: {
+      ...FORM.operacion, escribe: 'upsert de análisis en closing_analyses con el lead fijado',
+      parametros: [...FORM.operacion.parametros, { nombre: 'filtros', tipo: 'object', descripcion: 'filtros (de buscar_leads).' }, { nombre: 'telefonoNuevo', tipo: 'string', descripcion: 'teléfono E.164 para el modelo.', rotulo: 'Teléfono nuevo' }],
+    },
+  };
+  const html = await dibujar(conRotulo);
+  assert.match(html, />Teléfono nuevo</, 'el rótulo de una persona');
+  assert.doesNotMatch(html, />(?:leadId|email|filtros|telefonoNuevo)</, 'ningún nombre de parámetro');
+  assert.doesNotMatch(html, /para el modelo|de buscar_leads|id del lead/, 'ni las ayudas escritas para el modelo');
+  assert.doesNotMatch(html, /closing_analyses|upsert/, 'ni lo que escribe en la base');
+  assert.match(html, /Lo demás va como lo propuso MaKo/, 'el id y el JSON van como los propuso, y lo dice');
+  // `plano` (lib/bandeja-filas.ts, con `server-only`) deja viajar el rótulo al formulario.
+  assert.match(leer('lib/bandeja-filas.ts'), /\.\.\.\(p\.rotulo \? \{ rotulo: p\.rotulo \} : \{\}\),/, 'el rótulo viaja al formulario');
+  assert.match(leer('app/admin/operaciones/AdjuntosCaja.tsx'), /title=\{children \? 'Adjuntar y elegir con qué corre' : 'Adjuntar'\}/, 'el «+» no ofrece lo que no hay');
 });

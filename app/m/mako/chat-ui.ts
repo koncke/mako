@@ -113,8 +113,9 @@ export function itemsDeSesion(mensajes: readonly MensajeChat[], propuestas: read
   ]);
 }
 
-/** Una pregunta (G1) seguida de un mensaje de la persona ya está contestada: con eso (1.9). */
-function conRespuestas(xs: ItemHilo[]): ItemHilo[] {
+/** Una pregunta (G1) seguida de un mensaje de la persona ya está contestada: con eso (1.9). Lo usan también las
+ *  pantallas al dibujar (revisión del 21/10/2026): contestar escribiendo apaga las opciones en el acto, no al recargar. */
+export function conRespuestas(xs: readonly ItemHilo[]): ItemHilo[] {
   return xs.map((x, i) => {
     if (x.k !== 'bloque' || x.b.t !== 'pregunta') return x;
     const siguiente = xs.slice(i + 1).find((y): y is Extract<ItemHilo, { k: 'msg' }> => y.k === 'msg' && y.role === 'user');

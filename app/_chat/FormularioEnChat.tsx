@@ -21,7 +21,15 @@ import { Campo, armarPayload, valorInicial, type Valor } from '@/app/mako/revisa
 import { BOTONES_ESCRITORIO } from '@/app/m/inbox/inbox-ui';
 import type { FormularioPropuesta } from '@/lib/mako-turno-app-reglas';
 import type { Abrir, Bloque } from '@/lib/chat-bloques';
+import type { Parametro } from '@/lib/api-mako/tipos';
 import { BloqueHilo } from './BloqueHilo';
+
+/**
+ * Lo que el formulario del chat NO le muestra al cliente (revisión del 21/10/2026): un id («leadId», que además se
+ * podía editar) y lo que es una estructura (un JSON a mano). Van como los propuso MaKo; para cambiarlos, la pantalla.
+ */
+export const ocultoAlCliente = (p: Pick<Parametro, 'nombre' | 'tipo'>): boolean =>
+  /^(?:id|.+Id|.+_id)$/.test(p.nombre) || p.tipo === 'object' || p.tipo === 'object[]';
 
 /** `enCurso`: un trabajo largo que sigue por detrás (1.11); su avance es el G6 de `bloques`. */
 export type ResultadoFormulario = { ok: true; resumen: string; bloques?: Bloque[]; abrir?: Abrir; enCurso?: true } | { ok: false; error: string };
@@ -42,6 +50,7 @@ export function FormularioEnChat({ f, acciones, abrirEnApp }: {
   abrirEnApp: Abrir;
 }) {
   const params = f.operacion.parametros;
+  const visibles = params.filter((p) => !ocultoAlCliente(p));
   const [valores, setValores] = useState<Record<string, Valor>>(() =>
     Object.fromEntries(params.map((p) => [p.nombre, valorInicial(p, f.payload[p.nombre])])));
   const [errores, setErrores] = useState<Record<string, string>>({});
@@ -98,14 +107,18 @@ export function FormularioEnChat({ f, acciones, abrirEnApp }: {
   return (
     <div className="ch-form" data-fase="editando">
       {params.length === 0 && <p className="ch-tarjeta__nota">No lleva datos: se hace tal como dice arriba.</p>}
-      {params.map((p) => (
-        <Campo key={p.nombre} p={p} valor={valores[p.nombre]} error={errores[p.nombre]} disabled={enCurso || quieto || !!p.fijoAlRevisar}
+      {visibles.map((p) => (
+        <Campo key={p.nombre} p={p} paraCliente valor={valores[p.nombre]} error={errores[p.nombre]} disabled={enCurso || quieto || !!p.fijoAlRevisar}
           onChange={(nv) => setValores((prev) => ({ ...prev, [p.nombre]: nv }))} />
       ))}
+      {visibles.length < params.length && <p className="ch-tarjeta__nota">Lo demás va como lo propuso MaKo. Para cambiarlo, ábrela en la app.</p>}
+      {/* Un error de un campo que no se ve, dicho en palabras (el de su campo no se dibuja). */}
+      {params.some((p) => ocultoAlCliente(p) && errores[p.nombre]) && <p className="ch-tarjeta__nota ch-form__error" role="alert">Hay un dato para corregir en la app.</p>}
       {error && <p className="ch-tarjeta__nota ch-form__error" role="alert">{error}</p>}
-      {/* G3: la consecuencia pegada al botón; lo que no se deshace, en rojo. */}
+      {/* G3: la consecuencia pegada al botón; lo que no se deshace, en rojo. Sin `escribe`: es para el modelo («upsert … en
+          closing_analyses»); qué se hace lo dice el título de la tarjeta. */}
       <p className={`ch-tarjeta__consecuencia${f.operacion.reversible ? '' : ' ch-tarjeta__consecuencia--irreversible'}`}>
-        {f.operacion.reversible ? `Al confirmar: ${f.operacion.escribe}. Se puede deshacer desde su tab.` : `No se puede deshacer. Al confirmar: ${f.operacion.escribe}.`}
+        {f.operacion.reversible ? 'Se puede deshacer desde su tab.' : 'No se puede deshacer.'}
       </p>
       {f.puedeDecidir ? (
         <div className="ch-tarjeta__botones">

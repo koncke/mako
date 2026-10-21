@@ -276,7 +276,7 @@ export function ChatMakoCrm({ funnelId, pedido }: {
         ) : (
           <HiloMako items={items} quien={{ nombre: 'CRM' }} ahora={ahora} escribiendo={hayTrabajo ? { segs } : null}
             tarjeta={tarjeta} onTarjeta={(x, a) => void correrTarjeta(x, a)} onReintentar={reintentar} onRecargar={recargar}
-            onResponder={(t) => enviar({ texto: t })}
+            onResponder={(t) => { if (ocupadoRef.current) return false; enviar({ texto: t }); return true; }}
             onTrabajo={(id, ok) => { setItems((xs) => trasTrabajo(xs, id, ok)); router.refresh(); }} />
         )}
       </div>

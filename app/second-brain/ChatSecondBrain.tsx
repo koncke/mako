@@ -728,7 +728,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
             ) : (
               <HiloMako items={items} quien={{ nombre: nombreMuneco }} ahora={ahora} escribiendo={trabajo ? { segs } : null}
                 tarjeta={tarjeta} onTarjeta={(x, a) => void correrTarjeta(x, a)} onReintentar={reintentar} onRecargar={recargar}
-                onResponder={(t) => { enviar(t); }} onTrabajo={(id, ok) => setItems((xs) => trasTrabajo(xs, id, ok))} />
+                onResponder={(t) => enviar(t)} onTrabajo={(id, ok) => setItems((xs) => trasTrabajo(xs, id, ok))} />
             )}
           </div>
 

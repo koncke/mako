@@ -10,6 +10,8 @@
 //      de preguntar, y guarda la pregunta con el mensaje;
 //   4. el hilo la dibuja al volver el turno y al recargar, contestada si ya hubo respuesta, y las cuatro pantallas
 //      mandan lo que se toca como el siguiente mensaje;
+//   6. (revisión del 21/10/2026) tocar una opción mientras MaKo trabaja no dice «Respondiste» si no salió: las opciones
+//      esperan mientras trabaja, y contestar escribiendo las apaga en el acto (`conRespuestas` al dibujar);
 //   5. (revisión del 21/10/2026) lo que el turno propuso en una pantalla se retira EN LA BASE, cada uno con su descarte (el
 //      borrador del plan, la ficha de lead, la propuesta de video, el borrador de WhatsApp, la genérica), sólo si lo creó
 //      este turno; y el mensaje no dice «confírmalo abajo» sin nada abajo.
@@ -22,7 +24,9 @@
 //   · el turno sin guardar la pregunta con el mensaje → 1 fallo (3) (desde el 21/10, `conElMensaje` sin la pregunta);
 //   · `itemsDeSesion` sin marcar la contestada → 1 fallo (4);
 //   · (21/10) `aRetirar` sólo con la genérica, como antes → 1 fallo (5); que retira también la que ya estaba pendiente
-//     → 1 fallo (5); el mensaje del borrador con una pregunta → 1 fallo (5); el turno sin retirar por clase → 1 fallo (5).
+//     → 1 fallo (5); el mensaje del borrador con una pregunta → 1 fallo (5); el turno sin retirar por clase → 1 fallo (5);
+//   · `PreguntaHilo` que marca antes de mandar, como antes → 1 fallo (6); sin apagarse con `ocupado` → 1 fallo (6); el
+//     hilo de la computadora sin `conRespuestas` → 1 fallo (6).
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -35,7 +39,7 @@ import { REGISTRO, porId } from '../lib/api-mako/registro';
 import { PREGUNTAR, TOOL_PREGUNTAR, crearGuardiaDePregunta, retirar } from '../lib/chat-pregunta';
 import { clasificarIntencion } from '../lib/mako-intencion';
 import { aRetirar, herramientasDelChat, linksDeUnaAccion } from '../lib/mako-turno-app-reglas';
-import { itemsDeRespuesta, itemsDeSesion } from '../app/m/mako/chat-ui';
+import { conRespuestas, itemsDeRespuesta, itemsDeSesion } from '../app/m/mako/chat-ui';
 import type { Bloque } from '../lib/chat-bloques';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -107,10 +111,11 @@ test('4. el hilo la dibuja, contestada si ya hubo respuesta, y lo que se toca sa
   const html = renderToStaticMarkup(createElement(BloqueHilo, { b: b as Bloque, onResponder: () => {}, respondida: 'Agendados' }));
   assert.match(html, /Respondiste: Agendados/);
   assert.equal((html.match(/class="ch-opcion" disabled=""/g) ?? []).length, 3, 'y no se vuelve a tocar');
-  assert.match(sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx')), /onResponder=\{\(t\) => \{ enviar\(t\); \}\}/, 'el Ops Center');
-  assert.match(sinComentarios(leer('app/crm/mako-crm/ChatMakoCrm.tsx')), /onResponder=\{\(t\) => enviar\(\{ texto: t \}\)\}/, 'el chat del CRM');
-  assert.match(sinComentarios(leer('app/crm/lead-view/MakoAnalystLead.tsx')), /<BloqueHilo b=\{x\.b\} respondida=\{x\.respondida\} onResponder=\{\(t\) => enviar\(\{ texto: t, adjuntos: \[\] \}\)\}/, 'el de la ficha');
-  assert.match(sinComentarios(leer('app/m/mako/ChatMako.tsx')), /onResponder=\{\(t\) => void enviar\(\{ texto: t, adjuntos: \[\] \}\)\}/, 'el teléfono');
+  // Desde el 21/10 dicen si salió (test 6).
+  assert.match(sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx')), /onResponder=\{\(t\) => enviar\(t\)\}/, 'el Ops Center');
+  assert.match(sinComentarios(leer('app/crm/mako-crm/ChatMakoCrm.tsx')), /onResponder=\{\(t\) => \{ if \(ocupadoRef\.current\) return false; enviar\(\{ texto: t \}\); return true; \}\}/, 'el chat del CRM');
+  assert.match(sinComentarios(leer('app/crm/lead-view/MakoAnalystLead.tsx')), /onResponder=\{\(t\) => \{ if \(ocupadoRef\.current\) return false; enviar\(\{ texto: t, adjuntos: \[\] \}\); return true; \}\}/, 'el de la ficha');
+  assert.match(sinComentarios(leer('app/m/mako/ChatMako.tsx')), /onResponder=\{\(t\) => \{ if \(trabajo\) return false; void enviar\(\{ texto: t, adjuntos: \[\] \}\); return true; \}\}/, 'el teléfono');
 });
 
 test('5. lo propuesto en una pantalla se retira en la base, cada uno con su descarte, y el mensaje no lo ofrece', () => {
@@ -137,4 +142,27 @@ test('5. lo propuesto en una pantalla se retira en la base, cada uno con su desc
   for (const f of ['descartarPropuesta(r.id)', 'descartarBorradorDelPlan(r.id)', "resolverPropuestaDeVideo({ ws, id: r.id, estado: 'descartada'", 'descartarBorrador(Number(r.id))']) {
     assert.ok(retiro.includes(f), `retira con ${f}`);
   }
+});
+
+test('6. una opción tocada mientras MaKo trabaja no dice «Respondiste» si no salió', async () => {
+  const { BloqueHilo } = await import('../app/_chat/BloqueHilo');
+  const b = { t: 'pregunta' as const, ...PREGUNTA } as Bloque;
+  // Mientras trabaja, las opciones esperan.
+  const ocupado = renderToStaticMarkup(createElement(BloqueHilo, { b, onResponder: () => true, ocupado: true }));
+  assert.equal((ocupado.match(/class="ch-opcion" disabled=""/g) ?? []).length, 3, 'apagadas mientras MaKo trabaja');
+  assert.doesNotMatch(ocupado, /Respondiste/);
+  const libre = renderToStaticMarkup(createElement(BloqueHilo, { b, onResponder: () => true }));
+  assert.equal((libre.match(/class="ch-opcion" disabled=""/g) ?? []).length, 0, 'y prendidas cuando no');
+  // «Respondiste» sólo si salió: el orden lo fija la fuente (los efectos no corren en este render).
+  const s = sinComentarios(leer('app/_chat/BloqueHilo.tsx'));
+  assert.match(s, /if \(onResponder\?\.\(t\) === false\) \{ setNoSalio\(true\); return; \}\s*setNoSalio\(false\);\s*setEnviada\(t\);/, 'marca después de mandar, y sólo si salió');
+  // Contestar ESCRIBIENDO la apaga en el acto: las pantallas dibujan con lo contestado.
+  const hilo = conRespuestas([
+    { k: 'bloque', id: 'q', b },
+    { k: 'msg', id: 'u', role: 'user', texto: 'mejor los nuevos', at: null } as never,
+  ]);
+  assert.equal(hilo[0].k === 'bloque' ? hilo[0].respondida : null, 'mejor los nuevos');
+  assert.match(sinComentarios(leer('app/_chat/HiloMako.tsx')), /conRespuestas\(items\)\.forEach\(/, 'la computadora');
+  assert.match(sinComentarios(leer('app/m/mako/ChatMako.tsx')), /\{conRespuestas\(items\)\.map\(\(x\) => \(/, 'el teléfono');
+  assert.match(sinComentarios(leer('app/crm/lead-view/MakoAnalystLead.tsx')), /new Map\(conRespuestas\(items\)\.map/, 'la ficha');
 });
