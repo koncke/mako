@@ -129,8 +129,8 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
         <DeMako key={x.id} quien={quien}>
           <div className="ch-tarjeta">
             <p className="ch-tarjeta__resumen"><strong>{x.p.titulo}</strong></p>
-            <p className="ch-tarjeta__nota">Se revisa y se confirma en su pantalla.</p>
-            <div className="ch-tarjeta__botones"><a className="co-chip" href={x.p.escritorio}>Abrir para revisar</a></div>
+            <p className="ch-tarjeta__nota">{x.p.nota}</p>
+            <div className="ch-tarjeta__botones"><Link className="ch-abrir" href={x.p.escritorio}>{x.p.boton}</Link></div>
           </div>
         </DeMako>,
       );

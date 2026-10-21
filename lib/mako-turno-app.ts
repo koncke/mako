@@ -68,7 +68,7 @@ import { aFila } from '@/lib/bandeja-filas';
 import { puedeVerKey } from '@/lib/movil-rutas';
 import { bloquesDeAdjuntos, placeholderDeAdjunto, promptDeAdjunto, type AdjuntoListo } from '@/lib/mako-adjuntos';
 import {
-  chartKeyDePersona, canalKeyDeSesion, herramientasDelChat, tarjetaDePendiente, linksDeUnaAccion,
+  chartKeyDePersona, canalKeyDeSesion, herramientasDelChat, tarjetaDePendiente, linksDeUnaAccion, abrirDeResultado,
   propuestaDePantalla, sinLinksDeRevision, MENSAJE_BORRADOR_APP, mensajeLeadApp, TEXTO_SOLO_TARJETA,
   historialParaModelo, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA,
   type LinkCapturado, type MensajeChat, type RespuestaTurno, type ResultadoTarjeta, type SesionChat, type TarjetaPendiente,
@@ -571,9 +571,11 @@ export async function confirmarDesdeTarjeta(persona: PersonaChat, sessionId: num
     // la pantalla para sumarlo sin recargar (la 1.7: confirmar `crear_diseno_imagen` deja su miniatura en el hilo).
     const bloque = r.ok ? bloqueDeResultado(r.datos) : null;
     await anotarEnHilo(sessionId, r.ok ? `Hecho: ${r.resumen}` : `No se pudo: ${r.resumen}`, bloque ? [bloque] : []);
+    // Sin bloque (que trae su propio botón), el «Abrir en <tab>» del link que devolvió la acción (1.8).
+    const abrir = r.ok && !bloque ? abrirDeResultado(r.tipo, r.datos) : null;
     // ok:false acá es «se ejecutó y falló»: la pendiente quedó en error y no vuelve.
     return r.ok
-      ? { ok: true, resumen: r.resumen, paraLaPersona: detalle, ...(bloque ? { bloques: [bloque] } : {}) }
+      ? { ok: true, resumen: r.resumen, paraLaPersona: detalle, ...(bloque ? { bloques: [bloque] } : {}), ...(abrir ? { abrir } : {}) }
       : { ok: false, error: r.resumen, ejecutada: true, paraLaPersona: detalle };
   });
 }

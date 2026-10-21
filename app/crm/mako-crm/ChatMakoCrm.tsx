@@ -35,7 +35,7 @@ import { Microfono } from '@/app/admin/operaciones/Microfono';
 import '@/app/admin/operaciones/centro.css';
 import '@/app/_chat/chat.css';
 import {
-  idLocal, itemsDeRespuesta, itemsDeSesion, itemsTrasTarjeta, leerRespuesta, trasTarjeta, type EstadoPropuesta, type ItemHilo,
+  idLocal, itemsDeRespuesta, itemsDeSesion, conTarjeta, leerRespuesta, trasTarjeta, type EstadoPropuesta, type ItemHilo,
 } from '@/app/m/mako/chat-ui';
 import type { MensajeChat, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 
@@ -208,12 +208,9 @@ export function ChatMakoCrm({ funnelId, pedido }: {
   }, [pedido, listo, trabajo]);
 
   // ── Las tarjetas: confirmar o no ejecutar lo que MaKo propuso ──
-  /** `extra`: lo que vuelve de la tarjeta (`itemsTrasTarjeta`: los avisos y lo que dibuja el resultado). */
-  const alEstado = (pendienteId: number, estado: EstadoPropuesta, nota?: string, extra: readonly ItemHilo[] = []) => {
-    setItems((xs) => {
-      const sig = xs.map((x) => (x.k === 'propuesta' && x.t.pendienteId === pendienteId ? { ...x, estado, nota } : x));
-      return [...sig, ...extra];
-    });
+  /** `r`: lo que contestó la tarjeta (su «Abrir», los avisos y lo que dibuja el resultado: `conTarjeta`). */
+  const alEstado = (pendienteId: number, estado: EstadoPropuesta, nota?: string, r?: ResultadoTarjeta) => {
+    setItems((xs) => conTarjeta(xs, pendienteId, estado, nota, r));
   };
   const correrTarjeta = async (it: ItemPropuesta, accion: 'confirmar' | 'cancelar') => {
     const s = sesionRef.current;
@@ -237,7 +234,7 @@ export function ChatMakoCrm({ funnelId, pedido }: {
         return;
       }
       const d = trasTarjeta(l.datos, accion);
-      alEstado(id, d.estado ?? 'pendiente', d.frase ?? undefined, itemsTrasTarjeta(l.datos));
+      alEstado(id, d.estado ?? 'pendiente', d.frase ?? undefined, l.datos);
       if (d.estado === 'hecho' || d.estado === 'fallo') router.refresh();
     } finally {
       setTarjeta(null);

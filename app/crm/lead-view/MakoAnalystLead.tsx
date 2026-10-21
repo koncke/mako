@@ -66,7 +66,7 @@ import { ChipArchivo } from '@/app/offer/ChipArchivo';
 import { CSS_OFFER } from '@/app/offer/estilos';
 import { horaDe } from '@/app/offer/ayudas';
 import {
-  AVISO_LENTO_S, ERROR_INCIERTO, PILL_PROPUESTA, SALIDA_PROPUESTA, fuenteDelTurno, idLocal, itemsDeRespuesta, itemsTrasTarjeta,
+  AVISO_LENTO_S, ERROR_INCIERTO, PILL_PROPUESTA, SALIDA_PROPUESTA, fuenteDelTurno, idLocal, itemsDeRespuesta, conTarjeta,
   itemsDeSesion, leerRespuesta, problemaDeSeleccion, rotuloPrimario, trasTarjeta, type EstadoPropuesta, type ItemHilo,
 } from '@/app/m/mako/chat-ui';
 import { achicarImagen, postConProgreso } from '@/app/m/mako/subir';
@@ -370,12 +370,9 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
   };
 
   // ── Las tarjetas: confirmar o no ejecutar lo que MaKo propuso ──
-  /** `extra`: lo que vuelve de la tarjeta (`itemsTrasTarjeta`: los avisos y lo que dibuja el resultado). */
-  const alEstado = (pendienteId: number, estado: EstadoPropuesta, nota?: string, extra: readonly ItemHilo[] = []) => {
-    setItems((xs) => {
-      const sig = xs.map((x) => (x.k === 'propuesta' && x.t.pendienteId === pendienteId ? { ...x, estado, nota } : x));
-      return [...sig, ...extra];
-    });
+  /** `r`: lo que contestó la tarjeta (su «Abrir», los avisos y lo que dibuja el resultado: `conTarjeta`). */
+  const alEstado = (pendienteId: number, estado: EstadoPropuesta, nota?: string, r?: ResultadoTarjeta) => {
+    setItems((xs) => conTarjeta(xs, pendienteId, estado, nota, r));
   };
   const correrTarjeta = async (it: ItemPropuesta, accion: 'confirmar' | 'cancelar') => {
     const s = sesionRef.current;
@@ -400,7 +397,7 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
         return;
       }
       const d = trasTarjeta(l.datos, accion);
-      alEstado(id, d.estado ?? 'pendiente', d.frase ?? undefined, itemsTrasTarjeta(l.datos));
+      alEstado(id, d.estado ?? 'pendiente', d.frase ?? undefined, l.datos);
       // Lo confirmado cambió al lead (su etapa, una nota, una etiqueta): la ficha que rodea al chat
       // es una FOTO y se relee por el aviso de siempre (ficha-cambio.tsx), no con un refresh suelto.
       if (d.estado === 'hecho' || d.estado === 'fallo') refrescarFicha();
@@ -516,9 +513,9 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
         <FilaMako>
           <div className="mal-tarjeta">
             <p className="mal-tarjeta__resumen"><strong>{x.p.titulo}</strong></p>
-            <p className="mal-tarjeta__nota">Todavía no está cargado: se revisa y se confirma en su pantalla.</p>
+            <p className="mal-tarjeta__nota">{x.p.clase === 'editor' || x.p.clase === 'whatsapp' ? x.p.nota : 'Todavía no está cargado: se revisa y se confirma en su pantalla.'}</p>
             <div className="mal-tarjeta__botones">
-              <ButtonLink href={x.p.escritorio} variant="secondary" size="sm">Abrir para revisar</ButtonLink>
+              <ButtonLink href={x.p.escritorio} variant="secondary" size="sm">{x.p.boton}</ButtonLink>
             </div>
           </div>
         </FilaMako>
@@ -559,6 +556,9 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
               </div>
             </>
           ) : x.nota ? <p className="mal-tarjeta__nota">{x.nota}</p> : null}
+          {x.estado === 'hecho' && x.abrir && (
+            <div className="mal-tarjeta__botones"><ButtonLink href={x.abrir.href} variant="secondary" size="sm">{x.abrir.titulo}</ButtonLink></div>
+          )}
         </div>
       </FilaMako>
     );

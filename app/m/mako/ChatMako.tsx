@@ -34,7 +34,7 @@ import { Markdown } from '@/app/_components/Markdown';
 import { conWs } from '@/lib/ws-tab';
 import { TITULO_INBOX } from '@/lib/movil-rutas';
 import { GRAMATICA } from '@/lib/mako-gramatica';
-import type { MensajeChat, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
+import type { MensajeChat, RespuestaTurno, ResultadoTarjeta, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 import {
   CabeceraM, FilaM, ListaM, PieM, PildoraM, SeccionM, SheetM, SkeletonFilas, VacioM, ErrorM, useConexion, horaCorta,
 } from '../_ui';
@@ -42,7 +42,7 @@ import { Composer, type Envio } from './Composer';
 import { SheetPropuesta } from './SheetPropuesta';
 import { postConProgreso } from './subir';
 import {
-  AVISO_LENTO_S, ERROR_INCIERTO, PILL_PROPUESTA, archivosDeRespuesta, duracion, fuenteDelTurno, idLocal, itemsDeRespuesta,
+  AVISO_LENTO_S, ERROR_INCIERTO, PILL_PROPUESTA, archivosDeRespuesta, conTarjeta, duracion, fuenteDelTurno, idLocal, itemsDeRespuesta,
   itemsDeSesion, leerRespuesta, textoConArchivos, type EstadoPropuesta, type ItemHilo,
 } from './chat-ui';
 import { ArchivosHilo } from '@/app/_chat/ArchivosHilo';
@@ -245,12 +245,9 @@ export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats
 
   // ── Las propuestas ──
   const propuestaAbierta = items.find((x): x is Extract<ItemHilo, { k: 'propuesta' }> => x.k === 'propuesta' && x.id === abierta) ?? null;
-  /** `extra`: lo que vuelve de la tarjeta (`itemsTrasTarjeta`: los avisos y lo que dibuja el resultado). */
-  const alEstado = (pendienteId: number, estado: EstadoPropuesta, nota?: string, extra: readonly ItemHilo[] = []) => {
-    setItems((xs) => {
-      const sig = xs.map((x) => (x.k === 'propuesta' && x.t.pendienteId === pendienteId ? { ...x, estado, nota } : x));
-      return [...sig, ...extra];
-    });
+  /** `r`: lo que contestó la tarjeta (su «Abrir», los avisos y lo que dibuja el resultado: `conTarjeta`). */
+  const alEstado = (pendienteId: number, estado: EstadoPropuesta, nota?: string, r?: ResultadoTarjeta) => {
+    setItems((xs) => conTarjeta(xs, pendienteId, estado, nota, r));
   };
 
   // ── El dibujo ──
@@ -373,7 +370,8 @@ function Item({ x, onAbrir, onReintentar, onRecargar }: {
     return (
       <li className="m-mako-fila">
         <ListaM>
-          <FilaM leading={MARCA_MAKO} titulo={x.p.titulo} segunda={`Se revisa en ${TITULO_INBOX}`} href={x.p.href} />
+          {/* Lo que se acepta en SU pantalla (el editor, Chats) dice dónde; lo demás, la bandeja del teléfono. */}
+          <FilaM leading={MARCA_MAKO} titulo={x.p.titulo} segunda={x.p.clase === 'editor' || x.p.clase === 'whatsapp' ? x.p.nota : `Se revisa en ${TITULO_INBOX}`} href={x.p.href} />
         </ListaM>
       </li>
     );
@@ -385,10 +383,10 @@ function Item({ x, onAbrir, onReintentar, onRecargar }: {
         <FilaM
           leading={MARCA_MAKO}
           titulo={x.t.resumen}
-          segunda={x.estado === 'pendiente' ? (x.t.consecuencia ?? x.t.titulo) : x.t.titulo}
+          segunda={x.estado === 'pendiente' ? (x.t.consecuencia ?? x.t.titulo) : x.estado === 'hecho' && x.abrir ? x.abrir.titulo : x.t.titulo}
           pill={<PildoraM tono={pill.tono}>{pill.texto}</PildoraM>}
           enCurso={x.estado === 'aplicando' ? true : undefined}
-          onClick={() => onAbrir(x.id)}
+          {...(x.estado === 'hecho' && x.abrir ? { href: x.abrir.href } : { onClick: () => onAbrir(x.id) })}
         />
       </ListaM>
     </li>

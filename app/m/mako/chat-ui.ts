@@ -25,7 +25,7 @@ import type {
 } from '@/lib/mako-turno-app-reglas';
 import { ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, type TipoAdjunto } from '@/lib/mako-adjuntos';
 import type { EstadoArchivero } from '@/lib/chat-mako-bloques';
-import type { Bloque } from '@/lib/chat-bloques';
+import type { Abrir, Bloque } from '@/lib/chat-bloques';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 
 // ── El hilo ──────────────────────────────────────────────────────────────────
@@ -58,7 +58,8 @@ export type ItemHilo =
        *  Second Brain los pide a /api/mako/pedidos; lib/chat-mako-reglas.ts → colgarIrA) */
       irA?: { titulo: string; link: string }[];
     }
-  | { k: 'propuesta'; id: string; t: TarjetaPendiente; estado: EstadoPropuesta; nota?: string }
+  /** `abrir`: después de confirmarla, el «Abrir en <tab>» del link que devolvió la acción (1.8). */
+  | { k: 'propuesta'; id: string; t: TarjetaPendiente; estado: EstadoPropuesta; nota?: string; abrir?: Abrir }
   | { k: 'pantalla'; id: string; p: PropuestaPantalla }
   /** `mako` = lo escribió el código para la persona (la agenda); `plataforma` = no pude.
    *  `conectar`: la integración que le falta al negocio (`RespuestaTurno.conectar`): un botón que abre su modal ahí mismo. */
@@ -114,6 +115,17 @@ export function itemsTrasTarjeta(r: ResultadoTarjeta): ItemHilo[] {
   const avisos = (r.paraLaPersona ?? []).filter((t) => t.trim()).map((t): ItemHilo => ({ k: 'aviso', id: idLocal('v'), texto: t, tono: 'mako' }));
   const bloques = r.ok ? (r.bloques ?? []).map((b): ItemHilo => ({ k: 'bloque', id: idLocal('b'), b })) : [];
   return [...avisos, ...bloques];
+}
+
+/**
+ * El hilo después de tocar una tarjeta: la tarjeta con su estado nuevo (y su «Abrir», 1.8) y, al final, lo que vuelve
+ * (`itemsTrasTarjeta`). Sin `r` (mientras corre, o si no llegó la respuesta), sólo el estado. Lo usan TODAS las
+ * pantallas del chat con MaKo: antes cada una lo armaba a mano.
+ */
+export function conTarjeta(xs: readonly ItemHilo[], pendienteId: number, estado: EstadoPropuesta, nota?: string, r?: ResultadoTarjeta): ItemHilo[] {
+  const abrir = r?.ok ? r.abrir : undefined;
+  const sig = xs.map((x) => (x.k === 'propuesta' && x.t.pendienteId === pendienteId ? { ...x, estado, nota, ...(abrir ? { abrir } : {}) } : x));
+  return r ? [...sig, ...itemsTrasTarjeta(r)] : sig;
 }
 
 /**

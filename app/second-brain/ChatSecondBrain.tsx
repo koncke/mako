@@ -53,7 +53,7 @@ import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import { HiloMako } from '@/app/_chat/HiloMako';
 import type { ItemPropuesta } from '@/app/_chat/TarjetaAccion';
 import {
-  archivosDeRespuesta, idLocal, itemsDeRespuesta, itemsDeSesion, itemsTrasTarjeta, leerRespuesta, problemaDeSeleccion, tipoDeElegido, trasTarjeta,
+  archivosDeRespuesta, idLocal, itemsDeRespuesta, itemsDeSesion, conTarjeta, leerRespuesta, problemaDeSeleccion, tipoDeElegido, trasTarjeta,
   type EstadoPropuesta, type ItemHilo, type Leido,
 } from '@/app/m/mako/chat-ui';
 import { achicarImagen } from '@/app/m/mako/subir';
@@ -503,12 +503,9 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
   };
 
   // ── Las tarjetas ──
-  /** `extra`: lo que vuelve de la tarjeta (`itemsTrasTarjeta`: los avisos y lo que dibuja el resultado). */
-  const alEstado = (pendienteId: number, estado: EstadoPropuesta, nota?: string, extra: readonly ItemHilo[] = []) => {
-    setItems((xs) => {
-      const sig = xs.map((x) => (x.k === 'propuesta' && x.t.pendienteId === pendienteId ? { ...x, estado, nota } : x));
-      return [...sig, ...extra];
-    });
+  /** `r`: lo que contestó la tarjeta (su «Abrir», los avisos y lo que dibuja el resultado: `conTarjeta`). */
+  const alEstado = (pendienteId: number, estado: EstadoPropuesta, nota?: string, r?: ResultadoTarjeta) => {
+    setItems((xs) => conTarjeta(xs, pendienteId, estado, nota, r));
   };
   const correrTarjeta = async (x: ItemPropuesta, accion: 'confirmar' | 'cancelar') => {
     const sid = sesionRef.current;
@@ -520,7 +517,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
       const l = await postLargo<ResultadoTarjeta>({ action: accion, sessionId: sid, pendienteId: id });
       if (!l.ok) { alEstado(id, 'pendiente', l.reintentable ? l.error : 'No llegó la respuesta. Recarga el chat para ver si se ejecutó.'); return; }
       const d = trasTarjeta(l.datos, accion);
-      alEstado(id, d.estado ?? 'pendiente', d.frase ?? undefined, itemsTrasTarjeta(l.datos));
+      alEstado(id, d.estado ?? 'pendiente', d.frase ?? undefined, l.datos);
     } finally {
       setTarjeta(null);
     }

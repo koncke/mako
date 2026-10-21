@@ -15,13 +15,14 @@
 import { herramientasDelTurno, type EntradaTurno, type Turno } from './doer-herramientas';
 import { porId, visible, REGISTRO, type Vista } from './api-mako/registro';
 import { canalKeyDe } from './api-mako/canal';
-import { esAccion } from './api-mako/tipos';
+import { AREA_INFO, esAccion } from './api-mako/tipos';
 import { rutaMovil, TITULO_INBOX } from './movil-rutas';
 import { consecuenciaDeshacer, lineasDelPayload, type LineaDetalle } from './inbox-movil-reglas';
 import type { Pendiente } from './mako-pendientes';
 import type { FilaPendiente } from '../app/mako/pendientes/BandejaPendientes';
 import type { AdjuntoVisible } from './chat-mako-bloques';
-import type { Bloque } from './chat-bloques';
+import { rutaInterna, type Abrir, type Bloque } from './chat-bloques';
+import { APP_BASE_URL } from './app-url';
 
 // ── De quién es una sesión ────────────────────────────────────────────────────
 
@@ -170,7 +171,8 @@ export function tarjetaDePendiente(
 
 /** Una propuesta de PANTALLA que dejó una acción en este turno (un borrador del plan, la
  *  ficha de un lead, el formulario genérico). En el teléfono se revisa en Avisos (/m/inbox). */
-export type LinkCapturado = { clase: 'borrador' | 'lead' | 'accion'; url: string; operacion: string; nombre?: string; tareas?: number };
+/** `editor` (la propuesta del Video Editor) y `whatsapp` (el borrador en la cola) se aceptan en SU pantalla (1.8). */
+export type LinkCapturado = { clase: 'borrador' | 'lead' | 'accion' | 'editor' | 'whatsapp'; url: string; operacion: string; nombre?: string; tareas?: number };
 
 const jsonDe = (out: unknown): Record<string, unknown> | null => {
   if (typeof out !== 'string') return null;
@@ -184,13 +186,22 @@ const jsonDe = (out: unknown): Record<string, unknown> | null => {
  * (lib/mako-doer-in.ts, `runTool`): una LECTURA que devuelva un link así no cuenta.
  */
 export function linksDeUnaAccion(nombre: string, input: Record<string, unknown>, out: unknown): LinkCapturado[] {
-  if (porId(nombre)?.tipo === 'lectura') return [];
-  if (typeof out !== 'string' || !out.includes('/revisar/')) return [];
+  const def = porId(nombre);
+  if (def?.tipo === 'lectura') return [];
+  if (typeof out !== 'string') return [];
   const j = jsonDe(out);
   if (!j) return [];
   const res: LinkCapturado[] = [];
   const url = typeof j.url === 'string' ? j.url : null;
   const link = typeof j.link === 'string' ? j.link : null;
+  // 20/10/2026 (1.8): lo que se acepta en SU pantalla tampoco quedaba con qué abrirlo. La propuesta de video
+  // (`/video-editor/<p>?propuesta=<id>`) y el borrador de WhatsApp (`/whatsapp?…&chat=…`) no pasan por /revisar/.
+  if (def && esAccion(def) && def.confirmacion === 'pantalla' && url) {
+    if (def.pantalla === '/video-editor' && rutaDeEscritorio(url).startsWith('/video-editor/')) res.push({ clase: 'editor', url, operacion: nombre });
+    if (def.pantalla === '/whatsapp' && rutaDeEscritorio(url) === '/whatsapp') {
+      res.push({ clase: 'whatsapp', url, operacion: nombre, ...(typeof j.para === 'string' && j.para.trim() ? { nombre: j.para.trim() } : {}) });
+    }
+  }
   if (url && url.includes('/mako/revisar/')) res.push({ clase: 'accion', url, operacion: nombre });
   if (link && link.includes('/plan/revisar/')) {
     const dadas = (input as { tareas?: unknown }).tareas;
@@ -211,21 +222,60 @@ export function rutaDeEscritorio(url: string): string {
   return url.split(/[?#]/)[0];
 }
 
+const HOST_APP = (() => { try { return new URL(APP_BASE_URL).host; } catch { return ''; } })();
+
+/** La ruta CON su query (sin el `ws`, que pone quien navega): la propuesta de video es `?propuesta=<id>` y el borrador
+ *  de WhatsApp es `?chat=<jid>`; sin la query abren otra cosa. Sólo de la app: un link de afuera da null. */
+export function rutaConQuery(url: string): string | null {
+  let u: URL;
+  try { u = new URL(url, 'http://app.local'); } catch { return null; }
+  if (/^https?:\/\//i.test(url) && u.host !== HOST_APP) return null;
+  u.searchParams.delete('ws');
+  const q = u.searchParams.toString();
+  return rutaInterna(`${u.pathname}${q ? `?${q}` : ''}`);
+}
+
 export type PropuestaPantalla = {
   clase: LinkCapturado['clase'];
   titulo: string;
-  /** dónde se revisa en el teléfono (hoy, siempre /m/inbox) */
+  /** dónde se revisa en el teléfono (/m/inbox, o la pantalla misma si el teléfono no tiene una) */
   href: string;
-  /** la pantalla de escritorio, para «Abrir en la computadora» (sin el `?ws=`) */
+  /** la pantalla de escritorio, para «Abrir en la computadora» (sin el `?ws=`; con su query si la necesita) */
   escritorio: string;
+  /** el botón («Abrir en el editor», «Abrir en Chats», «Abrir para revisar») y la línea de debajo del título */
+  boton: string;
+  nota: string;
 };
 
 export function propuestaDePantalla(l: LinkCapturado): PropuestaPantalla {
+  // La propuesta de video y el borrador de WhatsApp se abren EN su pantalla: con la query (la propuesta, la conversación).
+  if (l.clase === 'editor' || l.clase === 'whatsapp') {
+    const escritorio = rutaConQuery(l.url) ?? rutaDeEscritorio(l.url);
+    const editor = l.clase === 'editor';
+    return {
+      clase: l.clase, escritorio, href: rutaMovil(rutaDeEscritorio(escritorio)) ?? escritorio,
+      titulo: editor ? (porId(l.operacion)?.titulo ?? 'Propuesta de edición') : l.nombre ? `Borrador para ${l.nombre}` : 'Borrador de WhatsApp',
+      boton: editor ? 'Abrir en el editor' : 'Abrir en Chats',
+      nota: editor ? 'Se acepta en el editor.' : 'No se mandó nada: lo mandas desde Chats.',
+    };
+  }
   const escritorio = rutaDeEscritorio(l.url);
   const titulo = l.clase === 'borrador' ? 'Borrador del plan'
     : l.clase === 'lead' ? (l.nombre ? `Ficha de ${l.nombre}` : 'Ficha nueva del CRM')
     : (porId(l.operacion)?.titulo ?? 'Propuesta para revisar');
-  return { clase: l.clase, titulo, href: rutaMovil(escritorio) ?? '/m/inbox', escritorio };
+  return { clase: l.clase, titulo, href: rutaMovil(escritorio) ?? '/m/inbox', escritorio, boton: 'Abrir para revisar', nota: 'Se revisa y se confirma en su pantalla.' };
+}
+
+/**
+ * El «Abrir en <tab>» de una tarjeta confirmada (1.8): del link que devolvió la acción (`datos.link` o `datos.url`, que
+ * arma el runner con `linkApp`), nunca del texto del modelo. null = no devolvió un link de la app.
+ */
+export function abrirDeResultado(operacion: string | undefined, datos: Record<string, unknown> | undefined): Abrir | null {
+  const crudo = typeof datos?.link === 'string' ? datos.link : typeof datos?.url === 'string' ? datos.url : null;
+  const href = crudo ? rutaConQuery(crudo) : null;
+  if (!href) return null;
+  const def = operacion ? porId(operacion) : undefined;
+  return { titulo: def ? `Abrir en ${AREA_INFO[def.area].tab}` : 'Abrir', href };
 }
 
 /** Un link a una pantalla de revisión o a la bandeja, con o sin dominio y query. */
@@ -407,6 +457,6 @@ export function errorCortoDeTarjeta(error: string | null | undefined): string {
 /** Lo que devuelven confirmarEnChatAction / cancelarEnChatAction (app/m/mako/acciones.ts). */
 export type ResultadoTarjeta =
   /** `bloques`: lo que el chat dibuja con el resultado, ya saneado (lib/chat-bloques.ts), para sumarlo SIN recargar */
-  | { ok: true; resumen: string; paraLaPersona: string[]; bloques?: Bloque[] }
+  | { ok: true; resumen: string; paraLaPersona: string[]; bloques?: Bloque[]; abrir?: Abrir }
   /** `ejecutada: true` = se ejecutó y falló: la pendiente quedó cerrada, no se reintenta */
   | { ok: false; error: string; ejecutada?: true; paraLaPersona?: string[] };

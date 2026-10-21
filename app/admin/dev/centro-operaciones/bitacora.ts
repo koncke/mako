@@ -892,4 +892,22 @@ export const BITACORA: Hito[] = [
       'tests/chat-bloques.test.ts, tests/_bloques-tarjeta-hijo.ts',
     ],
   },
+  {
+    fecha: '20 oct', hora: '22:10', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Todo lo que MaKo te deja tiene su botón para abrirlo, y lo que confirmas afuera vuelve al chat',
+    pedido: 'Ops Center = lo principal en MaKo (ola 1, 1.8)',
+    revisar: '/admin/operaciones',
+    puntos: [
+      'Una edición de video queda con «Abrir en el editor».',
+      'Un mensaje de WhatsApp queda como «Borrador para Juan» con «Abrir en Chats», en la conversación de esa persona.',
+      'Lo que confirmas en el chat queda con su «Abrir en …» al lado.',
+      'Lo que confirmas o descartas en la pantalla de revisión aparece en el chat de donde salió.',
+    ],
+    archivos: [
+      'lib/mako-turno-app-reglas.ts (linksDeUnaAccion, rutaConQuery, abrirDeResultado), lib/chat-hilo-origen.ts',
+      'lib/api-mako/acciones.ts, app/m/mako/chat-ui.ts (conTarjeta)',
+      'tests/chat-abrir.test.ts, tests/_revisar-hilo-hijo.ts',
+    ],
+  },
 ];

@@ -48,6 +48,8 @@ import { validarInput } from './validar';
 import { vistaDe } from './vista';
 import { canalKeyDe, canalDeClave, etiquetaDeCanal, puedeConfirmar, PREFIJO_APP, PREFIJO_FLUJO } from './canal';
 import { esAccion, type AccionDef, type Ctx, type Ejecutado } from './tipos';
+import { anotarEnHiloDeOrigen } from '@/lib/chat-hilo-origen';
+import { bloqueDeResultado } from '@/lib/chat-bloques';
 
 /** Cuánto vive un «sí». Dos horas: alcanza para que el dueño conteste y no para que
  *  un «dale» de la tarde ejecute lo que se propuso a la mañana. */
@@ -105,7 +107,8 @@ export async function proponerPantallaGenerica(def: AccionDef, input: Record<str
     ws: ctx.ws, tipo: 'accion', ref: ref ?? null,
     origen: ctx.canal === 'whatsapp' ? 'whatsapp' : ctx.canal === 'http' ? 'claude' : 'app',
     resumen,
-    datos: { operacion: def.id, payload: input, resumen, canal: ctx.canal },
+    // `canalKey`: el chat de donde salió. Lo confirmado en /mako/revisar vuelve a ESE hilo (1.8, lib/chat-hilo-origen.ts).
+    datos: { operacion: def.id, payload: input, resumen, canal: ctx.canal, ...(ctx.canalKey ? { canalKey: ctx.canalKey } : {}) },
   });
   return { propuesta: { id, url: linkPantalla(`/mako/revisar/${id}`, ctx.ws), nueva } };
 }
@@ -158,6 +161,9 @@ export async function aplicarPropuestaGenerica(propuestaId: string, inputEditado
     // escrito: volver a `pendiente` sería invitar a un segundo click sobre algo que
     // pudo haber escrito a medias.
     await marcarResultado(propuestaId, { resumen: r.resumen, ok: r.ok, por: ctx.actor ?? null, ...(r.datos ?? {}) });
+    // El chat de donde salió se entera, con lo que dibuja el resultado: como si se hubiera confirmado en su tarjeta.
+    const bloque = r.ok ? bloqueDeResultado(r.datos) : null;
+    await anotarEnHiloDeOrigen(prop.datos.canalKey, r.ok ? `Hecho: ${r.resumen}` : `No se pudo: ${r.resumen}`, bloque ? [bloque] : []);
     return r;
   });
 }
@@ -169,7 +175,11 @@ async function marcarResultado(id: string, resultado: Record<string, unknown>): 
 }
 
 export async function descartarPropuestaGenerica(propuestaId: string, ctx: Ctx): Promise<void> {
-  await runWithWorkspace(ctx.ws, () => descartarPropuesta(propuestaId));
+  await runWithWorkspace(ctx.ws, async () => {
+    const prop = await getPropuesta(propuestaId);
+    await descartarPropuesta(propuestaId);
+    if (prop) await anotarEnHiloDeOrigen(prop.datos.canalKey, `No se ejecutó (se descartó en su pantalla): ${prop.resumen}`);
+  });
 }
 
 // ── pendientes: listar, confirmar, cancelar ──────────────────────────────────
@@ -286,5 +296,5 @@ export async function confirmarPendiente(ctx: Ctx, id: number | null) {
   if (r.paraLaPersona) ctx.aPersona?.(r.paraLaPersona);
   const quien =ctx.canal === 'http' ? ' (confirmado por la API)' : ctx.actor ? ` (confirmado por ${ctx.actor})` : '';
   await resolverPendiente(ctx.ws, p.id, r.ok ? 'ejecutada' : 'error', `${r.resumen}${quien}`);
-  return { ok: r.ok, id: p.id, resumen: r.resumen, ...(r.datos ? { datos: r.datos } : {}) };
+  return { ok: r.ok, id: p.id, tipo: p.tipo, resumen: r.resumen, ...(r.datos ? { datos: r.datos } : {}) };
 }

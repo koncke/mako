@@ -2001,3 +2001,35 @@ Probado en `tests/chat-bloques.test.ts`, que confirma `crear_diseno_imagen` de p
 - Las demás áreas no devuelven `bloque` todavía. Por ahora lo devuelven `crear_diseno_imagen` y `duplicar_diseno_imagen`
   (G5) y `cambiar_textos_diseno_imagen` (G4).
 - El «Abrir» lleva a la ruta de la computadora también en el teléfono: la 1.8.
+
+## «Abrir en la app», y lo confirmado afuera vuelve al hilo (20/10/2026, ola 1, pieza 1.8)
+
+**Vive en:** `linksDeUnaAccion`, `rutaConQuery`, `propuestaDePantalla` y `abrirDeResultado` en
+`lib/mako-turno-app-reglas.ts` · `lib/chat-hilo-origen.ts` · `proponerPantallaGenerica`, `aplicarPropuestaGenerica` y
+`descartarPropuestaGenerica` en `lib/api-mako/acciones.ts` · `conTarjeta` en `app/m/mako/chat-ui.ts`. Probado en
+`tests/chat-abrir.test.ts`, que confirma y descarta en /mako/revisar por el camino real (`tests/_revisar-hilo-hijo.ts`).
+
+- **Síntoma:**
+  - una edición de video o un borrador de WhatsApp quedaban propuestos y la persona no recibía con qué abrirlos;
+  - lo que se confirmaba en /mako/revisar no aparecía en el chat de donde salió.
+- **Causas:**
+  - `linksDeUnaAccion` sólo capturaba links con `/revisar/`. La propuesta de video (`/video-editor/<p>?propuesta=<id>`) y el
+    borrador (`/whatsapp?…&chat=<jid>`) no pasan por ahí.
+  - La propuesta guardaba el CANAL (`app`) pero no el CHAT: confirmarla afuera no tenía dónde anotar.
+- **Lo obvio era el error:** «falta el link en la respuesta del modelo». El modelo NO puede escribir links (`CANAL_APP`), y
+  está bien: el link lo captura el código de la salida de la acción.
+- **Regla:**
+  - una propuesta de pantalla guarda la clave de su chat (`datos.canalKey`);
+  - confirmarla o descartarla en su pantalla anota «Hecho: …» o «No se ejecutó…» en ESE hilo, con lo que dibuja el
+    resultado (`anotarEnHiloDeOrigen`);
+  - la sesión se busca en el negocio que confirma: la clave de un chat de otro negocio no anota nada;
+  - nunca tira: la acción ya quedó hecha.
+- **Trampa:** `rutaDeEscritorio` corta la query, y en estas dos pantallas la query ES lo que se abre (`?propuesta=`,
+  `?chat=`). `rutaConQuery` la deja, sin el `ws` (lo pone el `Link`), y sólo para links de la app.
+
+**Sin hacer:**
+- `?propuesta=` todavía abre el panel con TODAS las propuestas: es del Video Editor (1.14).
+- El borrador lleva a `/whatsapp`, todavía no a la conversación en `/chats`: es del CRM.
+- La propuesta de pantalla (`k: 'pantalla'`) no se guarda en el hilo: al recargar no está.
+- El «Hecho» de /mako/revisar aparece al volver a abrir el chat, no en vivo en una pestaña abierta.
+- Las propuestas creadas antes del 20/10 no tienen la clave de su chat: no vuelven.
