@@ -193,7 +193,8 @@ test('(d) sin ANTI-BAN y (e) sin TOPES: el «15 min antes» sale 45 minutos desp
   assert.equal(cuentaParaElCupo({ carril: true }), false);
   assert.equal(cuentaParaElCupo({ carril: false }), true);
   // El motor pregunta ANTES del freno, y el cupo de la corrida no suma lo del carril.
-  assert.match(PROC, /&& frenadoPorAntiBan\(insc\.lead_id, paso\.canal, conEnvioReciente, enviadoEnCorrida\)\s*&& pasaPorAntiBan\(\{ carril: carril != null, social: esCanalSocial\(paso\.canal\), canalApagado \}\)\) \{\s*res\.detalle\.push\(\{ lead_id: insc\.lead_id, canal: paso\.canal, estado: 'saltado', nota: 'msg <20h' \}\);/);
+  // 20/10/2026: con las horas a la misma persona de CADA automatización (`conEnvioRecienteDe`, lib/config-automatizacion.ts).
+  assert.match(PROC, /&& frenadoPorAntiBan\(insc\.lead_id, paso\.canal, conEnvioRecienteDe\(insc\.secuencia_id\), enviadoEnCorrida\)\s*&& pasaPorAntiBan\(\{ carril: carril != null, social: esCanalSocial\(paso\.canal\), canalApagado \}\)\) \{\s*res\.detalle\.push\(\{ lead_id: insc\.lead_id, canal: paso\.canal, estado: 'saltado', nota: 'msg <20h' \}\);/);
   assert.match(PROC, /&& cuentaParaElCupo\(\{ carril: carril != null \}\)\) \{ if \(paso\.canal === 'email'\) emailsEnCorrida \+= 1; else waEnCorrida \+= 1; \}/);
   // Con el cupo lleno, el carril sigue (como las acciones).
   assert.match(PROC, /const sinTopeWa = \[\.\.\.new Set\(\[\.\.\.conAcciones, \.\.\.conCarril,/);
@@ -213,9 +214,10 @@ test('(f) FUERA DEL HORARIO corre el carril y «MaKo en WhatsApp»; un mensaje n
   for (let i = 0; i < F.length; i++) assert.equal(seMueveEnLaCorrida(F, i, { fueraDeHorario: false }), true, F[i].id);
   // El motor ya no corta TODO fuera del horario: sólo si no hay nada que corra igual.
   assert.doesNotMatch(PROC, /if \(!\(await dentroDeVentana\(horario\)\)\) return \{ \.\.\.res, saltado: 'fuera-de-horario' \};/);
-  assert.match(PROC, /else if \(!\(await dentroDeVentana\(horario\)\)\) fueraDeHorario = 'fuera-de-horario';/);
+  // 20/10/2026: «fuera» es «todas cerradas»; cada una con su horario (`cerradasAhora`), y la fila pregunta por la suya.
+  assert.match(PROC, /if \(ids\.length \? cerradas\.size === ids\.length : !\(await dentroDeVentana\(horario\)\)\) fueraDeHorario = 'fuera-de-horario';/);
   assert.match(PROC, /if \(fueraDeHorario && !corrensFuera\.length\) return \{ \.\.\.res, saltado: fueraDeHorario \};/);
-  assert.match(PROC, /seMueveEnLaCorrida\(sec\.pasos, i, \{ fueraDeHorario: fueraDeHorario != null \}\)/);
+  assert.match(PROC, /seMueveEnLaCorrida\(sec\.pasos, i, \{ fueraDeHorario: cerrada \}\)/);
 });
 
 test('un hilo FRENADO no tapa al carril: se aplaza, y el tick ve el recordatorio que vence después', () => {

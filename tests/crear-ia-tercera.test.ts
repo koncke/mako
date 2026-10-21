@@ -341,11 +341,11 @@ test('el placeholder para mientras la caja tiene el foco, y vuelve si se sale si
 // Cancelar) queda encima de la capa.
 test('mientras MaKo trabaja: la capa tapa el lienzo (no la lista) por encima de «Publicar», y el teclado no llega al lienzo', () => {
   assert.match(PERFIL, /\{rolAdmin && chatTrabajando && \(\n\s+<div data-capa-mako="" aria-hidden style=\{\{\n\s+position: 'absolute', top: 0, bottom: 0, left: insetIzq \?\? 0, right: 0, zIndex: Z_CAPA_MAKO,/);
-  const z = /const Z_CAPA_MAKO = (\d+);\nconst Z_CHAT_ENCIMA = (\d+);/.exec(PERFIL);
-  assert.ok(z, 'no están los z de la capa y del chat');
+  // 20/10/2026: el chat es la sidebar (afuera de la capa, que arranca en `insetIzq`): sin z propio encima de la capa.
+  const z = /const Z_CAPA_MAKO = (\d+);/.exec(PERFIL);
+  assert.ok(z, 'no está el z de la capa');
   assert.ok(Number(z![1]) > Z_ACCION_LIENZO, 'la capa queda debajo de «Publicar»');
-  assert.ok(Number(z![2]) > Number(z![1]), 'el chat queda debajo de la capa');
-  assert.match(PERFIL, /zIndex: chatTrabajando \? Z_CHAT_ENCIMA : 4/);
+  assert.match(PERFIL, /\{rolAdmin && ranuraChat && createPortal\(/);
   assert.match(PERFIL, /onTrabajando=\{setChatTrabajando\}/);
   assert.match(CAJA, /useEffect\(\(\) => \{ onTrabajandoRef\.current\?\.\(trabajando\); \}, \[trabajando\]\);/);
   assert.match(CAJA, /document\.addEventListener\('keydown', alTeclado, true\);/);

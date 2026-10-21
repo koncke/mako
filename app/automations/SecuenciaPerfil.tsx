@@ -23,7 +23,7 @@ import dynamic from 'next/dynamic';
 import { usePilaDeshacer } from '@/app/_ui/usePilaDeshacer';
 // LOS CRON (sexta tanda: varios por automatización, y la primera pantalla con Producto / Recurrente /
 // Etiqueta / Instagram / Messenger / Email). El panel, su estado y lo que dice cada uno viven allá.
-import { EditorDisparadores, useDisparadores, useTextoDisparador, type SecuenciaConDisparadores } from './EditorDisparadores';
+import { EditorDisparadores, useDisparadores, useTextoDisparador, disparadoresDeSecuencia, type SecuenciaConDisparadores } from './EditorDisparadores';
 import { disparoActualDe, disparadorDeValorIA, recurrenteDeValorIA, iconoDeDisparador, esDelEmisor, EVENTOS_MAKO, TRIGGER_AVISO_MAKO } from '@/lib/disparadores';
 import { frenoDelEvento } from '@/lib/aviso-evento';
 import { problemasDeTokens } from '@/lib/tokens-del-flujo';
@@ -37,12 +37,19 @@ import { REENTRADAS, ROTULO_REENTRADA, type Reentrada } from '@/lib/reentrada';
 import { useEtiquetasTodas, avisarCambioEtiquetas } from '@/app/_components/etiquetas-cliente';
 import type { ListoCrearIA } from './CrearConIA';
 import { ChatMako } from './ChatMako';
+import Link from '@/app/_ui/Link';
+import { textoPorAprobar, dejaBorradores, POR_QUE_SE_APRUEBAN, POR_QUE_CORTO, RUTA_APROBAR } from '@/lib/mensajes-por-aprobar';
+import { duplicadaDe, avisoDuplicada } from '@/lib/automatizacion-duplicada';
 import { BotonPila } from './BotonPila';
 import { TRIGGER_RECORDATORIO, frenoDelRecordatorio } from '@/lib/recordatorio-automatizacion';
 import { CANALES_PROBAR, type CanalProbar } from './PanelProbar';
 import { useFaltanEnAcciones } from '@/app/_components/EditorAccionMako';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
-import { chatAlCostado } from '@/lib/crear-ia-lugar';
+import { Icon } from '@/app/_components/icons';
+import type { ComponentType } from 'react';
+import { Confirm } from '@/app/_ui/Confirm';
+// El modal de Configuraciones NO se importa: arrastra acciones del servidor y lo pasa la tab como `Configuraciones`.
+import { cronDeProspeccion, AVISO_PROSPECCION, type PropsConfiguraciones } from '@/lib/config-automatizacion';
 import { resumenAvisos, edicionVigente, edicionTocaPasos } from '@/lib/flujo-ia-cliente';
 import { TOPE_NOMBRE_SECUENCIA, nombreParaGuardar, type Objetivo } from '@/lib/setting-estrategia';
 import { normalizar, esNodoMensaje, ID_INICIO } from '@/lib/flujo-grafo';
@@ -84,13 +91,14 @@ const ALTO_ACCION = 44;
 
 /**
  * EL CHAT DE MaKo Y LA CAPA QUE TAPA EL LIENZO MIENTRAS TRABAJA (decimotercera tanda, puntos 2 y 6). El chat es el hilo de
- * WhatsApp (ChatMako.tsx) y, desde la decimocuarta tanda (punto 3), va AL COSTADO, en el muelle de «Probar»
- * (`chatAlCostado`, lib/crear-ia-lugar.ts): de debajo del chrome hasta abajo. La capa va de la lista para la derecha (la
- * lista se sigue viendo: ahí está la fila recién creada) y por ENCIMA de «Publicar» (`Z_ACCION_LIENZO`, 57, en el mismo
- * contexto de apilamiento: el Lienzo no lo crea), y el chat por encima de la capa.
+ * WhatsApp (ChatMako.tsx) y, desde el 20/10/2026, ES LA SIDEBAR (Martín, 16/10 punto 6 y 20/10 punto 5: «al abrir una
+ * automatización, toda la sidebar se transforme en el chat con MaKo y que esté permanentemente abierta»): se monta por
+ * portal en la ranura de la lista flotante (`ranuraChat`, SimuladorWhatsApp). Entre la decimocuarta tanda y esa fecha iba
+ * en el muelle de «Probar» y se abría con el logo de MaKo. La capa va de la sidebar para la derecha (`insetIzq`: el chat
+ * queda afuera y se sigue usando) y por ENCIMA de «Publicar» (`Z_ACCION_LIENZO`, 57, en el mismo contexto de
+ * apilamiento: el Lienzo no lo crea).
  */
 const Z_CAPA_MAKO = 58;
-const Z_CHAT_ENCIMA = 59;
 
 const tarjetaChrome: CSSProperties = {
   background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 11,
@@ -125,6 +133,27 @@ export function BotonLogoMako({ onClick, title, encendido = false, lado }: { onC
     </button>
   );
 }
+// ⚠️ `BotonLogoMako` YA NO SE DIBUJA en el título (20/10/2026: el chat de MaKo está siempre, en la sidebar). Queda como
+// la CARA del logo de MaKo que copia el CRM (app/crm/mako-crm/PanelMakoCrm.tsx) y que miden sus tests.
+
+/** El título de la tuerca (y su `aria-label`). */
+export const TITULO_TUERCA = 'Configuraciones de esta automatización';
+
+/**
+ * LA TUERCA DEL TÍTULO (20/10/2026), en el lugar del logo de MaKo y con su MISMA cara (`tarjetaChrome`, el lado del título):
+ * abre Configuraciones de ESTA automatización.
+ */
+export function BotonTuerca({ onClick, lado }: { onClick: () => void; lado: number }) {
+  return (
+    <button type="button" data-no-pan data-boton-tuerca onClick={onClick} title={TITULO_TUERCA} aria-label={TITULO_TUERCA}
+      style={{
+        ...tarjetaChrome, flex: 'none', width: lado, height: lado, padding: 0, cursor: 'pointer', color: 'var(--dim)',
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box',
+      }}>
+      <Icon name="config" size={18} />
+    </button>
+  );
+}
 
 /**
  * «Tu forma de escribir» se ofrece UNA vez por visita: quien la cierra sin escribir guía no
@@ -133,6 +162,8 @@ export function BotonLogoMako({ onClick, title, encendido = false, lado }: { onC
  * vuelve a ofrecer, que es lo que «una vez por visita» quiere decir.
  */
 const guiaOfrecida = { enLaVisita: false };
+/** Las automatizaciones a las que ya se les dijo «Le escribe a un funnel de Prospección» en esta visita (como `guiaOfrecida`). */
+const avisadaProspeccion = new Set<number>();
 
 /** La edición en curso de una automatización, tal como la ve el lienzo. */
 export type EdicionLocal = {
@@ -165,13 +196,18 @@ export type FrenoDeProbar = FrenoDelFlujo & { medio?: Medio; linea?: string | nu
 /** El ícono de cada opción de la «Reentrada» (del set de la casa). */
 const ICONO_REENTRADA: Readonly<Record<Reentrada, string>> = { una_vez: 'check', otra_reunion: 'calendario', siempre: 'repetir' };
 
-export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador, onAccionTodo, makoAlAbrir = false, cronAlAbrir = false, pedidoAlAbrir = null, onChatMako, onMakoTrabajando, onCrearOtra, onListaCambio }: {
+export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, negocio, canalCaido, tz, insetIzq, onAudioNuevo, secuencias, productos, disparadores, onProbar, probarAbierto = false, onCerrarProbar, onCambio, onCambioLocal, insetDer, handoffs, muelles, revelar, onSinPublicar, descartarBorrador, onAccionTodo, cronAlAbrir = false, pedidoAlAbrir = null, ranuraChat = null, onVolverALista, Configuraciones, configPropia, onMakoTrabajando, onCrearOtra, onListaCambio }: {
+  /** El modal de Configuraciones de UNA automatización (lo pasa la tab). Sin él, no hay tuerca. */
+  Configuraciones?: ComponentType<PropsConfiguraciones>;
+  /** ¿Esta automatización tiene configuración PROPIA? (lo pasa la tab: lee el server). Para el aviso de Prospección. */
+  configPropia?: (secuenciaId: number) => Promise<boolean>;
   /**
-   * EL CHAT DE MaKo ESTÁ ABIERTO (decimocuarta tanda, punto 3: «El chat de MaKo, debe ser como los otros chats, que se
-   * abran al costado, no en el medio del flujo»). Lo lee la tab para reservarle el muelle de la DERECHA, el de «Probar»
-   * (`muelles`, lib/lienzo-grafo.ts): el lienzo, «Publicar» y el editor se corren igual que con «Probar» abierto.
+   * DÓNDE VA EL CHAT DE MaKo (20/10/2026): la ranura de la sidebar (SimuladorWhatsApp). Está SIEMPRE montado ahí, sin
+   * botón para abrirlo ni ✕; null = todavía no hay ranura (el primer render) o no es un admin.
    */
-  onChatMako?: (abierto: boolean) => void;
+  ranuraChat?: HTMLElement | null;
+  /** La «←» de la cabecera del chat: la sidebar vuelve a la lista de automatizaciones. */
+  onVolverALista?: () => void;
   /**
    * MaKo ESTÁ ARMANDO ESTE FLUJO (punto 9 del feedback del 13/10/2026: «el pop-up del recorrido recién cuando la IA
    * terminó»). La tab espera a que termine para abrir el recorrido (`useRecorridoAutomations`, ChatAgentApp).
@@ -181,17 +217,13 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   onCrearOtra?: (pedido: string) => Promise<boolean>;
   /** Se eliminó o volvió OTRA automatización desde el chat: la lista se vuelve a leer. */
   onListaCambio?: () => void;
-  /**
-   * ABRIR CON EL CHAT DE MaKo ABIERTO (duodécima tanda, §2.5 y §3.6): la recién creada con «Pídeselo a MaKo» y el link
-   * `?sec=<id>&mako=1` (también el de la API). Se mira el FLANCO (false → true), también con el lienzo ya montado, y
-   * abre por `abrirMako`, la del ✦.
-   */
-  makoAlAbrir?: boolean;
+  // (Acá iba `makoAlAbrir`, abrir con el chat de MaKo abierto: desde el 20/10/2026 el chat está siempre, y el `?mako=1`
+  // sólo saca a la sidebar de la lista, en SimuladorWhatsApp.)
   /** Abre con su CRON abierto (#882: la plantilla creada al instante elige su etapa ahí, con el mismo desplegable). */
   cronAlAbrir?: boolean;
   /**
    * EL PEDIDO CON EL QUE NACIÓ (decimotercera tanda, punto 2): el de «Pídeselo a MaKo» del modal «Nueva automatización».
-   * La fila ya existe (vacía y pausada) y el chat lo manda solo, como CREAR sobre ella. Llega junto con `makoAlAbrir`.
+   * La fila ya existe (vacía y pausada) y el chat lo manda solo, como CREAR sobre ella.
    */
   pedidoAlAbrir?: string | null;
   // (Acá iban `arranque` y `onArranqueUsado`: la recién creada con un tipo de CRON elegido en «¿Qué la dispara?» del
@@ -393,8 +425,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * aparecen de a una sobre el layout final (`revelar`), nunca armando el flujo de a pedazos.
    */
   const [revelarIA, setRevelarIA] = useState<{ orden: string[]; clave: number } | null>(null);
-  const [editandoIA, setEditandoIA] = useState(false);
-  /** MaKo está trabajando (lo avisa el chat): la capa tapa el lienzo y el chat queda encima. */
+  /** MaKo está trabajando (lo avisa el chat): la capa tapa el lienzo; el chat, en la sidebar, queda afuera. */
   const [chatTrabajando, setChatTrabajando] = useState(false);
   // Sube a la tab (el recorrido espera a que MaKo termine); al desmontar, deja de trabajar.
   const onMakoTrabajandoRef = useRef(onMakoTrabajando);
@@ -683,47 +714,25 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     setErr(mensaje);
     if (tarjeta) setFoco((f) => ({ id: tarjeta, vez: (f?.vez ?? 0) + 1 }));
   }, []);
-  /**
-   * EL ✦ DEL TÍTULO (duodécima tanda, §2.7; Martín, 12/10/2026: «se aprieta el botón de MaKo cuando está abierta
-   * cualquier tarjeta y la tarjeta debería cerrarse; no debería permanecer abierta y no hacer nada»). Con una
-   * tarjeta abierta la CIERRA (`foco` con id null) y ABRE a MaKo, nunca alterna: la barra estaba abierta pero
-   * escondida debajo del panel, y el clic la apagaba sin que se viera nada. Sin tarjeta abierta, alterna.
-   * ⚠️ UNA sola función: el chat de MaKo (ola 2) abre por acá.
-   */
-  const abrirMako = () => {
-    if (tarjetaAbierta) {
-      setFoco((f) => ({ id: null, vez: (f?.vez ?? 0) + 1 }));
-      setEditandoIA(true);
-      return;
-    }
-    // DECIMOCUARTA (punto 3): el chat comparte el muelle de la derecha con «Probar». Con «Probar» abierto el chat está
-    // escondido (no desmontado: un pedido en vuelo sigue): el ✦ cierra «Probar» y lo muestra, nunca lo apaga.
-    if (probarAbierto) {
-      onCerrarProbar?.();
-      setEditandoIA(true);
-      return;
-    }
-    setEditandoIA((v) => !v);
-  };
-  // La tab reserva el muelle de la derecha mientras el chat está abierto (y lo suelta al desmontar: otra automatización).
-  const avisarChat = useRef(onChatMako);
-  useEffect(() => { avisarChat.current = onChatMako; });
-  useEffect(() => { avisarChat.current?.(rolAdmin && editandoIA); }, [rolAdmin, editandoIA]);
-  useEffect(() => () => { avisarChat.current?.(false); }, []);
-  /**
-   * ABIERTO AL ENTRAR (`makoAlAbrir`, §3.6): en el flanco (false → true) abre por `abrirMako`, y sólo si está cerrado
-   * (abrirMako sin tarjeta alterna). Se ajusta AL DIBUJAR, no en un efecto: un efecto pintaría primero el lienzo sin
-   * el chat.
-   */
-  const [makoPedido, setMakoPedido] = useState(false);
-  if (makoAlAbrir !== makoPedido) {
-    setMakoPedido(makoAlAbrir);
-    if (makoAlAbrir && !editandoIA) abrirMako();
-  }
+  // ⛔ ACÁ VIVÍAN `abrirMako` (el ✦ del título, que abría y cerraba el chat) y `makoAlAbrir` (abrir con el chat abierto).
+  // Se fueron el 20/10/2026: el chat está SIEMPRE, en la sidebar (Martín: «que se elimine el icono de MaKo ya que quedará
+  // siempre abierto»). En su lugar del título va la tuerca de Configuraciones de ESTA automatización.
+  /** Configuraciones de ESTA automatización abierta (la tuerca del título). */
+  const [configAbierta, setConfigAbierta] = useState(false);
+  /** Lo que MaKo dice en el chat al activarla (`ChatMako.nota`): por qué sus mensajes quedan para que los apruebes. */
+  const [notaChat, setNotaChat] = useState<{ id: string; texto: string } | null>(null);
+  /** El aviso de Prospección pendiente, con lo que se iba a hacer (Publicar o Probar). */
+  const [avisoProspeccion, setAvisoProspeccion] = useState<{ seguir: () => void } | null>(null);
+  /** Una consulta de «¿tiene lo suyo?» en vuelo (`conAvisoProspeccion`): los clics de mientras no hacen nada. */
+  const consultandoProspeccion = useRef(false);
+  /** El aviso de una automatización que ya le escribe lo mismo a la misma gente (`conAvisoDuplicada`), con lo que se iba a hacer. */
+  const [avisoDup, setAvisoDup] = useState<{ texto: string; boton: string; seguir: () => void } | null>(null);
+  // Identidad FIJA (AGENTS.md: todo `<Modal>` recibe un `onCerrar` estable).
+  const cerrarConfig = useCallback(() => setConfigAbierta(false), []);
   /**
    * EL CRON ABIERTO AL ENTRAR (`cronAlAbrir`, #882, 17/10/2026): una plantilla que arranca en una etapa se crea AL INSTANTE,
-   * sin la pregunta del modal, y la etapa se elige acá. En el flanco y al dibujar, como `makoAlAbrir`: abre la tarjeta CRON
-   * (`foco`) y su editor (`cronAbierto`).
+   * sin la pregunta del modal, y la etapa se elige acá. En el flanco y al dibujar: abre la tarjeta CRON (`foco`) y su
+   * editor (`cronAbierto`).
    */
   const [cronPedido, setCronPedido] = useState(false);
   if (cronAlAbrir !== cronPedido) {
@@ -945,6 +954,12 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             ? (caidaLaSec && soloWa ? 'Activada · WhatsApp desconectado' : 'Activada ✓')
             : 'Pausada ✓',
         );
+        // ⚠️ «ACTIVADA ✓» Y NO SALE NADA (20/10/2026, el Recurrente de Leila: 31 borradores esperando). A un lead que no
+        // pagó, un mensaje de WhatsApp que no sale solo queda para que lo apruebes (lib/mensajes-por-aprobar.ts): el chat
+        // lo dice al activarla, y la línea de al lado de «Activar» cuenta los que esperan.
+        if (!activa && dejaBorradores(pasos, est?.envio_automatico === true)) {
+          setNotaChat({ id: `mako-aprobar-${Date.now().toString(36)}`, texto: `${POR_QUE_SE_APRUEBAN}. Se aprueban en Chats › Borradores.` });
+        }
         onCambio();
       } else {
         // Un medio sin conectar abre su modal y NO deja el chip rojo al lado de «Activar» (decimocuarta tanda, punto 4).
@@ -992,6 +1007,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   /** Lo que «✦ guion» de una nota de voz necesita de la estrategia (revisión, costuras-4). */
   const paraGuion = useMemo(() => (est ? { objetivo: est.objetivo, gancho: est.gancho, preguntas: est.preguntas } : undefined), [est]);
   const pendientesOtraCosa = (handoffs ?? []).filter((h) => h.secuenciaId === secuencia.id).length;
+  /** «31 mensajes esperando que los apruebes» (lib/mensajes-por-aprobar.ts). null = ninguno, o no se pudo leer. */
+  const porAprobar = textoPorAprobar(secuencia.por_aprobar);
   const cambioLocal = useRef(onCambioLocal);
   useEffect(() => { cambioLocal.current = onCambioLocal; });
   useEffect(() => {
@@ -1001,12 +1018,6 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       freno: frenoProbar, frenar: frenarDesdeProbar,
     });
   }, [secuencia.id, pasos, estAPublicar, nombre, disparo.trigger_tipo, lineaSec, frenoProbar, frenarDesdeProbar]);
-
-  /**
-   * DÓNDE VA EL CHAT DE MaKo (decimocuarta tanda, punto 3): en el muelle de la derecha, el de «Probar» (`muelles.probar`,
-   * que la tab calcula con el chat abierto). Sin muelles (la caja sin medir), pegado a la derecha debajo del chrome.
-   */
-  const muelleChat = chatAlCostado(muelles);
 
   /**
    * «PROBAR» (tercera tanda, decisiones 13 y 14): se frena con lo mismo que Publicar
@@ -1032,7 +1043,38 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     const falta = medioQueFrena(pasos, lineaSec, crons.lista, estadoMedios);
     if (falta) { setErr(null); setLineaAConectar(falta.linea); setConectarMedio(falta.medio); return; }
     setErr(null);
-    onProbar(canal);
+    conAvisoProspeccion(() => onProbar(canal));
+  };
+  /**
+   * EL AVISO DE PROSPECCIÓN (20/10/2026, Martín, 16/10 punto 5: «Solo cuando se selecciona etapas o algún funnel que esté
+   * catalogado como "Prospección", debe saltar un warning para configurar eso al momento de darle a publicar o probar»):
+   * si el CRON elige etapas de un funnel de Prospección (`cronDeProspeccion`) y la automatización no tiene configuración
+   * propia, se pregunta antes: «Configurar» abre su modal; «Seguir igual» sigue. Una vez por automatización y visita.
+   */
+  /**
+   * OTRA ACTIVA YA LE ESCRIBE LO MISMO A LA MISMA GENTE (20/10/2026: #282 y el d2 de #284 del ws11, la misma etapa con casi
+   * el mismo recordatorio; cada lead lo recibía dos veces). Al ACTIVAR, y al PUBLICAR una que ya está activa: pausada,
+   * publicar no le manda nada a nadie y se avisa al activarla. No frena (puede ser a propósito): pregunta. Compara lo que
+   * se ve (el lienzo y los CRON de ahora) con lo PUBLICADO de las otras, que es lo que manda el motor.
+   */
+  const conAvisoDuplicada = (vaAMandar: boolean, boton: string, seguir: () => void) => {
+    if (!rolAdmin || !vaAMandar) { seguir(); return; }
+    const otra = duplicadaDe(
+      { id: secuencia.id, nombre, disparadores: crons.lista, pasos },
+      secuencias.map((s) => ({ id: s.id, nombre: s.nombre, activa: s.activa, disparadores: disparadoresDeSecuencia(s), pasos: s.pasos ?? [] })),
+    );
+    if (!otra) { seguir(); return; }
+    setAvisoDup({ texto: avisoDuplicada(otra.nombre), boton, seguir });
+  };
+  const conAvisoProspeccion = (seguir: () => void) => {
+    if (!rolAdmin || !Configuraciones || avisadaProspeccion.has(secuencia.id) || !cronDeProspeccion(crons.lista, productos, secuencia.funnel_id ?? null)) { seguir(); return; }
+    // ⚠️ UNA CONSULTA A LA VEZ, Y LA QUE YA TIENE LO SUYO QUEDA AVISADA (revisión del 20/10/2026): sin esto cada clic
+    // consultaba la configuración y un doble clic, con Publicar todavía habilitado, mandaba dos PATCH.
+    if (consultandoProspeccion.current) return;
+    consultandoProspeccion.current = true;
+    void (configPropia ? configPropia(secuencia.id).catch(() => false) : Promise.resolve(false))
+      .then((propia) => { if (propia) { avisadaProspeccion.add(secuencia.id); seguir(); } else setAvisoProspeccion({ seguir }); })
+      .finally(() => { consultandoProspeccion.current = false; });
   };
   // «PROBAR» APAGADO MIENTRAS FALTE ALGO (16/10/2026, `motivoParaNoProbar`): el porqué al lado; con una tarjeta a medias,
   // tocarlo lleva a esa tarjeta (lo de Publicar).
@@ -1119,18 +1161,18 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
           )}
         </div>
       )}
-      {/* DECIMOCUARTA TANDA (punto 3, «que se abran al costado, no en el medio del flujo»): el chat va en el muelle de la
-          DERECHA, el de «Probar» (`chatAlCostado`), de debajo del chrome hasta abajo, como el panel de «Probar». Ya no se
-          esconde con una tarjeta abierta (el editor se corta antes del muelle); sí con «Probar» abierto, que usa el mismo
-          lugar: escondido, no desmontado (un pedido en vuelo sigue). */}
-      {rolAdmin && editandoIA && (
-        <div data-crear-ia="editar" data-muelle="mako" style={{ position: 'absolute', ...muelleChat, display: probarAbierto ? 'none' : 'flex', flexDirection: 'column', zIndex: chatTrabajando ? Z_CHAT_ENCIMA : 4 }}>
-          <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-            <ChatMako secuenciaId={secuencia.id} pasos={pasos} publicadas={secuencia.pasos?.length ?? 0} onListo={alListoIA} onCerrar={() => setEditandoIA(false)}
-              onTrabajando={setChatTrabajando} pedidoInicial={pedidoPendiente} onPedidoInicialUsado={() => setPedidoPendiente(null)}
-              nombre={secuencia.nombre ?? ''} onCrearOtra={onCrearOtra} onListaCambio={onListaCambio} />
-          </div>
-        </div>
+      {/* EL CHAT ES LA SIDEBAR (20/10/2026, Martín: «que quede SIEMPRE abierto en donde está la sidebar de todas las
+          automatizaciones»): SIEMPRE montado, por portal en la ranura de la lista flotante (`ranuraChat`), sin ✕. La «←»
+          de su cabecera vuelve a la lista (la ranura se esconde, no se desmonta: un pedido en vuelo sigue). Entre la
+          decimocuarta tanda y esa fecha iba en el muelle de «Probar» y se abría con el logo de MaKo. */}
+      {rolAdmin && ranuraChat && createPortal(
+        <div data-crear-ia="editar" data-chat-sidebar="" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+          <ChatMako secuenciaId={secuencia.id} pasos={pasos} publicadas={secuencia.pasos?.length ?? 0} onListo={alListoIA}
+            onVolver={onVolverALista}
+            onTrabajando={setChatTrabajando} pedidoInicial={pedidoPendiente} onPedidoInicialUsado={() => setPedidoPendiente(null)}
+            nombre={secuencia.nombre ?? ''} onCrearOtra={onCrearOtra} onListaCambio={onListaCambio} nota={notaChat} />
+        </div>,
+        ranuraChat,
       )}
       <FlujoLienzo
         pasos={pasos} secuenciaId={secuencia.id}
@@ -1189,18 +1231,26 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
               </div>
             </div>
 
-            {/* «PEDIRLE UN CAMBIO A MAKO», AL LADO DEL TÍTULO (sexta tanda, punto 8: «El botón de IA de
-                "Pedirle un cambio a MaKo" ponlo al lado del cuadro del título, donde hoy está
-                "activar"»). Vivía en la fila del zoom, como un ✦ más entre el deshacer; ahí quedó
-                «Acomodar» (punto 14). Abre y cierra la barra de «Crear con IA» de abajo. */}
-            {/* ⚠️ ES EL LOGO DE MaKo (`MakoLogo`, app/_components/MakoBrand.tsx), del alto del título (décima
-                tanda, general 1: «Y que sea el logo de MaKo, que es una estrella en el centro, sin la estrella
-                chiquita arriba»). El `BotonMako` de la casa lleva `MakoStar`, que dibuja la chispa CON el punto
-                chico de arriba; el logo es la chispa sola, centrada en su recuadro negro. */}
-            {/* DECIMOTERCERA TANDA: también con el lienzo VACÍO. Ahí MaKo CREA sobre esta fila (la ruta lo exige vacía y
-                pausada): es la fila de un pedido que se canceló o falló, o un «Lienzo en blanco». */}
-            {rolAdmin && (
-              <BotonLogoMako lado={ALTO_ACCION} encendido={editandoIA && !probarAbierto} onClick={abrirMako} title={pasos.length ? 'Pedirle un cambio a MaKo' : 'Pedírsela a MaKo'} />
+            {/* LA TUERCA DE ESTA AUTOMATIZACIÓN, AL LADO DEL TÍTULO (Martín, 16/10/2026 punto 6: «El ícono de
+                configuraciones pasa a estar en donde hoy vive "Pedirle un cambio a MaKo"»; y el 20/10: «que se elimine el
+                icono de MaKo ya que quedará siempre abierto, y en su lugar que allí vaya el ícono de configuraciones»).
+                Abre el horario y los límites de ESTA automatización (`ConfiguracionesModal` con `secuenciaId`). Ahí
+                vivía el logo de MaKo (`BotonLogoMako`) desde la sexta tanda: el chat está ahora siempre, en la sidebar.
+                ⚠️ TAMBIÉN PARA QUIEN NO ES ADMIN (revisión del 20/10/2026): el modal entra en sólo lectura (`puedeEditar` lo
+                dice el server). Con `rolAdmin` acá, el setter perdió la vista del horario y los límites. */}
+            {Configuraciones && (
+              <BotonTuerca lado={ALTO_ACCION} onClick={() => setConfigAbierta(true)} />
+            )}
+            {configAbierta && Configuraciones && <Configuraciones secuenciaId={secuencia.id} nombre={nombre || secuencia.nombre} onCerrar={cerrarConfig} />}
+            {avisoProspeccion && (
+              <Confirm message={AVISO_PROSPECCION} confirmLabel="Configurar" cancelLabel="Seguir igual" tone="primary"
+                onConfirm={() => { avisadaProspeccion.add(secuencia.id); setAvisoProspeccion(null); setConfigAbierta(true); }}
+                onCancel={() => { const s = avisoProspeccion.seguir; avisadaProspeccion.add(secuencia.id); setAvisoProspeccion(null); s(); }} />
+            )}
+            {avisoDup && (
+              <Confirm message={avisoDup.texto} confirmLabel={avisoDup.boton} cancelLabel="Cancelar" tone="primary"
+                onConfirm={() => { const s = avisoDup.seguir; setAvisoDup(null); s(); }}
+                onCancel={() => setAvisoDup(null)} />
             )}
 
             {/* ⚠️ «PROBAR» A LA DERECHA DEL TODO, separado de Activar (punto 10: «el botón de
@@ -1260,11 +1310,20 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             {/* ⛔ ACÁ VIVÍA «VOLVER A LO PUBLICADO» (revisión del 10/10/2026). Se fue en la décima tanda (general 5:
                 «Elimina el botón de "Volver a lo publicado" que aparece al lado de "Activar", para eso ya tenemos
                 el CTRL Z»): lo mismo es «Descartar cambios» en el «⋯» de la lista (`descartarCambios`). */}
+            {/* LOS MENSAJES QUE ESPERAN QUE LOS APRUEBES (20/10/2026: el Recurrente de Leila «no salió» y eran 31
+                borradores). Con el porqué corto y el link a donde se aprueban (Chats › Borradores). */}
+            {porAprobar && (
+              <Link href={RUTA_APROBAR} title={`${POR_QUE_SE_APRUEBAN}. Se aprueban en Chats › Borradores.`}
+                style={{ ...tarjetaChrome, flex: 'none', minHeight: ALTO_ACCION, boxSizing: 'border-box', display: 'inline-flex', flexDirection: 'column', justifyContent: 'center', gap: 1, textDecoration: 'none' }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--warn)' }}>{porAprobar} →</span>
+                <span style={{ fontSize: 11.5, color: 'var(--dim)' }}>{POR_QUE_CORTO}</span>
+              </Link>
+            )}
             {/* «ACTIVAR», AL LADO DE «PUBLICAR» (sexta tanda, punto 8: «Activar pasa a estar al lado de
                 "Publicar"»). Las dos deciden qué sale y se miran juntas; arriba quedó el ✦ de MaKo. */}
             <div style={{ ...tarjetaChrome, flex: 'none', height: ALTO_ACCION, boxSizing: 'border-box', padding: '0 14px', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 14.5, fontWeight: 700, color: activa ? 'var(--good)' : 'var(--dim)' }}>Activar</span>
-              <button onClick={toggle} disabled={!rolAdmin || busy === 'toggle'} aria-pressed={activa} title={activa ? 'Pausar' : 'Activar'}
+              <button onClick={() => (activa ? void toggle() : conAvisoDuplicada(true, 'Activar igual', () => void toggle()))} disabled={!rolAdmin || busy === 'toggle'} aria-pressed={activa} title={activa ? 'Pausar' : 'Activar'}
                 style={{ width: 46, height: 26, borderRadius: 999, border: 'none', padding: 3, background: activa ? 'var(--good)' : 'var(--border-strong)', cursor: rolAdmin ? 'pointer' : 'default', flex: 'none', transition: 'background .15s' }}>
                 <span style={{ display: 'block', width: 20, height: 20, borderRadius: '50%', background: '#fff', transform: activa ? 'translateX(20px)' : 'none', transition: 'transform .15s' }} />
               </button>
@@ -1278,7 +1337,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 convertida a tarjetas cuenta como cambio (`sinPublicar`): publicarla es lo que la
                 convierte, y lo que cambió se lee al pasar el cursor. */}
             {rolAdmin && (
-              <button onClick={() => void publicar()} disabled={busy === 'save' || !sinPublicar}
+              <button onClick={() => conAvisoProspeccion(() => conAvisoDuplicada(activa, 'Publicar igual', () => void publicar()))} disabled={busy === 'save' || !sinPublicar}
                 title={sinPublicar && convertida && inicial.notas.length ? inicial.notas.join(' · ') : undefined}
                 style={{ height: ALTO_ACCION, padding: '0 26px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 15, fontWeight: 700, cursor: sinPublicar ? 'pointer' : 'default', opacity: busy === 'save' || !sinPublicar ? 0.45 : 1, fontFamily: 'inherit' }}>
                 {busy === 'save' ? 'Publicando…' : 'Publicar'}
