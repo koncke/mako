@@ -4282,6 +4282,11 @@ lib/meta-login.ts · tests/meta-permisos-conectar.test.ts.
 - **Lo que esto dice de la hipótesis del 08/10:** la app puede dar los permisos de anuncios. Lo que no los da es el token
   de usuario del sistema del inicio de sesión para empresas. Sigue siendo lo más probable que lo destrabe la
   verificación de acceso, pero ya no es la única explicación posible.
+  **Medido otra vez el 21/10 a las 12:50:** reconexión nueva del ws9 con «Conectar con Meta» (portafolio MaKo, página
+  Hola MaKo, cuenta publicitaria MaKo). El token sale otra vez con páginas y leads, y sin `ads_management`, `ads_read`
+  ni `business_management`. La tarjeta dice «Conectó sin permisos de anuncios. Reconecta y acéptalos», pero reconectar
+  no lo arregla: con la verificación de acceso en revisión, Meta no los da a este tipo de token. Por eso los videos
+  de los permisos de anuncios no se pueden grabar con el producto hasta que Meta conteste.
 - **La regla:** «en revisión» se mira permiso por permiso en el panel (Revisión → Tests y Revisión de la app), no en la
   memoria. Un borrador sin enviar se ve igual que una revisión en curso si nadie entra a mirar.
 - **Lo que quedó SIN hacer:** los videos y textos de cada permiso (los de anuncios necesitan el botón dando los
