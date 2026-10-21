@@ -87,7 +87,7 @@ import { armarPipeline, cambiarTipo, ordenConClave } from '@/lib/etapa-banda';
 import { puedeTenerPlazo, sanearPlazo, PLAZO_MAX_DIAS } from '@/lib/lead-quieto';
 import {
   CAMPOS_LEAD, COLUMNAS_POR_CAMPO, PREGUNTAS_FORM, SIN_ASIGNAR,
-  alcanceLegible, esColumnaDerivada, filtrosLegibles, incluyeLegible, rangoDePeriodo,
+  alcanceLegible, csvDeLeads, esColumnaDerivada, filtrosLegibles, incluyeLegible, rangoDePeriodo,
   type CampoFechaLeads, type FiltrosLeads, type OrdenLeads,
 } from './leads-exportar';
 import { eventTypeDeReunion } from '@/lib/calendly-agenda';
@@ -1833,16 +1833,7 @@ export async function exportLeadsAction(f: FiltrosLeads): Promise<string> {
     );
   }
 
-  const val = (v: unknown): string => (v == null ? '' : typeof v === 'boolean' ? (v ? 'Sí' : 'No') : String(v));
-  const esc = (v: unknown): string => {
-    const s = val(v);
-    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
-  const lineas = [columnas.map(([, l]) => l).join(',')];
-  for (const fila of filas) lineas.push(columnas.map(([k]) => esc(fila[k])).join(','));
-  // BOM: sin él Excel abre el CSV en Windows-1252 y los acentos salen rotos
-  // («Diseño» → «DiseÃ±o»). Un export ilegible no es un export.
-  return `﻿${lineas.join('\r\n')}`;
+  return csvDeLeads(columnas, filas);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
