@@ -16,6 +16,7 @@
 
 import type { ClienteCruce } from './cruce';
 import type { ResumenTrabajo } from './trabajo';
+import { armarCsv } from '@/lib/csv-celda';
 
 /**
  * Los rótulos de las columnas. Los mismos que la tarjeta y la tabla: un CSV que nombra
@@ -56,59 +57,30 @@ export function filasCSV(
 }
 
 /**
- * Lo que una planilla lee como el ARRANQUE DE UNA FÓRMULA (OWASP, «CSV Injection»): `=`, `+`,
- * `-`, `@`, y un tab adelante. Se mira con los saltos de línea ya aplanados (un `\r` adelante
- * queda como espacio) y aceptando espacios antes del signo: « =1+1» se neutraliza igual, porque
- * cualquier lector que recorte los espacios la ejecutaría, y el apóstrofo no le cuesta nada a un
- * nombre que de verdad empiece así.
- */
-const ARRANCA_FORMULA = /^(?:\s*[=+\-@]|\t)/;
-
-/**
- * Lo que Excel vuelve NÚMERO al abrir el archivo: dígitos con la puntuación de un teléfono o de
- * una cifra. Con el teléfono crudo (como salía hasta el 06/10/2026), `5215512345678` se abre como
- * `5,21552E+12`, `+5215512345678` pierde el `+`, `0221 456` pierde el cero, y `+52 55 1234 5678`
- * arranca como fórmula. Comillas, letras y saltos de línea quedan AFUERA a propósito:
- * esto va adentro de un literal de fórmula y lo único que podría escaparse de él es una comilla.
- * El tope de 100 queda lejos de los 255 caracteres que Excel acepta en un literal.
- */
-const PARECE_NUMERO = /^(?=.*\d)[0-9+\-().,/ ]{1,100}$/;
-
-/**
- * Una celda, como la va a leer Excel.
+ * Cómo se escribe una celda de este CSV. La regla de fondo —qué arranca como fórmula, qué Excel vuelve número— vive en `lib/csv-celda.ts` (UNA sola definición para toda
+ * la app: tests/csv-una-sola-via.test.ts); acá sólo se eligen las opciones de esta pantalla.
  *
- * ⚠️ UN `number` LLEGA COMO NÚMERO Y UN `string` COMO TEXTO: el tipo de JS es el contrato, y por
- * eso esto vive acá y no en `filasCSV` (que devuelve las celdas sin escapar). Tres ramas, y el
- * ORDEN importa:
- *   1. Lo que Excel volvería número (el teléfono, un nombre que es un teléfono, «007») va como
- *      `="…"`: Excel lo evalúa y lo que queda es el texto tal cual, con su `+` y sus ceros. Va
- *      PRIMERO porque un `+52…` también arranca como fórmula, y la rama 2 le dejaría el apóstrofo
- *      a la vista en una columna que alguien va a copiar a otra herramienta.
- *   2. Lo que arranca como fórmula lleva un apóstrofo adelante. Nombre, empresa, email y teléfono
- *      vienen de leads que pueden entrar por un opt-in público, y un «=HYPERLINK(…)» se
- *      ejecutaría en el Excel de quien exporta.
+ * ⚠️ UN `number` LLEGA COMO NÚMERO Y UN `string` COMO TEXTO: el tipo de JS es el contrato, y por eso esto no vive en `filasCSV` (que devuelve las celdas sin escapar).
+ * Tres ramas, y el ORDEN importa:
+ *   1. Lo que Excel volvería número (el teléfono, un nombre que es un teléfono, «007») va como `="…"` (`telefonosComoTexto`): Excel lo evalúa y lo que queda es el
+ *      texto tal cual, con su `+` y sus ceros. Con el teléfono crudo (como salía hasta el 06/10/2026), `5215512345678` se abre como `5,21552E+12`, `+5215512345678`
+ *      pierde el `+` y `0221 456` pierde el cero. Va PRIMERO porque un `+52…` también arranca como fórmula, y la rama 2 le dejaría el apóstrofo a la vista en una
+ *      columna que alguien va a copiar a otra herramienta.
+ *   2. Lo que arranca como fórmula lleva un apóstrofo adelante. Nombre, empresa, email y teléfono vienen de leads que pueden entrar por un opt-in público, y un
+ *      «=HYPERLINK(…)» se ejecutaría en el Excel de quien exporta.
  *   3. El resto, tal cual.
- * En las tres, una comilla adentro se duplica (como la escapa el formato) y los saltos de línea
- * se aplanan, o parten la fila en dos.
+ * En las tres, todo va entre comillas, una comilla adentro se duplica (como la escapa el formato) y los saltos de línea se aplanan (`aplanarSaltos`), o parten la fila
+ * en dos. Un número de JS sale entre comillas con su `String` (`numero: String`), no con los 4 decimales de `numeroCsv`.
  *
- * ⚠️ Lo que Excel hace con cada forma NO se comprobó en un Excel: la máquina donde se escribió no
- * tiene ni Excel ni LibreOffice. Lo que se fija con test es el TEXTO del archivo, que es lo único
- * que decide este código; la lectura de Excel es la receta de OWASP y la de `="…"`.
+ * ⚠️ Lo que Excel hace con cada forma NO se comprobó en un Excel: la máquina donde se escribió no tiene ni Excel ni LibreOffice. Lo que se fija con test es el TEXTO del
+ * archivo, que es lo único que decide este código; la lectura de Excel es la receta de OWASP y la de `="…"`.
  */
-function celda(v: string | number | null | undefined): string {
-  const encomillar = (s: string) => `"${s.replace(/"/g, '""')}"`;
-  if (typeof v === 'number') return encomillar(String(v));
-  const s = String(v ?? '').replace(/[\r\n]+/g, ' ');
-  if (PARECE_NUMERO.test(s)) return encomillar(`="${s}"`);
-  if (ARRANCA_FORMULA.test(s)) return encomillar(`'${s}`);
-  return encomillar(s);
-}
+const OPCIONES_CSV = { sep: ';', siempreComillas: true, aplanarSaltos: true, telefonosComoTexto: true, numero: String } as const;
 
 /**
- * El texto del archivo: separador `;`, filas con `\r\n` y BOM adelante. Sin el `;` y el BOM,
- * Excel en español abre el archivo con todo en una columna y se come los acentos. Cada celda
- * pasa por `celda`: ahí está lo que impide que Excel ejecute o redondee lo que trae.
+ * El texto del archivo: separador `;`, filas con `\r\n` y BOM adelante. Sin el `;` y el BOM, Excel en español abre el archivo con todo en una columna y se come los
+ * acentos. Cada celda pasa por `celdaCsv`: ahí está lo que impide que Excel ejecute o redondee lo que trae.
  */
 export function textoCSV(filas: ReadonlyArray<ReadonlyArray<string | number>>): string {
-  return '﻿' + filas.map((f) => f.map(celda).join(';')).join('\r\n');
+  return armarCsv(filas, OPCIONES_CSV);
 }

@@ -17,7 +17,10 @@
 // (revisión del 21/10/2026): «un evento no tiene cohorte que se pise» era falso. `enrolarPorEvento` (lib/nutricion.ts)
 // inscribe al lead en TODAS las activas del disparador, así que dos con el mismo disparador y el mismo evento (dos «Te
 // envía un DM», dos «Se aprueba un pago», dos «Agendó sin confirmar») le escriben a la misma persona. Lo más común:
-// «Duplicar» una de DM y prender la copia.
+// «Duplicar» una de DM y prender la copia. ⚠️ Y «el mismo disparador» no alcanza (segunda revisión, 21/10/2026): el motor
+// junta disparadores DISTINTOS bajo un mismo evento (`TRIGGERS_POR_EVENTO`, lib/nutricion-eventos.ts). Un lead nuevo
+// entra a «Dejó el formulario sin agendar» y a «Un Lead Entró» (la etapa «lead») a la vez; una reserva, a «Agendó pero
+// no confirmó» y a «Un Lead Agendó Llamada» (la etapa «agenda»).
 //
 // Puro: lo usan la tab (SecuenciaPerfil, SimuladorWhatsApp) y el server (`duplicadaDeLaActivacion`, lib/nutricion.ts).
 // =============================================================================
@@ -27,7 +30,9 @@ import { subarbolRespuesta } from './flujo-conversacion';
 import { partesDe } from './mensaje-partes';
 import { sanearCron, DIA_MES_MAX } from './cron-aviso';
 import { TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA } from './nutricion-etapa';
-import { TRIGGER_ETIQUETA_AGREGADA } from './disparadores';
+import { TRIGGER_ETIQUETA_AGREGADA, TRIGGERS_SOLO_EVENTO } from './disparadores';
+import { FAMILIA_POST_AGENDA } from './nutricion-familias';
+import { TRIGGERS_POR_EVENTO, ETAPA_DEL_EVENTO, type EventoNutricion } from './nutricion-eventos';
 
 /** Lo que se compara de un CRON (un `Disparador`, lib/disparadores.ts). */
 export type CronParaComparar = {
@@ -61,15 +66,38 @@ const agregadaCruza = (x: CronParaComparar, y: CronParaComparar): boolean => {
 };
 
 /**
+ * ¿EL MOTOR METE A ESTE CRON CON ESTE EVENTO, sin preguntar cuál? Los de antes del evento (un lead nuevo: «Dejó el
+ * formulario sin agendar», «Vio poco el VSL»…; una reserva: «Agendó pero no confirmó» y las dos mitades de la
+ * post-agenda), y la etapa en la que cae el lead con ese evento (`ETAPA_DEL_EVENTO`). Los que el motor filtra por CUÁL
+ * (la etapa del evento de etapa, la entrega, la etiqueta, los canales y los pagos) tienen su propia regla.
+ */
+function entraConElEvento(d: CronParaComparar, ev: EventoNutricion): boolean {
+  const t = d.trigger_tipo;
+  if (t === TRIGGER_ETAPA) { const e = ETAPA_DEL_EVENTO[ev]; return e != null && etapasDeCron(d).includes(e); }
+  if (t === TRIGGER_ENTREGA || t === TRIGGER_ETIQUETA || TRIGGERS_SOLO_EVENTO.has(t)) return false;
+  return TRIGGERS_POR_EVENTO[ev].includes(t);
+}
+const EVENTOS = Object.keys(TRIGGERS_POR_EVENTO) as EventoNutricion[];
+
+/**
+ * ¿Dos disparadores DISTINTOS que el motor inscribe con el MISMO evento? Salvo las dos mitades de la post-agenda («ya le
+ * hablamos» y «primer contacto»), que se excluyen entre sí (`secuenciasParaElLead`, lib/nutricion-familias.ts).
+ */
+function mismoEvento(a: CronParaComparar, b: CronParaComparar): boolean {
+  if (FAMILIA_POST_AGENDA.includes(a.trigger_tipo) && FAMILIA_POST_AGENDA.includes(b.trigger_tipo)) return false;
+  return EVENTOS.some((ev) => entraConElEvento(a, ev) && entraConElEvento(b, ev));
+}
+
+/**
  * ¿Estos dos CRON alcanzan a la misma gente? La etapa (del mismo funnel), la entrega (del mismo producto), la etiqueta
  * (la misma, o «cualquiera» contra una que no ignora), y por EVENTO el mismo disparador con el mismo evento (`subtipo`):
- * el motor inscribe al lead en todas las activas de ese disparador. Un evento de antes («Agendó sin confirmar») barre por
- * el funnel de la FILA, que el CRON no lleva (`higiene`, lib/disparadores.ts): ante la duda, se avisa. «A mano» no: ahí no
- * entra nadie solo.
+ * el motor inscribe al lead en todas las activas de ese disparador. Dos disparadores distintos que entran con el mismo
+ * evento, también (`mismoEvento`). Un evento de antes («Agendó sin confirmar») barre por el funnel de la FILA, que el CRON
+ * no lleva (`higiene`, lib/disparadores.ts): ante la duda, se avisa. «A mano» no: ahí no entra nadie solo.
  */
 export function mismaCohorte(a: CronParaComparar, b: CronParaComparar): boolean {
   if (agregadaCruza(a, b) || agregadaCruza(b, a)) return true;
-  if (a.trigger_tipo !== b.trigger_tipo) return false;
+  if (a.trigger_tipo !== b.trigger_tipo) return mismoEvento(a, b);
   const t = a.trigger_tipo;
   const cruzan = (): boolean => { const eb = new Set(etapasDeCron(b)); return etapasDeCron(a).some((e) => eb.has(e)); };
   if (t === TRIGGER_ETAPA) {

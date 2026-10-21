@@ -1,6 +1,6 @@
 # Relevo — chat «Dashboard» (la tab Dashboard y el editor de General)
 
-<sub>Escrito el 21/10/2026 ~04:30 (hora de Argentina) por la cuenta 4 (claude4), desde el chat que hizo el trabajo. Se pisa
+<sub>Escrito el 21/10/2026 ~08:00 (hora de Argentina) por la cuenta 4 (claude4), desde el chat que hizo el trabajo. Se pisa
 en cada relevo. Los anteriores están en el historial: `git log -p -- docs/relevo/dashboard.md`.</sub>
 
 > **Ops Center = lo principal (20/10, pedido de Martín; el plan es docs/ops-center-principal.md, en main desde 0846ff49d).**
@@ -14,20 +14,19 @@ en cada relevo. Los anteriores están en el historial: `git log -p -- docs/relev
 >   lib/csv-celda.ts): el Cerebro lo preguntó el 20/10, y faltaba que un test cubriera el «-» y el tabulador.
 > - **Mapa** de Experimentos y Closing Analyst: docs/ops-center-principal/mapa-experimentos-closing.md, enlazado desde el
 >   Anexo D del plan.
-> - **2.7 HECHA en la rama aparte `dashboard-hilo`** (worktree C:/dev/wt-dash-hilo): lo que se confirma (G5 y G4,
->   ab9769677) y una PREGUNTA dibujada (G16: número, serie o tabla, 3bc9f2101), con `ola1` ya en main (run 188) y
->   mezclada. La revisión del Cerebro del 21/10 (sobre 7eb2bbaae) dejó tres medios y cinco bajos, arreglados en la punta
->   que se le pasó: la serie larga dibuja lo más nuevo, el gráfico del chat tiene red de error, «ya lo ve» se le dice al
->   modelo sólo si el bloque se dibujó, y las bajas. La segunda revisión (sobre 17c0317b2) encontró que el texto que lee
->   el modelo cortaba las 25 filas más viejas: ahora corta con la misma función que el gráfico. La tercera (sobre
->   16b2c5cad): en el vencimiento el corte toma lo más cercano a hoy (perdía lo que vence hoy), y una lectura le deja lugar
->   a la pregunta en el mensaje (`entraOtroDibujo`). Toca archivos de Ops
->   Center 3 (lib/chat-bloques.ts, app/_chat/BloqueHilo.tsx y, por la revisión, lib/api-mako/ejecutar.ts,
->   lib/mako-turno-app.ts, `entraOtroDibujo` en lib/mako-turno-app-reglas.ts y el tipo de `aDibujar`), avisado. ⚠️ **Entra en el mismo lote que `ola1-guardia`** (02aee818b,
->   de Ops Center 3): con 4 gráficos en un turno, sin ésa se pierde la pregunta G1. **Falta:** que la suba el Cerebro, y
->   mirarla en el Ops Center (ws3: «leads por día de los últimos 90 días», «¿cuánto vendí este mes?», crear una hoja). El
->   relevo de la rama `dashboard-bloques` (6c91eb458) queda viejo: éste lo reemplaza.
-> - El porqué y las trampas, en docs/hallazgos-api-mako.md (las dos entradas del 20/10 y la revisión del 21/10).
+> - **2.7 EN PRODUCCIÓN desde el run 199 (21/10, 07a8fb248, junto con `ola1-guardia`)**: lo que se confirma (G5 y G4,
+>   ab9769677) y una PREGUNTA dibujada (G16: número, serie o tabla, 3bc9f2101). Pasó tres revisiones del Cerebro el
+>   21/10 (61872a1ed, 17cf2e1cb, b75ef11fd): la serie larga dibuja lo más cercano a hoy (en el vencimiento, desde hoy), el
+>   gráfico del chat tiene red de error, «ya lo ve» se le dice al modelo sólo si el bloque se dibujó, el texto del modelo
+>   corta con la misma función que el gráfico, y una lectura le deja lugar a la pregunta (`entraOtroDibujo`). Toca
+>   archivos de Ops Center 3 (lib/chat-bloques.ts, app/_chat/BloqueHilo.tsx, lib/api-mako/ejecutar.ts,
+>   lib/mako-turno-app.ts, lib/mako-turno-app-reglas.ts y el tipo de `aDibujar`). Al integrar, lib/chat-bloques.ts quedó
+>   con `BloqueWeb | BloqueGrafico` y los dos saneos. **Falta:** verla con clics en el Ops Center (va al informe para
+>   Martín): ws3, «leads por día de los últimos 90 días», «¿qué me vence en los próximos 30 días?», crear una hoja.
+>   **Para la próxima pieza:** el «hoy» del área es el de Tijuana (`hoyEnWorkspace` en toda el área) y el `link` de
+>   analizar, programar y la caja en el informe de otra persona (los dos, en «Lo que quedó sin hacer» del hallazgo). La
+>   rama `dashboard-hilo` quedó igual a main. El relevo de `dashboard-bloques` (6c91eb458) queda viejo: éste lo reemplaza.
+> - El porqué y las trampas, en docs/hallazgos-api-mako.md (las dos entradas del 20/10 y las tres revisiones del 21/10).
 
 > **Para después del 20/10 (17/10, B5):** «Publicar en Creaciones» desde el ⋮ de la hoja está HECHO y SIN SUBIR en la rama
 > `pend-b5-publicar-dash` (`cc07af5ea`). Antes de mergearla: un antes-de-subir (sus 2 fallos de
