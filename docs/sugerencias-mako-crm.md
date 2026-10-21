@@ -78,11 +78,10 @@ todavía.
 ## Qué está andando (20/10/2026)
 
 - **Clase 1 y 3:** desde el 14/10 (`lib/sugerencias-crm.ts`).
-- **Clase 2:** mover a mano 5 o más leads de A a B en 14 días (sólo pasos del recorrido; ganar o perder no) y marcar 3 No
-  show a mano. Cuentan los gestos de una PERSONA (el historial firmado con su email); lo de MaKo o una automatización, no.
+- **Clase 2:** mover a mano 5 o más leads de A a B en 14 días (sólo pasos del recorrido; ganar o perder no), marcar 3 No
+  show a mano y pegar 3 veces el link de Fathom a mano (con Fathom sin conectar). Cuentan los gestos de una PERSONA (el historial firmado con su email); lo de MaKo o una automatización, no.
 - **Clase 4:** el primer DM de Instagram o Messenger (con las plantillas «Te Escribieron por…»).
-- **Faltan:** el mismo mensaje a 3 leads, el link de Fathom pegado a mano, el primer lead de un formulario sin CRM y el
-  lead que vuelve a mirar el VSL.
+- **Faltan:** el mismo mensaje a 3 leads, el primer lead de un formulario sin CRM y el lead que vuelve a mirar el VSL.
 
 ## Lo que necesito que decidas
 
