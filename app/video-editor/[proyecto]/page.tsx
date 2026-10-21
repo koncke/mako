@@ -28,18 +28,23 @@ import { requireEditorVideo } from '../acceso';
 import { resolverDesde } from '../desde/resolver';
 
 export const dynamic = 'force-dynamic';
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const revalidate = 0;
 
 export default async function VideoEditorProyectoPage({ params, searchParams }: {
   params: Promise<{ proyecto: string }>;
-  searchParams: Promise<{ desde?: string | string[]; plantilla?: string | string[] }>;
+  searchParams: Promise<{ desde?: string | string[]; plantilla?: string | string[]; propuesta?: string | string[] }>;
 }) {
   await requireEditorVideo();
   // El workspace de la pestaña, validado por el proxy: separa el almacenamiento
   // local del motor por cliente (ver espacio.ts).
   const [ws, senales] = await Promise.all([getWorkspaceActual(), senalesDelNegocio().catch(() => null)]);
   const { proyecto } = await params;
-  const { desde, plantilla } = await searchParams;
+  const { desde, plantilla, propuesta } = await searchParams;
+  // La propuesta que trae el link de la API o del Ops Center («Aceptar en el editor»): el editor abre su chat en ÉSA.
+  // Sólo un uuid (mig 0302): lo demás se ignora en vez de viajar al cliente.
+  const idPropuesta = typeof propuesta === 'string' && UUID.test(propuesta) ? propuesta : null;
   const origen = typeof desde === 'string' && desde ? await resolverDesde(desde) : undefined;
   const idPlantilla = typeof plantilla === 'string' && plantilla ? (plantillaPorId(plantilla)?.id ?? null) : undefined;
   // Mismo marco que el inicio: la barra lateral y la de secciones se quedan (pedido
@@ -47,7 +52,7 @@ export default async function VideoEditorProyectoPage({ params, searchParams }: 
   return (
     <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, height: 'calc(100vh - var(--alto-secciones, 0px))', display: 'flex', flexDirection: 'column' }}>
       <TemaOscuroScript />
-      <VideoEditorCliente vista="editor" proyectoId={proyecto} ws={ws} desde={origen} plantilla={idPlantilla} senales={senales} />
+      <VideoEditorCliente vista="editor" proyectoId={proyecto} ws={ws} desde={origen} plantilla={idPlantilla} propuesta={idPropuesta} senales={senales} />
     </Pagina>
   );
 }
