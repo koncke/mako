@@ -450,12 +450,14 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
             <h2 style={{ fontWeight: 600, fontSize: 16, letterSpacing: '-0.01em', margin: 0, color: 'var(--ink)' }}>Requiere tu atención</h2>
             <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 21, height: 21, padding: '0 7px', borderRadius: 999, background: 'var(--bad-bg)', color: 'var(--bad)', fontFamily: MONO, fontSize: 12, fontWeight: 600 }}>{atencion.length}</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(300px,100%),1fr))', gap: 14 }}>
             {atencion.map(({ i, sev, motivo, accion }) => (
               <div key={i.key} style={{ ...card, borderLeft: `4px solid ${sev === 'bad' ? 'var(--bad)' : 'var(--warn-fill)'}`, padding: '20px 22px', display: 'flex', alignItems: 'center', gap: 16 }}>
                 <SvcIcon k={i.key} box={44} radius={12} size={26} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: sev === 'bad' ? 'var(--bad)' : 'var(--warn)', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{motivo}</div>
+                  {/* El motivo se lee ENTERO (21/10/2026): en una línea con «…» se cortaba en 20 tarjetas, también a 1280 de
+                      ventana («Falta configurar: RESEND_API_KEY» era «Falta configurar: RES…»). */}
+                  <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: sev === 'bad' ? 'var(--bad)' : 'var(--warn)', marginBottom: 4, overflowWrap: 'anywhere' }}>{motivo}</div>
                   <div style={{ fontWeight: 600, fontSize: 17, letterSpacing: '-0.01em', color: 'var(--ink)' }}>{i.nombre}</div>
                 </div>
                 <button type="button" onClick={() => setModal({ t: 'svc', key: i.key })} style={{ flex: 'none', border: sev === 'bad' ? 0 : '1px solid var(--border-strong)', borderRadius: 10, background: sev === 'bad' ? 'var(--primary)' : 'var(--surface)', color: sev === 'bad' ? '#fff' : 'var(--ink)', fontFamily: "'Geist', sans-serif", fontWeight: 600, fontSize: 13.5, padding: '10px 16px', cursor: 'pointer', whiteSpace: 'nowrap' }}>{accion ?? (sev === 'bad' ? 'Resolver' : 'Configurar')}</button>
@@ -466,7 +468,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
       )}
 
       {/* ═══ SERVICIOS ═══ */}
-      <section style={{ ...card, marginTop: 32, padding: '8px 30px 12px' }}>
+      <section style={{ ...card, marginTop: 32, padding: '8px clamp(16px, 2.6vw, 30px) 12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', padding: '18px 0 16px' }}>
           <h2 style={{ fontWeight: 600, fontSize: 20, letterSpacing: '-0.017em', margin: 0, color: 'var(--ink)' }}>Servicios</h2>
           <div style={{ display: 'flex', gap: 15, flexWrap: 'wrap' }}>
@@ -479,17 +481,19 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
           const svcBtn = (i: Integracion) => (
             <button key={i.key} id={`svc-${i.key}`} type="button" onClick={() => setModal({ t: 'svc', key: i.key })} style={{ display: 'flex', alignItems: 'center', gap: 11, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--ink)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '11px 13px' }}>
               <SvcIcon k={i.key} />
-              <span style={{ fontWeight: 600, fontSize: 14, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i.nombre}</span>
+              {/* El nombre ENTERO, en dos renglones si hace falta (21/10/2026): con «…» se leía «Instagram y Mess…». */}
+              <span style={{ fontWeight: 600, fontSize: 14, flex: 1, minWidth: 0, lineHeight: 1.25, overflowWrap: 'anywhere' }}>{i.nombre}</span>
               <span style={{ width: 8, height: 8, flex: 'none', borderRadius: '50%', background: dotColor(sevOf(i)) }} />
             </button>
           );
-          const grid = (items: Integracion[]) => <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(210px,1fr))', gap: 10 }}>{items.map(svcBtn)}</div>;
+          // `min(…, 100%)`: en una columna más angosta que el mínimo, una tarjeta de ancho entero en vez de desbordar.
+          const grid = (items: Integracion[]) => <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(210px,100%),1fr))', gap: 10 }}>{items.map(svcBtn)}</div>;
           // En Inteligencia partimos en dos filas: primero las de pago, después las gratis.
           const esIA = g.cat === 'Inteligencia';
           const pago = esIA ? g.items.filter((i) => esIAdePago(i.key)) : g.items;
           const gratis = esIA ? g.items.filter((i) => !esIAdePago(i.key)) : [];
           return (
-            <div key={g.cat} style={{ display: 'grid', gridTemplateColumns: '132px 1fr', gap: 24, alignItems: esIA ? 'start' : 'center', padding: '18px 0', borderTop: '1px solid var(--surface-2)' }}>
+            <div key={g.cat} style={{ display: 'grid', gridTemplateColumns: 'minmax(84px,132px) minmax(0,1fr)', gap: 'clamp(12px, 2vw, 24px)', alignItems: esIA ? 'start' : 'center', padding: '18px 0', borderTop: '1px solid var(--surface-2)' }}>
               <div style={{ ...capMono, marginTop: esIA ? 3 : 0 }}>{g.cat}</div>
               {esIA ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -754,11 +758,11 @@ function CostoMaKo({ usage, cuotas, onVerOps, onOpenService }: { usage: Resumen 
       {/* Tiles por proveedor — arriba las de pago, abajo las gratis (dos filas
           separadas para que no queden todos juntos y OpenRouter suelto). */}
       <div style={{ ...capMono, fontSize: 9.5, letterSpacing: '.11em', color: 'var(--faint)', marginBottom: 9 }}>Consumen dinero</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 11, marginBottom: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(240px,100%),1fr))', gap: 11, marginBottom: 18 }}>
         {provsPago.map(renderTile)}
       </div>
       <div style={{ ...capMono, fontSize: 9.5, letterSpacing: '.11em', color: 'var(--faint)', marginBottom: 9 }}>Gratis · rotan sin costo</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 11, marginBottom: 26 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(240px,100%),1fr))', gap: 11, marginBottom: 26 }}>
         {provsGratis.map(renderTile)}
       </div>
 
@@ -766,7 +770,7 @@ function CostoMaKo({ usage, cuotas, onVerOps, onOpenService }: { usage: Resumen 
           mueven Claude/OpenAI; los tokens los mueven TODAS (útil para ver qué proceso
           consume aunque sea en una IA gratis). En pantallas angostas se apilan. */}
       {feats.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 26, marginBottom: 4 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(300px,100%),1fr))', gap: 26, marginBottom: 4 }}>
           <div>
             <div style={{ ...capMono, fontSize: 10, letterSpacing: '.13em', marginBottom: 13 }}>Gasto por proceso · dinero</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
