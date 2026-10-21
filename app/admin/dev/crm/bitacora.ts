@@ -2680,4 +2680,31 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '21 oct', hora: '15:40', chat: 'CRM', sesion: 'local_64949e84-3d68-4c31-bf78-5caa382ebc37', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'MaKo contesta desde Chats con la tarjeta, el Plan con columnas propias y un bloqueado no recibe nada',
+    puntos: [
+      'En producción desde el run 213 (a167f266a), con la migración 0317 aplicada antes.',
+      'Desde el chat de MaKo en la app: mandar el borrador de WhatsApp, contestar un DM o un email, agregar un contacto al CRM y marcar leído. Lo que le llega a un lead sale sólo al tocar «Enviar» en la tarjeta, y la tarjeta muestra el texto entero y el número al que sale. Por el grupo de WhatsApp no se manda nada al lead.',
+      'Un contacto bloqueado no recibe nada en ninguna forma de su número (con o sin código de país): ni la secuencia, ni el AI Step, ni los recordatorios. Medido el 21/10: 0 bloqueos en producción, nadie afectado.',
+      'El Plan tiene columnas propias, como las etapas del CRM: agregar, quitar, renombrar y mover una tarea a una; MaKo la mueve por el nombre.',
+      'Clients: «Pago rechazado» y «Cuota vencida» en la tarjeta, y la cara del cliente en el teléfono. MaKo sugiere cuando se repite un gesto en el CRM (el mismo mensaje a tres leads, la landing sin CRM, el lead que vuelve).',
+      'La bandeja /mako/pendientes muestra entero lo que se confirma (era 240 caracteres y «2 elementos»).',
+      'No se vio en pantalla: se revisa en /chats, pidiéndole a MaKo «contéstale a <alguien> por WhatsApp: …».',
+    ],
+    commits: [
+      { sha: '3fa5fd6ee', msg: 'Ops Center 2.1: lo que le faltaba a Chats — mandar, contestar, agregar al CRM y marcar leído, con la tarjeta', lineas: 542, archivos: 10 },
+      { sha: 'e693e629f', msg: '2.1 rehecha tras la revisión: los envíos al lead sólo con el toque, y lo que sale es lo que se ve', lineas: 444, archivos: 22 },
+      { sha: 'bbbf8e6bc', msg: 'CRM 2.1 · tercera revisión: lo que sale es lo que se aprobó, en todas las puertas', lineas: 464, archivos: 14 },
+      { sha: 'f220b614d', msg: 'CRM 2.1 · cuarta revisión: la identidad de un bloqueo es UNA regla', lineas: 709, archivos: 23 },
+      { sha: '60e0a6a29', msg: 'Plan: columnas propias — agregar, quitar y mover a una, como las etapas del CRM (B1, segunda parte)', lineas: 1183, archivos: 35 },
+      { sha: '951a2d0b6', msg: 'Plan: las columnas se renombran, como las etapas del CRM (B1, primera parte)', lineas: 502, archivos: 21 },
+      { sha: '15cde6f4d', msg: 'Clients: «Pago rechazado» y «Cuota vencida» en la tarjeta, y la cara del cliente en el teléfono (B2)', lineas: 299, archivos: 13 },
+      { sha: 'a53024050', msg: 'CRM: las sugerencias de MaKo que faltaban — el mismo mensaje a 3 leads, la landing sin CRM y el lead que vuelve (D4)', lineas: 385, archivos: 8 },
+    ],
+    archivos: [
+    ],
+    revisar: '/chats',
+  },
 ];

@@ -10581,7 +10581,7 @@ Cerebro.*
 
 ## La identidad de un bloqueo es UNA regla, y un arreglo de envío destapó la fuga (21/10/2026, cuarta revisión de la 2.1)
 
-- **Síntoma (ws11, en producción desde el 20/10):** un contacto bloqueado desde /chats sigue recibiendo la secuencia, el
+- **Síntoma (ws11, en producción desde el 20/10; medido el 21/10: 0 bloqueos en producción, nadie afectado):** un contacto bloqueado desde /chats sigue recibiendo la secuencia, el
   AI Step, la rama y los recordatorios de reunión.
 - **Causa:** /chats guarda el número del espejo (542233550684); el CRM y los borradores tienen 2233550684 (53 de 70 leads
   del ws11). `estaBloqueado` comparaba EXACTO y daba «no». ⚠️ **Lo que lo destapó fue un arreglo:** hasta el 20/10 un
