@@ -7,24 +7,25 @@
 //      vuelve a decir «NEGOCIO DE MARTÍN» ni «del negocio de Martín» (la retrospectiva y el asesor de WhatsApp también lo
 //      decían). Es la misma regla de tests/prompt-sin-dueno.test.ts, que mira los encuadres de lib/prompt-defaults.ts;
 //      ésta barre todo el código;
-//   2. sin ninguna herramienta corrida, lo que dice HECHO («Listo, ya lo armé», «te creé…», «quedó programada») sale
-//      marcado como no hecho; un dato del contexto («tu landing está publicada») no; y el doer de WhatsApp sigue como
-//      estaba (la opción es del chat de la app);
-//   3. el chat de la app cuenta lo que DE VERDAD corrió (lo rechazado no) y lo que leyó, y se lo pasa al guardia;
-//   4. (revisión del 21/10/2026) lo que el HILO ya anota hecho no se borra: «¿quedó agendada?» después de confirmar la
-//      tarjeta se contesta «sí» sin correr nada. Y una lectura no apaga el guardia: «ya le mandé el WhatsApp» después de
-//      leer la ficha es mentira (en este chat el turno no ejecuta nada), «la reunión quedó agendada» no (pudo leerlo). Lo
-//      que se saca de un hecho NO dice «pídemelo otra vez»: sería pedirle que lo haga dos veces.
+//   2. en el chat de la app NINGUNA oración se borra por lo que dice: lo que afirma un hecho sin respaldo queda y lleva
+//      UNA nota («No veo esa acción en este chat…»); la promesa de algo inmediato sin herramientas, la suya; nunca las
+//      dos. Sólo cuenta una afirmación CLARA: primera persona, pasado con tilde, sin negación, sin pregunta y sin hablar
+//      de lo propuesto. Un dato del contexto no lleva nota, y el doer de WhatsApp sigue como estaba;
+//   3. el chat de la app le pasa al guardia lo que respalda por CÓDIGO: un control que escribió de verdad, o una tarjeta
+//      confirmada después del último PEDIDO (un «gracias» no corta), salvo que este mensaje sea un pedido;
+//   4. con los «Hecho:» REALES (el resumen de ejecución de `resultadoAgendar`, del pago, de las tareas, de mover), la
+//      tarjeta confirmada respalda «Sí, ya te la agendé» y las respuestas cortas; un «Hecho:» de antes del último pedido,
+//      no. El banco completo de frases está en tests/chat-guardia-banco.test.ts.
+//      ⚠️ Lo obvio fue el error tres veces (borrar por si corrió algo, por las raíces, y las promesas que borraban desde
+//      main): ninguna oración se borra.
 // ⚠️ Lo que NO es de esta pieza: la persona de MaKo dice «el consultor IA de Martín Koncke» (lib/mako-persona.ts): es la
 //    marca, y cambiarla es una decisión de Martín. «Mi hoja» por quien chatea (con 2 o más informes) es del Dashboard.
 //
 // Probado rompiéndolo (20/10/2026, con la base en 0 fallos):
 //   · el rótulo de vuelta a «NEGOCIO DE MARTÍN» en lib/mako-context.ts → 1 fallo (1);
-//   · `afirmaHechoDe` que no ve nada → 1 fallo (2);
-//   · el chat de la app con `corrioHerramientas: true` fijo, como antes → 1 fallo (3);
-//   · (21/10) `sanearSalida` que no mira `enElHilo` → 1 fallo (4); que con una lectura no juzga nada, como antes → 1
-//     fallo (4); el turno sin contar lo que leyó → 1 fallo (3); `hechoEnElHilo` que no ve el «Hecho: » → 1 fallo (4);
-//     `SIN_HECHO` igual a `SIN_HACER` → 1 fallo (4).
+//   · (la tercera revisión, 21/10) el camino de promesas borrando otra vez en la app → 1 fallo (2); `afirmacionesDeHecho`
+//     sin mirar la tilde → 1 fallo (2); el turno sin `esPedido` → 1 fallo (3); `confirmadoTrasElUltimoPedido` que corta
+//     con un «gracias» → 1 fallo (4); `salioBien` que da bien un error en JSON → 1 fallo (4).
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -32,11 +33,14 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { rotuloDelNegocio } from '../lib/negocio-rotulo';
-import { SIN_HACER, SIN_HECHO, afirmaHechoDe, sanearSalida } from '../lib/doer-salida';
-import { hechoEnElHilo } from '../lib/mako-turno-app-reglas';
+import { NOTA_SIN_HACER, NOTA_SIN_RESPALDO, SIN_HACER, afirmacionesDeHecho, sanearSalida } from '../lib/doer-salida';
+import { confirmadoTrasElUltimoPedido, esPedido, salioBien } from '../lib/mako-turno-app-reglas';
+import { clasificarIntencion } from '../lib/mako-intencion';
+import { resultadoAgendar } from '../lib/agenda-sin-ia';
 
 /** El chat de la app, sin nada que respalde un hecho. */
-const NADA = { enElHilo: false, leyo: false, tarjeta: false };
+const NADA = { respaldado: false };
+const conNota = (t: string) => `${t}\n\n${NOTA_SIN_RESPALDO}`;
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -60,53 +64,66 @@ test('1. el perfil del negocio va con SU nombre, y nadie vuelve a decir «NEGOCI
   assert.deepEqual(conMartin, [], 'ningún system dice que el negocio es de Martín');
 });
 
-test('2. sin herramientas, lo que dice hecho sale marcado como no hecho', () => {
-  const sin = (t: string) => sanearSalida(t, { corrioHerramientas: false, hecho: NADA });
-  assert.equal(sin('Listo, ya lo armé.').texto, SIN_HECHO, '«Listo, ya lo armé» sin nada corrido');
-  assert.match(sin('Listo, te armé la automatización de los martes a las 3 para todo el funnel.').texto, new RegExp(`${SIN_HECHO}$`));
-  assert.match(sin('Quedó programada para todos los martes a las 15.').texto, new RegExp(`${SIN_HECHO}$`));
-  const conDato = 'Tu landing del webinar está publicada desde el lunes y tiene 230 visitas.';
-  assert.equal(sin(conDato).texto, conDato, 'un dato del contexto no es una afirmación de algo hecho');
-  const mezcla = sin('Te cuento cómo viene tu funnel esta semana con los nuevos leads. Ya te creé la automatización.');
-  assert.equal(mezcla.texto, `Te cuento cómo viene tu funnel esta semana con los nuevos leads.\n\n${SIN_HECHO}`, 'se saca la oración falsa, no la respuesta');
-  assert.equal(sin('Déjame ver el plan.').texto, SIN_HACER, 'una promesa sigue con la suya');
-  assert.equal(sanearSalida('Listo, ya lo armé.', { corrioHerramientas: false }).texto, 'Listo, ya lo armé.', 'el doer de WhatsApp sigue como estaba');
-  assert.ok(afirmaHechoDe('Ya te lo agendé para el jueves.').includes('ya te lo agende'));
+test('2. en la app ninguna oración se borra: lo que afirma un hecho sin respaldo lleva UNA nota', () => {
+  const sin = (t: string, corrio = false) => sanearSalida(t, { corrioHerramientas: corrio, hecho: NADA });
+  assert.equal(sin('Listo, ya lo armé.').texto, conNota('Listo, ya lo armé.'));
+  assert.equal(sin('Le mandé el WhatsApp a Juan con el link.').texto, conNota('Le mandé el WhatsApp a Juan con el link.'), 'el pretérito al principio también');
+  const mezcla = 'Te cuento cómo viene tu funnel esta semana. Ya te creé la automatización. Y te armé el informe.';
+  assert.equal(sin(mezcla).texto, conNota(mezcla), 'una sola nota');
+  // Lo que NO afirma: subjuntivo (sin tilde), negación, pregunta, oferta, lo propuesto.
+  for (const t of ['¿Querés que te mande el resumen?', 'Para que te cargue los leads, pásame el CSV.', 'No te agendé la reunión porque Ana no tiene email.',
+    'Si querés, te armo un borrador.', 'Te armé la propuesta: confírmala abajo.', 'Tu landing del webinar está publicada desde el lunes.']) {
+    assert.equal(sin(t).texto, t, `«${t}» no afirma nada`);
+  }
+  // La promesa de algo inmediato sin herramientas: la oración queda, con su nota; nunca las dos notas.
+  assert.equal(sin('Déjame ver el plan y te cuento.').texto, 'Déjame ver el plan y te cuento.\n\n' + NOTA_SIN_HACER);
+  assert.equal(sin('Ya te creé la automatización. Déjame ver si hay algo más.').texto, conNota('Ya te creé la automatización. Déjame ver si hay algo más.'), 'el hecho primero');
+  assert.equal(sin('Perfecto, cualquier cosa te aviso.').texto, 'Perfecto, cualquier cosa te aviso.', 'una oferta no es una promesa');
+  assert.deepEqual(afirmacionesDeHecho('Juan quedó agendado ayer. Esa la armó tu equipo.'), [], 'lo que hizo otro no');
+  // El doer de WhatsApp sigue como estaba: una promesa sin herramientas se saca.
+  assert.equal(sanearSalida('Déjame ver el plan.', { corrioHerramientas: false }).texto, SIN_HACER);
 });
 
-test('3. el chat de la app cuenta lo que de verdad corrió', () => {
+test('3. el chat de la app le pasa al guardia lo que respalda por código', () => {
   const s = sinComentarios(leer('lib/mako-turno-app.ts'));
   const correr = s.slice(s.indexOf('const runTool = async'), s.indexOf('const previo = memo.previo(name);'));
   assert.ok(correr.indexOf('corridas++') > correr.indexOf('guardia.bloquea(name)'), 'lo rechazado (no permitido, o después de preguntar) no cuenta');
-  assert.match(s, /if \(!escribe\(name\) && \(out as \{ isError\?: unknown \}\)\.isError !== true\) leidas\+\+;/, 'cuenta lo que LEYÓ sin error');
-  assert.ok(correr.indexOf('leidas++') < 0, 'y lo cuenta después de correr, no antes');
-  assert.match(s, /sanearSalida\(respuesta, \{\s*corrioHerramientas: corridas > 0,\s*hecho: \{ enElHilo: hechoEnElHilo\(historial\), leyo: leidas > 0, tarjeta: propuestas\.length > 0 \|\| retirado\.pantallas\.length > 0 \},\s*\}\)/,
-    'el guardia recibe lo que corrió y lo que respalda un hecho');
+  assert.match(s, /if \(porId\(name\)\?\.tipo === 'control' && salioBien\(out\)\) escribieron\+\+;/, 'los controles que escribieron de verdad');
+  assert.match(s, /respaldado: escribieron > 0 \|\| \(!esPedido\(intencion\.intencion\) && confirmadoTrasElUltimoPedido\(historial,\s*\(t\) => esPedido\(clasificarIntencion\(t, \{ hayMedia: false \}\)\.intencion\)\)\),/,
+    'lo que escribió, o lo confirmado después del último pedido (si este mensaje no es uno)');
 });
 
-test('4. lo que el hilo ya anota hecho no se borra, y una lectura no apaga el guardia', () => {
-  // El caso de la revisión: confirmó la tarjeta, el hilo anota el «Hecho», y pregunta «¿quedó agendada?».
-  const hilo = [
-    { role: 'user', content: 'Agéndame una reunión con Ana el martes a las 10' },
-    { role: 'assistant', content: 'Te la dejo para confirmar abajo.\nHecho: Agendar reunión con Ana, martes 10:00' },
-    { role: 'user', content: '¿quedó agendada?' },
-  ];
-  assert.ok(hechoEnElHilo(hilo), 'el «Hecho: » de la tarjeta confirmada');
-  assert.ok(!hechoEnElHilo([{ role: 'assistant', content: 'No se pudo: Agendar reunión con Ana' }, { role: 'user', content: 'Hecho: lo hice yo' }]), 'ni un «No se pudo», ni lo que escribe la persona');
-  const respaldada = { ...NADA, enElHilo: hechoEnElHilo(hilo) };
-  for (const t of ['Sí, quedó agendada para el martes a las 10.', 'Sí, ya te la agendé el martes a las 10.', '¡De nada! La reunión con Ana ya quedó agendada.']) {
-    assert.equal(sanearSalida(t, { corrioHerramientas: false, hecho: respaldada }).texto, t, `«${t}» con el hecho en el hilo`);
+test('4. con los «Hecho:» reales, lo confirmado después del pedido respalda la respuesta', () => {
+  const agendado = resultadoAgendar({ ok: true, codigo: '', motivo: '', titulo: 'Reunión con Ana López', inicioIso: '2026-10-27T13:00:00.000Z', tz: 'America/Argentina/Buenos_Aires', email: 'ana@gmail.com' }).resumen;
+  assert.match(agendado, /^Listo: «Reunión con Ana López» quedó el /, 'el de agendar, tal como sale');
+  const pide = (t: string) => esPedido(clasificarIntencion(t, { hayMedia: false }).intencion);
+  for (const [hecho, respuesta] of [
+    [agendado, 'Sí, ya te la agendé.'],
+    ['Listo: pago de USD 300 registrado el 21 oct.', 'Sí, ya lo cargué.'],
+    ['Agregué 3 tareas al plan. Míralas aquí:\nhttps://hola-mako.com/plan/t1', 'Sí, ya las cargué.'],
+    ['Listo: Ana López pasó de «Seguimiento» a «Ganado» en «Mentoría».', 'Sí, ya la moví.'],
+  ]) {
+    const hilo = [
+      { role: 'user', content: 'Agéndame una reunión con Ana López el martes a las 10' },
+      { role: 'assistant', content: `Te la dejo para confirmar abajo.\nHecho: ${hecho}` },
+      // Un «gracias» en el medio no corta: no es un pedido.
+      { role: 'user', content: '¡Gracias!' },
+      { role: 'assistant', content: '¡De nada!' },
+    ];
+    assert.ok(confirmadoTrasElUltimoPedido(hilo, pide), `confirmado después del pedido: ${hecho.slice(0, 30)}`);
+    assert.equal(sanearSalida(respuesta, { corrioHerramientas: false, hecho: { respaldado: true } }).texto, respuesta, `«${respuesta}» queda sin nota`);
   }
-  // Una LECTURA no respalda lo que MaKo dice que HIZO: en la app el turno sólo propone.
-  const leyo = { ...NADA, leyo: true };
-  const mandado = sanearSalida('Leí la ficha de Juan. Listo, ya le mandé el WhatsApp a Juan.', { corrioHerramientas: true, hecho: leyo });
-  assert.equal(mandado.texto, `Leí la ficha de Juan.\n\n${SIN_HECHO}`, '«ya le mandé» después de una lectura');
-  const estado = 'Miré tu agenda: la reunión con Ana quedó agendada para el martes.';
-  assert.equal(sanearSalida(estado, { corrioHerramientas: true, hecho: leyo }).texto, estado, 'un «quedó» que pudo leer');
-  // Con una tarjeta en el turno, lo que falta lo dice la tarjeta.
-  const conTarjeta = 'Te dejé la reunión con Ana para el martes: confírmala abajo.';
-  assert.equal(sanearSalida(conTarjeta, { corrioHerramientas: true, hecho: { ...NADA, tarjeta: true } }).texto, conTarjeta);
-  // Lo que se saca de un hecho no pide repetirlo.
-  assert.notEqual(SIN_HECHO, SIN_HACER);
-  assert.doesNotMatch(SIN_HECHO, /otra vez/);
+  // Un pedido NUEVO después del «Hecho:» corta: lo de antes es de otra cosa.
+  const otro = [
+    { role: 'user', content: 'Agéndame una reunión con Ana López el martes a las 10' },
+    { role: 'assistant', content: `Hecho: ${agendado}` },
+    { role: 'user', content: 'Agéndame otra con Pedro el jueves a las 15' },
+  ];
+  assert.equal(confirmadoTrasElUltimoPedido(otro, pide), false);
+  assert.equal(confirmadoTrasElUltimoPedido([{ role: 'assistant', content: 'No se pudo: Agendar reunión con Ana' }]), false, 'un «No se pudo» no respalda');
+  // Un control que escribió de verdad respalda; uno que devolvió su error (en JSON, como cancelar_accion) no.
+  assert.equal(salioBien('Listo: cancelé la acción #12 (Agendar reunión con Pedro).'), true);
+  assert.equal(salioBien(JSON.stringify({ ok: false, error: 'No encuentro la acción #12 vigente.' })), false);
+  assert.equal(salioBien({ content: 'x', isError: true }), false);
+  assert.equal(salioBien('❌ No se pudo: la acción ya estaba resuelta'), false);
 });
