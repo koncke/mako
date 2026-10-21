@@ -13,6 +13,8 @@
 //   Núcleo              23/40     40/40
 //   Tandas 2 y 3 (con la maquinaria de la tanda 1 ya puesta): Plan 28/30, Calendario 5/8, Dashboard 26/28, video 35/37,
 //   imagen y creaciones 8/10 → 30/30, 8/8, 28/28, 37/37 y 10/10 con las filas nuevas (tuteo y voseo de cada frase).
+//   Tanda 4 (Pagos y cuenta): cobros 21/22 y equipo y cuenta 23/28 → 22/22 y 26/26. Las 2 frases de «exigí el 2FA» salieron de la batería:
+//   `exigir_2fa_desde` tiene gating de PLATAFORMA (sólo el super admin), no es del admin de un cliente.
 //
 // Qué cambió (lib/mako-intencion.ts, lib/mako-intencion-app.ts, lib/doer-herramientas.ts):
 //  · D1 = A: en la app, sin señal clara se ACTÚA (se arma la tarjeta; nada se hace sin el toque), no se anota. WhatsApp sigue
@@ -390,6 +392,60 @@ const IMAGEN: Caso[] = [
   ["dale una estrella a esa creación", ["dar_estrella"]],
 ];
 
+const COBROS: Caso[] = [
+  ["mandale el link de pago a Ana", ["crear_link_pago"]],
+  ["generá un link de pago de 500 dólares para Juan", ["crear_link_pago"]],
+  ["genera un link de pago de 500 dólares para Juan", ["crear_link_pago"]],
+  ["anulá el link de pago de Ana", ["anular_link_pago"]],
+  ["anula el link de pago de Ana", ["anular_link_pago"]],
+  ["reembolsale el pago a Carlos", ["reembolsar_cobro"]],
+  ["reembolsa el cobro de Carlos", ["reembolsar_cobro"]],
+  ["cancelá la suscripción de Pedro", ["cancelar_suscripcion"]],
+  ["cancela la suscripción de Pedro", ["cancelar_suscripcion"]],
+  ["¿cuánto cobré este mes?", ["listar_cobros","ver_revenue_periodo","metricas_negocio"]],
+  ["mostrame los cobros de Stripe", ["listar_cobros"]],
+  ["cambiá la moneda del negocio a dólares", ["cambiar_moneda_negocio"]],
+  ["cambia la moneda del negocio a pesos", ["cambiar_moneda_negocio"]],
+  ["editá la cuota 3 de Juan: que sea de 600", ["editar_cuota"]],
+  ["edita la cuota 3 de Juan", ["editar_cuota"]],
+  ["cobrale la cuota 2 a Juan con un link", ["crear_link_cuota"]],
+  ["cobra la cuota 2 de Juan con un link", ["crear_link_cuota"]],
+  ["cortá el recordatorio de la cuota de Juan", ["cortar_recordatorio_cuota"]],
+  ["corta el recordatorio de la cuota de Juan", ["cortar_recordatorio_cuota"]],
+  ["dale de baja a Juan", ["baja_del_cliente"]],
+  ["cancelá la suscripción manual de Ana", ["estado_suscripcion_manual","cancelar_suscripcion"]],
+  ["editá la venta de Juan: 1500 dólares", ["editar_venta_lead"]],
+];
+
+const EQUIPO: Caso[] = [
+  ["invitá a pedro@mail.com al equipo como setter", ["invitar_miembro_equipo"]],
+  ["invita a pedro@mail.com al equipo como setter", ["invitar_miembro_equipo"]],
+  ["cambiale el rol a Pedro a closer", ["cambiar_rol_miembro"]],
+  ["cambia el rol de Pedro a closer", ["cambiar_rol_miembro"]],
+  ["suspendé a Pedro del equipo", ["suspender_miembro"]],
+  ["suspende a Pedro del equipo", ["suspender_miembro"]],
+  ["eliminá a Pedro del equipo", ["eliminar_miembro"]],
+  ["elimina a Pedro del equipo", ["eliminar_miembro"]],
+  ["reenviale la invitación a Pedro", ["reenviar_invitacion"]],
+  ["reenvía la invitación a Pedro", ["reenviar_invitacion"]],
+  ["prendé el reporte diario", ["configurar_reporte"]],
+  ["activa el reporte semanal", ["configurar_reporte"]],
+  ["apagá el aviso de reunión agendada", ["configurar_aviso_whatsapp"]],
+  ["apaga el aviso de nueva venta", ["configurar_aviso_whatsapp"]],
+  ["sumá a ana@mail.com a los reportes", ["agregar_destinatario_notificaciones"]],
+  ["suma a ana@mail.com a los reportes", ["agregar_destinatario_notificaciones"]],
+  ["sacá a Ana de los reportes", ["quitar_destinatario_notificaciones"]],
+  ["saca a Ana de los reportes", ["quitar_destinatario_notificaciones"]],
+  ["poné la zona horaria en Buenos Aires", ["fijar_zona_horaria_workspace"]],
+  ["pon la zona horaria de México", ["fijar_zona_horaria_workspace"]],
+  ["guardá mi identidad fiscal: Mi Negocio SA", ["guardar_identidad_fiscal"]],
+  ["borrá la identidad fiscal vieja", ["borrar_identidad_fiscal"]],
+  ["¿quién está en mi equipo?", ["listar_equipo"]],
+  ["levantá un ticket: no me carga el CRM", ["levantar_ticket"]],
+  ["levanta un ticket: no me carga el CRM", ["levantar_ticket"]],
+  ["renombrá este chat a Reunión semanal", ["renombrar_chat_mako"]],
+];
+
 // --- 1. Cada frase medida llega a su operación ------------------------------------------------------------------------------
 
 test('núcleo: 40 pedidos naturales llegan a su operación por la app', () => {
@@ -415,6 +471,12 @@ test('video: las 37 frases (tuteo y voseo) llegan a su operación por la app', (
 });
 test('imagen: las 10 frases (tuteo y voseo) llegan a su operación por la app', () => {
   assert.deepEqual(faltan(IMAGEN), []);
+});
+test('cobros: las 22 frases (tuteo y voseo) llegan a su operación por la app', () => {
+  assert.deepEqual(faltan(COBROS), []);
+});
+test('equipo: las 26 frases (tuteo y voseo) llegan a su operación por la app', () => {
+  assert.deepEqual(faltan(EQUIPO), []);
 });
 
 // --- 2. WhatsApp sigue anotando ------------------------------------------------------------------------------------------------
@@ -509,7 +571,7 @@ test('si el texto no nombra un área, la operación se busca en todo el registro
   assert.ok(conBusqueda.nombres.length >= sinBusqueda.tools.length);
 });
 
-// Probado rompiéndolo (20/10/2026), una rotura por vez, con todo en verde antes. 38 roturas, cada una con su fallo (29 de la tanda 1 y 9 de las tandas 2 y 3):
+// Probado rompiéndolo (20/10/2026), una rotura por vez, con todo en verde antes. 43 roturas, cada una con su fallo (29 de la tanda 1, 9 de las 2 y 3 y 5 de la 4):
 //   · el default de la app sin actuar · la regla del verbo de hacer · el volcado con verbo que vuelve a anotarse · el link con verbo
 //     que vuelve a ser material · la pregunta que no busca en todo el registro · «llamada Caliente» que vuelve a ser agenda · la
 //     plantilla que no le gana a la agenda · «prueba la automatización» que vuelve a ser saludo · sin la búsqueda en todo el registro ·
@@ -520,4 +582,5 @@ test('si el texto no nombra un área, la operación se busca en todo el registro
 //     responder-comentarios y mensaje-a-alguien, cada una sacada por separado.
 //   Tandas 2 y 3: las familias pasar-tarea, velocidad-video, estrella, dashboard-quitar-componente (y que le gane al lead), contenido-
 //   programado (que le gane a la agenda), creaciones-galería (que le gane a la landing) y «comunidad» con verbos sueltos en la relevancia.
+//   Tanda 4 (Pagos y cuenta): dar-de-baja, rol-equipo (y que le gane al lead) y renombrar-chat (y que le gane a la agenda).
 //   Dos filas (la de «etiqueta» y la de «fathom») no cayeron al romperlas: no hacían falta y se borraron.

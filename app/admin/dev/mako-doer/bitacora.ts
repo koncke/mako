@@ -483,4 +483,19 @@ export const BITACORA: Hito[] = [
       'tests/ops-center-clasificador-app.test.ts — 288 frases, 17 tests, 38 roturas con su fallo',
     ],
   },
+  {
+    fecha: '20 oct', hora: '22:50', chat: 'MaKo Alert', sesion: 'local_d3ed9496-3ca1-4037-abc2-a59ce57d3f9d', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: Ops Center 1.2, tanda 4 — Pagos y cuenta (cobros, equipo, reportes y avisos) llegan a su operación por la app',
+    revisar: '/admin/operaciones',
+    puntos: [
+      'Misma medición: cobros 21 de 22 y equipo y cuenta 23 de 28 con la maquinaria de las tandas anteriores; ahora 22 de 22 y 26 de 26. Cerraron «dale de baja a Juan» (dale es una confirmación), «cambiale el rol a Pedro a closer» (closer es del CRM: el detector de leads se lo llevaba) y «renombrá este chat a Reunión semanal» (la agenda).',
+      '⚠️ **Una operación que no es del admin de un cliente no es una falta del clasificador:** `exigir_2fa_desde` tiene gating de PLATAFORMA (sólo el super admin) y no llega a un admin; sus dos frases quedaron fuera de la batería.',
+      '**Sin hacer:** Offer, Copywriting y Second Brain, Web Generator y Ads (los verbos de Meta, después de la 1.4); las 4 operaciones de curso y comunidad que hoy son sólo http (Clients).',
+    ],
+    archivos: [
+      'lib/mako-intencion-app.ts — dar-de-baja, rol-equipo y renombrar-chat en FAMILIAS',
+      'tests/ops-center-clasificador-app.test.ts — 336 frases, 19 tests, 43 roturas con su fallo',
+    ],
+  },
 ];

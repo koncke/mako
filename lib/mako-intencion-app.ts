@@ -125,6 +125,10 @@ const FAMILIAS: readonly Familia[] = [
   { id: 'creaciones-galeria', test: /\bgaleria de la comunidad\b|\bcreaciones? de la comunidad\b/, areas: ['creaciones'], relevancia: 'publicar creacion', actua: true, ganaALaLanding: true },
   { id: 'estrella', test: /\b(?:una|la|su)\s+estrella\b|\bestrella\b[^.\n]{0,20}\bcreacion/, areas: ['creaciones'], relevancia: 'dar estrella creacion', actua: true },
   { id: 'dashboard-quitar-componente', test: /\b(?:quit\w+|sac\w+|borr\w+|elimin\w+)\b[^.\n]{0,25}\b(?:grafico|componente|elemento|tabla|texto)\b[^.\n]{0,30}\b(?:hoja|dashboard)\b/, areas: ['metricas'], relevancia: 'quitar componente dashboard', actua: true, ganaAlLead: true },
+  // ── Pagos y cuenta (tanda 4) ──
+  { id: 'dar-de-baja', test: /\bde baja\b/, areas: ['cobros'], relevancia: 'baja del cliente', actua: true },
+  { id: 'rol-equipo', test: /\brol\b[^.\n]{0,30}\b(?:closer|setter|admin|miembro|equipo)\b|\b(?:cambi\w+)\b[^.\n]{0,12}\brol\b/, areas: ['equipo'], relevancia: 'cambiar rol miembro', actua: true, ganaAlLead: true },
+  { id: 'renombrar-chat', test: /\brenombr\w+\b[^.\n]{0,15}\bchat\b/, areas: ['mako'], relevancia: 'renombrar chat mako', actua: true, ganaALaAgenda: true },
 ];
 
 export type FamiliaDelPedido = { ids: string[]; areas: Area[]; relevancia: string; actua: boolean; ganaALaAgenda: boolean; ganaAlLead: boolean; ganaALaLanding: boolean };

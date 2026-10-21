@@ -4582,9 +4582,9 @@ Las cifras quedan para la próxima vez que alguien calcule un costo o un tope.
 **El diagnóstico obvio era el equivocado:** «faltan operaciones en la API». Muchas existen (795 en el registro). El freno es que el turno de la APP usa el clasificador del grupo de WhatsApp: ante la duda anota el pedido como idea («capturar») y le saca a MaKo la herramienta de escribir. Además, el presupuesto de 12.000 caracteres deja afuera la operación que entiende el pedido, y viajan 18 operaciones muertas de Chatwoot.
 
 **Regla:** antes de pedir una operación nueva, medir si la frase natural la hace viajar (`herramientasDelChat` / `herramientasDelTurno`). Las frases medidas pasan a una batería guardián en `tests/`, la pieza 1.1. El mapa completo y el plan por olas: docs/ops-center-principal.md. Las correcciones del crítico, en su Anexo C: el turno también suma las áreas del clasificador, y sin IA propia la app no usa la red gratis.
-## Ops Center, pieza 1.2 (tandas 1 a 3): el clasificador del canal app (20/10/2026)
+## Ops Center, pieza 1.2 (tandas 1 a 4): el clasificador del canal app (20/10/2026)
 
-**Pedido (Martín, 20/10):** «comienza a implementar directamente toda mi idea de que Ops Center sea lo principal en MaKo... quiero que en Ops Center se pueda hacer todo, editar videos, crear webs, etc...». Esta es la parte del clasificador (docs/ops-center-principal.md, 2.3 y pieza 1.2); la tanda 1 cubre CRM y Chats, Automations y Clients y el núcleo; la 2, Plan, Calendario y Dashboard; la 3, video, imagen y creaciones.
+**Pedido (Martín, 20/10):** «comienza a implementar directamente toda mi idea de que Ops Center sea lo principal en MaKo... quiero que en Ops Center se pueda hacer todo, editar videos, crear webs, etc...». Esta es la parte del clasificador (docs/ops-center-principal.md, 2.3 y pieza 1.2); la tanda 1 cubre CRM y Chats, Automations y Clients y el núcleo; la 2, Plan, Calendario y Dashboard; la 3, video, imagen y creaciones; la 4, Pagos y cuenta (cobros, equipo, reportes y avisos).
 
 **Medido con el turno real** (`clasificarIntencion` + `herramientasDelChat`, canal app, admin) sobre las frases de los mapas:
 
@@ -4595,6 +4595,8 @@ Las cifras quedan para la próxima vez que alguien calcule un costo o un tope.
 | Núcleo | 23 de 40 | 40 de 40 |
 
 Tandas 2 y 3, medidas con la maquinaria de la tanda 1 ya puesta (las frases son nuestras, con la operación esperada sacada del registro; tuteo y voseo): Plan 28 de 30, Calendario 5 de 8, Dashboard 26 de 28, video 35 de 37, imagen y creaciones 8 de 10. Las filas nuevas cierran los últimos: «pasá la tarea…» (el `pasá` es de análisis), «agenda un reel…» (la agenda se lo llevaba), «quitá el gráfico de leads de la hoja» (el detector de leads se lo llevaba), «acelerá el clip» (nada nombraba `velocidad`), «publicá mi landing en la galería de la comunidad» (la landing se lo llevaba) y «dale una estrella» (`dale` es una confirmación). **Una familia puede ganarle a un detector** (`ganaALaAgenda`, `ganaAlLead`, `ganaALaLanding`), y su `relevancia` lleva sólo el nombre de la operación: la de «comunidad» con `post publicar evento crear` sacó `publicar_creacion` del presupuesto.
+
+Tanda 4, Pagos y cuenta (misma medición): cobros 21 de 22 y equipo y cuenta 23 de 28 → 22 y 26 de 26. Cerraron los últimos «dale de baja a Juan» (`dale` es una confirmación), «cambiale el rol a Pedro a closer» (`closer` es un objeto del CRM: el detector de leads se lo llevaba) y «renombrá este chat a Reunión semanal» (la agenda). **Una operación que no es del admin de un cliente no es una falta del clasificador:** `exigir_2fa_desde` tiene gating de PLATAFORMA y no llega a un admin, por eso sus dos frases quedaron afuera de la batería.
 
 **Qué cambió.**
 1. **D1 = A.** `clasificarIntencion` recibe `canal: 'app'` (lo pasa lib/mako-turno-app.ts; el doer de WhatsApp no). En la app, sin señal clara se **actúa** —se arma la tarjeta, nada se hace sin el toque— en vez de anotar. WhatsApp sigue anotando, y un test lo fija.
@@ -4609,9 +4611,9 @@ Tandas 2 y 3, medidas con la maquinaria de la tanda 1 ya puesta (las frases son 
 - Cuatro detectores de otra cosa se llevaban el pedido: «una etiqueta **llamada** Caliente» era una llamada que agendar (`NOMBRADO`), «**prueba** la automatización» un saludo, «cargá la grabación de Fathom: https://…» un link para guardar, y «creá una plantilla … para recordar la **reunión**» un pedido de agenda (`ganaALaAgenda`).
 - **Cuatro operaciones no viajan por la app:** `crear_modulo_curso`, `crear_clase_curso`, `publicar_post_comunidad` y `crear_evento_comunidad` tienen `canales: ['http']`. No es del clasificador; es de Clients abrirlas.
 
-**Sin hacer** (las tandas que siguen, cada una con las frases de su chat de área): Pagos y cuenta; Offer, Copywriting y Second Brain; Web Generator y Ads (los verbos de Meta, después de la 1.4); completar `esPedidoDeLanding`. D1 sigue pendiente de que Martín la confirme (Debate): si cambia a B, la rama es una línea (`deLaApp`). La batería unificada de los 8 mapas es la 1.1 (Ops Center 3); estos tests se unen a ella.
+**Sin hacer** (las tandas que siguen, cada una con las frases de su chat de área): Offer, Copywriting y Second Brain; Web Generator y Ads (los verbos de Meta, después de la 1.4); completar `esPedidoDeLanding`. D1 sigue pendiente de que Martín la confirme (Debate): si cambia a B, la rama es una línea (`deLaApp`). La batería unificada de los 8 mapas es la 1.1 (Ops Center 3); estos tests se unen a ella.
 
 **Para medir sin engañarse:** el presupuesto escribe un `console.warn` de ~10.000 caracteres por turno; un script que lee la salida de un test con `execFileSync` y su buffer por defecto (1 MB) recibe el resumen cortado y se lee «sin fallos». Pedir `maxBuffer` grande.
 
-**Vive en:** `lib/mako-intencion-app.ts` · `lib/mako-intencion.ts` (`canal`, `buscaEnTodo`, `NOMBRADO`, las reglas 6-quater y el default) · `lib/doer-herramientas.ts` (`buscaEnTodo`) · `lib/mako-turno-app.ts` (`canal: 'app'`) · `tests/ops-center-clasificador-app.test.ts` (288 frases y 17 tests; 38 roturas, cada una con su fallo) · *20/10/2026, sin subagentes.*
+**Vive en:** `lib/mako-intencion-app.ts` · `lib/mako-intencion.ts` (`canal`, `buscaEnTodo`, `NOMBRADO`, las reglas 6-quater y el default) · `lib/doer-herramientas.ts` (`buscaEnTodo`) · `lib/mako-turno-app.ts` (`canal: 'app'`) · `tests/ops-center-clasificador-app.test.ts` (336 frases y 19 tests; 43 roturas, cada una con su fallo) · *20/10/2026, sin subagentes.*
 
