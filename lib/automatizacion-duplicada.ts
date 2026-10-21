@@ -1,25 +1,28 @@
 // =============================================================================
-// automatizacion-duplicada — «otra automatización ya le escribe esto a la misma gente»
+// automatizacion-duplicada — «a la misma gente ya le escribe otra automatización»
 // =============================================================================
 // 20/10/2026, el Recurrente de Leila (ws11): #282 «Recordatorio clase reactivación» y el d2 de #284 «Recordatorio
-// martes sesión LíderMente» iban a la MISMA cohorte (la etapa «reactivacion» del funnel 4) con casi el mismo primer
-// mensaje («¡Holaa {{nombre}}! … mañana miércoles … clase presencial de LíderMente … Huayacán …»). Con las dos activas,
-// cada lead recibía el recordatorio dos veces. Al activar o publicar, la pantalla avisa (no frena: puede ser a propósito).
+// martes sesión LíderMente» iban a la MISMA cohorte (la etapa «reactivacion» del funnel 4) con casi el mismo recordatorio.
+// Con las dos activas, cada lead lo recibía dos veces. Al activar o publicar se pregunta (no frena: puede ser a propósito).
 //
-// Misma cohorte = algún CRON de cada una alcanza a la misma gente: la misma etapa del mismo funnel (o de cualquiera: un
+// ⚠️ EL AVISO SE DECIDE POR HECHOS, NO POR PARECIDO (21/10/2026, después de TRES rondas de reglas sobre el texto: el
+// umbral de parecido, la firma calculada de «la mayoría» y la firma al arranque). Cada regla arreglaba unos pares y rompía
+// otros: un recordatorio corto con el nombre del negocio pasaba callado, un saludo con «!» hacía «parecidos» dos mensajes
+// distintos. La red es que la PERSONA compare (AGENTS.md): se avisa SIEMPRE que otra automatización ACTIVA le escribe a la
+// misma gente, por el mismo canal y con horarios que se pisan, y el aviso muestra el arranque de los dos mensajes uno al
+// lado del otro. Un aviso así nunca es falso: es un hecho que la persona lee. El parecido sólo ORDENA cuál mostrar.
+//
+// Misma gente = algún CRON de cada una alcanza a la misma cohorte: la misma etapa del mismo funnel (o de cualquiera: un
 // funnel sin elegir es «todos»), la misma etapa de entrega del mismo producto, o la misma etiqueta. Los CRON por evento
 // (un formulario, un DM, un pago) no se comparan: no hay cohorte que se pise.
 //
-// Parecido = el primer mensaje comparte la mitad de sus palabras con peso (Dice sobre las palabras de 4 letras o más,
-// sin `{{datos}}`, sin acentos ni números). Medido el 20/10/2026 con #282 y #284: 0,61. Dos textos distintos para la
-// misma etapa («¿Pudiste ver la clase?» y «Te dejo el link de la grabación») quedan muy por debajo.
-//
-// Puro: lo usa la tab (SecuenciaPerfil, al activar y al publicar) y lo prueba tests/automatizacion-duplicada.test.ts.
+// Puro: lo usan la tab (SecuenciaPerfil, SimuladorWhatsApp) y el server (`duplicadaDeLaActivacion`, lib/nutricion.ts).
 // =============================================================================
 
 import { claseDe, esNodoMensaje, idDe, nodoPorId, raizSalida, type PasoGrafo } from './flujo-grafo';
 import { subarbolRespuesta } from './flujo-conversacion';
 import { partesDe } from './mensaje-partes';
+import { sanearCron } from './cron-aviso';
 import { TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA } from './nutricion-etapa';
 
 /** Lo que se compara de un CRON (un `Disparador`, lib/disparadores.ts). */
@@ -30,13 +33,10 @@ export type CronParaComparar = {
   funnel_id?: number | string | null;
   producto_id?: number | string | null;
   etiqueta_id?: number | string | null;
+  /** El horario de un Recurrente; ausente = escribe cuando el lead entra. */
+  cron?: unknown;
 };
 export type AutoParaComparar = { id: number; nombre: string; activa: boolean; disparadores: readonly CronParaComparar[]; pasos: readonly PasoGrafo[] };
-
-/** Desde cuánto dos primeros mensajes son «el mismo» (ver el encabezado). */
-export const UMBRAL_PARECIDO = 0.5;
-/** Con menos palabras con peso no se compara por parecido: sólo si son iguales. */
-const MIN_PALABRAS = 3;
 
 const id = (v: unknown): string | null => {
   const n = Number(v);
@@ -58,26 +58,54 @@ export function mismaCohorte(a: CronParaComparar, b: CronParaComparar): boolean 
   return false;
 }
 
-/** El texto del primer mensaje de la salida (sin «Si responde»): la primera tarjeta que se le manda al lead. */
-export function primerMensaje(pasos: readonly PasoGrafo[]): string {
+/**
+ * ¿LOS HORARIOS DE ESTOS DOS CRON SE PISAN? Sí, salvo dos Recurrentes que no comparten ningún día: semanales en días
+ * distintos, o mensuales en días del mes distintos. Uno que escribe al entrar (sin horario) se pisa con cualquiera. Ante
+ * la duda (un horario que no se entiende, unidades distintas), se pisan: se avisa.
+ */
+export function horariosSePisan(a: unknown, b: unknown): boolean {
+  const ca = a == null ? null : sanearCron(a);
+  const cb = b == null ? null : sanearCron(b);
+  if (!ca || !cb) return true;
+  if (ca.unidad === 'semana' && cb.unidad === 'semana') {
+    const dias = (c: typeof ca) => new Set(c.dias?.length ? c.dias : c.diaSemana != null ? [c.diaSemana] : []);
+    const da = dias(ca); const db = dias(cb);
+    return !da.size || !db.size || [...da].some((d) => db.has(d));
+  }
+  if (ca.unidad === 'mes' && cb.unidad === 'mes' && ca.ordinal == null && cb.ordinal == null && ca.diaMes != null && cb.diaMes != null) {
+    return ca.diaMes === cb.diaMes;
+  }
+  return true;
+}
+
+/** El primer mensaje de la salida (sin «Si responde»): la primera tarjeta que se le manda al lead, con su canal. */
+export function primerMensajeDe(pasos: readonly PasoGrafo[]): { texto: string; canal: string } | null {
   const respuestas = subarbolRespuesta(pasos);
   const texto = (p: PasoGrafo): string =>
     partesDe(p as Parameters<typeof partesDe>[0]).map((x) => (x.tipo === 'audio' ? '' : x.cuerpo ?? '')).join('\n').trim();
+  const de = (p: PasoGrafo) => ({ texto: texto(p), canal: String(p.canal ?? 'whatsapp') });
   // Desde la raíz, saltando las esperas y los «ir a» (una condición abre caminos: ahí se cae a la primera del orden).
   let actual = raizSalida(pasos);
   for (let i = 0; actual && i < 12; i++) {
     const p = nodoPorId(pasos, actual);
     if (!p) break;
-    if (esNodoMensaje(p)) { const t = texto(p); if (t) return t; }
+    if (esNodoMensaje(p) && texto(p)) return de(p);
     if (claseDe(p) !== 'esperar' && claseDe(p) !== 'ir_a' && !esNodoMensaje(p)) break;
     actual = p.siguiente ?? null;
   }
+  let sinTexto: { texto: string; canal: string } | null = null;
   for (let i = 0; i < pasos.length; i++) {
     const p = pasos[i];
-    if (esNodoMensaje(p) && !respuestas.has(idDe(p, i))) { const t = texto(p); if (t) return t; }
+    if (!esNodoMensaje(p) || respuestas.has(idDe(p, i))) continue;
+    if (texto(p)) return de(p);
+    sinTexto ??= de(p);
   }
-  return '';
+  // Un mensaje sin texto (un audio, un archivo) también le escribe al lead.
+  return sinTexto;
 }
+
+/** El texto del primer mensaje (vacío si no tiene). */
+export const primerMensaje = (pasos: readonly PasoGrafo[]): string => primerMensajeDe(pasos)?.texto ?? '';
 
 /** Las palabras con peso: sin `{{datos}}`, sin acentos, sin números, de 4 letras o más. */
 export function palabrasConPeso(texto: string): Set<string> {
@@ -85,7 +113,7 @@ export function palabrasConPeso(texto: string): Set<string> {
   return new Set(limpio.split(/[^a-zñ]+/).filter((w) => w.length >= 4));
 }
 
-/** Dice entre las palabras con peso de dos textos (0 a 1). */
+/** Dice entre las palabras con peso de dos textos (0 a 1). SÓLO ORDENA cuál mostrar: nunca decide si se avisa. */
 export function parecido(a: string, b: string): number {
   const pa = palabrasConPeso(a); const pb = palabrasConPeso(b);
   if (!pa.size || !pb.size) return 0;
@@ -94,28 +122,40 @@ export function parecido(a: string, b: string): number {
   return (2 * comunes) / (pa.size + pb.size);
 }
 
-const igualNormalizado = (a: string, b: string): boolean => {
-  const n = (s: string) => s.replace(/\{\{[^}]*\}\}/g, '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-zñ0-9]+/g, ' ').trim();
-  return !!n(a) && n(a) === n(b);
-};
+/** Cuánto se muestra del arranque de cada mensaje en el aviso. */
+export const LARGO_ARRANQUE = 70;
+/** El arranque de un mensaje para el aviso: en una línea, cortado a `LARGO_ARRANQUE` sin partir una palabra. Sin texto, lo dice. */
+export function arranqueParaAviso(texto: string): string {
+  const t = texto.replace(/\s+/g, ' ').trim();
+  if (!t) return '(un audio o un archivo, sin texto)';
+  if (t.length <= LARGO_ARRANQUE) return t;
+  const corte = t.slice(0, LARGO_ARRANQUE - 1);
+  const espacio = corte.lastIndexOf(' ');
+  return `${(espacio > LARGO_ARRANQUE / 2 ? corte.slice(0, espacio) : corte).trimEnd()}…`;
+}
+
+/** La otra activa que le escribe a la misma gente: su nombre y el arranque de los dos mensajes, para compararlos. */
+export type Duplicada = { id: number; nombre: string; suyo: string; mio: string };
 
 /**
- * LA OTRA ACTIVA QUE LE ESCRIBE LO MISMO A LA MISMA GENTE, o null. `esta` es la que se activa o se publica (con su
- * lienzo y sus CRON de ahora, no los guardados); `otras`, las del negocio (ella misma y las pausadas no cuentan).
+ * LA OTRA ACTIVA QUE LE ESCRIBE A LA MISMA GENTE, por el mismo canal y con horarios que se pisan, o null. `esta` es la que
+ * se activa o se publica (con su lienzo y sus CRON de ahora); `otras`, las del negocio (ella misma y las pausadas no
+ * cuentan). Con varias, la que más se parece primero (el parecido sólo ordena).
  */
-export function duplicadaDe(esta: Omit<AutoParaComparar, 'activa'>, otras: readonly AutoParaComparar[]): { id: number; nombre: string } | null {
-  const mio = primerMensaje(esta.pasos);
+export function duplicadaDe(esta: Omit<AutoParaComparar, 'activa'>, otras: readonly AutoParaComparar[]): Duplicada | null {
+  const mio = primerMensajeDe(esta.pasos);
   if (!mio) return null;
-  const pocas = palabrasConPeso(mio).size < MIN_PALABRAS;
-  for (const o of otras) {
-    if (o.id === esta.id || !o.activa) continue;
-    if (!esta.disparadores.some((a) => o.disparadores.some((b) => mismaCohorte(a, b)))) continue;
-    const suyo = primerMensaje(o.pasos);
-    if (!suyo) continue;
-    const mismo = pocas || palabrasConPeso(suyo).size < MIN_PALABRAS ? igualNormalizado(mio, suyo) : parecido(mio, suyo) >= UMBRAL_PARECIDO;
-    if (mismo) return { id: o.id, nombre: o.nombre };
+  const candidatas: Array<{ otra: AutoParaComparar; suyo: { texto: string; canal: string } }> = [];
+  for (const otra of otras) {
+    if (otra.id === esta.id || !otra.activa) continue;
+    const suyo = primerMensajeDe(otra.pasos);
+    if (!suyo || suyo.canal !== mio.canal) continue;
+    if (!esta.disparadores.some((a) => otra.disparadores.some((b) => mismaCohorte(a, b) && horariosSePisan(a.cron, b.cron)))) continue;
+    candidatas.push({ otra, suyo });
   }
-  return null;
+  if (!candidatas.length) return null;
+  const [primera] = candidatas.sort((x, y) => parecido(mio.texto, y.suyo.texto) - parecido(mio.texto, x.suyo.texto));
+  return { id: primera.otra.id, nombre: primera.otra.nombre, suyo: arranqueParaAviso(primera.suyo.texto), mio: arranqueParaAviso(mio.texto) };
 }
 
 /**
@@ -129,16 +169,18 @@ export function paraComparar<S extends { id: number; nombre: string; activa: boo
 }
 
 /**
- * ¿LA QUE SE ACTIVA YA TIENE UNA GEMELA ACTIVA? Con lo PUBLICADO de las dos (revisión del 20/10/2026, noche): Activar no
- * publica nada, así que comparar el borrador del lienzo avisaba de más o de menos. La usan TODOS los caminos que prenden
- * algo: el interruptor del lienzo, el «⋯» de la lista y un CRON nuevo en una que ya está activa.
+ * ¿LA QUE SE ACTIVA YA TIENE OTRA ACTIVA QUE LE ESCRIBE A LA MISMA GENTE? Con lo PUBLICADO de las dos (Activar no publica
+ * nada). La usan TODOS los caminos que prenden algo: el interruptor del lienzo, el «⋯» de la lista, un CRON nuevo en una
+ * que ya está activa, y el server.
  */
 export function duplicadaAlActivar<S extends { id: number; nombre: string; activa: boolean; pasos?: readonly unknown[] | null }>(
-  esta: S, todas: readonly S[], cronsDe: (s: S) => readonly CronParaComparar[], o: { pasos?: readonly PasoGrafo[]; crons?: readonly CronParaComparar[] } = {},
-): { id: number; nombre: string } | null {
+  esta: S, todas: readonly S[], cronsDe: (s: S) => readonly CronParaComparar[],
+  o: { pasos?: readonly PasoGrafo[]; crons?: readonly CronParaComparar[] } = {},
+): Duplicada | null {
   const base = paraComparar(esta, cronsDe);
   return duplicadaDe({ ...base, ...(o.pasos ? { pasos: o.pasos } : {}), ...(o.crons ? { disparadores: o.crons } : {}) }, todas.map((s) => paraComparar(s, cronsDe)));
 }
 
-/** El aviso, corto: «Ojo: «X» ya le escribe algo parecido a la misma gente». */
-export const avisoDuplicada = (nombre: string): string => `Ojo: «${nombre}» ya le escribe algo parecido a la misma gente`;
+/** El aviso, con lo necesario para comparar: el nombre de la otra y el arranque de los dos mensajes. */
+export const avisoDuplicada = (d: Pick<Duplicada, 'nombre' | 'suyo' | 'mio'>): string =>
+  `A la misma gente ya le escribe «${d.nombre}»: «${d.suyo}». Ésta: «${d.mio}»`;

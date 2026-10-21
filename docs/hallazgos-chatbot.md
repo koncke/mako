@@ -5437,10 +5437,11 @@ tests/crear-ia-recurrente.test.ts · *20/10/2026, claude4.*
   activarla, el chat dice «Por WhatsApp no oficial, los mensajes a leads que no pagaron quedan para que los apruebes»
   sólo si algún WhatsApp de la salida no sale solo, con `saleSolo` del motor y no una copia (`dejaBorradores`).
 - **El aviso de duplicada pregunta, no frena.** Al Activar, y al Publicar una ACTIVA (pausada, publicar no manda nada):
-  «Ojo: «X» ya le escribe algo parecido a la misma gente», con «Activar igual». Misma cohorte = un CRON de cada una con
-  la misma etapa del mismo funnel (sin funnel = todos), la misma entrega o la misma etiqueta; por evento no se compara.
-  Parecido = Dice de las palabras de 4 letras o más ≥ 0,5 (#282 contra #284: 0,61); con menos de 3, sólo si es el
-  MISMO texto. Compara lo de AHORA de ésta (lienzo y CRON) con lo PUBLICADO de las otras, que es lo que manda el motor.
+  «A la misma gente ya le escribe «X»: «<arranque de la otra>». Ésta: «<arranque de ésta>»», con «Activar igual». Sale
+  por HECHOS (ver abajo): misma cohorte = un CRON de cada una con la misma etapa del mismo funnel (sin funnel = todos),
+  la misma entrega o la misma etiqueta (por evento no se compara); el mismo canal en el primer mensaje; y horarios que
+  se pisan (dos Recurrentes semanales sin un día en común, o mensuales en días distintos, no). Compara lo de AHORA de
+  ésta (lienzo y CRON) con lo PUBLICADO de las otras, que es lo que manda el motor.
 - **⚠️ Una defensa que no cubre TODOS los caminos que prenden algo no defiende** (revisión del Cerebro, 20/10 noche). La
   primera versión preguntaba sólo en el interruptor del lienzo: el «⋯» de la lista (el camino más común para activar)
   y un CRON agregado a una que YA está activa (se guarda en vivo, no habilita Publicar) prendían el doble recordatorio
@@ -5459,6 +5460,36 @@ tests/crear-ia-recurrente.test.ts · *20/10/2026, claude4.*
   Un camino que nadie actualizó no prende en silencio: recibe el aviso como error. tests/automations-activar-todos-los-caminos.test.ts
   barre `git ls-files`: los llamadores de `setSecuenciaActiva`, quién escribe `activa: true` y qué pantalla hace PATCH con
   `activa`; uno nuevo lo hace fallar hasta que alguien lo mire.
+- **⚠️ PUBLICAR UNA ACTIVA ES PRENDER LO NUEVO, y también tiene varias puertas** (tercera revisión, 21/10). Con la pregunta
+  en `setSecuenciaActiva` y en la ruta de Publicar del lienzo, seguían reescribiendo lo publicado de una ACTIVA sin
+  preguntar «MaKo escribe tu nutrición» › Aprobar, /email › Guardar (los pasos, y también la etapa o el disparador) y la
+  API de MaKo (`editar_pasos_secuencia_mensajes` / `_email`): por ahí vuelve lo de #282 y #284. La guarda NO va adentro
+  de `setSecuenciaPasos`: ahí escribe también el sistema (el hand-off, las variantes, Meta, las mudanzas), que no tiene a
+  quién preguntarle. Va en `publicarPasos` (lib/nutricion.ts), que usan los caminos de una persona; /email pregunta con
+  los pasos Y la etapa o el disparador nuevos antes de escribir nada (`duplicadaDeLaActivacion` con `columnas`); la API
+  lo dice en la propuesta. El barrido lista a cada uno que escribe los pasos: o va por `publicarPasos`, o está en la
+  lista del sistema con su motivo. Y mira los `.mts`: las mudanzas quedaban fuera de la red.
+- **⚠️ TRES RONDAS DE REGLAS SOBRE EL TEXTO, Y LA RED SE MOVIÓ A LOS HECHOS** (21/10, decisión del Cerebro). El aviso se
+  decidía por el PARECIDO del primer mensaje, y cada ronda arreglaba unos pares y rompía otros:
+  1. **El umbral** (Dice ≥ 0,5 de las palabras de 4 letras o más; con menos de 3, sólo el MISMO texto). «Hola {{nombre}},
+     soy Leila de LíderMente» al principio hacía «parecidos» dos mensajes distintos (0,55), y un recordatorio corto con
+     el nombre del negocio pasaba callado (menos de 3 palabras con peso).
+  2. **La firma de «la mayoría»** (sacar del parecido lo que se repite en el primer mensaje de casi todas): una
+     REGRESIÓN. Contaba al par y a las otras (pausadas, de otra etapa): UNA más que dijera «Huayacán» bajaba #282 contra
+     #284 de 0,53 a 0,47 y dejaba de avisar, y una copia pausada de Duplicar borraba todo lo que el par compartía.
+  3. **La firma fija, sólo al arranque** (el relleno de una lista y el nombre del negocio, hasta el primer fin de frase).
+     Seguía con falsos negativos (dos medios confirmados por el Cerebro en f43957365) y con falsos positivos.
+  El diagnóstico obvio («falta afinar la regla») era el equivocado: ninguna regla sobre el texto separa «el mismo
+  mensaje reescrito» de «otro mensaje a la misma gente», porque la diferencia la sabe la persona, no las palabras. Ahora
+  se avisa SIEMPRE que otra ACTIVA le escribe a la misma gente (los hechos de arriba), y el aviso muestra el nombre de la
+  otra y el arranque de los dos mensajes uno al lado del otro (`arranqueParaAviso`, 70 caracteres sin partir una
+  palabra; un audio dice «(un audio o un archivo, sin texto)»). El parecido sólo ORDENA cuál mostrar con varias.
+  Medido con los pares del Cerebro (tests/_pares-duplicada.ts): 0 de 34 duplicados de verdad sin aviso (24 + los 10
+  cortos), #282 contra #284 avisa, y los 24 mensajes distintos de la misma etapa avisan también: son avisos CIERTOS (les
+  escriben las dos). ¿Es demasiado? Medido en la base el 21/10 (sólo lectura): de 20 activas en 7 negocios, NINGUNA
+  recibe hoy el aviso; si se prendiera todo lo pausado, el peor grupo es el de ws11 (#282, #284 y una más, 3 a la misma
+  etapa). No hay etapas con 5 automatizaciones legítimas: no hace falta volver a una regla de texto. Regla que queda
+  (AGENTS.md): una heurística sobre texto libre PROPONE u ORDENA; lo que decide es un hecho, y la persona compara.
 - **Un aviso que se calcula no se borra.** El del CRON nuevo en una activa colgaba del guardado (se lo comía el
   `onError(null)` del guardado siguiente, y se perdía si se cambiaba de automatización antes de que volviera). Ahora se
   CALCULA de lo que hay (sus CRON de ahora y lo publicado, `dupActiva`) y se dice al lado de «Activar» mientras sea así.
@@ -5467,8 +5498,10 @@ tests/crear-ia-recurrente.test.ts · *20/10/2026, claude4.*
   pasó a `motivo !== 'abrio'` (`recurrente` también mira sólo lo fresco), también en tests/espera-duracion.test.ts.
 
 **Lo que quedó SIN hacer:** los 31 borradores de #282 y el de #284 siguen pendientes (aprobar o descartar lo decide
-Martín) · el aviso de duplicada no mira el horario ni la reentrada (dos Recurrentes a la misma etapa en días distintos
-avisan igual) · cambiarle los CRON a una activa por la API de MaKo no pregunta (la pantalla lo dice al abrirla) · el conteo está en la
+Martín) · el aviso de duplicada no mira la hora del día ni la reentrada (dos Recurrentes el MISMO día a horas
+distintas avisan: el lead recibe los dos; un `ordinal` mensual, «el primer lunes», se toma como que se pisa) ni el
+horario de envío propio de cada una · cambiarle los CRON a una activa por la API de MaKo no pregunta (la pantalla lo dice al abrirla) ·
+cambiar el audio, la espera o la vista previa de un paso por la API no pregunta (no cambian el texto) · el conteo está en la
 automatización abierta, no en la fila de la lista · nada se vio con clics en un navegador.
 
 **Vive en:** lib/mensajes-por-aprobar.ts · lib/setting-secuencias.ts (`leerPorAprobar`) · app/automations/SecuenciaPerfil.tsx

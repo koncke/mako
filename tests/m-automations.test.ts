@@ -175,7 +175,8 @@ test('⚠️ Publicar y Descartar mandan lo que se vio, y las dos rutas lo compr
   // La ruta de Publicar comprueba ANTES de `setSecuenciaPasos`.
   const patch = tramo(codigo('app/api/whatsapp/secuencias/route.ts'), 'export async function PATCH', 'if (typeof body.activa');
   const iComprobar = patch.indexOf('comprobarVisto(');
-  assert.ok(iComprobar > 0 && iComprobar < patch.indexOf('setSecuenciaPasos('), 'Publicar escribe antes de mirar lo que se vio');
+  // 21/10/2026: Publicar escribe por `publicarPasos` (pregunta por la duplicada antes de `setSecuenciaPasos`).
+  assert.ok(iComprobar > 0 && iComprobar < patch.indexOf('publicarPasos('), 'Publicar escribe antes de mirar lo que se vio');
   assert.match(patch, /desactualizado: true[^\n]*status: 409/);
   // La de descartar le pasa `visto` a la lib.
   const rama = tramo(codigo('app/api/chat-agent/secuencias/route.ts'), "if (body.action === 'borrador' || body.action === 'descartar-borrador')", 'status: 404');
