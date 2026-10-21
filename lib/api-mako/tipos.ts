@@ -29,6 +29,7 @@
  *  `instagram` salió el 06/10/2026 con su tab (decisión de Martín): sus 21 operaciones
  *  hablaban de una bandeja y un programador que ya no existen. */
 import type { Permisos } from './permisos';
+import type { Bloque } from '../chat-bloques';
 
 export const AREAS = [
   'general', 'plan', 'crm', 'ads', 'chats', 'whatsapp', 'email', 'chatbot',
@@ -411,8 +412,11 @@ export type Preparado =
 /** Lo que devuelve la escritura REAL. NUNCA lanza: si algo falla, `ok: false` con
  *  el motivo — así la pendiente se resuelve y un «sí» repetido no la re-ejecuta. El
  *  `resumen` vuelve al modelo y se guarda en la pendiente; el detalle que no puede ver
- *  un modelo va en `paraLaPersona`. */
-export type Ejecutado = { ok: boolean; resumen: string; datos?: Record<string, unknown>; paraLaPersona?: string };
+ *  un modelo va en `paraLaPersona`.
+ *  `datos.bloque` (20/10/2026, el marco de bloques: lib/chat-bloques.ts) es lo que el chat DIBUJA con el resultado (lo
+ *  creado con su miniatura, el antes y el después): lo arma el runner con sus datos y sus rutas, nunca con texto del
+ *  modelo, y se sanea antes de guardarlo. */
+export type Ejecutado = { ok: boolean; resumen: string; datos?: Record<string, unknown> & { bloque?: Bloque }; paraLaPersona?: string };
 
 export type Propuesto = { id: string; url: string; nueva: boolean; extra?: Record<string, unknown> } | { error: string };
 

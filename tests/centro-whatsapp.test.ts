@@ -164,7 +164,9 @@ test('(3) el «atrás» del teléfono no vuelve a dibujar la lista ni la convers
   const movil = codigo('app/m/operaciones/ChatsMovil.tsx');
   assert.match(movil, /const FilaChatM = memo\(/);
   assert.doesNotMatch(movil.slice(movil.indexOf('const filas =')), /historialDelChat\(f?\.?c,/, 'una fila no calcula su historial');
-  assert.match(movil, /centro\.previas\.get\(/);
+  // Desde el 20/10/2026 la fila no muestra lo último que pasó (tests/centro-subtitulo.test.ts): toma del motor sólo si su
+  // «Completado» espera el ✓, de un Set memorizado.
+  assert.match(movil, /nuevo=\{centro\.yaSinVer\.has\(f\.c\.clave\)\}/);
   assert.match(movil, /centro\.lineasDe\.get\(elegido\.clave\)/);
   assert.match(codigo('app/admin/operaciones/Hilo.tsx'), /export const Hilo = memo\(HiloSinMemo\)/);
 });

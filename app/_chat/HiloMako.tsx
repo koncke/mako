@@ -21,6 +21,7 @@ import { ERROR_INCIERTO, textoConArchivos, type ItemHilo } from '@/app/m/mako/ch
 import { TarjetaAccion, type ItemPropuesta } from './TarjetaAccion';
 import { ArchivosHilo } from './ArchivosHilo';
 import { ConectarDelAviso } from './ConectarDelAviso';
+import { BloqueHilo } from './BloqueHilo';
 
 const hora = (iso: string | null): string => {
   const t = iso ? Date.parse(iso) : NaN;
@@ -54,7 +55,7 @@ function DeMako({ quien, children, rotulo }: { quien: Quien; children: ReactNode
   );
 }
 
-export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onReintentar, onRecargar }: {
+export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onReintentar, onRecargar, onResponder }: {
   items: readonly ItemHilo[];
   /** El chat: su muñeco va al lado de lo que dice MaKo. */
   quien: Quien;
@@ -68,6 +69,8 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
   onReintentar: (id: string) => void;
   /** Lo que no se sabe si llegó: se recarga y se mira, nunca se reintenta a ciegas. */
   onRecargar: () => void;
+  /** Contestar una pregunta con opciones (un bloque G1): sale como un mensaje de la persona. */
+  onResponder?: (texto: string) => void;
 }) {
   const filas: ReactNode[] = [];
   let ultimoDia: string | null = null;
@@ -115,6 +118,10 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
       filas.push(x.tono === 'plataforma'
         ? <p key={x.id} className="co-nota co-nota--mal" role="status">{x.texto}</p>
         : <DeMako key={x.id} quien={quien}><div className="ch-md"><Markdown text={x.texto} /></div>{x.conectar && <ConectarDelAviso servicio={x.conectar} />}</DeMako>);
+      return;
+    }
+    if (x.k === 'bloque') {
+      filas.push(<DeMako key={x.id} quien={quien}><BloqueHilo b={x.b} onResponder={onResponder} /></DeMako>);
       return;
     }
     if (x.k === 'pantalla') {

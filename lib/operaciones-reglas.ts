@@ -477,7 +477,39 @@ export function sanearAcuses(x: unknown): Acuse[] {
 /** Un turno: `yo` = lo que se le escribió (Martín, en la app o por un trabajo); `el` = lo que contestó al terminar;
  *  `otro` = lo que le mandó otra sesión (`de`: su nombre, por ejemplo «Cerebro»). `trabajo` = el id del trabajo del Centro
  *  que lo trajo (ese ya se ve como trabajo: el turno no se repite). */
-export type TurnoChat = { local: string; uuid: string; rol: 'yo' | 'el' | 'otro'; de: string | null; texto: string; at: string; trabajo: string | null };
+export type TurnoChat = {
+  local: string; uuid: string; rol: 'yo' | 'el' | 'otro'; de: string | null; texto: string; at: string; trabajo: string | null;
+  /** Lo que Martín adjuntó en la app de Claude (cartero 1.17.0): sólo en un turno «yo». */
+  adjuntos?: AdjuntoTurno[];
+};
+
+// ── Lo que Martín adjunta DIRECTO en la app de Claude (20/10/2026, el punto 4 del 18/10; cartero 1.17.0) ──────────────
+// Martín: «cuando envío imágenes por aquí o adjunto cosas también deberían aparecer en el Center». En el transcript, una
+// captura que pegó es un bloque `image` (un PDF, `document`) en base64 dentro de SU mensaje; las de las herramientas van
+// adentro de un `tool_result` y no cuentan. La PC la saca del turno, la mira por sus BYTES y la sube DIRECTO al storage
+// (bucket privado `archivero`, `operaciones-turnos/<ref>`) con una URL firmada que pide con su token; el turno viaja sólo
+// con su `ref`. La pantalla la ve con una URL firmada de 10 minutos que da `turnosCentroAction` (puedeOperar).
+export const MIMES_ADJUNTO_TURNO: readonly string[] = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+export const MAX_ADJUNTOS_TURNO = 8;
+export const MAX_BYTES_ADJUNTO_TURNO = 30 * 1024 * 1024;
+/** `ref`: `<local>/<uuid del turno>/<n>`. `url`: la firmada, sólo al dibujar (nunca se guarda). */
+export type AdjuntoTurno = { ref: string; mime: string; bytes: number; url?: string };
+export const refAdjuntoTurno = (local: string, uuid: string, n: number): string => `${local}/${uuid}/${n}`;
+
+/** Los adjuntos de un turno, saneados: de ESE turno (su `local` y su `uuid` en el `ref`), con un tipo y un tamaño que valen. */
+export function sanearAdjuntosTurno(x: unknown, local: string, uuid: string): AdjuntoTurno[] {
+  if (!Array.isArray(x)) return [];
+  const out: AdjuntoTurno[] = [];
+  for (const a of x.slice(0, MAX_ADJUNTOS_TURNO)) {
+    const o = (a ?? {}) as Record<string, unknown>;
+    if (typeof o.ref !== 'string' || typeof o.mime !== 'string' || typeof o.bytes !== 'number') continue;
+    const [l, u, n, ...resto] = o.ref.split('/');
+    if (resto.length || l !== local || u !== uuid || !/^[0-7]$/.test(n ?? '')) continue;
+    if (!MIMES_ADJUNTO_TURNO.includes(o.mime) || !Number.isInteger(o.bytes) || o.bytes < 1 || o.bytes > MAX_BYTES_ADJUNTO_TURNO) continue;
+    out.push({ ref: o.ref, mime: o.mime, bytes: o.bytes });
+  }
+  return out;
+}
 /** Lo más largo de un turno que se guarda (la PC ya lo corta). */
 export const TOPE_TURNO = 4000;
 /** Lo que escribió Martín (rol «yo») no se corta como lo demás: puede ser largo, y es suyo (18/10/2026). */
@@ -496,13 +528,16 @@ export function sanearTurnos(x: unknown): TurnoChat[] {
     if (typeof o.local !== 'string' || !DESTINO_RE.test(o.local)) continue;
     if (typeof o.uuid !== 'string' || !/^[\w-]{8,64}$/.test(o.uuid)) continue;
     if (o.rol !== 'yo' && o.rol !== 'el' && o.rol !== 'otro') continue;
-    if (typeof o.texto !== 'string' || !o.texto.trim()) continue;
+    // Una captura sola, sin texto, también es un mensaje de Martín (20/10/2026).
+    const adjuntos = o.rol === 'yo' ? sanearAdjuntosTurno(o.adjuntos, o.local, o.uuid) : [];
+    if (typeof o.texto !== 'string' || (!o.texto.trim() && !adjuntos.length)) continue;
     const at = typeof o.at === 'string' ? Date.parse(o.at) : NaN;
     if (!Number.isFinite(at)) continue;
     out.push({
       local: o.local, uuid: o.uuid, rol: o.rol, de: o.rol === 'otro' ? corto(o.de, 60) || null : null,
       texto: o.texto.slice(0, o.rol === 'yo' ? TOPE_TURNO_YO : TOPE_TURNO), at: new Date(at).toISOString(),
       trabajo: typeof o.trabajo === 'string' && UUID_RE.test(o.trabajo) ? o.trabajo : null,
+      ...(adjuntos.length ? { adjuntos } : {}),
     });
   }
   return out;
