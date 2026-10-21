@@ -20,6 +20,7 @@ export const PARTES: Parte[] = [
   { titulo: 'La prueba en vivo', detalle: 'En el Chrome de Martín: la sonda (gratis), una imagen (0 créditos) y un clip (≈12), cada uno con la cara y visto en MaKo', estado: 'sigue' },
   { titulo: 'La cara que no está en el proyecto', detalle: 'Si la foto guardada no aparece en el selector de Flow, volver a subirla sola en vez de cortar con «Tu foto no está en este proyecto de Flow»', estado: 'cola' },
   { titulo: 'Retirar el camino de BOQ', detalle: 'El replay, las plantillas y el wizard de «enséñame», cuando ningún cliente siga en una extensión ≤ 0.68', estado: 'cola' },
+  { titulo: 'La cola de montaje', detalle: 'La atiende un cron de Vercel con ffmpeg-static cada 2 minutos y lo que queda más de 6 horas en la fila se da de baja; falta ver el primer montaje en producción', estado: 'sigue' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -66,5 +67,33 @@ export const BITACORA: Hito[] = [
     commits: [
       { sha: 'be7a2b67', msg: 'Hallazgo: zip-extension en un worktree de Windows hashea los CRLF del disco', lineas: 16, archivos: 1 },
     ],
+  },
+  {
+    fecha: '20 oct', hora: '17:36', chat: 'Cerebro', sesion: 'local_797d5445-2365-464d-ae3d-1d71aa7baa8c', cuenta: 'claude4', actor: 'martin', tipo: 'prompt',
+    titulo: '«68.646 minutos esperando turno»: la cola de montaje no la atiende nadie',
+    pedido: 'Sale «68.646 minutos esperando turno»: es un trabajo real de la cola de montaje, del 01/09, pero el proceso que ejecuta esa cola NUNCA se desplegó. Por eso las tomas tampoco llegan al editor.',
+    puntos: [
+      'Lo vio Martín en la llamada con Leila del 19/10 (docs/investigacion-ops-center-19-10.md).',
+      'El pedido: medir la cola sólo leyendo, hacer que se procese con un cron como los demás, y dar de baja lo viejo con un mensaje honesto. Probar en el ws3, nunca en el ws1.',
+    ],
+  },
+  {
+    fecha: '20 oct', hora: '18:10', chat: CH, sesion: SESION, cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La cola de montaje la atiende un cron de Vercel, y nada espera para siempre',
+    puntos: [
+      'Medido: dos trabajos en la cola, #3 (ws1, 01/09) y #4 (ws11, 02/09), los dos sin tomar nunca. El worker en contenedor no se desplegó y, desplegado, no habría montado: nadie creaba la voz de cada toma (sts-N.mp3).',
+      'El montaje pasó a Node (lib/montaje/pipeline.ts) y lo corre /api/cron/montaje cada 2 minutos con ffmpeg-static, uno por corrida. La voz sale del audio de cada clip de Flow.',
+      'Lo que queda más de 6 horas en la fila se da de baja como «vencido», y la pantalla lo dice así: quedó en la fila sin que nadie lo tomara, fue un problema nuestro, móntalo de nuevo. La espera se dice en horas, no en minutos.',
+      'De paso: el plan de cortes topeaba todas las tomas en la duración de la primera; ahora usa la de cada una.',
+      'Probado en local con tres tomas de prueba y Groq real: 24 s → 12 s, Anton, −14 LUFS. La primera vez en la función (ffmpeg 7.0.2 en Linux) se ve recién en producción.',
+    ],
+    archivos: [
+      'lib/montaje/pipeline.ts — el montaje en Node: bajar, voz de cada toma, cortes, mezcla, subtítulos, render',
+      'lib/montaje/cola.ts — cuándo vence un trabajo, qué falla se reintenta, cómo se dice la espera',
+      'app/api/cron/montaje/route.ts — vence, toma uno, lo monta y lo sube',
+      'scripts/plan-cortes-anuncio.mjs — duración sin ffprobe y una por toma',
+      'tests/montaje-cola.test.ts — 12 tests, 14 roturas',
+    ],
+    revisar: '/video-generator',
   },
 ];
