@@ -15,6 +15,8 @@
 // el instalador sin validar el código · sin validar las URL · instalar aceptando escrituras · el miembro viendo todas las
 // PC · cualquiera desconectando cualquiera · el modelo cambiado por un miembro · emparejar sin tope · la pantalla de vos
 // (cada una 4 / 1). Restaurado: 5 / 0.
+// Y el consentimiento (arnés `romper-consent.mjs`, base 6 / 0): la ruta sin pedir el toque · la puerta sin pedirlo · la
+// pantalla pidiendo el código antes del toque → cada una 5 / 1. Restaurado: 6 / 0.
 // Y DE PUNTA A PUNTA en esta PC (scripts/ia-pc/probar-punta-a-punta.mts --instalador): la línea de PowerShell bajó el
 // ejecutable del bucket, lo conectó con el código, lo dejó en Inicio, contestó un turno con herramientas, y la limpieza
 // sacó el proceso, el arranque y la carpeta. La Mac no se probó (no hay una a mano).
@@ -29,7 +31,7 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  ARGS_CLAUDE, MODELOS_PC, VERSION_PC, cuentaConCupo, limitesDelEvento, lineaDeInstalacion, modeloPc, scriptDeInstalacion,
+  ARGS_CLAUDE, MODELOS_PC, TEXTO_CONSENTIMIENTO, VERSION_PC, cuentaConCupo, limitesDelEvento, lineaDeInstalacion, modeloPc, scriptDeInstalacion,
 } from '../lib/ia-pc-reglas';
 import * as programa from '../scripts/ia-pc/mako-pc.mjs';
 
@@ -146,4 +148,25 @@ test('«Tus cuentas de IA»: con sesión, cada uno lo suyo, el modelo es del adm
   assert.doesNotMatch(sinComentarios(pantalla), /href=["'{`]+\/integraciones/, 'nunca un link que saca de la tab');
   assert.doesNotMatch(pantalla, /\b(tenés|podés|elegí|instalá|iniciá|escribí|pegá|apretá|abrí|conectá|dejala|prendela)\b/i, 'de tú, no de vos');
   assert.match(leer('app/integraciones/page.tsx'), /<TusCuentasIA \/>/);
+});
+
+test('al conectar, la persona acepta con un toque que es SU Claude y SU cuenta, y queda guardado', () => {
+  // El Cerebro (21/10/2026): «la PERSONA instala y corre el programa ella misma, y acepta con un toque un texto corto».
+  assert.match(TEXTO_CONSENTIMIENTO, /tu computadora/);
+  assert.match(TEXTO_CONSENTIMIENTO, /tu cuenta/);
+  assert.match(TEXTO_CONSENTIMIENTO, /nunca ve tu clave/);
+  assert.doesNotMatch(TEXTO_CONSENTIMIENTO, /\b(vos|pedís|tenés)\b/, 'de tú');
+  // Rota: crear el código sin la versión aceptada → este test falla.
+  const ruta = sinComentarios(leer('app/api/ia-pc/codigo/route.ts'));
+  assert.ok(ruta.indexOf('if (body?.acepto !== VERSION_CONSENTIMIENTO)') > 0 && ruta.indexOf('if (body?.acepto !== VERSION_CONSENTIMIENTO)') < ruta.indexOf('await crearCodigo('));
+  const lib = sinComentarios(leer('lib/ia-pc.ts'));
+  assert.match(lib, /if \(consentimiento !== VERSION_CONSENTIMIENTO\) throw/, 'la puerta también lo exige, no sólo la ruta');
+  assert.match(lib, /consentimiento: \(data\.consentimiento as string \| null\) \?\? null, consentimiento_at: new Date\(\)\.toISOString\(\)/, 'queda en la PC');
+  // La pantalla: el código se pide recién después del toque.
+  const p = sinComentarios(leer('app/integraciones/TusCuentasIA.tsx'));
+  assert.match(p, /if \(paso === 4 && acepto && !codigo\) void pedirCodigo\(\);/);
+  assert.match(p, /body: JSON\.stringify\(\{ acepto: VERSION_CONSENTIMIENTO \}\)/);
+  assert.match(p, /\{TEXTO_CONSENTIMIENTO\}/);
+  const mig = leer('supabase/migrations/0319_ia_pc_consentimiento.sql');
+  assert.match(mig, /alter table ia_pc_dispositivos add column if not exists consentimiento_at timestamptz;/);
 });

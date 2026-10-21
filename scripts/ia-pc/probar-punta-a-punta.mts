@@ -75,7 +75,9 @@ console.log(`1. Rutas de /api/ia-pc en http://localhost:${PUERTO}`);
 // ── 2. Emparejar una PC de prueba ────────────────────────────────────────────
 const actor = 'prueba-ia-pc@hola-mako.com';
 const persona = { ws: WS, rol: 'admin' as const, actor, chartKey: chartKeyDePersona({ email: actor })! };
-const { codigo } = await crearCodigo(WS, actor);
+// Como la pantalla: el código sale sólo con el texto aceptado (TEXTO_CONSENTIMIENTO, mig 0319).
+const { VERSION_CONSENTIMIENTO } = await imp('lib/ia-pc-reglas.ts');
+const { codigo } = await crearCodigo(WS, actor, VERSION_CONSENTIMIENTO);
 const DIR_PC = path.join(tmpdir(), `mako-pc-prueba-${Date.now()}`);
 mkdirSync(DIR_PC, { recursive: true });
 const PROGRAMA = path.join(REPO, 'scripts', 'ia-pc', 'mako-pc.mjs');

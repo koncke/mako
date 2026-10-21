@@ -56,3 +56,4 @@
   .tci { padding: 14px 16px; }
   .tci-fila { flex-wrap: wrap; }
 }
+.tci-acepto { padding: 10px 12px; border-radius: var(--r-md); background: var(--primary-bg); color: var(--text); }

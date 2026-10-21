@@ -16,7 +16,7 @@ import 'server-only';
 import { createHash, randomBytes } from 'node:crypto';
 import { getSupabaseServer } from './supabase';
 import {
-  CODIGO_MS, ESPERA_TURNO_MS, PREFIJO_TOKEN_PC, PREFIJO_TOKEN_TURNO, TURNO_MS, codigoDe, enLinea, normalizarCodigo,
+  CODIGO_MS, ESPERA_TURNO_MS, PREFIJO_TOKEN_PC, PREFIJO_TOKEN_TURNO, TURNO_MS, VERSION_CONSENTIMIENTO, codigoDe, enLinea, normalizarCodigo,
   sanearCuentas, sanearNombrePc, sanearRespuesta, tieneFormaDeToken, type CuentaPc,
 } from './ia-pc-reglas';
 import type { ToolDef } from './anthropic';
@@ -30,11 +30,15 @@ export type Dispositivo = { id: number; ws: number; persona: string; nombre: str
 
 // ── Emparejar ────────────────────────────────────────────────────────────────
 
-/** Un código de 6 letras para que ESTA persona empareje una PC suya (10 minutos, un uso). */
-export async function crearCodigo(ws: number, persona: string): Promise<{ codigo: string; venceAt: string }> {
+/**
+ * Un código de 6 letras para que ESTA persona empareje una PC suya (10 minutos, un uso). `consentimiento` es la versión
+ * del texto que aceptó con un toque (TEXTO_CONSENTIMIENTO): sin eso no hay código (mig 0319).
+ */
+export async function crearCodigo(ws: number, persona: string, consentimiento: string): Promise<{ codigo: string; venceAt: string }> {
+  if (consentimiento !== VERSION_CONSENTIMIENTO) throw new Error('ia-pc: sin aceptar el texto de hoy no hay código');
   const codigo = codigoDe(randomBytes(8));
   const venceAt = new Date(Date.now() + CODIGO_MS).toISOString();
-  const { error } = await db().from('ia_pc_codigos').insert({ codigo_hash: hash(codigo), workspace_id: ws, persona, vence_at: venceAt });
+  const { error } = await db().from('ia_pc_codigos').insert({ codigo_hash: hash(codigo), workspace_id: ws, persona, vence_at: venceAt, consentimiento });
   if (error) throw new Error(`ia-pc: no pude crear el código: ${error.message}`);
   return { codigo, venceAt };
 }
@@ -46,12 +50,14 @@ export async function emparejar(codigoCrudo: unknown, nombreCrudo: unknown): Pro
   const { data } = await db().from('ia_pc_codigos')
     .update({ usado_at: new Date().toISOString() })
     .eq('codigo_hash', hash(codigo)).is('usado_at', null).gt('vence_at', new Date().toISOString())
-    .select('workspace_id, persona').maybeSingle();
+    .select('workspace_id, persona, consentimiento').maybeSingle();
   if (!data) return null;
   const token = tokenNuevo(PREFIJO_TOKEN_PC);
   const ws = Number(data.workspace_id);
   const { error } = await db().from('ia_pc_dispositivos').insert({
     workspace_id: ws, persona: String(data.persona), nombre: sanearNombrePc(nombreCrudo), token_hash: hash(token),
+    // Lo que aceptó la persona al pedir el código, con la hora en que se conectó la PC (mig 0319).
+    consentimiento: (data.consentimiento as string | null) ?? null, consentimiento_at: new Date().toISOString(),
   });
   if (error) throw new Error(`ia-pc: no pude emparejar: ${error.message}`);
   return { token, ws };

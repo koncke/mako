@@ -16,7 +16,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { LogoClaude } from '@/app/admin/operaciones/Uso';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { hace } from '@/lib/progreso-reglas';
-import { lineaDeInstalacion, type CuentaPc, type SistemaPc } from '@/lib/ia-pc-reglas';
+import { TEXTO_CONSENTIMIENTO, VERSION_CONSENTIMIENTO, lineaDeInstalacion, type CuentaPc, type SistemaPc } from '@/lib/ia-pc-reglas';
 import './tus-cuentas-ia.css';
 
 type Pc = { id: number; nombre: string; esMia: boolean; de?: string; enLinea: boolean; ultimoLatido: string | null; version: string | null; cuentas: CuentaPc[] };
@@ -74,12 +74,16 @@ function Tutorial({ onCerrar, pcsAntes, recargar }: { onCerrar: () => void; pcsA
   const [codigo, setCodigo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lista, setLista] = useState(false);
+  // El código se pide recién cuando la persona acepta con un toque cómo funciona (TEXTO_CONSENTIMIENTO).
+  const [acepto, setAcepto] = useState(false);
   const pedirCodigo = useCallback(async () => {
     setError(null);
-    const r = await fetch('/api/ia-pc/codigo', { method: 'POST' }).then((x) => x.json()).catch(() => null);
+    const r = await fetch('/api/ia-pc/codigo', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ acepto: VERSION_CONSENTIMIENTO }),
+    }).then((x) => x.json()).catch(() => null);
     if (r?.ok && r.codigo) setCodigo(r.codigo); else setError(r?.error ?? 'No pude crear el código. Intenta de nuevo.');
   }, []);
-  useEffect(() => { if (paso === 4 && !codigo) void pedirCodigo(); }, [paso, codigo, pedirCodigo]);
+  useEffect(() => { if (paso === 4 && acepto && !codigo) void pedirCodigo(); }, [paso, acepto, codigo, pedirCodigo]);
   // Espera a que aparezca una computadora nueva en línea.
   useEffect(() => {
     if (paso !== 4 || !codigo || lista) return;
@@ -124,8 +128,17 @@ function Tutorial({ onCerrar, pcsAntes, recargar }: { onCerrar: () => void; pcsA
       {paso === 4 && (
         <>
           <h3>Conecta MaKo</h3>
-          <p>{DONDE_PEGAR[sistema]} MaKo se instala, se conecta solo y arranca cada vez que prendas la computadora.</p>
-          {codigo ? <Copiar texto={lineaDeInstalacion(window.location.origin, sistema, codigo)} /> : <p className="tci-nota">{error ?? 'Preparando tu código…'}</p>}
+          {!acepto ? (
+            <>
+              <p className="tci-acepto">{TEXTO_CONSENTIMIENTO}</p>
+              <button type="button" className="tci-boton" onClick={() => setAcepto(true)}>Acepto, conectar</button>
+            </>
+          ) : (
+            <>
+              <p>{DONDE_PEGAR[sistema]} MaKo se instala, se conecta solo y arranca cada vez que prendas la computadora.</p>
+              {codigo ? <Copiar texto={lineaDeInstalacion(window.location.origin, sistema, codigo)} /> : <p className="tci-nota">{error ?? 'Preparando tu código…'}</p>}
+            </>
+          )}
           {error && <button type="button" className="tci-boton" onClick={() => void pedirCodigo()}>Pedir otro código</button>}
           {codigo && <p className="tci-espera"><span className="tci-punto tci-punto--esperando" aria-hidden /> Esperando a tu computadora… (el código dura 10 minutos)</p>}
         </>
