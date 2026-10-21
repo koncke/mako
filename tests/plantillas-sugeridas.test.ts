@@ -29,6 +29,8 @@
 //   · la API del Dashboard no ordena                                -> 15 / 1
 //   · el catálogo en JSON de la API no pasa las señales             -> 15 / 1
 //   · la API de General no ordena                                   -> 15 / 1
+// Y el título largo con «Sugerido» (21/10/2026, base 17/0): el título sin `text-overflow:ellipsis` -> 16 / 1; el chip
+// que se achica (sin `flex:none`) -> 16 / 1.
 //
 // Correr: npx tsx --test tests/plantillas-sugeridas.test.ts
 
@@ -196,4 +198,15 @@ test('la API de MaKo da el mismo orden, con la sugerida marcada', () => {
   assert.match(md, /`comercial` .* · sugerida para este negocio \(Vendes por llamada\)/, 'y el de markdown también');
   assert.match(leer('lib', 'api-mako', 'areas', 'dashboard.run.ts'), /await senalesDelNegocio\(\)\.catch\(\(\) => null\)/);
   assert.match(leer('lib', 'api-mako', 'areas', 'general.run.ts'), /ordenarConSugeridas\(PLANTILLAS_GENERAL, ETIQUETAS_GENERAL, senales\)/);
+});
+
+test('el «Sugerido» no pisa un título largo: el título se corta con «…» y el chip no se achica', () => {
+  // Sidebar lo anotó como «pisado» a 1283 con la barra abierta (21/10/2026, «Contenido y lanzamiento»). Medido en
+  // producción ese día a 1283, 1024 y 934, con la barra abierta y plegada: 0 pisadas. El título se corta («Contenido y
+  // lanza…») y su CAJA termina antes del chip; lo que se cruzaba era el rectángulo del TEXTO, que con «…» sigue midiendo
+  // el título entero (docs/hallazgos-ui.md, «Trampas de la medición»). Lo sostiene este CSS de la tarjeta.
+  const css = leer('app', 'dashboard', 'NuevaHoja.tsx');
+  assert.match(css, /\.nh-nombre\{[^}]*overflow:hidden;text-overflow:ellipsis;white-space:nowrap\}/, 'el título recorta con «…» en una línea');
+  assert.match(css, /\.nh-pie\{display:flex;/, 'título y chip en una fila que reparte el ancho');
+  assert.match(css, /\.nh-sugerido\{flex:none;/, 'el chip no se achica: se achica el título');
 });
