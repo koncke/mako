@@ -56,6 +56,11 @@ export function crearPostgrest(o: {
       }
       else if (v === 'is.null') out.push((f) => val(f) == null);
       else if (v === 'not.is.null') out.push((f) => val(f) != null);
+      // Como Postgres: `IS TRUE` sólo el true; `NOT (… IS TRUE)` también el null (20/10/2026, el cobro condicional).
+      else if (v === 'is.true') out.push((f) => val(f) === true);
+      else if (v === 'is.false') out.push((f) => val(f) === false);
+      else if (v === 'not.is.true') out.push((f) => val(f) !== true);
+      else if (v === 'not.is.false') out.push((f) => val(f) !== false);
       else if (/^(gte|lte|gt|lt)\./.test(v)) {
         const [op, ...resto] = v.split('.');
         const x = resto.join('.');
