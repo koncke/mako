@@ -80,8 +80,9 @@ test('la respuesta del nombre: lo que se guarda, lo que dice MaKo después y el 
   const { antes } = mensajesDeArranque(r.patch, H);
   const pregunta = antes[antes.length - 1];
   assert.equal(pregunta.texto, 'Un gusto, Martín. ¿Cómo se llama tu negocio?');
-  // Desde el 20/10/2026 vuelve a ofrecer el que nombró con su nombre (Florencia, ws21); un email del alta, no.
-  assert.deepEqual(pregunta.opciones, ['Acme']);
+  // El que nombró con su nombre («de Acme») no se ofrece (20/10/2026: «Martín de Córdoba» ofrecía «Córdoba»), y un email
+  // del alta tampoco.
+  assert.equal(pregunta.opciones, undefined);
   // «hola» no es un nombre: se pide de nuevo, sin guardar nada.
   const mal = leerRespuesta({}, H, { texto: 'hola' });
   assert.equal(mal.ok, false);
@@ -94,8 +95,9 @@ test('el negocio se entiende sin la frase alrededor', () => {
   assert.equal(extraerNegocio('Mi negocio es Acme.'), 'Acme');
   assert.equal(extraerNegocio('La empresa se llama Clínica Sonrisa'), 'Clínica Sonrisa');
   assert.equal(extraerNegocio('Acme'), 'Acme');
+  // Lo entendido se confirma antes de escribirse (20/10/2026): tests/onboarding-nombre-negocio.test.ts.
   const r = leerRespuesta({ nombre: 'Martín' }, H, { texto: 'se llama Acme' });
-  assert.deepEqual(r, { ok: true, patch: { negocio: 'Acme' } });
+  assert.deepEqual(r, { ok: true, patch: { negocioPorConfirmar: { escrito: 'se llama Acme', nombre: 'Acme' } } });
 });
 
 test('las dos preguntas nuevas van AL FINAL (antes del teléfono), de un toque, y ya no hay objetivo a 90 días', () => {
@@ -135,10 +137,10 @@ test('el nombre y el negocio se escriben: nunca un botón con restos de otra pru
     assert.equal(antes[0].opciones, undefined, `«${cuenta}»`);
   }
   assert.equal(mensajesDeArranque({}, { ...H, nombreCuenta: 'Soy' }).antes[0].opciones, undefined);
-  // Desde el 20/10/2026 el negocio SÍ ofrece el nombre del alta y el que dijo con su nombre (Florencia, ws21): lo de
-  // «Consultesis» era el RESET, que ya devuelve el ws a «Cliente de Prueba», y ése no llega (hechosDelArranque).
+  // Desde el 20/10/2026 el negocio SÍ ofrece el nombre del alta (Florencia, ws21): lo de «Consultesis» era el RESET, que
+  // ya devuelve el ws a «Cliente de Prueba», y ése no llega (hechosDelArranque). El que dijo con su nombre, no.
   const negocio = mensajesDeArranque({ nombre: 'Ayelen', negocioSugerido: 'Acme' }, { ...H, nombreWorkspace: 'Consultesis' }).antes;
-  assert.deepEqual(negocio[negocio.length - 1].opciones, ['Acme', 'Consultesis']);
+  assert.deepEqual(negocio[negocio.length - 1].opciones, ['Consultesis']);
   const sinNegocio = mensajesDeArranque({ nombre: 'Ayelen' }, { ...H, nombreWorkspace: '' }).antes;
   assert.equal(sinNegocio[sinNegocio.length - 1].opciones, undefined, 'sin nombre del alta, nada que ofrecer');
 });

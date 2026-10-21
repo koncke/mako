@@ -355,38 +355,55 @@ export function extraerNegocio(texto: string): string {
   return t.replace(/[«»"]/g, '').replace(/[.]+$/, '').trim();
 }
 
-/** «Uso mi nombre», «no tiene nombre», «es mi marca personal»: la marca es la persona (20/10/2026, Florencia: «ya no tiene
- * más un nombre de empresa, tiene mi nombre»). */
-const RE_MI_NOMBRE = /\b(?:uso|usa|es|lleva|con|tiene)\s+(?:mi|su)\s+(?:propio\s+)?nombre\b|\bno\s+tiene\s+(?:un\s+)?nombre\b|\bsin\s+nombre\b|^(?:es\s+)?mi\s+marca\s+personal$/i;
+/** La marca es la persona: «uso mi nombre», «mi propio nombre», «soy yo», «es mi marca personal», o no tiene nombre
+ *  todavía («no tengo», «ninguno», «aún no», «no sé»). Se le propone su nombre (20/10/2026, Florencia: «ya no tiene más un
+ *  nombre de empresa, tiene mi nombre»). */
+const RE_MI_NOMBRE = new RegExp([
+  String.raw`\b(?:uso|usa|es|lleva|con|tiene)\s+(?:mi|su)\s+(?:propio\s+)?nombre\b`,
+  String.raw`^(?:es\s+)?(?:mi|su)\s+(?:propio\s+)?nombre$`, String.raw`^soy\s+yo$`,
+  String.raw`^(?:es\s+)?mi\s+marca\s+personal$`,
+  String.raw`\bno\s+(?:tiene|tengo)\b`, String.raw`\bsin\s+nombre\b`, String.raw`^(?:todav[ií]a|a[uú]n)\s+no\b`,
+  String.raw`^ningun[oa]$`, String.raw`^no\s+s[eé]$`, String.raw`^no$`,
+].join('|'), 'i');
 
 export const NEGOCIO_CONFIRMAR = ['Sí, se llama así', 'No, lo escribo de nuevo'] as const;
 
 /**
- * Lo que se entendió como nombre del negocio, y si hay que CONFIRMARLO antes de escribirlo en el workspace (de ahí se
- * copia al CRM, al producto, al PDF y al grupo de WhatsApp): cuando se sacó algo con dos puntos o un guion, cuando dice
- * «personal», cuando es largo o cuando es su nombre. Quitar un «se llama» no se pregunta. `persona` es el nombre de la
- * persona, para «uso mi nombre». null = no se entendió.
+ * Un sí o un no ESCRITO a una pregunta de sí o no, con tilde o sin ella y con las formas de siempre («Sí», «Dale», «Ok»,
+ * «Perfecto», «Está bien», «👍»). Sin la flag `u`, `\b` no corta después de «í» y «Sí» no era un sí (20/10/2026, revisión
+ * del Cerebro: el negocio pasaba a llamarse «Sí»). Con algo más que la afirmación («sí, pero se llama Acme») no es un sí ni
+ * un no: es otra respuesta. null = ni sí ni no.
  */
-export function leerNegocio(texto: string, persona: string): { nombre: string; confirmar: boolean } | null {
-  const limpio = limpiarRespuesta(texto).replace(/[«»"]/g, '').replace(/[.]+$/, '').trim();
-  if (!limpio) return null;
-  if (RE_MI_NOMBRE.test(limpio)) return persona.trim() ? { nombre: persona.trim(), confirmar: true } : null;
-  const nombre = extraerNegocio(limpio);
-  if (!nombre) return null;
-  const raro = nombre !== limpio && (/[:\-–—]/.test(limpio) || /\bpersonal\b/i.test(limpio));
-  return { nombre, confirmar: raro || nombre.split(/\s+/).length > 5 || nombre.length > 60 };
+export function siONo(texto: string): 'si' | 'no' | null {
+  const t = (texto || '').trim().toLowerCase().replace(/[.!¡?¿,;:]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!t) return null;
+  if (/^(?:s[ií]|sip|claro|correcto|exacto|as[ií] es|eso|ese|ese mismo|esa|dale|ok|okay|okey|perfecto|est[aá] bien|de acuerdo|👍|✅|👌)(?: (?:s[ií]|claro|correcto|exacto|as[ií] es|perfecto|gracias|👍))*$/u.test(t)) return 'si';
+  if (/^(?:no|nop|nope|incorrecto|para nada|no es as[ií]|no es|👎)(?: (?:gracias|no))*$/u.test(t)) return 'no';
+  return null;
 }
 
 /**
- * Las respuestas rápidas del nombre del negocio: el del alta si parece un negocio (`pareceNegocio`) y el que dijo con su
- * nombre («Martín de Acme»). 12ad33b25 (18/10) las había sacado porque el ws de prueba ofrecía «Consultesis», pero eso era
- * el RESET, ya arreglado; el nombre del ws de prueba no llega acá (lo saca `hechosDelArranque`).
+ * El nombre del negocio que se entendió de lo que escribió, para CONFIRMARLO antes de escribirlo en el workspace (de ahí se
+ * copia al CRM, al producto, al PDF y al grupo de WhatsApp). Lo escrito SIEMPRE se confirma (20/10/2026, revisión del
+ * Cerebro): «Mi marca personal Florencia Carballo», «No tengo nombre» o «Hola» se escribían directo. `persona` es el nombre
+ * de la persona, para «uso mi nombre» y «no tengo». null = no se entendió (sin letras, o «no tengo» sin su nombre).
  */
-export function sugerenciasDeNegocio(e: EstadoArranque, h: HechosArranque): string[] | undefined {
-  const s = [e.negocioSugerido, pareceNegocio(h.nombreWorkspace, h.nombreCuenta) ? h.nombreWorkspace : undefined]
-    .map((x) => (x ?? '').trim()).filter(Boolean);
-  const unicas = [...new Set(s)];
-  return unicas.length ? unicas : undefined;
+export function leerNegocio(texto: string, persona: string): string | null {
+  const limpio = limpiarRespuesta(texto).replace(/[«»"]/g, '').replace(/[.]+$/, '').trim();
+  if (!/\p{L}/u.test(limpio)) return null;
+  if (RE_MI_NOMBRE.test(limpio)) return persona.trim() || null;
+  return extraerNegocio(limpio) || null;
+}
+
+/**
+ * La respuesta rápida del nombre del negocio: el del alta, si parece un negocio (`pareceNegocio`). Es lo que el negocio ya
+ * escribió, así que tocarla no se confirma. 12ad33b25 (18/10) la había sacado porque el ws de prueba ofrecía «Consultesis»,
+ * pero eso era el RESET, ya arreglado; el nombre del ws de prueba no llega acá (lo saca `hechosDelArranque`). El que salía
+ * de «Martín de Acme» (`negocioSugerido`) ya no se ofrece: «Martín de Córdoba» ofrecía «Córdoba» (revisión del 20/10).
+ */
+export function sugerenciasDeNegocio(_e: EstadoArranque, h: HechosArranque): string[] | undefined {
+  const alta = pareceNegocio(h.nombreWorkspace, h.nombreCuenta) ? h.nombreWorkspace.trim() : '';
+  return alta ? [alta] : undefined;
 }
 
 /**
@@ -683,28 +700,27 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
   }
   if (etapa === 'negocio') {
     const pendiente = e.negocioPorConfirmar;
-    const corto = texto.split(/\s+/).length <= 5;
-    // Lo pendiente se borra sólo si había algo pendiente.
-    const limpiar = pendiente ? { negocioPorConfirmar: undefined } : {};
-    if (pendiente && (opcion === NEGOCIO_CONFIRMAR[0] || (opcion === undefined && corto && /^(?:s[ií]|correcto|exacto|as[ií] es)\b/i.test(texto)))) {
-      return { ok: true, patch: { negocio: pendiente.nombre, negocioPorConfirmar: undefined } };
+    // CON ALGO PENDIENTE, NADA SE ESCRIBE SIN UN SÍ EXPLÍCITO (20/10/2026, revisión del Cerebro): el botón o un sí escrito
+    // lo guardan, un no vuelve a preguntar, y cualquier otra cosa es otro nombre que se vuelve a confirmar.
+    if (pendiente) {
+      const r = opcion === NEGOCIO_CONFIRMAR[0] ? 'si' : opcion === NEGOCIO_CONFIRMAR[1] ? 'no' : opcion === undefined ? siONo(texto) : null;
+      if (r === 'si') return { ok: true, patch: { negocio: pendiente.nombre, negocioPorConfirmar: undefined } };
+      if (r === 'no') return { ok: true, patch: { negocioPorConfirmar: undefined } };
     }
-    if (pendiente && (opcion === NEGOCIO_CONFIRMAR[1] || (opcion === undefined && corto && /^no\b/i.test(texto)))) {
-      return { ok: true, patch: { negocioPorConfirmar: undefined } };
-    }
-    // Una respuesta rápida (el nombre del alta) es el nombre tal cual: es lo que el negocio ya escribió.
-    if (opcion !== undefined && texto) return { ok: true, patch: { negocio: texto, ...limpiar } };
+    // La respuesta rápida (el nombre del alta) es el nombre tal cual: es lo que el negocio ya escribió.
+    if (opcion !== undefined && !pendiente && texto) return { ok: true, patch: { negocio: texto } };
     const persona = [h.nombreCuenta, e.nombre].find((x) => !!x?.trim() && !x.includes('@')) ?? '';
-    const leido = leerNegocio(texto, persona);
-    if (!leido) return { ok: false, error: '¿Cómo se llama tu negocio? Si usas tu nombre, escríbelo.' };
-    return leido.confirmar
-      ? { ok: true, patch: { negocioPorConfirmar: { escrito: texto, nombre: leido.nombre } } }
-      : { ok: true, patch: { negocio: leido.nombre, ...limpiar } };
+    // «Sí, pero se llama Acme» / «No, es Acme»: lo de después del sí o el no es el nombre nuevo.
+    const otro = pendiente ? texto.replace(/^(?:s[ií]|no)[\s,.!]+(?:pero\s+)?/iu, '') : texto;
+    const nombre = leerNegocio(otro, persona);
+    if (!nombre) return { ok: false, error: '¿Cómo se llama tu negocio? Si usas tu nombre, escríbelo.' };
+    return { ok: true, patch: { negocioPorConfirmar: { escrito: texto, nombre } } };
   }
   if (etapa === 'pdf') {
     // La opción tal cual, o lo que escriba: «no», «faltan cosas», «está mal» es que no; «sí», «correcto», «bien», que sí.
-    const no = texto === PDF_OPCIONES[1] || /^no\b|falta|mal\b|incorrect/i.test(texto);
-    const si = texto === PDF_OPCIONES[0] || /^s[ií]\b|correct|bien|perfect/i.test(texto);
+    // `siONo` lee «Sí» con tilde (con `\b` sin la flag u no lo leía).
+    const no = texto === PDF_OPCIONES[1] || siONo(texto) === 'no' || /^no(?=$|[\s,.!])|falta|\bmal\b|incorrect/i.test(texto);
+    const si = texto === PDF_OPCIONES[0] || siONo(texto) === 'si' || /correct|bien|perfect/i.test(texto);
     if (!no && !si) return { ok: false, error: 'Dime si está correcto o si le falta algo.' };
     return { ok: true, patch: { pdfOk: no ? 'no' : 'si' } };
   }
