@@ -14,7 +14,7 @@
 // Qué imprime, en DOS partes que no se mezclan (la verificación de la 0319 es sobre la primera; la segunda no se cierra con ella y no se debe esconder):
 //  1. FUNCIONES DE LA APP (las que no son de una extensión), por cada una visible para anon: esquema.firma · DEFINER/invoker · dueño · A/U/S (¿la ejecuta anon, authenticated,
 //     service_role?) · si devuelve trigger · las tablas que menciona su cuerpo (las que tienen `workspace_id` van con `*`: son datos de clientes). Después de la 0319 tiene que
-//     quedar «--S» en todas (o «---» en un trigger), y ninguna con A o U.
+//     quedar «--S» (o «---») en todas —las de trigger ya traían service_role y siguen dando «--S»—: lo ÚNICO que tiene que dar cero es A y U.
 //  2. FUNCIONES DE EXTENSIONES, agrupadas por extensión y por esquema: cuántas ejecuta anon. Una extensión de red (http, pg_net, dblink, postgres_fdw, file_fdw…) en `public`
 //     ejecutable por anon es un SSRF por /rest/v1/rpc: va marcada ⚠️. La 0319 no las toca (son de la extensión): hay que mover la extensión a `extensions` o revocarla con su dueño.
 // El cuerpo se mira como TEXTO (nombre de tabla entre límites de palabra): es una pista para priorizar, no un análisis; una función dinámica puede tocar más.
@@ -82,7 +82,7 @@ try {
   }
   const abiertas = deLaApp.filter((f) => f.anon);
   console.log(`RESUMEN APP: ${deLaApp.length} funciones visibles para anon · ${abiertas.length} ejecutables por anon · ${abiertas.filter((f) => f.definer).length} de esas SECURITY DEFINER · ${abiertas.filter((f) => f.tocaClientes).length} mencionan tablas con workspace_id`);
-  console.log('Después de la 0319 tiene que ser 0 ejecutables por anon (y «--S» en todas las de `public`, «---» en las de trigger).');
+  console.log('Después de la 0319 tiene que ser 0 ejecutables por anon (A) y por authenticated (U); la S (service_role) puede estar o no, también en las de trigger: «--S» o «---».');
 
   console.log('\n== 2. FUNCIONES DE EXTENSIONES (la 0319 NO las toca) ==');
   const porExt = new Map();
