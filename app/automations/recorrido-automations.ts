@@ -55,6 +55,9 @@ export const PASOS_AUTOMATIONS: PasoRecorrido[] = [
   { objetivo: 'au-lista', titulo: 'Tus automatizaciones', texto: 'Elige una para abrir su lienzo.', lado: 'derecha' },
   // La galería (décima tanda, NUEVA AUTOMATIZACIÓN 3): la primera opción es siempre el lienzo en blanco.
   { objetivo: 'au-nueva', titulo: 'Nueva automatización', texto: 'Empieza en blanco o desde una plantilla.', lado: 'derecha' },
+  // 20/10/2026: con una abierta, la lista ES el chat de MaKo (siempre abierto) y la tuerca del título es su configuración.
+  { objetivo: 'au-chat', titulo: 'MaKo', texto: 'Pídele cambios a esta automatización. Con ← vuelves a tu lista.', lado: 'derecha' },
+  { objetivo: 'au-config', titulo: 'Configuraciones', texto: 'El horario y los límites de esta automatización.', lado: 'abajo' },
   // (Acá iban «MaKo en WhatsApp» y «Configuraciones». Se fueron en la undécima tanda, punto 9: la lista es una
   // sola —los avisos de MaKo los separa el filtro— y Configuraciones vive en el menú del último paso.)
   { objetivo: 'au-cron', titulo: 'El CRON', texto: 'Lo que la dispara. Haz clic para elegirlo.' },
@@ -70,7 +73,8 @@ export const PASOS_AUTOMATIONS: PasoRecorrido[] = [
   // «Volver a lo publicado» se va en esta tanda (GENERAL 5: «para eso ya tenemos el CTRL Z»).
   { objetivo: 'au-publicar', titulo: 'Publicar', texto: 'Lo que cambies sale recién al publicar. Ctrl+Z deshace.', lado: 'arriba' },
   { objetivo: 'au-activar', titulo: 'Activar', texto: 'Prende o pausa sus envíos.', lado: 'arriba' },
-  { objetivo: OBJETIVO_AYUDA, titulo: 'Configuraciones y tutorial', texto: 'Están siempre en este menú.', lado: 'derecha' },
+  // 20/10/2026: el menú es sólo el «?» (Configuraciones pasó a cada automatización).
+  { objetivo: OBJETIVO_AYUDA, titulo: 'Tutorial', texto: 'Vuelve a verlo desde aquí.', lado: 'derecha' },
 ];
 
 /**
@@ -79,7 +83,8 @@ export const PASOS_AUTOMATIONS: PasoRecorrido[] = [
  * mostrado el lienzo. Si en la MISMA visita aparece el primer lienzo, ChatAgentApp lo reabre UNA vez con éstos
  * (`vioVacio`), sin repetir los de la lista que ya vio.
  */
-export const PASOS_DEL_LIENZO: PasoRecorrido[] = PASOS_AUTOMATIONS.slice(PASOS_AUTOMATIONS.findIndex((p) => p.objetivo === 'au-cron'));
+// Desde el 20/10/2026 arranca en el chat de MaKo: con el primer lienzo aparece también el chat, que es nuevo.
+export const PASOS_DEL_LIENZO: PasoRecorrido[] = PASOS_AUTOMATIONS.slice(PASOS_AUTOMATIONS.findIndex((p) => p.objetivo === 'au-chat'));
 
 // ── Dónde está cada objetivo ─────────────────────────────────────────────────
 
@@ -114,6 +119,8 @@ export const DONDE: Readonly<Record<string, readonly Buscar[]>> = {
     // una segunda forma, el «＋ Nueva» del cartel vacío de la tab: el cartel se fue y la lista se dibuja también vacía.)
     { css: 'button.chb-nueva', vive: [LISTA] },
   ],
+  'au-chat': [{ css: 'aside[aria-label="Chat con MaKo"]', vive: [LISTA] }],
+  'au-config': [{ css: 'button[data-boton-tuerca]', vive: [PERFIL] }],
   'au-cron': [{ css: `[data-nodo="${ID_ENTRADA}"]`, vive: [LIENZO, 'lib/flujo-grafo.ts'] }],
   'au-mas': [
     // El ＋ del CRON primero (el que hay en un flujo en blanco); si no, el primero que haya.

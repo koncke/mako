@@ -72,6 +72,7 @@ import { envioWhatsappHabilitadoEstricto } from '@/lib/envio-flags';
 // «Duplicar» del «⋯» de la lista (tercera tanda, decisión 6). La copia entra por las puertas de cada
 // campo: los pasos por `setSecuenciaPasos` y el horario por `setCronSecuencia` (lib/secuencia-duplicar.ts).
 import { duplicarSecuencia, type DbDuplicar } from '@/lib/secuencia-duplicar';
+import { copiarConfigAutomatizacion } from '@/lib/config-automatizacion-db';
 import { setSecuenciaPasos, PasosInvalidosError } from '@/lib/nutricion';
 import { guardarPosicionesSecuencia, type DbPosiciones } from '@/lib/secuencia-posiciones';
 // El BORRADOR del lienzo (sexta tanda, mig 0240): lo que no se puede publicar todavía, en su columna.
@@ -518,7 +519,7 @@ export async function POST(req: NextRequest) {
       const id = Number(body.secuenciaId);
       if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'secuenciaId inválido' }, { status: 400 });
       try {
-        const r = await duplicarSecuencia(id, { db: (await getTenantDb()) as unknown as DbDuplicar, setPasos: setSecuenciaPasos, setCron: setCronSecuencia });
+        const r = await duplicarSecuencia(id, { db: (await getTenantDb()) as unknown as DbDuplicar, setPasos: setSecuenciaPasos, setCron: setCronSecuencia, copiarConfig: copiarConfigAutomatizacion });
         return Response.json({ ok: true, secuenciaId: r.id, nombre: r.nombre });
       } catch (e) {
         if (e instanceof PasosInvalidosError) return Response.json({ ok: false, error: e.message }, { status: 400 });

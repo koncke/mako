@@ -67,7 +67,8 @@ test('clientes: UN nodo con el total exacto y los más recientes con tope, cada 
   const becado = g.porId.get('cliente:501')!;
   assert.ok((becado.datos ?? []).some((d) => d.k === 'Venta' && d.v.startsWith('Becado')), 'un becado se dice');
   assert.equal(becado.nace, '2026-10-11', 'nace es la fecha de cierre, nunca una inventada');
-  assert.equal(g.porId.get('cliente:500')!.href, '/crm?lead=500');
+  // La ficha, no la lista (20/10/2026: hasta ese día esto fijaba '/crm?lead=500', que abría la lista del CRM).
+  assert.equal(g.porId.get('cliente:500')!.href, '/crm/500');
 });
 
 test('clientes y reuniones: sin datos no hay nodos (un nodo sin datos no aparece)', () => {
