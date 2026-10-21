@@ -167,6 +167,6 @@ test('al conectar, la persona acepta con un toque que es SU Claude y SU cuenta, 
   assert.match(p, /if \(paso === 4 && acepto && !codigo\) void pedirCodigo\(\);/);
   assert.match(p, /body: JSON\.stringify\(\{ acepto: VERSION_CONSENTIMIENTO \}\)/);
   assert.match(p, /\{TEXTO_CONSENTIMIENTO\}/);
-  const mig = leer('supabase/migrations/0319_ia_pc_consentimiento.sql');
+  const mig = leer('supabase/migrations/0321_ia_pc_consentimiento.sql');
   assert.match(mig, /alter table ia_pc_dispositivos add column if not exists consentimiento_at timestamptz;/);
 });

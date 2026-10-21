@@ -29,7 +29,7 @@ export const TOPE_RESPUESTA = 20_000;
 /**
  * LO QUE ACEPTA LA PERSONA AL CONECTAR SU COMPUTADORA (el Cerebro, 21/10/2026): que quede claro que la usuaria final es
  * ella, con el programa oficial sin tocar y su cuenta (docs/ia-del-cliente.md §10). Se acepta con un toque antes de
- * recibir el código, y queda la versión en el código y en la PC (mig 0319). Si el texto cambia, cambia la versión.
+ * recibir el código, y queda la versión en el código y en la PC (mig 0321). Si el texto cambia, cambia la versión.
  */
 export const TEXTO_CONSENTIMIENTO = 'Tu Claude corre en tu computadora, con tu cuenta, y contesta sólo lo que tú le pides en MaKo. MaKo nunca ve tu clave ni tu sesión.';
 export const VERSION_CONSENTIMIENTO = '2026-10-21';

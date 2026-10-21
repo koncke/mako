@@ -32,7 +32,7 @@ export type Dispositivo = { id: number; ws: number; persona: string; nombre: str
 
 /**
  * Un código de 6 letras para que ESTA persona empareje una PC suya (10 minutos, un uso). `consentimiento` es la versión
- * del texto que aceptó con un toque (TEXTO_CONSENTIMIENTO): sin eso no hay código (mig 0319).
+ * del texto que aceptó con un toque (TEXTO_CONSENTIMIENTO): sin eso no hay código (mig 0321).
  */
 export async function crearCodigo(ws: number, persona: string, consentimiento: string): Promise<{ codigo: string; venceAt: string }> {
   if (consentimiento !== VERSION_CONSENTIMIENTO) throw new Error('ia-pc: sin aceptar el texto de hoy no hay código');
@@ -56,7 +56,7 @@ export async function emparejar(codigoCrudo: unknown, nombreCrudo: unknown): Pro
   const ws = Number(data.workspace_id);
   const { error } = await db().from('ia_pc_dispositivos').insert({
     workspace_id: ws, persona: String(data.persona), nombre: sanearNombrePc(nombreCrudo), token_hash: hash(token),
-    // Lo que aceptó la persona al pedir el código, con la hora en que se conectó la PC (mig 0319).
+    // Lo que aceptó la persona al pedir el código, con la hora en que se conectó la PC (mig 0321).
     consentimiento: (data.consentimiento as string | null) ?? null, consentimiento_at: new Date().toISOString(),
   });
   if (error) throw new Error(`ia-pc: no pude emparejar: ${error.message}`);

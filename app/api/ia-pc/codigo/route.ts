@@ -3,7 +3,7 @@
 // =============================================================================
 // PRIVADA (con sesión, no está en lib/rutas-publicas.ts). El código ata la PC a ESTE negocio y a ESTA persona: sólo sus
 // turnos van a su Claude, porque la cuenta es suya y compartirla está prohibido (docs/ia-del-cliente.md §10). Y sólo
-// después de aceptar con un toque TEXTO_CONSENTIMIENTO, en su versión de hoy (el Cerebro, 21/10/2026; mig 0319).
+// después de aceptar con un toque TEXTO_CONSENTIMIENTO, en su versión de hoy (el Cerebro, 21/10/2026; mig 0321).
 // =============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server';

@@ -1,5 +1,7 @@
 -- =============================================================================
--- 0318 · La IA del cliente en SU computadora (docs/ia-del-cliente.md, ola 1, 21/10/2026)
+-- 0320 · La IA del cliente en SU computadora (docs/ia-del-cliente.md, ola 1, 21/10/2026)
+-- Aplicada a mano en producción el 21/10/2026 (Ticketera); idempotente.
+-- (Se escribió como 0318, que era de Pagos: renumerada el 21/10. Todo es `if not exists`, y RLS y revoke se repiten.)
 -- =============================================================================
 -- Martín (D6a, 21/10): el Claude o el GPT del cliente corre en su computadora, con el programa oficial y sus cuentas, y
 -- MaKo le manda los pedidos sin tomar nunca el token. Estas tablas son la PUERTA del servidor a la PC de cada cliente:
@@ -71,9 +73,9 @@ create table if not exists ia_pc_llamadas (
 );
 create index if not exists ia_pc_llamadas_turno_idx on ia_pc_llamadas (turno_id, id) where estado = 'esperando';
 
-comment on table ia_pc_dispositivos is 'Las PC de los clientes que piensan su Ops Center con SU Claude o GPT (mig 0318, docs/ia-del-cliente.md). lib/ia-pc.ts.';
-comment on table ia_pc_turnos is 'Un turno del chat que piensa la PC del cliente (mig 0318). Lo toma una vez y vence a los 5 minutos. lib/ia-pc.ts.';
-comment on table ia_pc_llamadas is 'Una herramienta que pide la PC; la corre el turno que espera, con las reglas del chat (mig 0318). lib/ia-pc.ts.';
+comment on table ia_pc_dispositivos is 'Las PC de los clientes que piensan su Ops Center con SU Claude o GPT (mig 0320, docs/ia-del-cliente.md). lib/ia-pc.ts.';
+comment on table ia_pc_turnos is 'Un turno del chat que piensa la PC del cliente (mig 0320). Lo toma una vez y vence a los 5 minutos. lib/ia-pc.ts.';
+comment on table ia_pc_llamadas is 'Una herramienta que pide la PC; la corre el turno que espera, con las reglas del chat (mig 0320). lib/ia-pc.ts.';
 
 alter table ia_pc_codigos enable row level security;
 alter table ia_pc_dispositivos enable row level security;

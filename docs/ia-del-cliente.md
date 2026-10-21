@@ -237,7 +237,7 @@ programa no lleva la marca de «descargado de internet», así que **SmartScreen
 5. Para GPT, lo mismo, y queda la API key como el camino recomendado por OpenAI para automatizar.
 6. **La persona instala y corre el programa ELLA MISMA, y acepta con un toque** (el Cerebro, 21/10): «Tu Claude corre
    en tu computadora, con tu cuenta, y contesta sólo lo que tú le pides en MaKo. MaKo nunca ve tu clave ni tu sesión.»
-   Sin ese toque no hay código, y la versión del texto que aceptó queda en el código y en la PC (mig 0319).
+   Sin ese toque no hay código, y la versión del texto que aceptó queda en el código y en la PC (mig 0321).
 
 El Cerebro (21/10): la D6a la decidió Martín sabiendo que es zona gris, y no frena nada; la autorización de Anthropic y
 la firma del programa (una compra) quedan para Martín en el cierre.

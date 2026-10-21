@@ -763,6 +763,11 @@ fuera un hecho. Va en las DOS direcciones, y la segunda es la que no se nota:
   ⚠️ **Y hay números RESERVADOS que no están en ningún árbol.** El 16/10/2026 la 0303 estaba libre en todas las ramas y
   todos los worktrees, y era del Image Editor (0303-0304, reservadas por el coordinador). Con un coordinador
   («Cerebro»), el número se le pide a él antes de nombrar el archivo; el barrido sólo confirma.
+  ⚠️ **Y una migración se aplica en producción RECIÉN DESPUÉS de la revisión del Cerebro** (el Cerebro, 21/10/2026).
+  Ese día la Ticketera escribió `0318_ia_pc` y `0319_ia_pc_consentimiento` mirando sólo main y su rama, sin pedir el
+  número, y las aplicó para probar de punta a punta: la 0318 era de Pagos y la 0319 de Infra, reservadas y por entrar
+  antes. Se renumeraron (0320 y 0321), quedaron idempotentes y con «Aplicada a mano en producción el …» en la cabecera.
+  Si una prueba necesita la tabla antes de la revisión, se pide el número Y el permiso de aplicarla, las dos cosas.
 - ⚠️ **`git add <ruta>` NO acota el commit: se commitea TODO el índice.** Si otra sesión ya
   stageó algo, `git add mi-archivo && git commit` se lo lleva adentro de tu commit, con tu
   mensaje y tu trailer. Pasó el 05/10/2026: un commit de docs salió con una baja ajena de 430

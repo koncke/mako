@@ -143,7 +143,7 @@ test('la puerta del servidor: el negocio sale del token, la PC sólo toma lo suy
   for (const p of ['/api/ia-pc/emparejar', '/api/ia-pc/latido', '/api/ia-pc/turno', '/api/ia-pc/mcp']) assert.ok(publicas.includes(`'${p}'`), p);
   assert.ok(!publicas.includes("'/api/ia-pc/codigo'") && !publicas.includes("'/api/ia-pc'"), 'codigo es con sesión');
   // La base: RLS, revoke y ningún secreto en claro.
-  const mig = leer('supabase/migrations/0318_ia_pc.sql');
+  const mig = leer('supabase/migrations/0320_ia_pc.sql');
   for (const t of ['ia_pc_codigos', 'ia_pc_dispositivos', 'ia_pc_turnos', 'ia_pc_llamadas']) {
     assert.match(mig, new RegExp(`alter table ${t} enable row level security;`));
     assert.match(mig, new RegExp(`revoke all on ${t} from anon, authenticated;`));

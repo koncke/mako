@@ -1,5 +1,7 @@
 -- =============================================================================
--- 0319 · Lo que aceptó la persona al conectar su computadora (docs/ia-del-cliente.md §10, 21/10/2026)
+-- 0321 · Lo que aceptó la persona al conectar su computadora (docs/ia-del-cliente.md §10, 21/10/2026)
+-- Aplicada a mano en producción el 21/10/2026 (Ticketera); idempotente.
+-- (Se escribió como 0319, que era de Infra: renumerada el 21/10. Las columnas son `add column if not exists`.)
 -- =============================================================================
 -- El Cerebro (21/10): «al conectar, la PERSONA instala y corre el programa ella misma, y acepta con un toque un texto
 -- corto». Queda la VERSIÓN del texto que aceptó, en el código que pidió y en la PC que se conectó con él, con la hora.
