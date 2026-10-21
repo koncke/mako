@@ -259,4 +259,45 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm/2739?ws=3&tab=pagos',
   },
+  {
+    fecha: '21 oct', hora: '17:40', chat: 'Pagos', sesion: 'local_d0cd6fc8-e2f9-4ee9-b76a-19264ced015f', cuenta: 'claude4', actor: 'claude', tipo: 'correccion',
+    titulo: 'Hecho: cambiar el plan ya no deja deuda de más ni de menos, y cada mensualidad registrada cuenta un mes',
+    pedido: 'revisiones de plan-sueltos (Cerebro, 21/10): dos altas y una media',
+    puntos: [
+      'Cambiar el plan en la pestaña Pagos (la cuota, la cantidad o el día) ya no deja deuda de más ni de menos cuando hay una seña cobrada por link o un cobro por menos: cada cuota queda en su mes.',
+      'Una mensualidad registrada con «Registrar el mes cobrado» cuenta un mes, sea del monto que sea: el tipo de cambio del día o un precio que cambió ya no dejan a un cliente al día en «Falta registrar», ni esconden un mes que debe.',
+      'Un pago que cubre varios meses (un adelanto) los cuenta todos, cobrado a mano o por link.',
+      'Una cuota que alguien cambió mientras otro la cobraba no se cobra por el monto de antes: avisa que cambió y no guarda nada.',
+    ],
+    commits: [
+      { sha: 'c4ebeca9c', msg: 'Pagos: «es cuota del plan» es UNA regla y la fila nace marcada, lo cobrado se cuenta de a una cobrada, y la 0323', lineas: 573, archivos: 12 },
+      { sha: 'c16c6156f', msg: 'Pagos: lo que se registró como la mensualidad vale un mes siempre, y la pasarela cuenta como la mano', lineas: 143, archivos: 11 },
+    ],
+    archivos: [
+      'lib/cobrado-lead.ts — `esCuotaDelPlan` y `mesesDeUnaCobrada`: qué es del plan y cuántos meses cubre cada cobrada',
+      'lib/pagos-campo.ts — el lugar de cada cuota en el plan uniforme',
+      'supabase/migrations/0323_cobrar_cuota_original_y_resto.sql — la marca de la diferencia, la de la mensualidad y el monto leído (aplicada antes del deploy)',
+      'tests/pagos-plan-sueltos.test.ts y tests/pagos-cobro-idempotente.test.ts — con la ficha de verdad, probados rompiéndolos',
+    ],
+    revisar: '/crm?ws=3',
+  },
+  {
+    fecha: '21 oct', hora: '17:40', chat: 'Pagos', sesion: 'local_d0cd6fc8-e2f9-4ee9-b76a-19264ced015f', cuenta: 'claude4', actor: 'claude', tipo: 'correccion',
+    titulo: 'Hecho: el comprobante del chat se lee con la moneda del negocio, y el plan del contrato cuadra con el cierre',
+    pedido: 'bajas de las revisiones de bloques y del contrato (Cerebro, 21/10)',
+    puntos: [
+      'El comprobante que le mandas a MaKo se lee recién cuando se sabe la moneda del negocio: ya no se toma por dólares un pago en pesos.',
+      'El plan de cuotas que trae un contrato se da por bueno sólo si suma el monto de cierre; si no, el paso queda a la vista y dice cuánto suman.',
+      'Si el contrato no dice su total, lo dice; y una cuota en 0 se saca en vez de dejar el plan sin montos.',
+    ],
+    commits: [
+      { sha: 'e98adf779', msg: 'Pagos (bloques): el comprobante del chat se lee con la moneda del negocio ya cargada', lineas: 85, archivos: 6 },
+      { sha: '7b2088efa', msg: 'Pagos (contrato): el plan se resuelve sólo si cuadra con el cierre que queda, y cada aviso dice lo que pasó', lineas: 140, archivos: 6 },
+    ],
+    archivos: [
+      'app/crm/lead-view/ficha/pagos/datos.ts y piezas.tsx — la moneda del negocio, null hasta saberla',
+      'lib/contrato-montos.ts — `planDelContrato` y los avisos del contrato',
+    ],
+    revisar: '/second-brain?ws=3',
+  },
 ];
