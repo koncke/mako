@@ -61,8 +61,9 @@ Si una tool de LECTURA falla, DECÍSELO con las palabras que te dio (falta el to
  * nombraría.
  */
 // La línea del producto viaja SÓLO con la herramienta que tiene dónde ponerlo (generar_landing_con_ia, `producto` y
-// `producto_nuevo`; revisión del 21/10/2026): con las otras cuatro, la pregunta se hacía y la respuesta se perdía.
-const PRODUCTO_LANDING = `- PARA QUÉ PRODUCTO: si te la piden PARA uno del catálogo, pasa su nombre exacto (no si lo nombran para excluirlo, compararlo o de modelo). Si no, NO lo adivines: antes de proponer, pregunta con opciones (los productos del catálogo, «Un producto nuevo» y «El negocio en general»). Si eligen uno nuevo, pregunta su nombre y de qué se trata.`;
+// `producto_nuevo`; revisión del 21/10/2026): con las otras cuatro, la pregunta se hacía y la respuesta se perdía. Y en
+// un turno de crear viajan juntas, así que la línea dice a qué camino aplica.
+const PRODUCTO_LANDING = `- PARA QUÉ PRODUCTO, si la creas con IA desde una idea o un texto (desde un diseño, en blanco o con una plantilla no se usa: no lo preguntes): si te la piden PARA uno del catálogo, pasa su nombre exacto (no si lo nombran para excluirlo, compararlo o de modelo). Si no, NO lo adivines: antes de proponer, pregunta con opciones (los productos del catálogo, «Un producto nuevo» y «El negocio en general»). Si eligen uno nuevo, pregunta su nombre y de qué se trata.`;
 const RECETA_LANDING = (conProducto: boolean): string => [
   'CUANDO TE PIDEN UNA LANDING O UNA PRESENTACIÓN:',
   ...(conProducto ? [PRODUCTO_LANDING] : []),

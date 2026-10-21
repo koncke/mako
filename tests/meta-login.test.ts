@@ -23,7 +23,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  destinoDeVuelta, ENV_SECRETO_APP, leerResultadoMeta, META_APP_ID, META_CONFIG_ID, metaRedirectUri, urlDialogoMeta, volverSeguro,
+  botonMetaVisible, destinoDeVuelta, ENV_SECRETO_APP, leerResultadoMeta, META_APP_ID, META_CONFIG_ID, metaRedirectUri, urlDialogoMeta, volverSeguro,
+  WORKSPACES_DE_REVISION,
 } from '../lib/meta-login';
 
 const leer = (p: string) => readFileSync(join(process.cwd(), p), 'utf8').replace(/\r\n/g, '\n');
@@ -109,4 +110,67 @@ test('reconectar re-deriva el token de la página ACTUAL aunque haya varias', ()
   const rama = CX.slice(ini, CX.indexOf('d.pixeles.length === 1', ini));
   assert.match(rama, /credWs\('META_PAGE_ID', ws\)/);
   assert.match(rama, /'META_PAGE_ACCESS_TOKEN'/);
+});
+
+// ── El botón en el negocio de REVISIÓN (21/10/2026) ──────────────────────────────
+// El revisor de Meta entra con una cuenta de prueba del ws3 (usuario del negocio, no super
+// admin) y tiene que ver «Conectar con Meta»; en cualquier otro negocio, un usuario común no.
+//
+// Verificado rompiéndolo (21/10/2026), de a una y restaurando:
+//   · `WORKSPACES_DE_REVISION = [3, 11]` → 2 fallos («ws3» por la lista fija y «ws11 NO»)
+//   · la regla sin mirar el ws (`return true` al final) → 1 fallo («ws1/ws11/ws21 NO»)
+//   · `abiertoATodos` sin efecto → 1 fallo («META_OAUTH_ABIERTO»)
+//   · el ws3 antes del chequeo del secreto → 1 fallo («sin secreto»)
+//   · conectarMetaDisponible con la regla vieja antes (`if (!superAdmin) return false`) → 1 fallo (el de las rutas)
+//   · la ruta del paso 1 sin pasar el ws (`conectarMetaDisponible()`) → 1 fallo (el de las rutas)
+//   ⚠️ Un atajo `if (superAdmin) return true` antes de la regla NO es una rotura: da lo mismo.
+//   Sumadas tras la revisión del Cerebro (21/10), las dos mutaciones que antes pasaban en verde:
+//   · `esSuperAdmin: (await getSesionAdmin()) != null || true` → 1 fallo (el de las rutas)
+//   · `abiertoATodos: true` → 1 fallo (el de las rutas)
+//   · la ruta del paso 1 con `const ws = Number(url.searchParams.get('ws_destino')) || await adminDeWorkspaceActual();` → 1 fallo
+const BASE = { haySecreto: true, abiertoATodos: false, esSuperAdmin: false };
+
+test('botón de Meta: en el negocio de revisión (ws3) lo ve un usuario común', () => {
+  assert.deepEqual([...WORKSPACES_DE_REVISION], [3]);
+  assert.equal(botonMetaVisible({ ...BASE, ws: 3 }), true);
+});
+
+test('botón de Meta: en ws1, ws11 y ws21 NO lo ve un usuario común', () => {
+  for (const ws of [1, 11, 21, null, undefined]) {
+    assert.equal(botonMetaVisible({ ...BASE, ws }), false, `lo vio en ws ${String(ws)}`);
+  }
+});
+
+test('botón de Meta: con META_OAUTH_ABIERTO y para el super admin sigue como antes', () => {
+  for (const ws of [1, 3, 11, 21, null]) {
+    assert.equal(botonMetaVisible({ ...BASE, abiertoATodos: true, ws }), true, `abierto, ws ${String(ws)}`);
+    assert.equal(botonMetaVisible({ ...BASE, esSuperAdmin: true, ws }), true, `super admin, ws ${String(ws)}`);
+  }
+});
+
+test('botón de Meta: sin el secreto no se ofrece a nadie, ni en revisión', () => {
+  for (const extra of [{ ws: 3 }, { ws: 1, esSuperAdmin: true }, { ws: 1, abiertoATodos: true }]) {
+    assert.equal(botonMetaVisible({ ...BASE, haySecreto: false, ...extra }), false, JSON.stringify(extra));
+  }
+});
+
+test('botón de Meta: conectarMetaDisponible usa la regla, y las dos rutas le pasan el negocio activo', () => {
+  const CX = sinComentarios(leer('lib/meta-conexion.ts'));
+  const ini = CX.indexOf('export async function conectarMetaDisponible');
+  const fn = CX.slice(ini, CX.indexOf('export type ResultadoConexion', ini));
+  assert.ok(ini > 0 && fn.length < 600, `el recorte mide ${fn.length}: ¿se movió la función?`);
+  assert.match(fn, /return botonMetaVisible\(\{/);
+  assert.equal((fn.match(/\breturn\b/g) ?? []).length, 1, 'conectarMetaDisponible decide con botonMetaVisible y con nada más');
+  assert.match(fn, /ws: ws === undefined \? await getWorkspaceActual\(\) : ws/);
+  // De DÓNDE salen los datos de la regla (revisión del Cerebro, 21/10): sin esto, `esSuperAdmin: … || true` o
+  // `abiertoATodos: true` abrían el botón para cualquier negocio con la suite en verde.
+  assert.match(fn, /haySecreto: !!process\.env\[ENV_SECRETO_APP\]\?\.trim\(\),/);
+  assert.match(fn, /abiertoATodos: process\.env\.META_OAUTH_ABIERTO === 'true',/);
+  assert.match(fn, /esSuperAdmin: \(await getSesionAdmin\(\)\) != null,/);
+  // Y el ws de las rutas sale de la SESIÓN, nunca del pedido: un `ws` del query abría el filtro del ws3.
+  const RUTA = sinComentarios(leer('app/api/integraciones/meta/route.ts'));
+  assert.match(RUTA, /const ws = await adminDeWorkspaceActual\(\);\s*if \(ws == null\) return fail\('no-permitido'\);\s*if \(!\(await conectarMetaDisponible\(ws\)\)\)/);
+  assert.equal((RUTA.match(/searchParams\.get\(/g) ?? []).length, 1, 'la ruta del paso 1 sólo lee `volver` del query');
+  const CRED = sinComentarios(leer('app/api/integraciones/credencial/route.ts'));
+  assert.match(CRED, /const ctx = await resolverContexto\(\);[\s\S]{0,1200}conectarMetaDisponible\(ctx\.ws\)/);
 });
