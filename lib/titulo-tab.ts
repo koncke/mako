@@ -11,7 +11,7 @@
 // Lógica pura y aparte del componente para poder probarla (tests/titulo-tab).
 
 import { TODOS_LOS_ITEMS, ADMIN_NAV, USER_NAV, type NavItem } from '@/app/_components/nav';
-import { DESTINOS_MOVIL, RUTA_INBOX, SECCIONES_MAS, TITULO_INBOX, rutaEscritorio, tituloSeccion } from './movil-rutas';
+import { DESTINOS_MOVIL, HOME_MOVIL, RUTA_INBOX, SECCIONES_MAS, TITULO_HOME_MOVIL, TITULO_INBOX, rutaEscritorio, tituloSeccion } from './movil-rutas';
 import { TITULO_CUENTA } from './ajustes-secciones';
 
 export const MARCA = 'MaKo';
@@ -46,6 +46,8 @@ const EXTRA: Record<string, string> = {
   // nombre de la PANTALLA, el de la cabecera: /m/copywriting es «Ads Writer», como /ads-writer.
   ...Object.fromEntries(SECCIONES_MAS.map((s) => [s.href, tituloSeccion(s)])),
   '/m/cuenta': TITULO_CUENTA, // el mismo nombre que en la computadora («My Profile» desde el 17/10/2026 noche)
+  // El Dashboard dejó la barra el 20/10/2026 (el Ops Center tomó su lugar) y no es una sección: su nombre va a mano.
+  [HOME_MOVIL]: TITULO_HOME_MOVIL,
   // La campana de General (v3: Inbox dejó la barra; desde el 15/10/2026 se titula Avisos, como la cabecera).
   [RUTA_INBOX]: TITULO_INBOX,
   '/m': 'MaKo',

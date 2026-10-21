@@ -13,16 +13,16 @@ Cuento **pedidos**: cada número de las listas de Martín es uno (las filas que 
 
 | | Hecho | Parcial | No hecho | Sin confirmar | Total |
 |---|---|---|---|---|---|
-| Del 13/10 al 20/10 (tablas A, B, C, D e I) | 79 | 8 | 8 | 0 | 95 |
+| Del 13/10 al 20/10 (tablas A, B, C, D e I) | 81 | 6 | 8 | 0 | 95 |
 | Hasta el 12/10 (tablas E, F, G y H) | 164 | 4 | 1 | 1 | 170 |
-| **Todo** | **243** | **12** | **9** | **1** | **265** |
+| **Todo** | **245** | **10** | **9** | **1** | **265** |
 
 - **No hecho (9):** A1 (el chat con la pieza única del Ops Center), B1 (columnas editables del Plan), B2 (cinco cosas del
   prototipo de tarjetas), C1 (Google Calendar en «Asignar evento») y H1, que ya no aplica (Chatwoot se borró). O sea, 8
   que cuentan.
-- **Parcial (12):** B3, B4, C2, C3, D2, D3, D4, D5, E1, F1, F2 y H2.
+- **Parcial (10):** B3, B4, C2, C3, D4, D5, E1, F1, F2 y H2.
 - **Sin confirmar (1):** E2, el título «MaKo - CRM» de la pestaña (no se midió en un navegador).
-- En filas: 68 Hecho, 12 Parcial, 5 No hecho y 1 Sin confirmar (86 filas).
+- En filas: 70 Hecho, 10 Parcial, 5 No hecho y 1 Sin confirmar (86 filas).
 - De los 5 puntos que Martín mandó hoy, 4 se cerraron hoy (A2, A3, A4 y A5) y el quinto (A6, la etapa de reunión con su
   evento) ya estaba hecho desde el 16/10. Lo que sigue abierto de hoy es A1 (la pieza única del chat); la otra mitad
   del pedido de las cards (D1: diseños, arrastrar y vista en vivo) se hizo esa misma noche.
@@ -34,8 +34,7 @@ Cuento **pedidos**: cada número de las listas de Martín es uno (las filas que 
    **chat con MaKo** existe desde el 14/10, pero su botón (a 88 px del borde) quedaba **debajo de la sidebar abierta**
    (244 px, z 60). El diagnóstico obvio («ya está hecho») era el equivocado. Las dos se corrigieron hoy (A2, A3).
 2. **Lo que de verdad no está** es poco y está en la última sección: la pieza única del chat del Ops Center, las
-   plantillas de diseño y el arrastre de campos de la tarjeta, el clic derecho dentro de la ficha, Reuniones y Tracking
-   por bloques, las sugerencias de las clases 2 y 4 y las plantillas que reemplazan al «CRM automático».
+   plantillas de diseño y el arrastre de campos de la tarjeta, las sugerencias de las clases 2 y 4 y las plantillas que reemplazan al «CRM automático».
 3. **Lo de hoy no está subido.** Los 5 commits del 20/10 (`dae7de4fc`, `10fc93059`, `44f14b087`, `88daad475`,
    `5cb1e334a`) están sólo en esta rama. Todo lo anterior está en `origin/main`; «desplegado» no se puede ver desde el
    repo, así que sólo lo afirmo cuando la bitácora dice «en producción (run N)». Nada de esto se miró en pantalla hoy.
@@ -103,8 +102,8 @@ Cuento **pedidos**: cada número de las listas de Martín es uno (las filas que 
 | # | Pedido | Estado | Dónde / commit | Nota |
 |---|---|---|---|---|
 | D1 | 13/10: «Personalizable la tarjeta del lead… varios diseños template… arrastrar campos, acomodarlos… en tiempo real» | Hecho | `88daad475` (elegir datos) y el commit de D1 del 20/10 noche · `app/crm/CamposTarjetaModal.tsx`, `lib/tarjeta-kanban.ts` (`DISENOS_TARJETA`, `prefsTarjetaDe`, `moverCampo`), `app/crm/CrmBoard.tsx` (`propsDeTarjeta`) | Tres diseños (Completa, Compacta y Con avance, la de Clients con la barra del paso); los datos se arrastran (y ↑ ↓) para acomodarlos; arriba del pop-up, la tarjeta de un lead del tablero en vivo, armada por la misma función que el tablero. Por persona. No visto en pantalla. |
-| D2 | 14/10: Reuniones y Tracking «personalizables» bloque por bloque, como el Dashboard | Parcial | `app/crm/lead-view/ficha/registro-reuniones.tsx`, `registro-tracking.tsx` | Resumen y Pagos sí están partidos en bloques (D11, D14). Reuniones y Tracking son UN bloque cada una: la tarjeta vieja entera (`ReunionesCard`, `ComportamientoCard`). |
-| D3 | 14/10: «implementa el click derecho en todo el CRM para diferentes acciones» | Parcial | `a3496cc3` · `app/_ui/MenuContextual.tsx`, `app/crm/CrmBoard.tsx` | Está en el tablero y la lista (tarjeta, fila, columna, fondo, selección). En la ficha no: `MenuContextual` no se usa en `app/crm/lead-view` («va con el constructor»). |
+| D2 | 14/10: Reuniones y Tracking «personalizables» bloque por bloque, como el Dashboard | Hecho | el commit de D2 del 20/10 noche · `app/crm/lead-view/ficha/registro-reuniones.tsx`, `registro-tracking.tsx`, `reglas-reuniones.ts` (`partesDeReunion1`), `reglas-tracking.ts` (`partesDeVisitas`) | Reuniones: la R2, «Agendar» y lo que salió de la llamada son bloques propios. Tracking: el video, la actividad en la página y la grabación. El bloque viejo dibuja lo que su hoja no puso aparte: las fichas guardadas se ven igual. No visto en pantalla. |
+| D3 | 14/10: «implementa el click derecho en todo el CRM para diferentes acciones» | Hecho | `a3496cc3` (tablero y lista) y el commit de D3 del 20/10 noche (la ficha) · `app/_ui/MenuContextual.tsx`, `app/crm/menu-contextual-crm.ts`, `app/crm/lead-view/ficha/menu-contextual-ficha.ts` | En el tablero y la lista (tarjeta, fila, columna, fondo, selección) y en la ficha: las del «⋯» de la ficha más WhatsApp y copiar teléfono o email. Sobre un campo, un link o texto seleccionado queda el menú del navegador. No visto en pantalla. |
 | D4 | 13/10 pts 2 y 3: sugerencias de MaKo «inteligentes y personalizadas», mapeando todas las que se te ocurran | Parcial | `b04e3d1f`, `b34838dd` · `lib/sugerencias-crm.ts`, `docs/sugerencias-mako-crm.md` | El mapa tiene cuatro clases de disparo. El motor cubre la 1 («armas el CRM») y la 3 («el tablero llega a un estado»). Faltan la 2 («repites un gesto»: 5 movimientos de A a B, el mismo mensaje a 3 leads) y la 4 («llega algo nuevo»: el primer lead de un formulario, el primer DM). No hay registro de que Martín validara el mapa. |
 | D5 | 14/10: sacar el botón de «CRM Automático» y llevar lo que quedó pendiente a Automations como template | Parcial | `43a27b56` (botón fuera) · motor `lib/crm-auto.ts`, cron `/api/cron/crm-automatico` | El botón no está, pero el motor sigue corriendo (se apaga por negocio con `crm_auto_enabled`). La galería de Automations no tiene la etapa destino para mover (T2 y T6, según el relevo del 14/10): en `lib/plantillas-automatizaciones.ts` no hay una plantilla de «reactivación» por antigüedad, sólo `reactivar-sin-cierre`. |
 | D6 | 13/10 pt 1: datos sin marcar con «Ver →», solucionar que lleva al dato (sin pop-up), ignorar, «Ver más» y elegir de qué avisa MaKo (5 puntos) | Hecho | `42e57a6c` (14/10, mig 0270), `7ce7578ee`, `0c51fcf1c` · `DatosSinMarcarCard.tsx` | |
@@ -189,21 +188,19 @@ Cuento **pedidos**: cada número de las listas de Martín es uno (las filas que 
 Del pedido más reciente al más viejo. Entre paréntesis, lo que depende de una decisión de Martín.
 
 1. **A1** · El chat del CRM con la pieza única del Ops Center: `app/crm/mako-crm/ChatMakoCrm.tsx` y `PanelMakoCrm.tsx`, cuando `app/_chat/CajaChat.tsx` (rama `chat-unico`) llegue a `main`.
-2. **D3** · Clic derecho dentro de la ficha: `app/crm/lead-view/ficha/` con `app/_ui/MenuContextual.tsx`.
-3. **D2** · Reuniones y Tracking partidos en bloques: `ficha/registro-reuniones.tsx`, `ficha/registro-tracking.tsx`, `lead-view/ReunionesCard.tsx`, `lead-view/ComportamientoCard.tsx`.
-4. **D4** · Sugerencias de las clases 2 («repites un gesto») y 4 («llega algo nuevo»): `lib/sugerencias-crm.ts` y `lib/sugerencias-crm-server.ts`.
-5. **D5** · Las plantillas de Automations que reemplacen al «CRM automático» (T1 a T6) y recién entonces apagar el motor: `lib/plantillas-automatizaciones.ts`, `lib/crm-auto.ts`.
-6. **B1** · Columnas editables en el Plan: `app/plan/board/BoardShell.tsx`.
-7. **B3** · El producto de Clients que conserva el nombre viejo del funnel: `app/customer-success/entrega.ts` (`productosDeLaEntrega`).
-8. **B4** · Plan del teléfono con el check gris en vez del círculo (si Martín lo quiere): `app/m/plan/ListaPlan.tsx`.
-9. **B2** · «Pago fallido» en la tarjeta de un cliente, foto de Instagram, vista «Prioridades» del Plan, Proyectos del teléfono y foto del cliente en el teléfono: `app/customer-success/aviso-tarjeta.ts`, `app/plan/`, `app/m/plan/`.
-10. **C3** · Medir el pop-up de la ficha en producción y partir `getLeadFullAction` si sigue lento: `app/crm/actions.ts`.
-11. **C1** y **C2** · Google Calendar en «Asignar evento» (decidido que no por la API de Google; decide Martín) y crear el evento desde MaKo en vez de abrir Calendly o Cal.com: `app/crm/EventosDeEtapaModal.tsx`.
-12. **E1** · Buscar Instagram por nombre (decide Martín si se paga una fuente): `lib/instagram-buscar.ts`, `app/api/crm/instagram-buscar/route.ts`.
-13. **E2** · Mirar en un navegador que la pestaña diga «MaKo - CRM»: `app/_components/TituloTab.tsx`.
-14. **F1** · Atribución y VSL por funnel en un lead que está en varios: `lib/lead-funnel.ts`, `supabase/migrations/0207_lead_funnel.sql` (una migración nueva).
-15. **F2** · Los restos de «Producto» → «Funnel»: `lib/api-mako/areas/crm.def.ts`, `lib/graficos-catalogo.ts` y los prompts.
-16. **H2** · Las 3 preguntas a Mauricio y los 1.057 leads fuera del embudo (decide Mauricio o Martín): `docs/friccion-crm.md`, `/admin/friccion`.
+2. **D4** · Sugerencias de las clases 2 («repites un gesto») y 4 («llega algo nuevo»): `lib/sugerencias-crm.ts` y `lib/sugerencias-crm-server.ts`.
+3. **D5** · Las plantillas de Automations que reemplacen al «CRM automático» (T1 a T6) y recién entonces apagar el motor: `lib/plantillas-automatizaciones.ts`, `lib/crm-auto.ts`.
+4. **B1** · Columnas editables en el Plan: `app/plan/board/BoardShell.tsx`.
+5. **B3** · El producto de Clients que conserva el nombre viejo del funnel: `app/customer-success/entrega.ts` (`productosDeLaEntrega`).
+6. **B4** · Plan del teléfono con el check gris en vez del círculo (si Martín lo quiere): `app/m/plan/ListaPlan.tsx`.
+7. **B2** · «Pago fallido» en la tarjeta de un cliente, foto de Instagram, vista «Prioridades» del Plan, Proyectos del teléfono y foto del cliente en el teléfono: `app/customer-success/aviso-tarjeta.ts`, `app/plan/`, `app/m/plan/`.
+8. **C3** · Medir el pop-up de la ficha en producción y partir `getLeadFullAction` si sigue lento: `app/crm/actions.ts`.
+9. **C1** y **C2** · Google Calendar en «Asignar evento» (decidido que no por la API de Google; decide Martín) y crear el evento desde MaKo en vez de abrir Calendly o Cal.com: `app/crm/EventosDeEtapaModal.tsx`.
+10. **E1** · Buscar Instagram por nombre (decide Martín si se paga una fuente): `lib/instagram-buscar.ts`, `app/api/crm/instagram-buscar/route.ts`.
+11. **E2** · Mirar en un navegador que la pestaña diga «MaKo - CRM»: `app/_components/TituloTab.tsx`.
+12. **F1** · Atribución y VSL por funnel en un lead que está en varios: `lib/lead-funnel.ts`, `supabase/migrations/0207_lead_funnel.sql` (una migración nueva).
+13. **F2** · Los restos de «Producto» → «Funnel»: `lib/api-mako/areas/crm.def.ts`, `lib/graficos-catalogo.ts` y los prompts.
+14. **H2** · Las 3 preguntas a Mauricio y los 1.057 leads fuera del embudo (decide Mauricio o Martín): `docs/friccion-crm.md`, `/admin/friccion`.
 
 **Esperan una decisión de Martín** (no son pedidos suyos, pero frenan filas de arriba):
 - **E1**: ¿se paga una fuente para buscar Instagram por nombre?
