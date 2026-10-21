@@ -172,7 +172,7 @@ test('las acciones: Activar/Pausar por la puerta de siempre, Duplicar por `dupli
   // Revisión del 20/10/2026, noche (tests/automations-aviso-todos-caminos.test.ts): Activar desde el «⋯» pregunta antes (`o.sinAviso`).
   const accion = recorte(lista, 'const accionFila = async (j: SecuenciaDto, accion: string, o?: { sinAviso?: boolean }) => {', '\n  };', 2700);
   assert.match(accion, /if \(accion === 'eliminar'\) \{ setErrFila\(null\); setAEliminar\(j\); return; \}/, 'Eliminar sin preguntar');
-  assert.match(accion, /pedir\('\/api\/whatsapp\/secuencias', 'PATCH', \{ id: j\.id, activa: !j\.activa \}\)/);
+  assert.match(accion, /pedir\('\/api\/whatsapp\/secuencias', 'PATCH', \{ id: j\.id, activa: !j\.activa, \.\.\.\(o\?\.sinAviso \? \{ aunqueDuplique: true \} : \{\}\) \}\)/);
   assert.match(accion, /pedir\(API_SECUENCIAS, 'POST', \{ action: 'duplicar', secuenciaId: j\.id \}\)/);
   // Lo que contesta mal queda pegado a ESA fila.
   assert.match(accion, /setErrFila\(\{ id: j\.id, texto: r\.error \|\| 'No se pudo cambiar' \}\)/);

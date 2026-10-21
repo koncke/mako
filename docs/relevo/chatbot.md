@@ -1,5 +1,11 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **21/10/2026 (`claude4`): EL AVISO DE DUPLICADA, EN EL SERVER.** `setSecuenciaActiva` pregunta (409 `duplicada`) salvo con
+> `aunqueDuplique`; Publicar una activa también. Lo manejan el lienzo, el «⋯», el teléfono (/m/automations), /email (el
+> interruptor y «MaKo escribe tu nutrición») y la API de MaKo (lo dice en la propuesta). El aviso de una activa se
+> calcula (ya no se borra con el siguiente guardado del CRON). Test que barre los llamadores:
+> tests/automations-activar-todos-los-caminos.test.ts. **Sin hacer:** cambiar los CRON por la API de MaKo no pregunta.
+>
 > **20/10/2026 noche (`claude4`): LA PUNTA DE SEGUIMIENTO (después de 396a82847).** El aviso de duplicada sale por TODOS los
 > caminos que prenden algo (el interruptor, el «⋯» de la lista, un CRON nuevo en una activa) y compara lo PUBLICADO; con
 > `ignorar_ventana` y lo propio ilegible la corrida vuelve a cortar; «Copiar flujo» › «Crear» en el mismo negocio lleva la

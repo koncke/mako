@@ -36,11 +36,17 @@ export type TareaDelChat = {
   estado: EstadoTareaDelChat;
   /** Cuántas veces el Plan no la pudo crear o cerrar: a la tercera queda `no_se_pudo` y no se reintenta. */
   intentos: number;
+  /** Los «Voy a trabajar en…» que se dijeron con ÉSTA abierta y no crearon otra: vistos. Sin esto, la misma tanda subida
+   *  otra vez (la PC re-sube si la vuelta no avanzó sus marcas) los leía con ésta ya cerrada y creaba una tarea de más
+   *  que nadie cerraba (revisión de la ola 1, 21/10/2026). */
+  saltados?: string[];
 };
 
 /** Las que se guardan por chat (las más nuevas). */
 export const TAREAS_POR_CHAT = 40;
 export const MAX_INTENTOS = 3;
+/** Cuántos «Voy a…» saltados recuerda una tarea (`saltados`). */
+const MAX_SALTADOS = 20;
 
 const PRIMERA = (t: string) => t.trim().split('\n')[0] ?? '';
 const LIMPIA = /^[\s*_#>✅✔·\-–—]*/;
@@ -66,14 +72,15 @@ export function tituloDeYa(texto: string): string {
  */
 export function anotarTurnos(antes: readonly TareaDelChat[], turnos: readonly TurnoChat[], chat: string): TareaDelChat[] {
   const lista = antes.map((t) => ({ ...t }));
-  const vistos = new Set(lista.flatMap((t) => [t.voy, t.ya]).filter((x): x is string => !!x));
+  const vistos = new Set(lista.flatMap((t) => [t.voy, t.ya, ...(t.saltados ?? [])]).filter((x): x is string => !!x));
   const orden = [...turnos].filter((t) => t.rol === 'el' && DESTINO_RE.test(t.local)).sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
   for (const t of orden) {
     if (vistos.has(t.uuid)) continue;
     const abierta = [...lista].reverse().find((x) => x.local === t.local && !x.ya && x.estado !== 'no_se_pudo');
     if (esVoyATrabajar(t.texto)) {
       const titulo = tituloDeVoy(t.texto);
-      if (abierta || !titulo) continue;
+      if (abierta) { abierta.saltados = [...(abierta.saltados ?? []), t.uuid].slice(-MAX_SALTADOS); vistos.add(t.uuid); continue; }
+      if (!titulo) continue;
       lista.push({ local: t.local, chat, titulo, tarea: null, voy: t.uuid, ya: null, at: t.at, estado: 'pendiente', intentos: 0 });
       vistos.add(t.uuid);
     } else if (esYaEsta(t.texto)) {
@@ -116,7 +123,11 @@ export function sanearTareasDelChat(x: unknown): TareaDelChat[] {
     const local = s('local', 80); const titulo = s('titulo', 200); const at = s('at', 40); const chat = s('chat', 120);
     if (!local || !DESTINO_RE.test(local) || !titulo || !at || !Number.isFinite(Date.parse(at)) || chat == null) return [];
     const estado = ESTADOS.includes(o.estado as EstadoTareaDelChat) ? o.estado as EstadoTareaDelChat : 'pendiente';
-    return [{ local, chat, titulo, tarea: s('tarea', 80), voy: s('voy', 80), ya: s('ya', 80), at, estado, intentos: Number.isInteger(o.intentos) ? o.intentos as number : 0 }];
+    const saltados = Array.isArray(o.saltados) ? o.saltados.filter((x): x is string => typeof x === 'string').map((x) => x.slice(0, 80)).slice(-MAX_SALTADOS) : [];
+    return [{
+      local, chat, titulo, tarea: s('tarea', 80), voy: s('voy', 80), ya: s('ya', 80), at, estado, intentos: Number.isInteger(o.intentos) ? o.intentos as number : 0,
+      ...(saltados.length ? { saltados } : {}),
+    }];
   }).slice(-TAREAS_POR_CHAT);
 }
 

@@ -34,7 +34,8 @@ export function PreguntaChat({ p, onResponder, enviada = false }: {
   const [otra, setOtra] = useState('');
   const [mandando, setMandando] = useState<number | 'todo' | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Superada: un wrap_up que Martín contestó por otro lado (la app, la caja, Remote Control). Se lee, no se toca: un clic
+  // Superada: el chat siguió después de un wrap_up (Martín contestó por otro lado, u OTRO chat le escribió: la revisión de
+  // la ola 1 midió que es lo más común, por eso no dice «contestada»). Se lee, no se toca: un clic
   // días después le firmaría al chat una orden vencida.
   const abierta = !r && !p.superada && !enviada && !!onResponder;
 
@@ -104,7 +105,7 @@ export function PreguntaChat({ p, onResponder, enviada = false }: {
       <div className="co-preg__pie co-preg__pie--chat">
         {error ? <span className="co-preg__error" role="alert">{error}</span>
           : r ? <span>{`Respondiste · ${horaAR(Date.parse(r.at))}`}</span>
-          : p.superada ? <span>{`Contestada por otro lado · ${horaAR(Date.parse(p.superada))}`}</span>
+          : p.superada ? <span>{`Ya no espera tu respuesta · ${horaAR(Date.parse(p.superada))}`}</span>
           : enviada ? <span>Tu respuesta salió</span>
           : <span className="co-preg__ayuda">{p.varias ? 'Elige una o varias' : 'Elige una'}</span>}
         {abierta && (p.varias || otra.trim()) && (

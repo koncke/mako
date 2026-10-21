@@ -28,6 +28,7 @@ import { validarInput } from './validar';
 import { vistaDe } from './vista';
 import { proponerChat, proponerPantallaGenerica, TTL_PENDIENTE_MIN, RUTA_BANDEJA } from './acciones';
 import { esAccion, esControl, esLectura, type Ctx, type Resultado } from './tipos';
+import { sanearBloque } from '@/lib/chat-bloques';
 
 export { vistaDe };
 
@@ -79,6 +80,10 @@ export async function ejecutarOperacion(
         if (typeof cruda !== 'string' && cruda.paraLaPersona) ctx.aPersona?.(cruda.paraLaPersona);
         if (typeof cruda === 'string') return { ok: true, tipo: 'lectura', salida: def.salida, resultado: cruda };
         if (cruda.isError) return { ok: false, status: 400, error: cruda.content };
+        // Lo que la lectura DIBUJA (lib/chat-bloques.ts) va a la pantalla por el canal del código, saneado; el modelo
+        // recibe sólo `content`. Sin `aDibujar` (WhatsApp, HTTP) se descarta.
+        const bloque = cruda.bloque && ctx.aDibujar ? sanearBloque(cruda.bloque) : null;
+        if (bloque) ctx.aDibujar?.(bloque);
         return { ok: true, tipo: 'lectura', salida: def.salida, formato: cruda.formato, headers: cruda.headers, resultado: cruda.content };
       }
 
@@ -104,7 +109,12 @@ export async function ejecutarOperacion(
       if (def.confirmacion === 'pantalla' && run.proponer) {
         const p = await run.proponer(v.input, ctx);
         if ('error' in p) return { ok: false, status: 400, error: p.error };
-        return { ok: true, tipo: 'propuesta', propuesta: p };
+        // Lo que la propuesta DIBUJA (`extra.bloque`: el antes y el después del Video Editor) va por el mismo canal que el
+        // de una lectura; al modelo (y a la API) le llega `extra` sin él.
+        const { bloque: crudo, ...extra } = p.extra ?? {};
+        const bloque = crudo != null && ctx.aDibujar ? sanearBloque(crudo) : null;
+        if (bloque) ctx.aDibujar?.(bloque);
+        return { ok: true, tipo: 'propuesta', propuesta: { ...p, ...(p.extra ? { extra } : {}) } };
       }
 
       if (!run.preparar) throw new Error(`api-mako: «${def.id}» no tiene preparar()`);
