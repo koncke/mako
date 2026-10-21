@@ -2135,7 +2135,10 @@ Pedido de Martín (20/10): «que Ops Center sea lo principal en MaKo… crear we
 - **La clave del catálogo guarda los símbolos que cambian el nombre.** Borrarlos (`[^a-z0-9]`) hacía de «Curso de C» el
   «Curso de C++» (el primero que coincidía), de «Descuento 50» el «Descuento 50%» y de «?» un «🚀». Sólo se saca la
   puntuación que no cambia el nombre (comillas, puntos, comas, paréntesis, guiones); un nombre que queda vacío no se
-  compara, y dos del catálogo con la misma clave se preguntan, no se toma el primero.
+  compara. Dos del catálogo con la misma clave («Mentoría» y «Mentoria»): vale el que coincide EXACTO con lo mandado, y si
+  todos se llaman igual SIN MIRAR mayúsculas, el primero (abajo sólo llega el nombre, y el G1 ve «Mentoría» y «MENTORÍA»
+  como la misma opción: con las dos, la pregunta no se podía dibujar). Se pregunta sólo si no coincide exacto con ninguno: una
+  pregunta cuyas opciones vuelven a preguntar (la 6ª revisión) es peor que ninguna.
 - **Un `producto_nuevo` que nombra uno del catálogo pregunta sólo si no dice nada más** («no es Kairos», «uno parecido a
   la Mentoría 1 a 1»). Uno que lo nombra Y dice qué es («Mentoría grupal para emprendedoras» con «Mentoría») es nuevo:
   si preguntara, la persona elegiría «Un producto nuevo», volvería lo mismo y no saldría nunca.
@@ -2154,6 +2157,9 @@ Pedido de Martín (20/10): «que Ops Center sea lo principal en MaKo… crear we
 - **La receta no nombra herramientas:** no siempre viajan las que nombraría (lo fija su test). Y la línea del producto
   viaja SÓLO con generar_landing_con_ia, la única con dónde ponerlo: con las otras cuatro (en blanco, desde un diseño,
   presentación, replicar) la pregunta se hacía y la respuesta se perdía, porque `validarInput` descarta lo no declarado.
+  Pero en un turno de crear viajan las cuatro JUNTAS (`herramientasDelChat`), así que la línea dice a qué camino aplica
+  («si la creas con IA desde una idea o un texto; desde un diseño, en blanco o con una plantilla no se usa»). Un test de
+  la receta con UNA herramienta no prueba el turno real.
 - **Trampa:** armar una regex uniendo templates con «+» la rompe el minificador del build en producción
   (tests/minificador-templates lo frena): en una lista con `join('|')`.
 
@@ -2192,11 +2198,10 @@ Pedido de Martín (20/10): «que Ops Center sea lo principal en MaKo… crear we
   y lo contestado vale en CADA render) y el merge no lo trajo: decía «Respondiste» con el mensaje sin mandar, y al
   recargar volvía activo porque `conRespuestas` sólo miraba la `pregunta`. Ahora Elegir hace lo mismo que PreguntaHilo,
   BloqueHilo le pasa `ocupado`, y `conRespuestas` cuenta también el `elegir`.
-- **Una respuesta no cierra DOS selectores.** MaKo guarda en el mismo mensaje lo que dibujan las lecturas y su
-  pregunta (el G2 de diseños y el G1 del producto), y `conRespuestas` cerraba los dos con el primer mensaje: tocar
-  «Mentoría» dejaba los diseños apagados con «Respondiste: Mentoría». Con varios esperando el mismo mensaje, cada uno se
-  cierra sólo con lo que manda un toque suyo (`respuestasDeElegir` en bloques-web.ts, la misma fuente que el botón); lo
-  escrito que no es de ninguno los deja abiertos. Con uno solo, escribir lo contesta, como siempre.
+- **El G2 de diseños y el G1 del producto salen en el MISMO mensaje:** a cuál contesta cada mensaje de la persona lo
+  decide el chat de MaKo (`conRespuestas`), y su cosecha está en docs/hallazgos-second-brain.md («Varios selectores en el
+  hilo»). Lo que toca a esta área es que el G2 mande textos que digan de cuál vienen («Diseño: saltear»,
+  `respuestasDeElegir` en bloques-web.ts, la misma fuente que el botón).
 - **Una lectura que dibuja tiene que leer el pedido.** `listar_disenos_landing` dibujaba el G2 sin mirar
   `ctx.mensajeUsuario`: siempre los mismos tres, también en una presentación o con el diseño ya nombrado. Ahora
   `elegirDisenoPara` los ordena por el pedido y no dibuja nada en esos dos casos. «MaKo» es también el nombre de la app:
