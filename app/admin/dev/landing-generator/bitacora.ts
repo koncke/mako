@@ -935,4 +935,16 @@ export const BITACORA: Hito[] = [
       'app/m/mako/chat-ui.ts — conRespuestas: un selector viejo, sólo con el texto del botón tal cual',
     ],
   },
+  {
+    fecha: '21 oct', hora: '10:59', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: las preguntas del chat de MaKo se contestan cada una con lo suyo, ya en producción',
+    puntos: [
+      'En producción desde el run 205 (deploy de 51099bc45). Cuando MaKo te muestra los diseños y te pregunta el producto en el mismo mensaje, cada uno se contesta por separado: tocar el producto ya no apaga los diseños, y «Saltear» contesta sólo la pregunta en la que lo tocaste.',
+      'Contestar escribiendo cierra la pregunta que MaKo acaba de hacer, en todas las partes del chat. Si dejaste los diseños sin elegir, los puedes tocar más tarde.',
+      'Si dos productos tuyos se llaman casi igual, MaKo usa el que elegiste en vez de volver a preguntar. Y si no puede leer tus productos en ese momento, te pide volver a intentar en vez de crear la landing sin el producto que confirmaste.',
+      'No se vio con clics: está probado con tests. Se prueba en el ws3: en el Ops Center, «armame una landing», toca un producto y después elige un diseño.',
+    ],
+    revisar: '/second-brain?ws=3',
+  },
 ];
