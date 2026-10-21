@@ -37,6 +37,7 @@ import { aToolDef, porId } from '@/lib/api-mako/registro';
 import { errorParaTicket, type ErrorDelTurno } from '@/lib/tickets-reglas';
 import { identidadDe } from '@/lib/tickets-db';
 import { registrarError } from '@/lib/errores-app';
+import { avisoClaveTapada, taparClaves } from '@/lib/claves-en-el-chat';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
 import { confirmarPendiente, cancelarPendiente } from '@/lib/api-mako/acciones';
 import type { Ctx } from '@/lib/api-mako/tipos';
@@ -285,7 +286,12 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const canalKey = canalKeyDeSesion(s.id);
     // El corte respeta los TEXTOS PEGADOS (lib/chat-pegado.ts, #848/#864): lo escrito hasta TOPE_MENSAJE, los pegados
     // con su propio tope, y las marcas siempre cerradas.
-    const textoPersona = recortarMensaje((entrada.mensaje ?? '').trim(), TOPE_MENSAJE);
+    // ⚠️ NUNCA UNA KEY EN EL CHAT (pieza 1.6, 20/10/2026): una clave pegada se TAPA antes de todo —el historial, el
+    // título, El Archivero y el modelo— y la respuesta trae el botón «Conectar» de su servicio (lib/claves-en-el-chat.ts).
+    // Desde aquí, el mensaje de la persona es `mensaje`: el crudo no se vuelve a leer.
+    const tapado = taparClaves(entrada.mensaje ?? '');
+    const mensaje = tapado.texto;
+    const textoPersona = recortarMensaje(mensaje.trim(), TOPE_MENSAJE);
     const adjuntos = entrada.adjuntos ?? [];
     const avisos: string[] = [];
 
@@ -342,7 +348,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // sin pedirlo, como los PDF (#884, lib/chat-mako-adjuntos.ts → archivarPegadosDelChat). Sólo con `guardarAdjuntos`:
     // el MaKo Analyst de un lead usa este turno y lo que se pega ahí es del LEAD.
     if (persona.rol === 'admin' && entrada.guardarAdjuntos) {
-      const { pegados } = partirPegados(entrada.mensaje ?? '');
+      const { pegados } = partirPegados(mensaje);
       if (pegados.length) await archivarPegadosDelChat(ws, inicio, pegados);
     }
     let titulo = s.titulo;
@@ -544,7 +550,12 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       ? avisoSinIA(await esNegocioDelEntorno(ws).catch(() => false), iaParaConectar(await iaConFila()))
       : null;
     if (!respuesta) aviso = [aviso, sinIAEs?.aviso ?? AVISO_NO_PUDE].filter(Boolean).join(' ');
-    const conectar = sinIAEs?.conectar ?? null;
+    let conectar = sinIAEs?.conectar ?? null;
+    // La clave tapada se le dice, con el botón del servicio que se reconoció.
+    if (tapado.tapadas) {
+      aviso = [avisoClaveTapada(tapado.servicio), aviso].filter(Boolean).join(' ');
+      conectar = conectar ?? tapado.servicio;
+    }
     return { ok: !!respuesta, sesion, mensajes: guardados, aviso, paraLaPersona, propuestas, pantallas, conectar };
   });
 }

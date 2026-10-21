@@ -125,4 +125,20 @@ export const BITACORA: Hito[] = [
       '«Conectar tu IA» abre la IA que el negocio ya tiene cargada (su Claude primero); sólo sin ninguna ofrece Gemini.',
     ],
   },
+  {
+    fecha: '20 oct', hora: '23:30', chat: 'Cerebro', sesion: 'local_797d5445-2365-464d-ae3d-1d71aa7baa8c', cuenta: 'claude4', actor: 'martin', tipo: 'prompt',
+    titulo: 'El Ops Center pasa a ser lo principal de MaKo',
+    pedido: 'comienza a implementar directamente toda mi idea de que Ops Center sea lo principal en MaKo... quiero que en Ops Center se pueda hacer todo',
+    puntos: ['Lo repartió el Cerebro por áreas (docs/ops-center-principal.md). A la Ticketera le tocaron la 1.6 (nunca una key en el chat) y la 1.17 (la IA del cliente).'],
+  },
+  {
+    fecha: '21 oct', hora: '02:00', chat: CH, sesion: SESION, cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Una clave pegada en el chat ya no queda guardada ni le llega a la IA',
+    revisar: '/second-brain',
+    puntos: [
+      'Si alguien pega una clave (de Claude, de OpenAI, de Google, de Stripe…) en el chat, MaKo la tapa antes de guardarla y antes de pensar: en la conversación queda «[clave tapada]».',
+      'Le contesta «Tapé tu clave» con el botón para pegarla donde va, en la conexión de ese servicio, sin salir de la pantalla.',
+      'Un email, un teléfono o un monto no se tapan: en el chat del negocio son su trabajo.',
+    ],
+  },
 ];
