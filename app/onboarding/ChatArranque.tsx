@@ -25,7 +25,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, useWs } from '@/app/_ui/Link';
-import { CLAVE_ENTRADA_MOVIL } from '@/app/m/_ui/EntradaMobile';
+import { CLAVE_ENTRADA_MOVIL } from '@/app/m/_ui/entrada';
 import { conWs } from '@/lib/ws-tab';
 import { VistaPdf } from '../offer/VistaPdf';
 import { Button } from '@/app/_ui';
