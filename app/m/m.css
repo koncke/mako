@@ -802,6 +802,6 @@
 /* LA ENTRADA DE MaKo (20/10/2026, app/m/_ui/EntradaMobile.tsx): con la sesión ya vista, el script de antes del primer pintado
    (app/m/_ui/entrada.ts) marca <html> y no se dibuja nunca, sin esperar a React. Y si el JS no carga, se va sola a los 6 s:
    una capa fija a pantalla completa no puede tapar la app para siempre. */
-html[data-entrada-vista] .m-entrada { display: none; }
+:root:has(#m-root)[data-entrada-vista] .m-entrada { display: none; }
 .m-entrada { animation: m-entrada-se-va 0s linear 6s forwards; }
 @keyframes m-entrada-se-va { to { visibility: hidden; } }

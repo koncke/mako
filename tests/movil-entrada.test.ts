@@ -65,7 +65,7 @@ test('la sesión ya vista no la pinta nunca: el script de antes de pintar marca 
 
 test('el CSS la oculta con la marca, y sin JS se va sola a los 6 s', () => {
   const css = leer('app/m/m.css');
-  assert.match(css, /html\[data-entrada-vista\] \.m-entrada \{ display: none; \}/);
+  assert.match(css, /:root:has\(#m-root\)\[data-entrada-vista\] \.m-entrada \{ display: none; \}/);
   assert.match(css, /\.m-entrada \{ animation: m-entrada-se-va 0s linear 6s forwards; \}/);
   assert.match(css, /@keyframes m-entrada-se-va \{ to \{ visibility: hidden; \} \}/);
 });
