@@ -143,7 +143,7 @@ test('4. el lead nuevo entra AL INSTANTE a la automatización de la etapa en la 
   // El cableado: `lead_nuevo` suma `etapa_actual` y pregunta lo MISMO que la reserva.
   const nutri = sinComentarios(leer('lib/nutricion.ts'));
   const ev = nutri.slice(nutri.indexOf('export async function enrolarPorEvento('), nutri.indexOf('delEvento = unaPorSecuencia('));
-  assert.match(ev, /const conSuEtapa = evento === 'agenda_nueva' \|\| evento === 'lead_nuevo';/, '«Un Lead Entró» entraba por el barrido de la hora');
+  assert.match(ev, /const conSuEtapa = ETAPA_DEL_EVENTO\[evento\] != null;/, '«Un Lead Entró» entraba por el barrido de la hora');
   assert.match(ev, /const claves = conSuEtapa \? \[\.\.\.\(TRIGGERS_POR_EVENTO\[evento\] \?\? \[\]\), TRIGGER_ETAPA\] :/);
   assert.match(ev, /if \(evento === 'etapa' \|\| conSuEtapa\) \{/);
 });
