@@ -163,12 +163,12 @@ const COSA = '(?:productos?|servicios?|ofertas?|cursos?|programas?|talleres?|men
  * más», «mi otro curso», «nuevo producto», «segundo producto», «producto nuevo», «producto distinto», «producto aparte».
  * (Revisión del 20/10/2026, noche: «nuevo», «segundo», «distinto», «diferente» y «aparte» también piden otro.)
  */
-const OTRO = new RegExp(
-  `\\b(?:otr[ao]s?\\s+(?:de\\s+(?:mis|los|tus|sus|nuestros|nuestras)\\s+)?${COSA}(?:\\s+mas)?`
-  + `|(?:nuev[ao]s?|segund[ao]s?|distint[ao]s?|diferentes?)\\s+${COSA}`
-  + `|${COSA}\\s+(?:nuev[ao]s?|distint[ao]s?|diferentes?|aparte))\\b`,
-  'g',
-);
+// En una lista y no con «+» entre templates: el minificador del build se come el medio (tests/minificador-templates).
+const OTRO = new RegExp(`\\b(?:${[
+  `otr[ao]s?\\s+(?:de\\s+(?:mis|los|tus|sus|nuestros|nuestras)\\s+)?${COSA}(?:\\s+mas)?`,
+  `(?:nuev[ao]s?|segund[ao]s?|distint[ao]s?|diferentes?)\\s+${COSA}`,
+  `${COSA}\\s+(?:nuev[ao]s?|distint[ao]s?|diferentes?|aparte)`,
+].join('|')})\\b`, 'g');
 /** Lo que dice que la landing ES para eso («para mi otro producto», «de mis otros productos»). */
 const DESTINO = new Set(['para', 'de', 'del', 'sobre', 'con', 'al', 'lanzar', 'vender', 'promocionar']);
 /** Lo que dice que NO («no menciones otros productos», «sin hablar de mis otros servicios»). */
