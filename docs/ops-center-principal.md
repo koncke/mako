@@ -740,6 +740,10 @@ En los tres casos, el grupo de WhatsApp sigue anotando como idea.
 - A) Tarjeta en el chat con el monto antes → después y doble confirmación.
 - B) Sigue en una pantalla aparte: 8 de las 13 acciones de Meta seguirían sacando a la persona del chat.
 
+> **DECIDIDO (Martín, 21/10 01:24, pregunta `ecebe20a`): A, en el chat con doble confirmación.** Lo que mueve
+> plata se confirma en la tarjeta del chat, con el monto antes → después y dos confirmaciones. Ya no va a una
+> pantalla aparte.
+
 **D3. Mensajes y correos a terceros.**
 - a) ¿Tocar «Enviar» en la tarjeta cuenta como la aprobación de una persona? *(El mapa del CRM recomienda que sí.)*
 - b) Los borradores que deja la regla anti-baneo: ¿«Mandar todos» con un toque, o de a uno?
