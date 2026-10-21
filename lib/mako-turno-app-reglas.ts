@@ -353,6 +353,8 @@ export function mensajeLeadApp(nombre: string | null | undefined): string {
 
 /** Lo que queda en el hilo cuando la acción quedó lista y el modelo no escribió nada. */
 export const TEXTO_SOLO_TARJETA = 'Te lo dejé listo para que lo confirmes.';
+/** Lo que queda cuando una herramienta dibujó algo (un gráfico, un antes y después) y el modelo no escribió nada. */
+export const TEXTO_SOLO_BLOQUE = 'Aquí lo tienes.';
 
 // ── El historial que vuelve al modelo ─────────────────────────────────────────
 

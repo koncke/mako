@@ -16,7 +16,7 @@
 // Probado rompiéndolo (20/10/2026, con la base en 0 fallos):
 //   · `bloquea` que deja pasar las acciones → 1 fallo (2);
 //   · `retirar` que devuelve todo → 1 fallo (2);
-//   · el turno sin guardar la pregunta con el mensaje → 1 fallo (3);
+//   · el turno sin guardar la pregunta con el mensaje → 1 fallo (3) (desde el 21/10, `conElMensaje` sin la pregunta);
 //   · `itemsDeSesion` sin marcar la contestada → 1 fallo (4).
 
 import test from 'node:test';
@@ -77,7 +77,9 @@ test('3. el turno: lleva la herramienta, la corre antes que todo, retira y guard
   assert.match(correr, /if \(guardia\.bloquea\(name\)\) return \{ content: JSON\.stringify\(\{ ok: false, error: ERROR_TRAS_PREGUNTAR \}\), isError: true \};/, 'y rechaza ANTES de correr nada');
   assert.match(s, /resolverPendiente\(ws, t\.pendienteId, 'cancelada', 'MaKo preguntó antes de proponer', \{ soloSiPendiente: true \}\)/, 'retira las tarjetas del turno en la base');
   assert.match(s, /descartarPropuesta\(id\)/, 'y las propuestas de pantalla');
-  assert.match(s, /await appendMessage\(s\.id, 'assistant', respuesta, pregunta \? \[aGuardar\(pregunta\)\] : undefined\);/, 'la pregunta va con el mensaje');
+  // Desde el 21/10 va junto con lo que dibujaron las herramientas (tests/chat-bloques-salida.test.ts).
+  assert.match(s, /const conElMensaje = \[\.\.\.dibujos, \.\.\.\(pregunta \? \[pregunta\] : \[\]\)\]/, 'la pregunta va con el mensaje');
+  assert.match(s, /await appendMessage\(s\.id, 'assistant', respuesta, conElMensaje\.length \? conElMensaje\.map\(aGuardar\) : undefined\);/);
   // La frase del «Hecho»: hoy, sin herramientas (es de la 1.2). Cuando el clasificador la mande a actuar, esto cambia.
   const frase = 'todos los martes a las 3 a todo el funnel';
   const v = clasificarIntencion(frase, { hayMedia: false });

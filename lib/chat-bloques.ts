@@ -176,6 +176,25 @@ export function sanearBloque(crudo: unknown): Bloque | null {
 /** El bloque que trae el resultado de una operación (`datos.bloque`), saneado. */
 export const bloqueDeResultado = (datos: Record<string, unknown> | undefined): Bloque | null => sanearBloque(datos?.bloque);
 
+/**
+ * El bloque que trae la SALIDA de una herramienta (21/10/2026: una lectura que dibuja su gráfico, una propuesta del Video
+ * Editor con su antes y después): un campo `bloque` arriba de todo en su JSON (en una propuesta, `extra.bloque`, que
+ * lib/api-mako/ejecutar.ts pone primero). Devuelve el bloque saneado y la salida SIN él: el modelo no necesita leerlo (lo
+ * dibuja el código) y un gráfico pesa. Una salida que no es JSON, o sin `bloque`, vuelve igual.
+ */
+export function bloqueDeSalida<T>(out: T): { out: T; bloque: Bloque | null } {
+  const o = out as unknown;
+  const texto = typeof o === 'string' ? o : o && typeof o === 'object' && typeof (o as { content?: unknown }).content === 'string' ? (o as { content: string }).content : null;
+  if (!texto || !texto.includes('"bloque"')) return { out, bloque: null };
+  let j: unknown;
+  try { j = JSON.parse(texto); } catch { return { out, bloque: null }; }
+  if (!j || typeof j !== 'object' || Array.isArray(j) || !('bloque' in j)) return { out, bloque: null };
+  const { bloque: crudo, ...resto } = j as Record<string, unknown>;
+  const sin = JSON.stringify(resto);
+  const nuevo = (typeof o === 'string' ? sin : { ...(o as object), content: sin }) as T;
+  return { out: nuevo, bloque: sanearBloque(crudo) };
+}
+
 /** Lo que se guarda en `chart_chats.bloques`. */
 export const aGuardar = (b: Bloque): BloqueGuardado => ({ k: 'bloque', b });
 

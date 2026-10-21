@@ -60,7 +60,7 @@ import {
   renameSession, tituloDesde, type ChartSession, type ChartMsgConBloques,
 } from '@/lib/chart-chats';
 import { adjuntosVisibles, leerRef, sanearBloques } from '@/lib/chat-mako-bloques';
-import { aGuardar, bloqueDeResultado, bloquesGuardados, type Bloque } from '@/lib/chat-bloques';
+import { MAX_BLOQUES_MENSAJE, aGuardar, bloqueDeResultado, bloqueDeSalida, bloquesGuardados, type Bloque } from '@/lib/chat-bloques';
 import { archivarPdfsDelChat, archivarPegadosDelChat, borrarAdjuntos, subirAdjuntos, urlFirmadaDeAdjunto } from '@/lib/chat-mako-adjuntos';
 import { partirPegados, recortarMensaje, textoParaTitulo } from '@/lib/chat-pegado';
 import { archivoATexto } from '@/lib/archivo-a-texto';
@@ -74,7 +74,7 @@ import { bloquesDeAdjuntos, placeholderDeAdjunto, promptDeAdjunto, type AdjuntoL
 import {
   chartKeyDePersona, canalKeyDeSesion, herramientasDelChat, tarjetaDePendiente, linksDeUnaAccion, abrirDeResultado, idDePropuesta,
   type FormularioPropuesta, type PropuestaPantalla,
-  propuestaDePantalla, sinLinksDeRevision, MENSAJE_BORRADOR_APP, mensajeLeadApp, TEXTO_SOLO_TARJETA,
+  propuestaDePantalla, sinLinksDeRevision, MENSAJE_BORRADOR_APP, mensajeLeadApp, TEXTO_SOLO_TARJETA, TEXTO_SOLO_BLOQUE,
   historialParaModelo, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA,
   type LinkCapturado, type MensajeChat, type RespuestaTurno, type ResultadoTarjeta, type SesionChat, type TarjetaPendiente,
 } from '@/lib/mako-turno-app-reglas';
@@ -477,6 +477,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       const d = porId(n);
       return d ? d.tipo !== 'lectura' : NOMBRES_ACCION.has(n) && !n.startsWith('listar_');
     });
+    /** Lo que dibujaron las herramientas del turno (`bloqueDeSalida`), y si vino de una que escribe. */
+    const bloquesDelTurno: { b: Bloque; accion: boolean }[] = [];
     // Desde que MaKo pregunta, no se propone nada en el turno (1.9): una lectura sí, para armar las opciones.
     const guardia = crearGuardiaDePregunta((n) => { const d = porId(n); return d ? d.tipo !== 'lectura' : NOMBRES_ACCION.has(n) && !n.startsWith('listar_'); });
     /** Cuántas herramientas corrieron DE VERDAD en el turno: el guardia de promesas lo necesita (1.5). */
@@ -500,7 +502,11 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       // heredadas, que tienen gemela) por el registro: así cada acción pasa por el gating
       // de la vista de ESTA persona y deja su pendiente con la clave de ESTE chat.
       // La instrucción de una pendiente es la de WhatsApp («pide un sí»): acá se confirma en la tarjeta.
-      const out = conInstruccionDeTarjeta(await (NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input) : runRegistro(name, input)));
+      // Lo que la herramienta DIBUJA (`bloque` en su salida: el gráfico de una lectura, el antes y el después de una
+      // propuesta del Video Editor) lo cuelga el código del mensaje de MaKo; al modelo le llega la salida sin él.
+      const salida = bloqueDeSalida(conInstruccionDeTarjeta(await (NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input) : runRegistro(name, input))));
+      if (salida.bloque && bloquesDelTurno.length < MAX_BLOQUES_MENSAJE) bloquesDelTurno.push({ b: salida.bloque, accion: porId(name)?.tipo !== 'lectura' });
+      const out = salida.out;
       memo.anotar(name, out);
       const err = errorParaTicket(name, out);
       if (err) erroresDelTurno.push(err);
@@ -560,7 +566,14 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
         ...capturadas.map((p) => { const id = p.clase === 'accion' ? idDePropuesta(p.escritorio) : null; return id ? descartarPropuesta(id).catch(() => undefined) : undefined; }),
       ]);
     }
-    const { propuestas, pantallas } = retirar(pregunta, delTurno, capturadas);
+    const retirado = retirar(pregunta, delTurno, capturadas);
+    const propuestas = retirado.propuestas;
+    // Lo que dibujaron las herramientas: con una pregunta, sólo lo de las lecturas (lo propuesto se retiró).
+    const dibujos = bloquesDelTurno.filter((x) => !pregunta || !x.accion).map((x) => x.b);
+    // Una propuesta de pantalla que ya trae su bloque (el antes y el después de una edición de video, con su «Aceptar en el
+    // editor») no se dibuja dos veces: queda el bloque.
+    const conBloque = new Set(dibujos.flatMap((b) => ('abrir' in b && b.abrir ? [b.abrir.href] : [])));
+    const pantallas = retirado.pantallas.filter((p) => !conBloque.has(p.escritorio));
     const borrador = capturados.find((c) => c.clase === 'borrador') ?? null;
     const lead = capturados.find((c) => c.clase === 'lead') ?? null;
 
@@ -592,10 +605,13 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     if (!respuesta && (propuestas.length || pantallas.length)) respuesta = TEXTO_SOLO_TARJETA;
     // La pregunta va con el mensaje de MaKo (al recargar vuelve); sin texto, el mensaje ES la pregunta.
     if (pregunta && !respuesta) respuesta = pregunta.pregunta;
+    // Lo que dibujaron las herramientas va con el mensaje (al recargar vuelve). Sin texto, una línea que lo presente.
+    if (dibujos.length && !respuesta) respuesta = TEXTO_SOLO_BLOQUE;
+    const conElMensaje = [...dibujos, ...(pregunta ? [pregunta] : [])].slice(0, MAX_BLOQUES_MENSAJE);
 
     if (respuesta) {
-      await appendMessage(s.id, 'assistant', respuesta, pregunta ? [aGuardar(pregunta)] : undefined);
-      guardados.push({ role: 'assistant', content: respuesta, ...(pregunta ? { bloques: [pregunta] } : {}) });
+      await appendMessage(s.id, 'assistant', respuesta, conElMensaje.length ? conElMensaje.map(aGuardar) : undefined);
+      guardados.push({ role: 'assistant', content: respuesta, ...(conElMensaje.length ? { bloques: conElMensaje } : {}) });
     }
     // Sin IA: lo dice MaKo, con el botón que abre el modal de las keys en esta misma pantalla (`conectar`). Salvo en el
     // workspace del entorno, donde la key que pegara pasaría a ser la de la plataforma (`avisoSinIA`): ahí, sin botón.

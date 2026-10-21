@@ -2037,8 +2037,14 @@ Probado en `tests/chat-bloques.test.ts`, que confirma `crear_diseno_imagen` de p
     carga con `PegadoHilo.tsx` y el MaKo Analyst de la ficha importa aparte.
 
 **Sin hacer:**
-- RespuestaTurno.bloques, para lo que dibuja un TURNO y no una tarjeta: llega con la 1.9 (`preguntar_al_usuario`), que es
-  la primera que lo produce.
+- ~~Lo que dibuja un TURNO y no una tarjeta.~~ Hecho el 21/10. No fue `RespuestaTurno.bloques`: el bloque va COLGADO DEL
+  MENSAJE de MaKo, así vuelve al recargar.
+  - Lo produce la pregunta de la 1.9.
+  - También cualquier herramienta que devuelva un campo `bloque` en su JSON (`bloqueDeSalida`): el gráfico de una
+    lectura (Dashboard), el antes y el después de una propuesta del Video Editor y la tarjeta de una landing. Es UN solo
+    camino para las tres áreas.
+  - Al modelo le llega la salida sin el bloque, porque lo dibuja el código.
+  - Una propuesta de pantalla que ya trae su bloque no se dibuja dos veces.
 - G4 sin «Deshacer»: no hay una operación que deshaga un cambio de textos.
 - G6 sin consultar el estado solo: la 1.11.
 - Las demás áreas no devuelven `bloque` todavía. Por ahora lo devuelven `crear_diseno_imagen` y `duplicar_diseno_imagen`
