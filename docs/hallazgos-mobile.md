@@ -36,6 +36,8 @@ la de /m/second-brain.
   otro lugar, mirá CÓMO se dibuja donde estaba, no sólo sus datos. La pantalla del Centro tampoco volvía a More: es raíz.
 - **La entrada de MaKo al abrir la app** (21/10/2026, mismo pedido): es la de app/onboarding/EntradaMako.tsx, reusada con
   un `destino`, una vez por apertura (sessionStorage) y volando a la criatura de la barra. Copiarla la habría dejado vieja.
+  ⚠️ Va con `next/dynamic` en ShellM: importada de frente, su criatura arrastra `criatura.css` al índice de app/m/_ui y
+  tumba los tests de node que lo importan (run 182 cayó en tests/m-offer.test.ts; es la misma trampa del `.module.css`).
 
 ## Las tabs de CREACIÓN en el teléfono: editores, AI Avatar y writers (17/10/2026, «Mobile 1»)
 

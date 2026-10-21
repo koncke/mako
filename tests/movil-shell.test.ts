@@ -356,7 +356,9 @@ test('el Ops Center de la barra es la criatura de MaKo, que flota y parpadea, y 
 // barra vuela a la foto del onboarding (que en /m no existe); sin la guarda de /m/configurar se pisa con la del onboarding.
 test('al abrir la app, la MISMA entrada de MaKo del onboarding, una vez por apertura, y vuela al Ops Center de la barra', () => {
   const shell = sinComentariosTs(leer('app/m/_ui/ShellM.tsx'));
-  assert.match(shell, /import \{ EntradaMako \} from '@\/app\/onboarding\/EntradaMako';/, 'una copia de la animación se queda vieja');
+  // La MISMA pieza, cargada diferida: un import estático arrastra su .css a los tests de node (run 182).
+  assert.match(shell, /const EntradaMako = dynamic\(\(\) => import\('@\/app\/onboarding\/EntradaMako'\)\.then\(\(m\) => m\.EntradaMako\), \{ ssr: false \}\);/, 'una copia de la animación se queda vieja');
+  assert.doesNotMatch(shell, /^import \{ EntradaMako \}/m, 'importada de frente, su .css tumba los tests de node');
   assert.match(shell, /if \(sessionStorage\.getItem\(LS_ENTRADA\)\) return;\s*sessionStorage\.setItem\(LS_ENTRADA, '1'\);/);
   assert.match(shell, /if \(cliente \|\| limpia\(pathname\) === RUTA_CONFIGURAR\) return;/);
   assert.match(shell, /\{entrada && <EntradaMako destino=\{`\[\$\{DESTINO_ENTRADA\}\]`\} onFin=\{\(\) => setEntrada\(false\)\} \/>\}/);

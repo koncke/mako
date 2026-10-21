@@ -26,12 +26,15 @@
 // =============================================================================
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import dynamic from 'next/dynamic';
 import Link, { useRouter } from '@/app/_ui/Link';
 import { useRutaInterna } from '@/app/_components/VistaMovil';
 import { Icon } from '@/app/_components/icons';
 import { MakoLogo } from '@/app/_components/MakoBrand';
 import { Criatura } from '@/app/_components/Criatura';
-import { EntradaMako } from '@/app/onboarding/EntradaMako';
+// La entrada se carga DIFERIDA: su criatura importa un .css (app/admin/operaciones/criatura.css), y el índice de
+// app/m/_ui lo arrastraría a cada test de node que lo importe (cayó el run 182, tests/m-offer.test.ts).
+const EntradaMako = dynamic(() => import('@/app/onboarding/EntradaMako').then((m) => m.EntradaMako), { ssr: false });
 import { ATTR_MODO, LS_MODO } from '@/lib/temas-candidatos';
 import { HOME_MOVIL, destinoActivo, type IdBarra, type ItemBarra } from '@/lib/movil-rutas';
 import { iniciarCapturaInstalacion } from '@/lib/movil-instalar';
