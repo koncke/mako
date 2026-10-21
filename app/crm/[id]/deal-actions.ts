@@ -267,7 +267,7 @@ export async function marcarPagoManualAction(pagoId: number, leadId: number, dat
  * La moneda, el concepto y el método (14/10/2026): como en `marcarPagoManualAction`, `monto` es DÓLARES y sin
  * `moneda` todo es como siempre.
  */
-export async function registrarPagoSueltoAction(leadId: number, datos: { monto: number; fecha: string; hora?: string | null } & DatosDeMoneda): Promise<void> {
+export async function registrarPagoSueltoAction(leadId: number, datos: { monto: number; fecha: string; hora?: string | null; mensualidad?: boolean } & DatosDeMoneda): Promise<void> {
   if (!(await haySesion())) throw new Error(SIN_SESION);
   const r = await registrarPagoSuelto(leadId, datos);
   await logLeadEvent(leadId, 'Pago registrado', `Pago fuera del plan por ${textoDelPago(r.monto, { ...datos, moneda: r.moneda, montoOriginal: r.montoOriginal })} el ${fmtDDMMYYYY(datos.fecha)}${datos.hora ? ` · ${datos.hora}` : ''}`, await autorActual());

@@ -235,4 +235,28 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm?ws=3',
   },
+  {
+    fecha: '21 oct', hora: '07:00', chat: 'Pagos', sesion: 'local_d0cd6fc8-e2f9-4ee9-b76a-19264ced015f', cuenta: 'claude4', actor: 'claude', tipo: 'correccion',
+    titulo: 'Hecho: un cobro por menos deja su diferencia sin cuotas fantasma, y el asistente de Ganado no cobra dos veces un mes',
+    pedido: 'revisiones adversariales del cobro, tercera a quinta (Cerebro, 21/10)',
+    puntos: [
+      'Cobrar una cuota por menos (300 de 500) deja la cuota cobrada y la diferencia pendiente juntas o ninguna: si algo falla en el medio, no queda una cuota fantasma que la cobranza le reclame al cliente, y reintentar no la duplica.',
+      'El asistente de Ganado ya no rehace un plan que existe: volver a confirmar una suscripción cerrada no le agrega cuotas.',
+      'Un pago suelto ya cobrado cuenta como el primer mes de la suscripción: la cuota de hoy no duplica el mes pagado.',
+      'Lo que el asistente no hizo (un plan que ya estaba, pagos ya cobrados, una cuota con un link sin pagar) se dice en una pantalla antes de cerrar.',
+      'La primera cuota de una suscripción es el día del cierre, y «+ Agregar cuota» propone el mes siguiente en el día pactado.',
+      'Si el webhook de la pasarela falla a medias, su reintento corta los recordatorios del cliente que ya pagó.',
+    ],
+    commits: [
+      { sha: '2a04fc94f', msg: 'Pagos: el cobro de menos en una transacción (mig 0318), y el asistente de Ganado arma el plan una vez desde el día del cierre', lineas: 471, archivos: 15 },
+      { sha: '3b739200a', msg: 'Pagos: un pago suelto SÍ es parte del plan, lo que el asistente no hace lo muestra, y la 0318 cerrada a la clave pública (cuarta revisión)', lineas: 350, archivos: 11 },
+    ],
+    archivos: [
+      'supabase/migrations/0318_cobrar_cuota_con_resto.sql — el cobro por menos en una transacción (aplicada antes del deploy)',
+      'lib/pagos.ts — `cobrarConResto` y `curarDespues`',
+      'lib/pagos-campo.ts — `planDelAsistente`',
+      'app/crm/StageMoveDialog.tsx y app/crm/actions.ts — el asistente de Ganado y su aviso',
+    ],
+    revisar: '/crm/2739?ws=3&tab=pagos',
+  },
 ];

@@ -19,7 +19,7 @@ import { faltaColumnaFunnel } from './funnels-elegidos';
 import { pasaAGanado } from './crm-curso-al-ganar-reglas';
 import { centavos, diferenciaPendiente, type RestoDeCobro } from './pagos-diferencia';
 import {
-  aplicarObligacion, cuotasDelPlan, esCampoLeadDeal, esSeccionDeal, etiquetaDePago, fusionarCampo, pagoEnMoneda, patchDeVenta,
+  aplicarObligacion, avisoPlanUniforme, cuotasDelPlan, esCampoLeadDeal, esSeccionDeal, etiquetaDePago, fusionarCampo, pagoEnMoneda, patchDeVenta,
   diferenciaDePlan, reconciliarCuotas, rotuloCampoDeal, rotuloObligacion, valorDeCampoDeal, CAMPOS_LEAD_DEAL, COLUMNA_SECCION, MONEDA_POR_DEFECTO,
   type CambioObligacion, type CambioVenta, type CampoLeadDeal, type CuotaDeseada, type CuotaExistente, type FilaVenta,
   type ModoReconciliar, type Obligaciones, type PlanDeCuotas, type PlanUniforme, type Proteccion, type SeccionDeal,
@@ -58,8 +58,13 @@ export type Pago = {
   // Lo cargado a mano (mig 0292): por qué y cómo se cobró. null en lo de la pasarela y en lo viejo.
   concepto?: string | null;
   metodo?: string | null;
-  /** Nació ya cobrada: un pago suelto o una mensualidad registrada a mano (mig 0295). Deshacerla la quita. */
+  /** Nació ya cobrada: un pago suelto, una mensualidad registrada a mano (mig 0295) o el cobro de un link que no saldaba
+   *  ninguna cuota (`registrarCobroDeProveedor`). Deshacer la de a mano la quita. No es una cuota del plan (`esCuotaDelPlan`). */
   nacio_cobrada?: boolean | null;
+  /** La diferencia de un cobro por menos: el id de la cuota de la que salió (`cobrar_cuota_con_resto`). No es del plan. */
+  resto_de?: number | null;
+  /** Se registró como la mensualidad («Registrar el mes cobrado», mig 0323): vale un mes en una suscripción. */
+  es_mensualidad?: boolean | null;
   /** El cliente se dio de baja (mig 0307, lib/pagos-baja.ts): impaga y sin vencimiento; el que tenía, en `baja_vencia`. */
   baja_at?: string | null;
   baja_vencia?: string | null;
@@ -193,7 +198,7 @@ async function cuotasParaReconciliar(leadId: number): Promise<CuotaExistente[]> 
   return pagos.map((q) => ({
     id: q.id, numero: q.numero, monto_usd: Number(q.monto_usd), fecha_esperada: q.fecha_esperada, pagado: q.pagado,
     // La de un cliente dado de baja (#871) queda fuera del plan como la devuelta: ni se casa, ni se reescribe, ni se borra.
-    devuelta: noEsDeuda(q), protegida: prot.get(q.id) ?? [],
+    devuelta: noEsDeuda(q), nacio_cobrada: !!q.nacio_cobrada, resto_de: q.resto_de ?? null, protegida: prot.get(q.id) ?? [],
   }));
 }
 
@@ -370,6 +375,11 @@ export async function savePlanPagos(
   plan: PlanPagos,
   hoy?: string,
 ): Promise<Pago[]> {
+  // ⚠️ NO SE ARMA ENCIMA DE PLATA SUELTA SIN PLAN (21/10/2026, quinta revisión): la seña de US$100 (número 1) tapaba la
+  // cuota 1 de US$1.000 y la API contestaba «Listo» con US$900 menos. La MISMA regla que el asistente de Ganado
+  // (`avisoPlanUniforme` → `pagosPrevios`, lib/pagos-campo.ts): se arma en la tab Pagos, viendo lo cobrado.
+  const aviso = avisoPlanUniforme(await getPagosByLead(leadId));
+  if (aviso) throw new Error(aviso);
   // Sin `hoy`, el del NEGOCIO (20/10/2026): el default era el día UTC, que de noche en México ya es mañana.
   return (await ajustarPlanPagos(leadId, plan, hoy ?? (await hoyEnWorkspace()))).pagos;
 }
@@ -401,15 +411,20 @@ export async function saveLeadPlanManual(leadId: number, p: PlanManual): Promise
 
   // El plan de pagos pertenece a un lead GANADO: dejamos el desenlace coherente
   // (estado_lead/cerro) para que Sold Revenue y los cierres lo cuenten siempre.
-  const leadUpdate: Record<string, unknown> = { estado_lead: 'ganado', cerro: true };
-  if (p.total_usd != null) leadUpdate.monto_cierre_usd = p.total_usd;
-  if (p.duracion_meses != null) leadUpdate.duracion_meses = p.duracion_meses;
-  if (p.fecha_cierre) leadUpdate.fecha_cierre = p.fecha_cierre;
-  if (p.fecha_inicio) leadUpdate.fecha_inicio_servicio = p.fecha_inicio;
   // ⚠️ ESTE UPDATE TAMBIÉN GANA: no pasa por updateLead, así que el enganche «al ganar» (la
   // invitación automática al curso, lib/crm-curso-al-ganar.ts) se llama acá. Por eso se lee
   // el estado de ANTES: sólo la transición invita, y guardar las cuotas de un ganado no.
-  const { data: antes } = await supabase.from('leads').select('estado_lead, funnel_id').eq('id', leadId).maybeSingle();
+  const { data: antes } = await supabase.from('leads').select('estado_lead, funnel_id, fecha_cierre').eq('id', leadId).maybeSingle();
+  const leadUpdate: Record<string, unknown> = { estado_lead: 'ganado', cerro: true };
+  if (p.total_usd != null) leadUpdate.monto_cierre_usd = p.total_usd;
+  if (p.duracion_meses != null) leadUpdate.duracion_meses = p.duracion_meses;
+  // ⚠️ LO QUE GANA LLEVA SU FECHA DE CIERRE (21/10/2026, quinta revisión): una suscripción ganada desde el asistente con
+  // su plan quedaba con `fecha_cierre` NULL (este update gana sin ella, y después `setPipelineStage` ve el lead ya
+  // ganado y no toca la venta). No contaba en los cierres del mes, el MRR la daba activa para siempre y nunca
+  // «Terminó». Sin una fecha que venga ni una que ya tenga, la del día del negocio: la misma con que se anclan sus cuotas.
+  if (p.fecha_cierre) leadUpdate.fecha_cierre = p.fecha_cierre;
+  else if (!(antes as { fecha_cierre?: string | null } | null)?.fecha_cierre) leadUpdate.fecha_cierre = await hoyEnWorkspace();
+  if (p.fecha_inicio) leadUpdate.fecha_inicio_servicio = p.fecha_inicio;
   if (Object.keys(leadUpdate).length > 0) {
     const { error } = await supabase.from('leads').update(leadUpdate).eq('id', leadId);
     if (error) throw new Error(`Error guardando plan del lead ${leadId}: ${error.message}`);
@@ -700,7 +715,19 @@ export async function cobrarCuota(
     await curarDespues(pagoId, leadId, true, fila.cobro_id ?? null);
     return { original, monto: null, pendiente: null, descuento: 0, moneda: null, montoOriginal: null, porLink: null, yaEstaba: true as const };
   };
+  // ⚠️ NO TOMARLA NO SIEMPRE ES «YA ESTABA» (21/10/2026, quinta revisión): si la cuota se BORRÓ en el medio (la
+  // reconciliación de un plan), decir «ya estaba cobrada» escondía un cobro que sí entró. Se mira cómo quedó.
+  const noTomada = async () => {
+    const { data: ahora } = await db.from('pagos').select('pagado').eq('id', pagoId).eq('lead_id', leadId).maybeSingle();
+    if ((ahora as { pagado?: boolean | null } | null)?.pagado) return yaCobrada();
+    throw new Error('La cuota cambió mientras la cobrabas (se quitó o se rehízo el plan): recarga la ficha y vuelve a cobrarla. No se escribió nada.');
+  };
   if (fila.pagado) return yaCobrada();
+  // ⚠️ Un monto que no llega a un centavo (0,004) no es «sin monto» (21/10/2026, quinta revisión): caía como el cobro
+  // ENTERO, o se guardaba en 0 y la deuda desaparecía sin su diferencia.
+  if (datos.monto != null && Number.isFinite(datos.monto) && datos.monto > 0 && centavos(datos.monto) <= 0) {
+    throw new Error('El monto tiene que ser de al menos un centavo.');
+  }
   // ⚠️ Si un link de la cuota ya se cobró, la cuota queda cobrada con ESE pago y no se toca nada más: ni el monto, ni
   // la diferencia, ni la moneda (17/10/2026, `linkYaPagado`). Antes la plata se contaba dos veces.
   if (!fila.pagado) {
@@ -734,12 +761,16 @@ export async function cobrarCuota(
       p_pago: pagoId, p_lead: leadId, p_fecha: datos.fecha, p_hora: datos.hora?.trim() || null, p_monto: monto,
       p_moneda: enMoneda?.moneda ?? null, p_monto_original: enMoneda?.montoOriginal ?? null, p_limpiar_moneda: !enMoneda && aMano,
       p_resto: pend, p_vence: fila.fecha_esperada ?? datos.fecha,
+      // ⚠️ Con el monto que se LEYÓ (mig 0323): editada en el medio (500 → 400), un cobro de 300 dejaba 300 cobrados y 200
+      // pendientes de una cuota de 400. Si cambió, no se toma y `noTomada` lo dice.
+      p_original: original,
     });
-    if (!r.tomada) return yaCobrada();
+    if (!r.tomada) return noTomada();
   } else {
-    const { data: tomada, error } = await siSigue(db.from('pagos').update(upd).eq('id', pagoId).eq('lead_id', leadId), true).select('id');
+    // Y con el monto que se leyó, como el cobro por menos (mig 0323): una cuota editada en el medio no se cobra por lo de antes.
+    const { data: tomada, error } = await siSigue(db.from('pagos').update(upd).eq('id', pagoId).eq('lead_id', leadId).eq('monto_usd', original), true).select('id');
     if (error) throw new Error(`Error cobrando el pago ${pagoId}: ${error.message}`);
-    if (!tomada?.length) return yaCobrada();
+    if (!tomada?.length) return noTomada();
   }
   // El concepto y el método (`etiquetarPago` no tira: una etiqueta que no se guardó no tumba un cobro que ya entró).
   await etiquetarPago(pagoId, datos, { limpiar: aMano });
@@ -751,7 +782,7 @@ export async function cobrarCuota(
   };
 }
 
-/** ¿La función de la 0318 no está en la base (la migración todavía no se aplicó)? */
+/** ¿La función de la 0323 (la de la 0318 con `p_original`) no está en la base (la migración todavía no se aplicó)? */
 const funcionNoExiste = (e: { code?: string; message?: string } | null): boolean =>
   !!e && (e.code === 'PGRST202' || e.code === '42883' || /could not find the function|function .* does not exist/i.test(e.message ?? ''));
 
@@ -763,14 +794,14 @@ const funcionNoExiste = (e: { code?: string; message?: string } | null): boolean
  */
 async function cobrarConResto(
   db: Awaited<ReturnType<typeof getTenantDb>>,
-  p: { p_pago: number; p_lead: number; p_fecha: string; p_hora: string | null; p_monto: number | null; p_moneda: string | null; p_monto_original: number | null; p_limpiar_moneda: boolean; p_resto: number; p_vence: string },
+  p: { p_pago: number; p_lead: number; p_fecha: string; p_hora: string | null; p_monto: number | null; p_moneda: string | null; p_monto_original: number | null; p_limpiar_moneda: boolean; p_resto: number; p_original: number; p_vence: string },
 ): Promise<{ tomada: boolean }> {
   const ws = await getWorkspaceActual();
   if (ws == null) throw new Error('No sé de qué negocio es esta cuota.');
   for (let intento = 0; intento < 2; intento++) {
     const { data, error } = await db.rpc('cobrar_cuota_con_resto', { p_ws: ws, ...p });
     if (!error) return { tomada: (data as { tomada?: boolean } | null)?.tomada === true };
-    if (funcionNoExiste(error)) throw new Error('Un cobro por menos todavía no se puede guardar: falta la migración 0318. No se escribió nada.');
+    if (funcionNoExiste(error)) throw new Error('Un cobro por menos todavía no se puede guardar: falta la migración 0323. No se escribió nada.');
     if (error.code !== PG_DUPLICADO) throw new Error(`Error cobrando el pago ${p.p_pago}: ${error.message}`);
   }
   throw new Error(`No pude cobrar el pago ${p.p_pago}: dos choques seguidos con el número de la diferencia. No se escribió nada.`);
@@ -783,7 +814,7 @@ async function cobrarConResto(
  */
 export async function registrarPagoSuelto(
   leadId: number,
-  datos: { monto: number; fecha: string; hora?: string | null } & DatosDeMoneda,
+  datos: { monto: number; fecha: string; hora?: string | null; mensualidad?: boolean } & DatosDeMoneda,
 ): Promise<{ pagoId: number; monto: number; moneda: string | null; montoOriginal: number | null }> {
   const monto = Number(datos.monto);
   if (!Number.isFinite(monto) || monto <= 0) throw new Error('El monto tiene que ser mayor a cero.');
@@ -802,6 +833,8 @@ export async function registrarPagoSuelto(
       lead_id: leadId, numero: base + 1, monto_usd: redondo, fecha_esperada: datos.fecha, pagado: false, pago_hora: datos.hora?.trim() || null,
       // Nace cobrada (mig 0295): deshacerla la quita, no la deja como deuda vencida.
       nacio_cobrada: true,
+      // Registrada COMO la mensualidad (mig 0323): vale un mes, sea del monto que sea (`mesesDeUnaCobrada`).
+      ...(datos.mensualidad ? { es_mensualidad: true } : {}),
       ...(enMoneda ? { moneda: enMoneda.moneda, monto_original: enMoneda.montoOriginal } : {}),
     })
     .select('id').single();
@@ -1090,6 +1123,10 @@ export async function registrarCobroDeProveedor(p: {
         fecha_esperada: p.fechaPago,
         pagado: true,
         fecha_pago: p.fechaPago,
+        // ⚠️ NACE COBRADA, NO ES UNA CUOTA DEL PLAN (revisión de 7524ec1c9, alta): sin la marca, la seña cobrada por link
+        // tomaba el lugar de la cuota 1 al armar el plan en la ficha ('slots'), y «Cambiar el plan» lo dejaba corto.
+        // Deshacerla no la quita (`quitarSiNacioCobrada` no toca lo de la pasarela).
+        nacio_cobrada: true,
         ...marca,
       })
       .select('id')
