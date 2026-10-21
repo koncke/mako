@@ -90,7 +90,7 @@ import { spawnSync } from 'node:child_process';
 //         da por superada si Martín contesta por otro lado), sólo la ÚLTIMA de cada chat y con tope antes de mandar
 //         (`preguntasParaSubir`), la marca no avanza si no entró (`marcasQueAvanzan`), `armarPregunta` limpia como el
 //         servidor, y un archivo de pregunta malformado no tumba la vuelta.
-export const VERSION = '1.17.3';
+export const VERSION = '1.17.4';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -1803,6 +1803,43 @@ function preguntar(archivo) {
   return { ok: true, id: q.id, sesion: local, sigue: 'Termina tu turno: Martín la contesta en tu chat del Ops Center y la respuesta te llega como un mensaje.' };
 }
 
+/**
+ * `retirar <id> [--chat <local_…>]` (1.17.4, 21/10/2026): el chat que hizo una pregunta dice que ya no hace falta (Martín:
+ * «no más preguntas»). La que todavía no subió se borra acá y no sale; la que ya está en el Ops Center queda superada: no
+ * espera y no se contesta. Sólo las del chat que la corre (o las del --chat que se pase). El id, entero o su comienzo.
+ */
+async function retirar(args) {
+  const iC = args.indexOf('--chat');
+  const local = iC >= 0 ? String(args[iC + 1] ?? '') : sesionQuePregunta();
+  if (!local || !DESTINO_RE.test(local)) throw new Error('no sé qué chat es: corre esto desde el chat que preguntó, o pasá --chat <local_…>');
+  const id = String(args.find((a, i) => !a.startsWith('--') && (iC < 0 || i !== iC + 1)) ?? '').trim().toLowerCase();
+  if (!/^[0-9a-f]{8}[0-9a-f-]{0,28}$/.test(id)) throw new Error('uso: retirar <id de la pregunta> [--chat <local_…>]');
+  // La que todavía no subió: se borra acá y no sale nunca.
+  const sinSubir = [];
+  for (const f of listar(PREGUNTAS)) {
+    const q = leerJson(f, null);
+    if (q && typeof q.id === 'string' && q.id.startsWith(id) && q.local === local) { fs.rmSync(f, { force: true }); sinSubir.push(q.id); }
+  }
+  if (sinSubir.length) log(`PREGUNTA ${sinSubir.join(', ')} de ${local} retirada antes de subir`);
+  const cfg = config();
+  if (!cfg.token) throw new Error('falta el token del Runner en esta PC');
+  const url = (cfg.url || 'https://hola-mako.com').replace(/\/$/, '');
+  const r = await fetch(`${url}/api/operaciones/cartero?retirar-pregunta=1`, {
+    method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${cfg.token}` },
+    body: JSON.stringify({ local, id }), signal: AbortSignal.timeout(30_000),
+  });
+  const o = await r.json().catch(() => ({}));
+  if (o?.ok === true) {
+    log(`PREGUNTA ${o.pregunta?.id ?? id} de ${local} retirada`);
+    return { ok: true, id: o.pregunta?.id ?? id, sesion: local, sigue: 'Ya no espera a Martín en el Ops Center.' };
+  }
+  if (sinSubir.length) return { ok: true, id: sinSubir[0], sesion: local, sigue: 'No había subido: no sale.' };
+  // Un servidor de antes de la 1.17.4 toma el pedido por una vuelta y contesta que falta la cuenta.
+  if (/falta la cuenta/.test(String(o?.error ?? ''))) throw new Error('MaKo todavía no sabe retirar preguntas: falta el deploy de la 1.17.4');
+  if (!o?.error) throw new Error(`MaKo contestó ${Number(r.status) || 0}`);
+  return { ok: false, id, sesion: local, error: o.error };
+}
+
 const archivoDeEsteModulo = () => path.resolve(decodeURIComponent(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')));
 
 function instalar() {
@@ -2002,6 +2039,7 @@ if (esMain) {
       case 'acuse': acuse(cuentaOpcional(), resto[0], resto[1], resto.slice(2).join(' ')); imprimir({ ok: true }); break;
       case 'cierre': cierre(resto[0], resto.slice(1)); imprimir({ ok: true }); break;
       case 'preguntar': imprimir(preguntar(resto[0])); break;
+      case 'retirar': imprimir(await retirar(resto)); break;
       case 'plan': imprimir(await planDelChat(resto)); break;
       case 'abrir': imprimir(abrir()); break;
       // El permiso local para abrir chats desde MaKo: lo prende Martín, una vez, pidiéndoselo al Runner.

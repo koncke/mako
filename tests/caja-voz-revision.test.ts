@@ -118,7 +118,8 @@ test('4. el cartero: origen, limpieza, nada lo tumba, la última de cada chat, y
   assert.equal(c.marcasQueAvanzan([marca], [{ ...q, local: LOCAL }], new Set(), [], () => ({ ...previa, retenida: 29 }), (m: string) => avisos.push(m))[0].offset, 900, 'a las 30 vueltas, sigue');
   assert.equal(avisos.length, 1, 'con aviso');
   assert.equal(c.marcasQueAvanzan([marca], [{ ...q, local: LOCAL }], new Set(), [], () => null)[0].offset, 900, 'un chat nuevo no se relee desde cero');
-  assert.match(leer('scripts/operaciones/cartero.mjs'), /export const VERSION = '1\.17\.3';/);
+  // La 1.17.3 o una posterior (la 1.17.4 suma `retirar`: tests/centro-preguntas-retirar.test.ts).
+  assert.ok(Number(/export const VERSION = '1\.17\.(\d+)';/.exec(leer('scripts/operaciones/cartero.mjs'))?.[1]) >= 3);
 });
 
 test('5. la respuesta con el message, el pegado de Word, y la vuelta que no pudo guardar', () => {

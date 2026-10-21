@@ -16,7 +16,7 @@ import 'server-only';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { DESTINO_RE, sanearTurnos } from './operaciones-reglas';
-import { estaAbierta, sanearPregunta, superarPreguntas, unirPreguntas, type PreguntaChat, type RespuestaPregunta, type TurnoQueSupera } from './centro-preguntas-chat';
+import { estaAbierta, retirarDeLaLista, sanearPregunta, superarPreguntas, unirPreguntas, type PreguntaChat, type RespuestaPregunta, type TurnoQueSupera } from './centro-preguntas-chat';
 
 const PREFIJO = 'operaciones.preguntas.';
 /** Los turnos de cada chat (lib/centro-turnos-db.ts): una pregunta de wrap_up se supera con un turno posterior. */
@@ -115,6 +115,21 @@ export async function superarConTurnos(turnos: readonly TurnoQueSupera[]): Promi
       escritas.set(local, superadas);
     }
     if (escritas.size) await anotarAbiertas(escritas);
+  });
+}
+
+/** Retira la pregunta abierta `id` del chat `local` (cartero 1.17.4, `cartero.mjs retirar`). Las reglas: `retirarDeLaLista`.
+ *  Lee estricto: si no puede leer lo que había, no escribe. Quien llama ya miró el token del cartero. */
+export async function retirarPregunta(local: string, id: string): Promise<{ ok: true; pregunta: PreguntaChat } | { ok: false; error: string }> {
+  if (!DESTINO_RE.test(local)) return { ok: false, error: 'falta el chat que la hizo' };
+  const ws = await wsSuperAdmin();
+  return runWithWorkspace(ws, async () => {
+    const actuales = lista(parsear(await getSettingEstricto(PREFIJO + local)));
+    const r = retirarDeLaLista(actuales, id);
+    if (!r.ok) return r;
+    await setSetting(PREFIJO + local, JSON.stringify(r.preguntas));
+    await anotarAbiertas(new Map([[local, r.preguntas]]));
+    return { ok: true, pregunta: r.pregunta };
   });
 }
 

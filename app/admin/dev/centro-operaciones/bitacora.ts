@@ -867,4 +867,21 @@ export const BITACORA: Hito[] = [
       'tests/caja-voz-revision.test.ts',
     ],
   },
+  {
+    fecha: '21 oct', hora: '02:00', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Un chat puede retirar una pregunta que ya no hace falta',
+    pedido: 'no más preguntas',
+    revisar: '/admin/operaciones',
+    puntos: [
+      'Si un chat te preguntó algo que ya no hace falta, la retira: deja de esperarte en el Ops Center.',
+      'Si todavía no te había llegado, no te llega.',
+      'Hace falta el Runner nuevo (1.17.4), después del deploy.',
+    ],
+    archivos: [
+      'lib/centro-preguntas-chat.ts (retirarDeLaLista), lib/centro-preguntas-chat-db.ts, app/api/operaciones/cartero/route.ts',
+      'scripts/operaciones/cartero.mjs — 1.17.4: retirar',
+      'tests/centro-preguntas-retirar.test.ts',
+    ],
+  },
 ];

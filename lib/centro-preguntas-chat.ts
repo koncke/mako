@@ -62,7 +62,8 @@ export type PreguntaChat = {
   respuesta: RespuestaPregunta | null;
   /** 'wrap_up' = la armó el cartero del recuadro de próximo paso de la app (1.17.2); sin esto, de `preguntar`. */
   origen?: 'wrap_up';
-  /** Cuándo quedó superada (sólo una de wrap_up): el chat siguió sin el formulario. No cuenta como abierta. */
+  /** Cuándo quedó superada: una de wrap_up que el chat dejó atrás, o una que su chat RETIRÓ (`retirarDeLaLista`, cartero
+   *  1.17.4). No cuenta como abierta. */
   superada?: string;
 };
 
@@ -101,11 +102,33 @@ export function sanearPregunta(x: unknown): PreguntaChat | null {
   if (!at) return null;
   const respuesta = o.respuesta == null ? null : sanearRespuesta(o.respuesta, opciones.length, o.varias === true);
   if (respuesta === undefined) return null;
-  const superada = o.origen === 'wrap_up' ? ISO(o.superada) : null;
+  // De cualquier origen desde la 1.17.4: una de `preguntar` queda superada cuando su chat la retira.
+  const superada = ISO(o.superada);
   return {
     id: o.id, local: o.local, pregunta, contexto, opciones, recomendada, varias: o.varias === true, at, respuesta,
     ...(o.origen === 'wrap_up' ? { origen: 'wrap_up' as const } : {}), ...(superada ? { superada } : {}),
   };
+}
+
+/** Un id de pregunta entero o su comienzo (8 caracteres o más), como lo nombra un chat («la 53053bcb»). */
+const COMIENZO_ID = /^[0-9a-f]{8}[0-9a-f-]{0,28}$/;
+
+/**
+ * Retira de la lista de un chat la pregunta ABIERTA que ese chat ya no necesita (cartero 1.17.4, `cartero.mjs retirar`;
+ * 21/10/2026: Martín dijo «no más preguntas» y Debate no tenía cómo sacar las que ya había hecho). Queda `superada` con la
+ * hora: no espera, no se contesta, y se lee como las superadas. Por el id entero o su comienzo; con dos abiertas que
+ * empiezan igual no adivina. Una contestada no se toca.
+ */
+export function retirarDeLaLista(preguntas: readonly PreguntaChat[], id: string, ahora = new Date()):
+  { ok: true; preguntas: PreguntaChat[]; pregunta: PreguntaChat } | { ok: false; error: string } {
+  const comienzo = String(id ?? '').trim().toLowerCase();
+  if (!COMIENZO_ID.test(comienzo)) return { ok: false, error: 'el id es el de la pregunta (8 caracteres o más)' };
+  const todas = preguntas.filter((p) => p.id.startsWith(comienzo));
+  const abiertas = todas.filter(estaAbierta);
+  if (abiertas.length > 1) return { ok: false, error: 'hay más de una abierta que empieza así: pasá el id entero' };
+  if (!abiertas.length) return { ok: false, error: todas.length ? 'esa pregunta ya no espera: está contestada o retirada' : 'no encuentro esa pregunta en este chat' };
+  const pregunta: PreguntaChat = { ...abiertas[0], superada: ahora.toISOString() };
+  return { ok: true, pregunta, preguntas: preguntas.map((p) => (p.id === pregunta.id ? pregunta : p)) };
 }
 
 /** ¿Espera a Martín? Ni contestada ni superada. */

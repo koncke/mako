@@ -6076,6 +6076,9 @@ usuarios. Lo que pasa la prueba de arriba se pregunta así, y nunca en texto sue
 
 Martín la ve en tu chat del Ops Center como un formulario y elige. La respuesta te llega como un mensaje
 firmado: «Respuesta a tu pregunta «…» [pregunta <id>]: 2. …». Las reglas: lib/centro-preguntas-chat.ts.
+Si una pregunta tuya ya no hace falta (se resolvió por otro lado, o Martín dijo «no más preguntas»), **retírala**:
+`node ~/.claude/operaciones/cartero.mjs retirar <id>` (cartero 1.17.4; el id entero o sus primeros 8). Deja de esperarlo
+en el Ops Center; si todavía no había subido, no sale.
 
 # La cosecha: lo que aprende un subagente no vuelve solo
 
