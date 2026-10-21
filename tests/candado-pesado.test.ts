@@ -29,6 +29,7 @@
 //   · soltar que no entrega (3 rojas) · el siguiente que no reconoce la entrega (4) · sin reescribir quien.txt (1) · el que recibe sin confirmar `recibido` (1) ·
 //     sin la línea `entrega` en pesado.log (2) · una entrega que nadie recibe y traba hasta el tope de 90 min (1) · un dueno.json a medias que cuenta la edad del
 //     quien.txt viejo (1) · leerCola que no limpia a los muertos, así que la entrega los toma (2).
+//   · y entregarle el candado a un esperador de una VERSIÓN VIEJA (cuyo turno no trae `entrega: 1`) → 1 roja (se quedaría 90 min con un candado que no sabe reconocer).
 //   (Una novena —quitar un `vivo(t.pid)` de soltar— daba VERDE: era redundante, leerCola ya limpia a los muertos con ese mismo `vivo`; se sacó del código.)
 //   No cubierto: que dueno.json se escriba por temporal+rename y no directo; el efecto sólo se ve con una lectura exacta a mitad de escritura. Lo que SÍ se prueba es
 //   el resultado de ver un dueno.json a medias (la prueba «A MEDIAS»).
@@ -390,6 +391,21 @@ test('soltar ENTREGA al primero de la fila: el directorio no se borra (un mkdir 
   assert.equal(soltar({ dir, pid: 7003, vivo: VIVOS, ahora }), true);
   assert.equal(existsSync(lock), false, 'con la fila vacía se borra el directorio, como siempre');
   mkdirSync(lock);   // y ahora un mkdir a mano sí puede
+}));
+
+test('un esperador de una VERSIÓN VIEJA (su turno no dice que sabe recibir) NO recibe una entrega: soltar borra el directorio, y el viejo lo toma con su mkdir de siempre', () => conDir((dir) => {
+  const { lock, cola } = rutas(dir);
+  const ahora = () => 8_000_000;
+  const ta = anotarse({ dir, datos: DATOS('A'), pid: 7601, ahora });
+  mkdirSync(cola, { recursive: true });
+  const viejo = join(cola, '00000008000005-00007602-vjvj.json');   // el turno que escribía la versión anterior: sin `entrega`
+  writeFileSync(viejo, JSON.stringify({ pid: 7602, host: os.hostname(), desde: new Date(8_000_005).toISOString(), ...DATOS('viejo') }));
+  const tc = anotarse({ dir, datos: DATOS('C'), pid: 7603, ahora: () => 8_000_010 });
+  assert.equal(intentarTomar({ dir, turno: ta, datos: DATOS('A'), pid: 7601, vivo: VIVOS, ahora }).estado, 'tomado');
+  assert.equal(soltar({ dir, pid: 7601, vivo: VIVOS, ahora }), true);
+  assert.equal(existsSync(lock), false, 'el directorio se borró: una versión vieja no reconocería la entrega y esperaría 90 min un candado que ya es suyo');
+  assert.equal(existsSync(viejo), true, 'su turno sigue primero');
+  assert.equal(intentarTomar({ dir, turno: tc, datos: DATOS('C'), pid: 7603, vivo: VIVOS, ahora }).estado, 'espera', 'y el nuevo de atrás no se le cuela: manda el orden de la fila');
 }));
 
 test('soltar SALTEA al siguiente muerto (su pid no existe) y entrega al próximo vivo; si sólo quedan muertos, borra el directorio', () => conDir((dir) => {

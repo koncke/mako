@@ -65,7 +65,7 @@ const minutos = (ms) => `${Math.max(0, Math.round(ms / 60000))} min`;
 
 /**
  * Los turnos VIVOS, del más viejo al más nuevo. Limpia (y anota) los de un proceso muerto o que dejó de latir.
- * @returns {{ archivo: string, pid: number, chat?: string, cuenta?: string, sha?: string, comando?: string, desde?: string, mtime: number }[]}
+ * @returns {{ archivo: string, pid: number, host?: string, entrega?: number, chat?: string, cuenta?: string, sha?: string, comando?: string, desde?: string, mtime: number }[]}
  */
 export function leerCola({ dir = DIR_POR_DEFECTO, vivo = pidVivo, ahora = Date.now } = {}) {
   const { cola } = rutas(dir);
@@ -101,7 +101,9 @@ export function anotarse({ dir = DIR_POR_DEFECTO, datos, pid = process.pid, ahor
   mkdirSync(cola, { recursive: true });
   const archivo = `${String(ahora()).padStart(14, '0')}-${String(pid).padStart(8, '0')}-${Math.random().toString(36).slice(2, 6)}.json`;
   const ruta = path.join(cola, archivo);
-  writeFileSync(ruta, JSON.stringify({ pid, host: os.hostname(), desde: new Date(ahora()).toISOString(), ...datos }));
+  // `entrega: 1` = «sé recibir un candado entregado». Cada worktree corre SU copia de este script, así que conviven versiones: soltar sólo entrega a quien lo declara
+  // (una versión vieja se quedaría esperando 90 min un candado que ya es suyo y que no sabe reconocer).
+  writeFileSync(ruta, JSON.stringify({ pid, host: os.hostname(), desde: new Date(ahora()).toISOString(), ...datos, entrega: 1 }));
   anotar(dir, 'anota-turno', `${archivo} ${datos?.chat ?? ''}`);
   return ruta;
 }
@@ -295,7 +297,9 @@ export function soltar({ dir = DIR_POR_DEFECTO, pid = process.pid, vivo = pidViv
   const { lock } = rutas(dir);
   // `leerCola` ya limpia los turnos de procesos muertos (con este mismo `vivo`) y deja los vivos en orden: el primero que quede, de esta máquina, es el siguiente.
   const siguiente = leerCola({ dir, vivo, ahora }).find((t) => t.pid > 0 && t.pid !== pid && (t.host ?? os.hostname()) === os.hostname());
-  if (siguiente) {
+  // Si el primero es de una versión vieja (su turno no trae `entrega`), no se le entrega: se borra el directorio y lo toma con su mkdir de siempre. El orden de la fila
+  // manda: no se saltea al viejo para entregarle a uno nuevo que está detrás.
+  if (siguiente?.entrega) {
     const { archivo, mtime, ...datosSiguiente } = siguiente;
     const quien = `${datosSiguiente.chat ?? 'antes-de-subir'} (${datosSiguiente.cuenta ?? '?'}) ${datosSiguiente.comando ?? 'antes-de-subir'} — ${fechaCorta(ahora())}\n`;
     escribirAtomico(path.join(lock, 'dueno.json'), JSON.stringify({ ...datosSiguiente, pid: siguiente.pid, host: os.hostname(), desde: new Date(ahora()).toISOString(), entregado: true, entregadoMs: ahora(), entregadoPor: pid }));

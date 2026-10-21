@@ -6755,6 +6755,12 @@ instante falla (EEXIST), nunca lo ve libre. Con la fila vacía se borra, como si
 - **`dueno.json` se escribe por un temporal y un rename** para que nadie lo lea a medias, y un `dueno.json` que existe pero no se lee se trata como un candado
   a mano con la edad de ESE archivo (recién escrito), no la del `quien.txt` viejo del dueño anterior: si no, la regla del candado ocioso (10 min) lo soltaría
   en plena entrega. El rename atómico en sí no tiene prueba (sólo se vería con una lectura exacta a mitad de escritura); el efecto de ver el archivo a medias sí.
+- **Conviven versiones: cada worktree corre SU copia del script.** Un dueño nuevo que le entregara el candado a un esperador viejo lo dejaría esperando 90 min
+  un candado que ya es suyo y que su código no sabe reconocer (vería su propio pid como un dueño vivo). Por eso el turno lleva `entrega: 1` («sé recibir») y
+  `soltar` sólo entrega si el PRIMERO de la fila lo declara; si es viejo, borra el directorio y lo toma con su `mkdir` de siempre (el orden de la fila manda:
+  no se saltea al viejo). Lo vi recién al pensar el despliegue, ya con el VERDE en camino; sin esto la primera entrega a un chat sin `merge` de main era
+  la tercera trabada. La misma regla para cualquier cambio de protocolo del candado: **el que escribe el formato nuevo tiene que poder leer al viejo, y el
+  nuevo no debe depender de que el viejo lo entienda.**
 - **La prueba que movió esto, por una trampa de las pruebas:** con pids inventados (101, 202…) un `soltar` con el `vivo` real limpiaba los turnos y la prueba de
   la cola ya no veía a nadie; ahora `soltar` recibe `vivo` y `ahora` como el resto.
 
