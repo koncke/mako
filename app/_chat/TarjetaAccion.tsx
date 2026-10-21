@@ -9,6 +9,7 @@
 // una tarjeta no puede decir una cosa acá y otra en el teléfono.
 
 import { Button, Status } from '@/app/_ui';
+import Link from '@/app/_ui/Link';
 import { PILL_PROPUESTA, SALIDA_PROPUESTA, rotuloPrimario, type ItemHilo } from '@/app/m/mako/chat-ui';
 
 export type ItemPropuesta = Extract<ItemHilo, { k: 'propuesta' }>;
@@ -55,6 +56,8 @@ export function TarjetaAccion({ x, enCurso, bloqueada, onCorrer }: {
           </div>
         </>
       ) : x.nota ? <p className="ch-tarjeta__nota">{x.nota}</p> : null}
+      {/* Hecho: el «Abrir en <tab>» del link que devolvió la acción (1.8), armado por el código. */}
+      {x.estado === 'hecho' && x.abrir && <div className="ch-tarjeta__botones"><Link className="ch-abrir" href={x.abrir.href}>{x.abrir.titulo}</Link></div>}
     </div>
   );
 }

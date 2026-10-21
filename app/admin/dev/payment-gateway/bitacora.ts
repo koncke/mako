@@ -161,4 +161,21 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/general?ws=3',
   },
+  {
+    fecha: '21 oct', hora: '01:30', chat: 'Pagos', sesion: 'local_d0cd6fc8-e2f9-4ee9-b76a-19264ced015f', cuenta: 'claude4', actor: 'claude', tipo: 'correccion',
+    titulo: 'Hecho: marcar un cobro dos veces ya no lo cambia, y la ficha cuenta «hoy» con la zona del negocio',
+    pedido: 'cobro idempotente y hoy del negocio (Cerebro, 20/10)',
+    puntos: [
+      'Marcar como cobrada una cuota que ya estaba cobrada (una lista vieja, otra pestaña, una tarjeta de MaKo confirmada tarde) ya no le cambia la fecha, el monto ni la moneda al cobro, y el historial no lo anota dos veces.',
+      'La pantalla dice «Ya estaba cobrada» y no ofrece «Deshacer»: deshacer habría desmarcado el cobro de otra persona. Pasa en General, el teléfono, el Dashboard, la ficha y MaKo.',
+      'La ficha, Clients y «Marcar pagada» cuentan el día con la zona del negocio: de noche, una cuota que vence hoy ya no sale vencida en la ficha, y un cobro de las 20 h queda en el día correcto.',
+    ],
+    commits: [{ sha: 'a34a63769', msg: 'Pagos: marcar un cobro dos veces no lo cambia, y «hoy» es el día del negocio en la ficha y en Clients', lineas: 405, archivos: 21 }],
+    archivos: [
+      'lib/pagos.ts — `marcarPago` y `cobrarCuota` devuelven `yaEstaba`',
+      'app/crm/lead-view/ficha/FichaPorBloques.tsx y app/customer-success/PagosCliente.tsx — el día del negocio',
+      'tests/pagos-cobro-idempotente.test.ts — probado rompiéndolo',
+    ],
+    revisar: '/crm/2739?ws=3&tab=pagos',
+  },
 ];

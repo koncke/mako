@@ -30,6 +30,8 @@ import type { CtxFicha } from '@/app/crm/lead-view/ficha/tipos';
 import type { BloquePuesto } from '@/lib/ficha/config';
 import { Spinner } from '@/app/_ui';
 import { deriveStageKey } from '@/lib/pipeline';
+import { hoyEnTz } from '@/lib/date-utils';
+import { useTzWorkspace } from '@/app/crm/lead-view/useTzWorkspace';
 import type { Lead } from '@/lib/leads';
 
 const LISTA = listaFijaDeCs('cs-pagos');
@@ -59,6 +61,7 @@ export function DealCliente(p: Props) {
  */
 export function BloquesDePagos({ leadId, onCambio, lista, que }: Props & { lista: readonly BloquePuesto[]; que: string }) {
   const [data, setData] = useState<LeadFullData | 'cargando' | 'error'>('cargando');
+  const hoy = hoyEnTz(useTzWorkspace());
   const leer = useCallback(() => {
     void getLeadFullAction(leadId).then((d) => setData(d ?? 'error'), () => setData('error'));
   }, [leadId]);
@@ -70,7 +73,8 @@ export function BloquesDePagos({ leadId, onCambio, lista, que }: Props & { lista
   const { lead, stages } = data;
   const etapa = lead.pipeline_stage && stages.some((s) => s.key === lead.pipeline_stage) ? lead.pipeline_stage : deriveStageKey(lead);
   const ctx: CtxFicha = {
-    data, lead, stages, etapa, hoy: new Date().toISOString().slice(0, 10),
+    // El día del NEGOCIO, como la ficha del CRM (FichaPorBloques): con el UTC, de noche una cuota de hoy salía vencida.
+    data, lead, stages, etapa, hoy,
     rol: data.rol ?? 'otro', esAdmin: data.rol === 'admin', verPrivado: !!data.verPrivado,
     releer: leer,
     parchear: (patch) => {

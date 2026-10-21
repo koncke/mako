@@ -418,3 +418,58 @@ tests/moneda-negocio-pantalla.test.ts.
 - **Síntoma** (revisión del Deshacer del CRM): un movimiento del wizard reprogramó una cuota y después se deshizo. La cuota volvió a quedar vencida y el cron mandó un SEGUNDO «cuota vencida» por la misma deuda, con una cadencia nueva.
 - **Causa:** reprogramar una cuota pasa sus marcas `cuota-vencida`/`cuota-por-vencer` a epoch (`olvidarAvisosDeCuotas`, `lib/pagos.ts`), para que la fecha nueva vuelva a avisar. El Deshacer devolvía la fecha con un update directo y la marca quedaba en epoch.
 - **Regla:** todo lo que escriba la fecha de una cuota sin pasar por la reconciliación ni por `editarCuota` tiene que dejar el dedup coherente con esa fecha. Para volver atrás: `leerMarcasDeCobranza` ANTES y `reponerMarcasDeCobranza` después. Es compare-and-set contra `DEDUP_OLVIDADO` (`marcaAlDeshacer`, `lib/cobranza.ts`), así que un aviso que salió en el medio gana. El detalle del Deshacer está en `hallazgos-crm.md`.
+
+## Marcar un cobro dos veces lo cambiaba, y la ficha contaba «hoy» en UTC (20/10/2026)
+
+**Vive en:** `marcarPago` y `cobrarCuota` (lib/pagos.ts) · las acciones `marcarPagoAction` (app/crm/actions.ts) y
+`marcarPagoManualAction` (app/crm/[id]/deal-actions.ts) · `marcar_pago_cobrado` (lib/api-mako/areas/crm.run.ts) · las
+pantallas que marcan: General, el teléfono, las dos del Dashboard y la tab Pagos. Test:
+tests/pagos-cobro-idempotente.test.ts, que corre las funciones reales contra una base de mentira con el reloj a las 20 h
+de México.
+
+- **Síntoma:** se encontró armando «A quién cobrar» en el chat (la 2.27). Una lista guardada se toca días después.
+- **Causa 1:** `marcarPago(id, true, fecha)` no miraba si la cuota ya estaba cobrada. Pisaba `fecha_pago`, el cobro
+  saltaba de mes (y el Cash con él) y el historial decía «Pago registrado» otra vez. `cobrarCuota` le reescribía además
+  el monto y la moneda al cobro que ya había entrado. Pasaba con cualquier lista vieja: General en dos pestañas, el
+  Dashboard, una tarjeta de MaKo confirmada hasta dos horas después de proponerla (`preparar` mira el estado, pero
+  `ejecutar` no lo volvía a mirar).
+- **Causa 2:** el Deshacer del toast, después de un «ya estaba», habría desmarcado el cobro de OTRO. Y desmarcar dos
+  veces un pago que nació cobrado podía QUITARLO (`quitarSiNacioCobrada`).
+- **Regla:** los dos no tocan nada si la cuota ya está como se pide, y devuelven `yaEstaba`. Las acciones vuelven antes
+  del historial. Las pantallas dicen «Ya estaba cobrada» o «ya estaba sin cobrar», sin Deshacer. MaKo contesta que no
+  cambió nada. Ninguna pantalla vuelve a cobrar una cuota cobrada a propósito: para corregir un cobro, se desmarca o se
+  edita la cuota.
+- **Causa 3, el «hoy» en UTC:** FichaPorBloques y PagosCliente usaban `new Date().toISOString().slice(0, 10)`. Los modales
+  «Marcar pagada» y «Registrar pago» proponían ese día, y `marcarPago` y `savePlanPagos` lo usaban de default. De 18 a
+  24 h en México ya es mañana: la ficha daba vencida una cuota que vence hoy, y un cobro de la noche caía al día
+  siguiente. Ahora es el día del negocio: `hoyEnTz(useTzWorkspace())` en la ficha (la zona de General, `tzActual`) y
+  `hoyEnWorkspace()` en el server. `_getOutstandingDetalle` y `_getCuotasPendientes` ya no tienen un `hoy` por default.
+- **⚠️ Fuera de Pagos quedan días fijos en Tijuana**, que no son UTC pero tampoco son la zona del negocio:
+  app/crm/actions.ts:497 y :1807 (los requisitos para mover de etapa y el export de leads; son del CRM) y
+  app/m/dashboard/page.tsx:44 (los períodos del teléfono, que copian los de escritorio; son del Dashboard). **Sin hacer.**
+
+### Lo que encontró la revisión adversarial de ese arreglo (20/10/2026, noche)
+
+- **«Ya estaba» leído en memoria no alcanza: dos cobros A LA VEZ pasaban los dos.** `marcarPago` leía `pagado`,
+  comparaba y escribía sin condición. Con General en la computadora y en el teléfono, las dos marcas pasaban, la segunda
+  pisaba la fecha, y las dos ofrecían Deshacer. En `cobrarCuota` era peor, y nuevo del arreglo: escribía el monto y la
+  moneda ANTES de marcar e ignoraba el `yaEstaba` de su `marcarPago` interno. Con MaKo cobrando 300 mientras la ficha
+  guardaba 500 en pesos, la cuota quedaba mezclada, sobraba una cuota pendiente de 200, el historial anotaba una fecha
+  que no quedó, y lo cobrado del lead quedaba desfasado. **Regla:** la escritura es condicional (`siSigue`: sigue
+  impaga para cobrar, sigue cobrada para desmarcar) y mira cuántas filas tocó (`.select('id')`). `cobrarCuota` escribe
+  el cobro ENTERO en esa sola escritura, y lo de después (sincronizar, cortar recordatorios, anular links) va en
+  `trasCobrar`, el mismo para los dos. Si la diferencia pendiente no se puede guardar, la cuota vuelve a como estaba,
+  impaga.
+- **La trampa de la condición al revés:** la primera versión le pasó a `siSigue` el estado al revés. Para cobrar pedía
+  «cobrada», y ninguna marca escribía: todas devolvían «ya estaba». La agarró el test de la carrera, que mira que gane
+  exactamente uno, no sólo que el segundo pierda.
+- **La cartera de Clients contaba vencidas en UTC y con `<=`** (lib/cs-cartera.ts), y la deuda vencida del Dashboard la
+  copiaba (`filasCartera`, lib/graficos-datos-extra.ts). Una cuota de HOY salía vencida a cualquier hora («Cuota vencida
+  hace 0 días» en MaKo y en CS), mientras la ficha, General y el cron decían «vence hoy». Ahora usan el día del negocio y
+  `<`, como `getCuotasPendientes`, y los días se cuentan de calendario contra ese día.
+- **El asistente de Ganado armaba el plan con el día UTC** (app/crm/StageMoveDialog.tsx). Un pago único de la noche
+  proponía la cuota para mañana. Una suscripción cerrada el 30 a las 20 h nacía el 31: sus cuotas caían el 1/12 y el
+  31/12, y noviembre quedaba sin ninguna. «+ Agregar cuota» sin cuotas arrancaba del instante UTC. Ahora todo sale de
+  `hoyEnTz(useTzWorkspace())`.
+- **La hora del cobro era la del navegador** y el día, el del negocio: alguien en Buenos Aires anotaba un cobro de México
+  con el día de allá y la hora de acá. Ahora la hora también es la del negocio (`horaEnTz`, lib/date-utils.ts).

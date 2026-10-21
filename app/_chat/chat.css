@@ -186,3 +186,9 @@
 
 /* G3: lo que no se deshace, en rojo pegado al botón de la tarjeta. */
 .ch-tarjeta__consecuencia--irreversible { color: var(--bad); font-weight: 600; }
+
+/* Confirmar ADENTRO del chat (20/10/2026, pieza 1.10: app/_chat/FormularioEnChat.tsx): el formulario de /mako/revisar en
+   la tarjeta, con sus campos en columna; «Abrir en la app» como salida secundaria, al lado de los botones. */
+.ch-form { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.ch-form__error { color: var(--bad); }
+.ch-form__afuera { align-self: center; font-size: var(--fs-sm); }

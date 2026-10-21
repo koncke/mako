@@ -74,7 +74,8 @@ test('explica lo que se pidió, en el orden de la pantalla, y termina en el men�
   assert.ok(i('au-ai-step') < i('au-probar') && i('au-probar') < i('au-publicar') && i('au-publicar') < i('au-activar'));
   assert.equal(o.at(-1), OBJETIVO_AYUDA, 'cómo volver a verla es lo que queda al cerrarla');
   const ultimo = PASOS_AUTOMATIONS.at(-1)!;
-  assert.deepEqual([ultimo.titulo, ultimo.texto], ['Configuraciones y tutorial', 'Están siempre en este menú.']);
+  // 20/10/2026: el menú es sólo el «?» (Configuraciones pasó a cada automatización: la tuerca, `au-config`).
+  assert.deepEqual([ultimo.titulo, ultimo.texto], ['Tutorial', 'Vuelve a verlo desde aquí.']);
   // Sin CONDITION, DELAY ni AI Step en el flujo sus pasos se saltean: el del ＋ es el único que dice que existen.
   assert.match(PASOS_AUTOMATIONS.find((p) => p.objetivo === 'au-mas')!.texto, /CONDITION.*DELAY.*AI Step/);
 });

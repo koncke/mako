@@ -109,10 +109,12 @@ test('3. la lectura dibuja SÓLO en el chat de la app, con las MISMAS filas que 
 
 test('4. el turno lo guarda con la respuesta de MaKo, y la pantalla lo suma debajo (sin recargar y al recargar)', () => {
   const turno = sinComentarios(leer('lib/mako-turno-app.ts'));
-  assert.match(turno, /aDibujar: \(b\) => \{/);
-  assert.match(turno, /const nuevoIntento = \(\) => \{ memo\.nuevoIntento\(\); dibujos\.length = 0; return runTool; \};/, 'un intento que se re-arranca no arrastra lo del anterior');
-  assert.match(turno, /await appendMessage\(s\.id, 'assistant', respuesta, dibujos\.length \? dibujos\.map\(aGuardar\) : undefined\);/);
-  assert.match(turno, /guardados\.push\(\{ role: 'assistant', content: respuesta, \.\.\.\(dibujos\.length \? \{ bloques: \[\.\.\.dibujos\] \} : \{\}\) \}\);/);
+  // (21/10/2026: con la ola 1 el turno es el de Ops Center 3, con los mismos nombres: `dibujar` no repite un bloque igual
+  // aunque el turno se re-arranque, y lo guardado con el mensaje es lo dibujado más la pregunta, si la hay.)
+  assert.match(turno, /aDibujar: dibujar,/);
+  assert.match(turno, /bloquesDelTurno\.some\(\(x\) => JSON\.stringify\(x\.b\) === JSON\.stringify\(b\)\)\) return;/, 'un turno re-arrancado no repite lo dibujado');
+  assert.match(turno, /await appendMessage\(s\.id, 'assistant', respuesta, conElMensaje\.length \? conElMensaje\.map\(aGuardar\) : undefined\);/);
+  assert.match(turno, /guardados\.push\(\{ role: 'assistant', content: respuesta, \.\.\.\(conElMensaje\.length \? \{ bloques: conElMensaje \} : \{\}\) \}\);/);
 
   const b = bloqueACobrar([CUOTA], HOY, 'America/Tijuana');
   const respuesta = {
@@ -145,6 +147,7 @@ test('5. se dibuja con la pieza de General, y la lista viva es la lectura de Gen
 //   · `a_quien_cobrar` nunca dibuja                                                   → 4 / 1 (3)
 //   · `ejecutarOperacion` pasa el bloque sin sanear                                   → 4 / 1 (3)
 //   · re-arrancar el turno arrastra lo dibujado en el intento anterior                → 4 / 1 (4)
+//     (re-probado el 21/10 sobre el turno de la ola 1: `dibujar` sin el «no repite» → 4 / 1 (4))
 //   · la pantalla no suma el bloque de la respuesta (`itemsDeRespuesta`)              → 4 / 1 (4)
 //   · la foto guardada marca sin esperar la lista viva (`muestra={false}`)            → 3 / 2 (1 y 5)
 //   · el bloque deja afuera las suscripciones                                         → 4 / 1 (1)

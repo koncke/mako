@@ -56,6 +56,18 @@ const nextConfig: NextConfig = {
     '/admin/docs': ['./docs/**/*.md', './AGENTS.md'],
     // Offer Playbook renderiza el marco de oferta partido en tabs (app/admin/offer-playbook).
     '/admin/offer-playbook': ['./docs/offer-marco.md'],
+    // El cron de la cola de montaje (app/api/cron/montaje) corre ffmpeg y los
+    // scripts del montaje como procesos aparte: nadie los importa, así que el
+    // trazado no los ve y la función llegaría sin ellos. Sin la Anton, libass no
+    // falla: pone los subtítulos con otra fuente, sin avisar.
+    '/api/cron/montaje': [
+      './node_modules/ffmpeg-static/ffmpeg',
+      './scripts/plan-cortes-anuncio.mjs',
+      './scripts/gen-filtros-anuncio.mjs',
+      './scripts/subs-anuncio.mjs',
+      './scripts/loudnorm-json.mjs',
+      './worker/fuentes/*.ttf',
+    ],
   },
   experimental: {
     // El middleware (proxy) bufferea el body con tope 10MB por defecto y, si se

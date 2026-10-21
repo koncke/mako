@@ -53,8 +53,8 @@ import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import { HiloMako } from '@/app/_chat/HiloMako';
 import type { ItemPropuesta } from '@/app/_chat/TarjetaAccion';
 import {
-  archivosDeRespuesta, idLocal, itemsDeRespuesta, itemsDeSesion, itemsTrasTarjeta, leerRespuesta, problemaDeSeleccion, tipoDeElegido, trasTarjeta,
-  type EstadoPropuesta, type ItemHilo, type Leido,
+  archivosDeRespuesta, idLocal, itemsDeRespuesta, itemsDeSesion, conTarjeta, leerRespuesta, problemaDeSeleccion, tipoDeElegido, trasTarjeta,
+  trasTrabajo, type EstadoPropuesta, type ItemHilo, type Leido,
 } from '@/app/m/mako/chat-ui';
 import { achicarImagen } from '@/app/m/mako/subir';
 import { IconoChat } from '@/app/m/mako/iconos';
@@ -66,7 +66,7 @@ import {
   linksDePedidos, nombreDeSub, tituloDe, type IrA,
 } from '@/lib/chat-mako-reglas';
 import type { ChatDeAntes, ChatDeOffer } from '@/lib/chat-mako-indice';
-import type { MensajeChat, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
+import type { MensajeChat, PropuestaPantalla, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 import '@/app/admin/operaciones/centro.css';
 import '@/app/_chat/chat.css';
 
@@ -81,7 +81,7 @@ const TOPE_PEDIDOS_MS = 15_000;
 /** El tope de texto de esa ruta: lo más largo no se le pregunta (contestaría 400). */
 const MAX_TEXTO_PEDIDOS = 4_000;
 
-type Abierta = { sesion: SesionChat; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[] };
+type Abierta = { sesion: SesionChat; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[]; pantallas?: PropuestaPantalla[] };
 type ItemMsg = Extract<ItemHilo, { k: 'msg' }>;
 /** Lo elegido en la barra: una conversación, un chat que todavía no tiene (el jefe sin nada, o «Nuevo chat»), un
  *  chat de antes (de «Pregúntale a MaKo»: se lee y no se escribe), o un chat de Claude Code (su clave del Centro). */
@@ -266,7 +266,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
     const l = await pedir<Abierta>(`${RUTA}?sessionId=${id}`);
     if (!vigente()) return;
     if (!l.ok) { setErrorCarga(l.reintentable ? l.error : 'No pude abrir el chat.'); setCargado(true); return; }
-    setItems(itemsDeSesion(l.datos.mensajes ?? [], l.datos.propuestas ?? []));
+    setItems(itemsDeSesion(l.datos.mensajes ?? [], l.datos.propuestas ?? [], l.datos.pantallas ?? []));
     setCargado(true);
   }, []);
 
@@ -488,7 +488,9 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
   /** Un texto de más de 1.000 caracteres no entra a la caja: queda como un documento pegado (#864, como Claude). Una imagen
    *  pegada la toma la caja única (pegar.ts → alPegar). */
   const pegarLargo = (e: ClipboardEvent<HTMLTextAreaElement>) => {
-    if (e.clipboardData.files.length) return;
+    // Una celda de Excel o un párrafo de Word viajan como texto Y como imagen: con texto, manda el texto (la revisión de
+    // caja-voz, 20/10/2026: salir con cualquier archivo dejaba un pegado de 5.000 caracteres crudo en la caja, sin archivarse).
+    if (e.clipboardData.files.length && !Array.from(e.clipboardData.types).includes('text/plain')) return;
     const pegado = e.clipboardData.getData('text/plain');
     if (esPegadoLargo(pegado)) { e.preventDefault(); ponerPegados([...pegadosRef.current, { id: idLocal('p'), texto: pegado }]); }
   };
@@ -503,12 +505,9 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
   };
 
   // ── Las tarjetas ──
-  /** `extra`: lo que vuelve de la tarjeta (`itemsTrasTarjeta`: los avisos y lo que dibuja el resultado). */
-  const alEstado = (pendienteId: number, estado: EstadoPropuesta, nota?: string, extra: readonly ItemHilo[] = []) => {
-    setItems((xs) => {
-      const sig = xs.map((x) => (x.k === 'propuesta' && x.t.pendienteId === pendienteId ? { ...x, estado, nota } : x));
-      return [...sig, ...extra];
-    });
+  /** `r`: lo que contestó la tarjeta (su «Abrir», los avisos y lo que dibuja el resultado: `conTarjeta`). */
+  const alEstado = (pendienteId: number, estado: EstadoPropuesta, nota?: string, r?: ResultadoTarjeta) => {
+    setItems((xs) => conTarjeta(xs, pendienteId, estado, nota, r));
   };
   const correrTarjeta = async (x: ItemPropuesta, accion: 'confirmar' | 'cancelar') => {
     const sid = sesionRef.current;
@@ -520,7 +519,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
       const l = await postLargo<ResultadoTarjeta>({ action: accion, sessionId: sid, pendienteId: id });
       if (!l.ok) { alEstado(id, 'pendiente', l.reintentable ? l.error : 'No llegó la respuesta. Recarga el chat para ver si se ejecutó.'); return; }
       const d = trasTarjeta(l.datos, accion);
-      alEstado(id, d.estado ?? 'pendiente', d.frase ?? undefined, itemsTrasTarjeta(l.datos));
+      alEstado(id, d.estado ?? 'pendiente', d.frase ?? undefined, l.datos);
     } finally {
       setTarjeta(null);
     }
@@ -728,7 +727,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
               </div>
             ) : (
               <HiloMako items={items} quien={{ nombre: nombreMuneco }} ahora={ahora} escribiendo={trabajo ? { segs } : null}
-                tarjeta={tarjeta} onTarjeta={(x, a) => void correrTarjeta(x, a)} onReintentar={reintentar} onRecargar={recargar} />
+                tarjeta={tarjeta} onTarjeta={(x, a) => void correrTarjeta(x, a)} onReintentar={reintentar} onRecargar={recargar}
+                onResponder={(t) => enviar(t)} onTrabajo={(id, ok) => setItems((xs) => trasTrabajo(xs, id, ok))} />
             )}
           </div>
 
@@ -750,7 +750,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
                   que unificaras el chat del Ops Center en todos lados, su diseño y funcionalidades»). Arriba, los textos
                   largos pegados como documento. */}
               <CajaChat texto={texto} onTexto={(v) => { setFaltaMic(null); setTexto(v); }} onMandar={enviarCaja}
-                enviando={!!trabajo} apagado={!cargado || !!errorCarga} placeholder="Escríbele a MaKo" tituloMandar="Mandar (Enter)"
+                ocupado={!!trabajo} apagado={!cargado || !!errorCarga} placeholder="Escríbele a MaKo" tituloMandar="Mandar (Enter)"
                 enterManda campo={caja} seguir={seguirHilo} onErrorMic={setFaltaMic} adjuntos={adjuntosCaja}
                 hayAlgoMas={pegados.length > 0} onPegar={pegarLargo}
                 arriba={pegados.length > 0 ? (

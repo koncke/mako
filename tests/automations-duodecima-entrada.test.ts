@@ -78,7 +78,9 @@ test('el recorrido se abre solo también con la lista vacía, y el primer lienzo
   // «Omitir» con la lista vacía es «no lo quiero ver»: el primer lienzo no lo reabre.
   assert.match(app, /onCerrar=\{\(motivo\) => \{ if \(motivo === 'omitido'\) vioVacio\.current = false; setSoloLienzo\(false\); recorrido\.onCerrar\(motivo\); \}\}/);
   // Los pasos del lienzo: desde el CRON hasta el menú, en el mismo orden (no se inventa ninguno).
-  assert.equal(PASOS_DEL_LIENZO[0].objetivo, 'au-cron');
+  // 20/10/2026: desde el chat de MaKo (con el primer lienzo aparece también el chat, que es nuevo) y la tuerca.
+  assert.equal(PASOS_DEL_LIENZO[0].objetivo, 'au-chat');
+  assert.ok(PASOS_DEL_LIENZO.some((p) => p.objetivo === 'au-cron'));
   assert.equal(PASOS_DEL_LIENZO.at(-1)!.objetivo, OBJETIVO_AYUDA);
   assert.deepEqual(PASOS_DEL_LIENZO, PASOS_AUTOMATIONS.slice(PASOS_AUTOMATIONS.length - PASOS_DEL_LIENZO.length));
   assert.ok(!PASOS_DEL_LIENZO.some((p) => p.objetivo === 'au-lista' || p.objetivo === 'au-nueva'), 'repite lo que ya vio');

@@ -171,5 +171,6 @@ test('el runner manda la tarjeta al negocio del evento, con sus datos y sus link
   assert.match(tarjeta, /semaforo: cat\?\.semaforo, ws: wsDestino,/);
   // Y el horario de oficina que espera la tarjeta es el del NEGOCIO (16/10/2026), no el de la plataforma, donde corre la fila.
   // rotura 10 (`aperturaDelNegocio(ws)`): 6 pass / 1 fail, cae éste.
-  assert.match(flujos, /apertura = await aperturaDelNegocio\(ctx\.negocioWs \?\? ws\);/);
+  // Revisión del 20/10/2026 (tests/automations-config-revision.test.ts): y la automatización que corre (su horario propio, si tiene).
+  assert.match(flujos, /apertura = await aperturaDelNegocio\(ctx\.negocioWs \?\? ws, \{ flujoId, ws \}\);/);
 });

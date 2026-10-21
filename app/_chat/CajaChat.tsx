@@ -38,6 +38,9 @@ export type PropsCajaChat = {
   enviando?: boolean;
   /** Sin poder escribir todavía (el chat no cargó): como `enviando`, sin el giro. */
   apagado?: boolean;
+  /** MaKo está trabajando (20/10/2026, la revisión de caja-voz): SÓLO el botón gira y no manda. El campo, el «+» y los
+   *  emojis siguen: se escribe el próximo mensaje mientras tanto (apagar el campo cerraba el teclado del teléfono). */
+  ocupado?: boolean;
   /** «Escribe a CRM», «Escríbele a MaKo»: también es su nombre accesible. */
   placeholder: string;
   tituloMandar?: string;
@@ -87,7 +90,9 @@ function CajaConVoz(p: PropsCajaChat & { voz: NonNullable<PropsCajaChat['voz']> 
 }
 
 function Caja({ p, grabacion }: { p: PropsCajaChat; grabacion: GrabacionVoz | null }) {
-  const { texto, onTexto, enviando = false, apagado = false, altoMax = 220 } = p;
+  const { texto, onTexto, enviando = false, apagado = false, ocupado = false, altoMax = 220 } = p;
+  /** El botón: gira saliendo un mensaje o mientras MaKo trabaja. El campo sólo se apaga con `enviando` o `apagado`. */
+  const girando = enviando || ocupado;
   const propio = useRef<HTMLTextAreaElement | null>(null);
   const caja = p.campo ?? propio;
   /** Dónde va el cursor después de que una lista cambió el texto (la viñeta, el ítem siguiente). */
@@ -121,7 +126,7 @@ function Caja({ p, grabacion }: { p: PropsCajaChat; grabacion: GrabacionVoz | nu
     // uno vacío la corta (lib/centro-caja.ts → enterEnLista). Fuera de una lista: en la computadora manda (Shift+Enter
     // baja de renglón); en el teléfono baja de renglón.
     if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
-    const l = enterEnLista(texto, e.currentTarget.selectionStart, e.currentTarget.selectionEnd);
+    const l = enterEnLista(texto, e.currentTarget.selectionStart, e.currentTarget.selectionEnd, { conUno: !p.enterManda });
     if (l) { e.preventDefault(); cursor.current = l.cursor; onTexto(l.texto); return; }
     if (p.enterManda) { e.preventDefault(); p.onMandar(); }
   };
@@ -136,7 +141,7 @@ function Caja({ p, grabacion }: { p: PropsCajaChat; grabacion: GrabacionVoz | nu
       <ListaAdjuntos a={p.adjuntos} />
       <div className={p.fila ?? 'co-caja__fila'}>
         {conBarra && grabacion ? (
-          <BarraGrabacion voz={grabacion} ocupado={enviando} existente={p.voz?.pendiente ?? null} rotuloEnviar={p.voz?.rotuloEnviar} />
+          <BarraGrabacion voz={grabacion} ocupado={girando} existente={p.voz?.pendiente ?? null} rotuloEnviar={p.voz?.rotuloEnviar} />
         ) : (<>
         {(p.adjuntos || p.mas) && <MasCaja a={p.adjuntos} apagado={quieto} resumen={null}>{p.mas}</MasCaja>}
         {/* Los emojis, en su botón junto al campo (WhatsApp; Emojis.tsx). */}
@@ -170,7 +175,7 @@ function Caja({ p, grabacion }: { p: PropsCajaChat; grabacion: GrabacionVoz | nu
             <Icon name="mic" size={18} />
           </button>
         ) : (
-          <BotonMandar valor={texto} onValor={onTexto} onError={(m) => p.onErrorMic?.(m)} enviando={enviando} apagado={apagado}
+          <BotonMandar valor={texto} onValor={onTexto} onError={(m) => p.onErrorMic?.(m)} enviando={enviando} ocupado={ocupado} apagado={apagado}
             hayQueMandar={hayQueMandar} onMandar={p.onMandar} titulo={p.tituloMandar} />
         )}
         </>)}

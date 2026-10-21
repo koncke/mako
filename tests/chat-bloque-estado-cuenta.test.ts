@@ -85,7 +85,7 @@ test('2. el comprobante del mensaje llega a «Marcar pagada», que lo lee solo c
   const cobrar = sinComentarios(leer('app/crm/lead-view/ficha/pagos/cobrar.tsx'));
   assert.match(cobrar, /const comprobante = useContext\(ComprobanteDelChatCtx\);/);
   assert.match(cobrar, /setAbierto\(pasarelas\.length && !comprobante \? \{ que: 'elegir', cuota: q \} : \{ que: 'marcar', cuota: q \}\)/, 'con el comprobante ya pagó: no se ofrece el link');
-  assert.match(cobrar, /<MarcarPagada cuota=\{q\} leadId=\{lead\.id\} monedaNegocio=\{moneda\} comprobante=\{comprobante\}/);
+  assert.match(cobrar, /<MarcarPagada cuota=\{q\} leadId=\{lead\.id\} monedaNegocio=\{moneda\} hoy=\{ctx\.hoy\} comprobante=\{comprobante\}/);
   // Sin quitar comentarios: el `accept=".pdf,image/*"` del input abre un «/*» que se comería el botón.
   const modal = leer('app/crm/lead-view/ficha/pagos/piezas.tsx');
   const marcar = modal.slice(modal.indexOf('export function MarcarPagada('), modal.indexOf('export function RegistrarPago('));

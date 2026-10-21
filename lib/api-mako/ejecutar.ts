@@ -109,7 +109,12 @@ export async function ejecutarOperacion(
       if (def.confirmacion === 'pantalla' && run.proponer) {
         const p = await run.proponer(v.input, ctx);
         if ('error' in p) return { ok: false, status: 400, error: p.error };
-        return { ok: true, tipo: 'propuesta', propuesta: p };
+        // Lo que la propuesta DIBUJA (`extra.bloque`: el antes y el después del Video Editor) va por el mismo canal que el
+        // de una lectura; al modelo (y a la API) le llega `extra` sin él.
+        const { bloque: crudo, ...extra } = p.extra ?? {};
+        const bloque = crudo != null && ctx.aDibujar ? sanearBloque(crudo) : null;
+        if (bloque) ctx.aDibujar?.(bloque);
+        return { ok: true, tipo: 'propuesta', propuesta: { ...p, ...(p.extra ? { extra } : {}) } };
       }
 
       if (!run.preparar) throw new Error(`api-mako: «${def.id}» no tiene preparar()`);

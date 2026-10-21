@@ -360,9 +360,10 @@ export type Ctx = {
    *  WhatsApp lo junta y lo agrega a la respuesta. Sin esto (HTTP, la bandeja) el
    *  `paraLaPersona` de un runner no tiene a quién llegar y se descarta. */
   aPersona?: (texto: string) => void;
-  /** Por dónde una LECTURA le DIBUJA algo a la persona (lib/chat-bloques.ts: «A quién cobrar»): lo pone sólo el turno
-   *  de la app (`turnoApp`), que lo guarda con la respuesta de MaKo. El modelo no lo ve; sin esto (WhatsApp, HTTP) se
-   *  descarta. Una lectura sabe por acá si lo que arma para dibujar se va a ver (20/10/2026, la 2.27). */
+  /** Por dónde una herramienta le DIBUJA algo a la persona (lib/chat-bloques.ts): una LECTURA con el `bloque` de su salida
+   *  («A quién cobrar», un gráfico) o una PROPUESTA de pantalla con `extra.bloque` (el antes y el después del Video Editor).
+   *  Lo pone sólo el turno de la app (`turnoApp`), que lo guarda con la respuesta de MaKo. El modelo no lo ve; sin esto
+   *  (WhatsApp, HTTP) se descarta. El camino es de Pagos (20/10/2026, la 2.27); las propuestas, 21/10. */
   aDibujar?: (b: Bloque) => void;
   /** Sólo en la app: los archivos que la persona adjuntó en el mensaje de ESTE turno, ya guardados (su `ref` es la de
    *  /api/mako/chat?adjunto=). El estado de cuenta del lead toma el comprobante de acá (la 2.28). */
@@ -425,7 +426,8 @@ export type Preparado =
  *  modelo, y se sanea antes de guardarlo. */
 export type Ejecutado = { ok: boolean; resumen: string; datos?: Record<string, unknown> & { bloque?: Bloque }; paraLaPersona?: string };
 
-export type Propuesto = { id: string; url: string; nueva: boolean; extra?: Record<string, unknown> } | { error: string };
+/** `extra.bloque`: lo que la propuesta DIBUJA (va por `ctx.aDibujar`; el modelo recibe `extra` sin él). */
+export type Propuesto = { id: string; url: string; nueva: boolean; extra?: Record<string, unknown> & { bloque?: unknown } } | { error: string };
 
 export type LecturaRun = {
   leer: (input: Record<string, unknown>, ctx: Ctx) => Promise<SalidaLectura>;

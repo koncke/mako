@@ -29,6 +29,11 @@ export function hoyEnTz(tz: string, date: Date = new Date()): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
 }
 
+/** La hora 'HH:MM' (24 h) en esa zona: la pareja de `hoyEnTz`. Un cobro se anota con el día Y la hora del negocio. */
+export function horaEnTz(tz: string, date: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date);
+}
+
 /**
  * Devuelve la fecha actual en zona Tijuana, formato 'YYYY-MM-DD'.
  */

@@ -25,6 +25,21 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
 
 ---
 
+## El link de un cliente abría la lista del CRM, y el test lo fijaba así (20/10/2026)
+
+Lo encontró el chat de CRM. Código: lib/cerebro-vivo.ts (el nodo `cliente:<id>`) · tests/second-brain-links.test.ts.
+
+- **Síntoma:** tocar un cliente en el Second Brain y «Abrir» llevaba a la lista del CRM, no a su ficha.
+- **Causa:** el nodo linkeaba `/crm?lead=<id>` y /crm no lee `lead` (sus searchParams son `funnel` y `embudo`). La ficha es
+  /crm/<id> (app/crm/[id]), la misma ruta que escribe todo el CRM; no hay una función única que la arme.
+- **Por qué nadie lo vio:** el test del grafo vivo FIJABA el link roto (`'/crm?lead=500'`). Copiaba lo que devolvía el código
+  en vez de mirar qué lee la pantalla de destino. Un test así nace verde y protege el bug.
+- **Regla:** un link se prueba contra su DESTINO. El barrido mira cada `href` de lib/cerebro-*.ts: la ruta existe en app/
+  y, si lleva `?param=`, la página lo declara en el tipo de sus searchParams. Medido el 20/10: el único roto era éste;
+  `?oferta=`, `?funnel=`, `?hoja=`, `?centro=` y `?chat=` los leen sus pantallas.
+- **Trampa del barrido:** sólo ve los `href:` escritos como texto en lib/cerebro-*.ts. Un link armado en otro archivo, o
+  con una función, no entra.
+
 ## El código decía «uno» y se veían dos: ningún cerebro se divide en dos (20/10/2026)
 
 Martín: «El Second Brain de SuperAdmin ya te había pedido que no se dividiera en 2... En ningún caso jamás los cerebros se
@@ -2031,18 +2046,157 @@ Probado en `tests/chat-bloques.test.ts`, que confirma `crear_diseno_imagen` de p
     la computadora. El alto tope tiene que achicar el ANCHO: `--r` (ancho / alto) en `.ch-creado__mini`.
   - **Un navegador sin ventana no baja de ~500 px de ancho.** La captura «de 390» no era la del teléfono. El teléfono
     se mira en un `iframe` de 390, y así también aplican los tamaños de letra del teléfono.
+  - **La vista previa sin Tailwind miente con los anchos.** La app pone `box-sizing: border-box` a todo
+    (`app/globals.css`). Una página de prueba con sólo los tokens no lo trae, y los campos «se salían» de la tarjeta.
   - **La pieza no puede importar CSS**, o no se dibuja en un test de node. Sus clases van en `chat.css`, que el teléfono
     carga con `PegadoHilo.tsx` y el MaKo Analyst de la ficha importa aparte.
 
 **Sin hacer:**
-- RespuestaTurno.bloques, para lo que dibuja un TURNO y no una tarjeta: llega con la 1.9 (`preguntar_al_usuario`), que es
-  la primera que lo produce.
+- ~~Lo que dibuja un TURNO y no una tarjeta.~~ Hecho el 21/10. No fue `RespuestaTurno.bloques`: el bloque va COLGADO DEL
+  MENSAJE de MaKo, así vuelve al recargar. Lo producen:
+  - la pregunta de la 1.9;
+  - una LECTURA que devuelve `{ content, bloque }` (el camino de Pagos, d9e69e7a1: «A quién cobrar», un gráfico de
+    Dashboard);
+  - una PROPUESTA de pantalla con `extra.bloque` (el antes y el después del Video Editor).
+  Las dos pasan por `ejecutarOperacion` → `ctx.aDibujar`, que sólo abre el turno de la app. El modelo no lo ve, y en
+  WhatsApp o por HTTP se descarta. Una propuesta de pantalla que ya trae su bloque no se dibuja dos veces.
+- **Lo obvio era el error: «leer un campo `bloque` de cualquier JSON de salida»** (`bloqueDeSalida`, la mañana del 21/10).
+  Funcionaba, pero chocaba con cualquier salida que ya tuviera un campo con ese nombre (la ficha arma `bloques`), y el
+  tipo de la herramienta no lo decía. Se sacó: lo que una herramienta dibuja va TIPADO en su respuesta. Un bloque por
+  herramienta; una lista (las landings de un negocio) es UN bloque.
+- **Una opción tocada mientras MaKo trabajaba** (G1, la revisión del 21/10) decía «Respondiste: X» y no mandaba nada:
+  `PreguntaHilo` marcaba antes de mandar y no miraba si salió. Ahora las opciones esperan mientras trabaja (`ocupado`),
+  `onResponder` dice si salió, y contestar ESCRIBIENDO apaga las opciones en el acto: las pantallas dibujan con
+  `conRespuestas`, no sólo al recargar.
 - G4 sin «Deshacer»: no hay una operación que deshaga un cambio de textos.
 - G6 sin consultar el estado solo: la 1.11.
 - Las demás áreas no devuelven `bloque` todavía. Por ahora lo devuelven `crear_diseno_imagen` y `duplicar_diseno_imagen`
   (G5) y `cambiar_textos_diseno_imagen` (G4).
 - El «Abrir» lleva a la ruta de la computadora también en el teléfono: la 1.8.
 
+## «Abrir en la app», y lo confirmado afuera vuelve al hilo (20/10/2026, ola 1, pieza 1.8)
+
+**Vive en:** `linksDeUnaAccion`, `rutaConQuery`, `propuestaDePantalla` y `abrirDeResultado` en
+`lib/mako-turno-app-reglas.ts` · `lib/chat-hilo-origen.ts` · `proponerPantallaGenerica`, `aplicarPropuestaGenerica` y
+`descartarPropuestaGenerica` en `lib/api-mako/acciones.ts` · `conTarjeta` en `app/m/mako/chat-ui.ts`. Probado en
+`tests/chat-abrir.test.ts`, que confirma y descarta en /mako/revisar por el camino real (`tests/_revisar-hilo-hijo.ts`).
+
+- **Síntoma:**
+  - una edición de video o un borrador de WhatsApp quedaban propuestos y la persona no recibía con qué abrirlos;
+  - lo que se confirmaba en /mako/revisar no aparecía en el chat de donde salió.
+- **Causas:**
+  - `linksDeUnaAccion` sólo capturaba links con `/revisar/`. La propuesta de video (`/video-editor/<p>?propuesta=<id>`) y el
+    borrador (`/whatsapp?…&chat=<jid>`) no pasan por ahí.
+  - La propuesta guardaba el CANAL (`app`) pero no el CHAT: confirmarla afuera no tenía dónde anotar.
+- **Lo obvio era el error:** «falta el link en la respuesta del modelo». El modelo NO puede escribir links (`CANAL_APP`), y
+  está bien: el link lo captura el código de la salida de la acción.
+- **Regla:**
+  - una propuesta de pantalla guarda la clave de su chat (`datos.canalKey`);
+  - confirmarla o descartarla en su pantalla anota «Hecho: …» o «No se ejecutó…» en ESE hilo, con lo que dibuja el
+    resultado (`anotarEnHiloDeOrigen`);
+  - la sesión se busca en el negocio que confirma: la clave de un chat de otro negocio no anota nada;
+  - nunca tira: la acción ya quedó hecha.
+- **Trampa:** `rutaDeEscritorio` corta la query, y en estas dos pantallas la query ES lo que se abre (`?propuesta=`,
+  `?chat=`). `rutaConQuery` la deja, sin el `ws` (lo pone el `Link`), y sólo para links de la app.
+
+**Sin hacer:**
+- `?propuesta=` todavía abre el panel con TODAS las propuestas: es del Video Editor (1.14).
+- El borrador lleva a `/whatsapp`, todavía no a la conversación en `/chats`: es del CRM.
+- La propuesta de video y el borrador de WhatsApp no vuelven al recargar: viven en sus tablas, sin la clave del chat. Las
+  genéricas sí vuelven desde la 1.10.
+- El «Hecho» de /mako/revisar aparece al volver a abrir el chat, no en vivo en una pestaña abierta.
+- Las propuestas creadas antes del 20/10 no tienen la clave de su chat: no vuelven.
+
+## Confirmar ADENTRO del chat: el formulario de /mako/revisar en la tarjeta (20/10/2026, ola 1, pieza 1.10)
+
+**Vive en:**
+- `app/_chat/FormularioEnChat.tsx`, con sus acciones en `app/_chat/acciones-formulario.ts`;
+- `app/mako/revisar/formulario.tsx`: los campos, que comparte con `RevisarAccion.tsx`;
+- `formularioDe`, `conFormulario` y `pantallasDelChat` en `lib/mako-turno-app.ts`;
+- `propuestasPendientesDelChat` en `lib/propuestas.ts`.
+
+Probado en `tests/chat-adentro.test.ts`, que reabre un chat por el camino real (`tests/_adentro-hijo.ts`).
+
+- **Antes:** el 42% de lo que el chat puede hacer (148 de 350) mandaba a otra pantalla, y 121 de esas a /mako/revisar.
+- **Ahora:** una propuesta genérica despliega en la tarjeta el MISMO formulario de su pantalla:
+  - los mismos campos y la misma validación;
+  - los mismos botones («Confirmar acción», «Descartar propuesta»);
+  - la misma acción (`confirmarAccionAction`, por la ruta /api/mako/propuesta: ver la 1.11), que vuelve a validar, a
+    mirar que sea el admin y a preparar contra la base.
+  - «Abrir en la app» queda como salida secundaria.
+  - Al terminar, lo que dibuja el resultado (su G5 o su «Abrir») queda en la tarjeta, sin recargar.
+- **Al reabrir el chat, sus propuestas pendientes vuelven con el formulario.** Se buscan por la clave del chat que guarda
+  la propuesta desde la 1.8. Antes una propuesta de pantalla se veía sólo en la sesión de la pantalla donde nació: al
+  recargar quedaba «Te lo dejé listo para que lo confirmes» sin nada para confirmar.
+- **La cuenta del 20/10:** se confirman afuera 52 de 351 (14,8%). 45 son las dos excepciones declaradas en §2.5:
+  - 34 ediciones de video que se aceptan en el editor (D7a);
+  - 11 que mueven plata (D2): vuelven SIN formulario y se confirman en su pantalla.
+  Sin ellas quedan 7 (2%): 4 de `/plan/revisar`, 2 de `/crm/revisar` y el borrador de WhatsApp. El test falla si una
+  pantalla nueva se suma a las de afuera.
+- **Regla:** quien no es admin ve el formulario y no lo confirma. La acción lo vuelve a mirar igual (`ctxDeBandeja`).
+- **El cliente lee rótulos de persona** (la revisión del 21/10): el formulario mostraba «leadId» con la ayuda escrita
+  para el modelo («id del lead (de buscar_leads).») y la consecuencia con `escribe` («upsert … closing_analyses»). Ahora
+  `Campo paraCliente` usa `rotuloDeParametro` (el `rotulo` viaja en `plano`) y no muestra la ayuda; un id o un JSON van
+  como los propuso MaKo (`ocultoAlCliente`); la consecuencia dice sólo si se deshace. **Regla:** lo que el registro
+  escribe para el modelo (`descripcion`, `escribe`) no se le muestra a un cliente.
+
+**Sin hacer:**
+- `/plan/revisar` (el borrador de tareas) y `/crm/revisar` (`TablaRevisionLeads`) todavía no entran con su vista: la 1.10 b.
+- Lo que mueve plata espera a la D2.
+- /mako/revisar sigue rotulando con el nombre del parámetro y su ayuda (`Campo` sin `paraCliente`).
+
+## Los trabajos largos siguen por detrás, y su resultado queda en el mismo mensaje (20/10/2026, ola 1, pieza 1.11)
+
+**Vive en:** `lib/chat-trabajos.ts` (`enSegundoPlano`, `estadoDeTrabajo`) · el camino largo de `confirmarDesdeTarjeta`
+(`lib/mako-turno-app.ts`) y de `confirmarAccionAction` (`app/mako/revisar/[id]/acciones.ts`) · `TrabajoHilo` en
+`app/_chat/BloqueHilo.tsx` · GET `/api/mako/chat?trabajo=`. Probado en `tests/chat-trabajos.test.ts`, de punta a punta con
+un runner que tarda 5,5 s (`tests/_trabajos-hijo.ts`).
+
+- **Síntoma:**
+  - confirmar algo lento dejaba la pantalla en «MaKo está escribiendo… puede tardar un par de minutos», sin avance
+    (replicar una landing: unos 275 s, con un tope de 420);
+  - con la pestaña cerrada a mitad, el resultado no aparecía en ningún lado.
+- **Causa:** la confirmación corría el trabajo ADENTRO del pedido, y el hilo se escribía recién al final.
+- **Regla:**
+  - una operación `lenta` se confirma y responde enseguida;
+  - se anota «En curso: …» con un G6 y el trabajo corre por detrás (`after()`, con el maxDuration de la RUTA que
+    confirma: nunca una server action, ver la trampa de abajo);
+  - al terminar, ESE mensaje se reescribe a «Hecho: …» con su G5 o su «Abrir»;
+  - el resultado lo ve quien consulta, quien vuelve con la pestaña cerrada y el modelo en el turno siguiente;
+  - si no se puede anotar el avance, corre como antes: un trabajo nunca se pierde por no poder mostrarse.
+- **La consulta es una LLAVE** (`<id del mensaje>.<token>`). El id solo no alcanza: con él, cualquiera del negocio leía
+  el mensaje de otro chat.
+- **Trampas:**
+  - Una propuesta de pantalla anota su «Hecho» en su hilo (1.8). Por detrás va con `sinAnotar`, o el hilo queda con dos
+    mensajes del mismo trabajo.
+  - `generar_landing_con_ia` ya estaba marcada `lenta`, pero `lenta` sólo llegaba al catálogo y al texto de la
+    referencia: ningún chat la usaba.
+  - **Una server action toma el techo de la PÁGINA** (la revisión del 21/10): el formulario del chat confirmaba por
+    `confirmarAccionAction`, con 60 s en /crm, y el trabajo de `after()` moría ahí: «En curso» para siempre y la
+    propuesta trabada. Ahora va por /api/mako/propuesta (420 s, `tests/mako-doer-plazo.test.ts`).
+  - **Un trabajo que muere no avisa:** ni el `catch` ni el «Hecho» corren, y si el «Hecho» final no se guarda, tampoco.
+    El G6 lleva `hasta` (`PLAZO_TRABAJO_MS`, 480 s); pasado eso `estadoDeTrabajo` lo da por cortado y lo deja escrito
+    (`textoCortado`: «No sé si terminó… revísalo antes de pedirlo de nuevo»). NO suelta la propuesta ni la pendiente: no
+    se sabe si corrió, y soltarla invita a hacerla dos veces (la propuesta queda en «Fallidas» de /mako/revisar).
+  - **La pantalla no pregunta para siempre** (un 404, o `MAX_CONSULTAS`), dibuja lo que pasó en palabras (una falla era
+    sólo un punto rojo: «Falló» estaba en `.ch-oculto`) y la tarjeta o el formulario que lo lanzó pasa a «Hecho» o
+    «Falló» (`deTarjeta`, `trasTrabajo`, `onTermina`).
+  - **La consulta previa de la tarjeta miraba sólo el id:** con la pendiente de OTRO chat (los ids son correlativos)
+    anotaba «En curso», y servía para ver qué hay vivo en otros. Ahora tiene que ser de este chat y pasar el gating de
+    quien toca; si no, el camino de siempre contesta el error sin escribir en el hilo.
+
+**Sin hacer:**
+- El G6 tiene dos pasos (Confirmado → el trabajo): los runners no informan avance intermedio.
+- Un trabajo cortado se escribe como tal recién cuando alguien CONSULTA: con la pestaña cerrada, el modelo lee «En curso»
+  en el turno siguiente (`estadoDeTrabajo`; falta cortarlo también al abrir la sesión, `abrirSesion`).
+- La validación previa del formulario (gating, `preparar`, `faltaParaConfirmar`) corre adentro de `after()`: una que
+  falla se ve como «Falló» con su motivo, no antes (`aplicarPropuestaGenerica`, lib/api-mako/acciones.ts). En
+  /mako/revisar, `RevisarAccion` pinta «Aplicada» con un `enCurso`.
+- Confirmar desde dos pestañas deja un «No se pudo» sobre algo que se hizo: falta reclamar antes de anotar el «En curso»
+  (lib/chat-trabajos.ts).
+- No están conectados `flow_trabajos` (las tomas de Flow), el render de video ni el análisis del Dashboard, que tiene su
+  propio `after` y su propia consulta.
+- «Créame una landing» termina con «Abrir en Web Generator»; su miniatura es de la tarjeta de la landing (1.12).
 ## Una LECTURA también dibuja: «A quién cobrar» en el hilo (20/10/2026, Pagos, la 2.27, sobre el marco de la 1.7)
 
 **Vive en:** `SalidaLectura.bloque` y `Ctx.aDibujar` en `lib/api-mako/tipos.ts` · la rama de lecturas de
@@ -2057,7 +2211,7 @@ Probado en `tests/chat-bloques.test.ts`, que confirma `crear_diseno_imagen` de p
   - el modelo recibe sólo `content`, y en WhatsApp o por HTTP el bloque se descarta;
   - el turno lo guarda con la respuesta de MaKo (`chart_chats.bloques`) y lo devuelve en `mensajes[].bloques`;
   - la pantalla lo suma debajo con `itemsDeRespuesta`, y al recargar vuelve con `itemsDeSesion`.
-  - Es del intento que contesta: si el turno se re-arranca (la cascada rota de cuenta), `nuevoIntento` lo vacía.
+  - Si el turno se re-arranca (la cascada rota de cuenta), un bloque igual no se repite (`dibujar`, desde la ola 1).
 - **Regla:**
   - una lectura sabe por `ctx.aDibujar` si lo que arma se va a ver, y sólo entonces lo arma y le dice al modelo que no
     lo copie;
@@ -2065,6 +2219,7 @@ Probado en `tests/chat-bloques.test.ts`, que confirma `crear_diseno_imagen` de p
     (en Pagos, marcar una fila vieja reescribe la fecha de un cobro, docs/hallazgos-pagos.md);
   - un bloque de área que trae acciones de servidor se carga con `dynamic` desde `BloqueHilo` (app/_chat/bloques/*). Si
     se importa directo, `server-only` tira afuera de Next, y `BloqueHilo` deja de cargar en su test.
-- **Para la 1.9:** el «Sin hacer» de arriba esperaba un `RespuestaTurno.bloques` para lo que dibuja un turno. Ya hay un
-  camino: lo que dibuja el turno viaja en el mensaje de MaKo (`mensajes[].bloques`), igual que al recargar. Una
-  herramienta como `preguntar_al_usuario` puede usar `ctx.aDibujar` en vez de sumar un campo.
+- **Hecho con la ola 1 (21/10):** Ops Center 3 lo tomó como el camino ÚNICO de lo que dibuja una herramienta, con los
+  mismos nombres, y lo extendió a las propuestas de pantalla (`extra.bloque`). En el turno no se vacía al re-arrancar:
+  `dibujar` no repite un bloque igual y anota qué herramienta lo dibujó (con una pregunta, 1.9, se retiran los de las que
+  escriben).

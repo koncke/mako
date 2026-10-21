@@ -28,7 +28,8 @@ import { leerPorPaginas } from '@/lib/supabase-paginado';
 import { TIPO_DE_CAMBIO_USD_MXN } from '@/lib/config';
 import { monedaCuentaMeta } from '@/lib/moneda-meta';
 import { conversorDeGasto } from '@/lib/presupuesto-cambio';
-import { getSecuenciasConStats, setSecuenciaActiva, validarActivacion, PasosInvalidosError } from '@/lib/nutricion';
+import { getSecuenciasConStats, setSecuenciaActiva, validarActivacion, duplicadaDeLaActivacion, DuplicadaError, PasosInvalidosError } from '@/lib/nutricion';
+import { avisoDuplicada } from '@/lib/automatizacion-duplicada';
 import { metaWrite, type MetaWriteBody } from '@/lib/meta-write';
 import { rutearTareasCliente } from './todo-rutear';
 import { crearTarea, crearCategoria, listCategorias, type Prioridad } from '@/lib/todo';
@@ -152,7 +153,14 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
       case 'nutricion_toggle': {
         const id = Number(payload.secuenciaId);
         const activa = Boolean(payload.activa);
-        await setSecuenciaActiva(id, activa);
+        // `aunqueDuplique` sólo si la PROPUESTA ya dijo que otra le escribe lo mismo (y la persona dijo que sí). Si la
+        // gemela apareció entre la propuesta y el «sí», no se prende: se dice, y se vuelve a proponer con el aviso.
+        try {
+          await setSecuenciaActiva(id, activa, { aunqueDuplique: payload.aunqueDuplique === true });
+        } catch (e) {
+          if (e instanceof DuplicadaError) return { ok: false, resumen: `No activé la secuencia #${id}: ${e.message}. Si es a propósito, pídemelo otra vez.` };
+          throw e;
+        }
         return { ok: true, resumen: `Secuencia de nutrición #${id} ${activa ? 'activada' : 'pausada'}.` };
       }
       case 'meta_nombre':
@@ -812,7 +820,11 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
             throw e;
           }
         }
-        return proponer('nutricion_toggle', { secuenciaId, activa }, `${activa ? 'Activar' : 'Pausar'} la secuencia de nutrición "${sec.nombre}"`);
+        // ⚠️ Y SI OTRA ACTIVA YA LE ESCRIBE LO MISMO A LA MISMA GENTE, LA PROPUESTA LO DICE (revisión del 21/10/2026): la
+        // persona confirma sabiéndolo, y sólo entonces el «sí» lleva `aunqueDuplique` (`setSecuenciaActiva` pregunta).
+        const otra = activa ? await runWithWorkspace(ws, () => duplicadaDeLaActivacion(secuenciaId)) : null;
+        return proponer('nutricion_toggle', { secuenciaId, activa, ...(otra ? { aunqueDuplique: true } : {}) },
+          `${activa ? 'Activar' : 'Pausar'} la secuencia de nutrición "${sec.nombre}"${otra ? `. ${avisoDuplicada(otra.nombre)}` : ''}`);
       }
 
       case 'proponer_renombrar_campana': {

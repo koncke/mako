@@ -1967,4 +1967,100 @@ FEEDBACK PROBAR:
     ],
     pedido: "«4. También revisa el chat de Leila con Automations... Le pidió literalmente que creara una automatización usando el CRON de Recurrente, y creó cualquier cosa... Nuevamente, eso debería ser inteligente, no crear cosas por defecto...\n5. Y el chat de Automations yo ya te habia pedido que quede SIEMPRE abierto en donde está la sidebar de todas las automatizaciones, que se elimine el icono de MaKo ya que quedará siempre abierto, y en su lugar que allí vaya el ícono de configuraciones... Te habia pedido varias cosas, ¿No tienes el registro?»",
   },
+  {
+    fecha: "20 oct", hora: "18:27", chat: "Automations", cuenta: "claude4",
+    actor: "martin", tipo: "prompt",
+    titulo: "Leila configuró una automatización recurrente y le dijo que no salió",
+    puntos: [
+      "Llegó por el Cerebro (transcript 9bc46b5e, 21:27Z), que lo midió en ws11: lo que no salió era #282, con 31 mensajes esperando aprobación.",
+      "Que la pantalla diga los mensajes que esperan aprobación, que un Recurrente salga a su minuto y que avise si otra automatización le escribe a la misma gente.",
+    ],
+    pedido: "«Tambien revisa que Leila configuró una automatización recurrente y me dijo que no salió»",
+  },
+  {
+    fecha: "20 oct", hora: "21:40", chat: "Automations", cuenta: "claude4",
+    sesion: "local_f74a2156-23dd-4213-b1dd-cd6c13906ff1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Hecho: «Crear con IA» arma el Recurrente que se pide, sólo con lo pedido, y dice qué hizo (el pedido de Leila)",
+    puntos: [
+      "El horario del Recurrente lo saca el código del pedido: «cada semana los martes a las 3 de la tarde» queda martes 15:00 (no las 7:30 de la sesión); si falta la hora o el día, MaKo pregunta.",
+      "«A todos los del funnel principal» son todas sus etapas; sin decir a quién, MaKo pregunta «¿A quién le llega?» con cuántos hay hoy.",
+      "Sin «Avisar al equipo» ni «Si responde» que nadie pidió, y sin «hermosa» en un mensaje para todos.",
+      "MaKo dice cuándo sale, a quién y qué manda; al editar, qué tarjeta cambió y que falta Publicar.",
+      "Cada martes le vuelve a llegar a quien terminó el anterior (antes, una sola vez por lead).",
+      "En producción: run 169 verde, deploy de 6c3803d92 (lo verificó el Cerebro). #284 y #282 sin tocar: lo decide Martín.",
+    ],
+    commits: [
+      { sha: "7a69e6d1d", msg: "Automations: «Crear con IA» arma el Recurrente que se pide, sólo lo pedido, y dice qué hizo (el pedido de Leila, 20/10)", lineas: 1470, archivos: 30 },
+      { sha: "fc72a6975", msg: "Automations: los dos pedidos de Martín con el texto entero (16/10 puntos 5-6, 20/10 puntos 4-5) en la bitácora y el relevo", lineas: 34, archivos: 2 },
+    ],
+    archivos: [
+      "docs/hallazgos-chatbot.md — «Crear con IA» no podía poner un Recurrente, y el que se pusiera a mano llegaba una sola vez por lead",
+    ],
+    revisar: "/automations",
+  },
+  {
+    fecha: "20 oct", hora: "23:44", chat: "Automations", cuenta: "claude4",
+    sesion: "local_f74a2156-23dd-4213-b1dd-cd6c13906ff1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Hecho: el chat de MaKo siempre abierto en la sidebar, y Configuraciones de cada automatización (16/10 puntos 5-6, 20/10 punto 5)",
+    puntos: [
+      "Al abrir una automatización, la sidebar es su chat con MaKo, siempre abierto; con «←» se vuelve a la lista. Al entrar se ve la lista.",
+      "En el título, la tuerca en lugar del logo de MaKo; la lista quedó sólo con el «?» del tutorial.",
+      "Cada automatización tiene su horario de oficina (el propio, «sin horario» o el del negocio) y sus horas entre dos mensajes a la misma persona; el motor y el tick lo respetan. Los topes de la línea siguen siendo del negocio.",
+      "Al Publicar o Probar una que le escribe a un funnel de Prospección, avisa que revises su horario y sus límites.",
+      "Lo que frenó la revisión: el huso de la tuerca es el del negocio y no se cambia ahí; «Duplicar» copia la configuración; las horas del negocio se editan «por defecto».",
+      "En producción: run 180, deploy de 396a82847 (lo verificó el Cerebro).",
+    ],
+    commits: [
+      { sha: "9d291d844", msg: "Automations: el chat de MaKo siempre abierto en la sidebar, la tuerca y Configuraciones por automatización (16/10 puntos 5-6, 20/10 punto 5)", lineas: 1628, archivos: 44 },
+      { sha: "f997c37b5", msg: "Automations: lo que frenó la revisión del pedido B (Configuraciones por automatización)", lineas: 594, archivos: 25 },
+    ],
+    archivos: [
+      "docs/hallazgos-chatbot.md — «El chat de MaKo siempre abierto…» y «La revisión adversarial lo frenó»",
+      "AGENTS.md — lo que se guarda por automatización fuera de su fila viaja con «Duplicar»",
+    ],
+    revisar: "/automations",
+  },
+  {
+    fecha: "20 oct", hora: "23:44", chat: "Automations", cuenta: "claude4",
+    sesion: "local_f74a2156-23dd-4213-b1dd-cd6c13906ff1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Hecho: «no salió» — la automatización dice los mensajes que esperan tu aprobación, el Recurrente sale a su minuto y avisa si otra escribe lo mismo",
+    puntos: [
+      "Lo de Leila: #282 no era un Recurrente; inscribió a 31 y los 31 mensajes quedaron esperando aprobación (WhatsApp no oficial a leads sin pago).",
+      "La automatización dice «31 mensajes esperando que los apruebes», por qué, y lleva a Chats › Borradores; el chat lo dice al activarla.",
+      "Un Recurrente sale a su minuto (antes, a la hora en punto siguiente).",
+      "Al Activar o Publicar, avisa si otra automatización activa le escribe algo parecido a la misma gente.",
+      "En producción: run 180, deploy de 396a82847 (lo verificó el Cerebro). #282, #284 y sus borradores sin tocar: lo decide Martín.",
+    ],
+    commits: [
+      { sha: "37bd100a6", msg: "Automations: «no salió» — los mensajes por aprobar, el Recurrente a su minuto y el aviso de duplicada", lineas: 778, archivos: 21 },
+    ],
+    archivos: [
+      "docs/hallazgos-chatbot.md — «Configuré una recurrente y no salió»",
+      "docs/hallazgos-comunicacion.md — un link a la bandeja Borradores",
+    ],
+    revisar: "/automations",
+  },
+  {
+    fecha: "21 oct", hora: "01:23", chat: "Automations", cuenta: "claude4",
+    sesion: "local_f74a2156-23dd-4213-b1dd-cd6c13906ff1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Hecho: el aviso de automatización duplicada también desde el «⋯» y al sumarle un CRON a una activa",
+    puntos: [
+      "Activar desde el «⋯» de la lista pregunta si otra activa le escribe lo mismo a la misma gente («Activar igual»).",
+      "Compara lo publicado, no lo que está a medio editar en el lienzo.",
+      "«Copiar flujo» › «Crear» dentro del mismo negocio lleva el horario y los límites de la original.",
+      "Una corrida manual con la ventana ignorada no manda si no puede leer la configuración de cada automatización.",
+      "En producción: run 184, deploy de 9db46f692 (lo verificó el Cerebro).",
+    ],
+    commits: [
+      { sha: "488e1e20b", msg: "Automations: el aviso de duplicada por todos los caminos, y lo que dejó la revisión de 396a82847", lineas: 341, archivos: 20 },
+    ],
+    archivos: [
+      "docs/hallazgos-chatbot.md — «Una defensa que no cubre TODOS los caminos que prenden algo no defiende»",
+    ],
+    revisar: "/automations",
+  },
 ];

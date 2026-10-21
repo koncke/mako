@@ -66,8 +66,8 @@ import { ChipArchivo } from '@/app/offer/ChipArchivo';
 import { CSS_OFFER } from '@/app/offer/estilos';
 import { horaDe } from '@/app/offer/ayudas';
 import {
-  AVISO_LENTO_S, ERROR_INCIERTO, PILL_PROPUESTA, SALIDA_PROPUESTA, fuenteDelTurno, idLocal, itemsDeRespuesta, itemsTrasTarjeta,
-  itemsDeSesion, leerRespuesta, problemaDeSeleccion, rotuloPrimario, trasTarjeta, type EstadoPropuesta, type ItemHilo,
+  AVISO_LENTO_S, ERROR_INCIERTO, PILL_PROPUESTA, SALIDA_PROPUESTA, fuenteDelTurno, idLocal, itemsDeRespuesta, conTarjeta,
+  itemsDeSesion, leerRespuesta, problemaDeSeleccion, rotuloPrimario, trasTarjeta, trasTrabajo, conRespuestas, type EstadoPropuesta, type ItemHilo,
 } from '@/app/m/mako/chat-ui';
 import { achicarImagen, postConProgreso } from '@/app/m/mako/subir';
 import { ConectarDelAviso } from '@/app/_chat/ConectarDelAviso';
@@ -76,9 +76,11 @@ import { GRAMATICA } from '@/lib/mako-gramatica';
 import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import { conWs } from '@/lib/ws-tab';
 import { BloqueHilo } from '@/app/_chat/BloqueHilo';
+import { FormularioEnChat } from '@/app/_chat/FormularioEnChat';
+import { ACCIONES_FORMULARIO } from '@/app/_chat/acciones-formulario';
 // Las clases del bloque (`ch-bloque…`) viven en la hoja de la pieza única de chat.
 import '@/app/_chat/chat.css';
-import type { MensajeChat, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
+import type { MensajeChat, PropuestaPantalla, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 
 const RUTA = '/api/crm/analyst';
 /** El maxDuration de la ruta es 300 s: el corte del navegador va 5 s después. */
@@ -119,7 +121,7 @@ const CSS_PROPIO = `
 type Adjunto = { id: string; file: File; nombre: string; tipo: 'image' | 'document' };
 type Envio = { texto: string; adjuntos: Adjunto[]; voz?: { url: string; secs: number; blob: Blob } };
 type Trabajo = { fase: 'subiendo' | 'revisando'; pct: number; desde: number; fuente: string };
-type Abierta = { lead: { id: number; nombre: string }; sesion: SesionChat | null; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[] };
+type Abierta = { lead: { id: number; nombre: string }; sesion: SesionChat | null; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[]; pantallas?: PropuestaPantalla[] };
 type ItemMsg = Extract<ItemHilo, { k: 'msg' }>;
 type ItemPropuesta = Extract<ItemHilo, { k: 'propuesta' }>;
 
@@ -191,7 +193,7 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
       return;
     }
     sesionRef.current = l.datos.sesion;
-    setItems(itemsDeSesion(l.datos.mensajes ?? [], l.datos.propuestas ?? []));
+    setItems(itemsDeSesion(l.datos.mensajes ?? [], l.datos.propuestas ?? [], l.datos.pantallas ?? []));
     setErrorCarga(null);
     setCargadoPara(id);
   }, []);
@@ -370,12 +372,9 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
   };
 
   // ── Las tarjetas: confirmar o no ejecutar lo que MaKo propuso ──
-  /** `extra`: lo que vuelve de la tarjeta (`itemsTrasTarjeta`: los avisos y lo que dibuja el resultado). */
-  const alEstado = (pendienteId: number, estado: EstadoPropuesta, nota?: string, extra: readonly ItemHilo[] = []) => {
-    setItems((xs) => {
-      const sig = xs.map((x) => (x.k === 'propuesta' && x.t.pendienteId === pendienteId ? { ...x, estado, nota } : x));
-      return [...sig, ...extra];
-    });
+  /** `r`: lo que contestó la tarjeta (su «Abrir», los avisos y lo que dibuja el resultado: `conTarjeta`). */
+  const alEstado = (pendienteId: number, estado: EstadoPropuesta, nota?: string, r?: ResultadoTarjeta) => {
+    setItems((xs) => conTarjeta(xs, pendienteId, estado, nota, r));
   };
   const correrTarjeta = async (it: ItemPropuesta, accion: 'confirmar' | 'cancelar') => {
     const s = sesionRef.current;
@@ -400,7 +399,7 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
         return;
       }
       const d = trasTarjeta(l.datos, accion);
-      alEstado(id, d.estado ?? 'pendiente', d.frase ?? undefined, itemsTrasTarjeta(l.datos));
+      alEstado(id, d.estado ?? 'pendiente', d.frase ?? undefined, l.datos);
       // Lo confirmado cambió al lead (su etapa, una nota, una etiqueta): la ficha que rodea al chat
       // es una FOTO y se relee por el aviso de siempre (ficha-cambio.tsx), no con un refresh suelto.
       if (d.estado === 'hecho' || d.estado === 'fallo') refrescarFicha();
@@ -429,7 +428,8 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
     return out;
   }, [items, hayTrabajo]);
 
-  const porId = useMemo(() => new Map(items.map((x) => [x.id, x])), [items]);
+  // Con lo contestado (`conRespuestas`): contestar escribiendo apaga las opciones de la pregunta en el acto.
+  const porId = useMemo(() => new Map(conRespuestas(items).map((x) => [x.id, x])), [items]);
 
   /** Lo que la burbuja de ChatHilo no sabe dibujar; null = la de siempre. */
   const renderMensaje = (h: HiloMsg): ReactNode | null => {
@@ -509,16 +509,33 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
     }
 
     // Lo que dibuja el resultado (lib/chat-bloques.ts): la MISMA pieza del Ops Center y del teléfono.
-    if (x.k === 'bloque') return <FilaMako><BloqueHilo b={x.b} /></FilaMako>;
+    if (x.k === 'bloque') {
+      const de = x.deTarjeta;
+      // El trabajo largo de una tarjeta terminó: la tarjeta deja de decir «En curso» y la ficha se relee (lo cambió).
+      const termina = de != null ? (ok: boolean) => { setItems((xs) => trasTrabajo(xs, de, ok)); refrescarFicha(); } : undefined;
+      return <FilaMako><BloqueHilo b={x.b} respondida={x.respondida} ocupado={hayTrabajo} onTermina={termina}
+        onResponder={(t) => { if (ocupadoRef.current) return false; enviar({ texto: t, adjuntos: [] }); return true; }} /></FilaMako>;
+    }
+
+    if (x.k === 'pantalla' && x.p.form) {
+      return (
+        <FilaMako>
+          <div className="ch-tarjeta">
+            <p className="ch-tarjeta__resumen"><strong>{x.p.titulo}</strong></p>
+            <FormularioEnChat f={x.p.form} acciones={ACCIONES_FORMULARIO} abrirEnApp={{ titulo: 'Abrir en la app', href: x.p.escritorio }} />
+          </div>
+        </FilaMako>
+      );
+    }
 
     if (x.k === 'pantalla') {
       return (
         <FilaMako>
           <div className="mal-tarjeta">
             <p className="mal-tarjeta__resumen"><strong>{x.p.titulo}</strong></p>
-            <p className="mal-tarjeta__nota">Todavía no está cargado: se revisa y se confirma en su pantalla.</p>
+            <p className="mal-tarjeta__nota">{x.p.clase === 'editor' || x.p.clase === 'whatsapp' ? x.p.nota : 'Todavía no está cargado: se revisa y se confirma en su pantalla.'}</p>
             <div className="mal-tarjeta__botones">
-              <ButtonLink href={x.p.escritorio} variant="secondary" size="sm">Abrir para revisar</ButtonLink>
+              <ButtonLink href={x.p.escritorio} variant="secondary" size="sm">{x.p.boton}</ButtonLink>
             </div>
           </div>
         </FilaMako>
@@ -559,6 +576,9 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
               </div>
             </>
           ) : x.nota ? <p className="mal-tarjeta__nota">{x.nota}</p> : null}
+          {x.estado === 'hecho' && x.abrir && (
+            <div className="mal-tarjeta__botones"><ButtonLink href={x.abrir.href} variant="secondary" size="sm">{x.abrir.titulo}</ButtonLink></div>
+          )}
         </div>
       </FilaMako>
     );

@@ -23,6 +23,7 @@ import 'server-only';
 import type { Ctx, Propuesto, Runners } from '../tipos';
 import { OPERACIONES_API, operacionDesdeInput, type OperacionApi } from '@/lib/editor-video/chat-api';
 import { proponerOperacion } from '@/lib/editor-video/propuestas-server';
+import { bloqueDePropuesta } from '@/lib/editor-video/propuesta-bloque';
 import type { PlanGuardado } from '@/app/video-generator/video-datos';
 import { guionesDisponibles } from '@/app/video-generator/guiones-datos';
 import { formatosOfrecidos, puestaDe } from '@/app/video-generator/formatos-datos';
@@ -112,6 +113,10 @@ async function proponerEnElEditor(o: OperacionApi, input: Record<string, unknown
     if ('motivo' in r) return { error: `No se puede proponer: ${r.motivo}.` };
     return { error: r.sinTabla ? 'Las propuestas del Video Editor todavía no se guardan en MaKo.' : 'No se pudo dejar la propuesta.' };
   }
+  // La tarjeta «Original | Modificado» que dibuja el chat del Ops Center (bloque G4, lib/chat-bloques.ts), con «Aceptar
+  // en el editor» en ESA propuesta. La arma el código con la copia del proyecto, nunca el modelo. En WhatsApp no se
+  // dibuja nada: ahí sólo serían tokens de más para el modelo, que ya tiene `cambios`.
+  const bloque = ctx.canal === 'whatsapp' ? null : bloqueDePropuesta({ proyecto, nombre: r.nombre, id: r.id, filas: r.filas, total: r.total });
   return {
     id: r.id,
     url: linkApp(`/video-editor/${proyecto}?propuesta=${r.id}`, ctx.ws),
@@ -119,6 +124,7 @@ async function proponerEnElEditor(o: OperacionApi, input: Record<string, unknown
     extra: {
       cambios: r.lineas,
       nota: NOTA_PROPUESTA,
+      ...(bloque ? { bloque } : {}),
       ...(r.sinRevisar ? { aviso: 'El proyecto es muy grande para revisarlo aquí: lo revisa el editor al aceptarlo.' } : {}),
     },
   };

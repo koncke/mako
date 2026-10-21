@@ -38,18 +38,12 @@ const LIENZO = sinComentarios(leer('app/automations/FlujoLienzo.tsx'));
 
 // ── El ✦ del título ──────────────────────────────────────────────────────────────────────────
 
-test('abrirMako: con una tarjeta abierta la cierra (foco con id null) y ABRE; sin tarjeta, alterna', () => {
-  assert.equal((PERFIL.match(/const abrirMako = /g) ?? []).length, 1, 'abrirMako tiene que vivir en un solo lugar');
-  const f = tramo(PERFIL, 'const abrirMako = () => {', '\n  };', 600);
-  assert.match(f, /if \(tarjetaAbierta\) \{\s*setFoco\(\(f\) => \(\{ id: null, vez: \(f\?\.vez \?\? 0\) \+ 1 \}\)\);\s*setEditandoIA\(true\);\s*return;\s*\}/,
-    'con una tarjeta abierta no la cierra o no abre');
-  assert.match(f, /setEditandoIA\(\(v\) => !v\);\s*\};$/, 'sin tarjeta abierta ya no alterna');
-  // Decimocuarta (punto 3): el chat comparte el muelle de la derecha con «Probar». Con «Probar» abierto, el ✦ lo cierra y
-  // MUESTRA el chat (nunca lo apaga), y el ✦ se ve encendido sólo si el chat se ve.
-  assert.match(f, /if \(probarAbierto\) \{\s*onCerrarProbar\?\.\(\);\s*setEditandoIA\(true\);\s*return;\s*\}/, 'con «Probar» abierto el ✦ no muestra el chat');
-  // El botón llama a abrirMako, y nadie más alterna la barra por su lado.
-  assert.match(PERFIL, /<BotonLogoMako lado=\{ALTO_ACCION\} encendido=\{editandoIA && !probarAbierto\} onClick=\{abrirMako\} /);
-  assert.equal((PERFIL.match(/setEditandoIA\(\(v\) => !v\)/g) ?? []).length, 1, 'otro clic alterna la barra por fuera de abrirMako');
+// ⚠️ 20/10/2026 (Martín: «que quede SIEMPRE abierto... que se elimine el icono de MaKo ya que quedará siempre abierto»):
+// sin `abrirMako` ni el ✦. El chat está siempre, en la sidebar (tests/automations-chat-siempre.test.ts); en el título va
+// la tuerca. Lo que sigue vale igual: `foco` con null cierra la tarjeta, y cerrarla olvida el CRON abierto.
+test('sin abrirMako: el chat no se abre ni se cierra, y la tuerca está en su lugar; `foco` con null cierra la tarjeta', () => {
+  assert.doesNotMatch(PERFIL, /const abrirMako = |setEditandoIA|<BotonLogoMako /, 'volvió el botón que abría y cerraba el chat');
+  assert.match(PERFIL, /<BotonTuerca lado=\{ALTO_ACCION\} onClick=\{\(\) => setConfigAbierta\(true\)\} \/>/);
   // `foco` admite null de punta a punta, y el lienzo lo aplica con setSel (null = cerrar).
   assert.match(PERFIL, /useState<\{ id: string \| null; vez: number \} \| null>\(null\)/);
   assert.match(LIENZO, /foco\?: \{ id: string \| null; vez: number \} \| null;/);

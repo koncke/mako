@@ -21,7 +21,7 @@ import './operaciones.css';
 import { redirect } from 'next/navigation';
 import { getSesionAdmin } from '@/lib/auth';
 import { contextoMovil, requireMovil } from '@/lib/movil-guard';
-import { HOME_MOVIL, RUTA_MAS } from '@/lib/movil-rutas';
+import { HOME_MOVIL } from '@/lib/movil-rutas';
 import { rutaConWs, wsSuperAdmin } from '@/lib/workspace';
 import { conWs } from '@/lib/ws-tab';
 import { puedeOperar } from '@/lib/operaciones-reglas';
@@ -58,7 +58,8 @@ export default async function CentroOperacionesMovil({ searchParams }: { searchP
   const ctx = await contextoMovil();
   if (ctx && ctx.ws == null) redirect(conWs(RUTA, plataforma));
   await requireMovil({ onboarding: false });
-  const cabecera = <CabeceraM titulo="Ops Center" padre={{ href: RUTA_MAS, label: 'More' }} />;
+  // Sin «volver» desde el 21/10/2026: el Centro es el lugar del medio de la barra del super admin (una raíz, no una fila de More).
+  const cabecera = <CabeceraM titulo="Ops Center" padre={null} />;
   if (!puedeOperar(admin, plataforma)) {
     return <PantallaM>{cabecera}<VacioM frase="Entra como super admin, con tu segundo factor, para usar el Centro." /></PantallaM>;
   }

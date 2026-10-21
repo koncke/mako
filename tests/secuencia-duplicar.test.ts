@@ -62,7 +62,7 @@ test('la copia nace PAUSADA, con los mismos pasos (por su puerta) y el mismo dis
   const r = await duplicarSecuencia(198, {
     db, clave: () => 'copia-x',
     setPasos: async (id, p) => { pasos.push([id, p]); },
-    setCron: async (id, c) => { crones.push([id, c]); },
+    copiarConfig: async () => {}, setCron: async (id, c) => { crones.push([id, c]); },
   });
   assert.deepEqual(r, { id: 500, nombre: 'Copia de Bienvenida para quien agenda un' });
   // Lee la original VIGENTE.
@@ -85,30 +85,30 @@ test('la copia nace PAUSADA, con los mismos pasos (por su puerta) y el mismo dis
 test('si algo falla después de crearla, la copia a medias se BORRA y el motivo sube tal cual', async () => {
   const { db, llamadas } = baseDeMentira();
   await assert.rejects(
-    duplicarSecuencia(198, { db, setPasos: async () => { throw new Error('No se guardó: el paso 2 es un archivo y no tiene el archivo elegido.'); }, setCron: async () => {} }),
+    duplicarSecuencia(198, { db, setPasos: async () => { throw new Error('No se guardó: el paso 2 es un archivo y no tiene el archivo elegido.'); }, copiarConfig: async () => {}, setCron: async () => {} }),
     /No se guardó: el paso 2/,
   );
   assert.deepEqual(llamadas.at(-1), { op: 'delete', args: ['id', 500] });
   // Y el horario también: una copia sin su horario no es «el mismo disparador».
   const b = baseDeMentira();
-  await assert.rejects(duplicarSecuencia(198, { db: b.db, setPasos: async () => {}, setCron: async () => { throw new Error('Ese horario no se entiende'); } }), /horario/);
+  await assert.rejects(duplicarSecuencia(198, { db: b.db, setPasos: async () => {}, copiarConfig: async () => {}, setCron: async () => { throw new Error('Ese horario no se entiende'); } }), /horario/);
   assert.deepEqual(b.llamadas.at(-1), { op: 'delete', args: ['id', 500] });
 });
 
 test('lo que no se puede duplicar no crea nada', async () => {
   const sin = baseDeMentira({ original: null });
-  await assert.rejects(duplicarSecuencia(1, { db: sin.db, setPasos: async () => {}, setCron: async () => {} }), /ya no está/);
+  await assert.rejects(duplicarSecuencia(1, { db: sin.db, setPasos: async () => {}, copiarConfig: async () => {}, setCron: async () => {} }), /ya no está/);
   assert.ok(!sin.llamadas.some((l) => l.op === 'insert'), 'una archivada o de otro negocio no se copia');
   const mal = baseDeMentira({ errIns: 'duplicate key' });
   let pasos = 0;
-  await assert.rejects(duplicarSecuencia(198, { db: mal.db, setPasos: async () => { pasos++; }, setCron: async () => {} }), /duplicate key/);
+  await assert.rejects(duplicarSecuencia(198, { db: mal.db, setPasos: async () => { pasos++; }, copiarConfig: async () => {}, setCron: async () => {} }), /duplicate key/);
   assert.equal(pasos, 0);
 });
 
 test('sin pasos ni horario no llama a sus puertas (una vacía se copia vacía)', async () => {
   const { db } = baseDeMentira({ original: { id: 5, nombre: 'Vacía', pasos: [], cron: null, trigger_tipo: 'manual', etapa: 'manual' } });
   let llamadas = 0;
-  const r = await duplicarSecuencia(5, { db, clave: () => 'k', setPasos: async () => { llamadas++; }, setCron: async () => { llamadas++; } });
+  const r = await duplicarSecuencia(5, { db, clave: () => 'k', setPasos: async () => { llamadas++; }, copiarConfig: async () => {}, setCron: async () => { llamadas++; } });
   assert.equal(r.nombre, 'Copia de Vacía');
   assert.equal(llamadas, 0);
 });
@@ -163,7 +163,7 @@ test('y la copia del evento entra ENTERA: la lista en el insert, y los pasos des
   };
   const { db, llamadas } = baseDeMentira({ original: evento });
   const orden: string[] = [];
-  await duplicarSecuencia(300, { db, clave: () => 'k', setPasos: async () => { orden.push('pasos'); }, setCron: async () => { orden.push('cron'); } });
+  await duplicarSecuencia(300, { db, clave: () => 'k', setPasos: async () => { orden.push('pasos'); }, copiarConfig: async () => {}, setCron: async () => { orden.push('cron'); } });
   const insert = llamadas.find((l) => l.op === 'insert')!.args[0] as Record<string, unknown>;
   assert.deepEqual(insert.disparadores, evento.disparadores);
   assert.equal(insert.activa, false);
@@ -175,7 +175,7 @@ test('la ruta ENCHUFA la acción con las puertas de verdad (sin esto, el «⋯»
   // con cero call sites compila y pasa sus tests (AGENTS.md, «Escribir la salida no es ofrecerla»).
   // Rotura (sacar el bloque `duplicar` de la ruta): 1 fallo.
   const ruta = readFileSync(new URL('../app/api/chat-agent/secuencias/route.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
-  assert.match(ruta, /if \(body\.action === 'duplicar'\) \{[\s\S]{0,400}await duplicarSecuencia\(id, \{ db: \(await getTenantDb\(\)\) as unknown as DbDuplicar, setPasos: setSecuenciaPasos, setCron: setCronSecuencia \}\)/);
+  assert.match(ruta, /if \(body\.action === 'duplicar'\) \{[\s\S]{0,400}await duplicarSecuencia\(id, \{ db: \(await getTenantDb\(\)\) as unknown as DbDuplicar, setPasos: setSecuenciaPasos, setCron: setCronSecuencia, copiarConfig: copiarConfigAutomatizacion \}\)/);
   assert.match(ruta, /if \(e instanceof PasosInvalidosError\) return Response\.json\(\{ ok: false, error: e\.message \}, \{ status: 400 \}\);/);
   assert.match(ruta, /\{ action:'duplicar', secuenciaId \}/, 'la cabecera de la ruta no la nombra');
 });

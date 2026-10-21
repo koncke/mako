@@ -79,12 +79,14 @@ export function useCobrar(ctx: CtxFicha) {
    */
   const desmarcar = (q: Pago) => start(async () => {
     try {
-      const { quitada } = await marcarPagoAction(q.id, lead.id, false, null);
+      const { quitada, yaEstaba } = await marcarPagoAction(q.id, lead.id, false, null);
       cambio();
+      // Ya estaba sin cobrar (otra pestaña la desmarcó): sin Deshacer, que la volvería a cobrar con datos viejos.
+      if (yaEstaba) { show(`${nombreCuota(q.numero)} ya estaba sin cobrar`); return; }
       if (quitada) {
         show('Pago quitado', () => start(async () => {
           await registrarPagoSueltoAction(lead.id, {
-            monto: Number(q.monto_usd), fecha: q.fecha_pago ?? new Date().toISOString().slice(0, 10), hora: q.pago_hora ?? null,
+            monto: Number(q.monto_usd), fecha: q.fecha_pago ?? ctx.hoy, hora: q.pago_hora ?? null,
             moneda: q.moneda ?? null, montoOriginal: q.monto_original ?? null, concepto: q.concepto ?? null, metodo: q.metodo ?? null,
           }).catch(() => {});
           cambio();
@@ -94,7 +96,7 @@ export function useCobrar(ctx: CtxFicha) {
       show(`${nombreCuota(q.numero)} desmarcada`, () => start(async () => {
         // Con lo que tenía: la moneda, lo cobrado en ella, el concepto y el método (lo que no viene, el server lo limpia).
         await marcarPagoManualAction(q.id, lead.id, {
-          monto: Number(q.monto_usd), fecha: q.fecha_pago ?? new Date().toISOString().slice(0, 10), hora: q.pago_hora ?? null,
+          monto: Number(q.monto_usd), fecha: q.fecha_pago ?? ctx.hoy, hora: q.pago_hora ?? null,
           moneda: q.moneda ?? null, montoOriginal: q.monto_original ?? null, concepto: q.concepto ?? null, metodo: q.metodo ?? null,
         }).catch(() => {});
         cambio();
@@ -110,7 +112,7 @@ export function useCobrar(ctx: CtxFicha) {
       onMarcar={() => setAbierto({ que: 'marcar', cuota: q })} onLink={() => setAbierto({ que: 'link', cuota: q })} />;
   } else if (abierto?.que === 'marcar') {
     const q = abierto.cuota;
-    modal = <MarcarPagada cuota={q} leadId={lead.id} monedaNegocio={moneda} comprobante={comprobante} onCerrar={cerrar}
+    modal = <MarcarPagada cuota={q} leadId={lead.id} monedaNegocio={moneda} hoy={ctx.hoy} comprobante={comprobante} onCerrar={cerrar}
       onHecho={(m, deshacer) => { cerrar(); cambio(); show(m, deshacer ? () => deshacerMarca(q) : undefined); }} />;
   } else if (abierto?.que === 'link') {
     const q = abierto.cuota;
@@ -119,7 +121,7 @@ export function useCobrar(ctx: CtxFicha) {
   } else if (abierto?.que === 'comprobante') {
     modal = <VerComprobante cuota={abierto.cuota} leadId={lead.id} onCerrar={cerrar} />;
   } else if (abierto?.que === 'registrar') {
-    modal = <RegistrarPago leadId={lead.id} monedaNegocio={moneda} modo={abierto.modo} sugeridoUsd={abierto.sugeridoUsd} onCerrar={cerrar}
+    modal = <RegistrarPago leadId={lead.id} monedaNegocio={moneda} modo={abierto.modo} sugeridoUsd={abierto.sugeridoUsd} hoy={ctx.hoy} onCerrar={cerrar}
       onHecho={(m) => { cerrar(); cambio(); show(m); }} />;
   } else if (abierto?.que === 'agregar') {
     modal = <AgregarCuota ctx={ctx} faltaUsd={abierto.faltaUsd} onCerrar={cerrar} onHecho={(m) => { cerrar(); cambio(); show(m); }} />;

@@ -9,9 +9,11 @@
 //   · una operación lo devuelve en `datos.bloque` de su `Ejecutado` (lib/api-mako/tipos.ts);
 //   · al confirmar la tarjeta, `confirmarDesdeTarjeta` (lib/mako-turno-app.ts) lo sanea, lo guarda con el «Hecho: …» en
 //     `chart_chats.bloques` (mig 0305) como `{ k: 'bloque', b }`, y lo devuelve en `ResultadoTarjeta.bloques`;
-//   · una LECTURA lo devuelve en el `bloque` de su salida (`SalidaLectura`) y lo pasa `ejecutarOperacion` por
-//     `ctx.aDibujar`, que sólo pone el turno de la app (`turnoApp`): se guarda con la respuesta de MaKo y la pantalla lo
-//     suma con `itemsDeRespuesta`. El modelo NO lo ve, y en WhatsApp o por HTTP se descarta (20/10/2026, Pagos, la 2.27);
+//   · una LECTURA lo devuelve en el `bloque` de su salida (`SalidaLectura`), y una PROPUESTA de pantalla en `extra.bloque`
+//     (el antes y el después del Video Editor): `ejecutarOperacion` lo sanea y lo pasa por `ctx.aDibujar`, que sólo pone el
+//     turno de la app, y el turno lo guarda con la respuesta de MaKo. El modelo NO lo ve, y en WhatsApp o por HTTP se
+//     descarta (el camino de Pagos, 20/10/2026, la 2.27; las propuestas, 21/10). Uno por herramienta: una lista va en UN
+//     bloque. Como mucho `MAX_BLOQUES_MENSAJE` por mensaje;
 //   · la pantalla lo suma al hilo como `{ k: 'bloque' }` de `ItemHilo` (app/m/mako/chat-ui.ts) SIN recargar, y al
 //     recargar vuelve desde el mensaje guardado;
 //   · lo dibuja UNA pieza para las dos pantallas: app/_chat/BloqueHilo.tsx.
@@ -57,8 +59,10 @@ export type Bloque =
   | BloqueCreado
   /** G4: lo que cambió, fila por fila. */
   | { t: 'antes_despues'; titulo: string; filas: { campo?: string; antes: string; despues: string }[]; abrir?: Abrir }
-  /** G6: un trabajo largo. `listo` es el G5 en que termina. */
-  | { t: 'trabajo'; titulo: string; pasos: { texto: string; estado: EstadoPaso }[]; listo?: BloqueCreado }
+  /** G6: un trabajo largo. `listo` es el G5 en que termina (o `abrir`, si no crea algo con miniatura). `consulta`: la
+   *  llave con que la pantalla pregunta cómo va (lib/chat-trabajos.ts, la 1.11). `hasta`: hasta cuándo puede seguir
+   *  (ms desde 1970); pasado eso, la invocación que lo corría ya no existe y se da por cortado. */
+  | { t: 'trabajo'; titulo: string; pasos: { texto: string; estado: EstadoPaso }[]; listo?: BloqueCreado; abrir?: Abrir; consulta?: string; hasta?: number }
   /** G1: una pregunta con opciones; `varias` = se puede marcar más de una. */
   | { t: 'pregunta'; pregunta: string; opciones: { titulo: string; detalle?: string }[]; recomendada?: number; varias?: boolean }
   | BloqueCobranza
@@ -181,7 +185,10 @@ export function sanearBloque(crudo: unknown): Bloque | null {
       });
       if (!titulo || !pasos.length) return null;
       const listo = o.listo && typeof o.listo === 'object' ? sanearCreado(o.listo as Record<string, unknown>) : null;
-      return { t: 'trabajo', titulo, pasos, ...(listo ? { listo } : {}) };
+      const abrir = o.abrir === undefined ? null : sanearAbrir(o.abrir);
+      const consulta = typeof o.consulta === 'string' && /^[1-9][0-9]{0,14}\.[A-Za-z0-9_-]{8,40}$/.test(o.consulta) ? o.consulta : null;
+      const hasta = typeof o.hasta === 'number' && Number.isFinite(o.hasta) && o.hasta > 0 ? Math.round(o.hasta) : null;
+      return { t: 'trabajo', titulo, pasos, ...(listo ? { listo } : {}), ...(abrir ? { abrir } : {}), ...(consulta ? { consulta } : {}), ...(hasta ? { hasta } : {}) };
     }
     case 'pregunta': {
       const pregunta = texto(o.pregunta, 300);
@@ -272,3 +279,38 @@ export function razon(b: Pick<BloqueCreado, 'ancho' | 'alto'>): number {
 
 /** Lo que dice cada paso de un trabajo largo, para quien no ve el ícono. */
 export const ROTULO_PASO: Record<EstadoPaso, string> = { listo: 'Listo', en_curso: 'En curso', pendiente: 'Falta', fallo: 'Falló' };
+
+type Trabajo = Extract<Bloque, { t: 'trabajo' }>;
+const enCurso = (t: Trabajo) => t.pasos.some((p) => p.estado === 'en_curso');
+
+/** Hasta cuándo puede seguir un trabajo (el `hasta` de su G6): el techo de la ruta más larga que lo corre (420 s:
+ *  /api/mako/chat, /api/crm/mako, /api/mako/propuesta) más un margen. Pasado eso, la invocación ya no existe. */
+export const PLAZO_TRABAJO_MS = 480_000;
+
+/** Lo que dice el hilo de un trabajo que se cortó (lib/chat-trabajos.ts): no se sabe si llegó a hacerse, y NO pide repetirlo. */
+export const textoCortado = (titulo: string) => `No sé si terminó: ${titulo}. Revísalo en su pantalla antes de pedirlo de nuevo.`;
+
+/** Cuántas veces pregunta la pantalla por un trabajo antes de rendirse (a 15 s cada una, más que el plazo del server). */
+export const MAX_CONSULTAS = 60;
+
+/**
+ * Lo que la pantalla hace con una respuesta de GET ?trabajo= (la 1.11; revisión del 21/10/2026). `sigue`: volver a
+ * preguntar. Terminado, `ok` dice si salió y `texto` lo que pasó («Hecho: …», «No se pudo: …»), para dibujarlo: antes
+ * una falla era sólo un punto rojo. `ok: null` = no se sabe (el trabajo ya no está: un 404): se deja de preguntar.
+ */
+export type Consultado =
+  | { sigue: true; trabajo?: Trabajo; aparte?: Bloque[] }
+  | { sigue: false; trabajo?: Trabajo; aparte: Bloque[]; ok: boolean | null; texto: string | null };
+
+export function leerConsulta(status: number, cuerpo: unknown, consulta: string): Consultado {
+  if (status === 404) return { sigue: false, aparte: [], ok: null, texto: null };
+  const j = (cuerpo && typeof cuerpo === 'object' ? cuerpo : {}) as { ok?: unknown; texto?: unknown; bloques?: unknown };
+  const bloques = (j.ok === true && Array.isArray(j.bloques) ? j.bloques : []).map(sanearBloque).filter((x): x is Bloque => !!x);
+  const trabajo = bloques.find((x): x is Trabajo => x.t === 'trabajo' && x.consulta === consulta);
+  // Sin red, un 500 o una respuesta que no se entiende: se vuelve a preguntar.
+  if (!trabajo) return { sigue: true };
+  const aparte = bloques.filter((x) => x.t !== 'trabajo');
+  if (enCurso(trabajo)) return { sigue: true, trabajo, aparte };
+  const texto = typeof j.texto === 'string' && j.texto.trim() ? j.texto.trim().slice(0, 600) : null;
+  return { sigue: false, trabajo, aparte, ok: !trabajo.pasos.some((p) => p.estado === 'fallo'), texto };
+}

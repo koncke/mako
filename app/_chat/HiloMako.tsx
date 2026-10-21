@@ -17,11 +17,13 @@ import { partirPegados } from '@/lib/chat-pegado';
 import { PegadosHilo, TextoPlegable } from './PegadoHilo';
 import Link from '@/app/_ui/Link';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
-import { ERROR_INCIERTO, textoConArchivos, type ItemHilo } from '@/app/m/mako/chat-ui';
+import { ERROR_INCIERTO, conRespuestas, textoConArchivos, type ItemHilo } from '@/app/m/mako/chat-ui';
 import { TarjetaAccion, type ItemPropuesta } from './TarjetaAccion';
 import { ArchivosHilo } from './ArchivosHilo';
 import { ConectarDelAviso } from './ConectarDelAviso';
 import { BloqueHilo } from './BloqueHilo';
+import { FormularioEnChat } from './FormularioEnChat';
+import { ACCIONES_FORMULARIO } from './acciones-formulario';
 
 const hora = (iso: string | null): string => {
   const t = iso ? Date.parse(iso) : NaN;
@@ -55,7 +57,7 @@ function DeMako({ quien, children, rotulo }: { quien: Quien; children: ReactNode
   );
 }
 
-export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onReintentar, onRecargar, onResponder }: {
+export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onReintentar, onRecargar, onResponder, onTrabajo }: {
   items: readonly ItemHilo[];
   /** El chat: su muñeco va al lado de lo que dice MaKo. */
   quien: Quien;
@@ -69,12 +71,14 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
   onReintentar: (id: string) => void;
   /** Lo que no se sabe si llegó: se recarga y se mira, nunca se reintenta a ciegas. */
   onRecargar: () => void;
-  /** Contestar una pregunta con opciones (un bloque G1): sale como un mensaje de la persona. */
-  onResponder?: (texto: string) => void;
+  /** Contestar una pregunta con opciones (un bloque G1): sale como un mensaje de la persona. `false` = no salió. */
+  onResponder?: (texto: string) => boolean;
+  /** El trabajo largo de una tarjeta terminó (1.11): la tarjeta pasa a «Hecho» o «Falló» (`trasTrabajo`). */
+  onTrabajo?: (pendienteId: number, ok: boolean) => void;
 }) {
   const filas: ReactNode[] = [];
   let ultimoDia: string | null = null;
-  items.forEach((x) => {
+  conRespuestas(items).forEach((x) => {
     if (x.k === 'msg' && x.at) {
       const d = diaDe(x.at);
       if (d && d !== ultimoDia) { filas.push(<span key={`d-${x.id}`} className="co-dia">{rotuloDia(x.at, ahora)}</span>); ultimoDia = d; }
@@ -121,7 +125,9 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
       return;
     }
     if (x.k === 'bloque') {
-      filas.push(<DeMako key={x.id} quien={quien}><BloqueHilo b={x.b} onResponder={onResponder} /></DeMako>);
+      const de = x.deTarjeta;
+      filas.push(<DeMako key={x.id} quien={quien}><BloqueHilo b={x.b} onResponder={onResponder} respondida={x.respondida} ocupado={escribiendo != null}
+        onTermina={de != null && onTrabajo ? (ok) => onTrabajo(de, ok) : undefined} /></DeMako>);
       return;
     }
     if (x.k === 'pantalla') {
@@ -129,8 +135,13 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
         <DeMako key={x.id} quien={quien}>
           <div className="ch-tarjeta">
             <p className="ch-tarjeta__resumen"><strong>{x.p.titulo}</strong></p>
-            <p className="ch-tarjeta__nota">Se revisa y se confirma en su pantalla.</p>
-            <div className="ch-tarjeta__botones"><a className="co-chip" href={x.p.escritorio}>Abrir para revisar</a></div>
+            {/* 1.10: la genérica se confirma ACÁ, con el mismo formulario de su pantalla, que queda como salida secundaria. */}
+            {x.p.form ? (
+              <FormularioEnChat f={x.p.form} acciones={ACCIONES_FORMULARIO} abrirEnApp={{ titulo: 'Abrir en la app', href: x.p.escritorio }} />
+            ) : (<>
+              <p className="ch-tarjeta__nota">{x.p.nota}</p>
+              <div className="ch-tarjeta__botones"><Link className="ch-abrir" href={x.p.escritorio}>{x.p.boton}</Link></div>
+            </>)}
           </div>
         </DeMako>,
       );

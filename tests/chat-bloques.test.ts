@@ -129,19 +129,21 @@ test('3. cada tipo se dibuja', async () => {
 });
 
 test('4. las tres caras del hilo usan la MISMA pieza, y las pantallas suman lo que vuelve de la tarjeta', () => {
-  assert.match(sinComentarios(leer('app/_chat/HiloMako.tsx')), /if \(x\.k === 'bloque'\) \{\s*filas\.push\(<DeMako key=\{x\.id\} quien=\{quien\}><BloqueHilo b=\{x\.b\}/, 'la computadora');
-  assert.match(sinComentarios(leer('app/m/mako/ChatMako.tsx')), /if \(x\.k === 'bloque'\) return <li className="m-mako-msg m-mako-msg--mk"><BloqueHilo b=\{x\.b\}/, 'el teléfono');
-  assert.match(sinComentarios(leer('app/crm/lead-view/MakoAnalystLead.tsx')), /if \(x\.k === 'bloque'\) return <FilaMako><BloqueHilo b=\{x\.b\}/, 'el MaKo Analyst de la ficha');
+  assert.match(sinComentarios(leer('app/_chat/HiloMako.tsx')), /if \(x\.k === 'bloque'\) \{\s*const de = x\.deTarjeta;\s*filas\.push\(<DeMako key=\{x\.id\} quien=\{quien\}><BloqueHilo b=\{x\.b\}/, 'la computadora');
+  assert.match(sinComentarios(leer('app/m/mako/ChatMako.tsx')), /if \(x\.k === 'bloque'\) \{\s*const de = x\.deTarjeta;\s*return <li className="m-mako-msg m-mako-msg--mk"><BloqueHilo b=\{x\.b\}/, 'el teléfono');
+  assert.match(sinComentarios(leer('app/crm/lead-view/MakoAnalystLead.tsx')), /if \(x\.k === 'bloque'\) \{[\s\S]{0,400}?return <FilaMako><BloqueHilo b=\{x\.b\}/, 'el MaKo Analyst de la ficha');
   // La pieza no trae CSS propio (así se dibuja en este test); las clases van en la hoja que carga el teléfono.
   assert.doesNotMatch(leer('app/_chat/BloqueHilo.tsx'), /import ['"][^'"]+\.css['"]/);
   assert.match(leer('app/_chat/PegadoHilo.tsx'), /import '\.\/chat\.css';/, 'el teléfono carga la hoja con PegadoHilo');
   assert.match(leer('app/_chat/chat.css'), /\.ch-creado__mini \{/);
+  // Desde la 1.8 (20/10/2026) lo que vuelve de la tarjeta lo suma `conTarjeta`, que usa `itemsTrasTarjeta` (tests/chat-abrir.test.ts).
   for (const f of ['app/second-brain/ChatSecondBrain.tsx', 'app/crm/mako-crm/ChatMakoCrm.tsx', 'app/crm/lead-view/MakoAnalystLead.tsx']) {
     const s = sinComentarios(leer(f));
-    assert.match(s, /alEstado\(id, d\.estado \?\? 'pendiente', d\.frase \?\? undefined, itemsTrasTarjeta\(l\.datos\)\);/, `${f}: lo que vuelve de la tarjeta`);
+    assert.match(s, /alEstado\(id, d\.estado \?\? 'pendiente', d\.frase \?\? undefined, l\.datos\);/, `${f}: lo que vuelve de la tarjeta`);
     assert.doesNotMatch(s, /paraLaPersona \?\? \[\]\)\.filter/, `${f}: sin armar los avisos a mano`);
   }
-  assert.match(sinComentarios(leer('app/m/mako/SheetPropuesta.tsx')), /onEstado\(t\.pendienteId, d\.estado \?\? 'pendiente', d\.frase \?\? undefined, itemsTrasTarjeta\(r\)\);/, 'el teléfono');
+  assert.match(sinComentarios(leer('app/m/mako/SheetPropuesta.tsx')), /onEstado\(t\.pendienteId, d\.estado \?\? 'pendiente', d\.frase \?\? undefined, r\);/, 'el teléfono');
+  assert.match(leer('app/m/mako/chat-ui.ts'), /return r \? \[\.\.\.sig, \.\.\.itemsTrasTarjeta\(r, pendienteId\)\] : sig;/, 'conTarjeta suma lo que vuelve');
 });
 
 test('5. G3: lo que no se deshace, en rojo pegado al botón', () => {

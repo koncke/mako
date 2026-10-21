@@ -113,9 +113,11 @@ test('5. la nota de voz y la línea de estado (lo que pidió el onboarding)', ()
   const c = leer('app/_chat/CajaChat.tsx');
   assert.match(c, /return p\.voz \? <CajaConVoz \{\.\.\.p\} voz=\{p\.voz\} \/> : <Caja p=\{p\} grabacion=\{null\} \/>;/, 'sin `voz`, la grabación ni se monta');
   assert.match(c, /const grabacion = useGrabacionVoz\(p\.voz\.onAudio, p\.voz\.onError\);/);
+  // Desde el 20/10/2026 (la revisión de caja-voz) el botón gira con `enviando` o con `ocupado` (`girando`): tests/caja-voz-revision.test.ts.
+  // Desde el 21/10 graba también mientras MaKo trabaja (sólo la flecha espera): tests/caja-voz-revision.test.ts, 3.
   assert.match(c, /\{grabacion && !hayQueMandar && !enviando \? \(\n\s*<button type="button" className="co-enviar co-enviar--mic" onClick=\{\(\) => void grabacion\.start\(\)\}/, 'con `voz` y nada que mandar, el botón GRABA');
   assert.match(c, /aria-label="Grabar una nota de voz"/);
   assert.match(c, /const conBarra = !!grabacion && \(grabacion\.fase === 'grabando' \|\| !!grabacion\.revision \|\| !!p\.voz\?\.pendiente\);/, 'grabando o con algo para escuchar');
-  assert.match(c, /<BarraGrabacion voz=\{grabacion\} ocupado=\{enviando\} existente=\{p\.voz\?\.pendiente \?\? null\}/, 'la barra: se termina, se escucha y recién ahí se manda');
+  assert.match(c, /<BarraGrabacion voz=\{grabacion\} ocupado=\{girando\} existente=\{p\.voz\?\.pendiente \?\? null\}/, 'la barra: se termina, se escucha y recién ahí se manda');
   assert.match(c, /\{p\.estado !== undefined && <p className="co-caja__estado" aria-live="polite">\{p\.estado \?\? ''\}<\/p>\}/, 'la línea de estado, si la pantalla la da');
 });

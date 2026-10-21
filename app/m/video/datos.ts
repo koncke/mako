@@ -53,7 +53,7 @@ export async function montajeDe(p: PlanGuardado): Promise<MontajeM | null> {
   const e = r.estado;
   if (e.fase === 'listo') return { fase: 'listo', url: e.url, segundos: e.segundosDespues ?? null };
   if (e.fase === 'encolado' || e.fase === 'montando') return { fase: 'montando' };
-  if (e.fase === 'error') return { fase: 'error' };
+  if (e.fase === 'error') return { fase: 'error', motivo: e.motivo };
   return { fase: 'sin_empezar' };
 }
 

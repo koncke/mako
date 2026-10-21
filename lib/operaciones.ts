@@ -359,23 +359,27 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   const turnos = sanearTurnos(e.turnos);
   if (turnos.length) {
     try { await guardarTurnos(turnos); } catch (err) { turnosOk = false; console.error('[operaciones] turnos:', err instanceof Error ? err.message : err); }
-    // El Plan de cada chat se arma solo (17/10/2026, la D): «Voy a trabajar en…» crea su tarea y «Ya está» la marca hecha.
-    // Anotarlo es rápido; aplicarlo en el Plan pasa por el Perro (hasta un minuto por paso) y va DESPUÉS de contestarle al
-    // Runner, que corta a los 120 s (lib/centro-plan-auto.ts). Si falla, la vuelta sigue igual.
-    if (turnosOk) {
-      const titulos = new Map(chats.map((c) => [c.local, c.titulo]));
-      await anotarTurnosDelPlan(turnos, titulos).catch((err) => console.error('[operaciones] plan de los chats:', err instanceof Error ? err.message : err));
-    }
   }
-  // Lo pendiente del Plan de los chats (de esta vuelta o de una que no terminó), después de contestar.
-  after(() => aplicarPlanDeLosChats(200_000).catch((err) => console.error('[operaciones] plan de los chats:', err instanceof Error ? err.message : err)));
   // Las preguntas de los chats (17/10/2026, Martín: «en lugar de darme las opciones tipo multiple select»): el formulario de
   // su conversación (lib/centro-preguntas-chat.ts). Si no se pudieron guardar, la PC las vuelve a subir en la vuelta siguiente.
   let preguntasIds: string[] = [];
   const preguntas = sanearPreguntas(e.preguntas);
   if (preguntas.length) {
-    try { preguntasIds = await guardarPreguntas(preguntas); } catch (err) { console.error('[operaciones] preguntas:', err instanceof Error ? err.message : err); }
+    // Si no se pudieron guardar, la vuelta NO avanza las marcas (`turnosOk`): una pregunta de wrap_up sale de una línea del
+    // transcript, y con la marca adelante nadie la volvía a leer (la revisión de caja-voz, 20/10/2026).
+    try { preguntasIds = await guardarPreguntas(preguntas); } catch (err) { turnosOk = false; console.error('[operaciones] preguntas:', err instanceof Error ? err.message : err); }
   }
+  // El Plan de cada chat se arma solo (17/10/2026, la D): «Voy a trabajar en…» crea su tarea y «Ya está» la marca hecha.
+  // Anotarlo es rápido; aplicarlo en el Plan pasa por el Perro (hasta un minuto por paso) y va DESPUÉS de contestarle al
+  // Runner, que corta a los 120 s (lib/centro-plan-auto.ts). Si falla, la vuelta sigue igual.
+  // ⚠️ DESPUÉS DE LAS PREGUNTAS Y SÓLO SI LA VUELTA AVANZA (revisión de la ola 1, 21/10/2026): si las preguntas fallan, la
+  //    PC re-sube la MISMA tanda, y anotarla dos veces creaba una tarea de más (`anotarTurnos` además ya es idempotente).
+  if (turnos.length && turnosOk) {
+    const titulos = new Map(chats.map((c) => [c.local, c.titulo]));
+    await anotarTurnosDelPlan(turnos, titulos).catch((err) => console.error('[operaciones] plan de los chats:', err instanceof Error ? err.message : err));
+  }
+  // Lo pendiente del Plan de los chats (de esta vuelta o de una que no terminó), después de contestar.
+  after(() => aplicarPlanDeLosChats(200_000).catch((err) => console.error('[operaciones] plan de los chats:', err instanceof Error ? err.message : err)));
 
   // Los acuses de la vuelta anterior: sólo sobre un pedido TOMADO, o sobre un aviso de la
   // Ticketera TOMADO (comparten el formato de id, y cada id es de uno solo de los dos).
