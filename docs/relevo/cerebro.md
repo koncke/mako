@@ -39,6 +39,10 @@ subir: mirar `git log origin/integracion..HEAD`. El resumen para Martín (qué s
 - El «Nombre del negocio» no es editable en ningún lado y hoy dice «mi marca personal: Florencia Ayelen Carballo».
 - El script que repara su funnel, producto y PDF, en seco, se aplica sólo con el «sí» de Martín.
 Cuando esté en producción, MaKo Alert le avisa a su grupo.
+Estado a las 19:35 del 21/10 (detalle en `side-session-notes/local_797d5445-…/onboarding-ws21-en-curso.md`):
+- **Nombre editable: HECHO** en la rama `onboarding-ws21` (`c85e816df` + `0c9411228`). Es la sección nueva «Tu negocio» en /configuraciones/negocio. Le falta el VERDE; después se integra, y es visual, así que va sin revisión adversarial.
+- **Script en seco** listo: `feedback-20-10/reparar-ws21-v2.ts`, con su salida en `reparar-ws21-v2.salida.txt`. Para el tipo de cobro espera que Martín elija `--meses=6` o `--mensual`. Funnel, nombre del producto, PDF y grupo esperan a que ella cambie el nombre.
+- **Preguntas que no se ven en su Ops Center:** el arreglo de raíz NO está empezado. Hay que guardar las preguntas del arranque con su respuesta en la sesión de Offer y reconstruir las de ella marcadas «reconstruido».
 
 **Pendiente de Martín:** está en el resumen de OneDrive (2FA, ejecutables 0.3.2, hilo de Google, pedido 9a143455, Florencia ws21, claves del ws1, Leila ws11, lectura de producción para Infra).
 
