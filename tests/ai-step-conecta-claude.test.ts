@@ -19,7 +19,8 @@ const leer = (f: string) => readFileSync(new URL(`../${f}`, import.meta.url), 'u
 // rotura 1 (la cascada anota el salto con otro comienzo): 2 pass / 1 fail, cae éste.
 test('lo que anota la cascada al saltear la red por datos de clientes se reconoce, y nada más', () => {
   const marcas = [...leer('lib/ai-cheap.ts').matchAll(/push\('(red gratis salteada:[^']*)'\)/g)].map((m) => m[1]);
-  assert.equal(marcas.length, 2, 'la respuesta y la nota de voz');
+  // Y desde el 21/10/2026 la de D6b (lib/solo-su-ia.ts: un negocio con su Claude o su GPT no usa la red gratis).
+  assert.equal(marcas.length, 3, 'la respuesta, la nota de voz y D6b');
   for (const m of marcas) assert.equal(sinRedPorDatos([m]), true, m);
   assert.equal(sinRedPorDatos(['gemini: 429 quota']), false);
   assert.equal(sinRedPorDatos([]), false);
