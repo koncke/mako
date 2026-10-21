@@ -1866,3 +1866,15 @@ todavía fuera de main.
 - **El pedazo que no cargó no se recupera sin recargar** (React.lazy guarda el rechazo). Un `import()` con reintento
   serviría si el runtime de Turbopack no guarda también el chunk fallido: no está medido.
 *21/10/2026, claude4 (chat Dashboard).*
+
+## ⚠️ La bandeja /mako/pendientes es OTRA puerta de confirmación: mostraba 240 caracteres y mandaba 2.000 (21/10/2026)
+
+- La tarjeta del chat y el teléfono pintan «lo que se va a ejecutar» con `lineasDelPayload` (lib/inbox-movil-reglas.ts):
+  el texto hasta `MAX_TEXTO` (2.000), sin ids. La bandeja del escritorio tenía su propio `valorLegible` con
+  `MAX_VALOR = 240` y mostraba las claves crudas: se confirmaba un email de 1.500 caracteres viendo el principio. Ahora
+  pinta con `lineasDelPayload` (app/mako/pendientes/BandejaPendientes.tsx).
+- **Regla: toda superficie que CONFIRMA pinta con `lineasDelPayload`**, y el tope de una operación que se aprueba
+  mirando su texto (`max` del parámetro) no pasa `MAX_TEXTO`. Una pantalla nueva de confirmación que arme su propio
+  detalle repite este error. Lo fija tests/chats-mako-envio.test.ts.
+
+*21/10/2026, chat «CRM» (claude4), tercera revisión del Cerebro de la 2.1.*

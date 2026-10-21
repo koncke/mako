@@ -7318,6 +7318,12 @@ tests/plan-columnas-propias.test.ts · *20/10/2026 noche, chat «CRM» (claude4)
 - **MaKo leía el estado y no la columna**: decía «En proceso» de una tarea en «En revisión» y anunciaba «de En
   proceso a En proceso». Ahora mira `claveDeTarea` para la ficha, el «desde», el «ya está así», el historial del mover y
   las listas (`columnaPropia` en `leerTablero`, una vez para todas).
+- **La lista le daba a MaKo el NOMBRE de la columna propia y mover pedía la CLAVE** `c_…`, que sólo da
+  `ver_columnas_plan`, que no viaja en todos los turnos de la app (queda afuera del presupuesto) y por WhatsApp no
+  existe. Ahora mover acepta el nombre o la clave (`propiaDeEstado`, sin mayúsculas ni acentos, de ESE estado), y el
+  error dice cuáles hay. **Regla: lo que una herramienta acepta es lo que otra le da a MaKo.**
+- **El parámetro `columna` de mover también viaja a WhatsApp** y corre el corte voraz del presupuesto de 12.000
+  caracteres: entra una herramienta y sale otra. Medido por SHA (main 41fbbfe2e contra la rama, cada frase sin y con «MaKo preguntó»): con la descripción de antes, mover medía 931 caracteres (main 828) y cambiaban 6 de 56 turnos de frases reales del plan («ya lo hice», «listo, ya lo hice» y «Ya lo subí» perdían `actualizar_avance_tarea`) y 2 de 1.516 de las baterías. Con mover recortado a 828 (9daaaa495): 0 de 56, 0 de 1.516, y 3 de 74.058 turnos de todas las frases de los tests, los tres porque entra `agregar_contacto_al_crm` (da de alta un lead, no le manda nada). Ningún turno de WhatsApp trae un envío al lead. El test fija el tope (828).
 
 **Vive en:** app/plan/board/BoardShell.tsx · lib/api-mako/areas/plan.run.ts · tests/plan-columnas-propias.test.ts ·
 *21/10/2026, chat «CRM» (claude4), revisión del Cerebro.*

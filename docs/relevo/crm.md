@@ -1308,8 +1308,8 @@ Lo que el briefing previo daba por abierto y **ya no es cierto**:
 
 Cinco operaciones del área `chats` con la tarjeta (D3a: el toque en «Enviar» es la aprobación): mandar un WhatsApp
 (por la cola de borradores), contestar un DM y un email, agregar un contacto al CRM y marcar leído. Test
-`tests/chats-mako-envio.test.ts`; cosecha en hallazgos-comunicacion. **Depende de la 1.2** (rama `mako-wa`) para que el
-turno de la app llegue a ellas con el clasificador real: hoy el test arma ese veredicto a mano. No visto en el navegador.
+`tests/chats-mako-envio.test.ts`; cosecha en hallazgos-comunicacion. El pedido directo depende de la 1.2 (rama
+`mako-wa`); el «sí» a un ofrecimiento ya llega en main (ver la tercera revisión). No visto en el navegador.
 
 Revisión del Cerebro sobre c2de8a159 (21/10): los 7 medios arreglados, más dos bajos (MaKo ve la columna propia; la
 cartera de a tandas). Queda bajo: «Hacerlo» por el chat no calla la sugerencia en el server. Detalle en hallazgos-plan,
@@ -1318,7 +1318,15 @@ hallazgos-crm y hallazgos-customer-success (las tres «Lo que encontró la revis
 Segunda revisión (21/10): la 2.1 rehecha. Los tres envíos sólo por la app («un envío al lead se aprueba con un toque»),
 la rueda de áreas como en main, la tarjeta muestra entero lo que sale, el canal por la cosa nombrada, el bloqueo en la
 puerta única, y los bajos (VSL sólo después del alta, el rechazo por su evento, MaKo y la columna propia en historial y
-listas). **Sin la 1.2, la 2.1 no llega en la app**: no darla por «en producción» antes de que la 1.2 esté en main.
+listas). ~~Sin la 1.2, la 2.1 no llega en la app~~: falso, ver abajo.
+
+Tercera revisión (21/10): ⚠️ **la 2.1 llega HOY a la app** por el «sí» a un ofrecimiento (un «¿le contesto por DM…?» +
+«sí, dale» trae los tres envíos); con la integración llega a producción. Arreglado: reusar sólo un borrador de texto de
+la misma línea; el bloqueo por los últimos 10 dígitos en la puerta; el número con país en la tarjeta; la bandeja
+/mako/pendientes con `lineasDelPayload`; mover a una columna propia por su nombre; el canal leído del pedido y no de lo
+dictado; «mándale/contéstale» sólo aceptan; «no sé si salió» en un corte por tiempo; el rechazo de Clients atado a su
+cobro. Queda: el borrador que vuelve a pendiente tras un corte por tiempo (puede duplicar); dos cobros con el mismo
+concepto. Cosecha en hallazgos-comunicacion, hallazgos-api-mako, hallazgos-plan y hallazgos-customer-success.
 
 Al integrar con `mako-wa` (MaKo Alert, 21/10): esa rama suma `AccionDef.aTerceros` y `tests/confirmacion-terceros.test.ts`
 frena las acciones de chat que le escriben a alguien sin la marca. Los tres envíos de la 2.1 (`enviar_borrador_whatsapp`,

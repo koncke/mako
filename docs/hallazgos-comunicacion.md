@@ -10497,7 +10497,8 @@ Cinco operaciones nuevas en el área `chats` (lib/api-mako/areas/chats.*): `envi
   títulos son «Enviar el WhatsApp», «Enviar el mensaje directo» y «Enviar el email»: tocar el botón ES «Enviar».
 - **El borrador de WhatsApp no se saltea.** Un texto nuevo entra a la cola (`crearBorrador`, origen mako) y sale por
   `enviarBorradorPorSuCanal`, la única puerta (vuelve a mirar la línea). `crearBorrador` no devuelve el id: se relee
-  con `borradorPendienteIgual`, que además hace que un reintento no apile dos.
+  con `borradorTextoIgual` (sólo uno de TEXTO y de la MISMA línea: ver la tercera revisión), que además hace que un
+  reintento no apile dos.
 - **«Sí, dale» no es el mensaje** (`textoDeEnvio`, lib/chats-envio-reglas.ts): una frase sólo de aceptación, o la
   misma con que la persona aceptó, no se manda; MaKo pregunta qué decir.
 - **El «leído» es de cada persona** (`chat_leidos`): sólo por la app, y se marca para quien CONFIRMA (la sesión del
@@ -10506,7 +10507,8 @@ Cinco operaciones nuevas en el área `chats` (lib/api-mako/areas/chats.*): `envi
 - **La red gratis no las recibe sin hacer nada**: el área `chats` es de datos de clientes (`DATOS_DE_CLIENTES_POR_AREA`).
 - ⚠️ **En main, el turno de la app no llega a NINGUNA acción de Chats**, ni a la de siempre: «cierra el chat de Ana»
   sale `capturar` del clasificador de WhatsApp. Lo arregla la 1.2 (un verbo de hacer al principio → `actuar`,
-  lib/mako-intencion-app.ts, rama `mako-wa`, sin main el 21/10). **Sin la 1.2, la 2.1 no llega en la app.**
+  lib/mako-intencion-app.ts, rama `mako-wa`, sin main el 21/10). ⚠️ **Pero la 2.1 SÍ llega hoy a la app, por el
+  «sí»** («sin la 1.2 no llega» era falso: tercera revisión). Ver «Tercera revisión de la 2.1».
 
 **Sin hacer:** verlo en el navegador (el mensaje en el hilo de /chats, ws 3). El test del turno con el clasificador de
 la 1.2. Adjuntos en el email y en el DM (el compositor los tiene; MaKo todavía no).
@@ -10530,11 +10532,48 @@ rueda) · tests/chats-mako-envio.test.ts y tests/chats-registro.test.ts · *21/1
   clasificador real y queda `todo` hasta que la 1.2 esté en main.
 - **La rueda de áreas es COMPARTIDA** (el grupo de WhatsApp y el ruteo de pedidos, lib/mako-pedidos.ts): sumarle palabras
   para la app movía 5.108 turnos de WhatsApp y 98 links del Ops Center. Las palabras de mandar son de la app (la 1.2).
-- **El bloqueo, en la única puerta**: `enviarBorradorPorSuCanal` mira `estaBloqueado`. /chats deshabilitaba «Enviar», pero
-  /whatsapp y MaKo mandaban el borrador de un bloqueado.
+- **El bloqueo, en la única puerta**: `enviarBorradorPorSuCanal` mira el bloqueo (por los últimos 10 dígitos desde la
+  tercera revisión). /chats deshabilitaba «Enviar», pero /whatsapp y MaKo mandaban el borrador de un bloqueado.
 - **Respuestas cortas**: «contéstale que sí» manda «Sí»; un «sí, dale» que sólo aceptaba no es el mensaje.
 - **«No salió» sólo si no salió**: un email que salió y no quedó en el hilo, o un borrador que ya salió por otro lado,
   decían «no salió», y quien lo lee lo vuelve a pedir.
 
 **Vive en:** lib/api-mako/areas/chats.* · lib/chats-envio-reglas.ts · lib/borrador-camino.ts ·
 tests/chats-mako-envio.test.ts · *21/10/2026, chat «CRM» (claude4), segunda revisión del Cerebro.*
+
+## Tercera revisión de la 2.1: cada puerta tiene que mandar lo que se aprobó (21/10/2026)
+
+- ⚠️ **«Sin la 1.2, la 2.1 no llega en la app» era el diagnóstico equivocado.** Un pedido directo no llega (el
+  clasificador de main lo da `capturar`), pero el «sí» a un ofrecimiento SÍ: `sigueOfrecimiento` elige las herramientas
+  por lo que MaKo OFRECIÓ (`contextoDelSi`, lib/doer-herramientas.ts), y «¿Quieres que le conteste por DM…?» + «sí, dale»
+  trae los tres envíos. Medido con el clasificador real: con un ofrecimiento de Instagram/DM, sí; de WhatsApp, email o
+  «un borrador en la cola», no. Lo fija un test. Al decir «una pieza no llega», medí TODOS los caminos que eligen
+  herramientas, no sólo el pedido directo.
+- **Reusar un borrador «igual» mandaba OTRA cosa.** El texto nuevo se reusaba si había un pendiente con el mismo texto y
+  teléfono (`borradorPendienteIgual`, lib/api-mako/areas/whatsapp.helpers.ts): un paso de secuencia con nota de voz y el
+  mismo pie era «igual» y salía el audio; uno de otra línea salía por esa línea. La tarjeta decía «texto, por Ventas».
+  Ahora `borradorTextoIgual` (chats.run.ts): sin `audio_id` ni `adjunto_id`, con la misma `instance_name` (o null).
+  **Regla: reusar sólo con los MISMOS campos que la tarjeta muestra.**
+- **El bloqueo comparaba dígitos EXACTOS.** `wa_bloqueados` guarda el número como se bloqueó (542233550684), y los
+  borradores de secuencia vienen con 10 dígitos (27 de 32 pendientes en el ws 11): `estaBloqueado` no los frenaba.
+  `estaBloqueadoPorUltimos10` (lib/evolution-block.ts) compara por los últimos 10, como `por10` de /chats; con menos de
+  10, exacto. Lo usan la puerta única y la tarjeta. **Regla: un teléfono se compara por los últimos 10, nunca exacto.**
+  ⚠️ `estaBloqueado` (exacto) sigue existiendo y lo usan otros lugares.
+- **La tarjeta mostraba los dígitos guardados (+2233550684) y el envío salía a +542233550684**: `numeroParaWhatsApp`
+  completa el país de la línea recién al mandar. La tarjeta lo calcula con la MISMA elección de línea (`elegirLinea`,
+  `numeroDeSalida`), en el borrador por id y en el texto nuevo; si no se puede, no se propone.
+- **El canal se leía del texto DICTADO**: «contéstale a Pedro: te mandé el link por mail» frenaba el WhatsApp. Ahora
+  `canalNombradoNoCoincide` mira sólo el pedido: saca lo dictado, lo de después del «:» y lo de entre comillas. IG y
+  Facebook cuentan como DM.
+- **«sí, mándale» / «dale, contéstale» sólo aceptan** (`PALABRA_QUE_ACEPTA`): su «Sí, dale» no se manda.
+  «contéstale que sí» sigue dictando «Sí».
+- **Un corte por tiempo no es «no salió»** (`esCortePorTiempo`): «No sé si salió… mira el hilo antes de mandarlo otra
+  vez». Evolution corta a los 30 s y el mensaje pudo haber salido.
+- **La bandeja /mako/pendientes es otra puerta de confirmación de estos envíos** y cortaba en 240 (hallazgos-api-mako).
+
+**Sin hacer:** tras un corte por tiempo, `enviarBorrador` (lib/evolution-envio.ts) devuelve el borrador a «pendiente»:
+el próximo «Enviar» puede duplicarlo. Habría que marcarlo «incierto», como `contestar_dm`. Los otros usos de
+`estaBloqueado` exacto (fuera de la puerta) no se revisaron.
+**Vive en:** lib/api-mako/areas/chats.run.ts · lib/chats-envio-reglas.ts · lib/evolution-block.ts · lib/borrador-camino.ts ·
+tests/chats-mako-envio.test.ts y tests/_chats-envio-hijo.ts · *21/10/2026, chat «CRM» (claude4), tercera revisión del
+Cerebro.*
