@@ -9493,6 +9493,8 @@ en «Copiar flujo» pegado en el MISMO negocio (`crearDesdeCopia` con `configDe`
 puede copiar, la copia se borra. Y un aviso que defiende algo (el de automatización duplicada) va en TODOS los caminos que
 lo prenden, no sólo en el botón de la pantalla donde se pensó: por eso vive en la puerta del server (`setSecuenciaActiva`
 pregunta; `aunqueDuplique` recién después de «… igual») y tests/automations-activar-todos-los-caminos.test.ts barre los
-llamadores. Un camino nuevo que prende una automatización tiene que manejar `duplicada` o ese test falla. Y un panel del NEGOCIO reusado adentro de algo de UNA automatización revisa cada
+llamadores. Un camino nuevo que prende una automatización tiene que manejar `duplicada` o ese test falla. Y publicar los
+pasos de una ACTIVA también es prender: un camino de una PERSONA escribe por `publicarPasos` (lib/nutricion.ts), nunca
+`setSecuenciaPasos` directo (ése es del sistema, que no tiene a quién preguntarle). Y un panel del NEGOCIO reusado adentro de algo de UNA automatización revisa cada
 cosa que guarda: el huso de la tuerca guardaba `mako.timezone` de todo el negocio. Detalle: docs/hallazgos-chatbot.md
 («La revisión adversarial lo frenó»).

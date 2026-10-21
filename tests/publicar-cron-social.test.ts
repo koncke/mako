@@ -137,7 +137,7 @@ const nutri = await import(${url('lib/nutricion.ts')});
 mock.module(${url('lib/nutricion.ts')}, { exports: { ...real(nutri),
   setSecuenciaPasos: async () => { log.guardado++; }, vozDeAIStepQueFalta: async () => null,
   // 21/10/2026: Publicar una activa pregunta por la duplicada (tests/automations-activar-todos-los-caminos.test.ts); acá, ninguna.
-  duplicadaDeLaActivacion: async () => null,
+  duplicadaDeLaActivacion: async () => null, publicarPasos: async () => { log.guardado++; },
 } });
 const { PATCH } = await import(${url('app/api/whatsapp/secuencias/route.ts')});
 const dc = await import(${url('lib/disparadores-canales.ts')});
@@ -232,7 +232,8 @@ test('DE VERDAD: la lista del CRON sale de la fila (`disparadoresDe`); sin la 02
 test('el webhook va DESPUÉS de lo que frena: en Publicar, después de guardar; en Activar, después del freno', () => {
   const ruta = fuente('app/api/whatsapp/secuencias/route.ts');
   const patch = bloque(ruta, 'if (Array.isArray(body.pasos)) {', 'if (typeof body.activa');
-  const iGuarda = patch.indexOf('await setSecuenciaPasos(id, body.pasos as PasoSecuencia[]);');
+  // 21/10/2026: Publicar escribe por `publicarPasos` (pregunta por la duplicada antes de `setSecuenciaPasos`).
+  const iGuarda = patch.indexOf('await publicarPasos(id, body.pasos as PasoSecuencia[], { aunqueDuplique: body.aunqueDuplique === true });');
   const iWebhook = patch.indexOf('aviso = await asegurarAvisosSociales(ws, medios.sociales);');
   assert.ok(iGuarda > 0 && iWebhook > iGuarda, 'el webhook se asegura antes de saber si se guardó');
   const val = bloque(fuente('lib/nutricion.ts'), 'export async function validarActivacion(', '\nexport async function setSecuenciaActiva(');

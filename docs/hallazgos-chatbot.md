@@ -5459,6 +5459,20 @@ tests/crear-ia-recurrente.test.ts · *20/10/2026, claude4.*
   Un camino que nadie actualizó no prende en silencio: recibe el aviso como error. tests/automations-activar-todos-los-caminos.test.ts
   barre `git ls-files`: los llamadores de `setSecuenciaActiva`, quién escribe `activa: true` y qué pantalla hace PATCH con
   `activa`; uno nuevo lo hace fallar hasta que alguien lo mire.
+- **⚠️ PUBLICAR UNA ACTIVA ES PRENDER LO NUEVO, y también tiene varias puertas** (tercera revisión, 21/10). Con la pregunta
+  en `setSecuenciaActiva` y en la ruta de Publicar del lienzo, seguían reescribiendo lo publicado de una ACTIVA sin
+  preguntar «MaKo escribe tu nutrición» › Aprobar, /email › Guardar (los pasos, y también la etapa o el disparador) y la
+  API de MaKo (`editar_pasos_secuencia_mensajes` / `_email`): por ahí vuelve lo de #282 y #284. La guarda NO va adentro
+  de `setSecuenciaPasos`: ahí escribe también el sistema (el hand-off, las variantes, Meta, las mudanzas), que no tiene a
+  quién preguntarle. Va en `publicarPasos` (lib/nutricion.ts), que usan los caminos de una persona; /email pregunta con
+  los pasos Y la etapa o el disparador nuevos antes de escribir nada (`duplicadaDeLaActivacion` con `columnas`); la API
+  lo dice en la propuesta. El barrido lista a cada uno que escribe los pasos: o va por `publicarPasos`, o está en la
+  lista del sistema con su motivo. Y mira los `.mts`: las mudanzas quedaban fuera de la red.
+- **La firma del negocio no es parecido.** «Hola {{nombre}}, soy Leila de LíderMente» al principio de todo hacía
+  «parecidos» dos mensajes cortos distintos (0,55: preguntaba en cada Activar, y una pregunta que se contesta sin leer
+  desarma el aviso). Ahora salen de la comparación el relleno (saludos, «te escribe»), el nombre del negocio y, con 3 o
+  más automatizaciones, lo que se repite en el primer mensaje de la mayoría (`palabrasDeFirma`). #282 contra #284 sigue
+  dando 0,53 con el nombre afuera: se sigue viendo.
 - **Un aviso que se calcula no se borra.** El del CRON nuevo en una activa colgaba del guardado (se lo comía el
   `onError(null)` del guardado siguiente, y se perdía si se cambiaba de automatización antes de que volviera). Ahora se
   CALCULA de lo que hay (sus CRON de ahora y lo publicado, `dupActiva`) y se dice al lado de «Activar» mientras sea así.
@@ -5468,7 +5482,8 @@ tests/crear-ia-recurrente.test.ts · *20/10/2026, claude4.*
 
 **Lo que quedó SIN hacer:** los 31 borradores de #282 y el de #284 siguen pendientes (aprobar o descartar lo decide
 Martín) · el aviso de duplicada no mira el horario ni la reentrada (dos Recurrentes a la misma etapa en días distintos
-avisan igual) · cambiarle los CRON a una activa por la API de MaKo no pregunta (la pantalla lo dice al abrirla) · el conteo está en la
+avisan igual) · cambiarle los CRON a una activa por la API de MaKo no pregunta (la pantalla lo dice al abrirla) ·
+cambiar el audio, la espera o la vista previa de un paso por la API no pregunta (no cambian el texto) · el conteo está en la
 automatización abierta, no en la fila de la lista · nada se vio con clics en un navegador.
 
 **Vive en:** lib/mensajes-por-aprobar.ts · lib/setting-secuencias.ts (`leerPorAprobar`) · app/automations/SecuenciaPerfil.tsx

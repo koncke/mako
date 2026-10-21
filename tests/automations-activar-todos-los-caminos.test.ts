@@ -13,9 +13,103 @@
 // Este test BARRE el repo (git ls-files), no una lista de memoria:
 //   (a) cada llamador de `setSecuenciaActiva` que no pasa `false` está en la lista y maneja `DuplicadaError`;
 //   (b) nadie más escribe `activa: true` / `.update({ activa` en una automatización (salvo la puerta y el script de plan);
-//   (c) cada pantalla que hace PATCH con `activa` a las rutas de secuencias maneja `duplicada` y manda `aunqueDuplique`.
-// Un camino NUEVO hace fallar el test hasta que alguien lo mire.
+//   (c) cada pantalla que hace PATCH con `activa` a las rutas de secuencias maneja `duplicada` y manda `aunqueDuplique`;
+//   (d) (segunda revisión, 21/10) PUBLICAR una activa también prende lo nuevo: cada quien escribe los pasos o es un camino
+//       de persona y va por `publicarPasos` (que pregunta), o es del sistema y está en la lista con su motivo.
+// Un camino NUEVO hace fallar el test hasta que alguien lo mire. Mira también los scripts `.mts` (las mudanzas).
 //
+// Y el parecido sin la FIRMA del negocio (el saludo, el que escribe, el nombre): dos mensajes cortos distintos con el
+// mismo «Hola {{nombre}}, soy Leila de LíderMente» preguntaban en cada Activar.
+//
+// ── (d) Publicar una activa: los caminos de una persona preguntan ─────────────────────────────
+
+/** Los caminos de una PERSONA que publican pasos: van por `publicarPasos` (pregunta por la duplicada). */
+const PUBLICAN = [
+  'app/api/email/secuencias/route.ts', 'app/api/whatsapp/secuencias/route.ts', 'lib/api-mako/areas/chatbot.run.ts',
+  'lib/api-mako/areas/email.run.ts', 'lib/nutricion-generator.ts',
+];
+/**
+ * Los que escriben `setSecuenciaPasos` directo, cada uno por algo: el sistema no tiene a quién preguntarle (el hand-off, las
+ * variantes, Meta, las mudanzas), lo que nace PAUSADO no le escribe a nadie (Copiar flujo, Crear con IA), y la API cambia
+ * por ahí lo que no toca el texto ni a quién (la espera, audio ↔ texto, la vista previa, un caso de «Si responde»).
+ */
+const SISTEMA = [
+  'lib/api-mako/areas/chatbot.run.ts', 'lib/chat-agent-handoff.ts', 'lib/flujo-copia-negocio.ts', 'lib/flujo-ia-crear.ts',
+  'lib/nutricion-plantillas.ts', 'lib/nutricion.ts', 'lib/secuencias-variantes.ts', 'scripts/reescribir-filas-plataforma.mts',
+];
+
+test('(d) quién escribe lo publicado: cada uno pregunta (`publicarPasos`) o está en la lista del sistema con su motivo', () => {
+  const directos: string[] = [];
+  const publican: string[] = [];
+  for (const [f, src] of FUENTE) {
+    if (/\bsetSecuenciaPasos\(/.test(src.replace(/export async function setSecuenciaPasos\(/, ''))) directos.push(f);
+    if (/\bpublicarPasos\(/.test(src.replace(/export async function publicarPasos\(/, ''))) publican.push(f);
+  }
+  assert.deepEqual(directos.sort(), [...SISTEMA].sort(), 'alguien nuevo escribe los pasos sin preguntar: si es una persona, por `publicarPasos`; si es el sistema, súmalo con su motivo');
+  assert.deepEqual(publican.sort(), [...PUBLICAN].sort());
+  // En la API de MaKo, el de una persona («editar_pasos…») pregunta en la PROPUESTA; los directos que quedan no tocan el texto.
+  const chat = FUENTE.get('lib/api-mako/areas/chatbot.run.ts')!;
+  // La espera (en minutos y en horas), audio ↔ texto, la vista previa de los links y un caso de «Si responde».
+  assert.equal((chat.match(/\bsetSecuenciaPasos\(/g) ?? []).length, 5, 'chatbot.run.ts escribe los pasos directo por un camino nuevo');
+  for (const f of ['lib/api-mako/areas/chatbot.run.ts', 'lib/api-mako/areas/email.run.ts']) {
+    const src = FUENTE.get(f)!;
+    assert.match(src, /const otra = await duplicadaDeLaActivacion\(id, \{ pasos[^}]*soloSiActiva: true \}\);/, `${f}: la propuesta no lo dice`);
+    assert.match(src, /\.\.\.\(otra \? \{ aunqueDuplique: true \} : \{\}\)/, f);
+    assert.match(src, /await publicarPasos\(id, [^,]+, \{ aunqueDuplique: payload\.aunqueDuplique === true \}\);/, f);
+    assert.match(src, /if \(e instanceof DuplicadaError\) return \{ ok: false, resumen: /, f);
+  }
+  // /email › Guardar: con los pasos Y la etapa o el disparador nuevos, ANTES de escribir.
+  const email = FUENTE.get('app/api/email/secuencias/route.ts')!;
+  assert.ok(email.indexOf('const otra = await duplicadaDeLaActivacion(id, {') < email.indexOf('await actualizarMetaEmailSecuencia('), 'pregunta después de cambiar a quién');
+  // Y pregunta de verdad: con la etapa o el disparador nuevos, salvo «Guardar igual» (si no, `publicarPasos` ya no mira).
+  assert.match(email, /if \(!yaPregunto && cambiaAQuien\) \{\n\s+const otra = await duplicadaDeLaActivacion\(id, \{[\s\S]{0,500}?\}\);\n\s+if \(otra\) throw new DuplicadaError\(otra\);/);
+  assert.match(email, /const cambiaAQuien = typeof body\.etapa === 'string' \|\| typeof body\.trigger === 'string' \|\| 'etiquetaId' in body;/);
+  assert.match(email, /if \(pasos\) await publicarPasos\(id, pasos, \{ aunqueDuplique: yaPregunto \|\| cambiaAQuien \}\);/);
+  // «MaKo escribe tu nutrición» › Aprobar: la ruta lleva la marca y contesta 409.
+  const nutri = FUENTE.get('app/api/mako/nutricion/route.ts')!;
+  assert.match(nutri, /await aplicarSecuencia\(secuenciaId, body\.pasos, \{ aunqueDuplique: body\.aunqueDuplique === true \}\);/);
+  assert.match(nutri, /if \(e instanceof DuplicadaError\) return Response\.json\(\{ ok: false, error: e\.message, duplicada: e\.otra \}, \{ status: 409 \}\);/);
+  assert.match(FUENTE.get('lib/nutricion-generator.ts')!, /await publicarPasos\(secuenciaId, pasos, \{ aunqueDuplique: o\.aunqueDuplique === true \}\);/);
+});
+
+test('(d) las pantallas de /email: «Guardar igual» al guardar el copy o la secuencia de una activa', () => {
+  const g = FUENTE.get('app/_components/NutricionGenerar.tsx')!;
+  assert.match(g, /if \(!j\.ok && j\.duplicada\) \{\n\s+setMsg\(\{ t: 'err', x: `No guardé el copy de «\$\{sel\.nombre\}»: \$\{String\(j\.error\)\}\.` \}\);\n\s+setActivarIgual\('Guardar igual'\);\n\s+return;/);
+  assert.match(g, /pasos: draft, \.\.\.\(o\.aunqueDuplique \? \{ aunqueDuplique: true \} : \{\}\) \}\);/);
+  const e = FUENTE.get('app/email/EmailApp.tsx')!;
+  assert.match(e, /if \(!j\.ok && j\.duplicada\) \{\n\s+setSaving\(false\);\n\s+if \(await confirm\(String\(j\.error\), \{ confirmLabel: 'Guardar igual' \}\)\) await guardar\(true\);\n\s+return;/);
+});
+
+// ── La firma del negocio no cuenta como parecido ────────────────────────────────────────────
+
+test('la firma del negocio (saludo, quien escribe, el nombre) no hace parecidos dos mensajes distintos', async () => {
+  const { duplicadaDe, parecido, palabrasDeFirma } = await import('../lib/automatizacion-duplicada');
+  const msg = (id: string, cuerpo: string) => ({ id, canal: 'whatsapp', cuerpo, siguiente: null }) as never;
+  const cron = { trigger_tipo: 'etapa_actual', etapa: 'clase', funnel_id: 4 };
+  const SALUDO = 'Hola {{nombre}}, soy Leila de LíderMente 🙌 ';
+  const a = { id: 300, nombre: 'Pudiste ver', activa: true, disparadores: [cron], pasos: [msg('a', `${SALUDO}¿Pudiste ver la clase?`)] };
+  const b = { id: 301, nombre: 'La grabación', disparadores: [cron], pasos: [msg('b', `${SALUDO}Te dejo el link de la grabación`)] };
+  // Sin el nombre del negocio (el server puede no saberlo) y con sólo dos: el saludo ya no alcanza.
+  assert.equal(duplicadaDe(b, [a]), null, 'el saludo de siempre hacía «parecidos» dos mensajes distintos');
+  // Con «Te escribe Leila de LíderMente», igual.
+  const c = { ...b, pasos: [msg('c', 'Te escribe Leila de LíderMente. Te dejo el link de la grabación')] };
+  assert.equal(duplicadaDe(c, [{ ...a, pasos: [msg('a2', 'Te escribe Leila de LíderMente. ¿Pudiste ver la clase?')] }]), null);
+  // Con 3 o más del negocio, lo que se repite en la mayoría también es firma («leila», «lidermente»).
+  const firma = palabrasDeFirma([`${SALUDO}uno dos tres`, `${SALUDO}cuatro cinco`, `${SALUDO}seis siete`]);
+  assert.ok(firma.has('leila') && firma.has('lidermente') && firma.has('hola'));
+  // Y el caso de verdad (#282 y #284, el mismo recordatorio) se sigue viendo, también con el nombre del negocio afuera.
+  const T282 = '¡Holaa {{nombre}}! Paso a recordarte que mañana miércoles nos vemos en la clase presencial de LíderMente en Gnius Huayacán (7.30pm a 9.30 pm) 🔥\n\n¿Contamos contigo mañana? 😊';
+  const T284 = 'Holaa {{nombre}}! Mañana miércoles tenemos la sesión presencial de LíderMente a las 7:30 pm en Huayacán. ¿Cuento contigo?';
+  assert.ok(parecido(T282, T284, palabrasDeFirma([T282, T284], 'LíderMente')) >= 0.5);
+  const x = { id: 282, nombre: '#282', activa: true, disparadores: [cron], pasos: [msg('x', T282)] };
+  const y = { id: 284, nombre: '#284', disparadores: [cron], pasos: [msg('y', T284)] };
+  assert.deepEqual(duplicadaDe(y, [x], { negocio: 'LíderMente' }), { id: 282, nombre: '#282' });
+  // El server le pasa el nombre del negocio (y las pantallas, el suyo).
+  assert.match(FUENTE.get('lib/nutricion.ts')!, /const negocio = ws == null \? '' : await getWorkspace\(ws\)\.then\(\(w\) => w\?\.nombre \?\? ''\)\.catch\(\(\) => ''\);/);
+  assert.match(FUENTE.get('app/automations/SimuladorWhatsApp.tsx')!, /disparadoresDeSecuencia, \{ negocio \}\);/);
+  assert.match(FUENTE.get('app/automations/SecuenciaPerfil.tsx')!, /\{ pasos: abiertoPublicado, crons: crons\.lista, negocio \}\)/);
+});
+
 // PROBADO ROMPIÉNDOLO (21/10/2026, arnés `romper.py` + `roturas-activar.json`): ver el pie.
 //
 // Correr: node --import tsx --test tests/automations-activar-todos-los-caminos.test.ts
@@ -35,14 +129,20 @@ const cuerpo = (src: string, firma: string, fin = '\n}\n'): string => {
   return src.slice(i, src.indexOf(fin, i));
 };
 /** El código de la app (lib, app y scripts), sin tests ni los textos de la landing. */
+// Con los .mts/.cts/.cjs (revisión del 21/10/2026: las mudanzas son .mts y quedaban fuera de la red).
 const ARCHIVOS = execFileSync('git', ['ls-files', 'lib', 'app', 'scripts'], { cwd: RAIZ, encoding: 'utf8' })
-  .split('\n').filter((f) => /\.(tsx?|mjs)$/.test(f) && !f.startsWith('app/vsl/'));
+  .split('\n').filter((f) => /\.(c|m)?[jt]sx?$/.test(f) && !f.startsWith('app/vsl/'));
 const FUENTE = new Map(ARCHIVOS.map((f) => [f, sinComentarios(leer(f))]));
 
 // ── (a) La puerta y quién la llama ──────────────────────────────────────────────────────────
 
 /** Los que pueden PRENDER (no pasan un `false` literal), cada uno con su manejo de la duplicada. */
 const PRENDEN = ['app/api/email/secuencias/route.ts', 'app/api/whatsapp/secuencias/route.ts', 'lib/mako-doer-acciones.ts'];
+/**
+ * Los scripts de mudanza que prenden lo que crean: SÓLO filas «Evento de MaKo» (su CRON es el evento), y un evento no
+ * tiene cohorte que se pise (`mismaCohorte` da false): nunca reciben `DuplicadaError`. Si uno prende otra cosa, que la maneje.
+ */
+const SCRIPTS_DE_EVENTOS = ['scripts/mudanza-avisos-plataforma.mts', 'scripts/mudanza-nuevo-agendado.mts'];
 
 test('(a) la puerta: `setSecuenciaActiva` pregunta por la duplicada salvo con `aunqueDuplique`', () => {
   const n = FUENTE.get('lib/nutricion.ts')!;
@@ -52,7 +152,7 @@ test('(a) la puerta: `setSecuenciaActiva` pregunta por la duplicada salvo con `a
   assert.ok(p.indexOf('throw new DuplicadaError(otra)') < p.indexOf(".update({ activa, updated_at: ahoraISO() })"));
   // La misma regla que la pantalla, con lo PUBLICADO de las otras.
   const d = cuerpo(n, 'export async function duplicadaDeLaActivacion(');
-  assert.match(d, /return duplicadaAlActivar\(esta, vistas, \(v\) => v\.crons, o\.pasos \? \{ pasos: o\.pasos \} : \{\}\);/);
+  assert.match(d, /return duplicadaAlActivar\(esta, vistas, \(v\) => v\.crons, \{ \.\.\.\(o\.pasos \? \{ pasos: o\.pasos \} : \{\}\), negocio \}\);/);
   assert.match(d, /if \(!esta \|\| \(o\.soloSiActiva && !esta\.activa\)\) return null;/);
 });
 
@@ -66,7 +166,8 @@ test('(a) cada llamador de `setSecuenciaActiva` que puede prender maneja la dupl
       prenden.push(f);
     }
   }
-  assert.deepEqual([...new Set(prenden)].sort(), PRENDEN, 'un camino nuevo prende automatizaciones: que pregunte por la duplicada y súmalo acá');
+  assert.deepEqual([...new Set(prenden)].sort(), [...PRENDEN, ...SCRIPTS_DE_EVENTOS].sort(), 'un camino nuevo prende automatizaciones: que pregunte por la duplicada y súmalo acá');
+  for (const f of SCRIPTS_DE_EVENTOS) assert.match(FUENTE.get(f)!, /TRIGGER_AVISO_MAKO/, `${f} ya no prende sólo eventos de MaKo`);
   for (const f of PRENDEN) {
     const src = FUENTE.get(f)!;
     assert.match(src, /DuplicadaError/, `${f} no maneja la duplicada`);
@@ -84,12 +185,10 @@ test('(a) cada llamador de `setSecuenciaActiva` que puede prender maneja la dupl
   assert.match(doer, /await setSecuenciaActiva\(id, activa, \{ aunqueDuplique: payload\.aunqueDuplique === true \}\);/);
 });
 
-test('(a) Publicar una ACTIVA pregunta lo mismo, ANTES de escribir los pasos', () => {
-  const ruta = FUENTE.get('app/api/whatsapp/secuencias/route.ts')!;
-  const i = ruta.indexOf("const otra = await duplicadaDeLaActivacion(id, { pasos: body.pasos as PasoSecuencia[], soloSiActiva: true });");
-  assert.ok(i > 0, 'Publicar una activa no pregunta');
-  assert.ok(i < ruta.indexOf('await setSecuenciaPasos(id, body.pasos as PasoSecuencia[]);'), 'pregunta después de escribir');
-  assert.match(ruta, /if \(body\.aunqueDuplique !== true\) \{\n\s+const otra = await duplicadaDeLaActivacion/);
+test('(a) Publicar una ACTIVA pregunta lo mismo, ANTES de escribir los pasos (`publicarPasos`)', () => {
+  const p = cuerpo(FUENTE.get('lib/nutricion.ts')!, 'export async function publicarPasos(');
+  assert.match(p, /if \(!o\.aunqueDuplique\) \{\n\s+const otra = await duplicadaDeLaActivacion\(id, \{ pasos: pasos as unknown as PasoGrafo\[\], soloSiActiva: true \}\);\n\s+if \(otra\) throw new DuplicadaError\(otra\);\n\s+\}\n\s+await setSecuenciaPasos\(id, pasos\);/);
+  assert.match(FUENTE.get('app/api/whatsapp/secuencias/route.ts')!, /await publicarPasos\(id, body\.pasos as PasoSecuencia\[\], \{ aunqueDuplique: body\.aunqueDuplique === true \}\);/);
 });
 
 // ── (b) Nadie más prende ────────────────────────────────────────────────────────────────────
@@ -102,7 +201,8 @@ test('(b) nadie más escribe `activa: true` ni `.update({ activa` en una automat
     if (/\.update\(\{ activa\b(?!: false)/.test(src) || /\bactiva: true\b/.test(src)) escriben.push(f);
   }
   // La puerta, y el plan de la undécima (un script que se corrió UNA vez, con su revisión; no es un camino de la app).
-  assert.deepEqual(escriben.sort(), ['lib/nutricion.ts', 'lib/undecima-flujos-plan.ts']);
+  // Y el script de la undécima (una sola vez, en el ws13; revisión del 21/10/2026: era un .mts y no se veía).
+  assert.deepEqual(escriben.sort(), ['lib/nutricion.ts', 'lib/undecima-flujos-plan.ts', 'scripts/undecima-flujos.mts']);
   const n = FUENTE.get('lib/nutricion.ts')!;
   assert.equal((n.match(/\.update\(\{ activa\b(?!: false)/g) ?? []).length, 1, 'lib/nutricion.ts prende por otro lado que `setSecuenciaActiva`');
 });
@@ -147,7 +247,7 @@ test('(c) el teléfono: Activar y Publicar una activa preguntan en una hoja, y �
 
 test('(c) /email: «MaKo escribe tu nutrición» › Aprobar y el interruptor de una secuencia de email preguntan', () => {
   const g = FUENTE.get('app/_components/NutricionGenerar.tsx')!;
-  assert.match(g, /if \(!activada && act\?\.duplicada\) \{\n\s+setMsg\(\{ t: 'err', x: `El copy de «\$\{sel\.nombre\}» se guardó, pero no la activé: \$\{String\(act\.error\)\}\.` \}\);\n\s+setActivarIgual\(true\);\n\s+return;/);
+  assert.match(g, /if \(!activada && act\?\.duplicada\) \{\n\s+setMsg\(\{ t: 'err', x: `El copy de «\$\{sel\.nombre\}» se guardó, pero no la activé: \$\{String\(act\.error\)\}\.` \}\);\n\s+setActivarIgual\('Activar igual'\);\n\s+return;/);
   assert.match(g, /onClick=\{\(\) => void aplicar\(\{ aunqueDuplique: true \}\)\}/);
   const e = FUENTE.get('app/email/EmailApp.tsx')!;
   assert.match(e, /if \(!j\.ok && j\.duplicada\) \{\n\s+if \(await confirm\(String\(j\.error\), \{ confirmLabel: 'Activar igual' \}\)\) await toggle\(true\);\n\s+return;/);
@@ -181,3 +281,15 @@ test('(c) el escritorio: el interruptor, Publicar y el «⋯» vuelven a pregunt
 //   11. `pedir` del teléfono pierde la marca           22. «Publicar igual» del teléfono sin la marca
 // Restaurado: 8 / 0. Y el aviso de una activa (tests/automations-aviso-todos-caminos.test.ts, `roturas-chip.json`): sin
 // calcularlo → 6 / 1; sin dibujarlo → 6 / 1 (base 7 / 0).
+//
+// Publicar una activa y la firma (21/10/2026, `roturas-publicar.json`). Base 11 / 0. Cada una → 10 / 1 (salvo donde se dice):
+//   P1. `publicarPasos` no pregunta                       P10. la API de email publica sin preguntar
+//   P2. la ruta de WhatsApp escribe directo  → 9 / 2      P11. un escritor nuevo de los pasos (sin clasificar)
+//   P3. /email › Guardar escribe directo                  P12. «MaKo escribe tu nutrición» ignora el 409 al guardar
+//   P4. /email no pregunta con la etapa nueva             P13. /email › Guardar ignora el 409
+//   P5. Aprobar sin la marca                              F1. la firma sin el relleno
+//   P6. Aprobar sin el 409                                F2. sin lo que se repite en la mayoría
+//   P7. el generador publica sin preguntar                F3. la firma no se saca del parecido
+//   P8. la propuesta de la API sin el aviso               F4. el server sin el nombre del negocio
+//   P9. la API de mensajes publica sin preguntar          S1. el barrido sin los .mts  → 8 / 3
+// Restaurado: 11 / 0. (P4 no caía con la primera versión: el test miraba el orden y no la condición; se sumó.)

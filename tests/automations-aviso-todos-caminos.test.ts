@@ -56,7 +56,7 @@ test('1. al activar se compara lo PUBLICADO de las dos y sus CRON guardados', ()
 test('1. el «⋯» de la lista pregunta antes de Activar, con lo publicado, y «Activar igual» sigue sin volver a preguntar', () => {
   const lista = sinComentarios(leer('app/automations/SimuladorWhatsApp.tsx'));
   const a = cuerpo(lista, 'const accionFila = async (j: SecuenciaDto, accion: string, o?: { sinAviso?: boolean }) => {', '\n  };');
-  assert.match(a, /if \(accion === 'activa' && !j\.activa && rolAdmin && !o\?\.sinAviso\) \{\n\s+const otra = duplicadaAlActivar\(j as SecuenciaConDisparadores, secuencias as readonly SecuenciaConDisparadores\[\], disparadoresDeSecuencia\);\n\s+if \(otra\) \{ setErrFila\(null\); setAvisoActivar\(\{ j, texto: avisoDuplicada\(otra\.nombre\) \}\); return; \}/);
+  assert.match(a, /if \(accion === 'activa' && !j\.activa && rolAdmin && !o\?\.sinAviso\) \{\n\s+const otra = duplicadaAlActivar\(j as SecuenciaConDisparadores, secuencias as readonly SecuenciaConDisparadores\[\], disparadoresDeSecuencia, \{ negocio \}\);\n\s+if \(otra\) \{ setErrFila\(null\); setAvisoActivar\(\{ j, texto: avisoDuplicada\(otra\.nombre\) \}\); return; \}/);
   // Antes del PATCH: la pregunta va ANTES de prender.
   assert.ok(a.indexOf('duplicadaAlActivar(') < a.indexOf("pedir('/api/whatsapp/secuencias', 'PATCH'"));
   assert.match(lista, /if \(a\) void accionFila\(a\.j, 'activa', \{ sinAviso: true \}\);/);
@@ -67,7 +67,7 @@ test('1. el «⋯» de la lista pregunta antes de Activar, con lo publicado, y �
 // al cambiar de automatización): se DICE mientras sea así (tests/automations-activar-todos-los-caminos.test.ts).
 test('1. una ACTIVA que ya le escribe lo mismo a la misma gente lo dice al lado de «Activar», con sus CRON de ahora', () => {
   const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
-  assert.match(perfil, /const dupActiva = useMemo\(\n\s+\(\) => \(rolAdmin && activa\n\s+\? duplicadaAlActivar\(secuencia as SecuenciaConDisparadores, secuencias as readonly SecuenciaConDisparadores\[\], disparadoresDeSecuencia, \{ pasos: abiertoPublicado, crons: crons\.lista \}\)/);
+  assert.match(perfil, /const dupActiva = useMemo\(\n\s+\(\) => \(rolAdmin && activa\n\s+\? duplicadaAlActivar\(secuencia as SecuenciaConDisparadores, secuencias as readonly SecuenciaConDisparadores\[\], disparadoresDeSecuencia, \{ pasos: abiertoPublicado, crons: crons\.lista, negocio \}\)/);
   assert.match(perfil, /\{dupActiva && \(\n\s+<span data-duplicada="" role="status"/);
   assert.doesNotMatch(perfil, /alGuardarCrons|onGuardado: \(n, p\)/, 'volvió el aviso que se borraba con el guardado siguiente');
 });

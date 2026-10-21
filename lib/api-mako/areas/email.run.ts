@@ -42,7 +42,8 @@ import {
 import { etiquetaPorId } from '@/lib/etiquetas';
 import { TRIGGER_ETIQUETA } from '@/lib/etiquetas-reglas';
 import { SOLO_DESDE_EL_CRON, MOTIVO_SOLO_DESDE_EL_CRON } from '@/lib/disparadores';
-import { setSecuenciaPasos, type PasoSecuencia } from '@/lib/nutricion';
+import { publicarPasos, duplicadaDeLaActivacion, DuplicadaError, type PasoSecuencia } from '@/lib/nutricion';
+import { avisoDuplicada } from '@/lib/automatizacion-duplicada';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { remitenteEsSandbox, emailConectado, displayNameDe, verifyResendDomain, getResendDomain, remitenteDelNegocioActual, SANDBOX_FROM } from '@/lib/resend';
 import type { MotivoSinRemitente } from '@/lib/email-remitente';
@@ -551,12 +552,16 @@ export const RUNNERS: Runners = {
         template_wa: null,
       }));
       const borrados = s.pasos.length - pasos.length;
+      // ⚠️ Y SI CON EL COPY NUEVO OTRA ACTIVA LE ESCRIBE LO MISMO A LA MISMA GENTE, LA PROPUESTA LO DICE (revisión del
+      // 21/10/2026); sólo entonces el «sí» lleva `aunqueDuplique` (`publicarPasos`).
+      const otra = await duplicadaDeLaActivacion(id, { pasos, soloSiActiva: true });
       const avisos = [
         s.activa ? 'La secuencia está ACTIVA: el copy nuevo sale en el próximo envío.' : 'La secuencia está pausada.',
         ...(borrados > 0 ? [`Se borran ${borrados} paso(s): hoy tiene ${s.pasos.length}.`] : []),
+        ...(otra ? [`${avisoDuplicada(otra.nombre)}.`] : []),
       ];
       return {
-        payload: { id, pasos },
+        payload: { id, pasos, ...(otra ? { aunqueDuplique: true } : {}) },
         resumen: `Reemplazar los pasos de «${s.nombre}» (#${id}) por ${pasos.length}: ${pasos.map((p) => `${p.orden}) +${p.delay_horas} h «${recorte(p.asunto, 60)}»`).join(' · ')}. ${avisos.join(' ')}`,
       };
     },
@@ -565,7 +570,12 @@ export const RUNNERS: Runners = {
       if (!(await secuenciaEmail(id))) return { ok: false, resumen: noSecuencia(id) };
       const pasos = (Array.isArray(payload.pasos) ? payload.pasos as PasoSecuencia[] : []).map((p) => ({ ...p, canal: 'email' as const, template_wa: null }));
       if (!pasos.length) return { ok: false, resumen: 'No llegaron pasos: no se tocó la secuencia.' };
-      await setSecuenciaPasos(id, pasos);
+      try {
+        await publicarPasos(id, pasos, { aunqueDuplique: payload.aunqueDuplique === true });
+      } catch (e) {
+        if (e instanceof DuplicadaError) return { ok: false, resumen: `No guardé la secuencia de email #${id}: ${e.message}. Si es a propósito, pídemelo otra vez.` };
+        throw e;
+      }
       return { ok: true, resumen: `Secuencia de email #${id} con ${pasos.length} paso(s) guardados.` };
     },
   },

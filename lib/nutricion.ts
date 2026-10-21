@@ -814,16 +814,39 @@ export class DuplicadaError extends Error {
  * sus CRON guardados: la misma regla que la pantalla (`duplicadaAlActivar`). `soloSiActiva`: sólo si ésta ya está
  * prendida (Publicar una pausada no le manda nada a nadie: se pregunta al activarla). Una lectura que falla TIRA.
  */
-export async function duplicadaDeLaActivacion(id: number, o: { pasos?: readonly PasoGrafo[]; soloSiActiva?: boolean } = {}): Promise<{ id: number; nombre: string } | null> {
+export async function duplicadaDeLaActivacion(
+  id: number,
+  o: { pasos?: readonly PasoGrafo[]; soloSiActiva?: boolean; columnas?: { etapa?: string; trigger_tipo?: string; etiqueta_id?: unknown } } = {},
+): Promise<{ id: number; nombre: string } | null> {
   const supabase = (await getTenantDb());
   const filas = await leerFilasDeSecuencias((cols) => supabase.from('nutricion_secuencias').select(cols).is('archivada_at', null), 'duplicadaDeLaActivacion');
+  // `columnas` (/email › Guardar): a quién le va a escribir con la etapa o el disparador NUEVOS, antes de escribirlos.
   const vistas = filas.map((r) => ({
     id: Number(r.id), nombre: String(r.nombre ?? ''), activa: r.activa === true,
-    pasos: Array.isArray(r.pasos) ? (r.pasos as PasoGrafo[]) : [], crons: disparadoresDe(r),
+    pasos: Array.isArray(r.pasos) ? (r.pasos as PasoGrafo[]) : [],
+    crons: disparadoresDe(Number(r.id) === id && o.columnas ? { ...r, ...o.columnas } as FilaSecuencia : r),
   }));
   const esta = vistas.find((v) => v.id === id);
   if (!esta || (o.soloSiActiva && !esta.activa)) return null;
-  return duplicadaAlActivar(esta, vistas, (v) => v.crons, o.pasos ? { pasos: o.pasos } : {});
+  // El nombre del negocio es firma, no contenido (`palabrasDeFirma`). Sin poder leerlo, sin él.
+  const ws = await getWorkspaceActual().catch(() => null);
+  const negocio = ws == null ? '' : await getWorkspace(ws).then((w) => w?.nombre ?? '').catch(() => '');
+  return duplicadaAlActivar(esta, vistas, (v) => v.crons, { ...(o.pasos ? { pasos: o.pasos } : {}), negocio });
+}
+
+/**
+ * PUBLICAR LOS PASOS COMO LOS PUBLICA UNA PERSONA (revisión del 21/10/2026): con una automatización ACTIVA, publicar es
+ * prender lo nuevo, así que antes de escribir pregunta lo mismo que Activar (`DuplicadaError`, salvo `aunqueDuplique`). La
+ * usan los caminos de una persona: el lienzo y el teléfono (la ruta de WhatsApp), /email › Guardar, «MaKo escribe tu
+ * nutrición» › Aprobar y la API de MaKo. ⚠️ NO va adentro de `setSecuenciaPasos`: ahí escriben también el sistema (el
+ * hand-off, las variantes, los audios del onboarding, Meta), que no tiene a quién preguntarle.
+ */
+export async function publicarPasos(id: number, pasos: PasoSecuencia[], o: { aunqueDuplique?: boolean } = {}): Promise<void> {
+  if (!o.aunqueDuplique) {
+    const otra = await duplicadaDeLaActivacion(id, { pasos: pasos as unknown as PasoGrafo[], soloSiActiva: true });
+    if (otra) throw new DuplicadaError(otra);
+  }
+  await setSecuenciaPasos(id, pasos);
 }
 
 export class PasosInvalidosError extends Error {

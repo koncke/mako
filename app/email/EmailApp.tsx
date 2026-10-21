@@ -304,7 +304,7 @@ function SequencesView(props: {
       return { ...d, pasos: next };
     });
 
-  async function guardar() {
+  async function guardar(aunqueDuplique = false) {
     if (!sel || !draft) return;
     setSaving(true); setMsg(null);
     try {
@@ -312,10 +312,18 @@ function SequencesView(props: {
       // El disparador viaja sólo si CAMBIÓ: volver a fijarlo en cada guardado de un paso lo
       // revalidaría (y una etiqueta archivada en el medio frenaría guardar el texto).
       const cambioDisparador = draft.trigger !== sel.trigger_tipo || (draft.trigger === TRIGGER_ETIQUETA && draft.etiquetaId !== (sel.etiqueta_id ?? null));
-      const j = await apiSend<{ ok: boolean; error?: string }>('/api/email/secuencias', 'PATCH', {
+      const j = await apiSend<{ ok: boolean; error?: string; duplicada?: unknown }>('/api/email/secuencias', 'PATCH', {
         id: sel.id, nombre: draft.nombre, etapa: draft.etapa, pasos,
         ...(cambioDisparador ? { trigger: draft.trigger, ...(draft.trigger === TRIGGER_ETIQUETA ? { etiquetaId: draft.etiquetaId } : {}) } : {}),
+        ...(aunqueDuplique ? { aunqueDuplique: true } : {}),
       });
+      // Guardar una ACTIVA es publicar lo nuevo (21/10/2026): si otra activa le escribe lo mismo a la misma gente, el server
+      // no guardó nada. Se pregunta y, con «Guardar igual», otra vez.
+      if (!j.ok && j.duplicada) {
+        setSaving(false);
+        if (await confirm(String(j.error), { confirmLabel: 'Guardar igual' })) await guardar(true);
+        return;
+      }
       if (!j.ok) throw new Error(j.error || 'No se pudo guardar');
       await reload();
       setMsg({ type: 'ok', text: 'Cambios guardados.' });

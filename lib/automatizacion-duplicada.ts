@@ -79,15 +79,43 @@ export function primerMensaje(pasos: readonly PasoGrafo[]): string {
   return '';
 }
 
-/** Las palabras con peso: sin `{{datos}}`, sin acentos, sin números, de 4 letras o más. */
-export function palabrasConPeso(texto: string): Set<string> {
+/** Las palabras con peso: sin `{{datos}}`, sin acentos, sin números, de 4 letras o más, y sin las de `fuera`. */
+export function palabrasConPeso(texto: string, fuera: ReadonlySet<string> = SIN_FUERA): Set<string> {
   const limpio = texto.replace(/\{\{[^}]*\}\}/g, ' ').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-  return new Set(limpio.split(/[^a-zñ]+/).filter((w) => w.length >= 4));
+  return new Set(limpio.split(/[^a-zñ]+/).filter((w) => w.length >= 4 && !fuera.has(w)));
+}
+const SIN_FUERA: ReadonlySet<string> = new Set();
+
+/**
+ * LO QUE TIENE TODO MENSAJE DEL NEGOCIO Y NO DICE DE QUÉ HABLA (revisión del 21/10/2026): el saludo («Hola {{nombre}}»), el
+ * que escribe («soy Leila de LíderMente», «te escribe…») y las palabras de relleno. Con ellos, dos mensajes cortos distintos
+ * («¿Pudiste ver la clase?» y «Te dejo el link de la grabación») daban 0,55 y preguntaban en cada Activar: una pregunta que
+ * se contesta «… igual» sin leer desarma el aviso para el caso de verdad.
+ */
+export const PALABRAS_DE_RELLENO: ReadonlySet<string> = new Set([
+  'hola', 'holaa', 'holaaa', 'holi', 'holis', 'buenas', 'buenos', 'dias', 'tardes', 'noches', 'saludos', 'saludo', 'gracias',
+  'escribe', 'escribo', 'equipo', 'aqui', 'desde', 'para', 'esta', 'este', 'estas', 'estos', 'como', 'pero', 'porque', 'donde',
+  'cuando', 'sobre', 'tambien', 'todo', 'todos', 'tienes', 'tengo', 'quiero', 'queria',
+]);
+
+/**
+ * LA FIRMA: el relleno, el nombre del negocio, y lo que se repite en el primer mensaje de la mayoría de sus automatizaciones
+ * (con 3 o más; con 2 no se puede saber qué es firma y qué es contenido). Sale de la comparación.
+ */
+export function palabrasDeFirma(textos: readonly string[], negocio = ''): Set<string> {
+  const out = new Set<string>([...PALABRAS_DE_RELLENO, ...palabrasConPeso(negocio)]);
+  if (textos.length >= 3) {
+    const veces = new Map<string, number>();
+    for (const t of textos) for (const w of palabrasConPeso(t)) veces.set(w, (veces.get(w) ?? 0) + 1);
+    const piso = Math.max(3, Math.ceil(textos.length * 0.6));
+    for (const [w, n] of veces) if (n >= piso) out.add(w);
+  }
+  return out;
 }
 
-/** Dice entre las palabras con peso de dos textos (0 a 1). */
-export function parecido(a: string, b: string): number {
-  const pa = palabrasConPeso(a); const pb = palabrasConPeso(b);
+/** Dice entre las palabras con peso de dos textos (0 a 1), sin las de `fuera` (la firma). */
+export function parecido(a: string, b: string, fuera: ReadonlySet<string> = SIN_FUERA): number {
+  const pa = palabrasConPeso(a, fuera); const pb = palabrasConPeso(b, fuera);
   if (!pa.size || !pb.size) return 0;
   let comunes = 0;
   for (const w of pa) if (pb.has(w)) comunes++;
@@ -103,17 +131,21 @@ const igualNormalizado = (a: string, b: string): boolean => {
  * LA OTRA ACTIVA QUE LE ESCRIBE LO MISMO A LA MISMA GENTE, o null. `esta` es la que se activa o se publica (con su
  * lienzo y sus CRON de ahora, no los guardados); `otras`, las del negocio (ella misma y las pausadas no cuentan).
  */
-export function duplicadaDe(esta: Omit<AutoParaComparar, 'activa'>, otras: readonly AutoParaComparar[]): { id: number; nombre: string } | null {
+export function duplicadaDe(
+  esta: Omit<AutoParaComparar, 'activa'>, otras: readonly AutoParaComparar[], o: { negocio?: string } = {},
+): { id: number; nombre: string } | null {
   const mio = primerMensaje(esta.pasos);
   if (!mio) return null;
-  const pocas = palabrasConPeso(mio).size < MIN_PALABRAS;
-  for (const o of otras) {
-    if (o.id === esta.id || !o.activa) continue;
-    if (!esta.disparadores.some((a) => o.disparadores.some((b) => mismaCohorte(a, b)))) continue;
-    const suyo = primerMensaje(o.pasos);
+  // La firma, con los primeros mensajes de TODAS las del negocio (ésta incluida): lo que no dice de qué habla cada una.
+  const firma = palabrasDeFirma([mio, ...otras.filter((x) => x.id !== esta.id).map((x) => primerMensaje(x.pasos)).filter(Boolean)], o.negocio);
+  const pocas = palabrasConPeso(mio, firma).size < MIN_PALABRAS;
+  for (const otra of otras) {
+    if (otra.id === esta.id || !otra.activa) continue;
+    if (!esta.disparadores.some((a) => otra.disparadores.some((b) => mismaCohorte(a, b)))) continue;
+    const suyo = primerMensaje(otra.pasos);
     if (!suyo) continue;
-    const mismo = pocas || palabrasConPeso(suyo).size < MIN_PALABRAS ? igualNormalizado(mio, suyo) : parecido(mio, suyo) >= UMBRAL_PARECIDO;
-    if (mismo) return { id: o.id, nombre: o.nombre };
+    const mismo = pocas || palabrasConPeso(suyo, firma).size < MIN_PALABRAS ? igualNormalizado(mio, suyo) : parecido(mio, suyo, firma) >= UMBRAL_PARECIDO;
+    if (mismo) return { id: otra.id, nombre: otra.nombre };
   }
   return null;
 }
@@ -134,10 +166,11 @@ export function paraComparar<S extends { id: number; nombre: string; activa: boo
  * algo: el interruptor del lienzo, el «⋯» de la lista y un CRON nuevo en una que ya está activa.
  */
 export function duplicadaAlActivar<S extends { id: number; nombre: string; activa: boolean; pasos?: readonly unknown[] | null }>(
-  esta: S, todas: readonly S[], cronsDe: (s: S) => readonly CronParaComparar[], o: { pasos?: readonly PasoGrafo[]; crons?: readonly CronParaComparar[] } = {},
+  esta: S, todas: readonly S[], cronsDe: (s: S) => readonly CronParaComparar[],
+  o: { pasos?: readonly PasoGrafo[]; crons?: readonly CronParaComparar[]; negocio?: string } = {},
 ): { id: number; nombre: string } | null {
   const base = paraComparar(esta, cronsDe);
-  return duplicadaDe({ ...base, ...(o.pasos ? { pasos: o.pasos } : {}), ...(o.crons ? { disparadores: o.crons } : {}) }, todas.map((s) => paraComparar(s, cronsDe)));
+  return duplicadaDe({ ...base, ...(o.pasos ? { pasos: o.pasos } : {}), ...(o.crons ? { disparadores: o.crons } : {}) }, todas.map((s) => paraComparar(s, cronsDe)), { negocio: o.negocio });
 }
 
 /** El aviso, corto: «Ojo: «X» ya le escribe algo parecido a la misma gente». */

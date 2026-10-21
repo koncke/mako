@@ -69,8 +69,11 @@ export function NutricionGenerar({ onAplicado }: { onAplicado?: () => void } = {
   const [verAntes, setVerAntes] = useState<number | null>(null);
   const [busy, setBusy] = useState<number | 'apply' | null>(null);
   const [msg, setMsg] = useState<{ t: 'ok' | 'err'; x: string } | null>(null);
-  /** El server no la prendió porque otra activa ya le escribe lo mismo a la misma gente: se ofrece «Activar igual». */
-  const [activarIgual, setActivarIgual] = useState(false);
+  /**
+   * El server la frenó porque otra activa ya le escribe lo mismo a la misma gente (al guardar el copy de una ACTIVA, o al
+   * prenderla): se ofrece «… igual» con el rótulo de lo que se frenó. null = nada que preguntar.
+   */
+  const [activarIgual, setActivarIgual] = useState<'Guardar igual' | 'Activar igual' | null>(null);
   const [estados, setEstados] = useState<Record<number, string>>({}); // orden → status plantilla
   const [submitting, setSubmitting] = useState<number | null>(null);   // orden en envío a Meta
   const [cola, setCola] = useState<number[]>([]);                      // modo "todas": ids que faltan revisar
@@ -152,9 +155,16 @@ export function NutricionGenerar({ onAplicado }: { onAplicado?: () => void } = {
 
   async function aplicar(o: { aunqueDuplique?: boolean } = {}) {
     if (!sel) return;
-    setBusy('apply'); setMsg(null); setActivarIgual(false);
+    setBusy('apply'); setMsg(null); setActivarIgual(null);
     try {
-      const j = await jpost<{ ok: boolean; error?: string }>('/api/mako/nutricion', { action: 'aplicar', secuenciaId: sel.id, pasos: draft });
+      const j = await jpost<{ ok: boolean; error?: string; duplicada?: unknown }>('/api/mako/nutricion', { action: 'aplicar', secuenciaId: sel.id, pasos: draft, ...(o.aunqueDuplique ? { aunqueDuplique: true } : {}) });
+      // Una ACTIVA: guardar el copy es publicarlo (21/10/2026). Si otra activa le escribe lo mismo a la misma gente, no se
+      // guardó nada: se dice y se ofrece «Guardar igual».
+      if (!j.ok && j.duplicada) {
+        setMsg({ t: 'err', x: `No guardé el copy de «${sel.nombre}»: ${String(j.error)}.` });
+        setActivarIgual('Guardar igual');
+        return;
+      }
       if (!j.ok) throw new Error(j.error || 'No se pudo guardar');
       // Aprobar el copy PRENDE la secuencia (#18): es seguro — los pasos WA
       // oficiales no salen hasta que Meta apruebe su plantilla (guard del motor)
@@ -170,7 +180,7 @@ export function NutricionGenerar({ onAplicado }: { onAplicado?: () => void } = {
         // El copy quedó guardado; se dice y se ofrece «Activar igual», como en Automations.
         if (!activada && act?.duplicada) {
           setMsg({ t: 'err', x: `El copy de «${sel.nombre}» se guardó, pero no la activé: ${String(act.error)}.` });
-          setActivarIgual(true);
+          setActivarIgual('Activar igual');
           return;
         }
         // El copy ya quedó guardado (idempotente): si la activación falló, se
@@ -221,7 +231,7 @@ export function NutricionGenerar({ onAplicado }: { onAplicado?: () => void } = {
               {activarIgual && (
                 <button type="button" onClick={() => void aplicar({ aunqueDuplique: true })} disabled={busy != null}
                   style={{ marginLeft: 10, border: 'none', background: 'transparent', padding: 0, fontSize: 13, fontWeight: 700, color: 'var(--primary)', cursor: 'pointer' }}>
-                  Activar igual
+                  {activarIgual}
                 </button>
               )}
             </div>}

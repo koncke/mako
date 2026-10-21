@@ -1080,6 +1080,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     const otra = duplicadaDe(
       { id: secuencia.id, nombre, disparadores: crons.lista, pasos: queManda },
       secuencias.map((s) => ({ id: s.id, nombre: s.nombre, activa: s.activa, disparadores: disparadoresDeSecuencia(s), pasos: s.pasos ?? [] })),
+      // El nombre del negocio es firma, no contenido (`palabrasDeFirma`): como el server.
+      { negocio },
     );
     if (!otra) { seguir(); return; }
     setAvisoDup({ texto: avisoDuplicada(otra.nombre), boton, seguir });
@@ -1092,9 +1094,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    */
   const dupActiva = useMemo(
     () => (rolAdmin && activa
-      ? duplicadaAlActivar(secuencia as SecuenciaConDisparadores, secuencias as readonly SecuenciaConDisparadores[], disparadoresDeSecuencia, { pasos: abiertoPublicado, crons: crons.lista })
+      ? duplicadaAlActivar(secuencia as SecuenciaConDisparadores, secuencias as readonly SecuenciaConDisparadores[], disparadoresDeSecuencia, { pasos: abiertoPublicado, crons: crons.lista, negocio })
       : null),
-    [rolAdmin, activa, secuencia, secuencias, abiertoPublicado, crons.lista],
+    [rolAdmin, activa, secuencia, secuencias, abiertoPublicado, crons.lista, negocio],
   );
   const conAvisoProspeccion = (seguir: () => void) => {
     if (!rolAdmin || !Configuraciones || avisadaProspeccion.has(secuencia.id) || !cronDeProspeccion(crons.lista, productos, secuencia.funnel_id ?? null)) { seguir(); return; }
