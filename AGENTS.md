@@ -4520,6 +4520,13 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   bien: si una feature mezcla pedidos con y sin datos de clientes, la marca del catálogo queda como
   default cerrado y quien llama la afina con `pii`, EN POSITIVO (lo que no está revisado la lleva;
   molde: `CAJAS_SIN_DATOS_DE_CLIENTES`, lib/graficos-ia-elemento.ts).
+- ⛔ **D6b: UN NEGOCIO CON SU CLAUDE O SU GPT NO MANDA NADA A GEMINI NI A UNA IA O RED GRATIS** (Martín, 21/10/2026). Un
+  camino del Ops Center que llama a una IA corre adentro de `conSoloSuIA(negocio.suIA, …)` (lib/solo-su-ia.ts), con
+  `negocioConSuIA` (lib/ia-del-negocio.ts): por NEGOCIO y fallando cerrado. El corte vive en lib/ai-cheap.ts (`provDe`,
+  `provsGratisDePlataforma`) y en `ordenarPorCuota`: **una lectura nueva de una key barata, o una consulta nueva a un
+  proveedor, pasa por ahí o suma su corte**, y tests/solo-su-ia.test.ts la tiene que ver (corre las entradas REALES de la
+  cascada contra una base de mentira y cuenta a qué hosts sale). El 21/10 el corte obvio (`provDe`) no alcanzó: el orden
+  por cuota ya había leído las keys y le había consultado el saldo a OpenRouter.
   ⚠️ **Y una key de la plataforma COPIADA en la fila de un negocio no es del negocio** (16/10/2026: la Gemini del ws1
   lo era, y todos sus pedidos con datos de clientes iban a la key gratis de la agencia sin pasar por el corte).
   `provsDe` (lib/ai-cheap.ts) saca de las «propias» toda copia de una key de la plataforma, y las cascadas toman las

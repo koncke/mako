@@ -12,7 +12,7 @@
 // =============================================================================
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, statSync } from 'node:fs';
+import { mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { gzipSync } from 'node:zlib';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -24,7 +24,7 @@ const dotenv = await import(pathToFileURL(path.join(REPO, 'node_modules', 'doten
 (dotenv.default ?? dotenv).config({ path: arg('--env') ?? path.join(process.cwd(), '.env.local'), quiet: true });
 const APLICAR = process.argv.includes('--aplicar');
 
-const { VERSION_PC, archivoDelPrograma } = await imp('lib/ia-pc-reglas.ts');
+const { VERSION_PC, archivoDelPrograma, marcarDeVentana, subsistemaPe } = await imp('lib/ia-pc-reglas.ts');
 const programa = path.join(REPO, 'scripts', 'ia-pc', 'mako-pc.mjs');
 const vPrograma = /export const VERSION = '([^']+)'/.exec(readFileSync(programa, 'utf8'))?.[1];
 if (vPrograma !== VERSION_PC) { console.error(`⛔ el programa dice ${vPrograma} y lib/ia-pc-reglas.ts dice ${VERSION_PC}: tienen que ser iguales.`); process.exit(1); }
@@ -41,7 +41,15 @@ const armados: Array<{ nombre: string; datos: Buffer }> = [];
 for (const o of OBJETIVOS) {
   const salida = path.join(dir, o.salida);
   execFileSync('npx', ['--yes', BUN, 'build', programa, '--compile', `--target=${o.target}`, '--outfile', salida], { stdio: 'inherit', shell: process.platform === 'win32' });
-  const datos = gzipSync(readFileSync(salida), { level: 9 });
+  let bytes: Uint8Array = readFileSync(salida);
+  if (o.archivo === 'windows-x64') {
+    // DE VENTANA, no de consola: arrancado al iniciar sesión, uno de consola abre una ventana negra (lib/ia-pc-reglas.ts).
+    bytes = marcarDeVentana(bytes);
+    if (subsistemaPe(bytes) !== 2) { console.error('⛔ el ejecutable de Windows no quedó «de ventana»'); process.exit(1); }
+    writeFileSync(salida, bytes);
+    console.log('  windows-x64: marcado «de ventana» (subsistema 2)');
+  }
+  const datos = gzipSync(bytes, { level: 9 });
   const nombre = archivoDelPrograma(o.archivo);
   console.log(`  ${nombre}: ${Math.round(statSync(salida).size / 1e6)} MB → ${Math.round(datos.length / 1e6)} MB comprimido`);
   if (datos.length > 50e6) { console.error(`⛔ ${nombre} pasa los 50 MB de Supabase`); process.exit(1); }

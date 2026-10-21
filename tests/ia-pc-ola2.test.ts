@@ -72,17 +72,19 @@ test('el % usado sale del rate_limit_event, y de varias cuentas se usa la de má
   // Rota: tomar siempre la primera → este test falla.
   assert.equal(cuentaConCupo(cuentas)?.email, 'b');
   assert.equal(programa.cuentaConCupo(cuentas)?.email, 'b');
-  assert.equal(cuentaConCupo([{ usado5h: 96 }, { usado5h: 99 }]), null, 'todas al tope: ninguna');
-  assert.equal(cuentaConCupo([{}])?.usado5h, undefined, 'sin medir, se usa');
+  // Todas al tope: igual la de menos uso, para que Claude conteste SU límite con la hora (antes: ninguna, para siempre).
+  assert.equal(cuentaConCupo([{ usado5h: 96 }, { usado5h: 99 }])?.usado5h, 96, 'todas al tope: la de menos uso');
+  assert.equal(cuentaConCupo([]), null, 'sin cuentas, ninguna');
+  assert.equal(cuentaConCupo([{} as { usado5h?: number }])?.usado5h, undefined, 'sin medir, se usa');
 });
 
 test('el programa pasa el modelo validado, y encuentra a Claude aunque falte el PATH', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'mako-pc-ola2-'));
   let visto: { cmd: string; args: string[] } | null = null;
   const falso = (cmd: string, args: string[]) => {
-    const p = new EventEmitter() as EventEmitter & { stdout: EventEmitter; stderr: EventEmitter; stdin: { end: (s: string) => void }; kill: () => void };
+    const p = new EventEmitter() as EventEmitter & { stdout: EventEmitter; stderr: EventEmitter; stdin: EventEmitter & { end: (s: string) => void }; kill: () => void };
     p.stdout = new EventEmitter(); p.stderr = new EventEmitter(); p.kill = () => {};
-    p.stdin = { end: () => { visto = { cmd, args }; setImmediate(() => { p.stdout.emit('data', STREAM); p.emit('close', 0); }); } };
+    p.stdin = Object.assign(new EventEmitter(), { end: () => { visto = { cmd, args }; setImmediate(() => { p.stdout.emit('data', STREAM); p.emit('close', 0); }); } });
     return p;
   };
   const r = await programa.pensar({ dir, system: 's', prompt: 'p', mcp: {}, modelo: 'rm -rf /' }, falso as never, 'C:/x/claude.exe');
@@ -99,22 +101,23 @@ test('el programa pasa el modelo validado, y encuentra a Claude aunque falte el 
 
 test('el instalador sólo lleva valores validados, y su línea es la del tutorial', () => {
   const urls = { 'windows-x64': 'https://x.supabase.co/storage/v1/object/sign/ia-pc/a.gz?token=abc', 'mac-arm64': 'https://x.supabase.co/a.gz?t=1', 'mac-x64': 'https://x.supabase.co/b.gz?t=1' };
-  const win = scriptDeInstalacion({ sistema: 'windows', codigo: 'abc-234', servidor: 'https://hola-mako.com', urls });
+  const win = scriptDeInstalacion({ sistema: 'windows', codigo: 'abcd-2345', servidor: 'https://hola-mako.com', urls });
   assert.match(win, /Invoke-WebRequest -UseBasicParsing -Uri 'https:\/\/x\.supabase\.co\/storage\/v1\/object\/sign\/ia-pc\/a\.gz\?token=abc'/);
-  assert.match(win, /& \$exe emparejar 'ABC234' --servidor 'https:\/\/hola-mako\.com'/, 'el código normalizado');
+  assert.match(win, /& \$exe emparejar 'ABCD2345' --servidor 'https:\/\/hola-mako\.com'/, 'el código normalizado');
   assert.match(win, /GZipStream/);
-  assert.match(win, /GetFolderPath\('Startup'\)/, 'arranca solo al prender la computadora');
-  const mac = scriptDeInstalacion({ sistema: 'mac', codigo: 'ABC234', servidor: 'https://hola-mako.com', urls });
+  // El arranque es la clave Run (tests/ia-pc-revision.test.ts fija el porqué: el .vbs lo ponía en cuarentena Defender).
+  assert.match(win, /New-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' -Name 'MaKo'/, 'arranca solo al prender la computadora');
+  const mac = scriptDeInstalacion({ sistema: 'mac', codigo: 'ABCD2345', servidor: 'https://hola-mako.com', urls });
   assert.match(mac, /codesign --force --sign -/, 'en una Mac con chip de Apple, sin firma no corre');
   assert.match(mac, /LaunchAgents\/com\.hola-mako\.pc\.plist/);
   assert.match(mac, /gunzip/);
   // Rota: aceptar lo que venga → este test falla (un código o una URL con comillas cortarían el script).
   assert.throws(() => scriptDeInstalacion({ sistema: 'windows', codigo: "ABC'; rm", servidor: 'https://hola-mako.com', urls }));
-  assert.throws(() => scriptDeInstalacion({ sistema: 'windows', codigo: 'ABC234', servidor: 'https://hola-mako.com; rm -rf', urls }));
-  assert.throws(() => scriptDeInstalacion({ sistema: 'mac', codigo: 'ABC234', servidor: 'https://hola-mako.com', urls: { ...urls, 'mac-arm64': "https://x/a'; rm -rf ~" } }));
-  assert.throws(() => scriptDeInstalacion({ sistema: 'mac', codigo: 'ABC234', servidor: 'http://evil.com', urls }), 'http sólo para localhost');
-  assert.equal(lineaDeInstalacion('https://hola-mako.com/', 'windows', 'ABC234'), 'irm "https://hola-mako.com/api/ia-pc/instalar?os=windows&codigo=ABC234" | iex');
-  assert.equal(lineaDeInstalacion('https://hola-mako.com', 'mac', 'ABC234'), 'curl -fsSL "https://hola-mako.com/api/ia-pc/instalar?os=mac&codigo=ABC234" | sh');
+  assert.throws(() => scriptDeInstalacion({ sistema: 'windows', codigo: 'ABCD2345', servidor: 'https://hola-mako.com; rm -rf', urls }));
+  assert.throws(() => scriptDeInstalacion({ sistema: 'mac', codigo: 'ABCD2345', servidor: 'https://hola-mako.com', urls: { ...urls, 'mac-arm64': "https://x/a'; rm -rf ~" } }));
+  assert.throws(() => scriptDeInstalacion({ sistema: 'mac', codigo: 'ABCD2345', servidor: 'http://evil.com', urls }), 'http sólo para localhost');
+  assert.equal(lineaDeInstalacion('https://hola-mako.com/', 'windows', 'ABCD2345'), 'irm "https://hola-mako.com/api/ia-pc/instalar?os=windows&codigo=ABCD2345" | iex');
+  assert.equal(lineaDeInstalacion('https://hola-mako.com', 'mac', 'ABCD2345'), 'curl -fsSL "https://hola-mako.com/api/ia-pc/instalar?os=mac&codigo=ABCD2345" | sh');
   const ruta = sinComentarios(leer('app/api/ia-pc/instalar/route.ts'));
   assert.match(ruta, /const codigo = normalizarCodigo\(req\.nextUrl\.searchParams\.get\('codigo'\)\);/);
   assert.match(ruta, /createSignedUrl\(archivoDelPrograma\(a\), 600\)/, 'URL firmadas de 10 minutos, bucket privado');
@@ -148,6 +151,8 @@ test('«Tus cuentas de IA»: con sesión, cada uno lo suyo, el modelo es del adm
   assert.doesNotMatch(sinComentarios(pantalla), /href=["'{`]+\/integraciones/, 'nunca un link que saca de la tab');
   assert.doesNotMatch(pantalla, /\b(tenés|podés|elegí|instalá|iniciá|escribí|pegá|apretá|abrí|conectá|dejala|prendela)\b/i, 'de tú, no de vos');
   assert.match(leer('app/integraciones/page.tsx'), /<TusCuentasIA \/>/);
+  // Y en «Tu cuenta», para todo el equipo: la PC es de la persona (revisión del 21/10/2026: un closer no tenía dónde).
+  assert.match(leer('app/perfil/ia/page.tsx'), /await requireRolWs\(\['closer', 'setter'\]\);[\s\S]*<TusCuentasIA \/>/);
 });
 
 test('al conectar, la persona acepta con un toque que es SU Claude y SU cuenta, y queda guardado', () => {

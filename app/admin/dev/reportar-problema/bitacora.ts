@@ -169,4 +169,18 @@ export const BITACORA: Hito[] = [
       'Probado de punta a punta en Windows: se instaló, se conectó y contestó. La Mac no se probó.',
     ],
   },
+  {
+    fecha: '21 oct', hora: '07:00', chat: CH, sesion: SESION, cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Tu Claude en tu computadora: arranca solo de verdad, no se apaga por un bache y no le manda nada a Gemini',
+    revisar: '/perfil/ia',
+    puntos: [
+      'Windows ya no muestra una alerta de virus al instalar MaKo: arranca solo al prender la computadora, sin ventanas.',
+      'Antes de conectarse, MaKo te dice a qué negocio y como quién, y te pregunta si es el tuyo.',
+      'Si tu Claude no tiene la sesión iniciada, el tutorial no dice «¡Listo!»: te lleva a iniciarla. Y si llegaste al tope de 5 horas, el chat te dice a qué hora se repone, y vuelve a andar solo.',
+      'Si tu computadora se apaga a mitad de una respuesta, el chat te avisa en menos de un minuto y medio, no a los 4 minutos (y prueba con tu clave de Claude, si la tienes).',
+      'Con tu propio Claude, nada de tu negocio va a Gemini ni a una IA gratis: tampoco El Archivero, las fotos ni las notas de voz.',
+      '«Tus cuentas de IA» está ahora en Tu cuenta, para todo el equipo, y también en el teléfono.',
+      '⚠️ La Mac sigue sin probarse en una Mac.',
+    ],
+  },
 ];

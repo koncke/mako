@@ -52,7 +52,7 @@ import { Microfono } from '@/app/admin/operaciones/Microfono';
 import { HiloMako } from '@/app/_chat/HiloMako';
 import type { ItemPropuesta } from '@/app/_chat/TarjetaAccion';
 import {
-  archivosDeRespuesta, idLocal, itemsDeRespuesta, itemsDeSesion, leerRespuesta, problemaDeSeleccion, tipoDeElegido, trasTarjeta,
+  archivosDeRespuesta, idLocal, itemsDeRespuesta, itemsDeSesion, leerRespuesta, problemaDeSeleccion, textoTapadoDeRespuesta, tipoDeElegido, trasTarjeta,
   type EstadoPropuesta, type ItemHilo, type Leido,
 } from '@/app/m/mako/chat-ui';
 import { achicarImagen } from '@/app/m/mako/subir';
@@ -390,7 +390,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
       if (!l.ok) { marcar(idU, { estado: l.reintentable ? 'error' : 'incierto', error: l.error }); return; }
       // Los archivos volvieron guardados: la burbuja pasa a pedirlos por su mensaje y la vista previa se suelta.
       const guardados = archivosDeRespuesta(l.datos);
-      marcar(idU, { estado: undefined, error: undefined, ...(guardados.length ? { archivos: guardados } : {}) });
+      marcar(idU, { estado: undefined, error: undefined, ...textoTapadoDeRespuesta(l.datos, mensaje), ...(guardados.length ? { archivos: guardados } : {}) });
       if (guardados.length) { for (const a of archivos) URL.revokeObjectURL(a.url); envios.current.delete(idU); }
       setItems((xs) => {
         const vistas = new Set(xs.flatMap((x) => (x.k === 'propuesta' ? [x.t.pendienteId] : [])));

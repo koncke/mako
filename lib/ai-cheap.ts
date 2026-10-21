@@ -30,6 +30,7 @@ import { credDelCliente, credWs, credWsEstricta } from '@/lib/credenciales';
 import { ordenarCuentas, ordenarPorCuota, anotarRebote429 } from '@/lib/ia-cuotas';
 import { clavesAProbar, clavesDe, sinCopiasDeLaPlataforma } from '@/lib/ia-keys';
 import { clavesCargadas } from '@/lib/ia-keys-ws';
+import { proveedorPermitido, soloSuIA } from '@/lib/solo-su-ia';
 import { mensajeIAFallo, motivoDeErroresCascada } from '@/lib/ia-mensajes';
 import { corregirMarca } from '@/lib/mako-gramatica';
 import { salidaDegenerada } from '@/lib/stt-degenerado';
@@ -123,6 +124,9 @@ const clavesProv = clavesAProbar;
 // y su gasto corre contra SU cuenta; un cliente sin fila propia → null, nunca la
 // del dueño (aislamiento). Antes se leía process.env directo → pagaba la agencia.
 async function provDe(nombre: ProvName, clave?: string, wsKey?: number): Promise<Prov | null> {
+  // ⛔ D6b (lib/solo-su-ia.ts): en el turno de un negocio con su Claude o su GPT, ninguna key barata ni de la plataforma.
+  // Por acá pasan TODAS las cascadas (texto, herramientas, documentos, visión, audio), así que el corte es uno solo.
+  if (!proveedorPermitido(nombre, wsKey != null)) return null;
   const cl = clave ?? clavesProv(nombre)[0];
   // `wsKey` SOLO lo pasa la red de plataforma (ver `provsGratisDePlataforma`).
   // Sin él se comporta igual que siempre: la fila del workspace en curso.
@@ -292,6 +296,8 @@ async function proveedor(pref?: ProvName, clave?: string, wsKey?: number): Promi
  *     — y el que hay que cargar su key nunca se entera.
  */
 export async function provsGratisDePlataforma(): Promise<Array<{ provider: ProvName; clave: string }>> {
+  // ⛔ D6b: un negocio con su IA no usa la red de la plataforma (lib/solo-su-ia.ts).
+  if (soloSuIA()) return [];
   const { wsSuperAdmin } = await import('./workspace');
   const ws = await wsSuperAdmin().catch(() => null);
   if (ws == null) return [];
@@ -808,6 +814,11 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
       // datos personales (la marca `pii` del catálogo, o `opts.pii`) usa sólo lo que NO entrena —su
       // propia key, arriba, o el crédito de Claude de la plataforma— y si nada de eso contesta, se
       // termina acá: el cliente conecta la suya (el mensaje lo arma `errorDeCascada`).
+      // ⛔ D6b: con su Claude o su GPT, la red gratis no corre (lib/solo-su-ia.ts). Se dice, como la de los datos de clientes.
+      if (soloSuIA()) {
+        opts.erroresPlataformaOut?.push('red gratis salteada: el negocio usa su propia IA (su Claude o su GPT)');
+        return '';
+      }
       const conPII = opts.pii ?? CATALOGO_MODELOS.some((f) => f.feature === opts.feature && f.pii === true);
       if (conPII) {
         opts.erroresPlataformaOut?.push('red gratis salteada: el pedido lleva datos de clientes y el plan gratis entrena con lo que recibe');

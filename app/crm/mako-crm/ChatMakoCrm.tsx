@@ -35,7 +35,7 @@ import { Microfono } from '@/app/admin/operaciones/Microfono';
 import '@/app/admin/operaciones/centro.css';
 import '@/app/_chat/chat.css';
 import {
-  idLocal, itemsDeRespuesta, itemsDeSesion, leerRespuesta, trasTarjeta, type EstadoPropuesta, type ItemHilo,
+  idLocal, itemsDeRespuesta, itemsDeSesion, leerRespuesta, textoTapadoDeRespuesta, trasTarjeta, type EstadoPropuesta, type ItemHilo,
 } from '@/app/m/mako/chat-ui';
 import type { MensajeChat, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 
@@ -131,7 +131,7 @@ export function ChatMakoCrm({ funnelId, pedido }: {
       const l = leerRespuesta<RespuestaTurno>(status, cuerpo);
       if (!l.ok) { marcar(idU, { estado: l.reintentable ? 'error' : 'incierto', error: l.error }); return; }
       const r = l.datos;
-      marcar(idU, { estado: undefined, error: undefined });
+      marcar(idU, { estado: undefined, error: undefined, ...textoTapadoDeRespuesta(r, e.texto) });
       setItems((xs) => {
         const vistas = new Set(xs.flatMap((x) => (x.k === 'propuesta' ? [x.t.pendienteId] : [])));
         return [...xs, ...itemsDeRespuesta(r, vistas)];

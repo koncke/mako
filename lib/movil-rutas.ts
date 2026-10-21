@@ -635,6 +635,8 @@ export function rutaMovil(href: string | null | undefined): string | null {
   // las Notificaciones de la persona son, en el teléfono, los avisos de /m/cuenta.
   if (p === '/perfil/seguridad') return '/m/cuenta/seguridad';
   if (p === '/perfil/notificaciones') return '/m/cuenta';
+  // «Tus cuentas de IA» (21/10/2026): el estado de sus computadoras y «Desconectar»; conectar una, en la computadora.
+  if (p === '/perfil/ia') return '/m/cuenta/ia';
   const lead = p.match(/^\/crm\/(\d+)(?:\/resumen)?$/);
   if (lead) return `/m/crm/${lead[1]}`;
   if (p === '/crm') return '/m/crm';
@@ -860,6 +862,7 @@ export function rutaEscritorio(href: string): string {
   else if ((m = p.match(/^\/m\/tickets\/(\d+)$/))) { destino = '/tickets'; q.set('t', m[1]); }
   else if (p === '/m/cuenta/instalar') destino = '/perfil/instalar';
   else if (p === '/m/cuenta/seguridad') destino = '/perfil/seguridad';
+  else if (p === '/m/cuenta/ia') destino = '/perfil/ia';
   else if (p === '/m/cuenta') destino = '/perfil';
   else if (p === '/m/configurar') destino = '/configurar';
   else if ((m = p.match(/^\/m\/dashboard\/([^/]+)$/))) {

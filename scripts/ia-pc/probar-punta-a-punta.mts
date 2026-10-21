@@ -13,11 +13,19 @@
 //   3. deja el programa corriendo: late, toma turnos y corre Claude Code oficial, restringido a las herramientas de MaKo;
 //   4. llama a `turnoApp` (el turno del Ops Center) dos veces: una lectura y una acción, que tiene que quedar en tarjeta;
 //   5. cuenta qué herramientas pidió la PC, y desconecta la PC de prueba.
+//
+// `--instalador` (Windows) corre la línea del tutorial con el ejecutable de verdad, en una carpeta con tilde y ñ
+// («José Muñoz»: la ruta no puede pasar por ASCII), y verifica lo que la revisión del Cerebro pidió (21/10/2026):
+//   · el arranque es la clave Run de HKCU con la ruta EXACTA, y SIGUE ahí unos segundos después (Defender ponía en
+//     cuarentena el MaKo.vbs de la 0.2.0 apenas se escribía);
+//   · nada de MaKo en la carpeta Inicio;
+//   · al desconectar la PC desde MaKo, el programa se saca solo del arranque y se apaga (401 `revocado`).
+// La limpieza saca todo lo que escribió (la clave, la carpeta, el proceso), y lo verifica.
 // =============================================================================
 import path from 'node:path';
 import http from 'node:http';
 import { spawn, type ChildProcess } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -37,6 +45,10 @@ const INSTALADOR = process.argv.includes('--instalador');
 const PUERTO = 4319;
 // El instalador apunta al servidor de la app: acá, al local (antes de importar las rutas, que lo leen al cargar).
 if (INSTALADOR) process.env.APP_BASE_URL = `http://localhost:${PUERTO}`;
+// La carpeta del programa, con tilde y ñ (`$env:LOCALAPPDATA` del instalador apunta acá).
+const LOCAL_PRUEBA = path.join(tmpdir(), `mako-pc-e2e-${Date.now()}`, 'José Muñoz', 'AppData', 'Local');
+/** La clave Run del programa, leída de verdad (vacía si no está). */
+const CLAVE_RUN = "(Get-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' -Name 'MaKo' -ErrorAction SilentlyContinue).MaKo";
 
 const { NextRequest } = await import('next/server');
 const rutas = {
@@ -46,6 +58,7 @@ const rutas = {
   contestar: await imp('app/api/ia-pc/turno/[id]/route.ts'),
   mcp: await imp('app/api/ia-pc/mcp/route.ts'),
   instalar: await imp('app/api/ia-pc/instalar/route.ts'),
+  soltar: await imp('app/api/ia-pc/soltar/route.ts'),
 };
 const { crearCodigo, pcDe, desconectar } = await imp('lib/ia-pc.ts');
 const { turnoApp, nuevaSesion } = await imp('lib/mako-turno-app.ts');
@@ -56,7 +69,7 @@ const { getSupabaseServer } = await imp('lib/supabase.ts');
 const servidor = http.createServer(async (req, res) => {
   const cuerpo = await new Promise<Buffer>((ok) => { const b: Buffer[] = []; req.on('data', (c) => b.push(c)).on('end', () => ok(Buffer.concat(b))); });
   const url = `http://localhost:${PUERTO}${req.url}`;
-  const r = new NextRequest(url, { method: req.method, headers: req.headers as Record<string, string>, ...(cuerpo.length ? { body: cuerpo } : {}) });
+  const r = new NextRequest(url, { method: req.method, headers: req.headers as Record<string, string>, ...(cuerpo.length ? { body: new Uint8Array(cuerpo) } : {}) });
   const p = new URL(url).pathname;
   const m = /^\/api\/ia-pc\/turno\/(\d+)$/.exec(p);
   const resp: Response = p === '/api/ia-pc/emparejar' ? await rutas.emparejar.POST(r)
@@ -65,7 +78,8 @@ const servidor = http.createServer(async (req, res) => {
         : m ? await rutas.contestar.POST(r, { params: Promise.resolve({ id: m[1] }) })
           : p === '/api/ia-pc/mcp' ? await (req.method === 'GET' ? rutas.mcp.GET() : rutas.mcp.POST(r))
             : p === '/api/ia-pc/instalar' ? await rutas.instalar.GET(r)
-              : new Response('no', { status: 404 });
+              : p === '/api/ia-pc/soltar' ? await rutas.soltar.POST(r)
+                : new Response('no', { status: 404 });
   res.writeHead(resp.status, Object.fromEntries(resp.headers.entries()));
   res.end(Buffer.from(await resp.arrayBuffer()));
 });
@@ -87,7 +101,10 @@ const correr = (args: string[], fondo = false): Promise<string> | ChildProcess =
   return new Promise((ok) => { let s = ''; p.stdout!.on('data', (b) => { s += b; }); p.stderr!.on('data', (b) => { s += b; }); p.on('close', () => ok(s.trim())); });
 };
 const ps = (comando: string) => new Promise<string>((ok) => {
-  const p = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', comando], { env: { ...process.env, MAKO_PC_DIR: DIR_PC, CLAUDE_CONFIG_DIR: CLAUDE_DIR } });
+  // `MAKO_PC_SI=1`: el «sí» a «¿Es tu negocio?» (lib/ia-pc-reglas.ts → scriptDeInstalacion), que acá no lo escribe nadie.
+  const p = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', `[Console]::OutputEncoding = [Text.Encoding]::UTF8; ${comando}`], {
+    env: { ...process.env, MAKO_PC_DIR: DIR_PC, CLAUDE_CONFIG_DIR: CLAUDE_DIR, MAKO_PC_SI: '1', LOCALAPPDATA: LOCAL_PRUEBA },
+  });
   let s = ''; p.stdout.on('data', (b) => { s += b; }); p.stderr.on('data', (b) => { s += b; }); p.on('close', () => ok(s.trim()));
 });
 let pc: ChildProcess | null = null;
@@ -96,8 +113,18 @@ if (INSTALADOR) {
   const { lineaDeInstalacion } = await imp('lib/ia-pc-reglas.ts');
   const linea = lineaDeInstalacion(`http://localhost:${PUERTO}`, 'windows', codigo);
   console.log(`2. ${linea}\n${(await ps(linea)).split('\n').map((l) => `   ${l}`).join('\n')}`);
+  // El arranque: la clave Run con la ruta EXACTA (con la ñ), que sigue unos segundos después; y nada en Inicio.
+  const exe = path.join(LOCAL_PRUEBA, 'MaKo', 'mako-pc.exe');
+  const enInicio = async () => (await ps("Get-ChildItem ([Environment]::GetFolderPath('Startup')) -Filter 'MaKo*' -ErrorAction SilentlyContinue | ForEach-Object Name")).trim();
+  const r0 = (await ps(CLAVE_RUN)).trim();
+  await new Promise((ok) => setTimeout(ok, 15_000));
+  const r1 = (await ps(CLAVE_RUN)).trim();
+  const esperado = `"${exe}"`;
+  console.log(`   arranque (clave Run): ${r0 === esperado ? 'OK, la ruta exacta' : `⛔ «${r0}» (esperaba «${esperado}»)`} · 15 s después: ${r1 === esperado ? 'SIGUE' : `⛔ «${r1}»`}`);
+  console.log(`   carpeta Inicio: ${(await enInicio()) || 'nada de MaKo'}`);
 } else {
   console.log(`2. ${await correr(['emparejar', codigo, '--servidor', `http://localhost:${PUERTO}`, '--nombre', 'Prueba ws3'])}`);
+  console.log(`   ${await correr(['confirmar'])}`);
   const cfg = JSON.parse(readFileSync(path.join(DIR_PC, 'config.json'), 'utf8'));
   writeFileSync(path.join(DIR_PC, 'config.json'), JSON.stringify({ ...cfg, configDir: CLAUDE_DIR }, null, 2));
   // ── 3. El programa corriendo ───────────────────────────────────────────────
@@ -130,11 +157,23 @@ if (enLinea && INSTALADOR) {
   await resumen('Una acción (tiene que quedar en tarjeta)', process.env.MENSAJE_ACCION ?? 'Agrega un lead nuevo: Juan Pérez, teléfono +54 9 11 5555 1234, viene de Instagram.');
 }
 
-// ── 5. Limpieza ──────────────────────────────────────────────────────────────
-pc?.kill();
-// Lo que dejó el instalador: el proceso, el arranque automático y la carpeta del programa.
-if (INSTALADOR) await ps("Get-Process -Name 'mako-pc' -ErrorAction SilentlyContinue | Stop-Process -Force; Remove-Item -Force (Join-Path ([Environment]::GetFolderPath('Startup')) 'MaKo.vbs') -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500; Remove-Item -Recurse -Force (Join-Path $env:LOCALAPPDATA 'MaKo') -ErrorAction SilentlyContinue");
+// ── 5. Desconectar y limpiar ─────────────────────────────────────────────────
 if (dispositivo) await desconectar(WS, dispositivo.id);
+if (INSTALADOR) {
+  // Desconectada desde MaKo, el programa se tiene que sacar SOLO del arranque y apagarse (en el próximo latido, ≤ 30 s).
+  const vivo = async () => (await ps("@(Get-Process -Name 'mako-pc' -ErrorAction SilentlyContinue).Count")).trim();
+  let solo = false;
+  for (let i = 0; i < 25 && !solo; i++) { await new Promise((ok) => setTimeout(ok, 2_000)); solo = (await vivo()) === '0' && !(await ps(CLAVE_RUN)).trim(); }
+  console.log(`\n5. Desconectada desde MaKo: ${solo ? 'el programa se sacó del arranque y se apagó solo' : '⛔ el programa sigue (o la clave Run quedó)'}`);
+  // Lo que haya quedado igual se saca, y se verifica.
+  await ps("Get-Process -Name 'mako-pc' -ErrorAction SilentlyContinue | Stop-Process -Force; Remove-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' -Name 'MaKo' -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500");
+  // Con reintentos: el .exe recién cerrado tarda en soltarse (medido el 21/10/2026: quedaban las carpetas vacías).
+  rmSync(path.dirname(path.dirname(path.dirname(LOCAL_PRUEBA))), { recursive: true, force: true, maxRetries: 10, retryDelay: 500 });
+  const quedo = [(await vivo()) !== '0' ? 'el proceso' : '', (await ps(CLAVE_RUN)).trim() ? 'la clave Run' : '', existsSync(LOCAL_PRUEBA) ? 'la carpeta' : ''].filter(Boolean);
+  console.log(`   limpieza: ${quedo.length ? `⛔ quedó ${quedo.join(', ')}` : 'no quedó nada (proceso, clave Run, carpeta)'}`);
+} else {
+  pc?.kill();
+  console.log('\n5. La PC de prueba quedó desconectada.');
+}
 servidor.close();
-console.log('\n5. La PC de prueba quedó desconectada.');
 process.exit(0);

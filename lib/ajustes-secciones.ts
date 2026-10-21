@@ -33,6 +33,10 @@ export const SECCIONES_CUENTA: SeccionAjustes[] = [
   { key: 'seguridad', label: 'Seguridad', href: '/perfil/seguridad', icono: 'escudo', descripcion: 'Cómo entras a MaKo y desde dónde.' },
   { key: 'notificaciones', label: 'Notificaciones', href: '/perfil/notificaciones', icono: 'avisar', descripcion: 'Los avisos que te llegan a ti.' },
   { key: 'instalar', label: 'Instalar la app', href: '/perfil/instalar', icono: 'celular', descripcion: 'MaKo en tu celular.' },
+  // Su Claude, en SU computadora (docs/ia-del-cliente.md §6): es de la PERSONA (la PC atiende sólo a quien la conectó), así
+  // que vive acá y la ve todo el equipo. Antes estaba sólo en Integraciones, que es del admin: un closer no tenía dónde
+  // conectar la suya (revisión del Cerebro, 21/10/2026).
+  { key: 'ia', label: 'Tus cuentas de IA', href: '/perfil/ia', icono: 'computadora', descripcion: 'Tu Claude, en tu computadora, para tu Ops Center.' },
 ];
 
 /**

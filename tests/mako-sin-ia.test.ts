@@ -106,13 +106,15 @@ test('¿falta la IA del negocio?: el texto de la cascada, o cero cuentas propias
   // El turno: sin IA no registra el «responder», dice AVISO_SIN_IA y devuelve `conectar`.
   const turno = sinComentarios(leer('lib/mako-turno-app.ts'));
   // Rota: `...(fallo ? [...responder...])` sin el `!sinIA` → este test falla (el ticket #6 de vuelta).
-  // Desde el 21/10 también sin lo que falló en la computadora del cliente (`falloDeLaPc`, tests/ia-pc.test.ts).
-  assert.match(turno, /\.\.\.\(fallo && !sinIA(?: && !falloDeLaPc)? \? \[\{ nombre: 'responder'/);
-  assert.match(turno, /const sinIA = (?:!falloDeLaPc && )?faltaIADelNegocio\(fallo, fallo \? await iaPropiaDelTurno\(\) : null\)/);
+  // Desde el 21/10 también sin lo que falló en la computadora del cliente (`falloDeLaPc`, tests/ia-pc.test.ts) ni en SU
+  // cuenta (`deSuClave`: su Claude en pausa o su clave sin crédito, tests/ia-pc-revision.test.ts).
+  assert.match(turno, /\.\.\.\(fallo && !sinIA(?: && !falloDeLaPc)?(?: && !deSuClave)? \? \[\{ nombre: 'responder'/);
+  assert.match(turno, /const sinIA = (?:!falloDeLaPc && )?(?:!deSuClave && )?faltaIADelNegocio\(fallo, fallo \? await iaPropiaDelTurno\(\) : null\)/);
   assert.match(turno, /provsDe, CASCADA_TOOLS/, 'cuenta con la MISMA lectura que la cascada');
-  // Desde el 21/10, con su computadora conectada (aunque apagada) no se le pide otra IA: `&& !pc` (tests/ia-pc.test.ts).
-  assert.match(turno, /const sinIAEs = !respuesta && sinIA(?: && !pc)?\s*\? avisoSinIA\(await esNegocioDelEntorno\(ws\)\.catch\(\(\) => false\), iaParaConectar\(await iaConFila\(\)\)\)\s*: null;/);
-  assert.match(turno, /aviso = \[aviso, (?:delaPc \?\? )?sinIAEs\?\.aviso \?\? AVISO_NO_PUDE\]/);
+  // Desde el 21/10, con su computadora conectada (aunque apagada) no se le pide otra IA: `&& !pc` (tests/ia-pc.test.ts); y
+  // en un negocio con su propio Claude (D6b), lo que se le ofrece es SU IA, nunca Gemini (`iaParaConectar(…, negocio.suIA)`).
+  assert.match(turno, /const sinIAEs = !respuesta && sinIA(?: && !pc)?\s*\?[\s\S]{0,140}avisoSinIA\(await esNegocioDelEntorno\(ws\)\.catch\(\(\) => false\), iaParaConectar\(await iaConFila\(\)(?:, negocio\.suIA)?\)\)\s*: null;/);
+  assert.match(turno, /aviso = \[aviso, (?:delaPc \?\? )?(?:deSuClave\?\.aviso \?\? )?sinIAEs\?\.aviso \?\? AVISO_NO_PUDE\]/);
   assert.match(turno, /pantallas, conectar \}/);
 });
 
@@ -266,7 +268,8 @@ test('un negocio con SÓLO su Claude: el chat contesta con su clave, y «Conecta
   const intento = tools.indexOf('const n = await permisoDeLaClaveDelNegocio(opts.feature).catch(() => null);');
   assert.ok(intento > tools.indexOf('if (r) return { text: r.text') && intento < tools.indexOf("'sin proveedor gratis disponible'"),
     'después de la cascada que no contestó, antes de tirar');
-  assert.match(tools, /if \(n && 'permiso' in n\) delNegocio = n\.permiso;\s*else if \(opts\.sinFallbackClaude\) throw/);
+  // Con su Claude en pausa, la pausa (no «sin proveedor», que le pedía conectar lo que ya tiene: revisión del 21/10/2026).
+  assert.match(tools, /if \(n && 'permiso' in n\) delNegocio = n\.permiso;\s*else if \(n && 'pausa' in n && opts\.sinFallbackClaude\) throw new Error\(`falló la IA \(\$\{CLAUDE_EN_PAUSA\}\)`\);\s*else if \(opts\.sinFallbackClaude\) throw/);
   assert.match(tools, /if \(delNegocio\) permiso = delNegocio;/, 'el permiso es el de la puerta 2, no el de la plataforma');
   assert.match(tools, /const key = delNegocio \? delNegocio\.clave : await credWs\('ANTHROPIC_API_KEY'\);/, 'la clave que verificó el veto');
   assert.match(tools, /delNegocio\s*\? \{ model, max_tokens: opts\.maxTokens \?\? 4096, system, messages: msgs, tools \}/, 'el pedido que ya anda con su clave');
@@ -276,6 +279,7 @@ test('un negocio con SÓLO su Claude: el chat contesta con su clave, y «Conecta
   // 4. El turno cuenta su Claude como IA propia, y mira SU fila (no el entorno) para elegir qué abrir.
   // Rota: `iaPropiaDelTurno` sin su Claude → este test falla (le pediría conectar algo que ya tiene).
   const turno = sinComentarios(leer('lib/mako-turno-app.ts'));
-  assert.match(turno, /const claude = await permisoDeLaClaveDelNegocio\(FEATURE\);\s*if \(claude && 'permiso' in claude\) n\+\+;/);
+  // Desde el 21/10 también en pausa: sigue siendo SU Claude, y lo que se le dice es la pausa (tests/ia-pc-revision.test.ts).
+  assert.match(turno, /const claude = await permisoDeLaClaveDelNegocio\(FEATURE\);\s*if \(claude\) n\+\+;/);
   assert.match(turno, /for \(const s of IA_PARA_CONECTAR\) if \(await credDelCliente\(ENV_DE_IA\[s\]\)/);
 });

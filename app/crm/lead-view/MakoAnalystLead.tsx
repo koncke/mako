@@ -67,7 +67,7 @@ import { CSS_OFFER } from '@/app/offer/estilos';
 import { horaDe } from '@/app/offer/ayudas';
 import {
   AVISO_LENTO_S, ERROR_INCIERTO, PILL_PROPUESTA, SALIDA_PROPUESTA, fuenteDelTurno, idLocal, itemsDeRespuesta,
-  itemsDeSesion, leerRespuesta, problemaDeSeleccion, rotuloPrimario, trasTarjeta, type EstadoPropuesta, type ItemHilo,
+  itemsDeSesion, leerRespuesta, problemaDeSeleccion, rotuloPrimario, textoTapadoDeRespuesta, trasTarjeta, type EstadoPropuesta, type ItemHilo,
 } from '@/app/m/mako/chat-ui';
 import { achicarImagen, postConProgreso } from '@/app/m/mako/subir';
 import { ConectarDelAviso } from '@/app/_chat/ConectarDelAviso';
@@ -252,7 +252,7 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
       const l = leerRespuesta<RespuestaTurno>(status, cuerpo);
       if (!l.ok) { marcar(idU, { estado: l.reintentable ? 'error' : 'incierto', error: l.error }); return; }
       const r = l.datos;
-      marcar(idU, { estado: undefined, error: undefined });
+      marcar(idU, { estado: undefined, error: undefined, ...textoTapadoDeRespuesta(r, e.texto) });
       setItems((xs) => {
         const vistas = new Set(xs.flatMap((x) => (x.k === 'propuesta' ? [x.t.pendienteId] : [])));
         return [...xs, ...itemsDeRespuesta(r, vistas)];

@@ -43,7 +43,7 @@ import { SheetPropuesta } from './SheetPropuesta';
 import { postConProgreso } from './subir';
 import {
   AVISO_LENTO_S, ERROR_INCIERTO, PILL_PROPUESTA, archivosDeRespuesta, duracion, fuenteDelTurno, idLocal, itemsDeRespuesta,
-  itemsDeSesion, leerRespuesta, textoConArchivos, type EstadoPropuesta, type ItemHilo,
+  itemsDeSesion, leerRespuesta, textoConArchivos, textoTapadoDeRespuesta, type EstadoPropuesta, type ItemHilo,
 } from './chat-ui';
 import { ArchivosHilo } from '@/app/_chat/ArchivosHilo';
 import { ConectarDelAviso } from '@/app/_chat/ConectarDelAviso';
@@ -206,7 +206,7 @@ export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats
       const r = l.datos;
       // Los archivos volvieron guardados (mig 0305): la burbuja pasa a mostrarlos como quedaron.
       const guardados = archivosDeRespuesta(r);
-      marcar(idU, { estado: undefined, error: undefined, ...(guardados.length ? { archivos: guardados, adjuntos: undefined } : {}) });
+      marcar(idU, { estado: undefined, error: undefined, ...textoTapadoDeRespuesta(r, e.texto), ...(guardados.length ? { archivos: guardados, adjuntos: undefined } : {}) });
       setItems((xs) => {
         const vistas = new Set(xs.flatMap((x) => (x.k === 'propuesta' ? [x.t.pendienteId] : [])));
         return [...xs, ...itemsDeRespuesta(r, vistas)];

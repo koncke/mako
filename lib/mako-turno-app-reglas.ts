@@ -390,9 +390,27 @@ export const ENV_DE_IA: Record<(typeof IA_PARA_CONECTAR)[number], string> = {
   anthropic: 'ANTHROPIC_API_KEY', openai: 'OPENAI_API_KEY', gemini: 'GEMINI_API_KEY',
   groq: 'GROQ_API_KEY', mistral: 'MISTRAL_API_KEY', openrouter: 'OPENROUTER_API_KEY',
 };
-export function iaParaConectar(conFila: readonly string[]): string {
+export function iaParaConectar(conFila: readonly string[], soloSuya = false): string {
+  // D6b (lib/solo-su-ia.ts): un negocio con su Claude o su GPT no usa las gratis, así que no se le ofrece Gemini aunque
+  // tenga una de antes en su fila (revisión del Cerebro, 21/10/2026): su Claude, o su OpenAI si es la que tiene.
+  if (soloSuya) return conFila.includes('anthropic') || !conFila.includes('openai') ? 'anthropic' : 'openai';
   return IA_PARA_CONECTAR.find((s) => conFila.includes(s)) ?? SERVICIO_IA;
 }
+
+/**
+ * Lo que falló en SU clave de Claude (sin crédito, revocada, sin permiso): es de su cuenta, no un bug de MaKo, y se le
+ * dice con el botón de su Claude. Antes abría un ticket para el Cerebro y la persona leía «No pude contestar» (revisión del
+ * 21/10/2026). El mismo criterio que lib/errores-app-reglas.ts → CONFIGURACION. Un 400 de NUESTRO pedido sí es un bug.
+ */
+export const falloDeSuClave = (fallo: string | null): boolean =>
+  !!fallo && /tu clave de Claude: .*(credit balance|invalid x-api-key|authentication|permission|billing|\b40[13]\b)/i.test(fallo);
+export const AVISO_SU_CLAVE = 'Tu clave de Claude no funcionó (sin crédito o desconectada): revísala y mándamelo de nuevo.';
+/** A quien no conectó su computadora, en un negocio que corre con su propio Claude (D6b): dónde conectar la suya. */
+export const AVISO_CONECTA_TU_PC = 'Tu negocio contesta con su propio Claude. Para que te conteste a ti, conecta tu computadora en Tu cuenta → Tus cuentas de IA.';
+/** Con su propio Claude, una foto o un PDF escaneado se leen con SU OpenAI (D6b): nunca con Gemini. */
+export const AVISO_NO_LEI_SU_IA = (nombre: string) => `No pude leer «${nombre}»: con tu propio Claude, las fotos y los PDF escaneados los leo con tu clave de OpenAI. Escríbeme lo que dice.`;
+/** Con su propio Claude y sin una clave que lea (su Claude por clave o su OpenAI), El Archivero no corre: se dice. */
+export const AVISO_SIN_ARCHIVERO = 'Lo dejé en el chat, pero no en El Archivero: con tu propio Claude, para archivarlo necesito tu clave de Claude o de OpenAI.';
 
 /**
  * Los rechazos de `confirmarPendiente` / `cancelarPendiente` (lib/api-mako/acciones.ts)

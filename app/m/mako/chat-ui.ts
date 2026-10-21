@@ -17,7 +17,7 @@
 //
 // Lo importan componentes 'use client': SÓLO TIPOS de lib/mako-turno-app-reglas.ts (ese
 // módulo arrastra el registro de la API de MaKo, ~400 descripciones) y VALORES sólo de
-// lib/mako-adjuntos.ts, que está escrito para el navegador.
+// lib/mako-adjuntos.ts y lib/claves-en-el-chat.ts (una constante), que son puros y sin server.
 // =============================================================================
 
 import type {
@@ -26,6 +26,7 @@ import type {
 import { ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, type TipoAdjunto } from '@/lib/mako-adjuntos';
 import type { EstadoArchivero } from '@/lib/chat-mako-bloques';
 import { GRAMATICA } from '@/lib/mako-gramatica';
+import { CLAVE_TAPADA } from '@/lib/claves-en-el-chat';
 
 // ── El hilo ──────────────────────────────────────────────────────────────────
 
@@ -87,6 +88,23 @@ export const archivosDeRespuesta = (r: RespuestaTurno): ArchivoHilo[] => r.mensa
 export const textoConArchivos = (texto: string): string =>
   // El cierre se busca hasta « — » o el final: un nombre con paréntesis («plano (v2).jpg») no corta antes.
   texto.replace(/^\(envió (?:una imagen|un PDF|\d+ archivos)(?:: .*?)?\)(?: — |$)/, '');
+
+/**
+ * NUNCA UNA KEY EN EL CHAT (pieza 1.6), la mitad de la PANTALLA. La burbuja de la persona se dibuja optimista, con lo que
+ * escribió, y el turno la guarda TAPADA (lib/claves-en-el-chat.ts): sin esto la clave seguía a la vista, debajo del aviso
+ * «Tapé tu clave: no quedó en el chat», hasta recargar. `itemsDeRespuesta` no la arregla (sólo SUMA lo de MaKo), así que
+ * cada chat la mezcla en el `marcar(idU, …)` con que cierra el turno: `{ texto }` con lo guardado, o `{}` si no hay nada
+ * que cambiar.
+ *
+ * ⚠️ Sólo cuando el servidor TAPÓ (lo guardado trae `[clave tapada]` y lo enviado no). «Si difieren» a secas no sirve: el
+ * turno también recorta, parte los pegados y antepone el «(envió una imagen: x)» de la memoria del modelo, y la burbuja
+ * no tiene que cambiar por eso. De ese placeholder se limpia lo guardado, igual que al dibujar (`textoConArchivos`).
+ */
+export function textoTapadoDeRespuesta(r: Pick<RespuestaTurno, 'mensajes'>, enviado: string): { texto?: string } {
+  const guardado = (r.mensajes ?? []).find((m) => m.role === 'user')?.content;
+  if (typeof guardado !== 'string' || !guardado.includes(CLAVE_TAPADA) || enviado.includes(CLAVE_TAPADA)) return {};
+  return { texto: /^\(envió /.test(enviado) ? guardado : textoConArchivos(guardado) };
+}
 
 /** El link de un archivo guardado (sin el `?ws=`: en un `<img src>` lo pone quien lo dibuja, con `conWs`). */
 export const rutaDeArchivo = (ref: string): string => `/api/mako/chat?adjunto=${encodeURIComponent(ref)}`;

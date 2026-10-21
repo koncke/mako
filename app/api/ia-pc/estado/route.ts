@@ -3,6 +3,8 @@
 // =============================================================================
 // PRIVADA (con sesión). Las computadoras del negocio con su estado y sus cuentas (el admin ve todas; los demás, las
 // suyas), y el modelo que eligió el negocio. Nunca un secreto: las cuentas ya llegaron saneadas del latido.
+// ⚠️ Si no pudo leer las PC contesta 503, no una lista vacía: «Todavía no conectaste ninguna» sería mentira, y la
+// pantalla se queda con lo que ya mostraba.
 // =============================================================================
 
 import { NextResponse } from 'next/server';
@@ -19,10 +21,12 @@ export async function GET() {
   const persona = await personaDelRequest();
   if ('error' in persona) return NextResponse.json({ ok: false, error: persona.error }, { status: persona.status });
   const esAdmin = persona.rol === 'admin';
-  const [pcs, modelo] = await Promise.all([
-    listarDispositivos(persona.ws, persona.actor, esAdmin).catch(() => []),
-    runWithWorkspace(persona.ws, () => getSetting(CLAVE_MODELO_PC)).catch(() => null),
-  ]);
+  let pcs: Awaited<ReturnType<typeof listarDispositivos>>;
+  try { pcs = await listarDispositivos(persona.ws, persona.actor, esAdmin); } catch (e) {
+    console.error('[ia-pc/estado]', e instanceof Error ? e.message : String(e));
+    return NextResponse.json({ ok: false, error: 'No pude leer tus computadoras. Intenta de nuevo.' }, { status: 503 });
+  }
+  const modelo = await runWithWorkspace(persona.ws, () => getSetting(CLAVE_MODELO_PC)).catch(() => null);
   return NextResponse.json({
     ok: true, esAdmin, modelo: modeloPc(modelo),
     pcs: pcs.map((d) => ({

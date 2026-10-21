@@ -4600,3 +4600,65 @@ El diseño: docs/ia-del-cliente.md. Lo medido al hacerlo, en esta PC, con Claude
   o sea que se podían probar códigos sin límite.
 - **Sin hacer (ola 3 y después):** GPT con Codex; el ícono en la bandeja; que la Mac se pruebe de verdad; el riesgo legal
   de Anthropic (docs/ia-del-cliente.md §10), que es del Cerebro.
+
+## La IA del cliente después de la revisión del Cerebro: lo que el camino feliz no mostraba (21/10/2026)
+
+La revisión adversarial de b93a280f1 (5 altos, 9 medios) encontró una pieza que andaba en la prueba de punta a punta y se
+rompía en todo lo demás. Lo no obvio, para el que toque esto después:
+
+- **Defender pone en cuarentena un `.vbs` en Inicio que hace `WScript.Shell.Run` oculto** («Trojan:VBS/AgentTesla.GVC!MTB»,
+  severidad 5, medido en la PC de Martín a las 02:26 y 04:18). El script del instalador no tiraba error, decía «¡Listo!»,
+  el programa corría hasta apagar la PC y nunca volvía a arrancar; la limpieza del e2e lo borraba con
+  `-ErrorAction SilentlyContinue` y nunca vio que faltaba. **El arranque es la clave `Run` de HKCU** (`New-ItemProperty`:
+  sin administrador, en UTF-16). `Set-Content -Encoding ASCII` además volvía «José Muñoz» en «Jos? Mu?oz».
+- **`bun build --compile --windows-hide-console` NO cambia el subsistema del ejecutable** (Bun 1.2.21, medido: queda 3, de
+  consola). Arrancado por la clave Run, uno de consola abre una ventana negra. publicar-binarios.mts lo marca «de ventana»
+  a mano (el byte de `Subsystem` de la cabecera PE, como `editbin`) y lo verifica. Dos consecuencias medidas: **PowerShell
+  no espera a un programa de ventana** ni toma su `$LASTEXITCODE` si no se lo encadena (`& $exe … | Out-Host`), y **cada
+  `spawn` de un programa de consola desde uno de ventana abre su propia ventana** salvo con `windowsHide: true`.
+- **«No pude leer» tratado como «no hay», dos veces, con dos daños distintos.** `dispositivoDelToken` sin mirar `error`:
+  un bache de la base era un 401, el programa de Windows salía «MaKo desconectó esta computadora» y no volvía hasta el
+  próximo inicio de sesión, y el chat decía «préndela» con la PC prendida. `pcDe` sin mirar `error`: el turno de la dueña
+  de la PC iba a Gemini. Ahora cada lectura tira (`sinError`), las rutas de la PC contestan 503 (lib/ia-pc-ruta.ts) y el
+  programa sale SÓLO con un 401 que dice `revocado`. postgrest-js reintenta solo los 503/520 de un GET: no es una red.
+- **D6b no se corta en el modelo: se corta abajo de todo, y el diagnóstico obvio no alcanzaba.** La primera versión
+  sacaba la cascada en `chatClaudeTools`, y el resto del turno (El Archivero, la foto, la voz, los pedidos) seguía en
+  Gemini. Poner el corte en `provDe` (por donde pasan todas las keys) parecía suficiente; el hijo que corre las entradas
+  REALES de la cascada contra una base de mentira (tests/_solo-su-ia-hijo.ts) mostró que no: **`ordenarPorCuota` leía las
+  keys de cada gratis y le consultaba el saldo a OpenRouter ANTES de que `provDe` cortara.** El corte vive en tres lugares
+  (`provDe`, `provsGratisDePlataforma`, `ordenarPorCuota`), prendido por un AsyncLocalStorage (lib/solo-su-ia.ts) que
+  `after()` de Next conserva (`AsyncLocalStorage.bind`). Se decide por NEGOCIO (la PC de otra persona cuenta) y falla
+  cerrada (lib/ia-del-negocio.ts).
+- **Una cuenta al 95 % quedaba descartada para siempre**: el % sólo se medía después de un turno, y sin turnos nada lo
+  volvía a medir; `repone` se guardaba y no se leía. Una ventana repuesta cuenta como 0 %, y si todas están al tope se usa
+  la de menos uso: el límite lo dice Claude, con la hora.
+- **El instalador oficial de Claude no toca el PATH de la ventana abierta** (ni el de una nueva, en Windows): «En la misma
+  ventana escribe claude» daba «no se reconoce» en toda instalación nueva. El paso 3 da la ruta completa con
+  `claude auth login` (va directo al navegador), y el instalador de MaKo abre el login si falta. Y el programa miraba la
+  sesión UNA vez, al arrancar: ahora en cada latido las que no la tienen, y antes de rechazar un turno.
+- **`curl | sh` lee el script por la entrada estándar**: lo que pregunta lee de `/dev/tty`, y cada programa va con
+  `< /dev/null`, o se come las líneas que siguen. **`irm` y `curl -f` no muestran el cuerpo de un 4xx**: el instalador
+  contesta 200 con un `echo` para que la persona lea el porqué.
+- **launchd con `KeepAlive` en `true` relanza también una salida a propósito** (cada ~10 s, para siempre, después de
+  desconectar). Va `KeepAlive → SuccessfulExit false` y el programa sale con 0 al ser desconectado.
+- **Sin red, `fetch` falla al instante y el bucle giraba**: ~1000 pedidos por segundo y un núcleo entero (medido por el
+  revisor con un puerto cerrado). Ahora espera 5, 10, 30 y 60 s, y lo anota una vez.
+- **`tsc` envuelto en el `timeout` de Git Bash sale con 1 SIN IMPRIMIR NADA** (medido tres veces, por dos agentes): no es un
+  error de tipos. El mismo tsc acotado, sin `timeout` o desde PowerShell, da 0 (y con errores reales imprime y sale con
+  2). Un «1 en blanco» de tsc acá es del envoltorio: correrlo sin `timeout` antes de buscar el error. Para iterar, un
+  tsconfig que extiende el del repo con `files`.
+- **Lo que quedó SIN hacer:**
+  - **WhatsApp no tapa las claves** (pieza 1.6): lib/mako-doer-in.ts es de «MaKo en WhatsApp». Dónde: en
+    `manejarEntranteDoer` antes de `rutearDoer` (y el `caption`), y en `bufferearYResponder` antes de `encolar`, también en
+    el `payload` (docs/ia-del-cliente.md §13).
+  - **Las fotos con el Claude de la PC**: hoy, con su propio Claude, se leen con SU OpenAI o se dice que no. Para que las
+    vea su Claude: `claude -p --input-format stream-json` acepta bloques de imagen (sin medir).
+  - **Claude Code instalado con npm** (`claude.cmd`): `spawn` sin shell no corre un `.cmd`; el tutorial pide el instalador
+    oficial. La Mac sigue sin probarse en una Mac.
+  - **Los ejecutables 0.3.0 están en el bucket** (los necesitaba el e2e del instalador), pero producción sigue sirviendo
+    los 0.2.0 hasta que se despliegue este código: el instalador pide `mako-pc-${VERSION_PC}`.
+- **De punta a punta en esta PC, el 21/10 a las 07:00** (`probar-punta-a-punta.mts --instalador`, ws3, la carpeta del
+  programa en «…\José Muñoz\AppData\Local»): la línea del tutorial dijo «se va a conectar a «Cliente de Prueba» como
+  prueba-ia-pc@…», la clave Run quedó con la ruta exacta (con la ñ) y SEGUÍA 15 s después, nada en Inicio, el Claude real
+  de la PC contestó con `listar_tareas_plan` en 32 s, y desconectada desde MaKo el programa se sacó solo del arranque y se
+  apagó. Defender: cero detecciones desde las 05:00. La Mac, sin probar.

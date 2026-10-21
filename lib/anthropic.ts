@@ -543,6 +543,9 @@ export async function chatClaudeTools(
         // tiró, ya tocó datos, y otro modelo duplicaría la escritura.
         const n = await permisoDeLaClaveDelNegocio(opts.feature).catch(() => null);
         if (n && 'permiso' in n) delNegocio = n.permiso;
+        // Con su Claude en pausa (de la plataforma), lo que pasa de verdad: no «sin proveedor», que le pedía conectar lo que ya
+        // tiene conectado (revisión del Cerebro, 21/10/2026). lib/errores-app-reglas.ts lo cuenta como configuración, no bug.
+        else if (n && 'pausa' in n && opts.sinFallbackClaude) throw new Error(`falló la IA (${CLAUDE_EN_PAUSA})`);
         else if (opts.sinFallbackClaude) throw new Error(`falló la IA (${errores.join(' · ').slice(0, 200) || 'sin proveedor gratis disponible'})`);
       } catch (e) {
         // El caller pidió NO caer a Claude (ej. el doer): re-lanzamos para que avise

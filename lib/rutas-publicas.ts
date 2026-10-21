@@ -189,12 +189,13 @@ export const PUBLICOS = [
 
   // ── La computadora del cliente (docs/ia-del-cliente.md, 21/10/2026) ───────────
   // Una POR UNA, como /api/agente: en /api/ia-pc también vive `codigo`, que es con sesión y NO está acá. Todas se
-  // autentican por su bearer (`mkopc_` de la PC, `mkotn_` del turno) o por el código de 6 letras, nunca por la cookie.
-  // `turno` va como prefijo porque cubre `turno/<id>`, y las dos son de la PC.
+  // autentican por su bearer (`mkopc_` de la PC, `mkotn_` del turno) o por el código de 8 letras, nunca por la cookie.
+  // `turno` va como prefijo porque cubre `turno/<id>`, y las dos son de la PC. `soltar`: la PC suelta SU conexión.
   '/api/ia-pc/emparejar',
   '/api/ia-pc/latido',
   '/api/ia-pc/turno',
   '/api/ia-pc/mcp',
+  '/api/ia-pc/soltar',
   // El instalador de un comando: lo pide PowerShell o curl, sin sesión. Sólo GET, y no gasta el código.
   '/api/ia-pc/instalar',
 ] as const;

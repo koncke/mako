@@ -14,25 +14,35 @@
 //   · ⚠️ nunca `--bare`: apaga el login de la suscripción.
 // Sin dependencias: Node 18+, o el ejecutable de un archivo (Bun) que arma scripts/ia-pc/publicar-binarios.mts.
 //
-// Uso:
-//   mako-pc emparejar <CÓDIGO> [--servidor https://hola-mako.com] [--nombre "PC de Ana"]
-//   mako-pc                    (espera turnos; lo arranca solo el instalador)
-//   mako-pc agregar-cuenta     (otra cuenta de Claude: se inicia sesión y la PC usa la de más cupo)
+// ⚠️ NUNCA SE CAE SOLO (revisión del Cerebro, 21/10/2026): en Windows nadie lo vuelve a abrir hasta el próximo inicio
+// de sesión, así que un error de la red o de la base NO lo apaga. Sale sólo cuando MaKo dice que la PC fue DESCONECTADA
+// (un 401 con `revocado`), y ahí se saca a sí mismo del arranque. En Windows es un ejecutable «de ventana» (sin consola,
+// publicar-binarios.mts): cada `spawn` va con `windowsHide`, o cada Claude abriría una ventana (medido el 21/10/2026).
+//
+// Uso (el instalador corre los cuatro primeros; la persona no escribe nada):
+//   mako-pc emparejar <CÓDIGO> [--servidor https://hola-mako.com] [--nombre "PC de Ana"]   (queda PENDIENTE)
+//   mako-pc confirmar | mako-pc cancelar      (la persona dijo que sí, o que no, a «¿es tu negocio?»)
+//   mako-pc sesion                            (sale 0 con un Claude con sesión, 2 sin sesión, 3 sin Claude)
+//   mako-pc                                   (espera turnos; lo arranca el sistema al prender la computadora)
+//   mako-pc agregar-cuenta                    (otra cuenta de Claude: la PC usa la de más cupo)
 //   mako-pc estado
 // =============================================================================
 
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync, chmodSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync, chmodSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { homedir, hostname } from 'node:os';
 import { join } from 'node:path';
 
-export const VERSION = '0.2.0';
+export const VERSION = '0.3.0';
 const CARPETA = process.env.MAKO_PC_DIR || join(homedir(), '.mako-pc');
 const CONFIG = join(CARPETA, 'config.json');
+const REGISTRO = join(CARPETA, 'registro.txt');
 const SERVIDOR_DEFAULT = 'https://hola-mako.com';
 const LATIDO_MS = 30_000;
 const TURNO_TOPE_MS = 4 * 60_000;
+/** Cada cuánto se vuelve a mirar la sesión de las cuentas que la tienen (se puede cerrar o vencer). */
+const REVISAR_SESION_MS = 10 * 60_000;
 
 /** COPIA de ARGS_CLAUDE (lib/ia-pc-reglas.ts). tests/ia-pc.test.ts frena si difieren. */
 export const ARGS_CLAUDE = [
@@ -56,6 +66,12 @@ export function rutaDeClaude(env = process.env, existe = existsSync) {
   return existe(conocida) ? conocida : 'claude';
 }
 
+/** Sin red, el bucle espera esto (y no gira: sin espera eran ~1000 pedidos por segundo, medido el 21/10/2026). */
+export const ESPERAS_SIN_RED_MS = [5_000, 10_000, 30_000, 60_000];
+export const esperaSinRed = (fallas) => ESPERAS_SIN_RED_MS[Math.min(Math.max(0, fallas), ESPERAS_SIN_RED_MS.length - 1)];
+/** Lo ÚNICO que apaga el programa: MaKo dijo que esta PC fue desconectada. Un 401 sin eso, o un 503, se reintenta. */
+export const esRevocado = (r) => r?.status === 401 && r?.datos?.revocado === true;
+
 const leerConfig = () => { try { return JSON.parse(readFileSync(CONFIG, 'utf8')); } catch { return null; } };
 function guardarConfig(c) {
   mkdirSync(CARPETA, { recursive: true });
@@ -63,7 +79,18 @@ function guardarConfig(c) {
   try { chmodSync(CONFIG, 0o600); } catch { /* Windows: la carpeta ya es del usuario */ }
 }
 const arg = (n) => { const i = process.argv.indexOf(n); return i > 0 ? process.argv[i + 1] : undefined; };
-const log = (...x) => console.log(new Date().toLocaleTimeString(), ...x);
+const dormir = (ms) => new Promise((ok) => setTimeout(ok, ms));
+/** El registro, con tope: en segundo plano no hay consola (Windows) y en la Mac crecía sin fin. */
+function log(...x) {
+  const linea = `${new Date().toISOString()} ${x.join(' ')}\n`;
+  try {
+    mkdirSync(CARPETA, { recursive: true });
+    if (existsSync(REGISTRO) && statSync(REGISTRO).size > 1_000_000) writeFileSync(REGISTRO, readFileSync(REGISTRO, 'utf8').slice(-200_000));
+    appendFileSync(REGISTRO, linea);
+  } catch { /* sin disco, sin registro: no se cae por eso */ }
+}
+/** Lo que lee la persona en la ventana del instalador (los comandos de una vez, no el de fondo). */
+const decir = (t) => { try { console.log(t); } catch { /* sin consola */ } };
 
 async function api(c, metodo, ruta, cuerpo) {
   const res = await fetch(`${c.servidor}${ruta}`, {
@@ -91,11 +118,34 @@ export function limitesDelEvento(e) {
   };
 }
 
-/** COPIA de `cuentaConCupo` (lib/ia-pc-reglas.ts): la de menos uso de las 5 horas, salteando la que pasó el 95%. */
-export function cuentaConCupo(cuentas) {
-  const libres = cuentas.filter((c) => (c.usado5h ?? 0) < 95);
-  if (!libres.length) return null;
-  return libres.reduce((a, b) => ((b.usado5h ?? 0) < (a.usado5h ?? 0) ? b : a));
+/** COPIA de TOPE_CUPO (lib/ia-pc-reglas.ts). */
+export const TOPE_CUPO = 95;
+/**
+ * COPIA de `cuentaConCupo` (lib/ia-pc-reglas.ts): la de menos uso de las 5 horas. Una cuenta cuya ventana ya se repuso
+ * (`repone` pasó) cuenta como libre: antes quedaba descartada para siempre, porque nada la volvía a medir. Si todas
+ * están al tope se usa igual la de menos uso: que Claude conteste su propio límite (con la hora en que se repone).
+ * @template {{ usado5h?: number, usadoSemana?: number, repone?: string }} T
+ * @param {T[]} cuentas
+ * @param {number} [ahora]
+ * @returns {T | null}
+ */
+export function cuentaConCupo(cuentas, ahora = Date.now()) {
+  if (!cuentas.length) return null;
+  const uso = (c) => (c.repone && Date.parse(c.repone) <= ahora ? 0 : (c.usado5h ?? 0));
+  const libres = cuentas.filter((c) => uso(c) < TOPE_CUPO && (c.usadoSemana ?? 0) < 100);
+  return (libres.length ? libres : cuentas).reduce((a, b) => (uso(b) < uso(a) ? b : a));
+}
+
+/**
+ * COPIA de `falloDeClaude` (lib/ia-pc-reglas.ts): qué fue lo que no salió, para que el chat diga lo cierto.
+ * @param {unknown} error
+ * @param {{ usado5h?: number, usadoSemana?: number }} [limites]
+ */
+export function falloDeClaude(error, limites = {}) {
+  const e = String(error ?? '');
+  if ((limites.usado5h ?? 0) >= 100 || (limites.usadoSemana ?? 0) >= 100 || /usage limit|rate.?limit|hit your limit|limit reached|l[ií]mite/i.test(e)) return 'tope';
+  if (/\/login|not logged|log ?in|logged out|authenticat|oauth|credential|invalid api key/i.test(e)) return 'sesion';
+  return null;
 }
 
 /** Lee el stream de Claude: el `result` final y el último `rate_limit_event`. */
@@ -112,46 +162,63 @@ export function leerStream(salida) {
   return { resultado, limites };
 }
 
-/** Corre Claude Code oficial con el pedido del turno. Nunca tira: devuelve la respuesta o el error. */
+/**
+ * Corre Claude Code oficial con el pedido del turno. NUNCA tira: devuelve la respuesta o el error.
+ * @param {{ dir: string, system: string, prompt: string, mcp: unknown, configDir?: string | null, modelo?: unknown }} pedido
+ * @param {typeof spawn} [correr]
+ * @param {string} [claude]
+ * @returns {Promise<{ texto?: string, uso?: { entrada: number, salida: number }, error?: string, limites?: Record<string, unknown> }>}
+ */
 export function pensar({ dir, system, prompt, mcp, configDir, modelo }, correr = spawn, claude = rutaDeClaude()) {
-  mkdirSync(dir, { recursive: true });
-  const sistema = join(dir, 'system.txt');
-  const mcpJson = join(dir, 'mcp.json');
-  writeFileSync(sistema, system);
-  writeFileSync(mcpJson, JSON.stringify(mcp));
-  try { chmodSync(mcpJson, 0o600); } catch { /* Windows */ }
-  const env = { ...process.env };
-  for (const k of SIN_ESTAS) delete env[k];
-  if (configDir) env.CLAUDE_CONFIG_DIR = configDir;
   return new Promise((resolver) => {
-    let salida = '';
-    let error = '';
-    const args = [...ARGS_CLAUDE, '--model', modeloPc(modelo), '--system-prompt-file', sistema, '--mcp-config', mcpJson];
-    const p = correr(claude, args, { cwd: dir, env, shell: false });
-    const corte = setTimeout(() => { p.kill(); }, TURNO_TOPE_MS);
-    p.stdout.on('data', (b) => { salida += b; });
-    p.stderr.on('data', (b) => { error += b; });
-    p.on('error', (e) => { clearTimeout(corte); resolver({ error: e.code === 'ENOENT' ? 'Claude Code no está instalado en esta computadora' : String(e.message) }); });
-    p.on('close', () => {
-      clearTimeout(corte);
-      const { resultado: r, limites } = leerStream(salida);
-      if (!r) return resolver({ error: (error || 'Claude no devolvió nada').trim().slice(0, 300), limites });
-      if (r.is_error) return resolver({ error: String(r.result ?? r.subtype ?? 'error').slice(0, 300), limites });
-      resolver({ texto: String(r.result ?? ''), uso: { entrada: r.usage?.input_tokens ?? 0, salida: r.usage?.output_tokens ?? 0 }, limites });
-    });
-    p.stdin.end(prompt);
+    let listo = false;
+    const fin = (r) => { if (!listo) { listo = true; resolver(r); } };
+    try {
+      mkdirSync(dir, { recursive: true });
+      const sistema = join(dir, 'system.txt');
+      const mcpJson = join(dir, 'mcp.json');
+      writeFileSync(sistema, system);
+      writeFileSync(mcpJson, JSON.stringify(mcp));
+      try { chmodSync(mcpJson, 0o600); } catch { /* Windows */ }
+      const env = { ...process.env };
+      for (const k of SIN_ESTAS) delete env[k];
+      if (configDir) env.CLAUDE_CONFIG_DIR = configDir;
+      let salida = '';
+      let error = '';
+      const args = [...ARGS_CLAUDE, '--model', modeloPc(modelo), '--system-prompt-file', sistema, '--mcp-config', mcpJson];
+      const p = correr(claude, args, { cwd: dir, env, shell: false, windowsHide: true });
+      const corte = setTimeout(() => { p.kill(); }, TURNO_TOPE_MS);
+      p.stdout.on('data', (b) => { salida += b; });
+      p.stderr.on('data', (b) => { error += b; });
+      p.on('error', (e) => { clearTimeout(corte); fin({ error: e.code === 'ENOENT' ? 'Claude Code no está instalado en esta computadora' : String(e.message) }); });
+      p.on('close', () => {
+        clearTimeout(corte);
+        const { resultado: r, limites } = leerStream(salida);
+        if (!r) return fin({ error: (error || 'Claude no devolvió nada').trim().slice(0, 300), limites });
+        if (r.is_error) return fin({ error: String(r.result ?? r.subtype ?? 'error').slice(0, 300), limites });
+        fin({ texto: String(r.result ?? ''), uso: { entrada: r.usage?.input_tokens ?? 0, salida: r.usage?.output_tokens ?? 0 }, limites });
+      });
+      // Si Claude sale sin leer un pedido grande (un Claude viejo que no conoce un argumento), escribir le da EPIPE: sin
+      // esto se caía el programa entero, no sólo el turno (revisión del 21/10/2026). Lo cierra 'close'.
+      p.stdin.on('error', () => {});
+      p.stdin.end(prompt);
+    } catch (e) {
+      fin({ error: `no pude correr Claude: ${e instanceof Error ? e.message : String(e)}`.slice(0, 300) });
+    }
   });
 }
 
-/** El email y el plan de una cuenta, sin secretos (`claude auth status`), con SU carpeta. */
+/** El email y el plan de una cuenta, sin secretos (`claude auth status`), con SU carpeta. `falta` = no hay Claude. */
 function estadoDeCuenta(configDir) {
   return new Promise((resolver) => {
     let out = '';
     const env = { ...process.env };
+    for (const k of SIN_ESTAS) delete env[k];
     if (configDir) env.CLAUDE_CONFIG_DIR = configDir;
-    const p = spawn(rutaDeClaude(), ['auth', 'status'], { shell: false, env });
+    let p;
+    try { p = spawn(rutaDeClaude(), ['auth', 'status'], { shell: false, env, windowsHide: true }); } catch { return resolver({ conSesion: false, falta: true }); }
     p.stdout.on('data', (b) => { out += b; });
-    p.on('error', () => resolver({ conSesion: false }));
+    p.on('error', (e) => resolver({ conSesion: false, ...(e.code === 'ENOENT' ? { falta: true } : {}) }));
     p.on('close', () => {
       try {
         const o = JSON.parse(out);
@@ -163,23 +230,78 @@ function estadoDeCuenta(configDir) {
 
 /** Las cuentas de esta PC (una carpeta de Claude por cuenta). Sin ninguna anotada, la de siempre. */
 const cuentasDe = (c) => (Array.isArray(c.cuentas) && c.cuentas.length ? c.cuentas : [{ dir: c.configDir ?? null }]);
-/** Lo que se le cuenta a MaKo de cada cuenta: nunca un secreto (lo vuelve a sanear el servidor). */
-const paraElLatido = (cuentas) => cuentas.map((x) => ({
-  proveedor: 'claude', ...(x.email ? { email: x.email } : {}), ...(x.plan ? { plan: x.plan } : {}),
-  ...(x.usado5h != null ? { usado5h: x.usado5h } : {}), ...(x.usadoSemana != null ? { usadoSemana: x.usadoSemana } : {}),
-  ...(x.repone ? { repone: x.repone } : {}),
-}));
+/**
+ * Lo que se le cuenta a MaKo de cada cuenta CON SESIÓN: nunca un secreto (lo vuelve a sanear el servidor). Sin ninguna,
+ * la lista va vacía y MaKo la muestra «Sin sesión de Claude» y no le manda turnos. Un % de una ventana que ya se repuso
+ * no se cuenta: no se sabe hasta el próximo turno («Sin medir»).
+ */
+export const paraElLatido = (cuentas, ahora = Date.now()) => cuentas.filter((x) => x.conSesion === true).map((x) => {
+  const vieja = !!x.repone && Date.parse(x.repone) <= ahora;
+  return {
+    proveedor: 'claude', ...(x.email ? { email: x.email } : {}), ...(x.plan ? { plan: x.plan } : {}),
+    ...(x.usado5h != null && !vieja ? { usado5h: x.usado5h } : {}), ...(x.usadoSemana != null ? { usadoSemana: x.usadoSemana } : {}),
+    ...(x.repone && !vieja ? { repone: x.repone } : {}),
+  };
+});
+
+// ── Conectar: emparejar → «¿es tu negocio?» → confirmar o cancelar ─────────────
+// La persona ve A QUÉ NEGOCIO y COMO QUIÉN se conecta antes de que quede (revisión del 21/10/2026: un código de otro
+// negocio, pegado con la línea oficial, se llevaba la suscripción de la víctima sin decir nada). Lo pregunta el script del
+// instalador, no este programa: en Windows es «de ventana» y no lee la consola.
 
 async function emparejar() {
   const codigo = process.argv[3];
   const servidor = (arg('--servidor') ?? SERVIDOR_DEFAULT).replace(/\/+$/, '');
   const nombre = arg('--nombre') ?? hostname();
-  if (!codigo) { console.error('Falta el código: mako-pc emparejar <CÓDIGO>'); process.exit(1); }
-  const r = await api({ servidor }, 'POST', '/api/ia-pc/emparejar', { codigo, nombre });
-  if (r.status !== 200 || !r.datos?.token) { console.error(r.datos?.error ?? `No pude emparejar (HTTP ${r.status}).`); process.exit(1); }
+  if (!codigo) { decir('Falta el código: mako-pc emparejar <CÓDIGO>'); return 1; }
+  const r = await api({ servidor }, 'POST', '/api/ia-pc/emparejar', { codigo, nombre }).catch(() => null);
+  if (!r) { decir('No pude llegar a MaKo: revisa tu conexión a internet.'); return 1; }
+  if (r.status !== 200 || !r.datos?.token) { decir(r.datos?.error ?? `No pude conectar esta computadora (HTTP ${r.status}).`); return 1; }
   const antes = leerConfig() ?? {};
-  guardarConfig({ ...antes, servidor, token: r.datos.token, nombre });
-  console.log('¡Listo! Esta computadora quedó conectada a MaKo.');
+  // Si quedó otro pendiente sin contestar, se suelta: nunca dos.
+  if (antes.pendiente?.token) await api({ servidor: antes.pendiente.servidor, token: antes.pendiente.token }, 'POST', '/api/ia-pc/soltar').catch(() => null);
+  const negocio = String(r.datos.negocio ?? 'tu negocio');
+  const persona = String(r.datos.persona ?? '');
+  guardarConfig({ ...antes, pendiente: { servidor, token: r.datos.token, nombre, negocio, persona } });
+  decir(`Esta computadora se va a conectar a «${negocio}»${persona ? ` como ${persona}` : ''}.`);
+  if (antes.token && antes.negocio) decir(`Hoy está conectada a «${antes.negocio}»${antes.persona ? ` como ${antes.persona}` : ''}: esa conexión se reemplaza.`);
+  return 0;
+}
+
+async function confirmar() {
+  const c = leerConfig() ?? {};
+  const p = c.pendiente;
+  if (!p?.token) { decir('No hay ninguna conexión esperando. Pide otro código en MaKo.'); return 1; }
+  // La conexión de antes se suelta en MaKo (si no, quedaba una tarjeta «Sin conexión» para siempre).
+  if (c.token && c.token !== p.token) await api({ servidor: c.servidor ?? p.servidor, token: c.token }, 'POST', '/api/ia-pc/soltar').catch(() => null);
+  const resto = { ...c };
+  delete resto.pendiente;
+  guardarConfig({ ...resto, servidor: p.servidor, token: p.token, nombre: p.nombre, negocio: p.negocio, persona: p.persona });
+  decir(`¡Listo! Esta computadora quedó conectada a «${p.negocio}».`);
+  return 0;
+}
+
+async function cancelar() {
+  const c = leerConfig() ?? {};
+  if (c.pendiente?.token) await api({ servidor: c.pendiente.servidor, token: c.pendiente.token }, 'POST', '/api/ia-pc/soltar').catch(() => null);
+  const resto = { ...c };
+  delete resto.pendiente;
+  guardarConfig(resto);
+  decir('No la conecté. Esta computadora sigue como estaba.');
+  return 0;
+}
+
+/** ¿Hay un Claude con sesión? 0 sí, 2 sin sesión, 3 sin Claude instalado (el instalador decide qué hacer). */
+async function sesion() {
+  const c = leerConfig() ?? {};
+  let falta = false;
+  for (const x of cuentasDe(c)) {
+    const e = await estadoDeCuenta(x.dir);
+    if (e.conSesion) { decir(`Tu Claude tiene la sesión iniciada${e.email ? ` (${e.email})` : ''}.`); return 0; }
+    if (e.falta) falta = true;
+  }
+  decir(falta ? 'No encuentro Claude en esta computadora.' : 'Tu Claude todavía no tiene la sesión iniciada.');
+  return falta ? 3 : 2;
 }
 
 async function agregarCuenta() {
@@ -187,40 +309,102 @@ async function agregarCuenta() {
   const cuentas = cuentasDe(c).filter((x) => x.dir);
   const dir = join(CARPETA, 'cuentas', String(cuentas.length + 1));
   mkdirSync(dir, { recursive: true });
-  console.log('Se abre Claude: escribe /login, inicia sesión con la OTRA cuenta en el navegador, y después escribe /exit.');
+  decir('Se abre Claude para iniciar sesión con la OTRA cuenta en el navegador.');
   await new Promise((ok) => {
-    const p = spawn(rutaDeClaude(), [], { stdio: 'inherit', shell: false, env: { ...process.env, CLAUDE_CONFIG_DIR: dir } });
+    const p = spawn(rutaDeClaude(), ['auth', 'login'], { stdio: 'inherit', shell: false, env: { ...process.env, CLAUDE_CONFIG_DIR: dir } });
     p.on('close', ok);
     p.on('error', ok);
   });
   const e = await estadoDeCuenta(dir);
-  if (!e.conSesion) { console.error('Esa cuenta no quedó con la sesión iniciada. Vuelve a intentarlo.'); process.exit(1); }
+  if (!e.conSesion) { decir('Esa cuenta no quedó con la sesión iniciada. Vuelve a intentarlo.'); return 1; }
   const base = cuentasDe(c);
   guardarConfig({ ...c, cuentas: [...base, { dir, email: e.email, plan: e.plan }] });
-  console.log(`¡Listo! Ahora esta computadora tiene ${base.length + 1} cuentas de Claude, y usa la que tenga más cupo.`);
+  decir(`¡Listo! Ahora esta computadora tiene ${base.length + 1} cuentas de Claude, y usa la que tenga más cupo.`);
+  return 0;
+}
+
+// ── Desconectada: se saca del arranque y sale ─────────────────────────────────
+
+/**
+ * MaKo desconectó esta PC: se borra el token y el arranque automático. Quien llama sale con 0 (en la Mac, launchd sólo
+ * relanza una salida que NO es 0: antes salía con 1 y la relanzaba cada 10 s para siempre).
+ */
+async function desconectada() {
+  log('MaKo desconectó esta computadora. Para volver a usarla, conéctala de nuevo desde MaKo.');
+  const c = { ...(leerConfig() ?? {}) };
+  delete c.token;
+  try { guardarConfig(c); } catch { /* */ }
+  // `MAKO_PC_SIN_ARRANQUE=1`: los tests (tests/ia-pc-revision.test.ts) no tocan el arranque de la PC donde corren.
+  if (process.env.MAKO_PC_SIN_ARRANQUE === '1') return;
+  try {
+    if (process.platform === 'win32') {
+      await new Promise((ok) => {
+        const p = spawn('reg', ['delete', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run', '/v', 'MaKo', '/f'], { shell: false, windowsHide: true, stdio: 'ignore' });
+        p.on('close', ok);
+        p.on('error', ok);
+      });
+    } else if (process.platform === 'darwin') {
+      rmSync(join(homedir(), 'Library', 'LaunchAgents', 'com.hola-mako.pc.plist'), { force: true });
+    }
+  } catch { /* lo intenta y sale igual */ }
+}
+
+// ── Esperar turnos ────────────────────────────────────────────────────────────
+
+/** Vuelve a mirar la sesión: las que no la tienen, siempre; las que sí, cada REVISAR_SESION_MS. */
+async function revisarSesiones(cuentas, todas = false) {
+  const ahora = Date.now();
+  for (const x of cuentas) {
+    if (!todas && x.conSesion === true && ahora - (x.revisada ?? 0) < REVISAR_SESION_MS) continue;
+    const e = await estadoDeCuenta(x.dir);
+    if (e.conSesion !== x.conSesion) log(e.conSesion ? `Claude con sesión${e.email ? ` (${e.email})` : ''}.` : 'Claude SIN sesión: inicia sesión en tu Claude para que MaKo lo use.');
+    Object.assign(x, e, { revisada: ahora });
+  }
+}
+
+/** Manda la respuesta de un turno, con reintentos: si se pierde en la red, la persona esperaba los 4 minutos. */
+async function contestar(c, id, cuerpo) {
+  for (const espera of [0, 2_000, 5_000]) {
+    if (espera) await dormir(espera);
+    const r = await api(c, 'POST', `/api/ia-pc/turno/${Number(id)}`, cuerpo).catch(() => null);
+    if (r && r.status < 500) return r;
+  }
+  return null;
 }
 
 async function correr() {
   const c = leerConfig();
-  if (!c?.token) { console.error('Esta computadora no está conectada. Primero: mako-pc emparejar <CÓDIGO>'); process.exit(1); }
+  if (!c?.token) { log('Esta computadora no está conectada a MaKo.'); return; }
   const cuentas = cuentasDe(c);
-  for (const x of cuentas) Object.assign(x, await estadoDeCuenta(x.dir));
+  await revisarSesiones(cuentas, true);
+  let fuera = false;
   const latir = async () => {
-    const r = await api(c, 'POST', '/api/ia-pc/latido', { version: VERSION, cuentas: paraElLatido(cuentas.filter((x) => x.conSesion !== false)) }).catch(() => null);
-    if (r?.status === 401) { console.error('MaKo desconectó esta computadora. Vuelve a conectarla desde MaKo.'); process.exit(1); }
+    if (fuera) return;
+    await revisarSesiones(cuentas).catch(() => {});
+    const r = await api(c, 'POST', '/api/ia-pc/latido', { version: VERSION, cuentas: paraElLatido(cuentas) }).catch(() => null);
+    if (esRevocado(r)) { fuera = true; await desconectada(); process.exit(0); }
   };
   await latir();
-  setInterval(latir, LATIDO_MS);
-  log(`En línea con ${c.servidor}, con ${cuentas.length} cuenta(s). Esperando turnos.`);
-  for (;;) {
+  const latido = setInterval(() => { void latir(); }, LATIDO_MS);
+  log(`En línea con ${c.servidor}, con ${cuentas.filter((x) => x.conSesion).length} cuenta(s) con sesión. Esperando turnos.`);
+  let fallas = 0;
+  while (!fuera) {
     const r = await api(c, 'GET', '/api/ia-pc/turno').catch(() => null);
-    if (!r || r.status === 204) continue;
-    if (r.status === 401) { console.error('MaKo desconectó esta computadora.'); process.exit(1); }
-    if (r.status !== 200 || !r.datos?.id) { await new Promise((ok) => setTimeout(ok, 5000)); continue; }
+    if (!r) {
+      if (!fallas) log('Sin conexión con MaKo: reintento solo.');
+      await dormir(esperaSinRed(fallas++));
+      continue;
+    }
+    if (fallas) { log('Volvió la conexión con MaKo.'); fallas = 0; }
+    if (r.status === 204) continue;
+    if (esRevocado(r)) { fuera = true; clearInterval(latido); await desconectada(); return; }
+    if (r.status !== 200 || !r.datos?.id) { await dormir(5000); continue; }
     const t = r.datos;
-    const cuenta = cuentaConCupo(cuentas.filter((x) => x.conSesion !== false));
+    if (!cuentas.some((x) => x.conSesion)) await revisarSesiones(cuentas, true);
+    const cuenta = cuentaConCupo(cuentas.filter((x) => x.conSesion));
     if (!cuenta) {
-      await api(c, 'POST', `/api/ia-pc/turno/${Number(t.id)}`, { error: 'todas las cuentas de Claude de esta computadora están al tope' }).catch(() => null);
+      const falta = cuentas.some((x) => x.falta);
+      await contestar(c, t.id, { error: falta ? 'Claude no está instalado en esta computadora' : 'Claude no tiene la sesión iniciada en esta computadora', tipo: 'sesion' });
       continue;
     }
     log(`Turno ${t.id}: pensando con ${cuenta.email ?? 'tu cuenta'}…`);
@@ -230,16 +414,30 @@ async function correr() {
     // El token del turno no queda en el disco.
     try { rmSync(dir, { recursive: true, force: true }); } catch { /* */ }
     Object.assign(cuenta, res.limites ?? {});
-    const cuerpo = res.error ? { error: res.error } : { texto: res.texto, uso: res.uso, cuenta: cuenta.email ?? null };
-    const ok = await api(c, 'POST', `/api/ia-pc/turno/${Number(t.id)}`, cuerpo).catch(() => null);
+    let cuerpo;
+    if (res.error) {
+      const tipo = falloDeClaude(res.error, res.limites);
+      if (tipo === 'sesion') cuenta.conSesion = false;
+      cuerpo = { error: res.error, ...(tipo ? { tipo } : {}), ...(tipo === 'tope' && cuenta.repone ? { repone: cuenta.repone } : {}) };
+    } else cuerpo = { texto: res.texto, uso: res.uso, cuenta: cuenta.email ?? null };
+    const ok = await contestar(c, t.id, cuerpo);
     log(`Turno ${t.id}: ${res.error ? `no pudo (${res.error})` : 'contestado'}${ok?.status === 200 ? '' : ' (MaKo no lo aceptó: venció)'}`);
     await latir();
   }
 }
 
+/** El de fondo no se cae: si algo tira, lo anota y vuelve a empezar. Sale sólo desconectado o sin conexión guardada. */
+async function correrSiempre() {
+  for (;;) {
+    try { await correr(); return; } catch (e) { log(`Algo falló (${e instanceof Error ? e.message : String(e)}): vuelvo a empezar en 10 s.`); }
+    await dormir(10_000);
+  }
+}
+
 function estado() {
   const c = leerConfig();
-  console.log(c?.token ? `Conectada a ${c.servidor} como «${c.nombre}», con ${cuentasDe(c).length} cuenta(s). Versión ${VERSION}.` : 'Esta computadora no está conectada a MaKo.');
+  decir(c?.token ? `Conectada a «${c.negocio ?? c.servidor}» como «${c.nombre}», con ${cuentasDe(c).length} cuenta(s). Versión ${VERSION}.` : 'Esta computadora no está conectada a MaKo.');
+  return 0;
 }
 
 // Sólo cuando se lo corre directo: el test lo importa para probar `pensar` sin arrancar el bucle. Dentro del ejecutable
@@ -249,10 +447,18 @@ const esPrincipal = import.meta.main === true || (() => {
 })();
 if (esPrincipal) {
   const cmd = process.argv[2] ?? 'correr';
-  const fallar = (e) => { console.error(e.message); process.exit(1); };
-  if (cmd === '--version') console.log(VERSION);
-  else if (cmd === 'emparejar') emparejar().catch(fallar);
-  else if (cmd === 'agregar-cuenta') agregarCuenta().catch(fallar);
-  else if (cmd === 'estado') estado();
-  else correr().catch(fallar);
+  const salir = (n) => process.exit(typeof n === 'number' ? n : 0);
+  const fallar = (e) => { decir(e instanceof Error ? e.message : String(e)); process.exit(1); };
+  if (cmd === '--version') decir(VERSION);
+  else if (cmd === 'emparejar') emparejar().then(salir, fallar);
+  else if (cmd === 'confirmar') confirmar().then(salir, fallar);
+  else if (cmd === 'cancelar') cancelar().then(salir, fallar);
+  else if (cmd === 'sesion') sesion().then(salir, fallar);
+  else if (cmd === 'agregar-cuenta') agregarCuenta().then(salir, fallar);
+  else if (cmd === 'estado') salir(estado());
+  else {
+    process.on('uncaughtException', (e) => log(`Error suelto: ${e instanceof Error ? e.message : String(e)}`));
+    process.on('unhandledRejection', (e) => log(`Error suelto: ${e instanceof Error ? e.message : String(e)}`));
+    correrSiempre().then(() => process.exit(0));
+  }
 }

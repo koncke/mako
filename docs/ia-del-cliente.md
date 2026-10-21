@@ -302,6 +302,42 @@ prueba en el ws3.
 18. **Tope de pedidos en cada ruta de la PC** (ola 2; lo pidió la guarda de tests/rutas-publicas-limite.test.ts): por IP
     al emparejar (10 cada 10 minutos, contra adivinar códigos) y al instalar; por PC o por turno en las demás.
 
+**Después de la revisión del Cerebro (21/10/2026, b93a280f1 no aprobado; lo medido, en docs/hallazgos-ia.md):**
+
+19. **Windows arranca por la clave `Run` de HKCU, no por un `.vbs` en Inicio ni una tarea programada.** El `.vbs` lo pone en
+    cuarentena Defender (troyano, medido). La tarea programada «al iniciar sesión» puede pedir administrador según la
+    versión; la clave Run no, guarda la ruta en UTF-16 y la saca el propio programa al ser desconectado.
+20. **El programa de Windows es «de ventana»** (el subsistema PE, marcado por publicar-binarios.mts porque Bun no lo hace):
+    arrancado al iniciar sesión no abre una consola. Por eso el instalador lo llama siempre con `| Out-Host`.
+21. **«¿Es tu negocio?» lo pregunta el script del instalador, no el programa**: uno «de ventana» no lee la consola. El
+    programa empareja y deja la conexión PENDIENTE (con el negocio y la persona), y sólo `confirmar` la activa y suelta la
+    de antes (sin tarjeta fantasma); `cancelar` la suelta en MaKo.
+22. **D6b se decide por NEGOCIO y falla cerrada** (lib/ia-del-negocio.ts): su IA es cualquier PC conectada del negocio,
+    su Claude (aunque esté en pausa) o su OpenAI; una base que no contesta es «sí». La plataforma misma queda afuera (lo
+    interno sigue). El corte vive abajo de todo (lib/solo-su-ia.ts → `provDe`, la red de la plataforma, el orden por
+    cuota): lo heredan El Archivero, la lectura de fotos, la voz y los pedidos sin acordarse.
+23. **Con su propio Claude, sin una clave que lea, El Archivero no corre y se dice** («lo dejé en el chat, pero no en El
+    Archivero»). La PC no puede extraer para El Archivero (es otro pedido, no un turno), y mandarlo a Gemini es lo que D6b
+    prohíbe. Con su clave de Claude o su OpenAI, sí.
+24. **Las fotos y los PDF escaneados, con su propio Claude, se leen con SU OpenAI o se dice que no** («escríbeme lo que
+    dice»). Que los vea el Claude de su PC queda para después (§13).
+25. **Una nota de voz es un dato de un cliente**: va siempre con `pii` (la red gratis no la escucha, como en WhatsApp) y, con
+    su propio Claude, sólo con su OpenAI (Whisper); si no la tiene, se dice. El micrófono no se esconde: la persona sabe
+    por qué no anduvo.
+26. **«Tus cuentas de IA» vive en «Tu cuenta» (`/perfil/ia`), para todos los roles** (la PC es de la persona), y sigue en
+    Integraciones para el admin. A un closer sin PC, en un negocio que corre con su propio Claude, el chat le dice dónde
+    conectar la suya; la clave de API (del negocio) sólo se le ofrece al admin. Reemplaza al punto 4 en lo del equipo.
+27. **Si la PC no puede (apagada, sin sesión, al tope, o falló), su clave si la tiene** (§5): el memo evita repetir una
+    acción. Si la PC tardó (ya no queda tiempo) o el negocio pasó su tope, no se prueba otra cosa.
+28. **Lo que se espera a la PC es lo que le queda a la ruta, con 240 s de tope** (`esperaDelTurno`): reemplaza al punto 3,
+    que suponía 420 s en todas (el Analyst del lead tiene 300). Una PC que no toma el turno en 35 s sin estar ocupada, o
+    que deja de latir 75 s a mitad del turno, está apagada: no se esperan los 4 minutos.
+29. **Al tope, todas las cuentas igual se usan** (la de menos uso): que Claude diga su límite y el chat lo traduzca con la
+    hora («se repone a las 15:30»). Reemplaza al «salteando la que pasó el 95 %» del punto 16 cuando no hay otra.
+30. **El código es de 8 letras, uno vivo por persona, y el instalador mira que siga vivo** antes de mandar a bajar 43 MB.
+31. **Un tope de 20 turnos por minuto por NEGOCIO** (§3, regla 6) y **los turnos se borran a las 24 horas** (llevan el
+    system con datos del negocio y lo que leyeron las herramientas; /api/cron/ia-pc-purga).
+
 ---
 
 ## 13. Lo que no es de la Ticketera (para repartir)
@@ -311,3 +347,8 @@ prueba en el ws3.
 - **El doer de WhatsApp** (`lib/mako-doer-in.ts`): si un negocio con su Claude tiene que contestar por WhatsApp con su
   PC, eso es de «MaKo en WhatsApp». Por ahora WhatsApp no va por la suscripción (es lo de fondo, D6a).
 - **Lo de fondo sin Gemini** (D6b, más allá de los turnos): AI Step, nutrición, reuniones. Cada uno es de su chat.
+- **Las claves pegadas en WhatsApp** (pieza 1.6 en el otro canal, de «MaKo en WhatsApp»): `taparClaves` en
+  `manejarEntranteDoer` antes de `rutearDoer` (y el `caption` de los adjuntos), y en `bufferearYResponder` antes de
+  `encolar`, también en el `payload` crudo; si tapó, `avisoClaveTapada` con el link a la app.
+- **Las fotos con el Claude de la PC** (Ticketera, después): `--input-format stream-json` acepta bloques de imagen; hoy,
+  con su propio Claude, una foto se lee con su OpenAI o se dice que no (§12.24).

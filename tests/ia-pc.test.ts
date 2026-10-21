@@ -58,9 +58,9 @@ test('el programa corre Claude con el texto por stdin, en su carpeta, con la cue
   const dir = mkdtempSync(join(tmpdir(), 'mako-pc-test-'));
   const vistos: Array<{ cmd: string; args: string[]; opts: { cwd: string; env: Record<string, string>; shell: boolean }; stdin: string }> = [];
   const falso = (respuesta: string) => (cmd: string, args: string[], opts: { cwd: string; env: Record<string, string>; shell: boolean }) => {
-    const p = new EventEmitter() as EventEmitter & { stdout: EventEmitter; stderr: EventEmitter; stdin: { end: (s: string) => void }; kill: () => void };
+    const p = new EventEmitter() as EventEmitter & { stdout: EventEmitter; stderr: EventEmitter; stdin: EventEmitter & { end: (s: string) => void }; kill: () => void };
     p.stdout = new EventEmitter(); p.stderr = new EventEmitter(); p.kill = () => {};
-    p.stdin = { end: (s: string) => { vistos.push({ cmd, args, opts, stdin: s }); setImmediate(() => { p.stdout.emit('data', respuesta); p.emit('close', 0); }); } };
+    p.stdin = Object.assign(new EventEmitter(), { end: (s: string) => { vistos.push({ cmd, args, opts, stdin: s }); setImmediate(() => { p.stdout.emit('data', respuesta); p.emit('close', 0); }); } });
     return p;
   };
   const antes = process.env.ANTHROPIC_API_KEY;
@@ -89,10 +89,11 @@ test('el programa corre Claude con el texto por stdin, en su carpeta, con la cue
 });
 
 test('las reglas puras de la puerta: código, tokens, en línea, y lo que manda la PC se sanea', () => {
-  assert.equal(normalizarCodigo('ab-c 2d3'), 'ABC2D3');
-  assert.equal(normalizarCodigo('ABC1D3'), null, 'sin 1, 0, I ni O');
-  assert.equal(normalizarCodigo('ABC23'), null);
-  assert.match(codigoDe(new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7])), /^[A-HJ-NP-Z2-9]{6}$/);
+  // 8 letras desde la revisión del 21/10/2026: ya no se dicta (viaja dentro de la línea que se copia).
+  assert.equal(normalizarCodigo('ab-cd 2345'), 'ABCD2345');
+  assert.equal(normalizarCodigo('ABC1D3EF'), null, 'sin 1, 0, I ni O');
+  assert.equal(normalizarCodigo('ABC234'), null, 'las 6 de antes ya no');
+  assert.match(codigoDe(new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7])), /^[A-HJ-NP-Z2-9]{8}$/);
   assert.ok(tieneFormaDeToken(TOKEN(PREFIJO_TOKEN_PC), PREFIJO_TOKEN_PC));
   assert.equal(tieneFormaDeToken(TOKEN(PREFIJO_TOKEN_TURNO), PREFIJO_TOKEN_PC), false, 'el del turno no abre la PC');
   assert.equal(tieneFormaDeToken(`${PREFIJO_TOKEN_PC}corto`, PREFIJO_TOKEN_PC), false);
@@ -108,6 +109,8 @@ test('las reglas puras de la puerta: código, tokens, en línea, y lo que manda 
     [{ proveedor: 'claude', email: 'ana@negocio.com', plan: 'max', usado5h: 42 }]);
   assert.deepEqual(sanearRespuesta({ texto: '  hola  ', cuenta: 'ana@negocio.com', uso: { entrada: 5, salida: 2 } }), { ok: true, texto: 'hola', cuenta: 'ana@negocio.com', uso: { entrada: 5, salida: 2 } });
   assert.deepEqual(sanearRespuesta({ error: 'Login expired' }), { ok: false, error: 'Login expired' });
+  assert.deepEqual(sanearRespuesta({ error: 'al tope', tipo: 'tope', repone: '2026-10-21T15:30:00Z' }), { ok: false, error: 'al tope', tipo: 'tope', repone: '2026-10-21T15:30:00.000Z' });
+  assert.deepEqual(sanearRespuesta({ error: 'x', tipo: 'otro-cualquiera' }), { ok: false, error: 'x' }, 'un tipo que no se conoce, no entra');
   assert.equal(sanearRespuesta({ nada: 1 }), null);
   assert.equal((sanearRespuesta({ texto: 'x'.repeat(30_000) }) as { texto: string }).texto.length, 20_000);
   assert.match(armarPrompt([{ role: 'user', content: 'hola' }, { role: 'assistant', content: 'buenas' }], '¿y?'), /La persona: hola\nMaKo: buenas\n\nEl mensaje nuevo de la persona:\n¿y\?/);
@@ -132,15 +135,17 @@ test('la puerta del servidor: el negocio sale del token, la PC sólo toma lo suy
   assert.match(cuerpo('turnoDelToken'), /\.eq\('token_hash', hash\(token\)\)\.eq\('estado', 'tomado'\)\.gt\('vence_at'/);
   assert.match(cuerpo('esperarALaPc'), /update\(\{ estado: 'vencido' \}\)/, 'lo que no volvió a tiempo, vence');
   // Las rutas: el negocio nunca sale del pedido.
-  for (const r of ['emparejar', 'latido', 'turno', 'turno/[id]', 'mcp']) {
+  for (const r of ['emparejar', 'latido', 'turno', 'turno/[id]', 'mcp', 'soltar']) {
     const src = sinComentarios(leer(`app/api/ia-pc/${r}/route.ts`));
     assert.doesNotMatch(src, /workspace|searchParams\.get\('ws'\)|body\??\.ws\b/, `${r}: el negocio no sale del pedido`);
   }
-  for (const r of ['latido', 'turno', 'turno/[id]']) assert.match(leer(`app/api/ia-pc/${r}/route.ts`), /dispositivoDelToken\(bearer\(req\.headers\.get\('authorization'\)\)\)/, r);
+  // Las rutas de la PC sacan la PC del token en UN lugar (lib/ia-pc-ruta.ts), que distingue 401 `revocado` de 503.
+  assert.match(leer('lib/ia-pc-ruta.ts'), /dispositivoDelToken\(bearer\(req\.headers\.get\('authorization'\)\)\)/);
+  for (const r of ['latido', 'turno', 'turno/[id]', 'soltar']) assert.match(leer(`app/api/ia-pc/${r}/route.ts`), /const p = await pcDelPedido\(req, '[a-z]+'\);\s*if \('respuesta' in p\) return p\.respuesta;/, r);
   assert.match(leer('app/api/ia-pc/mcp/route.ts'), /turnoDelToken\(bearer\(req\.headers\.get\('authorization'\)\)\)/);
   assert.match(leer('app/api/ia-pc/codigo/route.ts'), /personaDelRequest\(\)/, 'el código lo pide una persona con sesión');
   const publicas = leer('lib/rutas-publicas.ts');
-  for (const p of ['/api/ia-pc/emparejar', '/api/ia-pc/latido', '/api/ia-pc/turno', '/api/ia-pc/mcp']) assert.ok(publicas.includes(`'${p}'`), p);
+  for (const p of ['/api/ia-pc/emparejar', '/api/ia-pc/latido', '/api/ia-pc/turno', '/api/ia-pc/mcp', '/api/ia-pc/soltar']) assert.ok(publicas.includes(`'${p}'`), p);
   assert.ok(!publicas.includes("'/api/ia-pc/codigo'") && !publicas.includes("'/api/ia-pc'"), 'codigo es con sesión');
   // La base: RLS, revoke y ningún secreto en claro.
   const mig = leer('supabase/migrations/0320_ia_pc.sql');
@@ -155,20 +160,25 @@ test('el MCP es un relevo: sólo las herramientas del turno, y las corre el turn
   const m = sinComentarios(leer('app/api/ia-pc/mcp/route.ts'));
   // Rota: correr lo que pida aunque no haya viajado → este test falla.
   const i = m.indexOf("if (!t.tools.some((x) => x.name === nombre))");
-  assert.ok(i > 0 && i < m.indexOf('await pedirLlamada(t.id, nombre, entrada)'), 'lo que no viajó en el turno no corre');
+  assert.ok(i > 0 && i < m.indexOf('await pedirLlamada(t.id, nombre, entrada,'), 'lo que no viajó en el turno no corre');
   assert.match(m, /tools: herramientasParaMcp\(t\.tools\)/);
 });
 
-test('el turno: la PC de QUIEN escribe, sólo en línea, con su runTool; y con su IA, sin la cascada barata', () => {
+test('el turno: la PC de QUIEN escribe, sólo en línea Y con sesión, con su runTool; y con su IA, sin la cascada barata', () => {
   const t = sinComentarios(leer('lib/mako-turno-app.ts'));
   assert.match(t, /const pc = await pcDe\(ws, persona\.actor\)/, 'la cuenta es de una persona: sólo sus turnos');
-  // Rota: mandar a la PC aunque esté apagada → este test falla.
-  // Desde la ola 2 el turno lleva también el modelo que eligió el negocio (`modelo`, validado por `modeloPc`).
-  assert.match(t, /if \(pc\?\.enLinea\) \{\s*(?:const modelo = modeloPc\(await getSetting\(CLAVE_MODELO_PC\)\.catch\(\(\) => null\)\);\s*)?const turnoPc = await encolarTurno\(pc, s\.id, \{ system, prompt: armarPrompt\(historial, textoModelo\), tools(?:, modelo)? \}\);\s*const r = await esperarALaPc\(turnoPc, ws, nuevoIntento\(\) as Ejecutor, ESPERA_RESPUESTA_MS\);/);
-  assert.match(t, /soloSuIA: !!pc \|\| \(await tieneSuIA\(\)\)/, 'D6b: con su PC o su clave, sin la cascada barata');
-  // Lo que falla en la PC del cliente no abre un ticket de bug.
-  assert.match(t, /\.\.\.\(fallo && !sinIA && !falloDeLaPc \? \[\{ nombre: 'responder'/);
-  assert.match(t, /const delaPc = avisoDeLaPc\(falloDeLaPc, !!pc && sinIA\);/);
+  // Rota: mandar a la PC aunque esté apagada o sin sesión → este test falla.
+  assert.match(t, /const pcPuede = pcUsable\(pc\);/);
+  assert.match(t, /if \(pc && pcPuede\) \{\s*try \{\s*const modelo = modeloPc\(await getSetting\(CLAVE_MODELO_PC\)\.catch\(\(\) => null\)\);\s*const turnoPc = await encolarTurno\(pc, s\.id, \{ system, prompt: armarPrompt\(historial, textoModelo\), tools, modelo \}\);/);
+  // Lo que le queda a la ruta, no 240 s fijos; y la PC que se apaga a mitad del turno se ve (no 4 minutos).
+  assert.match(t, /const espera = esperaDelTurno\(entrada\.plazoMs \?\? PLAZO_RUTA_MS, Date\.now\(\) - inicio\);\s*const r = await esperarALaPc\(turnoPc, ws, pc\.id, nuevoIntento\(\) as Ejecutor, espera\);/);
+  assert.match(t, /else if \('apagada' in r\) \{ falloDeLaPc = 'apagada';/);
+  // Sin su PC (o si no pudo), su clave: con «sólo su IA» del NEGOCIO (D6b, tests/solo-su-ia.test.ts).
+  assert.match(t, /if \(!texto && falloDeLaPc !== 'tarde' && falloDeLaPc !== 'muchos'\) \{/);
+  assert.match(t, /soloSuIA: negocio\.suIA/, 'D6b: por negocio, sin la cascada barata');
+  // Lo que falla en la PC del cliente, o en SU cuenta, no abre un ticket de bug.
+  assert.match(t, /\.\.\.\(fallo && !sinIA && !falloDeLaPc && !deSuClave \? \[\{ nombre: 'responder'/);
+  assert.match(t, /const delaPc = avisoDeLaPc\(falloDeLaPc, false, \{ repone: reponeDeLaPc, tz: tzAviso \}\);/);
   const a = sinComentarios(leer('lib/anthropic.ts'));
   assert.match(a, /const provs: ProvName\[\] = opts\.soloSuIA \? \['openai'\] : /, 'sólo su GPT, después su Claude');
 });

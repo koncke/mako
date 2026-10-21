@@ -30,7 +30,7 @@
 // =============================================================================
 
 import 'server-only';
-import { chatClaudeTools, permisoDeLaClaveDelNegocio, type RichMsg, type ToolDef } from '@/lib/anthropic';
+import { CLAUDE_EN_PAUSA, chatClaudeTools, permisoDeLaClaveDelNegocio, type RichMsg, type ToolDef } from '@/lib/anthropic';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION } from '@/lib/mako-doer-acciones';
 import { aToolDef, porId } from '@/lib/api-mako/registro';
@@ -38,8 +38,10 @@ import { errorParaTicket, type ErrorDelTurno } from '@/lib/tickets-reglas';
 import { identidadDe } from '@/lib/tickets-db';
 import { registrarError } from '@/lib/errores-app';
 import { avisoClaveTapada, taparClaves } from '@/lib/claves-en-el-chat';
-import { encolarTurno, esperarALaPc, pcDe, type Ejecutor } from '@/lib/ia-pc';
-import { armarPrompt, avisoDeLaPc, CLAVE_MODELO_PC, ESPERA_RESPUESTA_MS, modeloPc } from '@/lib/ia-pc-reglas';
+import { encolarTurno, esperarALaPc, pcDe, TopeDeTurnos, type Ejecutor } from '@/lib/ia-pc';
+import { armarPrompt, avisoDeLaPc, CLAVE_MODELO_PC, esperaDelTurno, modeloPc, pcUsable, type FalloDeLaPc } from '@/lib/ia-pc-reglas';
+import { negocioConSuIA } from '@/lib/ia-del-negocio';
+import { conSoloSuIA } from '@/lib/solo-su-ia';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
 import { confirmarPendiente, cancelarPendiente } from '@/lib/api-mako/acciones';
 import type { Ctx } from '@/lib/api-mako/tipos';
@@ -73,6 +75,7 @@ import {
   chartKeyDePersona, canalKeyDeSesion, herramientasDelChat, tarjetaDePendiente, linksDeUnaAccion,
   propuestaDePantalla, sinLinksDeRevision, MENSAJE_BORRADOR_APP, mensajeLeadApp, TEXTO_SOLO_TARJETA,
   historialParaModelo, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA, iaParaConectar, IA_PARA_CONECTAR, ENV_DE_IA,
+  falloDeSuClave, AVISO_SU_CLAVE, AVISO_CONECTA_TU_PC, AVISO_NO_LEI_SU_IA, AVISO_SIN_ARCHIVERO,
   type LinkCapturado, type MensajeChat, type RespuestaTurno, type ResultadoTarjeta, type SesionChat, type TarjetaPendiente,
 } from '@/lib/mako-turno-app-reglas';
 
@@ -232,7 +235,15 @@ export type EntradaTurnoApp = {
    * del teléfono (las rutas /api/mako/chat y /api/m/mako). Sin esto, el turno de siempre: los lee y no los guarda.
    */
   guardarAdjuntos?: boolean;
+  /**
+   * El `maxDuration` de la ruta que llama, en ms (300 s si no se dice): lo que se espera a la PC del cliente sale de acá
+   * (`esperaDelTurno`). El Analyst del lead tiene 300 s y no 420, y Vercel cortaba sin aviso (revisión del 21/10/2026).
+   */
+  plazoMs?: number;
 };
+
+/** El plazo de una ruta que no dice el suyo: el más corto de las que llaman al turno (app/api/crm/analyst). */
+const PLAZO_RUTA_MS = 300_000;
 
 /** El cartel de la plataforma: se muestra y NO se guarda (AGENTS.md, «Un cartel de la
  *  PLATAFORMA no es un turno de la conversación»). */
@@ -249,23 +260,23 @@ async function iaPropiaDelTurno(): Promise<number | null> {
     let n = 0;
     for (const p of CASCADA_TOOLS) n += (await provsDe(p)).length;
     // Y su Claude, que el turno usa cuando ninguna barata contesta (`chatClaudeTools`, 20/10/2026): un negocio con sólo
-    // su Claude TIENE con qué contestar.
+    // su Claude TIENE con qué contestar. En pausa también: es SU Claude, y lo que hay que decirle es que está en pausa,
+    // no que conecte uno (revisión del Cerebro, 21/10/2026).
     const claude = await permisoDeLaClaveDelNegocio(FEATURE);
-    if (claude && 'permiso' in claude) n++;
+    if (claude) n++;
     return n;
   } catch {
     return null;
   }
 }
 
-/** Las IA que el negocio tiene guardadas en SU fila (`credDelCliente`, sin el entorno), para abrirle la que ya eligió. */
 /**
- * ¿El negocio tiene SU Claude o SU GPT por clave? (D6b): su Claude que pasa la puerta 2 del veto, o su OpenAI propia
- * (`provsDe`, sin las copias de la plataforma). Con eso, su turno no pasa por la cascada barata.
+ * ¿Hay con qué pasar un archivo a El Archivero sin la cascada barata? Su clave de Claude (la puerta 2 del veto) o su
+ * OpenAI. Sólo se pregunta con «sólo su IA» (D6b): ahí, sin ninguna de las dos, El Archivero no corre y se dice.
  */
-async function tieneSuIA(): Promise<boolean> {
+async function puedeArchivarConSuIA(): Promise<boolean> {
   try {
-    const claude = await permisoDeLaClaveDelNegocio(FEATURE);
+    const claude = await permisoDeLaClaveDelNegocio('El Archivero');
     if (claude && 'permiso' in claude) return true;
     const { provsDe } = await import('@/lib/ai-cheap');
     return (await provsDe('openai')).length > 0;
@@ -274,6 +285,7 @@ async function tieneSuIA(): Promise<boolean> {
   }
 }
 
+/** Las IA que el negocio tiene guardadas en SU fila (`credDelCliente`, sin el entorno), para abrirle la que ya eligió. */
 async function iaConFila(): Promise<string[]> {
   const out: string[] = [];
   for (const s of IA_PARA_CONECTAR) if (await credDelCliente(ENV_DE_IA[s]).catch(() => null)) out.push(s);
@@ -300,303 +312,340 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const s = await sesionDe(persona, sessionId);
     if (!s) return null;
     const ws = persona.ws;
-    const canalKey = canalKeyDeSesion(s.id);
-    // El corte respeta los TEXTOS PEGADOS (lib/chat-pegado.ts, #848/#864): lo escrito hasta TOPE_MENSAJE, los pegados
-    // con su propio tope, y las marcas siempre cerradas.
-    // ⚠️ NUNCA UNA KEY EN EL CHAT (pieza 1.6, 20/10/2026): una clave pegada se TAPA antes de todo —el historial, el
-    // título, El Archivero y el modelo— y la respuesta trae el botón «Conectar» de su servicio (lib/claves-en-el-chat.ts).
-    // Desde aquí, el mensaje de la persona es `mensaje`: el crudo no se vuelve a leer.
-    const tapado = taparClaves(entrada.mensaje ?? '');
-    const mensaje = tapado.texto;
-    const textoPersona = recortarMensaje(mensaje.trim(), TOPE_MENSAJE);
-    const adjuntos = entrada.adjuntos ?? [];
-    const avisos: string[] = [];
+    // ── D6b: ¿el NEGOCIO corre con su IA? (su PC, su Claude o su GPT; lib/ia-del-negocio.ts) ─────────────────────────
+    // Se decide por negocio y fallando cerrado, y TODO el turno corre adentro (lib/solo-su-ia.ts): la lectura de las fotos,
+    // El Archivero, el modelo y lo que corre después de responder no tocan ninguna key barata ni la red de la plataforma.
+    const negocio = await negocioConSuIA(ws);
+    return conSoloSuIA(negocio.suIA, async () => {
+      const canalKey = canalKeyDeSesion(s.id);
+      // El corte respeta los TEXTOS PEGADOS (lib/chat-pegado.ts, #848/#864): lo escrito hasta TOPE_MENSAJE, los pegados
+      // con su propio tope, y las marcas siempre cerradas.
+      // ⚠️ NUNCA UNA KEY EN EL CHAT (pieza 1.6, 20/10/2026): una clave pegada se TAPA antes de todo —el historial, el
+      // título, El Archivero y el modelo— y la respuesta trae el botón «Conectar» de su servicio (lib/claves-en-el-chat.ts).
+      // Desde aquí, el mensaje de la persona es `mensaje`: el crudo no se vuelve a leer.
+      const tapado = taparClaves(entrada.mensaje ?? '');
+      const mensaje = tapado.texto;
+      const textoPersona = recortarMensaje(mensaje.trim(), TOPE_MENSAJE);
+      const adjuntos = entrada.adjuntos ?? [];
+      const avisos: string[] = [];
 
-    // Los archivos se LEEN antes: el bloque nativo no le llega al modelo del doer (ver la
-    // cabecera). El lector es el mismo del importador del tablero.
-    const lecturas: Array<{ nombre: string; texto: string }> = [];
-    const textos: Array<string | null> = [];
-    for (const a of adjuntos) {
-      const leido = await archivoATexto(new File([a.bytes as BlobPart], a.nombre, { type: a.mime })).catch(() => null);
-      const texto = leido?.texto?.trim() || null;
-      textos.push(texto);
-      if (texto) lecturas.push({ nombre: a.nombre, texto });
-      else avisos.push(AVISO_NO_LEI(a.nombre));
-    }
-    // Lo que queda en la MEMORIA del chat: el texto de la persona, o el placeholder del archivo.
-    const textoMemoria = adjuntos.length === 1
-      ? placeholderDeAdjunto(adjuntos[0].tipo, adjuntos[0].nombre, textoPersona)
-      : adjuntos.length > 1
-        ? `(envió ${adjuntos.length} archivos: ${adjuntos.map((a) => a.nombre).join(', ')})${textoPersona ? ` — ${textoPersona}` : ''}`
-        : textoPersona;
-    // La ruta ya lo frena; acá es la red para otro llamador.
-    if (!textoMemoria) throw new Error('turnoApp: mensaje vacío');
+      // Los archivos se LEEN antes: el bloque nativo no le llega al modelo del doer (ver la
+      // cabecera). El lector es el mismo del importador del tablero.
+      const lecturas: Array<{ nombre: string; texto: string }> = [];
+      const textos: Array<string | null> = [];
+      for (const a of adjuntos) {
+        const leido = await archivoATexto(new File([a.bytes as BlobPart], a.nombre, { type: a.mime })).catch(() => null);
+        const texto = leido?.texto?.trim() || null;
+        textos.push(texto);
+        if (texto) lecturas.push({ nombre: a.nombre, texto });
+        else avisos.push(negocio.suIA ? AVISO_NO_LEI_SU_IA(a.nombre) : AVISO_NO_LEI(a.nombre));
+      }
+      // Lo que queda en la MEMORIA del chat: el texto de la persona, o el placeholder del archivo.
+      const textoMemoria = adjuntos.length === 1
+        ? placeholderDeAdjunto(adjuntos[0].tipo, adjuntos[0].nombre, textoPersona)
+        : adjuntos.length > 1
+          ? `(envió ${adjuntos.length} archivos: ${adjuntos.map((a) => a.nombre).join(', ')})${textoPersona ? ` — ${textoPersona}` : ''}`
+          : textoPersona;
+      // La ruta ya lo frena; acá es la red para otro llamador.
+      if (!textoMemoria) throw new Error('turnoApp: mensaje vacío');
 
-    // El historial de ANTES de este mensaje: se lee antes de guardarlo.
-    const previos = await getSessionMessages(s.id);
+      // El historial de ANTES de este mensaje: se lee antes de guardarlo.
+      const previos = await getSessionMessages(s.id);
 
-    // LO QUE ESCRIBIÓ LA PERSONA SE GUARDA SIEMPRE, antes del modelo.
-    // Los archivos se guardan (mig 0305): el binario ANTES, y su referencia en el mismo insert del mensaje
-    // (lib/chat-mako-adjuntos.ts). Si el mensaje quedó sin ella, el binario no queda suelto.
-    const guardados: MensajeChat[] = [];
-    // ⚠️ SÓLO SI QUIEN LLAMA LO PIDE (`guardarAdjuntos`): el Second Brain y el chat del teléfono. El MaKo Analyst de un
-    //    lead usa este mismo turno, y su PDF es del LEAD: no va a El Archivero del negocio (revisión del 16/10/2026).
-    const subidos = adjuntos.length && entrada.guardarAdjuntos ? await subirAdjuntos(ws, adjuntos) : [];
-    const bloques = subidos.map((x) => x.bloque);
-    let msg: Awaited<ReturnType<typeof appendMessage>>;
-    try {
-      msg = await appendMessage(s.id, 'user', textoMemoria, bloques);
-    } catch (e) {
-      await borrarAdjuntos(bloques.map((b) => b.path)); // el mensaje no quedó: sus binarios tampoco
-      throw e;
-    }
-    if (bloques.length && !msg.conBloques) await borrarAdjuntos(bloques.map((b) => b.path));
-    const conArchivos = msg.conBloques && msg.id != null ? adjuntosVisibles(msg.id, bloques) : [];
-    guardados.push({ role: 'user', content: textoMemoria, ...(conArchivos.length ? { adjuntos: conArchivos } : {}) });
-    // Un PDF del ADMIN, también a El Archivero, después de responder (lib/chat-mako-adjuntos.ts dice por qué sólo él).
-    if (persona.rol === 'admin' && msg.conBloques && msg.id != null) {
-      const pdfs = subidos.flatMap(({ bloque, de }, i) => {
+      // LO QUE ESCRIBIÓ LA PERSONA SE GUARDA SIEMPRE, antes del modelo.
+      // Los archivos se guardan (mig 0305): el binario ANTES, y su referencia en el mismo insert del mensaje
+      // (lib/chat-mako-adjuntos.ts). Si el mensaje quedó sin ella, el binario no queda suelto.
+      const guardados: MensajeChat[] = [];
+      // ⚠️ SÓLO SI QUIEN LLAMA LO PIDE (`guardarAdjuntos`): el Second Brain y el chat del teléfono. El MaKo Analyst de un
+      //    lead usa este mismo turno, y su PDF es del LEAD: no va a El Archivero del negocio (revisión del 16/10/2026).
+      const subidos = adjuntos.length && entrada.guardarAdjuntos ? await subirAdjuntos(ws, adjuntos) : [];
+      const bloques = subidos.map((x) => x.bloque);
+      let msg: Awaited<ReturnType<typeof appendMessage>>;
+      try {
+        msg = await appendMessage(s.id, 'user', textoMemoria, bloques);
+      } catch (e) {
+        await borrarAdjuntos(bloques.map((b) => b.path)); // el mensaje no quedó: sus binarios tampoco
+        throw e;
+      }
+      if (bloques.length && !msg.conBloques) await borrarAdjuntos(bloques.map((b) => b.path));
+      const conArchivos = msg.conBloques && msg.id != null ? adjuntosVisibles(msg.id, bloques) : [];
+      guardados.push({ role: 'user', content: textoMemoria, ...(conArchivos.length ? { adjuntos: conArchivos } : {}) });
+      // Un PDF del ADMIN, también a El Archivero, después de responder (lib/chat-mako-adjuntos.ts dice por qué sólo él).
+      const msgId = msg.id;
+      const pdfs = persona.rol === 'admin' && msg.conBloques && msgId != null ? subidos.flatMap(({ bloque, de }, i) => {
         const texto = textos[de];
         return bloque.tipo === 'document' && texto ? [{ i, contenido: adjuntos[de].bytes, nombre: bloque.nombre, mime: bloque.mime, texto }] : [];
+      }) : [];
+      // Un TEXTO PEGADO largo del admin, ENTERO (antes del corte del mensaje), también a El Archivero: se guarda solo,
+      // sin pedirlo, como los PDF (#884, lib/chat-mako-adjuntos.ts → archivarPegadosDelChat). Sólo con `guardarAdjuntos`:
+      // el MaKo Analyst de un lead usa este turno y lo que se pega ahí es del LEAD.
+      const pegados = persona.rol === 'admin' && entrada.guardarAdjuntos ? partirPegados(mensaje).pegados : [];
+      if (pdfs.length || pegados.length) {
+        // ⛔ D6b: con su propio Claude, El Archivero extrae con SU clave de Claude o SU OpenAI, nunca con la cascada barata
+        // ni con la red gratis de la plataforma (revisión del Cerebro, 21/10/2026: un pegado de 40 leads iba a la Gemini de
+        // la agencia). Sin ninguna de las dos, no se archiva, y se dice.
+        if (negocio.suIA && !(await puedeArchivarConSuIA())) avisos.push(AVISO_SIN_ARCHIVERO);
+        else {
+          if (pdfs.length && msgId != null) await archivarPdfsDelChat(ws, msgId, inicio, pdfs);
+          if (pegados.length) await archivarPegadosDelChat(ws, inicio, pegados);
+        }
+      }
+      let titulo = s.titulo;
+      if (!titulo) {
+        // Un mensaje que es sólo un texto pegado se titula con el nombre del pegado, no con sus marcas (lib/chat-pegado.ts).
+        titulo = tituloDesde(textoParaTitulo(textoPersona) || textoMemoria);
+        await renameSession(s.id, titulo).catch(() => {});
+      }
+      const sesion: SesionChat = { id: s.id, titulo, pinned: s.pinned, updatedAt: new Date().toISOString() };
+      const vacio = (aviso: string | null): RespuestaTurno => ({ ok: false, sesion, mensajes: guardados, aviso, paraLaPersona: [], propuestas: [], pantallas: [] });
+
+      // Con archivos y nada legible ni escrito, no hay pedido: no se gasta el modelo.
+      if (adjuntos.length && !lecturas.length && !textoPersona) return vacio(avisos.join(' ') || AVISO_NO_PUDE);
+
+      let lectura = lecturas.map((l) => `[Lo que dice «${l.nombre}», leído por el sistema:]\n${l.texto}`).join('\n\n');
+      if (lectura.length > TOPE_LECTURA) lectura = `${lectura.slice(0, TOPE_LECTURA)}\n[…el archivo sigue; se cortó aquí por largo]`;
+      const pedido = textoPersona || (adjuntos.length ? promptDeAdjunto(adjuntos[0].tipo) : '');
+      const textoModelo = lectura ? `${pedido}\n\n${lectura}` : pedido;
+      const userContent: RichMsg['content'] = adjuntos.length
+        ? bloquesDeAdjuntos(adjuntos.map((a) => ({ tipo: a.tipo, mime: a.mime, base64: Buffer.from(a.bytes).toString('base64') })), textoModelo)
+        : textoModelo;
+
+      const turnStart = Date.now();
+      const historial = historialParaModelo(previos, 12);
+      const vigentes = await pendientesVigentes(ws, canalKey);
+      const claveAgenda = `mako.doer.agenda.${canalKey}`;
+      const agendaAbierta = agendaVigente(await getSetting(claveAgenda).catch(() => null), Date.now());
+      const ultimoDeMako = previos.slice(-2).reverse().find((r) => r.role === 'assistant')?.content ?? null;
+      const textoClasificar = `${(entrada.pista ?? '').slice(0, 120)}${adjuntos.length ? textoMemoria : textoPersona}`;
+      const intencion = clasificarIntencion(textoClasificar, {
+        hayMedia: adjuntos.length > 0,
+        hayPendientes: vigentes.length > 0,
+        hayPendienteDeAgenda: vigentes.some((p) => (ACCIONES_AGENDA as readonly string[]).includes(p.tipo)),
+        hayAgendaAbierta: !!agendaAbierta,
+        makoPregunto: makoPreguntoAlgo(ultimoDeMako),
+        preguntoReunionOTarea: preguntoReunionOTarea(ultimoDeMako),
       });
-      await archivarPdfsDelChat(ws, msg.id, inicio, pdfs);
-    }
-    // Un TEXTO PEGADO largo del admin, ENTERO (antes del corte del mensaje), también a El Archivero: se guarda solo,
-    // sin pedirlo, como los PDF (#884, lib/chat-mako-adjuntos.ts → archivarPegadosDelChat). Sólo con `guardarAdjuntos`:
-    // el MaKo Analyst de un lead usa este turno y lo que se pega ahí es del LEAD.
-    if (persona.rol === 'admin' && entrada.guardarAdjuntos) {
-      const { pegados } = partirPegados(mensaje);
-      if (pegados.length) await archivarPegadosDelChat(ws, inicio, pegados);
-    }
-    let titulo = s.titulo;
-    if (!titulo) {
-      // Un mensaje que es sólo un texto pegado se titula con el nombre del pegado, no con sus marcas (lib/chat-pegado.ts).
-      titulo = tituloDesde(textoParaTitulo(textoPersona) || textoMemoria);
-      await renameSession(s.id, titulo).catch(() => {});
-    }
-    const sesion: SesionChat = { id: s.id, titulo, pinned: s.pinned, updatedAt: new Date().toISOString() };
-    const vacio = (aviso: string | null): RespuestaTurno => ({ ok: false, sesion, mensajes: guardados, aviso, paraLaPersona: [], propuestas: [], pantallas: [] });
 
-    // Con archivos y nada legible ni escrito, no hay pedido: no se gasta el modelo.
-    if (adjuntos.length && !lecturas.length && !textoPersona) return vacio(avisos.join(' ') || AVISO_NO_PUDE);
+      // Lo que el CÓDIGO le muestra a la persona sin pasar por el modelo (la agenda de Google):
+      // va en la respuesta y NO se guarda en el hilo, que vuelve al modelo en el turno siguiente.
+      const paraLaPersona: string[] = [];
+      // Los errores de MaKo en ESTE turno (lib/tickets-reglas.ts, `errorParaTicket`): van al ticket que se proponga, y
+      // si el modelo no lo propone, lo propone el código al final (docs/diseno-ticketera-usuarios.md §2.1).
+      const erroresDelTurno: ErrorDelTurno[] = [];
+      let ticketPropuesto = false;
+      const ctx: Ctx = {
+        ws, canal: 'app', canalKey,
+        // `proponer`: este turno deja pendientes y propuestas; confirmar es de la persona
+        // (confirmar_accion pide `ejecutar` y además no viaja: dos cortes).
+        alcance: 'proponer', rol: persona.rol, turnStart, mensajeUsuario: textoPersona || textoMemoria, actor: persona.actor,
+        aPersona: (t) => { const x = (t ?? '').trim(); if (x && !paraLaPersona.includes(x)) paraLaPersona.push(x); },
+        // Lo que el ticket sabe sin que lo escriba el modelo: el pedido textual, lo último que dijo MaKo y el error.
+        contextoTicket: () => ({
+          pedido: textoPersona || textoMemoria,
+          ...(ultimoDeMako ? { respuestaMako: ultimoDeMako } : {}),
+          ...(erroresDelTurno[0] ? { error: erroresDelTurno[0].error, herramienta: erroresDelTurno[0].herramienta } : {}),
+        }),
+      };
+      const vista = await vistaDe(ctx);
+      const sinCalendly = intencion.intencion === 'actuar'
+        ? (await credWs('CALENDLY_API_TOKEN', ws).catch(() => 'no se pudo leer')) == null
+        : false;
+      const ultimoPedido = previos.slice().reverse().find((r) => r.role === 'user')?.content;
+      const contextoDelSi = intencion.sigueOfrecimiento ? [ultimoPedido ?? '', ultimoDeMako ?? ''].filter(Boolean).join('\n') : null;
+      const turno = herramientasDelChat<ToolDef>({
+        veredicto: intencion, texto: textoClasificar, contextoDelSi, agendaAbierta: !!agendaAbierta,
+        deSiempre: [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS, ...TICKET_TOOLS], vista,
+        hayPendientes: vigentes.length > 0, resumenesPendientes: vigentes.map((p) => p.resumen), sinCalendly,
+      });
+      const tools = turno.tools as ToolDef[];
+      const permitidas = new Set(tools.map((t) => t.name));
 
-    let lectura = lecturas.map((l) => `[Lo que dice «${l.nombre}», leído por el sistema:]\n${l.texto}`).join('\n\n');
-    if (lectura.length > TOPE_LECTURA) lectura = `${lectura.slice(0, TOPE_LECTURA)}\n[…el archivo sigue; se cortó aquí por largo]`;
-    const pedido = textoPersona || (adjuntos.length ? promptDeAdjunto(adjuntos[0].tipo) : '');
-    const textoModelo = lectura ? `${pedido}\n\n${lectura}` : pedido;
-    const userContent: RichMsg['content'] = adjuntos.length
-      ? bloquesDeAdjuntos(adjuntos.map((a) => ({ tipo: a.tipo, mime: a.mime, base64: Buffer.from(a.bytes).toString('base64') })), textoModelo)
-      : textoModelo;
+      // El system se arma DESPUÉS de las tools: depende de ellas.
+      const base = await buildSystemPrompt({ chartKey: 'mako-doer', titulo: titulo ?? 'MaKo', contexto: '', query: textoPersona || textoMemoria, sinNumerosDelNegocio: persona.rol !== 'admin' });
+      const tz = tools.length ? await tzDeWorkspace(ws).catch(() => TZ_DEFAULT) : null;
+      const puedeCancelar = permitidas.has('cancelar_accion');
+      const ctxPend = vigentes.length
+        ? `\n\nACCIONES ESPERANDO CONFIRMACIÓN EN ESTE CHAT (la más reciente primero):\n${vigentes.map((p) => `- #${p.id}: ${p.resumen}`).join('\n')}\nLa persona las confirma tocando su tarjeta; tú no puedes confirmarlas.${puedeCancelar ? ' Si te dice que no la quiere, usa cancelar_accion con su id.' : ''}`
+        : '';
+      const ctxAgenda = agendaAbierta && tools.some((t) => herramientasQueSiguen(agendaAbierta).includes(t.name)) ? contextoAgendaAbierta(agendaAbierta) : '';
+      const ctxPuntos = avisoDePuntos(textoPersona);
+      const bloqueTools = tools.length
+        ? `\n\n${TOOLS_APP}${recetasDelTurno(permitidas, turno.ofrece)}${bloqueAgendaGoogle(tools.map((t) => t.name))}${turno.instruccion ? `\n\n${turno.instruccion}` : ''}\n\n${CANAL_APP}\n\nLAS QUE TIENES EN ESTE TURNO (y NINGUNA otra): ${tools.map((t) => t.name).join(', ')}.`
+        : `\n\n${SIN_TOOLS_APP}`;
+      const ctxHoy = tz ? `\n\nHOY ES ${hoyLegible(tz)} (zona ${tz}). Para «mañana», «el jueves» o «la semana que viene», calcula la fecha desde aquí; las horas que te digan son de esta zona.` : '';
+      const ctxAtado = (entrada.contexto ?? '').trim();
+      const system = `${base}\n\n${VOZ_APP}${bloqueTools}${ctxHoy}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${ctxAtado ? `\n\n${ctxAtado}` : ''}`;
 
-    const turnStart = Date.now();
-    const historial = historialParaModelo(previos, 12);
-    const vigentes = await pendientesVigentes(ws, canalKey);
-    const claveAgenda = `mako.doer.agenda.${canalKey}`;
-    const agendaAbierta = agendaVigente(await getSetting(claveAgenda).catch(() => null), Date.now());
-    const ultimoDeMako = previos.slice(-2).reverse().find((r) => r.role === 'assistant')?.content ?? null;
-    const textoClasificar = `${(entrada.pista ?? '').slice(0, 120)}${adjuntos.length ? textoMemoria : textoPersona}`;
-    const intencion = clasificarIntencion(textoClasificar, {
-      hayMedia: adjuntos.length > 0,
-      hayPendientes: vigentes.length > 0,
-      hayPendienteDeAgenda: vigentes.some((p) => (ACCIONES_AGENDA as readonly string[]).includes(p.tipo)),
-      hayAgendaAbierta: !!agendaAbierta,
-      makoPregunto: makoPreguntoAlgo(ultimoDeMako),
-      preguntoReunionOTarea: preguntoReunionOTarea(ultimoDeMako),
-    });
+      // ── Las herramientas ───────────────────────────────────────────────────────
+      const runRegistro = runnerDelRegistro(ctx);
+      const NOMBRES_DE_SIEMPRE = new Set(MAKO_TOOLS.map((t) => t.name));
+      const capturados: LinkCapturado[] = [];
+      // Un turno que se re-arranca (la cascada de chatClaudeTools rota de cuenta) no repite
+      // acciones: el mismo memo que el doer de WhatsApp.
+      const memo = crearMemoDeAcciones((n) => {
+        const d = porId(n);
+        return d ? d.tipo !== 'lectura' : NOMBRES_ACCION.has(n) && !n.startsWith('listar_');
+      });
+      const runTool = async (name: string, input: Record<string, unknown>) => {
+        // El contrato se aplica AL EJECUTAR: lo que no viajó no corre, aunque el modelo lo
+        // llame (lo dice el texto, lo pide igual). Confirmar, menos que nada.
+        if (!permitidas.has(name)) {
+          return { content: JSON.stringify({ ok: false, error: `«${name}» no está disponible en este chat.` }), isError: true };
+        }
+        const previo = memo.previo(name);
+        if (previo) return previo.out as Awaited<ReturnType<typeof runRegistro>>;
+        // Las de siempre por sus cuerpos de siempre; TODO lo demás (incluidas las acciones
+        // heredadas, que tienen gemela) por el registro: así cada acción pasa por el gating
+        // de la vista de ESTA persona y deja su pendiente con la clave de ESTE chat.
+        // La instrucción de una pendiente es la de WhatsApp («pide un sí»): acá se confirma en la tarjeta.
+        const out = conInstruccionDeTarjeta(await (NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input) : runRegistro(name, input)));
+        memo.anotar(name, out);
+        const err = errorParaTicket(name, out);
+        if (err) erroresDelTurno.push(err);
+        else if (name === LEVANTAR_TICKET) ticketPropuesto = true;
+        const sigue = agendaQueSigue(name, input, out, Date.now());
+        if (sigue) await setSetting(claveAgenda, JSON.stringify(sigue)).catch(() => {});
+        else if (agendaSeCierra(name, out)) await setSetting(claveAgenda, '').catch(() => {});
+        for (const l of linksDeUnaAccion(name, input, out)) if (!capturados.some((c) => c.url === l.url)) capturados.push(l);
+        return out;
+      };
+      /** Cada corrida abre un intento nuevo para el memo (tests/turno-sin-duplicar.test.ts). */
+      const nuevoIntento = () => { memo.nuevoIntento(); return runTool; };
 
-    // Lo que el CÓDIGO le muestra a la persona sin pasar por el modelo (la agenda de Google):
-    // va en la respuesta y NO se guarda en el hilo, que vuelve al modelo en el turno siguiente.
-    const paraLaPersona: string[] = [];
-    // Los errores de MaKo en ESTE turno (lib/tickets-reglas.ts, `errorParaTicket`): van al ticket que se proponga, y
-    // si el modelo no lo propone, lo propone el código al final (docs/diseno-ticketera-usuarios.md §2.1).
-    const erroresDelTurno: ErrorDelTurno[] = [];
-    let ticketPropuesto = false;
-    const ctx: Ctx = {
-      ws, canal: 'app', canalKey,
-      // `proponer`: este turno deja pendientes y propuestas; confirmar es de la persona
-      // (confirmar_accion pide `ejecutar` y además no viaja: dos cortes).
-      alcance: 'proponer', rol: persona.rol, turnStart, mensajeUsuario: textoPersona || textoMemoria, actor: persona.actor,
-      aPersona: (t) => { const x = (t ?? '').trim(); if (x && !paraLaPersona.includes(x)) paraLaPersona.push(x); },
-      // Lo que el ticket sabe sin que lo escriba el modelo: el pedido textual, lo último que dijo MaKo y el error.
-      contextoTicket: () => ({
-        pedido: textoPersona || textoMemoria,
-        ...(ultimoDeMako ? { respuestaMako: ultimoDeMako } : {}),
-        ...(erroresDelTurno[0] ? { error: erroresDelTurno[0].error, herramienta: erroresDelTurno[0].herramienta } : {}),
-      }),
-    };
-    const vista = await vistaDe(ctx);
-    const sinCalendly = intencion.intencion === 'actuar'
-      ? (await credWs('CALENDLY_API_TOKEN', ws).catch(() => 'no se pudo leer')) == null
-      : false;
-    const ultimoPedido = previos.slice().reverse().find((r) => r.role === 'user')?.content;
-    const contextoDelSi = intencion.sigueOfrecimiento ? [ultimoPedido ?? '', ultimoDeMako ?? ''].filter(Boolean).join('\n') : null;
-    const turno = herramientasDelChat<ToolDef>({
-      veredicto: intencion, texto: textoClasificar, contextoDelSi, agendaAbierta: !!agendaAbierta,
-      deSiempre: [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS, ...TICKET_TOOLS], vista,
-      hayPendientes: vigentes.length > 0, resumenesPendientes: vigentes.map((p) => p.resumen), sinCalendly,
-    });
-    const tools = turno.tools as ToolDef[];
-    const permitidas = new Set(tools.map((t) => t.name));
-
-    // El system se arma DESPUÉS de las tools: depende de ellas.
-    const base = await buildSystemPrompt({ chartKey: 'mako-doer', titulo: titulo ?? 'MaKo', contexto: '', query: textoPersona || textoMemoria, sinNumerosDelNegocio: persona.rol !== 'admin' });
-    const tz = tools.length ? await tzDeWorkspace(ws).catch(() => TZ_DEFAULT) : null;
-    const puedeCancelar = permitidas.has('cancelar_accion');
-    const ctxPend = vigentes.length
-      ? `\n\nACCIONES ESPERANDO CONFIRMACIÓN EN ESTE CHAT (la más reciente primero):\n${vigentes.map((p) => `- #${p.id}: ${p.resumen}`).join('\n')}\nLa persona las confirma tocando su tarjeta; tú no puedes confirmarlas.${puedeCancelar ? ' Si te dice que no la quiere, usa cancelar_accion con su id.' : ''}`
-      : '';
-    const ctxAgenda = agendaAbierta && tools.some((t) => herramientasQueSiguen(agendaAbierta).includes(t.name)) ? contextoAgendaAbierta(agendaAbierta) : '';
-    const ctxPuntos = avisoDePuntos(textoPersona);
-    const bloqueTools = tools.length
-      ? `\n\n${TOOLS_APP}${recetasDelTurno(permitidas, turno.ofrece)}${bloqueAgendaGoogle(tools.map((t) => t.name))}${turno.instruccion ? `\n\n${turno.instruccion}` : ''}\n\n${CANAL_APP}\n\nLAS QUE TIENES EN ESTE TURNO (y NINGUNA otra): ${tools.map((t) => t.name).join(', ')}.`
-      : `\n\n${SIN_TOOLS_APP}`;
-    const ctxHoy = tz ? `\n\nHOY ES ${hoyLegible(tz)} (zona ${tz}). Para «mañana», «el jueves» o «la semana que viene», calcula la fecha desde aquí; las horas que te digan son de esta zona.` : '';
-    const ctxAtado = (entrada.contexto ?? '').trim();
-    const system = `${base}\n\n${VOZ_APP}${bloqueTools}${ctxHoy}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${ctxAtado ? `\n\n${ctxAtado}` : ''}`;
-
-    // ── Las herramientas ───────────────────────────────────────────────────────
-    const runRegistro = runnerDelRegistro(ctx);
-    const NOMBRES_DE_SIEMPRE = new Set(MAKO_TOOLS.map((t) => t.name));
-    const capturados: LinkCapturado[] = [];
-    // Un turno que se re-arranca (la cascada de chatClaudeTools rota de cuenta) no repite
-    // acciones: el mismo memo que el doer de WhatsApp.
-    const memo = crearMemoDeAcciones((n) => {
-      const d = porId(n);
-      return d ? d.tipo !== 'lectura' : NOMBRES_ACCION.has(n) && !n.startsWith('listar_');
-    });
-    const runTool = async (name: string, input: Record<string, unknown>) => {
-      // El contrato se aplica AL EJECUTAR: lo que no viajó no corre, aunque el modelo lo
-      // llame (lo dice el texto, lo pide igual). Confirmar, menos que nada.
-      if (!permitidas.has(name)) {
-        return { content: JSON.stringify({ ok: false, error: `«${name}» no está disponible en este chat.` }), isError: true };
+      const msgs: RichMsg[] = [...historial, { role: 'user', content: userContent }];
+      let texto = '';
+      let fallo: string | null = null;
+      // ── ¿Lo piensa la computadora de ESTA persona? (docs/ia-del-cliente.md, ola 1; D6a, 21/10/2026) ──────────────
+      // Su Claude, con su cuenta, en su PC, sin herramientas propias. Las de MaKo corren AQUÍ, con este mismo `runTool`
+      // (lib/ia-pc.ts → `esperarALaPc`): el gating, el memo y las tarjetas son los de siempre. Sólo la PC de quien escribe:
+      // la cuenta es de una persona (§10).
+      // La lectura de la PC no decide D6b (eso ya lo hizo `negocioConSuIA`, fallando cerrado): si no se pudo leer, el turno
+      // sigue sin ella, con su clave si la tiene, y nunca con la cascada barata.
+      const pc = await pcDe(ws, persona.actor).catch(() => null);
+      // Sólo se le manda a una PC en línea CON un Claude con sesión: «en línea» sin sesión no contesta nada.
+      const pcPuede = pcUsable(pc);
+      // Lo que falló en la PC del cliente (apagada, sin sesión, al tope, no contestó a tiempo) no es un bug de MaKo.
+      let falloDeLaPc: FalloDeLaPc | null = pc && !pcPuede ? (pc.enLinea ? 'sesion' : 'apagada') : null;
+      let reponeDeLaPc: string | null = null;
+      if (pc && pcPuede) {
+        try {
+          const modelo = modeloPc(await getSetting(CLAVE_MODELO_PC).catch(() => null));
+          const turnoPc = await encolarTurno(pc, s.id, { system, prompt: armarPrompt(historial, textoModelo), tools, modelo });
+          // Lo que le queda a la ruta, no 240 s fijos (el Analyst del lead tiene 300 s: Vercel cortaba sin aviso).
+          const espera = esperaDelTurno(entrada.plazoMs ?? PLAZO_RUTA_MS, Date.now() - inicio);
+          const r = await esperarALaPc(turnoPc, ws, pc.id, nuevoIntento() as Ejecutor, espera);
+          if (!r) { falloDeLaPc = 'tarde'; fallo = 'la computadora del cliente no contestó a tiempo'; }
+          else if ('apagada' in r) { falloDeLaPc = 'apagada'; fallo = 'la computadora del cliente se apagó (no tomó el turno o dejó de latir)'; }
+          else if ('error' in r) { falloDeLaPc = r.tipo ?? 'error'; reponeDeLaPc = r.repone ?? null; fallo = `la computadora del cliente: ${r.error}`; }
+          else texto = r.texto.trim();
+        } catch (e) {
+          falloDeLaPc = e instanceof TopeDeTurnos ? 'muchos' : 'error';
+          fallo = `la computadora del cliente: ${e instanceof Error ? e.message : String(e)}`;
+        }
       }
-      const previo = memo.previo(name);
-      if (previo) return previo.out as Awaited<ReturnType<typeof runRegistro>>;
-      // Las de siempre por sus cuerpos de siempre; TODO lo demás (incluidas las acciones
-      // heredadas, que tienen gemela) por el registro: así cada acción pasa por el gating
-      // de la vista de ESTA persona y deja su pendiente con la clave de ESTE chat.
-      // La instrucción de una pendiente es la de WhatsApp («pide un sí»): acá se confirma en la tarjeta.
-      const out = conInstruccionDeTarjeta(await (NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input) : runRegistro(name, input)));
-      memo.anotar(name, out);
-      const err = errorParaTicket(name, out);
-      if (err) erroresDelTurno.push(err);
-      else if (name === LEVANTAR_TICKET) ticketPropuesto = true;
-      const sigue = agendaQueSigue(name, input, out, Date.now());
-      if (sigue) await setSetting(claveAgenda, JSON.stringify(sigue)).catch(() => {});
-      else if (agendaSeCierra(name, out)) await setSetting(claveAgenda, '').catch(() => {});
-      for (const l of linksDeUnaAccion(name, input, out)) if (!capturados.some((c) => c.url === l.url)) capturados.push(l);
-      return out;
-    };
-    /** Cada corrida abre un intento nuevo para el memo (tests/turno-sin-duplicar.test.ts). */
-    const nuevoIntento = () => { memo.nuevoIntento(); return runTool; };
-
-    const msgs: RichMsg[] = [...historial, { role: 'user', content: userContent }];
-    let texto = '';
-    let fallo: string | null = null;
-    // ── ¿Lo piensa la computadora de ESTA persona? (docs/ia-del-cliente.md, ola 1; D6a, 21/10/2026) ──────────────
-    // Su Claude, con su cuenta, en su PC, sin herramientas propias. Las de MaKo corren AQUÍ, con este mismo `runTool`
-    // (lib/ia-pc.ts → `esperarALaPc`): el gating, el memo y las tarjetas son los de siempre. Sólo la PC de quien escribe:
-    // la cuenta es de una persona (§10).
-    const pc = await pcDe(ws, persona.actor).catch(() => null);
-    // Lo que falló en la PC del cliente (no contestó a tiempo, su Claude dio error) no es un bug de MaKo.
-    let falloDeLaPc: 'tarde' | 'error' | null = null;
-    try {
-      if (pc?.enLinea) {
-        const modelo = modeloPc(await getSetting(CLAVE_MODELO_PC).catch(() => null));
-        const turnoPc = await encolarTurno(pc, s.id, { system, prompt: armarPrompt(historial, textoModelo), tools, modelo });
-        const r = await esperarALaPc(turnoPc, ws, nuevoIntento() as Ejecutor, ESPERA_RESPUESTA_MS);
-        if (!r) { falloDeLaPc = 'tarde'; fallo = 'la computadora del cliente no contestó a tiempo'; }
-        else if ('error' in r) { falloDeLaPc = 'error'; fallo = `la computadora del cliente: ${r.error}`; }
-        else texto = r.texto.trim();
-      } else {
-        const r = await chatClaudeTools(system, msgs, tools, nuevoIntento(), {
-          feature: FEATURE, maxSteps: 8, sinFallbackClaude: true,
-          // D6b (el Cerebro, 21/10/2026): con su Claude o su GPT (su PC, o su clave), su turno corre con SU cuenta, y la
-          // cascada barata (Gemini, Groq, Mistral, OpenRouter) no participa.
-          soloSuIA: !!pc || (await tieneSuIA()),
-          motivo: `app ${intencion.intencion} «${(textoPersona || textoMemoria).slice(0, 60)}»`,
-        });
-        texto = (r.text ?? '').trim();
-        if (texto.startsWith('(')) { fallo = `centinela ${texto.slice(0, 40)}`; texto = ''; }
+      // Sin su PC (no tiene, está apagada o sin sesión, o no pudo): con su clave, si la tiene (docs/ia-del-cliente.md §5).
+      // Con «sólo su IA» (D6b) la cascada barata no participa: chatClaudeTools usa su OpenAI o su Claude, o nada. Si la PC
+      // tardó (ya no queda tiempo) o el negocio pasó su tope, no se prueba otra cosa.
+      if (!texto && falloDeLaPc !== 'tarde' && falloDeLaPc !== 'muchos') {
+        try {
+          const r = await chatClaudeTools(system, msgs, tools, nuevoIntento(), {
+            feature: FEATURE, maxSteps: 8, sinFallbackClaude: true, soloSuIA: negocio.suIA,
+            motivo: `app ${intencion.intencion} «${(textoPersona || textoMemoria).slice(0, 60)}»`,
+          });
+          texto = (r.text ?? '').trim();
+          if (texto.startsWith('(')) { fallo = fallo ?? `centinela ${texto.slice(0, 40)}`; texto = ''; }
+          // Contestó su clave: lo de la PC ya no es lo que pasó.
+          if (texto) { fallo = null; falloDeLaPc = null; }
+        } catch (e) {
+          const m = e instanceof Error ? e.message : String(e);
+          // Si había fallado la PC, eso es lo que se le dice; lo de su clave queda en el log.
+          if (falloDeLaPc) console.warn(`[mako-turno-app] ws=${ws} sesión=${s.id}: sin la PC, su clave tampoco: ${m.slice(0, 200)}`);
+          else fallo = m;
+        }
       }
-    } catch (e) {
-      fallo = e instanceof Error ? e.message : String(e);
-    }
-    if (fallo) console.error(`[mako-turno-app] ws=${ws} sesión=${s.id} ${intencion.intencion}: ${fallo.slice(0, 300)}`);
-    // Sin una IA propia no es un bug: es configuración del negocio, y se le pide a la persona (tickets #5 y #6).
-    const sinIA = !falloDeLaPc && faltaIADelNegocio(fallo, fallo ? await iaPropiaDelTurno() : null);
+      if (fallo) console.error(`[mako-turno-app] ws=${ws} sesión=${s.id} ${intencion.intencion}: ${fallo.slice(0, 300)}`);
+      // Lo que falló de SU cuenta (su Claude en pausa, su clave sin crédito) se le dice a la persona: no es un bug.
+      const deSuClave = fallo?.includes(CLAUDE_EN_PAUSA) ? { aviso: CLAUDE_EN_PAUSA, conectar: null }
+        : falloDeSuClave(fallo) ? { aviso: AVISO_SU_CLAVE, conectar: 'anthropic' } : null;
+      // Sin una IA propia no es un bug: es configuración del negocio, y se le pide a la persona (tickets #5 y #6).
+      const sinIA = !falloDeLaPc && !deSuClave && faltaIADelNegocio(fallo, fallo ? await iaPropiaDelTurno() : null);
 
-    // ── Lo que falló de MaKo va SOLO a la Ticketera ─────────────────────────────
-    // Martín (17/10/2026): «córrelo en toda la app: MaKo en los chats de la app... Y todo lo solucionas
-    // automáticamente». Ya no se le propone una tarjeta a la persona: el error se registra (agrupado por huella,
-    // lib/errores-app.ts) y la primera vez es un ticket de bug que va solo al Cerebro. A la persona se le dice SÓLO si
-    // entró, y el aviso de que está arreglado le llega en ESTE hilo. Lo que falló porque el proveedor de IA no
-    // contestó (un 503, el cupo) no es un bug de MaKo: lo descarta `esRuido`. Y el negocio sin una IA propia tampoco:
-    // no se registra, se le pide que conecte la suya (`sinIA`, abajo).
-    const fallasDeMako = [
-      // `etiqueta`: el nombre humano de la operación («Mover un lead de etapa»), para el título que lee el cliente.
-      ...erroresDelTurno.map((e) => ({ nombre: e.herramienta, mensaje: e.error, etiqueta: porId(e.herramienta)?.titulo })),
-      ...(fallo && !sinIA && !falloDeLaPc ? [{ nombre: 'responder', mensaje: fallo, etiqueta: 'contestarte' }] : []),
-    ];
-    if (fallasDeMako.length && !ticketPropuesto) {
-      const quien = await identidadDe(ws, persona.actor).catch(() => null);
-      const r = await registrarError({ origen: 'mako', ...fallasDeMako[0], hilo: String(s.id) }, quien);
-      if (r.ok && r.ticketId) paraLaPersona.push(AVISE_AL_EQUIPO);
-    }
-
-    // ── Lo que sale ────────────────────────────────────────────────────────────
-    const propuestas = await tarjetasVigentes(ws, canalKey, turnStart).catch(() => [] as TarjetaPendiente[]);
-    const pantallas = capturados.map(propuestaDePantalla);
-    const borrador = capturados.find((c) => c.clase === 'borrador') ?? null;
-    const lead = capturados.find((c) => c.clase === 'lead') ?? null;
-
-    let respuesta: string | null = null;
-    let aviso: string | null = avisos.length ? avisos.join(' ') : null;
-    if (texto) {
-      const v = validarRespuestaDoer(texto, { motivoRuta: `→ ${intencion.intencion}`, linkBorrador: borrador?.url ?? null });
-      if (!v.ok && v.razon !== 'sin-borrador' && !borrador) {
-        // Volcó el molde, o anuncia un borrador que nadie creó: eso no se manda.
-        console.error(`[mako-turno-app] ws=${ws} BLOQUEADA (${v.razon}): ${v.detalle}`);
-      } else {
-        respuesta = texto;
+      // ── Lo que falló de MaKo va SOLO a la Ticketera ─────────────────────────────
+      // Martín (17/10/2026): «córrelo en toda la app: MaKo en los chats de la app... Y todo lo solucionas
+      // automáticamente». Ya no se le propone una tarjeta a la persona: el error se registra (agrupado por huella,
+      // lib/errores-app.ts) y la primera vez es un ticket de bug que va solo al Cerebro. A la persona se le dice SÓLO si
+      // entró, y el aviso de que está arreglado le llega en ESTE hilo. Lo que falló porque el proveedor de IA no
+      // contestó (un 503, el cupo) no es un bug de MaKo: lo descarta `esRuido`. Y el negocio sin una IA propia tampoco:
+      // no se registra, se le pide que conecte la suya (`sinIA`, abajo).
+      const fallasDeMako = [
+        // `etiqueta`: el nombre humano de la operación («Mover un lead de etapa»), para el título que lee el cliente.
+        ...erroresDelTurno.map((e) => ({ nombre: e.herramienta, mensaje: e.error, etiqueta: porId(e.herramienta)?.titulo })),
+        ...(fallo && !sinIA && !falloDeLaPc && !deSuClave ? [{ nombre: 'responder', mensaje: fallo, etiqueta: 'contestarte' }] : []),
+      ];
+      if (fallasDeMako.length && !ticketPropuesto) {
+        const quien = await identidadDe(ws, persona.actor).catch(() => null);
+        const r = await registrarError({ origen: 'mako', ...fallasDeMako[0], hilo: String(s.id) }, quien);
+        if (r.ok && r.ticketId) paraLaPersona.push(AVISE_AL_EQUIPO);
       }
-    }
-    // El estado de un dato no depende de cómo le salió la frase al modelo.
-    if (borrador) respuesta = MENSAJE_BORRADOR_APP;
-    else if (lead) respuesta = mensajeLeadApp(lead.nombre);
-    if (respuesta) respuesta = sinLinksDeRevision(respuesta) || null;
-    // ⚠️ SIN GROSERÍAS, COMO EN WHATSAPP (17/10/2026, docs/relevo/mako-en-whatsapp.md §3): la persona de MaKo dice «puedes
-    // putear suave» (lib/mako-persona.ts) y el doer lo corta antes de mandar (`sanearSalida`, lib/doer-salida.ts); este chat
-    // —el de la app y el teléfono de los clientes— no. Se saca la oración, no la respuesta entera (las promesas no: acá la
-    // tarjeta y la pantalla dicen lo que quedó hecho).
-    if (respuesta && !borrador && !lead) {
-      const saneo = sanearSalida(respuesta, { corrioHerramientas: true });
-      if (saneo.groserias.length) console.warn(`[mako-turno-app] ws=${ws} sesión=${s.id}: le saqué una grosería (${saneo.groserias.join(', ')})`);
-      respuesta = saneo.texto;
-    }
-    if (!respuesta && (propuestas.length || pantallas.length)) respuesta = TEXTO_SOLO_TARJETA;
 
-    if (respuesta) {
-      await appendMessage(s.id, 'assistant', respuesta);
-      guardados.push({ role: 'assistant', content: respuesta });
-    }
-    // Sin IA: lo dice MaKo, con el botón que abre el modal de las keys en esta misma pantalla (`conectar`). Salvo en el
-    // workspace del entorno, donde la key que pegara pasaría a ser la de la plataforma (`avisoSinIA`): ahí, sin botón.
-    // Con su computadora conectada pero apagada, no se le pide conectar otra IA: se le dice que la prenda.
-    const sinIAEs = !respuesta && sinIA && !pc
-      ? avisoSinIA(await esNegocioDelEntorno(ws).catch(() => false), iaParaConectar(await iaConFila()))
-      : null;
-    if (!respuesta) {
-      const delaPc = avisoDeLaPc(falloDeLaPc, !!pc && sinIA);
-      aviso = [aviso, delaPc ?? sinIAEs?.aviso ?? AVISO_NO_PUDE].filter(Boolean).join(' ');
-    }
-    let conectar = sinIAEs?.conectar ?? null;
-    // La clave tapada se le dice, con el botón del servicio que se reconoció.
-    if (tapado.tapadas) {
-      aviso = [avisoClaveTapada(tapado.servicio), aviso].filter(Boolean).join(' ');
-      conectar = conectar ?? tapado.servicio;
-    }
-    return { ok: !!respuesta, sesion, mensajes: guardados, aviso, paraLaPersona, propuestas, pantallas, conectar };
+      // ── Lo que sale ────────────────────────────────────────────────────────────
+      const propuestas = await tarjetasVigentes(ws, canalKey, turnStart).catch(() => [] as TarjetaPendiente[]);
+      const pantallas = capturados.map(propuestaDePantalla);
+      const borrador = capturados.find((c) => c.clase === 'borrador') ?? null;
+      const lead = capturados.find((c) => c.clase === 'lead') ?? null;
+
+      let respuesta: string | null = null;
+      let aviso: string | null = avisos.length ? avisos.join(' ') : null;
+      if (texto) {
+        const v = validarRespuestaDoer(texto, { motivoRuta: `→ ${intencion.intencion}`, linkBorrador: borrador?.url ?? null });
+        if (!v.ok && v.razon !== 'sin-borrador' && !borrador) {
+          // Volcó el molde, o anuncia un borrador que nadie creó: eso no se manda.
+          console.error(`[mako-turno-app] ws=${ws} BLOQUEADA (${v.razon}): ${v.detalle}`);
+        } else {
+          respuesta = texto;
+        }
+      }
+      // El estado de un dato no depende de cómo le salió la frase al modelo.
+      if (borrador) respuesta = MENSAJE_BORRADOR_APP;
+      else if (lead) respuesta = mensajeLeadApp(lead.nombre);
+      if (respuesta) respuesta = sinLinksDeRevision(respuesta) || null;
+      // ⚠️ SIN GROSERÍAS, COMO EN WHATSAPP (17/10/2026, docs/relevo/mako-en-whatsapp.md §3): la persona de MaKo dice «puedes
+      // putear suave» (lib/mako-persona.ts) y el doer lo corta antes de mandar (`sanearSalida`, lib/doer-salida.ts); este chat
+      // —el de la app y el teléfono de los clientes— no. Se saca la oración, no la respuesta entera (las promesas no: acá la
+      // tarjeta y la pantalla dicen lo que quedó hecho).
+      if (respuesta && !borrador && !lead) {
+        const saneo = sanearSalida(respuesta, { corrioHerramientas: true });
+        if (saneo.groserias.length) console.warn(`[mako-turno-app] ws=${ws} sesión=${s.id}: le saqué una grosería (${saneo.groserias.join(', ')})`);
+        respuesta = saneo.texto;
+      }
+      if (!respuesta && (propuestas.length || pantallas.length)) respuesta = TEXTO_SOLO_TARJETA;
+
+      if (respuesta) {
+        await appendMessage(s.id, 'assistant', respuesta);
+        guardados.push({ role: 'assistant', content: respuesta });
+      }
+      // Sin IA: lo dice MaKo, con el botón que abre el modal de las keys en esta misma pantalla (`conectar`). Salvo en el
+      // workspace del entorno, donde la key que pegara pasaría a ser la de la plataforma (`avisoSinIA`): ahí, sin botón.
+      // Con su computadora conectada pero apagada, no se le pide conectar otra IA: se le dice que la prenda. Y en un negocio
+      // que corre con su propio Claude (D6b), a quien no conectó su computadora se le dice dónde (no que conecte Gemini).
+      const sinIAEs = !respuesta && sinIA && !pc
+        ? negocio.suIA && negocio.conPc
+          ? { aviso: AVISO_CONECTA_TU_PC, conectar: null }
+          : avisoSinIA(await esNegocioDelEntorno(ws).catch(() => false), iaParaConectar(await iaConFila(), negocio.suIA))
+        : null;
+      if (!respuesta) {
+        const tzAviso = falloDeLaPc === 'tope' ? await tzDeWorkspace(ws).catch(() => TZ_DEFAULT) : TZ_DEFAULT;
+        const delaPc = avisoDeLaPc(falloDeLaPc, false, { repone: reponeDeLaPc, tz: tzAviso });
+        aviso = [aviso, delaPc ?? deSuClave?.aviso ?? sinIAEs?.aviso ?? AVISO_NO_PUDE].filter(Boolean).join(' ');
+      }
+      let conectar = sinIAEs?.conectar ?? (respuesta ? null : deSuClave?.conectar ?? null);
+      // La clave tapada se le dice, con el botón del servicio que se reconoció.
+      if (tapado.tapadas) {
+        aviso = [avisoClaveTapada(tapado.servicio), aviso].filter(Boolean).join(' ');
+        conectar = conectar ?? tapado.servicio;
+      }
+      return { ok: !!respuesta, sesion, mensajes: guardados, aviso, paraLaPersona, propuestas, pantallas, conectar };
+    });
   });
 }
 

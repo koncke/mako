@@ -24,7 +24,10 @@ type Turno = NonNullable<Awaited<ReturnType<typeof turnoDelToken>>>;
 const error = (id: unknown, code: number, message: string) => ({ jsonrpc: '2.0', id: id ?? null, error: { code, message } });
 const texto = (id: unknown, t: string, esError: boolean) => ({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: t }], isError: esError } });
 
-async function atender(m: Rpc, t: Turno): Promise<Record<string, unknown> | null> {
+/** Lo que una herramienta puede esperar en este pedido: el `maxDuration` menos un margen para contestar. */
+const PLAZO_MS = (maxDuration - 10) * 1000;
+
+async function atender(m: Rpc, t: Turno, inicio: number): Promise<Record<string, unknown> | null> {
   if (!m || typeof m !== 'object' || m.jsonrpc !== '2.0' || typeof m.method !== 'string') return error(m?.id, -32600, 'pedido inválido');
   const esAviso = m.id === undefined || m.id === null;
   const params = (m.params && typeof m.params === 'object' ? m.params : {}) as Record<string, unknown>;
@@ -48,7 +51,10 @@ async function atender(m: Rpc, t: Turno): Promise<Record<string, unknown> | null
       const entrada = (params.arguments && typeof params.arguments === 'object' ? params.arguments : {}) as Record<string, unknown>;
       // Lo que no viajó en este turno no corre, aunque el modelo lo pida (la misma regla que `runTool`).
       if (!t.tools.some((x) => x.name === nombre)) return texto(m.id, `«${nombre}» no está disponible en este turno.`, true);
-      const r = await pedirLlamada(t.id, nombre, entrada);
+      // Espera lo que le queda a ESTA ruta (y al turno), no 60 s fijos: el turno corre las herramientas de a una, y una
+      // que arrancaba pasado el minuto se informaba «no se corrió» y se corría igual (revisión del 21/10/2026).
+      const queda = Math.min(PLAZO_MS - (Date.now() - inicio), Date.parse(t.venceAt) - Date.now());
+      const r = await pedirLlamada(t.id, nombre, entrada, Math.max(1_000, queda));
       return r ? texto(m.id, r.salida, r.esError) : texto(m.id, 'El turno ya no espera: no se corrió.', true);
     }
     default:
@@ -57,7 +63,13 @@ async function atender(m: Rpc, t: Turno): Promise<Record<string, unknown> | null
 }
 
 export async function POST(req: NextRequest) {
-  const t = await turnoDelToken(bearer(req.headers.get('authorization'))).catch(() => null);
+  const inicio = Date.now();
+  let t: Turno | null;
+  try { t = await turnoDelToken(bearer(req.headers.get('authorization'))); } catch (e) {
+    // «No pude leer» no es «no hay»: 503, y el cliente MCP de Claude reintenta.
+    console.error('[ia-pc/mcp]', e instanceof Error ? e.message : String(e));
+    return NextResponse.json(error(null, -32002, 'MaKo no pudo leer ahora: reintenta'), { status: 503, headers: { 'retry-after': '2' } });
+  }
   if (!t) return NextResponse.json(error(null, -32001, 'token del turno inválido o vencido'), { status: 401 });
   // Por turno: un turno de 12 vueltas pide decenas de herramientas, no cientos.
   const frenado = limitePorClave('ia-pc-mcp', t.id, 120, 60_000);
@@ -68,7 +80,7 @@ export async function POST(req: NextRequest) {
   const pedidos = (lote ? cuerpo : [cuerpo]) as Rpc[];
   const respuestas: Array<Record<string, unknown>> = [];
   for (const m of pedidos.slice(0, 20)) {
-    const r = await atender(m, t);
+    const r = await atender(m, t, inicio);
     if (r) respuestas.push(r);
   }
   // Sólo avisos (`notifications/initialized`): 202 sin cuerpo, como pide MCP.

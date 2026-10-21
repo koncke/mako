@@ -18,6 +18,10 @@
 //
 // NO es pública (no va a lib/rutas-publicas.ts): exige sesión y workspace. Llama a una IA gratis sólo cuando las
 // reglas dudan (lib/mako-pedidos-ia.ts), con un plazo corto: por eso el límite por persona.
+//
+// ⛔ Dos reglas del turno valen también acá, porque el chat manda el mensaje CRUDO, en paralelo al turno (revisión del
+// Cerebro, 21/10/2026): una clave pegada se TAPA antes de mirarlo (pieza 1.6, lib/claves-en-el-chat.ts), y un negocio con
+// su Claude o su GPT (D6b, lib/ia-del-negocio.ts) se queda con las reglas o con su OpenAI: nunca la cascada gratis.
 // =============================================================================
 
 import { getUsuarioActual } from '@/lib/auth';
@@ -36,6 +40,9 @@ import { listarDisenos } from '@/lib/image-editor/server';
 import { leerInformeGeneral, leerTablero } from '@/lib/graficos-tablero';
 import { hojasVisibles } from '@/lib/graficos-catalogo';
 import { interpretarMensaje } from '@/lib/mako-pedidos-ia';
+import { taparClaves } from '@/lib/claves-en-el-chat';
+import { negocioConSuIA } from '@/lib/ia-del-negocio';
+import { conSoloSuIA } from '@/lib/solo-su-ia';
 import { TABS_CON_OBJETOS_EN_EL_NAVEGADOR, objetosDelNavegador, productoDelPedido } from '@/lib/mako-pedidos';
 import type { ContextoPedidos, ObjetoChat, OperacionChat, OrdenarOperaciones, PedidoResuelto } from '@/lib/mako-pedidos';
 import { listProductos } from '@/lib/productos';
@@ -154,7 +161,7 @@ export async function POST(req: Request) {
 
   let body: { texto?: unknown; tab?: unknown; actualId?: unknown; actualNombre?: unknown; objetos?: unknown };
   try { body = await req.json(); } catch { return err(400, 'Pedido inválido.'); }
-  const texto = typeof body?.texto === 'string' ? body.texto.trim() : '';
+  const texto = typeof body?.texto === 'string' ? taparClaves(body.texto).texto.trim() : '';
   if (!texto) return err(400, 'Falta el mensaje.');
   if (texto.length > MAX_TEXTO) return err(400, 'El mensaje es muy largo.');
   const tab = typeof body.tab === 'string' && esArea(body.tab) ? body.tab : null;
@@ -176,7 +183,8 @@ export async function POST(req: Request) {
       : null;
 
     const ctx: ContextoPedidos = { tab, actual, objetos, operaciones, ws, ordenar };
-    const r = await interpretarMensaje(texto, ctx);
+    const negocio = await negocioConSuIA(ws);
+    const r = await conSoloSuIA(negocio.suIA, () => interpretarMensaje(texto, ctx));
     return Response.json({ ok: true, ...r, pedidos: await conProductos(r.pedidos, rol) });
   } catch (e) {
     console.error(`[api:mako/pedidos] ${msg(e)}`);

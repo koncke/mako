@@ -31,7 +31,7 @@ const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').repl
 const TODAS = { general: true, integraciones: true, metodo: true, plan: true };
 
 test('las dos listas: el orden y los rótulos que aprobó Martín', () => {
-  assert.deepEqual(SECCIONES_CUENTA.map((s) => s.label), ['Información personal', 'Seguridad', 'Notificaciones', 'Instalar la app']);
+  assert.deepEqual(SECCIONES_CUENTA.map((s) => s.label), ['Información personal', 'Seguridad', 'Notificaciones', 'Instalar la app', 'Tus cuentas de IA']);
   // «Tu plan» se sumó el 15/10/2026: cancelar uno mismo el plan de MaKo, como todo SaaS (lo decidió Estrategia).
   assert.deepEqual(seccionesNegocio(TODAS).map((s) => s.label), ['General', 'Equipo', 'Integraciones', 'Notificaciones', 'Identidades fiscales', 'Tu plan', 'Método']);
   // Sin General (hoy, quien no es el super admin), sin Integraciones (no lo compró) y sin Método (no es la agencia).
@@ -68,7 +68,7 @@ test('cada sección es su ruta, y su página marca su lugar en el índice', () =
 });
 
 test('«Tu cuenta» es de todos los roles; «Configuración del negocio», de quien administra', () => {
-  for (const f of ['app/perfil/page.tsx', 'app/perfil/notificaciones/page.tsx', 'app/perfil/instalar/page.tsx']) {
+  for (const f of ['app/perfil/page.tsx', 'app/perfil/notificaciones/page.tsx', 'app/perfil/instalar/page.tsx', 'app/perfil/ia/page.tsx']) {
     assert.match(sinComentarios(leer(f)), /await requireRolWs\(\['closer', 'setter'\]\);/, `${f} echa a closers y setters de lo suyo`);
   }
   for (const f of ['app/configuraciones/page.tsx', 'app/configuraciones/notificaciones/page.tsx', 'app/configuraciones/fiscal/page.tsx', 'app/equipo/page.tsx']) {
@@ -80,7 +80,7 @@ test('el celular dice lo mismo: el título, las secciones y la ruta de Seguridad
   assert.equal(TITULO_TELEFONO, TITULO_CUENTA);
   const cuenta = sinComentarios(leer('app/m/cuenta/CuentaM.tsx'));
   assert.match(cuenta, /import \{ SECCIONES_CUENTA \} from '@\/lib\/ajustes-secciones';/);
-  for (const k of ['info', 'seguridad', 'notificaciones', 'instalar']) assert.ok(cuenta.includes(`ROTULO.${k}`), `el teléfono no muestra «${k}» con el rótulo de la computadora`);
+  for (const k of ['info', 'seguridad', 'notificaciones', 'instalar', 'ia']) assert.ok(cuenta.includes(`ROTULO.${k}`), `el teléfono no muestra «${k}» con el rótulo de la computadora`);
   assert.doesNotMatch(cuenta, /titulo="(Perfil|Instalar MaKo|Seguridad|Notificaciones)"/, 'un rótulo escrito a mano en el teléfono');
   assert.equal(rutaMovil('/perfil/seguridad'), '/m/cuenta/seguridad');
   assert.equal(rutaEscritorio('/m/cuenta/seguridad'), '/perfil/seguridad');
