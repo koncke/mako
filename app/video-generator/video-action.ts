@@ -57,6 +57,7 @@ import { personaEstado, addPersonaFoto } from '@/lib/persona';
 import { caraDeFoto } from '@/lib/flow-cara';
 import { guardarSaldo, leerSaldoGuardado, guardarCostoMedido, type SaldoFlow } from './saldo-datos';
 import { leerPlan, porQueNoSirveElPlan, type Plan } from './plan-montaje';
+import { planParaRemontar } from '@/lib/montaje/cola';
 import { pistaPorId } from '@/lib/musica-catalogo';
 
 async function ctxAdmin(): Promise<{ ok: true; ws: number } | { ok: false; error: string }> {
@@ -2252,9 +2253,10 @@ export async function cambiarMuletillasAction(
 }
 
 // ── El montaje: pegar las tomas y devolver el anuncio ────────────────────────
-// El pipeline corre en un contenedor propio (worker/), no acá: encadena ~15
-// invocaciones de ffmpeg y un render son ~25 s de CPU. Esto sólo encola y
-// consulta.
+// El pipeline no corre acá: encadena ~15 invocaciones de ffmpeg y un render. Lo
+// corre el cron de la cola (app/api/cron/montaje, cada 2 minutos), que además da
+// de baja lo que quedó en la fila más de `VENCE_HORAS` (lib/montaje/cola.ts).
+// Esto sólo encola y consulta.
 
 export type EstadoMontaje =
   | { fase: 'sin_empezar' }
@@ -2329,6 +2331,21 @@ export async function montarAnuncioAction(
     .limit(1)
     .maybeSingle();
   if (vivo?.id) return { ok: true, id: Number(vivo.id) };
+
+  // ⚠️ «MONTAR DE NUEVO» NO PIERDE LOS CORTES EDITADOS. Sin plan, se usan los del ÚLTIMO trabajo de este anuncio si
+  // falló y las tomas son exactamente las mismas (lib/montaje/cola.ts → planParaRemontar); si no, el detector los
+  // calcula solo sobre las tomas de ahora, como siempre.
+  if (!plan) {
+    const { data: previo } = await db
+      .from('montaje_trabajos')
+      .select('estado, motivo, pedido')
+      .eq('plan_id', planId)
+      .order('id', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const anterior = leerPlan(planParaRemontar(previo, { clips, segundosPorToma: item.plan.clips.map((c) => c.segundos) }));
+    if (anterior && !porQueNoSirveElPlan(anterior, item.plan.clips.length, item.plan.clips.map((c) => c.segundos))) plan = anterior;
+  }
 
   // ⚠️ UN PLAN EDITADO SE VALIDA ANTES DE ENCOLARLO. Un tramo invertido o
   // negativo no hace fallar a ffmpeg: `trim=3:1` produce un segmento VACÍO y el

@@ -422,6 +422,8 @@ const textoValido = (x: unknown): string | null => {
 const enRango = (n: number | null, min: number, max: number): n is number => n !== null && n >= min && n <= max;
 /** Los tiempos se guardan a la centésima: lo que la IA mande con más decimales no cambia nada. */
 const centesima = (n: number) => Math.round(n * 100) / 100;
+/** El margen del punto flotante al comparar centésimas (2.15 - 2.1 da 0.0499…). */
+const EPS = 1e-9;
 const decima = (n: number) => Math.round(n * 10) / 10;
 
 /** «Ninguna» / «ninguno» / null: sacar lo que haya. */
@@ -643,7 +645,8 @@ export function validarOperacion(raw: unknown): Validada {
       if (!esRef(ref) || (inicio === undefined && fin === undefined)) return { ok: false, motivo: 'un recorte sin bordes' };
       if (inicio !== undefined && !enRango(inicio, 0, TOPES_CHAT.tiempoMax)) return { ok: false, motivo: 'un recorte con un inicio inválido' };
       if (fin !== undefined && !enRango(fin, 0, TOPES_CHAT.tiempoMax)) return { ok: false, motivo: 'un recorte con un fin inválido' };
-      if (inicio != null && fin != null && fin - inicio < TOPES_CHAT.duracionMin) return { ok: false, motivo: 'un recorte que deja el clip sin largo' };
+      // DESPUÉS de redondear (con un margen por el punto flotante): validar lo ya validado tiene que dar lo mismo.
+      if (inicio != null && fin != null && centesima(fin) - centesima(inicio) < TOPES_CHAT.duracionMin - EPS) return { ok: false, motivo: 'un recorte que deja el clip sin largo' };
       return { ok: true, op: { op: 'recortar', ref, ...(inicio != null ? { inicio: centesima(inicio) } : {}), ...(fin != null ? { fin: centesima(fin) } : {}) } };
     }
     case 'volumen': {
@@ -806,7 +809,10 @@ export function validarOperacion(raw: unknown): Validada {
       const inicio = numero(raw.inicio);
       const fin = numero(raw.fin);
       if (!enRango(inicio, 0, TOPES_CHAT.tiempoMax) || !enRango(fin, 0, TOPES_CHAT.tiempoMax)) return { ok: false, motivo: 'un corte de tramo sin tiempos válidos' };
-      if (fin - inicio < 0.05) return { ok: false, motivo: 'un corte de tramo que termina antes de empezar' };
+      // ⚠️ DESPUÉS de redondear (tercera revisión del 21/10): 2.104 → 2.155 pasaba (0.051), se guardaba como 2.1 → 2.15
+      // y al volver a validarlo (el GET de las propuestas, el editor) daba 0.0499… y se tiraba. Esa operación quedaba
+      // invisible para el editor y su propuesta no se podía cerrar nunca.
+      if (centesima(fin) - centesima(inicio) < 0.05 - EPS) return { ok: false, motivo: 'un corte de tramo que termina antes de empezar' };
       return { ok: true, op: { op: 'cortar_tramo', inicio: centesima(inicio), fin: centesima(fin) } };
     }
     case 'eliminar_muletillas':
