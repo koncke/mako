@@ -2074,6 +2074,31 @@ Probado en `tests/chat-bloques.test.ts`, que confirma `crear_diseno_imagen` de p
   (G5) y `cambiar_textos_diseno_imagen` (G4).
 - El «Abrir» lleva a la ruta de la computadora también en el teléfono: la 1.8.
 
+## Varios selectores en el hilo: a cuál contesta cada mensaje (21/10/2026, `conRespuestas`)
+
+Lo encontraron las revisiones del Web Generator (piezas 1.12 y 1.15): «armame una landing» deja en el MISMO mensaje el G2
+de diseños (lo que dibuja una lectura) y el G1 «¿Para qué producto es?» (la pregunta), porque mako-turno-app guarda
+`[...dibujos, pregunta]`. `conRespuestas` (app/m/mako/chat-ui.ts) cerraba todo selector con el primer mensaje que lo
+seguía, así que tocar «Mentoría» apagaba los diseños con «Respondiste: Mentoría». Lo usan TODAS las pantallas del chat
+(HiloMako, ChatMako del teléfono, ChatMakoCrm, MakoAnalystLead): un error acá pega en Pagos, CRM, Dashboard y el resto.
+- **La regla:** cada mensaje de la persona cierra los selectores abiertos de los que es, o sea lo que manda un toque
+  suyo. Si es de uno del turno ACTUAL (los que vinieron después del mensaje anterior de la persona), sólo ése: un
+  «Saltear» de la pregunta nueva no cierra las viejas. Si no es de ninguno, escribir contesta, como siempre, pero sólo
+  si en el turno actual hay UNO abierto; con varios, quedan abiertos (abierto de más cuesta poco). Un selector de un
+  turno anterior sigue esperando, pero sólo un toque SUYO lo cierra.
+- **La trampa, una regresión en la vuelta del arreglo:** que el selector viejo siga esperando estaba bien, pero contarlo
+  para «hay uno solo abierto» rompió escribir. Después de tocar «Mentoría», el G2 de diseños queda abierto a propósito,
+  y desde ahí ninguna pregunta de la sesión (de ningún área) se cerraba escribiendo. La red «escribir contesta» es del
+  turno actual; la espera de un selector viejo es sólo para lo suyo.
+- **Lo que manda cada botón tiene que decir de cuál vino.** El G1 y el G2 tenían los mismos «Elige tú» y «Saltear», y el
+  del G1 cerraba el G2. Ahora el G2 manda «Diseño: saltear» (lib/editor-landing/bloques-web.ts, la misma fuente que
+  usa su botón) y el G1 los suyos de una constante del marco (`ELIGE_TU_PREGUNTA`, `SALTEAR_PREGUNTA` en
+  lib/chat-bloques.ts), la misma que reconoce el hilo.
+- **«Listo» con varias se reconoce armándolo como el botón** (títulos en el orden de las opciones, unidos con «, »), no
+  partiendo por comas: un título puede tener una («Precios, planes»).
+- **SIN hacer:** en los hilos guardados antes de que el G2 mandara «Diseño: saltear», un «Saltear» pelado tocado en el
+  G2 se lo lleva el G1 al recargar. Es sólo historia y son pocos hilos (el G2 junto al G1 existe desde el 21/10).
+
 ## «Abrir en la app», y lo confirmado afuera vuelve al hilo (20/10/2026, ola 1, pieza 1.8)
 
 **Vive en:** `linksDeUnaAccion`, `rutaConQuery`, `propuestaDePantalla` y `abrirDeResultado` en
