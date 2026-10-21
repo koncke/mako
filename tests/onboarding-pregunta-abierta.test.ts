@@ -26,8 +26,12 @@ test('una pregunta de MaKo sin contestar está abierta; la respuesta o el cierre
   assert.equal(preguntaAbierta([]), false);
 });
 
-test('el arranque no da por sabido lo que vende con una pregunta abierta', () => {
+// Desde el 20/10/2026 (Florencia) la pregunta abierta ya no frena el PDF: con las piezas, el turno lo escribe el CÓDIGO y es
+// «¡Gracias!», sin pregunta (tests/onboarding-corte-codigo.test.ts). Esperar a que el modelo dejara de preguntar la tuvo
+// 10 minutos más contestando lo que ya había dicho.
+test('el arranque da por sabido lo que vende con las piezas, y el turno que cierra no pregunta', () => {
   const srv = readFileSync(join(RAIZ, 'lib/onboarding-arranque-server.ts'), 'utf8').replace(/\r\n/g, '\n');
-  assert.match(srv, /loQueVende: !!sesion && faltanDelArranque\(sesion\.piezas\)\.length === 0 && !preguntaAbierta\(sesion\.mensajes\),/,
-    'con las piezas completas y la pregunta sin contestar, salía el PDF y la etapa siguiente');
+  assert.match(srv, /loQueVende: !!sesion && faltanDelArranque\(sesion\.piezas\)\.length === 0,/);
+  const ruta = readFileSync(join(RAIZ, 'app/api/offer/route.ts'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(ruta, /const m = cierra \? mensajeDeCierreDelArranque\(/, 'con las piezas, el que pregunta de más es el modelo');
 });

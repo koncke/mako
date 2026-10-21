@@ -9,10 +9,13 @@
 
 import 'server-only';
 import { capaDef } from './capas';
-import { getSetting, getSettingEstricto, setSetting } from './settings';
-import { getCapaActual, getWorkspace, getWorkspaceActual, actualizarWorkspace } from './workspace';
+import { cambiarSettingSi, getSetting, getSettingEstricto, setSetting } from './settings';
+import { estaImpersonando, getCapaActual, getTenantDb, getWorkspace, getWorkspaceActual, actualizarWorkspace } from './workspace';
+import { OWNER_WS } from './auth-session';
+import { contarAdminsClienteActivos } from './usuarios';
 import { getSesionAdmin, getUsuarioActual } from './auth';
 import { CLAVE_GUARDIA, parseGuardia } from './onboarding-guardia';
+import { wsDelOnboarding } from './onboarding-guard';
 import { getPerfil, setPerfil } from './perfil';
 import { getDiagnosticoFase } from './fase-store';
 import { PREGUNTAS, esCanal } from './fase-diagnostico';
@@ -21,19 +24,24 @@ import { getEstadoVerificacionContacto } from './mako-grupo';
 import { getContactoReportes } from './perfil';
 import { integracionConectada } from './credenciales';
 import { leerSesion, leerFila, guardarComoOferta } from './offer-sesiones';
+import { createSession, deleteSession, listSessions } from './chart-chats';
+import { chartKeyDePersona } from './mako-turno-app-reglas';
 import { estadoDiagnostico } from './offer-reglas';
 import { crearFunnel, getFunnelDefault, idDelFunnelDefault, renombrarFunnel, saveFunnelDefault } from './funnels';
 import { FUNNEL_DEFAULT_NOMBRE } from './funnel-fila';
 import { DEFAULT_PIPELINE, apagadasAlCrear, mismoPipeline, siembraDeCrm, tipoCrmPorId, type TipoCrmId } from './pipeline';
+import { candidatosCrm, etapasConNombres, type PropuestaCrm } from './onboarding-crm';
+import type { CanalId } from './fase-diagnostico';
 import { listProductos, upsertProducto } from './productos';
 import { ANSWERS_KEY, saveAnswers } from './onboarding';
 import { borrarBinario, insertFile, listFiles, mapaParaEscribir, subirBinario } from './archivero';
 import { idDeContenido } from './archivero-registro';
 import { nombreArchivoLoQueVendes, pdfDeLoQueVendes } from './lo-que-vendes-pdf';
 import { tzDeWorkspace } from './timezone';
-import { faltanDelArranque, preguntaAbierta, type OfferSesionVista, type PiezasSabidas } from './offer-marco';
+import { NOMBRE_WS_PRUEBA } from './reset-workspace';
+import { faltanDelArranque, type OfferSesionVista, type PiezasSabidas } from './offer-marco';
 import {
-  CLAVE_ENCUESTA, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, sinMarca,
+  CLAVE_ENCUESTA, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, TITULO_HILO, decisionDelHilo, contextoDelHilo, cobroDelPrecio, mensajesDelHilo, pisaElNombreDelPerfil, sinMarca, notaDelPdf,
   type EstadoArranque, type EtapaArranque, type HechosArranque, type MensajeArranque, type ModoArranque,
 } from './onboarding-arranque';
 
@@ -67,6 +75,93 @@ export async function guardarEstadoArranque(patch: Partial<EstadoArranque>): Pro
   }
   await setSetting(CLAVE, JSON.stringify(nuevo));
   return nuevo as EstadoArranque;
+}
+
+/**
+ * Los mensajes del chat «Onboarding», con lecturas ESTRICTAS: si la conversación de Offer o el estado del onboarding no se
+ * pudieron leer, tira y no se escribe nada (AGENTS.md: una lectura que cae al default no decide). Sin esto se guardaba una
+ * copia a medias para siempre: sin la conversación de lo que vende, o con «Un gusto, . ¿Cómo se llama tu negocio?».
+ */
+async function mensajesParaElHilo(e: EstadoArranque): Promise<Array<{ role: 'user' | 'assistant'; content: string }>> {
+  const h = await hechosDelArranque(e);
+  if (!h.terminado) throw new Error('El onboarding todavía no terminó (o no se pudo leer su estado): no armo el chat.');
+  if (e.sesionId && (h.sesionCaida || !h.sesion)) throw new Error('No pude leer la conversación del onboarding: no armo el chat a medias.');
+  const { antes, despues } = mensajesDeArranque(e, h);
+  return mensajesDelHilo([...antes, ...(h.sesion?.mensajes ?? []), ...despues], e.interes);
+}
+
+/**
+ * El chat «Onboarding» del Ops Center con la conversación del arranque, TAL CUAL (20/10/2026). Una sola vez y para quien
+ * contestó el onboarding (`dueno`; sin dueño anotado, sólo si el negocio tiene un admin). Va a su chart_key (el del chat
+ * del Ops Center y el de /m/mako). Si la persona no tenía chats, primero se crea el principal (el más viejo es el jefe,
+ * «Second Brain»), para que éste quede como «Onboarding» y no como el principal.
+ *
+ * ⚠️ SIN CARRERA (revisión del Cerebro, 20/10): «Entrar a MaKo» o un F5 durante el POST corrían el Ops Center a la vez y
+ *    quedaban dos «Onboarding» y dos vacíos, o se entraba a uno a medio copiar. Ahora: una RESERVA con compare-and-set
+ *    sobre el estado (`hiloCreando`, quien no la gana no crea), los mensajes en UN insert, y `hiloChat` recién al final.
+ *    Un chat marcado (`contextoDelHilo`) sin `hiloChat` es uno que quedó a medias: se borra y se rehace.
+ * Devuelve el id del chat de esta persona, o null si no le toca (o si otro lo está armando).
+ */
+export async function hiloDelOnboarding(): Promise<number | null> {
+  // Mirando a un cliente, NO: el chat quedaría con el chart_key del super admin. Se crea cuando entra el cliente.
+  if (await estaImpersonando().catch(() => true)) return null;
+  const ws = await getWorkspaceActual();
+  if (ws == null || ws === OWNER_WS) return null;
+  const persona = await getUsuarioActual();
+  const chartKey = persona ? chartKeyDePersona(persona) : null;
+  if (!chartKey) return null;
+  const raw = await getSettingEstricto(CLAVE);
+  const previo = parseEstado(raw);
+  const unSoloAdmin = previo.dueno ? false : (await contarAdminsClienteActivos(ws)) === 1;
+  const decision = decisionDelHilo(previo, chartKey, { ahora: Date.now(), unSoloAdmin });
+  if (decision === 'listo') return !previo.hiloDe || previo.hiloDe === chartKey ? previo.hiloChat ?? null : null;
+  if (decision !== 'crear') return null;
+  // La reserva: si el estado cambió desde que lo leímos (otra pestaña reservó), no se crea nada.
+  const reservado = JSON.stringify({ ...previo, hiloCreando: { at: new Date().toISOString(), por: chartKey } });
+  if (!raw || !(await cambiarSettingSi(CLAVE, raw, reservado))) return null;
+  try {
+    const mensajes = await mensajesParaElHilo(previo);
+    const marca = contextoDelHilo(previo.sesionId);
+    const sesiones = await listSessions(chartKey, true);
+    for (const s of sesiones.filter((x) => x.contexto === marca)) await deleteSession(s.id);
+    if (!sesiones.some((s) => !s.archived && s.contexto !== marca)) await createSession(chartKey, null, null);
+    const hilo = await createSession(chartKey, TITULO_HILO, marca);
+    try {
+      const db = await getTenantDb();
+      // Cada mensaje con su hora, creciente (cuarta revisión, 21/10): en UN insert todas las filas llevaban el mismo now(),
+      // y el chat se lee ordenado sólo por esa hora: los empates salían en el orden físico de la tabla, desordenados.
+      const t0 = Date.now() - mensajes.length;
+      const { error } = await db.from('chart_chats').insert(mensajes.map((m, i) => ({
+        session_id: hilo.id, role: m.role, content: m.content, created_at: new Date(t0 + i).toISOString(),
+      })));
+      if (error) throw new Error(`No pude copiar la conversación del onboarding: ${error.message}`);
+      await db.from('chart_sessions').update({ updated_at: new Date().toISOString() }).eq('id', hilo.id);
+    } catch (err) {
+      await deleteSession(hilo.id).catch(() => {});
+      throw err;
+    }
+    await guardarEstadoArranque({ hiloChat: hilo.id, hiloDe: chartKey, hiloAt: new Date().toISOString(), hiloCreando: undefined, ...(previo.dueno ? {} : { dueno: chartKey }) });
+    return hilo.id;
+  } catch (err) {
+    await guardarEstadoArranque({ hiloCreando: undefined }).catch(() => {});
+    throw err;
+  }
+}
+
+/**
+ * El chat «Onboarding» para quien terminó ANTES de que existiera (20/10/2026, Florencia, ws21: terminó el 18/10 y su Ops
+ * Center tenía 0 chats). /onboarding redirige a quien ya terminó, así que el final del onboarding no le llega nunca: se
+ * crea en su primera visita al Ops Center. Con la MISMA regla que el final: sólo el onboarding de la oferta (el Project
+ * Manager entra a /plan), sólo con el onboarding terminado y sólo para su dueño (`hiloDelOnboarding`). Devuelve el id
+ * sólo si lo creó ahora.
+ */
+export async function hiloParaQuienYaTermino(): Promise<number | null> {
+  const e = parseEstado(await getSettingEstricto(CLAVE));
+  if (e.hiloChat || (!e.nombre && !e.sesionId)) return null;
+  if (!capaDef(await getCapaActual()).onboarding.includes('productos')) return null;
+  if ((await getEstadoOnboarding()).status !== 'done') return null;
+  if ('error' in (await wsDelOnboarding())) return null;
+  return hiloDelOnboarding();
 }
 
 export type HechosServer = HechosArranque & {
@@ -104,11 +199,16 @@ export async function hechosDelArranque(e: EstadoArranque): Promise<HechosServer
   return {
     modo,
     nombreCuenta: perfil?.nombre ?? '',
-    nombreWorkspace: w?.nombre ?? '',
+    // El nombre del ws de prueba no se ofrece como «tu negocio» (lo pone el RESET: lib/reset-workspace.ts).
+    nombreWorkspace: w?.nombre && w.nombre !== NOMBRE_WS_PRUEBA ? w.nombre : '',
     faseGuardada: diag != null,
     canalNegocio: diag?.canal && esCanal(diag.canal) ? diag.canal : null,
-    // Con una pregunta de MaKo sin contestar, todavía no: la pregunta pendiente manda (18/10/2026, `preguntaAbierta`).
-    loQueVende: !!sesion && faltanDelArranque(sesion.piezas).length === 0 && !preguntaAbierta(sesion.mensajes),
+    // Con las piezas, sí. Ya no espera a que el modelo deje de preguntar (`preguntaAbierta`, 18/10): con las piezas el turno
+    // que cierra lo escribe el código (app/api/offer/route.ts → mensajeDeCierreDelArranque), y esperar al modelo hizo que
+    // Florencia contestara 6 preguntas de más (20/10/2026).
+    loQueVende: !!sesion && faltanDelArranque(sesion.piezas).length === 0,
+    // Cómo cobra, leído del precio que contó: se PROPONE y se confirma con un toque (etapa 'cobro', cuarta revisión, 21/10).
+    cobroLeido: sesion && sinMarca(sesion.piezas?.precio?.valor) ? cobroDelPrecio(sinMarca(sesion.piezas?.precio?.valor)) : null,
     // Lo que ya contestó del diagnóstico en la conversación de la oferta: el arranque no lo repite.
     faseOffer: sesion ? (({ respuestas, canal }) => ({ respuestas, canal }))(estadoDiagnostico(sesion.mensajes, { canal: null, yaGuardado: false })) : null,
     conCrm: modo === 'oferta',
@@ -143,6 +243,8 @@ export type VistaArranque = {
   telefonoNumero: string;
   /** El tipo de CRM elegido, para la tarjeta. */
   crmTipo: TipoCrmId | null;
+  /** El CRM a medida que armó MaKo (lib/onboarding-crm.ts): la tarjeta muestra sus etapas con esos nombres. */
+  crmPropuesta: PropuestaCrm | null;
   /** El canal con el que se propone el CRM. */
   canal: HechosArranque['canalNegocio'];
   /** Lo que quiere resolver primero: decide a qué pestaña entra al terminar (`rutaDeEntrada`). */
@@ -175,6 +277,7 @@ export async function vistaArranque(): Promise<VistaArranque> {
     nombre: e.nombre ?? '',
     telefonoNumero: e.telefonoNumero ?? '',
     crmTipo: e.crmTipo ?? null,
+    crmPropuesta: e.crmPropuesta ?? null,
     canal: h.canalNegocio,
     interes: e.interes ?? null,
     bloqueo: guardia.bloqueo ? { at: guardia.bloqueo.at, motivo: guardia.bloqueo.motivo } : null,
@@ -182,8 +285,15 @@ export async function vistaArranque(): Promise<VistaArranque> {
   };
 }
 
-/** Escribe el nombre que eligió en su perfil (best-effort: ya quedó en la conversación). */
+/**
+ * Escribe el nombre que dijo en su perfil (best-effort: ya quedó en la conversación), SÓLO si el perfil no tiene uno de
+ * verdad (vacío o un email). Lo que se lee de lo escrito se recorta con reglas y no se confirma: pisaba el nombre completo
+ * que trajo Google («María del Carmen Pérez» quedaba «María», cuarta revisión, 21/10). Para saludar alcanza el estado.
+ */
 export async function guardarNombre(nombre: string): Promise<void> {
+  let actual: string | null | undefined;
+  try { actual = (await getPerfil())?.nombre; } catch { return; /* sin leer el perfil no se decide pisarlo */ }
+  if (!pisaElNombreDelPerfil(actual)) return;
   try { await setPerfil({ nombre }); } catch (err) { console.error('[arranque] nombre:', err instanceof Error ? err.message : err); }
 }
 
@@ -200,9 +310,11 @@ export async function guardarNombreNegocio(nombre: string): Promise<void> {
  * secundario arrancaría vacío. Se siembra sólo si está INTACTO (igual al de fábrica), con el mismo guard que
  * tenía el wizard: con la lectura caída no se escribe nada, y uno que el negocio ya editó no se pisa.
  */
-export async function sembrarCrmPrincipal(tipo: TipoCrmId, nombreNegocio: string): Promise<{ sembrado: boolean; aviso?: string }> {
-  const s = siembraDeCrm({ tipo });
-  if ('error' in s) throw new Error(s.error);
+export async function sembrarCrmPrincipal(tipo: TipoCrmId, nombreNegocio: string, nombres?: Readonly<Record<string, string>>): Promise<{ sembrado: boolean; aviso?: string }> {
+  const siembra = siembraDeCrm({ tipo });
+  if ('error' in siembra) throw new Error(siembra.error);
+  // Las etapas con los nombres del CRM a medida (20/10/2026): mismas claves, otros nombres.
+  const s = { ...siembra, pipeline: etapasConNombres(siembra.pipeline, nombres) };
   const actual = await getFunnelDefault();
   if (actual.origen === 'error') throw new Error('No pude leer tu CRM (falló la base de MaKo, no es nada tuyo). Prueba de nuevo en un momento.');
   const intacto = mismoPipeline(actual.pipeline, DEFAULT_PIPELINE) && actual.suppressed.length === 0;
@@ -213,6 +325,20 @@ export async function sembrarCrmPrincipal(tipo: TipoCrmId, nombreNegocio: string
   const id = actual.id ?? (await idDelFunnelDefault().catch(() => null));
   if (id != null && nombreNegocio.trim()) await renombrarFunnel(id, nombreNegocio).catch(() => {});
   return { sembrado: true };
+}
+
+/**
+ * El CRM a medida (20/10/2026, pedido del 18/10, punto 10: «el armado del CRM también debe ser personalizado»): con lo que
+ * vende (las piezas de la conversación del onboarding), MaKo elige el tipo entre los de su canal y nombra sus etapas. null =
+ * no se pudo (sin la conversación, o la IA no contestó algo que sirva): queda la plantilla de su canal, como antes.
+ */
+export async function propuestaDeCrm(e: EstadoArranque, canal: CanalId | null): Promise<PropuestaCrm | null> {
+  if (!e.sesionId) return null;
+  const sesion = await leerSesion(e.sesionId).catch(() => null);
+  if (!sesion) return null;
+  const { crmOffer } = await import('./offer-ia');
+  const r = await crmOffer({ piezas: sesion.piezas, canal, candidatos: candidatosCrm(canal), inicio: Date.now() });
+  return r.ok ? r.valor : null;
 }
 
 /**
@@ -291,11 +417,14 @@ export async function cerrarArranque(): Promise<{ estado: OnboardingState; aviso
         // monto del producto es el del link de cobro (CobrarConLink). Queda escrito en la descripción y el
         // monto lo pone él en Productos.
         const precio = sinMarca(piezas?.precio?.valor);
+        // Cuotas o mensual es una suscripción (20/10/2026, Florencia: cobra 6 cuotas y quedaba «pago único»), pero SÓLO lo
+        // que confirmó con un toque (`e.cobro`, cuarta revisión, 21/10): lo leído sin confirmar no llega al producto.
+        const cobro = e.cobro ?? { tipo: 'unico' as const, meses: null };
         await upsertProducto({
           nombre: sinMarca(propuesta?.nombre) || `Oferta de ${e.negocio ?? 'tu negocio'}`,
-          tipo: 'unico',
+          tipo: cobro.tipo,
           monto_usd: null,
-          suscripcion_meses: null,
+          suscripcion_meses: cobro.meses,
           promesa: sinMarca(piezas?.resultado?.valor) || null,
           incluye: sinMarca(piezas?.entregables?.valor) || null,
           garantia: sinMarca(piezas?.garantia?.valor) || null,
@@ -335,8 +464,11 @@ export async function cerrarArranque(): Promise<{ estado: OnboardingState; aviso
 
   // 4. Cómo llegó y qué quiere resolver primero (17/10/2026): un setting propio, para que el super admin los lea sin
   // abrir la conversación (y la API de MaKo, `ver_estado_onboarding`). Best-effort: no traba el cierre.
-  if (e.origen || e.interes) {
-    await setSetting(CLAVE_ENCUESTA, JSON.stringify({ origen: e.origen ?? null, interes: e.interes ?? null, at: new Date().toISOString() }))
+  // Con un «no» al PDF, lo que escribió que faltaba va acá: «lo anoto» tiene que quedar anotado (cuarta revisión, 21/10).
+  // Un «no» sin nada escrito también deja marca (sexta revisión, 21/10: el «No» tocado no anotaba nada).
+  const pdfNota = notaDelPdf(e);
+  if (e.origen || e.interes || pdfNota) {
+    await setSetting(CLAVE_ENCUESTA, JSON.stringify({ origen: e.origen ?? null, interes: e.interes ?? null, at: new Date().toISOString(), pdfNota }))
       .catch((err) => console.error('[arranque] encuesta:', err instanceof Error ? err.message : err));
   }
 

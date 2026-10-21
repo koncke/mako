@@ -35,7 +35,7 @@ import { MAX_ADJUNTOS, type ItemAdjunto } from '@/app/whatsapp/_shared/adjuntos-
 import { leerAdjuntos } from '@/app/offer/adjuntos-envio';
 import { arbolSeguro, arbolVacio, caminoDeSesion, conSesionEnArbol } from '@/app/offer/arbol';
 import {
-  TOPE_MENSAJE, bienvenidaDe, esOpcionArmar, etiquetaArmar, linksDe, pasoTrasFalloDeOferta, quedoGuardado, reemplaza, resumenDe,
+  bienvenidaDe, esOpcionArmar, etiquetaArmar, linksDe, pasoTrasFalloDeOferta, quedoGuardado, reemplaza, resumenDe,
   unirOpciones, vistaDeEntrada, type AvisoGuardado,
 } from '@/app/offer/ayudas';
 import { ErrorOfferApi, TOPE, esRechazoDefinitivo, llamarOffer, mensajeDeError, subirArchivo } from '@/app/offer/offer-api';
@@ -354,7 +354,6 @@ export function OfferM({ arbolInicial, arbolFallo, sesionInicial, opcionArmar, o
   const enviarComposer = async () => {
     if (lista.ref.current.length) { void enviarVista(); return; }
     if (!puedeMandar || !texto.trim()) return;
-    if (texto.length > TOPE_MENSAJE) { setErrorChat('Tu mensaje es muy largo. Pártelo en dos.'); return; }
     const t = texto.trim();
     const e = epoca.current;
     setTexto('');
@@ -381,7 +380,6 @@ export function OfferM({ arbolInicial, arbolFallo, sesionInicial, opcionArmar, o
   const enviarVista = async () => {
     const items = lista.ref.current;
     if (!items.length || leyendoRef.current || !puedeMandar) return;
-    if (texto.length > TOPE_MENSAJE) { setErrorVista('Tu mensaje es muy largo. Pártelo en dos.'); return; }
     const id = sesionId.current;
     const s = sesionRef.current;
     if (id == null || !s) return;

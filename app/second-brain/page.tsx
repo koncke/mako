@@ -31,6 +31,8 @@ import { rutaConWs } from '@/lib/workspace';
 import { rutaDelSecondBrainEnOpsCenter } from '@/lib/ops-center-ruta';
 import { datosDelCentroSiOpera } from '@/app/admin/operaciones/datos';
 import { PantallaSecondBrain, mapaDelSecondBrain, pideElMapa, quienOpera, type QuerySecondBrain } from './pagina';
+import { hiloParaQuienYaTermino } from '@/lib/onboarding-arranque-server';
+import { rutaDelHilo } from '@/lib/onboarding-arranque';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -43,6 +45,10 @@ export default async function SecondBrainPage({ searchParams }: { searchParams: 
   // center y es el grafo, no otro chat»): su entrada salió de la barra y un /second-brain guardado lleva a su grafo. Los demás
   // (el cliente, su equipo, y el super admin MIRANDO a un cliente: `quienOpera` pide su propio workspace) siguen con su chat.
   if (await quienOpera()) redirect(await rutaConWs(rutaDelSecondBrainEnOpsCenter(q)));
+  // El chat «Onboarding» de quien terminó antes de que existiera (20/10/2026, Florencia, ws21): en su primera visita se crea
+  // y entra a él, con el tutorial. Una vez: después ya está anotado y esto no hace nada.
+  const hiloNuevo = await hiloParaQuienYaTermino().catch(() => null);
+  if (hiloNuevo) redirect(await rutaConWs(rutaDelHilo(hiloNuevo)));
   // Los chats de Claude Code (el Cerebro y cada jefe), sólo para quien `puedeOperar`: la guarda va ADENTRO, antes de
   // leer la cola (app/admin/operaciones/datos.ts). Tanda 5: «quiero mandar prompts por MaKo en el Second Brain».
   // Mirando a un cliente, sin el Centro (`quienOpera`): nunca los chats del super admin en la cuenta de un cliente.

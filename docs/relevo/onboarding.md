@@ -1,5 +1,150 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 21/10/2026 — SEXTA REVISIÓN (de a0cdcfcc6): EL TOQUE DEL PDF CON LA POLARIDAD DE LA PREGUNTA
+
+<sub>Chat «Onboarding», claude4, rama onboarding-v3
+(side-session-notes/local_797d5445…/revision-onboarding-sexta-21-10.md).</sub>
+
+- **PDF:** lo escrito que no es un sí ni un no se confirma con «Escribiste «…». ¿Lo tomo como que está todo bien?»
+  ([Sí, está todo bien] [No, hay algo para corregir]). Ahí valen sólo los botones y un sí o un no pelados
+  (`siONoPelado`), y lo demás se suma a `pdfEscritas`, que reemplazó a `pdfPorConfirmar`. Un «no» sin nada escrito deja
+  `PDF_SIN_DETALLE`, y MaKo sabe que tiene que preguntar (`notaDelPdf`, `ver_estado_onboarding`).
+- **Bajos:** las cuotas se leen antes que lo anual; el contacto de los reportes toma el nombre del perfil; «Su Lin» o
+  «Mi Young» se proponen con el toque (`nombreSinCortar`); con un nombre esperando, «No, Pedro» propone y «Sí, soy Ana»
+  confirma; «Sí, no» no guarda a la persona como negocio. Sin nada que ofrecer, el «+» queda apagado y lo pegado avisa.
+  El CSV de clientes no deja entrar fórmulas. Tests: tests/onboarding-sexta-revision.test.ts.
+- Sin hacer: las otras exportaciones a CSV (leads del CRM, ficha, métricas, gráficos) siguen sin el escape de fórmulas
+  (docs/hallazgos-seguridad.md). No es de esta área.
+
+## ESTADO AL 21/10/2026 — QUINTA REVISIÓN (de c7226ab77): NO SE CORTA POR PALABRA
+
+<sub>Chat «Onboarding», claude4, rama onboarding-v3. El Cerebro: «reviso sólo el diff»
+(side-session-notes/local_797d5445…/revision-onboarding-quinta-21-10.md).</sub>
+
+- **[media]** Sin pendiente, un negocio que se llama como una palabra de acuerdo («Claro», «Tal Cual», «Simón») se
+  propone y el toque decide; «El nombre es Listo» propone «Listo». Con pendiente, la palabra de acuerdo sigue siendo un sí.
+- Pestaña con el JS de antes (sin la pregunta) en una confirmación: «recarga la página» (`RECARGA_LA_PAGINA`), no un 409
+  en bucle. Cobro por año o por semana: se pregunta sin proponer (`cobroSinPropuesta`). PDF: lo escrito que no es un sí o
+  un no sueltos pasa por «¿Lo tomo como que falta algo?» (`pdfPorConfirmar`), y la nota la leen la tabla de clientes
+  («Oferta a corregir») y `ver_estado_onboarding`. El nombre que va al perfil (vacío o email) se confirma
+  (`nombrePorConfirmar`). La caja única: sin micrófono 600 ms después de mandar; en el onboarding, sin grabar ni «+»
+  mientras MaKo contesta (`voz.apagada`, `puede`). Tests: tests/onboarding-quinta-revision.test.ts.
+- Sin hacer: cobrar por año o por semana (el producto sólo sabe único o mensual); la nota del PDF en la conversación de
+  Offer; el campo de la caja se vuelve a montar al pasar de lo que vende al PDF (se cierra el teclado del teléfono).
+
+## ESTADO AL 21/10/2026 — CUARTA REVISIÓN (de 2fbd0f3a5): EL TOQUE TAMBIÉN ALREDEDOR DE LA RED
+
+<sub>Chat «Onboarding», claude4, rama onboarding-v3. El Cerebro: «con esto ENTRA, miro sólo el diff»
+(side-session-notes/local_797d5445…/revision-onboarding-cuarta-21-10.md).</sub>
+
+- `47f3744b0`: «es mi negocio»/«mi marca personal» confirman sólo detrás de un sí; la respuesta viaja con la pregunta que
+  contesta (un toque viejo no confirma); etapa 'cobro' con el toque; el chat «Onboarding» con hora creciente; la corrección
+  del PDF se anota; el nombre de la persona no pisa el de Google; la entrada del teléfono se marca al verse; la
+  conversación de Offer vuelve a listarse si siguió después de la copia. Tests: tests/onboarding-toque-que-confirma.test.ts.
+- **La caja del onboarding es la caja ÚNICA** (app/_chat/CajaChat.tsx, llegó a main con caja-voz): OfferApp la arma con
+  la nota de voz, la línea de estado, «Documento» con lo que Offer lee (`ACCEPT_IMPORTAR`, audio y video incluidos) y el
+  aviso de «Pegar» sin imagen. app/offer/CajaDelCentro.tsx se borró. Tests: onboarding-caja-centro y onboarding-caja-voz.
+  «Fotos» sigue sólo con imágenes (el `accept` de la caja única es sólo para «Documento»).
+- Sin hacer: las etiquetas de los tramos dicen «$» sin «USD» (decisión de copy, lib/fase-diagnostico.ts).
+
+## ESTADO AL 21/10/2026 ~03:00 AR — TERCERA REVISIÓN (de 8805b81aa): LO ESCRITO SE CONFIRMA CON UN TOQUE
+
+<sub>Chat «Onboarding», claude4, rama onboarding-v3. El Cerebro cambió el enfoque: no más rondas de reglas para leer frases
+(side-session-notes/local_797d5445…/revision-onboarding-tercera-21-10.md).</sub>
+
+- `323c01116`: en la fase, el canal y el interés, lo escrito se muestra («Entendí: «…». ¿Es así?») con «Sí, es eso» y las
+  otras opciones, y se guarda recién con el toque (`opcionPorConfirmar`). En pesos se pregunta en dólares. Los arreglos
+  baratos de la nota: negación sin peso doble y con evidencia, «web» sola, semana pegada, «pico»/«cifras», rangos, espacios,
+  interés negado, «Sí, es así»/«Vale»/«sisi», «N pagos con tarjeta». El barrido que lo fija:
+  tests/onboarding-opcion-escrita.test.ts. La regla general quedó en AGENTS.md (la versión del Cerebro, que ya estaba en main).
+- `4aa825cbd`: las listas de lo que escribe la persona (DICE_SI, monedas) a lib/onboarding-frases.ts, fuera del guard de
+  voseo («ándale», «soles»).
+- **La entrada de MaKo al abrir la app en el teléfono es UNA: la de ShellM (main, 21/10).** La de esta rama
+  (EntradaMobile en el layout, `80c997d4c`/`6c3e3a8c4`) se fue al mergear: eran dos para el mismo pedido. Queda la clave
+  compartida `CLAVE_ENTRADA_MOVIL` (app/m/_ui/entrada.ts) para que el final del onboarding no la repita.
+- Sin hacer: el «¿Está correcto el PDF?» lee un sí/no escrito sin confirmar (bajo riesgo). Lo de antes sigue: `CajaChat`,
+  el tutorial en /m, la propuesta del CRM aparte, y el ws21 y las keys del ws1 esperan a Martín.
+
+## ESTADO AL 21/10/2026 ~00:30 AR — LA SEGUNDA REVISIÓN (de 4eef10c7a) ARREGLADA
+
+<sub>Chat «Onboarding», claude4, rama onboarding-v3. El Cerebro revisó 4eef10c7a: el BLOQUEA resuelto, pero los arreglos de
+la fase escrita trajeron errores nuevos (side-session-notes/local_797d5445…/revision-onboarding-20-10-noche.md). Cosecha:
+«La segunda revisión» dentro de «La revisión adversarial de onboarding-v3», en docs/hallazgos-onboarding.md.</sub>
+
+- Sin respuestas rápidas en el nombre ni en el negocio, tampoco el del alta (lo decidió el Cerebro: gana Martín): `be2a4e4eb`.
+- Las cifras (millones, letras, lunfardo, rangos, cifras sueltas, semana y año), la negación marcada en las opciones, el
+  canal sin «directo», el «sí» compuesto, «con tarjeta» mensual y el «Entrando…»: `9259ca8d3`. La batería de frases es
+  tests/onboarding-cifras-escritas.test.ts.
+- La guardia del texto largo: cuenta como turno y documento, sólo el insulto de su principio, recortado antes de leer: `e78d76c4c`.
+- Siguen sin hacer: el paso a `CajaChat` (cuando caja-voz llegue a main), el tutorial en /m, la propuesta del CRM aparte.
+  Y esperan el sí de Martín: el ws21 y las dos keys del ws1.
+
+## ESTADO AL 20/10/2026 ~22:00 AR — LA REVISIÓN ADVERSARIAL DE v3 ARREGLADA
+
+<sub>Chat «Onboarding», claude4, rama **onboarding-v3** (C:/dev/wt-onboarding-v3, ya con florencia adentro). El Cerebro
+revisó beb153118 («no sube todavía»): side-session-notes/local_797d5445…/revision-onboarding-v3-20-10.md. Todo lo que
+marcó está arreglado encima, cada uno con su test probado rompiéndolo; la cosecha es «La revisión adversarial de
+onboarding-v3» en docs/hallazgos-onboarding.md.</sub>
+
+**Hecho** (bloquea, importantes y menores de la revisión):
+- El «Sí» escrito ya no se guarda como nombre; todo lo escrito se confirma (`siONo`): `c73a26fdb`.
+- El hilo: reserva con compare-and-set, un insert, lecturas estrictas, marca en el contexto, `dueno`/`hiloDe`, sólo con
+  status 'done', fuera el ws1, capa con productos, timeout y «Entrando…» en la pantalla, también en /m/second-brain: `88a5ebd05`.
+- La fase escrita: cifras a su tramo, canal por sinónimos sin negación, empates null: `6f3e53d26`.
+- La entrada del teléfono no la pinta el server (script antes de pintar): `80c997d4c` + `6c3e3a8c4`.
+- Texto largo sin la guardia de inyección; link sin leer con `linksDe` en el servidor: `6a6e5af41`.
+- El tope de repreguntas por pieza: `2f2c9aaa6`. Cuotas de tarjeta = único; terminales del CRM; plazo 25/45 s: `f01e15e18`.
+- Arrastrar un archivo con sólo texto no lo abre Chrome; el test de la caja compara por pieza y lee CajaChat si existe: `27460055c`.
+- La conversación de Offer del onboarding se esconde sólo a quien tiene la copia (lib/chat-mako-reglas.ts, archivo de
+  Ops Center 3; les avisé): `ebea6fb25`.
+
+**SIN HACER:**
+- **Pasar a `CajaChat`** cuando caja-voz llegue a main: `accept: ACCEPT_IMPORTAR`, «Fotos» con video, `voz` y `estado`;
+  borrar app/offer/CajaDelCentro.tsx. El test ya mira CajaChat apenas exista.
+- /m/second-brain no lee `?recorrido=`: en el teléfono no hay tutorial.
+- La propuesta del CRM a medida se sigue pidiendo antes de responder (25 s / 45 s con la red).
+- ~~Choque de las respuestas rápidas del nombre~~ **DECIDIDO (Cerebro, 20/10 noche): gana Martín.** Ni el nombre ni el
+  negocio ofrecen opciones, tampoco el nombre del alta: `be2a4e4eb`.
+- Reparar el ws21 y borrar las dos keys copiadas del ws1: siguen esperando el sí de Martín (abajo).
+
+## ESTADO AL 20/10/2026 ~19:20 AR — LA TANDA DEL 18/10 CERRADA Y LA DE FLORENCIA (feedback del 20/10)
+
+<sub>Chat «Onboarding», claude4. Dos ramas sin pushear: **onboarding-v3** (C:/dev/wt-onboarding-v3: la tanda del 18/10) y
+**onboarding-florencia** (C:/dev/wt-onboarding-florencia, sale de v3: el feedback del 20/10). Se mergea florencia en v3 y
+el VERDE (`antes-de-subir --rapido` con C:/dev/pesado.lock) va al Cerebro. El tsc acotado no entra en la RAM libre (ver
+hallazgos-infra): los tipos se revisaron a mano.</sub>
+
+**Hecho en onboarding-v3** (cada uno con su test probado rompiéndolo):
+- 2, la entrada de MaKo al abrir la app en el teléfono: `ee2c96f26` (montada en el layout desde `2826d4df2`).
+- 13b, al terminar entra al chat «Onboarding» con la conversación y arranca el tutorial: `b222b34fc`, `98df2846f`, `01553fd32`.
+- 3, el chat del onboarding con la caja del Ops Center: `6b0154a1d` (+ `d78802587`).
+- 10b, el CRM a medida de lo que vende (MaKo elige el tipo y nombra las etapas; las claves no cambian): `ef814400a`.
+
+**Hecho en onboarding-florencia** (feedback del 20/10, puntos 2 y 3; el pedido literal es el hito del 20/10 en
+app/admin/dev/onboarding/bitacora.ts, `0f46389e6`):
+- 1, el chat «Onboarding» para quien ya terminó (en su primera visita al Ops Center; nunca mirando como super admin), con
+  la salida que usa `interes` y dice dónde pedir ayuda: `c37574140`.
+- 2, el nombre del negocio se entiende y se confirma antes de escribirse, y vuelve el nombre del alta: `1bbba201e`.
+- 3, el cierre de «lo que vendes» lo escribe el código, dos repreguntas como mucho: `f8faebbc4`.
+- 4, respuestas rápidas sin cifras inventadas y dos o más: `94d3e04b2` (su `numerosDe` borrado por error lo devolvió `1c39ed1dd`).
+- 5, el link que no abre se le dice a MaKo: `1c39ed1dd`.
+- 6, «sin dato» no llega al producto ni al brief, el PDF muestra lo que trae datos, la escalera sale, el producto toma
+  cómo cobra: `5573b9730`.
+- 7, un texto de más de 12.000 caracteres va a documento: `64f716ba9`; las preguntas con opciones aceptan texto («Lo tomé
+  como»): `9333f968d`; el micrófono del onboarding graba una nota de voz (el dictado no se pudo probar con 2 min):
+  `b6f40d5c6`.
+
+**SIN HACER (con dónde vive):**
+- **Reparar el ws21** (su nombre, el funnel 40, el producto 48, el PDF, el grupo): el script está escrito y NO se corrió,
+  en `side-session-notes/local_797d5445…/feedback-20-10/reparar-ws21.ts` (sin `--aplicar` sólo lee). Espera el sí de
+  Martín y el nombre que él elija.
+- **Coordinar con Ops Center 3** que la conversación de Offer del onboarding (`onboarding.arranque.sesionId`) no salga
+  dos veces cuando proyecten Offer en el Ops Center: se lo propuse el 20/10 (que la salteen si hay `hiloChat`); sin respuesta.
+- 5b, el diagnóstico de fase repite el canal que ya contó (lib/onboarding-arranque.ts → preguntarFase).
+- El voseo y el «Perfecto:» del modelo sin filtro de salida (lib/offer-ia.ts); `TOPE_PIEZA` corta las piezas con «…».
+- El dictado de respaldo usa las keys del negocio (hallazgos-plan): es del Plan, no de este chat.
+- **Pasar la caja del onboarding a la pieza única** `app/_chat/CajaChat.tsx` (Ops Center 3, rama chat-unico, 7237af372) cuando esté en integración: borrar app/offer/CajaDelCentro.tsx. Le pedí a Ops Center 3 que la pieza sume la nota de voz (`voz`) y la línea de estado; tests/chat-unico.test.ts deja al onboarding en su lista de pendientes.
+
 ## ESTADO AL 18/10/2026 ~18:30 AR — PEDIDO 9a143455 (Martín, 17:28), CUENTA AL 98 %
 
 <sub>Rama onboarding-v3. Commits sin pushear, cada uno con su test probado rompiéndolo. Los puntos 4 y 9 (los 4 MB, el
