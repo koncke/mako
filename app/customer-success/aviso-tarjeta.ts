@@ -44,11 +44,20 @@ export function cobroDelCliente(
   cobros: ReadonlyArray<CobroParaTarjeta>,
   cuotasSinPagar: ReadonlyArray<{ fecha_esperada: string | null }>,
   hoy: string,
+  /**
+   * CUÁNDO SE RECHAZÓ, del dato que SÓLO escribe el rechazo: el evento «Pago rechazado» del historial del lead
+   * (`aplicarPagoFallido` → `logLeadEvent`, lib/cobros.ts). ⚠️ `updated_at` no sirve (segunda revisión del 21/10/2026):
+   * abrir un link vencido le crea otra sesión y lo toca, y un rechazo viejo pasaba a tapar un pago posterior. Sin
+   * eventos (un historial que no se pudo escribir), cuenta cuándo se creó el link: puede callar un rechazo, nunca
+   * inventarlo.
+   */
+  rechazos?: ReadonlyArray<string>,
 ): CobroTarjeta {
   if (cobros.some((c) => c.tipo === 'suscripcion' && c.estado === 'pagado' && c.suscripcion_estado !== 'cancelada' && esRenovacionFallida(c.motivo))) return 'rechazado';
-  const cuando = (c: CobroParaTarjeta): string => String((c.estado === 'pagado' ? c.pagado_at ?? c.updated_at : c.updated_at) ?? c.created_at ?? '');
-  const rechazo = cobros.filter((c) => c.estado === 'fallido').map(cuando).filter(Boolean).sort().at(-1);
-  if (rechazo && !cobros.some((c) => c.estado === 'pagado' && cuando(c) > rechazo)) return 'rechazado';
+  const fallidos = cobros.filter((c) => c.estado === 'fallido');
+  const rechazo = (rechazos?.length ? [...rechazos] : fallidos.map((c) => String(c.created_at ?? ''))).filter(Boolean).sort().at(-1);
+  const pagadoAt = (c: CobroParaTarjeta): string => String(c.pagado_at ?? c.created_at ?? '');
+  if (fallidos.length && rechazo && !cobros.some((c) => c.estado === 'pagado' && pagadoAt(c) > rechazo)) return 'rechazado';
   if (cuotasSinPagar.some((q) => q.fecha_esperada && q.fecha_esperada.slice(0, 10) < hoy)) return 'vencida';
   return null;
 }

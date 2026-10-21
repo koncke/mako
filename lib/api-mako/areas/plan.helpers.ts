@@ -29,6 +29,8 @@ import type { Dep } from '@/app/plan/board/dependencias';
 import { diasQuieta } from '@/app/plan/board/envejecer';
 import { esRecurrente, textoRepeticion } from '@/lib/plan-recurrentes';
 import { estadoDeAvance, type EstadoTarea } from '@/lib/todo-estados';
+import { leerColumnasPlan } from '@/lib/plan-columnas-server';
+import { nombreDeColumnaPropia } from '@/lib/plan-columnas';
 
 import { tableroDeCapa } from '../../tablero-de-capa';
 
@@ -53,6 +55,8 @@ export type TareaPlan = {
   motivoAtorada: string | null;
   /** La columna PROPIA donde está (mig 0317, lib/plan-columnas.ts). null = la de su estado. */
   columna: string | null;
+  /** El NOMBRE de esa columna propia, si la tarea se dibuja en una (lo que ve la persona), o null. */
+  columnaPropia?: string | null;
   avance: number;
   deadline: string | null;
   proyectoId: string | null;
@@ -148,6 +152,8 @@ const hist = (h: ReadonlyArray<{ ts: number; actor: string; text: string }> | un
 
 /** El tablero del workspace en curso (el runner ya corre adentro de su workspace). */
 export async function leerTablero(ws: number): Promise<Tablero> {
+  // Las columnas del negocio: MaKo dice la columna donde la persona VE cada tarea (segunda revisión del 21/10/2026).
+  const cols = await leerColumnasPlan().catch(() => null);
   if (await usaPlanBoard(ws)) {
     const b = await listPlanBoard();
     return {
@@ -155,6 +161,7 @@ export async function leerTablero(ws: number): Promise<Tablero> {
       tareas: b.tareas.map((t) => ({
         id: t.id, num: t.num, titulo: t.title, detalle: t.detalle ?? '', score: t.score, prioridad: t.priority,
         estado: t.estado ?? estadoDeAvance(t.progress ?? 0), motivoAtorada: t.motivoAtorada ?? null, columna: t.columna ?? null,
+        columnaPropia: nombreDeColumnaPropia(cols, t.estado ?? estadoDeAvance(t.progress ?? 0), t.columna),
         avance: t.progress ?? 0, deadline: t.deadline || null, proyectoId: t.labels[0] ?? null, labels: [...t.labels],
         checklist: (t.checklist ?? []).map((c) => ({ id: c.id, text: c.text, done: !!c.done })),
         notas: t.notas ?? '', scoreRazon: t.scoreRazon ?? null, deadlineRazon: t.deadlineRazon ?? null,
@@ -178,7 +185,7 @@ export async function leerTablero(ws: number): Promise<Tablero> {
     board: 'todo',
     tareas: tareas.map((t) => ({
       id: String(t.id), num: null, titulo: t.titulo, detalle: t.detalle ?? '', score: t.score, prioridad: t.prioridad,
-      estado: t.estado, motivoAtorada: t.motivo_atorada, columna: t.columna ?? null,
+      estado: t.estado, motivoAtorada: t.motivo_atorada, columna: t.columna ?? null, columnaPropia: nombreDeColumnaPropia(cols, t.estado, t.columna),
       avance: t.progreso ?? 0, deadline: t.deadline ?? null, proyectoId: t.categorias[0] != null ? String(t.categorias[0]) : null,
       labels: t.categorias.map(String),
       checklist: (t.checklist ?? []).map((c) => ({ id: c.id, text: c.text, done: !!c.done })),
@@ -264,6 +271,8 @@ export function tareaCompacta(t: TareaPlan, nombreProyecto: Map<string, string>)
     // una clave más en 300 tareas es ruido en el prompt (la misma regla que `se_repite`).
     ...(t.estado !== 'por_hacer' ? { estado: t.estado } : {}),
     ...(t.estado === 'en_seguimiento' && t.motivoAtorada ? { atorada_por: t.motivoAtorada } : {}),
+    // La columna PROPIA donde la ve la persona («En revisión»), sólo cuando está en una: «¿qué hay en En revisión?».
+    ...(t.columnaPropia ? { columna: t.columnaPropia } : {}),
     avance_pct: t.avance, deadline: t.deadline, proyecto: t.proyectoId ? nombreProyecto.get(t.proyectoId) ?? null : null,
     // ⚠️ LA MARCA VIAJA, Y CON SU EXPLICACIÓN. Lo único que un modelo sabe de esta tarea es
     // este JSON: sin la nota, ve `score: 85` al lado de `se_repite: true` y no tiene forma

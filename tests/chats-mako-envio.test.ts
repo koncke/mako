@@ -4,26 +4,27 @@
 // docs/ops-center-principal.md §5, Ola 2, 2.1: «Las operaciones que le faltan a Chats, con confirmación en la tarjeta:
 // enviar_borrador_whatsapp, contestar_dm, contestar_email_chat, agregar_contacto_al_crm y marcar_leido_chat». Con la
 // D3a (Martín, 21/10/2026): el toque en «Enviar» de la tarjeta ES la aprobación del mensaje al lead. Acá se fija:
-//   1. el TURNO REAL: cada pedido llega al turno de la app con su operación (clasificarIntencion → herramientasDelChat,
-//      el mismo camino que lib/mako-turno-app.ts, sin modelo);
-//   2. la TARJETA: las cinco son `accion` con confirmación `chat` y van por la app (la tarjeta del hilo); nada por HTTP;
-//      el botón dice lo que hace («Enviar el WhatsApp»);
-//   3. la RED GRATIS no las recibe: son de clientes (área chats) y el turno de WhatsApp que las pide se corta;
-//   4. el texto: «sí, dale» no es el mensaje; el canal y la cuenta por donde sale, con su motivo si no se puede;
-//   5. las puertas: WhatsApp por la cola de borradores (`enviarBorradorPorSuCanal`: el borrador no se saltea), DM y
-//      email por las funciones del compositor de /chats, el alta por el mismo criterio de producto.
+//   1. el TURNO REAL de la app (`clasificarIntencion` → `herramientasDelChat`, sin modelo). ⚠️ PENDIENTE de la 1.2
+//      (rama `mako-wa`): en main el chat de la app clasifica estos pedidos «capturar» y no trae herramientas. Corre con
+//      el clasificador real y queda `todo` hasta que la 1.2 llegue: entonces se saca el `todo` y tiene que dar verde;
+//   2. la TARJETA: los tres envíos SÓLO por la app (decisión del 21/10: el «sí» escrito de WhatsApp no alcanza para
+//      mandarle algo a un lead), y ningún turno de WhatsApp los recibe; el botón dice lo que hace;
+//   3. la RED GRATIS no las recibe: son de clientes;
+//   4. el texto: lo que sale es lo que la tarjeta muestra ENTERO; «sí, dale» no es el mensaje, pero «contéstale que sí»
+//      manda «Sí»; el canal lo decide la cosa nombrada (mail → email); la clave del DM es estable;
+//   5. las puertas: WhatsApp por la cola (el borrador no se saltea, y el bloqueo se mira en la puerta), DM y email por
+//      las funciones del compositor de /chats, el alta por el mismo criterio; el resultado no dice «no salió» si salió.
 //
-// PROBADO ROMPIÉNDOLO (21/10/2026), con el archivo en 5 / 0, una rotura por vez y restaurada:
-//   · «borrador» fuera de la rueda de `chats` (lib/mako-intencion.ts)                  → 4 / 1
-//   · «contést…» fuera de la rueda (con una frase que sólo dice «contéstale»)          → 4 / 1
-//   · mandar el borrador con `enviarBorrador` y no por su puerta (saltea la línea)     → 4 / 1
-//   · `textoDeEnvio` aceptando «sí, dale» como mensaje                                 → 4 / 1
-//   · `identidadParaEnviar` sin mirar si se puede escribir (la ventana de 24 h)        → 4 / 1
-//   · `marcar_leido_chat` también por WhatsApp (sin sesión no hay quién leyó)          → 4 / 1
-//   · `contestar_dm` reversible                                                        → 4 / 1
-//   · `contestar_dm` con `datosDeClientes: false` (la red gratis lo recibiría)          → 4 / 1
-//   · el alta con otro origen que «Agregar al CRM» de /chats                           → 4 / 1
-//   · el botón de la tarjeta «Proponer el WhatsApp» (tocarlo no diría «Enviar»)         → 4 / 1
+// PROBADO ROMPIÉNDOLO (21/10/2026, la segunda versión, tras la revisión), con el archivo en 5 / 0 (+1 todo de la 1.2):
+//   · `enviar_borrador_whatsapp` también por el grupo de WhatsApp                       → 3 / 2
+//   · el tope de WhatsApp en 4.000 (la tarjeta muestra 2.000)                           → 4 / 1
+//   · toda respuesta corta rechazada («contéstale que sí» no podía mandar «Sí»)         → 4 / 1
+//   · el canal nombrado sin frenar («respóndele el mail» como WhatsApp)                 → 4 / 1
+//   · el borrador por id sin el texto entero en la tarjeta                              → 4 / 1
+//   · el bloqueo fuera de la puerta única (`enviarBorradorPorSuCanal`)                   → 4 / 1
+//   · la clave del DM al azar (dos tarjetas iguales, dos DMs)                            → 4 / 1
+//   · «salió pero no quedó en el hilo» contado como «no salió»                          → 4 / 1
+//   · las palabras de mandar en la rueda compartida con WhatsApp                        → 4 / 1
 // Correr: node --import tsx --test tests/chats-mako-envio.test.ts
 // =============================================================================
 
@@ -33,17 +34,19 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { areasDelMensaje, type VeredictoIntencion } from '../lib/mako-intencion';
+import { clasificarIntencion } from '../lib/mako-intencion';
 import { herramientasDelChat } from '../lib/mako-turno-app-reglas';
-import type { Vista } from '../lib/api-mako/registro';
-import { REGISTRO } from '../lib/api-mako/registro';
-import { llevaDatosDeClientes } from '../lib/doer-herramientas';
-import { textoDeEnvio, identidadParaEnviar, canalDeDm } from '../lib/chats-envio-reglas';
+import { herramientasDelTurno, llevaDatosDeClientes } from '../lib/doer-herramientas';
+import { REGISTRO, type Vista } from '../lib/api-mako/registro';
+import { esAccion } from '../lib/api-mako/tipos';
+import { textoDeEnvio, identidadParaEnviar, canalDeDm, canalNombradoNoCoincide, claveDeDm, TOPE_TEXTO_ENVIO } from '../lib/chats-envio-reglas';
+import { MAX_TEXTO } from '../lib/inbox-movil-reglas';
 import type { IdentidadCanal } from '../lib/chats-tipos';
 
 const RAIZ = join(__dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
 const NUEVAS = ['enviar_borrador_whatsapp', 'contestar_dm', 'contestar_email_chat', 'agregar_contacto_al_crm', 'marcar_leido_chat'] as const;
+const ENVIAN = ['enviar_borrador_whatsapp', 'contestar_dm', 'contestar_email_chat'] as const;
 
 function nombresDeSiempre(): Array<{ name: string }> {
   const url = (rel: string) => JSON.stringify(pathToFileURL(join(RAIZ, rel)).href);
@@ -53,51 +56,58 @@ function nombresDeSiempre(): Array<{ name: string }> {
 }
 const DE_SIEMPRE = nombresDeSiempre();
 const vistaApp: Vista = { canal: 'app', alcance: 'proponer', ws: 9, rol: 'admin', tabs: null };
-/**
- * EL VEREDICTO DE LA 1.2. En la app, un verbo de hacer al principio del mensaje manda el turno a `actuar`
- * (lib/mako-intencion-app.ts, rama `mako-wa`, todavía no en main el 21/10/2026). Hasta que llegue, el veredicto se arma
- * ACÁ igual al que da la 1.2, y lo que se prueba es lo de la 2.1: que con ese veredicto el área `chats` (la rueda de
- * lib/mako-intencion.ts) traiga la operación. Cuando la 1.2 esté en main, esto pasa a `clasificarIntencionApp`.
- */
-const VEREDICTO_1_2: VeredictoIntencion = { intencion: 'actuar', dudosa: false, porque: 'un verbo de hacer al principio (Ops Center 1.2)' };
-const turnoApp = (mensaje: string) => herramientasDelChat({ veredicto: VEREDICTO_1_2, texto: mensaje, agendaAbierta: false, deSiempre: DE_SIEMPRE, vista: vistaApp, hayPendientes: false }).tools.map((x) => x.name);
+const vistaWa: Vista = { canal: 'whatsapp', alcance: 'ejecutar', ws: 9, rol: 'admin', tabs: null };
+const turnoApp = (mensaje: string) => herramientasDelChat({ veredicto: clasificarIntencion(mensaje, {}), texto: mensaje, agendaAbierta: false, deSiempre: DE_SIEMPRE, vista: vistaApp, hayPendientes: false }).tools.map((x) => x.name);
+const turnoWa = (mensaje: string, agendaAbierta: boolean) => herramientasDelTurno({ veredicto: clasificarIntencion(mensaje, {}), texto: mensaje, agendaAbierta, deSiempre: DE_SIEMPRE, vista: vistaWa, hayPendientes: false }).tools.map((x) => x.name);
 
-test('el turno real: cada pedido llega a la app con su operación', () => {
-  const casos: Array<[string, typeof NUEVAS[number]]> = [
-    ['mándale el borrador a Juan', 'enviar_borrador_whatsapp'],
-    ['mándale por WhatsApp a Ana: mañana te llamo a las 10', 'enviar_borrador_whatsapp'],
-    ['contéstale el DM a Pedro: gracias por escribirnos', 'contestar_dm'],
-    ['contéstale a Pedro por Instagram: gracias por escribirnos', 'contestar_dm'],
-    ['respóndele el mail a Laura: te mando la propuesta hoy', 'contestar_email_chat'],
-    ['agrega al CRM a la persona de este chat', 'agregar_contacto_al_crm'],
-    ['marca como leído el chat de Ana', 'marcar_leido_chat'],
-  ];
-  for (const [frase, op] of casos) {
-    assert.ok(areasDelMensaje(frase).includes('chats'), `«${frase}» no es del área chats (${areasDelMensaje(frase).join(', ')})`);
+const CASOS: Array<[string, typeof NUEVAS[number]]> = [
+  ['mándale el borrador a Juan', 'enviar_borrador_whatsapp'],
+  ['mándale por WhatsApp a Ana: mañana te llamo a las 10', 'enviar_borrador_whatsapp'],
+  ['contéstale el DM a Pedro: gracias por escribirnos', 'contestar_dm'],
+  ['contéstale a Pedro por Instagram: gracias por escribirnos', 'contestar_dm'],
+  ['respóndele el mail a Laura: te mando la propuesta hoy', 'contestar_email_chat'],
+  ['respóndele el correo a Laura: te mando la propuesta hoy', 'contestar_email_chat'],
+  ['agrega al CRM a la persona de este chat', 'agregar_contacto_al_crm'],
+  ['marca como leído el chat de Ana', 'marcar_leido_chat'],
+];
+
+test('el turno real de la app: cada pedido llega con su operación', { todo: 'depende de la 1.2 (rama mako-wa): en main el chat de la app clasifica estos pedidos «capturar» y no trae herramientas' }, () => {
+  for (const [frase, op] of CASOS) {
     const llegan = turnoApp(frase);
     assert.ok(llegan.includes(op), `«${frase}» no trajo ${op} (llegaron: ${llegan.slice(0, 30).join(', ')})`);
   }
 });
 
-test('la tarjeta: acciones con confirmación en el chat, por la app y nunca por HTTP; el botón dice lo que hace', () => {
+test('WhatsApp: ningún turno del grupo trae un envío al lead (el «sí» escrito no alcanza)', () => {
+  for (const [frase] of CASOS) for (const agenda of [false, true]) {
+    const llegan = turnoWa(frase, agenda);
+    for (const op of ENVIAN) assert.ok(!llegan.includes(op), `«${frase}» (agenda ${agenda ? 'abierta' : 'cerrada'}) trajo ${op} por WhatsApp`);
+  }
+  // Y por el registro, para cualquier acción futura del área: lo que no se deshace, sólo con el toque.
+  for (const d of REGISTRO.filter((x) => x.area === 'chats' && esAccion(x) && x.reversible === false)) {
+    assert.ok(!d.canales.includes('whatsapp'), `«${d.id}» no se deshace y viaja por WhatsApp: un envío al lead se aprueba con un toque`);
+  }
+});
+
+test('la tarjeta: los envíos sólo por la app, y el botón dice lo que hace', () => {
   for (const id of NUEVAS) {
     const d = REGISTRO.find((x) => x.id === id);
     assert.ok(d, `${id} no está en el registro`);
     assert.equal(d.area, 'chats', `${id}: área chats`);
-    assert.equal(d.tipo, 'accion');
     assert.ok(d.tipo === 'accion' && d.confirmacion === 'chat', `${id}: se confirma tocando la tarjeta del hilo`);
     assert.ok(d.canales.includes('app'), `${id}: va por la app`);
     assert.ok(!d.canales.includes('http'), `${id}: conversaciones de personas no salen por HTTP`);
   }
+  for (const id of [...ENVIAN, 'marcar_leido_chat']) assert.deepEqual(REGISTRO.find((x) => x.id === id)?.canales, ['app'], `${id}: sólo por la app`);
   const boton = (id: string) => REGISTRO.find((x) => x.id === id)?.titulo;
   assert.equal(boton('enviar_borrador_whatsapp'), 'Enviar el WhatsApp', 'el botón de la tarjeta es el título: tocarlo es «Enviar»');
   assert.equal(boton('contestar_dm'), 'Enviar el mensaje directo');
   assert.equal(boton('contestar_email_chat'), 'Enviar el email');
-  const leido = REGISTRO.find((x) => x.id === 'marcar_leido_chat');
-  assert.deepEqual(leido?.canales, ['app'], 'el leído es de una persona: sólo con sesión');
-  for (const id of ['enviar_borrador_whatsapp', 'contestar_dm', 'contestar_email_chat']) {
+  for (const id of ENVIAN) {
     const d = REGISTRO.find((x) => x.id === id);
     assert.ok(d?.tipo === 'accion' && d.reversible === false, `${id}: un mensaje mandado no se desmanda`);
+    const texto = d?.parametros.find((p) => p.nombre === 'texto');
+    assert.ok(texto?.max != null && texto.max <= MAX_TEXTO, `${id}: el registro acepta más de lo que la tarjeta muestra entero`);
   }
 });
 
@@ -105,40 +115,62 @@ test('la red gratis no las recibe: son datos de clientes', () => {
   for (const id of NUEVAS) assert.equal(llevaDatosDeClientes(id), true, `${id} tiene que cortar el turno de la red gratis`);
 });
 
-test('el texto: «sí, dale» no es el mensaje; el canal y la cuenta, con su motivo', () => {
+test('el texto: lo que se ve es lo que sale; «sí, dale» no es el mensaje; el canal lo decide la cosa nombrada', () => {
   assert.deepEqual(textoDeEnvio('  Hola Ana, ¿te llamo mañana?  ', 'whatsapp'), { texto: 'Hola Ana, ¿te llamo mañana?' });
-  for (const nada of ['', 'sí, dale', 'Dale, mándalo', 'ok', '¡Sí! envíalo ya']) {
-    const r = textoDeEnvio(nada, 'whatsapp', nada);
-    assert.ok('error' in r, `«${nada}» no es el mensaje`);
-  }
+  for (const nada of ['', 'sí, dale', 'Dale, mándalo', 'ok', '¡Sí! envíalo ya']) assert.ok('error' in textoDeEnvio(nada, 'whatsapp', nada), `«${nada}» sólo aceptaba: no es el mensaje`);
+  assert.ok('error' in textoDeEnvio('Sí', 'whatsapp', 'sí, dale'), 'la persona sólo aceptó: «Sí» no es lo que dictó');
+  assert.deepEqual(textoDeEnvio('Sí', 'whatsapp', 'contéstale que sí'), { texto: 'Sí' }, 'una respuesta corta DICTADA se manda');
+  assert.deepEqual(textoDeEnvio('Ok, perfecto', 'email', 'respóndele «ok, perfecto»'), { texto: 'Ok, perfecto' });
   assert.ok('texto' in textoDeEnvio('Va mañana a las 10, te espero', 'whatsapp'), 'un mensaje que empieza con «va» es un mensaje');
-  assert.ok('error' in textoDeEnvio('x'.repeat(1001), 'instagram'), 'Instagram corta en 1.000: se dice, no se corta');
+  assert.equal(TOPE_TEXTO_ENVIO.whatsapp, MAX_TEXTO, 'WhatsApp: hasta lo que la tarjeta muestra entero');
+  assert.equal(TOPE_TEXTO_ENVIO.email, MAX_TEXTO, 'email: hasta lo que la tarjeta muestra entero');
+  assert.ok('error' in textoDeEnvio('x'.repeat(MAX_TEXTO + 1), 'email'), 'más largo que la tarjeta: se dice, no se corta');
+  assert.ok('error' in textoDeEnvio('x'.repeat(1001), 'instagram'), 'Instagram corta en 1.000');
+
+  assert.match(canalNombradoNoCoincide('respóndele el mail a Pedro', 'whatsapp') ?? '', /contestar_email_chat/, 'pidió un email: no es un WhatsApp');
+  assert.match(canalNombradoNoCoincide('respondele el correo a Laura', 'whatsapp') ?? '', /contestar_email_chat/);
+  assert.match(canalNombradoNoCoincide('contéstale el DM a Ana', 'whatsapp') ?? '', /contestar_dm/);
+  assert.match(canalNombradoNoCoincide('mándale un WhatsApp a Juan', 'email') ?? '', /enviar_borrador_whatsapp/);
+  assert.equal(canalNombradoNoCoincide('respóndele el mail a Pedro', 'email'), null);
+  assert.equal(canalNombradoNoCoincide('contéstale a Pedro', 'whatsapp'), null, 'sin canal nombrado, no frena');
+  assert.equal(canalNombradoNoCoincide('pásale por mail o por WhatsApp', 'whatsapp'), null, 'dos canales: no decide la palabra');
+
   const id = (canal: IdentidadCanal['canal'], o: Partial<IdentidadCanal> = {}): IdentidadCanal => ({ canal, cuenta: null, rotulo: canal, destino: null, ref: `${canal}-ref`, telefono: null, ultimaFecha: null, puedeEscribir: true, motivoNoEscribir: null, bloqueado: false, ...o });
   const wa = identidadParaEnviar([id('whatsapp', { cuenta: 'ventas' }), id('whatsapp', { cuenta: 'soporte' })], 'whatsapp', 'soporte');
   assert.ok('identidad' in wa && wa.identidad.cuenta === 'soporte', 'la línea pedida');
   const cerrada = identidadParaEnviar([id('instagram', { puedeEscribir: false, motivoNoEscribir: 'Ventana de 24 h cerrada' })], 'instagram');
   assert.ok('error' in cerrada && /Ventana de 24 h cerrada/.test(cerrada.error), 'si no se puede, el motivo que ve la persona en /chats');
-  assert.ok('error' in identidadParaEnviar([id('whatsapp')], 'email'), 'sin email no hay email');
   const dos = canalDeDm([id('instagram'), id('messenger')]);
   assert.ok('error' in dos && dos.faltan?.includes('canal'), 'Instagram Y Messenger: pregunta por cuál');
-  assert.deepEqual(canalDeDm([id('messenger')]), { canal: 'messenger' });
+
+  assert.equal(claveDeDm(7, 'Hola', 1000), claveDeDm(7, 'Hola', 1000), 'la misma propuesta, la misma clave: un doble toque sale una vez');
+  assert.notEqual(claveDeDm(7, 'Hola', 1000), claveDeDm(7, 'Hola', 2000), 'otro turno, otra clave');
 });
 
-test('las puertas: el borrador no se saltea, y DM, email y alta por el camino de /chats', () => {
+test('las puertas: el borrador entero y no bloqueado, DM y email por el camino de /chats, y el resultado honesto', () => {
   const run = leer('lib/api-mako/areas/chats.run.ts');
   const cuerpo = (id: string) => run.slice(run.indexOf(`  ${id}: {`), run.indexOf('\n  },\n', run.indexOf(`  ${id}: {`)));
   const wa = cuerpo('enviar_borrador_whatsapp');
   assert.match(wa, /await enviarBorradorPorSuCanal\(id, /, 'la ÚNICA puerta de envío de un borrador');
   assert.doesNotMatch(wa, /enviarYEspejar|enviarBorrador\(/, 'mandar por WhatsApp sin la cola saltearía el borrador (D3a)');
   assert.match(wa, /await crearBorrador\(\{[^\n]*origen: 'mako'/, 'el texto nuevo entra a la cola de borradores');
-  assert.match(wa, /textoDeEnvio\(input\.texto, 'whatsapp', ctx\.mensajeUsuario\)/);
+  assert.match(wa, /\.\.\.\(b\.texto \? \{ texto: b\.texto \} : \{\}\)/, 'el borrador por id lleva el texto ENTERO a la tarjeta');
+  assert.match(wa, /if \(!b\.texto && !b\.adjunto\) return \{ error:/, 'sin texto ni adjunto no se propone');
+  assert.match(wa, /if \(b\.texto\.length > TOPE_TEXTO_ENVIO\.whatsapp\) return \{ error:/, 'un borrador más largo que la tarjeta se manda desde Chats');
+  assert.match(wa, /if \(await estaBloqueado\(b\.telefono\)\) return \{ error:/);
+  assert.match(wa, /if \(r\.error === 'el borrador ya no está pendiente'\) return \{ ok: false, resumen: `Ese borrador ya salió o se descartó/, '«no salió» sólo cuando no salió');
+  for (const op of ENVIAN) assert.match(cuerpo(op), /canalNombradoNoCoincide\(ctx\.mensajeUsuario, /, `${op}: el canal lo decide la cosa nombrada`);
+  const camino = leer('lib/borrador-camino.ts');
+  assert.match(camino, /if \(await estaBloqueado\(String\(b\.telefono \?\? ''\)\)\) return \{ ok: false, error: 'el contacto está bloqueado' \};/, 'el bloqueo, en la puerta de /chats, /whatsapp y MaKo');
+  assert.match(cuerpo('contestar_dm'), /idem: claveDeDm\(Number\(i\.identidad\.ref\), t\.texto, ctx\.turnStart\)/);
   assert.match(cuerpo('contestar_dm'), /await enviarManualSocial\(\{ convId: Number\(payload\.convId\), texto: String\(payload\.texto \?\? ''\), idempotencia:/);
-  assert.match(cuerpo('contestar_email_chat'), /await enviarEmailDeChat\(\{/);
-  assert.match(cuerpo('contestar_email_chat'), /textoDeEnvio\(input\.texto, 'email', ctx\.mensajeUsuario\)/);
-  assert.match(cuerpo('contestar_dm'), /textoDeEnvio\(input\.texto, cd\.canal, ctx\.mensajeUsuario\)/);
+  const email = cuerpo('contestar_email_chat');
+  assert.match(email, /await enviarEmailDeChat\(\{/);
+  assert.match(email, /if \(\/\^Salió\/\.test\(r\.error\)\) return \{ ok: true,/, 'salió pero no quedó en el hilo: salió');
   const alta = cuerpo('agregar_contacto_al_crm');
   assert.match(alta, /crearLeadDeConversacionSocial\(Number\(payload\.convId\), funnelId\)/);
   assert.match(alta, /origen_lead: ORIGEN_LEAD\.chat_whatsapp\.id, funnel_id: destino\.casa/, 'el mismo origen y la misma casa que «Agregar al CRM» de /chats');
-  assert.match(run, /const d = destinoDelAlta\(await leerFunnels\(\), funnelId\);/, 'el mismo criterio de producto');
   assert.match(cuerpo('marcar_leido_chat'), /const yo = await usuarioDe\(ctx\);[\s\S]*marcarChatLeido\(String\(payload\.clave \?\? ''\), yo\.id\)/, 'el leído de QUIEN confirma');
+  const regex = leer('lib/mako-intencion.ts').match(/^  chats: \/.*$/m)?.[0] ?? '';
+  assert.doesNotMatch(regex, /borrador|cont\[e|resp\[o|al crm/, 'las palabras de mandar no van en la rueda compartida con WhatsApp: son de la app (la 1.2)');
 });

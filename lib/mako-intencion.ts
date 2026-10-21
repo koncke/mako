@@ -1296,10 +1296,10 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   // de Instagram y Messenger, que no tienen otra área. «conversación» trae también la de WhatsApp: las dos contestan
   // (la de Chats junta los tres canales por contacto). «reabrir» y «posponer» atados a chat/conversación: solos son
   // de una tarea del Plan o de una reunión.
-  // Y desde la 2.1 del Ops Center (21/10/2026) lo que se MANDA desde la bandeja: «mándale el borrador», «contéstale el DM»,
-  // «respóndele el mail», «por WhatsApp», «márcalo como leído», «agrégalo al CRM». «borrador» y «WhatsApp» también son del
-  // área whatsapp (las dos contestan: la de Chats manda con la tarjeta, la de whatsapp deja la cola).
-  chats: /\b(chats?\b|bandeja|conversaci[oó]n(es)?|sin responder|borrador(es)?|cont[eé]st\w*|resp[oó]nd[eé]\w*|le[ií]d[oa]s?\b|al crm\b|(?:un|por|el|de) whatsapp|(?:qui[eé]n|qui[eé]nes) (?:me |nos )?(?:escribi[oó]|escribieron)|dms?\b|mensajes? directos?|messenger|(?:cerr|reabr|pospon)\w* (?:el |la |su |ese |esa |este |esta )?(?:chat|conversaci))/i,
+  // ⚠️ SIN las palabras de MANDAR (revisión del 21/10/2026): la 2.1 las había sumado acá y esta rueda es COMPARTIDA con el
+  // grupo de WhatsApp y el ruteo de pedidos (lib/mako-pedidos.ts): cambiaba 5.108 turnos de WhatsApp y 98 links del Ops
+  // Center. Los envíos van sólo por la app, y en la app las trae el clasificador de la 1.2 (`canal: 'app'`).
+  chats: /\b(chats?\b|bandeja|conversaci[oó]n(es)?|sin responder|(?:qui[eé]n|qui[eé]nes) (?:me |nos )?(?:escribi[oó]|escribieron)|dms?\b|mensajes? directos?|messenger|(?:cerr|reabr|pospon)\w* (?:el |la |su |ese |esa |este |esta )?(?:chat|conversaci))/i,
   whatsapp: /\b(whatsapp|plantillas?|borrador(es)?|conversaci[oó]n|chat con|mensaje a)/i,
   email: /\b(e-?mails?|correos?|mails?|broadcasts?|newsletter|remitente|dominio de env)/i,
   // `automatización`, `automations` y `flujo` (décima tanda, 11/10/2026): desde el renombre de la tab a Automations,

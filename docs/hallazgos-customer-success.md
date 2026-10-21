@@ -5718,9 +5718,10 @@ tests/cs-tarjeta-cobro.test.ts · *20/10/2026 noche, chat «CRM» (claude4).*
 
 ## Lo que encontró la revisión del cobro en la tarjeta (21/10/2026)
 
-- **La hora del rechazo es `updated_at`, no `created_at`.** Un link nace «pendiente» y pasa a «fallido» cuando se
-  intenta pagar: `created_at` es cuándo se creó el link. Con eso, un pago de la cuota 1 hecho DESPUÉS de crear el link
-  de la cuota 2 tapaba el rechazo de la 2. ⚠️ El test de ayer fijaba el mismo supuesto equivocado (fechaba el rechazo
+- **La hora del rechazo es la del EVENTO del rechazo** (`lead_audit` «Pago rechazado», que escribe sólo
+  `aplicarPagoFallido`). Ni `created_at` (cuándo se creó el link: un pago de la cuota 1 hecho DESPUÉS de crear el link de
+  la cuota 2 tapaba el rechazo de la 2) ni `updated_at` (segunda revisión: abrir un link vencido le crea otra sesión y lo
+  toca, y un rechazo viejo pasaba a tapar un pago posterior). Fechá un hecho con un dato que sólo escriba ese hecho. ⚠️ El test de ayer fijaba el mismo supuesto equivocado (fechaba el rechazo
   por `created_at`) y por eso pasaba: un test que arma los datos con la misma idea que el código no la prueba.
 - **Una renovación rechazada queda «pagado»**: `aplicarPagoFallido` no vuelve atrás un cobro pagado; sólo escribe el
   motivo «Falló el cobro de la renovación…», y no crea cuota. Es el caso más común de las suscripciones. La tarjeta

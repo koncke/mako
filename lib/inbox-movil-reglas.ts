@@ -151,7 +151,7 @@ export function complejidadDe(parametros: readonly Pick<Parametro, 'tipo'>[] | n
  * 160 (la v1) un WhatsApp largo salía con «…» en el sheet y se aprobaba sin ver el final. El
  * corte de UNA línea es trabajo de la fila (CSS), no del detalle. El tope sólo cuida el peso.
  */
-const MAX_TEXTO = 2000;
+export const MAX_TEXTO = 2000;
 /** Un objeto crudo (JSON) es jerga: se muestra corto, como pista. */
 const MAX_JSON = 160;
 

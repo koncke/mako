@@ -49,9 +49,13 @@ test('el cobro de un cliente: rechazado si el ÚLTIMO falló y no pagó después
 });
 
 test('la revisión del 21/10: el rechazo cuenta por CUÁNDO pasó, y la renovación rechazada avisa', () => {
-  // El link de la cuota 2 se creó el 01/10; la cuota 1 se pagó el 05/10; la 2 rebotó el 20/10 (updated_at).
-  assert.equal(cobroDelCliente([c('pagado', '2026-09-25T10:00:00Z', '2026-10-05T10:00:00Z'), c('fallido', '2026-10-01T10:00:00Z', null, '2026-10-20T10:00:00Z')], [], HOY), 'rechazado',
+  // El link de la cuota 2 se creó el 01/10; la cuota 1 se pagó el 05/10; la 2 rebotó el 20/10 (el EVENTO del rechazo).
+  assert.equal(cobroDelCliente([c('pagado', '2026-09-25T10:00:00Z', '2026-10-05T10:00:00Z'), c('fallido', '2026-10-01T10:00:00Z')], [], HOY, ['2026-10-20T10:00:00Z']), 'rechazado',
     'un pago anterior al rechazo no lo tapa, aunque el link rechazado se haya creado antes');
+  // Segunda revisión: el link A rebotó el 01/10, el B se pagó el 05/10, y el 10/10 alguien abrió el link A viejo (updated_at).
+  assert.equal(cobroDelCliente([c('fallido', '2026-09-30T10:00:00Z', null, '2026-10-10T10:00:00Z'), c('pagado', '2026-10-04T10:00:00Z', '2026-10-05T10:00:00Z')], [], HOY, ['2026-10-01T10:00:00Z']), null,
+    'abrir un link viejo no es un rechazo nuevo: la hora es la del EVENTO');
+  assert.equal(cobroDelCliente([c('pagado', '2026-10-01T10:00:00Z', '2026-10-02T10:00:00Z')], [], HOY, ['2026-10-01T09:00:00Z']), null, 'un evento sin un cobro todavía fallido no avisa');
   assert.equal(cobroDelCliente([c('fallido', '2026-10-01T10:00:00Z', null, '2026-10-02T10:00:00Z'), c('pagado', '2026-09-30T10:00:00Z', '2026-10-03T10:00:00Z')], [], HOY), null,
     'pagó después del rechazo: no avisa');
   const renovacion = (o: Record<string, string>) => ({ estado: 'pagado', created_at: '2026-09-01T10:00:00Z', pagado_at: '2026-09-01T10:00:00Z', tipo: 'suscripcion', motivo: 'Falló el cobro de la renovación: card_declined', ...o });
@@ -79,6 +83,8 @@ test('el cableado: una lectura para la cartera que nunca tira, y la misma regla 
   assert.match(lector, /q\.in\('lead_id', t\)\.in\('estado', \['fallido', 'pagado'\]\)/);
   assert.match(lector, /q\.in\('lead_id', t\)\.eq\('pagado', false\)\.lt\('fecha_esperada', hoy\)/);
   assert.match(lector, /const TANDA = 150;/);
+  assert.match(lector, /q\.in\('lead_id', t\)\.eq\('campo', 'Pago rechazado'\)/, 'la hora del rechazo sale del evento que sólo escribe el rechazo');
+  assert.match(lector, /cobroDelCliente\(cobrosDe\.get\(id\) \?\? \[\], cuotasDe\.get\(id\) \?\? \[\], hoy, rechazosDe\.get\(id\)\)/);
   assert.match(lector, /catch \(e\) \{\n[^\n]*\n\s+return null;/, 'una lectura caída no inventa un «Pago rechazado»');
   const pantalla = leer('app/customer-success/pantalla.tsx');
   assert.match(pantalla, /const lecturaCobros = cobrosDeLaCartera\(clientes\.map\(\(c\) => c\.leadId\)\);/);

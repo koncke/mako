@@ -10496,11 +10496,35 @@ Cinco operaciones nuevas en el área `chats` (lib/api-mako/areas/chats.*): `envi
 - **La red gratis no las recibe sin hacer nada**: el área `chats` es de datos de clientes (`DATOS_DE_CLIENTES_POR_AREA`).
 - ⚠️ **En main, el turno de la app no llega a NINGUNA acción de Chats**, ni a la de siempre: «cierra el chat de Ana»
   sale `capturar` del clasificador de WhatsApp. Lo arregla la 1.2 (un verbo de hacer al principio → `actuar`,
-  lib/mako-intencion-app.ts, rama `mako-wa`, sin main el 21/10). La 2.1 puso lo suyo, el ÁREA: la rueda de `chats`
-  reconoce «borrador», «contést…», «respónd…», «leído», «al CRM» y «por WhatsApp». El test del turno arma el veredicto
-  de la 1.2 a mano y lo dice: cuando la 1.2 llegue, pasa a su clasificador.
+  lib/mako-intencion-app.ts, rama `mako-wa`, sin main el 21/10). **Sin la 1.2, la 2.1 no llega en la app.**
 
 **Sin hacer:** verlo en el navegador (el mensaje en el hilo de /chats, ws 3). El test del turno con el clasificador de
 la 1.2. Adjuntos en el email y en el DM (el compositor los tiene; MaKo todavía no).
 **Vive en:** lib/api-mako/areas/chats.def.ts y chats.run.ts · lib/chats-envio-reglas.ts · lib/mako-intencion.ts (la
 rueda) · tests/chats-mako-envio.test.ts y tests/chats-registro.test.ts · *21/10/2026, chat «CRM» (claude4).*
+
+## Un envío al lead se aprueba con un TOQUE; el «sí» escrito de WhatsApp no alcanza (21/10/2026, revisión de la 2.1)
+
+- **La regla.** Los tres envíos al lead (`enviar_borrador_whatsapp`, `contestar_dm`, `contestar_email_chat`) van SÓLO por
+  la app, con el toque en «Enviar» de la tarjeta. En el grupo de WhatsApp no hay toque sino un «sí» escrito, y la regla
+  de confirmación toma «ok, espera que lo reviso» como un sí. Mandarle algo a un lead es irreversible: un toque. Con la
+  primera versión, 3.396 turnos de WhatsApp ganaban una herramienta para mandarle al lead (en main, 0). Un test recorre
+  el registro: ninguna acción de `chats` que no se deshace viaja por WhatsApp.
+- **Lo que sale es exactamente lo que se ve.** La tarjeta muestra el detalle hasta `MAX_TEXTO` (2.000,
+  lib/inbox-movil-reglas.ts): el envío no acepta más que eso (se aceptaban 4.000 y 20.000). El borrador por id ahora lleva
+  a la tarjeta el texto ENTERO, si es nota de voz o archivo, el número y la línea; vacío no se propone (decía «null»).
+- **El canal lo decide la cosa nombrada**: «respóndele el mail a Pedro» llegaba a la de WhatsApp. Si el pedido nombra UN
+  canal y no es el de la operación, no se propone y se dice cuál es (`canalNombradoNoCoincide`).
+- ⚠️ **Un test que inventa la entrada prueba lo que inventó.** El test del turno armaba a mano un veredicto «igual al de
+  la 1.2» y no lo era: daba 7 de 7 en verde, y con el clasificador real eran 0 en main y 5 en la 1.2. Ahora corre con el
+  clasificador real y queda `todo` hasta que la 1.2 esté en main.
+- **La rueda de áreas es COMPARTIDA** (el grupo de WhatsApp y el ruteo de pedidos, lib/mako-pedidos.ts): sumarle palabras
+  para la app movía 5.108 turnos de WhatsApp y 98 links del Ops Center. Las palabras de mandar son de la app (la 1.2).
+- **El bloqueo, en la única puerta**: `enviarBorradorPorSuCanal` mira `estaBloqueado`. /chats deshabilitaba «Enviar», pero
+  /whatsapp y MaKo mandaban el borrador de un bloqueado.
+- **Respuestas cortas**: «contéstale que sí» manda «Sí»; un «sí, dale» que sólo aceptaba no es el mensaje.
+- **«No salió» sólo si no salió**: un email que salió y no quedó en el hilo, o un borrador que ya salió por otro lado,
+  decían «no salió», y quien lo lee lo vuelve a pedir.
+
+**Vive en:** lib/api-mako/areas/chats.* · lib/chats-envio-reglas.ts · lib/borrador-camino.ts ·
+tests/chats-mako-envio.test.ts · *21/10/2026, chat «CRM» (claude4), segunda revisión del Cerebro.*

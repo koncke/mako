@@ -7316,7 +7316,8 @@ tests/plan-columnas-propias.test.ts · *20/10/2026 noche, chat «CRM» (claude4)
   columnas. Ahí soltar mandaba `columna: null` y al reordenar le borraba a la tarjeta su columna propia. Un tablero que
   no conoce las columnas no manda columna (`undefined`), y `mover` conserva la que tenía si el estado no cambia.
 - **MaKo leía el estado y no la columna**: decía «En proceso» de una tarea en «En revisión» y anunciaba «de En
-  proceso a En proceso». Ahora mira `claveDeTarea` para la ficha, el «desde» y el «ya está así».
+  proceso a En proceso». Ahora mira `claveDeTarea` para la ficha, el «desde», el «ya está así», el historial del mover y
+  las listas (`columnaPropia` en `leerTablero`, una vez para todas).
 
 **Vive en:** app/plan/board/BoardShell.tsx · lib/api-mako/areas/plan.run.ts · tests/plan-columnas-propias.test.ts ·
 *21/10/2026, chat «CRM» (claude4), revisión del Cerebro.*

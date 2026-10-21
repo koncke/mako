@@ -125,3 +125,12 @@ test('MaKo ve la columna propia: la ficha de la tarea, el «desde» y el «ya es
   assert.match(run, /const ahora = claveDeTarea\(\{ estado: t\.estado, columna: t\.columna \}, config\);\n\s+if \(ahora === \(columna \?\? estado\)/, '«ya está» por la columna que se ve');
   assert.match(run, /const desde = etiquetaDeClave\(config, ahora\);/);
 });
+
+test('MaKo ve la columna propia también en el historial del mover y en las listas (segunda revisión 21/10)', () => {
+  const run = leer('lib/api-mako/areas/plan.run.ts');
+  assert.match(run, /const e = entrada\(desdeDe\(t\.estado \?\? 'por_hacer', t\.columna\)\);/, 'el historial del tablero del dueño dice de qué columna salió');
+  assert.match(run, /const e = entrada\(desdeDe\(t\.estado, t\.columna\)\);/, 'y el del cliente');
+  const h = leer('lib/api-mako/areas/plan.helpers.ts');
+  assert.match(h, /\.\.\.\(t\.columnaPropia \? \{ columna: t\.columnaPropia \} : \{\}\),/, 'las listas dicen la columna propia');
+  assert.equal((h.match(/columnaPropia: nombreDeColumnaPropia\(cols, /g) ?? []).length, 2, 'en las dos mitades del tablero');
+});

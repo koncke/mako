@@ -193,7 +193,8 @@ test('«volvió»: los plays por DÍA y sin pruebas (revisión 21/10)', () => {
   const sv = leer('lib/sugerencias-crm-server.ts');
   const v = sv.slice(sv.indexOf('async function leadsQueVolvieron'), sv.indexOf('const aLeadSug'));
   assert.match(v, /const despuesDelAlta = alta != null && ultimoDia > alta;/, 'un play el día del alta no es volver');
-  assert.match(v, /const dosDias = orden\.length >= 2/, 'dos plays el mismo día (el snippet v16/v17 manda dos por clic) no son dos veces');
+  assert.match(v, /const dosDias = alta == null && orden\.length >= 2;/, 'dos días sólo cuentan sin el alta: con el alta, un día después (como las visitas)');
+  assert.match(v, /if \(dueno\?\.creado && p\.created_at < dueno\.creado\) continue;/, 'los plays de ANTES de ser lead no son volver (segunda revisión del 21/10)');
   assert.equal((v.match(/\.is\('prueba', null\)/g) ?? []).length, 2, 'ni visitas ni plays de prueba');
   assert.match(v, /esPreviewDeEditor\(v\.landing_url/, 'ni la vista previa del editor');
   assert.match(v, /!l\.prueba && enRecorrido/, 'ni el lead PRUEBA');

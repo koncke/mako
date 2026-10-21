@@ -12,23 +12,29 @@
 // =============================================================================
 
 import type { CanalChat, IdentidadCanal } from './chats-tipos';
+import { MAX_TEXTO } from './inbox-movil-reglas';
 
-/** Lo más largo que se propone por cada canal (Instagram y Messenger cortan en 1.000; WhatsApp y email, holgado). */
-export const TOPE_TEXTO_ENVIO: Readonly<Record<CanalChat, number>> = { whatsapp: 4000, instagram: 1000, messenger: 1000, email: 20000 };
+/**
+ * Lo más largo que se propone por cada canal. ⚠️ NUNCA más de lo que la tarjeta muestra ENTERO (`MAX_TEXTO`, el detalle de
+ * la tarjeta, lib/inbox-movil-reglas.ts): lo que sale tiene que ser exactamente lo que se vio (revisión del 21/10/2026: se
+ * aceptaban 4.000 y 20.000 y la tarjeta cortaba en 2.000). Instagram y Messenger cortan antes, en 1.000.
+ */
+export const TOPE_TEXTO_ENVIO: Readonly<Record<CanalChat, number>> = { whatsapp: MAX_TEXTO, instagram: 1000, messenger: 1000, email: MAX_TEXTO };
 
 /** Una aceptación, no un mensaje: «sí», «dale», «ok», «mándalo», «listo», «envíalo ya»… solas o juntas. */
 const PALABRA_QUE_ACEPTA = '(?:s[ií]|dale|ok(?:ay)?|okey|listo|perfecto|claro|va|vale|bueno|de una|hazlo|h[aá]celo|m[aá]nd[aá]?(?:lo|la|selo|sela)?|env[ií][aá]?(?:lo|la|selo|sela)?|ya|por favor|porfa|ahora|mismo|eso|as[ií])';
 const SOLO_ACEPTA = new RegExp(`^[¡¿\\s]*${PALABRA_QUE_ACEPTA}(?:[\\s,.!¡¿?]+${PALABRA_QUE_ACEPTA})*[\\s.!?]*$`, 'i');
 
 /**
- * El texto a mandar, o por qué no. Vacío, sólo una aceptación («sí, dale»), o lo mismo que escribió la persona para
- * aceptar: no es contenido. Pasado el tope del canal: se dice el tope, no se corta (un mensaje cortado sale distinto).
+ * El texto a mandar, o por qué no. Vacío no es contenido. Una aceptación sola («sí», «dale», «ok») sólo es un mensaje si la
+ * persona lo DICTÓ: «contéstale que sí» manda «Sí»; un «sí, dale» que sólo aceptaba no es el mensaje (revisión del
+ * 21/10/2026: antes se rechazaba toda respuesta corta). Pasado el tope del canal: se dice el tope, no se corta.
  */
 export function textoDeEnvio(texto: unknown, canal: CanalChat, mensajeUsuario?: string | null): { texto: string } | { error: string; faltan?: string[] } {
   const t = typeof texto === 'string' ? texto.trim() : '';
   if (!t) return { error: 'Falta el texto del mensaje: ¿qué le digo?', faltan: ['texto'] };
   const usuario = (mensajeUsuario ?? '').trim();
-  if (SOLO_ACEPTA.test(t) || (usuario && t.toLowerCase() === usuario.toLowerCase() && SOLO_ACEPTA.test(usuario))) {
+  if (SOLO_ACEPTA.test(t) && (!usuario || SOLO_ACEPTA.test(usuario))) {
     return { error: '«Sí, dale» no es el mensaje: ¿qué le digo exactamente?', faltan: ['texto'] };
   }
   const tope = TOPE_TEXTO_ENVIO[canal];
@@ -53,6 +59,40 @@ export function identidadParaEnviar(canales: readonly IdentidadCanal[], canal: C
   if (libre) return { identidad: libre };
   const motivo = delCanal[0].motivoNoEscribir || (delCanal[0].bloqueado ? 'Bloqueado' : 'no se puede escribir');
   return { error: `Por ${NOMBRE_CANAL[canal]} no se le puede escribir ahora: ${motivo}.` };
+}
+
+/** Por qué canal se manda, según la COSA que nombró la persona. */
+export type CanalDeEnvio = 'whatsapp' | 'dm' | 'email';
+const NOMBRADO: ReadonlyArray<[CanalDeEnvio, RegExp]> = [
+  ['email', /\b(e-?mails?|mails?|correos?)\b/],
+  ['dm', /\b(dms?|mensajes? directos?|instagram|insta|messenger)\b/],
+  ['whatsapp', /\b(whats?app|wsp|wpp|whats)\b/],
+];
+const OPERACION_DE: Readonly<Record<CanalDeEnvio, string>> = { whatsapp: 'enviar_borrador_whatsapp', dm: 'contestar_dm', email: 'contestar_email_chat' };
+const QUE_ES: Readonly<Record<CanalDeEnvio, string>> = { whatsapp: 'un WhatsApp', dm: 'un mensaje directo', email: 'un email' };
+
+/**
+ * EL CANAL LO DECIDE LA COSA QUE SE NOMBRA (revisión del 21/10/2026): «respóndele el mail a Pedro» es un email aunque el
+ * turno haya traído la de WhatsApp. Si el pedido nombra UN canal y no es el de esta operación, no se propone: se dice
+ * cuál es. Si no nombra ninguno, o nombra varios, no frena (lo decide la conversación).
+ */
+export function canalNombradoNoCoincide(mensajeUsuario: string | null | undefined, propio: CanalDeEnvio): string | null {
+  const m = (mensajeUsuario ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const nombrados = NOMBRADO.filter(([, re]) => re.test(m)).map(([c]) => c);
+  if (nombrados.length !== 1 || nombrados[0] === propio) return null;
+  const pedido = nombrados[0];
+  return `Pediste ${QUE_ES[pedido]}: eso es ${OPERACION_DE[pedido]}, no ${QUE_ES[propio]}.`;
+}
+
+/**
+ * La clave contra el duplicado de un DM: la MISMA propuesta (la conversación, el texto, el turno) da la misma clave, así
+ * dos llamadas iguales del modelo en un turno son UNA pendiente y un doble toque sale una vez (revisión del 21/10/2026:
+ * era al azar y desarmaba las dos cosas). Otro turno, otra clave: mandar lo mismo otro día es otro mensaje.
+ */
+export function claveDeDm(convId: number, texto: string, turno: number | null | undefined): string {
+  let h = 0x811c9dc5;
+  for (const ch of `${convId}|${texto}|${turno ?? 0}`) { h ^= ch.codePointAt(0) ?? 0; h = Math.imul(h, 0x01000193) >>> 0; }
+  return `mako-${h.toString(36)}`;
 }
 
 /** Un contacto con Instagram Y Messenger y sin canal pedido: ¿por cuál? Uno solo: ése. Ninguno: no hay DM. */

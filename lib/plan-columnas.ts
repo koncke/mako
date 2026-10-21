@@ -104,6 +104,12 @@ export function claveDeTarea(t: { estado: EstadoTarea; columna?: string | null }
   return p && p.estado === t.estado ? p.id : t.estado;
 }
 
+/** El nombre de la columna PROPIA donde se dibuja una tarea, o null si está en la de su estado. */
+export function nombreDeColumnaPropia(c: ConfigColumnasPlan | null | undefined, estado: EstadoTarea, columna: string | null | undefined): string | null {
+  const clave = claveDeTarea({ estado, columna }, c);
+  return clave === estado ? null : etiquetaDeClave(c, clave);
+}
+
 /** A qué estado y columna va una tarea soltada en `clave`. null = esa columna no existe. */
 export function destinoDeClave(c: ConfigColumnasPlan | null | undefined, clave: string): { estado: EstadoTarea; columna: string | null } | null {
   if (esEstado(clave)) return { estado: clave, columna: null };

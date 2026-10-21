@@ -33,20 +33,29 @@ export async function cobrosDeLaCartera(leadIds: readonly number[]): Promise<Rec
     // levanta ese techo): un fallido viejo adentro y su pago posterior afuera era un «Pago rechazado» falso.
     const tandas: number[][] = [];
     for (let i = 0; i < ids.length; i += TANDA) tandas.push(ids.slice(i, i + TANDA));
-    const [cobros, cuotas] = await Promise.all([
+    const [cobros, cuotas, rechazosLeidos] = await Promise.all([
       Promise.all(tandas.map((t) => leerTodo<FilaCobro>(db, 'cobros', 'id, lead_id, estado, created_at, updated_at, pagado_at, tipo, suscripcion_estado, motivo', {
         orden: 'id', filtros: (q) => q.in('lead_id', t).in('estado', ['fallido', 'pagado']) as unknown as ConsultaPaginada,
       }))).then((x) => x.flat()),
       Promise.all(tandas.map((t) => leerTodo<FilaCuota>(db, 'pagos', 'id, lead_id, fecha_esperada', {
         orden: 'id', filtros: (q) => q.in('lead_id', t).eq('pagado', false).lt('fecha_esperada', hoy) as unknown as ConsultaPaginada,
       }))).then((x) => x.flat()),
+      // CUÁNDO SE RECHAZÓ: el evento que escribe sólo el rechazo (`aplicarPagoFallido`). La renovación tiene su regla aparte.
+      Promise.all(tandas.map((t) => leerTodo<{ lead_id: number | null; valor_nuevo: string | null; created_at: string }>(db, 'lead_audit', 'id, lead_id, valor_nuevo, created_at', {
+        orden: 'id', filtros: (q) => q.in('lead_id', t).eq('campo', 'Pago rechazado') as unknown as ConsultaPaginada,
+      }))).then((x) => x.flat()),
     ]);
+    const rechazosDe = new Map<number, string[]>();
+    for (const f of rechazosLeidos) {
+      if (f.lead_id == null || /^Renovación de /.test(f.valor_nuevo ?? '')) continue;
+      rechazosDe.set(Number(f.lead_id), [...(rechazosDe.get(Number(f.lead_id)) ?? []), f.created_at]);
+    }
     const cobrosDe = new Map<number, FilaCobro[]>();
     for (const f of cobros) if (f.lead_id != null) cobrosDe.set(Number(f.lead_id), [...(cobrosDe.get(Number(f.lead_id)) ?? []), f]);
     const cuotasDe = new Map<number, FilaCuota[]>();
     for (const f of cuotas) if (f.lead_id != null) cuotasDe.set(Number(f.lead_id), [...(cuotasDe.get(Number(f.lead_id)) ?? []), f]);
     const out: Record<number, CobroTarjeta> = {};
-    for (const id of ids) out[id] = cobroDelCliente(cobrosDe.get(id) ?? [], cuotasDe.get(id) ?? [], hoy);
+    for (const id of ids) out[id] = cobroDelCliente(cobrosDe.get(id) ?? [], cuotasDe.get(id) ?? [], hoy, rechazosDe.get(id));
     return out;
   } catch (e) {
     console.warn('[cs] no pude leer los cobros de la cartera:', e instanceof Error ? e.message : String(e));

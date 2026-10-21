@@ -12,9 +12,12 @@
 //  1. ⚠️ UN CANAL PROPONE Y UNA PERSONA CONFIRMA. Hasta el 21/10/2026 ninguna operación de acá mandaba un mensaje;
 //     desde la D3a (Martín, 21/10/2026, vía Debate: «el toque en "Enviar" ES la aprobación del mensaje al lead») tres
 //     lo mandan (`enviar_borrador_whatsapp`, `contestar_dm`, `contestar_email_chat`, Ops Center 2.1), SIEMPRE con la
-//     tarjeta: MaKo propone el texto, la persona lo lee y toca «Enviar». No hay aprobación aparte, y nada sale sin
-//     ese toque (o el «sí» del dueño por WhatsApp). En WhatsApp no oficial el mensaje sigue pasando por la cola de
-//     borradores: tocar «Enviar» APRUEBA el borrador, no lo saltea (`enviarBorradorPorSuCanal`, la única puerta).
+//     tarjeta: MaKo propone el texto, la persona lo lee ENTERO y toca «Enviar». No hay aprobación aparte, y nada sale
+//     sin ese toque. ⚠️ Por eso los tres van SÓLO por la app (decisión del 21/10/2026, revisión de la 2.1): en el grupo
+//     de WhatsApp no hay toque sino un «sí» escrito, y la regla de «sí» toma «ok, espera que lo reviso» como
+//     confirmación. Un envío al lead se aprueba con un toque; el «sí» escrito de WhatsApp no alcanza. En WhatsApp no
+//     oficial el mensaje sigue pasando por la cola de borradores: tocar «Enviar» APRUEBA el borrador, no lo saltea
+//     (`enviarBorradorPorSuCanal`, la única puerta, que también mira el bloqueo).
 //     El resto cambia el ESTADO de una conversación (cerrar, reabrir, posponer, leído) o agrega al contacto al CRM,
 //     y no le llega al contacto. Asignar no está: el asignado ES el setter del lead, y eso ya lo hace
 //     `asignar_closer_setter` (área crm). Dos operaciones para lo mismo se desincronizan.
@@ -147,10 +150,10 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [
       { nombre: 'borradorId', tipo: 'number', entero: true, minimo: 1, descripcion: 'id de un borrador pendiente (de hilo_chat → borradores_de_mako). Con esto no hace falta nada más.' },
       CLAVE, LEAD_ID,
-      { nombre: 'texto', tipo: 'string', max: 4000, descripcion: 'sin borradorId: el mensaje exacto que se le manda.' },
+      { nombre: 'texto', tipo: 'string', max: 2000, descripcion: 'sin borradorId: el mensaje exacto que se le manda (hasta 2.000 caracteres: lo que la tarjeta muestra entero).' },
       { nombre: 'linea', tipo: 'string', max: 120, descripcion: 'sin borradorId: la línea de WhatsApp (su nombre de instancia, de listar_chats → lineas), si el contacto tiene más de una.' },
     ],
-    canales: SIN_HTTP, costo: 'gratis', gating: GATING,
+    canales: ['app'], costo: 'gratis', gating: GATING,
     escribe: 'el borrador (wa_borradores) queda enviado por quien confirma y el mensaje sale al contacto por la línea no oficial; se ve en el hilo de Chats',
   },
   {
@@ -162,7 +165,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'canal', tipo: 'string', enum: ['instagram', 'messenger'], descripcion: 'por cuál, si el contacto escribe por los dos.' },
       { nombre: 'texto', tipo: 'string', obligatorio: true, max: 1000, descripcion: 'el mensaje exacto que se le manda.' },
     ],
-    canales: SIN_HTTP, costo: 'gratis', gating: GATING,
+    canales: ['app'], costo: 'gratis', gating: GATING,
     escribe: 'el mensaje sale al contacto por Instagram o Messenger y queda en su hilo de Chats, con quien lo confirma',
   },
   {
@@ -171,10 +174,10 @@ export const DEFS: readonly OperacionDef[] = [
     descripcion: 'Propone CONTESTAR por email a un contacto de la tab Chats, desde el dominio del negocio (nunca desde MaKo), y sale cuando la persona toca «Enviar» en la tarjeta (ese toque es la aprobación). Sin asunto, va como respuesta al último que llegó («Re: …»). El texto lo tiene que haber dicho o aprobado la persona: «sí, dale» no es el mensaje. Pasa la clave de listar_chats o el leadId.',
     parametros: [
       CLAVE, LEAD_ID,
-      { nombre: 'texto', tipo: 'string', obligatorio: true, max: 20000, descripcion: 'el cuerpo del email, exacto.' },
+      { nombre: 'texto', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'el cuerpo del email, exacto (hasta 2.000 caracteres: lo que la tarjeta muestra entero; para más, desde Chats).' },
       { nombre: 'asunto', tipo: 'string', max: 200, descripcion: 'el asunto, si es un email nuevo y no una respuesta.' },
     ],
-    canales: SIN_HTTP, costo: 'gratis', gating: GATING,
+    canales: ['app'], costo: 'gratis', gating: GATING,
     escribe: 'el email sale al contacto desde el dominio del negocio y queda en su hilo de Chats (email_mensajes), con quien lo confirma',
   },
 ];

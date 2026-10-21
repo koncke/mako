@@ -15,7 +15,8 @@ import 'server-only';
 import type { Runners, Preparado, Ejecutado, Ctx, SalidaLectura } from '../tipos';
 import type { ChatResumen, MensajeChat, EstadoChat, CanalChat } from '@/lib/chats-tipos';
 import { listarChats, hiloDeChat, cambiarEstadoChat, marcarChatLeido, POSPONER_MAX_MS, type AccionEstadoChat, type YoChats } from '@/lib/chats';
-import { textoDeEnvio, identidadParaEnviar, canalDeDm, NOMBRE_CANAL } from '@/lib/chats-envio-reglas';
+import { textoDeEnvio, identidadParaEnviar, canalDeDm, canalNombradoNoCoincide, claveDeDm, NOMBRE_CANAL, TOPE_TEXTO_ENVIO } from '@/lib/chats-envio-reglas';
+import { getTenantDb } from '@/lib/workspace';
 import { crearBorrador } from '@/lib/evolution-envio';
 import { enviarBorradorPorSuCanal } from '@/lib/borrador-camino';
 import { enviarManualSocial, crearLeadDeConversacionSocial } from '@/lib/canal-zernio';
@@ -25,7 +26,8 @@ import { leerFunnels } from '@/lib/funnels';
 import { createLead } from '@/lib/leads';
 import { LeadDuplicadoError } from '@/lib/leads-duplicados';
 import { ORIGEN_LEAD } from '@/app/crm/origen-lead';
-import { borradorPendiente, borradorPendienteIgual } from './whatsapp.helpers';
+import { borradorPendienteIgual } from './whatsapp.helpers';
+import { estaBloqueado } from '@/lib/evolution-block';
 import { claveLead, parsearClave, filtrarChats, textoDePartes, type VistaChats, type MostrarChats } from '@/lib/chats-reglas';
 import { getUsuarioActual } from '@/lib/auth';
 import { zonaDelNegocio } from '@/lib/timezone';
@@ -163,6 +165,22 @@ async function cambiar(payload: Record<string, unknown>, ctx: Ctx): Promise<Ejec
 }
 
 const digitos = (v: unknown): string => String(v ?? '').replace(/\D/g, '');
+
+/**
+ * UN BORRADOR DE LA COLA, con TODO lo que va a salir (revisión del 21/10/2026): el texto entero (no el resumen cortado),
+ * si es una nota de voz o un archivo, a qué número y por qué línea. La tarjeta lo muestra antes del toque.
+ */
+async function borradorParaEnviar(id: number): Promise<{ id: number; texto: string; adjunto: 'nota de voz' | 'archivo' | null; telefono: string; linea: string | null; nombre: string | null } | null> {
+  const { data, error } = await (await getTenantDb()).from('wa_borradores')
+    .select('id, texto, telefono, instance_name, audio_id, adjunto_id, leads(nombre)').eq('id', id).eq('estado', 'pendiente').maybeSingle();
+  if (error) throw new Error(`No pude leer el borrador: ${error.message}`);
+  if (!data) return null;
+  const r = data as unknown as { id: number; texto: string | null; telefono: string | null; instance_name: string | null; audio_id: number | null; adjunto_id: number | null; leads: { nombre?: string } | null };
+  return {
+    id: r.id, texto: (r.texto ?? '').trim(), telefono: digitos(r.telefono), linea: r.instance_name?.trim() || null, nombre: r.leads?.nombre?.trim() || null,
+    adjunto: Number(r.audio_id) > 0 ? 'nota de voz' : Number(r.adjunto_id) > 0 ? 'archivo' : null,
+  };
+}
 
 /** El producto (funnel) del alta, o lo que falta elegir: el MISMO criterio que «Agregar al CRM» de /chats. */
 async function destinoDeAlta(funnelId: number | null): Promise<{ casa: number | null; nombre: string | null } | { error: string; faltan?: string[]; disponibles?: unknown }> {
@@ -353,12 +371,22 @@ export const RUNNERS: Runners = {
 
   enviar_borrador_whatsapp: {
     preparar: async (input, ctx): Promise<Preparado> => {
-      // Un borrador que ya está en la cola: se manda ESE, tal cual.
+      const otro = canalNombradoNoCoincide(ctx.mensajeUsuario, 'whatsapp');
+      if (otro) return { error: otro };
+      // Un borrador que ya está en la cola: se manda ESE, tal cual, y la tarjeta lo muestra ENTERO.
       const borradorId = num(input, 'borradorId');
       if (borradorId != null) {
-        const b = await borradorPendiente(borradorId);
+        const b = await borradorParaEnviar(borradorId);
         if (!b) return { error: 'Ese borrador ya no está pendiente: ya salió o se descartó.' };
-        return { payload: { borradorId: b.id, nombre: b.leadNombre ?? b.telefono }, resumen: `Enviar a ${b.leadNombre ?? b.telefono} por WhatsApp: «${corto(b.texto, 300)}»` };
+        if (!b.texto && !b.adjunto) return { error: 'Ese borrador está vacío: no hay nada que mandar.' };
+        if (b.texto.length > TOPE_TEXTO_ENVIO.whatsapp) return { error: `Ese borrador tiene ${b.texto.length} caracteres y la tarjeta muestra hasta ${TOPE_TEXTO_ENVIO.whatsapp}: mándalo desde Chats, donde se ve entero.` };
+        if (await estaBloqueado(b.telefono)) return { error: 'Ese contacto está bloqueado: no se le manda nada.' };
+        const nombre = b.nombre ?? `+${b.telefono}`;
+        const que = b.adjunto ? `${b.adjunto === 'nota de voz' ? 'una nota de voz' : 'un archivo'}${b.texto ? ` con el texto «${corto(b.texto, 300)}»` : ' (sin texto)'}` : `«${corto(b.texto, 300)}»`;
+        return {
+          payload: { borradorId: b.id, nombre, numero: `+${b.telefono}`, ...(b.linea ? { linea: b.linea } : {}), ...(b.adjunto ? { adjunto: b.adjunto } : {}), ...(b.texto ? { texto: b.texto } : {}) },
+          resumen: `Enviar a ${nombre} (+${b.telefono}) por WhatsApp${b.linea ? ` (línea ${b.linea})` : ''}: ${que}`,
+        };
       }
       // Un texto nuevo: el canal, la persona y el texto se deciden ANTES del toque.
       const t = textoDeEnvio(input.texto, 'whatsapp', ctx.mensajeUsuario);
@@ -392,14 +420,19 @@ export const RUNNERS: Runners = {
       }
       // La ÚNICA puerta de envío de un borrador (lib/borrador-camino.ts): vuelve a mirar la línea antes de mandar.
       const r = await enviarBorradorPorSuCanal(id, ctx.actor?.trim() || 'MaKo');
-      return r.ok
-        ? { ok: true, resumen: `Enviado a ${nombre} por WhatsApp.` }
-        : { ok: false, resumen: `No salió (${r.error ?? 'sin línea'}). El mensaje quedó en la cola de borradores.` };
+      if (r.ok) return { ok: true, resumen: `Enviado a ${nombre} por WhatsApp.` };
+      // «No salió» sólo cuando NO salió: un borrador que ya no está pendiente pudo haber salido desde /chats, y quien lee
+      // «no salió» lo vuelve a pedir (revisión del 21/10/2026).
+      if (r.error === 'el borrador ya no está pendiente') return { ok: false, resumen: `Ese borrador ya salió o se descartó: mira el hilo de ${nombre} antes de mandar otro.` };
+      if (r.error === 'el contacto está bloqueado') return { ok: false, resumen: `No salió: ${nombre} está bloqueado.` };
+      return { ok: false, resumen: `No salió (${r.error ?? 'sin línea'}). El mensaje quedó en la cola de borradores.` };
     },
   },
 
   contestar_dm: {
     preparar: async (input, ctx): Promise<Preparado> => {
+      const otro = canalNombradoNoCoincide(ctx.mensajeUsuario, 'dm');
+      if (otro) return { error: otro };
       const c = await conversacion(input);
       if ('error' in c) return c;
       const cd = canalDeDm(c.chat.canales, str(input, 'canal'));
@@ -409,8 +442,9 @@ export const RUNNERS: Runners = {
       const i = identidadParaEnviar(c.chat.canales, cd.canal);
       if ('error' in i) return i;
       return {
-        // `idem`: la misma propuesta confirmada dos veces (un doble toque, un reintento) no sale dos veces.
-        payload: { convId: Number(i.identidad.ref), texto: t.texto, nombre: c.chat.nombre, canal: cd.canal, idem: `mako-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}` },
+        // `idem`: la misma propuesta (conversación, texto, turno) da la misma clave: dos llamadas iguales son UNA pendiente,
+        // y un doble toque o un reintento no salen dos veces (`claveDeDm`).
+        payload: { convId: Number(i.identidad.ref), texto: t.texto, nombre: c.chat.nombre, canal: cd.canal, idem: claveDeDm(Number(i.identidad.ref), t.texto, ctx.turnStart) },
         resumen: `Contestarle a ${c.chat.nombre} por ${NOMBRE_CANAL[cd.canal]}: «${corto(t.texto, 300)}»`,
       };
     },
@@ -427,6 +461,8 @@ export const RUNNERS: Runners = {
 
   contestar_email_chat: {
     preparar: async (input, ctx): Promise<Preparado> => {
+      const otro = canalNombradoNoCoincide(ctx.mensajeUsuario, 'email');
+      if (otro) return { error: otro };
       const t = textoDeEnvio(input.texto, 'email', ctx.mensajeUsuario);
       if ('error' in t) return t;
       const c = await conversacion(input);
@@ -446,7 +482,10 @@ export const RUNNERS: Runners = {
         para: String(payload.para ?? ''), asunto: typeof payload.asunto === 'string' && payload.asunto ? payload.asunto : null,
         texto: String(payload.texto ?? ''), archivos: [], autor: await actorDe(ctx),
       });
-      return r.ok ? { ok: true, resumen: `Email enviado a ${nombre}.` } : { ok: false, resumen: `No salió: ${r.error}` };
+      if (r.ok) return { ok: true, resumen: `Email enviado a ${nombre}.` };
+      // Salió, pero no quedó en el hilo (chats-email.ts): decir «no salió» haría que lo manden dos veces.
+      if (/^Salió/.test(r.error)) return { ok: true, resumen: `Email enviado a ${nombre}, pero no quedó en su hilo de Chats: no lo mandes otra vez.` };
+      return { ok: false, resumen: `No salió: ${r.error}` };
     },
   },
 };

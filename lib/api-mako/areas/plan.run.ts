@@ -35,7 +35,7 @@ import { listTareas, editarTarea, moverTarea } from '@/lib/todo';
 import { cerrarConEvidencia, type CierreEnElActo } from '@/lib/plan-cerrar';
 import { rutaParaRevisar } from '@/lib/operaciones-reglas';
 // Las columnas del kanban (16/10/2026): claves, etiquetas y qué es un pendiente, de UN lugar.
-import { ESTADOS, esEstado, estaPendiente, motivoAtoradaOk } from '@/lib/todo-estados';
+import { ESTADOS, esEstado, estaPendiente, motivoAtoradaOk, type EstadoTarea } from '@/lib/todo-estados';
 import { etiquetasDeColumnasPlan, leerColumnasPlan, cambiarColumnasPlan } from '@/lib/plan-columnas-server';
 import { aplicarCambioColumnas, claveDeTarea, columnasEnOrden, destinoDeClave, etiquetaDeClave, nuevoIdColumna, type CambioColumnas } from '@/lib/plan-columnas';
 import {
@@ -888,7 +888,9 @@ export const RUNNERS: Runners = {
       const motivo = typeof payload.motivo === 'string' && payload.motivo ? payload.motivo : undefined;
       const etiqueta = await etiquetasDeColumnasPlan();
       const columna = typeof payload.columna === 'string' && payload.columna ? payload.columna : null;
-      const config = columna ? await leerColumnasPlan() : null;
+      // Siempre: el «desde» del historial es la columna donde estaba la tarea, también si era una propia.
+      const config = await leerColumnasPlan();
+      const desdeDe = (estado: EstadoTarea, col: string | null | undefined) => etiquetaDeClave(config, claveDeTarea({ estado, columna: col ?? null }, config));
       const entrada = (antes: string) => ({
         id: genHistId(), ts: Date.now(), actor: 'ia' as const,
         text: `MaKo la movió de ${antes} a ${columna ? etiquetaDeClave(config, columna) : etiqueta(estado)}${motivo ? ` — ${motivo}` : ''}`.slice(0, 220),
@@ -896,13 +898,13 @@ export const RUNNERS: Runners = {
       if (await usaPlanBoard(ctx.ws)) {
         const t = (await listPlanBoard()).tareas.find((x) => x.id === id);
         if (!t) return { ok: false, resumen: 'La tarea ya no existe.' };
-        const e = entrada(etiqueta(t.estado ?? 'por_hacer'));
+        const e = entrada(desdeDe(t.estado ?? 'por_hacer', t.columna));
         const r = await moverPlanTarea(id, estado, undefined, { motivo, columna, historial: [e, ...(t.historial ?? [])].slice(0, 40) });
         return r.ok ? { ok: true, resumen: `«${t.title}»: ${e.text}` } : { ok: false, resumen: r.error };
       }
       const t = (await listTareas()).find((x) => x.id === Number(id));
       if (!t) return { ok: false, resumen: 'La tarea ya no existe.' };
-      const e = entrada(etiqueta(t.estado));
+      const e = entrada(desdeDe(t.estado, t.columna));
       const r = await moverTarea(t.id, estado, undefined, { motivo, columna, historial: [e, ...t.historial].slice(0, 40) });
       return r.ok ? { ok: true, resumen: `«${t.titulo}»: ${e.text}` } : { ok: false, resumen: r.error };
     },

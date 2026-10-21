@@ -20,6 +20,7 @@
 // `archivo/chatwoot-2026-10-09`.
 // =============================================================================
 
+import { estaBloqueado } from './evolution-block';
 import 'server-only';
 import { getTenantDb } from '@/lib/workspace';
 import { listarLineas } from '@/lib/evolution';
@@ -80,11 +81,11 @@ export async function caminosDeEnvio(
   return out;
 }
 
-type BorradorFila = { id: number; estado: string; instance_name: string | null };
+type BorradorFila = { id: number; estado: string; instance_name: string | null; telefono: string | null };
 
 async function leerBorrador(id: number): Promise<BorradorFila | null> {
   const db = await getTenantDb();
-  const { data } = await db.from('wa_borradores').select('id, estado, instance_name').eq('id', id).maybeSingle();
+  const { data } = await db.from('wa_borradores').select('id, estado, instance_name, telefono').eq('id', id).maybeSingle();
   return (data as BorradorFila | null) ?? null;
 }
 
@@ -96,6 +97,9 @@ async function leerBorrador(id: number): Promise<BorradorFila | null> {
 export async function enviarBorradorPorSuCanal(id: number, porEmail: string): Promise<{ ok: boolean; error?: string }> {
   const b = await leerBorrador(id);
   if (!b || b.estado !== 'pendiente') return { ok: false, error: 'el borrador ya no está pendiente' };
+  // ⚠️ UN CONTACTO BLOQUEADO NO RECIBE NADA, venga de donde venga (revisión del 21/10/2026): /chats deshabilita «Enviar»
+  // con el bloqueo, pero /whatsapp y MaKo mandaban el borrador igual. Acá, que es la puerta de los tres.
+  if (await estaBloqueado(String(b.telefono ?? ''))) return { ok: false, error: 'el contacto está bloqueado' };
 
   const camino = (await caminosDeEnvio([{ id: b.id, linea: b.instance_name }])).get(b.id);
   if (camino?.via === 'empresa') return enviarBorrador(id, porEmail);

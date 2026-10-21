@@ -10022,8 +10022,10 @@ ComportamientoCard.tsx. Test: tests/crm-ficha-bloques-partidos.test.ts. *20/10/2
   (`ID_SUGERENCIA`) y lo que viene de afuera va como un hash corto (`idGestoMover`, `idSinCrm`). El test hace la ida y
   vuelta de «Ahora no» con CADA familia de id.
 - **Un clic en el VSL pueden ser dos plays**: el snippet v16/v17 con Wistia manda dos filas a milisegundos
-  (lib/video-id.ts), y una página con dos videos o una recarga también. «Volvió a mirar el VSL» cuenta DÍAS: un play un
-  día después del alta, o plays en dos días distintos.
+  (lib/video-id.ts), y una página con dos videos o una recarga también. «Volvió a mirar el VSL» cuenta DÍAS y sólo los
+  plays POSTERIORES al alta, por hora: un play un día después del alta (la regla de las visitas). ⚠️ La primera versión
+  del arreglo comparaba por día y un VSL mirado el 14 y el 15 a la mañana, antes del formulario del 15 a la tarde, se
+  leía «volvió» (segunda revisión del 21/10). Sin el alta, plays en dos días distintos.
 - **Las pruebas no son del negocio**: las visitas con `prueba` (`?mko_test`), la vista previa del editor y el lead
   PRUEBA de la prueba del Pixel (`origen_lead = 'prueba'`) ya no cuentan como «volvió». Es la misma regla que los
   gráficos (`noEsDelNegocio`).

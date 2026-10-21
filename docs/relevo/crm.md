@@ -1314,3 +1314,8 @@ turno de la app llegue a ellas con el clasificador real: hoy el test arma ese ve
 Revisión del Cerebro sobre c2de8a159 (21/10): los 7 medios arreglados, más dos bajos (MaKo ve la columna propia; la
 cartera de a tandas). Queda bajo: «Hacerlo» por el chat no calla la sugerencia en el server. Detalle en hallazgos-plan,
 hallazgos-crm y hallazgos-customer-success (las tres «Lo que encontró la revisión…»).
+
+Segunda revisión (21/10): la 2.1 rehecha. Los tres envíos sólo por la app («un envío al lead se aprueba con un toque»),
+la rueda de áreas como en main, la tarjeta muestra entero lo que sale, el canal por la cosa nombrada, el bloqueo en la
+puerta única, y los bajos (VSL sólo después del alta, el rechazo por su evento, MaKo y la columna propia en historial y
+listas). **Sin la 1.2, la 2.1 no llega en la app**: no darla por «en producción» antes de que la 1.2 esté en main.

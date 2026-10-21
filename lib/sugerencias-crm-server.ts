@@ -293,10 +293,14 @@ async function leadsQueVolvieron(casa: ReadonlyMap<number, LeadDeCasa>, enRecorr
   }
   // LOS PLAYS, POR DÍA (revisión del 21/10/2026): un solo clic en un VSL de Wistia con el snippet v16/v17 deja DOS filas
   // «play» a milisegundos (lib/video-id.ts), y una página con dos videos o una recarga también. Volver es mirarlo OTRO
-  // día: un play un día después del alta (como las visitas), o plays en dos días distintos.
+  // día DESPUÉS de ser lead: sólo cuentan los plays posteriores al alta, por HORA (la segunda revisión del 21/10: por día,
+  // un VSL mirado el 14 y el 15 a la mañana, antes del formulario de la tarde del 15, se leía «volvió»). Con el alta
+  // conocida, es la regla de las visitas (un día después); sin el alta, plays en dos días distintos.
   const diasDe = new Map<string, Map<string, string>>();
   for (const p of plays) {
     if (p.auto === true || esPreviewDeEditor(p.landing_url ?? '')) continue;
+    const dueno = porVisitor.get(p.visitor_id);
+    if (dueno?.creado && p.created_at < dueno.creado) continue;
     const dias = diasDe.get(p.visitor_id) ?? new Map<string, string>();
     const d = diaDe(p.created_at);
     if (String(dias.get(d) ?? '') < p.created_at) dias.set(d, p.created_at);
@@ -309,7 +313,7 @@ async function leadsQueVolvieron(casa: ReadonlyMap<number, LeadDeCasa>, enRecorr
     const orden = [...dias.keys()].sort();
     const ultimoDia = orden.at(-1)!;
     const despuesDelAlta = alta != null && ultimoDia > alta;
-    const dosDias = orden.length >= 2 && (alta == null || ultimoDia >= alta);
+    const dosDias = alta == null && orden.length >= 2;
     if (despuesDelAlta || dosDias) marcar(l, dias.get(ultimoDia)!);
   }
   return [...ultimaVuelta].sort((a, b) => b[1].localeCompare(a[1])).map(([id]) => {
