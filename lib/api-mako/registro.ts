@@ -193,6 +193,11 @@ export type FiltroTools = {
    *  orden de declaración, y en un área de 50 operaciones «pausá la campaña X» se
    *  quedaba con las primeras 15 lecturas y sin la acción que pidió. */
   relevanteA?: string;
+  /** un corte más, a gusto de quien llama (el chat de la app lo usa para no abrir el registro entero a acciones destructivas
+   *  de otra área). Se aplica antes del orden y del presupuesto. Sin esto, todo igual. */
+  donde?: (d: OperacionDef) => boolean;
+  /** no avisar por consola lo que quedó afuera del presupuesto (cuando un turno se arma en varias pasadas). */
+  silencioso?: boolean;
 };
 
 /** Los ToolDefs para un turno del doer, según el filtro. */
@@ -203,7 +208,8 @@ export function toolsDelRegistro(f: FiltroTools): ToolDef[] {
     .filter((d) => f.incluirAcciones !== false || esLectura(d))
     .filter((d) => visible(d, f.vista))
     .filter((d) => !ids || ids.has(d.id) || (d.alias ?? []).some((a) => ids.has(a)))
-    .filter((d) => !f.excluir || !(f.excluir.has(d.id) || (d.alias ?? []).some((a) => f.excluir!.has(a))));
+    .filter((d) => !f.excluir || !(f.excluir.has(d.id) || (d.alias ?? []).some((a) => f.excluir!.has(a))))
+    .filter((d) => !f.donde || f.donde(d));
   const tools = (f.relevanteA ? ordenarPorRelevancia(defs, f.relevanteA) : defs).map(aToolDef);
   if (!f.maxChars) return tools;
   const out: ToolDef[] = [];
@@ -214,7 +220,7 @@ export function toolsDelRegistro(f: FiltroTools): ToolDef[] {
     if (usados + largo > f.maxChars) { afuera.push(t.name); continue; }
     usados += largo; out.push(t);
   }
-  if (afuera.length) console.warn(`[api-mako] presupuesto de ${f.maxChars} chars: quedaron afuera ${afuera.join(', ')}`);
+  if (afuera.length && !f.silencioso) console.warn(`[api-mako] presupuesto de ${f.maxChars} chars: quedaron afuera ${afuera.join(', ')}`);
   return out;
 }
 
@@ -276,6 +282,13 @@ export function raices(texto: string): string[] {
  * la descripción también nombra lo que necesita antes. Empates: el orden declarado,
  * que pone las lecturas primero.
  */
+/** Cuántos puntos le da un mensaje a UNA operación (lo mismo que suma `ordenarPorRelevancia`): 2 por cada raíz en su id o título, 1 en su descripción. */
+export function puntajeDeRelevancia(d: OperacionDef, mensaje: string): number {
+  const fuerte = normalizar(`${d.id} ${d.titulo}`);
+  const debil = normalizar(d.descripcion);
+  return raices(mensaje).reduce((n, r) => n + (fuerte.includes(r) ? 2 : debil.includes(r) ? 1 : 0), 0);
+}
+
 export function ordenarPorRelevancia<T extends OperacionDef>(defs: readonly T[], mensaje: string): T[] {
   const rs = raices(mensaje);
   if (!rs.length) return [...defs];

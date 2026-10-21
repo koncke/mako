@@ -1148,7 +1148,7 @@ Ocho cosas que no se ven en el código y ya mordieron:
 WhatsApp sigue anotando como idea. Una frase nueva de la app entra a `tests/ops-center-clasificador-app.test.ts` con su operación, y
 si no llega: (1) un verbo de hacer al arranque va en `lib/mako-intencion-app.ts`; (2) si el pedido no nombra el área, una fila de
 `FAMILIAS` con las palabras del NOMBRE de la operación (verbo y sustantivo; un verbo suelto puntúa en cientos de operaciones y la saca
-del presupuesto); (3) un veredicto dudoso no suma las áreas del texto, así que el default de la app va `dudosa: false`.
+del presupuesto); (3) un veredicto dudoso no suma las áreas del texto, así que el default de la app va `dudosa: false` Y lleva `adivina: true` (que le saca `proponer_tareas_plan` y `cancelar_accion`: una adivinanza no crea nada). La búsqueda en todo el registro es de `lib/relevancia-app.ts`: una destructiva o una lectura que cuesta entra sólo si el texto nombra su área, y «WhatsApp no cambia» se mide comparando antes y después con las funciones reales sobre miles de frases, no con un test que fija un caso.
 
 **Y al sumar operaciones a un área** (15/10/2026, 40 de una vez en `landing`;
 docs/hallazgos-api-mako.md → «El editor entero del Web Generator»):

@@ -38,7 +38,7 @@ import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { clasificarIntencion } from '../lib/mako-intencion';
+import { clasificarIntencion, RELEVANCIA_AGENDA } from '../lib/mako-intencion';
 import { pideHacerAlApp, familiasDe } from '../lib/mako-intencion-app';
 import { herramientasDelChat } from '../lib/mako-turno-app-reglas';
 import { herramientasDelTurno } from '../lib/doer-herramientas';
@@ -62,10 +62,10 @@ const vistaWa: Vista = { canal: 'whatsapp', alcance: 'ejecutar', ws: 13, rol: 'a
 type Caso = [texto: string, operaciones: string[]];
 
 /** El turno de la app: lo MISMO que corre lib/mako-turno-app.ts (`canal: 'app'` + `herramientasDelChat`). */
-function turnoApp(texto: string) {
-  const veredicto = clasificarIntencion(texto, { canal: 'app' });
-  const t = herramientasDelChat({ veredicto, texto, agendaAbierta: false, deSiempre: DE_SIEMPRE, vista: vistaApp, hayPendientes: false });
-  return { veredicto, nombres: t.tools.map((x) => x.name) };
+function turnoApp(texto: string, ctx: { hayPendientes?: boolean } = {}) {
+  const veredicto = clasificarIntencion(texto, { canal: 'app', ...ctx });
+  const t = herramientasDelChat({ veredicto, texto, agendaAbierta: false, deSiempre: DE_SIEMPRE, vista: vistaApp, hayPendientes: !!ctx.hayPendientes });
+  return { veredicto, nombres: t.tools.map((x) => x.name), delRegistro: t.delRegistro.map((x) => x.name) };
 }
 /** El turno de WhatsApp: el clasificador sin `canal`. */
 function turnoWhatsApp(texto: string) {
@@ -716,7 +716,123 @@ test('si el texto no nombra un área, la operación se busca en todo el registro
   assert.ok(conBusqueda.nombres.length >= sinBusqueda.tools.length);
 });
 
-// Probado rompiéndolo (20/10/2026), una rotura por vez, con todo en verde antes. 52 roturas, cada una con su fallo (29 de la tanda 1, 9 de las 2 y 3, 5 de la 4, 5 de la 5 y 4 de la 6):
+// --- 5. Lo que encontró la revisión adversarial de la tanda 1 (20/10/2026) ------------------------------------------------------
+// docs/hallazgos-ia.md, «Lo que encontró la revisión de la tanda 1 del clasificador antes de subirla».
+
+test('WhatsApp NO cambia: «la llamada pendiente» sigue siendo la reunión (NOMBRADO es sólo de la app)', () => {
+  // Estas 6 eran pedido de agenda antes de la tanda 1; con NOMBRADO en los dos canales dejaban de serlo (y con una pendiente
+  // vigente caían en `confirmar`, con cancelar_accion, que corre sin tarjeta).
+  for (const f of [
+    'cancela la llamada pendiente con Juan', 'cancelá la llamada agendada con Pedro', 'cambiale la hora a la llamada pactada con Ana para mañana a las 11',
+    'poneme una llamada 15 min con Juan el lunes', 'movela la llamada r1 al jueves a las 10', 'eliminá la llamada programada del martes',
+  ]) {
+    for (const ctx of [{}, { hayPendientes: true }]) {
+      const v = clasificarIntencion(f, ctx);
+      assert.equal(v.relevancia, RELEVANCIA_AGENDA, `WhatsApp: «${f}» ${JSON.stringify(ctx)} dejó de ser agenda (${v.intencion}: ${v.porque})`);
+      assert.equal(clasificarIntencion(f, { ...ctx, canal: 'app' }).relevancia, RELEVANCIA_AGENDA, `app: «${f}» ${JSON.stringify(ctx)} dejó de ser agenda`);
+    }
+  }
+  // Y en WhatsApp «crea una etiqueta llamada Caliente» queda como estaba (agenda): NOMBRADO es sólo de la app.
+  assert.equal(clasificarIntencion('crea una etiqueta llamada Caliente').relevancia, RELEVANCIA_AGENDA, 'WhatsApp: NOMBRADO le cambió el veredicto');
+  // Y el nombre de lo que se crea sigue siendo un nombre en la app, no una llamada.
+  assert.doesNotMatch(clasificarIntencion('creá una automatización llamada Bienvenida', { canal: 'app' }).porque, /agenda/);
+});
+
+test('una adivinanza de la app no crea un borrador del plan ni cancela una propuesta (el bug del 25/08)', () => {
+  for (const f of ['ahí hice la prueba', 'probá de vuelta, ya agregué otra api key', 'eso está mal', 'esto no anda', 'Hola Mauricio, gracias por la reunión de ayer. Saludos, Laura']) {
+    for (const hayPendientes of [false, true]) {
+      const r = turnoApp(f, { hayPendientes });
+      assert.ok(!r.nombres.includes('proponer_tareas_plan'), `«${f}» (pendientes ${hayPendientes}) trae proponer_tareas_plan: crearía un borrador que nadie pidió`);
+      if (r.veredicto.adivina) assert.ok(!r.nombres.includes('cancelar_accion'), `«${f}» (pendientes ${hayPendientes}) trae cancelar_accion con una adivinanza`);
+    }
+  }
+  // Un «no» o un «cancelá» explícito con una propuesta abierta SÍ la trae: es `confirmar`.
+  assert.ok(turnoApp('no, cancelá eso', { hayPendientes: true }).nombres.includes('cancelar_accion'));
+  // Una orden real trae lo suyo aunque el veredicto no sea una adivinanza.
+  assert.equal(clasificarIntencion('creá una tarea para llamar al contador', { canal: 'app' }).adivina, undefined);
+});
+
+test('un acuse o un saludo de la app es charla, sin herramientas; y sin raíces útiles no se busca en todo el registro', () => {
+  for (const f of ['bueno', 'entendido', 'buenas tardes', 'buenas noches', 'ah ok', 'mmm no sé', 'ya está', 'me parece bien', 'vale']) {
+    const r = turnoApp(f);
+    assert.equal(r.veredicto.intencion, 'charlar', `«${f}» no es charla (${r.veredicto.porque})`);
+    assert.deepEqual(r.nombres, [], `«${f}» viaja con herramientas`);
+  }
+  // Un mensaje sin señal que SÍ es del negocio sigue siendo una adivinanza con las de siempre, pero no llena el registro por orden de declaración.
+  const sin = turnoApp('estoy cansado, mañana sigo');
+  assert.ok(sin.veredicto.adivina);
+  const delRegistro = herramientasDelChat({ veredicto: sin.veredicto, texto: 'estoy cansado, mañana sigo', agendaAbierta: false, deSiempre: DE_SIEMPRE, vista: vistaApp, hayPendientes: false }).delRegistro;
+  assert.ok(delRegistro.length <= 3, `«estoy cansado, mañana sigo» trae ${delRegistro.length} operaciones del registro: se llenó por orden de declaración`);
+});
+
+test('buscar en todo el registro no trae una escritura irreversible de OTRA cosa cuando la pedida no existe', () => {
+  const IRREVERSIBLES = ['borrar_audio', 'borrar_chat_whatsapp_empresa', 'proponer_eliminar_entidad_meta', 'cancelar_suscripcion', 'cancelar_reunion_calendly', 'borrar_foto_cara_de_marca', 'eliminar_miembro', 'anular_link_pago', 'proponer_borrar_angulo', 'proponer_borrar_avatar', 'desarchivar_secuencia', 'ver_archivero'];
+  for (const f of ['borrá la nota que le dejé a Juan', 'borrá la nota', 'pausá todo', 'cancelá eso', 'cancelá lo de Juan', 'borrá la foto', 'eliminá la cuenta', 'anulá eso', 'archivá la conversación con Juan', 'borrá esto']) {
+    const r = turnoApp(f);
+    const cuelan = r.nombres.filter((n) => IRREVERSIBLES.includes(n));
+    assert.deepEqual(cuelan, [], `«${f}» trae ${cuelan.join(', ')}: una escritura de otra área que el texto no nombra`);
+  }
+  // Con el área NOMBRADA, la destructiva de esa área sí viaja: es lo que se pidió.
+  assert.ok(turnoApp('archivá la etiqueta Frío').nombres.includes('archivar_etiqueta'));
+  assert.ok(turnoApp('borrá el documento del archivero').nombres.includes('borrar_documento_archivero'));
+});
+
+test('una raíz puntúa al PRINCIPIO de una palabra, nunca adentro de otra, y las palabras vacías no puntúan', () => {
+  // «cance» está adentro de «alcance», «texto» adentro de «contexto»: antes de la revisión entraban operaciones de otra cosa por eso.
+  assert.ok(!turnoApp('cancelá eso').nombres.includes('calcular_alcance_anuncio'));
+  assert.ok(!turnoApp('corregí el texto del flyer').nombres.includes('proponer_ampliar_tareas'));
+  assert.ok(!turnoApp('dejá un comentario en la tarea').nombres.includes('resumen_bandejas_confirmacion'));
+  // «esto», «para» y «esta» no dicen qué operación se pide (y «esta» es el principio de «estado»).
+  const r = turnoApp('cambiá esto para esta semana');
+  const conEstado = r.delRegistro.filter((n) => /estado|parametro/.test(n));
+  assert.deepEqual(conEstado, [], `«cambiá esto para esta semana» trae del registro ${conEstado.join(', ')} por una palabra vacía`);
+});
+
+test('en una pregunta no viaja una lectura que gasta IA de otra área', () => {
+  for (const f of ['buscame a Juan Pérez', '¿qué chats tengo sin responder?', 'leeme la conversación con Juan']) {
+    const nombres = turnoApp(f).nombres;
+    for (const n of ['buscar_duplicados_tarea', 'cruzar_tareas_con_plan', 'sugerir_experimento']) assert.ok(!nombres.includes(n), `«${f}» trae ${n}`);
+  }
+  assert.ok(!turnoApp('¿quién me escribió hoy?').nombres.includes('recomendar_mensajes_whatsapp'));
+});
+
+test('una acción viaja con la lectura que le da el id', () => {
+  const CASOS: Array<[string, string[]]> = [
+    ['dividí el clip del video Promo en el segundo 10', ['ver_proyecto_video', 'listar_proyectos_video']],
+    ['silenciá el clip 2', ['ver_proyecto_video', 'listar_proyectos_video']],
+    ['renombrá la landing del webinar a Masterclass', ['listar_landings_creadas']],
+    ['pausá el sitio del webinar', ['listar_landings_creadas']],
+    ['quitá la torta de orígenes de la hoja comercial', ['leer_hoja_dashboard']],
+    ['sacá la dependencia entre la landing y el dominio', ['listar_dependencias_plan']],
+    ['agregale un texto que diga 50% off al video Promo', ['ver_proyecto_video', 'listar_proyectos_video']],
+  ];
+  for (const [f, lecturas] of CASOS) {
+    const nombres = turnoApp(f).nombres;
+    assert.ok(lecturas.some((l) => nombres.includes(l)), `«${f}» no trae ${lecturas.join(' | ')} (la lectura que da el id)`);
+  }
+});
+
+test('un sustantivo o una tercera persona al arranque no es una orden', () => {
+  for (const f of [
+    'marca registrada', 'factura electrónica', 'copia de seguridad', 'carga lenta la app', 'cobra caro el closer', 'responde siempre tarde el setter',
+    'abre a las 9 el local', 'suma 2 + 2', 'deja de inventar', 'deja que lo piense', 'cierra a las 20 el local', 'baja de ventas este mes',
+  ]) assert.equal(pideHacerAlApp(f), false, `«${f}» se leyó como una orden`);
+  for (const f of ['marcá el lead como calificado', 'marcalo como calificado', 'pausá la campaña', 'pausala', 'cargá el plan de pagos', 'cargalo', 'facturale a Juan', 'copiá el diseño', 'dejale una nota a Juan', 'programá el análisis']) {
+    assert.equal(pideHacerAlApp(f), true, `«${f}» dejó de ser una orden`);
+  }
+});
+
+test('el peso de un turno: la charla no viaja con herramientas y el registro no pasa su presupuesto más el margen de las lecturas', () => {
+  const MAX = 12_000 + 3_500;
+  for (const [f] of [...NUCLEO, ...CRM, ...VIDEO]) {
+    const v = clasificarIntencion(f, { canal: 'app' });
+    const t = herramientasDelChat({ veredicto: v, texto: f, agendaAbierta: false, deSiempre: DE_SIEMPRE, vista: vistaApp, hayPendientes: false });
+    const chars = t.delRegistro.reduce((n, x) => n + JSON.stringify(x).length, 0);
+    assert.ok(chars <= MAX, `«${f}»: el registro pesa ${chars} caracteres (tope ${MAX})`);
+  }
+});
+
+// Probado rompiéndolo (20/10/2026), una rotura por vez, con todo en verde antes. 78 roturas, cada una con su fallo (29 de la tanda 1, 9 de las 2 y 3, 5 de la 4, 5 de la 5, 4 de la 6 y 26 de los arreglos de la revisión adversarial):
 //   · el default de la app sin actuar · la regla del verbo de hacer · el volcado con verbo que vuelve a anotarse · el link con verbo
 //     que vuelve a ser material · la pregunta que no busca en todo el registro · «llamada Caliente» que vuelve a ser agenda · la
 //     plantilla que no le gana a la agenda · «prueba la automatización» que vuelve a ser saludo · sin la búsqueda en todo el registro ·
@@ -731,4 +847,10 @@ test('si el texto no nombra un área, la operación se busca en todo el registro
 //   Tanda 5 (Offer, Copywriting, Second Brain, experimentos): catalogo-productos, diagnostico-fase (y que le gane al lead), pasar-guion
 //   y formatos-creativo. Tanda 6 (Web Generator): seccion-landing, enlace-landing, link-privado-landing y que la landing sume las
 //   palabras de la familia a su relevancia. La tanda 7 (Meta Ads) no necesitó filas.
+//   Revisión adversarial: NOMBRADO también en WhatsApp y sin el determinante delante · la marca `adivina` (en el default y en
+//     toolsParaIntencion) y `cancelar_accion` en una adivinanza · el acuse «buenas tardes» · destructivas y lecturas que cuestan de otra área ·
+//     la raíz adentro de una palabra · las palabras vacías · el puntaje mínimo · las lecturas que dan el id · el resto de las áreas nombradas
+//     (pasada 3) · formas homógrafas · puntuar con la orden incluida · el verbo de acción sobre la cuenta sin lo de la app · las filas de
+//     palabras de área (crm, whatsapp, etiqueta, estrategia, equipo, negocio, ads, partners, sabes-del-negocio) y el curso que nombra cs.
+//   Tres filas/líneas sobraban (area-cobros, `ganaAlLead` de cliente-cs y el corte temprano sin raíces) y se borraron.
 //   Dos filas (la de «etiqueta» y la de «fathom») no cayeron al romperlas: no hacían falta y se borraron.

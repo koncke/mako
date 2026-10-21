@@ -98,6 +98,10 @@ export type VeredictoIntencion = {
    *  relevancia contra el pedido, en vez de llegar sin ninguna. Es la contracara de «un canal propone»: en la app lo que se
    *  elige es una tarjeta, no una acción hecha (lib/doer-herramientas.ts). */
   buscaEnTodo?: boolean;
+  /** Sólo en la app: el veredicto es el DEFAULT de «sin señal clara» (D1 = A: se propone con tarjeta), no una lectura del pedido. Lleva
+   *  `dudosa: false` para que las áreas del texto sumen, pero NO le saca a la adivinanza los candados de `dudosa`: sigue sin
+   *  `proponer_tareas_plan` (el bug del 25/08: «ahí hice la prueba» no pide un borrador del plan) ni `cancelar_accion`. */
+  adivina?: boolean;
 };
 
 /** Lo que dice un pedido de agenda para el presupuesto: pone primero las de agenda. */
@@ -783,7 +787,7 @@ const OTRO_INFINITIVO = /[,;.]\s*(?:y\s+|tambien\s+|despues\s+|luego\s+)?[a-z]{2
  * «llamá a Juan» y «una llamada con Ana mañana» siguen siendo de la agenda (la palabra que sigue es una preposición, un
  * artículo o un día). Sobre el texto sin tildes.
  */
-const NOMBRADO = /\b(?:que\s+se\s+)?(?:llam(?:a|e|an|en)|llamad[oa]s?|titulad[oa]s?)\s+(?!(?:con|a|para|de|del|el|la|los|las|manana|hoy|que|por|en|al|un|una|y|o|esta|este|lunes|martes|miercoles|jueves|viernes|sabado|domingo|ahora|luego|despues|temprano|tarde)\b)[^\s,.;:]+/g;
+const NOMBRADO = /\b(?:que\s+se\s+)?(?:llam(?:a|e|an|en)|(?<!\b(?:la|una|las|unas|esa|esta|esas|estas|mi|mis|tu|tus|su|sus|otra|otras|dos|tres|proxima|primera|segunda|ultima)\s+)llamad[oa]s?|titulad[oa]s?)\s+(?!(?:con|a|para|de|del|el|la|los|las|manana|hoy|que|por|en|al|un|una|y|o|esta|este|lunes|martes|miercoles|jueves|viernes|sabado|domingo|ahora|luego|despues|temprano|tarde)\b)[^\s,.;:]+/g;
 
 /** ¿Pide crear, mover, cambiar o cancelar una reunión? Recibe el texto sin tildes. */
 function esPedidoAgenda(n: string): boolean {
@@ -962,6 +966,9 @@ export function makoPreguntoAlgo(ultimoDeMako: string | null | undefined): boole
 
 const NEGATIVA = /^[\s¡!¿?]*(no|nop|cancela|cancel[áa]|mejor no|dejalo|déjalo)(?![a-záéíóúñ])/i;
 
+/** Acuses y saludos cortos que la app no toma por un pedido. Sobre el texto sin tildes ni signos. */
+const ACUSE_DE_LA_APP = /^(?:ah )?(?:bueno|buenisimo|entendido|entendi|vale|ya esta|ya entendi|me parece bien|esta bien|ok(?:ey)? gracias|ahi va|mmm+(?: no se)?|hmm+|eh|uh|buenas tardes|buenas noches|buenos dias|buen dia|buenas|tardes|noches|dias|ok|okey|listo|joya|genial|perfecto|barbaro)$/;
+
 export function clasificarIntencion(
   texto: string,
   ctx: {
@@ -987,7 +994,7 @@ export function clasificarIntencion(
   const nPersona = norm(sinPrefijoDeLote(t));
   // «una etiqueta llamada Caliente» es un NOMBRE, no una llamada que agendar (medido el 20/10/2026: «crea una etiqueta llamada
   // Caliente» llegaba como pedido de agenda).
-  const nAgenda = nPersona.replace(NOMBRADO, ' ');
+  const nAgenda = ctx.canal === 'app' ? nPersona.replace(NOMBRADO, ' ') : nPersona;
   // Sólo en la app (lib/mako-intencion-app.ts): de qué área es lo que se pide cuando el texto no la nombra.
   const fam = ctx.canal === 'app' ? familiasDe(t) : null;
   // «creá una plantilla de WhatsApp para recordar la reunión» nombra una reunión pero no pide agendarla.
@@ -1007,7 +1014,7 @@ export function clasificarIntencion(
   //    contacto de un lead terminaba de tarea en el plan — que es peor que el bug
   //    original, porque encima parecería que funcionó.
   if (ctx.hayContacto) {
-    return { intencion: 'actuar', dudosa: false, porque: 'compartió una tarjeta de contacto: es un lead, no una nota' };
+    return { intencion: 'actuar', dudosa: false, ...deLaApp, porque: 'compartió una tarjeta de contacto: es un lead, no una nota' };
   }
 
   // 1) Un «sí» pelado con algo esperando. Va PRIMERO: es el turno más corto y el
@@ -1174,7 +1181,7 @@ export function clasificarIntencion(
   //    pero se marca dudosa para que MaKo ofrezca la otra en una línea.
   if (dictado && pedido) {
     // En la app no hay dos lecturas: MaKo propone y la persona confirma (D1 = A, `canal`).
-    if (ctx.canal === 'app') return { intencion: 'actuar', dudosa: false, ...deLaApp, porque: 'canal app: trae material y un verbo en imperativo; propone con tarjeta' };
+    if (ctx.canal === 'app') return { intencion: 'actuar', dudosa: false, adivina: true, ...deLaApp, porque: 'canal app: trae material y un verbo en imperativo; propone con tarjeta' };
     return { intencion: 'capturar', dudosa: true, alternativa: 'pensar', porque: 'trae material dictado y también un verbo en imperativo' };
   }
 
@@ -1231,7 +1238,7 @@ export function clasificarIntencion(
 
   // 7) Escritura sobre la cuenta.
   if (ACCION_CUENTA_RE.test(t)) {
-    return { intencion: 'actuar', dudosa: false, porque: 'verbo de acción sobre la cuenta' };
+    return { intencion: 'actuar', dudosa: false, ...deLaApp, porque: 'verbo de acción sobre la cuenta' };
   }
 
   // 8) Pregunta por un dato. Gana sobre el imperativo («decime cuántos leads
@@ -1266,7 +1273,11 @@ export function clasificarIntencion(
   //     mensaje.
   //     EN LA APP no: ahí el default es proponer con una tarjeta (D1 = A). Medido el 20/10/2026 con el turno real, lo que
   //     no se reconocía caía acá y llegaba con sólo `ver_plan` y `listar_pendientes`: CRM 41 de 91, núcleo 23 de 40.
-  if (ctx.canal === 'app') return { intencion: 'actuar', dudosa: false, ...deLaApp, porque: 'canal app: sin señal clara; propone con tarjeta' };
+  if (ctx.canal === 'app') {
+    // Un acuse o un saludo que el clasificador no conoce («bueno», «entendido», «buenas tardes») no es un pedido: charla, sin herramientas.
+    if (ACUSE_DE_LA_APP.test(n.replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim())) return { intencion: 'charlar', dudosa: false, porque: 'canal app: acuse o saludo' };
+    return { intencion: 'actuar', dudosa: false, adivina: true, ...deLaApp, porque: 'canal app: sin señal clara; propone con tarjeta' };
+  }
   return { intencion: 'capturar', dudosa: true, alternativa: 'pensar', porque: 'sin señal clara: se guarda para no perderlo' };
 }
 

@@ -514,4 +514,24 @@ export const BITACORA: Hito[] = [
       'tests/ops-center-clasificador-app.test.ts — 449 frases, 24 tests, 52 roturas con su fallo',
     ],
   },
+  {
+    fecha: '20 oct', hora: '23:05', chat: 'MaKo Alert', sesion: 'local_d3ed9496-3ca1-4037-abc2-a59ce57d3f9d', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Hecho: los arreglos de la revisión adversarial del clasificador de la app (WhatsApp, borrador del plan, irreversibles, lecturas del id)',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '⚠️ **WhatsApp SÍ cambiaba** y el test que decía lo contrario fijaba un solo caso: `NOMBRADO` corría en los dos canales y «cancela la llamada pendiente con Juan» dejaba de ser agenda (con una pendiente vigente caía en `confirmar`, con `cancelar_accion`, que corre sin tarjeta). Ahora sólo en la app y con el determinante delante. Medido comparando antes y después con las funciones reales: 4.242 frases × 4 contextos, 0 cambian contra origin/main.',
+      '**Una adivinanza no crea un borrador del plan** (el bug del 25/08 volvía por la app): el default lleva `adivina` y sale `proponer_tareas_plan` y `cancelar_accion`. Los acuses («bueno», «buenas tardes») son charla.',
+      '**Buscar en todo el registro ya no trae escrituras de otra cosa** («borrá la nota» → `borrar_audio`): sólo las áreas que el texto nombra pueden traer una destructiva o una lectura que cuesta; las otras entran por una raíz al principio de una palabra, sin palabras vacías. Por eso hubo que nombrar las áreas en las familias. Y una acción viaja con la lectura que le da el id (28 no la traían).',
+      '**Sin hacer:** el costo de D1 = A (un turno de la app que actúa carga las 20 herramientas de siempre: ~14.400 caracteres para un mensaje sin señal, antes 763); completar `esPedidoDeLanding`; confirmar D1 con Martín.',
+    ],
+    archivos: [
+      'lib/relevancia-app.ts — las pasadas del registro para la app, con sus frenos (nuevo)',
+      'lib/doer-herramientas.ts — `adivina` en toolsParaIntencion y la llamada a registroParaLaApp',
+      'lib/mako-intencion.ts — NOMBRADO sólo en la app, `adivina`, los acuses y lo de la app en todos los retornos',
+      'lib/mako-intencion-app.ts — las formas homógrafas, `sinVerboAlArranque` y las palabras de área',
+      'lib/api-mako/registro.ts — `donde` y `silencioso` en toolsDelRegistro (aditivos)',
+      'tests/ops-center-clasificador-app.test.ts — 449 frases, 33 tests, 78 roturas con su fallo',
+    ],
+  },
 ];

@@ -61,12 +61,23 @@ const CLITICOS = '(?:me|te|se|nos|le|les|lo|la|los|las)(?:me|te|se|nos|le|les|lo
 /** Lo que va delante de la orden y no cambia nada (el nombre de MaKo, cortesías, un «che»). */
 const PRELUDIO = /^(?:[\s,.:;!¡¿?"'-]*(?:mako|maco|macu|che|porfa|por favor|oye|ey|hola|buenas|buen dia|buenos dias|buenas tardes|ok(?:ey|ay)?|dale|bueno|listo|perfecto|y|entonces|ahora|ya|mira|escucha|escucha(?:me)?)\b)*[\s,.:;!¡¿?"'-]*/;
 
-const FORMAS = [...new Set(VERBOS.flatMap(([, ...f]) => f))].sort((a, b) => b.length - a.length);
+// Las formas que también son un SUSTANTIVO o una tercera persona corriente («marca registrada», «carga lenta la app», «factura
+// electrónica», «abre a las 9 el local», «deja de inventar», «cobra caro el closer»): al arranque cuentan sólo con un pronombre pegado
+// («marcalo», «cargala») o con un objeto con artículo («marcá el lead», «pausá la campaña»). Medido por la revisión del 20/10/2026.
+const AMBIGUAS: ReadonlySet<string> = new Set([
+  'marca', 'factura', 'copia', 'carga', 'programa', 'etiqueta', 'pausa', 'baja', 'suma', 'paga', 'cobra', 'abre', 'deja', 'registra',
+  'responde', 'contesta', 'cierra', 'corta', 'guarda', 'monta', 'graba', 'filma', 'reporta', 'aplica', 'ajusta', 'completa',
+]);
+const TODAS_LAS_FORMAS = [...new Set(VERBOS.flatMap(([, ...f]) => f))].sort((a, b) => b.length - a.length);
+const FORMAS = TODAS_LAS_FORMAS.filter((x) => !AMBIGUAS.has(x));
+const FORMAS_AMBIGUAS = TODAS_LAS_FORMAS.filter((x) => AMBIGUAS.has(x));
+/** Lo que sigue a una forma ambigua para que sea una orden: un artículo, un posesivo, un demostrativo o «todo». */
+const OBJETO = '(?:el|la|los|las|un|una|unos|unas|mi|mis|su|sus|tu|tus|ese|esa|esos|esas|este|esta|estos|estas|todo|todos|todas)';
 const INFINITIVOS = [...new Set(VERBOS.map(([i]) => i))].sort((a, b) => b.length - a.length);
 const alt = (xs: string[]) => xs.map((x) => x.replace(/ /g, '\\s+')).join('|');
 
 /** La orden arranca el mensaje: «creame una landing», «mandale un mail a Juan», «poné una tarea». */
-const ORDEN = new RegExp(`^(?:${alt(FORMAS)})(?:${CLITICOS})?(?![a-z])`);
+const ORDEN = new RegExp(`^(?:(?:${alt(FORMAS)})(?:${CLITICOS})?(?![a-z])|(?:${alt(FORMAS_AMBIGUAS)})(?:${CLITICOS}(?![a-z])|\\s+${OBJETO}\\b))`);
 /** El pedido indirecto: «quiero crear una landing», «necesito agregar un lead», «¿podés cambiar la hora?». */
 const PEDIDO_INDIRECTO = new RegExp(
   `^(?:(?:quiero|queremos|queria|quisiera|necesito|necesitamos|necesitaria|me gustaria|nos gustaria)\\s+(?:poder\\s+)?(?:${alt(INFINITIVOS)})(?:${CLITICOS})?(?![a-z])` +
@@ -84,6 +95,17 @@ export function pideHacerAlApp(texto: string): boolean {
   if (!t) return false;
   const arranque = t.replace(PRELUDIO, '');
   return ORDEN.test(arranque) || PEDIDO_INDIRECTO.test(arranque);
+}
+
+/**
+ * El texto SIN la orden del arranque (y sin el saludo): lo que se pide, para puntuar qué operación es. «borrá la nota» → «la nota».
+ * La orden puntúa en cientos de operaciones («borra» está en todo lo que borra) y no dice cuál. Devuelve el texto sin tildes.
+ */
+export function sinVerboAlArranque(texto: string): string {
+  const n = norm(texto).trim();
+  const arranque = n.replace(PRELUDIO, '');
+  const m = ORDEN.exec(arranque) ?? PEDIDO_INDIRECTO.exec(arranque);
+  return m ? arranque.slice(m[0].length).trim() : n;
 }
 
 // ── Las familias de pedidos: de qué área es una operación que el pedido no nombra ────────────────────────────────
@@ -114,7 +136,7 @@ const FAMILIAS: readonly Familia[] = [
   { id: 'borradores', test: /\bborradores?\b|\besperando que (?:los |las )?aprueb\w+/, areas: ['whatsapp'], relevancia: 'listar borradores whatsapp empresa pendientes aprobar' },
   { id: 'responder-comentarios', test: /\bautomaticamente\b|\bcomentarios? de (?:instagram|ig)\b/, areas: ['chatbot'], relevancia: 'crear automatizacion con ia', actua: true },
   { id: 'cliente-cs', test: /\bficha de la? client[ae]\b|\bclient[ae]s? en riesgo\b|\bcartera de clientes\b|\bcomo (?:baja|en riesgo|activ[oa]|pausad[oa])\b|\bclientes? (?:sin|que no)\b/, areas: ['cs'], relevancia: 'ver cliente cs ficha estado marcar baja riesgo cartera' },
-  { id: 'curso', test: /\b(?:cursos?|modulos?|lecciones|leccion)\b|\bclase\b[^.\n]{0,20}\b(?:modulo|curso)\b|\b(?:agreg\w+|cre\w+|sub\w+)\b[^.\n]{0,15}\bclase\b/, areas: ['curso'], relevancia: 'curso modulo clase' },
+  { id: 'curso', test: /\b(?:cursos?|modulos?|lecciones|leccion)\b|\bclase\b[^.\n]{0,20}\b(?:modulo|curso)\b|\b(?:agreg\w+|cre\w+|sub\w+)\b[^.\n]{0,15}\bclase\b/, areas: ['curso', 'cs'], relevancia: 'curso modulo clase' },
   { id: 'comunidad', test: /\bcomunidad\b/, areas: ['comunidad'], relevancia: 'comunidad' },
   { id: 'perfil-negocio', test: /\bmi negocio se llama\b|\b(?:mi|el) (?:negocio|perfil|marca)\b[^.\n]{0,30}\b(?:corregi\w*|cambi\w+|se llama)\b/, areas: ['negocio'], relevancia: 'guardar campo perfil negocio nombre corregir', actua: true },
   { id: 'contenido-programado', test: /\b(?:reel|reels|story|stories|post|posts|carrusel|publicacion|contenido)\b[^.\n]{0,40}\b(?:para el|el|este|manana|hoy)\b|\b(?:programa\w*|agend\w*)\b[^.\n]{0,20}\b(?:reel|post|story|carrusel|publicacion)\b/, areas: ['calendario'], relevancia: 'crear evento calendario contenido publicacion reel post programar', actua: true, ganaALaAgenda: true },
@@ -138,6 +160,16 @@ const FAMILIAS: readonly Familia[] = [
   { id: 'seccion-landing', test: /\bseccion(?:es)?\b[^.\n]{0,40}\b(?:arriba|abajo|primero|ultimo|al final|al principio|antes|despues)\b|\b(?:mover|mueve|move\w*|borr\w+|ocult\w+|elimin\w+|sac\w+)\b[^.\n]{0,15}\bseccion/, areas: ['landing'], relevancia: 'acomodar seccion landing', actua: true },
   { id: 'enlace-landing', test: /\b(?:link|enlace)\b[^.\n]{0,15}\b(?:vsl|agenda)\b/, areas: ['landing'], relevancia: 'poner enlace landing', actua: true },
   { id: 'link-privado-landing', test: /\blink privado\b/, areas: ['landing'], relevancia: 'compartir borrador landing', actua: true },
+  // ── Palabras de área (las ops destructivas SÓLO entran si el texto nombra su área: revisión adversarial del 20/10/2026) ──
+  { id: 'area-crm', test: /\bcrm\b|\bdiagnostico de\b|\bplan de pagos\b|\bcuotas?\b|\bofertas?\b|\bcalendly\b|\basign\w+\b/, areas: ['crm'], relevancia: '' },
+  { id: 'area-whatsapp', test: /\bbloque\w+\b/, areas: ['whatsapp'], relevancia: 'bloquear contacto whatsapp' },
+  { id: 'area-etiqueta', test: /\betiquetas?\b/, areas: ['crm'], relevancia: 'etiqueta' },
+  { id: 'area-estrategia', test: /\bestrategia\b/, areas: ['chatbot'], relevancia: 'estrategia secuencia' },
+  { id: 'area-equipo', test: /\bavisos?\b|\breportes?\b|\bidentidad fiscal\b/, areas: ['equipo'], relevancia: '' },
+  { id: 'area-negocio', test: /\bmuletillas?\b|\blead magnets?\b|\bquiz\b|\barchivero\b|\bplan de mako\b|\bmi plan\b/, areas: ['negocio'], relevancia: '' },
+  { id: 'area-ads', test: /\bpublicos?\b|\bretargeting\b|\bformularios? instantaneos?\b|\bguion(?:es)?\b|\bangulos?\b|\bvocabulario\b/, areas: ['ads'], relevancia: '' },
+  { id: 'area-partners', test: /\bpartners?\b/, areas: ['cs'], relevancia: 'llevar partners' },
+  { id: 'sabes-del-negocio', test: /\bque (?:sabes|sabe|conoces|conoce|hay) (?:de|sobre) mi (?:negocio|empresa|marca)\b/, areas: ['negocio'], relevancia: 'contexto negocio perfil' },
 ];
 
 export type FamiliaDelPedido = { ids: string[]; areas: Area[]; relevancia: string; actua: boolean; ganaALaAgenda: boolean; ganaAlLead: boolean; ganaALaLanding: boolean };
