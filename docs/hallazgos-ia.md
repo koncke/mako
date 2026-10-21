@@ -4638,4 +4638,21 @@ Tandas 5 a 7 (misma medición): Offer, Copywriting y Second Brain 24 de 26 y 6 d
 
 **Vive en:** `lib/mako-intencion-app.ts` · `lib/mako-intencion.ts` (`canal`, `buscaEnTodo`, `NOMBRADO`, las reglas 6-quater y el default) · `lib/doer-herramientas.ts` (`buscaEnTodo`) · `lib/mako-turno-app.ts` (`canal: 'app'`) · `tests/ops-center-clasificador-app.test.ts` (513 frases y 37 tests; 85 roturas, cada una con su fallo) · *20/10/2026, sin subagentes.*
 
+## Un arnés «antes / después» mide un COMMIT sólo si extrae los árboles por SHA y corre un proceso por árbol (21/10/2026)
 
+La segunda revisión del clasificador de la app (f226f8c22) confirmó que WhatsApp no cambia: 245.146 líneas comparadas, 0
+diferencias. Comparó el veredicto entero, las herramientas EN ORDEN con un hash de descripción y schema, `delRegistro`,
+la instrucción y `turnoParaLaRed`, con 161 frases difíciles en 12 contextos más 59.296 literales de los tests. Con
+`canal: 'app'` cambian 3.244 de 7.962 líneas, así que la comparación detecta cambios cuando los hay. **El arnés del
+autor, que daba «0 de 16.968», no lo probaba**, aunque esta vez no escondía nada:
+- importaba de worktrees VIVOS: uno se movió de 7f904a03c a b0ce18002 durante la revisión, y el otro tenía cambios sin
+  commitear. Su número no estaba atado a ningún SHA;
+- cargaba los dos árboles en UN proceso. tsx resuelve `@/` con el tsconfig del cwd, así que `@/lib/capas` era el mismo
+  módulo para los dos lados;
+- su clave ordenaba los nombres de las herramientas y dejaba afuera porque, alternativa, aviso, descripciones, schemas e
+  instrucción, y fijaba un solo contexto.
+
+**La regla:** antes/después = `git archive <sha>` de cada lado a una carpeta propia, un proceso por árbol con su cwd, y
+comparar TODO lo que decide la salida, byte a byte. Y probar que la comparación detecta un cambio conocido: si con
+`canal: 'app'` también da 0, el arnés está ciego. Los scripts del revisor están en el scratchpad del Cerebro
+(rev-wa-f226/s/volcar.mts). *Cerebro, claude4.*

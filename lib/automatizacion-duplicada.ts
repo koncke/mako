@@ -118,5 +118,27 @@ export function duplicadaDe(esta: Omit<AutoParaComparar, 'activa'>, otras: reado
   return null;
 }
 
+/**
+ * LO QUE SE COMPARA DE UNA AUTOMATIZACIÓN DE LA LISTA: lo PUBLICADO (es lo que manda el motor) y sus CRON. `cronsDe` es la
+ * lista de la pantalla (`disparadoresDeSecuencia`, app/automations/EditorDisparadores.tsx), para que haya UNA.
+ */
+export function paraComparar<S extends { id: number; nombre: string; activa: boolean; pasos?: readonly unknown[] | null }>(
+  s: S, cronsDe: (s: S) => readonly CronParaComparar[],
+): AutoParaComparar {
+  return { id: s.id, nombre: s.nombre, activa: s.activa, disparadores: cronsDe(s), pasos: (s.pasos ?? []) as readonly PasoGrafo[] };
+}
+
+/**
+ * ¿LA QUE SE ACTIVA YA TIENE UNA GEMELA ACTIVA? Con lo PUBLICADO de las dos (revisión del 20/10/2026, noche): Activar no
+ * publica nada, así que comparar el borrador del lienzo avisaba de más o de menos. La usan TODOS los caminos que prenden
+ * algo: el interruptor del lienzo, el «⋯» de la lista y un CRON nuevo en una que ya está activa.
+ */
+export function duplicadaAlActivar<S extends { id: number; nombre: string; activa: boolean; pasos?: readonly unknown[] | null }>(
+  esta: S, todas: readonly S[], cronsDe: (s: S) => readonly CronParaComparar[], o: { pasos?: readonly PasoGrafo[]; crons?: readonly CronParaComparar[] } = {},
+): { id: number; nombre: string } | null {
+  const base = paraComparar(esta, cronsDe);
+  return duplicadaDe({ ...base, ...(o.pasos ? { pasos: o.pasos } : {}), ...(o.crons ? { disparadores: o.crons } : {}) }, todas.map((s) => paraComparar(s, cronsDe)));
+}
+
 /** El aviso, corto: «Ojo: «X» ya le escribe algo parecido a la misma gente». */
 export const avisoDuplicada = (nombre: string): string => `Ojo: «${nombre}» ya le escribe algo parecido a la misma gente`;

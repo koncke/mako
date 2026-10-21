@@ -55,10 +55,10 @@ const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8');
 
 test('3. en la caja: con un link, la capa azul y su chip, en la computadora y en el teléfono', () => {
-  for (const f of ['app/admin/operaciones/Conversacion.tsx', 'app/m/operaciones/ChatsMovil.tsx']) {
-    const src = leer(f);
-    assert.match(src, /<ResalteDeLinks texto=\{texto\}/, `${f}: la capa que pinta los links`);
-    assert.match(src, /<LinksDeLaCaja texto=\{texto\} \/>/, `${f}: el chip para abrirlo`);
-    assert.match(src, /className=\{(conLinks|hayLinks\(texto\)) \? 'co-caja__texto--resalte' : undefined\}/, `${f}: el campo se vuelve transparente sólo con un link`);
-  }
+  // Desde el 20/10/2026 en la caja única (app/_chat/CajaChat.tsx), que usan la computadora y el teléfono.
+  const src = leer('app/_chat/CajaChat.tsx');
+  assert.match(src, /<ResalteDeLinks texto=\{texto\}/, 'la capa que pinta los links');
+  assert.match(src, /<LinksDeLaCaja texto=\{texto\} \/>/, 'el chip para abrirlo');
+  assert.match(src, /className=\{conLinks \? 'co-caja__texto--resalte' : undefined\}/, 'el campo se vuelve transparente sólo con un link');
+  for (const f of ['app/admin/operaciones/Conversacion.tsx', 'app/m/operaciones/ChatsMovil.tsx']) assert.match(leer(f), /<CajaChat\b/, `${f}: la caja única`);
 });

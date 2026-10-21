@@ -20,7 +20,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { cicloCartero, hayParaElCartero, tokenDelCarteroValido } from '@/lib/operaciones';
-import { adjuntoParaElCartero, urlParaElCartero } from '@/lib/operaciones-adjuntos';
+import { adjuntoParaElCartero, firmarAdjuntoDeTurno, urlParaElCartero } from '@/lib/operaciones-adjuntos';
 import { guardarPasos } from '@/lib/centro-pasos-db';
 import { planDesdeElChat } from '@/lib/centro-plan-chat';
 import { CUENTA_RE } from '@/lib/operaciones-reglas';
@@ -95,6 +95,13 @@ export async function POST(req: NextRequest) {
     if (req.nextUrl.searchParams.has('plan')) {
       if (!(await tokenDelCarteroValido(token))) return NextResponse.json({ error: 'token del cartero inválido' }, { status: 401 });
       const r = await planDesdeElChat(cuerpo);
+      return NextResponse.json(r, { status: r.ok ? 200 : 400 });
+    }
+    // ?adjunto-turno=1 (cartero 1.17.0, 20/10/2026): la URL firmada para subir lo que Martín adjuntó en la app de Claude
+    // (lib/operaciones-adjuntos.ts → firmarAdjuntoDeTurno). Con el token del cartero; el archivo no pasa por acá.
+    if (req.nextUrl.searchParams.has('adjunto-turno')) {
+      if (!(await tokenDelCarteroValido(token))) return NextResponse.json({ error: 'token del cartero inválido' }, { status: 401 });
+      const r = await firmarAdjuntoDeTurno(cuerpo);
       return NextResponse.json(r, { status: r.ok ? 200 : 400 });
     }
     const salida = await cicloCartero(token, cuerpo);

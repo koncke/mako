@@ -67,10 +67,13 @@ const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g,
 test('5. el scroll acompaña lo que se escribe: la conversación sigue abajo y la caja sigue al cursor', () => {
   assert.equal(estaAbajo({ scrollHeight: 1000, scrollTop: 960, clientHeight: 20 }), true, 'a 20 px del final está abajo');
   assert.equal(estaAbajo({ scrollHeight: 1000, scrollTop: 500, clientHeight: 300 }), false, 'leyendo más arriba no se la mueve');
-  const pc = leer('app/admin/operaciones/Conversacion.tsx');
-  const efecto = pc.slice(pc.indexOf('const conversacionAbajo'), pc.indexOf('}, [texto]);'));
-  assert.ok(efecto.indexOf('const conversacionAbajo = h ? estaAbajo(h) : false;') < efecto.indexOf("el.style.height = 'auto';"), 'se mide ANTES de agrandar la caja');
+  // Desde el 20/10/2026 vive en la caja única (app/_chat/CajaChat.tsx); cada pantalla le dice QUÉ sigue abajo.
+  const pieza = leer('app/_chat/CajaChat.tsx');
+  const efecto = pieza.slice(pieza.indexOf('const h = p.seguir?.()'), pieza.indexOf('}, [texto]);'));
+  assert.ok(efecto.indexOf('const abajo = h ? estaAbajo(h) : false;') < efecto.indexOf("el.style.height = 'auto';"), 'se mide ANTES de agrandar la caja');
   assert.match(efecto, /el\.scrollTop = el\.selectionEnd >= el\.value\.length \? el\.scrollHeight : antes;/, 'la caja no pierde su scroll al medirse');
-  assert.match(efecto, /if \(h && conversacionAbajo\) h\.scrollTop = h\.scrollHeight;/);
-  assert.match(leer('app/m/operaciones/ChatsMovil.tsx'), /estaAbajo\(cuerpo, 160\)\) cuerpo\.scrollTop = cuerpo\.scrollHeight;/, 'el teléfono también');
+  assert.match(efecto, /if \(h && abajo\) h\.scrollTop = h\.scrollHeight;/);
+  assert.match(efecto, /estaAbajo\(h, 160\)\) h\.scrollTop = h\.scrollHeight;/, 'el teléfono también (crece el CSS)');
+  assert.match(leer('app/admin/operaciones/Conversacion.tsx'), /seguir=\{seguirHilo\}/, 'la computadora: la conversación');
+  assert.match(leer('app/m/operaciones/ChatsMovil.tsx'), /seguir=\{seguirHoja\} altoMax=\{null\}/, 'el teléfono: la hoja');
 });
