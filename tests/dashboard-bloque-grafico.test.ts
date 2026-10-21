@@ -2,24 +2,24 @@
 // Una pregunta del Dashboard se dibuja en el hilo del Ops Center: el bloque `grafico` (G16, y la tabla)
 // =============================================================================
 // Ops Center = lo principal (20/10/2026, docs/ops-center-principal.md, 2.7). «¿Cuánto vendí este mes?» en el chat de la
-// app: `consultar_datos_dashboard` devuelve un JSON con `bloque` arriba de todo, el turno lo saca (`bloqueDeSalida`,
-// lib/chat-bloques.ts), lo sanea y lo cuelga del mensaje; al modelo le llega el resto. El hilo lo dibuja con la MISMA
+// app: `consultar_datos_dashboard` devuelve `{ content, bloque }`, `ejecutarOperacion` sanea el bloque y lo pasa por
+// `ctx.aDibujar` (el canal de Ops Center 3, 061c1b74d), y el modelo lee sólo `content`. El hilo lo dibuja con la MISMA
 // pieza del Dashboard (`CuerpoGrafico`, por app/_chat/bloques/GraficoHilo.tsx).
 // Lo que se puede romper sin que se vea: que el saneo deje pasar un gráfico que el catálogo no conoce o un resultado que
-// no calza (la pieza dibujaría basura), que no acote las filas, que el modelo reciba también el bloque, que WhatsApp o
-// HTTP reciban un JSON en vez de su texto, y que el chat dibuje con una copia en vez de la pieza del Dashboard.
+// no calza (la pieza dibujaría basura), que no acote las filas, que el modelo reciba también el bloque, que sin el canal
+// de dibujo (WhatsApp, HTTP) se le diga al modelo que la persona ya lo ve, y que el chat dibuje con una copia.
 //
 // Correr: node --import tsx --test tests/dashboard-bloque-grafico.test.ts
 //
-// ⚠️ PROBADO ROMPIÉNDOLO (20/10/2026, base 5/0): el saneo sin validar el gráfico contra el catálogo → 4 / 1; sin el tope
-// de filas → 4 / 1; el bloque también para WhatsApp (sin `ctx.canal !== 'app'`) → 4 / 1; `graficoParaElChat` sin la serie
-// de tiempo → 4 / 1; BloqueHilo sin el caso `grafico` → 4 / 1.
+// ⚠️ PROBADO ROMPIÉNDOLO (21/10/2026, base 5/0): el saneo sin validar el gráfico contra el catálogo → 4 / 1; sin el tope
+// de filas → 4 / 1; el bloque metido en el texto (`J({ bloque, texto })`, lo leería el modelo) → 4 / 1; sin mirar
+// `ctx.aDibujar` → 4 / 1; `graficoParaElChat` sin la serie de tiempo → 4 / 1; BloqueHilo sin el caso `grafico` → 4 / 1.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { sanearBloque, bloqueDeSalida } from '../lib/chat-bloques';
+import { sanearBloque } from '../lib/chat-bloques';
 import { MAX_FILAS_GRAFICO, graficoParaElChat, sanearResultado } from '../lib/chat-bloques-dashboard';
 import { sanearComponente, type Grafico } from '../lib/graficos-catalogo';
 import type { Resultado } from '../lib/graficos-agregar';
@@ -66,17 +66,19 @@ test('qué se dibuja: un número; con el tiempo, una serie; por categoría, barr
   assert.equal(graficoParaElChat(grafico({ tipo: 'columnas', dimension: 'mes', desglose: 'origen' }), resultado(6, 'tiempo')).tipo, 'columnas');
 });
 
-test('el turno saca el bloque y al modelo le llega el resto; WhatsApp y HTTP siguen con su texto', () => {
-  const b = { t: 'grafico', titulo: 'Leads', grafico: grafico(), resultado: resultado(2) };
-  const salida = bloqueDeSalida(JSON.stringify({ bloque: b, texto: '**Leads** …', dibujado: 'La persona YA VE…' }));
-  assert.ok(salida.bloque, 'el turno no encontró el bloque');
-  assert.doesNotMatch(String(salida.out), /"bloque"/, 'el modelo recibió también el bloque');
-  assert.match(String(salida.out), /"texto"/);
+test('la lectura devuelve { content, bloque }: el bloque va por ctx.aDibujar y el modelo lee sólo el texto', () => {
   const run = leer('lib/api-mako/areas/dashboard.run.ts');
   const c = run.slice(run.indexOf('consultar_datos_dashboard: {'), run.indexOf('listar_informes_dashboard: {'));
   assert.match(c, /if \(http\) return md;/);
-  assert.match(c, /if \(ctx\.canal !== 'app' \|\| al\.graficos\.length !== 1\) return texto;/);
-  assert.match(c, /return J\(\{ bloque, texto, dibujado: /);
+  // Sin el canal de dibujo (WhatsApp, HTTP) va el texto, sin el aviso de que la persona ya lo ve.
+  assert.match(c, /if \(!ctx\.aDibujar \|\| al\.graficos\.length !== 1\) return texto;/);
+  assert.match(c, /return \{ content: `\$\{texto\}\\n\\n\(La persona YA VE este resultado dibujado en el chat: [^`]*`, bloque \};/);
+  assert.doesNotMatch(c, /J\(\{ bloque/, 'el bloque metido en el texto lo leería el modelo');
+  // El marco (Ops Center 3, 061c1b74d) lo sanea y lo dibuja sólo si hay por dónde, y el modelo recibe `content`.
+  const ej = leer('lib/api-mako/ejecutar.ts');
+  assert.match(ej, /const bloque = cruda\.bloque && ctx\.aDibujar \? sanearBloque\(cruda\.bloque\) : null;/);
+  // Y el saneo del marco conoce el tipo `grafico`.
+  assert.ok(sanearBloque({ t: 'grafico', titulo: 'Leads', grafico: grafico(), resultado: resultado(2) }));
 });
 
 test('el hilo lo dibuja con la pieza del Dashboard, cargada aparte', () => {

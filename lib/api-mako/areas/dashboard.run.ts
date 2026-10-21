@@ -372,10 +372,11 @@ export const RUNNERS: Runners = {
       ].join('\n');
       if (http) return md;
       const texto = recortar(md, TOPE_MD_CHAT, 'pide un período más corto o menos métricas');
-      // En el chat de la app la respuesta se DIBUJA (2.7, lib/chat-bloques-dashboard.ts): el turno saca `bloque` y lo
-      // cuelga del mensaje de MaKo; al modelo le llega el resto. Con una sola métrica o una dimensión (varias métricas
-      // sueltas son varios números, y un bloque es uno). WhatsApp sigue con el texto.
-      if (ctx.canal !== 'app' || al.graficos.length !== 1) return texto;
+      // En el chat de la app la respuesta se DIBUJA (2.7, lib/chat-bloques-dashboard.ts): la lectura devuelve
+      // `{ content, bloque }`, ejecutarOperacion sanea el bloque y lo pasa por `ctx.aDibujar`, y el modelo lee sólo
+      // `content`. `aDibujar` sólo existe en la app: sin él (WhatsApp, HTTP) va el texto, y el aviso de que la persona ya
+      // lo ve no se dice. Con una sola métrica o una dimensión: varias métricas sueltas son varios números, y un bloque es uno.
+      if (!ctx.aDibujar || al.graficos.length !== 1) return texto;
       const titulo = tituloAlVuelo(al.graficos);
       const bloque: BloqueGrafico = {
         t: 'grafico', titulo,
@@ -383,7 +384,7 @@ export const RUNNERS: Runners = {
         nota: [fuente.fechas.find((x) => x.id === principal.fecha)?.sinRango ? 'Hoy' : rangoTexto(per.desde, hasta), ...filtros].join(' · '),
         grafico: graficoParaElChat({ ...principal, titulo }, r), resultado: r,
       };
-      return J({ bloque, texto, dibujado: 'La persona YA VE este resultado dibujado en el chat: no repitas la tabla, comenta lo que importa.' });
+      return { content: `${texto}\n\n(La persona YA VE este resultado dibujado en el chat: no repitas la tabla, comenta lo que importa.)`, bloque };
     },
   },
 

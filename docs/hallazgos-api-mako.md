@@ -1758,12 +1758,15 @@ Sobre el marco de bloques de Ops Center 3 (1.7, lib/chat-bloques.ts): una acció
 - **Los nombres van en palabras:** el período por `PRESETS` («Últimos 90 días», no `ult90`), el tipo por `tipoDe`, las
   métricas por `metricaDe`.
 
-**Y una PREGUNTA también se dibuja (el mismo día, sobre el camino de Ops Center 3, 508cb901f):** «¿cuánto vendí este
-mes?» en el chat de la app deja su número, y «leads por mes», su serie.
-- **El camino:** la lectura devuelve un JSON con `bloque` arriba de todo, el turno lo saca (`bloqueDeSalida`) y al modelo
-  le llega el resto. `consultar_datos_dashboard` lo hace sólo en la app y con un gráfico (varias métricas sueltas son
-  varios números, y un bloque es uno). Al modelo le llega el texto con un aviso de que la persona YA VE el resultado,
-  para que no repita la tabla. WhatsApp y HTTP siguen con su texto.
+**Y una PREGUNTA también se dibuja (el mismo día, sobre el canal de Ops Center 3, `ctx.aDibujar`, 061c1b74d):** «¿cuánto
+vendí este mes?» en el chat de la app deja su número, y «leads por mes», su serie.
+- **El camino:** la lectura devuelve el OBJETO `{ content, bloque }`. `ejecutarOperacion` sanea el bloque y lo pasa por
+  `ctx.aDibujar`, que sólo existe en la app, y el modelo lee sólo `content`. `consultar_datos_dashboard` lo hace con un
+  gráfico (varias métricas sueltas son varios números, y un bloque es uno). Al modelo le llega el texto con un aviso de que
+  la persona YA VE el resultado, para que no repita la tabla. Sin `aDibujar` (WhatsApp, HTTP) va el texto sin el aviso.
+- **Se mira `ctx.aDibujar`, no el canal:** es lo que dice si hay dónde dibujar. El primer contrato del mismo día (un
+  `bloque` metido en el JSON de la salida, que leía el turno) se sacó a la mañana siguiente. Con él, el modelo leía el
+  bloque entero.
 - **Una sola forma para el gráfico y la tabla** (`grafico`, lib/chat-bloques-dashboard.ts): una tabla ES un gráfico de tipo
   `tabla`, y la misma pieza la dibuja (`CuerpoGrafico`, por app/_chat/bloques/GraficoHilo.tsx, que se carga con
   `next/dynamic` porque arrastra recharts). El G7 del documento es otra cosa: la lista con acciones.

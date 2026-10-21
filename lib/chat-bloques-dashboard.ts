@@ -1,11 +1,12 @@
 // =============================================================================
 // El bloque `grafico` del chat (G16, y G7 como un gráfico de tipo tabla): una PREGUNTA del Dashboard se dibuja en el hilo
 // =============================================================================
-// Ops Center = lo principal (20/10/2026, docs/ops-center-principal.md, la pieza 2.7 del chat Dashboard), sobre el camino
-// de Ops Center 3 para que una LECTURA dibuje (508cb901f): la lectura devuelve un JSON con `bloque` arriba de todo, el
-// turno lo saca (`bloqueDeSalida`, lib/chat-bloques.ts), lo sanea y lo cuelga del mensaje de MaKo; al modelo le llega
-// el resto. «¿Cuánto vendí este mes?» deja el número, y «leads por mes» deja la serie, dibujados con la MISMA pieza del
-// Dashboard (`CuerpoGrafico`, app/dashboard/Grafico.tsx: app/_chat/bloques/GraficoHilo.tsx).
+// Ops Center = lo principal (20/10/2026, docs/ops-center-principal.md, la pieza 2.7 del chat Dashboard), sobre el canal de
+// Ops Center 3 para lo que dibuja una herramienta (`ctx.aDibujar`, 061c1b74d): la lectura devuelve el OBJETO
+// `{ content, bloque }`, `ejecutarOperacion` sanea el bloque y lo pasa por `ctx.aDibujar` (que sólo existe en la app), y el
+// modelo lee sólo `content`. «¿Cuánto vendí este mes?» deja el número, y «leads por mes» deja la serie, dibujados con la
+// MISMA pieza del Dashboard (`CuerpoGrafico`, app/dashboard/Grafico.tsx: app/_chat/bloques/GraficoHilo.tsx).
+// (Un primer contrato, del mismo día, leía un `bloque` metido en el JSON de la salida: se sacó, y ese JSON lo leería el modelo.)
 //
 // Lo que lleva: el gráfico (la configuración, validada contra el catálogo con `sanearComponente`) y su RESULTADO, la foto
 // de lo que MaKo leyó en ese momento. No se vuelve a pedir: es lo que se contestó, y al recargar se ve igual.
