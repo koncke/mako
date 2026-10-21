@@ -63,6 +63,8 @@ export type Pago = {
   nacio_cobrada?: boolean | null;
   /** La diferencia de un cobro por menos: el id de la cuota de la que salió (`cobrar_cuota_con_resto`). No es del plan. */
   resto_de?: number | null;
+  /** Se registró como la mensualidad («Registrar el mes cobrado», mig 0323): vale un mes en una suscripción. */
+  es_mensualidad?: boolean | null;
   /** El cliente se dio de baja (mig 0307, lib/pagos-baja.ts): impaga y sin vencimiento; el que tenía, en `baja_vencia`. */
   baja_at?: string | null;
   baja_vencia?: string | null;
@@ -812,7 +814,7 @@ async function cobrarConResto(
  */
 export async function registrarPagoSuelto(
   leadId: number,
-  datos: { monto: number; fecha: string; hora?: string | null } & DatosDeMoneda,
+  datos: { monto: number; fecha: string; hora?: string | null; mensualidad?: boolean } & DatosDeMoneda,
 ): Promise<{ pagoId: number; monto: number; moneda: string | null; montoOriginal: number | null }> {
   const monto = Number(datos.monto);
   if (!Number.isFinite(monto) || monto <= 0) throw new Error('El monto tiene que ser mayor a cero.');
@@ -831,6 +833,8 @@ export async function registrarPagoSuelto(
       lead_id: leadId, numero: base + 1, monto_usd: redondo, fecha_esperada: datos.fecha, pagado: false, pago_hora: datos.hora?.trim() || null,
       // Nace cobrada (mig 0295): deshacerla la quita, no la deja como deuda vencida.
       nacio_cobrada: true,
+      // Registrada COMO la mensualidad (mig 0323): vale un mes, sea del monto que sea (`mesesDeUnaCobrada`).
+      ...(datos.mensualidad ? { es_mensualidad: true } : {}),
       ...(enMoneda ? { moneda: enMoneda.moneda, monto_original: enMoneda.montoOriginal } : {}),
     })
     .select('id').single();

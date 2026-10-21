@@ -693,11 +693,21 @@ de México.
     no se toma y se dice; el cobro ENTERO, igual (`.eq('monto_usd', original)`): es la misma carrera por la otra puerta.
     `p_original` tiene default null para que el código de antes del deploy siga llamando con 11 argumentos, y la firma
     vieja se borra en la misma transacción (con las dos, PostgREST no sabría a cuál llamar).
+  - **⚠️ Lo que se registró COMO la mensualidad vale un mes, siempre** (revisión de e19a5196f, medio: regresión). Contar
+    por plata lo de a mano, con el mínimo de un mes, sólo andaba si el precio SUBÍA: con una BAJA (6 mensualidades de
+    1.000 y la mensualidad ya en 500) eran 12 meses, «Al día» y fuera de «A quién cobrar», donde producción decía
+    «Falta registrar 5 meses». El monto no dice cómo se registró; la fila sí: `pagos.es_mensualidad` (mig 0323), que
+    pone «Registrar el mes cobrado» (las de antes, por su concepto «Mensualidad»: 1 fila en producción, ws 11). La plata
+    cuenta sólo para «Registrar un pago» y la pasarela, con el mínimo de un mes (sin el mínimo, un link de un mes al tipo
+    de cambio del día valía 0 y a mano 1).
   - **Trampa de los tests:** el PostgREST de mentira insertaba sin los defaults de la base (`pagado` quedaba en null) y
     las escrituras condicionales (`.eq('pagado', false)`) no encontraban las cuotas: «Cambiar el plan» no cambiaba nada
     y parecía que el arreglo no andaba. Los defaults del hijo (tests/_cobro-idempotente-hijo.ts) son los de la base.
   - **Sin hacer:** los modos 'lista' (el wizard) y 'porId' (Editar deal) no miran `resto_de`: casar por orden puede
     reusar una diferencia como cuota del plan y la marca le queda. Vive en `reconciliarCuotas` (lib/pagos-campo.ts).
+    Y «A quién cobrar» lee los pagos de hasta 500 suscripciones de una vez, sin paginar: pasadas las 1.000 filas,
+    PostgREST corta y la lista no da el número de la ficha (viene de producción). Vive en `getSuscripcionesPorCobrar`
+    (lib/pagos.ts).
 - **No tomar la cuota no siempre es «ya estaba».** Si la reconciliación de un plan la BORRABA entre la lectura y el cobro,
   `cobrarCuota` contestaba «ya estaba cobrada» y el cobro que sí entró no quedaba anotado. Ahora mira cómo quedó:
   cobrada, «ya estaba»; si no, «La cuota cambió mientras la cobrabas» y no se escribe nada.

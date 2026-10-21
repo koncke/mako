@@ -283,7 +283,7 @@ export function RegistrarPago({ leadId, monedaNegocio, modo, sugeridoUsd, hoy, o
     setError(null);
     start(async () => {
       try {
-        await registrarPagoSueltoAction(leadId, { monto: p.monto as number, fecha, hora: hora || null, moneda: p.moneda, montoOriginal: p.montoOriginal, metodo: metodo || null, concepto: concepto.trim() || null });
+        await registrarPagoSueltoAction(leadId, { monto: p.monto as number, fecha, hora: hora || null, moneda: p.moneda, montoOriginal: p.montoOriginal, metodo: metodo || null, concepto: concepto.trim() || null, mensualidad: modo === 'mensualidad' });
         onHecho(`${modo === 'mensualidad' ? 'Mensualidad' : 'Pago'} de ${usd(p.monto as number)} registrado`);
       } catch (e) { setError(msg(e)); }
     });

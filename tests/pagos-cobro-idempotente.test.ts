@@ -444,6 +444,9 @@ test('11. ⚠️ revisión de 7524ec1c9: «Cambiar el plan» de la ficha sobre u
   const sql = leer(MIG).replace(/^\s*--.*$/gm, '');
   assert.match(sql.trim(), /^begin;[\s\S]*\ncommit;$/, 'en una transacción: no hay un instante sin función');
   assert.match(sql, /alter table pagos add column if not exists resto_de bigint;/);
+  // (revisión de e19a5196f) La marca de «Registrar el mes cobrado», y las de antes por su concepto (test 13).
+  assert.match(sql, /alter table pagos add column if not exists es_mensualidad boolean not null default false;/);
+  assert.match(sql, /update pagos set es_mensualidad = true\s*where nacio_cobrada and proveedor is null and not es_mensualidad and lower\(trim\(coalesce\(concepto, ''\)\)\) = 'mensualidad';/);
   assert.doesNotMatch(sql, /resto_de bigint references/);
   assert.match(sql, /insert into pagos \(workspace_id, lead_id, numero, monto_usd, fecha_esperada, pagado, resto_de\)\s*values \(p_ws, p_lead, v_numero, p_resto, p_vence, false, v_id\)/);
   const sql0318 = leer('supabase/migrations/0318_cobrar_cuota_con_resto.sql').replace(/^\s*--.*$/gm, '');
@@ -477,6 +480,16 @@ test('12. ⚠️ la cuota se cobra con el monto que se LEYÓ: editada en el medi
   assert.deepEqual(s.originalEnteroFilas, [{ pagado: false, monto_usd: 400 }]);
   // Sin cambios en el medio, cobra como siempre (los otros tests): acá, el control.
   assert.deepEqual(s.originalControl, [{ pagado: true, monto_usd: 300 }, { pagado: false, monto_usd: 200 }]);
+});
+
+test('13. ⚠️ «Registrar el mes cobrado» marca la fila como la mensualidad; «Registrar un pago», no (mig 0323)', () => {
+  const s = correr() as unknown as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any -- la salida del hijo, campo por campo
+  assert.deepEqual(s.mensualidadFilas, [{ monto_usd: 1000, pagado: true, es_mensualidad: true }, { monto_usd: 300, pagado: true, es_mensualidad: false }]);
+  // La pantalla lo dice según el modo, y la acción lo deja pasar.
+  assert.match(leer('app/crm/lead-view/ficha/pagos/piezas.tsx'), /concepto: concepto\.trim\(\) \|\| null, mensualidad: modo === 'mensualidad' \}\);/);
+  assert.match(leer('app/crm/[id]/deal-actions.ts'), /registrarPagoSueltoAction\(leadId: number, datos: \{ monto: number; fecha: string; hora\?: string \| null; mensualidad\?: boolean \} & DatosDeMoneda\)/);
+  // Sólo la marca, si viene: sin la migración, un pago suelto se sigue guardando.
+  assert.match(sinComentarios(leer('lib/pagos.ts')), /nacio_cobrada: true,\s*\.\.\.\(datos\.mensualidad \? \{ es_mensualidad: true \} : \{\}\),/);
 });
 
 // ROTURAS (20/10/2026). Base: 4 pases, 0 fallos (los tests 1 a 4). Rota (pases / fallos):
@@ -574,3 +587,9 @@ test('12. ⚠️ la cuota se cobra con el monto que se LEYÓ: editada en el medi
 //   · la columna con clave foránea (`on delete set null`)                            → 11 / 1 (11)
 //   · la 0323 toma las cuotas sin orden                                              → 11 / 1 (11)
 //   · el mensaje vuelve a decir «falta la migración 0318»                            → 11 / 1 (7)
+//
+// ROTURAS de la revisión de e19a5196f (21/10/2026). Base: 13 pases, 0 fallos. Rota (pases / fallos):
+//   · `registrarPagoSuelto` no escribe la marca de la mensualidad                    → 12 / 1 (13)
+//   · la pantalla no manda el modo                                                   → 12 / 1 (13)
+//   · la 0323 sin la columna `es_mensualidad`                                        → 12 / 1 (11)
+//   · la 0323 no rellena las de antes (por su concepto)                              → 12 / 1 (11)

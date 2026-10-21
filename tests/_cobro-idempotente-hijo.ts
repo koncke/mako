@@ -30,7 +30,7 @@ const pg = crearPostgrest({
   tablas: ['pagos', 'leads', 'app_settings', 'workspaces'],
   // Los defaults de la base (`pagado` y `nacio_cobrada` en false): sin ellos, una cuota insertada quedaba en null y las
   // escrituras condicionales (`.eq('pagado', false)`) no la encontraban (revisión de 7524ec1c9).
-  defaults: (tabla, f) => (tabla === 'pagos' ? { id: siguienteId++, pagado: false, nacio_cobrada: false, resto_de: null, ...f } : { ...f }),
+  defaults: (tabla, f) => (tabla === 'pagos' ? { id: siguienteId++, pagado: false, nacio_cobrada: false, resto_de: null, es_mensualidad: false, ...f } : { ...f }),
   unicos: [{ tabla: 'pagos', columnas: ['lead_id', 'numero'], donde: () => true, nombre: 'pagos_lead_numero' }],
 });
 const escrituras: string[] = [];
@@ -85,7 +85,7 @@ const cuota = (id: number, x: Record<string, unknown>) => ({
 
 async function main() {
   const { runWithWorkspace } = await import('../lib/workspace');
-  const { marcarPago, cobrarCuota, registrarCobroDeProveedor, saveLeadPlanManual, savePlanPagos, ajustarPlanPagos } = await import('../lib/pagos');
+  const { marcarPago, cobrarCuota, registrarCobroDeProveedor, saveLeadPlanManual, savePlanPagos, ajustarPlanPagos, registrarPagoSuelto } = await import('../lib/pagos');
   const db = pg.db;
   db.workspaces.push({ id: WS, nombre: 'Prueba' });
   db.app_settings.push({ workspace_id: WS, key: 'mako.timezone', value: 'America/Mexico_City', updated_at: '2026-10-01T00:00:00Z' });
@@ -119,6 +119,8 @@ async function main() {
     { id: 28, workspace_id: WS, nombre: 'Vale', monto_cierre_usd: 500, total_cobrado_usd: null },
     { id: 29, workspace_id: WS, nombre: 'Walter', monto_cierre_usd: 500, total_cobrado_usd: null },
     { id: 30, workspace_id: WS, nombre: 'Ximena', monto_cierre_usd: 500, total_cobrado_usd: null },
+    // (revisión de e19a5196f) «Registrar el mes cobrado» y «Registrar un pago».
+    { id: 31, workspace_id: WS, nombre: 'Yago', venta_tipo: 'suscripcion', total_cobrado_usd: null },
   );
   db.pagos.push(
     cuota(10, { pagado: true, fecha_pago: '2026-10-01' }), // ya cobrada el 1/10
@@ -317,6 +319,11 @@ async function main() {
     r.originalEnteroFilas = filasDe(29);
     await cobrarCuota(55, 30, { monto: 300, fecha: '2026-10-20', resto: 'pendiente' });
     r.originalControl = filasDe(30);
+
+    // (revisión de e19a5196f) Lo que se registra COMO la mensualidad lleva la marca; un pago, no.
+    await registrarPagoSuelto(31, { monto: 1000, fecha: '2026-10-20', mensualidad: true });
+    await registrarPagoSuelto(31, { monto: 300, fecha: '2026-10-20' });
+    r.mensualidadFilas = db.pagos.filter((p) => p.lead_id === 31).map((p) => ({ monto_usd: p.monto_usd, pagado: p.pagado, es_mensualidad: p.es_mensualidad }));
   });
   const lead = (id: number) => db.leads.find((l) => l.id === id)?.total_cobrado_usd ?? null;
   const delLead = (id: number) => db.pagos.filter((p) => p.lead_id === id).map((p) => ({ id: p.id, pagado: p.pagado, monto_usd: p.monto_usd }));

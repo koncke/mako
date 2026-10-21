@@ -1865,9 +1865,9 @@ horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, un
   desde el cierre (como cuenta `cobradoDelLead`); un pago único con un pago previo no se arma. Nunca nace una cuota por
   un mes ya cobrado, y lo que no se hizo vuelve en `sinTocar` y el asistente lo MUESTRA: nada se descarta en silencio.
 - **Lo cobrado de una suscripción se cuenta DE A UNA cobrada, con `mesesDeUnaCobrada`** (lib/cobrado-lead.ts,
-  21/10/2026): una mensualidad registrada a mano vale un mes aunque sea de otro monto, y la plata cuenta sólo para un
-  pago que cubre varios meses; lo que cobra la pasarela, por su plata (nadie lo registró como un mes); nunca la suma de
-  todas (el desvío se acumula). Qué es plata suelta, `esPlataSuelta`; en 'slots' la
+  21/10/2026): lo que se registró COMO la mensualidad (`es_mensualidad`) vale un mes, sea del monto que sea; la plata
+  cuenta sólo para un pago suelto o la pasarela, con el mínimo de un mes; nunca la suma de todas (el desvío se
+  acumula). Cómo se registró lo dice la fila, no su monto. Qué es plata suelta, `esPlataSuelta`; en 'slots' la
   cuota N es la N-ésima del plan, no la fila con el número N; y qué es un plan lo dice `pagosPrevios`
   (lib/pagos-campo.ts): ninguna lectura nueva cuenta filas como meses ni arma su propia regla.
 - **Toda fila de `pagos` que no es una cuota del plan NACE MARCADA, y qué es del plan lo dice `esCuotaDelPlan`**

@@ -22,6 +22,11 @@
 --
 -- Medido en sólo lectura el 21/10/2026: 0 diferencias en producción (la 0318 es del mismo día). Nada que rellenar.
 --
+--   · `pagos.es_mensualidad` (revisión de e19a5196f, medio): la cobrada se registró COMO la mensualidad («Registrar el
+--     mes cobrado»). Vale un mes, sea del monto que sea. Contada por plata, una BAJA de precio escondía deuda: 6
+--     mensualidades de 1.000 con la mensualidad ya en 500 contaban 12 meses, «Al día», fuera de «A quién cobrar». Las de
+--     antes se rellenan por su concepto, que ese modo pone por defecto («Mensualidad»): medido el 21/10, 1 fila (ws 11).
+--
 -- La firma cambia (un argumento más), así que la de 11 se BORRA: con las dos, PostgREST no sabría a cuál llamar con 11
 -- argumentos. Todo en una transacción: no hay un instante sin función.
 --
@@ -32,6 +37,14 @@
 begin;
 
 alter table pagos add column if not exists resto_de bigint;
+alter table pagos add column if not exists es_mensualidad boolean not null default false;
+
+-- Las registradas como la mensualidad antes de la marca: su concepto es el que ese modo pone por defecto. Idempotente.
+update pagos set es_mensualidad = true
+where nacio_cobrada and proveedor is null and not es_mensualidad and lower(trim(coalesce(concepto, ''))) = 'mensualidad';
+
+comment on column pagos.es_mensualidad is
+  'Se registró como la mensualidad («Registrar el mes cobrado»): vale un mes en una suscripción, sea del monto que sea (mesesDeUnaCobrada, lib/cobrado-lead.ts). Mig 0323.';
 
 comment on column pagos.resto_de is
   'La diferencia de un cobro por menos: el id de la cuota de la que salió. No es una cuota del plan (esCuotaDelPlan, lib/cobrado-lead.ts). Sin FK: es de dónde nació. Mig 0323.';

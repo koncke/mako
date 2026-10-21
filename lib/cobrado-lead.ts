@@ -47,6 +47,8 @@ export type CuotaParaCobrado = {
   nacio_cobrada?: boolean | null;
   /** La diferencia de un cobro por menos: el id de la cuota de la que salió (la escribe `cobrar_cuota_con_resto`). */
   resto_de?: number | null;
+  /** Se registró COMO la mensualidad («Registrar el mes cobrado», mig 0323): vale un mes, sea del monto que sea. */
+  es_mensualidad?: boolean | null;
   baja_vencia?: string | null;
 };
 
@@ -172,29 +174,28 @@ export const esPlataSuelta = (q: { pagado?: boolean | null; nacio_cobrada?: bool
   !!q.pagado && !esCuotaDelPlan(q);
 
 /**
- * ⚠️ CUÁNTOS MESES CUBRE UNA COBRADA DE UNA SUSCRIPCIÓN, DE A UNA (revisión de 7524ec1c9, alta). Una mensualidad
- * registrada a mano vale UN mes, como en producción, aunque sea de otro monto: el tipo de cambio del día (490 de 500), un
- * descuento pactado (450) o el precio de antes (500 con la mensualidad ya en 600). La plata cuenta sólo para un pago que
- * cubre VARIOS meses (un adelanto de 1.500 = 3). Sumando todas las sueltas y pasando el total por `mesesDePlata`, el
- * desvío se acumulaba: 6 × 490 daba 5 meses («Falta registrar 1 mes» y US$500 reclamados a un cliente al día) y
- * 10 × 550 daba 11 (escondía al que debe el mes 11).
- * - Una cuota del plan: 1.
+ * ⚠️ CUÁNTOS MESES CUBRE UNA COBRADA DE UNA SUSCRIPCIÓN, DE A UNA (revisión de 7524ec1c9, alta). Sumando todas las
+ * sueltas y pasando el total por `mesesDePlata`, el desvío se acumulaba: 6 × 490 daba 5 meses («Falta registrar 1 mes»
+ * y US$500 reclamados a un cliente al día) y 10 × 550 daba 11 (escondía al que debe el mes 11).
+ * ⚠️ LO QUE SE REGISTRÓ COMO LA MENSUALIDAD VALE UN MES, SIEMPRE (revisión de e19a5196f, medio). Contada por plata, una
+ * BAJA de precio escondía deuda: 6 mensualidades de 1.000 con la mensualidad ya en 500 eran 12 meses («Al día», fuera de
+ * «A quién cobrar»; producción decía «Falta registrar 5 meses»). Cómo se registró lo dice la fila (`es_mensualidad`,
+ * mig 0323), no su monto.
+ * - Una cuota del plan, o una cobrada registrada como la mensualidad: 1.
  * - La diferencia de un cobro por menos: 0, completa el mes de su cuota.
- * - Plata suelta registrada a MANO: `max(1, mesesDePlata(su monto))`. La persona la registró como un mes (o como varios).
- *   Una seña de 100 cuenta un mes en la ficha, como en producción: no se distingue de una mensualidad con descuento.
- * - Plata suelta de la PASARELA (el cobro de un link sin cuota): `mesesDePlata(su monto)`, sin el mínimo. Nadie la
- *   registró como un mes: una seña de 100 por link no cubre ninguno, y un link de 1.500, tres (revisión de 7524ec1c9,
- *   pregunta del Cerebro).
- * `enteros`: si su monto son meses enteros. El asistente no arma si alguna no lo es (ninguna seña se descuenta de un plan).
+ * - Un pago suelto (a mano con «Registrar un pago», o el cobro de un link sin cuota): `max(1, mesesDePlata(su monto))`.
+ *   Lo que cubre varios meses cuenta por plata (un adelanto de 1.500 = 3); uno chico, un mes, como producción. La
+ *   pasarela igual que la mano: contado por plata sin el mínimo, un link de un mes al tipo de cambio del día valía 0.
+ * `enteros`: si su monto son meses enteros. El asistente no arma si alguno no lo es (ninguna seña se descuenta de un plan).
  */
 export function mesesDeUnaCobrada(
-  q: { monto_usd?: number | string | null; nacio_cobrada?: boolean | null; resto_de?: number | null; proveedor?: string | null },
+  q: { monto_usd?: number | string | null; nacio_cobrada?: boolean | null; resto_de?: number | null; es_mensualidad?: boolean | null },
   mensualidad: number | null,
 ): { meses: number; enteros: boolean } {
   if (q.resto_de != null) return { meses: 0, enteros: true };
-  if (esCuotaDelPlan(q) || !mensualidad) return { meses: 1, enteros: true };
+  if (esCuotaDelPlan(q) || q.es_mensualidad || !mensualidad) return { meses: 1, enteros: true };
   const r = mesesDePlata(num(q.monto_usd), mensualidad);
-  return q.proveedor ? r : { meses: Math.max(1, r.meses), enteros: r.enteros };
+  return { meses: Math.max(1, r.meses), enteros: r.enteros };
 }
 
 /** La fecha `meses` después de `iso`, con el día capado al último del mes (31/01 + 1 = 28/02 o 29/02). */

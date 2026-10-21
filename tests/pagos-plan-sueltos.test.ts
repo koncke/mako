@@ -231,13 +231,14 @@ test('8. ⚠️ una mensualidad registrada vale UN mes aunque sea de otro monto:
   assert.deepEqual(mesesDeUnaCobrada({ monto_usd: 490, nacio_cobrada: true }, 500), { meses: 1, enteros: true });
   assert.deepEqual(mesesDeUnaCobrada({ monto_usd: 100, nacio_cobrada: true }, 500), { meses: 1, enteros: false }, 'una seña: un mes en la ficha, no se descuenta');
   assert.deepEqual(mesesDeUnaCobrada({ monto_usd: 1500, nacio_cobrada: true }, 500), { meses: 3, enteros: true });
-  // Lo de la PASARELA (el cobro de un link sin cuota) vale por su plata, sin el mínimo: nadie lo registró como un mes.
+  // (revisión de e19a5196f, baja) Lo de la PASARELA (el cobro de un link sin cuota), igual que la mano: contado por plata
+  // sin el mínimo, un link de un mes al tipo de cambio del día (440 de 500) valía 0 meses y a mano valía 1.
   const porLink = (monto: number) => ({ monto_usd: monto, nacio_cobrada: true, proveedor: 'stripe' });
-  assert.deepEqual(mesesDeUnaCobrada(porLink(100), 500), { meses: 0, enteros: false }, 'una seña por link no cubre un mes');
-  assert.deepEqual(mesesDeUnaCobrada(porLink(490), 500), { meses: 1, enteros: true });
+  assert.deepEqual(mesesDeUnaCobrada(porLink(440), 500), { meses: 1, enteros: false });
+  assert.deepEqual(mesesDeUnaCobrada(porLink(100), 500), mesesDeUnaCobrada({ monto_usd: 100, nacio_cobrada: true }, 500), 'por link o a mano, lo mismo');
   assert.deepEqual(mesesDeUnaCobrada(porLink(1500), 500), { meses: 3, enteros: true });
   const senaLink = ficha('2026-10-22', [{ ...porLink(100), pagado: true, fecha_esperada: CIERRE, fecha_pago: CIERRE }]);
-  assert.deepEqual([senaLink.suscripcion?.mesesCubiertos, senaLink.suscripcion?.sinRegistrar], [0, 1], 'faltan los 400 del mes');
+  assert.deepEqual([senaLink.suscripcion?.mesesCubiertos, senaLink.suscripcion?.sinRegistrar], [1, 0], 'como a mano y como producción');
   // El asistente cuenta igual que la ficha: seis mensualidades de 490 son 6 meses (sumadas, 2.940 no eran «enteros»).
   const seis = planDelAsistente(doce, n(6, 490).map((m, i) => suelto(m, sumarMeses(CIERRE, i))), { suscripcion: true, ancla: CIERRE });
   assert.deepEqual([seis.yaCobradas, seis.cuotas.length], [6, 6]);
@@ -273,6 +274,31 @@ test('9. ⚠️ qué es una cuota del plan es UNA regla: la seña por link y la 
   assert.equal(porMenos.suscripcion?.mesesCubiertos, 1);
 });
 
+test('10. ⚠️ lo que se registró COMO la mensualidad vale un mes siempre: una baja de precio no esconde deuda', () => {
+  const C = '2026-01-15';
+  const fila = (m: number, i: number, comoMensualidad = true) => ({
+    id: i + 1, monto_usd: m, pagado: true, nacio_cobrada: true, es_mensualidad: comoMensualidad, fecha_esperada: sumarMeses(C, i), fecha_pago: sumarMeses(C, i),
+  });
+  const ver = (hoy: string, mensualidad: number, pagos: ReturnType<typeof fila>[]) => cobradoDelLead({
+    ventaTipo: 'suscripcion', montoCierreUsd: null, suscripcionMontoUsd: mensualidad, suscripcionMeses: null, fechaCierre: C, suscripcionCanceladaAt: null, pagos, cobros: [], hoy,
+  });
+  // 6 mensualidades de 1.000, la mensualidad baja a 500 y después una de 500. El 14/01/2027 tendrían que ser 12: faltan 5
+  // (producción lo decía). Contadas por plata eran 13 y «Al día».
+  const baja = [...[0, 1, 2, 3, 4, 5].map((i) => fila(1000, i)), fila(500, 6)];
+  const f = ver('2027-01-14', 500, baja);
+  assert.deepEqual([f.suscripcion?.mesesCubiertos, f.suscripcion?.sinRegistrar, f.semaforo.texto], [7, 5, 'Falta registrar 5 meses']);
+  const item = itemDeSuscripcion({
+    lead: { id: 9, nombre: 'Ana', fecha_cierre: C, suscripcion_monto_usd: 500, suscripcion_meses: null, suscripcion_cancelada_at: null },
+    pagos: baja, cobros: [], hoy: '2027-01-14', ventana: { desde: '2026-08-01', hasta: '2027-01-31' },
+  });
+  assert.deepEqual([item?.suscripcion?.meses, item?.suscripcion?.vence], [5, '2026-08-15'], 'sigue en «A quién cobrar»');
+  // Sin la de 500: el 14/12 tendrían que ser 11, faltan 5.
+  assert.equal(ver('2026-12-14', 500, [0, 1, 2, 3, 4, 5].map((i) => fila(1000, i))).suscripcion?.sinRegistrar, 5);
+  // Lo registrado como PAGO (un adelanto) sí cuenta por plata: 1.500 son 3.
+  assert.equal(ver('2026-03-14', 500, [fila(1500, 0, false)]).suscripcion?.mesesCubiertos, 3);
+  assert.deepEqual(mesesDeUnaCobrada({ monto_usd: 1000, nacio_cobrada: true, es_mensualidad: true }, 500), { meses: 1, enteros: true });
+});
+
 // ROTURAS (21/10/2026). Base: 4 pases, 0 fallos. Rota (pases / fallos):
 //   · el asistente vuelve a contar filas                                  → 3 / 1 (2)
 //   · sin tolerancia de cambio                                            → 2 / 2 (1 y 2)
@@ -303,3 +329,8 @@ test('9. ⚠️ qué es una cuota del plan es UNA regla: la seña por link y la 
 //   · lo de la pasarela vuelve a valer un mes (el mínimo de la mano)      → 8 / 1 (8)
 // (La rotura «una seña cuenta como un mes» de la primera tanda era de `mesesDePlata` y del asistente: la ficha ahora
 // cuenta como un mes la seña registrada A MANO, a propósito, como producción. La de un link vale por su plata. Test 2 y 8.)
+//
+// ROTURAS de la revisión de e19a5196f (21/10/2026). Base: 10 pases, 0 fallos. Rota (pases / fallos):
+//   · la mensualidad vuelve a contar por plata (la baja de precio esconde deuda)  → 9 / 1 (10)
+//   · lo de la pasarela vuelve a valer por plata sin el mínimo                    → 9 / 1 (8)
+//   · todo vale un mes (también el adelanto)                                      → 6 / 4 (2, 7, 8 y 10)

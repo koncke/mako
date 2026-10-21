@@ -590,7 +590,7 @@ export function planDelAsistente(
 
 /** Lo que dicen las filas de `pagos` de un lead que se leen para decidir un plan (todas opcionales: las da `Pago`). */
 export type FilaPrevia = {
-  pagado?: boolean | null; nacio_cobrada?: boolean | null; resto_de?: number | null; monto_usd?: number | string | null;
+  pagado?: boolean | null; nacio_cobrada?: boolean | null; resto_de?: number | null; es_mensualidad?: boolean | null; monto_usd?: number | string | null;
   fecha_pago?: string | null; fecha_esperada?: string | null; proveedor?: string | null; cobro_id?: number | null; baja_at?: string | null;
 };
 
