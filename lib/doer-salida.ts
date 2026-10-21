@@ -86,7 +86,20 @@ const ACABO_DE = /(?<!\p{L})acabo de (?:mandar|enviar|agendar|crear|armar|cargar
 /** Lo que deja una oración sin afirmar: una negación («no te agendé»), o hablar de lo que quedó para confirmar. */
 const NIEGA = /(?<!\p{L})(?:no|nunca|tampoco|ni)(?!\p{L})/u;
 // «confírmala», «para confirmar», «revísala»: lo que habla de confirmar; «confirmé» y «revisé» dicen hecho, y no entran.
-const DE_LO_PROPUESTO = /(?<!\p{L})(?:abajo|tarjeta|borrador|propuesta|conf[ií]rm(?!é)\p{L}*|rev[ií]s(?!é)\p{L}*)(?!\p{L})/u;
+// «arriba»: «como te mandé arriba» habla de lo que está en el mismo mensaje.
+const DE_LO_PROPUESTO = /(?<!\p{L})(?:abajo|arriba|tarjeta|borrador|propuesta|conf[ií]rm(?!é)\p{L}*|rev[ií]s(?!é)\p{L}*)(?!\p{L})/u;
+/** Una oración que empieza poniendo una CONDICIÓN («si ya te mandé el link…», «en cuanto me pases el CSV, voy a…»). */
+const CONDICION = /^[\s¡¿«"“(]*(?:si|cuando|en cuanto|apenas)(?!\p{L})/u;
+
+/**
+ * El texto sin lo que NO es de MaKo (la cuarta revisión, 21/10/2026): lo que va entre comillas («…», “…”, "…") y las
+ * líneas que citan («> …»). Lo que dijo un lead, un borrador para mandar, un copy en primera persona: no dicen que MaKo
+ * hizo nada. No es una regla de palabras: es no leer el texto de otro.
+ */
+function sinLoCitado(texto: string): string {
+  return texto.split('\n').filter((l) => !/^\s*>/.test(l)).join('\n')
+    .replace(/«[^»]*»/g, ' ').replace(/“[^”]*”/g, ' ').replace(/"[^"\n]*"/g, ' ');
+}
 
 /**
  * Las oraciones donde MaKo dice CLARO que hizo algo él (1.5; la tercera revisión, 21/10/2026): en primera persona, en
@@ -95,21 +108,28 @@ const DE_LO_PROPUESTO = /(?<!\p{L})(?:abajo|tarjeta|borrador|propuesta|conf[ií]
  * nota en una respuesta que no afirma nada, no. No se le suman raíces ni formas para «ver más».
  */
 export function afirmacionesDeHecho(texto: string): string[] {
-  return oraciones(texto).flat().map((o) => o.trim()).filter((o) => {
+  return oraciones(sinLoCitado(texto)).flat().map((o) => o.trim()).filter((o) => {
     const t = o.toLowerCase();
-    if (!t || /[¿?]/.test(t) || NIEGA.test(t) || DE_LO_PROPUESTO.test(t)) return false;
-    return PRETERITO.test(t) || DEJE_HECHO.test(t) || ACABO_DE.test(t);
+    if (!t || /[¿?]/.test(t) || NIEGA.test(t) || DE_LO_PROPUESTO.test(t) || CONDICION.test(t)) return false;
+    // Lo que va ANTES de un «:» presenta lo que sigue en el mismo mensaje («Te armé un resumen de la semana:», «Hice la
+    // cuenta: con 14 leads…»): está a la vista. Se mira lo que va después del último «:» («Listo: pausé la campaña»).
+    const dicho = t.slice(t.lastIndexOf(':') + 1);
+    return PRETERITO.test(dicho) || DEJE_HECHO.test(dicho) || ACABO_DE.test(dicho);
   });
 }
 
 /**
- * Las promesas de una acción INMEDIATA que el turno no hizo («déjame ver el plan», «dame un segundo», «voy a revisar»,
+ * La promesa de una acción INMEDIATA que el turno no hizo («déjame ver el plan», «dame un segundo», «voy a revisar»,
  * «estoy buscando»), para el chat de la app. Sin «te aviso», «te paso» ni «te cargo»: son ofertas o condiciones
- * («cualquier cosa te aviso»), y la tercera revisión los vio borrar una verdad respaldada.
+ * («cualquier cosa te aviso»), y la tercera revisión los vio borrar una verdad respaldada. ⚠️ Sólo si es lo ÚLTIMO del
+ * mensaje y no es condicional (la cuarta revisión): «Déjame ver… Juan está en Seguimiento» ya trae la respuesta, y «en
+ * cuanto me pases el CSV, voy a cargar…» es una oferta.
  */
 export function promesasFirmesDe(texto: string): string[] {
-  return oraciones(texto).flat().map((o) => o.trim()).filter((o) => o && !/[¿?]/.test(o) && !PIDE_DATO.test(norm(o)))
-    .filter((o) => [PROMESAS[0], PROMESAS[1], PROMESAS[4], PROMESAS[6]].some((re) => re.test(norm(o))));
+  const todas = oraciones(sinLoCitado(texto)).flat().map((o) => o.trim()).filter((o) => /\p{L}/u.test(o));
+  const ultima = todas[todas.length - 1] ?? '';
+  if (!ultima || /[¿?]/.test(ultima) || CONDICION.test(ultima.toLowerCase()) || PIDE_DATO.test(norm(ultima))) return [];
+  return [PROMESAS[0], PROMESAS[1], PROMESAS[4], PROMESAS[6]].some((re) => re.test(norm(ultima))) ? [ultima] : [];
 }
 
 /** La oración pide un dato a la persona («dime», «pásame», «confirmame»). Sin tildes. */
@@ -234,9 +254,15 @@ export function sanearSalida(texto: string, { corrioHerramientas, hecho }: {
 }): Saneo {
   const groserias = groseriasDe(texto);
   if (hecho) {
-    let salida = groserias.length ? (sinOraciones(texto, (o) => groseriasDe(o).length > 0) ?? SIN_GROSERIA) : texto;
+    // La grosería se saca y lo demás QUEDA, aunque sea corto: «Sí, ya te la agendé.» no puede irse con ella (la cuarta
+    // revisión: con menos de 15 letras salía entera como «Perdón, me expresé mal»). Sin nada que quede, esa línea.
+    const sinGroserias = oraciones(texto).map((ors) => ors.filter((o) => !groseriasDe(o).length).join(' ').trimEnd())
+      .join('\n').replace(/\n{3,}/g, '\n\n').trim();
+    let salida = groserias.length ? (/\p{L}/u.test(sinGroserias) ? sinGroserias : SIN_GROSERIA) : texto;
     const sinRespaldo = hecho.respaldado ? [] : afirmacionesDeHecho(salida);
-    const prometidas = corrioHerramientas ? [] : promesasFirmesDe(salida);
+    // Con respaldo, ninguna nota de promesa: «Sí, ya te la agendé. Dame un segundo…» con «Esto no lo hice» pegado se lee
+    // como que no se agendó.
+    const prometidas = corrioHerramientas || hecho.respaldado ? [] : promesasFirmesDe(salida);
     const nota = sinRespaldo.length ? NOTA_SIN_RESPALDO : prometidas.length ? NOTA_SIN_HACER : null;
     if (nota) salida = `${salida}\n\n${nota}`;
     return { texto: salida, promesas: prometidas, groserias, ...(sinRespaldo.length ? { sinRespaldo } : {}) };
