@@ -2098,16 +2098,24 @@ documento y el PDF «Lo que vendes» («No me permite»). El hito, literal, en l
 
 Pedido de Martín (20/10): «que Ops Center sea lo principal en MaKo… crear webs». El plan, en docs/ops-center-principal.md.
 
-### «Mi otro producto» con uno solo: la pregunta la impone el código, no la receta
+### «Mi otro producto»: la pregunta la impone el código, y contar palabras NO sirve para saber si ya dijo cuál
 - **El caso:** con un solo producto en el catálogo, «créame una landing para mi otro producto» creaba igual, y el esquema
   salía del perfil del negocio: la landing del producto que ya tiene. `productoDelPedido` lo sabía (devuelve null) pero
-  nadie preguntaba.
-- **Regla:** lo que no se puede dejar en manos del modelo va en el `preparar` de la operación: `generar_landing_con_ia`
-  pregunta `faltaElOtroProducto` (lib/mako-pedidos.ts) y, si falta, no prepara nada y el error ES la pregunta. La receta
-  (RECETA_LANDING, lib/doer-recetas.ts) sólo hace que MaKo pregunte antes de proponer.
-- **Para que la vuelta pase:** la idea con lo que contó la persona («un curso online de cerámica») ya no es «otro
-  producto» a secas: con dos o más palabras que no son relleno, pasa. El catálogo se lee sólo si el pedido dice «otro
-  producto», y si no se puede leer sigue como antes (decir «no tienes productos» sería inventarlo).
+  en el Ops Center nadie preguntaba.
+- **Regla:** lo que no se puede dejar en manos del modelo va en el `preparar` de la operación: generar_landing_con_ia
+  pregunta `productoDeLanding` (lib/mako-pedidos.ts) y, si falta, no prepara nada y el error ES la pregunta. La receta
+  (RECETA_LANDING) sólo hace que MaKo pregunte antes de proponer.
+- **El diagnóstico obvio era el equivocado.** La primera versión decidía «ya dijo cuál» contando palabras que no eran
+  relleno (dos o más, pasa). La revisión adversarial del 20/10 la tiró en los DOS sentidos: «ventas», «moderna», «porfa»
+  o el voseo «creás» la saltaban, y la landing se creaba sobre el producto que había; nombrar el único producto la
+  frenaba con un mensaje falso; una respuesta de una palabra («Kairos») volvía a frenarse. Cuántas palabras trae un
+  pedido no dice nada del producto.
+- **Lo que sí:** comparar con los NOMBRES del catálogo (la misma regla que el chat del editor) y que la vuelta llegue
+  MARCADA: el parámetro `producto` de la operación, que lleva lo que dijo la persona (uno del catálogo o uno nuevo, con
+  sus palabras). Con dos o más productos y ninguno nombrado, se pregunta cuál con sus nombres. El producto va al pedido
+  con la misma frase del editor (`conProducto`).
+- **Dónde se mira:** idea, instrucciones, título y audiencia (lo que pide la persona); el texto pegado no, que es
+  contenido y puede decir «otro producto» sin que sea un pedido. «Otro de mis productos» y «otro servicio» cuentan.
 - **La receta no nombra herramientas:** no siempre viajan las que nombraría (lo fija su test).
 
 ### Un bloque no puede viajar en la respuesta de la herramienta

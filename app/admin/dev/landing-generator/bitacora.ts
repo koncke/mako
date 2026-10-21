@@ -730,4 +730,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator?ws=3',
   },
+  {
+    fecha: '20 oct', hora: '23:10', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: '«Créame una landing para mi otro producto»: MaKo pregunta cuál también cuando el pedido trae más palabras',
+    puntos: [
+      'La revisión del Cerebro encontró que la primera versión se equivocaba en los dos sentidos: «una landing de ventas para mi otro producto» se creaba sobre el producto que ya había, y nombrar ese mismo producto la frenaba con un aviso falso.',
+      'Ahora MaKo compara con los nombres de tus productos. Si pides «otro» y no dices cuál, pregunta: con varios, te muestra sus nombres; con uno solo, te pide cuál es el otro. Cuando contestas, aunque sea con una palabra, sigue.',
+      'También se fija en las instrucciones y el título, y entiende «otro de mis productos» y «otro servicio».',
+    ],
+    commits: [
+      { sha: 'd71f85d0d', msg: 'Ops Center 1.15, rehecha tras la revisión: el producto de la landing contra los NOMBRES del catálogo', lineas: 274, archivos: 6 },
+    ],
+    archivos: [
+      'lib/mako-pedidos.ts — productoDeLanding (reemplaza a faltaElOtroProducto) y pideOtroProducto',
+      'lib/api-mako/areas/landing-editor.run.ts y .def.ts — el parámetro `producto` y el guardia del preparar',
+      'lib/api-mako/areas/landing-contenido.helpers.ts — el producto al pedido, con conProducto',
+      'tests/ops-center-landing-receta.test.ts — la batería, un caso por hallazgo de la revisión',
+    ],
+  },
 ];
