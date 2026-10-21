@@ -24,6 +24,7 @@ import { nombreDeAnuncio } from './video-pedido';
 import { EditorAnuncio } from './EditorAnuncio';
 import { BotonEditarEnEditor } from './editor-video';
 import type { Plan } from './plan-montaje';
+import { MOTIVO_VENCIDO, textoEspera } from '@/lib/montaje/cola';
 
 /** `70.04` → `1:10`. Sin decimales: nadie lee un anuncio en centésimas. */
 function reloj(seg: number): string {
@@ -119,7 +120,7 @@ export function PasoMontaje({ planId, titulo, clips, segundosPorToma }: {
               eso es afirmar algo que el propio reloj ya contradice. */}
           <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--faint)' }}>
             {estado.fase === 'encolado' && estado.esperando >= 10
-              ? `Lleva ${estado.esperando} minutos esperando turno. Escríbenos si sigue así.`
+              ? textoEspera(estado.esperando)
               : 'Suele tardar entre 2 y 5 minutos.'}
           </div>
         </div>
@@ -216,9 +217,16 @@ export function PasoMontaje({ planId, titulo, clips, segundosPorToma }: {
           <Alert tono="bad">
             {estado.motivo === 'material'
               ? 'Una de las tomas volvió dañada de Google y el montaje no pudo usarla. Vuelve a filmar esa toma y monta de nuevo.'
+              // ⚠️ VENCIDO NO ES «NO SE PUDO». Nadie lo intentó: quedó en la fila
+              // sin que lo atendieran (lib/montaje/cola.ts). Decir «no se pudo»
+              // haría pensar que el anuncio tiene algo mal, y no tiene nada.
+              : estado.motivo === MOTIVO_VENCIDO
+                ? 'Este montaje quedó en la fila sin que nadie lo tomara y se dio de baja. Fue un problema nuestro, no de tu anuncio: puedes montarlo de nuevo.'
               : estado.motivo === 'verificacion'
                 ? 'El montaje quedó con texto de menos, así que no se entrega. Es un problema nuestro: no lo publiques y vuelve a intentarlo.'
-                : `No se pudo montar el anuncio. Es un problema nuestro, no tuyo. ${estado.error}`}
+                // Sin `estado.error`: un trabajo viejo puede traer el error técnico crudo (lib/montaje/cola.ts →
+                // errorParaLaPersona). El cliente lee una frase; el detalle está en el log.
+                : 'No se pudo montar el anuncio. Es un problema nuestro, no tuyo: vuelve a intentarlo en un rato.'}
           </Alert>
           <Button
             variant="secondary"
