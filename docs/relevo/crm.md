@@ -54,6 +54,11 @@ derecha (y su pestaña plegada), los íconos de la vista y «⋯» › «Persona
 **Siguiente:** cuando `app/_chat/CajaChat.tsx` (rama `chat-unico`, de Ops Center 3) llegue a main, cambiar el chat de
 adentro de la barra (`PanelMakoCrm.tsx` monta `ChatMakoCrm`). El resto, en «Lo que falta» de docs/pedidos-crm.md.
 
+Después, la misma noche (B2, 2 de 5): «Pago rechazado» / «Cuota vencida» en la tarjeta de un cliente (computadora y
+teléfono, una lectura para la cartera: `app/customer-success/cobro-tarjeta.ts`) y la cara del cliente en el teléfono
+(`CaraCliente`, misma cadena que la computadora). Test `tests/cs-tarjeta-cobro.test.ts`. No visto en pantalla: se revisa
+en /customer-success (una tarjeta con un cobro fallido) y en /m/cs (las caras).
+
 ## 0-Ω17. 20/10/2026 (chat «CRM», cuenta `claude4`): Chats lento, EN PRODUCCIÓN (run 165)
 
 Lo vio Martín en la llamada con Leila del 19/10 (minuto 55:12). Arreglo `b7817fe9f` (+ `87464faa8`), VERDE `3107dbeca`.

@@ -5681,12 +5681,11 @@ curso-sacar-un-curso, curso-purga-entregas, curso-grabar-notas, curso-vista-prev
 - **El aviso, el más urgente primero** (`avanceDeCliente`, app/customer-success/aviso-tarjeta.ts, puro y con test):
   «Sin entrar al curso» (invitado y nunca entró: rojo; entró pero hace más de 14 días: amarillo) y después «N días sin
   moverse». Computadora y teléfono usan la MISMA función.
-- **«Pago fallido» del prototipo NO está:** el estado del cobro de cada cliente no llega al tablero (leerlo es una
-  lectura por cliente). Si se suma, que sea una lectura en lote al armar la pantalla, y entra primero en el orden.
+- **«Pago fallido» del prototipo:** hecho el 20/10 como se anotó acá (ver la entrada de abajo, «El cobro en la tarjeta»).
 - **La barra es la etapa del servicio** (la 2 de 5), no el avance del curso: es lo que el tablero de la entrega mira.
 - Los números del tablero de trabajo (proyectos, tareas, recurrentes) quedaron en un chip; «los tres o ninguno» sigue.
 
-**Sin hacer:** «Pago fallido»; la foto en el teléfono (`ClienteCs` no trae `avatar_url`); la vista Tabla y Avance.
+**Sin hacer:** la vista Tabla y Avance. («Pago fallido» y la foto en el teléfono, hechos el 20/10.)
 **Vive en:** app/customer-success/ClienteCard.tsx y KanbanEntrega.tsx · app/m/cs/CustomerSuccessM.tsx · *17/10/2026 noche, chat «CRM» (claude4).*
 
 ⚠️ **Una `}` en el CSS de KanbanEntrega rompe sus tests sin tocar la pantalla (18/10/2026).** tests/cs-kanban-fases.test.ts
@@ -5694,3 +5693,25 @@ lee la regla `.ke-col` con `[^}]*`: un `${FONDO_COLUMNA}` interpolado —y despu
 la cortaban antes del `max-height`, y el test decía «sin tope, la columna crece», que se lee como una regresión del
 scroll y no lo es. Regla: en ese CSS, valores escritos (no interpolados) y ninguna llave dentro de un comentario.
 *18/10/2026, chat «CRM» (claude4).*
+
+## El cobro en la tarjeta de un cliente: «Pago rechazado» y «Cuota vencida» (20/10/2026)
+
+- **Una lectura para toda la cartera, no una por cliente** (`cobrosDeLaCartera`, app/customer-success/cobro-tarjeta.ts):
+  `cobros` (estado `fallido`/`pagado`) y `pagos` (`pagado = false` y `fecha_esperada < hoy`) con `.in('lead_id', ids)`,
+  las dos a la vez y en paralelo con el resto de la pantalla. La usan la computadora y el teléfono.
+- **«Rechazado» mira el ÚLTIMO cobro, y cuenta CUÁNDO SE PAGÓ, no cuándo se creó.** Ordenando por `created_at`, un pago
+  hecho después del rechazo ya es «el último» y el aviso se va solo; el caso que necesita `pagado_at` es un link creado
+  ANTES del rechazo y pagado DESPUÉS. La primera versión del test no lo tenía y la rotura «sin mirar si pagó después»
+  salía en verde: si se toca la regla, ese caso es el que la prueba.
+- **«Hoy» es el del negocio** (`hoyEnTz(tzActual())`): una cuota que vence hoy todavía no está vencida.
+- **Nunca tira:** una lectura caída devuelve `null` y la tarjeta no avisa nada. Un «Pago rechazado» inventado es peor.
+- **El orden del aviso:** «Pago rechazado» (rojo) le gana a todo; «Cuota vencida» (amarillo) va después de «Sin entrar al
+  curso» (rojo) y antes de «Sin entrar · N d» y de los días sin moverse.
+- **La cara en el teléfono** sale de la MISMA cadena que la computadora (`useFotoContacto`): lo elegido, la foto de
+  WhatsApp guardada (`leads.foto_auto_url`), su WhatsApp y su email (Gravatar con `d=404`). El teléfono ya leía los
+  teléfonos de los ganados sólo para wa.me; ahora los lee siempre, junto con la foto guardada (una consulta).
+
+**Sin hacer:** nada de esto se vio en pantalla (sin RAM para el build). De B2 quedan la foto de Instagram, la vista
+«Prioridades» del Plan y Proyectos del teléfono (docs/pedidos-crm.md).
+**Vive en:** app/customer-success/aviso-tarjeta.ts y cobro-tarjeta.ts · app/m/cs/page.tsx y CustomerSuccessM.tsx · test
+tests/cs-tarjeta-cobro.test.ts · *20/10/2026 noche, chat «CRM» (claude4).*

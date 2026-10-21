@@ -62,6 +62,13 @@ export type ClienteCs = {
   empresa: string | null;
   /** A dónde lleva «Escribirle por WhatsApp»: el chat de /m/crm o wa.me. `null` = sin número. */
   wa: string | null;
+  /**
+   * De dónde sale su CARA (20/10/2026, docs/pedidos-crm.md B2): lo que alguien le eligió, y si no, su WhatsApp o su
+   * email — la misma cadena que la computadora (`useFotoContacto`, app/_components/foto-contacto.ts).
+   */
+  cara?: { avatarUrl: string | null; icono: string | null; telefono: string | null; fotoGuardada: string | null; fotoEmail: string | null };
+  /** Su cobro, para el aviso de la tarjeta (app/customer-success/cobro-tarjeta.ts). */
+  cobro?: 'rechazado' | 'vencida' | null;
 };
 
 /**
