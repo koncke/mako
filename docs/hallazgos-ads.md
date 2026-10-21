@@ -4263,3 +4263,40 @@ lib/meta-login.ts · tests/meta-permisos-conectar.test.ts.
 - **El ícono de ojo del chip «Con problemas» queda** (la regla de no usar emoji).
 - **La publicación a medias** sigue diciendo «Quedó a medias en Meta… revísalo en la tabla»: la tabla es donde se ve qué
   quedó, y la misma clave contesta igual hasta que cambie el pedido.
+
+## La revisión de la app MaKo nunca se envió, y por qué todavía no se puede (21/10/2026)
+
+- **Síntoma:** Martín creía que Meta tardaba en aprobar la app MaKo (2586146911825340). En el panel, la Revisión de la
+  app dice **«Sin enviar»**. Lo que está en la cola de Meta es otra cosa: la **verificación de acceso** (proveedor de
+  tecnología), enviada el 08/10 a las 04:23, sin pedidos de Meta y con plazo hasta el **20/12/2026** (antes decía 07/12).
+- **Qué traba el envío:** cada permiso pide una descripción, un video (7 de los 9 lo piden) y al menos una llamada exitosa
+  a la API en los últimos 30 días. El 21/10, en Revisión → Tests, `business_management`, `ads_read` y `ads_management`
+  estaban en **0 de 1**.
+- **Por qué las llamadas no salían del producto:** el token del botón «Conectar con Meta» (inicio de sesión para
+  empresas, usuario del sistema) sigue saliendo **sin** esos tres permisos. Medido de nuevo el 21/10 en el ws9 con
+  `/me/permissions`.
+- **Lo que destrabó las llamadas:** en el **Explorador de la API Graph**, con la app MaKo elegida y un token de USUARIO de
+  Martín, Meta sí concede los tres. Cinco GET de lectura (`me/adaccounts`, `act_…/campaigns`, `me/businesses`,
+  `act_…/insights`) cuentan como las llamadas de prueba. Tardan hasta 24 h en verse y valen 30 días. El diálogo de
+  Facebook que abre el Explorador es un popup fuera del grupo de pestañas de Claude: lo acepta Martín.
+- **Lo que esto dice de la hipótesis del 08/10:** la app puede dar los permisos de anuncios. Lo que no los da es el token
+  de usuario del sistema del inicio de sesión para empresas. Sigue siendo lo más probable que lo destrabe la
+  verificación de acceso, pero ya no es la única explicación posible.
+- **La regla:** «en revisión» se mira permiso por permiso en el panel (Revisión → Tests y Revisión de la app), no en la
+  memoria. Un borrador sin enviar se ve igual que una revisión en curso si nadie entra a mirar.
+- **Lo que quedó SIN hacer:** los videos y textos de cada permiso (los de anuncios necesitan el botón dando los
+  permisos), «Tratamiento de datos» e «Instrucciones para revisores», y el envío, que **no se edita ni se cancela**. Si
+  la verificación de acceso no se mueve, el camino es un caso en Meta Business Support con la fecha y el ID de la app.
+  Mientras tanto, cada cliente nuevo conecta con una app propia: ya son seis (ws11, 13, 14, 15, 18, 19).
+- **La revisión entra por el ws3 («Cliente de Prueba»).** El botón «Conectar con Meta» se le mostraba sólo al super
+  admin, y el revisor de Meta entra con una cuenta de prueba de MaKo: no lo habría visto. Ahora
+  `WORKSPACES_DE_REVISION = [3]` (lib/meta-login.ts) lo ofrece en ese negocio a cualquier admin del negocio. La regla
+  es pura (`botonMetaVisible`) y `conectarMetaDisponible` le pasa el negocio activo. El resto del camino no tenía otra
+  guarda de super admin: el paso 1 pide admin del negocio, el callback acepta admin del negocio
+  (`puedeEscribirAgenda`) y elegir la cuenta y guardar van por negocio.
+- **Cuando la app quede aprobada, la constante SE DEJA.** Con `META_OAUTH_ABIERTO=true` no cambia nada, y cada permiso
+  nuevo (Instagram, Messenger, `pages_manage_metadata`) es otra revisión que va a entrar por el mismo negocio. La
+  cuenta del revisor la crea Martín, adentro del ws3: sumada desde el negocio de la plataforma queda super admin, y el
+  super admin pide 2FA siempre.
+
+**Vive en:** lib/meta-login.ts (`config_id`, `WORKSPACES_DE_REVISION`, `botonMetaVisible`) · lib/meta-conexion.ts · app/api/integraciones/meta/ · tests/meta-login.test.ts · panel de la app 2586146911825340

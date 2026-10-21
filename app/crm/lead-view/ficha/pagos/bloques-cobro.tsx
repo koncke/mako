@@ -88,12 +88,16 @@ export function EstadoDeCuenta(props: PropsBloque) {
   const boton = e.accion && (
     <Button variant={e.tono === 'rojo' ? 'primary' : 'secondary'} size={epico ? 'lg' : 'md'} disabled={props.editando} onClick={() => e.accion && cobrar.abrir(e.accion)}>{e.accion.boton}</Button>
   );
+  // El comprobante del chat con MaKo (la 2.28): se promete leerlo sólo si el botón es cobrar SU cuota (21/10/2026).
+  const delChat = cobrar.comprobanteDe(e.accion);
+  const leera = delChat && <span style={{ fontSize: 13, color: 'var(--dim)' }}>Al cobrar la cuota leo {delChat.nombre}: queda listo para revisar y guardar.</span>;
 
   if (diseno === 'chip') {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '10px 14px', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)' }}>
         <Semaforo tono={e.tono}>{e.titular}</Semaforo>
         {e.detalle && <span style={{ fontSize: 13, color: 'var(--dim)' }}>{e.detalle}</span>}
+        {leera}
         {cobrar.modales}
       </div>
     );
@@ -108,6 +112,7 @@ export function EstadoDeCuenta(props: PropsBloque) {
         </div>
         {boton}
       </div>
+      {leera}
       {!epico && e.barra && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {e.barra.pct != null && (

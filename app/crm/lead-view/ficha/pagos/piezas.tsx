@@ -16,7 +16,9 @@
 //    detrás. Y el clic no sube: el fondo de la ficha en modal la cierra (CobrarConLink hace lo mismo).
 // =============================================================================
 
-import { useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
+import type { ComprobanteDelChat } from './comprobante-del-chat';
+import { plataDeRecibo, reciboLeido } from './recibo-leido';
 import { Button, Field, Input, Modal, Status } from '@/app/_ui';
 import type { Tono as TonoUi } from '@/app/_ui/tokens';
 import type { Tono } from '@/lib/cobrado-lead';
@@ -143,10 +145,12 @@ function CamposDeCuando({ fecha, hora, metodo, setFecha, setHora, setMetodo }: {
  * cliente la sigue debiendo) o es un descuento. Con CUALQUIER diferencia no hay Deshacer: desmarcar dejaría viva la
  * cuota nueva de la diferencia, o la cuota con el monto cobrado en vez del suyo.
  */
-export function MarcarPagada({ cuota, leadId, monedaNegocio, hoy, onCerrar, onHecho }: {
+export function MarcarPagada({ cuota, leadId, monedaNegocio, hoy, comprobante = null, onCerrar, onHecho }: {
   cuota: Pago; leadId: number; monedaNegocio: string; onCerrar: () => void;
   /** El día del NEGOCIO (`ctx.hoy`), la fecha que se propone: con el UTC, de noche el cobro caía mañana. */
   hoy: string;
+  /** El comprobante que la persona adjuntó en el chat con MaKo (la 2.28): se lee solo al abrir, como «Subir el comprobante». */
+  comprobante?: ComprobanteDelChat | null;
   /** `deshacer`: la cuota quedó pagada entera y se puede volver atrás. */
   onHecho: (mensaje: string, deshacer: boolean) => void;
 }) {
@@ -154,7 +158,7 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, hoy, onCerrar, onHe
   const valorUsd = Number(cuota.monto_usd);
   const [paso, setPaso] = useState<'elegir' | 'datos'>('elegir');
   const [leyendo, setLeyendo] = useState(false);
-  const [leido, setLeido] = useState<string | null>(null);
+  const [leido, setLeido] = useState<{ nombre: string; nota: string | null } | null>(null);
   const [plata, setPlata] = useState<Plata>({ moneda: 'USD', monto: String(valorUsd), usd: '' });
   const [fecha, setFecha] = useState(hoy);
   const horaNegocio = useHoraDelNegocio();
@@ -170,17 +174,29 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, hoy, onCerrar, onHe
     try {
       const fd = new FormData(); fd.append('file', file); fd.append('pagoId', String(cuota.id)); fd.append('leadId', String(leadId));
       const r = await fetch('/api/extract-receipt', { method: 'POST', body: fd });
-      const j: { error?: string; monto?: number | null; fecha?: string | null; hora?: string | null; comprobante_nombre?: string | null } = await r.json();
-      if (j.error) throw new Error(j.error);
-      // Lo leído llena el formulario y se revisa ahí: el comprobante dice el monto en SU moneda, que puede no ser USD.
-      if (j.monto != null && Number.isFinite(Number(j.monto))) setPlata((p) => ({ ...p, monto: String(j.monto) }));
-      if (j.fecha && /^\d{4}-\d{2}-\d{2}/.test(j.fecha)) setFecha(j.fecha.slice(0, 10));
-      if (j.hora) setHora(j.hora.slice(0, 5));
-      setLeido(j.comprobante_nombre ?? file.name);
+      const j = reciboLeido(await r.json().catch(() => ({ error: `respondió ${r.status}` })));
+      if ('error' in j) throw new Error(j.error);
+      // Lo leído llena el formulario y se revisa ahí: el monto en SU moneda (dólares, o la del negocio con el valor en
+      // dólares de la cuota), nunca convertido por la IA (./recibo-leido.ts).
+      const p = plataDeRecibo(j, monedaNegocio, valorUsd);
+      if (p.plata) setPlata(p.plata);
+      if (j.fecha) setFecha(j.fecha);
+      if (j.hora) setHora(j.hora);
+      setLeido({ nombre: j.nombre ?? file.name, nota: [j.nota, p.aviso].filter(Boolean).join(' · ') || null });
       setPaso('datos');
     } catch (e) { setError(`No pude leer el comprobante: ${msg(e)}`); }
     finally { setLeyendo(false); if (archivo.current) archivo.current.value = ''; }
   };
+  // El del chat se lee UNA vez al abrir (un ref: el doble montaje de React en desarrollo no lo sube dos veces). Si no
+  // se puede bajar, queda el paso de elegir, con el error: se sube a mano o se carga a mano.
+  const delChat = useRef(false);
+  useEffect(() => {
+    if (!comprobante || delChat.current) return;
+    delChat.current = true;
+    setLeyendo(true);
+    comprobante.leer().then((f) => subir(f), (e) => { setLeyendo(false); setError(`No pude traer el comprobante del chat: ${msg(e)}`); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- una sola vez, con el comprobante con que se abrió
+  }, [comprobante]);
 
   const p = plataParaServer(plata, valorUsd);
   const falta = p.ok && p.monto != null && p.monto < valorUsd ? Math.round((valorUsd - p.monto) * 100) / 100 : 0;
@@ -213,12 +229,13 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, hoy, onCerrar, onHe
       {paso === 'elegir' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <p style={{ margin: 0, fontSize: 13.5, color: 'var(--dim)' }}>{nombre} · {usd(valorUsd)}{cuota.fecha_esperada ? ` · vence el ${fmtDDMMYYYY(cuota.fecha_esperada)}` : ''}</p>
+          {comprobante && leyendo && <p style={{ margin: 0, fontSize: 13, color: 'var(--dim)' }}>Leyendo <b>{comprobante.nombre}</b>, el comprobante del chat…</p>}
           <Button variant="primary" full loading={leyendo} onClick={() => archivo.current?.click()}>Subir el comprobante</Button>
           <Button variant="secondary" full disabled={leyendo} onClick={() => setPaso('datos')}>Cargarlo a mano</Button>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {leido && <p style={{ margin: 0, fontSize: 12.5, color: 'var(--dim)' }}>Leído de <b>{leido}</b>. Revísalo antes de guardar.</p>}
+          {leido && <p style={{ margin: 0, fontSize: 12.5, color: 'var(--dim)' }}>Leído de <b>{leido.nombre}</b>{leido.nota ? ` (${leido.nota})` : ''}. Revísalo antes de guardar.</p>}
           <CamposDePlata plata={plata} set={setPlata} monedaNegocio={monedaNegocio} usdPorDefecto={valorUsd} />
           <CamposDeCuando fecha={fecha} hora={hora} metodo={metodo} setFecha={setFecha} setHora={setHora} setMetodo={setMetodo} />
           {falta > 0 && (

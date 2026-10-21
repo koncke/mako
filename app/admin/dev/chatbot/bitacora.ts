@@ -2103,4 +2103,46 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "21 oct", hora: "09:33", chat: "Automations", cuenta: "claude4",
+    sesion: "local_f74a2156-23dd-4213-b1dd-cd6c13906ff1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Hecho: el aviso de automatización duplicada también por evento, y cuando MaKo cambia a quién le escribe una activa",
+    puntos: [
+      "Dos automatizaciones activas que arrancan por el mismo evento (un mensaje de Instagram, un pago, una etiqueta) avisan: el lead entra a las dos. Pasa sobre todo al duplicar una y prender la copia.",
+      "Si le pedís a MaKo que cambie a quién le escribe una automatización activa, o que pase su primer mensaje a WhatsApp, te avisa antes cuál otra ya le escribe a esa gente.",
+      "El aviso ya no corta un emoji por la mitad.",
+      "Dos automatizaciones recurrentes con zonas horarias distintas, o a pocas horas de diferencia, cuentan como que se pisan.",
+      "En producción: run 200, deploy de 10b52bcc3 (lo verificó el Cerebro).",
+    ],
+    commits: [
+      { sha: "16a0645c5", msg: "Automations: la duplicada por evento y por la API (cambiar CRON o canal de una activa pregunta)", lineas: 399, archivos: 11 },
+      { sha: "506c85b63", msg: "Automations: la guarda del «sí» de los CRON por la API pasa a publicarCrons", lineas: 9, archivos: 1 },
+    ],
+    archivos: [
+      "docs/hallazgos-chatbot.md — «Un evento no tiene cohorte que se pise era falso»",
+    ],
+    revisar: "/automations",
+  },
+  {
+    fecha: "21 oct", hora: "10:17", chat: "Automations", cuenta: "claude4",
+    sesion: "local_f74a2156-23dd-4213-b1dd-cd6c13906ff1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Hecho: el aviso de automatización duplicada también entre automatizaciones distintas que arrancan con el mismo lead nuevo o la misma reserva",
+    puntos: [
+      "Un lead nuevo de Meta entra a «Dejó el formulario sin agendar» y a «Un Lead Entró» a la vez: activar una con la otra prendida avisa.",
+      "Lo mismo con una reserva: «Agendó pero no confirmó» con «Un Lead Agendó Llamada» o con la post-agenda.",
+      "El motor y el aviso usan la misma lista de qué automatizaciones arrancan con cada evento, así no se desfasan.",
+      "En producción: run 204, deploy de 103dadf94 (lo verificó el Cerebro).",
+    ],
+    commits: [
+      { sha: "a3f808dab", msg: "Automations: la duplicada con los grupos de evento del motor (TRIGGERS_POR_EVENTO, una tabla para los dos)", lineas: 217, archivos: 11 },
+      { sha: "34993a22c", msg: "Automations: dos guardas que miraban la tabla de eventos en lib/nutricion.ts leen lib/nutricion-eventos.ts", lineas: 6, archivos: 2 },
+    ],
+    archivos: [
+      "lib/nutricion-eventos.ts — la tabla de eventos que leen el motor y el aviso",
+      "docs/hallazgos-chatbot.md — «Y el mismo disparador tampoco alcanzaba»",
+    ],
+    revisar: "/automations",
+  },
 ];

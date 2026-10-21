@@ -57,6 +57,19 @@ apagados (tests/plan-acceso.test.ts, tests/api-tab.test.ts, tests/pagos-link-ya-
 
 Las dos migraciones las aplica el Cerebro ANTES del deploy que las lee.
 
+## 20/10/2026 · el aviso de la cuota y las suscripciones (en producción), y los bloques de Pagos en el chat (2.27 y 2.28)
+
+| Commit / rama | Qué |
+|---|---|
+| `908d73d9f` (run 172, en producción) | El aviso de una cuota dice de quién es, cuánto y cuándo venció, y lleva a la ficha (lista, push y correo). «Clientes por cobrar» suma las suscripciones: General, el teléfono, el Dashboard y la API |
+| rama `pagos-bloques` (**en producción el 21/10**: 83d0c1ddb, run 209) | **2.27:** «A quién cobrar» se DIBUJA en el chat (la lista de General, viva, con «Cobrada» y las suscripciones). **2.28:** el estado de cuenta de un lead en el chat (la pieza de la tab Pagos) y el comprobante adjunto que «Marcar pagada» lee solo. Para eso, una LECTURA puede dibujar: `ctx.aDibujar` (hallazgos-second-brain.md) |
+
+~~**La rama `pagos-bloques` espera a que `ola1` entre en main**~~: la ola 1 ya está en main (21/10) y la rama la tiene.
+La revisión del Cerebro (21/10) frenó tres medios del comprobante del chat; arreglados en la misma rama: va atado a su
+cuota y al lead que dice el modelo (`comprobante: true` en `cobranza_lead`), y el monto del recibo llega al formulario.
+El detalle, en hallazgos-pagos («La revisión de los bloques»). **Sin hacer:** /api/extract-receipt guarda el
+comprobante al leerlo, no al guardar el pago.
+
 ## 21/10/2026 · el cobro a prueba de fallas (cinco revisiones adversariales)
 
 - En producción: marcar un cobro dos veces no lo cambia, «hoy» es el día del negocio (4559998ab), y la escritura del cobro es
@@ -82,6 +95,11 @@ Las dos migraciones las aplica el Cerebro ANTES del deploy que las lee.
   `esCuotaDelPlan`, y lo cobrado se cuenta de a una cobrada (`mesesDeUnaCobrada`). El detalle, en hallazgos-pagos.
 
 ## Lo que sigue, en orden
+
+0. **Mirar los bloques del chat en el ws3** cuando estén en producción: «mostrame el dashboard de cobranza: a quién le
+   falta pagar» (dibuja la lista; «¿quién me debe plata?» todavía no llega a `a_quien_cobrar`, eso es la 1.2) y un recibo
+   adjunto con «¿cuánto me debe Francisco?» (lead 2739: el estado de cuenta, y «Cobrar la cuota» con el recibo leído).
+   Y arreglar el «hoy» en UTC de la ficha (hallazgos-pagos.md §4).
 
 1. **Que Martín conecte la Mercado Pago de MaKo** en `/integraciones?ws=9` y cargue el **precio en pesos** del cliente de
    agencia en `/admin/cobros`. El 17/10 el ws9 tenía 0 claves de pasarela y 0 cobros. Sin las dos cosas, abrir la

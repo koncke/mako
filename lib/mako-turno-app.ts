@@ -447,6 +447,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       aPersona: (t) => { const x = (t ?? '').trim(); if (x && !paraLaPersona.includes(x)) paraLaPersona.push(x); },
       // Lo que DIBUJA una lectura o una propuesta (lib/chat-bloques.ts): se guarda con la respuesta de MaKo.
       aDibujar: dibujar,
+      // Los archivos de ESTE mensaje, ya guardados: el comprobante del estado de cuenta (la 2.28).
+      adjuntos: conArchivos.map(({ ref, nombre, tipo }) => ({ ref, nombre, tipo })),
       // Lo que el ticket sabe sin que lo escriba el modelo: el pedido textual, lo último que dijo MaKo y el error.
       contextoTicket: () => ({
         pedido: textoPersona || textoMemoria,
@@ -620,6 +622,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       // que lo respalda: en este chat el turno no ejecuta nada, así que «ya le mandé» sólo vale si lo anota el hilo.
       const saneo = sanearSalida(respuesta, {
         corrioHerramientas: corridas > 0,
+        // Lo que va debajo del texto: el «:» final lo presenta («Te armé la tabla de tus ventas:» y la tabla).
+        bloquesDebajo: dibujos.length > 0 || !!pregunta || propuestas.length > 0 || pantallas.length > 0,
         hecho: {
           // El respaldo lo pone el CÓDIGO: lo que escribió en el turno, o una tarjeta confirmada después del último PEDIDO
           // (un «gracias» no corta). Si este mensaje ES un pedido, no hay nada después de él.
