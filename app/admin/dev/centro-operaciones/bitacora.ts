@@ -1019,6 +1019,9 @@ export const BITACORA: Hito[] = [
       'lib/centro-preguntas-chat.ts (retirarDeLaLista), lib/centro-preguntas-chat-db.ts, app/api/operaciones/cartero/route.ts',
       'scripts/operaciones/cartero.mjs — 1.17.4: retirar',
       'tests/centro-preguntas-retirar.test.ts',
+    ],
+  },
+  {
     fecha: '21 oct', hora: '01:30', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
     actor: 'claude', tipo: 'correccion',
     titulo: 'Lo largo ya no queda «En curso» para siempre, y MaKo no te hace pedir dos veces lo que ya hizo',
