@@ -7308,3 +7308,14 @@ arreglar está en hallazgos-chatbot («La segunda revisión del pedido B»). *Ce
 - **Regla:** cuando lo mismo entra a main por dos caminos (una rama separada para subir antes, un cherry-pick), después
   del merge comparar contra TU punta los archivos que tocaron los dos: `git diff HEAD --stat -- <archivos de los dos>`.
   Lo que aparece y no es de otra rama, es tuyo perdido.
+## Dibujar una pieza con acciones de servidor en un test, y el `/*` que se come el fuente (20/10/2026, Pagos)
+
+- **Una pieza cliente que importa una acción de servidor no carga en node**: `server-only` tira. Se dibuja en un node
+  aparte con `--experimental-test-module-mocks` y `mock.module(<url del archivo>, { namedExports })` (los tipos de node
+  no conocen `exports`). Mockear un módulo cuyo default es una FUNCIÓN y que además tiene exports con nombre falla en CJS
+  («named exports cannot be applied to the provided default export»). Para el router, en vez de mockear `Link`, se
+  envuelve en `AppRouterContext.Provider` (`next/dist/shared/lib/app-router-context.shared-runtime`) con uno de mentira.
+  Molde: tests/_bloques-pagos-hijo.ts.
+- **El `sinComentarios` de los tests se come código**: `accept=".pdf,image/*"` abre un `/*` que corre hasta el próximo
+  `*/`. Un test que buscaba el botón «Subir el comprobante» dio rojo con el código bien. Un archivo con `image/*` (o
+  cualquier `/*` adentro de un string) se lee sin quitar comentarios.

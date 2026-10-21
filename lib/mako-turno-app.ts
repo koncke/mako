@@ -447,6 +447,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       aPersona: (t) => { const x = (t ?? '').trim(); if (x && !paraLaPersona.includes(x)) paraLaPersona.push(x); },
       // Lo que DIBUJA una lectura o una propuesta (lib/chat-bloques.ts): se guarda con la respuesta de MaKo.
       aDibujar: dibujar,
+      // Los archivos de ESTE mensaje, ya guardados: el comprobante del estado de cuenta (la 2.28).
+      adjuntos: conArchivos.map(({ ref, nombre, tipo }) => ({ ref, nombre, tipo })),
       // Lo que el ticket sabe sin que lo escriba el modelo: el pedido textual, lo último que dijo MaKo y el error.
       contextoTicket: () => ({
         pedido: textoPersona || textoMemoria,
