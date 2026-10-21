@@ -6702,6 +6702,13 @@ tope) — dos costos de un mismo defecto: **esperar y preparar la rama eran paso
   «¿sin red?» sin más; a mano y desde Node andaba en 3 s. Los worktrees comparten UN `.git`, y con una docena de chats bajando a la vez
   un fetch puede chocar con el lock del otro. Ahora reintenta 3 veces (pausas crecientes) y el aviso trae la causa que dio git. Si igual
   no baja, sigue con el `origin/main` que tiene (el VERDE vale contra esa copia: la línea lo deja ver con el ⚠).
+- **Dos errores de tipos que `--rapido` no vio y cayeron en Actions (run 173).** (1) Un `.ts` que importa un `.mjs` sin JSDoc recibe los tipos
+  que TS DEDUCE: el default `aviso = () => {}` quedó como `() => void` (un `aviso` que recibe el texto no compilaba) y `tomarTurno`, que devuelve
+  `{ soltar } | { vencio }`, dejó a `soltar` «posiblemente undefined» aun después de mirar `vencio`. (2) `--rapido` mide la RAM 20 s y, sin
+  4 GB libres para el tsc acotado, deja los tipos a Actions: la línea lo decía (`los chequea Actions`) y Actions cumplió, a costa de un run.
+  **La regla que queda:** un módulo `.mjs` que un test `.ts` importa lleva JSDoc en lo exportado con parámetros de función o retornos en unión
+  (ahora `tomarTurno`, `anotarse`, `intentarTomar`); y un VERDE que dice «tipos: los chequea Actions» sobre un test NUEVO no es un VERDE de tipos —
+  hay que volver a correrlo con RAM (sin `--rapido` espera hasta 90 s) antes de pasarle la punta al Cerebro.
 - **La primera versión de la prueba de la cola no agarraba el orden por pid** (los pids de los tres chats crecían con la hora, así que
   ordenar por pid o por hora daba lo mismo). Se vio al romperlo a propósito: ahora el más viejo tiene el pid más alto.
 
@@ -7099,3 +7106,24 @@ al borrar o renombrar un relevo, se buscan sus citas en `docs/pendientes.md` en 
 - **Síntoma:** el renombre «Second Brain» → «Ops Center» (465f85e6e) dio VERDE en local con 2402 tests, y Actions cayó en el run 140: `tests/notificaciones.test.ts` esperaba el título de pestaña «MaKo - Second Brain».
 - **Causa:** `tituloDe` arma el título de la pestaña con el NOMBRE de la entrada de la barra (`nav.ts`), pero `tests-afectados` no relaciona ese test con un cambio en `nav.ts`. En local corre lo afectado, y Actions corre las 422 barredoras.
 - **Regla:** quien renombre una entrada de la barra busca su nombre viejo, entre comillas, en `tests/` antes del VERDE (`grep -rn "'MaKo - <nombre viejo>'" tests`).
+
+## Re-revisar una punta «arreglada»: el arreglo trae errores nuevos, y verificar la lista no los ve (20/10/2026)
+
+Corrida `revision-puntas-20-10-noche` del Cerebro (20 agentes): cinco puntas antes de integrarlas, dos de ellas con
+los arreglos de una revisión anterior. **En las dos, el arreglo había abierto un defecto que antes no estaba**, y el
+test de cada arreglo pasaba:
+- Automations aflojó un corte («lo propio ilegible ya no frena») dentro de `if (!ignorarVentana)`, y con
+  `ignorar_ventana=1` la corrida pasó a mandar con las horas del negocio.
+- Onboarding confirmó «todo lo escrito» con `siONo`, y «Sí, está bien» pasó a proponer «está bien» como nombre del negocio.
+
+**La regla:** la re-revisión lleva DOS lentes por punta. Uno verifica la lista de la revisión anterior leyendo el código,
+no el mensaje del commit ni el test. El otro busca lo que el arreglo rompió. Cada hallazgo alto o medio pasa por un
+escéptico que intenta refutarlo. De 13 hallazgos que llegaron al escéptico, ninguno se cayó.
+
+**Y las heurísticas sobre frases en español se rompen en lo obvio** (Onboarding y Web Generator, mismo día):
+`m[2].startsWith('mil')` atrapa «millones» y multiplica por mil; una negación que salta «las dos palabras que siguen»
+también se aplica a las OPCIONES con las que se compara («tengo leads pero no cierran» cae en la opción equivocada);
+contar palabras sobrantes no dice si la persona nombró la cosa. Un parser de frases se prueba con una batería de
+frases reales, con tuteo, voseo y números en letras, no con los casos que lo motivaron. Los detalles por área los
+cosecha cada jefe con su arreglo (hallazgos-onboarding, hallazgos-editor-landing, hallazgos-video-*). Lo que entró sin
+arreglar está en hallazgos-chatbot («La segunda revisión del pedido B»). *Cerebro, claude4.*

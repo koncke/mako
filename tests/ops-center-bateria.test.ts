@@ -13,9 +13,10 @@
 //
 // ⚠️ EL PISO ES UN TRINQUETE:
 //   · algo que llegaba y deja de llegar → falla, con la frase y la operación (eso es romper el ruteo);
-//   · algo que no llegaba y ahora llega → TAMBIÉN falla, para que el piso suba con el arreglo y no se pierda. Se anota
-//     corriendo el test con `ACTUALIZAR_PISO=1` (reescribe `llegaHoy`, `llegaWhatsApp` y `medido`) y se commitea con
-//     el arreglo. Así trabaja la 1.2: cada tanda de un área sube su piso acá.
+//   · algo que no llegaba y ahora llega → PASA y lo dice (diagnóstico «subió»). El piso se sube corriendo el test con
+//     `ACTUALIZAR_PISO=1` (reescribe `llegaHoy`, `llegaWhatsApp` y `medido`) y commiteando el archivo con el arreglo: así
+//     trabaja la 1.2, cada tanda de un área sube su piso acá. (Hasta el 20/10 una mejora también caía; el Cerebro pidió
+//     que no: juntar la batería con una tanda del clasificador no puede trabar la integración.)
 // ⚠️ EN NÚCLEO, CRM Y AUTOMATIONS, LAS OPERACIONES DE UNA FRASE SON ALTERNATIVAS: «creame una landing» llega si viaja
 //    CUALQUIERA de las que la crean, y se cuenta por frase. En las otras áreas se esperan todas, y se cuenta por par.
 // ⚠️ LA BATERÍA NO TIENE TODO LO MEDIDO: afuera quedaron 229 frases (173 sin una operación explícita en su script, 40
@@ -26,7 +27,8 @@
 // Probado rompiéndolo (20/10/2026, con la base en 0 fallos):
 //   · sin el verbo «creame» en el clasificador (lib/mako-intencion.ts) → 2 fallos (el piso de la app y el de WhatsApp);
 //   · una operación de la batería renombrada en el registro → 1 fallo (1) más los pisos;
-//   · `llegaHoy` en true para una frase que hoy no llega (el piso inflado a mano) → 1 fallo (2).
+//   · `llegaHoy` en true para una frase que hoy no llega (el piso inflado a mano) → 1 fallo (2);
+//   · (21/10) una mejora no cae: `llegaHoy` en false para una que llega → 0 fallos y el diagnóstico «SUBIÓ».
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -82,8 +84,7 @@ function piso(canal: Canal, t: { diagnostic: (s: string) => void }) {
   const cayeron = us.filter((u) => u.antes && !u.ahora);
   assert.deepEqual(cayeron.map((u) => `${u.area} · ${u.que}`), [], `${canal}: dejaron de llegar (el piso bajó)`);
   const subieron = us.filter((u) => !u.antes && u.ahora);
-  assert.deepEqual(subieron.map((u) => `${u.area} · ${u.que}`), [],
-    `${canal}: ahora llegan y el piso no lo dice: corré este test con ACTUALIZAR_PISO=1 y commiteá el archivo con el arreglo`);
+  if (subieron.length) t.diagnostic(`${canal}: SUBIÓ en ${subieron.length} (anotalo con ACTUALIZAR_PISO=1): ${subieron.slice(0, 10).map((u) => `${u.area} · ${u.que}`).join(' | ')}`);
 }
 
 test('0. ACTUALIZAR_PISO=1 anota lo medido como el piso nuevo', { skip: process.env.ACTUALIZAR_PISO !== '1' }, () => {

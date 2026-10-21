@@ -1792,23 +1792,6 @@ del cartero; `nav.ts` no se tocó (el Sidebar compara con `OPS_CENTER.key`); la 
 
 **Regla:** una decisión para Martín va por `cartero.mjs preguntar` (AGENTS.md, desde el 17/10), y el turno termina con una línea de texto. El arreglo de fondo, encargado a Ops Center 3 el 20/10, es que el cartero suba el `recap` de un wrap_up como turno y su `ask`/`actions` como una pregunta de opciones.
 
-## Lo que encontró la revisión de la caja única y del wrap_up como pregunta, antes de subirla (20/10/2026)
-
-Revisión adversarial de la rama `caja-voz` (cartero 1.17.2). No subió hasta arreglar lo importante. El detalle está en las notas compartidas, `revision-caja-voz-20-10.md`.
-- **Una pregunta armada de un wrap_up no se cierra sola.** Martín contesta como le sale: el botón de la app, la caja del Ops Center o Remote Control. Sólo el formulario la cerraba, y quedaba «Espera tu respuesta» para siempre, con una orden vieja que se podía firmar días después. **Regla:** una pregunta de wrap_up queda superada con cualquier mensaje posterior en ese chat.
-- **Deduplicar dentro de una vuelta no alcanza:** `vigilar` da una vuelta cada 10 s y el mismo wrap_up (o `preguntar` + el wrap_up que exige la app) llega en vueltas distintas. Se deduplica contra lo guardado.
-- **Una línea de transcript de más de 4 MB (`LECTURA_MAX`) deja al chat MUDO:** sin salto de línea en la ventana, la marca no avanza y no sube nada más de ese chat. Ya pasaba en 1.16.1. Un PDF de ~3,5 MB adjunto en la app alcanza.
-- **Apagar la caja mientras MaKo trabaja es una regresión** en el Ops Center del cliente: «mandando» (el botón) no es «apagar el campo».
-
-## La miniatura de la caja decía «PDF» para un Word (20/10/2026, desde el chat del Web Generator)
-
-- **Síntoma:** desde el 18/10 la caja toma Word, Excel, PowerPoint y texto, pero `ListaAdjuntos` (AdjuntosCaja.tsx)
-  dibujaba todo documento con el rótulo fijo «PDF». Se vio al usar las piezas en el chat del editor de landings.
-- **Ahora:** la extensión del archivo (`etiquetaDoc`: «DOCX», «XLSX»…). Y `AdjuntoCaja` tiene un `estado` opcional
-  («leyendo» / «error») que la miniatura pone en `data-estado`: el Centro no lo usa; el editor lo pinta con su hoja.
-- **Sin hacer:** tocar la miniatura de un Word abre el `Visor`, que lo pone en un iframe con su `blob:`: el navegador no
-  lo muestra (lo baja o queda en blanco). Pasa igual en el Centro.
-
 **Arreglado (20/10, Ops Center 3):**
 
 - **Arreglo (cartero 1.17.2):**
@@ -1822,3 +1805,60 @@ Revisión adversarial de la rama `caja-voz` (cartero 1.17.2). No subió hasta ar
   - No se sube si el chat ya hizo esa pregunta con `preguntar` (`preguntasSinRepetir`).
 - **Y del lado del cartero:** lo que un chat le muestra a Martín al terminar NO es sólo su texto. Cualquier forma de cerrar que la app dibuje
   (hoy, `wrap_up`) tiene que llegar al Ops Center, o el Ops Center miente sobre en qué quedó el chat.
+
+**La pregunta de un wrap_up se SUPERA (20/10, la revisión de caja-voz; cartero 1.17.3):**
+- **Síntoma (comprobado con transcripts reales):** el arreglo de arriba volvía a dar el mismo síntoma por otro lado. La
+  pregunta del recuadro de la app quedaba abierta para siempre: 3, 6 y 8 abiertas por chat, y 31 de 31 con un mensaje
+  de Martín después. Martín contesta como le sale: el botón de la app, la caja del Ops Center o Remote Control. Sólo el
+  formulario la cerraba, y un clic días después le firmaba al chat una orden vencida.
+- **Arreglo:**
+  - la pregunta lleva `origen: 'wrap_up'`;
+  - queda `superada` cuando entra un turno `yo` u `otro` POSTERIOR a su `at`, o un wrap_up más nuevo del mismo chat
+    (`superarPreguntas`). Se aplica al guardar los turnos (`superarConTurnos`) y al guardar la pregunta, por si el turno
+    llegó antes;
+  - una superada no cuenta en el globito, no se contesta, y el formulario se lee como «Contestada por otro lado»;
+  - las de `preguntar` no se tocan: ésas las cierra la respuesta.
+- **La misma pregunta, dos veces:** `preguntasSinRepetir` deduplicaba dentro de UNA vuelta, y `vigilar` da una cada 10 s.
+  Ahora `unirPreguntas` descarta una nueva igual (mismo chat, mismo texto normalizado) a una que siga abierta. El cartero
+  sube la última de cada chat, con el tope ANTES de mandar y las más nuevas primero (el servidor se quedaba con las 20
+  más viejas).
+- **Sin perder la pregunta:**
+  - si MaKo no puede guardarla, la vuelta no avanza las marcas;
+  - si no volvió en `preguntasIds`, la marca de ESE chat no avanza (`marcasQueAvanzan`), con un tope de 30 vueltas
+    para no dejar al chat mudo;
+  - `armarPregunta` quita los caracteres de control como el servidor;
+  - un `preguntas/<uuid>.json` malformado ya no tumba todas las vueltas de la cuenta.
+- **La respuesta lleva el `message` del botón** (lo mismo que el clic en la app), hasta 300 caracteres.
+- **Regla:** una pregunta que no cerró quien la contesta tiene que cerrarse sola cuando la conversación siguió, o el Ops
+  Center miente igual que antes.
+
+## Lo que encontró la revisión de la caja única y del wrap_up como pregunta, antes de subirla (20/10/2026)
+
+Revisión adversarial de la rama `caja-voz` (cartero 1.17.2). No subió hasta arreglar lo importante. El detalle está en las notas compartidas, `revision-caja-voz-20-10.md`.
+- **Una pregunta armada de un wrap_up no se cierra sola.** Martín contesta como le sale: el botón de la app, la caja del Ops Center o Remote Control. Sólo el formulario la cerraba, y quedaba «Espera tu respuesta» para siempre, con una orden vieja que se podía firmar días después. **Regla:** una pregunta de wrap_up queda superada con cualquier mensaje posterior en ese chat.
+- **Deduplicar dentro de una vuelta no alcanza:** `vigilar` da una vuelta cada 10 s y el mismo wrap_up (o `preguntar` + el wrap_up que exige la app) llega en vueltas distintas. Se deduplica contra lo guardado.
+- **Una línea de transcript de más de 4 MB (`LECTURA_MAX`) deja al chat MUDO:** sin salto de línea en la ventana, la marca no avanza y no sube nada más de ese chat. Ya pasaba en 1.16.1. Un PDF de ~3,5 MB adjunto en la app alcanza.
+- **Apagar la caja mientras MaKo trabaja es una regresión** en el Ops Center del cliente: «mandando» (el botón) no es «apagar el campo».
+
+**Arreglado (20/10, Ops Center 3, cartero 1.17.3; tests/caja-voz-revision.test.ts):**
+- la pregunta superada, la deduplicación contra lo guardado y no perder la pregunta: arriba, en la entrada del wrap_up;
+- la caja: `ocupado` hace girar SÓLO el botón (el chat del cliente lo usa en vez de `enviando`);
+- un pegado de Word o Excel con texto e imagen vuelve a ser el documento «Texto pegado».
+
+**Sin hacer (no frenan; los tres de adjuntos de turnos):**
+- Los binarios de `operaciones-turnos/` quedan huérfanos cuando el turno sale de los 60 últimos: falta borrarlos en
+  `guardarTurnos`. El encabezado de `lib/operaciones-adjuntos.ts` («EL BINARIO NO QUEDA») miente.
+- La URL de subida firmada no ata el tipo ni el tamaño: un bucket propio con `file_size_limit` y `allowed_mime_types`.
+- Una línea de transcript de más de 4 MB (`LECTURA_MAX`; un PDF de ~3,5 MB en base64) deja al chat MUDO: la marca no
+  avanza. Hay que saltarla con aviso, y alinear `MAX_BYTES_ADJUNTO_TURNO` (30 MB) con lo que se lee de verdad.
+- `subirAdjuntosDeTurnos` corre sin el presupuesto `fin` de `vigilar`.
+- El subtítulo de la fila queda vacío en el hueco de un trabajo recién entregado (antes de que el Runner diga `busy`).
+
+## La miniatura de la caja decía «PDF» para un Word (20/10/2026, desde el chat del Web Generator)
+
+- **Síntoma:** desde el 18/10 la caja toma Word, Excel, PowerPoint y texto, pero `ListaAdjuntos` (AdjuntosCaja.tsx)
+  dibujaba todo documento con el rótulo fijo «PDF». Se vio al usar las piezas en el chat del editor de landings.
+- **Ahora:** la extensión del archivo (`etiquetaDoc`: «DOCX», «XLSX»…). Y `AdjuntoCaja` tiene un `estado` opcional
+  («leyendo» / «error») que la miniatura pone en `data-estado`: el Centro no lo usa; el editor lo pinta con su hoja.
+- **Sin hacer:** tocar la miniatura de un Word abre el `Visor`, que lo pone en un iframe con su `blob:`: el navegador no
+  lo muestra (lo baja o queda en blanco). Pasa igual en el Centro.

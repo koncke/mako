@@ -52,7 +52,8 @@ export const viewport: Viewport = {
 
 export default async function LayoutMovil({ children }: { children: ReactNode }) {
   const ctx = await contextoMovil();
-  const barra = barraMovil(ctx?.rol ?? null, ctx?.capa ?? null);
+  // El Ops Center del medio (20/10/2026): para el super admin sin mirar un cliente es el Centro, como la fila de /m/mas.
+  const barra = barraMovil(ctx?.rol ?? null, ctx?.capa ?? null, ctx?.sesion.rol === 'admin' && !ctx.impersonando);
   // La FOTO de la cabecera (17/10/2026 noche): la de Información personal, como More y el menú de la foto de escritorio
   // (hasta ese día, siempre iniciales). Mirando a un cliente no se lee: la cabecera no lleva la cuenta propia ahí.
   const [badges, perfil] = ctx

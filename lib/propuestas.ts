@@ -170,6 +170,19 @@ async function avisarPropuesta(ws: number, id: string, tipo: TipoPropuesta, resu
 
 /** Una propuesta por id. `null` si no existe en ESTE workspace — el scope lo pone
  *  `getTenantDb`, así que pedir el id de otro cliente no devuelve nada. */
+/**
+ * Las propuestas genéricas que siguen pendientes y nacieron en UN chat de la app (`datos.canalKey`, 1.8): al reabrirlo,
+ * vuelven con su formulario (1.10). Se filtra en el código y no con `datos->>canalKey`: son las últimas 50 del negocio,
+ * y así no depende de un índice sobre el JSON.
+ */
+export async function propuestasPendientesDelChat(canalKey: string): Promise<Propuesta[]> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('propuestas').select('*').eq('tipo', 'accion').eq('estado', 'pendiente')
+    .order('created_at', { ascending: false }).limit(50);
+  if (error) throw new Error(`propuestasPendientesDelChat: ${error.message}`);
+  return ((data ?? []) as Record<string, unknown>[]).map(aPropuesta).filter((p) => p.datos.canalKey === canalKey).reverse();
+}
+
 export async function getPropuesta(id: string): Promise<Propuesta | null> {
   const db = await getTenantDb();
   const { data, error } = await db.from('propuestas').select('*').eq('id', id).maybeSingle();

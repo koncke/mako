@@ -18,7 +18,8 @@ import { Button } from '@/app/_ui/Button';
 import { haptico } from '@/lib/haptico';
 import { PieM, SheetM, useConexion, useToastM } from '../_ui';
 import { confirmarEnChatAction, cancelarEnChatAction } from './acciones';
-import { SALIDA_PROPUESTA, itemsTrasTarjeta, rotuloPrimario, trasTarjeta, type EstadoPropuesta, type ItemHilo } from './chat-ui';
+import { SALIDA_PROPUESTA, rotuloPrimario, trasTarjeta, type EstadoPropuesta, type ItemHilo } from './chat-ui';
+import type { ResultadoTarjeta } from '@/lib/mako-turno-app-reglas';
 
 type ItemPropuesta = Extract<ItemHilo, { k: 'propuesta' }>;
 
@@ -26,8 +27,8 @@ export function SheetPropuesta({ item, sessionId, onCerrar, onEstado }: {
   item: ItemPropuesta | null;
   sessionId: number | null;
   onCerrar: () => void;
-  /** `extra`: lo que vuelve de la tarjeta (`itemsTrasTarjeta`: los avisos y lo que dibuja el resultado). */
-  onEstado: (pendienteId: number, estado: EstadoPropuesta, nota?: string, extra?: readonly ItemHilo[]) => void;
+  /** `r`: lo que contestó la tarjeta (su «Abrir», los avisos y lo que dibuja el resultado: `conTarjeta`). */
+  onEstado: (pendienteId: number, estado: EstadoPropuesta, nota?: string, r?: ResultadoTarjeta) => void;
 }) {
   const { enLinea } = useConexion();
   const toast = useToastM();
@@ -58,7 +59,7 @@ export function SheetPropuesta({ item, sessionId, onCerrar, onEstado }: {
         : await cancelarEnChatAction(t.pendienteId, sessionId);
       const d = trasTarjeta(r, accion);
       if (d.haptico) haptico(d.haptico);
-      onEstado(t.pendienteId, d.estado ?? 'pendiente', d.frase ?? undefined, itemsTrasTarjeta(r));
+      onEstado(t.pendienteId, d.estado ?? 'pendiente', d.frase ?? undefined, r);
       if (d.toast) toast(d.toast);
       if (d.estado && d.estado !== 'fallo') onCerrar();
       else setFrase(d.frase);

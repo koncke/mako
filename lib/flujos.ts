@@ -202,7 +202,7 @@ export async function ejecutarPasos(
     // ⚠️ La oficina es la del NEGOCIO al que le llega (16/10/2026): en un evento de la plataforma, `ws` es la plataforma
     // (la fila corre ahí) y su horario es el de Martín, no el del cliente que recibe la tarjeta.
     if (esperaApertura(pasos, i)) {
-      if (apertura === undefined) apertura = await aperturaDelNegocio(ctx.negocioWs ?? ws);
+      if (apertura === undefined) apertura = await aperturaDelNegocio(ctx.negocioWs ?? ws, { flujoId, ws });
       const hasta = apertura === 'ilegible' ? new Date(Date.now() + REINTENTO_HORARIO_MS)
         : apertura != null && apertura > Date.now() ? new Date(apertura) : null;
       if (hasta) {
@@ -314,12 +314,26 @@ const REINTENTO_HORARIO_MS = 15 * 60_000;
  * no, null sin horario (no hay a qué esperar). `'ilegible'` si no se pudo leer el horario o la zona: «no sé» no es
  * «abierto», y el aviso que espera no sale hasta saberlo (lo mismo que el runner de los leads, `horarioDeEnvio`).
  */
-async function aperturaDelNegocio(ws: number): Promise<number | null | 'ilegible'> {
+/**
+ * Cuándo abre la oficina del negocio al que le llega (`ws`), en ms; null = sin horario; 'ilegible' = no pude leer.
+ *
+ * ⚠️ CON EL HORARIO DE ESA AUTOMATIZACIÓN (revisión del 20/10/2026). La tuerca le ofrece «Horario propio» a toda fila, y
+ * las «Evento de MaKo» corren acá, no en el motor: leía sólo el del negocio, y una «Cobranza» con «sin horario» propio
+ * dormía hasta las 9. `fila` es la automatización que corre (`flujoId` de una fila → `filaDeIdCorrida`) y el negocio donde
+ * VIVE: su configuración (`automatizacion.config:<id>`) se lee ahí, estricta como el horario (no pude leer = 'ilegible').
+ * Los avisos del catálogo (sin fila) siguen con el del negocio.
+ */
+async function aperturaDelNegocio(ws: number, fila?: { flujoId: string; ws: number }): Promise<number | null | 'ilegible'> {
   try {
-    const [{ getSettingEstricto }, { horarioVigente, proximaApertura, KEY_HORARIO_ENVIO }, { zonaDelNegocioEstricta }] = await Promise.all([
-      import('./settings'), import('./horario-envio'), import('./timezone'),
+    const [{ getSettingEstricto }, { horarioVigente, proximaApertura, KEY_HORARIO_ENVIO }, { zonaDelNegocioEstricta }, cfg] = await Promise.all([
+      import('./settings'), import('./horario-envio'), import('./timezone'), import('./config-automatizacion'),
     ]);
-    const h = horarioVigente(await runWithWorkspace(ws, () => getSettingEstricto(KEY_HORARIO_ENVIO)));
+    const filaId = fila ? filaDeIdCorrida(fila.flujoId) : null;
+    const [rawHorario, rawConfig] = await Promise.all([
+      runWithWorkspace(ws, () => getSettingEstricto(KEY_HORARIO_ENVIO)),
+      filaId != null && fila ? runWithWorkspace(fila.ws, () => getSettingEstricto(cfg.claveConfigAutomatizacion(filaId))) : Promise.resolve(null),
+    ]);
+    const h = cfg.horarioDeLaAutomatizacion(cfg.sanearConfigAutomatizacion(rawConfig), horarioVigente(rawHorario));
     if (!h) return null;
     return proximaApertura(Date.now(), await zonaDelNegocioEstricta(ws), h) ?? 'ilegible';
   } catch (e) {

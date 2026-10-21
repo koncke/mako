@@ -49,8 +49,9 @@ export type Bloque =
   | BloqueCreado
   /** G4: lo que cambió, fila por fila. */
   | { t: 'antes_despues'; titulo: string; filas: { campo?: string; antes: string; despues: string }[]; abrir?: Abrir }
-  /** G6: un trabajo largo. `listo` es el G5 en que termina. */
-  | { t: 'trabajo'; titulo: string; pasos: { texto: string; estado: EstadoPaso }[]; listo?: BloqueCreado }
+  /** G6: un trabajo largo. `listo` es el G5 en que termina (o `abrir`, si no crea algo con miniatura). `consulta`: la
+   *  llave con que la pantalla pregunta cómo va (lib/chat-trabajos.ts, la 1.11). */
+  | { t: 'trabajo'; titulo: string; pasos: { texto: string; estado: EstadoPaso }[]; listo?: BloqueCreado; abrir?: Abrir; consulta?: string }
   /** G1: una pregunta con opciones; `varias` = se puede marcar más de una. */
   | { t: 'pregunta'; pregunta: string; opciones: { titulo: string; detalle?: string }[]; recomendada?: number; varias?: boolean };
 
@@ -148,7 +149,9 @@ export function sanearBloque(crudo: unknown): Bloque | null {
       });
       if (!titulo || !pasos.length) return null;
       const listo = o.listo && typeof o.listo === 'object' ? sanearCreado(o.listo as Record<string, unknown>) : null;
-      return { t: 'trabajo', titulo, pasos, ...(listo ? { listo } : {}) };
+      const abrir = o.abrir === undefined ? null : sanearAbrir(o.abrir);
+      const consulta = typeof o.consulta === 'string' && /^[1-9][0-9]{0,14}\.[A-Za-z0-9_-]{8,40}$/.test(o.consulta) ? o.consulta : null;
+      return { t: 'trabajo', titulo, pasos, ...(listo ? { listo } : {}), ...(abrir ? { abrir } : {}), ...(consulta ? { consulta } : {}) };
     }
     case 'pregunta': {
       const pregunta = texto(o.pregunta, 300);
@@ -172,6 +175,25 @@ export function sanearBloque(crudo: unknown): Bloque | null {
 
 /** El bloque que trae el resultado de una operación (`datos.bloque`), saneado. */
 export const bloqueDeResultado = (datos: Record<string, unknown> | undefined): Bloque | null => sanearBloque(datos?.bloque);
+
+/**
+ * El bloque que trae la SALIDA de una herramienta (21/10/2026: una lectura que dibuja su gráfico, una propuesta del Video
+ * Editor con su antes y después): un campo `bloque` arriba de todo en su JSON (en una propuesta, `extra.bloque`, que
+ * lib/api-mako/ejecutar.ts pone primero). Devuelve el bloque saneado y la salida SIN él: el modelo no necesita leerlo (lo
+ * dibuja el código) y un gráfico pesa. Una salida que no es JSON, o sin `bloque`, vuelve igual.
+ */
+export function bloqueDeSalida<T>(out: T): { out: T; bloque: Bloque | null } {
+  const o = out as unknown;
+  const texto = typeof o === 'string' ? o : o && typeof o === 'object' && typeof (o as { content?: unknown }).content === 'string' ? (o as { content: string }).content : null;
+  if (!texto || !texto.includes('"bloque"')) return { out, bloque: null };
+  let j: unknown;
+  try { j = JSON.parse(texto); } catch { return { out, bloque: null }; }
+  if (!j || typeof j !== 'object' || Array.isArray(j) || !('bloque' in j)) return { out, bloque: null };
+  const { bloque: crudo, ...resto } = j as Record<string, unknown>;
+  const sin = JSON.stringify(resto);
+  const nuevo = (typeof o === 'string' ? sin : { ...(o as object), content: sin }) as T;
+  return { out: nuevo, bloque: sanearBloque(crudo) };
+}
 
 /** Lo que se guarda en `chart_chats.bloques`. */
 export const aGuardar = (b: Bloque): BloqueGuardado => ({ k: 'bloque', b });

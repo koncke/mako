@@ -48,6 +48,29 @@ const PROMESAS: RegExp[] = [
   /\b(?:estoy|me pongo a)\s+(?:revisando|buscando|mirando|cargando|armando|chequeando|consultando|ver|buscar|revisar|cargar|armar)\b/,
 ];
 
+/**
+ * Lo que dice HECHO en primera persona (20/10/2026, ola 1, pieza 1.5): «Listo, ya lo armé», «te creé la automatización»,
+ * «quedó programado». Sin ninguna herramienta corrida, es mentira: no hay nada hecho. Sólo con la primera persona o con
+ * «quedó»: «tu landing está publicada» puede ser un dato del contexto, y se deja. Sin tildes.
+ */
+const VERBOS_HECHO = 'arme|cree|cargue|agende|mande|envie|hice|publique|cambie|movi|borre|guarde|configure|programe|deje|anote|actualice|subi|edite|agregue|elimine|active|pause|prendi|apague|inscribi|asigne';
+const AFIRMA_HECHO: RegExp[] = [
+  // «ya lo armé», «ya te lo agendé», «ya quedó»
+  new RegExp(`\\bya\\s+(?:(?:te|lo|la|los|las|se|le|les)\\s+){0,2}(?:${VERBOS_HECHO})\\b`),
+  // «Listo, armé…», «Hecho: te lo cargué»
+  new RegExp(`\\b(?:listo|hecho)\\s*[,.:!]?\\s+(?:(?:te|lo|la|los|las|se|le|les)\\s+){0,2}(?:${VERBOS_HECHO})\\b`),
+  // «te creé la automatización», «te dejé armado»
+  new RegExp(`\\bte\\s+(?:(?:lo|la|los|las)\\s+)?(?:${VERBOS_HECHO})\\b`),
+  // «quedó programada», «quedaron cargadas»
+  /\bqued(?:o|aron)\s+(?:ya\s+)?(?:cread|hech|armad|cargad|programad|guardad|agendad|enviad|mandad|publicad|actualizad|configurad|listo|lista)\w*/,
+];
+
+/** Lo que el texto dice HECHO, tal como aparece. Vacío = no dice nada hecho. */
+export function afirmaHechoDe(texto: string): string[] {
+  const t = norm(texto);
+  return AFIRMA_HECHO.flatMap((re) => t.match(re)?.[0] ?? []);
+}
+
 /** La oración pide un dato a la persona («dime», «pásame», «confirmame»). Sin tildes. */
 const PIDE_DATO = /\b(?:pasame|dime|decime|mandame|enviame|confirmame|indicame|contame|cuentame|avisame)\b/;
 
@@ -136,11 +159,16 @@ export type Saneo = { texto: string; promesas: string[]; groserias: string[] };
  * porque una charla que termina en «Jajaja, acepto el reto.» deja a la persona esperando lo que
  * se le prometió en la oración que se sacó.
  */
-export function sanearSalida(texto: string, { corrioHerramientas }: { corrioHerramientas: boolean }): Saneo {
-  const promesas = corrioHerramientas ? [] : promesasDe(texto);
+export function sanearSalida(texto: string, { corrioHerramientas, hecho = false }: {
+  corrioHerramientas: boolean;
+  /** También lo que dice HECHO sin haber corrido nada («Listo, ya lo armé»): el chat de la app (1.5). */
+  hecho?: boolean;
+}): Saneo {
+  const falso = (o: string) => promesasDe(o).length > 0 || (hecho && afirmaHechoDe(o).length > 0);
+  const promesas = corrioHerramientas ? [] : [...promesasDe(texto), ...(hecho ? afirmaHechoDe(texto) : [])];
   const groserias = groseriasDe(texto);
   if (!promesas.length && !groserias.length) return { texto, promesas, groserias };
-  const sacada = sinOraciones(texto, (o) => (promesas.length > 0 && promesasDe(o).length > 0) || groseriasDe(o).length > 0);
+  const sacada = sinOraciones(texto, (o) => (promesas.length > 0 && falso(o)) || groseriasDe(o).length > 0);
   if (promesas.length) return { texto: sacada ? `${sacada}\n\n${SIN_HACER}` : SIN_HACER, promesas, groserias };
   return { texto: sacada ?? SIN_GROSERIA, promesas, groserias };
 }
