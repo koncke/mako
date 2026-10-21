@@ -64,6 +64,10 @@ export const CSS_TARJETAS = `
 .tk.tk--clic { cursor: pointer; }
 .tk.tk--clic:hover { box-shadow: 0 2px 4px rgba(46, 52, 64, .08), 0 10px 26px rgba(46, 52, 64, .10); }
 .tk.tk--marcada { box-shadow: 0 0 0 2px var(--primary), var(--tk-sombra); }
+.tk.tk--compacta { padding: 8px 10px; gap: 6px; border-radius: 16px; }
+.tk--compacta .tk-fila { gap: 9px; }
+.tk--compacta .tk-nom { font-size: 14px; }
+.tk--compacta .tk-pill { height: 26px; padding: 0 10px; font-size: 12px; }
 .tk.tk--alerta { box-shadow: inset 3px 0 0 var(--bad), var(--tk-sombra); }
 .tk-fila { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .tk-tx { flex: 1; min-width: 0; }
@@ -236,19 +240,23 @@ type PropsPersona = Omit<HTMLAttributes<HTMLElement>, 'title'> & {
   alerta?: boolean;
   draggable?: boolean;
   titulo?: string;
+  /** Sin la foto ni las iniciales (quien personalizó la tarjeta del CRM y la sacó, 20/10/2026). */
+  sinCara?: boolean;
+  /** El diseño «Compacta» (20/10/2026): la cara chica y menos aire, para ver más tarjetas por columna. */
+  compacta?: boolean;
 };
 
 export const TarjetaPersona = forwardRef<HTMLElement, PropsPersona>(function TarjetaPersona(
-  { nombre, foto, insignia, subtitulo, antes, sinLeer, pildora, avance, chips, acciones, marcada, alerta, className, titulo, onClick, ...resto }, ref,
+  { nombre, foto, insignia, subtitulo, antes, sinLeer, pildora, avance, chips, acciones, marcada, alerta, className, titulo, onClick, sinCara, compacta, ...resto }, ref,
 ) {
-  const clases = ['tk', onClick ? 'tk--clic' : '', marcada ? 'tk--marcada' : '', alerta ? 'tk--alerta' : '', className ?? ''].filter(Boolean).join(' ');
+  const clases = ['tk', compacta ? 'tk--compacta' : '', onClick ? 'tk--clic' : '', marcada ? 'tk--marcada' : '', alerta ? 'tk--alerta' : '', className ?? ''].filter(Boolean).join(' ');
   const pct = avance ? Math.max(0, Math.min(100, Math.round(avance.pct))) : 0;
   return (
     <article ref={ref} className={clases} onClick={onClick} title={titulo} {...resto}>
       <EstiloTarjetas />
       <div className="tk-fila">
         {antes}
-        <CaraTarjeta nombre={nombre} foto={foto} insignia={insignia} />
+        {sinCara ? null : <CaraTarjeta nombre={nombre} foto={foto} insignia={insignia} tam={compacta ? 34 : undefined} />}
         <div className="tk-tx">
           <div className="tk-nom"><span>{nombre || 'Sin nombre'}</span>{sinLeer && <i className="tk-punto" title="Espera respuesta" />}</div>
           {subtitulo ? <span className="tk-sub">{subtitulo}</span> : null}

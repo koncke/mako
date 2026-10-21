@@ -29,6 +29,7 @@
 import 'server-only';
 import { after } from 'next/server';
 import type { Ctx, Ejecutado, Preparado, Runners, SalidaLectura } from '../tipos';
+import { quienChatea } from '../tipos';
 import { linkPantalla } from '../link';
 import { PREFIJO_FLUJO } from '../canal';
 import { getSupabaseServer } from '@/lib/supabase';
@@ -59,6 +60,9 @@ import { TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
 import { Alias, sanearCronAnalisis, type SalidaAnalisis } from '@/lib/graficos-analisis';
 import { CajaInvalida, analizarCaja, arrancarCaja, vistaDeCaja } from '@/lib/graficos-ia-elemento-server';
 import { textoCron } from '@/lib/cron-aviso';
+import { APP_BASE_URL } from '@/lib/app-url';
+import { crearShare, RECURSO_INFORME } from '@/lib/shares';
+import { ANCHOS, LUGARES, lugarConReferencia, moverComponente, type Ancho, type Lugar, type Movida } from '@/lib/graficos-mover';
 import { csvDeHoja, nombreArchivo, pedidosDeHoja, periodoDeHoja, seccionCsv } from '@/app/dashboard/exportar';
 import type { Resultado } from '@/lib/graficos-agregar';
 import {
@@ -152,7 +156,8 @@ async function personasDeLaCuenta(ws: number): Promise<{ informes: PersonaInform
 async function resolver(input: In, ctx: Ctx, modo: 'leer' | 'persona'): Promise<Resuelto | Fallo> {
   const http = ctx.canal === 'http';
   const { informes, miembros } = await personasDeLaCuenta(ctx.ws);
-  const e = elegirPersona({ informes, miembros, pedido: str(input, 'persona'), sinPersonaVaElInicial: modo === 'leer', enFlujo: enFlujo(ctx) });
+  // En la app, «mi hoja» es la de quien chatea (`quienChatea`): con 2 o más informes ya no pide un email.
+  const e = elegirPersona({ informes, miembros, pedido: str(input, 'persona'), sinPersonaVaElInicial: modo === 'leer', enFlujo: enFlujo(ctx), quienChatea: quienChatea(ctx) });
   if (!e.ok) return { error: e.error, ...(http || !e.disponibles.length ? {} : { disponibles: e.disponibles }) };
   const lectura: TableroVersionado = e.persona
     ? await infra('leer el informe', () => leerTableroVisible(e.persona!.sub))
@@ -730,6 +735,72 @@ export const RUNNERS: Runners = {
   // no pasa por `proponer`/`aplicar` (que son de cambiar un informe): preparar() fija la persona y la hoja, ejecutar()
   // vuelve a leer la hoja (la copia es la de AHORA, no la de hace 2 horas). EL CÓDIGO NO PASA POR EL MODELO: va por
   // `paraLaPersona` (un código son 20 caracteres al azar; transcrito por un modelo deja de servir) y por `datos` (HTTP no).
+  // Exportar a CSV (2.6): una LECTURA (no escribe nada). Valida la hoja contra TU informe y le deja a la persona el link a
+  // app/api/graficos/exportar, que arma el CSV con esta misma operación (`leer_hoja_dashboard` en `formato=csv`).
+  // EL LINK NO PASA POR EL MODELO: va por `paraLaPersona`.
+  exportar_hoja_dashboard: {
+    leer: async (input, ctx) => {
+      if (!quienChatea(ctx)) return fallo('Exportar se hace desde el chat de la app: es tu informe, y el link pide tu sesión.');
+      const r = await resolver(input, ctx, 'leer');
+      if (esFallo(r)) return fallo(r.error, r.disponibles);
+      const hoja = laHoja(r, input);
+      if (esFallo(hoja)) return fallo(hoja.error, hoja.disponibles);
+      const href = linkPantalla(`/api/graficos/exportar?hoja=${encodeURIComponent(hoja.id)}`, ctx.ws);
+      const graficos = hoja.componentes.filter(esGrafico).length;
+      return {
+        content: `Listo: la hoja ${comillas(hoja.nombre)} (${graficos} ${graficos === 1 ? 'gráfico' : 'gráficos'}, cada uno con su período guardado) quedó para descargar en CSV. El link ya se lo mandé a la persona: no lo escribas.`,
+        paraLaPersona: `Descargar ${comillas(hoja.nombre)} en CSV: ${href}`,
+      };
+    },
+  },
+
+  // Compartir con un link (2.6): el MISMO share que «Compartir» de la pantalla (`crearShare`, lib/shares.ts, con
+  // `recurso_id` = el `sub` de quien chatea, como app/api/compartir/route.ts). Sólo TU informe: no lee `persona`. El
+  // link no pasa por el modelo (`paraLaPersona`). Invitar por email, después de la D3c.
+  compartir_dashboard: {
+    preparar: async (input, ctx) => {
+      const yo = quienChatea(ctx);
+      if (!yo) return { error: 'Compartir se hace desde el chat de la app: es tu informe.' };
+      try {
+        const l = await leerTableroVisible(yo.sub);
+        const pedida = str(input, 'hoja');
+        let hoja: Hoja | null = null;
+        if (pedida) {
+          const b = buscarHoja(l.tablero, pedida);
+          if (!b.ok) return { error: b.error, disponibles: b.disponibles };
+          hoja = b.valor;
+        }
+        const nombre = l.tablero.nombre?.trim() || 'Dashboard';
+        return {
+          payload: { sub: yo.sub, hojaId: hoja?.id ?? null },
+          resumen: `Crear un link para ver tu informe ${comillas(nombre)}${hoja ? `, que abre en la hoja ${comillas(hoja.nombre)}` : ''}: quien tenga el link lo ve sin poder editarlo, con los datos de cada día. Se revoca desde Compartir, en el Dashboard.`,
+        };
+      } catch (e) {
+        console.error(`[api-mako dashboard] compartir: ${msg(e)}`);
+        return { error: 'No pude leer tu informe del Dashboard. Reintenta en un momento.' };
+      }
+    },
+    ejecutar: async (payload, ctx) => {
+      try {
+        const sub = typeof payload.sub === 'string' ? payload.sub : '';
+        if (!/^\d+$/.test(sub)) return { ok: false, resumen: 'La propuesta no dice de quién es el informe: vuelve a pedirla.' };
+        const l = await leerTableroVisible(sub);
+        const hojaId = typeof payload.hojaId === 'string' && l.tablero.hojas.some((h) => h.id === payload.hojaId) ? payload.hojaId : null;
+        const nombre = l.tablero.nombre?.trim() || null;
+        const { token } = await crearShare({ ws: ctx.ws, recurso: RECURSO_INFORME, alcance: 'item', recursoId: sub, modo: 'link', etiqueta: nombre, expiraAt: null, creadoPor: sub });
+        const enlace = `${APP_BASE_URL}/compartido/${token}${hojaId ? `?hoja=${encodeURIComponent(hojaId)}` : ''}`;
+        return {
+          ok: true,
+          resumen: 'Listo: el link quedó creado. Ya se lo mandé a la persona: no lo repitas ni lo inventes.',
+          paraLaPersona: `Link para ver ${comillas(nombre ?? 'tu informe')}: ${enlace}\nQuien lo tenga lo ve sin poder editarlo. Lo revocas desde Compartir, en el Dashboard.`,
+        };
+      } catch (e) {
+        console.error(`[api-mako dashboard] compartir ejecutar: ${msg(e)}`);
+        return { ok: false, resumen: 'No se pudo crear el link. Reintenta en un momento.' };
+      }
+    },
+  },
+
   copiar_dashboard: {
     preparar: async (input, ctx) => {
       if (enFlujo(ctx)) return { error: noEnFlujo('Copiar un dashboard') };
@@ -942,6 +1013,47 @@ export const RUNNERS: Runners = {
         hecho: `Se sacó ${comillas(nombreDeComponente(c))}`,
         deshacer: comoVolver(c),
         datos: { hojaId: h.id, quitado: c },
+      };
+    }),
+    ejecutar: aplicar,
+  },
+
+  // Mover o cambiar el ancho (lib/graficos-mover.ts): se PRUEBA antes de proponer, así lo que no entra (dos tarjetas que
+  // no caben en una fila) se dice ahora y no al confirmar. Al confirmar se vuelve a aplicar sobre el informe de AHORA.
+  mover_componente_dashboard: {
+    preparar: (input, ctx) => proponer(input, ctx, (r) => {
+      const h = laHoja(r, input);
+      if (esFallo(h)) return h;
+      const cb = buscarComponente(h, str(input, 'componente'));
+      if (!cb.ok) return { error: cb.error, disponibles: cb.disponibles };
+      const c = cb.valor;
+      const lugar = str(input, 'lugar');
+      const ancho = str(input, 'ancho');
+      if (lugar && !(LUGARES as readonly string[]).includes(lugar)) return { error: `«${lugar}» no es un lugar: ${LUGARES.join(', ')}.` };
+      if (ancho && !(ancho in ANCHOS)) return { error: `«${ancho}» no es un ancho: ${Object.keys(ANCHOS).join(', ')}.` };
+      // La otra tarjeta (`referencia`). ⚠️ No se llama `ref`: en este archivo `ref` es el del pop-up de una caja de IA, y
+      // tests/graficos-ia-elemento.test.ts barre que ninguna puerta sin sesión lo arme.
+      let otra: Componente | null = null;
+      if (lugar && lugarConReferencia(lugar as Lugar)) {
+        const rb = buscarComponente(h, str(input, 'referencia'));
+        if (!rb.ok) return { error: `¿Con respecto a qué tarjeta? ${rb.error}`, disponibles: rb.disponibles };
+        otra = rb.valor;
+      }
+      const movida: Movida = { ...(lugar ? { lugar: lugar as Lugar } : {}), ...(otra ? { referencia: otra.id } : {}), ...(ancho ? { ancho: ancho as Ancho } : {}) };
+      const prueba = moverComponente(h.componentes, c.id, movida);
+      if (!prueba.ok) return { error: prueba.error, ...(prueba.yaEstaba ? { yaEstaba: true } : {}) };
+      const nombre = comillas(nombreDeComponente(c));
+      const donde = [
+        lugar === 'arriba' ? 'arriba de todo' : lugar === 'abajo' ? 'abajo de todo' : '',
+        otra ? `${lugar === 'antes_de' ? 'antes de' : lugar === 'despues_de' ? 'después de' : 'al lado de'} ${comillas(nombreDeComponente(otra))}` : '',
+        ancho ? `con ${ancho.replace('_', ' ')} de ancho` : '',
+      ].filter(Boolean).join(', ');
+      return {
+        cambio: { op: 'mover_componente', hojaId: h.id, componenteId: c.id, movida },
+        que: `Mover ${nombre} ${donde} en la hoja ${comillas(h.nombre)} (las demás tarjetas se corren solas, como al arrastrarla)`,
+        hecho: `Se movió ${nombre}`,
+        deshacer: `Para volver, muévela de nuevo: estaba en la columna ${c.x + 1} y la fila ${c.y + 1}, con ${c.w} de 12 columnas de ancho.`,
+        datos: { hojaId: h.id, componenteId: c.id, antes: { x: c.x, y: c.y, w: c.w, h: c.h } },
       };
     }),
     ejecutar: aplicar,

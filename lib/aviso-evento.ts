@@ -28,6 +28,7 @@ import type { CtxFlujo } from './flujos';
 import type { EstadoAviso } from './perfil';
 import type { Paso } from './flujos-tipos';
 import { EVENTOS_MAKO, TRIGGER_AVISO_MAKO, disparadoresDe, type SubtipoMako, type EventoMako } from './disparadores';
+import { textoSinAutomatizacion } from './aviso-lead';
 import { claseDe, idDe, indicePorId, raicesSalida, siguienteDe, type PasoGrafo, type RamaCondicion } from './flujo-grafo';
 import { OP_AVISAR } from './flujo-legado';
 import { DELAY_MAX_HORAS, QUE_ENVEJECEN } from './flujo-pasos';
@@ -544,9 +545,12 @@ export async function emitirPorEvento(
   }
 
   if (!corren.length) {
+    // ⚠️ LA BITÁCORA DICE DE QUIÉN (20/10/2026): el texto era el título repetido («Cuota vencida → cobrar») y la fila
+    // no llevaba a ningún lado. Ahora nombra al lead y los datos exactos que el evento ya trae, y lleva a su ficha.
     const r = await deps.emitirAviso({
-      tipo: cat.id, titulo: cat.titulo, texto: opts.texto ?? cat.titulo,
+      tipo: cat.id, titulo: cat.titulo, texto: opts.texto ?? textoSinAutomatizacion(cat.id, cat.titulo, opts),
       categoria: cat.categoria, semaforo: cat.semaforo, ws, estado: APAGADO,
+      ...(opts.lead ? { lead: opts.lead } : {}),
     });
     return { ...r, ok: true, wa: false, deduped: true, apagado: true, filas: 0 };
   }

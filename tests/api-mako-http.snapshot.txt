@@ -384,6 +384,7 @@ metricas_negocio
 mis_creaciones
 mover_a_nutricion_manual
 mover_clase_curso
+mover_componente_dashboard
 mover_elemento_video
 mover_estado_guion_anuncio
 mover_tarea_plan

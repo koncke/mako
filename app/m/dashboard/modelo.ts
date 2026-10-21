@@ -12,6 +12,8 @@
 // =============================================================================
 
 import type { Preset } from '@/lib/graficos-catalogo';
+import type { FilaCobro } from '@/lib/datos-comercial';
+import { textoDeSuscripcion } from '@/lib/suscripciones-por-cobrar';
 
 // ── El período ──────────────────────────────────────────────────────────────────────────────
 
@@ -101,7 +103,8 @@ export type GraficoM = {
 };
 export type CobroM = {
   leadId: number;
-  pagoId: number;
+  /** La cuota que se marca. null = una SUSCRIPCIÓN por cobrar, sin cuota: se registra el mes en su ficha (20/10/2026). */
+  pagoId: number | null;
   nombre: string;
   /** «US$500 · vence el jue». */
   linea: string;
@@ -195,6 +198,24 @@ export function textoVence(vence: string | null, dias: number | null): string {
   const [y, m, d] = vence.slice(0, 10).split('-').map(Number);
   if (dias < 7) return `vence el ${DIAS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]}`;
   return `vence el ${d} ${MESES[m - 1] ?? ''}`;
+}
+
+/**
+ * La fila de «a quién cobrarle» del teléfono y de la tab General, con el MISMO renglón («US$500 · vence el jue»):
+ *   · la de una CUOTA, con su `pagoId` (lo marca «Marcar cobrado»);
+ *   · la de una SUSCRIPCIÓN por cobrar (20/10/2026, lib/suscripciones-por-cobrar.ts), sin cuota: «US$800 · falta
+ *     registrar 1 mes». Se toca y abre su ficha.
+ * null = nada que mostrar. `plata` es el formato del monto (`fmtValor(n, 'usd')`).
+ */
+export function cobroDeFila(f: Pick<FilaCobro, 'leadId' | 'nombre' | 'pendiente' | 'cuota' | 'suscripcion' | 'dias' | 'urgencia'>, plata: (n: number) => string): CobroM | null {
+  if (f.cuota) {
+    return { leadId: f.leadId, pagoId: f.cuota.pagoId, nombre: f.nombre, linea: `${plata(f.cuota.monto)} · ${textoVence(f.cuota.vence, f.dias)}`, urgencia: f.urgencia };
+  }
+  if (f.suscripcion) {
+    const que = textoDeSuscripcion(f.suscripcion) ?? textoVence(f.suscripcion.vence, f.dias);
+    return { leadId: f.leadId, pagoId: null, nombre: f.nombre, linea: `${plata(f.pendiente)} · ${que}`, urgencia: f.urgencia };
+  }
+  return null;
 }
 
 // ── El gráfico ──────────────────────────────────────────────────────────────────────────────

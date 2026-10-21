@@ -1669,3 +1669,71 @@ lib/api-mako/funnels-del-pedido.ts.
 R1 y las altas con `enLosFunnels`, igual que el período. La caché no necesitó cambiar: `unstable_cache` suma los
 argumentos a la clave, así que la serie de «1,29» y la del negocio entero no se pisan (el relevo decía que había que
 sumarlos a mano). Test: el último de tests/funnel-etapas-elegidos.test.ts.
+
+## «Mi hoja» es la de quien chatea: el Dashboard y General ya no piden un email en el Ops Center (20/10/2026)
+
+**Síntoma:** desde el Ops Center, en una cuenta con 2 o más informes guardados, «agregá un gráfico a mi hoja de
+Marketing» contestaba «Hay 2 informes guardados en la cuenta: di de quién es (su email)». Es la pieza 1.5 de
+docs/ops-center-principal.md.
+
+**Causa:** la API elegía la persona del informe por el email que se nombraba o por «el único informe guardado». El
+contexto de la app sólo traía `actor` (un email, o un nombre, o el `sub`, según la sesión). La pantalla, en cambio, lee
+siempre el informe de quien mira, por su `sub`.
+
+**Lo que quedó:** el turno de la app pasa `Ctx.quien` (`usuarios.id`, email y nombre), al proponer y al confirmar. El
+Dashboard (`elegirPersona`, dashboard.helpers.ts) y General (lib/general-plantillas.ts) lo usan cuando no se nombra a
+nadie. Se lee con `quienChatea(ctx)` (lib/api-mako/tipos.ts), que lo ignora fuera de la app: en WhatsApp, por HTTP o en
+un flujo no hay «mío».
+- **Por el `sub` y no por el email:** el super admin que mira un negocio no es miembro de ese workspace, y la pantalla
+  igual abre SU informe ahí. Buscarlo por email entre los miembros no lo encontraba. Una sesión que no es una persona
+  (`dev`, `password`) no trae `quien`.
+- **Nombrar a otra persona le sigue ganando**, una automatización sigue exigiendo la persona, y un closer o un setter
+  reciben «tu Dashboard es la hoja Closing» en vez de escribir un informe de admin.
+- La descripción del parámetro `persona` cambió en las dos áreas (es lo que lee el modelo): si decía «con varios, pide
+  elegir», el modelo preguntaba el email aunque el código ya no lo necesitara.
+
+Test: tests/api-mako-mi-hoja.test.ts (probado rompiéndolo, cinco roturas). **Nadie lo probó en el Ops Center.**
+
+## Compartir, exportar y mover desde el chat: las mismas piezas que la pantalla (20/10/2026, pieza 2.6)
+
+Las tres sólo se hacían en la pantalla. Ahora están en el registro (`dashboard.def.ts`), cada una sobre lo que ya usa la
+pantalla:
+- **`mover_componente_dashboard`** usa la grilla de la pantalla. El editor acomoda con react-grid-layout y
+  `verticalCompactor`, y `lib/graficos-mover.ts` llama a SUS funciones (`moveElement` y el compactador, desde
+  `react-grid-layout/core`, que no trae React y corre en el servidor). Un acomodo escrito a mano dejaría una hoja que la
+  pantalla reacomoda al abrirla, y el primer «Editar» la guardaría distinta. El mínimo de cada tarjeta es UNA regla
+  (`minimoDeComponente`, lib/graficos-catalogo.ts), que antes vivía adentro del editor.
+- **`exportar_hoja_dashboard`** es una lectura. Un modelo no le pasa un archivo a nadie: la persona recibe un link
+  (`paraLaPersona`) a `app/api/graficos/exportar`, que corre `leer_hoja_dashboard` en CSV por el choke point
+  (`ejecutarOperacion`) con SU sesión. Es el mismo CSV que da la API por HTTP, sin un CSV propio. Sólo existe en la app:
+  el link pide la sesión de quien lo abre.
+- **`compartir_dashboard`** crea el link de acceso con el mismo `crearShare` del botón «Compartir», sobre el informe de
+  quien chatea, y no lee `persona` (la pantalla tampoco deja compartir el de otro). El link no pasa por el modelo.
+  - Invitar por email quedó afuera a propósito: le escribe a un tercero, y es la decisión D3c de Martín (tarjeta en el
+    chat o pantalla de revisión). Cuando esté, el envío tiene que salir de la ruta (`invitar`, app/api/compartir/route.ts)
+    a un módulo compartido. Cinco tests de otras áreas fijan ese código, así que mudarlo es su propio trabajo.
+
+**Trampas:**
+- `nuevoElemento('experimento', [])` devuelve null: un experimento sin configuración no sanea. En un test, el spread de
+  null armó una tarjeta sin tipo, el mínimo cayó al de un gráfico, y parecía un error de mover.
+- Un ancho en palabras sólo topa con el mínimo en una sección (12) o en un experimento (4). Probarlo con un video (3) no
+  prueba nada: el cuarto ya son 3.
+- Dos guardas de OTRAS áreas lo frenaron en el antes-de-subir, con razón:
+  - En dashboard.run.ts una variable no se llama `ref`: es el del pop-up de una caja de IA, y
+    tests/graficos-ia-elemento.test.ts barre que ninguna puerta sin sesión lo arme.
+  - El link de `/compartido/…` armado con `APP_BASE_URL` cae en tests/link-con-workspace.test.ts. Va en sus rutas
+    PÚBLICAS: lo abre un tercero sin sesión, con el token del share, y un `?ws=` le diría a un extraño el número del
+    negocio.
+- **Que la frase natural traiga la operación NO está resuelto:** «mové / poné al lado / cambiá el ancho» llegan, pero
+  «exportá», «descargame», «compartí», «mueve» y «hacé más ancho» caen en «capturar» o en «consultar». Es el clasificador
+  (pieza 1.2, de MaKo WhatsApp y Ops Center 3). Las frases medidas quedaron en la carpeta de notas del Cerebro
+  (`frases-dashboard-2-6.md`).
+
+Test: tests/api-mako-dashboard-compartir-exportar-mover.test.ts (probado rompiéndolo, seis roturas). **Nadie lo probó en el
+Ops Center.**
+**Vive en:** lib/graficos-mover.ts · lib/api-mako/areas/dashboard.def.ts · dashboard.run.ts · dashboard.helpers.ts ·
+app/api/graficos/exportar/route.ts · lib/graficos-catalogo.ts (`minimoDeComponente`).
+*20/10/2026, claude4 (chat Dashboard).*
+**Vive en:** lib/api-mako/tipos.ts · lib/mako-turno-app.ts · lib/api-mako/areas/dashboard.helpers.ts ·
+lib/api-mako/areas/dashboard.run.ts · lib/api-mako/areas/general.run.ts · lib/general-plantillas.ts.
+*20/10/2026, claude4 (chat Dashboard).*

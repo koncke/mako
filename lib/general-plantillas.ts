@@ -319,9 +319,12 @@ const normalizarTexto = (s: string): string => s.normalize('NFD').replace(/[̀-�
 /**
  * De quién es el informe que pide la API: la persona que se nombra (email o nombre), o la única persona admin. Dos
  * personas con el mismo nombre: se pide el email. (Era `elegirPersonaVista` de las vistas del 13/10, la misma regla.)
+ * En la app, sin nombrar a nadie, es la de quien chatea (`quien`, lib/api-mako/tipos.ts `quienChatea`): Focus es la
+ * General de quien la mira, como en la pantalla (20/10/2026, Ops Center = lo principal, 1.5).
  */
-export function elegirPersona(admins: readonly PersonaGeneral[], pedido: string | null | undefined): { ok: true; persona: PersonaGeneral } | { ok: false; error: string } {
+export function elegirPersona(admins: readonly PersonaGeneral[], pedido: string | null | undefined, quien?: PersonaGeneral | null): { ok: true; persona: PersonaGeneral } | { ok: false; error: string } {
   const p = (pedido ?? '').trim();
+  if (!p && quien) return { ok: true, persona: { sub: quien.sub, email: quien.email, nombre: quien.nombre } };
   if (p) {
     const n = normalizarTexto(p);
     const calza = p.includes('@')
