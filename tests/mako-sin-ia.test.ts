@@ -113,8 +113,9 @@ test('¿falta la IA del negocio?: el texto de la cascada, o cero cuentas propias
   assert.match(turno, /provsDe, CASCADA_TOOLS/, 'cuenta con la MISMA lectura que la cascada');
   // Desde el 21/10, con su computadora conectada (aunque apagada) no se le pide otra IA: `&& !pc` (tests/ia-pc.test.ts); y
   // en un negocio con su propio Claude (D6b), lo que se le ofrece es SU IA, nunca Gemini (`iaParaConectar(…, negocio.suIA)`).
-  assert.match(turno, /const sinIAEs = !respuesta && sinIA(?: && !pc)?\s*\?[\s\S]{0,140}avisoSinIA\(await esNegocioDelEntorno\(ws\)\.catch\(\(\) => false\), iaParaConectar\(await iaConFila\(\)(?:, negocio\.suIA)?\)\)\s*: null;/);
-  assert.match(turno, /aviso = \[aviso, (?:delaPc \?\? )?(?:deSuClave\?\.aviso \?\? )?sinIAEs\?\.aviso \?\? AVISO_NO_PUDE\]/);
+  // Antes van «no pude ver tu computadora» y «conecta tu computadora» (tests/ia-pc-segunda-revision.test.ts).
+  assert.match(turno, /const sinIAEs = !respuesta && sinIA(?: && !pc)?\s*\?[\s\S]{0,280}avisoSinIA\(await esNegocioDelEntorno\(ws\)\.catch\(\(\) => false\), iaParaConectar\(await iaConFila\(\)(?:, negocio\.suIA)?\)\)\s*: null;/);
+  assert.match(turno, /aviso = \[aviso, (?:delaPc \?\? )?(?:deSuClave\?\.aviso \?\? )?sinIAEs\?\.aviso \?\? (?:\(pcIlegible && negocio\.suIA \? AVISO_PC_ILEGIBLE : null\) \?\? )?AVISO_NO_PUDE\]/);
   assert.match(turno, /pantallas, conectar \}/);
 });
 
