@@ -3,8 +3,10 @@
 // =============================================================================
 // Cruzados por id con chats.def.ts. Leen y escriben por lib/chats.ts y filtran con lib/chats-reglas.ts, el
 // MISMO camino que la pantalla (app/chats/) y sus rutas (app/api/chats/**): la lista, el hilo y el estado de
-// una conversación son los que ve la persona, no una lectura paralela que cuente distinto. Ninguna operación
-// manda un mensaje (chats.def.ts).
+// una conversación son los que ve la persona, no una lectura paralela que cuente distinto. Los envíos (D3a, 21/10/2026,
+// chats.def.ts) salen por las MISMAS funciones que el compositor de /chats, y sólo con el toque de la tarjeta:
+// WhatsApp por la cola de borradores (`enviarBorradorPorSuCanal`), Instagram y Messenger por `enviarManualSocial`, email
+// por `enviarEmailDeChat`. Lo que se decide antes del toque (el texto, el canal) es puro: lib/chats-envio-reglas.ts.
 //
 // ⚠️ Lo que escribió un contacto viaja al modelo como DATO: el hilo marca de quién es cada cosa, y la
 // descripción de hilo_chat le dice al modelo que no son instrucciones.
@@ -12,7 +14,18 @@
 import 'server-only';
 import type { Runners, Preparado, Ejecutado, Ctx, SalidaLectura } from '../tipos';
 import type { ChatResumen, MensajeChat, EstadoChat, CanalChat } from '@/lib/chats-tipos';
-import { listarChats, hiloDeChat, cambiarEstadoChat, POSPONER_MAX_MS, type AccionEstadoChat, type YoChats } from '@/lib/chats';
+import { listarChats, hiloDeChat, cambiarEstadoChat, marcarChatLeido, POSPONER_MAX_MS, type AccionEstadoChat, type YoChats } from '@/lib/chats';
+import { textoDeEnvio, identidadParaEnviar, canalDeDm, NOMBRE_CANAL } from '@/lib/chats-envio-reglas';
+import { crearBorrador } from '@/lib/evolution-envio';
+import { enviarBorradorPorSuCanal } from '@/lib/borrador-camino';
+import { enviarManualSocial, crearLeadDeConversacionSocial } from '@/lib/canal-zernio';
+import { enviarEmailDeChat } from '@/lib/chats-email';
+import { destinoDelAlta } from '@/lib/lead-funnel-reglas';
+import { leerFunnels } from '@/lib/funnels';
+import { createLead } from '@/lib/leads';
+import { LeadDuplicadoError } from '@/lib/leads-duplicados';
+import { ORIGEN_LEAD } from '@/app/crm/origen-lead';
+import { borradorPendiente, borradorPendienteIgual } from './whatsapp.helpers';
 import { claveLead, parsearClave, filtrarChats, textoDePartes, type VistaChats, type MostrarChats } from '@/lib/chats-reglas';
 import { getUsuarioActual } from '@/lib/auth';
 import { zonaDelNegocio } from '@/lib/timezone';
@@ -149,6 +162,17 @@ async function cambiar(payload: Record<string, unknown>, ctx: Ctx): Promise<Ejec
   }
 }
 
+const digitos = (v: unknown): string => String(v ?? '').replace(/\D/g, '');
+
+/** El producto (funnel) del alta, o lo que falta elegir: el MISMO criterio que «Agregar al CRM» de /chats. */
+async function destinoDeAlta(funnelId: number | null): Promise<{ casa: number | null; nombre: string | null } | { error: string; faltan?: string[]; disponibles?: unknown }> {
+  const d = destinoDelAlta(await leerFunnels(), funnelId);
+  if ('error' in d) return d.elegir?.length
+    ? { error: `${d.error} ¿A cuál lo agrego?`, faltan: ['funnelId'], disponibles: d.elegir.map((p) => ({ funnelId: p.id, nombre: p.nombre })) }
+    : { error: d.error };
+  return { casa: d.casa, nombre: d.nombre };
+}
+
 export const RUNNERS: Runners = {
   listar_chats: {
     leer: async (input, ctx) => {
@@ -260,5 +284,169 @@ export const RUNNERS: Runners = {
       return { payload: { clave: c.clave, accion: 'posponer', nombre: c.chat.nombre, hasta: hasta.toISOString(), ...(nota ? { nota } : {}) }, resumen };
     },
     ejecutar: cambiar,
+  },
+
+  marcar_leido_chat: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      if (!(await usuarioDe(ctx))) return { error: 'El «leído» es de cada persona y sólo se marca desde la app.' };
+      const c = await conversacion(input);
+      if ('error' in c) return c;
+      // Sin el «ya está leída»: el hilo no sabe el no leído de QUIEN pide (es por persona), y decirlo sería adivinar.
+      return { payload: { clave: c.clave, nombre: c.chat.nombre }, resumen: `Marcar como leída la conversación con ${c.chat.nombre}.` };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      // Quien CONFIRMA es quien la leyó: el usuario sale de la sesión del toque, no de la propuesta.
+      const yo = await usuarioDe(ctx);
+      if (!yo) return { ok: false, resumen: 'No sé quién eres: el «leído» se marca desde la app.' };
+      try {
+        await marcarChatLeido(String(payload.clave ?? ''), yo.id);
+        return { ok: true, resumen: `Listo: la conversación con ${String(payload.nombre ?? 'el contacto')} quedó leída.` };
+      } catch (err) {
+        return { ok: false, resumen: `No pude marcarla como leída (${err instanceof Error ? err.message : String(err)}).` };
+      }
+    },
+  },
+
+  agregar_contacto_al_crm: {
+    preparar: async (input): Promise<Preparado> => {
+      const c = await conversacion(input);
+      if ('error' in c) return c;
+      if (c.chat.leadId != null) return { error: `${c.chat.nombre} ya está en el CRM (lead #${c.chat.leadId}).`, yaEstaba: true };
+      const funnelId = num(input, 'funnelId');
+      const destino = await destinoDeAlta(funnelId);
+      if ('error' in destino) return destino;
+      const en = destino.nombre ? ` (en ${destino.nombre})` : '';
+      // Instagram o Messenger: el alta es de la conversación (lib/canal-zernio.ts la enlaza sola).
+      const social = c.chat.canales.find((i) => i.canal === 'instagram' || i.canal === 'messenger');
+      if (social) {
+        return { payload: { via: 'social', convId: Number(social.ref), funnelId, nombre: c.chat.nombre }, resumen: `Agregar a ${c.chat.nombre} (${social.rotulo}) al CRM${en}.` };
+      }
+      const wa = c.chat.canales.find((i) => i.canal === 'whatsapp');
+      if (!wa) return { error: `${c.chat.nombre} sólo escribe por email: desde Chats se agrega a quien escribe por WhatsApp, Instagram o Messenger.` };
+      const telefono = digitos(wa.telefono);
+      if (telefono.length < 10) return { error: `La conversación con ${c.chat.nombre} no trae un teléfono con lada: agrégalo a mano en el CRM.` };
+      const nombre = str(input, 'nombre') ?? c.chat.nombre;
+      return { payload: { via: 'whatsapp', telefono, funnelId, nombre }, resumen: `Agregar a ${nombre} (${wa.destino ?? telefono}) al CRM${en}.` };
+    },
+    ejecutar: async (payload): Promise<Ejecutado> => {
+      const nombre = String(payload.nombre ?? 'el contacto');
+      const funnelId = typeof payload.funnelId === 'number' ? payload.funnelId : null;
+      if (payload.via === 'social') {
+        const r = await crearLeadDeConversacionSocial(Number(payload.convId), funnelId);
+        return r.ok ? { ok: true, resumen: `Listo: ${nombre} ya es lead (#${r.leadId}).`, datos: { leadId: r.leadId } } : { ok: false, resumen: `No pude agregarlo: ${r.error}` };
+      }
+      const destino = await destinoDeAlta(funnelId);
+      if ('error' in destino) return { ok: false, resumen: destino.error };
+      try {
+        const lead = await createLead({ nombre, telefono: String(payload.telefono ?? ''), origen_lead: ORIGEN_LEAD.chat_whatsapp.id, funnel_id: destino.casa });
+        return { ok: true, resumen: `Listo: ${nombre} ya es lead (#${lead.id}).`, datos: { leadId: lead.id } };
+      } catch (err) {
+        // Ya había alguien con ese teléfono: no se duplica (el alta del CRM lo frena) y se dice con quién choca.
+        if (err instanceof LeadDuplicadoError) {
+          const otro = err.coincidencias[0]?.lead;
+          return { ok: false, resumen: otro ? `Ya hay un lead con ese teléfono: ${(otro.nombre ?? '').trim() || 'sin nombre'} (#${otro.id}).` : err.message };
+        }
+        return { ok: false, resumen: `No pude agregarlo (${err instanceof Error ? err.message : String(err)}).` };
+      }
+    },
+  },
+
+  enviar_borrador_whatsapp: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      // Un borrador que ya está en la cola: se manda ESE, tal cual.
+      const borradorId = num(input, 'borradorId');
+      if (borradorId != null) {
+        const b = await borradorPendiente(borradorId);
+        if (!b) return { error: 'Ese borrador ya no está pendiente: ya salió o se descartó.' };
+        return { payload: { borradorId: b.id, nombre: b.leadNombre ?? b.telefono }, resumen: `Enviar a ${b.leadNombre ?? b.telefono} por WhatsApp: «${corto(b.texto, 300)}»` };
+      }
+      // Un texto nuevo: el canal, la persona y el texto se deciden ANTES del toque.
+      const t = textoDeEnvio(input.texto, 'whatsapp', ctx.mensajeUsuario);
+      if ('error' in t) return t;
+      const c = await conversacion(input);
+      if ('error' in c) return c;
+      const i = identidadParaEnviar(c.chat.canales, 'whatsapp', str(input, 'linea'));
+      if ('error' in i) return i;
+      const telefono = digitos(i.identidad.telefono);
+      if (telefono.length < 10) return { error: `La conversación con ${c.chat.nombre} no trae un teléfono con lada.` };
+      return {
+        payload: { leadId: c.chat.leadId, telefono, chatJid: i.identidad.ref, linea: i.identidad.cuenta, texto: t.texto, nombre: c.chat.nombre },
+        resumen: `Enviar a ${c.chat.nombre} por ${i.identidad.rotulo}: «${corto(t.texto, 300)}»`,
+      };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const nombre = String(payload.nombre ?? 'el contacto');
+      let id = typeof payload.borradorId === 'number' ? payload.borradorId : null;
+      if (id == null) {
+        // EL BORRADOR NO SE SALTEA (D3a): el texto nuevo entra a la cola y sale aprobado por este mismo toque. Un borrador
+        // idéntico pendiente es ÉSE (un reintento no apila dos); `crearBorrador` no devuelve el id, se relee.
+        const telefono = String(payload.telefono ?? '');
+        const texto = String(payload.texto ?? '');
+        const u10 = telefono.slice(-10);
+        id = await borradorPendienteIgual(u10, texto);
+        if (id == null) {
+          await crearBorrador({ leadId: typeof payload.leadId === 'number' ? payload.leadId : null, telefono, texto, chatJid: String(payload.chatJid ?? '') || null, origen: 'mako', linea: typeof payload.linea === 'string' ? payload.linea : null });
+          id = await borradorPendienteIgual(u10, texto);
+        }
+        if (id == null) return { ok: false, resumen: 'No pude dejar el mensaje en la cola de borradores. No se envió nada.' };
+      }
+      // La ÚNICA puerta de envío de un borrador (lib/borrador-camino.ts): vuelve a mirar la línea antes de mandar.
+      const r = await enviarBorradorPorSuCanal(id, ctx.actor?.trim() || 'MaKo');
+      return r.ok
+        ? { ok: true, resumen: `Enviado a ${nombre} por WhatsApp.` }
+        : { ok: false, resumen: `No salió (${r.error ?? 'sin línea'}). El mensaje quedó en la cola de borradores.` };
+    },
+  },
+
+  contestar_dm: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      const c = await conversacion(input);
+      if ('error' in c) return c;
+      const cd = canalDeDm(c.chat.canales, str(input, 'canal'));
+      if ('error' in cd) return cd;
+      const t = textoDeEnvio(input.texto, cd.canal, ctx.mensajeUsuario);
+      if ('error' in t) return t;
+      const i = identidadParaEnviar(c.chat.canales, cd.canal);
+      if ('error' in i) return i;
+      return {
+        // `idem`: la misma propuesta confirmada dos veces (un doble toque, un reintento) no sale dos veces.
+        payload: { convId: Number(i.identidad.ref), texto: t.texto, nombre: c.chat.nombre, canal: cd.canal, idem: `mako-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}` },
+        resumen: `Contestarle a ${c.chat.nombre} por ${NOMBRE_CANAL[cd.canal]}: «${corto(t.texto, 300)}»`,
+      };
+    },
+    ejecutar: async (payload): Promise<Ejecutado> => {
+      const nombre = String(payload.nombre ?? 'el contacto');
+      const canal = payload.canal === 'messenger' ? 'Messenger' : 'Instagram';
+      const r = await enviarManualSocial({ convId: Number(payload.convId), texto: String(payload.texto ?? ''), idempotencia: String(payload.idem ?? '') || undefined });
+      if (r.ok) return { ok: true, resumen: `Enviado a ${nombre} por ${canal}.` };
+      // «No sé si salió» no es «no salió»: mandarlo de nuevo podría duplicarlo.
+      if (r.incierto) return { ok: false, resumen: `${canal} no contestó a tiempo y no sé si salió: mira el hilo de ${nombre} antes de mandarlo otra vez.` };
+      return { ok: false, resumen: `No salió: ${r.error}` };
+    },
+  },
+
+  contestar_email_chat: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      const t = textoDeEnvio(input.texto, 'email', ctx.mensajeUsuario);
+      if ('error' in t) return t;
+      const c = await conversacion(input);
+      if ('error' in c) return c;
+      const i = identidadParaEnviar(c.chat.canales, 'email');
+      if ('error' in i) return i;
+      const asunto = str(input, 'asunto');
+      return {
+        payload: { leadId: c.chat.leadId, para: i.identidad.ref, asunto, texto: t.texto, nombre: c.chat.nombre },
+        resumen: `Mandarle a ${c.chat.nombre} (${i.identidad.ref}) ${asunto ? `el email «${corto(asunto, 80)}»` : 'la respuesta por email'}: «${corto(t.texto, 300)}»`,
+      };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const nombre = String(payload.nombre ?? 'el contacto');
+      const r = await enviarEmailDeChat({
+        leadId: typeof payload.leadId === 'number' ? payload.leadId : null,
+        para: String(payload.para ?? ''), asunto: typeof payload.asunto === 'string' && payload.asunto ? payload.asunto : null,
+        texto: String(payload.texto ?? ''), archivos: [], autor: await actorDe(ctx),
+      });
+      return r.ok ? { ok: true, resumen: `Email enviado a ${nombre}.` } : { ok: false, resumen: `No salió: ${r.error}` };
+    },
   },
 };

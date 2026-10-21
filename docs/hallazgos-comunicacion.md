@@ -10476,3 +10476,31 @@ bandeja (sólo a una conversación: `?c=`, `?lead=`, `?chat=`).
 
 **Vive en:** lib/chats-links.ts (`rutaChatsDeVista`, `vistaDeLink`) · app/chats/ChatsApp.tsx · test:
 tests/recurrente-no-salio.test.ts · *20/10/2026, claude4.*
+
+## MaKo manda desde Chats con la tarjeta: lo que no se ve en el código (21/10/2026, Ops Center 2.1)
+
+Cinco operaciones nuevas en el área `chats` (lib/api-mako/areas/chats.*): `enviar_borrador_whatsapp`, `contestar_dm`,
+`contestar_email_chat`, `agregar_contacto_al_crm` y `marcar_leido_chat`. Con la D3a (Martín, 21/10): el toque en
+«Enviar» de la tarjeta ES la aprobación del mensaje al lead.
+
+- **El botón de la tarjeta es el `titulo` de la operación** (`rotuloPrimario`, app/m/mako/chat-ui.ts). Por eso los
+  títulos son «Enviar el WhatsApp», «Enviar el mensaje directo» y «Enviar el email»: tocar el botón ES «Enviar».
+- **El borrador de WhatsApp no se saltea.** Un texto nuevo entra a la cola (`crearBorrador`, origen mako) y sale por
+  `enviarBorradorPorSuCanal`, la única puerta (vuelve a mirar la línea). `crearBorrador` no devuelve el id: se relee
+  con `borradorPendienteIgual`, que además hace que un reintento no apile dos.
+- **«Sí, dale» no es el mensaje** (`textoDeEnvio`, lib/chats-envio-reglas.ts): una frase sólo de aceptación, o la
+  misma con que la persona aceptó, no se manda; MaKo pregunta qué decir.
+- **El «leído» es de cada persona** (`chat_leidos`): sólo por la app, y se marca para quien CONFIRMA (la sesión del
+  toque). El hilo de una conversación no sabe el no leído de quien pide (`sinLeer` no es por persona): decir «ya está
+  leída» desde ahí sería adivinar.
+- **La red gratis no las recibe sin hacer nada**: el área `chats` es de datos de clientes (`DATOS_DE_CLIENTES_POR_AREA`).
+- ⚠️ **En main, el turno de la app no llega a NINGUNA acción de Chats**, ni a la de siempre: «cierra el chat de Ana»
+  sale `capturar` del clasificador de WhatsApp. Lo arregla la 1.2 (un verbo de hacer al principio → `actuar`,
+  lib/mako-intencion-app.ts, rama `mako-wa`, sin main el 21/10). La 2.1 puso lo suyo, el ÁREA: la rueda de `chats`
+  reconoce «borrador», «contést…», «respónd…», «leído», «al CRM» y «por WhatsApp». El test del turno arma el veredicto
+  de la 1.2 a mano y lo dice: cuando la 1.2 llegue, pasa a su clasificador.
+
+**Sin hacer:** verlo en el navegador (el mensaje en el hilo de /chats, ws 3). El test del turno con el clasificador de
+la 1.2. Adjuntos en el email y en el DM (el compositor los tiene; MaKo todavía no).
+**Vive en:** lib/api-mako/areas/chats.def.ts y chats.run.ts · lib/chats-envio-reglas.ts · lib/mako-intencion.ts (la
+rueda) · tests/chats-mako-envio.test.ts y tests/chats-registro.test.ts · *21/10/2026, chat «CRM» (claude4).*

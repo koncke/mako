@@ -14,6 +14,8 @@
 // `crear_borrador_whatsapp_empresa`: deja el texto en la cola de borradores de
 // /whatsapp y una persona lo manda con un clic. El envío directo (sendToContact,
 // enviarYEspejar, plantillas pagas) no pasa por ningún gate y se quedó afuera.
+// Desde el 21/10/2026 (D3a) mandar ese borrador con la tarjeta del chat es
+// `enviar_borrador_whatsapp`, del área chats: aprueba el borrador, no lo saltea.
 //
 // ⚠️ Los mensajes de personas (hilos, bandejas, borradores, asesoría) NO salen por
 // http: `canales` sin 'http' a propósito. Lo mismo el número conectado y la salud

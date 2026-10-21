@@ -1303,3 +1303,10 @@ Lo que el briefing previo daba por abierto y **ya no es cierto**:
   19:04, ajeno y transitorio: a las 19:11 ya estaba verde (sección 3). **Si lo reportás,
   fechá la lectura y volvé a medir antes de mandar el mensaje** — re-correrlo cuesta
   segundos y acusar a la sesión de al lado de romper el repo cuesta un turno de ella.
+
+## 0-Ω19. 21/10/2026, madrugada (chat «CRM», cuenta `claude4`): Ops Center 2.1, lo que le faltaba a Chats
+
+Cinco operaciones del área `chats` con la tarjeta (D3a: el toque en «Enviar» es la aprobación): mandar un WhatsApp
+(por la cola de borradores), contestar un DM y un email, agregar un contacto al CRM y marcar leído. Test
+`tests/chats-mako-envio.test.ts`; cosecha en hallazgos-comunicacion. **Depende de la 1.2** (rama `mako-wa`) para que el
+turno de la app llegue a ellas con el clasificador real: hoy el test arma ese veredicto a mano. No visto en el navegador.

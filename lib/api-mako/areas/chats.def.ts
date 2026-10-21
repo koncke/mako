@@ -9,12 +9,15 @@
 //
 // Tres decisiones que no se deducen leyendo la lib:
 //
-//  1. ⚠️ NINGUNA operación manda un mensaje. Un canal PROPONE y una persona confirma: para escribirle a un
-//     lead ya existe `crear_borrador_whatsapp_empresa` (área whatsapp), que deja el texto en la cola y una
-//     persona lo manda con un clic. Acá se lee y se cambia el ESTADO de una conversación (cerrar, reabrir,
-//     posponer), que es reversible y no le llega al contacto. Asignar tampoco está: el asignado ES el
-//     setter del lead, y eso ya lo hace `asignar_closer_setter` (área crm). Dos operaciones para lo mismo
-//     se desincronizan.
+//  1. ⚠️ UN CANAL PROPONE Y UNA PERSONA CONFIRMA. Hasta el 21/10/2026 ninguna operación de acá mandaba un mensaje;
+//     desde la D3a (Martín, 21/10/2026, vía Debate: «el toque en "Enviar" ES la aprobación del mensaje al lead») tres
+//     lo mandan (`enviar_borrador_whatsapp`, `contestar_dm`, `contestar_email_chat`, Ops Center 2.1), SIEMPRE con la
+//     tarjeta: MaKo propone el texto, la persona lo lee y toca «Enviar». No hay aprobación aparte, y nada sale sin
+//     ese toque (o el «sí» del dueño por WhatsApp). En WhatsApp no oficial el mensaje sigue pasando por la cola de
+//     borradores: tocar «Enviar» APRUEBA el borrador, no lo saltea (`enviarBorradorPorSuCanal`, la única puerta).
+//     El resto cambia el ESTADO de una conversación (cerrar, reabrir, posponer, leído) o agrega al contacto al CRM,
+//     y no le llega al contacto. Asignar no está: el asignado ES el setter del lead, y eso ya lo hace
+//     `asignar_closer_setter` (área crm). Dos operaciones para lo mismo se desincronizan.
 //  2. ⚠️ NADA SALE POR HTTP. Son conversaciones de personas (AGENTS.md: «conversaciones de personas no
 //     salen por HTTP»), y la clave de un contacto sin lead lleva su teléfono. Las acciones tampoco: sin la
 //     lista, un token no tiene de dónde sacar una clave.
@@ -84,7 +87,7 @@ export const DEFS: readonly OperacionDef[] = [
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: GATING,
   },
 
-  // ── Acciones (con «sí»): el estado de la conversación, nunca un envío ─────
+  // ── Acciones (con «sí»): el estado de la conversación ──────────────────────
   {
     id: 'cerrar_chat', area: 'chats', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Cerrar una conversación',
@@ -113,5 +116,65 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: SIN_HTTP, costo: 'gratis', gating: GATING,
     escribe: 'el estado pospuesta (con su vencimiento) en chat_estado y un evento en chat_eventos, con quien lo confirma',
+  },
+  {
+    // Sólo en la APP: el «leído» es de una PERSONA (chat_leidos por usuario), y por WhatsApp no hay sesión que diga quién.
+    id: 'marcar_leido_chat', area: 'chats', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Marcar como leído',
+    descripcion: 'Propone marcar como leída UNA conversación de la tab Chats para quien lo pide (el contador de sin leer es de cada persona). No le manda nada al contacto ni cambia el estado de la conversación. Pasa la clave de listar_chats o el leadId.',
+    parametros: [CLAVE, LEAD_ID],
+    canales: ['app'], costo: 'gratis', gating: GATING,
+    escribe: 'chat_leidos de quien confirma (hasta dónde leyó esa conversación)',
+  },
+  {
+    id: 'agregar_contacto_al_crm', area: 'chats', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Agregar al CRM',
+    descripcion: 'Propone dar de alta como lead a un contacto de la tab Chats que todavía no está en el CRM (como «Agregar al CRM» de la conversación): de WhatsApp con su teléfono, de Instagram o Messenger con su conversación. Si el negocio vende más de un producto, pregunta a cuál (funnelId). Un contacto que sólo escribe por email no se agrega desde acá. Si ya es lead, lo dice. Pasa la clave de listar_chats.',
+    parametros: [
+      { ...CLAVE, obligatorio: true },
+      { nombre: 'nombre', tipo: 'string', max: 120, descripcion: 'cómo se llama, si el nombre que trae la conversación no sirve (sólo WhatsApp).' },
+      { nombre: 'funnelId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el producto (funnel) al que entra, si hay varios. Si falta y hace falta, la respuesta trae los disponibles.' },
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: GATING,
+    escribe: 'un lead nuevo (leads) con origen chat, enlazado a su conversación, con quien lo confirma',
+  },
+
+  // ── Envíos (D3a, 21/10/2026): el toque en «Enviar» de la tarjeta ES la aprobación ──
+  {
+    id: 'enviar_borrador_whatsapp', area: 'chats', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    titulo: 'Enviar el WhatsApp',
+    descripcion: 'Propone MANDAR un WhatsApp por la línea no oficial del negocio, y sale cuando la persona toca «Enviar» en la tarjeta (ese toque es la aprobación). Dos formas: un borrador que ya está en la cola (su id, de hilo_chat → borradores_de_mako o listar_borradores_whatsapp_empresa), o un texto nuevo para una conversación (clave o leadId + texto), que queda como borrador y sale aprobado con el mismo toque. El texto lo tiene que haber dicho o aprobado la persona: «sí, dale» no es el mensaje. Sale por la línea en la que viene la charla (o la que pidas). No usa el WhatsApp oficial ni plantillas.',
+    parametros: [
+      { nombre: 'borradorId', tipo: 'number', entero: true, minimo: 1, descripcion: 'id de un borrador pendiente (de hilo_chat → borradores_de_mako). Con esto no hace falta nada más.' },
+      CLAVE, LEAD_ID,
+      { nombre: 'texto', tipo: 'string', max: 4000, descripcion: 'sin borradorId: el mensaje exacto que se le manda.' },
+      { nombre: 'linea', tipo: 'string', max: 120, descripcion: 'sin borradorId: la línea de WhatsApp (su nombre de instancia, de listar_chats → lineas), si el contacto tiene más de una.' },
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: GATING,
+    escribe: 'el borrador (wa_borradores) queda enviado por quien confirma y el mensaje sale al contacto por la línea no oficial; se ve en el hilo de Chats',
+  },
+  {
+    id: 'contestar_dm', area: 'chats', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    titulo: 'Enviar el mensaje directo',
+    descripcion: 'Propone CONTESTAR un mensaje directo de Instagram o Messenger desde la tab Chats, y sale cuando la persona toca «Enviar» en la tarjeta (ese toque es la aprobación). Sólo dentro de la ventana que permite la red (si se cerró, lo dice). El texto lo tiene que haber dicho o aprobado la persona: «sí, dale» no es el mensaje. Pasa la clave de listar_chats («ig:…», «fb:…» o la del lead).',
+    parametros: [
+      CLAVE, LEAD_ID,
+      { nombre: 'canal', tipo: 'string', enum: ['instagram', 'messenger'], descripcion: 'por cuál, si el contacto escribe por los dos.' },
+      { nombre: 'texto', tipo: 'string', obligatorio: true, max: 1000, descripcion: 'el mensaje exacto que se le manda.' },
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: GATING,
+    escribe: 'el mensaje sale al contacto por Instagram o Messenger y queda en su hilo de Chats, con quien lo confirma',
+  },
+  {
+    id: 'contestar_email_chat', area: 'chats', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    titulo: 'Enviar el email',
+    descripcion: 'Propone CONTESTAR por email a un contacto de la tab Chats, desde el dominio del negocio (nunca desde MaKo), y sale cuando la persona toca «Enviar» en la tarjeta (ese toque es la aprobación). Sin asunto, va como respuesta al último que llegó («Re: …»). El texto lo tiene que haber dicho o aprobado la persona: «sí, dale» no es el mensaje. Pasa la clave de listar_chats o el leadId.',
+    parametros: [
+      CLAVE, LEAD_ID,
+      { nombre: 'texto', tipo: 'string', obligatorio: true, max: 20000, descripcion: 'el cuerpo del email, exacto.' },
+      { nombre: 'asunto', tipo: 'string', max: 200, descripcion: 'el asunto, si es un email nuevo y no una respuesta.' },
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: GATING,
+    escribe: 'el email sale al contacto desde el dominio del negocio y queda en su hilo de Chats (email_mensajes), con quien lo confirma',
   },
 ];
