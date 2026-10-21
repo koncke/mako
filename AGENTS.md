@@ -373,10 +373,11 @@ node scripts/antes-de-subir.mjs --rapido
 
 **Es el MÍNIMO OBLIGATORIO** y tarda ~3-4 min en esta PC con 14 chats abiertos (medido sobre una punta de 21 archivos que traía 3
 rojos reales: 3 min 28 s y los tres salieron; la misma punta tardaba 26 min antes de compartir procesos). Corre las guardas, los
-tests que **nombran o importan DIRECTO** un archivo cambiado, **todas las barredoras** y los **tipos de lo cambiado si entran en RAM
-sin esperar** (20 s; si no, lo dice en la línea y los decide Actions; `--sin-tipos` los apaga); le deja a Actions los importadores a dos
-saltos o más (el replay: 19 de los 20 rojos de «Tests» y los 5 de «Tipos»). Los tipos van por defecto porque 3 de los 25 rojos de Actions
-fueron errores de tipos de archivos cambiados. Sin `--rapido` es el chequeo COMPLETO (todos los saltos
+tests que **nombran o importan DIRECTO** un archivo cambiado, **todas las barredoras** y **los tipos de lo cambiado**; le deja a Actions
+los importadores a dos saltos o más (el replay: 19 de los 20 rojos de «Tests» y los 5 de «Tipos»). **Los tipos son PARTE del VERDE**
+(21/10/2026): `tsx` —con el que se ejecutan los tests— NO chequea tipos, así que un test con un error de tipos corre perfecto, da verde y
+el error aparece recién en el paso «Tipos» de Actions; ese día cayeron cuatro runs así (173, 177, 187, 198), cada uno un email de GitHub a
+Martín. Sin `--rapido` es el chequeo COMPLETO (todos los saltos
 y los tipos de lo cambiado: ~6-7 min, estimado: 4 min 21 s medidos para los tests más las guardas y los tipos); el Cerebro lo usa para
 el push a `integracion`, y un jefe con tiempo puede correrlo también.
 
@@ -386,15 +387,25 @@ Un `ROJO: …` se arregla ANTES de pasarla, no después de que falle Actions (ca
 mes: 140 de los 2.000 gratis en dos días). Un exit **99** es «no corrió por falta de RAM», no un rojo del código: cerrá chats
 o esperá. Para ver qué elige sin correr nada: `--listar` (y `--explicar` en `tests-afectados.mjs`).
 
+⚠️ **UN VERDE SIN TIPOS NO SE LLAMA VERDE** (21/10/2026). Si los tipos de lo cambiado no se pudieron chequear (no entra en RAM en 2 min, otro
+typecheck no se libera, el vigía mató el tsc) la línea final es **`SIN TIPOS: <por qué>`** y el exit **98**: lo demás dio verde, pero eso NO
+es un VERDE, y **no se le pasa al Cerebro**. Antes la línea seguía diciendo `VERDE <sha> (tipos: los chequea Actions)`, y se leía como un
+verde. Qué hacer con un `SIN TIPOS`: liberar RAM (cerrar chats) y repetir; **no** pasarlo igual. `--sin-tipos` (o `MAKO_SIN_TIPOS=1`) existe
+para lo que NO es una punta (una prueba local, un cambio sólo de docs): la línea final es `PARCIAL (sin tipos…)`, tampoco VERDE.
+`scripts/tests-afectados.mjs` —que el Cerebro corre solo antes de cada push— hace lo mismo: corre el tsc acotado además de los tests, y
+`SIN TIPOS`, `PARCIAL` y `ROJO` salen por la **última línea** (en Actions y con `--resto` no se corren: ahí está el paso «Tipos»). Que un
+test pase con `node --import tsx --test` no dice nada de sus tipos. Se mide con el código de salida de `tsc`, nunca con un pipe: un `| tail`
+se come el exit 1 con el que el vigía mata al tsc, y «no hay errores» y «no corrí» se ven iguales.
+
 Corre, de lo más barato a lo más caro, y frena en el primer rojo (`--todo` sigue):
 1. **Las guardas del push** (`scripts/guardas-push.sh`, las mismas del pre-push y de Actions — incluida «todo `.ts` es un
    módulo»: un `.ts` sin `import`/`export` es un script global para `tsc` y choca con otros, runs 51 y 52).
 2. **El `tsc` ACOTADO de lo que cambiaste** (un test que llama con dos argumentos a una firma que pide uno, run 31; una bitácora
    sin `puntos`, run 10). `--importadores` suma a los que lo importan, un nivel, pero **no es el default**: el 17/10, con ~14 chats
    abiertos, ese alcance (188 archivos) pedía 4,3 GB y la PC tenía 1,3 libres, y el primer push del Cerebro se trabó ahí. El tsc
-   completo de Actions, que corre justo después de los afectados, cubre a los importadores. **Si no entra en 90 s** (RAM o lock),
-   no espera 15 min ni sale con 99: dice «tipos: los chequea Actions», sigue con los tests y la línea final es
-   `VERDE <sha> (tipos: los chequea Actions)`. Con el mismo lock y el mismo piso de RAM que
+   completo de Actions, que corre justo después de los afectados, cubre a los importadores. **Si no entra en 2 min** (RAM o lock;
+   `MAKO_TIPOS_ESPERA_S`), no espera 15 min: sigue con los tests y la línea final es `SIN TIPOS: <por qué>` con exit 98 (ver arriba), NO
+   un VERDE. Con el mismo lock y el mismo piso de RAM que
    `typecheck-lock.mjs`: de a un `tsc` por máquina. **Sólo bloquean los errores de esos archivos**: `tsc` compila además lo que
    importan, y ahí un archivo suelto no ve los tipos que AGREGA otro (`declare module`), así que los de arrastre se muestran y los
    decide Actions.

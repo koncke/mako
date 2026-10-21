@@ -6770,6 +6770,53 @@ Cerebro. Y el candado no cubre el `mobile-build.lock` de los Mobile: es otro rec
 **Vive en:** `scripts/candado-pesado.mjs` · `scripts/antes-de-subir.mjs` (`traerMain`, `--cola`, `--ya-tengo-el-candado`, `--sin-merge`) ·
 `tests/candado-pesado.test.ts` (21 pruebas; 32 roturas a propósito, todas dan rojo) · `AGENTS.md` («El candado de lo pesado ahora tiene COLA»)
 
+## `tsx` no chequea tipos: un test con un error de tipos pasa local y cae en Actions — y un «VERDE (tipos: los chequea Actions)» no era un verde (21/10/2026)
+
+**El síntoma** (lo midió el Cerebro, por pedido de Martín): a cada rato le llegaba el email de GitHub «integracion → main: All jobs have failed». Ese día fallaron seis runs (173, 176, 177, 182, 187, 198) y cada uno le
+mandó uno. **Cuatro cayeron en «Tipos», y siempre en un TEST nuevo o editado**: `tests/candado-pesado.test.ts` (el mío, run 173: un `aviso` con un argumento que el default `() => {}` no admitía, y un `soltar` «posiblemente undefined»),
+`crm-ficha-bloques-partidos`, `m-mako-chat` y `ops-center-landing-receta`. Los otros dos eran de tests (176: el «atrás» del teléfono; 182: un test de m-offer que importaba un `.css`). Producción no recibió nada roto
+—el run frena antes de avanzar `main`—, pero cada caída es un email para Martín y un lote trabado.
+
+**El diagnóstico obvio —«los chats no corren los tipos»— era el equivocado.** Tres huecos, juntos:
+1. **`tsx` no chequea tipos.** Los tests se ejecutan con `node --import tsx --test`, y tsx sólo QUITA los tipos: un test con `const n: number = 'x'` corre perfecto y da verde. Es el hueco que ninguna regla en prosa cierra: el
+   test «anda».
+2. **El tsc acotado de `antes-de-subir` pide ~4 GB** (su heap de 3 GB + 1 de margen) y en esta PC con ~14 chats abiertos rara vez entran. Cuando no entraban, el paso decía «tipos: los chequea Actions» y la línea final
+   seguía siendo **`VERDE <sha> (tipos: los chequea Actions)`**: una nota al pie de un verde, que se leía como un verde. Las cuatro puntas que cayeron venían así (y un VERDE «rápido» antes ni siquiera esperaba la RAM: 20 s).
+3. **`tests-afectados.mjs` —que el Cerebro corre solo antes de cada push— no corría el tsc en absoluto.** Elegía los tests y los ejecutaba con tsx: nunca pudo ver un error de tipos.
+
+**Qué quedó** (`scripts/tests-afectados.mjs`, `scripts/antes-de-subir.mjs`, `tests/tipos-del-cambio.test.ts`):
+- **Los tipos de lo cambiado son PARTE del veredicto**, en los dos scripts. La etapa vive en `tests-afectados.mjs` (`correrTipos`) y `antes-de-subir` la importa: una sola copia. Devuelve un ESTADO, no un booleano:
+  `ok` · `nada` (ningún .ts/.tsx cambió: es un verde) · `rojo` (errores EN LO CAMBIADO; los de arrastre se muestran y no frenan, como antes) · **`sin-tipos`** (no se pudo chequear: no hay RAM en 2 min, otro typecheck no se
+  libera, o el tsc murió sin decir un error —el vigía de RAM, sin heap, el tope de 15 min—). Se mide por el código de salida y la salida del `tsc`, **sin pipes**: un `| tail` se come el exit 1 con el que el vigía lo mata.
+- **`cerrar` decide la palabra y el exit, una sola vez para los dos scripts:** cualquier rojo → `ROJO` (1); sin rojos pero `sin-tipos` → **`SIN TIPOS: <por qué>`, exit 98**; `--sin-tipos` (o `MAKO_SIN_TIPOS=1`) a propósito →
+  `PARCIAL (…)`, exit 0, que tampoco es VERDE; si no, `VERDE`. Un rojo manda sobre `SIN TIPOS` pero lo menciona. El 98 es distinto del 1 (rojo) y del 99 (no corrió por falta de RAM).
+- **En Actions (`CI`) y con `--resto` no se corren los tipos:** ahí está el paso «Tipos» con el tsc completo, y la salida de `tests-afectados` es la de siempre.
+- **Pruebas, con un tsc de verdad:** `correrTipos` con un tsc inyectado (bien, errores en lo cambiado, errores sólo por arrastre, nada que compilar, muerto con exit 1 y sin salida, con timeout, con heap agotado, sin RAM) y **de punta
+  a punta**: un repo de git de mentira (con un junction a `node_modules`) y el CLI real. Un test NUEVO con `const cuenta: number = 'esto no es un número'` —que como test corre perfecto— da **ROJO** en `tests-afectados` y en
+  `antes-de-subir`, que es lo que se pidió; uno sano da `VERDE · tipos de 1 archivos sin errores`; sin RAM da `SIN TIPOS: no hay RAM…` y sale 98 sin una sola línea que diga VERDE.
+
+**Las trampas que aparecieron:**
+- **`MAKO_TESTS_SIN_ESPERA=1` («corro igual aunque no haya RAM») también vale para los tipos**, porque comparten `esperarRam`. La primera versión de la prueba de «sin RAM» lo tenía puesto y los tipos corrían igual:
+  dio ROJO (exit 1) en vez de `SIN TIPOS`. Quien lo use sabe que el vigía puede matar el tsc, y eso ahora se lee como `SIN TIPOS`, no como un verde.
+- **El veredicto sale por stdout y los avisos de espera por stderr:** juntarlos uno detrás del otro pone los avisos «al final». En una terminal van intercalados por la hora; una prueba que lee «la última línea» tiene que leer stdout.
+- **En Actions `CI=true` apaga los tipos de `tests-afectados`:** las pruebas de punta a punta corren el CLI con `CI=''`, o serían verdes en la PC y rojas en Linux por una razón que no es el código.
+- **Las pruebas no tocan el lock de typecheck de otro chat** (`MAKO_TIPOS_LOCK`) ni dependen de cuánta RAM libre tenga la PC (`MAKO_TIPOS_PISO_GB`, que baja el piso para un archivito).
+
+**Reglas que quedan:**
+- **Un verde sin tipos no se llama VERDE.** Lo que no se pudo chequear se dice como lo que es (`SIN TIPOS`) y con un exit propio; nunca como una leyenda al pie de un verde.
+- **Que un test pase con tsx no dice nada de sus tipos.** Un test nuevo o editado se chequea con el tsc acotado, y un error de tipos de un test es un error de tipos, no «un detalle del test».
+- **Medir por el exit code, sin pipe.** «No hay errores» y «no corrí» se ven iguales detrás de un `| tail`.
+- **Un fallo parecido al de antes es el mismo hueco hasta que se demuestra lo contrario:** el run 173 (mi propio test) mostró la mitad del problema, y se corrigió «la causa» (JSDoc) sin cerrar el hueco por el que había pasado.
+
+**Sin hacer / abierto:**
+- **En esta PC los `SIN TIPOS` van a ser frecuentes** (4 GB libres son raros con ~14 chats): es el costo de no disfrazarlo. Pedir menos RAM para un alcance de tests sin importar mucho (un archivo de test que sólo importa módulos de `node:`
+  carga unos pocos cientos de MB, no 2,5 GB) bajaría la frecuencia sin aflojar nada, pero el heap hoy se decide por la CANTIDAD de archivos (`heapPara`), no por lo que arrastran: hace falta medirlo antes de tocarlo.
+- **El hook de pre-push instalado** (`.git/hooks/pre-push`) es una COPIA de `scripts/claude-hooks/pre-push`: la versión del repo ya distingue el 98 («PUSH BLOQUEADO: SIN TIPOS, no es un rojo del código») y acepta `MAKO_SIN_TIPOS=1`, pero la
+  instalada sigue diciendo «dio ROJO» para el 98 (bloquea igual). Reinstalarla es infraestructura compartida: la decide el Cerebro.
+- **`integracion.yml` no se tocó:** corre `tests-afectados` con `CI=true` (sin tipos, a propósito) y su paso «Tipos» aparte.
+
+**Vive en:** `scripts/tests-afectados.mjs` (`correrTipos`, `cerrar`, `SALIDA_SIN_TIPOS`, `--sin-tipos`) · `scripts/antes-de-subir.mjs` · `scripts/claude-hooks/pre-push` · `tests/tipos-del-cambio.test.ts` · `AGENTS.md` («UN VERDE SIN TIPOS NO SE LLAMA VERDE»)
+
 ## Un script de roturas no se corta con `head`, y un worktree no tiene `.env.local` (16/10/2026)
 
 - ⚠️ **`node romper-*.mjs | head -3` puede matar el script en la mitad de una rotura.** Cuando `head` cierra el pipe,

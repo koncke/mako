@@ -58,6 +58,16 @@ if [ "$A_INTEGRACION" -eq 1 ] && [ "$A_MAIN" -eq 0 ] && [ "${MAKO_SIN_ANTES_DE_S
       [ -n "$VEREDICTO" ] && echo "$VEREDICTO"
       exit 1
     fi
+    # 98 = «SIN TIPOS» (21/10/2026): los tests y las guardas dieron verde pero los tipos NO se pudieron chequear. `tsx` no chequea tipos: un test con un error de tipos
+    # corre perfecto y cae en Actions (4 runs ese día, un email de GitHub cada uno). NO es un rojo del código, y tampoco es un verde.
+    if [ "$ANTES" -eq 98 ]; then
+      echo ""
+      echo "  ✖ PUSH BLOQUEADO: SIN TIPOS. Lo demás dio verde, pero los tipos de lo cambiado no se pudieron chequear. Esto NO es un rojo del código."
+      echo "    Cerrá unos chats de Claude y volvé a pushear, o MAKO_SIN_TIPOS=1 git push … si lo decidís vos (la línea pasa a PARCIAL): los tipos los decide Actions."
+      echo ""
+      [ -n "$VEREDICTO" ] && echo "$VEREDICTO"
+      exit 1
+    fi
     if [ "$ANTES" -ne 0 ]; then
       echo ""
       echo "  ✖ PUSH BLOQUEADO: antes-de-subir dio ROJO."
@@ -66,7 +76,10 @@ if [ "$A_INTEGRACION" -eq 1 ] && [ "$A_MAIN" -eq 0 ] && [ "${MAKO_SIN_ANTES_DE_S
       [ -n "$VEREDICTO" ] && echo "$VEREDICTO"
       exit 1
     fi
-    echo "[pre-push] ✓ antes-de-subir en verde (las guardas ya corrieron adentro)."
+    case "$VEREDICTO" in
+      PARCIAL*) echo "[pre-push] ⚠ antes-de-subir PARCIAL (sin tipos, a propósito): no es un VERDE. Los tipos los decide Actions." ;;
+      *) echo "[pre-push] ✓ antes-de-subir en verde (las guardas ya corrieron adentro)." ;;
+    esac
     [ -n "$VEREDICTO" ] && echo "$VEREDICTO"
     exit 0
   fi

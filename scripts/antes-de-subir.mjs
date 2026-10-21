@@ -18,8 +18,10 @@
 //      las bitácoras, skills y plugin al día, la API de MaKo, hooks de React, y «todo .ts es un módulo».
 //   2. El TSC ACOTADO de lo que cambió (el tsc suma solo lo que esos archivos importan; `--importadores` suma también a quienes
 //      los importan, un nivel — no es el default: con 14 chats abiertos pedía 4,3 GB y la PC tenía 1,3). Con el piso de RAM de
-//      scripts/typecheck-lock.mjs y su mismo lock. ⚠️ Si no entra en 90 s (RAM o lock), NO se espera 15 min ni se sale con 99:
-//      dice «tipos: los chequea Actions» y sigue con los tests; la línea final queda `VERDE <sha> (tipos: los chequea Actions)`.
+//      scripts/typecheck-lock.mjs y su mismo lock. ⚠️ LOS TIPOS SON PARTE DEL VERDE (21/10/2026): `tsx` no chequea tipos y 4 runs de Actions cayeron ese día por un
+//      error de tipos en un test que acá había dado VERDE «(tipos: los chequea Actions)». Si NO se pueden chequear (no entra en RAM en 2 min, otro typecheck no
+//      se libera, el vigía mata el tsc), sigue con los tests pero la línea final es `SIN TIPOS: <por qué>` y sale 98, no VERDE. Sólo `--sin-tipos` lo evita,
+//      y entonces la línea es `PARCIAL (sin tipos…)`. La etapa vive en scripts/tests-afectados.mjs (`correrTipos`), que también la corre sola.
 //   3. Los TESTS AFECTADOS (scripts/tests-afectados.mjs): todas las barredoras (git ls-files, readdir…, detectadas
 //      solas), los que NOMBRAN un archivo cambiado como texto y los que lo IMPORTAN, directo o transitivo.
 //   Todo con poca concurrencia (2 procesos) y esperando RAM, no cayéndose.
@@ -27,8 +29,8 @@
 // DOS MODOS (medidos el 17/10/2026 en esta PC con ~14 chats abiertos, sobre la punta de Automations de 21 archivos, que tiene 3 rojos reales):
 //   · COMPLETO (el default): guardas + tipos de lo cambiado + tests afectados a TODOS los saltos. Los tests: 4 min 21 s (396 archivos, 4.712 tests).
 //   · `--rapido`: el MÍNIMO que un jefe corre antes de pasar una punta (AGENTS.md). Guardas + los tests que nombran o importan DIRECTO un archivo
-//     cambiado (profundidad 1) + todas las barredoras + los tipos de lo cambiado SI ENTRAN EN RAM SIN ESPERAR (20 s; `--sin-tipos` los apaga): 3 min 28 s
-//     sin tipos, en total. Le deja a Actions los importadores a 2+ saltos (y los tipos si no entraron: la línea lo dice); el replay
+//     cambiado (profundidad 1) + todas las barredoras + los tipos de lo cambiado (OBLIGATORIOS desde el 21/10/2026: sin ellos no hay VERDE, ver arriba; `--sin-tipos` los
+//     apaga y la línea pasa a PARCIAL): 3 min 28 s sin tipos, en total. Le deja a Actions los importadores a 2+ saltos; el replay
 //     (`replay-fallos-ci.mjs --rapido`) dice qué cubre: 19 de los 20 rojos de «Tests» y los 5 de «Tipos» (3 de ellos sólo con los tipos incluidos).
 //     ⚠️ Los tipos se incluyen POR DEFECTO aunque el pedido era «sin tsc»: 3 de los 25 rojos de Actions eran errores de tipos de archivos CAMBIADOS, y los 5
 //     que tuvo el test de este mismo script al armarlo los vio sólo el modo completo — un VERDE rápido sin tipos los habría dejado pasar.
@@ -41,19 +43,19 @@
 // interferencia: `editor-landing-origen` falló una vez porque otro test había dejado algo que hacía creer a lib/app-url.ts que corría «en el
 // navegador»). Riesgo que queda: un FALSO VERDE por contagio — por eso Actions sigue corriendo cada test en su proceso.
 //
-// LA SALIDA ES UNA LÍNEA, la última:   VERDE <sha>     o     ROJO: <qué>
+// LA SALIDA ES UNA LÍNEA, la última:   VERDE <sha>     o     ROJO: <qué>     o     SIN TIPOS: <por qué>   (98)     o     PARCIAL (…)   (--sin-tipos, --solo, --profundidad)
 // y el VERDE sólo vale si (a) el árbol está LIMPIO (lo que probaste es lo que viaja: un archivo nuevo sin
 // commitear se ve acá pero no llega a la integración) y (b) tu rama TIENE origin/main mergeado (si no, probaste
 // contra una versión vieja de lo que hicieron los demás). Por eso el chat le pasa al Cerebro SU PUNTA Y ESA LÍNEA,
-// y el Cerebro no integra una punta sin ella. Exit: 0 verde · 1 rojo · 99 no corrió por falta de RAM (no es un rojo
-// de código: cerrá chats o esperá).
+// y el Cerebro no integra una punta sin ella. Exit: 0 verde (o PARCIAL a propósito) · 1 rojo · 98 SIN TIPOS (lo demás dio verde, los tipos no se pudieron chequear) ·
+// 99 no corrió por falta de RAM (ni 98 ni 99 son un rojo de código: cerrá chats o esperá).
 //
 // Uso:  node scripts/antes-de-subir.mjs [--base origin/main] [--todo] [--cortar] [--sin-fetch] [--listar]
 //   --listar: sólo el plan (qué tests y qué archivos de tipos), no corre nada · --sin-fetch: no baja origin/main antes
 //   --sin-condiciones: no exige árbol limpio ni origin/main mergeado (lo usa el pre-push, que ya sabe qué commit sube)
 //   --rapido [--sin-tipos]: el modo rápido (arriba) · --sin-compartir: cada test en su proceso, como `npm test`.
 //   --importadores: el tsc acotado suma, además de lo cambiado, a quienes lo importan (un nivel).
-//   MAKO_TIPOS_ESPERA_S=<segundos>: cuánto espera RAM para los tipos antes de decir «los chequea Actions» (default 90).
+//   MAKO_TIPOS_ESPERA_S=<segundos>: cuánto espera RAM (o el lock) para los tipos antes de decir «SIN TIPOS» (default 120). MAKO_SIN_TIPOS=1 = --sin-tipos.
 //   --profundidad N: de los tests que IMPORTAN un archivo cambiado, sólo los que están a N saltos o menos (default: todos).
 //     Es la palanca si el tiempo aprieta (26 min en la PC cargada con una punta de 21 archivos); un VERDE así dice «--profundidad N» en su línea.
 //   --solo guardas|tipos|tests: una sola etapa; la última línea es `PARCIAL …`, nunca `VERDE` (no vale para pasar una punta)
@@ -101,17 +103,18 @@
 // =============================================================================
 
 import { spawnSync, execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { armarTsconfig } from './tsc-acotado.mjs';
-import { veredicto } from './tsc-bitacoras.mjs';
 import { describirEstado, estado, tomarTurno } from './candado-pesado.mjs';
 import {
-  agrupar, alcanceTsc, correrTests, dormir, esperarRam, git, imprimirPlan, indiceConNuevos, min, planear, ramLibreGb,
-  SALIDA_SIN_CORRER, ZONA_ROJA_VIGIA_GB,
+  agrupar, alcanceTsc, cerrar, correrTests, correrTipos, ESPERA_TIPOS_MS, git, heapPara, imprimirPlan, indiceConNuevos, min, planear, ramLibreGb,
+  SALIDA_SIN_CORRER, SALIDA_SIN_TIPOS, soltarLockTipos,
 } from './tests-afectados.mjs';
+
+// La etapa de TIPOS vive en tests-afectados.mjs (correrTipos / cerrar): es la misma que corre ese script solo. Se re-exporta heapPara por quien ya lo importa de acá.
+export { heapPara };
 
 // La raíz es la del árbol DESDE DONDE se corre (no la de este archivo): así el mismo script se puede probar sobre el árbol
 // de un commit viejo (replay de los runs rojos) y el hook lo corre sobre el worktree que se pushea.
@@ -146,83 +149,6 @@ function correrGuardas(out) {
   out(salida.split('\n').slice(-25).join('\n'));
   const cual = (salida.match(/\[pre-push\] (Chequeando[^\n]*)\n(?:(?!\[pre-push\]).*\n)*?\s*(?:X|✖) PUSH BLOQUEADO: ([^\n]*)/) ?? [])[2];
   return { ok: false, porque: `una guarda del push: ${cual ?? 'mirá el detalle de arriba'}` };
-}
-
-// ---------------------------------------------------------------------------
-// 2. El tsc acotado (mismo lock y mismo criterio de RAM que scripts/typecheck-lock.mjs)
-// ---------------------------------------------------------------------------
-
-const LOCK = path.join(os.tmpdir(), 'mako-typecheck.lock');    // el MISMO archivo: un tsc por máquina, sea completo o acotado
-const vivo = (pid) => { if (!Number.isInteger(pid) || pid <= 0) return false; try { process.kill(pid, 0); return true; } catch { return false; } };
-const duenoDelLock = () => { try { return Number.parseInt(readFileSync(LOCK, 'utf8').trim(), 10); } catch { return NaN; } };
-
-async function tomarLock(maxMs = 10 * 60 * 1000) {
-  const hasta = Date.now() + maxMs;
-  let aviso = false;
-  while (Date.now() < hasta) {
-    try { writeFileSync(LOCK, String(process.pid), { flag: 'wx' }); return true; } catch { /* ocupado */ }
-    if (!vivo(duenoDelLock())) { try { unlinkSync(LOCK); } catch { /* otro lo sacó */ } continue; }
-    if (!aviso) { process.stderr.write(`  [antes-de-subir] otro typecheck está corriendo (pid ${duenoDelLock()}); espero mi turno…\n`); aviso = true; }
-    await dormir(500);
-  }
-  return false;
-}
-const soltarLock = () => { try { if (duenoDelLock() === process.pid) unlinkSync(LOCK); } catch { /* ya no es mío */ } };
-
-/**
- * Heap según cuántos archivos hay que compilar. ⚠️ El `tsc` suma TODO lo que esos archivos importan, y en este repo un solo archivo de app/ o lib/ ya arrastra ~1.800
- * archivos y ~2,5 GB (medido el 17/10/2026: 1 archivo → 1.835 archivos y 2.533 MB; 10 → 2.196 y 2.729 MB; 60 → 3.476 y 2.514 MB, 96 s). Con un tope de 2 GB (lo que
- * había puesto antes para alcances chicos) el `tsc` moría sin heap a partir de ~10 archivos, y eso se leía como «no terminó» y se SALTABA: los tipos casi nunca se
- * chequeaban. Por eso el mínimo es 3 GB (y el piso de RAM, ~4 GB: en una PC con 14 chats abiertos los tipos se van a saltar seguido, y lo dice la línea final).
- */
-export const heapPara = (n) => (n > 600 ? 5120 : n > 120 ? 4096 : 3072);
-const pisoTsc = (heapMb) => (() => heapMb / 1024 + 0.1 + ZONA_ROJA_VIGIA_GB);
-
-// ⚠️ EL TIPO NO ES UN CANDADO QUE SE ARREGLE ESPERANDO (17/10/2026). El primer push del Cerebro con el pre-push nuevo se trabó en
-// «tipos (188 archivos)»: pedía 4,3 GB y la PC, con ~14 chats abiertos, tenía 1,3 libres. Ahora el paso espera poco (90 s) y, si no
-// entra, DICE «tipos: los chequea Actions» y sigue con los tests — el tsc completo de Actions corre justo después de los afectados.
-// «El gate tiene que poder correr en esta PC con 14 chats abiertos; si no, nadie lo va a usar.»
-const ESPERA_TIPOS_MS = (Number(process.env.MAKO_TIPOS_ESPERA_S) || 90) * 1000;
-
-async function correrTsc(alcance, out, esperaMs = ESPERA_TIPOS_MS) {
-  if (alcance.length === 0) { out('  ✔ ningún .ts/.tsx cambió: nada que compilar'); return { ok: true }; }
-  const heap = heapPara(alcance.length);
-  const saltar = (porque) => { out(`  ⚠ tipos: los chequea Actions (${porque})`); return { ok: true, saltado: porque }; };
-  if (!(await tomarLock(esperaMs))) return saltar('otro typecheck está corriendo y no se liberó');
-  try {
-    const c = await esperarRam(1, { pisoGb: pisoTsc(heap), quien: 'antes-de-subir', esperaMaxMs: esperaMs });
-    if (c === 0) return saltar(`no hay RAM: quedan ${ramLibreGb().toFixed(1)} GB y el tsc acotado pide ${pisoTsc(heap)(1).toFixed(1)}`);
-    const dir = mkdtempSync(path.join(os.tmpdir(), 'antes-de-subir-tsc-'));
-    const config = path.join(dir, 'tsconfig.json');
-    writeFileSync(config, JSON.stringify(armarTsconfig(RAIZ, alcance), null, 2));
-    const t0 = Date.now();
-    try {
-      const r = spawnSync(process.execPath, [`--max-old-space-size=${heap}`, path.join(RAIZ, 'node_modules', 'typescript', 'bin', 'tsc'), '-p', config], { cwd: RAIZ, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-      const salida = `${r.stdout ?? ''}${r.stderr ?? ''}`;
-      const v = veredicto(r.error ? null : r.status, salida);
-      if (v === 'ok') { out(`  ✔ tipos de ${alcance.length} archivos sin errores · ${min(Date.now() - t0)} · heap ${heap} MB`); return { ok: true }; }
-      if (v === 'errores') {
-        // ⚠️ SÓLO BLOQUEAN los errores de los archivos DEL ALCANCE (lo cambiado; con --importadores, también quienes lo importan). tsc también compila todo lo que
-        // esos archivos importan, y ahí un archivo suelto no ve los tipos que AGREGA otro (`declare module`, `.d.ts` ambientes):
-        // medido el 17/10/2026 al reproducir el run 10, `insertar.ts` (TipTap) daba TS2339 que el tsc completo no da. Esos errores
-        // se muestran pero no frenan: los decide el tsc completo de Actions. Un cambio que rompe a un importador DIRECTO sí frena.
-        const delAlcance = new Set(alcance);
-        const errores = salida.split('\n').filter((l) => /error TS\d+/.test(l));
-        const archivoDe = (l) => l.split('(')[0].replace(/\\/g, '/');
-        const propios = errores.filter((l) => delAlcance.has(archivoDe(l)));
-        const porArrastre = errores.length - propios.length;
-        if (propios.length === 0) {
-          out(`  ✔ tipos de ${alcance.length} archivos sin errores · ${min(Date.now() - t0)} · heap ${heap} MB`);
-          out(`  ℹ ${porArrastre} error(es) en archivos que sólo se compilan por arrastre (no frenan; los decide el tsc de Actions): ${[...new Set(errores.map(archivoDe))].slice(0, 3).join(', ')}`);
-          return { ok: true };
-        }
-        out(propios.slice(0, 30).join('\n') + (propios.length > 30 ? `\n  …y ${propios.length - 30} más` : ''));
-        if (porArrastre) out(`  ℹ y ${porArrastre} más en archivos que sólo se compilan por arrastre (no cuentan acá)`);
-        return { ok: false, porque: `tipos: ${propios.length} errores (${[...new Set(propios.map(archivoDe))].slice(0, 3).join(', ')})` };
-      }
-      return saltar(`el tsc acotado no terminó (código ${r.status ?? r.error?.message}, ${salida.length} bytes): lo mató el vigía de RAM o se quedó sin heap — no es un error de tipos`);
-    } finally { rmSync(dir, { recursive: true, force: true }); }
-  } finally { soltarLock(); }
 }
 
 // ---------------------------------------------------------------------------
@@ -283,7 +209,7 @@ export function traerMain({ cwd = RAIZ, base = 'origin/main', cuenta = '?', fetc
 }
 
 function leerArgs(argv) {
-  const o = { base: 'origin/main', todo: false, cortar: false, fetch: true, listar: false, condiciones: true, solo: '', profundidad: Infinity, importadores: false, rapido: false, conTipos: true, compartir: !process.env.CI, cola: false, merge: true, yaTengoElCandado: false };
+  const o = { base: 'origin/main', todo: false, cortar: false, fetch: true, listar: false, condiciones: true, solo: '', profundidad: Infinity, importadores: false, rapido: false, conTipos: process.env.MAKO_SIN_TIPOS !== '1', compartir: !process.env.CI, cola: false, merge: true, yaTengoElCandado: false };
   for (let i = 0; i < argv.length; i++) {
     const [k, v] = argv[i].split(/=(.*)/s);
     if (k === '--base') o.base = v !== undefined ? v : argv[++i];
@@ -399,7 +325,8 @@ async function ejecutar(o, out, lineaFinal, { yaTraje = false } = {}) {
   const rojos = [];
   const parar = () => rojos.length > 0 && !o.todo;
   let sinRam = false;
-  let tiposSaltados = '';
+  /** El resultado de la etapa de tipos (null = no corrió: `--sin-tipos`, o una etapa suelta que no es la de tipos). */
+  let tipos = null;
   const t0 = Date.now();
 
   const toca = (etapa) => !o.solo || o.solo === etapa;
@@ -409,13 +336,13 @@ async function ejecutar(o, out, lineaFinal, { yaTraje = false } = {}) {
     if (!g.ok) rojos.push(g.porque);
   }
 
-  if (toca('tipos') && !parar() && (!o.rapido || o.conTipos)) {
+  if (toca('tipos') && !parar() && o.conTipos) {
     out(`\n[2/3] tipos (tsc acotado a ${alcance.length} archivos)`);
-    // En --rapido los tipos se intentan SIN esperar (20 s): si la RAM no alcanza ya, no se frena al jefe. Medido: 3 de los 25 rojos de Actions
-    // eran errores de tipos de archivos CAMBIADOS, y los 5 que tuvo mi propio test al armar esto los vio sólo el modo completo.
-    const t = await correrTsc(alcance, out, o.rapido ? 20 * 1000 : ESPERA_TIPOS_MS);
-    if (!t.ok) { rojos.push(t.porque); if (t.sinRam) sinRam = true; }
-    if (t.saltado) tiposSaltados = t.saltado;
+    // ⚠️ LOS TIPOS SON PARTE DEL VERDE, también en --rapido (21/10/2026): `tsx` no chequea tipos, así que un test con un error de tipos corre bien acá y cae recién en el
+    // paso «Tipos» de Actions (4 runs ese día, un email de GitHub cada uno). Antes, sin RAM, esto decía «tipos: los chequea Actions» y la línea final seguía siendo VERDE.
+    // Ahora, si los tipos no se pueden chequear, la línea final es `SIN TIPOS: <por qué>` y sale 98; sólo `--sin-tipos` (a propósito) lo evita, y entonces es PARCIAL.
+    tipos = await correrTipos(alcance, { raiz: RAIZ, out, esperaMs: ESPERA_TIPOS_MS });
+    if (tipos.estado === 'rojo') rojos.push(tipos.porque);
   }
 
   if (toca('tests') && !parar()) {
@@ -444,6 +371,7 @@ async function ejecutar(o, out, lineaFinal, { yaTraje = false } = {}) {
   // Una sola etapa nunca es un VERDE: no vale para pasarle una punta al Cerebro.
   if (o.solo) {
     out(`\n[antes-de-subir] ${min(Date.now() - t0)} · etapa «${o.solo}»`);
+    if (!rojos.length && o.solo === 'tipos' && tipos?.estado === 'sin-tipos') { lineaFinal(`SIN TIPOS: ${tipos.porque}`); return SALIDA_SIN_TIPOS; }
     lineaFinal(rojos.length ? `ROJO: ${rojos.join(' · ')}` : `PARCIAL (${o.solo}): sin rojos — no vale como VERDE, faltan las otras etapas`);
     return rojos.length ? (sinRam && rojos.length === 1 ? SALIDA_SIN_CORRER : 1) : 0;
   }
@@ -461,14 +389,17 @@ async function ejecutar(o, out, lineaFinal, { yaTraje = false } = {}) {
   if (o.condiciones && rojos.length === 0 && sinMain) rojos.push(sinMain);
 
   out(`\n[antes-de-subir] ${min(Date.now() - t0)} en total`);
-  // Sin RAM para el tsc acotado el VERDE sigue valiendo, pero lo dice: los tipos los decide Actions (que corre el tsc completo).
-  // `--rapido` es el MÍNIMO que un jefe corre antes de pasar una punta (AGENTS.md): sin los importadores lejanos —los decide Actions—, y con los tipos
-  // de lo cambiado sólo si entraron en RAM; la línea lo dice, para que el Cerebro sepa qué se miró.
-  if (rojos.length === 0) { lineaFinal(`VERDE ${sha}${o.rapido ? (o.conTipos && !tiposSaltados ? ' (rápido: tipos de lo cambiado sí; sin importadores lejanos: los chequea Actions)' : ' (rápido: sin tipos ni importadores lejanos; los chequea Actions)') : tiposSaltados ? ' (tipos: los chequea Actions)' : ''}`); return 0; }
-  lineaFinal(`ROJO: ${rojos.join(' · ')}`);
+  // Un VERDE SIN TIPOS NO SE LLAMA VERDE (`cerrar`, en tests-afectados.mjs): rojos → ROJO; sin rojos pero los tipos no se pudieron chequear → `SIN TIPOS: <por qué>` (98);
+  // sin rojos y `--sin-tipos` a propósito → PARCIAL (0, no vale para pasar una punta); si no, VERDE. `--rapido` es el MÍNIMO que un jefe corre antes de pasar una punta
+  // (AGENTS.md): sin los importadores lejanos —los decide Actions—, pero CON los tipos de lo cambiado.
+  const fin = cerrar({ rojos, tipos, sinTiposPedido: !o.conTipos });
+  if (fin.palabra === 'VERDE') { lineaFinal(`VERDE ${sha}${o.rapido ? ' (rápido: tipos de lo cambiado sí; sin importadores lejanos: los chequea Actions)' : ''}`); return 0; }
+  if (fin.palabra === 'SIN TIPOS') { lineaFinal(`SIN TIPOS: ${fin.detalle}`); return SALIDA_SIN_TIPOS; }
+  if (fin.palabra === 'PARCIAL') { lineaFinal(`PARCIAL (${fin.detalle})`); return 0; }
+  lineaFinal(`ROJO: ${fin.detalle}`);
   return sinRam && rojos.length === 1 ? SALIDA_SIN_CORRER : 1;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main(process.argv.slice(2)).then((c) => process.exit(c), (e) => { soltarLock(); process.stderr.write(`  [antes-de-subir] error inesperado: ${e?.stack ?? e}\n`); console.log(`ROJO: error inesperado del script (${String(e?.message ?? e).split('\n')[0]})`); process.exit(1); });
+  main(process.argv.slice(2)).then((c) => process.exit(c), (e) => { soltarLockTipos(); process.stderr.write(`  [antes-de-subir] error inesperado: ${e?.stack ?? e}\n`); console.log(`ROJO: error inesperado del script (${String(e?.message ?? e).split('\n')[0]})`); process.exit(1); });
 }
