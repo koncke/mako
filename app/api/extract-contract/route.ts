@@ -13,6 +13,7 @@ import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { getPromptText } from '@/lib/prompt-render';
 import { CONTRACT_EXTRACT_DEFAULT } from '@/lib/prompt-defaults';
 import { leerDocumentoIA } from '@/lib/ai-cheap';
+import { montosDelContrato } from '@/lib/contrato-montos';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -94,12 +95,14 @@ export async function POST(req: NextRequest) {
 
     // NO se guarda nada en el lead: la UI llena el borrador y guarda con "Guardar
     // cambios" (así los datos aparecen al toque y no se persisten sin confirmar).
+    // ⚠️ LOS MONTOS, SÓLO SI SON DÓLARES (21/10/2026): en otra moneda van el total original y las fechas, y los dólares los
+    // carga la persona (`montosDelContrato`, lib/contrato-montos.ts). Nunca una tasa de la IA.
+    const montos = montosDelContrato(parsed);
     return Response.json({
-      total_usd: parsed.total_usd ?? null,
+      ...montos,
       duracion_meses: parsed.duracion_meses ?? null,
       fecha_cierre: parsed.fecha_cierre ?? null,
       fecha_inicio: parsed.fecha_inicio ?? null,
-      cuotas: Array.isArray(parsed.cuotas) ? parsed.cuotas : [],
       empresa: parsed.empresa ?? null,
       fiscal: parsed.fiscal ?? null,
       servicio,
