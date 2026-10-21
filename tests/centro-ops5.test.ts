@@ -111,11 +111,11 @@ test('3: un solo botón, el micrófono sin nada escrito y la flecha con texto, e
   const flecha = renderToStaticMarkup(createElement(BotonMandar, { ...base, valor: 'hola', hayQueMandar: true }));
   assert.match(flecha, /aria-label="Firmar y mandar"/);
   assert.doesNotMatch(flecha, /Dictar/);
-  for (const f of ['app/admin/operaciones/Conversacion.tsx', 'app/m/operaciones/ChatsMovil.tsx']) {
-    const s = codigo(f);
-    assert.match(s, /<BotonMandar /, `${f}: el botón único`);
-    assert.doesNotMatch(s, /<Microfono /, `${f}: sin el micrófono aparte`);
-  }
+  // Desde el 20/10/2026 la caja es UNA pieza (app/_chat/CajaChat.tsx): el botón único vive ahí, y las dos pantallas la usan.
+  const pieza = codigo('app/_chat/CajaChat.tsx');
+  assert.match(pieza, /<BotonMandar /, 'la caja única: el botón único');
+  assert.doesNotMatch(pieza, /<Microfono /, 'sin el micrófono aparte');
+  for (const f of ['app/admin/operaciones/Conversacion.tsx', 'app/m/operaciones/ChatsMovil.tsx']) assert.match(codigo(f), /<CajaChat /, `${f}: la caja única`);
 });
 
 test('8: «Completado» en pantalla, el aviso en la fila sólo si no se vio, y el «atrás» cierra la foto', () => {
@@ -207,12 +207,12 @@ test('5: los emojis donde está el cursor, en su botón junto al campo; el «+»
   assert.deepEqual(conEmoji('hola mundo', 4, 4, '👍'), { texto: 'hola👍 mundo', cursor: 6 });
   assert.deepEqual(conEmoji('hola mundo', 5, 10, '🔥'), { texto: 'hola 🔥', cursor: 7 }, 'reemplaza lo seleccionado');
   assert.deepEqual(conEmoji('hola', null, null, '✅'), { texto: 'hola✅', cursor: 5 }, 'sin cursor, al final');
-  for (const f of ['app/admin/operaciones/Conversacion.tsx', 'app/m/operaciones/ChatsMovil.tsx']) {
-    assert.match(codigo(f), /<\/MasCaja>[\s\S]{0,120}<BotonEmojis campo=\{caja\}/, `${f}: la carita, junto al campo`);
-  }
+  // La carita, junto al campo, en la caja única (app/_chat/CajaChat.tsx, 20/10/2026), que usan la computadora y el teléfono.
+  assert.match(codigo('app/_chat/CajaChat.tsx'), /<\/MasCaja>\}[\s\S]{0,160}<BotonEmojis campo=\{caja\}/, 'la carita, junto al campo');
   const mas = codigo('app/admin/operaciones/AdjuntosCaja.tsx');
   const rotulos = [...mas.matchAll(/<\/span><span>([^<]+)<\/span>\s*<\/button>/g)].map((m) => m[1]);
-  assert.deepEqual(rotulos, ['Documento', 'Fotos', 'Cámara'], 'los círculos de WhatsApp, en su orden');
+  // 20/10/2026: «Pegar» al final, la captura copiada (el teclado del teléfono no la ofrece en la caja; tests/centro-app-adjuntos.test.ts).
+  assert.deepEqual(rotulos, ['Documento', 'Fotos', 'Cámara', 'Pegar'], 'los círculos de WhatsApp, en su orden');
   assert.match(mas, /co-mas-caja__titulo">Con qué corre</);
 });
 
