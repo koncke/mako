@@ -1885,37 +1885,63 @@ public ejecutables por anon» el 14/10), y por eso el catálogo se veía limpio 
 from public` (sin `in schema`) nace con anon=`false` y el error de anon pasa a ser «permission denied for function».
 
 **Qué quedó** (`supabase/migrations/0319_funciones_sin_public.sql`, `tests/migraciones-funciones-cerradas.test.ts`, `scripts/medir-funciones-publicas.mjs`):
-- **El default GLOBAL**: `alter default privileges for role postgres revoke execute on functions from public;`. Desde ahí una función nueva nace `{postgres=X, service_role=X}`.
-- **Las que ya existen**, por un bucle sobre el catálogo (no por una lista): revoke de public/anon/authenticated y grant a service_role en TODA función de `public` cuyo dueño sea quien corre la
-  migración y que no sea de una extensión. Se probó en PGlite con una función, un trigger, un PROCEDURE, un nombre con mayúsculas y espacios, una función de otro dueño y una extensión (pg_trgm):
-  cierra las primeras, no toca las dos últimas, es idempotente, y service_role sigue pudiendo llamarlas. La función de otro dueño que no se puede cerrar la dice en un WARNING al aplicarla.
-- **La trampa que apareció al probarla:** un PROCEDURE (`prokind = 'p'`) se revoca con `on procedure`; con `on function` Postgres contesta «is not a function» (42809) y tira abajo toda la migración.
-  Se vio en la primera corrida de la prueba, no leyendo el SQL.
-- **El test hace cumplir la regla** sobre las 313 migraciones: toda función creada lleva su revoke de los tres (en su migración o una posterior) y, si no es de un trigger, su grant a service_role; y
-  ninguna migración abre una función a anon/authenticated/public sin estar en `ABIERTAS` con su porqué (hoy ninguna). Probado rompiéndolo (12 roturas, 12 rojas; dos salieron verdes en la primera
-  versión y se reforzaron).
+- **El default GLOBAL**, dos líneas: `alter default privileges for role postgres revoke execute on functions from public;` y `… grant execute on functions to service_role;`. Desde ahí una función nueva de postgres nace
+  `{postgres=X, service_role=X}` **en cualquier esquema**. ⚠️ Es GLOBAL: sin el grant, una función de postgres en OTRO esquema (`privado.h()`) nacía sin PUBLIC y sin service_role, y el servidor,
+  que llama con la service role, no podía ejecutarla ni una función de `public` que la use (en `public` el grant lo da el default por esquema de Supabase; en otro esquema no existe). Medido en PGlite: sin
+  el grant `service_role` no ejecuta `privado.h()`; con él, sí.
+- **Las que ya existen**, por un bucle sobre el catálogo (no por una lista): revoke de public/anon/authenticated y grant a service_role en TODA rutina de `public` —función, procedure, agregado, de ventana; sin
+  filtrar por `prokind`— cuyo dueño sea quien corre la migración y que no sea de una extensión. Probado en PGlite con una función, sobrecargas, un trigger, un PROCEDURE (también con `INOUT`), un agregado, un
+  nombre con mayúsculas y espacios, una función de otro dueño y una extensión (pg_trgm): cierra las primeras, no toca las dos últimas, es idempotente, y service_role sigue pudiendo llamarlas.
+- **La trampa que apareció al probarla:** un PROCEDURE se revoca con `on procedure`; con `on function` Postgres contesta «is not a function» (42809) y tira abajo toda la migración. Se vio en la primera
+  corrida de la prueba, no leyendo el SQL. `on routine` sirve para todas las clases y es lo que usa el bucle.
+- **Se avisa lo que NO cierra** (WARNING al aplicarla, no aborta): (4a) las rutinas de `public` de otro dueño que siguen ejecutables por anon, y (4b) —aparte— las funciones de **extensiones** instaladas en
+  `public`, una línea por extensión, con ⚠️ SSRF si es de red (http, pg_net, dblink, postgres_fdw, file_fdw, plpython3u, plperlu, adminpack). Probado: avisa pg_trgm (31 funciones) y la rama peligrosa (forzada, porque
+  PGlite no trae http).
+- **El test hace cumplir la regla** sobre las 313 migraciones, con un analizador que lee por SENTENCIAS (respeta comillas, identificadores "…" y cuerpos $$) y lleva el estado de cada función por
+  (esquema, nombre, FIRMA) recorriendo todas las migraciones en orden: `create` la deja abierta, `create or replace` conserva el estado, `drop` la borra, un `revoke` de los tres la cierra, un `grant … to service_role`
+  le da la ejecución; al final toda función viva tiene que estar cerrada y, si no es de un trigger, abierta a service_role. Entiende `"public"."f"`, sobrecargas (`int` = `integer`, los OUT y los DEFAULT no
+  cuentan), varias funciones en un revoke, `on function|procedure|routine`, `on all functions|routines|procedures in schema`. Y frena lo que REABRE: un grant de EXECUTE a anon/authenticated/public sobre una función,
+  sobre todas las de un esquema o como `alter default privileges … grant … on functions|routines` (global o por esquema), salvo ABIERTAS (hoy ninguna). Probado rompiéndolo: 31 roturas, 30 rojas y un mutante
+  equivalente que se simplificó (detalle en el pie del test).
 - **Orden: segura antes o después del código.** Se verificó en el código que los seis `.rpc(` no-test usan la service role (directo o por `getSupabaseServer`/`getTenantDb`), que ningún componente
   de cliente importa supabase-js (la clave anon sólo viaja como `apikey` de las subidas firmadas a Storage, que no es un RPC), y que las migraciones no crean policies, extensiones, auth hooks ni
-  jobs de pg_cron que dependan de que PUBLIC ejecute una función.
+  jobs de pg_cron que dependan de que PUBLIC ejecute una función. Requiere la 0310 aplicada (el paso 3 nombra `pagos_funnel_del_momento`).
+
+**La revisión de la 0319 por el Cerebro (21/10): cuatro hallazgos bajos, los cuatro cerrados, ninguno del SQL que corre en producción.** El SQL aguantó su prueba (sobrecargas, procedures OUT/INOUT, nombres con
+comillas, mayúsculas y reservados, `public.now()`, un agregado, una función de otro dueño y pg_trgm, dos veces seguidas). Lo que encontró estaba en el test y en la verificación:
+1. **El test no frenaba una migración que reabriera todo**: `alter default privileges … grant execute on functions to public` (global o por esquema) y `grant … on all routines|procedures in schema public to anon`
+   salían VERDES (el regex sólo conocía `on function|procedure|routine <nombre>` y `on all functions`). Ahora las ve, cada variante con su caso de mentira.
+2. **El analizador no veía `"public"."f"`** (el formato de pg_dump y de Studio: la función ni se registraba), **comparaba por nombre y no por firma** (revocar `f(bigint)` daba por cerrada `f(text)`) **y no miraba el orden**
+   (un revoke anterior a un drop+create contaba). Reescrito como máquina de estados por sentencia.
+3. **Las funciones de extensiones en `public` quedaban fuera del bucle, del WARNING y de la verificación, y la cabecera prometía «NINGUNA».** Si producción tiene `http`, `pg_net` o `dblink` en `public` (un `create
+   extension` sin `with schema` cae ahí), la clave anon las llama por `/rest/v1/rpc`: un SSRF. Ahora se avisan aparte y el script de medición las lista por extensión; la cabecera dice la salvedad. **No se sabe si
+   producción tiene alguna: no se pudo medir.**
+4. **El default GLOBAL alcanza a TODOS los esquemas** y dejaba sin service_role a la función que postgres creara fuera de `public`; el test sólo registraba funciones de `public`. Ahora el global da también el
+   grant a service_role y el test mira todos los esquemas.
 
 **Lo que sólo se sabe de las migraciones, no de producción:** de las 11 funciones que crean las migraciones de `main`, 10 llevaban su revoke de PUBLIC y una no (`pagos_funnel_del_momento`, de un trigger);
 `cobrar_cuota_con_resto` (0318, de la rama de Pagos) sería la segunda. Las funciones creadas a mano en el panel de Supabase no figuran en ninguna migración: por eso la 0319 recorre el catálogo
 en vez de listar nombres. **La medición en producción (`node --env-file=C:/dev/mako-api/.env.local scripts/medir-funciones-publicas.mjs`, sólo lectura) no se pudo correr desde esta sesión
-(el clasificador de permisos la denegó como «Production Reads»): hay que correrla ANTES y DESPUÉS de aplicar la 0319.** Qué esperar después: ninguna función de `public` que no sea de una extensión
-con la marca `A` (anon) o `U` (authenticated); `S` (service_role) en todas.
+(el clasificador de permisos la denegó como «Production Reads»; el Cerebro tampoco la corre desde otra sesión: saltearía el permiso, y eso sólo lo habilita Martín): hay que correrla ANTES y DESPUÉS de aplicar la 0319.**
+Qué esperar después: en la parte 1 del script (las funciones de la app) ninguna con la marca `A` (anon) o `U` (authenticated) y `S` (service_role) en todas las de `public`; la parte 2 (extensiones) se mira aparte
+y no se cierra con la 0319.
 
 **Reglas que quedan:**
 - **Un default de esquema no cierra lo que un default global abre.** Para cerrar PUBLIC hay que tocar el default GLOBAL del dueño (`alter default privileges for role postgres revoke … from public`, sin `in schema`).
+- **Y un default GLOBAL alcanza a todos los esquemas:** quien lo cambia tiene que pensar en las funciones de postgres fuera de `public` (acá, el grant global a service_role).
 - **«Nacen cerradas» se mide con una función de prueba, no se afirma.** Si una migración dice que cambió un default, la prueba es crear una función y mirar `has_function_privilege('anon', …)`.
 - **El revoke explícito en cada función NO es redundante, aunque haya un default**: el test lo exige igual (defensa en profundidad: el default depende del dueño que corre la migración).
-- **Un `revoke … on function` no sirve para un PROCEDURE** (`on procedure`), y un REVOKE sobre algo de otro dueño no hace nada: un bucle genérico tiene que filtrar ambas cosas.
+- **Una verificación que dice «cero» tiene que decir qué dejó afuera.** La de la 0319 excluye las funciones de extensiones a propósito, y un `create extension http` en `public` es un SSRF por la clave anon: se avisan aparte.
+- **`revoke … on function` no sirve para un PROCEDURE** (`on procedure`; `on routine` sirve para todo), y un REVOKE sobre algo de otro dueño no hace nada: un bucle genérico tiene que filtrar eso.
+- **Un analizador estático de SQL parte por sentencias y lleva estado:** buscar con regex «hay un revoke de esta función» no ve el esquema entre comillas, las sobrecargas ni el orden.
 
-**Sin hacer / abierto:** (1) la medición en producción antes y después, arriba. (2) La 0318 de Pagos tiene que llevar su revoke/grant (el test lo exige en cuanto llegue a `main`); la 0319 la cierra si ya
-está aplicada, y si se aplica después nace cerrada por el default global. (3) **Numeración:** otras dos ramas tienen migraciones con el mismo número que se está usando (0318: Pagos `cobrar_cuota_con_resto` e
-ia-ola1 `ia_pc`; 0319: ia-ola2 `ia_pc_consentimiento`); el repo ya tiene colisiones históricas y la skill dice «no reutilices un número».
+**Sin hacer / abierto:** (1) la medición en producción antes y después (y la lista de extensiones en `public`), arriba. (2) La 0318 de Pagos tiene que llevar su revoke/grant (el test lo exige en cuanto llegue a `main`); la
+0319 la cierra si ya está aplicada, y si se aplica después nace cerrada por el default global. (3) **Numeración:** Ticketera renumeró las suyas a 0320 y 0321 (21/10); `ia-ola2` tiene una `0319_ia_pc_consentimiento`
+que, según sus commits, ya aplicó en producción: habría dos migraciones 0319 en el repo cuando ambas lleguen a `main`. `apply-migration.mjs` aplica un archivo y no lleva cuenta de números, así que no rompe nada, pero la
+skill dice «no reutilices un número»: lo decide el Cerebro (renumerar una de las dos).
 
 **Vive en:** `supabase/migrations/0319_funciones_sin_public.sql` · `tests/migraciones-funciones-cerradas.test.ts` · `scripts/medir-funciones-publicas.mjs` · `AGENTS.md` («Toda función SQL nueva…») ·
-la revisión de Pagos del 21/10 (`revision-pagos-0318-21-10.md`, notas del Cerebro)
+la revisión de Pagos del 21/10 (`revision-pagos-0318-21-10.md`) y la de la 0319 (`revision-infra-0319-21-10.md`), notas del Cerebro
 
 ## Un `next dev` sin `AUTH_SECRET` es un admin abierto a la red (15/10/2026)
 
