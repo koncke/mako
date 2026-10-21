@@ -1087,8 +1087,10 @@ fila del ws1 (`soloLasPropias` compara contra las filas de la plataforma) y la p
   (proxy.ts) sólo convierte el `?ws=` en pestaña si la sesión firmada es `rol === 'admin'`; para cualquier otro usuario
   es texto decorativo. Ningún cliente se ve «como administrador» de otro por este camino.
 - **La regla:** la vuelta lleva `?ws=` sólo si hace falta para caer en ese negocio, o sea cuando el destino NO es al
-  que cae la sesión sin pestaña (`wsDeVuelta`, lib/ws-tab.ts; `getWorkspaceActual()` en el callback, que no trae
-  `?ws=`). El super admin que conecta parado adentro de un cliente sigue volviendo a la pestaña del cliente.
+  que cae la sesión sin pestaña (`wsDeVuelta`, lib/ws-tab.ts). Ese negocio sale de `adminDeWorkspaceActual()`, y NO de
+  `getWorkspaceActual()`: el callback no puede leer el negocio de la sesión, porque el negocio donde se ESCRIBE sale de la
+  cookie (lo fija tests/meta-login.test.ts, y el primer intento de este arreglo lo rompió). El super admin que conecta
+  parado adentro de un cliente sigue volviendo a la pestaña del cliente.
 - **Lo que quedó SIN hacer:** los pasos 1 (`app/api/integraciones/meta/route.ts` y `google-calendar/route.ts`) todavía
   pegan el ws en sus salidas de error. Sólo pasa si falla antes de ir a Meta o Google, y en ese caso el pedido casi
   siempre ya venía con la pestaña.
