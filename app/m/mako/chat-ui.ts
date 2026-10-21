@@ -25,7 +25,7 @@ import type {
 } from '@/lib/mako-turno-app-reglas';
 import { ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, type TipoAdjunto } from '@/lib/mako-adjuntos';
 import type { EstadoArchivero } from '@/lib/chat-mako-bloques';
-import type { Abrir, Bloque } from '@/lib/chat-bloques';
+import { ELIGE_TU_PREGUNTA, SALTEAR_PREGUNTA, type Abrir, type Bloque } from '@/lib/chat-bloques';
 import { respuestasDeElegir } from '@/lib/editor-landing/bloques-web';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 
@@ -126,14 +126,24 @@ const esSelector = (x: ItemHilo): x is ItemBloque => x.k === 'bloque' && (x.b.t 
 const esDeLaPersona = (x: ItemHilo): x is ItemMsg => x.k === 'msg' && x.role === 'user';
 const igual = (s: string): string => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
 
-/** ¿`dicho` es lo que manda un toque en ESTE selector? Una opción del G1 (o varias, «A, B», con «Listo»), o lo que manda
- *  el «elegir» del Web Generator («Diseño: Minimal», «Elige tú», «Saltear»). */
+/** ¿`d` es lo que arma «Listo» en una pregunta de varias: algunos títulos, en el orden de las opciones, unidos con «, »?
+ *  Se arma como el botón, sin partir por comas: un título puede tener una («Precios, planes»). */
+function esVariasDe(d: string, titulos: readonly string[], desde = 0): boolean {
+  for (let k = desde; k < titulos.length; k++) {
+    const t = titulos[k];
+    if (d === t || (d.startsWith(`${t}, `) && esVariasDe(d.slice(t.length + 2), titulos, k + 1))) return true;
+  }
+  return false;
+}
+
+/** ¿`dicho` es lo que manda un toque en ESTE selector? Una opción del G1 (o varias con «Listo»), sus «Elige tú» y
+ *  «Saltear», o lo que manda el «elegir» del Web Generator («Diseño: Minimal», «Diseño: saltear»). */
 function esRespuestaDe(b: Bloque, dicho: string): boolean {
   const d = igual(dicho);
   if (b.t === 'elegir') return respuestasDeElegir(b).some((r) => igual(r) === d);
   if (b.t !== 'pregunta') return false;
-  const titulos = new Set(b.opciones.map((o) => igual(o.titulo)));
-  return titulos.has(d) || (!!b.varias && d.split(/,\s*/).every((p) => titulos.has(p)));
+  const titulos = b.opciones.map((o) => igual(o.titulo));
+  return titulos.includes(d) || d === igual(ELIGE_TU_PREGUNTA) || d === igual(SALTEAR_PREGUNTA) || (!!b.varias && esVariasDe(d, titulos));
 }
 
 /**
@@ -142,22 +152,30 @@ function esRespuestaDe(b: Bloque, dicho: string): boolean {
  * apaga las opciones en el acto, no al recargar.
  * ⚠️ UNA respuesta no cierra DOS selectores (revisión del 21/10/2026): MaKo guarda en el mismo mensaje lo que dibujan
  *    las lecturas y su pregunta (el G2 de diseños y el G1 del producto), y tocar «Mentoría» apagaba también los diseños
- *    con «Respondiste: Mentoría». Con varios selectores esperando el mismo mensaje, cada uno se cierra sólo con lo que
- *    manda un toque suyo; lo escrito que no es de ninguno los deja abiertos (abierto de más cuesta poco). Con uno solo,
- *    escribir lo contesta, como siempre.
+ *    con «Respondiste: Mentoría». Cada mensaje de la persona cierra los selectores abiertos de los que es (lo que manda un
+ *    toque suyo); si es de uno del turno ACTUAL (los que vinieron después del mensaje anterior de la persona), sólo ése:
+ *    un «Saltear» de la pregunta nueva no cierra las viejas. Si no es de ninguno, escribir contesta, como siempre, pero
+ *    sólo si en el turno actual hay UNO abierto; con varios, quedan abiertos (abierto de más cuesta poco).
+ *    Un selector de un turno anterior que quedó abierto sigue esperando, pero sólo un toque SUYO lo cierra: tocado más
+ *    tarde se cierra él y no la pregunta nueva, y lo escrito turnos después no lo contesta (revisión del 21/10/2026:
+ *    contarlo para «uno solo abierto» dejaba sin cerrar, escribiendo, todas las preguntas siguientes de la sesión).
  */
 export function conRespuestas(xs: readonly ItemHilo[]): ItemHilo[] {
-  return xs.map((x, i) => {
-    if (!esSelector(x)) return x;
-    let j = i + 1;
-    while (j < xs.length && !esDeLaPersona(xs[j])) j++;
-    if (j >= xs.length) return x;
-    let desde = i - 1;
-    while (desde >= 0 && !esDeLaPersona(xs[desde])) desde--;
-    const dicho = (xs[j] as ItemMsg).texto;
-    const esperan = xs.slice(desde + 1, j).filter(esSelector).length;
-    return esperan === 1 || esRespuestaDe(x.b, dicho) ? { ...x, respondida: dicho } : x;
+  const respondidas = new Map<number, string>();
+  let abiertos: number[] = [];
+  let delTurno: number[] = [];
+  xs.forEach((x, i) => {
+    if (esSelector(x)) { abiertos.push(i); delTurno.push(i); return; }
+    if (!esDeLaPersona(x)) return;
+    const suyos = abiertos.filter((k) => esRespuestaDe((xs[k] as ItemBloque).b, x.texto));
+    const suyosDelTurno = suyos.filter((k) => delTurno.includes(k));
+    const abiertosDelTurno = delTurno.filter((k) => abiertos.includes(k));
+    const cierra = suyosDelTurno.length ? suyosDelTurno : suyos.length ? suyos : abiertosDelTurno.length === 1 ? abiertosDelTurno : [];
+    for (const k of cierra) respondidas.set(k, x.texto);
+    abiertos = abiertos.filter((k) => !cierra.includes(k));
+    delTurno = [];
   });
+  return xs.map((x, i) => (esSelector(x) && respondidas.has(i) ? { ...x, respondida: respondidas.get(i)! } : x));
 }
 
 /**
