@@ -111,11 +111,7 @@ async function api(body: unknown): Promise<{ ok: boolean; error?: string; dispar
  * relectura traería la lista de antes del último toque y le borraría a la persona lo que acaba de
  * elegir (cuarta tanda, punto 14).
  */
-export function useDisparadores(secuencia: SecuenciaConDisparadores, o: {
-  onCambio: () => void; onError: (m: string | null) => void;
-  /** Recién guardado bien, con la lista que quedó y la de antes (el aviso de duplicada de una activa, 20/10/2026). */
-  onGuardado?: (nueva: Disparador[], previa: Disparador[]) => void;
-}) {
+export function useDisparadores(secuencia: SecuenciaConDisparadores, o: { onCambio: () => void; onError: (m: string | null) => void }) {
   const firmaProp = firmaLista(disparadoresDeSecuencia(secuencia));
   const [lista, setLista] = useState<Disparador[]>(() => disparadoresDeSecuencia(secuencia));
   const [firmaVista, setFirmaVista] = useState(firmaProp);
@@ -146,12 +142,9 @@ export function useDisparadores(secuencia: SecuenciaConDisparadores, o: {
     setGuardando(false);
     if (!j.ok) { setLista(confirmada.current); cb.current.onError(j.error ?? 'No se pudo guardar el CRON'); return; }
     const vuelta = sanearDisparadores(j.disparadores);
-    const previa = confirmada.current;
     confirmada.current = vuelta.length ? vuelta : (body.disparadores as Disparador[]);
     if (vuelta.length) setLista(vuelta);
     cb.current.onError(null);
-    // DESPUÉS de limpiar el error: lo que diga (el aviso de duplicada) no se borra en el mismo tick.
-    cb.current.onGuardado?.(confirmada.current, previa);
     cb.current.onCambio();
   };
   /** Pinta la lista nueva en el acto y la guarda una vez, después del respiro. */

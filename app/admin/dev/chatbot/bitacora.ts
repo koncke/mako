@@ -2043,4 +2043,24 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "21 oct", hora: "01:23", chat: "Automations", cuenta: "claude4",
+    sesion: "local_f74a2156-23dd-4213-b1dd-cd6c13906ff1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Hecho: el aviso de automatización duplicada también desde el «⋯» y al sumarle un CRON a una activa",
+    puntos: [
+      "Activar desde el «⋯» de la lista pregunta si otra activa le escribe lo mismo a la misma gente («Activar igual»).",
+      "Compara lo publicado, no lo que está a medio editar en el lienzo.",
+      "«Copiar flujo» › «Crear» dentro del mismo negocio lleva el horario y los límites de la original.",
+      "Una corrida manual con la ventana ignorada no manda si no puede leer la configuración de cada automatización.",
+      "En producción: run 184, deploy de 9db46f692 (lo verificó el Cerebro).",
+    ],
+    commits: [
+      { sha: "488e1e20b", msg: "Automations: el aviso de duplicada por todos los caminos, y lo que dejó la revisión de 396a82847", lineas: 341, archivos: 20 },
+    ],
+    archivos: [
+      "docs/hallazgos-chatbot.md — «Una defensa que no cubre TODOS los caminos que prenden algo no defiende»",
+    ],
+    revisar: "/automations",
+  },
 ];

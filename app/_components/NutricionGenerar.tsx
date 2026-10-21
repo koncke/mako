@@ -69,6 +69,8 @@ export function NutricionGenerar({ onAplicado }: { onAplicado?: () => void } = {
   const [verAntes, setVerAntes] = useState<number | null>(null);
   const [busy, setBusy] = useState<number | 'apply' | null>(null);
   const [msg, setMsg] = useState<{ t: 'ok' | 'err'; x: string } | null>(null);
+  /** El server no la prendió porque otra activa ya le escribe lo mismo a la misma gente: se ofrece «Activar igual». */
+  const [activarIgual, setActivarIgual] = useState(false);
   const [estados, setEstados] = useState<Record<number, string>>({}); // orden → status plantilla
   const [submitting, setSubmitting] = useState<number | null>(null);   // orden en envío a Meta
   const [cola, setCola] = useState<number[]>([]);                      // modo "todas": ids que faltan revisar
@@ -148,9 +150,9 @@ export function NutricionGenerar({ onAplicado }: { onAplicado?: () => void } = {
     finally { setSubmitting(null); }
   }
 
-  async function aplicar() {
+  async function aplicar(o: { aunqueDuplique?: boolean } = {}) {
     if (!sel) return;
-    setBusy('apply'); setMsg(null);
+    setBusy('apply'); setMsg(null); setActivarIgual(false);
     try {
       const j = await jpost<{ ok: boolean; error?: string }>('/api/mako/nutricion', { action: 'aplicar', secuenciaId: sel.id, pasos: draft });
       if (!j.ok) throw new Error(j.error || 'No se pudo guardar');
@@ -159,8 +161,18 @@ export function NutricionGenerar({ onAplicado }: { onAplicado?: () => void } = {
       // y el envío real sigue detrás del interruptor del workspace.
       let activada = false;
       if (!sel.activa) {
-        const act = await fetch('/api/whatsapp/secuencias', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: sel.id, activa: true }) }).then((r) => r.json()).catch(() => ({ ok: false }));
+        const act = await fetch('/api/whatsapp/secuencias', {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: sel.id, activa: true, ...(o.aunqueDuplique ? { aunqueDuplique: true } : {}) }),
+        }).then((r) => r.json()).catch(() => ({ ok: false }));
         activada = Boolean(act?.ok);
+        // ⚠️ OTRA ACTIVA YA LE ESCRIBE LO MISMO A LA MISMA GENTE (21/10/2026): el server no la prendió (`setSecuenciaActiva`).
+        // El copy quedó guardado; se dice y se ofrece «Activar igual», como en Automations.
+        if (!activada && act?.duplicada) {
+          setMsg({ t: 'err', x: `El copy de «${sel.nombre}» se guardó, pero no la activé: ${String(act.error)}.` });
+          setActivarIgual(true);
+          return;
+        }
         // El copy ya quedó guardado (idempotente): si la activación falló, se
         // corta con error visible — re-aprobar reintenta solo la activación.
         if (!activada) throw new Error(`El copy de «${sel.nombre}» se guardó, pero la secuencia NO se pudo activar. Reintenta con Aprobar, o actívala desde la lista de secuencias.`);
@@ -204,7 +216,15 @@ export function NutricionGenerar({ onAplicado }: { onAplicado?: () => void } = {
               <button onClick={cerrar} title="Cerrar" style={{ background: 'none', border: 'none', fontSize: '20px', color: 'var(--faint)', cursor: 'pointer' }}>✕</button>
             </div>
 
-            {msg && <div style={{ margin: '12px 0', padding: '9px 12px', borderRadius: '9px', fontSize: '13px', border: '1px solid ' + (msg.t === 'ok' ? 'var(--good)' : 'var(--bad)'), background: msg.t === 'ok' ? 'var(--good-bg)' : 'var(--bad-bg)', color: msg.t === 'ok' ? 'var(--good)' : 'var(--bad)' }}>{msg.x}</div>}
+            {msg && <div style={{ margin: '12px 0', padding: '9px 12px', borderRadius: '9px', fontSize: '13px', border: '1px solid ' + (msg.t === 'ok' ? 'var(--good)' : 'var(--bad)'), background: msg.t === 'ok' ? 'var(--good-bg)' : 'var(--bad-bg)', color: msg.t === 'ok' ? 'var(--good)' : 'var(--bad)' }}>
+              {msg.x}
+              {activarIgual && (
+                <button type="button" onClick={() => void aplicar({ aunqueDuplique: true })} disabled={busy != null}
+                  style={{ marginLeft: 10, border: 'none', background: 'transparent', padding: 0, fontSize: 13, fontWeight: 700, color: 'var(--primary)', cursor: 'pointer' }}>
+                  Activar igual
+                </button>
+              )}
+            </div>}
 
             {/* ── Modo LISTA: elegir secuencia ──────────────────────────────── */}
             {!sel && (
