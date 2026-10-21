@@ -40,8 +40,10 @@ export function conVinetas(t: string, cursor: number): { texto: string; cursor: 
 /**
  * Enter dentro de una lista: sigue con el ítem siguiente («• » o el número que sigue); en un ítem VACÍO, corta la lista
  * (le saca la viñeta). null = el renglón no es de una lista: Enter hace lo de siempre (manda).
- * `conUno: false` (la computadora, donde Enter manda): con UN solo ítem escrito todavía no hay lista, y Enter manda.
- * «1. ¿Cuántos leads entraron ayer?» es un mensaje: hacían falta tres Enter para mandarlo (revisión del 21/10/2026).
+ * `conUno: false` (la computadora, donde Enter manda): con UN solo ítem que es una PREGUNTA, Enter manda. «1. ¿Cuántos
+ * leads entraron ayer?» es un mensaje: hacían falta tres Enter (revisión del 21/10/2026). Cualquier otro ítem sigue la
+ * lista, como pidió Martín el 17/10 («Enter sigue la lista»): «- Llamar a Ana» y Enter es el ítem siguiente (la segunda
+ * revisión: con «un solo ítem manda», no se podía empezar una lista).
  */
 export function enterEnLista(t: string, ini: number, fin: number, { conUno = true }: { conUno?: boolean } = {}): { texto: string; cursor: number } | null {
   if (ini !== fin) return null;
@@ -53,7 +55,7 @@ export function enterEnLista(t: string, ini: number, fin: number, { conUno = tru
     // Ítem vacío: se corta la lista y el renglón queda en blanco.
     return { texto: t.slice(0, r.ini) + t.slice(r.fin), cursor: r.ini };
   }
-  if (!conUno && t.split('\n').filter((l) => { const x = ITEM_RE.exec(l); return !!x && !!x[4].trim(); }).length < 2) return null;
+  if (!conUno && /[?]\s*$/.test(resto) && t.split('\n').filter((l) => { const x = ITEM_RE.exec(l); return !!x && !!x[4].trim(); }).length < 2) return null;
   const siguiente = num != null ? `${Number(num) + 1}${marca.slice(-1)} ` : marca === '•' ? VINETA : `${marca} `;
   const inserto = `\n${sangria}${siguiente}`;
   return { texto: t.slice(0, ini) + inserto + t.slice(ini), cursor: ini + inserto.length };
