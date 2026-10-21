@@ -954,6 +954,11 @@ test('la red es la tarjeta: en el chat de la app nada que cambie algo corre sin 
     }
   }
   assert.ok(viajan > 600, `sólo ${viajan} operaciones viajan: cambió el registro y este test ya no mira nada`);
+  // D2 (Martín, 21/10/2026): lo que mueve plata se confirma en el chat. En la app, ninguna operación de plata (`costo: 'dinero'`, y toda
+  // escritura del área de cobros) deja de ser una ACCIÓN con tarjeta: el clasificador no puede dejar una sin ella.
+  const dePlata = REGISTRO.filter((d) => entraAlChat(d.id, vistaApp) && (d.costo === 'dinero' || (d.area === 'cobros' && d.tipo !== 'lectura')));
+  assert.ok(dePlata.length >= 15, `sólo ${dePlata.length} operaciones de plata viajan: cambió el registro y este test ya no mira nada`);
+  for (const d of dePlata) assert.ok(d.tipo === 'accion' && (d.confirmacion === 'chat' || d.confirmacion === 'pantalla'), `«${d.id}» mueve plata y no deja una tarjeta`);
   // Lo irreversible y lo que quita algo son ACCIONES con tarjeta, ni lecturas ni controles.
   const peligrosas = REGISTRO.filter((d) => d.tipo !== 'lectura' && (esDestructiva(d) || (d.tipo === 'accion' && d.reversible === false)));
   assert.ok(peligrosas.length > 100, `sólo ${peligrosas.length} operaciones peligrosas`);
