@@ -2661,4 +2661,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '20 oct', hora: '22:56', chat: 'CRM', sesion: 'local_64949e84-3d68-4c31-bf78-5caa382ebc37', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La ficha: Reuniones y Tracking bloque por bloque, y el clic derecho adentro',
+    puntos: [
+      'En producción desde el run 178. Son los pedidos del 14/10: Reuniones y Tracking «personalizables» como el Dashboard, y el clic derecho en todo el CRM.',
+      'Reuniones: la R2, «Agendar» y lo que salió de la llamada son bloques propios. Tracking: el video visto, la actividad en la página y la grabación de la visita.',
+      'Las fichas ya guardadas se ven igual: el bloque viejo dibuja lo que su hoja no puso aparte.',
+      'Clic derecho en la ficha: las opciones del «⋯», WhatsApp y copiar el teléfono o el email. Sobre un campo, un link o texto seleccionado queda el menú del navegador.',
+      'No se vio en pantalla: se revisa en /crm, abriendo un lead.',
+    ],
+    commits: [
+      { sha: '42ae2d6cb', msg: 'Ficha: Reuniones y Tracking partidos en bloques, sin tocar las fichas guardadas', lineas: 309, archivos: 13 },
+      { sha: 'c19122948', msg: 'CRM: el clic derecho también dentro de la ficha del lead', lineas: 219, archivos: 4 },
+    ],
+    archivos: [
+    ],
+    revisar: '/crm',
+  },
 ];
