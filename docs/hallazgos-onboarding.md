@@ -2554,6 +2554,11 @@ aceptaba la opción exacta: todo esto entraba nuevo.
   confirmación tira 6 tests.
 - **Una rotura que ningún test detecta dice que el código sobra.** Sumar los verbos de relleno («tengo», «hago») a las
   palabras vacías no cambiaba ninguna frase de la batería. Se sacó en vez de inventarle un test.
+- **Las listas de lo que ESCRIBE la persona van en un archivo aparte (lib/onboarding-frases.ts).** El guard de voseo
+  (tests/puente-panel-copy.test.ts) va por archivo, y marcó «ándale» (¡de México!) y «soles» (la moneda de Perú) adentro de
+  lib/onboarding-arranque.ts, que tiene el copy del chat. Excluir ese archivo apagaría el guard sobre el copy real; el
+  detector aparte entra en FUERA_DE_ALCANCE con su porqué, como lib/onboarding-troleo.ts. Y el archivo nuevo tiene que
+  estar en git (`git add`) antes de correr el guard: lista con git y da «excepciones que ya no apuntan a ningún archivo».
 - **El «sí» al nombre pendiente se lee por frase entera y nunca se vuelve el nombre.** «Sí, es así», «sisi», «Vale»,
   «Listo», «es mi negocio» son un sí. Una palabra de acuerdo (o «No, está bien») no reemplaza al nombre que espera: se
   pregunta de nuevo.

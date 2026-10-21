@@ -41,6 +41,7 @@ import { TIPOS_CRM, type TipoCrm, type TipoCrmId } from './pipeline';
 import type { PiezasSabidas, PropuestaOferta } from './offer-marco';
 import type { PropuestaCrm } from './onboarding-crm';
 import { RUTA_AUTOMATIONS } from './ruta-automations';
+import { DICE_NO, DICE_SI, MONEDA_DOLAR, MONEDA_LOCAL, TRAS_EL_NO } from './onboarding-frases';
 
 export type ModoArranque = 'oferta' | 'plan';
 
@@ -620,8 +621,7 @@ function alGuardarOpcion(e: EstadoArranque, id: string, escrito: string | undefi
 /** ¿La cifra es en una moneda que no es el dólar (pesos, «lucas», «palos»)? Los tramos son en dólares. */
 export function monedaLocal(texto: string): boolean {
   const t = normal(texto);
-  if (/usd|us\$|u\$s|dolar|\bdls\b|\bverdes\b|euro/.test(t)) return false;
-  return /\b(?:pesos?|ars|mxn|cop|clp|pen|soles|bolivianos|guaranies|quetzales|lempiras|colones|lucas?|palos?|mangos?)\b/.test(t);
+  return !MONEDA_DOLAR.test(t) && MONEDA_LOCAL.test(t);
 }
 
 /** El primer nombre, para saludar y ofrecerlo: «Martín Koncke» → «Martín». */
@@ -704,21 +704,7 @@ const RE_MI_NOMBRE = new RegExp([
 
 export const NEGOCIO_CONFIRMAR = ['Sí, se llama así', 'No, lo escribo de nuevo'] as const;
 
-/** Lo que dice que sí, solo o en fila («Sí, está bien», «Correcto, así se llama», «Siii», «Claro que sí»). Sin tildes. */
-// Con la tercera revisión (21/10): «Sí, es así», «sisi», «Vale», «Listo», «Ajá», «Simón», «Ándale», «Eso mismo», «es mi
-// negocio» o «es mi marca personal» también son un sí al nombre que espera; antes se volvían el nombre propuesto.
-const DICE_SI = [
-  '(?:s+i+)+', 'sip', 'claro', 'claro que si', 'correcto', 'es correcto', 'exacto', 'exactamente', 'asi es', 'asi', 'eso',
-  'eso es', 'eso mismo', 'asi mismo', 'ese', 'esa', 'ese es', 'esa es', 'es ese', 'es esa', 'ese mismo', 'esa misma', 'el mismo',
-  'es', 'es asi', 'es eso', 'es exacto', 'es perfecto', 'mejor asi', 'en realidad si', 'dale', 'ok', 'okay', 'okey', 'oki',
-  'perfecto', 'esta bien', 'esta perfecto', 'de acuerdo', 'de una', 'obvio', 'por supuesto', 'por favor', 'gracias',
-  'tal cual', 'asi se llama', 'se llama asi', 'confirmo', 'afirmativo', 'va', 'sale', 'genial', 'bien', 'muy bien', 'vale',
-  'venga', 'listo', 'aja', 'simon', 'andale', 'orale', 'el nombre', 'ese nombre', 'mi negocio', 'mi emprendimiento',
-  'mi marca', 'mi marca personal', '👍', '✅', '👌', '🙌',
-];
-/** Lo que dice que no. Detrás puede venir «gracias», «ese no» o el texto del botón («No, lo escribo de nuevo»). */
-const DICE_NO = ['no+', 'nop', 'nope', 'incorrecto', 'para nada', 'no es asi', 'no es', 'no se llama asi', 'esta mal', 'negativo', 'nada que ver', '👎'];
-const TRAS_EL_NO = [...DICE_NO, 'gracias', 'ese no', 'esa no', 'ese', 'esa', 'lo escribo de nuevo', 'te lo escribo', 'lo cambio'];
+// Las listas de cómo se dice que sí y que no viven en lib/onboarding-frases.ts (detectores, fuera del guard de voseo).
 const enFila = (primeras: string[], siguientes: string[]) => {
   const alt = (xs: string[]) => [...xs].sort((a, b) => b.length - a.length).join('|');
   return new RegExp(`^(?:${alt(primeras)})(?: (?:${alt(siguientes)}))*$`, 'u');
