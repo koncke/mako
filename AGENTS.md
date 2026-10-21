@@ -429,9 +429,13 @@ nunca rebase: el commit del jefe no se reescribe) y el `VERDE <sha>` vale para e
 como estaba), suelta el candado y el `ROJO` nombra los archivos — mergeá a mano y volvé a correr.
 - **Ver la fila sin tocar nada:** `node scripts/antes-de-subir.mjs --cola` (quién lo tiene, desde cuándo, y los que esperan en orden).
 - **Un proceso muerto no traba:** un turno se limpia si su pid no vive o si no late hace 10 min; un dueño, si su pid no vive o si pasó
-  `MAKO_PESADO_VENCE_MIN` (90). Un candado tomado a mano no tiene pid: sólo se libera cuando lo soltás, o a los 90 min.
-- **Si tomaste el candado a mano** para otra cosa (un `tsc` suelto, un build) y después corrés `antes-de-subir`, esperaría a su propio
-  candado: usá `--ya-tengo-el-candado`. `MAKO_SIN_COLA=1` lo saltea (para una máquina sin otros chats); en Actions no se usa.
+  `MAKO_PESADO_VENCE_MIN` (90). Un candado tomado a mano no tiene pid y no se le puede preguntar si vive, así que con alguien esperando se
+  suelta: **al instante si es de tu mismo worktree** (el quien.txt empieza con `<worktree> · <rama>`), a los 10 min si no hay ningún
+  proceso pesado vivo (`tsc`, `node --test`, `next build`, vitest…), o a los 30 min pase lo que pase. Queda en `pesado.log`.
+- **No tomes el candado a mano y después corras `antes-de-subir`** (21/10: el `mkdir` de `wt-crm-ficha2` ganó la carrera justo al soltarse el
+  anterior y su propio `antes-de-subir` se anotó DETRÁS de ese candado: 27 min y 7 chats parados). Ahora la cola reconoce el candado a mano
+  de tu worktree y lo toma, pero es un parche: el diseño es que `antes-de-subir` hace la fila solo. Si tomaste el candado a mano de verdad
+  (un `tsc` suelto, un build) y corrés `antes-de-subir` con otro nombre, usá `--ya-tengo-el-candado`. `MAKO_SIN_COLA=1` lo saltea; en Actions no se usa.
 - Un `ROJO: esperé el candado…` no es un rojo del código (sale con 99): la fila estaba larga.
 
 ⚠️ **Por qué es rápido: los tests que no tocan estado global corren JUNTOS en un proceso** (`--test-isolation=none`, con

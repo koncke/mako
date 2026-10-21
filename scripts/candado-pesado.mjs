@@ -13,12 +13,14 @@
 //   · LA COLA es la carpeta `pesado.cola/`: cada uno que espera deja un TURNO (`<hora en ms>-<pid>-<azar>.json`) y entra el más VIEJO, no el que
 //     pregunta más seguido. Sólo el primero de la cola intenta tomar el candado.
 //   · UN PROCESO MUERTO NO TRABA: un turno se limpia si su pid no vive o si dejó de latir (10 min); un dueño se limpia si su pid no vive, si pasó
-//     VENCE_MS (90 min), o —si lo tomaron a mano, sin pid— si su `quien.txt` tiene más de VENCE_MS. Todo queda en `pesado.log`.
+//     VENCE_MS (90 min). Uno tomado A MANO (sin pid, no se le puede preguntar si vive) se suelta —con alguien esperando— si es de MI mismo worktree
+//     (no puede trabarse contra sí mismo: 21/10, 27 min y 7 chats), a los 10 min si no hay ningún proceso pesado vivo, o a los 30 min. Todo en `pesado.log`.
 //   · Se ve todo: `node scripts/antes-de-subir.mjs --cola` (quién lo tiene, desde cuándo, y la cola entera con su orden).
 //
 // Lo usa scripts/antes-de-subir.mjs; las pruebas están en tests/candado-pesado.test.ts (con un directorio de mentira, un reloj y un «¿vive?» inyectables).
 // =============================================================================
 
+import { spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, unlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -28,6 +30,12 @@ export const DIR_POR_DEFECTO = process.env.MAKO_PESADO_DIR || (process.platform 
 export const VENCE_MS = (Number(process.env.MAKO_PESADO_VENCE_MIN) || 90) * 60_000;
 export const LATIDO_MS = 15_000;
 export const TURNO_MUERTO_MS = 10 * 60_000;
+/**
+ * Un candado tomado A MANO (sin dueno.json) no tiene pid: no se le puede preguntar si vive. Antes sólo vencía a los 90 min, y el 21/10 uno trabó 27 min a 7
+ * chats sin que corriera nada. Ahora, con alguien esperando: a los OCIOSO min se suelta si NO hay ningún proceso pesado vivo, y a los VENCE min se suelta igual.
+ */
+export const A_MANO_OCIOSO_MS = (Number(process.env.MAKO_PESADO_OCIOSO_MIN) || 10) * 60_000;
+export const A_MANO_VENCE_MS = (Number(process.env.MAKO_PESADO_VENCE_A_MANO_MIN) || 30) * 60_000;
 const PARCIAL_MS = 5_000;   // un turno que todavía se está escribiendo (JSON a medias) no se borra por eso
 
 /** Lo que cada uno firma al anotarse y al tomar el candado (todo opcional: sólo se muestra). @typedef {{ chat?: string, cuenta?: string, sha?: string, comando?: string }} DatosTurno */
@@ -115,20 +123,86 @@ export function leerDueno({ dir = DIR_POR_DEFECTO } = {}) {
   return dueno ? { ...dueno, quien, mtime } : { manual: true, quien: quien || '(sin quien.txt)', mtime };
 }
 
-/** ¿El dueño dejó de importar? Pid muerto, o pasó VENCE_MS (el tope vale también para el que lo tomó a mano: nunca se le puede preguntar si vive). */
+/**
+ * ¿Es un candado A MANO de MI mismo worktree? El 21/10 el chat de `wt-crm-ficha2` tomó el candado a mano (su `mkdir` ganó la carrera justo al soltarse el
+ * anterior) y después corrió `antes-de-subir`, que se anotó detrás de SU PROPIO candado: 27 min de bloqueo mutuo. El quien.txt empieza con
+ * «<worktree> · <rama>». En un worktree propio (`wt-…`) alcanza el worktree; en el clon compartido hacen falta worktree Y rama (varios chats comparten carpeta).
+ * @param {{ manual?: boolean, quien?: string, mtime?: number } | null | undefined} dueno
+ * @param {DatosTurno | undefined} datos
+ * @returns {boolean}
+ */
+export function esMio(dueno, datos) {
+  if (!dueno?.manual || !datos?.chat) return false;
+  const quien = String(dueno.quien ?? '').toLowerCase();
+  const chat = String(datos.chat).toLowerCase();
+  if (quien.startsWith(chat)) return true;
+  const worktree = chat.split(' · ')[0];
+  return worktree.startsWith('wt-') && quien.startsWith(worktree) && !/[a-z0-9_-]/.test(quien.charAt(worktree.length));
+}
+
+// ¿Hay trabajo pesado corriendo de verdad? Los mismos que el vigía de RAM tiene por pesados (tsc, node --test, next build, vitest, jest, playwright, eslint).
+const PESADO = /typescript[\\/]lib[\\/]tsc\b|[\\/]tsc(\.js)?["']?(\s|$)|\s--test(\s|$|-)|next[\\/]dist[\\/].*\bbuild\b|\bnext["']?\s+build\b|vitest|\bjest\b|playwright|\beslint\b/i;
+/**
+ * ¿Esta línea de comando es trabajo pesado? (Las propias de antes-de-subir y del candado no cuentan: son la espera, no el trabajo.)
+ * @param {string} linea
+ * @returns {boolean}
+ */
+export function esLineaPesada(linea) {
+  return PESADO.test(linea) && !/antes-de-subir|candado-pesado/i.test(linea);
+}
+let cachePesados = { t: 0, v: /** @type {string[] | null} */ (null) };
+/**
+ * Los procesos node pesados de hoy (de a 30 s, que mirar cuesta ~1 s). `null` = no se pudo mirar: se asume que SÍ hay (nunca se suelta un candado a ciegas).
+ * @returns {string[] | null}
+ */
+export function procesosPesados() {
+  if (Date.now() - cachePesados.t < 30_000) return cachePesados.v;
+  let v = null;
+  try {
+    const r = process.platform === 'win32'
+      ? spawnSync('powershell', ['-NoProfile', '-Command', 'Get-CimInstance Win32_Process -Filter "Name=\'node.exe\'" | ForEach-Object { $_.CommandLine }'], { encoding: 'utf8', timeout: 20_000 })
+      : spawnSync('ps', ['-eo', 'args'], { encoding: 'utf8', timeout: 20_000 });
+    if (r.status === 0 && typeof r.stdout === 'string') v = r.stdout.split('\n').map((l) => l.trim()).filter((l) => l && esLineaPesada(l));
+  } catch { /* v = null */ }
+  cachePesados = { t: Date.now(), v };
+  return v;
+}
+
+/**
+ * Por qué el candado puesto ya no es de nadie (null = sigue siendo de alguien). El orden importa: lo barato primero, y `pesados()` (que lanza un proceso) sólo
+ * cuando un candado a mano pasó de OCIOSO y todavía no llegó al tope.
+ * @param {{ manual?: boolean, quien?: string, mtime: number, pid?: number, host?: string, desde?: string } | null} actual
+ * @param {{ datos?: DatosTurno, vivo?: (pid: number) => boolean, ahora?: () => number, pesados?: () => string[] | null }} [o]
+ * @returns {string | null}
+ */
+export function motivoSuelta(actual, { datos, vivo = pidVivo, ahora = Date.now, pesados = procesosPesados } = {}) {
+  if (!actual) return null;
+  if (actual.manual) {
+    if (esMio(actual, datos)) return 'es de mi mismo worktree (no puede trabarse contra sí mismo)';
+    const edad = ahora() - actual.mtime;
+    if (edad > A_MANO_VENCE_MS) return `a mano y pasó el tope de ${Math.round(A_MANO_VENCE_MS / 60000)} min`;
+    if (edad > A_MANO_OCIOSO_MS) {
+      const p = pesados();
+      if (Array.isArray(p) && p.length === 0) return `a mano, hace ${minutos(edad)} y sin ningún proceso pesado vivo`;
+    }
+    return null;
+  }
+  if (actual.host === os.hostname() && !vivo(actual.pid ?? 0)) return 'el proceso dueño murió';
+  if (ahora() - (Date.parse(actual.desde ?? '') || actual.mtime) > VENCE_MS) return `pasó el tope de ${Math.round(VENCE_MS / 60000)} min`;
+  return null;
+}
+
+/** ¿El dueño dejó de importar? Pid muerto, o pasó el tope (a mano: A_MANO_VENCE_MS; sin pid no se le puede preguntar si vive). No mira procesos pesados ni «es mío». */
 export function duenoVencido(dueno, { vivo = pidVivo, ahora = Date.now } = {}) {
-  if (!dueno) return false;
-  if (dueno.manual) return ahora() - dueno.mtime > VENCE_MS;
-  if (dueno.host === os.hostname() && !vivo(dueno.pid)) return true;
-  return ahora() - (Date.parse(dueno.desde) || dueno.mtime) > VENCE_MS;
+  return motivoSuelta(dueno, { vivo, ahora, pesados: () => null }) !== null;
 }
 
 /**
  * Un intento. Sólo el PRIMERO de la cola prueba el mkdir; el resto espera su turno.
- * @param {{ dir?: string, turno: string, datos?: DatosTurno, pid?: number, vivo?: (pid: number) => boolean, ahora?: () => number }} o
+ * @param {{ dir?: string, turno: string, datos?: DatosTurno, pid?: number, vivo?: (pid: number) => boolean, ahora?: () => number, pesados?: () => string[] | null }} o
  * @returns {{ estado: 'tomado' } | { estado: 'espera', delante: number, dueno: object | null } | { estado: 'sin-turno' }}
  */
-export function intentarTomar({ dir = DIR_POR_DEFECTO, turno, datos, pid = process.pid, vivo = pidVivo, ahora = Date.now }) {
+export function intentarTomar({ dir = DIR_POR_DEFECTO, turno, datos, pid = process.pid, vivo = pidVivo, ahora = Date.now, pesados = procesosPesados }) {
   const nombre = path.basename(turno);
   const cola = leerCola({ dir, vivo, ahora });
   const lugar = cola.findIndex((t) => t.archivo === nombre);
@@ -143,8 +217,9 @@ export function intentarTomar({ dir = DIR_POR_DEFECTO, turno, datos, pid = proce
   catch (e) {
     if (e?.code !== 'EEXIST') throw e;
     const actual = leerDueno({ dir });
-    if (actual && duenoVencido(actual, { vivo, ahora })) {
-      anotar(dir, 'limpia-dueno', `${actual.manual ? 'a mano' : `pid ${actual.pid}`} · ${actual.quien ?? ''} · hace ${minutos(ahora() - (Date.parse(actual.desde) || actual.mtime))}`);
+    const motivo = motivoSuelta(actual, { datos, vivo, ahora, pesados });
+    if (actual && motivo) {
+      anotar(dir, 'limpia-dueno', `${actual.manual ? 'a mano' : `pid ${actual.pid}`} · ${actual.quien ?? ''} · hace ${minutos(ahora() - (Date.parse(actual.desde ?? '') || actual.mtime))} · ${motivo}`);
       rmSync(lock, { recursive: true, force: true });
       try { mkdirSync(lock); tomado = true; } catch { /* otro lo ganó en el medio: sigue esperando */ }
     }
@@ -182,10 +257,10 @@ const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
  * Los tipos están acá a propósito: el default `aviso = () => {}` hacía deducir `() => void` (un `aviso` con el texto no compilaba) y el retorno salía
  * como `{ soltar } | { vencio }` con `soltar` «posiblemente undefined» aun después de revisar `vencio` (run 173 de Actions, 20/10).
  * @param {{ dir?: string, datos?: DatosTurno, aviso?: (texto: string) => void, pid?: number, vivo?: (pid: number) => boolean, ahora?: () => number,
- *   pausa?: (ms: number) => Promise<void>, esperaMaxMs?: number, sondeoMs?: number }} o
+ *   pausa?: (ms: number) => Promise<void>, esperaMaxMs?: number, sondeoMs?: number, pesados?: () => string[] | null }} o
  * @returns {Promise<{ soltar: () => boolean, esperoMs: number, vencio?: undefined } | { vencio: true, esperoMs: number, soltar?: undefined }>}
  */
-export async function tomarTurno({ dir = DIR_POR_DEFECTO, datos, aviso = () => {}, pid = process.pid, vivo = pidVivo, ahora = Date.now, pausa = dormir, esperaMaxMs = 3 * 60 * 60_000, sondeoMs = 400 }) {
+export async function tomarTurno({ dir = DIR_POR_DEFECTO, datos, aviso = () => {}, pid = process.pid, vivo = pidVivo, ahora = Date.now, pausa = dormir, esperaMaxMs = 3 * 60 * 60_000, sondeoMs = 400, pesados = procesosPesados }) {
   let turno = anotarse({ dir, datos, pid, ahora });
   const desde = ahora();
   let ultimoAviso = 0;
@@ -193,12 +268,12 @@ export async function tomarTurno({ dir = DIR_POR_DEFECTO, datos, aviso = () => {
   let ultimoLatido = ahora();
   try {
     for (;;) {
-      const r = intentarTomar({ dir, turno, datos, pid, vivo, ahora });
+      const r = intentarTomar({ dir, turno, datos, pid, vivo, ahora, pesados });
       if (r.estado === 'tomado') return { soltar: () => soltar({ dir, pid }), esperoMs: ahora() - desde };
       if (r.estado === 'sin-turno') { turno = anotarse({ dir, datos, pid, ahora }); continue; }   // lo limpiaron (se durmió la PC): se anota de nuevo, al final
       const firma = `${r.delante}|${r.dueno?.quien ?? ''}`;
       if (firma !== ultimaFirma || ahora() - ultimoAviso > 60_000) {
-        aviso(`candado: ${r.delante} delante tuyo · ${r.dueno ? `lo tiene «${r.dueno.quien || r.dueno.chat}» hace ${minutos(ahora() - (Date.parse(r.dueno.desde) || r.dueno.mtime))}${r.dueno.manual ? ' (a mano: si es TUYO, usá --ya-tengo-el-candado)' : ''}` : 'está libre, esperando mi turno'} · llevo ${minutos(ahora() - desde)}`);
+        aviso(`candado: ${r.delante} delante tuyo · ${r.dueno ? `lo tiene «${r.dueno.quien || r.dueno.chat}» hace ${minutos(ahora() - (Date.parse(r.dueno.desde) || r.dueno.mtime))}${r.dueno.manual ? ` (a mano: si es TUYO usá --ya-tengo-el-candado; si nadie lo usa se libera solo a los ${Math.round(A_MANO_OCIOSO_MS / 60000)} min sin procesos pesados)` : ''}` : 'está libre, esperando mi turno'} · llevo ${minutos(ahora() - desde)}`);
         ultimaFirma = firma;
         ultimoAviso = ahora();
       }
@@ -226,7 +301,7 @@ export function describirEstado(e, ahora = Date.now) {
   if (!e.dueno) lineas.push('  candado: LIBRE');
   else {
     const hace = minutos(ahora() - (Date.parse(e.dueno.desde) || e.dueno.mtime));
-    lineas.push(`  candado: lo tiene «${e.dueno.quien || e.dueno.chat}» hace ${hace}${e.dueno.manual ? ' — tomado A MANO (sin pid: sólo se libera cuando lo suelta, o a los ' + Math.round(VENCE_MS / 60000) + ' min)' : ` — pid ${e.dueno.pid}`}`);
+    lineas.push(`  candado: lo tiene «${e.dueno.quien || e.dueno.chat}» hace ${hace}${e.dueno.manual ? ' — tomado A MANO (sin pid: lo libera quien lo tomó; con alguien esperando se suelta solo a los ' + Math.round(A_MANO_OCIOSO_MS / 60000) + ' min sin procesos pesados, o a los ' + Math.round(A_MANO_VENCE_MS / 60000) + ' min)' : ` — pid ${e.dueno.pid}`}`);
   }
   if (e.cola.length === 0) lineas.push('  fila: vacía');
   else e.cola.forEach((t, i) => lineas.push(`  fila ${i + 1}: ${t.chat ?? '?'} (${t.cuenta ?? '?'}) · ${t.comando ?? ''} · espera hace ${minutos(ahora() - (Date.parse(t.desde) || t.mtime))} · pid ${t.pid}`));
