@@ -18,13 +18,24 @@
 // ⚠️ SE RECHAZA, NO SE RECORTA (AGENTS.md): una pregunta con un campo de más se descarta entera, y la PC la vuelve a subir
 //    hasta que se corrija (la deja en su carpeta).
 // ⚠️ SIN `server-only`: lo leen la PC (el mismo molde, en cartero.mjs), el servidor y las dos pantallas.
+//
+// LA PREGUNTA DE UN `wrap_up` SE SUPERA (20/10/2026, la revisión de caja-voz). La del recuadro de próximo paso de la app
+// (cartero 1.17.2) Martín la contesta como le sale: el botón de la app, la caja del Ops Center o Remote Control. Sólo el
+// formulario la marcaba contestada, así que quedaba «Espera tu respuesta» para siempre (en transcripts reales, 3, 6 y 8
+// abiertas por chat), y un clic días después le firmaba al chat una orden vencida. Ahora una pregunta con `origen:
+// 'wrap_up'` queda SUPERADA (`superarPreguntas`) cuando el chat recibe un turno de Martín o de otro chat posterior, o
+// cierra con otro wrap_up: no cuenta como abierta, no sube el globito y el formulario no se toca. Las de `preguntar` no:
+// ésas las cierra la respuesta.
+// LA MISMA PREGUNTA NO ENTRA DOS VECES (`unirPreguntas`): una nueva igual (mismo chat, mismo texto) a una que sigue abierta
+// se descarta, aunque llegue en otra vuelta.
 
 import { DESTINO_RE, UUID_RE } from './operaciones-reglas';
 
 export const MAX_PREGUNTA = 300;
 export const MAX_CONTEXTO = 600;
 export const MAX_TITULO_OPCION = 80;
-export const MAX_DETALLE_OPCION = 240;
+/** 300: el `message` de un botón de wrap_up llega hasta ahí (antes 240 recortaba lo que el chat iba a recibir). */
+export const MAX_DETALLE_OPCION = 300;
 export const MIN_OPCIONES = 2;
 export const MAX_OPCIONES = 6;
 export const MAX_OTRA = 1000;
@@ -49,6 +60,10 @@ export type PreguntaChat = {
   varias: boolean;
   at: string;
   respuesta: RespuestaPregunta | null;
+  /** 'wrap_up' = la armó el cartero del recuadro de próximo paso de la app (1.17.2); sin esto, de `preguntar`. */
+  origen?: 'wrap_up';
+  /** Cuándo quedó superada (sólo una de wrap_up): el chat siguió sin el formulario. No cuenta como abierta. */
+  superada?: string;
 };
 
 const ISO = (v: unknown): string | null => (typeof v === 'string' && Number.isFinite(Date.parse(v)) ? new Date(v).toISOString() : null);
@@ -86,8 +101,15 @@ export function sanearPregunta(x: unknown): PreguntaChat | null {
   if (!at) return null;
   const respuesta = o.respuesta == null ? null : sanearRespuesta(o.respuesta, opciones.length, o.varias === true);
   if (respuesta === undefined) return null;
-  return { id: o.id, local: o.local, pregunta, contexto, opciones, recomendada, varias: o.varias === true, at, respuesta };
+  const superada = o.origen === 'wrap_up' ? ISO(o.superada) : null;
+  return {
+    id: o.id, local: o.local, pregunta, contexto, opciones, recomendada, varias: o.varias === true, at, respuesta,
+    ...(o.origen === 'wrap_up' ? { origen: 'wrap_up' as const } : {}), ...(superada ? { superada } : {}),
+  };
 }
+
+/** ¿Espera a Martín? Ni contestada ni superada. */
+export const estaAbierta = (p: Pick<PreguntaChat, 'respuesta' | 'superada'>): boolean => !p.respuesta && !p.superada;
 
 function sanearRespuesta(x: unknown, n: number, varias: boolean): RespuestaPregunta | undefined {
   if (!x || typeof x !== 'object') return undefined;
@@ -112,8 +134,9 @@ export function sanearPreguntas(x: unknown): PreguntaChat[] {
     const p = sanearPregunta(v);
     if (!p || vistas.has(p.id)) continue;
     vistas.add(p.id);
-    // Lo que sube la PC nunca viene contestado: la respuesta la pone MaKo, con el trabajo firmado.
-    out.push({ ...p, respuesta: null });
+    // Lo que sube la PC nunca viene contestado ni superado: eso lo pone MaKo.
+    const { superada: _s, ...limpia } = p;
+    out.push({ ...limpia, respuesta: null });
   }
   return out;
 }
@@ -124,8 +147,40 @@ export function sanearPreguntas(x: unknown): PreguntaChat[] {
  */
 export function unirPreguntas(antes: readonly PreguntaChat[], nuevas: readonly PreguntaChat[]): PreguntaChat[] {
   const porId = new Map(antes.map((p) => [p.id, p]));
-  for (const p of nuevas) if (!porId.has(p.id)) porId.set(p.id, p);
+  // La misma pregunta del mismo chat, mientras siga abierta, entra UNA vez (dos wrap_up seguidos, o `preguntar` y el
+  // wrap_up que la app le pide al terminar, llegan en vueltas distintas).
+  const norm = (p: PreguntaChat) => `${p.local}\n${p.pregunta.replace(/\s+/g, ' ').trim().toLowerCase()}`;
+  const abiertas = new Set([...porId.values()].filter(estaAbierta).map(norm));
+  for (const p of nuevas) {
+    if (porId.has(p.id) || abiertas.has(norm(p))) continue;
+    porId.set(p.id, p);
+    abiertas.add(norm(p));
+  }
   return [...porId.values()].sort((a, b) => Date.parse(a.at) - Date.parse(b.at)).slice(-PREGUNTAS_POR_CHAT);
+}
+
+/** Lo que dejó atrás una pregunta de wrap_up: un turno de Martín o de otro chat (`yo`, `otro`), con su hora. */
+export type TurnoQueSupera = { local: string; rol: string; at: string };
+
+/**
+ * Las preguntas de un chat con las de wrap_up que quedaron atrás marcadas `superada`: hay un turno de Martín u otro chat
+ * POSTERIOR (contestó por la app, por la caja o por Remote Control), o el chat cerró con otro wrap_up más nuevo. Las de
+ * `preguntar` y las contestadas no se tocan. Devuelve la MISMA lista si no cambió nada.
+ */
+export function superarPreguntas(preguntas: readonly PreguntaChat[], turnos: readonly TurnoQueSupera[]): PreguntaChat[] {
+  const t = (s: string) => Date.parse(s);
+  let cambio = false;
+  const out = preguntas.map((p) => {
+    if (p.origen !== 'wrap_up' || !estaAbierta(p)) return p;
+    const despues = [
+      ...turnos.filter((x) => x.local === p.local && (x.rol === 'yo' || x.rol === 'otro') && t(x.at) > t(p.at)).map((x) => x.at),
+      ...preguntas.filter((q) => q.id !== p.id && q.local === p.local && q.origen === 'wrap_up' && t(q.at) > t(p.at)).map((q) => q.at),
+    ].sort((a, b) => t(a) - t(b));
+    if (!despues.length) return p;
+    cambio = true;
+    return { ...p, superada: new Date(t(despues[0])).toISOString() };
+  });
+  return cambio ? out : (preguntas as PreguntaChat[]);
 }
 
 /** Las opciones en el orden de la pantalla: la recomendada primero (como «(Recommended)» en Claude Code). Cada una con
@@ -151,9 +206,15 @@ const MARCA_RE = /\[pregunta ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0
 /** El id de la pregunta que contesta un trabajo, o null si no es una respuesta. */
 export const preguntaDeTrabajo = (t: string | null | undefined): string | null => (t ? MARCA_RE.exec(t)?.[1] ?? null : null);
 
-/** Lo que se le firma al chat: la pregunta, lo elegido por su número y su título, y lo escrito. */
-export function textoDeRespuesta(p: Pick<PreguntaChat, 'id' | 'pregunta' | 'opciones'>, elegidas: readonly number[], otra: string | null): string {
-  const lineas = elegidas.map((i) => `${i + 1}. ${p.opciones[i]?.titulo ?? ''}`);
+/**
+ * Lo que se le firma al chat: la pregunta, lo elegido por su número y su título, y lo escrito. En una de wrap_up, con el
+ * `message` del botón (su detalle): es lo que el mismo clic en la app le manda («Sólo la 2, la 1 queda para mañana»).
+ */
+export function textoDeRespuesta(p: Pick<PreguntaChat, 'id' | 'pregunta' | 'opciones' | 'origen'>, elegidas: readonly number[], otra: string | null): string {
+  const lineas = elegidas.map((i) => {
+    const o = p.opciones[i];
+    return p.origen === 'wrap_up' && o?.detalle ? `${i + 1}. ${o.titulo}: ${o.detalle}` : `${i + 1}. ${o?.titulo ?? ''}`;
+  });
   if (otra) lineas.push(`Otra: ${otra}`);
   return `Respuesta a tu pregunta «${p.pregunta}» ${marcaDePregunta(p.id)}:\n${lineas.join('\n')}`;
 }
