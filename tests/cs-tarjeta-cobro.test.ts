@@ -16,6 +16,11 @@
 //   · «Cuota vencida» ANTES de «Sin entrar al curso»                                → 3 / 1
 //   · la tarjeta de la computadora sin pasarle el cobro                             → 3 / 1
 //   · el teléfono con la `CaraTarjeta` de antes (sólo iniciales)                    → 3 / 1
+// Y lo que encontró la revisión del 21/10/2026 (archivo en 5 / 0, una rotura por vez):
+//   · sin la renovación rechazada de una suscripción (queda «pagado» con el motivo)                  → 4 / 1
+//   · el rechazo fechado por `created_at` (un pago anterior lo tapaba)                               → 4 / 1
+//   · la cartera en una sola consulta (sin tandas: la URL y el techo de 1.000 filas)                 → 4 / 1
+//   (el test de la versión de ayer fijaba el mismo supuesto equivocado: el `created_at` del fallido como hora del rechazo)
 // Correr: node --import tsx --test tests/cs-tarjeta-cobro.test.ts
 // =============================================================================
 
@@ -27,7 +32,7 @@ import { avanceDeCliente, cobroDelCliente } from '../app/customer-success/aviso-
 
 const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
 const HOY = '2026-10-20';
-const c = (estado: string, created_at: string, pagado_at: string | null = null) => ({ estado, created_at, pagado_at });
+const c = (estado: string, created_at: string, pagado_at: string | null = null, updated_at: string | null = null) => ({ estado, created_at, pagado_at, updated_at });
 
 test('el cobro de un cliente: rechazado si el ÚLTIMO falló y no pagó después; vencida si una cuota pasó su fecha', () => {
   assert.equal(cobroDelCliente([c('pagado', '2026-09-01T10:00:00Z', '2026-09-01T10:01:00Z'), c('fallido', '2026-10-01T10:00:00Z')], [], HOY), 'rechazado');
@@ -41,6 +46,18 @@ test('el cobro de un cliente: rechazado si el ÚLTIMO falló y no pagó después
   assert.equal(cobroDelCliente([], [{ fecha_esperada: '2026-10-20' }], HOY), null, 'vence hoy: todavía no está vencida');
   assert.equal(cobroDelCliente([c('fallido', '2026-10-10T10:00:00Z')], [{ fecha_esperada: '2026-10-01' }], HOY), 'rechazado', 'rechazado gana');
   assert.equal(cobroDelCliente([], [], HOY), null);
+});
+
+test('la revisión del 21/10: el rechazo cuenta por CUÁNDO pasó, y la renovación rechazada avisa', () => {
+  // El link de la cuota 2 se creó el 01/10; la cuota 1 se pagó el 05/10; la 2 rebotó el 20/10 (updated_at).
+  assert.equal(cobroDelCliente([c('pagado', '2026-09-25T10:00:00Z', '2026-10-05T10:00:00Z'), c('fallido', '2026-10-01T10:00:00Z', null, '2026-10-20T10:00:00Z')], [], HOY), 'rechazado',
+    'un pago anterior al rechazo no lo tapa, aunque el link rechazado se haya creado antes');
+  assert.equal(cobroDelCliente([c('fallido', '2026-10-01T10:00:00Z', null, '2026-10-02T10:00:00Z'), c('pagado', '2026-09-30T10:00:00Z', '2026-10-03T10:00:00Z')], [], HOY), null,
+    'pagó después del rechazo: no avisa');
+  const renovacion = (o: Record<string, string>) => ({ estado: 'pagado', created_at: '2026-09-01T10:00:00Z', pagado_at: '2026-09-01T10:00:00Z', tipo: 'suscripcion', motivo: 'Falló el cobro de la renovación: card_declined', ...o });
+  assert.equal(cobroDelCliente([renovacion({ suscripcion_estado: 'activa' })], [], HOY), 'rechazado', 'la renovación rechazada de una suscripción activa');
+  assert.equal(cobroDelCliente([renovacion({ suscripcion_estado: 'cancelada' })], [], HOY), null, 'una cancelada ya no se cobra');
+  assert.equal(cobroDelCliente([renovacion({ suscripcion_estado: 'activa', motivo: 'Renovado' })], [], HOY), null, 'sin el motivo del rechazo, al día');
 });
 
 test('el aviso: «Pago rechazado» le gana a todo; «Cuota vencida» va después de «Sin entrar al curso»', () => {
@@ -57,8 +74,11 @@ test('el aviso: «Pago rechazado» le gana a todo; «Cuota vencida» va después
 
 test('el cableado: una lectura para la cartera que nunca tira, y la misma regla en computadora y teléfono', () => {
   const lector = leer('app/customer-success/cobro-tarjeta.ts');
-  assert.match(lector, /\.from\('cobros'\)[^\n]*\.in\('lead_id', ids\)/, 'una consulta para toda la cartera, no una por cliente');
-  assert.match(lector, /\.from\('pagos'\)[^\n]*\.in\('lead_id', ids\)\.eq\('pagado', false\)\.lt\('fecha_esperada', hoy\)/);
+  // De a tandas de 150 y paginado (revisión 21/10): un `.in()` va en la URL y PostgREST corta en 1.000 sin avisar.
+  assert.match(lector, /leerTodo<FilaCobro>\(db, 'cobros', 'id, lead_id, estado, created_at, updated_at, pagado_at, tipo, suscripcion_estado, motivo'/, 'la regla necesita cuándo falló y el motivo de la renovación');
+  assert.match(lector, /q\.in\('lead_id', t\)\.in\('estado', \['fallido', 'pagado'\]\)/);
+  assert.match(lector, /q\.in\('lead_id', t\)\.eq\('pagado', false\)\.lt\('fecha_esperada', hoy\)/);
+  assert.match(lector, /const TANDA = 150;/);
   assert.match(lector, /catch \(e\) \{\n[^\n]*\n\s+return null;/, 'una lectura caída no inventa un «Pago rechazado»');
   const pantalla = leer('app/customer-success/pantalla.tsx');
   assert.match(pantalla, /const lecturaCobros = cobrosDeLaCartera\(clientes\.map\(\(c\) => c\.leadId\)\);/);

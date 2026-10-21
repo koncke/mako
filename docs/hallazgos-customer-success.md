@@ -5715,3 +5715,18 @@ scroll y no lo es. Regla: en ese CSS, valores escritos (no interpolados) y ningu
 «Prioridades» del Plan y Proyectos del teléfono (docs/pedidos-crm.md).
 **Vive en:** app/customer-success/aviso-tarjeta.ts y cobro-tarjeta.ts · app/m/cs/page.tsx y CustomerSuccessM.tsx · test
 tests/cs-tarjeta-cobro.test.ts · *20/10/2026 noche, chat «CRM» (claude4).*
+
+## Lo que encontró la revisión del cobro en la tarjeta (21/10/2026)
+
+- **La hora del rechazo es `updated_at`, no `created_at`.** Un link nace «pendiente» y pasa a «fallido» cuando se
+  intenta pagar: `created_at` es cuándo se creó el link. Con eso, un pago de la cuota 1 hecho DESPUÉS de crear el link
+  de la cuota 2 tapaba el rechazo de la 2. ⚠️ El test de ayer fijaba el mismo supuesto equivocado (fechaba el rechazo
+  por `created_at`) y por eso pasaba: un test que arma los datos con la misma idea que el código no la prueba.
+- **Una renovación rechazada queda «pagado»**: `aplicarPagoFallido` no vuelve atrás un cobro pagado; sólo escribe el
+  motivo «Falló el cobro de la renovación…», y no crea cuota. Es el caso más común de las suscripciones. La tarjeta
+  usa la MISMA regla que la ficha (`esRenovacionFallida`, lib/cobrado-lead.ts).
+- **La cartera de a tandas y paginada**: un `.in()` viaja en la URL y PostgREST corta en 1.000 filas sin avisar; con
+  un fallido viejo adentro y su pago afuera salía un «Pago rechazado» falso.
+
+**Vive en:** app/customer-success/aviso-tarjeta.ts y cobro-tarjeta.ts · tests/cs-tarjeta-cobro.test.ts ·
+*21/10/2026, chat «CRM» (claude4), revisión del Cerebro.*

@@ -37,7 +37,7 @@ import { rutaParaRevisar } from '@/lib/operaciones-reglas';
 // Las columnas del kanban (16/10/2026): claves, etiquetas y qué es un pendiente, de UN lugar.
 import { ESTADOS, esEstado, estaPendiente, motivoAtoradaOk } from '@/lib/todo-estados';
 import { etiquetasDeColumnasPlan, leerColumnasPlan, cambiarColumnasPlan } from '@/lib/plan-columnas-server';
-import { aplicarCambioColumnas, columnasEnOrden, destinoDeClave, etiquetaDeClave, nuevoIdColumna, type CambioColumnas } from '@/lib/plan-columnas';
+import { aplicarCambioColumnas, claveDeTarea, columnasEnOrden, destinoDeClave, etiquetaDeClave, nuevoIdColumna, type CambioColumnas } from '@/lib/plan-columnas';
 import {
   getPropuesta, getPropuestaPorRef, listPropuestasPendientes, estadoDePropuesta, resumenPropuestasPorRefs,
   descartarPropuesta, crearPropuesta,
@@ -233,7 +233,8 @@ export const RUNNERS: Runners = {
         // la única vista donde MaKo no sabía en qué columna estaba la tarea ni por qué se atoró.
         score: t.score, score_razon: t.scoreRazon, prioridad: prioridadParaAgente(t),
         // La columna con el nombre del NEGOCIO (lib/plan-columnas.ts): el que la persona ve en su tablero.
-        estado: t.estado, columna: (await etiquetasDeColumnasPlan())(t.estado),
+        // La columna donde la VE la persona: la propia si está en una (revisión del 21/10/2026), si no la de su estado.
+        estado: t.estado, columna: await (async () => { const cfg = await leerColumnasPlan(); return etiquetaDeClave(cfg, claveDeTarea({ estado: t.estado, columna: t.columna }, cfg)); })(),
         ...(t.estado === 'en_seguimiento' ? { atorada_por: t.motivoAtorada } : {}),
         avance_pct: t.avance,
         deadline: t.deadline, deadline_razon: t.deadlineRazon, quarter: t.quarter, en_prioridad: t.enPrioridad,
@@ -860,17 +861,20 @@ export const RUNNERS: Runners = {
       const etiqueta = await etiquetasDeColumnasPlan();
       // Una columna PROPIA de ese estado (mig 0317), si la pidió: tiene que existir y ser de ESE estado.
       const pedida = str(input, 'columna');
-      const config = pedida ? await leerColumnasPlan() : null;
+      // Las columnas siempre: también dicen DÓNDE está hoy la tarea, si es en una propia (revisión del 21/10/2026).
+      const config = await leerColumnasPlan();
       const propia = pedida ? destinoDeClave(config, pedida) : null;
       if (pedida && (!propia || !propia.columna || propia.estado !== estado)) return { error: `No hay una columna propia «${pedida}» en ${etiqueta(estado)}. Míralas con ver_columnas_plan.` };
       const columna = propia?.columna ?? null;
       const destino = columna ? etiquetaDeClave(config, columna) : etiqueta(estado);
       // «Ya está así» es un éxito sin nada que hacer para un flujo o un token (yaEstaba), y un
       // rechazo con la razón para una persona.
-      if (t.estado === estado && (t.columna ?? null) === columna && (estado !== 'en_seguimiento' || !motivo || motivo === t.motivoAtorada)) {
+      // «Ya está» y «desde» por la columna donde la VE la persona (`claveDeTarea`): una columna propia quitada ya no es la suya.
+      const ahora = claveDeTarea({ estado: t.estado, columna: t.columna }, config);
+      if (ahora === (columna ?? estado) && (estado !== 'en_seguimiento' || !motivo || motivo === t.motivoAtorada)) {
         return { error: `La tarea «${recortar(t.titulo, 120)}» ya está en ${destino}.`, yaEstaba: true };
       }
-      const desde = etiqueta(t.estado);
+      const desde = etiquetaDeClave(config, ahora);
       return {
         payload: { id: t.id, estado, motivo, columna },
         resumen: `Mover «${recortar(t.titulo, 120)}» de ${desde} a ${destino}${motivo ? ` (${motivo})` : ''}`,

@@ -321,6 +321,23 @@ export function textoComparable(texto: string, nombreLead?: string | null): stri
   return (nombre.length >= 2 ? palabras.filter((w) => w !== nombre) : palabras).join(' ');
 }
 
+/**
+ * EL ID DE UNA SUGERENCIA: lo que «Ahora no» guarda y relee (`claveCallada`, `parsearCalladas`) y lo que acepta la ruta
+ * (app/api/crm/mako/route.ts). Una sola regla para los tres. ⚠️ Un id con «.», «/», «>» o «ñ» la ruta lo rechazaba y la
+ * sugerencia volvía en cada carga sin poder callarse (revisión del 21/10/2026): lo que viene de afuera (una URL, el
+ * nombre de una campaña, dos keys de etapa) va como un hash corto.
+ */
+export const ID_SUGERENCIA = /^[a-z0-9:_-]{1,120}$/i;
+const hashCorto = (s: string): string => {
+  let h = 0x811c9dc5;
+  for (const ch of s) { h ^= ch.codePointAt(0) ?? 0; h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(36);
+};
+/** «Hace 5 veces que mueves de A a B»: un id por par de etapas. */
+export const idGestoMover = (desde: string, hacia: string): string => `gesto-mover:${hashCorto(`${desde}>${hacia}`)}`;
+/** «Llegaron leads de la landing X»: un id por landing o campaña. */
+export const idSinCrm = (tipo: 'landing' | 'campaña', nombre: string): string => `sin-crm:${tipo === 'campaña' ? 'campana' : 'landing'}:${hashCorto(nombre)}`;
+
 const DIA_MS = 86_400_000;
 const dia = (s: string | null | undefined): string => String(s ?? '').slice(0, 10);
 const comillas = (s: string) => `«${s.trim()}»`;
@@ -434,7 +451,7 @@ export function sugerenciasDelCrm(e: EntradaSugerencias, tope: number = UMBRALES
       if (n < U.gestosMovimientos) continue;
       const [desde, hacia] = k.split('>');
       ofrecer({
-        id: `gesto-mover:${k}`, clase: 2, etapa: hacia, soloAdmin: false,
+        id: idGestoMover(desde, hacia), clase: 2, etapa: hacia, soloAdmin: false,
         texto: `Hace ${n} veces que mueves de ${comillas(label(desde))} a ${comillas(label(hacia))}. ¿Lo hago solo?`,
         accion: {
           tipo: 'chat',
@@ -503,7 +520,7 @@ export function sugerenciasDelCrm(e: EntradaSugerencias, tope: number = UMBRALES
     for (const f of e.nuevos.sinCrm ?? []) {
       if (f.leads <= 0) continue;
       ofrecer({
-        id: `sin-crm:${f.tipo}:${f.nombre}`, clase: 4, etapa: null, soloAdmin: true,
+        id: idSinCrm(f.tipo, f.nombre), clase: 4, etapa: null, soloAdmin: true,
         texto: `${f.leads === 1 ? 'Llegó 1 lead' : `Llegaron ${f.leads} leads`} de la ${f.tipo} ${comillas(f.nombre)}, que no está en ningún CRM. ¿La conecto?`,
         accion: {
           tipo: 'chat',
@@ -588,7 +605,8 @@ export function parsearCalladas(raw: string | null | undefined): Record<string, 
   if (!j || typeof j !== 'object' || Array.isArray(j)) return {};
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(j as Record<string, unknown>)) {
-    if (/^\d+\|[a-z0-9:_-]{1,120}$/i.test(k) && typeof v === 'string' && Number.isFinite(Date.parse(v))) out[k] = v;
+    const [crm, id] = k.split('|');
+    if (/^\d+$/.test(crm ?? '') && ID_SUGERENCIA.test(id ?? '') && k.split('|').length === 2 && typeof v === 'string' && Number.isFinite(Date.parse(v))) out[k] = v;
   }
   return out;
 }

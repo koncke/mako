@@ -54,6 +54,7 @@ import { leerCampanasAsignadasEstricto } from '@/lib/campana-funnel';
 import { funnelIdDeCampana } from '@/lib/campana-config';
 import { TERMINAL_DEL_PIPELINE } from '@/lib/pipeline';
 import { conversacionesSocialesNuevas, salientesSocialesDesde } from '@/lib/canal-zernio';
+import { esPreviewDeEditor } from '@/lib/landing-paginas';
 import {
   sugerenciasDelCrm, sinCalladas, parsearCalladas, conCallada, sinCallada, estaCallada, claveCallada,
   CLAVE_CALLADAS, UMBRALES_SUGERENCIAS, textoComparable,
@@ -176,7 +177,7 @@ async function dmsNuevos(ahora: number): Promise<NonNullable<EntradaSugerencias[
 }
 
 /** Un lead de la casa del CRM, con lo que miran los tres lectores de abajo. */
-type LeadDeCasa = { id: number; nombre: string; etapa: string; creado: string | null; visitorId: string | null };
+type LeadDeCasa = { id: number; nombre: string; etapa: string; creado: string | null; visitorId: string | null; prueba: boolean };
 
 /**
  * CLASE 2 (20/10/2026, noche): los mensajes que una PERSONA mandó a mano a estos leads en la ventana, para «el mismo
@@ -259,21 +260,23 @@ async function leadsQueVolvieron(casa: ReadonlyMap<number, LeadDeCasa>, enRecorr
   const desde = new Date(ahora - UMBRALES_SUGERENCIAS.gestosDias * 86_400_000).toISOString();
   const porVisitor = new Map<string, LeadDeCasa>();
   for (const l of [...casa.values()].sort((a, b) => String(b.creado ?? '').localeCompare(String(a.creado ?? '')))) {
-    if (l.visitorId && enRecorrido.has(l.etapa) && !porVisitor.has(l.visitorId)) porVisitor.set(l.visitorId, l);
+    if (l.visitorId && !l.prueba && enRecorrido.has(l.etapa) && !porVisitor.has(l.visitorId)) porVisitor.set(l.visitorId, l);
     if (porVisitor.size >= 1000) break;
   }
   const vids = [...porVisitor.keys()];
   if (!vids.length) return [];
   const db = await getTenantDb();
-  const visitas: Array<{ visitor_id: string; created_at: string }> = [];
-  const plays: Array<{ visitor_id: string; created_at: string; auto: boolean | null }> = [];
+  const visitas: Array<{ visitor_id: string; created_at: string; landing_url: string | null }> = [];
+  const plays: Array<{ visitor_id: string; created_at: string; auto: boolean | null; landing_url: string | null }> = [];
   const tandas: string[][] = [];
   for (let i = 0; i < vids.length; i += 150) tandas.push(vids.slice(i, i + 150));
   for (let i = 0; i < tandas.length; i += 4) {
     await Promise.all(tandas.slice(i, i + 4).map(async (t) => {
       const [v, p] = await Promise.all([
-        db.from('landing_visits').select('visitor_id, created_at').in('visitor_id', t).gte('created_at', desde).limit(5000),
-        db.from('vsl_events').select('visitor_id, created_at, auto').in('visitor_id', t).gte('created_at', desde).or('tipo_evento.eq.play,event.eq.vsl_play').limit(5000),
+        // Sin las de PRUEBA (`?mko_test`, la prueba del Pixel) ni la vista previa del editor: no son del negocio
+        // (`noEsDelNegocio`, lib/graficos-datos-extra.ts; revisión del 21/10/2026).
+        db.from('landing_visits').select('visitor_id, created_at, landing_url').in('visitor_id', t).gte('created_at', desde).is('prueba', null).limit(5000),
+        db.from('vsl_events').select('visitor_id, created_at, auto, landing_url').in('visitor_id', t).gte('created_at', desde).is('prueba', null).or('tipo_evento.eq.play,event.eq.vsl_play').limit(5000),
       ]);
       if (v.error) throw new Error(`visitas: ${v.error.message}`);
       if (p.error) throw new Error(`plays del VSL: ${p.error.message}`);
@@ -286,14 +289,28 @@ async function leadsQueVolvieron(casa: ReadonlyMap<number, LeadDeCasa>, enRecorr
   const marcar = (l: LeadDeCasa, cuando: string) => { if (String(ultimaVuelta.get(l.id) ?? '') < cuando) ultimaVuelta.set(l.id, cuando); };
   for (const v of visitas) {
     const l = porVisitor.get(v.visitor_id);
-    if (l?.creado && diaDe(v.created_at) > diaDe(l.creado)) marcar(l, v.created_at);
+    if (l?.creado && !esPreviewDeEditor(v.landing_url ?? '') && diaDe(v.created_at) > diaDe(l.creado)) marcar(l, v.created_at);
   }
-  const playsDe = new Map<string, string[]>();
-  for (const p of plays) if (p.auto !== true) playsDe.set(p.visitor_id, [...(playsDe.get(p.visitor_id) ?? []), p.created_at]);
-  for (const [vid, fechas] of playsDe) {
+  // LOS PLAYS, POR DÍA (revisión del 21/10/2026): un solo clic en un VSL de Wistia con el snippet v16/v17 deja DOS filas
+  // «play» a milisegundos (lib/video-id.ts), y una página con dos videos o una recarga también. Volver es mirarlo OTRO
+  // día: un play un día después del alta (como las visitas), o plays en dos días distintos.
+  const diasDe = new Map<string, Map<string, string>>();
+  for (const p of plays) {
+    if (p.auto === true || esPreviewDeEditor(p.landing_url ?? '')) continue;
+    const dias = diasDe.get(p.visitor_id) ?? new Map<string, string>();
+    const d = diaDe(p.created_at);
+    if (String(dias.get(d) ?? '') < p.created_at) dias.set(d, p.created_at);
+    diasDe.set(p.visitor_id, dias);
+  }
+  for (const [vid, dias] of diasDe) {
     const l = porVisitor.get(vid);
-    const ultima = fechas.sort().at(-1)!;
-    if (l && fechas.length >= 2 && (!l.creado || ultima >= l.creado)) marcar(l, ultima);
+    if (!l) continue;
+    const alta = l.creado ? diaDe(l.creado) : null;
+    const orden = [...dias.keys()].sort();
+    const ultimoDia = orden.at(-1)!;
+    const despuesDelAlta = alta != null && ultimoDia > alta;
+    const dosDias = orden.length >= 2 && (alta == null || ultimoDia >= alta);
+    if (despuesDelAlta || dosDias) marcar(l, dias.get(ultimoDia)!);
   }
   return [...ultimaVuelta].sort((a, b) => b[1].localeCompare(a[1])).map(([id]) => {
     const l = casa.get(id)!;
@@ -336,6 +353,8 @@ async function calcular(ws: number, crm: CrmDeLaPantalla): Promise<Calculo> {
   const ahora = Date.now();
   const deCasa = new Map<number, LeadDeCasa>(casa.map((l) => [l.id, {
     id: l.id, nombre: l.nombre?.trim() || 'Sin nombre', etapa: etapaVigenteDe(l, cfg.stages), creado: l.created_at ?? null, visitorId: l.visitor_id ?? null,
+    // El lead que crea la prueba del Pixel (lib/lead-de-prueba.ts): no es del negocio.
+    prueba: l.origen_lead === 'prueba',
   }]));
   // «Volver» importa mientras se le está vendiendo: los pasos del recorrido, sin el ganado.
   const enRecorrido = new Set(cfg.stages.filter((s) => (s.band ?? 'pipeline') === 'pipeline' && s.key !== TERMINAL_DEL_PIPELINE).map((s) => s.key));

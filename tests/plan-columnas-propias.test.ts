@@ -21,6 +21,10 @@
 //   · soltar sin pasar la columna (de «En revisión» a «En proceso» no pasaba nada)    → 3 / 1
 //   · `useBoard.mover` sin columna mandándola a la de su estado (el motivo la sacaba)  → 3 / 1
 //   · «Quitar columna» también en las de siempre                                       → 3 / 1
+// Y lo que encontró la revisión del 21/10/2026 (archivo en 5 / 0, una rotura por vez):
+//   · el «＋» de una propia moviendo desde el `onDone` del modal (el `board` del clic no tiene la tarea) → 4 / 1
+//   · soltar en un tablero embebido mandando `columna: null` (le borraba la propia al reordenar)        → 4 / 1
+//   · MaKo diciendo «desde» por el estado y no por la columna donde se ve la tarea                       → 4 / 1
 // Correr: node --import tsx --test tests/plan-columnas-propias.test.ts
 // =============================================================================
 
@@ -96,7 +100,13 @@ test('la base, ejecutando: mover escribe la columna, anda sin la mig 0317, y el 
 
 test('el tablero: soltar pasa la columna, el motivo no saca de la propia, y sólo las propias se quitan', () => {
   const b = leer('app/plan/board/BoardShell.tsx');
-  assert.match(b, /void board\.mover\(id, d\.estado, ordenNuevo, undefined, d\.columna\);/, 'de «En revisión» a «En proceso» sólo cambia la columna');
+  assert.match(b, /void board\.mover\(id, d\.estado, ordenNuevo, undefined, board\.columnas \? d\.columna : undefined\);/,
+    'de «En revisión» a «En proceso» sólo cambia la columna; un tablero que no conoce las columnas no la borra (revisión 21/10)');
+  assert.match(b, /board\.mover\(t\.id, d\.estado, undefined, undefined, board\.columnas \? d\.columna : undefined\)/, 'el selector de la ficha, igual');
+  // El «＋» de una propia: se mueve cuando el tablero YA trae la tarea (el `board` del clic no la tiene: revisión 21/10).
+  assert.match(b, /if \(!aColumnaPropia \|\| !board\.tasks\.some\(\(t\) => t\.id === aColumnaPropia\.id\)\) return;/);
+  assert.match(b, /if \(nuevaTareaColumna && nuevaTareaEstado\) setAColumnaPropia\(\{ id, estado: nuevaTareaEstado, columna: nuevaTareaColumna \}\);/);
+  assert.doesNotMatch(b, /if \(nuevaTareaColumna && nuevaTareaEstado\) void board\.mover\(/, 'mover desde el onDone del modal no encuentra la tarea');
   assert.match(b, /quitar=\{board\.columnas\?\.editables && propia \? \(\) => quitarColumna\(clave, label, e\) : undefined\}/);
   assert.match(b, /agregar=\{board\.columnas\?\.editables && e !== 'no_cumple' \?/);
   const u = leer('app/plan/board/useBoard.ts');
@@ -107,4 +117,11 @@ test('el tablero: soltar pasa la columna, el motivo no saca de la propia, y sól
   assert.match(mig, /alter table public\.plan_tareas add column if not exists columna text;/);
   assert.match(mig, /alter table public\.experimento_tareas add column if not exists columna text;/);
   assert.match(mig, /ORDEN DE DESPLIEGUE: AGREGA algo que el código nuevo lee → se aplica ANTES o JUNTO con el deploy/);
+});
+
+test('MaKo ve la columna propia: la ficha de la tarea, el «desde» y el «ya está» (revisión 21/10)', () => {
+  const run = leer('lib/api-mako/areas/plan.run.ts');
+  assert.match(run, /etiquetaDeClave\(cfg, claveDeTarea\(\{ estado: t\.estado, columna: t\.columna \}, cfg\)\)/, 'ver_tarea_plan dice la columna donde la ve la persona');
+  assert.match(run, /const ahora = claveDeTarea\(\{ estado: t\.estado, columna: t\.columna \}, config\);\n\s+if \(ahora === \(columna \?\? estado\)/, '«ya está» por la columna que se ve');
+  assert.match(run, /const desde = etiquetaDeClave\(config, ahora\);/);
 });

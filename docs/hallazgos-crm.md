@@ -10013,3 +10013,21 @@ ComportamientoCard.tsx. Test: tests/crm-ficha-bloques-partidos.test.ts. *20/10/2
 **Sin hacer:** WhatsApp en «el mismo mensaje» (falta el autor en `wa_mensajes`); el link de `lib/cerebro-vivo.ts`.
 **Vive en:** lib/sugerencias-crm.ts y lib/sugerencias-crm-server.ts · test tests/sugerencias-crm-gestos.test.ts ·
 *20/10/2026 noche, chat «CRM» (claude4).*
+
+## Lo que encontró la revisión de las sugerencias (21/10/2026)
+
+- **El id de una sugerencia tiene que sobrevivir a TRES lugares**: lo arma el motor, lo valida la ruta y lo relee
+  «Ahora no» (`parsearCalladas`). Un id con «.», «/», «>» o «ñ» (una URL, el nombre de una campaña, «lead>agenda»)
+  la ruta lo rechazaba con 400 y la sugerencia volvía en cada carga sin poder callarse. Ahora hay una sola regla
+  (`ID_SUGERENCIA`) y lo que viene de afuera va como un hash corto (`idGestoMover`, `idSinCrm`). El test hace la ida y
+  vuelta de «Ahora no» con CADA familia de id.
+- **Un clic en el VSL pueden ser dos plays**: el snippet v16/v17 con Wistia manda dos filas a milisegundos
+  (lib/video-id.ts), y una página con dos videos o una recarga también. «Volvió a mirar el VSL» cuenta DÍAS: un play un
+  día después del alta, o plays en dos días distintos.
+- **Las pruebas no son del negocio**: las visitas con `prueba` (`?mko_test`), la vista previa del editor y el lead
+  PRUEBA de la prueba del Pixel (`origen_lead = 'prueba'`) ya no cuentan como «volvió». Es la misma regla que los
+  gráficos (`noEsDelNegocio`).
+
+**Sin hacer (bajo):** «Hacerlo» por el chat no calla la sugerencia en el server; puede volver en la próxima carga.
+**Vive en:** lib/sugerencias-crm.ts y sugerencias-crm-server.ts · app/api/crm/mako/route.ts ·
+tests/sugerencias-crm-gestos.test.ts · *21/10/2026, chat «CRM» (claude4), revisión del Cerebro.*

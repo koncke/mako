@@ -158,7 +158,8 @@ test('el Kanban suelta con `mover` y NO abre el pop-up de prioridad', () => {
   assert.match(KANBAN, /const columnas = columnasPorEstado\(tasks, tablero, /);
   // (20/10/2026) Con las columnas PROPIAS del negocio (lib/plan-columnas.ts) la columna de una tarjeta es su CLAVE
   // (el estado, o el id de una propia), no su estado: tests/plan-columnas-propias.test.ts.
-  assert.match(KANBAN, /void board\.mover\(id, d\.estado, ordenNuevo, undefined, d\.columna\);/);
+  // (21/10, la revisión) Un tablero que no conoce las columnas (embebido) no le borra la propia a nadie: manda undefined.
+  assert.match(KANBAN, /void board\.mover\(id, d\.estado, ordenNuevo, undefined, board\.columnas \? d\.columna : undefined\);/);
   assert.match(KANBAN, /useArrastreTactil<string>\(\(id, destino\) => soltarEn\(id, destino\), colDe, puedeMover\)/);
   assert.match(COLUMNA, /soltarEn\(id, e, ordenAlSoltar\(otros, idx\)\);/);
   // El montaje no le pasa al Kanban ningún camino al pop-up.

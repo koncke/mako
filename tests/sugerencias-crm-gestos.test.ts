@@ -22,6 +22,12 @@
 //   · el email contado sin `autor` (los de una automatización también)               → 7 / 1
 //   · `landing.config` leído con `getSetting` (caído = TODA landing «sin CRM»)         → 7 / 1
 //   · la visita del MISMO día que entró contada como «volvió»                         → 7 / 1
+// Y lo que encontró la revisión del 21/10/2026 (archivo en 10 / 0, una rotura por vez):
+//   · el id de «mover a mano» con «>» (la ruta lo rechazaba: «Ahora no» no callaba)                  → 9 / 1
+//   · la ruta con su propia regex en vez de `ID_SUGERENCIA`                                           → 9 / 1
+//   · un play del VSL el MISMO día del alta contado como volver                                      → 9 / 1
+//   · las visitas de prueba (`?mko_test`) contadas                                                    → 9 / 1
+//   · el lead PRUEBA de la prueba del Pixel contado                                                   → 9 / 1
 // Correr: node --import tsx --test tests/sugerencias-crm-gestos.test.ts
 // =============================================================================
 
@@ -29,7 +35,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { sugerenciasDelCrm, textoComparable, type EntradaSugerencias } from '../lib/sugerencias-crm';
+import {
+  sugerenciasDelCrm, textoComparable, idGestoMover, idSinCrm, ID_SUGERENCIA, conCallada, parsearCalladas, estaCallada, claveCallada,
+  type EntradaSugerencias,
+} from '../lib/sugerencias-crm';
 import { generateFunnel, DEFAULT_PIPELINE } from '../lib/pipeline';
 
 const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
@@ -45,12 +54,12 @@ const mov = (desde: string, hacia: string, n: number) => Array.from({ length: n 
 
 test('clase 2: mover a mano 5 leads de A a B lo ofrece por el chat; 4 no, y ganar o perder no es rutina', () => {
   const s = sugerenciasDelCrm(base({ gestos: { movimientos: [...mov('lead', 'agenda', 5), ...mov('agenda', 'ganado', 9), ...mov('lead', 'perdido', 9)], noShowsAMano: 0 } }), 100);
-  const g = s.find((x) => x.id === 'gesto-mover:lead>agenda');
+  const g = s.find((x) => x.id === idGestoMover('lead', 'agenda'));
   assert.ok(g, 'cinco movimientos de A a B ofrecen hacerlo solo');
   assert.equal(g.clase, 2);
   assert.equal(g.accion.tipo, 'chat');
   assert.match(g.texto, /Hace 5 veces que mueves de «.+» a «.+»\. ¿Lo hago solo\?/);
-  assert.ok(!s.some((x) => x.id.startsWith('gesto-mover:agenda>ganado') || x.id.startsWith('gesto-mover:lead>perdido')), 'ganar o perder son decisiones');
+  assert.ok(!s.some((x) => x.id === idGestoMover('agenda', 'ganado') || x.id === idGestoMover('lead', 'perdido')), 'ganar o perder son decisiones');
   const cuatro = sugerenciasDelCrm(base({ gestos: { movimientos: mov('lead', 'agenda', 4), noShowsAMano: 0 } }), 100);
   assert.ok(!cuatro.some((x) => x.clase === 2), 'con 4 no es un gesto repetido');
   assert.ok(!sugerenciasDelCrm(base(), 100).some((x) => x.clase === 2), 'sin historial leído, la clase 2 se calla');
@@ -124,7 +133,7 @@ test('clase 2: el mismo mensaje a 3 leads de una etapa ofrece dejarlo como secue
 
 test('clase 4: el lead de un formulario sin CRM ofrece conectarlo; el que vuelve al VSL, su ficha o la lista', () => {
   const s = sugerenciasDelCrm(base({ nuevos: { dmInstagram: 0, dmMessenger: 0, sinCrm: [{ tipo: 'landing', nombre: 'hola-mako.site/otono', leads: 1 }] } }), 100);
-  const f = s.find((x) => x.id === 'sin-crm:landing:hola-mako.site/otono');
+  const f = s.find((x) => x.id === idSinCrm('landing', 'hola-mako.site/otono'));
   assert.ok(f && f.clase === 4 && f.soloAdmin, 'conectar un formulario es del admin');
   assert.match(f.texto, /Llegó 1 lead de la landing «hola-mako\.site\/otono», que no está en ningún CRM\. ¿La conecto\?/);
   const uno = sugerenciasDelCrm(base({ nuevos: { dmInstagram: 0, dmMessenger: 0, volvieron: [{ lead: 42, nombre: 'Ana', etapa: 'agenda' }] } }), 100)
@@ -152,6 +161,41 @@ test('el server: los mensajes de una PERSONA (sin WhatsApp), la asignación de H
   assert.match(f, /q\.is\('funnel_id', null\)/);
   const v = sv.slice(sv.indexOf('async function leadsQueVolvieron'), sv.indexOf('const aLeadSug'));
   assert.match(v, /diaDe\(v\.created_at\) > diaDe\(l\.creado\)/, 'la visita del día que entró no es volver');
-  assert.match(v, /p\.auto !== true/, 'el autoplay no es mirar el VSL');
+  assert.match(v, /if \(p\.auto === true \|\| esPreviewDeEditor\(p\.landing_url/, 'el autoplay no es mirar el VSL');
   assert.match(sv, /leadsQueVolvieron\(deCasa, enRecorrido, tz, ahora\)\.catch\(avisar\('los que volvieron'\)\)/);
+});
+
+test('«Ahora no» calla CADA familia de sugerencia: el id pasa la ruta y vuelve igual del guardado (revisión 21/10)', () => {
+  const s = sugerenciasDelCrm(base({
+    gestos: {
+      movimientos: Array.from({ length: 5 }, () => ({ desde: 'lead', hacia: 'agenda' })), noShowsAMano: 3, fathomAMano: 0,
+      mensajes: [1, 2, 3].map((lead) => ({ texto: textoComparable('Hola, ¿pudiste ver el video que te mandé ayer?'), muestra: 'Hola', lead, etapa: 'agenda' })),
+    },
+    nuevos: {
+      dmInstagram: 1, dmMessenger: 1,
+      sinCrm: [{ tipo: 'landing', nombre: 'hola-mako.site/oferta?x=1', leads: 2 }, { tipo: 'campaña', nombre: 'Campaña Otoño — Señal', leads: 1 }],
+      volvieron: [{ lead: 1, nombre: 'Ana', etapa: 'agenda' }],
+    },
+  }), 100);
+  const familias = new Set(s.map((x) => x.id.split(':')[0]));
+  for (const f of ['gesto-mover', 'gesto-mensaje', 'sin-crm', 'volvieron', 'instagram-te-escribieron']) assert.ok(familias.has(f), `falta la familia ${f}: el test ya no la mira`);
+  const ruta = leer('app/api/crm/mako/route.ts');
+  assert.match(ruta, /ID_SUGERENCIA\.test\(v\)/, 'la ruta usa la MISMA regla que el motor');
+  const ahora = Date.parse('2026-10-21T12:00:00Z');
+  for (const x of s) {
+    assert.ok(ID_SUGERENCIA.test(x.id), `«${x.id}» no pasa la ruta: «Ahora no» devolvería 400`);
+    const guardado = JSON.stringify(conCallada({}, claveCallada(7, x.id), 30, ahora));
+    assert.ok(estaCallada(parsearCalladas(guardado), claveCallada(7, x.id), ahora), `«${x.id}» no vuelve callada del guardado`);
+  }
+});
+
+test('«volvió»: los plays por DÍA y sin pruebas (revisión 21/10)', () => {
+  const sv = leer('lib/sugerencias-crm-server.ts');
+  const v = sv.slice(sv.indexOf('async function leadsQueVolvieron'), sv.indexOf('const aLeadSug'));
+  assert.match(v, /const despuesDelAlta = alta != null && ultimoDia > alta;/, 'un play el día del alta no es volver');
+  assert.match(v, /const dosDias = orden\.length >= 2/, 'dos plays el mismo día (el snippet v16/v17 manda dos por clic) no son dos veces');
+  assert.equal((v.match(/\.is\('prueba', null\)/g) ?? []).length, 2, 'ni visitas ni plays de prueba');
+  assert.match(v, /esPreviewDeEditor\(v\.landing_url/, 'ni la vista previa del editor');
+  assert.match(v, /!l\.prueba && enRecorrido/, 'ni el lead PRUEBA');
+  assert.match(sv, /prueba: l\.origen_lead === 'prueba',/);
 });

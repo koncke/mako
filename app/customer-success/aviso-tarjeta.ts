@@ -14,6 +14,7 @@
 // =============================================================================
 
 import type { AvanceTarjeta } from '@/app/_ui/TarjetaKanban';
+import { esRenovacionFallida } from '@/lib/cobrado-lead';
 
 /** Más de esto sin entrar al curso es un aviso (amarillo); nunca haber entrado, rojo. */
 export const DIAS_SIN_ENTRAR = 14;
@@ -22,22 +23,32 @@ const DIA_MS = 86_400_000;
 /** El cobro de un cliente para la tarjeta. null = al día, o no se pudo leer (y entonces no se avisa nada). */
 export type CobroTarjeta = 'rechazado' | 'vencida' | null;
 
+/** Un cobro de la pasarela como lo lee la tarjeta (`cobros`, mig 0255). */
+export type CobroParaTarjeta = {
+  estado: string | null; created_at: string | null; updated_at?: string | null; pagado_at?: string | null;
+  tipo?: string | null; suscripcion_estado?: string | null; motivo?: string | null;
+};
+
 /**
  * El cobro de UN cliente con lo que trae la lectura de la cartera: sus cobros de la pasarela (`cobros`) y sus cuotas
- * del plan sin pagar (`pagos`). «Rechazado» = el ÚLTIMO cobro falló y no hubo uno pagado después (si después pagó con
- * otra tarjeta, ya no avisa). «Vencida» = una cuota sin pagar con la fecha pasada. Rechazado gana: pide hacer algo ya.
+ * del plan sin pagar (`pagos`). Rechazado gana: pide hacer algo ya (otra tarjeta, otro link).
+ *   · «Rechazado» = el último RECHAZO no tiene un pago bueno DESPUÉS (si pagó con otra tarjeta, ya no avisa). Cada uno
+ *     cuenta por cuándo PASÓ: el rechazo por `updated_at` (un link nace «pendiente» y pasa a «fallido» al intentarse:
+ *     `created_at` es cuándo se creó el link) y el pago por `pagado_at`. Con `created_at`, un pago de la cuota 1 hecho
+ *     después de CREAR el link de la cuota 2 tapaba el rechazo de la 2 (revisión del 21/10/2026).
+ *   · Y la RENOVACIÓN rechazada de una suscripción activa: el cobro queda «pagado» con el motivo (`aplicarPagoFallido`,
+ *     lib/cobros.ts) y no crea cuota. La MISMA regla que la ficha (`esRenovacionFallida`, lib/cobrado-lead.ts).
+ *   · «Vencida» = una cuota sin pagar con la fecha pasada.
  */
 export function cobroDelCliente(
-  cobros: ReadonlyArray<{ estado: string | null; created_at: string | null; pagado_at?: string | null }>,
+  cobros: ReadonlyArray<CobroParaTarjeta>,
   cuotasSinPagar: ReadonlyArray<{ fecha_esperada: string | null }>,
   hoy: string,
 ): CobroTarjeta {
-  const conFecha = cobros.filter((c) => c.created_at);
-  const ultimo = [...conFecha].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0];
-  if (ultimo?.estado === 'fallido') {
-    const pagoDespues = conFecha.some((c) => c.estado === 'pagado' && String(c.pagado_at ?? c.created_at) > String(ultimo.created_at));
-    if (!pagoDespues) return 'rechazado';
-  }
+  if (cobros.some((c) => c.tipo === 'suscripcion' && c.estado === 'pagado' && c.suscripcion_estado !== 'cancelada' && esRenovacionFallida(c.motivo))) return 'rechazado';
+  const cuando = (c: CobroParaTarjeta): string => String((c.estado === 'pagado' ? c.pagado_at ?? c.updated_at : c.updated_at) ?? c.created_at ?? '');
+  const rechazo = cobros.filter((c) => c.estado === 'fallido').map(cuando).filter(Boolean).sort().at(-1);
+  if (rechazo && !cobros.some((c) => c.estado === 'pagado' && cuando(c) > rechazo)) return 'rechazado';
   if (cuotasSinPagar.some((q) => q.fecha_esperada && q.fecha_esperada.slice(0, 10) < hoy)) return 'vencida';
   return null;
 }

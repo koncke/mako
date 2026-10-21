@@ -1310,3 +1310,7 @@ Cinco operaciones del área `chats` con la tarjeta (D3a: el toque en «Enviar» 
 (por la cola de borradores), contestar un DM y un email, agregar un contacto al CRM y marcar leído. Test
 `tests/chats-mako-envio.test.ts`; cosecha en hallazgos-comunicacion. **Depende de la 1.2** (rama `mako-wa`) para que el
 turno de la app llegue a ellas con el clasificador real: hoy el test arma ese veredicto a mano. No visto en el navegador.
+
+Revisión del Cerebro sobre c2de8a159 (21/10): los 7 medios arreglados, más dos bajos (MaKo ve la columna propia; la
+cartera de a tandas). Queda bajo: «Hacerlo» por el chat no calla la sugerencia en el server. Detalle en hallazgos-plan,
+hallazgos-crm y hallazgos-customer-success (las tres «Lo que encontró la revisión…»).

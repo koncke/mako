@@ -408,6 +408,17 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
   const [nuevaTareaEstado, setNuevaTareaEstado] = useState<EstadoTarea | null>(null);
   /** El «＋» de una columna PROPIA (lib/plan-columnas.ts): la tarea nace en su estado y después se mueve ahí. */
   const [nuevaTareaColumna, setNuevaTareaColumna] = useState<string | null>(null);
+  /**
+   * LA RECIÉN CREADA QUE VA A UNA COLUMNA PROPIA (revisión del 21/10/2026). El `onDone` del modal corre con el `board` del
+   * render del clic, cuyo `tasks` todavía no tiene la tarea: `mover` no la encontraba y no hacía nada, en silencio. Se
+   * mueve en un efecto, cuando el tablero YA la trae (con el `board` de ese render).
+   */
+  const [aColumnaPropia, setAColumnaPropia] = useState<{ id: string; estado: EstadoTarea; columna: string } | null>(null);
+  useEffect(() => {
+    if (!aColumnaPropia || !board.tasks.some((t) => t.id === aColumnaPropia.id)) return;
+    setAColumnaPropia(null);
+    void board.mover(aColumnaPropia.id, aColumnaPropia.estado, undefined, undefined, aColumnaPropia.columna);
+  }, [aColumnaPropia, board]);
   const [eliminarTaskId, setEliminarTaskId] = useState<string | null>(null);
   const [eliminarProjId, setEliminarProjId] = useState<string | null>(null);
   const [asignarTaskId, setAsignarTaskId] = useState<string | null>(null);
@@ -1526,8 +1537,9 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
       )}
       {nuevaTarea && <CrearTareaModal proyectoInicial={nuevaTareaProj} estadoInicial={nuevaTareaEstado} etiqueta={(e) => (nuevaTareaColumna ? board.etiquetaClave(nuevaTareaColumna) : board.etiqueta(e))} onCrear={crearConGuardian}
         onDone={(id) => {
-          // Nacida desde una columna propia: a esa columna, arriba de todo (el alta sólo sabe de estados).
-          if (nuevaTareaColumna && nuevaTareaEstado) void board.mover(id, nuevaTareaEstado, undefined, undefined, nuevaTareaColumna);
+          // Nacida desde una columna propia: a esa columna, arriba de todo (el alta sólo sabe de estados). En un efecto: ver
+          // `aColumnaPropia`.
+          if (nuevaTareaColumna && nuevaTareaEstado) setAColumnaPropia({ id, estado: nuevaTareaEstado, columna: nuevaTareaColumna });
           setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaEstado(null); setNuevaTareaColumna(null); setOpenId(id); setMakoHintId(id);
         }}
         onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaEstado(null); setNuevaTareaColumna(null); }} />}
@@ -2497,7 +2509,7 @@ function BloqueColumna({ t, board }: { t: BoardTask; board: Board }) {
         <span style={{ width: 8, height: 8, borderRadius: '50%', background: COLOR_ESTADO[e], flex: 'none' }} />
         {/* TODAS las columnas, también las propias (lib/plan-columnas.ts): la ficha mueve a donde mueve el tablero. */}
         <select value={claveDeTarea({ estado: e, columna: t.columna }, board.columnas?.config)} aria-label="Columna del kanban"
-          onChange={(ev) => { const d = destinoDeClave(board.columnas?.config, ev.target.value); if (d) void board.mover(t.id, d.estado, undefined, undefined, d.columna); }}
+          onChange={(ev) => { const d = destinoDeClave(board.columnas?.config, ev.target.value); if (d) void board.mover(t.id, d.estado, undefined, undefined, board.columnas ? d.columna : undefined); }}
           style={{ flex: 1, minWidth: 0, padding: '5px 6px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, fontWeight: 600, fontFamily: SANS, cursor: 'pointer' }}>
           {columnasEnOrden(board.columnas?.config, true).filter((x) => x.estado === e || x.estado !== 'hecho' || !esRecurrente(t)).map((x) => <option key={x.clave} value={x.clave}>{x.label}</option>)}
         </select>
@@ -3406,7 +3418,10 @@ function Kanban({ tasks, tablero, board, orden, dir, frenanA, ask, sel, setSel, 
     if (!t || !d) return;
     if (d.estado === 'en_seguimiento' && estadoDe(t) !== 'en_seguimiento') setMotivoDe(id);
     // La columna va SIEMPRE: soltar en «En proceso» saca a la tarjeta de «En revisión» aunque el estado sea el mismo.
-    void board.mover(id, d.estado, ordenNuevo, undefined, d.columna);
+    // ⚠️ SALVO que este tablero no conozca las columnas (`board.columnas` null: uno embebido, como Admin › Clientes ›
+    // tablero, que es el MISMO negocio): ahí sólo ve las de siempre, y mandar `null` le borraba a la tarjeta su columna
+    // propia al reordenarla (revisión del 21/10/2026). Sin decirla, `mover` la conserva si el estado no cambia.
+    void board.mover(id, d.estado, ordenNuevo, undefined, board.columnas ? d.columna : undefined);
   };
   // EL ARRASTRE CON EL DEDO. El mouse sigue por HTML5 drag-and-drop (ya funciona y ya está
   // probado); esto corre sólo cuando el puntero NO es un mouse. Ver arrastre-tactil.ts: ahí

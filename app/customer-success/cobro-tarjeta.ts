@@ -11,11 +11,14 @@
 
 import 'server-only';
 import { getTenantDb } from '@/lib/workspace';
+import { leerTodo, type ConsultaPaginada } from '@/lib/supabase-paginado';
 import { tzActual } from '@/lib/timezone';
 import { hoyEnTz } from '@/lib/date-utils';
-import { cobroDelCliente, type CobroTarjeta } from './aviso-tarjeta';
+import { cobroDelCliente, type CobroTarjeta, type CobroParaTarjeta } from './aviso-tarjeta';
 
-type FilaCobro = { lead_id: number | null; estado: string | null; created_at: string | null; pagado_at: string | null };
+type FilaCobro = CobroParaTarjeta & { lead_id: number | null };
+/** Un `.in()` viaja en la URL: de a tandas, como `ultimoContactoDeClientes` (lib/cs-cartera.ts). */
+const TANDA = 150;
 type FilaCuota = { lead_id: number | null; fecha_esperada: string | null };
 
 export async function cobrosDeLaCartera(leadIds: readonly number[]): Promise<Record<number, CobroTarjeta> | null> {
@@ -25,16 +28,23 @@ export async function cobrosDeLaCartera(leadIds: readonly number[]): Promise<Rec
     const db = await getTenantDb();
     // «Hoy» en la zona del negocio: una cuota que vence hoy todavía no está vencida.
     const hoy = hoyEnTz(await tzActual());
+    // ⚠️ DE A TANDAS Y PAGINADO (revisión del 21/10/2026): con cientos de clientes el `.in()` pasaba el tope de la URL
+    // (las dos lecturas fallaban y ninguna tarjeta avisaba), y PostgREST corta en 1.000 filas sin avisar (`.limit` no
+    // levanta ese techo): un fallido viejo adentro y su pago posterior afuera era un «Pago rechazado» falso.
+    const tandas: number[][] = [];
+    for (let i = 0; i < ids.length; i += TANDA) tandas.push(ids.slice(i, i + TANDA));
     const [cobros, cuotas] = await Promise.all([
-      db.from('cobros').select('lead_id, estado, created_at, pagado_at').in('lead_id', ids).in('estado', ['fallido', 'pagado']).limit(10000),
-      db.from('pagos').select('lead_id, fecha_esperada').in('lead_id', ids).eq('pagado', false).lt('fecha_esperada', hoy).limit(10000),
+      Promise.all(tandas.map((t) => leerTodo<FilaCobro>(db, 'cobros', 'id, lead_id, estado, created_at, updated_at, pagado_at, tipo, suscripcion_estado, motivo', {
+        orden: 'id', filtros: (q) => q.in('lead_id', t).in('estado', ['fallido', 'pagado']) as unknown as ConsultaPaginada,
+      }))).then((x) => x.flat()),
+      Promise.all(tandas.map((t) => leerTodo<FilaCuota>(db, 'pagos', 'id, lead_id, fecha_esperada', {
+        orden: 'id', filtros: (q) => q.in('lead_id', t).eq('pagado', false).lt('fecha_esperada', hoy) as unknown as ConsultaPaginada,
+      }))).then((x) => x.flat()),
     ]);
-    if (cobros.error) throw new Error(`cobros: ${cobros.error.message}`);
-    if (cuotas.error) throw new Error(`cuotas: ${cuotas.error.message}`);
     const cobrosDe = new Map<number, FilaCobro[]>();
-    for (const f of (cobros.data ?? []) as FilaCobro[]) if (f.lead_id != null) cobrosDe.set(Number(f.lead_id), [...(cobrosDe.get(Number(f.lead_id)) ?? []), f]);
+    for (const f of cobros) if (f.lead_id != null) cobrosDe.set(Number(f.lead_id), [...(cobrosDe.get(Number(f.lead_id)) ?? []), f]);
     const cuotasDe = new Map<number, FilaCuota[]>();
-    for (const f of (cuotas.data ?? []) as FilaCuota[]) if (f.lead_id != null) cuotasDe.set(Number(f.lead_id), [...(cuotasDe.get(Number(f.lead_id)) ?? []), f]);
+    for (const f of cuotas) if (f.lead_id != null) cuotasDe.set(Number(f.lead_id), [...(cuotasDe.get(Number(f.lead_id)) ?? []), f]);
     const out: Record<number, CobroTarjeta> = {};
     for (const id of ids) out[id] = cobroDelCliente(cobrosDe.get(id) ?? [], cuotasDe.get(id) ?? [], hoy);
     return out;

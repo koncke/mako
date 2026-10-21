@@ -7304,3 +7304,19 @@ sus columnas. Nada se vio en pantalla.
 **Vive en:** lib/plan-columnas.ts y plan-columnas-server.ts · app/plan/board/useBoard.ts y BoardShell.tsx ·
 lib/plan-mover.ts · app/m/plan/ · lib/api-mako/areas/plan.* · mig 0317 · tests tests/plan-columnas-nombre.test.ts y
 tests/plan-columnas-propias.test.ts · *20/10/2026 noche, chat «CRM» (claude4).*
+
+## Lo que encontró la revisión de las columnas propias (21/10/2026)
+
+- **Un callback del modal corre con el `board` del render del CLIC.** El «＋ Nueva tarea» de una columna propia
+  movía la tarea en el `onDone` del modal: ese `board.mover` buscaba la tarea en un `tasks` que todavía no la tenía,
+  devolvía false y no avisaba. La tarea quedaba en la columna de su estado. Se mueve en un EFECTO cuando el tablero
+  ya la trae (`aColumnaPropia`, BoardShell). Regla: lo que depende de un dato recién creado no se hace con el
+  closure del clic.
+- **«Embebido» no es «de otro negocio».** Admin › Clientes › tablero monta el MISMO tablero del negocio sin las
+  columnas. Ahí soltar mandaba `columna: null` y al reordenar le borraba a la tarjeta su columna propia. Un tablero que
+  no conoce las columnas no manda columna (`undefined`), y `mover` conserva la que tenía si el estado no cambia.
+- **MaKo leía el estado y no la columna**: decía «En proceso» de una tarea en «En revisión» y anunciaba «de En
+  proceso a En proceso». Ahora mira `claveDeTarea` para la ficha, el «desde» y el «ya está así».
+
+**Vive en:** app/plan/board/BoardShell.tsx · lib/api-mako/areas/plan.run.ts · tests/plan-columnas-propias.test.ts ·
+*21/10/2026, chat «CRM» (claude4), revisión del Cerebro.*
