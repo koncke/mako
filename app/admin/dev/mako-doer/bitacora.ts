@@ -467,4 +467,20 @@ export const BITACORA: Hito[] = [
       'tests/ops-center-clasificador-app.test.ts — 175 frases medidas, 12 tests, 29 roturas con su fallo',
     ],
   },
+  {
+    fecha: '20 oct', hora: '22:05', chat: 'MaKo Alert', sesion: 'local_d3ed9496-3ca1-4037-abc2-a59ce57d3f9d', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: Ops Center 1.2, tandas 2 y 3 — Plan, Calendario, Dashboard, video, imagen y creaciones llegan a su operación por la app',
+    revisar: '/admin/operaciones',
+    puntos: [
+      'Con la maquinaria de la tanda 1 ya puesta, las frases nuestras de cada área (tuteo y voseo) llegaban: Plan 28 de 30, Calendario 5 de 8, Dashboard 26 de 28, video 35 de 37, imagen y creaciones 8 de 10. Ahora 30, 8, 28, 37 y 10 de ellas.',
+      '⚠️ **Un detector de otra cosa se llevaba el pedido** —«quitá el gráfico de **leads** de la hoja» era un pedido sobre un lead, «agenda un reel» una reunión, «publicá mi **landing** en la galería de la comunidad» una landing, «dale una estrella» una confirmación—. Una familia de pedidos puede ganarle a un detector (`ganaALaAgenda`, `ganaAlLead`, `ganaALaLanding`) y su relevancia lleva sólo el nombre de la operación.',
+      '**Sin hacer:** Pagos y cuenta, Offer, Copywriting y Second Brain, Web Generator y Ads (los verbos de Meta, después de la 1.4); las 4 operaciones de curso y comunidad que hoy son sólo http (Clients).',
+    ],
+    archivos: [
+      'lib/mako-intencion-app.ts — las filas nuevas de FAMILIAS y las banderas que le ganan a un detector',
+      'lib/mako-intencion.ts — `fam?.ganaAlLead`, `fam?.ganaALaLanding` y `ganaALaAgenda` en los detectores',
+      'tests/ops-center-clasificador-app.test.ts — 288 frases, 17 tests, 38 roturas con su fallo',
+    ],
+  },
 ];

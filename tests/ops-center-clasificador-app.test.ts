@@ -11,6 +11,8 @@
 //   CRM y Chats         41/91     91/91
 //   Automations y Clients 17/48   44/44 que existen en la app (las otras 4 son operaciones sólo http: ver abajo)
 //   Núcleo              23/40     40/40
+//   Tandas 2 y 3 (con la maquinaria de la tanda 1 ya puesta): Plan 28/30, Calendario 5/8, Dashboard 26/28, video 35/37,
+//   imagen y creaciones 8/10 → 30/30, 8/8, 28/28, 37/37 y 10/10 con las filas nuevas (tuteo y voseo de cada frase).
 //
 // Qué cambió (lib/mako-intencion.ts, lib/mako-intencion-app.ts, lib/doer-herramientas.ts):
 //  · D1 = A: en la app, sin señal clara se ACTÚA (se arma la tarjeta; nada se hace sin el toque), no se anota. WhatsApp sigue
@@ -260,6 +262,134 @@ const AUTOMATIONS_CLIENTS: Caso[] = [
   ["Llevá a Juan Pérez a MaKo Partners", ["llevar_a_partners"]],
 ];
 
+const PLAN: Caso[] = [
+  ["¿qué tengo que hacer hoy?", ["ver_prioridades_plan","ver_plan","listar_tareas_plan"]],
+  ["mostrame mis tareas", ["listar_tareas_plan","ver_plan"]],
+  ["muéstrame mis tareas", ["listar_tareas_plan","ver_plan"]],
+  ["anotá: llamar al contador el jueves", ["proponer_tareas_plan"]],
+  ["creá una tarea para revisar la landing el viernes", ["proponer_tareas_plan"]],
+  ["crea una tarea para revisar la landing el viernes", ["proponer_tareas_plan"]],
+  ["agregá una tarea: mandar la factura a Leila", ["proponer_tareas_plan"]],
+  ["agrega una tarea: mandar la factura a Leila", ["proponer_tareas_plan"]],
+  ["cambiá la fecha de la tarea de revisar la landing al viernes", ["cambiar_fecha_tarea_plan"]],
+  ["cambia la fecha de la tarea de revisar la landing al viernes", ["cambiar_fecha_tarea_plan"]],
+  ["pasá la tarea de revisar la landing a en progreso", ["mover_tarea_plan"]],
+  ["pasa la tarea de revisar la landing a en progreso", ["mover_tarea_plan"]],
+  ["marcá como hecha la tarea de revisar la landing", ["cerrar_tareas_plan","proponer_cierre_tareas"]],
+  ["marca como hecha la tarea de revisar la landing", ["cerrar_tareas_plan","proponer_cierre_tareas"]],
+  ["cerrá la tarea de grabar el VSL, ya la hice", ["cerrar_tareas_plan","proponer_cierre_tareas"]],
+  ["cierra la tarea de grabar el VSL, ya la hice", ["cerrar_tareas_plan","proponer_cierre_tareas"]],
+  ["ya terminé el video de ventas", ["proponer_cierre_tareas","cerrar_tareas_plan"]],
+  ["repriorizá todo el plan", ["repriorizar_plan"]],
+  ["reprioriza todo el plan", ["repriorizar_plan"]],
+  ["¿qué tareas están vencidas?", ["listar_tareas_vencidas"]],
+  ["creá una tarea que se repita todos los martes a las 3", ["proponer_tareas_plan"]],
+  ["sacá las tareas de la última reunión de Fathom", ["ver_borrador_de_reunion","listar_reuniones_fathom","proponer_tareas_plan"]],
+  ["la tarea de la landing depende de la del dominio", ["agregar_dependencia_plan"]],
+  ["poneme el avance de la tarea de la landing al 50%", ["actualizar_avance_tarea"]],
+  ["ponme el avance de la tarea de la landing al 50%", ["actualizar_avance_tarea"]],
+  ["¿qué proyectos no tienen tareas?", ["listar_proyectos_vacios"]],
+  ["¿cómo va el proyecto Lanzamiento?", ["ver_proyecto_plan"]],
+  ["quitá la dependencia entre la tarea de la landing y la del dominio", ["quitar_dependencia_plan"]],
+  ["descartá el borrador de tareas", ["descartar_borrador_plan"]],
+  ["descarta el borrador de tareas", ["descartar_borrador_plan"]],
+];
+
+const CALENDARIO: Caso[] = [
+  ["agendá en el calendario un reel el jueves a las 10", ["crear_evento_calendario"]],
+  ["agenda un reel para el jueves a las 10", ["crear_evento_calendario"]],
+  ["agregá un evento al calendario: grabar el VSL el viernes", ["crear_evento_calendario"]],
+  ["agrega un evento al calendario: grabar el VSL el viernes", ["crear_evento_calendario"]],
+  ["¿qué eventos hay en el calendario esta semana?", ["listar_eventos_calendario"]],
+  ["creá un evento en Google Calendar mañana a las 9", ["crear_evento_google","proponer_agendar_agenda"]],
+  ["crea un evento en Google Calendar mañana a las 9", ["crear_evento_google","proponer_agendar_agenda"]],
+  ["¿cuándo se repiten mis tareas recurrentes?", ["ver_proximas_recurrentes"]],
+];
+
+const DASHBOARD: Caso[] = [
+  ["¿cuánto vendí este mes?", ["metricas_negocio","ver_revenue_periodo","analisis_negocio"]],
+  ["creá una hoja de ventas con los leads por etapa", ["crear_hoja_dashboard"]],
+  ["crea una hoja de ventas con los leads por etapa", ["crear_hoja_dashboard"]],
+  ["agregá un gráfico de inversión por campaña a la hoja de Marketing", ["agregar_grafico_dashboard"]],
+  ["agrega un gráfico de leads por semana al dashboard", ["agregar_grafico_dashboard"]],
+  ["analizá la hoja de Marketing", ["analizar_hoja_dashboard","leer_analisis_dashboard"]],
+  ["analiza la hoja de Marketing", ["analizar_hoja_dashboard","leer_analisis_dashboard"]],
+  ["cambiá el color de la hoja de Marketing a oscuro", ["editar_hoja_dashboard","editar_hoja_con_ia_dashboard"]],
+  ["cambia el color de la hoja de Marketing a oscuro", ["editar_hoja_dashboard","editar_hoja_con_ia_dashboard"]],
+  ["borrá la hoja de Marketing", ["borrar_hoja_dashboard"]],
+  ["borra la hoja de Marketing", ["borrar_hoja_dashboard"]],
+  ["duplicá la hoja de Marketing", ["duplicar_hoja_dashboard"]],
+  ["duplica la hoja de Marketing", ["duplicar_hoja_dashboard"]],
+  ["filtrá la hoja de Marketing por la campaña Black Friday", ["agregar_filtro_dashboard"]],
+  ["filtra la hoja de Marketing por la campaña Black Friday", ["agregar_filtro_dashboard"]],
+  ["quitá el filtro de la hoja de Marketing", ["quitar_filtro_dashboard"]],
+  ["programá el análisis de la hoja de Marketing todos los lunes", ["programar_analisis_dashboard"]],
+  ["programa el análisis de la hoja de Marketing todos los lunes", ["programar_analisis_dashboard"]],
+  ["generá las conclusiones de la hoja de Marketing", ["generar_conclusiones_dashboard"]],
+  ["genera las conclusiones de la hoja de Marketing", ["generar_conclusiones_dashboard"]],
+  ["unime el gráfico de leads con el de ventas con una flecha", ["conectar_componentes_dashboard"]],
+  ["une el gráfico de leads con el de ventas con una flecha", ["conectar_componentes_dashboard"]],
+  ["insertá un texto en la hoja de Marketing", ["insertar_elemento_dashboard"]],
+  ["inserta un texto en la hoja de Marketing", ["insertar_elemento_dashboard"]],
+  ["restablecé el informe del Dashboard", ["restablecer_informe_dashboard"]],
+  ["restablece el informe del Dashboard", ["restablecer_informe_dashboard"]],
+  ["quitá el gráfico de leads de la hoja de Marketing", ["quitar_componente_dashboard"]],
+  ["quita el gráfico de leads de la hoja de Marketing", ["quitar_componente_dashboard"]],
+];
+
+const VIDEO: Caso[] = [
+  ["editá mi último video y sacale las muletillas", ["eliminar_muletillas_video"]],
+  ["edita mi último video y quítale las muletillas", ["eliminar_muletillas_video"]],
+  ["ponele subtítulos al video del lunes", ["generar_subtitulos_video"]],
+  ["ponle subtítulos al video del lunes", ["generar_subtitulos_video"]],
+  ["cortá los primeros 5 segundos del video", ["recortar_clip_video","cortar_tramo_video"]],
+  ["corta los primeros 5 segundos del video", ["recortar_clip_video","cortar_tramo_video"]],
+  ["dividí el clip en dos en el segundo 10", ["dividir_clip_video"]],
+  ["divide el clip en dos en el segundo 10", ["dividir_clip_video"]],
+  ["subile el volumen al clip 2", ["cambiar_volumen_video"]],
+  ["sube el volumen al clip 2", ["cambiar_volumen_video"]],
+  ["silenciá el clip del fondo", ["silenciar_clip_video"]],
+  ["silencia el clip del fondo", ["silenciar_clip_video"]],
+  ["acelerá el clip a 1.5x", ["cambiar_velocidad_video"]],
+  ["acelera el clip a 1.5x", ["cambiar_velocidad_video"]],
+  ["cambiá la velocidad del clip v1 a 2x", ["cambiar_velocidad_video"]],
+  ["agregá un texto que diga Oferta final al video", ["agregar_texto_video"]],
+  ["agrega un texto que diga Oferta final al video", ["agregar_texto_video"]],
+  ["cambiá el texto del título del video a Aprende a vender", ["cambiar_texto_video"]],
+  ["poné un fundido de salida al audio", ["poner_fundido_video"]],
+  ["pon un fundido de salida al audio", ["poner_fundido_video"]],
+  ["reducí el ruido del audio del video", ["reducir_ruido_video"]],
+  ["reduce el ruido de fondo del audio", ["reducir_ruido_video"]],
+  ["normalizá el audio del video", ["normalizar_audio_video"]],
+  ["sacale el audio al clip y dejame solo el sonido", ["separar_audio_video"]],
+  ["poné una transición entre el clip 1 y el 2", ["poner_transicion_video"]],
+  ["ponele un filtro cálido al clip", ["poner_filtro_video"]],
+  ["ajustá el color del clip: más contraste", ["ajustar_color_video"]],
+  ["ajusta el color del clip", ["ajustar_color_video"]],
+  ["reflejá el clip", ["reflejar_clip_video"]],
+  ["congelá un cuadro en el segundo 5", ["congelar_cuadro_video"]],
+  ["cortá la frase donde digo eh", ["cortar_frase_video"]],
+  ["resaltá la palabra que se dice en los subtítulos", ["resaltar_palabras_video"]],
+  ["reemplazá la palabra gratis por sin costo en los subtítulos", ["reemplazar_en_subtitulos_video"]],
+  ["borrá el clip 3 del video", ["borrar_elementos_video"]],
+  ["usá la plantilla de anuncio para armar el video", ["usar_plantilla_video"]],
+  ["mostrame mis proyectos de video", ["listar_proyectos_video"]],
+  ["¿cuántos créditos de Flow me quedan?", ["ver_saldo_flow"]],
+];
+
+const IMAGEN: Caso[] = [
+  ["creame un flyer para la promo de noviembre", ["crear_diseno_imagen"]],
+  ["creá un flyer para la promo de noviembre", ["crear_diseno_imagen"]],
+  ["crea un banner para el webinar", ["crear_diseno_imagen"]],
+  ["cambiá el texto del banner a 50% off", ["cambiar_textos_diseno_imagen"]],
+  ["cambia el texto del flyer a 50% off", ["cambiar_textos_diseno_imagen"]],
+  ["duplicá el diseño del flyer", ["duplicar_diseno_imagen"]],
+  ["borrá el diseño del banner", ["borrar_diseno_imagen"]],
+  ["mostrame mis diseños", ["listar_disenos_imagen"]],
+  ["publicá mi landing en la galería de la comunidad", ["publicar_creacion"]],
+  ["dale una estrella a esa creación", ["dar_estrella"]],
+];
+
 // --- 1. Cada frase medida llega a su operación ------------------------------------------------------------------------------
 
 test('núcleo: 40 pedidos naturales llegan a su operación por la app', () => {
@@ -270,6 +400,21 @@ test('CRM y Chats: las 91 frases medidas llegan a su operación por la app', () 
 });
 test('Automations y Clients: las frases medidas llegan a su operación por la app', () => {
   assert.deepEqual(faltan(AUTOMATIONS_CLIENTS), []);
+});
+test('Plan: las 30 frases (tuteo y voseo) llegan a su operación por la app', () => {
+  assert.deepEqual(faltan(PLAN), []);
+});
+test('Calendario: las 8 frases (tuteo y voseo) llegan a su operación por la app', () => {
+  assert.deepEqual(faltan(CALENDARIO), []);
+});
+test('Dashboard: las 28 frases (tuteo y voseo) llegan a su operación por la app', () => {
+  assert.deepEqual(faltan(DASHBOARD), []);
+});
+test('video: las 37 frases (tuteo y voseo) llegan a su operación por la app', () => {
+  assert.deepEqual(faltan(VIDEO), []);
+});
+test('imagen: las 10 frases (tuteo y voseo) llegan a su operación por la app', () => {
+  assert.deepEqual(faltan(IMAGEN), []);
 });
 
 // --- 2. WhatsApp sigue anotando ------------------------------------------------------------------------------------------------
@@ -364,7 +509,7 @@ test('si el texto no nombra un área, la operación se busca en todo el registro
   assert.ok(conBusqueda.nombres.length >= sinBusqueda.tools.length);
 });
 
-// Probado rompiéndolo (20/10/2026), una rotura por vez, con todo en verde antes (12 de 12). 29 roturas, cada una con su fallo:
+// Probado rompiéndolo (20/10/2026), una rotura por vez, con todo en verde antes. 38 roturas, cada una con su fallo (29 de la tanda 1 y 9 de las tandas 2 y 3):
 //   · el default de la app sin actuar · la regla del verbo de hacer · el volcado con verbo que vuelve a anotarse · el link con verbo
 //     que vuelve a ser material · la pregunta que no busca en todo el registro · «llamada Caliente» que vuelve a ser agenda · la
 //     plantilla que no le gana a la agenda · «prueba la automatización» que vuelve a ser saludo · sin la búsqueda en todo el registro ·
@@ -373,4 +518,6 @@ test('si el texto no nombra un área, la operación se busca en todo el registro
 //     el turno de la app sin `canal: 'app'` · y las familias recurrente, email-masivo, borradores, archivar-automatización,
 //     contenido-programado, perfil-negocio, secuencia-email, que-le-contesto, contacto-lead, cliente-cs, probar-automatización,
 //     responder-comentarios y mensaje-a-alguien, cada una sacada por separado.
+//   Tandas 2 y 3: las familias pasar-tarea, velocidad-video, estrella, dashboard-quitar-componente (y que le gane al lead), contenido-
+//   programado (que le gane a la agenda), creaciones-galería (que le gane a la landing) y «comunidad» con verbos sueltos en la relevancia.
 //   Dos filas (la de «etiqueta» y la de «fathom») no cayeron al romperlas: no hacían falta y se borraron.

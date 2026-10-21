@@ -992,9 +992,11 @@ export function clasificarIntencion(
   const fam = ctx.canal === 'app' ? familiasDe(t) : null;
   // «creá una plantilla de WhatsApp para recordar la reunión» nombra una reunión pero no pide agendarla.
   const pedidoAgenda = !fam?.ganaALaAgenda && (esPedidoAgenda(nAgenda) || corrigeAgenda(nAgenda, !!ctx.hayPendienteDeAgenda));
-  const pedidoLead = esPedidoSobreLead(t);
+  // (En la app, «quitá el gráfico de leads de la hoja» nombra un lead pero pide otra cosa: la familia gana, `ganaAlLead`.)
+  const pedidoLead = fam?.ganaAlLead ? null : esPedidoSobreLead(t);
   const pedidoCobro = esPedidoDeCobro(t);
-  const pedidoLanding = esPedidoDeLanding(sinPrefijoDeLote(t));
+  // («publicá mi landing en la galería de la comunidad» nombra una landing pero publica una creación: `ganaALaLanding`.)
+  const pedidoLanding = fam?.ganaALaLanding ? null : esPedidoDeLanding(sinPrefijoDeLote(t));
   const deLaApp = ctx.canal === 'app' ? { buscaEnTodo: true as const, ...(fam ? { areas: fam.areas, relevancia: fam.relevancia } : {}) } : {};
 
   // 0) COMPARTIÓ UN CONTACTO. Va antes que todo porque no admite lectura: nadie

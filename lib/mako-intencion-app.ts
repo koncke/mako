@@ -98,7 +98,7 @@ import type { Area } from './api-mako/tipos';
 // `ganaALaAgenda`: el pedido nombra una reunión, pero lo que se pide NO es agendarla («creá una plantilla … para recordar la
 // reunión»): la familia gana sobre el detector de agenda. La `relevancia` son palabras del NOMBRE de la operación (verbo y
 // sustantivo, como en su id): un verbo suelto («crear», «poner») puntúa en cientos de operaciones y desordena el presupuesto.
-type Familia = { id: string; test: RegExp; areas: Area[]; relevancia: string; actua?: boolean; ganaALaAgenda?: boolean };
+type Familia = { id: string; test: RegExp; areas: Area[]; relevancia: string; actua?: boolean; ganaALaAgenda?: boolean; ganaAlLead?: boolean; ganaALaLanding?: boolean };
 
 const FAMILIAS: readonly Familia[] = [
   { id: 'recurrente', test: /\b(?:todos|todas)\s+(?:los|las)\s+(?:lunes|martes|miercoles|jueves|viernes|sabados?|domingos?|dias|semanas|meses)\b|\bcada\s+(?:lunes|martes|miercoles|jueves|viernes|sabado|domingo|semana|mes|dia)\b|\b(?:semanal|mensual|diaria)mente\b/, areas: ['chatbot'], relevancia: 'crear automatizacion con ia recurrente recordatorio cada semana', actua: true },
@@ -115,12 +115,19 @@ const FAMILIAS: readonly Familia[] = [
   { id: 'responder-comentarios', test: /\bautomaticamente\b|\bcomentarios? de (?:instagram|ig)\b/, areas: ['chatbot'], relevancia: 'crear automatizacion con ia', actua: true },
   { id: 'cliente-cs', test: /\bficha de la? client[ae]\b|\bclient[ae]s? en riesgo\b|\bcartera de clientes\b|\bcomo (?:baja|en riesgo|activ[oa]|pausad[oa])\b|\bclientes? (?:sin|que no)\b/, areas: ['cs'], relevancia: 'ver cliente cs ficha estado marcar baja riesgo cartera' },
   { id: 'curso', test: /\b(?:cursos?|modulos?|lecciones|leccion)\b|\bclase\b[^.\n]{0,20}\b(?:modulo|curso)\b|\b(?:agreg\w+|cre\w+|sub\w+)\b[^.\n]{0,15}\bclase\b/, areas: ['curso'], relevancia: 'curso modulo clase' },
-  { id: 'comunidad', test: /\bcomunidad\b/, areas: ['comunidad'], relevancia: 'comunidad post publicar evento crear' },
+  { id: 'comunidad', test: /\bcomunidad\b/, areas: ['comunidad'], relevancia: 'comunidad' },
   { id: 'perfil-negocio', test: /\bmi negocio se llama\b|\b(?:mi|el) (?:negocio|perfil|marca)\b[^.\n]{0,30}\b(?:corregi\w*|cambi\w+|se llama)\b/, areas: ['negocio'], relevancia: 'guardar campo perfil negocio nombre corregir', actua: true },
-  { id: 'contenido-programado', test: /\b(?:reel|reels|story|stories|post|posts|carrusel|publicacion|contenido)\b[^.\n]{0,40}\b(?:para el|el|este|manana|hoy)\b|\b(?:programa\w*|agend\w*)\b[^.\n]{0,20}\b(?:reel|post|story|carrusel|publicacion)\b/, areas: ['calendario'], relevancia: 'crear evento calendario contenido publicacion reel post programar', actua: true },
+  { id: 'contenido-programado', test: /\b(?:reel|reels|story|stories|post|posts|carrusel|publicacion|contenido)\b[^.\n]{0,40}\b(?:para el|el|este|manana|hoy)\b|\b(?:programa\w*|agend\w*)\b[^.\n]{0,20}\b(?:reel|post|story|carrusel|publicacion)\b/, areas: ['calendario'], relevancia: 'crear evento calendario contenido publicacion reel post programar', actua: true, ganaALaAgenda: true },
+  // ── Plan, Calendario y Dashboard (tanda 2) ──
+  { id: 'pasar-tarea', test: /^pasa\s+(?:la|las)\s+tareas?\b/, areas: ['plan'], relevancia: 'mover tarea plan columna', actua: true },
+  // ── Video, imagen y creaciones (tanda 3) ──
+  { id: 'velocidad-video', test: /\b(?:acelera\w*|ralentiz\w*|enlentec\w*|velocidad)\b/, areas: ['video'], relevancia: 'cambiar velocidad video', actua: true },
+  { id: 'creaciones-galeria', test: /\bgaleria de la comunidad\b|\bcreaciones? de la comunidad\b/, areas: ['creaciones'], relevancia: 'publicar creacion', actua: true, ganaALaLanding: true },
+  { id: 'estrella', test: /\b(?:una|la|su)\s+estrella\b|\bestrella\b[^.\n]{0,20}\bcreacion/, areas: ['creaciones'], relevancia: 'dar estrella creacion', actua: true },
+  { id: 'dashboard-quitar-componente', test: /\b(?:quit\w+|sac\w+|borr\w+|elimin\w+)\b[^.\n]{0,25}\b(?:grafico|componente|elemento|tabla|texto)\b[^.\n]{0,30}\b(?:hoja|dashboard)\b/, areas: ['metricas'], relevancia: 'quitar componente dashboard', actua: true, ganaAlLead: true },
 ];
 
-export type FamiliaDelPedido = { ids: string[]; areas: Area[]; relevancia: string; actua: boolean; ganaALaAgenda: boolean };
+export type FamiliaDelPedido = { ids: string[]; areas: Area[]; relevancia: string; actua: boolean; ganaALaAgenda: boolean; ganaAlLead: boolean; ganaALaLanding: boolean };
 
 /** Las familias que trae un pedido (las áreas y las palabras de su operación se suman), o null si no trae ninguna. */
 export function familiasDe(texto: string): FamiliaDelPedido | null {
@@ -133,6 +140,8 @@ export function familiasDe(texto: string): FamiliaDelPedido | null {
     relevancia: caen.map((f) => f.relevancia).join(' '),
     actua: caen.some((f) => f.actua),
     ganaALaAgenda: caen.some((f) => f.ganaALaAgenda),
+    ganaAlLead: caen.some((f) => f.ganaAlLead),
+    ganaALaLanding: caen.some((f) => f.ganaALaLanding),
   };
 }
 
