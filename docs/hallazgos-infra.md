@@ -6794,7 +6794,19 @@ llega al 80 % del tope (el aviso) en ~2 semanas y al tope en ~4. Con 3 tandas, e
 - **Medir cuánto del piso es evitable sin partir:** `types: [...]` explícito en el tsconfig (hoy entran los 30 `@types/*` instalados), y sacar del chequeo los datos (los cursos son `.ts`: 5,4 MB). No se sabe cuánto da: se mide con `--solo` en `medir-tipos` (otro run de ~10 min).
 - **Un runner con más RAM** es plata de Martín: sólo si lo anterior no alcanza.
 
-**Sin hacer:** nada de lo de arriba; lo único hecho es repartir en 4 tandas.
+**Segunda medición (21/10, noche): bajar el PISO sin partir el programa en proyectos.** Con las tandas encendidas (K=4), el pico está en 3.535 MB y el piso en 2.406: lo que crece sin remedio es el piso. Hay cuatro palancas y la corrida
+(`medir-tipos.yml`, ~30 min, ocho experimentos de a uno) las mide en el mismo runner, contra `tandas-4` de esa corrida:
+- **`types-node`** (`types: ['node']`): sin los 30 `@types/*` que entran solos. Predicción: poco (los que se importan entran igual); se mide porque es una línea.
+- **`sin-literales`**: los literales grandes de datos (≥ 20 KB: los cursos son `.ts`) reemplazados por `{} as any` EN EL CHECKOUT DEL RUNNER (`sinLiteralesGrandes`, con la API de TypeScript: entiende `as const`, `satisfies` y `export default`; no toca un literal dentro de una llamada ni los
+  que no son de primer nivel). Dice cuánto del piso son DATOS y no código. ⚠️ Modifica archivos: sólo corre en CI o con `MEDIR_TIPOS_PERMITIR_STUBS=1`, y los restaura al terminar.
+- **`--raices`** (la que más promete): el programa de cada tanda se crea con sus archivos como raíces, y no con los 7,7 mil. El tsc carga lo que esos archivos importan y nada más, así que el piso baja a lo que esa tanda necesita. El riesgo es de EXACTITUD y se cubre así: los `.d.ts`, los
+  archivos con `declare module`/`declare global` y los «scripts» (sin import ni export) son raíz de TODA tanda, porque cambian los tipos de archivos que no los importan (probado con tres casos: un `declare global` dentro de un módulo, un script con una declaración global y un `.d.ts`; sin esa regla
+  `usa-global.ts` daría TS2304/TS2339 que el tsc no da). Un archivo que se importa pero no es raíz de ninguna tanda NO se chequea: en este repo no hay (el `include` es `**/*.ts`), y el medidor cuenta los chequeados de todas las tandas contra los del chequeo entero y grita `COBERTURA DISTINTA` si no coinciden.
+- **`--pesos`** (el reparto por COSTO): `tandas-1 --medir --costos-out` escribe cuántos tipos creó el chequeo de cada archivo; `--pesos` reparte con eso (más el tamaño, un tipo cada 300 bytes; un archivo nuevo pesa el promedio). Variantes medidas: `tandas-4-balanceadas`, `tandas-4-raices`,
+  `tandas-4-raices-balanceadas` y `tandas-3-raices-balanceadas` (¿alcanza con una tanda menos, que son ~35 s menos por run?). Para usarlo en integracion.yml haría falta COMMITEAR el json de costos (queda viejo con el tiempo: el reparto sigue siendo válido, sólo menos parejo); no se decide antes de ver el número.
+Todo con el tsc como oráculo (`--raices` y `--pesos`, K = 1 a 5: la unión de las tandas da exactamente las líneas del tsc) y 23 roturas, 23 rojas.
+
+**Sin hacer:** correr la segunda medición (la sube el Cerebro a la rama `medir-tipos`) y decidir con sus números; project references sólo si estas palancas no alcanzan.
 
 
 ## Una migración sin aplicar no rompe nada si el código la tolera: la 0283 (21/10/2026) y el verificador de sólo lectura

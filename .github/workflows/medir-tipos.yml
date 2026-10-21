@@ -8,6 +8,11 @@
 #
 # Cómo se usa: se pushea la rama `medir-tipos` (o se dispara a mano con «Run workflow»). NO corre en `integracion` ni en `main`, NO escribe nada en el repo (permisos de sólo lectura) y no avanza nada.
 # Cuesta ~15-20 minutos de runner UNA vez (de los 2.000 del mes). Después de leer los números, esta rama se borra.
+#
+# SEGUNDA MEDICIÓN (21/10/2026 noche). La primera (run 39603272529) dio: el tsc entero 5.065 MB; 2 tandas 4.102 · 3 tandas 3.685 · 4 tandas 3.535; partir tests/ del resto NO alcanza; y el PISO (el programa atado,
+# 2.406 MB = 47 % del pico) no baja con más tandas y crece con el repo. Ésta mide lo que podría bajar el piso, SIN partir el programa en proyectos: `types: ['node']` (types-node), los literales grandes de datos
+# (sin-literales: modifica archivos del checkout de ESTE runner, que se descarta), el programa de cada tanda con sólo sus raíces (*-raices) y el reparto por costo medido (*-balanceadas), contra `tandas-4`
+# de la misma corrida. ~30 minutos: ocho experimentos de a uno (tandas-1 va primero: escribe el costo por archivo que leen los balanceados).
 # =============================================================================
 name: medir tipos
 
@@ -26,7 +31,7 @@ permissions:
 jobs:
   medir:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
 
@@ -44,4 +49,4 @@ jobs:
       - name: Medir
         run: |
           echo "runner: $(nproc) CPU, $(free -m | awk '/Mem:/ {print $2}') MB de RAM"
-          node scripts/medir-tipos.mjs
+          node scripts/medir-tipos.mjs --solo tandas-1,tandas-4,types-node,sin-literales,tandas-4-balanceadas,tandas-4-raices,tandas-4-raices-balanceadas,tandas-3-raices-balanceadas

@@ -22,9 +22,9 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { bloqueEstadisticas, chequearTanda, leerTanda, repartir } from '../scripts/tipos-por-tandas.mjs';
+import { BYTES_POR_PESO, bloqueEstadisticas, chequearTanda, esRaizAmbiente, leerPesos, leerTanda, pesoDe, repartir } from '../scripts/tipos-por-tandas.mjs';
 import { leerEstadisticas, tandasPedidas } from '../scripts/tipos-ci.mjs';
-import { experimentos, leerProceso, resumenDeMedicion, tsconfigsPartidos } from '../scripts/medir-tipos.mjs';
+import { aplicarSinLiteralesGrandes, experimentos, leerProceso, resumenDeMedicion, sinLiteralesGrandes, tsconfigsDeMedicion, tsconfigsPartidos } from '../scripts/medir-tipos.mjs';
 
 const REPO = fileURLToPath(new URL('..', import.meta.url));
 const TSC = join(REPO, 'node_modules', 'typescript', 'bin', 'tsc');
@@ -222,9 +222,20 @@ test('leerProceso lee lo que sale de un proceso del tsc o de una tanda, y la cur
   assert.equal(sinNada.baseMb, null);
 });
 
-test('experimentos y tsconfig partidos: las siete mediciones, y los dos programas que separan tests/ del resto', () => {
+test('experimentos y tsconfig partidos: las trece mediciones en orden (tandas-1 antes que las balanceadas), y los dos programas que separan tests/ del resto', () => {
   const nombres = experimentos().map((e) => e.nombre);
-  assert.deepEqual(nombres, ['tsc-real', 'tandas-1', 'tandas-2', 'tandas-3', 'tandas-4', 'partido-resto', 'partido-tests']);
+  assert.deepEqual(nombres, [
+    'tsc-real', 'tandas-1', 'tandas-2', 'tandas-3', 'tandas-4', 'partido-resto', 'partido-tests',
+    'types-node', 'sin-literales', 'tandas-4-balanceadas', 'tandas-4-raices', 'tandas-4-raices-balanceadas', 'tandas-3-raices-balanceadas',
+  ]);
+  assert.ok(nombres.indexOf('tandas-1') < nombres.indexOf('tandas-4-balanceadas'), 'tandas-1 escribe el costo por archivo: va antes de quien lo lee');
+  const por = (n: string) => experimentos().find((e) => e.nombre === n);
+  assert.ok(por('tandas-4-balanceadas')?.pesos && !por('tandas-4-balanceadas')?.raices);
+  assert.ok(por('tandas-4-raices')?.raices && !por('tandas-4-raices')?.pesos);
+  assert.ok(por('tandas-4-raices-balanceadas')?.raices && por('tandas-4-raices-balanceadas')?.pesos);
+  assert.ok(por('sin-literales')?.stub, 'el que modifica archivos lo declara');
+  assert.deepEqual(Object.keys(tsconfigsDeMedicion()).sort(), ['tsconfig.medir-resto.json', 'tsconfig.medir-tests.json', 'tsconfig.medir-types.json']);
+  assert.deepEqual((tsconfigsDeMedicion()['tsconfig.medir-types.json'] as { compilerOptions: { types: string[] } }).compilerOptions.types, ['node'], 'sólo los tipos de node, no los 30 @types que entran solos');
   assert.ok(experimentos().find((e) => e.nombre === 'tandas-1')?.medir, 'la curva y los puntos calientes se piden en el chequeo entero');
   assert.ok(experimentos().find((e) => e.nombre === 'tsc-real')?.real, 'la referencia es el tsc de verdad');
   const { 'tsconfig.medir-resto.json': resto, 'tsconfig.medir-tests.json': tests } = tsconfigsPartidos() as Record<string, { extends: string; include: string[]; exclude: string[] }>;
@@ -246,24 +257,180 @@ test('resumenDeMedicion: la tabla, y una lectura mecánica que dice cuánto baja
   assert.match(md, /3 tandas: pico 3\.100 MB \(50 % del tope\) contra 5\.000 MB del chequeo entero → 38 % menos/);
   assert.match(md, /NO alcanza \(el programa de los tests arrastra casi todo\)/, 'partir tests/ con 4.800 de 5.000 no sirve');
   assert.match(md, /El piso .* es 1\.800 MB: 36 % del pico/);
+  // La cobertura: las tandas por raíces tienen que chequear los MISMOS archivos que el chequeo entero.
+  const chequea = (c: number | null) => ({ i: 1, estado: 'ok', segundos: 1, vivoMb: 3000, baseMb: 1500, rssMb: null, chequeados: c, archivos: null });
+  const cobertura = resumenDeMedicion([
+    { nombre: 'tandas-1', K: 1, nota: '', procesos: [chequea(6185)] },
+    { nombre: 'tandas-4', K: 4, nota: '', procesos: [chequea(6185)] },
+    { nombre: 'tandas-4-raices', K: 4, nota: '', procesos: [chequea(3000), chequea(3185)] },
+    { nombre: 'tandas-3-raices-balanceadas', K: 3, nota: '', procesos: [chequea(3000), chequea(3000)] },
+  ], 6144).md;
+  assert.match(cobertura, /`tandas-4-raices`: .*cobertura ✔ \(6\.185 archivos chequeados/, 'los mismos archivos: cobertura ✔');
+  assert.match(cobertura, /`tandas-3-raices-balanceadas`: .*⚠️ COBERTURA DISTINTA: 6\.000 archivos chequeados contra 6\.185/, 'unos archivos que ninguna tanda chequeó se dicen, no se pierden en silencio');
   const sinDatos = resumenDeMedicion([{ nombre: 'tandas-1', K: 1, nota: '', procesos: [{ ...proc(0, null), vivoMb: null }] }], 6144).md;
   assert.match(sinDatos, /\| tandas-1 \| 1 \| ok \| n\/d \| n\/d \|/, 'sin medir se dice n/d, nunca 0');
 });
 
-test('DE PUNTA A PUNTA: medir-tipos corre los siete experimentos sobre un proyecto, deja una línea MEDIDA-TIPOS por proceso y limpia sus tsconfig', () => {
-  const dir = proyecto(VARIAS_CARPETAS);
+test('DE PUNTA A PUNTA: medir-tipos corre las trece mediciones sobre un proyecto, deja una línea MEDIDA-TIPOS por proceso, restaura lo que modifica y limpia sus tsconfig', () => {
+  const grande = `export const DATOS = [\n${Array.from({ length: 1500 }, (_, i) => `  { id: ${i}, nombre: 'curso numero ${i}' },`).join('\n')}\n];\n`;
+  assert.ok(grande.length > 40_000);
+  const dir = proyecto({ ...VARIAS_CARPETAS, 'lib/datos.ts': grande });
   try {
-    const r = spawnSync(process.execPath, [join(REPO, 'scripts', 'medir-tipos.mjs')], { cwd: REPO, encoding: 'utf8', timeout: 300_000, env: { ...process.env, MEDIR_TIPOS_PROYECTO: dir, GITHUB_STEP_SUMMARY: join(dir, 'resumen.md') } });
+    const r = spawnSync(process.execPath, [join(REPO, 'scripts', 'medir-tipos.mjs')], { cwd: REPO, encoding: 'utf8', timeout: 600_000, env: { ...process.env, MEDIR_TIPOS_PROYECTO: dir, MEDIR_TIPOS_PERMITIR_STUBS: '1', GITHUB_STEP_SUMMARY: join(dir, 'resumen.md') } });
     assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
     const lineas = r.stdout.split('\n').filter((l) => l.startsWith('MEDIDA-TIPOS '));
-    assert.equal(lineas.length, 1 + 1 + 2 + 3 + 4 + 1 + 1, 'uno por proceso: 1 + 1 + 2 + 3 + 4 + 1 + 1');
+    assert.equal(lineas.length, 1 + 1 + 2 + 3 + 4 + 1 + 1 + 1 + 1 + 4 + 4 + 4 + 3, 'uno por proceso: 1 + 1 + 2 + 3 + 4 + 1 + 1 + 1 + 1 + 4 + 4 + 4 + 3');
+    assert.match(r.stdout, /STUBS archivos=1 literales=1 caracteres_quitados=\d+/, 'el literal grande de lib/datos.ts se reemplazó');
+    assert.equal(readFileSync(join(dir, 'lib', 'datos.ts'), 'utf8'), grande, 'y se restauró entero');
+    assert.match(r.stdout, /cobertura ✔/, 'las tandas por raíces chequean los mismos archivos que el chequeo entero');
+    const modoDe = (exp: string) => /modo=(\S+)/.exec(lineas.find((l) => l.startsWith(`MEDIDA-TIPOS exp=${exp} `)) ?? '')?.[1];
+    assert.deepEqual([modoDe('tsc-real'), modoDe('tandas-4'), modoDe('tandas-4-balanceadas'), modoDe('tandas-4-raices'), modoDe('tandas-4-raices-balanceadas')], ['tsc', 'bytes', 'pesos', 'raices', 'raices+pesos'], 'cada experimento dice cómo repartió: los balanceados leyeron los pesos y los de raíces las usaron');
+    assert.doesNotMatch(r.stdout, /COBERTURA DISTINTA/);
     assert.ok(lineas.every((l) => /vivo_mb=\d+/.test(l)), `todos miden la memoria viva:\n${lineas.join('\n')}`);
     assert.ok(lineas.every((l) => /estado=ok(\(con errores de tipos\))? /.test(l)), 'el proyecto tiene errores de tipos y eso no frena la medición: se anotan como ok');
     assert.ok(lineas.some((l) => /estado=ok\(con errores de tipos\)/.test(l)), 'y los procesos que chequean un archivo con error lo dicen');
     assert.match(r.stdout, /CALIENTE ms=\d+ /, 'los puntos calientes del chequeo entero');
     assert.match(r.stdout, /\| partido-tests \| 1 \|/, 'la tabla del resumen');
-    assert.deepEqual(spawnSync('git', ['status', '--short', '--', 'tsconfig.medir-resto.json', 'tsconfig.medir-tests.json'], { cwd: dir, encoding: 'utf8' }).stdout, '', 'no deja los tsconfig partidos');
-    for (const f of ['tsconfig.medir-resto.json', 'tsconfig.medir-tests.json']) assert.equal(spawnSync(process.execPath, ['-e', `process.exit(require('fs').existsSync(${JSON.stringify(join(dir, f))}) ? 1 : 0)`]).status, 0, `${f} se borró`);
+    for (const f of ['tsconfig.medir-resto.json', 'tsconfig.medir-tests.json', 'tsconfig.medir-types.json']) assert.equal(spawnSync(process.execPath, ['-e', `process.exit(require('fs').existsSync(${JSON.stringify(join(dir, f))}) ? 1 : 0)`]).status, 0, `${f} se borró`);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Las palancas sobre el PISO (segunda medición, 21/10/2026): el programa por RAÍCES, el reparto por COSTO, los literales grandes
+// ---------------------------------------------------------------------------------------------------------------------------------
+
+test('pesoDe / leerPesos / esRaizAmbiente: el peso es el costo medido más el tamaño; un archivo nuevo pesa el promedio; los ambientes son siempre raíz', () => {
+  const pesos = leerPesos(JSON.stringify({ version: 1, archivos: { 'a.ts': 100, 'b.ts': 300 } }));
+  assert.equal(pesos.promedio, 200);
+  assert.equal(pesoDe('a.ts', 3000, pesos), 100 + 3000 / BYTES_POR_PESO + 1, 'el costo medido más el tamaño a razón de un tipo cada 300 bytes');
+  assert.equal(pesoDe('nuevo.ts', 0, pesos), 200 + 1, 'un archivo que no estaba en la medición pesa el promedio');
+  assert.equal(pesoDe('a.ts', 3000, null), 3001, 'sin pesos: el tamaño');
+  assert.equal(pesoDe('a.ts', 0, { archivos: { 'a.ts': -5 }, promedio: 0 }), 1, 'un costo negativo no resta');
+  for (const malo of ['{}', '{"version":2,"archivos":{}}', '{"version":1}', 'null']) assert.throws(() => leerPesos(malo), /no es el de --costos-out|Unexpected|null/, malo);
+
+  assert.equal(esRaizAmbiente('x.d.ts', 'export {};'), true, 'un .d.ts');
+  assert.equal(esRaizAmbiente('x.ts', "declare global {\n interface Window { a: 1 }\n}\nexport {};"), true, 'declare global');
+  assert.equal(esRaizAmbiente('x.ts', "  declare module 'foo' { export const v: number; }\nexport {};"), true, 'declare module');
+  assert.equal(esRaizAmbiente('x.ts', 'declare const G: number;'), true, 'un script (sin import ni export): sus declaraciones son globales');
+  assert.equal(esRaizAmbiente('x.ts', "import { a } from './a';\nexport const b = a;"), false, 'un módulo común no es ambiente');
+  assert.equal(esRaizAmbiente('x.ts', 'export const b = 1;'), false);
+});
+
+test('sinLiteralesGrandes: reemplaza el literal grande de primer nivel (con as const / satisfies / export default) y deja lo demás', () => {
+  const grande = (n: number) => `[${Array.from({ length: n }, (_, i) => `{ id: ${i}, t: 'x' }`).join(', ')}]`;
+  const G = grande(2000);
+  const uno = (src: string, min = 5000) => sinLiteralesGrandes(ts, src, 'x.ts', min);
+  const a = uno(`export const A: Tipo[] = ${G};\nexport const chica = [1, 2, 3];\n`);
+  assert.equal(a.literales, 1);
+  assert.match(a.texto, /^export const A: Tipo\[\] = \[\] as any;\nexport const chica = \[1, 2, 3\];\n$/, 'el anotado de tipo queda, el literal chico también');
+  assert.ok(a.caracteres > 5000);
+  assert.match(uno(`export const B = {\n  datos: ${G},\n} as const;\n`).texto, /^export const B = \{\} as any;\n$/, 'as const se lleva puesto: {} as any as const no compila');
+  assert.match(uno(`export const C = ${G} satisfies unknown[];\n`).texto, /^export const C = \[\] as any;\n$/, 'satisfies también');
+  assert.match(uno(`export default ${G};\n`).texto, /^export default \[\] as any;\n$/, 'export default');
+  assert.equal(uno(`export const D = Object.freeze(${G});\n`).literales, 0, 'dentro de una llamada no se toca (se dice en el encabezado)');
+  assert.equal(uno(`function f() { const E = ${G}; return E; }\n`).literales, 0, 'tampoco lo que no es de primer nivel');
+  assert.equal(uno('export const F = [1, 2, 3];\n', 5).literales, 1, 'el umbral es una cantidad de caracteres: [1, 2, 3] mide 9 y con un umbral de 5 se reemplaza');
+  assert.equal(uno('export const F = [1, 2, 3];\n', 10).literales, 0, '…y con un umbral de 10 no');
+  const tsx = sinLiteralesGrandes(ts, `export const T = ${G};\nexport const X = () => <div />;\n`, 'x.tsx', 5000);
+  assert.match(tsx.texto, /export const X = \(\) => <div \/>;/, 'un .tsx se parsea como TSX');
+  for (const salida of [a.texto, tsx.texto]) {
+    const sf = ts.createSourceFile('x.tsx', salida, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    assert.equal((sf as unknown as { parseDiagnostics: unknown[] }).parseDiagnostics.length, 0, 'el resultado es TypeScript válido');
+  }
+});
+
+test('aplicarSinLiteralesGrandes: sin CI ni el permiso no toca NADA; con el permiso modifica y restaura entero', () => {
+  const grande = `export const D = [\n${Array.from({ length: 1500 }, (_, i) => `  { id: ${i}, n: 'curso ${i}' },`).join('\n')}\n];\n`;
+  const dir = proyecto({ 'lib/datos.ts': grande, 'lib/chico.ts': 'export const c = [1];\n' });
+  try {
+    assert.equal(aplicarSinLiteralesGrandes(dir, ts, 20000, {}), null, 'sin CI y sin MEDIR_TIPOS_PERMITIR_STUBS no corre');
+    assert.equal(readFileSync(join(dir, 'lib', 'datos.ts'), 'utf8'), grande, 'y no tocó nada');
+    const r = aplicarSinLiteralesGrandes(dir, ts, 20000, { MEDIR_TIPOS_PERMITIR_STUBS: '1' });
+    assert.ok(r && r.archivos === 1 && r.literales === 1, JSON.stringify(r));
+    assert.equal(readFileSync(join(dir, 'lib', 'datos.ts'), 'utf8'), 'export const D = [] as any;\n');
+    assert.equal(readFileSync(join(dir, 'lib', 'chico.ts'), 'utf8'), 'export const c = [1];\n', 'lo chico no se toca');
+    r?.restaurar();
+    assert.equal(readFileSync(join(dir, 'lib', 'datos.ts'), 'utf8'), grande, 'restaurado entero');
+    assert.ok(aplicarSinLiteralesGrandes(dir, ts, 20000, { CI: 'true' }), 'en CI corre');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+const AMBIENTES: Record<string, string> = {
+  ...VARIAS_CARPETAS,
+  // Tres formas de tipos que un archivo ve SIN importarlos: un `declare global` dentro de un módulo, un script con una declaración global y un .d.ts con `declare module`.
+  'types/aug.ts': 'declare global {\n  interface Window { marca: string }\n}\nexport {};\n',
+  'types/global-script.ts': 'declare const GLOBAL_Y: number;\n',
+  'types/foo.d.ts': "declare module 'foo-sin-tipos' { export const v: number; }\n",
+  'app/usa-global.ts': 'export const g: number = GLOBAL_Y;\nexport const m: string = window.marca;\n',
+  'app/usa-foo.ts': "import { v } from 'foo-sin-tipos';\nexport const w: number = v;\n",
+  'app/mal-global.ts': 'export const n: number = window.marca;\n',     // string → number: sólo da ESTE error si el declare global está en el programa
+};
+const porTandasCon = (dir: string, K: number, extra: string[]) => {
+  const lineas: string[] = [];
+  const codigos: (number | null)[] = [];
+  const chequeados: number[] = [];
+  const raices: number[] = [];
+  for (let i = 1; i <= K; i++) {
+    const r = correr(dir, ['--expose-gc', TANDAS, '-p', 'tsconfig.json', '--tanda', `${i}/${K}`, ...extra]);
+    codigos.push(r.status);
+    lineas.push(...lineasDeError(`${r.stdout}${r.stderr}`));
+    chequeados.push(Number(/^Files checked:\s+(\d+)/m.exec(r.stdout)?.[1] ?? NaN));
+    raices.push(Number(/^Root files:\s+(\d+)/m.exec(r.stdout)?.[1] ?? NaN));
+  }
+  return { codigos, lineas: [...new Set(lineas)].sort(), chequeados, raices };
+};
+
+test('DE PUNTA A PUNTA con --raices: la unión de las tandas da EXACTAMENTE las líneas del tsc, también con un declare global, un script y un .d.ts que otro archivo usa sin importar', () => {
+  const dir = proyecto(AMBIENTES);
+  try {
+    const oraculo = tscReal(dir);
+    assert.equal(oraculo.lineas.length, 4, `cuatro errores, uno de ellos el de mal-global (que sólo existe con el declare global): ${oraculo.lineas.join(' | ')}`);
+    assert.ok(oraculo.lineas.some((l) => /mal-global\.ts.*TS2322/.test(l)), 'el tsc ve el declare global desde mal-global.ts sin importarlo');
+    for (const K of [1, 2, 3, 5]) {
+      const r = porTandasCon(dir, K, ['--raices']);
+      assert.deepEqual(r.lineas, oraculo.lineas, `K=${K}: lo mismo que el tsc, con las raíces propias`);
+      assert.equal(r.chequeados.reduce((a, n) => a + n, 0), 13, `K=${K}: los 13 fuentes se chequean una vez cada uno (sin pérdida de cobertura)`);
+    }
+    const r4 = porTandasCon(dir, 4, ['--raices']);
+    const entero = porTandasCon(dir, 1, []);
+    assert.ok(Math.max(...r4.raices) < entero.raices[0], `el programa de cada tanda parte de menos raíces (${r4.raices.join('/')} contra ${entero.raices[0]})`);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('el programa por raíces SIN los ambientes daría errores que el tsc no da (por eso se agregan siempre): se ve rompiendo la regla', () => {
+  const dir = proyecto(AMBIENTES);
+  try {
+    // Una tanda con SÓLO usa-global.ts como raíz y sin sus ambientes: sin el declare global y sin el script, el tsc diría TS2339 / TS2304 en un archivo que el tsc completo da por bueno.
+    const cfg = join(dir, 'solo.json');
+    writeFileSync(cfg, JSON.stringify({ ...TSCONFIG, include: undefined, files: ['app/usa-global.ts'] }));
+    const r = correr(dir, [TSC, '-p', 'solo.json', '--noEmit']);
+    assert.match(`${r.stdout}${r.stderr}`, /usa-global\.ts.*error TS(2304|2339)/, 'sin los ambientes hay errores falsos en usa-global.ts');
+    assert.equal(tscReal(dir).lineas.filter((l) => /usa-global/.test(l)).length, 0, 'y el tsc entero no los da');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('DE PUNTA A PUNTA con --medir --costos-out y --pesos: el costo por archivo se escribe, el reparto lo usa, y la unión sigue siendo la del tsc', () => {
+  const dir = proyecto(VARIAS_CARPETAS);
+  try {
+    const oraculo = tscReal(dir);
+    const costos = join(dir, 'costos.json');
+    const medido = correr(dir, ['--expose-gc', TANDAS, '-p', 'tsconfig.json', '--medir', '--costos-out', costos]);
+    assert.ok([0, 2].includes(medido.status ?? -1), `${medido.stdout}${medido.stderr}`);
+    const j = JSON.parse(readFileSync(costos, 'utf8')) as { version: number; archivos: Record<string, number> };
+    assert.equal(j.version, 1);
+    assert.deepEqual(Object.keys(j.archivos).sort(), ['app/dos/c.ts', 'app/dos/d.ts', 'app/uno/a.ts', 'app/uno/b.ts', 'lib/tipos.ts', 'lib/util.ts', 'tests/t1.test.ts', 'tests/t2.test.ts'], 'una entrada por fuente, con la ruta relativa');
+    assert.ok(Object.values(j.archivos).every((n) => Number.isFinite(n) && n >= 0), 'cada costo es un número de tipos creados');
+    const tiposTotales = Number(/^Types:\s+(\d+)/m.exec(medido.stdout)?.[1]);
+    assert.ok(Object.values(j.archivos).reduce((a, n) => a + n, 0) <= tiposTotales, 'los costos son lo que crea CADA archivo (una suma que no pasa del total de tipos), no un contador acumulado');
+    for (const K of [2, 3]) assert.deepEqual(porTandasCon(dir, K, ['--pesos', costos]).lineas, oraculo.lineas, `K=${K} con pesos: lo mismo que el tsc`);
+    for (const K of [3, 4]) assert.deepEqual(porTandasCon(dir, K, ['--raices', '--pesos', costos]).lineas, oraculo.lineas, `K=${K} con raíces y pesos: lo mismo que el tsc`);
+    // Un archivo con un peso enorme queda SOLO en su tanda: el reparto sí mira los pesos.
+    const sesgado = join(dir, 'sesgado.json');
+    writeFileSync(sesgado, JSON.stringify({ version: 1, archivos: { ...j.archivos, 'app/dos/c.ts': 5_000_000 } }));
+    const r = porTandasCon(dir, 3, ['--pesos', sesgado]);
+    assert.equal(r.chequeados.reduce((a, n) => a + n, 0), 8, 'los 8 fuentes, una vez cada uno');
+    assert.ok(r.chequeados.includes(1), `el archivo que pesa 5 M queda solo en su tanda: ${r.chequeados.join('/')}`);
+    assert.ok(!porTandasCon(dir, 3, []).chequeados.includes(1), 'por bytes, en cambio, no queda ninguna tanda con un solo archivo');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -277,6 +444,12 @@ test('el workflow de medición corre SÓLO en la rama medir-tipos (o a mano), co
   assert.match(codigo, /npx next typegen[\s\S]*scripts\/medir-tipos\.mjs/, 'genera los tipos de las rutas ANTES de medir (como integracion.yml)');
   assert.match(codigo, /timeout-minutes:\s*(\d+)/, 'tiene tope de tiempo');
   assert.ok(Number(/timeout-minutes:\s*(\d+)/.exec(codigo)?.[1]) <= 60, 'y es razonable: los minutos son plata');
+  // Cada nombre de --solo es un experimento que existe (un error de tipeo se saltearía en silencio) y tandas-1 va antes que quien lee su costo por archivo.
+  const solo = (/medir-tipos\.mjs --solo (\S+)/.exec(codigo)?.[1] ?? '').split(',').filter(Boolean);
+  assert.ok(solo.length >= 5, `el workflow elige qué medir: ${solo.join(',')}`);
+  const conocidos = experimentos().map((e) => e.nombre);
+  assert.deepEqual(solo.filter((n) => !conocidos.includes(n)), [], 'todos existen');
+  for (const n of solo.filter((x) => experimentos().find((e) => e.nombre === x)?.pesos)) assert.ok(solo.indexOf('tandas-1') >= 0 && solo.indexOf('tandas-1') < solo.indexOf(n), `tandas-1 va antes que ${n}`);
 });
 
 test('el paso «Tipos» de integracion.yml pide las TANDAS que se midieron (4) y las entiende tipos-ci; y sigue sin tocar nada fuera del paso', () => {
@@ -298,6 +471,10 @@ test('el paso «Tipos» de integracion.yml pide las TANDAS que se midieron (4) y
 //     sin los diagnósticos de opciones y globales → 1 (verde la primera vez: ninguna fixture tenía un error de OPCIONES del programa; ahora una con moduleResolution bundler y module commonjs).
 //   el medidor (5): sin tandas-4 → 2 · «NO alcanza» que nunca se dice → 1 · los tests partidos que incluyen todo → 1 · el medidor que no borra sus tsconfig → 1 · el piso leído en KiB → 1.
 //   el workflow de medición (2): que también corra en integracion → 1 · que pueda escribir → 1.
+//   SEGUNDA MEDICIÓN, las palancas sobre el piso (23, 21/10 noche; cinco salieron verdes la primera vez: tres porque el patrón del test no incluía «raices» sin tilde, una porque el «modo» del log salía de lo que el experimento declara y no de los argumentos que pasó, una porque ningún caso
+//     tenía una cobertura distinta): las raíces sin los ambientes → 1 · un declare global/module que no es ambiente → 1 · un script que no es ambiente → 1 · un .d.ts que no es ambiente → 1 · los .d.ts en el reparto → 1 · --raices que no se lee → 1 · el peso que ignora el costo → 2 ·
+//     el promedio de un archivo nuevo → 1 · el tamaño que no desempata → 1 · un costo negativo que resta → 1 · leerPesos que acepta cualquier cosa → 1 · --costos-out que no escribe → 1 · el costo como contador acumulado → 1 · as const sin desenvolver → 1 · export default → 1 · aplicar sin permiso → 1 ·
+//     sin restaurar → 2 · los balanceados que no leen los pesos → 1 · tandas-1 que no escribe los costos → 1 · la cobertura que no se compara → 1 · el tsconfig de types que no se borra → 1 · el workflow con tandas-1 después de quien lo lee → 1 · con un experimento que no existe → 1.
 //   las tandas encendidas en integracion.yml (3, 21/10 tarde): 3 en vez de 4 → 1 · el env: sin declarar → 1 · un valor que no es un número → 1.
 //   (tests/tipos-ci.test.ts: las tandas, 8 roturas más — ver su pie.)
 // =============================================================================
