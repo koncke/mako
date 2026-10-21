@@ -517,4 +517,19 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/second-brain',
   },
+  {
+    fecha: '20 oct', hora: '23:20', chat: 'Second Brain', sesion: 'local_26ff7b73-b712-4726-9882-89617840bf7c', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Un cliente del Second Brain abre su ficha, no la lista del CRM',
+    pedido: 'lib/cerebro-vivo.ts arma «/crm?lead=<id>», pero /crm no lee ese parámetro: el link abre la lista y no la ficha.',
+    puntos: [
+      'Tocar un cliente en el Second Brain y abrirlo lleva a su ficha del CRM.',
+      'Se revisaron todos los links del Second Brain: era el único roto. Un test mira cada uno contra la pantalla que abre.',
+    ],
+    archivos: [
+      'lib/cerebro-vivo.ts — el link del cliente',
+      'tests/second-brain-links.test.ts — cada link contra su destino',
+    ],
+    revisar: '/second-brain',
+  },
 ];
