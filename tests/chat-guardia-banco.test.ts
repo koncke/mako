@@ -11,6 +11,9 @@
 // que no baje.
 //
 // Probado rompiéndolo (21/10/2026, con la base en 0 fallos):
+//   · (la sexta revisión) el «:» presenta sólo con espacio, salto o cita, como antes → 2 fallos (2 y 3b); el «(» de «:(»
+//     abre un paréntesis → 1 fallo (2); sin `bloquesDebajo` → 1 fallo (3b); el turno sin pasarlo → 1 fallo (3b); el «:»
+//     pegado a una letra o un dígito presenta (10:30, https:, «:D») → 1 fallo (4, la cobertura bajó);
 //   · (la quinta revisión) la promesa juzgada sin lo citado, como antes → 1 fallo (2); sin el «:» en la promesa → 1 fallo
 //     (2); lo que exime mirado sin la cita → 1 fallo (2); cualquier «:» presenta, como antes → 2 fallos (3 y 4); el «:»
 //     entre paréntesis presenta → 1 fallo (4); el «:» que cierra el mensaje presenta → 2 fallos (3 y 4); sólo el «:» con
@@ -26,6 +29,9 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { NOTA_SIN_HACER, NOTA_SIN_RESPALDO, sanearSalida } from '../lib/doer-salida';
 
 type Clase = 'H' | 'N' | 'D';
@@ -146,6 +152,15 @@ const FRASES: Array<[string, Clase]> = [
   ['Te escribí tres versiones del copy:\n1. Versión corta\n2. Versión larga\n3. Versión con pregunta', 'N'],
   ['Hice la cuenta: con 14 leads y 3 ventas, tu conversión es del 21 %.', 'N'],
   ['Como te mandé arriba, el link de la reunión es el mismo.', 'N'],
+  // (la sexta revisión) Lo mismo con el formato del Ops Center, que pide negritas: el «:» sigue presentando.
+  ['**Hice la cuenta:** con 14 leads y 3 ventas, tu conversión es del 21 %.', 'N'],
+  ['**Te armé un resumen de la semana:**\n- 5 leads nuevos\n- 2 reuniones agendadas', 'N'],
+  ['Te escribí **tres versiones del copy:**\n1. Versión corta\n2. Versión larga\n3. Versión con pregunta', 'N'],
+  ['*Te armé este resumen:*\n- 5 leads nuevos\n- 2 reuniones agendadas', 'N'],
+  ['Te armé un resumen:👇\n- 5 leads nuevos\n- 2 reuniones agendadas', 'N'],
+  ['Uf, perdón la demora :( Te armé el resumen igual:\n- 5 leads nuevos', 'N'],
+  ['Perdón la demora :( Te armé el resumen igual: 5 leads nuevos y 2 reuniones :)', 'N'],
+  ['**Déjame ver:** tienes 3 reuniones esta semana.', 'N'],
   // Datos de estado (lo que hay en el CRM)
   ['Juan quedó agendado ayer por tu closer.', 'D'],
   ['Esta semana quedaron cargados 8 leads nuevos desde Meta.', 'D'],
@@ -210,6 +225,17 @@ test('3. nunca dos notas, y las mixtas llevan la que les toca', () => {
     const r = sanearSalida(m.texto, { corrioHerramientas: m.corrio, hecho: { respaldado: m.respaldado } }).texto;
     assert.equal(r, m.nota ? `${m.texto}\n\n${m.nota}` : m.texto, m.texto);
   }
+});
+
+test('3b. lo dibujado debajo del texto: el «:» final lo presenta (la sexta revisión)', () => {
+  const sin = { corrioHerramientas: true, hecho: { respaldado: false } };
+  for (const f of ['Te armé un gráfico con tus leads por etapa:', 'Armé la tabla de tus ventas del mes:']) {
+    assert.equal(sanearSalida(f, { ...sin, bloquesDebajo: true }).texto, f, 'con la tabla debajo, sin nota');
+    assert.equal(sanearSalida(f, sin).texto, `${f}\n\n${NOTA_SIN_RESPALDO}`, 'sin nada debajo, el «:» final no presenta');
+  }
+  // Y el turno se lo dice: lo que dibujó, la pregunta y las tarjetas van debajo del texto.
+  const turno = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'lib/mako-turno-app.ts'), 'utf8');
+  assert.match(turno, /bloquesDebajo: dibujos\.length > 0 \|\| !!pregunta \|\| propuestas\.length > 0 \|\| pantallas\.length > 0,/);
 });
 
 test('4. lo que se escapa es un número, y no baja', () => {

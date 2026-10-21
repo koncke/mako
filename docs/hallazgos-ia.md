@@ -4703,6 +4703,18 @@ Las cifras quedan para la próxima vez que alguien calcule un costo o un tope.
   más estricta (sólo salto de línea, cita o lista) le ponía nota a «Hice la cuenta: con 14 leads…», que no afirma nada:
   «: » con contenido sigue presentando, y por eso «Ya te armé el informe semanal: lo tenés en el Dashboard.» se escapa.
   **Regla:** lo de otro se tapa, no se saca: sacarlo cambia lo que queda. Medido: 31 de 42 llevan la nota.
+- **Y la lista de lo que PUEDE seguir al «:» se olvidó del formato del producto (la sexta revisión, la última).** «Un «:»
+  presenta si sigue un espacio, un salto o una cita» dejaba afuera «**Hice la cuenta:** con 14 leads…», «*Te armé este
+  resumen:*» y «Te armé un resumen:👇»: CONTEXTO_SECOND_BRAIN le pide negritas a MaKo, así que en el Ops Center es lo más
+  común, y volvía «No veo esa acción» donde producción no la ponía. Se invirtió: todo «:» presenta SALVO el que va pegado a
+  una letra, un dígito, «/» o un paréntesis (10:30, https:, «:D», «:(»), el que va entre paréntesis que cierran, y el que
+  no tiene nada después. «Nada después» incluye lo que el turno dibuja DEBAJO del texto: «Armé la tabla de tus ventas:»
+  presenta la tabla, y la nota quedaba entre el «:» y la tabla (`bloquesDebajo`, que pasa `lib/mako-turno-app.ts`).
+  **Regla:** cuando una regla de texto decide qué es «normal», se escribe como la lista de lo que NO lo es (corta y
+  medible), no como la de lo que sí: la de lo que sí siempre se olvida de un formato. Contado como número, no como
+  defecto: contra producción, 19 mentiras pierden la nota (13 porque lo que exime se mira con la cita, como «Le mandé a
+  Juan «¿Pudiste ver la propuesta?».»; 4 promesas con «:», como «Dame un segundo: lo busco en el CRM.»; 2 con una cita al
+  final), y 20 ganan la nota (las horas, los links y los emoticones).
 - **Lo obvio era el error: «traer `forzarTool` como WhatsApp».** El chat de la app piensa con razonamiento extendido
   (`thinking: adaptive`), y con él Anthropic no admite `tool_choice: any`. Además `chatClaudeTools` lo pone en TODOS los
   pasos: el turno nunca podría terminar con texto. WhatsApp lo hace con `chatCheapTools` y `toolChoicePrimerPaso`, que

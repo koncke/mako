@@ -120,24 +120,32 @@ function oracionesPropias(texto: string): Oracion[] {
   return out;
 }
 
+/** El «(» o el «)» de un emoticón («:(», «:-)», «:'(»): no abre ni cierra nada. */
+const deEmoticon = (s: string, i: number): boolean => s[i - 1] === ':' || (/[-']/.test(s[i - 1] ?? '') && s[i - 2] === ':');
+
 /**
  * Hasta dónde PRESENTA la oración: lo que va antes del último «:» que presenta lo que sigue en el mismo mensaje («Te armé
- * un resumen de la semana:», «Hice la cuenta: con 14 leads…», «Déjame ver: tienes 3 reuniones»), o 0. Un «:» presenta si
- * después viene un espacio, un salto de línea o una cita, y algo más en el mensaje (la quinta revisión): no el de una hora
- * (10:30, la hora de las tarjetas), un link (https:), un emoticón («:)», «:D»), el que va entre paréntesis («(estado:
- * cerrado)») ni el que cierra el mensaje («Listo, ya moví a Juan a Ganado:»).
+ * un resumen de la semana:», «Hice la cuenta: con 14 leads…», «Déjame ver: tienes 3 reuniones»), o 0. Todo «:» presenta
+ * (la sexta revisión: «**Hice la cuenta:** con 14 leads», «*Te armé este resumen:*» o «Te armé un resumen:👇» son el
+ * formato del Ops Center, que pide negritas) SALVO el que va pegado a una letra, un dígito, «/» o un paréntesis (una hora
+ * como 10:30, la de las tarjetas; un link, https:; un emoticón, «:)», «:D»), el que va entre paréntesis («(estado:
+ * cerrado)») y el que no tiene nada después: ni texto en el mensaje ni bloques debajo («Listo, ya moví a Juan a Ganado:»).
+ * `bloquesDebajo`: el mensaje lleva algo dibujado debajo del texto (una tabla, un gráfico, una pregunta, una tarjeta).
  */
-function finDeLoQuePresenta(texto: string, o: Oracion): number {
-  let fin = 0;
-  let parentesis = 0;
+function finDeLoQuePresenta(texto: string, o: Oracion, bloquesDebajo: boolean): number {
+  // Los paréntesis que cierran, con lo que va adentro; el de un emoticón no cuenta, y uno sin cerrar no encierra nada.
+  const abiertos: number[] = [];
+  const adentro: Array<[number, number]> = [];
   for (let i = 0; i < o.propia.length; i++) {
-    const c = o.propia[i];
-    if (c === '(') parentesis++;
-    else if (c === ')') parentesis = Math.max(0, parentesis - 1);
-    else if (c === ':' && !parentesis) {
-      const despues = texto.slice(o.desde + i + 1);
-      if (/^[\s«“"]/.test(despues) && /\S/.test(despues)) fin = i + 1;
-    }
+    if (o.propia[i] === '(' && !deEmoticon(o.propia, i)) abiertos.push(i);
+    else if (o.propia[i] === ')' && !deEmoticon(o.propia, i) && abiertos.length) adentro.push([abiertos.pop()!, i]);
+  }
+  let fin = 0;
+  for (let i = 0; i < o.propia.length; i++) {
+    if (o.propia[i] !== ':' || adentro.some(([a, b]) => a < i && i < b)) continue;
+    const despues = texto.slice(o.desde + i + 1);
+    if (/^[\p{L}\d/()\-'|]/u.test(despues)) continue;
+    if (/[\p{L}\d]/u.test(despues) || bloquesDebajo) fin = i + 1;
   }
   return fin;
 }
@@ -148,14 +156,14 @@ function finDeLoQuePresenta(texto: string, o: Oracion): number {
  * escape una mentira está aceptado (la red fuerte es lo que el código dibuja en el hilo: el «Hecho:», la tarjeta), y una
  * nota en una respuesta que no afirma nada, no. No se le suman raíces ni formas para «ver más».
  */
-export function afirmacionesDeHecho(texto: string): string[] {
+export function afirmacionesDeHecho(texto: string, { bloquesDebajo = false }: { bloquesDebajo?: boolean } = {}): string[] {
   return oracionesPropias(texto).filter((o) => {
     // Lo que exime se mira CON la cita (la quinta revisión): en «Te armé el copy «¿Cansado de perder leads?» para el
     // anuncio.» el copy está a la vista, y sacar la cita se llevaba el «?» que lo decía.
     const tal = o.tal.trim().toLowerCase();
     if (/[¿?]/.test(tal) || NIEGA.test(tal) || DE_LO_PROPUESTO.test(tal) || CONDICION.test(tal)) return false;
     // Lo que va antes de un «:» que presenta está a la vista: se mira lo de después («Listo: pausé la campaña»).
-    const dicho = o.propia.slice(finDeLoQuePresenta(texto, o)).toLowerCase();
+    const dicho = o.propia.slice(finDeLoQuePresenta(texto, o, bloquesDebajo)).toLowerCase();
     return PRETERITO.test(dicho) || DEJE_HECHO.test(dicho) || ACABO_DE.test(dicho);
   }).map((o) => o.tal.trim());
 }
@@ -169,14 +177,14 @@ export function afirmacionesDeHecho(texto: string): string[] {
  * promesa (la quinta revisión): «Voy a armarte un borrador para Juan:\n\n«Hola Juan…»» y «Déjame ver: tienes 3
  * reuniones» traen lo prometido.
  */
-export function promesasFirmesDe(texto: string): string[] {
+export function promesasFirmesDe(texto: string, { bloquesDebajo = false }: { bloquesDebajo?: boolean } = {}): string[] {
   const todas = oracionesPropias(texto).filter((o) => /\p{L}/u.test(o.tal));
   const o = todas[todas.length - 1];
   // Lo último es una cita o una línea «> …»: es lo que la promesa presentaba.
   if (!o || !/\p{L}/u.test(o.propia)) return [];
   const tal = o.tal.trim();
   if (/[¿?]/.test(tal) || CONDICION.test(tal.toLowerCase()) || PIDE_DATO.test(norm(tal))) return [];
-  const dicho = norm(o.propia.slice(finDeLoQuePresenta(texto, o)));
+  const dicho = norm(o.propia.slice(finDeLoQuePresenta(texto, o, bloquesDebajo)));
   return [PROMESAS[0], PROMESAS[1], PROMESAS[4], PROMESAS[6]].some((re) => re.test(dicho)) ? [tal] : [];
 }
 
@@ -295,10 +303,13 @@ export type RespaldoDeHecho = {
  * UNA nota como máximo: primero `NOTA_SIN_RESPALDO` (dice hecho algo que el código no respalda), si no `NOTA_SIN_HACER`
  * (promete algo inmediato sin haber corrido nada). Las groserías sí se sacan: no dicen nada de lo hecho.
  */
-export function sanearSalida(texto: string, { corrioHerramientas, hecho }: {
+export function sanearSalida(texto: string, { corrioHerramientas, hecho, bloquesDebajo = false }: {
   corrioHerramientas: boolean;
   /** También lo que dice HECHO sin respaldo («Listo, ya lo armé»): el chat de la app (1.5). */
   hecho?: RespaldoDeHecho;
+  /** El mensaje lleva algo dibujado DEBAJO del texto (una tabla, una pregunta, una tarjeta): «Te armé la tabla de tus
+   *  ventas:» la presenta (la sexta revisión: la nota quedaba entre el «:» y la tabla). */
+  bloquesDebajo?: boolean;
 }): Saneo {
   const groserias = groseriasDe(texto);
   if (hecho) {
@@ -307,10 +318,10 @@ export function sanearSalida(texto: string, { corrioHerramientas, hecho }: {
     const sinGroserias = oraciones(texto).map((ors) => ors.filter((o) => !groseriasDe(o).length).join(' ').trimEnd())
       .join('\n').replace(/\n{3,}/g, '\n\n').trim();
     let salida = groserias.length ? (/\p{L}/u.test(sinGroserias) ? sinGroserias : SIN_GROSERIA) : texto;
-    const sinRespaldo = hecho.respaldado ? [] : afirmacionesDeHecho(salida);
+    const sinRespaldo = hecho.respaldado ? [] : afirmacionesDeHecho(salida, { bloquesDebajo });
     // Con respaldo, ninguna nota de promesa: «Sí, ya te la agendé. Dame un segundo…» con «Esto no lo hice» pegado se lee
     // como que no se agendó.
-    const prometidas = corrioHerramientas || hecho.respaldado ? [] : promesasFirmesDe(salida);
+    const prometidas = corrioHerramientas || hecho.respaldado ? [] : promesasFirmesDe(salida, { bloquesDebajo });
     const nota = sinRespaldo.length ? NOTA_SIN_RESPALDO : prometidas.length ? NOTA_SIN_HACER : null;
     if (nota) salida = `${salida}\n\n${nota}`;
     return { texto: salida, promesas: prometidas, groserias, ...(sinRespaldo.length ? { sinRespaldo } : {}) };
