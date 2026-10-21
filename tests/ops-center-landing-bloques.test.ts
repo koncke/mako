@@ -54,6 +54,8 @@
 //   (7ª revisión, sobre 13 / 0; las 4 en rojo y restauradas)
 //   F1  «escribir contesta» cuenta los de turnos viejos → 12 / 1 · F2 lo escrito cierra un viejo que no era suyo → 12 / 1
 //   F3  un «Saltear» nuevo cierra también los viejos → 12 / 1 · F4 el turno no se corta en el mensaje de la persona → 12 / 1
+//   (8ª revisión, sobre 13 / 0; las 2 en rojo y restauradas)
+//   G1  un selector viejo se cierra con lo escrito parecido → 12 / 1 · G2 el del turno actual pide el texto tal cual → 12 / 1
 //
 // Correr: node --import tsx --test tests/ops-center-landing-bloques.test.ts
 // =============================================================================
@@ -324,6 +326,18 @@ test('elegir: lo elegido sale como un mensaje que dice QUÉ se eligió, y el hil
     { k: 'msg', id: 'u2', role: 'user', texto: 'Saltear', at: null } as never,
   ]).filter((x) => x.k === 'bloque').map((x) => (x.k === 'bloque' ? x.respondida ?? null : null));
   assert.deepEqual(saltear, [null, null, 'Saltear']);
+  // Lo ESCRITO que se parece a una opción de un selector viejo contesta la pregunta actual (8ª revisión): un viejo se
+  // cierra sólo con lo que manda su botón tal cual.
+  const viejoEscrito = (dicho: string, actual: Parameters<typeof conRespuestas>[0][number]) => conRespuestas([
+    { k: 'bloque', id: 'g2', b: elegirDiseno() }, { k: 'bloque', id: 'g1', b: { ...producto, opciones: [...producto.opciones, { titulo: 'Curso Kairos' }] } },
+    { k: 'msg', id: 'u1', role: 'user', texto: 'Diseño: Minimal', at: null } as never,
+    actual, { k: 'msg', id: 'u2', role: 'user', texto: dicho, at: null } as never,
+  ]).filter((x) => x.k === 'bloque').map((x) => (x.k === 'bloque' ? x.respondida ?? null : null));
+  const cobro = { k: 'bloque' as const, id: 'p', b: { t: 'pregunta' as const, pregunta: '¿Qué cobro?', opciones: [{ titulo: 'Mentoría 1 a 1 (USD 500)' }, { titulo: 'Curso Kairos (USD 90)' }] } };
+  assert.deepEqual(viejoEscrito('curso kairos', cobro), ['Diseño: Minimal', null, 'curso kairos'], 'cierra Pagos, no el producto viejo');
+  const tema = { k: 'bloque' as const, id: 't', b: elegirTema('mako', TEMAS) };
+  assert.deepEqual(viejoEscrito('saltear', tema), ['Diseño: Minimal', null, 'saltear'], 'cierra el tema actual, no el G1 viejo');
+  assert.deepEqual(viejoEscrito('Curso Kairos', cobro), ['Diseño: Minimal', 'Curso Kairos', null], 'el toque tal cual del viejo, sí');
   // Los que esperan cada mensaje son los de ESE turno: uno de un turno anterior, ya contestado, no cuenta.
   const tras = conRespuestas([
     { k: 'bloque', id: 'g1', b: producto }, { k: 'msg', id: 'u1', role: 'user', texto: 'Mentoría', at: null } as never,

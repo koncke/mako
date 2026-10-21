@@ -157,14 +157,17 @@ function esVariasDe(d: string, titulos: readonly string[], desde = 0): boolean {
 }
 
 /** ¿`dicho` es lo que manda un toque en ESTE selector? Una opción del G1 (o varias con «Listo»), sus «Elige tú» y
- *  «Saltear», o lo que manda el «elegir» del Web Generator («Diseño: Minimal», «Diseño: saltear»). */
-function esRespuestaDe(b: Bloque, dicho: string): boolean {
-  const d = igual(dicho);
-  if (b.t === 'elegir') return respuestasDeElegir(b).some((r) => igual(r) === d);
+ *  «Saltear», o lo que manda el «elegir» del Web Generator («Diseño: Minimal», «Diseño: saltear»). `norma` dice cuánto
+ *  se parece: `igual` (sin mayúsculas ni tildes) para lo del turno actual, `tal` (lo que manda el botón, TAL CUAL) para
+ *  un selector de un turno anterior. */
+function esRespuestaDe(b: Bloque, dicho: string, norma: (s: string) => string): boolean {
+  const d = norma(dicho);
+  if (b.t === 'elegir') return respuestasDeElegir(b).some((r) => norma(r) === d);
   if (b.t !== 'pregunta') return false;
-  const titulos = b.opciones.map((o) => igual(o.titulo));
-  return titulos.includes(d) || d === igual(ELIGE_TU_PREGUNTA) || d === igual(SALTEAR_PREGUNTA) || (!!b.varias && esVariasDe(d, titulos));
+  const titulos = b.opciones.map((o) => norma(o.titulo));
+  return titulos.includes(d) || d === norma(ELIGE_TU_PREGUNTA) || d === norma(SALTEAR_PREGUNTA) || (!!b.varias && esVariasDe(d, titulos));
 }
+const tal = (s: string): string => s;
 
 /**
  * Un selector (la pregunta G1, o el «elegir» G2 del Web Generator) seguido de un mensaje de la persona ya está
@@ -176,9 +179,11 @@ function esRespuestaDe(b: Bloque, dicho: string): boolean {
  *    toque suyo); si es de uno del turno ACTUAL (los que vinieron después del mensaje anterior de la persona), sólo ése:
  *    un «Saltear» de la pregunta nueva no cierra las viejas. Si no es de ninguno, escribir contesta, como siempre, pero
  *    sólo si en el turno actual hay UNO abierto; con varios, quedan abiertos (abierto de más cuesta poco).
- *    Un selector de un turno anterior que quedó abierto sigue esperando, pero sólo un toque SUYO lo cierra: tocado más
- *    tarde se cierra él y no la pregunta nueva, y lo escrito turnos después no lo contesta (revisión del 21/10/2026:
- *    contarlo para «uno solo abierto» dejaba sin cerrar, escribiendo, todas las preguntas siguientes de la sesión).
+ *    Un selector de un turno anterior que quedó abierto sigue esperando, pero sólo un toque SUYO lo cierra, con el texto
+ *    que manda el botón TAL CUAL: tocado más tarde se cierra él y no la pregunta nueva, y lo escrito turnos después no lo
+ *    contesta, aunque se parezca a una opción suya («curso kairos» escrito a la pregunta de Pagos cerraba el «¿Para qué
+ *    producto?» viejo). Revisiones del 21/10/2026: contarlo para «uno solo abierto» dejaba sin cerrar, escribiendo,
+ *    todas las preguntas siguientes de la sesión.
  */
 export function conRespuestas(xs: readonly ItemHilo[]): ItemHilo[] {
   const respondidas = new Map<number, string>();
@@ -187,7 +192,7 @@ export function conRespuestas(xs: readonly ItemHilo[]): ItemHilo[] {
   xs.forEach((x, i) => {
     if (esSelector(x)) { abiertos.push(i); delTurno.push(i); return; }
     if (!esDeLaPersona(x)) return;
-    const suyos = abiertos.filter((k) => esRespuestaDe((xs[k] as ItemBloque).b, x.texto));
+    const suyos = abiertos.filter((k) => esRespuestaDe((xs[k] as ItemBloque).b, x.texto, delTurno.includes(k) ? igual : tal));
     const suyosDelTurno = suyos.filter((k) => delTurno.includes(k));
     const abiertosDelTurno = delTurno.filter((k) => abiertos.includes(k));
     const cierra = suyosDelTurno.length ? suyosDelTurno : suyos.length ? suyos : abiertosDelTurno.length === 1 ? abiertosDelTurno : [];
