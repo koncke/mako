@@ -33,6 +33,7 @@ cierra solo cuando el deploy trae el hito de la bitácora con `tickets: [n]`, y 
 
 ## 3. Lo que sigue
 
+- **La IA del cliente en su computadora** (pieza 3.15, Martín 21/10: «Quiero que este al 100% eso, que puedan conectarlo, que haya un tutorial»): el mapa y las olas están en docs/ia-del-cliente.md. Rama `ia-del-cliente`, worktree `C:/dev/wt-ia-cliente`.
 - **El negocio sin IA conectada** (pedido del 18/10): en producción no abre ticket y el chat pide «Conectar tu IA».
 - **El ws1 separado de las keys de IA de la plataforma** (Martín, 18/10: «separá el ws1 de las claves de la plataforma»):
   `wsDelEntorno` en lib/credenciales.ts. La IA sale de la plataforma (`wsSuperAdmin()`) y el resto sigue saliendo del
