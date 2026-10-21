@@ -9,8 +9,9 @@ Publicada («In production») el 07/10/2026 y **sin verificar**: quien conecta s
 en rojo desde el 11/10: *App functionality — Your demo video does not show the OAuth consent flow*.
 Ese día llegó un mail a martinkoncke@ («[Action Needed] OAuth Verification Request
 Acknowledgement», de api-oauth-dev-verification-reply) que nadie contestó: **diez días perdidos**.
-El 21/10 se grabó el video nuevo (`video-verificacion-google-v2.mp4`, en la carpeta de arriba del
-repo). Falta que Martín lo suba como oculto, cree la cuenta del revisor y conteste en ese hilo.
+El 21/10 se grabó el video nuevo y se subió como oculto al canal de martinkoncke@:
+**https://youtu.be/0-i4bJ8w5fo** (2:44; el archivo es `video-verificacion-google-v2.mp4`, en la
+carpeta de arriba del repo). Falta que Martín cree la cuenta del revisor y conteste en ese hilo.
 El borrador de la respuesta está en `verificacion-google-meta-21-10.md`, en esa misma carpeta.
 La marca quedó verificada y publicada el 10/10 ([requisitos oficiales](https://developers.google.com/identity/protocols/oauth2/production-readiness/sensitive-scope-verification)).
 
@@ -177,8 +178,9 @@ Subir a YouTube como **Unlisted** («Oculto») y pegar el link en el formulario.
 4. ~~Grabar y subir el video~~ — hecho el 10/10, después de que Martín lo viera editado.
 5. ~~Enviar desde *Verification Center*~~ — enviada el 10/10 (Martín: «Y termina todo el flujo»).
 6. ~~Grabar de nuevo la pantalla de permisos~~ — hecho el 21/10, con el acceso borrado antes.
-7. **Pendiente, de Martín:** subir el video nuevo como oculto; crear la cuenta del revisor en el
-   ws3 (sin 2FA); contestar el hilo del 11/10 con el link, las credenciales y los pasos.
-8. **Después de enviar algo a Google:** revisar «View verification progress» y el Gmail de
+7. ~~Subir el video nuevo como oculto~~ — https://youtu.be/0-i4bJ8w5fo, 21/10.
+8. **Pendiente, de Martín:** crear la cuenta del revisor en el ws3 (sin 2FA) y contestar el hilo
+   del 11/10 con el link, las credenciales y los pasos.
+9. **Después de enviar algo a Google:** revisar «View verification progress» y el Gmail de
    martinkoncke@ cada dos días. El cartel general dice «under review» aunque la revisión esté
    frenada esperándonos.
