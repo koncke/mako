@@ -21,6 +21,7 @@ import type { FathomLink } from '@/lib/leads';
 import { completeStageMoveAction, requisitosDeEtapaAction, type StageMoveCuota, type StageMoveResultado } from './actions';
 import { hoyEnTz } from '@/lib/date-utils';
 import { sumarMeses, siguienteFechaDeCuota } from '@/lib/cobrado-lead';
+import { formatoMonto } from '@/lib/pasarela-moneda';
 import { useTzWorkspace } from './lead-view/useTzWorkspace';
 import { autoReunionesAction } from './auto-actions';
 import type { CrmLead } from './CrmBoard';
@@ -773,6 +774,14 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
         if (!monto.trim() && ventaTipo !== 'suscripcion') setMonto(String(total));
         if (!monto.trim()) aRevisar.push(`A revisar: monto (US$${total.toLocaleString('en-US')} en total)`);
       }
+      // ⚠️ UN CONTRATO EN OTRA MONEDA NO TRAE DÓLARES (21/10/2026): la IA los convertía con una tasa inventada (72.000 MXN
+      // / 17 = 4.235,29). Ahora viene el total en SU moneda (`total_original`) y los dólares los carga la persona; un lector
+      // viejo guardado en Configuraciones que pudo convertir no deja sus montos (`montos_no_usados`). Lo dice el reporte.
+      if (pideMonto && j.total_usd == null && Number(j.total_original) > 0) {
+        const dice = typeof j.moneda === 'string' ? formatoMonto(Number(j.total_original), j.moneda) : `${Number(j.total_original).toLocaleString('es-AR')} (no dice en qué moneda)`;
+        aRevisar.push(`A revisar: monto (el contrato dice ${dice}: carga cuánto es en dólares)`);
+      }
+      if (j.montos_no_usados) aRevisar.push('A revisar: los montos del contrato no se usaron (el lector guardado en Configuraciones es viejo y pudo convertirlos): cárgalos a mano');
       // Las cuotas SÍ se dan por resueltas (`ok.add('plan')`), y a propósito: el paso del
       // plan exige que cuadren con el monto (`cuotasCuadran`, tolerancia del 0,5%) y las que
       // convierte la IA una por una pueden no sumar su propio total — mostrarlo trababa
@@ -780,7 +789,9 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       // (`cuotasPayload`) y el reporte decía «Se completó» de algo que no se guardaba.
       if (requeridos.has('plan') && Array.isArray(j.cuotas) && j.cuotas.length && cuotas.every((c) => !c.monto.trim())) {
         setCuotas(j.cuotas.map((c: { monto?: number | string | null; fecha?: string | null }) => ({ monto: c.monto != null ? String(c.monto) : '', fecha: dmyaIso(c.fecha ?? '') })));
-        ok.add('plan'); rell.push('plan de cuotas');
+        // Sin los montos (un contrato en otra moneda), el plan NO queda resuelto: se ven las fechas y se cargan los dólares.
+        if (j.cuotas.every((c: { monto?: number | string | null }) => c.monto != null)) { ok.add('plan'); rell.push('plan de cuotas'); }
+        else aRevisar.push('A revisar: plan de cuotas (vinieron las fechas; los montos en dólares se cargan a mano)');
       }
       setResueltos(ok);
       const reporte = [...rell.map((x) => `Se completó: ${x}`), ...aRevisar];
