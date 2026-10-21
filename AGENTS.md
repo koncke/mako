@@ -176,6 +176,10 @@ vigía MATÓ a mitad. Un pico de un proceso que no terminó no mide lo que neces
 CON EL REPO:** el 14/10/2026 ya no entraba en 3072 (murió corriendo, con RAM libre), esa tarde tampoco en
 4096 (el Image Editor portado), y va en 5120, con el piso de RAM en ≈ 6,3 GB. Un «se quedó sin heap» con RAM libre se arregla subiendo
 `CAP_HEAP_MB` (el piso sube solo), nunca con un `tsc` suelto ni salteando el hook.
+⚠️ **Y 5120 TAMPOCO** (21/10/2026, run 200 de Actions: exit 134 con 5.082 MB): lo que pide el tsc pasó de >4.083 MB a >5.082 MB en una semana. En Actions el paso «Tipos» corre
+`scripts/tipos-ci.mjs`: el tope se deriva de la RAM del runner (6.144 en el de 7,9 GB), **un OOM sale como `SIN MEMORIA` (exit 98), nunca como errores de tipos**, y cada run deja la
+línea `TIPOS-MEDIDA` con la memoria viva real (`vivo_pct`; un warning desde el 80 %). **Subir el tope otra vez no es el arreglo:** con esos números se decide partir el programa, buscar
+qué infla los tipos o pedir un runner mayor (docs/hallazgos-infra.md → «El paso "Tipos" de Actions se quedó sin memoria»).
 El detalle, en [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «El typecheck que
 "salía con 1 sin errores"».
 
@@ -5144,6 +5148,12 @@ la ruta lo que su pantalla le esconde. El detalle, en [docs/hallazgos-seguridad.
   se revoca con `on procedure` (o `on routine`, que sirve para todo). El default global de la 0319 también le da EXECUTE a service_role a
   lo que postgres cree en CUALQUIER esquema; una extensión que haga pedidos de red (http, pg_net, dblink) NO debe vivir en `public` (la
   clave anon la llamaría por /rest/v1/rpc: SSRF). Detalle: docs/hallazgos-seguridad.md («El EXECUTE de PUBLIC es un default GLOBAL»).
+- **Un CSV se arma SIEMPRE con `lib/csv-celda.ts`** (`celdaCsv`, `filaCsv`, `armarCsv`), nunca con un `replace(/"/g, '""')` propio: todo texto que
+  viene de afuera (un formulario público, una campaña de Meta, el título de una tarea) arranca a veces con `=`, `+`, `-` o `@`, y en Excel o Sheets
+  eso es una FÓRMULA (`=HYPERLINK(…)`, `=cmd|…`). El helper le antepone un apóstrofo; un número tipado no se toca; las opciones (`sep`,
+  `siempreComillas`, `telefonosComoTexto`…) dan lo que cada pantalla ya hacía. `tests/csv-una-sola-via.test.ts` rompe Actions si una exportación
+  escribe su escape, o baja un `text/csv` sin importar el helper (si lo arma otro módulo, va a `CONSUME_CSV_DE_OTRO` con su porqué). Un
+  importador de un archivo que la app exportó llama a `desescaparCeldaCsv`. Detalle: docs/hallazgos-seguridad.md («Inyección de fórmulas en los CSV»).
 
 # Un canal PROPONE; una persona confirma. Nada escribe directo
 

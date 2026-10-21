@@ -17,6 +17,7 @@
 import type { BoardTask, Label } from './types';
 import { capacidad } from '@/lib/mako-capacidades';
 import { sinRecurrentes } from '@/lib/plan-recurrentes';
+import { filaCsv } from '@/lib/csv-celda';
 
 /** «crm-lead» no le dice nada a nadie en una planilla: sale el nombre de la tab. */
 const dondeSeHace = (id?: string): string => {
@@ -27,8 +28,12 @@ const dondeSeHace = (id?: string): string => {
 
 const hoy = (): string => new Date().toISOString().slice(0, 10);
 
-/** Una celda de CSV: comillas dobles siempre, y las de adentro escapadas. */
-const celda = (v: unknown): string => `"${String(v ?? '').replace(/"/g, '""')}"`;
+/**
+ * Las celdas de este CSV: comillas dobles siempre, las de adentro escapadas y —si el texto arranca como fórmula— con un apóstrofo adelante. Todo eso vive en
+ * lib/csv-celda.ts (la única vía: tests/csv-una-sola-via.test.ts). Los títulos y las notas de una tarea pueden venir de un cliente o de una reunión.
+ */
+const OPCIONES_CSV = { siempreComillas: true, numero: String } as const;
+const dato = (v: unknown): string | number => (v == null ? '' : typeof v === 'number' ? v : String(v));
 
 const nombresDe = (t: BoardTask, labels: Label[]): string =>
   t.labels.map((id) => labels.find((l) => l.id === id)?.name).filter(Boolean).join(' · ');
@@ -89,11 +94,11 @@ export function tareasACSV(tasks: BoardTask[], labels: Label[], campos: CampoExt
     if (on.has('notas')) f.push((t.notas || '').replace(/\r?\n/g, ' '));
     if (on.has('haceloEn')) f.push(dondeSeHace(t.haceloEn));
     if (on.has('origen')) f.push(t.origen, t.fuente ? `${t.fuente.tipo}${t.fuente.etiqueta ? `: ${t.fuente.etiqueta}` : ''}` : '');
-    return f.map(celda).join(',');
+    return filaCsv(f.map(dato), OPCIONES_CSV);
   });
   // BOM al principio: sin él, Excel abre el archivo en Windows-1252 y los acentos
   // salen rotos ("Diseño" → "DiseÃ±o"). Un export ilegible no es un export.
-  return `﻿${cab.map(celda).join(',')}\n${filas.join('\n')}\n`;
+  return `﻿${filaCsv(cab, OPCIONES_CSV)}\n${filas.join('\n')}\n`;
 }
 
 export function proyectosACSV(labels: Label[], tasks: BoardTask[], campos: CampoExtra[] = CAMPOS_EXTRA.map((c) => c.id)): string {
@@ -114,9 +119,9 @@ export function proyectosACSV(labels: Label[], tasks: BoardTask[], campos: Campo
     if (on.has('deadline')) f.push(l.deadline || '');
     if (on.has('detalle')) f.push((l.detalle || '').replace(/\r?\n/g, ' '));
     if (on.has('notas')) f.push((l.notas || '').replace(/\r?\n/g, ' '));
-    return f.map(celda).join(',');
+    return filaCsv(f.map(dato), OPCIONES_CSV);
   });
-  return `﻿${cab.map(celda).join(',')}\n${filas.join('\n')}\n`;
+  return `﻿${filaCsv(cab, OPCIONES_CSV)}\n${filas.join('\n')}\n`;
 }
 
 /**
