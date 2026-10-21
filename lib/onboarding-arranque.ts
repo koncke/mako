@@ -87,6 +87,13 @@ export type EstadoArranque = {
   sesionId?: number;
   /** El chat «Onboarding» del Ops Center con esta conversación (20/10/2026): se crea una vez, al terminar. */
   hiloChat?: number;
+  /** De quién es ese chat (su chart_key): la proyección de Offer sólo se lo esconde a esa persona. */
+  hiloDe?: string;
+  /** Quién contestó el onboarding (su chart_key, `chartKeyDePersona`): el chat «Onboarding» es para esa persona, no para
+   *  otro admin que entre primero (20/10/2026, revisión del Cerebro). */
+  dueno?: string;
+  /** La reserva mientras se arma el chat: otra pestaña o el Ops Center no crean un segundo (`decisionDelHilo`). */
+  hiloCreando?: { at: string; por: string };
   /** Ya vio la animación del principio: no se repite al recargar. */
   introVista?: boolean;
 };
@@ -219,6 +226,29 @@ export function rutaDelHilo(chat: number | null): string {
 
 /** El título del chat del Ops Center con la conversación del onboarding. */
 export const TITULO_HILO = 'Onboarding';
+
+/**
+ * El `contexto` del chat «Onboarding»: lo MARCA (se reconoce por esto, no por el título: un chat propio que se llame
+ * «Onboarding» no es éste) y le dice al modelo qué es esta conversación (el contexto de la sesión va en su prompt).
+ */
+export const contextoDelHilo = (sesionId: number | undefined): string =>
+  `Este chat guarda el onboarding del negocio: lo que contó al empezar en MaKo (onboarding:${sesionId ?? 'arranque'}).`;
+
+/** Cuánto vale una reserva del chat «Onboarding» antes de darla por abandonada. */
+export const RESERVA_HILO_MS = 120_000;
+
+/**
+ * ¿Se crea el chat «Onboarding» para quien entra? (20/10/2026, revisión del Cerebro). 'listo' = ya existe · 'otro' = no es
+ * de esta persona (lo contestó otra; sin dueño anotado, sólo si el negocio tiene UN admin) · 'ocupado' = otra pestaña o el
+ * Ops Center lo están armando ahora · 'crear' = esta persona lo arma.
+ */
+export function decisionDelHilo(e: EstadoArranque, quien: string, o: { ahora: number; unSoloAdmin: boolean }): 'listo' | 'otro' | 'ocupado' | 'crear' {
+  if (typeof e.hiloChat === 'number' && e.hiloChat > 0) return 'listo';
+  if (e.dueno ? e.dueno !== quien : !o.unSoloAdmin) return 'otro';
+  const r = e.hiloCreando;
+  if (r && o.ahora - (Date.parse(r.at) || 0) < RESERVA_HILO_MS) return 'ocupado';
+  return 'crear';
+}
 
 /**
  * El último mensaje del chat «Onboarding» (20/10/2026, llamada con Florencia del 18/10: salió al Ops Center sin guía y sin

@@ -24,7 +24,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import Link, { useRouter, useWs } from '@/app/_ui/Link';
+import { useRouter, useWs } from '@/app/_ui/Link';
+import { CLAVE_ENTRADA_MOVIL } from '@/app/m/_ui/EntradaMobile';
 import { conWs } from '@/lib/ws-tab';
 import { VistaPdf } from '../offer/VistaPdf';
 import { Button } from '@/app/_ui';
@@ -170,25 +171,30 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
   // (`/api/onboarding/plan-arranque`) es un fetch en vuelo, y una recarga dura lo cortaría; ésta no.
   const router = useRouter();
   const [saliendo, setSaliendo] = useState(false);
+  // ENTRAR ES UNO SOLO, con el temporizador o con el botón (20/10/2026, revisión del Cerebro: «Entrar a MaKo» o un F5 corrían
+  // a la vez que el POST que arma el chat «Onboarding»). Al chat con la conversación y el tutorial (`rutaDelHilo`); si no se
+  // pudo crear, al Ops Center igual: nunca se traba el final. El POST lleva plazo, y la pantalla se funde apenas arranca.
+  const entrando = useRef(false);
+  const entrar = useCallback(async () => {
+    if (entrando.current) return;
+    entrando.current = true;
+    setSaliendo(true);
+    // En el teléfono, la entrada de MaKo ya se vio acá: el layout de /m no la repite (EntradaMobile).
+    try { sessionStorage.setItem(CLAVE_ENTRADA_MOVIL, '1'); } catch { /* sin storage */ }
+    let destino = vista.modo === 'oferta' ? RUTA_AL_TERMINAR : '/plan';
+    if (vista.modo === 'oferta') {
+      const r = await fetch('/api/onboarding/arranque', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'hilo' }), signal: AbortSignal.timeout(20_000),
+      }).then((x) => x.json()).catch(() => null) as { ok?: boolean; chat?: number | null } | null;
+      destino = rutaDelHilo(r?.ok && typeof r.chat === 'number' ? r.chat : null);
+    }
+    router.push(destino);
+  }, [vista.modo, router]);
   useEffect(() => {
     if (vista.etapa !== 'listo') return;
-    // Al chat «Onboarding» con la conversación y el tutorial (20/10/2026, `rutaDelHilo`). Si no se pudo crear, al Ops Center.
-    let vivo = true;
-    const t = window.setTimeout(() => {
-      void (async () => {
-        let destino = vista.modo === 'oferta' ? RUTA_AL_TERMINAR : '/plan';
-        if (vista.modo === 'oferta') {
-          const r = await fetch('/api/onboarding/arranque', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'hilo' }) })
-            .then((x) => x.json()).catch(() => null) as { ok?: boolean; chat?: number | null } | null;
-          destino = rutaDelHilo(r?.ok && typeof r.chat === 'number' ? r.chat : null);
-        }
-        if (!vivo) return;
-        setSaliendo(true);
-        router.push(destino);
-      })();
-    }, MS_PARA_ENTRAR);
-    return () => { vivo = false; window.clearTimeout(t); };
-  }, [vista.etapa, vista.modo, router]);
+    const t = window.setTimeout(() => { void entrar(); }, MS_PARA_ENTRAR);
+    return () => window.clearTimeout(t);
+  }, [vista.etapa, entrar]);
 
   // ── Lo que se dibuja ─────────────────────────────────────────────────────
   const lado = ladoDeLaPregunta(vista.etapa, vista.modo);
@@ -209,7 +215,7 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     if (t === 'crm') return <TarjetaCrm vista={vista} />;
     if (t === 'pdf') return vista.sesion ? <TarjetaPdf sesionId={vista.sesion.id} /> : null;
     if (t === 'telefono') return <TarjetaTelefono ocupado={ocupado} onEnviar={async (tel) => { setOcupado(true); setAviso(null); try { aplicar(await llamar({ action: 'telefono', telefono: tel })); } finally { setOcupado(false); } }} />;
-    if (t === 'listo') return <TarjetaListo modo={vista.modo} entrada={RUTA_AL_TERMINAR} />;
+    if (t === 'listo') return <TarjetaListo onEntrar={() => void entrar()} entrando={saliendo} />;
     return null;
   };
 
@@ -392,13 +398,15 @@ function VisorPdf({ sesionId, url, onCerrar }: { sesionId: number; url: string; 
   );
 }
 
-/** Lo que quedó armado, con links que la persona elige (el chat no se va solo a ningún lado). */
-function TarjetaListo({ modo, entrada }: { modo: VistaArranque['modo']; entrada: string }) {
+/** «Entrar a MaKo»: el mismo `entrar` que el temporizador, así no corre dos veces ni en paralelo con el chat que se arma. */
+function TarjetaListo({ onEntrar, entrando }: { onEntrar: () => void; entrando: boolean }) {
   return (
     <div className="arr-links">
-      {/* Sin caminos para elegir (18/10/2026): entra solo a los 1,5 s (`MS_PARA_ENTRAR`). Este link queda sólo por si la
+      {/* Sin caminos para elegir (18/10/2026): entra solo a los 1,5 s (`MS_PARA_ENTRAR`). El botón queda por si la
           navegación no sale. */}
-      <Link href={modo === 'oferta' ? entrada : '/plan'} className="arr-link arr-link--principal">Entrar a MaKo</Link>
+      <button type="button" onClick={onEntrar} disabled={entrando} className="arr-link arr-link--principal">
+        {entrando ? 'Entrando…' : 'Entrar a MaKo'}
+      </button>
     </div>
   );
 }

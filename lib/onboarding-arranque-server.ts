@@ -9,8 +9,10 @@
 
 import 'server-only';
 import { capaDef } from './capas';
-import { getSetting, getSettingEstricto, setSetting } from './settings';
-import { estaImpersonando, getCapaActual, getWorkspace, getWorkspaceActual, actualizarWorkspace } from './workspace';
+import { cambiarSettingSi, getSetting, getSettingEstricto, setSetting } from './settings';
+import { estaImpersonando, getCapaActual, getTenantDb, getWorkspace, getWorkspaceActual, actualizarWorkspace } from './workspace';
+import { OWNER_WS } from './auth-session';
+import { contarAdminsClienteActivos } from './usuarios';
 import { getSesionAdmin, getUsuarioActual } from './auth';
 import { CLAVE_GUARDIA, parseGuardia } from './onboarding-guardia';
 import { wsDelOnboarding } from './onboarding-guard';
@@ -22,7 +24,7 @@ import { getEstadoVerificacionContacto } from './mako-grupo';
 import { getContactoReportes } from './perfil';
 import { integracionConectada } from './credenciales';
 import { leerSesion, leerFila, guardarComoOferta } from './offer-sesiones';
-import { appendMessage, createSession, listSessions } from './chart-chats';
+import { createSession, deleteSession, listSessions } from './chart-chats';
 import { chartKeyDePersona } from './mako-turno-app-reglas';
 import { estadoDiagnostico } from './offer-reglas';
 import { crearFunnel, getFunnelDefault, idDelFunnelDefault, renombrarFunnel, saveFunnelDefault } from './funnels';
@@ -39,7 +41,7 @@ import { tzDeWorkspace } from './timezone';
 import { NOMBRE_WS_PRUEBA } from './reset-workspace';
 import { faltanDelArranque, type OfferSesionVista, type PiezasSabidas } from './offer-marco';
 import {
-  CLAVE_ENCUESTA, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, TITULO_HILO, cobroDelPrecio, mensajesDelHilo, sinMarca,
+  CLAVE_ENCUESTA, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, TITULO_HILO, decisionDelHilo, contextoDelHilo, cobroDelPrecio, mensajesDelHilo, sinMarca,
   type EstadoArranque, type EtapaArranque, type HechosArranque, type MensajeArranque, type ModoArranque,
 } from './onboarding-arranque';
 
@@ -76,42 +78,82 @@ export async function guardarEstadoArranque(patch: Partial<EstadoArranque>): Pro
 }
 
 /**
- * El chat «Onboarding» del Ops Center con la conversación del arranque, TAL CUAL (20/10/2026). Una sola vez: el id queda
- * en el estado (`hiloChat`) y una segunda llamada lo devuelve sin duplicar. Va a nombre de quien está (el mismo chart_key
- * que el chat del Ops Center del cliente y el de /m/mako). Si la persona no tenía chats, primero se crea el principal
- * (el más viejo es el jefe, «Second Brain»), para que éste quede como «Onboarding» y no como el principal.
+ * Los mensajes del chat «Onboarding», con lecturas ESTRICTAS: si la conversación de Offer o el estado del onboarding no se
+ * pudieron leer, tira y no se escribe nada (AGENTS.md: una lectura que cae al default no decide). Sin esto se guardaba una
+ * copia a medias para siempre: sin la conversación de lo que vende, o con «Un gusto, . ¿Cómo se llama tu negocio?».
+ */
+async function mensajesParaElHilo(e: EstadoArranque): Promise<Array<{ role: 'user' | 'assistant'; content: string }>> {
+  const h = await hechosDelArranque(e);
+  if (!h.terminado) throw new Error('El onboarding todavía no terminó (o no se pudo leer su estado): no armo el chat.');
+  if (e.sesionId && (h.sesionCaida || !h.sesion)) throw new Error('No pude leer la conversación del onboarding: no armo el chat a medias.');
+  const { antes, despues } = mensajesDeArranque(e, h);
+  return mensajesDelHilo([...antes, ...(h.sesion?.mensajes ?? []), ...despues], e.interes);
+}
+
+/**
+ * El chat «Onboarding» del Ops Center con la conversación del arranque, TAL CUAL (20/10/2026). Una sola vez y para quien
+ * contestó el onboarding (`dueno`; sin dueño anotado, sólo si el negocio tiene un admin). Va a su chart_key (el del chat
+ * del Ops Center y el de /m/mako). Si la persona no tenía chats, primero se crea el principal (el más viejo es el jefe,
+ * «Second Brain»), para que éste quede como «Onboarding» y no como el principal.
+ *
+ * ⚠️ SIN CARRERA (revisión del Cerebro, 20/10): «Entrar a MaKo» o un F5 durante el POST corrían el Ops Center a la vez y
+ *    quedaban dos «Onboarding» y dos vacíos, o se entraba a uno a medio copiar. Ahora: una RESERVA con compare-and-set
+ *    sobre el estado (`hiloCreando`, quien no la gana no crea), los mensajes en UN insert, y `hiloChat` recién al final.
+ *    Un chat marcado (`contextoDelHilo`) sin `hiloChat` es uno que quedó a medias: se borra y se rehace.
+ * Devuelve el id del chat de esta persona, o null si no le toca (o si otro lo está armando).
  */
 export async function hiloDelOnboarding(): Promise<number | null> {
-  // Mirando a un cliente, NO (20/10/2026): el chat quedaría con el chart_key del super admin. Se crea cuando entra el cliente
-  // (`hiloParaQuienYaTermino`, en su primera visita al Ops Center).
+  // Mirando a un cliente, NO: el chat quedaría con el chart_key del super admin. Se crea cuando entra el cliente.
   if (await estaImpersonando().catch(() => true)) return null;
-  const previo = parseEstado(await getSettingEstricto(CLAVE));
-  if (previo.hiloChat) return previo.hiloChat;
+  const ws = await getWorkspaceActual();
+  if (ws == null || ws === OWNER_WS) return null;
   const persona = await getUsuarioActual();
   const chartKey = persona ? chartKeyDePersona(persona) : null;
   if (!chartKey) return null;
-  const sesiones = await listSessions(chartKey);
-  // Ya está (dos pestañas a la vez, o se cortó antes de anotar el id): se anota ése y no se crea otro.
-  const ya = sesiones.find((s) => s.titulo === TITULO_HILO);
-  if (ya) { await guardarEstadoArranque({ hiloChat: ya.id }); return ya.id; }
-  const v = await vistaArranque();
-  const mensajes = mensajesDelHilo([...v.antes, ...(v.sesion?.mensajes ?? []), ...v.despues], previo.interes);
-  if (!sesiones.length) await createSession(chartKey, null, null);
-  const hilo = await createSession(chartKey, TITULO_HILO, null);
-  for (const m of mensajes) await appendMessage(hilo.id, m.role, m.content);
-  await guardarEstadoArranque({ hiloChat: hilo.id });
-  return hilo.id;
+  const raw = await getSettingEstricto(CLAVE);
+  const previo = parseEstado(raw);
+  const unSoloAdmin = previo.dueno ? false : (await contarAdminsClienteActivos(ws)) === 1;
+  const decision = decisionDelHilo(previo, chartKey, { ahora: Date.now(), unSoloAdmin });
+  if (decision === 'listo') return !previo.hiloDe || previo.hiloDe === chartKey ? previo.hiloChat ?? null : null;
+  if (decision !== 'crear') return null;
+  // La reserva: si el estado cambió desde que lo leímos (otra pestaña reservó), no se crea nada.
+  const reservado = JSON.stringify({ ...previo, hiloCreando: { at: new Date().toISOString(), por: chartKey } });
+  if (!raw || !(await cambiarSettingSi(CLAVE, raw, reservado))) return null;
+  try {
+    const mensajes = await mensajesParaElHilo(previo);
+    const marca = contextoDelHilo(previo.sesionId);
+    const sesiones = await listSessions(chartKey, true);
+    for (const s of sesiones.filter((x) => x.contexto === marca)) await deleteSession(s.id);
+    if (!sesiones.some((s) => !s.archived && s.contexto !== marca)) await createSession(chartKey, null, null);
+    const hilo = await createSession(chartKey, TITULO_HILO, marca);
+    try {
+      const db = await getTenantDb();
+      const { error } = await db.from('chart_chats').insert(mensajes.map((m) => ({ session_id: hilo.id, role: m.role, content: m.content })));
+      if (error) throw new Error(`No pude copiar la conversación del onboarding: ${error.message}`);
+      await db.from('chart_sessions').update({ updated_at: new Date().toISOString() }).eq('id', hilo.id);
+    } catch (err) {
+      await deleteSession(hilo.id).catch(() => {});
+      throw err;
+    }
+    await guardarEstadoArranque({ hiloChat: hilo.id, hiloDe: chartKey, hiloCreando: undefined, ...(previo.dueno ? {} : { dueno: chartKey }) });
+    return hilo.id;
+  } catch (err) {
+    await guardarEstadoArranque({ hiloCreando: undefined }).catch(() => {});
+    throw err;
+  }
 }
 
 /**
  * El chat «Onboarding» para quien terminó ANTES de que existiera (20/10/2026, Florencia, ws21: terminó el 18/10 y su Ops
  * Center tenía 0 chats). /onboarding redirige a quien ya terminó, así que el final del onboarding no le llega nunca: se
- * crea en su primera visita al Ops Center. Sólo si terminó el onboarding de CHAT (hay `nombre` o `sesionId` en su estado)
- * y quien entra es el admin del negocio (no un closer o un setter del equipo). Devuelve el id sólo si lo creó ahora.
+ * crea en su primera visita al Ops Center. Con la MISMA regla que el final: sólo el onboarding de la oferta (el Project
+ * Manager entra a /plan), sólo con el onboarding terminado y sólo para su dueño (`hiloDelOnboarding`). Devuelve el id
+ * sólo si lo creó ahora.
  */
 export async function hiloParaQuienYaTermino(): Promise<number | null> {
   const e = parseEstado(await getSettingEstricto(CLAVE));
   if (e.hiloChat || (!e.nombre && !e.sesionId)) return null;
+  if (!capaDef(await getCapaActual()).onboarding.includes('productos')) return null;
   if ((await getEstadoOnboarding()).status !== 'done') return null;
   if ('error' in (await wsDelOnboarding())) return null;
   return hiloDelOnboarding();

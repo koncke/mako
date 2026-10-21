@@ -45,7 +45,10 @@ test('se crea UNA vez, con el chart_key del cliente: mirando como super admin, n
   const hilo = srv.slice(srv.indexOf('export async function hiloDelOnboarding('), srv.indexOf('export async function hiloParaQuienYaTermino('));
   assert.match(hilo, /^export async function hiloDelOnboarding\(\): Promise<number \| null> \{\s*if \(await estaImpersonando\(\)\.catch\(\(\) => true\)\) return null;/,
     'lo primero es no crearlo con el chart_key de quien mira');
-  assert.match(hilo, /const ya = sesiones\.find\(\(s\) => s\.titulo === TITULO_HILO\);\s*if \(ya\) \{ await guardarEstadoArranque\(\{ hiloChat: ya\.id \}\); return ya\.id; \}/);
+  // Desde la revisión del 20/10 se reconoce por su marca (`contextoDelHilo`), no por el título, y se reserva antes de crear
+  // (tests/onboarding-hilo-carrera.test.ts lo prueba con la base de mentira).
+  assert.match(hilo, /if \(!raw \|\| !\(await cambiarSettingSi\(CLAVE, raw, reservado\)\)\) return null;/, 'sin la reserva, dos pestañas crean dos');
+  assert.match(hilo, /for \(const s of sesiones\.filter\(\(x\) => x\.contexto === marca\)\) await deleteSession\(s\.id\);/, 'uno a medias se borra y se rehace');
   assert.equal(TITULO_HILO, 'Onboarding');
 });
 
@@ -53,6 +56,7 @@ test('quien ya terminó lo recibe en su primera visita al Ops Center, y entra a 
   const srv = sinComentarios(leer('lib/onboarding-arranque-server.ts'));
   const relleno = srv.slice(srv.indexOf('export async function hiloParaQuienYaTermino('));
   assert.match(relleno, /if \(e\.hiloChat \|\| \(!e\.nombre && !e\.sesionId\)\) return null;/);
+  assert.match(relleno, /if \(!capaDef\(await getCapaActual\(\)\)\.onboarding\.includes\('productos'\)\) return null;/, 'la misma regla que el final: el Project Manager no');
   assert.match(relleno, /if \(\(await getEstadoOnboarding\(\)\)\.status !== 'done'\) return null;/);
   assert.match(relleno, /if \('error' in \(await wsDelOnboarding\(\)\)\) return null;/, 'un closer o un setter no se lo lleva');
   const pagina = sinComentarios(leer('app/second-brain/page.tsx'));

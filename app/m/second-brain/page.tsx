@@ -25,6 +25,7 @@ import { ChatMako } from '../mako/ChatMako';
 import { SecondBrainCentroM } from './SecondBrainCentroM';
 import { datosDelCentroSiOpera } from '@/app/admin/operaciones/datos';
 import { quienOpera } from '@/app/second-brain/pagina';
+import { hiloParaQuienYaTermino } from '@/lib/onboarding-arranque-server';
 import '../mako/mako.css';
 
 export const dynamic = 'force-dynamic';
@@ -49,6 +50,10 @@ export default async function SecondBrainPagina({ searchParams }: {
     for (const k of ['area', 'vista'] as const) { const v = uno(sp[k]); if (v) q.set(k, v); }
     redirect(await rutaConWs(`/m/second-brain/mapa${q.size ? `?${q}` : ''}`));
   }
+
+  // El chat «Onboarding» de quien terminó antes de que existiera, también desde el teléfono (20/10/2026, revisión del
+  // Cerebro): se crea una vez, con las mismas reglas que en la computadora, y como es el más reciente es el que se abre.
+  await hiloParaQuienYaTermino().catch(() => null);
 
   const persona = await personaDelRequest();
   if ('error' in persona) return <ErrorM frase={persona.error} />;

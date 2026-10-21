@@ -161,7 +161,9 @@ test('al terminar, entra solo al Ops Center por navegación interna (nunca una r
   // entra solo → 13/2 · entra con una recarga dura → 13/2 · vuelven los caminos → 14/1.
   const src = sinComentarios(leerLF('../app/onboarding/ChatArranque.tsx'));
   assert.doesNotMatch(src, /window\.location|redirect\(/, 'el chat de arranque recarga la página al terminar');
-  assert.match(src, /if \(vista\.etapa !== 'listo'\) return;[\s\S]{0,1200}router\.push\(destino\);/, 'al terminar no entra solo');
+  // Desde el 20/10/2026 el temporizador y el botón entran por el MISMO `entrar` (revisión del Cerebro: corrían en paralelo).
+  assert.match(src, /if \(vista\.etapa !== 'listo'\) return;\s*const t = window\.setTimeout\(\(\) => \{ void entrar\(\); \}, MS_PARA_ENTRAR\);/, 'al terminar no entra solo');
+  assert.match(src, /const entrar = useCallback\(async \(\) => \{[\s\S]{0,1400}router\.push\(destino\);/, 'al terminar no entra solo');
   assert.match(src, /function TarjetaListo/, 'sin el link de respaldo por si la navegación no sale');
 });
 
@@ -240,19 +242,21 @@ test('el cierre del onboarding no ofrece caminos que la capa no puede abrir', ()
   // Desde el 20/10/2026 entra al chat «Onboarding» con el tutorial (`rutaDelHilo`); sin chat, al Ops Center igual.
   assert.match(sin, /let destino = vista\.modo === 'oferta' \? RUTA_AL_TERMINAR : '\/plan';/, 'la entrada a MaKo no mira la capa');
   assert.match(sin, /destino = rutaDelHilo\(r\?\.ok && typeof r\.chat === 'number' \? r\.chat : null\);/, 'al terminar no entra al chat «Onboarding»');
-  assert.match(sin, /setSaliendo\(true\);\s*router\.push\(destino\);/,
+  assert.match(sin, /setSaliendo\(true\);[\s\S]{0,1000}router\.push\(destino\);/,
     'al terminar no entra solo (o entra por una recarga dura, que corta el plan que se sigue armando)');
-  assert.match(sin, /import Link, \{ useRouter, useWs \} from '@\/app\/_ui\/Link';/, 'el router sin el ?ws= saca al super admin del cliente');
+  assert.match(sin, /import \{ useRouter, useWs \} from '@\/app\/_ui\/Link';/, 'el router sin el ?ws= saca al super admin del cliente');
   // Desde el 17/10/2026 el modo 'oferta' entra a lo que dijo que quiere resolver primero (`rutaDeEntrada`): sus capas
   // (completo y agencia) ven todas las tabs.
-  assert.match(tarjeta, /modo === 'oferta' \? entrada : '\/plan'/, 'la entrada a MaKo no mira la capa');
+  // El botón de respaldo entra por el mismo camino, que mira la capa (`destino`, arriba).
+  assert.match(tarjeta, /onClick=\{onEntrar\}/, 'el botón de respaldo no entra por el mismo camino');
 });
 
 test('el cierre del onboarding no manda a ningún lado sin la pestaña del cliente', () => {
   // La CUARTA forma de navegar. Un link sin `?ws=` no falla: te deja mirando otra cuenta. El chat usa el
   // Link de la casa (app/_ui/Link), que lleva la pestaña sola; nunca `next/link`.
   const src = sinComentarios(leerLF('../app/onboarding/ChatArranque.tsx'));
-  assert.match(src, /import Link, \{ useRouter, useWs \} from '@\/app\/_ui\/Link'/, 'los links y la entrada sola dejaron de llevar la pestaña del cliente');
+  assert.match(src, /import \{ useRouter, useWs \} from '@\/app\/_ui\/Link'/, 'la entrada dejó de llevar la pestaña del cliente');
   assert.doesNotMatch(src, /from 'next\/link'|from 'next\/navigation'/, 'el chat volvió a navegar sin la pestaña');
-  assert.ok([...src.matchAll(/<Link href=/g)].length >= 1, 'no encontré el link de respaldo del cierre');
+  // Desde el 20/10/2026 el respaldo es un botón que entra con el router de la casa (`entrar`), no un link aparte.
+  assert.match(src, /<TarjetaListo onEntrar=\{\(\) => void entrar\(\)\}/, 'no encontré el botón de respaldo del cierre');
 });

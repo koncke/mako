@@ -23,6 +23,9 @@ import { setDiagnosticoFase } from '@/lib/fase-store';
 import { enviarCodigoVerificacion, verificarCodigoContacto } from '@/lib/mako-grupo';
 import { leerSesion } from '@/lib/offer-sesiones';
 import { idDelFunnelDefault } from '@/lib/funnels';
+import { estaImpersonando } from '@/lib/workspace';
+import { getEstadoOnboarding } from '@/lib/onboarding-state';
+import { chartKeyDePersona } from '@/lib/mako-turno-app-reglas';
 import { etapaDeArranque, leerRespuesta, type EstadoArranque } from '@/lib/onboarding-arranque';
 import {
   FaltaParaCerrar, asegurarFunnelPrincipal, cerrarArranque, hiloDelOnboarding, guardarEstadoArranque, guardarNombre, guardarNombreNegocio,
@@ -95,7 +98,10 @@ export async function POST(req: NextRequest) {
         // La pregunta cambió (una pestaña vieja): no se anota nada y vuelve la conversación de HOY.
         if (!lectura.ok && lectura.cambio) return NextResponse.json({ ok: false, error: lectura.error, vista: await vistaArranque() }, { status: 409 });
         if (!lectura.ok) return no(422, lectura.error);
-        const patch = lectura.patch;
+        // Quién contesta el onboarding (20/10/2026, revisión del Cerebro): el chat «Onboarding» es para esa persona, no para
+        // otro admin que entre primero al Ops Center. Se anota con su primera respuesta, nunca mirando como super admin.
+        const dueno = !e.dueno && !(await estaImpersonando().catch(() => true)) ? (await getUsuarioActual().then((p) => (p ? chartKeyDePersona(p) : null)).catch(() => null)) : null;
+        const patch = { ...lectura.patch, ...(dueno ? { dueno } : {}) };
 
         // El CRM se siembra ANTES de guardar la elección: si la siembra falla, la pregunta sigue abierta.
         let aviso: string | undefined;
@@ -167,6 +173,9 @@ export async function POST(req: NextRequest) {
       // El chat «Onboarding» del Ops Center con esta conversación, tal cual (20/10/2026): la pantalla lo pide al terminar
       // y entra a él. Una sola vez (lib/onboarding-arranque-server.ts → hiloDelOnboarding).
       case 'hilo': {
+        // Sólo con el onboarding TERMINADO (20/10/2026, revisión del Cerebro): una pestaña vieja o un POST a mano lo armaban
+        // con la conversación a medias, y la proyección de Offer escondía después la de verdad.
+        if ((await getEstadoOnboarding()).status !== 'done') return NextResponse.json({ ok: true, chat: null });
         return NextResponse.json({ ok: true, chat: await hiloDelOnboarding() });
       }
 

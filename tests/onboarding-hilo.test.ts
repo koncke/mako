@@ -27,18 +27,19 @@ test('el chat «Onboarding» se crea una vez, con la conversación entera y en o
   const i = s.indexOf('export async function hiloDelOnboarding()');
   assert.ok(i > 0, 'falta hiloDelOnboarding');
   const f = s.slice(i, s.indexOf('\n}\n', i));
-  assert.match(f, /if \(previo\.hiloChat\) return previo\.hiloChat;/, 'una segunda llamada duplicaría el chat');
-  assert.match(f, /\[\.\.\.v\.antes, \.\.\.\(v\.sesion\?\.mensajes \?\? \[\]\), \.\.\.v\.despues\]/, 'la conversación no va tal cual (el orden de la pantalla)');
-  assert.match(f, /if \(!sesiones\.length\) await createSession\(chartKey, null, null\);/,
+  // Una segunda llamada no duplica (la decisión 'listo'); la carrera, la copia a medias y el dueño los prueba con la base de
+  // mentira tests/onboarding-hilo-carrera.test.ts (20/10/2026, revisión del Cerebro).
+  assert.match(f, /if \(decision === 'listo'\) return/, 'una segunda llamada duplicaría el chat');
+  assert.match(s, /mensajesDelHilo\(\[\.\.\.antes, \.\.\.\(h\.sesion\?\.mensajes \?\? \[\]\), \.\.\.despues\], e\.interes\)/, 'la conversación no va tal cual (el orden de la pantalla)');
+  assert.match(f, /if \(!sesiones\.some\(\(s\) => !s\.archived && s\.contexto !== marca\)\) await createSession\(chartKey, null, null\);/,
     'sin un chat principal antes, el más viejo es el jefe y «Onboarding» se mostraría como «Second Brain»');
-  // Desde el 20/10/2026 los mensajes salen de `mensajesDelHilo` (el adjunto sin texto y la salida al final):
-  // tests/onboarding-hilo-ya-termino.test.ts.
-  assert.match(f, /const hilo = await createSession\(chartKey, TITULO_HILO, null\);/);
-  assert.match(f, /for \(const m of mensajes\) await appendMessage\(hilo\.id, m\.role, m\.content\);/);
-  assert.match(f, /await guardarEstadoArranque\(\{ hiloChat: hilo\.id \}\);/);
+  assert.match(f, /const hilo = await createSession\(chartKey, TITULO_HILO, marca\);/);
+  assert.match(f, /await guardarEstadoArranque\(\{ hiloChat: hilo\.id, hiloDe: chartKey, hiloCreando: undefined,/);
 });
 
 test('la ruta del arranque lo arma a pedido de la pantalla, y la pantalla entra a ese chat', () => {
-  assert.match(leer('app/api/onboarding/arranque/route.ts'), /case 'hilo': \{\s*return NextResponse\.json\(\{ ok: true, chat: await hiloDelOnboarding\(\) \}\);/);
+  // Sólo con el onboarding terminado (20/10/2026, revisión del Cerebro: un POST a mano lo armaba a medias).
+  assert.match(leer('app/api/onboarding/arranque/route.ts'),
+    /case 'hilo': \{[\s\S]*?if \(\(await getEstadoOnboarding\(\)\)\.status !== 'done'\) return NextResponse\.json\(\{ ok: true, chat: null \}\);\s*return NextResponse\.json\(\{ ok: true, chat: await hiloDelOnboarding\(\) \}\);/);
   assert.match(leer('app/onboarding/ChatArranque.tsx'), /body: JSON\.stringify\(\{ action: 'hilo' \}\)/);
 });

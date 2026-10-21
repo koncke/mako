@@ -158,8 +158,8 @@ test('el interés: la opción o lo que escriba, y a qué pestaña entra al termi
   const chat = leer('app/onboarding/ChatArranque.tsx');
   // Desde el 18/10/2026 entra SIEMPRE al Ops Center: el interés queda en la encuesta, no decide la entrada.
   assert.equal(RUTA_AL_TERMINAR, '/second-brain');
-  assert.match(chat, /entrada=\{RUTA_AL_TERMINAR\}/);
-  assert.match(chat, /href=\{modo === 'oferta' \? entrada : '\/plan'\}/);
+  // Desde el 20/10/2026 el botón y el temporizador entran por el mismo `entrar` (revisión del Cerebro).
+  assert.match(chat, /let destino = vista\.modo === 'oferta' \? RUTA_AL_TERMINAR : '\/plan';/);
 });
 
 test('lo que contestó queda para el super admin y la API de MaKo', () => {
