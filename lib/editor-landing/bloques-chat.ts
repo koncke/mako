@@ -143,6 +143,23 @@ export function elegirDiseno(pedido = ''): BloqueElegir {
   };
 }
 
+/**
+ * El G2 de los diseños, SÓLO cuando sirve (revisión del 21/10/2026: se dibujaba en toda lectura del catálogo, siempre
+ * con los mismos tres): no si el pedido es una presentación (estos diseños son de landing) ni si ya nombra un diseño
+ * del catálogo («con el diseño Audaz»: el modelo leía el catálogo para sacar el id y aparecían tres que no eran). «MaKo»
+ * es también el nombre de la app: cuenta como diseño sólo dicho como tal («el diseño de MaKo»). Lo demás lo ordena
+ * `elegirDiseno` con el pedido.
+ */
+export function elegirDisenoPara(pedido: string): BloqueElegir | null {
+  const p = ` ${plano(pedido).replace(/[^a-z0-9]+/g, ' ')} `;
+  if (/ (?:presentacion|presentaciones|diapositiva|diapositivas|slides?|deck) /.test(p)) return null;
+  const nombra = DISENOS_LANDING.some((d) => {
+    const n = plano(d.nombre).replace(/[^a-z0-9]+/g, ' ').trim();
+    return d.id === 'mako' ? / (?:diseno|estilo|plantilla) (?:de |del )?(?:la )?mako /.test(p) : p.includes(` ${n} `);
+  });
+  return nombra ? null : elegirDiseno(pedido);
+}
+
 /** Lo que el «elegir» necesita de un tema (el catálogo de temas.ts o un tema propio). */
 export type TemaParaBloque = { id: string; nombre: string; grupo: GrupoTema; etiquetas?: readonly string[] };
 

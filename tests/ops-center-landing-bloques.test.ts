@@ -37,6 +37,12 @@
 //   R19 los diseños no dejan su G2                                                    → 11 / 2
 //   R20 BloqueWeb no dibuja la lista                                                  → 11 / 1
 //   R21 el G2 va también ADENTRO de lo que lee el modelo                              → 11 / 2
+//   (revisión del 21/10/2026, sobre 13 / 0: el contrato del G1 y los diseños según el pedido)
+//   B1  elegir se toca con MaKo trabajando → 11 / 2 · B2 marca aunque no salió → 12 / 1 · B3 lo contestado sólo al montar → 11 / 2
+//   B4  BloqueWeb no le pasa `ocupado` → 12 / 1 · B5 BloqueHilo no se lo pasa → 12 / 1 · B6 conRespuestas no mira el elegir → 12 / 1
+//   B7  los diseños sin el pedido → 11 / 2 · B8 dibuja aunque no sirva → 12 / 1 · B9 dibuja en una presentación → 10 / 3
+//   B10 dibuja con el diseño ya nombrado → 11 / 2 · B11 «MaKo» la app como diseño → 12 / 1 · B12 sin ordenar por el pedido → 10 / 3
+//   B13 sin el «No salió» → 12 / 1
 //
 // Correr: node --import tsx --test tests/ops-center-landing-bloques.test.ts
 // =============================================================================
@@ -50,7 +56,7 @@ import { pathToFileURL } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
-  OPCIONES_POR_BLOQUE, bloqueDeCompleta, bloqueDominio, bloqueLanding, bloqueListaLandings, bloquePublicada, elegirDiseno, elegirFormatoReplicar, elegirTema,
+  OPCIONES_POR_BLOQUE, bloqueDeCompleta, bloqueDominio, bloqueLanding, bloqueListaLandings, bloquePublicada, elegirDiseno, elegirDisenoPara, elegirFormatoReplicar, elegirTema,
   estadoDeLanding, rutaEditor,
 } from '../lib/editor-landing/bloques-chat';
 import { MAX_LANDINGS_BLOQUE, esBloqueWeb, urlPublicada, type BloqueWeb as TBloqueWeb } from '../lib/editor-landing/bloques-web';
@@ -115,6 +121,13 @@ test('«armame una landing» sin diseño: tres diseños que la pantalla sabe dib
   assert.equal(b.recomendada, b.opciones[0].id);
   assert.equal(elegirDiseno('una landing simple, sin video').opciones[0].id, 'minimal');
   assert.ok(elegirDiseno('quiero algo oscuro y elegante').opciones.some((o) => o.id === 'oscuro-moderno'));
+  // El G2 sólo cuando sirve (revisión del 21/10/2026): ordenado por el pedido, y no en una presentación ni si ya nombró
+  // un diseño del catálogo.
+  assert.deepEqual(elegirDisenoPara(''), elegirDiseno());
+  assert.equal(elegirDisenoPara('Armame una landing oscura')?.opciones[0].id, 'oscuro-moderno');
+  for (const t of ['Armame una presentación de ventas', 'unas diapositivas para el webinar', 'Creame una landing con el diseño Audaz',
+    'una landing Clásico claro', 'con el estilo de MaKo', 'una landing tecnológico']) assert.equal(elegirDisenoPara(t), null, t);
+  assert.ok(elegirDisenoPara('MaKo, armame una landing'), '«MaKo» como nombre de la app no es el diseño');
 });
 
 test('elegir el tema: tres del catálogo, nunca el que ya tiene, dos de su grupo y uno del otro; y el formato de Replicar', () => {
@@ -198,6 +211,10 @@ test('se dibuja: la miniatura con la sección, el estado, el link y los botones;
   const vieja = renderToStaticMarkup(createElement(BloqueWeb, { b: elegirFormatoReplicar(), onResponder: () => {}, respondida: 'Formato: Landing' }));
   assert.equal((vieja.match(/class="ch-opcion ch-web__opcion" disabled=""/g) ?? []).length, 3);
   assert.match(vieja, /Respondiste: Formato: Landing/);
+  // MaKo trabajando: las opciones esperan, como el G1 (lo tocado no saldría).
+  const ocupada = renderToStaticMarkup(createElement(BloqueWeb, { b: elegirFormatoReplicar(), onResponder: () => true, ocupado: true }));
+  assert.equal((ocupada.match(/class="ch-opcion ch-web__opcion" disabled=""/g) ?? []).length, 3, 'con MaKo trabajando, no se toca');
+  assert.doesNotMatch(ocupada, /Respondiste/);
   const temas = await dibujar(elegirTema('mako', TEMAS), () => {});
   assert.equal((temas.match(/class="gp-muestra"/g) ?? []).length, 3, 'cada tema con su muestra');
   assert.doesNotMatch(temas, /disabled=""/, 'con dónde contestar, sí');
@@ -223,7 +240,16 @@ test('elegir: lo elegido sale como un mensaje que dice QUÉ se eligió, y el hil
   assert.match(src, /postJson<RespuestaDominio>\(RUTA_DOMINIO, \{ accion: 'estado', id: d\.id, verificar: true \}, PLAZO_DOCS_MS\);[\s\S]{0,160}setD\(bloqueDominio\(d\.id, r\.dominio\)\)/);
   const hilo = sinComentarios(leer('app/_chat/BloqueHilo.tsx'));
   assert.match(hilo, /const BloqueWeb = dynamic\(\(\) => import\('@\/app\/web-generator\/BloqueWeb'\)\.then\(\(m\) => m\.BloqueWeb\)\);/, 'la hoja de las landings sólo carga con un bloque');
-  assert.match(hilo, /if \(esBloqueWeb\(b\)\) return <BloqueWeb b=\{b\} onResponder=\{onResponder\} respondida=\{respondida\} \/>;/);
+  assert.match(hilo, /if \(esBloqueWeb\(b\)\) return <BloqueWeb b=\{b\} onResponder=\{onResponder\} respondida=\{respondida\} ocupado=\{ocupado\} \/>;/);
+  // «Respondiste» SÓLO SI SALIÓ y lo contestado en CADA render, como el G1 del marco (revisión del 21/10/2026).
+  assert.match(src, /const dicha = respondida \?\? enviada;\s*const quieta = !onResponder \|\| dicha != null \|\| !!ocupado;/);
+  assert.match(src, /if \(onResponder\?\.\(t\) === false\) \{ setNoSalio\(true\); return; \}\s*setNoSalio\(false\);\s*setEnviada\(t\);/, 'marca después de mandar, y sólo si salió');
+  assert.match(src, /\{noSalio && dicha == null && <p className="ch-tarjeta__nota" role="alert">No salió/);
+  assert.match(src, /onResponder\?: \(texto: string\) => boolean \| void;[\s\S]{0,200}ocupado\?: boolean;/);
+  // Contestar ESCRIBIENDO también lo apaga, y al recargar sigue contestado.
+  const { conRespuestas } = await import('../app/m/mako/chat-ui');
+  const items = conRespuestas([{ k: 'bloque', id: 'e', b: elegirDiseno() }, { k: 'msg', id: 'u', role: 'user', texto: 'la minimal', at: null } as never]);
+  assert.equal(items[0].k === 'bloque' ? items[0].respondida : null, 'la minimal');
   assert.match(sinComentarios(leer('lib/chat-bloques.ts')), /default:\s*return sanearBloqueWeb\(o, rutaInterna\);/);
 });
 
@@ -303,7 +329,10 @@ const ctx = { ws: 3, canal: 'app', canalKey: 'app:prueba', alcance: 'leer', rol:
 const lista = await RUNNERS.listar_landings_creadas.leer({}, ctx);
 const enPapelera = await RUNNERS.listar_landings_creadas.leer({ papelera: true }, ctx);
 const disenos = await RUNNERS.listar_disenos_landing.leer({}, ctx);
-console.log(JSON.stringify({ lista, enPapelera, disenos }));
+const oscura = await RUNNERS.listar_disenos_landing.leer({}, { ...ctx, mensajeUsuario: 'Armame una landing oscura' });
+const presentacion = await RUNNERS.listar_disenos_landing.leer({}, { ...ctx, mensajeUsuario: 'Armame una presentación de ventas' });
+const audaz = await RUNNERS.listar_disenos_landing.leer({}, { ...ctx, mensajeUsuario: 'Creame una landing con el diseño Audaz' });
+console.log(JSON.stringify({ lista, enPapelera, disenos, oscura, presentacion, audaz }));
 `) as Record<string, string | { content: string; bloque?: Record<string, unknown> }>;
   const lista = r.lista as { content: string; bloque: Record<string, unknown> };
   // La lista: el bloque con las dos que no están en la papelera, y la publicada con su dirección.
@@ -321,17 +350,27 @@ console.log(JSON.stringify({ lista, enPapelera, disenos }));
   assert.deepEqual([d.bloque?.t, (d.bloque?.opciones as unknown[]).length], ['elegir', 3]);
   assert.doesNotMatch(d.content, /"bloque"/);
   assert.ok((JSON.parse(d.content) as { disenos: unknown[] }).disenos.length >= 3);
+  // Con lo que pidió la persona (`ctx.mensajeUsuario`): ordenados por el pedido, y sin el G2 si no sirve.
+  const o = r.oscura as { bloque?: { opciones: { id: string }[] } };
+  assert.equal(o.bloque?.opciones[0].id, 'oscuro-moderno', JSON.stringify(r.oscura).slice(0, 200));
+  for (const k of ['presentacion', 'audaz'] as const) {
+    assert.equal(typeof r[k], 'string', `${k}: dibujó el G2 de los diseños de landing`);
+    assert.ok((JSON.parse(r[k] as string) as { disenos: unknown[] }).disenos.length >= 3, `${k}: al modelo le llega el catálogo igual`);
+  }
 });
 
 test('por el camino REAL (ejecutarOperacion): los diseños se dibujan por `ctx.aDibujar`, saneados, y el modelo no los ve', () => {
   const r = JSON.parse(execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_dibujar-landing-hijo.ts')], {
     cwd: RAIZ, encoding: 'utf8', timeout: 120_000, stdio: ['ignore', 'pipe', 'pipe'],
-  })) as { conCanal: { ok: boolean; resultado: string }; sinCanal: { resultado: string }; dibujados: Record<string, unknown>[]; cuantos: number; red: string[] };
+  })) as { conCanal: { ok: boolean; resultado: string }; sinCanal: { resultado: string }; dibujados: Record<string, unknown>[]; cuantos: number; trasSinCanal: number; red: string[] };
   assert.deepEqual(r.red, [], 'nada sale a la red');
   assert.equal(r.conCanal.ok, true, JSON.stringify(r.conCanal).slice(0, 300));
   assert.equal(r.cuantos, 1, 'con el canal de la pantalla, se dibuja una vez');
   assert.deepEqual(r.dibujados[0], elegirDiseno(), 'se dibuja el G2 de los tres diseños, saneado y entero');
   assert.doesNotMatch(r.conCanal.resultado, /"bloque"|"opciones"/, 'al modelo le llega el catálogo sin el bloque');
-  assert.equal(r.dibujados.length, 1, 'sin el canal (WhatsApp, HTTP) no se dibuja');
+  assert.equal(r.trasSinCanal, 1, 'sin el canal (WhatsApp, HTTP) no se dibuja');
   assert.equal(r.sinCanal.resultado, r.conCanal.resultado);
+  // Con el pedido de la persona: «oscura» ordena los tres, y una presentación no dibuja diseños de landing.
+  assert.equal(r.dibujados.length, 2, 'la presentación no dibujó nada');
+  assert.equal((r.dibujados[1] as { opciones: { id: string }[] }).opciones[0].id, 'oscuro-moderno');
 });

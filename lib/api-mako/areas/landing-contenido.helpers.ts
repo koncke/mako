@@ -1692,8 +1692,11 @@ export function pedidoGenerar(
   const productoEs = negocio ? 'negocio' : texto1(e.producto, 300) ? 'catalogo' : nuevo ? 'nuevo' : null;
   const frase = producto ? `Es para el producto «${producto}».` : negocio ? FRASE_NEGOCIO : '';
   const ideaPedida = texto1(e.idea, 8_000);
+  // La frase del producto nunca es lo que se corta (revisión del 21/10/2026): con una idea larga, el tope de 8.000 se
+  // comía «Es para el producto…» y la tarjeta mostraba un producto que el esquema no recibía. Se corta la idea antes.
+  const base = ideaPedida.slice(0, Math.max(0, 8_000 - frase.length - 2));
   const idea = !ideaPedida || !frase ? ideaPedida
-    : (producto ? conProducto(ideaPedida, { id: '', nombre: producto }) : `${ideaPedida.replace(/[.…\s]+$/, '')}. ${frase}`).slice(0, 8_000);
+    : producto ? conProducto(base, { id: '', nombre: producto }) : `${base.replace(/[.…\s]+$/, '')}. ${frase}`;
   const texto = texto1(e.texto, 60_000);
   if (!idea && !texto) return { error: 'Falta qué crear: una idea («idea») o un texto («texto»).', faltan: ['idea'] };
   if (idea && texto) return { error: 'Pasa una idea o un texto, no los dos: lo que se pide sobre el texto va en «instrucciones».' };
@@ -1756,8 +1759,10 @@ export function resumenGenerar(p: PedidoGenerarApi, nombreTema: string | null): 
   const que = p.tipo === 'presentacion' ? 'una presentación' : 'una landing';
   // El producto va ADELANTE y aparte (revisión del 20/10/2026, noche): pegado al final de la idea, el corte de 140 lo
   // escondía y la persona confirmaba sin ver a cuál quedaba atada la landing.
+  // Sin producto, también se dice: el esquema sale del perfil del negocio (la oferta del brief), y eso se confirma.
   const para = p.productoEs === 'negocio' ? ' para el negocio en general'
-    : p.producto ? ` para ${p.productoEs === 'nuevo' ? 'un producto nuevo,' : 'el producto'} «${corto(p.producto, 80)}»` : '';
+    : p.producto ? ` para ${p.productoEs === 'nuevo' ? 'un producto nuevo,' : 'el producto'} «${corto(p.producto, 80)}»`
+      : ' sobre el perfil del negocio (sin un producto elegido)';
   const idea = (p.idea ?? '').replace(/\.?\s*Es para (?:el producto «[^»]*»|el negocio en general, no para un producto)\.$/, '');
   const de = p.modo === 'generar'
     ? `desde la idea «${corto(idea, 140)}»`

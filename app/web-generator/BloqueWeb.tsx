@@ -42,15 +42,18 @@ const QUE: Record<BloqueElegir['que'], string> = { diseno: 'Diseño', tema: 'Tem
 /** La dirección sin `https://` ni la barra del final: lo que se lee. */
 export const direccionLegible = (url: string): string => url.replace(/^https:\/\//, '').replace(/\/$/, '');
 
-export function BloqueWeb({ b, onResponder, respondida }: {
+export function BloqueWeb({ b, onResponder, respondida, ocupado }: {
   b: Bloque;
-  onResponder?: (texto: string) => void;
-  /** Lo que ya se eligió (al recargar): se ve contestado y no se toca, como el G1 del marco. */
+  /** Devuelve false si no salió (MaKo estaba trabajando), como en el G1 del marco. */
+  onResponder?: (texto: string) => boolean | void;
+  /** Lo que ya se eligió (al recargar, o escribiendo después): se ve contestado y no se toca, como el G1 del marco. */
   respondida?: string;
+  /** MaKo está trabajando: las opciones esperan (lo tocado no saldría). */
+  ocupado?: boolean;
 }) {
   if (b.t === 'landing') return <Landing b={b} />;
   if (b.t === 'landings') return <Landings b={b} />;
-  if (b.t === 'elegir') return <Elegir b={b} onResponder={onResponder} respondida={respondida} />;
+  if (b.t === 'elegir') return <Elegir b={b} onResponder={onResponder} respondida={respondida} ocupado={ocupado} />;
   if (b.t === 'publicada') return <Publicada b={b} />;
   return <Dominio b={b} />;
 }
@@ -130,13 +133,21 @@ function Landings({ b }: { b: BloqueLandings }) {
 }
 
 /** G2: tres opciones con su vista previa, la recomendada marcada. Tocar una contesta (como el G1 del marco). */
-function Elegir({ b, onResponder, respondida }: { b: BloqueElegir; onResponder?: (texto: string) => void; respondida?: string }) {
-  const [enviada, setEnviada] = useState<string | null>(respondida ?? null);
-  const quieta = !onResponder || enviada != null;
+function Elegir({ b, onResponder, respondida, ocupado }: {
+  b: BloqueElegir; onResponder?: (texto: string) => boolean | void; respondida?: string; ocupado?: boolean;
+}) {
+  const [enviada, setEnviada] = useState<string | null>(null);
+  const [noSalio, setNoSalio] = useState(false);
+  // Contestada al recargar, o escribiendo después (`conRespuestas`): vale lo que dijo la persona, en CADA render.
+  const dicha = respondida ?? enviada;
+  const quieta = !onResponder || dicha != null || !!ocupado;
+  // ⚠️ «Respondiste» SÓLO SI SALIÓ, como el G1 (revisión del 21/10/2026): tocar mientras MaKo trabajaba marcaba la
+  //    opción y no mandaba nada, sin aviso.
   const responder = (t: string) => {
     if (quieta) return;
+    if (onResponder?.(t) === false) { setNoSalio(true); return; }
+    setNoSalio(false);
     setEnviada(t);
-    onResponder?.(t);
   };
   // La vista previa de un DISEÑO es su primera sección, armada con el catálogo del navegador. `contenido()` pone ids
   // NUEVOS en cada llamada: se arma después de montar (si no, el HTML del server y el del navegador no coinciden).
@@ -161,7 +172,7 @@ function Elegir({ b, onResponder, respondida }: { b: BloqueElegir; onResponder?:
         {b.opciones.map((o) => {
           const texto = `${QUE[b.que]}: ${o.titulo}`;
           return (
-            <button key={o.id} type="button" className="ch-opcion ch-web__opcion" disabled={quieta} aria-pressed={enviada === texto}
+            <button key={o.id} type="button" className="ch-opcion ch-web__opcion" disabled={quieta} aria-pressed={dicha === texto}
               data-recomendada={o.id === b.recomendada || undefined} onClick={() => responder(texto)}>
               {b.que === 'diseno' && <Mini tarjeta={muestras[o.id]?.tarjeta ?? null} tema={muestras[o.id]?.tema ?? temaPorId(null)} />}
               {b.que === 'tema' && <span className="gma gp ch-web__muestra"><MuestraTema tema={temaPorId(o.id)} /></span>}
@@ -173,12 +184,13 @@ function Elegir({ b, onResponder, respondida }: { b: BloqueElegir; onResponder?:
           );
         })}
       </div>
-      {enviada == null ? (
+      {noSalio && dicha == null && <p className="ch-tarjeta__nota" role="alert">No salió: espera a que MaKo termine y vuelve a tocar.</p>}
+      {dicha == null ? (
         <div className="ch-tarjeta__botones">
           <button type="button" className="ch-enlace" disabled={quieta} onClick={() => responder('Elige tú')}>Elige tú</button>
           <button type="button" className="ch-enlace" disabled={quieta} onClick={() => responder('Saltear')}>Saltear</button>
         </div>
-      ) : <p className="ch-tarjeta__nota">{`Respondiste: ${enviada}`}</p>}
+      ) : <p className="ch-tarjeta__nota">{`Respondiste: ${dicha}`}</p>}
     </div>
   );
 }

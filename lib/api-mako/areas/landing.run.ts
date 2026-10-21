@@ -52,7 +52,7 @@ import {
 // El EDITOR del Web Generator (tanda 4): el MISMO server que llama /api/landing-generator (la
 // pantalla). Ningún `.from('landing_docs')` acá: tests/api-mako-landing-editor.test.ts lo frena.
 import * as docsEditor from '@/lib/editor-landing/server';
-import { bloqueDeCompleta, bloqueLanding, bloqueListaLandings, bloquePublicada, elegirDiseno } from '@/lib/editor-landing/bloques-chat';
+import { bloqueDeCompleta, bloqueLanding, bloqueListaLandings, bloquePublicada, elegirDisenoPara } from '@/lib/editor-landing/bloques-chat';
 import { publicar as publicarEnEditor, despublicar as despublicarEnEditor, sitioActivo as sitioActivoEnEditor } from '@/lib/editor-landing/publicar';
 import { listar as comentariosDelDiagnostico, cambiarEstado as estadoDeComentario, analizar as analizarDiagnostico } from '@/lib/editor-landing/diagnostico-server';
 // Tanda 7: el resto del editor (landing-editor.run.ts), sumado al final de RUNNERS.
@@ -692,10 +692,15 @@ export const RUNNERS: Runners = {
     },
   },
 
-  // El bloque (Ops Center 1.12): «armame una landing» sin diseño muestra 3 para elegir (el G2); lo elegido vuelve como
-  // un mensaje de la persona («Diseño: Clásico claro»). Va al lado de `content`: al modelo le llega sólo el catálogo.
+  // El bloque (Ops Center 1.12): «armame una landing» sin diseño muestra 3 para elegir (el G2), ordenados por lo que
+  // pidió la persona (`ctx.mensajeUsuario`); lo elegido vuelve como un mensaje suyo («Diseño: Clásico claro»). Va al
+  // lado de `content`: al modelo le llega sólo el catálogo. Sin bloque si es una presentación o ya nombró un diseño.
   listar_disenos_landing: {
-    leer: async () => ({ content: json(disenosParaApi()), bloque: elegirDiseno() }),
+    leer: async (_input, ctx) => {
+      const content = json(disenosParaApi());
+      const bloque = elegirDisenoPara(ctx.mensajeUsuario ?? '');
+      return bloque ? { content, bloque } : content;
+    },
   },
 
   // ── Acciones por chat ──────────────────────────────────────────────────────

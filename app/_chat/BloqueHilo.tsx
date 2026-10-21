@@ -42,7 +42,7 @@ export function BloqueHilo({ b, onResponder, respondida, onTermina, ocupado }: {
   /** Un trabajo largo (G6) terminó mientras se miraba: quien lo lanzó (su tarjeta, su formulario) deja de decir «En curso». */
   onTermina?: (ok: boolean) => void;
 }) {
-  if (esBloqueWeb(b)) return <BloqueWeb b={b} onResponder={onResponder} respondida={respondida} />;
+  if (esBloqueWeb(b)) return <BloqueWeb b={b} onResponder={onResponder} respondida={respondida} ocupado={ocupado} />;
   if (b.t === 'creado') return <Creado b={b} />;
   if (b.t === 'antes_despues') {
     return (

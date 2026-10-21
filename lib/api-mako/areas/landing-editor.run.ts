@@ -342,20 +342,19 @@ export const RUNNERS_EDITOR: Runners = {
   generar_landing_con_ia: {
     preparar: async (input, ctx): Promise<Preparado> => {
       if (enFlujo(ctx)) return { error: 'Crear una landing con IA no corre en una automatización: un flujo corre una vez por cada lead y crearía una por cada uno. Pídesela a MaKo en el chat o créala en el Web Generator.' };
-      // PARA QUÉ PRODUCTO (Ops Center 1.15; tras tres revisiones, 21/10/2026): el esquema sale del perfil del negocio, o
-      // sea del producto principal. `productoDeLanding` (lib/editor-landing/producto-de-landing.ts) no adivina: elige sólo
-      // lo seguro y, si no, no se prepara nada y el error es la pregunta, con las opciones. Corre en TODO pedido, porque
-      // uno que no nombra producto también saldría sobre el principal. Se mira lo que pide la persona (idea,
-      // instrucciones, título y audiencia), no el texto pegado, que es contenido. Lo decidido REEMPLAZA a lo que mandó el
-      // modelo; si el catálogo no se pudo leer, sigue como antes de esta pieza («no tienes productos» sería inventarlo).
-      const pedido = ['idea', 'instrucciones', 'titulo', 'audiencia'].map((k) => str(input, k)).filter(Boolean).join('\n');
+      // PARA QUÉ PRODUCTO (Ops Center 1.15; tras cuatro revisiones, 21/10/2026): el esquema sale del perfil del negocio,
+      // o sea del producto principal. `productoDeLanding` (lib/editor-landing/producto-de-landing.ts) no adivina ni lee el
+      // texto: con catálogo, si el modelo no manda un producto que valga, no se prepara nada y el error es la pregunta,
+      // con las opciones. Corre en TODO pedido, porque uno que no nombra producto también saldría sobre el principal. Lo
+      // decidido REEMPLAZA a lo que mandó el modelo; si el catálogo no se pudo leer, vale lo que no lo necesita (el
+      // negocio en general, un producto nuevo con nombre) y lo demás sigue como antes de esta pieza.
       const { producto: _producto, producto_nuevo: _nuevo, ...resto } = input;
       const productos = await listProductos(true).then((ps) => ps.map((p) => ({ id: String(p.id), nombre: p.nombre }))).catch(() => null);
-      const d = productos ? productoDeLanding(pedido, { producto: str(input, 'producto'), nuevo: str(input, 'producto_nuevo') }, productos) : null;
-      if (d?.que === 'preguntar') return { error: d.mensaje, faltan: ['producto'] };
-      input = d?.es === 'catalogo' ? { ...resto, producto: d.producto }
-        : d?.es === 'nuevo' ? { ...resto, producto_nuevo: d.producto }
-          : d?.es === 'negocio' ? { ...resto, producto: OPCION_NEGOCIO } : resto;
+      const d = productoDeLanding({ producto: str(input, 'producto'), nuevo: str(input, 'producto_nuevo') }, productos);
+      if (d.que === 'preguntar') return { error: d.mensaje, faltan: ['producto'] };
+      input = d.es === 'catalogo' ? { ...resto, producto: d.producto }
+        : d.es === 'nuevo' ? { ...resto, producto_nuevo: d.producto }
+          : d.es === 'negocio' ? { ...resto, producto: OPCION_NEGOCIO } : resto;
       const propios = await temasPropios();
       // Sólo con «basadaEn» se leen las analizadas (una consulta que el resto de los pedidos no necesita).
       const analizadas = input.basadaEn ? await listarAnalizadas() : [];

@@ -36,7 +36,10 @@ async function main() {
   const conCanal = await runWithWorkspace(WS, () => ejecutarOperacion('listar_disenos_landing', {}, ctx(true), 'json'));
   const cuantos = dibujados.length;
   const sinCanal = await runWithWorkspace(WS, () => ejecutarOperacion('listar_disenos_landing', {}, ctx(false), 'json'));
-  process.stdout.write(JSON.stringify({ conCanal, sinCanal, dibujados, cuantos, red }));
+  const trasSinCanal = dibujados.length;
+  await runWithWorkspace(WS, () => ejecutarOperacion('listar_disenos_landing', {}, { ...ctx(true), mensajeUsuario: 'Armame una landing oscura' }, 'json'));
+  await runWithWorkspace(WS, () => ejecutarOperacion('listar_disenos_landing', {}, { ...ctx(true), mensajeUsuario: 'Armame una presentación de ventas' }, 'json'));
+  process.stdout.write(JSON.stringify({ conCanal, sinCanal, dibujados, cuantos, trasSinCanal, red }));
 }
 
 main().then(() => process.exit(0), (e) => { console.error(e); process.exit(1); });

@@ -61,7 +61,7 @@ Si una tool de LECTURA falla, DECÍSELO con las palabras que te dio (falta el to
  * nombraría.
  */
 const RECETA_LANDING = `CUANDO TE PIDEN UNA LANDING O UNA PRESENTACIÓN:
-- PARA QUÉ PRODUCTO: si lo nombran por su nombre y no hablan de otro, ése. Si no, NO lo adivines: antes de proponer, pregunta con opciones (los productos del catálogo, «Un producto nuevo» y «El negocio en general»). Si eligen uno nuevo, pregunta su nombre y de qué se trata.
+- PARA QUÉ PRODUCTO: si te la piden PARA uno del catálogo, pasa su nombre exacto (no si lo nombran para excluirlo, compararlo o de modelo). Si no, NO lo adivines: antes de proponer, pregunta con opciones (los productos del catálogo, «Un producto nuevo» y «El negocio en general»). Si eligen uno nuevo, pregunta su nombre y de qué se trata.
 - Si te nombran una landing que coincide con dos, pregunta cuál: nunca elijas la primera.
 - No inventas testimonios, cifras, garantías ni precios, y no publicas sin que te lo pidan.`;
 
