@@ -39,7 +39,7 @@ import { identidadDe } from '@/lib/tickets-db';
 import { registrarError } from '@/lib/errores-app';
 import { avisoClaveTapada, taparClaves } from '@/lib/claves-en-el-chat';
 import { encolarTurno, esperarALaPc, pcDe, type Ejecutor } from '@/lib/ia-pc';
-import { armarPrompt, avisoDeLaPc, ESPERA_RESPUESTA_MS } from '@/lib/ia-pc-reglas';
+import { armarPrompt, avisoDeLaPc, CLAVE_MODELO_PC, ESPERA_RESPUESTA_MS, modeloPc } from '@/lib/ia-pc-reglas';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
 import { confirmarPendiente, cancelarPendiente } from '@/lib/api-mako/acciones';
 import type { Ctx } from '@/lib/api-mako/tipos';
@@ -502,7 +502,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     let falloDeLaPc: 'tarde' | 'error' | null = null;
     try {
       if (pc?.enLinea) {
-        const turnoPc = await encolarTurno(pc, s.id, { system, prompt: armarPrompt(historial, textoModelo), tools });
+        const modelo = modeloPc(await getSetting(CLAVE_MODELO_PC).catch(() => null));
+        const turnoPc = await encolarTurno(pc, s.id, { system, prompt: armarPrompt(historial, textoModelo), tools, modelo });
         const r = await esperarALaPc(turnoPc, ws, nuevoIntento() as Ejecutor, ESPERA_RESPUESTA_MS);
         if (!r) { falloDeLaPc = 'tarde'; fallo = 'la computadora del cliente no contestó a tiempo'; }
         else if ('error' in r) { falloDeLaPc = 'error'; fallo = `la computadora del cliente: ${r.error}`; }

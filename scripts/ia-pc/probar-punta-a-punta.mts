@@ -31,6 +31,12 @@ const WS = Number(arg('--ws'));
 const CLAUDE_DIR = arg('--claude-dir');
 if (WS !== 3) { console.error('⛔ sólo en el ws3 (el cliente de prueba): --ws 3'); process.exit(1); }
 if (!CLAUDE_DIR) { console.error('⛔ falta --claude-dir <carpeta de una cuenta de Claude Code con sesión>'); process.exit(1); }
+// `--instalador` (Windows, ola 2): en vez de `node mako-pc.mjs`, la línea de PowerShell del tutorial, con el ejecutable
+// de verdad que bajó del bucket. ⚠️ Deja el arranque automático en Inicio: la limpieza del final lo saca.
+const INSTALADOR = process.argv.includes('--instalador');
+const PUERTO = 4319;
+// El instalador apunta al servidor de la app: acá, al local (antes de importar las rutas, que lo leen al cargar).
+if (INSTALADOR) process.env.APP_BASE_URL = `http://localhost:${PUERTO}`;
 
 const { NextRequest } = await import('next/server');
 const rutas = {
@@ -39,6 +45,7 @@ const rutas = {
   turno: await imp('app/api/ia-pc/turno/route.ts'),
   contestar: await imp('app/api/ia-pc/turno/[id]/route.ts'),
   mcp: await imp('app/api/ia-pc/mcp/route.ts'),
+  instalar: await imp('app/api/ia-pc/instalar/route.ts'),
 };
 const { crearCodigo, pcDe, desconectar } = await imp('lib/ia-pc.ts');
 const { turnoApp, nuevaSesion } = await imp('lib/mako-turno-app.ts');
@@ -46,7 +53,6 @@ const { chartKeyDePersona } = await imp('lib/mako-turno-app-reglas.ts');
 const { getSupabaseServer } = await imp('lib/supabase.ts');
 
 // ── 1. Las rutas reales, en un servidor local ────────────────────────────────
-const PUERTO = 4319;
 const servidor = http.createServer(async (req, res) => {
   const cuerpo = await new Promise<Buffer>((ok) => { const b: Buffer[] = []; req.on('data', (c) => b.push(c)).on('end', () => ok(Buffer.concat(b))); });
   const url = `http://localhost:${PUERTO}${req.url}`;
@@ -58,7 +64,8 @@ const servidor = http.createServer(async (req, res) => {
       : p === '/api/ia-pc/turno' ? await rutas.turno.GET(r)
         : m ? await rutas.contestar.POST(r, { params: Promise.resolve({ id: m[1] }) })
           : p === '/api/ia-pc/mcp' ? await (req.method === 'GET' ? rutas.mcp.GET() : rutas.mcp.POST(r))
-            : new Response('no', { status: 404 });
+            : p === '/api/ia-pc/instalar' ? await rutas.instalar.GET(r)
+              : new Response('no', { status: 404 });
   res.writeHead(resp.status, Object.fromEntries(resp.headers.entries()));
   res.end(Buffer.from(await resp.arrayBuffer()));
 });
@@ -77,12 +84,23 @@ const correr = (args: string[], fondo = false): Promise<string> | ChildProcess =
   if (fondo) return p;
   return new Promise((ok) => { let s = ''; p.stdout!.on('data', (b) => { s += b; }); p.stderr!.on('data', (b) => { s += b; }); p.on('close', () => ok(s.trim())); });
 };
-console.log(`2. ${await correr(['emparejar', codigo, '--servidor', `http://localhost:${PUERTO}`, '--nombre', 'Prueba ws3'])}`);
-const cfg = JSON.parse(readFileSync(path.join(DIR_PC, 'config.json'), 'utf8'));
-writeFileSync(path.join(DIR_PC, 'config.json'), JSON.stringify({ ...cfg, configDir: CLAUDE_DIR }, null, 2));
-
-// ── 3. El programa corriendo ─────────────────────────────────────────────────
-const pc = correr([], true) as ChildProcess;
+const ps = (comando: string) => new Promise<string>((ok) => {
+  const p = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', comando], { env: { ...process.env, MAKO_PC_DIR: DIR_PC, CLAUDE_CONFIG_DIR: CLAUDE_DIR } });
+  let s = ''; p.stdout.on('data', (b) => { s += b; }); p.stderr.on('data', (b) => { s += b; }); p.on('close', () => ok(s.trim()));
+});
+let pc: ChildProcess | null = null;
+if (INSTALADOR) {
+  // La MISMA línea que copia el cliente en el tutorial (lib/ia-pc-reglas.ts → lineaDeInstalacion).
+  const { lineaDeInstalacion } = await imp('lib/ia-pc-reglas.ts');
+  const linea = lineaDeInstalacion(`http://localhost:${PUERTO}`, 'windows', codigo);
+  console.log(`2. ${linea}\n${(await ps(linea)).split('\n').map((l) => `   ${l}`).join('\n')}`);
+} else {
+  console.log(`2. ${await correr(['emparejar', codigo, '--servidor', `http://localhost:${PUERTO}`, '--nombre', 'Prueba ws3'])}`);
+  const cfg = JSON.parse(readFileSync(path.join(DIR_PC, 'config.json'), 'utf8'));
+  writeFileSync(path.join(DIR_PC, 'config.json'), JSON.stringify({ ...cfg, configDir: CLAUDE_DIR }, null, 2));
+  // ── 3. El programa corriendo ───────────────────────────────────────────────
+  pc = correr([], true) as ChildProcess;
+}
 let enLinea = false;
 for (let i = 0; i < 40 && !enLinea; i++) { await new Promise((ok) => setTimeout(ok, 500)); enLinea = !!(await pcDe(WS, actor))?.enLinea; }
 console.log(`3. La PC está ${enLinea ? 'EN LÍNEA' : 'sin conexión (falló el latido)'}`);
@@ -103,13 +121,17 @@ const resumen = async (titulo: string, mensaje: string) => {
   console.log(`   MaKo: ${String(deMako).replace(/\s+/g, ' ').slice(0, 300) || '—'}`);
   console.log(`   aviso: ${r?.aviso ?? '—'} · tarjetas: ${r?.propuestas?.length ?? 0}`);
 };
-if (enLinea) {
+if (enLinea && INSTALADOR) {
+  await resumen('Una lectura, con el ejecutable instalado', '¿Qué tareas tengo en el plan? Usa tus herramientas.');
+} else if (enLinea) {
   await resumen('Una lectura', '¿Cuántos leads tengo en el CRM? Usa tus herramientas para contarlos.');
   await resumen('Una acción (tiene que quedar en tarjeta)', process.env.MENSAJE_ACCION ?? 'Agrega un lead nuevo: Juan Pérez, teléfono +54 9 11 5555 1234, viene de Instagram.');
 }
 
 // ── 5. Limpieza ──────────────────────────────────────────────────────────────
-pc.kill();
+pc?.kill();
+// Lo que dejó el instalador: el proceso, el arranque automático y la carpeta del programa.
+if (INSTALADOR) await ps("Get-Process -Name 'mako-pc' -ErrorAction SilentlyContinue | Stop-Process -Force; Remove-Item -Force (Join-Path ([Environment]::GetFolderPath('Startup')) 'MaKo.vbs') -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500; Remove-Item -Recurse -Force (Join-Path $env:LOCALAPPDATA 'MaKo') -ErrorAction SilentlyContinue");
 if (dispositivo) await desconectar(WS, dispositivo.id);
 servidor.close();
 console.log('\n5. La PC de prueba quedó desconectada.');

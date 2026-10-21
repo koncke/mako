@@ -7,6 +7,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { emparejar } from '@/lib/ia-pc';
+import { limitePorIp } from '@/lib/limite-publico';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -14,6 +15,9 @@ export const revalidate = 0;
 const json = (cuerpo: Record<string, unknown>, status = 200) => NextResponse.json(cuerpo, { status, headers: { 'cache-control': 'no-store' } });
 
 export async function POST(req: NextRequest) {
+  // Contra adivinar códigos: 10 intentos por IP cada 10 minutos (el código son 6 letras de 32 y vence en 10 minutos).
+  const frenado = limitePorIp(req, 'ia-pc-emparejar', 10, 10 * 60_000);
+  if (frenado) return frenado;
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return json({ ok: false, error: 'Pedido inválido.' }, 400); }
   const r = await emparejar(body?.codigo, body?.nombre).catch((e) => {

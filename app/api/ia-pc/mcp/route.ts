@@ -12,6 +12,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { pedirLlamada, turnoDelToken } from '@/lib/ia-pc';
 import { bearer, herramientasParaMcp } from '@/lib/ia-pc-reglas';
+import { limitePorClave } from '@/lib/limite-publico';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -58,6 +59,9 @@ async function atender(m: Rpc, t: Turno): Promise<Record<string, unknown> | null
 export async function POST(req: NextRequest) {
   const t = await turnoDelToken(bearer(req.headers.get('authorization'))).catch(() => null);
   if (!t) return NextResponse.json(error(null, -32001, 'token del turno inválido o vencido'), { status: 401 });
+  // Por turno: un turno de 12 vueltas pide decenas de herramientas, no cientos.
+  const frenado = limitePorClave('ia-pc-mcp', t.id, 120, 60_000);
+  if (frenado) return frenado;
   let cuerpo: unknown;
   try { cuerpo = await req.json(); } catch { return NextResponse.json(error(null, -32700, 'JSON inválido'), { status: 400 }); }
   const lote = Array.isArray(cuerpo);

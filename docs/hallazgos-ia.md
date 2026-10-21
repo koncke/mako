@@ -4579,3 +4579,24 @@ El diseño: docs/ia-del-cliente.md. Lo medido al hacerlo, en esta PC, con Claude
 - **Sin hacer (ola 2):** «Tus cuentas de IA» y el tutorial; el ejecutable de un archivo (hoy es `node mako-pc.mjs`); el %
   usado de cada cuenta (Claude lo da en el `/usage` del Agent SDK, no en `-p`); que el cliente elija el modelo; varias
   cuentas con rotación. Y el riesgo legal de Anthropic (docs/ia-del-cliente.md §10), que es del Cerebro.
+
+## La IA del cliente, ola 2: el instalador y el % usado (21/10/2026)
+
+- **El % usado está en el stream, no en `/usage`.** `claude -p "/usage"` contesta sólo «You are currently using your
+  subscription». `--output-format stream-json --verbose` trae un `rate_limit_event` con `unifiedWindows.five_hour` y
+  `seven_day` (`utilization` de 0 a 1 y `resetsAt` en segundos). Medido con Claude Code 2.1.301.
+- **Bun compila para Windows y Mac desde esta PC** (`npx bun@1.2.21 build --compile --target=…`): un programa sin
+  dependencias sale de 119 MB en Windows y 60-66 en Mac. **Adentro del ejecutable, `process.argv[1]` es una ruta virtual**
+  (`B:/~BUN/root/…`) y `realpathSync` tira: «¿me corrieron directo?» se pregunta con `import.meta.main`.
+- **Supabase Storage corta en 50 MB por archivo**: comprimidos con gzip entran (43, 23 y 25 MB), y PowerShell y `gunzip`
+  los descomprimen en la PC.
+- **Bajado por `Invoke-WebRequest` o `curl`, un ejecutable no lleva la marca de «descargado de internet»**: SmartScreen y
+  Gatekeeper no lo frenan, y el instalador de una línea no necesita la firma de código. En una Mac con chip de Apple un
+  ejecutable sin ninguna firma no corre: el instalador le pone la local (`codesign --sign -`). Sin probar en una Mac.
+- **PowerShell 5.1 muestra «qued�»** si el script no pone `[Console]::OutputEncoding = [Text.Encoding]::UTF8`.
+- **De punta a punta en esta PC** (`probar-punta-a-punta.mts --instalador`): la línea del tutorial instaló, conectó y
+  dejó en Inicio el ejecutable, que contestó un turno con las herramientas de MaKo; la limpieza sacó todo.
+- **La guarda de topes lo frenó a tiempo** (tests/rutas-publicas-limite.test.ts): emparejar era una ruta pública sin tope,
+  o sea que se podían probar códigos sin límite.
+- **Sin hacer (ola 3 y después):** GPT con Codex; el ícono en la bandeja; que la Mac se pruebe de verdad; el riesgo legal
+  de Anthropic (docs/ia-del-cliente.md §10), que es del Cerebro.

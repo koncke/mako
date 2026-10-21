@@ -7,6 +7,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { dispositivoDelToken, latir } from '@/lib/ia-pc';
 import { bearer } from '@/lib/ia-pc-reglas';
+import { limitePorClave } from '@/lib/limite-publico';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -14,6 +15,9 @@ export const revalidate = 0;
 export async function POST(req: NextRequest) {
   const d = await dispositivoDelToken(bearer(req.headers.get('authorization'))).catch(() => null);
   if (!d) return NextResponse.json({ ok: false, error: 'token inválido o desconectado' }, { status: 401 });
+  // Late cada 30 s: 10 por minuto alcanzan con margen.
+  const frenado = limitePorClave('ia-pc-latido', d.id, 10, 60_000);
+  if (frenado) return frenado;
   let body: unknown = {};
   try { body = await req.json(); } catch { /* un latido sin cuerpo también vale */ }
   await latir(d, body);

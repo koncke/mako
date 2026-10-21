@@ -195,12 +195,14 @@ export const PUBLICOS = [
   '/api/ia-pc/latido',
   '/api/ia-pc/turno',
   '/api/ia-pc/mcp',
+  // El instalador de un comando: lo pide PowerShell o curl, sin sesión. Sólo GET, y no gasta el código.
+  '/api/ia-pc/instalar',
 ] as const;
 
 /** Los públicos que solo deben responder a LECTURA. El early-return se saltea el
  *  chequeo CSRF de Origin, así que una ruta pública que acepte POST quedaría
  *  expuesta si además se autenticara por cookie. */
-export const PUBLICOS_SOLO_LECTURA = ['/compartido', '/api/compartido'] as const;
+export const PUBLICOS_SOLO_LECTURA = ['/compartido', '/api/compartido', '/api/ia-pc/instalar'] as const;
 
 /**
  * La excepción: rutas públicas que SÍ escriben.

@@ -158,4 +158,15 @@ export const BITACORA: Hito[] = [
       '⚠️ Falta la ola 2: «Tus cuentas de IA», el tutorial y el instalador para Windows y Mac. Hoy se corre con un comando.',
     ],
   },
+  {
+    fecha: '21 oct', hora: '03:00', chat: CH, sesion: SESION, cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Conectar tu Claude ya tiene su tutorial: cuatro pasos y una línea para pegar',
+    revisar: '/integraciones',
+    puntos: [
+      'En Integraciones, arriba, «Tus cuentas de IA»: cada computadora conectada, si está en línea, y cada cuenta de Claude con su plan y cuánto usó de las 5 horas y de la semana.',
+      '«Conectar mi computadora» abre el tutorial, un paso por pantalla, para Windows y Mac: instalar Claude, iniciar sesión y pegar UNA línea que instala MaKo, lo conecta y lo deja arrancando solo.',
+      'Se pueden sumar varias cuentas de Claude en la misma computadora, y usa la que tenga más cupo. El modelo (Sonnet, Opus o Haiku) lo elige el admin.',
+      'Probado de punta a punta en Windows: se instaló, se conectó y contestó. La Mac no se probó.',
+    ],
+  },
 ];

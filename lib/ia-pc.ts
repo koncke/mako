@@ -93,9 +93,29 @@ export async function desconectar(ws: number, id: number): Promise<void> {
   await db().from('ia_pc_dispositivos').update({ revocado_at: new Date().toISOString() }).eq('id', id).eq('workspace_id', ws);
 }
 
+/** Lo que ve «Tus cuentas de IA»: las PC del negocio (el admin, todas; los demás, las suyas), sin ningún secreto. */
+export async function listarDispositivos(ws: number, persona: string, esAdmin: boolean): Promise<Array<Dispositivo & { enLinea: boolean; version: string | null; esMia: boolean }>> {
+  let q = db().from('ia_pc_dispositivos')
+    .select('id, workspace_id, persona, nombre, ultimo_latido, cuentas, version')
+    .eq('workspace_id', ws).is('revocado_at', null).order('creado_at', { ascending: false }).limit(20);
+  if (!esAdmin) q = q.eq('persona', persona);
+  const { data } = await q;
+  return (data ?? []).map((r) => {
+    const d = aDispositivo(r);
+    return { ...d, enLinea: enLinea(d.ultimoLatido), version: (r.version as string | null) ?? null, esMia: d.persona === persona };
+  });
+}
+
+/** ¿Puede esta persona desconectar esa PC? La suya, siempre; la de otro, sólo el admin del negocio. */
+export async function puedeDesconectar(ws: number, id: number, persona: string, esAdmin: boolean): Promise<boolean> {
+  const { data } = await db().from('ia_pc_dispositivos').select('persona').eq('id', id).eq('workspace_id', ws).is('revocado_at', null).maybeSingle();
+  return !!data && (esAdmin || String(data.persona) === persona);
+}
+
 // ── Los turnos ───────────────────────────────────────────────────────────────
 
-export type PedidoPc = { system: string; prompt: string; tools: ToolDef[] };
+/** El pedido de un turno. `modelo` es el único valor del comando que viene del servidor: la PC lo pasa por su lista. */
+export type PedidoPc = { system: string; prompt: string; tools: ToolDef[]; modelo?: string };
 
 /** Encola un turno para la PC. El token de sus herramientas todavía no existe: se acuña cuando la PC lo toma. */
 export async function encolarTurno(d: Dispositivo, sesionId: number, pedido: PedidoPc): Promise<number> {

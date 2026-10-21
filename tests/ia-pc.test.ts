@@ -67,21 +67,22 @@ test('el programa corre Claude con el texto por stdin, en su carpeta, con la cue
   process.env.ANTHROPIC_API_KEY = 'sk-ant-no-deberia-viajar';
   try {
     const ok = await pensar({ dir, system: 'el system', prompt: 'el mensaje de la persona', mcp: mcpDelTurno('https://x/api/ia-pc/mcp', 't'), configDir: 'C:/cuentas/ana' },
-      falso(JSON.stringify({ type: 'result', is_error: false, result: 'Tienes 7 leads.', usage: { input_tokens: 10, output_tokens: 4 } })) as never);
-    assert.deepEqual(ok, { texto: 'Tienes 7 leads.', uso: { entrada: 10, salida: 4 } });
+      falso(JSON.stringify({ type: 'result', is_error: false, result: 'Tienes 7 leads.', usage: { input_tokens: 10, output_tokens: 4 } })) as never, 'claude');
+    assert.deepEqual(ok, { texto: 'Tienes 7 leads.', uso: { entrada: 10, salida: 4 }, limites: {} });
     const v = vistos[0];
     assert.equal(v.cmd, 'claude');
     assert.equal(v.opts.shell, false, 'sin shell: los argumentos no se reinterpretan');
     assert.equal(v.opts.cwd, dir);
     assert.deepEqual(v.args.slice(0, ARGS_CLAUDE.length), [...ARGS_CLAUDE]);
-    assert.deepEqual(v.args.slice(ARGS_CLAUDE.length), ['--system-prompt-file', join(dir, 'system.txt'), '--mcp-config', join(dir, 'mcp.json')]);
+    // Desde la ola 2, el modelo (por su lista: tests/ia-pc-ola2.test.ts) y después los archivos del turno.
+    assert.deepEqual(v.args.slice(ARGS_CLAUDE.length), ['--model', 'sonnet', '--system-prompt-file', join(dir, 'system.txt'), '--mcp-config', join(dir, 'mcp.json')]);
     // Rota: pasar el prompt como argumento → este test falla.
     assert.equal(v.stdin, 'el mensaje de la persona');
     assert.ok(!v.args.some((a) => a.includes('el mensaje de la persona')), 'nada de la persona en la línea de comandos');
     assert.equal(v.opts.env.ANTHROPIC_API_KEY, undefined, 'sin la API key: usa la suscripción');
     assert.equal(v.opts.env.CLAUDE_CONFIG_DIR, 'C:/cuentas/ana', 'la cuenta elegida');
-    const error = await pensar({ dir, system: 's', prompt: 'p', mcp: {} }, falso(JSON.stringify({ type: 'result', is_error: true, result: 'Login expired' })) as never);
-    assert.deepEqual(error, { error: 'Login expired' });
+    const error = await pensar({ dir, system: 's', prompt: 'p', mcp: {} }, falso(JSON.stringify({ type: 'result', is_error: true, result: 'Login expired' })) as never, 'claude');
+    assert.deepEqual(error, { error: 'Login expired', limites: {} });
   } finally {
     if (antes === undefined) delete process.env.ANTHROPIC_API_KEY; else process.env.ANTHROPIC_API_KEY = antes;
   }
@@ -162,7 +163,8 @@ test('el turno: la PC de QUIEN escribe, sólo en línea, con su runTool; y con s
   const t = sinComentarios(leer('lib/mako-turno-app.ts'));
   assert.match(t, /const pc = await pcDe\(ws, persona\.actor\)/, 'la cuenta es de una persona: sólo sus turnos');
   // Rota: mandar a la PC aunque esté apagada → este test falla.
-  assert.match(t, /if \(pc\?\.enLinea\) \{\s*const turnoPc = await encolarTurno\(pc, s\.id, \{ system, prompt: armarPrompt\(historial, textoModelo\), tools \}\);\s*const r = await esperarALaPc\(turnoPc, ws, nuevoIntento\(\) as Ejecutor, ESPERA_RESPUESTA_MS\);/);
+  // Desde la ola 2 el turno lleva también el modelo que eligió el negocio (`modelo`, validado por `modeloPc`).
+  assert.match(t, /if \(pc\?\.enLinea\) \{\s*(?:const modelo = modeloPc\(await getSetting\(CLAVE_MODELO_PC\)\.catch\(\(\) => null\)\);\s*)?const turnoPc = await encolarTurno\(pc, s\.id, \{ system, prompt: armarPrompt\(historial, textoModelo\), tools(?:, modelo)? \}\);\s*const r = await esperarALaPc\(turnoPc, ws, nuevoIntento\(\) as Ejecutor, ESPERA_RESPUESTA_MS\);/);
   assert.match(t, /soloSuIA: !!pc \|\| \(await tieneSuIA\(\)\)/, 'D6b: con su PC o su clave, sin la cascada barata');
   // Lo que falla en la PC del cliente no abre un ticket de bug.
   assert.match(t, /\.\.\.\(fallo && !sinIA && !falloDeLaPc \? \[\{ nombre: 'responder'/);

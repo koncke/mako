@@ -149,12 +149,125 @@ export function armarPrompt(historial: ReadonlyArray<{ role: string; content: un
  *   · ⚠️ nunca `--bare`: apaga el login de la suscripción («OAuth and keychain are never read»).
  * El texto de la persona va por stdin; el system y el MCP, en archivos que arma el programa. Nada de la persona en la
  * línea de comandos. tests/ia-pc.test.ts compara esto con la copia de scripts/ia-pc/mako-pc.mjs.
+ *
+ * `stream-json` (ola 2): trae el `rate_limit_event` con el % usado de la cuenta (las 5 horas y la semana), que
+ * `json` no trae y `/usage` en `-p` tampoco («You are currently using your subscription», medido el 21/10/2026).
  */
 export const ARGS_CLAUDE: readonly string[] = [
-  '-p', '--output-format', 'json', '--no-session-persistence',
+  '-p', '--output-format', 'stream-json', '--verbose', '--no-session-persistence',
   '--tools', '', '--strict-mcp-config', '--allowedTools', 'mcp__mako', '--max-turns', '12',
-  '--model', 'sonnet',
 ];
+
+/**
+ * Los modelos que la PC acepta del turno, y nada más: es el ÚNICO valor del comando que viene del servidor, y pasa por
+ * esta lista en la PC. Sonnet por default (docs/ia-del-cliente.md §12.12): sin elegir, Claude Code usa Opus y le gasta
+ * el cupo de 5 horas al cliente en pocos turnos.
+ */
+export const MODELOS_PC = ['sonnet', 'opus', 'haiku'] as const;
+export type ModeloPc = (typeof MODELOS_PC)[number];
+export const MODELO_PC_DEFAULT: ModeloPc = 'sonnet';
+/** La configuración del negocio que elige el modelo (app_settings, por workspace). */
+export const CLAVE_MODELO_PC = 'ia_pc.modelo';
+export const modeloPc = (x: unknown): ModeloPc => ((MODELOS_PC as readonly unknown[]).includes(x) ? (x as ModeloPc) : MODELO_PC_DEFAULT);
+
+/** El % usado que trae el `rate_limit_event` del stream (utilización de 0 a 1, `resetsAt` en segundos). */
+export function limitesDelEvento(e: unknown): { usado5h?: number; usadoSemana?: number; repone?: string } {
+  const o = e && typeof e === 'object' ? (e as Record<string, unknown>) : {};
+  const info = (o.rate_limit_info && typeof o.rate_limit_info === 'object' ? o.rate_limit_info : o) as Record<string, unknown>;
+  const w = (info.unifiedWindows && typeof info.unifiedWindows === 'object' ? info.unifiedWindows : {}) as Record<string, { utilization?: unknown; resetsAt?: unknown }>;
+  const pct = (u: unknown) => (typeof u === 'number' && Number.isFinite(u) && u >= 0 && u <= 1.5 ? Math.min(100, Math.round(u * 100)) : undefined);
+  const r = w.five_hour?.resetsAt;
+  return {
+    ...(pct(w.five_hour?.utilization) != null ? { usado5h: pct(w.five_hour?.utilization) } : {}),
+    ...(pct(w.seven_day?.utilization) != null ? { usadoSemana: pct(w.seven_day?.utilization) } : {}),
+    ...(typeof r === 'number' && Number.isFinite(r) ? { repone: new Date(r * 1000).toISOString() } : {}),
+  };
+}
+
+// ── El instalador de un comando (ola 2) ──────────────────────────────────────
+// Como el de Claude (`irm https://claude.ai/install.ps1 | iex`): el cliente pega UNA línea, y el script baja el programa,
+// conecta la PC con su código, lo deja arrancando solo al prender la computadora y lo prende. Bajado por PowerShell o
+// curl, el programa no lleva la marca de «descargado de internet», así que SmartScreen y Gatekeeper no lo frenan.
+
+/** La versión del programa que sirven los instaladores (la misma que `VERSION` de scripts/ia-pc/mako-pc.mjs). */
+export const VERSION_PC = '0.2.0';
+export const SISTEMAS_PC = ['windows', 'mac'] as const;
+export type SistemaPc = (typeof SISTEMAS_PC)[number];
+/** Los archivos que sube scripts/ia-pc/publicar-binarios.mts al bucket privado `ia-pc` (comprimidos: entran en 50 MB). */
+export const archivoDelPrograma = (archivo: 'windows-x64' | 'mac-arm64' | 'mac-x64'): string => `mako-pc-${VERSION_PC}-${archivo}.gz`;
+
+/** La línea que el tutorial le da a copiar. El código va en la URL: es de un uso y vence en 10 minutos. */
+export function lineaDeInstalacion(servidor: string, sistema: SistemaPc, codigo: string): string {
+  const url = `${servidor.replace(/\/+$/, '')}/api/ia-pc/instalar?os=${sistema}&codigo=${codigo}`;
+  return sistema === 'windows' ? `irm "${url}" | iex` : `curl -fsSL "${url}" | sh`;
+}
+
+/**
+ * El script que corre en la PC del cliente. Sólo lleva valores que pasaron por una regla: el código (su alfabeto), el
+ * servidor (el de la app) y las URL firmadas de los archivos (las arma el servidor). Nada que haya escrito una persona.
+ */
+export function scriptDeInstalacion(p: { sistema: SistemaPc; codigo: string; servidor: string; urls: Record<string, string> }): string {
+  const codigo = normalizarCodigo(p.codigo);
+  if (!codigo) throw new Error('código inválido');
+  if (!/^https:\/\/[\w.-]+(:\d+)?$/.test(p.servidor) && !/^http:\/\/localhost(:\d+)?$/.test(p.servidor)) throw new Error('servidor inválido');
+  for (const u of Object.values(p.urls)) if (!/^https:\/\/[^\s'"`$]+$/.test(u)) throw new Error('url inválida');
+  if (p.sistema === 'windows') {
+    return [
+      // Sin esto, PowerShell 5.1 muestra «qued�» en vez de «quedó» (medido el 21/10/2026 con el instalador).
+      '[Console]::OutputEncoding = [Text.Encoding]::UTF8',
+      "$ErrorActionPreference = 'Stop'",
+      "$dir = Join-Path $env:LOCALAPPDATA 'MaKo'",
+      'New-Item -ItemType Directory -Force -Path $dir | Out-Null',
+      "$exe = Join-Path $dir 'mako-pc.exe'",
+      "Write-Host 'Descargando MaKo en tu computadora...'",
+      `$gz = Join-Path $dir 'mako-pc.gz'`,
+      `Invoke-WebRequest -UseBasicParsing -Uri '${p.urls['windows-x64']}' -OutFile $gz`,
+      "Get-Process -Name 'mako-pc' -ErrorAction SilentlyContinue | Stop-Process -Force",
+      '$in = [IO.File]::OpenRead($gz); $out = [IO.File]::Create($exe)',
+      '$z = New-Object IO.Compression.GZipStream($in, [IO.Compression.CompressionMode]::Decompress); $z.CopyTo($out)',
+      '$z.Dispose(); $out.Dispose(); $in.Dispose(); Remove-Item $gz',
+      `& $exe emparejar '${codigo}' --servidor '${p.servidor}' --nombre $env:COMPUTERNAME`,
+      "if ($LASTEXITCODE -ne 0) { throw 'No pude conectar esta computadora. Pide otro código en MaKo.' }",
+      "$vbs = Join-Path ([Environment]::GetFolderPath('Startup')) 'MaKo.vbs'",
+      "Set-Content -Path $vbs -Encoding ASCII -Value ('CreateObject(\"WScript.Shell\").Run \"\"\"' + $exe + '\"\"\", 0, False')",
+      'Start-Process -WindowStyle Hidden -FilePath $exe',
+      "Write-Host '¡Listo! Tu computadora quedó conectada a MaKo. Déjala prendida.'",
+    ].join('\n');
+  }
+  return [
+    'set -e',
+    'D="$HOME/.mako-pc/bin"; mkdir -p "$D"',
+    'if [ "$(uname -m)" = "arm64" ]; then U=\'' + p.urls['mac-arm64'] + '\'; else U=\'' + p.urls['mac-x64'] + '\'; fi',
+    'echo "Descargando MaKo en tu computadora..."',
+    'curl -fsSL "$U" | gunzip > "$D/mako-pc.nuevo"',
+    'chmod +x "$D/mako-pc.nuevo"; mv -f "$D/mako-pc.nuevo" "$D/mako-pc"',
+    // En una Mac con chip de Apple, un ejecutable sin firma no corre: se le pone la firma local (ad-hoc).
+    'codesign --force --sign - "$D/mako-pc" 2>/dev/null || true',
+    `"$D/mako-pc" emparejar '${codigo}' --servidor '${p.servidor}' --nombre "$(scutil --get ComputerName 2>/dev/null || hostname)"`,
+    'P="$HOME/Library/LaunchAgents/com.hola-mako.pc.plist"; mkdir -p "$HOME/Library/LaunchAgents"',
+    'cat > "$P" <<PLIST',
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
+    '<plist version="1.0"><dict>',
+    '<key>Label</key><string>com.hola-mako.pc</string>',
+    '<key>ProgramArguments</key><array><string>$D/mako-pc</string></array>',
+    '<key>RunAtLoad</key><true/><key>KeepAlive</key><true/>',
+    '<key>EnvironmentVariables</key><dict><key>PATH</key><string>$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string></dict>',
+    '<key>StandardOutPath</key><string>$HOME/.mako-pc/registro.txt</string>',
+    '<key>StandardErrorPath</key><string>$HOME/.mako-pc/registro.txt</string>',
+    '</dict></plist>',
+    'PLIST',
+    'launchctl unload "$P" 2>/dev/null || true; launchctl load "$P"',
+    'echo "¡Listo! Tu computadora quedó conectada a MaKo. Déjala prendida."',
+  ].join('\n');
+}
+
+/** De varias cuentas, la que tiene más cupo: la de menos uso de las 5 horas, salteando la que pasó el 95%. */
+export function cuentaConCupo<T extends { usado5h?: number }>(cuentas: readonly T[]): T | null {
+  const libres = cuentas.filter((c) => (c.usado5h ?? 0) < 95);
+  if (!libres.length) return null;
+  return libres.reduce((a, b) => ((b.usado5h ?? 0) < (a.usado5h ?? 0) ? b : a));
+}
 
 /** Lo que dice el chat cuando el turno era de la computadora de la persona y no salió (docs/ia-del-cliente.md §5). */
 export const AVISO_PC_APAGADA = 'Tu computadora está apagada: préndela y mándamelo de nuevo.';

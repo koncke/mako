@@ -8,6 +8,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { contestarTurno, dispositivoDelToken } from '@/lib/ia-pc';
 import { bearer } from '@/lib/ia-pc-reglas';
+import { limitePorClave } from '@/lib/limite-publico';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -15,6 +16,8 @@ export const revalidate = 0;
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const d = await dispositivoDelToken(bearer(req.headers.get('authorization'))).catch(() => null);
   if (!d) return NextResponse.json({ ok: false, error: 'token inválido o desconectado' }, { status: 401 });
+  const frenado = limitePorClave('ia-pc-contestar', d.id, 30, 60_000);
+  if (frenado) return frenado;
   const id = Number((await params).id);
   let body: unknown;
   try { body = await req.json(); } catch { return NextResponse.json({ ok: false, error: 'Pedido inválido.' }, { status: 400 }); }

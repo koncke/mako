@@ -76,9 +76,11 @@ manos.**
 - correr un comando que diga el servidor: el comando es fijo y lo arma el programa;
 - poner texto de una persona en la línea de comandos (va por archivo o stdin).
 
-**Empaquetado:** ola 1, un script de Node (`node mako-pc.mjs`), para probar de punta a punta en esta PC con el ws3. Ola
-2, un ejecutable de un archivo para Windows y Mac (decidido en §12), que se instala sin administrador, arranca solo al
-prender la PC y muestra su estado en un ícono, como Tailscale.
+**Empaquetado (ola 2, hecho):** un ejecutable de un archivo por sistema (Bun compila Windows, Mac con chip de Apple y
+Mac Intel desde esta PC: `scripts/ia-pc/publicar-binarios.mts`), comprimido en el bucket privado `ia-pc`, y un
+instalador de UNA línea (`/api/ia-pc/instalar`) que lo baja con una URL firmada, lo conecta con el código y lo deja
+arrancando solo al prender la PC (Windows: Inicio; Mac: un LaunchAgent). Sin administrador. El ícono en la bandeja no
+está: el estado se ve en «Tus cuentas de IA».
 
 ---
 
@@ -171,14 +173,17 @@ Para un cliente no técnico, en Integraciones, un paso por pantalla:
    - Windows: abrir «PowerShell» desde el menú Inicio y pegar `irm https://claude.ai/install.ps1 | iex`;
    - Mac: abrir «Terminal» y pegar `curl -fsSL https://claude.ai/install.sh | bash`;
    - ChatGPT (Codex), en la ola 3: `irm https://chatgpt.com/codex/install.ps1 | iex` y `curl -fsSL https://chatgpt.com/codex/install.sh | sh`.
-3. **Inicia sesión:** escribir `claude` y elegir «Iniciar sesión con tu cuenta de Claude»; se abre el navegador.
-4. **Descarga «MaKo en tu computadora»** y ábrelo. Te pide el código.
-5. **Escribe el código** que muestra MaKo en esta misma pantalla. La pantalla pasa sola a «¡Listo! Tu computadora está en
-   línea».
-6. **Déjala prendida:** si la apagas, tu chat no contesta hasta que la prendas.
+3. **Inicia sesión:** escribir `claude` y elegir «Claude account with subscription»; se abre el navegador.
+4. **Conecta MaKo:** UNA línea para pegar en la misma ventana, con el código ya adentro
+   (`irm "https://hola-mako.com/api/ia-pc/instalar?os=windows&codigo=ABC234" | iex`; en la Mac, con `curl … | sh`). Baja el
+   programa, lo conecta y lo deja arrancando solo. La pantalla espera y pasa sola a «Tu computadora está en línea».
+5. **Déjala prendida:** si la apagas, tu chat no contesta hasta que la prendas.
 
-Cada paso con su «¿No te funciona?» (Windows: el aviso de SmartScreen, «Más información → Ejecutar de todos modos»;
-Mac: «clic derecho → Abrir»). Ver §10, la firma del programa.
+**Hecho como lo hizo el chat (ola 2):** el paso 4 era «descarga y ábrelo, escribe el código»; quedó en una línea, como la
+de Claude, por dos razones: el cliente ya está con la ventana abierta del paso 2, y bajado por PowerShell o `curl` el
+programa no lleva la marca de «descargado de internet», así que **SmartScreen y Gatekeeper no lo frenan sin firmarlo**
+(§10). Probado de punta a punta en Windows; la Mac, sin probar (no hay una a mano): el instalador le pone la firma local
+(`codesign --sign -`), que es lo que pide un chip de Apple para correr un ejecutable sin firmar.
 
 ---
 
@@ -279,6 +284,17 @@ prueba en el ws3.
 13. **El MCP del servidor es un relevo** (ola 1): la PC pide la herramienta, queda en `ia_pc_llamadas`, y la corre el
     MISMO `turnoApp` que espera, con su `runTool` (el memo, las tarjetas, los links de «Abrir para revisar»). Un segundo
     motor de herramientas sería un segundo lugar con las reglas.
+14. **El modelo lo elige el admin** (ola 2) en «Tus cuentas de IA» (Sonnet, Opus o Haiku), y viaja con el turno. Es el
+    ÚNICO valor del comando que viene del servidor, y la PC lo vuelve a pasar por su lista (`MODELOS_PC`).
+15. **El % usado sale del stream** (ola 2): `claude -p --output-format stream-json` trae el `rate_limit_event` con el uso
+    de las 5 horas y de la semana. `/usage` en `-p` no lo da («You are currently using your subscription», medido). Se
+    mide en cada turno: sin turnos, «Sin medir», nunca inventado.
+16. **Varias cuentas: una carpeta de Claude por cuenta** (`mako-pc agregar-cuenta`, ola 2) y se usa la de menos uso de
+    las 5 horas, salteando la que pasó el 95%. Si todas están al tope, el chat lo dice.
+17. **Los ejecutables en un bucket PRIVADO**, con URL firmadas de 10 minutos que arma el instalador, y comprimidos: el de
+    Windows mide 119 MB y Supabase corta en 50 (comprimido, 43).
+18. **Tope de pedidos en cada ruta de la PC** (ola 2; lo pidió la guarda de tests/rutas-publicas-limite.test.ts): por IP
+    al emparejar (10 cada 10 minutos, contra adivinar códigos) y al instalar; por PC o por turno en las demás.
 
 ---
 
