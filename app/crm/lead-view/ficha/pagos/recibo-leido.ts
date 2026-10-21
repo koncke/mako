@@ -10,7 +10,11 @@
 //    test que pasa por la ruta REAL (tests/pagos-recibo-leido.test.ts).
 // Puro: lo usa piezas.tsx y lo corre el test.
 
-export type ReciboLeido = { monto: number | null; moneda: string | null; fecha: string | null; hora: string | null; nota: string | null; nombre: string | null };
+export type ReciboLeido = {
+  monto: number | null; moneda: string | null; fecha: string | null; hora: string | null; nota: string | null; nombre: string | null;
+  /** La IA dio un monto que no se usa (el `monto_usd` de un prompt viejo, o un texto): la pantalla lo dice. */
+  montoNoUsado?: boolean;
+};
 
 /** La respuesta de la ruta, leída. `{ error }` si la ruta dijo que no pudo. */
 export function reciboLeido(j: unknown): ReciboLeido | { error: string } {
@@ -22,14 +26,25 @@ export function reciboLeido(j: unknown): ReciboLeido | { error: string } {
   const hora = typeof o.hora === 'string' && /^\d{1,2}:\d{2}/.test(o.hora) ? o.hora.padStart(5, '0').slice(0, 5) : null;
   const nota = typeof o.nota === 'string' && o.nota.trim() ? o.nota.trim() : null;
   const nombre = typeof o.comprobante_nombre === 'string' && o.comprobante_nombre ? o.comprobante_nombre : null;
-  return { monto, moneda, fecha, hora, nota, nombre };
+  return { monto, moneda, fecha, hora, nota, nombre, ...(o.monto_no_usado === true ? { montoNoUsado: true } : {}) };
 }
 
-/** Qué llena lo leído en los campos de plata de «Marcar pagada» (`usd` vacío = vale el de la cuota). `aviso`: lo que no. */
-export function plataDeRecibo(r: ReciboLeido, monedaNegocio: string): { plata: { moneda: string; monto: string; usd: string } | null; aviso: string | null } {
-  if (r.monto == null) return { plata: null, aviso: null };
+/**
+ * Qué llena lo leído en los campos de plata de «Marcar pagada» (`usd` vacío = vale el de la cuota). `aviso`: lo que no,
+ * o lo que hay que confirmar. ⚠️ (tercera revisión, 21/10/2026) Unos dólares que nadie declaró sólo los frenaba la
+ * etiqueta de la IA: «$5,000.00» leído como USD llenaba US$5.000 en una cuota de US$289. En un negocio que no es en
+ * dólares, lo leído en dólares se llena con un aviso, y siempre se avisa un monto de más del doble de la cuota.
+ */
+export function plataDeRecibo(r: ReciboLeido, monedaNegocio: string, cuotaUsd: number | null = null): { plata: { moneda: string; monto: string; usd: string } | null; aviso: string | null } {
+  if (r.monto == null) return { plata: null, aviso: r.montoNoUsado ? 'el monto no salió del comprobante: cárgalo a mano' : null };
   const delNegocio = monedaNegocio.toUpperCase();
-  if (r.moneda === 'USD') return { plata: { moneda: 'USD', monto: String(r.monto), usd: '' }, aviso: null };
+  if (r.moneda === 'USD') {
+    const avisos = [
+      delNegocio !== 'USD' ? 'leído en dólares: confírmalo (un «$» solo suele ser la moneda local)' : null,
+      cuotaUsd != null && cuotaUsd > 0 && r.monto > 2 * cuotaUsd ? 'es más del doble de la cuota: confírmalo' : null,
+    ].filter(Boolean);
+    return { plata: { moneda: 'USD', monto: String(r.monto), usd: '' }, aviso: avisos.length ? avisos.join(' · ') : null };
+  }
   if (r.moneda && r.moneda === delNegocio) return { plata: { moneda: delNegocio, monto: String(r.monto), usd: '' }, aviso: null };
   return {
     plata: null,

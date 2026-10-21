@@ -88,18 +88,18 @@ export async function POST(req: NextRequest) {
   const parsed = parseJsonLoose(text);
   if (!parsed) return Response.json({ error: 'no se pudo parsear la respuesta', comprobante_nombre }, { status: 502 });
   // ⚠️ EL MONTO Y LA MONEDA DEL COMPROBANTE, SIN CONVERTIR (21/10/2026): la pantalla decide (dólares, o la moneda del
-  // negocio con su valor en dólares = el de la cuota). Un prompt viejo guardado en Configuraciones devuelve `monto_usd`:
-  // sólo vale si NO lo convirtió (sin nota del tipo de cambio); convertido, el monto no se usa.
+  // negocio con su valor en dólares = el de la cuota). ⚠️ El `monto_usd` de un prompt viejo guardado en Configuraciones
+  // NUNCA se usa (tercera revisión): la única señal de que lo convirtió era que la IA escribiera la nota, y sin nota la
+  // tasa inventada volvía. Lo que vino como monto y no se usa (ése, o un monto en texto) se marca, y la pantalla lo dice.
   const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null);
-  let monto = num(parsed.monto);
-  let moneda = monto != null && typeof parsed.moneda === 'string' ? normalizarMoneda(parsed.moneda) : null;
-  if (monto == null && num(parsed.monto_usd) != null && !(typeof parsed.nota === 'string' && parsed.nota.trim())) {
-    monto = num(parsed.monto_usd);
-    moneda = 'USD';
-  }
+  const monto = num(parsed.monto);
+  const moneda = monto != null && typeof parsed.moneda === 'string' ? normalizarMoneda(parsed.moneda) : null;
+  const vacio = (v: unknown) => v == null || v === '';
+  const montoNoUsado = monto == null && (!vacio(parsed.monto_usd) || !vacio(parsed.monto));
   return Response.json({
     monto,
     moneda,
+    ...(montoNoUsado ? { monto_no_usado: true } : {}),
     fecha: typeof parsed.fecha === 'string' && parsed.fecha ? parsed.fecha : null,
     hora: typeof parsed.hora === 'string' && parsed.hora ? parsed.hora : null,
     nota: typeof parsed.nota === 'string' && parsed.nota ? parsed.nota : null,

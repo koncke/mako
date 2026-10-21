@@ -176,7 +176,7 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, hoy, comprobante = 
       if ('error' in j) throw new Error(j.error);
       // Lo leído llena el formulario y se revisa ahí: el monto en SU moneda (dólares, o la del negocio con el valor en
       // dólares de la cuota), nunca convertido por la IA (./recibo-leido.ts).
-      const p = plataDeRecibo(j, monedaNegocio);
+      const p = plataDeRecibo(j, monedaNegocio, valorUsd);
       if (p.plata) setPlata(p.plata);
       if (j.fecha) setFecha(j.fecha);
       if (j.hora) setHora(j.hora);

@@ -335,8 +335,16 @@ estado de cuenta y el comprobante). Tests: tests/chat-bloque-cobranza.test.ts y 
   ~17. Mientras el monto no llegaba, el campo quedaba en el de la cuota, que era lo correcto para un pago entero: el
   arreglo del nombre lo volvió una regresión. **Regla:** la IA lee el monto y la MONEDA tal como figuran, sin convertir;
   la pantalla (`plataDeRecibo`) llena dólares si son dólares, la moneda del negocio con el valor en dólares vacío (vale
-  el de la cuota, como `pagoEnMoneda`) si es ésa, y nada si es otra (y lo dice). Un prompt viejo guardado en
-  Configuraciones que todavía convierte: su monto no se usa. Nunca una tasa de la IA (AGENTS.md).
+  el de la cuota, como `pagoEnMoneda`) si es ésa, y nada si es otra (y lo dice). ~~Un prompt viejo guardado en
+  Configuraciones que todavía convierte: su monto no se usa.~~ Nunca una tasa de la IA (AGENTS.md).
+- **⚠️ La etiqueta de moneda de la IA no es una declaración** (tercera revisión). «$5,000.00», lo normal en un recibo de
+  México, Argentina o Colombia, etiquetado USD por la IA llenaba US$5.000 en una cuota de US$289, sin aviso (producción
+  nunca llenaba el monto: era exposición nueva). Ahora el prompt dice que «$», «MX$» o «pesos» sin código no son
+  dólares; lo leído en dólares en un negocio que no es en dólares se llena PIDIENDO confirmación, y se avisa siempre un
+  monto de más del doble de la cuota. Y el `monto_usd` de un prompt viejo guardado en Configuraciones NUNCA se usa (la
+  única señal de que convirtió era la nota, que la IA puede omitir): la ruta marca `monto_no_usado` y la pantalla dice
+  «el monto no salió del comprobante». Un pago DE MENOS en pesos se guarda entero si no se declara el valor en dólares:
+  es el diseño de siempre (sin tasa no hay cómo saberlo; vacío = el de la cuota).
 - **Una forma no es una zona.** El saneo del bloque pedía una barra (`America/…`): un negocio en 'UTC', 'CET' o
   'EST5EDT', que `zonaCanonica` acepta, perdía la lista, y MaKo igual decía «la lista está abajo» porque la nota se
   agregaba antes de sanear. Ahora la zona la valida `Intl` (la misma vara que `hoyEnTz`) y la nota va sólo si el bloque

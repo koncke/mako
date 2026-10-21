@@ -52,23 +52,37 @@ test('1. ⚠️ el comprobante llega en SU moneda: pesos en pesos (el valor en d
   // En un negocio en dólares, un comprobante en pesos no se convierte: no llena el monto, y lo dice.
   assert.deepEqual(plataDeRecibo(leido(s.pesos), 'USD'), { plata: null, aviso: 'el comprobante está en MXN: carga el monto a mano' });
   // Un pago de menos en dólares: el monto en dólares (y «Faltan» sale de verdad).
-  assert.deepEqual(plataDeRecibo(leido(s.dolares), 'MXN'), { plata: { moneda: 'USD', monto: '300', usd: '' }, aviso: null });
-  // Un prompt viejo (guardado en Configuraciones): si convirtió, el monto NO se usa; si estaba en dólares, sí.
-  assert.equal(leido(s.viejoConvertido).monto, null, 'una tasa inventada no llena nada');
-  assert.deepEqual(plataDeRecibo(leido(s.viejoConvertido), 'MXN'), { plata: null, aviso: null });
-  assert.deepEqual(plataDeRecibo(leido(s.viejoEnDolares), 'MXN').plata, { moneda: 'USD', monto: '300', usd: '' });
+  // (En un negocio en pesos, lo leído en dólares se llena, pero pide confirmar: un «$» solo suele ser la moneda local.)
+  assert.deepEqual(plataDeRecibo(leido(s.dolares), 'MXN'), { plata: { moneda: 'USD', monto: '300', usd: '' }, aviso: 'leído en dólares: confírmalo (un «$» solo suele ser la moneda local)' });
+  // Un prompt viejo (guardado en Configuraciones): su `monto_usd` NUNCA se usa (tercera revisión: la única señal de que
+  // convirtió era que la IA escribiera la nota), y la pantalla dice que el monto no salió del comprobante.
+  for (const k of ['viejoConvertido', 'viejoEnDolares', 'montoTexto']) {
+    assert.equal(leido(s[k]).monto, null, `${k}: no llena nada`);
+    assert.deepEqual(plataDeRecibo(leido(s[k]), 'MXN', 289.02), { plata: null, aviso: 'el monto no salió del comprobante: cárgalo a mano' }, k);
+  }
+  // «$5,000.00» que la IA etiquetó USD en un negocio en pesos: se llena, pero se pide confirmar (y es más del doble).
+  assert.deepEqual(plataDeRecibo({ ...leido(s.pesos), moneda: 'USD' }, 'MXN', 289.02), {
+    plata: { moneda: 'USD', monto: '5000', usd: '' },
+    aviso: 'leído en dólares: confírmalo (un «$» solo suele ser la moneda local) · es más del doble de la cuota: confírmalo',
+  });
+  // En un negocio en dólares, sólo el aviso de más del doble.
+  assert.deepEqual(plataDeRecibo({ ...leido(s.dolares), monto: 600 }, 'USD', 289.02).aviso, 'es más del doble de la cuota: confírmalo');
+  assert.equal(plataDeRecibo(leido(s.dolares), 'USD', 289.02).aviso, null, 'un pago de menos en dólares, sin aviso');
   // Sin moneda legible: no se adivina.
   assert.deepEqual(plataDeRecibo(leido(s.sinMoneda), 'MXN'), { plata: null, aviso: 'el comprobante no dice la moneda: carga el monto a mano' });
   // El prompt de siempre ya no pide convertir.
   assert.doesNotMatch(RECEIPT_EXTRACT_DEFAULT, /conviért|tipo de cambio|monto_usd/i);
   assert.match(RECEIPT_EXTRACT_DEFAULT, /"monto": number\|null, "moneda": string\|null/);
   assert.match(RECEIPT_EXTRACT_DEFAULT, /NO lo conviertas/);
+  assert.match(RECEIPT_EXTRACT_DEFAULT, /«\$», «MX\$» o «pesos» sin código NO son dólares/, 'un «$» solo no es USD');
+  const ruta = leer('app/api/extract-receipt/route.ts');
+  assert.doesNotMatch(ruta.replace(/^\s*\/\/.*$/gm, ''), /parsed\.monto_usd\)\s*;|= num\(parsed\.monto_usd\)/, 'el monto_usd de un prompt viejo nunca se usa');
 
   // La pantalla lee con ESAS funciones; el valor en dólares de la moneda del negocio, el de la cuota (`usdPorDefecto`).
   const piezas = leer('app/crm/lead-view/ficha/pagos/piezas.tsx');
   const marcar = piezas.slice(piezas.indexOf('export function MarcarPagada('), piezas.indexOf('export function RegistrarPago('));
   assert.match(marcar, /const j = reciboLeido\(await r\.json\(\)\.catch\(/);
-  assert.match(marcar, /const p = plataDeRecibo\(j, monedaNegocio\);\s*if \(p\.plata\) setPlata\(p\.plata\);/);
+  assert.match(marcar, /const p = plataDeRecibo\(j, monedaNegocio, valorUsd\);\s*if \(p\.plata\) setPlata\(p\.plata\);/);
   assert.match(marcar, /setLeido\(\{ nombre: j\.nombre \?\? file\.name, nota: \[j\.nota, p\.aviso\]\.filter\(Boolean\)\.join\(' · '\) \|\| null \}\);/, 'lo que no se llenó se dice');
   assert.doesNotMatch(marcar, /j\.monto\b|montoUsd/, 'nadie lee un monto en dólares de la IA');
   assert.match(piezas, /const dolares = numero\(p\.usd\) \?\? usdPorDefecto;/, 'vacío, el valor en dólares es el de la cuota');
@@ -108,3 +122,11 @@ test('3. `reciboLeido` y `plataDeRecibo`: lo que no es un dato no llena nada, y 
 //   · la ruta le pisa el comprobante a una cuota cobrada                  → 2 / 1 (2)
 //   · la escritura del comprobante sin condición                          → 2 / 1 (2)
 //   · el modal no dice lo que no llenó                                    → 2 / 1 (1)
+//
+// ROTURAS de la tercera revisión (21/10/2026). Base: 3 pases, 0 fallos. Rota (pases / fallos):
+//   · el prompt no dice que «$» no es USD                                  → 2 / 1 (1)
+//   · lo leído en USD en un negocio en pesos, sin aviso                   → 2 / 1 (1)
+//   · más del doble de la cuota, sin aviso                                → 2 / 1 (1)
+//   · el monto_usd de un prompt viejo vuelve a usarse                     → 2 / 1 (1)
+//   · el monto no usado no se dice                                        → 2 / 1 (1)
+//   · la pantalla no le pasa la cuota                                     → 2 / 1 (1)

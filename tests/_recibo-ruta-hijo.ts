@@ -77,6 +77,8 @@ async function main() {
   out.viejoEnDolares = await pedir(7, { monto_usd: 300, fecha: '2026-10-20', hora: null, nota: null });
   // Sin moneda legible.
   out.sinMoneda = await pedir(7, { monto: 5000, moneda: null, fecha: '2026-10-20', hora: null, nota: null });
+  // El monto como texto («5.000,00»): no se usa, y se marca.
+  out.montoTexto = await pedir(7, { monto: '5.000,00', moneda: 'MXN', fecha: '2026-10-20', hora: null, nota: null });
   // La cuota 8 ya estaba cobrada: no se le cambia el comprobante ni se sube nada.
   const subidasAntes = subidas.length;
   out.cobrada = await pedir(8, { monto: 5000, moneda: 'MXN', fecha: '2026-10-20', hora: null, nota: null });
