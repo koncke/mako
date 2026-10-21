@@ -304,8 +304,8 @@ function exportarWorkspaces(filas: Workspace[]) {
     const t = String(v ?? '');
     return /[;"\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
   };
-  const cab = ['Cliente', 'Slug', 'Plan', 'Estado', 'Miembros', 'Alta', 'Llegó por', 'Quería resolver'];
-  const cuerpo = filas.map((w) => [w.nombre, w.slug ?? '', capaDef(w.capa).nombre, w.estado, w.usuarios, w.created_at.slice(0, 10), w.llegada?.origen ?? '', w.llegada?.interes ?? '']);
+  const cab = ['Cliente', 'Slug', 'Plan', 'Estado', 'Miembros', 'Alta', 'Llegó por', 'Quería resolver', 'A corregir en su oferta'];
+  const cuerpo = filas.map((w) => [w.nombre, w.slug ?? '', capaDef(w.capa).nombre, w.estado, w.usuarios, w.created_at.slice(0, 10), w.llegada?.origen ?? '', w.llegada?.interes ?? '', w.llegada?.pdfNota ?? '']);
   const csv = '﻿' + [cab, ...cuerpo].map((f) => f.map(esc).join(';')).join('\r\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
@@ -362,9 +362,11 @@ function TablaWorkspaces({ filas, onAbrir, onNuevo, opcionesDe, elegirAccion, ac
                 <td>{w.estado === 'activo'
                   ? <span style={chip('var(--good-bg)', 'var(--good)')}>activo</span>
                   : <span style={chip('var(--surface-2)', 'var(--dim)')}>pausado</span>}</td>
-                {/* Cómo llegó (la encuesta del onboarding, 17/10/2026); lo que quería resolver, al pasar el mouse. */}
+                {/* Cómo llegó (la encuesta del onboarding, 17/10/2026); lo que quería resolver, al pasar el mouse. Si dijo que el PDF
+                    de su oferta tenía algo mal, se marca y la nota se lee al pasar el mouse (quinta revisión, 21/10). */}
                 <td title={w.llegada?.interes ? `Quería: ${w.llegada.interes}` : undefined} style={{ color: w.llegada?.origen ? undefined : 'var(--faint)' }}>
                   {w.llegada?.origen ?? '—'}
+                  {w.llegada?.pdfNota && <span title={`A corregir en su oferta: ${w.llegada.pdfNota}`} style={{ ...chip('var(--warn-bg)', 'var(--warn)'), marginLeft: 6 }}>Oferta a corregir</span>}
                 </td>
                 <td className="num">{w.usuarios}</td>
                 <td className="num" onClick={(e) => e.stopPropagation()}>

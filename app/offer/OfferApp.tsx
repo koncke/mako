@@ -923,7 +923,9 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
       if (!url) { url = crearUrl(it.file); urlsCaja.current.set(it.id, url); }
       return { id: it.id, file: it.file, tipo: it.file.type.startsWith('image/') ? 'image' : 'document', url };
     }),
-    puede: !!sesion,
+    // Mientras MaKo contesta, el «+» no se ofrece, ni se graba (`voz.apagada`; quinta revisión, 21/10): si esa respuesta
+    // cerraba lo que vende, lo juntado en el medio dejaba de verse y no se mandaba nunca.
+    puede: !!sesion && !ocupado,
     onSumar: agregarArchivos,
     onQuitar: quitarArchivo,
     // «Documento» ofrece lo que Offer sabe leer (audio y video incluidos), no lo del Ops Center (revisión del Cerebro, 20/10).
@@ -940,7 +942,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
           placeholder={arranque.placeholder ?? 'Escríbele a MaKo'} tituloMandar="Mandar (Enter)" onErrorMic={setErrorChat}
           adjuntos={arranque.manda ? undefined : adjuntosCaja} estado={estadoVista}
           voz={arranque.manda ? undefined : {
-            onAudio: mandarAudio, onError: setErrorChat, rotuloEnviar: 'Enviar audio',
+            onAudio: mandarAudio, onError: setErrorChat, rotuloEnviar: 'Enviar audio', apagada: ocupado,
             pendiente: audioEnEspera ? { url: audioEnEspera.url, secs: audioEnEspera.secs, onBorrar: descartarAudio, onDejar: reenviarAudio } : null,
           }} />
       </div>

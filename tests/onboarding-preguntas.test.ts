@@ -38,8 +38,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   extraerNombre, extraerNegocio, etapaDeArranque, mensajesDeArranque, leerRespuesta, interesDe, rutaDeEntrada, RUTA_AL_TERMINAR,
-  ORIGENES, INTERESES, CLAVE_ENCUESTA, type EstadoArranque, type HechosArranque,
+  ORIGENES, INTERESES, CLAVE_ENCUESTA, NOMBRE_CONFIRMAR, type EstadoArranque, type HechosArranque,
 } from '../lib/onboarding-arranque';
+import { preguntaQueContesta } from '../app/onboarding/arranque-ui';
 
 const RAIZ = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -73,11 +74,16 @@ test('el nombre se entiende: «Soy Martín» es Martín, no «Soy»', () => {
 });
 
 test('la respuesta del nombre: lo que se guarda, lo que dice MaKo después y el negocio que ofrece', () => {
-  const r = leerRespuesta({}, H, { texto: 'Soy Martín, de Acme' });
+  // El perfil de H es un email: lo leído va al perfil y se confirma con un toque (quinta revisión, 21/10).
+  const leido = leerRespuesta({}, H, { texto: 'Soy Martín, de Acme' });
+  assert.ok(leido.ok);
+  if (!leido.ok) return;
+  assert.deepEqual(leido.patch, { nombrePorConfirmar: { escrito: 'Soy Martín, de Acme', nombre: 'Martín' }, negocioSugerido: 'Acme' });
+  const r = leerRespuesta(leido.patch, H, { opcion: 0, opcionTexto: NOMBRE_CONFIRMAR[0], ...preguntaQueContesta(mensajesDeArranque(leido.patch, H)) });
   assert.ok(r.ok);
   if (!r.ok) return;
-  assert.deepEqual(r.patch, { nombre: 'Martín', negocioSugerido: 'Acme' });
-  const { antes } = mensajesDeArranque(r.patch, H);
+  assert.deepEqual(r.patch, { nombre: 'Martín', nombrePorConfirmar: undefined });
+  const { antes } = mensajesDeArranque({ ...leido.patch, ...r.patch }, H);
   const pregunta = antes[antes.length - 1];
   assert.equal(pregunta.texto, 'Un gusto, Martín. ¿Cómo se llama tu negocio?');
   // El que nombró con su nombre («de Acme») no se ofrece (20/10/2026: «Martín de Córdoba» ofrecía «Córdoba»), y un email

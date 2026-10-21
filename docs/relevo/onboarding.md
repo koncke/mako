@@ -1,5 +1,21 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 21/10/2026 — QUINTA REVISIÓN (de c7226ab77): NO SE CORTA POR PALABRA
+
+<sub>Chat «Onboarding», claude4, rama onboarding-v3. El Cerebro: «reviso sólo el diff»
+(side-session-notes/local_797d5445…/revision-onboarding-quinta-21-10.md).</sub>
+
+- **[media]** Sin pendiente, un negocio que se llama como una palabra de acuerdo («Claro», «Tal Cual», «Simón») se
+  propone y el toque decide; «El nombre es Listo» propone «Listo». Con pendiente, la palabra de acuerdo sigue siendo un sí.
+- Pestaña con el JS de antes (sin la pregunta) en una confirmación: «recarga la página» (`RECARGA_LA_PAGINA`), no un 409
+  en bucle. Cobro por año o por semana: se pregunta sin proponer (`cobroSinPropuesta`). PDF: lo escrito que no es un sí o
+  un no sueltos pasa por «¿Lo tomo como que falta algo?» (`pdfPorConfirmar`), y la nota la leen la tabla de clientes
+  («Oferta a corregir») y `ver_estado_onboarding`. El nombre que va al perfil (vacío o email) se confirma
+  (`nombrePorConfirmar`). La caja única: sin micrófono 600 ms después de mandar; en el onboarding, sin grabar ni «+»
+  mientras MaKo contesta (`voz.apagada`, `puede`). Tests: tests/onboarding-quinta-revision.test.ts.
+- Sin hacer: cobrar por año o por semana (el producto sólo sabe único o mensual); la nota del PDF en la conversación de
+  Offer; el campo de la caja se vuelve a montar al pasar de lo que vende al PDF (se cierra el teclado del teléfono).
+
 ## ESTADO AL 21/10/2026 — CUARTA REVISIÓN (de 2fbd0f3a5): EL TOQUE TAMBIÉN ALREDEDOR DE LA RED
 
 <sub>Chat «Onboarding», claude4, rama onboarding-v3. El Cerebro: «con esto ENTRA, miro sólo el diff»

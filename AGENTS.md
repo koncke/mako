@@ -1997,6 +1997,12 @@ destructiva sin ese toque. Detalle: docs/hallazgos-infra.md («Re-revisar una pu
 hallazgos-ia. En el onboarding el patrón vive en lib/onboarding-arranque.ts (`elegirOpcion`,
 `opcionPorConfirmar`) y lo fija un barrido en tests/onboarding-opcion-escrita.test.ts.
 
+**Con el toque, no se corta por palabra (quinta revisión, 21/10/2026).** Una palabra de acuerdo no confirma un pendiente,
+pero tampoco puede impedir que un NOMBRE sea esa palabra («Claro», «Listo», «Dale» son negocios y personas reales): sin
+nada esperando, se propone y el toque decide. Y si la confirmación exige un campo nuevo en el pedido (la pregunta que
+contesta), el server distingue «no lo mandó» —una pestaña con el JS de antes del despliegue: «recarga la página»— de
+«mandó otro»; si no, esa pestaña queda en un error en bucle.
+
 **El corolario para lo que DICE MaKo (21/10/2026, el guardia de promesas 1.5):** un filtro sobre el texto del modelo
 NUNCA borra una oración. El guardia por raíces de palabras borraba 8 de 14 respuestas verdaderas («Sí, ya te la
 agendé» después de confirmar la tarjeta pasaba a «En este mensaje no hice nada») y atajaba 3 de 18 falsas, medido con

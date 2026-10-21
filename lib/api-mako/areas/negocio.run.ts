@@ -325,17 +325,19 @@ export const RUNNERS: Runners = {
     leer: async (_input, ctx) => {
       const [s, capa, encuestaRaw] = await Promise.all([getEstadoOnboarding(), capaDelWs(ctx.ws), getSetting(CLAVE_ENCUESTA).catch(() => null)]);
       const pasos = capa.onboarding.map((p) => ({ paso: p, hecho: !!s.steps[p]?.done, postergado: !!s.steps[p]?.postergado }));
-      // Cómo llegó a MaKo y qué quiere resolver primero (las dos preguntas del arranque del 17/10/2026), si ya cerró.
-      let encuesta: { origen: string | null; interes: string | null } | null = null;
+      // Cómo llegó a MaKo y qué quiere resolver primero (las dos preguntas del arranque del 17/10/2026), si ya cerró. Y lo que
+      // dijo que faltaba o estaba mal en el PDF de su oferta (`pdfNota`, quinta revisión, 21/10): MaKo le dijo «lo anoto».
+      let encuesta: { origen: string | null; interes: string | null; pdfNota: string | null } | null = null;
       try {
-        const v = encuestaRaw ? JSON.parse(encuestaRaw) as { origen?: unknown; interes?: unknown } : null;
-        if (v) encuesta = { origen: typeof v.origen === 'string' ? v.origen : null, interes: typeof v.interes === 'string' ? v.interes : null };
+        const v = encuestaRaw ? JSON.parse(encuestaRaw) as { origen?: unknown; interes?: unknown; pdfNota?: unknown } : null;
+        if (v) encuesta = { origen: typeof v.origen === 'string' ? v.origen : null, interes: typeof v.interes === 'string' ? v.interes : null, pdfNota: typeof v.pdfNota === 'string' ? v.pdfNota : null };
       } catch { encuesta = null; }
       return json({
         estado: s.status, pasos, encuesta,
         // Sin completedBy: es el email de quien lo cerró (dato del equipo) y esto sale por http.
         empezo: s.startedAt ?? null, termino: s.completedAt ?? null,
-        nota: pasos.length ? 'Solo los pasos que le tocan a este plan.' : 'Este plan no tiene asistente de arranque.',
+        nota: [pasos.length ? 'Solo los pasos que le tocan a este plan.' : 'Este plan no tiene asistente de arranque.',
+          encuesta?.pdfNota ? 'encuesta.pdfNota: lo que el cliente dijo que falta o está mal en el PDF de su oferta. Se le prometió trabajarlo en la app: ofrécele corregirlo en Offer.' : ''].filter(Boolean).join(' '),
       });
     },
   },

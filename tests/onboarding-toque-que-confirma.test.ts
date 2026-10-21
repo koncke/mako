@@ -26,7 +26,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  COBRO_MENSUAL, COBRO_UNICO, NEGOCIO_CONFIRMAR, SI_ES_ESO, cobroDelPrecio, etapaDeArranque, extraerNombre, leerRespuesta, mensajesDeArranque,
+  COBRO_MENSUAL, COBRO_UNICO, NEGOCIO_CONFIRMAR, RECARGA_LA_PAGINA, SI_ES_ESO, cobroDelPrecio, etapaDeArranque, extraerNombre, leerRespuesta, mensajesDeArranque,
   pisaElNombreDelPerfil, type EstadoArranque, type HechosArranque, type Respuesta,
 } from '../lib/onboarding-arranque';
 import { preguntaQueContesta } from '../app/onboarding/arranque-ui';
@@ -68,7 +68,8 @@ test('2. un toque o un «sí» de una pestaña vieja no confirma una lectura que
   const server: EstadoArranque = { ...antesDelCanal, opcionPorConfirmar: { id: 'canal', opcion: iCarrito, escrito: 'compran solos en la web' } };
   assert.deepEqual(leerRespuesta(server, H, { opcion: 0, opcionTexto: SI_ES_ESO, ...loQueVio }), CAMBIO, 'el toque viejo confirmó «Carrito»');
   assert.deepEqual(leerRespuesta(server, H, { texto: 'sí', ...loQueVio }), CAMBIO, 'el «sí» viejo confirmó «Carrito»');
-  assert.deepEqual(leerRespuesta(server, H, { opcion: 0, opcionTexto: SI_ES_ESO }), CAMBIO, 'sin la pregunta, una confirmación no vale');
+  // Sin la pregunta tampoco vale, y es una pantalla de antes del despliegue: se le dice que recargue (quinta revisión).
+  assert.deepEqual(leerRespuesta(server, H, { opcion: 0, opcionTexto: SI_ES_ESO }), { ...CAMBIO, error: RECARGA_LA_PAGINA }, 'sin la pregunta, una confirmación no vale');
   // Con la pregunta que el server tiene, sí.
   const ok = responder(server, { opcion: 0, opcionTexto: SI_ES_ESO });
   assert.ok(ok.ok && ok.patch.canal === 'carrito', ok.ok ? JSON.stringify(ok.patch) : ok.error);

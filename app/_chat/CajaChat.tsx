@@ -21,7 +21,7 @@
 // manda (la regla de Martín del 09/10). Sin `voz`, el micrófono dicta, como siempre.
 // ⚠️ tests/chat-unico.test.ts hace cumplir la regla: una pantalla de MaKo que arma su propia caja falla.
 
-import { useLayoutEffect, useRef, type ClipboardEvent, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { Icon } from '@/app/_components/icons';
 import { BarraGrabacion, useGrabacionVoz, type GrabacionVoz } from '@/app/whatsapp/_shared/VoiceRecorder';
 import { conVinetas, enterEnLista, estaAbajo } from '@/lib/centro-caja';
@@ -73,11 +73,17 @@ export type PropsCajaChat = {
     onError?: (m: string) => void;
     pendiente?: { url: string; secs?: number | null; onBorrar: () => void; onDejar: () => void; onSeguir?: () => void } | null;
     rotuloEnviar?: string;
+    /** No se puede empezar a grabar (el onboarding, mientras MaKo contesta: su respuesta puede cerrar la etapa y lo grabado
+     *  en el medio se perdía). Lo ya grabado se sigue viendo. */
+    apagada?: boolean;
   };
   /** La línea de estado debajo de la caja, con lo que dice la pantalla («Leyendo «X»…»). Sin esto, no se dibuja (la pantalla
    *  puede tener la suya afuera, como el Ops Center). */
   estado?: string | null;
 };
+
+/** Cuánto queda apagado el micrófono justo después de mandar: lo que dura un doble toque. */
+const MS_MISMO_GESTO = 600;
 
 export function CajaChat(p: PropsCajaChat) {
   // La grabación es un hook: va en su propio componente, así una pantalla sin nota de voz no la monta.
@@ -134,6 +140,23 @@ function Caja({ p, grabacion }: { p: PropsCajaChat; grabacion: GrabacionVoz | nu
   const hayQueMandar = !apagado && (!!texto.trim() || !!p.adjuntos?.items.length || !!p.hayAlgoMas);
   /** Grabando, o con lo grabado para escuchar: la fila es la barra de la grabación. */
   const conBarra = !!grabacion && (grabacion.fase === 'grabando' || !!grabacion.revision || !!p.voz?.pendiente);
+  // EL MISMO GESTO (21/10/2026, quinta revisión del onboarding): al mandar, el ➤ se vuelve micrófono EN EL MISMO LUGAR, y
+  // un doble toque grababa o dictaba con el segundo (con el pedido de permiso del micrófono a un cliente nuevo). Justo
+  // después de mandar, el micrófono queda apagado un instante. Se ajusta DURANTE el render (el patrón de React para «lo que
+  // cambió desde el render anterior»): así el DOM ya sale con el botón apagado. Grabar o dictar mientras MaKo trabaja sigue
+  // igual, salvo donde la pantalla lo apaga (`voz.apagada`).
+  const hayAlgo = hayQueMandar || conBarra;
+  const [recien, setRecien] = useState(false);
+  const [habia, setHabia] = useState(hayAlgo);
+  if (habia !== hayAlgo) {
+    setHabia(hayAlgo);
+    setRecien(habia && !hayAlgo);
+  }
+  useEffect(() => {
+    if (!recien) return;
+    const t = window.setTimeout(() => setRecien(false), MS_MISMO_GESTO);
+    return () => window.clearTimeout(t);
+  }, [recien]);
 
   return (
     <>
@@ -170,12 +193,12 @@ function Caja({ p, grabacion }: { p: PropsCajaChat; grabacion: GrabacionVoz | nu
         </div>
         {/* Con nota de voz y nada que mandar, el botón GRABA; si no, el de siempre (dicta, o la flecha con algo escrito). */}
         {grabacion && !hayQueMandar && !enviando ? (
-          <button type="button" className="co-enviar co-enviar--mic" onClick={() => void grabacion.start()} disabled={quieto}
+          <button type="button" className="co-enviar co-enviar--mic" onClick={() => void grabacion.start()} disabled={quieto || recien || !!p.voz?.apagada}
             aria-label="Grabar una nota de voz" title="Grabar una nota de voz">
             <Icon name="mic" size={18} />
           </button>
         ) : (
-          <BotonMandar valor={texto} onValor={onTexto} onError={(m) => p.onErrorMic?.(m)} enviando={enviando} ocupado={ocupado} apagado={apagado}
+          <BotonMandar valor={texto} onValor={onTexto} onError={(m) => p.onErrorMic?.(m)} enviando={enviando} ocupado={ocupado} apagado={apagado || recien}
             hayQueMandar={hayQueMandar} onMandar={p.onMandar} titulo={p.tituloMandar} />
         )}
         </>)}

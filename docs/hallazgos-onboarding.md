@@ -2587,8 +2587,43 @@ aceptaba la opción exacta: todo esto entraba nuevo.
   ahora la nota va a onboarding.encuesta (`pdfNota`). Y el nombre de la persona leído con reglas pisaba el que trajo Google;
   ahora sólo llena un perfil sin nombre.
 
+**Y la quinta (punta c7226ab77): el arreglo de la cuarta cortaba nombres reales.**
+- ⚠️ **Una palabra de acuerdo no confirma un pendiente, pero tampoco puede impedir que un NOMBRE sea esa palabra.** Para
+  que «Es mi negocio» no reemplazara al pendiente, la cuarta ronda cortaba toda palabra de acuerdo, y el corte quedó
+  valiendo también SIN pendiente. «Claro», «Listo», «Tal Cual», «Simón», «Órale» o «Mi Negocio» son negocios reales, y
+  quedaban en un error en bucle que no decía por qué; ni «Se llama Tal Cual» salía, porque «tal cual» está en DICE_SI.
+  **Regla:** con un pendiente, la palabra de acuerdo es un sí o se vuelve a preguntar; sin pendiente no hay nada que
+  confirmar, así que se PROPONE y el toque decide. Un nombre presentado («se llama», «el nombre es», entre comillas)
+  nunca se corta. Con el toque en su lugar, cortar por palabra sobra: es otra lista que no termina.
+- **Lo mismo con el nombre de la persona.** Con el perfil vacío o en un email (el alta de customer-success), «Gracias»,
+  «Dale» o «Jaja» iban a usuarios.nombre. Sumarlas a las palabras que no son nombre era otra lista, y «Dale» es un
+  nombre. Ahora lo que va al perfil se confirma («¿Te llamo «Ana»?», `nombrePorConfirmar`); con un nombre de verdad en el
+  perfil lo leído sólo saluda y no hace falta.
+- **El PDF tampoco se lee con reglas.** La cuarta ronda sumó «salvo», «pero», «aunque» a una lista, y la quinta encontró
+  «solo que», «lo único», «en vez de», «corregí»… Ahora un sí o un no sueltos valen, y lo demás pasa por «¿Lo tomo como
+  que falta algo?» (`pdfPorConfirmar`). Ojo con la doble negación: «No está mal» es un sí, y sin la coma es igual a «No,
+  está mal». `siONo` la devuelve como ni sí ni no, y decide el toque.
+- ⚠️ **Una nota que nadie lee no está «anotada».** La cuarta ronda arregló la ESCRITURA de `pdfNota` y dio el «lo anoto»
+  por cumplido, pero ningún lector la tomaba: ni la tabla del super admin (`llegadaDe`) ni `ver_estado_onboarding`.
+  **Regla:** al escribir un dato para alguien, `git grep` de sus LECTORES en el mismo cambio. Ahora la tabla de clientes
+  marca «Oferta a corregir» (con la nota al pasar el mouse y en el CSV), y la API de MaKo la devuelve con qué hacer.
+- **Un campo nuevo que el server exige deja en bucle a la pestaña abierta durante el despliegue.** La pregunta que
+  contesta viaja desde la cuarta ronda, pero el JS de antes no la manda: cada toque daba «La pregunta cambió» con la misma
+  vista, sin salida. **Regla:** el server distingue «no lo mandó» (JS viejo: «recarga la página», `RECARGA_LA_PAGINA`) de
+  «mandó otro» (otra pestaña). Va en AGENTS.md.
+- **Lo que no se sabe guardar no se propone.** Lo anual o semanal se proponía como «Suscripción mensual», y el producto
+  sólo sabe cobrar único o mensual: las dos opciones eran falsas, y el botón principal lo cobraba cada mes. Ahora la
+  lectura lleva su `periodo` y la etapa pregunta sin proponer (`cobroSinPropuesta`).
+- **La caja única cambia de botón en el mismo lugar.** Al mandar, el ➤ se vuelve micrófono, y un doble toque grababa (o
+  pedía permiso del micrófono a un cliente nuevo). Justo después de mandar el micrófono queda apagado 600 ms (`recien`,
+  app/_chat/CajaChat.tsx), y el onboarding no deja grabar ni sumar archivos mientras MaKo contesta (`voz.apagada`,
+  `puede`): esa respuesta puede cerrar la etapa, y lo juntado en el medio se perdía sin aviso.
+
 **Sin hacer:** «Vendo 20 a 500 dólares» se sigue leyendo como un rango; la confirmación lo muestra y se corrige con un
 toque. Las etiquetas de los tramos dicen «$» sin «USD» (lib/fase-diagnostico.ts): es una decisión de copy, no de este
-chat. Vive en lib/onboarding-arranque.ts (`cifraDe`).
+chat. Vive en lib/onboarding-arranque.ts (`cifraDe`). Cobrar por año o por semana necesita un intervalo en el producto
+(lib/productos.ts sólo tiene único y mensual). La nota del PDF no llega a la conversación de Offer, que es donde se
+trabaja la oferta: la ven el super admin y MaKo cuando la busca. Al pasar de lo que vende al PDF, CajaChat cambia de
+árbol (con voz → sin voz) y el campo se vuelve a montar: se pierde el foco y en el teléfono se cierra el teclado.
 
 *21/10/2026, chat «Onboarding» (claude4), rama onboarding-v3.*
