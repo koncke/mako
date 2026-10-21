@@ -4619,10 +4619,15 @@ Las cifras quedan para la próxima vez que alguien calcule un costo o un tope.
 - **La regla que impone el código, no el prompt:**
   - desde que pregunta, el turno rechaza toda acción, y una lectura sí corre, para armar las opciones;
   - lo que propuso ANTES en el mismo turno se retira también en la base: las tarjetas quedan canceladas y las
-    propuestas de pantalla, descartadas;
+    propuestas de pantalla, descartadas, cada una con SU descarte (`aRetirar` + `retirarEnSuPantalla`): la genérica, el
+    borrador del plan, la ficha de lead, la propuesta de video y el borrador de WhatsApp;
   - la pregunta se guarda con el mensaje: al recargar vuelve, y si ya hubo respuesta, se ve contestada.
 - **La persona contesta tocando** una opción, «Elige tú» o «Saltear», o escribiendo: es su siguiente mensaje. Las
   cuatro pantallas lo mandan igual.
+- **Trampa (la revisión del 21/10): «retirar en la base» sólo descartaba la genérica** (/mako/revisar). El borrador del
+  plan, la ficha de lead, el video y el WhatsApp quedaban vivos en su pantalla, el mensaje decía «confírmalo abajo» sin
+  nada abajo, y al contestar MaKo armaba otro: dos. Se retira sólo lo que creó ESTE turno (`nueva`: una igual que ya
+  estaba pendiente no es suya), y con una pregunta no sale el mensaje del borrador ni el de la ficha.
 - **Trampa:** la frase del «Hecho» («todos los martes a las 3 a todo el funnel») hoy la clasifica `capturar`, sin
   herramientas. La pregunta no viaja con ella hasta que el clasificador la mande a actuar: eso es la 1.2, con la D1.
   `tests/chat-pregunta.test.ts` lo fija para que se vea el día que cambie.
@@ -4635,8 +4640,8 @@ Las cifras quedan para la próxima vez que alguien calcule un costo o un tope.
 ## El chat de la app: el negocio con SU nombre, y el guardia de promesas prendido (20/10/2026, ola 1, pieza 1.5)
 
 **Vive en:** `lib/negocio-rotulo.ts` · `lib/mako-context.ts` (`nombreDelNegocioActual`) · `afirmaHechoDe` y
-`sanearSalida({ hecho })` en `lib/doer-salida.ts` · el contador `corridas` del turno, en `lib/mako-turno-app.ts`. Probado
-en `tests/chat-contexto-guardias.test.ts`.
+`sanearSalida({ hecho })` en `lib/doer-salida.ts` · `hechoEnElHilo` en `lib/mako-turno-app-reglas.ts` · los contadores
+`corridas` y `leidas` del turno, en `lib/mako-turno-app.ts`. Probado en `tests/chat-contexto-guardias.test.ts`.
 
 - **«NEGOCIO DE MARTÍN» en el system de TODOS los negocios:**
   - Estaba en el chat de MaKo y en el asesor de WhatsApp. «del negocio de Martín» estaba además en la retrospectiva
@@ -4649,10 +4654,18 @@ en `tests/chat-contexto-guardias.test.ts`.
 - **El guardia de promesas estaba APAGADO en la app:** `sanearSalida(respuesta, { corrioHerramientas: true })` con el
   `true` fijo. Ahora:
   - se cuenta lo que DE VERDAD corrió: lo rechazado (no permitido, o después de preguntar) no cuenta;
-  - sin nada corrido, también se marca lo que dice HECHO («Listo, ya lo armé», «te creé…», «quedó programada»): sale la
-    oración y queda «Eso no lo llegué a hacer…»;
+  - lo que dice HECHO («Listo, ya lo armé», «te creé…», «quedó programada») se juzga con lo que lo RESPALDA
+    (`RespaldoDeHecho`). En la app el turno no ejecuta nada (deja tarjetas), así que «ya le mandé» sólo vale si el hilo
+    que lee el modelo anota un «Hecho: …» (`hechoEnElHilo`). Una lectura respalda un «quedó agendada» (pudo leerlo),
+    no un «ya le mandé». Con una tarjeta en el turno no se juzga: lo que falta lo dice la tarjeta;
+  - lo sacado de un hecho dice `SIN_HECHO` («fíjate si ya quedó antes de pedírmelo de nuevo»), no `SIN_HACER`;
   - un dato del contexto («tu landing está publicada») no se toca;
   - el doer de WhatsApp sigue igual: `hecho` es una opción.
+- **Lo obvio era el error (la revisión del 21/10): «sin herramientas, lo que dice hecho es mentira».** Después de
+  confirmar una tarjeta, «¿quedó agendada?» se contesta desde el «Hecho: …» del hilo, sin correr nada, y el guardia lo
+  cambiaba por «pídemelo otra vez y lo hago»: la persona lo pedía de nuevo y se hacía dos veces. Al revés, con UNA
+  lectura corrida el guardia se apagaba entero y «ya le mandé el WhatsApp» pasaba. **Regla:** un guardia de «no lo
+  hiciste» mira qué lo respalda, no sólo si corrió algo; y lo que dice cuando corta no puede invitar a repetir.
 - **Lo obvio era el error: «traer `forzarTool` como WhatsApp».** El chat de la app piensa con razonamiento extendido
   (`thinking: adaptive`), y con él Anthropic no admite `tool_choice: any`. Además `chatClaudeTools` lo pone en TODOS los
   pasos: el turno nunca podría terminar con texto. WhatsApp lo hace con `chatCheapTools` y `toolChoicePrimerPaso`, que

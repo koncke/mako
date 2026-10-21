@@ -1362,6 +1362,13 @@ cursor cae en otra letra (en el teléfono el campo tiene 10 px 14 px y 1 px de b
 **El Markdown de la casa es de todos.** Los links clickeables los pidió el Ops Center: `Markdown` los dibuja sólo con
 `enlaces` (opt-in), y los otros chats de MaKo quedan como estaban (tests/centro-links.test.ts lo vigila).
 
+**La misma tanda subida dos veces creaba una tarea de más** (la revisión de la ola 1, 21/10/2026). El «Voy a trabajar
+en…» que se dice con otra tarea abierta no crea otra, pero no quedaba anotado como visto. Si la vuelta no avanzaba sus
+marcas (fallaron las preguntas), la PC re-subía la tanda; la abierta ya estaba cerrada por el «Ya está» de la misma tanda,
+y ese «Voy a…» creaba una tarea que nadie cerraba. **Regla:** lo que se lee de una tanda tiene que dar lo mismo leído dos
+veces (`saltados`), y lo que depende de que la vuelta avance va DESPUÉS de saber si avanza: el Plan se anota después de
+las preguntas, sólo con `turnosOk` (lib/operaciones.ts).
+
 **Vive en:** lib/centro-plan-auto-reglas.ts y lib/centro-plan-auto.ts · app/admin/operaciones/Avance.tsx (YaEstaMensaje,
 TareasVinculadas) · lib/centro-munecos.ts · lib/links-texto.ts y app/admin/operaciones/ConLinks.tsx.
 
@@ -1774,6 +1781,11 @@ del cartero; `nav.ts` no se tocó (el Sidebar compara con `OPS_CENTER.key`); la 
   encontró `app/whatsapp/WhatsAppAdvisor.tsx` («Pregúntale a MaKo…»), que el inventario del 20/10 no tenía.
 - **Regla:** en AGENTS.md («UNA SOLA CAJA PARA HABLAR CON MaKo»). tests/chat-unico.test.ts lleva la lista de lo que falta, y
   una migración que no saca su archivo de «pendiente» falla.
+- **Lo que encontró la revisión de la ola 1 (21/10):**
+  - con Enter que manda (la computadora), «1. ¿Cuántos leads…?» seguía la lista y hacían falta tres Enter para mandarlo:
+    con UN ítem todavía no hay lista (`enterEnLista({ conUno: false })`); el teléfono sigue igual;
+  - con `ocupado` el botón giraba entero: no se podía dictar el siguiente mensaje, y quien dictaba perdía el botón de
+    terminar mientras el dictado seguía escribiendo. Ahora sólo la flecha espera (`BotonMandar ocupado`).
 - **Sin hacer:**
   - **El chat de MaKo del teléfono** (app/m/mako/Composer.tsx, el Ops Center de los clientes en el celular). Tiene tres cosas
     que la pieza no tiene: la nota de voz manteniendo apretado, el teclado de iOS (`visualViewport`) y la vista previa a

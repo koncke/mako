@@ -2064,6 +2064,10 @@ Probado en `tests/chat-bloques.test.ts`, que confirma `crear_diseno_imagen` de p
   Funcionaba, pero chocaba con cualquier salida que ya tuviera un campo con ese nombre (la ficha arma `bloques`), y el
   tipo de la herramienta no lo decía. Se sacó: lo que una herramienta dibuja va TIPADO en su respuesta. Un bloque por
   herramienta; una lista (las landings de un negocio) es UN bloque.
+- **Una opción tocada mientras MaKo trabajaba** (G1, la revisión del 21/10) decía «Respondiste: X» y no mandaba nada:
+  `PreguntaHilo` marcaba antes de mandar y no miraba si salió. Ahora las opciones esperan mientras trabaja (`ocupado`),
+  `onResponder` dice si salió, y contestar ESCRIBIENDO apaga las opciones en el acto: las pantallas dibujan con
+  `conRespuestas`, no sólo al recargar.
 - G4 sin «Deshacer»: no hay una operación que deshaga un cambio de textos.
 - G6 sin consultar el estado solo: la 1.11.
 - Las demás áreas no devuelven `bloque` todavía. Por ahora lo devuelven `crear_diseno_imagen` y `duplicar_diseno_imagen`
@@ -2117,7 +2121,8 @@ Probado en `tests/chat-adentro.test.ts`, que reabre un chat por el camino real (
 - **Ahora:** una propuesta genérica despliega en la tarjeta el MISMO formulario de su pantalla:
   - los mismos campos y la misma validación;
   - los mismos botones («Confirmar acción», «Descartar propuesta»);
-  - la misma acción (`confirmarAccionAction`), que vuelve a validar, a mirar que sea el admin y a preparar contra la base.
+  - la misma acción (`confirmarAccionAction`, por la ruta /api/mako/propuesta: ver la 1.11), que vuelve a validar, a
+    mirar que sea el admin y a preparar contra la base.
   - «Abrir en la app» queda como salida secundaria.
   - Al terminar, lo que dibuja el resultado (su G5 o su «Abrir») queda en la tarjeta, sin recargar.
 - **Al reabrir el chat, sus propuestas pendientes vuelven con el formulario.** Se buscan por la clave del chat que guarda
@@ -2129,11 +2134,16 @@ Probado en `tests/chat-adentro.test.ts`, que reabre un chat por el camino real (
   Sin ellas quedan 7 (2%): 4 de `/plan/revisar`, 2 de `/crm/revisar` y el borrador de WhatsApp. El test falla si una
   pantalla nueva se suma a las de afuera.
 - **Regla:** quien no es admin ve el formulario y no lo confirma. La acción lo vuelve a mirar igual (`ctxDeBandeja`).
+- **El cliente lee rótulos de persona** (la revisión del 21/10): el formulario mostraba «leadId» con la ayuda escrita
+  para el modelo («id del lead (de buscar_leads).») y la consecuencia con `escribe` («upsert … closing_analyses»). Ahora
+  `Campo paraCliente` usa `rotuloDeParametro` (el `rotulo` viaja en `plano`) y no muestra la ayuda; un id o un JSON van
+  como los propuso MaKo (`ocultoAlCliente`); la consecuencia dice sólo si se deshace. **Regla:** lo que el registro
+  escribe para el modelo (`descripcion`, `escribe`) no se le muestra a un cliente.
 
 **Sin hacer:**
 - `/plan/revisar` (el borrador de tareas) y `/crm/revisar` (`TablaRevisionLeads`) todavía no entran con su vista: la 1.10 b.
 - Lo que mueve plata espera a la D2.
-- Los campos se rotulan con el nombre del parámetro (`leadId`, `email`), igual que en /mako/revisar: mejorarlo es de las dos.
+- /mako/revisar sigue rotulando con el nombre del parámetro y su ayuda (`Campo` sin `paraCliente`).
 
 ## Los trabajos largos siguen por detrás, y su resultado queda en el mismo mensaje (20/10/2026, ola 1, pieza 1.11)
 
@@ -2149,8 +2159,8 @@ un runner que tarda 5,5 s (`tests/_trabajos-hijo.ts`).
 - **Causa:** la confirmación corría el trabajo ADENTRO del pedido, y el hilo se escribía recién al final.
 - **Regla:**
   - una operación `lenta` se confirma y responde enseguida;
-  - se anota «En curso: …» con un G6 y el trabajo corre por detrás (`after()`, con el maxDuration de la ruta: el mismo
-    plazo de antes);
+  - se anota «En curso: …» con un G6 y el trabajo corre por detrás (`after()`, con el maxDuration de la RUTA que
+    confirma: nunca una server action, ver la trampa de abajo);
   - al terminar, ESE mensaje se reescribe a «Hecho: …» con su G5 o su «Abrir»;
   - el resultado lo ve quien consulta, quien vuelve con la pestaña cerrada y el modelo en el turno siguiente;
   - si no se puede anotar el avance, corre como antes: un trabajo nunca se pierde por no poder mostrarse.
@@ -2161,11 +2171,29 @@ un runner que tarda 5,5 s (`tests/_trabajos-hijo.ts`).
     mensajes del mismo trabajo.
   - `generar_landing_con_ia` ya estaba marcada `lenta`, pero `lenta` sólo llegaba al catálogo y al texto de la
     referencia: ningún chat la usaba.
+  - **Una server action toma el techo de la PÁGINA** (la revisión del 21/10): el formulario del chat confirmaba por
+    `confirmarAccionAction`, con 60 s en /crm, y el trabajo de `after()` moría ahí: «En curso» para siempre y la
+    propuesta trabada. Ahora va por /api/mako/propuesta (420 s, `tests/mako-doer-plazo.test.ts`).
+  - **Un trabajo que muere no avisa:** ni el `catch` ni el «Hecho» corren, y si el «Hecho» final no se guarda, tampoco.
+    El G6 lleva `hasta` (`PLAZO_TRABAJO_MS`, 480 s); pasado eso `estadoDeTrabajo` lo da por cortado y lo deja escrito
+    (`textoCortado`: «No sé si terminó… revísalo antes de pedirlo de nuevo»). NO suelta la propuesta ni la pendiente: no
+    se sabe si corrió, y soltarla invita a hacerla dos veces (la propuesta queda en «Fallidas» de /mako/revisar).
+  - **La pantalla no pregunta para siempre** (un 404, o `MAX_CONSULTAS`), dibuja lo que pasó en palabras (una falla era
+    sólo un punto rojo: «Falló» estaba en `.ch-oculto`) y la tarjeta o el formulario que lo lanzó pasa a «Hecho» o
+    «Falló» (`deTarjeta`, `trasTrabajo`, `onTermina`).
+  - **La consulta previa de la tarjeta miraba sólo el id:** con la pendiente de OTRO chat (los ids son correlativos)
+    anotaba «En curso», y servía para ver qué hay vivo en otros. Ahora tiene que ser de este chat y pasar el gating de
+    quien toca; si no, el camino de siempre contesta el error sin escribir en el hilo.
 
 **Sin hacer:**
 - El G6 tiene dos pasos (Confirmado → el trabajo): los runners no informan avance intermedio.
-- Un trabajo que pasa el maxDuration de la ruta queda «En curso» para siempre: falta el vigía que lo marque como cortado.
+- Un trabajo cortado se escribe como tal recién cuando alguien CONSULTA: con la pestaña cerrada, el modelo lee «En curso»
+  en el turno siguiente (`estadoDeTrabajo`; falta cortarlo también al abrir la sesión, `abrirSesion`).
+- La validación previa del formulario (gating, `preparar`, `faltaParaConfirmar`) corre adentro de `after()`: una que
+  falla se ve como «Falló» con su motivo, no antes (`aplicarPropuestaGenerica`, lib/api-mako/acciones.ts). En
+  /mako/revisar, `RevisarAccion` pinta «Aplicada» con un `enCurso`.
+- Confirmar desde dos pestañas deja un «No se pudo» sobre algo que se hizo: falta reclamar antes de anotar el «En curso»
+  (lib/chat-trabajos.ts).
 - No están conectados `flow_trabajos` (las tomas de Flow), el render de video ni el análisis del Dashboard, que tiene su
   propio `after` y su propia consulta.
-- En la pantalla abierta, la tarjeta queda en «En curso» aunque el G6 haya terminado. Al recargar se va.
 - «Créame una landing» termina con «Abrir en Web Generator»; su miniatura es de la tarjeta de la landing (1.12).
