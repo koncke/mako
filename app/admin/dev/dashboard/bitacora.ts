@@ -692,11 +692,16 @@ export const BITACORA: Hito[] = [
     fecha: '20 oct', hora: '22:30', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
     titulo: 'Compartir, exportar y mover el Dashboard desde el chat',
     puntos: [
+      'En producción desde el run 175 (20/10).',
       'Desde el Ops Center se puede mover una tarjeta de una hoja (arriba, abajo, al lado de otra) o cambiarle el ancho, y queda igual que si la arrastraras.',
       'Se puede pedir una hoja en CSV: MaKo te deja el link para descargarla.',
       'Se puede pedir un link para que otra persona vea tu Dashboard sin poder editarlo; antes lo confirmas en la tarjeta.',
       'Invitar por email desde el chat espera tu decisión D3c (tarjeta en el chat o pantalla de revisión).',
       'Hoy MaKo entiende «mové», «poné al lado» y «cambiá el ancho»; «exportá», «compartí» y «descargame» todavía no le llegan, y es lo que arregla el clasificador.',
+    ],
+    commits: [
+      { sha: '7dc7dd65d', msg: 'Ops Center: compartir tu Dashboard con un link, exportar una hoja a CSV y mover una tarjeta desde el chat (2.6)', lineas: 639, archivos: 17 },
+      { sha: '38771e329', msg: '2.6: dos guardas del antes-de-subir — la variable no se llama `ref`, y /compartido/ es una ruta pública', lineas: 15, archivos: 3 },
     ],
     archivos: ['lib/graficos-mover.ts', 'lib/api-mako/areas/dashboard.def.ts', 'lib/api-mako/areas/dashboard.run.ts', 'app/api/graficos/exportar/route.ts', 'tests/api-mako-dashboard-compartir-exportar-mover.test.ts — probado rompiéndolo'],
     revisar: '/second-brain',
@@ -705,10 +710,26 @@ export const BITACORA: Hito[] = [
     fecha: '20 oct', hora: '22:45', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
     titulo: 'El mapa de Experimentos y Closing Analyst en el Ops Center',
     puntos: [
+      'En producción desde el run 175 (20/10), enlazado desde el Anexo D del plan.',
       'Faltaban en el plan de «Ops Center = lo principal»: son 28 cosas que se pueden hacer, y hoy desde el chat salen 13.',
       'Lo que se pregunta (cómo vienen las llamadas, qué experimentos corren) ya funciona; lo que se pide («arrancá el experimento», «corregí el puntaje») todavía no le llega a MaKo.',
       'Quedan dos preguntas para ti: si el closer usa el Ops Center para su hoja Closing, y qué pasa con la Retro.',
     ],
     archivos: ['docs/ops-center-principal/mapa-experimentos-closing.md'],
+  },
+  {
+    fecha: '20 oct', hora: '23:45', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El chat dibuja lo que cambiaste en el Dashboard',
+    puntos: [
+      'Cuando confirmas en el Ops Center un cambio del Dashboard, el chat lo muestra debajo del «Hecho».',
+      'Una hoja nueva o duplicada, o una tarjeta agregada, aparece con su nombre, lo que tiene y «Abrir en el Dashboard».',
+      'Si editaste, moviste o quitaste algo, aparece el antes y el después, fila por fila, en palabras («Últimos 90 días → Este mes»).',
+      'Y si preguntas un número («¿cuánto vendí este mes?», «leads por mes»), el chat lo dibuja: el número, la serie o la tabla, con la misma pieza del Dashboard.',
+      'Una serie larga («leads por día de los últimos 90 días») muestra los días más recientes, y debajo del título dice qué tramo se ve.',
+      'Si un gráfico no se puede dibujar, esa tarjeta dice «Este bloque no cargó» y el chat sigue funcionando.',
+      'Si cambias el informe de otra persona, el chat lo muestra con su nombre y sin «Abrir en el Dashboard», que abriría el tuyo.',
+    ],
+    archivos: ['lib/api-mako/areas/dashboard-bloques.ts', 'lib/api-mako/areas/dashboard.run.ts', 'lib/chat-bloques-dashboard.ts', 'app/_chat/bloques/GraficoHilo.tsx', 'tests/dashboard-bloques-chat.test.ts y tests/dashboard-bloque-grafico.test.ts — probados rompiéndolos'],
+    revisar: '/second-brain',
   },
 ];

@@ -20,8 +20,10 @@ const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').r
 test('llegadaDe: lo que guardó el cierre, con el interés por su rótulo; lo roto o vacío es null', () => {
   const [primero] = INTERESES;
   const at = '2026-10-17T12:00:00.000Z';
-  assert.deepEqual(llegadaDe(JSON.stringify({ origen: 'Instagram', interes: primero.id, at })), { origen: 'Instagram', interes: primero.label, at });
-  assert.deepEqual(llegadaDe(JSON.stringify({ origen: 'Por un amigo de Córdoba', interes: null, at: 'no' })), { origen: 'Por un amigo de Córdoba', interes: null, at: null });
+  assert.deepEqual(llegadaDe(JSON.stringify({ origen: 'Instagram', interes: primero.id, at })), { origen: 'Instagram', interes: primero.label, at, pdfNota: null });
+  assert.deepEqual(llegadaDe(JSON.stringify({ origen: 'Por un amigo de Córdoba', interes: null, at: 'no' })), { origen: 'Por un amigo de Córdoba', interes: null, at: null, pdfNota: null });
+  // Lo que dijo que estaba mal en el PDF de su oferta también se lee (quinta revisión, 21/10), aunque no haya contestado más.
+  assert.deepEqual(llegadaDe(JSON.stringify({ origen: null, interes: null, at, pdfNota: 'El precio es 500' })), { origen: null, interes: null, at, pdfNota: 'El precio es 500' });
   assert.equal(llegadaDe(null), null);
   assert.equal(llegadaDe('no es json'), null);
   assert.equal(llegadaDe(JSON.stringify({ origen: null, interes: null })), null);
@@ -39,5 +41,7 @@ test('la tabla de clientes y su CSV dicen cómo llegó cada uno', () => {
   const src = leer('app/admin/AdminView.tsx');
   assert.match(src, /<th>Llegó por<\/th>/);
   assert.match(src, /\{w\.llegada\?\.origen \?\? '—'\}/);
-  assert.match(src, /'Llegó por', 'Quería resolver'\]/);
+  assert.match(src, /'Llegó por', 'Quería resolver', 'A corregir en su oferta'\]/);
+  assert.match(src, /w\.llegada\?\.pdfNota \?\? ''\]\);/, 'el CSV sin la nota del PDF');
+  assert.match(src, /\{w\.llegada\?\.pdfNota && <span title=\{`A corregir en su oferta: \$\{w\.llegada\.pdfNota\}`\}/, 'la tabla sin la nota del PDF');
 });

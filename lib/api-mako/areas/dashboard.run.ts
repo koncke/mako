@@ -30,6 +30,7 @@ import 'server-only';
 import { after } from 'next/server';
 import type { Ctx, Ejecutado, Preparado, Runners, SalidaLectura } from '../tipos';
 import { quienChatea } from '../tipos';
+import { bloqueDelCambio } from './dashboard-bloques';
 import { linkPantalla } from '../link';
 import { PREFIJO_FLUJO } from '../canal';
 import { getSupabaseServer } from '@/lib/supabase';
@@ -63,13 +64,14 @@ import { textoCron } from '@/lib/cron-aviso';
 import { APP_BASE_URL } from '@/lib/app-url';
 import { crearShare, RECURSO_INFORME } from '@/lib/shares';
 import { ANCHOS, LUGARES, lugarConReferencia, moverComponente, type Ancho, type Lugar, type Movida } from '@/lib/graficos-mover';
-import { csvDeHoja, nombreArchivo, pedidosDeHoja, periodoDeHoja, seccionCsv } from '@/app/dashboard/exportar';
+import { csvDeHoja, nombreArchivo, pedidosDeHoja, periodoDeHoja, rangoTexto, seccionCsv } from '@/app/dashboard/exportar';
+import { MAX_FILAS_GRAFICO, cortarTiempo, graficoParaElChat, type BloqueGrafico } from '@/lib/chat-bloques-dashboard';
 import type { Resultado } from '@/lib/graficos-agregar';
 import {
   aplicarCambio, armarConector, armarControlHoja, armarElemento, armarGrafico, analisisMarkdown, buscarCajas, buscarComponente,
   buscarConector, buscarHoja, catalogoJson, catalogoMarkdown, conFiltrosFijos, conclusionesMarkdown, controlParaHttp, controlesDeFiltros,
   copiaDeHoja, detalleMarkdown, elegirPersona, etiquetaPersona, filtroEnPalabras, filtrosDeConsulta, filtrosFijosDe, hojaMarkdown,
-  informesMarkdown, juntarTotales, nombreDeComponente, periodoDeGrafico, periodoEnTexto, periodoPedido, recortar, resolverCampo,
+  informesMarkdown, juntarTotales, nombreDeComponente, periodoDeGrafico, periodoEnTexto, periodoPedido, rangoDeTramo, recortar, resolverCampo,
   resultadoMarkdown, resultadoPara, salidaCajaConNombres, salidaConNombres, textoDeAnalisis, textoDeCaja, urlParaCanal,
   type Cambio, type CajaLeida, type EntradaFiltro, type EntradaGrafico, type Eleccion, type InformeListado, type LeidoDeComponente,
   type MiembroCuenta, type PersonaInforme, type SeccionCatalogo,
@@ -226,7 +228,8 @@ async function proponer(input: In, ctx: Ctx, armar: (r: Resuelto) => Armado | Pr
     const ap = aplicarCambio(r.lectura.tablero, plan.cambio);
     if (!ap.ok) return { error: ap.error, ...(ap.yaEstaba ? { yaEstaba: true } : {}) };
     return {
-      payload: { sub: r.sub, version: r.lectura.version, cambio: plan.cambio, hecho: plan.hecho, deshacer: plan.deshacer, datos: plan.datos ?? {} },
+      // `de`: de quién es el informe, para el bloque que dibuja el chat al confirmar (sólo se usa si no es de quien chatea).
+      payload: { sub: r.sub, de: r.eleccion.persona ? (r.eleccion.persona.nombre || r.eleccion.persona.email) : null, version: r.lectura.version, cambio: plan.cambio, hecho: plan.hecho, deshacer: plan.deshacer, datos: plan.datos ?? {} },
       resumen: `${plan.que}, en ${r.etiqueta}.${plan.aviso ? ` ${plan.aviso}` : ''}`,
     };
   } catch (e) {
@@ -251,7 +254,18 @@ async function aplicar(payload: In, ctx: Ctx): Promise<Ejecutado> {
     const datos = (payload.datos && typeof payload.datos === 'object' ? payload.datos : {}) as Record<string, unknown>;
     const hojaId = typeof datos.hojaId === 'string' ? datos.hojaId : 'hojaId' in cambio && typeof cambio.hojaId === 'string' ? cambio.hojaId : null;
     const sigue = hojaId != null && g.tablero.hojas.some((h) => h.id === hojaId);
-    return { ok: true, resumen: `${String(payload.hecho ?? 'Listo')}. ${String(payload.deshacer ?? '')}`.trim(), datos: { ...datos, link: linkHoja(sigue ? hojaId : null, ctx) } };
+    // Lo que el chat DIBUJA con el resultado (2.7, ./dashboard-bloques.ts): con el informe de antes y el GUARDADO, nunca
+    // con el texto del modelo. El marco del chat (lib/chat-bloques.ts) lo sanea antes de guardarlo. Del informe de OTRA
+    // persona va sin «Abrir en el Dashboard», que abriría el de quien mira (revisión del 21/10). Y sin `link`: sin bloque
+    // (un conector, una edición que sólo mueve), el chat arma el mismo botón con él. Sólo en la app (`quienChatea`): por
+    // WhatsApp o HTTP no hay a quién comparar, y el link sigue como antes.
+    const yo = quienChatea(ctx);
+    const deOtro = yo && yo.sub !== sub ? (typeof payload.de === 'string' && payload.de.trim()) || 'otra persona' : null;
+    const bloque = bloqueDelCambio(cambio, actual.tablero, g.tablero, deOtro);
+    return {
+      ok: true, resumen: `${String(payload.hecho ?? 'Listo')}. ${String(payload.deshacer ?? '')}`.trim(),
+      datos: { ...datos, ...(deOtro ? {} : { link: linkHoja(sigue ? hojaId : null, ctx) }), ...(bloque ? { bloque } : {}) },
+    };
   } catch (e) {
     console.error(`[api-mako dashboard] ejecutar: ${msg(e)}`);
     return { ok: false, resumen: 'No se pudo guardar el informe del Dashboard: falló la escritura. Reintenta en un momento.' };
@@ -358,11 +372,33 @@ export const RUNNERS: Runners = {
         };
       }
       const md = [
-        ...resultadoMarkdown(principal, r, { desde: per.desde, hasta, topeFilas: http ? undefined : TOPE_FILAS_CHAT, titulo: tituloAlVuelo(al.graficos) }),
+        ...resultadoMarkdown(principal, r, { desde: per.desde, hasta, topeFilas: http ? undefined : TOPE_FILAS_CHAT, titulo: tituloAlVuelo(al.graficos), hoy }),
         ...(filtros.length ? [`Filtros: ${filtros.join(' · ')}`] : []),
         ...(hastaDatos !== hasta ? [`La pauta de Meta llega con un día de atraso: los datos van hasta ${hastaDatos}.`] : []),
       ].join('\n');
-      return http ? md : recortar(md, TOPE_MD_CHAT, 'pide un período más corto o menos métricas');
+      if (http) return md;
+      const texto = recortar(md, TOPE_MD_CHAT, 'pide un período más corto o menos métricas');
+      // En el chat de la app la respuesta se DIBUJA (2.7, lib/chat-bloques-dashboard.ts): la lectura devuelve
+      // `{ content, bloque }`, ejecutarOperacion sanea el bloque y lo pasa por `ctx.aDibujar`, y el modelo lee sólo
+      // `content`. `aDibujar` sólo existe en la app: sin él (WhatsApp, HTTP) va el texto. Con una sola métrica o una
+      // dimensión: varias métricas sueltas son varios números, y un bloque es uno.
+      if (!ctx.aDibujar || al.graficos.length !== 1) return texto;
+      const titulo = tituloAlVuelo(al.graficos);
+      // Una serie de más de 60 puntos dibuja las 60 más CERCANAS a hoy (con el mismo corte que el texto de arriba, y hacia
+      // adelante si la fecha mira hacia adelante, como el vencimiento), y la nota dice ese tramo, no el período entero.
+      const fechaDef = fuente.fechas.find((x) => x.id === principal.fecha);
+      const rDib = cortarTiempo(r, MAX_FILAS_GRAFICO, fechaDef?.futuro ? hoy : null);
+      const tramo = rDib.filas.length < r.filas.length ? rangoDeTramo(principal.dimension, rDib.filas, per.desde, hasta) : null;
+      const bloque: BloqueGrafico = {
+        t: 'grafico', titulo,
+        // Una fecha «foto de hoy» (sin período) dice «Hoy», como la tarjeta (`resultadoMarkdown`, dashboard.helpers.ts).
+        nota: [fechaDef?.sinRango ? 'Hoy' : rangoTexto(tramo?.desde ?? per.desde, tramo?.hasta ?? hasta), ...filtros].join(' · '),
+        grafico: graficoParaElChat({ ...principal, titulo }, rDib), resultado: rDib,
+      };
+      // «Ya lo ve: no repitas la tabla» va SÓLO si el bloque se dibujó (`siSeDibuja`, lo agrega ejecutarOperacion): con el
+      // tope de bloques del turno lleno, el modelo callaba una tabla que nadie veía (revisión del 21/10).
+      const ve = tramo ? `${rDib.filas.length} de los ${r.filas.length} puntos (${rangoTexto(tramo.desde, tramo.hasta)})` : 'este resultado';
+      return { content: texto, bloque, siSeDibuja: `(La persona YA VE ${ve} dibujado en el chat: no repitas esa tabla, comenta lo que importa.)` };
     },
   },
 

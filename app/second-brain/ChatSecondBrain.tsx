@@ -67,6 +67,9 @@ import {
 } from '@/lib/chat-mako-reglas';
 import type { ChatDeAntes, ChatDeOffer } from '@/lib/chat-mako-indice';
 import type { MensajeChat, PropuestaPantalla, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
+import { Recorrido, useRecorrido } from '@/app/_ui/Recorrido';
+import { RECORRIDO_INICIO } from '@/lib/onboarding-arranque';
+import { PASOS_INICIO } from './recorrido-inicio';
 import '@/app/admin/operaciones/centro.css';
 import '@/app/_chat/chat.css';
 
@@ -145,6 +148,8 @@ const anotarParam = (k: string, v: string | null) => {
 };
 
 type Props = {
+  /** Al terminar el onboarding (`?recorrido=sb-inicio`): arranca el tutorial del Ops Center (20/10/2026). */
+  tutorialInicio?: boolean;
   /** El admin con la tab en su capa: ve el acceso «Mapa». */
   veMapa: boolean;
   /** El Mapa ya armado por el servidor (la URL lo pidió); null = la conversación. */
@@ -176,8 +181,10 @@ function ConCentro({ datos, children }: { datos: DatosCentro; children: (k: Cent
 /** El chat de Claude Code de entrada: el Cerebro (va primero) o el primero que puede recibir. */
 const centroDeEntrada = (k: Centro): string | null => (k.chats.find((c) => c.sesion) ?? k.chats[0])?.clave ?? null;
 
-function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraInicial = null, inicio = 'second-brain' }: Omit<Props, 'centro'> & { centro: Centro | null }) {
+function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraInicial = null, inicio = 'second-brain', tutorialInicio = false }: Omit<Props, 'centro'> & { centro: Centro | null }) {
   const router = useRouter();
+  // El tutorial del Ops Center al terminar el onboarding (20/10/2026): se abre solo si lo pide la URL y la persona no lo vio.
+  const tutorial = useRecorrido(RECORRIDO_INICIO, { autoabrir: tutorialInicio });
   /** La página en la que se está (/second-brain o /admin/operaciones): los links del Mapa vuelven a ella. */
   const base = usePathname() || '/second-brain';
   /** Ops Center: el super admin, con sus chats de Claude Code (el servidor mandó el Centro). */
@@ -586,7 +593,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
 
   return (
     <div className="co" data-con-chat={conChat ? 'true' : 'false'}>
-      <aside className="co-barra" aria-label="Chats">
+      <Recorrido id={RECORRIDO_INICIO} pasos={PASOS_INICIO} abierto={tutorial.abierto} onCerrar={tutorial.onCerrar} />
+      <aside className="co-barra" aria-label="Chats" data-recorrido="sb-chats">
         <div className="co-barra__arriba">
           <label className="co-buscar">
             <Icon name="search" size={16} />
@@ -711,7 +719,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
             </div>
           </header>
 
-          <div className="co-hilo" ref={hilo}>
+          <div className="co-hilo" ref={hilo} data-recorrido="sb-hilo">
             {!cargado ? null : errorCarga ? (
               <div className="co-portada">
                 <p className="co-portada__dato">{errorCarga}</p>
@@ -732,7 +740,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
             )}
           </div>
 
-          <div className="co-caja-wrap">
+          <div className="co-caja-wrap" data-recorrido="sb-escribir">
             {idOffer != null ? (
               // Se lee acá y se sigue en Offer, en ESA conversación (`?sesion=`), con el ?ws= del cliente que se está mirando.
               <div className="co-caja co-caja--quieta">
