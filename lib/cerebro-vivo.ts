@@ -226,7 +226,9 @@ export function agregarLoVivo(g: Armado, l: LecturasVivas, opciones: { raiz: str
         id: `cliente:${c.leadId}`, area: 'funnel', tipo: 'Cliente', etiqueta: corto(nombreDe(c), 30),
         detalle: limpio(c.empresa) ? `De ${limpio(c.empresa)}.` : 'Compró.',
         datos: [{ k: 'Venta', v: c.sinCobro ? 'Becado, sin cobro' : '' }],
-        fuente: 'la venta ganada en tu CRM', autoria: 'usuario', nace: c.fechaCierre, href: `/crm?lead=${c.leadId}`, abrirEn: 'el CRM',
+        // La FICHA es /crm/<id> (app/crm/[id], la ruta de todo el CRM). Con el id como parámetro de /crm abría la lista: /crm no lo lee
+        // (20/10/2026, lo encontró el chat de CRM; tests/second-brain-links.test.ts mira cada link contra su destino).
+        fuente: 'la venta ganada en tu CRM', autoria: 'usuario', nace: c.fechaCierre, href: `/crm/${c.leadId}`, abrirEn: 'su ficha',
       });
       unir(id, hub, 'Compró: es uno de tus clientes');
     }

@@ -112,13 +112,14 @@ test('punto 2: «Pídeselo a MaKo» cierra el modal y crea la fila por la puerta
 });
 
 test('punto 2: «que dentro aparezca un loader»: la capa con «Creando tu automatización» en el lienzo vacío', () => {
-  const capa = tramo(PERFIL, '{rolAdmin && chatTrabajando && (', '{rolAdmin && editandoIA && (', 1_600);
+  // (20/10/2026: el chat que sigue a la capa es el de la sidebar, por portal.)
+  const capa = tramo(PERFIL, '{rolAdmin && chatTrabajando && (', '{rolAdmin && ranuraChat && createPortal(', 1_600);
   assert.match(capa, /\{pasos\.length === 0 && \(\n\s+<div data-creando-mako="" /);
   assert.match(capa, /Creando tu automatización/);
   // Mientras la fila todavía se crea, el lienzo también lo dice (no un «Creando…» a secas).
   assert.match(LISTA, /\{pedidoPara \? 'Creando tu automatización' : 'Creando…'\}/);
-  // Sin el chat no hay pedido: el ✦ del título está también con el lienzo vacío.
-  assert.match(PERFIL, /\{rolAdmin && \(\n\s+<BotonLogoMako lado=\{ALTO_ACCION\}/);
+  // Sin el chat no hay pedido: el chat está SIEMPRE, también con el lienzo vacío (20/10/2026: en la sidebar, sin ✦).
+  assert.match(PERFIL, /\{rolAdmin && ranuraChat && createPortal\(/);
   // El hilo vacío de una fila nueva dice qué hacer, y la barra lo mismo.
   const html = renderToStaticMarkup(createElement(ChatMako, { secuenciaId: 7, pasos: [], onListo: () => {} }));
   assert.ok(html.includes(VACIO_CREAR));
@@ -151,7 +152,8 @@ test('punto 3: `medioQueFrena` = la cuenta de Publicar, con la línea de la tarj
 test('punto 3: «Probar» pregunta ANTES de abrir el panel, dice qué falta y abre el modal de ese medio', () => {
   const probar = tramo(PERFIL, 'const probar = (canal: CanalProbar) => {', '\n  };', 700);
   const iFreno = probar.indexOf('medioQueFrena(pasos, lineaSec, crons.lista, estadoMedios)');
-  const iAbrir = probar.indexOf('onProbar(canal);');
+  // (20/10/2026: abrir pasa por el aviso de Prospección.)
+  const iAbrir = probar.indexOf('conAvisoProspeccion(() => onProbar(canal));');
   assert.ok(iFreno > 0 && iFreno < iAbrir, 'el panel se abre sin mirar los medios');
   // Decimocuarta (punto 4): sin el chip rojo «Conecta tu …» al lado de «Activar»; el modal de ese medio dice qué falta.
   assert.match(probar, /if \(falta\) \{ setErr\(null\); setLineaAConectar\(falta\.linea\); setConectarMedio\(falta\.medio\); return; \}/);
