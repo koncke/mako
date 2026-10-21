@@ -2082,4 +2082,25 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "21 oct", hora: "07:23", chat: "Automations", cuenta: "claude4",
+    sesion: "local_f74a2156-23dd-4213-b1dd-cd6c13906ff1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Hecho: el aviso de automatización duplicada se decide por lo que pasa, no por cuánto se parecen los textos",
+    puntos: [
+      "Si otra automatización activa ya le escribe a la misma gente, por el mismo canal y en horarios que se pisan, avisa siempre, aunque los textos sean distintos.",
+      "El aviso muestra el nombre de la otra y cómo empiezan los dos mensajes, uno al lado del otro, para que decidas.",
+      "Publicar cambios en una automatización activa también pregunta, desde el lienzo, el teléfono, Email, «MaKo escribe tu nutrición» y MaKo por WhatsApp.",
+      "En «MaKo escribe tu nutrición» el texto no se puede editar mientras se guarda.",
+      "En producción: run 196, deploy de cc8a82e6d (lo verificó el Cerebro).",
+    ],
+    commits: [
+      { sha: "612116c20", msg: "Automations: publicar una activa pregunta por la duplicada en todos los caminos de una persona", lineas: 421, archivos: 22 },
+      { sha: "c76b567bb", msg: "Automations: el aviso de duplicada se decide por HECHOS, no por el parecido del texto", lineas: 720, archivos: 16 },
+    ],
+    archivos: [
+      "docs/hallazgos-chatbot.md — «Tres rondas de reglas sobre el texto, y la red se movió a los hechos»",
+    ],
+    revisar: "/automations",
+  },
 ];

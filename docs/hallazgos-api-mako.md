@@ -1859,6 +1859,10 @@ todavía fuera de main.
   `link`** al informe de quien mira (dashboard.run.ts, los `datos` de `analizar_hoja_dashboard`,
   `programar_analisis_dashboard` y la caja). Ya estaba en main. El arreglo es la regla de `aplicar`: si `quienChatea(ctx)`
   existe y su `sub` no es el del payload, no poner `link`.
+- **El «hoy» del área es el de Tijuana, no el del negocio** (`hoyEnTijuana()` en `consultar_datos_dashboard` y en el
+  corte hacia adelante de `resultadoMarkdown`). Un negocio en otra zona corta el vencimiento y el período en otro día.
+  Ya estaba en main. El arreglo es `hoyEnWorkspace` (lib/timezone.ts, async) en toda el área: pide pasar `hoy` a
+  `resultadoMarkdown` desde cada runner, en vez del valor por defecto. Para la próxima pieza del chat Dashboard.
 - **El pedazo que no cargó no se recupera sin recargar** (React.lazy guarda el rechazo). Un `import()` con reintento
   serviría si el runtime de Turbopack no guarda también el chunk fallido: no está medido.
 *21/10/2026, claude4 (chat Dashboard).*
