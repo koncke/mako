@@ -72,3 +72,77 @@ export function numeroParaWhatsApp(telefono: string | null | undefined, numeroDe
 export function motivoConPista(motivo: string): string {
   return /^Ese número no tiene WhatsApp\.?$/.test(motivo.trim()) ? `Ese número no tiene WhatsApp. ${REVISA_CODIGO_DE_PAIS}` : motivo;
 }
+
+// ── ¿Es el MISMO contacto? (21/10/2026) ───────────────────────────────────────
+// EL CASO (ws11, cuarta revisión de la 2.1): el dueño bloquea a Juan desde /chats y se guarda 542233550684, el número del
+// espejo; el CRM lo tiene como 2233550684. El motor de nutrición preguntaba por igualdad EXACTA, recibía «no está
+// bloqueado» y mandaba; desde el 20/10 el envío completa el país (arriba) y el mensaje LLEGA. Esta es LA regla de
+// identidad de un teléfono para bloquear, desbloquear y mostrarlo bloqueado: la usan lib/evolution-block.ts y quien marque
+// una lista.
+//
+//  · Con 10 dígitos o más, el mismo contacto es el que termina en los MISMOS 10 dígitos: 2233550684, 542233550684 y
+//    5492233550684 (el 9 de los celulares de Argentina) son uno; 5512345678, 525512345678 y 5215512345678 también. NO se
+//    compara el número entero aunque los dos traigan país: el 9 de Argentina y el 1 de México cambian el prefijo de la
+//    misma persona. Dos países con los mismos 10 dígitos nacionales se bloquean entre sí: falla CERRADO (no se le escribe a
+//    uno de más), y /chats ya los junta igual.
+//  · Con 9 dígitos (el largo LOCAL de España, Chile y Perú, `LARGO_LOCAL`): es el mismo que el número igual, o que ESE
+//    número con el código de un país de 9 dígitos adelante (612345678 y 34612345678). Es lo que el envío haría con él al
+//    completar el país. Un 9 sin país no dice de cuál de los tres es: se toma como cualquiera de ellos (falla cerrado).
+//    Por qué no «los últimos 9»: un número de 10 dígitos de México que termine igual sería otro contacto.
+//  · Con menos de 9: sólo el número igual. Es demasiado corto para que un sufijo diga quién es.
+
+const LARGOS_DE_9 = Object.keys(LARGO_LOCAL).filter((cc) => LARGO_LOCAL[cc] === 9);
+
+/** Los dígitos con que se compara: sin lo que no es dígito y sin el «00» de salida internacional. */
+const paraComparar = (t: string | null | undefined): string => soloDigitos(t).replace(/^0{2,}/, '');
+
+/**
+ * Teléfonos que contestan `has` con la regla de identidad (arriba): para marcar una lista de una sin leer de a uno. Se
+ * arma con los teléfonos guardados (los de `wa_bloqueados`, por ejemplo).
+ */
+export class TelefonosDe {
+  /** Los de 10 o más, por sus últimos 10. */
+  private readonly por10 = new Set<string>();
+  /** Los de 10 o más, enteros: un 9 se compara contra ESTE número con país, no contra unos últimos 10 que coincidan. */
+  private readonly enteros = new Set<string>();
+  private readonly de9 = new Set<string>();
+  private readonly cortos = new Set<string>();
+  readonly size: number;
+
+  constructor(telefonos: Iterable<string | null | undefined>) {
+    let n = 0;
+    for (const t of telefonos) {
+      const d = paraComparar(t);
+      if (!d) continue;
+      n++;
+      if (d.length >= 10) { this.por10.add(d.slice(-10)); this.enteros.add(d); }
+      else if (d.length === 9) this.de9.add(d);
+      else this.cortos.add(d);
+    }
+    this.size = n;
+  }
+
+  has(telefono: string | null | undefined): boolean {
+    const d = paraComparar(telefono);
+    if (!d) return false;
+    if (d.length < 9) return this.cortos.has(d);
+    if (d.length === 9) return this.de9.has(d) || LARGOS_DE_9.some((cc) => this.enteros.has(`${cc}${d}`));
+    if (this.por10.has(d.slice(-10))) return true;
+    return LARGOS_DE_9.some((cc) => d.length === cc.length + 9 && d.startsWith(cc) && this.de9.has(d.slice(cc.length)));
+  }
+}
+
+/** ¿`a` y `b` son el mismo contacto? La regla de arriba, para dos números sueltos. */
+export function mismoContacto(a: string | null | undefined, b: string | null | undefined): boolean {
+  return new TelefonosDe([a]).has(b);
+}
+
+/**
+ * El SUFIJO con que se buscan en la base los candidatos de un teléfono (`like '%…'`), o null si se busca el número igual.
+ * Los últimos 9 dígitos alcanzan a todas sus formas: las de 10 o más que terminan en sus mismos 10, y la de 9 sin país.
+ * La base trae candidatos; quién es quién lo decide `TelefonosDe` (AGENTS.md: «un patrón trae CANDIDATOS»).
+ */
+export function sufijoDeBusqueda(telefono: string | null | undefined): string | null {
+  const d = paraComparar(telefono);
+  return d.length >= 9 ? d.slice(-9) : null;
+}

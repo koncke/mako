@@ -15,7 +15,7 @@ import 'server-only';
 import type { Runners, Preparado, Ejecutado, Ctx, SalidaLectura } from '../tipos';
 import type { ChatResumen, MensajeChat, EstadoChat, CanalChat } from '@/lib/chats-tipos';
 import { listarChats, hiloDeChat, cambiarEstadoChat, marcarChatLeido, POSPONER_MAX_MS, type AccionEstadoChat, type YoChats } from '@/lib/chats';
-import { textoDeEnvio, identidadParaEnviar, canalDeDm, canalNombradoNoCoincide, claveDeDm, esCortePorTiempo, NOMBRE_CANAL, TOPE_TEXTO_ENVIO } from '@/lib/chats-envio-reglas';
+import { textoDeEnvio, identidadParaEnviar, canalDeDm, canalNombradoNoCoincide, claveDeDm, esEnvioIncierto, NOMBRE_CANAL, TOPE_TEXTO_ENVIO } from '@/lib/chats-envio-reglas';
 import { getTenantDb } from '@/lib/workspace';
 import { crearBorrador } from '@/lib/evolution-envio';
 import { enviarBorradorPorSuCanal } from '@/lib/borrador-camino';
@@ -26,7 +26,7 @@ import { leerFunnels } from '@/lib/funnels';
 import { createLead } from '@/lib/leads';
 import { LeadDuplicadoError } from '@/lib/leads-duplicados';
 import { ORIGEN_LEAD } from '@/app/crm/origen-lead';
-import { estaBloqueadoPorUltimos10 } from '@/lib/evolution-block';
+import { estaBloqueadoEstricto } from '@/lib/evolution-block';
 import { listarLineas } from '@/lib/evolution';
 import { numeroParaWhatsApp } from '@/lib/numero-whatsapp';
 import { elegirLinea } from '@/lib/lineas-whatsapp';
@@ -185,17 +185,30 @@ async function borradorParaEnviar(id: number): Promise<{ id: number; texto: stri
 }
 
 /**
+ * ¿El borrador guardado sale al MISMO número? Con los dos con país, el número entero (sin el 9 de los celulares de
+ * Argentina ni el 1 de México, que son la misma persona): +1 551 234 5678 y +52 1 55 1234 5678 terminan igual y son dos
+ * (cuarta revisión, 21/10/2026). Si alguno no trae país, los últimos 10.
+ */
+function mismoDestino(a: string, b: string): boolean {
+  if (a.slice(-10) !== b.slice(-10)) return false;
+  if (a.length <= 10 || b.length <= 10) return true;
+  const sinMarca = (d: string) => d.replace(/^549(\d{10})$/, '54$1').replace(/^521(\d{10})$/, '52$1');
+  return sinMarca(a) === sinMarca(b);
+}
+
+/**
  * UN BORRADOR DE TEXTO IGUAL ya en la cola, para no apilar dos: SÓLO uno de texto (sin nota de voz ni archivo) y de la
  * MISMA línea. ⚠️ Reusar cualquiera con el mismo texto mandaba la nota de voz de una secuencia, o salía por otra línea,
  * con una tarjeta que decía «sólo texto, por Ventas» (revisión del 21/10/2026).
  */
-async function borradorTextoIgual(u10: string, texto: string, linea: string | null): Promise<number | null> {
+async function borradorTextoIgual(telefono: string, texto: string, linea: string | null): Promise<number | null> {
+  const u10 = telefono.slice(-10);
   let q = (await getTenantDb()).from('wa_borradores').select('id, telefono')
     .eq('estado', 'pendiente').eq('texto', texto).is('audio_id', null).is('adjunto_id', null).like('telefono', `%${u10}`);
   q = linea ? q.eq('instance_name', linea) : q.is('instance_name', null);
   const { data, error } = await q.order('created_at', { ascending: false }).limit(5);
   if (error) throw new Error(`No pude leer la cola de borradores: ${error.message}`);
-  return ((data ?? []) as Array<{ id: number; telefono: string | null }>).find((r) => digitos(r.telefono).slice(-10) === u10)?.id ?? null;
+  return ((data ?? []) as Array<{ id: number; telefono: string | null }>).find((r) => mismoDestino(digitos(r.telefono), telefono))?.id ?? null;
 }
 
 /**
@@ -409,7 +422,7 @@ export const RUNNERS: Runners = {
         if (!b) return { error: 'Ese borrador ya no está pendiente: ya salió o se descartó.' };
         if (!b.texto && !b.adjunto) return { error: 'Ese borrador está vacío: no hay nada que mandar.' };
         if (b.texto.length > TOPE_TEXTO_ENVIO.whatsapp) return { error: `Ese borrador tiene ${b.texto.length} caracteres y la tarjeta muestra hasta ${TOPE_TEXTO_ENVIO.whatsapp}: mándalo desde Chats, donde se ve entero.` };
-        if (await estaBloqueadoPorUltimos10(b.telefono)) return { error: 'Ese contacto está bloqueado: no se le manda nada.' };
+        if (await estaBloqueadoEstricto(b.telefono)) return { error: 'Ese contacto está bloqueado: no se le manda nada.' };
         const n = await numeroDeSalida(b.telefono, b.linea, ctx.ws);
         if ('error' in n) return n;
         b.telefono = n.numero;
@@ -446,12 +459,11 @@ export const RUNNERS: Runners = {
         // idéntico pendiente es ÉSE (un reintento no apila dos); `crearBorrador` no devuelve el id, se relee.
         const telefono = digitos(String(payload.numero ?? ''));
         const texto = String(payload.texto ?? '');
-        const u10 = telefono.slice(-10);
         const linea = typeof payload.linea === 'string' && payload.linea ? payload.linea : null;
-        id = await borradorTextoIgual(u10, texto, linea);
+        id = await borradorTextoIgual(telefono, texto, linea);
         if (id == null) {
           await crearBorrador({ leadId: typeof payload.leadId === 'number' ? payload.leadId : null, telefono, texto, chatJid: String(payload.chatId ?? '') || null, origen: 'mako', linea });
-          id = await borradorTextoIgual(u10, texto, linea);
+          id = await borradorTextoIgual(telefono, texto, linea);
         }
         if (id == null) return { ok: false, resumen: 'No pude dejar el mensaje en la cola de borradores. No se envió nada.' };
       }
@@ -462,7 +474,7 @@ export const RUNNERS: Runners = {
       // «no salió» lo vuelve a pedir (revisión del 21/10/2026).
       if (r.error === 'el borrador ya no está pendiente') return { ok: false, resumen: `Ese borrador ya salió o se descartó: mira el hilo de ${nombre} antes de mandar otro.` };
       if (r.error === 'el contacto está bloqueado') return { ok: false, resumen: `No salió: ${nombre} está bloqueado.` };
-      if (esCortePorTiempo(r.error)) return { ok: false, resumen: `No sé si salió: WhatsApp no contestó a tiempo. Mira el hilo de ${nombre} antes de mandarlo otra vez.` };
+      if (esEnvioIncierto(r.error)) return { ok: false, resumen: `No sé si salió: se cortó la conexión con WhatsApp antes de la respuesta. Mira el hilo de ${nombre} antes de mandarlo otra vez.` };
       return { ok: false, resumen: `No salió (${r.error ?? 'sin línea'}). El mensaje quedó en la cola de borradores.` };
     },
   },
@@ -523,7 +535,7 @@ export const RUNNERS: Runners = {
       if (r.ok) return { ok: true, resumen: `Email enviado a ${nombre}.` };
       // Salió, pero no quedó en el hilo (chats-email.ts): decir «no salió» haría que lo manden dos veces.
       if (/^Salió/.test(r.error)) return { ok: true, resumen: `Email enviado a ${nombre}, pero no quedó en su hilo de Chats: no lo mandes otra vez.` };
-      if (esCortePorTiempo(r.error)) return { ok: false, resumen: `No sé si salió: el servidor de email no contestó a tiempo. Mira el hilo de ${nombre} antes de mandarlo otra vez.` };
+      if (esEnvioIncierto(r.error)) return { ok: false, resumen: `No sé si salió: se cortó la conexión con el servidor de email antes de la respuesta. Mira el hilo de ${nombre} antes de mandarlo otra vez.` };
       return { ok: false, resumen: `No salió: ${r.error}` };
     },
   },

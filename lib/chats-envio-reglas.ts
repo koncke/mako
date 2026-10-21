@@ -26,6 +26,12 @@ export const TOPE_TEXTO_ENVIO: Readonly<Record<CanalChat, number>> = { whatsapp:
 // no es un mensaje dictado (revisión del 21/10/2026). «contéstale que sí» sigue dictando por el «que».
 const PALABRA_QUE_ACEPTA = '(?:s[ií]|dale|ok(?:ay)?|okey|listo|perfecto|claro|va|vale|bueno|de una|hazlo|h[aá]celo|m[aá]nd[aá]?(?:lo|la|le|selo|sela)?|env[ií][aá]?(?:lo|la|le|selo|sela)?|cont[eé]st[aá]le|resp[oó]nd[eé]le|dile|dec[ií]le|ya|por favor|porfa|ahora|mismo|eso|as[ií])';
 const SOLO_ACEPTA = new RegExp(`^[¡¿\\s]*${PALABRA_QUE_ACEPTA}(?:[\\s,.!¡¿?]+${PALABRA_QUE_ACEPTA})*[\\s.!?]*$`, 'i');
+/**
+ * UNA ORDEN QUE ABRE EL PEDIDO Y DICTA (cuarta revisión, 21/10/2026): «respóndele sí», «contéstale ok», «dile dale»: lo que
+ * sigue a la orden ES el mensaje, como en «contéstale que sí». La orden sólo ACEPTA cuando va detrás de otra aceptación
+ * («sí, dale, mándale») o sola. «mándale ya» / «envíale ahora» no dictan: dicen cuándo.
+ */
+const ORDEN_QUE_DICTA = /^[¡¿\s]*(?:cont[eé]st[aá]le|resp[oó]nd[eé]le|dile|dec[ií]le|m[aá]nd[aá]le|env[ií][aá]le|escr[ií]bele)[\s:,]+(?!(?:ya|ahora|mismo|por favor|porfa)[\s.!?]*$)\S/i;
 
 /**
  * El texto a mandar, o por qué no. Vacío no es contenido. Una aceptación sola («sí», «dale», «ok») sólo es un mensaje si la
@@ -36,7 +42,7 @@ export function textoDeEnvio(texto: unknown, canal: CanalChat, mensajeUsuario?: 
   const t = typeof texto === 'string' ? texto.trim() : '';
   if (!t) return { error: 'Falta el texto del mensaje: ¿qué le digo?', faltan: ['texto'] };
   const usuario = (mensajeUsuario ?? '').trim();
-  if (SOLO_ACEPTA.test(t) && (!usuario || SOLO_ACEPTA.test(usuario))) {
+  if (SOLO_ACEPTA.test(t) && (!usuario || (SOLO_ACEPTA.test(usuario) && !ORDEN_QUE_DICTA.test(usuario)))) {
     return { error: '«Sí, dale» no es el mensaje: ¿qué le digo exactamente?', faltan: ['texto'] };
   }
   const tope = TOPE_TEXTO_ENVIO[canal];
@@ -67,7 +73,9 @@ export function identidadParaEnviar(canales: readonly IdentidadCanal[], canal: C
 export type CanalDeEnvio = 'whatsapp' | 'dm' | 'email';
 const NOMBRADO: ReadonlyArray<[CanalDeEnvio, RegExp]> = [
   ['email', /\b(e-?mails?|mails?|correos?)\b/],
-  ['dm', /\b(dms?|mensajes? directos?|instagram|insta|ig|messenger|facebook|fb)\b/],
+  // Las redes cuentan como canal cuando son el MEDIO («por Instagram», «en IG», «al Messenger»): «el link de nuestra
+  // página de Facebook» es un tema, no un canal (cuarta revisión, 21/10/2026).
+  ['dm', /\b(dms?|mensajes? directos?|messenger)\b|\b(?:por|en|al|via)\s+(?:el\s+|su\s+)?(?:instagram|insta|ig|facebook|fb)\b/],
   ['whatsapp', /\b(whats?app|wsp|wpp|whats)\b/],
 ];
 const OPERACION_DE: Readonly<Record<CanalDeEnvio, string>> = { whatsapp: 'enviar_borrador_whatsapp', dm: 'contestar_dm', email: 'contestar_email_chat' };
@@ -85,7 +93,8 @@ export function canalNombradoNoCoincide(mensajeUsuario: string | null | undefine
   let m = plano(mensajeUsuario ?? '');
   const d = plano(dictado ?? '').trim();
   if (d && m.includes(d)) m = m.replace(d, ' ');
-  m = m.replace(/[«"“][^»"”]*[»"”]/g, ' ').split(':')[0];
+  // El «:» que abre el dictado lleva un espacio detrás: el de una hora (9:30) o un link (https://) no corta.
+  m = m.replace(/[«"“][^»"”]*[»"”]/g, ' ').split(/:\s/)[0];
   const nombrados = NOMBRADO.filter(([, re]) => re.test(m)).map(([c]) => c);
   if (nombrados.length !== 1 || nombrados[0] === propio) return null;
   const pedido = nombrados[0];
@@ -113,10 +122,13 @@ export function canalDeDm(canales: readonly IdentidadCanal[], pedido?: string | 
 }
 
 /**
- * ¿El envío se cortó por TIEMPO? Entonces «no sé si salió», no «no salió»: Evolution o el servidor de email pudieron haber
- * entregado el mensaje antes del corte, y quien lee «no salió» lo manda otra vez (revisión del 21/10/2026). `contestar_dm`
- * ya lo distingue con `incierto`.
+ * ¿No se sabe si salió? Un corte por TIEMPO, o la conexión que se cae DESPUÉS de conectar («fetch failed», ECONNRESET,
+ * «socket hang up»): Evolution o el servidor de email pudieron haber entregado el mensaje, y quien lee «no salió» lo
+ * manda otra vez (revisiones del 21/10/2026). Lo que falla ANTES de conectar (ECONNREFUSED, ENOTFOUND) sí es «no salió».
+ * `contestar_dm` ya lo distingue con `incierto`.
  */
-export function esCortePorTiempo(error: string | null | undefined): boolean {
-  return /abort|time ?out|timed out|tiempo de espera/i.test(error ?? '');
+export function esEnvioIncierto(error: string | null | undefined): boolean {
+  const e = error ?? '';
+  if (/ECONNREFUSED|ENOTFOUND|EAI_AGAIN/i.test(e)) return false;
+  return /abort|time ?out|timed out|tiempo de espera|fetch failed|ECONNRESET|socket hang up|other side closed|UND_ERR_SOCKET|terminated/i.test(e);
 }

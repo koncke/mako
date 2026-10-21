@@ -5724,8 +5724,12 @@ tests/cs-tarjeta-cobro.test.ts · *20/10/2026 noche, chat «CRM» (claude4).*
   toca, y un rechazo viejo pasaba a tapar un pago posterior). Fechá un hecho con un dato que sólo escriba ese hecho.
   **Y el evento es del LEAD, no del cobro** (tercera revisión): el de un link que después se anuló o se reembolsó
   inventaba un rechazo. `logLeadEvent` escribe «<concepto>: <motivo>» (lib/cobros.ts, cortado en 300): cada cobro
-  fallido toma sólo los eventos de SU concepto (`cuandoFallo`, aviso-tarjeta.ts). Sin hacer: dos cobros con el mismo
-  concepto se confunden; lo limpio es guardar el id del cobro en el evento. ⚠️ El test de ayer fijaba el mismo supuesto equivocado (fechaba el rechazo
+  fallido toma sólo los eventos de SU concepto (`cuandoFallo`, aviso-tarjeta.ts). ⚠️ **Sin hacer, y no es raro:** dos
+  cobros con el mismo concepto se confunden, y compartirlo es lo NORMAL (cuarta revisión): la landing crea otro cobro con
+  el nombre del producto en cada reintento después de un rechazo, el link de cuota usa «Cuota N» y la agencia repite «MaKo
+  · cliente · mensual» cada mes. Un rechazo posterior que se anuló o se reembolsó deja «Pago rechazado» en rojo y tapa
+  los demás avisos. Lo limpio es guardar el id del cobro en el evento (o un `rechazado_at` en cobros, escrito por
+  `aplicarPagoFallido`, lib/cobros.ts) y fechar cada fallido sólo con lo suyo. ⚠️ El test de ayer fijaba el mismo supuesto equivocado (fechaba el rechazo
   por `created_at`) y por eso pasaba: un test que arma los datos con la misma idea que el código no la prueba.
 - **Una renovación rechazada queda «pagado»**: `aplicarPagoFallido` no vuelve atrás un cobro pagado; sólo escribe el
   motivo «Falló el cobro de la renovación…», y no crea cuota. Es el caso más común de las suscripciones. La tarjeta

@@ -21,7 +21,7 @@
 // =============================================================================
 
 import 'server-only';
-import { estaBloqueadoPorUltimos10 } from './evolution-block';
+import { estaBloqueadoEstricto } from './evolution-block';
 import { getTenantDb } from '@/lib/workspace';
 import { listarLineas } from '@/lib/evolution';
 import { lineaPorDefault } from '@/lib/lineas-whatsapp';
@@ -99,7 +99,7 @@ export async function enviarBorradorPorSuCanal(id: number, porEmail: string): Pr
   if (!b || b.estado !== 'pendiente') return { ok: false, error: 'el borrador ya no está pendiente' };
   // ⚠️ UN CONTACTO BLOQUEADO NO RECIBE NADA, venga de donde venga (revisión del 21/10/2026): /chats deshabilita «Enviar»
   // con el bloqueo, pero /whatsapp y MaKo mandaban el borrador igual. Acá, que es la puerta de los tres.
-  if (await estaBloqueadoPorUltimos10(b.telefono)) return { ok: false, error: 'el contacto está bloqueado' };
+  if (await estaBloqueadoEstricto(b.telefono)) return { ok: false, error: 'el contacto está bloqueado' };
 
   const camino = (await caminosDeEnvio([{ id: b.id, linea: b.instance_name }])).get(b.id);
   if (camino?.via === 'empresa') return enviarBorrador(id, porEmail);

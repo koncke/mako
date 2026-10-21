@@ -1332,3 +1332,12 @@ Al integrar con `mako-wa` (MaKo Alert, 21/10): esa rama suma `AccionDef.aTercero
 frena las acciones de chat que le escriben a alguien sin la marca. Los tres envíos de la 2.1 (`enviar_borrador_whatsapp`,
 `contestar_dm`, `contestar_email_chat`) llevan `aTerceros: true`: lo pone la rama que entre SEGUNDA (hoy la marca no
 existe en main y el tipo no la acepta).
+
+Cuarta revisión (21/10): la media venía de PRODUCCIÓN (desde el 20/10, ws11): un bloqueado desde /chats seguía
+recibiendo la secuencia, el AI Step, la rama y los recordatorios. La identidad de un bloqueo es ahora UNA regla
+(`TelefonosDe` / `mismoContacto`, lib/numero-whatsapp.ts) en `estaBloqueado`, desbloquear, ocultar y las listas.
+También: `lineasDelPayload` pinta las listas de objetos elemento por elemento; «respóndele sí» dicta; el canal corta en
+«: » y las redes cuentan con «por»; «fetch failed» es «no sé si salió»; el reuso compara el número entero con país;
+`agregar_contacto_al_crm` sólo por la app. Queda: el id del cobro en el evento del rechazo (compartir concepto es lo
+normal), el «sí» a «¿le contesto por WhatsApp?», el borrador incierto que vuelve a pendiente, y MaKo-whatsapp con 9
+dígitos. `aTerceros` sigue sin estar en main al 21/10 (ef0fe3464).

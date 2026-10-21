@@ -1876,5 +1876,12 @@ todavía fuera de main.
 - **Regla: toda superficie que CONFIRMA pinta con `lineasDelPayload`**, y el tope de una operación que se aprueba
   mirando su texto (`max` del parámetro) no pasa `MAX_TEXTO`. Una pantalla nueva de confirmación que arme su propio
   detalle repite este error. Lo fija tests/chats-mako-envio.test.ts.
+- ⚠️ **Y la regla tapaba otra cosa (cuarta revisión):** `lineasDelPayload` pintaba una LISTA de objetos como «2
+  elementos» y un objeto suelto como su JSON en 160. Producción mostraba el JSON en 240: con la regla, 13 operaciones con
+  confirmación por chat (cambiar_textos_diseno_imagen, cerrar_tareas_plan, editar_clase_curso…) pasaron a confirmarse
+  sin ver qué entraba. Ahora una lista de objetos es UNA FILA POR ELEMENTO («Cambios 1: De: Oferta 50% OFF · A: Oferta
+  70% OFF»), hasta 20, y un objeto es «Clave: valor · …» hasta `MAX_TEXTO`. Filas y no saltos de línea: las pantallas
+  pintan cada línea como dt/dd, y un salto adentro de un valor se pierde. **Una regla de «pintá con X» sólo vale si X
+  muestra todo lo que se aprueba.**
 
 *21/10/2026, chat «CRM» (claude4), tercera revisión del Cerebro de la 2.1.*

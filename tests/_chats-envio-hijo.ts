@@ -111,10 +111,10 @@ async function main() {
   const out: Record<string, unknown> = {};
 
   // ── El texto nuevo: qué borrador reusa ──────────────────────────────────────
-  const reuso = async (linea: string | null, filas: Fila[]) => {
+  const reuso = async (linea: string | null, filas: Fila[], numero = CON_PAIS) => {
     reset(null);
     db.wa_borradores.push(...filas);
-    const r = await enWs(() => run.ejecutar({ nombre: 'Ana', numero: `+${CON_PAIS}`, texto: 'Hola', ...(linea ? { linea } : {}) }, ctx));
+    const r = await enWs(() => run.ejecutar({ nombre: 'Ana', numero: `+${numero}`, texto: 'Hola', ...(linea ? { linea } : {}) }, ctx));
     const nuevos = db.wa_borradores.filter((f) => !filas.includes(f));
     return { elegido: elegido(), creados: nuevos.map((f) => ({ id: f.id, instance_name: f.instance_name ?? null, audio_id: f.audio_id ?? null, origen: f.origen })), resumen: r.resumen };
   };
@@ -129,6 +129,9 @@ async function main() {
     sinTexto: await reuso(null, [deVoz, deArchivo, deOtraLinea]),
     // con la línea 2: el de la línea 2
     otraLinea: await reuso(`mako_ws${WS}_2`, [deVoz, deTexto, deOtraLinea]).then((x) => ({ ...x, esperado: deOtraLinea.id })),
+    // otro país con los mismos 10 dígitos (+1 551 234 5678 contra +52 1 55 1234 5678): NO es el mismo; el 521 y el 52, sí
+    otroPais: await reuso(null, [borrador('15512345678')], '5215512345678'),
+    mismoMexico: await reuso(null, [borrador('525512345678')], '5215512345678').then((x) => ({ ...x, esperado: Number(db.wa_borradores[0]?.id) })),
   };
 
   // ── La puerta única: el bloqueo en las dos formas del número ────────────────

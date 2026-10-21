@@ -138,7 +138,10 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'nombre', tipo: 'string', max: 120, descripcion: 'cómo se llama, si el nombre que trae la conversación no sirve (sólo WhatsApp).' },
       { nombre: 'funnelId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el producto (funnel) al que entra, si hay varios. Si falta y hace falta, la respuesta trae los disponibles.' },
     ],
-    canales: SIN_HTTP, costo: 'gratis', gating: GATING,
+    // SÓLO POR LA APP (cuarta revisión, 21/10/2026): por WhatsApp viajaba en el «sí» a cualquier ofrecimiento de Chats y,
+    // con sus 1.098 caracteres, sacaba del presupuesto lecturas que producción daba (hilo_chat, posponer_chat…). Dar de
+    // alta a un contacto se hace mirando la conversación, como marcar leído.
+    canales: ['app'], costo: 'gratis', gating: GATING,
     escribe: 'un lead nuevo (leads) con origen chat, enlazado a su conversación, con quien lo confirma',
   },
 

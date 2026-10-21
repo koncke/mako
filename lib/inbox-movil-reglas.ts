@@ -152,13 +152,18 @@ export function complejidadDe(parametros: readonly Pick<Parametro, 'tipo'>[] | n
  * corte de UNA línea es trabajo de la fila (CSS), no del detalle. El tope sólo cuida el peso.
  */
 export const MAX_TEXTO = 2000;
-/** Un objeto crudo (JSON) es jerga: se muestra corto, como pista. */
+/** Un objeto ADENTRO de otro (dos niveles) es jerga: se muestra corto, como pista. */
 const MAX_JSON = 160;
+/** Cuántos elementos de una lista de objetos se muestran, uno por fila; el resto se cuenta. */
+export const MAX_ELEMENTOS = 20;
 
 /** Un id en pantalla es jerga: el resumen de la propuesta ya nombra al lead, la campaña… */
 const esId = (nombre: string): boolean => nombre === 'id' || /Id$|_id$/.test(nombre);
 
-function valorLegible(v: unknown): string | null {
+const esObjeto = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+
+/** Un valor suelto: texto, número, sí/no o una lista de esos. Lo demás (un objeto dentro de otro) es una pista corta. */
+function escalarLegible(v: unknown): string | null {
   if (v == null) return null;
   if (typeof v === 'boolean') return v ? 'Sí' : 'No';
   if (typeof v === 'string') { const s = v.trim(); return s ? corta(s, MAX_TEXTO) : null; }
@@ -169,6 +174,20 @@ function valorLegible(v: unknown): string | null {
     return v.length === 1 ? '1 elemento' : `${v.length} elementos`;
   }
   try { return corta(JSON.stringify(v), MAX_JSON); } catch { return null; }
+}
+
+/**
+ * Un objeto, LEGIBLE: «De: Oferta 50% OFF · A: Oferta 70% OFF», sin ids ni vacíos, hasta `MAX_TEXTO`. ⚠️ Era el JSON
+ * cortado en 160, y una LISTA de objetos era «2 elementos»: en /mako/pendientes se confirmaba qué texto entraba en un
+ * diseño o qué tareas se cerraban sin verlo (revisión de la 2.1, 21/10/2026; producción mostraba el JSON).
+ */
+function objetoLegible(o: Record<string, unknown>): string | null {
+  const partes = Object.entries(o).flatMap(([k, v]) => {
+    if (esId(k)) return [];
+    const s = escalarLegible(v);
+    return s == null ? [] : [`${rotuloDeParametro({ nombre: k })}: ${s}`];
+  });
+  return partes.length ? corta(partes.join(' · '), MAX_TEXTO) : null;
 }
 
 const corta = (s: string, max: number): string => (s.length > max ? `${s.slice(0, max)}…` : s);
@@ -187,10 +206,19 @@ export function lineasDelPayload(payload: Record<string, unknown> | null | undef
   const out: LineaDetalle[] = [];
   for (const nombre of nombres) {
     if (esId(nombre)) continue;
-    const valor = valorLegible(p[nombre]);
+    const v = p[nombre];
+    const rotulo = rotuloDeParametro(parametros?.find((x) => x.nombre === nombre) ?? { nombre });
+    // Una lista de objetos: UNA FILA POR ELEMENTO («Cambios 1», «Cambios 2»…). Las pantallas pintan cada línea como
+    // rótulo y valor (dt/dd): un salto de línea adentro de un valor se perdería.
+    if (Array.isArray(v) && v.some(esObjeto)) {
+      const filas = v.flatMap((x) => { const s = esObjeto(x) ? objetoLegible(x) : escalarLegible(x); return s == null ? [] : [s]; });
+      filas.slice(0, MAX_ELEMENTOS).forEach((valor, i) => out.push({ rotulo: filas.length === 1 ? rotulo : `${rotulo} ${i + 1}`, valor }));
+      if (filas.length > MAX_ELEMENTOS) out.push({ rotulo, valor: `y ${filas.length - MAX_ELEMENTOS} más` });
+      continue;
+    }
+    const valor = esObjeto(v) ? objetoLegible(v) : escalarLegible(v);
     if (valor == null) continue;
-    const def = parametros?.find((x) => x.nombre === nombre);
-    out.push({ rotulo: rotuloDeParametro(def ?? { nombre }), valor });
+    out.push({ rotulo, valor });
   }
   return out;
 }

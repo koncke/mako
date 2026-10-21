@@ -35,6 +35,15 @@
 //   · «mándale» / «contéstale» fuera de lo que sólo acepta («Sí, dale» salía de mensaje) → 6 / 2
 //   · un corte por tiempo contado como «no salió»                                       → 7 / 1
 //   · el «sí» a un ofrecimiento de DM sin `contestar_dm` (el camino que YA llega en main) → 7 / 1
+// Y la cuarta revisión (21/10/2026), con el archivo en 8 / 0 (+1 todo), una rotura por vez (la identidad del bloqueo
+// está en tests/bloqueo-identidad.test.ts):
+//   · «respóndele sí» sin mandar nada (la orden que abre el pedido no dicta)             → 7 / 1
+//   · una hora o un link apagando la guarda del canal (corte en el primer «:»)          → 7 / 1
+//   · «Facebook» como tema frenando el WhatsApp (las redes sin «por»)                   → 7 / 1
+//   · «fetch failed» contado como «no salió»                                            → 7 / 1
+//   · una lista de objetos en la bandeja como «2 elementos»                             → 7 / 1
+//   · reusar el borrador de otro país con los mismos 10 dígitos                         → 7 / 1
+//   · agregar_contacto_al_crm otra vez por WhatsApp                                     → 7 / 1
 // Correr: node --import tsx --test tests/chats-mako-envio.test.ts
 // =============================================================================
 
@@ -49,7 +58,7 @@ import { herramientasDelChat } from '../lib/mako-turno-app-reglas';
 import { herramientasDelTurno, llevaDatosDeClientes } from '../lib/doer-herramientas';
 import { REGISTRO, type Vista } from '../lib/api-mako/registro';
 import { esAccion } from '../lib/api-mako/tipos';
-import { textoDeEnvio, identidadParaEnviar, canalDeDm, canalNombradoNoCoincide, claveDeDm, esCortePorTiempo, TOPE_TEXTO_ENVIO } from '../lib/chats-envio-reglas';
+import { textoDeEnvio, identidadParaEnviar, canalDeDm, canalNombradoNoCoincide, claveDeDm, esEnvioIncierto, TOPE_TEXTO_ENVIO } from '../lib/chats-envio-reglas';
 import { MAX_TEXTO, lineasDelPayload } from '../lib/inbox-movil-reglas';
 import type { IdentidadCanal } from '../lib/chats-tipos';
 
@@ -122,7 +131,9 @@ test('la tarjeta: los envíos sólo por la app, y el botón dice lo que hace', (
     assert.ok(d.canales.includes('app'), `${id}: va por la app`);
     assert.ok(!d.canales.includes('http'), `${id}: conversaciones de personas no salen por HTTP`);
   }
-  for (const id of [...ENVIAN, 'marcar_leido_chat']) assert.deepEqual(REGISTRO.find((x) => x.id === id)?.canales, ['app'], `${id}: sólo por la app`);
+  // agregar_contacto_al_crm también (cuarta revisión): por WhatsApp viajaba en el «sí» a cualquier ofrecimiento de Chats
+  // y sacaba del presupuesto lecturas que producción daba.
+  for (const id of [...ENVIAN, 'marcar_leido_chat', 'agregar_contacto_al_crm']) assert.deepEqual(REGISTRO.find((x) => x.id === id)?.canales, ['app'], `${id}: sólo por la app`);
   const boton = (id: string) => REGISTRO.find((x) => x.id === id)?.titulo;
   assert.equal(boton('enviar_borrador_whatsapp'), 'Enviar el WhatsApp', 'el botón de la tarjeta es el título: tocarlo es «Enviar»');
   assert.equal(boton('contestar_dm'), 'Enviar el mensaje directo');
@@ -158,6 +169,11 @@ test('el texto: lo que se ve es lo que sale; «sí, dale» no es el mensaje; el 
   assert.equal(canalNombradoNoCoincide('respóndele el mail a Pedro', 'email'), null);
   assert.equal(canalNombradoNoCoincide('contéstale a Pedro', 'whatsapp'), null, 'sin canal nombrado, no frena');
   assert.equal(canalNombradoNoCoincide('pásale por mail o por WhatsApp', 'whatsapp'), null, 'dos canales: no decide la palabra');
+  // Cuarta revisión: el «:» de una hora o de un link no corta el pedido; una red es canal cuando es el MEDIO.
+  assert.match(canalNombradoNoCoincide('mándale a Juan el link https://cal.com/x por mail', 'whatsapp', 'Hola Juan, te paso el link: https://cal.com/x') ?? '', /contestar_email_chat/);
+  assert.match(canalNombradoNoCoincide('mañana a las 9:30 contéstale por mail a Ana que la reunión se mueve', 'whatsapp') ?? '', /contestar_email_chat/);
+  assert.equal(canalNombradoNoCoincide('mándale a Juan el link de nuestra página de Facebook', 'whatsapp'), null, 'Facebook es el tema, no el canal');
+  assert.match(canalNombradoNoCoincide('contéstale a Pedro en Instagram', 'whatsapp') ?? '', /contestar_dm/);
   // El canal es el del PEDIDO, no el del texto dictado (tercera revisión).
   assert.equal(canalNombradoNoCoincide('contéstale a Pedro: te mandé el link por mail', 'whatsapp', 'Te mandé el link por mail'), null, '«mail» es del mensaje');
   assert.equal(canalNombradoNoCoincide('contéstale a Pedro: te mandé el link por mail', 'whatsapp'), null, 'lo de después del «:» es el mensaje');
@@ -170,9 +186,14 @@ test('el texto: lo que se ve es lo que sale; «sí, dale» no es el mensaje; el 
     assert.ok('error' in textoDeEnvio(t, 'whatsapp', u), `«${u}» sólo aceptaba: «${t}» no es el mensaje`);
   }
   assert.deepEqual(textoDeEnvio('Sí', 'whatsapp', 'dale, contéstale que sí'), { texto: 'Sí' });
+  // La orden que ABRE el pedido dicta lo que sigue (cuarta revisión): «respóndele sí» manda «Sí».
+  for (const [t, u] of [['Sí', 'respóndele sí'], ['Ok', 'contéstale ok'], ['Dale', 'dile dale'], ['Listo', 'mándale listo'], ['Sí', 'respóndele: sí']]) {
+    assert.deepEqual(textoDeEnvio(t, 'whatsapp', u), { texto: t }, `«${u}» dicta «${t}»`);
+  }
+  assert.ok('error' in textoDeEnvio('Ya', 'whatsapp', 'mándale ya'), '«mándale ya» dice cuándo, no qué');
   // Un corte por tiempo no es «no salió».
-  for (const e of ['The operation was aborted due to timeout', 'Request timed out', 'AbortError: This operation was aborted']) assert.equal(esCortePorTiempo(e), true, e);
-  for (const e of ['Ese número no tiene WhatsApp', 'el contacto está bloqueado', null]) assert.equal(esCortePorTiempo(e), false, String(e));
+  for (const e of ['The operation was aborted due to timeout', 'Request timed out', 'AbortError: This operation was aborted', 'fetch failed', 'read ECONNRESET', 'socket hang up']) assert.equal(esEnvioIncierto(e), true, e);
+  for (const e of ['Ese número no tiene WhatsApp', 'el contacto está bloqueado', 'connect ECONNREFUSED 10.0.0.1:8080', 'getaddrinfo ENOTFOUND evo', null]) assert.equal(esEnvioIncierto(e), false, String(e));
 
   const id = (canal: IdentidadCanal['canal'], o: Partial<IdentidadCanal> = {}): IdentidadCanal => ({ canal, cuenta: null, rotulo: canal, destino: null, ref: `${canal}-ref`, telefono: null, ultimaFecha: null, puedeEscribir: true, motivoNoEscribir: null, bloqueado: false, ...o });
   const wa = identidadParaEnviar([id('whatsapp', { cuenta: 'ventas' }), id('whatsapp', { cuenta: 'soporte' })], 'whatsapp', 'soporte');
@@ -196,18 +217,18 @@ test('las puertas: el borrador entero y no bloqueado, DM y email por el camino d
   assert.match(wa, /\.\.\.\(b\.texto \? \{ texto: b\.texto \} : \{\}\)/, 'el borrador por id lleva el texto ENTERO a la tarjeta');
   assert.match(wa, /if \(!b\.texto && !b\.adjunto\) return \{ error:/, 'sin texto ni adjunto no se propone');
   assert.match(wa, /if \(b\.texto\.length > TOPE_TEXTO_ENVIO\.whatsapp\) return \{ error:/, 'un borrador más largo que la tarjeta se manda desde Chats');
-  assert.match(wa, /if \(await estaBloqueadoPorUltimos10\(b\.telefono\)\) return \{ error:/);
-  assert.match(wa, /if \(esCortePorTiempo\(r\.error\)\) return \{ ok: false, resumen: `No sé si salió/, 'WhatsApp: un corte por tiempo no es «no salió»');
+  assert.match(wa, /if \(await estaBloqueadoEstricto\(b\.telefono\)\) return \{ error:/);
+  assert.match(wa, /if \(esEnvioIncierto\(r\.error\)\) return \{ ok: false, resumen: `No sé si salió/, 'WhatsApp: un corte no es «no salió»');
   assert.match(wa, /if \(r\.error === 'el borrador ya no está pendiente'\) return \{ ok: false, resumen: `Ese borrador ya salió o se descartó/, '«no salió» sólo cuando no salió');
   for (const op of ENVIAN) assert.match(cuerpo(op), /canalNombradoNoCoincide\(ctx\.mensajeUsuario, /, `${op}: el canal lo decide la cosa nombrada`);
   const camino = leer('lib/borrador-camino.ts');
-  assert.match(camino, /if \(await estaBloqueadoPorUltimos10\(b\.telefono\)\) return \{ ok: false, error: 'el contacto está bloqueado' \};/, 'el bloqueo, en la puerta de /chats, /whatsapp y MaKo');
+  assert.match(camino, /if \(await estaBloqueadoEstricto\(b\.telefono\)\) return \{ ok: false, error: 'el contacto está bloqueado' \};/, 'el bloqueo, en la puerta de /chats, /whatsapp y MaKo');
   assert.match(cuerpo('contestar_dm'), /idem: claveDeDm\(Number\(i\.identidad\.ref\), t\.texto, ctx\.turnStart\)/);
   assert.match(cuerpo('contestar_dm'), /await enviarManualSocial\(\{ convId: Number\(payload\.convId\), texto: String\(payload\.texto \?\? ''\), idempotencia:/);
   const email = cuerpo('contestar_email_chat');
   assert.match(email, /await enviarEmailDeChat\(\{/);
   assert.match(email, /if \(\/\^Salió\/\.test\(r\.error\)\) return \{ ok: true,/, 'salió pero no quedó en el hilo: salió');
-  assert.match(email, /if \(esCortePorTiempo\(r\.error\)\) return \{ ok: false, resumen: `No sé si salió/, 'email: un corte por tiempo no es «no salió»');
+  assert.match(email, /if \(esEnvioIncierto\(r\.error\)\) return \{ ok: false, resumen: `No sé si salió/, 'email: un corte no es «no salió»');
   const alta = cuerpo('agregar_contacto_al_crm');
   assert.match(alta, /crearLeadDeConversacionSocial\(Number\(payload\.convId\), funnelId\)/);
   assert.match(alta, /origen_lead: ORIGEN_LEAD\.chat_whatsapp\.id, funnel_id: destino\.casa/, 'el mismo origen y la misma casa que «Agregar al CRM» de /chats');
@@ -226,6 +247,9 @@ test('ejecutando (tests/_chats-envio-hijo.ts): qué borrador sale, el bloqueo en
   assert.equal(r.reuso.sinTexto.creados.length, 1, 'sin uno de texto de su línea, crea uno');
   assert.deepEqual(r.reuso.sinTexto.creados[0], { id: r.reuso.sinTexto.elegido, instance_name: null, audio_id: null, origen: 'mako' }, 'y sale ése, sin audio');
   assert.equal(r.reuso.otraLinea.elegido, r.reuso.otraLinea.esperado, 'con la línea 2 pedida, el de la línea 2');
+  assert.equal(r.reuso.otroPais.creados.length, 1, 'el borrador de +1 551 234 5678 no es el de +52 1 55 1234 5678: se crea otro');
+  assert.equal(r.reuso.mismoMexico.elegido, r.reuso.mismoMexico.esperado, 'el 521 y el 52 son la misma persona: se reusa');
+  assert.deepEqual(r.reuso.mismoMexico.creados, []);
   // La puerta única: el bloqueo en las dos formas del número.
   for (const k of ['bloqueoConPais', 'bloqueoCon9', 'bloqueoLocal']) assert.deepEqual(r.puerta[k], { ok: false, error: 'el contacto está bloqueado' }, k);
   assert.notEqual(r.puerta.otroNumero.error, 'el contacto está bloqueado', 'otro número no está bloqueado');
@@ -241,6 +265,12 @@ test('las otras puertas de confirmación muestran ENTERO lo que sale: la bandeja
   const b = leer('app/mako/pendientes/BandejaPendientes.tsx');
   assert.match(b, /const lineas = lineasDelPayload\(payload\);/, 'la bandeja pinta con las mismas líneas que la tarjeta y el teléfono');
   assert.doesNotMatch(b, /MAX_VALOR|\.slice\(0, \d+\)/, 'lo que se aprueba no se recorta');
+  // Una lista de objetos: una fila por elemento, legible (cuarta revisión: era «Cambios: 2 elementos» y se confirmaba sin
+  // ver qué texto entraba en el diseño).
+  assert.deepEqual(lineasDelPayload({ disenoId: 3, cambios: [{ de: 'Oferta 50% OFF', a: 'Oferta 70% OFF' }, { de: 'Hoy', a: 'Mañana' }] }), [
+    { rotulo: 'Cambios 1', valor: 'De: Oferta 50% OFF · A: Oferta 70% OFF' },
+    { rotulo: 'Cambios 2', valor: 'De: Hoy · A: Mañana' },
+  ]);
   const largo = 'a'.repeat(MAX_TEXTO - 3) + 'FIN';
   assert.equal(lineasDelPayload({ borradorId: 4, numero: '+542233550684', texto: largo }).find((l) => l.valor.endsWith('FIN'))?.valor.length, MAX_TEXTO, 'el texto entero, hasta el final');
 });
