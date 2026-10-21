@@ -17,7 +17,7 @@ import dynamic from 'next/dynamic';
 import Link, { useWs } from '@/app/_ui/Link';
 import { RedDeBloque } from '@/app/dashboard/RedDeBloque';
 import { conWs } from '@/lib/ws-tab';
-import { MAX_CONSULTAS, ROTULO_PASO, leerConsulta, proporcion, razon, type Bloque, type BloqueCreado } from '@/lib/chat-bloques';
+import { ELIGE_TU_PREGUNTA, MAX_CONSULTAS, ROTULO_PASO, SALTEAR_PREGUNTA, leerConsulta, proporcion, razon, type Bloque, type BloqueCreado } from '@/lib/chat-bloques';
 import { esBloqueWeb } from '@/lib/editor-landing/bloques-web';
 
 /** Los bloques del Web Generator (la tarjeta de una landing, elegir entre 3, lo publicado, el dominio), aparte: traen la
@@ -211,8 +211,8 @@ function PreguntaHilo({ b, onResponder, respondida, ocupado }: { b: Pregunta; on
             <button type="button" className="ch-abrir" disabled={quieta || !marcadas.length}
               onClick={() => responder(marcadas.slice().sort((x, y) => x - y).map((i) => b.opciones[i].titulo).join(', '))}>Listo</button>
           )}
-          <button type="button" className="ch-enlace" disabled={quieta} onClick={() => responder('Elige tú')}>Elige tú</button>
-          <button type="button" className="ch-enlace" disabled={quieta} onClick={() => responder('Saltear')}>Saltear</button>
+          <button type="button" className="ch-enlace" disabled={quieta} onClick={() => responder(ELIGE_TU_PREGUNTA)}>{ELIGE_TU_PREGUNTA}</button>
+          <button type="button" className="ch-enlace" disabled={quieta} onClick={() => responder(SALTEAR_PREGUNTA)}>{SALTEAR_PREGUNTA}</button>
         </div>
       ) : <p className="ch-tarjeta__nota">{`Respondiste: ${dicha}`}</p>}
     </div>
