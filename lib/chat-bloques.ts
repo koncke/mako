@@ -31,6 +31,7 @@
 //    no calza se descarta entero: un bloque a medias no se dibuja.
 
 import { sanearBloqueWeb, type BloqueWeb } from './editor-landing/bloques-web';
+import { sanearBloqueGrafico, type BloqueGrafico } from './chat-bloques-dashboard';
 
 /** El botón que lleva a la pantalla donde vive lo creado. */
 export type Abrir = { titulo: string; href: string };
@@ -65,7 +66,9 @@ export type Bloque =
   | { t: 'pregunta'; pregunta: string; opciones: { titulo: string; detalle?: string }[]; recomendada?: number; varias?: boolean }
   /** Los del Web Generator (1.12 y 1.13): la tarjeta de una landing, elegir entre 3, lo publicado y el dominio. Sus tipos
    *  y su saneo viven en lib/editor-landing/bloques-web.ts; los dibuja app/web-generator/BloqueWeb.tsx. */
-  | BloqueWeb;
+  | BloqueWeb
+  /** G16 (y la tabla, que es un gráfico de tipo tabla): una pregunta del Dashboard, dibujada (lib/chat-bloques-dashboard.ts). */
+  | BloqueGrafico;
 
 /** Lo que se guarda en `chart_chats.bloques` al lado de los adjuntos (lib/chat-mako-bloques.ts, `k: 'adjunto'`). */
 export type BloqueGuardado = { k: 'bloque'; b: Bloque };
@@ -181,6 +184,9 @@ export function sanearBloque(crudo: unknown): Bloque | null {
       const recomendada = typeof rec === 'number' && Number.isInteger(rec) && rec >= 0 && rec < opciones.length ? rec : undefined;
       return { t: 'pregunta', pregunta, opciones, ...(recomendada !== undefined ? { recomendada } : {}), ...(o.varias === true ? { varias: true } : {}) };
     }
+    case 'grafico':
+      // El Dashboard (chat Dashboard, 2.7): el gráfico contra el catálogo y su resultado acotado. Con el `sanearAbrir` de acá.
+      return sanearBloqueGrafico(o, sanearAbrir);
     default:
       // Los de un área (el Web Generator): su propio saneo, con el mismo criterio. Un tipo que no es de nadie, null.
       return sanearBloqueWeb(o, rutaInterna);

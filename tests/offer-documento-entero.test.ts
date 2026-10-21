@@ -114,7 +114,10 @@ test('4 · la ruta guarda el documento entero y lo lee por partes en los tres ca
   // La transcripción de un audio largo, ANTES del CAS.
   const turno = fn('turno');
   assert.ok(turno.indexOf("await leerPorPartes(transcripcion, 'Transcripción del audio', inicio)") < turno.indexOf('await actualizarSesion(sesionId, (f) => {'));
-  assert.match(turno, /\.\.\.\(audioPorPartes \? \{ lectura: audioPorPartes\.lectura, partes: audioPorPartes\.partes \} : \{\}\),/);
+  // Desde el 20/10/2026 el mismo documento sirve para un texto escrito largo (repartirTextoLargo): `porPartes` es el del
+  // audio o el del texto (tests/offer-texto-largo.test.ts).
+  assert.match(turno, /const porPartes = transcripcion \? audioPorPartes : textoPorPartes;/);
+  assert.match(turno, /\.\.\.\(porPartes \? \{ lectura: porPartes\.lectura, partes: porPartes\.partes \} : \{\}\),/);
   // Nadie más corta en 40.000.
   assert.doesNotMatch(ruta, /(?<!\d)40_000|slice\(0, 40/);
   // Cada parte la lee la IA con su prompt, registrado y editable.

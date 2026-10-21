@@ -81,10 +81,12 @@ export async function ejecutarOperacion(
         if (typeof cruda === 'string') return { ok: true, tipo: 'lectura', salida: def.salida, resultado: cruda };
         if (cruda.isError) return { ok: false, status: 400, error: cruda.content };
         // Lo que la lectura DIBUJA (lib/chat-bloques.ts) va a la pantalla por el canal del código, saneado; el modelo
-        // recibe sólo `content`. Sin `aDibujar` (WhatsApp, HTTP) se descarta.
+        // recibe sólo `content`. Sin `aDibujar` (WhatsApp, HTTP) se descarta. `siSeDibuja` va sólo si se dibujó: un saneo
+        // que lo descarta o el tope de bloques del turno (`aDibujar` da `false`) no se lo dicen al modelo.
         const bloque = cruda.bloque && ctx.aDibujar ? sanearBloque(cruda.bloque) : null;
-        if (bloque) ctx.aDibujar?.(bloque);
-        return { ok: true, tipo: 'lectura', salida: def.salida, formato: cruda.formato, headers: cruda.headers, resultado: cruda.content };
+        const dibujado = bloque ? ctx.aDibujar?.(bloque) !== false : false;
+        const resultado = dibujado && cruda.siSeDibuja ? `${cruda.content}\n\n${cruda.siSeDibuja}` : cruda.content;
+        return { ok: true, tipo: 'lectura', salida: def.salida, formato: cruda.formato, headers: cruda.headers, resultado };
       }
 
       if (esControl(def)) {

@@ -39,6 +39,10 @@
 //
 // ⚠️ LA HORA DE CADA BURBUJA SE PIDE DESPUÉS DE MONTAR (`montado`): sale de la zona horaria de quien
 // la calcula, y el HTML del server la diría distinta del navegador (la hidratación falla).
+// EL ONBOARDING VA CON LA CAJA DEL OPS CENTER (20/10/2026, pedido del 18/10, punto 3): OfferApp la arma
+// (la caja única, app/_chat/CajaChat.tsx, desde el 21/10) y llega por `caja`, en lugar de la barra de WhatsApp; los archivos se juntan arriba del texto y no
+// en la vista previa. NO se importa acá: este archivo lo carga un test en node y esas piezas traen .css.
+//
 // ⚠️ `data-esquina-ocupada` en la tarjeta: la ➤ y el micrófono viven en el rincón de abajo a la
 // derecha, y sin la marca la esquina de los avisos los tapa (AGENTS.md).
 
@@ -149,7 +153,7 @@ export type AudioEnEspera = { url: string; secs: number };
 export function ChatOffer({
   sesion, pendiente, respondiendo, fuente, opcionArmar, opcionActualizar, opcionesHabilitadas, onOpcion, onVarias, onReintentar,
   texto, onTexto, onEnviar, ocupado, vista, onArchivos, onAudio, audioEnEspera, onReenviarAudio, onDescartarAudio,
-  error, onError, armando = null, onVerOferta = null, avatar, extra, soloTexto = false, placeholder, errorExtra,
+  error, onError, armando = null, onVerOferta = null, avatar, extra, soloTexto = false, placeholder, errorExtra, caja = null,
 }: {
   sesion: OfferSesionVista;
   /** El mensaje del dueño ya dibujado mientras MaKo contesta (optimista). */
@@ -206,6 +210,8 @@ export function ChatOffer({
   placeholder?: string;
   /** Lo que va debajo del error (en el arranque, conectar una IA propia si la de MaKo no contesta). */
   errorExtra?: ReactNode;
+  /** La caja de escribir del Ops Center, ya armada (el onboarding: la caja única, app/_chat/CajaChat.tsx). null = la barra de WhatsApp. */
+  caja?: ReactNode | null;
 }) {
   const ws = useWs();
   const montado = useSyncExternalStore(sinSuscripcion, () => true, () => false);
@@ -384,20 +390,24 @@ export function ChatOffer({
   };
 
   // Soltar archivos sobre el chat hace lo mismo que el clip.
+  // Con sólo texto (el arranque pregunta el nombre o un código) no se adjunta: soltar no hace nada.
+  // Pero el archivo se frena SIEMPRE (revisión del Cerebro, 20/10): sin preventDefault Chrome lo abre en la pestaña y el
+  // dueño pierde el onboarding.
   const alArrastrar = (e: DragEvent<HTMLDivElement>) => {
-    if (ocupado || !Array.from(e.dataTransfer?.types ?? []).includes('Files')) return;
+    if (!Array.from(e.dataTransfer?.types ?? []).includes('Files')) return;
     e.preventDefault();
+    if (soloTexto || ocupado) return;
     if (!encima) setEncima(true);
   };
   const alSoltar = (e: DragEvent<HTMLDivElement>) => {
     if (!e.dataTransfer?.files?.length) return;
     e.preventDefault();
     setEncima(false);
-    if (!ocupado) onArchivos(Array.from(e.dataTransfer.files));
+    if (!soloTexto && !ocupado) onArchivos(Array.from(e.dataTransfer.files));
   };
 
   return (
-    <div className="of-hilo" data-esquina-ocupada data-encima={encima || undefined}
+    <div className="of-hilo" data-esquina-ocupada data-encima={(encima && !caja) || undefined}
       onDragOver={alArrastrar} onDragLeave={() => setEncima(false)} onDrop={alSoltar}
       style={{
         flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative',
@@ -419,10 +429,12 @@ export function ChatOffer({
           />
         </div>
       </div>
+      {/* Con la caja del Ops Center, su cartel de soltar (centro.css → .co-soltar). */}
+      {encima && caja && <div className="co-soltar" aria-hidden>Suelta para adjuntar</div>}
       {error && <div role="alert" className="of-error">{error}{errorExtra ? <> {errorExtra}</> : null}</div>}
       {/* La barra va POR CONVERSACIÓN (`key`): una grabación a medias no viaja a otra (la sesión de voz
           guarda el `onAudio` del render en que se apretó el 🎤: ComposerWhatsApp, cabecera). */}
-      <ComposerWhatsApp
+      {caja ?? <ComposerWhatsApp
         key={sesion.id}
         modo="enviar"
         valor={texto}
@@ -436,7 +448,7 @@ export function ChatOffer({
         audioPendiente={audioEnEspera
           ? { url: audioEnEspera.url, secs: audioEnEspera.secs, onDescartar: onDescartarAudio, onUsar: onReenviarAudio, rotuloUsar: 'Enviar audio' }
           : null}
-      />
+      />}
       <input ref={inputFoto} type="file" multiple accept={ACCEPT_FOTO} onChange={elegidos} hidden />
       <input ref={inputDoc} type="file" multiple accept={ACCEPT_IMPORTAR} onChange={elegidos} hidden />
       {/* La vista previa, como en WhatsApp Web: tapa el área del chat (hilo + barra) con `inset: 0`. */}

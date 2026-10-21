@@ -269,6 +269,7 @@ export function sanearMensajes(raw: unknown): MensajeGuardado[] {
     const opciones = Array.isArray(o.opciones) ? o.opciones.filter((x): x is string => typeof x === 'string' && !!x.trim()) : [];
     const pregunta = de === 'mako' ? sanearPregunta(o.pregunta) : undefined;
     const respuesta = de === 'yo' ? sanearRespuesta(o.respuesta) : undefined;
+    const linksSinLeer = de === 'yo' ? sanearLinksSinLeer(o.linksSinLeer) : [];
     const pdf = de === 'mako' ? sanearPdf(o.pdf) : undefined;
     // Sin esta línea la selección múltiple se veía al llegar el turno y se perdía al reabrir la conversación.
     const varias = de === 'mako' && !pregunta && opciones.length > 1 && o.varias === true;
@@ -280,10 +281,17 @@ export function sanearMensajes(raw: unknown): MensajeGuardado[] {
       ...(audio ? { audio } : {}),
       ...(pregunta ? { pregunta } : {}),
       ...(respuesta ? { respuesta } : {}),
+      ...(linksSinLeer.length ? { linksSinLeer } : {}),
       ...(pdf ? { pdf } : {}),
     });
   }
   return out;
+}
+
+/** Los links que no abrieron, como los manda la pantalla o los guarda la base: sólo http(s), cinco como mucho. */
+export function sanearLinksSinLeer(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return [...new Set(raw.filter((x): x is string => typeof x === 'string' && /^https?:\/\/\S+$/i.test(x.trim()) && x.length <= 500).map((x) => x.trim()))].slice(0, 5);
 }
 
 /** El PDF de una versión, en un mensaje de MaKo: sólo una versión entera y positiva. */
@@ -918,6 +926,35 @@ export function repartirTranscripcion(
       texto: transcripcion.slice(0, opts.topeDoc),
       chars: transcripcion.length,
       ...(recortado ? { aviso: `La transcripción tiene ${transcripcion.length.toLocaleString('es-MX')} caracteres: guardé los primeros ${opts.topeDoc.toLocaleString('es-MX')}.` } : {}),
+    },
+  };
+}
+
+/** El nombre del documento que guarda un mensaje escrito más largo que el chat. */
+export const NOMBRE_DOC_TEXTO_LARGO = 'Tu mensaje largo';
+
+/** Lo que queda en el chat de un texto largo: su principio. Es también lo que mira la guardia del onboarding (el insulto). */
+export const PRINCIPIO_TEXTO_LARGO = 1_500;
+
+/**
+ * Un mensaje ESCRITO más largo que el tope del chat (20/10/2026, Florencia, ws21: el texto que armó con ChatGPT tenía
+ * 21.629 caracteres, rebotó con «Súbelo como documento» y tardó 12 minutos en armar un .docx). Va por el camino del audio
+ * (`repartirTranscripcion`): el texto ENTERO queda como documento de la conversación y el mensaje lleva el principio y lo
+ * dice. null = la conversación ya no admite documentos: cortarlo en silencio sería peor que decirlo.
+ */
+export function repartirTextoLargo(
+  texto: string, opts: { tope: number; topeDoc: number; docsLibres: number; inicio?: number },
+): { cuerpo: string; doc: { texto: string; chars: number; aviso?: string } | null } | null {
+  if (texto.length <= opts.tope) return { cuerpo: texto, doc: null };
+  if (opts.docsLibres <= 0) return null;
+  const principio = recortar(texto, Math.min(opts.inicio ?? PRINCIPIO_TEXTO_LARGO, opts.tope));
+  const recortado = texto.length > opts.topeDoc;
+  return {
+    cuerpo: `${principio}\n\n(Tu mensaje sigue entero en el documento «${NOMBRE_DOC_TEXTO_LARGO}».)`,
+    doc: {
+      texto: texto.slice(0, opts.topeDoc),
+      chars: texto.length,
+      ...(recortado ? { aviso: `Tu mensaje tiene ${texto.length.toLocaleString('es-MX')} caracteres: guardé los primeros ${opts.topeDoc.toLocaleString('es-MX')}.` } : {}),
     },
   };
 }
@@ -2700,7 +2737,7 @@ export const TOPE_DOCS_PROMPT = 24_000;
  * modelo lee como dato.
  */
 /** Lo que el prompt lee de un mensaje: le da igual si es la forma guardada o la de la pantalla. */
-export type MensajeParaPrompt = Pick<OfferMensaje, 'de' | 'texto' | 'adjuntos'> & { audio?: unknown };
+export type MensajeParaPrompt = Pick<OfferMensaje, 'de' | 'texto' | 'adjuntos' | 'linksSinLeer'> & { audio?: unknown };
 
 export function conversacionParaPrompt(mensajes: MensajeParaPrompt[], max = MAX_MENSAJES_PROMPT): string {
   const ult = mensajes.slice(-max);
@@ -2708,11 +2745,13 @@ export function conversacionParaPrompt(mensajes: MensajeParaPrompt[], max = MAX_
     // «por audio»: el texto es una transcripción, y el modelo tiene que poder dudar de una palabra rara.
     const quien = m.de === 'yo' ? (m.audio ? 'DUEÑO (por audio)' : 'DUEÑO') : 'MaKo';
     const adj = m.adjuntos?.length ? ` (adjuntó: ${m.adjuntos.map((a) => a.nombre).join(', ')})` : '';
+    // Un link que no abrió, dicho (20/10/2026, Florencia): sin esto MaKo dijo «vi tu Instagram» infiriéndolo del nombre.
+    const sinLeer = m.de === 'yo' && m.linksSinLeer?.length ? ` (NO se pudo abrir: ${m.linksSinLeer.join(', ')}; no lo viste)` : '';
     const cuerpo = (m.texto ?? '').trim() || (m.adjuntos?.length ? '(mandó documentos sin texto)' : '(vacío)');
     // Lo del DUEÑO va entero hasta el tope que acepta la ruta (12.000, TOPE_MENSAJE en
     // app/api/offer/route.ts): recortarlo a 2.000 guardaba el mensaje y nunca se lo leía al modelo,
     // que preguntaba por el precio que estaba en el tramo cortado. Lo de MaKo es corto por construcción.
-    return `${quien}${adj}: ${recortar(cuerpo, m.de === 'yo' ? 12_000 : 2_000)}`;
+    return `${quien}${adj}${sinLeer}: ${recortar(cuerpo, m.de === 'yo' ? 12_000 : 2_000)}`;
   });
   if (mensajes.length > ult.length) lineas.unshift(`(Se omiten los ${mensajes.length - ult.length} mensajes más viejos.)`);
   return lineas.join('\n');
@@ -2797,6 +2836,78 @@ export const guiaParaPrompt = (): string =>
  * preguntas de esas piezas, en el orden de la de Offer, y lo que falta son sólo ellas: con la lista entera
  * (`piezasParaPrompt`), el modelo se pondría a preguntar por la garantía o el costo, que son del análisis.
  */
+// ── El corte del onboarding (20/10/2026, Florencia, ws21) ─────────────────────────────────────────────────────────
+/**
+ * Que la conversación del ONBOARDING terminó lo decide el CÓDIGO, nunca el modelo. Florencia (18/10): con las tres piezas
+ * anotadas a las 22:43:34, MaKo siguió 6 preguntas y 10 minutos más, y antes le preguntó el precio 4 veces; el «listo» del
+ * modelo se parseaba y nadie lo leía. Con `faltanDelArranque` vacío, el mensaje es éste, diga lo que diga el modelo.
+ */
+export const CIERRE_DEL_ARRANQUE = '¡Gracias!';
+export function mensajeDeCierreDelArranque(id: string, at: string): MensajeSinAudio {
+  return { id, de: 'mako', texto: CIERRE_DEL_ARRANQUE, at };
+}
+
+/** Cuántas veces se pregunta una pieza del onboarding antes de anotarla «sin dato» y seguir. */
+export const REPREGUNTAS_DEL_ARRANQUE = 2;
+
+/**
+ * Cómo se reconoce que MaKo pregunta por cada pieza del onboarding (sin tildes). El del precio es estricto a propósito:
+ * «¿Cuántas personas ya pagaron?» no pregunta el precio (revisión del Cerebro, 20/10).
+ */
+const PREGUNTA_POR: Partial<Record<PiezaKey, RegExp>> = {
+  entregables: /que (?:vend|ofrec|haces|incluye|recibe)|vendes|ofreces|servicio|producto|programa|entrega|te dedicas/,
+  cliente: /client|para quien|a quien|publico|perfil|se dedican|ideal/,
+  precio: /cobr|precio|cuesta|tarifa|cuotas?|cuanto (?:te )?(?:sale|vale|pag)|como (?:te )?pag|forma de pago|inversion/,
+};
+
+/**
+ * El tope de repreguntas del onboarding. La pieza que se está preguntando es la primera que falta en el orden de la guía
+ * (el prompt pide ese orden: `guiaDelArranque`). Si desde la última pieza anotada MaKo ya la preguntó
+ * `REPREGUNTAS_DEL_ARRANQUE` veces y el dueño contestó cada una sin que se anotara nada (un «depende», un «varía»), esa
+ * pieza queda «sin dato:» y no se vuelve a preguntar. Sin el texto del dueño, a propósito: lo que dijo queda igual en la
+ * conversación (la tab Offer lo lee).
+ * ⚠️ Cuenta sólo las preguntas POR ESA PIEZA (`PREGUNTA_POR`) y nunca el pedido de documento (revisión del Cerebro, 20/10):
+ *    con el pedido contado, «qué vendes» quedaba «sin dato» después de una sola pregunta de verdad; y dos preguntas por otra
+ *    cosa dejaban el precio «sin dato» sin que nadie lo hubiera preguntado.
+ */
+export function conTopeDelArranque(piezas: PiezasSabidas, mensajes: ReadonlyArray<{ de: string; texto: string; at?: string }>, at: string): PiezasSabidas {
+  const falta = PREGUNTAS_GUIA.find((q) => PIEZAS_DEL_ARRANQUE.includes(q.pieza) && !piezaAnotada(piezas, q.pieza))?.pieza;
+  if (!falta) return piezas;
+  const porLaPieza = PREGUNTA_POR[falta];
+  const desde = Math.max(0, ...PIEZAS_DEL_ARRANQUE.map((k) => Date.parse(piezas[k]?.at ?? '') || 0));
+  let preguntas = 0;
+  let abierta = false;
+  for (const m of mensajes) {
+    if ((Date.parse(m.at ?? '') || 0) < desde) continue;
+    if (m.de === 'mako') {
+      const t = normalizar(m.texto);
+      abierta = m.texto.includes('?') && !m.texto.includes(PEDIDO_DOCUMENTO) && !!porLaPieza?.test(t);
+    } else if (m.de === 'yo' && abierta) { preguntas += 1; abierta = false; }
+  }
+  return preguntas >= REPREGUNTAS_DEL_ARRANQUE ? mergePiezas(piezas, { [falta]: 'sin dato:' }, 'chat', at) : piezas;
+}
+
+/**
+ * Las respuestas rápidas del onboarding (20/10/2026, Florencia, ws21). Una opción tocada se anota como si la hubiera
+ * dicho el dueño: los rangos de precio que inventó MaKo («Entre $100 y $300 USD») terminaron siendo su precio, y la ÚNICA
+ * opción de un turno («Un plan de trabajo con hitos…») terminó siendo la 1ª sección de su PDF. Se va la que trae un
+ * número que el dueño no dijo (ni en sus mensajes ni en sus documentos), y con menos de dos no se ofrece ninguna: una
+ * sola opción no es elegir, es contestar por él.
+ */
+export function opcionesDelArranque(opciones: readonly string[] | undefined, dichoPorElDueno: readonly string[]): string[] {
+  const suyos = new Set(dichoPorElDueno.flatMap(numerosDe));
+  const sirven = (opciones ?? []).filter((o) => numerosDe(o).every((n) => suyos.has(n)));
+  return sirven.length >= 2 ? sirven : [];
+}
+
+/** El mensaje de MaKo del onboarding con sus respuestas rápidas filtradas (`opcionesDelArranque`). */
+export function conOpcionesDelArranque(m: MensajeSinAudio, dichoPorElDueno: readonly string[]): MensajeSinAudio {
+  if (!m.opciones?.length || m.pregunta) return m;
+  const { opciones: propuestas, varias, ...resto } = m;
+  const opciones = opcionesDelArranque(propuestas, dichoPorElDueno);
+  return { ...resto, ...(opciones.length ? { opciones } : {}), ...(varias && opciones.length > 1 ? { varias: true as const } : {}) };
+}
+
 export const guiaDelArranque = (): string =>
   PREGUNTAS_GUIA.filter((q) => PIEZAS_DEL_ARRANQUE.includes(q.pieza)).map((q, i) => `${i + 1}. [${q.pieza}] ${q.pregunta}`).join('\n');
 

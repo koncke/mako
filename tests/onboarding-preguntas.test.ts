@@ -38,8 +38,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   extraerNombre, extraerNegocio, etapaDeArranque, mensajesDeArranque, leerRespuesta, interesDe, rutaDeEntrada, RUTA_AL_TERMINAR,
-  ORIGENES, INTERESES, CLAVE_ENCUESTA, type EstadoArranque, type HechosArranque,
+  ORIGENES, INTERESES, CLAVE_ENCUESTA, NOMBRE_CONFIRMAR, type EstadoArranque, type HechosArranque,
 } from '../lib/onboarding-arranque';
+import { preguntaQueContesta } from '../app/onboarding/arranque-ui';
 
 const RAIZ = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -73,14 +74,20 @@ test('el nombre se entiende: «Soy Martín» es Martín, no «Soy»', () => {
 });
 
 test('la respuesta del nombre: lo que se guarda, lo que dice MaKo después y el negocio que ofrece', () => {
-  const r = leerRespuesta({}, H, { texto: 'Soy Martín, de Acme' });
+  // El perfil de H es un email: lo leído va al perfil y se confirma con un toque (quinta revisión, 21/10).
+  const leido = leerRespuesta({}, H, { texto: 'Soy Martín, de Acme' });
+  assert.ok(leido.ok);
+  if (!leido.ok) return;
+  assert.deepEqual(leido.patch, { nombrePorConfirmar: { escrito: 'Soy Martín, de Acme', nombre: 'Martín' }, negocioSugerido: 'Acme' });
+  const r = leerRespuesta(leido.patch, H, { opcion: 0, opcionTexto: NOMBRE_CONFIRMAR[0], ...preguntaQueContesta(mensajesDeArranque(leido.patch, H)) });
   assert.ok(r.ok);
   if (!r.ok) return;
-  assert.deepEqual(r.patch, { nombre: 'Martín', negocioSugerido: 'Acme' });
-  const { antes } = mensajesDeArranque(r.patch, H);
+  assert.deepEqual(r.patch, { nombre: 'Martín', nombrePorConfirmar: undefined });
+  const { antes } = mensajesDeArranque({ ...leido.patch, ...r.patch }, H);
   const pregunta = antes[antes.length - 1];
   assert.equal(pregunta.texto, 'Un gusto, Martín. ¿Cómo se llama tu negocio?');
-  // Desde el 18/10/2026 (14:00) el negocio se escribe: sin respuestas rápidas, ni la que nombró con su nombre.
+  // El que nombró con su nombre («de Acme») no se ofrece (20/10/2026: «Martín de Córdoba» ofrecía «Córdoba»), y un email
+  // del alta tampoco.
   assert.equal(pregunta.opciones, undefined);
   // «hola» no es un nombre: se pide de nuevo, sin guardar nada.
   const mal = leerRespuesta({}, H, { texto: 'hola' });
@@ -94,8 +101,9 @@ test('el negocio se entiende sin la frase alrededor', () => {
   assert.equal(extraerNegocio('Mi negocio es Acme.'), 'Acme');
   assert.equal(extraerNegocio('La empresa se llama Clínica Sonrisa'), 'Clínica Sonrisa');
   assert.equal(extraerNegocio('Acme'), 'Acme');
+  // Lo entendido se confirma antes de escribirse (20/10/2026): tests/onboarding-nombre-negocio.test.ts.
   const r = leerRespuesta({ nombre: 'Martín' }, H, { texto: 'se llama Acme' });
-  assert.deepEqual(r, { ok: true, patch: { negocio: 'Acme' } });
+  assert.deepEqual(r, { ok: true, patch: { negocioPorConfirmar: { escrito: 'se llama Acme', nombre: 'Acme' } } });
 });
 
 test('las dos preguntas nuevas van AL FINAL (antes del teléfono), de un toque, y ya no hay objetivo a 90 días', () => {
@@ -135,8 +143,12 @@ test('el nombre y el negocio se escriben: nunca un botón con restos de otra pru
     assert.equal(antes[0].opciones, undefined, `«${cuenta}»`);
   }
   assert.equal(mensajesDeArranque({}, { ...H, nombreCuenta: 'Soy' }).antes[0].opciones, undefined);
+  // El negocio tampoco ofrece nada, ni el nombre del alta ni el que dijo con su nombre (el 20/10 volvió el del alta como
+  // botón; el Cerebro lo retiró esa noche: el pedido de Martín cubre las dos preguntas).
   const negocio = mensajesDeArranque({ nombre: 'Ayelen', negocioSugerido: 'Acme' }, { ...H, nombreWorkspace: 'Consultesis' }).antes;
-  assert.equal(negocio[negocio.length - 1].opciones, undefined, 'el negocio volvió a ofrecer «Consultesis»');
+  assert.equal(negocio[negocio.length - 1].opciones, undefined);
+  const sinNegocio = mensajesDeArranque({ nombre: 'Ayelen' }, { ...H, nombreWorkspace: '' }).antes;
+  assert.equal(sinNegocio[sinNegocio.length - 1].opciones, undefined);
 });
 
 test('el interés: la opción o lo que escriba, y a qué pestaña entra al terminar', () => {
@@ -152,8 +164,8 @@ test('el interés: la opción o lo que escriba, y a qué pestaña entra al termi
   const chat = leer('app/onboarding/ChatArranque.tsx');
   // Desde el 18/10/2026 entra SIEMPRE al Ops Center: el interés queda en la encuesta, no decide la entrada.
   assert.equal(RUTA_AL_TERMINAR, '/second-brain');
-  assert.match(chat, /entrada=\{RUTA_AL_TERMINAR\}/);
-  assert.match(chat, /href=\{modo === 'oferta' \? entrada : '\/plan'\}/);
+  // Desde el 20/10/2026 el botón y el temporizador entran por el mismo `entrar` (revisión del Cerebro).
+  assert.match(chat, /let destino = vista\.modo === 'oferta' \? RUTA_AL_TERMINAR : '\/plan';/);
 });
 
 test('lo que contestó queda para el super admin y la API de MaKo', () => {
