@@ -4209,3 +4209,43 @@ o más (con `--surface-2` da 1,7).
 **Regla:** un color de fondo se prueba contra lo que tiene detrás, no por su nombre. Un test de «usa la variable X»
 no dice que se vea.
 **Vive en:** app/globals.css · lib/tarjeta-kanban.ts · tests/tarjetas-familia.test.ts (§9). *20/10/2026, chat «CRM» (claude4).*
+
+## Una ventana de escritorio CHICA: la red era el layout, y se mide contando (21/10/2026)
+
+Martín: MaKo se rompía apenas la ventana era un poco más angosta que la pantalla completa. Su caso: 60 % de
+1920×1080 con escala 125 %, o sea **934×639 de CSS**. Lo medí en su Chrome, en producción y en el ws3, contando
+textos fuera de la ventana, textos pisados, cortados con «…» y scroll de costado (barra abierta → plegada):
+
+| Ancho | /integraciones | /dashboard | /crm |
+|---|---|---|---|
+| 934 | 38 px de scroll · 5 fuera · 20 cortados → 0 · 0 · 4 | 0 → 0 | 0 → 0 |
+| 1027 | 20 cortados → 1 | 1 pisado · 2 cortados → 0 | 1 px de scroll → 0 |
+| 1283 | 20 cortados → 18 | 1 pisado → 0 | 0 → 0 |
+
+- **El corte es 1200.** Por debajo, la barra arranca plegada a íconos (`ANCHO_BARRA_PLEGADA`, Sidebar.tsx), con la
+  misma regla que el Ops Center: la flecha la fija abierta ahí sin tocar la preferencia guardada. El molde de ajustes
+  (índice de 236 → 196, márgenes de 44 → 26) y el modal de un servicio (panel oscuro de 336 → 236) se angostan en el
+  MISMO corte; un test lo ata.
+- **Lo que la barra no arreglaba era de la página.** Los 20 motivos cortados de «Requiere tu atención» se cortaban
+  también a 1283: eran tarjetas de 300 px con el motivo en una línea. Las grillas con `minmax(Npx, 1fr)` desbordan una
+  columna más angosta que N; con `minmax(min(Npx, 100%), 1fr)` no. Después: 0 cortados a 934, 1027 y 1283.
+- **El panel oscuro del modal no se estiraba a su fila** (medía 566 en una fila de 518 y se cortaba abajo), aunque la
+  grilla tenía `minmax(0, 1fr)`. `max-height: 100%` lo topea a su celda.
+- **Trampas de la medición.** Las miniaturas de las plantillas (vistas previas achicadas con `transform`) aparecen como
+  «textos pisados»: hay que excluirlas o se persigue un fantasma. Un texto con «…» tiene su rectángulo de texto entero
+  aunque se vea cortado: hay que mirar si una caja con `overflow` lo recorta. Y en el Chrome de la extensión, después
+  de cambiar el tamaño de la ventana, sólo una PESTAÑA NUEVA toma el tamaño nuevo: la vieja se queda con el anterior.
+  ⚠️ Con la ventana MAXIMIZADA ni eso: el cambio de tamaño contesta «Successfully resized» y `innerWidth` sigue en el
+  ancho de la pantalla, también en una pestaña nueva (medido el 21/10, chat Dashboard). Ahí se emula el ancho de la
+  caja que importa (el contenedor, calculado con la barra y los márgenes medidos), no el de la ventana.
+
+**Lo del Dashboard era la trampa de arriba, no un pisado** (lo midió el chat Dashboard el mismo 21/10): «Contenido y
+lanzamiento» con «Sugerido» se ve «Contenido y lanza… Sugerido» a 1283 abierta, 1024 y 934 (abierta y plegada), 0
+pisadas. La CAJA del título termina antes del chip (907–1045 contra 1053–1101 a 1283); lo que se cruzaba era el
+rectángulo del TEXTO (907–1079). Lo sostiene el CSS de la tarjeta (`.nh-nombre` con «…», `.nh-sugerido` sin achicarse,
+app/dashboard/NuevaHoja.tsx), atado en tests/plantillas-sugeridas.test.ts.
+**Sin hacer:** la vista de lista del CRM, que Martín vio pisada, es del CRM. Lo de después se midió inyectando estas
+mismas reglas en la página de producción, no en un build.
+
+**Vive en:** `app/_components/Sidebar.tsx` (`ANCHO_BARRA_PLEGADA`) · `app/_ui/ajustes.css` · `app/globals.css`
+(`.mk-svc-modal`) · `app/integraciones/IntegracionesBoard.tsx` · test: `tests/ventana-chica.test.ts`

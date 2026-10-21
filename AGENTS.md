@@ -791,6 +791,11 @@ fuera un hecho. Va en las DOS direcciones, y la segunda es la que no se nota:
   ⚠️ **Y hay números RESERVADOS que no están en ningún árbol.** El 16/10/2026 la 0303 estaba libre en todas las ramas y
   todos los worktrees, y era del Image Editor (0303-0304, reservadas por el coordinador). Con un coordinador
   («Cerebro»), el número se le pide a él antes de nombrar el archivo; el barrido sólo confirma.
+  ⚠️ **Y una migración se aplica en producción RECIÉN DESPUÉS de la revisión del Cerebro** (el Cerebro, 21/10/2026).
+  Ese día la Ticketera escribió `0318_ia_pc` y `0319_ia_pc_consentimiento` mirando sólo main y su rama, sin pedir el
+  número, y las aplicó para probar de punta a punta: la 0318 era de Pagos y la 0319 de Infra, reservadas y por entrar
+  antes. Se renumeraron (0320 y 0321), quedaron idempotentes y con «Aplicada a mano en producción el …» en la cabecera.
+  Si una prueba necesita la tabla antes de la revisión, se pide el número Y el permiso de aplicarla, las dos cosas.
 - ⚠️ **`git add <ruta>` NO acota el commit: se commitea TODO el índice.** Si otra sesión ya
   stageó algo, `git add mi-archivo && git commit` se lo lleva adentro de tu commit, con tu
   mensaje y tu trailer. Pasó el 05/10/2026: un commit de docs salió con una baja ajena de 430
@@ -1871,6 +1876,17 @@ horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, un
   con un plan no se toca; en una suscripción, los meses ya cobrados sueltos son las primeras cuotas y las fechas van
   desde el cierre (como cuenta `cobradoDelLead`); un pago único con un pago previo no se arma. Nunca nace una cuota por
   un mes ya cobrado, y lo que no se hizo vuelve en `sinTocar` y el asistente lo MUESTRA: nada se descarta en silencio.
+- **Lo cobrado de una suscripción se cuenta DE A UNA cobrada, con `mesesDeUnaCobrada`** (lib/cobrado-lead.ts,
+  21/10/2026): lo que se registró COMO la mensualidad (`es_mensualidad`) vale un mes, sea del monto que sea; la plata
+  cuenta sólo para un pago suelto o la pasarela, con el mínimo de un mes; nunca la suma de todas (el desvío se
+  acumula). Cómo se registró lo dice la fila, no su monto. Qué es plata suelta, `esPlataSuelta`; en 'slots' la
+  cuota N es la N-ésima del plan, no la fila con el número N; y qué es un plan lo dice `pagosPrevios`
+  (lib/pagos-campo.ts): ninguna lectura nueva cuenta filas como meses ni arma su propia regla.
+- **Toda fila de `pagos` que no es una cuota del plan NACE MARCADA, y qué es del plan lo dice `esCuotaDelPlan`**
+  (lib/cobrado-lead.ts, 21/10/2026): un pago suelto, una mensualidad a mano y el cobro de un link sin cuota llevan
+  `nacio_cobrada`; la diferencia de un cobro por menos, `resto_de`. Un escritor nuevo de `pagos` marca su fila al
+  insertarla; nunca se adivina por `proveedor` (una cuota del plan cobrada por link también lo tiene), por número ni
+  por fecha. Lo que gana un lead sin pasar por `updateLead` escribe también su `fecha_cierre`.
 - **Los meses se suman con `sumarMeses` (lib/cobrado-lead.ts)**, que topa al último día del mes: `new Date(y, m + n, d)`
   desborda un 29, 30 o 31 (31/10 + 1 mes = 01/12) y un plan de cuotas queda con meses sin cuota y meses con dos.
 
@@ -4699,6 +4715,24 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   bien: si una feature mezcla pedidos con y sin datos de clientes, la marca del catálogo queda como
   default cerrado y quien llama la afina con `pii`, EN POSITIVO (lo que no está revisado la lleva;
   molde: `CAJAS_SIN_DATOS_DE_CLIENTES`, lib/graficos-ia-elemento.ts).
+- ⛔ **D6b: UN NEGOCIO CON SU CLAUDE O SU GPT NO MANDA NADA A GEMINI NI A UNA IA O RED GRATIS** (Martín, 21/10/2026). Un
+  camino del Ops Center que llama a una IA corre adentro de `conSoloSuIA(negocio.suIA, …)` (lib/solo-su-ia.ts; el turno,
+  con `entrarSoloSuIA` después de su primer `await`), con `negocioConSuIA` (lib/ia-del-negocio.ts): por NEGOCIO y
+  fallando cerrado. El corte vive en lib/ai-cheap.ts (`provDe`,
+  `provsGratisDePlataforma`) y en `ordenarPorCuota`: **una lectura nueva de una key barata, o una consulta nueva a un
+  proveedor, pasa por ahí o suma su corte**, y tests/solo-su-ia.test.ts la tiene que ver (corre las entradas REALES de la
+  cascada contra una base de mentira y cuenta a qué hosts sale). El 21/10 el corte obvio (`provDe`) no alcanzó: el orden
+  por cuota ya había leído las keys y le había consultado el saldo a OpenRouter.
+  ⚠️ **Toda ENTRADA que ejecuta trabajo con IA de un negocio prende el contexto ella misma; no lo hereda del turno**
+  (segunda revisión del Cerebro, 21/10/2026): lo que corre al CONFIRMAR una tarjeta va en otro pedido
+  (`confirmarDesdeTarjeta`, la bandeja, /mako/revisar) y los números del negocio iban a Gemini. Una ruta, una server
+  action o un confirmar nuevo envuelve su trabajo en `conSuIADelNegocio(ws, fn)` (lib/ia-del-negocio.ts) o llama a
+  `entrarSoloSuIA` tras leer el negocio; tests/d6b-confirmar.test.ts corre los caminos de confirmar. **Cada handler o
+  acción nueva (también un `'use server'` en lib/, también un cron que corre lo pedido desde el Ops Center) que llega a
+  lib/ai-cheap.ts se decide en tests/d6b-rutas.test.ts**: adentro (con `conSuIADelNegocio`), en `SIN_IA` si no pide IA, o
+  en `FUERA_DE_D6B` con su porqué; lo que alcanzan las pantallas del Ops Center no puede ir afuera. La guarda decide por
+  HANDLER: que el POST de al lado prenda no salva al PATCH nuevo. Y lib/transcribe.ts es otra cascada SIN el corte:
+  envolver la ruta no la protege, así que lo que la alcanza va afuera o en `SIN_IA`, nunca «adentro».
   ⚠️ **Y una key de la plataforma COPIADA en la fila de un negocio no es del negocio** (16/10/2026: la Gemini del ws1
   lo era, y todos sus pedidos con datos de clientes iban a la key gratis de la agencia sin pasar por el corte).
   `provsDe` (lib/ai-cheap.ts) saca de las «propias» toda copia de una key de la plataforma, y las cascadas toman las
@@ -9613,3 +9647,11 @@ pasos de una ACTIVA también es prender: un camino de una PERSONA escribe por `p
 `setSecuenciaPasos` directo (ése es del sistema, que no tiene a quién preguntarle). Y un panel del NEGOCIO reusado adentro de algo de UNA automatización revisa cada
 cosa que guarda: el huso de la tuerca guardaba `mako.timezone` de todo el negocio. Detalle: docs/hallazgos-chatbot.md
 («La revisión adversarial lo frenó»).
+
+## Una tabla en grilla aguanta un escritorio chico (21/10/2026)
+
+En una grilla CSS lo que no recorta no empuja la columna: se dibuja encima de la de al lado, sin error. Cada celda lleva
+`minWidth: 0` y recorta con «…», y un botón o un chip adentro de una celda también (`minWidth: 0`, `maxWidth: '100%'`).
+Si la tabla tiene más de cuatro columnas, salen de un ancho MEDIDO con mínimo y prioridad (el molde:
+app/crm/tabla-columnas.ts), no de fracciones fijas, y se mide a 934×639 y 1024×768 contando el texto fuera de su celda
+(tests/_crm-lista-arnes.tsx). Detalle: docs/hallazgos-crm.md.

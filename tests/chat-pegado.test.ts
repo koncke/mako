@@ -84,9 +84,12 @@ test('#864: pegar más de 1.000 caracteres deja una ficha, en la computadora y e
 
 test('#884: lo pegado se guarda solo en El Archivero, entero, del admin y con guardarAdjuntos', () => {
   const t = sinComentarios(leer('lib/mako-turno-app.ts'));
-  assert.match(t, /const textoPersona = recortarMensaje\(\(entrada\.mensaje \?\? ''\)\.trim\(\), TOPE_MENSAJE\);/, 'el corte respeta las marcas');
-  assert.match(t, /if \(persona\.rol === 'admin' && entrada\.guardarAdjuntos\) \{\s*const \{ pegados \} = partirPegados\(entrada\.mensaje \?\? ''\);\s*if \(pegados\.length\) await archivarPegadosDelChat\(ws, inicio, pegados\);/,
+  // `mensaje` es la entrada ENTERA con las claves tapadas (pieza 1.6, lib/claves-en-el-chat.ts): el crudo no se vuelve a leer.
+  assert.match(t, /const mensaje = tapado\.texto;\s*const textoPersona = recortarMensaje\(mensaje\.trim\(\), TOPE_MENSAJE\);/, 'el corte respeta las marcas');
+  assert.match(t, /const pegados = persona\.rol === 'admin' && entrada\.guardarAdjuntos \? partirPegados\(mensaje\)\.pegados : \[\];/,
     'ENTERO (el mensaje de entrada, no el cortado), sólo del admin y sólo con guardarAdjuntos');
+  // Con su propio Claude (D6b), El Archivero sólo con su clave: si no, no corre y se dice (tests/solo-su-ia.test.ts).
+  assert.match(t, /if \(pegados\.length\) await archivarPegadosDelChat\(ws, inicio, pegados\);/);
   const a = sinComentarios(leer('lib/chat-mako-adjuntos.ts'));
   const bloque = a.slice(a.indexOf('export async function archivarPegadosDelChat('), a.indexOf('export async function archivarPdfsDelChat('));
   assert.match(bloque, /registrarDocumentoSinPisar\(ws, \{\s*origen, contenido, nombre, mime: 'text\/plain', texto,/);

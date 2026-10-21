@@ -7330,3 +7330,24 @@ arreglar está en hallazgos-chatbot («La segunda revisión del pedido B»). *Ce
 - **El `sinComentarios` de los tests se come código**: `accept=".pdf,image/*"` abre un `/*` que corre hasta el próximo
   `*/`. Un test que buscaba el botón «Subir el comprobante» dio rojo con el código bien. Un archivo con `image/*` (o
   cualquier `/*` adentro de un string) se lee sin quitar comentarios.
+
+## El candado se retiene mientras se espera RAM: un «--solo tipos» trabó la fila una hora (21/10/2026, el Cerebro)
+
+**El síntoma:** después de la caída de la app (14:18), cinco `antes-de-subir` quedaron «en la cola» entre 25 y 60 min: Infra
+(`--solo tipos`, dueño del candado), CRM, Ticketera, Verificación y Sidebar. Todos los chats decían «el VERDE está en la fila, sigo
+cuando termine» y nadie avanzaba. Desde afuera parecía «se trabó todo».
+
+**La causa real —y el diagnóstico obvio, «la caída dejó procesos muertos», era el equivocado—:** los cinco pids estaban vivos y
+latiendo, así que la limpieza de muertos no los tocaba. El dueño del candado era un `--solo tipos`, que pide ~4 GB libres antes
+de lanzar el tsc; con la app de Claude en 4,3 GB y Chrome en 2 GB quedaban 3,2. **Esperaba la RAM CON el candado tomado**, y
+los cuatro de atrás esperaban el candado: el primero de la fila no podía arrancar nunca y bloqueaba a los que sí habrían entrado
+(un `--rapido` sin tipos necesita mucho menos).
+
+**Cómo se ve:** `node scripts/antes-de-subir.mjs --cola` muestra al dueño con la edad del candado; si la edad pasa los ~20 min y
+el dueño es un `--solo tipos`, es esto. `Get-Process` por nombre da la foto de quién se come la RAM.
+
+**La regla que queda:** esperar RAM y tener el candado no van juntos. Un paso que necesita memoria la espera ANTES de tomar el
+candado (o lo suelta mientras espera). Y un chat con los tests en verde que sólo espera tipos no hace fila: manda la punta con
+«VERDE sin tipos» y la lista de archivos, y el Cerebro corre `scripts/tsc-acotado.mjs` cuando hay RAM (o lo verifica Actions).
+
+**Sin hacer:** `scripts/candado-pesado.mjs` / `antes-de-subir.mjs` siguen esperando la RAM con el candado tomado (Infra).

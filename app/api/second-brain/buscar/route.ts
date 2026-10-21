@@ -2,6 +2,8 @@
 // POST /api/second-brain/buscar — «buscá lo que quiero decir», sobre el mapa
 // =============================================================================
 // POST { q } → { ok, ids: string[], explico: string }
+//           | { ok, ids: null, porTexto: true, explico } — con su propio Claude y sin una clave que busque (D6b): la
+//             pantalla vuelve a la búsqueda por texto y muestra `explico`.
 //
 // La barra normal busca TEXTO. Esto es otra cosa: el cliente escribe «cuánto cobro» o
 // «lo que dije de mis clientes» y MaKo lee el mapa entero y elige. Ninguna de esas dos
@@ -22,6 +24,9 @@ import type { NextRequest } from 'next/server';
 import { soloAdminDeTab } from '@/lib/puerta-admin-tab';
 import { construirCerebro } from '@/lib/cerebro-grafo';
 import { chatCheapCascade } from '@/lib/ai-cheap';
+import { getWorkspaceActual } from '@/lib/workspace';
+import { conSuIADelNegocio } from '@/lib/ia-del-negocio';
+import { conSuIASinClave } from '@/lib/fallo-ia-texto';
 import { parseJsonObject } from '@/lib/campaign-structurer';
 import { AREAS } from '@/lib/cerebro-modelo';
 
@@ -63,36 +68,49 @@ export async function POST(req: NextRequest) {
   let q = '';
   try { q = String(((await req.json()) as { q?: unknown })?.q ?? '').trim(); } catch { /* sin cuerpo */ }
   if (!q) return Response.json({ ok: false, error: 'falta qué buscar' }, { status: 400 });
+  const ws = await getWorkspaceActual();
+  if (ws == null) return Response.json({ ok: false, error: 'Sin sesión: vuelve a entrar' }, { status: 401 });
 
-  try {
-    const cerebro = await construirCerebro();
-    const nodos = cerebro.nodos.filter((n) => n.id !== 'raiz' && !n.id.startsWith('area:') && !n.id.startsWith('n1:'));
-    if (nodos.length > TOPE_NODOS) console.warn(`[second-brain/buscar] ${nodos.length} nodos, por encima del tope de ${TOPE_NODOS}`);
+  // ⛔ D6b (Martín, 21/10/2026): un negocio con su propio Claude o su GPT no manda su mapa a la Gemini gratis. La revisión
+  // del Cerebro encontró esta búsqueda fuera del contexto. Lo fija tests/d6b-rutas.test.ts, que también la CORRE.
+  return conSuIADelNegocio(ws, async (negocio) => {
+    try {
+      const cerebro = await construirCerebro();
+      const nodos = cerebro.nodos.filter((n) => n.id !== 'raiz' && !n.id.startsWith('area:') && !n.id.startsWith('n1:'));
+      if (nodos.length > TOPE_NODOS) console.warn(`[second-brain/buscar] ${nodos.length} nodos, por encima del tope de ${TOPE_NODOS}`);
 
-    const lista = nodos.slice(0, TOPE_NODOS).map((n) => {
-      const area = AREAS.find((a) => a.id === n.area)?.nombre ?? n.area;
-      const datos = (n.datos ?? []).filter((d) => d.v).map((d) => `${d.k}: ${d.v}`).join(' · ');
-      return `[${n.id}] (${area}) ${n.etiqueta}${n.detalle ? ` — ${n.detalle}` : ''}${datos ? ` — ${datos}` : ''}`;
-    }).join('\n');
+      const lista = nodos.slice(0, TOPE_NODOS).map((n) => {
+        const area = AREAS.find((a) => a.id === n.area)?.nombre ?? n.area;
+        const datos = (n.datos ?? []).filter((d) => d.v).map((d) => `${d.k}: ${d.v}`).join(' · ');
+        return `[${n.id}] (${area}) ${n.etiqueta}${n.detalle ? ` — ${n.detalle}` : ''}${datos ? ` — ${datos}` : ''}`;
+      }).join('\n');
 
-    const cruda = await chatCheapCascade({
-      feature: 'second_brain_buscar',
-      system: SYSTEM,
-      user: `<datos>\n${lista}\n</datos>\n\nLo que busca: ${q}`,
-      maxTokens: 900,
-      // Buscar en el Second Brain es de la primera semana de un cliente nuevo, que no trae una API
-      // (16/10/2026): sin la red, la búsqueda le contestaba con el error de «no hay IA».
-      redDePlataforma: true,
-    });
+      const errores: string[] = [];
+      const cruda = await chatCheapCascade({
+        feature: 'second_brain_buscar',
+        system: SYSTEM,
+        user: `<datos>\n${lista}\n</datos>\n\nLo que busca: ${q}`,
+        maxTokens: 900,
+        // Buscar en el Second Brain es de la primera semana de un cliente nuevo, que no trae una API
+        // (16/10/2026): sin la red, la búsqueda le contestaba con el error de «no hay IA».
+        redDePlataforma: true,
+        erroresOut: errores,
+      });
+      // Con su propio Claude y nada suyo que conteste por clave (ningún error SUYO: ni su clave de Claude ni su OpenAI), la
+      // red gratis no corrió. «MaKo eligió 0» mentiría: la pantalla vuelve a la búsqueda por texto (`porTexto`) y lo dice.
+      if (!cruda && negocio.suIA && errores.length === 0) {
+        return Response.json({ ok: true, ids: null, porTexto: true, explico: `${conSuIASinClave('buscar con MaKo')} Te muestro lo que encontré por texto.` });
+      }
 
-    const j = parseJsonObject(cruda) as { ids?: unknown; explico?: unknown } | null;
-    const validos = new Set(nodos.map((n) => n.id));
-    // ⚠️ Se filtra contra los ids REALES. El prompt le pide que no invente, pero «una
-    // regla en un prompt no es una regla»: un id inventado devolvería un resultado que
-    // no existe y la pantalla no tendría forma de notarlo.
-    const ids = (Array.isArray(j?.ids) ? j.ids : []).map(String).filter((id) => validos.has(id));
-    return Response.json({ ok: true, ids, explico: typeof j?.explico === 'string' ? j.explico : '' });
-  } catch (e) {
-    return Response.json({ ok: false, error: msg(e) }, { status: 500 });
-  }
+      const j = parseJsonObject(cruda) as { ids?: unknown; explico?: unknown } | null;
+      const validos = new Set(nodos.map((n) => n.id));
+      // ⚠️ Se filtra contra los ids REALES. El prompt le pide que no invente, pero «una
+      // regla en un prompt no es una regla»: un id inventado devolvería un resultado que
+      // no existe y la pantalla no tendría forma de notarlo.
+      const ids = (Array.isArray(j?.ids) ? j.ids : []).map(String).filter((id) => validos.has(id));
+      return Response.json({ ok: true, ids, explico: typeof j?.explico === 'string' ? j.explico : '' });
+    } catch (e) {
+      return Response.json({ ok: false, error: msg(e) }, { status: 500 });
+    }
+  });
 }

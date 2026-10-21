@@ -360,6 +360,11 @@ estado de cuenta y el comprobante). Tests: tests/chat-bloque-cobranza.test.ts y 
 - **Una cuota ya cobrada no cambia de comprobante desde «Marcar pagada».** Con una vista vieja (otra pestaña, un link que
   se pagó mientras tanto), leer el comprobante le pisaba el del banco o el de Stripe; ahora la ruta contesta que ya está
   cobrada, y la escritura es condicional (`pagado = false`).
+- **⚠️ Un valor que llega tarde no puede empezar con un default que parece real** (revisión de 1b6fc9ad8, baja).
+  `useMonedaDelNegocio` empezaba en 'USD' hasta que contestaba el server, y el comprobante del chat se lee SOLO al abrir
+  «Marcar pagada»: se leía con 'USD', y unos pesos con «$» se tomaban por dólares en un negocio en MXN. **Regla:** lo
+  que se está cargando es null, y quien lee algo con ello espera (el efecto depende de la moneda, y «Subir el
+  comprobante» queda en «cargando» hasta saberla). Si el server no contesta, la de siempre (USD).
 - **Sin hacer:**
   - /api/extract-receipt sigue escribiendo `comprobante_path` al leer una cuota IMPAGA: cancelar no lo deshace. Lo
     limpio es guardarlo al «Guardar el pago». Vive en app/api/extract-receipt/route.ts y piezas.tsx (`subir`).
@@ -600,7 +605,7 @@ de México.
   ficha el mismo lead no recibía plan (ahí `tienePlan = pagos.length > 0`): el resultado dependía de por dónde se
   abría. **Regla:** decide UNA función, `planDelAsistente` (lib/pagos-campo.ts), en el server. Con un plan (una cuota
   que no nació cobrada, o una impaga) no se toca. En una suscripción, los meses cobrados sueltos SON las primeras
-  cuotas (uno por cobrada, como cuenta `cobradoDelLead`) y se arman sólo los que faltan. Un pago único con un pago
+  cuotas ~~(uno por cobrada, como cuenta `cobradoDelLead`)~~ (por PLATA: ver la quinta revisión) y se arman sólo los que faltan. Un pago único con un pago
   previo no se arma: sus cuotas las escribió la persona y no se puede saber si ya descontó lo cobrado. Nunca nace una
   cuota por un mes ya cobrado.
 - **Lo que el asistente no hacía, lo callaba.** El server descartaba el plan con un `console.log` y la pantalla decía
@@ -625,6 +630,102 @@ de México.
 - **El `for update` de la 0318 va `order by id`**, el orden en que toma las filas el delete de la reconciliación: en otro
   orden, los dos podían esperarse y Postgres abortaba a uno (40P01).
 
+### La quinta revisión: lo cobrado suelto se cuenta por plata, y lo que gana lleva su fecha de cierre (21/10/2026)
+
+- **⚠️ Contar FILAS no es contar MESES.** «Un suelto = una mensualidad» se cumplía con el mes a mes y con nada más: un
+  adelanto de US$1.500 en una suscripción de US$500 cubría UN mes (se armaban 11 cuotas, dos por meses pagados; la
+  ficha sumaba US$7.000 sobre 6.000 y la cobranza le reclamaba a quien pagó), y una seña de US$100 cubría un mes ENTERO
+  (los 400 que faltaban no se cobraban nunca, en verde). **Regla:** lo cobrado suelto se cuenta por plata con
+  `mesesDePlata` (lib/cobrado-lead.ts): meses enteros de la mensualidad, con ~~un 10% por mes~~ un 10% de UNA
+  mensualidad de tolerancia (el tipo de cambio; ver la revisión de abajo). Lo usan los DOS que cuentan: el asistente (`planDelAsistente`: con meses partidos, o pagos de más de un mes
+  antes del cierre, no arma y lo dice; cuando descuenta, dice cuántas armó) y la ficha (`cobradoDelLead`, el
+  «Falta registrar»). Con uno solo cambiado, el cliente que adelantó tres meses quedaba para siempre en «Falta registrar».
+- **Qué es un plan lo decide UNA función, `pagosPrevios`** (lib/pagos-campo.ts). Una cuota devuelta o de baja
+  (`noEsDeuda`) no es un plan: antes hacía decir «Ya tenía un plan» de uno que no existía, y nadie lo armaba. El cobro de
+  un link que no saldaba ninguna cuota es plata suelta (~~la pasarela inserta esa fila sin `nacio_cobrada`~~: desde la
+  revisión de 7524ec1c9 la inserta CON la marca, ver abajo).
+- **El plan uniforme (`savePlanPagos`, la API `guardar_plan_pagos`) tapaba una cuota con una seña.** En el modo 'slots'
+  «una pagada cubre su número», y la seña de US$100 con el número 1 tapaba la cuota 1 de US$1.000: la API contestaba
+  «Listo» con US$900 menos. ~~Ahora un pago que nació cobrado no cubre un número~~ (era el diagnóstico equivocado: ver
+  la revisión de abajo), y sin plan no se arma encima de plata suelta (`avisoPlanUniforme`): MaKo no lo propone y
+  `savePlanPagos` lo frena.
+- **⚠️ Lo que gana sin `updateLead` tiene que escribir su fecha de cierre.** `saveLeadPlanManual` gana el lead (estado y
+  `cerro`) pero no ponía `fecha_cierre`; después `setPipelineStage` lo veía ya ganado y no tocaba la venta. Una
+  suscripción ganada desde el asistente con su plan quedaba sin cierre: fuera de los cierres del mes (el CAC), activa
+  para siempre en el MRR y sin «Terminó». Ahora, sin una que venga ni una que tenga, el día del negocio. Medido en
+  producción el 21/10 en sólo lectura: 0 leads así (el camino nació el mismo día).
+- **La revisión de f2ec0c948 (21/10/2026): el arreglo de la seña era una regresión, y dos medios.**
+  - **⚠️ En 'slots' el «número» es el LUGAR en el plan, no el de la fila.** Sacar la seña de las pagadas que cubren un
+    número parecía el arreglo, y era el diagnóstico equivocado: el plan armado DESPUÉS de una seña vive en números
+    corridos (la seña es la #1 y las cuotas, #0, #2, #3, #4), así que cada «Cambiar el plan» de la ficha insertaba una
+    cuota de más (el número 1 ya no tenía a nadie) y dejaba la última sin tocar: US$1.000 de deuda fantasma por cambio,
+    acumulable, con «Plan guardado» en pantalla. Y el total «bien» de main era un error que se compensaba (con la cuota
+    a 1.200 daba 4.400 en vez de 4.600). **Regla:** `reconciliarCuotas` en 'slots' casa la cuota N con la N-ésima del
+    plan (sin las que no son del plan, `esCuotaDelPlan`, ni las devueltas; el inicial es el lugar 0).
+  - **La tolerancia de `mesesDePlata` es fija (10% de UNA mensualidad).** Multiplicada por los meses, las ventanas se
+    pisaban desde 4,5 mensualidades y todo monto daba «meses enteros»: un año prepagado a −5% contaba 11 meses.
+  - **Qué es plata suelta lo dice UNA función, `esPlataSuelta`** (lib/cobrado-lead.ts), para la ficha y el asistente: el
+    cobro de un link de US$1.500 contaba 3 meses en el asistente y 1 en la ficha, que pedía «Registrar el mes cobrado».
+    `cobradoDelLead` devuelve `mesesCubiertos`, y «A quién cobrar» vence desde ahí (no desde las filas: con un adelanto
+    en un pago, el cliente desaparecía de la lista del mes).
+- **La revisión de 7524ec1c9 (21/10/2026): dos altas.**
+  - **⚠️ Una mensualidad registrada vale UN mes; la plata cuenta sólo para un pago que cubre VARIOS.** Contar «por plata»
+    sumando TODAS las sueltas y pasando el total por `mesesDePlata` acumulaba el desvío de cada mes (el tipo de cambio,
+    un descuento, el precio de antes): 6 × 490 eran 5 meses («Falta registrar 1 mes» y US$500 en «A quién cobrar» a un
+    cliente al día) y 10 × 550 eran 11 (escondía al que debe el mes 11). Era una regresión contra producción, que cuenta
+    filas. **Regla:** de a una cobrada, `mesesDeUnaCobrada` (lib/cobrado-lead.ts): una cuota del plan, 1; la diferencia
+    de un cobro por menos, 0 (completa el mes de su cuota); una suelta registrada a mano, `max(1, mesesDePlata(su
+    monto))`; una de la PASARELA (el cobro de un link sin cuota), `mesesDePlata(su monto)` sin el mínimo: nadie la
+    registró como un mes, y una seña de 100 por link no cubre ninguno (con el mínimo valía un mes: lo preguntó el Cerebro
+    y era así). Nunca la suma. El asistente cuenta igual, y no arma si alguna no son meses enteros. Lo aceptado: la ficha
+    cuenta como un mes una seña de 100 registrada A MANO, como producción (no se distingue de una mensualidad con
+    descuento); el asistente no la descuenta.
+  - **⚠️ «Es cuota del plan» es UNA regla, y la fila dice de dónde nació desde que se inserta.** Había tres: el aviso
+    tomaba como plata suelta la seña cobrada por LINK y el lugar del plan la tomaba como la cuota 1 (la cuota a 1.200
+    daba 4.400 en vez de 4.600, y cambiar el día dejaba noviembre sin cuota y dos en enero); la diferencia de un cobro
+    por menos ocupaba el lugar de la cuota siguiente (crecer el plan y cambiar el día la reescribía como la cuota 4:
+    US$600 de deuda fantasma que la cobranza reclamaba). Excluir por `nacio_cobrada` tapaba una puerta sola, y excluir
+    por `proveedor` era el diagnóstico equivocado: una cuota del plan cobrada por link también lo tiene. **Regla:**
+    `esCuotaDelPlan` (lib/cobrado-lead.ts) = sin `nacio_cobrada` y sin `resto_de`; la usan el lugar de 'slots',
+    `esPlataSuelta` y `avisoPlanUniforme`. `registrarCobroDeProveedor` inserta el cobro de un link sin cuota con
+    `nacio_cobrada` (deshacerlo no lo quita: `quitarSiNacioCobrada` no toca lo de la pasarela), y la diferencia la
+    marca `cobrar_cuota_con_resto` (mig 0323, `pagos.resto_de`: la cuota de la que salió). SIN clave foránea: con
+    `on delete set null`, el Deshacer de un movimiento del tablero (borra y reinserta cuotas con su id) le sacaba la
+    marca para siempre y la deuda fantasma volvía. Medido en producción el 21/10, sólo lectura: 0 filas de la pasarela y
+    0 diferencias, nada que rellenar.
+  - **La toma exige el monto que se LEYÓ** (mig 0323, `p_original`; el «Sin hacer» de la quinta revisión). Editada de
+    500 a 400 entre la lectura y el rpc, un cobro de 300 dejaba 300 cobrados + 200 pendientes de una cuota de 400. Ahora
+    no se toma y se dice; el cobro ENTERO, igual (`.eq('monto_usd', original)`): es la misma carrera por la otra puerta.
+    `p_original` tiene default null para que el código de antes del deploy siga llamando con 11 argumentos, y la firma
+    vieja se borra en la misma transacción (con las dos, PostgREST no sabría a cuál llamar).
+  - **⚠️ Lo que se registró COMO la mensualidad vale un mes, siempre** (revisión de e19a5196f, medio: regresión). Contar
+    por plata lo de a mano, con el mínimo de un mes, sólo andaba si el precio SUBÍA: con una BAJA (6 mensualidades de
+    1.000 y la mensualidad ya en 500) eran 12 meses, «Al día» y fuera de «A quién cobrar», donde producción decía
+    «Falta registrar 5 meses». El monto no dice cómo se registró; la fila sí: `pagos.es_mensualidad` (mig 0323), que
+    pone «Registrar el mes cobrado» (las de antes, por su concepto «Mensualidad»: 1 fila en producción, ws 11). La plata
+    cuenta sólo para «Registrar un pago» y la pasarela, con el mínimo de un mes (sin el mínimo, un link de un mes al tipo
+    de cambio del día valía 0 y a mano 1).
+  - **Trampa de los tests:** el PostgREST de mentira insertaba sin los defaults de la base (`pagado` quedaba en null) y
+    las escrituras condicionales (`.eq('pagado', false)`) no encontraban las cuotas: «Cambiar el plan» no cambiaba nada
+    y parecía que el arreglo no andaba. Los defaults del hijo (tests/_cobro-idempotente-hijo.ts) son los de la base.
+  - **Sin hacer:** los modos 'lista' (el wizard) y 'porId' (Editar deal) no miran `resto_de`: casar por orden puede
+    reusar una diferencia como cuota del plan y la marca le queda. Vive en `reconciliarCuotas` (lib/pagos-campo.ts).
+    Y «A quién cobrar» lee los pagos de hasta 500 suscripciones de una vez, sin paginar: pasadas las 1.000 filas,
+    PostgREST corta y la lista no da el número de la ficha (viene de producción). Vive en `getSuscripcionesPorCobrar`
+    (lib/pagos.ts).
+- **No tomar la cuota no siempre es «ya estaba».** Si la reconciliación de un plan la BORRABA entre la lectura y el cobro,
+  `cobrarCuota` contestaba «ya estaba cobrada» y el cobro que sí entró no quedaba anotado. Ahora mira cómo quedó:
+  cobrada, «ya estaba»; si no, «La cuota cambió mientras la cobrabas» y no se escribe nada.
+- **Menos de un centavo no es «sin monto»**: 0,004 caía como el cobro entero (o en 0, y la deuda desaparecía).
+- **El tablero pide «Plan de pagos» con el tipo de venta que se ELIGE**, no el guardado: un lead guardado como
+  suscripción al que se le eligió «Pago único» se ganaba sin cuotas.
+- **Sin hacer:**
+  - ~~La 0318 toma la cuota sin ver si su MONTO cambió entre la lectura y el rpc.~~ Hecho en la 0323 (revisión de
+    7524ec1c9, arriba), con la marca de la diferencia en la misma migración.
+  - Medido en producción el 21/10, sólo lectura: un plan del asistente viejo corrido un mes (la primera cuota un mes
+    después del cierre): ws 11, lead 2605, 12 cuotas desde el 08/11 con el cierre el 08/10, nada cobrado. Decide Martín
+    con el cliente si octubre se cobró; no se toca sin su OK. Ninguno con cuotas armadas encima de meses cobrados.
+
 ## El lector de contratos también convertía con una tasa inventada (21/10/2026)
 
 - **⚠️ El plan de una suscripción salió de una tasa que inventó la IA.** El extractor del contrato
@@ -642,5 +743,11 @@ de México.
   que mira la suma (`cuotasCuadran`). **Regla:** con el total en dólares, las cuotas traen monto sólo si SUMAN el total,
   con la misma tolerancia del asistente (`toleranciaCuotas`, una sola función para los dos); si no, van sin monto, el
   paso del plan se muestra y se dice que no suman. El copy de /vsl ya no promete la conversión.
+- **Cuadrar con el total del CONTRATO no es cuadrar con el CIERRE** (revisión de b23ce2a9c, baja). El plan se guarda
+  contra el monto de cierre: con un cierre de 5.000 ya cargado, un contrato de 4 × 1.000 quedaba «resuelto» y el paso
+  del plan no se veía (producción hacía lo mismo). **Regla:** lo decide `planDelContrato` (lib/contrato-montos.ts), con
+  el monto que va a QUEDAR (el que hay, o el total recién precargado) y la misma tolerancia. Y cada aviso dice lo que
+  pasó: «no suman su total» sólo con un total y todas las cuotas con monto; sin total, «el contrato no dice su total»;
+  una cuota de 0 se saca en vez de dejar el plan entero sin monto.
 - **Sin hacer:** los planes YA armados con montos convertidos así no se corrigen solos. El que se midió (ws11, lead 2605)
   lo decide Martín con el cliente.

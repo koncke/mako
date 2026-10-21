@@ -186,12 +186,26 @@ export const PUBLICOS = [
   // mezcla POR CONSTRUCCIÓN, y tests/api-mako-registro.test.ts enumera en positivo
   // los route.ts permitidos bajo esa carpeta y falla si aparece otro.
   '/api/v1',
+
+  // ── La computadora del cliente (docs/ia-del-cliente.md, 21/10/2026) ───────────
+  // Una POR UNA, como /api/agente: en /api/ia-pc también vive `codigo`, que es con sesión y NO está acá. Todas se
+  // autentican por su bearer (`mkopc_` de la PC, `mkotn_` del turno) o por el código de 8 letras, nunca por la cookie.
+  // `turno` va como prefijo porque cubre `turno/<id>`, y las dos son de la PC. `soltar`: la PC suelta SU conexión.
+  '/api/ia-pc/emparejar',
+  '/api/ia-pc/latido',
+  '/api/ia-pc/turno',
+  '/api/ia-pc/mcp',
+  '/api/ia-pc/soltar',
+  // `confirmar`: la PC pendiente dice que la persona aceptó «¿Es tu negocio?» (mig 0322). Con su token.
+  '/api/ia-pc/confirmar',
+  // El instalador de un comando: lo pide PowerShell o curl, sin sesión. Sólo GET, y no gasta el código.
+  '/api/ia-pc/instalar',
 ] as const;
 
 /** Los públicos que solo deben responder a LECTURA. El early-return se saltea el
  *  chequeo CSRF de Origin, así que una ruta pública que acepte POST quedaría
  *  expuesta si además se autenticara por cookie. */
-export const PUBLICOS_SOLO_LECTURA = ['/compartido', '/api/compartido'] as const;
+export const PUBLICOS_SOLO_LECTURA = ['/compartido', '/api/compartido', '/api/ia-pc/instalar'] as const;
 
 /**
  * La excepción: rutas públicas que SÍ escriben.

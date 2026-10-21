@@ -34,6 +34,7 @@ import {
   tomarCorrida, type CuentaCron,
 } from './graficos-analisis-server';
 import { errorDeCascada } from './ai-cheap';
+import { soloSuIA } from './solo-su-ia';
 import { getPromptText } from './prompt-render';
 import { parseJsonObject } from './json-del-modelo';
 import { tzDeWorkspace } from './timezone';
@@ -281,7 +282,9 @@ export async function analizarCaja(p: PedidoCaja): Promise<{ ok: boolean; error?
       if (!r.crudo.trim()) {
         return await fallar(r.rechazos.length
           ? `Lo que escribió MaKo ${r.rechazos[r.rechazos.length - 1]}. Prueba de nuevo.`
-          : avisoSinIA(pii, r.errores) ?? await errorDeCascada(r.errores, 'escribir las conclusiones'));
+          // ⛔ D6b: con su propio Claude, «Conecta tu Claude» (`avisoSinIA`) es falso —ya lo tiene, en su PC—: el texto es el
+          // de `errorDeCascada` adentro del contexto («…necesito tu clave de Claude o de OpenAI»).
+          : (soloSuIA() ? null : avisoSinIA(pii, r.errores)) ?? await errorDeCascada(r.errores, 'escribir las conclusiones'));
       }
       const salida = sanear(parseJsonObject(r.crudo));
       if (!salida) return await fallar('Lo que escribió MaKo no se apoyaba en los datos. Prueba de nuevo.');

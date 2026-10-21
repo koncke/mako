@@ -26,7 +26,7 @@
 import { centavos } from './pagos-diferencia';
 import { formatoMonto, normalizarMoneda } from './pasarela-moneda';
 import { VENTA_SIN_COBRO, ventaTipoDe, type VentaTipo } from './venta-tipo';
-import { sumarMeses } from './cobrado-lead';
+import { esCuotaDelPlan, esPlataSuelta, mesesDeUnaCobrada, noEsDeuda, sumarMeses } from './cobrado-lead';
 
 type Resultado<T> = ({ ok: true } & T) | { ok: false; error: string; faltan?: string[] };
 
@@ -310,6 +310,10 @@ export type CuotaExistente = {
   pagado: boolean;
   /** Una cuota DEVUELTA (reembolso de la pasarela: impaga, sin vencimiento y con proveedor). No es deuda: no se toca. */
   devuelta?: boolean;
+  /** Nació cobrada (un pago suelto, una mensualidad a mano, el cobro de un link sin cuota): no es del plan (`esCuotaDelPlan`). */
+  nacio_cobrada?: boolean;
+  /** La diferencia de un cobro por menos: tampoco es del plan, no ocupa un lugar en 'slots'. */
+  resto_de?: number | null;
   protegida?: readonly Proteccion[];
 };
 
@@ -322,7 +326,8 @@ export type CuotaDeseada = { id?: number | null; numero?: number | null; monto_u
  *               iguales (mismo monto y vencimiento), después cada protegida con una deseada (no se pueden borrar,
  *               y sin deseada la deuda se duplicaba) y al final, por orden, las que se pueden cambiar enteras.
  *   · 'slots' — un plan uniforme (inicial = número 0, cuota N = número N): se casa por número. Una pagada cubre
- *               su número; es la regla de `savePlanPagos` de siempre.
+ *               su número; es la regla de `savePlanPagos` de siempre. ⚠️ «Número» es el LUGAR en el plan, no el de la
+ *               fila (21/10/2026): ver `lugar` adentro.
  */
 export type ModoReconciliar = 'porId' | 'lista' | 'slots';
 
@@ -364,10 +369,26 @@ export function reconciliarCuotas(
   } = {},
 ): PlanDeCuotas {
   const out: PlanDeCuotas = { actualizar: [], insertar: [], borrar: [], conservar: [] };
+  // ⚠️ EN 'slots' LA CUOTA N ES LA N-ÉSIMA DEL PLAN, NO LA FILA CON EL NÚMERO N (21/10/2026, revisión de f2ec0c948, alta).
+  // Un pago suelto toma un número (`registrarPagoSuelto`: el siguiente), y el plan armado después vive en números
+  // corridos: la seña es la #1 y las cuotas, la #0, #2, #3 y #4. Casando por el número de la fila, la seña tapaba la
+  // cuota 1 (el plan quedaba US$900 corto) o, sin taparla, cada «Cambiar el plan» de la ficha insertaba una cuota de más
+  // y dejaba la última sin tocar: US$1.000 de deuda fantasma por cambio. Las del plan (`esCuotaDelPlan`, la MISMA regla
+  // que la plata suelta y `avisoPlanUniforme`: revisión de 7524ec1c9) que no están devueltas, en orden: el inicial (la
+  // fila 0) es el lugar 0, y las demás, 1, 2, 3… Ni la seña cobrada por link ni la diferencia de un cobro por menos
+  // ocupan un lugar.
+  const lugarDe = new Map<number, number>();
+  if (modo === 'slots') {
+    let k = 0;
+    for (const q of existentes.filter((x) => esCuotaDelPlan(x) && !x.devuelta).slice().sort((a, b) => a.numero - b.numero)) {
+      lugarDe.set(q.id, q.numero === 0 ? 0 : ++k);
+    }
+  }
+  const lugar = (q: CuotaExistente): number | null => (modo === 'slots' ? (lugarDe.get(q.id) ?? null) : q.numero);
   const impagas = existentes
-    .filter((q) => !q.pagado && !q.devuelta && (modo !== 'slots' || !opts.soloNumeros || opts.soloNumeros.has(q.numero)))
+    .filter((q) => !q.pagado && !q.devuelta && (modo !== 'slots' || (lugar(q) != null && (!opts.soloNumeros || opts.soloNumeros.has(lugar(q) as number)))))
     .slice().sort((a, b) => a.numero - b.numero);
-  const pagadasNum = new Set(existentes.filter((q) => q.pagado).map((q) => q.numero));
+  const pagadasNum = new Set(existentes.filter((q) => q.pagado && lugar(q) != null).map((q) => lugar(q) as number));
   const usados = new Set(existentes.map((q) => q.numero));
   const libres = new Set(impagas.map((q) => q.id));
   const prot = (q: CuotaExistente): readonly Proteccion[] => q.protegida ?? [];
@@ -398,7 +419,7 @@ export function reconciliarCuotas(
       else sinCasar.push(d);
     }
   } else if (modo === 'slots') {
-    const porNumero = new Map(impagas.map((q) => [q.numero, q]));
+    const porNumero = new Map(impagas.map((q) => [lugar(q) as number, q]));
     for (const d of validas) {
       const n = d.numero;
       // La pagada cubre su número. En un ajuste (`soloNumeros`), sólo si ese número era del plan: una pagada que no
@@ -517,26 +538,90 @@ export type CuotaDelAsistente = { monto_usd: number; fecha_esperada: string | nu
  *   después del Ganado, un plan desde hoy dejaba al cliente al día en «Falta registrar» del 1 al 20 de cada mes.
  * - Las cuotas de un pago único las escribió la persona y no se puede saber si ya descontó lo cobrado: con un pago previo
  *   no se arman (se arman en la tab Pagos), y se dice.
- * Nunca nace una cuota por un mes ya cobrado. `aviso`: lo que no se hizo, dicho para la persona.
+ * Nunca nace una cuota por un mes ya cobrado. `aviso`: lo que no se hizo, o lo que se descontó, dicho para la persona.
+ *
+ * ⚠️ LOS MESES COBRADOS SE CUENTAN POR PLATA, NO POR FILAS (21/10/2026, quinta revisión). Contando filas, un adelanto de
+ * US$1.500 en una suscripción de US$500 cubría UN mes (se armaban 11 cuotas, dos por meses ya pagados: la ficha sumaba
+ * US$7.000 sobre 6.000 y la cobranza le reclamaba a quien pagó) y una seña de US$100 cubría un mes ENTERO (los 400 que
+ * faltaban no se cobraban nunca). Ahora cada pago suelto tiene que ser meses enteros, con un 10% de UNA mensualidad de
+ * tolerancia (el tipo de cambio de un cobro en otra moneda), y de este cierre (no de más de un mes antes). Si no, no se
+ * arma y se dice. Y cuando se descuenta, se dice cuántas se armaron.
+ * ⚠️ DE A UN PAGO, NO LA SUMA (revisión de 7524ec1c9, alta): la ficha cuenta cada cobrada por separado
+ * (`mesesDeUnaCobrada`), y el asistente igual. Con la suma, seis mensualidades de 490 no eran «meses enteros».
  */
 export function planDelAsistente(
   pedidas: CuotaDelAsistente[],
-  existentes: ReadonlyArray<{ pagado?: boolean | null; nacio_cobrada?: boolean | null }>,
+  existentes: ReadonlyArray<FilaPrevia>,
   o: { suscripcion: boolean; ancla: string },
 ): { cuotas: CuotaDelAsistente[]; yaCobradas: number; aviso: string | null } {
   if (!pedidas.length) return { cuotas: [], yaCobradas: 0, aviso: null };
-  if (existentes.some((q) => !q.nacio_cobrada || !q.pagado)) {
+  const previos = pagosPrevios(existentes);
+  if (previos.hayPlan) {
     return { cuotas: [], yaCobradas: 0, aviso: 'Ya tenía un plan de pagos: no se cambió. Se edita en la pestaña Pagos.' };
   }
   if (!o.suscripcion) {
-    return existentes.length
-      ? { cuotas: [], yaCobradas: 0, aviso: 'Ya tenía pagos cobrados: el plan no se armó, para no cobrarlos dos veces. Se arma en la pestaña Pagos.' }
+    return previos.sueltos.length
+      ? { cuotas: [], yaCobradas: 0, aviso: AVISO_PAGOS_SUELTOS }
       : { cuotas: pedidas, yaCobradas: 0, aviso: null };
   }
   const meses = pedidas.map((c, i) => ({ monto_usd: c.monto_usd, fecha_esperada: sumarMeses(o.ancla, i) }));
-  const yaCobradas = Math.min(existentes.length, meses.length);
-  return { cuotas: meses.slice(yaCobradas), yaCobradas, aviso: null };
+  if (!previos.sueltos.length) return { cuotas: meses, yaCobradas: 0, aviso: null };
+  const mensualidad = Number(pedidas[0].monto_usd);
+  const cobrado = previos.cobradoUsd;
+  const desde = sumarMeses(o.ancla, -1);
+  if (previos.sueltos.some((q) => (q.fecha_pago ?? q.fecha_esperada ?? o.ancla).slice(0, 10) < desde)) {
+    return { cuotas: [], yaCobradas: 0, aviso: 'Ya tenía pagos cobrados de antes del cierre, y no se sabe si son de esta suscripción: el plan no se armó. Se arma en la pestaña Pagos.' };
+  }
+  const porPago = previos.sueltos.map((q) => mesesDeUnaCobrada(q, mensualidad));
+  const k = porPago.reduce((s, m) => s + m.meses, 0);
+  if (!porPago.every((m) => m.enteros)) {
+    return { cuotas: [], yaCobradas: 0, aviso: `Lo ya cobrado (${formatoMonto(cobrado, 'USD')}) no son meses enteros de ${formatoMonto(mensualidad, 'USD')}: el plan no se armó, para no cobrar de más ni de menos. Se arma en la pestaña Pagos.` };
+  }
+  const yaCobradas = Math.min(k, meses.length);
+  const cuotas = meses.slice(yaCobradas);
+  const meses_ = yaCobradas === 1 ? 'el primer mes' : `los primeros ${yaCobradas} meses`;
+  return {
+    cuotas, yaCobradas,
+    aviso: cuotas.length
+      ? `Lo ya cobrado (${formatoMonto(cobrado, 'USD')}) cuenta como ${meses_}: se armaron ${cuotas.length} ${cuotas.length === 1 ? 'cuota' : 'cuotas'}.`
+      : `Lo ya cobrado (${formatoMonto(cobrado, 'USD')}) cubre todo el plazo: no quedó ninguna cuota por armar.`,
+  };
 }
+
+/** Lo que dicen las filas de `pagos` de un lead que se leen para decidir un plan (todas opcionales: las da `Pago`). */
+export type FilaPrevia = {
+  pagado?: boolean | null; nacio_cobrada?: boolean | null; resto_de?: number | null; es_mensualidad?: boolean | null; monto_usd?: number | string | null;
+  fecha_pago?: string | null; fecha_esperada?: string | null; proveedor?: string | null; cobro_id?: number | null; baja_at?: string | null;
+};
+
+export const AVISO_PAGOS_SUELTOS = 'Ya tenía pagos cobrados: el plan no se armó, para no cobrarlos dos veces. Se arma en la pestaña Pagos.';
+
+/**
+ * ⚠️ ¿QUÉ ES UN PLAN Y QUÉ ES PLATA SUELTA? (21/10/2026, quinta revisión). La MISMA regla para el asistente de Ganado
+ * (`planDelAsistente`) y para el plan uniforme (`savePlanPagos`: la API `guardar_plan_pagos`).
+ * - No cuentan las que no son deuda (`noEsDeuda`): una cuota DEVUELTA por un reembolso o la de un cliente que se dio de
+ *   baja. Antes, cualquiera de ellas hacía decir «Ya tenía un plan» de un plan que no existe, y nadie lo armaba.
+ * - Un plan es una cuota viva sin cobrar, o una cobrada que es del plan (`esCuotaDelPlan`: también la cobrada por link).
+ * - Plata suelta (`esPlataSuelta`): lo cobrado que no es del plan. Un pago suelto, una mensualidad a mano y el cobro de
+ *   un link que no saldaba ninguna cuota (los tres nacen con `nacio_cobrada`).
+ */
+export function pagosPrevios(existentes: ReadonlyArray<FilaPrevia>): { hayPlan: boolean; sueltos: FilaPrevia[]; cobradoUsd: number } {
+  const vivas = existentes.filter((q) => !noEsDeuda({
+    pagado: !!q.pagado, fecha_esperada: q.fecha_esperada ?? null, proveedor: q.proveedor ?? null, cobro_id: q.cobro_id ?? null, baja_at: q.baja_at ?? null,
+  }));
+  const sueltos = vivas.filter(esPlataSuelta);
+  return {
+    hayPlan: vivas.some((q) => !esPlataSuelta(q)),
+    sueltos,
+    cobradoUsd: centavos(sueltos.reduce((s, q) => s + Number(q.monto_usd ?? 0), 0)),
+  };
+}
+
+/** El plan uniforme NO se arma encima de plata suelta sin plan (la cuota 1 la tapaba una seña): lo mismo que el asistente. */
+export const avisoPlanUniforme = (existentes: ReadonlyArray<FilaPrevia>): string | null => {
+  const p = pagosPrevios(existentes);
+  return !p.hayPlan && p.sueltos.length ? AVISO_PAGOS_SUELTOS : null;
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 5 · El plan uniforme: inicial, cuota, cantidad y día de pago

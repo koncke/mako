@@ -89,6 +89,9 @@ export function BuscadorCerebro({ q, onQ, campos, onCampos, ia, onBuscarIA, onLi
   const ampliada = campos.length > CAMPOS_CEREBRO_DEFECTO.length || !campos.includes('nombre');
   const conIA = ia.ids !== null || ia.pensando;
   const hayTexto = q.trim() !== '';
+  /** MaKo no buscó (D6b: con su propio Claude y sin una clave que busque) y quedó la búsqueda por texto: se dice, corto,
+   *  con el porqué entero en el `title` (la frase la arma app/api/second-brain/buscar). */
+  const porTexto = !conIA && hayTexto && ia.explico !== '';
 
   const toggle = (id: CampoCerebro) => {
     onCampos(campos.includes(id) ? campos.filter((c) => c !== id) : [...campos, id]);
@@ -142,9 +145,9 @@ export function BuscadorCerebro({ q, onQ, campos, onCampos, ia, onBuscarIA, onLi
         </button>
       </div>
 
-      {(ampliada || conIA) && (
-        <div style={{ position: 'absolute', top: '100%', left: 2, marginTop: 3, fontSize: 10, fontFamily: MONO, letterSpacing: '.04em', color: conIA ? 'var(--accent)' : 'var(--dim)', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
-          {conIA ? (ia.pensando ? 'MaKo está leyendo tu Second Brain…' : `MaKo eligió ${ia.ids?.length ?? 0}`) : resumenCamposCerebro(campos)}
+      {(ampliada || conIA || porTexto) && (
+        <div title={porTexto ? ia.explico : undefined} style={{ position: 'absolute', top: '100%', left: 2, marginTop: 3, fontSize: 10, fontFamily: MONO, letterSpacing: '.04em', color: conIA ? 'var(--accent)' : porTexto ? 'var(--warn)' : 'var(--dim)', whiteSpace: 'nowrap', pointerEvents: porTexto ? 'auto' : 'none' }}>
+          {conIA ? (ia.pensando ? 'MaKo está leyendo tu Second Brain…' : `MaKo eligió ${ia.ids?.length ?? 0}`) : porTexto ? 'Por texto: falta tu clave de Claude u OpenAI' : resumenCamposCerebro(campos)}
         </div>
       )}
 

@@ -687,6 +687,20 @@ textarea.mako-field {
   }
 }
 
+/* VENTANA CHICA DE ESCRITORIO (21/10/2026). Medido a 934×639 en la ficha de Meta Ads: el panel oscuro ocupaba 333 de
+   885 px (38 %) y era más alto que el modal (583 contra 538), así que se cortaba abajo. Debajo de 1200 se angosta y
+   la configuración se queda con el resto; con poco alto, el panel scrollea solo en vez de cortarse. */
+@media (max-width: 1199.98px) {
+  .mk-svc-modal { grid-template-columns: 236px minmax(0, 1fr); }
+  .mk-svc-aside { padding: 20px 18px !important; }
+}
+/* Con poco alto, el panel se topea al alto de su celda (sin esto medía 566 en una fila de 518 y se cortaba: la fila
+   no lo estiraba) y, si igual no entra, scrollea solo. No en el apilado del teléfono (≤ 820), donde su fila es auto. */
+@media (max-height: 760px) and (min-width: 820.02px) {
+  .mk-svc-aside { overflow-y: auto; max-height: 100%; }
+  .mk-svc-carrusel { min-height: 0; }
+}
+
 @media (max-width: 820px) {
   /* Apilado: el carrusel arriba al alto de su contenido y la configuración
      abajo quedándose con el resto y scrolleando. Sin redefinir las filas, la
