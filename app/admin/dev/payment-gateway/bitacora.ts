@@ -216,4 +216,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/second-brain?ws=3',
   },
+  {
+    fecha: '21 oct', hora: '13:45', chat: 'Pagos', sesion: 'local_d0cd6fc8-e2f9-4ee9-b76a-19264ced015f', cuenta: 'claude4', actor: 'claude', tipo: 'correccion',
+    titulo: 'Hecho: leer un contrato ya no inventa un tipo de cambio',
+    pedido: 'revisión de los bloques de Pagos (Cerebro, 21/10): el lector del contrato convertía como el del comprobante',
+    puntos: [
+      'Al pasar un cliente a Ganado y leer su contrato, el total y las cuotas se leen en SU moneda. Si el contrato está en pesos, te muestra «el contrato dice MX$72.000» y los dólares los cargas tú: ya no salen de una tasa que inventaba la IA.',
+      'Si el contrato es en dólares, las cuotas se cargan solas sólo si suman el total. Un «US$4.000 en 12 mensualidades de $6.000 M.N.» ya no arma un plan de 72.000 dólares.',
+      'Un lector de contratos viejo guardado en Configuraciones que convertía no deja sus montos, y te lo dice.',
+      'La página pública (/vsl) ya no promete la conversión.',
+    ],
+    commits: [{ sha: 'b23ce2a9c', msg: 'Pagos: el lector del contrato lee montos y moneda tal cual, y las cuotas valen si suman el total (entró con 26b44e063, deploy 42efe1713)', lineas: 318, archivos: 10 }],
+    archivos: [
+      'lib/contrato-montos.ts — `montosDelContrato`: qué montos van según la moneda, y la tolerancia del asistente',
+      'lib/prompt-defaults.ts — CONTRACT_EXTRACT_DEFAULT: el total y las cuotas tal como figuran, con su moneda',
+      'app/crm/StageMoveDialog.tsx — el asistente de Ganado dice qué falta cargar',
+      'tests/pagos-contrato-moneda.test.ts — con la ruta real, probado rompiéndolo',
+    ],
+    revisar: '/crm?ws=3',
+  },
 ];
