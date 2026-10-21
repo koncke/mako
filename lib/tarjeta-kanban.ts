@@ -99,4 +99,30 @@ export const NOMBRE_PRIORIDAD: Readonly<Record<PrioridadTarea, string>> = { 0: '
  * bloque de fondo, no vacía»). El de la familia del 17/10 era `--surface-2` al 55 %, que sobre el fondo de la página casi
  * no se ve: una columna sin tarjetas parecía un hueco. Lo fija tests/tarjetas-familia.test.ts.
  */
-export const FONDO_COLUMNA = 'var(--surface-2)';
+// ⚠️ Una VARIABLE con su valor claro y oscuro (app/globals.css), no `--surface-2`: el 18/10 se puso `--surface-2` y
+// era el mismo color que la página (#F5F7FA sobre #F4F6F9); el 20/10 Martín seguía viendo las columnas invisibles.
+export const FONDO_COLUMNA = 'var(--fondo-columna)';
+
+/**
+ * LO QUE MUESTRA LA TARJETA DE UN LEAD, a elección de cada persona (20/10/2026, Martín: «Las cards, las debería poder
+ * personalizar también, por si el usuario quiere más o menos info»). Se guarda POR PERSONA (`usuarios.perfil`, igual
+ * que sus avisos), la misma en todos los funnels: es cómo mira cada uno, y un closer y un setter quieren ver cosas
+ * distintas del mismo tablero; guardarlo por funnel le cambiaría la tarjeta a todo el equipo. El nombre va siempre.
+ * El orden del catálogo es el de la tarjeta: lo que no está en él se descarta (un dato viejo no rompe la pantalla).
+ */
+export const CAMPOS_TARJETA_LEAD = ['foto', 'plata', 'canal', 'vence', 'datos', 'agenda', 'fuera', 'empresa', 'telefono', 'campana', 'alta'] as const;
+export type CampoTarjetaLead = (typeof CAMPOS_TARJETA_LEAD)[number];
+export const NOMBRE_CAMPO_TARJETA: Readonly<Record<CampoTarjetaLead, string>> = {
+  foto: 'Foto o iniciales', plata: 'Plata', canal: 'Por dónde llegó', vence: 'Vencimientos', datos: 'Datos pendientes',
+  agenda: 'Reunión agendada', fuera: 'Fuera del funnel', empresa: 'Empresa', telefono: 'Teléfono', campana: 'Campaña',
+  alta: 'Fecha de alta',
+};
+/** Lo de siempre: la tarjeta del 17/10. Empresa, teléfono, campaña y fecha de alta son «más info». */
+export const CAMPOS_TARJETA_DEFAULT: readonly CampoTarjetaLead[] = ['foto', 'plata', 'canal', 'vence', 'datos', 'agenda', 'fuera'];
+
+/** Lo guardado, limpio y en el orden del catálogo. Sin nada guardado (o algo que no es una lista): lo de siempre. */
+export function camposTarjetaDe(raw: unknown): CampoTarjetaLead[] {
+  if (!Array.isArray(raw)) return [...CAMPOS_TARJETA_DEFAULT];
+  const pedidos = new Set(raw.filter((x): x is string => typeof x === 'string'));
+  return CAMPOS_TARJETA_LEAD.filter((c) => pedidos.has(c));
+}

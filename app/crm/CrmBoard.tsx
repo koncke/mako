@@ -127,7 +127,8 @@ import { FUNNEL_DEL_NEGOCIO, esLote, itemsCrm, opcionesCrm, tituloCrm, type Cont
 import { useEtiquetas, type Etiqueta } from '@/app/_components/etiquetas-cliente';
 import { ModalLlevarAPartners } from '@/app/partners/LlevarAPartners';
 import { EstiloTarjetas, FichaRapida, TarjetaDestacada, TarjetaPersona } from '@/app/_ui/TarjetaKanban';
-import { FONDO_COLUMNA, insigniaDeCanal, plataDeLead, subtituloLead } from '@/lib/tarjeta-kanban';
+import { CAMPOS_TARJETA_DEFAULT, FONDO_COLUMNA, insigniaDeCanal, plataDeLead, subtituloLead, type CampoTarjetaLead } from '@/lib/tarjeta-kanban';
+import { CamposTarjetaModal } from './CamposTarjetaModal';
 import { avisoAlQuitarEtapa } from './aviso-quitar-etapa';
 
 const MONO = "'Geist Mono', monospace";
@@ -453,6 +454,8 @@ export function CrmBoard({
   cursoAlGanar = null,
   partners = false,
   puedeCrearCrm = false,
+  camposTarjeta = CAMPOS_TARJETA_DEFAULT,
+  camposGuardables = false,
 }: {
   leads: CrmLead[];
   stages: Stage[];
@@ -504,6 +507,10 @@ export function CrmBoard({
   partners?: boolean;
   /** ¿Quien mira puede crear un CRM? (el admin: `crearCrmAction`). Sin esto, «Nuevo CRM» no se ofrece. */
   puedeCrearCrm?: boolean;
+  /** Qué datos muestra la tarjeta de un lead para quien mira (20/10/2026; lib/tarjeta-kanban → CAMPOS_TARJETA_LEAD). */
+  camposTarjeta?: readonly CampoTarjetaLead[];
+  /** ¿Se puede guardar? (sin fila propia en `usuarios`, vale sólo en esta pestaña). */
+  camposGuardables?: boolean;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -2012,6 +2019,11 @@ export function CrmBoard({
   // event type no coincide…). Se DICE: antes, cuando no había config, el botón
   // caía a la agenda del dueño y el usuario ni se enteraba de que faltaba algo.
   const [avisoAgenda, setAvisoAgenda] = useState<string | null>(null);
+  // LA TARJETA PERSONALIZADA (20/10/2026): qué datos ve quien mira. Cambia en el acto desde «Personalizar tarjetas».
+  const [campos, setCampos] = useState<readonly CampoTarjetaLead[]>(camposTarjeta);
+  const [personalizando, setPersonalizando] = useState(false);
+  const ve = useMemo(() => new Set(campos), [campos]);
+  const cerrarPersonalizar = useCallback(() => setPersonalizando(false), []);
   // «Próximo» arranca PLEGADO y lo abre el ícono del calendario (18/10/2026, Martín, pt 8).
   const [verProximo, setVerProximo] = useState(false);
   const hayProxima = juntas.some((x) => !/pas[oó]/i.test(x.when));
@@ -2810,8 +2822,11 @@ export function CrmBoard({
                 titulo={l.origin && l.origin !== l.canal ? l.origin : undefined}
                 nombre={l.name}
                 foto={l.foto}
+                sinCara={!ve.has('foto')}
                 insignia={insigniaDeCanal(l.canal)}
-                subtitulo={subtituloLead(isGanado ? montoDeTarjeta(l).texto : plataDeLead({ ganado: false, ingresoEstimado: l.ingresoEstimado }), l.canal)}
+                subtitulo={subtituloLead(
+                  ve.has('plata') ? (isGanado ? montoDeTarjeta(l).texto : plataDeLead({ ganado: false, ingresoEstimado: l.ingresoEstimado })) : null,
+                  ve.has('canal') ? l.canal : null)}
                 pildora={{ texto: 'Ver info', titulo: 'La ficha rápida, con «Mover a…»', onClick: () => { setMoviendoRapida(false); setRapida(l); } }}
                 antes={
                   /* LA CASILLA. `onClick` con `stopPropagation` y no `onChange`: el click
@@ -2839,15 +2854,21 @@ export function CrmBoard({
                     {/* Sin parpadeo (08-T22). Un tablero donde cada card incompleta titilaba en rojo le decía a
                         Mauricio, apenas entraba, que tenía un chorro de cosas por contestar — y lo abandonaba. Lo que
                         falta se marca, sereno; no se reclama. «Vencida» sí es una alerta (una fecha que pasó). */}
-                    {overdueManual
+                    {/* Cada chip, si quien mira lo eligió en «Personalizar tarjetas» (20/10/2026). */}
+                    {!ve.has('vence') ? null : overdueManual
                       ? <span className="tk-chip tk-chip--mal" title="Venció el deadline de la nutrición manual">Venció · {dlFmt ?? 'sin fecha'}</span>
                       : isManual && dlFmt ? <span className="tk-chip tk-chip--gris" title="El plazo de la nutrición manual">Vence · {dlFmt}</span> : null}
-                    {!overdueManual && waiting && <span className="tk-chip tk-chip--riesgo" title="Faltan datos de esta etapa. Se pueden completar cuando quieras: MaKo te los pide después.">Datos pendientes</span>}
-                    {!isGanado && !isManual && l.agenda ? <span className="tk-chip tk-chip--gris" title="La reunión agendada">Agenda · {l.agenda}</span> : null}
+                    {ve.has('datos') && !overdueManual && waiting && <span className="tk-chip tk-chip--riesgo" title="Faltan datos de esta etapa. Se pueden completar cuando quieras: MaKo te los pide después.">Datos pendientes</span>}
+                    {ve.has('agenda') && !isGanado && !isManual && l.agenda ? <span className="tk-chip tk-chip--gris" title="La reunión agendada">Agenda · {l.agenda}</span> : null}
+                    {/* «Más info»: lo que la tarjeta de siempre no trae. Sin los rellenos de `mapToCrmLead` («Sin empresa»). */}
+                    {ve.has('empresa') && l.company?.trim() && l.company !== 'Sin empresa' ? <span className="tk-chip tk-chip--gris" title="Empresa">{l.company}</span> : null}
+                    {ve.has('telefono') && l.telefonoNorm ? <span className="tk-chip tk-chip--gris" title="Teléfono">+{l.telefonoNorm}</span> : null}
+                    {ve.has('campana') && l.campanaNombre ? <span className="tk-chip tk-chip--gris" title="La campaña de la que entró">{l.campanaNombre}</span> : null}
+                    {ve.has('alta') && l.created ? <span className="tk-chip tk-chip--gris" title="Cuándo entró">Alta · {l.created}</span> : null}
                     {/* ⚠️ ESTÁ DIBUJADO ACÁ Y NO ES DE ACÁ. La etapa guardada del lead no existe en este funnel, así que
                         el tablero lo ubica donde puede (medido el 25/09: 1.057 de los 1.138 leads del ws1). Sin el chip,
                         esos leads se leen como «Nuevo». `stageMetaOpt` y NO `stageMeta`: el segundo cae a `stages[0]`. */}
-                    {l.stageFuera && (
+                    {ve.has('fuera') && l.stageFuera && (
                       <span className="tk-chip tk-chip--gris" title={`Este lead quedó guardado en «${stageMetaOpt(stages, l.stageFuera)?.label ?? l.stageFuera}», una etapa que tu funnel ya no tiene. Se muestra aquí porque no hay columna donde ponerlo.`}>
                         {stageMetaOpt(stages, l.stageFuera)?.label ?? l.stageFuera} · fuera del funnel
                       </span>
@@ -2874,7 +2895,8 @@ export function CrmBoard({
     // ⚠️ ARRIBA, 16 Y NO 34 (punto 23 del 12/10/2026: «Sube la topbar del todo»). Con el título
     // fuera ya no hay header: la primera fila es la barra, y los 34 px de arriba eran el aire de
     // un título que no está. El esqueleto (app/crm/loading.tsx) lleva el mismo número.
-    <main className="crm-hover" style={{ flex: 1, minWidth: 0, padding: '16px 44px 60px', display: 'flex', flexDirection: 'column' }} onContextMenu={alClicDerecho}>
+    // El padding derecho deja el lugar de la barra de MaKo cuando está abierta (`--ancho-panel-mako`, la prende esa barra).
+    <main className="crm-hover" style={{ flex: 1, minWidth: 0, padding: '16px calc(44px + var(--ancho-panel-mako, 0px)) 60px 44px', display: 'flex', flexDirection: 'column' }} onContextMenu={alClicDerecho}>
       <CrmToolbarStyles />
       <EstiloTarjetas />
       {/* Conectar Google desde el reagendar abre el modal acá (14/10/2026, «para una integración jamás se debe salir de
@@ -2925,7 +2947,8 @@ export function CrmBoard({
             comentario en CrmToolbar). */}
         <AccionesHeader
           onImportar={() => setImportar(true)} onExportar={() => setExportar(true)} onNuevo={() => setNuevoLead({ etapa: null })}
-          onEditarEtapas={() => setEtapasDe({ id: funnelActivo, nombre: nombreDeFunnel(funnelActivo) })} />
+          onEditarEtapas={() => setEtapasDe({ id: funnelActivo, nombre: nombreDeFunnel(funnelActivo) })}
+          onPersonalizarTarjetas={() => setPersonalizando(true)} />
       </div>
 
       {/* ⛔ SIN HEADER DESDE EL 12/10/2026. Era el ícono del CRM y un «CRM» de 46 px a la
@@ -4042,6 +4065,9 @@ export function CrmBoard({
           onConfirm={() => setErrorEtapa(null)}
           onCancel={() => setErrorEtapa(null)}
         />
+      )}
+      {personalizando && (
+        <CamposTarjetaModal campos={campos} guardable={camposGuardables} onCambio={setCampos} onCerrar={cerrarPersonalizar} />
       )}
     </main>
   );
