@@ -5575,3 +5575,21 @@ app/automations/ConfigAutomatizacionPanel.tsx · lib/config-automatizacion.ts (+
 `configurar_automatizacion`) · lib/secuencia-duplicar.ts (`copiarConfig`) · lib/flujos.ts (`aperturaDelNegocio`) ·
 app/configuraciones/HorarioEnvioPanel.tsx (`zonaSoloLectura`) · app/automations/LimitesEnvioPanel.tsx (`personaPorDefecto`) ·
 test: tests/automations-chat-siempre.test.ts y tests/automations-config-revision.test.ts · *20/10/2026, claude4.*
+
+## La segunda revisión del pedido B (Cerebro, 20/10/2026 noche): lo que el arreglo dejó abierto
+
+La punta `396a82847` entró con estos defectos conocidos (revisión adversarial de 2 lentes + escépticos; detalle en las
+notas compartidas del Cerebro, `revision-automations-20-10-noche.md`). El motor quedó bien: ningún envío doble ni
+ocurrencia perdida del Recurrente.
+- **⚠️ Un arreglo que AFLOJA un corte tiene que recorrer todos los caminos que antes cortaban.** «Lo propio ilegible ya
+  no frena el carril» se hizo dentro de `if (!opts?.ignorarVentana)`: con `ignorar_ventana=1` y la configuración
+  ilegible, la corrida manda con las horas del negocio (antes devolvía `limites-ilegibles`). lib/nutricion.ts:3718-3755.
+- **El aviso de duplicada vive en UN camino de los varios que prenden algo**: no sale al Activar desde el «⋯» de la
+  lista ni al agregar un CRON a una activa (app/automations/SimuladorWhatsApp.tsx:634). Es el aviso que habría frenado
+  #282 + #284 de Leila.
+- **«Copiar flujo» › «Crear» en el MISMO negocio pierde la configuración propia**: sólo Duplicar llama a `copiarConfig`
+  (app/api/chat-agent/secuencias/route.ts:437, `crear_desde_copia`).
+
+**Lo que quedó SIN hacer** (pedido a Automations como punta de seguimiento): los tres de arriba · el aviso al Activar
+compara el borrador del lienzo y no lo publicado (SecuenciaPerfil.tsx:1062) · el paso `au-chat` del recorrido no
+aparece nunca para quien ya tiene automatizaciones (arranca en la lista). *20/10/2026, Cerebro, claude4.*
