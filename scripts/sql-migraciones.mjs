@@ -89,6 +89,28 @@ export function partirPrimerNivel(texto, sep) {
   return partes.map((p) => p.trim()).filter(Boolean);
 }
 
+/**
+ * El índice del `)` que cierra el `(` de `ini`, sin contar los paréntesis que están entre comillas simples o "identificadores" (`default ')'` no cierra nada). -1 si no cierra. Puro.
+ * @param {string} texto
+ * @param {number} ini posición del `(`
+ * @returns {number}
+ */
+export function cierreDeParentesis(texto, ini) {
+  let prof = 0;
+  let enStr = false;
+  let enIdent = false;
+  for (let i = ini; i < texto.length; i++) {
+    const c = texto[i];
+    if (enStr) { if (c === "'") enStr = false; continue; }
+    if (enIdent) { if (c === '"') enIdent = false; continue; }
+    if (c === "'") enStr = true;
+    else if (c === '"') enIdent = true;
+    else if (c === '(') prof++;
+    else if (c === ')') { prof--; if (prof === 0) return i; }
+  }
+  return -1;
+}
+
 /** Un identificador (con o sin comillas) y un nombre calificado `esquema.nombre` (los dos grupos de captura son esquema y nombre). */
 export const ID = '(?:"(?:[^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*)';
 export const QNAME = `(?:(${ID})\\s*\\.\\s*)?(${ID})`;

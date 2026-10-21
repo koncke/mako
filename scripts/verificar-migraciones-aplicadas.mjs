@@ -23,8 +23,8 @@
 
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { ID, ident, partirPrimerNivel, QNAME, sentencias, sinComentarios } from './sql-migraciones.mjs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { cierreDeParentesis, ID, ident, partirPrimerNivel, QNAME, sentencias, sinComentarios } from './sql-migraciones.mjs';
 
 const ESQUEMA = 'public';
 const qn = (esq, nombre) => ({ esq: esq ? ident(esq) : ESQUEMA, nombre: ident(nombre) });
@@ -38,6 +38,10 @@ class Estado {
   constructor() {
     /** @type {Map<string, { tipo: string, nombre: string, migracion: string, condicional: boolean, extra?: any }>} */
     this.vivos = new Map();
+    /** @type {Map<string, string>} clave → la PRIMERA migración que la creó (no se borra aunque la clave se borre): sirve para saber si una creación es un reemplazo */
+    this.origen = new Map();
+    /** @type {Map<string, Set<string>>} migración → claves que recrea teniendo ya otra migración creadas (drop+add, create or replace, if not exists) */
+    this.reemplazos = new Map();
     /** @type {Map<string, { migracion: string }>} lo que alguna migración borró (y no se volvió a crear) */
     this.borrados = new Map();
     /** @type {Map<string, string[]>} migración → claves que crea (aunque después se borren) */
@@ -47,7 +51,17 @@ class Estado {
   }
 
   crear(tipo, nombre, clave, extra) {
-    this.vivos.set(clave, { tipo, nombre, migracion: this.migracion, condicional: this.condicional, extra });
+    // ⚠️ Un REEMPLAZO (la clave ya la había creado OTRA migración: `drop constraint` + `add constraint` con el mismo nombre, `create or replace`, `if not exists`) no prueba nada por existir: el nombre sigue
+    // ahí aunque la migración que lo recrea nunca haya corrido (la 0150 suma 'enlace_clip' a un check que ya existía). Se anota en `reemplazos`, y `verificar` sólo cuenta la AUSENCIA de un reemplazo,
+    // nunca su presencia. Si la clave sigue viva, el dueño sigue siendo quien la creó primero (esa SÍ es una prueba); si hubo un `drop` en el medio, pasa a ser de quien la recrea.
+    const reemplaza = this.origen.has(clave) && this.origen.get(clave) !== this.migracion;
+    if (!this.origen.has(clave)) this.origen.set(clave, this.migracion);
+    if (reemplaza) {
+      if (!this.reemplazos.has(this.migracion)) this.reemplazos.set(this.migracion, new Set());
+      this.reemplazos.get(this.migracion)?.add(clave);
+    }
+    const previo = this.vivos.get(clave);
+    if (!(previo && previo.migracion !== this.migracion)) this.vivos.set(clave, { tipo, nombre, migracion: this.migracion, condicional: this.condicional, extra });
     this.borrados.delete(clave);
     if (!this.creadasPor.has(this.migracion)) this.creadasPor.set(this.migracion, []);
     this.creadasPor.get(this.migracion)?.push(clave);
@@ -65,6 +79,8 @@ class Estado {
     const v = this.vivos.get(vieja);
     if (v) { this.vivos.delete(vieja); this.vivos.set(nueva, { ...v, nombre: nueva.slice(nueva.indexOf(':') + 1) }); }
     for (const claves of this.creadasPor.values()) { const i = claves.indexOf(vieja); if (i >= 0) claves[i] = nueva; }
+    if (this.origen.has(vieja) && !this.origen.has(nueva)) this.origen.set(nueva, /** @type {string} */ (this.origen.get(vieja)));
+    for (const s of this.reemplazos.values()) if (s.delete(vieja)) s.add(nueva);
   }
 
   /** Renombra una tabla y todo lo que cuelga de ella (columnas, triggers, políticas, restricciones, RLS, índices). */
@@ -83,6 +99,27 @@ class Estado {
   }
 }
 
+/**
+ * ¿Las opciones de una vista encienden `opcion`? `texto` es el cuerpo de un `set (…)` o, con `envuelto`, lo que sigue al nombre en un `create view` (se busca `with (…)` antes del `as`).
+ * Una opción booleana sin valor (`with (security_invoker)`) es verdadera; `= off` / `= false` no. Puro.
+ * @param {string} texto
+ * @param {string} opcion
+ * @param {boolean} [envuelto]
+ */
+export function opcionActiva(texto, opcion, envuelto = false) {
+  let opciones = texto;
+  if (envuelto) {
+    const w = /\bwith\s*\(([^)]*)\)/i.exec(texto.split(/\bas\b/i)[0]);
+    if (!w) return false;
+    opciones = w[1];
+  }
+  for (const par of partirPrimerNivel(opciones, ',')) {
+    const x = /^([a-z_]+)\s*(?:=\s*(.+))?$/i.exec(par.trim());
+    if (x && x[1].toLowerCase() === opcion) return x[2] === undefined || /^'?(on|true|yes|1)'?$/i.test(x[2].trim());
+  }
+  return false;
+}
+
 /** Las acciones de un `alter table`: separadas por coma de primer nivel. */
 function accionesDeAlterTable(cuerpo) { return partirPrimerNivel(cuerpo, ','); }
 
@@ -99,8 +136,7 @@ function aplicarSentencia(e, s, sinEntender) {
     e.crear('tabla', `${esq}.${nombre}`, k('tabla', esq, nombre));
     if (m[3] === '(') {
       const ini = t.indexOf('(', m.index + m[0].length - 1);
-      let prof = 0; let fin = -1;
-      for (let i = ini; i < t.length; i++) { if (t[i] === '(') prof++; else if (t[i] === ')') { prof--; if (prof === 0) { fin = i; break; } } }
+      const fin = cierreDeParentesis(t, ini);     // sin contar un `)` entre comillas (`default ')'`): si no, las columnas y restricciones de después no se esperarían
       if (fin > ini) {
         for (const item of partirPrimerNivel(t.slice(ini + 1, fin), ',')) {
           if (/^(constraint|primary|unique|check|foreign|exclude|like|period)\b/i.test(item)) {
@@ -133,6 +169,8 @@ function aplicarSentencia(e, s, sinEntender) {
       if ((x = RE(`^add\\s+(?:column\\s+)?(?:if\\s+not\\s+exists\\s+)?(${ID})\\s+\\S`).exec(a))) { e.crear('columna', `${tabla}.${ident(x[1])}`, k('columna', esq, nombre, ident(x[1]))); continue; }
       if ((x = RE(`^drop\\s+constraint\\s+(?:if\\s+exists\\s+)?(${ID})`).exec(a))) { e.borrar(k('restriccion', esq, nombre, ident(x[1]))); continue; }
       if ((x = RE(`^drop\\s+(?:column\\s+)?(?:if\\s+exists\\s+)?(${ID})`).exec(a))) { e.borrar(k('columna', esq, nombre, ident(x[1]))); continue; }
+      // Un renombre de restricción no mueve lo esperado (la vieja se sigue esperando y la nueva no): se avisa en «sin entender» en vez de dar un falso «a medias».
+      if (/^rename\s+constraint\b/i.test(a)) { sinEntender.push([e.migracion, `alter table ${tabla} ${a}`]); continue; }
       if (/^enable\s+row\s+level\s+security$/i.test(a)) { e.crear('rls', tabla, k('rls', esq, nombre)); continue; }
       if (/^disable\s+row\s+level\s+security$/i.test(a)) { e.quitar(k('rls', esq, nombre)); continue; }
       // alter column / set / owner / force rls / validate / replica identity / etc.: no cambian lo que existe.
@@ -176,8 +214,7 @@ function aplicarSentencia(e, s, sinEntender) {
   if ((m = RE(`^create\\s+(?:or\\s+replace\\s+)?(?:function|procedure)\\s+${QNAME}\\s*\\(`).exec(t))) {
     const { esq, nombre } = qn(m[1], m[2]);
     const ini = t.indexOf('(', m.index + m[0].length - 1);
-    let prof = 0; let fin = -1;
-    for (let i = ini; i < t.length; i++) { if (t[i] === '(') prof++; else if (t[i] === ')') { prof--; if (prof === 0) { fin = i; break; } } }
+    const fin = cierreDeParentesis(t, ini);
     const args = fin > ini ? partirPrimerNivel(t.slice(ini + 1, fin), ',') : [];
     // `returns table (…)` y los argumentos OUT no cuentan en pronargs (sí los INOUT/IN): se descartan los OUT.
     const n = args.filter((a) => !/^out\s/i.test(a)).length;
@@ -200,6 +237,16 @@ function aplicarSentencia(e, s, sinEntender) {
   if ((m = RE(`^create\\s+(?:or\\s+replace\\s+)?(?:materialized\\s+|recursive\\s+)?view\\s+(?:if\\s+not\\s+exists\\s+)?${QNAME}`).exec(t))) {
     const { esq, nombre } = qn(m[1], m[2]);
     e.crear('vista', `${esq}.${nombre}`, k('vista', esq, nombre));
+    // `create or replace view` REEMPLAZA las opciones de la vista (Postgres las deja como las diga el WITH nuevo): sin `with (security_invoker = on)` la vista deja de ser «invoker».
+    e.quitar(k('invoker', esq, nombre));
+    if (opcionActiva(t.slice(m.index + m[0].length), 'security_invoker', true)) e.crear('invoker', `${esq}.${nombre}`, k('invoker', esq, nombre));
+    return;
+  }
+  // `alter view v set (security_invoker = on)`: lo que cierra las vistas de cohortes (0231) a que las lea `anon`. Se espera en el catálogo (pg_class.reloptions), no sólo que la vista exista.
+  if ((m = RE(`^alter\\s+(?:materialized\\s+)?view\\s+(?:if\\s+exists\\s+)?${QNAME}\\s+(set|reset)\\s*\\((.*)\\)$`).exec(t))) {
+    const { esq, nombre } = qn(m[1], m[2]);
+    if (m[3].toLowerCase() === 'set' && opcionActiva(m[4], 'security_invoker')) e.crear('invoker', `${esq}.${nombre}`, k('invoker', esq, nombre));
+    else if (/security_invoker/i.test(m[4])) e.quitar(k('invoker', esq, nombre));
     return;
   }
   if ((m = RE('^drop\\s+(?:materialized\\s+)?view\\s+(?:if\\s+exists\\s+)?(.*?)(?:\\s+(?:cascade|restrict))?$').exec(t))) {
@@ -208,6 +255,7 @@ function aplicarSentencia(e, s, sinEntender) {
       if (!q) { sinEntender.push([e.migracion, t]); continue; }
       const { esq, nombre } = qn(q[1], q[2]);
       e.borrar(k('vista', esq, nombre));
+      e.quitar(k('invoker', esq, nombre));
     }
     return;
   }
@@ -267,6 +315,9 @@ function aplicarSentencia(e, s, sinEntender) {
     return;
   }
 
+  // ── renombres que el analizador no sigue: se dicen, no se ignoran (si no, se espera el nombre viejo y el nuevo nunca) ──
+  if (/^alter\s+(?:index|trigger|policy|sequence|type|schema|view|materialized\s+view|function|procedure|routine)\b.*\brename\b/i.test(t)) { sinEntender.push([e.migracion, t]); return; }
+
   // ── lo que no cambia lo que existe, o no se mira ──────────────────────────
   if (/^(comment|grant|revoke|notify|insert|update|delete|begin|commit|rollback|set|reset|select|alter\s+default\s+privileges|alter\s+(?:function|procedure|routine|view|materialized\s+view|sequence|type|schema|extension|policy|index|trigger|role|database|publication)\b|truncate|analyze|vacuum|create\s+(?:role|publication|subscription|cast|operator|collation|aggregate|rule|event\s+trigger)|drop\s+(?:role|schema|publication|rule|cast|operator|owned|aggregate)|with\b|do\b|execute\b|lock\b|cluster\b|reindex\b|refresh\b|declare\b|call\b|values\b)/i.test(t)) return;
   if (/^(create|alter|drop)\b/i.test(t)) sinEntender.push([e.migracion, t]);
@@ -305,7 +356,7 @@ export function analizarMigraciones(migraciones) {
       aplicarSentencia(e, s, sinEntender);
     }
   }
-  return { vivos: e.vivos, borrados: e.borrados, creadasPor: e.creadasPor, sinEntender, sinMirar };
+  return { vivos: e.vivos, borrados: e.borrados, creadasPor: e.creadasPor, reemplazos: e.reemplazos, todas: migraciones.map((m) => m.nombre).sort(), sinEntender, sinMirar };
 }
 
 /**
@@ -317,9 +368,13 @@ export async function leerCatalogo(consulta) {
   const noSistema = "n.nspname not in ('pg_catalog', 'information_schema', 'pg_toast') and n.nspname not like 'pg\\_temp\\_%' and n.nspname not like 'pg\\_toast\\_temp\\_%'";
   const claves = new Set();
   const poner = (c) => claves.add(c);
-  for (const r of await consulta(`select n.nspname as e, c.relname as n, c.relkind as t, c.relrowsecurity as rls from pg_class c join pg_namespace n on n.oid = c.relnamespace where ${noSistema} and c.relkind in ('r','p','v','m','S','i','I')`)) {
+  for (const r of await consulta(`select n.nspname as e, c.relname as n, c.relkind as t, c.relrowsecurity as rls, c.reloptions::text as o from pg_class c join pg_namespace n on n.oid = c.relnamespace where ${noSistema} and c.relkind in ('r','p','v','m','S','i','I')`)) {
     if (r.t === 'r' || r.t === 'p') poner(k('tabla', r.e, r.n));
-    if (r.t === 'v' || r.t === 'm') poner(k('vista', r.e, r.n));
+    if (r.t === 'v' || r.t === 'm') {
+      poner(k('vista', r.e, r.n));
+      // `security_invoker = on` vive en pg_class.reloptions ({security_invoker=on}): la vista lee con los permisos de quien la consulta (lo que cierra las de cohortes a `anon`, 0231).
+      if (/(?:^|[{,])security_invoker=(?:on|true|yes|1)(?:[},]|$)/i.test(r.o ?? '')) poner(k('invoker', r.e, r.n));
+    }
     if (r.t === 'S') poner(k('secuencia', r.e, r.n));
     if (r.t === 'i' || r.t === 'I') poner(k('indice', r.e, r.n));
     if (r.rls) poner(k('rls', r.e, r.n));
@@ -335,8 +390,11 @@ export async function leerCatalogo(consulta) {
   for (const r of await consulta('select extname as n from pg_extension')) poner(k('extension', r.n));
   for (const r of await consulta(`select n.nspname as e, c.relname as t, o.conname as n from pg_constraint o join pg_class c on c.oid = o.conrelid join pg_namespace n on n.oid = c.relnamespace where ${noSistema}`)) poner(k('restriccion', r.e, r.t, r.n));
   for (const r of await consulta("select nspname as n from pg_namespace where nspname not like 'pg\\_%' and nspname <> 'information_schema'")) poner(k('esquema', r.n));
+  // ⚠️ SE PREGUNTA ANTES de leerlos, no se atrapa el error: dentro de `sql.begin` un `select` que falla (un rol sin acceso a `storage`, una base sin storage) deja la transacción abortada y postgres.js
+  // relanza ese error al terminar: un `try/catch` acá lo tragaba y aun así tiraba abajo TODA la corrida (exit 3, sin informe). `to_regclass` da NULL si no existe, y el `case` no evalúa los permisos sobre algo que no está.
   let buckets = false;
-  try { for (const r of await consulta('select id from storage.buckets')) { poner(k('bucket', r.id)); buckets = true; } } catch { /* sin storage */ }
+  const puede = await consulta("select (case when to_regclass('storage.buckets') is null then false else (has_schema_privilege('storage', 'usage') and has_table_privilege('storage.buckets', 'select')) end) as ok");
+  if (puede[0]?.ok === true) { buckets = true; for (const r of await consulta('select id from storage.buckets')) poner(k('bucket', r.id)); }
   return { claves, buckets };
 }
 
@@ -363,27 +421,33 @@ export function verificar(an, catalogo, { desde = '' } = {}) {
     if (/^(rls):/.test(clave)) continue;
     if (hay(clave)) sobra.push({ clave, migracion: v.migracion });
   }
-  /** @type {{ nombre: string, estado: 'aplicada' | 'a-medias' | 'ausente' | 'sin-objetos', esperadas: number, faltan: string[] }[]} */
+  /** @type {{ nombre: string, estado: 'aplicada' | 'a-medias' | 'ausente' | 'reemplaza' | 'sin-objetos', esperadas: number, faltan: string[], reemplazan: number }[]} */
   const porMigracion = [];
   for (const [nombre, claves] of an.creadasPor) {
     if (nombre < desde) continue;
-    // lo que ESA migración creó y sigue esperándose (no lo borró una posterior) y lo que falta de eso
-    const vivas = [...new Set(claves)].filter((c) => an.vivos.get(c)?.migracion === nombre && !(an.vivos.get(c)?.condicional) && !(an.vivos.get(c)?.tipo === 'bucket' && !catalogo.buckets));
+    const reemplazos = an.reemplazos?.get(nombre) ?? new Set();
+    const verificable = (c) => { const v = an.vivos.get(c); return v != null && !v.condicional && !(v.tipo === 'bucket' && !catalogo.buckets); };
+    // lo que ESA migración creó y sigue esperándose (no lo borró una posterior)…
+    const propias = [...new Set(claves)].filter((c) => an.vivos.get(c)?.migracion === nombre && verificable(c));
+    // …más lo que RECREA teniendo ya otra migración creado (un reemplazo): su AUSENCIA prueba que no corrió, su presencia no prueba nada.
+    const vivas = [...new Set([...propias, ...[...reemplazos].filter((c) => verificable(c))])];
     const faltan = vivas.filter((c) => !hay(c));
-    const estado = vivas.length === 0 ? 'sin-objetos' : faltan.length === 0 ? 'aplicada' : faltan.length === vivas.length ? 'ausente' : 'a-medias';
-    porMigracion.push({ nombre, estado, esperadas: vivas.length, faltan });
+    const prueba = propias.filter((c) => !reemplazos.has(c));
+    const estado = vivas.length === 0 ? 'sin-objetos' : faltan.length === vivas.length ? 'ausente' : faltan.length > 0 ? 'a-medias' : prueba.length > 0 ? 'aplicada' : 'reemplaza';
+    porMigracion.push({ nombre, estado, esperadas: vivas.length, faltan, reemplazan: vivas.filter((c) => reemplazos.has(c)).length });
   }
   porMigracion.sort((a, b) => (a.nombre < b.nombre ? -1 : 1));
   return { falta, dudoso, sobra, porMigracion };
 }
 
 /** El informe en texto: lo importante primero (las ausentes y las a medias), y lo que no se mira, dicho. */
-export function formatear(an, r, { detalle = false } = {}) {
+export function formatear(an, r, { detalle = false, desde = '' } = {}) {
   const l = [];
   const ausentes = r.porMigracion.filter((m) => m.estado === 'ausente');
   const medias = r.porMigracion.filter((m) => m.estado === 'a-medias');
   const ok = r.porMigracion.filter((m) => m.estado === 'aplicada');
-  l.push(`[verificar-migraciones] ${r.porMigracion.length} migraciones con objetos verificables: ${ok.length} aplicadas · ${medias.length} A MEDIAS · ${ausentes.length} AUSENTES (nada de lo que crean existe)`);
+  const reemplazan = r.porMigracion.filter((m) => m.estado === 'reemplaza');
+  l.push(`[verificar-migraciones] ${r.porMigracion.length} migraciones con objetos verificables: ${ok.length} aplicadas · ${medias.length} A MEDIAS · ${ausentes.length} AUSENTES (nada de lo que crean existe) · ${reemplazan.length} SIN VERIFICAR (sólo reemplazan algo que ya existía)`);
   if (ausentes.length) {
     l.push('', '== AUSENTES: no se aplicaron (o su efecto se borró) ==');
     for (const m of ausentes) l.push(`  ${m.nombre} — ${m.esperadas} objeto(s): ${m.faltan.slice(0, 6).join(', ')}${m.faltan.length > 6 ? '…' : ''}`);
@@ -401,10 +465,24 @@ export function formatear(an, r, { detalle = false } = {}) {
     for (const d of r.dudoso.slice(0, detalle ? 999 : 15)) l.push(`  ${d.clave} — ${d.migracion}`);
     if (!detalle && r.dudoso.length > 15) l.push(`  …y ${r.dudoso.length - 15} más (--detalle)`);
   }
+  if (reemplazan.length) {
+    l.push('', '== SIN VERIFICAR: sólo REEMPLAZAN algo que ya existía con ese nombre (drop + add, create or replace, if not exists) ==');
+    l.push('  El nombre existe, pero eso NO prueba que la migración corrió (la 0150 suma un valor a un check que ya estaba): si falta, falla lo que la usa. Se ven a mano o por lo que habilitan.');
+    for (const m of reemplazan) l.push(`  ${m.nombre} — recrea ${m.reemplazan} objeto(s) existente(s)`);
+  }
+  // Las migraciones de las que este informe no puede decir NADA (sólo datos, grant/revoke, comment, alter … set): se nombran, en vez de no aparecer.
+  const sinNada = (an.todas ?? []).filter((n) => !(n < desde) && !r.porMigracion.some((m) => m.nombre === n && m.estado !== 'sin-objetos'));
+  if (sinNada.length) {
+    l.push('', `== SIN NADA QUE VERIFICAR (${sinNada.length}): no crean nada que el catálogo pueda confirmar ==`);
+    l.push(`  ${sinNada.map((n) => n.replace(/\.sql$/, '')).join(' · ')}`);
+    l.push('  Si una de ellas es un cierre de seguridad (grant/revoke, política), se mide aparte: scripts/medir-funciones-publicas.mjs.');
+  }
   l.push('', '== LO QUE NO SE MIRA ==');
   const datos = [...an.sinMirar.values()].reduce((a, n) => a + n, 0);
   l.push(`  ${datos} sentencias de datos (insert/update/delete) o bloques DO en ${an.sinMirar.size} migraciones: lo que una migración siembra (planes, plantillas, filas) no se verifica.`);
   l.push('  grant/revoke (lo mide scripts/medir-funciones-publicas.mjs), comment on, y el DDL armado con execute format().');
+  l.push('  Re-crear con el mismo nombre (drop + add, create or replace, if not exists): el nombre existente no prueba que corrió (arriba: SIN VERIFICAR). De una vista sólo se mira `security_invoker`; otras opciones y los `alter column` no.');
+  l.push('  El contenido de una restricción, un índice o una función (sólo su nombre y, de las funciones, la cantidad de argumentos).');
   if (an.sinEntender.length) {
     l.push('', `== DDL SIN ENTENDER (${an.sinEntender.length}): el analizador no sabe qué esperar de estas sentencias ==`);
     for (const [mig, s] of an.sinEntender.slice(0, detalle ? 999 : 20)) l.push(`  ${mig}: ${s.slice(0, 110)}`);
@@ -417,12 +495,36 @@ export function formatear(an, r, { detalle = false } = {}) {
   return l.join('\n');
 }
 
+/**
+ * Los argumentos: `--json <archivo>`, `--desde <prefijo>` (con valor) y `--detalle`. En cualquier posición (con `indexOf(...) > 0` un `--json` PRIMERO se ignoraba en silencio), y lo que no entiende se dice. Puro.
+ * @param {string[]} argv
+ * @returns {{ json: string | null, desde: string, detalle: boolean, malos: string[] }}
+ */
+export function leerArgumentos(argv) {
+  /** @type {{ json: string | null, desde: string, detalle: boolean, malos: string[] }} */
+  const r = { json: null, desde: '', detalle: false, malos: [] };
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === '--detalle') r.detalle = true;
+    else if (a === '--json' || a === '--desde') {
+      const v = argv[i + 1];
+      if (v == null || v.startsWith('--')) { r.malos.push(`${a} (sin valor)`); continue; }
+      if (a === '--json') r.json = v; else r.desde = v;
+      i++;
+    } else r.malos.push(a);
+  }
+  return r;
+}
+
 async function main(argv) {
-  const dir = join(process.cwd(), 'supabase', 'migrations');
+  const args = leerArgumentos(argv);
+  if (args.malos.length) { console.error(`[verificar-migraciones] argumento(s) que no entiendo: ${args.malos.join(', ')} (uso: [--json salida.json] [--detalle] [--desde 0200])`); return 2; }
+  // ⚠️ Las migraciones salen de la carpeta DEL SCRIPT, no del cwd: desde C:/dev/mako-api (una rama del 9/10, con migraciones hasta la 0227) leía 240 viejas y no veía la 0283.
+  const dir = fileURLToPath(new URL('../supabase/migrations/', import.meta.url));
   const migraciones = readdirSync(dir).filter((f) => f.endsWith('.sql')).map((f) => ({ nombre: f, sql: readFileSync(join(dir, f), 'utf8') }));
   const an = analizarMigraciones(migraciones);
-  const iDesde = argv.indexOf('--desde');
-  const desde = iDesde > 0 ? String(argv[iDesde + 1] ?? '') : '';
+  const { desde } = args;
+  console.log(`[verificar-migraciones] ${migraciones.length} migraciones leídas de ${dir} (la última: ${an.todas[an.todas.length - 1] ?? 'ninguna'})`);
   const conn = process.env.DATABASE_URL;
   if (!conn) { console.error('Falta DATABASE_URL (corré con: node --env-file=C:/dev/mako-api/.env.local scripts/verificar-migraciones-aplicadas.mjs)'); return 1; }
   const { default: postgres } = await import('postgres');
@@ -434,9 +536,8 @@ async function main(argv) {
     });
     const r = verificar(an, catalogo, { desde });
     console.log(`[verificar-migraciones] conexión OK · transacción de sólo lectura · ${catalogo.claves.size} objetos en el catálogo`);
-    console.log(formatear(an, r, { detalle: argv.includes('--detalle') }));
-    const iJson = argv.indexOf('--json');
-    if (iJson > 0) writeFileSync(String(argv[iJson + 1]), JSON.stringify({ ...r, sinEntender: an.sinEntender }, null, 2));
+    console.log(formatear(an, r, { detalle: args.detalle, desde }));
+    if (args.json) writeFileSync(args.json, JSON.stringify({ ...r, sinEntender: an.sinEntender }, null, 2));
     return r.porMigracion.some((m) => m.estado === 'ausente' || m.estado === 'a-medias') || r.sobra.length ? 2 : 0;
   } finally {
     await sql.end({ timeout: 5 });

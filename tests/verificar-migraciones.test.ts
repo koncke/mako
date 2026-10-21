@@ -21,7 +21,9 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { analizarMigraciones, formatear, leerCatalogo, verificar } from '../scripts/verificar-migraciones-aplicadas.mjs';
+import { tmpdir } from 'node:os';
+import { analizarMigraciones, formatear, leerArgumentos, leerCatalogo, opcionActiva, verificar } from '../scripts/verificar-migraciones-aplicadas.mjs';
+import { cierreDeParentesis } from '../scripts/sql-migraciones.mjs';
 
 const REPO = fileURLToPath(new URL('..', import.meta.url));
 const SCRIPT = join(REPO, 'scripts', 'verificar-migraciones-aplicadas.mjs');
@@ -189,6 +191,156 @@ test('formatear: lo importante primero, y dice lo que NO mira', () => {
   assert.match(informe, /LO QUE NO SE MIRA[\s\S]*sentencias de datos[\s\S]*grant\/revoke/);
 });
 
+// ---------------------------------------------------------------------------------------------------------------------------------
+// «Aplicada» por existir el nombre: un REEMPLAZO no prueba nada (revisión del 21/10/2026: 6 migraciones salían «aplicada» sin haber corrido)
+// ---------------------------------------------------------------------------------------------------------------------------------
+
+test('un REEMPLAZO (drop + add con el mismo nombre, create or replace, if not exists) no prueba que la migración corrió: su presencia no cuenta, su ausencia sí', () => {
+  const an = analizarMigraciones([
+    { nombre: '0100_check.sql', sql: "create table t (tipo text, constraint t_tipo_check check (tipo in ('a')));" },
+    { nombre: '0150_check_mas.sql', sql: "alter table t drop constraint t_tipo_check; alter table t add constraint t_tipo_check check (tipo in ('a','b'));" },
+    { nombre: '0160_f.sql', sql: 'create function f() returns int language sql as $$ select 1 $$;' },
+    { nombre: '0170_f2.sql', sql: 'create or replace function f() returns int language sql as $$ select 2 $$;' },
+    { nombre: '0180_idx.sql', sql: 'create index i on t (tipo);' },
+    { nombre: '0190_idx2.sql', sql: 'create index if not exists i on t (tipo); create index nuevo on t (tipo);' },
+  ]);
+  // La base tiene TODO lo que existía antes: las versiones viejas. Si 0150, 0170 y 0190 no corrieron, el informe no puede decir «aplicada» por eso.
+  const conTodo = verificar(an, catalogo('tabla:public.t', 'columna:public.t.tipo', 'restriccion:public.t.t_tipo_check', 'funcion:public.f/0', 'indice:public.i', 'indice:public.nuevo'));
+  const estado = (r: ReturnType<typeof verificar>) => Object.fromEntries(r.porMigracion.map((m) => [m.nombre, m.estado]));
+  assert.equal(estado(conTodo)['0100_check.sql'], 'aplicada', 'la que creó la tabla por primera vez sí se prueba por existir');
+  assert.equal(estado(conTodo)['0150_check_mas.sql'], 'reemplaza', 'drop + add del mismo check: el nombre existe por la versión VIEJA, eso no prueba nada');
+  assert.equal(estado(conTodo)['0170_f2.sql'], 'reemplaza', 'create or replace de una función que ya existía');
+  assert.equal(estado(conTodo)['0190_idx2.sql'], 'aplicada', 'crea un índice NUEVO que sí está: eso sí prueba, y el que sólo re-declara no lo cambia');
+  assert.equal(conTodo.porMigracion.find((m) => m.nombre === '0190_idx2.sql')?.reemplazan, 1);
+  assert.equal(estado(conTodo)['0160_f.sql'], 'aplicada');
+  // La ausencia de un reemplazo SÍ prueba: si el check no está, la 0150 no corrió (y el drop que la deja sin check tampoco).
+  const sinCheck = verificar(an, catalogo('tabla:public.t', 'columna:public.t.tipo', 'funcion:public.f/0', 'indice:public.i', 'indice:public.nuevo'));
+  assert.equal(estado(sinCheck)['0150_check_mas.sql'], 'ausente');
+  // Declarar dos veces lo mismo DENTRO de la misma migración (create table + add column if not exists) no es un reemplazo: es esa migración creándolo.
+  const doble = analizarMigraciones([{ nombre: '0200_doble.sql', sql: 'alter table u add column a int; alter table u add column if not exists a int;' }]);
+  assert.equal(estado(verificar(doble, catalogo('columna:public.u.a')))['0200_doble.sql'], 'aplicada', 'la misma migración dos veces no es un reemplazo (y su única clave es esa)');
+  assert.equal(estado(verificar(doble, catalogo()))['0200_doble.sql'], 'ausente');
+  const informe = formatear(an, conTodo);
+  assert.match(informe, /2 SIN VERIFICAR/);
+  assert.match(informe, /SIN VERIFICAR: sólo REEMPLAZAN[\s\S]*0150_check_mas\.sql — recrea 1 objeto\(s\)[\s\S]*0170_f2\.sql/);
+  assert.match(informe, /Re-crear con el mismo nombre/, 'y lo dice entre lo que NO se mira');
+});
+
+test('formatear nombra las migraciones de las que NO puede decir nada (sólo datos, grant/revoke, alter … set): ya no desaparecen del informe', () => {
+  const an = analizarMigraciones([
+    { nombre: '0010_datos.sql', sql: "insert into planes values (1);" },
+    { nombre: '0011_grants.sql', sql: 'revoke all on t from anon;' },
+    { nombre: '0012_tabla.sql', sql: 'create table x (a int);' },
+    { nombre: '0013_borra.sql', sql: 'drop table x;' },
+  ]);
+  const informe = formatear(an, verificar(an, catalogo()));
+  assert.match(informe, /SIN NADA QUE VERIFICAR \(4\)[\s\S]*0010_datos · 0011_grants · 0012_tabla · 0013_borra/, 'las cuatro, por nombre (de la 0012 no queda nada que esperar: la 0013 borra lo que crea)');
+  const conObjetos = analizarMigraciones([{ nombre: '0010_tabla.sql', sql: 'create table x (a int);' }, { nombre: '0011_datos.sql', sql: 'insert into x values (1);' }]);
+  assert.doesNotMatch(formatear(conObjetos, verificar(conObjetos, catalogo('tabla:public.x', 'columna:public.x.a'))).split('SIN NADA QUE VERIFICAR')[1] ?? '', /0010_tabla/, 'una que crea algo verificable no está en la lista');
+  assert.doesNotMatch(formatear(an, verificar(an, catalogo(), { desde: '0013' }), { desde: '0013' }).split('SIN NADA QUE VERIFICAR')[1]?.split('\n')[1] ?? '', /0010_datos/, '--desde también recorta esta lista');
+});
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// security_invoker de las vistas (la 0231 cierra las de cohortes a `anon` con eso, y no creaba ninguna clave)
+// ---------------------------------------------------------------------------------------------------------------------------------
+
+test('opcionActiva: security_invoker encendido con on/true/1/sin valor; apagado con off/false; create or replace view lo resetea', () => {
+  assert.equal(opcionActiva('security_invoker = on', 'security_invoker'), true);
+  assert.equal(opcionActiva("security_invoker = 'true'", 'security_invoker'), true);
+  assert.equal(opcionActiva('security_barrier = on, security_invoker=true', 'security_invoker'), true);
+  assert.equal(opcionActiva('security_invoker', 'security_invoker'), true, 'una opción booleana sin valor es verdadera');
+  assert.equal(opcionActiva('security_invoker = off', 'security_invoker'), false);
+  assert.equal(opcionActiva('security_barrier = on', 'security_invoker'), false);
+  assert.equal(opcionActiva(' with (security_invoker = on) as select 1', 'security_invoker', true), true, 'en un create view, el with antes del as');
+  assert.equal(opcionActiva(" as select 'with (security_invoker = on)'", 'security_invoker', true), false, 'lo que está DESPUÉS del as (un string, una CTE) no cuenta');
+  const an = analizarMigraciones([
+    { nombre: '0001_v.sql', sql: 'create view v as select 1; create view w as select 1; create view x with (security_invoker = on) as select 1; create view y as select 1; create view z as select 1;' },
+    { nombre: '0002_inv.sql', sql: 'alter view v set (security_invoker = on); alter view w set (security_invoker = true); alter view y set (security_invoker = on); alter view z set (security_invoker = on);' },
+    { nombre: '0003_resetea.sql', sql: 'create or replace view w as select 2; alter view y set (security_invoker = off); alter view z reset (security_invoker); drop view if exists nada;' },
+  ]);
+  assert.deepEqual([...an.vivos.keys()].filter((c) => c.startsWith('invoker:')).sort(), ['invoker:public.v', 'invoker:public.x'], 'w lo pierde por el create or replace; y y z por el off y el reset');
+  assert.deepEqual(an.sinEntender, []);
+  const borrada = analizarMigraciones([{ nombre: '0001_v.sql', sql: 'create view v as select 1; alter view v set (security_invoker = on);' }, { nombre: '0002_d.sql', sql: 'drop view v;' }]);
+  assert.deepEqual([...borrada.vivos.keys()], [], 'una vista borrada no se espera ni con su opción');
+});
+
+test('security_invoker: el lector del catálogo lo lee de pg_class.reloptions, y una vista sin la opción deja a la migración AUSENTE', async () => {
+  const an = analizarMigraciones([
+    { nombre: '0001_v.sql', sql: 'create view v as select 1; create view w as select 1;' },
+    { nombre: '0002_inv.sql', sql: 'alter view v set (security_invoker = on); alter view w set (security_invoker = on);' },
+  ]);
+  const filas = (o: Record<string, string | null>) => async (texto: string) => (/from pg_class c/.test(texto) && /relrowsecurity/.test(texto)
+    ? Object.entries(o).map(([n, op]) => ({ e: 'public', n, t: 'v', rls: false, o: op }))
+    : []);
+  const bien = await leerCatalogo(filas({ v: '{security_invoker=on}', w: '{security_barrier=true,security_invoker=true}' }));
+  assert.ok(bien.claves.has('invoker:public.v') && bien.claves.has('invoker:public.w'), 'on y true, solos o con otras opciones');
+  assert.equal(estadoDe(verificar(an, bien), '0002_inv.sql'), 'aplicada');
+  const mal = await leerCatalogo(filas({ v: '{security_invoker=on}', w: null }));
+  assert.ok(!mal.claves.has('invoker:public.w'), 'una vista sin reloptions no es invoker');
+  assert.equal(estadoDe(verificar(an, mal), '0002_inv.sql'), 'a-medias', 'la 0231 «aplicada» sólo con las dos vistas en security_invoker');
+  const off = await leerCatalogo(filas({ v: '{security_invoker=off}', w: '{security_invoker=on}' }));
+  assert.ok(!off.claves.has('invoker:public.v'), 'security_invoker=off tampoco');
+});
+const estadoDe = (r: ReturnType<typeof verificar>, nombre: string) => r.porMigracion.find((m) => m.nombre === nombre)?.estado;
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Los bajos de la revisión: storage.buckets dentro de la transacción, los argumentos, la carpeta de migraciones, el tokenizador
+// ---------------------------------------------------------------------------------------------------------------------------------
+
+test('storage.buckets: se PREGUNTA si se puede leer antes de leerlo (un select que falla dentro de la transacción la tira entera)', async () => {
+  const consultas: string[] = [];
+  const leer = (ok: boolean | undefined, ids: string[]) => async (texto: string) => {
+    consultas.push(texto);
+    if (/to_regclass\('storage\.buckets'\)/.test(texto)) return ok === undefined ? [] : [{ ok }];
+    if (/from storage\.buckets/.test(texto)) return ids.map((id) => ({ id }));
+    return [];
+  };
+  const no = await leerCatalogo(leer(false, ['bk']));
+  assert.equal(no.buckets, false, 'sin acceso a storage los buckets no se verifican');
+  assert.ok(!consultas.some((q) => /^\s*select id from storage\.buckets/.test(q)), 'y NO se lee storage.buckets: ese select es el que tiraría abajo la corrida');
+  const si = await leerCatalogo(leer(true, ['bk', 'otro']));
+  assert.equal(si.buckets, true);
+  assert.ok(si.claves.has('bucket:bk') && si.claves.has('bucket:otro'));
+  assert.equal((await leerCatalogo(leer(true, []))).buckets, true, 'con acceso y sin ningún bucket, los buckets SE verifican (y faltan todos)');
+  const pregunta = consultas.find((q) => /to_regclass/.test(q)) ?? '';
+  assert.match(pregunta, /^\s*select\b/i);
+  assert.match(pregunta, /case when to_regclass\('storage\.buckets'\) is null then false else[\s\S]*has_table_privilege/, 'el permiso se mira sólo si la tabla existe: has_table_privilege tira error si no existe');
+});
+
+test('leerArgumentos: --json y --desde en cualquier posición (primero también), con valor; lo que no entiende se dice', () => {
+  assert.deepEqual(leerArgumentos(['--json', 's.json']), { json: 's.json', desde: '', detalle: false, malos: [] }, 'un --json PRIMERO se ignoraba en silencio (indexOf > 0)');
+  assert.deepEqual(leerArgumentos(['--desde', '0200', '--detalle', '--json', 'a.json']), { json: 'a.json', desde: '0200', detalle: true, malos: [] });
+  assert.deepEqual(leerArgumentos(['--desde']).malos, ['--desde (sin valor)']);
+  assert.deepEqual(leerArgumentos(['--json', '--detalle']).malos, ['--json (sin valor)'], 'no toma una opción por su valor');
+  assert.deepEqual(leerArgumentos(['--detalles', 'x']).malos, ['--detalles', 'x'], 'un error de tipeo no se ignora');
+});
+
+test('el script lee las migraciones de SU carpeta (no del cwd), dice cuántas y cuál es la última, y rechaza un argumento que no entiende', () => {
+  const env = { ...process.env }; delete env.DATABASE_URL; delete env.NODE_TEST_CONTEXT;
+  const r = spawnSync(process.execPath, [SCRIPT], { cwd: tmpdir(), encoding: 'utf8', env, timeout: 60_000 });
+  assert.equal(r.status, 1, `${r.stdout}${r.stderr}`);
+  assert.match(r.stdout, /\[verificar-migraciones\] \d{3} migraciones leídas de .*supabase[\\/]migrations[\\/]? \(la última: \d{4}_/, 'corrido desde OTRA carpeta, igual lee las del repo del script');
+  assert.ok(r.stdout.replace(/\\/g, '/').includes(REPO.replace(/\\/g, '/').replace(/\/$/, '')), 'y dice de cuál carpeta');
+  const mal = spawnSync(process.execPath, [SCRIPT, '--detalles'], { cwd: REPO, encoding: 'utf8', env, timeout: 60_000 });
+  assert.equal(mal.status, 2, `${mal.stdout}${mal.stderr}`);
+  assert.match(mal.stderr, /argumento\(s\) que no entiendo: --detalles/);
+});
+
+test('el tokenizador: un `)` entre comillas no cierra la lista, y un renombre de índice o de restricción va a «sin entender» (no se sigue esperando el nombre viejo en silencio)', () => {
+  const t1 = "(a text default ')', b int)";
+  assert.equal(cierreDeParentesis(t1, 0), t1.length - 1, 'el paréntesis de la comilla no cierra: cierra el último');
+  const t2 = '(a int default (1), "col)" int)';
+  assert.equal(cierreDeParentesis(t2, 0), t2.length - 1, 'ni el de un identificador entre comillas, y uno anidado se cuenta');
+  assert.equal(cierreDeParentesis('(abierto', 0), -1);
+  assert.deepEqual(claves("create table t (id int, a text default ')', b int, constraint t_chk check (id > 0));"), ['columna:public.t.a', 'columna:public.t.b', 'columna:public.t.id', 'restriccion:public.t.t_chk', 'tabla:public.t'], 'la columna b y la restricción t_chk SÍ se esperan');
+  assert.deepEqual(claves("create function f(a text default ')', b int) returns int language sql as $$ select 1 $$;"), ['funcion:public.f/2'], 'dos argumentos aunque uno traiga un `)` en el default');
+  for (const sql of ['alter index i rename to j;', 'alter table t rename constraint a to b;', 'alter trigger tr on t rename to tr2;', 'alter view v rename to w;', 'alter sequence s rename to s2;']) {
+    assert.equal(un(sql).sinEntender.length, 1, `«${sql}» se dice, no se ignora`);
+  }
+  assert.equal(un('alter table t rename to u;').sinEntender.length, 0, 'renombrar una tabla sí se sigue');
+  assert.equal(un('alter table t rename column a to b;').sinEntender.length, 0, 'y una columna también');
+});
+
 test('las dos mitades hablan el mismo idioma: lo que el analizador espera de un esquema es EXACTAMENTE lo que el lector del catálogo devuelve para ese esquema', async () => {
   const sql = `
     create table public.t (a int, b int);
@@ -276,6 +428,27 @@ test('las migraciones REALES se entienden enteras: ningún DDL queda «sin enten
   assert.ok(sinObjetos < migs.length * 0.1, `casi todas las migraciones crean algo verificable (${sinObjetos} no)`);
 });
 
+test('sobre las REALES: saltear la 0150, 0177_capa_agencia, 0199, 0257, 0084 o 0057 ya NO sale «aplicada», y saltear la 0231 (security_invoker de las cohortes) sale AUSENTE', () => {
+  const migs = reales();
+  const an = analizarMigraciones(migs);
+  const nombre = (p: string) => migs.find((m) => m.nombre.startsWith(p))?.nombre ?? `(no hay ${p})`;
+  const sinLa = (saltear: string) => {
+    // La base «tiene todo lo que crean las OTRAS migraciones»: lo que sólo crea la saltada no está; lo que otra ya había creado (y ella recrea) sí.
+    const c = new Set<string>();
+    for (const [mig, cl] of an.creadasPor) if (mig !== saltear) for (const x of cl) if (an.vivos.has(x)) c.add(x);
+    for (const [clave, v] of an.vivos) if (v.migracion !== saltear) c.add(clave);
+    return verificar(an, { claves: c, buckets: true }).porMigracion.find((m) => m.nombre === saltear);
+  };
+  for (const p of ['0057', '0084', '0150', '0177_capa_agencia', '0199', '0257']) {
+    const m = sinLa(p === '0177_capa_agencia' ? nombre('0177_capa_agencia') : nombre(p));
+    assert.ok(m && m.estado !== 'aplicada', `${p}: saltearla no puede dar «aplicada» (da ${m?.estado})`);
+  }
+  assert.ok(an.vivos.has('invoker:public.v_cohortes_semanales') && an.vivos.has('invoker:public.v_cohortes_mensuales'), 'la 0231 espera security_invoker en las dos vistas de cohortes');
+  const m231 = sinLa(nombre('0231'));
+  assert.ok(m231 && ['ausente', 'a-medias'].includes(m231.estado), `saltear la 0231 aparece en el informe (da ${m231?.estado}), antes «no aparecía»`);
+  assert.ok(m231.faltan.some((c) => c.startsWith('invoker:')), 'y dice que faltan los invoker');
+});
+
 // =============================================================================
 // ⚠️ PROBADO ROMPIÉNDOLO (21/10/2026; se rompe UNA pieza, se corren estas pruebas, se restaura): 24 roturas, 24 rojas — una salió verde en la primera pasada (la «ausente si falta ALGO»: ningún caso tenía una migración a medias) y se agregó.
 //   el analizador (13): create table sin columnas → 6 · add column sólo la primera → 1 · un renombre contado como borrado → 1 · drop table que deja columnas → 2 y índices → 1 · los argumentos OUT contados → 1 · drop function sin firma que no borra las
@@ -284,4 +457,10 @@ test('las migraciones REALES se entienden enteras: ningún DDL queda «sin enten
 //   las dos mitades (2): la clave de la función del catálogo con otra cantidad de argumentos → 1 · la de la columna sin esquema → 1.
 //   sólo lectura (2): una consulta del catálogo con un delete encadenado → 1 · la transacción sin `read only` → 1.
 //   el tokenizador (2): las sentencias cortadas dentro de $$ → 2 · los comentarios `--` que no se sacan → 1.
+// REVISIÓN DEL CEREBRO (21/10 tarde): 24 roturas, 24 rojas (una salió verde la primera vez: «un reemplazo dentro de la MISMA migración», porque la migración de prueba tenía otra clave que daba la prueba; ahora su única clave es la repetida).
+//   los reemplazos (6): sin marcarlos → 2 · marcados aunque sean de la misma migración → 1 · el dueño que pasa al que reemplaza → 1 · su presencia que cuenta como prueba → 2 · su ausencia que no cuenta → 1 · el estado «reemplaza» que nunca se dice → 2.
+//   «sin nada que verificar» (2): sin nombrarlas → 1 · --desde que no recorta la lista → 1.
+//   security_invoker (6): create or replace que no lo resetea → 1 · alter view set que no crea la clave → 3 · off/reset que no la quitan → 1 · drop view que no la quita → 1 · el catálogo que no lee reloptions → 1 · una opción sin valor que no es verdadera → 1.
+//   los bajos (10): storage.buckets leído sin preguntar → 2 · los buckets sin filas que no se verifican → 1 · --json primero ignorado → 1 · un argumento desconocido ignorado → 1 · --desde sin valor aceptado → 1 · las migraciones del cwd → 1 ·
+//     un `)` entre comillas que cierra la lista (create table) → 1 y (cierreDeParentesis) → 1 · un renombre de restricción ignorado → 1 · un renombre de índice ignorado → 1.
 // =============================================================================
