@@ -1,6 +1,6 @@
 # Mapa del Ops Center · experimentos-closing
 
-Parte de docs/ops-center-principal.md (20/10/2026), y es lo que pidió su Anexo C (puntos A.1 y A.2): las dos áreas que
+Parte de [docs/ops-center-principal.md](../ops-center-principal.md) (20/10/2026), y es lo que pidió su Anexo C (puntos A.1 y A.2): las dos áreas que
 quedaron afuera de los 8 mapas. Las mapeó el chat Dashboard el 20/10/2026, en sólo lectura sobre `dashboard-bloques`
 (con origin/main del 20/10). Lo «sin verificar» no se afirma.
 
