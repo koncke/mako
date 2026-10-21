@@ -316,7 +316,8 @@ const DICHO: [string, string | null, string | null, string[] | null, Espera][] =
 
 test('lo que mandó el modelo: del catálogo, el negocio o uno nuevo con nombre siguen; lo demás pregunta; sin catálogo, lo que vale', () => {
   const mal: string[] = [];
-  const ver = (d: ReturnType<typeof productoDeLanding>): string => (d.que === 'preguntar' ? 'preguntó' : `siguió (${d.es}: ${JSON.stringify(d.producto)})`);
+  const ver = (d: ReturnType<typeof productoDeLanding>): string =>
+    (d.que === 'preguntar' ? 'preguntó' : d.que === 'reintentar' ? 'pidió reintentar' : `siguió (${d.es}: ${JSON.stringify(d.producto)})`);
   for (const [id, producto, nuevo, cat, espera] of DICHO) {
     const d = productoDeLanding({ producto, nuevo }, cat === null ? null : P(...cat));
     const bien = espera === 'pregunta' ? d.que === 'preguntar' : espera === 'reintentar' ? d.que === 'reintentar'
