@@ -76,9 +76,12 @@ test('3. al toque del PDF cuentan los sí y no de una palabra, y lo escrito tien
   assert.deepEqual(responder({ ...E, pdfEscritas: ['Me encanta'] }, { texto: 'Ok' }), { ok: true, patch: { pdfOk: 'si' } });
   assert.deepEqual(responder({ ...E, pdfEscritas: ['Me encanta'] }, { texto: '👎' }), { ok: true, patch: { pdfOk: 'no' } });
   const lleno: EstadoArranque = { ...E, pdfEscritas: Array.from({ length: PDF_TOPE_ESCRITAS }, (_, i) => `cosa ${i}`) };
+  // Pasado el tope, lo nuevo se suma a lo último (octava revisión: se descartaba diciendo «Ya lo anoté»), y no crece más
+  // que una respuesta: tests/onboarding-octava-revision.test.ts.
   const r = responder(lleno, { texto: 'una más' });
-  assert.equal(r.ok, false, 'la nota seguía creciendo');
-  assert.match(r.ok ? '' : r.error, new RegExp(`Toca «${PDF_BIEN}» o «${PDF_FALTA}»`));
+  assert.deepEqual(r, { ok: true, patch: { pdfEscritas: ['cosa 0', 'cosa 1', 'cosa 2', 'cosa 3', 'cosa 4 · una más'] } }, 'la nota seguía creciendo');
+  const sinLugar = responder({ ...E, pdfEscritas: [...lleno.pdfEscritas!.slice(0, -1), 'x'.repeat(295)] }, { texto: 'una más' });
+  assert.match(sinLugar.ok ? '' : sinLugar.error, new RegExp(`Toca «${PDF_BIEN}» o «${PDF_FALTA}»`));
   assert.deepEqual(responder(lleno, { opcion: 1, opcionTexto: PDF_FALTA }), { ok: true, patch: { pdfOk: 'no' } }, 'los botones siguen andando');
 });
 

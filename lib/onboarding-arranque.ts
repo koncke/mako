@@ -775,7 +775,9 @@ const enFila = (primeras: string[], siguientes: string[]) => {
 const RE_SI = enFila(DICE_SI, [...DICE_SI, ...NOMBRA_LO_PREGUNTADO]);
 const RE_NO = enFila(DICE_NO, TRAS_EL_NO);
 const RE_NOMBRA = enFila(NOMBRA_LO_PREGUNTADO, NOMBRA_LO_PREGUNTADO);
-const RE_PUEDE_SER_NOMBRE = enFila(PUEDE_SER_NOMBRE, [...DICE_SI, ...NOMBRA_LO_PREGUNTADO]);
+// La duda es de la PALABRA SUELTA (o de varias de ellas en fila), no de la frase que empieza con ella (octava revisión,
+// 21/10: «Claro, así se llama» o «Listo, es correcto» confirmaban en producción y dejaron de hacerlo).
+const RE_PUEDE_SER_NOMBRE = enFila(PUEDE_SER_NOMBRE, PUEDE_SER_NOMBRE);
 const RE_SI_PELADO = enFila(SI_DE_UNA_PALABRA, SI_DE_UNA_PALABRA);
 const RE_NO_PELADO = enFila(NO_DE_UNA_PALABRA, NO_DE_UNA_PALABRA);
 /** ¿Sólo nombra lo preguntado («Es mi negocio», «el nombre»)? No es un sí ni un nombre de negocio. */
@@ -808,9 +810,10 @@ export function siONoPelado(texto: string): 'si' | 'no' | null {
 }
 
 /**
- * Un sí o un no escrito con un NOMBRE esperando (séptima revisión, 21/10). Como `siONo`, pero un sí que empieza con una
- * palabra que también puede ser un nombre («Simón», «Vale», «Listo», `PUEDE_SER_NOMBRE`) es 'duda': ni confirma el
- * pendiente ni lo reemplaza, se pregunta cuál de los dos es. «Sí, …», «Ok», «Correcto» o «Está bien» siguen siendo un sí.
+ * Un sí o un no escrito con un NOMBRE esperando (séptima revisión, 21/10). Como `siONo`, pero un sí hecho SÓLO de palabras
+ * que también pueden ser un nombre («Simón», «Vale», «Listo», «Tal Cual», `PUEDE_SER_NOMBRE`) es 'duda': ni confirma el
+ * pendiente ni lo reemplaza, se pregunta cuál de los dos es. Con un sí que no es nombre detrás («Claro, así se llama»,
+ * «Listo, sí», «Genial, gracias»), o «Sí, …», «Ok», «Correcto», «Está bien», es un sí (octava revisión).
  */
 export function siAlPendiente(texto: string): 'si' | 'no' | 'duda' | null {
   const sn = siONo(texto);
@@ -1243,7 +1246,13 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
       const r = texto === PDF_BIEN ? 'si' : texto === PDF_FALTA ? 'no' : opcion === undefined ? siONoPelado(texto) : null;
       if (r) return { ok: true, patch: { pdfOk: r } };
       if (!texto) return { ok: false, error: `Toca «${PDF_BIEN}» o «${PDF_FALTA}».` };
-      if (partes.length >= PDF_TOPE_ESCRITAS) return { ok: false, error: `Ya lo anoté. Toca «${PDF_BIEN}» o «${PDF_FALTA}».` };
+      // Pasado el tope, lo nuevo se suma a lo último, hasta que no entra (octava revisión, 21/10: se descartaba y MaKo decía
+      // «Ya lo anoté»). Un error nunca dice que anotó lo que no anotó.
+      if (partes.length >= PDF_TOPE_ESCRITAS) {
+        const junta = `${partes[partes.length - 1]} · ${texto}`;
+        if (Array.from(junta).length > TOPE_RESPUESTA) return { ok: false, error: `No entra más texto. Toca «${PDF_BIEN}» o «${PDF_FALTA}».` };
+        return { ok: true, patch: { pdfEscritas: [...partes.slice(0, -1), junta] } };
+      }
       return { ok: true, patch: { pdfEscritas: [...partes, texto] } };
     }
     // La opción tal cual, o un sí o un no sueltos (`siONo` lee «Sí» con tilde). Un no sin detalle queda anotado igual
@@ -1380,15 +1389,33 @@ export function sinMarca(v: string | null | undefined): string {
 
 /** Cómo cobra lo que vende: pago único o suscripción (con los meses, si los dijo). `periodo` sólo en lo LEÍDO: cobra por
  *  año o por semana, que el producto no sabe cobrar (sólo único o mensual), así que no se propone y se pregunta. */
-export type Cobro = { tipo: 'unico' | 'suscripcion'; meses: number | null; periodo?: 'anual' | 'semanal' };
+export type Cobro = { tipo: 'unico' | 'suscripcion'; meses: number | null; periodo?: Periodo };
+/** Cada cuánto se cobra, cuando no es por mes: el producto no lo sabe cobrar, así que no se propone (`cobroSinPropuesta`). */
+export type Periodo = 'anual' | 'semanal' | 'quincenal' | 'bimestral' | 'trimestral' | 'semestral';
+const CADA: Record<Periodo, string> = {
+  anual: 'por año', semanal: 'por semana', quincenal: 'cada quince días', bimestral: 'cada dos meses', trimestral: 'cada tres meses', semestral: 'cada seis meses',
+};
 export const COBRO_UNICO = 'Pago único';
 export const COBRO_MENSUAL = 'Suscripción mensual';
 /** Cómo se le muestra un cobro para confirmarlo. */
 export const etiquetaCobro = (c: Cobro): string => (c.tipo === 'unico' ? COBRO_UNICO : c.meses ? `Suscripción de ${c.meses} meses` : COBRO_MENSUAL);
 const mismoCobro = (a: Cobro, b: Cobro): boolean => a.tipo === b.tipo && a.meses === b.meses;
 /** La pregunta del cobro cuando cobra por año o por semana: sin propuesta, con las dos formas que el producto sabe cobrar. */
-export const cobroSinPropuesta = (periodo: 'anual' | 'semanal'): string =>
-  `Entendí que cobras ${periodo === 'anual' ? 'por año' : 'por semana'}. Los productos se cobran en un pago o por mes: ¿cuál uso?`;
+export const cobroSinPropuesta = (periodo: Periodo): string =>
+  `Entendí que cobras ${CADA[periodo]}. Los productos se cobran en un pago o por mes: ¿cuál uso?`;
+
+// Cada cuánto, dicho de un PAGO (octava revisión, 21/10: «con una llamada semanal» describe el servicio, no el cobro, y se
+// leía como un cobro semanal): el adjetivo («cuotas semanales», «pago anual»), «por/cada/al + semana/mes/año» o «/año».
+const PERIODICIDAD = '(?:(semanal|quincenal|mensual|bimestral|trimestral|semestral|anual)(?:es|mente)?\\b|(?:por|a la|al|cada|x)\\s+(semana|quincena|mes|ano)\\b|\\/\\s?(semana|mes|ano)\\b)';
+const MONTO = '(?:(?:usd|us\\$|u\\$s|\\$|mxn|ars|eur)\\s*)?\\d[\\d.,]*(?:\\s*(?:usd|dolares|pesos|mxn|ars|euros?))?';
+/** «N cuotas (de USD X) semanales». */
+const RE_CUOTAS_CON = new RegExp(`(\\d{1,2})\\s*(?:cuotas|pagos|mensualidades)(?:\\s+de\\s+${MONTO})?\\s+${PERIODICIDAD}`);
+/** Un monto o una palabra de cobro con su periodicidad pegada: «USD 50 por semana», «membresía anual», «pago semanal». */
+const RE_PEGADO = new RegExp(`(?:${MONTO}|\\b(?:pagos?|cobros?|cuotas?|abonos?|suscripcion(?:es)?|membresias?|plan(?:es)?))\\s*${PERIODICIDAD}`, 'g');
+const POR_NOMBRE: Record<string, Periodo | 'mensual'> = { semana: 'semanal', quincena: 'quincenal', mes: 'mensual', ano: 'anual' };
+/** La periodicidad de un acierto de PERIODICIDAD, cuyos tres grupos empiezan en `desde`. */
+const periodoDe = (m: RegExpMatchArray, desde: number): Periodo | 'mensual' =>
+  (m[desde] as Periodo | 'mensual' | undefined) ?? POR_NOMBRE[m[desde + 1] ?? m[desde + 2] ?? ''];
 
 /**
  * Cómo cobra, de lo que dijo del precio (20/10/2026, Florencia: «6 cuotas mensuales» quedaba como pago único). Las cuotas
@@ -1403,9 +1430,17 @@ export function cobroDelPrecio(precio: string | null | undefined): Cobro {
   // Lo negado no cuenta (cuarta revisión, 21/10: «sin mensualidades», «nada de cuotas», «no es mensual» salían suscripción),
   // y lo anual o semanal también es periódico («Membresía anual», «USD 99 por semana» salían pago único).
   const t = crudo.replace(/\b(?:sin|nada de|no es|no hay|no son|ni)\s+(?:(?:las?|los?|un|una)\s+)?\S+(?:\s+mensual(?:es)?)?/g, ' ');
-  // Lo semanal no es MENSUAL, aunque venga en cuotas (séptima revisión, 21/10: «8 cuotas semanales» proponía «Suscripción de
-  // 8 meses»): va con su `periodo` y la etapa 'cobro' pregunta sin proponer.
-  if (/por semana|semanal|a la semana/.test(t)) return { tipo: 'suscripcion', meses: null, periodo: 'semanal' };
+  // Lo que no es por MES va con su `periodo` y la etapa 'cobro' pregunta sin proponer (quinta revisión, 21/10: lo anual se
+  // proponía como «Suscripción mensual»). Sólo cuenta la periodicidad PEGADA al pago (octava). Primero, la de las cuotas:
+  // «8 cuotas semanales» o «4 pagos trimestrales» no son meses (séptima y octava).
+  const cuotasCon = RE_CUOTAS_CON.exec(t);
+  const deLasCuotas = cuotasCon ? periodoDe(cuotasCon, 2) : null;
+  if (deLasCuotas && deLasCuotas !== 'mensual') return { tipo: 'suscripcion', meses: null, periodo: deLasCuotas };
+  // Después, lo semanal o quincenal pegado a un monto o a un cobro, que gana a las cuotas sin periodicidad («USD 50 por
+  // semana, 12 pagos» son 12 pagos semanales).
+  const pegados = [...t.matchAll(RE_PEGADO)].map((m) => periodoDe(m, 1)).filter((p): p is Periodo => !!p && p !== 'mensual');
+  const corto = pegados.find((p) => p === 'semanal' || p === 'quincenal');
+  if (corto) return { tipo: 'suscripcion', meses: null, periodo: corto };
   // Las cuotas de la TARJETA son una venta única (revisión del Cerebro, 20/10: «hasta 12 cuotas sin interés con tarjeta»
   // salía suscripción de 12 meses). Pero «con tarjeta» es sólo el MEDIO de pago: con «por mes», «membresía» o «cuotas
   // mensuales» sigue siendo una suscripción (revisión de la noche: «150 USD por mes con tarjeta» salía pago único).
@@ -1416,13 +1451,11 @@ export function cobroDelPrecio(precio: string | null | undefined): Cobro {
   const mensual = recurrente || /\bmensual(?:es|mente)?\b|por mes|al mes|cada mes|mes a mes|\/\s?mes/.test(t);
   const conTarjeta = /con (?:la |tu |mi |su )?tarjeta/.test(t) && /cuotas|pagos|mensualidades/.test(t);
   if ((/sin interes(?:es)?|\bmsi\b/.test(t) && !recurrente) || (conTarjeta && !mensual)) return { tipo: 'unico', meses: null };
-  // Las cuotas que dicen otra periodicidad («2 pagos anuales») no son meses (séptima revisión).
-  const cuotas = t.match(/(\d{1,2})\s*(?:cuotas|pagos|mensualidades)\b(?!\s+(?:anual|semestral|trimestral|bimestral|quincenal))/);
+  const cuotas = t.match(/(\d{1,2})\s*(?:cuotas|pagos|mensualidades)\b/);
   if (cuotas) return { tipo: 'suscripcion', meses: Number(cuotas[1]) || null };
-  // Lo anual o semanal no es MENSUAL (quinta revisión, 21/10: se proponía «Suscripción mensual» y el producto lo cobraba
-  // cada mes): va con su `periodo`, y la etapa 'cobro' pregunta sin proponer. DESPUÉS de las cuotas (sexta revisión: con
-  // «Programa anual: 12 cuotas de USD 99» lo cierto es la suscripción de 12 meses, y ya no se podía cargar).
-  if (/\banual(?:es|mente)?\b|por ano|al ano|cada ano/.test(t)) return { tipo: 'suscripcion', meses: null, periodo: 'anual' };
+  // Lo anual (o cada dos, tres o seis meses) pegado al pago, DESPUÉS de las cuotas (sexta revisión: un precio anual en «12
+  // cuotas» es la suscripción de 12 meses).
+  if (pegados[0]) return { tipo: 'suscripcion', meses: null, periodo: pegados[0] };
   if (!/mensual|por mes|al mes|cada mes|mes a mes|\/\s?mes|cuotas|mensualidad/.test(t)) return { tipo: 'unico', meses: null };
   const meses = t.match(/(\d{1,2})\s*meses\b/);
   return { tipo: 'suscripcion', meses: meses ? Number(meses[1]) || null : null };

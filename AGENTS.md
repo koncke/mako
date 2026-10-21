@@ -2021,9 +2021,14 @@ sí o un no pelados, y lo demás escrito se SUMA a lo anterior, no lo pisa. Y al
 que empieza con = + - @ va con una comilla simple adelante (docs/hallazgos-seguridad.md).
 
 **Con un nombre esperando, una palabra que es sí y también nombre no confirma (séptima revisión, 21/10/2026).** «Simón»,
-«Vale», «Listo» son un sí y son nombres reales: con un pendiente, se pregunta cuál de los dos es (`siAlPendiente`). Y un
-texto del usuario que se recorta se corta por punto de código (`cortar`), nunca con `slice`: un emoji partido no se puede
-guardar en Postgres.
+«Vale», «Listo» son un sí y son nombres reales: con un pendiente, se pregunta cuál de los dos es (`siAlPendiente`). La duda
+es de la palabra SUELTA: «Claro, así se llama» es un sí (octava revisión). Y un texto del usuario que se recorta se corta
+por punto de código (`cortar`), nunca con `slice`: un emoji partido no se puede guardar en Postgres.
+
+**Un arreglo no puede ser más ancho que el caso (octava revisión, 21/10/2026).** Las dos regresiones de esa ronda salieron
+de cerrar un caso con una regla que alcanzaba a más («semanal» en cualquier parte del precio, la duda para toda frase que
+empieza con «Claro»). Antes de pasar la punta, las frases de la revisión anterior se corren en la punta y en producción, y
+se mira el diff.
 
 **El corolario para lo que DICE MaKo (21/10/2026, el guardia de promesas 1.5):** un filtro sobre el texto del modelo
 NUNCA borra una oración. El guardia por raíces de palabras borraba 8 de 14 respuestas verdaderas («Sí, ya te la

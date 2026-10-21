@@ -2671,6 +2671,26 @@ aceptaba la opción exacta: todo esto entraba nuevo.
   emoji y dejaba medio par suelto, que se ve «�» y que Postgres rechaza al copiar la conversación al chat «Onboarding».
   Ahora `cortar` corta por punto de código, también en `limpiarRespuesta` y en los nombres.
 
+**Y la octava (punta 108b2f270): dos regresiones contra producción, por arreglar de más.**
+- ⚠️ **La duda es de la PALABRA SUELTA, no de la frase que empieza con ella.** La séptima puso en duda todo lo que
+  EMPEZABA con «Claro», «Listo» o «Genial», y «Claro, así se llama» o «Listo, es correcto», que en producción confirmaban,
+  dejaron de hacerlo. Peor: el error mandaba escribir «Se llama Claro, así se llama», y eso proponía un nombre basura.
+  **Regla:** la duda es sólo para un texto hecho únicamente de palabras de `PUEDE_SER_NOMBRE`. Si detrás viene un sí que
+  no es nombre, es un sí. La entrada de la séptima, más arriba, decía «lo que empieza con»: era la regla mal escrita.
+- ⚠️ **Una periodicidad cuenta sólo si va pegada al pago, no a la descripción del servicio.** Para que «8 cuotas
+  semanales» no fueran meses, la séptima buscó «semanal» en todo el precio, y «3 cuotas mensuales de USD 300, con una
+  llamada semanal» pasó a «cobras por semana»: los 3 meses ya no se podían elegir. Ahora vale «N cuotas (de USD X)
+  semanales», «USD 50 por semana», «membresía anual» o «pago semanal» (`RE_CUOTAS_CON`, `RE_PEGADO`). Lo de una
+  sesión, una llamada o una clase no cuenta. Con «Programa anual USD 1.500», «anual» describe el programa y se propone
+  «Pago único».
+- **Una periodicidad sin camino propio no se propone.** Lo trimestral, semestral, bimestral o quincenal se proponía
+  como «Pago único» o «Suscripción mensual». Ahora va con su `periodo` y se pregunta, como lo anual o lo semanal.
+- **Un mensaje de error no dice «lo anoté» si no anotó nada.** Pasado el tope del PDF, lo escrito se descartaba con un
+  «Ya lo anoté». Ahora se suma a lo último hasta que no entra, y entonces sólo se pide el botón.
+- **Lo que enseña la ronda:** las dos regresiones salieron de arreglar un caso con una regla más ancha que el caso. La
+  comparación contra producción (las mismas frases en las dos puntas, con diff) las encontró. Una prueba de la punta sola
+  no las ve.
+
 **Sin hacer:** «Vendo 20 a 500 dólares» se sigue leyendo como un rango; la confirmación lo muestra y se corrige con un
 toque. Las etiquetas de los tramos dicen «$» sin «USD» (lib/fase-diagnostico.ts): es una decisión de copy, no de este
 chat. Vive en lib/onboarding-arranque.ts (`cifraDe`). Cobrar por año o por semana necesita un intervalo en el producto

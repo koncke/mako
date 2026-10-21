@@ -1,5 +1,15 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 21/10/2026 — OCTAVA REVISIÓN (de 108b2f270): DOS REGRESIONES CONTRA PRODUCCIÓN, CERRADAS
+
+<sub>Chat «Onboarding», claude4, rama onboarding-v3. En producción está 689f75560 (run 199)
+(side-session-notes/local_797d5445…/revision-onboarding-octava-21-10.md).</sub>
+
+- La duda con un nombre esperando es sólo de la palabra suelta: «Claro, así se llama» confirma, «Claro» pregunta.
+- El cobro lee la periodicidad pegada al pago (`RE_CUOTAS_CON`, `RE_PEGADO`): «con una llamada semanal» no es un cobro
+  semanal. Lo trimestral, semestral, bimestral y quincenal se pregunta sin proponer. Pasado el tope del PDF, lo nuevo se
+  suma a lo último. Tests: tests/onboarding-octava-revision.test.ts.
+
 ## ESTADO AL 21/10/2026 — SÉPTIMA REVISIÓN (de 689f75560): ENTRÓ; LOS SEIS BAJOS
 
 <sub>Chat «Onboarding», claude4, rama onboarding-v3. El Cerebro: «689f75560 ENTRA, sin altos ni medios»
