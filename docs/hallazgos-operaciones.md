@@ -1782,8 +1782,10 @@ del cartero; `nav.ts` no se tocó (el Sidebar compara con `OPS_CENTER.key`); la 
 - **Regla:** en AGENTS.md («UNA SOLA CAJA PARA HABLAR CON MaKo»). tests/chat-unico.test.ts lleva la lista de lo que falta, y
   una migración que no saca su archivo de «pendiente» falla.
 - **Lo que encontró la revisión de la ola 1 (21/10):**
-  - con Enter que manda (la computadora), «1. ¿Cuántos leads…?» seguía la lista y hacían falta tres Enter para mandarlo:
-    con UN ítem todavía no hay lista (`enterEnLista({ conUno: false })`); el teléfono sigue igual;
+  - con Enter que manda (la computadora), «1. ¿Cuántos leads…?» seguía la lista y hacían falta tres Enter para mandarlo.
+    Ahora un ítem SOLO que es una pregunta se manda (`enterEnLista({ conUno: false })`); cualquier otro sigue la lista,
+    como pidió Martín el 17/10. ⚠️ El primer arreglo («con un solo ítem, manda») impedía EMPEZAR una lista con Enter: lo
+    encontró la segunda revisión. El teléfono sigue igual;
   - con `ocupado` el botón giraba entero: no se podía dictar el siguiente mensaje, y quien dictaba perdía el botón de
     terminar mientras el dictado seguía escribiendo. Ahora sólo la flecha espera (`BotonMandar ocupado`).
 - **Sin hacer:**
@@ -1895,3 +1897,28 @@ el servidor viejo falla de dos maneras:
 
 **La regla:** primero el deploy, después `cartero.mjs instalar`. Y un cambio del protocolo cartero ↔ servidor se revisa en
 las dos combinaciones de versión. *Cerebro, claude4.*
+
+## Un chat retira la pregunta que ya no hace falta (21/10/2026, cartero 1.17.4)
+
+**Vive en:** `retirarDeLaLista` (lib/centro-preguntas-chat.ts) · `retirarPregunta` (lib/centro-preguntas-chat-db.ts) ·
+`?retirar-pregunta=1` en app/api/operaciones/cartero/route.ts · `cartero.mjs retirar <id> [--chat <local_…>]`. Probado en
+tests/centro-preguntas-retirar.test.ts. La regla para los chats, en AGENTS.md.
+
+- **Síntoma:** Martín dijo «no más preguntas», y Debate no tenía cómo sacar la 53053bcb (y otras tres) de su chat del Ops
+  Center: una pregunta de `preguntar` la cierra sólo una respuesta, y la PC ya había borrado su archivo al subirla.
+- **El arreglo:** `retirar` borra la que todavía no subió (sólo la de ESE chat) y le pide a MaKo la que ya está, que queda
+  `superada`: no espera, no se contesta, y se lee como las superadas. Por el id entero o sus primeros 8, como lo nombra un
+  chat; con dos abiertas que empiezan igual no adivina.
+- **Trampa:** `sanearPregunta` guardaba `superada` sólo de una de wrap_up, así que marcar una de `preguntar` se borraba
+  en la lectura siguiente. Ahora la guarda de cualquier origen (lo que sube la PC sigue sin poder traerla).
+- **Trampa:** un cartero 1.17.4 contra un servidor viejo: el pedido cae en `cicloCartero`, que contesta «falta la cuenta
+  del cartero». El comando lo reconoce y dice «falta el deploy», en vez de decir que la retiró. Igual: deploy primero.
+- **Lo obvio era el error: «un 503 de producción en el log del cartero».** cartero.log tenía decenas de «no pude subir lo
+  que Martín adjuntó en local_22222222-…: MaKo no dio dónde subirlo (503)». Ese chat no existe: es el `OTRO` de
+  tests/centro-app-adjuntos.test.ts, cuya falla de mentira el cartero escribía en el log REAL (lee `CARTERO_DIR` al
+  cargarse, y el test no lo ponía). **Regla:** un test que importa el cartero pone `CARTERO_DIR` en una carpeta temporal
+  antes de importarlo; y una línea rara del log se busca primero en los tests (por el id), antes que en producción.
+
+**Sin hacer:** otros tests que importan cartero.mjs sin `CARTERO_DIR` (centro-abrir-pantalla, centro-largos,
+centro-textos, tickets-cartero…) no escriben el log hoy porque no llaman a lo que loguea; no hay una guarda que lo
+impida.

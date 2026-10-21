@@ -37,7 +37,8 @@ import { GRAMATICA } from '@/lib/mako-gramatica';
 export type ArchivoHilo = { nombre: string; tipo: TipoAdjunto; ref?: string; local?: string; archivero?: EstadoArchivero };
 
 /** `en_curso`: confirmada, y es un trabajo largo que sigue por detrás (1.11); su avance va en el G6 de abajo. */
-export type EstadoPropuesta = 'pendiente' | 'aplicando' | 'en_curso' | 'hecho' | 'cancelada' | 'vencida' | 'resuelta' | 'fallo';
+/** `incierta`: su trabajo largo se cortó y no se sabe si terminó (no es «falló»: no hay que pedirlo de nuevo sin mirar). */
+export type EstadoPropuesta = 'pendiente' | 'aplicando' | 'en_curso' | 'hecho' | 'cancelada' | 'vencida' | 'resuelta' | 'fallo' | 'incierta';
 
 export type ItemHilo =
   | {
@@ -100,9 +101,14 @@ export const rutaDeArchivo = (ref: string): string => `/api/mako/chat?adjunto=${
 const aPropuesta = (t: TarjetaPendiente): ItemHilo => ({ k: 'propuesta', id: `p${t.pendienteId}`, t, estado: 'pendiente' });
 
 /** Un mensaje guardado y, debajo, lo que dibuja (lo creado de un «Hecho: …» vuelve con su miniatura al recargar). */
-const conSusBloques = (m: MensajeChat, i: number): ItemHilo[] => [
-  aMensaje(m, i), ...(m.bloques ?? []).map((b, j): ItemHilo => ({ k: 'bloque', id: `b${i}-${j}-${m.created_at ?? ''}`, b })),
-];
+const conSusBloques = (m: MensajeChat, i: number): ItemHilo[] => {
+  // El «En curso: …» de un trabajo largo que sigue: su G6 consulta y dice cómo termina; la burbuja quedaba diciendo «En
+  // curso» al lado de un G6 terminado (la segunda revisión de la ola 1).
+  const sigue = (m.bloques ?? []).some((b) => b.t === 'trabajo' && !!b.consulta && b.pasos.some((p) => p.estado === 'en_curso'));
+  return [
+    ...(sigue ? [] : [aMensaje(m, i)]), ...(m.bloques ?? []).map((b, j): ItemHilo => ({ k: 'bloque', id: `b${i}-${j}-${m.created_at ?? ''}`, b })),
+  ];
+};
 
 /** El hilo de una sesión recién abierta: los mensajes guardados y, al final, lo que espera (las tarjetas y, desde la
  *  1.10, las propuestas de pantalla pendientes de este chat, con su formulario). */
@@ -138,8 +144,8 @@ export function itemsTrasTarjeta(r: ResultadoTarjeta, pendienteId?: number): Ite
 }
 
 /** La tarjeta cuyo trabajo largo terminó mientras se miraba (1.11; revisión del 21/10/2026: quedaba «En curso»). */
-export function trasTrabajo(xs: readonly ItemHilo[], pendienteId: number, ok: boolean): ItemHilo[] {
-  return conTarjeta(xs, pendienteId, ok ? 'hecho' : 'fallo');
+export function trasTrabajo(xs: readonly ItemHilo[], pendienteId: number, ok: boolean | null): ItemHilo[] {
+  return conTarjeta(xs, pendienteId, ok == null ? 'incierta' : ok ? 'hecho' : 'fallo');
 }
 
 /**
@@ -368,6 +374,7 @@ export const PILL_PROPUESTA: Record<EstadoPropuesta, { texto: string; tono: 'war
   pendiente: { texto: GRAMATICA.aprobacion.rotulo, tono: 'warn' },
   aplicando: { texto: GRAMATICA.ejecuta.rotulo, tono: 'neutro' },
   en_curso: { texto: 'En curso', tono: 'neutro' },
+  incierta: { texto: 'Revísalo', tono: 'warn' },
   hecho: { texto: GRAMATICA.completo.rotulo, tono: 'good' },
   cancelada: { texto: 'No se ejecutó', tono: 'neutro' },
   vencida: { texto: 'Vencida', tono: 'neutro' },

@@ -428,6 +428,9 @@ chat, cuenta, sha, pid, desde) y lo suelta al terminar, también con Ctrl+C. **A
 nunca rebase: el commit del jefe no se reescribe) y el `VERDE <sha>` vale para el sha NUEVO; si el merge choca, aborta (la rama queda
 como estaba), suelta el candado y el `ROJO` nombra los archivos — mergeá a mano y volvé a correr.
 - **Ver la fila sin tocar nada:** `node scripts/antes-de-subir.mjs --cola` (quién lo tiene, desde cuándo, y los que esperan en orden).
+- **Al soltar, el candado se ENTREGA** (21/10): con alguien esperando, `soltar` reescribe `dueno.json` con el pid del primero de la fila que siga vivo y NO
+  borra el directorio, así un `mkdir` a mano justo en ese instante falla y no se le cuela a la cola (le ganó por 2 s al chat de `wt-crm-ficha2`). El que
+  recibe se entera con el mismo sondeo de siempre (0,4 s); si nadie lo recibe en 30 s (el siguiente está colgado) se libera. Con la fila vacía se borra.
 - **Un proceso muerto no traba:** un turno se limpia si su pid no vive o si no late hace 10 min; un dueño, si su pid no vive o si pasó
   `MAKO_PESADO_VENCE_MIN` (90). Un candado tomado a mano no tiene pid y no se le puede preguntar si vive, así que con alguien esperando se
   suelta: **al instante si es de tu mismo worktree** (el quien.txt empieza con `<worktree> · <rama>`), a los 10 min si no hay ningún
@@ -6089,6 +6092,9 @@ usuarios. Lo que pasa la prueba de arriba se pregunta así, y nunca en texto sue
 
 Martín la ve en tu chat del Ops Center como un formulario y elige. La respuesta te llega como un mensaje
 firmado: «Respuesta a tu pregunta «…» [pregunta <id>]: 2. …». Las reglas: lib/centro-preguntas-chat.ts.
+Si una pregunta tuya ya no hace falta (se resolvió por otro lado, o Martín dijo «no más preguntas»), **retírala**:
+`node ~/.claude/operaciones/cartero.mjs retirar <id>` (cartero 1.17.4; el id entero o sus primeros 8). Deja de esperarlo
+en el Ops Center; si todavía no había subido, no sale.
 
 # La cosecha: lo que aprende un subagente no vuelve solo
 
