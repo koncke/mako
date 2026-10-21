@@ -68,6 +68,7 @@ import { insertableDe, videoDe } from '@/lib/embeds';
 import type { Formato } from '@/lib/graficos-constructores';
 import type { SalidaCaja, VistaCaja } from '@/lib/graficos-ia-elemento';
 import { moverComponente, type Movida } from '@/lib/graficos-mover';
+import { inicioDibujado } from '@/lib/chat-bloques-dashboard';
 
 /** Para comparar lo que escribe una persona: sin acentos, sin mayúsculas, sin espacios de más. */
 export const normalizar = (s: string): string =>
@@ -969,17 +970,20 @@ export function resultadoMarkdown(g: Grafico, r: Resultado, p: { desde: string; 
   const dimId = r.clase === 'tiempo' ? (p.agrupar ?? g.dimension) : g.dimension;
   const dimNombre = (f && dimensionDe(f, dimId)?.nombre) ?? 'Grupo';
   const tope = p.topeFilas ?? Infinity;
-  const visibles = r.filas.slice(0, tope);
+  // En el tiempo el corte se queda con lo más NUEVO, como el gráfico del chat (`inicioDibujado`): con las 25 más viejas,
+  // el modelo leía del 23/07 al 16/08 y la persona veía dibujado del 22/08 al 20/10 (revisión del 21/10).
+  const ini = Number.isFinite(tope) ? inicioDibujado(r.clase, r.filas.map((x) => x.clave), tope) : 0;
+  const visibles = r.filas.slice(ini, ini + tope);
   if (r.cruce && cols[0]) {
     const c0 = cols[0];
     out.push(`${c0.nombre}${UNIDAD[c0.formato]}, por ${dimNombre.toLowerCase()} y ${((f && dimensionDe(f, g.desglose)?.nombre) ?? 'desglose').toLowerCase()}:`);
-    out.push(...tabla([dimNombre, ...r.cruce.claves, 'Total'], visibles.map((fl, i) => [fl.etiqueta, ...r.cruce!.celdas[i].map((v) => fmt(v, c0.formato)), fmt(fl.valores[0], c0.formato)])));
+    out.push(...tabla([dimNombre, ...r.cruce.claves, 'Total'], visibles.map((fl, i) => [fl.etiqueta, ...r.cruce!.celdas[ini + i].map((v) => fmt(v, c0.formato)), fmt(fl.valores[0], c0.formato)])));
   } else {
     out.push(...tabla([dimNombre, ...cols.map((c) => `${c.nombre}${UNIDAD[c.formato]}`)], visibles.map((fl) => [fl.etiqueta, ...fl.valores.map((v, i) => fmt(v, cols[i]?.formato ?? 'numero'))])));
   }
   if (r.totales.some((v) => v != null)) out.push(`Total: ${cols.map((c, i) => `${c.nombre} ${fmt(r.totales[i], c.formato)}`).join(' · ')}.`);
   if (r.anterior?.some((v) => v != null)) out.push(`Período anterior del mismo largo: ${cols.map((c, i) => `${c.nombre} ${fmt(r.anterior?.[i], c.formato)}`).join(' · ')}.`);
-  if (r.filas.length > visibles.length) out.push(`(y ${r.filas.length - visibles.length} filas más)`);
+  if (r.filas.length > visibles.length) out.push(`(y ${r.filas.length - visibles.length} filas ${r.clase === 'tiempo' ? 'antes' : 'más'})`);
   if (r.fuera > 0) out.push(`(${r.fuera} grupos más que no entran en el gráfico)`);
   return out;
 }

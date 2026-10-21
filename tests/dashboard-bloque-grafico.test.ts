@@ -21,6 +21,9 @@
 // viejos → 13 / 1; la nota con el período entero → 13 / 1; «Y N más» también en una tabla → 13 / 1; BloqueHilo sin red →
 // 13 / 1; CuerpoGrafico sin red → 13 / 1; ejecutar que dice «ya lo ve» siempre → 13 / 1; el turno que no avisa el tope
 // → 13 / 1; el aviso pegado al texto → 13 / 1.
+// La segunda revisión (sobre 17c0317b2, base 15/0, romper-revision2.mjs): el texto del modelo con las 25 filas más viejas
+// → 14 / 1; el desglose del texto sin correr → 14 / 1; «filas más» en el tiempo → 14 / 1; la tabla cortada con su Total
+// → 14 / 1.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -31,6 +34,7 @@ import { sanearBloque } from '../lib/chat-bloques';
 import { MAX_FILAS_GRAFICO, desdeDibujado, graficoParaElChat, sanearResultado } from '../lib/chat-bloques-dashboard';
 import { sanearComponente, type Grafico } from '../lib/graficos-catalogo';
 import type { Resultado } from '../lib/graficos-agregar';
+import { resultadoMarkdown } from '../lib/api-mako/areas/dashboard.helpers';
 
 const RAIZ = join(import.meta.dirname, '..');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -107,6 +111,30 @@ test('qué se dibuja: un número; con el tiempo, una serie; por categoría, barr
   assert.equal(graficoParaElChat(grafico({ dimension: 'origen' }), resultado(5)).tipo, 'barras');
   assert.equal(graficoParaElChat(grafico({ dimension: 'origen' }), resultado(20)).tipo, 'tabla');
   assert.equal(graficoParaElChat(grafico({ tipo: 'columnas', dimension: 'mes', desglose: 'origen' }), resultado(6, 'tiempo')).tipo, 'columnas');
+});
+
+test('lo que lee el modelo es el MISMO tramo que se dibuja: sus filas están en el gráfico y llegan al último día', () => {
+  // La revisión de 17c0317b2: el gráfico dibujaba del 22/08 al 20/10 y el texto del modelo (25 filas) iba del 23/07 al
+  // 16/08. Cero filas en común, y encima se le decía «ya ve los últimos 60 puntos: comenta lo que importa».
+  const g = grafico({ dimension: 'dia' });
+  const r = noventaDias();
+  const b = sanearBloque({ t: 'grafico', titulo: 'Leads por día', grafico: graficoParaElChat(g, r), resultado: r }) as { resultado: Resultado } | null;
+  assert.ok(b);
+  const dibujadas = b.resultado.filas.map((f) => f.etiqueta);
+  const md = resultadoMarkdown(g, r, { desde: '2026-07-23', hasta: '2026-10-20', topeFilas: 25 });
+  // Las filas de la tabla markdown, sin la cabecera ni el separador: «| etiqueta | desglose | Total |».
+  const tablaMd = md.filter((l) => l.startsWith('|') && !l.startsWith('|-')).slice(1).map((l) => l.split('|').slice(1, -1).map((c) => c.trim()));
+  assert.equal(tablaMd.length, 25);
+  const leidas = tablaMd.map((c) => c[0]);
+  assert.deepEqual(leidas.filter((e) => !dibujadas.includes(e)), [], 'toda fila que lee el modelo está dibujada');
+  assert.equal(leidas.at(-1), dibujadas.at(-1), 'y llega al último día, el mismo que el gráfico');
+  assert.ok(md.includes('(y 65 filas antes)'), 'lo que no lee es lo de ANTES, y lo dice');
+  // El desglose, alineado con su fila después del corte (acá cada celda vale lo que la fila).
+  assert.deepEqual(tablaMd.filter((c) => c[1] !== c[2]), [], 'cada celda del desglose es la de su fila');
+  // Una tabla de varias métricas cortada va sin la fila Total: la nota dice 60 días y el Total sumaba los 90.
+  const dos = grafico({ dimension: 'dia', metricas: ['leads', 'agendas'] });
+  assert.equal(graficoParaElChat(dos, r).total, false);
+  assert.equal(graficoParaElChat(dos, resultado(30, 'tiempo')).total, true, 'la que entra entera, con su Total');
 });
 
 test('la lectura devuelve { content, bloque }: el bloque va por ctx.aDibujar y el modelo lee sólo el texto', () => {

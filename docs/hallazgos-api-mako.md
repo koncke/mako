@@ -1815,9 +1815,28 @@ todavía fuera de main.
   la API HTTP ya no sale `datos.bloque` (rutas-http.ts lo saca para todas las áreas). El G5 de una hoja ya no escribe
   «16 × 10».
 
+**La segunda revisión (sobre 17c0317b2): el arreglo de la serie abrió una regresión.**
+- **El modelo leía las 25 filas más VIEJAS y la persona veía dibujadas las 60 más NUEVAS.** El texto que lee el modelo
+  (`resultadoMarkdown`, tope de 25 filas en el chat) seguía cortando con `slice(0, 25)`. Con «leads por día de los
+  últimos 90 días», el gráfico iba del 22/08 al 20/10 y el modelo leía del 23/07 al 16/08: cero filas en común. Encima
+  `siSeDibuja` le decía «ya ve los últimos 60 puntos, comenta lo que importa», así que comentaba lo que nadie veía o
+  inventaba la tendencia reciente. Antes del primer arreglo los dos arrancaban en la misma fila: **arreglar un corte
+  desalineó el otro.** Ahora `resultadoMarkdown` corta con el mismo `inicioDibujado` (el desglose, corrido igual) y dice
+  «(y N filas antes)». El test cruza las filas del texto con las del bloque.
+  **Regla:** lo que se dibuja y lo que lee el modelo se cortan con LA MISMA función. Dos cortes escritos aparte se
+  desalinean en cuanto alguien arregla uno.
+- **Bajas:** en el informe de otra persona, `aplicar` ya no deja `link` en `datos`. Sin bloque (un conector, una edición
+  que sólo mueve tarjetas), el chat armaba con él el mismo botón al informe de quien mira. Sólo en la app: por WhatsApp
+  o HTTP no hay con quién comparar, y el link sigue. Restablecer el de Ana dice «El informe de Ana, como lo arma MaKo»
+  (decía «Tu informe…, en el informe de Ana»). Una tabla de varias métricas cortada va sin la fila Total: la nota dice el
+  tramo de 60 días y el Total sumaba los 90 (recalcularlo no sirve con una tasa).
+
 **Lo que quedó sin hacer (de la revisión):**
-- **Con 4 dibujos de lecturas y una pregunta (G1), `[...dibujos, pregunta].slice(0, 4)` deja afuera la pregunta**
-  (lib/mako-turno-app.ts, de Ops Center 3). La revisión no lo siguió hasta la pantalla.
+- **Con 4 dibujos de lecturas y una pregunta (G1), `[...dibujos, pregunta].slice(0, 4)` dejaba afuera la pregunta**
+  (lib/mako-turno-app.ts). En main era imposible, porque ninguna lectura dibujaba. Esta rama lo vuelve alcanzable, y
+  `siSeDibuja` empuja al modelo a escribir texto, con lo que la pregunta no aparece en ningún lado. Lo arregla Ops Center 3
+  en `ola1-guardia` (02aee818b, `bloquesDelMensaje` deja siempre la pregunta), y el Cerebro integra las dos ramas en el
+  mismo lote. **Esta rama no entra sin ésa.**
 - **El pedazo que no cargó no se recupera sin recargar** (React.lazy guarda el rechazo). Un `import()` con reintento
   serviría si el runtime de Turbopack no guarda también el chunk fallido: no está medido.
 *21/10/2026, claude4 (chat Dashboard).*

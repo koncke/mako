@@ -256,12 +256,15 @@ async function aplicar(payload: In, ctx: Ctx): Promise<Ejecutado> {
     const sigue = hojaId != null && g.tablero.hojas.some((h) => h.id === hojaId);
     // Lo que el chat DIBUJA con el resultado (2.7, ./dashboard-bloques.ts): con el informe de antes y el GUARDADO, nunca
     // con el texto del modelo. El marco del chat (lib/chat-bloques.ts) lo sanea antes de guardarlo. Del informe de OTRA
-    // persona va sin «Abrir en el Dashboard», que abriría el de quien mira (revisión del 21/10).
-    const deOtro = quienChatea(ctx)?.sub !== sub ? (typeof payload.de === 'string' && payload.de.trim()) || 'otra persona' : null;
+    // persona va sin «Abrir en el Dashboard», que abriría el de quien mira (revisión del 21/10). Y sin `link`: sin bloque
+    // (un conector, una edición que sólo mueve), el chat arma el mismo botón con él. Sólo en la app (`quienChatea`): por
+    // WhatsApp o HTTP no hay a quién comparar, y el link sigue como antes.
+    const yo = quienChatea(ctx);
+    const deOtro = yo && yo.sub !== sub ? (typeof payload.de === 'string' && payload.de.trim()) || 'otra persona' : null;
     const bloque = bloqueDelCambio(cambio, actual.tablero, g.tablero, deOtro);
     return {
       ok: true, resumen: `${String(payload.hecho ?? 'Listo')}. ${String(payload.deshacer ?? '')}`.trim(),
-      datos: { ...datos, link: linkHoja(sigue ? hojaId : null, ctx), ...(bloque ? { bloque } : {}) },
+      datos: { ...datos, ...(deOtro ? {} : { link: linkHoja(sigue ? hojaId : null, ctx) }), ...(bloque ? { bloque } : {}) },
     };
   } catch (e) {
     console.error(`[api-mako dashboard] ejecutar: ${msg(e)}`);

@@ -54,10 +54,12 @@ const fecha = (v: unknown): string | undefined => (typeof v === 'string' && /^\d
  * Desde qué fila se dibuja: hasta 60, y en una serie de TIEMPO, las más NUEVAS. «Leads por día de los últimos 90 días»
  * dibujaba del 23/07 al 20/09 y escondía el último mes (revisión del 21/10). Con la tabla al revés (la más nueva arriba,
  * `tabla.descendente`) las más nuevas son las primeras. Las claves de tiempo son fechas `YYYY-MM-DD`: se comparan como texto.
+ * ⚠️ EL MISMO CORTE para lo que lee el modelo (`resultadoMarkdown`, con su tope de 25 filas): si el gráfico muestra lo más
+ *    nuevo y el texto lo más viejo, con 90 días no comparten ni una fila, y el modelo comenta lo que nadie ve.
  */
-export function inicioDibujado(clase: Resultado['clase'], claves: readonly string[]): number {
-  if (clase !== 'tiempo' || claves.length <= MAX_FILAS_GRAFICO) return 0;
-  return claves[0] > claves[claves.length - 1] ? 0 : claves.length - MAX_FILAS_GRAFICO;
+export function inicioDibujado(clase: Resultado['clase'], claves: readonly string[], n = MAX_FILAS_GRAFICO): number {
+  if (clase !== 'tiempo' || claves.length <= n) return 0;
+  return claves[0] > claves[claves.length - 1] ? 0 : claves.length - n;
 }
 
 /** La fecha más vieja que se dibuja de una serie que no entra entera (la nota dice ese tramo). null = entra entera. */
@@ -141,11 +143,13 @@ export function sanearBloqueGrafico(o: Record<string, unknown>, sanearAbrir: (v:
  * El gráfico con que el chat dibuja una consulta al vuelo (la tabla que arma `consultar_datos_dashboard` para el
  * modelo): un número queda número; con el tiempo, una serie; por categoría, barras si son pocas y tabla si son muchas;
  * con desglose, columnas. Lo que no calza, tal cual.
+ * Una tabla de tiempo que no entra va SIN la fila Total: la nota dice el tramo dibujado y el Total es del período entero
+ * (recalcularlo no sirve con una tasa).
  */
 export function graficoParaElChat(g: Grafico, r: Resultado): Grafico {
   if (!g.dimension) return g;
   if (g.desglose) return { ...g, tipo: 'columnas' };
-  if (g.metricas.length > 1) return { ...g, tipo: 'tabla' };
+  if (g.metricas.length > 1) return { ...g, tipo: 'tabla', ...(desdeDibujado(r) ? { total: false } : {}) };
   if (r.clase === 'tiempo') return { ...g, tipo: 'serie' };
   return { ...g, tipo: r.filas.length <= 12 ? 'barras' : 'tabla' };
 }

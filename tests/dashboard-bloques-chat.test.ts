@@ -20,6 +20,9 @@
 // Lo de la revisión (21/10/2026, base de los dos archivos 14/0): «Se saca» al final → 13 / 1; sin «Y N cambios más» →
 // 13 / 1; el bloque por HTTP → 13 / 1; el informe de otra persona con su botón → 13 / 1; `aplicar` sin mirar quién
 // chatea → 13 / 1; «16 × 10» en el marco → 13 / 1.
+// La segunda revisión (sobre 17c0317b2, base 15/0): el `link` en el informe de otra persona → 14 / 1; restablecer el de
+// Ana con «Tu informe» → 14 / 1; «Los ves en la hoja» en el de otra persona → 14 / 1; el dueño dos veces en el título de
+// restablecer → 14 / 1; «de otra persona» también fuera de la app (sin link por WhatsApp) → 14 / 1.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -28,6 +31,7 @@ import { join } from 'node:path';
 import { TOPE_FILAS_G4, bloqueDelCambio, contenidoDeHoja, hrefHoja } from '../lib/api-mako/areas/dashboard-bloques';
 import { aplicarCambio, type Cambio } from '../lib/api-mako/areas/dashboard.helpers';
 import { rutaInterna, sanearBloque } from '../lib/chat-bloques';
+import { abrirDeResultado } from '../lib/mako-turno-app-reglas';
 import { firmaDeHoja } from '../lib/graficos-ia-edicion';
 import { hojaVacia, type Componente, type Grafico, type Tablero } from '../lib/graficos-catalogo';
 
@@ -131,10 +135,26 @@ test('el informe de OTRA persona: sin «Abrir en el Dashboard» (abriría el de 
   const creadaDeAna = bloqueDelCambio({ op: 'crear_hoja', hoja: nueva }, t, ap2.tablero, 'Ana');
   assert.deepEqual(creadaDeAna, { t: 'antes_despues', titulo: 'Comercial, en el informe de Ana', filas: [{ campo: 'Nueva', antes: '—', despues: 'Comercial (1 gráfico)' }] });
   sobrevive(creadaDeAna);
-  // `aplicar` lo decide con quien chatea (`Ctx.quien`) contra el dueño del informe (`payload.sub`).
+  // Restablecer el de Ana no es «Tu informe…, en el informe de Ana».
+  const rest = bloqueDelCambio({ op: 'restablecer' } as Cambio, t, t, 'Ana') as { titulo: string; abrir?: unknown };
+  assert.equal(rest.titulo, 'El informe de Ana, como lo arma MaKo');
+  assert.equal(rest.abrir, undefined);
+  // Con más de 12 cambios en el de Ana, la fila del resto no manda a una hoja que no se puede abrir.
+  const trece = tablero(hojaVacia('Marketing', { id: 'mkt', componentes: Array.from({ length: 13 }, (_, i) => graf(`g${i}`, { titulo: `T${i}`, y: i * 4 })) }));
+  const h13 = trece.hojas[0];
+  const cambioGrande: Cambio = { op: 'editar_con_ia', hojaId: 'mkt', antes: firmaDeHoja(h13), hoja: { ...h13, componentes: h13.componentes.slice(0, 12).map((c) => ({ ...c, titulo: `${(c as Grafico).titulo} nuevo` } as Componente)) } };
+  const apG = aplicarCambio(trece, cambioGrande);
+  assert.ok(apG.ok);
+  const grandeDeAna = bloqueDelCambio(cambioGrande, trece, apG.tablero, 'Ana') as { filas: Array<{ campo?: string; despues: string }> };
+  assert.deepEqual(grandeDeAna.filas.at(-1), { campo: 'Y 2 cambios más', antes: '—', despues: 'En el informe de Ana' });
+  // `aplicar` lo decide con quien chatea en la app (`quienChatea`) contra el dueño del informe (`payload.sub`), y en el de
+  // otra persona no deja `link`: sin bloque (un conector), el chat armaba con él el mismo botón al informe de quien mira.
   const run = leer('lib/api-mako/areas/dashboard.run.ts');
-  assert.match(run, /const deOtro = quienChatea\(ctx\)\?\.sub !== sub \? \(typeof payload\.de === 'string' && payload\.de\.trim\(\)\) \|\| 'otra persona' : null;/);
+  assert.match(run, /const yo = quienChatea\(ctx\);\s*const deOtro = yo && yo\.sub !== sub \? \(typeof payload\.de === 'string' && payload\.de\.trim\(\)\) \|\| 'otra persona' : null;/);
   assert.match(run, /payload: \{ sub: r\.sub, de: r\.eleccion\.persona \? \(r\.eleccion\.persona\.nombre \|\| r\.eleccion\.persona\.email\) : null,/);
+  assert.match(run, /datos: \{ \.\.\.datos, \.\.\.\(deOtro \? \{\} : \{ link: linkHoja\(sigue \? hojaId : null, ctx\) \}\), \.\.\.\(bloque \? \{ bloque \} : \{\}\) \},/);
+  // Y el botón de respaldo sale sólo de `datos.link` (o `url`): sin él, no hay botón.
+  assert.equal(abrirDeResultado('editar_hoja_dashboard', { hojaId: 'mkt' }), null);
 });
 
 test('por la API HTTP el bloque no sale: es lo que dibuja el chat, una forma interna', () => {
@@ -147,7 +167,7 @@ test('por la API HTTP el bloque no sale: es lo que dibuja el chat, una forma int
 test('`aplicar` devuelve el bloque en `datos.bloque`, armado con el informe de antes y el GUARDADO', () => {
   const run = leer('lib/api-mako/areas/dashboard.run.ts');
   assert.match(run, /const bloque = bloqueDelCambio\(cambio, actual\.tablero, g\.tablero, deOtro\);/);
-  assert.match(run, /datos: \{ \.\.\.datos, link: linkHoja\(sigue \? hojaId : null, ctx\), \.\.\.\(bloque \? \{ bloque \} : \{\}\) \},/);
+  assert.match(run, /\.\.\.\(bloque \? \{ bloque \} : \{\}\) \},/);
   // El marco lo saca de ahí (lib/mako-turno-app.ts, `confirmarDesdeTarjeta`).
   assert.match(leer('lib/mako-turno-app.ts'), /const bloque = r\.ok \? bloqueDeResultado\(r\.datos\) : null;/);
 });

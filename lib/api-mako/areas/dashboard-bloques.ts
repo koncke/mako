@@ -102,9 +102,10 @@ export const TOPE_FILAS_G4 = 12;
 /**
  * Lo que «Editar con MaKo» agregó, sacó o cambió en la hoja: primero lo que se SACA (no se deshace), después lo que se
  * agrega y al final lo editado. Con más de lo que entra, la última fila cuenta el resto: el marco corta en 12 y lo
- * primero que perdía era «Se saca», que iba al final (revisión del 21/10).
+ * primero que perdía era «Se saca», que iba al final (revisión del 21/10). En el informe de otra persona (`de`) no hay hoja
+ * que abrir: la fila no dice «Los ves en la hoja».
  */
-function filasDeEdicion(a: Hoja, b: Hoja): Fila[] {
+function filasDeEdicion(a: Hoja, b: Hoja, de: string | null): Fila[] {
   const deA = new Map(a.componentes.map((c) => [c.id, c] as const));
   const deB = new Map(b.componentes.map((c) => [c.id, c] as const));
   const sacadas: Fila[] = a.componentes.filter((c) => !deB.has(c.id)).map((c) => ({ campo: 'Se saca', antes: nombreDeComponente(c), despues: '—' }));
@@ -121,16 +122,17 @@ function filasDeEdicion(a: Hoja, b: Hoja): Fila[] {
   const filas = [...sacadas, ...agregadas, ...editadas];
   if (filas.length <= TOPE_FILAS_G4) return filas;
   const resto = filas.length - (TOPE_FILAS_G4 - 1);
-  return [...filas.slice(0, TOPE_FILAS_G4 - 1), { campo: `Y ${resto} cambios más`, antes: '—', despues: 'Los ves en la hoja' }];
+  return [...filas.slice(0, TOPE_FILAS_G4 - 1), { campo: `Y ${resto} cambios más`, antes: '—', despues: de ? `En el informe de ${de}` : 'Los ves en la hoja' }];
 }
 
 /**
  * El bloque de un cambio en el informe de OTRA persona (un admin que edita el de Ana): sin «Abrir en el Dashboard», que
  * abre el de quien mira (su «Marketing» sigue igual y el cambio parece no hecho; y una hoja de plantilla que no tiene se le
- * agrega a SU informe). El título dice de quién es; lo creado, que siempre lleva su botón, pasa a un antes y después.
+ * agrega a SU informe). El título dice de quién es (`de`; null = el título ya lo dice, como el de restablecer); lo creado,
+ * que siempre lleva su botón, pasa a un antes y después.
  */
-function enInformeDe(b: BloqueChat, de: string): BloqueChat {
-  const titulo = (t: string) => `${t}, en el informe de ${de}`;
+function enInformeDe(b: BloqueChat, de: string | null): BloqueChat {
+  const titulo = (t: string) => (de ? `${t}, en el informe de ${de}` : t);
   if (b.t === 'creado') return { t: 'antes_despues', titulo: titulo(b.titulo), filas: [{ campo: b.estado ?? 'Nuevo', antes: '—', despues: b.nota ? `${b.titulo} (${b.nota})` : b.titulo }] };
   if (b.t === 'antes_despues') {
     const { abrir: _abrir, ...resto } = b;
@@ -145,14 +147,15 @@ function enInformeDe(b: BloqueChat, de: string): BloqueChat {
  * null = nada que dibujar.
  */
 export function bloqueDelCambio(c: Cambio, antes: Tablero, despues: Tablero, de: string | null = null): BloqueChat | null {
-  const b = bloqueDeInforme(c, antes, despues);
-  return b && de ? enInformeDe(b, de) : b;
+  const b = bloqueDeInforme(c, antes, despues, de);
+  return b && de ? enInformeDe(b, c.op === 'restablecer' ? null : de) : b;
 }
 
-function bloqueDeInforme(c: Cambio, antes: Tablero, despues: Tablero): BloqueChat | null {
+function bloqueDeInforme(c: Cambio, antes: Tablero, despues: Tablero, de: string | null): BloqueChat | null {
   if (c.op === 'restablecer') {
     return {
-      t: 'antes_despues', titulo: 'Tu informe, como lo arma MaKo',
+      // El de otra persona no es «tu informe» (decía «Tu informe…, en el informe de Ana»).
+      t: 'antes_despues', titulo: de ? `El informe de ${de}, como lo arma MaKo` : 'Tu informe, como lo arma MaKo',
       filas: [{ campo: 'Hojas', antes: antes.hojas.map(nombreHoja).join(', ') || '—', despues: despues.hojas.map(nombreHoja).join(', ') || '—' }],
       abrir: abrir(null),
     };
@@ -200,7 +203,7 @@ function bloqueDeInforme(c: Cambio, antes: Tablero, despues: Tablero): BloqueCha
     }
     case 'editar_con_ia': {
       if (!a || !b) return null;
-      const filas = filasDeEdicion(a, b);
+      const filas = filasDeEdicion(a, b, de);
       return filas.length ? { t: 'antes_despues', titulo: `Lo que cambió en ${comillas(nombreHoja(b))}`, filas, abrir: abrir(b.id) } : null;
     }
     default:
