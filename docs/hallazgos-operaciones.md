@@ -1833,8 +1833,13 @@ del cartero; `nav.ts` no se tocó (el Sidebar compara con `OPS_CENTER.key`); la 
     llegó antes;
   - una superada no cuenta en el globito, no se contesta, y el formulario se lee como «Ya no espera tu respuesta»;
   - las de `preguntar` no se tocan: ésas las cierra la respuesta. Y una de `preguntar` igual a una de wrap_up abierta no
-    se descarta en silencio: la que queda pierde el `origen` (`unirPreguntas`), así la cierra sólo una respuesta. Al
-    guardar, las de antes se superan ANTES de unir: una que ya quedó atrás no frena a la misma pregunta hecha de nuevo.
+    se descarta en silencio: la que queda se marca `tambienPreguntar` (`unirPreguntas`), así la cierra sólo una respuesta.
+    Al guardar, las de antes se superan ANTES de unir: una que ya quedó atrás no frena a la misma pregunta hecha de nuevo.
+  - ⚠️ **Lo obvio era el error: «sacarle el `origen`» para que no la supere un turno** (91fae9527; lo encontró la segunda
+    revisión de la ola 1). El `origen` también decide el TEXTO de la respuesta: sin él, `textoDeRespuesta` no pone el
+    `message` del botón, y la copia del cliente (que todavía lo tenía) firmaba otro texto; la base no la marcaba y, sin
+    origen, ningún turno la superaba. Abierta para siempre, la queja de Martín otra vez. **Regla:** un campo que ya decide
+    algo no se reusa para decidir otra cosa: la marca nueva va aparte.
 - **La misma pregunta, dos veces:** `preguntasSinRepetir` deduplicaba dentro de UNA vuelta, y `vigilar` da una cada 10 s.
   Ahora `unirPreguntas` descarta una nueva igual (mismo chat, mismo texto normalizado) a una que siga abierta. El cartero
   sube la última de cada chat, con el tope ANTES de mandar y las más nuevas primero (el servidor se quedaba con las 20

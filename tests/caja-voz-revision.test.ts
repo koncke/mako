@@ -21,7 +21,9 @@
 //   · la caja con `quieto = enviando || apagado || ocupado` → 1 fallo (3);
 //   · `preguntasSinRepetir` sin filtrar lo malformado → 1 fallo (4);
 //   · `marcasQueAvanzan` que avanza siempre → 1 fallo (4);
-//   · (21/10) `unirPreguntas` que deja la de wrap_up igual a una de `preguntar` → 1 fallo (2);
+//   · (21/10) `unirPreguntas` que deja la de wrap_up igual a una de `preguntar` → 1 fallo (2); que le saca el `origen`, como
+//     91fae9527 → 1 fallo (2); `superarPreguntas` sin mirar `tambienPreguntar` → 1 fallo (2); `sanearPregunta` sin
+//     guardarlo → 1 fallo (2);
 //   · (21/10) `BotonMandar` girando con `ocupado` aunque se dicte → 1 fallo (3); la caja pasándole `girando` → 1 fallo (3).
 
 import test from 'node:test';
@@ -78,12 +80,20 @@ test('2. la misma pregunta abierta no entra dos veces', () => {
   const igual = pregunta(ID2, '2026-10-20T21:15:00.000Z', { origen: 'wrap_up', pregunta: '  ¿hago   el commit?' });
   assert.deepEqual(unirPreguntas([vieja], [igual]).map((p) => p.id), [ID1], 'otra vuelta, el mismo texto: no entra');
   assert.deepEqual(unirPreguntas([], [vieja, igual]).map((p) => p.id), [ID1], 'ni en la misma vuelta');
-  // Una de `preguntar` igual a una de wrap_up abierta (revisión de la ola 1): la que queda deja de ser de wrap_up, y el
-  // mensaje siguiente de otro chat ya no la cierra.
+  // Una de `preguntar` igual a una de wrap_up abierta (revisión de la ola 1): queda UNA, que sigue siendo de wrap_up (su
+  // respuesta lleva el message del botón) y que, como una de `preguntar`, cierra sólo una respuesta.
   const dePreguntar = pregunta(ID2, '2026-10-20T21:15:00.000Z');
   const unidas = unirPreguntas([vieja], [dePreguntar]);
-  assert.deepEqual(unidas.map((p) => [p.id, p.origen ?? null]), [[ID1, null]], 'una sola, que sólo cierra una respuesta');
-  assert.equal(superarPreguntas(unidas, [{ local: LOCAL, rol: 'otro', at: '2026-10-20T21:20:00.000Z' }]).filter(estaAbierta).length, 1, 'otro chat no la cierra');
+  assert.deepEqual(unidas.map((p) => [p.id, p.origen ?? null, p.tambienPreguntar ?? null]), [[ID1, 'wrap_up', true]], 'una sola, de wrap_up y también de preguntar');
+  assert.match(textoDeRespuesta(unidas[0], [0], null), /1\. Commit: Commiteá lo de hoy/, 'la respuesta lleva el message del botón (la segunda revisión)');
+  // Lo que se guarda y se relee: la marca sobrevive a la base.
+  const releida = sanearPregunta(JSON.parse(JSON.stringify(unidas[0])));
+  assert.equal(releida?.tambienPreguntar, true, 'se guarda');
+  const despues = [{ local: LOCAL, rol: 'otro', at: '2026-10-20T21:20:00.000Z' }];
+  assert.equal(superarPreguntas([releida!], despues).filter(estaAbierta).length, 1, 'otro chat no la cierra');
+  const otroWrap = pregunta(ID3, '2026-10-20T21:30:00.000Z', { origen: 'wrap_up', pregunta: '¿Y el push?' });
+  assert.equal(superarPreguntas([releida!, otroWrap], []).filter(estaAbierta).length, 2, 'ni un wrap_up más nuevo');
+  assert.equal(sanearPreguntas([{ ...releida!, tambienPreguntar: true }])[0].tambienPreguntar, undefined, 'la PC no la sube marcada');
   const contestada = { ...vieja, respuesta: { elegidas: [0], otra: null, at: '2026-10-20T21:12:00.000Z', trabajo: ID3 } };
   assert.equal(unirPreguntas([contestada], [igual]).length, 2, 'si la anterior ya se contestó, la nueva es otra pregunta');
   const superada = superarPreguntas([vieja], [{ local: LOCAL, rol: 'yo', at: '2026-10-20T21:12:00.000Z' }]);
