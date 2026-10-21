@@ -39,13 +39,15 @@ const ImportarDesde = dynamic(() => import('./desde/ImportarDesde').then((m) => 
 // la plantilla armada, y recién ahí la URL del proyecto (plantilla/ArmarPlantilla.tsx).
 const ArmarPlantilla = dynamic(() => import('./plantilla/ArmarPlantilla').then((m) => m.ArmarPlantilla), { ssr: false });
 
-export function VideoEditorCliente({ vista, proyectoId, ws, desde, plantilla, senales = null }: {
+export function VideoEditorCliente({ vista, proyectoId, ws, desde, plantilla, propuesta = null, senales = null }: {
   vista: 'inicio' | 'editor';
   proyectoId?: string;
   ws: number | null;
   desde?: DesdeEditor;
   /** El id de `?plantilla=` ya validado; `null` si vino uno que no existe. */
   plantilla?: string | null;
+  /** El `?propuesta=` del link (un uuid ya validado): el chat abre en ÉSA (chat/propuestas.ts). */
+  propuesta?: string | null;
   /** Lo que se sabe del negocio: la pestaña Plantillas pone primero las sugeridas (./sugeridas.tsx). */
   senales?: SenalesNegocio | null;
 }) {
@@ -75,7 +77,7 @@ export function VideoEditorCliente({ vista, proyectoId, ws, desde, plantilla, se
           {editor ? (
             desde ? <ImportarDesde desde={desde} />
               : plantilla !== undefined ? <ArmarPlantilla id={plantilla} />
-                : <EditorPage projectId={proyectoId} />
+                : <EditorPage projectId={proyectoId} propuesta={propuesta} />
           ) : <ProjectsPage />}
         </SenalesNegocioProvider>
       </TooltipProvider>

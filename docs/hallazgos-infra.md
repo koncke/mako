@@ -7141,3 +7141,17 @@ arreglar está en hallazgos-chatbot («La segunda revisión del pedido B»). *Ce
   de la función de la mig 0318, atómica porque una llamada de node no se intercala con otra. Respeta los `unicos` (si
   el número choca, no escribe nada y contesta 23505). La copia se fija contra el .sql en tests/pagos-cobro-idempotente.test.ts:
   sin eso, el test probaría la copia y no la función.
+
+## Un merge toma EN SILENCIO lo de main donde tu rama volvió a la base (21/10/2026, la ola 1 del Ops Center)
+
+- **Síntoma:** después de mergear origin/main en la ola 1, un test de la caja falló: la condición del botón de grabar
+  decía otra vez `!girando`, que la ola 1 había cambiado a `!enviando`. No hubo conflicto en ESA línea.
+- **Causa:** caja-voz entró a main por OTRO camino (una rama aparte desde main, con `a7f7900ff`, el cherry-pick de
+  `fce506711` que la ola 1 ya tenía). La base común quedó ANTES de caja-voz, con `!enviando`. La ola 1 pasó por
+  `!girando` y volvió a `!enviando`: para git, la ola 1 no cambió esa línea y main sí. Se queda con la de main, sin
+  avisar.
+- **Lo obvio era el error:** «si no hay conflicto, quedó lo mío». Un cambio que vuelve una línea a como estaba en la base
+  pierde contra el otro lado.
+- **Regla:** cuando lo mismo entra a main por dos caminos (una rama separada para subir antes, un cherry-pick), después
+  del merge comparar contra TU punta los archivos que tocaron los dos: `git diff HEAD --stat -- <archivos de los dos>`.
+  Lo que aparece y no es de otra rama, es tuyo perdido.

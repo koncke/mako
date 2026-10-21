@@ -736,15 +736,27 @@ Orden sugerido para Ops Center 3: 1.1 → 1.7 → 1.8 → 1.10 → 1.11 → 1.9.
 
 En los tres casos, el grupo de WhatsApp sigue anotando como idea.
 
+> **DECIDIDO (Martín, 21/10 01:25, pregunta `e1a9c7c5`): A, propone con una tarjeta.** Cuando MaKo duda en el chat de
+> la app, arma la acción y la muestra en una tarjeta, y no hace nada hasta que la persona la toca. Es lo que ya
+> estaban haciendo los chats; la 1.2 queda destrabada. El grupo de WhatsApp sigue anotando como idea.
+
 **D2. Lo que mueve plata en un toque.** Incluye el presupuesto, activar, borrar o crear en Meta; reembolsar; cancelar una suscripción de Stripe o Mercado Pago; darse de baja de MaKo. Hoy va a una pantalla aparte a propósito.
 - A) Tarjeta en el chat con el monto antes → después y doble confirmación.
 - B) Sigue en una pantalla aparte: 8 de las 13 acciones de Meta seguirían sacando a la persona del chat.
+
+> **DECIDIDO (Martín, 21/10 01:24, pregunta `ecebe20a`): A, en el chat con doble confirmación.** Lo que mueve
+> plata se confirma en la tarjeta del chat, con el monto antes → después y dos confirmaciones. Ya no va a una
+> pantalla aparte.
 
 **D3. Mensajes y correos a terceros.**
 - a) ¿Tocar «Enviar» en la tarjeta cuenta como la aprobación de una persona? *(El mapa del CRM recomienda que sí.)*
 - b) Los borradores que deja la regla anti-baneo: ¿«Mandar todos» con un toque, o de a uno?
 - c) Compartir un dashboard por email: ¿tarjeta en el chat o pantalla de revisión?
 - d) «…y activala»: ¿se activa con el mismo sí, o nace pausada y pide una segunda confirmación?
+
+> **D3a DECIDIDO (Martín, 21/10 01:27, pregunta `c23078fd`): sí, el toque es la aprobación.** Tocar «Enviar» en la
+> tarjeta del chat manda el WhatsApp, el DM o el email al lead, sin pasar por /chats. La pieza 2.1 queda destrabada.
+> D3b, D3c y D3d siguen abiertas.
 
 **D4. Borrar leads desde el chat, de a uno o en lote.** Hoy no se puede, a propósito.
 - A) Sólo el admin, con una tarjeta roja que muestra los nombres y se confirma escribiendo la cantidad.
@@ -759,6 +771,26 @@ En los tres casos, el grupo de WhatsApp sigue anotando como idea.
 - b) La Gemini gratis con datos de clientes: ¿se corta, o se le pide al cliente su Claude?
 - c) Crear y editar automatizaciones corre sólo con la cascada gratis: ¿se usa la IA del cliente?
 - d) Analizar las conversaciones de los leads (el pedido de Florencia): ¿sólo para quien conectó su propia IA?
+
+> **D6a DECIDIDO (Martín, 21/10 01:26, pregunta `107a9bd1`): en la computadora del cliente.** Como lo hace Martín:
+> el cliente instala el programa oficial (Claude Code con el login de Anthropic) y se loguea con sus cuentas, y MaKo
+> le manda los pedidos. MaKo nunca toma el token. Si apaga la PC, el chat no contesta. Lo de fondo 24/7 (atender
+> leads) no va por la suscripción, porque es zona gris: ver [hallazgos-ia.md](hallazgos-ia.md).
+>
+> **D6b DECIDIDO (Martín, 21/10 01:27, pregunta `1aca04f2`, «Otra»): «Si hacemos que traigan su cuenta de GPT o
+> Claude, quiero eliminar Gemini».** ⚠️ **Falta el alcance**, preguntado aparte: medido desde el 07/10 en
+> `anthropic_usage`, Gemini hace el **92%** de las 4.229 llamadas de IA, el **100%** de las 317 del Plan, el Perro y
+> las reuniones, y el **86%** de las de los negocios de clientes. Sacarla de todo deja la cascada gratis («el Plan
+> nunca paga IA») en Groq, Mistral y OpenRouter, que hoy hacen el 5%.
+>
+> **D6b: alcance decidido por el Cerebro (Martín: sin más preguntas, 21/10 01:30, «No hagas más preguntas e
+> implementalo al 100%»).**
+> - **Gemini nunca recibe datos de clientes.**
+> - Un negocio con su Claude o su GPT corre su Ops Center con su cuenta.
+> - Lo interno de la plataforma (Plan, Perro, reuniones) sigue con Gemini por ahora.
+>
+> Lo implementa Ticketera (la 3.15, «Tus cuentas de IA», con el mapa en `docs/ia-del-cliente.md`). La pregunta
+> `53053bcb` del alcance queda retirada: si Martín la contesta igual, se le avisa al Cerebro antes de cambiar nada.
 
 **D7. Video e imagen.**
 - a) ¿Material en la nube y render en un servidor de MaKo (con costo de infraestructura), o aceptar y exportar en el editor embebido en el chat?

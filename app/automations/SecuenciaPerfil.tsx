@@ -24,7 +24,7 @@ import { usePilaDeshacer } from '@/app/_ui/usePilaDeshacer';
 // LOS CRON (sexta tanda: varios por automatización, y la primera pantalla con Producto / Recurrente /
 // Etiqueta / Instagram / Messenger / Email). El panel, su estado y lo que dice cada uno viven allá.
 import { EditorDisparadores, useDisparadores, useTextoDisparador, disparadoresDeSecuencia, type SecuenciaConDisparadores } from './EditorDisparadores';
-import { disparoActualDe, disparadorDeValorIA, recurrenteDeValorIA, iconoDeDisparador, esDelEmisor, EVENTOS_MAKO, TRIGGER_AVISO_MAKO, type Disparador } from '@/lib/disparadores';
+import { disparoActualDe, disparadorDeValorIA, recurrenteDeValorIA, iconoDeDisparador, esDelEmisor, EVENTOS_MAKO, TRIGGER_AVISO_MAKO } from '@/lib/disparadores';
 import { frenoDelEvento } from '@/lib/aviso-evento';
 import { problemasDeTokens } from '@/lib/tokens-del-flujo';
 import type { AudioSetting, SecuenciaDto, Opcion, PasoSecuenciaDto, ProductoOpcion } from './ChatAgentApp';
@@ -472,9 +472,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * las condiciones (`triggerTipo` del lienzo) y «Crear con IA». `setErr` va en una flecha: se declara
    * más abajo, y pasarlo pelado acá sería leerlo antes de que exista.
    */
-  /** El aviso de duplicada al guardar un CRON (`alGuardarCrons`, más abajo): el del render de AHORA. */
-  const alGuardarCronsRef = useRef<(nueva: readonly Disparador[], previa: readonly Disparador[]) => void>(() => {});
-  const crons = useDisparadores(secuencia as SecuenciaConDisparadores, { onCambio, onError: (m) => setErr(m), onGuardado: (n, p) => alGuardarCronsRef.current(n, p) });
+  const crons = useDisparadores(secuencia as SecuenciaConDisparadores, { onCambio, onError: (m) => setErr(m) });
   const disparo = disparoActualDe(crons.primero);
   /** El CRON abierto en el panel: su id, 'nuevo' (el «＋ Nuevo CRON» de la tarjeta) o null (el primero). */
   const [cronAbierto, setCronAbierto] = useState<string | 'nuevo' | null>(null);
@@ -729,6 +727,11 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const consultandoProspeccion = useRef(false);
   /** El aviso de una automatización que ya le escribe lo mismo a la misma gente (`conAvisoDuplicada`), con lo que se iba a hacer. */
   const [avisoDup, setAvisoDup] = useState<{ texto: string; boton: string; seguir: () => void } | null>(null);
+  /**
+   * La persona contestó «… igual» al aviso de duplicada (el de la pantalla o el 409 `duplicada` del server): el pedido que
+   * sigue (`toggle` o `publicar`) lo lleva como `aunqueDuplique` y lo consume. Sin eso, el server vuelve a preguntar.
+   */
+  const respondioIgual = useRef(false);
   // Identidad FIJA (AGENTS.md: todo `<Modal>` recibe un `onCerrar` estable).
   const cerrarConfig = useCallback(() => setConfigAbierta(false), []);
   /**
@@ -767,6 +770,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    */
   const publicar = async () => {
     setErr(null);
+    // «Publicar igual» (`conAvisoDuplicada`): se usa UNA vez.
+    const aunqueDuplique = respondioIgual.current;
+    respondioIgual.current = false;
     // La forma y lo que falta escribir, con la MISMA función que frena «Probar» (`frenoDelFlujo`).
     const freno = frenoDeEsta(pasos);
     if (freno) { frenar(freno.error, freno.tarjeta); return; }
@@ -779,11 +785,14 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     try {
       const rp = await (await fetch('/api/whatsapp/secuencias', {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: secuencia.id, pasos }),
+        // `aunqueDuplique`: recién después de «Publicar igual» (el server pregunta lo mismo con una activa: 409 `duplicada`).
+        body: JSON.stringify({ id: secuencia.id, pasos, ...(aunqueDuplique ? { aunqueDuplique: true } : {}) }),
       })).json();
       // El server valida con la MISMA función y rechaza con su primer error, que trae ids.
       if (!rp.ok) {
         borrador.noPublicado();
+        // Otra activa ya le escribe lo mismo a la misma gente y la pantalla no lo vio (su lista era vieja): se pregunta acá.
+        if (rp.duplicada) { setAvisoDup({ texto: String(rp.error), boton: 'Publicar igual', seguir: () => void publicar() }); setBusy(null); return; }
         const e = rp.error ? String(rp.error) : '';
         // Un 409 trae el `medio` (GENERAL 6): se abre «Conectar» ahí mismo en vez de señalar una tarjeta.
         const medio = rp.medio ? medioDelError(e) : null;
@@ -936,8 +945,11 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
 
   const toggle = async () => {
     setBusy('toggle'); setErr(null);
+    // «Activar igual» (`conAvisoDuplicada`): se usa UNA vez.
+    const aunqueDuplique = respondioIgual.current;
+    respondioIgual.current = false;
     try {
-      const r = await (await fetch('/api/whatsapp/secuencias', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: secuencia.id, activa: !activa }) })).json();
+      const r = await (await fetch('/api/whatsapp/secuencias', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: secuencia.id, activa: !activa, ...(aunqueDuplique ? { aunqueDuplique: true } : {}) }) })).json();
       if (r.ok) {
         setActiva(!activa);
         // ⚠️ «Activada ✓» ES CIERTO SOBRE LA FILA Y FALSO SOBRE EL RESULTADO.
@@ -964,6 +976,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
           setNotaChat({ id: `mako-aprobar-${Date.now().toString(36)}`, texto: `${POR_QUE_SE_APRUEBAN}. Se aprueban en Chats › Borradores.` });
         }
         onCambio();
+      } else if (r.duplicada) {
+        // El server la frenó (`setSecuenciaActiva` pregunta en TODOS los caminos): la misma pregunta, y con «Activar igual», otra vez.
+        setAvisoDup({ texto: String(r.error), boton: 'Activar igual', seguir: () => void toggle() });
       } else {
         // Un medio sin conectar abre su modal y NO deja el chip rojo al lado de «Activar» (decimocuarta tanda, punto 4).
         const medio = medioDelError(r.error ? String(r.error) : null);
@@ -1070,17 +1085,17 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     setAvisoDup({ texto: avisoDuplicada(otra.nombre), boton, seguir });
   };
   /**
-   * UN CRON NUEVO EN UNA QUE YA ESTÁ ACTIVA (revisión del 20/10/2026, noche): se guarda en vivo y no pasa por Publicar, así
-   * que el aviso sale después de guardarlo, si con él pasó a escribirle a la misma gente que otra (con lo PUBLICADO: es lo
-   * que manda). Sólo si ANTES no pasaba: no se repite en cada toque de un CRON que ya era así.
+   * UNA ACTIVA QUE YA LE ESCRIBE LO MISMO A LA MISMA GENTE QUE OTRA (revisión del 21/10/2026): se DICE al lado de «Activar»
+   * mientras sea así, calculado de lo que hay (sus CRON de ahora y lo publicado). Era un aviso que salía al guardar un CRON
+   * y se borraba con el guardado siguiente, o no salía si se cambiaba de automatización antes de que volviera. Un CRON se
+   * guarda en vivo: no hay un «antes» donde preguntar sin frenar cada toque.
    */
-  const alGuardarCrons = (nueva: readonly Disparador[], previa: readonly Disparador[]) => {
-    if (!rolAdmin || !activa) return;
-    const con = (lista: readonly Disparador[]) => duplicadaAlActivar(secuencia as SecuenciaConDisparadores, secuencias as readonly SecuenciaConDisparadores[], disparadoresDeSecuencia, { pasos: abiertoPublicado, crons: lista });
-    const otra = con(nueva);
-    if (otra && !con(previa)) setErr(avisoDuplicada(otra.nombre));
-  };
-  useEffect(() => { alGuardarCronsRef.current = alGuardarCrons; });
+  const dupActiva = useMemo(
+    () => (rolAdmin && activa
+      ? duplicadaAlActivar(secuencia as SecuenciaConDisparadores, secuencias as readonly SecuenciaConDisparadores[], disparadoresDeSecuencia, { pasos: abiertoPublicado, crons: crons.lista })
+      : null),
+    [rolAdmin, activa, secuencia, secuencias, abiertoPublicado, crons.lista],
+  );
   const conAvisoProspeccion = (seguir: () => void) => {
     if (!rolAdmin || !Configuraciones || avisadaProspeccion.has(secuencia.id) || !cronDeProspeccion(crons.lista, productos, secuencia.funnel_id ?? null)) { seguir(); return; }
     // ⚠️ UNA CONSULTA A LA VEZ, Y LA QUE YA TIENE LO SUYO QUEDA AVISADA (revisión del 20/10/2026): sin esto cada clic
@@ -1264,7 +1279,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             )}
             {avisoDup && (
               <Confirm message={avisoDup.texto} confirmLabel={avisoDup.boton} cancelLabel="Cancelar" tone="primary"
-                onConfirm={() => { const s = avisoDup.seguir; setAvisoDup(null); s(); }}
+                onConfirm={() => { const s = avisoDup.seguir; setAvisoDup(null); respondioIgual.current = true; s(); }}
                 onCancel={() => setAvisoDup(null)} />
             )}
 
@@ -1327,6 +1342,11 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 el CTRL Z»): lo mismo es «Descartar cambios» en el «⋯» de la lista (`descartarCambios`). */}
             {/* LOS MENSAJES QUE ESPERAN QUE LOS APRUEBES (20/10/2026: el Recurrente de Leila «no salió» y eran 31
                 borradores). Con el porqué corto y el link a donde se aprueban (Chats › Borradores). */}
+            {dupActiva && (
+              <span data-duplicada="" role="status" style={{ ...tarjetaChrome, flex: 'none', maxWidth: 320, fontSize: 12.5, fontWeight: 600, color: 'var(--warn)', lineHeight: 1.35 }}>
+                {avisoDuplicada(dupActiva.nombre)}
+              </span>
+            )}
             {porAprobar && (
               <Link href={RUTA_APROBAR} title={`${POR_QUE_SE_APRUEBAN}. Se aprueban en Chats › Borradores.`}
                 style={{ ...tarjetaChrome, flex: 'none', minHeight: ALTO_ACCION, boxSizing: 'border-box', display: 'inline-flex', flexDirection: 'column', justifyContent: 'center', gap: 1, textDecoration: 'none' }}>

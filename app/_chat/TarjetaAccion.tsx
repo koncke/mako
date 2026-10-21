@@ -9,6 +9,7 @@
 // una tarjeta no puede decir una cosa acá y otra en el teléfono.
 
 import { Button, Status } from '@/app/_ui';
+import Link from '@/app/_ui/Link';
 import { PILL_PROPUESTA, SALIDA_PROPUESTA, rotuloPrimario, type ItemHilo } from '@/app/m/mako/chat-ui';
 
 export type ItemPropuesta = Extract<ItemHilo, { k: 'propuesta' }>;
@@ -39,7 +40,10 @@ export function TarjetaAccion({ x, enCurso, bloqueada, onCorrer }: {
       {abierta ? (
         <>
           {x.nota && <p className="ch-tarjeta__nota" role="alert">{x.nota}</p>}
-          <p className="ch-tarjeta__consecuencia">{t.consecuencia ?? 'MaKo lo ejecuta en cuanto confirmes.'}</p>
+          {/* G3 (lib/chat-bloques.ts): lo que no se deshace va en rojo, pegado al botón. */}
+          <p className={`ch-tarjeta__consecuencia${t.deshacer === false ? ' ch-tarjeta__consecuencia--irreversible' : ''}`}>
+            {t.consecuencia ?? 'MaKo lo ejecuta en cuanto confirmes.'}
+          </p>
           <div className="ch-tarjeta__botones">
             <Button variant="primary" size="sm" loading={enCurso === 'confirmar' || x.estado === 'aplicando'}
               disabled={bloqueada || enCurso === 'cancelar'} onClick={() => onCorrer('confirmar')}>
@@ -52,6 +56,8 @@ export function TarjetaAccion({ x, enCurso, bloqueada, onCorrer }: {
           </div>
         </>
       ) : x.nota ? <p className="ch-tarjeta__nota">{x.nota}</p> : null}
+      {/* Hecho: el «Abrir en <tab>» del link que devolvió la acción (1.8), armado por el código. */}
+      {x.estado === 'hecho' && x.abrir && <div className="ch-tarjeta__botones"><Link className="ch-abrir" href={x.abrir.href}>{x.abrir.titulo}</Link></div>}
     </div>
   );
 }

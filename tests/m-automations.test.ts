@@ -161,7 +161,8 @@ const tramo = (src: string, desde: string, hasta: string) => {
 test('⚠️ Publicar y Descartar mandan lo que se vio, y las dos rutas lo comprueban ANTES de escribir', () => {
   const pantalla = codigo('app/m/automations/AutomationsM.tsx');
   const publicar = tramo(pantalla, 'const publicar = async () => {', 'const rehacer');
-  assert.match(publicar, /pedir\(RUTA_PASOS, 'PATCH', \{ id: a\.id, pasos: b\.pasos, visto: \{ base: b\.base, guardado_at: b\.guardado_at \} \}\)/);
+  // 21/10/2026: y «Publicar igual» si el server la frenó por duplicada (tests/automations-activar-todos-los-caminos.test.ts).
+  assert.match(publicar, /pedir\(RUTA_PASOS, 'PATCH', \{ id: a\.id, pasos: b\.pasos, visto: \{ base: b\.base, guardado_at: b\.guardado_at \}, \.\.\.\(aunqueDuplique \? \{ aunqueDuplique: true \} : \{\}\) \}\)/);
   assert.match(publicar, /if \(!r\.ok && r\.desactualizado\) \{ cambioAfuera\(\); return; \}/);
   // El descarte de después: sólo el borrador que se publicó (la base ya la movió Publicar).
   assert.match(publicar, /action: 'descartar-borrador', secuenciaId: a\.id, visto: \{ guardado_at: b\.guardado_at \}/);

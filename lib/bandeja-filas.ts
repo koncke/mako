@@ -59,6 +59,8 @@ export function aFila(p: Pendiente, tz: string): FilaPendiente {
 export function plano(p: Parametro): Parametro {
   return {
     nombre: p.nombre, tipo: p.tipo, descripcion: p.descripcion,
+    // El que lee una PERSONA en un formulario (el del chat, la 1.10): sin él, la tarjeta decía «leadId».
+    ...(p.rotulo ? { rotulo: p.rotulo } : {}),
     ...(p.obligatorio ? { obligatorio: true } : {}),
     ...(p.enum ? { enum: [...p.enum] } : {}),
     ...(p.max != null ? { max: p.max } : {}),

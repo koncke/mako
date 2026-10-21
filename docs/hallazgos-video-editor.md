@@ -1595,3 +1595,107 @@ antes `renderer.isDegraded`. Sin GPU, el editor sigue usable sin vista previa y 
 - **No se recorrió en un navegador real con la app**: se midió el WASM en un Chrome sin GPU y la guarda
   se probó por estructura. La prueba de punta a punta es abrir el editor en un Chrome con la aceleración
   de gráficos apagada (`chrome://settings/system`).
+
+---
+
+## El link `?propuesta=` no lo leía nadie (20/10/2026, Ops Center 1.14)
+
+`app/video-editor/[proyecto]/page.tsx` · `app/video-editor/_opencut/chat/propuestas.ts` ·
+`app/video-editor/_opencut/chat/foco.ts` · `app/video-editor/_opencut/chat/PanelChat.tsx` ·
+`tests/video-editor-propuesta-link.test.ts`
+
+**Síntoma.** Cada edición pedida por la API o por el Ops Center devuelve el link
+`/video-editor/<proyecto>?propuesta=<id>` para aceptarla. La primera vez que se abría, la propuesta
+llegaba nueva y el chat se abría solo. **La segunda vez** (volver a tocar el link, otra pestaña,
+recargar), el editor abría con el chat CERRADO: la propuesta ya estaba en el hilo, no era «nueva»,
+y nadie decía dónde estaba lo que la persona venía a aceptar.
+
+**Causa.** El `?propuesta=` no lo leía nadie: la página sólo leía `desde` y `plantilla`, y el
+editor traía todas las propuestas a los 1,5 s y abría el panel únicamente si llegaba una nueva. El
+link de la API y la página no estaban atados por nada.
+
+**Arreglo.** La página lee `propuesta` (sólo un uuid) y lo pasa hasta `EditorPage`; la primera
+búsqueda se reintenta hasta que el proyecto cargó (a los 1,5 s puede no estar), abre el chat, baja
+hasta esa propuesta y la resalta; si ya se aceptó, se descartó o no existe, lo dice.
+
+**Reglas que quedan:**
+- **Un link que arma un lado y lee otro va atado por un test.** El test compara el parámetro que
+  escribe `lib/api-mako/areas/video.run.ts` con el que lee la página: renombrarlo en un solo lado
+  lo pone rojo.
+- **`chat/propuestas.ts` carga el motor (WASM) al importarse**: un test no lo puede importar. Lo
+  puro que un test necesita va en un módulo aparte (`chat/foco.ts`, con `idDeMensaje`).
+- **El foco va DESPUÉS del «el chat baja solo»**: los dos son efectos del panel, y si el foco corre
+  primero, el scroll al final lo pisa. La primera rotura de prueba («borrar el baja-solo») pasaba,
+  porque comparar posiciones con un `indexOf` de −1 da verdadero: el test ahora exige que exista.
+
+**La tarjeta «Original | Modificado» (mismo día).** Cada edición devuelve en `extra.bloque` el G4
+del marco de bloques de Ops Center 3 (`lib/editor-video/propuesta-bloque.ts`): fila por fila, el
+elemento como está en la COPIA del proyecto y cómo queda, con «Aceptar en el editor». Dos cosas que
+no se ven en el código:
+- **«Original» no es un diff del editor**: el editor revisa contra la línea de tiempo viva con
+  `revisarOperaciones` (`chat/linea.ts`), que pide su vista en memoria (Maps de refs). El server
+  sólo tiene la copia en JSON, así que dice el elemento de hoy (nombre y tiempos) y lo pedido. Por
+  eso el editor vuelve a revisar al aceptar.
+- **El bloque se probó contra el saneador real** (`sanearBloque`, rama ola1): con un espacio en el
+  nombre del proyecto sin codificar, o un link absoluto, el saneador lo DESCARTA entero y la tarjeta
+  no aparece sin ningún error. El test corre contra el saneador cuando el marco está en el árbol.
+
+**Lo que encontró la revisión adversarial (20/10, noche).** Cuatro defectos del foco y del cierre:
+- **El foco usaba el proyecto ACTIVO, no el del link.** Con el proyecto en otro navegador, el editor
+  creaba uno vacío y la búsqueda (de ese vacío) decía que la propuesta «ya no está abierta», que era
+  falso. Ahora el foco se usa sólo si el activo es el del link, una búsqueda en vuelo no lo consume
+  si el editor ya se fue, y con `?propuesta=` el editor dice «no está guardado en este navegador»
+  en vez de inventar un proyecto vacío.
+- **«Aceptar» cerraba en la base cambios que el editor nunca vio.** Lo del mismo canal se junta en la
+  propuesta abierta: con el editor mostrando op1, op2 pedida desde el teléfono se sumaba a la MISMA,
+  y aceptar op1 la cerraba entera (op2 se perdía y su link decía «ya se aceptó»). La raíz ya estaba en
+  main: `resolverPropuesta` cerraba sin mirar la versión. El primer arreglo (versión y cantidad
+  vistas) no aguantó la segunda revisión: ver abajo.
+- **El foco quedaba pegado** si se cerraba el panel antes de 4 s: se suelta al desmontar.
+- **Con más de 20 abiertas, la del link no llegaba**: se traían las 20 más viejas. Ahora las 20 más
+  nuevas, y la del link siempre.
+
+**Regla que queda:** un compare-and-set al SUMAR no alcanza si al CERRAR no se mira la misma versión.
+
+**La segunda revisión (21/10): cerrar «los primeros N» o «hasta la versión V» se rompe con una vista
+vieja.** Con dos pestañas que aceptan lo mismo, la segunda cerraba un cambio que nunca vio (el total
+ya se había achicado y «vi tantos como hay» parecía «vi todo»). Y con una búsqueda en vuelo mientras
+se aceptaba, op1 volvía a ofrecerse y se aplicaba dos veces. Lo que quedó:
+- **El cierre va por CONTENIDO** (`restarOperaciones`, `lib/editor-video/propuestas.ts`): el editor
+  manda las operaciones de ESE mensaje y el server saca exactamente ésas (claves ordenadas, porque
+  jsonb reordena). Lo que ya no está no se saca dos veces; lo que llegó después queda. Si choca dos
+  veces, contesta «cambió», no «ya resuelta».
+- **El editor ofrece sólo lo que ningún mensaje manejó** (`queMostrar`, `chat/foco.ts`): lo aceptado,
+  descartado o en curso cuenta como manejado aunque su cierre no haya llegado. No renombra mensajes
+  (el renombre dejaba al viejo como «el» de la propuesta y cada apertura sumaba otro). Un cierre que
+  no llegó se reintenta hasta que la base lo confirma (`propuestaApi.cerrada`).
+- **«Se resolvió» sólo de lo que se preguntó por id.** El editor pide por id las propuestas de su
+  hilo; una que no vino en el listado de 20 ya no se da por resuelta.
+
+**Regla que queda:** para cerrar «lo que el cliente vio», mandar QUÉ vio, no cuánto ni cuándo.
+
+**La tercera revisión (21/10).**
+- **Lo ya cerrado no se resta.** `queMostrar` restaba lo de todo mensaje manejado, también lo que la
+  base ya había sacado: una operación IGUAL pedida después («dejá la música en -12» dos veces) nunca
+  se ofrecía y la propuesta quedaba abierta para siempre. Ahora resta sólo lo manejado cuyo cierre
+  todavía no confirmó la base.
+- **Validar dos veces tiene que dar lo mismo.** `cortar_tramo` y `recortar` comparaban la duración
+  ANTES de redondear a centésimas: 2.104 → 2.155 pasaba, se guardaba 2.1 → 2.15, y al volver a
+  validarlo daba 0.0499… y se tiraba. Esa operación quedaba invisible y su propuesta no cerraba nunca.
+  Ahora se compara después de redondear (con un margen por el punto flotante), y al cerrar el server
+  saca lo que ya no valida.
+
+**Lo que quedó SIN hacer, y por qué** (bajas de la tercera revisión; las dos piden guardar algo en la
+fila, es decir una migración):
+- **Un reintento de cierre ya hecho puede sacar una igual que llegó después.** Si la respuesta del
+  cierre no volvió (pestaña cerrada) y en menos de 2 h se pide la misma operación, el reintento la
+  saca sin aplicarla. Arreglo: una llave de idempotencia por cierre guardada en la fila, o un id por
+  operación al proponerla y cerrar por id.
+- **Dos pestañas del mismo proyecto** pueden reemplazar el mismo `api-X` con contenidos distintos, y
+  la unión del hilo por id se queda con uno: se pierde la tarjeta «aplicada» de una y el pendiente
+  queda doble. Arreglo: que el id del mensaje dependa de lo que muestra (un hash de sus operaciones),
+  o el mismo id por operación.
+
+**Lo que quedó SIN hacer:** colgar `extra.bloque` del mensaje de MaKo en el turno y dibujarlo al
+llegar (`itemsDeRespuesta` hoy sólo dibuja bloques al confirmar una tarjeta): es la 1.8 de Ops
+Center 3. Mirarlo de punta a punta en el navegador con las migraciones 0298 a 0302 aplicadas.
