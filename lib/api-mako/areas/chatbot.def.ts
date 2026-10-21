@@ -319,6 +319,33 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: true, escribe: 'cambia pasos[orden].sin_vista_previa en nutricion_secuencias',
     canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
+  // CONFIGURACIONES DE UNA AUTOMATIZACIÓN (20/10/2026, Martín, 16/10 punto 5: «"configuraciones" ya no viva para todo
+  // Automations, sino para cada chat»): su horario y sus horas a la misma persona (lib/config-automatizacion.ts). Lo
+  // mismo que la tuerca del título. Sin http, como las demás nuevas.
+  {
+    id: 'configuracion_automatizacion', area: 'chatbot', tipo: 'lectura',
+    titulo: 'Configuración de una automatización',
+    descripcion: 'El horario de oficina y las horas entre dos mensajes a la misma persona de UNA automatización: los suyos si tiene, si no los del negocio (dice cuáles valen y de dónde salen). Úsala cuando pregunten a qué hora manda una automatización o cada cuánto le escribe a la misma persona. Pide antes el secuenciaId con listar_secuencias_nutricion.',
+    parametros: [pSecuenciaId],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB },
+  },
+  {
+    id: 'configurar_automatizacion', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Configurar una automatización',
+    descripcion: 'PROPONE el horario de oficina o las horas entre dos mensajes a la misma persona de UNA automatización (lo mismo que su tuerca en Automations). Sin nada propio, usa los del negocio. Pide antes el secuenciaId con listar_secuencias_nutricion.',
+    parametros: [
+      pSecuenciaId,
+      { nombre: 'horario', tipo: 'string', enum: ['propio', 'negocio', 'sin_horario'], descripcion: 'opcional: «propio» (con desde, hasta y dias), «negocio» para volver al del negocio, o «sin_horario» para que mande a cualquier hora.' },
+      { nombre: 'desde', tipo: 'number', minimo: 0, maximo: 23.5, descripcion: 'con horario propio: la hora en que abre (9.5 = 9:30).' },
+      { nombre: 'hasta', tipo: 'number', minimo: 0.5, maximo: 24, descripcion: 'con horario propio: la hora en que cierra (21 = hasta las 20:59).' },
+      { nombre: 'dias', tipo: 'string', max: 40, descripcion: 'con horario propio: los días separados por coma, 0 = domingo ("1,2,3,4,5"). Sin esto, todos.' },
+      { nombre: 'horasWhatsapp', tipo: 'number', entero: true, minimo: 3, maximo: 72, descripcion: 'opcional: horas entre dos WhatsApp a la misma persona en esta automatización.' },
+      { nombre: 'horasEmail', tipo: 'number', entero: true, minimo: 1, maximo: 168, descripcion: 'opcional: horas entre dos emails a la misma persona en esta automatización.' },
+      { nombre: 'personaNegocio', tipo: 'boolean', descripcion: 'opcional: true para volver a las horas del negocio.' },
+    ],
+    reversible: true, escribe: 'guarda automatizacion.config:<id> en app_settings (el horario y las horas a la misma persona de esa automatización)',
+    canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
   {
     id: 'desarchivar_secuencia', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Desarchivar una secuencia',

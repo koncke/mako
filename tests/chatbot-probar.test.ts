@@ -108,11 +108,11 @@ test('«Probar» NO reemplaza al lienzo: el editor queda montado y el panel se a
   // Segunda tanda (decisión 11): dónde va «Probar» lo decide UNA función pura (`muelles`,
   // lib/lienzo-grafo.ts, con test en tests/lienzo-muelles.test.ts). La lista sólo mide su caja,
   // reparte los insets y monta el panel en SU rectángulo; el panel lo llena (100 %).
-  // Decimocuarta (punto 3): el chat de MaKo usa el MISMO muelle (lo reserva igual que «Probar»).
-  assert.match(lista, /const makoVisible = makoAbierto && !!sel && !creandoSel && caja\.w > 0;/);
+  // (Decimocuarta, punto 3: el chat de MaKo usaba el MISMO muelle. Desde el 20/10/2026 el chat es la sidebar y el muelle
+  // es sólo de «Probar».)
   // (15/10/2026: con la lista de contactos, «Probar» pide más ancho, `probarConContactos`; lo sigue decidiendo `muelles`.)
-  assert.match(lista, /const m = calcularMuelles\(caja, \{ listaAbierta: true, probarAbierto: probarVisible \|\| makoVisible, editorAbierto: true, probarConContactos: probarVisible && probarContactos \}\);/);
-  assert.match(lista, /makoAlAbrir=\{makoPara === sel\.id\}(?: cronAlAbrir=\{cronPara === sel\.id\})? onChatMako=\{setMakoAbierto\}/);
+  assert.match(lista, /const m = calcularMuelles\(caja, \{ listaAbierta: true, probarAbierto: probarVisible, editorAbierto: true, probarConContactos: probarVisible && probarContactos \}\);/);
+  assert.match(lista, /cronAlAbrir=\{cronPara === sel\.id\}\n\s+ranuraChat=\{conChat \? ranuraChat : null\}/);
   assert.match(lista, /insetDer=\{m\.insets\.der \|\| undefined\}\n\s+muelles=\{m\}/);
   assert.match(lista, /\{probarVisible && sel && m\.probar && \(\n\s+<div data-muelle="probar" style=\{\{ position: 'absolute', left: m\.probar\.left, top: m\.probar\.top, width: m\.probar\.width, height: m\.probar\.height, zIndex: 3, display: 'flex' \}\}>\n\s+<PanelProbar\n/);
   assert.match(lista, /style=\{\{ width: '100%', height: '100%' \}\}/);
@@ -246,7 +246,7 @@ test('lienzo-5: tocar la automatización ya elegida no suelta lo que se está pr
   const elegirFn = lista.slice(lista.indexOf('const elegir = (id: number) => {'), lista.indexOf('const recibirEdicion'));
   // Segunda tanda (decisión 15): con cambios sin publicar, PRIMERO se pregunta; el cambio de
   // verdad (`cambiarA`) es el de siempre.
-  assert.match(elegirFn, /=> \{\n\s+if \(id === selId\) return;\n\s+if \(sinPublicar\) \{ setPendiente\(\{ ir: id \}\); return; \}\n\s+cambiarA\(id\);/);
+  assert.match(elegirFn, /=> \{\n\s+if \(id === selId\) \{ setEnLaLista\(false\); return; \}\n\s+if \(sinPublicar\) \{ setPendiente\(\{ ir: id \}\); return; \}\n\s+cambiarA\(id\);/);
   assert.match(lista, /const cambiarA = \(id: number\) => \{\n\s+setSelId\(id\); setProbando\(null\); setEdicion\(null\);/);
 });
 

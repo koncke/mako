@@ -61,12 +61,14 @@
 //   · «Enviado · revisa tu WhatsApp» lo pide PanelProbar (`onEnviado`) y el <Toast> vive en la raíz, fuera de la capa
 //     de Probar: ver `avisoEnviado`.
 
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type ComponentType } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { Confirm } from '@/app/_ui/Confirm';
 import { Toast, useToast } from '@/app/_ui/Toast';
 import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { SecuenciaPerfil, type EdicionLocal } from './SecuenciaPerfil';
+// Sólo el TIPO del modal: el modal lo pasa la tab (`Configuraciones`).
+import type { PropsConfiguraciones } from '@/lib/config-automatizacion';
 import { PanelProbar, type CanalProbar } from './PanelProbar';
 import { FiltroLista, LADO_FILTRO } from './FiltroLista';
 import { disparadoresDeSecuencia, type SecuenciaConDisparadores } from './EditorDisparadores';
@@ -157,7 +159,7 @@ export function listaConCreando(lista: readonly SecuenciaDto[], creando: Creando
  * `data:`, con la papelera en un rojo copiado a mano.
  */
 export const ICONOS_FILA = {
-  activar: 'activar', pausar: 'pausar', renombrar: 'renombrar', duplicar: 'duplicar', copiar: 'copiar', publicar: 'subir', descartar: 'restaurar', eliminar: 'borrar',
+  activar: 'activar', pausar: 'pausar', renombrar: 'renombrar', configuraciones: 'configurar', duplicar: 'duplicar', copiar: 'copiar', publicar: 'subir', descartar: 'restaurar', eliminar: 'borrar',
 } as const satisfies Record<string, NombreIconoMenu>;
 
 /**
@@ -173,10 +175,13 @@ export const ICONOS_FILA = {
  * «RENOMBRAR» (undécima tanda, punto 5: «Quiero que en los 3 puntos exista la opción de renombrar»): segunda, en
  * todas las filas. No pide nada al elegirla: la fila pasa a ser un campo (`accionFila` → `renombrando`).
  */
-export function opcionesDeFila(activa: boolean, conCambios = false): Array<{ value: 'activa' | 'renombrar' | 'duplicar' | 'copiar' | 'publicar_creacion' | 'descartar' | 'eliminar'; label: string; icono: NombreIconoMenu }> {
+export function opcionesDeFila(activa: boolean, conCambios = false): Array<{ value: 'activa' | 'renombrar' | 'configuraciones' | 'duplicar' | 'copiar' | 'publicar_creacion' | 'descartar' | 'eliminar'; label: string; icono: NombreIconoMenu }> {
   return [
     { value: 'activa', label: activa ? 'Pausar' : 'Activar', icono: activa ? ICONOS_FILA.pausar : ICONOS_FILA.activar },
     { value: 'renombrar', label: 'Renombrar', icono: ICONOS_FILA.renombrar },
+    // «CONFIGURACIONES» DE ESTA (20/10/2026, Martín, 16/10 punto 5: «cada usuario puede configurar eso desde los 3
+    // puntos, como también el horario de oficina para cada automatización»): el mismo modal que la tuerca del título.
+    { value: 'configuraciones', label: 'Configuraciones', icono: ICONOS_FILA.configuraciones },
     { value: 'duplicar', label: 'Duplicar', icono: ICONOS_FILA.duplicar },
     // «COPIAR FLUJO» (10/10/2026: «que esté en los 3 puntos de cada flujo en la sidebar... por si un usuario
     // de MaKo le quiere compartir un flujo que creó a otro»). Va al portapapeles (lib/flujo-copia.ts).
@@ -285,7 +290,14 @@ export type AbrirSecuencia = { id: number; mako?: true; pedido?: string; cron?: 
 // (Acá vivía `AbrirAviso`, el pedido de abrir un Mensaje de MaKo desde el link de Notificaciones,
 // `/automations?aviso=<id>`. Se fue el 11/10/2026 con esos mensajes: un mensaje de MaKo se abre con `?sec=`.)
 
-export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, errorNueva, onReload, productos, disparadores, menu, tz, abrir, handoffs, onElegida, onMakoTrabajando, onCrearOtra }: {
+export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, errorNueva, onReload, productos, disparadores, menu, Configuraciones, configPropia, tz, abrir, handoffs, onElegida, onMakoTrabajando, onCrearOtra }: {
+  /**
+   * EL MODAL DE CONFIGURACIONES DE UNA AUTOMATIZACIÓN (20/10/2026): lo abren la tuerca del título y «Configuraciones» del
+   * «⋯». Llega como COMPONENTE por lo mismo que `menu`: importado acá, sus acciones arrastrarían `server-only` a los tests.
+   */
+  Configuraciones?: ComponentType<PropsConfiguraciones>;
+  /** ¿Tiene configuración propia? (el aviso de Prospección del lienzo; lo pasa la tab). */
+  configPropia?: (secuenciaId: number) => Promise<boolean>;
   // (Acá iban `arranque` y `onArranqueUsado`: la recién creada con un tipo de CRON elegido en «¿Qué la dispara?» del
   // modal abría su CRON en ese tipo. Se fueron con esos botones en la décima tanda: «eso ya lo hacemos dentro en el CRON».)
   /**
@@ -326,9 +338,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   // una» le dejaba a la caja de Crear con IA). Salieron el 10/10/2026 con el pie: era de una versión
   // anterior (ver el comentario del montaje en ChatAgentApp).
   /**
-   * EL MENÚ DE LA TAB, ANTES DEL BUSCADOR (undécima tanda, punto 9: «que los botones de "Configuraciones" y
-   * "Tutorial" estén en otro botón desplegable al inicio de la barra de busqueda»): Configuraciones del negocio
-   * (el horario de oficina y los límites) y el recorrido. Son de la tab entera, no de una automatización. Lo arma
+   * EL MENÚ DE LA TAB, ANTES DEL BUSCADOR (undécima tanda, punto 9). Desde el 20/10/2026 es sólo el «?» del recorrido
+   * («que solo quede el "?" del tutorial»): Configuraciones pasó a cada automatización (`Configuraciones`). Lo arma
    * la tab (con los editores y las acciones) y llega como NODO: importado acá, las acciones arrastrarían
    * `server-only` a los tests que dibujan esta lista (los hace caer AL IMPORTAR). Hasta la undécima se llamaba
    * `horario` e iba en el renglón de «Chatbot».
@@ -381,12 +392,19 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   /** El panel de «Probar» abierto, y de qué canal. El lienzo NO se desmonta: se prueba lo que se edita. */
   const [probando, setProbando] = useState<CanalProbar | null>(null);
   /**
-   * EL CHAT DE MaKo ABIERTO en el lienzo (decimocuarta tanda, punto 3: «que se abran al costado»). Lo avisa SecuenciaPerfil
-   * y ocupa el muelle de «Probar»: `muelles` lo cuenta como si «Probar» estuviera abierto.
+   * EL CHAT DE MaKo ES LA SIDEBAR (Martín, 16/10/2026 punto 6 y 20/10/2026 punto 5, textos en docs/relevo/chatbot.md: «al
+   * abrir una automatización, toda la sidebar se transforme en el chat con MaKo y que esté permanentemente abierta. Y con
+   * la flecha para atrás para cambiar a otra automatización»). Con una abierta, la lista flotante dibuja el chat de ESA:
+   * SecuenciaPerfil lo monta por portal en `ranuraChat`. «←» vuelve a la lista (`enLaLista`) y elegir una fila vuelve al
+   * chat. Hasta acá el chat se abría con el logo de MaKo y ocupaba el muelle de «Probar» (decimocuarta tanda): ese muelle
+   * es ahora sólo de «Probar».
+   * ⚠️ LA RANURA NO SE DESMONTA al mostrar la lista: se esconde. Un pedido en vuelo dura hasta cinco minutos.
+   * ⚠️ Y AL ENTRAR, LA LISTA (revisión del 20/10/2026): la primera automatización queda elegida sola (`selId`), y con
+   * esto en `false` la sidebar arrancaba siendo SU chat: la lista, el buscador, «＋ Nueva» y el «?» quedaban escondidos, y
+   * el recorrido salteaba au-lista, au-nueva y au-ayuda. El chat aparece al ELEGIR una (un clic, `?sec=`, la recién creada).
    */
-  const [makoAbierto, setMakoAbierto] = useState(false);
-  /** La que se pidió abrir con el chat de MaKo abierto (`abrir.mako`, duodécima tanda §3.6): su lienzo lo abre. */
-  const [makoPara, setMakoPara] = useState<number | null>(null);
+  const [enLaLista, setEnLaLista] = useState(true);
+  const [ranuraChat, setRanuraChat] = useState<HTMLDivElement | null>(null);
   /** El pedido con que nació (`abrir.pedido`, decimotercera tanda, punto 2): el chat de ESA fila lo manda solo. */
   const [pedidoPara, setPedidoPara] = useState<{ id: number; pedido: string } | null>(null);
   /** La que se pidió abrir con su CRON abierto (`abrir.cron`, #882): su lienzo lo abre. */
@@ -430,8 +448,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    */
   const cambiarA = (id: number) => {
     setSelId(id); setProbando(null); setEdicion(null);
-    // El chat abierto al entrar es de la que se pidió abrir así: elegir otra lo olvida (el pedido lo vuelve a poner).
-    setMakoPara(null); setPedidoPara(null);
+    // El pedido con que nació es de la que se pidió abrir así: elegir otra lo olvida. Y la sidebar vuelve al chat.
+    setPedidoPara(null); setEnLaLista(false);
     // Desde acá la URL dice la elegida (`onElegida`, décima tanda): una elección de verdad, no la primera de la lista.
     eligio.current = true;
     // Abrir la fila que se está creando recuerda de dónde se vino (si el server falla, se vuelve).
@@ -448,7 +466,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   /** El descarte del borrador del lienzo abierto (lo deja SecuenciaPerfil): «Descartar cambios» lo BORRA, no lo guarda. */
   const descartarBorrador = useRef<(() => void) | null>(null);
   const elegir = (id: number) => {
-    if (id === selId) return;
+    // Tocar la que ya está abierta vuelve a su chat (desde la lista de «←»), y nada más.
+    if (id === selId) { setEnLaLista(false); return; }
     if (sinPublicar) { setPendiente({ ir: id }); return; }
     cambiarA(id);
   };
@@ -484,6 +503,9 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    * lugar de una columna del CRM (app/crm/CrmBoard.tsx).
    */
   const [renombrando, setRenombrando] = useState<number | null>(null);
+  /** «Configuraciones» del «⋯» de una fila (20/10/2026): de cuál está abierto el modal. */
+  const [configDe, setConfigDe] = useState<{ id: number; nombre: string } | null>(null);
+  const cerrarConfigDe = useCallback(() => setConfigDe(null), []);
   const [nombresOptimistas, setNombresOptimistas] = useState<ReadonlyMap<number, string>>(() => new Map());
   // El optimista se va cuando la lista ya trae ese nombre (o la fila ya no está). Se calcula AL DIBUJAR, sin efecto:
   // un efecto pintaría un cuadro con el nombre de antes.
@@ -596,6 +618,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     if (accion === 'eliminar') { setErrFila(null); setAEliminar(j); return; }
     // «Renombrar» no pide nada: la fila pasa a ser un campo (`guardarNombre` escribe al salir).
     if (accion === 'renombrar') { setErrFila(null); setRenombrando(j.id); return; }
+    if (accion === 'configuraciones') { setErrFila(null); setConfigDe({ id: j.id, nombre: j.nombre }); return; }
     if (accion === 'copiar') { setErrFila(null); await copiarFlujo(j); return; }
     if (accion === 'publicar_creacion') { setErrFila(null); setAPublicar(j); return; }
     if (accion === 'descartar') {
@@ -691,9 +714,9 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     setAbrirVisto(abrir);
     if (!creaDesdeElChat.current) elegir(abrir.id);
     else if (abrir.id !== selId) { setSinPublicar(false); cambiarA(abrir.id); }
-    // Con `mako: true`, ESA abre con el chat de MaKo abierto (va DESPUÉS de elegir: `cambiarA` lo limpia), y con
-    // `pedido`, el chat lo manda solo.
-    setMakoPara(abrir.mako ? abrir.id : null);
+    // Con `mako: true`, ESA abre con el chat de MaKo a la vista (el chat ya está siempre: se sale de la lista), y con
+    // `pedido`, el chat lo manda solo (va DESPUÉS de elegir: `cambiarA` lo limpia).
+    if (abrir.mako) setEnLaLista(false);
     setPedidoPara(abrir.pedido ? { id: abrir.id, pedido: abrir.pedido } : null);
     setCronPara(abrir.cron ? abrir.id : null);
   }
@@ -703,10 +726,12 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   const probarVisible = probando != null && !!sel && !creandoSel && caja.w > 0;
   // Con la lista de contactos (más de un escenario), «Probar» pide más ancho (`probarConContactos`, lib/lienzo-grafo.ts).
   const [probarContactos, setProbarContactos] = useState(false);
-  // El chat de MaKo usa el MISMO muelle que «Probar» (decimocuarta tanda, punto 3): con cualquiera de los dos abierto, la
-  // derecha queda reservada.
-  const makoVisible = makoAbierto && !!sel && !creandoSel && caja.w > 0;
-  const m = calcularMuelles(caja, { listaAbierta: true, probarAbierto: probarVisible || makoVisible, editorAbierto: true, probarConContactos: probarVisible && probarContactos });
+  // El muelle de la derecha es sólo de «Probar» (20/10/2026): el chat de MaKo vive en la sidebar.
+  const m = calcularMuelles(caja, { listaAbierta: true, probarAbierto: probarVisible, editorAbierto: true, probarConContactos: probarVisible && probarContactos });
+  // ¿La sidebar dibuja el chat? Con una automatización abierta (con su fila de verdad) y para un admin: el chat de MaKo
+  // es de los admins. Si no, o con «←», la lista.
+  const conChat = rolAdmin && !!sel && !creandoSel;
+  const verLista = !conChat || enLaLista;
 
   /**
    * UNA FILA DE LA LISTA, la MISMA para todas (11/10/2026: «debe ser IDENTICO»): el `ItemLista`, el «⋯» de siempre
@@ -811,7 +836,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             probarAbierto={probarVisible} onCerrarProbar={() => setProbando(null)}
             onCambioLocal={recibirEdicion}
             onAccionTodo={rolAdmin ? (a) => void accionFila(sel, a) : undefined}
-            makoAlAbrir={makoPara === sel.id} cronAlAbrir={cronPara === sel.id} onChatMako={setMakoAbierto}
+            cronAlAbrir={cronPara === sel.id}
+            ranuraChat={conChat ? ranuraChat : null} onVolverALista={() => setEnLaLista(true)} Configuraciones={Configuraciones} configPropia={configPropia}
             pedidoAlAbrir={pedidoPara?.id === sel.id ? pedidoPara.pedido : null}
             onCambio={onReload} />
         )}
@@ -824,15 +850,18 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
           clickeando los íconos del menú de la izquierda creyendo que eran secuencias.
           Y lleva su `overflowY` con la barra teñida de la casa: el scroll es del
           CONTENIDO —sus secuencias—, no de la navegación de la app, así que se ve. */}
-      <aside aria-label="Tus automatizaciones" style={{
+      <aside aria-label={verLista ? 'Tus automatizaciones' : 'Chat con MaKo'} data-sidebar={verLista ? 'lista' : 'chat'} style={{
         position: 'absolute', left: LISTA_HUECO, top: LISTA_HUECO, bottom: LISTA_HUECO, width: LISTA_ANCHO, zIndex: 3,
         display: 'flex', flexDirection: 'column', minHeight: 0,
         background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18,
         boxShadow: '0 8px 28px rgba(18,21,27,.12)', overflow: 'hidden',
       }}>
+        {/* EL CHAT DE MaKo DE LA ABIERTA (20/10/2026): la ranura donde SecuenciaPerfil lo monta por portal. Escondida (no
+            desmontada) mientras se ve la lista: un pedido en vuelo sigue. */}
+        <div ref={setRanuraChat} data-ranura-chat="" style={{ flex: 1, minHeight: 0, display: verLista ? 'none' : 'flex', flexDirection: 'column' }} />
         {/* El buscador va SIEMPRE, como en el molde. Antes aparecía con más de seis
             secuencias, y un control que aparece solo es un control que nadie busca. */}
-        <div style={{ flex: 'none', padding: '14px 14px 12px', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ flex: 'none', padding: '14px 14px 12px', borderBottom: '1px solid var(--border)', display: verLista ? undefined : 'none' }}>
           {/* EL FILTRO VA AL LADO DEL BUSCADOR, en la misma fila (cuarta tanda, punto 13), y desde la
               quinta (punto 4) es CHICO —sólo el embudo, cuadrado y del alto del buscador— para que
               el buscador se lleve el lugar: «debería ser más chico, con el ícono de filtro como ya
@@ -847,7 +876,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             <FiltroLista filas={todasLasFilas} valores={filtros} onCambio={setFiltros} />
           </div>
         </div>
-        <div className="mk-scroll-oscuro" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 8 }}>
+        <div className="mk-scroll-oscuro" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 8, display: verLista ? undefined : 'none' }}>
           {/* (Acá iban el rótulo «Chatbot», con el horario a su derecha, y más abajo el rótulo «MaKo en WhatsApp»
               con su «＋ Nuevo mensaje». Se fueron en la undécima tanda, punto 9: una sola lista, sin dividir.) */}
           {rolAdmin && (
@@ -890,6 +919,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
       {/* EL AVISO DE «PROBAR» (duodécima tanda, §2.8): en la raíz y FUERA de la capa de arriba (z 3). Así queda encima
           de la barra de MaKo (z 4) y de Publicar (57), y sigue aunque Probar se cierre: el mensaje ya salió. */}
       <Toast state={avisoEnviado} onClose={cerrarAviso} />
+      {configDe && Configuraciones && <Configuraciones secuenciaId={configDe.id} nombre={configDe.nombre} onCerrar={cerrarConfigDe} />}
 
       {/* Lo no publicado se pregunta ANTES de perderlo (decisión 15). La consecuencia, pegada al
           botón: el texto que se dibuja es corto (AGENTS.md). */}
