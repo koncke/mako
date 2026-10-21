@@ -19,9 +19,11 @@ en cada relevo. Los anteriores están en el historial: `git log -p -- docs/relev
 >   mezclada. La revisión del Cerebro del 21/10 (sobre 7eb2bbaae) dejó tres medios y cinco bajos, arreglados en la punta
 >   que se le pasó: la serie larga dibuja lo más nuevo, el gráfico del chat tiene red de error, «ya lo ve» se le dice al
 >   modelo sólo si el bloque se dibujó, y las bajas. La segunda revisión (sobre 17c0317b2) encontró que el texto que lee
->   el modelo cortaba las 25 filas más viejas: ahora corta con la misma función que el gráfico. Toca archivos de Ops
+>   el modelo cortaba las 25 filas más viejas: ahora corta con la misma función que el gráfico. La tercera (sobre
+>   16b2c5cad): en el vencimiento el corte toma lo más cercano a hoy (perdía lo que vence hoy), y una lectura le deja lugar
+>   a la pregunta en el mensaje (`entraOtroDibujo`). Toca archivos de Ops
 >   Center 3 (lib/chat-bloques.ts, app/_chat/BloqueHilo.tsx y, por la revisión, lib/api-mako/ejecutar.ts,
->   lib/mako-turno-app.ts y el tipo de `aDibujar`), avisado. ⚠️ **Entra en el mismo lote que `ola1-guardia`** (02aee818b,
+>   lib/mako-turno-app.ts, `entraOtroDibujo` en lib/mako-turno-app-reglas.ts y el tipo de `aDibujar`), avisado. ⚠️ **Entra en el mismo lote que `ola1-guardia`** (02aee818b,
 >   de Ops Center 3): con 4 gráficos en un turno, sin ésa se pierde la pregunta G1. **Falta:** que la suba el Cerebro, y
 >   mirarla en el Ops Center (ws3: «leads por día de los últimos 90 días», «¿cuánto vendí este mes?», crear una hoja). El
 >   relevo de la rama `dashboard-bloques` (6c91eb458) queda viejo: éste lo reemplaza.

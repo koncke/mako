@@ -24,17 +24,22 @@
 // La segunda revisión (sobre 17c0317b2, base 15/0, romper-revision2.mjs): el texto del modelo con las 25 filas más viejas
 // → 14 / 1; el desglose del texto sin correr → 14 / 1; «filas más» en el tiempo → 14 / 1; la tabla cortada con su Total
 // → 14 / 1.
+// La tercera (sobre 16b2c5cad, base 52/0 con api-mako-dashboard y dashboard-bloques-chat, romper-revision3.mjs): el corte
+// sin el «hacia adelante» → 51 / 1; el texto sin él → 51 / 1; el gráfico sin él → 51 / 1; todo lo que falta es «antes»
+// → 51 / 1; el bloque sin cortar → 51 / 1; el pie que dice «antes» → 51 / 1; la lectura que no deja lugar a la pregunta
+// → 51 / 1; `dibujar` sin la regla → 51 / 1.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { sanearBloque } from '../lib/chat-bloques';
-import { MAX_FILAS_GRAFICO, desdeDibujado, graficoParaElChat, sanearResultado } from '../lib/chat-bloques-dashboard';
+import { MAX_BLOQUES_MENSAJE, sanearBloque } from '../lib/chat-bloques';
+import { MAX_FILAS_GRAFICO, cortarTiempo, graficoParaElChat, sanearResultado } from '../lib/chat-bloques-dashboard';
+import { bloquesDelMensaje, entraOtroDibujo } from '../lib/mako-turno-app-reglas';
 import { sanearComponente, type Grafico } from '../lib/graficos-catalogo';
 import type { Resultado } from '../lib/graficos-agregar';
-import { resultadoMarkdown } from '../lib/api-mako/areas/dashboard.helpers';
+import { rangoDeTramo, resultadoMarkdown } from '../lib/api-mako/areas/dashboard.helpers';
 
 const RAIZ = join(import.meta.dirname, '..');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -93,16 +98,57 @@ test('una serie de tiempo que no entra dibuja los 60 puntos MÁS NUEVOS, y la no
   const desc = sanearResultado(noventaDias(true));
   assert.equal(desc?.filas[0].clave, '2026-10-20');
   assert.equal(desc?.filas.at(-1)?.clave, '2026-08-22');
-  // La nota: desde la fecha más vieja que se dibuja; lo que entra entero no se toca.
-  assert.equal(desdeDibujado(noventaDias()), '2026-08-22');
-  assert.equal(desdeDibujado(noventaDias(true)), '2026-08-22');
-  assert.equal(desdeDibujado(resultado(75)), null, 'por categoría, la nota es la del período');
+  // El runner corta ANTES de armar el bloque (`cortarTiempo`, con la misma función), y la nota dice el tramo cortado.
+  const cortado = cortarTiempo(noventaDias());
+  assert.deepEqual(cortado.filas.map((f) => f.clave), r.filas.map((f) => f.clave), 'el runner y el saneo cortan igual');
+  assert.equal(cortado.fuera, 30);
+  assert.deepEqual(sanearResultado(cortado)?.filas.map((f) => f.clave), r.filas.map((f) => f.clave), 'lo ya cortado, el saneo no lo vuelve a cortar');
+  assert.deepEqual(rangoDeTramo('dia', cortado.filas, '2026-07-23', '2026-10-20'), { desde: '2026-08-22', hasta: '2026-10-20' });
+  assert.equal(cortarTiempo(resultado(75)).filas.length, 75, 'por categoría corta el saneo, con su «N más»');
   const run = leer('lib/api-mako/areas/dashboard.run.ts');
-  assert.match(run, /const desdeDib = desdeDibujado\(r\);/);
-  assert.match(run, /rangoTexto\(desdeDib \?\? per\.desde, hasta\)/, 'la nota dice el tramo dibujado');
-  // Y abajo, una serie cuenta lo que quedó afuera como «antes»; una tabla ya dice «+N más» adentro (no dos veces).
+  assert.match(run, /const rDib = cortarTiempo\(r, MAX_FILAS_GRAFICO, fechaDef\?\.futuro \? hoy : null\);/);
+  assert.match(run, /rangoTexto\(tramo\?\.desde \?\? per\.desde, tramo\?\.hasta \?\? hasta\)/, 'la nota dice el tramo dibujado');
+  assert.match(run, /grafico: graficoParaElChat\(\{ \.\.\.principal, titulo \}, rDib\), resultado: rDib,/, 'se dibuja lo cortado');
+  // Y abajo, una serie cuenta lo que quedó afuera del tramo (puede ser de antes o de después); una tabla ya dice «+N más».
   const pieza = leer('app/_chat/bloques/GraficoHilo.tsx');
-  assert.match(pieza, /\{!tabla && b\.resultado\.fuera > 0 && <p className="ch-grafico__nota">\{b\.resultado\.clase === 'tiempo' \? `Y \$\{b\.resultado\.fuera\} puntos antes` : `Y \$\{b\.resultado\.fuera\} más`\}<\/p>\}/);
+  assert.match(pieza, /\{!tabla && b\.resultado\.fuera > 0 && <p className="ch-grafico__nota">\{b\.resultado\.clase === 'tiempo' \? `Y \$\{b\.resultado\.fuera\} puntos fuera de este tramo` : `Y \$\{b\.resultado\.fuera\} más`\}<\/p>\}/);
+});
+
+/** Días seguidos desde `desde`, con valores 0, 1, 2…: lo que arma `agregar` para un gráfico por día. */
+const dias = (desde: string, n: number): Resultado => {
+  const dia = (i: number) => new Date(Date.parse(`${desde}T00:00:00Z`) + i * 86_400_000).toISOString().slice(0, 10);
+  const filas = Array.from({ length: n }, (_, i) => ({ clave: dia(i), etiqueta: dia(i).slice(5), valores: [i] }));
+  return { columnas: [{ id: 'pendiente', nombre: 'Pendiente', formato: 'usd' }], filas, totales: [n], fuera: 0, clase: 'tiempo' };
+};
+
+test('con una fecha que mira hacia ADELANTE (el vencimiento), el corte toma lo más CERCANO a hoy: lo que vence hoy entra', () => {
+  // La tercera revisión: «¿qué me vence en los próximos 30 días, día por día?» leía del 26/10 al 19/11 (las 25 más
+  // «nuevas») y perdía lo que vence HOY y en los 4 días siguientes. Por WhatsApp es lo único que lee el modelo.
+  const HOY = '2026-10-21';
+  const g = sanearComponente({
+    clase: 'grafico', id: 'q0', x: 0, y: 0, w: 6, h: 4, tipo: 'tabla', fuente: 'pagos', metricas: ['pendiente'], dimension: 'dia', desglose: null,
+    fecha: 'vencimiento', controles: [], periodo: 'prox30', desde: '', hasta: '', titulo: 'Vencimientos',
+  }) as Grafico;
+  assert.equal(g.fecha, 'vencimiento');
+  const prox30 = dias(HOY, 30);
+  const md = resultadoMarkdown(g, prox30, { desde: HOY, hasta: '2026-11-19', topeFilas: 25, hoy: HOY });
+  const leidas = md.filter((l) => l.startsWith('|') && !l.startsWith('|-')).slice(1).map((l) => l.split('|')[1].trim());
+  assert.equal(leidas[0], '10-21', 'arranca HOY');
+  assert.equal(leidas.length, 25);
+  assert.ok(md.includes('(y 5 filas después)'), 'lo que no lee es lo de DESPUÉS, y lo dice');
+  // El gráfico corta con la MISMA función: los 60 más cercanos de 90 días por venir arrancan hoy.
+  const noventa = cortarTiempo(dias(HOY, 90), MAX_FILAS_GRAFICO, HOY);
+  assert.equal(noventa.filas[0].clave, HOY);
+  assert.equal(noventa.fuera, 30);
+  // «Este mes» por vencimiento (del 1 al 31): la ventana incluye hoy y llena el tope hacia atrás.
+  const mes = resultadoMarkdown(g, dias('2026-10-01', 31), { desde: '2026-10-01', hasta: '2026-10-31', topeFilas: 25, hoy: HOY });
+  const delMes = mes.filter((l) => l.startsWith('|') && !l.startsWith('|-')).slice(1).map((l) => l.split('|')[1].trim());
+  assert.ok(delMes.includes('10-21'), 'hoy está en lo que lee el modelo');
+  assert.equal(delMes.at(-1), '10-31');
+  assert.ok(mes.includes('(y 6 filas antes)'));
+  // Sin `futuro` (una fecha que mira hacia atrás) sigue lo más nuevo.
+  const altas = resultadoMarkdown(grafico({ dimension: 'dia' }), dias('2026-09-21', 31), { desde: '2026-09-21', hasta: HOY, topeFilas: 25, hoy: HOY });
+  assert.ok(altas.includes('(y 6 filas antes)'));
 });
 
 test('qué se dibuja: un número; con el tiempo, una serie; por categoría, barras o tabla; con desglose, columnas', () => {
@@ -167,7 +213,30 @@ test('«ya lo ve» llega al modelo SÓLO si el bloque se dibujó: no con el tope
   assert.equal(r.dibujados, 1, 'el descartado no llegó al canal');
   // El turno de la app dice `false` cuando el tope está lleno (el repetido ya está en pantalla: `true`).
   const turno = leer('lib/mako-turno-app.ts');
-  assert.match(turno, /const dibujar = \(b: Bloque\): boolean => \{\s*if \(bloquesDelTurno\.some\(\(x\) => JSON\.stringify\(x\.b\) === JSON\.stringify\(b\)\)\) return true;\s*if \(bloquesDelTurno\.length >= MAX_BLOQUES_MENSAJE\) return false;/);
+  assert.match(turno, /const dibujar = \(b: Bloque\): boolean => \{\s*if \(bloquesDelTurno\.some\(\(x\) => JSON\.stringify\(x\.b\) === JSON\.stringify\(b\)\)\) return true;\s*const accion = porId\(herramientaActual\)\?\.tipo !== 'lectura';\s*if \(!entraOtroDibujo\(bloquesDelTurno, accion, MAX_BLOQUES_MENSAJE\)\) return false;/);
+});
+
+test('con 4 gráficos y una pregunta, el cuarto NO se anuncia: todo lo que «ya lo ve» llega al mensaje', () => {
+  // La tercera revisión: `dibujar` aceptaba 4 lecturas (las 4 leían «ya lo ve») y `bloquesDelMensaje` recortaba la cuarta
+  // para hacerle lugar a la pregunta. Se decide al dibujar, con lo que va a quedar.
+  const enTurno = (accion: boolean, n: number) => {
+    const turno: { accion: boolean; i: number }[] = [];
+    const dijo: boolean[] = [];
+    for (let i = 0; i < n; i++) {
+      const entra = entraOtroDibujo(turno, accion, MAX_BLOQUES_MENSAJE);
+      dijo.push(entra);
+      if (entra) turno.push({ accion, i });
+    }
+    return { turno, dijo };
+  };
+  const lecturas = enTurno(false, 5);
+  assert.deepEqual(lecturas.dijo, [true, true, true, false, false], 'la cuarta lectura ya no lee «ya lo ve»');
+  const conPregunta = bloquesDelMensaje(lecturas.turno.map((x) => `g${x.i}`), 'pregunta', MAX_BLOQUES_MENSAJE);
+  assert.deepEqual(conPregunta, ['g0', 'g1', 'g2', 'pregunta'], 'toda lectura aceptada se ve, con la pregunta');
+  // Lo de una acción llega hasta el tope (con una pregunta se retira entero).
+  assert.deepEqual(enTurno(true, 5).dijo, [true, true, true, true, false]);
+  // Una lectura después de 3 acciones: entra (sin pregunta se ven las 4; con pregunta, las acciones se retiran).
+  assert.equal(entraOtroDibujo([{ accion: true }, { accion: true }, { accion: true }], false, MAX_BLOQUES_MENSAJE), true);
 });
 
 test('el hilo lo dibuja con la pieza del Dashboard, cargada aparte', () => {

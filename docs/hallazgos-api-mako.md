@@ -1831,12 +1831,34 @@ todavía fuera de main.
   (decía «Tu informe…, en el informe de Ana»). Una tabla de varias métricas cortada va sin la fila Total: la nota dice el
   tramo de 60 días y el Total sumaba los 90 (recalcularlo no sirve con una tasa).
 
+**La tercera revisión (sobre 16b2c5cad): «lo más nuevo» no es lo que importa en una fecha que mira hacia ADELANTE.**
+- **«¿Qué me vence en los próximos 30 días, día por día?» leía del 26/10 al 19/11 y perdía lo que vence HOY.** Con 30
+  filas y un tope de 25, el corte «las más nuevas» se quedaba con las más LEJANAS. En cobranza lo urgente es lo de hoy, y
+  por WhatsApp ese texto es lo único que lee el modelo. En main leía del 21/10 al 14/11, de casualidad bien. ⚠️ **El
+  diagnóstico de la primera revisión («quedate con las más nuevas») era el correcto para lo que mira hacia atrás y el
+  equivocado para el vencimiento:** la regla real es lo más CERCANO a hoy. `inicioDibujado` recibe `hoyAdelante` (hoy, si
+  la fecha es `futuro` en el catálogo) y arranca en el grupo de hoy, llenando el tope hacia atrás si no alcanza («este
+  mes» por vencimiento lee del 7 al 31 e incluye hoy). El texto dice «(y N filas antes)» y/o «(y M filas después)».
+- **El gráfico se corta en el RUNNER (`cortarTiempo`), no en el saneo:** el saneo no sabe si la fecha mira hacia adelante
+  ni qué día es. Lo cortado llega al saneo con 60 filas o menos, y el saneo ya no corta (al recargar, igual). La nota dice
+  el tramo con `rangoDeTramo`, del grupo de la primera fila al de la última, y el pie dice «Y N puntos fuera de este
+  tramo», porque puede ser de antes o de después.
+- **Con 4 gráficos y una pregunta, el cuarto se recortaba DESPUÉS de leer «ya lo ve».** `bloquesDelMensaje`, de
+  `ola1-guardia`, le hace lugar a la pregunta recortando los dibujos, pero el cuarto ya había avisado. Ahora lo decide
+  `dibujar` con `entraOtroDibujo` (lib/mako-turno-app-reglas.ts): una lectura deja un lugar libre para la pregunta, que
+  puede venir en cualquier turno con herramientas. Lo de una acción llega hasta el tope, porque con una pregunta se retira
+  entero. **Regla, la misma de «ya lo ve»:** el tope se decide donde se le dice algo al modelo, no al armar el mensaje.
+
 **Lo que quedó sin hacer (de la revisión):**
 - **Con 4 dibujos de lecturas y una pregunta (G1), `[...dibujos, pregunta].slice(0, 4)` dejaba afuera la pregunta**
   (lib/mako-turno-app.ts). En main era imposible, porque ninguna lectura dibujaba. Esta rama lo vuelve alcanzable, y
   `siSeDibuja` empuja al modelo a escribir texto, con lo que la pregunta no aparece en ningún lado. Lo arregla Ops Center 3
   en `ola1-guardia` (02aee818b, `bloquesDelMensaje` deja siempre la pregunta), y el Cerebro integra las dos ramas en el
   mismo lote. **Esta rama no entra sin ésa.**
+- **Analizar, programar el análisis y escribir la caja de Conclusiones en el informe de OTRA persona siguen dejando
+  `link`** al informe de quien mira (dashboard.run.ts, los `datos` de `analizar_hoja_dashboard`,
+  `programar_analisis_dashboard` y la caja). Ya estaba en main. El arreglo es la regla de `aplicar`: si `quienChatea(ctx)`
+  existe y su `sub` no es el del payload, no poner `link`.
 - **El pedazo que no cargó no se recupera sin recargar** (React.lazy guarda el rechazo). Un `import()` con reintento
   serviría si el runtime de Turbopack no guarda también el chunk fallido: no está medido.
 *21/10/2026, claude4 (chat Dashboard).*

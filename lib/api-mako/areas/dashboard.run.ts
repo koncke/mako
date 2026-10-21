@@ -65,13 +65,13 @@ import { APP_BASE_URL } from '@/lib/app-url';
 import { crearShare, RECURSO_INFORME } from '@/lib/shares';
 import { ANCHOS, LUGARES, lugarConReferencia, moverComponente, type Ancho, type Lugar, type Movida } from '@/lib/graficos-mover';
 import { csvDeHoja, nombreArchivo, pedidosDeHoja, periodoDeHoja, rangoTexto, seccionCsv } from '@/app/dashboard/exportar';
-import { MAX_FILAS_GRAFICO, desdeDibujado, graficoParaElChat, type BloqueGrafico } from '@/lib/chat-bloques-dashboard';
+import { MAX_FILAS_GRAFICO, cortarTiempo, graficoParaElChat, type BloqueGrafico } from '@/lib/chat-bloques-dashboard';
 import type { Resultado } from '@/lib/graficos-agregar';
 import {
   aplicarCambio, armarConector, armarControlHoja, armarElemento, armarGrafico, analisisMarkdown, buscarCajas, buscarComponente,
   buscarConector, buscarHoja, catalogoJson, catalogoMarkdown, conFiltrosFijos, conclusionesMarkdown, controlParaHttp, controlesDeFiltros,
   copiaDeHoja, detalleMarkdown, elegirPersona, etiquetaPersona, filtroEnPalabras, filtrosDeConsulta, filtrosFijosDe, hojaMarkdown,
-  informesMarkdown, juntarTotales, nombreDeComponente, periodoDeGrafico, periodoEnTexto, periodoPedido, recortar, resolverCampo,
+  informesMarkdown, juntarTotales, nombreDeComponente, periodoDeGrafico, periodoEnTexto, periodoPedido, rangoDeTramo, recortar, resolverCampo,
   resultadoMarkdown, resultadoPara, salidaCajaConNombres, salidaConNombres, textoDeAnalisis, textoDeCaja, urlParaCanal,
   type Cambio, type CajaLeida, type EntradaFiltro, type EntradaGrafico, type Eleccion, type InformeListado, type LeidoDeComponente,
   type MiembroCuenta, type PersonaInforme, type SeccionCatalogo,
@@ -372,7 +372,7 @@ export const RUNNERS: Runners = {
         };
       }
       const md = [
-        ...resultadoMarkdown(principal, r, { desde: per.desde, hasta, topeFilas: http ? undefined : TOPE_FILAS_CHAT, titulo: tituloAlVuelo(al.graficos) }),
+        ...resultadoMarkdown(principal, r, { desde: per.desde, hasta, topeFilas: http ? undefined : TOPE_FILAS_CHAT, titulo: tituloAlVuelo(al.graficos), hoy }),
         ...(filtros.length ? [`Filtros: ${filtros.join(' · ')}`] : []),
         ...(hastaDatos !== hasta ? [`La pauta de Meta llega con un día de atraso: los datos van hasta ${hastaDatos}.`] : []),
       ].join('\n');
@@ -384,17 +384,20 @@ export const RUNNERS: Runners = {
       // dimensión: varias métricas sueltas son varios números, y un bloque es uno.
       if (!ctx.aDibujar || al.graficos.length !== 1) return texto;
       const titulo = tituloAlVuelo(al.graficos);
-      // Una serie de más de 60 puntos dibuja los más NUEVOS, y la nota dice ese tramo, no el período entero.
-      const desdeDib = desdeDibujado(r);
+      // Una serie de más de 60 puntos dibuja las 60 más CERCANAS a hoy (con el mismo corte que el texto de arriba, y hacia
+      // adelante si la fecha mira hacia adelante, como el vencimiento), y la nota dice ese tramo, no el período entero.
+      const fechaDef = fuente.fechas.find((x) => x.id === principal.fecha);
+      const rDib = cortarTiempo(r, MAX_FILAS_GRAFICO, fechaDef?.futuro ? hoy : null);
+      const tramo = rDib.filas.length < r.filas.length ? rangoDeTramo(principal.dimension, rDib.filas, per.desde, hasta) : null;
       const bloque: BloqueGrafico = {
         t: 'grafico', titulo,
         // Una fecha «foto de hoy» (sin período) dice «Hoy», como la tarjeta (`resultadoMarkdown`, dashboard.helpers.ts).
-        nota: [fuente.fechas.find((x) => x.id === principal.fecha)?.sinRango ? 'Hoy' : rangoTexto(desdeDib ?? per.desde, hasta), ...filtros].join(' · '),
-        grafico: graficoParaElChat({ ...principal, titulo }, r), resultado: r,
+        nota: [fechaDef?.sinRango ? 'Hoy' : rangoTexto(tramo?.desde ?? per.desde, tramo?.hasta ?? hasta), ...filtros].join(' · '),
+        grafico: graficoParaElChat({ ...principal, titulo }, rDib), resultado: rDib,
       };
       // «Ya lo ve: no repitas la tabla» va SÓLO si el bloque se dibujó (`siSeDibuja`, lo agrega ejecutarOperacion): con el
       // tope de bloques del turno lleno, el modelo callaba una tabla que nadie veía (revisión del 21/10).
-      const ve = desdeDib ? `los últimos ${MAX_FILAS_GRAFICO} puntos (${rangoTexto(desdeDib, hasta)})` : 'este resultado';
+      const ve = tramo ? `${rDib.filas.length} de los ${r.filas.length} puntos (${rangoTexto(tramo.desde, tramo.hasta)})` : 'este resultado';
       return { content: texto, bloque, siSeDibuja: `(La persona YA VE ${ve} dibujado en el chat: no repitas esa tabla, comenta lo que importa.)` };
     },
   },

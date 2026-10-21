@@ -59,10 +59,10 @@ import { Alias, conNombres, dimensionPublica, etiquetaSegura, haceCuanto, type S
 import { enOrden, rangoTexto } from '@/app/dashboard/exportar';
 import { esGrabacionDeLlamada, resultadoSinPersonas } from '@/app/compartido/[token]/informe-reglas';
 import { idDeParte, idLibre } from '@/lib/graficos-migrar-v5';
-import { ACCIONES_ELEMENTO, accionElementoDisponible, type RespuestaDetalle } from '@/lib/graficos-acciones';
+import { ACCIONES_ELEMENTO, accionElementoDisponible, rangoDeClave, type RespuestaDetalle } from '@/lib/graficos-acciones';
 import { puedeConectar } from '@/lib/graficos-conectores';
 import { textoCron } from '@/lib/cron-aviso';
-import { esFechaValida } from '@/lib/date-utils';
+import { esFechaValida, hoyEnTijuana } from '@/lib/date-utils';
 import { esPiezaGeneral, piezaGeneral } from '@/lib/general-piezas';
 import { insertableDe, videoDe } from '@/lib/embeds';
 import type { Formato } from '@/lib/graficos-constructores';
@@ -952,10 +952,35 @@ export function recortar(s: string, tope: number, como = 'pide una parte más ch
   return `${s.slice(0, corte > tope / 2 ? corte : tope)}\n\n(Recortado: la respuesta pasaba de ${tope} caracteres; ${como}.)`;
 }
 
+/**
+ * Lo que queda afuera de un corte, dicho: por categoría «N filas más»; en el tiempo, «N filas antes» y/o «M filas
+ * después», contadas por fecha (con la tabla al revés, lo de antes queda abajo).
+ */
+function filasQueFaltan(r: Resultado, ini: number, cuantas: number): string {
+  const resto = r.filas.length - cuantas;
+  if (r.clase !== 'tiempo') return `${resto} filas más`;
+  const alReves = r.filas.length > 1 && r.filas[0].clave > r.filas[r.filas.length - 1].clave;
+  const antes = alReves ? r.filas.length - ini - cuantas : ini;
+  return [antes ? `${antes} filas antes` : '', resto - antes ? `${resto - antes} filas después` : ''].filter(Boolean).join(' y ');
+}
+
+/**
+ * Las fechas que cubre un tramo de filas de tiempo (del grupo de la primera al de la última), dentro del período: la nota
+ * de un gráfico que no entra entero. null = no son fechas (o no hay dimensión de tiempo).
+ */
+export function rangoDeTramo(dim: string | null, filas: readonly { clave: string }[], desde: string, hasta: string): { desde: string; hasta: string } | null {
+  const claves = filas.map((x) => x.clave).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
+  const a = dim && claves.length ? rangoDeClave(dim, claves[0]) : null;
+  const b = dim && claves.length ? rangoDeClave(dim, claves[claves.length - 1]) : null;
+  if (!a || !b) return null;
+  return { desde: a.desde < desde ? desde : a.desde, hasta: b.hasta > hasta ? hasta : b.hasta };
+}
+
 /** Lo que muestra un gráfico, en markdown: su título, su período, la tabla y sus notas. */
-export function resultadoMarkdown(g: Grafico, r: Resultado, p: { desde: string; hasta: string; topeFilas?: number; titulo?: string; agrupar?: string | null }): string[] {
+export function resultadoMarkdown(g: Grafico, r: Resultado, p: { desde: string; hasta: string; topeFilas?: number; titulo?: string; agrupar?: string | null; hoy?: string }): string[] {
   const f = fuenteDe(g.fuente);
-  const sinRango = !!f?.fechas.find((x) => x.id === g.fecha)?.sinRango;
+  const fechaDef = f?.fechas.find((x) => x.id === g.fecha);
+  const sinRango = !!fechaDef?.sinRango;
   const out: string[] = [`**${p.titulo ?? tituloDe(g)}** · ${f?.nombre ?? g.fuente} · ${sinRango ? 'la foto de hoy' : rangoTexto(p.desde, p.hasta)}`];
   const cols = r.columnas;
   const fmt = (v: number | null | undefined, fo: Formato) => (v == null ? '—' : fmtValor(v, fo));
@@ -970,9 +995,11 @@ export function resultadoMarkdown(g: Grafico, r: Resultado, p: { desde: string; 
   const dimId = r.clase === 'tiempo' ? (p.agrupar ?? g.dimension) : g.dimension;
   const dimNombre = (f && dimensionDe(f, dimId)?.nombre) ?? 'Grupo';
   const tope = p.topeFilas ?? Infinity;
-  // En el tiempo el corte se queda con lo más NUEVO, como el gráfico del chat (`inicioDibujado`): con las 25 más viejas,
-  // el modelo leía del 23/07 al 16/08 y la persona veía dibujado del 22/08 al 20/10 (revisión del 21/10).
-  const ini = Number.isFinite(tope) ? inicioDibujado(r.clase, r.filas.map((x) => x.clave), tope) : 0;
+  // En el tiempo el corte se queda con lo más CERCANO a hoy, con la MISMA función que el gráfico del chat
+  // (`inicioDibujado`): con las 25 más viejas, el modelo leía del 23/07 al 16/08 y la persona veía dibujado del 22/08 al
+  // 20/10; con las más nuevas en una fecha que mira hacia adelante (el vencimiento), perdía lo que vence hoy (21/10).
+  const hoyAdelante = fechaDef?.futuro ? (p.hoy ?? hoyEnTijuana()) : null;
+  const ini = Number.isFinite(tope) ? inicioDibujado(r.clase, r.filas.map((x) => x.clave), tope, hoyAdelante) : 0;
   const visibles = r.filas.slice(ini, ini + tope);
   if (r.cruce && cols[0]) {
     const c0 = cols[0];
@@ -983,7 +1010,7 @@ export function resultadoMarkdown(g: Grafico, r: Resultado, p: { desde: string; 
   }
   if (r.totales.some((v) => v != null)) out.push(`Total: ${cols.map((c, i) => `${c.nombre} ${fmt(r.totales[i], c.formato)}`).join(' · ')}.`);
   if (r.anterior?.some((v) => v != null)) out.push(`Período anterior del mismo largo: ${cols.map((c, i) => `${c.nombre} ${fmt(r.anterior?.[i], c.formato)}`).join(' · ')}.`);
-  if (r.filas.length > visibles.length) out.push(`(y ${r.filas.length - visibles.length} filas ${r.clase === 'tiempo' ? 'antes' : 'más'})`);
+  if (r.filas.length > visibles.length) out.push(`(y ${filasQueFaltan(r, ini, visibles.length)})`);
   if (r.fuera > 0) out.push(`(${r.fuera} grupos más que no entran en el gráfico)`);
   return out;
 }

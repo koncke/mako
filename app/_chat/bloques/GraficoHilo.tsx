@@ -48,8 +48,9 @@ export default function GraficoHilo({ b }: { b: BloqueGrafico }) {
           <CuerpoGrafico g={b.grafico} estado={{ cargando: false, resultado: b.resultado }} tema={TEMA} />
         </RedDeBloque>
       </div>
-      {/* Una tabla ya dice «+N más» adentro. Una serie que no entra dibuja los puntos más nuevos: lo que falta es de antes. */}
-      {!tabla && b.resultado.fuera > 0 && <p className="ch-grafico__nota">{b.resultado.clase === 'tiempo' ? `Y ${b.resultado.fuera} puntos antes` : `Y ${b.resultado.fuera} más`}</p>}
+      {/* Una tabla ya dice «+N más» adentro. Una serie que no entra dibuja el tramo más cercano a hoy (la nota dice cuál):
+          lo que falta puede ser de antes o de después (un vencimiento). */}
+      {!tabla && b.resultado.fuera > 0 && <p className="ch-grafico__nota">{b.resultado.clase === 'tiempo' ? `Y ${b.resultado.fuera} puntos fuera de este tramo` : `Y ${b.resultado.fuera} más`}</p>}
       {b.abrir && <div className="ch-tarjeta__botones"><Link className="ch-abrir" href={b.abrir.href}>{b.abrir.titulo}</Link></div>}
     </div>
   );

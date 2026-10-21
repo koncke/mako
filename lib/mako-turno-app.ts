@@ -78,7 +78,7 @@ import {
   chartKeyDePersona, canalKeyDeSesion, herramientasDelChat, tarjetaDePendiente, linksDeUnaAccion, abrirDeResultado, idDePropuesta, aRetirar,
   type FormularioPropuesta, type PropuestaPantalla,
   propuestaDePantalla, sinLinksDeRevision, MENSAJE_BORRADOR_APP, mensajeLeadApp, TEXTO_SOLO_TARJETA, TEXTO_SOLO_BLOQUE,
-  historialParaModelo, bloquesDelMensaje, confirmadoTrasElUltimoPedido, esPedido, salioBien, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA,
+  historialParaModelo, bloquesDelMensaje, entraOtroDibujo, confirmadoTrasElUltimoPedido, esPedido, salioBien, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA,
   type LinkCapturado, type MensajeChat, type RespuestaTurno, type ResultadoTarjeta, type SesionChat, type TarjetaPendiente,
 } from '@/lib/mako-turno-app-reglas';
 
@@ -430,11 +430,13 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const bloquesDelTurno: { b: Bloque; accion: boolean }[] = [];
     let herramientaActual = '';
     // Una sola vez cada uno: un turno que se re-arranca (la cascada rota de cuenta) vuelve a correr las lecturas. Dice si
-    // quedó en pantalla (el repetido ya está): con el tope lleno, `false`, y la lectura no le dice al modelo «ya lo ve».
+    // quedó en pantalla (el repetido ya está): con el tope lleno, `false`, y la lectura no le dice al modelo «ya lo ve». Una
+    // lectura deja lugar para la pregunta que puede venir después (`entraOtroDibujo`).
     const dibujar = (b: Bloque): boolean => {
       if (bloquesDelTurno.some((x) => JSON.stringify(x.b) === JSON.stringify(b))) return true;
-      if (bloquesDelTurno.length >= MAX_BLOQUES_MENSAJE) return false;
-      bloquesDelTurno.push({ b, accion: porId(herramientaActual)?.tipo !== 'lectura' });
+      const accion = porId(herramientaActual)?.tipo !== 'lectura';
+      if (!entraOtroDibujo(bloquesDelTurno, accion, MAX_BLOQUES_MENSAJE)) return false;
+      bloquesDelTurno.push({ b, accion });
       return true;
     };
     const ctx: Ctx = {

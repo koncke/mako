@@ -13,7 +13,7 @@
 //
 // ⚠️ UNA SOLA FORMA PARA EL GRÁFICO Y LA TABLA: una tabla ES un gráfico de tipo `tabla`, y la misma pieza la dibuja. G7 en
 //    el documento es la «lista accionable» (filas con acciones); eso no es esto.
-// ⚠️ ACOTADO: hasta 60 filas (en el tiempo, las 60 más nuevas: `inicioDibujado`), 8 columnas, 12 columnas de desglose y 400 puntos de serie. Lo que no entra se cuenta en
+// ⚠️ ACOTADO: hasta 60 filas (en el tiempo, las 60 más cercanas a hoy: `inicioDibujado`), 8 columnas, 12 columnas de desglose y 400 puntos de serie. Lo que no entra se cuenta en
 //    `fuera` (la pieza dice «N más»). Sin `ref` ni `imagen` por fila (ids de leads y fotos de afuera: el hilo no los usa).
 // ⚠️ PURO y sin import circular: lib/chat-bloques.ts le pasa su `sanearAbrir`.
 // =============================================================================
@@ -51,22 +51,43 @@ const valores = (v: unknown, largo: number): Array<number | null> | null => {
 const fecha = (v: unknown): string | undefined => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined);
 
 /**
- * Desde qué fila se dibuja: hasta 60, y en una serie de TIEMPO, las más NUEVAS. «Leads por día de los últimos 90 días»
- * dibujaba del 23/07 al 20/09 y escondía el último mes (revisión del 21/10). Con la tabla al revés (la más nueva arriba,
- * `tabla.descendente`) las más nuevas son las primeras. Las claves de tiempo son fechas `YYYY-MM-DD`: se comparan como texto.
- * ⚠️ EL MISMO CORTE para lo que lee el modelo (`resultadoMarkdown`, con su tope de 25 filas): si el gráfico muestra lo más
- *    nuevo y el texto lo más viejo, con 90 días no comparten ni una fila, y el modelo comenta lo que nadie ve.
+ * Desde qué fila entra un corte de `n` (60 en el gráfico). En una serie de TIEMPO se queda con lo más CERCANO a hoy:
+ *   · con una fecha que mira hacia atrás, lo más NUEVO. «Leads por día de los últimos 90 días» dibujaba del 23/07 al
+ *     20/09 y escondía el último mes (revisión del 21/10);
+ *   · con una que mira hacia ADELANTE (`hoyAdelante` = hoy: el vencimiento, `futuro` en el catálogo), desde el grupo de hoy
+ *     en adelante. Con «lo más nuevo», «próximos 30 días» por día leía del 26/10 al 19/11 y perdía lo que vence HOY.
+ * Con la tabla al revés (la más nueva arriba, `tabla.descendente`), lo mismo. Las claves de tiempo son fechas `YYYY-MM-DD`
+ * (el comienzo de su grupo): se comparan como texto.
+ * ⚠️ EL MISMO CORTE para lo que se dibuja (`cortarTiempo`) y lo que lee el modelo (`resultadoMarkdown`, 25 filas): con
+ *    cortes escritos aparte, el gráfico mostraba lo más nuevo y el texto lo más viejo, sin una fila en común.
  */
-export function inicioDibujado(clase: Resultado['clase'], claves: readonly string[], n = MAX_FILAS_GRAFICO): number {
-  if (clase !== 'tiempo' || claves.length <= n) return 0;
-  return claves[0] > claves[claves.length - 1] ? 0 : claves.length - n;
+export function inicioDibujado(clase: Resultado['clase'], claves: readonly string[], n = MAX_FILAS_GRAFICO, hoyAdelante: string | null = null): number {
+  const largo = claves.length;
+  if (clase !== 'tiempo' || largo <= n) return 0;
+  const alReves = claves[0] > claves[largo - 1];
+  // El inicio contado en orden ascendente.
+  let ini = largo - n;
+  if (hoyAdelante) {
+    const asc = alReves ? [...claves].reverse() : claves;
+    // El grupo de hoy: el último que arranca hoy o antes (sin ninguno, el primero).
+    const deHoy = asc.reduce((j, k, i) => (k <= hoyAdelante ? i : j), 0);
+    ini = Math.min(deHoy, largo - n);
+  }
+  return alReves ? largo - n - ini : ini;
 }
 
-/** La fecha más vieja que se dibuja de una serie que no entra entera (la nota dice ese tramo). null = entra entera. */
-export function desdeDibujado(r: Pick<Resultado, 'clase' | 'filas'>): string | null {
-  if (r.clase !== 'tiempo' || r.filas.length <= MAX_FILAS_GRAFICO) return null;
-  const ini = inicioDibujado(r.clase, r.filas.map((f) => f.clave));
-  return r.filas.slice(ini, ini + MAX_FILAS_GRAFICO).map((f) => f.clave).filter((k) => fecha(k)).sort()[0] ?? null;
+/**
+ * El resultado cortado a `n` filas con `inicioDibujado`, el desglose igual, y lo que queda afuera contado en `fuera`. Lo
+ * usa el runner ANTES de armar el bloque (sabe si la fecha mira hacia adelante; el saneo no): el saneo ya no corta nada.
+ */
+export function cortarTiempo(r: Resultado, n = MAX_FILAS_GRAFICO, hoyAdelante: string | null = null): Resultado {
+  if (r.clase !== 'tiempo' || r.filas.length <= n) return r;
+  const ini = inicioDibujado(r.clase, r.filas.map((f) => f.clave), n, hoyAdelante);
+  const filas = r.filas.slice(ini, ini + n);
+  return {
+    ...r, filas, fuera: r.fuera + (r.filas.length - filas.length),
+    ...(r.cruce ? { cruce: { ...r.cruce, celdas: r.cruce.celdas.slice(ini, ini + n) } } : {}),
+  };
 }
 
 /** El resultado de un gráfico, acotado y con la forma justa. null = no se dibuja. */
@@ -143,13 +164,14 @@ export function sanearBloqueGrafico(o: Record<string, unknown>, sanearAbrir: (v:
  * El gráfico con que el chat dibuja una consulta al vuelo (la tabla que arma `consultar_datos_dashboard` para el
  * modelo): un número queda número; con el tiempo, una serie; por categoría, barras si son pocas y tabla si son muchas;
  * con desglose, columnas. Lo que no calza, tal cual.
- * Una tabla de tiempo que no entra va SIN la fila Total: la nota dice el tramo dibujado y el Total es del período entero
- * (recalcularlo no sirve con una tasa).
+ * Una tabla de tiempo que no entra (o ya cortada: `fuera`) va SIN la fila Total: la nota dice el tramo dibujado y el Total
+ * es del período entero (recalcularlo no sirve con una tasa).
  */
 export function graficoParaElChat(g: Grafico, r: Resultado): Grafico {
   if (!g.dimension) return g;
   if (g.desglose) return { ...g, tipo: 'columnas' };
-  if (g.metricas.length > 1) return { ...g, tipo: 'tabla', ...(desdeDibujado(r) ? { total: false } : {}) };
+  const cortada = r.clase === 'tiempo' && (r.filas.length > MAX_FILAS_GRAFICO || r.fuera > 0);
+  if (g.metricas.length > 1) return { ...g, tipo: 'tabla', ...(cortada ? { total: false } : {}) };
   if (r.clase === 'tiempo') return { ...g, tipo: 'serie' };
   return { ...g, tipo: r.filas.length <= 12 ? 'barras' : 'tabla' };
 }
