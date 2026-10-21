@@ -23,6 +23,7 @@ import type { Runners, Ctx, Preparado, Ejecutado, SalidaLectura, AccionRun } fro
 import { linkPantalla } from '../link';
 import { PREFIJO_FLUJO } from '../canal';
 import * as docsEditor from '@/lib/editor-landing/server';
+import { bloqueDeCompleta, bloqueDominio } from '@/lib/editor-landing/bloques-chat';
 import type { LandingCompleta, TemaPropio } from '@/lib/editor-landing/api-tipos';
 import { conectarDominio, estadoDominio, quitarDominio } from '@/lib/editor-landing/dominios';
 import { normalizarDominio, motivoDominioInvalido } from '@/lib/editor-landing/dominios-reglas';
@@ -330,7 +331,7 @@ export const RUNNERS_EDITOR: Runners = {
         const r = await docsEditor.crear(p.pedido);
         if (!r.ok) return { ok: false, resumen: `No se pudo crear (${r.error}).` };
         const link = linkEditor(r.doc.id, ctx.ws);
-        return { ok: true, resumen: `Listo: «${r.doc.titulo}» (id ${r.doc.id}) quedó en blanco, sin publicar. Se arma en el editor: ${link}`, datos: { id: r.doc.id, titulo: r.doc.titulo, link } };
+        return { ok: true, resumen: `Listo: «${r.doc.titulo}» (id ${r.doc.id}) quedó en blanco, sin publicar. Se arma en el editor: ${link}`, datos: { id: r.doc.id, titulo: r.doc.titulo, link, bloque: bloqueDeCompleta(r.doc, null, 'Nueva') } };
       } catch (e) {
         return { ok: false, resumen: resumenDeError('crear la landing', e) };
       }
@@ -374,10 +375,12 @@ export const RUNNERS_EDITOR: Runners = {
         if (!r.ok) return { ok: false, resumen: `No se pudo crear la ${p.tipo === 'presentacion' ? 'presentación' : 'landing'} (${r.error}).` };
         const link = linkEditor(r.doc.id, ctx.ws);
         const que = p.tipo === 'presentacion' ? 'diapositivas' : 'secciones';
+        // La tarjeta (Ops Center 1.12): generar devuelve sólo el id, se abre una vez. Si no abre, sin tarjeta.
+        const creada = await docsEditor.abrir(r.doc.id).catch(() => null);
         return {
           ok: true,
           resumen: `Listo: «${r.doc.titulo}» quedó creada (id ${r.doc.id}, ${r.secciones} ${que}), sin publicar.${r.sinDiseno ? ` ${r.sinDiseno} ${que} quedaron con el texto del esquema, sin diseño: se rehacen con editar_landing_con_ia o en el editor.` : ''} Se revisa en el editor: ${link}`,
-          datos: { id: r.doc.id, titulo: r.doc.titulo, secciones: r.secciones, sin_diseno: r.sinDiseno, link },
+          datos: { id: r.doc.id, titulo: r.doc.titulo, secciones: r.secciones, sin_diseno: r.sinDiseno, link, ...(creada?.ok ? { bloque: bloqueDeCompleta(creada.doc, null, 'Nueva') } : {}) },
         };
       } catch (e) {
         return { ok: false, resumen: resumenDeError('crear la landing', e) };
@@ -557,7 +560,7 @@ export const RUNNERS_EDITOR: Runners = {
         return {
           ok: true,
           resumen: `Listo: ${r.dominio.dominio} quedó ${r.dominio.estado === 'verificado' ? 'verificado' : 'pendiente'}.${reg ? ` ${reg}` : ''}${r.dominio.falta ? ` ${r.dominio.falta}` : ''} Después, verificar_dominio_landing. Se ve en el editor: ${linkEditor(id, ctx.ws)}`,
-          datos: { id, ...registrosParaApi(r.dominio) },
+          datos: { id, ...registrosParaApi(r.dominio), bloque: bloqueDominio(id, r.dominio) },
         };
       } catch (e) {
         return { ok: false, resumen: resumenDeError('conectar el dominio', e) };
@@ -589,7 +592,7 @@ export const RUNNERS_EDITOR: Runners = {
           resumen: r.dominio.estado === 'verificado'
             ? `${r.dominio.dominio} está verificado: la landing publicada se ve ahí.${r.dominio.falta ? ` ${r.dominio.falta}` : ''}`
             : `${r.dominio.dominio} sigue pendiente.${reg ? ` ${reg}` : ''}${r.dominio.falta ? ` ${r.dominio.falta}` : ''} Los cambios de DNS pueden tardar unas horas.`,
-          datos: { id, ...registrosParaApi(r.dominio) },
+          datos: { id, ...registrosParaApi(r.dominio), bloque: bloqueDominio(id, r.dominio) },
         };
       } catch (e) {
         return { ok: false, resumen: resumenDeError('verificar el dominio', e) };

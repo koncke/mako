@@ -25,6 +25,8 @@
 //    se queda sólo con rutas de la app (`/image-editor/…`), nunca con un `https://` de afuera ni un `javascript:`. Lo que
 //    no calza se descarta entero: un bloque a medias no se dibuja.
 
+import { sanearBloqueWeb, type BloqueWeb } from './editor-landing/bloques-web';
+
 /** El botón que lleva a la pantalla donde vive lo creado. */
 export type Abrir = { titulo: string; href: string };
 
@@ -52,7 +54,10 @@ export type Bloque =
   /** G6: un trabajo largo. `listo` es el G5 en que termina. */
   | { t: 'trabajo'; titulo: string; pasos: { texto: string; estado: EstadoPaso }[]; listo?: BloqueCreado }
   /** G1: una pregunta con opciones; `varias` = se puede marcar más de una. */
-  | { t: 'pregunta'; pregunta: string; opciones: { titulo: string; detalle?: string }[]; recomendada?: number; varias?: boolean };
+  | { t: 'pregunta'; pregunta: string; opciones: { titulo: string; detalle?: string }[]; recomendada?: number; varias?: boolean }
+  /** Los del Web Generator (1.12 y 1.13): la tarjeta de una landing, elegir entre 3, lo publicado y el dominio. Sus tipos
+   *  y su saneo viven en lib/editor-landing/bloques-web.ts; los dibuja app/web-generator/BloqueWeb.tsx. */
+  | BloqueWeb;
 
 /** Lo que se guarda en `chart_chats.bloques` al lado de los adjuntos (lib/chat-mako-bloques.ts, `k: 'adjunto'`). */
 export type BloqueGuardado = { k: 'bloque'; b: Bloque };
@@ -166,7 +171,8 @@ export function sanearBloque(crudo: unknown): Bloque | null {
       return { t: 'pregunta', pregunta, opciones, ...(recomendada !== undefined ? { recomendada } : {}), ...(o.varias === true ? { varias: true } : {}) };
     }
     default:
-      return null;
+      // Los de un área (el Web Generator): su propio saneo, con el mismo criterio. Un tipo que no es de nadie, null.
+      return sanearBloqueWeb(o, rutaInterna);
   }
 }
 

@@ -52,6 +52,7 @@ import {
 // El EDITOR del Web Generator (tanda 4): el MISMO server que llama /api/landing-generator (la
 // pantalla). Ningún `.from('landing_docs')` acá: tests/api-mako-landing-editor.test.ts lo frena.
 import * as docsEditor from '@/lib/editor-landing/server';
+import { bloqueDeCompleta, bloquePublicada } from '@/lib/editor-landing/bloques-chat';
 import { publicar as publicarEnEditor, despublicar as despublicarEnEditor, sitioActivo as sitioActivoEnEditor } from '@/lib/editor-landing/publicar';
 import { listar as comentariosDelDiagnostico, cambiarEstado as estadoDeComentario, analizar as analizarDiagnostico } from '@/lib/editor-landing/diagnostico-server';
 // Tanda 7: el resto del editor (landing-editor.run.ts), sumado al final de RUNNERS.
@@ -869,7 +870,8 @@ export const RUNNERS: Runners = {
         return {
           ok: true,
           resumen: `Landing «${r.doc.titulo}» creada como borrador (id ${r.doc.id}), sin publicar. Se adapta en el editor: ${link}`,
-          datos: { id: r.doc.id, titulo: r.doc.titulo, link },
+          // El bloque (Ops Center 1.12): la tarjeta con su miniatura en el hilo, al confirmar. No va al modelo.
+          datos: { id: r.doc.id, titulo: r.doc.titulo, link, bloque: bloqueDeCompleta(r.doc, null, 'Nueva') },
         };
       } catch (e) {
         return { ok: false, resumen: `No se pudo crear la landing (${mensaje(e)}).` };
@@ -920,12 +922,15 @@ export const RUNNERS: Runners = {
         const anim = r.animaciones
           ? ` Copió las animaciones${r.animaciones.estilo ? ` (estilo «${estiloPorId(r.animaciones.estilo).nombre}»)` : ''}${r.animaciones.propias ? `; ${r.animaciones.propias === 1 ? 'una sección lleva' : `${r.animaciones.propias} secciones llevan`} su propio efecto` : ''}.`
           : '';
+        // La tarjeta de la copia (Ops Center 1.12): replicar no devuelve el contenido, se abre una vez. Si no abre, sin tarjeta.
+        const copia = await docsEditor.abrir(r.id).catch(() => null);
         return {
           ok: true,
           resumen: `Listo: «${r.titulo}» quedó como ${NOMBRE_FORMATO_REPLICAR[r.formato]} en el editor (id ${r.id}, ${r.secciones} ${r.formato === 'presentacion' ? 'diapositivas' : 'secciones'}), sin publicar.${anim}${r.aviso ? ` ${r.aviso}` : ''} Se revisa y se adapta en el editor: ${link}`,
           datos: {
             id: r.id, titulo: r.titulo, formato: r.formato, secciones: r.secciones, link,
             animaciones: r.animaciones ?? null, aviso_scroll: r.avisoScroll === true,
+            ...(copia?.ok ? { bloque: bloqueDeCompleta(copia.doc, null, 'Replicada') } : {}),
           },
         };
       } catch (e) {
@@ -973,7 +978,7 @@ export const RUNNERS: Runners = {
         const r = await docsEditor.duplicar(id);
         if (!r.ok) return { ok: false, resumen: r.status === 404 ? noExisteCreada(id) : `No se pudo duplicar (${r.error}).` };
         const link = linkEditor(r.doc.id, ctx.ws);
-        return { ok: true, resumen: `Listo: «${r.doc.titulo}» (id ${r.doc.id}), sin publicar. Se adapta en el editor: ${link}`, datos: { id: r.doc.id, titulo: r.doc.titulo, link } };
+        return { ok: true, resumen: `Listo: «${r.doc.titulo}» (id ${r.doc.id}), sin publicar. Se adapta en el editor: ${link}`, datos: { id: r.doc.id, titulo: r.doc.titulo, link, bloque: bloqueDeCompleta(r.doc, null, 'Copia') } };
       } catch (e) {
         return { ok: false, resumen: `No se pudo duplicar (${mensaje(e)}).` };
       }
@@ -1058,7 +1063,7 @@ export const RUNNERS: Runners = {
         const r = await docsEditor.crear(pedido);
         if (!r.ok) return { ok: false, resumen: `No se pudo crear la presentación (${r.error}).` };
         const link = linkEditor(r.doc.id, ctx.ws);
-        return { ok: true, resumen: `Presentación «${r.doc.titulo}» creada como borrador (id ${r.doc.id}), sin publicar. Se adapta en el editor: ${link}`, datos: { id: r.doc.id, titulo: r.doc.titulo, link } };
+        return { ok: true, resumen: `Presentación «${r.doc.titulo}» creada como borrador (id ${r.doc.id}), sin publicar. Se adapta en el editor: ${link}`, datos: { id: r.doc.id, titulo: r.doc.titulo, link, bloque: bloqueDeCompleta(r.doc, null, 'Nueva') } };
       } catch (e) {
         return { ok: false, resumen: `No se pudo crear la presentación (${mensaje(e)}).` };
       }
@@ -1437,12 +1442,14 @@ export const RUNNERS: Runners = {
         // al confirmar: lo guardado en este momento. Si alguien guarda entre la lectura y la
         // escritura, contesta conflicto y se relee una vez.
         for (let intento = 0; intento < 2; intento++) {
-          const f = await docsEditor.leerFilaDoc(ctx.ws, id, 'id, version');
+          const f = await docsEditor.leerFilaDoc(ctx.ws, id, 'id, version, titulo');
           if (!f) return { ok: false, resumen: `La landing ${id} ya no existe.` };
           const r = await publicarEnEditor(id, f.version, slug);
           if (r.ok) {
             const url = urlDeLanding(r.slug);
-            return { ok: true, resumen: `Publicada en ${url} (versión ${r.version}).`, datos: { id, url, slug: r.slug, version: r.version, publicadaEl: r.publicadoAt } };
+            // El bloque (Ops Center 1.13): el link con Copiar y Abrir, en el hilo.
+            const bloque = bloquePublicada({ id, titulo: f.titulo ?? '', url });
+            return { ok: true, resumen: `Publicada en ${url} (versión ${r.version}).`, datos: { id, url, slug: r.slug, version: r.version, publicadaEl: r.publicadoAt, bloque } };
           }
           if (!r.conflicto) return { ok: false, resumen: `No se pudo publicar (${r.error}).` };
         }

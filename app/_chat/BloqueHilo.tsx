@@ -13,8 +13,14 @@
 // ⚠️ LOS LINKS VAN POR `Link` (app/_ui/Link.tsx), que le suma el `?ws=` de quien mira: el bloque guarda la ruta sola.
 
 import { useState, type CSSProperties } from 'react';
+import dynamic from 'next/dynamic';
 import Link from '@/app/_ui/Link';
 import { ROTULO_PASO, proporcion, razon, type Bloque, type BloqueCreado } from '@/lib/chat-bloques';
+import { esBloqueWeb } from '@/lib/editor-landing/bloques-web';
+
+/** Los bloques del Web Generator (la tarjeta de una landing, elegir entre 3, lo publicado, el dominio), aparte: traen la
+ *  hoja del contenido de las landings (~100 KB) y sólo se cargan cuando un hilo tiene uno. */
+const BloqueWeb = dynamic(() => import('@/app/web-generator/BloqueWeb').then((m) => m.BloqueWeb));
 
 type Pregunta = Extract<Bloque, { t: 'pregunta' }>;
 
@@ -23,6 +29,7 @@ export function BloqueHilo({ b, onResponder }: {
   /** Contestar una pregunta (G1): lo elegido sale como un mensaje de la persona. Sin esto, las opciones se ven y no se tocan. */
   onResponder?: (texto: string) => void;
 }) {
+  if (esBloqueWeb(b)) return <BloqueWeb b={b} onResponder={onResponder} />;
   if (b.t === 'creado') return <Creado b={b} />;
   if (b.t === 'antes_despues') {
     return (
