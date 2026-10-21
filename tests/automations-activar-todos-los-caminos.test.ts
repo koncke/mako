@@ -52,8 +52,9 @@ const FUENTE = new Map(ARCHIVOS.map((f) => [f, sinComentarios(leer(f))]));
 /** Los que pueden PRENDER (no pasan un `false` literal), cada uno con su manejo de la duplicada. */
 const PRENDEN = ['app/api/email/secuencias/route.ts', 'app/api/whatsapp/secuencias/route.ts', 'lib/mako-doer-acciones.ts'];
 /**
- * Los scripts de mudanza que prenden lo que crean: SÓLO filas «Evento de MaKo» (su CRON es el evento), y un evento no
- * tiene cohorte que se pise (`mismaCohorte` da false): nunca reciben `DuplicadaError`. Si uno prende otra cosa, que la maneje.
+ * Los scripts de mudanza que prenden lo que crean: SÓLO filas «Evento de MaKo», y sólo si el negocio no tenía NINGUNA de
+ * ese evento (la saltean si ya hay, prendida o pausada). Dos del mismo evento SÍ le escriben a la misma gente (revisión del
+ * 21/10/2026), pero acá no hay otra: nunca reciben `DuplicadaError`. Si uno prende otra cosa, que la maneje.
  */
 const SCRIPTS_DE_EVENTOS = ['scripts/mudanza-avisos-plataforma.mts', 'scripts/mudanza-nuevo-agendado.mts'];
 
@@ -65,9 +66,14 @@ test('(a) la puerta: `setSecuenciaActiva` pregunta por la duplicada salvo con `a
   assert.ok(p.indexOf('throw new DuplicadaError(otra)') < p.indexOf(".update({ activa, updated_at: ahoraISO() })"));
   // La misma regla que la pantalla, con lo PUBLICADO de las otras.
   const d = cuerpo(n, 'export async function duplicadaDeLaActivacion(');
-  assert.match(d, /return duplicadaAlActivar\(esta, vistas, \(v\) => v\.crons, o\.pasos \? \{ pasos: o\.pasos \} : \{\}\);/);
+  assert.match(d, /return duplicadaAlActivar\(esta, vistas, \(v\) => v\.crons, \{ \.\.\.\(o\.pasos \? \{ pasos: o\.pasos \} : \{\}\), \.\.\.\(o\.crons \? \{ crons: o\.crons \} : \{\}\) \}\);/);
   assert.doesNotMatch(d, /negocio/, 'el nombre del negocio era de la firma: el aviso ya no mira el texto');
   assert.match(d, /if \(!esta \|\| \(o\.soloSiActiva && !esta\.activa\)\) return null;/);
+  // Una pausada que se publica no lee todas con sus pasos: primero si está activa, y después sólo las activas.
+  const pausada = d.indexOf(".select('activa').eq('id', id).maybeSingle()");
+  assert.ok(pausada >= 0 && pausada < d.indexOf('leerFilasDeSecuencias('), 'lee todas las automatizaciones aunque ésta esté pausada');
+  assert.match(d, /if \(!error && \(data as \{ activa\?: boolean \| null \} \| null\)\?\.activa !== true\) return null;/);
+  assert.match(d, /\.is\('archivada_at', null\)\.or\(`activa\.eq\.true,id\.eq\.\$\{Number\(id\)\}`\)/);
 });
 
 test('(a) cada llamador de `setSecuenciaActiva` que puede prender maneja la duplicada (la lista sale del repo)', () => {
@@ -81,7 +87,12 @@ test('(a) cada llamador de `setSecuenciaActiva` que puede prender maneja la dupl
     }
   }
   assert.deepEqual([...new Set(prenden)].sort(), [...PRENDEN, ...SCRIPTS_DE_EVENTOS].sort(), 'un camino nuevo prende automatizaciones: que pregunte por la duplicada y súmalo acá');
-  for (const f of SCRIPTS_DE_EVENTOS) assert.match(FUENTE.get(f)!, /TRIGGER_AVISO_MAKO/, `${f} ya no prende sólo eventos de MaKo`);
+  for (const f of SCRIPTS_DE_EVENTOS) {
+    const src = FUENTE.get(f)!;
+    assert.match(src, /TRIGGER_AVISO_MAKO/, `${f} ya no prende sólo eventos de MaKo`);
+    const salta = src.indexOf('if (ya.length) {');
+    assert.ok(salta >= 0 && salta < src.indexOf('await setSecuenciaActiva(r.id, true);'), `${f} prende aunque ya haya otra del mismo evento`);
+  }
   for (const f of PRENDEN) {
     const src = FUENTE.get(f)!;
     assert.match(src, /DuplicadaError/, `${f} no maneja la duplicada`);
@@ -190,7 +201,8 @@ const PUBLICAN = [
 /**
  * Los que escriben `setSecuenciaPasos` directo, cada uno por algo: el sistema no tiene a quién preguntarle (el hand-off, las
  * variantes, Meta, las mudanzas), lo que nace PAUSADO no le escribe a nadie (Copiar flujo, Crear con IA), y la API cambia
- * por ahí lo que no toca el texto ni a quién (la espera, audio ↔ texto, la vista previa, un caso de «Si responde»).
+ * por ahí lo que no toca el texto ni a quién (la espera, la vista previa, un caso de «Si responde», y audio ↔ texto si el
+ * primer mensaje sigue por el mismo canal: si cambia, va por `publicarPasos`, test (e)).
  */
 const SISTEMA = [
   'lib/api-mako/areas/chatbot.run.ts', 'lib/chat-agent-handoff.ts', 'lib/flujo-copia-negocio.ts', 'lib/flujo-ia-crear.ts',
@@ -239,6 +251,149 @@ test('(d) las pantallas de /email: «Guardar igual» al guardar el copy o la sec
   assert.match(e, /if \(!j\.ok && j\.duplicada\) \{\n\s+setSaving\(false\);\n\s+if \(await confirm\(String\(j\.error\), \{ confirmLabel: 'Guardar igual' \}\)\) await guardar\(true\);\n\s+return;/);
 });
 
+// ── (e) Cambiar a quién le escribe una ACTIVA, o por dónde, es activarla de nuevo para esa gente ────
+
+/**
+ * Los que escriben los CRON con `guardarDisparadores` directo, cada uno por algo. La API de MaKo va por `publicarCrons`
+ * (pregunta como Activar). El lienzo guarda en vivo y lo DICE al lado de «Activar» (`dupActiva`); copiar y Crear con IA
+ * escriben en una que nace pausada.
+ */
+const CRONS_SIN_PREGUNTA = ['app/api/chat-agent/secuencias/route.ts', 'lib/flujo-copia-negocio.ts', 'lib/flujo-ia-crear.ts'];
+
+test('(e) la API de MaKo: cambiar los CRON de una activa, o el canal de su primer mensaje, pregunta por la duplicada', () => {
+  const escriben: string[] = [];
+  for (const [f, src] of FUENTE) if (/\bguardarDisparadores\(/.test(src) && f !== 'lib/disparadores-guardar.ts') escriben.push(f);
+  assert.deepEqual(escriben.sort(), CRONS_SIN_PREGUNTA, 'alguien nuevo escribe los CRON sin preguntar: si es una persona, por `publicarCrons`; si no, súmalo con su motivo');
+  // La puerta: pregunta con los CRON NUEVOS antes de escribir, salvo con `aunqueDuplique`.
+  const g = cuerpo(FUENTE.get('lib/disparadores-guardar.ts')!, 'export async function publicarCrons(');
+  assert.match(g, /if \(!o\.aunqueDuplique\) \{\n\s+const otra = await duplicadaDeLaActivacion\(secuenciaId, \{ crons: sanearDisparadores\(entrada\), soloSiActiva: true \}\);\n\s+if \(otra\) throw new DuplicadaError\(otra\);\n\s+\}\n\s+return guardarDisparadores\(secuenciaId, entrada\);/);
+  // La propuesta lo dice y sólo entonces el «sí» lleva `aunqueDuplique`; si la gemela aparece después, no escribe.
+  const api = FUENTE.get('lib/api-mako/areas/chatbot.run.ts')!;
+  const crons = cuerpo(api, '  cambiar_crons_secuencia: {', '\n  },\n');
+  assert.match(crons, /const otra = s\.activa \? await duplicadaDeLaActivacion\(id, \{ crons: lista, soloSiActiva: true \}\) : null;/);
+  assert.match(crons, /payload: \{ secuenciaId: id, crons: lista, \.\.\.\(otra \? \{ aunqueDuplique: true \} : \{\}\) \}/);
+  assert.match(crons, /\$\{otra \? ` Ojo: \$\{avisoDuplicada\(otra\)\}\.` : ''\}/);
+  assert.match(crons, /await publicarCrons\(id, payload\.crons, \{ aunqueDuplique: payload\.aunqueDuplique === true \}\);/);
+  assert.match(crons, /if \(e instanceof DuplicadaError\) return \{ ok: false,/);
+  // Un audio que pasa el primer mensaje de email a WhatsApp: la misma pregunta, por `publicarPasos`.
+  const audio = cuerpo(api, '  asignar_audio_paso: {', '\n  },\n');
+  assert.match(audio, /const otra = canalCambia\(s\.pasos, nuevos\) \? await duplicadaDeLaActivacion\(id, \{ pasos: nuevos as unknown as PasoGrafo\[\], soloSiActiva: true \}\) : null;/);
+  assert.match(audio, /if \(canalCambia\(s\.pasos, pasos\)\) await publicarPasos\(id, pasos, \{ aunqueDuplique: payload\.aunqueDuplique === true \}\);\n\s+else await setSecuenciaPasos\(id, pasos\);/);
+  assert.match(audio, /if \(e instanceof DuplicadaError\) return \{ ok: false,/);
+  assert.match(api, /const canalCambia = \(antes: readonly PasoSecuencia\[\], despues: readonly PasoSecuencia\[\]\): boolean =>\n\s+\(primerMensajeDe\(antes as unknown as PasoGrafo\[\]\)\?\.canal \?\? null\) !== \(primerMensajeDe\(despues as unknown as PasoGrafo\[\]\)\?\.canal \?\? null\);/);
+});
+
+test('(e) con los CRON o el canal NUEVOS se ve la otra activa que ya le escribe a esa gente', async () => {
+  const { duplicadaAlActivar } = await import('../lib/automatizacion-duplicada');
+  const msg = (id: string, cuerpo: string, canal = 'whatsapp') => ({ id, canal, cuerpo, siguiente: null }) as never;
+  const etapa = (e: string) => ({ trigger_tipo: 'etapa_actual', etapa: e, funnel_id: 4 });
+  type F = { id: number; nombre: string; activa: boolean; pasos: never[]; crons: ReturnType<typeof etapa>[] };
+  const A: F = { id: 1, nombre: 'A recordatorio', activa: true, pasos: [msg('a', 'Mañana es la clase')], crons: [etapa('reactivacion')] };
+  const B: F = { id: 2, nombre: 'B agenda', activa: true, pasos: [msg('b', 'Tu reunión es mañana')], crons: [etapa('agenda')] };
+  const E: F = { id: 3, nombre: 'E email', activa: true, pasos: [msg('e', 'Te escribo por mail', 'email')], crons: [etapa('reactivacion')] };
+  const cronsDe = (f: F) => f.crons;
+  assert.equal(duplicadaAlActivar(B, [A, B], cronsDe), null, 'en «agenda» nadie más le escribe');
+  assert.equal(duplicadaAlActivar(B, [A, B], cronsDe, { crons: [etapa('reactivacion')] })?.nombre, 'A recordatorio', 'pasarla a «reactivacion»');
+  assert.equal(duplicadaAlActivar(E, [A, E], cronsDe), null, 'por email no le escribe por donde le escribe A');
+  assert.equal(duplicadaAlActivar(E, [A, E], cronsDe, { pasos: [msg('e', 'Te escribo por mail')] })?.nombre, 'A recordatorio', 'su primer mensaje pasa a WhatsApp');
+});
+
+// ── Por EVENTO también es la misma gente: el motor inscribe en TODAS las activas del disparador ──
+
+test('por EVENTO: dos activas con el mismo disparador y el mismo evento avisan; si el motor no las dispara juntas, no', async () => {
+  const { duplicadaDe, mismaCohorte } = await import('../lib/automatizacion-duplicada');
+  const { disparadoresDe, disparaPorEvento } = await import('../lib/disparadores');
+  const msg = (id: string, canal = 'whatsapp') => ({ id, canal, cuerpo: `Hola desde ${id}`, siguiente: null }) as never;
+  type Fila = Parameters<typeof disparadoresDe>[0];
+  const ev = (trigger_tipo: string, subtipo: string | null, extra: Record<string, unknown> = {}): Fila =>
+    ({ trigger_tipo, disparadores: [{ id: 'd1', trigger_tipo, subtipo, ...extra }] }) as Fila;
+  const avisa = (fa: Fila, fb: Fila, canal = 'whatsapp') => !!duplicadaDe(
+    { id: 2, nombre: 'La copia', disparadores: disparadoresDe(fb), pasos: [msg('b', canal)] },
+    [{ id: 1, nombre: 'La de siempre', activa: true, disparadores: disparadoresDe(fa), pasos: [msg('a', canal)] }],
+  );
+  // Un par de cada clase (los del Cerebro), y lo más común: «Duplicar» una de DM o de pago y prender la copia.
+  const iguales: Array<[string, Fila, Fila, string?]> = [
+    ['Instagram › Te envía un mensaje', ev('instagram', 'dm'), ev('instagram', 'dm'), 'instagram'],
+    ['Messenger › Te envía un mensaje', ev('messenger', 'dm'), ev('messenger', 'dm')],
+    ['Se aprueba un pago', ev('pago', 'aprobado'), ev('pago', 'aprobado')],
+    ['Se agrega etiqueta (cualquiera)', ev('etiqueta_agregada', null), ev('etiqueta_agregada', null)],
+    ['Se agrega etiqueta contra «Se le puso la 5»', ev('etiqueta_agregada', null), { trigger_tipo: 'etiqueta_puesta', etiqueta_id: 5 } as Fila],
+    ['Recibes un email', ev('email_recibido', 'recibido'), ev('email_recibido', 'recibido'), 'email'],
+    ['Agendó pero no confirmó (de antes)', { trigger_tipo: 'agendado_sin_confirmar' } as Fila, { trigger_tipo: 'agendado_sin_confirmar' } as Fila],
+    ['No asistió a R1 (de antes)', { trigger_tipo: 'no_show_j1' } as Fila, { trigger_tipo: 'no_show_j1' } as Fila],
+    ['Dejó el formulario sin agendar (de antes)', { trigger_tipo: 'instant_form_sin_agenda' } as Fila, { trigger_tipo: 'instant_form_sin_agenda' } as Fila],
+  ];
+  for (const [nombre, a, b, canal] of iguales) assert.ok(avisa(a, b, canal), `${nombre}: le escriben las dos y no avisa`);
+  // El otro evento, una etiqueta ignorada, o «a mano»: el motor no las dispara juntas.
+  assert.equal(avisa(ev('instagram', 'dm'), ev('instagram', 'comentario')), false, 'un DM y un comentario');
+  assert.equal(avisa(ev('pago', 'aprobado'), ev('pago', 'rechazado')), false, 'aprobado y rechazado');
+  assert.equal(avisa(ev('etiqueta_agregada', null, { ignorar: [5] }), { trigger_tipo: 'etiqueta_puesta', etiqueta_id: 5 } as Fila), false, 'la que ignora la 5');
+  assert.equal(avisa({ trigger_tipo: 'manual' } as Fila, { trigger_tipo: 'manual' } as Fila), false, 'a mano');
+  // Y la regla es la del motor: si `disparaPorEvento` dispara las dos con el MISMO evento, `mismaCohorte` las ve juntas.
+  const eventos: Array<[Parameters<typeof disparaPorEvento>[1], Parameters<typeof disparaPorEvento>[2]]> = [
+    ['instagram', { subtipo: 'dm' }], ['instagram', { subtipo: 'comentario' }], ['messenger', { subtipo: 'dm' }],
+    ['pago', { subtipo: 'aprobado' }], ['pago', { subtipo: 'rechazado' }], ['etiqueta', { etiquetaId: 5 }], ['etiqueta', { etiquetaId: 7 }],
+    ['etiqueta_quitada', { etiquetaId: 5 }], ['email_recibido', {}],
+  ];
+  const crons = [
+    ev('instagram', 'dm'), ev('instagram', 'comentario'), ev('messenger', 'dm'), ev('pago', 'aprobado'), ev('pago', 'rechazado'),
+    ev('etiqueta_agregada', null), ev('etiqueta_agregada', null, { ignorar: [5] }), ev('etiqueta_quitada', null), ev('email_recibido', 'recibido'),
+    { trigger_tipo: 'etiqueta_puesta', etiqueta_id: 5 } as Fila, { trigger_tipo: 'etiqueta_puesta', etiqueta_id: 7 } as Fila,
+  ].map((f) => disparadoresDe(f)[0]);
+  for (const [evento, ctx] of eventos) {
+    const disparan = crons.filter((d) => disparaPorEvento(d, evento, ctx));
+    for (const x of disparan) for (const y of disparan) {
+      assert.ok(mismaCohorte(x, y), `${evento} ${JSON.stringify(ctx)} dispara ${x.trigger_tipo}/${x.subtipo ?? x.etiqueta_id ?? ''} y ${y.trigger_tipo}/${y.subtipo ?? y.etiqueta_id ?? ''}: no se avisa`);
+    }
+  }
+});
+
+test('por EVENTO, disparadores DISTINTOS que el motor inscribe con el mismo evento avisan (la tabla del motor, no una copia)', async () => {
+  const { duplicadaDe, mismaCohorte } = await import('../lib/automatizacion-duplicada');
+  const { disparadoresDe } = await import('../lib/disparadores');
+  const { TRIGGERS_POR_EVENTO, ETAPA_DEL_EVENTO } = await import('../lib/nutricion-eventos');
+  const { FAMILIA_POST_AGENDA } = await import('../lib/nutricion-familias');
+  type Fila = Parameters<typeof disparadoresDe>[0];
+  const cron = (f: Fila) => disparadoresDe(f)[0];
+  const tipo = (t: string) => cron({ trigger_tipo: t } as Fila);
+  const etapa = (e: string) => cron({ trigger_tipo: 'etapa_actual', etapa: e, funnel_id: 4 } as Fila);
+  const msg = (id: string) => ({ id, canal: 'whatsapp', cuerpo: `Hola desde ${id}`, siguiente: null }) as never;
+  const avisa = (a: ReturnType<typeof cron>, b: ReturnType<typeof cron>) => !!duplicadaDe(
+    { id: 2, nombre: 'La nueva', disparadores: [b], pasos: [msg('b')] },
+    [{ id: 1, nombre: 'La de antes', activa: true, disparadores: [a], pasos: [msg('a')] }],
+  );
+  // Los cinco pares de la revisión del Cerebro (21/10/2026): el lead entra a las dos y recibe los dos mensajes.
+  const pares: Array<[string, ReturnType<typeof cron>, ReturnType<typeof cron>]> = [
+    ['«Dejó el formulario sin agendar» y «Un Lead Entró» (etapa lead)', tipo('instant_form_sin_agenda'), etapa('lead')],
+    ['«Agendó pero no confirmó» y «Un Lead Agendó Llamada» (etapa agenda)', tipo('agendado_sin_confirmar'), etapa('agenda')],
+    ['«Agendó pero no confirmó» y «Agendó (primer contacto)»', tipo('agendado_sin_confirmar'), tipo('agendado_primer_contacto')],
+    ['«Dejó el formulario sin agendar» y «Vio poco el VSL»', tipo('instant_form_sin_agenda'), tipo('vio_poco_vsl')],
+    ['«Agendó (ya le hablamos)» y la etapa agenda', tipo('agendado_ya_contactado'), etapa('agenda')],
+  ];
+  for (const [nombre, a, b] of pares) {
+    assert.ok(avisa(a, b) && avisa(b, a), `${nombre}: le escriben las dos y no avisa`);
+  }
+  // Atado a la TABLA DEL MOTOR: con un lead nuevo o una reserva, cada par de lo que el motor inscribe es la misma gente,
+  // salvo las dos mitades de la post-agenda, que el motor separa (`secuenciasParaElLead`).
+  for (const ev of Object.keys(ETAPA_DEL_EVENTO) as Array<keyof typeof ETAPA_DEL_EVENTO>) {
+    const entran = [...TRIGGERS_POR_EVENTO[ev].map(tipo), etapa(ETAPA_DEL_EVENTO[ev]!)];
+    for (const x of entran) for (const y of entran) {
+      const mitades = x.trigger_tipo !== y.trigger_tipo && FAMILIA_POST_AGENDA.includes(x.trigger_tipo) && FAMILIA_POST_AGENDA.includes(y.trigger_tipo);
+      assert.equal(mismaCohorte(x, y), !mitades, `${ev}: ${x.trigger_tipo}/${x.etapa ?? ''} y ${y.trigger_tipo}/${y.etapa ?? ''}`);
+    }
+  }
+  // Lo que el motor NO junta: eventos distintos, otra etapa, y lo que se filtra por cuál (un canal).
+  assert.equal(avisa(tipo('instant_form_sin_agenda'), tipo('agendado_sin_confirmar')), false, 'un lead nuevo y una reserva');
+  assert.equal(avisa(tipo('instant_form_sin_agenda'), etapa('agenda')), false, 'el formulario y la etapa agenda');
+  assert.equal(avisa(etapa('lead'), etapa('agenda')), false, 'dos etapas');
+  assert.equal(avisa(tipo('instant_form_sin_agenda'), cron({ trigger_tipo: 'instagram', disparadores: [{ id: 'd1', trigger_tipo: 'instagram', subtipo: 'dm' }] } as Fila)), false, 'un DM');
+  // El motor y el aviso leen la MISMA tabla: no hay otra en lib/nutricion.ts.
+  const nutri = FUENTE.get('lib/nutricion.ts')!;
+  assert.doesNotMatch(nutri, /const TRIGGERS_POR_EVENTO/, 'el motor volvió a tener su propia tabla de eventos');
+  assert.match(nutri, /import \{ TRIGGERS_POR_EVENTO, ETAPA_DEL_EVENTO, type EventoNutricion \} from '@\/lib\/nutricion-eventos';/);
+  assert.match(nutri, /const conSuEtapa = ETAPA_DEL_EVENTO\[evento\] != null;/);
+});
+
 // ── La red por HECHOS: el texto no decide el aviso ───────────────────────────────────────────
 
 test('por HECHOS: los 34 duplicados de verdad avisan, y los 24 mensajes distintos de la misma etapa también', async () => {
@@ -278,6 +433,13 @@ test('el arranque del aviso: en una línea, cortado sin partir una palabra, y un
   assert.ok(plano.startsWith(corto.slice(0, -1)) && plano[corto.length - 1] === ' ', `partió una palabra: ${corto}`);
   assert.equal(arranqueParaAviso('Hola\n\n{{nombre}}  ¿venís?'), 'Hola {{nombre}} ¿venís?');
   assert.equal(arranqueParaAviso('   '), '(un audio o un archivo, sin texto)');
+  // ⚠️ Sin partir un emoji (revisión del 21/10/2026): medio par suelto se veía «�» y la pendiente del Doer no se guardaba.
+  const suelto = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
+  const fuego = arranqueParaAviso(`Hola {{nombre}}! Mira:${'🔥'.repeat(80)}`);
+  assert.ok(!suelto.test(fuego) && fuego.endsWith('🔥…'), `partió un emoji: ${JSON.stringify(fuego.slice(-4))}`);
+  assert.ok(Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(fuego)).length <= LARGO_ARRANQUE);
+  const familia = arranqueParaAviso(`Hola:${'👨‍👩‍👧'.repeat(80)}`);
+  assert.ok(familia.endsWith('👨‍👩‍👧…'), `partió una familia: ${JSON.stringify(familia.slice(-6))}`);
 });
 
 test('«MaKo escribe tu nutrición»: el copy se queda quieto mientras guarda, y «… igual» se apaga con otro texto', () => {
@@ -326,3 +488,22 @@ test('«MaKo escribe tu nutrición»: el copy se queda quieto mientras guarda, y
 //   H7. el arranque parte una palabra
 // Restaurado: 13 / 0. Las 17 roturas caen en al menos uno de los tres tests del aviso (tests/recurrente-no-salio.test.ts,
 // tests/automations-aviso-todos-caminos.test.ts y éste).
+//
+// Por evento, por la API y los bajos (21/10/2026, `roturas-eventos.json`, md5 igual). Base 16 / 0. Cada una → 15 / 1:
+//   E1. por evento vuelve a no compararse          A3. `publicarCrons` no pregunta
+//   E2. sin mirar el evento (`subtipo`)            A4. el audio que cambia el canal no pregunta
+//   E3. «cualquier etiqueta» no cruza con la de una A5. el server ignora los CRON nuevos
+//   E4. «cualquier etiqueta» sin mirar «Ignorar»   A6. `duplicadaAlActivar` ignora los CRON nuevos
+//   E5. «a mano» cuenta como misma gente           P1. una pausada lee todas
+//   G1. el arranque por unidades UTF-16            P2. lee también las pausadas
+//   G2. el arranque por puntos de código           S1. una mudanza prende aunque ya haya otra del evento
+//   A1. la propuesta de CRON no pregunta
+//   A2. el «sí» de CRON guarda directo
+// Restaurado: 16 / 0. Las 21 caen en al menos uno de los tres (Z1–Z5, los horarios, en tests/recurrente-no-salio.test.ts).
+//
+// Los grupos de evento del motor (21/10/2026, `roturas-grupos.json`, md5 igual). Base 17 / 0. Cada una → 16 / 1:
+//   F1. dos disparadores distintos nunca son la misma gente   F5. el motor vuelve a decidir su etapa por su cuenta
+//   F2. sin la etapa del evento («lead», «agenda»)            F6. la etapa del lead nuevo con otra clave
+//   F3. sin excluir las dos mitades de la post-agenda         F7. un evento de antes fuera de la tabla
+//   F4. los que se filtran por cuál entran al grupo
+// Restaurado: 17 / 0.

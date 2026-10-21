@@ -1,5 +1,16 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **21/10/2026 (`claude4`): LOS GRUPOS DE EVENTO.** La tabla de qué automatizaciones mira cada evento del motor
+> (`TRIGGERS_POR_EVENTO`, y `ETAPA_DEL_EVENTO` para la etapa que se le suma) vive en lib/nutricion-eventos.ts, pura, y la
+> leen `enrolarPorEvento` y el aviso de duplicada: un lead nuevo o una reserva que entran a dos disparadores distintos
+> ahora avisan. Un evento nuevo en el motor se suma ahí, y el aviso lo ve solo.
+>
+> **21/10/2026 (`claude4`): LA DUPLICADA POR EVENTO Y POR LA API.** Dos activas con el mismo disparador y el mismo evento
+> (DM, pago, «Se agrega etiqueta», los eventos de antes) avisan: el motor inscribe en todas. Cambiar los CRON de una
+> activa por la API va por `publicarCrons` (lib/disparadores-guardar.ts), y un audio que pasa a WhatsApp el primer mensaje,
+> por `publicarPasos`. El arranque corta por grafemas, los días de dos Recurrentes se comparan en la misma zona (y a 12 h
+> se pisan), y una pausada que se publica no lee todo. Cosecha: hallazgos-chatbot.
+>
 > **21/10/2026 (`claude4`): EL AVISO DE DUPLICADA SE DECIDE POR HECHOS.** Después de tres rondas de reglas sobre el
 > parecido del texto (decisión del Cerebro: «no hagas otra»), `duplicadaDe` (lib/automatizacion-duplicada.ts) avisa
 > SIEMPRE que otra activa le escribe a la misma gente, por el mismo canal y con horarios que se pisan, y el aviso trae
