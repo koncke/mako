@@ -286,7 +286,7 @@ test('WhatsApp NO cambia: sin señal clara el pedido se anota como idea, con las
   }
   // Y el doer de WhatsApp no manda `canal`; el turno de la app sí.
   assert.doesNotMatch(leer('lib/mako-doer-in.ts'), /canal:\s*'app'/, 'el doer de WhatsApp pasa canal app al clasificador');
-  assert.match(leer('lib/mako-turno-app.ts'), /clasificarIntencion\(textoClasificar, \{[^}]*canal: 'app'/s, 'el turno de la app no le dice al clasificador que es la app');
+  assert.match(leer('lib/mako-turno-app.ts'), /clasificarIntencion\(textoClasificar, \{[^}]*canal: 'app'/, 'el turno de la app no le dice al clasificador que es la app');
   // «creá una etiqueta…» en WhatsApp, sin verbo de la lista: no es una acción (el dueño dicta ideas por ahí).
   assert.notEqual(turnoWhatsApp('creá una etiqueta que se llame Caliente').veredicto.buscaEnTodo, true);
 });
