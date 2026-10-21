@@ -17,6 +17,7 @@ arregladas, y donde el rescate lo sabía, lo dice.
 
 ## Lo que más muerde acá
 
+- **(21/10/2026) Los CSV que exporta la app se abrían como FÓRMULA en Excel y en Sheets**: cinco exportadores tenían cada uno su escape, cuatro sin defensa, y la más expuesta era la de leads del CRM (nombres que vienen de formularios públicos: un lead llamado «=HYPERLINK(…)»). Ahora hay UN helper (`lib/csv-celda.ts`) y un test que rompe Actions si una exportación arma el suyo → [Inyección de fórmulas en los CSV](#inyección-de-fórmulas-en-los-csv-que-exporta-la-app-cinco-exportadores-cinco-escapes-y-cuatro-sin-defensa-21102026).
 - **(21/10/2026) «Desde la 0280 las funciones nuevas nacen cerradas» era falso**: el EXECUTE de PUBLIC viene del default GLOBAL de Postgres y un `alter default privileges … in schema` no lo saca, así que toda función creada después (la 0310, la 0318) nació ejecutable por la clave anon. Cerrado con la 0319 (default global + bucle sobre el catálogo) y un test que exige el revoke en toda migración → [El EXECUTE de PUBLIC es un default GLOBAL](#el-execute-de-public-es-un-default-global-desde-la-0280-nacen-cerradas-era-falso-21102026).
 - **(14/10/2026) Con la clave PÚBLICA de Supabase se ejecutaban dos funciones SECURITY DEFINER** de la cola de Flow: se leían y saboteaban los trabajos de todos los clientes. `revoke ... from public` no saca el EXECUTE DIRECTO que Supabase le da a anon. Cerrado con la 0280 → [Auditoría end-to-end del 14/10](#auditoría-end-to-end-del-14102026).
 - **(14/10/2026) La página esconde por rol; la API no**: el proxy sólo pide sesión, así que toda ruta sin su propio corte de rol se la deja usar a un closer o setter → [Auditoría end-to-end del 14/10](#auditoría-end-to-end-del-14102026). El 16/10 cayeron tres rutas más, que la auditoría había dado por refutadas → [Experiments, Retro y Second Brain](#experiments-retro-y-la-búsqueda-del-second-brain-sin-corte-de-rol-mal-refutado-16102026).
@@ -1943,6 +1944,51 @@ por forma); y el script de medición decía «---» para las de trigger cuando d
 
 **Vive en:** `supabase/migrations/0319_funciones_sin_public.sql` · `tests/migraciones-funciones-cerradas.test.ts` · `scripts/medir-funciones-publicas.mjs` · `AGENTS.md` («Toda función SQL nueva…») ·
 la revisión de Pagos del 21/10 (`revision-pagos-0318-21-10.md`) y la de la 0319 (`revision-infra-0319-21-10.md`), notas del Cerebro
+
+## Inyección de fórmulas en los CSV que exporta la app: cinco exportadores, cinco escapes, y cuatro sin defensa (21/10/2026)
+
+**El síntoma** (lo vio Onboarding en su sexta revisión): las exportaciones a CSV no escapaban las celdas que empiezan con `=`, `+`, `-`, `@` (ni con tab o CR). La más expuesta era la de leads del CRM
+(`ExportarLeadsModal`): los nombres y los campos vienen de formularios PÚBLICOS (el opt-in de una landing, Meta, Calendly). Un lead que se llame `=HYPERLINK("http://malo.example","clic")` o
+`=cmd|' /C calc'!A0` se vuelve fórmula cuando el cliente abre el archivo en Excel o en Sheets (OWASP, «CSV Injection»: enlaces que filtran datos, `IMPORTXML`, DDE). También estaban la cartera de `/admin`,
+el Plan y las métricas.
+
+**El diagnóstico obvio —«a la exportación de leads le falta el escape»— era el equivocado.** Lo que había eran CINCO escapes distintos. El Dashboard y la ficha del lead ya usaban el helper `lib/csv-celda.ts`
+(desde el 16/10) y Customer Success tenía el suyo, más fino (los teléfonos como `="…"`); pero los leads del CRM, el Plan, las métricas y la cartera de `/admin` tenían cada uno su `celda` o su `esc` copiado,
+SIN defensa contra fórmulas. Parchear sólo el de leads habría dejado tres iguales, y la próxima exportación habría copiado cualquiera de los seis.
+
+**Qué quedó** (`lib/csv-celda.ts`, `tests/csv-celda.test.ts`, `tests/csv-una-sola-via.test.ts`):
+- **UN helper para armar CSV**: `celdaCsv` (la celda), `filaCsv`, `armarCsv` (BOM, saltos, separador) y `neutralizarFormula` —la única definición de «arranca como fórmula»—: `=`, `+`, `-`, `@` también tras espacios,
+  y un tab, un CR o un LF adelante, con el apóstrofo delante. Opciones para lo que cada pantalla ya hacía (`sep`, `siempreComillas`, `aplanarSaltos`, `telefonosComoTexto`, `comillasTambien`, `numero`): las salidas
+  de Customer Success, el Plan, las métricas, el Dashboard y la ficha NO cambian (sus tests, que fijan el texto del archivo, siguen en verde).
+- **Las cinco exportaciones que faltaban usan el helper**: leads del CRM (`csvDeLeads`, ahora una función pura en `leads-exportar.ts` que un test puede ejecutar; antes vivía adentro de la server action),
+  el Plan, las métricas, la cartera de `/admin` y Customer Success (que conserva su política con el mismo resultado byte a byte).
+- **La guarda** (`tests/csv-una-sola-via.test.ts`) barre `app/`, `lib/` y `components/`: (R1) el idioma `replace(/"/g, '""')` vive SÓLO en el helper; (R2) todo archivo que baja o sirve un `text/csv` importa el helper o
+  figura en `CONSUME_CSV_DE_OTRO` con el módulo que arma el CSV (que a su vez lo importa); (R3) todo archivo que define algo con «csv» como palabra en el nombre, ídem. Las listas no se pudren: una entrada que ya no
+  hace falta falla. Probada rompiéndola: 28 roturas, 28 rojas (detalle en el pie de los tests).
+- **El camino de vuelta**: el importador de leads (`filasDesdeCsv`) deshace el apóstrofo y el `="…"` (`desescaparCeldaCsv`); sin eso, exportar → corregir → importar dejaba un `'` pegado al nombre.
+
+**Lo que no es obvio:**
+- **Un número tipado no se toca** (una columna de cifras sigue siendo cifras) y **un decimal negativo escrito como texto** («-5», «-12.50») **tampoco**: no tiene con qué ejecutar nada y el apóstrofo lo volvería
+  texto. **El `+` nunca se exime**: un teléfono con `+` y un `+cmd|…` son indistinguibles para Excel.
+- **El apóstrofo se ve.** Excel no lo trata como marca de texto al abrir un CSV (sólo cuando se teclea en una celda): el archivo muestra `'=1+1`. Es el costo de la receta de OWASP y se asume; la excepción son los
+  teléfonos de Customer Success, que van como `="…"` y no se ven alterados.
+- **Customer Success tenía razón antes** (sus teléfonos como texto, el aplanado de saltos, los espacios antes del signo) y por eso su política pasó al helper como opciones y no al revés.
+- **Los leads del CRM NO usan `telefonosComoTexto`** (decisión abierta, ver abajo): un teléfono que arranca con `+` sale con apóstrofo.
+- **Lo que Excel y Sheets hacen con cada forma NO se comprobó en ninguno de los dos** (la máquina no tiene Excel ni LibreOffice): se fija el TEXTO del archivo, que es lo único que decide este código.
+
+**Reglas que quedan:**
+- **Un CSV se arma con `lib/csv-celda.ts`, nunca a mano.** Una exportación nueva que escribe su propio escape, o que baja un `text/csv` sin importar el helper, rompe Actions.
+- **Todo texto que viene de afuera (un formulario público, una campaña de Meta, el título de una tarea) es hostil en una planilla**, aunque la pantalla lo muestre sano.
+- **Un importador de un archivo que la app exportó deshace lo que el exportador le agregó** (`desescaparCeldaCsv`).
+- Una guarda de «todo pasa por X» se prueba con una rotura en un archivo que NO importe X: la primera versión de la rotura de R3 caía en un archivo que ya importaba el helper y no podía dar rojo.
+
+**Sin hacer / abierto:** (1) **Los teléfonos de los leads del CRM** salen con apóstrofo visible (`'+5491122334455`); pasarlos a `="…"` como Customer Success los dejaría como texto en Excel, pero un monto que llegara como
+string también se volvería texto: hay que mirar qué columnas de `leadsFiltrados` son strings numéricos antes de decidirlo. (2) **`app/admin/AdminView.tsx` en la rama `onboarding-v3`** (todavía sin integrar) tiene su propio `esc` inline con la
+MISMA semántica (apóstrofo en lo que arranca con `= + - @ \t \r`): al integrar, hay conflicto en `exportarWorkspaces`; quedarse con la versión del helper (`armarCsv([cab, ...cuerpo], { sep: ';' })`) y conservar las columnas nuevas de ellos. Si no, la guarda
+(R1) frena su rama. (3) Otros formatos (`.xlsx`, TSV) no hay: si aparecen, la misma regla. (4) Los importadores del Plan y de Customer Success no se tocaron (no importan lo que ellos mismos exportan).
+
+**Vive en:** `lib/csv-celda.ts` · `tests/csv-celda.test.ts` · `tests/csv-una-sola-via.test.ts` · `app/crm/leads-exportar.ts` (`csvDeLeads`) · `app/crm/leads-importar.ts` · `app/plan/board/exportar.ts` · `app/customer-success/exportar.ts` ·
+`lib/metricas-modelo.ts` · `app/admin/AdminView.tsx` · `AGENTS.md` («Un CSV se arma con `lib/csv-celda.ts`»)
 
 ## Un `next dev` sin `AUTH_SECRET` es un admin abierto a la red (15/10/2026)
 
