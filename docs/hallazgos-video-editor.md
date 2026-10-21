@@ -1628,6 +1628,18 @@ hasta esa propuesta y la resalta; si ya se aceptó, se descartó o no existe, lo
   primero, el scroll al final lo pisa. La primera rotura de prueba («borrar el baja-solo») pasaba,
   porque comparar posiciones con un `indexOf` de −1 da verdadero: el test ahora exige que exista.
 
-**Lo que quedó SIN hacer:** la tarjeta «Original | Modificado» en el hilo del Ops Center (el
-bloque G4) es de la 1.7 de Ops Center 3; la API ya devuelve las filas en `extra.cambios` y el link.
-Mirarlo de punta a punta en el navegador con las migraciones 0298 a 0302 aplicadas.
+**La tarjeta «Original | Modificado» (mismo día).** Cada edición devuelve en `extra.bloque` el G4
+del marco de bloques de Ops Center 3 (`lib/editor-video/propuesta-bloque.ts`): fila por fila, el
+elemento como está en la COPIA del proyecto y cómo queda, con «Aceptar en el editor». Dos cosas que
+no se ven en el código:
+- **«Original» no es un diff del editor**: el editor revisa contra la línea de tiempo viva con
+  `revisarOperaciones` (`chat/linea.ts`), que pide su vista en memoria (Maps de refs). El server
+  sólo tiene la copia en JSON, así que dice el elemento de hoy (nombre y tiempos) y lo pedido. Por
+  eso el editor vuelve a revisar al aceptar.
+- **El bloque se probó contra el saneador real** (`sanearBloque`, rama ola1): con un espacio en el
+  nombre del proyecto sin codificar, o un link absoluto, el saneador lo DESCARTA entero y la tarjeta
+  no aparece sin ningún error. El test corre contra el saneador cuando el marco está en el árbol.
+
+**Lo que quedó SIN hacer:** colgar `extra.bloque` del mensaje de MaKo en el turno y dibujarlo al
+llegar (`itemsDeRespuesta` hoy sólo dibuja bloques al confirmar una tarjeta): es la 1.8 de Ops
+Center 3. Mirarlo de punta a punta en el navegador con las migraciones 0298 a 0302 aplicadas.

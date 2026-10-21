@@ -40,10 +40,11 @@ recetas de video, Generator, AI Avatar e imagen en `lib/doer-recetas.ts`). Las f
 están en la carpeta compartida del Cerebro (`frases-video-imagen-1-2.json`), pasadas a MaKo Alert.
 
 **Ola 1, falta:**
-1. **La tarjeta G4 «Original | Modificado» en el hilo**, con «Aceptar en el editor». La API ya
-   devuelve el link y las filas (`extra.cambios`, `lib/api-mako/areas/video.run.ts`); falta que el
-   turno lo pase como bloque. La forma del bloque es de la 1.7 (Ops Center 3): se le preguntó el
-   20/10. Mirarlo de punta a punta en el navegador con las migraciones 0298 a 0302 aplicadas.
+1. **La tarjeta G4 «Original | Modificado» en el hilo**, con «Aceptar en el editor». La API ya la
+   devuelve armada en `extra.bloque` (`lib/editor-video/propuesta-bloque.ts`, forma del G4 de la
+   rama ola1, probada contra su `sanearBloque`). Falta que el turno la cuelgue del mensaje de MaKo
+   y la dibuje al llegar: es la 1.8 de Ops Center 3. Mirarlo de punta a punta en el navegador con
+   las migraciones 0298 a 0302 aplicadas.
 2. **«cortá el principio del video» llega a su herramienta** cuando la 1.2 (MaKo Alert) esté: el
    `todo` de `tests/doer-recetas-video-imagen.test.ts` pasa a ser un test común.
 
