@@ -158,7 +158,8 @@ test('3: el motor lee lo de cada automatización UNA vez, estricto, y lo usa por
   assert.match(pe, /else if \(soloCerradas\.length\) q = q\.not\('secuencia_id', 'in', `\(\$\{soloCerradas\.join\(','\)\}\)`\);/);
   assert.match(pe, /const cerrada = fuera\(insc\.secuencia_id\);/);
   // Revisión del 20/10/2026 (tests/automations-config-revision.test.ts): lo propio ilegible ya no corta el carril de todas: corre sólo lo de afuera del horario.
-  assert.match(pe, /if \(limites === 'ilegible'\) return \{ \.\.\.res, saltado: 'limites-ilegibles' \};/);
+  // Revisión del 20/10/2026, noche (tests/automations-aviso-todos-caminos.test.ts): con `ignorar_ventana` (sin corte del horario) lo propio ilegible corta.
+  assert.match(pe, /if \(limites === 'ilegible' \|\| \(configs === 'ilegible' && fueraDeHorario == null\)\) return \{ \.\.\.res, saltado: 'limites-ilegibles' \};/);
   assert.match(pe, /const configsCorrida: ReadonlyMap<number, ConfigAutomatizacion> = configs === 'ilegible' \? new Map\(\) : configs;/);
   assert.match(pe, /frenadoPorAntiBan\(insc\.lead_id, paso\.canal, conEnvioRecienteDe\(insc\.secuencia_id\), enviadoEnCorrida\)/);
   assert.match(pe, /const ventanaDe = \(secId: number\) => personaHorasDeLaAutomatizacion\(configsCorrida\.get\(secId\) \?\? \{\}, limites\);/);

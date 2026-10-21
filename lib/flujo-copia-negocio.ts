@@ -31,6 +31,7 @@ import { productosConEtapas, TriggerInvalidoError } from './setting-secuencias';
 import { cronParaEsteNegocio } from './copia-disparador';
 import { nombreLibre } from './plantillas-automatizaciones';
 import { emojiDeSecuencia } from './flujo-conversacion';
+import { copiarConfigAutomatizacion } from './config-automatizacion-db';
 import { leerCopia, limpiarReferencias, tokenDeBytes, tokenDeTexto, LARGO_TOKEN, type CopiaFlujo, type Existentes, type PasoCopiado } from './flujo-copia';
 
 // ── El token: guardar y leer la copia ─────────────────────────────────────────────────────────────
@@ -77,6 +78,27 @@ export async function copiaDeToken(token: string): Promise<CopiaFlujo | null> {
 }
 
 /**
+ * DE DÓNDE SALIÓ UNA COPIA POR TOKEN: el negocio y la automatización que la guardaron (`guardarCopiaConToken`). null = no
+ * es un token (el texto entero de una copia no lo dice), o no existe. La usa «Crear» para saber si se pega en el MISMO
+ * negocio (revisión del 20/10/2026, noche: ahí la copia lleva la configuración propia, como «Duplicar»).
+ */
+export async function origenDeCopia(texto: unknown): Promise<{ ws: number; secuenciaId: number | null } | null> {
+  if (leerCopia(texto)) return null;
+  const t = tokenDeTexto(texto);
+  if (!t) return null;
+  const { data, error } = await getSupabaseServer().from(TABLA_COPIAS).select('workspace_origen, secuencia_origen').eq('token', t).maybeSingle();
+  if (error) {
+    if (faltaLaTabla(error)) throw new FaltaTablaCopiasError();
+    throw new Error(`origenDeCopia: ${error.message}`);
+  }
+  const r = data as { workspace_origen?: number | string | null; secuencia_origen?: number | string | null } | null;
+  const ws = Number(r?.workspace_origen);
+  if (!r || !Number.isInteger(ws) || ws <= 0) return null;
+  const sid = Number(r.secuencia_origen);
+  return { ws, secuenciaId: Number.isInteger(sid) && sid > 0 ? sid : null };
+}
+
+/**
  * LO PEGADO, sea lo que sea: el texto entero de una copia (el de antes, o tarjetas de Ctrl+C) o un token. Primero el texto
  * entero: una copia de verdad no trae un token adentro. null = no es un flujo de MaKo, o el token no existe.
  */
@@ -120,8 +142,14 @@ export async function limpiarCopia(copia: CopiaFlujo): Promise<PasoCopiado[]> {
 
 export type CreadaDesdeCopia = { id: number; nombre: string; aviso: string | null };
 
-/** Crea la automatización de lo copiado, APAGADA. */
-export async function crearDesdeCopia(copia: CopiaFlujo): Promise<CreadaDesdeCopia> {
+/**
+ * Crea la automatización de lo copiado, APAGADA.
+ *
+ * `configDe` (revisión del 20/10/2026, noche): la automatización de la que salió, si es de ESTE negocio. Su configuración
+ * propia (horario, horas a la misma persona) vive fuera de la fila y la copia la perdía: la de una «Prospección fría» de
+ * 9 a 18 nacía mandando a las 3 AM. Entre negocios NO va (es de otro negocio). Si no se puede copiar, la copia se borra.
+ */
+export async function crearDesdeCopia(copia: CopiaFlujo, o: { configDe?: number | null } = {}): Promise<CreadaDesdeCopia> {
   const db = await getTenantDb();
   const pasos = await limpiarCopia(copia);
   const { data: vivas, error: errNombres } = await db.from('nutricion_secuencias').select('nombre').is('archivada_at', null);
@@ -135,6 +163,7 @@ export async function crearDesdeCopia(copia: CopiaFlujo): Promise<CreadaDesdeCop
   const id = (nueva as { id: number }).id;
   try {
     await setSecuenciaPasos(id, pasos as unknown as PasoSecuencia[]);
+    if (o.configDe) await copiarConfigAutomatizacion(o.configDe, id);
   } catch (e) {
     await Promise.resolve(db.from('nutricion_secuencias').delete().eq('id', id)).catch(() => {});
     throw e;

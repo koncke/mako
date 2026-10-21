@@ -56,7 +56,10 @@ export const PASOS_AUTOMATIONS: PasoRecorrido[] = [
   // La galería (décima tanda, NUEVA AUTOMATIZACIÓN 3): la primera opción es siempre el lienzo en blanco.
   { objetivo: 'au-nueva', titulo: 'Nueva automatización', texto: 'Empieza en blanco o desde una plantilla.', lado: 'derecha' },
   // 20/10/2026: con una abierta, la lista ES el chat de MaKo (siempre abierto) y la tuerca del título es su configuración.
-  { objetivo: 'au-chat', titulo: 'MaKo', texto: 'Pídele cambios a esta automatización. Con ← vuelves a tu lista.', lado: 'derecha' },
+  // ⚠️ Y SE DICE PARA LAS DOS FORMAS (revisión del 20/10/2026, noche): al entrar se ve la LISTA, y el chat aparece al abrir
+  // una. Con «Pídele cambios a esta» el paso sólo cabía con el chat a la vista, y quien ya tenía automatizaciones no lo veía
+  // nunca (el «?» vive en la lista). Con la lista, señala la fila elegida.
+  { objetivo: 'au-chat', titulo: 'MaKo', texto: 'Abre una y aquí le pides cambios a MaKo. Con ← vuelves a tu lista.', lado: 'derecha' },
   { objetivo: 'au-config', titulo: 'Configuraciones', texto: 'El horario y los límites de esta automatización.', lado: 'abajo' },
   // (Acá iban «MaKo en WhatsApp» y «Configuraciones». Se fueron en la undécima tanda, punto 9: la lista es una
   // sola —los avisos de MaKo los separa el filtro— y Configuraciones vive en el menú del último paso.)
@@ -119,7 +122,11 @@ export const DONDE: Readonly<Record<string, readonly Buscar[]>> = {
     // una segunda forma, el «＋ Nueva» del cartel vacío de la tab: el cartel se fue y la lista se dibuja también vacía.)
     { css: 'button.chb-nueva', vive: [LISTA] },
   ],
-  'au-chat': [{ css: 'aside[aria-label="Chat con MaKo"]', vive: [LISTA] }],
+  'au-chat': [
+    { css: 'aside[aria-label="Chat con MaKo"]', vive: [LISTA] },
+    // Con la lista a la vista (al entrar): la fila elegida, la que abre su chat.
+    { css: 'aside[aria-label="Tus automatizaciones"] button[aria-current="true"]', vive: [LISTA] },
+  ],
   'au-config': [{ css: 'button[data-boton-tuerca]', vive: [PERFIL] }],
   'au-cron': [{ css: `[data-nodo="${ID_ENTRADA}"]`, vive: [LIENZO, 'lib/flujo-grafo.ts'] }],
   'au-mas': [

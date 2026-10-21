@@ -93,9 +93,9 @@ test('⚠️ marcar pagada una cuota anula sus links sin pagar, salvo el cobro q
   const marcar = bloque(PAGOS, 'export async function marcarPago(');
   // (16/10/2026: `*`, para leer `nacio_cobrada` sin romper una base sin la mig 0295; trae `cobro_id` igual.)
   assert.match(marcar, /\.select\('\*'\)/);
-  const iSi = marcar.indexOf('if (pagado) {');
-  const iAnular = marcar.indexOf('await anularLinksAlCobrar(pagoId, pago.cobro_id ?? null);');
-  assert.ok(iSi > 0 && iAnular > iSi, 'sólo al marcar PAGADO, y pasando el cobro propio');
+  // (20/10/2026, noche: lo de después de cobrar vive en `trasCobrar`, que llaman `marcarPago` y `cobrarCuota`.)
+  assert.ok(marcar.includes('if (pagado) await trasCobrar(pagoId, pago.cobro_id ?? null);'), 'sólo al marcar PAGADO, y pasando el cobro propio');
+  assert.match(bloque(PAGOS, 'async function trasCobrar('), /await anularLinksAlCobrar\(pagoId, cobroId\);/);
   const alCobrar = bloque(PAGOS, 'async function anularLinksAlCobrar(');
   assert.match(alCobrar, /await import\('\.\/cobros'\)/, 'import dinámico: lib/cobros.ts ya importa lib/pagos.ts');
   assert.match(alCobrar, /anularLinksDeCuota\(ws, pagoId, 'MaKo \(la cuota ya se cobró\)', cobroId == null \? null : Number\(cobroId\)\)/);

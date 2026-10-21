@@ -3747,11 +3747,14 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   // LOS LÍMITES DEL NEGOCIO (décima tanda, GENERAL 4), una vez por corrida y estrictos: sin leerlos no se
   // manda nada (lo vencido sigue ahí para la próxima), como con el horario.
   const limites = await limitesDeEnvio();
-  if (limites === 'ilegible') return { ...res, saltado: 'limites-ilegibles' };
   // ⚠️ SIN LO PROPIO DE CADA UNA, CORRE SÓLO LO QUE CORRE FUERA DEL HORARIO (revisión del 20/10/2026). `fueraDeHorario`
   // ya es 'horario-ilegible' (no se manda prospección), y el carril del recordatorio y las tarjetas que no esperan
   // siguen con las horas del NEGOCIO (el carril no pasa por el anti-ban). Cortar acá frenaba el «15 min antes» de
   // TODAS las automatizaciones, también las que no tienen nada propio, por una lectura nueva.
+  // ⚠️ SALVO QUE NADA LO HAYA ACOTADO (revisión de la misma noche): con `ignorarVentana` el horario no se mira,
+  // `fueraDeHorario` queda en null y la corrida mandaría TODO con las horas del negocio («Prospección fría», con 48 h
+  // propias, a las 30 h). Sin lo propio y sin el corte del horario, no se manda.
+  if (limites === 'ilegible' || (configs === 'ilegible' && fueraDeHorario == null)) return { ...res, saltado: 'limites-ilegibles' };
   const configsCorrida: ReadonlyMap<number, ConfigAutomatizacion> = configs === 'ilegible' ? new Map() : configs;
   const presupuesto = limites.wa.dia - (await enviosUltimas24h('whatsapp'));
   // Lo que ya salió en esta HORA, sólo para las corridas del cron (`cupoPorHora`).
