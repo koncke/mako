@@ -5,7 +5,7 @@
 // seguido — Pagos esperó casi DOS horas. Estas pruebas fijan lo que lo reemplaza: orden FIFO, un proceso muerto que no traba, compatibilidad con el
 // mkdir a mano, y que al tomarlo se traiga origin/main (con merge, y sin dejar el repo a medias si choca).
 //
-// ⚠️ PROBADO ROMPIÉNDOLO (20/10/2026, medido: se rompe UNA pieza, se corren las 11 pruebas de este archivo, se restaura; 12 de 12 dieron rojo):
+// ⚠️ PROBADO ROMPIÉNDOLO (20/10/2026, medido: se rompe UNA pieza, se corren las pruebas de este archivo, se restaura; 14 de 14 dieron rojo):
 //   · la cola al revés (el más nuevo primero)                    → 1 roja (FIFO)
 //   · ordenar el turno por pid en vez de por hora                → 1 roja (FIFO: los pids van al revés de la hora a propósito; la primera versión
 //                                                                   de la prueba tenía los pids crecientes y esta rotura SALÍA VERDE)
@@ -19,6 +19,8 @@
 //   · traerMain sin `merge --abort` (deja el merge a medias)     → 1 roja
 //   · traerMain sin el trailer Claude-Cuenta                     → 1 roja
 //   · traerMain que rebasea en vez de mergear                    → 2 rojas
+//   · traerMain con un solo intento de fetch (sin reintento)     → 1 roja
+//   · el aviso del fetch sin la causa que dio git                → 1 roja
 // Además: una PC sin user.email no podía commitear el merge y eso se leía como «chocó en 0 archivos» → ahora se firma con la identidad de Claude y,
 // si falla por otra cosa, el ROJO lo dice (la prueba corre en repos de mentira sin identidad, igual que esta PC).
 // =============================================================================
@@ -223,5 +225,16 @@ test('traerMain: si el merge CHOCA, aborta (la rama queda exactamente como estab
     assert.equal(git(mia, 'status', '--porcelain'), '', 'sin marcas de conflicto en el árbol');
     assert.throws(() => git(mia, 'rev-parse', '-q', '--verify', 'MERGE_HEAD'), 'y sin un merge a medias');
     assert.equal(readFileSync(join(mia, 'c.txt'), 'utf8'), 'versión mía\n');
+  } finally { rmSync(raiz, { recursive: true, force: true }); }
+});
+
+test('traerMain: si el fetch falla lo REINTENTA (los chats comparten un .git) y el aviso dice por qué, sin tumbar el VERDE', () => {
+  const { raiz, mia } = armarRepos();
+  try {
+    const t0 = Date.now();
+    const r = traerMain({ cwd: mia, base: 'nube/main', cuenta: 'claude9', fetch: true, reintentos: 3, pausaMs: 300 });
+    assert.ok(Date.now() - t0 >= 850, 'esperó entre intentos: 300 ms + 600 ms');
+    assert.deepEqual([r.ok, r.mergeado, r.atras], [true, false, 0], 'sin poder bajar, sigue con lo que tiene');
+    assert.match(r.aviso ?? '', /^no pude bajar nube\/main tras 3 intentos \(.*nube.*\): sigo con la copia que tengo$/, 'dice cuántos intentos y la causa que dio git');
   } finally { rmSync(raiz, { recursive: true, force: true }); }
 });

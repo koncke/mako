@@ -6698,6 +6698,10 @@ tope) — dos costos de un mismo defecto: **esperar y preparar la rama eran paso
 - **`core.autocrlf=true` (el default de Git para Windows) reescribe con CRLF al hacer `merge --abort`**, y el `status` de otra
   configuración ve el archivo «modificado». No pasa en la herramienta (todo usa la misma config), sí en una prueba que mezcla las dos:
   las copias de prueba fijan `core.autocrlf=false`.
+- **El `git fetch` de entrada falló UNA vez en la primera corrida real** (con el candado esperado 8 min y ~12 chats abiertos) y avisó
+  «¿sin red?» sin más; a mano y desde Node andaba en 3 s. Los worktrees comparten UN `.git`, y con una docena de chats bajando a la vez
+  un fetch puede chocar con el lock del otro. Ahora reintenta 3 veces (pausas crecientes) y el aviso trae la causa que dio git. Si igual
+  no baja, sigue con el `origin/main` que tiene (el VERDE vale contra esa copia: la línea lo deja ver con el ⚠).
 - **La primera versión de la prueba de la cola no agarraba el orden por pid** (los pids de los tres chats crecían con la hora, así que
   ordenar por pid o por hora daba lo mismo). Se vio al romperlo a propósito: ahora el más viejo tiene el pid más alto.
 
@@ -6705,7 +6709,7 @@ tope) — dos costos de un mismo defecto: **esperar y preparar la rama eran paso
 Cerebro. Y el candado no cubre el `mobile-build.lock` de los Mobile: es otro recurso con otra cola.
 
 **Vive en:** `scripts/candado-pesado.mjs` · `scripts/antes-de-subir.mjs` (`traerMain`, `--cola`, `--ya-tengo-el-candado`, `--sin-merge`) ·
-`tests/candado-pesado.test.ts` (11 pruebas; 12 roturas a propósito, todas dan rojo) · `AGENTS.md` («El candado de lo pesado ahora tiene COLA»)
+`tests/candado-pesado.test.ts` (12 pruebas; 14 roturas a propósito, todas dan rojo) · `AGENTS.md` («El candado de lo pesado ahora tiene COLA»)
 
 ## Un script de roturas no se corta con `head`, y un worktree no tiene `.env.local` (16/10/2026)
 

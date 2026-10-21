@@ -245,9 +245,11 @@ export function cuentaActiva() {
  * 40 min vuelve con main 40 min más adelante, y como el Cerebro pushea seguido su VERDE salía ROJO sólo por «te faltan N commits de main» (medido el
  * 20/10: Onboarding corrió el VERDE tres veces, con los 2.563 tests en verde). Si choca, se ABORTA el merge (la rama queda como estaba) y se dice en
  * qué archivos. Con `fetch: false` usa el `origin/main` que ya hay. Para probarlo con un repo de mentira: `cwd`.
+ * El `fetch` se REINTENTA: los worktrees comparten un solo `.git`, y con una docena de chats bajando a la vez un fetch puede chocar con el lock del otro
+ * (o con la red) sin que nada esté roto; la primera vez que corrió con el candado nuevo (20/10) falló una vez y avisó sin decir por qué.
  * @returns {{ ok: boolean, mergeado: boolean, atras: number, archivos?: string[], aviso?: string }}
  */
-export function traerMain({ cwd = RAIZ, base = 'origin/main', cuenta = '?', fetch = true } = {}) {
+export function traerMain({ cwd = RAIZ, base = 'origin/main', cuenta = '?', fetch = true, reintentos = 3, pausaMs = 2000 } = {}) {
   // Un GIT_INDEX_FILE heredado (el índice temporal de los tests) haría el merge sobre otro índice.
   const env = { ...process.env };
   for (const k of ['GIT_INDEX_FILE', 'GIT_DIR', 'GIT_WORK_TREE']) delete env[k];
@@ -255,8 +257,17 @@ export function traerMain({ cwd = RAIZ, base = 'origin/main', cuenta = '?', fetc
   const [remoto, ...resto] = base.split('/');
   let aviso;
   if (fetch) {
-    const f = g(['fetch', remoto, resto.join('/')], { timeout: 30000 });
-    if (f.status !== 0) aviso = `no pude bajar ${base} (¿sin red?): sigo con la copia que tengo`;
+    let f;
+    for (let intento = 1; intento <= reintentos; intento++) {
+      f = g(['fetch', remoto, resto.join('/')], { timeout: 60000 });
+      if (f.status === 0) break;
+      if (intento < reintentos) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, pausaMs * intento);
+    }
+    if (f.status !== 0) {
+      const lineas = String(f.stderr ?? '').trim().split('\n').filter(Boolean);
+      const motivo = f.error?.code === 'ETIMEDOUT' ? 'tardó más de 60 s' : (lineas.find((l) => /^(fatal|error):/.test(l)) ?? lineas.pop() ?? `salió con ${f.status}`).slice(0, 160);
+      aviso = `no pude bajar ${base} tras ${reintentos} intentos (${motivo}): sigo con la copia que tengo`;
+    }
   }
   const atras = Number(g(['rev-list', '--count', `HEAD..${base}`]).stdout.trim()) || 0;
   if (atras === 0) return { ok: true, mergeado: false, atras: 0, aviso };
