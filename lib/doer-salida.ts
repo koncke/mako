@@ -120,31 +120,21 @@ function oracionesPropias(texto: string): Oracion[] {
   return out;
 }
 
-/** El «(» o el «)» de un emoticón («:(», «:-)», «:'(»): no abre ni cierra nada. */
-const deEmoticon = (s: string, i: number): boolean => s[i - 1] === ':' || (/[-']/.test(s[i - 1] ?? '') && s[i - 2] === ':');
-
 /**
  * Hasta dónde PRESENTA la oración: lo que va antes del último «:» que presenta lo que sigue en el mismo mensaje («Te armé
  * un resumen de la semana:», «Hice la cuenta: con 14 leads…», «Déjame ver: tienes 3 reuniones»), o 0. Todo «:» presenta
  * (la sexta revisión: «**Hice la cuenta:** con 14 leads», «*Te armé este resumen:*» o «Te armé un resumen:👇» son el
- * formato del Ops Center, que pide negritas) SALVO el que va pegado a una letra, un dígito, «/» o un paréntesis (una hora
- * como 10:30, la de las tarjetas; un link, https:; un emoticón, «:)», «:D»), el que va entre paréntesis («(estado:
- * cerrado)») y el que no tiene nada después: ni texto en el mensaje ni bloques debajo («Listo, ya moví a Juan a Ganado:»).
+ * formato del Ops Center, que pide negritas; y la séptima: «(conversión: 21 %)», «:)», «`etapa:ganado`») SALVO el que va
+ * pegado a un dígito o a «/» (una hora, 10:30, la de las tarjetas; un link, https:) y el que no tiene nada después: ni
+ * texto en el mensaje ni bloques debajo («Listo, ya moví a Juan a Ganado:», «Listo, ya te agendé la reunión :)»).
  * `bloquesDebajo`: el mensaje lleva algo dibujado debajo del texto (una tabla, un gráfico, una pregunta, una tarjeta).
  */
 function finDeLoQuePresenta(texto: string, o: Oracion, bloquesDebajo: boolean): number {
-  // Los paréntesis que cierran, con lo que va adentro; el de un emoticón no cuenta, y uno sin cerrar no encierra nada.
-  const abiertos: number[] = [];
-  const adentro: Array<[number, number]> = [];
-  for (let i = 0; i < o.propia.length; i++) {
-    if (o.propia[i] === '(' && !deEmoticon(o.propia, i)) abiertos.push(i);
-    else if (o.propia[i] === ')' && !deEmoticon(o.propia, i) && abiertos.length) adentro.push([abiertos.pop()!, i]);
-  }
   let fin = 0;
   for (let i = 0; i < o.propia.length; i++) {
-    if (o.propia[i] !== ':' || adentro.some(([a, b]) => a < i && i < b)) continue;
+    if (o.propia[i] !== ':') continue;
     const despues = texto.slice(o.desde + i + 1);
-    if (/^[\p{L}\d/()\-'|]/u.test(despues)) continue;
+    if (/^[\d/]/.test(despues)) continue;
     if (/[\p{L}\d]/u.test(despues) || bloquesDebajo) fin = i + 1;
   }
   return fin;
