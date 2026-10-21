@@ -2756,6 +2756,32 @@ aceptaba la opción exacta: todo esto entraba nuevo.
   («Precio:», «Valor:», «Desde»), por sesión o por hora, rangos, otras monedas o meses de acceso. Es la familia del
   precio pelado, y es la regla de la décima.
 
+**Florencia otra vez (21/10, «cliente roto»): lo que el onboarding escribe, el cliente tiene que poder corregirlo.**
+- ⚠️ **Un dato que escribe la plataforma necesita un lugar donde el cliente lo corrija.** El nombre «mi marca personal:
+  Florencia Ayelen Carballo» lo escribió el onboarding del 18/10, y ella no tenía dónde cambiarlo: workspaces.nombre sólo
+  se editaba desde General (/configuraciones), que es del super admin. Arreglar el lector (el onboarding de hoy confirma
+  el nombre) no arregla a quien ya pasó. Ahora está «Tu negocio» (/configuraciones/negocio), primera sección para el
+  cliente, y lo cambia su admin (lib/nombre-negocio.ts, app/configuraciones/negocio-actions.ts).
+- **La reparación de un dato real no adivina.** Su precio dice «USD/mes (6 cuotas típicas)» y también «pago único» para
+  los servicios puntuales, y la lectura da pago único. El script (side-session-notes/…/feedback-20-10/reparar-ws21-v2.ts)
+  no toca el nombre (lo elige ella) y cambia el tipo de cobro sólo si quien lo corre dice cuál (`--meses=6` o
+  `--mensual`). Sin `--aplicar` sólo lee.
+- **Su chat «Onboarding» nunca se creó** (`hiloChat` vacío en su estado): terminó el 18/10, antes de que existiera, y ese
+  chat se crea cuando ella entra. Su conversación de Offer (sesión 14) sí guarda las preguntas de MaKo; las del nombre y
+  el negocio se arman al vuelo desde el estado y no se guardan en ningún lado.
+- **Medido en la base (21/10, noche): el ws21 tiene CERO chats en chart_sessions.** Lo único que su Ops Center puede
+  mostrar es la proyección de Offer (`hiloDeOffer`), y ésa tiene las 33 filas con las preguntas de MaKo. Lo que falta
+  son las preguntas Y las respuestas del arranque (nombre, negocio, fase, cómo llegó, interés, cobro). Además,
+  `mensajesDeOffer` descarta el mensaje del PDF (texto vacío y `adjuntos`), y `mensajesDelHilo` lo escribe como
+  «Adjunto: …»: son dos mapeos del mismo dato.
+- ⚠️ **Trampa para reconstruirlo:** `hechosDelArranque` lee la CAPA y el PERFIL de quien mira. Armado para el super
+  admin, da otro modo («plan» u «oferta») y otro nombre que armado para ella. Una reconstrucción para el Ops Center
+  tiene que leer la capa del negocio, no la de la sesión.
+- **Sin hacer (punto 1 del Cerebro):** guardar cada pregunta del arranque con su respuesta en la sesión de Offer
+  (`de: 'mako'` / `'yo'`, en el mismo lugar que la conversación), mostrarlo en el Ops Center y en el historial del
+  super admin, y para Florencia reconstruirlo desde `onboarding.arranque`, marcado «reconstruido». Vive en
+  lib/onboarding-arranque-server.ts (`mensajesParaElHilo`) y en lib/chat-mako-indice.ts (`hiloDeOffer`).
+
 **Sin hacer:** «Vendo 20 a 500 dólares» se sigue leyendo como un rango; la confirmación lo muestra y se corrige con un
 toque. Las etiquetas de los tramos dicen «$» sin «USD» (lib/fase-diagnostico.ts): es una decisión de copy, no de este
 chat. Vive en lib/onboarding-arranque.ts (`cifraDe`). Cobrar por año o por semana necesita un intervalo en el producto

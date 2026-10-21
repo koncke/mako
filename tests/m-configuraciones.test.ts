@@ -77,6 +77,7 @@ test('el índice ofrece lo de la computadora, y lo que no tiene pantalla dice po
 
 test('cada pantalla tiene la MISMA puerta que su página de escritorio', () => {
   const puertas: Record<SeccionNegocioM, [string, string]> = {
+    negocio: ['app/configuraciones/negocio/page.tsx', 'configuraciones'],
     equipo: ['app/equipo/page.tsx', 'configuraciones'],
     integraciones: ['app/integraciones/page.tsx', 'integraciones'],
     notificaciones: ['app/configuraciones/notificaciones/page.tsx', 'configuraciones'],

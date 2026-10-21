@@ -279,6 +279,7 @@ const UNA_A_UNA: Readonly<Record<string, string>> = {
  * (las credenciales de la plataforma), del super admin, se abren en la computadora desde el índice.
  */
 export const SECCIONES_NEGOCIO_M = {
+  negocio: '/configuraciones/negocio',
   equipo: '/equipo',
   integraciones: '/integraciones',
   notificaciones: '/configuraciones/notificaciones',
@@ -286,7 +287,7 @@ export const SECCIONES_NEGOCIO_M = {
   plan: '/configuraciones/plan',
 } as const;
 export type SeccionNegocioM = keyof typeof SECCIONES_NEGOCIO_M;
-const CLAVES_NEGOCIO_M: readonly SeccionNegocioM[] = ['equipo', 'integraciones', 'notificaciones', 'fiscal', 'plan'];
+const CLAVES_NEGOCIO_M: readonly SeccionNegocioM[] = ['negocio', 'equipo', 'integraciones', 'notificaciones', 'fiscal', 'plan'];
 const esSeccionNegocioM = (k: string): k is SeccionNegocioM => CLAVES_NEGOCIO_M.some((c) => c === k);
 export const RUTA_CONFIG_M = '/m/configuraciones';
 

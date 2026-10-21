@@ -42,6 +42,17 @@ test('lo guarda sólo el admin del negocio, en workspaces.nombre, y se vuelve a 
   assert.match(acc, /puedeEditar: rol === 'admin' && ws != null/);
 });
 
+test('en el teléfono, la MISMA lectura y el MISMO guardado (Florencia puede cambiarlo desde el celular)', () => {
+  const pagina = sinComentarios(leer('app/m/configuraciones/negocio/page.tsx'));
+  assert.match(pagina, /requireMovil\(\{ navKey: 'configuraciones' \}\)/);
+  assert.match(pagina, /await nombreDelNegocioAction\(\)/);
+  const cliente = sinComentarios(leer('app/m/configuraciones/negocio/NegocioM.tsx'));
+  assert.match(cliente, /await guardarNombreNegocioAction\(nombre\)/, 'el teléfono guarda por otro lado');
+  assert.match(cliente, /readOnly=\{!leido\.puedeEditar\}/, 'alguien del equipo que no es admin ve un campo que no guarda');
+});
+
 // ROTURAS (21/10/2026, romper.js + roturas-nombre.json del scratchpad; con ajustes-cuenta-negocio; base 11/0), 5 de 5:
 // cualquiera del equipo lo cambia → 10/1 · sin validar → 10/1 · un nombre sin letras pasa → 10/1 · sin volver a dibujar
 // la app → 10/1 · la sección sólo para el super admin → 9/2.
+// Y el teléfono (roturas-movil.json, con m-configuraciones; base 10/0), 2 de 2: sin su pantalla en `SECCIONES_NEGOCIO_M`
+// → 9/1 · el campo editable para quien no es admin → 9/1.
