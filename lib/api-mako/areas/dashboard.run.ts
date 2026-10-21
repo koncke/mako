@@ -1031,19 +1031,21 @@ export const RUNNERS: Runners = {
       const ancho = str(input, 'ancho');
       if (lugar && !(LUGARES as readonly string[]).includes(lugar)) return { error: `«${lugar}» no es un lugar: ${LUGARES.join(', ')}.` };
       if (ancho && !(ancho in ANCHOS)) return { error: `«${ancho}» no es un ancho: ${Object.keys(ANCHOS).join(', ')}.` };
-      let ref: Componente | null = null;
+      // La otra tarjeta (`referencia`). ⚠️ No se llama `ref`: en este archivo `ref` es el del pop-up de una caja de IA, y
+      // tests/graficos-ia-elemento.test.ts barre que ninguna puerta sin sesión lo arme.
+      let otra: Componente | null = null;
       if (lugar && lugarConReferencia(lugar as Lugar)) {
         const rb = buscarComponente(h, str(input, 'referencia'));
         if (!rb.ok) return { error: `¿Con respecto a qué tarjeta? ${rb.error}`, disponibles: rb.disponibles };
-        ref = rb.valor;
+        otra = rb.valor;
       }
-      const movida: Movida = { ...(lugar ? { lugar: lugar as Lugar } : {}), ...(ref ? { referencia: ref.id } : {}), ...(ancho ? { ancho: ancho as Ancho } : {}) };
+      const movida: Movida = { ...(lugar ? { lugar: lugar as Lugar } : {}), ...(otra ? { referencia: otra.id } : {}), ...(ancho ? { ancho: ancho as Ancho } : {}) };
       const prueba = moverComponente(h.componentes, c.id, movida);
       if (!prueba.ok) return { error: prueba.error, ...(prueba.yaEstaba ? { yaEstaba: true } : {}) };
       const nombre = comillas(nombreDeComponente(c));
       const donde = [
         lugar === 'arriba' ? 'arriba de todo' : lugar === 'abajo' ? 'abajo de todo' : '',
-        ref ? `${lugar === 'antes_de' ? 'antes de' : lugar === 'despues_de' ? 'después de' : 'al lado de'} ${comillas(nombreDeComponente(ref))}` : '',
+        otra ? `${lugar === 'antes_de' ? 'antes de' : lugar === 'despues_de' ? 'después de' : 'al lado de'} ${comillas(nombreDeComponente(otra))}` : '',
         ancho ? `con ${ancho.replace('_', ' ')} de ancho` : '',
       ].filter(Boolean).join(', ');
       return {

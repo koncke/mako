@@ -1718,6 +1718,12 @@ pantalla:
   null armó una tarjeta sin tipo, el mínimo cayó al de un gráfico, y parecía un error de mover.
 - Un ancho en palabras sólo topa con el mínimo en una sección (12) o en un experimento (4). Probarlo con un video (3) no
   prueba nada: el cuarto ya son 3.
+- Dos guardas de OTRAS áreas lo frenaron en el antes-de-subir, con razón:
+  - En dashboard.run.ts una variable no se llama `ref`: es el del pop-up de una caja de IA, y
+    tests/graficos-ia-elemento.test.ts barre que ninguna puerta sin sesión lo arme.
+  - El link de `/compartido/…` armado con `APP_BASE_URL` cae en tests/link-con-workspace.test.ts. Va en sus rutas
+    PÚBLICAS: lo abre un tercero sin sesión, con el token del share, y un `?ws=` le diría a un extraño el número del
+    negocio.
 - **Que la frase natural traiga la operación NO está resuelto:** «mové / poné al lado / cambiá el ancho» llegan, pero
   «exportá», «descargame», «compartí», «mueve» y «hacé más ancho» caen en «capturar» o en «consultar». Es el clasificador
   (pieza 1.2, de MaKo WhatsApp y Ops Center 3). Las frases medidas quedaron en la carpeta de notas del Cerebro
