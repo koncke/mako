@@ -26,10 +26,15 @@
 // =============================================================================
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import dynamic from 'next/dynamic';
 import Link, { useRouter } from '@/app/_ui/Link';
 import { useRutaInterna } from '@/app/_components/VistaMovil';
 import { Icon } from '@/app/_components/icons';
 import { MakoLogo } from '@/app/_components/MakoBrand';
+import { Criatura } from '@/app/_components/Criatura';
+// La entrada se carga DIFERIDA: su criatura importa un .css (app/admin/operaciones/criatura.css), y el índice de
+// app/m/_ui lo arrastraría a cada test de node que lo importe (cayó el run 182, tests/m-offer.test.ts).
+const EntradaMako = dynamic(() => import('@/app/onboarding/EntradaMako').then((m) => m.EntradaMako), { ssr: false });
 import { ATTR_MODO, LS_MODO } from '@/lib/temas-candidatos';
 import { HOME_MOVIL, destinoActivo, type IdBarra, type ItemBarra } from '@/lib/movil-rutas';
 import { iniciarCapturaInstalacion } from '@/lib/movil-instalar';
@@ -45,6 +50,11 @@ export type DestinoBarra = ItemBarra;
 type Toast = { id: number; mensaje: string; deshacer?: () => void; saliendo?: boolean };
 
 let secuenciaToast = 0;
+
+/** La entrada de MaKo ya salió en esta apertura de la app (sessionStorage: dura lo que la pestaña o la app instalada). */
+const LS_ENTRADA = 'mako_entrada_m';
+/** Adónde vuela la entrada al tocarla: la criatura del Ops Center en la barra de abajo. */
+const DESTINO_ENTRADA = 'data-mako-foto-barra';
 
 function reducido(): boolean {
   try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
@@ -125,6 +135,23 @@ export function ShellM({
     document.addEventListener('visibilitychange', cambio);
     return () => document.removeEventListener('visibilitychange', cambio);
   }, [router, marcarCarga]);
+
+  // ── La entrada de MaKo al abrir la app (21/10/2026) ──────────────────────
+  // Martín: «tampoco veo me haya salido la animación de la criatura, la misma del onboarding. Al iniciar la app en
+  // mobile». La MISMA de app/onboarding/EntradaMako.tsx (cae, rebota, saluda y espera el toque), una vez por APERTURA
+  // (sessionStorage: volver del fondo no la repite) y, al tocarla, vuela al Ops Center de la barra. No sale en el
+  // onboarding pendiente (/m/configurar tiene la suya) ni mirando la cuenta de un cliente.
+  const [entrada, setEntrada] = useState(false);
+  useEffect(() => {
+    if (cliente || limpia(pathname) === RUTA_CONFIGURAR) return;
+    try {
+      if (sessionStorage.getItem(LS_ENTRADA)) return;
+      sessionStorage.setItem(LS_ENTRADA, '1');
+    } catch { return; /* sin almacenamiento no se sabe si ya salió: mejor no repetirla en cada pantalla */ }
+    setEntrada(true);
+    // Sólo al montar el shell: navegar no la vuelve a pedir.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Toasts ───────────────────────────────────────────────────────────────
   const [toast, setToast] = useState<Toast | null>(null);
@@ -359,7 +386,10 @@ export function ShellM({
                       onClick={(e) => { if (es && ruta === d.href) { e.preventDefault(); subirAlTope(); } }}
                     >
                       <span className="m-barra__ico">
-                        <Icon name={d.icon} size={26} />
+                        {/* El Ops Center es la criatura de MaKo, que flota y parpadea (21/10/2026), como en la sidebar y en More. */}
+                        {d.criatura
+                          ? <span {...{ [DESTINO_ENTRADA]: '' }} style={{ display: 'inline-flex' }}><Criatura nombre={d.label} estrella size={24} /></span>
+                          : <Icon name={d.icon} size={26} />}
                         {n ? <span className="m-barra__badge" aria-hidden>{n > 99 ? '99+' : n}</span> : null}
                       </span>
                       <span className="m-barra__rotulo">{d.label}</span>
@@ -375,6 +405,8 @@ export function ShellM({
         {/* Los sheets se montan acá (portal): fuera del contenido, que se
             mueve al navegar y al tirar para refrescar. */}
         <div id="m-capas" />
+
+        {entrada && <EntradaMako destino={`[${DESTINO_ENTRADA}]`} onFin={() => setEntrada(false)} />}
 
         <div className="m-toast-capa" aria-live="polite">
           {toast && (

@@ -756,14 +756,14 @@ async function filasUbicacion(rg: Rango): Promise<Fila[]> {
  * Una fila por cliente ganado, con `cartera()` (lib/cs-cartera.ts) — la que lee la API de Customer Success:
  * su señal y el motivo (la REGLA en palabras: la frase trae números), su estado, cuántas cuotas vencidas,
  * sus sesiones y hace cuánto no hablan. La deuda vencida en dólares se suma con la MISMA vara que las cuotas
- * vencidas de la cartera (`fecha_esperada <= hoy`, en UTC como allá), para que los dos números no se
- * contradigan. El producto es el del embudo del lead (el de `leads.producto`).
+ * vencidas de la cartera (`fecha_esperada < hoy`, con el día del NEGOCIO como allá desde el 20/10/2026), para que los
+ * dos números no se contradigan. El producto es el del embudo del lead (el de `leads.producto`).
  */
 async function filasCartera(): Promise<Fila[]> {
   const [clientes, rot] = await Promise.all([cartera(), rotulosDelCrm()]);
   if (!clientes.length) return [];
   const ids = clientes.map((c) => c.leadId);
-  const hoyUtc = new Date().toISOString().slice(0, 10);
+  const hoy = await hoyEnWorkspace().catch(() => hoyEnTijuana());
   const [embudos, impagas] = await Promise.all([
     leerPorIds<{ id: number; funnel_id: number | null }>('leads', 'id, funnel_id', 'id', ids),
     leerPorIds<{ id: number; lead_id: number; monto_usd: number | null; fecha_esperada: string | null }>('pagos', 'id, lead_id, monto_usd, fecha_esperada', 'lead_id', ids, { extra: (q) => q.eq('pagado', false) }),
@@ -772,7 +772,7 @@ async function filasCartera(): Promise<Fila[]> {
   // Y los funnels a los que el cliente está AGREGADO (17/10/2026): el filtro de la hoja por funnel lo encuentra ahí también.
   const agregados = await funnelsAgregados(ids, rot.producto);
   const deuda = new Map<number, number>();
-  for (const p of impagas) if (p.fecha_esperada && p.fecha_esperada.slice(0, 10) <= hoyUtc) deuda.set(Number(p.lead_id), (deuda.get(Number(p.lead_id)) ?? 0) + num(p.monto_usd));
+  for (const p of impagas) if (p.fecha_esperada && p.fecha_esperada.slice(0, 10) < hoy) deuda.set(Number(p.lead_id), (deuda.get(Number(p.lead_id)) ?? 0) + num(p.monto_usd));
   return clientes.map((c) => ({
     f: null,
     // El cliente es una PERSONA (fuera de DIMENSIONES_PUBLICAS).

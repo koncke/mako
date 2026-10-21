@@ -53,6 +53,8 @@
 // =============================================================================
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { hoyEnTz } from '@/lib/date-utils';
+import { useTzWorkspace } from '../useTzWorkspace';
 import { createPortal } from 'react-dom';
 import { EstiloDeLaHoja } from './EstiloDeLaHoja';
 import { csvDelLead, nombreArchivoLead } from './exportar-lead';
@@ -134,7 +136,10 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   // El `router.refresh()` más, en el pop-up, la relectura de la ficha (lead-view/ficha-cambio.tsx).
   const refrescar = useRefrescarFicha();
   const etapa = lead.pipeline_stage && stages.some((s) => s.key === lead.pipeline_stage) ? lead.pipeline_stage : deriveStageKey(lead);
-  const hoy = new Date().toISOString().slice(0, 10);
+  // ⚠️ EL DÍA DEL NEGOCIO, no el UTC (20/10/2026): con `toISOString()`, de 18 a 24 h en México la ficha ya estaba en
+  // mañana y una cuota que vence hoy salía vencida acá y no en General ni en lo que dice MaKo. La zona es la de General
+  // (`tzActual` → `zonaDelNegocio`), por el hook de la ficha; hasta que llega, Tijuana, igual en el server y en el cliente.
+  const hoy = hoyEnTz(useTzWorkspace());
   const { toast, show, clear } = useToast();
 
   const ff = useFichaDelFunnel(data.ficha ?? null, {

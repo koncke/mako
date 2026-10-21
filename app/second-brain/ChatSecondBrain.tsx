@@ -33,7 +33,7 @@
 // app/second-brain/pagina.tsx). Arriba de la barra van «Ticketera» y, debajo, «Second Brain»: tocarlo cambia la lista a
 // los chats con MaKo (y el Mapa); si no, la lista son los chats de Claude Code. Abajo, el Uso y los Runners.
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type ReactNode } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import Link, { useRouter } from '@/app/_ui/Link';
 import { Toast, useToast } from '@/app/_ui';
@@ -48,7 +48,8 @@ import { cerebroDelCentro } from '@/app/tickets/bandeja/cerebro';
 import { useTicketsPorDecidir } from '@/app/tickets/bandeja/usarContador';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { CirculoNuevo } from '@/app/admin/operaciones/NuevoChat';
-import { Microfono } from '@/app/admin/operaciones/Microfono';
+import { CajaChat } from '@/app/_chat/CajaChat';
+import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import { HiloMako } from '@/app/_chat/HiloMako';
 import type { ItemPropuesta } from '@/app/_chat/TarjetaAccion';
 import {
@@ -233,7 +234,6 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
   const pegadosRef = useRef<Array<{ id: string; texto: string }>>([]);
   const ponerPegados = (xs: Array<{ id: string; texto: string }>) => { pegadosRef.current = xs; setPegados(xs); };
   const [soltando, setSoltando] = useState(false);
-  const entrada = useRef<HTMLInputElement>(null);
 
   useEffect(() => { const t = window.setInterval(() => setAhora(Date.now()), 60_000); return () => window.clearInterval(t); }, []);
 
@@ -347,13 +347,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
 
   // Como un chat: abre mostrando lo último, y baja cuando llega algo nuevo.
   useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [items.length, trabajo, idElegido]);
-  // La caja crece con lo que se escribe, hasta el tope del CSS.
-  useLayoutEffect(() => {
-    const el = caja.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
-  }, [texto]);
+  // El campo que crece y el scroll que lo acompaña son de la caja única (app/_chat/CajaChat.tsx): le pasa la conversación.
+  const seguirHilo = useCallback(() => hilo.current, []);
 
   const desde = trabajo?.desde ?? null;
   useEffect(() => {
@@ -485,9 +480,19 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
       void sumarArchivos(Array.from(e.dataTransfer.files));
     },
   };
-  const tecla = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    // Enter manda; Shift+Enter baja de renglón. Mientras se compone un acento (IME), Enter es del teclado.
-    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); enviarCaja(); }
+  /** Las fotos y los PDF de la caja, para la caja única: sólo fotos y PDF (lo que lee /api/mako/chat, lib/mako-adjuntos.ts). */
+  const adjuntosCaja: AdjuntosDeCaja = {
+    items: elegidos, puede: true, onSumar: (fs) => void sumarArchivos(fs), onQuitar: quitarArchivo, accept: ACCEPT_ADJUNTOS_CHAT,
+    onSinImagen: (puedeLeer) => setFaltaMic(puedeLeer ? 'No hay una imagen copiada' : 'Este navegador no deja pegar'),
+  };
+  /** Un texto de más de 1.000 caracteres no entra a la caja: queda como un documento pegado (#864, como Claude). Una imagen
+   *  pegada la toma la caja única (pegar.ts → alPegar). */
+  const pegarLargo = (e: ClipboardEvent<HTMLTextAreaElement>) => {
+    // Una celda de Excel o un párrafo de Word viajan como texto Y como imagen: con texto, manda el texto (la revisión de
+    // caja-voz, 20/10/2026: salir con cualquier archivo dejaba un pegado de 5.000 caracteres crudo en la caja, sin archivarse).
+    if (e.clipboardData.files.length && !Array.from(e.clipboardData.types).includes('text/plain')) return;
+    const pegado = e.clipboardData.getData('text/plain');
+    if (esPegadoLargo(pegado)) { e.preventDefault(); ponerPegados([...pegadosRef.current, { id: idLocal('p'), texto: pegado }]); }
   };
 
   /** Sólo lo que NO llegó (un 4xx): se saca y se manda de nuevo. */
@@ -743,8 +748,15 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
               </div>
             ) : (
             <div className="co-caja">
-              {(elegidos.length > 0 || pegados.length > 0) && (
-                <ul className="ch-elegidos" aria-label="Archivos para mandar">
+              {/* La caja ÚNICA (app/_chat/CajaChat.tsx, 20/10/2026): la misma del Ops Center, en toda la app (Martín: «Te pedí
+                  que unificaras el chat del Ops Center en todos lados, su diseño y funcionalidades»). Arriba, los textos
+                  largos pegados como documento. */}
+              <CajaChat texto={texto} onTexto={(v) => { setFaltaMic(null); setTexto(v); }} onMandar={enviarCaja}
+                ocupado={!!trabajo} apagado={!cargado || !!errorCarga} placeholder="Escríbele a MaKo" tituloMandar="Mandar (Enter)"
+                enterManda campo={caja} seguir={seguirHilo} onErrorMic={setFaltaMic} adjuntos={adjuntosCaja}
+                hayAlgoMas={pegados.length > 0} onPegar={pegarLargo}
+                arriba={pegados.length > 0 ? (
+                <ul className="ch-elegidos" aria-label="Textos pegados">
                   {pegados.map((p) => (
                     <li key={p.id} className="ch-elegido ch-elegido--pegado">
                       <IconoChat nombre="archivo" size={20} />
@@ -754,45 +766,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, centro, centroInicial, ticketeraIni
                       </button>
                     </li>
                   ))}
-                  {elegidos.map((a) => (
-                    <li key={a.id} className="ch-elegido">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- la vista previa local (blob:) */}
-                      {a.tipo === 'image' ? <img src={a.url} alt="" /> : <IconoChat nombre="archivo" size={20} />}
-                      <span className="ch-elegido__nombre" title={a.file.name}>{a.file.name}</span>
-                      <button type="button" className="ch-elegido__quitar" onClick={() => quitarArchivo(a.id)} aria-label={`Quitar ${a.file.name}`}>
-                        <Icon name="x" size={14} />
-                      </button>
-                    </li>
-                  ))}
                 </ul>
-              )}
-              <textarea
-                ref={caja} rows={1} value={texto}
-                onChange={(e) => setTexto(e.target.value)} onKeyDown={tecla}
-                onPaste={(e) => {
-                  // Una celda de Excel o un párrafo de Word viajan como texto Y como imagen: si hay texto, se pega el texto.
-                  const fs = Array.from(e.clipboardData.files);
-                  if (fs.length && !Array.from(e.clipboardData.types).includes('text/plain')) { e.preventDefault(); void sumarArchivos(fs); return; }
-                  // Un texto de más de 1.000 caracteres no entra a la caja: queda como un documento pegado (#864, como Claude).
-                  const pegado = e.clipboardData.getData('text/plain');
-                  if (esPegadoLargo(pegado)) { e.preventDefault(); ponerPegados([...pegadosRef.current, { id: idLocal('p'), texto: pegado }]); }
-                }}
-                placeholder="Escríbele a MaKo" aria-label="Escríbele a MaKo"
-                disabled={!cargado || !!errorCarga}
-              />
-              <div className="co-caja__barra">
-                <button type="button" className="ch-adjuntar" onClick={() => entrada.current?.click()} disabled={!cargado || !!errorCarga}
-                  aria-label="Adjuntar fotos o PDF" title="Adjuntar fotos o PDF">
-                  <Icon name="plus" size={18} />
-                </button>
-                <input ref={entrada} type="file" accept={ACCEPT_ADJUNTOS_CHAT} multiple hidden
-                  onChange={(e) => { const fs = Array.from(e.target.files ?? []); e.target.value = ''; void sumarArchivos(fs); }} />
-                <Microfono valor={texto} onValor={(v) => { setFaltaMic(null); setTexto(v); }} onError={setFaltaMic} apagado={!cargado || !!errorCarga} />
-                <button type="button" className="co-enviar" onClick={enviarCaja} disabled={!!trabajo || (!texto.trim() && !elegidos.length && !pegados.length) || !cargado || !!errorCarga}
-                  aria-label="Mandar" title="Mandar (Enter)">
-                  {trabajo ? <span className="co-enviar__giro" aria-hidden /> : <Icon name="flecha" size={18} />}
-                </button>
-              </div>
+                ) : null} />
             </div>
             )}
             <p className="co-caja__estado" aria-live="polite">{faltaMic ?? ''}</p>

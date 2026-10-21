@@ -1213,9 +1213,11 @@ export async function marcarPagoAction(
   leadId: number,
   pagado: boolean,
   fechaPago: string | null,
-): Promise<{ quitada: boolean }> {
+): Promise<{ quitada: boolean; yaEstaba: boolean }> {
   await exigirAccesoAMarcarPago(pagoId, leadId);
-  const { quitada, porLink } = await marcarPago(pagoId, pagado, fechaPago);
+  const { quitada, porLink, yaEstaba } = await marcarPago(pagoId, pagado, fechaPago);
+  // Ya estaba así (una lista vieja): no se escribió nada, ni el historial. La pantalla lo dice y no ofrece Deshacer.
+  if (yaEstaba) return { quitada: false, yaEstaba: true };
   // `quitada`: era un pago que nació cobrado (suelto o mensualidad a mano) y deshacerlo lo quitó (mig 0295).
   // `porLink`: su link ya se había cobrado y quedó cobrada con ESE pago; el historial ya lo escribió la pasarela.
   // Queda registrado en Change History (marcar y desmarcar).
@@ -1229,7 +1231,7 @@ export async function marcarPagoAction(
   revalidatePath(`/crm/${leadId}`);
   revalidatePath('/dashboard');
   revalidatePath('/general');
-  return { quitada };
+  return { quitada, yaEstaba: false };
 }
 
 /**
