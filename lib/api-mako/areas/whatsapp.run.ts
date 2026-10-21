@@ -700,7 +700,8 @@ export const RUNNERS: Runners = {
       await crearBorrador({ leadId: lead?.id ?? null, telefono: tel, texto, chatJid: chat?.chatJid ?? `${tel}@s.whatsapp.net`, origen: 'mako', linea: chat?.linea ?? null });
       const creado = await borradorPendienteIgual(u10, texto);
       if (creado == null) return { error: 'No pude dejar el borrador en la cola. No se envió nada.' };
-      return { id: String(creado), url, nueva: true, extra: { para: lead?.nombre ?? tel, nota: 'Quedó en la cola de borradores de /whatsapp: una persona lo manda con un clic. No se envió nada.' } };
+      // `borradorId`: el link no lo lleva, y el chat lo necesita para retirarlo si MaKo pregunta en el mismo turno (1.9).
+      return { id: String(creado), url, nueva: true, extra: { para: lead?.nombre ?? tel, nota: 'Quedó en la cola de borradores de /whatsapp: una persona lo manda con un clic. No se envió nada.', borradorId: creado } };
     },
     ejecutar: async () => ({ ok: false, resumen: 'Este borrador se manda desde la cola de borradores de /whatsapp, no por aquí.' }),
   },

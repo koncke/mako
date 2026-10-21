@@ -11,7 +11,7 @@
 //
 // Probado rompiéndolo (17/10/2026, con la base en 0 fallos):
 //   · `conVinetas` sin mirar dónde está el cursor → 1 fallo (1);
-//   · `enterEnLista` sin cortar en el ítem vacío → 1 fallo (2);
+//   · `enterEnLista` sin cortar en el ítem vacío → 1 fallo (2); (21/10) siguiendo con UN ítem donde Enter manda → 1 fallo (2);
 //   · `textoParaMandar` sin pasar «• » a «- » → 1 fallo (3);
 //   · `borradorQueVale` prefiriendo el que tiene texto → 1 fallo (4).
 // Y el scroll que acompaña lo que se escribe (18/10/2026, Martín: «la caja crece y el chat no lo acompaña»):
@@ -39,6 +39,14 @@ test('2. Enter sigue la lista, y en un ítem vacío la corta', () => {
   assert.deepEqual(enterEnLista('• uno\n• ', 8, 8), { texto: '• uno\n', cursor: 6 }, 'el ítem vacío corta la lista');
   assert.equal(enterEnLista('Hola', 4, 4), null, 'fuera de una lista, Enter manda');
   assert.equal(enterEnLista('• uno', 1, 4), null, 'con algo seleccionado, lo de siempre');
+  // En la computadora (Enter manda), con UN solo ítem todavía no hay lista (revisión del 21/10/2026).
+  const una = '1. ¿Cuántos leads entraron ayer?';
+  assert.equal(enterEnLista(una, una.length, una.length, { conUno: false }), null, '«1. …» y Enter: se manda');
+  assert.equal(enterEnLista('- mandale a Ana el link', 23, 23, { conUno: false }), null);
+  assert.deepEqual(enterEnLista('1. uno\n2. dos', 13, 13, { conUno: false }), { texto: '1. uno\n2. dos\n3. ', cursor: 17 }, 'con dos, la lista sigue');
+  assert.deepEqual(enterEnLista('• uno\n• ', 8, 8, { conUno: false }), { texto: '• uno\n', cursor: 6 }, 'y el ítem vacío la corta igual');
+  assert.match(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'app', '_chat', 'CajaChat.tsx'), 'utf8'),
+    /enterEnLista\(texto, e\.currentTarget\.selectionStart, e\.currentTarget\.selectionEnd, \{ conUno: !p\.enterManda \}\)/, 'la caja lo usa donde Enter manda');
 });
 
 test('3. lo que sale es Markdown, y la burbuja lo dibuja como lista', () => {

@@ -59,7 +59,7 @@ test('itemsDeRespuesta: no repite el mensaje de la persona; aviso y agenda van a
     mensajes: [{ role: 'user', content: 'hola' }, { role: 'assistant', content: 'Te dejé la nota lista.' }],
     aviso: 'No pude leer el archivo.', paraLaPersona: ['Mañana: 10:00 con Ana'],
     propuestas: [tarjeta(7), tarjeta(8)],
-    pantallas: [{ clase: 'borrador', titulo: 'Borrador del plan', href: '/m/inbox', escritorio: '/plan/revisar/x' }],
+    pantallas: [{ clase: 'borrador', titulo: 'Borrador del plan', href: '/m/inbox', escritorio: '/plan/revisar/x', boton: 'Abrir para revisar', nota: '' }],
   };
   const xs = itemsDeRespuesta(r, new Set([8]));
   assert.equal(xs.filter((x) => x.k === 'msg').length, 1);
