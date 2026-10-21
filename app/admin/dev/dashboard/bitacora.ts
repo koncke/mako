@@ -692,11 +692,16 @@ export const BITACORA: Hito[] = [
     fecha: '20 oct', hora: '22:30', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
     titulo: 'Compartir, exportar y mover el Dashboard desde el chat',
     puntos: [
+      'En producción desde el run 175 (20/10).',
       'Desde el Ops Center se puede mover una tarjeta de una hoja (arriba, abajo, al lado de otra) o cambiarle el ancho, y queda igual que si la arrastraras.',
       'Se puede pedir una hoja en CSV: MaKo te deja el link para descargarla.',
       'Se puede pedir un link para que otra persona vea tu Dashboard sin poder editarlo; antes lo confirmas en la tarjeta.',
       'Invitar por email desde el chat espera tu decisión D3c (tarjeta en el chat o pantalla de revisión).',
       'Hoy MaKo entiende «mové», «poné al lado» y «cambiá el ancho»; «exportá», «compartí» y «descargame» todavía no le llegan, y es lo que arregla el clasificador.',
+    ],
+    commits: [
+      { sha: '7dc7dd65d', msg: 'Ops Center: compartir tu Dashboard con un link, exportar una hoja a CSV y mover una tarjeta desde el chat (2.6)', lineas: 639, archivos: 17 },
+      { sha: '38771e329', msg: '2.6: dos guardas del antes-de-subir — la variable no se llama `ref`, y /compartido/ es una ruta pública', lineas: 15, archivos: 3 },
     ],
     archivos: ['lib/graficos-mover.ts', 'lib/api-mako/areas/dashboard.def.ts', 'lib/api-mako/areas/dashboard.run.ts', 'app/api/graficos/exportar/route.ts', 'tests/api-mako-dashboard-compartir-exportar-mover.test.ts — probado rompiéndolo'],
     revisar: '/second-brain',
@@ -705,6 +710,7 @@ export const BITACORA: Hito[] = [
     fecha: '20 oct', hora: '22:45', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
     titulo: 'El mapa de Experimentos y Closing Analyst en el Ops Center',
     puntos: [
+      'En producción desde el run 175 (20/10), enlazado desde el Anexo D del plan.',
       'Faltaban en el plan de «Ops Center = lo principal»: son 28 cosas que se pueden hacer, y hoy desde el chat salen 13.',
       'Lo que se pregunta (cómo vienen las llamadas, qué experimentos corren) ya funciona; lo que se pide («arrancá el experimento», «corregí el puntaje») todavía no le llega a MaKo.',
       'Quedan dos preguntas para ti: si el closer usa el Ops Center para su hoja Closing, y qué pasa con la Retro.',
