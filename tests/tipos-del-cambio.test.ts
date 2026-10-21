@@ -24,15 +24,16 @@ import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { cerrar, correrTipos, SALIDA_SIN_TIPOS } from '../scripts/tests-afectados.mjs';
+import { alcanceTsc, cerrar, correrTipos, especificadoresConTipos, planDeTipos, salidaSinRam, SALIDA_SIN_TIPOS, seleccionar, tiposNoAcotables } from '../scripts/tests-afectados.mjs';
+import { armarTsconfig, dtsVersionados } from '../scripts/tsc-acotado.mjs';
 
 const REPO_REAL = fileURLToPath(new URL('..', import.meta.url));
 const TESTS_AFECTADOS = join(REPO_REAL, 'scripts', 'tests-afectados.mjs');
 
 // Sin un git del entorno heredado (el índice temporal con el que antes-de-subir corre los tests): los repos de mentira usan el suyo.
-const limpio = (extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv => {
+const limpio = (extra: Record<string, string> = {}): NodeJS.ProcessEnv => {
   const e: NodeJS.ProcessEnv = { ...process.env, ...extra };
   for (const k of ['GIT_INDEX_FILE', 'GIT_DIR', 'GIT_WORK_TREE', 'NODE_TEST_CONTEXT']) delete e[k];
   return e;
@@ -131,7 +132,7 @@ function repoDeMentira(): string {
   const dir = mkdtempSync(join(tmpdir(), 'repo-tipos-'));
   const git = (...args: string[]) => execFileSync('git', ['-c', 'user.name=Prueba', '-c', 'user.email=prueba@example.com', '-c', 'commit.gpgsign=false', '-c', 'core.autocrlf=false', ...args], { cwd: dir, env: limpio(), encoding: 'utf8' });
   git('init', '-q', '-b', 'main');
-  writeFileSync(join(dir, 'tsconfig.json'), JSON.stringify({ compilerOptions: { strict: true, target: 'es2022', module: 'esnext', moduleResolution: 'bundler', noEmit: true, skipLibCheck: true } }));
+  writeFileSync(join(dir, 'tsconfig.json'), JSON.stringify({ compilerOptions: { strict: true, target: 'es2022', module: 'esnext', moduleResolution: 'bundler', noEmit: true, skipLibCheck: true, allowJs: true } }));
   symlinkSync(join(REPO_REAL, 'node_modules'), join(dir, 'node_modules'), 'junction');
   writeFileSync(join(dir, '.gitignore'), 'node_modules\n');
   mkdirSync(join(dir, 'tests'));
@@ -141,11 +142,12 @@ function repoDeMentira(): string {
 }
 function agregarYCommitear(dir: string, archivo: string, texto: string) {
   const git = (...args: string[]) => execFileSync('git', ['-c', 'user.name=Prueba', '-c', 'user.email=prueba@example.com', '-c', 'commit.gpgsign=false', '-c', 'core.autocrlf=false', ...args], { cwd: dir, env: limpio(), encoding: 'utf8' });
+  mkdirSync(dirname(join(dir, archivo)), { recursive: true });
   writeFileSync(join(dir, archivo), texto);
   git('add', '-A'); git('commit', '-q', '-m', `cambio ${archivo}`);
 }
 /** Corre `node scripts/tests-afectados.mjs --base HEAD~1 …` en ese repo; sin CI (ahí no se miran los tipos) y con el piso de RAM y el lock de la prueba. */
-function correrCli(dir: string, args: string[], extra: NodeJS.ProcessEnv = {}) {
+function correrCli(dir: string, args: string[], extra: Record<string, string> = {}) {
   const r = spawnSync(process.execPath, [TESTS_AFECTADOS, '--base', 'HEAD~1', ...args], {
     cwd: dir, encoding: 'utf8', timeout: 240_000,
     env: limpio({ CI: '', MAKO_TIPOS_LOCK: join(dir, '.lock-tipos'), MAKO_TIPOS_PISO_GB: '0.05', MAKO_TESTS_SIN_ESPERA: '1', MAKO_TIPOS_ESPERA_S: '60', MAKO_SIN_TIPOS: '', ...extra }),
@@ -199,7 +201,7 @@ test('DE PUNTA A PUNTA: si los tipos NO se pueden chequear (sin RAM) la línea f
 });
 
 /** antes-de-subir en ese repo: sin el candado de lo pesado (MAKO_SIN_COLA), sin fetch ni condiciones de árbol limpio, y con unas guardas de mentira que dan verde. */
-function correrAntesDeSubir(dir: string, args: string[], extra: NodeJS.ProcessEnv = {}) {
+function correrAntesDeSubir(dir: string, args: string[], extra: Record<string, string> = {}) {
   mkdirSync(join(dir, 'scripts'), { recursive: true });
   writeFileSync(join(dir, 'scripts', 'guardas-push.sh'), 'exit 0\n');
   const r = spawnSync(process.execPath, [join(REPO_REAL, 'scripts', 'antes-de-subir.mjs'), '--base', 'HEAD~1', '--sin-fetch', '--sin-condiciones', ...args], {
@@ -255,6 +257,186 @@ test('el hook de pre-push (la copia versionada) distingue el 98 de un rojo y el 
 });
 
 // =============================================================================
+// La revisión del 21/10/2026 (efa346252): lo que el tsc acotado NO veía
+// =============================================================================
+// 1. Un test SIN TOCAR que dependía de lo cambiado (run 187: cambió un TIPO de lib/ y tests/m-mako-chat.test.ts dejó de compilar): nadie importa un test, así que nunca entraba al
+//    programa. Y m-mako-chat importaba ese tipo sólo con `import type`, que el grafo de ejecución ignora.
+// 2. Los .d.ts propios del repo (tono.ts → soundtouchjs.d.ts, color-picker → eyedropper.d.ts): el acotado daba un ROJO FALSO en el archivo cambiado.
+// 3. Un cambio que sólo toca tsconfig, package.json, un .d.ts o un .mjs daba alcance vacío → «nada» → VERDE (el mecanismo del run 173).
+// 4. archivoDe cortaba la ruta en el primer «(»: un grupo de rutas de Next (`app/(publico)/…`) o un error sin archivo contaban como arrastre y daban VERDE.
+// 5. tests-afectados perdía un ROJO de tipos si después los tests no tenían RAM (salía 99, «no es un rojo del código»).
+
+const FUENTES_187: Record<string, string> = {
+  'lib/reglas.ts': 'export type Propuesta = { boton: string };\n',
+  'app/chat-ui.ts': "import type { Propuesta } from '../lib/reglas';\nexport const x = 1;\nexport type { Propuesta };\n",
+  'tests/directo-tipos.test.ts': "import test from 'node:test';\nimport type { Propuesta } from '../lib/reglas';\ntest('d', () => { const p: Propuesta = { boton: 'a' }; void p; });\n",
+  'tests/por-cadena.test.ts': "import test from 'node:test';\nimport { x } from '../app/chat-ui';\ntest('c', () => { void x; });\n",
+  'tests/ajeno.test.ts': "import test from 'node:test';\ntest('a', () => {});\n",
+};
+const sel187 = () => seleccionar({ cambiados: ['lib/reglas.ts'], archivos: Object.keys(FUENTES_187), leer: (r: string) => FUENTES_187[r] ?? null });
+
+test('seleccionar: el grafo de TIPOS ve el import type que el de ejecución ignora (run 187)', () => {
+  const sel = sel187();
+  assert.deepEqual([...(sel.importadoPor.get('lib/reglas.ts') ?? [])], [], 'por ejecución nadie importa reglas.ts: sólo se importa como tipo');
+  assert.deepEqual([...(sel.importadoPorTipos.get('lib/reglas.ts') ?? [])].sort(), ['app/chat-ui.ts', 'tests/directo-tipos.test.ts']);
+  assert.deepEqual(especificadoresConTipos("import type { A } from './a';\nimport { b } from './b';\nexport type { C } from './c';\n").sort(), ['./a', './b', './c']);
+});
+
+test('alcanceTsc: los tests que importan DIRECTO lo cambiado entran al alcance, los toque el cambio o no (también si lo importan sólo como tipo); con más saltos, la cadena', () => {
+  const sel = sel187();
+  const archivos = Object.keys(FUENTES_187);
+  const con = alcanceTsc({ cambiados: ['lib/reglas.ts'], archivos, importadoPor: sel.importadoPor, importadoPorTipos: sel.importadoPorTipos, aumentan: sel.aumentan });
+  assert.deepEqual(con, ['lib/reglas.ts', 'tests/directo-tipos.test.ts'], 'un salto: el test que importa el tipo DIRECTO (el 187); no el que llega por chat-ui ni el ajeno');
+  const dos = alcanceTsc({ cambiados: ['lib/reglas.ts'], archivos, importadoPor: sel.importadoPor, importadoPorTipos: sel.importadoPorTipos, aumentan: sel.aumentan, profundidadTests: 2 });
+  assert.deepEqual(dos, ['lib/reglas.ts', 'tests/directo-tipos.test.ts', 'tests/por-cadena.test.ts'], 'con dos saltos entra también el que llega por la cadena, y NUNCA el ajeno');
+  const sin = alcanceTsc({ cambiados: ['lib/reglas.ts'], archivos, importadoPor: sel.importadoPor, aumentan: sel.aumentan });
+  assert.deepEqual(sin, ['lib/reglas.ts'], 'sin el grafo de tipos pasaba lo del run 187: el alcance era sólo lo cambiado');
+});
+
+test('alcanceTsc: un archivo BORRADO suma a quienes lo importaban (son los que se rompen)', () => {
+  const fuentes: Record<string, string> = { 'app/usa.ts': "import { v } from '../lib/viejo';\nexport const w = v;\n", 'app/otro.ts': 'export const o = 1;\n' };
+  const sel = seleccionar({ cambiados: ['lib/viejo.ts'], archivos: Object.keys(fuentes), leer: (r: string) => fuentes[r] ?? null });
+  const alcance = alcanceTsc({ cambiados: ['lib/viejo.ts'], archivos: Object.keys(fuentes), importadoPor: sel.importadoPor, importadoPorTipos: sel.importadoPorTipos, aumentan: sel.aumentan });
+  assert.deepEqual(alcance, ['app/usa.ts']);
+});
+
+test('planDeTipos junta el alcance y lo que no se puede acotar, y tiposNoAcotables mira tsconfig, package.json y los .d.ts (sólo los de la raíz)', () => {
+  assert.deepEqual(
+    tiposNoAcotables(['tsconfig.json', 'package.json', 'package-lock.json', 'tsconfig.build.json', 'types/x.d.ts', 'scripts/tsconfig.bitacoras.json', 'packages/x/package.json', 'app/a.ts', 'docs/package.json.md']),
+    ['package-lock.json', 'package.json', 'tsconfig.build.json', 'tsconfig.json', 'types/x.d.ts'],
+  );
+  const sel = sel187();
+  const p = planDeTipos({ cambiados: ['lib/reglas.ts', 'package.json'], archivos: Object.keys(FUENTES_187), sel });
+  assert.deepEqual(p.noAcotables, ['package.json']);
+  assert.ok(p.alcance.includes('tests/directo-tipos.test.ts'));
+});
+
+test('correrTipos con noAcotables: un acotado verde NO es verde si cambió tsconfig/package.json/.d.ts (sin-tipos); un rojo sigue siendo rojo', async () => {
+  await conEntorno(FIJO(), async () => {
+    const lineas: string[] = [];
+    const ok = await correrTipos(['tests/a.test.ts'], { ...conTsc({ status: 0, salida: '' }), noAcotables: ['package.json'], out: (s: string) => lineas.push(s) });
+    assert.equal(ok.estado, 'sin-tipos');
+    assert.match(ok.porque ?? '', /^cambió package\.json: define tipos para todo el repo/);
+    assert.match(lineas.join('\n'), /SIN TIPOS: cambió package\.json/);
+    const nada = await correrTipos([], { ejecutar: () => ({ status: 0, salida: '' }), raiz: REPO_REAL, noAcotables: ['tsconfig.json', 'types/x.d.ts'] });
+    assert.equal(nada.estado, 'sin-tipos', 'alcance vacío + tsconfig cambiado ya no es «nada» → VERDE');
+    assert.match(nada.porque ?? '', /cambió tsconfig\.json, types\/x\.d\.ts/);
+    const rojo = await correrTipos(['tests/a.test.ts'], { ...conTsc({ status: 2, salida: 'tests/a.test.ts(1,1): error TS2322: x\n' }), noAcotables: ['package.json'] });
+    assert.equal(rojo.estado, 'rojo', 'un rojo manda');
+    const sinNada = await correrTipos([], { ejecutar: () => ({ status: 0, salida: '' }), raiz: REPO_REAL });
+    assert.equal(sinNada.estado, 'nada', 'sin noAcotables todo sigue igual');
+  });
+});
+
+test('correrTipos: una ruta con grupo de Next «(publico)» y un error SIN archivo cuentan como errores del alcance, no como arrastre', async () => {
+  await conEntorno(FIJO(), async () => {
+    const grupo = await correrTipos(['app/(publico)/precios/page.tsx'], conTsc({ status: 2, salida: "app/(publico)/precios/page.tsx(3,7): error TS2322: Type 'string' is not assignable to type 'number'.\n" }));
+    assert.equal(grupo.estado, 'rojo', 'antes la ruta se cortaba en «app/» y el error pasaba por arrastre → VERDE');
+    assert.match(grupo.porque ?? '', /\(app\/\(publico\)\/precios\/page\.tsx\)/);
+    const global = await correrTipos(['app/a.ts'], conTsc({ status: 1, salida: "error TS5023: Unknown compiler option 'estrictoo'.\n" }));
+    assert.equal(global.estado, 'rojo', 'un error del programa entero no es de ningún archivo suelto');
+    assert.match(global.porque ?? '', /\(\(sin archivo\)\)/);
+    const arrastre = await correrTipos(['app/a.ts'], conTsc({ status: 2, salida: 'app/(otro)/y.ts(1,1): error TS2339: x\n' }));
+    assert.equal(arrastre.estado, 'ok', 'y un error en un archivo con grupo que NO es del alcance sigue siendo arrastre');
+    assert.equal(arrastre.arrastre, 1);
+  });
+});
+
+test('salidaSinRam: un ROJO de tipos gana sobre «los tests no tuvieron RAM» (sale 1, no 99)', () => {
+  const rojo = salidaSinRam({ estado: 'rojo', porque: 'tipos: 1 errores (tests/x.test.ts)' });
+  assert.equal(rojo.codigo, 1);
+  assert.match(rojo.linea ?? '', /^ROJO: tipos: 1 errores \(tests\/x\.test\.ts\) · \(además, los tests no corrieron: no había RAM\)/);
+  for (const t of [null, { estado: 'ok' }, { estado: 'nada' }, { estado: 'sin-tipos', porque: 'x' }]) {
+    const s = salidaSinRam(t);
+    assert.equal(s.codigo, 99, JSON.stringify(t));
+    assert.equal(s.linea, null);
+  }
+});
+
+test('armarTsconfig suma los .d.ts propios a files, y dtsVersionados lista sólo los que git tiene', () => {
+  const dir = repoDeMentira();
+  try {
+    agregarYCommitear(dir, 'types/foo.d.ts', "declare module 'foo-sin-tipos' { export const v: number; }\n");
+    writeFileSync(join(dir, 'types', 'sin-versionar.d.ts'), 'export {};\n');
+    assert.deepEqual(dtsVersionados(dir), ['types/foo.d.ts'], 'el que no está en git no entra');
+    const c = armarTsconfig(dir, ['tests/base.test.ts'], { dts: dtsVersionados(dir) });
+    assert.ok(c.files.some((f: string) => f.endsWith('/types/foo.d.ts')), 'el .d.ts propio está en files');
+    assert.ok(c.files.some((f: string) => f.endsWith('/tests/base.test.ts')));
+    assert.ok(!armarTsconfig(dir, ['tests/base.test.ts']).files.some((f: string) => f.endsWith('/types/foo.d.ts')), 'sin dts no cambia nada (compatibilidad)');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('DE PUNTA A PUNTA (run 187): cambia un TIPO y un test SIN TOCAR que sólo lo importa como tipo deja de compilar → ROJO, aunque como test corra perfecto', () => {
+  const dir = repoDeMentira();
+  try {
+    agregarYCommitear(dir, 'tests/usa.test.ts', "import test from 'node:test';\nimport type { P } from '../lib/tipo';\nconst p: P = { a: 'x' };\ntest('usa', () => { void p; });\n");
+    agregarYCommitear(dir, 'lib/tipo.ts', 'export type P = { a: string };\n');
+    agregarYCommitear(dir, 'lib/tipo.ts', 'export type P = { a: string; b: number };\n');   // el test NO se toca
+    const r = correrCli(dir, []);
+    assert.equal(r.codigo, 1, r.salida);
+    assert.match(r.salida, /tests\/usa\.test\.ts\(\d+,\d+\): error TS2741/, 'el tsc acotado muestra el error del test que no cambió');
+    assert.match(r.ultima, /^ROJO: tipos: 1 errores \(tests\/usa\.test\.ts\)/, 'la línea final: ' + r.ultima);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('DE PUNTA A PUNTA (run 173): cambia sólo un .mjs y el test .ts que lo importa (sin tocar) deja de compilar → ROJO', () => {
+  const dir = repoDeMentira();
+  try {
+    agregarYCommitear(dir, 'scripts/h.mjs', 'export const cfg = { n: 1 };\n');
+    agregarYCommitear(dir, 'tests/usa-mjs.test.ts', "import test from 'node:test';\nimport { cfg } from '../scripts/h.mjs';\nconst n: number = cfg.n;\ntest('usa', () => { void n; });\n");
+    agregarYCommitear(dir, 'scripts/h.mjs', "export const cfg = { n: 'uno' };\n");   // sólo el .mjs
+    const r = correrCli(dir, []);
+    assert.equal(r.codigo, 1, r.salida);
+    assert.match(r.ultima, /^ROJO: tipos: 1 errores \(tests\/usa-mjs\.test\.ts\)/, 'la línea final: ' + r.ultima);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('DE PUNTA A PUNTA: un archivo que depende de un .d.ts propio que no importa NO da un ROJO falso (el acotado ya lo ve)', () => {
+  const dir = repoDeMentira();
+  try {
+    agregarYCommitear(dir, 'types/foo.d.ts', "declare module 'foo-sin-tipos' { export const v: number; }\n");
+    agregarYCommitear(dir, 'app/usa-foo.ts', "import { v } from 'foo-sin-tipos';\nexport const w: number = v;\n");
+    agregarYCommitear(dir, 'app/usa-foo.ts', "import { v } from 'foo-sin-tipos';\nexport const w: number = v + 1;\n");
+    const r = correrCli(dir, []);
+    assert.equal(r.codigo, 0, r.salida);
+    assert.doesNotMatch(r.salida, /TS2307|TS7016/, 'sin el .d.ts en files esto era «Cannot find module» en el archivo cambiado');
+    assert.match(r.ultima, /^VERDE · tipos de 1 archivos sin errores/, 'la línea final: ' + r.ultima);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('DE PUNTA A PUNTA: si sólo cambia tsconfig.json la línea NO es VERDE: es «SIN TIPOS: cambió tsconfig.json…» (98); con --sin-tipos, PARCIAL', () => {
+  const dir = repoDeMentira();
+  try {
+    const cfg = JSON.parse(readFileSync(join(dir, 'tsconfig.json'), 'utf8'));
+    agregarYCommitear(dir, 'tsconfig.json', JSON.stringify({ compilerOptions: { ...cfg.compilerOptions, noUnusedLocals: true } }));
+    const r = correrCli(dir, []);
+    assert.equal(r.codigo, SALIDA_SIN_TIPOS, r.salida);
+    assert.match(r.ultima, /^SIN TIPOS: cambió tsconfig\.json: define tipos para todo el repo/, 'la línea final: ' + r.ultima);
+    assert.doesNotMatch(r.salida, /^VERDE/m);
+    const aProposito = correrCli(dir, ['--sin-tipos']);
+    assert.match(aProposito.ultima, /^PARCIAL/);
+    assert.equal(aProposito.codigo, 0);
+    // y antes-de-subir —el VERDE que se le pasa al Cerebro— dice lo mismo: no hay un VERDE <sha> con un tsconfig cambiado
+    const antes = correrAntesDeSubir(dir, ['--rapido']);
+    assert.equal(antes.codigo, SALIDA_SIN_TIPOS, antes.salida);
+    assert.match(antes.ultima, /^SIN TIPOS: cambió tsconfig\.json/, 'la última línea: ' + antes.ultima);
+    assert.doesNotMatch(antes.salida, /^VERDE/m);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('DE PUNTA A PUNTA: tipos en ROJO y los tests sin RAM → ROJO (1), no 99 «no es un rojo del código»', () => {
+  const dir = repoDeMentira();
+  try {
+    agregarYCommitear(dir, 'tests/malo.test.ts', TEST_CON_ERROR_DE_TIPOS);
+    // Los tipos entran (su piso es bajo) y dan rojo; después los TESTS esperan una RAM que no hay (piso 999 GB, 1 s de espera).
+    const r = correrCli(dir, [], { MAKO_TESTS_SIN_ESPERA: '', MAKO_TESTS_PISO_GB: '999', MAKO_TESTS_ESPERA_S: '1' });
+    assert.match(r.salida, /NO CORRÍ LOS TESTS: NO HAY RAM/, 'los tests no tuvieron RAM: ' + r.salida);
+    assert.equal(r.codigo, 1, r.salida);
+    assert.match(r.ultima, /^ROJO: tipos: 1 errores \(tests\/malo\.test\.ts\) · \(además, los tests no corrieron: no había RAM\)/, 'la línea final: ' + r.ultima);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// =============================================================================
 // ⚠️ PROBADO ROMPIÉNDOLO (21/10/2026; se rompe UNA pieza, se corren estas pruebas, se restaura): 16 roturas, 16 rojas. Detalle en docs/hallazgos-infra.md («tsx no chequea tipos…»).
 //   `cerrar` (5): sin tipos disfrazado de VERDE (lo que pasaba) → 3 rojas · SIN TIPOS que sale 0 → 2 · un rojo que no manda sobre SIN TIPOS → 1 · `--sin-tipos` llamado VERDE → 3 · un rojo
 //     que esconde que los tipos tampoco se chequearon → 1.
@@ -262,4 +444,12 @@ test('el hook de pre-push (la copia versionada) distingue el 98 de un rojo y el 
 //   `tests-afectados` (3): no corre los tipos por default → 2 · `--sin-tipos` que no cambia la palabra → 1 · los tipos que corren también en Actions (CI) → 1.
 //     (La primera versión de esta última rotura tocaba otra línea y salió VERDE: no era una rotura de verdad, y por eso se repitió bien.)
 //   `antes-de-subir` (4): `--rapido` que no mira los tipos → 1 · SIN TIPOS que vuelve a salir como VERDE → 1 · SIN TIPOS que sale 0 → 1 · un error de tipos que no entra a los rojos → 1.
+// ⚠️ SEGUNDA VUELTA (la revisión del Cerebro, 21/10/2026): 22 roturas, 22 rojas.
+//   el alcance (10): el grafo de tipos que no se pasa a alcanceTsc → 3 · sin el `import type` en el grafo → 3 · especificadoresConTipos que ignora el import type → 3 · los tests importadores que no entran → 4 ·
+//     la búsqueda que sólo parte de los .ts cambiados (se pierde el .mjs del run 173) → 1 · el archivo borrado que no suma a sus importadores → 1 · sin límite de profundidad → 1 · la profundidad por defecto infinita → 1 ·
+//     tests-afectados / antes-de-subir que no pasan los no acotables → 1 y 1.
+//   lo que no se puede acotar (5): sin los .d.ts → 1 · sin package.json → 1 · un alcance vacío que sigue siendo «nada» → 1 · nunca convierte → 2 · pisa un rojo → 1.
+//   archivoDe (2): cortar la ruta en el primer «(» → 1 · un error sin archivo como arrastre → 1.
+//   .d.ts propios (3): no entran a files en correrTipos → 1 · armarTsconfig que los ignora → 2 · dtsVersionados que lista lo no versionado → 1.
+//   sin RAM (2): salidaSinRam sin el rojo de tipos → 2 · main que no la usa → 1.
 // =============================================================================

@@ -109,7 +109,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describirEstado, estado, tomarTurno } from './candado-pesado.mjs';
 import {
-  agrupar, alcanceTsc, cerrar, correrTests, correrTipos, ESPERA_TIPOS_MS, git, heapPara, imprimirPlan, indiceConNuevos, min, planear, ramLibreGb,
+  agrupar, cerrar, correrTests, correrTipos, ESPERA_TIPOS_MS, git, heapPara, imprimirPlan, indiceConNuevos, min, planDeTipos, planear, ramLibreGb,
   SALIDA_SIN_CORRER, SALIDA_SIN_TIPOS, soltarLockTipos,
 } from './tests-afectados.mjs';
 
@@ -313,7 +313,7 @@ async function ejecutar(o, out, lineaFinal, { yaTraje = false } = {}) {
   if (!plan) { lineaFinal(`ROJO: no encuentro la base «${o.base}» (probá git fetch origin)`); return 1; }
   const { cambios, sel } = plan;
   out(`[antes-de-subir] ${sha} · ${cambios.cambiados.length} archivos cambiados respecto de ${o.base}`);
-  const alcance = alcanceTsc({ cambiados: cambios.cambiados, archivos: plan.archivos, importadoPor: sel.importadoPor, aumentan: sel.aumentan, importadores: o.importadores });
+  const { alcance, noAcotables } = planDeTipos({ cambiados: cambios.cambiados, archivos: plan.archivos, sel, importadores: o.importadores });
   if (o.listar) {
     imprimirPlan(plan, { base: o.base, explicar: false }, out);
     out(`  tsc acotado: ${alcance.length} archivos${alcance.length ? ' (' + alcance.slice(0, 4).join(', ') + (alcance.length > 4 ? '…' : '') + ')' : ''}`);
@@ -341,7 +341,7 @@ async function ejecutar(o, out, lineaFinal, { yaTraje = false } = {}) {
     // ⚠️ LOS TIPOS SON PARTE DEL VERDE, también en --rapido (21/10/2026): `tsx` no chequea tipos, así que un test con un error de tipos corre bien acá y cae recién en el
     // paso «Tipos» de Actions (4 runs ese día, un email de GitHub cada uno). Antes, sin RAM, esto decía «tipos: los chequea Actions» y la línea final seguía siendo VERDE.
     // Ahora, si los tipos no se pueden chequear, la línea final es `SIN TIPOS: <por qué>` y sale 98; sólo `--sin-tipos` (a propósito) lo evita, y entonces es PARCIAL.
-    tipos = await correrTipos(alcance, { raiz: RAIZ, out, esperaMs: ESPERA_TIPOS_MS });
+    tipos = await correrTipos(alcance, { raiz: RAIZ, out, esperaMs: ESPERA_TIPOS_MS, noAcotables });
     if (tipos.estado === 'rojo') rojos.push(tipos.porque);
   }
 
@@ -393,7 +393,7 @@ async function ejecutar(o, out, lineaFinal, { yaTraje = false } = {}) {
   // sin rojos y `--sin-tipos` a propósito → PARCIAL (0, no vale para pasar una punta); si no, VERDE. `--rapido` es el MÍNIMO que un jefe corre antes de pasar una punta
   // (AGENTS.md): sin los importadores lejanos —los decide Actions—, pero CON los tipos de lo cambiado.
   const fin = cerrar({ rojos, tipos, sinTiposPedido: !o.conTipos });
-  if (fin.palabra === 'VERDE') { lineaFinal(`VERDE ${sha}${o.rapido ? ' (rápido: tipos de lo cambiado sí; sin importadores lejanos: los chequea Actions)' : ''}`); return 0; }
+  if (fin.palabra === 'VERDE') { lineaFinal(`VERDE ${sha}${o.rapido ? ' (rápido: tipos de lo cambiado sí, y de los tests que dependen de eso; sin los importadores que no son tests: los chequea Actions)' : ''}`); return 0; }
   if (fin.palabra === 'SIN TIPOS') { lineaFinal(`SIN TIPOS: ${fin.detalle}`); return SALIDA_SIN_TIPOS; }
   if (fin.palabra === 'PARCIAL') { lineaFinal(`PARCIAL (${fin.detalle})`); return 0; }
   lineaFinal(`ROJO: ${fin.detalle}`);

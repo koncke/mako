@@ -376,8 +376,8 @@ rojos reales: 3 min 28 s y los tres salieron; la misma punta tardaba 26 min ante
 tests que **nombran o importan DIRECTO** un archivo cambiado, **todas las barredoras** y **los tipos de lo cambiado**; le deja a Actions
 los importadores a dos saltos o más (el replay: 19 de los 20 rojos de «Tests» y los 5 de «Tipos»). **Los tipos son PARTE del VERDE**
 (21/10/2026): `tsx` —con el que se ejecutan los tests— NO chequea tipos, así que un test con un error de tipos corre perfecto, da verde y
-el error aparece recién en el paso «Tipos» de Actions; ese día cayeron cuatro runs así (173, 177, 187, 198), cada uno un email de GitHub a
-Martín. Sin `--rapido` es el chequeo COMPLETO (todos los saltos
+el error aparece recién en el paso «Tipos» de Actions; ese día cayeron cuatro runs así (173, 177 y 198 en un test nuevo o editado; el 187 en un test
+SIN TOCAR, que dejó de compilar porque cambió un TIPO de lib/ que sólo importaba con `import type`), cada uno un email de GitHub a Martín. Sin `--rapido` es el chequeo COMPLETO (todos los saltos
 y los tipos de lo cambiado: ~6-7 min, estimado: 4 min 21 s medidos para los tests más las guardas y los tipos); el Cerebro lo usa para
 el push a `integracion`, y un jefe con tiempo puede correrlo también.
 
@@ -400,8 +400,14 @@ se come el exit 1 con el que el vigía mata al tsc, y «no hay errores» y «no 
 Corre, de lo más barato a lo más caro, y frena en el primer rojo (`--todo` sigue):
 1. **Las guardas del push** (`scripts/guardas-push.sh`, las mismas del pre-push y de Actions — incluida «todo `.ts` es un
    módulo»: un `.ts` sin `import`/`export` es un script global para `tsc` y choca con otros, runs 51 y 52).
-2. **El `tsc` ACOTADO de lo que cambiaste** (un test que llama con dos argumentos a una firma que pide uno, run 31; una bitácora
-   sin `puntos`, run 10). `--importadores` suma a los que lo importan, un nivel, pero **no es el default**: el 17/10, con ~14 chats
+2. **El `tsc` ACOTADO de lo que cambiaste Y DE LOS TESTS QUE DEPENDEN DE ESO** (un test que llama con dos argumentos a una firma que pide uno, run 31; una bitácora
+   sin `puntos`, run 10; un test SIN TOCAR cuyo tipo importado cambió, run 187; un .ts que importa un .mjs que cambió, run 173). Los tests que importan
+   DIRECTO lo cambiado entran al alcance, lo toque el cambio o no, siguiendo los imports **de tipos** (`import type` también) desde todo lo cambiado —un `.mjs`
+   incluido—; **un salto, no más** (`MAKO_TIPOS_PROFUNDIDAD=3` lo ensancha): medido sobre 40 merges de main, la mediana del alcance pasa de 6 a 16 archivos con un salto y a 518
+   con todos (los hubs de `lib/` los importan 500 tests y con ellos casi todo el programa, ~5 GB: SIN TIPOS casi siempre). Un archivo
+   BORRADO suma a quienes lo importaban; y los `.d.ts` propios del repo (8) entran siempre (si no, `tono.ts`/`color-picker` daban un ROJO falso). Lo que
+   define tipos para TODO el repo y no se puede acotar —`tsconfig*.json`, `package.json`/`package-lock.json`, un `.d.ts`— nunca da VERDE: si el acotado
+   da bien la línea es `SIN TIPOS: cambió <archivo>…` (98), y lo decide el tsc completo. `--importadores` suma a los importadores que NO son tests, un nivel, pero **no es el default**: el 17/10, con ~14 chats
    abiertos, ese alcance (188 archivos) pedía 4,3 GB y la PC tenía 1,3 libres, y el primer push del Cerebro se trabó ahí. El tsc
    completo de Actions, que corre justo después de los afectados, cubre a los importadores. **Si no entra en 2 min** (RAM o lock;
    `MAKO_TIPOS_ESPERA_S`), no espera 15 min: sigue con los tests y la línea final es `SIN TIPOS: <por qué>` con exit 98 (ver arriba), NO

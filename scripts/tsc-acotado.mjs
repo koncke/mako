@@ -53,10 +53,28 @@ const barra = (p) => p.replace(/\\/g, '/');
 // (`next-env.d.ts` está en .gitignore y un worktree no lo tiene; los paquetes de next sí).
 const GLOBALES_DE_NEXT = ['node_modules/next/types/global.d.ts', 'node_modules/next/image-types/global.d.ts'];
 
-/** El tsconfig temporal. Lo prueba un test (con el repo de mentira no existen los .d.ts de next, y no entran). */
-export function armarTsconfig(repo, archivos) {
+/**
+ * Los `.d.ts` PROPIOS del repo (versionados). ⚠️ Un archivo suelto no ve los tipos que declara un `.d.ts` que él no importa (21/10/2026, la revisión de tipos-en-el-VERDE):
+ * `tono.ts` importa `soundtouchjs`, que sólo tiene tipos en `types/soundtouchjs.d.ts`; `color-picker.tsx` usa el global `EyeDropper` de `eyedropper.d.ts`. El acotado daba TS7016 / TS2304
+ * EN el archivo cambiado —un ROJO falso—, y el tsc completo, que carga todo `**\/*.ts`, daba verde. Son pocos (8) y chicos: entran siempre.
+ */
+export function dtsVersionados(repo) {
+  try {
+    return execFileSync('git', ['ls-files', '-z', '--', '*.d.ts'], { cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+      .split('\0').filter((f) => f && existsSync(join(repo, f)));
+  } catch { return []; }
+}
+
+/**
+ * El tsconfig temporal. Lo prueba un test (con el repo de mentira no existen los .d.ts de next, y no entran). `dts`: los .d.ts propios que también tienen que estar (ver `dtsVersionados`).
+ * @param {string} repo
+ * @param {string[]} archivos
+ * @param {{ dts?: string[] }} [opciones]
+ */
+export function armarTsconfig(repo, archivos, { dts = [] } = {}) {
   const r = barra(resolve(repo));
   const globales = GLOBALES_DE_NEXT.filter((g) => existsSync(join(resolve(repo), g))).map((g) => `${r}/${g}`);
+  const propios = dts.map((d) => barra(resolve(repo, d)));
   return {
     extends: `${r}/tsconfig.json`,
     compilerOptions: {
@@ -65,7 +83,7 @@ export function armarTsconfig(repo, archivos) {
       typeRoots: [`${r}/node_modules/@types`],
       types: ['node'],
     },
-    files: [...archivos.map((a) => barra(resolve(repo, a))), ...globales],
+    files: [...new Set([...archivos.map((a) => barra(resolve(repo, a))), ...globales, ...propios])],
     include: [],
   };
 }
@@ -90,7 +108,7 @@ function main() {
   }
   const dir = mkdtempSync(join(tmpdir(), 'tsc-acotado-'));
   const config = join(dir, 'tsconfig.json');
-  writeFileSync(config, JSON.stringify(armarTsconfig(repo, archivos), null, 2));
+  writeFileSync(config, JSON.stringify(armarTsconfig(repo, archivos, { dts: dtsVersionados(repo) }), null, 2));
   // ⚠️ El código de salida se decide adentro y se sale AFUERA: un process.exit() dentro
   // del try corta en el acto y el finally que borra el tsconfig temporal no corre.
   let codigo = 99;

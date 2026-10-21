@@ -6773,8 +6773,8 @@ Cerebro. Y el candado no cubre el `mobile-build.lock` de los Mobile: es otro rec
 ## `tsx` no chequea tipos: un test con un error de tipos pasa local y cae en Actions — y un «VERDE (tipos: los chequea Actions)» no era un verde (21/10/2026)
 
 **El síntoma** (lo midió el Cerebro, por pedido de Martín): a cada rato le llegaba el email de GitHub «integracion → main: All jobs have failed». Ese día fallaron seis runs (173, 176, 177, 182, 187, 198) y cada uno le
-mandó uno. **Cuatro cayeron en «Tipos», y siempre en un TEST nuevo o editado**: `tests/candado-pesado.test.ts` (el mío, run 173: un `aviso` con un argumento que el default `() => {}` no admitía, y un `soltar` «posiblemente undefined»),
-`crm-ficha-bloques-partidos`, `m-mako-chat` y `ops-center-landing-receta`. Los otros dos eran de tests (176: el «atrás» del teléfono; 182: un test de m-offer que importaba un `.css`). Producción no recibió nada roto
+mandó uno. **Cuatro cayeron en «Tipos», todas en un TEST**: tres en un test nuevo o editado —`tests/candado-pesado.test.ts` (el mío, run 173: un `aviso` con un argumento que el default `() => {}` no admitía, y un `soltar` «posiblemente undefined»),
+`crm-ficha-bloques-partidos` y `ops-center-landing-receta`— y **una en un test SIN TOCAR**: `m-mako-chat` (run 187) dejó de compilar porque cambió un TIPO de `lib/` que importaba sólo con `import type`. Esa cuarta no la cerraba el primer arreglo (ver abajo). Los otros dos eran de tests (176: el «atrás» del teléfono; 182: un test de m-offer que importaba un `.css`). Producción no recibió nada roto
 —el run frena antes de avanzar `main`—, pero cada caída es un email para Martín y un lote trabado.
 
 **El diagnóstico obvio —«los chats no corren los tipos»— era el equivocado.** Tres huecos, juntos:
@@ -6795,6 +6795,22 @@ mandó uno. **Cuatro cayeron en «Tipos», y siempre en un TEST nuevo o editado*
   a punta**: un repo de git de mentira (con un junction a `node_modules`) y el CLI real. Un test NUEVO con `const cuenta: number = 'esto no es un número'` —que como test corre perfecto— da **ROJO** en `tests-afectados` y en
   `antes-de-subir`, que es lo que se pidió; uno sano da `VERDE · tipos de 1 archivos sin errores`; sin RAM da `SIN TIPOS: no hay RAM…` y sale 98 sin una sola línea que diga VERDE.
 
+**La revisión del Cerebro (por diff, 21/10) encontró lo que el primer arreglo NO cerraba — y el 187, uno de los cuatro runs que lo motivaban, seguía abierto.** Cinco huecos, todos con una prueba de punta a punta que los reproduce:
+1. **Un importador que no cambió no se compilaba (el 187).** El alcance era «lo cambiado + lo que eso importa»; nadie importa un test, así que `tests/m-mako-chat.test.ts` (elegido por tests-afectados y corrido con tsx, que no chequea tipos) nunca entraba al programa.
+   Y el grafo de imports ignoraba el `import type` —con razón, para elegir qué tests CORRER: un tipo no rompe un test en ejecución—, que es justo la puerta por la que un tipo cambiado llega a un test.
+   Ahora `seleccionar` arma además `importadoPorTipos` (con los `import type`) y `alcanceTsc` suma los TESTS que importan DIRECTO lo cambiado (un `.mjs` cambiado incluido: el run 173 era un `.ts` que importaba un `.mjs`). Un archivo BORRADO suma a quienes lo importaban.
+   **Un salto, y no más — medido, porque la primera versión seguía TODOS los saltos y era inusable:** sobre los últimos 40 merges de main, el alcance en archivos (mediana / máximo / merges con más de 120) es sin tests 6 / 121 / 1 · **un salto 16 / 208 / 1** · dos 32 / 359 / 6 · tres 42 / 488 / 13 · todos 518 / 687 / 21.
+   Con todos los saltos, casi cualquier cambio en `lib/` arrastra ~500 tests (los hubs de `lib/` los importan todos) y con ellos casi todo el programa: ~5 GB, que en esta PC casi nunca hay. La revisión decía «son hojas, casi no suman memoria»: es cierto del test, falso de lo que ese test importa. Los runs 173 y 187 son de importación directa; `MAKO_TIPOS_PROFUNDIDAD=3` ensancha a propósito.
+2. **Los `.d.ts` propios no entraban: ROJO FALSO.** `tono.ts` importa `soundtouchjs`, que sólo tiene tipos en `types/soundtouchjs.d.ts`; `color-picker.tsx` usa el global `EyeDropper` de `eyedropper.d.ts`; `bgRemoval` depende de `ort-wasm.d.ts`. El acotado
+   daba TS7016/TS2304 EN el archivo cambiado y frenaba un push sano (el completo carga todo `**/*.ts` y daba verde). Ahora los `.d.ts` versionados (`git ls-files '*.d.ts'`, 8) van siempre en `files` (`armarTsconfig(…, { dts })`, también en `tsc-acotado.mjs`).
+3. **Un alcance vacío daba «nada» → VERDE aunque cambiara algo que DEFINE tipos:** `tsconfig*.json`, `package.json`/`package-lock.json` o un `.d.ts`. Ahora (`tiposNoAcotables`) el acotado verde se convierte en `sin-tipos`: «cambió <archivo>: define tipos para todo el repo… lo decide el tsc completo (Actions)». Un rojo sigue mandando.
+   **Costo:** todo push que toque `package.json` sale 98 y hay que decidir (`MAKO_SIN_TIPOS=1` → PARCIAL). Se eligió eso a ser un verde que no puede serlo: subir `typescript` o un `@types` ni lo vería un tsc local (el `node_modules` no se reinstala).
+4. **`archivoDe` cortaba la ruta en el primer «(»:** `app/(publico)/precios/page.tsx(3,7): error TS…` daba «app/», el error contaba como arrastre y salía VERDE (los grupos de rutas de Next se crean así). Y un error SIN archivo (TS5023 por una opción mal escrita) también era «arrastre».
+   Ahora la ruta es lo que va antes de `(línea,col): error TS`, y un error sin archivo cuenta como propio.
+5. **Un ROJO de tipos se perdía si los tests no tenían RAM:** `tests-afectados` salía 99 («no es un rojo del código») sin mirar los tipos. `salidaSinRam`: un rojo de tipos gana, sale 1. (Para probarlo hicieron falta `MAKO_TESTS_PISO_GB` y `MAKO_TESTS_ESPERA_S`, que sólo usan las pruebas.)
+
+**La lección de esa vuelta:** el arreglo citaba cuatro runs como motivo y yo lo di por cerrado sin REPRODUCIR cada uno. Con el 187 reproducido (cambiar un tipo, no tocar el test) el hueco aparece en un minuto. **Cuando un arreglo se justifica con N fallos reales, cada uno de los N es una prueba de punta a punta** — ahora lo son el 173 (`.mjs`) y el 187 (`import type`).
+
 **Las trampas que aparecieron:**
 - **`MAKO_TESTS_SIN_ESPERA=1` («corro igual aunque no haya RAM») también vale para los tipos**, porque comparten `esperarRam`. La primera versión de la prueba de «sin RAM» lo tenía puesto y los tipos corrían igual:
   dio ROJO (exit 1) en vez de `SIN TIPOS`. Quien lo use sabe que el vigía puede matar el tsc, y eso ahora se lee como `SIN TIPOS`, no como un verde.
@@ -6813,9 +6829,11 @@ mandó uno. **Cuatro cayeron en «Tipos», y siempre en un TEST nuevo o editado*
   carga unos pocos cientos de MB, no 2,5 GB) bajaría la frecuencia sin aflojar nada, pero el heap hoy se decide por la CANTIDAD de archivos (`heapPara`), no por lo que arrastran: hace falta medirlo antes de tocarlo.
 - **El hook de pre-push instalado** (`.git/hooks/pre-push`) es una COPIA de `scripts/claude-hooks/pre-push`: la versión del repo ya distingue el 98 («PUSH BLOQUEADO: SIN TIPOS, no es un rojo del código») y acepta `MAKO_SIN_TIPOS=1`, pero la
   instalada sigue diciendo «dio ROJO» para el 98 (bloquea igual). Reinstalarla es infraestructura compartida: la decide el Cerebro.
-- **`integracion.yml` no se tocó:** corre `tests-afectados` con `CI=true` (sin tipos, a propósito) y su paso «Tipos» aparte.
+- **`integracion.yml` no se tocó en esta punta:** corre `tests-afectados` con `CI=true` (sin tipos, a propósito) y su paso «Tipos» aparte.
+- **Los importadores que NO son tests siguen siendo de Actions** (`--importadores` los suma, y no es el default): un tipo de `lib/` que rompe a un componente sin tocar lo ve el tsc completo, no el acotado.
+- **El alcance con tests dependientes puede ser grande** (un `lib/` muy importado arrastra cientos de tests y casi todo el programa): ahí el heap sube (`heapPara` por cantidad de archivos) y los `SIN TIPOS` serán más frecuentes. Es honesto —ese cambio de verdad necesita el tsc completo—, pero hay que mirar cuánto pasa antes de decidir si vale otra palanca.
 
-**Vive en:** `scripts/tests-afectados.mjs` (`correrTipos`, `cerrar`, `SALIDA_SIN_TIPOS`, `--sin-tipos`) · `scripts/antes-de-subir.mjs` · `scripts/claude-hooks/pre-push` · `tests/tipos-del-cambio.test.ts` · `AGENTS.md` («UN VERDE SIN TIPOS NO SE LLAMA VERDE»)
+**Vive en:** `scripts/tests-afectados.mjs` (`correrTipos`, `cerrar`, `SALIDA_SIN_TIPOS`, `--sin-tipos`) · `scripts/antes-de-subir.mjs` · `scripts/tsc-acotado.mjs` (`dtsVersionados`, `armarTsconfig`) · `scripts/claude-hooks/pre-push` · `tests/tipos-del-cambio.test.ts` · `AGENTS.md` («UN VERDE SIN TIPOS NO SE LLAMA VERDE»)
 
 ## Un script de roturas no se corta con `head`, y un worktree no tiene `.env.local` (16/10/2026)
 

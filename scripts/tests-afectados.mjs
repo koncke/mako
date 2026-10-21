@@ -55,7 +55,7 @@ import { copyFileSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileS
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { armarTsconfig } from './tsc-acotado.mjs';
+import { armarTsconfig, dtsVersionados } from './tsc-acotado.mjs';
 import { veredicto } from './tsc-bitacoras.mjs';
 
 const GB = 1024 ** 3;
@@ -99,6 +99,16 @@ export function especificadores(src) {
   for (const m of src.matchAll(RE_ESTATICO)) if (!m[1]) salida.add(m[3]);
   for (const m of src.matchAll(RE_DINAMICO)) salida.add(m[2]);
   for (const m of src.matchAll(RE_URL)) salida.add(m[2]);
+  return [...salida];
+}
+
+/**
+ * Los especificadores de EJECUCIÓN más los `import type` / `export type … from`. Un import de tipos se borra al compilar (el test no puede romperse en tiempo de ejecución:
+ * por eso `especificadores` no lo cuenta), pero el tsc SÍ lo sigue: es la puerta por la que un tipo que cambió rompe a un test que no se tocó (run 187 de Actions).
+ */
+export function especificadoresConTipos(src) {
+  const salida = new Set(especificadores(src));
+  for (const m of src.matchAll(RE_ESTATICO)) if (m[1]) salida.add(m[3]);
   return [...salida];
 }
 
@@ -228,7 +238,7 @@ export const compartible = (src) => !PELIGRO_COMPARTIR.test(src);
  *   cambiados: lo que el cambio toca (incluye borrados); archivos: lo que existe ahora (incluye
  *   lo nuevo sin git); leer: el texto de un archivo de código; profundidad: cuántos saltos de import se siguen
  *   (default: todos; `--profundidad 3` es la palanca si el tiempo aprieta: ver el replay, qué rojos salen a cada profundidad).
- * @returns {{ tests: Map<string, {tipo: string, detalle: string}[]>, sinRed: string[], totalTests: number, importadoPor: Map<string, Set<string>>, aumentan: Set<string>, compartibles: Set<string> }}
+ * @returns {{ tests: Map<string, {tipo: string, detalle: string}[]>, sinRed: string[], totalTests: number, importadoPor: Map<string, Set<string>>, importadoPorTipos: Map<string, Set<string>>, aumentan: Set<string>, compartibles: Set<string> }}
  */
 export function seleccionar({ cambiados, archivos, leer, profundidad = Infinity }) {
   const existentes = new Set(archivos);
@@ -244,6 +254,9 @@ export function seleccionar({ cambiados, archivos, leer, profundidad = Infinity 
 
   const importadoPor = new Map();  // archivo → quienes lo importan (o lo lanzan, ver abajo)
   const arista = (destino, origen) => { if (destino === origen) return; if (!importadoPor.has(destino)) importadoPor.set(destino, new Set()); importadoPor.get(destino).add(origen); };
+  // Lo mismo MÁS los `import type`: el grafo por el que un tipo que cambia llega a un test que no se tocó. Sirve al tsc acotado (`alcanceTsc`), no a elegir qué tests correr.
+  const importadoPorTipos = new Map();
+  const aristaTipos = (destino, origen) => { if (destino === origen) return; if (!importadoPorTipos.has(destino)) importadoPorTipos.set(destino, new Set()); importadoPorTipos.get(destino).add(origen); };
   const tests = [...existentes].filter((f) => ES_TEST.test(f)).sort();
   const aumentan = new Set();      // archivos que agregan tipos a otros (`declare module`/`declare global`)
   const nombradasPor = new Map();  // test → archivos que nombra
@@ -256,7 +269,9 @@ export function seleccionar({ cambiados, archivos, leer, profundidad = Infinity 
     if (crudo == null) continue;
     const src = sinComentarios(crudo);
     if (/^\s*declare\s+(?:module|global)\b/m.test(src)) aumentan.add(f);
-    for (const spec of especificadores(src)) { const d = resolver(f, spec, existe); if (d) arista(d, f); }
+    const enEjecucion = especificadores(src);
+    for (const spec of enEjecucion) { const d = resolver(f, spec, existe); if (d) { arista(d, f); aristaTipos(d, f); } }
+    for (const spec of especificadoresConTipos(src)) { if (enEjecucion.includes(spec)) continue; const d = resolver(f, spec, existe); if (d) aristaTipos(d, f); }
     if (!ES_TEST.test(f)) continue;
     const nombradas = rutasNombradas(src);
     const archivosNombrados = new Set();
@@ -311,7 +326,7 @@ export function seleccionar({ cambiados, archivos, leer, profundidad = Infinity 
   const mencionados = new Set();
   for (const set of nombradasPor.values()) for (const a of set) mencionados.add(a);
   const sinRed = cambiados.filter((f) => !ES_TEST.test(f) && !alcanzaTest.has(f) && !mencionados.has(f)).sort();
-  return { tests: elegidos, sinRed, totalTests: tests.length, importadoPor, aumentan, compartibles };
+  return { tests: elegidos, sinRed, totalTests: tests.length, importadoPor, importadoPorTipos, aumentan, compartibles };
 }
 
 /** Un solo motivo por test, el más específico: lo que lo toca de verdad gana sobre «corre siempre». */
@@ -342,19 +357,67 @@ export function motivoPrincipal(razones) {
  * avisaba: `insertar.ts` da TS2339 «toggleEtiqueta no existe en ChainedCommands» si `extensiones/marcas.ts` no está en la lista).
  * Cuando el archivo suelto NO está en el alcance sino que llega por arrastre, no alcanza con esto: ahí los errores no bloquean
  * (scripts/antes-de-subir.mjs → correrTsc). Medido el 17/10/2026 reproduciendo el run 10 con el tsc real.
+ * @param {{ cambiados: string[], archivos: string[], importadoPor: Map<string, Set<string>>, importadoPorTipos?: Map<string, Set<string>> | null, aumentan?: Set<string>, importadores?: boolean, profundidadTests?: number }} p
+ * @returns {string[]}
  */
-export function alcanceTsc({ cambiados, archivos, importadoPor, aumentan = new Set(), importadores = false }) {
+export function alcanceTsc({ cambiados, archivos, importadoPor, importadoPorTipos = null, aumentan = new Set(), importadores = false, profundidadTests = PROFUNDIDAD_TESTS_TIPOS }) {
   const existentes = new Set(archivos);
   const esTs = (f) => /\.(?:ts|tsx|mts)$/.test(f) && !f.endsWith('.d.ts') && existentes.has(f);
+  // El grafo de los TIPOS (con `import type`) si lo hay: `importadoPor` no ve a quien importa sólo tipos.
+  const grafo = importadoPorTipos ?? importadoPor;
   const alcance = new Set();
   for (const f of cambiados) {
     if (esTs(f)) alcance.add(f);
-    if (importadores) for (const quien of importadoPor.get(f) ?? []) if (esTs(quien)) alcance.add(quien);
+    if (importadores) for (const quien of grafo.get(f) ?? []) if (esTs(quien)) alcance.add(quien);
+    // Un archivo BORRADO ya no compila ni se mira: quien lo importaba sí, y es quien se rompe.
+    if (!existentes.has(f)) for (const quien of grafo.get(f) ?? []) if (esTs(quien)) alcance.add(quien);
+  }
+  // ⚠️ LOS TESTS QUE DEPENDEN DE LO CAMBIADO ENTRAN AL ALCANCE, los toque el cambio o no (21/10/2026, la revisión de este mismo gate). Run 187: cambió un TIPO de lib/ y
+  // tests/m-mako-chat.test.ts —sin tocar— dejó de compilar: tests-afectados lo eligió y lo corrió con tsx (que no chequea tipos), pero el tsc acotado sólo compilaba lo cambiado, y nadie
+  // importa un test, así que el test nunca entraba al programa. Se siguen los imports DE TIPOS (`import type` también: m-mako-chat importaba el tipo sólo así) hasta `profundidadTests` saltos (uno),
+  // desde TODO lo cambiado —un .mjs incluido: el run 173 era un .ts que importaba un .mjs sin JSDoc— y sólo se suman los tests (no los intermedios).
+  if (importadoPorTipos) {
+    const saltos = new Map(cambiados.map((f) => [f, 0]));
+    const cola = [...cambiados];
+    for (let i = 0; i < cola.length; i++) {
+      if (saltos.get(cola[i]) >= profundidadTests) continue;
+      for (const quien of importadoPorTipos.get(cola[i]) ?? []) {
+        if (saltos.has(quien)) continue;
+        saltos.set(quien, saltos.get(cola[i]) + 1);
+        cola.push(quien);
+        if (ES_TEST.test(quien) && esTs(quien)) alcance.add(quien);
+      }
+    }
   }
   const zona = (f) => f.split('/').slice(0, 2).join('/');
   const zonas = new Set([...alcance].map(zona));
   for (const a of aumentan) if (esTs(a) && zonas.has(zona(a))) alcance.add(a);
   return [...alcance].sort();
+}
+
+// ⚠️ Lo que DEFINE tipos para todo el repo no se puede chequear con un alcance acotado: `tsconfig*.json` (las opciones de compilación), `package.json`/`package-lock.json` (las versiones de
+// typescript y de los @types) y los `.d.ts` (globales y `declare module`). Un cambio ahí puede romper a un archivo que no cambió y que ningún alcance conoce; con un alcance vacío daba
+// `nada` → VERDE (la revisión del 21/10/2026). Si el acotado da bien, el resultado NO es verde: es `sin-tipos`, y lo decide el tsc completo (Actions).
+const DEFINE_TIPOS = /^(?:tsconfig[^/]*\.json|package(?:-lock)?\.json)$|\.d\.ts$/;
+export const tiposNoAcotables = (cambiados) => cambiados.map((f) => f.replace(/\\/g, '/')).filter((f) => DEFINE_TIPOS.test(f)).sort();
+/**
+ * Cuántos saltos de import (con tipos) se siguen desde lo cambiado para sumar tests al alcance del tsc acotado. UNO: los tests que importan DIRECTO lo cambiado (los runs 173 y 187 eran así).
+ * ⚠️ MEDIDO el 21/10/2026 sobre los últimos 40 merges de main (alcance en archivos, mediana / máximo / merges con más de 120): sin tests 6 / 121 / 1 · un salto 16 / 208 / 1 · dos 32 / 359 / 6 · tres 42 / 488 / 13 ·
+ * TODOS los saltos 518 / 687 / 21. Con todos, casi cualquier cambio en `lib/` arrastra 500 tests (los hubs de `lib/` los importan todos) y con ellos casi todo el programa: ~5 GB, que en esta PC casi nunca hay (SIN TIPOS casi siempre).
+ * `MAKO_TIPOS_PROFUNDIDAD=3` (o 99) lo ensancha a propósito para un cambio de riesgo; lo que queda más lejos lo decide el tsc completo de Actions.
+ */
+export const PROFUNDIDAD_TESTS_TIPOS = Number(process.env.MAKO_TIPOS_PROFUNDIDAD) || 1;
+
+/**
+ * Todo lo que el tsc acotado necesita saber, en un solo lugar para que `tests-afectados` y `antes-de-subir` no puedan discrepar:
+ * el alcance (lo cambiado + los tests que dependen de lo cambiado) y lo que no se puede acotar.
+ * @param {{ cambiados: string[], archivos: string[], sel: { importadoPor: Map<string, Set<string>>, importadoPorTipos?: Map<string, Set<string>>, aumentan: Set<string> }, importadores?: boolean }} p
+ */
+export function planDeTipos({ cambiados, archivos, sel, importadores = false }) {
+  return {
+    alcance: alcanceTsc({ cambiados, archivos, importadoPor: sel.importadoPor, importadoPorTipos: sel.importadoPorTipos, aumentan: sel.aumentan, importadores }),
+    noAcotables: tiposNoAcotables(cambiados),
+  };
 }
 
 // -----------------------------------------------------------------------------
@@ -469,10 +532,10 @@ export function agrupar(tests, compartibles = new Set(), { compartir = false } =
 export const ZONA_ROJA_VIGIA_GB = 0.9;
 const COSTO_PROCESO_GB = 0.35;
 const MARGEN_GB = 0.05;
-const ESPERA_RAM_MAX_MS = 15 * 60 * 1000;
+const ESPERA_RAM_MAX_MS = (Number(process.env.MAKO_TESTS_ESPERA_S) || 15 * 60) * 1000;   // MAKO_TESTS_ESPERA_S: lo usan las pruebas de «sin RAM»
 const REINTENTO_MAX = 8;    // más rojos que esto en una tanda no es la carga: es un cambio que rompe cosas
 const TOPE_TANDA_MS = 10 * 60 * 1000;
-export const pisoRam = (concurrencia) => ZONA_ROJA_VIGIA_GB + COSTO_PROCESO_GB * concurrencia + MARGEN_GB;
+export const pisoRam = (concurrencia) => Number(process.env.MAKO_TESTS_PISO_GB) || ZONA_ROJA_VIGIA_GB + COSTO_PROCESO_GB * concurrencia + MARGEN_GB;   // MAKO_TESTS_PISO_GB: lo usan las pruebas de «sin RAM»
 
 /**
  * `--concurrencia auto`: TODOS los núcleos de la máquina (2 como mínimo, 4 como tope por la RAM). ⚠️ NO es el default de node, que es
@@ -726,7 +789,11 @@ async function tomarLockTipos(maxMs, ruta) {
 }
 export const soltarLockTipos = (ruta = lockDeTipos()) => { try { if (duenoDelLockTipos(ruta) === process.pid) unlinkSync(ruta); } catch { /* ya no es mío */ } };
 
-/** Corre el tsc acotado de verdad. Se inyecta en las pruebas para simular que lo mató el vigía, que se quedó sin heap… */
+/**
+ * Corre el tsc acotado de verdad. Se inyecta en las pruebas para simular que lo mató el vigía, que se quedó sin heap…
+ * @param {{ config: string, heap: number, raiz: string }} a
+ * @returns {{ status: number | null, salida: string, error?: string }}
+ */
 function ejecutarTsc({ config, heap, raiz }) {
   const r = spawnSync(process.execPath, [`--max-old-space-size=${heap}`, path.join(raiz, 'node_modules', 'typescript', 'bin', 'tsc'), '-p', config], { cwd: raiz, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: TOPE_TSC_MS });
   return { status: r.error ? null : r.status, salida: `${r.stdout ?? ''}${r.stderr ?? ''}`, error: r.error?.message };
@@ -746,7 +813,7 @@ function ejecutarTsc({ config, heap, raiz }) {
  * @param {{ raiz?: string, out?: (s: string) => void, esperaMs?: number, ejecutar?: typeof ejecutarTsc, heapMb?: number }} [o]
  * @returns {Promise<{ estado: 'ok' | 'nada' | 'rojo' | 'sin-tipos', porque?: string, archivos: number, ms?: number, heap?: number, arrastre?: number }>}
  */
-export async function correrTipos(alcance, { raiz = process.cwd(), out = () => {}, esperaMs = ESPERA_TIPOS_MS, ejecutar = ejecutarTsc, heapMb } = {}) {
+async function correrTiposAcotado(alcance, { raiz = process.cwd(), out = () => {}, esperaMs = ESPERA_TIPOS_MS, ejecutar = ejecutarTsc, heapMb } = {}) {
   const archivos = alcance.length;
   if (archivos === 0) { out('  ✔ ningún .ts/.tsx cambió: nada que compilar'); return { estado: 'nada', archivos }; }
   const heap = heapMb ?? heapPara(archivos);
@@ -758,7 +825,7 @@ export async function correrTipos(alcance, { raiz = process.cwd(), out = () => {
     if (c === 0) return sinTipos(`no hay RAM: quedan ${ramLibreGb().toFixed(1)} GB y el tsc acotado pide ${pisoTsc(heap)(1).toFixed(1)}`);
     const dir = mkdtempSync(path.join(os.tmpdir(), 'tipos-del-cambio-'));
     const config = path.join(dir, 'tsconfig.json');
-    writeFileSync(config, JSON.stringify(armarTsconfig(raiz, alcance), null, 2));
+    writeFileSync(config, JSON.stringify(armarTsconfig(raiz, alcance, { dts: dtsVersionados(raiz) }), null, 2));
     const t0 = Date.now();
     try {
       const r = await ejecutar({ config, heap, raiz });
@@ -768,21 +835,49 @@ export async function correrTipos(alcance, { raiz = process.cwd(), out = () => {
       if (v === 'errores') {
         const delAlcance = new Set(alcance.map((f) => f.replace(/\\/g, '/')));
         const errores = r.salida.split('\n').filter((l) => /error TS\d+/.test(l));
-        const archivoDe = (l) => l.split('(')[0].replace(/\\/g, '/');
-        const propios = errores.filter((l) => delAlcance.has(archivoDe(l)));
+        // ⚠️ La ruta es lo que va ANTES de «(línea,col): error TS…», no antes del primer «(»: una ruta con grupo de Next (`app/(publico)/precios/page.tsx`) se cortaba en `app/` y el
+        // error se contaba como arrastre (VERDE). Y un error SIN archivo (TS5023 por una opción mal escrita, TS6053) es del programa entero: cuenta como propio, nunca como arrastre.
+        const archivoDe = (l) => { const m = /^(.*?)\(\d+,\d+\): error TS\d+/.exec(l.trim()); return m ? m[1].replace(/\\/g, '/') : null; };
+        const propios = errores.filter((l) => { const a = archivoDe(l); return a === null || delAlcance.has(a); });
         const arrastre = errores.length - propios.length;
         if (propios.length === 0) {
           out(`  ✔ tipos de ${archivos} archivos sin errores · ${min(ms)} · heap ${heap} MB`);
-          out(`  ℹ ${arrastre} error(es) en archivos que sólo se compilan por arrastre (no frenan; los decide el tsc de Actions): ${[...new Set(errores.map(archivoDe))].slice(0, 3).join(', ')}`);
+          out(`  ℹ ${arrastre} error(es) en archivos que sólo se compilan por arrastre (no frenan; los decide el tsc de Actions): ${[...new Set(errores.map((l) => archivoDe(l) ?? '(sin archivo)'))].slice(0, 3).join(', ')}`);
           return { estado: 'ok', archivos, ms, heap, arrastre };
         }
         out(propios.slice(0, 30).join('\n') + (propios.length > 30 ? `\n  …y ${propios.length - 30} más` : ''));
         if (arrastre) out(`  ℹ y ${arrastre} más en archivos que sólo se compilan por arrastre (no cuentan acá)`);
-        return { estado: 'rojo', archivos, ms, heap, arrastre, porque: `tipos: ${propios.length} errores (${[...new Set(propios.map(archivoDe))].slice(0, 3).join(', ')})` };
+        return { estado: 'rojo', archivos, ms, heap, arrastre, porque: `tipos: ${propios.length} errores (${[...new Set(propios.map((l) => archivoDe(l) ?? '(sin archivo)'))].slice(0, 3).join(', ')})` };
       }
       return sinTipos(`el tsc acotado no terminó (código ${r.status ?? r.error}, ${r.salida.length} bytes): lo mató el vigía de RAM o se quedó sin heap — no es un error de tipos`);
     } finally { rmSync(dir, { recursive: true, force: true }); }
   } finally { soltarLockTipos(lock); }
+}
+
+/**
+ * `correrTiposAcotado` + lo que NO se puede acotar (`tiposNoAcotables`: tsconfig, package.json, .d.ts). Si el acotado da `ok` o `nada` pero cambió algo de eso, el resultado es `sin-tipos`
+ * —nunca un verde—; un `rojo` sigue siendo `rojo` (un rojo manda), y un `sin-tipos` propio conserva su causa.
+ * @param {string[]} alcance
+ * @param {{ raiz?: string, out?: (s: string) => void, esperaMs?: number, ejecutar?: typeof ejecutarTsc, heapMb?: number, noAcotables?: string[] }} [o]
+ * @returns {ReturnType<typeof correrTiposAcotado>}
+ */
+export async function correrTipos(alcance, { noAcotables = [], ...o } = {}) {
+  const r = await correrTiposAcotado(alcance, o);
+  if (!noAcotables.length || (r.estado !== 'ok' && r.estado !== 'nada')) return r;
+  const porque = `cambió ${noAcotables.slice(0, 3).join(', ')}${noAcotables.length > 3 ? '…' : ''}: define tipos para todo el repo y un tsc acotado no puede chequear a los archivos que no cambiaron — lo decide el tsc completo (Actions)`;
+  (o.out ?? (() => {}))(`  ✖ SIN TIPOS: ${porque}`);
+  return { ...r, estado: 'sin-tipos', porque };
+}
+
+/**
+ * Qué hace `tests-afectados` cuando los tests no encontraron RAM (sale 99, «no es un test roto») pero los tipos ya habían dado ROJO: el rojo de tipos GANA y sale 1. Perderlo sería decirle a
+ * quien lee el exit «sin RAM, no es un rojo del código» sobre una punta que tiene un error de tipos (la revisión del 21/10/2026).
+ * @param {{ estado: string, porque?: string } | null} tipos
+ * @returns {{ codigo: number, linea: string | null }}
+ */
+export function salidaSinRam(tipos) {
+  if (tipos?.estado === 'rojo') return { codigo: 1, linea: `ROJO: ${tipos.porque} · (además, los tests no corrieron: no había RAM)` };
+  return { codigo: SALIDA_SIN_CORRER, linea: null };
 }
 
 /**
@@ -917,9 +1012,9 @@ async function main(argv) {
   // Los TIPOS de lo cambiado son PARTE del veredicto (ver 6b): primero, que es lo más barato y falla rápido. En Actions (CI), con --resto y con --sin-tipos no se corren.
   let tipos = null;
   if (o.tipos && !o.resto) {
-    const alcance = alcanceTsc({ cambiados: cambios.cambiados, archivos: plan.archivos, importadoPor: sel.importadoPor, aumentan: sel.aumentan });
-    out(`\n[tests-afectados] tipos (tsc acotado a ${alcance.length} archivos)`);
-    tipos = await correrTipos(alcance, { raiz, out });
+    const { alcance, noAcotables } = planDeTipos({ cambiados: cambios.cambiados, archivos: plan.archivos, sel });
+    out(`\n[tests-afectados] tipos (tsc acotado a ${alcance.length} archivos: lo cambiado y los tests que dependen de eso)`);
+    tipos = await correrTipos(alcance, { raiz, out, noAcotables });
   }
   const conVeredictoDeTipos = tipos !== null || o.sinTiposPedido;   // sin esto (Actions, --resto) la salida es la de siempre
   const resumenTipos = tipos?.estado === 'ok' ? `tipos de ${tipos.archivos} archivos sin errores` : tipos?.estado === 'nada' ? 'tipos: ningún .ts/.tsx cambió' : '';
@@ -945,7 +1040,10 @@ async function main(argv) {
   if (r.sinRam) {
     process.stderr.write(`\n  ✖ NO CORRÍ LOS TESTS: NO HAY RAM (quedan ${ramLibreGb().toFixed(1)} GB, hace falta ${pisoRam(1).toFixed(1)}). Esto NO es un test roto.\n`);
     process.stderr.write('    Cerrá unos chats de Claude y volvé a correrlo, o MAKO_TESTS_SIN_ESPERA=1 para correr igual (puede matarlo el vigía).\n\n');
-    return SALIDA_SIN_CORRER;
+    // Un ROJO de tipos gana: sin esto, la punta con un error de tipos salía 99 («no es un rojo del código»).
+    const fin = salidaSinRam(tipos);
+    if (fin.linea) out(fin.linea);
+    return fin.codigo;
   }
   rmSync(carpetaTmp, { recursive: true, force: true });
   // La palabra VERDE se reserva para el veredicto final, que ya cuenta los tipos: acá, si los tipos están en juego, los tests dicen «en verde».
