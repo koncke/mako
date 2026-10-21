@@ -44,6 +44,7 @@ import { avisoDeConservadas, avisoMonedaPorOmision, cobroManualDeEntrada, textoD
 // Sólo para la lectura cobranza_lead (14/10/2026): lo cobrado con la misma cuenta que la ficha.
 import { cobradoDelLead, noEsDeuda } from '@/lib/cobrado-lead';
 import { estadoDeCuenta, movimientosDelLead } from '@/lib/pagos-vistazo';
+import { bloqueEstadoDeCuenta, comprobanteDelPedido, notaEnPantalla } from '@/lib/pagos-bloque';
 import { listarCobros } from '@/lib/cobros';
 import { NOMBRE_PASARELA, type Pasarela } from '@/lib/cobros-tipos';
 import { centavos, diferenciaPendiente, type RestoDeCobro } from '@/lib/pagos-diferencia';
@@ -545,7 +546,18 @@ export const RUNNERS: Runners = {
         suscripcionCanceladaAt: (lead as unknown as { suscripcion_cancelada_at?: string | null }).suscripcion_cancelada_at ?? null,
         pagos: plan.pagos, cobros, hoy,
       });
-      return json({
+      // ⚠️ EL ESTADO DE CUENTA Y LOS MOVIMIENTOS SON LOS DE LA TAB PAGOS (16/10/2026, lib/pagos-vistazo.ts): qué debe,
+      // qué hacer ahora y lo que ya pasó con la plata. MaKo contesta con lo MISMO que ve la persona en la ficha.
+      const e = estadoDeCuenta({ cobrado: cob, pagos: plan.pagos, ganado: lead.estado_lead === 'ganado', hoy });
+      // Sin los cobros no se sabe si la suscripción la cobra la pasarela: registrar el mes a mano podría duplicarlo.
+      const accion = e?.accion && !(cobrosSinLeer && e.accion.tipo === 'registrar-mes') ? e.accion : null;
+      const dibuja = !!ctx.aDibujar;
+      // El archivo del mensaje es el comprobante de ESTE lead sólo si el modelo lo dice, si toca cobrar una cuota (va
+      // atado a ésa) y si otro lead del mismo mensaje no lo tomó (lib/pagos-bloque.ts, `comprobanteDelPedido`).
+      const delPedido = dibuja
+        ? comprobanteDelPedido({ adjuntos: ctx.adjuntos, lead, esSuyo: input.comprobante === true, accion: accion?.tipo === 'cobrar-cuota' ? { tipo: accion.tipo, pagoId: accion.pagoId } : accion })
+        : { comprobante: null, sin: null };
+      const contenido = json({
         lead_id: lead.id, nombre: lead.nombre, estado: lead.estado_lead,
         venta_tipo: lead.venta_tipo ?? 'unico',
         total_vendido_usd: plan.total_usd,
@@ -566,12 +578,7 @@ export const RUNNERS: Runners = {
           ...(cob.cuadra && !cob.cuadra.cuadra && !cob.baja ? { no_cuadra: `El plan suma USD ${cob.cuadra.diferenciaUsd > 0 ? 'más' : 'menos'} que el cierre (diferencia ${cob.cuadra.diferenciaUsd}).` } : {}),
           ...(cob.seDibuja ? {} : { nota: cob.tipo === 'sin_cobro' ? 'Becado: no tiene cobrado.' : 'Sin venta ni cuotas cargadas.' }),
         },
-        // ⚠️ EL ESTADO DE CUENTA Y LOS MOVIMIENTOS SON LOS DE LA TAB PAGOS (16/10/2026, lib/pagos-vistazo.ts): qué debe,
-        // qué hacer ahora y lo que ya pasó con la plata. MaKo contesta con lo MISMO que ve la persona en la ficha.
         estado_de_cuenta: (() => {
-          const e = estadoDeCuenta({ cobrado: cob, pagos: plan.pagos, ganado: lead.estado_lead === 'ganado', hoy });
-          // Sin los cobros no se sabe si la suscripción la cobra la pasarela: registrar el mes a mano podría duplicarlo.
-          const accion = e?.accion && !(cobrosSinLeer && e.accion.tipo === 'registrar-mes') ? e.accion : null;
           return e ? {
             titular: e.titular, detalle: e.detalle, tono: e.tono, falta_usd: e.faltaUsd,
             que_hacer: accion ? { accion: accion.tipo, boton: accion.boton, ...(accion.tipo === 'cobrar-cuota' ? { pago_id: accion.pagoId } : {}) } : null,
@@ -588,6 +595,10 @@ export const RUNNERS: Runners = {
         cuotas,
         ...(cuotas.length ? {} : { nota_cuotas: 'Sin cuotas cargadas: no hay plan de pagos, no significa que no deba nada.' }),
       });
+      // En el chat de la app el estado de cuenta se DIBUJA con la pieza de la tab Pagos (la 2.28, lib/pagos-bloque.ts).
+      // Lo que le dice al modelo del bloque (y del comprobante) va por `siSeDibuja`: SÓLO si el bloque entró en el mensaje
+      // (`ejecutarOperacion`). Con el tope de bloques lleno, decía «revisa y guarda el cobro ahí» y ahí no había nada.
+      return dibuja ? { content: contenido, bloque: bloqueEstadoDeCuenta(lead, delPedido.comprobante), siSeDibuja: notaEnPantalla(delPedido) } : contenido;
     }),
   },
   insight_lead: {

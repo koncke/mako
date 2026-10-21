@@ -366,6 +366,9 @@ export type Ctx = {
    *  (WhatsApp, HTTP) se descarta. El camino es de Pagos (20/10/2026, la 2.27); las propuestas, 21/10.
    *  Devuelve `false` si NO lo dibujó (el tope de bloques del mensaje): así el `siSeDibuja` de una lectura no se dice. */
   aDibujar?: (b: Bloque) => boolean | void;
+  /** Sólo en la app: los archivos que la persona adjuntó en el mensaje de ESTE turno, ya guardados (su `ref` es la de
+   *  /api/mako/chat?adjunto=). El estado de cuenta del lead toma el comprobante de acá (la 2.28). */
+  adjuntos?: readonly { ref: string; nombre: string; tipo: 'image' | 'document' }[];
   /** Sólo un token DETALLADO por /api/v1 (lib/api-mako/permisos.ts): qué nivel tiene en
    *  cada área. Ausente = no hay restricción por área (los demás canales y el token
    *  clásico, que se gobiernan con `alcance`). Lo mira `gatingOk` al proponer Y al

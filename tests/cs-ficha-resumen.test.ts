@@ -170,7 +170,8 @@ test('Resumen, Pagos e Historial son los componentes del CRM, no copias', () => 
   const PAGOS = sinComentarios(leer('app/customer-success/PagosCliente.tsx'));
   assert.match(PAGOS, /import \{ Armador \} from '@\/app\/crm\/lead-view\/ficha\/Armador';/);
   assert.match(PAGOS, /const LISTA = listaFijaDeCs\('cs-pagos'\);/);
-  assert.match(PAGOS, /return <BloquesDeCs \{\.\.\.p\} lista=\{LISTA\} que="sus pagos" \/>;/);
+  // `BloquesDePagos` desde el 20/10/2026: también lo monta el chat con MaKo para el estado de cuenta (la 2.28).
+  assert.match(PAGOS, /return <BloquesDePagos \{\.\.\.p\} lista=\{LISTA\} que="sus pagos" \/>;/);
   assert.match(PAGOS, /<Armador tab="pagos" lista=\{lista\} ctx=\{ctx\} editando=\{false\}/, 'la ficha de CS no se personaliza');
   assert.match(PAGOS, /getLeadFullAction\(leadId\)/, 'lee lo mismo que la ficha del CRM');
   assert.match(FICHA, /<PagosCliente leadId=\{c\.leadId\}/);

@@ -35,7 +35,9 @@ import { getPorCobrar, getCuotasPendientes, type CuotaPendiente } from '@/lib/pa
 import { funnelsDelPedido } from '../funnels-del-pedido';
 import { rotuloDeFunnels } from '@/lib/funnels-elegidos';
 import { getDataSources, sourcesToMap } from '@/lib/sources';
-import { hoyEnWorkspace } from '@/lib/timezone';
+import { hoyEnWorkspace, tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
+import { bloqueACobrar } from '@/lib/pagos-bloque';
+import { sanearBloque } from '@/lib/chat-bloques';
 import { TIPO_DE_CAMBIO_USD_MXN } from '@/lib/config';
 import { diasAntes, esFechaValida, lunesDeFecha, ayerEnTijuana } from '@/lib/date-utils';
 import { contarFilas, avisoRecorte } from './metricas.helpers';
@@ -424,7 +426,7 @@ export const RUNNERS: Runners = {
   },
 
   a_quien_cobrar: {
-    leer: async (input) => {
+    leer: async (input, ctx) => {
       const d = fechaOpcional(input, 'desde');
       if (typeof d !== 'string') return errorPedido(d.error);
       const h = fechaOpcional(input, 'hasta');
@@ -449,7 +451,16 @@ export const RUNNERS: Runners = {
         'suscripcion = un cliente de mensualidad por cobrar (no tiene cuota que marcar): «sin-registrar» son meses que ya empezaron y no se registraron, «renovacion-fallida» la tarjeta rechazada, «proxima» la próxima mensualidad manual. Su pendiente NO suma a pendiente_total_usd, que es el de las cuotas (el Outstanding).',
       ];
       if (!d !== !h) notas.unshift('Llegó solo uno de desde/hasta: el filtro por vencimiento necesita los dos, así que NO se filtró.');
-      return json({
+      // En el chat de la app la lista se DIBUJA (la 2.27, lib/pagos-bloque.ts): la de General, con «Cobrada» en cada cuota.
+      // ⚠️ «YA SE DIBUJA» SÓLO SI EL BLOQUE SOBREVIVE AL SANEO (21/10/2026, revisión adversarial): con una zona que el
+      // saneo no aceptaba, el bloque se descartaba y MaKo igual decía que la lista estaba abajo.
+      const bloque = ctx.aDibujar
+        ? sanearBloque(bloqueACobrar(items, hoy, await tzDeWorkspace(ctx.ws).catch(() => TZ_DEFAULT), filtra ? { desde: d, hasta: h } : null))
+        : null;
+      // Y sólo si ENTRÓ en el mensaje: va por `siSeDibuja`, que `ejecutarOperacion` agrega cuando `aDibujar` lo dibujó (el
+      // tope de bloques del mensaje lo puede descartar).
+      const siSeDibuja = '(En este chat la lista YA SE DIBUJA debajo de tu respuesta, con «Cobrada» en cada cuota: no la copies fila por fila. Di en una o dos líneas cuántos son, cuánto suman y quién está más atrasado.)';
+      const contenido = json({
         a_la_fecha: hoy,
         filtro_vencimiento: filtra ? ventana(d, h) : null,
         clientes_con_pendiente: items.length,
@@ -466,6 +477,7 @@ export const RUNNERS: Runners = {
         })),
         notas,
       });
+      return bloque ? { content: contenido, bloque, siSeDibuja } : contenido;
     },
   },
 
