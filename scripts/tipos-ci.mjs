@@ -21,7 +21,10 @@
 //   3. NO DEPENDE DE UN NÚMERO A MANO: el tope se deriva de la RAM del runner (RAM − 1,5 GB para el SO y el runner), con TIPOS_HEAP_MB para
 //      forzarlo. Si algún día el repo pasa a un runner más grande, el tope sube solo; si el runner se achica, el paso lo dice en vez de morir mudo.
 //
-// TANDAS (TIPOS_TANDAS=K, default 1 = el tsc de siempre): el chequeo completo repartido en K procesos, de a uno, cada uno con el programa entero atado pero chequeando sólo su pedazo
+// ⚠️ «TIPOS» ES SIEMPRE EL TSC ENTERO (21/10/2026, criterio del Cerebro tras la revisión): el paso que frena el push no puede dar un OK falso. Las TANDAS (abajo) son sólo el RESPALDO si el tsc entero
+// muere por memoria (exit 98): su OK sale como «OK PARCIAL» (línea TIPOS-MEDIDA con `parcial=1`, aviso ::warning:: y el resumen del run), nunca como un OK limpio, y los errores que encuentran siguen frenando.
+// TIPOS_SOLO_TANDAS=1 salta el intento del entero (cuando se sabe que ya no entra): también PARCIAL.
+// TANDAS (TIPOS_TANDAS=K, default 1 = sin respaldo): el chequeo completo repartido en K procesos, de a uno, cada uno con el programa entero atado pero chequeando sólo su pedazo
 // (scripts/tipos-por-tandas.mjs). Es el arreglo de fondo del 21/10/2026: el tsc guarda en memoria todo lo que instancia, y el programa crece ~1 GB de memoria viva por semana. Con K tandas
 // el pico por proceso baja hacia (piso + resto/K). Se decide K con los números de scripts/medir-tipos.mjs (docs/hallazgos-infra.md); acá sólo se enciende.
 // TIPOS_RAICES=1 (con K > 1): cada tanda crea su programa sólo desde SUS archivos (más los ambientes y lo que ellos importan), en vez de desde todo el proyecto: baja el piso por proceso
@@ -117,10 +120,10 @@ export function leerEstadisticas(salida) {
 
 /**
  * Qué se imprime, qué se anota y con qué exit sale. Puro (sin tocar el disco ni la consola): lo prueba un test.
- * @param {{ estado: string, errores?: number, segundos: number, topeMb: number, ramMb: number, cpu?: number, estadisticas?: Partial<ReturnType<typeof leerEstadisticas>>, status?: number | null, signal?: string | null, tandas?: number, tandaFallida?: number | null, raices?: boolean }} a
+ * @param {{ estado: string, errores?: number, segundos: number, topeMb: number, ramMb: number, cpu?: number, estadisticas?: Partial<ReturnType<typeof leerEstadisticas>>, status?: number | null, signal?: string | null, tandas?: number, tandaFallida?: number | null, raices?: boolean, parcial?: string | null }} a
  * @returns {{ codigo: number, palabra: string, lineas: string[], anotaciones: string[], resumen: string[] }}
  */
-export function veredictoDeTipos({ estado, errores = 0, segundos, topeMb, ramMb, cpu = 0, estadisticas, status = null, signal = null, tandas = 1, tandaFallida = null, raices = false }) {
+export function veredictoDeTipos({ estado, errores = 0, segundos, topeMb, ramMb, cpu = 0, estadisticas, status = null, signal = null, tandas = 1, tandaFallida = null, raices = false, parcial = null }) {
   const e = estadisticas ?? {};
   const enTanda = tandas > 1 && tandaFallida != null ? ` (tanda ${tandaFallida}/${tandas})` : '';
   const fraccion = e.vivoMb != null ? e.vivoMb / topeMb : null;
@@ -137,7 +140,7 @@ export function veredictoDeTipos({ estado, errores = 0, segundos, topeMb, ramMb,
     `instanciaciones=${e.instanciaciones ?? 'n/d'}`,
     `chequeo_s=${e.chequeoS ?? 'n/d'}`,
     // Sólo con tandas, y al FINAL: quien lee la línea de siempre no ve cambiar ni una posición.
-    ...(tandas > 1 ? [`tandas=${tandas}`, `base_mb=${e.baseMb ?? 'n/d'}`, ...(raices ? ['raices=1'] : [])] : []),
+    ...(tandas > 1 ? [`tandas=${tandas}`, `base_mb=${e.baseMb ?? 'n/d'}`, ...(raices ? ['raices=1'] : []), ...(parcial ? ['parcial=1'] : [])] : []),
   ].join(' ');
   const lineas = [medida];
   const anotaciones = [];
@@ -149,8 +152,14 @@ export function veredictoDeTipos({ estado, errores = 0, segundos, topeMb, ramMb,
   let palabra;
   if (estado === 'ok') {
     codigo = 0;
-    palabra = 'OK';
-    lineas.push(`Tipos: OK · ${Math.round(segundos)} s · memoria viva ${e.vivoMb == null ? 'sin medir' : `${miles(e.vivoMb)} MB de ${miles(topeMb)} (${Math.round(fraccion * 100)} %)`}`);
+    palabra = parcial ? 'OK PARCIAL' : 'OK';
+    // ⚠️ Con tandas NUNCA es un OK limpio: repartir el chequeo puede perder un error que el tsc entero da (los que el checker cachea, TS2589/TS2303; en este repo lib/ es un ciclo de 580 archivos partido entre las tandas). Se dice, con el porqué.
+    if (parcial) {
+      lineas.push(`Tipos: OK PARCIAL — NO es el tsc entero (${parcial}). Se chequeó por tandas y NINGUNA dio errores, pero un error cacheado puede haberse perdido: no es la garantía de siempre.`);
+      anotaciones.push(`::warning title=Tipos: verificación PARCIAL (no es el tsc entero)::${parcial}. Las ${tandas} tandas dieron OK, pero repartir el chequeo puede perder errores que el tsc entero da (los que el checker cachea); lo cubre el tsc entero semanal (tipos-respaldo.yml). Subir el tope o achicar el programa vuelve al tsc entero.`);
+    }
+    if (!parcial) lineas.push(`Tipos: OK · ${Math.round(segundos)} s · memoria viva ${e.vivoMb == null ? 'sin medir' : `${miles(e.vivoMb)} MB de ${miles(topeMb)} (${Math.round(fraccion * 100)} %)`}`);
+    if (parcial) lineas.push(`  ${Math.round(segundos)} s · memoria viva ${e.vivoMb == null ? 'sin medir' : `${miles(e.vivoMb)} MB de ${miles(topeMb)} (${Math.round(fraccion * 100)} %)`} en la tanda más pesada`);
     if (fraccion != null && fraccion >= UMBRAL_AVISO) {
       anotaciones.push(`::warning title=Tipos: al borde de la memoria::${tandas > 1 ? `La tanda más pesada (de ${tandas})` : 'El tsc'} usó ${miles(e.vivoMb)} MB vivos de ${miles(topeMb)} (${Math.round(fraccion * 100)} %). Cuando pase del tope el paso muere por memoria (SIN MEMORIA, no errores de tipos). Hay que medir qué infla el programa o partirlo: docs/hallazgos-infra.md.`);
     }
@@ -215,6 +224,15 @@ export function veredictoDeTipos({ estado, errores = 0, segundos, topeMb, ramMb,
 export function tandasPedidas(env) {
   const k = Number.parseInt(env.TIPOS_TANDAS ?? '', 10);
   return Number.isInteger(k) && k >= 1 && k <= 8 ? k : 1;
+}
+
+/**
+ * TIPOS_SOLO_TANDAS=1 (con K > 1): ni se intenta el tsc entero, se verifica directo por tandas, SIEMPRE como verificación PARCIAL. Es el consentimiento explícito de quien sabe que el entero ya no entra
+ * (ahorra el run que muere por memoria, ~3 min) y de quien prueba el respaldo. Puro.
+ * @param {Record<string, string | undefined>} env
+ */
+export function soloTandasPedido(env) {
+  return env.TIPOS_SOLO_TANDAS === '1';
 }
 
 /**
@@ -297,16 +315,31 @@ async function main() {
   const topeMb = topeDeHeapMb({ totalMb: ramMb, env: process.env });
   const cpu = cpus().length;
   process.stdout.write(`tipos-ci: ${cpu} CPU, ${miles(ramMb)} MB de RAM · tope de heap ${miles(topeMb)} MB${process.env.TIPOS_HEAP_MB ? ' (forzado por TIPOS_HEAP_MB)' : ' (RAM − 1,5 GB)'}\n`);
+  // ⚠️ TIPOS_TANDAS=K ya NO reparte el chequeo por defecto (21/10/2026, revisión del Cerebro): el paso que FRENA el push no puede dar un OK falso, y las tandas pueden perder un error cacheado
+  // (TS2589/TS2303) que el tsc entero da: en este repo lib/ es UN ciclo de imports de 580 archivos que queda partido entre las tandas 1 y 2 (medido por el revisor con TIPOS_TANDAS=4: «Tipos: OK» con
+  // exit 0 donde el tsc da 2). Ahora «Tipos» es SIEMPRE el tsc entero; las K tandas son el RESPALDO si el entero muere por memoria (98), y su OK sale marcado «OK PARCIAL» con un aviso, nunca limpio.
   const K = tandasPedidas(process.env);
+  const soloTandas = K > 1 && soloTandasPedido(process.env);
   const tsc = join(raiz, 'node_modules', 'typescript', 'bin', 'tsc');
   let v;
-  if (K === 1) {
-    const r = await correrTsc({ topeMb, tsc, extra: process.argv.slice(2), cwd: raiz });
+  /** @type {{ clase: { estado: string }, segundos: number } | null} */
+  let entero = null;
+  if (!soloTandas) {
+    // TIPOS_HEAP_ENTERO_MB: el tope de heap SÓLO del intento entero (para probar el respaldo: que el entero muera y las tandas, con el tope de siempre, entren). Sin él, el de siempre.
+    const topeEntero = Number.parseInt(process.env.TIPOS_HEAP_ENTERO_MB ?? '', 10) > 0 ? Number.parseInt(process.env.TIPOS_HEAP_ENTERO_MB ?? '', 10) : topeMb;
+    const r = await correrTsc({ topeMb: topeEntero, tsc, extra: process.argv.slice(2), cwd: raiz });
     const clase = r.fallo ? { estado: 'sin-chequear' } : clasificar({ status: r.status, signal: r.signal, salida: r.salida });
+    entero = { clase, segundos: r.segundos };
     v = veredictoDeTipos({ ...clase, segundos: r.segundos, topeMb, ramMb, cpu, estadisticas: leerEstadisticas(r.salida), status: r.status, signal: r.signal });
-  } else {
+  }
+  const murioPorMemoria = entero != null && (entero.clase.estado === 'sin-memoria' || entero.clase.estado === 'matado');
+  if (K > 1 && (soloTandas || murioPorMemoria)) {
+    const parcial = soloTandas
+      ? 'pedido con TIPOS_SOLO_TANDAS=1: no se intentó el tsc entero'
+      : `el tsc entero murió por memoria (${entero?.clase.estado === 'matado' ? 'lo mató el sistema' : 'sin heap'} a los ${Math.round(entero?.segundos ?? 0)} s)`;
+    process.stdout.write(`tipos-ci: ${parcial}: verifico por ${K} tandas (TIPOS_TANDAS), una verificación PARCIAL\n`);
     const raices = raicesPedidas(process.env);
-    process.stdout.write(`tipos-ci: ${K} tandas (TIPOS_TANDAS)${raices ? ', cada una con el programa de SUS raíces (TIPOS_RAICES)' : ''}, de a una\n`);
+    process.stdout.write(`tipos-ci: ${K} tandas${raices ? ', cada una con el programa de SUS raíces (TIPOS_RAICES)' : ''}, de a una\n`);
     const script = join(raiz, 'scripts', 'tipos-por-tandas.mjs');
     const hechas = [];
     let ultima = { status: /** @type {number | null} */ (null), signal: /** @type {string | null} */ (null) };
@@ -326,7 +359,7 @@ async function main() {
     }
     if (carpetaOrden) rmSync(carpetaOrden, { recursive: true, force: true });
     const j = juntarTandas(hechas);
-    v = veredictoDeTipos({ estado: j.estado, errores: j.errores, segundos: j.segundos, topeMb, ramMb, cpu, estadisticas: j.estadisticas, status: ultima.status, signal: ultima.signal, tandas: K, tandaFallida: j.tandaFallida, raices });
+    v = veredictoDeTipos({ estado: j.estado, errores: j.errores, segundos: j.segundos + (entero?.segundos ?? 0), topeMb, ramMb, cpu, estadisticas: j.estadisticas, status: ultima.status, signal: ultima.signal, tandas: K, tandaFallida: j.tandaFallida, raices, parcial });
   }
   process.stdout.write(`\n${v.lineas.join('\n')}\n${v.anotaciones.join('\n')}${v.anotaciones.length ? '\n' : ''}`);
   if (process.env.GITHUB_STEP_SUMMARY) {

@@ -28,7 +28,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  argumentosDeTanda, argumentosDeTsc, clasificar, correrTsc, juntarTandas, leerEstadisticas, miles, raicesPedidas, SALIDA_SIN_TIPOS, tandasPedidas, topeDeHeapMb, UMBRAL_AVISO, veredictoDeTipos,
+  argumentosDeTanda, argumentosDeTsc, clasificar, correrTsc, juntarTandas, leerEstadisticas, miles, raicesPedidas, SALIDA_SIN_TIPOS, soloTandasPedido, tandasPedidas, topeDeHeapMb, UMBRAL_AVISO, veredictoDeTipos,
 } from '../scripts/tipos-ci.mjs';
 import * as TESTS_AFECTADOS from '../scripts/tests-afectados.mjs';
 
@@ -236,6 +236,8 @@ function correrCli(dir: string, env: Record<string, string> = {}) {
   if (!('TIPOS_HEAP_MB' in env)) delete e.TIPOS_HEAP_MB;
   if (!('TIPOS_TANDAS' in env)) delete e.TIPOS_TANDAS;     // el entorno de afuera no cambia el paso que se prueba
   if (!('TIPOS_RAICES' in env)) delete e.TIPOS_RAICES;
+  if (!('TIPOS_SOLO_TANDAS' in env)) delete e.TIPOS_SOLO_TANDAS;
+  if (!('TIPOS_HEAP_ENTERO_MB' in env)) delete e.TIPOS_HEAP_ENTERO_MB;
   const r = spawnSync(process.execPath, [CLI, '-p', join(dir, 'tsconfig.json')], { encoding: 'utf8', env: e, timeout: 120_000 });
   let md = '';
   try { md = readFileSync(resumen, 'utf8'); } catch { /* sin resumen */ }
@@ -407,10 +409,10 @@ function proyectoVarios(archivos: Record<string, string>) {
 }
 const TRES = { 'a.ts': 'export const a: number = 1;\n', 'b.ts': "export const b: number = 'x';\n", 'c.ts': "import { a } from './a';\nexport const c: string = a;\n" };
 
-test('de punta a punta con TIPOS_TANDAS=3: los errores salen una vez cada uno, con exit 1, y cada tanda deja su línea TIPOS-TANDA', () => {
+test('de punta a punta con TIPOS_TANDAS=3 y TIPOS_SOLO_TANDAS=1: los errores salen una vez cada uno, con exit 1, y cada tanda deja su línea TIPOS-TANDA', () => {
   const dir = proyectoVarios(TRES);
   try {
-    const r = correrCli(dir, { TIPOS_TANDAS: '3' });
+    const r = correrCli(dir, { TIPOS_TANDAS: '3', TIPOS_SOLO_TANDAS: '1' });
     assert.equal(r.status, 1, r.out + r.err);
     assert.match(r.out, /── tanda 1\/3 ──/);
     assert.match(r.out, /── tanda 3\/3 ──/);
@@ -420,17 +422,17 @@ test('de punta a punta con TIPOS_TANDAS=3: los errores salen una vez cada uno, c
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('de punta a punta con TIPOS_TANDAS=3 y TIPOS_RAICES=1: los mismos dos errores, una vez cada uno, y la línea dice raices=1', () => {
+test('de punta a punta con TIPOS_TANDAS=3, TIPOS_SOLO_TANDAS=1 y TIPOS_RAICES=1: los mismos dos errores, una vez cada uno, y la línea dice raices=1', () => {
   const dir = proyectoVarios(TRES);
   try {
-    const r = correrCli(dir, { TIPOS_TANDAS: '3', TIPOS_RAICES: '1' });
+    const r = correrCli(dir, { TIPOS_TANDAS: '3', TIPOS_SOLO_TANDAS: '1', TIPOS_RAICES: '1' });
     assert.equal(r.status, 1, r.out + r.err);
-    assert.match(r.out, /3 tandas \(TIPOS_TANDAS\), cada una con el programa de SUS raíces \(TIPOS_RAICES\)/);
+    assert.match(r.out, /3 tandas, cada una con el programa de SUS raíces \(TIPOS_RAICES\)/);
     assert.match(r.out, /Tipos: ERRORES DE TIPOS · 2 error\(es\)/, 'lo mismo que sin raíces: el tsc de verdad da esos dos');
     assert.match(r.out, /TIPOS-MEDIDA estado=errores .* tandas=3 base_mb=\d+ raices=1/);
     const raicesPorTanda = (out: string) => [...out.matchAll(/^Root files:\s+(\d+)/gm)].map((m) => m[1]);
     assert.deepEqual(raicesPorTanda(r.out), ['1', '1', '1'], 'cada tanda partió de SU archivo y no de los tres: el driver recibió --raices (no sólo lo dice la línea)');
-    const sin = correrCli(dir, { TIPOS_TANDAS: '3' });
+    const sin = correrCli(dir, { TIPOS_TANDAS: '3', TIPOS_SOLO_TANDAS: '1' });
     assert.doesNotMatch(sin.out, /raices=1|SUS raíces/, 'sin pedirlas, no hay raíces');
     assert.deepEqual(raicesPorTanda(sin.out), ['3', '3', '3'], 'y sin pedirlas cada tanda ata los tres archivos, como siempre');
   } finally { rmSync(dir, { recursive: true, force: true }); }
@@ -450,7 +452,7 @@ test('de punta a punta con TIPOS_TANDAS=4 (con y sin raíces): una instanciació
   });
   const tmp = mkdtempSync(join(tmpdir(), 'tipos-ci-tmp-'));
   try {
-    const entornos: Record<string, string>[] = [{ TIPOS_TANDAS: '4' }, { TIPOS_TANDAS: '4', TIPOS_RAICES: '1', TEMP: tmp, TMP: tmp, TMPDIR: tmp }];
+    const entornos: Record<string, string>[] = [{ TIPOS_TANDAS: '4' }, { TIPOS_TANDAS: '4', TIPOS_SOLO_TANDAS: '1' }, { TIPOS_TANDAS: '4', TIPOS_SOLO_TANDAS: '1', TIPOS_RAICES: '1', TEMP: tmp, TMP: tmp, TMPDIR: tmp }];
     for (const env of entornos) {
       const r = correrCli(dir, env);
       assert.equal(r.status, 1, `${JSON.stringify(env)}: el tsc da exit 2 y esto tiene que dar ERRORES DE TIPOS (exit 1), no OK:\n${r.out}${r.err}`);
@@ -462,10 +464,10 @@ test('de punta a punta con TIPOS_TANDAS=4 (con y sin raíces): una instanciació
   } finally { rmSync(dir, { recursive: true, force: true }); rmSync(tmp, { recursive: true, force: true }); }
 });
 
-test('de punta a punta con TIPOS_TANDAS=3: un proyecto sano da exit 0 y mide el pico y el piso', () => {
+test('de punta a punta con TIPOS_TANDAS=3 y TIPOS_SOLO_TANDAS=1: un proyecto sano da exit 0 PARCIAL y mide el pico y el piso', () => {
   const dir = proyectoVarios({ 'a.ts': TRES['a.ts'], 'b.ts': 'export const b: number = 2;\n', 'c.ts': 'export const c = 3;\n' });
   try {
-    const r = correrCli(dir, { TIPOS_TANDAS: '3' });
+    const r = correrCli(dir, { TIPOS_TANDAS: '3', TIPOS_SOLO_TANDAS: '1' });
     assert.equal(r.status, 0, r.out + r.err);
     const m = /TIPOS-MEDIDA estado=ok .*vivo_mb=(\d+) .* tandas=3 base_mb=(\d+)/.exec(r.out);
     assert.ok(m, `la línea con tandas:\n${r.out}`);
@@ -473,7 +475,65 @@ test('de punta a punta con TIPOS_TANDAS=3: un proyecto sano da exit 0 y mide el 
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('de punta a punta con TIPOS_TANDAS=3: un OOM de verdad en la primera tanda da exit 98, dice «tanda 1/3» y NO sigue con las otras', () => {
+// ---------------------------------------------------------------------------------------------------------------------------------
+// «TIPOS» ES SIEMPRE EL TSC ENTERO; las tandas son el RESPALDO por memoria y su OK es PARCIAL (criterio del Cerebro, 21/10/2026)
+// ---------------------------------------------------------------------------------------------------------------------------------
+
+test('soloTandasPedido: sólo TIPOS_SOLO_TANDAS=1 salta el intento del tsc entero', () => {
+  assert.equal(soloTandasPedido({ TIPOS_SOLO_TANDAS: '1' }), true);
+  for (const malo of [undefined, '', '0', 'true', 'si']) assert.equal(soloTandasPedido({ TIPOS_SOLO_TANDAS: malo }), false, `«${malo}»`);
+});
+
+test('veredictoDeTipos con parcial: el OK sale «OK PARCIAL» (exit 0) con un aviso, nunca limpio; los errores y el OOM no cambian', () => {
+  const e = { archivos: 7723, tipos: null, instanciaciones: null, simbolos: null, vivoMb: 3300, baseMb: 1800, chequeados: null, chequeoS: 90, totalS: null };
+  const motivo = 'el tsc entero murió por memoria (sin heap a los 150 s)';
+  const ok = veredictoDeTipos({ estado: 'ok', segundos: 350, topeMb: 6144, ramMb: 7941, cpu: 2, estadisticas: e, tandas: 4, parcial: motivo });
+  assert.equal(ok.codigo, 0, 'sigue avanzando: la parcial no frena el push, lo avisa');
+  assert.equal(ok.palabra, 'OK PARCIAL');
+  assert.match(ok.lineas.join('\n'), /Tipos: OK PARCIAL — NO es el tsc entero \(el tsc entero murió por memoria/);
+  assert.doesNotMatch(ok.lineas.join('\n'), /^Tipos: OK ·/m, 'ni una línea de OK limpio');
+  assert.match(ok.anotaciones.join('\n'), /::warning title=Tipos: verificación PARCIAL \(no es el tsc entero\)::el tsc entero murió por memoria.*tipos-respaldo\.yml/);
+  assert.match(ok.lineas[0], / tandas=4 base_mb=1800 parcial=1$/, 'la línea TIPOS-MEDIDA lo dice AL FINAL');
+  assert.match(ok.resumen.join('\n'), /\*\*Tipos: OK PARCIAL\*\*/);
+  const limpio = veredictoDeTipos({ estado: 'ok', segundos: 134, topeMb: 6144, ramMb: 7941, estadisticas: e, tandas: 1 });
+  assert.equal(limpio.palabra, 'OK');
+  assert.doesNotMatch(limpio.lineas[0], /parcial=/);
+  assert.equal(veredictoDeTipos({ estado: 'errores', errores: 2, segundos: 350, topeMb: 6144, ramMb: 7941, estadisticas: e, tandas: 4, parcial: motivo }).codigo, 1, 'los errores de las tandas SIGUEN frenando');
+  assert.equal(veredictoDeTipos({ estado: 'sin-memoria', segundos: 350, topeMb: 6144, ramMb: 7941, estadisticas: e, tandas: 4, tandaFallida: 2, parcial: motivo }).codigo, SALIDA_SIN_TIPOS, 'y un OOM de las tandas sigue siendo 98');
+});
+
+test('de punta a punta con TIPOS_TANDAS=3 SIN el respaldo pedido: «Tipos» es el tsc entero (sin tandas, OK limpio)', () => {
+  const dir = proyectoVarios({ 'a.ts': TRES['a.ts'], 'b.ts': 'export const b: number = 2;\n', 'c.ts': 'export const c = 3;\n' });
+  try {
+    const r = correrCli(dir, { TIPOS_TANDAS: '3' });
+    assert.equal(r.status, 0, r.out + r.err);
+    assert.match(r.out, /Tipos: OK ·/);
+    assert.doesNotMatch(r.out, /PARCIAL|── tanda|TIPOS-TANDA|parcial=1/, 'el entero entró: no hubo tandas ni nada parcial');
+    assert.doesNotMatch(r.out, /tandas=3/, 'la línea es la de siempre');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('de punta a punta: si el tsc ENTERO muere por memoria, las tandas son el respaldo y el OK sale PARCIAL (exit 0, aviso, parcial=1); sus errores siguen frenando', () => {
+  const sano = proyectoVarios({ 'a.ts': TRES['a.ts'], 'b.ts': 'export const b: number = 2;\n', 'c.ts': 'export const c = 3;\n' });
+  const roto = proyectoVarios(TRES);
+  try {
+    const r = correrCli(sano, { TIPOS_TANDAS: '3', TIPOS_HEAP_ENTERO_MB: '30' });
+    assert.equal(r.status, 0, r.out + r.err);
+    assert.match(r.out, /el tsc entero murió por memoria \(sin heap a los \d+ s\): verifico por 3 tandas/);
+    assert.match(r.out, /Tipos: OK PARCIAL — NO es el tsc entero/);
+    assert.match(r.out, /::warning title=Tipos: verificación PARCIAL/);
+    assert.match(r.out, /TIPOS-MEDIDA estado=ok .* tandas=3 base_mb=\d+ parcial=1/);
+    assert.doesNotMatch(r.out, /^Tipos: OK ·/m, 'nunca un OK limpio');
+    const e = correrCli(roto, { TIPOS_TANDAS: '3', TIPOS_HEAP_ENTERO_MB: '30' });
+    assert.equal(e.status, 1, e.out + e.err);
+    assert.match(e.out, /Tipos: ERRORES DE TIPOS · 2 error\(es\)/, 'los errores que encuentran las tandas frenan igual');
+    const sinRespaldo = correrCli(sano, { TIPOS_HEAP_ENTERO_MB: '30' });
+    assert.equal(sinRespaldo.status, SALIDA_SIN_TIPOS, 'sin TIPOS_TANDAS no hay respaldo: el entero muerto es SIN MEMORIA, como siempre');
+    assert.doesNotMatch(sinRespaldo.out, /PARCIAL|── tanda/);
+  } finally { rmSync(sano, { recursive: true, force: true }); rmSync(roto, { recursive: true, force: true }); }
+});
+
+test('de punta a punta con TIPOS_TANDAS=3: un OOM de verdad (del entero y del respaldo) da exit 98, dice «tanda 1/3» y NO sigue con las otras', () => {
   const dir = proyectoVarios(TRES);
   try {
     const r = correrCli(dir, { TIPOS_TANDAS: '3', TIPOS_HEAP_MB: '30' });
@@ -498,4 +558,6 @@ test('de punta a punta con TIPOS_TANDAS=3: un OOM de verdad en la primera tanda 
 //   reenvío y workflow (3): la salida que no se reenvía → 3 · el workflow que vuelve al tsc pelado → 2 · el paso que traga el exit → 1.
 // ⚠️ TIPOS_RAICES (21/10/2026 tarde): 9 roturas, 9 rojas — TIPOS_RAICES que acepta cualquier valor → 1 · argumentosDeTanda sin --raices → 1 · --raices antes del script (lo leería node) → 1 · --raices siempre → 1 · la línea sin raices=1 → 2 ·
 //   raices=1 aunque no se pidan → 2 · el resumen que no distingue el piso → 1 · main sin pasarle raíces al veredicto → 1 · main sin pasarle --raices al driver → 1 (verde la primera vez: la línea decía raices=1 pero ninguna tanda las usaba; ahora se cuentan los «Root files» de cada tanda).
+// ⚠️ «TIPOS» ES SIEMPRE EL TSC ENTERO, las tandas son el RESPALDO y su OK es PARCIAL (21/10 noche): 9 roturas, 9 rojas — el OK de las tandas sin marcar → 1 · la parcial que frena el push → 3 · sin el ::warning:: → 2 · las tandas que corren aunque el entero haya andado → 1 ·
+//   que no corren si el entero muere → 1 · TIPOS_SOLO_TANDAS ignorado → 3 · sólo el «matado» como memoria → 1 · sin parcial=1 en la línea → 2 · TIPOS_HEAP_ENTERO_MB ignorado → 1.
 // =============================================================================

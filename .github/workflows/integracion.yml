@@ -107,6 +107,12 @@ jobs:
       # una palabra y un exit (0 ok · 1 ERRORES DE TIPOS · 98 SIN MEMORIA / MATADO: no son errores de tipos), y cada run deja una línea `TIPOS-MEDIDA` con la memoria
       # VIVA real y el tamaño del programa (con un warning desde el 80 % del tope). Qué infla el programa y cómo achicarlo: docs/hallazgos-infra.md.
       #
+      # ⚠️ DESDE LA NOCHE DEL 21/10/2026 «Tipos» ES SIEMPRE EL TSC ENTERO (criterio del Cerebro: el paso que FRENA el push no puede dar un OK falso). TIPOS_TANDAS=4 ya NO reparte el chequeo: es el RESPALDO si el
+      # entero muere por memoria (98) y su OK sale «OK PARCIAL» (línea TIPOS-MEDIDA con parcial=1, ::warning:: y el resumen), nunca limpio. Por qué: las tandas pueden perder un error que el checker cachea (TS2589/
+      # TS2303) y en ESTE repo lib/ es UN ciclo de imports de 580 archivos (el 17 % del peso) que queda partido entre las tandas 1 y 2: el revisor reprodujo «Tipos: OK» con exit 0 donde el tsc da 2. Costo en minutos
+      # del respaldo: el intento del entero que muere gasta ~3 min más por run (~300-500 min/mes con 20-35 runs/semana); TIPOS_SOLO_TANDAS=1 lo salta (sabiendo que entonces es SIEMPRE parcial). Hoy el entero entra
+      # (5.065 MB de 6.144) y el respaldo no corre. Lo que sigue es la historia de la medición de las tandas:
+      #
       # ⚠️ TIPOS_TANDAS=4 (21/10/2026, medido en Actions: run 39603272529 de medir-tipos.yml, runner de 2 CPU y 7.932 MB). El tsc completo pedía 5.065 MB vivos (82 % del tope, 159 s). Repartido en
       # tandas —cada una crea el programa entero (el piso: 2.406 MB) y chequea un pedazo— el pico por proceso baja a: 2 tandas 4.102 MB (67 %, 174 s) · 3 tandas 3.685 (60 %, 200 s) · 4 tandas 3.535
       # (58 %, 227 s). Se eligió 4: con 3 el pico queda justo en el criterio (≤ 60 % del tope) y se pasa en una o dos semanas; las 4 cuestan ~68 s más por run (159 → 227 s) y dejan ~1.200 MB más de aire.

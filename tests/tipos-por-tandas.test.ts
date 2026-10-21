@@ -654,6 +654,8 @@ test('el paso «Tipos» de integracion.yml pide las TANDAS que se midieron (4) y
   assert.equal(tandasPedidas({ TIPOS_TANDAS: pedido }), 4, 'tipos-ci lo lee como 4 tandas: con 3 el pico (3.685 MB, 60 % del tope) queda justo y se pasa en una o dos semanas');
   assert.match(paso, /node scripts\/tipos-ci\.mjs/, 'sigue corriendo el script que dice qué pasó');
   assert.match(paso, /exit \$c/, 'y propaga su exit');
+  assert.doesNotMatch(paso, /TIPOS_SOLO_TANDAS|TIPOS_HEAP_ENTERO_MB/, '«Tipos» es el tsc ENTERO: las tandas son sólo el respaldo si muere por memoria (OK PARCIAL); el paso no salta el entero ni le achica el heap');
+  assert.match(wf, /DESDE LA NOCHE DEL 21\/10\/2026 «Tipos» ES SIEMPRE EL TSC ENTERO/, 'y el workflow lo dice (la promesa de «igual al tsc» ya no vale para las tandas)');
   assert.doesNotMatch(codigo.replace(paso, ''), /TIPOS_TANDAS/, 'las tandas son sólo del paso «Tipos»: ningún otro paso las hereda');
 });
 

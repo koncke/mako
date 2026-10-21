@@ -82,7 +82,7 @@ jobs:
           sudo swapon /swapfile
           free -m
 
-      # SIN TIPOS_TANDAS: es el tsc entero, que es lo que se quiere (el de las tandas ya corre en cada subida). TIPOS_HEAP_MB sube el tope de heap por encima de la RAM porque hay swap.
+      # SIN TIPOS_TANDAS: es el tsc entero, que es lo que se quiere (el entero también corre en cada subida mientras entre en la RAM del runner; este es la garantía cuando no entra y «Tipos» sale «OK PARCIAL»). TIPOS_HEAP_MB sube el tope de heap por encima de la RAM porque hay swap.
       - name: Tipos (el tsc entero)
         if: steps.cambios.outputs.correr == 'si'
         env:
