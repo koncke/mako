@@ -27,7 +27,6 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { FilaM, ListaM, PieM, SeccionM, SheetM, VacioM, useToastM } from '@/app/m/_ui';
 import { Button } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
-import { conVinetas, enterEnLista, estaAbajo } from '@/lib/centro-caja';
 import {
   SECCION_CHATS, TEXTO_SEGUNDO_RENGLON, avisosDe, comoSale, esPrioritario, seguirChat, esperaDe, historialDelChat, partesDelNombre, porJefe, seccionesDeChats, segundoRenglon, trabajaSinEscribir,
   textoDeEnvio, type CarteroP, type ChatCentro, type LineaChat, type TrabajoP,
@@ -42,17 +41,15 @@ import { CajaChatNuevo, CriaturaChatNuevo, CuerpoChatNuevo, TituloChatNuevo } fr
 import { Hilo, TANDA_HILO } from '@/app/admin/operaciones/Hilo';
 import { Muneco, animoDe } from '@/app/admin/operaciones/Muneco';
 import { TareasVinculadas, irAlTurno } from '@/app/admin/operaciones/Avance';
-import { LinksDeLaCaja, ResalteDeLinks, hayLinks } from '@/app/admin/operaciones/ConLinks';
 import { ElegirMuneco } from '@/app/admin/operaciones/ElegirMuneco';
 import { guardarMunecoAction } from '@/app/admin/operaciones/acciones';
-import { BotonMandar } from '@/app/admin/operaciones/Microfono';
-import { BotonEmojis } from '@/app/admin/operaciones/Emojis';
 import { aspectoDe, elegidoPara, esCriaturaDeMako, type Aspecto, type MunecosElegidos } from '@/lib/centro-munecos';
 
 const ESTADO: Record<ChatCentro['estado'], string> = { trabajando: 'Trabajando', abierto: 'Abierto', cerrado: 'Cerrado', sin_dato: '' };
 const metaDe = (c: ChatCentro) => ESTADO[c.estado];
 import { copiar, type useFirma } from '@/app/admin/operaciones/mandar';
-import { ListaAdjuntos, MasCaja, alPegar, type AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
+import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
+import { CajaChat } from '@/app/_chat/CajaChat';
 import type { Centro } from '@/app/admin/operaciones/useCentro';
 import { SelectoresDeEnvio, resumenDeEnvio } from '@/app/admin/operaciones/PiezasCentro';
 import { BarraFijados, CitaCaja, ContextoWA, InfoMensaje, MenuMensajeWA, ReenviarA, type AccionesWA, type MenuAbiertoWA, type MensajeWA } from '@/app/admin/operaciones/MensajeWA';
@@ -232,19 +229,10 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   }, [elegido?.clave, mirar, parte]); // eslint-disable-line react-hooks/exhaustive-deps
   const preguntas = elegido ? preguntasDelChat(elegido, decisiones, carteros) : [];
   const hilo = useRef<HTMLDivElement>(null);
-  // La caja: dónde va el cursor después de que una lista cambió el texto (la viñeta, el ítem siguiente).
+  // La caja: el campo, para enfocarlo desde afuera. Lo que crece y el scroll que acompaña son de la caja única
+  // (app/_chat/CajaChat.tsx): acá crece el CSS (`field-sizing`) y la que sigue abajo es la hoja.
   const caja = useRef<HTMLTextAreaElement>(null);
-  const cursor = useRef<number | null>(null);
-  const resalte = useRef<HTMLDivElement | null>(null);
-  const borradorAbierto = elegido && centro ? centro.borradorDe(elegido.clave) : '';
-  // El scroll acompaña lo que se escribe (18/10/2026): la caja crece sola (`field-sizing`) y el cuerpo de la hoja se achica;
-  // si se estaba mirando lo último (con el margen de lo que creció), se lo deja abajo.
-  useEffect(() => {
-    const el = caja.current;
-    if (el && cursor.current != null) { el.setSelectionRange(cursor.current, cursor.current); cursor.current = null; }
-    const cuerpo = hilo.current?.closest('.m-sheet__cuerpo') as HTMLElement | null;
-    if (cuerpo && document.activeElement === el && estaAbajo(cuerpo, 160)) cuerpo.scrollTop = cuerpo.scrollHeight;
-  }, [borradorAbierto]);
+  const seguirHoja = useCallback(() => hilo.current?.closest('.m-sheet__cuerpo') as HTMLElement | null, []);
   // Como un chat: abre en lo último. La hoja monta su cuerpo en un portal y lo mide después del primer pintado,
   // así que se baja en el cuadro siguiente (en el mismo efecto no hay todavía qué scrollear).
   useEffect(() => {
@@ -312,7 +300,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   const destino = elegido ? (centro ? centro.destinoDeChat(elegido) : elegido) : null;
   const envio = destino ? comoSale(destino, carteros, firma.clave === undefined ? undefined : firma.clave?.id ?? null, ahora) : null;
   // El borrador es el del motor (useCentro.ts): el mismo que en la computadora, guardado mientras se escribe.
-  const texto = borradorAbierto;
+  const texto = elegido && centro ? centro.borradorDe(elegido.clave) : '';
   const ponerTexto = (t: string) => { if (elegido && centro) centro.ponerBorrador(elegido.clave, t); };
   const marcas = elegido ? centro.marcasDe(elegido) : SIN_MARCAS;
   const elegirEnMenu = (m: MensajeWA, id: string) => {
@@ -329,7 +317,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   // Las fotos y los PDF de la caja (17/10/2026): el estado es del motor (useCentro.ts), el mismo de la computadora.
   const adjuntos: AdjuntosDeCaja | undefined = centro && elegido ? {
     items: centro.adjuntosDe(elegido.clave), puede: centro.puedeAdjuntar(elegido),
-    onSumar: (fs) => void centro.sumarAdjuntos(elegido.clave, fs), onQuitar: (id) => centro.quitarAdjunto(elegido.clave, id), onNoPuede: centro.sinAdjuntos,
+    onSumar: (fs) => void centro.sumarAdjuntos(elegido.clave, fs), onQuitar: (id) => centro.quitarAdjunto(elegido.clave, id), onNoPuede: centro.sinAdjuntos, onSinImagen: centro.sinImagen,
   } : undefined;
 
   // Mandar es el del motor (useCentro.ts → mandar): el mismo de la computadora, con la cita si responde a un mensaje.
@@ -367,48 +355,12 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   const pie = elegido && envio ? (
     envio.puede ? (
       <div className="m-operaciones-caja">
-        {/* Respondiendo a un mensaje: su cita arriba de la caja, con la ✕ para soltarla (WhatsApp). */}
-        {cita && <CitaCaja cita={cita} onQuitar={() => centro.citar(elegido.clave, null)} verTodo={verTodo} />}
-        <ListaAdjuntos a={adjuntos} />
-        <div className="m-operaciones-caja__fila">
-          {/* El «+» de la caja, como en la computadora: adjuntar y con qué corre (17/10/2026, la B). */}
-          {centro && (
-            <MasCaja a={adjuntos} apagado={enviando} resumen={null}>
-              {(cerrar) => <><SelectoresDeEnvio centro={centro} chat={elegido} /><TareasVinculadas tareas={centro.tareasDe(elegido)} onIr={(u) => { cerrar(); verTodo(); window.setTimeout(() => irAlTurno(u), 80); }} /></>}
-            </MasCaja>
-          )}
-          {/* Los emojis, en su botón junto al campo (WhatsApp; Emojis.tsx). */}
-          <BotonEmojis campo={caja} valor={texto} onValor={ponerTexto} apagado={enviando} />
-          <div className="co-caja__campo">
-          {hayLinks(texto) && <ResalteDeLinks texto={texto} capa={(el) => { resalte.current = el; }} />}
-          <textarea
-            ref={caja}
-            className={hayLinks(texto) ? 'co-caja__texto--resalte' : undefined}
-            onScroll={(e) => { if (resalte.current) resalte.current.scrollTop = e.currentTarget.scrollTop; }}
-            rows={1}
-            value={texto}
-            onChange={(e) => {
-              const v = conVinetas(e.target.value, e.target.selectionStart);
-              if (v.texto !== e.target.value) cursor.current = v.cursor;
-              ponerTexto(v.texto);
-            }}
-            onKeyDown={(e) => {
-              // En el teléfono Enter baja de renglón; adentro de una lista arma el ítem siguiente, o la corta.
-              if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
-              const l = enterEnLista(texto, e.currentTarget.selectionStart, e.currentTarget.selectionEnd);
-              if (l) { e.preventDefault(); cursor.current = l.cursor; ponerTexto(l.texto); }
-            }}
-            onPaste={(e) => alPegar(e, adjuntos)}
-            placeholder={`Escribe a ${elegido.titulo}`}
-            aria-label={`Escribe a ${elegido.titulo}`}
-            disabled={enviando}
-          />
-          </div>
-          {/* UN botón, como WhatsApp (Microfono.tsx → BotonMandar): el micrófono sin nada escrito y la flecha con texto. */}
-          <BotonMandar valor={texto} onValor={ponerTexto} onError={(m) => toast(m)} enviando={enviando}
-            hayQueMandar={!!texto.trim() || !!adjuntos?.items.length} onMandar={mandar} />
-        </div>
-        <LinksDeLaCaja texto={texto} />
+        {/* La caja ÚNICA (app/_chat/CajaChat.tsx, 20/10/2026), la misma de la computadora: en el teléfono Enter baja de
+            renglón y se manda con el botón. Arriba, la cita del mensaje que se responde; en el «+», con qué corre. */}
+        <CajaChat texto={texto} onTexto={ponerTexto} onMandar={mandar} enviando={enviando} placeholder={`Escribe a ${elegido.titulo}`}
+          adjuntos={adjuntos} campo={caja} seguir={seguirHoja} altoMax={null} onErrorMic={(m) => toast(m)} fila="m-operaciones-caja__fila"
+          arriba={cita ? <CitaCaja cita={cita} onQuitar={() => centro.citar(elegido.clave, null)} verTodo={verTodo} /> : null}
+          mas={centro ? (cerrar) => <><SelectoresDeEnvio centro={centro} chat={elegido} /><TareasVinculadas tareas={centro.tareasDe(elegido)} onIr={(u) => { cerrar(); verTodo(); window.setTimeout(() => irAlTurno(u), 80); }} /></> : undefined} />
         {/* Lo elegido en el «+» que no es «Automático» (la cuenta, el modelo) va acá abajo y no al lado del «+»: la fila es
             de la caja entera, como WhatsApp (17/10/2026). */}
         {(estado || resumenDeEnvio(centro, elegido)) && <div className="m-operaciones-caja__fila m-operaciones-caja__fila--meta"><span className="m-operaciones-caja__estado">{estado ?? resumenDeEnvio(centro, elegido)}</span></div>}

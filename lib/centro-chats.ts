@@ -684,7 +684,11 @@ export function vistaPrevia(lineas: readonly LineaChat[]): VistaPrevia | null {
       if (l.turno.rol === 'el' && esYaEsta(l.turno.texto)) {
         const titulo = renglon(l.turno.texto).replace(/^[\s*_#>✅✔·\-–—]*ya est[áa][\s*_.:!,;\-–—]*/i, '').trim();
         ver({ texto: titulo || 'Completado', propio: false, tick: null, instante: l.instante, ya: true });
-      } else if (!(l.turno.rol === 'yo' && l.turno.trabajo)) ver({ texto: renglon(l.turno.texto), propio: l.turno.rol === 'yo', tick: null, instante: l.instante });
+      } else if (!(l.turno.rol === 'yo' && l.turno.trabajo)) {
+        // Una captura sola, sin texto (20/10/2026): la fila dice «Foto» o «Archivo», como WhatsApp.
+        const solo = l.turno.adjuntos?.length ? (l.turno.adjuntos.every((a) => a.mime.startsWith('image/')) ? 'Foto' : 'Archivo') : '';
+        ver({ texto: renglon(l.turno.texto) || solo, propio: l.turno.rol === 'yo', tick: null, instante: l.instante });
+      }
     } else {
       ver({ texto: renglon(l.pedido.texto), propio: true, tick: null, instante: l.instante });
       if (l.tipo === 'pedido') for (const s of l.pasos) if (s.instante != null) ver({ texto: renglon(s.titulo), propio: false, tick: null, instante: s.instante });

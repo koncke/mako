@@ -71,17 +71,18 @@ test('B: la caja con un solo «+», sin «Sólo esto», con listas en vivo, en l
     const src = codigo(f);
     assert.doesNotMatch(src, /Sólo esto|de_ahora_en_mas|setAlcance/, `${f}: «Sólo esto» se fue`);
   }
+  // Desde el 20/10/2026 la caja es UNA pieza (app/_chat/CajaChat.tsx): el «+», las viñetas y Enter en la lista viven ahí.
+  const pieza = codigo('app/_chat/CajaChat.tsx');
+  assert.match(pieza, /<MasCaja\b/, 'la caja única: el «+» de la caja');
+  assert.match(pieza, /conVinetas\(/, 'la caja única: las viñetas en vivo');
+  assert.match(pieza, /enterEnLista\(/, 'la caja única: Enter sigue la lista');
   for (const f of ['app/admin/operaciones/Conversacion.tsx', 'app/m/operaciones/ChatsMovil.tsx']) {
     const src = codigo(f);
-    assert.match(src, /<MasCaja\b/, `${f}: el «+» de la caja`);
-    assert.match(src, /conVinetas\(/, `${f}: las viñetas en vivo`);
-    assert.match(src, /enterEnLista\(/, `${f}: Enter sigue la lista`);
+    assert.match(src, /<CajaChat\b/, `${f}: usa la caja única`);
+    // Lo de abajo del «+» (`mas`): la cuenta, el modelo y el esfuerzo, y (D) «Tareas vinculadas», que lleva a su mensaje.
+    assert.match(src, /mas=\{[^\n]*\(cerrar\) => <>[^\n]*<TareasVinculadas tareas=\{[^}]+\} onIr=\{\(u\) => \{ cerrar\(\);[^\n]*irAlTurno\(u\)/, `${f}: las tareas del chat en el «+»`);
   }
-  assert.match(codigo('app/m/operaciones/ChatsMovil.tsx'), /<MasCaja[^>]*>[\s\S]{0,80}<SelectoresDeEnvio\b/, 'la cuenta, el modelo y el esfuerzo, adentro del «+»');
-  // D: «Tareas vinculadas (N)» también va adentro del «+», y tocar una lleva a su mensaje (cerrando el menú).
-  for (const f of ['app/admin/operaciones/Conversacion.tsx', 'app/m/operaciones/ChatsMovil.tsx']) {
-    assert.match(codigo(f), /<MasCaja[^>]*>[\s\S]{0,200}<TareasVinculadas tareas=\{[^}]+\} onIr=\{\(u\) => \{ cerrar\(\);[^\n]*irAlTurno\(u\)[^\n]*\/>/, `${f}: las tareas del chat en el «+»`);
-  }
+  assert.match(codigo('app/m/operaciones/ChatsMovil.tsx'), /mas=\{centro \? \(cerrar\) => <><SelectoresDeEnvio\b/, 'la cuenta, el modelo y el esfuerzo, adentro del «+»');
   const adj = codigo('app/admin/operaciones/AdjuntosCaja.tsx');
   assert.doesNotMatch(adj, /ch-elegido__nombre|>\{x\.file\.name\}</, 'la miniatura va sin el nombre, como Claude');
   // El visor vive aparte desde el 17/10 (Visor.tsx: también lo usa la burbuja enviada, y el «atrás» lo cierra a él solo).
