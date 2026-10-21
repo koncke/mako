@@ -7127,3 +7127,13 @@ contar palabras sobrantes no dice si la persona nombró la cosa. Un parser de fr
 frases reales, con tuteo, voseo y números en letras, no con los casos que lo motivaron. Los detalles por área los
 cosecha cada jefe con su arreglo (hallazgos-onboarding, hallazgos-editor-landing, hallazgos-video-*). Lo que entró sin
 arreglar está en hallazgos-chatbot («La segunda revisión del pedido B»). *Cerebro, claude4.*
+
+## Probar una carrera contra la base de mentira: una barrera en el `fetch` (20/10/2026, Pagos)
+
+- **Dos llamadas con `Promise.all` no prueban una carrera:** el orden de sus viajes a la base depende del event loop.
+  Para que las dos lean ANTES de que cualquiera escriba, el `fetch` de mentira retiene la lectura de esa fila hasta
+  que llegaron las dos, y las suelta juntas. Molde: tests/_cobro-idempotente-hijo.ts (`barrera(id, 2)`).
+- **Se mira que gane EXACTAMENTE uno, no sólo que el segundo pierda.** Una condición al revés hace que pierdan los dos,
+  y «el segundo dijo ya estaba» sale verde igual.
+- **tests/_postgrest-de-mentira.ts entiende `is.true`, `is.false`, `not.is.true` y `not.is.false`**, con la semántica
+  de Postgres: `NOT (x IS TRUE)` también matchea el null.

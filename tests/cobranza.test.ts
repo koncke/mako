@@ -177,8 +177,11 @@ test('⚠️ marcar el pago CORTA lo que está en vuelo, y lo hace `marcarPago`'
   // (20/10/2026: 3.500 → 4.500. La vuelta de «ya estaba» —marcar dos veces no reescribe la fecha— y el día del negocio
   // cuando no viene fecha: midió 4.238. tests/pagos-cobro-idempotente.test.ts.)
   assert.ok(fn.length > 200 && fn.length < 4500, `el recorte de marcarPago mide ${fn.length}: mira otra cosa`);
-  assert.match(fn, /cerrarCorridasDeCuota\(ws, pagoId\)/, 'marcar el pago dejó de cortar los recordatorios');
-  assert.match(fn, /if \(pagado\)/, 'desmarcar un pago también cortaría, o peor, reabriría la secuencia');
+  // (20/10/2026, noche: el corte vive en `trasCobrar`, que llaman `marcarPago` y `cobrarCuota`: cobrar con monto o en
+  // otra moneda también corta. tests/pagos-cobro-idempotente.test.ts.)
+  assert.match(fn, /if \(pagado\) await trasCobrar\(pagoId, pago\.cobro_id \?\? null\);/, 'desmarcar un pago también cortaría, o peor, reabriría la secuencia');
+  const tras = pagos.slice(pagos.indexOf('async function trasCobrar('), pagos.indexOf('\n}\n', pagos.indexOf('async function trasCobrar(')));
+  assert.match(tras, /cerrarCorridasDeCuota\(ws, pagoId\)/, 'marcar el pago dejó de cortar los recordatorios');
   // Y el corte filtra por la cuota, no por el lead: un cliente con dos cuotas en vuelo
   // no deja de deber la otra porque pagó una.
   const corridas = leer('../lib/flujo-corridas.ts');
