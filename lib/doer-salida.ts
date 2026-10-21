@@ -92,13 +92,54 @@ const DE_LO_PROPUESTO = /(?<!\p{L})(?:abajo|arriba|tarjeta|borrador|propuesta|co
 const CONDICION = /^[\s¡¿«"“(]*(?:si|cuando|en cuanto|apenas)(?!\p{L})/u;
 
 /**
- * El texto sin lo que NO es de MaKo (la cuarta revisión, 21/10/2026): lo que va entre comillas («…», “…”, "…") y las
- * líneas que citan («> …»). Lo que dijo un lead, un borrador para mandar, un copy en primera persona: no dicen que MaKo
- * hizo nada. No es una regla de palabras: es no leer el texto de otro.
+ * El texto con lo que NO es de MaKo TAPADO (la cuarta revisión, 21/10/2026): lo que va entre comillas («…», “…”, "…") y
+ * las líneas que citan («> …»). Lo que dijo un lead, un borrador para mandar, un copy en primera persona: no dicen que
+ * MaKo hizo nada. No es una regla de palabras: es no leer el texto de otro. Tapado y no sacado (la quinta revisión): cada
+ * letra va a «_» y el texto queda del mismo largo, para cortar las oraciones sin partir una cita y para mirar, en la
+ * misma oración, lo que la cita dice.
  */
-function sinLoCitado(texto: string): string {
-  return texto.split('\n').filter((l) => !/^\s*>/.test(l)).join('\n')
-    .replace(/«[^»]*»/g, ' ').replace(/“[^”]*”/g, ' ').replace(/"[^"\n]*"/g, ' ');
+function taparLoCitado(texto: string): string {
+  const tapar = (m: string) => m.replace(/[^\n]/g, '_');
+  return texto.split('\n').map((l) => (/^\s*>/.test(l) ? tapar(l) : l)).join('\n')
+    .replace(/«[^»]*»/g, tapar).replace(/“[^”]*”/g, tapar).replace(/"[^"\n]*"/g, tapar);
+}
+
+/** Una oración: `propia` con lo citado tapado (lo que MaKo dice), `tal` como está, y `desde`, dónde empieza en el texto. */
+type Oracion = { propia: string; tal: string; desde: number };
+
+/** Las oraciones del texto (por línea, y en «. », «! », «? », «… »), cortadas sobre el texto tapado. */
+function oracionesPropias(texto: string): Oracion[] {
+  const tapado = taparLoCitado(texto);
+  const out: Oracion[] = [];
+  let desde = 0;
+  for (const m of [...tapado.matchAll(/\n|(?<=[.!?…])[^\S\n]+/g), null]) {
+    const hasta = m ? m.index : tapado.length;
+    if (texto.slice(desde, hasta).trim()) out.push({ propia: tapado.slice(desde, hasta), tal: texto.slice(desde, hasta), desde });
+    if (m) desde = m.index + m[0].length;
+  }
+  return out;
+}
+
+/**
+ * Hasta dónde PRESENTA la oración: lo que va antes del último «:» que presenta lo que sigue en el mismo mensaje («Te armé
+ * un resumen de la semana:», «Hice la cuenta: con 14 leads…», «Déjame ver: tienes 3 reuniones»), o 0. Un «:» presenta si
+ * después viene un espacio, un salto de línea o una cita, y algo más en el mensaje (la quinta revisión): no el de una hora
+ * (10:30, la hora de las tarjetas), un link (https:), un emoticón («:)», «:D»), el que va entre paréntesis («(estado:
+ * cerrado)») ni el que cierra el mensaje («Listo, ya moví a Juan a Ganado:»).
+ */
+function finDeLoQuePresenta(texto: string, o: Oracion): number {
+  let fin = 0;
+  let parentesis = 0;
+  for (let i = 0; i < o.propia.length; i++) {
+    const c = o.propia[i];
+    if (c === '(') parentesis++;
+    else if (c === ')') parentesis = Math.max(0, parentesis - 1);
+    else if (c === ':' && !parentesis) {
+      const despues = texto.slice(o.desde + i + 1);
+      if (/^[\s«“"]/.test(despues) && /\S/.test(despues)) fin = i + 1;
+    }
+  }
+  return fin;
 }
 
 /**
@@ -108,14 +149,15 @@ function sinLoCitado(texto: string): string {
  * nota en una respuesta que no afirma nada, no. No se le suman raíces ni formas para «ver más».
  */
 export function afirmacionesDeHecho(texto: string): string[] {
-  return oraciones(sinLoCitado(texto)).flat().map((o) => o.trim()).filter((o) => {
-    const t = o.toLowerCase();
-    if (!t || /[¿?]/.test(t) || NIEGA.test(t) || DE_LO_PROPUESTO.test(t) || CONDICION.test(t)) return false;
-    // Lo que va ANTES de un «:» presenta lo que sigue en el mismo mensaje («Te armé un resumen de la semana:», «Hice la
-    // cuenta: con 14 leads…»): está a la vista. Se mira lo que va después del último «:» («Listo: pausé la campaña»).
-    const dicho = t.slice(t.lastIndexOf(':') + 1);
+  return oracionesPropias(texto).filter((o) => {
+    // Lo que exime se mira CON la cita (la quinta revisión): en «Te armé el copy «¿Cansado de perder leads?» para el
+    // anuncio.» el copy está a la vista, y sacar la cita se llevaba el «?» que lo decía.
+    const tal = o.tal.trim().toLowerCase();
+    if (/[¿?]/.test(tal) || NIEGA.test(tal) || DE_LO_PROPUESTO.test(tal) || CONDICION.test(tal)) return false;
+    // Lo que va antes de un «:» que presenta está a la vista: se mira lo de después («Listo: pausé la campaña»).
+    const dicho = o.propia.slice(finDeLoQuePresenta(texto, o)).toLowerCase();
     return PRETERITO.test(dicho) || DEJE_HECHO.test(dicho) || ACABO_DE.test(dicho);
-  });
+  }).map((o) => o.tal.trim());
 }
 
 /**
@@ -123,13 +165,19 @@ export function afirmacionesDeHecho(texto: string): string[] {
  * «estoy buscando»), para el chat de la app. Sin «te aviso», «te paso» ni «te cargo»: son ofertas o condiciones
  * («cualquier cosa te aviso»), y la tercera revisión los vio borrar una verdad respaldada. ⚠️ Sólo si es lo ÚLTIMO del
  * mensaje y no es condicional (la cuarta revisión): «Déjame ver… Juan está en Seguimiento» ya trae la respuesta, y «en
- * cuanto me pases el CSV, voy a cargar…» es una oferta.
+ * cuanto me pases el CSV, voy a cargar…» es una oferta. Lo citado y lo que va después de un «:» que presenta CUMPLEN la
+ * promesa (la quinta revisión): «Voy a armarte un borrador para Juan:\n\n«Hola Juan…»» y «Déjame ver: tienes 3
+ * reuniones» traen lo prometido.
  */
 export function promesasFirmesDe(texto: string): string[] {
-  const todas = oraciones(sinLoCitado(texto)).flat().map((o) => o.trim()).filter((o) => /\p{L}/u.test(o));
-  const ultima = todas[todas.length - 1] ?? '';
-  if (!ultima || /[¿?]/.test(ultima) || CONDICION.test(ultima.toLowerCase()) || PIDE_DATO.test(norm(ultima))) return [];
-  return [PROMESAS[0], PROMESAS[1], PROMESAS[4], PROMESAS[6]].some((re) => re.test(norm(ultima))) ? [ultima] : [];
+  const todas = oracionesPropias(texto).filter((o) => /\p{L}/u.test(o.tal));
+  const o = todas[todas.length - 1];
+  // Lo último es una cita o una línea «> …»: es lo que la promesa presentaba.
+  if (!o || !/\p{L}/u.test(o.propia)) return [];
+  const tal = o.tal.trim();
+  if (/[¿?]/.test(tal) || CONDICION.test(tal.toLowerCase()) || PIDE_DATO.test(norm(tal))) return [];
+  const dicho = norm(o.propia.slice(finDeLoQuePresenta(texto, o)));
+  return [PROMESAS[0], PROMESAS[1], PROMESAS[4], PROMESAS[6]].some((re) => re.test(dicho)) ? [tal] : [];
 }
 
 /** La oración pide un dato a la persona («dime», «pásame», «confirmame»). Sin tildes. */

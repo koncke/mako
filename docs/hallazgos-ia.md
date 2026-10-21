@@ -4692,6 +4692,17 @@ Las cifras quedan para la próxima vez que alguien calcule un costo o un tope.
   grosería ya no se lleva lo demás aunque sea corto. **Regla:** antes de juzgar un texto, sacar lo que es de otro.
   Cobertura, anotada como número: el «Hecho» de otra cosa respalda 25 de 30 pedidos NUEVOS que el clasificador no ve
   como pedido; no se arregla con reglas.
+- **Y sacar lo citado se llevaba lo que eximía (la quinta revisión, la que cierra el guardia).** Tres cosas, una causa:
+  borrar la cita antes de leer. (1) «Voy a armarte un borrador para Juan:\n\n«Hola Juan…»» llevaba «Esto no lo hice»: sin
+  la cita, la promesa quedaba última, encima del borrador que estaba a la vista. (2) «Te armé el copy «¿Cansado de perder
+  leads?» para el anuncio.» llevaba «No veo esa acción»: el «?» que lo eximía estaba ADENTRO de la cita. (3) Cualquier «:»
+  apagaba el juicio: «Le mandé el WhatsApp a Juan a las 10:30.» se escapaba por la hora, que es el formato de las propias
+  tarjetas. Ahora la cita se TAPA (mismo largo, `taparLoCitado`): el verbo se busca en lo de MaKo, lo que exime se mira
+  con la cita, y lo citado al final cumple la promesa. Un «:» presenta sólo si es puntuación (espacio, salto de línea o
+  cita después, y algo más en el mensaje), no en una hora, un link, un emoticón, un paréntesis ni al final. ⚠️ La regla
+  más estricta (sólo salto de línea, cita o lista) le ponía nota a «Hice la cuenta: con 14 leads…», que no afirma nada:
+  «: » con contenido sigue presentando, y por eso «Ya te armé el informe semanal: lo tenés en el Dashboard.» se escapa.
+  **Regla:** lo de otro se tapa, no se saca: sacarlo cambia lo que queda. Medido: 31 de 42 llevan la nota.
 - **Lo obvio era el error: «traer `forzarTool` como WhatsApp».** El chat de la app piensa con razonamiento extendido
   (`thinking: adaptive`), y con él Anthropic no admite `tool_choice: any`. Además `chatClaudeTools` lo pone en TODOS los
   pasos: el turno nunca podría terminar con texto. WhatsApp lo hace con `chatCheapTools` y `toolChoicePrimerPaso`, que
@@ -4702,6 +4713,12 @@ Las cifras quedan para la próxima vez que alguien calcule un costo o un tope.
   decisión de Martín.
 - «Mi hoja» por quien chatea (`ctx.actor`, con 2 o más informes no pedir un email) es del Dashboard.
 - `forzarTool` en la app pide un primer paso sin razonamiento, en `lib/anthropic.ts`, que es compartido.
+- Lo que el guardia de «hecho» todavía marca de más (bajos de la quinta revisión, `lib/doer-salida.ts`; el guardia queda
+  cerrado y esto es su número): las comillas simples ('…', ‘…’), las que no cierran o se mezclan («“…"») y las «» anidadas
+  no se tapan; la condición detrás de una viñeta, una negrita o «Y si / Igual, si» (`CONDICION` sólo mira el inicio
+  literal); y una grosería ADENTRO de una cita parte la cita («Pedro dijo: «Qué cagada. Ya cancelé la llamada.»» deja
+  «Ya cancelé la llamada.»» con nota, sin el «Pedro dijo»). También: «Te armé el asunto «Tu oferta te espera».» lleva
+  nota (ya la llevaba en la v2), y la promesa con una firma al final («— MaKo») se escapa.
 ## El Ops Center no hace lo que la app ya sabe hacer: el freno es el clasificador, no las operaciones (20/10/2026)
 
 **Síntoma:** en el Ops Center del cliente, la mitad de los pedidos naturales no recibe la herramienta que los resuelve. Medido con `herramientasDelChat` y frases reales por área:

@@ -11,6 +11,10 @@
 // que no baje.
 //
 // Probado rompiéndolo (21/10/2026, con la base en 0 fallos):
+//   · (la quinta revisión) la promesa juzgada sin lo citado, como antes → 1 fallo (2); sin el «:» en la promesa → 1 fallo
+//     (2); lo que exime mirado sin la cita → 1 fallo (2); cualquier «:» presenta, como antes → 2 fallos (3 y 4); el «:»
+//     entre paréntesis presenta → 1 fallo (4); el «:» que cierra el mensaje presenta → 2 fallos (3 y 4); sólo el «:» con
+//     salto de línea o cita, sin «: » + contenido → 1 fallo (2: «Hice la cuenta: con 14 leads…» llevaría nota);
 //   · (la cuarta revisión) sin sacar lo citado → 1 fallo (2); sin mirar la condición → 1 fallo (2); sin el «:» → 1 fallo (2);
 //     la promesa en cualquier oración, como antes → 1 fallo (2); la nota de promesa con respaldo → 1 fallo (3); la
 //     grosería con el mínimo de 15 letras → 1 fallo (3);
@@ -63,6 +67,13 @@ const FRASES: Array<[string, Clase]> = [
   ['Listo, Juan ya está en Ganado.', 'H'],
   ['Ya quedó agendada la reunión con Ana.', 'H'],
   ['Ya te dejé agendada la reunión con Ana.', 'H'],
+  // (la quinta revisión) El «:» de una hora, un link, un emoticón o un paréntesis no presenta nada.
+  ['Ya te agendé la reunión con Pedro el viernes a las 11:00.', 'H'],
+  ['Le mandé el WhatsApp a Juan a las 10:30.', 'H'],
+  ['Le mandé el link https://meet.google.com/abc a Juan.', 'H'],
+  ['Listo, ya te agendé la reunión :)', 'H'],
+  ['Moví a Juan a Ganado (estado: cerrado).', 'H'],
+  ['Listo, ya moví a Juan a Ganado:', 'H'],
   // No afirman nada hecho por MaKo
   ['¿Querés que te mande el resumen por WhatsApp?', 'N'],
   ['¿Querés que te agende la reunión con Ana el jueves a las 15?', 'N'],
@@ -108,6 +119,12 @@ const FRASES: Array<[string, Clase]> = [
   ['Juan escribió ayer: “Ya hice la transferencia, avísame si llegó.”', 'N'],
   ['Te dejo este copy para el anuncio: "Hace 6 meses armé mi primer funnel y vendí 3 lugares."', 'N'],
   ['Esto escribió Ana:\n> Envié el formulario el lunes.\n> ¿Lo recibiste?', 'N'],
+  // (la quinta revisión) Lo que exime se mira con la cita: el copy está a la vista.
+  ['Te escribí un mensaje para Juan «Hola Juan, ¿cómo va todo?» que puedes copiar.', 'N'],
+  ['Te armé el copy «¿Cansado de perder leads?» para el anuncio.', 'N'],
+  ['Te armé el asunto del mail «No pierdas más leads».', 'N'],
+  ['Te dejé armado el mensaje «Hola Ana, confirmame si te sirve el jueves».', 'N'],
+  ['Te armé el guion «Hola, ¿tienes 2 minutos?» para que tu closer lo use.', 'N'],
   // (la cuarta revisión) Lo que se cumple en el mismo mensaje, o es una oferta: no es una promesa pendiente.
   ['Déjame ver... Juan está en Seguimiento desde el lunes y no respondió el último mensaje.', 'N'],
   ['Dame un segundo… Sí: tienes 3 reuniones esta semana.', 'N'],
@@ -115,6 +132,15 @@ const FRASES: Array<[string, Clase]> = [
   ['En cuanto me pases el CSV, voy a cargar los leads.', 'N'],
   ['Si me dices que sí, voy a crear la automatización de bienvenida.', 'N'],
   ['Si quieres, voy a armarte un borrador del mensaje.', 'N'],
+  // (la quinta revisión) Lo citado, o lo que va después del «:», cumple la promesa. La primera es la de la v2, tal cual.
+  ['Voy a armar un ejemplo rápido:\n«Hola Ana, ¿te viene bien el jueves a las 15?»', 'N'],
+  ['Voy a armarte un borrador para Juan:\n\n«Hola Juan, te escribo por la propuesta. Cualquier duda, acá estoy.»', 'N'],
+  ['Voy a crear un ejemplo de mensaje:\n"Hola Ana, te escribo por la reunión del jueves."', 'N'],
+  ['Déjame armar un ejemplo:\n\n> Hola Ana, te escribo por la reunión del jueves.', 'N'],
+  ['Déjame armar un ejemplo para Ana.\n\n> Hola Ana, te escribo por la reunión del jueves.', 'N'],
+  ['Déjame preparar el mensaje para Juan: «Hola Juan, te escribo por la propuesta.»', 'N'],
+  ['Déjame ver: tienes 3 reuniones esta semana.', 'N'],
+  ['A ver, déjame revisar: Juan está en Seguimiento desde el lunes.', 'N'],
   // (la cuarta revisión) Lo que presenta, en el mismo mensaje, lo que hizo: está a la vista.
   ['Te armé un resumen de la semana:\n- 5 leads nuevos\n- 2 reuniones agendadas', 'N'],
   ['Te escribí tres versiones del copy:\n1. Versión corta\n2. Versión larga\n3. Versión con pregunta', 'N'],
@@ -139,6 +165,9 @@ const MIXTAS: Array<{ texto: string; corrio: boolean; respaldado: boolean; nota:
   // (la cuarta revisión) Con respaldo, ninguna nota de promesa al lado de la verdad.
   { texto: 'Sí, ya te la agendé. Dame un segundo y te paso el link de Meet.', corrio: false, respaldado: true, nota: null },
   { texto: 'Perfecto, ya pausé la campaña de Meta. Déjame ver si hay otra activa.', corrio: false, respaldado: true, nota: null },
+  // (la quinta revisión) La promesa que NO presenta nada sigue llevando su nota.
+  { texto: 'Voy a revisar tu plan:', corrio: false, respaldado: false, nota: NOTA_SIN_HACER },
+  { texto: 'Voy a revisar el plan «Lanzamiento».', corrio: false, respaldado: false, nota: NOTA_SIN_HACER },
 ];
 
 const VARIANTES = [
@@ -153,11 +182,12 @@ const cuantasNotas = (t: string) => NOTAS.reduce((k, n) => k + (t.split(n).lengt
 
 /**
  * Lo medido el 21/10/2026: de las H, cuántas llevan nota sin respaldo. Sólo puede subir. 26 en 08dc4ce9f; 25 desde la cuarta
- * revisión, a propósito: «Ya te armé el informe semanal: lo tenés en el Dashboard.» presenta con «:» y ya no se marca.
+ * revisión, a propósito: «Ya te armé el informe semanal: lo tenés en el Dashboard.» presenta con «:» y ya no se marca. 31 de
+ * 42 desde la quinta: las 6 del «:» que no presenta (hora, link, emoticón, paréntesis, el último) llevan nota.
  * Fuera del banco, la revisión midió que el «Hecho» de otra cosa respalda 25 de 30 pedidos NUEVOS que el clasificador no
  * ve como pedido: es cobertura, y queda como número.
  */
-const MEDIDO = { conNota: 25, de: 36 };
+const MEDIDO = { conNota: 31, de: 42 };
 
 test('1. ninguna oración se borra, en ninguna variante', () => {
   const borradas: string[] = [];
