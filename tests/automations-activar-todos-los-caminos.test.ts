@@ -348,6 +348,52 @@ test('por EVENTO: dos activas con el mismo disparador y el mismo evento avisan; 
   }
 });
 
+test('por EVENTO, disparadores DISTINTOS que el motor inscribe con el mismo evento avisan (la tabla del motor, no una copia)', async () => {
+  const { duplicadaDe, mismaCohorte } = await import('../lib/automatizacion-duplicada');
+  const { disparadoresDe } = await import('../lib/disparadores');
+  const { TRIGGERS_POR_EVENTO, ETAPA_DEL_EVENTO } = await import('../lib/nutricion-eventos');
+  const { FAMILIA_POST_AGENDA } = await import('../lib/nutricion-familias');
+  type Fila = Parameters<typeof disparadoresDe>[0];
+  const cron = (f: Fila) => disparadoresDe(f)[0];
+  const tipo = (t: string) => cron({ trigger_tipo: t } as Fila);
+  const etapa = (e: string) => cron({ trigger_tipo: 'etapa_actual', etapa: e, funnel_id: 4 } as Fila);
+  const msg = (id: string) => ({ id, canal: 'whatsapp', cuerpo: `Hola desde ${id}`, siguiente: null }) as never;
+  const avisa = (a: ReturnType<typeof cron>, b: ReturnType<typeof cron>) => !!duplicadaDe(
+    { id: 2, nombre: 'La nueva', disparadores: [b], pasos: [msg('b')] },
+    [{ id: 1, nombre: 'La de antes', activa: true, disparadores: [a], pasos: [msg('a')] }],
+  );
+  // Los cinco pares de la revisión del Cerebro (21/10/2026): el lead entra a las dos y recibe los dos mensajes.
+  const pares: Array<[string, ReturnType<typeof cron>, ReturnType<typeof cron>]> = [
+    ['«Dejó el formulario sin agendar» y «Un Lead Entró» (etapa lead)', tipo('instant_form_sin_agenda'), etapa('lead')],
+    ['«Agendó pero no confirmó» y «Un Lead Agendó Llamada» (etapa agenda)', tipo('agendado_sin_confirmar'), etapa('agenda')],
+    ['«Agendó pero no confirmó» y «Agendó (primer contacto)»', tipo('agendado_sin_confirmar'), tipo('agendado_primer_contacto')],
+    ['«Dejó el formulario sin agendar» y «Vio poco el VSL»', tipo('instant_form_sin_agenda'), tipo('vio_poco_vsl')],
+    ['«Agendó (ya le hablamos)» y la etapa agenda', tipo('agendado_ya_contactado'), etapa('agenda')],
+  ];
+  for (const [nombre, a, b] of pares) {
+    assert.ok(avisa(a, b) && avisa(b, a), `${nombre}: le escriben las dos y no avisa`);
+  }
+  // Atado a la TABLA DEL MOTOR: con un lead nuevo o una reserva, cada par de lo que el motor inscribe es la misma gente,
+  // salvo las dos mitades de la post-agenda, que el motor separa (`secuenciasParaElLead`).
+  for (const ev of Object.keys(ETAPA_DEL_EVENTO) as Array<keyof typeof ETAPA_DEL_EVENTO>) {
+    const entran = [...TRIGGERS_POR_EVENTO[ev].map(tipo), etapa(ETAPA_DEL_EVENTO[ev]!)];
+    for (const x of entran) for (const y of entran) {
+      const mitades = x.trigger_tipo !== y.trigger_tipo && FAMILIA_POST_AGENDA.includes(x.trigger_tipo) && FAMILIA_POST_AGENDA.includes(y.trigger_tipo);
+      assert.equal(mismaCohorte(x, y), !mitades, `${ev}: ${x.trigger_tipo}/${x.etapa ?? ''} y ${y.trigger_tipo}/${y.etapa ?? ''}`);
+    }
+  }
+  // Lo que el motor NO junta: eventos distintos, otra etapa, y lo que se filtra por cuál (un canal).
+  assert.equal(avisa(tipo('instant_form_sin_agenda'), tipo('agendado_sin_confirmar')), false, 'un lead nuevo y una reserva');
+  assert.equal(avisa(tipo('instant_form_sin_agenda'), etapa('agenda')), false, 'el formulario y la etapa agenda');
+  assert.equal(avisa(etapa('lead'), etapa('agenda')), false, 'dos etapas');
+  assert.equal(avisa(tipo('instant_form_sin_agenda'), cron({ trigger_tipo: 'instagram', disparadores: [{ id: 'd1', trigger_tipo: 'instagram', subtipo: 'dm' }] } as Fila)), false, 'un DM');
+  // El motor y el aviso leen la MISMA tabla: no hay otra en lib/nutricion.ts.
+  const nutri = FUENTE.get('lib/nutricion.ts')!;
+  assert.doesNotMatch(nutri, /const TRIGGERS_POR_EVENTO/, 'el motor volvió a tener su propia tabla de eventos');
+  assert.match(nutri, /import \{ TRIGGERS_POR_EVENTO, ETAPA_DEL_EVENTO, type EventoNutricion \} from '@\/lib\/nutricion-eventos';/);
+  assert.match(nutri, /const conSuEtapa = ETAPA_DEL_EVENTO\[evento\] != null;/);
+});
+
 // ── La red por HECHOS: el texto no decide el aviso ───────────────────────────────────────────
 
 test('por HECHOS: los 34 duplicados de verdad avisan, y los 24 mensajes distintos de la misma etapa también', async () => {
@@ -454,3 +500,10 @@ test('«MaKo escribe tu nutrición»: el copy se queda quieto mientras guarda, y
 //   A1. la propuesta de CRON no pregunta
 //   A2. el «sí» de CRON guarda directo
 // Restaurado: 16 / 0. Las 21 caen en al menos uno de los tres (Z1–Z5, los horarios, en tests/recurrente-no-salio.test.ts).
+//
+// Los grupos de evento del motor (21/10/2026, `roturas-grupos.json`, md5 igual). Base 17 / 0. Cada una → 16 / 1:
+//   F1. dos disparadores distintos nunca son la misma gente   F5. el motor vuelve a decidir su etapa por su cuenta
+//   F2. sin la etapa del evento («lead», «agenda»)            F6. la etapa del lead nuevo con otra clave
+//   F3. sin excluir las dos mitades de la post-agenda         F7. un evento de antes fuera de la tabla
+//   F4. los que se filtran por cuál entran al grupo
+// Restaurado: 17 / 0.

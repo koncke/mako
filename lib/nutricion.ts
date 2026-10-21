@@ -15,6 +15,7 @@
 // etapa de tipo reunión o un DELAY «antes de la reunión»—. Reemplaza a `preparaUnaReunion(trigger_tipo)` en
 // TODOS sus usos de este archivo.
 import { FAMILIA_POST_AGENDA, TRIGGER_AGENDA_CONOCIDO, TRIGGER_AGENDA_NUEVO, preparaReunion, secuenciasParaElLead } from '@/lib/nutricion-familias';
+import { TRIGGERS_POR_EVENTO, ETAPA_DEL_EVENTO, type EventoNutricion } from '@/lib/nutricion-eventos';
 import { TRIGGER_RECORDATORIO, toquesDeLaAutomatizacion } from '@/lib/recordatorio-automatizacion';
 import { getTenantDb, getWorkspace, getWorkspaceActual, runWithWorkspace, wsEnContexto } from '@/lib/workspace';
 import { leerTodo, leerPorPaginas, type ConsultaPaginada } from '@/lib/supabase-paginado';
@@ -2087,9 +2088,9 @@ async function reactivarReusables(
  * (`EVENTOS_INSTAGRAM` / `EVENTOS_MESSENGER`, lib/disparadores.ts). Sin `subtipo`, Instagram y
  * Messenger no inscriben a nadie. 'etiqueta_quitada' lo emite el choke point de las etiquetas.
  */
-export type EventoNutricion =
-  | 'lead_nuevo' | 'agenda_nueva' | 'etapa' | 'entrega' | 'etiqueta' | 'pago'
-  | 'etiqueta_quitada' | 'instagram' | 'messenger' | 'email_recibido';
+// Qué automatizaciones mira cada evento: la tabla vive en un módulo puro porque la usa también el aviso de duplicada
+// (lib/nutricion-eventos.ts, revisión del 21/10/2026).
+export type { EventoNutricion };
 
 /** Lo que el evento de ETAPA necesita saber, porque no se deduce del lead id. */
 export type CtxEvento = {
@@ -2109,34 +2110,6 @@ export type CtxEvento = {
   etiquetaId?: number | string | null;
   /** Instagram / Messenger / Email: QUÉ pasó en el canal (ver `EventoNutricion`). */
   subtipo?: string;
-};
-
-// Qué triggers responden a cada evento. Los cohortes siguen siendo la fuente de
-// verdad de A QUIÉN le toca: acá solo decidimos QUÉ secuencias mirar ya mismo.
-const TRIGGERS_POR_EVENTO: Record<EventoNutricion, string[]> = {
-  lead_nuevo: ['instant_form_sin_agenda', 'vio_vsl_sin_agendar', 'vio_poco_vsl'],
-  agenda_nueva: ['agendado_sin_confirmar', TRIGGER_AGENDA_CONOCIDO, TRIGGER_AGENDA_NUEVO],
-  // ⚠️ ESTE NO ALCANZA SOLO, y es la diferencia con los dos de arriba: las secuencias de
-  // etapa pueden ser muchas y cada una es de UNA etapa y de UN producto. El filtro fino
-  // lo hace `secuenciasDeEtapa` unas líneas más abajo; esta lista sólo acota qué mirar.
-  etapa: [TRIGGER_ETAPA],
-  // La ENTREGA de un servicio (el kanban de Customer Success). Trigger propio: ver
-  // `secuenciasDeEntrega`.
-  entrega: [TRIGGER_ENTREGA],
-  // Le PUSIERON una etiqueta (08/10/2026, punto 12: «debería también poder salir acciones y
-  // CRON desde etiquetas»). Lo dispara el choke point de las etiquetas (lib/etiquetas.ts). Como
-  // el de etapa, no alcanza solo: `secuenciasDeEtiqueta` filtra por CUÁL. Y desde la sexta tanda
-  // (CRON punto 3) también «Se agrega etiqueta a un lead», con su «Ignorar» (`disparaPorEvento`).
-  etiqueta: [TRIGGER_ETIQUETA, TRIGGER_ETIQUETA_AGREGADA],
-  // «Se elimina etiqueta a un lead» (CRON punto 3), con su «Ignorar».
-  etiqueta_quitada: [TRIGGER_ETIQUETA_QUITADA],
-  // Los canales (CRON puntos 6, 7 y 8): los emiten sus webhooks. `disparaPorEvento` pregunta por CUÁL evento.
-  instagram: [TRIGGER_INSTAGRAM],
-  messenger: [TRIGGER_MESSENGER],
-  email_recibido: [TRIGGER_EMAIL_RECIBIDO],
-  // Los pagos (Stripe / Mercado Pago, 11/10/2026): los emite el webhook de la pasarela por `enrolarPorPago`
-  // (lib/pago-entrante.ts), DESPUÉS de asentar el pago en el CRM. `disparaPorEvento` pregunta por CUÁL evento.
-  pago: [TRIGGER_PAGO],
 };
 
 /**
@@ -2333,7 +2306,7 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
     // DERIVADA sin escribir `pipeline_stage`, así que sin esto «Un Lead Agendó Llamada» (CRON «Agenda R1») entraba
     // por el barrido de la hora: el aviso «Nuevo agendado» y la preparación, hasta una hora tarde.
     // Y el LEAD NUEVO (17/10/2026, #868): «Un Lead Entró» cuelga de «Lead entrante» y sólo entraba por el barrido.
-    const conSuEtapa = evento === 'agenda_nueva' || evento === 'lead_nuevo';
+    const conSuEtapa = ETAPA_DEL_EVENTO[evento] != null;
     const claves = conSuEtapa ? [...(TRIGGERS_POR_EVENTO[evento] ?? []), TRIGGER_ETAPA] : TRIGGERS_POR_EVENTO[evento] ?? [];
     if (!claves.length) return 0;
     // VARIOS CRON (mig 0241): una vista por CRON; un Recurrente (con horario) no responde a eventos.

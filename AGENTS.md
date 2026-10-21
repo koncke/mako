@@ -2039,7 +2039,9 @@ fija) dejaban pasar duplicados de verdad y avisaban de más. Ahora se avisa siem
 escribe a la misma gente, por el mismo canal, con horarios que se pisan) y el aviso MUESTRA los dos textos para que la
 persona compare. Un parecido de texto sólo puede ordenar o resaltar. Y el hecho se saca del MOTOR, no de lo que se
 supone: «un evento no tiene cohorte que se pise» era falso, porque `enrolarPorEvento` inscribe al lead en TODAS las
-activas del disparador. El test ata la regla a la función que inscribe (`mismaCohorte` contra `disparaPorEvento`).
+activas del disparador. El test ata la regla a lo que decide el motor: `disparaPorEvento` y la tabla de eventos
+(`TRIGGERS_POR_EVENTO`, lib/nutricion-eventos.ts), que es UNA y la leen los dos. Atarla a una sola función no alcanzó:
+el motor decide con varias.
 Detalle: docs/hallazgos-chatbot.md.
 
 # Tres topes del entorno que no dan error: te dan otra cosa
