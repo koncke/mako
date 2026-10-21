@@ -294,6 +294,13 @@ export type AccionDef = Base & {
    *  (`lead_etapa`, `meta_estado`, …) para que las pendientes vigentes al momento
    *  del deploy sigan resolviendo. */
   tipoPendiente?: string;
+  /**
+   * true si, al ejecutarla, ALGO LE LLEGA A OTRA PERSONA (el email y el WhatsApp al alumno, el aviso de Calendly o la invitación de
+   * Google al lead): no se deshace. Por WhatsApp se confirma sólo con un «sí» sin nada más (lib/confirmacion-pura.ts, 21/10/2026):
+   * un «ok, esperá que lo reviso» no la ejecuta. Una acción nueva que le escribe a alguien lo declara acá;
+   * tests/confirmacion-terceros.test.ts frena la que lo dice en su descripción y no lo marca.
+   */
+  aTerceros?: boolean;
 };
 
 /**

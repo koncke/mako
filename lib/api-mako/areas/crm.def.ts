@@ -569,7 +569,7 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: true, escribe: 'cambia la etapa y el estado del lead (y monto o motivo), deja historial; puede mandar la conversión a Meta y ajustar la etiqueta de WhatsApp',
   },
   {
-    id: 'proponer_agendar_reunion', area: 'crm', tipo: 'accion', confirmacion: 'chat', tipoPendiente: 'agendar_reunion',
+    id: 'proponer_agendar_reunion', aTerceros: true, area: 'crm', tipo: 'accion', confirmacion: 'chat', tipoPendiente: 'agendar_reunion',
     titulo: 'Agendar una reunión en Calendly',
     descripcion: 'PROPONE reservar en Calendly la R1 o la R2 de un lead en un horario EXACTO de listar_horarios_reunion (queda pendiente hasta el «sí»). Al confirmar se revalida que el hueco siga libre y se intenta la reserva directa; si Calendly la rechaza, deja el formulario de Calendly ya completado con los datos del lead para mandarlo. El lead necesita email. Las fechas de la reunión las escribe después el aviso de Calendly, no esta acción.',
     parametros: [
@@ -583,7 +583,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     // 4c (16/10/2026, Martín por Cerebro: «acciones de Calendly para el paso ⚡ Acción»). Lo único de Calendly que un
     // flujo hace solo sin inventar un dato: crear pide la hora que elige el lead, y editar no existe en su API.
-    id: 'cancelar_reunion_calendly', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    id: 'cancelar_reunion_calendly', aTerceros: true, area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Cancelar su reunión de Calendly',
     descripcion: 'PROPONE cancelar en Calendly la PRÓXIMA reunión de un lead (la primera que todavía no empezó), buscada por su email en la cuenta de Calendly del negocio. Calendly le avisa al lead, con el motivo si lo hay, y su aviso la marca cancelada en el CRM. Si no tiene ninguna por delante, no hay nada que cancelar. Calendly no deja mover ni renombrar una reunión: para reagendar, mándale su link. El lead necesita email.',
     parametros: [
@@ -614,7 +614,7 @@ export const DEFS: readonly OperacionDef[] = [
   // inmobiliario (ws13) que agenda VISITAS en Google y por Cal.com, no por Calendly,
   // y que quería hacerlo escribiéndole al grupo de MaKo (07/10/2026).
   {
-    id: 'proponer_agendar_agenda', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    id: 'proponer_agendar_agenda', aTerceros: true, area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Agendar reunión, visita o cita',
     descripcion: 'PROPONE agendar una reunión (o visita, o cita) en la agenda de Google del negocio (queda pendiente hasta el «sí»). Con un lead, lo invita por email; SIN lead es un evento del negocio, sin invitados, y entonces el título es obligatorio. Úsala cuando el negocio tiene su Google Calendar conectado; si agenda por Calendly, la que corresponde es proponer_agendar_reunion. La fecha y la hora van como las dijo la persona, en la zona del negocio: el código arma la hora exacta. Si no te dieron una hora, mira antes horarios_libres_dia. Si el horario se pisa con otro evento, el sistema se lo avisa a la persona directo (tú no lo ves, así que no afirmes que está libre); no lo bloquea: la agenda es del negocio.',
     parametros: [
@@ -630,7 +630,7 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: false, escribe: 'crea un evento en la agenda de Google del negocio; si es con un lead, Google le manda la invitación y queda en su historial',
   },
   {
-    id: 'proponer_mover_reunion', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    id: 'proponer_mover_reunion', aTerceros: true, area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Mover o reagendar reunión, visita o cita',
     descripcion: 'PROPONE cambiar el día o la hora de una reunión (o visita, o cita) que ya está en la agenda de Google del negocio, con un lead o sin lead (queda pendiente hasta el «sí»). El sistema busca la reunión en la agenda: tú pasas el día y la hora que tiene HOY (fecha_actual, hora_actual) como los dijo la persona —sin lead, fecha_actual es obligatorio—, y la fecha y la hora nuevas como las dijo; el código arma la hora exacta. Tú NO ves la agenda: si hay varias o ninguna que coincida, el sistema se las muestra a la persona y tú le pides el día y la hora de la que quiere mover. Conserva la duración, el título y los invitados, y Google les avisa del cambio. Si no encuentra la que se nombró, NO crea una nueva.',
     parametros: [
@@ -644,7 +644,7 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: false, escribe: 'cambia el horario del evento en la agenda de Google del negocio (Google les avisa a los invitados) y, si es con un lead, deja el cambio en su historial',
   },
   {
-    id: 'proponer_cambiar_reunion', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    id: 'proponer_cambiar_reunion', aTerceros: true, area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Cambiar nombre o duración de una reunión',
     descripcion: 'PROPONE cambiarle el nombre (el título) o la duración a una reunión (o visita, o cita) que ya está en la agenda de Google del negocio, con un lead o sin lead (queda pendiente hasta el «sí»). Para cambiarle el día o la hora, la que corresponde es proponer_mover_reunion. Se la encuentra como en proponer_mover_reunion: el día y la hora que tiene HOY, como los dijo la persona. Pasa sólo lo que cambia: el título nuevo, la duración nueva, o las dos.',
     parametros: [
@@ -658,7 +658,7 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: false, escribe: 'cambia el título o el fin del evento en la agenda de Google del negocio (Google les avisa a los invitados) y, si es con un lead, deja el cambio en su historial',
   },
   {
-    id: 'proponer_cancelar_reunion', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    id: 'proponer_cancelar_reunion', aTerceros: true, area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Cancelar o borrar una reunión, visita o cita',
     descripcion: 'PROPONE cancelar (borrar) una reunión (o visita, o cita) que ya está en la agenda de Google del negocio, con un lead o sin lead (queda pendiente hasta el «sí»). Se la encuentra con el día y la hora que tiene, como los dijo la persona. No se deshace y Google les avisa a los invitados: el sistema le muestra a la persona cuál es y a cuántos les avisa antes de que diga que sí.',
     parametros: [
@@ -848,7 +848,7 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: true, escribe: 'borra la fila del lead en lead_funnel; si era su producto principal, el siguiente pasa a leads.funnel_id y pipeline_stage; deja historial',
   },
   {
-    id: 'mover_lead_en_producto', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    id: 'mover_lead_en_producto', aTerceros: true, area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Mover un lead dentro de un producto',
     descripcion: 'PROPONE cambiar la etapa de un lead en un producto del CRM que se le AGREGÓ (queda pendiente hasta el «sí»). Escribe solo esa tarjeta: no cambia su etapa principal, su estado ni su monto, ni manda nada a Meta; si la etapa nueva es la de ganado y ese producto tiene prendido invitar al curso al ganar, lo invita. En su producto PRINCIPAL se mueve con proponer_cambio_etapa. Pide antes el leadId (buscar_leads), el embudoId y la key de la etapa (productos_del_lead).',
     parametros: [

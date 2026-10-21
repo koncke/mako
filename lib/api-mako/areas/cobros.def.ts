@@ -84,7 +84,7 @@ export const DEFS: readonly OperacionDef[] = [
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_TAB,
   },
   {
-    id: 'crear_link_pago', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    id: 'crear_link_pago', aTerceros: true, area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Crear un link de pago',
     descripcion: 'PROPONE crear un link de pago de Stripe o Mercado Pago, con la cuenta del negocio, para que UN lead pague un producto del catálogo de ofertas. El precio sale del catálogo (listar_productos), nunca se escribe a mano: un monto libre se carga desde la ficha del lead. Pide antes el leadId (buscar_leads) y el productoId (listar_productos). Al confirmar, el link le llega a la persona por aparte y queda en la ficha del lead: NO lo escribas ni lo copies. Si el lead ya tiene un link pendiente de ese producto, no crea otro.',
     escribe: 'crea el cobro en `cobros` y su checkout (Stripe) o su preferencia (Mercado Pago) con la cuenta del negocio, y deja historial en el lead',
@@ -205,7 +205,7 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'gratis', gating: G_TAB,
   },
   {
-    id: 'crear_link_cuota', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    id: 'crear_link_cuota', aTerceros: true, area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Cobrar una cuota con un link',
     descripcion: 'PROPONE crear un link de pago de Stripe, con la cuenta del negocio, que cobra UNA cuota sin cobrar de un lead por su monto exacto en USD (el pago_id de cobranza_lead). Al pagarse, la cuota queda cobrada y se cortan sus recordatorios. Si la cuota ya tiene un link sin pagar, devuelve ése. Mercado Pago cobra en la moneda de su cuenta: ese link se crea desde la ficha del lead. El link le llega a la persona por aparte: NO lo escribas ni lo copies.',
     escribe: 'crea el cobro en `cobros` atado a la cuota y su checkout de Stripe con la cuenta del negocio, y deja historial en el lead',
