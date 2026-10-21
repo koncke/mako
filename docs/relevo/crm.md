@@ -1319,3 +1319,8 @@ Segunda revisión (21/10): la 2.1 rehecha. Los tres envíos sólo por la app («
 la rueda de áreas como en main, la tarjeta muestra entero lo que sale, el canal por la cosa nombrada, el bloqueo en la
 puerta única, y los bajos (VSL sólo después del alta, el rechazo por su evento, MaKo y la columna propia en historial y
 listas). **Sin la 1.2, la 2.1 no llega en la app**: no darla por «en producción» antes de que la 1.2 esté en main.
+
+Al integrar con `mako-wa` (MaKo Alert, 21/10): esa rama suma `AccionDef.aTerceros` y `tests/confirmacion-terceros.test.ts`
+frena las acciones de chat que le escriben a alguien sin la marca. Los tres envíos de la 2.1 (`enviar_borrador_whatsapp`,
+`contestar_dm`, `contestar_email_chat`) llevan `aTerceros: true`: lo pone la rama que entre SEGUNDA (hoy la marca no
+existe en main y el tipo no la acepta).
