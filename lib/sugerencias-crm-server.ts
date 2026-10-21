@@ -146,16 +146,18 @@ async function gestosAMano(leadIds: ReadonlySet<number>, ahora: number): Promise
   const filas = await leerTodo<{ lead_id: number; campo: string; valor_anterior: string | null; valor_nuevo: string | null; autor: string | null }>(
     await getTenantDb(), 'lead_audit', 'id, lead_id, campo, valor_anterior, valor_nuevo, autor', {
       orden: 'id', maxPaginas: 10, paralelo: 4,
-      filtros: (q) => q.gte('created_at', desde).in('campo', [CAMPO_ETAPA, 'Asistió R1']) as unknown as ConsultaPaginada,
+      filtros: (q) => q.gte('created_at', desde).in('campo', [CAMPO_ETAPA, 'Asistió R1', 'Links de Fathom']) as unknown as ConsultaPaginada,
     });
   const movimientos: Array<{ desde: string; hacia: string }> = [];
   let noShowsAMano = 0;
+  let fathomAMano = 0;
   for (const f of filas) {
     if (!leadIds.has(Number(f.lead_id)) || !String(f.autor ?? '').includes('@')) continue;
     if (f.campo === CAMPO_ETAPA && f.valor_anterior && f.valor_nuevo) movimientos.push({ desde: f.valor_anterior, hacia: f.valor_nuevo });
     else if (f.campo === 'Asistió R1' && f.valor_nuevo === 'No') noShowsAMano++;
+    else if (f.campo === 'Links de Fathom' && f.valor_nuevo) fathomAMano++;
   }
-  return { movimientos, noShowsAMano };
+  return { movimientos, noShowsAMano, fathomAMano };
 }
 
 /** CLASE 4 (20/10/2026): las conversaciones NUEVAS de Instagram y Messenger (`facebook`) de esos días. Tira si no se leyó. */

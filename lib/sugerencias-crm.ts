@@ -82,6 +82,8 @@ export const UMBRALES_SUGERENCIAS = {
   gestosMovimientos: 5,
   /** «Marcás No show a mano 3 veces». */
   gestosNoShow: 3,
+  /** «Pegás el link de Fathom a mano 3 veces». */
+  gestosFathom: 3,
 } as const;
 
 // ── El dato ──────────────────────────────────────────────────────────────────
@@ -150,7 +152,7 @@ export type EntradaSugerencias = {
    * del lead: `lead_audit` con un email de autor; lo que hizo MaKo o una automatización no cuenta). Ausente o null =
    * no se pudieron leer: no hay sugerencias de clase 2.
    */
-  gestos?: { movimientos: ReadonlyArray<{ desde: string; hacia: string }>; noShowsAMano: number } | null;
+  gestos?: { movimientos: ReadonlyArray<{ desde: string; hacia: string }>; noShowsAMano: number; fathomAMano?: number } | null;
   /** CLASE 4 (20/10/2026): lo nuevo que llegó en esos días (conversaciones de Instagram y Messenger). null = no se leyó. */
   nuevos?: { dmInstagram: number; dmMessenger: number } | null;
 };
@@ -417,6 +419,16 @@ export function sugerenciasDelCrm(e: EntradaSugerencias, tope: number = UMBRALES
     const noShow = r1 ? etapaNoShowDe(e.etapas as Stage[], e.transiciones as FunnelTransition[], r1.key, 'r1') : null;
     if (noShow && e.gestos.noShowsAMano >= U.gestosNoShow) {
       enEtapa(2, 'lead-no-asistio', noShow, `Marcaste ${e.gestos.noShowsAMano} No show a mano. ¿Les escribo solo para reagendar?`);
+    }
+    // «Pegás el link de Fathom a mano 3 veces → conectar Fathom». Con Fathom conectado no hay nada que ofrecer, y si la
+    // clase 3 ya lo pidió (reuniones sin asistencia), gana la suya (va antes).
+    const pegados = e.gestos.fathomAMano ?? 0;
+    if (e.conectado.fathom === false && pegados >= U.gestosFathom) {
+      ofrecer({
+        id: 'conectar-fathom', clase: 2, etapa: null, soloAdmin: true,
+        texto: `Pegaste ${pegados} veces el link de Fathom a mano. ¿Lo conectas para que llegue solo?`,
+        accion: { tipo: 'link', href: '/integraciones?abrir=fathom' },
+      });
     }
   }
 

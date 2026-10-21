@@ -12,6 +12,7 @@
 //   · el umbral de movimientos en 1 (cualquier movimiento sugería)                 → 3 / 1
 //   · la clase 2 DESPUÉS de la 1 (el No show perdía su porqué)                     → 3 / 1
 //   · el server contando también lo que hizo MaKo (sin el filtro del email)        → 3 / 1
+// Y Fathom pegado a mano (20/10, después), con el archivo en 5 / 0: sin mirar si Fathom ya está conectado → 4 / 1.
 // Correr: node --import tsx --test tests/sugerencias-crm-gestos.test.ts
 // =============================================================================
 
@@ -56,6 +57,14 @@ test('clase 2: tres No show a mano ofrecen reagendar, con su porqué (gana a la 
   assert.equal(dos?.clase, 1, 'con 2, la de siempre del CRM armado');
 });
 
+test('clase 2: pegar el link de Fathom a mano 3 veces ofrece conectarlo (si no está conectado)', () => {
+  const s = sugerenciasDelCrm(base({ conectado: { whatsapp: true, fathom: false }, gestos: { movimientos: [], noShowsAMano: 0, fathomAMano: 3 } }), 100);
+  const f = s.find((x) => x.id === 'conectar-fathom');
+  assert.ok(f && f.clase === 2 && /Pegaste 3 veces el link de Fathom/.test(f.texto));
+  const conectado = sugerenciasDelCrm(base({ gestos: { movimientos: [], noShowsAMano: 0, fathomAMano: 9 } }), 100);
+  assert.ok(!conectado.some((x) => x.id === 'conectar-fathom'), 'con Fathom conectado no hay nada que ofrecer');
+});
+
 test('clase 4: el primer DM de Instagram o Messenger, salvo que ya haya quien los reciba', () => {
   const s = sugerenciasDelCrm(base({ nuevos: { dmInstagram: 2, dmMessenger: 1 } }), 100);
   const ig = s.find((x) => x.id === 'instagram-te-escribieron');
@@ -74,7 +83,7 @@ test('el server cuenta sólo los gestos de una persona, y lo que no lee se calla
   const sv = leer('lib/sugerencias-crm-server.ts');
   const g = sv.slice(sv.indexOf('async function gestosAMano'), sv.indexOf('async function dmsNuevos'));
   assert.match(g, /!String\(f\.autor \?\? ''\)\.includes\('@'\)/, 'lo que hizo MaKo o una automatización no es un gesto de la persona');
-  assert.match(g, /\.in\('campo', \[CAMPO_ETAPA, 'Asistió R1'\]\)/);
+  assert.match(g, /\.in\('campo', \[CAMPO_ETAPA, 'Asistió R1', 'Links de Fathom'\]\)/);
   assert.match(g, /maxPaginas: 10/, 'con tope: no se lee el historial entero');
   assert.match(sv, /gestosAMano\(idsCasa, ahora\)\.catch\(avisar\('gestos'\)\)/);
   assert.match(sv, /dmsNuevos\(ahora\)\.catch\(avisar\('conversaciones nuevas'\)\)/);
