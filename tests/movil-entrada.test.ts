@@ -40,9 +40,13 @@ test('la marca de «ya salió» es UNA: la lee ShellM y la pone el final del onb
   assert.match(shell, /if \(sessionStorage\.getItem\(LS_ENTRADA\)\) return;/);
 });
 
-test('quien termina el onboarding en el teléfono no ve la entrada dos veces seguidas', () => {
+test('la entrada que ya se vio en el onboarding no se repite al entrar; la que no se vio, sí', () => {
   const chat = sinComentarios(leer('app/onboarding/ChatArranque.tsx'));
   assert.match(chat, /import \{ CLAVE_ENTRADA_MOVIL \} from '@\/app\/m\/_ui\/entrada';/);
+  // Se marca cuando la intro del onboarding se VIO (su onFin), no al terminar: quien retomaba el onboarding en otra apertura
+  // de la app no veía ninguna (cuarta revisión, 21/10).
+  const intro = chat.slice(chat.indexOf('{intro && <EntradaMako onFin={() => {'), chat.indexOf("void llamar({ action: 'intro' });"));
+  assert.match(intro, /sessionStorage\.setItem\(CLAVE_ENTRADA_MOVIL, '1'\)/);
   const entrar = chat.slice(chat.indexOf('const entrar = useCallback('), chat.indexOf('}, [vista.modo, router]);'));
-  assert.match(entrar, /sessionStorage\.setItem\(CLAVE_ENTRADA_MOVIL, '1'\)/);
+  assert.doesNotMatch(entrar, /CLAVE_ENTRADA_MOVIL/, 'al terminar no se marca: la intro pudo no haberse visto en esta apertura');
 });

@@ -40,7 +40,7 @@ import type { ArbolOffer, OfferMensaje, OfferSesionVista } from '@/lib/offer-mar
 import { OfferApp, type ArranqueOffer } from '../offer/OfferApp';
 import { EntradaMako } from './EntradaMako';
 import { CriaturaMako, type Reaccion } from './CriaturaMako';
-import { SESION_VACIA, aMensajeOffer, ladoDeLaPregunta, linkPdfLoQueVende, mandaElArranque, placeholderDe, tarjetasDe, terminoElArranque } from './arranque-ui';
+import { SESION_VACIA, aMensajeOffer, ladoDeLaPregunta, linkPdfLoQueVende, mandaElArranque, placeholderDe, preguntaQueContesta, tarjetasDe, terminoElArranque } from './arranque-ui';
 
 type Respuesta = { ok?: boolean; error?: string; vista?: VistaArranque; aviso?: string };
 /** Un aviso arriba del chat; con `accion`, lo que lo destraba sin recargar (un fallo pasajero se reintenta). */
@@ -99,7 +99,7 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     } catch { /* la próxima respuesta la trae */ }
   }, []);
 
-  const responder = async (cuerpo: { texto?: string; opcion?: number; opcionTexto?: string }, mostrar: string | null): Promise<boolean> => {
+  const responder = async (cuerpo: { texto?: string; opcion?: number; opcionTexto?: string; pregunta?: string }, mostrar: string | null): Promise<boolean> => {
     if (ocupado) return false;
     setOcupado(true);
     setAviso(null);
@@ -182,8 +182,6 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     if (entrando.current) return;
     entrando.current = true;
     setEntrandoYa(true);
-    // En el teléfono, la entrada de MaKo ya se vio acá: la de abrir la app (ShellM) no se repite.
-    try { sessionStorage.setItem(CLAVE_ENTRADA_MOVIL, '1'); } catch { /* sin storage */ }
     let destino = vista.modo === 'oferta' ? RUTA_AL_TERMINAR : '/plan';
     if (vista.modo === 'oferta') {
       const r = await fetch('/api/onboarding/arranque', {
@@ -229,14 +227,15 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     manda,
     onTexto: async (t) => {
       if (terminoElArranque(vista.etapa)) { setAviso('Tu oferta sigue en Offer.'); return false; }
-      return responder({ texto: t }, t);
+      return responder({ texto: t, ...preguntaQueContesta(vista) }, t);
     },
     onOpcion: (idx) => {
-      // Viaja con su TEXTO: el server lo compara contra su pregunta actual y, si cambió (una pestaña vieja),
-      // no anota nada y devuelve la conversación de hoy.
+      // Viaja con su TEXTO y con la PREGUNTA que contesta: el server los compara contra su pregunta actual y, si cambió
+      // (una pestaña vieja), no anota nada y devuelve la conversación de hoy. La pregunta, porque todas las confirmaciones
+      // tienen el mismo botón («Sí, es eso»): cuarta revisión, 21/10.
       const ultimo = [...vista.antes, ...vista.despues].filter((m) => m.de === 'mako').pop();
       const texto = ultimo?.opciones?.[idx];
-      void responder({ opcion: idx, ...(texto !== undefined ? { opcionTexto: texto } : {}) }, texto ?? null);
+      void responder({ opcion: idx, ...(texto !== undefined ? { opcionTexto: texto } : {}), ...preguntaQueContesta(vista) }, texto ?? null);
     },
     ocupado,
     extra,
@@ -310,7 +309,14 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
           opcionArmar={opcionArmar}
         />
       </main>
-      {intro && <EntradaMako onFin={() => { setIntro(false); void llamar({ action: 'intro' }); }} />}
+      {/* En el teléfono, la entrada de MaKo YA SE VIO acá: la de abrir la app (ShellM) no se repite en esta apertura. Se marca
+          cuando se vio de verdad, no al terminar (cuarta revisión, 21/10: quien retomaba el onboarding en otra apertura no
+          veía ninguna). */}
+      {intro && <EntradaMako onFin={() => {
+        setIntro(false);
+        try { sessionStorage.setItem(CLAVE_ENTRADA_MOVIL, '1'); } catch { /* sin storage */ }
+        void llamar({ action: 'intro' });
+      }} />}
     </div>
   );
 }

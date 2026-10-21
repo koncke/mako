@@ -34,7 +34,11 @@ test('el chat «Onboarding» se crea una vez, con la conversación entera y en o
   assert.match(f, /if \(!sesiones\.some\(\(s\) => !s\.archived && s\.contexto !== marca\)\) await createSession\(chartKey, null, null\);/,
     'sin un chat principal antes, el más viejo es el jefe y «Onboarding» se mostraría como «Second Brain»');
   assert.match(f, /const hilo = await createSession\(chartKey, TITULO_HILO, marca\);/);
-  assert.match(f, /await guardarEstadoArranque\(\{ hiloChat: hilo\.id, hiloDe: chartKey, hiloCreando: undefined,/);
+  assert.match(f, /await guardarEstadoArranque\(\{ hiloChat: hilo\.id, hiloDe: chartKey, hiloAt: new Date\(\)\.toISOString\(\), hiloCreando: undefined,/);
+  // Cada mensaje con su hora, creciente: en UN insert todas llevaban el mismo now() y el chat salía desordenado (cuarta
+  // revisión, 21/10).
+  assert.match(f, /const t0 = Date\.now\(\) - mensajes\.length;/);
+  assert.match(f, /session_id: hilo\.id, role: m\.role, content: m\.content, created_at: new Date\(t0 \+ i\)\.toISOString\(\),/);
 });
 
 test('la ruta del arranque lo arma a pedido de la pantalla, y la pantalla entra a ese chat', () => {

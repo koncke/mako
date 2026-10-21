@@ -17,9 +17,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   EN_DOLARES, INTERESES, interesDe, NO_ENTENDI_OPCION, SI_ES_ESO, canalDeTexto, leerRespuesta, mensajesDeArranque,
-  opcionMasCercana, tramoDe, type EstadoArranque, type HechosArranque, type MensajeArranque,
+  opcionMasCercana, tramoDe, type EstadoArranque, type HechosArranque, type MensajeArranque, type Respuesta,
 } from '../lib/onboarding-arranque';
 import { CANALES, PREGUNTAS, VOLUMEN_POR_CANAL } from '../lib/fase-diagnostico';
+import { preguntaQueContesta } from '../app/onboarding/arranque-ui';
 
 const opcionesDe = (id: string) => PREGUNTAS.find((q) => q.id === id)!.opciones;
 const H: HechosArranque = {
@@ -32,6 +33,8 @@ const iVolumen = PREGUNTAS.findIndex((q) => q.id === 'volumen');
 // Todo contestado hasta el cuello, en modo 'oferta' (el canal ya dicho).
 const ANTES_DEL_CUELLO: EstadoArranque = { ...QUIEN, canal: 'llamadas', faseResp: PREGUNTAS.map((_, i) => (i < iCuello ? 0 : -1)) };
 const todos = (e: EstadoArranque, h = H): MensajeArranque[] => { const m = mensajesDeArranque(e, h); return [...m.antes, ...m.despues]; };
+// Como la pantalla: la respuesta viaja con la pregunta que contesta (cuarta revisión, 21/10).
+const responder = (e: EstadoArranque, h: HechosArranque, r: Respuesta) => leerRespuesta(e, h, { ...preguntaQueContesta(mensajesDeArranque(e, h)), ...r });
 
 test('una cifra escrita se ubica en SU tramo, y sin cifra se vuelve a preguntar', () => {
   const facturacion = opcionesDe('facturacion');
@@ -58,16 +61,16 @@ test('la cifra escrita NO se guarda: se muestra lo entendido, y se guarda con «
   const ultimo = todos(pend).at(-1)!;
   assert.equal(ultimo.texto, `Entendí: «${opcionesDe('facturacion')[2]}». ¿Es así?`);
   assert.deepEqual(ultimo.opciones, [SI_ES_ESO, ...opcionesDe('facturacion').filter((_, k) => k !== 2)], 'las otras opciones, para corregir con un toque');
-  const ok = leerRespuesta(pend, H, { opcion: 0, opcionTexto: SI_ES_ESO });
+  const ok = responder(pend, H, { opcion: 0, opcionTexto: SI_ES_ESO });
   assert.ok(ok.ok && ok.patch.faseResp?.[0] === 2 && ok.patch.escritas?.facturacion === 'Facturo 15.000 al mes' && 'opcionPorConfirmar' in ok.patch && ok.patch.opcionPorConfirmar === undefined,
     ok.ok ? JSON.stringify(ok.patch) : ok.error);
   // Corregir con otra opción guarda ESA, sin lo escrito.
-  const otra = leerRespuesta(pend, H, { opcion: 3, opcionTexto: opcionesDe('facturacion')[3] });
+  const otra = responder(pend, H, { opcion: 3, opcionTexto: opcionesDe('facturacion')[3] });
   assert.ok(otra.ok && otra.patch.faseResp?.[0] === 3 && !otra.patch.escritas, otra.ok ? JSON.stringify(otra.patch) : otra.error);
   // Un sí escrito también confirma; un no vuelve a la pregunta con sus opciones.
-  const si = leerRespuesta(pend, H, { texto: 'sí' });
+  const si = responder(pend, H, { texto: 'sí' });
   assert.ok(si.ok && si.patch.faseResp?.[0] === 2);
-  assert.deepEqual(leerRespuesta(pend, H, { texto: 'no' }), { ok: true, patch: { opcionPorConfirmar: undefined } });
+  assert.deepEqual(responder(pend, H, { texto: 'no' }), { ok: true, patch: { opcionPorConfirmar: undefined } });
 });
 
 test('una cifra en pesos no se ubica: se pregunta en dólares (los tramos son en dólares)', () => {
@@ -93,7 +96,7 @@ test('el canal por sus palabras, sin lo negado, y también se confirma', () => {
   const r = leerRespuesta(antesDelCanal, H, { texto: 'No hago llamadas, vendo todo por chat' });
   const iConv = CANALES.findIndex((c) => c.id === 'conversaciones');
   assert.deepEqual(r, { ok: true, patch: { opcionPorConfirmar: { id: 'canal', opcion: iConv, escrito: 'No hago llamadas, vendo todo por chat' } } });
-  const ok = leerRespuesta({ ...antesDelCanal, ...(r.ok ? r.patch : {}) }, H, { opcion: 0, opcionTexto: SI_ES_ESO });
+  const ok = responder({ ...antesDelCanal, ...(r.ok ? r.patch : {}) }, H, { opcion: 0, opcionTexto: SI_ES_ESO });
   assert.ok(ok.ok && ok.patch.canal === 'conversaciones', ok.ok ? JSON.stringify(ok.patch) : ok.error);
 });
 
@@ -111,7 +114,7 @@ test('el cuello escrito: se entiende, se muestra, y con el toque queda lo escrit
   const r = leerRespuesta(ANTES_DEL_CUELLO, H, { texto });
   assert.deepEqual(r, { ok: true, patch: { opcionPorConfirmar: { id: 'cuello', opcion: 2, escrito: texto } } });
   const pend: EstadoArranque = { ...ANTES_DEL_CUELLO, ...(r.ok ? r.patch : {}) };
-  const ok = leerRespuesta(pend, H, { opcion: 0, opcionTexto: SI_ES_ESO });
+  const ok = responder(pend, H, { opcion: 0, opcionTexto: SI_ES_ESO });
   assert.ok(ok.ok, ok.ok ? '' : ok.error);
   if (!ok.ok) return;
   assert.equal(ok.patch.faseResp?.[iCuello], 2);
@@ -131,7 +134,7 @@ test('el interés escrito también se confirma', () => {
   const r = leerRespuesta(fin, vende, { texto });
   const iVentas = INTERESES.findIndex((x) => x.id === 'ventas');
   assert.deepEqual(r, { ok: true, patch: { opcionPorConfirmar: { id: 'interes', opcion: iVentas, escrito: texto } } });
-  const ok = leerRespuesta({ ...fin, ...(r.ok ? r.patch : {}) }, vende, { opcion: 0, opcionTexto: SI_ES_ESO });
+  const ok = responder({ ...fin, ...(r.ok ? r.patch : {}) }, vende, { opcion: 0, opcionTexto: SI_ES_ESO });
   assert.ok(ok.ok && ok.patch.interes === 'ventas' && ok.patch.escritas?.interes === texto);
   const tocada = leerRespuesta(fin, vende, { opcion: 0, opcionTexto: INTERESES[0].label });
   assert.ok(tocada.ok && tocada.patch.interes === INTERESES[0].id && !tocada.patch.escritas, 'una opción tocada no es una respuesta escrita');

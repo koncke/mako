@@ -10,18 +10,26 @@
 
 /**
  * Lo que dice que sí, solo o en fila («Sí, está bien», «Correcto, así se llama», «Siii», «Claro que sí»). Con la tercera
- * revisión del Cerebro (21/10): «Sí, es así», «sisi», «Vale», «Listo», «Ajá», «Simón», «Ándale», «Eso mismo», «es mi
- * negocio» o «es mi marca personal» también son un sí al nombre que espera; antes se volvían el nombre propuesto.
+ * revisión del Cerebro (21/10): «Sí, es así», «sisi», «Vale», «Listo», «Ajá», «Simón», «Ándale» y «Eso mismo» también son
+ * un sí al nombre que espera; antes se volvían el nombre propuesto.
  */
 export const DICE_SI = [
   '(?:s+i+)+', 'sip', 'claro', 'claro que si', 'correcto', 'es correcto', 'exacto', 'exactamente', 'asi es', 'asi', 'eso',
   'eso es', 'eso mismo', 'asi mismo', 'ese', 'esa', 'ese es', 'esa es', 'es ese', 'es esa', 'ese mismo', 'esa misma', 'el mismo',
-  'es', 'es asi', 'es eso', 'es exacto', 'es perfecto', 'mejor asi', 'en realidad si', 'dale', 'ok', 'okay', 'okey', 'oki',
+  'es asi', 'es eso', 'es exacto', 'es perfecto', 'mejor asi', 'en realidad si', 'dale', 'ok', 'okay', 'okey', 'oki',
   'perfecto', 'esta bien', 'esta perfecto', 'de acuerdo', 'de una', 'obvio', 'por supuesto', 'por favor', 'gracias',
   'tal cual', 'asi se llama', 'se llama asi', 'confirmo', 'afirmativo', 'va', 'sale', 'genial', 'bien', 'muy bien', 'vale',
-  'venga', 'listo', 'aja', 'simon', 'andale', 'orale', 'el nombre', 'ese nombre', 'mi negocio', 'mi emprendimiento',
-  'mi marca', 'mi marca personal', '👍', '✅', '👌', '🙌',
+  'venga', 'listo', 'aja', 'simon', 'andale', 'orale', '👍', '✅', '👌', '🙌',
 ];
+
+/**
+ * Lo que NOMBRA lo que se pregunta sin decir que sí: «es», «el nombre», «mi negocio», «mi marca personal». Vale como sí
+ * SÓLO detrás de un sí explícito («Sí, es mi negocio»). Suelto no confirma nada (cuarta revisión, 21/10: con el pendiente
+ * mal leído «Vendo ropa», «Es mi marca personal» —que quiere decir «uso mi nombre»— guardaba «Vendo ropa»), y tampoco es
+ * un nombre: lib/onboarding-arranque.ts vuelve a preguntar, o propone el de la persona si dice que usa el suyo.
+ */
+export const NOMBRA_LO_PREGUNTADO = ['es', 'el nombre', 'ese nombre', 'mi negocio', 'mi emprendimiento', 'mi marca', 'mi marca personal', 'es mi negocio',
+  'es mi emprendimiento', 'es mi marca', 'es mi marca personal', 'es el nombre'];
 
 /** Lo que dice que no. */
 export const DICE_NO = ['no+', 'nop', 'nope', 'incorrecto', 'para nada', 'no es asi', 'no es', 'no se llama asi', 'esta mal', 'negativo', 'nada que ver', '👎'];

@@ -70,7 +70,7 @@ test('la propuesta manda: va primero, y «Sí, es correcto» elige ESE tipo', ()
 
 test('la ruta la arma UNA vez al llegar al CRM, y siembra con sus nombres', () => {
   const ruta = sinComentarios(leer('app/api/onboarding/arranque/route.ts'));
-  assert.match(ruta, /if \(h\.conCrm && \(etapa === 'pdf' \|\| etapa === 'fase'\) && nuevo\.crmPropuesta === undefined && !nuevo\.crmTipo\) \{/);
+  assert.match(ruta, /if \(h\.conCrm && \(etapa === 'pdf' \|\| etapa === 'cobro' \|\| etapa === 'fase'\) && nuevo\.crmPropuesta === undefined && !nuevo\.crmTipo\) \{/);
   assert.match(ruta, /if \(etapaDeArranque\(nuevo, h2\) === 'crm'\) await guardarEstadoArranque\(\{ crmPropuesta: await propuestaDeCrm\(nuevo, h2\.canalNegocio\)\.catch\(\(\) => null\) \}\);/);
   assert.match(ruta, /sembrarCrmPrincipal\(patch\.crmTipo, e\.negocio \?\? '', e\.crmPropuesta\?\.tipo === patch\.crmTipo \? e\.crmPropuesta\.etapas : undefined\)/);
   const server = sinComentarios(leer('lib/onboarding-arranque-server.ts'));

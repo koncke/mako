@@ -28,6 +28,16 @@ export function tarjetasDe(lista: MensajeArranque[]): Map<string, TarjetaArranqu
 }
 
 /**
+ * La pregunta que contesta lo que manda la pantalla: el texto del último mensaje de MaKo del arranque. Viaja con el toque y
+ * con lo escrito, y el server lo compara con SU última pregunta (lib/onboarding-arranque.ts → leerRespuesta): todas las
+ * confirmaciones tienen el mismo botón, y una pestaña vieja confirmaba una lectura que no mostró (cuarta revisión, 21/10).
+ */
+export function preguntaQueContesta(v: { antes: readonly MensajeArranque[]; despues: readonly MensajeArranque[] }): { pregunta?: string } {
+  const ultimo = [...v.antes, ...v.despues].filter((m) => m.de === 'mako').pop();
+  return ultimo ? { pregunta: ultimo.texto } : {};
+}
+
+/**
  * ¿El composer y las opciones van al ARRANQUE? Sí en todas las etapas menos la de lo que vende (contesta
  * Offer). Al final también va al arranque, y a propósito: un turno de Offer después de «¡Listo!» quedaría
  * ARRIBA de la tarjeta final (los mensajes del arranque van después de los de la oferta), así que ahí el chat

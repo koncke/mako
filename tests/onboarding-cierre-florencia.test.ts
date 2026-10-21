@@ -69,6 +69,8 @@ test('cómo cobra sale de lo que dijo del precio', () => {
 
 test('el producto del onboarding toma el tipo de cómo cobra', () => {
   const srv = readFileSync(join(__dirname, '..', 'lib/onboarding-arranque-server.ts'), 'utf8').replace(/\r\n/g, '\n');
-  assert.match(srv, /const cobro = cobroDelPrecio\(precio\);/);
+  // Sólo el cobro CONFIRMADO con un toque (cuarta revisión, 21/10); lo leído del precio se propone en la etapa 'cobro'.
+  assert.match(srv, /const cobro = e\.cobro \?\? \{ tipo: 'unico' as const, meses: null \};/);
+  assert.match(srv, /cobroLeido: sesion && sinMarca\(sesion\.piezas\?\.precio\?\.valor\) \? cobroDelPrecio\(sinMarca\(sesion\.piezas\?\.precio\?\.valor\)\) : null,/);
   assert.match(srv, /tipo: cobro\.tipo,\n\s*monto_usd: null,\n\s*suscripcion_meses: cobro\.meses,/);
 });

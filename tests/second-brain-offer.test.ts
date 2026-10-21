@@ -27,7 +27,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { mensajesDeOffer, offerDelOnboardingCopiada, SECCION_OFFER } from '../lib/chat-mako-reglas';
+import { mensajesDeOffer, offerDelOnboardingCopiada, seEscondeDeOffer, SECCION_OFFER } from '../lib/chat-mako-reglas';
 import { puedeVerKey } from '../lib/movil-rutas';
 
 const leer = (r: string) => readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', r), 'utf8').replace(/\r\n/g, '\n');
@@ -91,14 +91,21 @@ test('6. la conversación del onboarding no sale dos veces (acordado con el chat
   // hiloDelOnboarding la copia a un chat «Onboarding» de UNA persona (`hiloDe`) y deja su id en `hiloChat`: a ESA persona
   // «Offer» no se la lista. A los demás sí (revisión del Cerebro, 20/10: se escondía para todos y desaparecía del Ops Center
   // del super admin mirando).
-  const copia = { sesionId: 14, hiloChat: 301, hiloDe: 'mako-movil:u7' };
-  assert.equal(offerDelOnboardingCopiada(JSON.stringify(copia), 'mako-movil:u7'), 14);
+  const copia = { sesionId: 14, hiloChat: 301, hiloDe: 'mako-movil:u7', hiloAt: '2026-10-21T03:00:00.000Z' };
+  assert.deepEqual(offerDelOnboardingCopiada(JSON.stringify(copia), 'mako-movil:u7'), { id: 14, at: '2026-10-21T03:00:00.000Z' });
   assert.equal(offerDelOnboardingCopiada(copia, 'mako-movil:u8'), null, 'otro admin, un closer o el super admin mirando la siguen viendo');
   assert.equal(offerDelOnboardingCopiada(copia, null), null);
   assert.equal(offerDelOnboardingCopiada({ sesionId: 14, hiloChat: 301 }, 'mako-movil:u7'), null, 'sin saber de quién es la copia, no se esconde');
   assert.equal(offerDelOnboardingCopiada({ sesionId: 14, hiloDe: 'mako-movil:u7' }, 'mako-movil:u7'), null, 'sin el chat todavía, se ve en «Offer»');
   assert.equal(offerDelOnboardingCopiada(null, 'mako-movil:u7'), null);
   assert.equal(offerDelOnboardingCopiada('no es json', 'mako-movil:u7'), null);
+  // La copia es una FOTO: si la siguió en Offer después, vuelve a listarse (cuarta revisión, 21/10).
+  const c = offerDelOnboardingCopiada(copia, 'mako-movil:u7');
+  assert.equal(seEscondeDeOffer({ id: 14, updatedAt: '2026-10-21T02:59:00.000Z' }, c), true, 'sin nada nuevo, se esconde');
+  assert.equal(seEscondeDeOffer({ id: 14, updatedAt: '2026-10-21T04:10:00.000Z' }, c), false, 'la siguió después: se lista');
+  assert.equal(seEscondeDeOffer({ id: 15, updatedAt: '2026-10-21T02:00:00.000Z' }, c), false, 'otra conversación');
+  assert.equal(seEscondeDeOffer({ id: 14, updatedAt: '2026-10-21T04:10:00.000Z' }, { id: 14, at: null }), true, 'una copia sin hora, como antes');
   const ind = leer('lib/chat-mako-indice.ts');
-  assert.match(ind, /const copiada = offerDelOnboardingCopiada\(arranque, sesion \? chartKeyDePersona\(sesion\) : null\);\n  return lista\.filter\(\(s\) => s\.id > 0 && s\.id !== copiada\)/);
+  assert.match(ind, /const copiada = offerDelOnboardingCopiada\(arranque, sesion \? chartKeyDePersona\(sesion\) : null\);\n  return lista\.filter\(\(s\) => s\.id > 0 && !seEscondeDeOffer\(s, copiada\)\)/);
+  assert.match(leer('lib/onboarding-arranque-server.ts'), /hiloChat: hilo\.id, hiloDe: chartKey, hiloAt: new Date\(\)\.toISOString\(\),/);
 });

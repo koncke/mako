@@ -41,7 +41,7 @@ import { tzDeWorkspace } from './timezone';
 import { NOMBRE_WS_PRUEBA } from './reset-workspace';
 import { faltanDelArranque, type OfferSesionVista, type PiezasSabidas } from './offer-marco';
 import {
-  CLAVE_ENCUESTA, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, TITULO_HILO, decisionDelHilo, contextoDelHilo, cobroDelPrecio, mensajesDelHilo, sinMarca,
+  CLAVE_ENCUESTA, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, TITULO_HILO, decisionDelHilo, contextoDelHilo, cobroDelPrecio, mensajesDelHilo, pisaElNombreDelPerfil, sinMarca,
   type EstadoArranque, type EtapaArranque, type HechosArranque, type MensajeArranque, type ModoArranque,
 } from './onboarding-arranque';
 
@@ -128,14 +128,19 @@ export async function hiloDelOnboarding(): Promise<number | null> {
     const hilo = await createSession(chartKey, TITULO_HILO, marca);
     try {
       const db = await getTenantDb();
-      const { error } = await db.from('chart_chats').insert(mensajes.map((m) => ({ session_id: hilo.id, role: m.role, content: m.content })));
+      // Cada mensaje con su hora, creciente (cuarta revisión, 21/10): en UN insert todas las filas llevaban el mismo now(),
+      // y el chat se lee ordenado sólo por esa hora: los empates salían en el orden físico de la tabla, desordenados.
+      const t0 = Date.now() - mensajes.length;
+      const { error } = await db.from('chart_chats').insert(mensajes.map((m, i) => ({
+        session_id: hilo.id, role: m.role, content: m.content, created_at: new Date(t0 + i).toISOString(),
+      })));
       if (error) throw new Error(`No pude copiar la conversación del onboarding: ${error.message}`);
       await db.from('chart_sessions').update({ updated_at: new Date().toISOString() }).eq('id', hilo.id);
     } catch (err) {
       await deleteSession(hilo.id).catch(() => {});
       throw err;
     }
-    await guardarEstadoArranque({ hiloChat: hilo.id, hiloDe: chartKey, hiloCreando: undefined, ...(previo.dueno ? {} : { dueno: chartKey }) });
+    await guardarEstadoArranque({ hiloChat: hilo.id, hiloDe: chartKey, hiloAt: new Date().toISOString(), hiloCreando: undefined, ...(previo.dueno ? {} : { dueno: chartKey }) });
     return hilo.id;
   } catch (err) {
     await guardarEstadoArranque({ hiloCreando: undefined }).catch(() => {});
@@ -202,6 +207,8 @@ export async function hechosDelArranque(e: EstadoArranque): Promise<HechosServer
     // que cierra lo escribe el código (app/api/offer/route.ts → mensajeDeCierreDelArranque), y esperar al modelo hizo que
     // Florencia contestara 6 preguntas de más (20/10/2026).
     loQueVende: !!sesion && faltanDelArranque(sesion.piezas).length === 0,
+    // Cómo cobra, leído del precio que contó: se PROPONE y se confirma con un toque (etapa 'cobro', cuarta revisión, 21/10).
+    cobroLeido: sesion && sinMarca(sesion.piezas?.precio?.valor) ? cobroDelPrecio(sinMarca(sesion.piezas?.precio?.valor)) : null,
     // Lo que ya contestó del diagnóstico en la conversación de la oferta: el arranque no lo repite.
     faseOffer: sesion ? (({ respuestas, canal }) => ({ respuestas, canal }))(estadoDiagnostico(sesion.mensajes, { canal: null, yaGuardado: false })) : null,
     conCrm: modo === 'oferta',
@@ -278,8 +285,15 @@ export async function vistaArranque(): Promise<VistaArranque> {
   };
 }
 
-/** Escribe el nombre que eligió en su perfil (best-effort: ya quedó en la conversación). */
+/**
+ * Escribe el nombre que dijo en su perfil (best-effort: ya quedó en la conversación), SÓLO si el perfil no tiene uno de
+ * verdad (vacío o un email). Lo que se lee de lo escrito se recorta con reglas y no se confirma: pisaba el nombre completo
+ * que trajo Google («María del Carmen Pérez» quedaba «María», cuarta revisión, 21/10). Para saludar alcanza el estado.
+ */
 export async function guardarNombre(nombre: string): Promise<void> {
+  let actual: string | null | undefined;
+  try { actual = (await getPerfil())?.nombre; } catch { return; /* sin leer el perfil no se decide pisarlo */ }
+  if (!pisaElNombreDelPerfil(actual)) return;
   try { await setPerfil({ nombre }); } catch (err) { console.error('[arranque] nombre:', err instanceof Error ? err.message : err); }
 }
 
@@ -403,8 +417,9 @@ export async function cerrarArranque(): Promise<{ estado: OnboardingState; aviso
         // monto del producto es el del link de cobro (CobrarConLink). Queda escrito en la descripción y el
         // monto lo pone él en Productos.
         const precio = sinMarca(piezas?.precio?.valor);
-        // Cuotas o mensual es una suscripción (20/10/2026, Florencia: cobra 6 cuotas y quedaba «pago único»).
-        const cobro = cobroDelPrecio(precio);
+        // Cuotas o mensual es una suscripción (20/10/2026, Florencia: cobra 6 cuotas y quedaba «pago único»), pero SÓLO lo
+        // que confirmó con un toque (`e.cobro`, cuarta revisión, 21/10): lo leído sin confirmar no llega al producto.
+        const cobro = e.cobro ?? { tipo: 'unico' as const, meses: null };
         await upsertProducto({
           nombre: sinMarca(propuesta?.nombre) || `Oferta de ${e.negocio ?? 'tu negocio'}`,
           tipo: cobro.tipo,
@@ -449,8 +464,10 @@ export async function cerrarArranque(): Promise<{ estado: OnboardingState; aviso
 
   // 4. Cómo llegó y qué quiere resolver primero (17/10/2026): un setting propio, para que el super admin los lea sin
   // abrir la conversación (y la API de MaKo, `ver_estado_onboarding`). Best-effort: no traba el cierre.
-  if (e.origen || e.interes) {
-    await setSetting(CLAVE_ENCUESTA, JSON.stringify({ origen: e.origen ?? null, interes: e.interes ?? null, at: new Date().toISOString() }))
+  // Con un «no» al PDF, lo que escribió que faltaba va acá: «lo anoto» tiene que quedar anotado (cuarta revisión, 21/10).
+  const pdfNota = e.pdfOk === 'no' ? e.escritas?.pdf ?? null : null;
+  if (e.origen || e.interes || pdfNota) {
+    await setSetting(CLAVE_ENCUESTA, JSON.stringify({ origen: e.origen ?? null, interes: e.interes ?? null, at: new Date().toISOString(), pdfNota }))
       .catch((err) => console.error('[arranque] encuesta:', err instanceof Error ? err.message : err));
   }
 

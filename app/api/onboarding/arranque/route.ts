@@ -80,6 +80,8 @@ export async function POST(req: NextRequest) {
         const texto = typeof body.texto === 'string' ? body.texto : undefined;
         const opcion = typeof body.opcion === 'number' ? body.opcion : undefined;
         const opcionTexto = typeof body.opcionTexto === 'string' ? body.opcionTexto : undefined;
+        // La pregunta que contesta (cuarta revisión, 21/10): un toque viejo no confirma una lectura que no vio.
+        const pregunta = typeof body.pregunta === 'string' ? body.pregunta.slice(0, 2_000) : undefined;
 
         // ⛔ La guardia (17/10/2026): la ráfaga, el bloqueo y el troleo, antes de anotar nada. Una opción tocada no
         // se mira (la escribió MaKo); lo escrito, sí.
@@ -94,7 +96,7 @@ export async function POST(req: NextRequest) {
           return listo();
         }
 
-        const lectura = leerRespuesta(e, h, { texto, opcion, opcionTexto });
+        const lectura = leerRespuesta(e, h, { texto, opcion, opcionTexto, pregunta });
         // La pregunta cambió (una pestaña vieja): no se anota nada y vuelve la conversación de HOY.
         if (!lectura.ok && lectura.cambio) return NextResponse.json({ ok: false, error: lectura.error, vista: await vistaArranque() }, { status: 409 });
         if (!lectura.ok) return no(422, lectura.error);
@@ -119,7 +121,7 @@ export async function POST(req: NextRequest) {
         if (h.modo === 'oferta' && etapaDeArranque(nuevo, h) === 'oferta') await asegurarFunnelPrincipal().catch(() => {});
         // El CRM a medida (20/10/2026, pedido del 18/10, punto 10): al pasar del PDF o de la fase a la pregunta del CRM, MaKo lo
         // arma UNA vez con lo que vende. Los hechos se releen: la última respuesta de la fase recién guardó el diagnóstico.
-        if (h.conCrm && (etapa === 'pdf' || etapa === 'fase') && nuevo.crmPropuesta === undefined && !nuevo.crmTipo) {
+        if (h.conCrm && (etapa === 'pdf' || etapa === 'cobro' || etapa === 'fase') && nuevo.crmPropuesta === undefined && !nuevo.crmTipo) {
           const h2 = await hechosDelArranque(nuevo);
           if (etapaDeArranque(nuevo, h2) === 'crm') await guardarEstadoArranque({ crmPropuesta: await propuestaDeCrm(nuevo, h2.canalNegocio).catch(() => null) });
         }
