@@ -1610,6 +1610,11 @@ código nuevo:
       pide `indice_segundo_cerebro` (~300 tokens) y después `recuperar_del_segundo_cerebro` con su pregunta o con ids
       (lib/cerebro-recuperar.ts, sin IA). Medido en dos workspaces reales: 118-190 tokens por pregunta contra 459-678 del
       grafo entero y 1.105-1.606 del vault. `leer_segundo_cerebro_como_archivos` es para un área ENTERA, no para contestar.
+  - **UNA SOLA CAJA PARA HABLAR CON MaKo: `app/_chat/CajaChat.tsx`** (20/10/2026; Martín: «Te pedí que unificaras el chat
+    del Ops Center en todos lados, su diseño y funcionalidades»). Ninguna pantalla nueva arma su <textarea>, usa
+    `ComposerWhatsApp` o `ChatHilo`, ni su botón de mandar para hablar con MaKo: usa la pieza y le pasa su motor por props.
+    Si falta algo, se le suma a la pieza (y lo tienen todas), nunca a una copia. tests/chat-unico.test.ts lleva la lista de
+    las que faltan, cada una con su chat, y falla si aparece una nueva.
   - **TODO LO QUE SE TERMINA LLEVA SU `revisar`** (17/10/2026; Martín: «se terminaron y pushearon cosas y no las puedo ver
     en Review»). El hito de la bitácora o el cierre (`cartero.mjs cierre … --revisar`) trae la ruta INTERNA donde Martín
     lo prueba (`/crm?lead=…`, `/general`, `/automations/…`). Sin eso, su «Ya está» sólo lleva a la tab del área.
@@ -1824,6 +1829,9 @@ horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, un
   `hoy` por default: lo pide, o lo saca del negocio. tests/pagos-cobro-idempotente.test.ts barre Pagos y Clients.
 - **Marcar un cobro es idempotente**: `marcarPago` y `cobrarCuota` no tocan una cuota que ya está como se pide y
   devuelven `yaEstaba`. Quien marca lo DICE («Ya estaba cobrada») y no ofrece Deshacer: sería desmarcar el cobro de otro.
+  **Y la escritura es CONDICIONAL** (`siSigue` + `.select('id')`, lib/pagos.ts): leer el estado y compararlo en memoria
+  no alcanza con dos pantallas a la vez. Cero filas tocadas = otro llegó antes. `cobrarCuota` escribe el cobro ENTERO
+  (pagado, fecha, hora, monto, moneda) en esa sola escritura, nunca el monto primero y la marca después.
 
 # Una herramienta de laboratorio montada en el layout raíz es una herramienta EN PRODUCCIÓN
 
@@ -1961,6 +1969,23 @@ envíes un mensaje al grupo de MaKo diciendo que se solucionó eso. Con una acla
 - **NO necesita el OK de Martín** (17/10/2026, 10:09: «No necesitas mi aprobacion, manda el mensaje tranquilamente al
   grupo»): lo manda el jefe que arregló, con la herramienta y sus topes. Si el clasificador de permisos de Claude Code
   lo bloquea, se le dice a Martín en una línea, en el chat del jefe, con el comando exacto para que lo apruebe ahí.
+
+# Leer texto libre con reglas falla en lo obvio: la red es que la persona CONFIRME lo que se entendió
+
+Dos piezas leían texto con heurísticas: el onboarding (cifras, opciones, el «sí», el nombre del negocio) y el
+clasificador del chat de la app (qué herramientas ve MaKo). Cada ronda de reglas cerraba los casos marcados y abría otros,
+medido con revisiones adversariales y un escéptico por hallazgo (20-21/10/2026). En el onboarding fueron tres rondas,
+cada una con errores nuevos: «2 palos por mes» (pesos) se guardaba como «Más de $80.000» (dólares) y «Sí, es así»
+proponía «así» como nombre del negocio. En el clasificador fueron dos: «cancelá llamada pendiente con Juan» terminaba en
+`cancelar_accion`, que corre sin tarjeta.
+
+**La regla:** lo que se interpreta de un texto libre y se GUARDA como dato del cliente, o se EJECUTA sin vuelta atrás,
+pasa por un toque de la persona que ve lo que se entendió («Entendí $3.000 – $10.000 por mes. ¿Es así?»; la tarjeta de
+MaKo para una destructiva). Las reglas siguen sirviendo para PROPONER bien; la red es el toque. Así un error de lectura
+cuesta un clic y no un dato malo. Un texto que no da una lectura clara no adivina: pregunta. Eso incluye una moneda que
+no es la de los tramos, un empate o una negación rara. Un test fija que no hay ningún camino de guardado o de ejecución
+destructiva sin ese toque. Detalle: docs/hallazgos-infra.md («Re-revisar una punta arreglada»), hallazgos-onboarding e
+hallazgos-ia.
 
 # Tres topes del entorno que no dan error: te dan otra cosa
 
@@ -9463,7 +9488,9 @@ tarjeta va adentro de `KanbanM`. Detalle y trampas: docs/hallazgos-ui.md.
 
 La configuración propia de una automatización (horario, horas a la misma persona) vive en `app_settings`
 (`automatizacion.config:<id>`), no en `nutricion_secuencias`. Algo NUEVO que se guarde por id de automatización fuera de
-la fila se copia en `duplicarSecuencia` (lib/secuencia-duplicar.ts, por una dependencia OBLIGATORIA como `copiarConfig`) y,
-si no se puede copiar, la copia se borra. Y un panel del NEGOCIO reusado adentro de algo de UNA automatización revisa cada
+la fila se copia en `duplicarSecuencia` (lib/secuencia-duplicar.ts, por una dependencia OBLIGATORIA como `copiarConfig`) y
+en «Copiar flujo» pegado en el MISMO negocio (`crearDesdeCopia` con `configDe`, lib/flujo-copia-negocio.ts) y, si no se
+puede copiar, la copia se borra. Y un aviso que defiende algo (el de automatización duplicada) va en TODOS los caminos que
+lo prenden, no sólo en el botón de la pantalla donde se pensó. Y un panel del NEGOCIO reusado adentro de algo de UNA automatización revisa cada
 cosa que guarda: el huso de la tuerca guardaba `mako.timezone` de todo el negocio. Detalle: docs/hallazgos-chatbot.md
 («La revisión adversarial lo frenó»).
