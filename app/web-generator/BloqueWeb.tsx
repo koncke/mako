@@ -26,7 +26,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from '@/app/_ui/Link';
 import type { BloqueDominio, BloqueElegir, BloqueLanding, BloqueLandings, BloquePublicada, BloqueWeb as Bloque } from '@/lib/editor-landing/bloques-web';
-import { ELIGE_TU, SALTEAR, textoDeOpcion } from '@/lib/editor-landing/bloques-web';
+import { ELIGE_TU, SALTEAR, textoDeOpcion, textoEligeTu, textoSaltear } from '@/lib/editor-landing/bloques-web';
 import { bloqueDominio } from '@/lib/editor-landing/bloques-chat';
 import { CSS_CONTENIDO } from '@/lib/editor-landing/css';
 import { temaPorId, urlFuentes, type Tema } from '@/lib/editor-landing/temas';
@@ -187,8 +187,8 @@ function Elegir({ b, onResponder, respondida, ocupado }: {
       {noSalio && dicha == null && <p className="ch-tarjeta__nota" role="alert">No salió: espera a que MaKo termine y vuelve a tocar.</p>}
       {dicha == null ? (
         <div className="ch-tarjeta__botones">
-          <button type="button" className="ch-enlace" disabled={quieta} onClick={() => responder(ELIGE_TU)}>{ELIGE_TU}</button>
-          <button type="button" className="ch-enlace" disabled={quieta} onClick={() => responder(SALTEAR)}>{SALTEAR}</button>
+          <button type="button" className="ch-enlace" disabled={quieta} onClick={() => responder(textoEligeTu(b))}>{ELIGE_TU}</button>
+          <button type="button" className="ch-enlace" disabled={quieta} onClick={() => responder(textoSaltear(b))}>{SALTEAR}</button>
         </div>
       ) : <p className="ch-tarjeta__nota">{`Respondiste: ${dicha}`}</p>}
     </div>

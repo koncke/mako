@@ -89,7 +89,7 @@ test('M1: la reserva inscribe en la automatización de la etapa EFECTIVA y del e
   // El cableado: la reserva suma `etapa_actual`, lee la etapa del lead y pregunta lo MISMO que el movimiento.
   const ev = cuerpo(NUTRI, 'export async function enrolarPorEvento(');
   // (17/10/2026, #868: el lead NUEVO también entra a su etapa: `conSuEtapa`, tests/meta-lead-nuevo.test.ts.)
-  assert.match(ev, /const conSuEtapa = evento === 'agenda_nueva' \|\| evento === 'lead_nuevo';/);
+  assert.match(ev, /const conSuEtapa = ETAPA_DEL_EVENTO\[evento\] != null;/);
   assert.match(ev, /const claves = conSuEtapa \? \[\.\.\.\(TRIGGERS_POR_EVENTO\[evento\] \?\? \[\]\), TRIGGER_ETAPA\] :/);
   assert.match(ev, /if \(evento === 'etapa' \|\| conSuEtapa\) \{/);
   assert.match(ev, /: await etapaDeLaReserva\(supabase, leadId\);/);

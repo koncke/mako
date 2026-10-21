@@ -869,4 +869,55 @@ export const BITACORA: Hito[] = [
       'lib/doer-recetas.ts — «para qué producto» sólo con generar_landing_con_ia',
     ],
   },
+  {
+    fecha: '21 oct', hora: '07:04', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'En el chat, «Saltear» contesta sólo la pregunta en la que lo tocaste',
+    puntos: [
+      'Cuando MaKo te mostraba los diseños y te preguntaba el producto juntos, tocar «Saltear» en una apagaba la otra. Ahora cada una se contesta por separado.',
+      'Si dejaste los diseños sin elegir y los tocas más tarde, se contesta esa elección y no la pregunta nueva de MaKo. Al recargar, lo que ya elegiste sigue elegido.',
+      'Si tienes dos productos que se llaman casi igual, al elegir uno MaKo usa ése y no te vuelve a preguntar.',
+    ],
+    commits: [
+      { sha: '212bd77f3', msg: 'Web Generator, 6ª revisión: cada botón dice de qué selector viene, y un selector abierto sigue esperando', lineas: 150, archivos: 9 },
+    ],
+    archivos: [
+      'app/m/mako/chat-ui.ts — conRespuestas: un selector abierto sigue esperando; «Listo» armado como el botón',
+      'lib/chat-bloques.ts, app/_chat/BloqueHilo.tsx y lib/editor-landing/bloques-web.ts — lo que manda cada botón dice de cuál viene',
+      'lib/editor-landing/producto-de-landing.ts — dos con la misma clave: el exacto',
+    ],
+  },
+  {
+    fecha: '21 oct', hora: '07:55', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: crear webs desde el Ops Center, ya en producción',
+    puntos: [
+      'En producción desde el run 199 (deploy de 81aa8adf6). En el chat del Ops Center, cuando MaKo crea, duplica o publica una landing, aparece su tarjeta con la miniatura y «Abrir en el editor».',
+      '«¿Qué landings tengo?» las muestra con su miniatura. Si pides una landing sin decir el diseño, te deja elegir entre 3. Al publicar queda el link con Copiar y Abrir, y al conectar un dominio, los registros DNS con «Verificar ahora».',
+      'Antes de crear una landing con IA, si no le dijiste para qué producto es, MaKo te pregunta con tus productos, «Un producto nuevo» y «El negocio en general». La tarjeta para confirmar dice cuál quedó.',
+      'No se vio con clics: está probado con tests. Se prueba en el ws3: en el Ops Center, «armame una landing para mi otro producto» y «¿qué landings tengo?».',
+    ],
+    archivos: [
+      'lib/editor-landing/producto-de-landing.ts — para qué producto es la landing',
+      'lib/editor-landing/bloques-web.ts, bloques-chat.ts y app/web-generator/BloqueWeb.tsx — los bloques del Web Generator en el hilo',
+    ],
+    revisar: '/second-brain?ws=3',
+  },
+  {
+    fecha: '21 oct', hora: '08:53', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Contestar escribiendo vuelve a cerrar las preguntas de MaKo',
+    puntos: [
+      'La corrección anterior dejaba esperando los diseños que no elegiste, y con eso las preguntas siguientes de MaKo ya no se cerraban cuando las contestabas escribiendo, en ninguna parte del chat.',
+      'Ahora escribir contesta la pregunta que MaKo acaba de hacer. Los diseños de antes se contestan sólo si tocas uno.',
+      'Si dos productos tuyos se llaman igual salvo por las mayúsculas, MaKo usa el primero en vez de una pregunta que no se podía mostrar.',
+    ],
+    commits: [
+      { sha: '131ce5e7b', msg: 'Chat de MaKo, 7ª revisión: escribir contesta la pregunta del turno actual, aunque haya un selector viejo abierto', lineas: 54, archivos: 4 },
+    ],
+    archivos: [
+      'app/m/mako/chat-ui.ts — conRespuestas: escribir contesta sólo el selector del turno actual',
+      'lib/editor-landing/producto-de-landing.ts — dos productos iguales salvo por mayúsculas',
+    ],
+  },
 ];
