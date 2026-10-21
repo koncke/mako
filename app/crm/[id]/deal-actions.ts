@@ -227,17 +227,19 @@ export type PagoManualInput = {
  * y sin `moneda` es USD: es lo que manda la pantalla de hoy. El valor inicial del selector es la moneda del negocio
  * (`monedaDelNegocioAction`, app/crm/[id]/pagos-campo-actions.ts), no una suposición del server.
  */
-export async function marcarPagoManualAction(pagoId: number, leadId: number, datos: PagoManualInput): Promise<{ pendiente: number | null; porLink: Pasarela | null }> {
+export async function marcarPagoManualAction(pagoId: number, leadId: number, datos: PagoManualInput): Promise<{ pendiente: number | null; porLink: Pasarela | null; yaEstaba: boolean }> {
   if (!(await haySesion())) throw new Error(SIN_SESION);
   // La regla y la escritura viven en lib/pagos.ts (`cobrarCuota`): la usa también la API de MaKo.
   const r = await cobrarCuota(pagoId, leadId, datos);
+  // Ya estaba cobrada (otra pestaña, otra persona): no se tocó nada, ni el historial.
+  if (r.yaEstaba) return { pendiente: null, porLink: null, yaEstaba: true };
   // El link de la cuota ya se había cobrado: quedó cobrada con ESE pago, y el historial ya lo dice la pasarela.
   if (r.porLink) {
     bust(TAG.pagos, TAG.leads);
     revalidarLead(leadId);
     revalidatePath('/dashboard');
     revalidatePath('/general');
-    return { pendiente: null, porLink: r.porLink };
+    return { pendiente: null, porLink: r.porLink, yaEstaba: false };
   }
   const resto = r.pendiente != null
     ? ` · quedan USD ${r.pendiente} pendientes`
@@ -252,7 +254,7 @@ export async function marcarPagoManualAction(pagoId: number, leadId: number, dat
   revalidarLead(leadId);
   revalidatePath('/dashboard');
   revalidatePath('/general');
-  return { pendiente: r.pendiente, porLink: null };
+  return { pendiente: r.pendiente, porLink: null, yaEstaba: false };
 }
 
 /**

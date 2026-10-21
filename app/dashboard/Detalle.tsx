@@ -106,8 +106,10 @@ export function DetalleModal({ g, efectivo, sel, onCerrar, onCambio, onFiltrar }
     if (!lista || !Number.isFinite(pago) || !Number.isFinite(lead)) return;
     setOcupado(f.id);
     try {
-      await marcarPagoAction(pago, lead, true, lista.hoy);
-      show('Cuota cobrada', () => {
+      const r = await marcarPagoAction(pago, lead, true, lista.hoy);
+      // Ya estaba cobrada (la tabla era vieja): sin Deshacer, que desmarcaría el cobro de otro.
+      if (r.yaEstaba) show('Ya estaba cobrada', undefined, 'good');
+      else show('Cuota cobrada', () => {
         marcarPagoAction(pago, lead, false, null).then(recargar, () => show('No se pudo deshacer', undefined, 'bad'));
       }, 'good');
       recargar();

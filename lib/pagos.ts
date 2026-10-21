@@ -11,6 +11,7 @@
 
 import 'server-only';
 import { getTenantDb, getWorkspaceActual } from './workspace';
+import { hoyEnWorkspace } from './timezone';
 import { cachedRead, TAG, TTL } from './cache';
 import { leerTodo, type ConsultaPaginada } from './supabase-paginado';
 import { VENTA_SIN_COBRO, ventaTipoDe, type VentaTipo } from './venta-tipo';
@@ -367,9 +368,10 @@ export async function ajustarPlanPagos(leadId: number, plan: PlanUniforme, hoy: 
 export async function savePlanPagos(
   leadId: number,
   plan: PlanPagos,
-  hoy: string = new Date().toISOString().slice(0, 10),
+  hoy?: string,
 ): Promise<Pago[]> {
-  return (await ajustarPlanPagos(leadId, plan, hoy)).pagos;
+  // Sin `hoy`, el del NEGOCIO (20/10/2026): el default era el día UTC, que de noche en México ya es mañana.
+  return (await ajustarPlanPagos(leadId, plan, hoy ?? (await hoyEnWorkspace()))).pagos;
 }
 
 /**
@@ -560,9 +562,9 @@ async function linkYaPagado(pagoId: number): Promise<Pasarela | null> {
 export async function marcarPago(
   pagoId: number,
   pagado: boolean,
-  fechaPago: string | null = new Date().toISOString().slice(0, 10),
+  fechaPago: string | null = null,
   opts: { mirarLinks?: boolean } = {},
-): Promise<{ quitada: boolean; porLink: Pasarela | null }> {
+): Promise<{ quitada: boolean; porLink: Pasarela | null; yaEstaba: boolean }> {
   const supabase = (await getTenantDb());
   const { data: pago, error: getErr } = await supabase
     .from('pagos')
@@ -571,18 +573,27 @@ export async function marcarPago(
     .single();
   if (getErr) throw new Error(`Error leyendo pago ${pagoId}: ${getErr.message}`);
 
+  // ⚠️ IDEMPOTENTE (20/10/2026): una cuota que YA está como se pide no se toca. Marcar otra vez una cobrada le
+  // reescribía `fecha_pago` (el cobro saltaba de mes y el Cash con él) y el historial decía «Pago registrado» dos
+  // veces; desmarcar otra vez una impaga podía QUITAR un pago que nació cobrado. Pasa con una lista vieja (General
+  // abierta en otra pestaña, el chat con MaKo, una tarjeta confirmada después de que alguien la marcó en la ficha).
+  // Quien llama lo DICE y no ofrece «Deshacer»: deshacer sería desmarcar el cobro de otro.
+  if (Boolean(pago.pagado) === pagado) return { quitada: false, porLink: null, yaEstaba: true };
+
   // ⚠️ MARCAR A MANO una cuota cuyo link ya se pagó contaba la plata dos veces (17/10/2026): ver
   // `linkYaPagado`. Por defecto se mira; sólo no lo miran la pasarela misma y quien ya lo miró.
   if (pagado && !pago.pagado && opts.mirarLinks !== false) {
     const porLink = await linkYaPagado(pagoId);
-    if (porLink) return { quitada: false, porLink };
+    if (porLink) return { quitada: false, porLink, yaEstaba: false };
   }
 
+  // Sin fecha, HOY en la zona del negocio (20/10/2026): con el día UTC, un cobro marcado de noche caía mañana.
+  const fecha = pagado ? (fechaPago ?? (await hoyEnWorkspace())) : null;
   const { error } = await supabase
     .from('pagos')
     .update({
       pagado,
-      fecha_pago: pagado ? (fechaPago ?? new Date().toISOString().slice(0, 10)) : null,
+      fecha_pago: fecha,
     })
     .eq('id', pagoId);
   if (error) throw new Error(`Error marcando pago ${pagoId}: ${error.message}`);
@@ -613,7 +624,7 @@ export async function marcarPago(
     }
     await anularLinksAlCobrar(pagoId, pago.cobro_id ?? null);
   }
-  return { quitada, porLink: null };
+  return { quitada, porLink: null, yaEstaba: false };
 }
 
 /**
@@ -632,7 +643,7 @@ export async function cobrarCuota(
   pagoId: number,
   leadId: number,
   datos: { monto?: number | null; fecha: string; hora?: string | null; resto?: RestoDeCobro } & DatosDeMoneda,
-): Promise<{ original: number; monto: number | null; pendiente: number | null; descuento: number; moneda: string | null; montoOriginal: number | null; porLink: Pasarela | null }> {
+): Promise<{ original: number; monto: number | null; pendiente: number | null; descuento: number; moneda: string | null; montoOriginal: number | null; porLink: Pasarela | null; yaEstaba: boolean }> {
   if (!datos.fecha) throw new Error('La fecha del pago es obligatoria.');
   // La cuota ya se lee con `lead_id`, pero la diferencia de abajo es un INSERT con ese leadId.
   await asegurarLeadDelNegocio(leadId);
@@ -646,11 +657,15 @@ export async function cobrarCuota(
   // diciendo «MX$8.600». En una cuota a mano, lo que no vino se limpia; lo de la pasarela no se toca.
   const aMano = !fila.proveedor;
   const original = Number(fila.monto_usd) || 0;
+  // ⚠️ IDEMPOTENTE, como `marcarPago` (20/10/2026): cobrar una cuota que YA está cobrada no toca NADA. Antes le
+  // reescribía el monto, la moneda, la hora y la fecha al cobro que ya había entrado. Ninguna pantalla vuelve a cobrar
+  // una cobrada a propósito: para corregirla se desmarca (o se edita la cuota). Lo dice quien llama.
+  if (fila.pagado) return { original, monto: null, pendiente: null, descuento: 0, moneda: null, montoOriginal: null, porLink: null, yaEstaba: true };
   // ⚠️ Si un link de la cuota ya se cobró, la cuota queda cobrada con ESE pago y no se toca nada más: ni el monto, ni
   // la diferencia, ni la moneda (17/10/2026, `linkYaPagado`). Antes la plata se contaba dos veces.
   if (!fila.pagado) {
     const porLink = await linkYaPagado(pagoId);
-    if (porLink) return { original, monto: null, pendiente: null, descuento: 0, moneda: null, montoOriginal: null, porLink };
+    if (porLink) return { original, monto: null, pendiente: null, descuento: 0, moneda: null, montoOriginal: null, porLink, yaEstaba: false };
   }
   const monto = datos.monto != null && Number.isFinite(datos.monto) && datos.monto > 0 ? centavos(datos.monto) : null;
   // La moneda en que se cobró (decisión 7). `monto` sigue siendo DÓLARES; sin `moneda`, todo como siempre.
@@ -683,7 +698,7 @@ export async function cobrarCuota(
   await marcarPago(pagoId, true, datos.fecha, { mirarLinks: false });
   return {
     original, monto, pendiente: pend > 0 ? pend : null, descuento,
-    moneda: enMoneda?.moneda ?? null, montoOriginal: enMoneda?.montoOriginal ?? null, porLink: null,
+    moneda: enMoneda?.moneda ?? null, montoOriginal: enMoneda?.montoOriginal ?? null, porLink: null, yaEstaba: false,
   };
 }
 
@@ -1191,7 +1206,8 @@ export type OutstandingLead = {
  */
 export const getOutstandingDetalle = cachedRead('getOutstandingDetalle', _getOutstandingDetalle, { tags: [TAG.pagos], revalidate: TTL.user });
 async function _getOutstandingDetalle(
-  hoy: string = new Date().toISOString().slice(0, 10),
+  // Sin default (20/10/2026): el de antes era el día UTC. Quien llama pasa el del negocio (`hoyEnWorkspace`).
+  hoy: string,
   // Ventana opcional (filtro de fecha de Comercial): Outstanding mira hacia
   // ADELANTE, así que acota por VENCIMIENTO (fecha_esperada) de las cuotas sin
   // pagar dentro de [desde, hasta]. Sin ventana, es el pipeline completo a hoy.
@@ -1340,7 +1356,8 @@ export type CuotaPendiente = {
  */
 export const getCuotasPendientes = cachedRead('getCuotasPendientes', _getCuotasPendientes, { tags: [TAG.pagos], revalidate: TTL.user });
 async function _getCuotasPendientes(
-  hoy: string = new Date().toISOString().slice(0, 10),
+  // Sin default (20/10/2026): el de antes era el día UTC. Quien llama pasa el del negocio (`hoyEnWorkspace`).
+  hoy: string,
   diasAviso = 3,
 ): Promise<{ vencidas: CuotaPendiente[]; porVencer: CuotaPendiente[] }> {
   const supabase = (await getTenantDb());
