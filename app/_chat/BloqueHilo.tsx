@@ -34,7 +34,7 @@ export function BloqueHilo({ b, onResponder, respondida, onTermina, ocupado }: {
   /** Una pregunta que ya se contestó (al recargar): se ve contestada y no se toca. */
   respondida?: string;
   /** Un trabajo largo (G6) terminó mientras se miraba: quien lo lanzó (su tarjeta, su formulario) deja de decir «En curso». */
-  onTermina?: (ok: boolean) => void;
+  onTermina?: (ok: boolean | null) => void;
 }) {
   if (b.t === 'creado') return <Creado b={b} />;
   if (b.t === 'antes_despues') {
@@ -65,7 +65,7 @@ export function BloqueHilo({ b, onResponder, respondida, onTermina, ocupado }: {
  * ⚠️ NO PREGUNTA PARA SIEMPRE (revisión del 21/10/2026): un 404 (el trabajo ya no está) o `MAX_CONSULTAS` sin respuesta
  *    lo cortan, y lo dice. Uno que murió en el server lo corta `estadoDeTrabajo` (su `hasta`).
  */
-function TrabajoHilo({ b, onTermina }: { b: Trabajo; onTermina?: (ok: boolean) => void }) {
+function TrabajoHilo({ b, onTermina }: { b: Trabajo; onTermina?: (ok: boolean | null) => void }) {
   const ws = useWs();
   const [actual, setActual] = useState<Trabajo>(b);
   const [aparte, setAparte] = useState<Bloque[]>([]);
@@ -91,7 +91,8 @@ function TrabajoHilo({ b, onTermina }: { b: Trabajo; onTermina?: (ok: boolean) =
       if (!r.sigue || intentos >= MAX_CONSULTAS) {
         const terminado = r.sigue ? { ok: null, texto: null } : { ok: r.ok, texto: r.texto };
         setFin(terminado);
-        if (terminado.ok != null) onTermina?.(terminado.ok);
+        // `null`: no se sabe (se cortó, o ya no está): quien lo lanzó dice «Revísalo», no «Falló».
+        onTermina?.(terminado.ok);
         return;
       }
       espera = Math.min(Math.round(espera * 1.5), CONSULTA_MAX_MS);
