@@ -47,6 +47,15 @@
 //   C1  todos se cierran con el primer mensaje → 12 / 1 · C2 con uno solo, escribir no lo contesta → 12 / 1
 //   C3  «mentoria» no es «Mentoría» → 12 / 1 · C4 «A, B» de varias no es suya → 12 / 1 · C5 «Saltear» no es del G2 → 12 / 1
 //   C6  cuentan los selectores de turnos anteriores → 12 / 1
+//   (6ª revisión, sobre 13 / 0; las 9 en rojo y restauradas)
+//   D1/D9 el G2 manda «Elige tú»/«Saltear» sin su prefijo → 12 / 1 · D2 el G1 no reconoce los suyos → 12 / 1
+//   D3  el G1 no usa la constante → 12 / 1 · D4 el G2 manda el rótulo → 12 / 1 · D5 «Listo» partido por comas → 12 / 1
+//   D6  «Listo» en cualquier orden → 12 / 1 · D7 un selector abierto deja de esperar → 12 / 1 · D8 ninguna es de nadie → 12 / 1
+//   (7ª revisión, sobre 13 / 0; las 4 en rojo y restauradas)
+//   F1  «escribir contesta» cuenta los de turnos viejos → 12 / 1 · F2 lo escrito cierra un viejo que no era suyo → 12 / 1
+//   F3  un «Saltear» nuevo cierra también los viejos → 12 / 1 · F4 el turno no se corta en el mensaje de la persona → 12 / 1
+//   (8ª revisión, sobre 13 / 0; las 2 en rojo y restauradas)
+//   G1  un selector viejo se cierra con lo escrito parecido → 12 / 1 · G2 el del turno actual pide el texto tal cual → 12 / 1
 //
 // Correr: node --import tsx --test tests/ops-center-landing-bloques.test.ts
 // =============================================================================
@@ -240,7 +249,10 @@ test('elegir: lo elegido sale como un mensaje que dice QUÉ se eligió, y el hil
   // Lo que manda cada opción sale de UN lugar (bloques-web.ts): el botón y `conRespuestas` comparan lo mismo.
   assert.match(sinComentarios(leer('lib/editor-landing/bloques-web.ts')), /export const QUE_ELEGIR: Record<BloqueElegir\['que'\], string> = \{ diseno: 'Diseño', tema: 'Tema', formato: 'Formato' \};/);
   assert.match(src, /const texto = textoDeOpcion\(b, o\);[\s\S]{0,400}onClick=\{\(\) => responder\(texto\)\}/);
-  assert.match(src, /onClick=\{\(\) => responder\(ELIGE_TU\)\}>\{ELIGE_TU\}<\/button>[\s\S]{0,200}onClick=\{\(\) => responder\(SALTEAR\)\}>\{SALTEAR\}<\/button>/);
+  // Los dos de abajo MANDAN con el prefijo del selector («Diseño: saltear»): el G1 de al lado tiene los mismos rótulos.
+  assert.match(src, /onClick=\{\(\) => responder\(textoEligeTu\(b\)\)\}>\{ELIGE_TU\}<\/button>[\s\S]{0,200}onClick=\{\(\) => responder\(textoSaltear\(b\)\)\}>\{SALTEAR\}<\/button>/);
+  const g1 = sinComentarios(leer('app/_chat/BloqueHilo.tsx'));
+  assert.match(g1, /onClick=\{\(\) => responder\(ELIGE_TU_PREGUNTA\)\}>\{ELIGE_TU_PREGUNTA\}<\/button>[\s\S]{0,200}onClick=\{\(\) => responder\(SALTEAR_PREGUNTA\)\}>\{SALTEAR_PREGUNTA\}<\/button>/, 'el G1, de la constante que reconoce el hilo');
   assert.doesNotMatch(src, /import ['"][^'"]+\.css['"]/, 'sin CSS en el import: se dibuja en este test');
   // «Verificar ahora» vuelve a mirar el DNS por la MISMA ruta que el diálogo Publicar, y cambia ESTE bloque.
   assert.match(src, /postJson<RespuestaDominio>\(RUTA_DOMINIO, \{ accion: 'estado', id: d\.id, verificar: true \}, PLAZO_DOCS_MS\);[\s\S]{0,160}setD\(bloqueDominio\(d\.id, r\.dominio\)\)/);
@@ -269,9 +281,63 @@ test('elegir: lo elegido sale como un mensaje que dice QUÉ se eligió, y el hil
   assert.deepEqual(conDos('Mentoría'), [null, 'Mentoría'], 'tocar el producto no apaga los diseños');
   assert.deepEqual(conDos('mentoria'), [null, 'mentoria'], 'escrito igual que la opción, también');
   assert.deepEqual(conDos('Diseño: Minimal'), ['Diseño: Minimal', null], 'tocar un diseño no contesta el producto');
-  assert.deepEqual(conDos('Saltear'), ['Saltear', null]);
+  // «Saltear» y «Elige tú» del G1 son del G1; los del G2 llevan su prefijo (6ª revisión, #1).
+  assert.deepEqual(conDos('Saltear'), [null, 'Saltear']);
+  assert.deepEqual(conDos('Elige tú'), [null, 'Elige tú']);
+  assert.deepEqual(conDos('Diseño: saltear'), ['Diseño: saltear', null]);
+  assert.deepEqual(conDos('Diseño: elige tú'), ['Diseño: elige tú', null]);
   assert.deepEqual(conDos('la que quieras, para todo'), [null, null], 'lo escrito que no es de ninguno los deja abiertos');
   assert.deepEqual(conDos('Mentoría, Un producto nuevo', { ...producto, varias: true }), [null, 'Mentoría, Un producto nuevo'], 'varias con «Listo»');
+  // Un título con coma: lo mandado se arma como el botón, sin partir por comas (6ª revisión, #5).
+  const secciones = { t: 'pregunta' as const, pregunta: '¿Qué secciones?', varias: true, opciones: [{ titulo: 'Precios, planes' }, { titulo: 'Testimonios' }] };
+  assert.deepEqual(conDos('Precios, planes, Testimonios', secciones), [null, 'Precios, planes, Testimonios']);
+  assert.deepEqual(conDos('Precios, planes', secciones), [null, 'Precios, planes']);
+  assert.deepEqual(conDos('Testimonios, Precios, planes', secciones), [null, null], 'en otro orden no lo arma el botón');
+  // Un selector que quedó abierto sigue esperando: tocado en un turno siguiente se cierra ÉL, no la pregunta nueva
+  // (6ª revisión, #2), y al recargar no vuelve a abrirse.
+  const objetivo = { t: 'pregunta' as const, pregunta: '¿Qué querés que haga la gente?', opciones: [{ titulo: 'Agendar' }, { titulo: 'Comprar' }] };
+  const dosTurnos = (...dichos: string[]) => conRespuestas([
+    { k: 'msg', id: 'p', role: 'user', texto: 'Armame una landing', at: null } as never,
+    { k: 'bloque', id: 'g2', b: elegirDiseno() }, { k: 'bloque', id: 'g1', b: producto },
+    { k: 'msg', id: 'u1', role: 'user', texto: 'Mentoría', at: null } as never,
+    { k: 'bloque', id: 'g1b', b: objetivo },
+    ...dichos.map((texto, n) => ({ k: 'msg', id: `u${n + 2}`, role: 'user', texto, at: null }) as never),
+  ]).filter((x) => x.k === 'bloque').map((x) => (x.k === 'bloque' ? x.respondida ?? null : null));
+  assert.deepEqual(dosTurnos('Diseño: Minimal'), ['Diseño: Minimal', 'Mentoría', null], 'el diseño viejo no contesta la pregunta nueva');
+  assert.deepEqual(dosTurnos('Diseño: Minimal', 'Agendar'), ['Diseño: Minimal', 'Mentoría', 'Agendar']);
+  assert.deepEqual(dosTurnos('Agendar'), [null, 'Mentoría', 'Agendar'], 'la nueva con lo suyo; el diseño sigue esperando');
+  // ESCRIBIR contesta la pregunta del turno actual aunque haya un selector viejo abierto (7ª revisión, regresión: en
+  // producción se cerraba, y con el viejo contando ninguna pregunta de la sesión se cerraba escribiendo).
+  assert.deepEqual(dosTurnos('que me escriban por WhatsApp'), [null, 'Mentoría', 'que me escriban por WhatsApp']);
+  // Lo escrito turnos después no contesta un selector viejo que no era suyo.
+  const sinPregunta = conRespuestas([
+    { k: 'bloque', id: 'g2', b: elegirDiseno() }, { k: 'bloque', id: 'g1', b: producto },
+    { k: 'msg', id: 'u1', role: 'user', texto: 'Un producto nuevo', at: null } as never,
+    { k: 'msg', id: 'm1', role: 'assistant', texto: '¿Cómo se llama y de qué se trata?', at: null } as never,
+    { k: 'msg', id: 'u2', role: 'user', texto: 'Taller de cerámica para principiantes', at: null } as never,
+  ]).filter((x) => x.k === 'bloque').map((x) => (x.k === 'bloque' ? x.respondida ?? null : null));
+  assert.deepEqual(sinPregunta, [null, 'Un producto nuevo'], 'los diseños siguen abiertos');
+  // Un «Saltear» de la pregunta nueva cierra ésa, no la vieja que también lo acepta.
+  const pagos = { t: 'pregunta' as const, pregunta: '¿Con qué cobras?', opciones: [{ titulo: 'Stripe' }, { titulo: 'Mercado Pago' }] };
+  const saltear = conRespuestas([
+    { k: 'bloque', id: 'g2', b: elegirDiseno() }, { k: 'bloque', id: 'g1', b: producto },
+    { k: 'msg', id: 'u1', role: 'user', texto: 'para la mentoría, elegí vos', at: null } as never,
+    { k: 'bloque', id: 'g1p', b: pagos },
+    { k: 'msg', id: 'u2', role: 'user', texto: 'Saltear', at: null } as never,
+  ]).filter((x) => x.k === 'bloque').map((x) => (x.k === 'bloque' ? x.respondida ?? null : null));
+  assert.deepEqual(saltear, [null, null, 'Saltear']);
+  // Lo ESCRITO que se parece a una opción de un selector viejo contesta la pregunta actual (8ª revisión): un viejo se
+  // cierra sólo con lo que manda su botón tal cual.
+  const viejoEscrito = (dicho: string, actual: Parameters<typeof conRespuestas>[0][number]) => conRespuestas([
+    { k: 'bloque', id: 'g2', b: elegirDiseno() }, { k: 'bloque', id: 'g1', b: { ...producto, opciones: [...producto.opciones, { titulo: 'Curso Kairos' }] } },
+    { k: 'msg', id: 'u1', role: 'user', texto: 'Diseño: Minimal', at: null } as never,
+    actual, { k: 'msg', id: 'u2', role: 'user', texto: dicho, at: null } as never,
+  ]).filter((x) => x.k === 'bloque').map((x) => (x.k === 'bloque' ? x.respondida ?? null : null));
+  const cobro = { k: 'bloque' as const, id: 'p', b: { t: 'pregunta' as const, pregunta: '¿Qué cobro?', opciones: [{ titulo: 'Mentoría 1 a 1 (USD 500)' }, { titulo: 'Curso Kairos (USD 90)' }] } };
+  assert.deepEqual(viejoEscrito('curso kairos', cobro), ['Diseño: Minimal', null, 'curso kairos'], 'cierra Pagos, no el producto viejo');
+  const tema = { k: 'bloque' as const, id: 't', b: elegirTema('mako', TEMAS) };
+  assert.deepEqual(viejoEscrito('saltear', tema), ['Diseño: Minimal', null, 'saltear'], 'cierra el tema actual, no el G1 viejo');
+  assert.deepEqual(viejoEscrito('Curso Kairos', cobro), ['Diseño: Minimal', 'Curso Kairos', null], 'el toque tal cual del viejo, sí');
   // Los que esperan cada mensaje son los de ESE turno: uno de un turno anterior, ya contestado, no cuenta.
   const tras = conRespuestas([
     { k: 'bloque', id: 'g1', b: producto }, { k: 'msg', id: 'u1', role: 'user', texto: 'Mentoría', at: null } as never,

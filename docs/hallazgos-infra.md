@@ -25,6 +25,7 @@ habilita a darle mejores prompts al otro Claude».
 - Verificar contra **`127.0.0.1` en vez de `localhost`** deja la página entera y sin hidratar, sin un solo error en el navegador — y las dos explicaciones que uno tiene a mano («rompí yo», «lo rompió la otra sesión») parecen confirmarse → [Tests y entorno local](#️-127001-no-es-localhost-para-el-dev-server-la-página-se-ve-entera-y-no-hidrata).
 - **El disco lleno (17/10)**: lo MÁS grande no estaba en ningún worktree sino en la caché de `tsx` de `%TEMP%` (7,7 GB que nadie podaba); los `.next` quietos y las copias de `node_modules` sumaron 15 GB más. La regla: un worktree nuevo usa un junction al `node_modules` del clon (salvo `next build` con Turbopack) y su `.next` se borra al terminar → [El disco lleno](#el-disco-lleno-17102026).
 - **21 de 101 runs de Actions fallaron aunque cada jefe corría «los tests de su área»** — y el diagnóstico obvio («no corren tests») era el equivocado: el test que cae es, por definición, de otra área, y un `grep` de la ruta no ve imports a dos saltos, nombres sin extensión ni barridos. La cura es una herramienta, no una regla en prosa: `scripts/antes-de-subir.mjs` elige los tests solo, y el replay de los 17 runs rojos prueba que los habría frenado → [Tests y entorno local](#los-rojos-de-actions-16-de-90-runs-dos-clases-y-por-qué-corré-los-tests-de-tu-área-no-podía-alcanzar-17102026).
+- **El paso «Tipos» de Actions murió por MEMORIA (exit 134, 21/10) y en GitHub se ve igual que un error de tipos** — y «subí el tope» ya se había hecho cuatro veces en una semana (2.048 → 5.120): el programa pasó de >4,1 a >5,1 GB en siete días. El paso ahora dice SIN MEMORIA / ERRORES DE TIPOS, y deja la memoria viva real en cada run → [El paso «Tipos» se quedó sin memoria](#el-paso-tipos-de-actions-se-quedó-sin-memoria-exit-134-en-github-se-ve-igual-que-un-error-de-tipos-y-subí-el-tope-ya-se-hizo-cuatro-veces-en-una-semana-21102026).
 
 ⚠️ **Buena parte de lo que sigue es material de segunda mano.** Se rescató de los journals
 de las 261 corridas multi-agente de junio a agosto de 2026 —**134 de 260 nunca habían
@@ -6667,6 +6668,64 @@ alcanzar, aunque se cumpliera al pie de la letra:
 **Vive en:** `scripts/tests-afectados.mjs` · `scripts/antes-de-subir.mjs` · `scripts/modulos-ts.mjs` · `scripts/replay-fallos-ci.mjs` ·
 `docs/fallos-ci-integracion.jsonl` · `.github/workflows/integracion.yml` · `scripts/claude-hooks/pre-push` · `tests/tests-afectados.test.ts`
 
+## El paso «Tipos» de Actions se quedó sin memoria (exit 134), en GitHub se ve IGUAL que un error de tipos, y «subí el tope» ya se hizo cuatro veces en una semana (21/10/2026)
+
+**El síntoma:** el run 200 (commit `06ce1cb25`) salió rojo en «Tipos»: exit **134** a los 297 s, con **5.082 MB de los 5.120** del tope (`heap out of memory`).
+Los runs anteriores habían pasado a los 177, 179, 206 y 213 s. En GitHub eso es un paso en rojo y el email «All jobs have failed», exactamente igual que un
+error de tipos: había que leer el log entero para descubrir que el código no tenía la culpa.
+
+**El diagnóstico obvio —«subí el tope»— es el que se viene haciendo, y como solución es el equivocado.** El tope ya se había tocado así:
+
+| cuándo | tope | qué lo cruzó |
+|---|---|---|
+| 13/10 | 2.048 | murió con 2.040 MB vivos |
+| 14/10 00:40 | 3.072 | murió con 3.060 |
+| 14/10 ~13:15 | 4.096 | murió con 4.083 (el Image Editor portado) → se subió a 5.120 |
+| 21/10 | 5.120 | murió con 5.082 |
+
+Cada fila es un **piso** de lo que pedía el programa (murió por cruzar el tope), no un pico medido: pasó de >4.083 MB (14/10) a >5.082 MB (21/10), ~1 GB en una semana.
+El runner tiene 7,9 GB (run 102), así que el tope no puede seguir el ritmo: con ~1,5 GB para el SO y el runner, el techo físico es ~6,4 GB.
+
+**Lo que SÍ se midió** (sin tsc, 21/10): el programa son **6.219 archivos / 76,5 MB** de `.ts/.tsx/.mts` rastreados por git. El 14/10 el comentario de `typecheck-lock.mjs` contaba 4.278 / 57 MB
+(+45 % de archivos, +34 % de bytes en 7 días, si se contó igual). Dónde está: `tests/` 1.390 archivos / 17,4 MB (el 23 %, y entran al MISMO programa), `lib/` 1.026 / 16,2 MB
+(la API de MaKo sola: 112 / 2,9 MB), `app/conocimientos` 5,4 MB (los cursos son `.ts`), `app/admin` 4,2 MB, `app/video-editor` 809 archivos / 3,7 MB, `app/image-editor` 473 / 2,5 MB.
+Ningún archivo es un monstruo: el mayor pesa 0,4 MB (`BoardShell.tsx`, `lib/nutricion.ts`, `app/conocimientos/curso.ts`). Es volumen, no un solo culpable evidente.
+
+**Lo que NO se midió, y por qué:** el pico real del tsc completo con `--extendedDiagnostics`. Esta PC tiene 15,7 GB y ese día tenía **1,7 GB libres** con ~14 chats; el tsc completo con el tope
+puesto pide ≥ 7 GB libres (el vigía mata por debajo de 0,9). No se corrió: correrlo habría hecho matar a otro chat. La primera medición real sale del primer run de Actions con el script nuevo (abajo).
+Tampoco se sabe si lo que crece es volumen (más archivos) o un tipo que explota (más instanciaciones por archivo): los dos números van en cada run desde ahora.
+
+**Qué quedó:**
+- **Punta 1 (parche, `0b975ea9f`):** el tope 5.120 → 6.144. Da ~1 GB de aire sobre el run 200; compra días, no semanas.
+- **Punta 2 (`scripts/tipos-ci.mjs`, el paso «Tipos» ahora lo llama):** corre el MISMO tsc completo, pero
+  1. **dice qué pasó, con una palabra y un exit**: 0 OK · 1 `ERRORES DE TIPOS` · **98** `SIN MEMORIA` / `MATADO POR EL SISTEMA` / `SIN VEREDICTO` (el mismo 98 de «SIN TIPOS» de tests-afectados: «no hay veredicto de tipos»).
+     Un OOM se detecta por el mensaje de V8, por `SIGABRT` o por el 134 (el código de salida del abort cambia según el sistema; el mensaje sale siempre); `SIGKILL`/137 es el OOM-killer del runner (el tope era más que la RAM física).
+  2. **mide en CADA run:** corre con `--extendedDiagnostics --expose-gc` y deja en el log la línea `TIPOS-MEDIDA estado=… tope_mb=… vivo_mb=… vivo_pct=… archivos=… tipos=… instanciaciones=…`
+     y una tabla en el resumen del run. Con `--expose-gc`, «Memory used» es la memoria **viva** después de un GC completo y de chequear todo: lo que decide si entra en el tope.
+  3. **avisa antes de morir:** desde el 80 % del tope sale un `::warning::` (el paso sigue verde). El borde se ve en el run anterior al que muere, no en el email.
+  4. **no depende de un número a mano:** el tope se deriva de la RAM del runner (RAM − 1,5 GB, múltiplos de 512, entre 4 y 8 GB; 6.144 en el de 7,9 GB). `TIPOS_HEAP_MB` lo fuerza.
+     Si algún día el repo pasa a un runner con más RAM, el tope sube solo.
+
+**Cómo se decide lo de fondo (con los números de `TIPOS-MEDIDA`, no a ojo):**
+- Si `vivo_mb` crece parejo con `archivos`: es volumen. **Partir el programa** (p. ej. `tests/` aparte) sólo ayuda si los tests no importan casi todo `lib/`; se mide con `node scripts/tipos-ci.mjs -p <tsconfig>` sobre cada mitad antes de tocar nada.
+- Si `tipos` / `instanciaciones` saltan sin que suban los archivos: hay un tipo que explota (un registro enorme, una inferencia gigante). `--generateTrace` dice qué archivos pesan; ahí se arregla, y es lo más barato.
+- **Un runner con más RAM** es plata por minuto en un repo privado: la decisión es de Martín, no de un script.
+- Project references (`composite`) bajan el pico a lo de cada proyecto, pero piden que cada módulo exporte tipos nombrables (TS4023/TS2742): trabajo grande en un repo con tanta inferencia.
+- Cachear el `tsbuildinfo` (incremental) acorta un run típico, no el peor caso (un cambio en un archivo muy importado chequea todo): sirve para el tiempo, no para el borde de memoria.
+
+**Las trampas que aparecieron:**
+- **«Memory used» está en miles de BYTES** (K = 1.000, no 1.024), y sólo es la memoria viva si el proceso corre con `--expose-gc` (si no, es el `heapUsed` sin recoger). El RSS no sirve: V8 deja crecer el heap hasta el tope aunque no haga falta.
+- **Un OOM gana sobre los «error TS» que alcanzó a imprimir:** el tsc imprime los errores al final; uno que murió a mitad no imprimió todos, y corregir sólo esos manda a la persona a otra vuelta.
+- **El tiempo del paso sube al acercarse al tope** (137-213 s los que pasaron, 297 s el que murió): V8 recoge sin parar cerca del límite. Un paso que tarda más sin que haya más código es la señal de estar en el borde.
+- Un OOM de verdad se prueba con un tope de 30 MB (tarda 1 s): el test de punta a punta no simula nada.
+
+**Sin hacer / abierto:**
+- **La medición local** (`TIPOS-MEDIDA` con el programa completo y con cada mitad) cuando haya ≥ 7 GB libres; y **la decisión** entre partir / buscar el inflador / runner mayor, con los números del primer run.
+- `scripts/typecheck-lock.mjs` (`CAP_HEAP_MB`, el camino local de un push directo a `main`) y `heapPara` de `tests-afectados.mjs` siguen en 5.120: el mismo programa que no entra en Actions no entra tampoco ahí. Ese camino ya dice «se quedó sin heap» (exit 99);
+  no se tocó porque en una PC de 15,7 GB con el vigía un tope de 6.144 pide un piso de ~7 GB libres, que casi nunca hay.
+
+**Vive en:** `.github/workflows/integracion.yml` (paso «Tipos») · `scripts/tipos-ci.mjs` · `tests/tipos-ci.test.ts` (30 roturas, 30 rojas) · `scripts/typecheck-lock.mjs` (el camino local)
+
 ## El candado de lo pesado: un `mkdir` sin cola premia al que pregunta más seguido, y el que espera vuelve con la rama vieja (20/10/2026)
 
 **El síntoma** (medido por el Cerebro el 20/10): Pagos esperó **casi dos horas** el candado `C:/dev/pesado.lock` viendo cómo Video
@@ -7249,3 +7308,14 @@ arreglar está en hallazgos-chatbot («La segunda revisión del pedido B»). *Ce
 - **Regla:** cuando lo mismo entra a main por dos caminos (una rama separada para subir antes, un cherry-pick), después
   del merge comparar contra TU punta los archivos que tocaron los dos: `git diff HEAD --stat -- <archivos de los dos>`.
   Lo que aparece y no es de otra rama, es tuyo perdido.
+## Dibujar una pieza con acciones de servidor en un test, y el `/*` que se come el fuente (20/10/2026, Pagos)
+
+- **Una pieza cliente que importa una acción de servidor no carga en node**: `server-only` tira. Se dibuja en un node
+  aparte con `--experimental-test-module-mocks` y `mock.module(<url del archivo>, { namedExports })` (los tipos de node
+  no conocen `exports`). Mockear un módulo cuyo default es una FUNCIÓN y que además tiene exports con nombre falla en CJS
+  («named exports cannot be applied to the provided default export»). Para el router, en vez de mockear `Link`, se
+  envuelve en `AppRouterContext.Provider` (`next/dist/shared/lib/app-router-context.shared-runtime`) con uno de mentira.
+  Molde: tests/_bloques-pagos-hijo.ts.
+- **El `sinComentarios` de los tests se come código**: `accept=".pdf,image/*"` abre un `/*` que corre hasta el próximo
+  `*/`. Un test que buscaba el botón «Subir el comprobante» dio rojo con el código bien. Un archivo con `image/*` (o
+  cualquier `/*` adentro de un string) se lee sin quitar comentarios.

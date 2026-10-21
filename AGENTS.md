@@ -176,6 +176,10 @@ vigía MATÓ a mitad. Un pico de un proceso que no terminó no mide lo que neces
 CON EL REPO:** el 14/10/2026 ya no entraba en 3072 (murió corriendo, con RAM libre), esa tarde tampoco en
 4096 (el Image Editor portado), y va en 5120, con el piso de RAM en ≈ 6,3 GB. Un «se quedó sin heap» con RAM libre se arregla subiendo
 `CAP_HEAP_MB` (el piso sube solo), nunca con un `tsc` suelto ni salteando el hook.
+⚠️ **Y 5120 TAMPOCO** (21/10/2026, run 200 de Actions: exit 134 con 5.082 MB): lo que pide el tsc pasó de >4.083 MB a >5.082 MB en una semana. En Actions el paso «Tipos» corre
+`scripts/tipos-ci.mjs`: el tope se deriva de la RAM del runner (6.144 en el de 7,9 GB), **un OOM sale como `SIN MEMORIA` (exit 98), nunca como errores de tipos**, y cada run deja la
+línea `TIPOS-MEDIDA` con la memoria viva real (`vivo_pct`; un warning desde el 80 %). **Subir el tope otra vez no es el arreglo:** con esos números se decide partir el programa, buscar
+qué infla los tipos o pedir un runner mayor (docs/hallazgos-infra.md → «El paso "Tipos" de Actions se quedó sin memoria»).
 El detalle, en [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «El typecheck que
 "salía con 1 sin errores"».
 
@@ -1631,6 +1635,16 @@ código nuevo:
     `ComposerWhatsApp` o `ChatHilo`, ni su botón de mandar para hablar con MaKo: usa la pieza y le pasa su motor por props.
     Si falta algo, se le suma a la pieza (y lo tienen todas), nunca a una copia. tests/chat-unico.test.ts lleva la lista de
     las que faltan, cada una con su chat, y falla si aparece una nueva.
+  - **LO QUE EL CHAT DIBUJA SALE DE UN CAMPO, Y UNA LECTURA TAMBIÉN DIBUJA** (20/10/2026, lib/chat-bloques.ts). Una acción
+    lo devuelve en `datos.bloque`; una LECTURA, en el `bloque` de su salida (`{ content, bloque }`), y sólo cuando el turno
+    de la app pone `ctx.aDibujar`. Así el modelo no lo ve y WhatsApp no lo recibe. Un bloque de área se dibuja con la
+    pieza de su tab (app/_chat/bloques/*, cargado con `dynamic` desde `BloqueHilo`), nunca con una copia. **Una lista con
+    acciones guardada en el hilo es una FOTO:** se vuelve a leer al dibujarse y no actúa hasta tener la viva.
+    docs/hallazgos-second-brain.md, «Una LECTURA también dibuja». **Un archivo del mensaje que usa un bloque va atado,
+    EN LO QUE SE GUARDA, a qué va** (el lead que dijo el modelo y la fila: el comprobante lleva su `pagoId`, 21/10/2026):
+    el bloque vuelve del historial, y una marca de «ya usado» en memoria no sobrevive la recarga. Y cuando dos lados se
+    pasan un JSON (una ruta y su pantalla), el test pasa por los dos reales, no por un mock con el nombre que espera uno:
+    `monto_usd` contra `monto` vivió cinco días así. docs/hallazgos-pagos.md, «La revisión de los bloques».
   - **TODO LO QUE SE TERMINA LLEVA SU `revisar`** (17/10/2026; Martín: «se terminaron y pushearon cosas y no las puedo ver
     en Review»). El hito de la bitácora o el cierre (`cartero.mjs cierre … --revisar`) trae la ruta INTERNA donde Martín
     lo prueba (`/crm?lead=…`, `/general`, `/automations/…`). Sin eso, su «Ya está» sólo lleva a la tab del área.
@@ -2040,7 +2054,9 @@ fija) dejaban pasar duplicados de verdad y avisaban de más. Ahora se avisa siem
 escribe a la misma gente, por el mismo canal, con horarios que se pisan) y el aviso MUESTRA los dos textos para que la
 persona compare. Un parecido de texto sólo puede ordenar o resaltar. Y el hecho se saca del MOTOR, no de lo que se
 supone: «un evento no tiene cohorte que se pise» era falso, porque `enrolarPorEvento` inscribe al lead en TODAS las
-activas del disparador. El test ata la regla a la función que inscribe (`mismaCohorte` contra `disparaPorEvento`).
+activas del disparador. El test ata la regla a lo que decide el motor: `disparaPorEvento` y la tabla de eventos
+(`TRIGGERS_POR_EVENTO`, lib/nutricion-eventos.ts), que es UNA y la leen los dos. Atarla a una sola función no alcanzó:
+el motor decide con varias.
 Detalle: docs/hallazgos-chatbot.md.
 
 # Tres topes del entorno que no dan error: te dan otra cosa
@@ -3273,7 +3289,9 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
 - **El alta automática de MaKo se pregunta por el WORKSPACE, en positivo** (`ws === await wsSuperAdmin()`): un
   cliente que vende con su Stripe no crea inquilinos.
 - **La moneda la decide la pasarela, y en un formulario que cobra la pasarela se pregunta ANTES del monto.** El
-  valor en USD de un cobro es el que alguien declaró; nunca una tasa inventada.
+  valor en USD de un cobro es el que alguien declaró; nunca una tasa inventada. Tampoco la de una IA que lee un
+  documento (21/10/2026): se le pide el monto y la moneda TAL COMO FIGURAN, sin convertir, y la pantalla decide
+  (`plataDeRecibo`, app/crm/lead-view/ficha/pagos/recibo-leido.ts).
 - **Lo que un lead pagó y debe se cuenta con `cobradoDelLead` (lib/cobrado-lead.ts), y lo que se DICE de eso con
   lib/pagos-vistazo.ts** («Debe $500», «Al día», qué hacer ahora, los movimientos). Lo usan la tab Pagos, el teléfono
   y la API de MaKo (`cobranza_lead`). Una pantalla nueva que muestre plata de un lead no suma cuotas por su cuenta.

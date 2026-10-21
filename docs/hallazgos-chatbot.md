@@ -5499,6 +5499,17 @@ tests/crear-ia-recurrente.test.ts · *20/10/2026, claude4.*
   evento (`subtipo`) es la misma gente, y «Se agrega etiqueta» (cualquiera) cruza con «Se le puso la N» si no ignora la
   N. «A mano» no. El test lo ata al motor: si `disparaPorEvento` dispara dos CRON con el MISMO evento, `mismaCohorte` las
   ve juntas. Medido en la base (sólo lectura, 21/10): hoy no hay dos activas del mismo evento en ningún negocio.
+  ⚠️ **Y «el mismo disparador» tampoco alcanzaba** (revisión de 10b52bcc3). El motor junta disparadores DISTINTOS bajo un
+  mismo evento (`TRIGGERS_POR_EVENTO`) y les suma la etapa en la que cae el lead (`conSuEtapa`): un lead nuevo de Meta
+  entra a «Dejó el formulario sin agendar» y a «Un Lead Entró» (la etapa «lead») y recibe las dos bienvenidas; una
+  reserva entra a «Agendó pero no confirmó» y a «Un Lead Agendó Llamada» (la etapa «agenda»). Es el caso más probable de
+  migración: la galería ofrece «Un Lead Entró» como reemplazo de la bienvenida vieja. El test anterior ataba el aviso
+  sólo a `disparaPorEvento`, que para esos eventos siempre dice que no: atar la regla a UNA función del motor no alcanza
+  si el motor decide con varias. Ahora la tabla vive en un módulo puro (lib/nutricion-eventos.ts, con
+  `ETAPA_DEL_EVENTO`) que leen el motor y el aviso. Dos que entran con el mismo evento son la misma gente, salvo las dos
+  mitades de la post-agenda, que el motor separa. El test recorre la tabla. Verificado por el Cerebro (21/10): el motor
+  inscribe igual que antes de la mudanza (el `enrolarPorEvento` real de los dos árboles, 660 escenarios, 0 diferencias),
+  y de los pares que el motor inscribe juntos, en producción quedaban 46 sin aviso; ahora ninguno.
 - **Cambiar a quién le escribe una ACTIVA, o por dónde, es activarla de nuevo para esa gente.** Por la API de MaKo,
   `cambiar_crons_secuencia` pasaba una activa a la etapa de otra sin preguntar, y `asignar_audio_paso` pasaba a WhatsApp
   el primer mensaje (de email) de una activa, al lado de una gemela de WhatsApp. La regla por hechos hizo esto último
@@ -5528,8 +5539,13 @@ horario de envío propio de cada una · dos eventos «de antes» del mismo tipo 
 motor barre por el funnel de la FILA y el CRON no lo lleva: `higiene`, lib/disparadores.ts) · dos CRON de cohortes
 distintas con «también al grupo de MaKo» le escriben los dos al grupo y no avisan · en el lienzo, guardar un CRON en
 una activa no pregunta (por diseño: se guarda en vivo y el aviso queda al lado de «Activar») · la espera o la vista
-previa de un paso por la API no preguntan (no cambian ni a quién ni por dónde) · el conteo está en la automatización
-abierta, no en la fila de la lista · nada se vio con clics en un navegador.
+previa de un paso por la API no preguntan (no cambian ni a quién ni por dónde) · `ETAPA_DEL_EVENTO`
+(lib/nutricion-eventos.ts) es una aproximación: una reserva de una etapa de reunión que no se llama «agenda» («webinar» en
+embudos viejos, una «stN» marcada Reunión) inscribe en «Agendó…» y en esa etapa sin aviso; el motor lee la etapa real
+(`etapaDeLaReserva`), el aviso no la sabe · un mismo hecho que dispara DOS eventos (un pago aprobado que además pasa el
+lead a Ganado, lib/cobros.ts `alCron`; una etiqueta vinculada a una etapa) inscribe en dos disparadores distintos y no
+avisa (ya estaba antes) · el conteo está en la automatización abierta, no en la fila de la lista · nada se vio con
+clics en un navegador.
 
 **Vive en:** lib/mensajes-por-aprobar.ts · lib/setting-secuencias.ts (`leerPorAprobar`) · app/automations/SecuenciaPerfil.tsx
 (la línea, `notaChat`, `conAvisoDuplicada`) · app/automations/ChatMako.tsx (`nota`) · lib/automatizacion-duplicada.ts ·

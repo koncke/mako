@@ -1777,6 +1777,7 @@ El estado de cobranza de UN lead: total vendido en USD, si es suscripción (con 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `leadId` | number | sí | id del lead (de buscar_leads o listar_leads). |
+| `comprobante` | boolean | no | Chat de la app: true si el único archivo del mensaje es el comprobante de pago de ESTE lead. Si no está claro, no lo pases y pregúntale. |
 
 ```bash
 curl -L \
