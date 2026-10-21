@@ -14,8 +14,8 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
-import { adminDeWorkspaceActual } from '@/lib/workspace';
-import { conWs } from '@/lib/ws-tab';
+import { adminDeWorkspaceActual, getWorkspaceActual } from '@/lib/workspace';
+import { conWs, wsDeVuelta } from '@/lib/ws-tab';
 import { leerEstadoGcal, puedeEscribirAgenda } from '@/lib/gcal-estado';
 import { guardarConexionMeta } from '@/lib/meta-conexion';
 import { permisosDeAnunciosFaltantes } from '@/lib/meta-permisos';
@@ -26,12 +26,15 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const volver = volverSeguro(req.cookies.get('meta_volver')?.value);
+  // Adónde cae esta sesión sin `?ws=`: si es el negocio destino, la vuelta va sin pestaña (`wsDeVuelta`).
+  const wsSinPestana = await getWorkspaceActual().catch(() => null);
 
   // Las cookies del intento se limpian en TODOS los caminos: llevan el workspace
   // destino adentro, y dejarlas colgadas es dejar un destino de escritura viejo.
   const salir = (motivo: ResultadoConexionMeta, ws?: number | null) => {
     const destino = destinoDeVuelta(volver);
-    const res = NextResponse.redirect(new URL(ws ? conWs(destino, ws) : destino, url.origin));
+    const w = wsDeVuelta(ws, wsSinPestana);
+    const res = NextResponse.redirect(new URL(w ? conWs(destino, w) : destino, url.origin));
     res.cookies.set({ name: 'meta_state', value: '', maxAge: 0, path: '/' });
     res.cookies.set({ name: 'meta_volver', value: '', maxAge: 0, path: '/' });
     res.cookies.set({ name: 'meta_resultado', value: motivo, httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: 120 });

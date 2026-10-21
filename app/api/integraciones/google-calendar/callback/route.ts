@@ -9,8 +9,8 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
-import { adminDeWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
-import { conWs } from '@/lib/ws-tab';
+import { adminDeWorkspaceActual, getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
+import { conWs, wsDeVuelta } from '@/lib/ws-tab';
 import { destinoGcal, leerEstadoGcal, puedeEscribirAgenda } from '@/lib/gcal-estado';
 import { emailDelCalendario, guardarRefreshTokenGoogle, googleRedirectUri } from '@/lib/google-calendar';
 
@@ -27,9 +27,12 @@ export async function GET(req: NextRequest) {
   // vuelve al Calendario, no a /integraciones. `destinoGcal` la vuelve a sanear (la cookie la escribió el paso 1, pero
   // es lo único de este flujo que el navegador podría haber tocado).
   const volver = req.cookies.get('gcal_volver')?.value ?? null;
+  // Adónde cae esta sesión sin `?ws=`: si es el negocio destino, la vuelta va sin pestaña (`wsDeVuelta`).
+  const wsSinPestana = await getWorkspaceActual().catch(() => null);
   const salir = (motivo: string, ws?: number | null) => {
     const destino = destinoGcal(volver, motivo);
-    const href = ws ? conWs(destino, ws) : destino;
+    const w = wsDeVuelta(ws, wsSinPestana);
+    const href = w ? conWs(destino, w) : destino;
     const res = NextResponse.redirect(new URL(href, url.origin));
     res.cookies.set({ name: 'gcal_state', value: '', maxAge: 0, path: '/' });
     res.cookies.set({ name: 'gcal_volver', value: '', maxAge: 0, path: '/' });
