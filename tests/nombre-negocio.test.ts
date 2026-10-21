@@ -42,4 +42,6 @@ test('lo guarda sólo el admin del negocio, en workspaces.nombre, y se vuelve a 
   assert.match(acc, /puedeEditar: rol === 'admin' && ws != null/);
 });
 
-// ROTURAS (21/10/2026, romper.js + roturas-nombre.json del scratchpad): se completan al probarlas.
+// ROTURAS (21/10/2026, romper.js + roturas-nombre.json del scratchpad; con ajustes-cuenta-negocio; base 11/0), 5 de 5:
+// cualquiera del equipo lo cambia → 10/1 · sin validar → 10/1 · un nombre sin letras pasa → 10/1 · sin volver a dibujar
+// la app → 10/1 · la sección sólo para el super admin → 9/2.
