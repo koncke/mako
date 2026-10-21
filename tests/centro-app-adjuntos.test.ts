@@ -22,8 +22,9 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
@@ -34,6 +35,9 @@ import { Hilo } from '../app/admin/operaciones/Hilo';
 import { imagenesDelPortapapeles } from '../app/admin/operaciones/pegar';
 
 const leer = (r: string) => readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', r), 'utf8').replace(/\r\n/g, '\n');
+// ⚠️ El cartero escribe su log en CARTERO_DIR, que lee al cargarse. Sin esto, la falla de mentira del test 2 quedaba en el
+//    log REAL de la PC (~/.claude/operaciones/cartero.log) y se leía como un 503 de producción (21/10/2026).
+process.env.CARTERO_DIR = mkdtempSync(join(tmpdir(), 'cartero-adjuntos-'));
 const LOCAL = 'local_11111111-1111-4111-8111-111111111111';
 const OTRO = 'local_22222222-2222-4222-8222-222222222222';
 const UUID = '0f69b05d-1111-4111-8111-111111111111';
