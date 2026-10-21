@@ -65,11 +65,13 @@ test('2. la lectura sólo ordena: va primera, nunca saca una opción; lo que el 
 });
 
 test('3. la etapa cobro muestra todas, y el toque o un sí deciden', () => {
-  const h = conPrecio('USD 997 en 3 cuotas mensuales, incluye 1:1 semanal');
+  // «1:1 semanal» ya no pega una periodicidad (un número pelado no es un monto, undécima revisión): se propone la de 3 meses.
+  assert.deepEqual(cobroDelPrecio('USD 997 en 3 cuotas mensuales, incluye 1:1 semanal'), { tipo: 'suscripcion', meses: 3 });
+  // Con una periodicidad de verdad pegada al pago, se dice, y la opción de las cuotas está y se toca.
+  const h = conPrecio('USD 50 por semana, 3 cuotas de USD 200');
   const m = mensajesDeArranque(E, h).despues.at(-1);
   assert.equal(m?.texto, cobroSinPropuesta('semanal'), 'la periodicidad leída se dice');
   assert.deepEqual(m?.opciones, [COBRO_UNICO, COBRO_MENSUAL, 'Suscripción de 3 meses']);
-  // En producción, «Sí» guardaba los 3 meses; con la lectura semanal, la opción está y se toca.
   assert.deepEqual(responder(E, { opcion: 2, opcionTexto: 'Suscripción de 3 meses' }, h), { ok: true, patch: { cobro: { tipo: 'suscripcion', meses: 3 } } });
   assert.equal(responder(E, { texto: 'sí' }, h).ok, false, 'un sí no elige cuando no hay recomendada');
   // Con una lectura que el producto cobra, va primera y un sí la elige.

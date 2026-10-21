@@ -2733,6 +2733,29 @@ aceptaba la opción exacta: todo esto entraba nuevo.
   producción («está entre las opciones en las 204») no ve lo que producción también hacía mal: se mide contra la
   respuesta CORRECTA.
 
+**Y la undécima (punta 1106e8c16): la red ya estaba; la lectura no leía lo que leía la red.**
+- ⚠️ **Pasar el texto a dígitos arrastra a las letras todo defecto que la lectura ya tenía con dígitos.** «2 meses
+  gratis» ya se proponía como el fin de la suscripción en producción; con `precioEnDigitos`, «dos meses gratis» también.
+  **Regla:** los meses se PROPONEN sólo pegados a un cobro («3 meses de USD 300», «USD 300 por mes durante 3 meses») o al
+  plazo del plan con lo mensual dicho («Contrato de 12 meses, USD 100 por mes», `RE_MESES_DEL_PLAN`), nunca los de
+  regalo, prueba o garantía. Los demás «N meses» sólo suman la opción.
+- ⚠️ **La lectura y la red tienen que usar el MISMO extractor de N.** Si no, la opción correcta está pero el «Sí» guarda
+  otra: «10 x USD 120 mensuales» tenía la de 10 meses entre las opciones y proponía la sin fin. Ahora `nsDelPrecio` arma
+  las N una vez, y la lectura toma la primera de las cuotas.
+- **Un número que lleva moneda nunca es una N de cobro**, y un número pelado no es un monto. «USD 47 o 2 pagos» traía «de
+  47 meses», y «1:1 semanal» o «3 x semana» pegaban una periodicidad al pago y le ganaban a las cuotas. Ahora las N miran
+  la moneda de los dos lados, y lo pegado al pago exige un monto con moneda (`MONTO_CON_MONEDA`).
+- **El borde de una palabra es cualquier cosa que no sea letra.** «(seis cuotas» no se convertía porque sólo se separaba
+  la puntuación DESPUÉS de una letra.
+- **Una señal dicha de otra forma sigue siendo una señal.** «Un pago de USD 900», «cuota única», «de por vida», «una
+  vez», «precio único» (`UNICO_DICHO`) y «no se paga en cuotas», «cuotas no» (`NEGO_LO_PERIODICO`) caían en la lectura por
+  defecto o en la sin fin.
+- **Medido contra la respuesta correcta**, con las 570 frases de la sonda del Cerebro que la traen: falta la opción
+  correcta en 0 (producción: 95), un «Sí» guarda mal en 6 (producción: 122) y bien en 431 (producción: 424). Ningún «Sí»
+  malo es nuevo. Lo que producción proponía bien y ahora pregunta son 83 precios sin señal de cobro: con etiqueta
+  («Precio:», «Valor:», «Desde»), por sesión o por hora, rangos, otras monedas o meses de acceso. Es la familia del
+  precio pelado, y es la regla de la décima.
+
 **Sin hacer:** «Vendo 20 a 500 dólares» se sigue leyendo como un rango; la confirmación lo muestra y se corrige con un
 toque. Las etiquetas de los tramos dicen «$» sin «USD» (lib/fase-diagnostico.ts): es una decisión de copy, no de este
 chat. Vive en lib/onboarding-arranque.ts (`cifraDe`). Cobrar por año o por semana necesita un intervalo en el producto

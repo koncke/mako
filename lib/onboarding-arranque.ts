@@ -1407,17 +1407,52 @@ export type Cobro = { tipo: 'unico' | 'suscripcion'; meses: number | null; perio
 export const recomienda = (c: Cobro): boolean => !c.periodo && !c.porDefecto;
 /** La pregunta del cobro cuando el precio no dice cómo se cobra. */
 export const COBRO_SIN_LECTURA = 'No me queda claro cómo cobras: ¿cuál uso?';
-/** Haber negado las cuotas o lo mensual es una señal de pago único. */
-const NEGO_LO_PERIODICO = /\b(?:sin|nada de|no es|no hay|no son|ni)\s+(?:(?:las?|los?|un|una)\s+)?(?:\S+\s+)?(?:cuotas|mensualidad(?:es)?|mensual(?:es)?|suscripcion|membresia)\b/;
+/** Haber negado las cuotas o lo mensual es una señal de pago único, dicho como se diga: «sin cuotas», «no se paga en
+ *  cuotas», «sin opción de cuotas», «no manejo mensualidades», «cuotas no» (undécima revisión, 21/10). */
+const NEGO_LO_PERIODICO = /\b(?:sin|nada de|no|ni)\s+(?:\S+\s+){0,3}?(?:cuotas|mensualidad(?:es)?|mensual(?:es)?|suscripcion|membresia)\b(?:\s+mensual(?:es)?\b)?|\b(?:cuotas|mensualidades)\s*:?\s*no\b/;
+/** Un pago único dicho sin «pago único»: «un pago de USD 900», «una cuota», «cuota única», «pago total», «de por vida». */
+const UNICO_DICHO = /\b(?:un|una|1)\s+(?:sol[oa]\s+|unic[oa]\s+)?(?:pago|cuota|vez)\b|\bpor unica vez\b|\b(?:cuota|inversion|precio|valor|costo|pago)\s+unic[oa]\b|\bpago total\b|\bde por vida\b|\bvitalici[oa]\b|\bpago (?:por adelantado|al inicio|anticipado)\b/;
 
 /**
  * EL PRECIO EN DÍGITOS, una vez, antes de leerlo (décima revisión, 21/10/2026: con «Tres cuotas mensuales» faltaba la
  * opción de 3 meses, y la única suscripción que quedaba era la sin fin). Lo leen `cobroDelPrecio` y `opcionesDeCobro`. Sin
  * tildes, en minúscula, con los números en letras en cifras («tres» → «3», «treinta y seis» → «36», `conNumerosEnLetras`) y
- * la puntuación pegada a una palabra separada, para que «tres,» también se lea.
+ * todo lo que no es letra separado de las letras, para que «tres,», «(seis» o «-dos» también se lean (undécima revisión).
  */
 export function precioEnDigitos(precio: string | null | undefined): string {
-  return conNumerosEnLetras(normal((precio ?? '').trim()).replace(/([a-z])([,;:.!?)(])/g, '$1 $2'));
+  return conNumerosEnLetras(normal((precio ?? '').trim()).replace(/([a-z])(?=[^a-z0-9\s])/g, '$1 ').replace(/([^a-z0-9\s])(?=[a-z])/g, '$1 '));
+}
+
+/** Una N con moneda delante o detrás es un monto, nunca la N de un cobro (undécima revisión: «USD 47 o 2 pagos» traía «de 47 meses»). */
+const SIN_MONEDA_ANTES = '(?<!(?:usd|us|u\\$s|\\$|€|mxn|ars|eur|cop|clp|pen|s\\/|r\\$)\\s*)';
+const SIN_MONEDA_DESPUES = '(?!\\s*(?:usd|dolares|pesos|mxn|ars|euros?|\\$|€)|[.,]\\d)';
+const RE_N_CON_PALABRA = new RegExp(`${SIN_MONEDA_ANTES}\\b(\\d{1,2}(?:(?:\\s*,\\s*\\d{1,2})*\\s+(?:o|y|u)\\s+\\d{1,2})?)\\s*(cuotas|pagos|mensualidades|partes|meses)\\b`, 'g');
+const RE_N_SUELTA = new RegExp(`\\b(?:cuotas|pagos|mensualidades)\\s*:\\s*(\\d{1,2})\\b${SIN_MONEDA_DESPUES}|\\b(\\d{1,2})\\s*x\\s*(?=usd|us\\b|\\$|€|mxn|ars|eur)|(?:mensual(?:es)?|por mes|al mes|\\/\\s?mes|cuotas?|pagos?|(?:usd|\\$|€|mxn|ars|eur)\\s*\\d[\\d.,]*)\\s*x\\s*(\\d{1,2})\\b${SIN_MONEDA_DESPUES}(?!\\s*(?:clases?|sesiones?|personas?|unidades?|horas?|semanas?|dias?|meses))`, 'g');
+
+/**
+ * LAS N DEL PRECIO, con UN solo extractor para la lectura y para las opciones (undécima revisión, 21/10: la lectura tenía su
+ * parser y no veía «10 x USD 120» ni «Cuotas: tres», que las opciones sí). `deCuotas`: las de un cobro en cuotas («3
+ * cuotas», «3, 6 o 12 pagos», «cuotas: 3», «10 x USD 120», «USD 120 mensuales x 10», «cuotas a 30, 60 y 90 días»).
+ * `otras`: las que pueden ser la duración y no el cobro («6 meses», «3 partes», un plan trimestral): sólo suman opciones.
+ */
+function nsDelPrecio(t: string): { deCuotas: number[]; otras: number[] } {
+  const deCuotas: number[] = [];
+  const otras: number[] = [];
+  // Una N de cuotas gana a la misma N de «meses» (undécima: «Programa de 4 meses: 4 cuotas» perdía la lectura).
+  const sumar = (lista: number[], n: number) => {
+    if (n < 2 || n > 60 || deCuotas.includes(n)) return;
+    if (lista === deCuotas && otras.includes(n)) otras.splice(otras.indexOf(n), 1);
+    if (!otras.includes(n)) lista.push(n);
+  };
+  for (const m of t.matchAll(RE_N_CON_PALABRA)) for (const n of m[1].match(/\d{1,2}/g) ?? []) sumar(m[2] === 'partes' || m[2] === 'meses' ? otras : deCuotas, Number(n));
+  for (const m of t.matchAll(RE_N_SUELTA)) sumar(deCuotas, Number(m[1] ?? m[2] ?? m[3]));
+  for (const m of t.matchAll(/\bcuotas\s+a\s+(\d{1,3}(?:\s*,\s*\d{1,3})*\s+(?:y|e)\s+\d{1,3})\s+dias\b/g)) sumar(deCuotas, (m[1].match(/\d+/g) ?? []).length);
+  // Un plan trimestral o semestral dura 3 o 6 meses; pegado a un cobro («pago trimestral», «USD 300 trimestrales») es la
+  // periodicidad, no una N.
+  for (const m of t.matchAll(/(?<!(?:pagos?|cuotas?|cobros?|abonos?|membresias?|suscripcion(?:es)?|\d)\s*)\b(bimestral|trimestral|semestral)(?:es)?\b/g)) {
+    sumar(otras, { bimestral: 2, trimestral: 3, semestral: 6 }[m[1] as 'bimestral'] ?? 0);
+  }
+  return { deCuotas, otras };
 }
 /** Cada cuánto se cobra, cuando no es por mes: el producto no lo sabe cobrar, así que no se propone (`cobroSinPropuesta`). */
 export type Periodo = 'anual' | 'semanal' | 'quincenal' | 'bimestral' | 'trimestral' | 'semestral';
@@ -1439,10 +1474,18 @@ export const cobroSinPropuesta = (periodo: Periodo): string =>
 // leía como un cobro semanal): el adjetivo («cuotas semanales», «pago anual»), «por/cada/al + semana/mes/año» o «/año».
 const PERIODICIDAD = '(?:(semanal|quincenal|mensual|bimestral|trimestral|semestral|anual)(?:es|mente)?\\b|(?:por|a la|al|cada|x)\\s+(semana|quincena|mes|ano)\\b|\\/\\s?(semana|mes|ano)\\b)';
 const MONTO = '(?:(?:usd|us\\$|u\\$s|\\$|mxn|ars|eur)\\s*)?\\d[\\d.,]*(?:\\s*(?:usd|dolares|pesos|mxn|ars|euros?))?';
+/** Los meses de un cobro: «3 meses de USD 300», «USD 300 por mes durante 3 meses», «USD 100 mensuales por 12 meses». */
+const RE_MESES_DEL_COBRO = new RegExp(`\\b(\\d{1,2})\\s*meses\\s+de\\s+${MONTO}|(?:mensual(?:es)?|por mes|al mes|cada mes|mes a mes|\\/\\s?mes)\\s*,?\\s*(?:durante|por|x)\\s+(\\d{1,2})\\s*meses\\b`);
+/** Con lo mensual ya dicho, los meses que dicen cuánto dura lo que se paga por mes: «Contrato de 12 meses», «por 3
+ *  meses», «USD 100 por mes, 12 meses», o el texto que empieza con «3 meses». No los de prueba, garantía o mínimo. */
+const NO_DE_COBRO = '(?!\\s+(?:gratis|de prueba|de regalo|bonus|sin cargo|de garantia))';
+const RE_MESES_DEL_PLAN = new RegExp(`\\b(?:plan|programa|contrato|mentoria|acompanamiento|suscripcion|membresia|curso|proceso)\\s+(?:de\\s+)?(\\d{1,2})(?:\\s+o\\s+\\d{1,2})?\\s*meses\\b${NO_DE_COBRO}|\\b(?:durante|por)\\s+(\\d{1,2})\\s*meses\\b${NO_DE_COBRO}|(?:mensual(?:es)?|por mes|al mes|cada mes|\\/\\s?mes)\\s*,\\s*(\\d{1,2})\\s*meses\\b${NO_DE_COBRO}|^\\s*(\\d{1,2})\\s*meses\\b${NO_DE_COBRO}`);
 /** «N cuotas (de USD X) semanales». */
 const RE_CUOTAS_CON = new RegExp(`\\b(\\d{1,2})\\s*(?:cuotas|pagos|mensualidades)(?:\\s+de\\s+${MONTO})?\\s+${PERIODICIDAD}`);
 /** Un monto o una palabra de cobro con su periodicidad pegada: «USD 50 por semana», «membresía anual», «pago semanal». */
-const RE_PEGADO = new RegExp(`(?:${MONTO}|\\b(?:pagos?|cobros?|cuotas?|abonos?|suscripcion(?:es)?|membresias?|plan(?:es)?))\\s*${PERIODICIDAD}`, 'g');
+// Un número pelado no es un monto (novena revisión): «1:1 semanal» o «3 x semana» no pegan una periodicidad al pago.
+const MONTO_CON_MONEDA = '(?:(?:usd|us\\$|u\\$s|\\$|€|mxn|ars|eur)\\s*\\d[\\d.,]*|\\d[\\d.,]*\\s*(?:usd|dolares|pesos|mxn|ars|euros?|€))';
+const RE_PEGADO = new RegExp(`(?:${MONTO_CON_MONEDA}|\\b(?:pagos?|cobros?|cuotas?|abonos?|suscripcion(?:es)?|membresias?|plan(?:es)?))\\s*${PERIODICIDAD}`, 'g');
 const POR_NOMBRE: Record<string, Periodo | 'mensual'> = { semana: 'semanal', quincena: 'quincenal', mes: 'mensual', ano: 'anual' };
 /** La periodicidad de un acierto de PERIODICIDAD, cuyos tres grupos empiezan en `desde`. */
 const periodoDe = (m: RegExpMatchArray, desde: number): Periodo | 'mensual' =>
@@ -1460,7 +1503,8 @@ export function cobroDelPrecio(precio: string | null | undefined): Cobro {
   if (/sin interes(?:es)?|\bmsi\b/.test(crudo) && !/membresia|suscripcion|cobro automatico|recurrente|debito automatico/.test(crudo)) return { tipo: 'unico', meses: null };
   // Lo negado no cuenta (cuarta revisión, 21/10: «sin mensualidades», «nada de cuotas», «no es mensual» salían suscripción),
   // y lo anual o semanal también es periódico («Membresía anual», «USD 99 por semana» salían pago único).
-  const t = crudo.replace(/\b(?:sin|nada de|no es|no hay|no son|ni)\s+(?:(?:las?|los?|un|una)\s+)?\S+(?:\s+mensual(?:es)?)?/g, ' ');
+  const t = crudo.replace(new RegExp(NEGO_LO_PERIODICO.source, 'g'), ' ')
+    .replace(/\b(?:sin|nada de|no es|no hay|no son|ni)\s+(?:(?:las?|los?|un|una)\s+)?\S+(?:\s+mensual(?:es)?)?/g, ' ');
   // Lo que no es por MES va con su `periodo` y la etapa 'cobro' pregunta sin proponer (quinta revisión, 21/10: lo anual se
   // proponía como «Suscripción mensual»). Sólo cuenta la periodicidad PEGADA al pago (octava). Primero, la de las cuotas:
   // «8 cuotas semanales» o «4 pagos trimestrales» no son meses (séptima y octava).
@@ -1482,19 +1526,26 @@ export function cobroDelPrecio(precio: string | null | undefined): Cobro {
   const mensual = recurrente || /\bmensual(?:es|mente)?\b|por mes|al mes|cada mes|mes a mes|\/\s?mes/.test(t);
   const conTarjeta = /con (?:la |tu |mi |su )?tarjeta/.test(t) && /cuotas|pagos|mensualidades/.test(t);
   if ((/sin interes(?:es)?|\bmsi\b/.test(t) && !recurrente) || (conTarjeta && !mensual)) return { tipo: 'unico', meses: null };
-  const cuotas = t.match(/\b(\d{1,2})\s*(?:cuotas|pagos|mensualidades)\b/);
-  if (cuotas) return { tipo: 'suscripcion', meses: Number(cuotas[1]) || null };
+  // Las cuotas, con el MISMO extractor que las opciones (undécima revisión): la lectura es la primera de la red.
+  const cuotas = nsDelPrecio(t).deCuotas[0];
+  if (cuotas) return { tipo: 'suscripcion', meses: cuotas };
   // Lo anual (o cada dos, tres o seis meses) pegado al pago, DESPUÉS de las cuotas (sexta revisión: un precio anual en «12
   // cuotas» es la suscripción de 12 meses).
   if (pegados[0]) return { tipo: 'suscripcion', meses: null, periodo: pegados[0] };
   // Sin ninguna señal de cobro, la lectura es POR DEFECTO, y una lectura por defecto no se propone (décima revisión, 21/10:
   // «Renovación anual de USD 1.500», «Membresía USD 29» o «Suscripción de 6 meses» proponían «Pago único», y un «Sí» lo
   // guardaba). Sí es una señal haber negado las cuotas o lo mensual («sin mensualidades», cuarta revisión).
+  // Un pago único dicho de otra forma («un pago de USD 900», «cuota única», «de por vida») también es una señal (undécima).
+  // Los meses se PROPONEN sólo pegados a un cobro: «3 meses de USD 300», «USD 300 por mes durante 3 meses» (undécima
+  // revisión, 21/10: «dos meses gratis», «garantía de tres meses» o «mínimo tres meses» se proponían como el fin de la
+  // suscripción). Cualquier otro «N meses» suma la opción, pero no se propone.
+  const meses = RE_MESES_DEL_COBRO.exec(t);
   if (!/mensual|por mes|al mes|cada mes|mes a mes|\/\s?mes|cuotas|mensualidad/.test(t)) {
-    return NEGO_LO_PERIODICO.test(crudo) ? { tipo: 'unico', meses: null } : { tipo: 'unico', meses: null, porDefecto: true };
+    if (meses) return { tipo: 'suscripcion', meses: Number(meses[1] ?? meses[2]) || null };
+    return NEGO_LO_PERIODICO.test(crudo) || UNICO_DICHO.test(t) ? { tipo: 'unico', meses: null } : { tipo: 'unico', meses: null, porDefecto: true };
   }
-  const meses = t.match(/\b(\d{1,2})\s*meses\b/);
-  return { tipo: 'suscripcion', meses: meses ? Number(meses[1]) || null : null };
+  const plan = meses ? null : RE_MESES_DEL_PLAN.exec(t);
+  return { tipo: 'suscripcion', meses: meses ? Number(meses[1] ?? meses[2]) || null : plan ? Number(plan[1] ?? plan[2] ?? plan[3] ?? plan[4]) || null : null };
 }
 
 /**
@@ -1507,22 +1558,8 @@ export function cobroDelPrecio(precio: string | null | undefined): Cobro {
 export function opcionesDeCobro(precio: string | null | undefined, leido: Cobro = cobroDelPrecio(precio)): Cobro[] {
   // Sobre el precio en dígitos (décima revisión, 21/10: «tres cuotas» no sumaba la de 3 meses). Las N de cuotas, pagos,
   // partes o mensualidades van primero y sin tope; las de «meses» (que pueden ser la duración, no el cobro) llenan hasta 6.
-  const t = precioEnDigitos(precio);
-  const deCuotas: number[] = [];
-  const deMeses: number[] = [];
-  const sumar = (lista: number[], n: number) => { if (n >= 2 && n <= 60 && !deCuotas.includes(n) && !deMeses.includes(n)) lista.push(n); };
-  // «3 cuotas», y cada número de una enumeración: «3, 6 o 12 cuotas», «3 o 6 pagos».
-  for (const m of t.matchAll(/\b(\d{1,2}(?:(?:\s*,\s*\d{1,2})*\s+(?:o|y|u)\s+\d{1,2})?)\s*(cuotas|pagos|partes|mensualidades|meses)\b/g)) {
-    for (const n of m[1].match(/\d{1,2}/g) ?? []) sumar(m[2] === 'meses' ? deMeses : deCuotas, Number(n));
-  }
-  // «cuotas: 3», «10 x USD 120», «USD 120 mensuales x 10».
-  for (const m of t.matchAll(/\b(?:cuotas|pagos|mensualidades)\s*:\s*(\d{1,2})\b|\b(\d{1,2})\s*x\s*(?=usd|us\$|u\$s|\$|mxn|ars|eur)|\bx\s*(\d{1,2})\b/g)) {
-    sumar(deCuotas, Number(m[1] ?? m[2] ?? m[3]));
-  }
-  // Lo que dice la N sin escribirla: «cuotas a 30, 60 y 90 días» son 3; un plan «trimestral» o «semestral» dura 3 o 6 meses.
-  for (const m of t.matchAll(/\bcuotas\s+a\s+(\d{1,3}(?:\s*,\s*\d{1,3})*\s+(?:y|e)\s+\d{1,3})\s+dias\b/g)) sumar(deCuotas, (m[1].match(/\d+/g) ?? []).length);
-  for (const m of t.matchAll(/\b(bimestral|trimestral|semestral)(?:es)?\b/g)) sumar(deMeses, { bimestral: 2, trimestral: 3, semestral: 6 }[m[1] as 'bimestral'] ?? 0);
-  const ns = [...deCuotas, ...deMeses.slice(0, Math.max(0, 6 - deCuotas.length))];
+  const { deCuotas, otras } = nsDelPrecio(precioEnDigitos(precio));
+  const ns = [...deCuotas, ...otras.slice(0, Math.max(0, 6 - deCuotas.length))];
   const todas: Cobro[] = [{ tipo: 'unico', meses: null }, { tipo: 'suscripcion', meses: null }, ...ns.map((n) => ({ tipo: 'suscripcion' as const, meses: n }))];
   if (!recomienda(leido)) return todas;
   const primera: Cobro = { tipo: leido.tipo, meses: leido.meses };

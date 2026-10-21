@@ -40,8 +40,9 @@ test('1. el precio se pasa a dígitos una vez, y la lectura y las opciones leen 
 });
 
 test('2. qué N entran: enumeraciones, «x», «cuotas:», \\b a la izquierda, las de cuotas antes y sin tope', () => {
-  assert.deepEqual(ops('Elegí 3, 6 o 12 cuotas'), [de(12), COBRO_UNICO, COBRO_MENSUAL, de(3), de(6)]);
-  assert.deepEqual(ops('USD 900 en 3 o 6 cuotas'), [de(6), COBRO_UNICO, COBRO_MENSUAL, de(3)]);
+  // La lectura es la primera de la red (undécima revisión): con una enumeración, la primera N.
+  assert.deepEqual(ops('Elegí 3, 6 o 12 cuotas'), [de(3), COBRO_UNICO, COBRO_MENSUAL, de(6), de(12)]);
+  assert.deepEqual(ops('USD 900 en 3 o 6 cuotas'), [de(3), COBRO_UNICO, COBRO_MENSUAL, de(6)]);
   assert.ok(ops('10 x USD 120 mensuales').includes(de(10)));
   assert.ok(ops('USD 120 mensuales x 10').includes(de(10)));
   assert.ok(ops('3x USD 330').includes(de(3)));
@@ -56,7 +57,9 @@ test('2. qué N entran: enumeraciones, «x», «cuotas:», \\b a la izquierda, l
   assert.ok(!ops('2x1 en el primer mes, USD 100 por mes').some((o) => /de 1 meses/.test(o)));
   // Las de cuotas van antes que las de «meses» (que pueden ser la duración) y no las corta el tope.
   const largo = ops('Mentoría 1:1 semanal: 2 meses de onboarding, 3 meses de implementación, 4 meses de escala, 6 meses de comunidad; 9 cuotas');
-  assert.equal(largo[2], de(9), 'la de las cuotas no va primera entre las N');
+  // Desde la undécima, «1:1 semanal» no pega una periodicidad: la lectura son las 9 cuotas, y van primeras.
+  assert.equal(largo[0], de(9), 'la de las cuotas no va primera entre las N');
+  assert.deepEqual(largo.slice(3), [de(2), de(3), de(4), de(6)], 'las de «meses» van después, sin cortar');
   assert.ok(ops('USD 30 por mes, 48 cuotas, clase 1:1 semanal').includes(de(48)), 'el techo de 36 sacaba la de 48');
   // Sin repetir: «12 cuotas» y «12 meses» son una sola opción.
   const doce = ops('USD 1.200 en 12 cuotas, 12 meses de acceso, o de contado');

@@ -2044,6 +2044,11 @@ de una lectura sin ninguna señal (el `return` del final) se marca y se pregunta
 afirma algo que el texto no dijo, y un «Sí» lo guarda. Y lo que varía en la forma y no en el fondo (números en letras,
 «x», enumeraciones) se normaliza UNA vez al entrar (`precioEnDigitos`), no con más alternativas en cada regex.
 
+**La lectura y la red usan el mismo extractor (undécima revisión, 21/10/2026).** Si la lectura tiene su propio parser, la
+opción correcta está pero el «Sí» guarda otra; la lectura toma la primera de lo que extrae la red (`nsDelPrecio`). Y
+normalizar la entrada arrastra a la forma nueva todo defecto que la lectura ya tenía: después de normalizar, se mide
+contra la respuesta correcta otra vez.
+
 **El corolario para lo que DICE MaKo (21/10/2026, el guardia de promesas 1.5):** un filtro sobre el texto del modelo
 NUNCA borra una oración. El guardia por raíces de palabras borraba 8 de 14 respuestas verdaderas («Sí, ya te la
 agendé» después de confirmar la tarjeta pasaba a «En este mensaje no hice nada») y atajaba 3 de 18 falsas, medido con

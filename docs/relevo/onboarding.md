@@ -1,5 +1,17 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 21/10/2026 — UNDÉCIMA REVISIÓN (de 1106e8c16): LA LECTURA CON EL MISMO EXTRACTOR QUE LA RED
+
+<sub>Chat «Onboarding», claude4, rama onboarding-v3. En producción está 689f75560
+(side-session-notes/local_797d5445…/revision-onboarding-undecima-21-10.md).</sub>
+
+- Un extractor de N (`nsDelPrecio`) para la lectura y las opciones; una N con moneda no es N, y un número pelado no es un
+  monto (`MONTO_CON_MONEDA`). Los meses se proponen sólo pegados a un cobro o al plazo del plan (`RE_MESES_DEL_PLAN`).
+  Señales de pago único dichas de otra forma (`UNICO_DICHO`) y negaciones más amplias (`NEGO_LO_PERIODICO`).
+- Medido con las 570 frases del Cerebro: faltan 0, el «Sí» guarda mal 6 (producción 122). Pregunta sin proponer en 83
+  precios sin señal que producción proponía como pago único (la familia del precio pelado). Tests:
+  tests/onboarding-undecima-revision.test.ts. Sondas: medir-criterio.mts del scratchpad del chat «Onboarding».
+
 ## ESTADO AL 21/10/2026 — DÉCIMA REVISIÓN (de 5d353db16): LA ENTRADA EN DÍGITOS Y SIN LECTURAS POR DEFECTO
 
 <sub>Chat «Onboarding», claude4, rama onboarding-v3. En producción está 689f75560
