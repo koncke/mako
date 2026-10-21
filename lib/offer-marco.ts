@@ -211,6 +211,11 @@ export type OfferMensaje = {
    */
   respuesta?: { preguntaId: string; idx: number; inferida?: boolean };
   /**
+   * En un mensaje del DUEÑO: los links que nombró y NO se pudieron abrir (20/10/2026, Florencia, ws21: MaKo dijo «vi tu
+   * Instagram» sin haberlo leído). Viajan al modelo marcados (`conversacionParaPrompt`) para que no diga que los vio.
+   */
+  linksSinLeer?: string[];
+  /**
    * En un mensaje de MaKo: el PDF de esa VERSIÓN de la oferta (12/10/2026, pedido de Martín: «que MaKo en el
    * mismo chat te proponga pulir la oferta, y que cuando se haya pulido te re-envíe el PDF las veces que sea
    * necesario»). Lo agrega el servidor después de cada «generar». La pantalla lo baja de

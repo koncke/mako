@@ -158,7 +158,10 @@ async function correr(req: NextRequest, auth: Autenticado, def: OperacionDef, vi
   if (res.ok) {
     // `via: 'ninguna'` con ok es «ya estaba así» (aplicarEnElActo): éxito sin cambios.
     const sinCambios = res.via === 'ninguna';
-    return NextResponse.json({ ok: true, hecho: !sinCambios, ...(sinCambios ? { sinCambios: true } : {}), resumen: res.resumen, ...(res.datos ? { datos: res.datos } : {}) }, { status: 200, headers: conPermiso });
+    // `datos.bloque` es lo que DIBUJA el chat de la app (lib/chat-bloques.ts): por HTTP se descarta, como el `extra.bloque`
+    // de una propuesta (ejecutar.ts). Salía en la respuesta, una forma interna sin documentar (revisión del 21/10).
+    const { bloque: _dibujo, ...datos } = res.datos ?? {};
+    return NextResponse.json({ ok: true, hecho: !sinCambios, ...(sinCambios ? { sinCambios: true } : {}), resumen: res.resumen, ...(res.datos ? { datos } : {}) }, { status: 200, headers: conPermiso });
   }
   if (esNuestro(res.resumen)) {
     console.error(`[api-v1] escritura directa de ${def.id} (ws ${ws}) falló de nuestro lado: ${res.resumen}`);

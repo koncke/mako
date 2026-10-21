@@ -71,10 +71,46 @@ export function contar(e: EstadoGuardia, tipo: TipoPedido): EstadoGuardia {
   return tipo === 'turno' ? { ...e, turnos: (e.turnos ?? 0) + 1 } : { ...e, documentos: (e.documentos ?? 0) + 1 };
 }
 
+/**
+ * Lo que cuenta un pedido. Un turno con un texto más LARGO que el chat se lee con IA como un documento (por partes, hasta
+ * 20 pedidos): cuenta como turno Y como documento, y tiene que pasar los dos topes (20/10/2026, noche, revisión del Cerebro:
+ * contado sólo como turno salteaba el tope de 15 documentos, unas 3,5 veces las llamadas que permite el diseño).
+ */
+export function tiposDelPedido(tipo: TipoPedido, largo: boolean): TipoPedido[] {
+  return tipo === 'turno' && largo ? ['turno', 'documento'] : [tipo];
+}
+
+/** ¿Pasan todos los topes del pedido? El primero que no, decide. */
+export function decidirTodos(e: EstadoGuardia, tipos: readonly TipoPedido[]): Decision {
+  for (const t of tipos) {
+    const d = decidir(e, t);
+    if (!d.ok) return d;
+  }
+  return { ok: true };
+}
+
+/** El estado después de contar un pedido que pasó, con todo lo que cuenta. */
+export function contarTodos(e: EstadoGuardia, tipos: readonly TipoPedido[]): EstadoGuardia {
+  return tipos.reduce(contar, e);
+}
+
+/**
+ * La falta que cuenta. Un texto LARGO llega recortado a su principio (lo que queda en el chat) y sólo cuenta el insulto: la
+ * inyección y la «basura» dan falsos positivos en un texto armado con ChatGPT («Olvida las reglas de siempre…», un índice
+ * «…… 3»), que sumaban faltas y bloqueaban el onboarding (revisión del Cerebro, 20/10). Un insulto, en cambio, no se
+ * esconde adentro de un texto largo para pasar.
+ */
+export function faltaDelPedido(texto: string | undefined, largo: boolean): ReturnType<typeof falta> {
+  if (!texto) return null;
+  const f = falta(texto);
+  return largo && f !== 'insulto' ? null : f;
+}
+
 // ── El troleo ───────────────────────────────────────────────────────────────
 // Los patrones viven en lib/onboarding-troleo.ts: reconocen lo que escribe la persona, voseo incluido («sos un
 // inútil»), y por eso están fuera de la guarda de voseo; acá, que hay copy, la guarda sigue mirando.
-export { falta } from './onboarding-troleo';
+import { falta } from './onboarding-troleo';
+export { falta };
 
 /** El estado después de una falta, y si con ésta se bloquea. */
 export function conFalta(e: EstadoGuardia, texto: string, motivo: string, usuario: string | null, ahora: string): { estado: EstadoGuardia; bloquea: boolean } {

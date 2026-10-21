@@ -36,6 +36,7 @@ import { Criatura } from '@/app/_components/Criatura';
 // app/m/_ui lo arrastraría a cada test de node que lo importe (cayó el run 182, tests/m-offer.test.ts).
 const EntradaMako = dynamic(() => import('@/app/onboarding/EntradaMako').then((m) => m.EntradaMako), { ssr: false });
 import { ATTR_MODO, LS_MODO } from '@/lib/temas-candidatos';
+import { CLAVE_ENTRADA_MOVIL } from './entrada';
 import { HOME_MOVIL, destinoActivo, type IdBarra, type ItemBarra } from '@/lib/movil-rutas';
 import { iniciarCapturaInstalacion } from '@/lib/movil-instalar';
 import { asegurarRegistro } from '@/lib/push-cliente';
@@ -51,8 +52,9 @@ type Toast = { id: number; mensaje: string; deshacer?: () => void; saliendo?: bo
 
 let secuenciaToast = 0;
 
-/** La entrada de MaKo ya salió en esta apertura de la app (sessionStorage: dura lo que la pestaña o la app instalada). */
-const LS_ENTRADA = 'mako_entrada_m';
+/** La entrada de MaKo ya salió en esta apertura de la app (sessionStorage: dura lo que la pestaña o la app instalada). La
+ *  misma clave la pone el final del onboarding, que ya la mostró (./entrada.ts). */
+const LS_ENTRADA = CLAVE_ENTRADA_MOVIL;
 /** Adónde vuela la entrada al tocarla: la criatura del Ops Center en la barra de abajo. */
 const DESTINO_ENTRADA = 'data-mako-foto-barra';
 
