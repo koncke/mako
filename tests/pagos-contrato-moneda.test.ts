@@ -9,7 +9,9 @@
 //      con «$» sin código, tampoco dólares; un prompt viejo guardado que convertía: sus montos no se usan, y se marca; y
 //      el prompt de siempre ya no pide convertir;
 //   2. el asistente de Ganado lo dice («el contrato dice MX$72.000: carga cuánto es en dólares») y no da por resuelto un
-//      plan de cuotas sin montos.
+//      plan de cuotas sin montos;
+//   3. (revisión de bc5fb022d) con el total en dólares, las cuotas valen sólo si SUMAN el total, con la tolerancia del
+//      asistente: un total en USD con cuotas en pesos no da un plan en dólares que nadie declaró.
 //
 // Probado rompiéndolo (21/10/2026, una rotura por vez, restaurando byte a byte): los números, en ROTURAS al final.
 //
@@ -21,7 +23,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CONTRACT_EXTRACT_DEFAULT } from '../lib/prompt-defaults';
-import { montosDelContrato } from '../lib/contrato-montos';
+import { montosDelContrato, toleranciaCuotas } from '../lib/contrato-montos';
 
 const RAIZ = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -69,10 +71,34 @@ test('2. el asistente de Ganado lo dice, y no da por resuelto un plan sin montos
   assert.match(w, /if \(pideMonto && j\.total_usd == null && Number\(j\.total_original\) > 0\) \{/);
   assert.match(w, /aRevisar\.push\(`A revisar: monto \(el contrato dice \$\{dice\}: carga cuánto es en dólares\)`\);/);
   assert.match(w, /if \(j\.montos_no_usados\) aRevisar\.push\('A revisar: los montos del contrato no se usaron/);
-  assert.match(w, /if \(j\.cuotas\.every\(\(c: \{ monto\?: number \| string \| null \}\) => c\.monto != null\)\) \{ ok\.add\('plan'\); rell\.push\('plan de cuotas'\); \}\s*else aRevisar\.push\('A revisar: plan de cuotas/,
+  assert.match(w, /if \(j\.cuotas\.every\(\(c: \{ monto\?: number \| string \| null \}\) => c\.monto != null\)\) \{ ok\.add\('plan'\); rell\.push\('plan de cuotas'\); \}\s*else aRevisar\.push\(j\.cuotas_no_cuadran\s*\? 'A revisar: plan de cuotas \(las cuotas del contrato no suman su total en dólares: cárgalas a mano\)'/,
     'sin montos, el paso del plan queda a la vista');
   // El total en dólares sigue siendo SÓLO el del contrato en dólares (la ruta lo da null en otra moneda).
   assert.match(sinComentarios(leer('app/api/extract-contract/route.ts')), /const montos = montosDelContrato\(parsed\);\s*return Response\.json\(\{\s*\.\.\.montos,/);
+});
+
+test('3. ⚠️ con el total en dólares, las cuotas valen sólo si suman el total (la misma tolerancia que el asistente)', () => {
+  const s = correr();
+  // «US$4,000 total, 12 mensualidades de $6,000 M.N.»: el total sí (es USD), las cuotas no (suman 72.000).
+  const m = s.mixto.respuesta;
+  assert.deepEqual([m.total_usd, m.moneda, m.cuotas_no_cuadran], [4000, 'USD', true]);
+  assert.ok(m.cuotas.length === 12 && m.cuotas.every((c) => c.monto === null && typeof c.fecha === 'string'), 'las fechas sí, los montos no');
+  // Las mismas cuotas convertidas por la IA (352,94 × 12 = 4.235,28): tampoco cuadran con 4.000.
+  const c = s.convertido.respuesta;
+  assert.deepEqual([c.total_usd, c.cuotas_no_cuadran], [4000, true]);
+  assert.ok(c.cuotas.every((x) => x.monto === null));
+  // Las que cuadran, van (3 × 1.000 = 3.000); y dentro de la tolerancia, también.
+  assert.equal(s.dolares.respuesta.cuotas_no_cuadran, undefined);
+  assert.deepEqual(montosDelContrato({ total: 3000, moneda: 'USD', cuotas: [{ monto: 1000, fecha: 'a' }, { monto: 1000, fecha: 'b' }, { monto: 1000.9, fecha: 'c' }] }).cuotas.map((x) => x.monto), [1000, 1000, 1000.9]);
+  // Sin total no hay con qué cuadrarlas, y con una cuota sin monto tampoco: no van.
+  assert.ok(montosDelContrato({ total: null, moneda: 'USD', cuotas: [{ monto: 1000, fecha: 'a' }] }).cuotas.every((x) => x.monto === null));
+  assert.ok(montosDelContrato({ total: 2000, moneda: 'USD', cuotas: [{ monto: 1000, fecha: 'a' }, { monto: null, fecha: 'b' }] }).cuotas.every((x) => x.monto === null));
+  // UNA tolerancia: la del asistente (`cuotasCuadran`) es la misma función.
+  assert.deepEqual([toleranciaCuotas(100), toleranciaCuotas(4000)], [1, 20]);
+  assert.match(sinComentarios(leer('app/crm/StageMoveDialog.tsx')), /const tolCuotas = toleranciaCuotas\(totalMonto\);/);
+  // El copy público ya no dice que convierte con una tasa aproximada.
+  const copy = leer('app/vsl/_detalle/features.ts');
+  assert.doesNotMatch(copy, /convierte a USD|tasa aproximada|~17 MXN\/USD/);
 });
 
 // ROTURAS (21/10/2026). Base: 2 pases, 0 fallos. Rota (pases / fallos):
@@ -82,3 +108,13 @@ test('2. el asistente de Ganado lo dice, y no da por resuelto un plan sin montos
 //   · el prompt vuelve a pedir convertir                                  → 1 / 1 (1)
 //   · el plan sin montos se da por resuelto                               → 1 / 1 (2)
 //   · el asistente no dice el total en su moneda                          → 1 / 1 (2)
+//
+// ROTURAS de la revisión de bc5fb022d (21/10/2026). Base: 3 pases, 0 fallos. Rota (pases / fallos):
+//   · las cuotas en dólares van sin mirar la suma                         → 2 / 1 (3)
+//   · sin total, las cuotas van igual                                     → 2 / 1 (3)
+//   · una tolerancia propia, más ancha (10%)                              → 2 / 1 (3)
+//   · el asistente con su propia tolerancia                               → 2 / 1 (3)
+//   · no dice que las cuotas no suman                                     → 2 / 1 (3)
+//   · el copy público vuelve a prometer la conversión                     → 2 / 1 (3)
+// (La primera versión de «sin total, las cuotas van igual» no rompía nada: con total null, |suma − null| ≤ 1 ya era
+//  falso. Se reescribió para que de verdad las deje pasar.)

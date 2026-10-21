@@ -59,6 +59,10 @@ async function main() {
   out.pesos = await pedir({ total: 72000, moneda: 'MXN', duracion_meses: 12, fecha_cierre: '08/10/2026', fecha_inicio: '08/10/2026', cuotas: doce(6000), nota: null });
   out.dolares = await pedir({ total: 3000, moneda: 'USD', duracion_meses: 3, fecha_cierre: '08/10/2026', fecha_inicio: '08/10/2026', cuotas: [{ monto: 1000, fecha: '08/10/2026' }, { monto: 1000, fecha: '08/11/2026' }, { monto: 1000, fecha: '08/12/2026' }], nota: null });
   out.signoPesos = await pedir({ total: 72000, moneda: null, duracion_meses: 12, cuotas: doce(6000), nota: null });
+  // (revisión de bc5fb022d) El total en dólares y las cuotas en pesos: «US$4,000 total, 12 mensualidades de $6,000 M.N.»,
+  // tal cual, y con las cuotas convertidas por la IA (6.000 / 17 = 352,94, que suman 4.235,28).
+  out.mixto = await pedir({ total: 4000, moneda: 'USD', duracion_meses: 12, cuotas: doce(6000), nota: null });
+  out.convertido = await pedir({ total: 4000, moneda: 'USD', duracion_meses: 12, cuotas: doce(352.94), nota: null });
   out.viejo = await pedir({ total_usd: 4235.29, duracion_meses: 12, cuotas: doce(352.94), nota: 'Montos convertidos de MXN a USD a ~17 MXN/USD' });
   process.stdout.write(JSON.stringify({ ...out, red, sinMock: [...pg.sinMock] }));
 }
