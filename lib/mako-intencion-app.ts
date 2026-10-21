@@ -129,6 +129,15 @@ const FAMILIAS: readonly Familia[] = [
   { id: 'dar-de-baja', test: /\bde baja\b/, areas: ['cobros'], relevancia: 'baja del cliente', actua: true },
   { id: 'rol-equipo', test: /\brol\b[^.\n]{0,30}\b(?:closer|setter|admin|miembro|equipo)\b|\b(?:cambi\w+)\b[^.\n]{0,12}\brol\b/, areas: ['equipo'], relevancia: 'cambiar rol miembro', actua: true, ganaAlLead: true },
   { id: 'renombrar-chat', test: /\brenombr\w+\b[^.\n]{0,15}\bchat\b/, areas: ['mako'], relevancia: 'renombrar chat mako', actua: true, ganaALaAgenda: true },
+  // ── Offer, Copywriting, Second Brain y experimentos (tanda 5) ──
+  { id: 'catalogo-productos', test: /\bcatalogo de productos\b/, areas: ['negocio'], relevancia: 'sugerir productos catalogo', actua: true },
+  { id: 'diagnostico-fase', test: /\bdiagnostico de fase\b/, areas: ['negocio'], relevancia: 'guardar diagnostico fase', actua: true, ganaAlLead: true },
+  { id: 'pasar-guion', test: /^pasa\s+(?:el|los)\s+guion(?:es)?\b/, areas: ['contenido'], relevancia: 'mover estado guion anuncio', actua: true },
+  { id: 'formatos-creativo', test: /\bformatos? de creativos?\b/, areas: ['contenido'], relevancia: 'recomendar formatos creativo', actua: true },
+  // ── Web Generator (tanda 6) ──
+  { id: 'seccion-landing', test: /\bseccion(?:es)?\b[^.\n]{0,40}\b(?:arriba|abajo|primero|ultimo|al final|al principio|antes|despues)\b|\b(?:mover|mueve|move\w*|borr\w+|ocult\w+|elimin\w+|sac\w+)\b[^.\n]{0,15}\bseccion/, areas: ['landing'], relevancia: 'acomodar seccion landing', actua: true },
+  { id: 'enlace-landing', test: /\b(?:link|enlace)\b[^.\n]{0,15}\b(?:vsl|agenda)\b/, areas: ['landing'], relevancia: 'poner enlace landing', actua: true },
+  { id: 'link-privado-landing', test: /\blink privado\b/, areas: ['landing'], relevancia: 'compartir borrador landing', actua: true },
 ];
 
 export type FamiliaDelPedido = { ids: string[]; areas: Area[]; relevancia: string; actua: boolean; ganaALaAgenda: boolean; ganaAlLead: boolean; ganaALaLanding: boolean };

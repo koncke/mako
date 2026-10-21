@@ -13,6 +13,8 @@
 //   Núcleo              23/40     40/40
 //   Tandas 2 y 3 (con la maquinaria de la tanda 1 ya puesta): Plan 28/30, Calendario 5/8, Dashboard 26/28, video 35/37,
 //   imagen y creaciones 8/10 → 30/30, 8/8, 28/28, 37/37 y 10/10 con las filas nuevas (tuteo y voseo de cada frase).
+//   Tandas 5 a 7 (misma medición): Offer, Copywriting y Second Brain 24/26 y 6/8 → 26/26 y 8/8, experimentos 10/10, Web Generator
+//   35/39 → 39/39 y Meta Ads 30/30 de entrada (con tuteo y voseo; los mapas medían Meta con tuteo en 0 de 18).
 //   Tanda 4 (Pagos y cuenta): cobros 21/22 y equipo y cuenta 23/28 → 22/22 y 26/26. Las 2 frases de «exigí el 2FA» salieron de la batería:
 //   `exigir_2fa_desde` tiene gating de PLATAFORMA (sólo el super admin), no es del admin de un cliente.
 //
@@ -446,6 +448,134 @@ const EQUIPO: Caso[] = [
   ["renombrá este chat a Reunión semanal", ["renombrar_chat_mako"]],
 ];
 
+const NEGOCIO: Caso[] = [
+  ["completá el campo propuesta de valor del perfil: ayudo a vender más", ["guardar_campo_perfil"]],
+  ["completa el campo propuesta de valor del perfil", ["guardar_campo_perfil"]],
+  ["guardá mi muletilla o sea", ["guardar_muletillas_marca"]],
+  ["guarda las muletillas de mi marca: o sea, tipo", ["guardar_muletillas_marca"]],
+  ["regenerá mis avatares", ["generar_avatares"]],
+  ["regenera los avatares con MaKo", ["generar_avatares"]],
+  ["afiná los avatares con estas respuestas", ["afinar_avatares"]],
+  ["editá el avatar de la mamá emprendedora", ["editar_avatar_negocio"]],
+  ["edita el avatar de la mamá emprendedora", ["editar_avatar_negocio"]],
+  ["borrá el avatar viejo", ["borrar_avatar_negocio"]],
+  ["generá lead magnets para mi negocio", ["generar_lead_magnets"]],
+  ["genera lead magnets para mi negocio", ["generar_lead_magnets"]],
+  ["editá el lead magnet de la guía", ["editar_lead_magnet"]],
+  ["armame el catálogo de productos", ["sugerir_productos"]],
+  ["arma el catálogo de productos con MaKo", ["sugerir_productos"]],
+  ["borrá el producto Mentoría", ["borrar_producto"]],
+  ["reiniciá el quiz de voz", ["reiniciar_personalidad"]],
+  ["reinicia el quiz de personalidad", ["reiniciar_personalidad"]],
+  ["guardá el diagnóstico de fase: etapa de validación", ["guardar_diagnostico_fase"]],
+  ["borrá el documento del archivero", ["borrar_documento_archivero"]],
+  ["quiero dar de baja mi plan de MaKo", ["dar_de_baja_mi_plan"]],
+  ["mostrame el análisis de mi oferta", ["ver_analisis_oferta","listar_analisis_oferta"]],
+  ["guardá la oferta del análisis en los funnels", ["guardar_oferta_analisis"]],
+  ["buscá en mi segundo cerebro lo que dije del precio", ["buscar_en_segundo_cerebro","recuperar_del_segundo_cerebro"]],
+  ["mostrame mis avatares", ["listar_avatares_negocio"]],
+  ["¿cuál es mi cara de marca?", ["ver_cara_de_marca"]],
+];
+
+const CONTENIDO: Caso[] = [
+  ["escribí un guion de anuncio para la mentoría", ["escribir_guion_anuncio","escribir_guion_anuncio_auto","sugerir_guion_anuncio"]],
+  ["escribe un guion de anuncio para la mentoría", ["escribir_guion_anuncio","escribir_guion_anuncio_auto","sugerir_guion_anuncio"]],
+  ["reescribí el texto del guion 3", ["editar_texto_guion_anuncio"]],
+  ["reescribe el guion del anuncio ganador", ["editar_texto_guion_anuncio"]],
+  ["borrá el guion 3 del anuncio", ["borrar_guion_anuncio"]],
+  ["pasá el guion 3 a aprobado", ["mover_estado_guion_anuncio"]],
+  ["recomendame formatos de creativo para mi anuncio", ["recomendar_formatos_creativo"]],
+  ["mostrame mis guiones de anuncio", ["listar_guiones_anuncio"]],
+];
+
+const EXPERIMENTOS: Caso[] = [
+  ["creá un experimento para probar un hook nuevo", ["crear_experimento"]],
+  ["crea un experimento: probar un precio de 500", ["crear_experimento"]],
+  ["arrancá el experimento del hook", ["iniciar_experimento"]],
+  ["arranca el experimento del hook nuevo", ["iniciar_experimento"]],
+  ["cerrá el experimento con veredicto: funcionó", ["cerrar_experimento"]],
+  ["descartá el experimento del precio", ["descartar_experimento"]],
+  ["proponeme experimentos para subir las ventas", ["idear_experimentos"]],
+  ["¿cómo van los experimentos?", ["estado_experimentos","listar_experimentos","vista_experimentos"]],
+  ["borrá la retro del mes pasado", ["borrar_retro"]],
+  ["aceptá el item 2 del plan de la retro", ["aceptar_item_plan_retro"]],
+];
+
+const LANDING: Caso[] = [
+  ["creame una landing para mi mentoría", ["generar_landing_con_ia","crear_landing_en_blanco","crear_landing_desde_diseno"]],
+  ["quiero una web para mi negocio", ["generar_landing_con_ia","crear_landing_en_blanco","crear_landing_desde_diseno"]],
+  ["cambiá el título de la landing del webinar por Aprende a vender", ["cambiar_texto_landing","editar_landing_con_ia"]],
+  ["cambia el título de la landing del webinar por Aprende a vender", ["cambiar_texto_landing","editar_landing_con_ia"]],
+  ["publicá la landing del webinar", ["publicar_landing"]],
+  ["publica la landing del webinar", ["publicar_landing"]],
+  ["despublicá la landing del webinar", ["despublicar_landing"]],
+  ["despublica la landing del webinar", ["despublicar_landing"]],
+  ["pausá la landing del webinar", ["pausar_landing"]],
+  ["replicá esta página https://ejemplo.com", ["replicar_landing"]],
+  ["replica esta landing https://ejemplo.com", ["replicar_landing"]],
+  ["agregale una sección de testimonios a mi página", ["agregar_seccion_landing","editar_landing_con_ia"]],
+  ["agrega una sección de testimonios a mi landing", ["agregar_seccion_landing","editar_landing_con_ia"]],
+  ["movele la sección de precios arriba en la landing", ["acomodar_seccion_landing"]],
+  ["mueve la sección de precios arriba en la landing", ["acomodar_seccion_landing"]],
+  ["borrá la sección de preguntas de la landing", ["acomodar_seccion_landing"]],
+  ["ocultá la sección de testimonios de la landing", ["acomodar_seccion_landing"]],
+  ["cambiá el tema de la landing a oscuro", ["cambiar_tema_landing"]],
+  ["cambia el tema de la landing del webinar", ["cambiar_tema_landing"]],
+  ["conectá el dominio midominio.com a la landing", ["conectar_dominio_landing"]],
+  ["conecta el dominio midominio.com a mi landing", ["conectar_dominio_landing"]],
+  ["verificá el dominio de la landing", ["verificar_dominio_landing"]],
+  ["sacale el dominio a la landing", ["quitar_dominio_landing"]],
+  ["ponele el link del VSL a la landing", ["poner_enlace_landing"]],
+  ["poné el enlace de la agenda en la landing", ["poner_enlace_landing"]],
+  ["cambiá el botón de la landing: que diga Quiero mi cupo", ["configurar_boton_landing"]],
+  ["cambia el formulario de la landing: agrega el teléfono", ["configurar_formulario_landing"]],
+  ["duplicá la landing del webinar", ["duplicar_landing"]],
+  ["renombrá la landing del webinar a Webinar octubre", ["renombrar_landing"]],
+  ["mandá la landing vieja a la papelera", ["mandar_landing_a_papelera"]],
+  ["guardá una versión de la landing", ["guardar_version_landing"]],
+  ["volvé la landing a la versión de ayer", ["restaurar_version_landing"]],
+  ["pasame un link privado del borrador de la landing", ["compartir_borrador_landing"]],
+  ["aplicá todos los comentarios del diagnóstico a la landing", ["aplicar_todos_comentarios_landing"]],
+  ["analizá mi landing", ["analizar_landing","diagnosticar_landing_creada"]],
+  ["ponele animación al hero de la landing", ["cambiar_animacion_landing"]],
+  ["cobrá 500 dólares con el botón de la landing", ["cobrar_producto_landing"]],
+  ["agregá una página de gracias al sitio", ["acomodar_pagina_landing"]],
+  ["cambiá la barra de navegación de la landing", ["configurar_navegacion_landing"]],
+];
+
+const ADS: Caso[] = [
+  ["pausá la campaña de remarketing", ["proponer_estado_campana"]],
+  ["pausa la campaña de remarketing", ["proponer_estado_campana"]],
+  ["activá la campaña de remarketing", ["proponer_estado_campana"]],
+  ["activa el conjunto de Buenos Aires", ["proponer_estado_conjunto"]],
+  ["pausá el anuncio ganador", ["proponer_estado_anuncio"]],
+  ["subí el presupuesto de la campaña de remarketing a 50 dólares", ["proponer_presupuesto_campana"]],
+  ["sube el presupuesto de la campaña a 50 dólares", ["proponer_presupuesto_campana"]],
+  ["bajale el presupuesto al conjunto de México a 20", ["proponer_presupuesto_conjunto"]],
+  ["baja el presupuesto del conjunto de México a 20", ["proponer_presupuesto_conjunto"]],
+  ["renombrá la campaña de remarketing a Retargeting", ["proponer_renombrar_campana"]],
+  ["renombra la campaña Black Friday a BF 2026", ["proponer_renombrar_campana"]],
+  ["cambiá el texto del anuncio ganador", ["proponer_editar_textos_anuncio"]],
+  ["cambia el texto del anuncio ganador", ["proponer_editar_textos_anuncio"]],
+  ["eliminá el conjunto pausado de prueba", ["proponer_eliminar_entidad_meta"]],
+  ["elimina el anuncio pausado", ["proponer_eliminar_entidad_meta"]],
+  ["agregá un anuncio al conjunto de Buenos Aires", ["proponer_agregar_anuncio"]],
+  ["agrega un anuncio al conjunto", ["proponer_agregar_anuncio"]],
+  ["editá el público del conjunto de Buenos Aires", ["proponer_editar_publico_conjunto"]],
+  ["creá un público de retargeting de los que vieron el VSL", ["proponer_crear_publico_meta"]],
+  ["crea un público de retargeting", ["proponer_crear_publico_meta"]],
+  ["creá un formulario instantáneo para el webinar", ["proponer_crear_formulario_meta"]],
+  ["crea un formulario instantáneo", ["proponer_crear_formulario_meta"]],
+  ["sincronizá los guiones pendientes", ["proponer_sincronizar_guiones"]],
+  ["volvé a analizar el guion 3", ["proponer_reanalizar_guion"]],
+  ["corregí el ángulo del guion 3", ["proponer_corregir_angulo_guion"]],
+  ["agregá un ángulo al vocabulario: urgencia", ["proponer_agregar_angulo"]],
+  ["borrá el ángulo urgencia del vocabulario", ["proponer_borrar_angulo"]],
+  ["agregá un avatar al vocabulario: mamá emprendedora", ["proponer_agregar_avatar"]],
+  ["¿cómo van las campañas?", ["listar_campanas_meta"]],
+  ["¿qué anuncios fueron rechazados?", ["listar_anuncios_con_problemas_meta"]],
+];
+
 // --- 1. Cada frase medida llega a su operación ------------------------------------------------------------------------------
 
 test('núcleo: 40 pedidos naturales llegan a su operación por la app', () => {
@@ -477,6 +607,21 @@ test('cobros: las 22 frases (tuteo y voseo) llegan a su operación por la app', 
 });
 test('equipo: las 26 frases (tuteo y voseo) llegan a su operación por la app', () => {
   assert.deepEqual(faltan(EQUIPO), []);
+});
+test('negocio: las 26 frases (tuteo y voseo) llegan a su operación por la app', () => {
+  assert.deepEqual(faltan(NEGOCIO), []);
+});
+test('contenido: las 8 frases (tuteo y voseo) llegan a su operación por la app', () => {
+  assert.deepEqual(faltan(CONTENIDO), []);
+});
+test('experimentos: las 10 frases (tuteo y voseo) llegan a su operación por la app', () => {
+  assert.deepEqual(faltan(EXPERIMENTOS), []);
+});
+test('landing: las 39 frases (tuteo y voseo) llegan a su operación por la app', () => {
+  assert.deepEqual(faltan(LANDING), []);
+});
+test('ads: las 30 frases (tuteo y voseo) llegan a su operación por la app', () => {
+  assert.deepEqual(faltan(ADS), []);
 });
 
 // --- 2. WhatsApp sigue anotando ------------------------------------------------------------------------------------------------
@@ -571,7 +716,7 @@ test('si el texto no nombra un área, la operación se busca en todo el registro
   assert.ok(conBusqueda.nombres.length >= sinBusqueda.tools.length);
 });
 
-// Probado rompiéndolo (20/10/2026), una rotura por vez, con todo en verde antes. 43 roturas, cada una con su fallo (29 de la tanda 1, 9 de las 2 y 3 y 5 de la 4):
+// Probado rompiéndolo (20/10/2026), una rotura por vez, con todo en verde antes. 52 roturas, cada una con su fallo (29 de la tanda 1, 9 de las 2 y 3, 5 de la 4, 5 de la 5 y 4 de la 6):
 //   · el default de la app sin actuar · la regla del verbo de hacer · el volcado con verbo que vuelve a anotarse · el link con verbo
 //     que vuelve a ser material · la pregunta que no busca en todo el registro · «llamada Caliente» que vuelve a ser agenda · la
 //     plantilla que no le gana a la agenda · «prueba la automatización» que vuelve a ser saludo · sin la búsqueda en todo el registro ·
@@ -583,4 +728,7 @@ test('si el texto no nombra un área, la operación se busca en todo el registro
 //   Tandas 2 y 3: las familias pasar-tarea, velocidad-video, estrella, dashboard-quitar-componente (y que le gane al lead), contenido-
 //   programado (que le gane a la agenda), creaciones-galería (que le gane a la landing) y «comunidad» con verbos sueltos en la relevancia.
 //   Tanda 4 (Pagos y cuenta): dar-de-baja, rol-equipo (y que le gane al lead) y renombrar-chat (y que le gane a la agenda).
+//   Tanda 5 (Offer, Copywriting, Second Brain, experimentos): catalogo-productos, diagnostico-fase (y que le gane al lead), pasar-guion
+//   y formatos-creativo. Tanda 6 (Web Generator): seccion-landing, enlace-landing, link-privado-landing y que la landing sume las
+//   palabras de la familia a su relevancia. La tanda 7 (Meta Ads) no necesitó filas.
 //   Dos filas (la de «etiqueta» y la de «fathom») no cayeron al romperlas: no hacían falta y se borraron.

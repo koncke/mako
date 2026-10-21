@@ -1184,7 +1184,9 @@ export function clasificarIntencion(
   //        con una orden, y la 6 lo guardaba como material. Y antes de la automatización y de la agenda por lo mismo que
   //        ellas: «¿me puedes publicar la landing?» termina en «?». Lleva el área: «replicá https://…» no la nombra.
   if (pedidoLanding) {
-    return { intencion: 'actuar', dudosa: false, porque: `pedido sobre una landing (${pedidoLanding.tipo})`, areas: ['landing'], relevancia: RELEVANCIA_LANDING[pedidoLanding.tipo] };
+    // En la app, además, las palabras de la operación que la familia del pedido sabe («mover una sección», «el link del VSL»):
+    // 'landings creadas' sola deja a la operación concreta afuera del presupuesto.
+    return { intencion: 'actuar', dudosa: false, porque: `pedido sobre una landing (${pedidoLanding.tipo})`, areas: ['landing'], relevancia: `${RELEVANCIA_LANDING[pedidoLanding.tipo]}${fam?.relevancia ? ` ${fam.relevancia}` : ''}` };
   }
 
   // 6) Solo links, sin una frase que diga qué hacer con ellos. Mandar un link

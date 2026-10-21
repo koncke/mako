@@ -498,4 +498,20 @@ export const BITACORA: Hito[] = [
       'tests/ops-center-clasificador-app.test.ts — 336 frases, 19 tests, 43 roturas con su fallo',
     ],
   },
+  {
+    fecha: '20 oct', hora: '23:40', chat: 'MaKo Alert', sesion: 'local_d3ed9496-3ca1-4037-abc2-a59ce57d3f9d', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: Ops Center 1.2, tandas 5 a 7 — Offer, Copywriting, Second Brain, experimentos, Web Generator y Meta Ads llegan a su operación por la app',
+    revisar: '/admin/operaciones',
+    puntos: [
+      'Misma medición, tuteo y voseo: Offer, Copywriting y Second Brain 24 de 26 y 6 de 8 → 26 y 8; experimentos 10 de 10; Web Generator 35 de 39 → 39; **Meta Ads 30 de 30 sin una fila nueva** (los mapas medían Meta con tuteo en 0 de 18: lo arreglaron el verbo al arranque y la búsqueda en todo el registro, no un detector de Meta).',
+      '⚠️ **El detector de landing dejaba la operación concreta afuera del presupuesto:** devolvía sólo `landings creadas` como relevancia y «mové la sección de precios arriba» o «ponele el link del VSL» no entraban. Ahora suma las palabras de la familia del pedido. Y `etapa` en «guardá el diagnóstico de fase: etapa de validación» lo leía el detector de leads.',
+      '**Sin hacer:** completar `esPedidoDeLanding` (las frases llegan por las familias y la búsqueda, no por ese detector); la batería unificada de los 8 mapas (1.1, Ops Center 3) con las frases de cada chat de área; confirmar D1 con Martín; las 4 operaciones de curso y comunidad que hoy son sólo http (Clients).',
+    ],
+    archivos: [
+      'lib/mako-intencion-app.ts — las filas de las tandas 5 y 6 en FAMILIAS',
+      'lib/mako-intencion.ts — el detector de landing suma las palabras de la familia a su relevancia',
+      'tests/ops-center-clasificador-app.test.ts — 449 frases, 24 tests, 52 roturas con su fallo',
+    ],
+  },
 ];
