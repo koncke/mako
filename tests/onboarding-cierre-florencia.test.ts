@@ -9,7 +9,7 @@
 // ROTURAS (20/10/2026, arnés romper-cierre.js del scratchpad; base 4/0): sinMarca sin «sin dato» → 3/1 · el PDF sin
 // mirar si trae datos → 3/1 · la escalera sin título → 3/1 · el producto con 'unico' fijo → 3/1.
 // Y la revisión de la noche (roturas-noche.json, base 41/0 con la batería de onboarding-cifras-escritas): «con tarjeta»
-// siempre es pago único → 40/1.
+// siempre es pago único → 40/1. Y la tercera (21/10, roturas-tercera.json, base 24/0): «N pagos con tarjeta» es suscripción → 23/1.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -58,6 +58,11 @@ test('cómo cobra sale de lo que dijo del precio', () => {
   assert.deepEqual(cobroDelPrecio('Membresía USD 47 al mes, cobro automático con tarjeta'), { tipo: 'suscripcion', meses: null });
   assert.deepEqual(cobroDelPrecio('6 cuotas mensuales de 150 USD, con tarjeta o transferencia'), { tipo: 'suscripcion', meses: 6 });
   assert.deepEqual(cobroDelPrecio('USD 900 en 3 cuotas con tarjeta'), { tipo: 'unico', meses: null }, 'cuotas de la tarjeta, sin nada mensual');
+  // Las cuotas de la tarjeta se dicen también «pagos» o «mensualidades» (tercera revisión, 21/10: volvían a ser suscripción).
+  for (const p of ['$1.997 en 3 pagos con tarjeta de crédito', '12 pagos fijos con tarjeta', 'pagás en 3 cuotas con la tarjeta', '4 mensualidades con tarjeta']) {
+    assert.deepEqual(cobroDelPrecio(p), { tipo: 'unico', meses: null }, p);
+  }
+  assert.deepEqual(cobroDelPrecio('4 mensualidades'), { tipo: 'suscripcion', meses: 4 }, 'sin tarjeta, las mensualidades son suscripción');
   assert.deepEqual(cobroDelPrecio('Programa de 12 meses, 3.000 USD'), { tipo: 'unico', meses: null }, 'la duración no es el cobro');
   assert.deepEqual(cobroDelPrecio(''), { tipo: 'unico', meses: null });
 });

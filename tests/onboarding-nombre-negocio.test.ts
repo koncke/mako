@@ -17,6 +17,8 @@
 // onboarding-arranque; base 39/0): vuelve el botón del nombre del alta → 34/5 · vuelve el del nombre de la cuenta → 33/6.
 // Y la revisión de la noche (roturas-noche.json, con la batería de tests/onboarding-cifras-escritas.test.ts; base 41/0): un sí
 // con más palabras de acuerdo no es sí → 39/2 · un sí con otra cosa adivina el nombre → 40/1.
+// Y la tercera revisión (21/10, roturas-tercera.json, base 24/0): una palabra de acuerdo reemplaza al nombre → 23/1 · «sisi»
+// no es sí → 23/1.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -83,16 +85,23 @@ test('un sí con más palabras de acuerdo es un sí, y un sí con otra cosa no a
   // La revisión de la noche: «Sí, está bien» se volvía «¿Tu negocio se llama «está bien»?» y el nombre bueno se perdía.
   const guarda = { ok: true, patch: { negocio: 'Florencia Ayelen Carballo', negocioPorConfirmar: undefined } };
   for (const t of ['Sí, está bien', 'Sí, ese es', 'Si, es ese', 'Sí, por favor', 'sí así se llama', 'Correcto, así se llama', 'Siii',
-    'Exactamente', 'Claro que sí', 'Obvio', 'Dale, perfecto', 'Sí, Florencia Ayelen Carballo', 'Sí, tal cual 👍']) {
+    'Exactamente', 'Claro que sí', 'Obvio', 'Dale, perfecto', 'Sí, Florencia Ayelen Carballo', 'Sí, tal cual 👍',
+    // La tercera revisión (21/10): estas proponían «así», «perfecto», «mi negocio», «sisi», «Vale»… y perdían el nombre bueno.
+    'Sí, es así', 'Sí, es perfecto', 'Sí, es exacto', 'Sí, es eso', 'Sí, es el nombre', 'Sí, es mi negocio', 'Sí, mejor así',
+    'Sí, en realidad sí', 'sisi', 'Si es asi', 'Sí, es mi marca personal', 'Vale', 'Listo', 'Ajá', 'Simón', 'Ándale', 'Eso mismo',
+    'es así', 'es ese', 'es mi negocio', 'Sí, mi emprendimiento']) {
     assert.deepEqual(leerRespuesta(PENDIENTE, H, { texto: t }), guarda, `«${t}»`);
   }
   for (const t of ['No, lo escribo de nuevo', 'No, gracias', 'Nop', 'No es ese']) {
     assert.deepEqual(leerRespuesta(PENDIENTE, H, { texto: t }), { ok: true, patch: { negocioPorConfirmar: undefined } }, `«${t}»`);
   }
-  // Un sí con algo que no es acuerdo ni un nombre presentado: se pregunta de nuevo y NO se pierde lo pendiente.
-  const duda = leerRespuesta(PENDIENTE, H, { texto: 'Sí, mi emprendimiento' });
-  assert.equal(duda.ok, false);
-  assert.match(duda.ok ? '' : duda.error, /¿Tu negocio se llama «Florencia Ayelen Carballo»\? Dime sí o no, o escribe el nombre\./);
+  // Un sí con algo que no es acuerdo ni un nombre presentado: se pregunta de nuevo y NO se pierde lo pendiente. Y nunca una
+  // palabra de acuerdo reemplaza al nombre («No, está bien» no propone «está bien»).
+  for (const t of ['Sí, Acme también', 'No, está bien', 'No, perfecto']) {
+    const duda = leerRespuesta(PENDIENTE, H, { texto: t });
+    assert.equal(duda.ok, false, `«${t}»`);
+    assert.match(duda.ok ? '' : duda.error, /¿Tu negocio se llama «Florencia Ayelen Carballo»\? Dime sí o no, o escribe el nombre\./);
+  }
   // «No, Acme» y «Sí, pero es Acme»: el nombre nuevo, que se vuelve a confirmar.
   assert.deepEqual(leerRespuesta(PENDIENTE, H, { texto: 'No, Acme Estudio' }), { ok: true, patch: { negocioPorConfirmar: { escrito: 'No, Acme Estudio', nombre: 'Acme Estudio' } } });
   assert.deepEqual(leerRespuesta(PENDIENTE, H, { texto: 'Sí, pero es Acme' }), { ok: true, patch: { negocioPorConfirmar: { escrito: 'Sí, pero es Acme', nombre: 'Acme' } } });

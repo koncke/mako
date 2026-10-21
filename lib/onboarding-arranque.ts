@@ -55,10 +55,15 @@ export type EstadoArranque = {
    *  «mi marca personal: Florencia Ayelen Carballo» se escribió tal cual en el ws, el CRM, el producto y el PDF). `escrito`
    *  es lo que puso la persona. */
   negocioPorConfirmar?: { escrito: string; nombre: string };
-  /** Lo que ESCRIBIÓ en una pregunta con opciones, por id de la pregunta ('canal', 'cuello', 'interes'…): se tomó la opción
-   *  más parecida (`opcionMasCercana`) y se le dijo «Lo tomé como: …» (20/10/2026, Florencia: «no te deja escribir cuando te
-   *  da las opciones»). Queda dibujado como su respuesta, y así llega al chat «Onboarding». */
+  /** Lo que ESCRIBIÓ en una pregunta con opciones, por id de la pregunta ('canal', 'cuello', 'interes'…), cuando lo
+   *  CONFIRMÓ con «Sí, es eso» (20/10/2026, Florencia: «no te deja escribir cuando te da las opciones»). Queda dibujado
+   *  como su respuesta, con el «Entendí» y su sí, y así llega al chat «Onboarding». */
   escritas?: Record<string, string>;
+  /** Lo ESCRITO en una pregunta con opciones (la fase, el canal, el interés) que se ENTENDIÓ como una opción y espera el
+   *  toque que lo confirma (21/10/2026, Cerebro: tres rondas de reglas para leer frases abrieron agujeros nuevos cada vez,
+   *  y cada uno guardaba un dato malo en silencio). Nada escrito se guarda sin ese toque (`elegirOpcion`). `id` es el de la
+   *  pregunta ('canal', 'cuello', 'interes'…) y `opcion`, el índice de la opción ORIGINAL. */
+  opcionPorConfirmar?: { id: string; opcion: number; escrito: string };
   /** «¿Cómo llegaste a MaKo?»: una opción de `ORIGENES` o lo que escribió (17/10/2026). */
   origen?: string;
   /** «¿Qué quieres que MaKo resuelva primero?» (modo 'oferta'): decide a qué pestaña entra al terminar. */
@@ -282,15 +287,22 @@ export function rutaDeEntrada(interes: InteresId | undefined): string {
 
 /** El interés de una respuesta: la opción tal cual, o lo escrito por sus palabras («los anuncios», «el WhatsApp»). */
 export function interesDe(texto: string): InteresId | null {
-  const t = (texto || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
-  if (!t) return null;
-  const exacto = INTERESES.find((i) => i.label.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase() === t);
+  const crudo = (texto || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
+  if (!crudo) return null;
+  const exacto = INTERESES.find((i) => i.label.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase() === crudo);
   if (exacto) return exacto.id;
-  if (/anuncio|publicidad|\bads\b|meta|campan|conseguir/.test(t)) return 'anuncios';
-  if (/whats|wsp|wpp|mensaje|responda|chat/.test(t)) return 'whatsapp';
-  if (/venta|seguimiento|\bcrm\b|lead|cliente/.test(t)) return 'ventas';
-  if (/plan|equipo|tarea|organiz/.test(t)) return 'organizar';
-  return null;
+  // Sin lo negado, como el canal (tercera revisión, 21/10: «no quiero anuncios, quiero ordenar mis ventas» era 'anuncios'),
+  // y con un solo interés: con dos a la vez decide la opción más parecida, y siempre se confirma con un toque.
+  const t = crudo.replace(/\b(?:no|nunca|sin|ni)\s+(?:(?:me|te|nos|quiero|interesan?|necesito|busco)\s+)*(?:los?\s+|las?\s+|el\s+)?\S+/g, ' ')
+    .replace(/\b\S+\s+no\b/g, ' ');
+  const hay = ([
+    ['anuncios', /anuncio|publicidad|\bads\b|meta|campan|conseguir/],
+    ['whatsapp', /whats|wsp|wpp|mensaje|responda|chat/],
+    // Sin «cliente»: «conseguir clientes» es la de los anuncios, y con las dos no decidía ninguna.
+    ['ventas', /venta|seguimiento|\bcrm\b|lead/],
+    ['organizar', /plan|equipo|tarea|organiz/],
+  ] as Array<[InteresId, RegExp]>).filter(([, re]) => re.test(t)).map(([id]) => id);
+  return hay.length === 1 ? hay[0] : null;
 }
 
 const PALABRAS_VACIAS = new Set(['que', 'los', 'las', 'del', 'con', 'por', 'para', 'una', 'uno', 'unos', 'mis', 'sus', 'pero', 'cuando', 'como', 'mas', 'muy', 'ese', 'esa', 'eso', 'esto', 'esta', 'son', 'sin', 'hoy', 'todo', 'toda', 'nada', 'solo', 'sola', 'algo']);
@@ -316,20 +328,23 @@ const palabrasDe = (t: string): string[] => {
 
 /**
  * La opción más parecida a lo que escribió, por las palabras que comparten (20/10/2026, Florencia: «vendo cuando empujo yo,
- * pero va cambiando» no se aceptaba en «¿Cuál es tu mayor cuello de botella?»). Una palabra negada compartida vale DOBLE:
- * «no cierran» dice más que «leads». null si no comparte ninguna o si dos empatan: ahí se pide de nuevo, porque el
- * diagnóstico se calcula por la opción (antes el empate lo ganaba la primera).
+ * pero va cambiando» no se aceptaba en «¿Cuál es tu mayor cuello de botella?»). Hace falta EVIDENCIA: `minimo` palabras en
+ * común (dos, salvo opciones sin vocabulario compartido), o una negada en común («no cierran» con el «no cierran» de la opción). Con una sola palabra suelta («leads») o con un
+ * empate, null: se muestran las opciones. Sin pesos dobles (21/10/2026, tercera revisión: lo negado valiendo doble pisaba
+ * el contenido, «interesados pero no compran» caía en «no me compra»). Igual, lo que devuelve se CONFIRMA (`elegirOpcion`).
  */
-export function opcionMasCercana(texto: string, opciones: readonly string[]): number | null {
+export function opcionMasCercana(texto: string, opciones: readonly string[], minimo = 2): number | null {
   const mias = new Set(palabrasDe(texto));
   let mejor = -1;
   let puntos = 0;
+  let negada = false;
   let empate = false;
   opciones.forEach((o, i) => {
-    const p = [...new Set(palabrasDe(o))].filter((w) => mias.has(w)).reduce((s, w) => s + (w.startsWith('!') ? 2 : 1), 0);
-    if (p > puntos) { puntos = p; mejor = i; empate = false; } else if (p > 0 && p === puntos) empate = true;
+    const comunes = [...new Set(palabrasDe(o))].filter((w) => mias.has(w));
+    const p = comunes.length;
+    if (p > puntos) { puntos = p; mejor = i; empate = false; negada = comunes.some((w) => w.startsWith('!')); } else if (p > 0 && p === puntos) empate = true;
   });
-  return puntos > 0 && !empate ? mejor : null;
+  return !empate && puntos > 0 && (puntos >= minimo || negada) ? mejor : null;
 }
 
 // ── Las cifras escritas ─────────────────────────────────────────────────────
@@ -422,10 +437,11 @@ type Numero = { valor: number; crudo: number; por: number; marcado: boolean; ini
 function numerosDe(texto: string): { t: string; ns: Numero[] } {
   const t = conNumerosEnLetras(normal(texto));
   const ns: Numero[] = [];
-  const re = /(\$|us\$|usd\s*)?(\d+(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)(?:\s*(millon(?:es)?\b|palos?\b|mil(?:es)?\b|lucas?\b|k\b|m\b))?(\s*(?:usd|us\$|dolares|dls|pesos|euros|mxn|ars|cop|clp)\b)?/g;
+  // El espacio también separa miles («15 000», la norma de la RAE; tercera revisión: «15 000 euros» se leía como 0).
+  const re = /(\$|us\$|usd\s*)?(\d{1,3}(?:[.,]\d{3})+(?!\d)|\d{1,3}(?: \d{3})+(?![\d.,])|\d+(?:[.,]\d+)?)(?:\s*(millon(?:es)?\b|palos?\b|mil(?:es)?\b|lucas?\b|k\b|m\b))?(\s*(?:usd|us\$|dolares|dls|pesos|euros|mxn|ars|cop|clp)\b)?/g;
   for (const m of t.matchAll(re)) {
-    const conMiles = /^\d+(?:[.,]\d{3})+$/.test(m[2]);
-    const crudo = conMiles ? Number(m[2].replace(/[.,]/g, '')) : Number(m[2].replace(',', '.'));
+    const conMiles = /^\d{1,3}(?:[., ]\d{3})+$/.test(m[2]);
+    const crudo = conMiles ? Number(m[2].replace(/[., ]/g, '')) : Number(m[2].replace(',', '.'));
     if (!Number.isFinite(crudo)) continue;
     // «millón» antes que «mil»: con `startsWith('mil')` «2 millones» valía 2.000 (revisión del Cerebro, 20/10 noche).
     const por = !m[3] ? 1 : /^(?:millon|palo|m$)/.test(m[3]) ? 1_000_000 : 1_000;
@@ -437,37 +453,52 @@ function numerosDe(texto: string): { t: string; ns: Numero[] } {
 
 /** Lo que puede haber entre las dos puntas de un rango: «30 y 50», «de 30 a 50», «30-50», «$10.000 - $30.000», «hasta». */
 const ENTRE_PUNTAS = /^\s*(?:y|a|al|-|–|—|hasta|o)\s*(?:\$|us\$|usd)?\s*$/;
+/** Lo que cuenta cosas que no son plata: detrás de una cifra, no es la punta de un rango de plata («15 mil y 4 clientes»). */
+const COSAS_CONTADAS = /^\s*(?:clientes?|alumnos?|empleados?|personas?|pacientes?|ventas?|cursos?|productos?|servicios?|unidades?|llamadas?|leads?|horas?|dias?|semanas?|meses|anos?)\b/;
+/** Lo que no es una cifra aunque lo parezca: «treinta y pico mil», «veintitantos», «cinco cifras» (tercera revisión). */
+const CIFRA_VAGA = /\bpico\b|tantos\b|\bcifras\b/;
 
 /**
  * La cifra de una respuesta escrita a una pregunta de cifras («Facturo 15.000 al mes», «entre 30 y 50 mil», «más de
- * 80.000», «cincuenta lucas», «$20 por día», «nada»). Un rango vale su medio, y sus dos puntas comparten el multiplicador
- * («entre 30 y 50 mil» es de 30.000 a 50.000). Con varias cifras sueltas («15 mil y tengo 4 clientes») vale la única con
- * plata o magnitud; si hay más de una, null: se vuelve a preguntar. «Más de» y «menos de» corren un poco; lo diario, lo
- * semanal y lo anual se pasan a mes. null si no dice ninguna.
+ * 80.000», «cincuenta mil», «$20 por día», «nada»). Un rango vale su medio, y sus dos puntas comparten el multiplicador
+ * («entre 30 y 50 mil» es de 30.000 a 50.000), pero no es rango si la segunda punta baja o cuenta otra cosa («15 mil y 4
+ * clientes»). Con varias cifras sueltas vale la única con plata o magnitud; si hay más de una, o si la elegida es un precio
+ * unitario («10 ventas de 2 mil»), null. Lo diario, lo semanal y lo anual se pasan a mes sólo si van PEGADOS a la cifra y el
+ * texto no dice «mes» («40 mil al mes, trabajo 3 días a la semana» son 40.000). null si no dice una cifra clara. Lo que
+ * devuelve igual se CONFIRMA con un toque (`elegirOpcion`).
  */
 export function cifraDe(texto: string): number | null {
   const { t, ns } = numerosDe(texto);
+  if (CIFRA_VAGA.test(t)) return null;
   if (!ns.length) return /^(?:nada|cero|ningun[oa]|todavia (?:nada|no)|no (?:facturo|invierto|saco|tengo|hago)\b)/.test(t.trim()) ? 0 : null;
-  const grupos: Array<{ valor: number; marcado: boolean }> = [];
+  const grupos: Array<{ valor: number; marcado: boolean; inicio: number; fin: number }> = [];
   for (let k = 0; k < ns.length; k += 1) {
     const a = ns[k];
     const b = ns[k + 1];
-    if (b && ENTRE_PUNTAS.test(t.slice(a.fin, b.inicio))) {
+    if (b && ENTRE_PUNTAS.test(t.slice(a.fin, b.inicio)) && !COSAS_CONTADAS.test(t.slice(b.fin))) {
       const va = a.por === 1 && b.por > 1 && a.crudo < b.crudo ? a.crudo * b.por : a.valor;
       const vb = b.por === 1 && a.por > 1 && b.crudo > a.crudo && b.crudo < 1_000 ? b.crudo * a.por : b.valor;
-      grupos.push({ valor: (va + vb) / 2, marcado: a.marcado || b.marcado });
-      k += 1;
-    } else grupos.push({ valor: a.valor, marcado: a.marcado });
+      if (vb >= va) {
+        grupos.push({ valor: (va + vb) / 2, marcado: a.marcado || b.marcado, inicio: a.inicio, fin: b.fin });
+        k += 1;
+        continue;
+      }
+    }
+    grupos.push({ valor: a.valor, marcado: a.marcado, inicio: a.inicio, fin: a.fin });
   }
   const marcados = grupos.filter((g) => g.marcado);
   const g = grupos.length === 1 ? grupos[0] : marcados.length === 1 ? marcados[0] : null;
   if (!g) return null;
+  // Con otra cifra al lado, la elegida detrás de «de» o «a» es un precio por unidad: el total no se adivina.
+  if (grupos.length > 1 && /\b(?:de|a|por)\s*$/.test(t.slice(0, g.inicio))) return null;
   let v = g.valor;
   if (/\bmas de\b|\barriba de\b|\bpor encima de\b/.test(t)) v += 1;
   if (/\bmenos de\b|\bdebajo de\b/.test(t)) v = Math.max(0, v - 1);
-  if (/\b(?:por|al|x|cada) dia\b|\bdiari[oa]s?\b|\bdiariamente\b/.test(t)) v *= 30;
-  else if (/\b(?:por|a la|x|cada|en la) semana\b|\bsemanal(?:es|mente)?\b/.test(t)) v *= 4.3;
-  else if (/\b(?:por|al|x|cada|en el) ano\b|\banual(?:es|mente)?\b/.test(t) && !/\bmes(?:es)?\b|\bmensual/.test(t)) v /= 12;
+  const pegado = t.slice(g.fin).split(/[,;]|\.\s/)[0].trim().split(/\s+/).slice(0, 5).join(' ');
+  const dichoPorMes = /\bmes(?:es)?\b|\bmensual/.test(t);
+  if (!dichoPorMes && /\b(?:por|al|x|cada) dia\b|\bdiari[oa]s?\b|\bdiariamente\b/.test(pegado)) v *= 30;
+  else if (!dichoPorMes && /\b(?:por|a la|x|cada|en la) semana\b|\bsemanal(?:es|mente)?\b/.test(pegado)) v *= 4.3;
+  else if (!dichoPorMes && /\b(?:por|al|x|cada|en el) ano\b|\banual(?:es|mente)?\b/.test(pegado)) v /= 12;
   return v;
 }
 
@@ -503,10 +534,11 @@ export function tramoDe(texto: string, opciones: readonly string[]): number | nu
 /** El canal por sus palabras de siempre, sin lo negado: «vendo todo por WhatsApp» es «Conversaciones por chat». */
 const PALABRAS_DE_CANAL: Array<[CanalId, RegExp]> = [
   // Sin «directo» suelto (revisión del Cerebro, 20/10 noche): «me compran directo en la web» es carrito, no chat. El «mensaje
-  // directo» ya entra por «mensaje».
-  ['conversaciones', /\b(?:whats?app|wsp|wpp|whats|dm|dms|chat|chats|mensajes?|instagram|insta|inbox|messenger)\b/],
-  ['llamadas', /\b(?:llamadas?|zoom|meet|videollamadas?|telefono|telefonica|call)\b/],
-  ['carrito', /\b(?:carrito|checkout|tienda|ecommerce|e-commerce|hotmart|shopify|pagina de pago|compran solos?|web|pagina|sitio|link de pago)\b/],
+  // directo» ya entra por «mensaje». Y «web», «página» o «sitio» SOLOS no deciden (tercera revisión, 21/10): «entran a la web
+  // y me agendan» es llamada y «me escriben desde mi página», chat. La web es carrito sólo si ahí compran o pagan.
+  ['conversaciones', /\b(?:whats?app|wsp|wpp|whats|dm|dms|chat|chats|mensajes?|instagram|insta|inbox|messenger|escriben|me escribe)\b/],
+  ['llamadas', /\b(?:llam\w*|zoom|meet|videollamadas?|telefono|telefonica|call|agend\w*|reunion(?:es)?|calendly)\b/],
+  ['carrito', /\b(?:carrito|checkout|tienda|ecommerce|e-commerce|hotmart|shopify|pagina de pago|link de pago|compran solos?)\b|\b(?:compran|pagan|comprar|pagar)\b[^.,;]{0,20}\b(?:web|pagina|sitio|online|link)\b/],
   ['webinar', /\b(?:webinars?|masterclass|clase en vivo|en vivo|live)\b/],
   ['presencial', /\b(?:presencial|local|taller|consultorio|en persona|oficina)\b/],
 ];
@@ -517,10 +549,80 @@ export function canalDeTexto(texto: string): CanalId | null {
   return hay.length === 1 ? hay[0] : null;
 }
 
-/** El «Lo tomé como: …» después de una respuesta escrita con otras palabras. */
-const tomeComo = (id: string, opcion: string): MensajeArranque => ({ id: `arr-${id}-tome`, de: 'mako', texto: `Lo tomé como: «${opcion}».` });
-
 export const NO_ENTENDI_OPCION = 'No te entendí: elige una de las opciones o dímelo con otras palabras.';
+
+// ── Lo escrito en una pregunta con opciones: se confirma con un toque ───────
+// 21/10/2026, Cerebro, después de tres revisiones: cada ronda de reglas para leer frases («2 millones», «no cierran», «la
+// web», «sí, es así») cerró los casos de la anterior y abrió otros, y cada error guardaba un dato malo en el diagnóstico
+// con un «Lo tomé como» que no dejaba corregir. Ahora lo escrito se LEE, se muestra lo entendido y se guarda recién con el
+// toque: un error de lectura cuesta un clic, no un dato malo. Como el nombre del negocio.
+
+/** El botón que confirma lo entendido. Las otras opciones van al lado, para corregir con un toque. */
+export const SI_ES_ESO = 'Sí, es eso';
+/** Con una moneda que no es el dólar, la cifra no se ubica en un tramo (que son en dólares): se pregunta en dólares. */
+export const EN_DOLARES = 'En pesos no lo puedo ubicar: ¿cuánto es más o menos en dólares? Elige una de las opciones.';
+const entendi = (opcion: string): string => `Entendí: «${opcion}». ¿Es así?`;
+const opcionesParaConfirmar = (opciones: readonly string[], i: number): string[] => [SI_ES_ESO, ...opciones.filter((_, k) => k !== i)];
+
+/**
+ * Una pregunta con opciones: contestada (con lo escrito, su «Entendí» y su sí, si lo escribió), esperando el toque que
+ * confirma lo escrito, o abierta. Devuelve true si todavía no tiene respuesta.
+ */
+function preguntarConOpciones(lista: MensajeArranque[], preguntar: Preguntar, e: EstadoArranque, ids: { msg: string; pregunta: string },
+  texto: string, opciones: readonly string[], elegida: number | undefined): boolean {
+  if (elegida !== undefined) {
+    const escrita = e.escritas?.[ids.pregunta];
+    preguntar(lista, ids.msg, texto, escrita ?? opciones[elegida], [...opciones]);
+    if (escrita) preguntar(lista, `${ids.msg}-ok`, entendi(opciones[elegida]), SI_ES_ESO);
+    return false;
+  }
+  const pend = e.opcionPorConfirmar?.id === ids.pregunta && opciones[e.opcionPorConfirmar.opcion] !== undefined ? e.opcionPorConfirmar : undefined;
+  preguntar(lista, ids.msg, texto, pend?.escrito, [...opciones]);
+  if (pend) preguntar(lista, `${ids.msg}-ok`, entendi(opciones[pend.opcion]), undefined, opcionesParaConfirmar(opciones, pend.opcion));
+  return true;
+}
+
+type Eleccion =
+  | { tipo: 'guarda'; idx: number; escrito?: string }
+  | { tipo: 'confirmar'; idx: number; escrito: string }
+  | { tipo: 'otra-vez' }
+  | { tipo: 'error'; error: string };
+
+/**
+ * Lo que vale de una respuesta a una pregunta con opciones. Una opción TOCADA (o escrita tal cual) se guarda. Lo ESCRITO con
+ * otras palabras NUNCA se guarda en silencio: se lee con `leer` y pide el toque; se guarda recién con «Sí, es eso» (o un sí
+ * escrito) o con otra opción tocada. Un no vuelve a la pregunta. Sin una lectura clara, un error y las opciones a la vista.
+ * `leer` devuelve el índice de la opción, null (no se entendió) o un texto (el error que se le dice).
+ */
+function elegirOpcion(texto: string, opcion: string | undefined, opciones: readonly string[],
+  pend: { opcion: number; escrito: string } | undefined, leer: (t: string) => number | string | null): Eleccion {
+  if (pend && (opcion === SI_ES_ESO || (opcion === undefined && siONo(texto) === 'si'))) return { tipo: 'guarda', idx: pend.opcion, escrito: pend.escrito };
+  const exacta = opcion !== undefined ? opciones.indexOf(opcion) : opciones.findIndex((o) => normal(o).trim() === normal(texto).trim());
+  if (exacta >= 0) return { tipo: 'guarda', idx: exacta };
+  if (opcion !== undefined) return { tipo: 'error', error: NO_ENTENDI_OPCION };
+  if (pend && siONo(texto) === 'no') return { tipo: 'otra-vez' };
+  const r = leer(texto);
+  if (typeof r === 'string') return { tipo: 'error', error: r };
+  if (r == null || r < 0 || r >= opciones.length) return { tipo: 'error', error: NO_ENTENDI_OPCION };
+  return { tipo: 'confirmar', idx: r, escrito: texto };
+}
+
+/** Lo que cambia en el estado al GUARDAR una opción: se va lo pendiente, y lo escrito queda sólo si lo confirmó. */
+function alGuardarOpcion(e: EstadoArranque, id: string, escrito: string | undefined): Partial<EstadoArranque> {
+  const out: Partial<EstadoArranque> = e.opcionPorConfirmar ? { opcionPorConfirmar: undefined } : {};
+  if (escrito) return { ...out, escritas: { ...e.escritas, [id]: escrito } };
+  if (e.escritas?.[id] === undefined) return out;
+  const resto = { ...e.escritas };
+  delete resto[id];
+  return { ...out, escritas: Object.keys(resto).length ? resto : undefined };
+}
+
+/** ¿La cifra es en una moneda que no es el dólar (pesos, «lucas», «palos»)? Los tramos son en dólares. */
+export function monedaLocal(texto: string): boolean {
+  const t = normal(texto);
+  if (/usd|us\$|u\$s|dolar|\bdls\b|\bverdes\b|euro/.test(t)) return false;
+  return /\b(?:pesos?|ars|mxn|cop|clp|pen|soles|bolivianos|guaranies|quetzales|lempiras|colones|lucas?|palos?|mangos?)\b/.test(t);
+}
 
 /** El primer nombre, para saludar y ofrecerlo: «Martín Koncke» → «Martín». */
 export function primerNombre(nombre: string): string {
@@ -603,12 +705,16 @@ const RE_MI_NOMBRE = new RegExp([
 export const NEGOCIO_CONFIRMAR = ['Sí, se llama así', 'No, lo escribo de nuevo'] as const;
 
 /** Lo que dice que sí, solo o en fila («Sí, está bien», «Correcto, así se llama», «Siii», «Claro que sí»). Sin tildes. */
+// Con la tercera revisión (21/10): «Sí, es así», «sisi», «Vale», «Listo», «Ajá», «Simón», «Ándale», «Eso mismo», «es mi
+// negocio» o «es mi marca personal» también son un sí al nombre que espera; antes se volvían el nombre propuesto.
 const DICE_SI = [
-  's+i+', 'sip', 'claro', 'claro que si', 'correcto', 'es correcto', 'exacto', 'exactamente', 'asi es', 'asi', 'eso', 'eso es',
-  'ese', 'esa', 'ese es', 'esa es', 'es ese', 'es esa', 'ese mismo', 'esa misma', 'el mismo', 'dale', 'ok', 'okay', 'okey',
-  'oki', 'perfecto', 'esta bien', 'esta perfecto', 'de acuerdo', 'de una', 'obvio', 'por supuesto', 'por favor', 'gracias',
-  'tal cual', 'asi se llama', 'se llama asi', 'confirmo', 'afirmativo', 'va', 'sale', 'genial', 'bien', 'muy bien',
-  '👍', '✅', '👌', '🙌',
+  '(?:s+i+)+', 'sip', 'claro', 'claro que si', 'correcto', 'es correcto', 'exacto', 'exactamente', 'asi es', 'asi', 'eso',
+  'eso es', 'eso mismo', 'asi mismo', 'ese', 'esa', 'ese es', 'esa es', 'es ese', 'es esa', 'ese mismo', 'esa misma', 'el mismo',
+  'es', 'es asi', 'es eso', 'es exacto', 'es perfecto', 'mejor asi', 'en realidad si', 'dale', 'ok', 'okay', 'okey', 'oki',
+  'perfecto', 'esta bien', 'esta perfecto', 'de acuerdo', 'de una', 'obvio', 'por supuesto', 'por favor', 'gracias',
+  'tal cual', 'asi se llama', 'se llama asi', 'confirmo', 'afirmativo', 'va', 'sale', 'genial', 'bien', 'muy bien', 'vale',
+  'venga', 'listo', 'aja', 'simon', 'andale', 'orale', 'el nombre', 'ese nombre', 'mi negocio', 'mi emprendimiento',
+  'mi marca', 'mi marca personal', '👍', '✅', '👌', '🙌',
 ];
 /** Lo que dice que no. Detrás puede venir «gracias», «ese no» o el texto del botón («No, lo escribo de nuevo»). */
 const DICE_NO = ['no+', 'nop', 'nope', 'incorrecto', 'para nada', 'no es asi', 'no es', 'no se llama asi', 'esta mal', 'negativo', 'nada que ver', '👎'];
@@ -787,10 +893,9 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
     preguntar(lista, 'origen', `¿Cómo llegaste a MaKo, ${nombre}?`, e.origen, [...ORIGENES]);
     if (etapa === 'origen') return true;
     if (h.modo === 'oferta') {
-      const interes = INTERESES.find((i) => i.id === e.interes)?.label;
-      const escritaInteres = interes ? e.escritas?.interes : undefined;
-      preguntar(lista, 'interes', '¿Qué te gustaría que MaKo resuelva primero?', escritaInteres ?? interes, INTERESES.map((i) => i.label));
-      if (escritaInteres && interes) lista.push(tomeComo('interes', interes));
+      const elegido = INTERESES.findIndex((i) => i.id === e.interes);
+      preguntarConOpciones(lista, preguntar, e, { msg: 'interes', pregunta: 'interes' }, '¿Qué te gustaría que MaKo resuelva primero?',
+        INTERESES.map((i) => i.label), elegido >= 0 ? elegido : undefined);
       if (etapa === 'interes') return true;
     }
     return false;
@@ -858,19 +963,13 @@ function preguntarFase(lista: MensajeArranque[], e: EstadoArranque, preguntar: P
   for (let i = 0; i < PREGUNTAS.length; i++) {
     if (PREGUNTAS[i].id === 'volumen' && !o.canalYaDicho) {
       const c = textoPreguntaFase({ tipo: 'canal' }, e.canal);
-      const elegido = e.canal ? CANALES.find((x) => x.id === e.canal)?.label : undefined;
-      const escritaCanal = elegido ? e.escritas?.canal : undefined;
-      preguntar(lista, 'fase-canal', c.texto, escritaCanal ?? elegido, c.opciones);
-      if (escritaCanal && elegido) lista.push(tomeComo('fase-canal', elegido));
-      if (!e.canal) return true;
+      const elegido = e.canal ? CANALES.findIndex((x) => x.id === e.canal) : -1;
+      if (preguntarConOpciones(lista, preguntar, e, { msg: 'fase-canal', pregunta: 'canal' }, c.texto, c.opciones, elegido >= 0 ? elegido : undefined)) return true;
     }
     if (o.yaContestada?.(PREGUNTAS[i].id)) continue;
     const q = textoPreguntaFase({ tipo: 'pregunta', idx: i }, e.canal);
-    const r = contestada(resp[i]) ? q.opciones[resp[i]] : undefined;
-    const escrita = r !== undefined ? e.escritas?.[PREGUNTAS[i].id] : undefined;
-    preguntar(lista, `fase-${i}`, q.texto, escrita ?? r, q.opciones);
-    if (escrita && r !== undefined) lista.push(tomeComo(`fase-${i}`, r));
-    if (r === undefined) return true;
+    const elegida = contestada(resp[i]) && q.opciones[resp[i]] !== undefined ? resp[i] : undefined;
+    if (preguntarConOpciones(lista, preguntar, e, { msg: `fase-${i}`, pregunta: PREGUNTAS[i].id }, q.texto, q.opciones, elegida)) return true;
   }
   return false;
 }
@@ -955,10 +1054,15 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
       if (esSi && !conPero && !/^(?:se llama|es|el nombre es|mejor|en realidad)\s/i.test(resto)) {
         return { ok: false, error: `¿Tu negocio se llama «${pendiente.nombre}»? Dime sí o no, o escribe el nombre.` };
       }
-      otro = resto;
+      otro = resto.replace(/^(?:mejor|en realidad)\s+/i, '');
     }
     const nombre = leerNegocio(otro, persona);
     if (!nombre) return { ok: false, error: '¿Cómo se llama tu negocio? Si usas tu nombre, escríbelo.' };
+    // NUNCA una palabra de acuerdo reemplaza al nombre que espera (tercera revisión, 21/10: «Sí, es así» proponía «así», y
+    // «No, está bien», «está bien»): se pregunta de nuevo y el pendiente queda.
+    if (pendiente && (siONo(otro) !== null || siONo(nombre) !== null)) {
+      return { ok: false, error: `¿Tu negocio se llama «${pendiente.nombre}»? Dime sí o no, o escribe el nombre.` };
+    }
     return { ok: true, patch: { negocioPorConfirmar: { escrito: texto, nombre } } };
   }
   if (etapa === 'pdf') {
@@ -975,11 +1079,17 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
     return { ok: true, patch: { origen: texto } };
   }
   if (etapa === 'interes') {
-    const cercana = opcionMasCercana(texto, INTERESES.map((i) => i.label));
-    const interes = interesDe(texto) ?? (cercana != null ? INTERESES[cercana].id : null);
-    if (!interes) return { ok: false, error: NO_ENTENDI_OPCION };
-    const escrita = opcion === undefined && !INTERESES.some((i) => i.label === texto);
-    return { ok: true, patch: { interes, ...(escrita ? { escritas: { ...e.escritas, interes: texto } } : {}) } };
+    const labels = INTERESES.map((i) => i.label);
+    const pend = e.opcionPorConfirmar?.id === 'interes' ? e.opcionPorConfirmar : undefined;
+    const el = elegirOpcion(texto, opcion, labels, pend, (t) => {
+      const id = interesDe(t);
+      // Las cuatro no comparten palabras: una en común alcanza para proponerla (y se confirma igual).
+      return id ? INTERESES.findIndex((i) => i.id === id) : opcionMasCercana(t, labels, 1);
+    });
+    if (el.tipo === 'error') return { ok: false, error: el.error };
+    if (el.tipo === 'otra-vez') return { ok: true, patch: { opcionPorConfirmar: undefined } };
+    if (el.tipo === 'confirmar') return { ok: true, patch: { opcionPorConfirmar: { id: 'interes', opcion: el.idx, escrito: el.escrito } } };
+    return { ok: true, patch: { interes: INTERESES[el.idx].id, ...alGuardarOpcion(e, 'interes', el.escrito) } };
   }
   if (etapa === 'objetivo' || etapa === 'que_hace') {
     if (!texto) return { ok: false, error: 'Escríbeme tu respuesta.' };
@@ -991,17 +1101,23 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
     const p = siguientePreguntaFase(ef);
     if (!p) return { ok: false, error: 'El diagnóstico ya está completo.' };
     const { opciones } = textoPreguntaFase(p, ef.canal);
-    // Sólo con una opción: el diagnóstico se CALCULA (lib/fase-diagnostico.ts) y una respuesta libre no
-    // tiene índice. Se acepta el texto si es exactamente una opción.
-    const exacta = Number.isInteger(r.opcion) ? (r.opcion as number) : opciones.findIndex((o) => o.toLowerCase() === texto.toLowerCase());
-    // Lo escrito con otras palabras vale (20/10/2026, Florencia), y lo que escribió queda guardado. El canal por sus palabras
-    // de siempre, una cifra por su TRAMO, y lo demás por la opción más parecida (revisión del Cerebro, 20/10).
-    const escrita = p.tipo === 'canal'
-      ? CANALES.findIndex((c) => c.id === canalDeTexto(texto))
-      : tramosDe(opciones) ? tramoDe(texto, opciones) ?? -1 : opcionMasCercana(texto, opciones) ?? -1;
-    const idx = exacta >= 0 ? exacta : escrita;
-    if (!(idx >= 0 && idx < opciones.length)) return { ok: false, error: NO_ENTENDI_OPCION };
-    const escritas = exacta < 0 ? { escritas: { ...e.escritas, [p.tipo === 'canal' ? 'canal' : PREGUNTAS[p.idx].id]: texto } } : {};
+    // El diagnóstico se CALCULA por el índice de cada opción (lib/fase-diagnostico.ts). Lo escrito con otras palabras se
+    // entiende (20/10/2026, Florencia: «no te deja escribir cuando te da las opciones») —el canal por sus palabras, una
+    // cifra por su TRAMO, lo demás por la opción más parecida— pero NUNCA se guarda sin el toque que lo confirma
+    // (`elegirOpcion`, 21/10/2026, Cerebro). Una cifra en pesos no se ubica: los tramos son en dólares.
+    const id = p.tipo === 'canal' ? 'canal' : PREGUNTAS[p.idx].id;
+    const pend = e.opcionPorConfirmar?.id === id ? e.opcionPorConfirmar : undefined;
+    const tramos = p.tipo === 'pregunta' && !!tramosDe(opciones);
+    const el = elegirOpcion(texto, opcion, opciones, pend, (t) => {
+      if (p.tipo === 'canal') return CANALES.findIndex((c) => c.id === canalDeTexto(t));
+      if (tramos) return monedaLocal(t) ? EN_DOLARES : tramoDe(t, opciones);
+      return opcionMasCercana(t, opciones);
+    });
+    if (el.tipo === 'error') return { ok: false, error: el.error };
+    if (el.tipo === 'otra-vez') return { ok: true, patch: { opcionPorConfirmar: undefined } };
+    if (el.tipo === 'confirmar') return { ok: true, patch: { opcionPorConfirmar: { id, opcion: el.idx, escrito: el.escrito } } };
+    const idx = el.idx;
+    const escritas = alGuardarOpcion(e, id, el.escrito);
     if (p.tipo === 'canal') {
       const canal = CANALES[idx].id;
       const siguiente: EstadoArranque = { ...ef, canal };
@@ -1077,10 +1193,13 @@ export function cobroDelPrecio(precio: string | null | undefined): { tipo: 'unic
   // Las cuotas de la TARJETA son una venta única (revisión del Cerebro, 20/10: «hasta 12 cuotas sin interés con tarjeta»
   // salía suscripción de 12 meses). Pero «con tarjeta» es sólo el MEDIO de pago: con «por mes», «membresía» o «cuotas
   // mensuales» sigue siendo una suscripción (revisión de la noche: «150 USD por mes con tarjeta» salía pago único).
-  // «Sin interés» y «MSI» son financiación de la tarjeta salvo que diga que es una membresía o un cobro recurrente.
+  // «Sin interés» y «MSI» son financiación de la tarjeta salvo que diga que es una membresía o un cobro recurrente. Las
+  // cuotas de la tarjeta se dicen también «pagos» o «mensualidades», y «con la tarjeta» (tercera revisión, 21/10: «3 pagos
+  // con tarjeta» volvía a ser suscripción); «mensualidades» no es «mensual».
   const recurrente = /membresia|suscripcion|cobro automatico|recurrente|debito automatico/.test(t);
-  const mensual = recurrente || /mensual|por mes|al mes|cada mes|mes a mes|\/\s?mes/.test(t);
-  if ((/sin interes(?:es)?|\bmsi\b/.test(t) && !recurrente) || (/con tarjeta/.test(t) && /cuotas/.test(t) && !mensual)) return { tipo: 'unico', meses: null };
+  const mensual = recurrente || /\bmensual(?:es|mente)?\b|por mes|al mes|cada mes|mes a mes|\/\s?mes/.test(t);
+  const conTarjeta = /con (?:la |tu |mi |su )?tarjeta/.test(t) && /cuotas|pagos|mensualidades/.test(t);
+  if ((/sin interes(?:es)?|\bmsi\b/.test(t) && !recurrente) || (conTarjeta && !mensual)) return { tipo: 'unico', meses: null };
   const cuotas = t.match(/(\d{1,2})\s*(?:cuotas|pagos|mensualidades)\b/);
   if (cuotas) return { tipo: 'suscripcion', meses: Number(cuotas[1]) || null };
   if (!/mensual|por mes|al mes|cada mes|mes a mes|\/\s?mes|cuotas|mensualidad/.test(t)) return { tipo: 'unico', meses: null };
