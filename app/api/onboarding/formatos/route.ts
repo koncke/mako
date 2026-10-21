@@ -7,6 +7,7 @@
 
 import type { NextRequest } from 'next/server';
 import { runWithWorkspace } from '@/lib/workspace';
+import { conSuIADelNegocio } from '@/lib/ia-del-negocio';
 import { resolverWsAdmin } from '@/lib/archivero';
 import { getRazones } from '@/lib/razones';
 import { BIBLIOTECA_ANGULOS, getRecomendaciones, setRecomendaciones, recomendarFormatos } from '@/lib/angulos-formatos';
@@ -36,7 +37,8 @@ export async function POST(req: NextRequest) {
   if (ws == null) return Response.json({ ok: false, error: 'Solo el admin del workspace.' }, { status: 403 });
   try { await req.json(); } catch { /* sin body necesario */ }
 
-  return runWithWorkspace(ws, async () => {
+  // ⛔ D6b: con su propio Claude o su GPT, lo que pide la IA acá no va a la Gemini gratis (tests/d6b-rutas.test.ts).
+  return runWithWorkspace(ws, () => conSuIADelNegocio(ws, async () => {
     try {
       const r = await recomendarFormatos();
       if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 422 });
@@ -45,5 +47,5 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       return Response.json({ ok: false, error: msg(e) }, { status: 500 });
     }
-  });
+  }));
 }

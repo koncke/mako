@@ -17,8 +17,12 @@ import { avisoSinIA, SIN_IA_PARA_DATOS_DE_CLIENTES } from '../lib/graficos-ia-el
 
 test('la pausa deja un error del negocio, y con él el aviso ya no manda a conectar su Claude', () => {
   const src = readFileSync(join(__dirname, '..', 'lib', 'anthropic.ts'), 'utf8').replace(/\r\n/g, '\n');
+  // Desde el 20/10/2026 la frontera vive en `permisoDeLaClaveDelNegocio` (la comparten la cascada de texto y el chat con
+  // herramientas): ahí la pausa se devuelve como tal, y `conClaveDelNegocio` la convierte en el error del negocio.
+  const permiso = src.slice(src.indexOf('export async function permisoDeLaClaveDelNegocio('), src.indexOf('export async function conClaveDelNegocio('));
+  assert.match(permiso, /if \(!v\.ok\) return pausa \? \{ pausa: true \} : null;/);
   const f = src.slice(src.indexOf('export async function conClaveDelNegocio('), src.indexOf('export async function conClaveDelNegocio(') + 2500);
-  assert.match(f, /if \(!v\.ok\) return pausa \? \{ error: CLAUDE_EN_PAUSA \} : null;/);
+  assert.match(f, /if \('pausa' in r\) return \{ error: CLAUDE_EN_PAUSA \};/);
   assert.match(src, /export const CLAUDE_EN_PAUSA = '[^']*en pausa[^']*';/);
   // Cómo lo consume la caja: con un error del negocio, el aviso es su error y no «Conecta tu Claude».
   assert.equal(avisoSinIA(true, []), SIN_IA_PARA_DATOS_DE_CLIENTES);

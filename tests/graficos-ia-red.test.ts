@@ -133,7 +133,9 @@ test('una caja con datos de clientes y sin ninguna key del negocio pide su Claud
   assert.equal(avisoSinIA(true, ['gemini/GEMINI_API_KEY: 429']), null, 'si una key suya falló, su error es el que sirve');
   assert.equal(avisoSinIA(false, []), null, 'sin datos de clientes, el aviso de siempre');
   const server = leer('lib', 'graficos-ia-elemento-server.ts');
-  assert.match(server, /: avisoSinIA\(pii, r\.errores\) \?\? await errorDeCascada\(r\.errores, 'escribir las conclusiones'\)\);/);
+  // D6b (21/10/2026): con su propio Claude («sólo su IA»), «Conecta tu Claude» es falso —ya lo tiene, en su PC—, y el texto
+  // es el de `errorDeCascada` adentro del contexto (tests/d6b-rutas.test.ts lo corre en el cron programado).
+  assert.match(server, /: \(soloSuIA\(\) \? null : avisoSinIA\(pii, r\.errores\)\) \?\? await errorDeCascada\(r\.errores, 'escribir las conclusiones'\)\);/);
 });
 
 test('la IA del Dashboard no pregunta antes si el negocio tiene IA: su clave de Claude es el primer intento', () => {

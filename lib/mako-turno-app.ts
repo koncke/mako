@@ -30,13 +30,18 @@
 // =============================================================================
 
 import 'server-only';
-import { chatClaudeTools, type RichMsg, type ToolDef } from '@/lib/anthropic';
+import { CLAUDE_EN_PAUSA, chatClaudeTools, permisoDeLaClaveDelNegocio, type RichMsg, type ToolDef } from '@/lib/anthropic';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION } from '@/lib/mako-doer-acciones';
 import { aToolDef, gatingOk, porId } from '@/lib/api-mako/registro';
 import { errorParaTicket, type ErrorDelTurno } from '@/lib/tickets-reglas';
 import { identidadDe } from '@/lib/tickets-db';
 import { registrarError } from '@/lib/errores-app';
+import { avisoClaveTapada, taparClaves } from '@/lib/claves-en-el-chat';
+import { encolarTurno, esperarALaPc, pcDe, TopeDeTurnos, type Ejecutor } from '@/lib/ia-pc';
+import { armarPrompt, AVISO_PC_ILEGIBLE, avisoDeLaPc, CLAVE_MODELO_PC, esperaDelTurno, modeloPc, pcUsable, type FalloDeLaPc } from '@/lib/ia-pc-reglas';
+import { negocioConSuIA } from '@/lib/ia-del-negocio';
+import { entrarSoloSuIA } from '@/lib/solo-su-ia';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
 import { confirmarPendiente, cancelarPendiente } from '@/lib/api-mako/acciones';
 import { esAccion, type Ctx } from '@/lib/api-mako/tipos';
@@ -50,7 +55,7 @@ import { buildSystemPrompt } from '@/lib/mako-context';
 import { avisoDePuntos } from '@/lib/puntos-mensaje';
 import { validarRespuestaDoer } from '@/lib/respuesta-doer';
 import { sanearSalida } from '@/lib/doer-salida';
-import { credWs, esNegocioDelEntorno } from '@/lib/credenciales';
+import { credDelCliente, credWs, esNegocioDelEntorno } from '@/lib/credenciales';
 import { getSetting, setSetting } from '@/lib/settings';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { runWithWorkspace, getWorkspaceActual, getRolWsEfectivo, getCapaActual } from '@/lib/workspace';
@@ -79,6 +84,7 @@ import {
   type FormularioPropuesta, type PropuestaPantalla,
   propuestaDePantalla, sinLinksDeRevision, MENSAJE_BORRADOR_APP, mensajeLeadApp, TEXTO_SOLO_TARJETA, TEXTO_SOLO_BLOQUE,
   historialParaModelo, bloquesDelMensaje, entraOtroDibujo, confirmadoTrasElUltimoPedido, esPedido, salioBien, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA,
+  iaParaConectar, IA_PARA_CONECTAR, ENV_DE_IA, falloDeSuClave, AVISO_SU_CLAVE, AVISO_CONECTA_TU_PC, AVISO_NO_LEI_SU_IA, AVISO_SIN_ARCHIVERO, AVISO_ARCHIVERO_EN_PAUSA,
   type LinkCapturado, type MensajeChat, type RespuestaTurno, type ResultadoTarjeta, type SesionChat, type TarjetaPendiente,
 } from '@/lib/mako-turno-app-reglas';
 
@@ -278,7 +284,15 @@ export type EntradaTurnoApp = {
    * del teléfono (las rutas /api/mako/chat y /api/m/mako). Sin esto, el turno de siempre: los lee y no los guarda.
    */
   guardarAdjuntos?: boolean;
+  /**
+   * El `maxDuration` de la ruta que llama, en ms (300 s si no se dice): lo que se espera a la PC del cliente sale de acá
+   * (`esperaDelTurno`). El Analyst del lead tiene 300 s y no 420, y Vercel cortaba sin aviso (revisión del 21/10/2026).
+   */
+  plazoMs?: number;
 };
+
+/** El plazo de una ruta que no dice el suyo: el más corto de las que llaman al turno (app/api/crm/analyst). */
+const PLAZO_RUTA_MS = 300_000;
 
 /** El cartel de la plataforma: se muestra y NO se guarda (AGENTS.md, «Un cartel de la
  *  PLATAFORMA no es un turno de la conversación»). */
@@ -294,10 +308,39 @@ async function iaPropiaDelTurno(): Promise<number | null> {
     const { provsDe, CASCADA_TOOLS } = await import('@/lib/ai-cheap');
     let n = 0;
     for (const p of CASCADA_TOOLS) n += (await provsDe(p)).length;
+    // Y su Claude, que el turno usa cuando ninguna barata contesta (`chatClaudeTools`, 20/10/2026): un negocio con sólo
+    // su Claude TIENE con qué contestar. En pausa también: es SU Claude, y lo que hay que decirle es que está en pausa,
+    // no que conecte uno (revisión del Cerebro, 21/10/2026).
+    const claude = await permisoDeLaClaveDelNegocio(FEATURE);
+    if (claude) n++;
     return n;
   } catch {
     return null;
   }
+}
+
+/**
+ * ¿Hay con qué pasar un archivo a El Archivero sin la cascada barata? Su clave de Claude (la puerta 2 del veto) o su
+ * OpenAI. Sólo se pregunta con «sólo su IA» (D6b): ahí, sin ninguna de las dos, El Archivero no corre y se dice.
+ * `pausa`: tiene su clave de Claude pero la plataforma la pausó y no hay OpenAI: se dice eso, no que falta la clave.
+ */
+async function puedeArchivarConSuIA(): Promise<'si' | 'no' | 'pausa'> {
+  try {
+    const claude = await permisoDeLaClaveDelNegocio('El Archivero');
+    if (claude && 'permiso' in claude) return 'si';
+    const { provsDe } = await import('@/lib/ai-cheap');
+    if ((await provsDe('openai')).length > 0) return 'si';
+    return claude && 'pausa' in claude ? 'pausa' : 'no';
+  } catch {
+    return 'no';
+  }
+}
+
+/** Las IA que el negocio tiene guardadas en SU fila (`credDelCliente`, sin el entorno), para abrirle la que ya eligió. */
+async function iaConFila(): Promise<string[]> {
+  const out: string[] = [];
+  for (const s of IA_PARA_CONECTAR) if (await credDelCliente(ENV_DE_IA[s]).catch(() => null)) out.push(s);
+  return out;
 }
 
 /** Mandarle un ticket al equipo de MaKo (lib/api-mako/areas/tickets.def.ts): viaja SIEMPRE en el chat de la app, para
@@ -320,10 +363,21 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const s = await sesionDe(persona, sessionId);
     if (!s) return null;
     const ws = persona.ws;
+    // ── D6b: ¿el NEGOCIO corre con su IA? (su PC, su Claude o su GPT; lib/ia-del-negocio.ts) ─────────────────────────
+    // Se decide por negocio y fallando cerrado, y TODO lo que sigue del turno corre adentro (lib/solo-su-ia.ts): la lectura
+    // de las fotos, El Archivero, el modelo y lo que corre después de responder no tocan ninguna key barata ni la red de la
+    // plataforma.
+    const negocio = await negocioConSuIA(ws);
+    entrarSoloSuIA(negocio.suIA);
     const canalKey = canalKeyDeSesion(s.id);
     // El corte respeta los TEXTOS PEGADOS (lib/chat-pegado.ts, #848/#864): lo escrito hasta TOPE_MENSAJE, los pegados
     // con su propio tope, y las marcas siempre cerradas.
-    const textoPersona = recortarMensaje((entrada.mensaje ?? '').trim(), TOPE_MENSAJE);
+    // ⚠️ NUNCA UNA KEY EN EL CHAT (pieza 1.6, 20/10/2026): una clave pegada se TAPA antes de todo —el historial, el
+    // título, El Archivero y el modelo— y la respuesta trae el botón «Conectar» de su servicio (lib/claves-en-el-chat.ts).
+    // Desde aquí, el mensaje de la persona es `mensaje`: el crudo no se vuelve a leer.
+    const tapado = taparClaves(entrada.mensaje ?? '');
+    const mensaje = tapado.texto;
+    const textoPersona = recortarMensaje(mensaje.trim(), TOPE_MENSAJE);
     const adjuntos = entrada.adjuntos ?? [];
     const avisos: string[] = [];
 
@@ -336,7 +390,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       const texto = leido?.texto?.trim() || null;
       textos.push(texto);
       if (texto) lecturas.push({ nombre: a.nombre, texto });
-      else avisos.push(AVISO_NO_LEI(a.nombre));
+      else avisos.push(negocio.suIA ? AVISO_NO_LEI_SU_IA(a.nombre) : AVISO_NO_LEI(a.nombre));
     }
     // Lo que queda en la MEMORIA del chat: el texto de la persona, o el placeholder del archivo.
     const textoMemoria = adjuntos.length === 1
@@ -369,19 +423,25 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const conArchivos = msg.conBloques && msg.id != null ? adjuntosVisibles(msg.id, bloques) : [];
     guardados.push({ role: 'user', content: textoMemoria, ...(conArchivos.length ? { adjuntos: conArchivos } : {}) });
     // Un PDF del ADMIN, también a El Archivero, después de responder (lib/chat-mako-adjuntos.ts dice por qué sólo él).
-    if (persona.rol === 'admin' && msg.conBloques && msg.id != null) {
-      const pdfs = subidos.flatMap(({ bloque, de }, i) => {
-        const texto = textos[de];
-        return bloque.tipo === 'document' && texto ? [{ i, contenido: adjuntos[de].bytes, nombre: bloque.nombre, mime: bloque.mime, texto }] : [];
-      });
-      await archivarPdfsDelChat(ws, msg.id, inicio, pdfs);
-    }
+    const msgId = msg.id;
+    const pdfs = persona.rol === 'admin' && msg.conBloques && msgId != null ? subidos.flatMap(({ bloque, de }, i) => {
+      const texto = textos[de];
+      return bloque.tipo === 'document' && texto ? [{ i, contenido: adjuntos[de].bytes, nombre: bloque.nombre, mime: bloque.mime, texto }] : [];
+    }) : [];
     // Un TEXTO PEGADO largo del admin, ENTERO (antes del corte del mensaje), también a El Archivero: se guarda solo,
     // sin pedirlo, como los PDF (#884, lib/chat-mako-adjuntos.ts → archivarPegadosDelChat). Sólo con `guardarAdjuntos`:
     // el MaKo Analyst de un lead usa este turno y lo que se pega ahí es del LEAD.
-    if (persona.rol === 'admin' && entrada.guardarAdjuntos) {
-      const { pegados } = partirPegados(entrada.mensaje ?? '');
-      if (pegados.length) await archivarPegadosDelChat(ws, inicio, pegados);
+    const pegados = persona.rol === 'admin' && entrada.guardarAdjuntos ? partirPegados(mensaje).pegados : [];
+    if (pdfs.length || pegados.length) {
+      // ⛔ D6b: con su propio Claude, El Archivero extrae con SU clave de Claude o SU OpenAI, nunca con la cascada barata
+      // ni con la red gratis de la plataforma (revisión del Cerebro, 21/10/2026: un pegado de 40 leads iba a la Gemini de
+      // la agencia). Sin ninguna de las dos, no se archiva, y se dice.
+      const archiva = negocio.suIA ? await puedeArchivarConSuIA() : 'si';
+      if (archiva !== 'si') avisos.push(archiva === 'pausa' ? AVISO_ARCHIVERO_EN_PAUSA : AVISO_SIN_ARCHIVERO);
+      else {
+        if (pdfs.length && msgId != null) await archivarPdfsDelChat(ws, msgId, inicio, pdfs);
+        if (pegados.length) await archivarPegadosDelChat(ws, inicio, pegados);
+      }
     }
     let titulo = s.titulo;
     if (!titulo) {
@@ -543,19 +603,64 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const msgs: RichMsg[] = [...historial, { role: 'user', content: userContent }];
     let texto = '';
     let fallo: string | null = null;
-    try {
-      const r = await chatClaudeTools(system, msgs, tools, nuevoIntento(), {
-        feature: FEATURE, maxSteps: 8, sinFallbackClaude: true,
-        motivo: `app ${intencion.intencion} «${(textoPersona || textoMemoria).slice(0, 60)}»`,
-      });
-      texto = (r.text ?? '').trim();
-      if (texto.startsWith('(')) { fallo = `centinela ${texto.slice(0, 40)}`; texto = ''; }
-    } catch (e) {
-      fallo = e instanceof Error ? e.message : String(e);
+    // ── ¿Lo piensa la computadora de ESTA persona? (docs/ia-del-cliente.md, ola 1; D6a, 21/10/2026) ──────────────
+    // Su Claude, con su cuenta, en su PC, sin herramientas propias. Las de MaKo corren AQUÍ, con este mismo `runTool`
+    // (lib/ia-pc.ts → `esperarALaPc`): el gating, el memo y las tarjetas son los de siempre. Sólo la PC de quien escribe:
+    // la cuenta es de una persona (§10). La lectura de la PC no decide D6b (eso ya lo hizo `negocioConSuIA`, fallando
+    // cerrado): si no se pudo leer, el turno sigue sin ella, con su clave si la tiene, y nunca con la cascada barata.
+    // ⚠️ No leerla NO es «no tiene»: a la dueña con su PC conectada se le pedía «conecta tu computadora» (segunda
+    // revisión, 21/10/2026). Se le dice que no se pudo ver, y va a la Ticketera.
+    const leidaPc = await pcDe(ws, persona.actor).then((d) => ({ d, error: null }), (e: unknown) => ({ d: null, error: e instanceof Error ? e.message : String(e) }));
+    const pc = leidaPc.d;
+    const pcIlegible = leidaPc.error;
+    // Sólo se le manda a una PC en línea CON un Claude con sesión: «en línea» sin sesión no contesta nada.
+    const pcPuede = pcUsable(pc);
+    // Lo que falló en la PC del cliente (apagada, sin Claude, sin sesión, al tope, no contestó a tiempo) no es un bug.
+    let falloDeLaPc: FalloDeLaPc | null = pc && !pcPuede ? (pc.enLinea ? (pc.claudeFalta ? 'sin-claude' : 'sesion') : 'apagada') : null;
+    let reponeDeLaPc: string | null = null;
+    if (pc && pcPuede) {
+      try {
+        const modelo = modeloPc(await getSetting(CLAVE_MODELO_PC).catch(() => null));
+        const turnoPc = await encolarTurno(pc, s.id, { system, prompt: armarPrompt(historial, textoModelo), tools, modelo });
+        // Lo que le queda a la ruta, no 240 s fijos (el Analyst del lead tiene 300 s: Vercel cortaba sin aviso).
+        const espera = esperaDelTurno(entrada.plazoMs ?? PLAZO_RUTA_MS, Date.now() - inicio);
+        const r = await esperarALaPc(turnoPc, ws, pc.id, nuevoIntento() as Ejecutor, espera);
+        if (!r) { falloDeLaPc = 'tarde'; fallo = 'la computadora del cliente no contestó a tiempo'; }
+        else if ('desconectada' in r) { falloDeLaPc = 'desconectada'; fallo = 'la computadora del cliente se desconectó a mitad del turno'; }
+        else if ('apagada' in r) { falloDeLaPc = 'apagada'; fallo = 'la computadora del cliente se apagó (no tomó el turno o dejó de latir)'; }
+        else if ('error' in r) { falloDeLaPc = r.tipo ?? 'error'; reponeDeLaPc = r.repone ?? null; fallo = `la computadora del cliente: ${r.error}`; }
+        else texto = r.texto.trim();
+      } catch (e) {
+        falloDeLaPc = e instanceof TopeDeTurnos ? 'muchos' : 'error';
+        fallo = `la computadora del cliente: ${e instanceof Error ? e.message : String(e)}`;
+      }
+    }
+    // Sin su PC (no tiene, está apagada o sin sesión, o no pudo): con su clave, si la tiene (docs/ia-del-cliente.md §5).
+    // Con «sólo su IA» (D6b) la cascada barata no participa: chatClaudeTools usa su OpenAI o su Claude, o nada. Si la PC
+    // tardó (ya no queda tiempo) o el negocio pasó su tope, no se prueba otra cosa.
+    if (!texto && falloDeLaPc !== 'tarde' && falloDeLaPc !== 'muchos') {
+      try {
+        const r = await chatClaudeTools(system, msgs, tools, nuevoIntento(), {
+          feature: FEATURE, maxSteps: 8, sinFallbackClaude: true, soloSuIA: negocio.suIA,
+          motivo: `app ${intencion.intencion} «${(textoPersona || textoMemoria).slice(0, 60)}»`,
+        });
+        texto = (r.text ?? '').trim();
+        if (texto.startsWith('(')) { fallo = fallo ?? `centinela ${texto.slice(0, 40)}`; texto = ''; }
+        // Contestó su clave: lo de la PC ya no es lo que pasó.
+        if (texto) { fallo = null; falloDeLaPc = null; }
+      } catch (e) {
+        const m = e instanceof Error ? e.message : String(e);
+        // Si había fallado la PC, eso es lo que se le dice; lo de su clave queda en el log.
+        if (falloDeLaPc) console.warn(`[mako-turno-app] ws=${ws} sesión=${s.id}: sin la PC, su clave tampoco: ${m.slice(0, 200)}`);
+        else fallo = m;
+      }
     }
     if (fallo) console.error(`[mako-turno-app] ws=${ws} sesión=${s.id} ${intencion.intencion}: ${fallo.slice(0, 300)}`);
+    // Lo que falló de SU cuenta (su Claude en pausa, su clave sin crédito) se le dice a la persona: no es un bug.
+    const deSuClave = fallo?.includes(CLAUDE_EN_PAUSA) ? { aviso: CLAUDE_EN_PAUSA, conectar: null }
+      : falloDeSuClave(fallo) ? { aviso: AVISO_SU_CLAVE, conectar: 'anthropic' } : null;
     // Sin una IA propia no es un bug: es configuración del negocio, y se le pide a la persona (tickets #5 y #6).
-    const sinIA = faltaIADelNegocio(fallo, fallo ? await iaPropiaDelTurno() : null);
+    const sinIA = !falloDeLaPc && !deSuClave && faltaIADelNegocio(fallo, fallo ? await iaPropiaDelTurno() : null);
 
     // ── Lo que falló de MaKo va SOLO a la Ticketera ─────────────────────────────
     // Martín (17/10/2026): «córrelo en toda la app: MaKo en los chats de la app... Y todo lo solucionas
@@ -567,7 +672,9 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const fallasDeMako = [
       // `etiqueta`: el nombre humano de la operación («Mover un lead de etapa»), para el título que lee el cliente.
       ...erroresDelTurno.map((e) => ({ nombre: e.herramienta, mensaje: e.error, etiqueta: porId(e.herramienta)?.titulo })),
-      ...(fallo && !sinIA ? [{ nombre: 'responder', mensaje: fallo, etiqueta: 'contestarte' }] : []),
+      ...(fallo && !sinIA && !falloDeLaPc && !deSuClave ? [{ nombre: 'responder', mensaje: fallo, etiqueta: 'contestarte' }] : []),
+      // No poder leer la PC sí es de MaKo (la base), si por eso no hubo respuesta.
+      ...(pcIlegible && !texto ? [{ nombre: 'leer-la-pc', mensaje: `no pude leer la computadora: ${pcIlegible}`, etiqueta: 'ver tu computadora' }] : []),
     ];
     if (fallasDeMako.length && !ticketPropuesto) {
       const quien = await identidadDe(ws, persona.actor).catch(() => null);
@@ -647,9 +754,26 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     }
     // Sin IA: lo dice MaKo, con el botón que abre el modal de las keys en esta misma pantalla (`conectar`). Salvo en el
     // workspace del entorno, donde la key que pegara pasaría a ser la de la plataforma (`avisoSinIA`): ahí, sin botón.
-    const sinIAEs = !respuesta && sinIA ? avisoSinIA(await esNegocioDelEntorno(ws).catch(() => false)) : null;
-    if (!respuesta) aviso = [aviso, sinIAEs?.aviso ?? AVISO_NO_PUDE].filter(Boolean).join(' ');
-    const conectar = sinIAEs?.conectar ?? null;
+    // Con su computadora conectada pero apagada, no se le pide conectar otra IA: se le dice que la prenda. Y en un negocio
+    // que corre con su propio Claude (D6b), a quien no conectó su computadora se le dice dónde (no que conecte Gemini).
+    const sinIAEs = !respuesta && sinIA && !pc
+      ? pcIlegible && negocio.suIA
+        ? { aviso: AVISO_PC_ILEGIBLE, conectar: null }
+        : negocio.suIA && negocio.conPc
+          ? { aviso: AVISO_CONECTA_TU_PC, conectar: null }
+          : avisoSinIA(await esNegocioDelEntorno(ws).catch(() => false), iaParaConectar(await iaConFila(), negocio.suIA))
+      : null;
+    if (!respuesta) {
+      const tzAviso = falloDeLaPc === 'tope' ? await tzDeWorkspace(ws).catch(() => TZ_DEFAULT) : TZ_DEFAULT;
+      const delaPc = avisoDeLaPc(falloDeLaPc, false, { repone: reponeDeLaPc, tz: tzAviso });
+      aviso = [aviso, delaPc ?? deSuClave?.aviso ?? sinIAEs?.aviso ?? (pcIlegible && negocio.suIA ? AVISO_PC_ILEGIBLE : null) ?? AVISO_NO_PUDE].filter(Boolean).join(' ');
+    }
+    let conectar = sinIAEs?.conectar ?? (respuesta ? null : deSuClave?.conectar ?? null);
+    // La clave tapada se le dice, con el botón del servicio que se reconoció.
+    if (tapado.tapadas) {
+      aviso = [avisoClaveTapada(tapado.servicio), aviso].filter(Boolean).join(' ');
+      conectar = conectar ?? tapado.servicio;
+    }
     return { ok: !!respuesta, sesion, mensajes: guardados, aviso, paraLaPersona, propuestas, pantallas, conectar };
   });
 }
@@ -691,6 +815,10 @@ const NO_ES_TUYA: ResultadoTarjeta = { ok: false, error: 'No encuentro ese chat'
 export async function confirmarDesdeTarjeta(persona: PersonaChat, sessionId: number, pendienteId: number): Promise<ResultadoTarjeta> {
   return runWithWorkspace(persona.ws, async () => {
     if (!(await sesionDe(persona, sessionId))) return NO_ES_TUYA;
+    // ⛔ D6b TAMBIÉN AL CONFIRMAR (revisión del Cerebro, 21/10/2026): una tarjeta con costo de IA (analizar una hoja, el
+    // insight de un lead, una landing…) se ejecuta acá, no en el turno que la propuso, y corría fuera de «sólo su IA»: los
+    // números del negocio iban a la Gemini gratis. Se prende igual que en el turno, y lo que va por detrás (`after`) lo hereda.
+    entrarSoloSuIA((await negocioConSuIA(persona.ws)).suIA);
     // Un trabajo LARGO (1.11, lib/chat-trabajos.ts): se confirma por detrás y la respuesta vuelve enseguida, con el G6 que
     // la pantalla consulta. Si no se puede anotar su avance, corre como siempre, acá abajo.
     // ⚠️ SÓLO LA DE ESTE CHAT, Y SI QUIEN TOCA PUEDE (revisión del 21/10/2026): con la pendiente de otro chat (los ids son

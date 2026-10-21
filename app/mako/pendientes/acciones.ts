@@ -10,6 +10,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { confirmarPendiente, cancelarPendiente } from '@/lib/api-mako/acciones';
+import { conSuIADelNegocio } from '@/lib/ia-del-negocio';
 import { ctxDeBandeja } from '../ctx-bandeja';
 
 export type ResultadoBandeja = { ok: true; resumen: string } | { ok: false; error: string };
@@ -24,7 +25,9 @@ export async function confirmarPendienteAction(id: number): Promise<ResultadoBan
   // por ningún modelo: lib/agenda-sin-ia.ts). Acá la que mira es una persona, así que
   // va pegado al resumen — si no, quien confirma desde la bandeja pierde el motivo real.
   const detalle: string[] = [];
-  const r = await confirmarPendiente({ ...c.ctx, aPersona: (t) => { detalle.push(t); } }, id);
+  // ⛔ D6b: lo que se confirma con costo de IA corre con «sólo su IA» del negocio, igual que en el turno que lo propuso
+  // (lib/ia-del-negocio.ts; revisión del Cerebro, 21/10/2026). Lo que va por detrás (`after`) lo hereda.
+  const r = await conSuIADelNegocio(c.ctx.ws, () => confirmarPendiente({ ...c.ctx, aPersona: (t) => { detalle.push(t); } }, id));
   revalidatePath('/mako/pendientes');
   if ('error' in r) return { ok: false, error: r.error };
   const conDetalle = [r.resumen, ...detalle].join('\n');

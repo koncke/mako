@@ -1,0 +1,59 @@
+/* =============================================================================
+   «Tus cuentas de IA» (docs/ia-del-cliente.md §6): copia de la forma de ListaUso, con tokens. Clases `tci-*`.
+   ============================================================================= */
+.tci { display: flex; flex-direction: column; gap: 12px; margin: 0 0 20px; padding: 16px 18px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); }
+.tci-cab { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.tci-titulo { margin: 0; font-size: var(--fs-card); font-weight: 600; }
+.tci-bajada { margin: 2px 0 0; color: var(--dim); font-size: var(--fs-sm); }
+.tci-vacio, .tci-nota { margin: 0; color: var(--dim); font-size: var(--fs-sm); }
+.tci-otra { padding-top: 4px; border-top: 1px solid var(--border); }
+.tci-boton { min-height: 36px; padding: 6px 14px; border-radius: var(--r-md); border: 1px solid var(--primary); background: var(--primary); color: var(--on-primary, #fff); font: inherit; font-size: var(--fs-sm); font-weight: 600; cursor: pointer; }
+.tci-boton--suave { background: var(--surface); color: var(--text); border-color: var(--border-strong); font-weight: 500; }
+.tci-boton--peligro { background: var(--bad); border-color: var(--bad); }
+.tci-boton--chico { min-height: 28px; padding: 2px 10px; }
+.tci-pc { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-2); }
+.tci-fila { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.tci-pc__nombre { font-weight: 600; overflow-wrap: anywhere; }
+.tci-estado { display: inline-flex; align-items: center; gap: 6px; color: var(--dim); font-size: var(--fs-sm); white-space: nowrap; }
+.tci-punto { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
+.tci-punto--linea { background: var(--good); }
+.tci-punto--esperando { background: var(--warn); animation: tci-latido 1.2s ease-in-out infinite; }
+@keyframes tci-latido { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .tci-punto--esperando { animation: none; } }
+.tci-cuenta { display: flex; flex-direction: column; gap: 8px; }
+.tci-quien { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.tci-nombres { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; font-size: var(--fs-sm); }
+.tci-plan { margin-left: 8px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--border-strong); font-size: var(--fs-meta); color: var(--dim); text-transform: capitalize; }
+.tci-ventana { display: flex; flex-direction: column; gap: 4px; }
+.tci-nombre { font-size: var(--fs-sm); }
+.tci-pct { font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.tci-pct--sin { color: var(--dim); }
+.tci-barra { height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.tci-lleno { display: block; height: 100%; border-radius: inherit; background: var(--good); }
+.tci-lleno--ojo { background: var(--warn); }
+.tci-lleno--mal { background: var(--bad); }
+.tci-lleno--apagado { background: transparent; }
+.tci-acciones { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.tci-modelo { display: flex; flex-direction: column; gap: 6px; }
+.tci-opciones { display: flex; gap: 6px; flex-wrap: wrap; }
+.tci-opcion { min-height: 32px; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-sm); cursor: pointer; }
+.tci-opcion.is-on { background: var(--primary-bg); border-color: var(--primary); color: var(--primary); font-weight: 600; }
+.tci-tutorial { display: flex; flex-direction: column; gap: 10px; padding: 16px; border: 1px solid var(--primary); border-radius: var(--r-md); background: var(--surface); }
+.tci-tutorial h3 { margin: 0; font-size: var(--fs-md); font-weight: 600; }
+.tci-tutorial p { margin: 0; font-size: var(--fs-sm); line-height: 1.5; }
+.tci-tutorial__cab, .tci-tutorial__pie { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tci-tutorial__pie { justify-content: flex-end; }
+.tci-paso { color: var(--dim); font-size: var(--fs-meta); text-transform: uppercase; letter-spacing: 0.04em; }
+.tci-cerrar { width: 32px; height: 32px; border: 0; background: none; color: var(--dim); font-size: 20px; cursor: pointer; }
+.tci-comando { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: var(--r-md); background: var(--surface-2); border: 1px solid var(--border); }
+.tci-comando code { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: var(--fs-meta); }
+.tci-espera { display: flex; align-items: center; gap: 8px; color: var(--dim); }
+@media (pointer: coarse) {
+  .tci-boton, .tci-opcion { min-height: var(--touch); }
+  .tci-cerrar { width: var(--touch); height: var(--touch); }
+}
+@media (max-width: 560px) {
+  .tci { padding: 14px 16px; }
+  .tci-fila { flex-wrap: wrap; }
+}
+.tci-acepto { padding: 10px 12px; border-radius: var(--r-md); background: var(--primary-bg); color: var(--text); }

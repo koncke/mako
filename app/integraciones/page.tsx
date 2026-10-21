@@ -28,6 +28,7 @@ import { APP_BASE_URL as APP_URL } from '@/lib/app-url';
 import { TITULO_NEGOCIO } from '@/lib/ajustes-secciones';
 import { seccionesNegocioActuales } from '@/lib/ajustes-negocio';
 import { AjustesPagina, TituloAjustes } from '../_ui/Ajustes';
+import { TusCuentasIA } from './TusCuentasIA';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -127,6 +128,8 @@ export default async function IntegracionesPage() {
   return (
     <AjustesPagina lugar={TITULO_NEGOCIO} secciones={await seccionesNegocioActuales()} activa="integraciones" amplio>
     <TituloAjustes titulo="Integraciones" bajada="WhatsApp, Meta, tu web y todo lo que se conecta a tu negocio." />
+    {/* Su Claude, en su computadora (docs/ia-del-cliente.md §6): arriba, porque sin IA el Ops Center no contesta. */}
+    <TusCuentasIA />
     <IntegracionesBoard
       embebido
       integraciones={integraciones}

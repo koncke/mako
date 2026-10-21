@@ -791,6 +791,11 @@ fuera un hecho. Va en las DOS direcciones, y la segunda es la que no se nota:
   ⚠️ **Y hay números RESERVADOS que no están en ningún árbol.** El 16/10/2026 la 0303 estaba libre en todas las ramas y
   todos los worktrees, y era del Image Editor (0303-0304, reservadas por el coordinador). Con un coordinador
   («Cerebro»), el número se le pide a él antes de nombrar el archivo; el barrido sólo confirma.
+  ⚠️ **Y una migración se aplica en producción RECIÉN DESPUÉS de la revisión del Cerebro** (el Cerebro, 21/10/2026).
+  Ese día la Ticketera escribió `0318_ia_pc` y `0319_ia_pc_consentimiento` mirando sólo main y su rama, sin pedir el
+  número, y las aplicó para probar de punta a punta: la 0318 era de Pagos y la 0319 de Infra, reservadas y por entrar
+  antes. Se renumeraron (0320 y 0321), quedaron idempotentes y con «Aplicada a mano en producción el …» en la cabecera.
+  Si una prueba necesita la tabla antes de la revisión, se pide el número Y el permiso de aplicarla, las dos cosas.
 - ⚠️ **`git add <ruta>` NO acota el commit: se commitea TODO el índice.** Si otra sesión ya
   stageó algo, `git add mi-archivo && git commit` se lo lleva adentro de tu commit, con tu
   mensaje y tu trailer. Pasó el 05/10/2026: un commit de docs salió con una baja ajena de 430
@@ -4699,6 +4704,24 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   bien: si una feature mezcla pedidos con y sin datos de clientes, la marca del catálogo queda como
   default cerrado y quien llama la afina con `pii`, EN POSITIVO (lo que no está revisado la lleva;
   molde: `CAJAS_SIN_DATOS_DE_CLIENTES`, lib/graficos-ia-elemento.ts).
+- ⛔ **D6b: UN NEGOCIO CON SU CLAUDE O SU GPT NO MANDA NADA A GEMINI NI A UNA IA O RED GRATIS** (Martín, 21/10/2026). Un
+  camino del Ops Center que llama a una IA corre adentro de `conSoloSuIA(negocio.suIA, …)` (lib/solo-su-ia.ts; el turno,
+  con `entrarSoloSuIA` después de su primer `await`), con `negocioConSuIA` (lib/ia-del-negocio.ts): por NEGOCIO y
+  fallando cerrado. El corte vive en lib/ai-cheap.ts (`provDe`,
+  `provsGratisDePlataforma`) y en `ordenarPorCuota`: **una lectura nueva de una key barata, o una consulta nueva a un
+  proveedor, pasa por ahí o suma su corte**, y tests/solo-su-ia.test.ts la tiene que ver (corre las entradas REALES de la
+  cascada contra una base de mentira y cuenta a qué hosts sale). El 21/10 el corte obvio (`provDe`) no alcanzó: el orden
+  por cuota ya había leído las keys y le había consultado el saldo a OpenRouter.
+  ⚠️ **Toda ENTRADA que ejecuta trabajo con IA de un negocio prende el contexto ella misma; no lo hereda del turno**
+  (segunda revisión del Cerebro, 21/10/2026): lo que corre al CONFIRMAR una tarjeta va en otro pedido
+  (`confirmarDesdeTarjeta`, la bandeja, /mako/revisar) y los números del negocio iban a Gemini. Una ruta, una server
+  action o un confirmar nuevo envuelve su trabajo en `conSuIADelNegocio(ws, fn)` (lib/ia-del-negocio.ts) o llama a
+  `entrarSoloSuIA` tras leer el negocio; tests/d6b-confirmar.test.ts corre los caminos de confirmar. **Cada handler o
+  acción nueva (también un `'use server'` en lib/, también un cron que corre lo pedido desde el Ops Center) que llega a
+  lib/ai-cheap.ts se decide en tests/d6b-rutas.test.ts**: adentro (con `conSuIADelNegocio`), en `SIN_IA` si no pide IA, o
+  en `FUERA_DE_D6B` con su porqué; lo que alcanzan las pantallas del Ops Center no puede ir afuera. La guarda decide por
+  HANDLER: que el POST de al lado prenda no salva al PATCH nuevo. Y lib/transcribe.ts es otra cascada SIN el corte:
+  envolver la ruta no la protege, así que lo que la alcanza va afuera o en `SIN_IA`, nunca «adentro».
   ⚠️ **Y una key de la plataforma COPIADA en la fila de un negocio no es del negocio** (16/10/2026: la Gemini del ws1
   lo era, y todos sus pedidos con datos de clientes iban a la key gratis de la agencia sin pasar por el corte).
   `provsDe` (lib/ai-cheap.ts) saca de las «propias» toda copia de una key de la plataforma, y las cascadas toman las
