@@ -14,7 +14,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { getSecuenciasConStats, setSecuenciaActiva, setSecuenciaPasos, setSecuenciaLinea, setSecuenciaReentrada, vozDeAIStepQueFalta, duplicadaDeLaActivacion, DuplicadaError, PasosInvalidosError, type PasoSecuencia } from '@/lib/nutricion';
+import { getSecuenciasConStats, setSecuenciaActiva, publicarPasos, setSecuenciaLinea, setSecuenciaReentrada, vozDeAIStepQueFalta, DuplicadaError, PasosInvalidosError, type PasoSecuencia } from '@/lib/nutricion';
 import { getRolWsEfectivo, getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { envioWhatsappHabilitado, envioEmailHabilitado } from '@/lib/envio-flags';
 import { asegurarAvisosSociales, disparadoresDeSecuencia, lineaDeSecuencia, medioSinConectar, SIN_MEDIOS } from '@/lib/disparadores-canales';
@@ -82,12 +82,8 @@ export async function PATCH(req: NextRequest) {
       const sinVoz = await vozDeAIStepQueFalta(body.pasos as PasoSecuencia[]).catch(() => null);
       if (sinVoz) return Response.json({ ok: false, error: `No se guardó: ${sinVoz}.` }, { status: 400 });
       // PUBLICAR UNA ACTIVA ES PRENDER LO NUEVO (revisión del 21/10/2026): si con estos pasos le escribe lo mismo a la
-      // misma gente que otra activa, se pregunta (409 `duplicada`), como al activar. Sin escribir nada todavía.
-      if (body.aunqueDuplique !== true) {
-        const otra = await duplicadaDeLaActivacion(id, { pasos: body.pasos as PasoSecuencia[], soloSiActiva: true });
-        if (otra) throw new DuplicadaError(otra);
-      }
-      await setSecuenciaPasos(id, body.pasos as PasoSecuencia[]);
+      // misma gente que otra activa, se pregunta (409 `duplicada`) antes de escribir, como al activar (`publicarPasos`).
+      await publicarPasos(id, body.pasos as PasoSecuencia[], { aunqueDuplique: body.aunqueDuplique === true });
       // QUE ZERNIO LE AVISE A MAKO (§2.11): con Instagram o Messenger conectado, el webhook. Una falla no frena.
       if (medios.sociales.length) {
         const ws = await getWorkspaceActual();

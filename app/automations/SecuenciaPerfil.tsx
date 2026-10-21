@@ -1082,7 +1082,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
       secuencias.map((s) => ({ id: s.id, nombre: s.nombre, activa: s.activa, disparadores: disparadoresDeSecuencia(s), pasos: s.pasos ?? [] })),
     );
     if (!otra) { seguir(); return; }
-    setAvisoDup({ texto: avisoDuplicada(otra.nombre), boton, seguir });
+    setAvisoDup({ texto: avisoDuplicada(otra), boton, seguir });
   };
   /**
    * UNA ACTIVA QUE YA LE ESCRIBE LO MISMO A LA MISMA GENTE QUE OTRA (revisión del 21/10/2026): se DICE al lado de «Activar»
@@ -1344,7 +1344,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 borradores). Con el porqué corto y el link a donde se aprueban (Chats › Borradores). */}
             {dupActiva && (
               <span data-duplicada="" role="status" style={{ ...tarjetaChrome, flex: 'none', maxWidth: 320, fontSize: 12.5, fontWeight: 600, color: 'var(--warn)', lineHeight: 1.35 }}>
-                {avisoDuplicada(dupActiva.nombre)}
+                {avisoDuplicada(dupActiva)}
               </span>
             )}
             {porAprobar && (
