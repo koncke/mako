@@ -2004,3 +2004,41 @@ Second Brain del teléfono (app/m/second-brain) no muestra el origen.
 - **Sin hacer** (archivo donde vive): el índice de chats por origen no existe (lib/chat-mako-indice.ts sólo lee chart_sessions, «Antes» y un lector del grupo que nadie llama).
 
 **Arreglado (20/10, Ops Center 3, f3c377318 + bb031718c):** la proyección de la decisión 5 (`chatsDeOffer`/`hiloDeOffer`, lib/chat-mako-indice.ts, con `PROYECCIONES` de origen y alcance). Se ve en /second-brain como la sección «Offer», un sub-chat por conversación con «Seguir en Offer», y en el teléfono en «Tus chats». La conversación del onboarding no se proyecta si ya tiene su `hiloChat`. Medido: ws21 #14 dibuja 32 de 33 mensajes (uno vacío). Falta enchufar CRM, Automations y el grupo al mismo índice.
+
+## El marco de bloques: lo que el chat DIBUJA vuelve sin recargar (20/10/2026, ola 1, pieza 1.7)
+
+**Vive en:** `lib/chat-bloques.ts` (el contrato y el saneo, puro) · `app/_chat/BloqueHilo.tsx` (la pieza única) ·
+`confirmarDesdeTarjeta` en `lib/mako-turno-app.ts` · `itemsTrasTarjeta` en `app/m/mako/chat-ui.ts` · `app/_chat/chat.css`.
+Probado en `tests/chat-bloques.test.ts`, que confirma `crear_diseno_imagen` de punta a punta contra una base de mentira
+(`tests/_bloques-tarjeta-hijo.ts`).
+
+- **Síntoma:** confirmar una creación dejaba la píldora «Completo» y un «Hecho: Creado. Ábrelo aquí: https://…» en
+  texto. La miniatura y el botón aparecían recién al recargar, y sólo como link.
+- **Causa:** el runner devolvía `datos` (`disenoId`, `link`), pero `confirmarDesdeTarjeta` guardaba y devolvía sólo el
+  `resumen`. El resultado no tenía un campo que la pantalla supiera dibujar.
+- **El contrato:**
+  - el runner devuelve `datos.bloque`, armado con SUS datos y rutas, nunca con el texto del modelo;
+  - la tarjeta lo sanea (`sanearBloque`: sólo rutas de la app; la miniatura, una ruta de la app o la pública de Storage);
+  - lo guarda con el «Hecho» en `chart_chats.bloques` como `{ k: 'bloque', b }`, al lado de los adjuntos y sin
+    correrles el índice, porque los mensajes de MaKo no llevan adjuntos;
+  - y lo devuelve en `ResultadoTarjeta.bloques`.
+- **Regla:**
+  - la pantalla suma lo que vuelve de una tarjeta con `itemsTrasTarjeta`, en las CUATRO pantallas (Ops Center, CRM,
+    MaKo Analyst de la ficha y teléfono): una no puede mostrar la miniatura y otra no;
+  - el bloque se dibuja con UNA pieza en las tres caras del hilo.
+- **Trampas:**
+  - **`max-height` sobre un marco con `aspect-ratio` le rompe la forma.** La miniatura cuadrada salía recortada abajo en
+    la computadora. El alto tope tiene que achicar el ANCHO: `--r` (ancho / alto) en `.ch-creado__mini`.
+  - **Un navegador sin ventana no baja de ~500 px de ancho.** La captura «de 390» no era la del teléfono. El teléfono
+    se mira en un `iframe` de 390, y así también aplican los tamaños de letra del teléfono.
+  - **La pieza no puede importar CSS**, o no se dibuja en un test de node. Sus clases van en `chat.css`, que el teléfono
+    carga con `PegadoHilo.tsx` y el MaKo Analyst de la ficha importa aparte.
+
+**Sin hacer:**
+- RespuestaTurno.bloques, para lo que dibuja un TURNO y no una tarjeta: llega con la 1.9 (`preguntar_al_usuario`), que es
+  la primera que lo produce.
+- G4 sin «Deshacer»: no hay una operación que deshaga un cambio de textos.
+- G6 sin consultar el estado solo: la 1.11.
+- Las demás áreas no devuelven `bloque` todavía. Por ahora lo devuelven `crear_diseno_imagen` y `duplicar_diseno_imagen`
+  (G5) y `cambiar_textos_diseno_imagen` (G4).
+- El «Abrir» lleva a la ruta de la computadora también en el teléfono: la 1.8.

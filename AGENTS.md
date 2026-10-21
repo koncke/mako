@@ -1595,6 +1595,11 @@ código nuevo:
       pide `indice_segundo_cerebro` (~300 tokens) y después `recuperar_del_segundo_cerebro` con su pregunta o con ids
       (lib/cerebro-recuperar.ts, sin IA). Medido en dos workspaces reales: 118-190 tokens por pregunta contra 459-678 del
       grafo entero y 1.105-1.606 del vault. `leer_segundo_cerebro_como_archivos` es para un área ENTERA, no para contestar.
+  - **UNA SOLA CAJA PARA HABLAR CON MaKo: `app/_chat/CajaChat.tsx`** (20/10/2026; Martín: «Te pedí que unificaras el chat
+    del Ops Center en todos lados, su diseño y funcionalidades»). Ninguna pantalla nueva arma su <textarea>, usa
+    `ComposerWhatsApp` o `ChatHilo`, ni su botón de mandar para hablar con MaKo: usa la pieza y le pasa su motor por props.
+    Si falta algo, se le suma a la pieza (y lo tienen todas), nunca a una copia. tests/chat-unico.test.ts lleva la lista de
+    las que faltan, cada una con su chat, y falla si aparece una nueva.
   - **TODO LO QUE SE TERMINA LLEVA SU `revisar`** (17/10/2026; Martín: «se terminaron y pushearon cosas y no las puedo ver
     en Review»). El hito de la bitácora o el cierre (`cartero.mjs cierre … --revisar`) trae la ruta INTERNA donde Martín
     lo prueba (`/crm?lead=…`, `/general`, `/automations/…`). Sin eso, su «Ya está» sólo lleva a la tab del área.

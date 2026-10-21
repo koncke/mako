@@ -9,6 +9,7 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
 import type { Runners, Preparado, Ejecutado } from '../tipos';
+import type { BloqueCreado } from '@/lib/chat-bloques';
 import { linkApp } from '@/lib/app-url';
 import { borrarDiseno, crearDiseno, duplicarDiseno, guardarDiseno, leerDiseno, listarDisenos } from '@/lib/image-editor/server';
 import { cambiarTextos, documentoEnBlanco, textosDe, uuidValido } from '@/lib/image-editor/reglas';
@@ -23,24 +24,41 @@ const str = (input: Record<string, unknown>, k: string): string | null => {
 const QUIEN = 'MaKo (API)';
 const link = (id: string, ws: number) => linkApp(`/image-editor/${id}`, ws);
 
-/** El diseño nuevo que pide la entrada: de una plantilla, de un tamaño con nombre o a medida. */
-async function docNuevo(input: Record<string, unknown>): Promise<{ doc: unknown; que: string } | { error: string; faltan?: string[] }> {
+/** El G5 de un diseño (lib/chat-bloques.ts): lo que el chat dibuja al confirmar, con la ruta de la app (sin `?ws=`: la pone
+ *  el `Link` de quien mira). Sin miniatura, el chat dibuja un marco con la forma del diseño. */
+function bloqueDiseno(id: string, d: { titulo: string; ancho?: number; alto?: number; miniatura?: string | null; estado: string; nota?: string }): BloqueCreado {
+  return {
+    t: 'creado', titulo: d.titulo, estado: d.estado, abrir: { titulo: 'Abrir en Image Editor', href: `/image-editor/${id}` },
+    ...(d.miniatura ? { miniatura: d.miniatura } : {}), ...(d.ancho && d.alto ? { ancho: d.ancho, alto: d.alto } : {}),
+    ...(d.nota ? { nota: d.nota } : {}),
+  };
+}
+
+/** El diseño nuevo que pide la entrada: de una plantilla, de un tamaño con nombre o a medida. `miniatura` es la de la
+ *  plantilla (la de Doory, en `public/cv/plantillas/`): el diseño recién creado todavía no tiene la suya. */
+async function docNuevo(input: Record<string, unknown>): Promise<{ doc: unknown; que: string; ancho: number; alto: number; nota: string; miniatura?: string } | { error: string; faltan?: string[] }> {
   const plantilla = str(input, 'plantilla');
   if (plantilla) {
     const doc = await documentoDePlantilla(plantilla);
     if (!doc) return { error: `No existe la plantilla «${plantilla}». Usa listar_plantillas_imagen.`, faltan: ['plantilla'] };
     const t = catalogoPlantillas().find((p) => p.slug === plantilla);
-    return { doc, que: `a partir de la plantilla «${t?.titulo ?? plantilla}»` };
+    return {
+      doc, que: `a partir de la plantilla «${t?.titulo ?? plantilla}»`, ancho: t?.ancho ?? 0, alto: t?.alto ?? 0,
+      nota: `De la plantilla «${t?.titulo ?? plantilla}»`, miniatura: `/cv/plantillas/${plantilla}.webp`,
+    };
   }
   const ancho = input.ancho;
   const alto = input.alto;
   if (typeof ancho === 'number' || typeof alto === 'number') {
     if (typeof ancho !== 'number' || typeof alto !== 'number') return { error: 'Para un tamaño a medida van ancho y alto.', faltan: ['ancho', 'alto'] };
-    return { doc: documentoEnBlanco(ancho, alto, randomUUID()), que: `en blanco, ${ancho} × ${alto} px` };
+    return { doc: documentoEnBlanco(ancho, alto, randomUUID()), que: `en blanco, ${ancho} × ${alto} px`, ancho, alto, nota: `En blanco, ${ancho} × ${alto} px` };
   }
   const t = TAMANOS_API[str(input, 'tamano') ?? 'publicacion_instagram'];
   if (!t) return { error: 'Ese tamaño no existe.', faltan: ['tamano'] };
-  return { doc: documentoEnBlanco(t.ancho, t.alto, randomUUID()), que: `en blanco, ${t.nombre} (${t.ancho} × ${t.alto} px)` };
+  return {
+    doc: documentoEnBlanco(t.ancho, t.alto, randomUUID()), que: `en blanco, ${t.nombre} (${t.ancho} × ${t.alto} px)`,
+    ancho: t.ancho, alto: t.alto, nota: `${t.nombre}, ${t.ancho} × ${t.alto} px`,
+  };
 }
 
 /** Los cambios de textos que pasó el modelo, saneados (sin vacíos ni repetidos). */
@@ -97,10 +115,12 @@ export const RUNNERS: Runners = {
     ejecutar: async (payload, ctx): Promise<Ejecutado> => {
       const n = await docNuevo(payload);
       if ('error' in n) return { ok: false, resumen: n.error };
-      const r = await crearDiseno(ctx.ws, QUIEN, { titulo: str(payload, 'titulo') ?? 'Diseño sin título', doc: n.doc });
+      const titulo = str(payload, 'titulo') ?? 'Diseño sin título';
+      const r = await crearDiseno(ctx.ws, QUIEN, { titulo, doc: n.doc });
       if (!r.ok) return { ok: false, resumen: `No se pudo crear (${r.error}).` };
       const url = link(r.id, ctx.ws);
-      return { ok: true, resumen: `Creado. Ábrelo aquí: ${url}`, datos: { disenoId: r.id, link: url } };
+      const bloque = bloqueDiseno(r.id, { titulo, ancho: n.ancho, alto: n.alto, miniatura: n.miniatura, estado: 'Nuevo', nota: n.nota });
+      return { ok: true, resumen: `Creado. Ábrelo aquí: ${url}`, datos: { disenoId: r.id, link: url, bloque } };
     },
   },
 
@@ -126,7 +146,10 @@ export const RUNNERS: Runners = {
       if (!c.cambiados) return { ok: false, resumen: 'Esos textos ya no están en el diseño.' };
       const g = await guardarDiseno(ctx.ws, id, { version: r.diseno.version, doc: c.doc });
       if (!g.ok) return { ok: false, resumen: g.conflicto ? 'Alguien lo está editando en este momento: vuelve a intentar en un rato.' : `No se pudo guardar (${g.error}).` };
-      return { ok: true, resumen: `Listo: ${c.cambiados} texto(s) cambiados.`, datos: { disenoId: id, link: link(id, ctx.ws) } };
+      // El G4: cada texto, como estaba y como quedó (sólo los que se cambiaron).
+      const filas = cambiosDe(payload).filter((x) => !c.noEncontrados.includes(x.actual)).map((x) => ({ antes: x.actual, despues: x.nuevo }));
+      const bloque = { t: 'antes_despues' as const, titulo: r.diseno.titulo, filas, abrir: { titulo: 'Abrir en Image Editor', href: `/image-editor/${id}` } };
+      return { ok: true, resumen: `Listo: ${c.cambiados} texto(s) cambiados.`, datos: { disenoId: id, link: link(id, ctx.ws), bloque } };
     },
   },
 
@@ -139,10 +162,16 @@ export const RUNNERS: Runners = {
       return { payload: { disenoId: id }, resumen: `Hacer una copia de «${r.diseno.titulo}».` };
     },
     ejecutar: async (payload, ctx): Promise<Ejecutado> => {
-      const r = await duplicarDiseno(ctx.ws, QUIEN, str(payload, 'disenoId') ?? '');
+      const original = str(payload, 'disenoId') ?? '';
+      const r = await duplicarDiseno(ctx.ws, QUIEN, original);
       if (!r.ok) return { ok: false, resumen: `No se pudo copiar (${r.error}).` };
       const url = link(r.id, ctx.ws);
-      return { ok: true, resumen: `Copia hecha: ${url}`, datos: { disenoId: r.id, link: url } };
+      // La copia no tiene miniatura hasta que se abre: se ve la del original, que es igual.
+      const o = await leerDiseno(ctx.ws, original).catch(() => null);
+      const bloque = o?.ok
+        ? bloqueDiseno(r.id, { titulo: `${o.diseno.titulo} (copia)`, ancho: o.diseno.ancho, alto: o.diseno.alto, miniatura: o.diseno.miniatura, estado: 'Copia' })
+        : null;
+      return { ok: true, resumen: `Copia hecha: ${url}`, datos: { disenoId: r.id, link: url, ...(bloque ? { bloque } : {}) } };
     },
   },
 

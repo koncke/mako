@@ -52,3 +52,22 @@ export function alSoltar(e: DragEvent<HTMLElement>, a: AdjuntosDeCaja | undefine
   if (!a.puede) { a.onNoPuede?.(); return; }
   a.onSumar(fs);
 }
+
+/**
+ * El «Pegar» del «+» (20/10/2026, pedido 5e8b6bff; Martín: «si saqué una screen o tengo algo copiado, debería aparecer así
+ * arriba para pegarlo en el chat»). El teclado de Android ofrece pegar una IMAGEN sólo en un campo que la acepta (un
+ * contenteditable con `commitContent`); en el `<textarea>` de la caja no aparece. Por eso el «+» tiene «Pegar»: lee las
+ * imágenes del portapapeles con `navigator.clipboard.read()` (el navegador pide permiso la primera vez). null = este
+ * navegador no deja leerlo; [] = no hay una imagen copiada.
+ */
+export async function imagenesDelPortapapeles(cb: Pick<Clipboard, 'read'> | undefined = globalThis.navigator?.clipboard): Promise<File[] | null> {
+  if (!cb || typeof cb.read !== 'function') return null;
+  const out: File[] = [];
+  for (const it of await cb.read()) {
+    const tipo = it.types.find((t) => /^image\/(png|jpeg|webp|gif)$/.test(t));
+    if (!tipo) continue;
+    const b = await it.getType(tipo);
+    out.push(new File([b], `captura-${out.length + 1}.${tipo.slice('image/'.length).replace('jpeg', 'jpg')}`, { type: tipo }));
+  }
+  return out;
+}

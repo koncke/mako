@@ -18,7 +18,7 @@ import { Button } from '@/app/_ui/Button';
 import { haptico } from '@/lib/haptico';
 import { PieM, SheetM, useConexion, useToastM } from '../_ui';
 import { confirmarEnChatAction, cancelarEnChatAction } from './acciones';
-import { SALIDA_PROPUESTA, rotuloPrimario, trasTarjeta, type EstadoPropuesta, type ItemHilo } from './chat-ui';
+import { SALIDA_PROPUESTA, itemsTrasTarjeta, rotuloPrimario, trasTarjeta, type EstadoPropuesta, type ItemHilo } from './chat-ui';
 
 type ItemPropuesta = Extract<ItemHilo, { k: 'propuesta' }>;
 
@@ -26,7 +26,8 @@ export function SheetPropuesta({ item, sessionId, onCerrar, onEstado }: {
   item: ItemPropuesta | null;
   sessionId: number | null;
   onCerrar: () => void;
-  onEstado: (pendienteId: number, estado: EstadoPropuesta, nota?: string, paraLaPersona?: string[]) => void;
+  /** `extra`: lo que vuelve de la tarjeta (`itemsTrasTarjeta`: los avisos y lo que dibuja el resultado). */
+  onEstado: (pendienteId: number, estado: EstadoPropuesta, nota?: string, extra?: readonly ItemHilo[]) => void;
 }) {
   const { enLinea } = useConexion();
   const toast = useToastM();
@@ -57,7 +58,7 @@ export function SheetPropuesta({ item, sessionId, onCerrar, onEstado }: {
         : await cancelarEnChatAction(t.pendienteId, sessionId);
       const d = trasTarjeta(r, accion);
       if (d.haptico) haptico(d.haptico);
-      onEstado(t.pendienteId, d.estado ?? 'pendiente', d.frase ?? undefined, r.paraLaPersona);
+      onEstado(t.pendienteId, d.estado ?? 'pendiente', d.frase ?? undefined, itemsTrasTarjeta(r));
       if (d.toast) toast(d.toast);
       if (d.estado && d.estado !== 'fallo') onCerrar();
       else setFrase(d.frase);

@@ -60,6 +60,7 @@ import {
   renameSession, tituloDesde, type ChartSession, type ChartMsgConBloques,
 } from '@/lib/chart-chats';
 import { adjuntosVisibles, leerRef, sanearBloques } from '@/lib/chat-mako-bloques';
+import { aGuardar, bloqueDeResultado, bloquesGuardados, type Bloque } from '@/lib/chat-bloques';
 import { archivarPdfsDelChat, archivarPegadosDelChat, borrarAdjuntos, subirAdjuntos, urlFirmadaDeAdjunto } from '@/lib/chat-mako-adjuntos';
 import { partirPegados, recortarMensaje, textoParaTitulo } from '@/lib/chat-pegado';
 import { archivoATexto } from '@/lib/archivo-a-texto';
@@ -164,7 +165,11 @@ export async function abrirSesion(persona: PersonaChat, sessionId: number): Prom
 /** Un mensaje guardado, para la pantalla: sus adjuntos sin el path (lib/chat-mako-bloques.ts). */
 function aMensajeChat(ws: number, m: ChartMsgConBloques): MensajeChat {
   const bloques = sanearBloques(ws, m.bloques);
-  return { role: m.role, content: m.content, created_at: m.created_at, ...(bloques.length ? { adjuntos: adjuntosVisibles(m.id, bloques) } : {}) };
+  const vista = bloquesGuardados(m.bloques);
+  return {
+    role: m.role, content: m.content, created_at: m.created_at,
+    ...(bloques.length ? { adjuntos: adjuntosVisibles(m.id, bloques) } : {}), ...(vista.length ? { bloques: vista } : {}),
+  };
 }
 
 /**
@@ -542,8 +547,9 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
  *  siguiente («¿ya lo hiciste?»). Es el `resumen` del resultado, que por contrato es apto
  *  para un modelo (lo que no, va en `paraLaPersona` y no se guarda). Si guardarlo falla, la
  *  acción igual quedó hecha: no se revierte una ejecución porque no se pudo anotar. */
-async function anotarEnHilo(sessionId: number, texto: string): Promise<void> {
-  try { await appendMessage(sessionId, 'assistant', texto); }
+async function anotarEnHilo(sessionId: number, texto: string, bloques: readonly Bloque[] = []): Promise<void> {
+  // Con el bloque (lib/chat-bloques.ts): al recargar, lo creado vuelve con su miniatura debajo del «Hecho: …».
+  try { await appendMessage(sessionId, 'assistant', texto, bloques.length ? bloques.map(aGuardar) : undefined); }
   catch (e) { console.error(`[mako-turno-app] no pude anotar en la sesión ${sessionId}:`, e instanceof Error ? e.message : String(e)); }
 }
 
@@ -561,9 +567,14 @@ export async function confirmarDesdeTarjeta(persona: PersonaChat, sessionId: num
     const detalle: string[] = [];
     const r = await confirmarPendiente(ctxDeTarjeta(persona, sessionId, (t) => { if (t && !detalle.includes(t)) detalle.push(t); }), pendienteId);
     if ('error' in r) return { ok: false, error: errorCortoDeTarjeta(r.error), paraLaPersona: detalle };
-    await anotarEnHilo(sessionId, r.ok ? `Hecho: ${r.resumen}` : `No se pudo: ${r.resumen}`);
+    // Lo que el chat dibuja con el resultado (`datos.bloque` del runner), saneado: se guarda con el «Hecho» y vuelve a
+    // la pantalla para sumarlo sin recargar (la 1.7: confirmar `crear_diseno_imagen` deja su miniatura en el hilo).
+    const bloque = r.ok ? bloqueDeResultado(r.datos) : null;
+    await anotarEnHilo(sessionId, r.ok ? `Hecho: ${r.resumen}` : `No se pudo: ${r.resumen}`, bloque ? [bloque] : []);
     // ok:false acá es «se ejecutó y falló»: la pendiente quedó en error y no vuelve.
-    return r.ok ? { ok: true, resumen: r.resumen, paraLaPersona: detalle } : { ok: false, error: r.resumen, ejecutada: true, paraLaPersona: detalle };
+    return r.ok
+      ? { ok: true, resumen: r.resumen, paraLaPersona: detalle, ...(bloque ? { bloques: [bloque] } : {}) }
+      : { ok: false, error: r.resumen, ejecutada: true, paraLaPersona: detalle };
   });
 }
 

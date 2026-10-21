@@ -30,6 +30,7 @@ import type { TurnoChat } from '@/lib/operaciones-reglas';
 import { leerAbiertas, leerPreguntas, marcarContestada } from '@/lib/centro-preguntas-chat-db';
 import { eleccionValida, textoDeRespuesta, type PreguntaChat } from '@/lib/centro-preguntas-chat';
 import { guardarBorradorDe, leerBorradorDe } from '@/lib/centro-borradores-db';
+import { conUrlsDeTurnos } from '@/lib/operaciones-adjuntos';
 import type { Borrador } from '@/lib/centro-caja';
 import { leerTareasDelChat } from '@/lib/centro-plan-auto';
 import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
@@ -95,7 +96,8 @@ export async function turnosCentroAction(locales: string[], direccion?: string):
     leerTurnos(validos), leerPreguntas(validos), typeof direccion === 'string' ? leerBorradorDe(direccion) : Promise.resolve(null),
     leerTareasDelChat(validos), typeof direccion === 'string' ? leerMarcasDe(direccion) : Promise.resolve(null),
   ]);
-  return { ok: true, turnos, preguntas, borrador, tareas, marcas };
+  // Lo que Martín adjuntó en la app de Claude, con su URL firmada de 10 minutos (20/10/2026): sólo detrás de puedeOperar.
+  return { ok: true, turnos: await conUrlsDeTurnos(turnos).catch(() => turnos), preguntas, borrador, tareas, marcas };
 }
 
 /** El nombre que Martín le pone a una cuenta en el Uso (la G, 17/10/2026). Vacío vuelve al del titular. Vive en MaKo, nunca

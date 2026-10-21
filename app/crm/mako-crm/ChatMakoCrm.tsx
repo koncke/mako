@@ -35,7 +35,7 @@ import { Microfono } from '@/app/admin/operaciones/Microfono';
 import '@/app/admin/operaciones/centro.css';
 import '@/app/_chat/chat.css';
 import {
-  idLocal, itemsDeRespuesta, itemsDeSesion, leerRespuesta, trasTarjeta, type EstadoPropuesta, type ItemHilo,
+  idLocal, itemsDeRespuesta, itemsDeSesion, itemsTrasTarjeta, leerRespuesta, trasTarjeta, type EstadoPropuesta, type ItemHilo,
 } from '@/app/m/mako/chat-ui';
 import type { MensajeChat, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 
@@ -208,10 +208,10 @@ export function ChatMakoCrm({ funnelId, pedido }: {
   }, [pedido, listo, trabajo]);
 
   // ── Las tarjetas: confirmar o no ejecutar lo que MaKo propuso ──
-  const alEstado = (pendienteId: number, estado: EstadoPropuesta, nota?: string, paraLaPersona?: string[]) => {
+  /** `extra`: lo que vuelve de la tarjeta (`itemsTrasTarjeta`: los avisos y lo que dibuja el resultado). */
+  const alEstado = (pendienteId: number, estado: EstadoPropuesta, nota?: string, extra: readonly ItemHilo[] = []) => {
     setItems((xs) => {
       const sig = xs.map((x) => (x.k === 'propuesta' && x.t.pendienteId === pendienteId ? { ...x, estado, nota } : x));
-      const extra: ItemHilo[] = (paraLaPersona ?? []).filter((t) => t.trim()).map((t) => ({ k: 'aviso', id: idLocal('v'), texto: t, tono: 'mako' }));
       return [...sig, ...extra];
     });
   };
@@ -237,7 +237,7 @@ export function ChatMakoCrm({ funnelId, pedido }: {
         return;
       }
       const d = trasTarjeta(l.datos, accion);
-      alEstado(id, d.estado ?? 'pendiente', d.frase ?? undefined, l.datos.paraLaPersona);
+      alEstado(id, d.estado ?? 'pendiente', d.frase ?? undefined, itemsTrasTarjeta(l.datos));
       if (d.estado === 'hecho' || d.estado === 'fallo') router.refresh();
     } finally {
       setTarjeta(null);

@@ -21,6 +21,7 @@ import { consecuenciaDeshacer, lineasDelPayload, type LineaDetalle } from './inb
 import type { Pendiente } from './mako-pendientes';
 import type { FilaPendiente } from '../app/mako/pendientes/BandejaPendientes';
 import type { AdjuntoVisible } from './chat-mako-bloques';
+import type { Bloque } from './chat-bloques';
 
 // ── De quién es una sesión ────────────────────────────────────────────────────
 
@@ -290,6 +291,8 @@ export type MensajeChat = {
   role: 'user' | 'assistant'; content: string; created_at?: string;
   /** Los archivos guardados del mensaje (mig 0305, lib/chat-mako-bloques.ts): sin el path; no van al modelo. */
   adjuntos?: AdjuntoVisible[];
+  /** Lo que el chat dibuja con el mensaje (lo creado, el antes y el después: lib/chat-bloques.ts); no va al modelo. */
+  bloques?: Bloque[];
 };
 
 /** Los últimos `max` mensajes, arrancando en `user` y sin dos seguidos del mismo rol (un
@@ -403,6 +406,7 @@ export function errorCortoDeTarjeta(error: string | null | undefined): string {
 
 /** Lo que devuelven confirmarEnChatAction / cancelarEnChatAction (app/m/mako/acciones.ts). */
 export type ResultadoTarjeta =
-  | { ok: true; resumen: string; paraLaPersona: string[] }
+  /** `bloques`: lo que el chat dibuja con el resultado, ya saneado (lib/chat-bloques.ts), para sumarlo SIN recargar */
+  | { ok: true; resumen: string; paraLaPersona: string[]; bloques?: Bloque[] }
   /** `ejecutada: true` = se ejecutó y falló: la pendiente quedó cerrada, no se reintenta */
   | { ok: false; error: string; ejecutada?: true; paraLaPersona?: string[] };
