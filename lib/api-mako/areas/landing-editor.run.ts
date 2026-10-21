@@ -23,6 +23,7 @@ import type { Runners, Ctx, Preparado, Ejecutado, SalidaLectura, AccionRun } fro
 import { linkPantalla } from '../link';
 import { PREFIJO_FLUJO } from '../canal';
 import * as docsEditor from '@/lib/editor-landing/server';
+import { bloqueDeCompleta, bloqueDominio } from '@/lib/editor-landing/bloques-chat';
 import type { LandingCompleta, TemaPropio } from '@/lib/editor-landing/api-tipos';
 import { conectarDominio, estadoDominio, quitarDominio } from '@/lib/editor-landing/dominios';
 import { normalizarDominio, motivoDominioInvalido } from '@/lib/editor-landing/dominios-reglas';
@@ -38,6 +39,8 @@ import { buscarStock, copiarUrlABucket, type Orientacion } from '@/lib/imagenes-
 import { borradorPorId } from './landing.helpers';
 // Puro: el `config` con que nace un documento de la IA, EL MISMO de «Crear con IA» de la pantalla.
 import { configDeCreacion } from '@/app/web-generator/crear/tipo';
+import { OPCION_NEGOCIO, productoDeLanding } from '@/lib/editor-landing/producto-de-landing';
+import { listProductos } from '@/lib/productos';
 import { siFallaNuestra, urlDeLanding } from './landing-editor.helpers';
 import {
   MOTIVO_ANTES_DE_MAKO, esFallaPlan, ubicarSeccion, ubicarPagina, seccionesDisponibles,
@@ -328,7 +331,7 @@ export const RUNNERS_EDITOR: Runners = {
         const r = await docsEditor.crear(p.pedido);
         if (!r.ok) return { ok: false, resumen: `No se pudo crear (${r.error}).` };
         const link = linkEditor(r.doc.id, ctx.ws);
-        return { ok: true, resumen: `Listo: «${r.doc.titulo}» (id ${r.doc.id}) quedó en blanco, sin publicar. Se arma en el editor: ${link}`, datos: { id: r.doc.id, titulo: r.doc.titulo, link } };
+        return { ok: true, resumen: `Listo: «${r.doc.titulo}» (id ${r.doc.id}) quedó en blanco, sin publicar. Se arma en el editor: ${link}`, datos: { id: r.doc.id, titulo: r.doc.titulo, link, bloque: bloqueDeCompleta(r.doc, null, 'Nueva') } };
       } catch (e) {
         return { ok: false, resumen: resumenDeError('crear la landing', e) };
       }
@@ -339,6 +342,21 @@ export const RUNNERS_EDITOR: Runners = {
   generar_landing_con_ia: {
     preparar: async (input, ctx): Promise<Preparado> => {
       if (enFlujo(ctx)) return { error: 'Crear una landing con IA no corre en una automatización: un flujo corre una vez por cada lead y crearía una por cada uno. Pídesela a MaKo en el chat o créala en el Web Generator.' };
+      // PARA QUÉ PRODUCTO (Ops Center 1.15; tras cuatro revisiones, 21/10/2026): el esquema sale del perfil del negocio,
+      // o sea del producto principal. `productoDeLanding` (lib/editor-landing/producto-de-landing.ts) no adivina ni lee el
+      // texto: con catálogo, si el modelo no manda un producto que valga, no se prepara nada y el error es la pregunta,
+      // con las opciones. Corre en TODO pedido, porque uno que no nombra producto también saldría sobre el principal. Lo
+      // decidido REEMPLAZA a lo que mandó el modelo; si el catálogo no se pudo leer, vale lo que no lo necesita (el
+      // negocio en general, un producto nuevo con nombre), y un `producto` hace volver a intentar (también al confirmar,
+      // que vuelve a preparar: la landing no sale sin el producto que dijo la tarjeta).
+      const { producto: _producto, producto_nuevo: _nuevo, ...resto } = input;
+      const productos = await listProductos(true).then((ps) => ps.map((p) => ({ id: String(p.id), nombre: p.nombre }))).catch(() => null);
+      const d = productoDeLanding({ producto: str(input, 'producto'), nuevo: str(input, 'producto_nuevo') }, productos);
+      if (d.que === 'preguntar') return { error: d.mensaje, faltan: ['producto'] };
+      if (d.que === 'reintentar') return { error: d.mensaje };
+      input = d.es === 'catalogo' ? { ...resto, producto: d.producto }
+        : d.es === 'nuevo' ? { ...resto, producto_nuevo: d.producto }
+          : d.es === 'negocio' ? { ...resto, producto: OPCION_NEGOCIO } : resto;
       const propios = await temasPropios();
       // Sólo con «basadaEn» se leen las analizadas (una consulta que el resto de los pedidos no necesita).
       const analizadas = input.basadaEn ? await listarAnalizadas() : [];
@@ -363,10 +381,12 @@ export const RUNNERS_EDITOR: Runners = {
         if (!r.ok) return { ok: false, resumen: `No se pudo crear la ${p.tipo === 'presentacion' ? 'presentación' : 'landing'} (${r.error}).` };
         const link = linkEditor(r.doc.id, ctx.ws);
         const que = p.tipo === 'presentacion' ? 'diapositivas' : 'secciones';
+        // La tarjeta (Ops Center 1.12): generar devuelve sólo el id, se abre una vez. Si no abre, sin tarjeta.
+        const creada = await docsEditor.abrir(r.doc.id).catch(() => null);
         return {
           ok: true,
           resumen: `Listo: «${r.doc.titulo}» quedó creada (id ${r.doc.id}, ${r.secciones} ${que}), sin publicar.${r.sinDiseno ? ` ${r.sinDiseno} ${que} quedaron con el texto del esquema, sin diseño: se rehacen con editar_landing_con_ia o en el editor.` : ''} Se revisa en el editor: ${link}`,
-          datos: { id: r.doc.id, titulo: r.doc.titulo, secciones: r.secciones, sin_diseno: r.sinDiseno, link },
+          datos: { id: r.doc.id, titulo: r.doc.titulo, secciones: r.secciones, sin_diseno: r.sinDiseno, link, ...(creada?.ok ? { bloque: bloqueDeCompleta(creada.doc, null, 'Nueva') } : {}) },
         };
       } catch (e) {
         return { ok: false, resumen: resumenDeError('crear la landing', e) };
@@ -546,7 +566,7 @@ export const RUNNERS_EDITOR: Runners = {
         return {
           ok: true,
           resumen: `Listo: ${r.dominio.dominio} quedó ${r.dominio.estado === 'verificado' ? 'verificado' : 'pendiente'}.${reg ? ` ${reg}` : ''}${r.dominio.falta ? ` ${r.dominio.falta}` : ''} Después, verificar_dominio_landing. Se ve en el editor: ${linkEditor(id, ctx.ws)}`,
-          datos: { id, ...registrosParaApi(r.dominio) },
+          datos: { id, ...registrosParaApi(r.dominio), bloque: bloqueDominio(id, r.dominio) },
         };
       } catch (e) {
         return { ok: false, resumen: resumenDeError('conectar el dominio', e) };
@@ -578,7 +598,7 @@ export const RUNNERS_EDITOR: Runners = {
           resumen: r.dominio.estado === 'verificado'
             ? `${r.dominio.dominio} está verificado: la landing publicada se ve ahí.${r.dominio.falta ? ` ${r.dominio.falta}` : ''}`
             : `${r.dominio.dominio} sigue pendiente.${reg ? ` ${reg}` : ''}${r.dominio.falta ? ` ${r.dominio.falta}` : ''} Los cambios de DNS pueden tardar unas horas.`,
-          datos: { id, ...registrosParaApi(r.dominio) },
+          datos: { id, ...registrosParaApi(r.dominio), bloque: bloqueDominio(id, r.dominio) },
         };
       } catch (e) {
         return { ok: false, resumen: resumenDeError('verificar el dominio', e) };

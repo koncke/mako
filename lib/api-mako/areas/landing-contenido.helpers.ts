@@ -23,6 +23,8 @@
 // =============================================================================
 
 import { sanearContenido, sanearConfig } from '@/lib/editor-landing/validar';
+import { conProducto } from '@/app/web-generator/editor/pedidos-chat';
+import { OPCION_NEGOCIO } from '@/lib/editor-landing/producto-de-landing';
 import { hacerInicio, rutaLibre } from '@/lib/editor-landing/paginas-reglas';
 import { ESTILO_RESTABLECIDO, temaSugerido } from '@/lib/editor-landing/reglas-pantalla';
 import {
@@ -1654,7 +1656,14 @@ export type PedidoGenerarApi = {
   params: Partial<ParamsGeneracion>;
   tema: string;
   titulo: string | null;
+  /** Para qué producto es (Ops Center 1.15): ya va en la idea o en las instrucciones; acá, para que se VEA al confirmar. */
+  producto: string | null;
+  /** Qué es `producto`: uno del catálogo o uno nuevo; «negocio» es «El negocio en general» (sin producto). */
+  productoEs: 'catalogo' | 'nuevo' | 'negocio' | null;
 };
+
+/** Lo que se le pega al pedido cuando la landing es del negocio en general y no de un producto. */
+const FRASE_NEGOCIO = 'Es para el negocio en general, no para un producto.';
 
 /**
  * Lo pedido → el pedido de generación. `idea` es «Generar · Desde una idea»; `texto` es un texto largo o el de
@@ -1674,7 +1683,20 @@ export function pedidoGenerar(
   temaDe: (tema: string) => { id: string } | FallaPlan,
   analizadas: readonly { url: string }[] = [],
 ): PedidoGenerarApi | FallaPlan {
-  const idea = texto1(e.idea, 8_000);
+  // El producto (Ops Center 1.15; lo decide `productoDeLanding` en el preparar): uno del catálogo en «producto», uno
+  // nuevo en «producto_nuevo», o «El negocio en general». Va pegado al pedido con la MISMA frase del chat del editor
+  // (`conProducto`), así el esquema se arma sobre ése y no sobre la oferta principal. Con un texto, va en las instrucciones.
+  const negocio = texto1(e.producto, 300) === OPCION_NEGOCIO;
+  const nuevo = texto1(e.producto_nuevo, 300);
+  const producto = negocio ? '' : texto1(e.producto, 300) || nuevo;
+  const productoEs = negocio ? 'negocio' : texto1(e.producto, 300) ? 'catalogo' : nuevo ? 'nuevo' : null;
+  const frase = producto ? `Es para el producto «${producto}».` : negocio ? FRASE_NEGOCIO : '';
+  const ideaPedida = texto1(e.idea, 8_000);
+  // La frase del producto nunca es lo que se corta (revisión del 21/10/2026): con una idea larga, el tope de 8.000 se
+  // comía «Es para el producto…» y la tarjeta mostraba un producto que el esquema no recibía. Se corta la idea antes.
+  const base = ideaPedida.slice(0, Math.max(0, 8_000 - frase.length - 2));
+  const idea = !ideaPedida || !frase ? ideaPedida
+    : producto ? conProducto(base, { id: '', nombre: producto }) : `${base.replace(/[.…\s]+$/, '')}. ${frase}`;
   const texto = texto1(e.texto, 60_000);
   if (!idea && !texto) return { error: 'Falta qué crear: una idea («idea») o un texto («texto»).', faltan: ['idea'] };
   if (idea && texto) return { error: 'Pasa una idea o un texto, no los dos: lo que se pide sobre el texto va en «instrucciones».' };
@@ -1716,7 +1738,7 @@ export function pedidoGenerar(
     objetivo: objetivo as ObjetivoLanding,
     basadoEnUrl,
     fuenteImagenes: imagenes,
-    instrucciones: texto1(e.instrucciones, 5_000),
+    instrucciones: [texto ? frase : '', texto1(e.instrucciones, 5_000)].filter(Boolean).join(' ').slice(0, 5_000),
     modoTexto,
     formato: tipo === 'presentacion' ? 'presentacion' : 'pagina',
   };
@@ -1727,14 +1749,23 @@ export function pedidoGenerar(
     params,
     tema,
     titulo: texto1(e.titulo, TOPES.titulo) || null,
+    producto: producto || null,
+    productoEs,
   };
 }
 
 /** Lo que lee la persona antes de confirmar una generación. */
 export function resumenGenerar(p: PedidoGenerarApi, nombreTema: string | null): string {
   const que = p.tipo === 'presentacion' ? 'una presentación' : 'una landing';
+  // El producto va ADELANTE y aparte (revisión del 20/10/2026, noche): pegado al final de la idea, el corte de 140 lo
+  // escondía y la persona confirmaba sin ver a cuál quedaba atada la landing.
+  // Sin producto, también se dice: el esquema sale del perfil del negocio (la oferta del brief), y eso se confirma.
+  const para = p.productoEs === 'negocio' ? ' para el negocio en general'
+    : p.producto ? ` para ${p.productoEs === 'nuevo' ? 'un producto nuevo,' : 'el producto'} «${corto(p.producto, 80)}»`
+      : ' sobre el perfil del negocio (sin un producto elegido)';
+  const idea = (p.idea ?? '').replace(/\.?\s*Es para (?:el producto «[^»]*»|el negocio en general, no para un producto)\.$/, '');
   const de = p.modo === 'generar'
-    ? `desde la idea «${corto(p.idea ?? '', 140)}»`
+    ? `desde la idea «${corto(idea, 140)}»`
     : `desde un texto de ${(p.texto ?? '').split(/\s+/).filter(Boolean).length} palabras, usado ${NOMBRE_MODO_TEXTO[(p.params.modoTexto ?? 'generar') as (typeof MODOS_TEXTO_API)[number]]}`;
   const partes = [
     `${p.params.cantidad} ${p.tipo === 'presentacion' ? 'diapositivas' : 'secciones'}`,
@@ -1744,5 +1775,5 @@ export function resumenGenerar(p: PedidoGenerarApi, nombreTema: string | null): 
     p.params.instrucciones ? `con instrucciones («${corto(p.params.instrucciones, 80)}»)` : '',
     p.params.basadoEnUrl ? `sobre ${corto(p.params.basadoEnUrl, 80)}, resolviendo sus hallazgos` : '',
   ].filter(Boolean);
-  return `Crear con IA ${que} ${de}: ${partes.join(', ')}. Queda como borrador, sin publicar (se puede mandar a la papelera). Usa IA y tarda hasta unos minutos.`;
+  return `Crear con IA ${que}${para} ${de}: ${partes.join(', ')}. Queda como borrador, sin publicar (se puede mandar a la papelera). Usa IA y tarda hasta unos minutos.`;
 }
