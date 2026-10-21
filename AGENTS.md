@@ -2034,6 +2034,31 @@ pregunta del toque repite lo que confirma (así el guard de pestaña vieja la di
 sí o un no pelados, y lo demás escrito se SUMA a lo anterior, no lo pisa. Y al exportar a CSV texto que escribió otro, lo
 que empieza con = + - @ va con una comilla simple adelante (docs/hallazgos-seguridad.md).
 
+**Con un nombre esperando, una palabra que es sí y también nombre no confirma (séptima revisión, 21/10/2026).** «Simón»,
+«Vale», «Listo» son un sí y son nombres reales: con un pendiente, se pregunta cuál de los dos es (`siAlPendiente`). La duda
+es de la palabra SUELTA: «Claro, así se llama» es un sí (octava revisión). Y un texto del usuario que se recorta se corta
+por punto de código (`cortar`), nunca con `slice`: un emoji partido no se puede guardar en Postgres.
+
+**Un arreglo no puede ser más ancho que el caso (octava revisión, 21/10/2026).** Las dos regresiones de esa ronda salieron
+de cerrar un caso con una regla que alcanzaba a más («semanal» en cualquier parte del precio, la duda para toda frase que
+empieza con «Claro»). Antes de pasar la punta, las frases de la revisión anterior se corren en la punta y en producción, y
+se mira el diff.
+
+**Las opciones del toque son todas las lecturas; la lectura sólo ordena (novena revisión, 21/10/2026).** Si una lectura con
+reglas decide QUÉ opciones se muestran, cada error de lectura deja a la persona sin la respuesta correcta, y cada regla
+nueva mueve casos de lugar (el cobro tuvo cuatro vueltas). Las opciones se arman con todo lo que el texto PERMITE
+(`opcionesDeCobro`), y la lectura sólo elige cuál va primera.
+
+**Una lectura por defecto no se propone, y la entrada se normaliza antes de leer (décima revisión, 21/10/2026).** La caída
+de una lectura sin ninguna señal (el `return` del final) se marca y se pregunta sin recomendar: si no, «Entendí que…»
+afirma algo que el texto no dijo, y un «Sí» lo guarda. Y lo que varía en la forma y no en el fondo (números en letras,
+«x», enumeraciones) se normaliza UNA vez al entrar (`precioEnDigitos`), no con más alternativas en cada regex.
+
+**La lectura y la red usan el mismo extractor (undécima revisión, 21/10/2026).** Si la lectura tiene su propio parser, la
+opción correcta está pero el «Sí» guarda otra; la lectura toma la primera de lo que extrae la red (`nsDelPrecio`). Y
+normalizar la entrada arrastra a la forma nueva todo defecto que la lectura ya tenía: después de normalizar, se mide
+contra la respuesta correcta otra vez.
+
 **El corolario para lo que DICE MaKo (21/10/2026, el guardia de promesas 1.5):** un filtro sobre el texto del modelo
 NUNCA borra una oración. El guardia por raíces de palabras borraba 8 de 14 respuestas verdaderas («Sí, ya te la
 agendé» después de confirmar la tarjeta pasaba a «En este mensaje no hice nada») y atajaba 3 de 18 falsas, medido con

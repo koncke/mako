@@ -53,9 +53,11 @@ test('1. sin pendiente, un negocio que se llama como una palabra de acuerdo se P
   assert.deepEqual(responder(pend, { texto: 'sí' }), { ok: true, patch: { negocio: 'Claro', negocioPorConfirmar: undefined } });
 });
 
-test('1b. CON pendiente, una palabra de acuerdo es un sí y lo que sólo nombra lo preguntado vuelve a preguntar; lo presentado es otro nombre', () => {
+test('1b. CON pendiente, un sí sin duda confirma; lo que sólo nombra lo preguntado vuelve a preguntar; lo presentado es otro nombre', () => {
   const P: EstadoArranque = { nombre: 'Simón', negocioPorConfirmar: { escrito: 'Acme', nombre: 'Acme' } };
-  for (const t of ['Claro', 'Simón', 'Listo']) assert.deepEqual(responder(P, { texto: t }), { ok: true, patch: { negocio: 'Acme', negocioPorConfirmar: undefined } }, t);
+  for (const t of ['Sí', 'Ok', 'Correcto']) assert.deepEqual(responder(P, { texto: t }), { ok: true, patch: { negocio: 'Acme', negocioPorConfirmar: undefined } }, t);
+  // «Claro», «Simón», «Listo» también pueden ser el nombre real: se pregunta cuál (séptima revisión, tests/onboarding-septima-revision.test.ts).
+  for (const t of ['Claro', 'Simón', 'Listo']) assert.equal(responder(P, { texto: t }).ok, false, t);
   for (const t of ['Es mi negocio', 'No, está bien']) assert.equal(responder(P, { texto: t }).ok, false, `«${t}» reemplazó el pendiente`);
   assert.equal(propone(responder(P, { texto: 'Se llama Tal Cual' })), 'Tal Cual');
   assert.equal(propone(responder(P, { texto: 'El nombre es Listo' })), 'Listo');
@@ -86,7 +88,7 @@ test('3. lo anual o semanal no se propone como mensual: se pregunta sin lectura,
   const m = mensajesDeArranque(e, h).despues.at(-1);
   assert.equal(m?.texto, cobroSinPropuesta('anual'));
   assert.deepEqual(m?.opciones, [COBRO_UNICO, COBRO_MENSUAL], 'sin «Sí, es eso»: no hay lectura que confirmar');
-  assert.ok(!/Suscripción mensual»/.test(m?.texto ?? ''), 'volvió a proponer «Suscripción mensual»');
+  assert.ok(!(m?.texto ?? '').includes(`«${COBRO_MENSUAL}»`), 'volvió a proponer la suscripción mensual');
   // Un sí no guarda nada: no hay qué confirmar. La opción, sí, sin el periodo (el producto no lo sabe cobrar).
   assert.equal(responder(e, { texto: 'sí' }, h).ok, false);
   assert.equal(responder(e, { opcion: 0, opcionTexto: SI_ES_ESO }, h).ok, false);
