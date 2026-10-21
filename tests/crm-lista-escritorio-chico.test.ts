@@ -59,7 +59,7 @@ test('la regla: por prioridad con su mínimo, cortando en la primera que no entr
 });
 
 test('lo que dibujan: el rótulo y la etapa se recortan en su celda; la Empresa oculta va debajo del nombre', () => {
-  const th = renderToStaticMarkup(createElement(ThCrm, { activo: true, dir: 'desc', onSort: () => {} }, '¿Agendó?'));
+  const th = renderToStaticMarkup(createElement(ThCrm, { activo: true, dir: 'desc', onSort: () => {}, children: '¿Agendó?' }));
   assert.match(th, /<button[^>]*style="[^"]*min-width:0;max-width:100%/, 'el botón de ordenar se achica');
   assert.match(th, /<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">¿Agendó\?<\/span>/, 'el rótulo termina en «…», no se monta');
   const props = { nombre: 'Daniel Fernández', email: 'daniel@x.com', empresa: 'Inmobiliaria del Sur', origen: 'Meta', agenda: 'Sí', monto: { texto: '$1', ganado: false }, creado: '21/10/2026', etapa: { rotulo: 'Nutrición – Reactivación', estilo: { display: 'inline-block', whiteSpace: 'nowrap' } as const } };
