@@ -60,6 +60,7 @@ import type { Esquema, ParamsGeneracion, FuenteImagenes, AccionTexto } from './a
 import { fallaEnNavegador, motivoDeError, motivoDePagina, sanearLectura } from './lectura-reglas';
 import type { MotivoEnNavegador, SeLeeEnNavegador } from './lectura-tipos';
 import { REGLAS_DIAPOSITIVAS_ESQUEMA, REGLAS_DIAPOSITIVAS_SECCIONES, REGLAS_DIAPOSITIVAS_EDITAR } from './plantillas-presentaciones';
+import { adjuntosDelPedido, contextoConAdjuntos } from './adjuntos';
 
 /**
  * T3 (tanda 2): ¿el pedido es para una PRESENTACIÓN? Se lee del pedido CRUDO porque
@@ -426,7 +427,8 @@ export async function secciones(p: PedidoSecciones): Promise<ResultadoIA<{ tarje
 // editar
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type PedidoEditar = { instruccion: string; tarjetas: unknown; alcance: 'landing' | 'seccion'; params?: Partial<ParamsGeneracion> };
+/** `adjuntos`: los archivos del mensaje, ya leídos en la pantalla (./adjuntos.ts). Llegan sin validar. */
+export type PedidoEditar = { instruccion: string; tarjetas: unknown; alcance: 'landing' | 'seccion'; params?: Partial<ParamsGeneracion>; adjuntos?: unknown };
 
 /**
  * «Edición con IA». Devuelve SOLO las secciones que cambian: las que ya existían
@@ -452,7 +454,10 @@ export async function editar(p: PedidoEditar): Promise<ResultadoIA<{ tarjetas: J
   if (json.length > MAX_JSON_EDICION) return invalido('Es mucho de una vez. Edita por sección.');
 
   try {
-    const contexto = await buildLandingBrief(instruccion);
+    // Los archivos del mensaje van en el CONTEXTO, como datos (./adjuntos.ts): así también cuentan como respaldo de
+    // lo que la IA cite (`quitarPruebaInventada` mira `fuente`, que lo incluye) y un testimonio del PDF no se vacía.
+    const adjuntos = adjuntosDelPedido(p.adjuntos);
+    const contexto = contextoConAdjuntos(await buildLandingBrief(instruccion), adjuntos);
     const sys = await system(PROMPTS_EDITOR.editarSystem, { gramatica: GRAMATICA_IA, idioma: bloqueIdioma(params.idioma), formato: FORMATO_EDITAR });
     const user = await renderPrompt(PROMPTS_EDITOR.editarUser.key, PROMPTS_EDITOR.editarUser.tpl, {
       instruccion: contenidoNoConfiable(instruccion, 'instruccion'),
@@ -464,7 +469,7 @@ export async function editar(p: PedidoEditar): Promise<ResultadoIA<{ tarjetas: J
     const hastaIA = t0 + PLAZOS.editar.ia;
     const salida = await chatClaude(sys, [{ role: 'user', content: user }], {
       feature: FEATURE_EDITAR,
-      motivo: `Edición con IA (${p.alcance === 'seccion' ? 'sección' : 'landing'})`,
+      motivo: `Edición con IA (${p.alcance === 'seccion' ? 'sección' : 'landing'}${adjuntos.length ? `, con ${adjuntos.length === 1 ? 'un archivo' : `${adjuntos.length} archivos`}` : ''})`,
       maxTokens: Math.min(16_000, 2_000 + Math.ceil(json.length / 3)),
       effort: 'high',
       hastaMs: hastaIA,

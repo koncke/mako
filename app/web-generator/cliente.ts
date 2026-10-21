@@ -173,6 +173,37 @@ export async function leerArchivo(f: File, signal?: AbortSignal): Promise<{ ok: 
   }
 }
 
+/** Un documento del negocio en El Archivero que el chat del editor ofrece como chip. */
+export type DocDelArchivero = { id: string; nombre: string };
+
+/** GET /api/landing-generator/importar: el «Lo que vendes» del onboarding, si existe. Nunca tira: sin él, null. */
+export async function pedirLoQueVendes(signal?: AbortSignal): Promise<DocDelArchivero | null> {
+  try {
+    const res = await fetch(RUTA_IMPORTAR, { signal: conPlazo(PLAZO_DOCS_MS, signal) });
+    const j = (await res.json().catch(() => null)) as { ok?: boolean; loQueVendes?: { id?: unknown; nombre?: unknown } | null } | null;
+    const d = j?.ok ? j.loQueVendes : null;
+    return d && typeof d.id === 'string' && typeof d.nombre === 'string' ? { id: d.id, nombre: d.nombre } : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Baja un documento de El Archivero como un `File`, para adjuntarlo como cualquier otro (y leerlo con `leerArchivo`).
+ * La ruta de descarga redirige a la URL firmada del storage, que responde con CORS abierto (medido el 20/10/2026:
+ * `Access-Control-Allow-Origin: *`). null si no se pudo.
+ */
+export async function bajarDelArchivero(d: DocDelArchivero, signal?: AbortSignal): Promise<File | null> {
+  try {
+    const res = await fetch(`/api/onboarding/archivero/download?id=${encodeURIComponent(d.id)}&preview=1`, { signal: conPlazo(PLAZO_DOCS_MS, signal) });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return blob.size ? new File([blob], d.nombre, { type: blob.type || 'application/pdf' }) : null;
+  } catch {
+    return null;
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Lo que se recuerda en ESTE navegador (comodidades, nunca datos)
 // ─────────────────────────────────────────────────────────────────────────────

@@ -54,7 +54,7 @@ export async function POST(req: Request) {
       case 'secciones':
         return responder(await secciones({ esquema: body.esquema, indices: body.indices, params: body.params, temaId: body.temaId }));
       case 'editar':
-        return responder(await editar({ instruccion: body.instruccion, tarjetas: body.tarjetas, alcance: body.alcance === 'seccion' ? 'seccion' : 'landing', params: body.params }));
+        return responder(await editar({ instruccion: body.instruccion, tarjetas: body.tarjetas, alcance: body.alcance === 'seccion' ? 'seccion' : 'landing', params: body.params, adjuntos: body.adjuntos }));
       case 'texto':
         return responder(await texto({ tipo: body.tipo, texto: body.texto, contexto: body.contexto, tono: body.tono, idioma: body.idioma }));
       case 'disenos':
