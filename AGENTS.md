@@ -5728,6 +5728,11 @@ El servidor no cambia: lee con `service_role`, que tiene `BYPASSRLS`. Lo fija
 `create`) nace sin lo que se le hizo antes, así que un revoke viejo no la cubre. Desde el 09/10/2026
 no hay lista de excusas (eran las dos de cohortes, y se cerraron).
 
+⚠️ **Y UNA MIGRACIÓN SIN APLICAR NO SE VE si el código la tolera** (21/10/2026, la 0283: `workspaces.mfa_obligatorio_desde`, el 2FA obligatorio, nunca se aplicó y nada se rompió; sólo NO REGÍA).
+`scripts/apply-migration.mjs` ejecuta el archivo y **no deja registro**: no hay tabla de migraciones, así que «¿se aplicó?» se contesta del catálogo, no de la memoria. `scripts/verificar-migraciones-aplicadas.mjs` (sólo lectura;
+correrlo en producción necesita el permiso de Martín) lee las migraciones en orden y lista, por migración, aplicada / a medias / AUSENTE. Una lectura tolerante («si la columna falta, no exige») es una decisión de orden de despliegue,
+no una garantía de que la migración llegó: toda migración que el código lee con esa tolerancia se verifica después de aplicarla. Detalle: docs/hallazgos-infra.md → «Una migración sin aplicar no rompe nada si el código la tolera».
+
 # Lo que está OCULTO se deriva de lo que se DIBUJA, nunca se enumera al lado
 
 Cuando una función parte una colección en «lo que se ve» y «lo que no», la segunda mitad

@@ -6762,6 +6762,41 @@ matada, muda: son minutos de runner), junta los errores sin repetir (uno de conf
 
 **Sin hacer:** correr la medición en Actions (la sube el Cerebro: rama `medir-tipos`), elegir K con la tabla y encenderlo (`TIPOS_TANDAS`). Hasta entonces el paso «Tipos» sigue como estaba (82 %).
 
+## Una migración sin aplicar no rompe nada si el código la tolera: la 0283 (21/10/2026) y el verificador de sólo lectura
+
+**El síntoma:** `workspaces.mfa_obligatorio_desde` (la 0283, el 2FA obligatorio) **nunca se había aplicado en producción**, y nadie lo sabía: la REST daba 42703 «column does not exist» sólo al pedirla directamente. El código que la lee
+(`obligatorioDesdeDe`) contesta «no exige» si falta, A PROPÓSITO (para que el orden de despliegue no deje afuera a nadie). **El diagnóstico obvio —«si faltara algo se vería roto»— es el equivocado:** el código tolerante convierte una migración
+sin aplicar en una función que NO RIGE, y eso no se ve en ningún log. Lo que lo vuelve estructural: `scripts/apply-migration.mjs` ejecuta el archivo y **no deja registro** (no hay tabla de migraciones ni `supabase db push`), así que «qué se aplicó» no tiene
+fuente de verdad. Si faltó una, puede haber faltado OTRA.
+
+**La herramienta** (`scripts/verificar-migraciones-aplicadas.mjs`, SÓLO LECTURA, **no corrida en producción: necesita el permiso de Martín**): lee las 315 migraciones en orden y lleva el estado de lo que crean y borran —tablas (con sus columnas), columnas,
+índices, funciones (por nombre y cantidad de argumentos), vistas, triggers, políticas, tipos, extensiones, secuencias, restricciones con nombre, esquemas, `enable row level security` y los ids de los buckets de storage—, y lo cruza con el catálogo de Postgres.
+Lo que una migración posterior borra o renombra deja de esperarse. Lista, por migración: **aplicada · a medias · AUSENTE** (nada de lo que crea existe), lo que SOBRA (una migración lo borra y sigue ahí: esa no se aplicó), lo DUDOSO (sólo lo crea un `DO` condicional) y
+lo **sin entender**. Uso: `node --env-file=C:/dev/mako-api/.env.local scripts/verificar-migraciones-aplicadas.mjs [--detalle] [--desde 0200] [--json salida.json]`. Exit 0 si todo está, 2 si hay ausentes, a medias o «sobran».
+Es de sólo lectura por construcción: una transacción `read only` con `statement_timeout` de 20 s, sólo `select` al catálogo (pg_class, pg_attribute, pg_proc, pg_trigger, pg_policies, pg_type, pg_extension, pg_constraint, pg_namespace) y los ids de `storage.buckets`; no toca
+filas de clientes ni imprime la URL de conexión. Un test lo fija (toda consulta es un `select`; la transacción es `read only`).
+
+**Lo que se probó SIN producción, con un Postgres de verdad (PGlite):** las 315 migraciones aplicadas en orden (sin una falla) dan **0 discrepancias** con el verificador (292 aplicadas, 8 sin objetos propios) y 0 «sobran»; **125 objetos reales borrados a mano
+(índices, vistas, triggers, restricciones, RLS, buckets, funciones, 40 columnas, 15 tablas), los 125 detectados**; y saltear la 0283 da exactamente «AUSENTE 0283_mfa_obligatorio.sql — columna:public.workspaces.mfa_obligatorio_desde». En el repo: tests/verificar-migraciones.test.ts
+(el analizador con SQL de mentira, el cruce, la «sólo lectura», que las dos mitades —el analizador y el lector del catálogo— hablen el mismo idioma de claves, y que las 315 reales se entiendan enteras: **ningún DDL queda «sin entender»**; si una migración nueva trae una forma
+que no conoce, el test lo dice antes de que alguien lea un informe incompleto). Probado rompiéndolo: 24 roturas, 24 rojas.
+
+**Lo que NO mira (el informe lo dice al final):** los datos que una migración siembra (`insert`/`update`, 81 sentencias en 58 migraciones: planes, plantillas, filas), `grant`/`revoke` (eso lo mide `scripts/medir-funciones-publicas.mjs`), `comment on`, el DDL armado con
+`execute format(...)` y lo que está dentro de un `DO` (ahí es condicional). **Cómo leer un «AUSENTE» o «A MEDIAS» en producción:** es una pista fuerte, no una sentencia: un cambio hecho a mano en el editor de Supabase (un renombre, un drop) también lo produce, y una migración reemplazada por otra
+que no se leyó de la misma forma. Se mira la migración, se confirma, y recién entonces se aplica (`node scripts/apply-migration.mjs supabase/migrations/NNNN_x.sql`; las aditivas con `if not exists` son seguras de volver a correr).
+
+**Trampas que aparecieron:**
+- **La clave de una función tenía un punto de más** (`funcion:public.f./2`) y los dos lados (el analizador y el lector del catálogo) la armaban igual, así que la validación contra PGlite pasaba: lo que no andaba era `drop function`, que buscaba otra forma. Lo cazó un test del analizador solo.
+  Por eso hay un test de CONTRATO entre las dos mitades, con filas de catálogo de mentira: que se pongan de acuerdo no prueba que estén bien.
+- **`information_schema.columns` no sirve para esto:** sólo muestra las columnas sobre las que el rol tiene privilegios. Se lee `pg_attribute`.
+- **Una tabla borrada se lleva sus índices, triggers y políticas** (el analizador lo sabe), pero una columna borrada NO le avisa a sus índices: si un índice se creó sobre una columna que después se borró, saldrá «falta» y es un falso positivo (hoy: ninguno).
+- **El tokenizador de SQL es UNA copia** (`scripts/sql-migraciones.mjs`), la comparten este verificador y tests/migraciones-funciones-cerradas.test.ts: dos lectores de SQL distintos terminan diciendo cosas distintas de la misma migración.
+
+**Sin hacer:** correrlo en producción (necesita el permiso de Martín: es una lectura del catálogo, la misma clase que frenó a `medir-funciones-publicas.mjs`); y decidir qué hacer con lo que salga. Una mejora a considerar: que `apply-migration.mjs` deje un registro (una tabla `migraciones_aplicadas`), para que la pregunta
+«¿se aplicó?» tenga una fuente de verdad y no haya que reconstruirla del catálogo.
+
+**Vive en:** `scripts/verificar-migraciones-aplicadas.mjs` · `scripts/sql-migraciones.mjs` · `tests/verificar-migraciones.test.ts` · `scripts/apply-migration.mjs` (el que no deja registro)
+
 ## El candado de lo pesado: un `mkdir` sin cola premia al que pregunta más seguido, y el que espera vuelve con la rama vieja (20/10/2026)
 
 **El síntoma** (medido por el Cerebro el 20/10): Pagos esperó **casi dos horas** el candado `C:/dev/pesado.lock` viendo cómo Video

@@ -569,6 +569,38 @@ chat de Automations (`docs/diseno-2fa-obligatorio.md` en su rama); la regla es d
 `dejar_de_exigir_2fa`, `ver_exigencia_2fa`) · `supabase/migrations/0283_mfa_obligatorio.sql` ·
 `tests/mfa-obligatorio.test.ts` · *14/10/2026, chat «Ciberseguridad» con «Automations»*
 
+### El 2FA obligatorio NO rige hasta que alguien corra la acción: el estado real al 21/10/2026 (leído en `main`, sin tocar producción)
+
+**El síntoma:** al verificar lo de Google se vio que `workspaces.mfa_obligatorio_desde` (la 0283) **nunca se había aplicado en producción** (la REST daba 42703). Es aditiva y el código la lee con tolerancia a que falte
+(`obligatorioDesdeDe` contesta «no exige»), así que NADA se rompió: sólo no regía lo que la columna habilita. La decisión de Martín (14/10) es el 2FA obligatorio para todos desde el 21/10 a las 24:00, en la hora de cada negocio.
+Con la columna ya aplicada, esto es lo que falta y lo que verá la gente.
+
+**1. ¿Quién la prende? Nadie solo, y no hay un default.** La única fuente de la exigencia es la fecha POR NEGOCIO (`workspaces.mfa_obligatorio_desde`; null = no exige): `requiereSegundoFactor(rol, mfaActivo, desde) = rol === 'admin' || mfaActivo || exigidoYa(desde)`.
+No hay constante, variable de entorno, cron ni trigger que la escriba. Hasta que alguien la escriba **no rige para nadie, salvo el super admin** (rol `admin`, siempre). La escribe la acción **`exigir_2fa_desde`** del registro de la API (área `equipo`,
+`soloPlataforma`, se confirma por chat): `fecha` (AAAA-MM-DD), `hora` (24:00 si se omite) y `negocio_id`. Calcula el instante en la zona de CADA negocio (`zonaDelNegocioEstricta`; 4 de 13 sin zona guardada usan la detectada): «21/10 24:00» =
+las 00:00 del 22/10 de cada uno, o sea una ventana del 21/10 22:00 UTC (Madrid) al 22/10 07:00 UTC (Tijuana). Es idempotente (`yaEstaba`), se deshace con `dejar_de_exigir_2fa`, y `ver_exigencia_2fa` lee, por negocio, la fecha, los usuarios y
+cuántos están sin 2FA (es la lectura que conviene hacer ANTES de escribir). **⚠️ Sin `negocio_id` la acción es para TODOS los negocios, y eso incluye al ws3.** Un negocio creado DESPUÉS nace sin fecha (hay que volver a correrla).
+
+**2. ¿Están los avisos y recordatorios del circuito? NO.** En `main` no hay: una plantilla de 2FA en `PLANTILLAS_PLATAFORMA` (están «Restablecer Contraseña», «Tu Contraseña Cambió» y las `mako-*`); la acción `exigir_2fa_desde` como tarjeta del lienzo (no figura
+en `lib/editor-acciones.ts`); las tablas `avisos_app`, `avisos_app_vistos` ni `automatizacion_negocios` (ni en las migraciones ni en el código); un CRON «a esta fecha y hora en la hora de cada negocio» ni un DELAY «hasta una fecha» (no los encontré). El diseño
+(`docs/diseno-2fa-obligatorio.md`) lo dice: «de Automations, nada construido». Lo que SÍ existe: la tarjeta «MaKo al grupo del negocio» y el texto «Obligatorio desde …» en /perfil/seguridad (sólo se ve después de entrar). O sea: **si se corre la acción, la
+exigencia rige, pero nadie recibe aviso ni recordatorio** salvo lo que Martín mande a mano. Para el 21/10 a las 12:00 no hay circuito.
+
+**3. ¿Qué ve un cliente que no lo configuró?** Con la sesión abierta: en el siguiente pedido `getUsuarioActual` la rechaza (su cookie no trae `mfa`) y lo manda al login; no encontré un mensaje que le diga por qué. Al volver con Google, el callback lo manda a
+`/login/2fa`: «Activa un segundo paso — Tu cuenta lo pide para entrar». Hoy el único método es la app de autenticación (WhatsApp y correo siguen apagados), así que va directo al QR. Después del factor, una pantalla para **crear su contraseña**: esa
+obligación cuelga de la MISMA fecha (`requiereCrearContrasena`). Quien ya tiene un factor no se entera. El censo del 14/10 (el último): 12 usuarios, 11 sin 2FA, un usuario por negocio.
+
+**4. El ws3 (la cuenta del revisor de Google, que no puede tener 2FA):** la exigencia es por negocio, así que basta con que **el ws3 no tenga fecha** — confirmado en el código: el callback y `getUsuarioActual` leen la fecha del negocio de ESA persona. Para que entre sin 2FA tienen que
+cumplirse las cuatro: (a) ws3 sin fecha (correr la acción con `negocio_id` de los demás, uno por uno, o correrla para todos y después `dejar_de_exigir_2fa negocio_id=3`); (b) que la cuenta sea `rol = 'usuario'`, NO `admin` (el rol `admin` exige el 2FA siempre); (c) que no tenga un factor activo;
+(d) la contraseña obligatoria sale de la misma fecha: sin fecha, tampoco se la pide.
+
+**Qué falta para que rija, en orden:** (1) la 0283 aplicada — hecho el 21/10; (2) correr `exigir_2fa_desde` una vez, desde el chat de la plataforma, con la lista de negocios SIN el ws3 (antes, `ver_exigencia_2fa`); (3) opcional pero es lo que Martín pidió: el circuito de avisos
+(construirlo, o mandar un WhatsApp a cada grupo a mano). **La decisión es de Martín:** ponerla en marcha hoy (la mayoría de los usuarios entra mañana sin haber visto un aviso) o mover la fecha y armar el circuito.
+
+**La trampa de fondo:** un código que tolera la columna faltante esconde la migración sin aplicar. Ver «Una migración sin aplicar no rompe nada si el código la tolera» en `docs/hallazgos-infra.md`.
+
+**Vive en:** `lib/mfa-obligatorio.ts` · `lib/mfa-reglas.ts` (`requiereSegundoFactor`, `exigidoYa`) · `lib/auth.ts` (`getUsuarioActual`) · `app/api/auth/callback/google/route.ts` · `lib/api-mako/areas/equipo.{def,run}.ts` (`exigir_2fa_desde`, `dejar_de_exigir_2fa`, `ver_exigencia_2fa`) · `app/login/2fa/SegundoPaso.tsx` · `lib/contrasena-reglas.ts` · `docs/diseno-2fa-obligatorio.md`
+
 ### ⚠️ `next dev` le daba un admin de producción a la red, y la puerta ACTIVA era `dev-login` (15/10/2026)
 
 El chat del Centro de Operaciones encontró la mitad latente (la sección «Un `next dev` sin `AUTH_SECRET` es un admin
