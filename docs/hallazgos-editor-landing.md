@@ -2098,38 +2098,48 @@ documento y el PDF «Lo que vendes» («No me permite»). El hito, literal, en l
 
 Pedido de Martín (20/10): «que Ops Center sea lo principal en MaKo… crear webs». El plan, en docs/ops-center-principal.md.
 
-### «Mi otro producto»: tres rondas de reglas, y la red es PREGUNTAR con los nombres
+### «Mi otro producto»: cuatro rondas de reglas, y la red es PREGUNTAR con los nombres
 - **El caso:** con un solo producto en el catálogo, «créame una landing para mi otro producto» creaba igual, y el esquema
   salía del perfil del negocio: la landing del producto que ya tiene.
 - **Dónde se impone:** en el `preparar` de generar_landing_con_ia (`productoDeLanding`,
   lib/editor-landing/producto-de-landing.ts): si no se sabe para cuál es, no se prepara nada y el error ES la pregunta. La
   receta (RECETA_LANDING) sólo hace que MaKo pregunte antes de proponer.
-- **El diagnóstico obvio era el equivocado, tres veces.** Cada ronda de reglas cerró lo que la revisión marcaba y abrió
+- **El diagnóstico obvio era el equivocado, cuatro veces.** Cada ronda de reglas cerró lo que la revisión marcaba y abrió
   agujeros nuevos (20 y 21/10, un escéptico por hallazgo):
   - contar palabras «que no son relleno»: «ventas», «porfa» o el voseo «creás» la saltaban;
   - comparar con los nombres y reconocer «otro» como destino: el modelo copiaba la referencia en `producto` («mi otro
     producto») y saltaba el guardia; «un producto nuevo» pegaba el único;
   - negaciones, plurales, «todo el negocio» y el nombre largo: la tercera probó ~200 frases y encontró «una landing que
     venda mi otro producto» (no se veía), «ya tengo la de la Mentoría; créame una para mi otro producto» (elegía la
-    Mentoría) y la vuelta «Curso de fotografía» (caía en el «Curso» del catálogo).
+    Mentoría) y la vuelta «Curso de fotografía» (caía en el «Curso» del catálogo);
+  - elegir el producto nombrado si no hay ninguna palabra de una lista de DUDA (otr, nuev, «no», «ya tengo», parecid…):
+    la cuarta probó 44 frases naturales de excluir, comparar o vender cruzado y las 44 elegían el nombrado («sin
+    mencionar la Mentoría», «como la de la Mentoría pero para mi taller», «que al final lleve a la Mentoría», «not the
+    Mentoría»). **Una lista de palabras de duda siempre deja afuera la frase siguiente → preguntar.**
   Leer texto libre con reglas falla en lo obvio: es la regla de AGENTS.md («la red es que la persona CONFIRME»).
-- **Lo que quedó: no adivinar.** Se elige sin preguntar SÓLO si `producto` es un nombre del catálogo (sin tildes,
-  mayúsculas ni artículo definido: «un curso» no es el Curso), si el catálogo está vacío, o si el pedido nombra
-  exactamente UNO sin ninguna palabra de otro, nuevo, excluir o comparar (`DUDA`, prefijos: otr, nuev, próxim, «no», «ya
-  tengo», parecid…). Todo lo demás PREGUNTA con opciones: los productos, «Un producto nuevo» y «El negocio en general».
-  Un producto nuevo vuelve en `producto_nuevo` con su nombre y de qué se trata, aunque diga «curso». Preguntar de más
-  cuesta un toque; elegir mal, una landing mala.
+- **Lo que quedó: el texto no elige nunca.** Con catálogo, se elige sin preguntar SÓLO si el modelo manda en `producto`
+  un nombre del catálogo (sin tildes, mayúsculas ni artículo definido: «un curso» no es el Curso) o «El negocio en
+  general», o un producto nuevo con nombre en `producto_nuevo` (aunque diga «curso»). Lo demás PREGUNTA con opciones:
+  los productos, «Un producto nuevo» y «El negocio en general». Que «la landing es PARA la Mentoría» lo decide el
+  modelo, que lee la conversación, y la persona lo ve en la tarjeta. Preguntar de más cuesta un toque; elegir mal, una
+  landing mala.
+- **Sin catálogo no es «no hay cuál elegir mal».** El esquema sale de la oferta del brief (`ofertaPrincipal`, tabla
+  `ofertas` o el brief), no de `productos`, que puede estar vacío o todo inactivo. Así que un nombre en `producto` con
+  el catálogo vacío es un producto nuevo (tirarlo dejaba la landing sobre la oferta del brief), «Un producto nuevo» sin
+  nombre pide el nombre, y si el catálogo no se pudo leer valen «El negocio en general» y un `producto_nuevo` con nombre.
+  Sin ningún producto, la tarjeta lo dice: «sobre el perfil del negocio (sin un producto elegido)».
 - **La red es la tarjeta:** lo decidido REEMPLAZA a lo que mandó el modelo y va adelante en el resumen que se confirma
   («para el producto «X»», «para un producto nuevo, «X»», «para el negocio en general»): pegado al final de la idea, el
-  corte de 140 caracteres lo escondía.
+  corte de 140 caracteres lo escondía. Y la frase del producto en la idea nunca es lo que se corta: con una idea de 8.000,
+  el tope se comía «Es para el producto…» y la tarjeta mostraba lo que el esquema no recibía (se corta la idea antes).
 - **El chat del editor no se tocó:** `productoDelPedido` (lib/mako-pedidos.ts) quedó byte a byte como en main. Una
   regla «mejor» compartida le metía regresiones en producción («que venda mi otro producto» pasó a pegar la Mentoría).
   Su test fija lo que devolvía main.
-- **Dónde se mira:** idea, instrucciones, título y audiencia (lo que pide la persona); el texto pegado no, que es
-  contenido. Corre en TODO pedido: uno que no nombra producto también saldría sobre el principal.
+- **Corre en TODO pedido:** uno que no nombra producto también saldría sobre el principal.
 - **Una frase prueba una regla sólo si esa regla es la ÚNICA que la decide.** Varias frases de las revisiones daban bien
-  sin la regla que decían probar; una rotura que queda en verde pide una frase nueva. Con la regla nueva, la batería
-  separa ELIGE (pocas, exactas) de PREGUNTA (todo lo demás).
+  sin la regla que decían probar; una rotura que queda en verde pide una frase nueva. Ahora que el guardia no recibe el
+  texto, una batería de frases contra la función pasaría sola: las ~190 frases van por el `preparar` de VERDAD (un
+  proceso hijo con el catálogo de mentira), así una regla nueva que lea el texto se ve.
 - **La receta no nombra herramientas:** no siempre viajan las que nombraría (lo fija su test).
 - **Trampa:** armar una regex uniendo templates con «+» la rompe el minificador del build en producción
   (tests/minificador-templates lo frena): en una lista con `join('|')`.
@@ -2164,6 +2174,15 @@ Pedido de Martín (20/10): «que Ops Center sea lo principal en MaKo… crear we
   verde con el equivocado; lo vio el tsc.
 - **BloqueHilo los carga con `next/dynamic`** (traen la hoja del contenido, ~100 KB): en un test con
   `renderToStaticMarkup` el hilo no los dibuja; se dibuja BloqueWeb directo.
+- **Un bloque nuevo hereda el contrato del marco, no sólo su forma.** El G2 (`elegir`) nació en la rama antes del arreglo
+  del G1 en main (3099aa97c, 21/10: «Respondiste» sólo si el mensaje salió, las opciones esperan mientras MaKo trabaja,
+  y lo contestado vale en CADA render) y el merge no lo trajo: decía «Respondiste» con el mensaje sin mandar, y al
+  recargar volvía activo porque `conRespuestas` sólo miraba la `pregunta`. Ahora Elegir hace lo mismo que PreguntaHilo,
+  BloqueHilo le pasa `ocupado`, y `conRespuestas` cuenta también el `elegir`.
+- **Una lectura que dibuja tiene que leer el pedido.** `listar_disenos_landing` dibujaba el G2 sin mirar
+  `ctx.mensajeUsuario`: siempre los mismos tres, también en una presentación o con el diseño ya nombrado. Ahora
+  `elegirDisenoPara` los ordena por el pedido y no dibuja nada en esos dos casos. «MaKo» es también el nombre de la app:
+  cuenta como diseño sólo dicho como tal («el diseño de MaKo»).
 
 - **Una lectura deja su bloque AL LADO de lo que lee el modelo:** devuelve `{ content, bloque }` (`SalidaLectura`).
   `ejecutarOperacion` lo sanea y lo dibuja por `ctx.aDibujar` (ola1, 061c1b74d: el canal de Pagos, uno solo para todas
@@ -2182,13 +2201,12 @@ Pedido de Martín (20/10): «que Ops Center sea lo principal en MaKo… crear we
   revisión: «ya tengo la de la Mentoría 1 a 1; créame una para mi otro producto», «para mi próximo producto» o «mi otro
   producto, Mentoría grupal» eligen el que hay. Pasarlo a `productoDeLanding` pide decidir cómo vuelve la respuesta a
   un pedido (cada mensaje se interpreta suelto); al hacerlo, cambia la tabla de main en tests/ops-center-landing-receta.
-- La pregunta va en TEXTO: con el marco de Ops Center 3 (ola1) puede ir como bloque `elegir` con las opciones (la rama
-  web-ops-bloques ya dibuja el `elegir`).
+- La pregunta del producto va en TEXTO: con el marco ya en main puede ir como un G2 `elegir` con las opciones.
 - `producto_nuevo` acepta cualquier cosa con una palabra de contenido: «mi otra marca» pasa como nombre. La red es la
   tarjeta, que lo muestra adelante (lib/editor-landing/producto-de-landing.ts, `esDescripcionVaga`).
-- Pregunta de más, a propósito: un pedido que nombra el producto pero dice «no» o «nueva» en cualquier parte («para la
-  Mentoría, que no muestre precios»), y todo pedido que no nombra ninguno. Si en el uso molesta, el arreglo es mostrar
-  lo entendido en la tarjeta, no más reglas.
+- Pregunta de más, a propósito: con catálogo, TODO pedido sin `producto` pregunta, también «landing para la Mentoría 1
+  a 1» si el modelo no pasa el nombre. Si en el uso molesta, el arreglo es que el modelo lo pase (la receta lo pide),
+  no una regla sobre el texto.
 - `publicar_landing` devuelve en `datos.url` la dirección de MaKo aunque la landing tenga un dominio propio verificado
   (`urlDeLanding(r.slug)` en landing.run.ts): el bloque de publicada tiene que recibir la del dominio.
 

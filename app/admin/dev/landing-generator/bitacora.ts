@@ -830,4 +830,24 @@ export const BITACORA: Hito[] = [
       'tests/ops-center-landing-receta.test.ts — las ~200 frases de las tres revisiones, 42 roturas en rojo',
     ],
   },
+  {
+    fecha: '21 oct', hora: '04:37', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Si no le dices para qué producto es la landing, MaKo te pregunta siempre',
+    puntos: [
+      'La revisión probó 44 frases como «créame una landing para mi taller, sin mencionar la Mentoría» y MaKo elegía justo la Mentoría. Ahora no elige por lo que dice el pedido: si no le dices el producto con su nombre, te pregunta cuál, con tus productos, «Un producto nuevo» y «El negocio en general».',
+      'Si todavía no cargaste productos, el nombre que le das queda como un producto nuevo. Y la tarjeta para confirmar dice siempre para qué es, también cuando sale del perfil del negocio.',
+      'Al elegir un diseño en el chat, si MaKo estaba respondiendo, ahora te avisa que no salió en vez de decir «Respondiste». Al recargar, lo que ya elegiste queda elegido.',
+      'Los tres diseños para elegir siguen lo que pediste («una landing oscura» muestra el oscuro) y no aparecen si pides una presentación o ya nombraste el diseño.',
+    ],
+    commits: [
+      { sha: '730894e23', msg: 'Web Generator, revisión de la punta única: el texto no elige el producto, y el G2 con el contrato del G1', lineas: 628, archivos: 12 },
+    ],
+    archivos: [
+      'lib/editor-landing/producto-de-landing.ts — sin la regla del texto; el catálogo vacío o ilegible',
+      'app/web-generator/BloqueWeb.tsx, app/_chat/BloqueHilo.tsx y app/m/mako/chat-ui.ts — el elegir con el contrato del G1',
+      'lib/editor-landing/bloques-chat.ts y lib/api-mako/areas/landing.run.ts — los diseños según el pedido',
+      'tests/ops-center-landing-receta.test.ts y tests/ops-center-landing-bloques.test.ts — 51 roturas en rojo',
+    ],
+  },
 ];
