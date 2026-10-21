@@ -2025,6 +2025,12 @@ los «Hecho:» que el código anota de verdad. Borrar una verdad le miente al cl
 Lo que no tiene respaldo se MARCA con una nota corta, y el respaldo fuerte lo pone el código: lo ejecutado en el turno
 y la tarjeta confirmada, que ya se ven en el hilo. Los tests usan el resumen REAL de ejecución, no el de la propuesta.
 
+**El corolario para un AVISO (21/10/2026, la duplicada de Automations):** si se avisa o no, lo decide un HECHO, nunca el
+parecido de un texto. Tres rondas de reglas sobre el parecido de dos mensajes (un umbral, una firma calculada, una firma
+fija) dejaban pasar duplicados de verdad y avisaban de más. Ahora se avisa siempre que el hecho se da (otra activa le
+escribe a la misma gente, por el mismo canal, con horarios que se pisan) y el aviso MUESTRA los dos textos para que la
+persona compare. Un parecido de texto sólo puede ordenar o resaltar. Detalle: docs/hallazgos-chatbot.md.
+
 # Tres topes del entorno que no dan error: te dan otra cosa
 
 Los tres se descubrieron el mismo día, los tres escribiendo código nuevo, y los tres
@@ -9541,6 +9547,8 @@ en «Copiar flujo» pegado en el MISMO negocio (`crearDesdeCopia` con `configDe`
 puede copiar, la copia se borra. Y un aviso que defiende algo (el de automatización duplicada) va en TODOS los caminos que
 lo prenden, no sólo en el botón de la pantalla donde se pensó: por eso vive en la puerta del server (`setSecuenciaActiva`
 pregunta; `aunqueDuplique` recién después de «… igual») y tests/automations-activar-todos-los-caminos.test.ts barre los
-llamadores. Un camino nuevo que prende una automatización tiene que manejar `duplicada` o ese test falla. Y un panel del NEGOCIO reusado adentro de algo de UNA automatización revisa cada
+llamadores. Un camino nuevo que prende una automatización tiene que manejar `duplicada` o ese test falla. Y publicar los
+pasos de una ACTIVA también es prender: un camino de una PERSONA escribe por `publicarPasos` (lib/nutricion.ts), nunca
+`setSecuenciaPasos` directo (ése es del sistema, que no tiene a quién preguntarle). Y un panel del NEGOCIO reusado adentro de algo de UNA automatización revisa cada
 cosa que guarda: el huso de la tuerca guardaba `mako.timezone` de todo el negocio. Detalle: docs/hallazgos-chatbot.md
 («La revisión adversarial lo frenó»).
