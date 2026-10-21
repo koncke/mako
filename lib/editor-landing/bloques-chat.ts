@@ -21,9 +21,9 @@ import { tarjetasDe, type JsonNodo, type LandingContenido } from './doc';
 import { DISENOS_LANDING } from './disenos-landing';
 import { FORMATOS_REPLICAR, NOMBRE_FORMATO_REPLICAR, type FormatoReplicar } from './replicar-reglas';
 import type { GrupoTema } from './temas';
-import type { BloqueDominio, BloqueElegir, BloqueLanding, BloquePublicada, EstadoLanding, FilaDns } from './bloques-web';
+import { MAX_LANDINGS_BLOQUE, type BloqueDominio, type BloqueElegir, type BloqueLanding, type BloqueLandings, type BloquePublicada, type EstadoLanding, type FilaDns } from './bloques-web';
 
-export type { BloqueDominio, BloqueElegir, BloqueLanding, BloquePublicada, EstadoLanding, FilaDns, OpcionBloque } from './bloques-web';
+export type { BloqueDominio, BloqueElegir, BloqueLanding, BloqueLandings, BloquePublicada, EstadoLanding, FilaDns, OpcionBloque } from './bloques-web';
 
 /** La ruta del editor de una landing, ADENTRO de la app (el `Link` de la pantalla le pega el ?ws=). */
 export const rutaEditor = (id: number): string => `/web-generator/${id}`;
@@ -69,6 +69,23 @@ export function bloqueLanding(d: LandingParaBloque, url: string | null, nota?: s
     miniatura: { tarjeta: d.primera, tema: d.tema, proporcion: presentacion ? (d.proporcion === '4:3' ? '4:3' : '16:9') : null },
     ...(nota ? { nota } : {}),
     abrir: { titulo: 'Abrir en el editor', href: rutaEditor(d.id) },
+  };
+}
+
+/**
+ * La lista de landings (listar_landings_creadas): las primeras `MAX_LANDINGS_BLOQUE` con su tarjeta, en el orden que
+ * llegan (las editadas más recientemente primero), y «Ver todas en el Web Generator». `items`: cada una con la dirección
+ * pública que ya armó la API. null sin ninguna (una lista vacía no se dibuja: lo dice el texto).
+ */
+export function bloqueListaLandings(items: readonly { d: LandingParaBloque; url: string | null }[], total: number): BloqueLandings | null {
+  if (!items.length) return null;
+  const landings = items.slice(0, MAX_LANDINGS_BLOQUE).map(({ d, url }) => bloqueLanding(d, url));
+  return {
+    t: 'landings',
+    titulo: total === 1 ? 'Tu landing' : `Tus landings (${total})`,
+    landings,
+    total: Math.max(total, landings.length),
+    abrir: { titulo: 'Ver todas en el Web Generator', href: '/web-generator' },
   };
 }
 

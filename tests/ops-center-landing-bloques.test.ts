@@ -28,6 +28,13 @@
 //   R12 la tabla DNS dice «Falta» del www informativo                                 → 8 / 1
 //   R13 crear desde un diseño no devuelve su tarjeta                                  → 7 / 2
 //   R14 el link público se abre sin `noopener`                                        → 8 / 1
+//   (con la base en 9 tests; las seis siguientes, con las lecturas, sobre la base de 12 / 0)
+//   R15 listar no deja su bloque en la salida                                         → 11 / 1
+//   R16 la lista lleva todas las landings, no las primeras                            → 10 / 2
+//   R17 la papelera lleva tarjetas                                                    → 11 / 1
+//   R18 el saneo de la lista deja una tarjeta que abre afuera                         → 11 / 1
+//   R19 los diseños no dejan su G2                                                    → 11 / 1
+//   R20 BloqueWeb no dibuja la lista                                                  → 11 / 1
 //
 // Correr: node --import tsx --test tests/ops-center-landing-bloques.test.ts
 // =============================================================================
@@ -41,10 +48,10 @@ import { pathToFileURL } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
-  OPCIONES_POR_BLOQUE, bloqueDeCompleta, bloqueDominio, bloqueLanding, bloquePublicada, elegirDiseno, elegirFormatoReplicar, elegirTema,
+  OPCIONES_POR_BLOQUE, bloqueDeCompleta, bloqueDominio, bloqueLanding, bloqueListaLandings, bloquePublicada, elegirDiseno, elegirFormatoReplicar, elegirTema,
   estadoDeLanding, rutaEditor,
 } from '../lib/editor-landing/bloques-chat';
-import { esBloqueWeb, urlPublicada, type BloqueWeb as TBloqueWeb } from '../lib/editor-landing/bloques-web';
+import { MAX_LANDINGS_BLOQUE, esBloqueWeb, urlPublicada, type BloqueWeb as TBloqueWeb } from '../lib/editor-landing/bloques-web';
 import { sanearBloque } from '../lib/chat-bloques';
 import { DISENOS_LANDING } from '../lib/editor-landing/disenos-landing';
 import { TEMAS } from '../lib/editor-landing/temas';
@@ -253,4 +260,61 @@ test('las demás devuelven su bloque: duplicar, la presentación, en blanco, gen
   assert.match(e, /bloque: bloqueDeCompleta\(r\.doc, null, 'Nueva'\) \} \};/, 'en blanco');
   assert.match(e, /const creada = await docsEditor\.abrir\(r\.doc\.id\)\.catch\(\(\) => null\);[\s\S]{0,900}\.\.\.\(creada\?\.ok \? \{ bloque: bloqueDeCompleta\(creada\.doc, null, 'Nueva'\) \} : \{\}\)/, 'generar con IA');
   assert.equal((e.match(/datos: \{ id, \.\.\.registrosParaApi\(r\.dominio\), bloque: bloqueDominio\(id, r\.dominio\) \}/g) ?? []).length, 2, 'conectar y verificar el dominio');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Las lecturas: listar (la lista con sus tarjetas) y los diseños (el G2), por la salida de la herramienta
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('la lista: las primeras con su tarjeta, cuántas hay y «Ver todas»; el saneo deja afuera la que no calza', () => {
+  const items = Array.from({ length: 6 }, (_, i) => ({ d: { ...base, id: 100 + i, titulo: `L${i}` }, url: null }));
+  const b = bloqueListaLandings(items, 6)!;
+  assert.deepEqual([b.t, b.titulo, b.total, b.landings.length, b.abrir.href], ['landings', 'Tus landings (6)', 6, MAX_LANDINGS_BLOQUE, '/web-generator']);
+  assert.deepEqual(b.landings.map((l) => l.abrir.href), ['/web-generator/100', '/web-generator/101', '/web-generator/102', '/web-generator/103']);
+  assert.equal(bloqueListaLandings([], 0), null, 'una lista vacía no se dibuja');
+  assert.equal(bloqueListaLandings(items.slice(0, 1), 1)!.titulo, 'Tu landing');
+  assert.deepEqual(sanearBloque(b), b, 'la lista bien armada pasa entera');
+  const conMala = { ...b, landings: [{ ...b.landings[0], abrir: { titulo: 'x', href: 'https://otro.com' } }, b.landings[1]] };
+  assert.deepEqual((sanearBloque(conMala) as { landings: unknown[] }).landings.length, 1, 'la que abre afuera se va');
+  assert.equal(sanearBloque({ ...b, landings: [] }), null);
+});
+
+test('la lista se dibuja: cada tarjeta abre su editor, y «Ver todas» dice cuántas hay', async () => {
+  const items = Array.from({ length: 6 }, (_, i) => ({ d: { ...base, id: 100 + i, titulo: `Landing ${i}` }, url: null }));
+  const h = await dibujar(bloqueListaLandings(items, 6)!);
+  assert.match(h, /data-bloque="landings"/);
+  assert.equal((h.match(/<a class="ch-web__tarjeta" aria-label="[^"]*" href="\/web-generator\/10\d[^"]*"/g) ?? []).length, 4);
+  assert.match(h, /aria-label="Landing 0: Abrir en el editor"/);
+  assert.match(h, /<a class="ch-abrir" href="\/web-generator[^"]*">Ver todas en el Web Generator \(6\)<\/a>/);
+});
+
+test('listar y los diseños dejan su bloque arriba de la salida: llega al hilo y al modelo no (se ejecuta)', () => {
+  const r = hijo(`
+import { mock } from 'node:test';
+const real = (m) => Object.fromEntries(Object.entries(m).filter(([k]) => k !== 'default' && k !== 'module.exports'));
+const primera = { type: 'tarjeta', attrs: { id: 't1' }, content: [{ type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Hola' }] }] };
+const doc = (id, extra = {}) => ({ id, titulo: 'L' + id, tema: 'mako', creado: '2026-10-20T00:00:00Z', actualizado: '2026-10-20T00:00:00Z', creadoPor: null, favorito: false, carpeta: null, papelera: false, slug: null, publicadoAt: null, primera, ...extra });
+const docs = [doc(1, { slug: 'uno', publicadoAt: '2026-10-20T00:00:00Z' }), doc(2), doc(3, { papelera: true })];
+mock.module(${url('lib/editor-landing/server.ts')}, { exports: { ...real(await import(${url('lib/editor-landing/server.ts')})), listar: async () => ({ ok: true, docs }) } });
+const { RUNNERS } = await import(${url('lib/api-mako/areas/landing.run.ts')});
+const { bloqueDeSalida } = await import(${url('lib/chat-bloques.ts')});
+const ctx = { ws: 3, canal: 'app', canalKey: 'app:prueba', alcance: 'leer', rol: 'admin' };
+const lista = bloqueDeSalida(await RUNNERS.listar_landings_creadas.leer({}, ctx));
+const enPapelera = bloqueDeSalida(await RUNNERS.listar_landings_creadas.leer({ papelera: true }, ctx));
+const disenos = bloqueDeSalida(await RUNNERS.listar_disenos_landing.leer({}, ctx));
+console.log(JSON.stringify({ lista, enPapelera, disenos }));
+`) as Record<string, { out: string; bloque: Record<string, unknown> | null }>;
+  // La lista: el bloque con las dos que no están en la papelera, y la publicada con su dirección.
+  assert.equal(r.lista.bloque?.t, 'landings', JSON.stringify(r.lista));
+  const ls = r.lista.bloque!.landings as { id: number; estado: string; url: string | null }[];
+  assert.deepEqual(ls.map((l) => [l.id, l.estado]), [[1, 'publicada'], [2, 'borrador']]);
+  assert.match(ls[0].url ?? '', /^https:\/\/[^/]+\/(?:l\/)?uno$/, 'la publicada lleva su dirección');
+  // Al modelo le llega la salida SIN el bloque (la sección no se paga en cada paso), y con la lista de siempre.
+  assert.doesNotMatch(r.lista.out, /"bloque"|"primera"|"tarjeta"/);
+  assert.equal((JSON.parse(r.lista.out) as { landings: unknown[] }).landings.length, 2);
+  assert.equal(r.enPapelera.bloque, null, 'la papelera no lleva tarjetas');
+  // Los diseños: el G2 de tres, y el catálogo para el modelo, sin el bloque.
+  assert.deepEqual([r.disenos.bloque?.t, (r.disenos.bloque?.opciones as unknown[]).length], ['elegir', 3]);
+  assert.doesNotMatch(r.disenos.out, /"bloque"/);
+  assert.ok((JSON.parse(r.disenos.out) as { disenos: unknown[] }).disenos.length >= 3);
 });

@@ -52,7 +52,7 @@ import {
 // El EDITOR del Web Generator (tanda 4): el MISMO server que llama /api/landing-generator (la
 // pantalla). Ningún `.from('landing_docs')` acá: tests/api-mako-landing-editor.test.ts lo frena.
 import * as docsEditor from '@/lib/editor-landing/server';
-import { bloqueDeCompleta, bloqueLanding, bloquePublicada } from '@/lib/editor-landing/bloques-chat';
+import { bloqueDeCompleta, bloqueLanding, bloqueListaLandings, bloquePublicada, elegirDiseno } from '@/lib/editor-landing/bloques-chat';
 import { publicar as publicarEnEditor, despublicar as despublicarEnEditor, sitioActivo as sitioActivoEnEditor } from '@/lib/editor-landing/publicar';
 import { listar as comentariosDelDiagnostico, cambiarEstado as estadoDeComentario, analizar as analizarDiagnostico } from '@/lib/editor-landing/diagnostico-server';
 // Tanda 7: el resto del editor (landing-editor.run.ts), sumado al final de RUNNERS.
@@ -575,7 +575,12 @@ export const RUNNERS: Runners = {
     leer: async (input) => {
       const r = await docsEditor.listar();
       if (!r.ok) { siFallaNuestra(r); return errorLectura(`No pude leer las landings (${r.error}).`); }
-      return json(listaParaApi(r.docs, num(input, 'limite') ?? LIMITE_LISTA, { papelera: bool(input, 'papelera') === true }));
+      const papelera = bool(input, 'papelera') === true;
+      // El bloque (Ops Center 1.12): las primeras con su tarjeta, arriba de todo de la salida. Lo saca el turno
+      // (`bloqueDeSalida`): al modelo le llega la lista sin él. La papelera no lleva tarjetas: no se abren desde ahí.
+      const vivas = papelera ? [] : r.docs.filter((d) => !d.papelera);
+      const bloque = bloqueListaLandings(vivas.map((d) => ({ d, url: estaPublicada(d) ? urlPublicaParaApi(d.slug as string, d.dominio) : null })), vivas.length);
+      return json({ ...(bloque ? { bloque } : {}), ...listaParaApi(r.docs, num(input, 'limite') ?? LIMITE_LISTA, { papelera }) });
     },
   },
 
@@ -685,8 +690,10 @@ export const RUNNERS: Runners = {
     },
   },
 
+  // El bloque (Ops Center 1.12): «armame una landing» sin diseño muestra 3 para elegir (el G2); lo elegido vuelve como
+  // un mensaje de la persona («Diseño: Clásico claro»). Lo saca el turno: al modelo le llega el catálogo sin él.
   listar_disenos_landing: {
-    leer: async () => json(disenosParaApi()),
+    leer: async () => json({ bloque: elegirDiseno(), ...disenosParaApi() }),
   },
 
   // ── Acciones por chat ──────────────────────────────────────────────────────

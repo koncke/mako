@@ -2141,11 +2141,15 @@ Pedido de Martín (20/10): «que Ops Center sea lo principal en MaKo… crear we
 - **BloqueHilo los carga con `next/dynamic`** (traen la hoja del contenido, ~100 KB): en un test con
   `renderToStaticMarkup` el hilo no los dibuja; se dibuja BloqueWeb directo.
 
+- **Una lectura deja su bloque ARRIBA de su salida** (ola1, 508cb901f): `{ bloque, ...lo de siempre }`. El turno lo saca
+  con `bloqueDeSalida`, lo sanea y lo cuelga del mensaje; al modelo le llega la salida sin él. UN bloque por
+  herramienta: la lista de landings es un solo bloque (`landings`, hasta 4 tarjetas y «Ver todas»), no cuatro.
+  `listar_disenos_landing` deja el G2 de 3 diseños, y la papelera no lleva tarjetas (no se abren desde ahí).
+
 ### Lo que quedó SIN hacer
-- **Listar con miniaturas:** el marco lleva bloques sólo al CONFIRMAR (`datos.bloque` del `Ejecutado`); una lectura
-  (`listar_landings_creadas`) no tiene por dónde. Lo decide Ops Center 3.
-- «Armame una landing» sin diseño mostrando los 3: el bloque `elegir` se dibuja y contesta, pero nada lo EMITE todavía:
-  necesita la herramienta de preguntar (1.9) y que llegue la herramienta (el clasificador, 1.2).
+- «Armame una landing» sin diseño muestra los 3 SÓLO si el modelo llama a listar_disenos_landing: que llegue la
+  herramienta es del clasificador (1.2). Los temas y el formato de Replicar no se emiten todavía: un «elegir tema» sin
+  la landing a la que va confundiría.
 - La miniatura de una landing con un tema propio (`ws:<id>`) sale con el tema de base: el hilo no tiene los temas propios.
 - No se vio con clics en el ws3 (la computadora y Android): la tarjeta, el G2, el link y «Verificar ahora».
 - En el chat del EDITOR (/api/mako/pedidos), «mi otro producto» con uno solo sigue creando sin producto: preguntarlo en

@@ -5,6 +5,8 @@
 // piezas» (docs/ops-center-principal.md §2.4). El G5 genérico (`creado`) pide una IMAGEN, y una landing no tiene: su
 // miniatura se dibuja con su primera sección (MiniaturaLanding.tsx). Por eso estos cuatro son del área:
 //   · `landing`: la tarjeta de una landing (la miniatura, el estado, el link si está en internet, «Abrir en el editor»);
+//   · `landings`: las de una lista (listar_landings_creadas), hasta MAX_LANDINGS_BLOQUE tarjetas y «Ver todas». Una
+//     herramienta devuelve UN bloque (el `bloque` de su salida, lib/chat-bloques.ts → `bloqueDeSalida`);
 //   · `elegir`: el G2, elegir entre 3 con vista previa (diseños, temas, el formato de Replicar). Contesta como el G1:
 //     lo elegido sale como un mensaje de la persona;
 //   · `publicada`: el link público con Copiar y Abrir (1.13);
@@ -67,9 +69,15 @@ export type BloqueDominio = {
   falta: string | null;
 };
 
-export type BloqueWeb = BloqueLanding | BloqueElegir | BloquePublicada | BloqueDominio;
+/** Una lista de landings: las primeras con su tarjeta, cuántas hay en total y la vuelta al Panel. */
+export type BloqueLandings = { t: 'landings'; titulo: string; landings: BloqueLanding[]; total: number; abrir: Abrir };
 
-export const TIPOS_WEB = ['landing', 'elegir', 'publicada', 'dominio'] as const;
+export type BloqueWeb = BloqueLanding | BloqueLandings | BloqueElegir | BloquePublicada | BloqueDominio;
+
+export const TIPOS_WEB = ['landing', 'landings', 'elegir', 'publicada', 'dominio'] as const;
+
+/** Cuántas tarjetas lleva una lista: las demás se ven en el Panel. */
+export const MAX_LANDINGS_BLOQUE = 4;
 
 export const esBloqueWeb = (b: { t: string }): b is BloqueWeb => (TIPOS_WEB as readonly string[]).includes(b.t);
 
@@ -134,6 +142,17 @@ export function sanearBloqueWeb(o: Record<string, unknown>, rutaInterna: (v: unk
         miniatura: { tarjeta: seccion(m.tarjeta), tema, proporcion: m.proporcion === '4:3' ? '4:3' : m.proporcion === '16:9' ? '16:9' : null },
         ...(nota ? { nota } : {}), abrir: a,
       };
+    }
+    case 'landings': {
+      const titulo = texto(o.titulo, 120);
+      const a = abrir(o.abrir, rutaInterna);
+      const landings = (Array.isArray(o.landings) ? o.landings : []).slice(0, MAX_LANDINGS_BLOQUE).flatMap((x) => {
+        if (!x || typeof x !== 'object' || Array.isArray(x)) return [];
+        const l = sanearBloqueWeb({ ...(x as Record<string, unknown>), t: 'landing' }, rutaInterna);
+        return l && l.t === 'landing' ? [l] : [];
+      });
+      const total = typeof o.total === 'number' && Number.isInteger(o.total) && o.total >= landings.length ? o.total : landings.length;
+      return titulo && a && landings.length ? { t: 'landings', titulo, landings, total, abrir: a } : null;
     }
     case 'elegir': {
       const que = (['diseno', 'tema', 'formato'] as const).find((q) => q === o.que);

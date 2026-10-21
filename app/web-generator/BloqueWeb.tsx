@@ -8,6 +8,8 @@
 // (lib/editor-landing/bloques-web.ts), en la computadora, en el teléfono y en el MaKo Analyst de la ficha:
 //   · `landing`: la miniatura (MiniaturaLanding, la MISMA del Panel), el título, el estado, el link si está en internet
 //     y «Abrir en el editor»;
+//   · `landings`: la lista (listar_landings_creadas), de a dos por fila; cada tarjeta abre su editor, y «Ver todas»
+//     el Panel;
 //   · `elegir`: tres opciones con su vista previa (la miniatura de un diseño, la muestra de un tema). Contesta como el
 //     G1 del marco: lo elegido sale como un mensaje de la persona («Diseño: Clásico claro»);
 //   · `publicada`: el link con Copiar y Abrir;
@@ -23,7 +25,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from '@/app/_ui/Link';
-import type { BloqueDominio, BloqueElegir, BloqueLanding, BloquePublicada, BloqueWeb as Bloque } from '@/lib/editor-landing/bloques-web';
+import type { BloqueDominio, BloqueElegir, BloqueLanding, BloqueLandings, BloquePublicada, BloqueWeb as Bloque } from '@/lib/editor-landing/bloques-web';
 import { bloqueDominio } from '@/lib/editor-landing/bloques-chat';
 import { CSS_CONTENIDO } from '@/lib/editor-landing/css';
 import { temaPorId, urlFuentes, type Tema } from '@/lib/editor-landing/temas';
@@ -47,6 +49,7 @@ export function BloqueWeb({ b, onResponder, respondida }: {
   respondida?: string;
 }) {
   if (b.t === 'landing') return <Landing b={b} />;
+  if (b.t === 'landings') return <Landings b={b} />;
   if (b.t === 'elegir') return <Elegir b={b} onResponder={onResponder} respondida={respondida} />;
   if (b.t === 'publicada') return <Publicada b={b} />;
   return <Dominio b={b} />;
@@ -94,6 +97,34 @@ function Landing({ b }: { b: BloqueLanding }) {
         <span className="ch-pildora" data-estado={b.estado}>{b.nota ?? ESTADO[b.estado]}</span>
       </div>
       <div className="ch-tarjeta__botones"><Link className="ch-abrir" href={b.abrir.href}>{b.abrir.titulo}</Link></div>
+    </div>
+  );
+}
+
+/** La lista: cada tarjeta (la miniatura, el título y el estado) abre su editor; «Ver todas» lleva al Panel. */
+function Landings({ b }: { b: BloqueLandings }) {
+  const temas = useMemo(() => b.landings.map((l) => temaPorId(l.miniatura.tema)), [b]);
+  const mas = b.total > b.landings.length;
+  return (
+    <div className="ch-bloque" data-bloque="landings">
+      <Estilos temas={temas} />
+      <p className="ch-bloque__titulo">{b.titulo}</p>
+      <ul className="ch-web__lista">
+        {b.landings.map((l, i) => (
+          <li key={l.id}>
+            <Link className="ch-web__tarjeta" href={l.abrir.href} aria-label={`${l.titulo}: ${l.abrir.titulo}`}>
+              <Mini tarjeta={l.miniatura.tarjeta} tema={temas[i]} presentacion={l.formato === 'presentacion'} proporcion={l.miniatura.proporcion} />
+              <span className="ch-web__item-pie">
+                <span className="ch-web__item-titulo">{l.titulo}</span>
+                <span className="ch-pildora" data-estado={l.estado}>{ESTADO[l.estado]}</span>
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <div className="ch-tarjeta__botones">
+        <Link className="ch-abrir" href={b.abrir.href}>{mas ? `${b.abrir.titulo} (${b.total})` : b.abrir.titulo}</Link>
+      </div>
     </div>
   );
 }
@@ -230,6 +261,12 @@ const CSS_WEB = `
 .ch-web__mini { width: 100%; max-width: 100%; display: block; }
 .ch-web__lienzo { position: absolute; inset: 0; background: transparent; min-height: 0; }
 .ch-web__lienzo .gp-mini { height: 100%; border-radius: 0; }
+.ch-web__lista { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.ch-web__tarjeta { display: flex; flex-direction: column; gap: 6px; min-width: 0; color: inherit; text-decoration: none; border-radius: 10px; }
+.ch-web__tarjeta:hover .ch-creado__mini { border-color: var(--primary); }
+.ch-web__tarjeta:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.ch-web__item-pie { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; }
+.ch-web__item-titulo { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
 .ch-web__opciones { flex-direction: row; flex-wrap: wrap; }
 .ch-web__opcion { flex: 1 1 140px; min-width: 0; gap: 6px; }
 .ch-web__opcion .ch-creado__mini { width: 100%; }
