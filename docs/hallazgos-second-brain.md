@@ -2085,7 +2085,10 @@ seguía, así que tocar «Mentoría» apagaba los diseños con «Respondiste: Me
   suyo. Si es de uno del turno ACTUAL (los que vinieron después del mensaje anterior de la persona), sólo ése: un
   «Saltear» de la pregunta nueva no cierra las viejas. Si no es de ninguno, escribir contesta, como siempre, pero sólo
   si en el turno actual hay UNO abierto; con varios, quedan abiertos (abierto de más cuesta poco). Un selector de un
-  turno anterior sigue esperando, pero sólo un toque SUYO lo cierra.
+  turno anterior sigue esperando, pero sólo un toque SUYO lo cierra, comparado TAL CUAL con lo que manda su botón: los
+  del turno actual se comparan sin mayúsculas ni tildes, los viejos no. Si no, lo escrito que se parecía a una opción
+  vieja se la llevaba («curso kairos» escrito a la pregunta de Pagos cerraba el «¿Para qué producto?» de la landing, y
+  Pagos quedaba abierta).
 - **La trampa, una regresión en la vuelta del arreglo:** que el selector viejo siga esperando estaba bien, pero contarlo
   para «hay uno solo abierto» rompió escribir. Después de tocar «Mentoría», el G2 de diseños queda abierto a propósito,
   y desde ahí ninguna pregunta de la sesión (de ningún área) se cerraba escribiendo. La red «escribir contesta» es del
@@ -2097,7 +2100,10 @@ seguía, así que tocar «Mentoría» apagaba los diseños con «Respondiste: Me
 - **«Listo» con varias se reconoce armándolo como el botón** (títulos en el orden de las opciones, unidos con «, »), no
   partiendo por comas: un título puede tener una («Precios, planes»).
 - **SIN hacer:** en los hilos guardados antes de que el G2 mandara «Diseño: saltear», un «Saltear» pelado tocado en el
-  G2 se lo lleva el G1 al recargar. Es sólo historia y son pocos hilos (el G2 junto al G1 existe desde el 21/10).
+  G2 se lo lleva el G1 al recargar. Es sólo historia y son pocos hilos (el G2 junto al G1 existe desde el 21/10). Y lo
+  escrito IDÉNTICO a un botón viejo («Mentoría», con mayúscula y tilde) no se distingue de un toque: cierra el viejo.
+- **Cómo se midió:** la revisión comparó contra producción 9.000 hilos armados de 1 a 12 turnos (vivo y recargando): 0
+  diferencias con texto libre. Para tocar `conRespuestas`, esa comparación es la vara, no un caso suelto.
 
 ## «Abrir en la app», y lo confirmado afuera vuelve al hilo (20/10/2026, ola 1, pieza 1.8)
 
@@ -2227,3 +2233,29 @@ un runner que tarda 5,5 s (`tests/_trabajos-hijo.ts`).
 - No están conectados `flow_trabajos` (las tomas de Flow), el render de video ni el análisis del Dashboard, que tiene su
   propio `after` y su propia consulta.
 - «Créame una landing» termina con «Abrir en Web Generator»; su miniatura es de la tarjeta de la landing (1.12).
+## Una LECTURA también dibuja: «A quién cobrar» en el hilo (20/10/2026, Pagos, la 2.27, sobre el marco de la 1.7)
+
+**Vive en:** `SalidaLectura.bloque` y `Ctx.aDibujar` en `lib/api-mako/tipos.ts` · la rama de lecturas de
+`ejecutarOperacion` (`lib/api-mako/ejecutar.ts`) · `turnoApp` en `lib/mako-turno-app.ts` · `itemsDeRespuesta` en
+`app/m/mako/chat-ui.ts`. Probado en `tests/chat-bloque-cobranza.test.ts`.
+
+- **Síntoma:** la 2.27 pide que «¿quién me debe plata?» dibuje la lista. Es una LECTURA (`a_quien_cobrar`), y el marco
+  de la 1.7 sólo llevaba bloques por la tarjeta, al confirmar una acción.
+- **El contrato, el mismo camino que `aPersona` (la agenda):**
+  - la lectura devuelve `{ content, bloque }`;
+  - `ejecutarOperacion` sanea el bloque y lo pasa por `ctx.aDibujar`, que pone SÓLO el turno de la app;
+  - el modelo recibe sólo `content`, y en WhatsApp o por HTTP el bloque se descarta;
+  - el turno lo guarda con la respuesta de MaKo (`chart_chats.bloques`) y lo devuelve en `mensajes[].bloques`;
+  - la pantalla lo suma debajo con `itemsDeRespuesta`, y al recargar vuelve con `itemsDeSesion`.
+  - Si el turno se re-arranca (la cascada rota de cuenta), un bloque igual no se repite (`dibujar`, desde la ola 1).
+- **Regla:**
+  - una lectura sabe por `ctx.aDibujar` si lo que arma se va a ver, y sólo entonces lo arma y le dice al modelo que no
+    lo copie;
+  - una lista CON ACCIONES guardada en el hilo es una foto: se vuelve a leer al dibujarse y no actúa hasta tener la viva
+    (en Pagos, marcar una fila vieja reescribe la fecha de un cobro, docs/hallazgos-pagos.md);
+  - un bloque de área que trae acciones de servidor se carga con `dynamic` desde `BloqueHilo` (app/_chat/bloques/*). Si
+    se importa directo, `server-only` tira afuera de Next, y `BloqueHilo` deja de cargar en su test.
+- **Hecho con la ola 1 (21/10):** Ops Center 3 lo tomó como el camino ÚNICO de lo que dibuja una herramienta, con los
+  mismos nombres, y lo extendió a las propuestas de pantalla (`extra.bloque`). En el turno no se vacía al re-arrancar:
+  `dibujar` no repite un bloque igual y anota qué herramienta lo dibujó (con una pregunta, 1.9, se retiran los de las que
+  escriben).

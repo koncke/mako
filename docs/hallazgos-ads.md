@@ -4288,5 +4288,15 @@ lib/meta-login.ts · tests/meta-permisos-conectar.test.ts.
   permisos), «Tratamiento de datos» e «Instrucciones para revisores», y el envío, que **no se edita ni se cancela**. Si
   la verificación de acceso no se mueve, el camino es un caso en Meta Business Support con la fecha y el ID de la app.
   Mientras tanto, cada cliente nuevo conecta con una app propia: ya son seis (ws11, 13, 14, 15, 18, 19).
+- **La revisión entra por el ws3 («Cliente de Prueba»).** El botón «Conectar con Meta» se le mostraba sólo al super
+  admin, y el revisor de Meta entra con una cuenta de prueba de MaKo: no lo habría visto. Ahora
+  `WORKSPACES_DE_REVISION = [3]` (lib/meta-login.ts) lo ofrece en ese negocio a cualquier admin del negocio. La regla
+  es pura (`botonMetaVisible`) y `conectarMetaDisponible` le pasa el negocio activo. El resto del camino no tenía otra
+  guarda de super admin: el paso 1 pide admin del negocio, el callback acepta admin del negocio
+  (`puedeEscribirAgenda`) y elegir la cuenta y guardar van por negocio.
+- **Cuando la app quede aprobada, la constante SE DEJA.** Con `META_OAUTH_ABIERTO=true` no cambia nada, y cada permiso
+  nuevo (Instagram, Messenger, `pages_manage_metadata`) es otra revisión que va a entrar por el mismo negocio. La
+  cuenta del revisor la crea Martín, adentro del ws3: sumada desde el negocio de la plataforma queda super admin, y el
+  super admin pide 2FA siempre.
 
-**Vive en:** lib/meta-login.ts (`config_id`) · lib/meta-conexion.ts · app/api/integraciones/meta/ · panel de la app 2586146911825340
+**Vive en:** lib/meta-login.ts (`config_id`, `WORKSPACES_DE_REVISION`, `botonMetaVisible`) · lib/meta-conexion.ts · app/api/integraciones/meta/ · tests/meta-login.test.ts · panel de la app 2586146911825340
