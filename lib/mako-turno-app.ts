@@ -78,7 +78,7 @@ import {
   chartKeyDePersona, canalKeyDeSesion, herramientasDelChat, tarjetaDePendiente, linksDeUnaAccion, abrirDeResultado, idDePropuesta, aRetirar,
   type FormularioPropuesta, type PropuestaPantalla,
   propuestaDePantalla, sinLinksDeRevision, MENSAJE_BORRADOR_APP, mensajeLeadApp, TEXTO_SOLO_TARJETA, TEXTO_SOLO_BLOQUE,
-  historialParaModelo, hechoEnElHilo, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA,
+  historialParaModelo, confirmadoTrasElUltimoPedido, salioBien, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA,
   type LinkCapturado, type MensajeChat, type RespuestaTurno, type ResultadoTarjeta, type SesionChat, type TarjetaPendiente,
 } from '@/lib/mako-turno-app-reglas';
 
@@ -493,6 +493,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     /** Cuántas herramientas corrieron DE VERDAD en el turno, y cuántas LEYERON sin error: el guardia de promesas (1.5). */
     let corridas = 0;
     let leidas = 0;
+    /** Los CONTROLES que escribieron de verdad en el turno (`cancelar_accion` sin error): respaldan «ya la cancelé». */
+    let escribieron = 0;
     const runTool = async (name: string, input: Record<string, unknown>) => {
       // El contrato se aplica AL EJECUTAR: lo que no viajó no corre, aunque el modelo lo
       // llame (lo dice el texto, lo pide igual). Confirmar, menos que nada.
@@ -518,6 +520,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       const out = conInstruccionDeTarjeta(await (NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input) : runRegistro(name, input)));
       memo.anotar(name, out);
       if (!escribe(name) && (out as { isError?: unknown }).isError !== true) leidas++;
+      if (porId(name)?.tipo === 'control' && salioBien(out)) escribieron++;
       const err = errorParaTicket(name, out);
       if (err) erroresDelTurno.push(err);
       else if (name === LEVANTAR_TICKET) ticketPropuesto = true;
@@ -612,7 +615,12 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       // que lo respalda: en este chat el turno no ejecuta nada, así que «ya le mandé» sólo vale si lo anota el hilo.
       const saneo = sanearSalida(respuesta, {
         corrioHerramientas: corridas > 0,
-        hecho: { enElHilo: hechoEnElHilo(historial), leyo: leidas > 0, tarjeta: propuestas.length > 0 || retirado.pantallas.length > 0 },
+        hecho: {
+          // El respaldo lo pone el CÓDIGO (la tercera revisión): lo que escribió en el turno, o una tarjeta confirmada después
+          // del último pedido. Si este mensaje ES un pedido, no hay nada después de él.
+          respaldado: escribieron > 0 || (intencion.intencion !== 'actuar' && intencion.intencion !== 'confirmar' && confirmadoTrasElUltimoPedido(historial)),
+          leyo: leidas > 0, tarjeta: propuestas.length > 0 || retirado.pantallas.length > 0, pregunta: !!pregunta,
+        },
       });
       if (saneo.groserias.length) console.warn(`[mako-turno-app] ws=${ws} sesión=${s.id}: le saqué una grosería (${saneo.groserias.join(', ')})`);
       respuesta = saneo.texto;

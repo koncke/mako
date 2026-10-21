@@ -145,28 +145,34 @@ export function sinOraciones(texto: string, fuera: (oracion: string) => boolean)
  */
 export const SIN_HACER = 'Eso no lo llegué a hacer en este mensaje: pídemelo otra vez y lo hago.';
 /**
- * La de un HECHO que se sacó. ⚠️ No es `SIN_HACER`: «pídemelo otra vez» sobre algo que pudo quedar hecho en su pantalla
- * (un envío, una reunión) es pedirle a la persona que lo haga dos veces. Le dice que se fije antes (revisión del 21/10).
+ * La nota que va cuando MaKo dice que HIZO algo y el código no ve nada que lo respalde (1.5; la tercera revisión,
+ * 21/10/2026). ⚠️ LA ORACIÓN NO SE BORRA: borrar una verdad («sí, ya te la agendé» después de confirmar la tarjeta) es peor
+ * que dejar pasar una mentira, porque le dice al cliente «no hice nada» sobre algo que sí se hizo. Las dos versiones que
+ * borraban (por si corrió algo, y por las raíces de las palabras) terminaron borrando verdades: leer texto libre con reglas
+ * falla en lo obvio (AGENTS.md). Un falso positivo cuesta esta nota, no una respuesta. ⚠️ No pide repetirlo.
  */
-export const SIN_HECHO = 'En este mensaje no hice nada: fíjate si ya quedó antes de pedírmelo de nuevo.';
+export const NOTA_SIN_RESPALDO = 'No veo esa acción en este chat: revísala antes de darla por hecha.';
 /** Lo que va cuando la respuesta entera era grosera. */
 export const SIN_GROSERIA = 'Perdón, me expresé mal. ¿Seguimos?';
 
-export type Saneo = { texto: string; promesas: string[]; groserias: string[] };
+/** `sinRespaldo`: lo que dice HECHO y el código no respalda (lleva la nota). */
+export type Saneo = { texto: string; promesas: string[]; groserias: string[]; sinRespaldo?: string[] };
 
 /**
- * Lo que respalda, en el chat de la app, una frase que dice HECHO (1.5; revisión del 21/10/2026). En ese chat el turno no
- * ejecuta nada: lo que escribe deja una tarjeta o una pantalla, y se hace al confirmar. Entonces «ya le mandé» sólo es
- * verdad si lo dice el hilo. ⚠️ Lo obvio era el error: «sin herramientas, es mentira» borraba el «sí, quedó agendada» que
- * MaKo contesta desde el «Hecho: …» del hilo, y le pedía a la persona que lo pidiera otra vez.
+ * Lo que respalda, en el chat de la app, una frase que dice HECHO (1.5; las revisiones del 21/10/2026). En ese chat el
+ * turno no ejecuta nada: lo que escribe deja una tarjeta o una pantalla, y se hace al confirmar. El respaldo lo pone el
+ * CÓDIGO, nunca el texto: lo que se ejecutó, o la tarjeta confirmada, ya se ve en el hilo.
  */
 export type RespaldoDeHecho = {
-  /** El hilo que lee el modelo ya anota algo hecho («Hecho: …», lo que deja una tarjeta o un trabajo largo): no se juzga. */
-  enElHilo: boolean;
+  /** Corrió en el turno algo que ESCRIBE de verdad (un control como `cancelar_accion`, sin error), o el hilo tiene una
+   *  tarjeta confirmada («Hecho: …») después del último pedido de la persona. Con eso, no hay nota. */
+  respaldado: boolean;
   /** Corrió una LECTURA: «quedó agendada» puede ser lo que leyó. «Ya le mandé», no. */
   leyo: boolean;
-  /** El turno dejó algo para confirmar: lo que falta lo dice la tarjeta de abajo, y la frase no se juzga. */
+  /** El turno dejó algo para confirmar: «te dejé la reunión para confirmar» habla de eso. */
   tarjeta: boolean;
+  /** MaKo preguntó: la pregunta cierra el mensaje, sin nota. */
+  pregunta: boolean;
 };
 
 /**
@@ -178,22 +184,27 @@ export type RespaldoDeHecho = {
  *
  * Sin la promesa, la respuesta dice lo que hizo y nada de lo que no: se le suma `SIN_HACER`,
  * porque una charla que termina en «Jajaja, acepto el reto.» deja a la persona esperando lo que
- * se le prometió en la oración que se sacó. Si lo sacado era un hecho, `SIN_HECHO`.
+ * se le prometió en la oración que se sacó.
+ *
+ * Lo que dice HECHO sin respaldo (`hecho`, el chat de la app) NO se saca: queda, y se le suma UNA vez `NOTA_SIN_RESPALDO`.
  */
 export function sanearSalida(texto: string, { corrioHerramientas, hecho }: {
   corrioHerramientas: boolean;
   /** También lo que dice HECHO sin respaldo («Listo, ya lo armé»): el chat de la app (1.5). */
   hecho?: RespaldoDeHecho;
 }): Saneo {
-  const juzgar = hecho && !hecho.enElHilo && !hecho.tarjeta ? { soloPorMi: hecho.leyo } : null;
   const prometidas = corrioHerramientas ? [] : promesasDe(texto);
-  const hechos = juzgar ? afirmaHechoDe(texto, juzgar) : [];
-  const promesas = [...prometidas, ...hechos];
   const groserias = groseriasDe(texto);
-  if (!promesas.length && !groserias.length) return { texto, promesas, groserias };
-  const sacada = sinOraciones(texto, (o) => (prometidas.length > 0 && promesasDe(o).length > 0)
-    || (juzgar != null && afirmaHechoDe(o, juzgar).length > 0) || groseriasDe(o).length > 0);
-  const linea = hechos.length ? SIN_HECHO : SIN_HACER;
-  if (promesas.length) return { texto: sacada ? `${sacada}\n\n${linea}` : linea, promesas, groserias };
-  return { texto: sacada ?? SIN_GROSERIA, promesas, groserias };
+  let salida = texto;
+  if (prometidas.length || groserias.length) {
+    const sacada = sinOraciones(texto, (o) => (prometidas.length > 0 && promesasDe(o).length > 0) || groseriasDe(o).length > 0);
+    salida = prometidas.length ? (sacada ? `${sacada}\n\n${SIN_HACER}` : SIN_HACER) : (sacada ?? SIN_GROSERIA);
+  }
+  // Lo que dice HECHO y el código no respalda: sobre lo que QUEDA (una oración con una promesa o una grosería ya salió).
+  // «Te dejé la reunión para confirmar» con una tarjeta en el turno habla de ella.
+  const sinRespaldo = hecho && !hecho.respaldado && !hecho.pregunta
+    ? afirmaHechoDe(salida, { soloPorMi: hecho.leyo }).filter((h) => !(hecho.tarjeta && /\bdeje\b/.test(h)))
+    : [];
+  if (sinRespaldo.length && !salida.includes(NOTA_SIN_RESPALDO)) salida = `${salida}\n\n${NOTA_SIN_RESPALDO}`;
+  return { texto: salida, promesas: prometidas, groserias, ...(sinRespaldo.length ? { sinRespaldo } : {}) };
 }

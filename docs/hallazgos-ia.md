@@ -4654,11 +4654,12 @@ Las cifras quedan para la próxima vez que alguien calcule un costo o un tope.
 - **El guardia de promesas estaba APAGADO en la app:** `sanearSalida(respuesta, { corrioHerramientas: true })` con el
   `true` fijo. Ahora:
   - se cuenta lo que DE VERDAD corrió: lo rechazado (no permitido, o después de preguntar) no cuenta;
-  - lo que dice HECHO («Listo, ya lo armé», «te creé…», «quedó programada») se juzga con lo que lo RESPALDA
-    (`RespaldoDeHecho`). En la app el turno no ejecuta nada (deja tarjetas), así que «ya le mandé» sólo vale si el hilo
-    que lee el modelo anota un «Hecho: …» (`hechoEnElHilo`). Una lectura respalda un «quedó agendada» (pudo leerlo),
-    no un «ya le mandé». Con una tarjeta en el turno no se juzga: lo que falta lo dice la tarjeta;
-  - lo sacado de un hecho dice `SIN_HECHO` («fíjate si ya quedó antes de pedírmelo de nuevo»), no `SIN_HACER`;
+  - lo que dice HECHO («Listo, ya lo armé», «te creé…», «quedó programada») y el CÓDIGO no respalda QUEDA, con UNA nota
+    al final: «No veo esa acción en este chat: revísala antes de darla por hecha.» (`NOTA_SIN_RESPALDO`). Respalda
+    (`RespaldoDeHecho.respaldado`) lo que escribió en el turno (un control como `cancelar_accion`, si `salioBien`) o una
+    tarjeta confirmada («Hecho: …») DESPUÉS del último mensaje de la persona (`confirmadoTrasElUltimoPedido`), salvo que
+    este mensaje sea un pedido. Una lectura respalda un «quedó» (pudo leerlo), no un «ya le mandé»; con una tarjeta,
+    «te dejé X para confirmar» no lleva nota; con una pregunta, nada;
   - un dato del contexto («tu landing está publicada») no se toca;
   - el doer de WhatsApp sigue igual: `hecho` es una opción.
 - **Lo obvio era el error (la revisión del 21/10): «sin herramientas, lo que dice hecho es mentira».** Después de
@@ -4666,6 +4667,15 @@ Las cifras quedan para la próxima vez que alguien calcule un costo o un tope.
   cambiaba por «pídemelo otra vez y lo hago»: la persona lo pedía de nuevo y se hacía dos veces. Al revés, con UNA
   lectura corrida el guardia se apagaba entero y «ya le mandé el WhatsApp» pasaba. **Regla:** un guardia de «no lo
   hiciste» mira qué lo respalda, no sólo si corrió algo; y lo que dice cuando corta no puede invitar a repetir.
+- **Y lo obvio fue el error dos veces más (las revisiones del 21/10).** «Con cualquier "Hecho:" en el hilo, no se juzga»
+  lo apagaba entero (en el Ops Center casi siempre hay uno). «Cruzar la frase con el "Hecho:" por las raíces de las
+  palabras» (ola1-seguimiento, no entró) borraba de nuevo las verdades: el «Hecho:» real es el resumen de EJECUCIÓN
+  («Listo: «Reunión con Ana López» quedó el mar 27 de oct…»), no comparte raíz con «agendé», y la respuesta corta habla
+  con un pronombre («Sí, ya te la agendé»). En un banco de 32 frases borraba 8 verdaderas de 14 y atajaba casi nada más.
+  Los tests pasaban porque usaban el resumen de la PROPUESTA («Agendar reunión con Ana»), que nunca se anota así.
+  **Regla:** borrar una verdad es peor que dejar pasar una mentira, así que el guardia NUNCA borra: agrega una nota. El
+  respaldo lo pone el código (lo ejecutado, lo confirmado después del pedido), nunca reglas sobre el texto. Y un test de
+  un guardia usa lo que el código anota DE VERDAD (`resultadoAgendar`), no un texto que se le parece.
 - **Lo obvio era el error: «traer `forzarTool` como WhatsApp».** El chat de la app piensa con razonamiento extendido
   (`thinking: adaptive`), y con él Anthropic no admite `tool_choice: any`. Además `chatClaudeTools` lo pone en TODOS los
   pasos: el turno nunca podría terminar con texto. WhatsApp lo hace con `chatCheapTools` y `toolChoicePrimerPaso`, que

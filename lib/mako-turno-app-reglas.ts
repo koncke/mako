@@ -402,11 +402,29 @@ export function historialParaModelo(msgs: readonly MensajeChat[], max = 12): Arr
 }
 
 /**
- * El hilo que lee el modelo ya anota algo HECHO: el «Hecho: …» que deja una tarjeta confirmada o un trabajo largo
- * (`anotarEnHilo`, lib/chat-trabajos.ts). Con eso, «sí, quedó agendada» puede ser verdad sin correr nada (1.5).
+ * El hilo tiene una tarjeta CONFIRMADA (el «Hecho: …» que deja `anotarEnHilo` o un trabajo largo, lib/chat-trabajos.ts)
+ * DESPUÉS del último mensaje de la persona: «¿quedó agendada?» se contesta desde eso, sin correr nada (1.5). Sólo eso
+ * respalda: un «Hecho:» de antes de su último pedido es de OTRA cosa (la segunda revisión: con cualquier «Hecho:» de los
+ * últimos 12, «ya le mandé el WhatsApp a Juan» pasaba porque antes se había confirmado la reunión con Ana).
  */
-export function hechoEnElHilo(historial: readonly { role: string; content: string }[]): boolean {
-  return historial.some((m) => m.role === 'assistant' && /^Hecho: /m.test(m.content));
+export function confirmadoTrasElUltimoPedido(historial: readonly { role: string; content: string }[]): boolean {
+  const ultimo = historial.map((m) => m.role).lastIndexOf('user');
+  return historial.slice(ultimo + 1).some((m) => m.role === 'assistant' && /^Hecho: /m.test(m.content));
+}
+
+/**
+ * Lo que devolvió una herramienta, ¿salió bien? Un control devuelve su error como TEXTO JSON (`cancelar_accion`:
+ * `{ ok: false, error }`, lib/api-mako/areas/mako.run.ts) o con «❌», y eso no es un error para el runner: no respalda nada.
+ */
+export function salioBien(out: unknown): boolean {
+  if (out && typeof out === 'object' && (out as { isError?: unknown }).isError === true) return false;
+  const t = typeof out === 'string' ? out : out && typeof out === 'object' ? String((out as { content?: unknown }).content ?? '') : '';
+  if (/^\s*❌/.test(t)) return false;
+  try {
+    const j = JSON.parse(t) as { ok?: unknown; error?: unknown };
+    if (j && typeof j === 'object' && (j.ok === false || typeof j.error === 'string')) return false;
+  } catch { /* un texto: salió */ }
+  return true;
 }
 
 /** «sábado, 11 de octubre de 2026, 20:45», en la zona que se pase. */
