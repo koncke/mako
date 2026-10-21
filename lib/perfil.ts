@@ -9,7 +9,7 @@
 // preferencias de notificaciones son por-WORKSPACE: los crons (sin sesión →
 // workspace dueño) las leen de app_settings. Se mantienen las keys de siempre.
 
-import { CAMPOS_TARJETA_DEFAULT, camposTarjetaDe, type CampoTarjetaLead } from '@/lib/tarjeta-kanban';
+import { CAMPOS_TARJETA_DEFAULT, prefsTarjetaDe, type CampoTarjetaLead, type DisenoTarjeta } from '@/lib/tarjeta-kanban';
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { getSetting, setSetting } from './settings';
@@ -443,26 +443,26 @@ const TARJETA_CRM_KEY = 'crmTarjeta';
  * lib/tarjeta-kanban.ts → CAMPOS_TARJETA_LEAD). Sin fila propia (la sesión compartida vieja): lo de siempre, y la
  * pantalla sabe que no se puede guardar.
  */
-export async function getCamposTarjetaCrm(): Promise<{ campos: CampoTarjetaLead[]; guardable: boolean }> {
+export async function getCamposTarjetaCrm(): Promise<{ campos: CampoTarjetaLead[]; diseno: DisenoTarjeta; guardable: boolean }> {
   try {
     const u = await filaPropia();
-    if (!u) return { campos: [...CAMPOS_TARJETA_DEFAULT], guardable: false };
-    return { campos: camposTarjetaDe(u.perfil[TARJETA_CRM_KEY]), guardable: true };
+    if (!u) return { campos: [...CAMPOS_TARJETA_DEFAULT], diseno: 'completa', guardable: false };
+    return { ...prefsTarjetaDe(u.perfil[TARJETA_CRM_KEY]), guardable: true };
   } catch {
-    return { campos: [...CAMPOS_TARJETA_DEFAULT], guardable: false };
+    return { campos: [...CAMPOS_TARJETA_DEFAULT], diseno: 'completa', guardable: false };
   }
 }
 
-/** Guarda qué muestra la tarjeta. `guardado:false` = sesión sin fila propia (ver setNotifInApp). */
-export async function setCamposTarjetaCrm(campos: unknown): Promise<{ campos: CampoTarjetaLead[]; guardado: boolean }> {
-  const limpios = camposTarjetaDe(campos);
+/** Guarda qué muestra la tarjeta y con qué diseño. `guardado:false` = sesión sin fila propia (ver setNotifInApp). */
+export async function setCamposTarjetaCrm(campos: unknown, diseno?: unknown): Promise<{ campos: CampoTarjetaLead[]; diseno: DisenoTarjeta; guardado: boolean }> {
+  const limpios = prefsTarjetaDe({ campos, diseno });
   const u = await filaPropia();
-  if (!u) return { campos: limpios, guardado: false };
+  if (!u) return { ...limpios, guardado: false };
   const perfil = { ...u.perfil, [TARJETA_CRM_KEY]: limpios };
   const { error } = await getSupabaseServer()
     .from('usuarios').update({ perfil, updated_at: new Date().toISOString() }).eq('id', u.id);
   if (error) throw new Error(`perfil: ${error.message}`);
-  return { campos: limpios, guardado: true };
+  return { ...limpios, guardado: true };
 }
 
 const PUSH_KEY = 'notifPush';

@@ -98,7 +98,7 @@ import { useFocoInicial } from '@/app/customer-success/curso/dialogo-foco';
 import { conWs } from '@/lib/ws-tab';
 import {
   AREAS, COLS, FUENTES, MAX_ARCHIVADAS, MAX_COMPONENTES, MAX_CONECTORES, MAX_CONTROLES, MAX_HOJAS, MAX_IA_POR_HOJA, MAX_POPUP, TIPOS_ELEMENTO,
-  abajoDeTodo, campoDe, efectivoDe, esElemento, esGrafico, hojaVacia, minimoDeElemento, nuevoControlVista, nuevoElemento, nuevoGrafico, nuevoId,
+  abajoDeTodo, campoDe, efectivoDe, esElemento, esGrafico, hojaVacia, minimoDeComponente, nuevoControlVista, nuevoElemento, nuevoGrafico, nuevoId,
   sanearComponente, sanearControlVista, sanearControles, sanearElemento, tituloDe, tonoDe,
   type Componente, type Conector, type ControlVista, type Efectivo, type Elemento, type Grafico, type Hoja, type Tablero, type TipoElemento, type ValorControl, type VistaValores,
 } from '@/lib/graficos-catalogo';
@@ -184,11 +184,8 @@ const DISPOSITIVOS: ReadonlyArray<{ id: Dispositivo; nombre: string; Icono: () =
   { id: 'tableta', nombre: 'Vista de tablet', Icono: SvgTableta },
   { id: 'movil', nombre: 'Vista de celular', Icono: SvgCelular },
 ];
-/**
- * Lo más chico que se puede achicar una tarjeta. El de un elemento sale del catálogo (`minimoDeElemento`,
- * TIPOS_ELEMENTO): un video o una página insertada más chicos que 3 × 4 no se ven ni se tocan.
- */
-const minimoDe = (c: Componente): { w: number; h: number } => (esElemento(c) ? minimoDeElemento(c.tipo) : { w: 2, h: 2 });
+/** Lo más chico que se puede achicar una tarjeta: la regla vive en lib/graficos-catalogo.ts (la usa también la API). */
+const minimoDe = minimoDeComponente;
 /** Cuánto espera el respiro del autoguardado y el de los pedidos de datos. */
 const RESPIRO_GUARDAR_MS = 700;
 const RESPIRO_DATOS_MS = 250;
