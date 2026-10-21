@@ -337,3 +337,28 @@ test('More: el Ops Center (con la Ticketera adentro) sólo para el super admin, 
   // No es una tab del negocio: si estuviera en SECCIONES_MAS podría subir a la barra de un rol.
   assert.doesNotMatch(leer('lib/movil-rutas.ts'), /id: 'decisiones'/);
 });
+
+// Martín (21/10/2026, pedido del Ops Center 91ebee6f): «Pusiste a Ops Center con el logo del Second Brain. Cuando el logo es
+// la criatura de MaKo. Quiero que se mueva, parpadee, como siempre». Probado rompiéndolo: con el `<Icon>` de siempre en
+// ShellM cae el match del shell; sin `criatura: true` en el destino caen los dos de la barra; con `padre` de More en el
+// Centro cae el último.
+test('el Ops Center de la barra es la criatura de MaKo, que flota y parpadea, y su pantalla no vuelve a More', () => {
+  assert.equal(barraMovil('admin', 'completo').find((b) => b.id === 'mako')?.criatura, true);
+  assert.equal(barraMovil('admin', 'superadmin', true).find((b) => b.id === 'mako')?.criatura, true, 'también el Centro del super admin');
+  assert.ok(barraMovil('admin', 'completo').filter((b) => b.id !== 'mako').every((b) => !b.criatura), 'sólo el Ops Center');
+  const shell = sinComentariosTs(leer('app/m/_ui/ShellM.tsx'));
+  assert.match(shell, /\{d\.criatura\s*\?\s*<span \{\.\.\.\{ \[DESTINO_ENTRADA\]: '' \}\}[^>]*><Criatura nombre=\{d\.label\} estrella size=\{24\} \/><\/span>\s*:\s*<Icon name=\{d\.icon\} size=\{26\} \/>\}/);
+  assert.match(sinComentariosTs(leer('app/m/operaciones/page.tsx')), /<CabeceraM titulo="Ops Center" padre=\{null\} \/>/, 'el Centro es una raíz: sin «‹ More»');
+});
+
+// Martín (21/10/2026, pedido e180365d): «tampoco veo me haya salido la animación de la criatura, la misma del onboarding.
+// Al iniciar la app en mobile». Probado rompiéndolo: sin el `sessionStorage` sale en cada montaje; sin el destino de la
+// barra vuela a la foto del onboarding (que en /m no existe); sin la guarda de /m/configurar se pisa con la del onboarding.
+test('al abrir la app, la MISMA entrada de MaKo del onboarding, una vez por apertura, y vuela al Ops Center de la barra', () => {
+  const shell = sinComentariosTs(leer('app/m/_ui/ShellM.tsx'));
+  assert.match(shell, /import \{ EntradaMako \} from '@\/app\/onboarding\/EntradaMako';/, 'una copia de la animación se queda vieja');
+  assert.match(shell, /if \(sessionStorage\.getItem\(LS_ENTRADA\)\) return;\s*sessionStorage\.setItem\(LS_ENTRADA, '1'\);/);
+  assert.match(shell, /if \(cliente \|\| limpia\(pathname\) === RUTA_CONFIGURAR\) return;/);
+  assert.match(shell, /\{entrada && <EntradaMako destino=\{`\[\$\{DESTINO_ENTRADA\}\]`\} onFin=\{\(\) => setEntrada\(false\)\} \/>\}/);
+  assert.match(shell, /const DESTINO_ENTRADA = 'data-mako-foto-barra';/);
+});
