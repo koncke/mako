@@ -30,5 +30,8 @@ barra de abajo), `app/m/mas`. El diseño y por qué: `docs/diseno-sidebar.md`. E
    nadie la vio dibujada.
 5. Los textos de MaKo que dicen «Second Brain → Persona» (lib/secciones-negocio.ts, reglas del chat): el lugar ahora se
    llama Ops Center en la barra del negocio. Es contenido del jefe Second Brain.
-6. Viejos: Resend Receiving + MX para el email entrante de Chats; sacar del todo la key `experimentos` cuando las
+6. **General (Horario y Criterio) con su pantalla en /m** (pedido del Cerebro, 20/10): hoy abre «En la computadora».
+   Desde el 20/10 eso abre sólo esa pantalla y hay «Volver al teléfono» (docs/hallazgos-mobile.md), pero la regla de
+   MaKo Mobile es toda tab en el teléfono. Vive en lib/movil-rutas.ts (`SECCIONES_NEGOCIO_M`) y app/m/configuraciones.
+7. Viejos: Resend Receiving + MX para el email entrante de Chats; sacar del todo la key `experimentos` cuando las
    redirecciones del Dashboard estén en producción.

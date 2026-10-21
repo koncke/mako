@@ -2608,4 +2608,14 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/chats',
   },
+  {
+    fecha: '20 oct', hora: '19:11', chat: 'CRM', sesion: 'local_64949e84-3d68-4c31-bf78-5caa382ebc37', cuenta: 'claude4',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El chat con MaKo, las columnas que no se ven, cards personalizables, «Tablero y Lista» sólo con íconos y el evento de una etapa',
+    pedido: 'Por otro lado, en el CRM:\n1. No veo el chat con MaKo que te había pedido.\n2. Muchos cambios que te había pedido aún no están, como que las columnas no sean invisibles.\n3. Las cards, las debería poder personalizar también, por si el usuario quiere más o menos info.\n4. Los botones de "Tablero y lista" solo con íconos debería estar.\n5. El tema de asignar en una etapa de reunión y vincularla a un evento de Calendar, Calendly o Cal, ¿está eso?',
+    puntos: [
+      'Llegó por el Cerebro, en la app, con una captura de /crm (docs/feedback-20-10.md, punto 12). Se pega literal por la regla del 20/10 (AGENTS.md).',
+      'Lo que Martín pidió para el CRM y su estado, uno por uno: docs/pedidos-crm.md.',
+    ],
+  },
 ];

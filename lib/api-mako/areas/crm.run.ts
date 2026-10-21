@@ -17,6 +17,8 @@
 // Y ejecutar() tampoco lanza (tipos.ts): `seguro()` lo garantiza.
 // =============================================================================
 
+import { getCamposTarjetaCrm } from '@/lib/perfil';
+import { CAMPOS_TARJETA_DEFAULT, CAMPOS_TARJETA_LEAD, NOMBRE_CAMPO_TARJETA } from '@/lib/tarjeta-kanban';
 import 'server-only';
 import type { Ctx, Ejecutado, Runners, SalidaLectura } from '../tipos';
 import { runMakoTool } from '@/lib/mako-tools';
@@ -1028,6 +1030,17 @@ export const RUNNERS: Runners = {
     }),
   },
 
+  ver_campos_tarjeta_crm: {
+    leer: async () => {
+      const { campos, guardable } = await getCamposTarjetaCrm();
+      return json({
+        campos: campos.map((c) => ({ campo: c, nombre: NOMBRE_CAMPO_TARJETA[c] })),
+        catalogo: CAMPOS_TARJETA_LEAD.map((c) => ({ campo: c, nombre: NOMBRE_CAMPO_TARJETA[c], deSiempre: CAMPOS_TARJETA_DEFAULT.includes(c) })),
+        guardable,
+        dondeSeCambia: 'En el CRM, «⋯» › «Personalizar tarjetas».',
+      });
+    },
+  },
   ver_campanas_funnels: {
     leer: async () => {
       try { return json(await campanasParaMaKo()); } catch { return fallo('No pude leer las campañas asignadas. Intenta de nuevo.'); }

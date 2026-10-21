@@ -9,6 +9,7 @@
 // preferencias de notificaciones son por-WORKSPACE: los crons (sin sesión →
 // workspace dueño) las leen de app_settings. Se mantienen las keys de siempre.
 
+import { CAMPOS_TARJETA_DEFAULT, camposTarjetaDe, type CampoTarjetaLead } from '@/lib/tarjeta-kanban';
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { getSetting, setSetting } from './settings';
@@ -435,6 +436,35 @@ export async function setNotifInApp(v: NotifInApp): Promise<{ inApp: NotifInApp;
 // ⚠️ Y SE ESCRIBE RELEYENDO LA FILA: el jsonb `perfil` se reescribe ENTERO, así que se parte
 // de lo que hay (`filaPropia` lo lee en el mismo pedido) para no borrar `notifInApp`, los
 // campos del formulario ni la marca de agua del feed.
+const TARJETA_CRM_KEY = 'crmTarjeta';
+
+/**
+ * Qué datos muestra la tarjeta de un lead para quien está frente al teclado (20/10/2026; el porqué en
+ * lib/tarjeta-kanban.ts → CAMPOS_TARJETA_LEAD). Sin fila propia (la sesión compartida vieja): lo de siempre, y la
+ * pantalla sabe que no se puede guardar.
+ */
+export async function getCamposTarjetaCrm(): Promise<{ campos: CampoTarjetaLead[]; guardable: boolean }> {
+  try {
+    const u = await filaPropia();
+    if (!u) return { campos: [...CAMPOS_TARJETA_DEFAULT], guardable: false };
+    return { campos: camposTarjetaDe(u.perfil[TARJETA_CRM_KEY]), guardable: true };
+  } catch {
+    return { campos: [...CAMPOS_TARJETA_DEFAULT], guardable: false };
+  }
+}
+
+/** Guarda qué muestra la tarjeta. `guardado:false` = sesión sin fila propia (ver setNotifInApp). */
+export async function setCamposTarjetaCrm(campos: unknown): Promise<{ campos: CampoTarjetaLead[]; guardado: boolean }> {
+  const limpios = camposTarjetaDe(campos);
+  const u = await filaPropia();
+  if (!u) return { campos: limpios, guardado: false };
+  const perfil = { ...u.perfil, [TARJETA_CRM_KEY]: limpios };
+  const { error } = await getSupabaseServer()
+    .from('usuarios').update({ perfil, updated_at: new Date().toISOString() }).eq('id', u.id);
+  if (error) throw new Error(`perfil: ${error.message}`);
+  return { campos: limpios, guardado: true };
+}
+
 const PUSH_KEY = 'notifPush';
 
 /** Las preferencias de push de quien está frente al teclado. Sin fila propia: el default de admin. */

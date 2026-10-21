@@ -7222,3 +7222,46 @@ Causa: `clasificarReunion` (lib/reunion-clasificar.ts:57-70, el motivo en :92-95
 Regla: alguien con workspace propio en MaKo es cliente para el clasificador, aunque su lead no esté en «ganado». Mientras no se arregle, «Leer igual» desde el modal de Fathom.
 
 Además, en esa grabación Fathom cruza los hablantes. Florencia entró con dos cuentas (la personal y la de Consultesis, que aparece como «Cónsul Tesis») y frases suyas salen como «Martin Carballo». Una llamada así se atribuye por el contenido, no por la etiqueta.
+
+## Una llamada con alguien que tiene su cuenta de MaKo es de entrega, aunque su lead diga prospecto (20/10/2026)
+
+Arregla «Las llamadas con clientes se descartan como «ventas»» (cosecha del Cerebro del mismo día): las llamadas de
+feedback con Florencia (18/10) y con Leila (19/10) se descartaban como «ventas» y no dejaban tareas.
+
+**La regla que queda:** en el tablero del DUEÑO, un invitado externo con su propia cuenta de MaKo hace de la llamada una
+de ENTREGA. El clasificador mira esto ANTES que el `estado_lead` (`esClienteMako`, lib/reunion-clasificar.ts). Hay tres
+señales, de la más dura a la más blanda:
+1. su correo es usuario de OTRO workspace (Leila, ws11);
+2. su lead apunta a una cuenta (`leads.cliente_ws`, el puente que escribe el alta por pago);
+3. el nombre COMPLETO de su lead (dos palabras o más) es el de un usuario, o está entero en el nombre de un workspace.
+
+Un nombre de pila solo no alcanza. En el tablero de un cliente la lista no se arma (`clientesMako` devuelve null): un
+usuario de MaKo no es cliente de Mauricio.
+
+**La trampa, y por qué existe la tercera señal:** la cuenta de Florencia (ws21, «mi marca personal: Florencia Ayelen
+Carballo») se abrió con OTRO correo, el de Consultesis. Su lead es su gmail personal y no apunta a la cuenta. Ni el
+correo ni el lead la reconocían; sólo el nombre completo. Atar el lead a su cuenta (`cliente_ws = 21`) y pasarla a
+«ganado» es una escritura en el CRM que espera el sí de Martín (docs/feedback-20-10.md). La regla la reconoce igual.
+
+**Reprocesadas el 20/10 por el camino del cron** (`procesarReunionesNuevas` con `soloRecording`): cada una dejó un
+borrador pendiente en /plan/revisar, cruzado contra el tablero.
+- Leila: 12 tareas, 10 de Martín.
+- Florencia: 31 tareas, 22 de Martín (3 h 30, 10 partes, 529 s leída en la PC; en Vercel no entraría en los 300 s).
+- La atribución sale por el contenido, aunque Fathom cruce las voces.
+- El aviso por WhatsApp no sale desde la PC (`avisoError`); el borrador está igual.
+
+**Sin hacer:**
+- **El cruce con IA dejó pasar tres repetidas claras contra el tablero:**
+  - la pasarela de pagos, en los dos borradores, contra la #841;
+  - el video de bienvenida del onboarding contra la #607.
+
+  Se marcaron a mano con la misma marca del cruce (confianza media: al cargar, le suman su detalle a esa tarjeta).
+  Pasa con una reunión larga contra un tablero de ~200 abiertas: el modelo gratis no las ve. Tampoco se cruzaron
+  entre los dos borradores: «unificar las herramientas en el Ops Center» (Leila) y «reemplazar las pestañas por
+  navegación conversacional» (Florencia) son la misma idea, y cargadas las dos, nacen dos tarjetas.
+- Un alta que no pasó por el pago (la cuenta abierta con otro correo) no ata el lead a su cuenta. Lo hace a mano Customer
+  Success, o la tercera señal.
+
+**Vive en:** lib/reunion-clasificar.ts (`esClienteMako`, `clasificarReunion`, `motivoDelTipo`) · lib/plan-fathom.ts
+(`clientesMako`, `listReunionesRecientes`) · lib/closing.ts (`getLeadsByEmail` trae `cliente_ws`) ·
+tests/reunion-clasificar-clientes.test.ts

@@ -60,7 +60,7 @@ import { nombreDeLlamada } from './llamadas-modelo';
 import { diasAntes, hoyEnTijuana, TZ_TIJUANA } from './date-utils';
 import { hoyEnWorkspace } from './timezone';
 import { getMrrActivo } from './queries';
-import { getOutstandingDetalle } from './pagos';
+import { getPorCobrar } from './pagos';
 import { noEsDeuda } from './cobrado-lead';
 import { armarCobranza, nombreCuota } from './datos-comercial';
 import { cartera } from './cs-cartera';
@@ -670,13 +670,14 @@ async function filasRevenue(rg: Rango): Promise<Fila[]> {
 async function filasCobranza(rg: Rango): Promise<Fila[]> {
   const hoy = await hoyEnWorkspace().catch(() => hoyEnTijuana());
   const todo = rg.desde <= DESDE_TODO;
-  const o = await getOutstandingDetalle(hoy, todo ? null : rg.desde, todo ? null : rg.hasta);
-  return armarCobranza(o.items, hoy).filas.map((c) => ({
-    f: c.cuota?.vence ?? null,
-    // El cliente es una PERSONA (fuera de DIMENSIONES_PUBLICAS).
-    d: { cliente: c.nombre, urgencia: rotuloUrgencia(c.urgencia, c.cuota?.vence), proxima: c.cuota ? nombreCuota(c.cuota.numero) : null },
+  // Las cuotas Y las suscripciones por cobrar (20/10/2026, `getPorCobrar`): una suscripción no genera cuotas y no aparecía.
+  const { items } = await getPorCobrar(hoy, todo ? null : rg.desde, todo ? null : rg.hasta);
+  return armarCobranza(items, hoy).filas.map((c) => ({
+    f: c.cuota?.vence ?? c.suscripcion?.vence ?? null,
+    // El cliente es una PERSONA (fuera de DIMENSIONES_PUBLICAS). Una suscripción dice «Mensualidad» (no tiene cuota).
+    d: { cliente: c.nombre, urgencia: rotuloUrgencia(c.urgencia, c.cuota?.vence ?? c.suscripcion?.vence), proxima: c.cuota ? nombreCuota(c.cuota.numero) : c.suscripcion ? 'Mensualidad' : null },
     v: {
-      vendido: num(c.vendido), cobrado_total: c.cobrado, pendiente: c.pendiente, proxima_monto: c.cuota?.monto ?? 0,
+      vendido: num(c.vendido), cobrado_total: c.cobrado, pendiente: c.pendiente, proxima_monto: c.cuota?.monto ?? (c.suscripcion ? c.pendiente / Math.max(1, c.suscripcion.meses) : 0),
       ...(c.dias != null ? { dias: c.dias } : {}),
     },
     u: { clientes: String(c.leadId) },
