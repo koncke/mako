@@ -2848,22 +2848,38 @@ export function mensajeDeCierreDelArranque(id: string, at: string): MensajeSinAu
 export const REPREGUNTAS_DEL_ARRANQUE = 2;
 
 /**
+ * Cómo se reconoce que MaKo pregunta por cada pieza del onboarding (sin tildes). El del precio es estricto a propósito:
+ * «¿Cuántas personas ya pagaron?» no pregunta el precio (revisión del Cerebro, 20/10).
+ */
+const PREGUNTA_POR: Partial<Record<PiezaKey, RegExp>> = {
+  entregables: /que (?:vend|ofrec|haces|incluye|recibe)|vendes|ofreces|servicio|producto|programa|entrega|te dedicas/,
+  cliente: /client|para quien|a quien|publico|perfil|se dedican|ideal/,
+  precio: /cobr|precio|cuesta|tarifa|cuotas?|cuanto (?:te )?(?:sale|vale|pag)|como (?:te )?pag|forma de pago|inversion/,
+};
+
+/**
  * El tope de repreguntas del onboarding. La pieza que se está preguntando es la primera que falta en el orden de la guía
- * (el prompt pide ese orden: `guiaDelArranque`). Si desde la última pieza anotada MaKo ya preguntó
+ * (el prompt pide ese orden: `guiaDelArranque`). Si desde la última pieza anotada MaKo ya la preguntó
  * `REPREGUNTAS_DEL_ARRANQUE` veces y el dueño contestó cada una sin que se anotara nada (un «depende», un «varía»), esa
- * pieza queda «sin dato:» y no se vuelve a preguntar. Sin el texto del dueño, a propósito: la pieza podría no ser la que
- * MaKo preguntó, y lo que dijo queda igual en la conversación (la tab Offer lo lee).
+ * pieza queda «sin dato:» y no se vuelve a preguntar. Sin el texto del dueño, a propósito: lo que dijo queda igual en la
+ * conversación (la tab Offer lo lee).
+ * ⚠️ Cuenta sólo las preguntas POR ESA PIEZA (`PREGUNTA_POR`) y nunca el pedido de documento (revisión del Cerebro, 20/10):
+ *    con el pedido contado, «qué vendes» quedaba «sin dato» después de una sola pregunta de verdad; y dos preguntas por otra
+ *    cosa dejaban el precio «sin dato» sin que nadie lo hubiera preguntado.
  */
 export function conTopeDelArranque(piezas: PiezasSabidas, mensajes: ReadonlyArray<{ de: string; texto: string; at?: string }>, at: string): PiezasSabidas {
   const falta = PREGUNTAS_GUIA.find((q) => PIEZAS_DEL_ARRANQUE.includes(q.pieza) && !piezaAnotada(piezas, q.pieza))?.pieza;
   if (!falta) return piezas;
+  const porLaPieza = PREGUNTA_POR[falta];
   const desde = Math.max(0, ...PIEZAS_DEL_ARRANQUE.map((k) => Date.parse(piezas[k]?.at ?? '') || 0));
   let preguntas = 0;
   let abierta = false;
   for (const m of mensajes) {
     if ((Date.parse(m.at ?? '') || 0) < desde) continue;
-    if (m.de === 'mako') abierta = m.texto.includes('?');
-    else if (m.de === 'yo' && abierta) { preguntas += 1; abierta = false; }
+    if (m.de === 'mako') {
+      const t = normalizar(m.texto);
+      abierta = m.texto.includes('?') && !m.texto.includes(PEDIDO_DOCUMENTO) && !!porLaPieza?.test(t);
+    } else if (m.de === 'yo' && abierta) { preguntas += 1; abierta = false; }
   }
   return preguntas >= REPREGUNTAS_DEL_ARRANQUE ? mergePiezas(piezas, { [falta]: 'sin dato:' }, 'chat', at) : piezas;
 }
