@@ -33,13 +33,13 @@ import 'server-only';
 import { chatClaudeTools, type RichMsg, type ToolDef } from '@/lib/anthropic';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION } from '@/lib/mako-doer-acciones';
-import { aToolDef, porId } from '@/lib/api-mako/registro';
+import { aToolDef, gatingOk, porId } from '@/lib/api-mako/registro';
 import { errorParaTicket, type ErrorDelTurno } from '@/lib/tickets-reglas';
 import { identidadDe } from '@/lib/tickets-db';
 import { registrarError } from '@/lib/errores-app';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
 import { confirmarPendiente, cancelarPendiente } from '@/lib/api-mako/acciones';
-import type { Ctx } from '@/lib/api-mako/tipos';
+import { esAccion, type Ctx } from '@/lib/api-mako/tipos';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
 import { clasificarIntencion, makoPreguntoAlgo } from '@/lib/mako-intencion';
 import { preguntoReunionOTarea } from '@/lib/doer-herramientas';
@@ -60,16 +60,25 @@ import {
   renameSession, tituloDesde, type ChartSession, type ChartMsgConBloques,
 } from '@/lib/chart-chats';
 import { adjuntosVisibles, leerRef, sanearBloques } from '@/lib/chat-mako-bloques';
+import { MAX_BLOQUES_MENSAJE, aGuardar, bloqueDeResultado, bloquesGuardados, type Bloque } from '@/lib/chat-bloques';
 import { archivarPdfsDelChat, archivarPegadosDelChat, borrarAdjuntos, subirAdjuntos, urlFirmadaDeAdjunto } from '@/lib/chat-mako-adjuntos';
 import { partirPegados, recortarMensaje, textoParaTitulo } from '@/lib/chat-pegado';
 import { archivoATexto } from '@/lib/archivo-a-texto';
-import { aFila } from '@/lib/bandeja-filas';
+import { aFila, plano } from '@/lib/bandeja-filas';
+import { descartarPropuesta, getPropuesta, propuestasPendientesDelChat } from '@/lib/propuestas';
+import { descartarPropuesta as descartarBorradorDelPlan } from '@/lib/plan-propuesta';
+import { resolverPropuesta as resolverPropuestaDeVideo } from '@/lib/editor-video/propuestas-server';
+import { descartarBorrador } from '@/lib/evolution-envio';
+import { getPendiente, resolverPendiente } from '@/lib/mako-pendientes';
+import { PREGUNTAR, TOOL_PREGUNTAR, ERROR_TRAS_PREGUNTAR, crearGuardiaDePregunta, retirar } from '@/lib/chat-pregunta';
+import { enSegundoPlano } from '@/lib/chat-trabajos';
 import { puedeVerKey } from '@/lib/movil-rutas';
 import { bloquesDeAdjuntos, placeholderDeAdjunto, promptDeAdjunto, type AdjuntoListo } from '@/lib/mako-adjuntos';
 import {
-  chartKeyDePersona, canalKeyDeSesion, herramientasDelChat, tarjetaDePendiente, linksDeUnaAccion,
-  propuestaDePantalla, sinLinksDeRevision, MENSAJE_BORRADOR_APP, mensajeLeadApp, TEXTO_SOLO_TARJETA,
-  historialParaModelo, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA,
+  chartKeyDePersona, canalKeyDeSesion, herramientasDelChat, tarjetaDePendiente, linksDeUnaAccion, abrirDeResultado, idDePropuesta, aRetirar,
+  type FormularioPropuesta, type PropuestaPantalla,
+  propuestaDePantalla, sinLinksDeRevision, MENSAJE_BORRADOR_APP, mensajeLeadApp, TEXTO_SOLO_TARJETA, TEXTO_SOLO_BLOQUE,
+  historialParaModelo, hechoEnElHilo, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA,
   type LinkCapturado, type MensajeChat, type RespuestaTurno, type ResultadoTarjeta, type SesionChat, type TarjetaPendiente,
 } from '@/lib/mako-turno-app-reglas';
 
@@ -153,22 +162,58 @@ const tarjetasVigentes = async (ws: number, canalKey: string, desde?: number): P
 };
 
 /** Los mensajes de la sesión y las acciones que esperan confirmación en ella. */
-export async function abrirSesion(persona: PersonaChat, sessionId: number): Promise<{ sesion: SesionChat; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[] } | null> {
+export async function abrirSesion(persona: PersonaChat, sessionId: number): Promise<{ sesion: SesionChat; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[]; pantallas: PropuestaPantalla[] } | null> {
   return runWithWorkspace(persona.ws, async () => {
     const s = await sesionDe(persona, sessionId);
     if (!s) return null;
-    const [mensajes, propuestas] = await Promise.all([
+    const [mensajes, propuestas, pantallas] = await Promise.all([
       getSessionMessagesConBloques(s.id),
       tarjetasVigentes(persona.ws, canalKeyDeSesion(s.id)),
+      pantallasDelChat(persona, canalKeyDeSesion(s.id)).catch(() => [] as PropuestaPantalla[]),
     ]);
-    return { sesion: aSesion(s), mensajes: mensajes.map((m) => aMensajeChat(persona.ws, m)), propuestas };
+    return { sesion: aSesion(s), mensajes: mensajes.map((m) => aMensajeChat(persona.ws, m)), propuestas, pantallas };
   });
+}
+
+/**
+ * El formulario de una propuesta genérica, para confirmarla ADENTRO del chat (1.10, docs/ops-center-principal.md §2.5):
+ * los mismos datos planos que arma /mako/revisar/<id>. null = no va adentro: no es genérica, ya no está pendiente, su
+ * operación no existe, o mueve plata (eso espera a la D2 y se sigue confirmando en su pantalla).
+ */
+async function formularioDe(propuestaId: string, rol: PersonaChat['rol']): Promise<FormularioPropuesta | null> {
+  const prop = await getPropuesta(propuestaId).catch(() => null);
+  if (!prop || prop.tipo !== 'accion' || prop.estado !== 'pendiente') return null;
+  const def = porId(String(prop.datos.operacion ?? ''));
+  if (!def || !esAccion(def) || def.costo === 'dinero') return null;
+  const payload = prop.datos.payload && typeof prop.datos.payload === 'object' && !Array.isArray(prop.datos.payload) ? prop.datos.payload as Record<string, unknown> : {};
+  return {
+    propuestaId: prop.id, payload, puedeDecidir: rol === 'admin',
+    operacion: { id: def.id, titulo: def.titulo, descripcion: def.descripcion, escribe: def.escribe, reversible: def.reversible, parametros: def.parametros.map(plano) },
+  };
+}
+
+/** La propuesta de pantalla con su formulario, si va adentro. */
+async function conFormulario(p: PropuestaPantalla, rol: PersonaChat['rol']): Promise<PropuestaPantalla> {
+  const id = p.clase === 'accion' ? idDePropuesta(p.escritorio) : null;
+  const form = id ? await formularioDe(id, rol) : null;
+  return form ? { ...p, form } : p;
+}
+
+/** Las propuestas genéricas que siguen pendientes de ESTE chat: al volver, están, con su formulario. */
+async function pantallasDelChat(persona: PersonaChat, canalKey: string): Promise<PropuestaPantalla[]> {
+  const props = await propuestasPendientesDelChat(canalKey);
+  return Promise.all(props.map((pr) => conFormulario(
+    propuestaDePantalla({ clase: 'accion', url: `/mako/revisar/${pr.id}`, operacion: String(pr.datos.operacion ?? '') }), persona.rol)));
 }
 
 /** Un mensaje guardado, para la pantalla: sus adjuntos sin el path (lib/chat-mako-bloques.ts). */
 function aMensajeChat(ws: number, m: ChartMsgConBloques): MensajeChat {
   const bloques = sanearBloques(ws, m.bloques);
-  return { role: m.role, content: m.content, created_at: m.created_at, ...(bloques.length ? { adjuntos: adjuntosVisibles(m.id, bloques) } : {}) };
+  const vista = bloquesGuardados(m.bloques);
+  return {
+    role: m.role, content: m.content, created_at: m.created_at,
+    ...(bloques.length ? { adjuntos: adjuntosVisibles(m.id, bloques) } : {}), ...(vista.length ? { bloques: vista } : {}),
+  };
 }
 
 /**
@@ -381,12 +426,22 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // si el modelo no lo propone, lo propone el código al final (docs/diseno-ticketera-usuarios.md §2.1).
     const erroresDelTurno: ErrorDelTurno[] = [];
     let ticketPropuesto = false;
+    /** Lo que dibujaron las herramientas del turno (`ctx.aDibujar`), y si vino de una que escribe. */
+    const bloquesDelTurno: { b: Bloque; accion: boolean }[] = [];
+    let herramientaActual = '';
+    // Una sola vez cada uno: un turno que se re-arranca (la cascada rota de cuenta) vuelve a correr las lecturas.
+    const dibujar = (b: Bloque) => {
+      if (bloquesDelTurno.length >= MAX_BLOQUES_MENSAJE || bloquesDelTurno.some((x) => JSON.stringify(x.b) === JSON.stringify(b))) return;
+      bloquesDelTurno.push({ b, accion: porId(herramientaActual)?.tipo !== 'lectura' });
+    };
     const ctx: Ctx = {
       ws, canal: 'app', canalKey,
       // `proponer`: este turno deja pendientes y propuestas; confirmar es de la persona
       // (confirmar_accion pide `ejecutar` y además no viaja: dos cortes).
       alcance: 'proponer', rol: persona.rol, turnStart, mensajeUsuario: textoPersona || textoMemoria, actor: persona.actor, quien: persona.quien,
       aPersona: (t) => { const x = (t ?? '').trim(); if (x && !paraLaPersona.includes(x)) paraLaPersona.push(x); },
+      // Lo que DIBUJA una lectura o una propuesta (lib/chat-bloques.ts): se guarda con la respuesta de MaKo.
+      aDibujar: dibujar,
       // Lo que el ticket sabe sin que lo escriba el modelo: el pedido textual, lo último que dijo MaKo y el error.
       contextoTicket: () => ({
         pedido: textoPersona || textoMemoria,
@@ -405,7 +460,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       deSiempre: [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS, ...TICKET_TOOLS], vista,
       hayPendientes: vigentes.length > 0, resumenesPendientes: vigentes.map((p) => p.resumen), sinCalendly,
     });
-    const tools = turno.tools as ToolDef[];
+    // Con herramientas, también la de preguntar con opciones (1.9, lib/chat-pregunta.ts): la regla la impone el código.
+    const tools = turno.tools.length ? [...(turno.tools as ToolDef[]), TOOL_PREGUNTAR] : (turno.tools as ToolDef[]);
     const permitidas = new Set(tools.map((t) => t.name));
 
     // El system se arma DESPUÉS de las tools: depende de ellas.
@@ -430,24 +486,38 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const capturados: LinkCapturado[] = [];
     // Un turno que se re-arranca (la cascada de chatClaudeTools rota de cuenta) no repite
     // acciones: el mismo memo que el doer de WhatsApp.
-    const memo = crearMemoDeAcciones((n) => {
-      const d = porId(n);
-      return d ? d.tipo !== 'lectura' : NOMBRES_ACCION.has(n) && !n.startsWith('listar_');
-    });
+    const escribe = (n: string) => { const d = porId(n); return d ? d.tipo !== 'lectura' : NOMBRES_ACCION.has(n) && !n.startsWith('listar_'); };
+    const memo = crearMemoDeAcciones(escribe);
+    // Desde que MaKo pregunta, no se propone nada en el turno (1.9): una lectura sí, para armar las opciones.
+    const guardia = crearGuardiaDePregunta(escribe);
+    /** Cuántas herramientas corrieron DE VERDAD en el turno, y cuántas LEYERON sin error: el guardia de promesas (1.5). */
+    let corridas = 0;
+    let leidas = 0;
     const runTool = async (name: string, input: Record<string, unknown>) => {
       // El contrato se aplica AL EJECUTAR: lo que no viajó no corre, aunque el modelo lo
       // llame (lo dice el texto, lo pide igual). Confirmar, menos que nada.
       if (!permitidas.has(name)) {
         return { content: JSON.stringify({ ok: false, error: `«${name}» no está disponible en este chat.` }), isError: true };
       }
+      if (name === PREGUNTAR) {
+        const q = guardia.preguntar(input);
+        return q.ok ? JSON.stringify({ ok: true, instruccion: q.texto }) : { content: JSON.stringify({ ok: false, error: q.texto }), isError: true };
+      }
+      if (guardia.bloquea(name)) return { content: JSON.stringify({ ok: false, error: ERROR_TRAS_PREGUNTAR }), isError: true };
+      // Lo rechazado no cuenta: no corrió.
+      corridas++;
       const previo = memo.previo(name);
       if (previo) return previo.out as Awaited<ReturnType<typeof runRegistro>>;
       // Las de siempre por sus cuerpos de siempre; TODO lo demás (incluidas las acciones
       // heredadas, que tienen gemela) por el registro: así cada acción pasa por el gating
       // de la vista de ESTA persona y deja su pendiente con la clave de ESTE chat.
       // La instrucción de una pendiente es la de WhatsApp («pide un sí»): acá se confirma en la tarjeta.
+      // Lo que DIBUJE (`ctx.aDibujar`) queda anotado con el nombre de esta herramienta: con una pregunta, lo de una que
+      // escribe se retira. Las herramientas del turno corren de a una (chatClaudeTools las espera en orden).
+      herramientaActual = name;
       const out = conInstruccionDeTarjeta(await (NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input) : runRegistro(name, input)));
       memo.anotar(name, out);
+      if (!escribe(name) && (out as { isError?: unknown }).isError !== true) leidas++;
       const err = errorParaTicket(name, out);
       if (err) erroresDelTurno.push(err);
       else if (name === LEVANTAR_TICKET) ticketPropuesto = true;
@@ -496,10 +566,27 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     }
 
     // ── Lo que sale ────────────────────────────────────────────────────────────
-    const propuestas = await tarjetasVigentes(ws, canalKey, turnStart).catch(() => [] as TarjetaPendiente[]);
-    const pantallas = capturados.map(propuestaDePantalla);
-    const borrador = capturados.find((c) => c.clase === 'borrador') ?? null;
-    const lead = capturados.find((c) => c.clase === 'lead') ?? null;
+    const delTurno = await tarjetasVigentes(ws, canalKey, turnStart).catch(() => [] as TarjetaPendiente[]);
+    const capturadas = await Promise.all(capturados.map((l) => conFormulario(propuestaDePantalla(l), persona.rol)));
+    // Con una pregunta, lo que el turno propuso ANTES se retira, también en la base: depende de la respuesta (1.9).
+    const pregunta = guardia.pregunta;
+    if (pregunta) {
+      await Promise.all([
+        ...delTurno.map((t) => resolverPendiente(ws, t.pendienteId, 'cancelada', 'MaKo preguntó antes de proponer', { soloSiPendiente: true }).catch(() => false)),
+        ...capturados.map((l) => retirarEnSuPantalla(ws, aRetirar(l))),
+      ]);
+    }
+    const retirado = retirar(pregunta, delTurno, capturadas);
+    const propuestas = retirado.propuestas;
+    // Lo que dibujaron las herramientas: con una pregunta, sólo lo de las lecturas (lo propuesto se retiró).
+    const dibujos = bloquesDelTurno.filter((x) => !pregunta || !x.accion).map((x) => x.b);
+    // Una propuesta de pantalla que ya trae su bloque (el antes y el después de una edición de video, con su «Aceptar en el
+    // editor») no se dibuja dos veces: queda el bloque.
+    const conBloque = new Set(dibujos.flatMap((b) => ('abrir' in b && b.abrir ? [b.abrir.href] : [])));
+    const pantallas = retirado.pantallas.filter((p) => !conBloque.has(p.escritorio));
+    // Con lo que QUEDA: con una pregunta se retiró, y el mensaje no puede decir «confírmalo abajo» sin nada abajo.
+    const borrador = pregunta ? null : capturados.find((c) => c.clase === 'borrador') ?? null;
+    const lead = pregunta ? null : capturados.find((c) => c.clase === 'lead') ?? null;
 
     let respuesta: string | null = null;
     let aviso: string | null = avisos.length ? avisos.join(' ') : null;
@@ -521,15 +608,25 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // —el de la app y el teléfono de los clientes— no. Se saca la oración, no la respuesta entera (las promesas no: acá la
     // tarjeta y la pantalla dicen lo que quedó hecho).
     if (respuesta && !borrador && !lead) {
-      const saneo = sanearSalida(respuesta, { corrioHerramientas: true });
+      // Con lo que DE VERDAD corrió (1.5): sin ninguna herramienta, «déjame ver» es mentira. Y lo que dice HECHO, con lo
+      // que lo respalda: en este chat el turno no ejecuta nada, así que «ya le mandé» sólo vale si lo anota el hilo.
+      const saneo = sanearSalida(respuesta, {
+        corrioHerramientas: corridas > 0,
+        hecho: { enElHilo: hechoEnElHilo(historial), leyo: leidas > 0, tarjeta: propuestas.length > 0 || retirado.pantallas.length > 0 },
+      });
       if (saneo.groserias.length) console.warn(`[mako-turno-app] ws=${ws} sesión=${s.id}: le saqué una grosería (${saneo.groserias.join(', ')})`);
       respuesta = saneo.texto;
     }
     if (!respuesta && (propuestas.length || pantallas.length)) respuesta = TEXTO_SOLO_TARJETA;
+    // La pregunta va con el mensaje de MaKo (al recargar vuelve); sin texto, el mensaje ES la pregunta.
+    if (pregunta && !respuesta) respuesta = pregunta.pregunta;
+    // Lo que dibujaron las herramientas va con el mensaje (al recargar vuelve). Sin texto, una línea que lo presente.
+    if (dibujos.length && !respuesta) respuesta = TEXTO_SOLO_BLOQUE;
+    const conElMensaje = [...dibujos, ...(pregunta ? [pregunta] : [])].slice(0, MAX_BLOQUES_MENSAJE);
 
     if (respuesta) {
-      await appendMessage(s.id, 'assistant', respuesta);
-      guardados.push({ role: 'assistant', content: respuesta });
+      await appendMessage(s.id, 'assistant', respuesta, conElMensaje.length ? conElMensaje.map(aGuardar) : undefined);
+      guardados.push({ role: 'assistant', content: respuesta, ...(conElMensaje.length ? { bloques: conElMensaje } : {}) });
     }
     // Sin IA: lo dice MaKo, con el botón que abre el modal de las keys en esta misma pantalla (`conectar`). Salvo en el
     // workspace del entorno, donde la key que pegara pasaría a ser la de la plataforma (`avisoSinIA`): ahí, sin botón.
@@ -546,8 +643,23 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
  *  siguiente («¿ya lo hiciste?»). Es el `resumen` del resultado, que por contrato es apto
  *  para un modelo (lo que no, va en `paraLaPersona` y no se guarda). Si guardarlo falla, la
  *  acción igual quedó hecha: no se revierte una ejecución porque no se pudo anotar. */
-async function anotarEnHilo(sessionId: number, texto: string): Promise<void> {
-  try { await appendMessage(sessionId, 'assistant', texto); }
+/** Lo que el turno propuso en una pantalla y se retira porque MaKo preguntó (1.9): cada uno con SU descarte, que sólo
+ *  toca lo que sigue pendiente. Si falla, se registra y el turno sigue: la pregunta igual sale. */
+async function retirarEnSuPantalla(ws: number, r: ReturnType<typeof aRetirar>): Promise<void> {
+  if (!r) return;
+  try {
+    if (r.clase === 'accion' || r.clase === 'lead') await descartarPropuesta(r.id);
+    else if (r.clase === 'borrador') await descartarBorradorDelPlan(r.id);
+    else if (r.clase === 'editor') await resolverPropuestaDeVideo({ ws, id: r.id, estado: 'descartada', persona: 'MaKo', descartes: [] });
+    else await descartarBorrador(Number(r.id));
+  } catch (e) {
+    console.error(`[mako-turno-app] ws=${ws} no pude retirar ${r.clase} ${r.id}:`, e instanceof Error ? e.message : String(e));
+  }
+}
+
+async function anotarEnHilo(sessionId: number, texto: string, bloques: readonly Bloque[] = []): Promise<void> {
+  // Con el bloque (lib/chat-bloques.ts): al recargar, lo creado vuelve con su miniatura debajo del «Hecho: …».
+  try { await appendMessage(sessionId, 'assistant', texto, bloques.length ? bloques.map(aGuardar) : undefined); }
   catch (e) { console.error(`[mako-turno-app] no pude anotar en la sesión ${sessionId}:`, e instanceof Error ? e.message : String(e)); }
 }
 
@@ -562,12 +674,34 @@ const NO_ES_TUYA: ResultadoTarjeta = { ok: false, error: 'No encuentro ese chat'
 export async function confirmarDesdeTarjeta(persona: PersonaChat, sessionId: number, pendienteId: number): Promise<ResultadoTarjeta> {
   return runWithWorkspace(persona.ws, async () => {
     if (!(await sesionDe(persona, sessionId))) return NO_ES_TUYA;
+    // Un trabajo LARGO (1.11, lib/chat-trabajos.ts): se confirma por detrás y la respuesta vuelve enseguida, con el G6 que
+    // la pantalla consulta. Si no se puede anotar su avance, corre como siempre, acá abajo.
+    // ⚠️ SÓLO LA DE ESTE CHAT, Y SI QUIEN TOCA PUEDE (revisión del 21/10/2026): con la pendiente de otro chat (los ids son
+    //    correlativos) anotaba «En curso» y servía para ver qué hay vivo en otros; y un closer que tocaba una de admin veía
+    //    «En curso» y después «No se pudo». Si no, el camino de siempre contesta el error sin escribir en el hilo.
+    const pend = await getPendiente(persona.ws, pendienteId).catch(() => null);
+    const def = pend?.estado === 'pendiente' && pend.grupoJid === canalKeyDeSesion(sessionId) ? porId(pend.tipo) : undefined;
+    const ctx = ctxDeTarjeta(persona, sessionId);
+    if (def && esAccion(def) && def.lenta && gatingOk(def, await vistaDe(ctx))) {
+      const trabajo = await enSegundoPlano(persona.ws, sessionId, def.titulo, async () => {
+        const r = await confirmarPendiente(ctx, pendienteId);
+        return 'error' in r ? { ok: false, resumen: errorCortoDeTarjeta(r.error) } : r;
+      }, (r) => abrirDeResultado(def.id, r.datos));
+      if (trabajo) return { ok: true, resumen: `En curso: ${def.titulo}`, paraLaPersona: [], bloques: [trabajo], enCurso: true };
+    }
     const detalle: string[] = [];
     const r = await confirmarPendiente(ctxDeTarjeta(persona, sessionId, (t) => { if (t && !detalle.includes(t)) detalle.push(t); }), pendienteId);
     if ('error' in r) return { ok: false, error: errorCortoDeTarjeta(r.error), paraLaPersona: detalle };
-    await anotarEnHilo(sessionId, r.ok ? `Hecho: ${r.resumen}` : `No se pudo: ${r.resumen}`);
+    // Lo que el chat dibuja con el resultado (`datos.bloque` del runner), saneado: se guarda con el «Hecho» y vuelve a
+    // la pantalla para sumarlo sin recargar (la 1.7: confirmar `crear_diseno_imagen` deja su miniatura en el hilo).
+    const bloque = r.ok ? bloqueDeResultado(r.datos) : null;
+    await anotarEnHilo(sessionId, r.ok ? `Hecho: ${r.resumen}` : `No se pudo: ${r.resumen}`, bloque ? [bloque] : []);
+    // Sin bloque (que trae su propio botón), el «Abrir en <tab>» del link que devolvió la acción (1.8).
+    const abrir = r.ok && !bloque ? abrirDeResultado(r.tipo, r.datos) : null;
     // ok:false acá es «se ejecutó y falló»: la pendiente quedó en error y no vuelve.
-    return r.ok ? { ok: true, resumen: r.resumen, paraLaPersona: detalle } : { ok: false, error: r.resumen, ejecutada: true, paraLaPersona: detalle };
+    return r.ok
+      ? { ok: true, resumen: r.resumen, paraLaPersona: detalle, ...(bloque ? { bloques: [bloque] } : {}), ...(abrir ? { abrir } : {}) }
+      : { ok: false, error: r.resumen, ejecutada: true, paraLaPersona: detalle };
   });
 }
 

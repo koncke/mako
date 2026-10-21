@@ -41,20 +41,23 @@ export function Microfono({ valor, onValor, onError, apagado }: {
  * WhatsApp graba una nota de voz manteniendo apretado; acá se DICTA con un toque y el texto queda en la caja para leerlo
  * antes de mandarlo (la regla de arriba: nada transcrito sale sin que Martín lo vea).
  */
-export function BotonMandar({ valor, onValor, onError, apagado, enviando, hayQueMandar, onMandar, titulo = 'Firmar y mandar' }: {
+export function BotonMandar({ valor, onValor, onError, apagado, enviando, ocupado = false, hayQueMandar, onMandar, titulo = 'Firmar y mandar' }: {
   valor: string;
   onValor: (v: string) => void;
   onError: (m: string) => void;
   /** La caja no deja hacer nada (se está mandando). */
   apagado?: boolean;
   enviando: boolean;
+  /** MaKo está trabajando (revisión del 21/10/2026): la flecha espera girando, pero se puede DICTAR el siguiente, y quien
+   *  ya dictaba no pierde el botón de terminar (antes desaparecía y el dictado seguía escribiendo en la caja). */
+  ocupado?: boolean;
   /** Hay texto o un adjunto: el botón es la flecha. */
   hayQueMandar: boolean;
   onMandar: () => void;
   titulo?: string;
 }) {
   const d = useDictar(valor, onValor, onError);
-  if (enviando) return <button type="button" className="co-enviar" disabled aria-label="Mandando"><span className="co-enviar__giro" aria-hidden /></button>;
+  if (enviando || (ocupado && hayQueMandar && !d.escuchando && !d.subiendo)) return <button type="button" className="co-enviar" disabled aria-label="Mandando"><span className="co-enviar__giro" aria-hidden /></button>;
   if (hayQueMandar && !d.escuchando && !d.subiendo) {
     return (
       <button type="button" className="co-enviar" onClick={onMandar} disabled={apagado} aria-label={titulo} title={titulo}>

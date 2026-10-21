@@ -234,8 +234,8 @@ test('editar con `disparadores` los guarda YA por action «disparadores» (la de
   assert.match(otra, /if \(edicionTocaPasos\(r\)\) \{\s*if \(!edicionVigente\(r\.base, pasos\)\) \{ setErr\('Cambiaste el flujo: pídelo de nuevo'\); return false; \}\s*fotoAntes\(\);\s*setPasos\(nuevos\);\s*\}/);
   assert.match(otra, /if \(r\.disparadores\?\.length\) crons\.guardar\(r\.disparadores\);/);
   assert.doesNotMatch(otra, /setEditandoIA\(false\)/, 'el chat se cierra al terminar: el resumen y la pregunta no se ven');
-  // Revisión del 20/10/2026, noche (tests/automations-aviso-todos-caminos.test.ts): y el aviso de duplicada al guardar un CRON de una activa.
-  assert.match(PERFIL, /const crons = useDisparadores\(secuencia as SecuenciaConDisparadores, \{ onCambio, onError: \(m\) => setErr\(m\), onGuardado: \(n, p\) => alGuardarCronsRef\.current\(n, p\) \}\);/);
+  // (Revisión del 21/10/2026: el aviso de duplicada de una activa ya no cuelga del guardado del CRON: se calcula de lo que hay.)
+  assert.match(PERFIL, /const crons = useDisparadores\(secuencia as SecuenciaConDisparadores, \{ onCambio, onError: \(m\) => setErr\(m\) \}\);/);
   // `crons.guardar` es el POST del panel del CRON (y relee la lista: `onCambio`).
   const editor = sinComentarios(leer('app/automations/EditorDisparadores.tsx'));
   assert.match(tramo(editor, 'const guardar = (nueva: Disparador[]) => {', '\n  };', 600), /const body = \{ action: 'disparadores', secuenciaId: secuencia\.id, disparadores: nueva \};/);

@@ -249,7 +249,8 @@ test('(8) la pantalla pregunta al ACTIVAR, y al PUBLICAR sólo si ya está activ
   // Lo de AHORA de ésta (el lienzo y sus CRON) contra lo PUBLICADO de las otras.
   // (Revisión del 20/10/2026, noche: lo que se compara de ésta es `queManda`: el lienzo al publicar, lo publicado al activar.)
   assert.match(perfil, /\{ id: secuencia\.id, nombre, disparadores: crons\.lista, pasos: queManda \},\n\s+secuencias\.map\(\(s\) => \(\{ id: s\.id, nombre: s\.nombre, activa: s\.activa, disparadores: disparadoresDeSecuencia\(s\), pasos: s\.pasos \?\? \[\] \}\)\),/);
-  assert.match(perfil, /onConfirm=\{\(\) => \{ const s = avisoDup\.seguir; setAvisoDup\(null\); s\(\); \}\}\n\s+onCancel=\{\(\) => setAvisoDup\(null\)\} \/>/);
+  // (21/10/2026: «… igual» marca la respuesta, `respondioIgual`, que el pedido que sigue manda al server como `aunqueDuplique`.)
+  assert.match(perfil, /onConfirm=\{\(\) => \{ const s = avisoDup\.seguir; setAvisoDup\(null\); respondioIgual\.current = true; s\(\); \}\}\n\s+onCancel=\{\(\) => setAvisoDup\(null\)\} \/>/);
 });
 
 // PROBADO ROMPIÉNDOLO (20/10/2026, arnés `romper.py` + `roturas-no-salio.json`, una rotura por vez y restaurada con

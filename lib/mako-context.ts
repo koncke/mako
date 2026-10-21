@@ -10,6 +10,8 @@ import 'server-only';
 import { MAKO_NUCLEO, getActivePersona } from './mako-prompts';
 import { getFaseInstruccion } from './mako-fases';
 import { perfilNegocioTexto } from './onboarding';
+import { getWorkspace, getWorkspaceActual } from './workspace';
+import { rotuloDelNegocio } from './negocio-rotulo';
 import { faseNegocioTexto } from './fase-store';
 import { objetivosContextoTexto } from './objectives';
 import { searchKnowledge, formatKnowledge } from './mako-knowledge';
@@ -70,6 +72,13 @@ export async function resumenFunnel(): Promise<string> {
   return bloques.join('\n');
 }
 
+/** El nombre del negocio que está usando la app ahora (el del request o el del turno). null si no se sabe. */
+export async function nombreDelNegocioActual(): Promise<string | null> {
+  const ws = await getWorkspaceActual().catch(() => null);
+  if (ws == null) return null;
+  return (await getWorkspace(ws).catch(() => null))?.nombre ?? null;
+}
+
 export async function buildSystemPrompt(opts: { chartKey: string; titulo: string; contexto: string; query: string; lean?: boolean; sinNumerosDelNegocio?: boolean }): Promise<string> {
   const { chartKey, titulo, contexto, query } = opts;
 
@@ -86,18 +95,19 @@ export async function buildSystemPrompt(opts: { chartKey: string; titulo: string
     return `${persona}\n\n${nucleo}`.trim();
   }
 
-  const [persona, perfil, faseNegocio, fase, knowledge] = await Promise.all([
+  const [persona, perfil, faseNegocio, fase, knowledge, nombreNegocio] = await Promise.all([
     getActivePersona().catch(() => ''),
     perfilNegocioTexto().catch(() => ''),
     faseNegocioTexto().catch(() => ''),
     getFaseInstruccion(chartKey).catch(() => ''),
     searchKnowledge(query, 4).catch(() => [] as Array<{ titulo: string; cuerpo: string }>),
+    nombreDelNegocioActual().catch(() => null),
   ]);
 
   // Núcleo de formato/tono: editable desde Configuraciones (default en código).
   const nucleo = await getPromptText('mako.nucleo', MAKO_NUCLEO);
   let base = `${persona}\n\n${nucleo}`.trim();
-  if (perfil) base += `\n\nNEGOCIO DE MARTÍN (perfil del cliente):\n${perfil}`;
+  if (perfil) base += `\n\n${rotuloDelNegocio(nombreNegocio)}:\n${perfil}`;
   // La FASE del negocio (diagnóstico de onboarding): es el Norte. MaKo prioriza
   // y aconseja según la etapa real — no le propone escalar a quien todavía no
   // convierte, ni high-ticket a quien no tiene tráfico.
