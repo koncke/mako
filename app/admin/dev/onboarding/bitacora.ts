@@ -755,4 +755,29 @@ export const BITACORA: Hito[] = [
       "docs/hallazgos-onboarding.md — lo aprendido en cada vuelta, y docs/relevo/onboarding.md",
     ],
   },
+  {
+    fecha: "21 oct", hora: "20:15", chat: "Onboarding", sesion: "local_0702928b-fa1b-49e2-ac90-85a94053d088", cuenta: "claude4",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Hecho: el admin de cada negocio cambia su nombre en «Tu negocio», en la computadora y en el teléfono",
+    puntos: [
+      "Florencia (ws21) no podía cambiar el nombre de su negocio en ningún lado: el onboarding del 18/10 le guardó «mi marca personal: Florencia Ayelen Carballo» y sólo el super admin lo editaba (General). En producción con a6d65929f (run 221: 4.843 tests y tipos limpios).",
+      "«Tu negocio» es la primera sección de Configuración del negocio para el cliente: el admin escribe el nombre y lo guarda; el resto del equipo lo ve sin poder cambiarlo. Se ve en la tarjeta de /admin, en el encabezado y en lo que lee MaKo.",
+      "En el teléfono, la misma pantalla: /m/configuraciones/negocio, con el mismo guardado.",
+      "Lo que NO hizo esta ronda: reparar los datos del ws21 (funnel, producto «6 cuotas» como pago único, PDF) es un script en seco que espera el sí de Martín y que elija `--meses=6` o `--mensual`; y las preguntas del arranque guardadas en el historial siguen sin hacer (docs/hallazgos-onboarding.md, «Florencia otra vez»).",
+      "DÓNDE SE PRUEBA: en un negocio de prueba (nunca el ws 1), como su admin: cambiar el nombre en «Tu negocio» y verlo en el encabezado; probar un nombre sin letras («123») y uno de más de 80 caracteres. Como alguien del equipo que no es admin, el campo no se edita.",
+    ],
+    revisar: "/configuraciones/negocio?ws=3",
+    commits: [
+      { sha: "c85e816", msg: "Configuración del negocio: «Tu negocio», el nombre del negocio editable por su admin (Florencia, ws21)", lineas: 192, archivos: 7 },
+      { sha: "0c94112", msg: "Tu negocio: las roturas del test del nombre (5 de 5)", lineas: 4, archivos: 1 },
+      { sha: "d6e9801", msg: "Tu negocio también en el teléfono, y la cosecha de Florencia (ws21)", lineas: 120, archivos: 7 },
+    ],
+    archivos: [
+      "lib/nombre-negocio.ts — la regla del nombre (limpio, con letras, hasta 80)",
+      "app/configuraciones/negocio-actions.ts — leer y guardar, sólo el admin del negocio",
+      "app/configuraciones/negocio/page.tsx y NombreNegocioPanel.tsx — la pantalla de la computadora",
+      "app/m/configuraciones/negocio/ — la del teléfono; lib/ajustes-secciones.ts y lib/movil-rutas.ts, la sección",
+      "tests/nombre-negocio.test.ts — probado rompiéndolo (7 de 7)",
+    ],
+  },
 ];
