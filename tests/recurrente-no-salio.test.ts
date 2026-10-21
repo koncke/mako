@@ -14,7 +14,8 @@
 //   (7) un Recurrente sale a su minuto: el tick lee todos los CRON (las columnas y `disparadores`), corre el negocio con
 //       uno que acaba de vencer e inscribe SÓLO los CRON con horario, con el compare-and-set de siempre, antes de mover
 //       lo vencido;
-//   (8) al activar, o al publicar una activa, avisa si otra activa le escribe algo parecido a la misma gente.
+//   (8) al activar, o al publicar una activa, avisa si otra activa le escribe a la misma gente: lo deciden los HECHOS (la
+//       cohorte, el canal, los horarios), no el parecido del texto, y el aviso muestra el arranque de los dos (21/10/2026).
 //
 // PROBADO ROMPIÉNDOLO (20/10/2026, arnés `romper.py` + `roturas-no-salio.json`): ver el pie.
 //
@@ -31,7 +32,7 @@ import {
 import { rutaChatsDeVista, vistaDeLink } from '../lib/chats-links';
 import { saleSolo } from '../lib/nutricion-grafo-motor';
 import { negociosConRecurrenteVencido, negociosDelTick, type FilaRecurrente } from '../lib/motor-tick';
-import { duplicadaDe, mismaCohorte, primerMensaje, parecido, avisoDuplicada, UMBRAL_PARECIDO, type AutoParaComparar } from '../lib/automatizacion-duplicada';
+import { duplicadaDe, mismaCohorte, primerMensaje, avisoDuplicada, type AutoParaComparar } from '../lib/automatizacion-duplicada';
 import type { PasoGrafo } from '../lib/flujo-grafo';
 import { SecuenciaPerfil } from '../app/automations/SecuenciaPerfil';
 import type { SecuenciaDto } from '../app/automations/ChatAgentApp';
@@ -204,28 +205,47 @@ const cron = (etapa: string, funnel_id: number | null, extra: Record<string, unk
 const A_282: AutoParaComparar = { id: 282, nombre: 'Recordatorio clase reactivación', activa: true, disparadores: [cron('reactivacion', 4)], pasos: [msg('n063a54', TEXTO_282)] };
 const ESTA_284 = { id: 284, nombre: 'Recordatorio martes sesión LíderMente', disparadores: [cron('agenda', 4), cron('reactivacion', 4)], pasos: [msg('ntbqp1f', TEXTO_284)] };
 
-test('(8) #282 y el d2 de #284: la misma etapa y casi el mismo recordatorio → avisa con el nombre de la otra', () => {
-  assert.ok(parecido(TEXTO_282, TEXTO_284) >= UMBRAL_PARECIDO, `parecido ${parecido(TEXTO_282, TEXTO_284).toFixed(2)}`);
-  assert.deepEqual(duplicadaDe(ESTA_284, [A_282]), { id: 282, nombre: 'Recordatorio clase reactivación' });
-  assert.equal(avisoDuplicada('Recordatorio clase reactivación'), 'Ojo: «Recordatorio clase reactivación» ya le escribe algo parecido a la misma gente');
+test('(8) #282 y el d2 de #284: la misma etapa por el mismo canal → avisa con el nombre de la otra y el arranque de los dos', () => {
+  const d = duplicadaDe(ESTA_284, [A_282]);
+  assert.deepEqual(d, {
+    id: 282, nombre: 'Recordatorio clase reactivación',
+    suyo: '¡Holaa {{nombre}}! Paso a recordarte que mañana miércoles nos vemos…',
+    mio: 'Holaa {{nombre}}! Mañana miércoles tenemos la sesión presencial de…',
+  });
+  assert.equal(avisoDuplicada(d!), 'A la misma gente ya le escribe «Recordatorio clase reactivación»: «¡Holaa {{nombre}}! Paso a recordarte que mañana miércoles nos vemos…». Ésta: «Holaa {{nombre}}! Mañana miércoles tenemos la sesión presencial de…»');
 });
 
-test('(8) no avisa: otra etapa, otro funnel, la otra pausada, ella misma, o un texto distinto', () => {
+test('(8) los HECHOS que no avisan: otra etapa, otro funnel, la otra pausada, ella misma, otro canal, horarios que no se pisan', () => {
   assert.equal(duplicadaDe({ ...ESTA_284, disparadores: [cron('agenda', 4)] }, [A_282]), null, 'otra etapa');
   assert.equal(duplicadaDe({ ...ESTA_284, disparadores: [cron('reactivacion', 5)] }, [A_282]), null, 'otro funnel');
   assert.equal(duplicadaDe(ESTA_284, [{ ...A_282, activa: false }]), null, 'la otra está pausada');
   assert.equal(duplicadaDe({ ...ESTA_284, id: 282 }, [A_282]), null, 'ella misma');
-  const otra = { ...A_282, pasos: [msg('x', 'Te dejo el link de la grabación de la clase para que la veas cuando puedas')] };
-  assert.equal(duplicadaDe({ ...ESTA_284, pasos: [msg('y', '¿Pudiste ver la clase? Cuéntame qué te pareció')] }, [otra]), null, 'dos textos distintos');
+  assert.equal(duplicadaDe({ ...ESTA_284, pasos: [msg('y', TEXTO_284, { canal: 'email' })] }, [A_282]), null, 'otro canal');
+  // Dos Recurrentes que no comparten día no le escriben a la vez; el mismo día (aunque a otra hora) sí, y uno que escribe
+  // al entrar se pisa con cualquiera.
+  const R = (c: Record<string, unknown>) => [cron('reactivacion', 4, { cron: c })];
+  const martes = { unidad: 'semana', cada: 1, hora: 16, minuto: 15, diaSemana: 2 };
+  assert.equal(duplicadaDe({ ...ESTA_284, disparadores: R(martes) }, [{ ...A_282, disparadores: R({ ...martes, diaSemana: 4 }) }]), null, 'martes y jueves');
+  assert.ok(duplicadaDe({ ...ESTA_284, disparadores: R(martes) }, [{ ...A_282, disparadores: R({ ...martes, hora: 10 }) }]), 'el mismo martes a otra hora');
+  assert.ok(duplicadaDe({ ...ESTA_284, disparadores: R(martes) }, [A_282]), 'un Recurrente y uno que escribe al entrar');
+  const mes = (diaMes: number) => R({ unidad: 'mes', cada: 1, hora: 9, minuto: 0, diaMes });
+  assert.equal(duplicadaDe({ ...ESTA_284, disparadores: mes(5) }, [{ ...A_282, disparadores: mes(20) }]), null, 'el 5 y el 20 de cada mes');
+  assert.ok(duplicadaDe({ ...ESTA_284, disparadores: mes(5) }, [{ ...A_282, disparadores: mes(5) }]), 'el 5 de cada mes, las dos');
   // Un funnel sin elegir es «todos»: alcanza a la misma gente.
-  assert.deepEqual(duplicadaDe({ ...ESTA_284, disparadores: [cron('reactivacion', null)] }, [A_282]), { id: 282, nombre: A_282.nombre });
+  assert.equal(duplicadaDe({ ...ESTA_284, disparadores: [cron('reactivacion', null)] }, [A_282])?.id, 282);
   // Por evento no hay cohorte que se pise.
   assert.equal(mismaCohorte({ trigger_tipo: 'form_enviado' }, { trigger_tipo: 'form_enviado' }), false);
   assert.equal(mismaCohorte({ trigger_tipo: 'etiqueta_puesta', etiqueta_id: 3 }, { trigger_tipo: 'etiqueta_puesta', etiqueta_id: '3' }), true);
-  // Un saludo corto sólo cuenta si es el MISMO.
+});
+
+test('(8) el texto NUNCA decide: dos mensajes distintos, dos saludos cortos o un audio a la misma gente avisan', () => {
+  // Tres rondas de reglas sobre el texto (umbral, firma de «la mayoría», firma al arranque) dejaron pasar duplicados de
+  // verdad. Que le escriban a la misma gente es un hecho: la persona compara los dos arranques y decide.
+  const otra = { ...A_282, pasos: [msg('x', 'Te dejo el link de la grabación de la clase para que la veas cuando puedas')] };
+  assert.ok(duplicadaDe({ ...ESTA_284, pasos: [msg('y', '¿Pudiste ver la clase? Cuéntame qué te pareció')] }, [otra]), 'dos textos distintos');
   const corto = (t: string) => ({ ...A_282, pasos: [msg('c', t)] });
-  assert.equal(duplicadaDe({ ...ESTA_284, pasos: [msg('d', 'Hola {{nombre}}, ¿cómo estás?')] }, [corto('Hola, ¿qué tal?')]), null);
-  assert.ok(duplicadaDe({ ...ESTA_284, pasos: [msg('d', 'Hola {{nombre}}, ¿cómo estás?')] }, [corto('hola, como estas')]));
+  assert.ok(duplicadaDe({ ...ESTA_284, pasos: [msg('d', 'Hola {{nombre}}, ¿cómo estás?')] }, [corto('Hola, ¿qué tal?')]), 'dos saludos cortos');
+  assert.equal(duplicadaDe({ ...ESTA_284, pasos: [msg('d', '')] }, [A_282])?.mio, '(un audio o un archivo, sin texto)');
 });
 
 test('(8) el primer mensaje es el de la SALIDA (saltando esperas), no una respuesta de «Si responde»', () => {
@@ -271,4 +291,13 @@ test('(8) la pantalla pregunta al ACTIVAR, y al PUBLICAR sólo si ya está activ
 //   14. el tick mira sólo el primer CRON                  → 14 / 1     30. Activar sin el aviso                    → 14 / 1
 //   15. el tick sin la ventana fresca                     → 14 / 1     31. Publicar avisa aunque esté pausada      → 14 / 1
 //   16. el Recurrente pisa el motivo                      → 14 / 1     32. «Activar igual» no sigue                → 14 / 1
-// Restaurado: 15 / 0.
+// Restaurado: 15 / 0. (27 y 28 se fueron con la regla de texto el 21/10/2026: el (8) se rompe ahora en el bloque de abajo.)
+//
+// La red por HECHOS (21/10/2026, `roturas-hechos.json`, md5 igual al restaurar). Base 16 / 0. Cada una → 15 / 1 (salvo
+// donde se dice):
+//   H1. vuelve un umbral de parecido                    H7. el arranque parte una palabra
+//   H2. sin mirar el canal                              H8. un mensaje sin texto no avisa
+//   H3. sin mirar los horarios                          H10. la otra pausada cuenta
+//   H4. un horario sin leer no se pisa       → 13 / 3   H14. dos mensuales no miran el día del mes
+//   H5. el aviso sin los dos arranques
+// Restaurado: 16 / 0. (H6, H9, H11–H13 y H15–H17 caen en los otros dos tests del aviso.)

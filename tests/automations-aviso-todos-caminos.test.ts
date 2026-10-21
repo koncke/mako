@@ -43,11 +43,14 @@ const S284: Fila = { id: 284, nombre: 'Recordatorio martes sesión LíderMente',
 const cronsDe = (f: Fila) => f.crons;
 
 test('1. al activar se compara lo PUBLICADO de las dos y sus CRON guardados', () => {
-  assert.deepEqual(duplicadaAlActivar(S284, [S282, S284], cronsDe), { id: 282, nombre: S282.nombre });
+  const d = duplicadaAlActivar(S284, [S282, S284], cronsDe);
+  assert.equal(d?.nombre, S282.nombre);
+  assert.equal(d?.mio, 'Holaa {{nombre}}! Mañana miércoles tenemos la sesión presencial de…', 'el arranque de lo PUBLICADO de ésta');
   // Un borrador distinto no cambia lo que manda el motor: lo que cuenta es lo publicado (la fila).
   // Y quien pasa otros pasos u otros CRON (un CRON recién guardado), con eso.
   assert.equal(duplicadaAlActivar(S284, [S282, S284], cronsDe, { crons: [cron('agenda')] }), null, 'otra etapa: no es la misma gente');
-  assert.equal(duplicadaAlActivar(S284, [S282, S284], cronsDe, { pasos: [msg('c', 'Te dejo el link de la grabación para que la veas cuando puedas')] }), null);
+  assert.equal(duplicadaAlActivar(S284, [S282, S284], cronsDe, { pasos: [msg('c', 'Te dejo el link de la grabación para que la veas cuando puedas')] })?.mio,
+    'Te dejo el link de la grabación para que la veas cuando puedas', 'con los pasos de quien llama');
   // La otra pausada no cuenta; ella misma tampoco.
   assert.equal(duplicadaAlActivar(S284, [{ ...S282, activa: false }, S284], cronsDe), null);
   assert.equal(duplicadaAlActivar(S282, [S282], cronsDe), null);
@@ -56,7 +59,7 @@ test('1. al activar se compara lo PUBLICADO de las dos y sus CRON guardados', ()
 test('1. el «⋯» de la lista pregunta antes de Activar, con lo publicado, y «Activar igual» sigue sin volver a preguntar', () => {
   const lista = sinComentarios(leer('app/automations/SimuladorWhatsApp.tsx'));
   const a = cuerpo(lista, 'const accionFila = async (j: SecuenciaDto, accion: string, o?: { sinAviso?: boolean }) => {', '\n  };');
-  assert.match(a, /if \(accion === 'activa' && !j\.activa && rolAdmin && !o\?\.sinAviso\) \{\n\s+const otra = duplicadaAlActivar\(j as SecuenciaConDisparadores, secuencias as readonly SecuenciaConDisparadores\[\], disparadoresDeSecuencia\);\n\s+if \(otra\) \{ setErrFila\(null\); setAvisoActivar\(\{ j, texto: avisoDuplicada\(otra\.nombre\) \}\); return; \}/);
+  assert.match(a, /if \(accion === 'activa' && !j\.activa && rolAdmin && !o\?\.sinAviso\) \{\n\s+const otra = duplicadaAlActivar\(j as SecuenciaConDisparadores, secuencias as readonly SecuenciaConDisparadores\[\], disparadoresDeSecuencia\);\n\s+if \(otra\) \{ setErrFila\(null\); setAvisoActivar\(\{ j, texto: avisoDuplicada\(otra\) \}\); return; \}/);
   // Antes del PATCH: la pregunta va ANTES de prender.
   assert.ok(a.indexOf('duplicadaAlActivar(') < a.indexOf("pedir('/api/whatsapp/secuencias', 'PATCH'"));
   assert.match(lista, /if \(a\) void accionFila\(a\.j, 'activa', \{ sinAviso: true \}\);/);
@@ -68,6 +71,7 @@ test('1. el «⋯» de la lista pregunta antes de Activar, con lo publicado, y �
 test('1. una ACTIVA que ya le escribe lo mismo a la misma gente lo dice al lado de «Activar», con sus CRON de ahora', () => {
   const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   assert.match(perfil, /const dupActiva = useMemo\(\n\s+\(\) => \(rolAdmin && activa\n\s+\? duplicadaAlActivar\(secuencia as SecuenciaConDisparadores, secuencias as readonly SecuenciaConDisparadores\[\], disparadoresDeSecuencia, \{ pasos: abiertoPublicado, crons: crons\.lista \}\)/);
+  assert.match(perfil, /\{avisoDuplicada\(dupActiva\)\}/, 'el aviso de una activa sin los dos arranques');
   assert.match(perfil, /\{dupActiva && \(\n\s+<span data-duplicada="" role="status"/);
   assert.doesNotMatch(perfil, /alGuardarCrons|onGuardado: \(n, p\)/, 'volvió el aviso que se borraba con el guardado siguiente');
 });
@@ -131,4 +135,11 @@ test('5. el paso au-chat tiene dónde mostrarse con la lista a la vista: la fila
 //    7. `previa` = la nueva                                     16. la ruta copia también entre negocios
 //    8. el CRON avisa también pausada                           17. el origen de un texto entero
 //    9. el CRON avisa aunque ya fuera así                       18. au-chat sin la fila elegida
+// Restaurado: 7 / 0.
+//
+// La red por HECHOS (21/10/2026, `roturas-hechos.json`, md5 igual al restaurar). Base 7 / 0. Cada una → 6 / 1:
+//   H1. vuelve un umbral de parecido          H15. la lista avisa sin los arranques
+//   H4. un horario sin leer no se pisa        H16. el aviso de una activa sin los arranques
+//   H7. el arranque parte una palabra         H17. `duplicadaAlActivar` ignora los pasos de quien llama
+//   H10. la otra pausada cuenta
 // Restaurado: 7 / 0.
