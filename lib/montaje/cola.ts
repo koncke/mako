@@ -88,6 +88,23 @@ export function errorParaLaPersona(motivo: string): string {
   return 'Falló algo de nuestro lado al montarlo.';
 }
 
+/**
+ * Los cortes con los que se vuelve a montar un anuncio cuyo último montaje falló, o null para que el detector los
+ * calcule solo.
+ *
+ * ⚠️ «MONTAR DE NUEVO» PERDÍA LA EDICIÓN. El botón re-encola sin plan, y el pedido nuevo salía con los cortes
+ * automáticos: el cliente había ajustado los cortes, el montaje falló (tres 429 de Groq, o se venció) y al volver a
+ * montarlo le llegaba otra cosa, en «listo», sin aviso (revisión del 21/10). Se usan los del último trabajo fallido.
+ * Salvo con motivo `material`: ahí hay que re-filmar una toma, sus duraciones cambian y los cortes viejos ya no
+ * sirven. Quien llama igual los valida contra las tomas de ahora (`porQueNoSirveElPlan`).
+ */
+export function planParaRemontar(previo: { motivo?: unknown; pedido?: unknown } | null | undefined): unknown | null {
+  if (!previo || previo.motivo === 'material') return null;
+  const plan = (previo.pedido && typeof previo.pedido === 'object' ? (previo.pedido as { plan?: unknown }).plan : null) ?? null;
+  const segs = plan && typeof plan === 'object' ? (plan as { segs?: unknown }).segs : null;
+  return Array.isArray(segs) && segs.length ? plan : null;
+}
+
 /** Cuánto lleva esperando, dicho como lo diría una persona. */
 export function textoEspera(minutos: number): string {
   if (minutos < 60) return `Lleva ${minutos} minutos esperando turno. Escríbenos si sigue así.`;

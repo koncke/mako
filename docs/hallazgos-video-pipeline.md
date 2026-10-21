@@ -1253,7 +1253,22 @@ corrida del test usa ids propios.
   anuncios siguen en el historial: al abrir el paso de montaje de cada uno se lee «Este montaje quedó en
   la fila sin que nadie lo tomara y se dio de baja. Fue un problema nuestro, no de tu anuncio: puedes
   montarlo de nuevo», con «Montar de nuevo». La API de MaKo (`ver_montaje_anuncio`) devuelve el mismo
-  texto.
+  texto. **En el teléfono decía «No se pudo montar»** (el motivo no llegaba a `/m/video`): corregido
+  en la segunda revisión, ahí dice «Se dio de baja: móntalo de nuevo en la computadora».
+
+### Lo que encontró la segunda revisión (21/10)
+
+- **Una clave de IA leída de `process.env` a secas falla en cada arranque en frío.** Las claves de
+  IA salen de la base y las copia `instrumentation.ts`, que Next 16 no espera (3 de cada 10 requests
+  sin la clave, medido). El cron leía `GROQ_API_KEY` así: en frío daba «falta GROQ_API_KEY», abría un
+  ticket FALSO y perdía la corrida; si la hidratación fallaba, la cola quedaba frenada. Ahora va con
+  `envCred` (`lib/credenciales.ts`), que espera la hidratación y si no, va a la base. **Regla:** en
+  una ruta nueva, toda clave de IA con `envCred`; `process.env` sólo para las variables de Vercel.
+- **«Montar de nuevo» perdía los cortes editados.** El botón re-encola sin plan; con el cron andando,
+  un montaje editado que fallaba volvía con los cortes automáticos, en «listo» y sin aviso. Ahora,
+  sin plan, se usan los del último trabajo fallido de ese anuncio, validados contra las tomas de
+  ahora (`planParaRemontar`). Con una toma rota (`material`) no: hay que re-filmar y las duraciones
+  cambian.
 
 ### Lo que quedó SIN hacer
 

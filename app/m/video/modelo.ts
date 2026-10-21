@@ -15,13 +15,15 @@
 // =============================================================================
 
 import type { EstadoToma } from '@/app/video-generator/tomas-estado';
+import { MOTIVO_VENCIDO } from '@/lib/montaje/cola';
 
 /** El montaje de un anuncio, ya traducido de `estadoMontajeAction` (encolado y montando = montando). */
 export type MontajeM =
   | { fase: 'sin_empezar' }
   | { fase: 'montando' }
   | { fase: 'listo'; url: string; segundos: number | null }
-  | { fase: 'error' };
+  /** `motivo`: el de `estadoMontajeAction`. Con `vencido` no se dice «no se pudo»: nadie lo intentó (lib/montaje/cola.ts). */
+  | { fase: 'error'; motivo?: string };
 
 /** Una toma con su estado ya decidido por `estadoDeToma`. */
 export type TomaM = { n: number; estado: EstadoToma; segundos: number };
@@ -69,6 +71,7 @@ export function resumenDeAnuncio(tomas: readonly TomaM[], montaje: MontajeM | nu
   if (todasFilmadas(tomas)) {
     if (montaje?.fase === 'listo') return { texto: 'Listo', tono: null };
     if (montaje?.fase === 'montando') return { texto: 'Montando…', tono: null };
+    if (montaje?.fase === 'error' && montaje.motivo === MOTIVO_VENCIDO) return { texto: 'Se dio de baja', tono: 'warn' };
     if (montaje?.fase === 'error') return { texto: 'No se pudo montar', tono: 'bad' };
     return { texto: `${tomas.length} tomas listas`, tono: null };
   }
@@ -113,6 +116,9 @@ export function pieDelEditor(tomas: readonly TomaM[], montaje: MontajeM | null, 
     return apagado(`Falta filmar la toma ${falta.n}.`);
   }
   if (montaje?.fase === 'montando') return apagado('Se está montando el anuncio.');
+  // ⚠️ VENCIDO NO ES «NO SE PUDO» (el mismo criterio que PasoMontaje en la computadora): quedó en la fila sin que nadie
+  // lo tomara, el anuncio no tiene nada mal. Volver a montar se hace en la computadora.
+  if (montaje?.fase === 'error' && montaje.motivo === MOTIVO_VENCIDO) return apagado('Se dio de baja: móntalo de nuevo en la computadora.');
   if (montaje?.fase === 'error') return apagado('No se pudo montar el anuncio.');
   return apagado('Falta montar el anuncio.');
 }

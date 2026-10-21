@@ -45,6 +45,13 @@
 //   N6  ffmpeg-static vuelve a ser dependencia obligatoria            → 13 / 1
 //   N7  el lock no la marca opcional                                  → 13 / 1
 //   N8  la frase para el cliente deja ver lo técnico                  → 13 / 1
+// Y después de la segunda revisión (21/10; base 17 / 0):
+//   P1  la clave de Groq vuelve a leerse de process.env               → 16 / 1
+//   P2  con una toma rota se re-monta con los cortes viejos           → 16 / 1
+//   P3  «Montar de nuevo» no usa los cortes del montaje que falló     → 16 / 1
+//   P4  los usa sin validarlos contra las tomas de ahora              → 16 / 1
+//   P5  el teléfono dice «No se pudo montar» de un vencido            → 16 / 1
+//   P6  el teléfono no recibe el motivo                               → 16 / 1
 // La primera pasada destapó una trampa del propio test: R11 dejó carpetas en
 // /tmp y la base siguiente dio 10 / 2. Por eso cada corrida usa ids propios.
 
@@ -56,7 +63,8 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { clasificar, corteDeVencimiento, ERROR_VENCIDO, errorParaLaPersona, esDefinitiva, MOTIVO_VENCIDO, textoEspera, VENCE_HORAS } from '../lib/montaje/cola';
+import { clasificar, corteDeVencimiento, ERROR_VENCIDO, errorParaLaPersona, esDefinitiva, MOTIVO_VENCIDO, planParaRemontar, textoEspera, VENCE_HORAS } from '../lib/montaje/cola';
+import { pieDelEditor, resumenDeAnuncio, type TomaM } from '../app/m/video/modelo';
 import { montarAnuncio } from '../lib/montaje/pipeline';
 
 const RAIZ = resolve(import.meta.dirname, '..');
@@ -318,4 +326,40 @@ test('la pantalla dice «vencido» como lo que es, y la espera con textoEspera',
   // Ni el error crudo de un trabajo viejo, ni la promesa de que arranca ya.
   assert.doesNotMatch(sinComentarios(src), /\$\{estado\.error\}/, 'la pantalla vuelve a mostrar el error técnico');
   assert.doesNotMatch(src, /arranca ahora/);
+});
+
+// ── Lo que encontró la segunda revisión (21/10) ────────────────────────────────────────────────────────
+
+test('la clave de Groq se lee con envCred: en frío, process.env todavía no la tiene', () => {
+  // instrumentation.ts copia las claves de la base a process.env y Next 16 no lo espera: leída a secas, cada
+  // arranque en frío daba «falta GROQ_API_KEY», un ticket falso y la corrida perdida.
+  assert.match(RUTA, /herramientas\(\(await envCred\('GROQ_API_KEY'\)\.catch\(\(\) => null\)\) \?\? ''\)/);
+  assert.doesNotMatch(RUTA, /process\.env\.GROQ_API_KEY/, 'volvió la clave de IA leída de process.env a secas');
+  assert.match(RUTA, /import \{ envCred \} from '@\/lib\/credenciales';/);
+});
+
+test('«Montar de nuevo» usa los cortes del montaje que falló, salvo una toma rota', () => {
+  const plan = { total: 4, segs: [{ toma: 1, ini: 0.5, fin: 2.5 }, { toma: 2, ini: 0, fin: 2 }] };
+  assert.deepEqual(planParaRemontar({ motivo: 'transitorio', pedido: { plan } }), plan);
+  assert.deepEqual(planParaRemontar({ motivo: 'vencido', pedido: { plan } }), plan);
+  // Con una toma rota hay que re-filmarla: las duraciones cambian y los cortes viejos no sirven.
+  assert.equal(planParaRemontar({ motivo: 'material', pedido: { plan } }), null);
+  for (const previo of [null, undefined, {}, { motivo: 'interno', pedido: { plan: null } }, { motivo: 'interno', pedido: { plan: { segs: [] } } }]) {
+    assert.equal(planParaRemontar(previo as never), null, JSON.stringify(previo));
+  }
+  // La action los busca en el último FALLIDO de este anuncio y los vuelve a validar contra las tomas de ahora.
+  const accion = sinComentarios(leer('app/video-generator/video-action.ts'));
+  const bloque = accion.slice(accion.indexOf('if (!plan) {'), accion.indexOf("const { data, error } = await db\n    .from('montaje_trabajos')\n    .insert("));
+  assert.match(bloque, /\.eq\('estado', 'fallido'\)/);
+  assert.match(bloque, /const anterior = leerPlan\(planParaRemontar\(previo\)\);/);
+  assert.match(bloque, /if \(anterior && !porQueNoSirveElPlan\(anterior, /, 'usa cortes viejos sin validarlos contra las tomas de ahora');
+});
+
+test('en el teléfono, un vencido no dice «No se pudo montar»', () => {
+  const tomas: TomaM[] = [{ n: 1, estado: 'filmada', segundos: 8 }, { n: 2, estado: 'filmada', segundos: 8 }];
+  assert.deepEqual(resumenDeAnuncio(tomas, { fase: 'error', motivo: MOTIVO_VENCIDO }), { texto: 'Se dio de baja', tono: 'warn' });
+  assert.equal(pieDelEditor(tomas, { fase: 'error', motivo: MOTIVO_VENCIDO }, false).consecuencia, 'Se dio de baja: móntalo de nuevo en la computadora.');
+  // Una falla de verdad sigue diciéndose así.
+  assert.deepEqual(resumenDeAnuncio(tomas, { fase: 'error', motivo: 'interno' }), { texto: 'No se pudo montar', tono: 'bad' });
+  assert.match(sinComentarios(leer('app/m/video/datos.ts')), /if \(e\.fase === 'error'\) return \{ fase: 'error', motivo: e\.motivo \};/, 'el teléfono no recibe el motivo');
 });

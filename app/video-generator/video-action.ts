@@ -57,6 +57,7 @@ import { personaEstado, addPersonaFoto } from '@/lib/persona';
 import { caraDeFoto } from '@/lib/flow-cara';
 import { guardarSaldo, leerSaldoGuardado, guardarCostoMedido, type SaldoFlow } from './saldo-datos';
 import { leerPlan, porQueNoSirveElPlan, type Plan } from './plan-montaje';
+import { planParaRemontar } from '@/lib/montaje/cola';
 import { pistaPorId } from '@/lib/musica-catalogo';
 
 async function ctxAdmin(): Promise<{ ok: true; ws: number } | { ok: false; error: string }> {
@@ -2330,6 +2331,22 @@ export async function montarAnuncioAction(
     .limit(1)
     .maybeSingle();
   if (vivo?.id) return { ok: true, id: Number(vivo.id) };
+
+  // ⚠️ «MONTAR DE NUEVO» NO PIERDE LOS CORTES EDITADOS. Sin plan, se usan los del último trabajo FALLIDO de este
+  // anuncio (lib/montaje/cola.ts → planParaRemontar), y sólo si todavía sirven con las tomas de ahora: si no, el
+  // detector los calcula solo, como siempre.
+  if (!plan) {
+    const { data: previo } = await db
+      .from('montaje_trabajos')
+      .select('motivo, pedido')
+      .eq('plan_id', planId)
+      .eq('estado', 'fallido')
+      .order('id', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const anterior = leerPlan(planParaRemontar(previo));
+    if (anterior && !porQueNoSirveElPlan(anterior, item.plan.clips.length, item.plan.clips.map((c) => c.segundos))) plan = anterior;
+  }
 
   // ⚠️ UN PLAN EDITADO SE VALIDA ANTES DE ENCOLARLO. Un tramo invertido o
   // negativo no hace fallar a ffmpeg: `trim=3:1` produce un segmento VACÍO y el

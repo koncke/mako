@@ -30,6 +30,7 @@ import { checkCronAuth } from '@/lib/cron-auth';
 import { limpiar, montarAnuncio, type Herramientas } from '@/lib/montaje/pipeline';
 import { clasificar, corteDeVencimiento, ERROR_VENCIDO, errorParaLaPersona, esDefinitiva, MOTIVO_VENCIDO } from '@/lib/montaje/cola';
 import { registrarError } from '@/lib/errores-app';
+import { envCred } from '@/lib/credenciales';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -50,14 +51,14 @@ const BUCKET = 'video-clips';
  * `outputFileTracingIncludes` (next.config.ts), igual que los scripts y la fuente.
  * `FFMPEG_PATH` es para correrlo fuera de Vercel.
  */
-function herramientas(): Herramientas {
+function herramientas(groqKey: string): Herramientas {
   const raiz = process.cwd();
   return {
     ffmpeg: process.env.FFMPEG_PATH || path.join(raiz, 'node_modules', 'ffmpeg-static', 'ffmpeg'),
     node: process.execPath,
     scripts: path.join(raiz, 'scripts'),
     fuentes: path.join(raiz, 'worker', 'fuentes'),
-    groqKey: process.env.GROQ_API_KEY || '',
+    groqKey,
     log: (s) => console.log(`[montaje] ${s}`),
   };
 }
@@ -104,7 +105,12 @@ export async function GET(req: NextRequest) {
   //     nadie (revisión del 20/10). Con algo que falta no se toca la cola: se avisa al equipo y se espera.
   //   · ffmpeg puede faltar de verdad: `ffmpeg-static` es una dependencia OPCIONAL (package.json) para que una caída de
   //     GitHub en su descarga no tumbe `npm ci` ni el build de todo MaKo; sin el binario, esta ruta no corre.
-  const h = herramientas();
+  // ⚠️ LA CLAVE CON `envCred`, NUNCA `process.env` A SECAS. Las claves de IA salen de la base (el workspace de la
+  // plataforma) y las copia a `process.env` instrumentation.ts, que Next 16 NO espera: en un arranque en frío la
+  // clave todavía no está (3 de cada 10 requests, medido). Leída a secas daba «falta GROQ_API_KEY» en cada arranque
+  // en frío, con un ticket falso en la Ticketera y la corrida perdida; y si la hidratación fallaba, la cola quedaba
+  // frenada (revisión del 21/10). `envCred` espera la hidratación y, si no dejó el valor, va a la base.
+  const h = herramientas((await envCred('GROQ_API_KEY').catch(() => null)) ?? '');
   const ffmpeg = await ffmpegEjecutable(h.ffmpeg).catch(() => '');
   const falta = !h.groqKey
     ? 'falta GROQ_API_KEY (transcribe la voz para los subtítulos)'
