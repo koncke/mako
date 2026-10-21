@@ -1854,10 +1854,17 @@ horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, un
   con un plan no se toca; en una suscripción, los meses ya cobrados sueltos son las primeras cuotas y las fechas van
   desde el cierre (como cuenta `cobradoDelLead`); un pago único con un pago previo no se arma. Nunca nace una cuota por
   un mes ya cobrado, y lo que no se hizo vuelve en `sinTocar` y el asistente lo MUESTRA: nada se descarta en silencio.
-- **Lo cobrado suelto de una suscripción se cuenta por PLATA, con `mesesDePlata`** (lib/cobrado-lead.ts, 21/10/2026; qué es
-  plata suelta, `esPlataSuelta`; en 'slots' la cuota N es la N-ésima del plan, no la fila con el número N), y
-  qué es un plan lo dice `pagosPrevios` (lib/pagos-campo.ts): ninguna lectura nueva cuenta filas como meses ni arma su
-  propia regla. Lo que gana un lead sin pasar por `updateLead` escribe también su `fecha_cierre`.
+- **Lo cobrado de una suscripción se cuenta DE A UNA cobrada, con `mesesDeUnaCobrada`** (lib/cobrado-lead.ts,
+  21/10/2026): una mensualidad registrada a mano vale un mes aunque sea de otro monto, y la plata cuenta sólo para un
+  pago que cubre varios meses; lo que cobra la pasarela, por su plata (nadie lo registró como un mes); nunca la suma de
+  todas (el desvío se acumula). Qué es plata suelta, `esPlataSuelta`; en 'slots' la
+  cuota N es la N-ésima del plan, no la fila con el número N; y qué es un plan lo dice `pagosPrevios`
+  (lib/pagos-campo.ts): ninguna lectura nueva cuenta filas como meses ni arma su propia regla.
+- **Toda fila de `pagos` que no es una cuota del plan NACE MARCADA, y qué es del plan lo dice `esCuotaDelPlan`**
+  (lib/cobrado-lead.ts, 21/10/2026): un pago suelto, una mensualidad a mano y el cobro de un link sin cuota llevan
+  `nacio_cobrada`; la diferencia de un cobro por menos, `resto_de`. Un escritor nuevo de `pagos` marca su fila al
+  insertarla; nunca se adivina por `proveedor` (una cuota del plan cobrada por link también lo tiene), por número ni
+  por fecha. Lo que gana un lead sin pasar por `updateLead` escribe también su `fecha_cierre`.
 - **Los meses se suman con `sumarMeses` (lib/cobrado-lead.ts)**, que topa al último día del mes: `new Date(y, m + n, d)`
   desborda un 29, 30 o 31 (31/10 + 1 mes = 01/12) y un plan de cuotas queda con meses sin cuota y meses con dos.
 

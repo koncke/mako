@@ -28,7 +28,9 @@ let siguienteId = 900;
 // El índice único de `pagos` (lead_id, numero): un insert que choca contesta 23505, como Postgres.
 const pg = crearPostgrest({
   tablas: ['pagos', 'leads', 'app_settings', 'workspaces'],
-  defaults: (tabla, f) => (tabla === 'pagos' ? { id: siguienteId++, ...f } : { ...f }),
+  // Los defaults de la base (`pagado` y `nacio_cobrada` en false): sin ellos, una cuota insertada quedaba en null y las
+  // escrituras condicionales (`.eq('pagado', false)`) no la encontraban (revisión de 7524ec1c9).
+  defaults: (tabla, f) => (tabla === 'pagos' ? { id: siguienteId++, pagado: false, nacio_cobrada: false, resto_de: null, ...f } : { ...f }),
   unicos: [{ tabla: 'pagos', columnas: ['lead_id', 'numero'], donde: () => true, nombre: 'pagos_lead_numero' }],
 });
 const escrituras: string[] = [];
@@ -83,7 +85,7 @@ const cuota = (id: number, x: Record<string, unknown>) => ({
 
 async function main() {
   const { runWithWorkspace } = await import('../lib/workspace');
-  const { marcarPago, cobrarCuota, registrarCobroDeProveedor, saveLeadPlanManual, savePlanPagos } = await import('../lib/pagos');
+  const { marcarPago, cobrarCuota, registrarCobroDeProveedor, saveLeadPlanManual, savePlanPagos, ajustarPlanPagos } = await import('../lib/pagos');
   const db = pg.db;
   db.workspaces.push({ id: WS, nombre: 'Prueba' });
   db.app_settings.push({ workspace_id: WS, key: 'mako.timezone', value: 'America/Mexico_City', updated_at: '2026-10-01T00:00:00Z' });
@@ -108,6 +110,15 @@ async function main() {
     { id: 22, workspace_id: WS, nombre: 'Pía', monto_cierre_usd: 500, total_cobrado_usd: null },
     { id: 23, workspace_id: WS, nombre: 'Quique', monto_cierre_usd: 500, total_cobrado_usd: null },
     { id: 24, workspace_id: WS, nombre: 'Rita', monto_cierre_usd: 500, total_cobrado_usd: null },
+    // (revisión de 7524ec1c9) El plan de la ficha sobre una seña cobrada por LINK, y sobre la diferencia de un cobro por
+    // menos (con un pago suelto antes y sin él).
+    { id: 25, workspace_id: WS, nombre: 'Sofi', estado_lead: 'ganado', fecha_cierre: '2026-10-05', total_cobrado_usd: null },
+    { id: 26, workspace_id: WS, nombre: 'Tomás', estado_lead: 'ganado', fecha_cierre: '2026-10-05', total_cobrado_usd: null },
+    { id: 27, workspace_id: WS, nombre: 'Úrsula', estado_lead: 'ganado', fecha_cierre: '2026-10-05', total_cobrado_usd: null },
+    // (mig 0323) La cuota se edita entre la lectura y el cobro (por menos y entero), y el control sin cambios.
+    { id: 28, workspace_id: WS, nombre: 'Vale', monto_cierre_usd: 500, total_cobrado_usd: null },
+    { id: 29, workspace_id: WS, nombre: 'Walter', monto_cierre_usd: 500, total_cobrado_usd: null },
+    { id: 30, workspace_id: WS, nombre: 'Ximena', monto_cierre_usd: 500, total_cobrado_usd: null },
   );
   db.pagos.push(
     cuota(10, { pagado: true, fecha_pago: '2026-10-01' }), // ya cobrada el 1/10
@@ -131,6 +142,10 @@ async function main() {
     cuota(49, { lead_id: 22, numero: 1 }), // se borra mientras se cobra entera
     cuota(50, { lead_id: 23, numero: 1 }), // se borra mientras se cobra por menos
     cuota(51, { lead_id: 24, numero: 1 }), // un monto de menos de un centavo
+    cuota(52, { lead_id: 26, numero: 1, monto_usd: 300, pagado: true, fecha_esperada: '2026-10-03', fecha_pago: '2026-10-03', nacio_cobrada: true }), // un pago suelto antes del plan
+    cuota(53, { lead_id: 28, numero: 1 }), // se edita a 400 antes del cobro por menos
+    cuota(54, { lead_id: 29, numero: 1 }), // se edita a 400 antes del cobro entero
+    cuota(55, { lead_id: 30, numero: 1 }), // el control
   );
   const fila = (id: number) => {
     const f = db.pagos.find((p) => p.id === id);
@@ -259,6 +274,49 @@ async function main() {
     // Un monto que no llega a un centavo: no se cobra entero ni en 0.
     r.centavo = await cobrarCuota(51, 24, { monto: 0.004, fecha: '2026-10-20' }).then((x) => x, (e) => String(e instanceof Error ? e.message : e));
     r.centavoCuota = fila(51);
+
+    // (revisión de 7524ec1c9, alta) «Armar el plan» y «Cambiar el plan» de la ficha (`ajustarPlanPagos` con `antes`), de
+    // verdad, sobre lo que no es una cuota del plan. Lo impago (la deuda) y los vencimientos de las cuotas.
+    const vacio = { cobro_inicial_usd: null, monto_cuota_usd: null, total_cuotas: null, dia_de_pago: null };
+    const p5 = { cobro_inicial_usd: 1000, monto_cuota_usd: 1000, total_cuotas: 3, dia_de_pago: 5 };
+    const impagas = (lead: number) => db.pagos.filter((p) => p.lead_id === lead && !p.pagado);
+    const deuda = (lead: number) => impagas(lead).reduce((s, p) => s + Number(p.monto_usd), 0);
+    const vencen = (lead: number) => impagas(lead).filter((p) => p.numero !== 0 && p.resto_de == null).map((p) => String(p.fecha_esperada)).sort();
+    // 1) Una seña de US$100 cobrada por un link sin cuota: la fila nace cobrada, y no tapa la cuota 1.
+    await registrarCobroDeProveedor({ leadId: 25, cobroId: 80, pagoId: null, proveedor: 'stripe', proveedorPagoId: 'pi_sena', montoUsd: 100, montoOriginal: 100, moneda: 'USD', fechaPago: '2026-10-05' });
+    r.senaLinkFila = db.pagos.filter((p) => p.lead_id === 25).map((p) => ({ numero: p.numero, pagado: p.pagado, proveedor: p.proveedor, nacio_cobrada: p.nacio_cobrada }));
+    await ajustarPlanPagos(25, p5, '2026-10-05', { antes: vacio });
+    r.senaLinkArmado = deuda(25);
+    const p1200 = { ...p5, monto_cuota_usd: 1200 };
+    await ajustarPlanPagos(25, p1200, '2026-10-05', { antes: p5 });
+    r.senaLink1200 = deuda(25);
+    await ajustarPlanPagos(25, { ...p1200, dia_de_pago: 10 }, '2026-10-05', { antes: p1200 });
+    r.senaLinkDia10 = { deuda: deuda(25), vencen: vencen(25) };
+    // 2) La cuota 1 cobrada por 600 (quedan 400), el plan pasa a 4 cuotas y después al día 10: con un pago suelto antes
+    //    (la regresión) y sin él (venía de antes).
+    const p4 = { ...p5, total_cuotas: 4 };
+    for (const lead of [26, 27]) {
+      await ajustarPlanPagos(lead, p5, '2026-10-05', { antes: vacio });
+      const cuota1 = impagas(lead).find((p) => p.fecha_esperada === '2026-11-05');
+      await cobrarCuota(Number(cuota1?.id), lead, { monto: 600, fecha: '2026-11-05', resto: 'pendiente' });
+      r[`resto${lead}Fila`] = impagas(lead).filter((p) => p.resto_de != null).map((p) => ({ monto_usd: p.monto_usd, fecha_esperada: p.fecha_esperada, resto_de: p.resto_de === cuota1?.id }));
+      await ajustarPlanPagos(lead, p4, '2026-10-05', { antes: p5 });
+      r[`resto${lead}Crecio`] = deuda(lead);
+      await ajustarPlanPagos(lead, { ...p4, dia_de_pago: 10 }, '2026-10-05', { antes: p4 });
+      r[`resto${lead}Dia10`] = { deuda: deuda(lead), vencen: vencen(lead) };
+    }
+
+    // (mig 0323) La cuota se edita de 500 a 400 entre la lectura y la toma: no se cobra por lo de antes.
+    const editar = (id: number) => () => { Object.assign(db.pagos.find((p) => p.id === id) as Record<string, unknown>, { monto_usd: 400 }); };
+    const filasDe = (lead: number) => db.pagos.filter((p) => p.lead_id === lead).map((p) => ({ pagado: p.pagado, monto_usd: p.monto_usd }));
+    ganchos.push({ cuando: alRpc(28), antes: editar(53) });
+    r.originalMenos = await cobrarCuota(53, 28, { monto: 300, fecha: '2026-10-20', resto: 'pendiente' }).then((x) => x, (e) => String(e instanceof Error ? e.message : e));
+    r.originalMenosFilas = filasDe(28);
+    ganchos.push({ cuando: (u, m) => m === 'PATCH' && u.pathname.endsWith('/pagos') && u.searchParams.get('id') === 'eq.54', antes: editar(54) });
+    r.originalEntero = await cobrarCuota(54, 29, { fecha: '2026-10-20' }).then((x) => x, (e) => String(e instanceof Error ? e.message : e));
+    r.originalEnteroFilas = filasDe(29);
+    await cobrarCuota(55, 30, { monto: 300, fecha: '2026-10-20', resto: 'pendiente' });
+    r.originalControl = filasDe(30);
   });
   const lead = (id: number) => db.leads.find((l) => l.id === id)?.total_cobrado_usd ?? null;
   const delLead = (id: number) => db.pagos.filter((p) => p.lead_id === id).map((p) => ({ id: p.id, pagado: p.pagado, monto_usd: p.monto_usd }));

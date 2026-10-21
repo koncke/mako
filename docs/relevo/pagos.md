@@ -75,8 +75,11 @@ Las dos migraciones las aplica el Cerebro ANTES del deploy que las lee.
   en producción el 21/10 (sólo lectura): ninguna con cuotas encima de meses cobrados, ninguna ganada con plan y sin
   cierre, y UNA corrida un mes: **ws 11, lead 2605** (12 cuotas desde el 08/11, cierre el 08/10, nada cobrado). Decide
   Martín con el cliente si octubre se cobró; no se toca sin su OK.
-- **Sin hacer:** la 0318 no ve si el MONTO de la cuota cambió entre la lectura y la toma (necesita una migración nueva
-  con `p_original`; el número lo da el Cerebro).
+- ~~**Sin hacer:** la 0318 no ve si el MONTO de la cuota cambió entre la lectura y la toma.~~ En la rama
+  `pagos-plan-sueltos` (revisión de 7524ec1c9): la **mig 0323** (`p_original` y `pagos.resto_de`, la marca de la
+  diferencia de un cobro por menos) **se aplica ANTES del deploy**; la aplica el Cerebro cuando la rama pase la revisión.
+  Sin ella, un cobro por menos no se guarda y lo dice («falta la migración 0323»). Qué es cuota del plan lo dice
+  `esCuotaDelPlan`, y lo cobrado se cuenta de a una cobrada (`mesesDeUnaCobrada`). El detalle, en hallazgos-pagos.
 
 ## Lo que sigue, en orden
 

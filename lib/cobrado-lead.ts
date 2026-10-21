@@ -43,8 +43,10 @@ export type CuotaParaCobrado = {
   cobro_id?: number | null;
   /** El cliente se dio de baja (mig 0307): impaga, no es deuda. `baja_vencia` es el vencimiento que tenía. */
   baja_at?: string | null;
-  /** Nació cobrada (un pago suelto, una mensualidad a mano): en una suscripción cuenta meses por PLATA (`mesesDePlata`). */
+  /** Nació cobrada (un pago suelto, una mensualidad a mano, el cobro de un link sin cuota): no es del plan (`esCuotaDelPlan`). */
   nacio_cobrada?: boolean | null;
+  /** La diferencia de un cobro por menos: el id de la cuota de la que salió (la escribe `cobrar_cuota_con_resto`). */
+  resto_de?: number | null;
   baja_vencia?: string | null;
 };
 
@@ -105,7 +107,7 @@ export type Cobrado = {
     fuente: 'pasarela' | 'manual';
     /** Meses que ya tendrían que estar registrados y no lo están (sólo la manual). */
     sinRegistrar: number;
-    /** Los meses que cubre lo cobrado: las cuotas del plan, una por mes, y la plata suelta por plata (`mesesDePlata`).
+    /** Los meses que cubre lo cobrado, de a una cobrada (`mesesDeUnaCobrada`): una mensualidad, uno; un adelanto, sus meses.
      *  Es con lo que se cuenta `sinRegistrar`, y desde dónde vence el primer mes sin registrar («A quién cobrar»). */
     mesesCubiertos: number;
   };
@@ -150,15 +152,50 @@ export function mesesDePlata(plata: number, mensualidad: number): { meses: numbe
 }
 
 /**
- * ⚠️ ¿ES PLATA SUELTA, NO UNA CUOTA DEL PLAN? (revisión de f2ec0c948, medio): la MISMA regla para la ficha
- * (`cobradoDelLead`) y para el asistente (`pagosPrevios`, lib/pagos-campo.ts). Con dos reglas, el cobro de un link de
- * US$1.500 contaba 3 meses en el asistente y 1 en la ficha, que pedía «Registrar el mes cobrado» para siempre. Es plata
- * suelta lo cobrado que nació cobrado (un pago suelto, una mensualidad a mano) y el cobro de un link: la pasarela inserta
- * esa fila sin `nacio_cobrada`, y una cuota del plan cobrada por link vale una mensualidad, así que contarla por plata da
- * lo mismo.
+ * ⚠️ ¿ES UNA CUOTA DEL PLAN? UNA sola regla (revisión de 7524ec1c9, alta) para el lugar de una cuota en el plan uniforme
+ * (`reconciliarCuotas` en 'slots', lib/pagos-campo.ts), para la plata suelta (`esPlataSuelta`: la ficha y el asistente)
+ * y para `avisoPlanUniforme`. Con tres reglas, la seña cobrada por LINK era plata suelta para el aviso y la cuota 1 para
+ * el lugar (el plan quedaba US$200 corto al cambiar la cuota), y la diferencia de un cobro por menos tomaba el lugar de
+ * la cuota siguiente (US$600 de deuda fantasma al crecer el plan). No es del plan lo que nació fuera de él, y la fila lo
+ * dice desde que se inserta:
+ * - `nacio_cobrada`: un pago suelto, una mensualidad a mano, y el cobro de un link que no saldaba ninguna cuota
+ *   (`registrarCobroDeProveedor` la marca desde el 21/10/2026; antes, 0 filas de la pasarela en producción);
+ * - `resto_de`: la diferencia de un cobro por menos (la escribe `cobrar_cuota_con_resto`).
+ * Una cuota del plan cobrada por link SIGUE siendo del plan: tiene proveedor, pero no nació cobrada. Por eso la pasarela
+ * no entra en la regla (antes `proveedor` hacía suelta cualquier cobrada por link).
  */
-export const esPlataSuelta = (q: { pagado?: boolean | null; nacio_cobrada?: boolean | null; proveedor?: string | null }): boolean =>
-  !!q.pagado && (!!q.nacio_cobrada || !!q.proveedor);
+export const esCuotaDelPlan = (q: { nacio_cobrada?: boolean | null; resto_de?: number | null }): boolean =>
+  !q.nacio_cobrada && q.resto_de == null;
+
+/** Plata suelta: lo cobrado que no es una cuota del plan (`esCuotaDelPlan`). La ficha y el asistente cuentan con ésta. */
+export const esPlataSuelta = (q: { pagado?: boolean | null; nacio_cobrada?: boolean | null; resto_de?: number | null }): boolean =>
+  !!q.pagado && !esCuotaDelPlan(q);
+
+/**
+ * ⚠️ CUÁNTOS MESES CUBRE UNA COBRADA DE UNA SUSCRIPCIÓN, DE A UNA (revisión de 7524ec1c9, alta). Una mensualidad
+ * registrada a mano vale UN mes, como en producción, aunque sea de otro monto: el tipo de cambio del día (490 de 500), un
+ * descuento pactado (450) o el precio de antes (500 con la mensualidad ya en 600). La plata cuenta sólo para un pago que
+ * cubre VARIOS meses (un adelanto de 1.500 = 3). Sumando todas las sueltas y pasando el total por `mesesDePlata`, el
+ * desvío se acumulaba: 6 × 490 daba 5 meses («Falta registrar 1 mes» y US$500 reclamados a un cliente al día) y
+ * 10 × 550 daba 11 (escondía al que debe el mes 11).
+ * - Una cuota del plan: 1.
+ * - La diferencia de un cobro por menos: 0, completa el mes de su cuota.
+ * - Plata suelta registrada a MANO: `max(1, mesesDePlata(su monto))`. La persona la registró como un mes (o como varios).
+ *   Una seña de 100 cuenta un mes en la ficha, como en producción: no se distingue de una mensualidad con descuento.
+ * - Plata suelta de la PASARELA (el cobro de un link sin cuota): `mesesDePlata(su monto)`, sin el mínimo. Nadie la
+ *   registró como un mes: una seña de 100 por link no cubre ninguno, y un link de 1.500, tres (revisión de 7524ec1c9,
+ *   pregunta del Cerebro).
+ * `enteros`: si su monto son meses enteros. El asistente no arma si alguna no lo es (ninguna seña se descuenta de un plan).
+ */
+export function mesesDeUnaCobrada(
+  q: { monto_usd?: number | string | null; nacio_cobrada?: boolean | null; resto_de?: number | null; proveedor?: string | null },
+  mensualidad: number | null,
+): { meses: number; enteros: boolean } {
+  if (q.resto_de != null) return { meses: 0, enteros: true };
+  if (esCuotaDelPlan(q) || !mensualidad) return { meses: 1, enteros: true };
+  const r = mesesDePlata(num(q.monto_usd), mensualidad);
+  return q.proveedor ? r : { meses: Math.max(1, r.meses), enteros: r.enteros };
+}
 
 /** La fecha `meses` después de `iso`, con el día capado al último del mes (31/01 + 1 = 28/02 o 29/02). */
 export function sumarMeses(iso: string, meses: number): string {
@@ -273,11 +310,9 @@ export function cobradoDelLead(e: EntradaCobrado): Cobrado {
       while (f < hoy && k < 1200) { k++; f = sumarMeses(ancla, k); }
       proximaRenovacion = finPlazo && f >= finPlazo ? null : f;
     }
-    // Los meses que cubre lo cobrado: las cuotas del plan, una por mes; la plata suelta (un adelanto, una seña, el cobro
-    // de un link), por plata (`esPlataSuelta`, `mesesDePlata`), con la MISMA regla que el asistente de Ganado.
-    const sueltas = cobradas.filter(esPlataSuelta);
-    const plataSuelta = sueltas.reduce((s, q) => s + num(q.monto_usd), 0);
-    const mesesCubiertos = cobradas.length - sueltas.length + (suscripcionMonto ? mesesDePlata(plataSuelta, suscripcionMonto).meses : sueltas.length);
+    // Los meses que cubre lo cobrado, DE A UNA (`mesesDeUnaCobrada`): una mensualidad, un mes; un adelanto, sus meses.
+    // La MISMA regla que el asistente de Ganado.
+    const mesesCubiertos = cobradas.reduce((s, q) => s + mesesDeUnaCobrada(q, suscripcionMonto).meses, 0);
     // Una manual se registra mes a mes: los meses que ya empezaron y no tienen su cobrada, avisan.
     let sinRegistrar = 0;
     if (fuente === 'manual' && estado === 'activa' && fechaCierre && fechaCierre <= hoy) {

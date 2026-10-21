@@ -9,7 +9,11 @@
 //   2. `planDelAsistente` cuenta por plata, no arma con meses partidos ni con pagos de antes del cierre, y dice cuántas
 //      armó; y la ficha (`cobradoDelLead`) cuenta lo cobrado IGUAL, así el adelantado no queda en «Falta registrar»;
 //   3. qué es un plan (`pagosPrevios`): una cuota devuelta o de baja no lo es, y el cobro de un link suelto es plata;
-//   4. el plan uniforme: una seña no tapa el número de una cuota (`reconciliarCuotas`, 'slots'), y sin plan no se arma.
+//   4. el plan uniforme: una seña no tapa el número de una cuota (`reconciliarCuotas`, 'slots'), y sin plan no se arma;
+//   5. (revisión de 7524ec1c9) una mensualidad registrada vale UN mes aunque sea de otro monto: cada cobrada se cuenta
+//      por separado (`mesesDeUnaCobrada`), nunca la suma; y qué es una cuota del plan es UNA regla (`esCuotaDelPlan`).
+//      Lo de la ficha de verdad (la seña por link y la diferencia de un cobro por menos), en
+//      tests/pagos-cobro-idempotente.test.ts, test 11.
 //
 // Probado rompiéndolo (21/10/2026, una rotura por vez, restaurando byte a byte): los números, en ROTURAS al final.
 //
@@ -17,7 +21,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cobradoDelLead, esPlataSuelta, mesesDePlata, sumarMeses } from '../lib/cobrado-lead';
+import { cobradoDelLead, esCuotaDelPlan, esPlataSuelta, mesesDePlata, mesesDeUnaCobrada, sumarMeses } from '../lib/cobrado-lead';
 import { avisoPlanUniforme, diferenciaDePlan, pagosPrevios, planDelAsistente, reconciliarCuotas, type FilaPrevia, type PlanUniforme } from '../lib/pagos-campo';
 import { itemDeSuscripcion } from '../lib/suscripciones-por-cobrar';
 
@@ -66,8 +70,10 @@ test('2. ⚠️ el asistente cuenta lo cobrado por plata, no arma con meses part
     assert.equal(p.cuotas.length, 0, `${monto}`);
     assert.match(String(p.aviso), /no son meses enteros de US\$ 500: el plan no se armó/, `${monto}`);
   }
+  // (revisión de 7524ec1c9) La ficha no distingue una seña de una mensualidad registrada con descuento o con el tipo de
+  // cambio del día: cuenta UN mes, como en producción (el test 8). El asistente, en cambio, no la descuenta (arriba).
   const sena = ficha('2026-10-22', [suelto(100)]);
-  assert.equal(sena.suscripcion?.sinRegistrar, 1, 'la seña no da por cobrado el mes: faltan los 400');
+  assert.equal(sena.suscripcion?.sinRegistrar, 0, 'una cobrada registrada es un mes');
   // Un pago de otra venta (marzo): no se sabe si es de esta suscripción. Uno de días antes del cierre (la seña de la R2) sí.
   assert.match(String(planDelAsistente(doce, [suelto(500, '2026-03-15')], { suscripcion: true, ancla: CIERRE }).aviso), /de antes del cierre/);
   assert.equal(planDelAsistente(doce, [suelto(500, '2026-10-02')], { suscripcion: true, ancla: CIERRE }).cuotas.length, 11);
@@ -81,14 +87,16 @@ test('2. ⚠️ el asistente cuenta lo cobrado por plata, no arma con meses part
 test('3. qué es un plan: una cuota devuelta o de baja no lo es, y el cobro de un link suelto es plata', () => {
   const devuelta: FilaPrevia = { pagado: false, fecha_esperada: null, proveedor: 'stripe', cobro_id: 9 };
   const deBaja: FilaPrevia = { pagado: false, fecha_esperada: '2026-09-01', baja_at: '2026-09-15' };
-  const link: FilaPrevia = { pagado: true, nacio_cobrada: false, monto_usd: 500, fecha_pago: '2026-10-20', fecha_esperada: '2026-10-20', proveedor: 'stripe', cobro_id: 7 };
+  // El cobro de un link sin cuota: `registrarCobroDeProveedor` lo inserta con `nacio_cobrada` (revisión de 7524ec1c9).
+  const link: FilaPrevia = { pagado: true, nacio_cobrada: true, monto_usd: 500, fecha_pago: '2026-10-20', fecha_esperada: '2026-10-20', proveedor: 'stripe', cobro_id: 7 };
   // Antes decían «Ya tenía un plan» y no se armaba nada; ahora no cuentan, y el link es un mes cobrado.
   assert.equal(planDelAsistente(doce, [devuelta], { suscripcion: true, ancla: CIERRE }).cuotas.length, 12);
   assert.equal(planDelAsistente(doce, [deBaja], { suscripcion: true, ancla: CIERRE }).cuotas.length, 12);
   assert.equal(planDelAsistente(doce, [link], { suscripcion: true, ancla: CIERRE }).cuotas.length, 11);
   assert.deepEqual(pagosPrevios([devuelta, deBaja, link]), { hayPlan: false, sueltos: [link], cobradoUsd: 500 });
-  // Un plan de verdad: una cuota viva sin cobrar, o una cobrada que no nació cobrada ni vino de la pasarela.
+  // Un plan de verdad: una cuota viva sin cobrar, o una cobrada que es del plan (también la cobrada por link).
   assert.equal(pagosPrevios([{ pagado: false, fecha_esperada: '2026-11-01' }]).hayPlan, true);
+  assert.equal(pagosPrevios([{ ...link, nacio_cobrada: false }]).hayPlan, true, 'una cuota del plan cobrada por link es plan');
   assert.equal(pagosPrevios([{ pagado: true, nacio_cobrada: false, fecha_esperada: '2026-10-01' }]).hayPlan, true);
   assert.match(String(planDelAsistente(doce, [{ pagado: false, fecha_esperada: '2026-11-01' }], { suscripcion: true, ancla: CIERRE }).aviso), /Ya tenía un plan de pagos/);
   // El pago único con un link suelto: no se arma (como con un pago suelto).
@@ -172,7 +180,7 @@ test('6. ⚠️ la tolerancia de `mesesDePlata` es fija: desde 4,5 mensualidades
 });
 
 test('7. ⚠️ la ficha y el asistente cuentan IGUAL el cobro de un link sin cuota (y «A quién cobrar» vence desde ahí)', () => {
-  const link = { pagado: true, nacio_cobrada: false, monto_usd: 1500, fecha_esperada: CIERRE, fecha_pago: CIERRE, proveedor: 'stripe', cobro_id: 7 };
+  const link = { pagado: true, nacio_cobrada: true, monto_usd: 1500, fecha_esperada: CIERRE, fecha_pago: CIERRE, proveedor: 'stripe', cobro_id: 7 };
   const ad = planDelAsistente(doce, [link], { suscripcion: true, ancla: CIERRE });
   assert.equal(ad.yaCobradas, 3, 'el asistente: 3 meses');
   for (const hoy of ['2026-11-22', '2026-12-22']) {
@@ -180,10 +188,10 @@ test('7. ⚠️ la ficha y el asistente cuentan IGUAL el cobro de un link sin cu
     assert.equal(f.suscripcion?.mesesCubiertos, 3, `${hoy}: la ficha, también 3`);
     assert.equal(f.suscripcion?.sinRegistrar, 0, `${hoy}: nada que registrar (antes: «Falta registrar»)`);
   }
-  // Con nacio_cobrada, lo mismo: una sola regla (`esPlataSuelta`).
-  assert.equal(ficha('2026-11-22', [{ ...link, proveedor: null, cobro_id: null, nacio_cobrada: true }]).suscripcion?.mesesCubiertos, 3);
+  // Un pago suelto a mano, lo mismo: una sola regla (`esPlataSuelta`).
+  assert.equal(ficha('2026-11-22', [{ ...link, proveedor: null, cobro_id: null }]).suscripcion?.mesesCubiertos, 3);
   assert.equal(esPlataSuelta(link), true);
-  assert.equal(esPlataSuelta({ pagado: true, nacio_cobrada: false, proveedor: null }), false, 'una cuota del plan cobrada a mano no es suelta');
+  assert.equal(esPlataSuelta({ pagado: true, nacio_cobrada: false }), false, 'una cuota del plan cobrada a mano no es suelta');
   // «A quién cobrar»: con un adelanto de 3 meses en UN pago, el 22/01 debe enero, y vence el 21/01 (no el 21/11).
   const item = itemDeSuscripcion({
     lead: { id: 9, nombre: 'Ana', fecha_cierre: CIERRE, suscripcion_monto_usd: 500, suscripcion_meses: 12, suscripcion_cancelada_at: null },
@@ -191,6 +199,78 @@ test('7. ⚠️ la ficha y el asistente cuentan IGUAL el cobro de un link sin cu
   });
   assert.ok(item, 'aparece en la lista de enero');
   assert.deepEqual([item?.suscripcion?.meses, item?.suscripcion?.vence], [1, '2027-01-21']);
+});
+
+test('8. ⚠️ una mensualidad registrada vale UN mes aunque sea de otro monto: cada cobrada por separado, nunca la suma', () => {
+  // Una suscripción de US$500 sin fin, cerrada el 15/01, registrada mes a mes con «Registrar el mes cobrado» (nace cobrada).
+  const C = '2026-01-15';
+  const mesAMes = (hoy: string, mensualidad: number, montos: number[]) => cobradoDelLead({
+    ventaTipo: 'suscripcion', montoCierreUsd: null, suscripcionMontoUsd: mensualidad, suscripcionMeses: null, fechaCierre: C, suscripcionCanceladaAt: null,
+    pagos: montos.map((m, i) => ({ id: i + 1, monto_usd: m, pagado: true, nacio_cobrada: true, fecha_esperada: sumarMeses(C, i), fecha_pago: sumarMeses(C, i) })), cobros: [], hoy,
+  });
+  const n = (k: number, m: number) => Array.from({ length: k }, () => m);
+  // El tipo de cambio del día (490), un descuento pactado (450, 480): al día. Sumando, 6 × 490 eran 5 meses.
+  for (const [hoy, montos] of [['2026-07-14', n(6, 490)], ['2026-08-14', n(7, 490)], ['2027-01-14', n(12, 490)], ['2026-03-14', n(2, 450)], ['2026-04-14', n(3, 480)], ['2027-01-14', n(12, 450)]] as const) {
+    const f = mesAMes(hoy, 500, [...montos]);
+    assert.deepEqual([f.suscripcion?.sinRegistrar, f.suscripcion?.mesesCubiertos, f.semaforo.tono], [0, montos.length, 'verde'], `${montos.length} × ${montos[0]} el ${hoy}: ${f.semaforo.texto}`);
+  }
+  // El precio subió a 600 después de 6 meses de 500: los 6 de antes siguen valiendo un mes cada uno.
+  assert.equal(mesAMes('2026-07-14', 600, [...n(6, 500), 600]).suscripcion?.sinRegistrar, 0);
+  // Al revés: 10 × 550 son 10 meses, no 11. El 16/11 debe el mes 11, lo dice, y «A quién cobrar» lo lista desde el 15/11.
+  const debe = mesAMes('2026-11-16', 500, n(10, 550));
+  assert.deepEqual([debe.suscripcion?.mesesCubiertos, debe.suscripcion?.sinRegistrar, debe.semaforo.texto], [10, 1, 'Falta registrar 1 mes']);
+  const item = itemDeSuscripcion({
+    lead: { id: 9, nombre: 'Ana', fecha_cierre: C, suscripcion_monto_usd: 500, suscripcion_meses: null, suscripcion_cancelada_at: null },
+    pagos: n(10, 550).map((m, i) => ({ id: i + 1, monto_usd: m, pagado: true, nacio_cobrada: true, fecha_esperada: sumarMeses(C, i), fecha_pago: sumarMeses(C, i) })),
+    cobros: [], hoy: '2026-11-16', ventana: { desde: '2026-11-01', hasta: '2026-11-30' },
+  });
+  assert.deepEqual([item?.suscripcion?.meses, item?.suscripcion?.vence], [1, '2026-11-15']);
+  // Lo que cubre VARIOS meses sigue contando por plata: un adelanto de 1.500 y después mensualidades de 490.
+  assert.equal(mesAMes('2026-07-14', 500, [1500, 490, 490, 490]).suscripcion?.mesesCubiertos, 6);
+  // De a una: cada cobrada su `max(1, mesesDePlata)`; `enteros`, para el asistente.
+  assert.deepEqual(mesesDeUnaCobrada({ monto_usd: 490, nacio_cobrada: true }, 500), { meses: 1, enteros: true });
+  assert.deepEqual(mesesDeUnaCobrada({ monto_usd: 100, nacio_cobrada: true }, 500), { meses: 1, enteros: false }, 'una seña: un mes en la ficha, no se descuenta');
+  assert.deepEqual(mesesDeUnaCobrada({ monto_usd: 1500, nacio_cobrada: true }, 500), { meses: 3, enteros: true });
+  // Lo de la PASARELA (el cobro de un link sin cuota) vale por su plata, sin el mínimo: nadie lo registró como un mes.
+  const porLink = (monto: number) => ({ monto_usd: monto, nacio_cobrada: true, proveedor: 'stripe' });
+  assert.deepEqual(mesesDeUnaCobrada(porLink(100), 500), { meses: 0, enteros: false }, 'una seña por link no cubre un mes');
+  assert.deepEqual(mesesDeUnaCobrada(porLink(490), 500), { meses: 1, enteros: true });
+  assert.deepEqual(mesesDeUnaCobrada(porLink(1500), 500), { meses: 3, enteros: true });
+  const senaLink = ficha('2026-10-22', [{ ...porLink(100), pagado: true, fecha_esperada: CIERRE, fecha_pago: CIERRE }]);
+  assert.deepEqual([senaLink.suscripcion?.mesesCubiertos, senaLink.suscripcion?.sinRegistrar], [0, 1], 'faltan los 400 del mes');
+  // El asistente cuenta igual que la ficha: seis mensualidades de 490 son 6 meses (sumadas, 2.940 no eran «enteros»).
+  const seis = planDelAsistente(doce, n(6, 490).map((m, i) => suelto(m, sumarMeses(CIERRE, i))), { suscripcion: true, ancla: CIERRE });
+  assert.deepEqual([seis.yaCobradas, seis.cuotas.length], [6, 6]);
+  // Y con un pago que no son meses enteros entre ellos, no arma.
+  assert.equal(planDelAsistente(doce, [suelto(490), suelto(100, sumarMeses(CIERRE, 1))], { suscripcion: true, ancla: CIERRE }).cuotas.length, 0);
+});
+
+test('9. ⚠️ qué es una cuota del plan es UNA regla: la seña por link y la diferencia de un cobro por menos no lo son', () => {
+  const planPorLink = { pagado: true, nacio_cobrada: false, proveedor: 'stripe', monto_usd: 1000 };
+  const senaPorLink = { pagado: true, nacio_cobrada: true, proveedor: 'stripe', monto_usd: 100 };
+  const resto = { pagado: false, nacio_cobrada: false, resto_de: 2, monto_usd: 400 };
+  // Una cuota del plan cobrada por link SIGUE siendo del plan (tiene proveedor, pero no nació cobrada).
+  assert.deepEqual([esCuotaDelPlan(planPorLink), esPlataSuelta(planPorLink)], [true, false]);
+  assert.deepEqual([esCuotaDelPlan(senaPorLink), esPlataSuelta(senaPorLink)], [false, true]);
+  assert.deepEqual([esCuotaDelPlan(resto), esPlataSuelta(resto), esPlataSuelta({ ...resto, pagado: true })], [false, false, true]);
+  // 'slots': la cuota del plan cobrada por link cubre su lugar; la seña por link y la diferencia, no ocupan ninguno.
+  const deseadas = [0, 1, 2, 3].map((n) => ({ numero: n, monto_usd: 1000, fecha_esperada: sumarMeses('2026-10-05', n) }));
+  const base = { monto_usd: 1000, fecha_esperada: '2026-10-05' };
+  assert.equal(reconciliarCuotas([{ id: 1, numero: 1, ...base, ...planPorLink }], deseadas, 'slots').insertar.length, 3);
+  assert.equal(reconciliarCuotas([{ id: 1, numero: 1, ...base, ...senaPorLink, monto_usd: 100 }], deseadas, 'slots').insertar.length, 4);
+  const conResto = reconciliarCuotas([{ id: 1, numero: 1, ...base, pagado: false, resto_de: 9, monto_usd: 400 }], deseadas, 'slots');
+  assert.deepEqual([conResto.insertar.length, conResto.actualizar.length, conResto.borrar.length], [4, 0, 0], 'la diferencia no se reescribe ni se borra');
+  // `avisoPlanUniforme` con la misma regla: la seña por link sin plan avisa; una cuota del plan cobrada por link, no.
+  assert.match(String(avisoPlanUniforme([senaPorLink])), /Ya tenía pagos cobrados/);
+  assert.equal(avisoPlanUniforme([planPorLink]), null);
+  // La ficha: una cuota del plan cobrada por link es UN mes (antes se contaba por plata), y una diferencia cobrada
+  // completa el mes de su cuota (cobrada por 300, la diferencia de 200 después): un mes, no dos.
+  assert.equal(ficha('2026-10-22', [{ ...planPorLink, monto_usd: 1500, fecha_esperada: CIERRE, fecha_pago: CIERRE }]).suscripcion?.mesesCubiertos, 1);
+  const porMenos = ficha('2026-10-22', [
+    { monto_usd: 300, pagado: true, fecha_esperada: CIERRE, fecha_pago: CIERRE },
+    { monto_usd: 200, pagado: true, fecha_esperada: CIERRE, fecha_pago: CIERRE, resto_de: 1 } as never,
+  ]);
+  assert.equal(porMenos.suscripcion?.mesesCubiertos, 1);
 });
 
 // ROTURAS (21/10/2026). Base: 4 pases, 0 fallos. Rota (pases / fallos):
@@ -211,3 +291,15 @@ test('7. ⚠️ la ficha y el asistente cuentan IGUAL el cobro de un link sin cu
 //   · la tolerancia vuelve a multiplicarse por los meses                  → 6 / 1 (6)
 //   · la ficha no cuenta el link como plata suelta                        → 6 / 1 (7)
 //   · «A quién cobrar» vence por filas                                    → 6 / 1 (7)
+//
+// ROTURAS de la revisión de 7524ec1c9 (21/10/2026). Base: 9 pases, 0 fallos. Rota (pases / fallos):
+//   · la ficha vuelve a sumar las sueltas                                 → 7 / 2 (2 y 8)
+//   · una suelta vale su plata, sin el mínimo de un mes                   → 7 / 2 (2 y 8)
+//   · el asistente vuelve a sumar                                         → 8 / 1 (8)
+//   · la diferencia cobrada cuenta un mes                                 → 8 / 1 (9)
+//   · una cuota del plan cobrada por link vuelve a ser suelta             → 7 / 2 (3 y 9)
+//   · el lugar vuelve a mirar sólo nacio_cobrada                          → 8 / 1 (9)
+//   · `esCuotaDelPlan` ignora `resto_de`                                 → 8 / 1 (9)
+//   · lo de la pasarela vuelve a valer un mes (el mínimo de la mano)      → 8 / 1 (8)
+// (La rotura «una seña cuenta como un mes» de la primera tanda era de `mesesDePlata` y del asistente: la ficha ahora
+// cuenta como un mes la seña registrada A MANO, a propósito, como producción. La de un link vale por su plata. Test 2 y 8.)

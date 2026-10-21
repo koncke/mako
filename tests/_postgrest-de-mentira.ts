@@ -92,16 +92,19 @@ export function crearPostgrest(o: {
   };
 
   /**
-   * `cobrar_cuota_con_resto` (supabase/migrations/0318, 21/10/2026): la toma condicional de la cuota y su diferencia,
+   * `cobrar_cuota_con_resto` (supabase/migrations/0318 y 0323, 21/10/2026): la toma condicional de la cuota y su diferencia,
    * JUNTAS (una llamada de node no se intercala con otra: es la transacción). Copia del SQL, que fija
    * tests/pagos-cobro-idempotente.test.ts. Si el número choca con el índice único, no escribe NADA y contesta 23505.
    */
   function cobrarCuotaConResto(b: Fila): Response {
     const pagos = db.pagos ?? [];
-    const c = pagos.find((p) => Number(p.id) === Number(b.p_pago) && Number(p.lead_id) === Number(b.p_lead) && Number(p.workspace_id) === Number(b.p_ws) && p.pagado !== true);
+    const c = pagos.find((p) => Number(p.id) === Number(b.p_pago) && Number(p.lead_id) === Number(b.p_lead) && Number(p.workspace_id) === Number(b.p_ws) && p.pagado !== true
+      // Con el monto que se leyó (mig 0323, `p_original`); sin él, como la 0318.
+      && (b.p_original == null || Number(p.monto_usd) === Number(b.p_original)));
     if (!c) return json(200, { tomada: false });
     const numero = Math.max(0, ...pagos.filter((p) => Number(p.lead_id) === Number(b.p_lead)).map((p) => Number(p.numero) || 0)) + 1;
-    const resto = defaults('pagos', { workspace_id: b.p_ws, lead_id: b.p_lead, numero, monto_usd: b.p_resto, fecha_esperada: b.p_vence, pagado: false });
+    // La diferencia nace marcada con la cuota de la que sale (mig 0323, `resto_de`): no es una cuota del plan.
+    const resto = defaults('pagos', { workspace_id: b.p_ws, lead_id: b.p_lead, numero, monto_usd: b.p_resto, fecha_esperada: b.p_vence, pagado: false, resto_de: c.id });
     for (const un of (o.unicos ?? []).filter((x) => x.tabla === 'pagos' && x.donde(resto))) {
       if (pagos.some((f) => un.donde(f) && un.columnas.every((col) => String(f[col]) === String(resto[col])))) {
         return json(409, { code: '23505', message: `duplicate key value violates unique constraint "${un.nombre}"`, details: null, hint: null });
