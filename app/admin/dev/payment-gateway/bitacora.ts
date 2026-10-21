@@ -178,4 +178,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm/2739?ws=3&tab=pagos',
   },
+  {
+    fecha: '21 oct', hora: '02:30', chat: 'Pagos', sesion: 'local_d0cd6fc8-e2f9-4ee9-b76a-19264ced015f', cuenta: 'claude4', actor: 'claude', tipo: 'correccion',
+    titulo: 'Hecho: dos cobros a la vez ya no se pisan, y la cartera y el asistente de Ganado usan el día del negocio',
+    pedido: 'revisión adversarial del cobro (Cerebro, 20/10 noche)',
+    puntos: [
+      'Si dos personas (o MaKo y alguien en la ficha) cobran la misma cuota en el mismo momento, gana una sola: la otra ve «Ya estaba cobrada», y la cuota queda con los datos de quien la cobró, sin mezclar montos ni monedas.',
+      'La cartera de Clients y la deuda vencida del Dashboard ya no dan por vencida una cuota que vence hoy, y cuentan con el día del negocio, como la ficha y General.',
+      'El asistente de Ganado propone la primera cuota con el día del negocio (de noche, ya no la pone para mañana).',
+      'La hora de un cobro anotado a mano es la del negocio, no la de quien lo anota.',
+    ],
+    commits: [{ sha: '0f55e9abd', msg: 'Pagos: el cobro se reserva con una escritura condicional, y la cartera y el asistente de Ganado cuentan el día del negocio', lineas: 351, archivos: 16 }],
+    archivos: [
+      'lib/pagos.ts — `siSigue` y `trasCobrar`: la escritura condicional del cobro',
+      'lib/cs-cartera.ts y lib/graficos-datos-extra.ts — vencida con el día del negocio y `<`',
+      'app/crm/StageMoveDialog.tsx — el asistente de Ganado',
+      'tests/pagos-cobro-idempotente.test.ts — con dos carreras de verdad, probado rompiéndolo',
+    ],
+    revisar: '/clients?ws=3',
+  },
 ];
