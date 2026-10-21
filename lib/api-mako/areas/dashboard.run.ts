@@ -64,7 +64,8 @@ import { textoCron } from '@/lib/cron-aviso';
 import { APP_BASE_URL } from '@/lib/app-url';
 import { crearShare, RECURSO_INFORME } from '@/lib/shares';
 import { ANCHOS, LUGARES, lugarConReferencia, moverComponente, type Ancho, type Lugar, type Movida } from '@/lib/graficos-mover';
-import { csvDeHoja, nombreArchivo, pedidosDeHoja, periodoDeHoja, seccionCsv } from '@/app/dashboard/exportar';
+import { csvDeHoja, nombreArchivo, pedidosDeHoja, periodoDeHoja, rangoTexto, seccionCsv } from '@/app/dashboard/exportar';
+import { graficoParaElChat, type BloqueGrafico } from '@/lib/chat-bloques-dashboard';
 import type { Resultado } from '@/lib/graficos-agregar';
 import {
   aplicarCambio, armarConector, armarControlHoja, armarElemento, armarGrafico, analisisMarkdown, buscarCajas, buscarComponente,
@@ -369,7 +370,20 @@ export const RUNNERS: Runners = {
         ...(filtros.length ? [`Filtros: ${filtros.join(' · ')}`] : []),
         ...(hastaDatos !== hasta ? [`La pauta de Meta llega con un día de atraso: los datos van hasta ${hastaDatos}.`] : []),
       ].join('\n');
-      return http ? md : recortar(md, TOPE_MD_CHAT, 'pide un período más corto o menos métricas');
+      if (http) return md;
+      const texto = recortar(md, TOPE_MD_CHAT, 'pide un período más corto o menos métricas');
+      // En el chat de la app la respuesta se DIBUJA (2.7, lib/chat-bloques-dashboard.ts): el turno saca `bloque` y lo
+      // cuelga del mensaje de MaKo; al modelo le llega el resto. Con una sola métrica o una dimensión (varias métricas
+      // sueltas son varios números, y un bloque es uno). WhatsApp sigue con el texto.
+      if (ctx.canal !== 'app' || al.graficos.length !== 1) return texto;
+      const titulo = tituloAlVuelo(al.graficos);
+      const bloque: BloqueGrafico = {
+        t: 'grafico', titulo,
+        // Una fecha «foto de hoy» (sin período) dice «Hoy», como la tarjeta (`resultadoMarkdown`, dashboard.helpers.ts).
+        nota: [fuente.fechas.find((x) => x.id === principal.fecha)?.sinRango ? 'Hoy' : rangoTexto(per.desde, hasta), ...filtros].join(' · '),
+        grafico: graficoParaElChat({ ...principal, titulo }, r), resultado: r,
+      };
+      return J({ bloque, texto, dibujado: 'La persona YA VE este resultado dibujado en el chat: no repitas la tabla, comenta lo que importa.' });
     },
   },
 

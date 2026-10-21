@@ -1758,16 +1758,31 @@ Sobre el marco de bloques de Ops Center 3 (1.7, lib/chat-bloques.ts): una acció
 - **Los nombres van en palabras:** el período por `PRESETS` («Últimos 90 días», no `ult90`), el tipo por `tipoDe`, las
   métricas por `metricaDe`.
 
+**Y una PREGUNTA también se dibuja (el mismo día, sobre el camino de Ops Center 3, 508cb901f):** «¿cuánto vendí este
+mes?» en el chat de la app deja su número, y «leads por mes», su serie.
+- **El camino:** la lectura devuelve un JSON con `bloque` arriba de todo, el turno lo saca (`bloqueDeSalida`) y al modelo
+  le llega el resto. `consultar_datos_dashboard` lo hace sólo en la app y con un gráfico (varias métricas sueltas son
+  varios números, y un bloque es uno). Al modelo le llega el texto con un aviso de que la persona YA VE el resultado,
+  para que no repita la tabla. WhatsApp y HTTP siguen con su texto.
+- **Una sola forma para el gráfico y la tabla** (`grafico`, lib/chat-bloques-dashboard.ts): una tabla ES un gráfico de tipo
+  `tabla`, y la misma pieza la dibuja (`CuerpoGrafico`, por app/_chat/bloques/GraficoHilo.tsx, que se carga con
+  `next/dynamic` porque arrastra recharts). El G7 del documento es otra cosa: la lista con acciones.
+- **Lleva la FOTO del resultado,** no lo vuelve a pedir: es lo que MaKo contestó, y al recargar se ve igual. El gráfico se
+  valida contra el catálogo (`sanearComponente`) y el resultado se acota: 60 filas (lo demás se cuenta en `fuera`), 8
+  columnas y sin `ref` ni `imagen` por fila, que el hilo no usa.
+- **Qué se dibuja:** un número queda número; con el tiempo, una serie; por categoría, barras hasta 12 grupos y tabla
+  después; con desglose, columnas (`graficoParaElChat`).
+- **Trampa de test:** `sanearComponente` saca sin avisar un desglose que no es dimensión del conjunto (`fuente` no es de
+  `leads`: es `origen`). El gráfico de prueba quedó sin desglose y el test de «columnas» medía una serie.
+
 **Lo que quedó sin hacer:**
-- **El gráfico y la tabla de una PREGUNTA** («¿cuánto vendí este mes?»), que es la otra mitad de la 2.7: el marco sólo
-  recibe bloques de una ACCIÓN confirmada (`confirmarDesdeTarjeta`). Una lectura no tiene por dónde devolverlo: falta que el
-  turno junte un `bloque` de la salida de una lectura (`SalidaLectura`) en `RespuestaTurno.bloques`. Es de Ops Center 3.
-  Del lado del Dashboard harían falta un tipo `grafico` (G16) y uno `tabla` (G7), dibujados con `CuerpoGrafico`
-  (app/dashboard/Grafico.tsx).
 - **El AI Analyst como trabajo largo (G6):** `analizar_hoja_dashboard` contesta «en curso». Espera la 1.11 (trabajos
   largos).
+- **Otras lecturas que podrían dibujar:** `leer_hoja_dashboard` (una hoja entera no cabe en 4 bloques) y las de
+  `metricas.run.ts` (`ver_revenue_periodo`, `metricas_negocio`): sumarles el bloque es el mismo molde.
 - La miniatura de una hoja: una hoja no tiene una imagen guardada, así que su G5 va con el marco de su forma.
 
-Test: tests/dashboard-bloques-chat.test.ts (probado rompiéndolo, cinco roturas). **Nadie lo miró en el Ops Center**: vive en
-la rama `dashboard-hilo`, que tiene mezclada `ola1` (e9ae020b5), todavía fuera de main.
+Tests: tests/dashboard-bloques-chat.test.ts y tests/dashboard-bloque-grafico.test.ts (probados rompiéndolos, cinco roturas
+cada uno). **Nadie lo miró en el Ops Center**: vive en la rama `dashboard-hilo`, que tiene mezclada `ola1` (122bac0d3),
+todavía fuera de main.
 *20/10/2026, claude4 (chat Dashboard).*

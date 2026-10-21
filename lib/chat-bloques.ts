@@ -25,6 +25,8 @@
 //    se queda sólo con rutas de la app (`/image-editor/…`), nunca con un `https://` de afuera ni un `javascript:`. Lo que
 //    no calza se descarta entero: un bloque a medias no se dibuja.
 
+import { sanearBloqueGrafico, type BloqueGrafico } from './chat-bloques-dashboard';
+
 /** El botón que lleva a la pantalla donde vive lo creado. */
 export type Abrir = { titulo: string; href: string };
 
@@ -53,7 +55,9 @@ export type Bloque =
    *  llave con que la pantalla pregunta cómo va (lib/chat-trabajos.ts, la 1.11). */
   | { t: 'trabajo'; titulo: string; pasos: { texto: string; estado: EstadoPaso }[]; listo?: BloqueCreado; abrir?: Abrir; consulta?: string }
   /** G1: una pregunta con opciones; `varias` = se puede marcar más de una. */
-  | { t: 'pregunta'; pregunta: string; opciones: { titulo: string; detalle?: string }[]; recomendada?: number; varias?: boolean };
+  | { t: 'pregunta'; pregunta: string; opciones: { titulo: string; detalle?: string }[]; recomendada?: number; varias?: boolean }
+  /** G16 (y la tabla, que es un gráfico de tipo tabla): una pregunta del Dashboard, dibujada (lib/chat-bloques-dashboard.ts). */
+  | BloqueGrafico;
 
 /** Lo que se guarda en `chart_chats.bloques` al lado de los adjuntos (lib/chat-mako-bloques.ts, `k: 'adjunto'`). */
 export type BloqueGuardado = { k: 'bloque'; b: Bloque };
@@ -168,6 +172,9 @@ export function sanearBloque(crudo: unknown): Bloque | null {
       const recomendada = typeof rec === 'number' && Number.isInteger(rec) && rec >= 0 && rec < opciones.length ? rec : undefined;
       return { t: 'pregunta', pregunta, opciones, ...(recomendada !== undefined ? { recomendada } : {}), ...(o.varias === true ? { varias: true } : {}) };
     }
+    case 'grafico':
+      // El Dashboard (chat Dashboard, 2.7): el gráfico contra el catálogo y su resultado acotado. Con el `sanearAbrir` de acá.
+      return sanearBloqueGrafico(o, sanearAbrir);
     default:
       return null;
   }
