@@ -92,11 +92,11 @@ export function EditorPage({ projectId, propuesta = null }: { projectId: string;
 	useEffect(() => iniciarEspejo(editor), [editor]);
 	// Lo que la API propuso en este proyecto (por WhatsApp, por la API): aparece en el chat para aceptarlo (chat/propuestas.ts).
 	// Con `?propuesta=` (el «Aceptar en el editor» del Ops Center), el chat abre en ÉSA.
-	useEffect(() => iniciarPropuestas(editor, { foco: propuesta }), [editor, propuesta]);
+	useEffect(() => iniciarPropuestas(editor, { foco: propuesta, proyecto: projectId }), [editor, propuesta, projectId]);
 
 	return (
 		<MobileGate>
-			<EditorProvider projectId={projectId}>
+			<EditorProvider projectId={projectId} propuesta={propuesta}>
 				<div className="flex h-full w-full flex-col overflow-hidden bg-(--cc-app)">
 					<AvisoRenderDegradado />
 					<EditorHeader />

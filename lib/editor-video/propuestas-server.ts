@@ -13,7 +13,7 @@ import { getTenantDb } from '../workspace';
 import { validarOperaciones, type OperacionChat } from './chat-catalogo';
 import { unirRefs } from './espejo';
 import { leerEspejo } from './espejo-server';
-import { VENTANA_JUNTAR_MS, leerVista, lineaDeOperacion, revisarContraCopia } from './propuestas';
+import { VENTANA_JUNTAR_MS, leerVista, lineaDeOperacion, repartoAlResolver, revisarContraCopia } from './propuestas';
 import { filasDePropuesta, type FilaPropuesta } from './propuesta-bloque';
 
 const TABLA = 'video_editor_propuestas';
@@ -32,6 +32,8 @@ const COLUMNAS = 'id, proyecto_id, canal, escena_id, refs, operaciones, lineas, 
 /** Una propuesta como la lee el editor. */
 export type PropuestaAbierta = {
   id: string; canal: string; escenaId: string; refs: Array<[string, string]>; operaciones: OperacionChat[]; lineas: string[]; creada: string;
+  /** La que vio el editor: la devuelve al resolver, para cerrar sólo eso (./propuestas.ts → repartoAlResolver). */
+  version: number;
 };
 const aAbierta = (f: Fila): PropuestaAbierta => ({
   id: f.id,
@@ -41,6 +43,7 @@ const aAbierta = (f: Fila): PropuestaAbierta => ({
   operaciones: validarOperaciones(f.operaciones).operaciones,
   lineas: Array.isArray(f.lineas) ? f.lineas.filter((l): l is string => typeof l === 'string') : [],
   creada: f.created_at,
+  version: Number(f.version) || 0,
 });
 
 /**
@@ -111,24 +114,62 @@ export async function proponerOperacion(p: {
   return { ok: false, motivo: 'la propuesta cambió mientras se sumaba este cambio: vuelve a pedirlo' };
 }
 
-/** Las propuestas abiertas de un proyecto, de la más vieja a la más nueva (el editor las muestra en su chat). */
-export async function propuestasAbiertas(ws: number, proyecto: string): Promise<{ ok: true; propuestas: PropuestaAbierta[] } | Falla> {
+/** Cuántas abiertas trae el editor de un proyecto. */
+const TOPE_ABIERTAS = 20;
+
+/**
+ * Las propuestas abiertas de un proyecto, de la más vieja a la más nueva (el editor las muestra en su chat).
+ *
+ * ⚠️ LAS 20 MÁS NUEVAS, y la del link siempre. Traía las 20 más VIEJAS: con 21 abiertas, la del pedido de hoy —la que
+ * abre el link de la tarjeta— no llegaba, y el editor decía que «ya no está abierta» (revisión del 20/10). `incluir` es
+ * el `?propuesta=` del link: si quedó fuera del tope, se suma igual.
+ */
+export async function propuestasAbiertas(ws: number, proyecto: string, incluir: string | null = null): Promise<{ ok: true; propuestas: PropuestaAbierta[] } | Falla> {
   const db = await getTenantDb();
   const { data, error } = await db.from(TABLA).select(COLUMNAS)
-    .eq('workspace_id', ws).eq('proyecto_id', proyecto).eq('estado', 'abierta').order('created_at', { ascending: true }).limit(20);
+    .eq('workspace_id', ws).eq('proyecto_id', proyecto).eq('estado', 'abierta').order('created_at', { ascending: false }).limit(TOPE_ABIERTAS);
   if (error) return falla(error);
-  return { ok: true, propuestas: ((data ?? []) as Fila[]).map(aAbierta) };
+  const filas = ((data ?? []) as Fila[]).reverse();
+  if (incluir && !filas.some((f) => f.id === incluir)) {
+    const { data: una, error: e2 } = await db.from(TABLA).select(COLUMNAS)
+      .eq('workspace_id', ws).eq('proyecto_id', proyecto).eq('estado', 'abierta').eq('id', incluir).limit(1);
+    if (e2) return falla(e2);
+    filas.push(...((una ?? []) as Fila[]));
+  }
+  return { ok: true, propuestas: filas.map(aAbierta) };
 }
 
-/** La cierra quien la miró en el editor: aplicada o descartada. Sólo una abierta (un segundo clic no la reescribe). */
+/**
+ * Cierra una propuesta que se aceptó o se descartó en el editor. `vio` es lo que el editor tenía (versión y cuántos
+ * cambios): si la propuesta creció mientras tanto, se cierran SÓLO esos y el resto sigue abierta, con el mismo id
+ * (./propuestas.ts → repartoAlResolver). `quedan` dice cuántos siguen: el editor los vuelve a traer.
+ */
 export async function resolverPropuesta(p: {
   ws: number; id: string; estado: 'aplicada' | 'descartada'; persona: string; descartes: string[];
-}): Promise<{ ok: true } | Falla | { ok: false; yaResuelta: true }> {
+  vio?: { version?: number; cuantas?: number };
+}): Promise<{ ok: true; quedan: number } | Falla | { ok: false; yaResuelta: true }> {
   const db = await getTenantDb();
-  const { data, error } = await db.from(TABLA).update({
-    estado: p.estado, resuelto_por: p.persona, resuelto_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-    descartes: p.descartes.slice(0, 40).map((d) => d.slice(0, 300)),
-  }).eq('workspace_id', p.ws).eq('id', p.id).eq('estado', 'abierta').select('id');
-  if (error) return falla(error);
-  return (data ?? []).length ? { ok: true } : { ok: false, yaResuelta: true };
+  const ahora = new Date().toISOString();
+  for (let intento = 0; intento < 2; intento++) {
+    const { data: leida, error: e1 } = await db.from(TABLA).select('id, operaciones, lineas, version')
+      .eq('workspace_id', p.ws).eq('id', p.id).eq('estado', 'abierta').limit(1);
+    if (e1) return falla(e1);
+    const fila = ((leida ?? [])[0] as { operaciones: unknown; lineas: unknown; version: number } | undefined) ?? null;
+    if (!fila) return { ok: false, yaResuelta: true };
+    const ops = Array.isArray(fila.operaciones) ? fila.operaciones : [];
+    const lineas = Array.isArray(fila.lineas) ? fila.lineas : [];
+    const reparto = repartoAlResolver({ version: Number(fila.version) || 0, total: ops.length }, p.vio ?? {});
+    // Compare-and-set por versión: si otra acción la cambió en el medio, se vuelve a leer, una vez.
+    const cambio = reparto.cerrar
+      ? {
+        estado: p.estado, resuelto_por: p.persona, resuelto_at: ahora, updated_at: ahora,
+        descartes: p.descartes.slice(0, 40).map((d) => d.slice(0, 300)),
+      }
+      : { operaciones: ops.slice(reparto.desde), lineas: lineas.slice(reparto.desde), version: (Number(fila.version) || 0) + 1, updated_at: ahora };
+    const { data, error } = await db.from(TABLA).update(cambio)
+      .eq('workspace_id', p.ws).eq('id', p.id).eq('estado', 'abierta').eq('version', fila.version).select('id');
+    if (error) return falla(error);
+    if ((data ?? []).length) return { ok: true, quedan: reparto.cerrar ? 0 : ops.length - reparto.desde };
+  }
+  return { ok: false, yaResuelta: true };
 }

@@ -104,5 +104,24 @@ export function lineaDeOperacion(titulo: string, op: OperacionChat, vista: Leido
   return `${titulo}${nombres.length ? `: ${nombres.join(', ')}` : ''}${detalle}`.slice(0, 200);
 }
 
+/**
+ * Al aceptar o descartar en el editor: ¿se cierra la propuesta entera, o sólo lo que el editor vio?
+ *
+ * ⚠️ LA PROPUESTA PUEDE HABER CRECIDO. Lo del mismo canal se junta en la propuesta abierta (`VENTANA_JUNTAR_MS`): con
+ * el editor abierto mostrando op1, desde el teléfono se pide op2 y se suma a la MISMA propuesta. El editor recién la
+ * vuelve a mirar al minuto. Cerrarla entera al aceptar op1 tiraba op2 sin aviso, y el link de op2 decía «ya se aceptó»
+ * (revisión del 20/10). `vio` es la versión y la cantidad de cambios que el editor tenía: si la versión es otra, se
+ * cierran sólo esos y el resto sigue abierto, con el mismo id (el link de op2 lo sigue abriendo).
+ */
+export function repartoAlResolver(
+  fila: { version: number; total: number },
+  vio: { version?: number; cuantas?: number },
+): { cerrar: true } | { cerrar: false; desde: number } {
+  if (vio.version === undefined || vio.version === fila.version) return { cerrar: true };
+  const n = vio.cuantas;
+  if (n === undefined || !Number.isInteger(n) || n < 1 || n >= fila.total) return { cerrar: true };
+  return { cerrar: false, desde: n };
+}
+
 /** Por dónde llegó una propuesta, para la persona. */
 export const CANAL_TEXTO: Record<string, string> = { whatsapp: 'WhatsApp', app: 'el chat de MaKo', http: 'la API' };

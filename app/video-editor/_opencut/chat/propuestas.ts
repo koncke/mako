@@ -33,7 +33,7 @@ const RUTA = "/api/video-editor/propuestas";
 /** Cada cuánto se vuelve a mirar mientras el editor está a la vista. */
 const CADA_MS = 60_000;
 
-type PropuestaServer = { id: string; canal: string; escenaId: string; refs: Array<[string, string]>; operaciones: unknown; lineas: string[]; creada: string };
+type PropuestaServer = { id: string; canal: string; escenaId: string; refs: Array<[string, string]>; operaciones: unknown; lineas: string[]; creada: string; version: number };
 
 export { idDeMensaje };
 
@@ -76,7 +76,8 @@ async function mensajeDe(editor: EditorCore, proyectoId: string, p: PropuestaSer
 		cambios: revision.cambios,
 		...(descartes.length ? { descartes } : {}),
 		propuesta: { proyectoId, escenaId: p.escenaId, refsPorId, elegidos: [], alcance: "video", operaciones },
-		propuestaApi: { id: p.id, canal: p.canal },
+		// Lo que el editor VIO: al resolver se manda, y si la propuesta creció se cierra sólo esto.
+		propuestaApi: { id: p.id, canal: p.canal, version: Number(p.version) || 0, cuantas: Array.isArray(p.operaciones) ? p.operaciones.length : 0 },
 	};
 }
 
@@ -86,13 +87,15 @@ let buscando = false;
  * Trae las propuestas abiertas del proyecto abierto y las pone en su hilo. Devuelve cuántas llegaron nuevas y cuáles
  * están abiertas, o `null` si no pudo mirar (el proyecto todavía no cargó, otra búsqueda en curso, la red).
  */
-export async function traerPropuestas(editor: EditorCore): Promise<{ nuevas: number; abiertas: string[] } | null> {
+export async function traerPropuestas(editor: EditorCore, opciones: { incluir?: string | null } = {}): Promise<{ nuevas: number; abiertas: string[] } | null> {
 	const proyecto = editor.project.getActiveOrNull();
 	if (!proyecto || buscando) return null;
 	const proyectoId = proyecto.metadata.id;
 	buscando = true;
 	try {
-		const res = await fetch(`${RUTA}?proyecto=${encodeURIComponent(proyectoId)}`, { cache: "no-store" });
+		// `propuesta`: la del link llega siempre, aunque haya más de 20 abiertas (lib/editor-video/propuestas-server.ts).
+		const incluir = opciones.incluir ? `&propuesta=${encodeURIComponent(opciones.incluir)}` : "";
+		const res = await fetch(`${RUTA}?proyecto=${encodeURIComponent(proyectoId)}${incluir}`, { cache: "no-store" });
 		const r = (await res.json().catch(() => null)) as { ok?: boolean; propuestas?: PropuestaServer[] } | null;
 		if (!r?.ok || !Array.isArray(r.propuestas)) return null;
 		// Lo guardado primero: si la propuesta ya estaba en el hilo, no se repite.
@@ -106,9 +109,20 @@ export async function traerPropuestas(editor: EditorCore): Promise<{ nuevas: num
 		const enHilo = new Map(delHilo.map((m) => [m.propuestaApi!.id, m] as const));
 		let nuevas = 0;
 		for (const p of abiertas.values()) {
-			const ya = enHilo.get(p.id);
-			// Ya está y no creció (o ya no está pendiente): nada que hacer.
-			if (ya && (ya.estado !== "pendiente" || (ya.propuesta?.operaciones.length ?? 0) >= validarOperaciones(p.operaciones).operaciones.length)) continue;
+			let ya = enHilo.get(p.id);
+			if (ya && ya.estado !== "pendiente") {
+				// ⚠️ LO QUE QUEDÓ de una propuesta que se resolvió EN PARTE (creció mientras se aceptaba: repartoAlResolver).
+				// El mensaje viejo queda como historia con otro id, y el resto entra como uno nuevo con el id de siempre:
+				// el link de la tarjeta lo sigue abriendo.
+				const vio = ya.propuestaApi?.version;
+				if (vio === undefined || vio === Number(p.version)) continue;
+				const viejo = ya.id;
+				cambiarHilo(proyectoId, (h) => ({ ...h, mensajes: h.mensajes.map((x) => (x.id === viejo ? { ...x, id: `${viejo}-v${vio}` } : x)) }));
+				ya = undefined;
+			} else if (ya && (ya.propuesta?.operaciones.length ?? 0) >= validarOperaciones(p.operaciones).operaciones.length) {
+				// Ya está pendiente y no creció: nada que hacer.
+				continue;
+			}
 			const m = await mensajeDe(editor, proyectoId, p);
 			if (!m) continue;
 			if (ya) cambiarHilo(proyectoId, (h) => ({ ...h, mensajes: h.mensajes.map((x) => (x.id === m.id ? m : x)) }));
@@ -129,13 +143,27 @@ export async function traerPropuestas(editor: EditorCore): Promise<{ nuevas: num
 	}
 }
 
-/** Cierra en la base una propuesta de la API que se aceptó o se descartó en el editor. No espera ni falla. */
-export function resolverEnServidor(propuestaId: string, estado: "aplicada" | "descartada", descartes: readonly string[] = []): void {
-	void fetch(RUTA, {
-		method: "PATCH",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ id: propuestaId, estado, descartes }),
-	}).catch(() => {});
+/**
+ * Cierra en la base una propuesta de la API que se aceptó o se descartó en el editor. Nunca falla: devuelve cuántos
+ * cambios QUEDAN abiertos (los que llegaron después de lo que el editor vio, `vio`), o 0.
+ */
+export async function resolverEnServidor(
+	propuestaId: string,
+	estado: "aplicada" | "descartada",
+	descartes: readonly string[] = [],
+	vio: { version?: number; cuantas?: number } = {},
+): Promise<number> {
+	try {
+		const res = await fetch(RUTA, {
+			method: "PATCH",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ id: propuestaId, estado, descartes, version: vio.version, cuantas: vio.cuantas }),
+		});
+		const r = (await res.json().catch(() => null)) as { quedan?: unknown } | null;
+		return typeof r?.quedan === "number" && r.quedan > 0 ? r.quedan : 0;
+	} catch {
+		return 0;
+	}
 }
 
 /** Abre el panel en la propuesta del link, o dice por qué no está. */
@@ -154,16 +182,22 @@ const INTENTOS_FOCO = 20;
  * Busca al abrir, al volver a la pestaña y cada tanto mientras se ve (lo monta editor-page.tsx). Con `foco` (el
  * `?propuesta=` del link), la primera búsqueda se reintenta hasta que el proyecto cargó y abre el panel en ESA.
  */
-export function iniciarPropuestas(editor: EditorCore, opciones: { foco?: string | null } = {}): () => void {
+export function iniciarPropuestas(editor: EditorCore, opciones: { foco?: string | null; proyecto?: string } = {}): () => void {
 	let pendienteDeFoco = opciones.foco ?? null;
 	let intentos = 0;
 	let reintento: ReturnType<typeof setTimeout> | null = null;
+	// ⚠️ Una búsqueda en vuelo termina DESPUÉS de que este editor se fue (otra página, otro proyecto): su foco ya no es
+	// de nadie y no se usa (revisión del 20/10).
+	let cancelado = false;
 	const buscar = () => {
 		if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-		void traerPropuestas(editor).then((r) => {
-			if (!pendienteDeFoco) return;
+		void traerPropuestas(editor, { incluir: pendienteDeFoco }).then((r) => {
+			if (cancelado || !pendienteDeFoco) return;
 			const proyectoId = editor.project.getActiveOrNull()?.metadata.id;
-			if (r && proyectoId) {
+			// ⚠️ EL FOCO ES DEL PROYECTO DEL LINK, no del que esté activo: mientras carga puede seguir el anterior, o uno
+			// vacío si el del link no está en este navegador. Con otro activo, las abiertas son de otro proyecto y la
+			// propuesta parecería «ya no abierta» sin serlo.
+			if (r && proyectoId && (!opciones.proyecto || proyectoId === opciones.proyecto)) {
 				const foco = pendienteDeFoco;
 				pendienteDeFoco = null;
 				enfocarPropuesta(proyectoId, foco, r.abiertas);
@@ -180,6 +214,7 @@ export function iniciarPropuestas(editor: EditorCore, opciones: { foco?: string 
 	window.addEventListener("focus", alVolver);
 	document.addEventListener("visibilitychange", alVolver);
 	return () => {
+		cancelado = true;
 		clearTimeout(alPrincipio);
 		if (reintento) clearTimeout(reintento);
 		clearInterval(cada);

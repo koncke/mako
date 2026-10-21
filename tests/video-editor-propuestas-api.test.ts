@@ -209,9 +209,10 @@ test('12: el editor la muestra como un cambio más del chat, la acepta con el mi
   assert.match(p, /useChatAbierto\.getState\(\)\.setAbierto\(true\);/);
   const panel = leer('app', 'video-editor', '_opencut', 'chat', 'PanelChat.tsx');
   assert.equal((panel.match(/aceptarPropuesta\(/g) ?? []).length, 1, 'el MISMO «Aceptar»');
-  assert.match(panel, /if \(m\.propuestaApi\) resolverEnServidor\(m\.propuestaApi\.id, "aplicada", r\.descartes\);/);
-  assert.match(panel, /if \(m\.propuestaApi\) resolverEnServidor\(m\.propuestaApi\.id, "descartada"\);/);
-  assert.match(leer('app', 'video-editor', '_opencut', 'editor-page.tsx'), /useEffect\(\(\) => iniciarPropuestas\(editor, \{ foco: propuesta \}\), \[editor, propuesta\]\);/);
+  // Con lo que el editor VIO (versión y cuántos): si creció, se cierra sólo eso (tests/video-editor-propuesta-link.test.ts).
+  assert.match(panel, /if \(m\.propuestaApi\) void resolverEnServidor\(m\.propuestaApi\.id, "aplicada", r\.descartes, m\.propuestaApi\)/);
+  assert.match(panel, /if \(m\.propuestaApi\) void resolverEnServidor\(m\.propuestaApi\.id, "descartada", \[\], m\.propuestaApi\)/);
+  assert.match(leer('app', 'video-editor', '_opencut', 'editor-page.tsx'), /useEffect\(\(\) => iniciarPropuestas\(editor, \{ foco: propuesta, proyecto: projectId \}\), \[editor, propuesta, projectId\]\);/);
   // Y el hilo guardado la recuerda (si no, al recargar no se cerraría en la base).
   const [g] = hiloParaGuardar([{ id: 'api-x', c: 1, t: 1, de: 'mako', texto: 'Propuesta', propuestaApi: { id: '0b9e5f4c-1a2b-4c3d-8e9f-0a1b2c3d4e5f', canal: 'whatsapp' } }]) as Array<{ propuestaApi?: unknown }>;
   assert.deepEqual(g.propuestaApi, { id: '0b9e5f4c-1a2b-4c3d-8e9f-0a1b2c3d4e5f', canal: 'whatsapp' });

@@ -1640,6 +1640,25 @@ no se ven en el código:
   nombre del proyecto sin codificar, o un link absoluto, el saneador lo DESCARTA entero y la tarjeta
   no aparece sin ningún error. El test corre contra el saneador cuando el marco está en el árbol.
 
+**Lo que encontró la revisión adversarial (20/10, noche).** Cuatro defectos del foco y del cierre:
+- **El foco usaba el proyecto ACTIVO, no el del link.** Con el proyecto en otro navegador, el editor
+  creaba uno vacío y la búsqueda (de ese vacío) decía que la propuesta «ya no está abierta», que era
+  falso. Ahora el foco se usa sólo si el activo es el del link, una búsqueda en vuelo no lo consume
+  si el editor ya se fue, y con `?propuesta=` el editor dice «no está guardado en este navegador»
+  en vez de inventar un proyecto vacío.
+- **«Aceptar» cerraba en la base cambios que el editor nunca vio.** Lo del mismo canal se junta en la
+  propuesta abierta: con el editor mostrando op1, op2 pedida desde el teléfono se sumaba a la MISMA,
+  y aceptar op1 la cerraba entera (op2 se perdía y su link decía «ya se aceptó»). La raíz ya estaba en
+  main: `resolverPropuesta` cerraba sin mirar la versión. Ahora el editor manda la versión y cuántos
+  cambios vio; si la propuesta creció, se cierran sólo esos (compare-and-set) y el resto sigue
+  abierto con el mismo id, que el editor trae como un mensaje nuevo. La regla, pura:
+  `repartoAlResolver` (`lib/editor-video/propuestas.ts`).
+- **El foco quedaba pegado** si se cerraba el panel antes de 4 s: se suelta al desmontar.
+- **Con más de 20 abiertas, la del link no llegaba**: se traían las 20 más viejas. Ahora las 20 más
+  nuevas, y la del link siempre.
+
+**Regla que queda:** un compare-and-set al SUMAR no alcanza si al CERRAR no se mira la misma versión.
+
 **Lo que quedó SIN hacer:** colgar `extra.bloque` del mensaje de MaKo en el turno y dibujarlo al
 llegar (`itemsDeRespuesta` hoy sólo dibuja bloques al confirmar una tarjeta): es la 1.8 de Ops
 Center 3. Mirarlo de punta a punta en el navegador con las migraciones 0298 a 0302 aplicadas.

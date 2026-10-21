@@ -48,7 +48,9 @@ export async function GET(req: NextRequest) {
   if ('error' in p) return fallo(p.error, p.status);
   const proyecto = req.nextUrl.searchParams.get('proyecto');
   if (!idDelMotor(proyecto)) return fallo('Falta el proyecto.', 400);
-  const r = await propuestasAbiertas(p.ws, proyecto);
+  // La del link (`?propuesta=`) llega siempre, aunque haya más de 20 abiertas.
+  const incluir = req.nextUrl.searchParams.get('propuesta');
+  const r = await propuestasAbiertas(p.ws, proyecto, incluir && UUID.test(incluir) ? incluir : null);
   if (!r.ok) return r.sinTabla ? responder({ ok: true, propuestas: [] }) : fallo('No se pudieron leer las propuestas.', 500);
   return responder({ ok: true, propuestas: r.propuestas });
 }
@@ -61,8 +63,11 @@ export async function PATCH(req: NextRequest) {
   if (!body || typeof body.id !== 'string' || !UUID.test(body.id)) return fallo('Falta la propuesta.', 400);
   if (body.estado !== 'aplicada' && body.estado !== 'descartada') return fallo('El estado no es válido.', 400);
   const descartes = Array.isArray(body.descartes) ? body.descartes.filter((d): d is string => typeof d === 'string') : [];
-  const r = await resolverPropuesta({ ws: p.ws, id: body.id, estado: body.estado, persona: p.persona, descartes });
-  if (r.ok) return responder({ ok: true });
+  // Lo que el editor vio (versión y cantidad de cambios): si la propuesta creció, se cierra sólo eso.
+  const entero = (v: unknown) => (typeof v === 'number' && Number.isInteger(v) && v >= 0 && v < 1e6 ? v : undefined);
+  const vio = { version: entero(body.version), cuantas: entero(body.cuantas) };
+  const r = await resolverPropuesta({ ws: p.ws, id: body.id, estado: body.estado, persona: p.persona, descartes, vio });
+  if (r.ok) return responder({ ok: true, quedan: r.quedan });
   if ('yaResuelta' in r) return responder({ ok: false, yaResuelta: true, error: 'Ya se había resuelto.' });
   return r.sinTabla ? responder({ ok: false, error: 'Las propuestas todavía no se guardan.' }) : fallo('No se pudo cerrar la propuesta.', 500);
 }

@@ -4,6 +4,14 @@
 // Separado de ./propuestas.ts porque aquél importa el motor (WASM) y un test no lo puede cargar. Puro.
 // =============================================================================
 
+/**
+ * Lo que dice el editor cuando el link trae `?propuesta=` y el proyecto no está guardado en este navegador (el proyecto
+ * vive en el navegador de quien lo editó). Antes creaba un proyecto vacío y la búsqueda de propuestas decía «ya no está
+ * abierta», que era falso: la propuesta seguía abierta, en el otro navegador (revisión del 20/10).
+ */
+export const SIN_PROYECTO_AQUI =
+	"El proyecto de esta propuesta no está guardado en este navegador. Ábrela en el navegador donde editaste ese video.";
+
 /** El id del mensaje de una propuesta de la API: estable, así no se repite. */
 export const idDeMensaje = (propuestaId: string) => `api-${propuestaId}`;
 
