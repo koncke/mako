@@ -34,6 +34,12 @@ subir: mirar `git log origin/integracion..HEAD`. El resumen para Martín (qué s
 **Pendiente de integrar:**
 - **Infra**: `e978851f5` (rama infra-ram-sin-candado: el candado no se retiene esperando RAM; arreglo de las 2 medias de `revision-infra-candado-tandas-21-10.md`) y `f8a05c031` (infra-tipos-piso: «Tipos» = tsc entero y las tandas sólo de respaldo con OK PARCIAL). Ambas en VERDE. Hay que verificar los arreglos con una revisión corta e integrar. Al integrar el candado, su entrada en hallazgos-infra va DENTRO de la sección que ya está, sin duplicar.
 
+**En curso, URGENTE (cliente roto): Florencia, ws21.** Onboarding arregla tres cosas:
+- En el Ops Center de ella, que Martín ve entrando como super admin al ws21, aparecen las respuestas sin las preguntas. Las preguntas del nombre y del negocio nunca se guardaron.
+- El «Nombre del negocio» no es editable en ningún lado y hoy dice «mi marca personal: Florencia Ayelen Carballo».
+- El script que repara su funnel, producto y PDF, en seco, se aplica sólo con el «sí» de Martín.
+Cuando esté en producción, MaKo Alert le avisa a su grupo.
+
 **Pendiente de Martín:** está en el resumen de OneDrive (2FA, ejecutables 0.3.2, hilo de Google, pedido 9a143455, Florencia ws21, claves del ws1, Leila ws11, lectura de producción para Infra).
 
 ## Qué es este chat
