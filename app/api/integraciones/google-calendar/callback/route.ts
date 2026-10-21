@@ -9,7 +9,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
-import { adminDeWorkspaceActual, getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
+import { adminDeWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
 import { conWs, wsDeVuelta } from '@/lib/ws-tab';
 import { destinoGcal, leerEstadoGcal, puedeEscribirAgenda } from '@/lib/gcal-estado';
 import { emailDelCalendario, guardarRefreshTokenGoogle, googleRedirectUri } from '@/lib/google-calendar';
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
   // es lo único de este flujo que el navegador podría haber tocado).
   const volver = req.cookies.get('gcal_volver')?.value ?? null;
   // Adónde cae esta sesión sin `?ws=`: si es el negocio destino, la vuelta va sin pestaña (`wsDeVuelta`).
-  const wsSinPestana = await getWorkspaceActual().catch(() => null);
+  const wsSinPestana = await adminDeWorkspaceActual().catch(() => null);
   const salir = (motivo: string, ws?: number | null) => {
     const destino = destinoGcal(volver, motivo);
     const w = wsDeVuelta(ws, wsSinPestana);

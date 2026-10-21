@@ -14,7 +14,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
-import { adminDeWorkspaceActual, getWorkspaceActual } from '@/lib/workspace';
+import { adminDeWorkspaceActual } from '@/lib/workspace';
 import { conWs, wsDeVuelta } from '@/lib/ws-tab';
 import { leerEstadoGcal, puedeEscribirAgenda } from '@/lib/gcal-estado';
 import { guardarConexionMeta } from '@/lib/meta-conexion';
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const volver = volverSeguro(req.cookies.get('meta_volver')?.value);
   // Adónde cae esta sesión sin `?ws=`: si es el negocio destino, la vuelta va sin pestaña (`wsDeVuelta`).
-  const wsSinPestana = await getWorkspaceActual().catch(() => null);
+  const wsSinPestana = await adminDeWorkspaceActual().catch(() => null);
 
   // Las cookies del intento se limpian en TODOS los caminos: llevan el workspace
   // destino adentro, y dejarlas colgadas es dejar un destino de escritura viejo.

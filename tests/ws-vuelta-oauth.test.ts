@@ -38,8 +38,10 @@ test('vuelta OAuth: sin negocio destino no hay pestaña', () => {
 test('vuelta OAuth: los dos callbacks pasan por wsDeVuelta', () => {
   for (const ruta of ['app/api/integraciones/meta/callback/route.ts', 'app/api/integraciones/google-calendar/callback/route.ts']) {
     const src = leer(ruta);
-    assert.match(src, /const wsSinPestana = await getWorkspaceActual\(\)/, `${ruta}: falta leer adónde cae la sesión sin ?ws=`);
+    assert.match(src, /const wsSinPestana = await adminDeWorkspaceActual\(\)/, `${ruta}: falta leer adónde cae la sesión sin ?ws=`);
     assert.match(src, /const w = wsDeVuelta\(ws, wsSinPestana\);/, `${ruta}: la vuelta no pasa por wsDeVuelta`);
     assert.doesNotMatch(src, /ws \? conWs\(destino, ws\)/, `${ruta}: volvió a pegar el ?ws= siempre`);
+    // El negocio donde se ESCRIBE sale de la cookie: el callback no lee el de la sesión (tests/meta-login.test.ts).
+    assert.ok(!src.includes('getWorkspaceActual'), `${ruta}: no lee el negocio de la sesión`);
   }
 });

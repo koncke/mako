@@ -75,8 +75,8 @@ export function conWs(href: string, ws: number | null): string {
  * ⚠️ Pegarlo siempre ponía en «vista de cliente» al admin de plataforma que conectaba SU PROPIO negocio (21/10/2026:
  * Martín volvió de «Reconectar con Meta» en el ws9 viendo «el dashboard de Martin Koncke como administrador»). Para el
  * proxy, cualquier `?ws=` de un admin es una pestaña de cliente, aunque sea la suya. `sinPestana` es el negocio al que
- * cae la misma sesión SIN `?ws=`: en la vuelta de Meta o de Google no hay pestaña, así que `getWorkspaceActual()` lo da
- * tal cual. A un cliente común no le cambia nada: para él el `?ws=` siempre fue decorativo (proxy.ts, `headersSeguros`).
+ * cae la misma sesión SIN `?ws=`: en la vuelta de Meta o de Google no hay pestaña, así que `adminDeWorkspaceActual()` lo
+ * da tal cual (y `null` a quien no es admin: para él el `?ws=` sigue saliendo, decorativo). A un cliente común no le cambia nada: para él el `?ws=` siempre fue decorativo (proxy.ts, `headersSeguros`).
  */
 export function wsDeVuelta(destino: number | null | undefined, sinPestana: number | null | undefined): number | null {
   if (destino == null) return null;
