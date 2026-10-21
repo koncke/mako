@@ -293,24 +293,110 @@ export function interesDe(texto: string): InteresId | null {
 }
 
 const PALABRAS_VACIAS = new Set(['que', 'los', 'las', 'del', 'con', 'por', 'para', 'una', 'uno', 'unos', 'mis', 'sus', 'pero', 'cuando', 'como', 'mas', 'muy', 'ese', 'esa', 'eso', 'esto', 'esta', 'son', 'sin', 'hoy', 'todo', 'toda', 'nada', 'solo', 'sola', 'algo']);
-/** Las palabras que cuentan de un texto, por su raíz (las 5 primeras letras: «empujo» y «empujar» son la misma). */
-const palabrasDe = (t: string): string[] => (t || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
-  .split(/[^a-z0-9ñ]+/).filter((w) => w.length >= 3 && !PALABRAS_VACIAS.has(w)).map((w) => w.slice(0, 5));
+const normal = (t: string): string => (t || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+/**
+ * Las palabras que cuentan de un texto, por su raíz (las 5 primeras letras: «empujo» y «empujar» son la misma). Sin los
+ * NÚMEROS (el «000» de «15.000» empataba con todas las opciones con «.000», 20/10/2026) y sin lo NEGADO: las dos palabras
+ * después de «no», «nunca» o «sin» no cuentan («no hago llamadas» no es «Llamada de venta»).
+ */
+const palabrasDe = (t: string): string[] => {
+  const out: string[] = [];
+  let negadas = 0;
+  for (const w of normal(t).split(/[^a-z0-9ñ]+/).filter(Boolean)) {
+    if (w === 'no' || w === 'nunca' || w === 'sin' || w === 'ni') { negadas = 2; continue; }
+    if (negadas > 0) { negadas -= 1; continue; }
+    if (w.length >= 3 && !/^\d+$/.test(w) && !PALABRAS_VACIAS.has(w)) out.push(w.slice(0, 5));
+  }
+  return out;
+};
 
 /**
  * La opción más parecida a lo que escribió, por las palabras que comparten (20/10/2026, Florencia: «vendo cuando empujo yo,
- * pero va cambiando» no se aceptaba en «¿Cuál es tu mayor cuello de botella?»). null si no comparte ninguna: ahí se pide de
- * nuevo, porque el diagnóstico se calcula por la opción.
+ * pero va cambiando» no se aceptaba en «¿Cuál es tu mayor cuello de botella?»). null si no comparte ninguna o si dos
+ * empatan: ahí se pide de nuevo, porque el diagnóstico se calcula por la opción (antes el empate lo ganaba la primera).
  */
 export function opcionMasCercana(texto: string, opciones: readonly string[]): number | null {
   const mias = new Set(palabrasDe(texto));
   let mejor = -1;
   let puntos = 0;
+  let empate = false;
   opciones.forEach((o, i) => {
     const p = new Set(palabrasDe(o).filter((w) => mias.has(w))).size;
-    if (p > puntos) { puntos = p; mejor = i; }
+    if (p > puntos) { puntos = p; mejor = i; empate = false; } else if (p > 0 && p === puntos) empate = true;
   });
-  return puntos > 0 ? mejor : null;
+  return puntos > 0 && !empate ? mejor : null;
+}
+
+/** Los números de un texto, con su separador de miles («15.000», «15,000») y «mil», «k» o «millones» atrás. */
+function numerosDe(t: string): number[] {
+  const out: number[] = [];
+  for (const m of normal(t).matchAll(/(\d+(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)\s*(mil(?:es)?\b|k\b|millon(?:es)?\b|m\b)?/g)) {
+    const crudo = m[1];
+    const valor = /^\d+(?:[.,]\d{3})+$/.test(crudo) ? Number(crudo.replace(/[.,]/g, '')) : Number(crudo.replace(',', '.'));
+    const por = !m[2] ? 1 : m[2].startsWith('mil') || m[2] === 'k' ? 1_000 : 1_000_000;
+    if (Number.isFinite(valor)) out.push(valor * por);
+  }
+  return out;
+}
+
+/**
+ * La cifra de una respuesta escrita a una pregunta de cifras («Facturo 15.000 al mes», «entre 10.000 y 30.000», «más de
+ * 80.000», «50 mil», «$20 por día», «nada»). Un rango vale su medio; «más de» y «menos de» corren un poco; lo diario se
+ * pasa a mes. null si no dice ninguna.
+ */
+export function cifraDe(texto: string): number | null {
+  const t = normal(texto);
+  const ns = numerosDe(t);
+  if (!ns.length) return /^(?:nada|cero|ningun[oa]|todavia (?:nada|no)|no (?:facturo|invierto|saco|tengo|hago)\b)/.test(t.trim()) ? 0 : null;
+  let v = ns.length >= 2 && /\d[^\d]*(?:\by\b|\ba\b|-|–|hasta)[^\d]*\d/.test(t) ? (ns[0] + ns[1]) / 2 : ns[0];
+  if (/\bmas de\b|\barriba de\b|\bpor encima de\b/.test(t)) v += 1;
+  if (/\bmenos de\b|\bdebajo de\b/.test(t)) v = Math.max(0, v - 1);
+  if (/\b(?:por|al) dia\b|\bdiari[oa]s?\b/.test(t)) v *= 30;
+  return v;
+}
+
+/** Los tramos de una pregunta de cifras, cada opción como [desde, hasta). null si alguna opción no es un tramo. */
+export function tramosDe(opciones: readonly string[]): Array<[number, number]> | null {
+  const out: Array<[number, number]> = [];
+  for (const o of opciones) {
+    const t = normal(o);
+    const ns = numerosDe(t);
+    if (/\bmas de\b/.test(t) && ns.length === 1) out.push([ns[0], Infinity]);
+    else if (/\bmenos de\b/.test(t) && ns.length === 1) out.push([0, ns[0]]);
+    else if (ns.length >= 2) out.push([ns[0], ns[1]]);
+    else return null;
+  }
+  return out;
+}
+
+/**
+ * En una pregunta de cifras, la opción del TRAMO donde cae lo que escribió (20/10/2026, revisión del Cerebro: «Facturo
+ * 15.000 al mes» caía en «$0 – $3.000» por la palabra «000»). null si no es una pregunta de cifras o no dijo una cifra.
+ */
+export function tramoDe(texto: string, opciones: readonly string[]): number | null {
+  const tramos = tramosDe(opciones);
+  const v = cifraDe(texto);
+  if (!tramos || v == null) return null;
+  // El último tramo que empieza antes de la cifra: «0 – 3» y «4 – 10» dejan un hueco entre 3 y 4 que un «<» no cubre, y en
+  // un borde compartido («$3.000» cierra uno y abre el otro) gana el de arriba.
+  let i = -1;
+  tramos.forEach(([desde], k) => { if (v >= desde) i = k; });
+  return i >= 0 ? i : null;
+}
+
+/** El canal por sus palabras de siempre, sin lo negado: «vendo todo por WhatsApp» es «Conversaciones por chat». */
+const PALABRAS_DE_CANAL: Array<[CanalId, RegExp]> = [
+  ['conversaciones', /\b(?:whats?app|wsp|wpp|whats|dm|dms|chat|chats|mensajes?|instagram|insta|directo|inbox|messenger)\b/],
+  ['llamadas', /\b(?:llamadas?|zoom|meet|videollamadas?|telefono|telefonica|call)\b/],
+  ['carrito', /\b(?:carrito|checkout|tienda|ecommerce|e-commerce|hotmart|shopify|pagina de pago|compran solos?)\b/],
+  ['webinar', /\b(?:webinars?|masterclass|clase en vivo|en vivo|live)\b/],
+  ['presencial', /\b(?:presencial|local|taller|consultorio|en persona|oficina)\b/],
+];
+export function canalDeTexto(texto: string): CanalId | null {
+  // Lo negado no cuenta: se borra la palabra que sigue a «no», «nunca» o «sin» (y la de después).
+  const t = normal(texto).replace(/\b(?:no|nunca|sin|ni)\s+(?:\S+\s+)?\S+/g, ' ');
+  const hay = PALABRAS_DE_CANAL.filter(([, re]) => re.test(t)).map(([c]) => c);
+  return hay.length === 1 ? hay[0] : null;
 }
 
 /** El «Lo tomé como: …» después de una respuesta escrita con otras palabras. */
@@ -779,8 +865,12 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
     // Sólo con una opción: el diagnóstico se CALCULA (lib/fase-diagnostico.ts) y una respuesta libre no
     // tiene índice. Se acepta el texto si es exactamente una opción.
     const exacta = Number.isInteger(r.opcion) ? (r.opcion as number) : opciones.findIndex((o) => o.toLowerCase() === texto.toLowerCase());
-    // Lo escrito con otras palabras vale (20/10/2026, Florencia): la opción más parecida, y lo que escribió queda guardado.
-    const idx = exacta >= 0 ? exacta : opcionMasCercana(texto, opciones) ?? -1;
+    // Lo escrito con otras palabras vale (20/10/2026, Florencia), y lo que escribió queda guardado. El canal por sus palabras
+    // de siempre, una cifra por su TRAMO, y lo demás por la opción más parecida (revisión del Cerebro, 20/10).
+    const escrita = p.tipo === 'canal'
+      ? CANALES.findIndex((c) => c.id === canalDeTexto(texto))
+      : tramosDe(opciones) ? tramoDe(texto, opciones) ?? -1 : opcionMasCercana(texto, opciones) ?? -1;
+    const idx = exacta >= 0 ? exacta : escrita;
     if (!(idx >= 0 && idx < opciones.length)) return { ok: false, error: NO_ENTENDI_OPCION };
     const escritas = exacta < 0 ? { escritas: { ...e.escritas, [p.tipo === 'canal' ? 'canal' : PREGUNTAS[p.idx].id]: texto } } : {};
     if (p.tipo === 'canal') {
