@@ -119,9 +119,17 @@ function FilaVideo({ v, videos }: { v: VideoEngagement; videos: VideoLanding[] }
   );
 }
 
+/**
+ * LAS PARTES DE LA TARJETA (20/10/2026, docs/pedidos-crm.md D2: «Tracking personalizable bloque por bloque, como el
+ * Dashboard»). La ficha por bloques pone cada parte como su bloque (`visitas`, `video-visto`, `actividad-en-pagina`,
+ * `grabacion-de-visita`), y la tarjeta dibuja SÓLO las que le piden. Sin `partes`, todas: la de siempre.
+ */
+export type PartesComportamiento = { visitas?: boolean; video?: boolean; actividad?: boolean; grabacion?: boolean };
+const TODAS_C: Required<PartesComportamiento> = { visitas: true, video: true, actividad: true, grabacion: true };
+
 export function ComportamientoCard({
   visitas, dias, plays, maxPct, tieneVisitor = false, porVideo = [], videos = [], eventos = [], pixelPuesto = true,
-  replay = null,
+  replay = null, partes, rotulo = 'Comportamiento',
 }: {
   visitas: number; dias: number; plays: number; maxPct: number | null; tieneVisitor?: boolean;
   /** Uno por video medido. Con 0 o 1 la tarjeta se pinta como siempre. */
@@ -144,6 +152,10 @@ export function ComportamientoCard({
    *  una prop opcional que nadie pasa es una pantalla donde no hay nada que
    *  apretar, con el typecheck en verde. */
   replay?: ReplayEnLaFicha | null;
+  /** Qué partes dibujar (la ficha por bloques); sin esto, todas. */
+  partes?: PartesComportamiento;
+  /** El rótulo de la sección (el título del bloque). */
+  rotulo?: string;
 }) {
   // ⚠️ EL CATÁLOGO RECIÉN GUARDADO GANA, pero sólo hasta que llegue el del server.
   // `null` significa «usá la prop»: el nombre lo acaba de escribir el pop-up y
@@ -185,12 +197,15 @@ export function ComportamientoCard({
   const sinDatos = !visitas && !plays && maxPct == null;
 
 
+  const ver = partes
+    ? { visitas: !!partes.visitas, video: !!partes.video, actividad: !!partes.actividad, grabacion: !!partes.grabacion }
+    : TODAS_C;
   return (
     <>
-      <section style={card}>
-        <div style={{ ...sectLabel, marginBottom: sinDatos ? 10 : 14 }}>Comportamiento</div>
+      {(ver.visitas || ver.video) && <section style={card}>
+        <div style={{ ...sectLabel, marginBottom: sinDatos ? 10 : 14 }}>{rotulo}</div>
         {/* Sin ningún dato: mensaje claro en vez de tres cuadros con rayas. */}
-        {sinDatos ? (
+        {sinDatos && ver.visitas ? (
           tieneVisitor ? (
             // Tiene identificador pero NO cruzó con ningún evento. NO afirmamos que
             // "no vio": lo más común es que la landing no haya pasado bien su
@@ -207,25 +222,25 @@ export function ComportamientoCard({
         ) : (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px,1fr))', gap: 12 }}>
-              <div style={miniCard}>
+              {ver.visitas && <div style={miniCard}>
                 <div style={{ fontSize: 11.5, color: 'var(--dim)' }}>Visitó tu página</div>
                 <div style={{ fontSize: 22, color: visitas ? 'var(--ink)' : 'var(--faint)', fontWeight: 600, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>
                   {visitas || '—'}{visitas ? <span style={{ fontSize: 13, color: 'var(--faint)', fontWeight: 500 }}> {visitas === 1 ? 'vez' : 'veces'}</span> : null}
                 </div>
                 {visitas > 0 && <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 2 }}>{dias} {dias === 1 ? 'día distinto' : 'días distintos'}</div>}
-              </div>
-              <div style={miniCard}>
+              </div>}
+              {ver.video && <div style={miniCard}>
                 <div style={{ fontSize: 11.5, color: 'var(--dim)' }}>{varios ? 'Reprodujo' : 'Reprodujo el VSL'}</div>
                 <div style={{ fontSize: 22, color: plays ? 'var(--ink)' : 'var(--faint)', fontWeight: 600, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>
                   {plays || '—'}{plays ? <span style={{ fontSize: 13, color: 'var(--faint)', fontWeight: 500 }}> {plays === 1 ? 'vez' : 'veces'}</span> : null}
                 </div>
                 {varios && <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 2 }}>entre {filas.length} videos</div>}
-              </div>
+              </div>}
               {/* ⚠️ CON VARIOS VIDEOS NO HAY «la retención» en singular. El máximo sobre
                   todos es el número que hacía pasar el 80% de un testimonio de 40 s por
                   el 80% del VSL — así que acá el minicard NO se pinta y el desglose va
                   abajo, donde cada número dice de qué es. */}
-              {!varios && (
+              {ver.video && !varios && (
                 <div style={miniCard}>
                   <div style={{ fontSize: 11.5, color: 'var(--dim)' }}>Retención del VSL</div>
                   <div style={{ fontSize: 22, color: pctColor, fontWeight: 600, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>{maxPct != null ? maxPct + '%' : '—'}</div>
@@ -243,7 +258,7 @@ export function ComportamientoCard({
 
             {/* Un grupo de cosas del mismo tipo es una LISTA con filete, no una pila de
                 cajas: tres tarjetas iguales apiladas son el contenedor perezoso. */}
-            {varios && (
+            {ver.video && varios && (
               <div style={{ marginTop: 18 }}>
                 <div style={{ ...sectLabel, marginBottom: 2 }}>Retención por video</div>
                 {filas.map((v) => <FilaVideo key={v.videoId ?? '_'} v={v} videos={vids} />)}
@@ -264,17 +279,17 @@ export function ComportamientoCard({
             )}
           </>
         )}
-      </section>
+      </section>}
 
       {/* «Actividad registrada»: el recorrido evento por evento, TERCERO y último de
           lo nuestro, que es el orden que pidió Martín. Se monta acá adentro y no
           suelto en los dos montajes — si volviera, la misma ficha lo dibujaría dos
           veces (lo fija `tests/crm-tracking-ficha.test.ts`). */}
-      <TrackingTimelineCard eventos={eventos} pixelPuesto={pixelPuesto} />
+      {ver.actividad && <TrackingTimelineCard eventos={eventos} pixelPuesto={pixelPuesto} />}
 
       {/* La grabación de su visita, después del recorrido. Con `null` no se
           dibuja: ver el prop. */}
-      {replay && <GrabacionCard replay={replay} />}
+      {ver.grabacion && replay && <GrabacionCard replay={replay} />}
 
       {nombrando && (
         <NombrarVideosModal

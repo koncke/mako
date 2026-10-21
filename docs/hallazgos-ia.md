@@ -4620,3 +4620,11 @@ Las cifras quedan para la próxima vez que alguien calcule un costo o un tope.
 - 8 con una operación que no existe: `crear_campana`, `agregar_conjunto` y `subir_creativos` de Meta;
 - 5 medidas con adjunto;
 - 3 «sí» que dependen del mensaje anterior.
+
+## Lo que encontró la revisión de la tanda 1 del clasificador antes de subirla (20/10/2026)
+
+El detalle está en las notas compartidas, `revision-clasificador-tanda-1-20-10.md`.
+- **«WhatsApp no cambia» se mide comparando antes y después con las funciones reales y miles de frases, no con un test que fija un caso.** Un `replace` sin `ctx.canal` (`NOMBRADO`, que saca «llamada <nombre>») rompió en WhatsApp «cancelá la llamada pendiente con Juan»: dejó de cancelar, y con una pendiente vigente cancelaba OTRA cosa.
+- **Un default «actuar» con `dudosa:false` desarma los candados que miran `dudosa`:** un «ahí hice la prueba» volvió a crear un borrador del Plan (el bug del 25/08).
+- **Buscar la operación en TODO el registro trae escrituras de otra cosa cuando la pedida no existe** («borrá la nota» → borrar_audio), y las raíces de 5 letras matchean dentro de palabras («borra» en «borrador»). Una acción que llega sin la lectura que le da el id no «llega».
+
