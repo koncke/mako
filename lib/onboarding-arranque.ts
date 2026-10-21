@@ -101,9 +101,10 @@ export type EstadoArranque = {
 /** Lo que el server MIDE (nunca se guarda: estado vivo, no recordado). */
 export type HechosArranque = {
   modo: ModoArranque;
-  /** usuarios.nombre de quien entra (de Google o de quien lo invitó), para ofrecerlo como opción. */
+  /** usuarios.nombre de quien entra (de Google o de quien lo invitó): el nombre para «uso mi nombre». */
   nombreCuenta: string;
-  /** workspaces.nombre (lo puso el alta), para ofrecerlo como opción. */
+  /** workspaces.nombre (lo puso el alta). NO se ofrece como opción (Martín, 18/10: sin respuestas rápidas en el nombre
+   *  ni en el negocio); queda para lo que lo lea sin ofrecerlo, como un saludo. */
   nombreWorkspace: string;
   /** El negocio ya tiene diagnóstico de fase guardado. */
   faseGuardada: boolean;
@@ -511,29 +512,6 @@ export function leerNegocio(texto: string, persona: string): string | null {
   return extraerNegocio(limpio) || null;
 }
 
-/**
- * La respuesta rápida del nombre del negocio: el del alta, si parece un negocio (`pareceNegocio`). Es lo que el negocio ya
- * escribió, así que tocarla no se confirma. 12ad33b25 (18/10) la había sacado porque el ws de prueba ofrecía «Consultesis»,
- * pero eso era el RESET, ya arreglado; el nombre del ws de prueba no llega acá (lo saca `hechosDelArranque`). El que salía
- * de «Martín de Acme» (`negocioSugerido`) ya no se ofrece: «Martín de Córdoba» ofrecía «Córdoba» (revisión del 20/10).
- */
-export function sugerenciasDeNegocio(_e: EstadoArranque, h: HechosArranque): string[] | undefined {
-  const alta = pareceNegocio(h.nombreWorkspace, h.nombreCuenta) ? h.nombreWorkspace.trim() : '';
-  return alta ? [alta] : undefined;
-}
-
-/**
- * ¿El nombre del workspace parece el de un NEGOCIO? El alta pública lo arma con el nombre de quien pagó o
- * con su email (lib/cobros.ts), así que ofrecerlo tal cual como «tu negocio» sería afirmar algo que nadie
- * dijo. Un email o el mismo nombre de la persona no se ofrecen.
- */
-export function pareceNegocio(nombreWorkspace: string, nombreCuenta: string): boolean {
-  const w = (nombreWorkspace || '').trim();
-  if (!w || w.includes('@')) return false;
-  const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
-  return norm(w) !== norm(nombreCuenta);
-}
-
 /** Una respuesta de texto libre: recortada y con tope. Vacía = no contestó. */
 export function limpiarRespuesta(t: string): string {
   return (t || '').replace(/\s+/g, ' ').trim().slice(0, TOPE_RESPUESTA);
@@ -654,13 +632,15 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
 
   // 1. Quién es. EXPLICA ANTES DE PREGUNTAR (18/10/2026, Martín: «empieza a preguntar de la nada… debería decir algo como
   // "necesito que me cuentes de tu negocio para poder configurar tu cuenta... no tardaremos más de 5 minutos"»).
-  // SIN respuestas rápidas en el nombre (18/10/2026, 14:00, Martín): ofrecía lo que quedaba de otra prueba («Ayelen» del
-  // perfil). El negocio sí, desde el 20/10 (`sugerenciasDeNegocio`). tests/onboarding-preguntas.test.ts.
+  // SIN respuestas rápidas en el nombre NI en el negocio (18/10/2026, 14:00, Martín: «Sin respuestas rápidas en las
+  // preguntas del nombre y del nombre del negocio»): ofrecían lo que quedaba de otra prueba («Ayelen», «Consultesis»).
+  // El 20/10 volvió el nombre del alta como botón y el Cerebro lo retiró esa noche: el pedido de Martín es literal y
+  // también lo cubre. tests/onboarding-preguntas.test.ts y tests/onboarding-nombre-negocio.test.ts.
   preguntar(antes, 'nombre', SALUDO_ARRANQUE, e.nombre);
   if (etapa === 'nombre') return { antes, despues };
-  // Con el nombre del alta para tocar, y lo entendido se CONFIRMA antes de escribirlo (20/10/2026, Florencia).
+  // Lo escrito se CONFIRMA antes de escribirlo (20/10/2026, Florencia): la confirmación sí lleva «Sí» / «No».
   const pendiente = !e.negocio ? e.negocioPorConfirmar : undefined;
-  preguntar(antes, 'negocio', `Un gusto, ${nombre}. ¿Cómo se llama tu negocio?`, e.negocio ?? pendiente?.escrito, sugerenciasDeNegocio(e, h));
+  preguntar(antes, 'negocio', `Un gusto, ${nombre}. ¿Cómo se llama tu negocio?`, e.negocio ?? pendiente?.escrito);
   if (pendiente) preguntar(antes, 'negocio-ok', `¿Tu negocio se llama «${pendiente.nombre}»?`, undefined, [...NEGOCIO_CONFIRMAR]);
   if (etapa === 'negocio') return { antes, despues };
 
@@ -808,8 +788,7 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
   const texto = limpiarRespuesta(opcion ?? r.texto ?? '');
 
   if (etapa === 'nombre') {
-    // Una opción es el nombre tal cual; lo escrito se ENTIENDE («Soy Martín», «me llamo…», «Martín de Acme»).
-    if (opcion !== undefined && texto) return { ok: true, patch: { nombre: texto } };
+    // Sin opciones: lo escrito se ENTIENDE («Soy Martín», «me llamo…», «Martín de Acme»).
     const { nombre, negocio } = extraerNombre(texto);
     if (!nombre) return { ok: false, error: 'No te entendí el nombre. ¿Cómo te llamo?' };
     return { ok: true, patch: { nombre, ...(negocio ? { negocioSugerido: negocio } : {}) } };
@@ -823,8 +802,7 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
       if (r === 'si') return { ok: true, patch: { negocio: pendiente.nombre, negocioPorConfirmar: undefined } };
       if (r === 'no') return { ok: true, patch: { negocioPorConfirmar: undefined } };
     }
-    // La respuesta rápida (el nombre del alta) es el nombre tal cual: es lo que el negocio ya escribió.
-    if (opcion !== undefined && !pendiente && texto) return { ok: true, patch: { negocio: texto } };
+    // Sin pendiente no hay opciones (Martín, 18/10): todo nombre llega escrito y se confirma.
     const persona = [h.nombreCuenta, e.nombre].find((x) => !!x?.trim() && !x.includes('@')) ?? '';
     // «Sí, pero se llama Acme» / «No, es Acme»: lo de después del sí o el no es el nombre nuevo.
     const otro = pendiente ? texto.replace(/^(?:s[ií]|no)[\s,.!]+(?:pero\s+)?/iu, '') : texto;

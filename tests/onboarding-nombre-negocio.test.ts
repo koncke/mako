@@ -3,8 +3,8 @@
 // =============================================================================
 // Florencia (ws21, 18/10): escribió «mi marca personal: Florencia Ayelen Carballo» y eso quedó TAL CUAL como nombre del
 // workspace, del funnel principal, del producto («Oferta de mi marca personal: …»), del PDF y de su archivo en El
-// Archivero. `extraerNegocio` sólo quitaba «se llama/es» del principio, y nadie preguntaba. Y el nombre del alta, que
-// habría servido, no se ofrecía desde 12ad33b25 (por el ws de prueba, cuyo problema era el RESET).
+// Archivero. `extraerNegocio` sólo quitaba «se llama/es» del principio, y nadie preguntaba. El nombre del alta NO se
+// ofrece como botón (Martín, 18/10: sin respuestas rápidas en el nombre ni en el negocio; decidido de nuevo el 20/10).
 // La revisión del Cerebro (20/10, tarde) encontró lo que bloqueaba: con la pregunta de confirmación abierta, un «Sí» ESCRITO
 // con tilde (o «Dale», «Ok», «👍») se guardaba como nombre del negocio, porque `\b` sin la flag u no corta después de «í».
 // Ahora lo escrito SIEMPRE se confirma, y con algo pendiente nada se escribe sin un sí explícito.
@@ -13,6 +13,8 @@
 // ROTURAS (20/10/2026, arnés romper.js + roturas-negocio.json del scratchpad; base 6/0): sin entender «mi marca
 // personal» (con guion) → 5/1 · el «Sí» con `\b` sin la flag u → 4/2 · lo escrito sin confirmar → 5/1 · lo que no es sí ni
 // no se escribe directo → 5/1 · sin el nombre del alta → 5/1 · el ws de prueba ofrece su nombre → 5/1.
+// Y el 20/10 a la noche, sin el botón del alta (romper.js + roturas-sin-chip.json, con onboarding-preguntas y
+// onboarding-arranque; base 39/0): vuelve el botón del nombre del alta → 34/5 · vuelve el del nombre de la cuenta → 33/6.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -75,12 +77,16 @@ test('lo escrito SIEMPRE se confirma; con algo pendiente, nada se escribe sin un
   assert.deepEqual(leerRespuesta(PENDIENTE, H, { texto: 'Florencia Carballo' }), { ok: true, patch: { negocioPorConfirmar: { escrito: 'Florencia Carballo', nombre: 'Florencia Carballo' } } });
 });
 
-test('el nombre del alta vuelve como respuesta rápida, y tocarlo lo deja tal cual', () => {
-  const pregunta = mensajesDeArranque(E, H).antes.at(-1);
-  assert.deepEqual(pregunta?.opciones, ['Consultora Argentina']);
-  assert.deepEqual(leerRespuesta(E, H, { opcion: 0, opcionTexto: 'Consultora Argentina' }), { ok: true, patch: { negocio: 'Consultora Argentina' } });
-  assert.equal(mensajesDeArranque(E, { ...H, nombreWorkspace: 'flor@gmail.com' }).antes.at(-1)?.opciones, undefined, 'un email no es un negocio');
-  assert.deepEqual(mensajesDeArranque({ ...E, negocioSugerido: 'Córdoba' }, H).antes.at(-1)?.opciones, ['Consultora Argentina'], '«Martín de Córdoba» no ofrece «Córdoba»');
+test('el nombre y el negocio no ofrecen NINGUNA opción, tampoco el nombre del alta (Martín, 18/10)', () => {
+  // «Sin respuestas rápidas en las preguntas del nombre y del nombre del negocio». El Cerebro había pedido el 20/10 ofrecer
+  // el nombre del alta y lo retiró esa noche: el pedido de Martín es literal y anterior.
+  assert.equal(mensajesDeArranque({}, H).antes.at(-1)?.opciones, undefined, 'el nombre');
+  assert.equal(mensajesDeArranque(E, H).antes.at(-1)?.opciones, undefined, 'el negocio, con un nombre del alta que parece un negocio');
+  assert.equal(mensajesDeArranque({ ...E, negocioSugerido: 'Córdoba' }, H).antes.at(-1)?.opciones, undefined, '«Martín de Córdoba» no ofrece «Córdoba»');
+  // Un toque viejo (una pestaña con el botón de antes) no escribe nada: la pregunta cambió.
+  assert.deepEqual(leerRespuesta(E, H, { opcion: 0, opcionTexto: 'Consultora Argentina' }), { ok: false, error: 'La pregunta cambió.', cambio: true });
+  // Escrito, se confirma como cualquier otro.
+  assert.deepEqual(leerRespuesta(E, H, { texto: 'Consultora Argentina' }), { ok: true, patch: { negocioPorConfirmar: { escrito: 'Consultora Argentina', nombre: 'Consultora Argentina' } } });
 });
 
 test('el ws de prueba no ofrece «Cliente de Prueba»', () => {

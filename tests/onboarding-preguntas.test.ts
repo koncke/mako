@@ -137,12 +137,12 @@ test('el nombre y el negocio se escriben: nunca un botón con restos de otra pru
     assert.equal(antes[0].opciones, undefined, `«${cuenta}»`);
   }
   assert.equal(mensajesDeArranque({}, { ...H, nombreCuenta: 'Soy' }).antes[0].opciones, undefined);
-  // Desde el 20/10/2026 el negocio SÍ ofrece el nombre del alta (Florencia, ws21): lo de «Consultesis» era el RESET, que
-  // ya devuelve el ws a «Cliente de Prueba», y ése no llega (hechosDelArranque). El que dijo con su nombre, no.
+  // El negocio tampoco ofrece nada, ni el nombre del alta ni el que dijo con su nombre (el 20/10 volvió el del alta como
+  // botón; el Cerebro lo retiró esa noche: el pedido de Martín cubre las dos preguntas).
   const negocio = mensajesDeArranque({ nombre: 'Ayelen', negocioSugerido: 'Acme' }, { ...H, nombreWorkspace: 'Consultesis' }).antes;
-  assert.deepEqual(negocio[negocio.length - 1].opciones, ['Consultesis']);
+  assert.equal(negocio[negocio.length - 1].opciones, undefined);
   const sinNegocio = mensajesDeArranque({ nombre: 'Ayelen' }, { ...H, nombreWorkspace: '' }).antes;
-  assert.equal(sinNegocio[sinNegocio.length - 1].opciones, undefined, 'sin nombre del alta, nada que ofrecer');
+  assert.equal(sinNegocio[sinNegocio.length - 1].opciones, undefined);
 });
 
 test('el interés: la opción o lo que escriba, y a qué pestaña entra al terminar', () => {

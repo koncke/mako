@@ -45,7 +45,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  etapaDeArranque, mensajesDeArranque, leerRespuesta, tiposOfrecidos, tipoRecomendado, pareceNegocio,
+  etapaDeArranque, mensajesDeArranque, leerRespuesta, tiposOfrecidos, tipoRecomendado,
   primerNombre, sinMarca, briefDesdeArranque, fundirBrief, siguientePreguntaFase,
   AHORA_NO, CAMBIAR_NUMERO, VER_OTROS_TIPOS, ORIGENES, SALUDO_ARRANQUE, CRM_SI, CRM_PREGUNTA,
   type EstadoArranque, type HechosArranque,
@@ -136,8 +136,8 @@ test('cada etapa termina en SU pregunta, con sus opciones; lo contestado se ve c
   assert.equal(antes[1].texto, 'Martín');
   assert.equal(antes[0].opciones, undefined, 'una pregunta ya contestada no vuelve a ofrecer opciones');
   assert.match(antes[2].texto, /Un gusto, Martín/);
-  // Desde el 20/10/2026 el negocio ofrece el nombre del alta si parece un negocio (Florencia, ws21; lo del 18/10 era el RESET).
-  assert.deepEqual(antes[2].opciones, ['Negocio que Escala']);
+  // Tampoco el nombre del alta, aunque parezca un negocio (volvió el 20/10 y el Cerebro lo retiró esa noche).
+  assert.equal(antes[2].opciones, undefined, 'el negocio volvió a ofrecer el nombre del alta');
   // Ya no se pregunta el objetivo a 90 días, ni con una conversación que lo había contestado.
   assert.ok(!mensajesDeArranque({ ...QUIEN, objetivo: 'Vender más' }, H).antes.some((m) => m.id === 'arr-objetivo'));
   const fin = mensajesDeArranque({ nombre: 'M', negocio: 'N', crmTipo: 'llamada' }, { ...H, loQueVende: true, faseGuardada: true }).despues;
@@ -148,10 +148,11 @@ test('cada etapa termina en SU pregunta, con sus opciones; lo contestado se ve c
   assert.deepEqual(despues, []);
 });
 
-test('el nombre del workspace no se ofrece como «tu negocio» si es un email o el nombre de la persona', () => {
-  assert.equal(pareceNegocio('martin@x.com', 'Martín'), false);
-  assert.equal(pareceNegocio('Martín Koncke', 'Martin Koncke'), false, 'el mismo nombre, con o sin acento');
-  assert.equal(pareceNegocio('Negocio que Escala', 'Martín'), true);
+test('el nombre del workspace no se ofrece como «tu negocio», sea lo que sea (Martín, 18/10: sin respuestas rápidas)', () => {
+  for (const nombreWorkspace of ['martin@x.com', 'Martín Koncke', 'Negocio que Escala']) {
+    const { antes } = mensajesDeArranque({ nombre: 'Martín' }, { ...H, nombreWorkspace });
+    assert.equal(antes[antes.length - 1].opciones, undefined, `«${nombreWorkspace}»`);
+  }
   assert.equal(primerNombre('  Martín  Koncke '), 'Martín');
 });
 
