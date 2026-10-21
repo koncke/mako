@@ -224,7 +224,10 @@ test('⚠️ FlujoLienzo edita por lib/flujo-edicion.ts (todo por `onPasos`), y 
 test('⚠️ el chrome: el ✦ de MaKo al lado del título, «Activar» al lado de «Publicar» (punto 8)', () => {
   const chrome = tramo(PERFIL, 'chrome={(', 'herramientas={rolAdmin ? (', 6_000);
   // Decimotercera tanda: también con el lienzo vacío (ahí se la pide armar).
-  assert.match(chrome, /title=\{pasos\.length \? 'Pedirle un cambio a MaKo' : 'Pedírsela a MaKo'\}/, 'el ✦ de MaKo no está al lado del título');
+  // 20/10/2026: al lado del título ya no va el ✦ de MaKo (el chat está siempre, en la sidebar) sino la tuerca de ESTA
+  // automatización (Martín: «en su lugar que allí vaya el ícono de configuraciones»).
+  assert.match(chrome, /<BotonTuerca lado=\{ALTO_ACCION\}/, 'la tuerca no está al lado del título');
+  assert.doesNotMatch(chrome, /Pedirle un cambio a MaKo/, 'volvió el ✦ de MaKo al título');
   assert.doesNotMatch(chrome, />Activar</, '«Activar» sigue arriba');
   const herramientas = tramo(PERFIL, 'herramientas={rolAdmin ? (', 'pie={(', 1_600);
   assert.doesNotMatch(herramientas, /Pedirle un cambio a MaKo/, 'el ✦ volvió a la fila del zoom');

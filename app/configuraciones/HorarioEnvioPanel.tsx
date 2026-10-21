@@ -53,7 +53,7 @@ function opcionesDeZona(actual: string) {
 }
 
 /** El interruptor de la casa (el de «Activar» de una automatización). */
-function Interruptor({ on, disabled, onCambio, etiqueta }: { on: boolean; disabled?: boolean; onCambio: (v: boolean) => void; etiqueta: string }) {
+export function Interruptor({ on, disabled, onCambio, etiqueta }: { on: boolean; disabled?: boolean; onCambio: (v: boolean) => void; etiqueta: string }) {
   return (
     <button type="button" role="switch" aria-checked={on} aria-label={etiqueta} title={etiqueta} disabled={disabled} onClick={() => onCambio(!on)}
       style={{ width: 46, height: 26, borderRadius: 999, border: 'none', padding: 3, flex: 'none', background: on ? 'var(--good)' : 'var(--border-strong)', cursor: disabled ? 'default' : 'pointer', transition: 'background .15s' }}>
@@ -68,11 +68,30 @@ function Interruptor({ on, disabled, onCambio, etiqueta }: { on: boolean; disabl
  * app/automations/ConfiguracionesBoton.tsx, que reemplazó al panel anclado del horario en la décima tanda):
  *   · `onGuardado` — justo después de guardar bien, con el horario guardado (lo usaba el botón del horario
  *     para ponerse al día; el de Configuraciones no muestra el horario y no lo pasa);
- *   · `onSucio` — si hay un guardado pendiente: el modal no se cierra mientras tanto.
+ *   · `onSucio` — si hay un guardado pendiente: el modal no se cierra mientras tanto;
+ *   · `fuente` (20/10/2026) — de dónde lee y dónde guarda: sin ella, el horario del NEGOCIO; con ella, el de UNA
+ *     automatización (app/automations/ConfigAutomatizacionPanel.tsx). La zona es siempre la del negocio.
  */
-export function HorarioEnvioPanel({ onGuardado, onSucio }: {
+export type FuenteHorario = {
+  leer: () => Promise<{ horario: HorarioEnvio; zona: string; puedeEditar: boolean }>;
+  guardar: (h: HorarioEnvio) => Promise<{ ok: boolean; error?: string; horario?: HorarioEnvio }>;
+  /** El título del recuadro (sin esto, «Horario de oficina»). */
+  titulo?: string;
+  /**
+   * ⚠️ EL HUSO SE VE, NO SE EDITA (revisión del 20/10/2026). Es el de TODO el negocio (`mako.timezone`): elegir Madrid en la
+   * tuerca de UNA automatización dejaba a todas las demás mandando de madrugada. Con esto, «Huso del negocio: …» como
+   * texto; se cambia en Configuraciones › Horario.
+   */
+  zonaSoloLectura?: true;
+};
+/** El huso, de sólo lectura en el horario de UNA automatización (`zonaSoloLectura`). */
+export const ROTULO_ZONA_NEGOCIO = 'Huso del negocio';
+const FUENTE_NEGOCIO: FuenteHorario = { leer: () => getHorarioEnvioAction(), guardar: (h) => saveHorarioEnvioAction(h) };
+
+export function HorarioEnvioPanel({ onGuardado, onSucio, fuente = FUENTE_NEGOCIO }: {
   onGuardado?: (h: HorarioEnvio) => void;
   onSucio?: (sucio: boolean) => void;
+  fuente?: FuenteHorario;
 }) {
   const [h, setH] = useState<HorarioEnvio | null>(null);
   const [zona, setZona] = useState('');
@@ -85,7 +104,7 @@ export function HorarioEnvioPanel({ onGuardado, onSucio }: {
 
   useEffect(() => {
     let vivo = true;
-    getHorarioEnvioAction()
+    fuente.leer()
       .then((d) => { if (!vivo) return; setH(d.horario); setZona(d.zona); setPuedeEditar(d.puedeEditar); })
       .catch(() => { if (vivo) setAviso('No pude leer el horario.'); });
     return () => { vivo = false; if (respiro.current) clearTimeout(respiro.current); };
@@ -111,7 +130,7 @@ export function HorarioEnvioPanel({ onGuardado, onSucio }: {
     setEnVuelo(true);
     const n = ++pedido.current;
     respiro.current = setTimeout(() => {
-      void saveHorarioEnvioAction(nuevo)
+      void fuente.guardar(nuevo)
         .catch(() => ({ ok: false, error: 'No se pudo guardar.' } as const))
         .then((r) => {
           if (n !== pedido.current) return;
@@ -136,7 +155,7 @@ export function HorarioEnvioPanel({ onGuardado, onSucio }: {
   return (
     <div style={card}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontFamily: SANS }}>
-        <span style={{ fontSize: 15.5, fontWeight: 700, color: 'var(--ink)' }}>Horario de oficina</span>
+        <span style={{ fontSize: 15.5, fontWeight: 700, color: 'var(--ink)' }}>{fuente.titulo ?? 'Horario de oficina'}</span>
         <Interruptor on={h.activo} disabled={off} etiqueta={h.activo ? 'Apagar el horario de oficina' : 'Prender el horario de oficina'} onCambio={(v) => cambiar({ activo: v })} />
       </div>
 
@@ -152,9 +171,15 @@ export function HorarioEnvioPanel({ onGuardado, onSucio }: {
               <Dropdown value={String(h.hasta)} options={HASTA} width={104} ariaLabel="Hasta" disabled={off} onChange={(v) => cambiar({ hasta: Number(v) })} />
             </>
           )}
-          <div style={{ flex: '1 1 160px', minWidth: 0 }}>
-            <Dropdown value={zona} options={opcionesDeZona(zona)} width="100%" search ariaLabel="Huso horario" disabled={off} onChange={cambiarZona} />
-          </div>
+          {fuente.zonaSoloLectura ? (
+            <span data-zona-del-negocio="" style={{ flex: '1 1 160px', minWidth: 0, fontSize: 13, color: 'var(--dim)' }}>
+              {ROTULO_ZONA_NEGOCIO}: {opcionesDeZona(zona).find((o) => o.value === zona)?.label ?? zona}
+            </span>
+          ) : (
+            <div style={{ flex: '1 1 160px', minWidth: 0 }}>
+              <Dropdown value={zona} options={opcionesDeZona(zona)} width="100%" search ariaLabel="Huso horario" disabled={off} onChange={cambiarZona} />
+            </div>
+          )}
         </div>
         {/* Los días CENTRADOS en el recuadro (décima tanda de Automations, general 3, 11/10/2026: «En "Horarios
             de Oficina" pon los días centrado en el recuadro, no alineado a la izquierda»). */}
