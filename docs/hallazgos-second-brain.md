@@ -2104,6 +2104,10 @@ seguía, así que tocar «Mentoría» apagaba los diseños con «Respondiste: Me
   escrito IDÉNTICO a un botón viejo («Mentoría», con mayúscula y tilde) no se distingue de un toque: cierra el viejo.
 - **Cómo se midió:** la revisión comparó contra producción 9.000 hilos armados de 1 a 12 turnos (vivo y recargando): 0
   diferencias con texto libre. Para tocar `conRespuestas`, esa comparación es la vara, no un caso suelto.
+- **Comparar «tal cual» pide que lo guardado y lo que manda el botón sean el MISMO texto.** El saneo (`texto` en
+  lib/chat-bloques.ts y en lib/editor-landing/bloques-web.ts) recortaba ANTES de cortar al tope: un título largo cortado
+  justo en un espacio quedaba terminado en uno, la pantalla mandaba el toque recortado, y el selector viejo no se
+  reconocía (en vivo y al recargar no daba lo mismo). Ahora recorta también después de cortar.
 
 ## «Abrir en la app», y lo confirmado afuera vuelve al hilo (20/10/2026, ola 1, pieza 1.8)
 

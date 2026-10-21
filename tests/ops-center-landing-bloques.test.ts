@@ -56,6 +56,7 @@
 //   F3  un «Saltear» nuevo cierra también los viejos → 12 / 1 · F4 el turno no se corta en el mensaje de la persona → 12 / 1
 //   (8ª revisión, sobre 13 / 0; las 2 en rojo y restauradas)
 //   G1  un selector viejo se cierra con lo escrito parecido → 12 / 1 · G2 el del turno actual pide el texto tal cual → 12 / 1
+//   (9ª revisión, sobre 13 / 0) H1 el saneo del marco deja un espacio al final → 12 / 1 · H2 el del «elegir» también → 12 / 1
 //
 // Correr: node --import tsx --test tests/ops-center-landing-bloques.test.ts
 // =============================================================================
@@ -338,6 +339,20 @@ test('elegir: lo elegido sale como un mensaje que dice QUÉ se eligió, y el hil
   const tema = { k: 'bloque' as const, id: 't', b: elegirTema('mako', TEMAS) };
   assert.deepEqual(viejoEscrito('saltear', tema), ['Diseño: Minimal', null, 'saltear'], 'cierra el tema actual, no el G1 viejo');
   assert.deepEqual(viejoEscrito('Curso Kairos', cobro), ['Diseño: Minimal', 'Curso Kairos', null], 'el toque tal cual del viejo, sí');
+  // Un título largo que el saneo corta justo en un espacio (9ª revisión): lo guardado y lo que manda el botón (recortado
+  // por la pantalla) tienen que ser iguales, o el toque en un selector viejo no se reconoce.
+  const largo = `${'A'.repeat(79)} ${'B'.repeat(10)}`;
+  const g1Largo = sanearBloque({ t: 'pregunta', pregunta: '¿Cuál?', opciones: [{ titulo: largo }, { titulo: 'Otra' }] });
+  const tituloLargo = g1Largo?.t === 'pregunta' ? g1Largo.opciones[0].titulo : '';
+  assert.equal(tituloLargo, 'A'.repeat(79), 'el saneo no deja un espacio al final');
+  const g2Largo = sanearBloque({ ...elegirDiseno(), opciones: elegirDiseno().opciones.map((o, i) => (i ? o : { ...o, titulo: largo })) });
+  assert.equal(g2Largo?.t === 'elegir' ? g2Largo.opciones[0].titulo : '', 'A'.repeat(79), 'tampoco en el «elegir» del Web Generator');
+  const conLargo = conRespuestas([
+    { k: 'bloque', id: 'g2', b: elegirDiseno() }, { k: 'bloque', id: 'g', b: g1Largo! },
+    { k: 'msg', id: 'u1', role: 'user', texto: 'Diseño: Minimal', at: null } as never,
+    { k: 'bloque', id: 'n', b: objetivo }, { k: 'msg', id: 'u2', role: 'user', texto: tituloLargo.trim(), at: null } as never,
+  ]).filter((x) => x.k === 'bloque').map((x) => (x.k === 'bloque' ? x.respondida ?? null : null));
+  assert.deepEqual(conLargo, ['Diseño: Minimal', 'A'.repeat(79), null], 'el toque en el viejo lo cierra a él, no a la pregunta nueva');
   // Los que esperan cada mensaje son los de ESE turno: uno de un turno anterior, ya contestado, no cuenta.
   const tras = conRespuestas([
     { k: 'bloque', id: 'g1', b: producto }, { k: 'msg', id: 'u1', role: 'user', texto: 'Mentoría', at: null } as never,
