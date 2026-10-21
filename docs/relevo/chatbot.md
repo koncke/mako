@@ -1,5 +1,17 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **21/10/2026 (`claude4`): EL AVISO DE DUPLICADA SE DECIDE POR HECHOS.** Después de tres rondas de reglas sobre el
+> parecido del texto (decisión del Cerebro: «no hagas otra»), `duplicadaDe` (lib/automatizacion-duplicada.ts) avisa
+> SIEMPRE que otra activa le escribe a la misma gente, por el mismo canal y con horarios que se pisan, y el aviso trae
+> el arranque de los dos mensajes. El parecido sólo ordena. Medido: 0 de 34 duplicados sin aviso; en la base, ninguna
+> activa lo recibe hoy. «MaKo escribe tu nutrición» deja el copy quieto mientras guarda. Cosecha: hallazgos-chatbot.
+>
+> **21/10/2026 (`claude4`): PUBLICAR UNA ACTIVA PREGUNTA EN TODOS LOS CAMINOS.** `publicarPasos` (lib/nutricion.ts) pregunta
+> por la duplicada antes de escribir; lo usan la ruta del lienzo y el teléfono, /email › Guardar (con la etapa o el
+> disparador nuevos), «MaKo escribe tu nutrición» › Aprobar («Guardar igual») y la API de MaKo (lo dice en la propuesta).
+> El sistema sigue con `setSecuenciaPasos` (lista con su motivo en tests/automations-activar-todos-los-caminos.test.ts,
+> que ahora mira también los .mts). (La firma del negocio se fue el mismo día: el aviso ya no mira el texto, ver arriba.)
+>
 > **21/10/2026 (`claude4`): EL AVISO DE DUPLICADA, EN EL SERVER.** `setSecuenciaActiva` pregunta (409 `duplicada`) salvo con
 > `aunqueDuplique`; Publicar una activa también. Lo manejan el lienzo, el «⋯», el teléfono (/m/automations), /email (el
 > interruptor y «MaKo escribe tu nutrición») y la API de MaKo (lo dice en la propuesta). El aviso de una activa se

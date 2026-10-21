@@ -69,8 +69,15 @@ export function NutricionGenerar({ onAplicado }: { onAplicado?: () => void } = {
   const [verAntes, setVerAntes] = useState<number | null>(null);
   const [busy, setBusy] = useState<number | 'apply' | null>(null);
   const [msg, setMsg] = useState<{ t: 'ok' | 'err'; x: string } | null>(null);
-  /** El server no la prendió porque otra activa ya le escribe lo mismo a la misma gente: se ofrece «Activar igual». */
-  const [activarIgual, setActivarIgual] = useState(false);
+  /**
+   * El server la frenó porque otra activa ya le escribe lo mismo a la misma gente (al guardar el copy de una ACTIVA, o al
+   * prenderla): se ofrece «… igual» con el rótulo de lo que se frenó. null = nada que preguntar.
+   */
+  const [activarIgual, setActivarIgual] = useState<'Guardar igual' | 'Activar igual' | null>(null);
+  // ⚠️ «… IGUAL» CONFIRMA SÓLO LA GEMELA QUE SE ACABA DE VER (revisión del 21/10/2026): se apaga al cambiar de secuencia o
+  // de texto (Volver, otra secuencia, Reescribir, generar, editar un paso). Quedaba colgado y publicaba otra secuencia, u
+  // otro texto, con `aunqueDuplique` sin mostrar su gemela.
+  useEffect(() => { setActivarIgual(null); }, [sel?.id, draft]);
   const [estados, setEstados] = useState<Record<number, string>>({}); // orden → status plantilla
   const [submitting, setSubmitting] = useState<number | null>(null);   // orden en envío a Meta
   const [cola, setCola] = useState<number[]>([]);                      // modo "todas": ids que faltan revisar
@@ -152,9 +159,16 @@ export function NutricionGenerar({ onAplicado }: { onAplicado?: () => void } = {
 
   async function aplicar(o: { aunqueDuplique?: boolean } = {}) {
     if (!sel) return;
-    setBusy('apply'); setMsg(null); setActivarIgual(false);
+    setBusy('apply'); setMsg(null); setActivarIgual(null);
     try {
-      const j = await jpost<{ ok: boolean; error?: string }>('/api/mako/nutricion', { action: 'aplicar', secuenciaId: sel.id, pasos: draft });
+      const j = await jpost<{ ok: boolean; error?: string; duplicada?: unknown }>('/api/mako/nutricion', { action: 'aplicar', secuenciaId: sel.id, pasos: draft, ...(o.aunqueDuplique ? { aunqueDuplique: true } : {}) });
+      // Una ACTIVA: guardar el copy es publicarlo (21/10/2026). Si otra activa le escribe lo mismo a la misma gente, no se
+      // guardó nada: se dice y se ofrece «Guardar igual».
+      if (!j.ok && j.duplicada) {
+        setMsg({ t: 'err', x: `No guardé el copy de «${sel.nombre}»: ${String(j.error)}.` });
+        setActivarIgual('Guardar igual');
+        return;
+      }
       if (!j.ok) throw new Error(j.error || 'No se pudo guardar');
       // Aprobar el copy PRENDE la secuencia (#18): es seguro — los pasos WA
       // oficiales no salen hasta que Meta apruebe su plantilla (guard del motor)
@@ -170,7 +184,7 @@ export function NutricionGenerar({ onAplicado }: { onAplicado?: () => void } = {
         // El copy quedó guardado; se dice y se ofrece «Activar igual», como en Automations.
         if (!activada && act?.duplicada) {
           setMsg({ t: 'err', x: `El copy de «${sel.nombre}» se guardó, pero no la activé: ${String(act.error)}.` });
-          setActivarIgual(true);
+          setActivarIgual('Activar igual');
           return;
         }
         // El copy ya quedó guardado (idempotente): si la activación falló, se
@@ -221,7 +235,7 @@ export function NutricionGenerar({ onAplicado }: { onAplicado?: () => void } = {
               {activarIgual && (
                 <button type="button" onClick={() => void aplicar({ aunqueDuplique: true })} disabled={busy != null}
                   style={{ marginLeft: 10, border: 'none', background: 'transparent', padding: 0, fontSize: 13, fontWeight: 700, color: 'var(--primary)', cursor: 'pointer' }}>
-                  Activar igual
+                  {activarIgual}
                 </button>
               )}
             </div>}
@@ -287,13 +301,15 @@ export function NutricionGenerar({ onAplicado }: { onAplicado?: () => void } = {
                         </div>
                       )}
 
+                      {/* Quietos mientras se guarda (o MaKo reescribe, o va a Meta): un texto editado a mitad del guardado
+                          dejaba «Guardar igual» armado para el texto de ANTES, y reescribir pisaba lo tecleado. */}
                       {p.canal === 'email' && (
                         <>
-                          <input value={p.asunto ?? ''} onChange={(e) => editPaso(i, 'asunto', e.target.value)} placeholder="Asunto" style={{ ...inp, fontWeight: 600, marginBottom: '8px' }} />
-                          <input value={p.preheader ?? ''} onChange={(e) => editPaso(i, 'preheader', e.target.value)} placeholder="Preheader (vista previa)" style={{ ...inp, marginBottom: '8px' }} />
+                          <input value={p.asunto ?? ''} onChange={(e) => editPaso(i, 'asunto', e.target.value)} disabled={ocupado} placeholder="Asunto" style={{ ...inp, fontWeight: 600, marginBottom: '8px' }} />
+                          <input value={p.preheader ?? ''} onChange={(e) => editPaso(i, 'preheader', e.target.value)} disabled={ocupado} placeholder="Preheader (vista previa)" style={{ ...inp, marginBottom: '8px' }} />
                         </>
                       )}
-                      <textarea value={p.cuerpo} onChange={(e) => editPaso(i, 'cuerpo', e.target.value)} rows={p.canal === 'email' ? 5 : 3} style={{ ...inp, resize: 'vertical' }} />
+                      <textarea value={p.cuerpo} onChange={(e) => editPaso(i, 'cuerpo', e.target.value)} disabled={ocupado} rows={p.canal === 'email' ? 5 : 3} style={{ ...inp, resize: 'vertical' }} />
 
                       {p.canal === 'whatsapp' && (
                         <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -303,8 +319,8 @@ export function NutricionGenerar({ onAplicado }: { onAplicado?: () => void } = {
                               {/* El seleccionado sale de `proveedorDelPaso`, el MISMO que usa el motor:
                                   con `p.proveedor !== 'no_oficial'` la pantalla marcaba «Oficial» en
                                   todo paso sin el campo y el motor mandaba por el otro. */}
-                              <button onClick={() => setProv(i, 'oficial')} style={segBtn(proveedorDelPaso(p) === 'oficial')}>Oficial (Meta)</button>
-                              <button onClick={() => setProv(i, 'no_oficial')} style={segBtn(proveedorDelPaso(p) === 'no_oficial')}>No oficial</button>
+                              <button onClick={() => setProv(i, 'oficial')} disabled={ocupado} style={segBtn(proveedorDelPaso(p) === 'oficial')}>Oficial (Meta)</button>
+                              <button onClick={() => setProv(i, 'no_oficial')} disabled={ocupado} style={segBtn(proveedorDelPaso(p) === 'no_oficial')}>No oficial</button>
                             </div>
                           </div>
 

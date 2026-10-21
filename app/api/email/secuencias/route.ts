@@ -10,7 +10,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { setSecuenciaActiva, setSecuenciaPasos, DuplicadaError, PasosInvalidosError, type PasoSecuencia } from '@/lib/nutricion';
+import { setSecuenciaActiva, publicarPasos, duplicadaDeLaActivacion, DuplicadaError, PasosInvalidosError, type PasoSecuencia } from '@/lib/nutricion';
 import {
   getEmailKpis, getEmailSecuencias, crearEmailSecuencia, actualizarMetaEmailSecuencia, DisparadorEmailError,
   ETAPAS, TRIGGERS,
@@ -54,12 +54,26 @@ export async function PATCH(req: NextRequest) {
       return Response.json({ ok: false, error: 'id inválido' }, { status: 400 });
     }
 
-    if (Array.isArray(body.pasos)) {
-      // Las secuencias de email son single-channel: forzamos canal='email' en cada
-      // paso para que la tab nunca convierta una secuencia en mixta sin querer.
-      const pasos = (body.pasos as PasoSecuencia[]).map((p) => ({ ...p, canal: 'email' as const, template_wa: null }));
-      await setSecuenciaPasos(id, pasos);
+    // Las secuencias de email son single-channel: forzamos canal='email' en cada
+    // paso para que la tab nunca convierta una secuencia en mixta sin querer.
+    const pasos = Array.isArray(body.pasos) ? (body.pasos as PasoSecuencia[]).map((p) => ({ ...p, canal: 'email' as const, template_wa: null })) : null;
+    // ⚠️ GUARDAR UNA ACTIVA ES PRENDER LO NUEVO (revisión del 21/10/2026): con los pasos, la etapa o el disparador nuevos,
+    // si otra activa le escribe lo mismo a la misma gente se pregunta (409 `duplicada`) ANTES de escribir nada.
+    const cambiaAQuien = typeof body.etapa === 'string' || typeof body.trigger === 'string' || 'etiquetaId' in body;
+    const yaPregunto = body.aunqueDuplique === true;
+    if (!yaPregunto && cambiaAQuien) {
+      const otra = await duplicadaDeLaActivacion(id, {
+        ...(pasos ? { pasos } : {}), soloSiActiva: true,
+        columnas: {
+          ...(typeof body.etapa === 'string' && body.etapa ? { etapa: body.etapa } : {}),
+          ...(typeof body.trigger === 'string' && body.trigger ? { trigger_tipo: body.trigger } : {}),
+          ...('etiquetaId' in body ? { etiqueta_id: body.etiquetaId } : {}),
+        },
+      });
+      if (otra) throw new DuplicadaError(otra);
     }
+    // Sin cambio de a quién, la pregunta la hace `publicarPasos`; con él, ya se hizo arriba con todo lo nuevo junto.
+    if (pasos) await publicarPasos(id, pasos, { aunqueDuplique: yaPregunto || cambiaAQuien });
     if (typeof body.nombre === 'string' || typeof body.etapa === 'string' || typeof body.trigger === 'string') {
       await actualizarMetaEmailSecuencia(id, {
         nombre: typeof body.nombre === 'string' ? body.nombre : undefined,

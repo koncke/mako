@@ -122,7 +122,8 @@ test('Publicar: 409 con el medio ANTES de guardar; GUARDAR (setSecuenciaPasos) n
   const ruta = fuente('app/api/whatsapp/secuencias/route.ts');
   const patch = bloque(ruta, 'if (Array.isArray(body.pasos)) {', 'if (typeof body.activa');
   const i409 = patch.indexOf('if (medios.falta) return Response.json({ ok: false, error: medios.falta.error, medio: medios.falta.medio }, { status: 409 });');
-  const iGuarda = patch.indexOf('await setSecuenciaPasos(id, body.pasos as PasoSecuencia[]);');
+  // 21/10/2026: Publicar escribe por `publicarPasos` (pregunta por la duplicada antes de `setSecuenciaPasos`).
+  const iGuarda = patch.indexOf('await publicarPasos(id, body.pasos as PasoSecuencia[], { aunqueDuplique: body.aunqueDuplique === true });');
   assert.ok(i409 > 0 && iGuarda > i409, 'Publicar guarda un flujo con el medio sin conectar');
   // Duodécima tanda: con el CRON (tests/publicar-cron-social.test.ts), y «no pude comprobarlo» sigue sin frenar.
   assert.match(patch, /const medios = await medioSinConectar\(body\.pasos as PasoSecuencia\[\], linea, disparadores\)\.catch\(\(\) => SIN_MEDIOS\);/, '«no pude comprobarlo» no frena');
