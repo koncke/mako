@@ -736,6 +736,10 @@ Orden sugerido para Ops Center 3: 1.1 → 1.7 → 1.8 → 1.10 → 1.11 → 1.9.
 
 En los tres casos, el grupo de WhatsApp sigue anotando como idea.
 
+> **DECIDIDO (Martín, 21/10 01:25, pregunta `e1a9c7c5`): A, propone con una tarjeta.** Cuando MaKo duda en el chat de
+> la app, arma la acción y la muestra en una tarjeta, y no hace nada hasta que la persona la toca. Es lo que ya
+> estaban haciendo los chats; la 1.2 queda destrabada. El grupo de WhatsApp sigue anotando como idea.
+
 **D2. Lo que mueve plata en un toque.** Incluye el presupuesto, activar, borrar o crear en Meta; reembolsar; cancelar una suscripción de Stripe o Mercado Pago; darse de baja de MaKo. Hoy va a una pantalla aparte a propósito.
 - A) Tarjeta en el chat con el monto antes → después y doble confirmación.
 - B) Sigue en una pantalla aparte: 8 de las 13 acciones de Meta seguirían sacando a la persona del chat.
