@@ -555,4 +555,22 @@ export const BITACORA: Hito[] = [
       'tests/ops-center-clasificador-app.test.ts — la red recorre el registro entero y las 11 frases de la nota, cada una con su rotura',
     ],
   },
+  {
+    fecha: '21 oct', hora: '04:30', chat: 'MaKo Alert', sesion: 'local_d3ed9496-3ca1-4037-abc2-a59ce57d3f9d', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Hecho: lo que le llega a un tercero se confirma por WhatsApp con un «sí» y nada más (el pedido del Cerebro al revisar la 2.1 de CRM)',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '⚠️ **La regex `CONFIRMACION` arranca con `^` y no cierra:** «ok, esperá que lo reviso», «perfecto, después lo veo» o «sí pero cambiale la hora» llegaban como confirmación de la pendiente. Para lo interno cuesta poco; para un email, una invitación o un link de pago a otra persona, no se deshace.',
+      '**La red es una puerta de código, no más palabras:** las doce acciones de chat que le llegan a un tercero llevan `aTerceros: true`, y `confirmarPendiente` (y el camino viejo de `confirmar_accion`) no las ejecuta por WhatsApp si el mensaje no es una confirmación pura (lib/confirmacion-pura.ts); la pendiente sigue viva y MaKo repregunta mostrando qué va a salir. Un test frena la acción nueva que dice que le llega a alguien y no está marcada.',
+      '**Medido (60 días, producción, por SHA):** hoy no pasa en la práctica: 8 confirmaciones por el «sí» del grupo, las 8 de agendar un evento y las 8 con un «Si» solo. Pero de 22 mensajes reales que llegan a `confirmar`, 13 no son una confirmación («Si 18 de noviembre», «Ok, decime que reuniónes tengo hoy»). WhatsApp: 593.784 turnos, 0 cambian.',
+      '**Sin hacer:** las acciones nuevas de CRM 2.1 (`enviar_borrador_whatsapp`, `contestar_dm`, `contestar_email_chat`) tienen que llevar `aTerceros: true` al entrar a main; las de efecto indirecto (una etiqueta que dispara una automatización) no se marcan.',
+    ],
+    archivos: [
+      'lib/confirmacion-pura.ts — `confirmacionPura` y la puerta `rechazoSiNoEsConfirmacionPura` (puro)',
+      'lib/api-mako/acciones.ts y lib/mako-doer-acciones.ts — la puerta antes de reclamar la pendiente',
+      'lib/api-mako/tipos.ts y areas/*.def.ts — `aTerceros` en las doce acciones',
+      'tests/confirmacion-terceros.test.ts — 8 tests, 10 roturas con su fallo',
+    ],
+  },
 ];
