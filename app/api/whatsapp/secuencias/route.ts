@@ -14,7 +14,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { getSecuenciasConStats, setSecuenciaActiva, setSecuenciaPasos, setSecuenciaLinea, setSecuenciaReentrada, vozDeAIStepQueFalta, PasosInvalidosError, type PasoSecuencia } from '@/lib/nutricion';
+import { getSecuenciasConStats, setSecuenciaActiva, setSecuenciaPasos, setSecuenciaLinea, setSecuenciaReentrada, vozDeAIStepQueFalta, duplicadaDeLaActivacion, DuplicadaError, PasosInvalidosError, type PasoSecuencia } from '@/lib/nutricion';
 import { getRolWsEfectivo, getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { envioWhatsappHabilitado, envioEmailHabilitado } from '@/lib/envio-flags';
 import { asegurarAvisosSociales, disparadoresDeSecuencia, lineaDeSecuencia, medioSinConectar, SIN_MEDIOS } from '@/lib/disparadores-canales';
@@ -45,7 +45,7 @@ export async function PATCH(req: NextRequest) {
   if ((await getRolWsEfectivo()) !== 'admin') {
     return Response.json({ ok: false, error: 'Solo el admin del workspace puede editar las secuencias.' }, { status: 403 });
   }
-  let body: { id?: unknown; activa?: unknown; pasos?: unknown; linea?: unknown; visto?: unknown; reentrada?: unknown };
+  let body: { id?: unknown; activa?: unknown; pasos?: unknown; linea?: unknown; visto?: unknown; reentrada?: unknown; aunqueDuplique?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -81,6 +81,12 @@ export async function PATCH(req: NextRequest) {
       // Y la voz de un AI Step que contesta en audio (AI Step v2, §1). «No pude comprobarlo» no frena.
       const sinVoz = await vozDeAIStepQueFalta(body.pasos as PasoSecuencia[]).catch(() => null);
       if (sinVoz) return Response.json({ ok: false, error: `No se guardó: ${sinVoz}.` }, { status: 400 });
+      // PUBLICAR UNA ACTIVA ES PRENDER LO NUEVO (revisión del 21/10/2026): si con estos pasos le escribe lo mismo a la
+      // misma gente que otra activa, se pregunta (409 `duplicada`), como al activar. Sin escribir nada todavía.
+      if (body.aunqueDuplique !== true) {
+        const otra = await duplicadaDeLaActivacion(id, { pasos: body.pasos as PasoSecuencia[], soloSiActiva: true });
+        if (otra) throw new DuplicadaError(otra);
+      }
       await setSecuenciaPasos(id, body.pasos as PasoSecuencia[]);
       // QUE ZERNIO LE AVISE A MAKO (§2.11): con Instagram o Messenger conectado, el webhook. Una falla no frena.
       if (medios.sociales.length) {
@@ -89,7 +95,7 @@ export async function PATCH(req: NextRequest) {
       }
     }
     if (typeof body.activa === 'boolean') {
-      await setSecuenciaActiva(id, body.activa);
+      await setSecuenciaActiva(id, body.activa, { aunqueDuplique: body.aunqueDuplique === true });
     }
     // De qué línea sale (`null` o "" = la de por default). La valida lib/nutricion.ts.
     if ('linea' in body) {
@@ -104,6 +110,8 @@ export async function PATCH(req: NextRequest) {
     // primer motivo, que es lo que la pantalla muestra.
     // Con la TARJETA culpable cuando el error es de una (los datos que no existen, undécima tanda): el lienzo la abre.
     if (err instanceof PasosInvalidosError) return Response.json({ ok: false, error: msg, ...(err.tarjeta ? { tarjeta: err.tarjeta } : {}) }, { status: 400 });
+    // Otra activa ya le escribe lo mismo a la misma gente: la pantalla pregunta y, con «… igual», vuelve con `aunqueDuplique`.
+    if (err instanceof DuplicadaError) return Response.json({ ok: false, error: msg, duplicada: err.otra }, { status: 409 });
     console.error(`[api:whatsapp/secuencias PATCH] ${msg}`);
     return Response.json({ ok: false, error: msg }, { status: 500 });
   }

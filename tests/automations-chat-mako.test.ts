@@ -234,6 +234,7 @@ test('editar con `disparadores` los guarda YA por action «disparadores» (la de
   assert.match(otra, /if \(edicionTocaPasos\(r\)\) \{\s*if \(!edicionVigente\(r\.base, pasos\)\) \{ setErr\('Cambiaste el flujo: pídelo de nuevo'\); return false; \}\s*fotoAntes\(\);\s*setPasos\(nuevos\);\s*\}/);
   assert.match(otra, /if \(r\.disparadores\?\.length\) crons\.guardar\(r\.disparadores\);/);
   assert.doesNotMatch(otra, /setEditandoIA\(false\)/, 'el chat se cierra al terminar: el resumen y la pregunta no se ven');
+  // (Revisión del 21/10/2026: el aviso de duplicada de una activa ya no cuelga del guardado del CRON: se calcula de lo que hay.)
   assert.match(PERFIL, /const crons = useDisparadores\(secuencia as SecuenciaConDisparadores, \{ onCambio, onError: \(m\) => setErr\(m\) \}\);/);
   // `crons.guardar` es el POST del panel del CRON (y relee la lista: `onCambio`).
   const editor = sinComentarios(leer('app/automations/EditorDisparadores.tsx'));

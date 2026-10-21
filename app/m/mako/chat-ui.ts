@@ -68,7 +68,8 @@ export type ItemHilo =
   /** Lo que el chat DIBUJA (lib/chat-bloques.ts, app/_chat/BloqueHilo.tsx): lo creado con su miniatura, el antes y el
    *  después, un trabajo largo, una pregunta con opciones. Lo de MaKo, a la izquierda. */
   /** `respondida`: una pregunta (G1) que la persona ya contestó (su mensaje siguiente), al recargar. */
-  | { k: 'bloque'; id: string; b: Bloque; respondida?: string };
+  /** `deTarjeta`: el G6 de un trabajo largo que lanzó esa tarjeta (1.11). */
+  | { k: 'bloque'; id: string; b: Bloque; respondida?: string; deTarjeta?: number };
 
 /** Lo que dice el botón de un aviso con `conectar`. La IA se nombra como la persona la piensa, no por el proveedor. */
 export const botonConectar = (servicio: string): string => (servicio === 'gemini' ? 'Conectar tu IA' : 'Conectar');
@@ -112,8 +113,9 @@ export function itemsDeSesion(mensajes: readonly MensajeChat[], propuestas: read
   ]);
 }
 
-/** Una pregunta (G1) seguida de un mensaje de la persona ya está contestada: con eso (1.9). */
-function conRespuestas(xs: ItemHilo[]): ItemHilo[] {
+/** Una pregunta (G1) seguida de un mensaje de la persona ya está contestada: con eso (1.9). Lo usan también las
+ *  pantallas al dibujar (revisión del 21/10/2026): contestar escribiendo apaga las opciones en el acto, no al recargar. */
+export function conRespuestas(xs: readonly ItemHilo[]): ItemHilo[] {
   return xs.map((x, i) => {
     if (x.k !== 'bloque' || x.b.t !== 'pregunta') return x;
     const siguiente = xs.slice(i + 1).find((y): y is Extract<ItemHilo, { k: 'msg' }> => y.k === 'msg' && y.role === 'user');
@@ -126,10 +128,17 @@ function conRespuestas(xs: ItemHilo[]): ItemHilo[] {
  * resultado (`bloques`, la 1.7), sin recargar. Lo usan TODAS las pantallas del chat con MaKo: una no puede mostrar la
  * miniatura y otra no.
  */
-export function itemsTrasTarjeta(r: ResultadoTarjeta): ItemHilo[] {
+export function itemsTrasTarjeta(r: ResultadoTarjeta, pendienteId?: number): ItemHilo[] {
   const avisos = (r.paraLaPersona ?? []).filter((t) => t.trim()).map((t): ItemHilo => ({ k: 'aviso', id: idLocal('v'), texto: t, tono: 'mako' }));
-  const bloques = r.ok ? (r.bloques ?? []).map((b): ItemHilo => ({ k: 'bloque', id: idLocal('b'), b })) : [];
+  // El G6 de un trabajo largo sabe de qué tarjeta es: al terminar, ella deja de decir «En curso» (`trasTrabajo`).
+  const deTarjeta = r.ok && r.enCurso && pendienteId != null ? { deTarjeta: pendienteId } : {};
+  const bloques = r.ok ? (r.bloques ?? []).map((b): ItemHilo => ({ k: 'bloque', id: idLocal('b'), b, ...(b.t === 'trabajo' ? deTarjeta : {}) })) : [];
   return [...avisos, ...bloques];
+}
+
+/** La tarjeta cuyo trabajo largo terminó mientras se miraba (1.11; revisión del 21/10/2026: quedaba «En curso»). */
+export function trasTrabajo(xs: readonly ItemHilo[], pendienteId: number, ok: boolean): ItemHilo[] {
+  return conTarjeta(xs, pendienteId, ok ? 'hecho' : 'fallo');
 }
 
 /**
@@ -140,7 +149,7 @@ export function itemsTrasTarjeta(r: ResultadoTarjeta): ItemHilo[] {
 export function conTarjeta(xs: readonly ItemHilo[], pendienteId: number, estado: EstadoPropuesta, nota?: string, r?: ResultadoTarjeta): ItemHilo[] {
   const abrir = r?.ok ? r.abrir : undefined;
   const sig = xs.map((x) => (x.k === 'propuesta' && x.t.pendienteId === pendienteId ? { ...x, estado, nota, ...(abrir ? { abrir } : {}) } : x));
-  return r ? [...sig, ...itemsTrasTarjeta(r)] : sig;
+  return r ? [...sig, ...itemsTrasTarjeta(r, pendienteId)] : sig;
 }
 
 /**

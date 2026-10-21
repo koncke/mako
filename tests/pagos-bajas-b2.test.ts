@@ -86,7 +86,8 @@ test('⚠️ un pago de suscripción NUEVO reabre la del lead aunque ya esté ga
 
 test('⚠️ volver a cobrar una cuota a mano limpia la moneda y la etiqueta de la vez anterior; la de la pasarela no', () => {
   const cobrar = bloque(PAGOS, 'export async function cobrarCuota(');
-  assert.match(cobrar, /select\('monto_usd, fecha_esperada, pagado, proveedor'\)/);
+  // (20/10/2026, noche: lee además lo que hace falta para devolverla como estaba si la diferencia no se pudo guardar.)
+  assert.match(cobrar, /select\('monto_usd, fecha_esperada, pagado, proveedor, cobro_id, pago_hora, moneda, monto_original'\)/);
   assert.match(cobrar, /const aMano = !fila\.proveedor;/);
   assert.match(cobrar, /else if \(aMano\) \{ upd\.moneda = null; upd\.monto_original = null; \}/);
   assert.match(cobrar, /await etiquetarPago\(pagoId, datos, \{ limpiar: aMano \}\);/);
@@ -97,7 +98,9 @@ test('⚠️ volver a cobrar una cuota a mano limpia la moneda y la etiqueta de 
 
 test('⚠️ «Cortarlo» tira si no pudo escribir; el corte de marcarPago sigue sin tirar', () => {
   assert.match(bloque(PAGOS, 'export async function cortarRecordatoriosDeCuota('), /return cerrarCorridasDeCuota\(ws, pagoId, \{ tirar: true \}\);/);
-  assert.match(bloque(PAGOS, 'export async function marcarPago('), /cerrarCorridasDeCuota\(ws, pagoId\);/, 'marcarPago: que falle el corte no tumba el pago');
+  // (20/10/2026, noche: el corte de `marcarPago` y de `cobrarCuota` vive en `trasCobrar`.)
+  assert.match(bloque(PAGOS, 'export async function marcarPago('), /if \(pagado\) await trasCobrar\(/);
+  assert.match(bloque(PAGOS, 'async function trasCobrar('), /cerrarCorridasDeCuota\(ws, pagoId\);/, 'marcarPago: que falle el corte no tumba el pago');
   const corte = bloque(fuente('lib/flujo-corridas.ts'), 'export async function cerrarCorridasDeCuota(');
   assert.match(corte, /if \(error\) \{\s*if \(opts\.tirar\) throw new Error/);
   assert.match(corte, /\} catch \(e\) \{\s*if \(opts\.tirar\) throw e;/);

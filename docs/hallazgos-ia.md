@@ -4619,10 +4619,15 @@ Las cifras quedan para la próxima vez que alguien calcule un costo o un tope.
 - **La regla que impone el código, no el prompt:**
   - desde que pregunta, el turno rechaza toda acción, y una lectura sí corre, para armar las opciones;
   - lo que propuso ANTES en el mismo turno se retira también en la base: las tarjetas quedan canceladas y las
-    propuestas de pantalla, descartadas;
+    propuestas de pantalla, descartadas, cada una con SU descarte (`aRetirar` + `retirarEnSuPantalla`): la genérica, el
+    borrador del plan, la ficha de lead, la propuesta de video y el borrador de WhatsApp;
   - la pregunta se guarda con el mensaje: al recargar vuelve, y si ya hubo respuesta, se ve contestada.
 - **La persona contesta tocando** una opción, «Elige tú» o «Saltear», o escribiendo: es su siguiente mensaje. Las
   cuatro pantallas lo mandan igual.
+- **Trampa (la revisión del 21/10): «retirar en la base» sólo descartaba la genérica** (/mako/revisar). El borrador del
+  plan, la ficha de lead, el video y el WhatsApp quedaban vivos en su pantalla, el mensaje decía «confírmalo abajo» sin
+  nada abajo, y al contestar MaKo armaba otro: dos. Se retira sólo lo que creó ESTE turno (`nueva`: una igual que ya
+  estaba pendiente no es suya), y con una pregunta no sale el mensaje del borrador ni el de la ficha.
 - **Trampa:** la frase del «Hecho» («todos los martes a las 3 a todo el funnel») hoy la clasifica `capturar`, sin
   herramientas. La pregunta no viaja con ella hasta que el clasificador la mande a actuar: eso es la 1.2, con la D1.
   `tests/chat-pregunta.test.ts` lo fija para que se vea el día que cambie.
@@ -4635,8 +4640,8 @@ Las cifras quedan para la próxima vez que alguien calcule un costo o un tope.
 ## El chat de la app: el negocio con SU nombre, y el guardia de promesas prendido (20/10/2026, ola 1, pieza 1.5)
 
 **Vive en:** `lib/negocio-rotulo.ts` · `lib/mako-context.ts` (`nombreDelNegocioActual`) · `afirmaHechoDe` y
-`sanearSalida({ hecho })` en `lib/doer-salida.ts` · el contador `corridas` del turno, en `lib/mako-turno-app.ts`. Probado
-en `tests/chat-contexto-guardias.test.ts`.
+`sanearSalida({ hecho })` en `lib/doer-salida.ts` · `hechoEnElHilo` en `lib/mako-turno-app-reglas.ts` · los contadores
+`corridas` y `leidas` del turno, en `lib/mako-turno-app.ts`. Probado en `tests/chat-contexto-guardias.test.ts`.
 
 - **«NEGOCIO DE MARTÍN» en el system de TODOS los negocios:**
   - Estaba en el chat de MaKo y en el asesor de WhatsApp. «del negocio de Martín» estaba además en la retrospectiva
@@ -4649,10 +4654,18 @@ en `tests/chat-contexto-guardias.test.ts`.
 - **El guardia de promesas estaba APAGADO en la app:** `sanearSalida(respuesta, { corrioHerramientas: true })` con el
   `true` fijo. Ahora:
   - se cuenta lo que DE VERDAD corrió: lo rechazado (no permitido, o después de preguntar) no cuenta;
-  - sin nada corrido, también se marca lo que dice HECHO («Listo, ya lo armé», «te creé…», «quedó programada»): sale la
-    oración y queda «Eso no lo llegué a hacer…»;
+  - lo que dice HECHO («Listo, ya lo armé», «te creé…», «quedó programada») se juzga con lo que lo RESPALDA
+    (`RespaldoDeHecho`). En la app el turno no ejecuta nada (deja tarjetas), así que «ya le mandé» sólo vale si el hilo
+    que lee el modelo anota un «Hecho: …» (`hechoEnElHilo`). Una lectura respalda un «quedó agendada» (pudo leerlo),
+    no un «ya le mandé». Con una tarjeta en el turno no se juzga: lo que falta lo dice la tarjeta;
+  - lo sacado de un hecho dice `SIN_HECHO` («fíjate si ya quedó antes de pedírmelo de nuevo»), no `SIN_HACER`;
   - un dato del contexto («tu landing está publicada») no se toca;
   - el doer de WhatsApp sigue igual: `hecho` es una opción.
+- **Lo obvio era el error (la revisión del 21/10): «sin herramientas, lo que dice hecho es mentira».** Después de
+  confirmar una tarjeta, «¿quedó agendada?» se contesta desde el «Hecho: …» del hilo, sin correr nada, y el guardia lo
+  cambiaba por «pídemelo otra vez y lo hago»: la persona lo pedía de nuevo y se hacía dos veces. Al revés, con UNA
+  lectura corrida el guardia se apagaba entero y «ya le mandé el WhatsApp» pasaba. **Regla:** un guardia de «no lo
+  hiciste» mira qué lo respalda, no sólo si corrió algo; y lo que dice cuando corta no puede invitar a repetir.
 - **Lo obvio era el error: «traer `forzarTool` como WhatsApp».** El chat de la app piensa con razonamiento extendido
   (`thinking: adaptive`), y con él Anthropic no admite `tool_choice: any`. Además `chatClaudeTools` lo pone en TODOS los
   pasos: el turno nunca podría terminar con texto. WhatsApp lo hace con `chatCheapTools` y `toolChoicePrimerPaso`, que
@@ -4682,3 +4695,22 @@ El detalle está en las notas compartidas, `revision-clasificador-tanda-1-20-10.
 - **Un default «actuar» con `dudosa:false` desarma los candados que miran `dudosa`:** un «ahí hice la prueba» volvió a crear un borrador del Plan (el bug del 25/08).
 - **Buscar la operación en TODO el registro trae escrituras de otra cosa cuando la pedida no existe** («borrá la nota» → borrar_audio), y las raíces de 5 letras matchean dentro de palabras («borra» en «borrador»). Una acción que llega sin la lectura que le da el id no «llega».
 
+
+## Un arnés «antes / después» mide un COMMIT sólo si extrae los árboles por SHA y corre un proceso por árbol (21/10/2026)
+
+La segunda revisión del clasificador de la app (f226f8c22) confirmó que WhatsApp no cambia: 245.146 líneas comparadas, 0
+diferencias. Comparó el veredicto entero, las herramientas EN ORDEN con un hash de descripción y schema, `delRegistro`,
+la instrucción y `turnoParaLaRed`, con 161 frases difíciles en 12 contextos más 59.296 literales de los tests. Con
+`canal: 'app'` cambian 3.244 de 7.962 líneas, así que la comparación detecta cambios cuando los hay. **El arnés del
+autor, que daba «0 de 16.968», no lo probaba**, aunque esta vez no escondía nada:
+- importaba de worktrees VIVOS: uno se movió de 7f904a03c a b0ce18002 durante la revisión, y el otro tenía cambios sin
+  commitear. Su número no estaba atado a ningún SHA;
+- cargaba los dos árboles en UN proceso. tsx resuelve `@/` con el tsconfig del cwd, así que `@/lib/capas` era el mismo
+  módulo para los dos lados;
+- su clave ordenaba los nombres de las herramientas y dejaba afuera porque, alternativa, aviso, descripciones, schemas e
+  instrucción, y fijaba un solo contexto.
+
+**La regla:** antes/después = `git archive <sha>` de cada lado a una carpeta propia, un proceso por árbol con su cwd, y
+comparar TODO lo que decide la salida, byte a byte. Y probar que la comparación detecta un cambio conocido: si con
+`canal: 'app'` también da 0, el arnés está ciego. Los scripts del revisor están en el scratchpad del Cerebro
+(rev-wa-f226/s/volcar.mts). *Cerebro, claude4.*

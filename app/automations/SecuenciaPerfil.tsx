@@ -39,7 +39,7 @@ import type { ListoCrearIA } from './CrearConIA';
 import { ChatMako } from './ChatMako';
 import Link from '@/app/_ui/Link';
 import { textoPorAprobar, dejaBorradores, POR_QUE_SE_APRUEBAN, POR_QUE_CORTO, RUTA_APROBAR } from '@/lib/mensajes-por-aprobar';
-import { duplicadaDe, avisoDuplicada } from '@/lib/automatizacion-duplicada';
+import { duplicadaDe, duplicadaAlActivar, avisoDuplicada } from '@/lib/automatizacion-duplicada';
 import { BotonPila } from './BotonPila';
 import { TRIGGER_RECORDATORIO, frenoDelRecordatorio } from '@/lib/recordatorio-automatizacion';
 import { CANALES_PROBAR, type CanalProbar } from './PanelProbar';
@@ -727,6 +727,11 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const consultandoProspeccion = useRef(false);
   /** El aviso de una automatización que ya le escribe lo mismo a la misma gente (`conAvisoDuplicada`), con lo que se iba a hacer. */
   const [avisoDup, setAvisoDup] = useState<{ texto: string; boton: string; seguir: () => void } | null>(null);
+  /**
+   * La persona contestó «… igual» al aviso de duplicada (el de la pantalla o el 409 `duplicada` del server): el pedido que
+   * sigue (`toggle` o `publicar`) lo lleva como `aunqueDuplique` y lo consume. Sin eso, el server vuelve a preguntar.
+   */
+  const respondioIgual = useRef(false);
   // Identidad FIJA (AGENTS.md: todo `<Modal>` recibe un `onCerrar` estable).
   const cerrarConfig = useCallback(() => setConfigAbierta(false), []);
   /**
@@ -765,6 +770,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    */
   const publicar = async () => {
     setErr(null);
+    // «Publicar igual» (`conAvisoDuplicada`): se usa UNA vez.
+    const aunqueDuplique = respondioIgual.current;
+    respondioIgual.current = false;
     // La forma y lo que falta escribir, con la MISMA función que frena «Probar» (`frenoDelFlujo`).
     const freno = frenoDeEsta(pasos);
     if (freno) { frenar(freno.error, freno.tarjeta); return; }
@@ -777,11 +785,14 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     try {
       const rp = await (await fetch('/api/whatsapp/secuencias', {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: secuencia.id, pasos }),
+        // `aunqueDuplique`: recién después de «Publicar igual» (el server pregunta lo mismo con una activa: 409 `duplicada`).
+        body: JSON.stringify({ id: secuencia.id, pasos, ...(aunqueDuplique ? { aunqueDuplique: true } : {}) }),
       })).json();
       // El server valida con la MISMA función y rechaza con su primer error, que trae ids.
       if (!rp.ok) {
         borrador.noPublicado();
+        // Otra activa ya le escribe lo mismo a la misma gente y la pantalla no lo vio (su lista era vieja): se pregunta acá.
+        if (rp.duplicada) { setAvisoDup({ texto: String(rp.error), boton: 'Publicar igual', seguir: () => void publicar() }); setBusy(null); return; }
         const e = rp.error ? String(rp.error) : '';
         // Un 409 trae el `medio` (GENERAL 6): se abre «Conectar» ahí mismo en vez de señalar una tarjeta.
         const medio = rp.medio ? medioDelError(e) : null;
@@ -934,8 +945,11 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
 
   const toggle = async () => {
     setBusy('toggle'); setErr(null);
+    // «Activar igual» (`conAvisoDuplicada`): se usa UNA vez.
+    const aunqueDuplique = respondioIgual.current;
+    respondioIgual.current = false;
     try {
-      const r = await (await fetch('/api/whatsapp/secuencias', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: secuencia.id, activa: !activa }) })).json();
+      const r = await (await fetch('/api/whatsapp/secuencias', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: secuencia.id, activa: !activa, ...(aunqueDuplique ? { aunqueDuplique: true } : {}) }) })).json();
       if (r.ok) {
         setActiva(!activa);
         // ⚠️ «Activada ✓» ES CIERTO SOBRE LA FILA Y FALSO SOBRE EL RESULTADO.
@@ -957,10 +971,14 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         // ⚠️ «ACTIVADA ✓» Y NO SALE NADA (20/10/2026, el Recurrente de Leila: 31 borradores esperando). A un lead que no
         // pagó, un mensaje de WhatsApp que no sale solo queda para que lo apruebes (lib/mensajes-por-aprobar.ts): el chat
         // lo dice al activarla, y la línea de al lado de «Activar» cuenta los que esperan.
-        if (!activa && dejaBorradores(pasos, est?.envio_automatico === true)) {
+        // Con lo PUBLICADO (revisión del 20/10/2026, noche): Activar prende la fila, no el borrador del lienzo.
+        if (!activa && dejaBorradores(abiertoPublicado, est?.envio_automatico === true)) {
           setNotaChat({ id: `mako-aprobar-${Date.now().toString(36)}`, texto: `${POR_QUE_SE_APRUEBAN}. Se aprueban en Chats › Borradores.` });
         }
         onCambio();
+      } else if (r.duplicada) {
+        // El server la frenó (`setSecuenciaActiva` pregunta en TODOS los caminos): la misma pregunta, y con «Activar igual», otra vez.
+        setAvisoDup({ texto: String(r.error), boton: 'Activar igual', seguir: () => void toggle() });
       } else {
         // Un medio sin conectar abre su modal y NO deja el chip rojo al lado de «Activar» (decimocuarta tanda, punto 4).
         const medio = medioDelError(r.error ? String(r.error) : null);
@@ -1057,15 +1075,27 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * publicar no le manda nada a nadie y se avisa al activarla. No frena (puede ser a propósito): pregunta. Compara lo que
    * se ve (el lienzo y los CRON de ahora) con lo PUBLICADO de las otras, que es lo que manda el motor.
    */
-  const conAvisoDuplicada = (vaAMandar: boolean, boton: string, seguir: () => void) => {
+  const conAvisoDuplicada = (vaAMandar: boolean, boton: string, seguir: () => void, queManda: readonly PasoSecuenciaDto[] = pasos) => {
     if (!rolAdmin || !vaAMandar) { seguir(); return; }
     const otra = duplicadaDe(
-      { id: secuencia.id, nombre, disparadores: crons.lista, pasos },
+      { id: secuencia.id, nombre, disparadores: crons.lista, pasos: queManda },
       secuencias.map((s) => ({ id: s.id, nombre: s.nombre, activa: s.activa, disparadores: disparadoresDeSecuencia(s), pasos: s.pasos ?? [] })),
     );
     if (!otra) { seguir(); return; }
     setAvisoDup({ texto: avisoDuplicada(otra.nombre), boton, seguir });
   };
+  /**
+   * UNA ACTIVA QUE YA LE ESCRIBE LO MISMO A LA MISMA GENTE QUE OTRA (revisión del 21/10/2026): se DICE al lado de «Activar»
+   * mientras sea así, calculado de lo que hay (sus CRON de ahora y lo publicado). Era un aviso que salía al guardar un CRON
+   * y se borraba con el guardado siguiente, o no salía si se cambiaba de automatización antes de que volviera. Un CRON se
+   * guarda en vivo: no hay un «antes» donde preguntar sin frenar cada toque.
+   */
+  const dupActiva = useMemo(
+    () => (rolAdmin && activa
+      ? duplicadaAlActivar(secuencia as SecuenciaConDisparadores, secuencias as readonly SecuenciaConDisparadores[], disparadoresDeSecuencia, { pasos: abiertoPublicado, crons: crons.lista })
+      : null),
+    [rolAdmin, activa, secuencia, secuencias, abiertoPublicado, crons.lista],
+  );
   const conAvisoProspeccion = (seguir: () => void) => {
     if (!rolAdmin || !Configuraciones || avisadaProspeccion.has(secuencia.id) || !cronDeProspeccion(crons.lista, productos, secuencia.funnel_id ?? null)) { seguir(); return; }
     // ⚠️ UNA CONSULTA A LA VEZ, Y LA QUE YA TIENE LO SUYO QUEDA AVISADA (revisión del 20/10/2026): sin esto cada clic
@@ -1249,7 +1279,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             )}
             {avisoDup && (
               <Confirm message={avisoDup.texto} confirmLabel={avisoDup.boton} cancelLabel="Cancelar" tone="primary"
-                onConfirm={() => { const s = avisoDup.seguir; setAvisoDup(null); s(); }}
+                onConfirm={() => { const s = avisoDup.seguir; setAvisoDup(null); respondioIgual.current = true; s(); }}
                 onCancel={() => setAvisoDup(null)} />
             )}
 
@@ -1312,6 +1342,11 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 el CTRL Z»): lo mismo es «Descartar cambios» en el «⋯» de la lista (`descartarCambios`). */}
             {/* LOS MENSAJES QUE ESPERAN QUE LOS APRUEBES (20/10/2026: el Recurrente de Leila «no salió» y eran 31
                 borradores). Con el porqué corto y el link a donde se aprueban (Chats › Borradores). */}
+            {dupActiva && (
+              <span data-duplicada="" role="status" style={{ ...tarjetaChrome, flex: 'none', maxWidth: 320, fontSize: 12.5, fontWeight: 600, color: 'var(--warn)', lineHeight: 1.35 }}>
+                {avisoDuplicada(dupActiva.nombre)}
+              </span>
+            )}
             {porAprobar && (
               <Link href={RUTA_APROBAR} title={`${POR_QUE_SE_APRUEBAN}. Se aprueban en Chats › Borradores.`}
                 style={{ ...tarjetaChrome, flex: 'none', minHeight: ALTO_ACCION, boxSizing: 'border-box', display: 'inline-flex', flexDirection: 'column', justifyContent: 'center', gap: 1, textDecoration: 'none' }}>
@@ -1323,7 +1358,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 "Publicar"»). Las dos deciden qué sale y se miran juntas; arriba quedó el ✦ de MaKo. */}
             <div style={{ ...tarjetaChrome, flex: 'none', height: ALTO_ACCION, boxSizing: 'border-box', padding: '0 14px', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 14.5, fontWeight: 700, color: activa ? 'var(--good)' : 'var(--dim)' }}>Activar</span>
-              <button onClick={() => (activa ? void toggle() : conAvisoDuplicada(true, 'Activar igual', () => void toggle()))} disabled={!rolAdmin || busy === 'toggle'} aria-pressed={activa} title={activa ? 'Pausar' : 'Activar'}
+              <button onClick={() => (activa ? void toggle() : conAvisoDuplicada(true, 'Activar igual', () => void toggle(), abiertoPublicado))} disabled={!rolAdmin || busy === 'toggle'} aria-pressed={activa} title={activa ? 'Pausar' : 'Activar'}
                 style={{ width: 46, height: 26, borderRadius: 999, border: 'none', padding: 3, background: activa ? 'var(--good)' : 'var(--border-strong)', cursor: rolAdmin ? 'pointer' : 'default', flex: 'none', transition: 'background .15s' }}>
                 <span style={{ display: 'block', width: 20, height: 20, borderRadius: '50%', background: '#fff', transform: activa ? 'translateX(20px)' : 'none', transition: 'transform .15s' }} />
               </button>

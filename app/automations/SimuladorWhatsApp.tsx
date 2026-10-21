@@ -72,6 +72,7 @@ import type { PropsConfiguraciones } from '@/lib/config-automatizacion';
 import { PanelProbar, type CanalProbar } from './PanelProbar';
 import { FiltroLista, LADO_FILTRO } from './FiltroLista';
 import { disparadoresDeSecuencia, type SecuenciaConDisparadores } from './EditorDisparadores';
+import { duplicadaAlActivar, avisoDuplicada } from '@/lib/automatizacion-duplicada';
 import { copiaDeFlujo, type PasoCopiado } from '@/lib/flujo-copia';
 import { copiarAlPortapapeles, textoParaCopiar } from './copia-flujo-cliente';
 import type { ProductoOpcion } from './ChatAgentApp';
@@ -614,7 +615,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
       setDescartando(false); setADescartar(null);
     }
   };
-  const accionFila = async (j: SecuenciaDto, accion: string) => {
+  const accionFila = async (j: SecuenciaDto, accion: string, o?: { sinAviso?: boolean }) => {
     if (accion === 'eliminar') { setErrFila(null); setAEliminar(j); return; }
     // «Renombrar» no pide nada: la fila pasa a ser un campo (`guardarNombre` escribe al salir).
     if (accion === 'renombrar') { setErrFila(null); setRenombrando(j.id); return; }
@@ -628,10 +629,18 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
       return;
     }
     if (accion !== 'activa' && accion !== 'duplicar') return;
+    // ⚠️ ACTIVAR DESDE EL «⋯» TAMBIÉN PREGUNTA (revisión del 20/10/2026, noche): es el camino más común para prender una,
+    // y lo salteaba. Con lo PUBLICADO de las dos (`duplicadaAlActivar`): Activar no publica nada.
+    if (accion === 'activa' && !j.activa && rolAdmin && !o?.sinAviso) {
+      const otra = duplicadaAlActivar(j as SecuenciaConDisparadores, secuencias as readonly SecuenciaConDisparadores[], disparadoresDeSecuencia);
+      if (otra) { setErrFila(null); setAvisoActivar({ j, texto: avisoDuplicada(otra.nombre) }); return; }
+    }
     setErrFila(null); setOcupada(j.id);
     try {
       if (accion === 'activa') {
-        const r = await pedir('/api/whatsapp/secuencias', 'PATCH', { id: j.id, activa: !j.activa });
+        // `aunqueDuplique` sólo con «Activar igual». Si el server encuentra la gemela que esta lista no vio, pregunta acá.
+        const r = await pedir('/api/whatsapp/secuencias', 'PATCH', { id: j.id, activa: !j.activa, ...(o?.sinAviso ? { aunqueDuplique: true } : {}) });
+        if (!r.ok && r.duplicada) { setAvisoActivar({ j, texto: String(r.error) }); return; }
         if (!r.ok) { setErrFila({ id: j.id, texto: r.error || 'No se pudo cambiar' }); return; }
       } else {
         const r = await pedir(API_SECUENCIAS, 'POST', { action: 'duplicar', secuenciaId: j.id });
@@ -648,6 +657,14 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     }
   };
 
+  /** El «Activar» del «⋯» que espera la respuesta al aviso de duplicada, con su texto. */
+  const [avisoActivar, setAvisoActivar] = useState<{ j: SecuenciaDto; texto: string } | null>(null);
+  /** «Activar igual»: sale el Activar de siempre (el aviso ya se contestó). */
+  const activarIgual = () => {
+    const a = avisoActivar;
+    setAvisoActivar(null);
+    if (a) void accionFila(a.j, 'activa', { sinAviso: true });
+  };
   /** Eliminar = ARCHIVAR (`archivarSecuencias`): deja de enviar, sale de la lista, se recupera desde la base. */
   const eliminar = async () => {
     const j = aEliminar;
@@ -946,6 +963,11 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
       )}
 
       {/* «Descartar cambios» de una CERRADA (décima tanda, general 5): sin deshacer, se pregunta. */}
+      {avisoActivar && (
+        <Confirm message={avisoActivar.texto} confirmLabel="Activar igual" cancelLabel="Cancelar" tone="primary"
+          onConfirm={activarIgual} onCancel={() => setAvisoActivar(null)} />
+      )}
+
       {aDescartar && (
         <Confirm
           message={`Vuelve a lo publicado de «${aDescartar.nombre}».`}
