@@ -720,4 +720,25 @@ export const BITACORA: Hito[] = [
       'tests/ops-center-landing-receta.test.ts y tests/ops-center-landing-bloques.test.ts — probados rompiéndolos',
     ],
   },
+  {
+    fecha: '20 oct', hora: '22:10', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El chat del Ops Center muestra la landing que crea, el link publicado y el dominio',
+    puntos: [
+      'Cuando confirmas crear, duplicar, generar o replicar una landing, el chat muestra su tarjeta con la miniatura y «Abrir en el editor», sin recargar.',
+      'Al publicar queda el link con Copiar y Abrir. Al conectar un dominio, la tabla de registros DNS con lo que falta, y «Verificar ahora» cambia esa misma tarjeta.',
+      'Elegir entre 3 (diseños, temas, formato de Replicar) ya se dibuja y contesta, pero todavía nada lo muestra solo: espera la herramienta de preguntar del Ops Center 3.',
+      'Va sobre el marco de bloques del Ops Center 3, que todavía no está en main: se integra después de él. Falta verlo con clics en el ws3.',
+    ],
+    commits: [
+      { sha: '3fe9dcac0', msg: 'Ops Center 1.12 y 1.13: la tarjeta de la landing, elegir entre 3, lo publicado y el dominio, en el hilo', lineas: 883, archivos: 8 },
+    ],
+    archivos: [
+      'lib/editor-landing/bloques-web.ts — los tipos y el saneo (liviano: lo carga cada chat)',
+      'app/web-generator/BloqueWeb.tsx — cómo se dibujan, con MiniaturaLanding',
+      'lib/chat-bloques.ts y app/_chat/BloqueHilo.tsx — los enganches en el marco',
+      'lib/api-mako/areas/landing.run.ts y landing-editor.run.ts — `datos.bloque` en cada operación',
+    ],
+    revisar: '/second-brain',
+  },
 ];

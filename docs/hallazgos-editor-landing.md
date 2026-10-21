@@ -2123,11 +2123,28 @@ Pedido de Martín (20/10): «que Ops Center sea lo principal en MaKo… crear we
   su grupo y no salía igual. Un test de «nunca X» va con el X que saldría PRIMERO (el primero de cada grupo).
 - Es la misma lección que la del corte de 60.000 de arriba: el caso de prueba es el borde, no uno cualquiera.
 
+### Sobre el marco de bloques (ola1, 20/10): la landing es un bloque del área, no un G5
+- **El G5 genérico (`creado`) pide una IMAGEN** (una ruta de la app o una pública de Storage) y una landing no tiene: su
+  miniatura se dibuja con su primera sección. Por eso `landing`, `elegir` (el G2), `publicada` y `dominio` son bloques del
+  área (lib/editor-landing/bloques-web.ts), enganchados en DOS lugares del marco: la unión `Bloque` y el `default:` de
+  `sanearBloque`. La sección viaja en el bloque con tope (40.000 caracteres en JSON): más grande, la tarjeta sale sin
+  miniatura antes que inflar el mensaje guardado.
+- **El saneo recibe `rutaInterna` como parámetro**: chat-bloques.ts importa bloques-web.ts, y al revés sería un ciclo.
+- **La única dirección de afuera es la de una landing publicada** (`urlPublicada`): `https:`, sin usuario, contraseña ni
+  puerto, con host de dominio. Se muestra y se abre con `noopener`; nunca es una miniatura.
+- **El bloque no llega al modelo:** `confirmar_accion` le devuelve sólo «✅ Hecho: resumen». La API HTTP sí devuelve
+  `datos` entero (con la sección): un cliente de la API que sea un modelo la lee. Es poco (1-3 KB un hero), pero es del
+  marco decidir si `rest.ts` saca `bloque`.
+- **BloqueHilo los carga con `next/dynamic`** (traen la hoja del contenido, ~100 KB): en un test con
+  `renderToStaticMarkup` el hilo no los dibuja; se dibuja BloqueWeb directo.
+
 ### Lo que quedó SIN hacer
-- **Enganchar los bloques** a las operaciones (listar, crear, replicar, publicar, conectar y verificar el dominio) y
-  dibujarlos en el hilo: espera el contrato de la 1.7 (Ops Center 3). Los datos están en bloques-chat.ts, con test.
-- «Armame una landing» sin diseño mostrando los 3: necesita que el turno devuelva el bloque `elegir` (1.7) y que llegue la
-  herramienta (el clasificador, 1.2, chat MaKo WhatsApp).
+- **Listar con miniaturas:** el marco lleva bloques sólo al CONFIRMAR (`datos.bloque` del `Ejecutado`); una lectura
+  (`listar_landings_creadas`) no tiene por dónde. Lo decide Ops Center 3.
+- «Armame una landing» sin diseño mostrando los 3: el bloque `elegir` se dibuja y contesta, pero nada lo EMITE todavía:
+  necesita la herramienta de preguntar (1.9) y que llegue la herramienta (el clasificador, 1.2).
+- La miniatura de una landing con un tema propio (`ws:<id>`) sale con el tema de base: el hilo no tiene los temas propios.
+- No se vio con clics en el ws3 (la computadora y Android): la tarjeta, el G2, el link y «Verificar ahora».
 - En el chat del EDITOR (/api/mako/pedidos), «mi otro producto» con uno solo sigue creando sin producto: preguntarlo en
   texto libre ahí pide decidir cómo vuelve la respuesta al pedido (cada mensaje se interpreta suelto).
 - `publicar_landing` devuelve en `datos.url` la dirección de MaKo aunque la landing tenga un dominio propio verificado
