@@ -7231,6 +7231,10 @@ arreglar está en hallazgos-chatbot («La segunda revisión del pedido B»). *Ce
   y «el segundo dijo ya estaba» sale verde igual.
 - **tests/_postgrest-de-mentira.ts entiende `is.true`, `is.false`, `not.is.true` y `not.is.false`**, con la semántica
   de Postgres: `NOT (x IS TRUE)` también matchea el null.
+- **La base de mentira contesta también un rpc de escritura** (21/10/2026): `cobrar_cuota_con_resto`, una copia en JS
+  de la función de la mig 0318, atómica porque una llamada de node no se intercala con otra. Respeta los `unicos` (si
+  el número choca, no escribe nada y contesta 23505). La copia se fija contra el .sql en tests/pagos-cobro-idempotente.test.ts:
+  sin eso, el test probaría la copia y no la función.
 
 ## Un merge toma EN SILENCIO lo de main donde tu rama volvió a la base (21/10/2026, la ola 1 del Ops Center)
 

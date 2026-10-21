@@ -13,6 +13,7 @@ import {
   type CandidatoLead, type Coincidencia, type LeadExistente,
 } from './leads-duplicados';
 import { getTenantDb, getWorkspaceActual, runWithWorkspace } from './workspace';
+import { hoyEnWorkspace } from './timezone';
 // Las columnas CRUDAS de Meta y el rastro del descarte: puro y sin `server-only`
 // para que la decisión de "no pisar con vacío" tenga test. Ver lib/meta-leads-campos.ts.
 import {
@@ -1070,7 +1071,9 @@ export async function updateLead(
   // limpiando al pasar un Ganado a una etapa abierta. Puede tirar
   // («monto_cierre_usd debe ser positivo»), y tira ANTES de escribir nada.
   // El tipo de venta va aparte: con 'sin_cobro' (un becado) un monto 0 se guarda null.
-  Object.assign(merged, opts?.desenlaceExacto ?? desenlaceAlGuardar(actual, input, new Date().toISOString().slice(0, 10), actual.venta_tipo));
+  // El día del CIERRE es el del negocio (21/10/2026): con el UTC, un Ganado de las 19 h en México cerraba MAÑANA, la venta
+  // del 31 contaba en el mes siguiente y la suscripción contaba sus meses desde otro día que sus cuotas.
+  Object.assign(merged, opts?.desenlaceExacto ?? desenlaceAlGuardar(actual, input, await hoyEnWorkspace(), actual.venta_tipo));
 
   // Aplicar reglas de coherencia
   if (!merged.fecha_junta_1) {
