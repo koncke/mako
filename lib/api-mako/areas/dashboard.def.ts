@@ -59,7 +59,7 @@ const GATING: Gating = { tab: 'graphics', rolMinimo: 'admin' };
 
 const persona: Parametro = {
   nombre: 'persona', tipo: 'string', max: 200, rotulo: 'Persona', ejemplo: 'ana@negocio.com',
-  descripcion: 'El email de la persona dueña del informe. Si falta: con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio.',
+  descripcion: 'El email de la persona dueña del informe. Si falta: en el chat de la app, el de quien chatea («mi hoja»); si no, con un solo informe guardado en la cuenta, ése; con varios, pide elegir. En una automatización es obligatorio.',
 };
 const hojaObligatoria: Parametro = {
   nombre: 'hoja', tipo: 'string', obligatorio: true, max: 80, rotulo: 'Hoja', ejemplo: 'marketing',

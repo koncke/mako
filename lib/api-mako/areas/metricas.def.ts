@@ -175,7 +175,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'a_quien_cobrar', area: 'metricas', tipo: 'lectura',
     titulo: 'A quién le falta pagar',
-    descripcion: 'Los clientes con cuotas sin pagar, del que más debe al que menos: nombre, vendido, cobrado y pendiente en USD, días desde el cierre y la próxima cuota (con su pago_id, monto y vencimiento). Con desde y hasta, solo cuenta las cuotas que VENCEN en esa ventana; sin fechas, todo lo pendiente a hoy. Úsala para «¿a quién le cobro esta semana?» o «¿quién me debe más?». El pago_id es el que pide marcar_pago_cobrado. Hasta 50 clientes; la respuesta dice cuántos quedaron afuera.',
+    descripcion: 'Los clientes con cuotas sin pagar, del que más debe al que menos: nombre, vendido, cobrado y pendiente en USD, días desde el cierre y la próxima cuota (con su pago_id, monto y vencimiento). Incluye también las SUSCRIPCIONES por cobrar (un mes manual sin registrar, una renovación rechazada o la próxima mensualidad manual), sin cuota que marcar: traen suscripcion con su motivo, y su pendiente no suma al total, que es el de las cuotas. Con desde y hasta, solo cuenta las cuotas que VENCEN en esa ventana; sin fechas, todo lo pendiente a hoy. Úsala para «¿a quién le cobro esta semana?» o «¿quién me debe más?». El pago_id es el que pide marcar_pago_cobrado. Hasta 50 clientes; la respuesta dice cuántos quedaron afuera.',
     parametros: [
       desde(' Filtra por vencimiento de la cuota. Va junto con hasta: si falta alguno de los dos, no se filtra.'),
       hasta(' Filtra por vencimiento de la cuota. Va junto con desde.'),

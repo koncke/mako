@@ -399,7 +399,8 @@ test('⚠️ crear, borrar y restablecer NO corren en un flujo; la persona se re
   for (const id of ['editar_hoja_dashboard', 'agregar_grafico_dashboard', 'analizar_hoja_dashboard']) assert.doesNotMatch(runner(id), /noEnFlujo/);
   assert.match(RUN, /if \(opts\.noEnFlujo && enFlujo\(ctx\)\) return \{ error: noEnFlujo\(opts\.noEnFlujo\) \};/);
   assert.match(RUN, /const enFlujo = \(ctx: Ctx\): boolean => ctx\.canalKey\.startsWith\(PREFIJO_FLUJO\);/);
-  assert.match(RUN, /elegirPersona\(\{ informes, miembros, pedido: str\(input, 'persona'\), sinPersonaVaElInicial: modo === 'leer', enFlujo: enFlujo\(ctx\) \}\)/);
+  // Y desde el 20/10/2026, quien chatea en la app (tests/api-mako-mi-hoja.test.ts).
+  assert.match(RUN, /elegirPersona\(\{ informes, miembros, pedido: str\(input, 'persona'\), sinPersonaVaElInicial: modo === 'leer', enFlujo: enFlujo\(ctx\), quienChatea: quienChatea\(ctx\) \}\)/);
 });
 
 // Rotura 8 (en lib/graficos-tablero.ts) y la del runner.
