@@ -30,6 +30,8 @@ export const LATIDO_MS = 15_000;
 export const TURNO_MUERTO_MS = 10 * 60_000;
 const PARCIAL_MS = 5_000;   // un turno que todavía se está escribiendo (JSON a medias) no se borra por eso
 
+/** Lo que cada uno firma al anotarse y al tomar el candado (todo opcional: sólo se muestra). @typedef {{ chat?: string, cuenta?: string, sha?: string, comando?: string }} DatosTurno */
+
 export const rutas = (dir = DIR_POR_DEFECTO) => ({ dir, lock: path.join(dir, 'pesado.lock'), cola: path.join(dir, 'pesado.cola'), log: path.join(dir, 'pesado.log') });
 
 /** ¿Vive ese pid? `kill(pid, 0)` no mata: pregunta (EPERM = vive pero no es mío). */
@@ -76,7 +78,11 @@ export function leerCola({ dir = DIR_POR_DEFECTO, vivo = pidVivo, ahora = Date.n
   return salida;
 }
 
-/** Deja el turno. El nombre ordena por HORA (ms), después por pid: el más viejo entra primero. Devuelve la ruta del turno. */
+/**
+ * Deja el turno. El nombre ordena por HORA (ms), después por pid: el más viejo entra primero. Devuelve la ruta del turno.
+ * @param {{ dir?: string, datos?: DatosTurno, pid?: number, ahora?: () => number }} o
+ * @returns {string}
+ */
 export function anotarse({ dir = DIR_POR_DEFECTO, datos, pid = process.pid, ahora = Date.now }) {
   const { cola } = rutas(dir);
   mkdirSync(cola, { recursive: true });
@@ -119,6 +125,7 @@ export function duenoVencido(dueno, { vivo = pidVivo, ahora = Date.now } = {}) {
 
 /**
  * Un intento. Sólo el PRIMERO de la cola prueba el mkdir; el resto espera su turno.
+ * @param {{ dir?: string, turno: string, datos?: DatosTurno, pid?: number, vivo?: (pid: number) => boolean, ahora?: () => number }} o
  * @returns {{ estado: 'tomado' } | { estado: 'espera', delante: number, dueno: object | null } | { estado: 'sin-turno' }}
  */
 export function intentarTomar({ dir = DIR_POR_DEFECTO, turno, datos, pid = process.pid, vivo = pidVivo, ahora = Date.now }) {
@@ -172,6 +179,11 @@ const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 /**
  * Se anota y espera hasta que le toca. Devuelve { soltar } (o { vencio: true } si pasó `esperaMaxMs`).
  * `aviso(texto)` cuenta cómo va la espera: al cambiar el lugar o el dueño, y al menos cada minuto.
+ * Los tipos están acá a propósito: el default `aviso = () => {}` hacía deducir `() => void` (un `aviso` con el texto no compilaba) y el retorno salía
+ * como `{ soltar } | { vencio }` con `soltar` «posiblemente undefined» aun después de revisar `vencio` (run 173 de Actions, 20/10).
+ * @param {{ dir?: string, datos?: DatosTurno, aviso?: (texto: string) => void, pid?: number, vivo?: (pid: number) => boolean, ahora?: () => number,
+ *   pausa?: (ms: number) => Promise<void>, esperaMaxMs?: number, sondeoMs?: number }} o
+ * @returns {Promise<{ soltar: () => boolean, esperoMs: number, vencio?: undefined } | { vencio: true, esperoMs: number, soltar?: undefined }>}
  */
 export async function tomarTurno({ dir = DIR_POR_DEFECTO, datos, aviso = () => {}, pid = process.pid, vivo = pidVivo, ahora = Date.now, pausa = dormir, esperaMaxMs = 3 * 60 * 60_000, sondeoMs = 400 }) {
   let turno = anotarse({ dir, datos, pid, ahora });

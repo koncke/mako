@@ -29,7 +29,7 @@ import { useSearchParams } from 'next/navigation';
 import Link, { useRouter } from '@/app/_ui/Link';
 import type { ChatResumen, CuentaSocial, EtapaChat, LineaChat } from '@/lib/chats-tipos';
 import { FILTRO_INICIAL, coincideBusqueda, contarBandejas, filtrarChats, parsearClave, type FiltroChats } from '@/lib/chats-reglas';
-import { RUTA_CHATS, rutaChatsDeClave } from '@/lib/chats-links';
+import { RUTA_CHATS, PARAM_CHATS, rutaChatsDeClave, vistaDeLink } from '@/lib/chats-links';
 import type { ProductoParaAlta } from '@/lib/lead-funnel-reglas';
 import {
   almacenLocal, claveDelLink, filtroRecordado, fusionarRecientes, guardarLocal, leerLinkProfundo, leerLocal, pasoDelLink,
@@ -177,6 +177,14 @@ export function ChatsApp({ ws, esAdmin, veEmail = false, productos }: {
     setFiltro(f);
     guardarLocal(almacenLocal(), ws, 'filtro', JSON.stringify({ mostrar: f.mostrar, orden: f.orden, sinResponder: f.sinResponder }));
   }, [ws]);
+  // LA BANDEJA DE UN LINK (`?vista=borradores`, lib/chats-links.ts): la de «N mensajes esperando que los apruebes» de una
+  // automatización (20/10/2026). Va DESPUÉS de lo recordado (los efectos corren en orden) y la URL vuelve a /chats.
+  const vistaLink = vistaDeLink(sp.get(PARAM_CHATS.vista));
+  useEffect(() => {
+    if (!vistaLink) return;
+    setFiltro((f) => ({ ...f, vista: vistaLink, canal: null, cuenta: null, etapa: null, mostrar: 'todas' }));
+    router.replace(RUTA_CHATS, { scroll: false });
+  }, [vistaLink, router]);
   const ponerBandeja = useCallback((abierta: boolean) => {
     setBandejaAbierta(abierta);
     guardarLocal(almacenLocal(), ws, 'bandeja', abierta ? '1' : '0');

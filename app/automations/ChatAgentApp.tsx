@@ -26,7 +26,7 @@ import { SimuladorWhatsApp, listaConCreando, type AbrirSecuencia, type Creando }
 // en un modal: décima tanda, GENERAL 4) y «Tutorial» (el recorrido), en un desplegable. Reemplaza al botón
 // «Configuraciones» y al «?» del recorrido. Desde la duodécima vive en UN lugar, la lista: el cartel vacío se fue
 // (la lista se dibuja también sin ninguna automatización).
-import { MenuAutomations } from './ConfiguracionesBoton';
+import { MenuAutomations, ConfiguracionesModal, tieneConfigPropiaDe } from './ConfiguracionesBoton';
 import { GaleriaPlantillas, type CreadaGaleria } from './GaleriaPlantillas';
 import type { PlantillaAutomatizacion } from '@/lib/plantillas-automatizaciones';
 import { leerCopia, firmaDeCopia, tokenDeTexto } from '@/lib/flujo-copia';
@@ -162,6 +162,8 @@ export type SecuenciaDto = {
   etiqueta_id?: number | null;
   /** El emoji del título (mig 0229). `null`/ausente = el del objetivo. */
   emoji?: string | null;
+  /** Cuántos mensajes suyos esperan que los apruebes (lib/mensajes-por-aprobar.ts). `null`/ausente = no se pudo leer. */
+  por_aprobar?: number | null;
   /** Dónde quedó cada tarjeta movida del lienzo (mig 0233). `{}` = ninguna; `null` = no se pudieron
    *  leer (el lienzo se mueve y no guarda). Ver lib/secuencia-posiciones.ts. */
   posiciones?: Record<string, { x: number; y: number }> | null;
@@ -190,6 +192,8 @@ export type ProductoOpcion = {
   /** Las de la ENTREGA del servicio: por dónde pasa el CLIENTE después de comprar. */
   etapasEntrega: Array<{ value: string; label: string }>;
   origenEntrega: 'declarado' | 'default' | null;
+  /** El funnel es de «Prospección» (20/10/2026): Publicar y Probar avisan (lib/config-automatizacion.ts). */
+  prospeccion?: boolean;
 };
 export type Opcion = { value: string; label: string };
 
@@ -724,7 +728,7 @@ function ChatAgentInner() {
              oficina y los límites, en un modal: el admin edita, el resto ve) y «Tutorial» (el recorrido). Son de la
              tab entera, no de una automatización. Va como NODO y no adentro de la lista: ver `menu` en
              SimuladorWhatsApp (las acciones arrastran `server-only`). */
-          menu={<MenuAutomations onTutorial={recorrido.reabrir} />}
+          menu={<MenuAutomations onTutorial={recorrido.reabrir} />} Configuraciones={ConfiguracionesModal} configPropia={tieneConfigPropiaDe}
           /* ⚠️ ACÁ IBA EL PIE DE LA LISTA, «N etapas sin secuencia · Armar una», y salió el 10/10/2026
              (restos de versiones anteriores). Venía del modelo de UNA secuencia por etapa de
              nutrición, contaba sólo el primer CRON de cada automatización (ni `etapas` ni la lista de

@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// ConfiguracionesBoton — el menú de Automations (Configuraciones y Tutorial) y el modal de Configuraciones
+// ConfiguracionesBoton — el «?» del tutorial de la lista y el modal de Configuraciones de UNA automatización
 // =============================================================================
 // Décima tanda (11/10/2026, GENERAL 4), textual: «Quiero agregar un botón de "Configuraciones", que se
 // despliegue un modal, dentro se puede editar el horario de oficina... Pero también configuraciones sobre todo
@@ -18,6 +18,16 @@
 //     al segundo hijo). Queda sólo el subrayado azul de la pestaña activa. Los dos separadores internos de
 //     «Límites» (adentro de su tarjeta) se quedan (docs/diseno-undecima-tanda.md §9, 33).
 // El archivo conserva su nombre: lo citan los «Vive en:» de docs/hallazgos-chatbot.md.
+//
+// 20/10/2026 (Martín, 16/10 punto 5 y 20/10 punto 5, textos en docs/relevo/chatbot.md): «"configuraciones" ya no viva
+// para todo Automations, sino para cada chat en los 3 puntos... Y en el lugar donde hoy está el ícono de configuraciones
+// que solo quede el "?" del tutorial». Desde ese día:
+//   · `MenuAutomations` es SÓLO el «?» (un botón, sin desplegable), en el mismo lugar;
+//   · `ConfiguracionesModal` es de UNA automatización (`secuenciaId`): lo abren la tuerca del título (SecuenciaPerfil) y
+//     «Configuraciones» del «⋯» de la fila. Horario = el propio o el del negocio (`HorarioDeLaAutomatizacion`); Límites =
+//     las horas entre dos mensajes a la misma persona de ESTA (`PersonaDeLaAutomatizacion`) y, abajo, los de la LÍNEA,
+//     que son de todas (`LimitesEnvioPanel` con `personaPorDefecto`: ahí también las horas a la misma persona del NEGOCIO,
+//     las que valen para las que no tienen las suyas). El horario del negocio sigue en Configuraciones › Horario.
 //
 // Un `Modal` de la casa con dos pestañas (`Tabs`):
 //   · Horario = HorarioEnvioPanel TAL CUAL (el mismo de Configuraciones › Horario, con sus acciones).
@@ -37,19 +47,18 @@
 //
 // Quien no es admin lo abre y lo VE sin editar: los dos paneles leen `puedeEditar` del server.
 //
-// ⚠️ ESTE ARCHIVO ARRASTRA LAS ACCIONES (`server-only`): no lo importa la lista (SimuladorWhatsApp, que los
-// tests dibujan bajo tsx). Lo monta la tab (ChatAgentApp) y se lo pasa a la lista como `menu`.
+// ⚠️ ESTE ARCHIVO ARRASTRA LAS ACCIONES (`server-only`): no lo importa la lista (SimuladorWhatsApp) ni el lienzo
+// (SecuenciaPerfil), que los tests dibujan bajo tsx. Lo monta la tab (ChatAgentApp) y se los pasa: el «?» como `menu` y el
+// modal como `Configuraciones` (un componente).
 
 import { useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Icon } from '@/app/_components/icons';
 import { Modal, Tabs } from '@/app/_ui';
-import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
-import { Dropdown } from '../components/Dropdown';
 import { useCerrarEstable } from '@/app/customer-success/curso/dialogo-foco';
-import { HorarioEnvioPanel } from '@/app/configuraciones/HorarioEnvioPanel';
-import { useFijarHorarioOficina } from './horario-oficina';
 import { LimitesEnvioPanel } from './LimitesEnvioPanel';
+import { HorarioDeLaAutomatizacion, PersonaDeLaAutomatizacion } from './ConfigAutomatizacionPanel';
+import { getConfigAutomatizacionAction } from './config-automatizacion-actions';
+import { tieneConfigPropia, type PropsConfiguraciones } from '@/lib/config-automatizacion';
 import { LADO_FILTRO } from './FiltroLista';
 import { OBJETIVO_AYUDA } from './recorrido-automations';
 
@@ -57,58 +66,68 @@ import { OBJETIVO_AYUDA } from './recorrido-automations';
 export const PESTANAS_CONFIGURACIONES = [{ id: 'horario', label: 'Horario' }, { id: 'limites', label: 'Límites' }] as const;
 type Pestana = (typeof PESTANAS_CONFIGURACIONES)[number]['id'];
 
-/** Lo que ofrece el menú, en orden, cada una con su ícono del set de la casa (app/_ui/iconos-menu.tsx). */
-export const OPCIONES_MENU_AUTOMATIONS = [
-  { value: 'configuraciones', label: 'Configuraciones', icono: 'configurar' },
-  { value: 'tutorial', label: 'Tutorial', icono: 'pregunta' },
-] as const satisfies ReadonlyArray<{ value: string; label: string; icono: NombreIconoMenu }>;
+
+/** El rótulo de los límites de la línea, que son de TODAS las automatizaciones. */
+export const TITULO_LIMITES_LINEA = 'De la línea, para todas tus automatizaciones';
 
 /**
- * El modal de Configuraciones: el horario de oficina y los límites. Lo monta `MenuAutomations` mientras está
- * abierto; `onCerrar` lo desmonta.
+ * EL MODAL DE CONFIGURACIONES DE UNA AUTOMATIZACIÓN (20/10/2026): su horario y sus límites. Lo montan la tuerca del título
+ * y el «⋯» de la fila mientras está abierto; `onCerrar` lo desmonta.
  */
-export function ConfiguracionesModal({ onCerrar }: { onCerrar: () => void }) {
+export function ConfiguracionesModal({ secuenciaId, nombre, onCerrar }: PropsConfiguraciones) {
   const [pestana, setPestana] = useState<Pestana>('horario');
   /** Guardados en vuelo, por panel: mientras haya uno, el modal no se cierra. */
-  const [sucios, setSucios] = useState<{ horario: boolean; limites: boolean }>({ horario: false, limites: false });
-  const ocupado = sucios.horario || sucios.limites;
+  const [sucios, setSucios] = useState<{ horario: boolean; persona: boolean; limites: boolean }>({ horario: false, persona: false, limites: false });
+  const ocupado = sucios.horario || sucios.persona || sucios.limites;
   const cerrar = useCerrarEstable(onCerrar, ocupado);
   // Identidades FIJAS: los paneles las tienen en las dependencias de un efecto.
   const alSucioHorario = useCallback((s: boolean) => setSucios((p) => (p.horario === s ? p : { ...p, horario: s })), []);
+  const alSucioPersona = useCallback((s: boolean) => setSucios((p) => (p.persona === s ? p : { ...p, persona: s })), []);
   const alSucioLimites = useCallback((s: boolean) => setSucios((p) => (p.limites === s ? p : { ...p, limites: s })), []);
-  // Guardado el horario, el lienzo se pone al día (el chip «Espera a que abra» y la opción de la tarjeta MaKo).
-  const fijarOficina = useFijarHorarioOficina();
 
   return createPortal(
-    <Modal titulo="Configuraciones" onCerrar={cerrar} ancho={600} alto="min(85vh, 640px)" sinFiletes>
-      {/* UN SOLO HIJO (punto 1): el cuerpo del Modal le pone un filete arriba al segundo. Los dos paneles
-          montados; la pestaña sólo esconde (ver la cabecera). */}
-      <div>
+    <Modal titulo="Configuraciones" onCerrar={cerrar} ancho={600} alto="min(85vh, 680px)" sinFiletes>
+      {/* UN SOLO HIJO (punto 1): el cuerpo del Modal le pone un filete arriba al segundo. Los paneles montados; la
+          pestaña sólo esconde (ver la cabecera). */}
+      <div data-config-automatizacion={secuenciaId}>
+        <p style={{ margin: '0 0 6px', fontSize: 13, color: 'var(--dim)', fontFamily: "'Geist', sans-serif", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nombre}</p>
         <Tabs tabs={[...PESTANAS_CONFIGURACIONES]} activa={pestana} onCambio={(id) => setPestana(id as Pestana)} sinLinea />
-        <div hidden={pestana !== 'horario'}><HorarioEnvioPanel onSucio={alSucioHorario} onGuardado={fijarOficina} /></div>
-        <div hidden={pestana !== 'limites'}><LimitesEnvioPanel onSucio={alSucioLimites} /></div>
+        <div hidden={pestana !== 'horario'}><HorarioDeLaAutomatizacion secuenciaId={secuenciaId} onSucio={alSucioHorario} /></div>
+        <div hidden={pestana !== 'limites'}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <PersonaDeLaAutomatizacion secuenciaId={secuenciaId} onSucio={alSucioPersona} />
+            <p style={{ margin: '6px 0 0', fontSize: 13, fontWeight: 600, color: 'var(--dim)', fontFamily: "'Geist', sans-serif" }}>{TITULO_LIMITES_LINEA}</p>
+            <LimitesEnvioPanel onSucio={alSucioLimites} personaPorDefecto />
+          </div>
+        </div>
       </div>
     </Modal>,
     document.body,
   );
 }
 
+/** ¿Esa automatización tiene algo propio? (el aviso de Prospección de Publicar y Probar). */
+export async function tieneConfigPropiaDe(secuenciaId: number): Promise<boolean> {
+  return tieneConfigPropia((await getConfigAutomatizacionAction(secuenciaId)).config);
+}
+
+/** El rótulo del «?». */
+export const TITULO_TUTORIAL = 'Ver el tutorial';
+
 /**
- * EL MENÚ DE LA TAB, antes del buscador (punto 9): «Configuraciones» abre el modal y «Tutorial» vuelve a abrir
- * el recorrido (`onTutorial`, el `reabrir` del gancho). Al elegir, el Dropdown no le devuelve el foco a su botón
- * (sólo con Escape): abrir el Modal no compite con él.
+ * EL «?» DE LA LISTA, antes del buscador (20/10/2026, Martín: «en el lugar donde hoy está el ícono de configuraciones
+ * que solo quede el "?" del tutorial»): vuelve a abrir el recorrido (`onTutorial`, el `reabrir` del gancho). Era un
+ * desplegable con «Configuraciones» y «Tutorial» (undécima tanda, punto 9); Configuraciones pasó a cada automatización.
  */
 export function MenuAutomations({ onTutorial }: { onTutorial: () => void }) {
-  const [abierto, setAbierto] = useState(false);
-  const cerrar = useCallback(() => setAbierto(false), []);
   return (
     <span data-recorrido={OBJETIVO_AYUDA} style={{ display: 'inline-flex', flex: 'none' }}>
-      <Dropdown value="" resetAfterSelect sinFlecha search={false} align="left" ariaLabel="Configuraciones y tutorial"
-        botonLabel={<span style={{ display: 'flex' }}><Icon name="config" size={16} /></span>}
-        buttonStyle={{ width: LADO_FILTRO, height: LADO_FILTRO, padding: 0, justifyContent: 'center', borderRadius: 10, color: 'var(--dim)', borderColor: 'var(--border-strong)' }}
-        options={[...OPCIONES_MENU_AUTOMATIONS]}
-        onChange={(v) => { if (v === 'configuraciones') setAbierto(true); else if (v === 'tutorial') onTutorial(); }} />
-      {abierto && <ConfiguracionesModal onCerrar={cerrar} />}
+      <button type="button" data-boton-tutorial="" onClick={onTutorial} title={TITULO_TUTORIAL} aria-label={TITULO_TUTORIAL}
+        style={{
+          width: LADO_FILTRO, height: LADO_FILTRO, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)',
+          fontFamily: "'Geist', sans-serif", fontSize: 15, fontWeight: 700, cursor: 'pointer',
+        }}>?</button>
     </span>
   );
 }

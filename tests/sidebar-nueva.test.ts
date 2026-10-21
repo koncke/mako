@@ -129,10 +129,12 @@ test('Ops Center en todos los negocios: la fila de /second-brain se llama así y
   assert.equal(tituloDe('/second-brain'), 'MaKo - Ops Center');
   assert.equal(cabeceraPorRuta('/m/second-brain').titulo, 'Ops Center');
   assert.equal(cabeceraPorRuta('/m/second-brain/mapa').padre?.label, 'Ops Center');
-  // More: la fila de arriba del negocio es Ops Center con la estrella; el super admin no la tiene (la página le pone la suya).
+  // More: la fila de arriba del negocio era Ops Center con la estrella; desde el 20/10/2026 el Ops Center es el lugar del
+  // medio de la barra (pedido bb885d5f) y More no lo repite, ni al negocio ni al super admin.
   const arribaMas = (adminShell: boolean) => masCompleto('admin', 'completo', adminShell).find((g) => g.id === 'arriba')?.filas.map((f) => f.label) ?? [];
-  assert.deepEqual(arribaMas(false), ['Ops Center']);
+  assert.deepEqual(arribaMas(false), []);
   assert.deepEqual(arribaMas(true), []);
+  assert.equal(barraMovil('admin', 'completo')[2].label, 'Ops Center');
   assert.match(sinComentarios(leer('app/m/mas/page.tsx')), /criatura\(f\.label, !!MAKO_NAV\.find\(\(it\) => it\.key === f\.key\)\?\.estrella\)/);
   // Ctrl K: «second brain» y «cerebro» llevan ahí; al super admin, a su Ops Center.
   const negocio: Destino[] = [{ item: ops, donde: null }];
@@ -215,12 +217,15 @@ test('la cara: la foto real, el nombre y el @usuario, en el menú de la foto y e
   assert.match(mas, /href=\{RUTA_CUENTA\}/, 'la cara no abre My Profile');
 });
 
-test('la barra de abajo del teléfono: CRM · Chats · Dashboard · Plan · More, y More con las familias de la sidebar', () => {
-  assert.deepEqual(DESTINOS_MOVIL.map((d) => d.label), ['CRM', 'Chats', 'Dashboard', 'Plan', 'More']);
-  assert.deepEqual(barraMovil('admin', 'completo').map((b) => b.label), ['CRM', 'Chats', 'Dashboard', 'Plan', 'More']);
+test('la barra de abajo del teléfono: CRM · Chats · Ops Center · Plan · More, y More con las familias de la sidebar', () => {
+  // El del medio es el Ops Center desde el 20/10/2026 (pedido bb885d5f); hasta ese día, el Dashboard.
+  assert.deepEqual(DESTINOS_MOVIL.map((d) => d.label), ['CRM', 'Chats', 'Ops Center', 'Plan', 'More']);
+  assert.deepEqual(barraMovil('admin', 'completo').map((b) => b.label), ['CRM', 'Chats', 'Ops Center', 'Plan', 'More']);
   // More: las familias por su KEY (con cuatro, cruzarlas por posición perdía Create).
   const mas = masCompleto('admin', 'completo', false);
   assert.deepEqual(mas.filter((g) => FAMILIAS_MAS.some((f) => f.id === g.id)).map((g) => g.titulo), ['Today', 'Sales', 'Marketing', 'Create']);
+  // El Dashboard (la portada de antes, /m/hoy) encabeza lo diario, y detrás sus hojas.
+  assert.deepEqual(mas.find((g) => g.id === 'diario')!.filas.map((f) => [f.label, f.tipo === 'grupo' ? null : f.href]), [['Dashboard', '/m/hoy'], ['Dashboard sheets', '/m/dashboard']]);
   const create = mas.find((g) => g.id === 'create')!;
   assert.deepEqual(create.filas.map((f) => f.label), ['Video', 'Image', 'Copywriting']);
 });
@@ -330,11 +335,12 @@ test('todos los workspaces: la misma barra para el super admin, un cliente y un 
   ]);
 });
 
-test('el teléfono sigue a la sidebar: las mismas familias, y Second Brain arriba (menos para el super admin)', () => {
+test('el teléfono sigue a la sidebar: las mismas familias, y el Ops Center en el medio de la barra', () => {
   assert.deepEqual(FAMILIAS_MAS.map((f) => [f.id, f.label]), FAMILIAS.map((f) => [f.key, f.sinRotulo ? null : f.label]));
+  // Second Brain (el Ops Center) iba arriba de More, sin título, hasta el 20/10/2026: ahora es el lugar del medio.
   const grupos = gruposMas('admin', 'completo');
-  assert.equal(grupos[0].titulo, null, 'Second Brain no va arriba, sin título');
-  assert.deepEqual(grupos[0].secciones.map((s) => s.id), ['mako']);
+  assert.equal(grupos[0].titulo, 'Today', 'More repite el Ops Center que ya está en la barra');
+  assert.ok(!grupos.some((g) => g.secciones.some((s) => s.id === 'mako')));
   // Y el Ops Center del super admin, arriba con su criatura (no en una caja «Super admin» al final).
   const mas = sinComentarios(leer('app/m/mas/page.tsx'));
   assert.match(mas, /leading=\{criatura\('Ops Center', true\)\} titulo="Ops Center"/);

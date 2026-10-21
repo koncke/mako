@@ -32,7 +32,7 @@ type Grupo = keyof LimitesEnvio;
 type Uso = UsoDelCupo | null;
 
 /** El número con sus dos flechas. Las flechas no pasan del rango; lo escrito a mano se valida al salir. */
-function Numero({ valor, min, max, disabled, etiqueta, onCambio, onInvalido }: {
+export function Numero({ valor, min, max, disabled, etiqueta, onCambio, onInvalido }: {
   valor: number; min: number; max: number; disabled: boolean; etiqueta: string;
   onCambio: (n: number) => void; onInvalido: (error: string | null) => void;
 }) {
@@ -73,7 +73,15 @@ function Numero({ valor, min, max, disabled, etiqueta, onCambio, onInvalido }: {
 }
 
 /** `onSucio`: hay un guardado en vuelo (el modal no se cierra mientras tanto). */
-export function LimitesEnvioPanel({ onSucio }: { onSucio?: (sucio: boolean) => void }) {
+/**
+ * `personaPorDefecto` (20/10/2026): en Configuraciones de UNA automatización, las horas entre dos mensajes a la misma
+ * persona de ESTE panel son las del NEGOCIO, las que valen para las que no tienen las suyas (las propias van arriba:
+ * app/automations/ConfigAutomatizacionPanel.tsx), y se rotulan así. ⚠️ Era `sinPersona` y las escondía: el valor que
+ * heredan todas las automatizaciones que ya existían quedó sin pantalla donde cambiarlo (revisión del 20/10/2026).
+ */
+export const ROTULO_PERSONA_DEFECTO = 'Misma persona, por defecto';
+export const AYUDA_PERSONA_DEFECTO = 'Para las automatizaciones que no tienen las suyas';
+export function LimitesEnvioPanel({ onSucio, personaPorDefecto = false }: { onSucio?: (sucio: boolean) => void; personaPorDefecto?: boolean }) {
   const [l, setL] = useState<LimitesEnvio | null>(null);
   const [fabrica, setFabrica] = useState<LimitesEnvio | null>(null);
   const [uso, setUso] = useState<Uso>(null);
@@ -130,7 +138,7 @@ export function LimitesEnvioPanel({ onSucio }: { onSucio?: (sucio: boolean) => v
   const off = !puedeEditar;
   return (
     <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 16, fontFamily: SANS }}>
-      {BLOQUES_LIMITES.map((b, i) => {
+      {BLOQUES_LIMITES.map((b0) => ({ ...b0, filas: b0.filas.map((f) => (personaPorDefecto && f.campo === 'personaHoras' ? { ...f, rotulo: ROTULO_PERSONA_DEFECTO, ayuda: AYUDA_PERSONA_DEFECTO } : f)) })).map((b, i) => {
         const usoTxt = lineaDeUso(b.titulo, uso, l);
         return (
           <section key={b.titulo} aria-label={b.titulo} style={{ display: 'flex', flexDirection: 'column', gap: 10, ...(i ? { borderTop: '1px solid var(--border)', paddingTop: 14 } : null) }}>

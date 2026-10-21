@@ -61,20 +61,28 @@ test('⚠️ la ruta: barata cuando no hay nada, y el motor con el turno, sobre 
   assert.match(ruta, /\.select\('workspace_id'\)\.in\('estado', ESTADOS_QUE_SE_MUEVEN\)\.lte\('proximo_envio_at', ahoraIso\)\.in\('workspace_id', abiertos\)/, 'al abrir el horario tampoco ve las «respondio» con carril');
   assert.match(sinComentarios(leer('lib/nutricion.ts')), /q\.in\('estado', \['activa', 'respondio'\]\)\.lte\('proximo_envio_at', ahora\)/, 'el tick y el motor leen filas distintas');
   // Sin nada, sale ANTES de leer los workspaces (el caso de casi todos los minutos).
-  const sale = ruta.indexOf("if (!conVencidoFresco.length && !abrieronConVencido.length) return Response.json({ ok: true, negocios: 0 });");
+  // 20/10/2026: tampoco un Recurrente que llega a su hora (tests/recurrente-no-salio.test.ts).
+  const sale = ruta.indexOf("if (!conVencidoFresco.length && !abrieronConVencido.length && !conRecurrente.length) return Response.json({ ok: true, negocios: 0 });");
   assert.ok(sale > 0, 'sin nada vencido, el tick sigue de largo');
   assert.ok(sale < ruta.indexOf('listarWorkspaces()'), 'lee los workspaces aunque no haya nada que hacer');
   // El motor, con el turno del negocio tomado (dos corridas a la vez mandan dos veces).
   assert.match(ruta, /runWithWorkspace\(ws, \(\) => conTurnoDelMotor\(ws, async \(\) => \{/);
-  assert.match(ruta, /procesarEnvios\(\{ esperarHastaMs, cupoPorHora: true, \.\.\.\(motivo === 'vencio' \? \{ vencidasDesde: desde \} : \{\}\) \}\)/);
+  // 20/10/2026: sólo `abrio` barre entero (`recurrente`, como `vencio`, mira lo fresco: ahí caen los recién inscriptos).
+  assert.match(ruta, /procesarEnvios\(\{ esperarHastaMs, cupoPorHora: true, \.\.\.\(motivo !== 'abrio' \? \{ vencidasDesde: desde \} : \{\}\) \}\)/);
   // El horario que acaba de abrir: con la MISMA función que lo decide, y LA regla de la zona (undécima tanda:
   // `zonaDeLoGuardado`, la de las pantallas; sin zona, Tijuana). Era `zonaDelMotor`, que sin zona caía a Ciudad de
   // México. Se conserva la lectura EN LOTE de las zonas (una consulta para todos los negocios con horario).
-  assert.match(ruta, /acabaDeAbrir\(ahora, zonaDeLoGuardado\(zonaDe\.get\(ws\)\), h, VENTANA_FRESCA_MIN\)/);
-  assert.match(ruta, /\.eq\('key', KEY_TIMEZONE\)\.in\('workspace_id', \[\.\.\.conHorario\.keys\(\)\]\);/, 'la zona volvió a leerse por negocio');
+  // 20/10/2026: y cuando abre el horario PROPIO de una automatización (`abrioAlgunaPropia`, lib/config-automatizacion.ts).
+  assert.match(ruta, /const tz = zonaDeLoGuardado\(zonaDe\.get\(ws\)\);/);
+  assert.match(ruta, /return \(!!h && acabaDeAbrir\(ahora, tz, h, VENTANA_FRESCA_MIN\)\) \|\| abrioAlgunaPropia\(propiasDe\.get\(ws\) \?\? \[\], ahora, tz, VENTANA_FRESCA_MIN\);/);
+  // 20/10/2026: las zonas de los negocios con horario, el suyo o el de una automatización, en UNA lectura.
+  assert.match(ruta, /\.eq\('key', KEY_TIMEZONE\)\.in\('workspace_id', \[\.\.\.new Set\(\[\.\.\.conHorario\.keys\(\), \.\.\.propiasDe\.keys\(\)\]\)\]\);/, 'la zona volvió a leerse por negocio');
   assert.doesNotMatch(ruta, /zonaDelMotor|ZONA_SIN_CONFIGURAR|Mexico_City/);
-  // No inscribe por cohorte ni evalúa desenlaces: eso es de la corrida de cada hora.
-  assert.doesNotMatch(ruta, /comprometerInscripciones|evaluarDesenlaces/);
+  // No evalúa desenlaces ni inscribe por cohorte: eso es de la corrida de cada hora. SALVO un Recurrente que llega a su
+  // hora (20/10/2026, el d2 de #284 del ws11 salía a la hora en punto): ése, y sólo ése (`soloRecurrentes`).
+  assert.doesNotMatch(ruta, /evaluarDesenlaces/);
+  assert.equal((ruta.match(/comprometerInscripciones\(/g) ?? []).length, 1, 'el tick inscribe por cohorte por otra puerta');
+  assert.ok(ruta.includes('comprometerInscripciones({ soloRecurrentes: true, ...(!waOn && !emailOn ? { soloGrupo: true } : {}) })'), 'el tick inscribe por cohorte algo más que los Recurrentes');
   // Auth de la casa (lib/cron-auth.ts), no otra copia local.
   assert.match(ruta, /const unauth = checkCronAuth\(request\);/);
 });
@@ -139,7 +147,7 @@ test('⚠️ sin WhatsApp ni email corre lo que no los usa: las acciones y los M
 
   // Y las DOS puertas preguntan con ESTA función, no con la condición de antes (sólo acciones).
   const tick = sinComentarios(leer('app/api/cron/nutricion-tick/route.ts'));
-  assert.match(tick, /if \(!waOn && !emailOn && !\(await getSecuenciasActivas\(\)\)\.some\(\(s\) => s\.pasos\.some\(correSinCanales\)\)\) return \{ modo: 'off' \};/);
+  assert.match(tick, /if \(!waOn && !emailOn && !\(await getSecuenciasActivas\(\)\)\.some\(\(s\) => s\.pasos\.some\(correSinCanales\)\)\) return \{ modo: 'off', \.\.\.conInscriptas \};/);
   const hora = sinComentarios(leer('app/api/cron/nutricion/route.ts'));
   // Hasta el alta por cohorte que viene DESPUÉS de la rama (el modo manual `?commit=1` tiene otra antes).
   const iniOff = hora.indexOf('if (!waOn && !emailOn) {');
