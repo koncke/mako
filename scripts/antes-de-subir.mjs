@@ -192,32 +192,33 @@ const ESPERA_RAM_DEFECTO_MS = 15 * 60 * 1000;
  * Un `esperarRam` que NO retiene el candado de lo pesado mientras espera RAM. ⚠️ El 21/10/2026 un `--solo tipos` con MAKO_TIPOS_ESPERA_S=1500 tuvo el
  * candado 25 min esperando 4 GB que no había (la app de Claude ocupaba 4,3 y Chrome 2), con cuatro chats detrás que quizás necesitaban 1,3. Quien espera
  * RAM no está usando RAM: el candado es para lo que SÍ la usa. Tiene que valer para cualquier paso que espere RAM (los tipos y los dos de tests), así que se arma una vez
- * y se le pasa a los tres.
- *   1. ¿Hay RAM AHORA? (sin esperar y sin soltar nada): sigue con el candado, como siempre.
- *   2. No hay: SUELTA el candado (el siguiente de la fila avanza), espera la RAM sin él, y al haber vuelve a hacer fila (al final: el que esperó ya cedió su turno).
- *   3. Con el turno en la mano, confirma que la RAM SIGUE (se pudo ir mientras esperaba en la fila): si no, vuelve a 2, hasta el tope de espera.
- * Si la RAM no aparece en el tope: devuelve 0 SIN el candado y marca `ctx.sinCandado`: lo que siga no se corre (no hay RAM, y no hay turno): lo dice como «sin RAM»,
- * no vuelve a hacer una fila de media hora sólo para decirlo. Sin candado en `ctx` (Actions, `--ya-tengo-el-candado`, MAKO_SIN_COLA) espera como siempre.
- * `ctx`: { candado: { soltar } | null, tomar: () => Promise<{ soltar } | { vencio: true }>, sinCandado?: boolean }. Todo se inyecta para probarlo sin RAM ni cola de verdad.
- * @param {{ candado: { soltar: () => unknown } | null, tomar?: () => Promise<any>, sinCandado?: boolean }} ctx
+ * y se le pasa a los tres. Invariante: si devuelve > 0, el candado está en la mano; si devuelve 0, no (y el paso siguiente que necesite RAM vuelve a esperarla por su cuenta).
+ *   1. Con el candado: ¿hay RAM AHORA? (sin esperar y sin soltar nada): sigue con él, como siempre.
+ *   2. No hay: SUELTA el candado (el siguiente de la fila avanza) y espera la RAM sin él, con el tope de ESTE paso (los tipos del --rapido esperan 20 s; los tests, 15 min).
+ *   3. Si aparece, vuelve a hacer fila (al final: ya cedió el turno) y, con el turno en la mano, vuelve a 1: confirma que la RAM SIGUE (se pudo ir en la fila).
+ *   4. Si no aparece en el tope: devuelve 0, SIN candado. Un paso que no es esencial (los tipos: «los chequea Actions») sigue; el que sí (los tests) espera con SU tope.
+ * Sin cómo hacer fila en `ctx` (Actions, `--ya-tengo-el-candado`, MAKO_SIN_COLA) espera como siempre. Todo se inyecta para probarlo sin RAM ni cola de verdad.
+ * ⚠️ La primera versión marcaba «sin candado» para siempre al vencer UNA espera: los tipos del --rapido vencían a los 20 s y los tests, que esperan 15 min, salían «no hay RAM» sin esperar (exit 99).
+ * @param {{ candado: { soltar: () => unknown } | null, tomar?: (() => Promise<any>) | null }} ctx candado vigente (o null: ya lo solté) y cómo volver a hacer fila
  * @param {{ esperar?: typeof esperarRam, aviso?: (t: string) => void, ahora?: () => number }} [o]
  * @returns {typeof esperarRam}
  */
 export function esperarRamSinRetener(ctx, { esperar = esperarRam, aviso = () => {}, ahora = Date.now } = {}) {
   return async (concurrencia, opciones = {}) => {
-    if (ctx.sinCandado) return 0;
-    if (!ctx.candado || !ctx.tomar) return esperar(concurrencia, opciones);
+    if (!ctx.tomar) return esperar(concurrencia, opciones);
     const hasta = ahora() + (opciones.esperaMaxMs ?? ESPERA_RAM_DEFECTO_MS);
     for (;;) {
-      const c = await esperar(concurrencia, { ...opciones, esperaMaxMs: 0 });
-      if (c > 0) return c;
-      try { ctx.candado.soltar(); } catch { /* ya estaba suelto */ }
-      ctx.candado = null;
-      aviso('no hay RAM: suelto el candado mientras espero, así los que están detrás siguen (al haber vuelvo a hacer fila)');
+      if (ctx.candado) {
+        const c = await esperar(concurrencia, { ...opciones, esperaMaxMs: 0 });
+        if (c > 0) return c;
+        try { ctx.candado.soltar(); } catch { /* ya estaba suelto */ }
+        ctx.candado = null;
+        aviso('no hay RAM: suelto el candado mientras espero, así los que están detrás siguen (al haber vuelvo a hacer fila)');
+      }
       const e = await esperar(concurrencia, { ...opciones, esperaMaxMs: Math.max(0, hasta - ahora()) });
-      if (e === 0) { ctx.sinCandado = true; return 0; }
+      if (e === 0) return 0;
       const turno = await ctx.tomar();
-      if (turno.vencio) { ctx.sinCandado = true; return 0; }
+      if (turno.vencio) return 0;
       ctx.candado = turno;
     }
   };
@@ -364,8 +365,8 @@ async function main(argv) {
   // ni para las guardas solas; en Actions (CI) no hace falta; MAKO_SIN_COLA=1 lo saltea; `--ya-tengo-el-candado` es para quien lo tomó a mano (el viejo mkdir).
   const conCandado = !o.listar && o.solo !== 'guardas' && !process.env.CI && !process.env.MAKO_SIN_COLA && !o.yaTengoElCandado;
   // `ctx.candado` es el candado QUE TENGO AHORA (null si no hice fila o si lo solté esperando RAM: ver esperarRamSinRetener); `ctx.tomar` vuelve a hacer fila con los mismos datos.
-  /** @type {{ candado: { soltar: () => unknown } | null, tomar: (() => Promise<any>) | null, sinCandado: boolean }} */
-  const ctx = { candado: null, tomar: null, sinCandado: false };
+  /** @type {{ candado: { soltar: () => unknown } | null, tomar: (() => Promise<any>) | null }} */
+  const ctx = { candado: null, tomar: null };
   let yaTraje = false;
   if (conCandado) {
     // Un árbol sucio no puede tener VERDE: no se hace fila para enterarse de eso al final.
@@ -410,7 +411,7 @@ async function main(argv) {
   finally { try { ctx.candado?.soltar(); } catch { /* ya está suelto */ } }
 }
 
-async function ejecutar(o, out, lineaFinal, { yaTraje = false, ctx = { candado: null, tomar: null, sinCandado: false } } = {}) {
+async function ejecutar(o, out, lineaFinal, { yaTraje = false, ctx = { candado: null, tomar: null } } = {}) {
   // Todo paso que espera RAM la espera SIN el candado (ver esperarRamSinRetener): los tipos y los dos de tests.
   const esperar = esperarRamSinRetener(ctx, { aviso: (t) => out(`  ⚠ ${t}`) });
   const sha = git(['rev-parse', '--short=9', 'HEAD']).trim();

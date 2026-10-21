@@ -7,7 +7,7 @@
 //   1. mira si hay RAM AHORA (sin esperar y sin soltar nada);
 //   2. si no hay, SUELTA el candado, espera sin él, y vuelve a hacer fila al haber;
 //   3. con el turno en la mano confirma que la RAM sigue (se pudo ir en la fila), y si no, repite;
-//   4. si la RAM no aparece en el tope, devuelve 0 sin el candado y no vuelve a hacer fila sólo para decirlo.
+//   4. si la RAM no aparece en el tope de ESE paso, devuelve 0 sin el candado y sin volver a hacer fila; el paso siguiente espera con SU tope (los tipos del --rapido esperan 20 s, los tests 15 min).
 // Acá se prueba con una RAM y una cola de mentira: el momento exacto en que se suelta y se retoma, y que los TRES pasos reales la usen.
 //
 // ⚠️ PROBADO ROMPIÉNDOLO (21/10/2026): ver el final del archivo.
@@ -23,7 +23,7 @@ import { esperarRamSinRetener } from '../scripts/antes-de-subir.mjs';
 const REPO = fileURLToPath(new URL('..', import.meta.url));
 
 type Turno = { soltar: () => boolean; nombre: string };
-type Ctx = { candado: Turno | null; tomar?: () => Promise<Turno | { vencio: true }>; sinCandado?: boolean };
+type Ctx = { candado: Turno | null; tomar?: () => Promise<Turno | { vencio: true }> };
 
 /** Una RAM de mentira: `libre[i]` es lo que contesta la i-ésima consulta (la última se repite), y cada llamada anota si SE ESTABA ESPERANDO y si el candado estaba en la mano. */
 function armar(libre: number[], { turnos = ['segundo', 'tercero', 'cuarto'], vence = false }: { turnos?: string[]; vence?: boolean } = {}) {
@@ -82,22 +82,29 @@ test('la RAM se va mientras se esperaba el turno: se vuelve a soltar y a esperar
   assert.equal(ctx.candado?.nombre, 'tercero');
 });
 
-test('la RAM no aparece en el tope: devuelve 0 SIN el candado, y los pasos que siguen no esperan ni hacen fila de nuevo', async () => {
+test('la RAM no aparece en el tope de ESTE paso: devuelve 0 SIN el candado y sin hacer fila; el paso que sigue espera con SU tope (no hereda el fracaso del anterior)', async () => {
   const { f, ctx, eventos } = armar([0]);
-  assert.equal(await f(1, { esperaMaxMs: 60_000 }), 0);
+  assert.equal(await f(1, { esperaMaxMs: 20_000 }), 0, 'los tipos del --rapido: 20 s y nada');
   assert.equal(ctx.candado, null, 'no tiene el candado');
-  assert.equal(ctx.sinCandado, true, 'y lo deja dicho');
-  assert.ok(!eventos.includes('hace fila'), 'no vuelve a hacer una fila de media hora sólo para decir «no hay RAM»');
+  assert.ok(!eventos.includes('hace fila'), 'no hace una fila de media hora sólo para decir «no hay RAM»');
   const antes = eventos.length;
-  assert.equal(await f(2), 0, 'el paso siguiente (los tests) tampoco corre');
-  assert.equal(eventos.length, antes, 'sin consultar nada: no hay candado, no hay turno');
+  assert.equal(await f(2), 0, 'los tests, con su tope de 15 min, esperan DE NUEVO (y sin candado)');
+  assert.deepEqual(eventos.slice(antes), ['ESPERA(900000) con SIN candado → 0'], 'esperan sin candado y sin hacer fila');
+});
+
+test('REGRESIÓN (exit 99): los tipos del --rapido vencen a los 20 s sin RAM, y los tests, que esperan 15 min, la consiguen: corren con un candado NUEVO', async () => {
+  // La primera versión marcaba «sin candado» para siempre al vencer los tipos: los tests salían «no hay RAM» sin esperar (medido el 21/10: 1 min 34 s en total).
+  const { f, ctx, eventos } = armar([0, 0, 1, 1]);     // tipos: mira no · espera 20 s no — tests: espera sí · ya con el turno, sí
+  assert.equal(await f(1, { esperaMaxMs: 20_000 }), 0);
+  assert.equal(await f(2), 2, 'los tests tuvieron su espera y corren');
+  assert.equal(ctx.candado?.nombre, 'segundo', 'con un candado nuevo, hecho después de que apareció la RAM');
+  assert.deepEqual(eventos.filter((e) => /fila|toma|suelta/.test(e)), ['suelta primero', 'hace fila', 'toma segundo']);
 });
 
 test('el turno vence al volver a hacer fila: 0 sin candado (no es un rojo del código)', async () => {
   const { f, ctx } = armar([0, 1], { vence: true });
   assert.equal(await f(1, { esperaMaxMs: 60_000 }), 0);
   assert.equal(ctx.candado, null);
-  assert.equal(ctx.sinCandado, true);
 });
 
 test('sin candado en la mano (Actions, --ya-tengo-el-candado, MAKO_SIN_COLA): espera como siempre, con las mismas opciones', async () => {
@@ -164,9 +171,8 @@ test('el candado que se retoma es el que se suelta al terminar (ctx, no una vari
 });
 
 // =============================================================================
-// ⚠️ PROBADO ROMPIÉNDOLO (21/10/2026; se rompe UNA pieza, se corren estas pruebas, se restaura): 15 roturas, 15 rojas (una se CUELGA en vez de fallar, y otra salió verde la primera vez).
-//   no soltar el candado antes de esperar → 2 · esperar con el candado en la mano → 4 · no retomar el turno al volver → 2 · sin RAM en el tope sin marcar sinCandado → 1 · el turno vencido sin marcarlo → 1 ·
-//   esperar el tope entero cada vez (sin descontar lo esperado) → 1 · no mirar ANTES de soltar (soltar siempre) → se cuelga · el paso siguiente que no se frena sin candado → 1 ·
-//   delegar con `tomar` pero sin candado → 1 (verde la primera vez: el esperar de mentira devolvía RAM enseguida; ahora contesta 0 la primera vez y se mira que no hizo fila) ·
-//   los tipos que esperan por su cuenta → 1 · los tests sin la espera → 1 · correrTests que espera por su cuenta (cada tanda → 1, el grupo compartido → 1) · el exit que suelta el candado viejo → 1 · el finally → 1.
+// ⚠️ PROBADO ROMPIÉNDOLO (21/10/2026; se rompe UNA pieza, se corren estas pruebas, se restaura): 14 roturas, 14 rojas — TRES se CUELGAN en vez de fallar (el bucle no termina: no retomar el turno, reintentar con el turno vencido, no mirar antes de soltar).
+//   no soltar el candado antes de esperar → 3 · esperar con el candado en la mano → 5 · el fracaso de un paso que se hereda al siguiente (el exit 99 de la primera versión) → 2 · esperar el tope entero cada vez (sin descontar lo esperado) → 1 ·
+//   sin cómo hacer fila no delegar → 1 · los tipos que esperan por su cuenta → 1 · los tests sin la espera → 1 · correrTests que espera por su cuenta (cada tanda → 1, el grupo compartido → 1) · el exit que suelta el candado viejo → 1 · el finally → 1.
+// La primera versión marcaba «sin candado» para siempre al vencer UNA espera: los tipos del --rapido vencen a los 20 s y los tests, que esperan 15 min, salían «no hay RAM» sin esperar (exit 99, 1 min 34 s en total, visto en el primer VERDE de este cambio).
 // =============================================================================
