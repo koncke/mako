@@ -6702,6 +6702,13 @@ tope) — dos costos de un mismo defecto: **esperar y preparar la rama eran paso
   «¿sin red?» sin más; a mano y desde Node andaba en 3 s. Los worktrees comparten UN `.git`, y con una docena de chats bajando a la vez
   un fetch puede chocar con el lock del otro. Ahora reintenta 3 veces (pausas crecientes) y el aviso trae la causa que dio git. Si igual
   no baja, sigue con el `origin/main` que tiene (el VERDE vale contra esa copia: la línea lo deja ver con el ⚠).
+- **Dos errores de tipos que `--rapido` no vio y cayeron en Actions (run 173).** (1) Un `.ts` que importa un `.mjs` sin JSDoc recibe los tipos
+  que TS DEDUCE: el default `aviso = () => {}` quedó como `() => void` (un `aviso` que recibe el texto no compilaba) y `tomarTurno`, que devuelve
+  `{ soltar } | { vencio }`, dejó a `soltar` «posiblemente undefined» aun después de mirar `vencio`. (2) `--rapido` mide la RAM 20 s y, sin
+  4 GB libres para el tsc acotado, deja los tipos a Actions: la línea lo decía (`los chequea Actions`) y Actions cumplió, a costa de un run.
+  **La regla que queda:** un módulo `.mjs` que un test `.ts` importa lleva JSDoc en lo exportado con parámetros de función o retornos en unión
+  (ahora `tomarTurno`, `anotarse`, `intentarTomar`); y un VERDE que dice «tipos: los chequea Actions» sobre un test NUEVO no es un VERDE de tipos —
+  hay que volver a correrlo con RAM (sin `--rapido` espera hasta 90 s) antes de pasarle la punta al Cerebro.
 - **La primera versión de la prueba de la cola no agarraba el orden por pid** (los pids de los tres chats crecían con la hora, así que
   ordenar por pid o por hora daba lo mismo). Se vio al romperlo a propósito: ahora el más viejo tiene el pid más alto.
 

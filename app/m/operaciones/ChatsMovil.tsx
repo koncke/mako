@@ -29,8 +29,8 @@ import { Button } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { conVinetas, enterEnLista, estaAbajo } from '@/lib/centro-caja';
 import {
-  SECCION_CHATS, avisosDe, comoSale, esPrioritario, seguirChat, esperaDe, historialDelChat, partesDelNombre, porJefe, seccionesDeChats, segundoRenglon, trabajaSinEscribir,
-  textoDeEnvio, type CarteroP, type ChatCentro, type LineaChat, type TrabajoP, type VistaPrevia,
+  SECCION_CHATS, TEXTO_SEGUNDO_RENGLON, avisosDe, comoSale, esPrioritario, seguirChat, esperaDe, historialDelChat, partesDelNombre, porJefe, seccionesDeChats, segundoRenglon, trabajaSinEscribir,
+  textoDeEnvio, type CarteroP, type ChatCentro, type LineaChat, type TrabajoP,
 } from '@/lib/centro-chats';
 import type { PedidoP, PushP } from '@/lib/progreso-reglas';
 import type { AccionResponder, Decision } from '@/app/admin/runway/decisiones';
@@ -39,7 +39,7 @@ import { Pregunta } from '@/app/admin/operaciones/Pregunta';
 import { CirculoNuevo } from '@/app/admin/operaciones/NuevoChat';
 import { useChatNuevo } from '@/app/admin/operaciones/ChatNuevo';
 import { CajaChatNuevo, CriaturaChatNuevo, CuerpoChatNuevo, TituloChatNuevo } from '@/app/admin/operaciones/ChatNuevoPiezas';
-import { Hilo, TANDA_HILO, Tick } from '@/app/admin/operaciones/Hilo';
+import { Hilo, TANDA_HILO } from '@/app/admin/operaciones/Hilo';
 import { Muneco, animoDe } from '@/app/admin/operaciones/Muneco';
 import { TareasVinculadas, irAlTurno } from '@/app/admin/operaciones/Avance';
 import { LinksDeLaCaja, ResalteDeLinks, hayLinks } from '@/app/admin/operaciones/ConLinks';
@@ -54,7 +54,7 @@ const metaDe = (c: ChatCentro) => ESTADO[c.estado];
 import { copiar, type useFirma } from '@/app/admin/operaciones/mandar';
 import { ListaAdjuntos, MasCaja, alPegar, type AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import type { Centro } from '@/app/admin/operaciones/useCentro';
-import { SelectoresDeEnvio, SelloCompletado, resumenDeEnvio } from '@/app/admin/operaciones/PiezasCentro';
+import { SelectoresDeEnvio, resumenDeEnvio } from '@/app/admin/operaciones/PiezasCentro';
 import { BarraFijados, CitaCaja, ContextoWA, InfoMensaje, MenuMensajeWA, ReenviarA, type AccionesWA, type MenuAbiertoWA, type MensajeWA } from '@/app/admin/operaciones/MensajeWA';
 import type { Responder } from '@/app/admin/operaciones/PreguntaChat';
 import { SIN_MARCAS } from '@/lib/centro-mensajes';
@@ -134,15 +134,13 @@ function HojaChatNuevo({ centro, onCerrar, onAbrir }: { centro: Centro; onCerrar
  * no vuelve a dibujar las 50 filas en cada uno de esos toques. La medición, en docs/hallazgos-operaciones.md.
  */
 type PropsFilaChatM = {
-  c: ChatCentro; sub: boolean; previa: VistaPrevia | null; enCurso: string | null; espera: number; aspecto: Aspecto | null; ahora: number;
+  c: ChatCentro; sub: boolean; espera: number; aspecto: Aspecto | null; ahora: number;
   onAbrir: (clave: string) => void;
-  /** Trae un «Completado» que este teléfono no vio (useCentro.ts → yaSinVer): avisa IGUAL que «Espera tu respuesta» (17/10/2026). */
+  /** Su «Completado» espera el ✓ (useCentro.ts → yaSinVer): avisa IGUAL que «Espera tu respuesta». */
   nuevo: boolean;
-  /** Lo escrito sin mandar (useCentro.ts → borradorDeLista): «Borrador: …», como WhatsApp. */
-  borrador: string | null;
 };
-const FilaChatM = memo(function FilaChatM({ c, sub, previa: p, enCurso, espera, aspecto, ahora, onAbrir, nuevo, borrador }: PropsFilaChatM) {
-  const renglon = segundoRenglon(c, espera, borrador, p, nuevo);
+const FilaChatM = memo(function FilaChatM({ c, sub, espera, aspecto, ahora, onAbrir, nuevo }: PropsFilaChatM) {
+  const renglon = segundoRenglon(c, espera, nuevo);
   // Dormido si no trabaja y no tiene nada para Martín (un aviso o un «Completado» sin ver): despierto sólo con uno de los dos.
   const animo = animoDe(c, avisosDe(espera, nuevo));
   return (
@@ -150,16 +148,8 @@ const FilaChatM = memo(function FilaChatM({ c, sub, previa: p, enCurso, espera, 
       // Un sub-chat va corrido a la derecha, con su muñeco más chico y sólo lo que va después de «›».
       leading={<span className={sub ? 'm-operaciones-sub' : undefined}><Muneco titulo={c.titulo} aspecto={aspecto} animo={animo} size={sub ? 32 : 40} espera={avisosDe(espera, nuevo)} /></span>}
       titulo={<span className={`m-operaciones-texto1${animo === 'dormido' ? ' m-operaciones-texto1--dormido' : ''}`}>{sub ? `↳ ${partesDelNombre(c.titulo).sub}` : c.titulo}{c.nube && <> <span className="co-chip-cuenta">Nube</span></>}</span>}
-      // El orden lo decide `segundoRenglon` (lib/centro-chats.ts), el mismo de la computadora.
-      segunda={renglon ? {
-        vivo: <span className="m-operaciones-vivo">{enCurso ?? 'trabajando…'}</span>,
-        espera: <span className="m-operaciones-espera">Espera tu respuesta</span>,
-        // El MISMO aviso, con el mismo estilo: un «Completado» sin ver, para revisar.
-        revisar: <span className="m-operaciones-espera">Espera tu respuesta</span>,
-        borrador: <span className="m-operaciones-previa"><span className="co-borrador">Borrador:</span>{borrador}</span>,
-        ya: <span className="m-operaciones-previa"><SelloCompletado />{p?.texto}</span>,
-        previa: <span className="m-operaciones-previa">{p?.tick ? <Tick estado={p.tick} /> : p?.propio ? 'Tú: ' : ''}{p?.texto}</span>,
-      }[renglon] : undefined}
+      // «Trabajando…», «Espera tu respuesta» o nada (20/10/2026): lo decide `segundoRenglon`, el mismo de la computadora.
+      segunda={renglon ? <span className={renglon === 'vivo' ? 'm-operaciones-vivo' : 'm-operaciones-espera'}>{TEXTO_SEGUNDO_RENGLON[renglon]}</span> : undefined}
       riel={<span className="m-operaciones-riel"><span className="m-operaciones-hace">{edad(c.actividad, ahora)}</span></span>}
       onClick={() => onAbrir(c.clave)}
       chevron={false}
@@ -171,8 +161,7 @@ const FilaChatM = memo(function FilaChatM({ c, sub, previa: p, enCurso, espera, 
  *  de cada chat y de cada vista previa aunque nada haya cambiado, y sin esto las 90 filas se volvían a dibujar en cada uno. */
 function mismaFila(a: PropsFilaChatM, b: PropsFilaChatM): boolean {
   return a.c.clave === b.c.clave && a.c.titulo === b.c.titulo && a.c.estado === b.c.estado && a.c.viejo === b.c.viejo && a.c.nube === b.c.nube
-    && a.sub === b.sub && a.enCurso === b.enCurso && a.espera === b.espera && a.aspecto === b.aspecto && a.onAbrir === b.onAbrir && a.nuevo === b.nuevo && a.borrador === b.borrador
-    && a.previa?.texto === b.previa?.texto && a.previa?.tick === b.previa?.tick && a.previa?.propio === b.previa?.propio && a.previa?.ya === b.previa?.ya
+    && a.sub === b.sub && a.espera === b.espera && a.aspecto === b.aspecto && a.onAbrir === b.onAbrir && a.nuevo === b.nuevo
     && edad(a.c.actividad, a.ahora) === edad(b.c.actividad, b.ahora);
 }
 
@@ -462,9 +451,8 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
             {!parte && <FilaM leading={<CirculoNuevo size={40} />} titulo="Nuevo chat" onClick={() => setNuevoChat(true)} navegacion />}
             {filas.map((f) => (f.tipo === 'mas'
               ? <FilaM key={`mas-${f.k}`} titulo={`Ver los ${f.n} chats`} onClick={() => setEnteras((s) => new Set(s).add(f.k))} navegacion />
-              : <FilaChatM key={f.c.clave} c={f.c} sub={f.sub} previa={centro.previas.get(f.c.clave) ?? null} enCurso={centro.enCursos.get(f.c.clave) ?? null}
-                espera={esperaDe(f.c, esperas)} aspecto={elegidoPara(munecos, f.c.titulo)} ahora={ahora} onAbrir={abrirEstable} nuevo={centro.yaSinVer.has(f.c.clave)}
-                borrador={f.c.clave === elegido?.clave ? null : centro.borradorDeLista(f.c.clave)} />))}
+              : <FilaChatM key={f.c.clave} c={f.c} sub={f.sub}
+                espera={esperaDe(f.c, esperas)} aspecto={elegidoPara(munecos, f.c.titulo)} ahora={ahora} onAbrir={abrirEstable} nuevo={centro.yaSinVer.has(f.c.clave)} />))}
           </ListaM>
         </SeccionM>
       )}
