@@ -2563,8 +2563,32 @@ aceptaba la opción exacta: todo esto entraba nuevo.
   «Listo», «es mi negocio» son un sí. Una palabra de acuerdo (o «No, está bien») no reemplaza al nombre que espera: se
   pregunta de nuevo.
 
-**Sin hacer:** el «¿Está correcto el PDF?» todavía lee un sí o un no escrito sin confirmación. Es un sí/no de bajo riesgo:
-un «no» sólo anota que falta algo. «Vendo 20 a 500 dólares» se sigue leyendo como un rango; la confirmación lo muestra y
-se corrige con un toque. Vive en lib/onboarding-arranque.ts (`leerRespuesta`, etapa 'pdf'; `cifraDe`).
+**Y la cuarta revisión (punta 2fbd0f3a5): la red funcionaba, los agujeros estaban alrededor.**
+- ⚠️ **Un guard de pestaña vieja que compara el TEXTO DEL BOTÓN no sirve si todas las confirmaciones tienen el mismo
+  botón.** «Sí, es eso» es igual en todas, así que un toque viejo, o un «sí» escrito, confirmaba la lectura que el server
+  tenía AHORA, aunque esa pantalla nunca la hubiera mostrado. **Regla:** el toque y lo escrito viajan con la PREGUNTA que
+  contestan (`preguntaQueContesta`, app/onboarding/arranque-ui.ts), y el server la compara con la suya.
+- **Dos lectores de la misma frase con significados opuestos.** Para que «es mi marca personal» confirmara el nombre, se
+  sumó a la lista del sí. Pero RE_MI_NOMBRE lee esa misma frase como «uso mi nombre». Con el pendiente mal leído «Vendo
+  ropa», confirmaba «Vendo ropa». **Regla:** antes de sumar una frase a una lista de lectura, buscar si otra regex del
+  mismo archivo ya la lee (`git grep` de la frase). Lo que sólo nombra lo preguntado («es mi negocio») vale como sí
+  únicamente detrás de un sí explícito (`NOMBRA_LO_PREGUNTADO`).
+- **La duda de la moneda la tumbó el escéptico, y con razón.** «$ 150.000» no es un error de lectura: las opciones que ve
+  la persona dicen «$» sin «USD», así que leer «$» como la moneda de los tramos es coherente con lo que se muestra. El
+  problema, si lo hay, son las etiquetas de lib/fase-diagnostico.ts, que vienen de antes. Lo que sí se pregunta en dólares
+  es lo que dice otra moneda: pesos, «lucas», «palos».
+- **Un insert en lote con `DEFAULT now()` deja la MISMA hora en todas las filas.** Postgres lo corre en una transacción, y
+  si la lectura ordena sólo por esa columna, los empates salen en el orden físico de la tabla. El chat «Onboarding» podía
+  mostrar la mitad de la conversación antes del saludo. **Regla:** al copiar en lote, cada fila lleva su hora creciente.
+- **Lo que se lee y no se ve también necesita el toque: el tipo de cobro del producto.** Se guardaba sin que nadie lo
+  mirara. El PDF muestra el texto del precio, no la lectura, así que su «Sí, está correcto» no confirmaba nada. Ahora hay
+  una pregunta propia (etapa 'cobro').
+- **Un copy que promete una acción necesita código que la haga.** «Lo anoto» después de un «no» al PDF no anotaba nada:
+  ahora la nota va a onboarding.encuesta (`pdfNota`). Y el nombre de la persona leído con reglas pisaba el que trajo Google;
+  ahora sólo llena un perfil sin nombre.
+
+**Sin hacer:** «Vendo 20 a 500 dólares» se sigue leyendo como un rango; la confirmación lo muestra y se corrige con un
+toque. Las etiquetas de los tramos dicen «$» sin «USD» (lib/fase-diagnostico.ts): es una decisión de copy, no de este
+chat. Vive en lib/onboarding-arranque.ts (`cifraDe`).
 
 *21/10/2026, chat «Onboarding» (claude4), rama onboarding-v3.*

@@ -1,5 +1,16 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 21/10/2026 — CUARTA REVISIÓN (de 2fbd0f3a5): EL TOQUE TAMBIÉN ALREDEDOR DE LA RED
+
+<sub>Chat «Onboarding», claude4, rama onboarding-v3. El Cerebro: «con esto ENTRA, miro sólo el diff»
+(side-session-notes/local_797d5445…/revision-onboarding-cuarta-21-10.md).</sub>
+
+- `47f3744b0`: «es mi negocio»/«mi marca personal» confirman sólo detrás de un sí; la respuesta viaja con la pregunta que
+  contesta (un toque viejo no confirma); etapa 'cobro' con el toque; el chat «Onboarding» con hora creciente; la corrección
+  del PDF se anota; el nombre de la persona no pisa el de Google; la entrada del teléfono se marca al verse; la
+  conversación de Offer vuelve a listarse si siguió después de la copia. Tests: tests/onboarding-toque-que-confirma.test.ts.
+- Sin hacer: las etiquetas de los tramos dicen «$» sin «USD» (decisión de copy, lib/fase-diagnostico.ts).
+
 ## ESTADO AL 21/10/2026 ~03:00 AR — TERCERA REVISIÓN (de 8805b81aa): LO ESCRITO SE CONFIRMA CON UN TOQUE
 
 <sub>Chat «Onboarding», claude4, rama onboarding-v3. El Cerebro cambió el enfoque: no más rondas de reglas para leer frases
