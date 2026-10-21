@@ -26,7 +26,7 @@ import { claveVisible, personaDeSesion, prefijoDePersona, puedeUsarSesion, type 
 import { TITULO_GRUPO, baseDeLaPersona } from '@/lib/chat-mako-reglas';
 import { getGrupoJidMaKo } from '@/lib/mako-grupo';
 import { hiloDelGrupo } from '@/lib/mako-doer-conv';
-import type { MensajeChat } from '@/lib/mako-turno-app-reglas';
+import { chartKeyDePersona, type MensajeChat } from '@/lib/mako-turno-app-reglas';
 
 /** Quién pide: admin o no, y su persona (la regla de /mako y de chart-insights). null = sin sesión. */
 export async function quienChateaDelRequest(): Promise<(QuienChatea & { sub: string }) | null> {
@@ -146,9 +146,10 @@ async function wsSiVeOffer(): Promise<number | null> {
 export async function chatsDeOffer(): Promise<ChatDeOffer[]> {
   const ws = await wsSiVeOffer();
   if (ws == null) return [];
-  // La del onboarding, si ya tiene su chat «Onboarding» (lo copia hiloDelOnboarding), no se lista: saldría dos veces.
-  const [lista, arranque] = await runWithWorkspace(ws, () => Promise.all([listarSesionesOffer(), getSetting('onboarding.arranque').catch(() => null)]));
-  const copiada = offerDelOnboardingCopiada(arranque);
+  // La del onboarding, si quien pide ya tiene su chat «Onboarding» (lo copia hiloDelOnboarding), no se lista: saldría dos
+  // veces. A los demás (el super admin mirando, otro admin) se les sigue listando.
+  const [lista, arranque, sesion] = await runWithWorkspace(ws, () => Promise.all([listarSesionesOffer(), getSetting('onboarding.arranque').catch(() => null), getUsuarioActual()]));
+  const copiada = offerDelOnboardingCopiada(arranque, sesion ? chartKeyDePersona(sesion) : null);
   return lista.filter((s) => s.id > 0 && s.id !== copiada).map((s) => ({ id: s.id, titulo: s.titulo, updatedAt: s.updatedAt, origen: 'offer', alcance: 'workspace' }));
 }
 

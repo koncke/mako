@@ -194,13 +194,17 @@ export function mensajesDeOffer(ms: ReadonlyArray<{ de: 'mako' | 'yo'; texto: st
  * La conversación de Offer del ONBOARDING que ya tiene su chat «Onboarding» (20/10/2026, acordado con el chat Onboarding):
  * `hiloDelOnboarding` (rama onboarding-v3) la COPIA a chart_sessions al terminar y guarda su id en `onboarding.arranque` →
  * `hiloChat`; la proyección de Offer la esconde, o saldría dos veces. Lee el setting crudo (`sesionId` y `hiloChat`).
- * null = no se esconde ninguna (sin onboarding, o sin el chat todavía).
+ * Sólo para QUIEN TIENE LA COPIA (revisión del Cerebro, 20/10): el «Onboarding» es un chat de UNA persona (`hiloDe`, su
+ * chart_key). El super admin mirando, otro admin o un closer con Offer no lo tienen: si se les escondía, la conversación
+ * desaparecía de su Ops Center, justo lo que Martín pidió arreglar ese día.
+ * null = no se esconde ninguna (sin onboarding, sin el chat todavía, o el chat es de otro).
  */
-export function offerDelOnboardingCopiada(raw: unknown): number | null {
+export function offerDelOnboardingCopiada(raw: unknown, chartKey: string | null): number | null {
   let o: unknown = raw;
   if (typeof raw === 'string') { try { o = JSON.parse(raw); } catch { return null; } }
   if (!o || typeof o !== 'object' || Array.isArray(o)) return null;
-  const { sesionId, hiloChat } = o as Record<string, unknown>;
+  const { sesionId, hiloChat, hiloDe } = o as Record<string, unknown>;
   const entero = (v: unknown) => typeof v === 'number' && Number.isInteger(v) && v > 0;
-  return entero(hiloChat) && entero(sesionId) ? (sesionId as number) : null;
+  const suya = !!chartKey && typeof hiloDe === 'string' && hiloDe === chartKey;
+  return suya && entero(hiloChat) && entero(sesionId) ? (sesionId as number) : null;
 }

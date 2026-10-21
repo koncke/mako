@@ -19,6 +19,8 @@
 //   · la pantalla sin la sección «Offer» → 1 fallo (4);
 //   · Offer sin `?sesion=` en el teléfono → 1 fallo (4);
 //   · `chatsDeOffer` sin esconder la del onboarding ya copiada → 1 fallo (6).
+// Y el 20/10 a la noche (revisión del Cerebro; chat Onboarding, base 6/0): esconderla para todos sin mirar de quién es la
+// copia → 5/1 (6) · `chatsDeOffer` con la persona del setting en vez de la que pide → 5/1 (6).
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -86,11 +88,17 @@ test('5. en el teléfono, «Tus chats» trae las conversaciones de Offer y lleva
 });
 
 test('6. la conversación del onboarding no sale dos veces (acordado con el chat Onboarding)', () => {
-  // hiloDelOnboarding la copia a un chat «Onboarding» y deja su id en `hiloChat`: entonces «Offer» no la lista.
-  assert.equal(offerDelOnboardingCopiada(JSON.stringify({ sesionId: 14, hiloChat: 301 })), 14);
-  assert.equal(offerDelOnboardingCopiada({ sesionId: 14 }), null, 'sin el chat todavía, se ve en «Offer»');
-  assert.equal(offerDelOnboardingCopiada(null), null);
-  assert.equal(offerDelOnboardingCopiada('no es json'), null);
+  // hiloDelOnboarding la copia a un chat «Onboarding» de UNA persona (`hiloDe`) y deja su id en `hiloChat`: a ESA persona
+  // «Offer» no se la lista. A los demás sí (revisión del Cerebro, 20/10: se escondía para todos y desaparecía del Ops Center
+  // del super admin mirando).
+  const copia = { sesionId: 14, hiloChat: 301, hiloDe: 'mako-movil:u7' };
+  assert.equal(offerDelOnboardingCopiada(JSON.stringify(copia), 'mako-movil:u7'), 14);
+  assert.equal(offerDelOnboardingCopiada(copia, 'mako-movil:u8'), null, 'otro admin, un closer o el super admin mirando la siguen viendo');
+  assert.equal(offerDelOnboardingCopiada(copia, null), null);
+  assert.equal(offerDelOnboardingCopiada({ sesionId: 14, hiloChat: 301 }, 'mako-movil:u7'), null, 'sin saber de quién es la copia, no se esconde');
+  assert.equal(offerDelOnboardingCopiada({ sesionId: 14, hiloDe: 'mako-movil:u7' }, 'mako-movil:u7'), null, 'sin el chat todavía, se ve en «Offer»');
+  assert.equal(offerDelOnboardingCopiada(null, 'mako-movil:u7'), null);
+  assert.equal(offerDelOnboardingCopiada('no es json', 'mako-movil:u7'), null);
   const ind = leer('lib/chat-mako-indice.ts');
-  assert.match(ind, /const copiada = offerDelOnboardingCopiada\(arranque\);\n  return lista\.filter\(\(s\) => s\.id > 0 && s\.id !== copiada\)/);
+  assert.match(ind, /const copiada = offerDelOnboardingCopiada\(arranque, sesion \? chartKeyDePersona\(sesion\) : null\);\n  return lista\.filter\(\(s\) => s\.id > 0 && s\.id !== copiada\)/);
 });
