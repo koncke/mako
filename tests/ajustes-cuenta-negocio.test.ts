@@ -53,7 +53,8 @@ test('el ?tab= viejo de los avisos ya mandados cae en su sección, con el ?ws= d
   const viejo = general.indexOf("if (vieja && vieja !== '/configuraciones') redirect(conLaQuery(vieja, sp, ['tab']));");
   const sinGeneral = general.indexOf('if (!disponibles.general) redirect(');
   assert.ok(viejo > 0 && sinGeneral > viejo, 'el ?tab= viejo se decide antes que la entrada por defecto: si no, «apagar este reporte» cae en Equipo');
-  assert.match(leer('lib/avisos.ts'), /link: a\.link \?\? '\/configuraciones\?tab=notif'/, 'el link de los avisos cambió: revisar a dónde cae');
+  // Desde el 20/10/2026 un aviso con lead lleva a su ficha (lib/aviso-lead.ts); sin lead, sigue cayendo acá.
+  assert.match(leer('lib/avisos.ts'), /link: a\.link \?\? linkDelLeadDelAviso\(a\) \?\? '\/configuraciones\?tab=notif'/, 'el link de los avisos cambió: revisar a dónde cae');
 });
 
 test('cada sección es su ruta, y su página marca su lugar en el índice', () => {
