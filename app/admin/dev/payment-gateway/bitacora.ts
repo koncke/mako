@@ -197,4 +197,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/clients?ws=3',
   },
+  {
+    fecha: '21 oct', hora: '13:00', chat: 'Pagos', sesion: 'local_d0cd6fc8-e2f9-4ee9-b76a-19264ced015f', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: el chat con MaKo muestra el estado de cuenta del cliente y lee el comprobante que le mandas',
+    pedido: 'la 2.28 de Ops Center = lo principal (Pagos), con tres revisiones del Cerebro',
+    puntos: [
+      'Le preguntas a MaKo cómo está de pagos un cliente y te muestra el estado de cuenta en el chat: el mismo de la pestaña Pagos de su ficha, con «Cobrar la cuota».',
+      'Si le mandas el comprobante en el mismo mensaje, al cobrar la cuota lo lee solo: monto, fecha y hora quedan cargados para revisar y guardar. Sólo para la cuota de ese cliente; si no está claro de quién es, te pregunta.',
+      'El monto del comprobante se lee en SU moneda: unos pesos no se convierten con un tipo de cambio inventado. En un negocio en pesos, un «$» sin código no se toma por dólares, y te avisa si el monto no cuadra con la cuota.',
+      'Un comprobante ya no le cambia el recibo a una cuota que ya estaba cobrada.',
+    ],
+    commits: [{ sha: '1b6fc9ad8', msg: 'Pagos: el estado de cuenta y el comprobante en el chat con MaKo (entró con 83d0c1ddb, run 209)', lineas: 1454, archivos: 36 }],
+    archivos: [
+      'app/_chat/bloques/EstadoCuentaHilo.tsx y app/crm/lead-view/ficha/pagos/comprobante-del-chat.ts — el estado de cuenta y el comprobante en el hilo',
+      'lib/pagos-bloque.ts — `comprobanteDelPedido`: el comprobante va atado al cliente y a su cuota',
+      'app/api/extract-receipt/route.ts y app/crm/lead-view/ficha/pagos/recibo-leido.ts — monto y moneda tal cual, sin convertir',
+      'tests/chat-bloque-estado-cuenta.test.ts y tests/pagos-recibo-leido.test.ts — con la ruta real, probados rompiéndolos',
+    ],
+    revisar: '/second-brain?ws=3',
+  },
 ];
