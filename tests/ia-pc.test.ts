@@ -66,7 +66,7 @@ test('el programa corre Claude con el texto por stdin, en su carpeta, con la cue
   const antes = process.env.ANTHROPIC_API_KEY;
   process.env.ANTHROPIC_API_KEY = 'sk-ant-no-deberia-viajar';
   try {
-    const ok = await pensar({ dir, system: 'el system', prompt: 'el mensaje de la persona', mcp: mcpDelTurno('https://x/api/ia-pc/mcp', 't'), configDir: 'C:/cuentas/ana' },
+    const ok = await pensar({ dir, system: 'el system', prompt: 'el mensaje de la persona', mcp: mcpDelTurno('https://x/api/ia-pc/mcp', 't'), configDir: '/cuentas/ana' },
       falso(JSON.stringify({ type: 'result', is_error: false, result: 'Tienes 7 leads.', usage: { input_tokens: 10, output_tokens: 4 } })) as never, 'claude');
     assert.deepEqual(ok, { texto: 'Tienes 7 leads.', uso: { entrada: 10, salida: 4 }, limites: {} });
     const v = vistos[0];
@@ -80,7 +80,7 @@ test('el programa corre Claude con el texto por stdin, en su carpeta, con la cue
     assert.equal(v.stdin, 'el mensaje de la persona');
     assert.ok(!v.args.some((a) => a.includes('el mensaje de la persona')), 'nada de la persona en la línea de comandos');
     assert.equal(v.opts.env.ANTHROPIC_API_KEY, undefined, 'sin la API key: usa la suscripción');
-    assert.equal(v.opts.env.CLAUDE_CONFIG_DIR, 'C:/cuentas/ana', 'la cuenta elegida');
+    assert.equal(v.opts.env.CLAUDE_CONFIG_DIR, '/cuentas/ana', 'la cuenta elegida');
     const error = await pensar({ dir, system: 's', prompt: 'p', mcp: {} }, falso(JSON.stringify({ type: 'result', is_error: true, result: 'Login expired' })) as never, 'claude');
     assert.deepEqual(error, { error: 'Login expired', limites: {} });
   } finally {

@@ -87,16 +87,16 @@ test('el programa pasa el modelo validado, y encuentra a Claude aunque falte el 
     p.stdin = Object.assign(new EventEmitter(), { end: () => { visto = { cmd, args }; setImmediate(() => { p.stdout.emit('data', STREAM); p.emit('close', 0); }); } });
     return p;
   };
-  const r = await programa.pensar({ dir, system: 's', prompt: 'p', mcp: {}, modelo: 'rm -rf /' }, falso as never, 'C:/x/claude.exe');
+  const r = await programa.pensar({ dir, system: 's', prompt: 'p', mcp: {}, modelo: 'rm -rf /' }, falso as never, '/x/claude');
   assert.deepEqual(r, { texto: 'Tienes 3 tareas.', uso: { entrada: 9, salida: 6 }, limites: { usado5h: 42, usadoSemana: 98, repone: new Date(1792576200 * 1000).toISOString() } });
   const v = visto as unknown as { cmd: string; args: string[] };
-  assert.equal(v.cmd, 'C:/x/claude.exe');
+  assert.equal(v.cmd, '/x/claude');
   const i = v.args.indexOf('--model');
   assert.equal(v.args[i + 1], 'sonnet', 'un modelo raro cae a sonnet');
   // La ruta conocida del instalador oficial, si existe; si no, `claude` del PATH.
   assert.match(programa.rutaDeClaude({}, () => true), /[\\/]\.local[\\/]bin[\\/]claude(\.exe)?$/);
   assert.equal(programa.rutaDeClaude({}, () => false), 'claude');
-  assert.equal(programa.rutaDeClaude({ MAKO_PC_CLAUDE: 'D:/claude.exe' }, () => true), 'D:/claude.exe');
+  assert.equal(programa.rutaDeClaude({ MAKO_PC_CLAUDE: '/otro/claude' }, () => true), '/otro/claude');
 });
 
 test('el instalador sólo lleva valores validados, y su línea es la del tutorial', () => {
