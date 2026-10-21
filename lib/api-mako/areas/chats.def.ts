@@ -129,7 +129,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'agregar_contacto_al_crm', area: 'chats', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Agregar al CRM',
-    descripcion: 'Propone dar de alta como lead a un contacto de la tab Chats que todavía no está en el CRM (como «Agregar al CRM» de la conversación): de WhatsApp con su teléfono, de Instagram o Messenger con su conversación. Si el negocio vende más de un producto, pregunta a cuál (funnelId). Un contacto que sólo escribe por email no se agrega desde acá. Si ya es lead, lo dice. Pasa la clave de listar_chats.',
+    descripcion: 'Propone dar de alta como lead a un contacto de la tab Chats que todavía no está en el CRM (como «Agregar al CRM» de la conversación): de WhatsApp con su teléfono, de Instagram o Messenger con su conversación. Si el negocio vende más de un producto, pregunta a cuál (funnelId). Un contacto que sólo escribe por email no se agrega desde aquí. Si ya es lead, lo dice. Pasa la clave de listar_chats.',
     parametros: [
       { ...CLAVE, obligatorio: true },
       { nombre: 'nombre', tipo: 'string', max: 120, descripcion: 'cómo se llama, si el nombre que trae la conversación no sirve (sólo WhatsApp).' },
