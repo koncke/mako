@@ -179,39 +179,49 @@ export function productoDelPedido(texto: string, productos: readonly ObjetoChat[
   return { objeto: null, candidatos: lista.slice(0, MAX_PRODUCTOS_PREGUNTA), pregunta: PREGUNTA_PRODUCTO };
 }
 
-/** ¿El pedido es para «otro producto» («mi otro producto», «los otros productos»)? Sobre el texto plano. */
-export const pideOtroProducto = (texto: string): boolean => /\botr[ao]s?\s+productos?\b/.test(plano(nfc(texto)));
+/**
+ * ¿El pedido es para OTRO producto? «mi otro producto», «los otros productos», «otro de mis productos», «otro servicio».
+ * Sobre el texto plano. (Revisión del 20/10/2026: «otro de mis productos» no se veía, y con uno solo se elegía ése.)
+ */
+export const pideOtroProducto = (texto: string): boolean =>
+  /\botr[ao]s?\s+(?:de\s+(?:mis|los|tus|sus|nuestros)\s+)?(?:productos?|servicios?)\b/.test(plano(nfc(texto)));
+
+/** Lo que `productoDeLanding` decide: seguir (con el producto para el pedido, si se sabe) o preguntar antes. */
+export type ProductoDeLanding = { que: 'sigue'; producto: string | null } | { que: 'preguntar'; mensaje: string };
+
+const nombresDe = (ps: readonly ObjetoChat[]) => ps.slice(0, MAX_PRODUCTOS_PREGUNTA).map((p) => `«${p.nombre}»`).join(', ');
+const VUELTA = 'Si la persona ya dijo cuál es, pásalo en «producto» con sus palabras; si no, pregúntale y vuelve a proponer con lo que conteste en «producto».';
 
 /**
- * Lo que no dice NADA del producto en un pedido de landing: el verbo de pedir (con su pronombre, en tuteo o en voseo:
- * lo escribe la persona), el objeto, los artículos y el «otro producto». Sobre el texto plano (sin tildes). El verbo va
- * como regex y no como lista de palabras: es lo que el guard de voseo (tests/puente-panel-copy.test.ts) le prohíbe a una
- * pantalla, y acá se LEE, no se dice.
+ * PARA QUÉ PRODUCTO es una landing que se le pide a MaKo (Ops Center 1.15, 20/10/2026). Lo impone el código en el
+ * `preparar` de generar_landing_con_ia: sin esto, el esquema sale del perfil del negocio, o sea del producto principal.
+ *   · `producto` (el parámetro, lo que dijo la persona): si es uno del catálogo, ése por su nombre; si no, ése tal cual
+ *     (es otro que todavía no está en MaKo). Así la vuelta después de preguntar pasa aunque sea una sola palabra.
+ *   · si no, el texto del pedido contra los NOMBRES del catálogo (`productoDelPedido`, la misma regla del chat del
+ *     editor): nombra uno, ése; dice «producto» con varios y no nombra ninguno, se pregunta cuál, con sus nombres;
+ *   · «otro producto» sin nombrar ninguno: con dos o más, se pregunta cuál; con uno (o ninguno), ese otro NO está en
+ *     el catálogo y se pregunta cuál es, en texto libre. Nunca se arma sobre el que hay.
+ * NO se cuentan palabras: la revisión del 20/10 mostró que dos cualesquiera («ventas», «moderna», «porfa») saltaban el
+ * guardia, y que nombrar el único producto lo frenaba con un mensaje falso.
  */
-const VERBO_PEDIDO = /^(?:cre|hac|arm|gener)[ae](?:me|r)?$|^ha[zc]e?me$|^haz$|^(?:quiero|necesito|puedes|podrias|favor)$|^pod[e]s$/;
-const RELLENO_PEDIDO = new Set([
-  'me', 'te', 'una', 'un', 'la', 'el', 'los', 'las', 'mi', 'mis', 'tu', 'su', 'de', 'del', 'para', 'por', 'con', 'sobre',
-  'que', 'y', 'o', 'a', 'al', 'en', 'es', 'otra', 'otro', 'otras', 'otros', 'nueva', 'nuevo', 'landing', 'landings',
-  'pagina', 'web', 'sitio', 'presentacion', 'producto', 'productos',
-]);
-const esRelleno = (w: string): boolean => RELLENO_PEDIDO.has(w) || VERBO_PEDIDO.test(w);
-
-/**
- * «Créame una landing para mi otro producto» con UN producto (o ninguno) en el catálogo: ese otro no está en MaKo, y
- * crear igual arma la landing del que hay (el esquema sale del perfil del negocio). Pieza 1.15 del Ops Center
- * (20/10/2026): la pregunta la impone el código, no el modelo. Devuelve lo que hay que preguntar en texto libre, o null:
- *   · si el pedido no dice «otro producto»;
- *   · con dos o más productos (ahí `productoDelPedido` pregunta cuál, con sus nombres);
- *   · si el pedido ya cuenta cuál es: con dos o más palabras que no son relleno («un curso online de cerámica»). Así la
- *     vuelta, con lo que contestó la persona en la idea, pasa.
- */
-export function faltaElOtroProducto(texto: string, productos: readonly ObjetoChat[]): string | null {
-  if (!pideOtroProducto(texto) || productos.length > 1) return null;
-  const cuenta = plano(nfc(texto)).split(/[^a-z0-9ñ]+/).filter((w) => w.length > 1 && !esRelleno(w));
-  if (cuenta.length >= 2) return null;
+export function productoDeLanding(texto: string, producto: string | null | undefined, productos: readonly ObjetoChat[]): ProductoDeLanding {
+  const dicho = (producto ?? '').replace(/\s+/g, ' ').trim();
+  if (dicho.length >= 2) {
+    const delCatalogo = productoDelPedido(dicho, productos)?.objeto ?? null;
+    return { que: 'sigue', producto: delCatalogo?.nombre ?? dicho };
+  }
+  const p = productoDelPedido(texto, productos);
+  if (p?.objeto) return { que: 'sigue', producto: p.objeto.nombre };
+  if (p?.candidatos.length) {
+    return { que: 'preguntar', mensaje: `El pedido no dice para cuál producto es, y en el catálogo hay ${productos.length}: ${nombresDe(p.candidatos)}. Pregúntale a la persona cuál (o, si es uno nuevo, su nombre y de qué se trata). ${VUELTA}` };
+  }
+  if (!pideOtroProducto(texto)) return { que: 'sigue', producto: null };
+  if (productos.length >= 2) {
+    return { que: 'preguntar', mensaje: `El pedido es para otro producto y no dice cuál. En el catálogo hay ${productos.length}: ${nombresDe(productos)}. Pregúntale a la persona cuál (o, si es uno nuevo, su nombre y de qué se trata). ${VUELTA}` };
+  }
   return productos.length === 1
-    ? `En el catálogo hay un solo producto («${productos[0].nombre}») y el pedido es para OTRO, que no está en MaKo. No la armes sobre «${productos[0].nombre}»: pregúntale a la persona cuál es ese otro producto (su nombre, a quién le sirve y qué recibe) y vuelve a proponer con eso en la idea.`
-    : 'El negocio todavía no tiene productos en el catálogo y el pedido es para «otro producto». Pregúntale a la persona cuál es (su nombre, a quién le sirve y qué recibe) y vuelve a proponer con eso en la idea.';
+    ? { que: 'preguntar', mensaje: `En el catálogo hay un solo producto («${productos[0].nombre}») y el pedido es para OTRO, que no está en MaKo: no la armes sobre «${productos[0].nombre}». ${VUELTA} Lo que hace falta: su nombre, a quién le sirve y qué recibe.` }
+    : { que: 'preguntar', mensaje: `El negocio todavía no tiene productos en el catálogo y el pedido es para «otro producto». ${VUELTA} Lo que hace falta: su nombre, a quién le sirve y qué recibe.` };
 }
 
 /**

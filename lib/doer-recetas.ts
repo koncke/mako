@@ -55,7 +55,7 @@ Si una tool de LECTURA falla, DECÍSELO con las palabras que te dio (falta el to
 /**
  * LA LANDING (pieza 1.15 del Ops Center, 20/10/2026; docs/ops-center-principal.md §4.8). Viaja con las herramientas que
  * CREAN una landing o una presentación. «Mi otro producto» con uno solo en el catálogo también lo frena el código
- * (`faltaElOtroProducto` en generar_landing_con_ia): la receta hace que MaKo pregunte antes de proponer, y el código
+ * (`productoDeLanding` en generar_landing_con_ia): la receta hace que MaKo pregunte antes de proponer, y el código
  * asegura que no se cree igual. Sin nombres de herramientas: no siempre viajan las que nombraría.
  */
 const RECETA_LANDING = `CUANDO TE PIDEN UNA LANDING O UNA PRESENTACIÓN:

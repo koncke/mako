@@ -38,7 +38,7 @@ import { buscarStock, copiarUrlABucket, type Orientacion } from '@/lib/imagenes-
 import { borradorPorId } from './landing.helpers';
 // Puro: el `config` con que nace un documento de la IA, EL MISMO de «Crear con IA» de la pantalla.
 import { configDeCreacion } from '@/app/web-generator/crear/tipo';
-import { faltaElOtroProducto, pideOtroProducto } from '@/lib/mako-pedidos';
+import { mencionaProducto, pideOtroProducto, productoDeLanding } from '@/lib/mako-pedidos';
 import { listProductos } from '@/lib/productos';
 import { siFallaNuestra, urlDeLanding } from './landing-editor.helpers';
 import {
@@ -341,14 +341,19 @@ export const RUNNERS_EDITOR: Runners = {
   generar_landing_con_ia: {
     preparar: async (input, ctx): Promise<Preparado> => {
       if (enFlujo(ctx)) return { error: 'Crear una landing con IA no corre en una automatización: un flujo corre una vez por cada lead y crearía una por cada uno. Pídesela a MaKo en el chat o créala en el Web Generator.' };
-      // «Para mi otro producto» con uno solo en el catálogo (1.15 del Ops Center, 20/10/2026): el esquema saldría del
-      // producto que hay. Lo pregunta el código, no el modelo; el catálogo se lee sólo si el pedido dice «otro producto».
-      const idea = str(input, 'idea') ?? '';
-      if (pideOtroProducto(idea)) {
-        // Si el catálogo no se pudo leer, sigue como antes: «no tienes productos» sería inventarlo.
+      // PARA QUÉ PRODUCTO (Ops Center 1.15, 20/10/2026; rehecho tras la revisión de esa noche): el esquema sale del
+      // perfil del negocio, o sea del producto principal. `productoDeLanding` (lib/mako-pedidos.ts) compara el pedido con
+      // los NOMBRES del catálogo y, si es para otro que no dice cuál, no se prepara nada: el error es lo que hay que
+      // preguntar. Se mira todo lo que pide la persona (idea, instrucciones, título y audiencia), no el texto pegado, que
+      // es contenido. El catálogo se lee sólo si el pedido habla de un producto; si no se pudo leer, sigue como antes
+      // («no tienes productos» sería inventarlo).
+      const pedido = ['idea', 'instrucciones', 'titulo', 'audiencia'].map((k) => str(input, k)).filter(Boolean).join('\n');
+      const producto = str(input, 'producto');
+      if (producto || mencionaProducto(pedido) || pideOtroProducto(pedido)) {
         const productos = await listProductos(true).then((ps) => ps.map((p) => ({ id: String(p.id), nombre: p.nombre }))).catch(() => null);
-        const falta = productos ? faltaElOtroProducto(idea, productos) : null;
-        if (falta) return { error: falta };
+        const d = productos ? productoDeLanding(pedido, producto, productos) : null;
+        if (d?.que === 'preguntar') return { error: d.mensaje, faltan: ['producto'] };
+        if (d?.producto) input = { ...input, producto: d.producto };
       }
       const propios = await temasPropios();
       // Sólo con «basadaEn» se leen las analizadas (una consulta que el resto de los pedidos no necesita).

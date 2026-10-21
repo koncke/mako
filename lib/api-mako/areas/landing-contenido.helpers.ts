@@ -23,6 +23,7 @@
 // =============================================================================
 
 import { sanearContenido, sanearConfig } from '@/lib/editor-landing/validar';
+import { conProducto } from '@/app/web-generator/editor/pedidos-chat';
 import { hacerInicio, rutaLibre } from '@/lib/editor-landing/paginas-reglas';
 import { ESTILO_RESTABLECIDO, temaSugerido } from '@/lib/editor-landing/reglas-pantalla';
 import {
@@ -1674,7 +1675,11 @@ export function pedidoGenerar(
   temaDe: (tema: string) => { id: string } | FallaPlan,
   analizadas: readonly { url: string }[] = [],
 ): PedidoGenerarApi | FallaPlan {
-  const idea = texto1(e.idea, 8_000);
+  // El producto (Ops Center 1.15): va pegado al pedido con la MISMA frase del chat del editor (`conProducto`), así el
+  // esquema se arma sobre ése y no sobre la oferta principal. Con un texto, va en las instrucciones.
+  const producto = texto1(e.producto, 300);
+  const ideaPedida = texto1(e.idea, 8_000);
+  const idea = ideaPedida && producto ? conProducto(ideaPedida, { id: '', nombre: producto }).slice(0, 8_000) : ideaPedida;
   const texto = texto1(e.texto, 60_000);
   if (!idea && !texto) return { error: 'Falta qué crear: una idea («idea») o un texto («texto»).', faltan: ['idea'] };
   if (idea && texto) return { error: 'Pasa una idea o un texto, no los dos: lo que se pide sobre el texto va en «instrucciones».' };
@@ -1716,7 +1721,7 @@ export function pedidoGenerar(
     objetivo: objetivo as ObjetivoLanding,
     basadoEnUrl,
     fuenteImagenes: imagenes,
-    instrucciones: texto1(e.instrucciones, 5_000),
+    instrucciones: [texto && producto ? `Es para el producto «${producto}».` : '', texto1(e.instrucciones, 5_000)].filter(Boolean).join(' ').slice(0, 5_000),
     modoTexto,
     formato: tipo === 'presentacion' ? 'presentacion' : 'pagina',
   };
