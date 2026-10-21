@@ -150,11 +150,19 @@ export function unirPreguntas(antes: readonly PreguntaChat[], nuevas: readonly P
   // La misma pregunta del mismo chat, mientras siga abierta, entra UNA vez (dos wrap_up seguidos, o `preguntar` y el
   // wrap_up que la app le pide al terminar, llegan en vueltas distintas).
   const norm = (p: PreguntaChat) => `${p.local}\n${p.pregunta.replace(/\s+/g, ' ').trim().toLowerCase()}`;
-  const abiertas = new Set([...porId.values()].filter(estaAbierta).map(norm));
+  const abiertas = new Map([...porId.values()].filter(estaAbierta).map((p) => [norm(p), p.id]));
   for (const p of nuevas) {
-    if (porId.has(p.id) || abiertas.has(norm(p))) continue;
+    if (porId.has(p.id)) continue;
+    const igual = abiertas.get(norm(p));
+    if (igual) {
+      // ⚠️ UNA DE `preguntar` NO SE PIERDE EN UNA DE WRAP_UP IGUAL (revisión de la ola 1, 21/10/2026): la que queda deja de
+      //    ser de wrap_up, así sólo la cierra una respuesta, no el mensaje siguiente de otro chat.
+      const vieja = porId.get(igual);
+      if (vieja?.origen === 'wrap_up' && p.origen !== 'wrap_up') { const { origen: _o, ...sinOrigen } = vieja; porId.set(igual, sinOrigen); }
+      continue;
+    }
     porId.set(p.id, p);
-    abiertas.add(norm(p));
+    abiertas.set(norm(p), p.id);
   }
   return [...porId.values()].sort((a, b) => Date.parse(a.at) - Date.parse(b.at)).slice(-PREGUNTAS_POR_CHAT);
 }

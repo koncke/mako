@@ -1809,15 +1809,20 @@ del cartero; `nav.ts` no se tocó (el Sidebar compara con `OPS_CENTER.key`); la 
 **La pregunta de un wrap_up se SUPERA (20/10, la revisión de caja-voz; cartero 1.17.3):**
 - **Síntoma (comprobado con transcripts reales):** el arreglo de arriba volvía a dar el mismo síntoma por otro lado. La
   pregunta del recuadro de la app quedaba abierta para siempre: 3, 6 y 8 abiertas por chat, y 31 de 31 con un mensaje
-  de Martín después. Martín contesta como le sale: el botón de la app, la caja del Ops Center o Remote Control. Sólo el
+  posterior en su chat. Martín contesta como le sale: el botón de la app, la caja del Ops Center o Remote Control. Sólo el
   formulario la cerraba, y un clic días después le firmaba al chat una orden vencida.
+  - ⚠️ «Un mensaje posterior» NO es «Martín contestó» (la revisión de la ola 1 lo volvió a medir el 21/10: de 21 preguntas de
+    5 días, 14 las supera primero un mensaje de OTRO chat; 3 son relevos de la respuesta de Martín por el Cerebro y 4, la
+    misma pregunta hecha otra vez a los segundos). Por eso la pantalla dice «Ya no espera tu respuesta», no «Contestada».
 - **Arreglo:**
   - la pregunta lleva `origen: 'wrap_up'`;
   - queda `superada` cuando entra un turno `yo` u `otro` POSTERIOR a su `at`, o un wrap_up más nuevo del mismo chat
     (`superarPreguntas`). Se aplica al guardar los turnos (`superarConTurnos`) y al guardar la pregunta, por si el turno
     llegó antes;
-  - una superada no cuenta en el globito, no se contesta, y el formulario se lee como «Contestada por otro lado»;
-  - las de `preguntar` no se tocan: ésas las cierra la respuesta.
+  - una superada no cuenta en el globito, no se contesta, y el formulario se lee como «Ya no espera tu respuesta»;
+  - las de `preguntar` no se tocan: ésas las cierra la respuesta. Y una de `preguntar` igual a una de wrap_up abierta no
+    se descarta en silencio: la que queda pierde el `origen` (`unirPreguntas`), así la cierra sólo una respuesta. Al
+    guardar, las de antes se superan ANTES de unir: una que ya quedó atrás no frena a la misma pregunta hecha de nuevo.
 - **La misma pregunta, dos veces:** `preguntasSinRepetir` deduplicaba dentro de UNA vuelta, y `vigilar` da una cada 10 s.
   Ahora `unirPreguntas` descarta una nueva igual (mismo chat, mismo texto normalizado) a una que siga abierta. El cartero
   sube la última de cada chat, con el tope ANTES de mandar y las más nuevas primero (el servidor se quedaba con las 20

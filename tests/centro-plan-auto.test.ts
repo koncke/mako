@@ -6,7 +6,8 @@
 // con el Plan vacío». Lo que se fija (lib/centro-plan-auto-reglas.ts, lib/centro-plan-auto.ts, lib/operaciones.ts):
 //   1. «Voy a trabajar en X» crea una tarea «X»; otro «Voy a…» con una abierta no crea otra; «Ya está» la deja para
 //      marcarla hecha, y sin abierta crea y cierra una;
-//   2. una PC que vuelve a subir los mismos turnos no duplica nada;
+//   2. una PC que vuelve a subir los mismos turnos no duplica nada; tampoco el «Voy a…» que se dijo con otra abierta, una
+//      vez que la cerró un «Ya está» (revisión de la ola 1, 21/10/2026), y la vuelta anota el Plan sólo si avanza;
 //   3. lo que se hace en el Plan va en orden (crear antes de cerrar), y lo que falla tres veces no se reintenta más;
 //   4. la vuelta del Runner anota rápido y aplica DESPUÉS de contestar, con el actor «MaKo · Ops Center».
 //
@@ -14,14 +15,16 @@
 //   · `anotarTurnos` creando con una abierta → 1 fallo (1);
 //   · sin mirar los turnos ya vistos → 1 fallo (2);
 //   · `conResultado` sin el tope de intentos → 1 fallo (3);
-//   · la vuelta aplicando en el acto (sin `after`) → 1 fallo (4).
+//   · la vuelta aplicando en el acto (sin `after`) → 1 fallo (4);
+//   · (21/10) sin anotar el «Voy a…» saltado → 1 fallo (2); `sanearTareasDelChat` sin guardarlo → 1 fallo (2); el Plan
+//     anotado aunque la vuelta no avance → 1 fallo (2).
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { anotarTurnos, conResultado, esVoyATrabajar, proximoPaso, tituloDeVoy, tituloDeYa, type TareaDelChat } from '../lib/centro-plan-auto-reglas';
+import { anotarTurnos, conResultado, esVoyATrabajar, proximoPaso, sanearTareasDelChat, tituloDeVoy, tituloDeYa, type TareaDelChat } from '../lib/centro-plan-auto-reglas';
 import type { TurnoChat } from '../lib/operaciones-reglas';
 
 const L = 'local_11111111-1111-4111-8111-111111111111';
@@ -59,6 +62,17 @@ test('2. los mismos turnos subidos dos veces no duplican nada', () => {
   const y = dice('Ya está: el borrador.');
   const una = anotarTurnos([], [v, y], 'CRM');
   assert.deepEqual(anotarTurnos(una, [v, y], 'CRM'), una);
+  // El caso de la revisión: T0 abierta; «Voy a… B» (saltado: T0 sigue abierta) y «Ya está» (cierra T0). Re-subida la
+  // tanda, con T0 ya cerrada, el «Voy a… B» no crea una tarea de más. La lista va guardada y releída (`sanearTareasDelChat`).
+  const t0 = anotarTurnos([], [dice('Voy a trabajar en lo de antes.')], 'CRM');
+  const tanda = [dice('Voy a trabajar en la ficha nueva.'), dice('Ya está: lo de antes.')];
+  const vuelta = sanearTareasDelChat(JSON.parse(JSON.stringify(anotarTurnos(t0, tanda, 'CRM'))));
+  assert.deepEqual(vuelta.map((t) => t.titulo), ['Lo de antes'], 'la primera vez, sólo cierra la abierta');
+  assert.deepEqual(anotarTurnos(vuelta, tanda, 'CRM').map((t) => [t.titulo, t.ya != null]), [['Lo de antes', true]], 'y la tanda re-subida no crea otra');
+  // La vuelta anota el Plan DESPUÉS de las preguntas, y sólo si avanza.
+  const ciclo = leer('lib/operaciones.ts');
+  assert.ok(ciclo.indexOf('await anotarTurnosDelPlan(') > ciclo.indexOf('preguntasIds = await guardarPreguntas(preguntas)'), 'después de las preguntas');
+  assert.match(ciclo, /if \(turnos\.length && turnosOk\) \{\s*const titulos[\s\S]{0,120}await anotarTurnosDelPlan\(turnos, titulos\)/, 'y sólo si la vuelta avanza');
 });
 
 test('3. en el Plan: crear antes de cerrar, y lo que falla tres veces queda «no se pudo»', () => {

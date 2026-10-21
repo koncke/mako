@@ -21,6 +21,7 @@
 //   · la caja con `quieto = enviando || apagado || ocupado` → 1 fallo (3);
 //   · `preguntasSinRepetir` sin filtrar lo malformado → 1 fallo (4);
 //   · `marcasQueAvanzan` que avanza siempre → 1 fallo (4);
+//   · (21/10) `unirPreguntas` que deja la de wrap_up igual a una de `preguntar` → 1 fallo (2);
 //   · (21/10) `BotonMandar` girando con `ocupado` aunque se dicte → 1 fallo (3); la caja pasándole `girando` → 1 fallo (3).
 
 import test from 'node:test';
@@ -66,9 +67,9 @@ test('1. la pregunta de un wrap_up queda superada cuando el chat siguió sin el 
   assert.equal(sanearPregunta({ ...w, superada: yo.at })?.superada, yo.at, 'se guarda');
   assert.equal(sanearPreguntas([{ ...w, superada: yo.at }])[0].superada, undefined, 'lo que sube la PC nunca viene superado');
   assert.match(sinComentarios(leer('lib/centro-preguntas-chat-db.ts')), /const n = ps\.filter\(estaAbierta\)\.length;/, 'el globito no la cuenta');
-  assert.match(sinComentarios(leer('lib/centro-preguntas-chat-db.ts')), /if \(p\.superada\) return \{ ok: false, error: 'Ya la contestaste por otro lado: el chat siguió\.', yaContestada: true \};/, 'no se contesta');
+  assert.match(sinComentarios(leer('lib/centro-preguntas-chat-db.ts')), /if \(p\.superada\) return \{ ok: false, error: 'Ya no espera tu respuesta: el chat siguió\.', yaContestada: true \};/, 'no se contesta');
   assert.match(sinComentarios(leer('lib/centro-turnos-db.ts')), /await superarConTurnos\(turnos\)/, 'guardar los turnos la supera');
-  assert.match(sinComentarios(leer('lib/centro-preguntas-chat-db.ts')), /superarPreguntas\(unirPreguntas\(antes, nuevas\), turnos\)/, 'y guardar la pregunta también, si el turno llegó antes');
+  assert.match(sinComentarios(leer('lib/centro-preguntas-chat-db.ts')), /superarPreguntas\(unirPreguntas\(superarPreguntas\(antes, turnos\), nuevas\), turnos\)/, 'y guardar la pregunta también, si el turno llegó antes (y antes de unir)');
   assert.match(sinComentarios(leer('app/admin/operaciones/PreguntaChat.tsx')), /const abierta = !r && !p\.superada && !enviada && !!onResponder;/, 'el formulario no se toca');
 });
 
@@ -77,6 +78,12 @@ test('2. la misma pregunta abierta no entra dos veces', () => {
   const igual = pregunta(ID2, '2026-10-20T21:15:00.000Z', { origen: 'wrap_up', pregunta: '  ¿hago   el commit?' });
   assert.deepEqual(unirPreguntas([vieja], [igual]).map((p) => p.id), [ID1], 'otra vuelta, el mismo texto: no entra');
   assert.deepEqual(unirPreguntas([], [vieja, igual]).map((p) => p.id), [ID1], 'ni en la misma vuelta');
+  // Una de `preguntar` igual a una de wrap_up abierta (revisión de la ola 1): la que queda deja de ser de wrap_up, y el
+  // mensaje siguiente de otro chat ya no la cierra.
+  const dePreguntar = pregunta(ID2, '2026-10-20T21:15:00.000Z');
+  const unidas = unirPreguntas([vieja], [dePreguntar]);
+  assert.deepEqual(unidas.map((p) => [p.id, p.origen ?? null]), [[ID1, null]], 'una sola, que sólo cierra una respuesta');
+  assert.equal(superarPreguntas(unidas, [{ local: LOCAL, rol: 'otro', at: '2026-10-20T21:20:00.000Z' }]).filter(estaAbierta).length, 1, 'otro chat no la cierra');
   const contestada = { ...vieja, respuesta: { elegidas: [0], otra: null, at: '2026-10-20T21:12:00.000Z', trabajo: ID3 } };
   assert.equal(unirPreguntas([contestada], [igual]).length, 2, 'si la anterior ya se contestó, la nueva es otra pregunta');
   const superada = superarPreguntas([vieja], [{ local: LOCAL, rol: 'yo', at: '2026-10-20T21:12:00.000Z' }]);
