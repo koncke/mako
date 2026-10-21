@@ -143,7 +143,7 @@ test('el link ya se cobró: la cuota queda con ESE pago y la marca a mano no se 
   const { marcarPago } = await import('../lib/pagos');
   sembrar({ asentado: true, pasarela: 'mercadopago' });
   const r = await correr(() => marcarPago(CUOTA, true, '2026-10-16'));
-  assert.deepEqual(r, { quitada: false, porLink: 'mercadopago' });
+  assert.deepEqual(r, { quitada: false, porLink: 'mercadopago', yaEstaba: false });
   assert.equal(preguntas, 1);
   assert.ok(!marcoAMano(), `se marcó a mano igual: ${escrituras.join(' | ')}`);
   assert.equal(db.pagos.length, 1, 'una sola cuota cobrada');
@@ -154,7 +154,7 @@ test('el link no se cobró: se marca a mano como siempre', async () => {
   const { marcarPago } = await import('../lib/pagos');
   sembrar({ asentado: false, sinLeer: 0 });
   const r = await correr(() => marcarPago(CUOTA, true, '2026-10-16'));
-  assert.deepEqual(r, { quitada: false, porLink: null });
+  assert.deepEqual(r, { quitada: false, porLink: null, yaEstaba: false });
   assert.ok(marcoAMano(), escrituras.join(' | '));
   assert.equal(db.pagos[0].fecha_pago, '2026-10-16');
 });
@@ -163,7 +163,7 @@ test('la pasarela no contesta: la marca a mano NO se traba', async () => {
   const { marcarPago } = await import('../lib/pagos');
   sembrar('tira');
   const r = await correr(() => marcarPago(CUOTA, true, '2026-10-16'));
-  assert.deepEqual(r, { quitada: false, porLink: null });
+  assert.deepEqual(r, { quitada: false, porLink: null, yaEstaba: false });
   assert.ok(marcoAMano());
 });
 

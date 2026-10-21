@@ -1818,6 +1818,12 @@ horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, un
   escribe una sola: `fijarZonaDelNegocio`, con su origen.
 - **Dos zonas se comparan después de `zonaCanonica`**: Cal.com y Chrome contestan alias (`America/Buenos_Aires`) y Node
   24 devuelve el nombre viejo de ICU.
+- **«Hoy» es el día del NEGOCIO, nunca `new Date().toISOString().slice(0, 10)`** (20/10/2026): eso es el día UTC, y de 18
+  a 24 h en México ya es mañana (la ficha daba vencida una cuota que vence hoy). En el server, `hoyEnWorkspace()`; en un
+  componente, `hoyEnTz(useTzWorkspace())` (app/crm/lead-view/useTzWorkspace.ts). Una función de plata no tiene un
+  `hoy` por default: lo pide, o lo saca del negocio. tests/pagos-cobro-idempotente.test.ts barre Pagos y Clients.
+- **Marcar un cobro es idempotente**: `marcarPago` y `cobrarCuota` no tocan una cuota que ya está como se pide y
+  devuelven `yaEstaba`. Quien marca lo DICE («Ya estaba cobrada») y no ofrece Deshacer: sería desmarcar el cobro de otro.
 
 # Una herramienta de laboratorio montada en el layout raíz es una herramienta EN PRODUCCIÓN
 
