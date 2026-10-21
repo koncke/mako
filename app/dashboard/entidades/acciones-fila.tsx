@@ -93,8 +93,10 @@ export function useColumnaAcciones(): ColumnaAcciones | null {
     setOcupado(f.id);
     try {
       // La fecha de hoy del NEGOCIO (la trae el detalle), como «Marcar cobrada» del detalle y la vieja «A quién cobrarle».
-      await marcarPagoAction(pago, lead, true, resp.hoy);
-      show('Cuota cobrada', () => {
+      const r = await marcarPagoAction(pago, lead, true, resp.hoy);
+      // Ya estaba cobrada (la tabla era vieja): sin Deshacer, que desmarcaría el cobro de otro.
+      if (r.yaEstaba) show('Ya estaba cobrada', undefined, 'good');
+      else show('Cuota cobrada', () => {
         marcarPagoAction(pago, lead, false, null).then(recargar, () => show('No se pudo deshacer', undefined, 'bad'));
       }, 'good');
       recargar();

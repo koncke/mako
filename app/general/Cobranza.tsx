@@ -86,9 +86,11 @@ export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, 
     enCurso.current = true;
     setMarcando(f.pagoId);
     try {
-      await marcarPagoAction(f.pagoId, f.leadId, true, hoyEnTz(tz));
+      const r = await marcarPagoAction(f.pagoId, f.leadId, true, hoyEnTz(tz));
       ocultar(f.pagoId, true);
-      show('Cuota cobrada', () => deshacer(f));
+      // Ya estaba cobrada (la lista era vieja): sin Deshacer, que desmarcaría el cobro de otro.
+      if (r.yaEstaba) show('Ya estaba cobrada');
+      else show('Cuota cobrada', () => deshacer(f));
       empezar(() => router.refresh());
     } catch (e) {
       console.error('[general] marcar cobro:', e instanceof Error ? e.message : String(e));
