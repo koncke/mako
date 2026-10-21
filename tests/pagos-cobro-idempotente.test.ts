@@ -23,7 +23,8 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { hoyEnTz, horaEnTz } from '../lib/date-utils';
-import { cobradoDelLead, sumarMeses } from '../lib/cobrado-lead';
+import { cobradoDelLead, siguienteFechaDeCuota, sumarMeses } from '../lib/cobrado-lead';
+import { planDelAsistente } from '../lib/pagos-campo';
 
 const RAIZ = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -171,8 +172,9 @@ test('6. la cartera de Clients y la del Dashboard dicen «vencida» como la fich
   // El asistente de Ganado: la primera cuota y las de una suscripción salen del día del negocio.
   const wizard = sinComentarios(leer('app/crm/StageMoveDialog.tsx'));
   assert.match(wizard, /const hoyISO = hoyEnTz\(useTzWorkspace\(\)\);/);
-  // (21/10: con el tope de fin de mes y desde la primera cuota, `sumarMesesISO`; el test 8 lo prueba.)
-  assert.match(wizard, /sumarMesesISO\(arr\[0\]\?\.fecha \|\| hoyISO, arr\.length\)/, '«+ Agregar cuota» sin cuotas arranca de hoy, no del UTC');
+  // (21/10, cuarta revisión: la última + 1 en el día pactado, `siguienteFechaDeCuota`; el test 9 lo prueba.)
+  assert.match(wizard, /fecha: siguienteFechaDeCuota\(arr\.map\(\(c\) => c\.fecha\), hoyISO\)/, '«+ Agregar cuota» sin cuotas arranca de hoy, no del UTC');
+  assert.equal(siguienteFechaDeCuota([], '2026-10-20'), '2026-10-20');
   // La hora: la del negocio, no la del navegador (alguien en Buenos Aires anotaba un cobro de México con su hora).
   const instante = new Date('2026-10-21T03:30:00Z');
   assert.equal(horaEnTz('America/Mexico_City', instante), '21:30');
@@ -252,11 +254,16 @@ test('7. ⚠️ los bordes del cobro: una falla no lo deja a medias, el reintent
   assert.match(sql, /create or replace function public\.cobrar_cuota_con_resto\(/);
   assert.match(sql, /returns jsonb/);
   assert.match(sql, /security invoker/);
-  assert.match(sql, /perform 1 from pagos where lead_id = p_lead and workspace_id = p_ws for update;/);
+  // En orden de id, como el delete de la reconciliación (sin orden, los dos podían esperarse: 40P01).
+  assert.match(sql, /perform 1 from pagos where lead_id = p_lead and workspace_id = p_ws order by id for update;/);
   assert.match(sql, /where id = p_pago and lead_id = p_lead and workspace_id = p_ws and pagado is not true/);
   assert.match(sql, /if v_id is null then\s*return jsonb_build_object\('tomada', false\);/);
   assert.match(sql, /insert into pagos \(workspace_id, lead_id, numero, monto_usd, fecha_esperada, pagado\)\s*values \(p_ws, p_lead, v_numero, p_resto, p_vence, false\)/);
   assert.match(leer('supabase/migrations/0318_cobrar_cuota_con_resto.sql'), /ORDEN DE DESPLIEGUE: ANTES del código/);
+  // ⚠️ Cerrada a la clave pública, como la 0282: el default de la 0280 es por esquema y no le saca el EXECUTE a PUBLIC.
+  const firma = 'public\\.cobrar_cuota_con_resto\\(bigint, bigint, bigint, date, text, numeric, text, numeric, boolean, numeric, date\\)';
+  assert.match(sql, new RegExp(`revoke execute on function ${firma} from public, anon, authenticated;`));
+  assert.match(sql, new RegExp(`grant execute on function ${firma} to service_role;`));
 });
 
 test('8. el asistente de Ganado: un mes por cuota desde el cierre, nunca rehace un plan, y el cierre es el día del negocio', () => {
@@ -274,9 +281,8 @@ test('8. el asistente de Ganado: un mes por cuota desde el cierre, nunca rehace 
   }
   const wizard = sinComentarios(leer('app/crm/StageMoveDialog.tsx'));
   assert.match(wizard, /const sumarMesesISO = sumarMeses;/);
-  assert.match(wizard, /meses > 0 && totalMonto > 0 && !lead\.tienePlan \? Array\.from\(\{ length: meses \}, \(_, i\) => \(\{ monto: totalMonto, fecha: sumarMesesISO\(hoyISO, i\) \}\)\) : \[\]/);
-  // «+ Agregar cuota» cuenta desde la PRIMERA (después de un 31 el día vuelve), no desde la anterior.
-  assert.match(wizard, /setCuotas\(\(arr\) => \[\.\.\.arr, \{ monto: '', fecha: sumarMesesISO\(arr\[0\]\?\.fecha \|\| hoyISO, arr\.length\) \}\]\)/);
+  assert.match(wizard, /meses > 0 && totalMonto > 0 && mandaPlanSus \? Array\.from\(\{ length: meses \}, \(_, i\) => \(\{ monto: totalMonto, fecha: sumarMesesISO\(hoyISO, i\) \}\)\) : \[\]/);
+  // (21/10, cuarta revisión: «+ Agregar cuota» es la última + 1 en el día pactado; el test 9.)
   assert.deepEqual(['2027-01-31', ...[1, 2, 3].map((n) => sumarMeses('2027-01-31', n))], ['2027-01-31', '2027-02-28', '2027-03-31', '2027-04-30']);
   assert.doesNotMatch(wizard, /setUTCMonth/, 'nada de sumar meses a mano');
   // La primera cuota se siembra antes de tener la zona (Tijuana): cuando llega, se corre la que nadie tocó.
@@ -284,14 +290,90 @@ test('8. el asistente de Ganado: un mes por cuota desde el cierre, nunca rehace 
   assert.match(wizard, /setCuotas\(\(arr\) => arr\.map\(\(c, i\) => \(i === 0 && c\.fecha === antes \? \{ \.\.\.c, fecha: hoyISO \} : c\)\)\);/);
   assert.match(wizard, /\}, \[hoyISO\]\);/);
   // ⚠️ El server no rehace un plan que ya existe (volver a confirmar sobre una suscripción ya cerrada rehacía todas sus
-  // cuotas desde hoy: deuda inflada y la vencida escondida).
+  // cuotas desde hoy: deuda inflada y la vencida escondida). Desde la cuarta revisión lo decide `planDelAsistente` (el
+  // test 9), y lo que escribe es SU salida, no lo que mandó la pantalla.
   const acciones = sinComentarios(leer('app/crm/actions.ts'));
   const mover = acciones.slice(acciones.indexOf('export async function completeStageMoveAction('));
-  assert.match(mover, /const yaTienePlan = d\.cuotas\?\.length \? \(await getPagosByLead\(id\)\)\.some\(\(q\) => !q\.nacio_cobrada\) : false;/);
-  assert.ok(mover.indexOf('if (yaTienePlan) {') > 0 && mover.indexOf('if (yaTienePlan) {') < mover.indexOf('await saveLeadPlanManual(id, {'), 'antes de escribir el plan');
-  assert.match(mover, /\} else if \(d\.cuotas\?\.length\) \{\s*const cambios = await saveLeadPlanManual\(id, \{/);
+  assert.match(mover, /const plan = planDelAsistente\(\s*d\.cuotas\.map\(\(c\) => \(\{ monto_usd: c\.monto, fecha_esperada: c\.fecha \}\)\),\s*await getPagosByLead\(id\),/);
+  assert.ok(mover.indexOf('const plan = planDelAsistente(') < mover.indexOf('await saveLeadPlanManual(id, {'), 'antes de escribir el plan');
+  assert.match(mover, /if \(plan\.cuotas\.length\) \{\s*const cambios = await saveLeadPlanManual\(id, \{[\s\S]*?cuotas: plan\.cuotas,\s*\}\);/);
   // El día del cierre: el del negocio (con el UTC, un Ganado de las 19 h en México cerraba mañana).
   assert.match(sinComentarios(leer('lib/leads.ts')), /desenlaceAlGuardar\(actual, input, await hoyEnWorkspace\(\), actual\.venta_tipo\)/);
+});
+
+test('9. ⚠️ un pago suelto previo: nunca nace una cuota por un mes ya cobrado, y lo que no se hizo se DICE', () => {
+  const doce = Array.from({ length: 12 }, (_, i) => ({ monto_usd: 500, fecha_esperada: sumarMeses('2026-10-21', i) }));
+  const suelto = (f: string) => ({ pagado: true, nacio_cobrada: true, monto_usd: 500, fecha_esperada: f, fecha_pago: f });
+  const fichaDel = (hoy: string, cierre: string, pagos: { monto_usd: number; fecha_esperada: string | null; pagado: boolean; fecha_pago?: string | null }[]) =>
+    cobradoDelLead({ ventaTipo: 'suscripcion', montoCierreUsd: null, suscripcionMontoUsd: 500, suscripcionMeses: 12, fechaCierre: cierre, suscripcionCanceladaAt: null, pagos: pagos.map((p, i) => ({ id: i + 1, fecha_pago: null, ...p })), cobros: [], hoy });
+
+  // Caso 1: suscripción cerrada el 01/08, registrada mes a mes (3 sueltas). El 21/10 alguien abre el asistente: los 3
+  // meses cobrados SON las primeras cuotas, y se arman las 9 que faltan, desde el día del cierre. Antes: 12 más (15).
+  const mesAMes = ['2026-08-01', '2026-09-01', '2026-10-01'].map(suelto);
+  const p1 = planDelAsistente(doce, mesAMes, { suscripcion: true, ancla: '2026-08-01' });
+  assert.equal(p1.yaCobradas, 3);
+  assert.equal(p1.cuotas.length, 9, '12 del plazo, ni una más');
+  assert.deepEqual([p1.cuotas[0].fecha_esperada, p1.cuotas[8].fecha_esperada], ['2026-11-01', '2027-07-01'], 'el mes siguiente al último cobrado, hasta el fin del plazo');
+  const f1 = fichaDel('2026-10-22', '2026-08-01', [...mesAMes, ...p1.cuotas.map((c) => ({ ...c, pagado: false }))]);
+  assert.deepEqual([f1.semaforo.tono, f1.pendienteUsd, f1.vencidoUsd], ['verde', 4500, 0], `al día al otro día: ${f1.semaforo.texto}`);
+  assert.ok(p1.cuotas.every((c) => (c.fecha_esperada as string) < (f1.suscripcion?.finPlazo as string)), 'ninguna fuera del plazo');
+
+  // Caso 2: pagó el primer mes suelto HOY y se arrastra a Ganado (el cierre es hoy): la cuota de hoy no se duplica.
+  const p2 = planDelAsistente(doce, [suelto('2026-10-21')], { suscripcion: true, ancla: '2026-10-21' });
+  assert.deepEqual([p2.cuotas.length, p2.cuotas[0].fecha_esperada], [11, '2026-11-21'], 'la primera cuota es el mes que viene');
+  const f2 = fichaDel('2026-10-22', '2026-10-21', [suelto('2026-10-21'), ...p2.cuotas.map((c) => ({ ...c, pagado: false }))]);
+  assert.equal(f2.semaforo.tono, 'verde', `no «Cuota vencida» al otro día: ${f2.semaforo.texto}`);
+
+  // Caso 3 (baja 4): sin pagos, armado el 21/10 sobre un Ganado del 01/10: las fechas van desde el CIERRE, no desde hoy.
+  const p3 = planDelAsistente(doce, [], { suscripcion: true, ancla: '2026-10-01' });
+  assert.deepEqual(p3.cuotas.slice(0, 2).map((c) => c.fecha_esperada), ['2026-10-01', '2026-11-01']);
+  const f3 = fichaDel('2026-11-05', '2026-10-01', p3.cuotas.map((c) => ({ ...c, pagado: (c.fecha_esperada as string) <= '2026-11-05', fecha_pago: c.fecha_esperada })));
+  assert.equal(f3.suscripcion?.sinRegistrar, 0, `el 05/11 pagó lo de octubre y noviembre: ${f3.semaforo.texto}`);
+
+  // Con un plan (una cuota que no nació cobrada, o una impaga), no se toca y se dice.
+  for (const existentes of [[{ pagado: false, nacio_cobrada: false }], [{ pagado: true, nacio_cobrada: false }], [{ pagado: false, nacio_cobrada: true }]]) {
+    const p = planDelAsistente(doce, existentes, { suscripcion: true, ancla: '2026-10-21' });
+    assert.deepEqual([p.cuotas.length, p.aviso], [0, 'Ya tenía un plan de pagos: no se cambió. Se edita en la pestaña Pagos.']);
+  }
+  // Un pago único con un pago previo: las cuotas las escribió la persona; no se arman, y se dice. Sin pagos, tal cual.
+  const unico = [{ monto_usd: 1000, fecha_esperada: '2026-10-21' }, { monto_usd: 2000, fecha_esperada: '2026-11-05' }];
+  const p4 = planDelAsistente(unico, [suelto('2026-10-10')], { suscripcion: false, ancla: '2026-10-21' });
+  assert.equal(p4.cuotas.length, 0);
+  assert.match(String(p4.aviso), /Ya tenía pagos cobrados: el plan no se armó/);
+  assert.deepEqual(planDelAsistente(unico, [], { suscripcion: false, ancla: '2026-08-01' }).cuotas, unico, 'las fechas que eligió la persona');
+
+  // El server escribe la salida de `planDelAsistente` y DEVUELVE el aviso; el asistente lo muestra antes de cerrar.
+  const acciones = sinComentarios(leer('app/crm/actions.ts'));
+  const mover = acciones.slice(acciones.indexOf('export async function completeStageMoveAction('), acciones.indexOf('// 4) Deal Details'));
+  assert.match(mover, /\{ suscripcion: \(d\.ventaTipo \?\? before\?\.venta_tipo\) === 'suscripcion', ancla: before\?\.fecha_cierre\?\.slice\(0, 10\) \|\| \(await hoyEnWorkspace\(\)\) \}/);
+  assert.match(mover, /if \(plan\.aviso\) sinTocar = plan\.aviso;/);
+  assert.doesNotMatch(mover, /console\.log\(/, 'lo que no se hizo no se calla');
+  const wizard = sinComentarios(leer('app/crm/StageMoveDialog.tsx'));
+  assert.match(wizard, /if \(r\.sinTocar\) \{ setAviso\(\{ texto: r\.sinTocar, r \}\); return; \}\s*onDone\(r\);/);
+  // El aviso es otra pantalla, con un solo botón que cierra: «Entendido» no vuelve a guardar, y no hay Atrás.
+  const pantalla = wizard.slice(wizard.indexOf('  if (aviso) {'), wizard.indexOf('\n  }\n', wizard.indexOf('  if (aviso) {')));
+  assert.match(pantalla, /const salir = \(\) => onDone\(aviso\.r\);/);
+  for (const prop of ['onConfirmar', 'onClose', 'onAtras', 'onSiguiente']) assert.match(pantalla, new RegExp(`${prop}=\\{salir\\}`), prop);
+  assert.match(pantalla, /hideAtras/);
+  assert.doesNotMatch(pantalla, /confirmar\b/, 'ningún camino vuelve a confirmar');
+  assert.ok(wizard.indexOf('  if (aviso) {') > wizard.indexOf('const tocado = useRef(false);'), 'después del último hook');
+  // La suscripción manda su plan al cerrar o si se preguntó la mensualidad o el plazo (no al completar el teléfono), y
+  // sin `!lead.tienePlan`: el tablero no lo sabe; decide el server, igual desde el tablero que desde la ficha.
+  assert.match(wizard, /const mandaPlanSus = \(to === 'ganado' && !completarDatos\) \|\| pide\('monto'\) \|\| pide\('susPlazo'\);/);
+  assert.doesNotMatch(wizard, /!lead\.tienePlan/);
+  // Sin `tienePlan` (el tablero), «Plan de pagos» lo pide sólo el server, que lee los pagos.
+  assert.match(wizard, /const local = lead\.tienePlan === undefined \? placeholder\.filter\(\(s\) => s\.id !== 'plan'\) : placeholder;/);
+  assert.match(wizard, /unirPasos\(local, reqServer, faltanServer\)/);
+
+  // Baja 5: «+ Agregar cuota» es la ÚLTIMA + 1 mes en el día pactado, sin repetir una fecha.
+  assert.equal(siguienteFechaDeCuota(['2026-10-21', '2026-11-05'], '2026-10-21'), '2026-12-05', 'anticipo el 21, mensualidades el 05');
+  assert.equal(siguienteFechaDeCuota(['2026-10-21', '2026-11-05', '2026-12-05'], '2026-10-21'), '2027-01-05');
+  assert.equal(siguienteFechaDeCuota(['2026-10-21', '2026-12-21'], '2026-10-21'), '2027-01-21', 'quitada la del medio, no repite el 21/12');
+  assert.equal(siguienteFechaDeCuota(['2026-10-21', '2026-12-21', '2026-11-21'], '2026-10-21'), '2027-01-21', 'desde la más tardía, no la última de la lista');
+  assert.equal(siguienteFechaDeCuota(['2026-10-21'], '2026-10-21'), '2026-11-21');
+  assert.equal(siguienteFechaDeCuota(['2026-10-31', '2026-11-30'], '2026-10-31'), '2026-12-31', 'un 30/11 que vino de un 31');
+  assert.equal(siguienteFechaDeCuota(['2027-01-31', '2027-02-28'], '2027-01-31'), '2027-03-31');
+  assert.equal(siguienteFechaDeCuota(['2026-10-21', '', '2026-11-21'], '2026-10-21'), '2026-12-21', 'una fila sin fecha no cuenta');
 });
 
 // ROTURAS (20/10/2026). Base: 4 pases, 0 fallos (los tests 1 a 4). Rota (pases / fallos):
@@ -342,3 +424,23 @@ test('8. el asistente de Ganado: un mes por cuota desde el cierre, nunca rehace 
 //   · la primera cuota de la suscripción, un mes después del cierre                  → 7 / 1 (8)
 //   · «+ Agregar cuota» suma desde la anterior                                       → 6 / 2 (6 y 8)
 //   · el día del cierre vuelve al UTC                                                → 7 / 1 (8)
+
+// ROTURAS de la cuarta revisión (21/10/2026). Base: 9 pases, 0 fallos. Rota (pases / fallos):
+//   · los meses ya cobrados sueltos no cuentan (vuelven las 12)                     → 8 / 1 (9)
+//   · un suelto impago vuelve a no ser plan                                         → 8 / 1 (9)
+//   · el pago único con un pago previo arma igual                                   → 8 / 1 (9)
+//   · la suscripción conserva las fechas de la pantalla (desde hoy)                 → 8 / 1 (9)
+//   · el server ancla en hoy y no en el cierre                                      → 8 / 1 (9)
+//   · el server se calla el aviso                                                   → 8 / 1 (9)
+//   · el server escribe lo que mandó la pantalla                                    → 8 / 1 (8)
+//   · el asistente cierra sin mostrar el aviso                                      → 8 / 1 (9)
+//   · «Entendido» vuelve a confirmar                                                → 8 / 1 (9)
+//   · la suscripción manda el plan siempre (completar el teléfono)                  → 8 / 1 (9)
+//   · el tablero vuelve a pedir «Plan de pagos» sin saber                           → 8 / 1 (9)
+//   · «+ Agregar cuota» vuelve a contar desde la primera                            → 8 / 1 (6)
+//   · el día pactado sale de la primera cuota (el anticipo)                         → 8 / 1 (9)
+//   · la siguiente, desde la última de la lista y no la más tardía                  → 8 / 1 (9)
+//   · sin la regla del 31 (un 30/11 que vino de un 31)                              → 8 / 1 (9)
+//   · la 0318 sin el revoke                                                         → 8 / 1 (7)
+//   · la 0318 sin el grant a service_role                                           → 8 / 1 (7)
+//   · la 0318 toma las cuotas sin orden                                             → 8 / 1 (7)

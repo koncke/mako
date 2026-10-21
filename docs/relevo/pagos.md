@@ -57,7 +57,7 @@ apagados (tests/plan-acceso.test.ts, tests/api-tab.test.ts, tests/pagos-link-ya-
 
 Las dos migraciones las aplica el Cerebro ANTES del deploy que las lee.
 
-## 21/10/2026 · el cobro a prueba de fallas (tres revisiones adversariales)
+## 21/10/2026 · el cobro a prueba de fallas (cuatro revisiones adversariales)
 
 - En producción: marcar un cobro dos veces no lo cambia, «hoy» es el día del negocio (4559998ab), y la escritura del cobro es
   condicional (0f55e9abd).
@@ -65,8 +65,12 @@ Las dos migraciones las aplica el Cerebro ANTES del deploy que las lee.
   **se aplica ANTES del deploy**. Sin ella, un cobro por menos no se guarda y lo dice; el cobro entero sigue igual.
   Además: el asistente de Ganado no rehace un plan, la primera cuota es el día del cierre, la pasarela cura su «ya estaba»
   y el día de cierre es el del negocio. El detalle, en hallazgos-pagos («La tercera revisión»).
+- Cuarta revisión, en la misma rama: el plan del asistente lo decide `planDelAsistente` (los pagos sueltos ya cobrados
+  son las primeras cuotas; nunca nace una cuota por un mes cobrado), lo que no se hizo se muestra, y la 0318 lleva su
+  revoke/grant y el `order by id`. El detalle, en hallazgos-pagos («La cuarta revisión»).
 - **Sin hacer:** las suscripciones que el asistente ya armó tienen sus cuotas corridas un mes (siguen en «Falta registrar
-  1 mes»). Hay que medirlas en sólo lectura y decidir si se corren.
+  1 mes»). Hay que medirlas en sólo lectura y decidir si se corren. Y las que ya recibieron 12 cuotas encima de meses
+  sueltos (el agujero de la cuarta revisión, también en main): medir leads con `nacio_cobrada` y más cuotas que el plazo.
 
 ## Lo que sigue, en orden
 

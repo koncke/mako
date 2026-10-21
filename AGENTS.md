@@ -1837,8 +1837,10 @@ horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, un
   cuota, una falla la dejaba sin su diferencia; antes, la dejaba como una cuota FANTASMA que la cobranza reclamaba). Lo
   de después de cobrar va en `curarDespues`: corta primero (no tira) y sincroniza después, y el «ya estaba» de todo
   escritor lo vuelve a correr, porque se puede repetir.
-- **El asistente de Ganado arma el plan UNA vez** (21/10/2026): si el lead ya tiene cuotas, no las rehace (lo frena
-  `completeStageMoveAction`); la primera cuota de una suscripción es el día del cierre, como cuenta `cobradoDelLead`.
+- **El asistente de Ganado arma el plan UNA vez, y lo decide `planDelAsistente`** (lib/pagos-campo.ts, 21/10/2026):
+  con un plan no se toca; en una suscripción, los meses ya cobrados sueltos son las primeras cuotas y las fechas van
+  desde el cierre (como cuenta `cobradoDelLead`); un pago único con un pago previo no se arma. Nunca nace una cuota por
+  un mes ya cobrado, y lo que no se hizo vuelve en `sinTocar` y el asistente lo MUESTRA: nada se descarta en silencio.
 - **Los meses se suman con `sumarMeses` (lib/cobrado-lead.ts)**, que topa al último día del mes: `new Date(y, m + n, d)`
   desborda un 29, 30 o 31 (31/10 + 1 mes = 01/12) y un plan de cuotas queda con meses sin cuota y meses con dos.
 

@@ -50,8 +50,9 @@ begin
     raise exception 'cobrar_cuota_con_resto: sin diferencia; el cobro entero va por la escritura condicional';
   end if;
 
-  -- Las cuotas del lead, tomadas hasta el final: dos cobros de menos del mismo lead no se pisan el número.
-  perform 1 from pagos where lead_id = p_lead and workspace_id = p_ws for update;
+  -- Las cuotas del lead, tomadas hasta el final: dos cobros de menos del mismo lead no se pisan el número. En orden de
+  -- id, el mismo en que las toma el delete de la reconciliación: en otro orden, los dos podían esperarse (40P01).
+  perform 1 from pagos where lead_id = p_lead and workspace_id = p_ws order by id for update;
 
   update pagos set
     pagado = true,
@@ -80,3 +81,10 @@ $$;
 
 comment on function public.cobrar_cuota_con_resto(bigint, bigint, bigint, date, text, numeric, text, numeric, boolean, numeric, date) is
   'Cobra una cuota por menos y deja la diferencia pendiente en UNA transacción (mig 0318). La llama cobrarCuota (lib/pagos.ts).';
+
+-- Ninguna función de public ejecutable por la clave pública (0280). ⚠️ El default de la 0280 es POR ESQUEMA y no le saca
+-- a PUBLIC el EXECUTE que da el default global: sin estas dos líneas, anon y authenticated la ejecutaban (revisión
+-- adversarial del 21/10/2026, medido en Postgres 16 con has_function_privilege). Nace cerrada; el server la llama con
+-- service_role. Las dos son idempotentes: la migración se puede volver a correr.
+revoke execute on function public.cobrar_cuota_con_resto(bigint, bigint, bigint, date, text, numeric, text, numeric, boolean, numeric, date) from public, anon, authenticated;
+grant execute on function public.cobrar_cuota_con_resto(bigint, bigint, bigint, date, text, numeric, text, numeric, boolean, numeric, date) to service_role;

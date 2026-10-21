@@ -461,5 +461,6 @@ test('las acciones ajustan sobre la base y deshacen tal cual; la API y el wizard
   assert.match(api, /const cambios = await saveLeadPlanManual\(/);
   assert.match(api, /const sinTocar = avisoDeConservadas\(cambios\);/, 'guardar_cuotas no contesta «Listo» sobre lo que no escribió');
   const wizard = fuente('../app/crm/actions.ts');
-  assert.match(wizard, /sinTocar = avisoDeConservadas\(cambios\);/, 'el wizard de Ganado deja en el historial lo que no se tocó');
+  // (21/10/2026: y además lo devuelve a la pantalla, que lo muestra antes de cerrar; tests/pagos-cobro-idempotente.test.ts, 9.)
+  assert.match(wizard, /const conservadas = avisoDeConservadas\(cambios\);\s*if \(conservadas\) \{\s*sinTocar = `Del plan no se tocó: \$\{conservadas\}\.`;\s*await logLeadEvent\(id, 'Plan de pagos', `No se tocó: \$\{conservadas\}`, autor\);/, 'el wizard de Ganado deja en el historial lo que no se tocó');
 });
