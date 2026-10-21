@@ -15,7 +15,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import Link, { useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
-import { ROTULO_PASO, proporcion, razon, sanearBloque, type Bloque, type BloqueCreado } from '@/lib/chat-bloques';
+import { MAX_CONSULTAS, ROTULO_PASO, leerConsulta, proporcion, razon, type Bloque, type BloqueCreado } from '@/lib/chat-bloques';
 
 type Pregunta = Extract<Bloque, { t: 'pregunta' }>;
 type Trabajo = Extract<Bloque, { t: 'trabajo' }>;
@@ -24,12 +24,14 @@ type Trabajo = Extract<Bloque, { t: 'trabajo' }>;
 const CONSULTA_INICIAL_MS = 3_000;
 const CONSULTA_MAX_MS = 15_000;
 
-export function BloqueHilo({ b, onResponder, respondida }: {
+export function BloqueHilo({ b, onResponder, respondida, onTermina }: {
   b: Bloque;
   /** Contestar una pregunta (G1): lo elegido sale como un mensaje de la persona. Sin esto, las opciones se ven y no se tocan. */
   onResponder?: (texto: string) => void;
   /** Una pregunta que ya se contestó (al recargar): se ve contestada y no se toca. */
   respondida?: string;
+  /** Un trabajo largo (G6) terminó mientras se miraba: quien lo lanzó (su tarjeta, su formulario) deja de decir «En curso». */
+  onTermina?: (ok: boolean) => void;
 }) {
   if (b.t === 'creado') return <Creado b={b} />;
   if (b.t === 'antes_despues') {
@@ -49,41 +51,53 @@ export function BloqueHilo({ b, onResponder, respondida }: {
       </div>
     );
   }
-  if (b.t === 'trabajo') return <TrabajoHilo b={b} />;
+  if (b.t === 'trabajo') return <TrabajoHilo b={b} onTermina={onTermina} />;
   return <PreguntaHilo b={b} onResponder={onResponder} respondida={respondida} />;
 }
 
 /**
  * G6: los pasos de un trabajo largo. Con `consulta` y un paso en curso, la pantalla pregunta cómo va
  * (GET /api/mako/chat?trabajo=, lib/chat-trabajos.ts) hasta que termina, y entonces dibuja su resultado: el G5 en que
- * termina, su «Abrir», o lo que dibuje aparte (1.11). Sin recargar.
+ * termina, su «Abrir», lo que dibuje aparte (1.11) y lo que pasó en palabras («No se pudo: …»). Sin recargar.
+ * ⚠️ NO PREGUNTA PARA SIEMPRE (revisión del 21/10/2026): un 404 (el trabajo ya no está) o `MAX_CONSULTAS` sin respuesta
+ *    lo cortan, y lo dice. Uno que murió en el server lo corta `estadoDeTrabajo` (su `hasta`).
  */
-function TrabajoHilo({ b }: { b: Trabajo }) {
+function TrabajoHilo({ b, onTermina }: { b: Trabajo; onTermina?: (ok: boolean) => void }) {
   const ws = useWs();
   const [actual, setActual] = useState<Trabajo>(b);
   const [aparte, setAparte] = useState<Bloque[]>([]);
-  const vivo = !!actual.consulta && actual.pasos.some((p) => p.estado === 'en_curso');
+  /** Cómo terminó, visto desde acá: `ok` null = no se sabe. */
+  const [fin, setFin] = useState<{ ok: boolean | null; texto: string | null } | null>(null);
+  const vivo = !!actual.consulta && actual.pasos.some((p) => p.estado === 'en_curso') && !fin;
   useEffect(() => {
     if (!vivo || !actual.consulta) return;
     const consulta = actual.consulta;
     let parar = false;
     let espera = CONSULTA_INICIAL_MS;
+    let intentos = 0;
     let reloj: ReturnType<typeof setTimeout> | undefined;
     const mirar = async () => {
+      intentos++;
+      let r: ReturnType<typeof leerConsulta> = { sigue: true };
       try {
         const res = await fetch(conWs(`/api/mako/chat?trabajo=${encodeURIComponent(consulta)}`, ws), { cache: 'no-store' });
-        const j = await res.json() as { ok?: boolean; bloques?: unknown[] };
-        const bloques = (j.ok && Array.isArray(j.bloques) ? j.bloques : []).map(sanearBloque).filter((x): x is Bloque => !!x);
-        const suyo = bloques.find((x): x is Trabajo => x.t === 'trabajo' && x.consulta === consulta);
-        if (!parar && suyo) { setActual(suyo); setAparte(bloques.filter((x) => x.t !== 'trabajo')); }
-        if (suyo && !suyo.pasos.some((p) => p.estado === 'en_curso')) return;
+        r = leerConsulta(res.status, await res.json().catch(() => null), consulta);
       } catch { /* sin red: se vuelve a preguntar */ }
       if (parar) return;
+      if (r.trabajo) { setActual(r.trabajo); setAparte(r.aparte ?? []); }
+      if (!r.sigue || intentos >= MAX_CONSULTAS) {
+        const terminado = r.sigue ? { ok: null, texto: null } : { ok: r.ok, texto: r.texto };
+        setFin(terminado);
+        if (terminado.ok != null) onTermina?.(terminado.ok);
+        return;
+      }
       espera = Math.min(Math.round(espera * 1.5), CONSULTA_MAX_MS);
       reloj = setTimeout(() => void mirar(), espera);
     };
     reloj = setTimeout(() => void mirar(), espera);
     return () => { parar = true; if (reloj) clearTimeout(reloj); };
+    // `onTermina` cambia en cada render del padre: no reinicia la consulta.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vivo, actual.consulta, ws]);
   return (
     <div className="ch-bloque" data-bloque="trabajo" role="status" aria-live="polite">
@@ -98,6 +112,11 @@ function TrabajoHilo({ b }: { b: Trabajo }) {
         ))}
       </ol>
       {vivo && <p className="ch-tarjeta__nota">Sigue por detrás: puedes cerrar el chat, al volver está.</p>}
+      {fin && (
+        <p className={`ch-tarjeta__nota${fin.ok === false ? ' ch-form__error' : ''}`} role={fin.ok === false ? 'alert' : 'status'}>
+          {fin.texto ?? (fin.ok == null ? 'No sé cómo terminó: recarga el chat para verlo.' : null)}
+        </p>
+      )}
       {actual.listo && <Creado b={actual.listo} />}
       {actual.abrir && <div className="ch-tarjeta__botones"><Link className="ch-abrir" href={actual.abrir.href}>{actual.abrir.titulo}</Link></div>}
       {aparte.map((x, i) => <BloqueHilo key={i} b={x} />)}

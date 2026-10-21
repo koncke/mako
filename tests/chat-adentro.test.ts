@@ -118,7 +118,8 @@ test('4. las tres caras dibujan el formulario, con los mismos campos que su pant
   assert.match(sinComentarios(leer('app/_chat/HiloMako.tsx')), /\{x\.p\.form \? \(\s*<FormularioEnChat f=\{x\.p\.form\} acciones=\{ACCIONES_FORMULARIO\}/, 'la computadora');
   assert.match(sinComentarios(leer('app/m/mako/ChatMako.tsx')), /if \(x\.k === 'pantalla' && x\.p\.form\) \{[\s\S]{0,300}<FormularioEnChat f=\{x\.p\.form\} acciones=\{ACCIONES_FORMULARIO\}/, 'el teléfono');
   assert.match(sinComentarios(leer('app/crm/lead-view/MakoAnalystLead.tsx')), /if \(x\.k === 'pantalla' && x\.p\.form\) \{[\s\S]{0,300}<FormularioEnChat f=\{x\.p\.form\}/, 'el MaKo Analyst de la ficha');
-  assert.match(leer('app/_chat/acciones-formulario.ts'), /confirmar: confirmarAccionAction, descartar: descartarAccionAction/, 'las MISMAS acciones de /mako/revisar');
+  // Por la ruta de 420 s desde el 21/10/2026 (tests/chat-trabajos.test.ts, 5); la ruta corre las de /mako/revisar.
+  assert.match(leer('app/api/mako/propuesta/route.ts'), /await confirmarAccionAction\(id, body\.payload as Record<string, unknown>\)[\s\S]*await descartarAccionAction\(id\)/, 'las MISMAS acciones de /mako/revisar');
   assert.match(leer('app/mako/revisar/[id]/RevisarAccion.tsx'), /import \{ Campo, armarPayload, valorInicial, valorLegible, type OperacionPlana, type Valor \} from '\.\.\/formulario';/, 'la pantalla de revisión usa los mismos campos');
   for (const f of ['app/second-brain/ChatSecondBrain.tsx', 'app/crm/mako-crm/ChatMakoCrm.tsx', 'app/crm/lead-view/MakoAnalystLead.tsx', 'app/m/mako/ChatMako.tsx']) {
     assert.match(leer(f), /itemsDeSesion\([^)]*pantallas \?\? \[\]\)/, `${f}: las propuestas pendientes vuelven al abrir`);

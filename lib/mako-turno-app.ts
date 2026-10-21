@@ -33,7 +33,7 @@ import 'server-only';
 import { chatClaudeTools, type RichMsg, type ToolDef } from '@/lib/anthropic';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION } from '@/lib/mako-doer-acciones';
-import { aToolDef, porId } from '@/lib/api-mako/registro';
+import { aToolDef, gatingOk, porId } from '@/lib/api-mako/registro';
 import { errorParaTicket, type ErrorDelTurno } from '@/lib/tickets-reglas';
 import { identidadDe } from '@/lib/tickets-db';
 import { registrarError } from '@/lib/errores-app';
@@ -658,10 +658,13 @@ export async function confirmarDesdeTarjeta(persona: PersonaChat, sessionId: num
     if (!(await sesionDe(persona, sessionId))) return NO_ES_TUYA;
     // Un trabajo LARGO (1.11, lib/chat-trabajos.ts): se confirma por detrás y la respuesta vuelve enseguida, con el G6 que
     // la pantalla consulta. Si no se puede anotar su avance, corre como siempre, acá abajo.
+    // ⚠️ SÓLO LA DE ESTE CHAT, Y SI QUIEN TOCA PUEDE (revisión del 21/10/2026): con la pendiente de otro chat (los ids son
+    //    correlativos) anotaba «En curso» y servía para ver qué hay vivo en otros; y un closer que tocaba una de admin veía
+    //    «En curso» y después «No se pudo». Si no, el camino de siempre contesta el error sin escribir en el hilo.
     const pend = await getPendiente(persona.ws, pendienteId).catch(() => null);
-    const def = pend?.estado === 'pendiente' ? porId(pend.tipo) : undefined;
-    if (def && esAccion(def) && def.lenta) {
-      const ctx = ctxDeTarjeta(persona, sessionId);
+    const def = pend?.estado === 'pendiente' && pend.grupoJid === canalKeyDeSesion(sessionId) ? porId(pend.tipo) : undefined;
+    const ctx = ctxDeTarjeta(persona, sessionId);
+    if (def && esAccion(def) && def.lenta && gatingOk(def, await vistaDe(ctx))) {
       const trabajo = await enSegundoPlano(persona.ws, sessionId, def.titulo, async () => {
         const r = await confirmarPendiente(ctx, pendienteId);
         return 'error' in r ? { ok: false, resumen: errorCortoDeTarjeta(r.error) } : r;

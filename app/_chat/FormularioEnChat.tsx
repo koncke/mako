@@ -6,9 +6,10 @@
 // docs/ops-center-principal.md §2.5: «La tarjeta despliega el MISMO formulario de /mako/revisar (RevisarAccion.tsx,
 // armado desde `parametros`) con "Confirmar". "Abrir en la app" queda como salida secundaria». Los campos, su valor
 // inicial y lo que se manda son los de la pantalla (app/mako/revisar/formulario.tsx); los botones dicen lo mismo que
-// ella (`BOTONES_ESCRITORIO`); y confirma por la MISMA acción (`confirmarAccionAction`), que vuelve a validar, a mirar el
-// permiso y a preparar contra la base. Al terminar, lo que dibuja el resultado (su G5, su «Abrir») queda acá mismo, sin
-// recargar; el «Hecho: …» del hilo lo anota el server (1.8).
+// ella (`BOTONES_ESCRITORIO`); y confirma por la MISMA acción (`confirmarAccionAction`, por la ruta /api/mako/propuesta:
+// app/_chat/acciones-formulario.ts dice por qué), que vuelve a validar, a mirar el permiso y a preparar contra la base. Al
+// terminar, lo que dibuja el resultado (su G5, su «Abrir») queda acá mismo, sin recargar; el «Hecho: …» del hilo lo
+// anota el server (1.8). Un trabajo largo deja su G6; cuando termina, el «En curso: …» se va y queda lo que dice el G6.
 //
 // ⚠️ LAS ACCIONES LLEGAN POR PROPS: así la pieza se dibuja en un test de node (el módulo de las acciones lleva
 //    `server-only`). Sin acciones, el formulario se ve y no se toca.
@@ -31,7 +32,7 @@ export type AccionesFormulario = {
 
 type Fase =
   | { fase: 'editando' | 'confirmando' | 'descartando' }
-  | { fase: 'hecha'; resumen: string; bloques: Bloque[]; abrir?: Abrir; enCurso?: true }
+  | { fase: 'hecha'; resumen: string | null; bloques: Bloque[]; abrir?: Abrir; enCurso?: true }
   | { fase: 'descartada'; resumen: string };
 
 export function FormularioEnChat({ f, acciones, abrirEnApp }: {
@@ -82,10 +83,12 @@ export function FormularioEnChat({ f, acciones, abrirEnApp }: {
   };
 
   if (fase.fase === 'hecha') {
+    // El trabajo largo terminó: lo que pasó lo dice su G6 («Hecho: …», «No se pudo: …»), no un «En curso» que ya no es.
+    const termina = fase.enCurso ? () => setFase((x) => (x.fase === 'hecha' ? { ...x, enCurso: undefined, resumen: null } : x)) : undefined;
     return (
       <div className="ch-form" data-fase="hecha">
-        <p className="ch-tarjeta__nota" role="status">{fase.enCurso ? fase.resumen : `Hecho: ${fase.resumen}`}</p>
-        {fase.bloques.map((b, i) => <BloqueHilo key={i} b={b} />)}
+        {fase.resumen != null && <p className="ch-tarjeta__nota" role="status">{fase.enCurso ? fase.resumen : `Hecho: ${fase.resumen}`}</p>}
+        {fase.bloques.map((b, i) => <BloqueHilo key={i} b={b} onTermina={b.t === 'trabajo' ? termina : undefined} />)}
         {fase.abrir && <div className="ch-tarjeta__botones"><Link className="ch-abrir" href={fase.abrir.href}>{fase.abrir.titulo}</Link></div>}
       </div>
     );

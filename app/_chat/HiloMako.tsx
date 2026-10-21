@@ -57,7 +57,7 @@ function DeMako({ quien, children, rotulo }: { quien: Quien; children: ReactNode
   );
 }
 
-export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onReintentar, onRecargar, onResponder }: {
+export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onReintentar, onRecargar, onResponder, onTrabajo }: {
   items: readonly ItemHilo[];
   /** El chat: su muñeco va al lado de lo que dice MaKo. */
   quien: Quien;
@@ -73,6 +73,8 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
   onRecargar: () => void;
   /** Contestar una pregunta con opciones (un bloque G1): sale como un mensaje de la persona. */
   onResponder?: (texto: string) => void;
+  /** El trabajo largo de una tarjeta terminó (1.11): la tarjeta pasa a «Hecho» o «Falló» (`trasTrabajo`). */
+  onTrabajo?: (pendienteId: number, ok: boolean) => void;
 }) {
   const filas: ReactNode[] = [];
   let ultimoDia: string | null = null;
@@ -123,7 +125,9 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
       return;
     }
     if (x.k === 'bloque') {
-      filas.push(<DeMako key={x.id} quien={quien}><BloqueHilo b={x.b} onResponder={onResponder} respondida={x.respondida} /></DeMako>);
+      const de = x.deTarjeta;
+      filas.push(<DeMako key={x.id} quien={quien}><BloqueHilo b={x.b} onResponder={onResponder} respondida={x.respondida}
+        onTermina={de != null && onTrabajo ? (ok) => onTrabajo(de, ok) : undefined} /></DeMako>);
       return;
     }
     if (x.k === 'pantalla') {

@@ -129,9 +129,9 @@ test('3. cada tipo se dibuja', async () => {
 });
 
 test('4. las tres caras del hilo usan la MISMA pieza, y las pantallas suman lo que vuelve de la tarjeta', () => {
-  assert.match(sinComentarios(leer('app/_chat/HiloMako.tsx')), /if \(x\.k === 'bloque'\) \{\s*filas\.push\(<DeMako key=\{x\.id\} quien=\{quien\}><BloqueHilo b=\{x\.b\}/, 'la computadora');
-  assert.match(sinComentarios(leer('app/m/mako/ChatMako.tsx')), /if \(x\.k === 'bloque'\) return <li className="m-mako-msg m-mako-msg--mk"><BloqueHilo b=\{x\.b\}/, 'el teléfono');
-  assert.match(sinComentarios(leer('app/crm/lead-view/MakoAnalystLead.tsx')), /if \(x\.k === 'bloque'\) return <FilaMako><BloqueHilo b=\{x\.b\}/, 'el MaKo Analyst de la ficha');
+  assert.match(sinComentarios(leer('app/_chat/HiloMako.tsx')), /if \(x\.k === 'bloque'\) \{\s*const de = x\.deTarjeta;\s*filas\.push\(<DeMako key=\{x\.id\} quien=\{quien\}><BloqueHilo b=\{x\.b\}/, 'la computadora');
+  assert.match(sinComentarios(leer('app/m/mako/ChatMako.tsx')), /if \(x\.k === 'bloque'\) \{\s*const de = x\.deTarjeta;\s*return <li className="m-mako-msg m-mako-msg--mk"><BloqueHilo b=\{x\.b\}/, 'el teléfono');
+  assert.match(sinComentarios(leer('app/crm/lead-view/MakoAnalystLead.tsx')), /if \(x\.k === 'bloque'\) \{[\s\S]{0,400}?return <FilaMako><BloqueHilo b=\{x\.b\}/, 'el MaKo Analyst de la ficha');
   // La pieza no trae CSS propio (así se dibuja en este test); las clases van en la hoja que carga el teléfono.
   assert.doesNotMatch(leer('app/_chat/BloqueHilo.tsx'), /import ['"][^'"]+\.css['"]/);
   assert.match(leer('app/_chat/PegadoHilo.tsx'), /import '\.\/chat\.css';/, 'el teléfono carga la hoja con PegadoHilo');
@@ -143,7 +143,7 @@ test('4. las tres caras del hilo usan la MISMA pieza, y las pantallas suman lo q
     assert.doesNotMatch(s, /paraLaPersona \?\? \[\]\)\.filter/, `${f}: sin armar los avisos a mano`);
   }
   assert.match(sinComentarios(leer('app/m/mako/SheetPropuesta.tsx')), /onEstado\(t\.pendienteId, d\.estado \?\? 'pendiente', d\.frase \?\? undefined, r\);/, 'el teléfono');
-  assert.match(leer('app/m/mako/chat-ui.ts'), /return r \? \[\.\.\.sig, \.\.\.itemsTrasTarjeta\(r\)\] : sig;/, 'conTarjeta suma lo que vuelve');
+  assert.match(leer('app/m/mako/chat-ui.ts'), /return r \? \[\.\.\.sig, \.\.\.itemsTrasTarjeta\(r, pendienteId\)\] : sig;/, 'conTarjeta suma lo que vuelve');
 });
 
 test('5. G3: lo que no se deshace, en rojo pegado al botón', () => {
