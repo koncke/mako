@@ -1,5 +1,19 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 21/10/2026 ~00:30 AR — LA SEGUNDA REVISIÓN (de 4eef10c7a) ARREGLADA
+
+<sub>Chat «Onboarding», claude4, rama onboarding-v3. El Cerebro revisó 4eef10c7a: el BLOQUEA resuelto, pero los arreglos de
+la fase escrita trajeron errores nuevos (side-session-notes/local_797d5445…/revision-onboarding-20-10-noche.md). Cosecha:
+«La segunda revisión» dentro de «La revisión adversarial de onboarding-v3», en docs/hallazgos-onboarding.md.</sub>
+
+- Sin respuestas rápidas en el nombre ni en el negocio, tampoco el del alta (lo decidió el Cerebro: gana Martín): `be2a4e4eb`.
+- Las cifras (millones, letras, lunfardo, rangos, cifras sueltas, semana y año), la negación marcada en las opciones, el
+  canal sin «directo», el «sí» compuesto, «con tarjeta» mensual y el «Entrando…»: `9259ca8d3`. La batería de frases es
+  tests/onboarding-cifras-escritas.test.ts.
+- La guardia del texto largo: cuenta como turno y documento, sólo el insulto de su principio, recortado antes de leer: `e78d76c4c`.
+- Siguen sin hacer: el paso a `CajaChat` (cuando caja-voz llegue a main), el tutorial en /m, la propuesta del CRM aparte.
+  Y esperan el sí de Martín: el ws21 y las dos keys del ws1.
+
 ## ESTADO AL 20/10/2026 ~22:00 AR — LA REVISIÓN ADVERSARIAL DE v3 ARREGLADA
 
 <sub>Chat «Onboarding», claude4, rama **onboarding-v3** (C:/dev/wt-onboarding-v3, ya con florencia adentro). El Cerebro

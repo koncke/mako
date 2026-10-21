@@ -2493,6 +2493,31 @@ probado rompiéndolo. Lo que queda como regla:
   líneas de Conversacion.tsx, y la caja única (caja-voz) las movió a app/_chat/CajaChat.tsx: rojo sin nada roto. Ahora
   compara por pieza (regex) y sigue el archivo donde viva la caja.
 
+**La segunda revisión (la misma noche, punta 4eef10c7a): los arreglos rompieron lo que antes andaba.** El bloqueante
+quedó resuelto. Pero los arreglos de la fase escrita, hechos contra los casos de la primera revisión, trajeron errores
+nuevos que cargaban mal el diagnóstico. El escéptico lo midió corriendo la misma sonda sobre la punta anterior
+(88a5ebd05): eran regresiones de la rama, no de producción.
+- ⚠️ **Una transformación pensada para lo que escribe el dueño se aplicó también a las OPCIONES.** Borrar lo negado
+  sacaba el «no cierran» de «Me entran interesados pero se caen: no agendan… o no cierran». Entonces «tengo leads pero no
+  cierran» caía en «Me sobra volumen» por la palabra «leads». **Regla:** lo negado se MARCA (`!cierr`) y empareja con lo
+  negado de la opción; y un parser se prueba con las frases que YA andaban, no sólo con las que fallaban.
+- **`startsWith('mil')` es true para «millones».** La regex probaba bien «millón» antes que «mil», pero la línea que
+  elegía el multiplicador volvía a mirar el prefijo. **Regla:** cuando dos palabras comparten prefijo, la más larga se mira
+  primero en TODOS los lugares que las distinguen, no sólo en la regex.
+- **«y» une un rango y también dos datos distintos.** «entre 30 y 50 mil» es un rango, y su «mil» vale para las dos puntas.
+  «15 mil y tengo 4 clientes» no es un rango: son dos cifras. Rango = dos cifras PEGADAS por y/a/-/hasta. Con cifras
+  sueltas vale la única que trae plata o magnitud ($, USD, mil, puntos de miles); con dos así, se vuelve a preguntar.
+- **La lista de lo que dice «sí» tiene que aceptar frases enteras.** «Sí, está bien», «Correcto, así se llama» o «Sí, por
+  favor» no estaban en la lista, y lo que seguía al «sí» se tomaba como el nombre nuevo. Ahora un sí seguido de palabras
+  de acuerdo es un sí. Un sí seguido de otra cosa no adivina: pregunta de nuevo.
+- **«Con tarjeta» es el medio de pago, no la forma de cobro.** Con «por mes» o «membresía» es una suscripción. Sólo las
+  cuotas de la tarjeta sin nada mensual, «sin interés» o «MSI» son pago único.
+- **Lo que esconde la pantalla va DESPUÉS del `await`, no antes.** El fundido arrancaba antes del POST 'hilo'. La capa
+  invisible se comía los clics, y el «Entrando…», que está adentro de esa capa, no se veía nunca.
+- **La guardia de costo cuenta el trabajo que se hace, no el nombre de la acción.** Un 'turno' con texto largo hace el
+  trabajo de un documento (hasta 20 lecturas). Contado sólo como turno, salteaba el tope de documentos. Además se leía el
+  texto entero antes de recortarlo a lo que se guarda.
+
 **Sin hacer:** el «+» de la caja del onboarding acepta menos que antes (sin audio ni video; «Fotos» sin video): se arregla
 pasando a `CajaChat` con `accept: ACCEPT_IMPORTAR` cuando caja-voz llegue a main, y ahí se borra app/offer/CajaDelCentro.tsx.
 /m/second-brain crea el hilo pero no lee `?recorrido=`: en el teléfono no hay tutorial. El CRM a medida sigue pidiendo
