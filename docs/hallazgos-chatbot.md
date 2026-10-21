@@ -5447,3 +5447,11 @@ Ya había pasado el 15/10 («Las doce cosas de Automations (vivían sólo en un 
 - docs/relevo/chatbot.md:37, :104, :119-120
 - app/admin/dev/chatbot/bitacora.ts:1638 (el último hito «prompt»)
 - app/automations/SecuenciaPerfil.tsx:1202 y app/automations/SimuladorWhatsApp.tsx:827 (lo que sigue sin hacer)
+
+## Lo que encontró la revisión del pedido B antes de subirlo (20/10/2026)
+
+El detalle está en las notas compartidas, `revision-automations-b-20-10.md`.
+- **Un control de UNA automatización que escribe algo del NEGOCIO** (el huso horario de su tuerca → `fijarZonaDelNegocio`) mueve el horario de todas las demás, y la pantalla no lo dice. **Regla:** en la configuración de una automatización, lo del negocio se muestra y no se edita.
+- **Una copia pierde lo que vive fuera de la fila:** «Duplicar» copiaba las columnas y no `automatizacion.config:<id>` de app_settings, y la copia salía sin sus frenos (horario, intervalo).
+- **Al cambiar dónde vive un ajuste del negocio** (las horas «misma persona»), hay que dejar algún lugar donde se siga editando el valor que heredan todas.
+

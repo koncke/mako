@@ -34,6 +34,26 @@ historial de la ficha con «Volver a como estaba»; la ficha que edita MaKo se r
 - **Decisión abierta que sigue siendo de Martín: §5.1** (ganar en un producto agregado no marca ganado al lead). De ella
   depende la invitación al curso en un segundo producto (docs/relevo/customer-success.md).
 
+## 0-Ω18. 20/10/2026, noche (chat «CRM», cuenta `claude4`): la tanda de Martín del 20/10 sobre el CRM
+
+El pedido, literal, está en la bitácora del CRM (hito `actor: 'martin'` de las 19:11): «No veo el chat con MaKo que te
+había pedido», «las columnas no sean invisibles», «las cards… personalizar», «"Tablero y lista" solo con íconos» y «¿está
+asignar un evento a una etapa de reunión?». **TODO lo que Martín pidió para el CRM y su estado: docs/pedidos-crm.md**
+(265 pedidos: 242 hechos, 13 parciales, 9 no hechos, 1 sin confirmar; «Lo que falta, en orden» al final).
+
+Hecho hoy, sin subir (rama `crm-ficha-v2`):
+- `dae7de4fc` · las columnas se ven: `--fondo-columna` (el 18/10 quedaron en `--surface-2`, el mismo gris que la página).
+- `10fc93059` · «Tablero» y «Lista» sólo con íconos, con tooltip.
+- `44f14b087` · el chat con MaKo como barra fija a la derecha (estaba DEBAJO de la sidebar abierta).
+- `88daad475` + `5cb1e334a` · «Personalizar tarjetas» en el «⋯», por persona; el teléfono sigue foto, plata y canal; API
+  `ver_campos_tarjeta_crm` (sólo app, sólo lectura).
+- «Asignar evento» ya estaba (`c7f7b5609`, 16/10): Calendly y Cal.com, en el «⋯» de una etapa de reunión.
+
+**No visto en pantalla** (sin RAM para el build). Se revisa en /crm: las columnas con su bloque, la barra de MaKo a la
+derecha (y su pestaña plegada), los íconos de la vista y «⋯» › «Personalizar tarjetas».
+**Siguiente:** cuando `app/_chat/CajaChat.tsx` (rama `chat-unico`, de Ops Center 3) llegue a main, cambiar el chat de
+adentro de la barra (`PanelMakoCrm.tsx` monta `ChatMakoCrm`). El resto, en «Lo que falta» de docs/pedidos-crm.md.
+
 ## 0-Ω17. 20/10/2026 (chat «CRM», cuenta `claude4`): Chats lento, EN PRODUCCIÓN (run 165)
 
 Lo vio Martín en la llamada con Leila del 19/10 (minuto 55:12). Arreglo `b7817fe9f` (+ `87464faa8`), VERDE `3107dbeca`.

@@ -763,7 +763,7 @@ const CSS = `
   flex: 0 0 304px; display: flex; flex-direction: column; gap: 8px;
   /* La columna de la familia de tarjetas (17/10/2026): 26 de radio y fondo suave, sin borde duro. */
   /* El valor de FONDO_COLUMNA (lib/tarjeta-kanban), escrito y no interpolado: la llave de cierre de una interpolación corta las reglas que leen los tests. */
-  background: var(--surface-2); border: 1px solid transparent;
+  background: var(--fondo-columna); border: 1px solid transparent;
   border-radius: 26px; padding: 12px 10px 10px; min-height: 248px; max-height: 68vh;
   transition: background .12s, border-color .12s;
 }

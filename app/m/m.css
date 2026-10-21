@@ -658,7 +658,8 @@
 .m-kb__col {
   flex: 0 0 calc(100% - 48px); min-width: 0; scroll-snap-align: start;
   display: flex; flex-direction: column;
-  background: color-mix(in srgb, var(--surface-2) 55%, transparent); border-radius: 26px; overflow: hidden;
+  /* El bloque de la columna, el mismo que en la computadora (app/globals.css, --fondo-columna). */
+  background: var(--fondo-columna); border-radius: 26px; overflow: hidden;
 }
 .m-kb__col-cab { flex: none; display: flex; align-items: center; gap: 8px; padding: 13px 14px 9px; }
 /* El encabezado de la columna como el del prototipo (17/10/2026): el nombre en negrita, el contador en una pastilla
