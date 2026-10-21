@@ -203,15 +203,15 @@ test('12: el editor la muestra como un cambio más del chat, la acepta con el mi
   const p = leer('app', 'video-editor', '_opencut', 'chat', 'propuestas.ts');
   // El id vive en chat/foco.ts desde el 20/10 (el link `?propuesta=` lo necesita sin cargar el motor).
   assert.match(leer('app', 'video-editor', '_opencut', 'chat', 'foco.ts'), /export const idDeMensaje = \(propuestaId: string\) => `api-\$\{propuestaId\}`;/, 'un id estable: no se repite al volver a buscar');
-  assert.match(p, /import \{ focoDePropuesta, idDeMensaje \} from "\.\/foco";/);
+  assert.match(p, /import \{ focoDePropuesta, idDeMensaje, queMostrar \} from "\.\/foco";/);
   assert.match(p, /refsPrevias: refsPorId,/, 'las refs de la propuesta: «t2» es el de cuando se propuso');
   assert.match(p, /propuesta: \{ proyectoId, escenaId: p\.escenaId, refsPorId, elegidos: \[\], alcance: "video", operaciones \}/);
   assert.match(p, /useChatAbierto\.getState\(\)\.setAbierto\(true\);/);
   const panel = leer('app', 'video-editor', '_opencut', 'chat', 'PanelChat.tsx');
   assert.equal((panel.match(/aceptarPropuesta\(/g) ?? []).length, 1, 'el MISMO «Aceptar»');
-  // Con lo que el editor VIO (versión y cuántos): si creció, se cierra sólo eso (tests/video-editor-propuesta-link.test.ts).
-  assert.match(panel, /if \(m\.propuestaApi\) void resolverEnServidor\(m\.propuestaApi\.id, "aplicada", r\.descartes, m\.propuestaApi\)/);
-  assert.match(panel, /if \(m\.propuestaApi\) void resolverEnServidor\(m\.propuestaApi\.id, "descartada", \[\], m\.propuestaApi\)/);
+  // Con las operaciones de ESE mensaje: se cierran ésas, por contenido (tests/video-editor-propuesta-link.test.ts).
+  assert.match(panel, /if \(m\.propuestaApi\) void resolverEnServidor\(m\.propuestaApi\.id, "aplicada", r\.descartes, m\.propuesta\.operaciones\)/);
+  assert.match(panel, /if \(m\.propuestaApi\) void resolverEnServidor\(m\.propuestaApi\.id, "descartada", \[\], m\.propuesta\?\.operaciones \?\? \[\]\)/);
   assert.match(leer('app', 'video-editor', '_opencut', 'editor-page.tsx'), /useEffect\(\(\) => iniciarPropuestas\(editor, \{ foco: propuesta, proyecto: projectId \}\), \[editor, propuesta, projectId\]\);/);
   // Y el hilo guardado la recuerda (si no, al recargar no se cerraría en la base).
   const [g] = hiloParaGuardar([{ id: 'api-x', c: 1, t: 1, de: 'mako', texto: 'Propuesta', propuestaApi: { id: '0b9e5f4c-1a2b-4c3d-8e9f-0a1b2c3d4e5f', canal: 'whatsapp' } }]) as Array<{ propuestaApi?: unknown }>;

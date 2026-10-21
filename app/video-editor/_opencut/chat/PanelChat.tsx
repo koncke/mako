@@ -31,7 +31,7 @@ import { resumenDeCambios, revisarOperaciones, vistaDeLinea, type CambioChat } f
 import { aceptarPropuesta, deshacerPropuesta } from "./aplicar";
 import { datosDeLinea, disponiblesChat } from "./contexto";
 import { cambiarHilo, cambiarMensaje, cargarHilo, conId, leerHilo, suscribir, type EstadoPropuesta, type Hilo, type MensajeMako } from "./hilo";
-import { resolverEnServidor, traerPropuestas } from "./propuestas";
+import { marcarCerrada, resolverEnServidor, traerPropuestas } from "./propuestas";
 import { useChatAbierto } from "./estado";
 import { storageService } from "@/app/video-editor/_opencut/services/storage/service";
 import Link from "@/app/_ui/Link";
@@ -425,13 +425,17 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 		cambiarMensaje(proyectoId, m.id, { estado: "aplicada", aplicada: r.aplicada, descartes: r.descartes.length ? r.descartes : m.descartes });
 		// Una propuesta de la API (por WhatsApp, por la API): se cierra también en la base (chat/propuestas.ts), SÓLO lo
 		// que este mensaje tenía. Lo que se sumó después sigue abierto y se trae como un mensaje nuevo.
-		if (m.propuestaApi) void resolverEnServidor(m.propuestaApi.id, "aplicada", r.descartes, m.propuestaApi).then((quedan) => alQuedar(quedan));
+		if (m.propuestaApi) void resolverEnServidor(m.propuestaApi.id, "aplicada", r.descartes, m.propuesta.operaciones).then((c) => alCerrar(m.id, c));
 		toast.success("Cambio aplicado");
 	};
 
-	/** Lo que se pidió mientras se aceptaba (o descartaba) sigue abierto: se trae, y `traerPropuestas` lo avisa. */
-	const alQuedar = (quedan: number) => {
-		if (quedan) void traerPropuestas(editorRef.current);
+	/**
+	 * Lo que contestó la base al cerrar: si lo confirmó, se anota (si no, la próxima búsqueda lo reintenta); lo que se
+	 * pidió mientras tanto sigue abierto y se trae, y `traerPropuestas` lo avisa.
+	 */
+	const alCerrar = (mensajeId: string, c: { cerrada: boolean; quedan: number }) => {
+		if (c.cerrada) marcarCerrada(proyectoId, mensajeId);
+		if (c.quedan) void traerPropuestas(editorRef.current);
 	};
 
 	const restaurar = (m: MensajeMako) => {
@@ -520,7 +524,7 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 									onAplicarIgual={() => void aceptar(m, true)}
 									onDescartar={() => {
 										cambiarMensaje(proyectoId, m.id, { estado: "descartada", aviso: undefined });
-										if (m.propuestaApi) void resolverEnServidor(m.propuestaApi.id, "descartada", [], m.propuestaApi).then((quedan) => alQuedar(quedan));
+										if (m.propuestaApi) void resolverEnServidor(m.propuestaApi.id, "descartada", [], m.propuesta?.operaciones ?? []).then((c) => alCerrar(m.id, c));
 									}}
 									onRestaurar={() => restaurar(m)}
 								/>

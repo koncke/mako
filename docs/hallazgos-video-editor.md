@@ -1649,15 +1649,30 @@ no se ven en el código:
 - **«Aceptar» cerraba en la base cambios que el editor nunca vio.** Lo del mismo canal se junta en la
   propuesta abierta: con el editor mostrando op1, op2 pedida desde el teléfono se sumaba a la MISMA,
   y aceptar op1 la cerraba entera (op2 se perdía y su link decía «ya se aceptó»). La raíz ya estaba en
-  main: `resolverPropuesta` cerraba sin mirar la versión. Ahora el editor manda la versión y cuántos
-  cambios vio; si la propuesta creció, se cierran sólo esos (compare-and-set) y el resto sigue
-  abierto con el mismo id, que el editor trae como un mensaje nuevo. La regla, pura:
-  `repartoAlResolver` (`lib/editor-video/propuestas.ts`).
+  main: `resolverPropuesta` cerraba sin mirar la versión. El primer arreglo (versión y cantidad
+  vistas) no aguantó la segunda revisión: ver abajo.
 - **El foco quedaba pegado** si se cerraba el panel antes de 4 s: se suelta al desmontar.
 - **Con más de 20 abiertas, la del link no llegaba**: se traían las 20 más viejas. Ahora las 20 más
   nuevas, y la del link siempre.
 
 **Regla que queda:** un compare-and-set al SUMAR no alcanza si al CERRAR no se mira la misma versión.
+
+**La segunda revisión (21/10): cerrar «los primeros N» o «hasta la versión V» se rompe con una vista
+vieja.** Con dos pestañas que aceptan lo mismo, la segunda cerraba un cambio que nunca vio (el total
+ya se había achicado y «vi tantos como hay» parecía «vi todo»). Y con una búsqueda en vuelo mientras
+se aceptaba, op1 volvía a ofrecerse y se aplicaba dos veces. Lo que quedó:
+- **El cierre va por CONTENIDO** (`restarOperaciones`, `lib/editor-video/propuestas.ts`): el editor
+  manda las operaciones de ESE mensaje y el server saca exactamente ésas (claves ordenadas, porque
+  jsonb reordena). Lo que ya no está no se saca dos veces; lo que llegó después queda. Si choca dos
+  veces, contesta «cambió», no «ya resuelta».
+- **El editor ofrece sólo lo que ningún mensaje manejó** (`queMostrar`, `chat/foco.ts`): lo aceptado,
+  descartado o en curso cuenta como manejado aunque su cierre no haya llegado. No renombra mensajes
+  (el renombre dejaba al viejo como «el» de la propuesta y cada apertura sumaba otro). Un cierre que
+  no llegó se reintenta hasta que la base lo confirma (`propuestaApi.cerrada`).
+- **«Se resolvió» sólo de lo que se preguntó por id.** El editor pide por id las propuestas de su
+  hilo; una que no vino en el listado de 20 ya no se da por resuelta.
+
+**Regla que queda:** para cerrar «lo que el cliente vio», mandar QUÉ vio, no cuánto ni cuándo.
 
 **Lo que quedó SIN hacer:** colgar `extra.bloque` del mensaje de MaKo en el turno y dibujarlo al
 llegar (`itemsDeRespuesta` hoy sólo dibuja bloques al confirmar una tarjeta): es la 1.8 de Ops

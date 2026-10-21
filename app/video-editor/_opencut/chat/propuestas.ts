@@ -27,7 +27,7 @@ import { revisarOperaciones, vistaDeLinea } from "./linea";
 import { datosDeLinea, disponiblesChat } from "./contexto";
 import { cambiarHilo, cambiarMensaje, cargarHilo, leerHilo, type Mensaje, type MensajeMako } from "./hilo";
 import { useChatAbierto } from "./estado";
-import { focoDePropuesta, idDeMensaje } from "./foco";
+import { focoDePropuesta, idDeMensaje, queMostrar } from "./foco";
 
 const RUTA = "/api/video-editor/propuestas";
 /** Cada cuánto se vuelve a mirar mientras el editor está a la vista. */
@@ -44,7 +44,7 @@ export function textoDePropuesta(p: { canal: string; lineas: readonly string[] }
 }
 
 /** Arma el mensaje de una propuesta contra la línea de tiempo de AHORA (lo mismo que mira «Aceptar»). */
-async function mensajeDe(editor: EditorCore, proyectoId: string, p: PropuestaServer): Promise<Mensaje | null> {
+async function mensajeDe(editor: EditorCore, proyectoId: string, p: PropuestaServer, id: string = idDeMensaje(p.id)): Promise<Mensaje | null> {
 	const disponibles = await disponiblesChat(editor);
 	const escena = editor.scenes.getActiveSceneOrNull();
 	if (!escena || editor.project.getActiveOrNull()?.metadata.id !== proyectoId) return null;
@@ -67,7 +67,7 @@ async function mensajeDe(editor: EditorCore, proyectoId: string, p: PropuestaSer
 	const descartes = [...deForma, ...revision.descartes];
 	const creada = Date.parse(p.creada) || Date.now();
 	return {
-		id: idDeMensaje(p.id),
+		id,
 		c: creada,
 		t: Date.now(),
 		de: "mako",
@@ -76,16 +76,28 @@ async function mensajeDe(editor: EditorCore, proyectoId: string, p: PropuestaSer
 		cambios: revision.cambios,
 		...(descartes.length ? { descartes } : {}),
 		propuesta: { proyectoId, escenaId: p.escenaId, refsPorId, elegidos: [], alcance: "video", operaciones },
-		// Lo que el editor VIO: al resolver se manda, y si la propuesta creció se cierra sólo esto.
-		propuestaApi: { id: p.id, canal: p.canal, version: Number(p.version) || 0, cuantas: Array.isArray(p.operaciones) ? p.operaciones.length : 0 },
+		// Al aceptar o descartar se cierran en la base EXACTAMENTE las operaciones de este mensaje (por contenido).
+		propuestaApi: { id: p.id, canal: p.canal, version: Number(p.version) || 0, cuantas: operaciones.length },
 	};
 }
 
 let buscando = false;
 
+/** Una operación guardada como la ve el editor (validada), para compararla por contenido con lo que mostró un mensaje. */
+const comoLaVe = (op: unknown): unknown => validarOperaciones([op]).operaciones[0] ?? op;
+
+/** Cuántas propuestas pide el editor por id, como mucho (lib/editor-video/propuestas-server.ts → TOPE_INCLUIR). */
+const TOPE_INCLUIR = 40;
+
 /**
  * Trae las propuestas abiertas del proyecto abierto y las pone en su hilo. Devuelve cuántas llegaron nuevas y cuáles
  * están abiertas, o `null` si no pudo mirar (el proyecto todavía no cargó, otra búsqueda en curso, la red).
+ *
+ *   · Pide POR ID las que le importan (la del link, las pendientes y las de cierre sin confirmar): una que no vino en
+ *     el listado de 20 se daba por «resuelta en otra pestaña» sin estarlo (revisión del 21/10). Lo pedido por id que
+ *     no vuelve, sí está cerrado.
+ *   · Reintenta los cierres que no llegaron a la base (la red, la sesión, un choque).
+ *   · De cada abierta, muestra sólo lo que ningún mensaje manejó (./foco.ts → queMostrar).
  */
 export async function traerPropuestas(editor: EditorCore, opciones: { incluir?: string | null } = {}): Promise<{ nuevas: number; abiertas: string[] } | null> {
 	const proyecto = editor.project.getActiveOrNull();
@@ -93,39 +105,47 @@ export async function traerPropuestas(editor: EditorCore, opciones: { incluir?: 
 	const proyectoId = proyecto.metadata.id;
 	buscando = true;
 	try {
-		// `propuesta`: la del link llega siempre, aunque haya más de 20 abiertas (lib/editor-video/propuestas-server.ts).
-		const incluir = opciones.incluir ? `&propuesta=${encodeURIComponent(opciones.incluir)}` : "";
-		const res = await fetch(`${RUTA}?proyecto=${encodeURIComponent(proyectoId)}${incluir}`, { cache: "no-store" });
+		// Lo guardado primero: hace falta para saber qué pedir por id, y para no repetir lo que ya está.
+		await cargarHilo(proyectoId, proyecto.metadata.name);
+		const deApi = () => leerHilo(proyectoId).mensajes.filter((m): m is MensajeMako => m.de === "mako" && !!m.propuestaApi);
+		const sinCerrar = (m: MensajeMako) => m.estado === "pendiente" || !m.propuestaApi?.cerrada;
+		const pedir = [...new Set([opciones.incluir ?? "", ...deApi().filter(sinCerrar).map((m) => m.propuestaApi!.id)].filter(Boolean))].slice(0, TOPE_INCLUIR);
+		const qs = pedir.map((id) => `&propuesta=${encodeURIComponent(id)}`).join("");
+		const res = await fetch(`${RUTA}?proyecto=${encodeURIComponent(proyectoId)}${qs}`, { cache: "no-store" });
 		const r = (await res.json().catch(() => null)) as { ok?: boolean; propuestas?: PropuestaServer[] } | null;
 		if (!r?.ok || !Array.isArray(r.propuestas)) return null;
-		// Lo guardado primero: si la propuesta ya estaba en el hilo, no se repite.
-		await cargarHilo(proyectoId, proyecto.metadata.name);
 		const abiertas = new Map(r.propuestas.map((p) => [p.id, p] as const));
-		const delHilo = leerHilo(proyectoId).mensajes.filter((m): m is MensajeMako => m.de === "mako" && !!m.propuestaApi);
-		// Las que ya no están abiertas: se resolvieron en otra pestaña.
-		for (const m of delHilo) {
-			if (m.estado === "pendiente" && !abiertas.has(m.propuestaApi!.id)) cambiarMensaje(proyectoId, m.id, { estado: "descartada", aviso: "Se resolvió en otra pestaña." });
-		}
-		const enHilo = new Map(delHilo.map((m) => [m.propuestaApi!.id, m] as const));
-		let nuevas = 0;
-		for (const p of abiertas.values()) {
-			let ya = enHilo.get(p.id);
-			if (ya && ya.estado !== "pendiente") {
-				// ⚠️ LO QUE QUEDÓ de una propuesta que se resolvió EN PARTE (creció mientras se aceptaba: repartoAlResolver).
-				// El mensaje viejo queda como historia con otro id, y el resto entra como uno nuevo con el id de siempre:
-				// el link de la tarjeta lo sigue abriendo.
-				const vio = ya.propuestaApi?.version;
-				if (vio === undefined || vio === Number(p.version)) continue;
-				const viejo = ya.id;
-				cambiarHilo(proyectoId, (h) => ({ ...h, mensajes: h.mensajes.map((x) => (x.id === viejo ? { ...x, id: `${viejo}-v${vio}` } : x)) }));
-				ya = undefined;
-			} else if (ya && (ya.propuesta?.operaciones.length ?? 0) >= validarOperaciones(p.operaciones).operaciones.length) {
-				// Ya está pendiente y no creció: nada que hacer.
+		const pedidas = new Set(pedir);
+
+		for (const m of deApi()) {
+			const id = m.propuestaApi!.id;
+			if (!abiertas.has(id)) {
+				// Sólo se afirma «se resolvió» de lo que se pidió por id y no volvió.
+				if (!pedidas.has(id)) continue;
+				if (m.estado === "pendiente") cambiarMensaje(proyectoId, m.id, { estado: "descartada", aviso: "Se resolvió en otra pestaña.", propuestaApi: { ...m.propuestaApi!, cerrada: true } });
+				else if (!m.propuestaApi!.cerrada) cambiarMensaje(proyectoId, m.id, { propuestaApi: { ...m.propuestaApi!, cerrada: true } });
 				continue;
 			}
-			const m = await mensajeDe(editor, proyectoId, p);
+			// Un cierre que no llegó a la base (aceptada, descartada o deshecha): se vuelve a mandar. Es idempotente:
+			// lo que ya no está no se saca dos veces.
+			const manejada = m.estado === "aplicada" || m.estado === "descartada" || m.estado === "restaurada";
+			if (manejada && !m.propuestaApi!.cerrada && m.propuesta) {
+				void resolverEnServidor(id, m.estado === "descartada" ? "descartada" : "aplicada", [], m.propuesta.operaciones).then((c) => {
+					if (c.cerrada) marcarCerrada(proyectoId, m.id);
+				});
+			}
+		}
+
+		let nuevas = 0;
+		for (const p of abiertas.values()) {
+			const crudas = Array.isArray(p.operaciones) ? p.operaciones : [];
+			const suyos = deApi().filter((m) => m.propuestaApi!.id === p.id);
+			const d = queMostrar(p.id, crudas.map(comoLaVe), suyos.map((m) => ({ id: m.id, estado: m.estado, ops: m.propuesta?.operaciones ?? [] })));
+			if (d.accion === "nada") continue;
+			const lineas = Array.isArray(p.lineas) && p.lineas.length === crudas.length ? d.quedan.map((i) => p.lineas[i]) : p.lineas;
+			const m = await mensajeDe(editor, proyectoId, { ...p, operaciones: d.quedan.map((i) => crudas[i]), lineas }, d.id);
 			if (!m) continue;
-			if (ya) cambiarHilo(proyectoId, (h) => ({ ...h, mensajes: h.mensajes.map((x) => (x.id === m.id ? m : x)) }));
+			if (d.accion === "reemplazar") cambiarHilo(proyectoId, (h) => ({ ...h, mensajes: h.mensajes.map((x) => (x.id === d.id ? m : x)) }));
 			else {
 				cambiarHilo(proyectoId, (h) => ({ ...h, mensajes: [...h.mensajes, m].sort((a, b) => a.c - b.c) }));
 				nuevas++;
@@ -143,26 +163,34 @@ export async function traerPropuestas(editor: EditorCore, opciones: { incluir?: 
 	}
 }
 
+/** Anota en el mensaje que la base confirmó su cierre: no se vuelve a mandar. */
+export function marcarCerrada(proyectoId: string, mensajeId: string): void {
+	const m = leerHilo(proyectoId).mensajes.find((x): x is MensajeMako => x.id === mensajeId && x.de === "mako");
+	if (m?.propuestaApi && !m.propuestaApi.cerrada) cambiarMensaje(proyectoId, mensajeId, { propuestaApi: { ...m.propuestaApi, cerrada: true } });
+}
+
 /**
- * Cierra en la base una propuesta de la API que se aceptó o se descartó en el editor. Nunca falla: devuelve cuántos
- * cambios QUEDAN abiertos (los que llegaron después de lo que el editor vio, `vio`), o 0.
+ * Cierra en la base lo que tenía un mensaje que se aceptó o se descartó en el editor: EXACTAMENTE esas operaciones
+ * (`ops`), por contenido. Nunca falla: `cerrada` = la base lo confirmó (o ya no estaba abierta); `quedan` = cuántas
+ * siguen abiertas en esa propuesta (llegaron después).
  */
 export async function resolverEnServidor(
 	propuestaId: string,
 	estado: "aplicada" | "descartada",
 	descartes: readonly string[] = [],
-	vio: { version?: number; cuantas?: number } = {},
-): Promise<number> {
+	ops: readonly unknown[] = [],
+): Promise<{ cerrada: boolean; quedan: number }> {
 	try {
 		const res = await fetch(RUTA, {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ id: propuestaId, estado, descartes, version: vio.version, cuantas: vio.cuantas }),
+			body: JSON.stringify({ id: propuestaId, estado, descartes, ops }),
 		});
-		const r = (await res.json().catch(() => null)) as { quedan?: unknown } | null;
-		return typeof r?.quedan === "number" && r.quedan > 0 ? r.quedan : 0;
+		const r = (await res.json().catch(() => null)) as { ok?: unknown; yaResuelta?: unknown; quedan?: unknown } | null;
+		const quedan = typeof r?.quedan === "number" && r.quedan > 0 ? r.quedan : 0;
+		return { cerrada: r?.ok === true || r?.yaResuelta === true, quedan };
 	} catch {
-		return 0;
+		return { cerrada: false, quedan: 0 };
 	}
 }
 

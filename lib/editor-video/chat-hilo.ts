@@ -38,11 +38,15 @@ export type PropuestaGuardada = {
 
 /** `c`: cuándo se creó (ordena el hilo); `t`: su último cambio (gana al unir dos copias). En ms. */
 /**
- * La propuesta de la API que trajo un mensaje. `version` y `cuantas` son lo que el editor VIO: al aceptar o descartar
- * se mandan, y si la propuesta creció mientras tanto, el server cierra sólo esos cambios (lib/editor-video/propuestas.ts
- * → repartoAlResolver). Opcionales: un hilo guardado antes del 20/10 no los tiene.
+ * La propuesta de la API que trajo un mensaje. `version` y `cuantas` dicen qué tenía la fila cuando el editor la leyó
+ * (un dato: el cierre va por el CONTENIDO de lo aplicado, lib/editor-video/propuestas.ts → restarOperaciones).
+ * Opcionales: un hilo guardado antes del 20/10 no los tiene.
  */
-export type RefPropuestaApi = { id: string; canal: string; version?: number; cuantas?: number };
+export type RefPropuestaApi = {
+  id: string; canal: string; version?: number; cuantas?: number;
+  /** El server confirmó el cierre de lo que tenía este mensaje. Sin esto, el editor lo reintenta (chat/propuestas.ts). */
+  cerrada?: boolean;
+};
 
 export type MensajeGuardado =
   | { id: string; c: number; t: number; de: 'yo'; texto: string; alcance: string | null }
@@ -134,7 +138,10 @@ function mensaje(x: unknown): MensajeGuardado | null {
     const entero = (v: unknown) => (typeof v === 'number' && Number.isInteger(v) && v >= 0 && v < 1e6 ? v : undefined);
     const version = entero(api.version);
     const cuantas = entero(api.cuantas);
-    m.propuestaApi = { id: api.id, canal: api.canal.slice(0, 20), ...(version !== undefined ? { version } : {}), ...(cuantas !== undefined ? { cuantas } : {}) };
+    m.propuestaApi = {
+      id: api.id, canal: api.canal.slice(0, 20), ...(version !== undefined ? { version } : {}), ...(cuantas !== undefined ? { cuantas } : {}),
+      ...((api as { cerrada?: unknown }).cerrada === true ? { cerrada: true } : {}),
+    };
   }
   // Los links de una burbuja: sólo de ADENTRO de la app (`/algo`, nunca `//otro.com` ni `javascript:`), pocos y cortos.
   const links = (Array.isArray(x.links) ? x.links : []).slice(0, 4).flatMap((l) => {

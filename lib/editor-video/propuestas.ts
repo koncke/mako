@@ -104,23 +104,41 @@ export function lineaDeOperacion(titulo: string, op: OperacionChat, vista: Leido
   return `${titulo}${nombres.length ? `: ${nombres.join(', ')}` : ''}${detalle}`.slice(0, 200);
 }
 
+/** Una operación como texto estable: JSON con las claves ordenadas (jsonb las reordena al guardar). */
+export function claveDeOperacion(op: unknown): string {
+  const ordenar = (v: unknown): unknown => {
+    if (Array.isArray(v)) return v.map(ordenar);
+    if (v && typeof v === 'object') {
+      const o = v as Record<string, unknown>;
+      return Object.fromEntries(Object.keys(o).sort().map((k) => [k, ordenar(o[k])]));
+    }
+    return v;
+  };
+  return JSON.stringify(ordenar(op));
+}
+
 /**
- * Al aceptar o descartar en el editor: ¿se cierra la propuesta entera, o sólo lo que el editor vio?
+ * Los índices de `de` que QUEDAN después de sacar cada una de `quitar` (cada una saca una sola igual, por contenido).
  *
- * ⚠️ LA PROPUESTA PUEDE HABER CRECIDO. Lo del mismo canal se junta en la propuesta abierta (`VENTANA_JUNTAR_MS`): con
- * el editor abierto mostrando op1, desde el teléfono se pide op2 y se suma a la MISMA propuesta. El editor recién la
- * vuelve a mirar al minuto. Cerrarla entera al aceptar op1 tiraba op2 sin aviso, y el link de op2 decía «ya se aceptó»
- * (revisión del 20/10). `vio` es la versión y la cantidad de cambios que el editor tenía: si la versión es otra, se
- * cierran sólo esos y el resto sigue abierto, con el mismo id (el link de op2 lo sigue abriendo).
+ * ⚠️ POR CONTENIDO, NO POR CANTIDAD NI POR VERSIÓN. Cerrar «los primeros N» o «hasta la versión V» se rompe en cuanto
+ * la vista del editor quedó vieja: dos pestañas que aceptan lo mismo, o una búsqueda en vuelo mientras se acepta, y se
+ * cierran cambios que el editor nunca vio (revisión del 21/10). Sacar EXACTAMENTE lo que el editor aplicó no depende
+ * de cuándo lo vio: lo que ya no está no se saca dos veces, y lo que llegó después queda.
  */
-export function repartoAlResolver(
-  fila: { version: number; total: number },
-  vio: { version?: number; cuantas?: number },
-): { cerrar: true } | { cerrar: false; desde: number } {
-  if (vio.version === undefined || vio.version === fila.version) return { cerrar: true };
-  const n = vio.cuantas;
-  if (n === undefined || !Number.isInteger(n) || n < 1 || n >= fila.total) return { cerrar: true };
-  return { cerrar: false, desde: n };
+export function restarOperaciones(de: readonly unknown[], quitar: readonly unknown[]): number[] {
+  const porSacar = new Map<string, number>();
+  for (const q of quitar) {
+    const k = claveDeOperacion(q);
+    porSacar.set(k, (porSacar.get(k) ?? 0) + 1);
+  }
+  const quedan: number[] = [];
+  de.forEach((op, i) => {
+    const k = claveDeOperacion(op);
+    const n = porSacar.get(k) ?? 0;
+    if (n > 0) porSacar.set(k, n - 1);
+    else quedan.push(i);
+  });
+  return quedan;
 }
 
 /** Por dónde llegó una propuesta, para la persona. */
