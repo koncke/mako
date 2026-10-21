@@ -1269,6 +1269,14 @@ corrida del test usa ids propios.
   sin plan, se usan los del último trabajo fallido de ese anuncio, validados contra las tomas de
   ahora (`planParaRemontar`). Con una toma rota (`material`) no: hay que re-filmar y las duraciones
   cambian.
+- **Y la tercera revisión: reusar cortes sólo con las MISMAS tomas.** El primer arreglo validaba los
+  cortes viejos con `porQueNoSirveElPlan`, que mira cuántas tomas hay y cuánto duran en el guion, no
+  qué se filmó. Con una toma agregada, ésa quedaba fuera del anuncio; con una re-filmada (url nueva,
+  misma duración), se cortaba con los silencios de la vieja; con agregar o partir en el medio, los
+  tramos caían sobre otras tomas, y la pantalla decía «Se fue el silencio, no una palabra». Ahora se
+  reusan sólo si el ÚLTIMO trabajo del anuncio es el fallido y sus urls y segundos son iguales, uno
+  por uno, a los de ahora. **Regla:** un dato derivado (los cortes) se reusa sólo si su fuente (las
+  tomas) es la misma, no si «todavía pasa la validación».
 
 ### Lo que quedó SIN hacer
 

@@ -52,6 +52,12 @@
 //   P4  los usa sin validarlos contra las tomas de ahora              → 16 / 1
 //   P5  el teléfono dice «No se pudo montar» de un vencido            → 16 / 1
 //   P6  el teléfono no recibe el motivo                               → 16 / 1
+// Y la tercera revisión (21/10; base 17 / 0, con la corrida real salteada sin FFMPEG_PATH):
+//   R1  reusa los cortes aunque se agregó una toma                    → 16 / 1
+//   R2  reusa los cortes aunque se re-filmó una toma (url nueva)      → 16 / 1
+//   R3  reusa los cortes aunque cambió la duración                    → 16 / 1
+//   R4  busca el último FALLIDO en vez del último trabajo             → 16 / 1
+//   R5  reusa los cortes de un trabajo que no falló                   → 16 / 1
 // La primera pasada destapó una trampa del propio test: R11 dejó carpetas en
 // /tmp y la base siguiente dio 10 / 2. Por eso cada corrida usa ids propios.
 
@@ -338,20 +344,31 @@ test('la clave de Groq se lee con envCred: en frío, process.env todavía no la 
   assert.match(RUTA, /import \{ envCred \} from '@\/lib\/credenciales';/);
 });
 
-test('«Montar de nuevo» usa los cortes del montaje que falló, salvo una toma rota', () => {
+test('«Montar de nuevo» usa los cortes del montaje que falló, sólo si las tomas son exactamente las mismas', () => {
   const plan = { total: 4, segs: [{ toma: 1, ini: 0.5, fin: 2.5 }, { toma: 2, ini: 0, fin: 2 }] };
-  assert.deepEqual(planParaRemontar({ motivo: 'transitorio', pedido: { plan } }), plan);
-  assert.deepEqual(planParaRemontar({ motivo: 'vencido', pedido: { plan } }), plan);
-  // Con una toma rota hay que re-filmarla: las duraciones cambian y los cortes viejos no sirven.
-  assert.equal(planParaRemontar({ motivo: 'material', pedido: { plan } }), null);
-  for (const previo of [null, undefined, {}, { motivo: 'interno', pedido: { plan: null } }, { motivo: 'interno', pedido: { plan: { segs: [] } } }]) {
-    assert.equal(planParaRemontar(previo as never), null, JSON.stringify(previo));
+  const clips = ['https://x/t1.mp4', 'https://x/t2.mp4'];
+  const ahora = { clips, segundosPorToma: [8, 8] };
+  const fallido = (extra: object = {}) => ({ estado: 'fallido', motivo: 'transitorio', pedido: { plan, clips, segundosPorToma: [8, 8] }, ...extra });
+  assert.deepEqual(planParaRemontar(fallido(), ahora), plan);
+  assert.deepEqual(planParaRemontar(fallido({ motivo: 'vencido' }), ahora), plan);
+  // ⚠️ Tomas que cambiaron después del fallo (tercera revisión, 21/10): los cortes apuntan al número de toma y a
+  // sus tiempos, y saldrían sobre otra cosa sin aviso.
+  assert.equal(planParaRemontar(fallido(), { clips: [...clips, 'https://x/t3.mp4'], segundosPorToma: [8, 8, 8] }), null, 'toma agregada: quedaría fuera del anuncio');
+  assert.equal(planParaRemontar(fallido(), { clips: ['https://x/t1.mp4', 'https://x/t2-nueva.mp4'], segundosPorToma: [8, 8] }), null, 'toma re-filmada: se cortaría con los silencios de la vieja');
+  assert.equal(planParaRemontar(fallido(), { clips, segundosPorToma: [8, 10] }), null, 'otra duración');
+  assert.equal(planParaRemontar(fallido(), { clips: [clips[1], clips[0]], segundosPorToma: [8, 8] }), null, 'tomas reordenadas');
+  // Sólo si el ÚLTIMO trabajo es el fallido; con una toma rota, nunca.
+  assert.equal(planParaRemontar(fallido({ estado: 'listo' }), ahora), null);
+  assert.equal(planParaRemontar(fallido({ motivo: 'material' }), ahora), null);
+  for (const previo of [null, undefined, {}, { estado: 'fallido', pedido: { plan: null, clips, segundosPorToma: [8, 8] } }]) {
+    assert.equal(planParaRemontar(previo as never, ahora), null, JSON.stringify(previo));
   }
-  // La action los busca en el último FALLIDO de este anuncio y los vuelve a validar contra las tomas de ahora.
+  // La action toma el último trabajo SIN filtrar por estado, y le pasa las tomas de ahora.
   const accion = sinComentarios(leer('app/video-generator/video-action.ts'));
-  const bloque = accion.slice(accion.indexOf('if (!plan) {'), accion.indexOf("const { data, error } = await db\n    .from('montaje_trabajos')\n    .insert("));
-  assert.match(bloque, /\.eq\('estado', 'fallido'\)/);
-  assert.match(bloque, /const anterior = leerPlan\(planParaRemontar\(previo\)\);/);
+  const bloque = accion.slice(accion.indexOf('if (!plan) {'), accion.indexOf('if (!plan) {') + 900);
+  assert.doesNotMatch(bloque, /\.eq\('estado', 'fallido'\)/, 'busca el último FALLIDO: si después hubo uno listo, reusa cortes viejos');
+  assert.match(bloque, /\.select\('estado, motivo, pedido'\)/);
+  assert.match(bloque, /planParaRemontar\(previo, \{ clips, segundosPorToma: item\.plan\.clips\.map\(\(c\) => c\.segundos\) \}\)/);
   assert.match(bloque, /if \(anterior && !porQueNoSirveElPlan\(anterior, /, 'usa cortes viejos sin validarlos contra las tomas de ahora');
 });
 

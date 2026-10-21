@@ -2332,19 +2332,18 @@ export async function montarAnuncioAction(
     .maybeSingle();
   if (vivo?.id) return { ok: true, id: Number(vivo.id) };
 
-  // ⚠️ «MONTAR DE NUEVO» NO PIERDE LOS CORTES EDITADOS. Sin plan, se usan los del último trabajo FALLIDO de este
-  // anuncio (lib/montaje/cola.ts → planParaRemontar), y sólo si todavía sirven con las tomas de ahora: si no, el
-  // detector los calcula solo, como siempre.
+  // ⚠️ «MONTAR DE NUEVO» NO PIERDE LOS CORTES EDITADOS. Sin plan, se usan los del ÚLTIMO trabajo de este anuncio si
+  // falló y las tomas son exactamente las mismas (lib/montaje/cola.ts → planParaRemontar); si no, el detector los
+  // calcula solo sobre las tomas de ahora, como siempre.
   if (!plan) {
     const { data: previo } = await db
       .from('montaje_trabajos')
-      .select('motivo, pedido')
+      .select('estado, motivo, pedido')
       .eq('plan_id', planId)
-      .eq('estado', 'fallido')
       .order('id', { ascending: false })
       .limit(1)
       .maybeSingle();
-    const anterior = leerPlan(planParaRemontar(previo));
+    const anterior = leerPlan(planParaRemontar(previo, { clips, segundosPorToma: item.plan.clips.map((c) => c.segundos) }));
     if (anterior && !porQueNoSirveElPlan(anterior, item.plan.clips.length, item.plan.clips.map((c) => c.segundos))) plan = anterior;
   }
 

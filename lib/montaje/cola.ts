@@ -89,18 +89,30 @@ export function errorParaLaPersona(motivo: string): string {
 }
 
 /**
- * Los cortes con los que se vuelve a montar un anuncio cuyo último montaje falló, o null para que el detector los
- * calcule solo.
+ * Los cortes con los que se vuelve a montar un anuncio, o null para que el detector los calcule solo sobre las tomas
+ * de AHORA. `previo` es el ÚLTIMO trabajo del anuncio (sin filtrar por estado); `ahora`, sus tomas de hoy.
  *
  * ⚠️ «MONTAR DE NUEVO» PERDÍA LA EDICIÓN. El botón re-encola sin plan, y el pedido nuevo salía con los cortes
  * automáticos: el cliente había ajustado los cortes, el montaje falló (tres 429 de Groq, o se venció) y al volver a
- * montarlo le llegaba otra cosa, en «listo», sin aviso (revisión del 21/10). Se usan los del último trabajo fallido.
- * Salvo con motivo `material`: ahí hay que re-filmar una toma, sus duraciones cambian y los cortes viejos ya no
- * sirven. Quien llama igual los valida contra las tomas de ahora (`porQueNoSirveElPlan`).
+ * montarlo le llegaba otra cosa, en «listo», sin aviso (segunda revisión del 21/10).
+ *
+ * ⚠️ PERO SÓLO SI LAS TOMAS SON LAS MISMAS (tercera revisión). Los cortes apuntan al NÚMERO de toma y a sus tiempos:
+ * con una toma agregada, ésa quedaba fuera del anuncio; con una re-filmada (url nueva, misma duración), se cortaba con
+ * los silencios de la vieja y perdía palabras; con agregar o partir en el medio, los tramos caían sobre otras tomas.
+ * Y la pantalla decía «Se fue el silencio, no una palabra». Las mismas urls, una por una, y los mismos segundos.
+ *
+ *   · Sólo si el último trabajo FALLÓ: si después hubo otro (listo, o en vuelo), ése manda.
+ *   · Con motivo `material` no: hay que re-filmar una toma.
  */
-export function planParaRemontar(previo: { motivo?: unknown; pedido?: unknown } | null | undefined): unknown | null {
-  if (!previo || previo.motivo === 'material') return null;
-  const plan = (previo.pedido && typeof previo.pedido === 'object' ? (previo.pedido as { plan?: unknown }).plan : null) ?? null;
+export function planParaRemontar(
+  previo: { estado?: unknown; motivo?: unknown; pedido?: unknown } | null | undefined,
+  ahora: { clips: readonly string[]; segundosPorToma: readonly number[] },
+): unknown | null {
+  if (!previo || previo.estado !== 'fallido' || previo.motivo === 'material') return null;
+  const pedido = (previo.pedido && typeof previo.pedido === 'object' ? previo.pedido : {}) as { plan?: unknown; clips?: unknown; segundosPorToma?: unknown };
+  const iguales = (a: unknown, b: readonly unknown[]) => Array.isArray(a) && a.length === b.length && a.every((x, i) => x === b[i]);
+  if (!iguales(pedido.clips, ahora.clips) || !iguales(pedido.segundosPorToma, ahora.segundosPorToma)) return null;
+  const plan = pedido.plan ?? null;
   const segs = plan && typeof plan === 'object' ? (plan as { segs?: unknown }).segs : null;
   return Array.isArray(segs) && segs.length ? plan : null;
 }
