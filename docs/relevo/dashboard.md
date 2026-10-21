@@ -1,6 +1,6 @@
 # Relevo — chat «Dashboard» (la tab Dashboard y el editor de General)
 
-<sub>Escrito el 20/10/2026 ~23:30 (hora de Argentina) por la cuenta 4 (claude4), desde el chat que hizo el trabajo. Se pisa
+<sub>Escrito el 21/10/2026 ~08:00 (hora de Argentina) por la cuenta 4 (claude4), desde el chat que hizo el trabajo. Se pisa
 en cada relevo. Los anteriores están en el historial: `git log -p -- docs/relevo/dashboard.md`.</sub>
 
 > **Ops Center = lo principal (20/10, pedido de Martín; el plan es docs/ops-center-principal.md, en main desde 0846ff49d).**
@@ -8,15 +8,25 @@ en cada relevo. Los anteriores están en el historial: `git log -p -- docs/relev
 > - **1.5** «mi hoja» es la de quien chatea (`Ctx.quien`, `quienChatea`): con 2 o más informes ya no pide un email. En
 >   producción desde el run 172.
 > - **2.6** `mover_componente_dashboard` (la grilla de la pantalla), `exportar_hoja_dashboard` (link a
->   /api/graficos/exportar) y `compartir_dashboard` (el link de acceso). Integrada por el Cerebro, sube con la próxima
->   tanda. **Falta:** invitar por email, que espera la D3c; y que la frase natural las traiga, que es la 1.2 (las frases
+>   /api/graficos/exportar) y `compartir_dashboard` (el link de acceso). En producción desde el run 175 (los tests del CSV,
+>   run 178). **Falta:** invitar por email, que espera la D3c; y que la frase natural las traiga, que es la 1.2 (las frases
 >   medidas, en `frases-dashboard-2-6.md` de la carpeta del Cerebro). El CSV ya escapa las fórmulas (`celdaCsv`,
 >   lib/csv-celda.ts): el Cerebro lo preguntó el 20/10, y faltaba que un test cubriera el «-» y el tabulador.
 > - **Mapa** de Experimentos y Closing Analyst: docs/ops-center-principal/mapa-experimentos-closing.md, enlazado desde el
 >   Anexo D del plan.
-> - **2.7 FRENADA:** los bloques del Dashboard en el hilo esperan el marco de bloques (1.7, de Ops Center 3:
->   `datos.bloque` en lib/api-mako/tipos.ts). Hoy el hilo sólo guarda adjuntos.
-> - El porqué y las trampas, en docs/hallazgos-api-mako.md (las dos entradas del 20/10).
+> - **2.7 EN PRODUCCIÓN desde el run 199 (21/10, 07a8fb248, junto con `ola1-guardia`)**: lo que se confirma (G5 y G4,
+>   ab9769677) y una PREGUNTA dibujada (G16: número, serie o tabla, 3bc9f2101). Pasó tres revisiones del Cerebro el
+>   21/10 (61872a1ed, 17cf2e1cb, b75ef11fd): la serie larga dibuja lo más cercano a hoy (en el vencimiento, desde hoy), el
+>   gráfico del chat tiene red de error, «ya lo ve» se le dice al modelo sólo si el bloque se dibujó, el texto del modelo
+>   corta con la misma función que el gráfico, y una lectura le deja lugar a la pregunta (`entraOtroDibujo`). Toca
+>   archivos de Ops Center 3 (lib/chat-bloques.ts, app/_chat/BloqueHilo.tsx, lib/api-mako/ejecutar.ts,
+>   lib/mako-turno-app.ts, lib/mako-turno-app-reglas.ts y el tipo de `aDibujar`). Al integrar, lib/chat-bloques.ts quedó
+>   con `BloqueWeb | BloqueGrafico` y los dos saneos. **Falta:** verla con clics en el Ops Center (va al informe para
+>   Martín): ws3, «leads por día de los últimos 90 días», «¿qué me vence en los próximos 30 días?», crear una hoja.
+>   **Para la próxima pieza:** el «hoy» del área es el de Tijuana (`hoyEnWorkspace` en toda el área) y el `link` de
+>   analizar, programar y la caja en el informe de otra persona (los dos, en «Lo que quedó sin hacer» del hallazgo). La
+>   rama `dashboard-hilo` quedó igual a main. El relevo de `dashboard-bloques` (6c91eb458) queda viejo: éste lo reemplaza.
+> - El porqué y las trampas, en docs/hallazgos-api-mako.md (las dos entradas del 20/10 y las tres revisiones del 21/10).
 
 > **Para después del 20/10 (17/10, B5):** «Publicar en Creaciones» desde el ⋮ de la hoja está HECHO y SIN SUBIR en la rama
 > `pend-b5-publicar-dash` (`cc07af5ea`). Antes de mergearla: un antes-de-subir (sus 2 fallos de

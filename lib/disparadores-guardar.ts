@@ -32,6 +32,7 @@ import { TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA, etapasDe } from './nu
 import { tzActual, TZ_DEFAULT } from './timezone';
 import { esColumnaInexistente } from './nutricion-grafo-motor';
 import { productosConEtapas, TriggerInvalidoError } from './setting-secuencias';
+import { duplicadaDeLaActivacion, DuplicadaError } from './nutricion';
 
 const COLS = 'id, trigger_tipo, etapa, etapas, funnel_id, producto_id, etiqueta_id, cron, cron_proxima_at';
 
@@ -118,6 +119,20 @@ export async function prepararDisparadores(secuenciaId: number, entrada: unknown
   await validarContraElNegocio(nuevosOCambiados(lista, previos));
   if (fila.rev == null && lista.length > 1) throw new TriggerInvalidoError('Aún no se pueden varios CRON.');
   return { lista, previos };
+}
+
+/**
+ * GUARDAR LOS CRON COMO LOS GUARDA UNA PERSONA POR LA API DE MaKo (revisión del 21/10/2026): en una ACTIVA, cambiar a
+ * quién le escribe es prenderla para esa gente, así que antes de escribir pregunta lo mismo que Activar (`DuplicadaError`,
+ * salvo `aunqueDuplique`), como `publicarPasos` con los pasos. El lienzo guarda en vivo y lo DICE al lado de «Activar»
+ * (`dupActiva`, app/automations/SecuenciaPerfil.tsx); copiar y Crear con IA escriben en una que nace pausada.
+ */
+export async function publicarCrons(secuenciaId: number, entrada: unknown, o: { aunqueDuplique?: boolean } = {}): Promise<Disparador[]> {
+  if (!o.aunqueDuplique) {
+    const otra = await duplicadaDeLaActivacion(secuenciaId, { crons: sanearDisparadores(entrada), soloSiActiva: true });
+    if (otra) throw new DuplicadaError(otra);
+  }
+  return guardarDisparadores(secuenciaId, entrada);
 }
 
 /**

@@ -46,7 +46,7 @@ import { OFERTAS_SYSTEM_TEMPLATE, OFERTAS_USER_TEMPLATE } from './ofertas-ia';
 import {
   OFFER_TURNO_SYSTEM_TEMPLATE, OFFER_TURNO_USER_TEMPLATE, OFFER_ARRANQUE_SYSTEM_TEMPLATE,
   OFFER_DIAGNOSTICO_SYSTEM_TEMPLATE, OFFER_DIAGNOSTICO_USER_TEMPLATE,
-  OFFER_PROPUESTA_SYSTEM_TEMPLATE, OFFER_PROPUESTA_USER_TEMPLATE, OFFER_LECTURA_SYSTEM_TEMPLATE,
+  OFFER_PROPUESTA_SYSTEM_TEMPLATE, OFFER_PROPUESTA_USER_TEMPLATE, OFFER_LECTURA_SYSTEM_TEMPLATE, OFFER_CRM_SYSTEM_TEMPLATE,
 } from './offer-ia';
 import { EMAIL_GEN_SYSTEM_TEMPLATE } from '@/app/api/email/generar/route';
 import {
@@ -1370,6 +1370,13 @@ export const REGISTRY: Group[] = [
         variables: [], scope: 'static-only', sensitive: false,
         default: OFFER_LECTURA_SYSTEM_TEMPLATE,
         context: 'Un documento que no entra entero en un pedido (una transcripción de una llamada, un guion largo) se lee por partes, todas, y lo que viaja a la conversación, el diagnóstico y la oferta es lo que esto anota de cada una (17/10/2026: la llamada de venta del ws13 se leía hasta la mitad). Reglas que no se tocan: copiar números, montos y nombres tal cual, sin calcular ni inventar, y el JSON {"lectura": ...}. Si una parte no se puede leer, va tal cual.',
+      },
+      {
+        key: 'offer.crm.system', source: 'override',
+        label: 'El CRM a medida del onboarding (system)', kind: 'system', dynamic: true,
+        variables: [v('tipos', 'los tipos de CRM que la plataforma sabe armar, con la clave y el nombre de fábrica de cada etapa (lib/onboarding-crm.ts)')], scope: 'static-only', sensitive: false,
+        default: OFFER_CRM_SYSTEM_TEMPLATE,
+        context: 'Al llegar a la pregunta del CRM del onboarding (20/10/2026, Martín: «el armado del CRM también debe ser personalizado»), MaKo elige el tipo de CRM y le pone a cada etapa el nombre de ese negocio. Lo que no se toca: sólo NOMBRES, nunca claves ni etapas nuevas (las nutriciones, los avisos y las automatizaciones mueven a cada cliente por la clave), y el JSON {"tipo", "etapas"}. El código descarta un tipo fuera de la lista, un nombre largo, con emojis o repetido. Conserva {{tipos}}.',
       },
     ],
   },

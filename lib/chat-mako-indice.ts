@@ -16,7 +16,7 @@ import { getUsuarioActual } from '@/lib/auth';
 import { getCapaActual, getRolWsEfectivo, getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
 import { puedeVerKey } from '@/lib/movil-rutas';
 import { leerConversacionOffer, listarSesionesOffer } from '@/lib/offer-sesiones';
-import { mensajesDeOffer, offerDelOnboardingCopiada } from '@/lib/chat-mako-reglas';
+import { mensajesDeOffer, offerDelOnboardingCopiada, seEscondeDeOffer } from '@/lib/chat-mako-reglas';
 import { getSetting } from '@/lib/settings';
 import {
   esChatDelTelefono, getSession, getSessionMessages, listAllSessions, listSessions, listSessionsDePersona,
@@ -26,7 +26,7 @@ import { claveVisible, personaDeSesion, prefijoDePersona, puedeUsarSesion, type 
 import { TITULO_GRUPO, baseDeLaPersona } from '@/lib/chat-mako-reglas';
 import { getGrupoJidMaKo } from '@/lib/mako-grupo';
 import { hiloDelGrupo } from '@/lib/mako-doer-conv';
-import type { MensajeChat } from '@/lib/mako-turno-app-reglas';
+import { chartKeyDePersona, type MensajeChat } from '@/lib/mako-turno-app-reglas';
 
 /** Quién pide: admin o no, y su persona (la regla de /mako y de chart-insights). null = sin sesión. */
 export async function quienChateaDelRequest(): Promise<(QuienChatea & { sub: string }) | null> {
@@ -146,10 +146,12 @@ async function wsSiVeOffer(): Promise<number | null> {
 export async function chatsDeOffer(): Promise<ChatDeOffer[]> {
   const ws = await wsSiVeOffer();
   if (ws == null) return [];
-  // La del onboarding, si ya tiene su chat «Onboarding» (lo copia hiloDelOnboarding), no se lista: saldría dos veces.
-  const [lista, arranque] = await runWithWorkspace(ws, () => Promise.all([listarSesionesOffer(), getSetting('onboarding.arranque').catch(() => null)]));
-  const copiada = offerDelOnboardingCopiada(arranque);
-  return lista.filter((s) => s.id > 0 && s.id !== copiada).map((s) => ({ id: s.id, titulo: s.titulo, updatedAt: s.updatedAt, origen: 'offer', alcance: 'workspace' }));
+  // La del onboarding, si quien pide ya tiene su chat «Onboarding» (lo copia hiloDelOnboarding), no se lista: saldría dos
+  // veces. A los demás (el super admin mirando, otro admin) se les sigue listando, y a ella también si la siguió en Offer
+  // después de la copia (`seEscondeDeOffer`).
+  const [lista, arranque, sesion] = await runWithWorkspace(ws, () => Promise.all([listarSesionesOffer(), getSetting('onboarding.arranque').catch(() => null), getUsuarioActual()]));
+  const copiada = offerDelOnboardingCopiada(arranque, sesion ? chartKeyDePersona(sesion) : null);
+  return lista.filter((s) => s.id > 0 && !seEscondeDeOffer(s, copiada)).map((s) => ({ id: s.id, titulo: s.titulo, updatedAt: s.updatedAt, origen: 'offer', alcance: 'workspace' }));
 }
 
 /** Una conversación de Offer, para leerla en el Ops Center. null = no ve la tab, o no es de este negocio (no se distingue). */

@@ -7321,3 +7321,14 @@ tests/plan-columnas-propias.test.ts · *20/10/2026 noche, chat «CRM» (claude4)
 
 **Vive en:** app/plan/board/BoardShell.tsx · lib/api-mako/areas/plan.run.ts · tests/plan-columnas-propias.test.ts ·
 *21/10/2026, chat «CRM» (claude4), revisión del Cerebro.*
+
+## El dictado de respaldo usa las keys del negocio: un cliente nuevo no puede dictar sin el reconocimiento del navegador (20/10/2026)
+
+`useDictar` (app/_components/useDictar.ts) dicta en vivo con el reconocimiento del navegador y, si no lo hay (Firefox) o
+falla el permiso, graba y sube a /api/plan-dictado. Esa ruta transcribe con `transcribirAudio` contra las keys del
+WORKSPACE (lo dice su cabecera), así que un cliente sin IA propia —todo cliente nuevo— recibe «No pude transcribir el
+audio». Lo encontró el chat «Onboarding» al elegir el micrófono del onboarding (se quedó con la nota de voz de Offer, que
+en el onboarding usa la red de la plataforma). **Sin hacer:** que el respaldo del dictado use la red de la plataforma o
+diga por qué no puede, en el Plan, el Ops Center y el chat del teléfono.
+
+*20/10/2026, chat «Onboarding» (claude4); el código es del Plan.*

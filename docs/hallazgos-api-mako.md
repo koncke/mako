@@ -1737,3 +1737,132 @@ app/api/graficos/exportar/route.ts · lib/graficos-catalogo.ts (`minimoDeCompone
 **Vive en:** lib/api-mako/tipos.ts · lib/mako-turno-app.ts · lib/api-mako/areas/dashboard.helpers.ts ·
 lib/api-mako/areas/dashboard.run.ts · lib/api-mako/areas/general.run.ts · lib/general-plantillas.ts.
 *20/10/2026, claude4 (chat Dashboard).*
+
+## Lo que el chat dibuja al confirmar un cambio del Dashboard: un solo lugar, el `aplicar` (20/10/2026, pieza 2.7)
+
+Sobre el marco de bloques de Ops Center 3 (1.7, lib/chat-bloques.ts): una acción confirmada devuelve `datos.bloque` y
+`BloqueHilo` lo dibuja en la computadora y en el teléfono.
+- **UN lugar arma el bloque:** `aplicar` (dashboard.run.ts) es el ejecutar() de TODAS las acciones que cambian el informe.
+  Ahí `bloqueDelCambio` (lib/api-mako/areas/dashboard-bloques.ts) mira el cambio confirmado, el informe de antes y el que
+  quedó GUARDADO:
+  - una hoja creada o duplicada, o una tarjeta agregada, da un G5 «creado» con «Abrir en el Dashboard» en esa hoja;
+  - editar, mover o quitar una tarjeta, renombrar o restilar una hoja, los filtros, «Editar con MaKo», archivar una hoja
+    y restablecer dan un G4 «antes y después».
+  Agregar un caso es sumar una rama ahí, no tocar cada runner.
+- **Se arma con lo GUARDADO, no con lo pedido:** el saneo cambia lo que se pidió. Pasar un gráfico a «línea» le suma una
+  dimensión, y el período vive en un control (v5), no en `periodo`. Un bloque armado con el pedido diría algo que la hoja
+  no tiene.
+- **El link es una ruta de la app** (`/dashboard?hoja=<id>`, sin `?ws=`): la pantalla le suma el de quien mira. El
+  `linkHoja` que ya devolvía `aplicar` es ABSOLUTO (para HTTP y WhatsApp), y el saneo del marco descarta entero un bloque
+  con un `https://`: la rotura que lo prueba tumba 4 de los 5 tests.
+- **Los nombres van en palabras:** el período por `PRESETS` («Últimos 90 días», no `ult90`), el tipo por `tipoDe`, las
+  métricas por `metricaDe`.
+
+**Y una PREGUNTA también se dibuja (el mismo día, sobre el canal de Ops Center 3, `ctx.aDibujar`, 061c1b74d):** «¿cuánto
+vendí este mes?» en el chat de la app deja su número, y «leads por mes», su serie.
+- **El camino:** la lectura devuelve el OBJETO `{ content, bloque }`. `ejecutarOperacion` sanea el bloque y lo pasa por
+  `ctx.aDibujar`, que sólo existe en la app, y el modelo lee sólo `content`. `consultar_datos_dashboard` lo hace con un
+  gráfico (varias métricas sueltas son varios números, y un bloque es uno). El aviso de que la persona YA VE el resultado
+  (para que no repita la tabla) va aparte, en `siSeDibuja`, y `ejecutarOperacion` lo suma SÓLO si el bloque se dibujó
+  (ver la revisión del 21/10, abajo).
+- **Se mira `ctx.aDibujar`, no el canal:** es lo que dice si hay dónde dibujar. El primer contrato del mismo día (un
+  `bloque` metido en el JSON de la salida, que leía el turno) se sacó a la mañana siguiente. Con él, el modelo leía el
+  bloque entero.
+- **Una sola forma para el gráfico y la tabla** (`grafico`, lib/chat-bloques-dashboard.ts): una tabla ES un gráfico de tipo
+  `tabla`, y la misma pieza la dibuja (`CuerpoGrafico`, por app/_chat/bloques/GraficoHilo.tsx, que se carga con
+  `next/dynamic` porque arrastra recharts). El G7 del documento es otra cosa: la lista con acciones.
+- **Lleva la FOTO del resultado,** no lo vuelve a pedir: es lo que MaKo contestó, y al recargar se ve igual. El gráfico se
+  valida contra el catálogo (`sanearComponente`) y el resultado se acota: 60 filas (lo demás se cuenta en `fuera`; en el
+  tiempo, las 60 más NUEVAS), 8 columnas y sin `ref` ni `imagen` por fila, que el hilo no usa.
+- **Qué se dibuja:** un número queda número; con el tiempo, una serie; por categoría, barras hasta 12 grupos y tabla
+  después; con desglose, columnas (`graficoParaElChat`).
+- **Trampa de test:** `sanearComponente` saca sin avisar un desglose que no es dimensión del conjunto (`fuente` no es de
+  `leads`: es `origen`). El gráfico de prueba quedó sin desglose y el test de «columnas» medía una serie.
+
+**Lo que quedó sin hacer:**
+- **El AI Analyst como trabajo largo (G6):** `analizar_hoja_dashboard` contesta «en curso». Espera la 1.11 (trabajos
+  largos).
+- **Otras lecturas que podrían dibujar:** `leer_hoja_dashboard` (una hoja entera no cabe en 4 bloques) y las de
+  `metricas.run.ts` (`ver_revenue_periodo`, `metricas_negocio`): sumarles el bloque es el mismo molde.
+- La miniatura de una hoja: una hoja no tiene una imagen guardada, así que su G5 va con el marco vacío y sin medidas.
+
+Tests: tests/dashboard-bloques-chat.test.ts y tests/dashboard-bloque-grafico.test.ts (probados rompiéndolos, cinco roturas
+cada uno). **Nadie lo miró en el Ops Center**: vive en la rama `dashboard-hilo`, que tiene mezclada `ola1` (122bac0d3),
+todavía fuera de main.
+*20/10/2026, claude4 (chat Dashboard).*
+
+**La revisión del 21/10 (sobre 7eb2bbaae): lo que el código hacía mal sin que se viera.**
+- **Una serie de más de 60 puntos dibujaba los 60 MÁS VIEJOS.** «Leads por día de los últimos 90 días» mostraba del
+  23/07 al 20/09, escondía el último mes y la nota decía el período entero. `agregar` devuelve el tiempo en orden
+  ascendente y el saneo cortaba con `slice(0, 60)`, aunque en el mismo archivo `serie` ya usaba `slice(-400)`. Ahora
+  `inicioDibujado` se queda con las más nuevas (con la tabla al revés, las primeras), el desglose se corta igual y la nota
+  dice el tramo dibujado (`desdeDibujado`). **Regla:** un corte de filas en el tiempo se queda con lo más reciente, y el
+  texto que acompaña dice lo que se ve, no lo que se pidió.
+- **«Ya lo ve: no repitas la tabla» se decía aunque el bloque no se dibujara.** El turno tiene un tope de 4 bloques por
+  mensaje (compartido por todas las herramientas) y `dibujar` hacía `return` sin avisar. La quinta tabla no se veía, y al
+  modelo se le había pedido callarla. Ahora `aDibujar` devuelve `false` si no dibujó (el tipo es `boolean | void`: un canal
+  de antes, que no contesta, cuenta como dibujado), y la lectura manda el aviso en `siSeDibuja`, que `ejecutarOperacion`
+  suma sólo si salió. **Regla:** lo que se le dice al modelo sobre la pantalla lo decide quien dibuja, no quien lee.
+- **El gráfico del chat no tenía red de error.** ⚠️ **El diagnóstico obvio (envolver `CuerpoGrafico` adentro de
+  GraficoHilo) no alcanzaba:** el error de un pedazo que no carga (un deploy con el chat abierto, la red del teléfono) lo
+  tira el Lazy de `next/dynamic` en BloqueHilo, AFUERA de GraficoHilo. Sin red, subía a app/error.tsx y se caía la
+  pantalla entera, chat incluido. Van dos redes (`RedDeBloque`): una en BloqueHilo alrededor del Lazy y otra adentro,
+  alrededor del dibujo, que deja el título y el link en pie. ⚠️ React.lazy GUARDA el rechazo: «volver a intentar» no
+  recupera el pedazo, sólo una recarga. Por eso la red no ofrece reintentar.
+- **Bajas:** el G4 de «Editar con MaKo» pone primero «Se saca» (no se deshace, y era lo que perdía el corte de 12 filas
+  del marco) y cuenta el resto en una última fila. Un cambio en el informe de OTRA persona va sin «Abrir en el Dashboard»,
+  que abre el de quien mira (y con una plantilla se la agregaba a SU informe), y con el nombre del dueño en el título. Por
+  la API HTTP ya no sale `datos.bloque` (rutas-http.ts lo saca para todas las áreas). El G5 de una hoja ya no escribe
+  «16 × 10».
+
+**La segunda revisión (sobre 17c0317b2): el arreglo de la serie abrió una regresión.**
+- **El modelo leía las 25 filas más VIEJAS y la persona veía dibujadas las 60 más NUEVAS.** El texto que lee el modelo
+  (`resultadoMarkdown`, tope de 25 filas en el chat) seguía cortando con `slice(0, 25)`. Con «leads por día de los
+  últimos 90 días», el gráfico iba del 22/08 al 20/10 y el modelo leía del 23/07 al 16/08: cero filas en común. Encima
+  `siSeDibuja` le decía «ya ve los últimos 60 puntos, comenta lo que importa», así que comentaba lo que nadie veía o
+  inventaba la tendencia reciente. Antes del primer arreglo los dos arrancaban en la misma fila: **arreglar un corte
+  desalineó el otro.** Ahora `resultadoMarkdown` corta con el mismo `inicioDibujado` (el desglose, corrido igual) y dice
+  «(y N filas antes)». El test cruza las filas del texto con las del bloque.
+  **Regla:** lo que se dibuja y lo que lee el modelo se cortan con LA MISMA función. Dos cortes escritos aparte se
+  desalinean en cuanto alguien arregla uno.
+- **Bajas:** en el informe de otra persona, `aplicar` ya no deja `link` en `datos`. Sin bloque (un conector, una edición
+  que sólo mueve tarjetas), el chat armaba con él el mismo botón al informe de quien mira. Sólo en la app: por WhatsApp
+  o HTTP no hay con quién comparar, y el link sigue. Restablecer el de Ana dice «El informe de Ana, como lo arma MaKo»
+  (decía «Tu informe…, en el informe de Ana»). Una tabla de varias métricas cortada va sin la fila Total: la nota dice el
+  tramo de 60 días y el Total sumaba los 90 (recalcularlo no sirve con una tasa).
+
+**La tercera revisión (sobre 16b2c5cad): «lo más nuevo» no es lo que importa en una fecha que mira hacia ADELANTE.**
+- **«¿Qué me vence en los próximos 30 días, día por día?» leía del 26/10 al 19/11 y perdía lo que vence HOY.** Con 30
+  filas y un tope de 25, el corte «las más nuevas» se quedaba con las más LEJANAS. En cobranza lo urgente es lo de hoy, y
+  por WhatsApp ese texto es lo único que lee el modelo. En main leía del 21/10 al 14/11, de casualidad bien. ⚠️ **El
+  diagnóstico de la primera revisión («quedate con las más nuevas») era el correcto para lo que mira hacia atrás y el
+  equivocado para el vencimiento:** la regla real es lo más CERCANO a hoy. `inicioDibujado` recibe `hoyAdelante` (hoy, si
+  la fecha es `futuro` en el catálogo) y arranca en el grupo de hoy, llenando el tope hacia atrás si no alcanza («este
+  mes» por vencimiento lee del 7 al 31 e incluye hoy). El texto dice «(y N filas antes)» y/o «(y M filas después)».
+- **El gráfico se corta en el RUNNER (`cortarTiempo`), no en el saneo:** el saneo no sabe si la fecha mira hacia adelante
+  ni qué día es. Lo cortado llega al saneo con 60 filas o menos, y el saneo ya no corta (al recargar, igual). La nota dice
+  el tramo con `rangoDeTramo`, del grupo de la primera fila al de la última, y el pie dice «Y N puntos fuera de este
+  tramo», porque puede ser de antes o de después.
+- **Con 4 gráficos y una pregunta, el cuarto se recortaba DESPUÉS de leer «ya lo ve».** `bloquesDelMensaje`, de
+  `ola1-guardia`, le hace lugar a la pregunta recortando los dibujos, pero el cuarto ya había avisado. Ahora lo decide
+  `dibujar` con `entraOtroDibujo` (lib/mako-turno-app-reglas.ts): una lectura deja un lugar libre para la pregunta, que
+  puede venir en cualquier turno con herramientas. Lo de una acción llega hasta el tope, porque con una pregunta se retira
+  entero. **Regla, la misma de «ya lo ve»:** el tope se decide donde se le dice algo al modelo, no al armar el mensaje.
+
+**Lo que quedó sin hacer (de la revisión):**
+- **Con 4 dibujos de lecturas y una pregunta (G1), `[...dibujos, pregunta].slice(0, 4)` dejaba afuera la pregunta**
+  (lib/mako-turno-app.ts). En main era imposible, porque ninguna lectura dibujaba. Esta rama lo vuelve alcanzable, y
+  `siSeDibuja` empuja al modelo a escribir texto, con lo que la pregunta no aparece en ningún lado. Lo arregla Ops Center 3
+  en `ola1-guardia` (02aee818b, `bloquesDelMensaje` deja siempre la pregunta), y el Cerebro integra las dos ramas en el
+  mismo lote. **Esta rama no entra sin ésa.**
+- **Analizar, programar el análisis y escribir la caja de Conclusiones en el informe de OTRA persona siguen dejando
+  `link`** al informe de quien mira (dashboard.run.ts, los `datos` de `analizar_hoja_dashboard`,
+  `programar_analisis_dashboard` y la caja). Ya estaba en main. El arreglo es la regla de `aplicar`: si `quienChatea(ctx)`
+  existe y su `sub` no es el del payload, no poner `link`.
+- **El «hoy» del área es el de Tijuana, no el del negocio** (`hoyEnTijuana()` en `consultar_datos_dashboard` y en el
+  corte hacia adelante de `resultadoMarkdown`). Un negocio en otra zona corta el vencimiento y el período en otro día.
+  Ya estaba en main. El arreglo es `hoyEnWorkspace` (lib/timezone.ts, async) en toda el área: pide pasar `hoy` a
+  `resultadoMarkdown` desde cada runner, en vez del valor por defecto. Para la próxima pieza del chat Dashboard.
+- **El pedazo que no cargó no se recupera sin recargar** (React.lazy guarda el rechazo). Un `import()` con reintento
+  serviría si el runtime de Turbopack no guarda también el chunk fallido: no está medido.
+*21/10/2026, claude4 (chat Dashboard).*
