@@ -17,6 +17,7 @@ arregladas, y donde el rescate lo sabía, lo dice.
 
 ## Lo que más muerde acá
 
+- **(21/10/2026) «Desde la 0280 las funciones nuevas nacen cerradas» era falso**: el EXECUTE de PUBLIC viene del default GLOBAL de Postgres y un `alter default privileges … in schema` no lo saca, así que toda función creada después (la 0310, la 0318) nació ejecutable por la clave anon. Cerrado con la 0319 (default global + bucle sobre el catálogo) y un test que exige el revoke en toda migración → [El EXECUTE de PUBLIC es un default GLOBAL](#el-execute-de-public-es-un-default-global-desde-la-0280-nacen-cerradas-era-falso-21102026).
 - **(14/10/2026) Con la clave PÚBLICA de Supabase se ejecutaban dos funciones SECURITY DEFINER** de la cola de Flow: se leían y saboteaban los trabajos de todos los clientes. `revoke ... from public` no saca el EXECUTE DIRECTO que Supabase le da a anon. Cerrado con la 0280 → [Auditoría end-to-end del 14/10](#auditoría-end-to-end-del-14102026).
 - **(14/10/2026) La página esconde por rol; la API no**: el proxy sólo pide sesión, así que toda ruta sin su propio corte de rol se la deja usar a un closer o setter → [Auditoría end-to-end del 14/10](#auditoría-end-to-end-del-14102026). El 16/10 cayeron tres rutas más, que la auditoría había dado por refutadas → [Experiments, Retro y Second Brain](#experiments-retro-y-la-búsqueda-del-second-brain-sin-corte-de-rol-mal-refutado-16102026).
 - La credencial del repo de la agencia se le servía a los clientes por la API, y `serviciosPara()` —la
@@ -1790,7 +1791,7 @@ una credencial de plataforma al ws1; las APIs de Experimentos/Retro sin rol (**m
 el texto de un lead entrando a la memoria del doer como turno de MaKo. **Bajas sin refutar**: el secreto del cron
 comparado con `!==` (y 10 copias del chequeo); el path del Archivero acepta `..`; «Completar como Mauricio» con guarda
 en negativo; el webhook de Fathom de un workspace sin secreto propio verifica con el del ws1; identidades fiscales y
-teléfonos del negocio sin chequeo de rol; las funciones nuevas nacían abiertas (lo cerró la 0280); Supabase Auth con
+teléfonos del negocio sin chequeo de rol; las funciones nuevas nacían abiertas (la 0280 cerró las cuatro que había; las NUEVAS siguieron naciendo abiertas hasta la 0319, ver más abajo); Supabase Auth con
 el registro abierto (la app no lo usa: se apaga en el panel de Supabase).
 
 **Lo que la auditoría NO cubrió**: de los 58 archivos `'use server'`, el barrido leyó a fondo unos 25 y el resto por
@@ -1848,8 +1849,11 @@ mandaba a aprobar a Meta la plantilla del negocio).
   por default privileges (`pg_default_acl`, postgres/public/f). La 0118 lo cerró para las tablas y nadie lo hizo para
   las funciones. Una función SECURITY DEFINER con dueño postgres se saltea el RLS, así que con la clave anon, que
   viaja al navegador, es una puerta a la base que no pasa por `proxy.ts`. **Toda función nueva lleva su
-  `revoke … from public, anon, authenticated` explícito**, y desde la 0280 nacen cerradas. Se mide en el catálogo
-  (`has_function_privilege('anon', …)`), nunca leyendo la migración: el comentario de la 0154 juraba lo contrario.
+  `revoke … from public, anon, authenticated` explícito**, y **NO es redundante**: ~~«desde la 0280 nacen cerradas»~~ era falso
+  (el 21/10/2026 se midió: la 0280 sólo cerró las cuatro que existían; el default de las nuevas no sacaba el EXECUTE de PUBLIC
+  y siguieron naciendo abiertas hasta la 0319) → [El EXECUTE de PUBLIC es un default GLOBAL](#el-execute-de-public-es-un-default-global-desde-la-0280-nacen-cerradas-era-falso-21102026).
+  Se mide en el catálogo (`has_function_privilege('anon', …)`), nunca leyendo la migración: el comentario de la 0154 juraba lo
+  contrario, y la 0280 también.
 - ⚠️ **La página esconde por rol y la API no.** `proxy.ts` sólo exige sesión (el rol, únicamente en `SOLO_ADMIN`), así
   que un `requireRolWs([])` en la página no protege su API: siete hallazgos de esta auditoría tienen esa forma
   (ads-analyst, landing-analyst, perfil/destinatarios, mako-doer, meta-health, anthropic-usage, doc). **Una ruta que
@@ -1862,6 +1866,56 @@ mandaba a aprobar a Meta la plantilla del negocio).
   07/09 tapó unas líneas y se le escaparon otras, y lo que tapó seguía vivo.
 
 **Vive en:** la tabla de arriba · `supabase/migrations/0280_rpc_sin_anon.sql` · *auditoría del 14/10/2026, chat «Ciberseguridad», workflow `wf_6f480c38-f3f`*
+
+## El EXECUTE de PUBLIC es un default GLOBAL: «desde la 0280 nacen cerradas» era falso (21/10/2026)
+
+**El síntoma:** la revisión de la 0318 de Pagos (`cobrar_cuota_con_resto`, sin `revoke` ni `grant`) la probó en un Postgres real (PGlite, con los default
+privileges de Supabase y la 0280): nace con `proacl = {=X/postgres,postgres=X/postgres,service_role=X/postgres}` y `has_function_privilege('anon', …)` da `true`. Con
+`set role anon` la llamada ENTRA a la función (falla adentro, con «42501 permission denied for table pagos», no con «…for function»). La 0310 (`pagos_funnel_del_momento`)
+ya había nacido igual. La clave anon viaja al navegador (`NEXT_PUBLIC_SUPABASE_ANON_KEY`).
+
+**El diagnóstico obvio era el equivocado.** «Nadie le puso el revoke a la 0318» es cierto, pero la regla de AGENTS.md («toda función nueva lleva su revoke») y la 0282 daban a
+entender que, olvidándolo, la 0280 la dejaba cerrada igual: «desde la 0280 nacen cerradas». La causa de fondo estaba en la propia 0280, línea 45: `alter default privileges for role
+postgres in schema public revoke execute on functions from public, anon, authenticated`. **Un REVOKE por esquema sólo deshace un GRANT por esquema.** El EXECUTE de PUBLIC
+no viene de un default del esquema sino del GLOBAL de Postgres (toda función nace con `=X`), y anon y authenticated son miembros de PUBLIC: lo que la 0280 sacó fueron los
+grants DIRECTOS que Supabase les da por esquema; el de PUBLIC quedó. Lo que la 0280 sí cerró bien fueron las cuatro funciones que ya existían (por nombre, medido: «0 funciones de
+public ejecutables por anon» el 14/10), y por eso el catálogo se veía limpio mientras no se crearon funciones nuevas. Lo midió el que revisó la 0318, no se leyó de la migración.
+
+**La contraprueba (la que convence):** en PGlite, con la 0280 sola una función nueva nace con anon=`true`; agregando `alter default privileges for role postgres revoke execute on functions
+from public` (sin `in schema`) nace con anon=`false` y el error de anon pasa a ser «permission denied for function».
+
+**Qué quedó** (`supabase/migrations/0319_funciones_sin_public.sql`, `tests/migraciones-funciones-cerradas.test.ts`, `scripts/medir-funciones-publicas.mjs`):
+- **El default GLOBAL**: `alter default privileges for role postgres revoke execute on functions from public;`. Desde ahí una función nueva nace `{postgres=X, service_role=X}`.
+- **Las que ya existen**, por un bucle sobre el catálogo (no por una lista): revoke de public/anon/authenticated y grant a service_role en TODA función de `public` cuyo dueño sea quien corre la
+  migración y que no sea de una extensión. Se probó en PGlite con una función, un trigger, un PROCEDURE, un nombre con mayúsculas y espacios, una función de otro dueño y una extensión (pg_trgm):
+  cierra las primeras, no toca las dos últimas, es idempotente, y service_role sigue pudiendo llamarlas. La función de otro dueño que no se puede cerrar la dice en un WARNING al aplicarla.
+- **La trampa que apareció al probarla:** un PROCEDURE (`prokind = 'p'`) se revoca con `on procedure`; con `on function` Postgres contesta «is not a function» (42809) y tira abajo toda la migración.
+  Se vio en la primera corrida de la prueba, no leyendo el SQL.
+- **El test hace cumplir la regla** sobre las 313 migraciones: toda función creada lleva su revoke de los tres (en su migración o una posterior) y, si no es de un trigger, su grant a service_role; y
+  ninguna migración abre una función a anon/authenticated/public sin estar en `ABIERTAS` con su porqué (hoy ninguna). Probado rompiéndolo (12 roturas, 12 rojas; dos salieron verdes en la primera
+  versión y se reforzaron).
+- **Orden: segura antes o después del código.** Se verificó en el código que los seis `.rpc(` no-test usan la service role (directo o por `getSupabaseServer`/`getTenantDb`), que ningún componente
+  de cliente importa supabase-js (la clave anon sólo viaja como `apikey` de las subidas firmadas a Storage, que no es un RPC), y que las migraciones no crean policies, extensiones, auth hooks ni
+  jobs de pg_cron que dependan de que PUBLIC ejecute una función.
+
+**Lo que sólo se sabe de las migraciones, no de producción:** de las 11 funciones que crean las migraciones de `main`, 10 llevaban su revoke de PUBLIC y una no (`pagos_funnel_del_momento`, de un trigger);
+`cobrar_cuota_con_resto` (0318, de la rama de Pagos) sería la segunda. Las funciones creadas a mano en el panel de Supabase no figuran en ninguna migración: por eso la 0319 recorre el catálogo
+en vez de listar nombres. **La medición en producción (`node --env-file=C:/dev/mako-api/.env.local scripts/medir-funciones-publicas.mjs`, sólo lectura) no se pudo correr desde esta sesión
+(el clasificador de permisos la denegó como «Production Reads»): hay que correrla ANTES y DESPUÉS de aplicar la 0319.** Qué esperar después: ninguna función de `public` que no sea de una extensión
+con la marca `A` (anon) o `U` (authenticated); `S` (service_role) en todas.
+
+**Reglas que quedan:**
+- **Un default de esquema no cierra lo que un default global abre.** Para cerrar PUBLIC hay que tocar el default GLOBAL del dueño (`alter default privileges for role postgres revoke … from public`, sin `in schema`).
+- **«Nacen cerradas» se mide con una función de prueba, no se afirma.** Si una migración dice que cambió un default, la prueba es crear una función y mirar `has_function_privilege('anon', …)`.
+- **El revoke explícito en cada función NO es redundante, aunque haya un default**: el test lo exige igual (defensa en profundidad: el default depende del dueño que corre la migración).
+- **Un `revoke … on function` no sirve para un PROCEDURE** (`on procedure`), y un REVOKE sobre algo de otro dueño no hace nada: un bucle genérico tiene que filtrar ambas cosas.
+
+**Sin hacer / abierto:** (1) la medición en producción antes y después, arriba. (2) La 0318 de Pagos tiene que llevar su revoke/grant (el test lo exige en cuanto llegue a `main`); la 0319 la cierra si ya
+está aplicada, y si se aplica después nace cerrada por el default global. (3) **Numeración:** otras dos ramas tienen migraciones con el mismo número que se está usando (0318: Pagos `cobrar_cuota_con_resto` e
+ia-ola1 `ia_pc`; 0319: ia-ola2 `ia_pc_consentimiento`); el repo ya tiene colisiones históricas y la skill dice «no reutilices un número».
+
+**Vive en:** `supabase/migrations/0319_funciones_sin_public.sql` · `tests/migraciones-funciones-cerradas.test.ts` · `scripts/medir-funciones-publicas.mjs` · `AGENTS.md` («Toda función SQL nueva…») ·
+la revisión de Pagos del 21/10 (`revision-pagos-0318-21-10.md`, notas del Cerebro)
 
 ## Un `next dev` sin `AUTH_SECRET` es un admin abierto a la red (15/10/2026)
 

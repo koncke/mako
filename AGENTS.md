@@ -5092,8 +5092,13 @@ la ruta lo que su pantalla le esconde. El detalle, en [docs/hallazgos-seguridad.
 - **Todo handler de `app/api/cron` empieza con `checkCronAuth(req)`** (tiempo constante, fail-closed), y ninguna ruta
   lee `CRON_SECRET` por su cuenta.
 - **Un GET no escribe** (el de `chat-agent/onboarding/resumen` desarchivaba automatizaciones con un link).
-- **Toda función SQL nueva lleva su `revoke … from public, anon, authenticated`**: Supabase le daba EXECUTE directo a la
-  clave pública. La 0280 cambió el default; se mide con `has_function_privilege('anon', …)`, no leyendo la migración.
+- **Toda función SQL nueva lleva su `revoke … from public, anon, authenticated` Y su `grant execute … to service_role`** (el de una
+  función de trigger no hace falta), en su migración: **no es redundante.** La 0280 creía dejar las nuevas cerradas y NO lo hacía: el
+  EXECUTE de PUBLIC es un default GLOBAL de Postgres y un `alter default privileges … in schema` no lo saca, así que la 0310 y la 0318
+  nacieron ejecutables por la clave anon (la que viaja al navegador). La 0319 puso el default global y cerró las existentes;
+  `tests/migraciones-funciones-cerradas.test.ts` frena en Actions toda migración que cree una función sin ese revoke. Se mide con
+  `has_function_privilege('anon', …)` (`scripts/medir-funciones-publicas.mjs`), no leyendo la migración ni su comentario. Un PROCEDURE
+  se revoca con `on procedure`. Detalle: docs/hallazgos-seguridad.md («El EXECUTE de PUBLIC es un default GLOBAL»).
 
 # Un canal PROPONE; una persona confirma. Nada escribe directo
 
