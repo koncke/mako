@@ -4315,5 +4315,26 @@ lib/meta-login.ts · tests/meta-permisos-conectar.test.ts.
 - **Un falso positivo que no hay que repetir:** el Explorador de la Graph API puede tener cargado un token de USUARIO
   aunque el desplegable diga «System User Token». Antes de sacar conclusiones de `/me/permissions`, mirar `/me`: un
   token del botón responde «MaKo System User», uno de usuario responde el nombre de la persona.
+- ⚠️ **El token del botón tampoco LEE los leads, y Meta no da error: devuelve la lista vacía** (medido el 21/10 a las
+  16:57 UTC). Se armó la «primera tanda» de la revisión (páginas y leads, sin anuncios). En la página Hola MaKo se creó
+  el formulario «Formulario de prueba MaKo» (4674559882869456) y se le mandó un lead con la herramienta de prueba de
+  Meta. `leadgen_forms?fields=leads_count` dice **1**; `/{formulario}/leads` devuelve `{"data":[]}` con el token de
+  página **y** con el del usuario del sistema, y siguió vacío durante más de 5 minutos.
+  - **Lo que NO es:** el acceso a clientes potenciales de la página está en el valor predeterminado (no personalizado),
+    el usuario del sistema tiene `MANAGE_LEADS`, `ADVERTISE` y `MANAGE` sobre la página, y `/me/permissions` trae
+    `leads_retrieval`.
+  - **Lo más probable:** la documentación de Meta pone `ads_management` entre los permisos para leer leads. Si es eso,
+    es el MISMO bloqueo que los permisos de anuncios. Pendiente de confirmar: con un token de usuario que sí tenga
+    `ads_management`, ¿se lee el lead?
+  - **Qué implica:** hoy «Conectar con Meta» no trae ningún lead al CRM. El poll no avisa nada: ve el formulario y
+    0 leads, sin error. Tampoco hay webhook: suscribir la página (`subscribed_apps`) pide `pages_manage_metadata`, que
+    la configuración no pide y no está en la revisión. «La página seleccionada no tiene ninguna app asociada», en la
+    herramienta de prueba, quiere decir eso mismo.
+  - **La regla:** para saber si un token lee leads, compará `leads_count` del formulario con lo que devuelve `/leads`.
+    Una lista vacía no quiere decir «no hay leads».
+  - **Lo que quedó SIN hacer:** la primera tanda no se puede mostrar con leads entrando al CRM. El formulario de prueba
+    y su lead quedan en la página para la próxima grabación. La grabación de la conexión (diálogo de Facebook, token
+    y página detectados) quedó en el scratchpad de la sesión del 21/10, sin editar. `pages_manage_metadata` no está
+    pedido en ningún lado.
 
 **Vive en:** lib/meta-login.ts (`config_id`, `WORKSPACES_DE_REVISION`, `botonMetaVisible`) · lib/meta-conexion.ts · app/api/integraciones/meta/ · tests/meta-login.test.ts · panel de la app 2586146911825340
