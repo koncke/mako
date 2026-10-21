@@ -40,8 +40,11 @@ import { TituloBloque } from './bloques/comun';
 const COLOR: Record<'vencida' | 'pronto' | 'al-dia', string> = { vencida: 'var(--bad)', pronto: 'var(--warn-fill)', 'al-dia': 'var(--faint)' };
 const inicial = (n: string) => n.trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('') || '·';
 
-export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, vacio = null, muestra = false, sinCabeza = false }: {
+export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, vacio = null, muestra = false, sinCabeza = false, total, alCambiar }: {
   filas: CobroM[]; tz: string; error: string | null;
+  /** Cuántos son en total cuando `filas` es un RECORTE: la foto guardada del chat con MaKo lleva 30 de 35
+   *  (app/_chat/bloques/CobranzaHilo.tsx). Sin esto, la cabecera decía 30 y MaKo, en el mismo mensaje, 35. */
+  total?: number;
   /** Un rótulo al lado del título (lo que la hoja mira, si no es todo el negocio). */
   alcance?: string | null;
   /** Cuántas se ven antes de «Ver todas». */
@@ -52,6 +55,9 @@ export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, 
   muestra?: boolean;
   /** Sin el título ni el conteo: la muestra de su placeholder (el bloque ya puso su cabecera arriba). */
   sinCabeza?: boolean;
+  /** Qué hacer después de marcar o deshacer. Sin esto, `router.refresh()` (la hoja de General); el chat con MaKo vuelve a
+   *  leer su lista (app/_chat/bloques/CobranzaHilo.tsx, la 2.27). */
+  alCambiar?: () => void;
 }) {
   const { toast, show, clear } = useToast();
   const router = useRouter();
@@ -60,6 +66,7 @@ export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, 
   const [marcando, setMarcando] = useState<number | null>(null);
   const [todas, setTodas] = useState(false);
   const enCurso = useRef(false);
+  const refrescar = alCambiar ?? (() => router.refresh());
 
   const ocultar = (pagoId: number, si: boolean) => setOcultas((prev) => {
     const s = new Set(prev);
@@ -73,7 +80,7 @@ export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, 
     empezar(async () => {
       try {
         await marcarPagoAction(f.pagoId, f.leadId, false, null);
-        router.refresh();
+        refrescar();
       } catch (e) {
         console.error('[general] deshacer cobro:', e instanceof Error ? e.message : String(e));
         show('No se pudo deshacer', undefined, 'bad');
@@ -91,7 +98,7 @@ export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, 
       // Ya estaba cobrada (la lista era vieja): sin Deshacer, que desmarcaría el cobro de otro.
       if (r.yaEstaba) show('Ya estaba cobrada');
       else show('Cuota cobrada', () => deshacer(f));
-      empezar(() => router.refresh());
+      empezar(() => refrescar());
     } catch (e) {
       console.error('[general] marcar cobro:', e instanceof Error ? e.message : String(e));
       show('No se pudo marcar', undefined, 'bad');
@@ -104,6 +111,7 @@ export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, 
   const vivas = filas.filter((f) => f.pagoId == null || !ocultas.has(f.pagoId));
   const vistas = todas ? vivas : vivas.slice(0, limite);
   const vencidas = vivas.filter((f) => f.urgencia === 'vencida').length;
+  const cuantas = Math.max(total ?? 0, vivas.length);
 
   return (
     <div data-cobranza-general="" className="gb" style={S.raiz}>
@@ -117,7 +125,7 @@ export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, 
       {/* Cuántos hay por cobrar, en grande (la quinta vuelta: «textos enormes»), y cuántos ya vencieron. */}
       {!sinCabeza && !error && vivas.length > 0 && (
         <span style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 'clamp(8px, 1.6cqi, 14px)' }}>
-          <span className="gb-p">{vivas.length}</span>
+          <span className="gb-p">{cuantas}</span>
           <span className="gb-d">por cobrar</span>
           {vencidas > 0 && <span className="gb-d" style={{ fontWeight: 700, color: 'var(--bad)' }}>· {vencidas} {vencidas === 1 ? 'vencida' : 'vencidas'}</span>}
         </span>
@@ -164,7 +172,7 @@ export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, 
       )}
       {!error && vivas.length > limite && (
         <button type="button" style={S.ver} aria-expanded={todas} onClick={() => setTodas((t) => !t)}>
-          {todas ? 'Ver menos' : `Ver las ${vivas.length}`}
+          {todas ? 'Ver menos' : cuantas > vivas.length ? `Ver ${vivas.length} de ${cuantas}` : `Ver las ${vivas.length}`}
         </button>
       )}
       <Toast state={toast} onClose={clear} />

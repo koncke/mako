@@ -11,6 +11,8 @@
 // ⚠️ SIN CSS PROPIO: las clases (`ch-bloque…`) viven en app/_chat/chat.css, que el teléfono carga con PegadoHilo.tsx.
 //    Así la pieza se dibuja en un test (tests/chat-bloques.test.ts) sin navegador.
 // ⚠️ LOS LINKS VAN POR `Link` (app/_ui/Link.tsx), que le suma el `?ws=` de quien mira: el bloque guarda la ruta sola.
+// ⚠️ LOS BLOQUES DE CADA ÁREA SE CARGAN APARTE (`dynamic`, ./bloques/*): se dibujan con la pieza de su tab, que trae sus
+//    acciones de servidor (`server-only` adentro). Importados acá, esta pieza no cargaría fuera de Next, ni en el test.
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import dynamic from 'next/dynamic';
@@ -27,6 +29,10 @@ const BloqueWeb = dynamic(() => import('@/app/web-generator/BloqueWeb').then((m)
 type Pregunta = Extract<Bloque, { t: 'pregunta' }>;
 type Trabajo = Extract<Bloque, { t: 'trabajo' }>;
 
+/** «A quién cobrar» (Pagos, la 2.27): la lista de General, viva. Sin SSR: se vuelve a leer al montarse. */
+const CobranzaHilo = dynamic(() => import('./bloques/CobranzaHilo'), { ssr: false });
+/** El estado de cuenta de un lead (Pagos, la 2.28): la pieza de la tab Pagos, que se lee al dibujarse. */
+const EstadoCuentaHilo = dynamic(() => import('./bloques/EstadoCuentaHilo'), { ssr: false });
 /** G16 (el Dashboard, 2.7): con la pieza del Dashboard, que arrastra recharts. Por `next/dynamic`: entra cuando hay uno. */
 const GraficoHilo = dynamic(() => import('./bloques/GraficoHilo'), {
   ssr: false,
@@ -51,6 +57,8 @@ export function BloqueHilo({ b, onResponder, respondida, onTermina, ocupado }: {
 }) {
   if (esBloqueWeb(b)) return <BloqueWeb b={b} onResponder={onResponder} respondida={respondida} ocupado={ocupado} />;
   if (b.t === 'creado') return <Creado b={b} />;
+  if (b.t === 'cobranza') return <CobranzaHilo b={b} />;
+  if (b.t === 'estado_cuenta') return <EstadoCuentaHilo b={b} />;
   if (b.t === 'antes_despues') {
     return (
       <div className="ch-bloque" data-bloque="antes_despues">

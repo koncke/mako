@@ -41,7 +41,7 @@ import { tzDeWorkspace } from './timezone';
 import { NOMBRE_WS_PRUEBA } from './reset-workspace';
 import { faltanDelArranque, type OfferSesionVista, type PiezasSabidas } from './offer-marco';
 import {
-  CLAVE_ENCUESTA, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, TITULO_HILO, decisionDelHilo, contextoDelHilo, cobroDelPrecio, mensajesDelHilo, pisaElNombreDelPerfil, sinMarca, notaDelPdf,
+  CLAVE_ENCUESTA, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, TITULO_HILO, decisionDelHilo, contextoDelHilo, cobroDelPrecio, opcionesDeCobro, mensajesDelHilo, pisaElNombreDelPerfil, sinMarca, notaDelPdf,
   type EstadoArranque, type EtapaArranque, type HechosArranque, type MensajeArranque, type ModoArranque,
 } from './onboarding-arranque';
 
@@ -194,6 +194,7 @@ export async function hechosDelArranque(e: EstadoArranque): Promise<HechosServer
     getContactoReportes().catch(() => null),
     integracionConectada('meta').catch(() => false),
   ]);
+  const precioDicho = sesion ? sinMarca(sesion.piezas?.precio?.valor) : '';
   // Verificado = el teléfono GUARDADO es el mismo que se verificó (el mismo criterio que el wizard).
   const telefonoVerificado = !!verif?.verificado && !!contacto && verif.telefono === contacto.telefono.replace(/\D/g, '');
   return {
@@ -207,8 +208,10 @@ export async function hechosDelArranque(e: EstadoArranque): Promise<HechosServer
     // que cierra lo escribe el código (app/api/offer/route.ts → mensajeDeCierreDelArranque), y esperar al modelo hizo que
     // Florencia contestara 6 preguntas de más (20/10/2026).
     loQueVende: !!sesion && faltanDelArranque(sesion.piezas).length === 0,
-    // Cómo cobra, leído del precio que contó: se PROPONE y se confirma con un toque (etapa 'cobro', cuarta revisión, 21/10).
-    cobroLeido: sesion && sinMarca(sesion.piezas?.precio?.valor) ? cobroDelPrecio(sinMarca(sesion.piezas?.precio?.valor)) : null,
+    // Cómo cobra, leído del precio que contó: se PROPONE y se confirma con un toque (etapa 'cobro', cuarta revisión, 21/10),
+    // entre TODAS las lecturas posibles (novena revisión).
+    cobroLeido: precioDicho ? cobroDelPrecio(precioDicho) : null,
+    cobroOpciones: precioDicho ? opcionesDeCobro(precioDicho) : null,
     // Lo que ya contestó del diagnóstico en la conversación de la oferta: el arranque no lo repite.
     faseOffer: sesion ? (({ respuestas, canal }) => ({ respuestas, canal }))(estadoDiagnostico(sesion.mensajes, { canal: null, yaGuardado: false })) : null,
     conCrm: modo === 'oferta',

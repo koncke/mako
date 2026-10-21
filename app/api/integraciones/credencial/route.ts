@@ -233,7 +233,7 @@ export async function GET(req: NextRequest) {
     // lee el formulario donde sea que esté montado (/integraciones, el onboarding)
     // sin que cada pantalla tenga que pasarle un parámetro.
     const ultimoIntento = leerResultadoMeta(req.cookies.get('meta_resultado')?.value);
-    const res = NextResponse.json({ ok: true, servicio, conectarMeta: await conectarMetaDisponible(), ultimoIntento });
+    const res = NextResponse.json({ ok: true, servicio, conectarMeta: await conectarMetaDisponible(ctx.ws), ultimoIntento });
     if (ultimoIntento) res.cookies.set({ name: 'meta_resultado', value: '', maxAge: 0, path: '/' });
     return res;
   } catch (e) {

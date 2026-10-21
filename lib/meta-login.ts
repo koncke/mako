@@ -30,6 +30,42 @@ export const META_CONFIG_ID = '1856482472307001';
 export const ENV_SECRETO_APP = 'MAKO_META_APP_SECRET';
 
 /**
+ * Los negocios de REVISIÓN: ahí «Conectar con Meta» se ofrece aunque la app MaKo no esté
+ * aprobada. El revisor de Meta entra a MaKo con una cuenta de prueba del «Cliente de Prueba»
+ * (ws3; usuario del negocio, no super admin) y tiene que ver el botón para revisar los
+ * permisos. El revisor de Google usa el mismo negocio. Pedido del Cerebro, con OK de Martín,
+ * 21/10/2026 (docs/hallazgos-ads.md → «La revisión de la app MaKo nunca se envió»).
+ *
+ * Es por NEGOCIO (el activo de la sesión), no por usuario, y está en el código y no en una
+ * variable de Vercel: así queda versionado y se revisa. Fuera de estos negocios todo sigue
+ * igual: el super admin, o todos con `META_OAUTH_ABIERTO=true`.
+ *
+ * ⚠️ A quien no tiene rol en la app, Meta le muestra su pantalla de error hasta que la
+ * aprueba. Por eso la lista no se agranda. Cuando la app quede aprobada SE DEJA: con
+ * META_OAUTH_ABIERTO no cambia nada, y cada permiso nuevo (Instagram, Messenger,
+ * `pages_manage_metadata`) es otra revisión que entra por el mismo negocio.
+ */
+export const WORKSPACES_DE_REVISION: readonly number[] = [3];
+
+/**
+ * ¿Se ofrece el botón? La regla, PURA, para que un test la pueda ejecutar sin sesión ni
+ * entorno; `conectarMetaDisponible` (lib/meta-conexion.ts) le pasa los datos del request.
+ */
+export function botonMetaVisible(x: {
+  /** El secreto de la app está cargado: sin él el callback no podría canjear el code. */
+  haySecreto: boolean;
+  /** `META_OAUTH_ABIERTO=true`: la app ya está aprobada y el botón es para todos. */
+  abiertoATodos: boolean;
+  esSuperAdmin: boolean;
+  /** El negocio ACTIVO de la sesión. */
+  ws: number | null | undefined;
+}): boolean {
+  if (!x.haySecreto) return false;
+  if (x.abiertoATodos || x.esSuperAdmin) return true;
+  return x.ws != null && WORKSPACES_DE_REVISION.includes(x.ws);
+}
+
+/**
  * El redirect está registrado en MODO ESTRICTO en el panel de la app: tiene que
  * ser EXACTAMENTE este. Por eso no se arma con el origin del request — en un
  * preview de Vercel daría otra URL y Meta contestaría «URL bloqueada» — sino con

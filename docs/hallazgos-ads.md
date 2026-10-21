@@ -4282,11 +4282,38 @@ lib/meta-login.ts · tests/meta-permisos-conectar.test.ts.
 - **Lo que esto dice de la hipótesis del 08/10:** la app puede dar los permisos de anuncios. Lo que no los da es el token
   de usuario del sistema del inicio de sesión para empresas. Sigue siendo lo más probable que lo destrabe la
   verificación de acceso, pero ya no es la única explicación posible.
+  **Medido otra vez el 21/10 a las 12:50:** reconexión nueva del ws9 con «Conectar con Meta» (portafolio MaKo, página
+  Hola MaKo, cuenta publicitaria MaKo). El token sale otra vez con páginas y leads, y sin `ads_management`, `ads_read`
+  ni `business_management`. La tarjeta dice «Conectó sin permisos de anuncios. Reconecta y acéptalos», pero reconectar
+  no lo arregla: con la verificación de acceso en revisión, Meta no los da a este tipo de token. Por eso los videos
+  de los permisos de anuncios no se pueden grabar con el producto hasta que Meta conteste.
 - **La regla:** «en revisión» se mira permiso por permiso en el panel (Revisión → Tests y Revisión de la app), no en la
   memoria. Un borrador sin enviar se ve igual que una revisión en curso si nadie entra a mirar.
 - **Lo que quedó SIN hacer:** los videos y textos de cada permiso (los de anuncios necesitan el botón dando los
   permisos), «Tratamiento de datos» e «Instrucciones para revisores», y el envío, que **no se edita ni se cancela**. Si
   la verificación de acceso no se mueve, el camino es un caso en Meta Business Support con la fecha y el ID de la app.
   Mientras tanto, cada cliente nuevo conecta con una app propia: ya son seis (ws11, 13, 14, 15, 18, 19).
+- **La revisión entra por el ws3 («Cliente de Prueba»).** El botón «Conectar con Meta» se le mostraba sólo al super
+  admin, y el revisor de Meta entra con una cuenta de prueba de MaKo: no lo habría visto. Ahora
+  `WORKSPACES_DE_REVISION = [3]` (lib/meta-login.ts) lo ofrece en ese negocio a cualquier admin del negocio. La regla
+  es pura (`botonMetaVisible`) y `conectarMetaDisponible` le pasa el negocio activo. El resto del camino no tenía otra
+  guarda de super admin: el paso 1 pide admin del negocio, el callback acepta admin del negocio
+  (`puedeEscribirAgenda`) y elegir la cuenta y guardar van por negocio.
+- **Cuando la app quede aprobada, la constante SE DEJA.** Con `META_OAUTH_ABIERTO=true` no cambia nada, y cada permiso
+  nuevo (Instagram, Messenger, `pages_manage_metadata`) es otra revisión que va a entrar por el mismo negocio. La
+  cuenta del revisor la crea Martín, adentro del ws3: sumada desde el negocio de la plataforma queda super admin, y el
+  super admin pide 2FA siempre.
+- **El negocio de revisión tiene que tener el onboarding terminado.** Con el onboarding pendiente, `/integraciones?ws=3`
+  redirigía al chat de onboarding («¿cómo te llamas?»): el revisor de Meta y el de Google entraban y no llegaban ni a
+  Integraciones ni al CRM. El 21/10 se terminó por la interfaz, como lo haría un cliente, con datos de prueba (nombre
+  y negocio «Cliente de Prueba», «Mentoría de prueba, USD 100, pago único», «Ahora no» al WhatsApp). Desde ahí
+  /integraciones y /crm abren directo. Quedó un lead de prueba (`lead.prueba@example.com`, sin teléfono) en «Agenda R1»
+  con reunión del 20/10. Si alguien resetea el ws3 («Reset» de la barra de agencia), hay que repetirlo antes de
+  cualquier revisión: el reset deja el negocio en el onboarding.
+- **Sin confirmar:** el clic exacto que abre «Reagendar» con ese lead. Sale en «¿Qué hacer ahora?» de una reunión
+  pasada (`abrirQueHacer`, app/crm/CrmBoard.tsx) y puede necesitar una agenda conectada en el ws3.
+- **Un falso positivo que no hay que repetir:** el Explorador de la Graph API puede tener cargado un token de USUARIO
+  aunque el desplegable diga «System User Token». Antes de sacar conclusiones de `/me/permissions`, mirar `/me`: un
+  token del botón responde «MaKo System User», uno de usuario responde el nombre de la persona.
 
-**Vive en:** lib/meta-login.ts (`config_id`) · lib/meta-conexion.ts · app/api/integraciones/meta/ · panel de la app 2586146911825340
+**Vive en:** lib/meta-login.ts (`config_id`, `WORKSPACES_DE_REVISION`, `botonMetaVisible`) · lib/meta-conexion.ts · app/api/integraciones/meta/ · tests/meta-login.test.ts · panel de la app 2586146911825340
