@@ -9,7 +9,9 @@
 // LAS ESCRITURAS SON LAS DE ESCRITORIO, por las mismas rutas y con el mismo cuerpo (el `?ws=` lo pone
 // el parche de fetch, app/_components/WsFetch.tsx):
 //   · prender / pausar → PATCH /api/whatsapp/secuencias { id, activa } (SecuenciaPerfil `toggle`). Activar
-//     valida lo mismo que Publicar en el server (`validarActivacion`): el motivo vuelve en el toast.
+//     valida lo mismo que Publicar en el server (`validarActivacion`): el motivo vuelve en el toast. Y si otra activa
+//     ya le escribe lo mismo a la misma gente, el server contesta 409 `duplicada` (21/10/2026): se pregunta en una
+//     hoja y «Activar igual» vuelve a pedirlo con `aunqueDuplique`. Publicar una activa, lo mismo («Publicar igual»).
 //   · Publicar los cambios → PATCH /api/whatsapp/secuencias { id, pasos } con el flujo del borrador tal como
 //     lo abre el lienzo, y después POST { action: 'descartar-borrador' } (SecuenciaPerfil `publicar` →
 //     `borrador.publicado`). El server lo valida con `validarGrafo` y los frenos del medio y la voz.
@@ -36,7 +38,11 @@ import { avisoCorto, type AutomatizacionM, type BorradorM, type PasoM } from './
 const RUTA_PASOS = '/api/whatsapp/secuencias';
 const RUTA_SECUENCIAS = '/api/chat-agent/secuencias';
 
-type Respuesta = { ok: boolean; error?: string; base?: string; guardado_at?: string; sinRed?: boolean; desactualizado?: boolean };
+type Respuesta = {
+  ok: boolean; error?: string; base?: string; guardado_at?: string; sinRed?: boolean; desactualizado?: boolean;
+  /** Otra activa ya le escribe lo mismo a la misma gente (`setSecuenciaActiva`, lib/nutricion.ts): `error` es el aviso. */
+  duplicada?: boolean;
+};
 
 /** Un pedido a una ruta de escritorio. Nunca tira: sin red vuelve `sinRed`. */
 async function pedir(url: string, method: 'PATCH' | 'POST', body: Record<string, unknown>): Promise<Respuesta> {
@@ -46,7 +52,7 @@ async function pedir(url: string, method: 'PATCH' | 'POST', body: Record<string,
     if (j?.ok) {
       return { ok: true, base: typeof j.base === 'string' ? j.base : undefined, guardado_at: typeof j.guardado_at === 'string' ? j.guardado_at : undefined };
     }
-    return { ok: false, error: typeof j?.error === 'string' ? j.error : undefined, desactualizado: j?.desactualizado === true };
+    return { ok: false, error: typeof j?.error === 'string' ? j.error : undefined, desactualizado: j?.desactualizado === true, duplicada: !!j?.duplicada };
   } catch {
     return { ok: false, sinRed: true };
   }
@@ -95,7 +101,11 @@ export function AutomationsM({ filas, puedeEditar }: { filas: AutomatizacionM[];
     };
   };
 
-  const abrir = (id: number) => { setAbiertaId(id); setError(null); setAbierto(true); };
+  const abrir = (id: number) => { setAbiertaId(id); setError(null); setDupPublicar(null); setAbierto(true); };
+  /** El «Activar» que espera la respuesta al aviso de duplicada (el server la frenó), con su texto. */
+  const [aActivar, setAActivar] = useState<{ a: AutomatizacionM; texto: string } | null>(null);
+  /** Publicar una activa que el server frenó por duplicada: el aviso, y el botón pasa a «Publicar igual». */
+  const [dupPublicar, setDupPublicar] = useState<string | null>(null);
   const cerrar = () => { if (!ocupado) setAbierto(false); };
 
   /** El server no escribió: lo que esta pantalla vio ya no es lo de ahora. Se relee y no se reintenta. */
@@ -108,14 +118,21 @@ export function AutomationsM({ filas, puedeEditar }: { filas: AutomatizacionM[];
   };
 
   // ── Prender / pausar ─────────────────────────────────────────────────────────────────────────
-  const alternar = async (a: AutomatizacionM, activa: boolean, deshaciendo = false) => {
+  const alternar = async (a: AutomatizacionM, activa: boolean, deshaciendo = false, aunqueDuplique = false) => {
     if (!puedeEditar || enVuelo.has(a.id)) return;
     if (!enLinea) { toast('Sin conexión'); return; }
     const antes = !activa;
     poner(a.id, { activa });
     marcarVuelo(a.id, true);
-    const r = await pedir(RUTA_PASOS, 'PATCH', { id: a.id, activa });
+    const r = await pedir(RUTA_PASOS, 'PATCH', { id: a.id, activa, ...(aunqueDuplique ? { aunqueDuplique: true } : {}) });
     marcarVuelo(a.id, false);
+    if (!r.ok && r.duplicada) {
+      // Otra activa ya le escribe lo mismo a la misma gente: no se prendió, y se pregunta (`aActivar`).
+      poner(a.id, { activa: antes });
+      haptico('medium');
+      setAActivar({ a, texto: r.error ?? '' });
+      return;
+    }
     if (!r.ok) {
       poner(a.id, { activa: antes });
       haptico('error');
@@ -133,11 +150,14 @@ export function AutomationsM({ filas, puedeEditar }: { filas: AutomatizacionM[];
 
   const publicar = async () => {
     if (!a || !b || b.freno || b.enComputadora || ocupado) return;
+    // Con el aviso de duplicada a la vista, el botón es «Publicar igual»: la respuesta va como `aunqueDuplique`.
+    const aunqueDuplique = dupPublicar != null;
     if (!enLinea) { toast('Sin conexión'); return; }
     setOcupado('publicar');
     setError(null);
-    const r = await pedir(RUTA_PASOS, 'PATCH', { id: a.id, pasos: b.pasos, visto: { base: b.base, guardado_at: b.guardado_at } });
+    const r = await pedir(RUTA_PASOS, 'PATCH', { id: a.id, pasos: b.pasos, visto: { base: b.base, guardado_at: b.guardado_at }, ...(aunqueDuplique ? { aunqueDuplique: true } : {}) });
     if (!r.ok && r.desactualizado) { cambioAfuera(); return; }
+    if (!r.ok && r.duplicada) { haptico('medium'); setDupPublicar(r.error ?? ''); setOcupado(null); return; }
     if (!r.ok) {
       haptico('error');
       // 409 trae «Conecta tu WhatsApp» (el medio); 400, el primer motivo de la validación del server.
@@ -150,6 +170,7 @@ export function AutomationsM({ filas, puedeEditar }: { filas: AutomatizacionM[];
     // Sólo si sigue siendo EL que se publicó (`guardado_at`): uno que guardó otro después no se toca.
     await pedir(RUTA_SECUENCIAS, 'POST', { action: 'descartar-borrador', secuenciaId: a.id, visto: { guardado_at: b.guardado_at } });
     poner(a.id, { publicada: true });
+    setDupPublicar(null);
     haptico('success');
     setOcupado(null);
     setAbierto(false);
@@ -192,10 +213,10 @@ export function AutomationsM({ filas, puedeEditar }: { filas: AutomatizacionM[];
   };
 
   const pie = a && b && puedeEditar ? (
-    <PieM consecuencia={b.enComputadora ? 'Se publica desde la computadora.' : b.freno ?? 'Los próximos envíos usan la versión nueva.'}>
+    <PieM consecuencia={b.enComputadora ? 'Se publica desde la computadora.' : b.freno ?? dupPublicar ?? 'Los próximos envíos usan la versión nueva.'}>
       {!b.freno && !b.enComputadora && (
         <Button variant="primary" size="lg" full loading={ocupado === 'publicar'} disabled={ocupado === 'descartar'} onClick={publicar}>
-          Publicar los cambios
+          {dupPublicar != null ? 'Publicar igual' : 'Publicar los cambios'}
         </Button>
       )}
       <Button variant="tertiary" size="lg" full loading={ocupado === 'descartar'} disabled={ocupado === 'publicar'} onClick={descartar}>
@@ -231,6 +252,17 @@ export function AutomationsM({ filas, puedeEditar }: { filas: AutomatizacionM[];
           })}
         </ListaM>
       </div>
+
+      {/* EL AVISO DE DUPLICADA AL ACTIVAR (21/10/2026): el server no la prendió; la misma pregunta que en la computadora. */}
+      <SheetM id="activar-igual" abierto={aActivar != null} onCerrar={() => setAActivar(null)} titulo={aActivar?.a.nombre ?? 'Activar'} snap="medio"
+        rotuloCerrar="Cancelar" pie={aActivar ? (
+          <PieM consecuencia={aActivar.texto}>
+            <Button variant="primary" size="lg" full onClick={() => { const x = aActivar; setAActivar(null); void alternar(x.a, true, false, true); }}>Activar igual</Button>
+            <Button variant="tertiary" size="lg" full onClick={() => setAActivar(null)}>Cancelar</Button>
+          </PieM>
+        ) : undefined}>
+        {aActivar && <p className="m-auto-error" role="alert">{aActivar.texto}</p>}
+      </SheetM>
 
       <SheetM id="automatizacion" abierto={abierto} onCerrar={cerrar} titulo={a?.nombre ?? 'Automatización'} snap="alto"
         ocupado={!!ocupado} pie={pie} rotuloCerrar="Cerrar la automatización">

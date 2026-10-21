@@ -10,7 +10,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { setSecuenciaActiva, setSecuenciaPasos, PasosInvalidosError, type PasoSecuencia } from '@/lib/nutricion';
+import { setSecuenciaActiva, setSecuenciaPasos, DuplicadaError, PasosInvalidosError, type PasoSecuencia } from '@/lib/nutricion';
 import {
   getEmailKpis, getEmailSecuencias, crearEmailSecuencia, actualizarMetaEmailSecuencia, DisparadorEmailError,
   ETAPAS, TRIGGERS,
@@ -36,7 +36,7 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
-  let body: { id?: unknown; activa?: unknown; pasos?: unknown; nombre?: unknown; action?: unknown; etapa?: unknown; trigger?: unknown; etiquetaId?: unknown };
+  let body: { id?: unknown; activa?: unknown; pasos?: unknown; nombre?: unknown; action?: unknown; etapa?: unknown; trigger?: unknown; etiquetaId?: unknown; aunqueDuplique?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -73,13 +73,15 @@ export async function PATCH(req: NextRequest) {
       if (body.activa && (await getRolWsEfectivo()) !== 'admin') {
         return Response.json({ ok: false, error: 'Solo el admin puede activar secuencias.' }, { status: 403 });
       }
-      await setSecuenciaActiva(id, body.activa);
+      await setSecuenciaActiva(id, body.activa, { aunqueDuplique: body.aunqueDuplique === true });
     }
     return Response.json({ ok: true });
   } catch (e) {
     if (e instanceof DisparadorEmailError) return Response.json({ ok: false, error: e.message }, { status: 400 });
     // Activar valida lo mismo que Publicar (segunda tanda): un flujo roto no se prende, y el motivo es del dueño, no un 500.
     if (e instanceof PasosInvalidosError) return Response.json({ ok: false, error: e.message }, { status: 400 });
+    // Otra activa ya le escribe lo mismo a la misma gente (revisión del 21/10/2026): se pregunta, como en Automations.
+    if (e instanceof DuplicadaError) return Response.json({ ok: false, error: e.message, duplicada: e.otra }, { status: 409 });
     console.error(`[api:email/secuencias PATCH] ${msg(e)}`);
     return Response.json({ ok: false, error: msg(e) }, { status: 500 });
   }
