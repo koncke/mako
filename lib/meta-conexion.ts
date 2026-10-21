@@ -17,7 +17,8 @@ import 'server-only';
 import { getSesionAdmin } from './auth';
 import { auditarCredencial, credWs, guardarCredencial, IdentificadorOcupadoError } from './credenciales';
 import { descubrirMeta, type Descubrimiento } from './meta-descubrir';
-import { ENV_SECRETO_APP } from './meta-login';
+import { botonMetaVisible, ENV_SECRETO_APP } from './meta-login';
+import { getWorkspaceActual } from './workspace';
 
 /**
  * ¿Se ofrece el botón «Conectar con Meta» a esta sesión?
@@ -26,15 +27,21 @@ import { ENV_SECRETO_APP } from './meta-login';
  * un ROL en la app: a cualquier otro le muestra una pantalla de error suya, sin
  * salida. Un botón que lleva ahí se lee como que MaKo está rota, así que hasta
  * entonces se ofrece sólo al super admin (que sí tiene rol y lo puede probar con
- * sus propios activos). El día que Meta apruebe, se prende para todos con
- * `META_OAUTH_ABIERTO=true` en Vercel — sin deploy.
+ * sus propios activos) y en los negocios de REVISIÓN (`WORKSPACES_DE_REVISION`,
+ * lib/meta-login.ts: ahí entra el revisor de Meta). El día que Meta apruebe, se
+ * prende para todos con `META_OAUTH_ABIERTO=true` en Vercel — sin deploy.
  *
  * Y sin el secreto cargado no se ofrece a nadie: el callback no podría canjear.
+ * La regla es `botonMetaVisible`; acá sólo se juntan los datos del request. `ws` es
+ * el negocio activo; sin pasarlo, sale de la sesión (`getWorkspaceActual`).
  */
-export async function conectarMetaDisponible(): Promise<boolean> {
-  if (!process.env[ENV_SECRETO_APP]?.trim()) return false;
-  if (process.env.META_OAUTH_ABIERTO === 'true') return true;
-  return (await getSesionAdmin()) != null;
+export async function conectarMetaDisponible(ws?: number | null): Promise<boolean> {
+  return botonMetaVisible({
+    haySecreto: !!process.env[ENV_SECRETO_APP]?.trim(),
+    abiertoATodos: process.env.META_OAUTH_ABIERTO === 'true',
+    esSuperAdmin: (await getSesionAdmin()) != null,
+    ws: ws === undefined ? await getWorkspaceActual() : ws,
+  });
 }
 
 export type ResultadoConexion = {
