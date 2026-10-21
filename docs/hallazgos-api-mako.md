@@ -1737,3 +1737,37 @@ app/api/graficos/exportar/route.ts · lib/graficos-catalogo.ts (`minimoDeCompone
 **Vive en:** lib/api-mako/tipos.ts · lib/mako-turno-app.ts · lib/api-mako/areas/dashboard.helpers.ts ·
 lib/api-mako/areas/dashboard.run.ts · lib/api-mako/areas/general.run.ts · lib/general-plantillas.ts.
 *20/10/2026, claude4 (chat Dashboard).*
+
+## Lo que el chat dibuja al confirmar un cambio del Dashboard: un solo lugar, el `aplicar` (20/10/2026, pieza 2.7)
+
+Sobre el marco de bloques de Ops Center 3 (1.7, lib/chat-bloques.ts): una acción confirmada devuelve `datos.bloque` y
+`BloqueHilo` lo dibuja en la computadora y en el teléfono.
+- **UN lugar arma el bloque:** `aplicar` (dashboard.run.ts) es el ejecutar() de TODAS las acciones que cambian el informe.
+  Ahí `bloqueDelCambio` (lib/api-mako/areas/dashboard-bloques.ts) mira el cambio confirmado, el informe de antes y el que
+  quedó GUARDADO:
+  - una hoja creada o duplicada, o una tarjeta agregada, da un G5 «creado» con «Abrir en el Dashboard» en esa hoja;
+  - editar, mover o quitar una tarjeta, renombrar o restilar una hoja, los filtros, «Editar con MaKo», archivar una hoja
+    y restablecer dan un G4 «antes y después».
+  Agregar un caso es sumar una rama ahí, no tocar cada runner.
+- **Se arma con lo GUARDADO, no con lo pedido:** el saneo cambia lo que se pidió. Pasar un gráfico a «línea» le suma una
+  dimensión, y el período vive en un control (v5), no en `periodo`. Un bloque armado con el pedido diría algo que la hoja
+  no tiene.
+- **El link es una ruta de la app** (`/dashboard?hoja=<id>`, sin `?ws=`): la pantalla le suma el de quien mira. El
+  `linkHoja` que ya devolvía `aplicar` es ABSOLUTO (para HTTP y WhatsApp), y el saneo del marco descarta entero un bloque
+  con un `https://`: la rotura que lo prueba tumba 4 de los 5 tests.
+- **Los nombres van en palabras:** el período por `PRESETS` («Últimos 90 días», no `ult90`), el tipo por `tipoDe`, las
+  métricas por `metricaDe`.
+
+**Lo que quedó sin hacer:**
+- **El gráfico y la tabla de una PREGUNTA** («¿cuánto vendí este mes?»), que es la otra mitad de la 2.7: el marco sólo
+  recibe bloques de una ACCIÓN confirmada (`confirmarDesdeTarjeta`). Una lectura no tiene por dónde devolverlo: falta que el
+  turno junte un `bloque` de la salida de una lectura (`SalidaLectura`) en `RespuestaTurno.bloques`. Es de Ops Center 3.
+  Del lado del Dashboard harían falta un tipo `grafico` (G16) y uno `tabla` (G7), dibujados con `CuerpoGrafico`
+  (app/dashboard/Grafico.tsx).
+- **El AI Analyst como trabajo largo (G6):** `analizar_hoja_dashboard` contesta «en curso». Espera la 1.11 (trabajos
+  largos).
+- La miniatura de una hoja: una hoja no tiene una imagen guardada, así que su G5 va con el marco de su forma.
+
+Test: tests/dashboard-bloques-chat.test.ts (probado rompiéndolo, cinco roturas). **Nadie lo miró en el Ops Center**: vive en
+la rama `dashboard-hilo`, que tiene mezclada `ola1` (e9ae020b5), todavía fuera de main.
+*20/10/2026, claude4 (chat Dashboard).*

@@ -30,6 +30,7 @@ import 'server-only';
 import { after } from 'next/server';
 import type { Ctx, Ejecutado, Preparado, Runners, SalidaLectura } from '../tipos';
 import { quienChatea } from '../tipos';
+import { bloqueDelCambio } from './dashboard-bloques';
 import { linkPantalla } from '../link';
 import { PREFIJO_FLUJO } from '../canal';
 import { getSupabaseServer } from '@/lib/supabase';
@@ -251,7 +252,13 @@ async function aplicar(payload: In, ctx: Ctx): Promise<Ejecutado> {
     const datos = (payload.datos && typeof payload.datos === 'object' ? payload.datos : {}) as Record<string, unknown>;
     const hojaId = typeof datos.hojaId === 'string' ? datos.hojaId : 'hojaId' in cambio && typeof cambio.hojaId === 'string' ? cambio.hojaId : null;
     const sigue = hojaId != null && g.tablero.hojas.some((h) => h.id === hojaId);
-    return { ok: true, resumen: `${String(payload.hecho ?? 'Listo')}. ${String(payload.deshacer ?? '')}`.trim(), datos: { ...datos, link: linkHoja(sigue ? hojaId : null, ctx) } };
+    // Lo que el chat DIBUJA con el resultado (2.7, ./dashboard-bloques.ts): con el informe de antes y el GUARDADO, nunca
+    // con el texto del modelo. El marco del chat (lib/chat-bloques.ts) lo sanea antes de guardarlo.
+    const bloque = bloqueDelCambio(cambio, actual.tablero, g.tablero);
+    return {
+      ok: true, resumen: `${String(payload.hecho ?? 'Listo')}. ${String(payload.deshacer ?? '')}`.trim(),
+      datos: { ...datos, link: linkHoja(sigue ? hojaId : null, ctx), ...(bloque ? { bloque } : {}) },
+    };
   } catch (e) {
     console.error(`[api-mako dashboard] ejecutar: ${msg(e)}`);
     return { ok: false, resumen: 'No se pudo guardar el informe del Dashboard: falló la escritura. Reintenta en un momento.' };

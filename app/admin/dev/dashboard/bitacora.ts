@@ -717,4 +717,16 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['docs/ops-center-principal/mapa-experimentos-closing.md'],
   },
+  {
+    fecha: '20 oct', hora: '23:45', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El chat dibuja lo que cambiaste en el Dashboard',
+    puntos: [
+      'Cuando confirmas en el Ops Center un cambio del Dashboard, el chat lo muestra debajo del «Hecho».',
+      'Una hoja nueva o duplicada, o una tarjeta agregada, aparece con su nombre, lo que tiene y «Abrir en el Dashboard».',
+      'Si editaste, moviste o quitaste algo, aparece el antes y el después, fila por fila, en palabras («Últimos 90 días → Este mes»).',
+      'Todavía no: el gráfico de una pregunta («¿cuánto vendí este mes?») dibujado en el chat, que espera otra pieza del Ops Center.',
+    ],
+    archivos: ['lib/api-mako/areas/dashboard-bloques.ts', 'lib/api-mako/areas/dashboard.run.ts', 'tests/dashboard-bloques-chat.test.ts — probado rompiéndolo'],
+    revisar: '/second-brain',
+  },
 ];
