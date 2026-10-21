@@ -101,14 +101,17 @@ test('3. la lectura dibuja SÓLO en el chat de la app, con las MISMAS filas que 
   const aq = run.slice(run.indexOf('a_quien_cobrar: {'), run.indexOf('cuotas_pendientes: {'));
   assert.match(aq, /leer: async \(input, ctx\) =>/);
   // (21/10/2026: el bloque se arma y se SANEA antes de las notas: «ya se dibuja» sólo si sobrevive.)
-  assert.match(aq, /const bloque = ctx\.aDibujar\s*\? sanearBloque\(bloqueACobrar\(items, hoy, await tzDeWorkspace\(ctx\.ws\)\.catch\(\(\) => TZ_DEFAULT\), filtra \? \{ desde: d, hasta: h \} : null\)\)\s*: null;\s*const dibuja = !!bloque;/,
+  assert.match(aq, /const bloque = ctx\.aDibujar\s*\? sanearBloque\(bloqueACobrar\(items, hoy, await tzDeWorkspace\(ctx\.ws\)\.catch\(\(\) => TZ_DEFAULT\), filtra \? \{ desde: d, hasta: h \} : null\)\)\s*: null;/,
     'el bloque sale de los MISMOS `items` que la lista que lee el modelo, y se sanea antes de prometerlo');
-  assert.ok(aq.indexOf('const dibuja = !!bloque;') < aq.indexOf("if (dibuja) notas.unshift('En este chat la lista YA SE DIBUJA"), 'la nota, después de saber si se dibuja');
-  assert.match(aq, /return bloque \? \{ content: contenido, bloque \} : contenido;/, 'en WhatsApp o por HTTP, la salida de siempre');
+  // (21/10/2026, segunda revisión: «ya se dibuja» va por `siSeDibuja`, que `ejecutarOperacion` agrega SÓLO si el bloque entró
+  // en el mensaje; con el tope de bloques lleno, MaKo decía «la lista está abajo» y no había nada.)
+  assert.doesNotMatch(aq, /notas\.unshift\('En este chat la lista YA SE DIBUJA/, 'no va adentro de lo que se lee siempre');
+  assert.match(aq, /const siSeDibuja = '\(En este chat la lista YA SE DIBUJA/);
+  assert.match(aq, /return bloque \? \{ content: contenido, bloque, siSeDibuja \} : contenido;/, 'en WhatsApp o por HTTP, la salida de siempre');
   const ej = sinComentarios(leer('lib/api-mako/ejecutar.ts'));
   const lectura = ej.slice(ej.indexOf('if (esLectura(def)) {'), ej.indexOf('if (esControl(def)) {'));
-  assert.match(lectura, /const bloque = cruda\.bloque && ctx\.aDibujar \? sanearBloque\(cruda\.bloque\) : null;\s*if \(bloque\) ctx\.aDibujar\?\.\(bloque\);/);
-  assert.match(lectura, /resultado: cruda\.content \}/, 'al modelo va sólo `content`');
+  assert.match(lectura, /const bloque = cruda\.bloque && ctx\.aDibujar \? sanearBloque\(cruda\.bloque\) : null;\s*const dibujado = bloque \? ctx\.aDibujar\?\.\(bloque\) !== false : false;/);
+  assert.match(lectura, /const resultado = dibujado && cruda\.siSeDibuja \? `\$\{cruda\.content\}\\n\\n\$\{cruda\.siSeDibuja\}` : cruda\.content;/, 'la nota, sólo si entró');
   assert.doesNotMatch(lectura, /resultado: [^}]*bloque/, 'el bloque no viaja en el resultado');
 });
 
@@ -117,7 +120,8 @@ test('4. el turno lo guarda con la respuesta de MaKo, y la pantalla lo suma deba
   // (21/10/2026: con la ola 1 el turno es el de Ops Center 3, con los mismos nombres: `dibujar` no repite un bloque igual
   // aunque el turno se re-arranque, y lo guardado con el mensaje es lo dibujado más la pregunta, si la hay.)
   assert.match(turno, /aDibujar: dibujar,/);
-  assert.match(turno, /bloquesDelTurno\.some\(\(x\) => JSON\.stringify\(x\.b\) === JSON\.stringify\(b\)\)\) return;/, 'un turno re-arrancado no repite lo dibujado');
+  // (21/10/2026: `dibujar` devuelve si entró; el repetido cuenta como dibujado.)
+  assert.match(turno, /if \(bloquesDelTurno\.some\(\(x\) => JSON\.stringify\(x\.b\) === JSON\.stringify\(b\)\)\) return true;/, 'un turno re-arrancado no repite lo dibujado');
   assert.match(turno, /await appendMessage\(s\.id, 'assistant', respuesta, conElMensaje\.length \? conElMensaje\.map\(aGuardar\) : undefined\);/);
   assert.match(turno, /guardados\.push\(\{ role: 'assistant', content: respuesta, \.\.\.\(conElMensaje\.length \? \{ bloques: conElMensaje \} : \{\}\) \}\);/);
 
@@ -179,3 +183,6 @@ test('6. ⚠️ la foto guardada dice cuántos son de verdad: 30 guardadas de 35
 //   · «ya se dibuja» antes de saber si el bloque sobrevive                            → 5 / 1 (3)
 //   · la foto sin el total                                                            → 4 / 2 (5 y 6)
 //   · la cabecera cuenta las filas guardadas                                          → 5 / 1 (6)
+//
+// ROTURAS de la segunda revisión (21/10/2026). Base: 6 pases, 0 fallos. Rota (pases / fallos):
+//   · «la lista está abajo» aunque el bloque no entre                                → 5 / 1 (3)

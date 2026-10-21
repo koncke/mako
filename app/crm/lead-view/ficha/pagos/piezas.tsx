@@ -18,7 +18,7 @@
 
 import { useEffect, useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import type { ComprobanteDelChat } from './comprobante-del-chat';
-import { reciboLeido } from './recibo-leido';
+import { plataDeRecibo, reciboLeido } from './recibo-leido';
 import { Button, Field, Input, Modal, Status } from '@/app/_ui';
 import type { Tono as TonoUi } from '@/app/_ui/tokens';
 import type { Tono } from '@/lib/cobrado-lead';
@@ -174,12 +174,13 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, hoy, comprobante = 
       const r = await fetch('/api/extract-receipt', { method: 'POST', body: fd });
       const j = reciboLeido(await r.json().catch(() => ({ error: `respondió ${r.status}` })));
       if ('error' in j) throw new Error(j.error);
-      // Lo leído llena el formulario y se revisa ahí. El monto viene EN DÓLARES (`monto_usd`: la IA convierte, y dice con
-      // qué tipo de cambio en `nota`), así que va en USD; la persona lo corrige a su moneda si hace falta.
-      if (j.montoUsd != null) setPlata({ moneda: 'USD', monto: String(j.montoUsd), usd: '' });
+      // Lo leído llena el formulario y se revisa ahí: el monto en SU moneda (dólares, o la del negocio con el valor en
+      // dólares de la cuota), nunca convertido por la IA (./recibo-leido.ts).
+      const p = plataDeRecibo(j, monedaNegocio);
+      if (p.plata) setPlata(p.plata);
       if (j.fecha) setFecha(j.fecha);
       if (j.hora) setHora(j.hora);
-      setLeido({ nombre: j.nombre ?? file.name, nota: j.nota });
+      setLeido({ nombre: j.nombre ?? file.name, nota: [j.nota, p.aviso].filter(Boolean).join(' · ') || null });
       setPaso('datos');
     } catch (e) { setError(`No pude leer el comprobante: ${msg(e)}`); }
     finally { setLeyendo(false); if (archivo.current) archivo.current.value = ''; }

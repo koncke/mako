@@ -1013,7 +1013,7 @@ export const REGISTRY: Group[] = [
         key: 'contracts.extract_receipt.user', source: 'override',
         label: 'Extractor de comprobantes de pago', kind: 'user', dynamic: false, variables: [], scope: 'full', sensitive: true,
         default: RECEIPT_EXTRACT_DEFAULT,
-        context: 'Lee un comprobante de pago (imagen o PDF) y saca monto en USD, fecha y hora en JSON, para prellenar el pop-up de "Marcar pagada" de una cuota. Conserva la forma EXACTA del JSON o el prellenado se rompe.',
+        context: 'Lee un comprobante de pago (imagen o PDF) y saca el monto y la moneda tal como figuran (sin convertir), la fecha y la hora en JSON, para prellenar el pop-up de "Marcar pagada" de una cuota. Conserva la forma EXACTA del JSON o el prellenado se rompe.',
       },
     ],
   },

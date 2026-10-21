@@ -3273,7 +3273,9 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
 - **El alta automática de MaKo se pregunta por el WORKSPACE, en positivo** (`ws === await wsSuperAdmin()`): un
   cliente que vende con su Stripe no crea inquilinos.
 - **La moneda la decide la pasarela, y en un formulario que cobra la pasarela se pregunta ANTES del monto.** El
-  valor en USD de un cobro es el que alguien declaró; nunca una tasa inventada.
+  valor en USD de un cobro es el que alguien declaró; nunca una tasa inventada. Tampoco la de una IA que lee un
+  documento (21/10/2026): se le pide el monto y la moneda TAL COMO FIGURAN, sin convertir, y la pantalla decide
+  (`plataDeRecibo`, app/crm/lead-view/ficha/pagos/recibo-leido.ts).
 - **Lo que un lead pagó y debe se cuenta con `cobradoDelLead` (lib/cobrado-lead.ts), y lo que se DICE de eso con
   lib/pagos-vistazo.ts** («Debe $500», «Al día», qué hacer ahora, los movimientos). Lo usan la tab Pagos, el teléfono
   y la API de MaKo (`cobranza_lead`). Una pantalla nueva que muestre plata de un lead no suma cuotas por su cuenta.

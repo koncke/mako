@@ -594,10 +594,11 @@ export const RUNNERS: Runners = {
         })(),
         cuotas,
         ...(cuotas.length ? {} : { nota_cuotas: 'Sin cuotas cargadas: no hay plan de pagos, no significa que no deba nada.' }),
-        ...(dibuja ? { en_pantalla: notaEnPantalla(delPedido) } : {}),
       });
       // En el chat de la app el estado de cuenta se DIBUJA con la pieza de la tab Pagos (la 2.28, lib/pagos-bloque.ts).
-      return dibuja ? { content: contenido, bloque: bloqueEstadoDeCuenta(lead, delPedido.comprobante) } : contenido;
+      // Lo que le dice al modelo del bloque (y del comprobante) va por `siSeDibuja`: SÓLO si el bloque entró en el mensaje
+      // (`ejecutarOperacion`). Con el tope de bloques lleno, decía «revisa y guarda el cobro ahí» y ahí no había nada.
+      return dibuja ? { content: contenido, bloque: bloqueEstadoDeCuenta(lead, delPedido.comprobante), siSeDibuja: notaEnPantalla(delPedido) } : contenido;
     }),
   },
   insight_lead: {

@@ -43,7 +43,7 @@ export function bloqueEstadoDeCuenta(lead: { id: number; nombre: string | null }
 }
 
 /** Por qué el archivo del mensaje no quedó como comprobante de este lead (`null`: quedó, o no hay archivo). */
-export type SinComprobante = 'varios' | 'no-es-suyo' | 'no-es-cobrar' | 'de-otro-lead';
+export type SinComprobante = 'varios' | 'no-es-suyo' | 'no-es-cobrar' | 'de-otro-lead' | 'sin-archivo';
 
 /** De quién es el comprobante de cada mensaje: la lista de archivos del turno (`ctx.adjuntos`, una por turno) → el lead
  *  que lo tomó. Un turno que se re-arranca corre las lecturas otra vez con el mismo `ctx`: el mismo lead lo vuelve a tomar. */
@@ -67,7 +67,9 @@ export function comprobanteDelPedido(o: {
   accion: { tipo: string; pagoId?: number } | null;
 }): { comprobante: ComprobanteDelBloque | null; sin: SinComprobante | null; de?: string } {
   const lista = o.adjuntos ?? [];
-  if (!lista.length) return { comprobante: null, sin: null };
+  // Lo pidió para ESTE lead, pero el archivo no vino en este mensaje (la respuesta a «¿es su comprobante?» llega sin él):
+  // que el modelo lo sepa y pida volver a adjuntarlo, en vez de prometer que el botón lo lee.
+  if (!lista.length) return { comprobante: null, sin: o.esSuyo ? 'sin-archivo' : null };
   if (lista.length > 1) return { comprobante: null, sin: 'varios' };
   if (!o.esSuyo) return { comprobante: null, sin: 'no-es-suyo' };
   if (o.accion?.tipo !== 'cobrar-cuota' || !o.accion.pagoId) return { comprobante: null, sin: 'no-es-cobrar' };
@@ -82,7 +84,8 @@ export function comprobanteDelPedido(o: {
 export function notaEnPantalla(r: { comprobante: ComprobanteDelBloque | null; sin: SinComprobante | null; de?: string }): string {
   const base = 'En este chat el estado de cuenta YA SE DIBUJA debajo de tu respuesta, con el botón de lo que toca hacer: no lo copies. Di en una o dos líneas qué debe, qué pagó y qué toca.';
   if (r.comprobante) return `En este chat el estado de cuenta YA SE DIBUJA debajo de tu respuesta, y el comprobante que adjuntó la persona quedó para la cuota que toca cobrar: el botón de cobrarla lo lee (monto, fecha y hora) y deja la marca lista para revisar y guardar. NO propongas marcar_pago_cobrado: dile en una línea qué debe y que revise y guarde el cobro ahí.`;
-  if (r.sin === 'no-es-suyo') return `${base} La persona adjuntó un archivo que NO quedó como comprobante de este lead (no pasaste comprobante: true). Si no está claro de quién es o si es un comprobante de pago, pregúntale antes de marcar nada.`;
+  if (r.sin === 'no-es-suyo') return `${base} La persona adjuntó un archivo que NO quedó como comprobante de este lead (no pasaste comprobante: true). Si no está claro de quién es o si es un comprobante de pago, pregúntale antes de marcar nada, y que lo vuelva a adjuntar con la respuesta: el archivo sólo sirve en el mensaje que lo trae.`;
+  if (r.sin === 'sin-archivo') return `${base} Pediste el comprobante de este lead, pero en ESTE mensaje no vino ningún archivo (el de un mensaje anterior no se puede usar): pídele que lo adjunte de nuevo con su pedido, o que lo suba al cobrar la cuota.`;
   if (r.sin === 'de-otro-lead') return `${base} El archivo que adjuntó ya quedó como comprobante de ${r.de ?? 'otro lead'} en este mismo mensaje: un comprobante es de UN solo lead. Si también era de éste, pregúntale.`;
   return base;
 }

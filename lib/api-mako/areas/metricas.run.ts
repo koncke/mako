@@ -457,8 +457,9 @@ export const RUNNERS: Runners = {
       const bloque = ctx.aDibujar
         ? sanearBloque(bloqueACobrar(items, hoy, await tzDeWorkspace(ctx.ws).catch(() => TZ_DEFAULT), filtra ? { desde: d, hasta: h } : null))
         : null;
-      const dibuja = !!bloque;
-      if (dibuja) notas.unshift('En este chat la lista YA SE DIBUJA debajo de tu respuesta, con «Cobrada» en cada cuota: no la copies fila por fila. Di en una o dos líneas cuántos son, cuánto suman y quién está más atrasado.');
+      // Y sólo si ENTRÓ en el mensaje: va por `siSeDibuja`, que `ejecutarOperacion` agrega cuando `aDibujar` lo dibujó (el
+      // tope de bloques del mensaje lo puede descartar).
+      const siSeDibuja = '(En este chat la lista YA SE DIBUJA debajo de tu respuesta, con «Cobrada» en cada cuota: no la copies fila por fila. Di en una o dos líneas cuántos son, cuánto suman y quién está más atrasado.)';
       const contenido = json({
         a_la_fecha: hoy,
         filtro_vencimiento: filtra ? ventana(d, h) : null,
@@ -476,7 +477,7 @@ export const RUNNERS: Runners = {
         })),
         notas,
       });
-      return bloque ? { content: contenido, bloque } : contenido;
+      return bloque ? { content: contenido, bloque, siSeDibuja } : contenido;
     },
   },
 

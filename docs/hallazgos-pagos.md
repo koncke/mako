@@ -327,16 +327,36 @@ estado de cuenta y el comprobante). Tests: tests/chat-bloque-cobranza.test.ts y 
   llegaba nunca, y un pago de menos saldaba la cuota entera sin «Faltan US$200». El test miraba el `fetch` en el fuente,
   no lo que devuelve la ruta. **Regla:** cuando dos lados se pasan un JSON, el test pasa por la ruta REAL y por la lectura
   de la pantalla (tests/pagos-recibo-leido.test.ts, con `reciboLeido`), no por un mock con el nombre que espera uno de
-  los dos. El monto viene en dólares (la IA convierte y dice el tipo de cambio en `nota`, que ahora se muestra).
+  los dos. ~~El monto viene en dólares (la IA convierte y dice el tipo de cambio en `nota`, que ahora se muestra).~~
+  Ver el punto siguiente: ese monto en dólares era el problema de fondo.
+- **⚠️ Arreglar el nombre destapó una tasa INVENTADA** (segunda revisión, medio de plata). El prompt pedía `monto_usd`
+  convertido «con un tipo de cambio aproximado actual»: un pago entero de MX$5.000 (una cuota de US$289,02 a 17,30)
+  llenaba «Faltan US$11,24» con ~18 (al guardar, la 0318 creaba esa cuota que el cliente no debe) o un cobro de más con
+  ~17. Mientras el monto no llegaba, el campo quedaba en el de la cuota, que era lo correcto para un pago entero: el
+  arreglo del nombre lo volvió una regresión. **Regla:** la IA lee el monto y la MONEDA tal como figuran, sin convertir;
+  la pantalla (`plataDeRecibo`) llena dólares si son dólares, la moneda del negocio con el valor en dólares vacío (vale
+  el de la cuota, como `pagoEnMoneda`) si es ésa, y nada si es otra (y lo dice). Un prompt viejo guardado en
+  Configuraciones que todavía convierte: su monto no se usa. Nunca una tasa de la IA (AGENTS.md).
 - **Una forma no es una zona.** El saneo del bloque pedía una barra (`America/…`): un negocio en 'UTC', 'CET' o
   'EST5EDT', que `zonaCanonica` acepta, perdía la lista, y MaKo igual decía «la lista está abajo» porque la nota se
   agregaba antes de sanear. Ahora la zona la valida `Intl` (la misma vara que `hoyEnTz`) y la nota va sólo si el bloque
   sobrevive.
 - **La foto guardada de «A quién cobrar» guarda 30 filas y el total.** La cabecera contaba las filas: «30 por cobrar»
   cuando MaKo, en el mismo mensaje, decía 35. `Cobranza` recibe `total` mientras se ve la foto («Ver 30 de 35»).
-- **Sin hacer:** /api/extract-receipt sigue escribiendo `comprobante_path` al leer (también desde la ficha): cancelar
-  no lo deshace. Ahora sólo pasa con el comprobante y la cuota correctos, pero lo limpio sería guardarlo al «Guardar el
-  pago». Vive en app/api/extract-receipt/route.ts y piezas.tsx (`subir`).
+- **«Ya se dibuja» sólo si se dibujó.** El tope de bloques del mensaje (4, o 3 con una pregunta) descartaba el estado de
+  cuenta en silencio y MaKo decía «revisa y guarda el cobro ahí». Lo que le dicen al modelo `cobranza_lead` y
+  `a_quien_cobrar` del bloque va ahora por `siSeDibuja`, que `ejecutarOperacion` agrega sólo si `aDibujar` lo dibujó.
+- **«Pregúntale» no tenía salida.** La respuesta a «¿es su comprobante?» llega en un mensaje SIN el archivo, y el archivo
+  sólo sirve en el mensaje que lo trae. Ahora, pedido para este lead sin archivo en el mensaje, el modelo lo sabe y pide
+  que lo vuelva a adjuntar (y al preguntar ya lo pide).
+- **Una cuota ya cobrada no cambia de comprobante desde «Marcar pagada».** Con una vista vieja (otra pestaña, un link que
+  se pagó mientras tanto), leer el comprobante le pisaba el del banco o el de Stripe; ahora la ruta contesta que ya está
+  cobrada, y la escritura es condicional (`pagado = false`).
+- **Sin hacer:**
+  - /api/extract-receipt sigue escribiendo `comprobante_path` al leer una cuota IMPAGA: cancelar no lo deshace. Lo
+    limpio es guardarlo al «Guardar el pago». Vive en app/api/extract-receipt/route.ts y piezas.tsx (`subir`).
+  - El extractor del CONTRATO (`CONTRACT_EXTRACT_DEFAULT`, lib/prompt-defaults.ts) sigue pidiendo los montos en USD
+    convertidos «con un tipo de cambio aproximado actual»: la misma tasa inventada, en el plan de cuotas que arma.
 
 ### Cliente de agencia (#866 y #867)
 

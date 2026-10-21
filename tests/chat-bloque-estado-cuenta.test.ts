@@ -145,9 +145,11 @@ test('3. ⚠️ el comprobante va atado al lead y al pedido: uno, de ESTE lead, 
   for (const accion of [{ tipo: 'registrar-mes' }, { tipo: 'registrar-pago' }, null]) {
     assert.deepEqual(comprobanteDelPedido({ adjuntos: [RECIBO], lead: LEAD, esSuyo: true, accion }), { comprobante: null, sin: 'no-es-cobrar' }, JSON.stringify(accion));
   }
-  // Con dos archivos no se adivina; sin archivos, nada.
+  // Con dos archivos no se adivina; sin archivos, nada. Pero si lo pidió para este lead y el archivo no vino en ESTE
+  // mensaje (la respuesta a «¿es su comprobante?» llega sin él), se dice, para que pida volver a adjuntarlo (21/10/2026).
   assert.deepEqual(comprobanteDelPedido({ adjuntos: [RECIBO, { ...RECIBO, ref: '501:1' }], lead: LEAD, esSuyo: true, accion: COBRAR_11 }), { comprobante: null, sin: 'varios' });
-  assert.deepEqual(comprobanteDelPedido({ adjuntos: undefined, lead: LEAD, esSuyo: true, accion: COBRAR_11 }), { comprobante: null, sin: null });
+  assert.deepEqual(comprobanteDelPedido({ adjuntos: undefined, lead: LEAD, esSuyo: true, accion: COBRAR_11 }), { comprobante: null, sin: 'sin-archivo' });
+  assert.deepEqual(comprobanteDelPedido({ adjuntos: [], lead: LEAD, esSuyo: false, accion: COBRAR_11 }), { comprobante: null, sin: null });
   assert.equal(bloqueEstadoDeCuenta({ id: 9, nombre: null }, null).nombre, 'Lead 9');
 
   // El saneo: la ref, el tipo y AHORA la cuota.
@@ -171,8 +173,9 @@ test('4. `cobranza_lead` dibuja sólo en la app y le dice al modelo qué pasó c
   assert.match(cl, /const dibuja = !!ctx\.aDibujar;/);
   assert.match(cl, /comprobanteDelPedido\(\{ adjuntos: ctx\.adjuntos, lead, esSuyo: input\.comprobante === true, accion: /, 'el modelo dice de quién es');
   assert.ok(cl.indexOf('const accion = ') < cl.indexOf('comprobanteDelPedido('), 'la acción que toca, antes de atar el comprobante');
-  assert.match(cl, /return dibuja \? \{ content: contenido, bloque: bloqueEstadoDeCuenta\(lead, delPedido\.comprobante\) \} : contenido;/);
-  assert.match(cl, /\.\.\.\(dibuja \? \{ en_pantalla: notaEnPantalla\(delPedido\) \} : \{\}\),/, 'fuera de la app, la salida de siempre');
+  // (21/10/2026, segunda revisión: lo que se le dice al modelo va por `siSeDibuja`, SÓLO si el bloque entró en el mensaje.)
+  assert.match(cl, /return dibuja \? \{ content: contenido, bloque: bloqueEstadoDeCuenta\(lead, delPedido\.comprobante\), siSeDibuja: notaEnPantalla\(delPedido\) \} : contenido;/, 'fuera de la app, la salida de siempre');
+  assert.doesNotMatch(cl, /en_pantalla/, 'no va adentro de lo que se lee siempre');
   assert.doesNotMatch(cl, /ctx\.adjuntos\?\.length === 1/, 'ya no basta con que venga un archivo');
   // El parámetro, en la definición: el modelo lo pasa sólo si el archivo es de ESTE lead; si no, pregunta.
   const p = porId('cobranza_lead')?.parametros.find((x) => x.nombre === 'comprobante');
@@ -183,6 +186,8 @@ test('4. `cobranza_lead` dibuja sólo en la app y le dice al modelo qué pasó c
   assert.match(con, /NO propongas marcar_pago_cobrado/);
   assert.match(notaEnPantalla({ comprobante: null, sin: 'no-es-suyo' }), /pregúntale antes de marcar nada/);
   assert.match(notaEnPantalla({ comprobante: null, sin: 'de-otro-lead', de: 'Juan' }), /ya quedó como comprobante de Juan/);
+  assert.match(notaEnPantalla({ comprobante: null, sin: 'sin-archivo' }), /en ESTE mensaje no vino ningún archivo .* pídele que lo adjunte de nuevo/);
+  assert.match(notaEnPantalla({ comprobante: null, sin: 'no-es-suyo' }), /que lo vuelva a adjuntar con la respuesta/, 'preguntar sin pedir el archivo no tiene salida');
   for (const sin of ['no-es-cobrar', 'varios', null] as const) {
     assert.doesNotMatch(notaEnPantalla({ comprobante: null, sin }), /comprobante|NO propongas/, `sin «${sin}»: el camino de siempre`);
   }
@@ -219,3 +224,8 @@ test('4. `cobranza_lead` dibuja sólo en la app y le dice al modelo qué pasó c
 //   · `cobranza_lead` toma el archivo como suyo siempre                               → 3 / 1 (4)
 //   · sin saber de quién es, no le dice que pregunte                                  → 3 / 1 (4)
 //   · la herramienta sin el parámetro `comprobante`                                   → 3 / 1 (4)
+//
+// ROTURAS de la segunda revisión (21/10/2026). Base: 4 pases, 0 fallos. Rota (pases / fallos):
+//   · la nota de `cobranza_lead` va aunque el bloque no entre                         → 3 / 1 (4)
+//   · sin archivo en el mensaje, no lo dice                                           → 3 / 1 (3)
+//   · preguntar sin pedir que vuelva a adjuntarlo                                     → 3 / 1 (4)
