@@ -24,6 +24,7 @@ import { adjuntoParaElCartero, firmarAdjuntoDeTurno, urlParaElCartero } from '@/
 import { guardarPasos } from '@/lib/centro-pasos-db';
 import { planDesdeElChat } from '@/lib/centro-plan-chat';
 import { CUENTA_RE } from '@/lib/operaciones-reglas';
+import { retirarPregunta } from '@/lib/centro-preguntas-chat-db';
 
 export const dynamic = 'force-dynamic';
 /** La vuelta contesta en segundos; lo que sigue (el Plan de los chats, lib/centro-plan-auto.ts) corre en `after()`, y cada
@@ -103,6 +104,14 @@ export async function POST(req: NextRequest) {
       if (!(await tokenDelCarteroValido(token))) return NextResponse.json({ error: 'token del cartero inválido' }, { status: 401 });
       const r = await firmarAdjuntoDeTurno(cuerpo);
       return NextResponse.json(r, { status: r.ok ? 200 : 400 });
+    }
+    // ?retirar-pregunta=1 (cartero 1.17.4, 21/10/2026): el chat que hizo una pregunta dice que ya no hace falta
+    // (`cartero.mjs retirar <id>`). Sólo en el chat que se nombra, con el token del cartero (lib/centro-preguntas-chat-db.ts).
+    if (req.nextUrl.searchParams.has('retirar-pregunta')) {
+      if (!(await tokenDelCarteroValido(token))) return NextResponse.json({ error: 'token del cartero inválido' }, { status: 401 });
+      const o = (cuerpo && typeof cuerpo === 'object' ? cuerpo : {}) as Record<string, unknown>;
+      const r = await retirarPregunta(typeof o.local === 'string' ? o.local : '', typeof o.id === 'string' ? o.id : '');
+      return NextResponse.json(r, { status: r.ok ? 200 : 404 });
     }
     const salida = await cicloCartero(token, cuerpo);
     if (!salida) return NextResponse.json({ error: 'token del cartero inválido' }, { status: 401 });

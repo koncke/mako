@@ -25,6 +25,14 @@
 //   · no tomar el candado a mano de MI worktree · esMio que confunde wt-crm con wt-crm-ficha2 · esMio que deja pasar otra rama del clon compartido ·
 //     sin la regla del candado a mano OCIOSO (10 min) · mirar procesos aunque sea joven · soltar con un proceso pesado vivo · soltar cuando no se pudo
 //     mirar (null) · el tope a mano otra vez en 90 min · esLineaPesada que cuenta la espera de antes-de-subir · esLineaPesada que no ve `node --test`.
+// Y la ENTREGA (soltar le pasa el candado al primero de la fila sin borrar el directorio), otras 8 roturas, las 8 dieron rojo:
+//   · soltar que no entrega (3 rojas) · el siguiente que no reconoce la entrega (4) · sin reescribir quien.txt (1) · el que recibe sin confirmar `recibido` (1) ·
+//     sin la línea `entrega` en pesado.log (2) · una entrega que nadie recibe y traba hasta el tope de 90 min (1) · un dueno.json a medias que cuenta la edad del
+//     quien.txt viejo (1) · leerCola que no limpia a los muertos, así que la entrega los toma (2).
+//   · y entregarle el candado a un esperador de una VERSIÓN VIEJA (cuyo turno no trae `entrega: 1`) → 1 roja (se quedaría 90 min con un candado que no sabe reconocer).
+//   (Una novena —quitar un `vivo(t.pid)` de soltar— daba VERDE: era redundante, leerCola ya limpia a los muertos con ese mismo `vivo`; se sacó del código.)
+//   No cubierto: que dueno.json se escriba por temporal+rename y no directo; el efecto sólo se ve con una lectura exacta a mitad de escritura. Lo que SÍ se prueba es
+//   el resultado de ver un dueno.json a medias (la prueba «A MEDIAS»).
 // Además: una PC sin user.email no podía commitear el merge y eso se leía como «chocó en 0 archivos» → ahora se firma con la identidad de Claude y,
 // si falla por otra cosa, el ROJO lo dice (la prueba corre en repos de mentira sin identidad, igual que esta PC).
 // =============================================================================
@@ -37,8 +45,8 @@ import os from 'node:os';
 import { join } from 'node:path';
 import { traerMain } from '../scripts/antes-de-subir.mjs';
 import {
-  A_MANO_OCIOSO_MS, A_MANO_VENCE_MS, anotarse, describirEstado, duenoVencido, esLineaPesada, esMio, estado, intentarTomar, leerCola, leerDueno, procesosPesados,
-  rutas, soltar, tomarTurno, VENCE_MS,
+  A_MANO_OCIOSO_MS, A_MANO_VENCE_MS, anotarse, describirEstado, duenoVencido, ENTREGA_VENCE_MS, esLineaPesada, esMio, estado, intentarTomar, leerCola, leerDueno,
+  motivoSuelta, procesosPesados, rutas, soltar, tomarTurno, VENCE_MS,
 } from '../scripts/candado-pesado.mjs';
 
 const nuevoDir = () => mkdtempSync(join(os.tmpdir(), 'candado-'));
@@ -64,10 +72,10 @@ test('FIFO: entra el que se anotó PRIMERO, aunque el último pregunte cien vece
   const rb2 = intentarTomar({ dir, turno: b, datos: { chat: 'B' }, pid: PB, vivo: VIVOS, ahora });
   assert.deepEqual([rb2.estado, (rb2 as { delante: number }).delante], ['espera', 1], 'con A adentro, B sigue siendo el siguiente');
   assert.equal(soltar({ dir, pid: PB }), false, 'B no puede soltar lo de A');
-  assert.equal(soltar({ dir, pid: PA }), true);
+  assert.equal(soltar({ dir, pid: PA, vivo: VIVOS }), true);
   assert.equal(intentarTomar({ dir, turno: c, datos: { chat: 'C' }, pid: PC, vivo: VIVOS, ahora }).estado, 'espera', 'libre, pero le toca a B, no a C');
   assert.equal(intentarTomar({ dir, turno: b, datos: { chat: 'B' }, pid: PB, vivo: VIVOS, ahora }).estado, 'tomado');
-  soltar({ dir, pid: PB });
+  soltar({ dir, pid: PB, vivo: VIVOS });
   assert.equal(intentarTomar({ dir, turno: c, datos: { chat: 'C' }, pid: PC, vivo: VIVOS, ahora }).estado, 'tomado', 'y por fin C');
 }));
 
@@ -156,10 +164,13 @@ test('tomarTurno de punta a punta: dos procesos, el segundo espera hasta que el 
   await new Promise((r) => setTimeout(r, 60));
   assert.deepEqual(orden, ['A entra', 'B espera'], 'B espera mientras A lo tiene');
   assert.equal(leerDueno({ dir })?.chat, 'A');
+  const t0 = Date.now();
   (a as { soltar: () => void }).soltar();
   const b = await B;
+  assert.ok(Date.now() - t0 < 500, 'B se entera con su sondeo de siempre (5 ms acá; 0,4 s en producción): no espera nada más por ser una entrega');
   assert.deepEqual(orden, ['A entra', 'B espera', 'B entra']);
   assert.equal(leerDueno({ dir })?.chat, 'B');
+  assert.match(readFileSync(rutas(dir).log, 'utf8'), /entrega pid 1001 → pid 1002 B[\s\S]*recibe B pid 1002/, 'A le ENTREGÓ el candado a B (no lo borró) y B lo recibió');
   (b as { soltar: () => void }).soltar();
   assert.equal(existsSync(rutas(dir).lock), false, 'al terminar queda libre');
   assert.equal(leerCola({ dir, vivo: VIVOS }).length, 0, 'y sin turnos huérfanos');
@@ -342,3 +353,103 @@ test('procesosPesados mira de verdad (o dice que no pudo): una lista de líneas 
   const p = procesosPesados();
   assert.ok(p === null || (Array.isArray(p) && p.every((l) => esLineaPesada(l))), 'o null, o sólo líneas que esLineaPesada acepta');
 });
+
+// ---------------------------------------------------------------------------
+// La ENTREGA: soltar le pasa el candado al primero de la fila sin borrar el directorio (21/10: un mkdir a mano le ganó a la cola por 2 s)
+// ---------------------------------------------------------------------------
+
+const DATOS = (chat: string) => ({ chat, cuenta: 'claude4', comando: 'antes-de-subir --rapido' });
+
+test('soltar ENTREGA al primero de la fila: el directorio no se borra (un mkdir a mano en ese instante falla), el siguiente lo recibe y la cadena sigue hasta vaciarse', () => conDir((dir) => {
+  const { lock, log } = rutas(dir);
+  const ahora = () => 4_000_000;
+  const ta = anotarse({ dir, datos: DATOS('A'), pid: 7001, ahora });
+  const tb = anotarse({ dir, datos: DATOS('B'), pid: 7002, ahora: () => 4_000_005 });
+  const tc = anotarse({ dir, datos: DATOS('C'), pid: 7003, ahora: () => 4_000_010 });
+  assert.equal(intentarTomar({ dir, turno: ta, datos: DATOS('A'), pid: 7001, vivo: VIVOS, ahora }).estado, 'tomado');
+
+  assert.equal(soltar({ dir, pid: 7001, vivo: VIVOS, ahora }), true);
+  assert.ok(existsSync(lock), 'el directorio SIGUE ahí: nunca estuvo libre');
+  assert.throws(() => mkdirSync(lock), /EEXIST/, 'un mkdir a mano justo al soltar falla');
+  const d = leerDueno({ dir });
+  assert.deepEqual([d?.pid, d?.chat, d?.manual], [7002, 'B', undefined], 'el dueño ahora es B, con pid');
+  assert.match(readFileSync(join(lock, 'quien.txt'), 'utf8'), /^B \(claude4\) antes-de-subir --rapido — \d\d\/\d\d \d\d:\d\d\n$/, 'y quien.txt dice B, en el formato de siempre');
+  assert.match(readFileSync(log, 'utf8'), /entrega pid 7001 → pid 7002 B/);
+  assert.equal(soltar({ dir, pid: 7001, vivo: VIVOS, ahora }), false, 'A ya no puede soltar (el exit handler lo llama de nuevo): no se la saca a B');
+  assert.equal(leerDueno({ dir })?.pid, 7002);
+
+  const rc = intentarTomar({ dir, turno: tc, datos: DATOS('C'), pid: 7003, vivo: VIVOS, ahora });
+  assert.equal(rc.estado, 'espera', 'C sigue esperando');
+  assert.equal(intentarTomar({ dir, turno: tb, datos: DATOS('B'), pid: 7002, vivo: VIVOS, ahora }).estado, 'tomado', 'B lo recibe en su próximo sondeo, sin mkdir');
+  assert.equal(typeof leerDueno({ dir })?.recibido, 'number', 'y lo confirma en dueno.json');
+  assert.equal(existsSync(tb), false, 'su turno se va');
+  assert.match(readFileSync(log, 'utf8'), /recibe B pid 7002/);
+
+  assert.equal(soltar({ dir, pid: 7002, vivo: VIVOS, ahora }), true);
+  assert.equal(leerDueno({ dir })?.pid, 7003, 'B entrega a C');
+  assert.equal(intentarTomar({ dir, turno: tc, datos: DATOS('C'), pid: 7003, vivo: VIVOS, ahora }).estado, 'tomado');
+  assert.equal(soltar({ dir, pid: 7003, vivo: VIVOS, ahora }), true);
+  assert.equal(existsSync(lock), false, 'con la fila vacía se borra el directorio, como siempre');
+  mkdirSync(lock);   // y ahora un mkdir a mano sí puede
+}));
+
+test('un esperador de una VERSIÓN VIEJA (su turno no dice que sabe recibir) NO recibe una entrega: soltar borra el directorio, y el viejo lo toma con su mkdir de siempre', () => conDir((dir) => {
+  const { lock, cola } = rutas(dir);
+  const ahora = () => 8_000_000;
+  const ta = anotarse({ dir, datos: DATOS('A'), pid: 7601, ahora });
+  mkdirSync(cola, { recursive: true });
+  const viejo = join(cola, '00000008000005-00007602-vjvj.json');   // el turno que escribía la versión anterior: sin `entrega`
+  writeFileSync(viejo, JSON.stringify({ pid: 7602, host: os.hostname(), desde: new Date(8_000_005).toISOString(), ...DATOS('viejo') }));
+  const tc = anotarse({ dir, datos: DATOS('C'), pid: 7603, ahora: () => 8_000_010 });
+  assert.equal(intentarTomar({ dir, turno: ta, datos: DATOS('A'), pid: 7601, vivo: VIVOS, ahora }).estado, 'tomado');
+  assert.equal(soltar({ dir, pid: 7601, vivo: VIVOS, ahora }), true);
+  assert.equal(existsSync(lock), false, 'el directorio se borró: una versión vieja no reconocería la entrega y esperaría 90 min un candado que ya es suyo');
+  assert.equal(existsSync(viejo), true, 'su turno sigue primero');
+  assert.equal(intentarTomar({ dir, turno: tc, datos: DATOS('C'), pid: 7603, vivo: VIVOS, ahora }).estado, 'espera', 'y el nuevo de atrás no se le cuela: manda el orden de la fila');
+}));
+
+test('soltar SALTEA al siguiente muerto (su pid no existe) y entrega al próximo vivo; si sólo quedan muertos, borra el directorio', () => conDir((dir) => {
+  const { lock } = rutas(dir);
+  const ahora = () => 5_000_000;
+  const ta = anotarse({ dir, datos: DATOS('A'), pid: 7101, ahora });
+  anotarse({ dir, datos: DATOS('muerto'), pid: 7102, ahora: () => 5_000_005 });
+  const tc = anotarse({ dir, datos: DATOS('C'), pid: 7103, ahora: () => 5_000_010 });
+  const sinMuertos = (pid: number) => pid !== 7102;
+  assert.equal(intentarTomar({ dir, turno: ta, datos: DATOS('A'), pid: 7101, vivo: VIVOS, ahora }).estado, 'tomado');
+  assert.equal(soltar({ dir, pid: 7101, vivo: sinMuertos, ahora }), true);
+  assert.equal(leerDueno({ dir })?.pid, 7103, 'el muerto se saltea: va directo a C');
+  assert.equal(leerCola({ dir, vivo: sinMuertos, ahora }).length, 1, 'y el turno del muerto se limpió');
+  assert.equal(intentarTomar({ dir, turno: tc, datos: DATOS('C'), pid: 7103, vivo: sinMuertos, ahora }).estado, 'tomado');
+  soltar({ dir, pid: 7103, vivo: sinMuertos, ahora });
+  assert.equal(existsSync(lock), false);
+
+  // sólo muertos en la fila: no se entrega a nadie
+  const t1 = anotarse({ dir, datos: DATOS('X'), pid: 7201, ahora });
+  anotarse({ dir, datos: DATOS('muerto2'), pid: 7202, ahora: () => 5_000_020 });
+  assert.equal(intentarTomar({ dir, turno: t1, datos: DATOS('X'), pid: 7201, vivo: VIVOS, ahora }).estado, 'tomado');
+  assert.equal(soltar({ dir, pid: 7201, vivo: (p: number) => p === 7201, ahora }), true);
+  assert.equal(existsSync(lock), false, 'sin nadie vivo esperando, queda libre de verdad');
+}));
+
+test('una entrega que NADIE recibe (el siguiente está colgado) no traba 90 min: a los 30 s se libera; y recibida, nunca', () => {
+  const entregado = (extra: Record<string, unknown>) => ({ pid: 7301, host: os.hostname(), desde: new Date(6_000_000).toISOString(), mtime: 6_000_000, entregado: true, entregadoMs: 6_000_000, ...extra });
+  const en = (ms: number) => () => 6_000_000 + ms;
+  assert.equal(motivoSuelta(entregado({}), { vivo: VIVOS, ahora: en(10_000) }), null, 'a los 10 s todavía puede estar por enterarse');
+  assert.match(motivoSuelta(entregado({}), { vivo: VIVOS, ahora: en(31_000) }) ?? '', /nadie lo recibió/);
+  assert.equal(motivoSuelta(entregado({ recibido: 6_000_400 }), { vivo: VIVOS, ahora: en(31_000) }), null, 'recibida: es un dueño normal');
+  assert.equal(ENTREGA_VENCE_MS, 30_000);
+});
+
+test('un dueno.json A MEDIAS (alguien lo está escribiendo) no se confunde con un candado a mano abandonado: cuenta la edad de ESE archivo, no la del quien.txt viejo', () => conDir((dir) => {
+  const { lock } = rutas(dir);
+  mkdirSync(lock);
+  writeFileSync(join(lock, 'quien.txt'), 'A (claude4) antes-de-subir — 21/10 01:00\n');
+  const viejo = new Date(Date.now() - 20 * 60_000);
+  utimesSync(join(lock, 'quien.txt'), viejo, viejo);         // el quien.txt del dueño anterior tiene 20 min
+  writeFileSync(join(lock, 'dueno.json'), '{"pid":70');       // y el dueno.json nuevo está escribiéndose ahora
+  const d = leerDueno({ dir });
+  assert.deepEqual([d?.manual, d?.parcial], [true, true]);
+  const turno = anotarse({ dir, datos: DATOS('Otro'), pid: 7401 });
+  assert.equal(intentarTomar({ dir, turno, datos: DATOS('Otro'), pid: 7401, vivo: VIVOS, pesados: NADA_PESADO }).estado, 'espera', 'no lo suelta a ciegas en plena entrega');
+  assert.ok(existsSync(lock));
+}));
