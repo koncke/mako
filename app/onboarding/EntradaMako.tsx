@@ -15,6 +15,10 @@
 //      (`[data-mako-foto]`) y aparece el primer mensaje.
 // Con movimiento reducido: MaKo quieta, el saludo y el botón; al tocarla, el chat.
 // ⚠️ La capa empieza DEBAJO de la barra de «Inspeccionar» (`--barra-agencia`), como el chat.
+//
+// Y AL ABRIR LA APP EN EL TELÉFONO (21/10/2026, Martín: «tampoco veo me haya salido la animación de la criatura, la misma
+// del onboarding. Al iniciar la app en mobile»): la MISMA entrada, montada por app/m/_ui/ShellM.tsx una vez por apertura,
+// que al tocarla vuela a su lugar en la barra de abajo (`destino`: el Ops Center). Lo de abajo no cambia para el onboarding.
 // =============================================================================
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -40,7 +44,11 @@ function volar(el: HTMLElement, hasta: DOMRect, alTerminar: () => void) {
   anim.addEventListener('cancel', alTerminar, { once: true });
 }
 
-export function EntradaMako({ onFin }: { onFin: () => void }) {
+export function EntradaMako({ onFin, destino = '[data-mako-foto]' }: {
+  onFin: () => void;
+  /** Adónde vuela al tocarla: el lugar de la foto de MaKo en el chat del onboarding, o el Ops Center de la barra del teléfono. */
+  destino?: string;
+}) {
   const [saliendo, setSaliendo] = useState(false);
   const cuerpo = useRef<HTMLSpanElement>(null);
   const boton = useRef<HTMLButtonElement>(null);
@@ -54,11 +62,11 @@ export function EntradaMako({ onFin }: { onFin: () => void }) {
     terminado.current = true;
     setSaliendo(true);
     const el = cuerpo.current;
-    const destino = document.querySelector<HTMLElement>('[data-mako-foto]')?.getBoundingClientRect();
+    const caja = document.querySelector<HTMLElement>(destino)?.getBoundingClientRect();
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (!el || !destino || destino.width === 0 || reduce) { alFin.current(); return; }
-    volar(el, destino, () => alFin.current());
-  }, []);
+    if (!el || !caja || caja.width === 0 || reduce) { alFin.current(); return; }
+    volar(el, caja, () => alFin.current());
+  }, [destino]);
 
   // ESPERA EL CLIC (18/10/2026, 14:00, Martín: la animación vuelve a pedir el clic). El avance solo a los 2,4 s
   // (ffd0ea3ef) se revirtió; la estrella y la entrada quedan igual. El foco va al botón: Enter o espacio también empiezan.
