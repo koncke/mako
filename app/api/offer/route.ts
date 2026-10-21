@@ -87,7 +87,7 @@ import { guardarFaseSiNoHay } from '@/lib/fase-store';
 import type { Diagnostico } from '@/lib/fase-diagnostico';
 import { MARCA_COMPLETAR, faltanDelArranque, faltanMinimas, type ArchiveroDoc, type ConclusionOferta } from '@/lib/offer-marco';
 import {
-  MAX_DOCS_SESION, NOMBRE_DOC_TEXTO_LARGO, TOPE_DOC_ENTERO, repartirTextoLargo, sanearLinksSinLeer, conOpcionesDelArranque, conTopeDelArranque, mensajeDeCierreDelArranque, TOPE_TEXTO_DOC, adjuntoDe, avisoDeLectura, lecturaPorPartes, partirEnPartes, avisosAntesDelDiagnostico, calcularDiagnostico, canalParaElNegocio, cifrasConFuente, cifrasConPorcentaje, conArchivero, conRespuestaInferida,
+  MAX_DOCS_SESION, NOMBRE_DOC_TEXTO_LARGO, PRINCIPIO_TEXTO_LARGO, TOPE_DOC_ENTERO, repartirTextoLargo, sanearLinksSinLeer, conOpcionesDelArranque, conTopeDelArranque, mensajeDeCierreDelArranque, TOPE_TEXTO_DOC, adjuntoDe, avisoDeLectura, lecturaPorPartes, partirEnPartes, avisosAntesDelDiagnostico, calcularDiagnostico, canalParaElNegocio, cifrasConFuente, cifrasConPorcentaje, conArchivero, conRespuestaInferida,
   diagnosticoConFuentes, diagnosticoFaltante, diagnosticoParaPrompt, docsDeLaConversacion, estadoDiagnostico, faltanTexto, faseDeSetting,
   faseVigenteDe, fuentesDelDueno, linkParaLeer, mensajeDeMako, mensajePdf, mergePiezas, motivoArchivoOffer, planDiagnostico, primerMensaje, primerMensajeFunnel, provisionalDe, recortar,
   repartirTranscripcion, respuestaDiagnostico, respuestaSinIA, seArchivaDesdeOffer, armadoEnCurso, pasoInicialDelArmado, valoresDeLasPiezas,
@@ -224,11 +224,14 @@ export async function POST(req: NextRequest) {
       if ((tipoIa || analisis) && await onboardingPendiente().catch(() => false)) {
         if (analisis) return no(409, 'El análisis de tu oferta se hace en la tab Offer, cuando termines el onboarding.');
         const usuario = (await getUsuarioActual().catch(() => null))?.email ?? null;
-        // Un texto más largo que el chat va a documento (repartirTextoLargo) y se mira como un documento: sin el troleo sobre
-        // el texto entero (20/10/2026, revisión del Cerebro: un texto armado con ChatGPT con «Ignora las reglas que te
-        // enseñaron…» o un índice «…… 3» sumaba faltas y a la tercera bloqueaba el onboarding).
+        // Un texto más largo que el chat va a documento (repartirTextoLargo) y se cuenta COMO documento también: pasa los dos
+        // topes (20/10/2026, noche, revisión del Cerebro: contado sólo como turno salteaba el de 15 documentos). Del troleo,
+        // sólo el insulto de su principio, lo que queda en el chat: sobre el texto entero, un «Ignora las reglas que te
+        // enseñaron…» o un índice «…… 3» de un texto armado con ChatGPT sumaba faltas y bloqueaba el onboarding.
         const textoTurno = cadena(body.texto);
-        const freno = await frenoDeIa({ req, ws, usuario, tipo: tipoIa!, texto: tipoIa === 'turno' && textoTurno.length <= TOPE_MENSAJE ? textoTurno : undefined });
+        const largo = tipoIa === 'turno' && textoTurno.length > TOPE_MENSAJE;
+        const textoGuardia = tipoIa !== 'turno' ? undefined : largo ? textoTurno.slice(0, PRINCIPIO_TEXTO_LARGO) : textoTurno;
+        const freno = await frenoDeIa({ req, ws, usuario, tipo: tipoIa!, texto: textoGuardia, largo });
         if (freno) return no(freno.status, freno.error, freno.bloqueado ? { bloqueado: true } : {});
       }
       switch (action) {
@@ -682,8 +685,10 @@ async function turno(ws: number, body: Record<string, unknown>, inicio: number):
     ? await leerPorPartes(transcripcion, 'Transcripción del audio', inicio)
     : null;
   // Lo mismo con un texto escrito más largo que el chat: va a documento y, si no entra en un pedido, se lee por partes.
+  // Recortado ANTES de leer a lo que se guarda (TOPE_TEXTO_DOC): entero, 4 MB se partían en 20 pedidos de ~200k caracteres
+  // que pagaba la plataforma, para guardar después sólo los primeros 300.000 (revisión del Cerebro, 20/10 noche).
   const textoPorPartes = !transcripcion && texto.length > TOPE_MENSAJE && MAX_DOCS_SESION > antes.documentos.length
-    ? await leerPorPartes(texto, NOMBRE_DOC_TEXTO_LARGO, inicio)
+    ? await leerPorPartes(texto.slice(0, TOPE_TEXTO_DOC), NOMBRE_DOC_TEXTO_LARGO, inicio)
     : null;
   const conMensaje = await actualizarSesion(sesionId, (f) => {
     const porId = new Map(f.documentos.map((d) => [d.id, d] as const));

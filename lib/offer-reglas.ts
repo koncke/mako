@@ -933,6 +933,9 @@ export function repartirTranscripcion(
 /** El nombre del documento que guarda un mensaje escrito más largo que el chat. */
 export const NOMBRE_DOC_TEXTO_LARGO = 'Tu mensaje largo';
 
+/** Lo que queda en el chat de un texto largo: su principio. Es también lo que mira la guardia del onboarding (el insulto). */
+export const PRINCIPIO_TEXTO_LARGO = 1_500;
+
 /**
  * Un mensaje ESCRITO más largo que el tope del chat (20/10/2026, Florencia, ws21: el texto que armó con ChatGPT tenía
  * 21.629 caracteres, rebotó con «Súbelo como documento» y tardó 12 minutos en armar un .docx). Va por el camino del audio
@@ -944,7 +947,7 @@ export function repartirTextoLargo(
 ): { cuerpo: string; doc: { texto: string; chars: number; aviso?: string } | null } | null {
   if (texto.length <= opts.tope) return { cuerpo: texto, doc: null };
   if (opts.docsLibres <= 0) return null;
-  const principio = recortar(texto, Math.min(opts.inicio ?? 1_500, opts.tope));
+  const principio = recortar(texto, Math.min(opts.inicio ?? PRINCIPIO_TEXTO_LARGO, opts.tope));
   const recortado = texto.length > opts.topeDoc;
   return {
     cuerpo: `${principio}\n\n(Tu mensaje sigue entero en el documento «${NOMBRE_DOC_TEXTO_LARGO}».)`,
