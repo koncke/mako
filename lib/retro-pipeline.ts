@@ -101,7 +101,7 @@ function sanearEv(j: unknown): Evidencia | null {
 // Prompts (defaults editables)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const RETRO3_AREA_SYSTEM = `Eres MaKo diagnosticando UN área del negocio de Martín para una retrospectiva. Te paso el resumen del área y sus NÚMEROS medidos (JSON "datos" — la única fuente de verdad numérica).
+export const RETRO3_AREA_SYSTEM = `Eres MaKo diagnosticando UN área del negocio para una retrospectiva. Te paso el resumen del área y sus NÚMEROS medidos (JSON "datos" — la única fuente de verdad numérica).
 
 Devuelve 1 a 3 hallazgos del área. Cada uno:
 - "tipo": "hallazgo" (lectura del dato) o "anomalia" (algo raro/urgente que pide acción).
@@ -116,7 +116,7 @@ Devuelve 1 a 3 hallazgos del área. Cada uno:
 Si el área está sana y sin nada notable, devuelve menos hallazgos (o ninguno). NO fabriques problemas.
 Devuelve SOLO: {"findings":[...]}`;
 
-export const RETRO3_CRUCES_SYSTEM = `Eres MaKo buscando CRUCES entre áreas del negocio de Martín: insights que NINGUNA pestaña muestra sola (ej.: los leads nutridos cierran X veces más; el guion ganador explica el CPL; el no-show se concentra en un anuncio).
+export const RETRO3_CRUCES_SYSTEM = `Eres MaKo buscando CRUCES entre áreas del negocio: insights que NINGUNA pestaña muestra sola (ej.: los leads nutridos cierran X veces más; el guion ganador explica el CPL; el no-show se concentra en un anuncio).
 
 Te paso los números de TODAS las áreas (JSON "datos", la única fuente numérica) y los hallazgos por área. Devuelve 2 a 4 cruces de ALTO valor. Cada uno:
 - "cross": "Área A × Área B" (nombres cortos).

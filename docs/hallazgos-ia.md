@@ -4571,6 +4571,111 @@ Las cifras quedan para la próxima vez que alguien calcule un costo o un tope.
 **Dónde están los datos:** los scripts (sólo lectura) quedaron en el scratchpad del Cerebro del 20/10
 (`verif-debate/`). Lo que importa está acá.
 
+## La batería guardián del ruteo: 505 pares en `tests/`, con el piso por área (20/10/2026, ola 1, pieza 1.1)
+
+**Vive en:** `tests/ops-center-bateria.test.ts` · `tests/_bateria-ops-center-hijo.ts` · `tests/fixtures/ops-center-frases.json`
+(la batería) · `tests/fixtures/ops-center-frases-afuera.json` (lo que no entró, con su motivo).
+
+- **Qué mide:** si la operación de cada frase VIAJA al turno, por el camino real: el clasificador y la selección de
+  herramientas, la de la app (`herramientasDelChat`) y la de WhatsApp (`herramientasDelTurno`), con las de siempre reales.
+  Hoy los dos canales dan lo mismo, par por par.
+- **El piso del 20/10** (lo que llega / lo medido): núcleo 23/40 frases, CRM 40/89 frases, Automations 17/49 frases,
+  pagos 35/100 pares, Offer 9/12, Plan, Calendario y Dashboard 20/53, video e imagen 9/14, web y Ads 64/123.
+- **Regla: el piso es un trinquete.** Lo que deja de llegar hace caer el test. Lo que empieza a llegar TAMBIÉN, hasta que
+  se anota con `ACTUALIZAR_PISO=1` y se commitea con el arreglo. Así la 1.2 sube el piso de cada área en su tanda.
+- **En núcleo, CRM y Automations las operaciones de una frase son ALTERNATIVAS** («creame una landing» llega con
+  cualquiera de las que crean). Ahí se cuenta por frase. En las demás áreas se esperan todas y se cuenta por par. Contar
+  por par en las tres primeras daba 9 rojos falsos: frases donde llega una alternativa y otra no.
+- **Las de siempre llevan `server-only`** (`MAKO_TOOLS`, `MAKO_ACCION_TOOLS`): la medición corre en un node aparte con
+  `--conditions=react-server`. Medir sólo con sus nombres dio lo mismo, pero el turno real las pasa enteras.
+
+**Trampas al armarla:**
+- **Las baterías vivían donde se pierden.** De pagos, 33 de las 90 frases estaban sólo en el transcript de un agente
+  (se pasaron por la línea de comandos). Las de landing y Meta en voseo sobrevivían sólo en un `sim.out`: el `casos.json`
+  lo pisó la versión en tuteo. El `pedidos.json` de Offer lo pisó el agente de Automations. Los subagentes de una corrida
+  comparten el scratchpad: cada uno escribe con nombre propio, y lo medido pasa a `tests/` antes de terminar.
+- **Una frase sin su operación no mide nada.** Los scripts de Plan, Calendario y Dashboard, video, Offer y parte de
+  Automations no decían qué operación esperaban: 173 frases quedaron afuera.
+- **Cinco pares no pueden llegar por la app, y no es el ruteo:** `crear_modulo_curso`, `crear_clase_curso`,
+  `publicar_post_comunidad`, `crear_evento_comunidad` y `exigir_2fa_desde` no tienen el canal `app` en el registro.
+- **Inflar un `llegaHoy` agregando la clave no hace nada.** JSON se queda con la ÚLTIMA clave repetida, así que el
+  original lo pisa. Para romper el piso a mano se cambia el valor que ya está.
+- **La fecha del piso es la de Argentina:** `toISOString()` a las 21 de acá ya es el día siguiente.
+
+**Sin hacer:** las 229 frases de `tests/fixtures/ops-center-frases-afuera.json`:
+- 173 sin una operación explícita;
+- 40 con la batería vacía a propósito;
+- 8 con una operación que no existe: `crear_campana`, `agregar_conjunto` y `subir_creativos` de Meta;
+- 5 medidas con adjunto;
+- 3 «sí» que dependen del mensaje anterior.
+
+## MaKo pregunta con opciones, y la regla de no proponer la impone el código (20/10/2026, ola 1, pieza 1.9)
+
+**Vive en:** `lib/chat-pregunta.ts` (`TOOL_PREGUNTAR`, `crearGuardiaDePregunta`, `retirar`) · el turno de la app,
+`lib/mako-turno-app.ts`. Probado en `tests/chat-pregunta.test.ts`.
+
+- **Qué hace:** en el chat de la app viaja `preguntar_al_usuario` cuando el turno lleva herramientas. Lo que pasa el
+  modelo se sanea como un G1 (2 a 4 opciones distintas). Una pregunta que no calza vuelve como error y no se muestra.
+- **La regla que impone el código, no el prompt:**
+  - desde que pregunta, el turno rechaza toda acción, y una lectura sí corre, para armar las opciones;
+  - lo que propuso ANTES en el mismo turno se retira también en la base: las tarjetas quedan canceladas y las
+    propuestas de pantalla, descartadas, cada una con SU descarte (`aRetirar` + `retirarEnSuPantalla`): la genérica, el
+    borrador del plan, la ficha de lead, la propuesta de video y el borrador de WhatsApp;
+  - la pregunta se guarda con el mensaje: al recargar vuelve, y si ya hubo respuesta, se ve contestada.
+- **La persona contesta tocando** una opción, «Elige tú» o «Saltear», o escribiendo: es su siguiente mensaje. Las
+  cuatro pantallas lo mandan igual.
+- **Trampa (la revisión del 21/10): «retirar en la base» sólo descartaba la genérica** (/mako/revisar). El borrador del
+  plan, la ficha de lead, el video y el WhatsApp quedaban vivos en su pantalla, el mensaje decía «confírmalo abajo» sin
+  nada abajo, y al contestar MaKo armaba otro: dos. Se retira sólo lo que creó ESTE turno (`nueva`: una igual que ya
+  estaba pendiente no es suya), y con una pregunta no sale el mensaje del borrador ni el de la ficha.
+- **Trampa:** la frase del «Hecho» («todos los martes a las 3 a todo el funnel») hoy la clasifica `capturar`, sin
+  herramientas. La pregunta no viaja con ella hasta que el clasificador la mande a actuar: eso es la 1.2, con la D1.
+  `tests/chat-pregunta.test.ts` lo fija para que se vea el día que cambie.
+
+**Sin hacer:**
+- El modelo decide CUÁNDO preguntar (la descripción de la herramienta lo guía). Lo que el código impone es qué pasa
+  después.
+- En WhatsApp no hay G1: una pregunta allá sigue siendo texto.
+
+## El chat de la app: el negocio con SU nombre, y el guardia de promesas prendido (20/10/2026, ola 1, pieza 1.5)
+
+**Vive en:** `lib/negocio-rotulo.ts` · `lib/mako-context.ts` (`nombreDelNegocioActual`) · `afirmaHechoDe` y
+`sanearSalida({ hecho })` en `lib/doer-salida.ts` · `hechoEnElHilo` en `lib/mako-turno-app-reglas.ts` · los contadores
+`corridas` y `leidas` del turno, en `lib/mako-turno-app.ts`. Probado en `tests/chat-contexto-guardias.test.ts`.
+
+- **«NEGOCIO DE MARTÍN» en el system de TODOS los negocios:**
+  - Estaba en el chat de MaKo y en el asesor de WhatsApp. «del negocio de Martín» estaba además en la retrospectiva
+    (dos prompts) y en el asesor.
+  - Es el mismo caso del 08/10 (`tests/prompt-sin-dueno.test.ts`), que sólo miraba los encuadres de
+    `lib/prompt-defaults.ts`.
+  - Ahora el perfil va con el nombre del negocio, y el test barre TODO el código.
+  - ⚠️ El asesor de WhatsApp usa `renderPrompt('wa.advisor.system', …)`: un override guardado en Configuraciones puede
+    seguir diciendo «de Martín». No se miró la base.
+- **El guardia de promesas estaba APAGADO en la app:** `sanearSalida(respuesta, { corrioHerramientas: true })` con el
+  `true` fijo. Ahora:
+  - se cuenta lo que DE VERDAD corrió: lo rechazado (no permitido, o después de preguntar) no cuenta;
+  - lo que dice HECHO («Listo, ya lo armé», «te creé…», «quedó programada») se juzga con lo que lo RESPALDA
+    (`RespaldoDeHecho`). En la app el turno no ejecuta nada (deja tarjetas), así que «ya le mandé» sólo vale si el hilo
+    que lee el modelo anota un «Hecho: …» (`hechoEnElHilo`). Una lectura respalda un «quedó agendada» (pudo leerlo),
+    no un «ya le mandé». Con una tarjeta en el turno no se juzga: lo que falta lo dice la tarjeta;
+  - lo sacado de un hecho dice `SIN_HECHO` («fíjate si ya quedó antes de pedírmelo de nuevo»), no `SIN_HACER`;
+  - un dato del contexto («tu landing está publicada») no se toca;
+  - el doer de WhatsApp sigue igual: `hecho` es una opción.
+- **Lo obvio era el error (la revisión del 21/10): «sin herramientas, lo que dice hecho es mentira».** Después de
+  confirmar una tarjeta, «¿quedó agendada?» se contesta desde el «Hecho: …» del hilo, sin correr nada, y el guardia lo
+  cambiaba por «pídemelo otra vez y lo hago»: la persona lo pedía de nuevo y se hacía dos veces. Al revés, con UNA
+  lectura corrida el guardia se apagaba entero y «ya le mandé el WhatsApp» pasaba. **Regla:** un guardia de «no lo
+  hiciste» mira qué lo respalda, no sólo si corrió algo; y lo que dice cuando corta no puede invitar a repetir.
+- **Lo obvio era el error: «traer `forzarTool` como WhatsApp».** El chat de la app piensa con razonamiento extendido
+  (`thinking: adaptive`), y con él Anthropic no admite `tool_choice: any`. Además `chatClaudeTools` lo pone en TODOS los
+  pasos: el turno nunca podría terminar con texto. WhatsApp lo hace con `chatCheapTools` y `toolChoicePrimerPaso`, que
+  la cascada de Claude no tiene. Por eso la guardia se apoya en lo que corrió, no en forzar.
+
+**Sin hacer:**
+- La persona de MaKo dice «el consultor IA de Martín Koncke» (`lib/mako-persona.ts`). Es la marca: cambiarla es una
+  decisión de Martín.
+- «Mi hoja» por quien chatea (`ctx.actor`, con 2 o más informes no pedir un email) es del Dashboard.
+- `forzarTool` en la app pide un primer paso sin razonamiento, en `lib/anthropic.ts`, que es compartido.
 ## El Ops Center no hace lo que la app ya sabe hacer: el freno es el clasificador, no las operaciones (20/10/2026)
 
 **Síntoma:** en el Ops Center del cliente, la mitad de los pedidos naturales no recibe la herramienta que los resuelve. Medido con `herramientasDelChat` y frases reales por área:

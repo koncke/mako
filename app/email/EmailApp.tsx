@@ -270,6 +270,8 @@ function SequencesView(props: {
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [creating, setCreating] = useState(false);
   const [genFor, setGenFor] = useState<number | null>(null); // índice de paso en generación
+  // La pregunta de «otra activa ya le escribe lo mismo a la misma gente» al activar (21/10/2026, `setSecuenciaActiva`).
+  const { confirm, confirmNode } = useConfirm();
 
   // selección efectiva
   const sel = secuencias.find((s) => s.id === selId) ?? secuencias[0] ?? null;
@@ -322,10 +324,15 @@ function SequencesView(props: {
     } finally { setSaving(false); }
   }
 
-  async function toggle() {
+  async function toggle(aunqueDuplique = false) {
     if (!sel) return;
     try {
-      const j = await apiSend<{ ok: boolean; error?: string }>('/api/email/secuencias', 'PATCH', { id: sel.id, activa: !sel.activa });
+      const j = await apiSend<{ ok: boolean; error?: string; duplicada?: unknown }>('/api/email/secuencias', 'PATCH', { id: sel.id, activa: !sel.activa, ...(aunqueDuplique ? { aunqueDuplique: true } : {}) });
+      // Otra activa ya le escribe lo mismo a la misma gente: el server no la prendió. Se pregunta, y con «Activar igual», otra vez.
+      if (!j.ok && j.duplicada) {
+        if (await confirm(String(j.error), { confirmLabel: 'Activar igual' })) await toggle(true);
+        return;
+      }
       if (!j.ok) throw new Error(j.error || 'No se pudo cambiar el estado');
       await reload();
     } catch (e) { setMsg({ type: 'err', text: e instanceof Error ? e.message : String(e) }); }
@@ -350,6 +357,7 @@ function SequencesView(props: {
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '300px 1fr', gap: '16px' }}>
+      {confirmNode}
       {/* Lista */}
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
         <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid var(--border)', ...monoLabel }}>Secuencias por etapa</div>

@@ -222,6 +222,26 @@ export async function setBloques(msgId: number, bloques: readonly unknown[]): Pr
   if (error) throw new Error(`setBloques falló: ${error.message}`);
 }
 
+/** Un mensaje por su id con su texto y sus `bloques` crudos (un trabajo largo, lib/chat-trabajos.ts). null si no está
+ *  en este negocio o la base no tiene la columna. */
+export async function getMensajeConTexto(msgId: number): Promise<{ content: string; bloques: unknown } | null> {
+  if (!Number.isInteger(msgId) || msgId <= 0) return null;
+  const { data, error } = await (await getTenantDb()).from('chart_chats').select('content, bloques').eq('id', msgId).maybeSingle();
+  if (error) {
+    if (faltaLaColumna(error)) return null;
+    throw new Error(`getMensajeConTexto falló: ${error.message}`);
+  }
+  const d = data as { content?: unknown; bloques?: unknown } | null;
+  return d && typeof d.content === 'string' ? { content: d.content, bloques: d.bloques ?? null } : null;
+}
+
+/** Reescribe el texto y los `bloques` de un mensaje: un trabajo largo que pasa de «En curso» a «Hecho». true = quedó. */
+export async function actualizarMensaje(msgId: number, content: string, bloques: readonly unknown[]): Promise<boolean> {
+  const { data, error } = await (await getTenantDb()).from('chart_chats').update({ content, bloques }).eq('id', msgId).select('id');
+  if (error) throw new Error(`actualizarMensaje falló: ${error.message}`);
+  return Array.isArray(data) && data.length > 0;
+}
+
 /** Título corto para una sesión nueva, a partir de la primera pregunta del user. */
 export function tituloDesde(texto: string): string {
   const t = texto.trim().replace(/\s+/g, ' ');

@@ -62,6 +62,8 @@ test('las rutas donde una confirmación por chat corre replicar_landing aguantan
     'app/mako/pendientes/page.tsx',
     'app/api/crm/mako/route.ts',
     'app/api/mako/chat/route.ts',
+    // El formulario de la tarjeta (1.10): un trabajo largo sigue en `after()` con ESTE techo (revisión del 21/10/2026).
+    'app/api/mako/propuesta/route.ts',
   ];
   for (const r of RUTAS) {
     const s = maxDurationDe(r);
@@ -74,6 +76,7 @@ test('el corte del navegador de esas pantallas va DESPUÉS del techo de su ruta 
     ['app/m/mako/ChatMako.tsx', 'app/api/m/mako/route.ts'],
     ['app/crm/mako-crm/ChatMakoCrm.tsx', 'app/api/crm/mako/route.ts'],
     ['app/second-brain/ChatSecondBrain.tsx', 'app/api/mako/chat/route.ts'],
+    ['app/_chat/acciones-formulario.ts', 'app/api/mako/propuesta/route.ts'],
   ];
   for (const [pantalla, ruta] of PANTALLAS) {
     const src = sinComentarios(leer(pantalla));

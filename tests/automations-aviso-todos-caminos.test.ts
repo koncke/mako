@@ -63,19 +63,13 @@ test('1. el «⋯» de la lista pregunta antes de Activar, con lo publicado, y �
   assert.match(lista, /<Confirm message=\{avisoActivar\.texto\} confirmLabel="Activar igual" cancelLabel="Cancelar" tone="primary"\n\s+onConfirm=\{activarIgual\} onCancel=\{\(\) => setAvisoActivar\(null\)\} \/>/);
 });
 
-test('1. un CRON nuevo en una ACTIVA: el aviso sale al guardarlo, sólo si recién ahí pasó a ser la misma gente', () => {
-  const ed = sinComentarios(leer('app/automations/EditorDisparadores.tsx'));
-  const m = cuerpo(ed, 'const mandar = async (body: Record<string, unknown>) => {', '\n  };');
-  // Después de limpiar el error: si no, el aviso se borraba en el mismo tick.
-  assert.ok(m.indexOf('cb.current.onError(null);') < m.indexOf('cb.current.onGuardado?.(confirmada.current, previa);'));
-  assert.match(m, /const previa = confirmada\.current;\n\s+confirmada\.current = /);
+// 21/10/2026: el aviso de un CRON en una activa ya no sale «al guardar» (se borraba con el guardado siguiente, o se perdía
+// al cambiar de automatización): se DICE mientras sea así (tests/automations-activar-todos-los-caminos.test.ts).
+test('1. una ACTIVA que ya le escribe lo mismo a la misma gente lo dice al lado de «Activar», con sus CRON de ahora', () => {
   const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
-  assert.match(perfil, /onGuardado: \(n, p\) => alGuardarCronsRef\.current\(n, p\) \}\);/);
-  const g = cuerpo(perfil, 'const alGuardarCrons = (nueva: readonly Disparador[], previa: readonly Disparador[]) => {', '\n  };');
-  assert.match(g, /if \(!rolAdmin \|\| !activa\) return;/);
-  assert.match(g, /\{ pasos: abiertoPublicado, crons: lista \}/);
-  assert.match(g, /if \(otra && !con\(previa\)\) setErr\(avisoDuplicada\(otra\.nombre\)\);/);
-  assert.match(perfil, /useEffect\(\(\) => \{ alGuardarCronsRef\.current = alGuardarCrons; \}\);/);
+  assert.match(perfil, /const dupActiva = useMemo\(\n\s+\(\) => \(rolAdmin && activa\n\s+\? duplicadaAlActivar\(secuencia as SecuenciaConDisparadores, secuencias as readonly SecuenciaConDisparadores\[\], disparadoresDeSecuencia, \{ pasos: abiertoPublicado, crons: crons\.lista \}\)/);
+  assert.match(perfil, /\{dupActiva && \(\n\s+<span data-duplicada="" role="status"/);
+  assert.doesNotMatch(perfil, /alGuardarCrons|onGuardado: \(n, p\)/, 'volvió el aviso que se borraba con el guardado siguiente');
 });
 
 test('2. el interruptor «Activar» del lienzo y la nota del chat miran lo PUBLICADO, no el borrador', () => {

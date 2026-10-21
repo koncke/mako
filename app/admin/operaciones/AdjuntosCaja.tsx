@@ -112,7 +112,7 @@ export function MasCaja({ a, apagado, resumen, children }: {
   return (
     <div className="co-mas-caja" ref={caja}>
       <button type="button" className="ch-adjuntar" aria-haspopup="menu" aria-expanded={abierto} disabled={apagado}
-        onClick={() => setAbierto((v) => !v)} aria-label="Más opciones" title="Adjuntar y elegir con qué corre">
+        onClick={() => setAbierto((v) => !v)} aria-label="Más opciones" title={children ? 'Adjuntar y elegir con qué corre' : 'Adjuntar'}>
         <Icon name="plus" size={18} />
       </button>
       {resumen && !abierto && <span className="co-mas-caja__resumen">{resumen}</span>}

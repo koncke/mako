@@ -2,6 +2,7 @@
 // /api/mako/chat — el chat con MaKo del Second Brain (la pieza única, en la computadora)
 // =============================================================================
 // GET  ?sesiones=1                                   → { ok, sesiones }             las de ESTA persona
+// GET  ?trabajo=<llave>                              → { ok, texto, bloques }       cómo va un trabajo largo (1.11)
 // GET  ?sessionId=N                                  → { ok, sesion, mensajes, propuestas }
 // GET  ?antes=1                                      → { ok, antes }    los chats de «Pregúntale a MaKo» (sólo lectura)
 // GET  ?antesId=N                                    → { ok, sesion, mensajes }
@@ -32,6 +33,8 @@ import {
 } from '@/lib/mako-turno-app';
 import { validarAdjuntos, ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, MARGEN_MULTIPART_BYTES } from '@/lib/mako-adjuntos';
 import { CONTEXTO_SECOND_BRAIN } from '@/lib/chat-mako-reglas';
+import { estadoDeTrabajo } from '@/lib/chat-trabajos';
+import { runWithWorkspace } from '@/lib/workspace';
 import { chatsDeAntes, chatsDeOffer, hiloDeAntes, hiloDeOffer, quienChateaDelRequest } from '@/lib/chat-mako-indice';
 
 export const dynamic = 'force-dynamic';
@@ -74,6 +77,12 @@ export async function GET(req: NextRequest) {
       const hilo = id == null ? null : await hiloDeOffer(id);
       if (!hilo) return json({ ok: false, error: 'No encuentro esa conversación.' }, 404);
       return json({ ok: true, ...hilo });
+    }
+    // Un trabajo largo (1.11): cómo va, con la llave de su G6. Se busca en el negocio de quien pregunta.
+    if (sp.has('trabajo')) {
+      const t = await runWithWorkspace(persona.ws, () => estadoDeTrabajo(sp.get('trabajo')));
+      if (!t) return json({ ok: false, error: 'No encuentro ese trabajo.' }, 404);
+      return json({ ok: true, ...t });
     }
     if (sp.has('sessionId')) {
       const id = enteroDe(sp.get('sessionId'));

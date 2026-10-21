@@ -64,6 +64,9 @@ export type PreguntaChat = {
   origen?: 'wrap_up';
   /** Cuándo quedó superada (sólo una de wrap_up): el chat siguió sin el formulario. No cuenta como abierta. */
   superada?: string;
+  /** Una de wrap_up que el chat TAMBIÉN hizo con `preguntar` (`unirPreguntas`): sigue siendo de wrap_up (su respuesta lleva el
+   *  `message` del botón), pero como una de `preguntar` la cierra sólo una respuesta, no el chat que sigue. La pone MaKo. */
+  tambienPreguntar?: true;
 };
 
 const ISO = (v: unknown): string | null => (typeof v === 'string' && Number.isFinite(Date.parse(v)) ? new Date(v).toISOString() : null);
@@ -105,6 +108,7 @@ export function sanearPregunta(x: unknown): PreguntaChat | null {
   return {
     id: o.id, local: o.local, pregunta, contexto, opciones, recomendada, varias: o.varias === true, at, respuesta,
     ...(o.origen === 'wrap_up' ? { origen: 'wrap_up' as const } : {}), ...(superada ? { superada } : {}),
+    ...(o.origen === 'wrap_up' && o.tambienPreguntar === true ? { tambienPreguntar: true as const } : {}),
   };
 }
 
@@ -134,8 +138,8 @@ export function sanearPreguntas(x: unknown): PreguntaChat[] {
     const p = sanearPregunta(v);
     if (!p || vistas.has(p.id)) continue;
     vistas.add(p.id);
-    // Lo que sube la PC nunca viene contestado ni superado: eso lo pone MaKo.
-    const { superada: _s, ...limpia } = p;
+    // Lo que sube la PC nunca viene contestado ni superado (ni `tambienPreguntar`): eso lo pone MaKo.
+    const { superada: _s, tambienPreguntar: _t, ...limpia } = p;
     out.push({ ...limpia, respuesta: null });
   }
   return out;
@@ -150,11 +154,22 @@ export function unirPreguntas(antes: readonly PreguntaChat[], nuevas: readonly P
   // La misma pregunta del mismo chat, mientras siga abierta, entra UNA vez (dos wrap_up seguidos, o `preguntar` y el
   // wrap_up que la app le pide al terminar, llegan en vueltas distintas).
   const norm = (p: PreguntaChat) => `${p.local}\n${p.pregunta.replace(/\s+/g, ' ').trim().toLowerCase()}`;
-  const abiertas = new Set([...porId.values()].filter(estaAbierta).map(norm));
+  const abiertas = new Map([...porId.values()].filter(estaAbierta).map((p) => [norm(p), p.id]));
   for (const p of nuevas) {
-    if (porId.has(p.id) || abiertas.has(norm(p))) continue;
+    if (porId.has(p.id)) continue;
+    const igual = abiertas.get(norm(p));
+    if (igual) {
+      // ⚠️ UNA DE `preguntar` NO SE PIERDE EN UNA DE WRAP_UP IGUAL (revisión de la ola 1, 21/10/2026): la que queda se marca
+      //    `tambienPreguntar`, así sólo la cierra una respuesta, no el mensaje siguiente de otro chat.
+      // ⚠️ Y SIGUE SIENDO DE WRAP_UP (la segunda revisión): sacarle el `origen` le sacaba a la respuesta el `message` del
+      //    botón (`textoDeRespuesta`), y la copia del cliente, que todavía lo tenía, firmaba OTRO texto: la base no la marcaba
+      //    y, sin origen, ningún turno la superaba. Abierta para siempre: la queja de Martín otra vez.
+      const vieja = porId.get(igual);
+      if (vieja?.origen === 'wrap_up' && p.origen !== 'wrap_up') porId.set(igual, { ...vieja, tambienPreguntar: true });
+      continue;
+    }
     porId.set(p.id, p);
-    abiertas.add(norm(p));
+    abiertas.set(norm(p), p.id);
   }
   return [...porId.values()].sort((a, b) => Date.parse(a.at) - Date.parse(b.at)).slice(-PREGUNTAS_POR_CHAT);
 }
@@ -171,7 +186,7 @@ export function superarPreguntas(preguntas: readonly PreguntaChat[], turnos: rea
   const t = (s: string) => Date.parse(s);
   let cambio = false;
   const out = preguntas.map((p) => {
-    if (p.origen !== 'wrap_up' || !estaAbierta(p)) return p;
+    if (p.origen !== 'wrap_up' || p.tambienPreguntar || !estaAbierta(p)) return p;
     const despues = [
       ...turnos.filter((x) => x.local === p.local && (x.rol === 'yo' || x.rol === 'otro') && t(x.at) > t(p.at)).map((x) => x.at),
       ...preguntas.filter((q) => q.id !== p.id && q.local === p.local && q.origen === 'wrap_up' && t(q.at) > t(p.at)).map((q) => q.at),
