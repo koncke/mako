@@ -53,9 +53,11 @@ test('1. sin pendiente, un negocio que se llama como una palabra de acuerdo se P
   assert.deepEqual(responder(pend, { texto: 'sí' }), { ok: true, patch: { negocio: 'Claro', negocioPorConfirmar: undefined } });
 });
 
-test('1b. CON pendiente, una palabra de acuerdo es un sí y lo que sólo nombra lo preguntado vuelve a preguntar; lo presentado es otro nombre', () => {
+test('1b. CON pendiente, un sí sin duda confirma; lo que sólo nombra lo preguntado vuelve a preguntar; lo presentado es otro nombre', () => {
   const P: EstadoArranque = { nombre: 'Simón', negocioPorConfirmar: { escrito: 'Acme', nombre: 'Acme' } };
-  for (const t of ['Claro', 'Simón', 'Listo']) assert.deepEqual(responder(P, { texto: t }), { ok: true, patch: { negocio: 'Acme', negocioPorConfirmar: undefined } }, t);
+  for (const t of ['Sí', 'Ok', 'Correcto']) assert.deepEqual(responder(P, { texto: t }), { ok: true, patch: { negocio: 'Acme', negocioPorConfirmar: undefined } }, t);
+  // «Claro», «Simón», «Listo» también pueden ser el nombre real: se pregunta cuál (séptima revisión, tests/onboarding-septima-revision.test.ts).
+  for (const t of ['Claro', 'Simón', 'Listo']) assert.equal(responder(P, { texto: t }).ok, false, t);
   for (const t of ['Es mi negocio', 'No, está bien']) assert.equal(responder(P, { texto: t }).ok, false, `«${t}» reemplazó el pendiente`);
   assert.equal(propone(responder(P, { texto: 'Se llama Tal Cual' })), 'Tal Cual');
   assert.equal(propone(responder(P, { texto: 'El nombre es Listo' })), 'Listo');

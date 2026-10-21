@@ -41,7 +41,9 @@ import { TIPOS_CRM, type TipoCrm, type TipoCrmId } from './pipeline';
 import type { PiezasSabidas, PropuestaOferta } from './offer-marco';
 import type { PropuestaCrm } from './onboarding-crm';
 import { RUTA_AUTOMATIONS } from './ruta-automations';
-import { DICE_NO, DICE_SI, MONEDA_DOLAR, MONEDA_LOCAL, NOMBRA_LO_PREGUNTADO, TRAS_EL_NO } from './onboarding-frases';
+import {
+  DICE_NO, DICE_SI, MONEDA_DOLAR, MONEDA_LOCAL, NO_DE_UNA_PALABRA, NOMBRA_LO_PREGUNTADO, PUEDE_SER_NOMBRE, SI_DE_UNA_PALABRA, TRAS_EL_NO,
+} from './onboarding-frases';
 
 export type ModoArranque = 'oferta' | 'plan';
 
@@ -172,6 +174,9 @@ export const CRM_PREGUNTA = 'Ahora armemos tu CRM. Estas son las etapas por las 
 const PREGUNTA_CANAL = '¿Dónde cierras la venta?';
 
 const TOPE_RESPUESTA = 300;
+/** Corta por PUNTO DE CÓDIGO, no por unidad UTF-16 (séptima revisión, 21/10): un emoji en el corte dejaba medio par suelto,
+ *  que se ve «�» y que Postgres rechaza al copiar la conversación al chat «Onboarding». */
+export const cortar = (s: string, n: number): string => { const a = Array.from(s); return a.length > n ? a.slice(0, n).join('') : s; };
 
 /**
  * LAS DOS PREGUNTAS NUEVAS (17/10/2026). Martín: «investiga las preguntas que nos hacen falta: me imagino "¿Cómo nos
@@ -196,7 +201,9 @@ export const PDF_NO = 'Está bien: lo anoto para trabajarlo dentro de la app. Ah
  *  como que falta algo?» invertía el sí, y «Está perfecto» se anotaba como corrección), y con lo que confirma adentro: una
  *  pregunta fija no la distingue el guard de pestaña vieja. */
 export const pdfConfirmarPregunta = (escrito: string): string =>
-  `Escribiste «${escrito.length > 60 ? `${escrito.slice(0, 60).trimEnd()}…` : escrito}». ¿Lo tomo como que está todo bien?`;
+  `Escribiste «${cortar(escrito, 60) === escrito ? escrito : `${cortar(escrito, 60).trimEnd()}…`}». ¿Lo tomo como que está todo bien?`;
+/** Cuántas cosas escritas se suman al PDF antes de pedir el botón (séptima revisión, 21/10: la nota no tenía tope). */
+export const PDF_TOPE_ESCRITAS = 5;
 export const PDF_BIEN = 'Sí, está todo bien';
 export const PDF_FALTA = 'No, hay algo para corregir';
 /** La nota de un «no» al PDF sin nada escrito (sexta revisión, 21/10: el «No» tocado no dejaba marca). */
@@ -233,12 +240,12 @@ export function llegadaDe(raw: string | null | undefined): LlegadaCliente | null
   try { v = JSON.parse(raw); } catch { return null; }
   if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
   const o = v as Record<string, unknown>;
-  const texto = (x: unknown) => (typeof x === 'string' && x.trim() ? x.trim().slice(0, 80) : null);
+  const texto = (x: unknown) => (typeof x === 'string' && x.trim() ? cortar(x.trim(), 80) : null);
   const origen = texto(o.origen);
   const interesId = texto(o.interes);
   const interes = interesId ? INTERESES.find((i) => i.id === interesId)?.label ?? interesId : null;
   const at = typeof o.at === 'string' && Number.isFinite(Date.parse(o.at)) ? o.at : null;
-  const pdfNota = typeof o.pdfNota === 'string' && o.pdfNota.trim() ? o.pdfNota.trim().slice(0, 300) : null;
+  const pdfNota = typeof o.pdfNota === 'string' && o.pdfNota.trim() ? cortar(o.pdfNota.trim(), 300) : null;
   return origen || interes || pdfNota ? { origen, interes, at, pdfNota } : null;
 }
 
@@ -710,8 +717,8 @@ export function extraerNombre(texto: string): { nombre: string; negocio: string 
     const deAlgo = /\b(?:de|del)\s+(?:la\s+empresa\s+|la\s+marca\s+)?(.+)$/i.exec(partes.slice(1).join(' ').trim());
     if (deAlgo) negocio = deAlgo[1];
   }
-  const limpio = (s: string | null) => (s ?? '').replace(/^(?:la|el)\s+/i, '').replace(/[«»"']/g, '').trim().slice(0, 80);
-  return { nombre: conMayuscula(nombre.join(' ')).slice(0, 60), negocio: limpio(negocio) || null };
+  const limpio = (s: string | null) => cortar((s ?? '').replace(/^(?:la|el)\s+/i, '').replace(/[«»"']/g, '').trim(), 80);
+  return { nombre: cortar(conMayuscula(nombre.join(' ')), 60), negocio: limpio(negocio) || null };
 }
 
 /**
@@ -724,7 +731,7 @@ export function nombreSinCortar(texto: string): string {
   const t = limpiarRespuesta(texto).replace(/[!¡]+/g, ' ').replace(/\s+/g, ' ').trim().replace(SALUDO, '').trim().replace(PRESENTA, '').trim();
   const cabeza = (t.split(/[,.;:]/)[0] ?? '').trim();
   if (!/\p{L}/u.test(cabeza) || siONo(cabeza) !== null) return '';
-  return conMayuscula(cabeza.split(/\s+/).slice(0, 3).join(' ')).slice(0, 60);
+  return cortar(conMayuscula(cabeza.split(/\s+/).slice(0, 3).join(' ')), 60);
 }
 
 /**
@@ -768,6 +775,9 @@ const enFila = (primeras: string[], siguientes: string[]) => {
 const RE_SI = enFila(DICE_SI, [...DICE_SI, ...NOMBRA_LO_PREGUNTADO]);
 const RE_NO = enFila(DICE_NO, TRAS_EL_NO);
 const RE_NOMBRA = enFila(NOMBRA_LO_PREGUNTADO, NOMBRA_LO_PREGUNTADO);
+const RE_PUEDE_SER_NOMBRE = enFila(PUEDE_SER_NOMBRE, [...DICE_SI, ...NOMBRA_LO_PREGUNTADO]);
+const RE_SI_PELADO = enFila(SI_DE_UNA_PALABRA, SI_DE_UNA_PALABRA);
+const RE_NO_PELADO = enFila(NO_DE_UNA_PALABRA, NO_DE_UNA_PALABRA);
 /** ¿Sólo nombra lo preguntado («Es mi negocio», «el nombre»)? No es un sí ni un nombre de negocio. */
 const nombraLoPreguntado = (texto: string): boolean => RE_NOMBRA.test(normal((texto || '').trim()).replace(/[.!¡?¿,;:]+/g, ' ').replace(/\s+/g, ' ').trim());
 
@@ -789,11 +799,24 @@ export function siONo(texto: string): 'si' | 'no' | null {
   return null;
 }
 
-/** Un sí o un no PELADOS («Sí», «sii», «No.»), sin DICE_SI: para el toque del PDF, donde lo que no es un botón ni un sí o
- *  un no sueltos se anota (sexta revisión, 21/10: con la pregunta al revés, «Está perfecto» era «sí, falta algo»). */
+/** Un sí o un no PELADOS («Sí», «sip», «Ok», «👍», «Nop», «👎», también repetidos), sin DICE_SI: para el toque del PDF, donde
+ *  lo que no es un botón ni un sí o un no de una palabra se anota (sexta revisión, 21/10: con la pregunta al revés, «Está
+ *  perfecto» era «sí, falta algo»; séptima: «Ok» o «Nop» se anotaban sin fin). El color de piel del emoji no cuenta. */
 export function siONoPelado(texto: string): 'si' | 'no' | null {
-  const t = normal((texto || '').trim()).replace(/[.!¡?¿,;:\s]+/g, '');
-  return /^s+i+$/.test(t) ? 'si' : /^no+$/.test(t) ? 'no' : null;
+  const t = normal((texto || '').trim()).replace(/[\u{1F3FB}-\u{1F3FF}]/gu, '').replace(/[.!¡?¿,;:]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return RE_SI_PELADO.test(t) ? 'si' : RE_NO_PELADO.test(t) ? 'no' : null;
+}
+
+/**
+ * Un sí o un no escrito con un NOMBRE esperando (séptima revisión, 21/10). Como `siONo`, pero un sí que empieza con una
+ * palabra que también puede ser un nombre («Simón», «Vale», «Listo», `PUEDE_SER_NOMBRE`) es 'duda': ni confirma el
+ * pendiente ni lo reemplaza, se pregunta cuál de los dos es. «Sí, …», «Ok», «Correcto» o «Está bien» siguen siendo un sí.
+ */
+export function siAlPendiente(texto: string): 'si' | 'no' | 'duda' | null {
+  const sn = siONo(texto);
+  if (sn !== 'si') return sn;
+  const t = normal((texto || '').trim()).replace(/[.!¡?¿,;:]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return RE_PUEDE_SER_NOMBRE.test(t) ? 'duda' : 'si';
 }
 
 /**
@@ -816,7 +839,7 @@ function usaSuNombre(texto: string): boolean {
 
 /** Una respuesta de texto libre: recortada y con tope. Vacía = no contestó. */
 export function limpiarRespuesta(t: string): string {
-  return (t || '').replace(/\s+/g, ' ').trim().slice(0, TOPE_RESPUESTA);
+  return cortar((t || '').replace(/\s+/g, ' ').trim(), TOPE_RESPUESTA);
 }
 
 // ── El CRM que se propone ───────────────────────────────────────────────────
@@ -1123,7 +1146,7 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
     const pendiente = e.nombrePorConfirmar;
     let escrito = texto;
     if (pendiente) {
-      const r = texto === NOMBRE_CONFIRMAR[0] ? 'si' : texto === NOMBRE_CONFIRMAR[1] ? 'no' : opcion === undefined ? siONo(texto) : null;
+      const r = texto === NOMBRE_CONFIRMAR[0] ? 'si' : texto === NOMBRE_CONFIRMAR[1] ? 'no' : opcion === undefined ? siAlPendiente(texto) : null;
       const confirmado = { ok: true as const, patch: { nombre: pendiente.nombre, nombrePorConfirmar: undefined } };
       if (r === 'si') return confirmado;
       if (r === 'no') return { ok: true, patch: { nombrePorConfirmar: undefined } };
@@ -1133,8 +1156,15 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
       const esNo = !!conSiONo && /^n/i.test(conSiONo[1]);
       const resto = conSiONo ? conSiONo[2].replace(/^pero\s+/i, '') : texto;
       if (esNo && (!resto.trim() || siONo(resto) === 'no')) return { ok: true, patch: { nombrePorConfirmar: undefined } };
-      if (conSiONo && !esNo && siONo(resto) === 'si') return confirmado;
-      if (!esNo && normal(extraerNombre(resto).nombre) === normal(pendiente.nombre)) return confirmado;
+      // El mismo nombre otra vez confirma, también el que el corte deja vacío («Su Lin», séptima revisión).
+      if (!esNo && normal(extraerNombre(resto).nombre || nombreSinCortar(resto)) === normal(pendiente.nombre)) return confirmado;
+      const rResto = conSiONo && !esNo ? siAlPendiente(resto) : null;
+      if (rResto === 'si') return confirmado;
+      // Una palabra de acuerdo que también es un nombre: se pregunta cuál (séptima revisión, 21/10).
+      if (r === 'duda' || rResto === 'duda') {
+        const cual = r === 'duda' ? texto : resto;
+        return { ok: false, error: `«${cual}», ¿es tu nombre? Escribe «Me llamo ${cual}». Si es «${pendiente.nombre}», toca «${NOMBRE_CONFIRMAR[0]}».` };
+      }
       escrito = resto;
     }
     // Sin opciones: lo escrito se ENTIENDE («Soy Martín», «me llamo…», «Martín de Acme»). Lo que el corte deja vacío pero
@@ -1155,13 +1185,19 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
     const pendiente = e.negocioPorConfirmar;
     // CON ALGO PENDIENTE, NADA SE ESCRIBE SIN UN SÍ EXPLÍCITO (20/10/2026, revisión del Cerebro): el botón o un sí escrito
     // lo guardan, un no vuelve a preguntar, y cualquier otra cosa es otro nombre que se vuelve a confirmar.
+    const persona = [h.nombreCuenta, e.nombre].find((x) => !!x?.trim() && !x.includes('@')) ?? '';
     if (pendiente) {
-      const r = opcion === NEGOCIO_CONFIRMAR[0] ? 'si' : opcion === NEGOCIO_CONFIRMAR[1] ? 'no' : opcion === undefined ? siONo(texto) : null;
+      const r = opcion === NEGOCIO_CONFIRMAR[0] ? 'si' : opcion === NEGOCIO_CONFIRMAR[1] ? 'no' : opcion === undefined ? siAlPendiente(texto) : null;
       if (r === 'si') return { ok: true, patch: { negocio: pendiente.nombre, negocioPorConfirmar: undefined } };
       if (r === 'no') return { ok: true, patch: { negocioPorConfirmar: undefined } };
+      // «Listo», «Claro», «Tal Cual» con otro nombre esperando: puede ser un sí o el nombre real. No se adivina (séptima
+      // revisión, 21/10: guardaba el pendiente equivocado); el mismo nombre otra vez sí confirma.
+      if (r === 'duda') {
+        if (normal(leerNegocio(texto, persona) ?? '') === normal(pendiente.nombre)) return { ok: true, patch: { negocio: pendiente.nombre, negocioPorConfirmar: undefined } };
+        return { ok: false, error: `«${texto}», ¿es el nombre de tu negocio? Escribe «Se llama ${texto}». Si es «${pendiente.nombre}», toca «${NEGOCIO_CONFIRMAR[0]}».` };
+      }
     }
     // Sin pendiente no hay opciones (Martín, 18/10): todo nombre llega escrito y se confirma.
-    const persona = [h.nombreCuenta, e.nombre].find((x) => !!x?.trim() && !x.includes('@')) ?? '';
     let otro = texto;
     const conSiONo = pendiente ? /^(s[ií]+|no+)(?=$|[\s,.!¡?¿:;])[\s,.!¡?¿:;]*(.*)$/iu.exec(texto.trim()) : null;
     if (pendiente && conSiONo) {
@@ -1207,6 +1243,7 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
       const r = texto === PDF_BIEN ? 'si' : texto === PDF_FALTA ? 'no' : opcion === undefined ? siONoPelado(texto) : null;
       if (r) return { ok: true, patch: { pdfOk: r } };
       if (!texto) return { ok: false, error: `Toca «${PDF_BIEN}» o «${PDF_FALTA}».` };
+      if (partes.length >= PDF_TOPE_ESCRITAS) return { ok: false, error: `Ya lo anoté. Toca «${PDF_BIEN}» o «${PDF_FALTA}».` };
       return { ok: true, patch: { pdfEscritas: [...partes, texto] } };
     }
     // La opción tal cual, o un sí o un no sueltos (`siONo` lee «Sí» con tilde). Un no sin detalle queda anotado igual
@@ -1366,6 +1403,9 @@ export function cobroDelPrecio(precio: string | null | undefined): Cobro {
   // Lo negado no cuenta (cuarta revisión, 21/10: «sin mensualidades», «nada de cuotas», «no es mensual» salían suscripción),
   // y lo anual o semanal también es periódico («Membresía anual», «USD 99 por semana» salían pago único).
   const t = crudo.replace(/\b(?:sin|nada de|no es|no hay|no son|ni)\s+(?:(?:las?|los?|un|una)\s+)?\S+(?:\s+mensual(?:es)?)?/g, ' ');
+  // Lo semanal no es MENSUAL, aunque venga en cuotas (séptima revisión, 21/10: «8 cuotas semanales» proponía «Suscripción de
+  // 8 meses»): va con su `periodo` y la etapa 'cobro' pregunta sin proponer.
+  if (/por semana|semanal|a la semana/.test(t)) return { tipo: 'suscripcion', meses: null, periodo: 'semanal' };
   // Las cuotas de la TARJETA son una venta única (revisión del Cerebro, 20/10: «hasta 12 cuotas sin interés con tarjeta»
   // salía suscripción de 12 meses). Pero «con tarjeta» es sólo el MEDIO de pago: con «por mes», «membresía» o «cuotas
   // mensuales» sigue siendo una suscripción (revisión de la noche: «150 USD por mes con tarjeta» salía pago único).
@@ -1376,13 +1416,13 @@ export function cobroDelPrecio(precio: string | null | undefined): Cobro {
   const mensual = recurrente || /\bmensual(?:es|mente)?\b|por mes|al mes|cada mes|mes a mes|\/\s?mes/.test(t);
   const conTarjeta = /con (?:la |tu |mi |su )?tarjeta/.test(t) && /cuotas|pagos|mensualidades/.test(t);
   if ((/sin interes(?:es)?|\bmsi\b/.test(t) && !recurrente) || (conTarjeta && !mensual)) return { tipo: 'unico', meses: null };
-  const cuotas = t.match(/(\d{1,2})\s*(?:cuotas|pagos|mensualidades)\b/);
+  // Las cuotas que dicen otra periodicidad («2 pagos anuales») no son meses (séptima revisión).
+  const cuotas = t.match(/(\d{1,2})\s*(?:cuotas|pagos|mensualidades)\b(?!\s+(?:anual|semestral|trimestral|bimestral|quincenal))/);
   if (cuotas) return { tipo: 'suscripcion', meses: Number(cuotas[1]) || null };
   // Lo anual o semanal no es MENSUAL (quinta revisión, 21/10: se proponía «Suscripción mensual» y el producto lo cobraba
   // cada mes): va con su `periodo`, y la etapa 'cobro' pregunta sin proponer. DESPUÉS de las cuotas (sexta revisión: con
   // «Programa anual: 12 cuotas de USD 99» lo cierto es la suscripción de 12 meses, y ya no se podía cargar).
   if (/\banual(?:es|mente)?\b|por ano|al ano|cada ano/.test(t)) return { tipo: 'suscripcion', meses: null, periodo: 'anual' };
-  if (/por semana|semanal|a la semana/.test(t)) return { tipo: 'suscripcion', meses: null, periodo: 'semanal' };
   if (!/mensual|por mes|al mes|cada mes|mes a mes|\/\s?mes|cuotas|mensualidad/.test(t)) return { tipo: 'unico', meses: null };
   const meses = t.match(/(\d{1,2})\s*meses\b/);
   return { tipo: 'suscripcion', meses: meses ? Number(meses[1]) || null : null };

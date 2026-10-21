@@ -2650,6 +2650,27 @@ aceptaba la opción exacta: todo esto entraba nuevo.
   Excel. La exportación de clientes antepone «'» a lo que empieza con = + - @. Las otras exportaciones a CSV están en
   hallazgos-seguridad.
 
+**Y la séptima (punta 689f75560, entró sin altos ni medios): seis bajos.**
+- ⚠️ **Con un nombre esperando, una palabra que es sí y también nombre no puede confirmar.** La tercera revisión hizo un sí
+  de «Vale», «Listo», «Simón» o «Ándale»; la quinta dijo que también son nombres reales. Juntas, con «¿Te llamo «Cómo
+  Estás»?» escribir «Simón» para corregir guardaba «Cómo Estás». **Regla:** con un pendiente, lo que empieza con una
+  palabra de `PUEDE_SER_NOMBRE` es una 'duda' (`siAlPendiente`). No confirma ni reemplaza: se pregunta cuál («Escribe «Se
+  llama Listo». Si es «Vendo ropa», toca…»). El mismo nombre otra vez confirma. «Sí, …», «Ok», «Correcto» o «Está bien»
+  siguen siendo un sí. Las dos revisiones tenían razón a la vez, y la salida fue preguntar, no elegir una.
+- **Mover una regla arrastra a sus vecinas.** La sexta puso las cuotas antes que lo anual («Programa anual: 12 cuotas»),
+  pero movió también lo semanal, y «8 cuotas semanales» volvió a ser «Suscripción de 8 meses». Ahora lo semanal va antes y
+  las cuotas que dicen otra periodicidad («2 pagos anuales») no son meses.
+- **El sí o no «pelado» del toque era demasiado pelado.** Sólo valían «sí» y «no», y «Ok», «Dale», «👍» o «Nop» se anotaban
+  y se volvía a preguntar sin fin. Ahora cuentan los sí y no de una palabra (`SI_DE_UNA_PALABRA`, `NO_DE_UNA_PALABRA`, sin
+  el color de piel del emoji), y lo escrito tiene tope (`PDF_TOPE_ESCRITAS`: al pasarlo, se pide el botón).
+- **Una instrucción atada a una marca exacta no cubre lo que dice lo mismo con otras palabras.** MaKo preguntaba «qué
+  falta» sólo si la nota era `PDF_SIN_DETALLE`, y no con «No me convence». Ahora la instrucción va siempre.
+- **El mismo nombre otra vez tiene que leerse igual que la primera vez.** «Su Lin» se propuso con `nombreSinCortar`, pero
+  al escribirlo de nuevo se comparaba sólo con `extraerNombre`, que lo deja vacío.
+- **Un texto que se repite en una pregunta se corta por punto de código, no por unidad UTF-16.** `slice(0, 60)` partía un
+  emoji y dejaba medio par suelto, que se ve «�» y que Postgres rechaza al copiar la conversación al chat «Onboarding».
+  Ahora `cortar` corta por punto de código, también en `limpiarRespuesta` y en los nombres.
+
 **Sin hacer:** «Vendo 20 a 500 dólares» se sigue leyendo como un rango; la confirmación lo muestra y se corrige con un
 toque. Las etiquetas de los tramos dicen «$» sin «USD» (lib/fase-diagnostico.ts): es una decisión de copy, no de este
 chat. Vive en lib/onboarding-arranque.ts (`cifraDe`). Cobrar por año o por semana necesita un intervalo en el producto

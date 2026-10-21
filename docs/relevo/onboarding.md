@@ -1,5 +1,16 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 21/10/2026 — SÉPTIMA REVISIÓN (de 689f75560): ENTRÓ; LOS SEIS BAJOS
+
+<sub>Chat «Onboarding», claude4, rama onboarding-v3. El Cerebro: «689f75560 ENTRA, sin altos ni medios»
+(side-session-notes/local_797d5445…/revision-onboarding-septima-21-10.md).</sub>
+
+- Con un nombre esperando, «Simón», «Vale», «Listo» o «Tal Cual» ni confirman ni reemplazan: se pregunta cuál
+  (`siAlPendiente`, `PUEDE_SER_NOMBRE` en lib/onboarding-frases.ts). El mismo nombre otra vez confirma, también «Su Lin».
+- Cobro: lo semanal va antes que las cuotas, y las cuotas «anuales» no son meses. Toque del PDF: valen los sí y no de una
+  palabra («Ok», «Dale», «👍», «Nop», «👎»), con tope de `PDF_TOPE_ESCRITAS`. MaKo pregunta qué falta siempre que la nota
+  no lo dice. Los recortes van por punto de código (`cortar`). Tests: tests/onboarding-septima-revision.test.ts.
+
 ## ESTADO AL 21/10/2026 — SEXTA REVISIÓN (de a0cdcfcc6): EL TOQUE DEL PDF CON LA POLARIDAD DE LA PREGUNTA
 
 <sub>Chat «Onboarding», claude4, rama onboarding-v3

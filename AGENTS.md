@@ -2020,6 +2020,11 @@ pregunta del toque repite lo que confirma (así el guard de pestaña vieja la di
 sí o un no pelados, y lo demás escrito se SUMA a lo anterior, no lo pisa. Y al exportar a CSV texto que escribió otro, lo
 que empieza con = + - @ va con una comilla simple adelante (docs/hallazgos-seguridad.md).
 
+**Con un nombre esperando, una palabra que es sí y también nombre no confirma (séptima revisión, 21/10/2026).** «Simón»,
+«Vale», «Listo» son un sí y son nombres reales: con un pendiente, se pregunta cuál de los dos es (`siAlPendiente`). Y un
+texto del usuario que se recorta se corta por punto de código (`cortar`), nunca con `slice`: un emoji partido no se puede
+guardar en Postgres.
+
 **El corolario para lo que DICE MaKo (21/10/2026, el guardia de promesas 1.5):** un filtro sobre el texto del modelo
 NUNCA borra una oración. El guardia por raíces de palabras borraba 8 de 14 respuestas verdaderas («Sí, ya te la
 agendé» después de confirmar la tarjeta pasaba a «En este mensaje no hice nada») y atajaba 3 de 18 falsas, medido con

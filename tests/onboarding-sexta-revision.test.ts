@@ -40,7 +40,7 @@ test('1. el toque del PDF tiene la misma polaridad que «¿está correcto?», re
   assert.match(m?.texto ?? '', /^Escribiste «Todo perfecto»\. ¿Lo tomo como que está todo bien\?$/);
   assert.deepEqual(m?.opciones, [PDF_BIEN, PDF_FALTA], 'el sí primero, como en «¿está correcto?»');
   // Antes: las 20 daban pdfOk 'no' con la nota «Todo perfecto». Ahora ninguna decide: se suman y se vuelve a preguntar.
-  for (const t of ['Está perfecto', 'Así está bien', 'Está bien así', 'Muy bien', 'Mejor así', 'Genial', 'Listo', 'Gracias', '👍', 'Ok', 'Sí, falta la garantía']) {
+  for (const t of ['Está perfecto', 'Así está bien', 'Está bien así', 'Muy bien', 'Mejor así', 'Genial', 'Listo', 'Gracias', 'Sí, falta la garantía']) {
     const r = responder(P, { texto: t });
     assert.deepEqual(r, { ok: true, patch: { pdfEscritas: ['Todo perfecto', t] } }, `«${t}»`);
   }
@@ -81,7 +81,7 @@ test('4. un «no» al PDF siempre deja marca: sin nada escrito, «sin detalle»,
   }
   assert.match(leer('lib/onboarding-arranque-server.ts'), /const pdfNota = notaDelPdf\(e\);/);
   const api = sinComentarios(leer('lib/api-mako/areas/negocio.run.ts'));
-  assert.match(api, /encuesta\?\.pdfNota === PDF_SIN_DETALLE \? 'No dijo qué: pregúntale qué falta o qué está mal/);
+  assert.match(api, /Si la nota no dice QUÉ falta o qué está mal \(«sin detalle», «No me convence», «Falta algo»\), pregúntale antes de corregir nada\./);
 });
 
 test('5. el cobro: las cuotas se leen antes que lo anual', () => {
