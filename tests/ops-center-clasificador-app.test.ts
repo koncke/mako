@@ -576,6 +576,82 @@ const ADS: Caso[] = [
   ["¿qué anuncios fueron rechazados?", ["listar_anuncios_con_problemas_meta"]],
 ];
 
+const VIDEO_ED_AVATAR: Caso[] = [
+  ["cortá los primeros 3 segundos del video Promo octubre", ["recortar_clip_video","cortar_tramo_video"]],
+  ["corta los primeros 3 segundos del video Promo octubre", ["recortar_clip_video","cortar_tramo_video"]],
+  ["¿podés cortar el video Promo en el segundo 5?", ["dividir_clip_video"]],
+  ["agregale subtítulos al video de la promo", ["generar_subtitulos_video"]],
+  ["agrega subtítulos al video Promo", ["generar_subtitulos_video"]],
+  ["quiero que le pongas subtítulos al video Promo", ["generar_subtitulos_video"]],
+  ["cambiá el video Promo: ponele subtítulos", ["generar_subtitulos_video"]],
+  ["¿le podés poner subtítulos al video Promo?", ["generar_subtitulos_video"]],
+  ["sacale las muletillas a mi último video", ["eliminar_muletillas_video"]],
+  ["elimina las muletillas del video Promo", ["eliminar_muletillas_video"]],
+  ["eliminá las muletillas del video Promo", ["eliminar_muletillas_video"]],
+  ["poné un texto que diga 50% off al inicio del video Promo", ["agregar_texto_video"]],
+  ["Mako, ponle un texto que diga 50% off al inicio del video Promo", ["agregar_texto_video"]],
+  ["agregá un texto que diga Oferta al video Promo", ["agregar_texto_video"]],
+  ["cambia el texto del video Promo que dice Hola por Bienvenidos", ["cambiar_texto_video"]],
+  ["cambiá el texto del video Promo que dice Hola por Bienvenidos", ["cambiar_texto_video"]],
+  ["subile el volumen a la música del video Promo", ["cambiar_volumen_video"]],
+  ["sube la música del video Promo", ["cambiar_volumen_video"]],
+  ["subí el volumen de la música del video Promo", ["cambiar_volumen_video"]],
+  ["ponele una transición entre los clips del video Promo", ["poner_transicion_video"]],
+  ["actualizá el video Promo con una transición entre v1 y v2", ["poner_transicion_video"]],
+  ["acelera el clip 2 del video Promo al doble", ["cambiar_velocidad_video"]],
+  ["cambiá la velocidad del clip v1 del video Promo al doble", ["cambiar_velocidad_video"]],
+  ["mové el texto t2 del video Promo al segundo 3", ["mover_elemento_video"]],
+  ["armame un video con la plantilla de testimonio", ["usar_plantilla_video","listar_plantillas_video"]],
+  ["usa la plantilla de testimonio en el video Promo", ["usar_plantilla_video"]],
+  ["editá mi video", ["listar_proyectos_video"]],
+  ["necesito editar un video", ["listar_proyectos_video"]],
+  ["quiero editar mis videos desde acá", ["listar_proyectos_video"]],
+  ["hazme un video para Instagram con mis fotos", ["listar_plantillas_video"]],
+  ["exportá el video Promo en 1080", ["ver_proyecto_video"]],
+  ["quitale el fondo al clip del video Promo", ["ver_proyecto_video"]],
+  ["borrá los silencios del video Promo", ["ver_proyecto_video"]],
+];
+
+const PREGUNTAS_EDITOR_AVATAR: Caso[] = [
+  ["¿qué proyectos tengo en el editor de video?", ["listar_proyectos_video"]],
+  ["¿qué plantillas de video hay?", ["listar_plantillas_video"]],
+];
+
+const IMAGEN_AVATAR: Caso[] = [
+  ["creame un flyer para la inauguración del sábado", ["crear_diseno_imagen","listar_plantillas_imagen"]],
+  ["diseñame un banner para la promo", ["crear_diseno_imagen","listar_plantillas_imagen"]],
+  ["haceme una historia de instagram para la promo", ["crear_diseno_imagen","listar_plantillas_imagen"]],
+  ["cambiá el texto del banner de la promo a 30% off", ["cambiar_textos_diseno_imagen"]],
+  ["¿qué diseños tengo?", ["listar_disenos_imagen"]],
+  ["duplicá el diseño de la promo", ["duplicar_diseno_imagen"]],
+  ["borrá el diseño Promo vieja", ["borrar_diseno_imagen"]],
+  ["eliminá el diseño Promo vieja", ["borrar_diseno_imagen"]],
+  ["cambiá el diseño Promo: fondo azul", ["listar_disenos_imagen"]],
+  ["cambiá el color de fondo del flyer a azul", ["listar_disenos_imagen"]],
+  ["poné mi logo en el flyer", ["listar_disenos_imagen"]],
+  ["descargá el flyer en PNG", ["listar_disenos_imagen"]],
+  ["exportá el diseño Promo en PDF", ["listar_disenos_imagen"]],
+];
+
+const GENERATOR_AVATAR: Caso[] = [
+  ["¿cómo van mis videos?", ["listar_anuncios_video"]],
+  ["filmá el guion de la promo", ["listar_guiones_para_video"]],
+  ["grabá el anuncio del guion nuevo", ["listar_guiones_para_video"]],
+  ["¿qué guiones me faltan filmar?", ["listar_guiones_para_video"]],
+  ["¿me alcanzan los créditos de Flow para filmar el anuncio?", ["ver_saldo_flow","calcular_alcance_anuncio"]],
+  ["¿por qué no se filma mi anuncio?", ["ver_puente_flow","listar_trabajos_flow"]],
+  ["¿está conectada la extensión de Flow?", ["ver_puente_flow"]],
+  ["montá el anuncio de la promo", ["ver_montaje_anuncio"]],
+  ["¿cómo va el montaje del anuncio?", ["ver_montaje_anuncio"]],
+  ["regenerá la toma 3 del anuncio", ["ver_anuncio_video"]],
+  ["¿tengo listo mi avatar?", ["ver_avatares"]],
+  ["creame un avatar en la oficina", ["ver_avatares"]],
+  ["hacé que mi avatar diga: hola, soy Juan", ["ver_avatares"]],
+  ["¿qué acento tiene mi voz?", ["ver_voz_cliente"]],
+  ["cloná mi voz", ["ver_voz_cliente"]],
+  ["cambiá el acento a mexicano", ["ver_contexto_video"]],
+];
+
 // --- 1. Cada frase medida llega a su operación ------------------------------------------------------------------------------
 
 test('núcleo: 40 pedidos naturales llegan a su operación por la app', () => {
@@ -622,6 +698,18 @@ test('landing: las 39 frases (tuteo y voseo) llegan a su operación por la app',
 });
 test('ads: las 30 frases (tuteo y voseo) llegan a su operación por la app', () => {
   assert.deepEqual(faltan(ADS), []);
+});
+test('video_ed_avatar: las 33 frases (tuteo y voseo) llegan a su operación por la app', () => {
+  assert.deepEqual(faltan(VIDEO_ED_AVATAR), []);
+});
+test('preguntas_editor_avatar: las 2 frases (tuteo y voseo) llegan a su operación por la app', () => {
+  assert.deepEqual(faltan(PREGUNTAS_EDITOR_AVATAR), []);
+});
+test('imagen_avatar: las 13 frases (tuteo y voseo) llegan a su operación por la app', () => {
+  assert.deepEqual(faltan(IMAGEN_AVATAR), []);
+});
+test('generator_avatar: las 16 frases (tuteo y voseo) llegan a su operación por la app', () => {
+  assert.deepEqual(faltan(GENERATOR_AVATAR), []);
 });
 
 // --- 2. WhatsApp sigue anotando ------------------------------------------------------------------------------------------------
@@ -817,7 +905,7 @@ test('un sustantivo o una tercera persona al arranque no es una orden', () => {
     'marca registrada', 'factura electrónica', 'copia de seguridad', 'carga lenta la app', 'cobra caro el closer', 'responde siempre tarde el setter',
     'abre a las 9 el local', 'suma 2 + 2', 'deja de inventar', 'deja que lo piense', 'cierra a las 20 el local', 'baja de ventas este mes',
   ]) assert.equal(pideHacerAlApp(f), false, `«${f}» se leyó como una orden`);
-  for (const f of ['marcá el lead como calificado', 'marcalo como calificado', 'pausá la campaña', 'pausala', 'cargá el plan de pagos', 'cargalo', 'facturale a Juan', 'copiá el diseño', 'dejale una nota a Juan', 'programá el análisis']) {
+  for (const f of ['marcá el lead como calificado', 'marcalo como calificado', 'pausá la campaña', 'pausala', 'cargá el plan de pagos', 'cargalo', 'facturale a Juan', 'copiá el diseño', 'dejale una nota a Juan', 'programá el análisis', '¿le podés poner subtítulos al video Promo?', '¿me podés cambiar la hora?', '¿les puedes mandar el link?']) {
     assert.equal(pideHacerAlApp(f), true, `«${f}» dejó de ser una orden`);
   }
 });
@@ -832,7 +920,7 @@ test('el peso de un turno: la charla no viaja con herramientas y el registro no 
   }
 });
 
-// Probado rompiéndolo (20/10/2026), una rotura por vez, con todo en verde antes. 78 roturas, cada una con su fallo (29 de la tanda 1, 9 de las 2 y 3, 5 de la 4, 5 de la 5, 4 de la 6 y 26 de los arreglos de la revisión adversarial):
+// Probado rompiéndolo (20/10/2026), una rotura por vez, con todo en verde antes. 85 roturas, cada una con su fallo (29 de la tanda 1, 9 de las 2 y 3, 5 de la 4, 5 de la 5, 4 de la 6, 26 de los arreglos de la revisión adversarial y 7 de las frases del chat de Video / AI Avatar):
 //   · el default de la app sin actuar · la regla del verbo de hacer · el volcado con verbo que vuelve a anotarse · el link con verbo
 //     que vuelve a ser material · la pregunta que no busca en todo el registro · «llamada Caliente» que vuelve a ser agenda · la
 //     plantilla que no le gana a la agenda · «prueba la automatización» que vuelve a ser saludo · sin la búsqueda en todo el registro ·

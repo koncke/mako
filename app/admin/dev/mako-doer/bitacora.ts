@@ -531,7 +531,7 @@ export const BITACORA: Hito[] = [
       'lib/mako-intencion.ts — NOMBRADO sólo en la app, `adivina`, los acuses y lo de la app en todos los retornos',
       'lib/mako-intencion-app.ts — las formas homógrafas, `sinVerboAlArranque` y las palabras de área',
       'lib/api-mako/registro.ts — `donde` y `silencioso` en toolsDelRegistro (aditivos)',
-      'tests/ops-center-clasificador-app.test.ts — 449 frases, 33 tests, 78 roturas con su fallo',
+      'tests/ops-center-clasificador-app.test.ts — 513 frases, 37 tests, 85 roturas con su fallo (incluye las 64 del chat de Video / AI Avatar, 64/64)',
     ],
   },
 ];

@@ -81,7 +81,7 @@ const ORDEN = new RegExp(`^(?:(?:${alt(FORMAS)})(?:${CLITICOS})?(?![a-z])|(?:${a
 /** El pedido indirecto: «quiero crear una landing», «necesito agregar un lead», «¿podés cambiar la hora?». */
 const PEDIDO_INDIRECTO = new RegExp(
   `^(?:(?:quiero|queremos|queria|quisiera|necesito|necesitamos|necesitaria|me gustaria|nos gustaria)\\s+(?:poder\\s+)?(?:${alt(INFINITIVOS)})(?:${CLITICOS})?(?![a-z])` +
-  `|(?:me\\s+|nos\\s+)?(?:podes|puedes|podrias|pueden|podria)\\s+(?:por favor\\s+)?(?:${alt(INFINITIVOS)})(?:${CLITICOS})?(?![a-z])` +
+  `|(?:me\\s+|nos\\s+|le\\s+|les\\s+|te\\s+)?(?:podes|puedes|podrias|pueden|podria)\\s+(?:por favor\\s+)?(?:${alt(INFINITIVOS)})(?:${CLITICOS})?(?![a-z])` +
   `|(?:hazme|haceme)\\s+el\\s+favor\\s+de\\s+(?:${alt(INFINITIVOS)})(?![a-z]))`,
 );
 
@@ -170,6 +170,13 @@ const FAMILIAS: readonly Familia[] = [
   { id: 'area-ads', test: /\bpublicos?\b|\bretargeting\b|\bformularios? instantaneos?\b|\bguion(?:es)?\b|\bangulos?\b|\bvocabulario\b/, areas: ['ads'], relevancia: '' },
   { id: 'area-partners', test: /\bpartners?\b/, areas: ['cs'], relevancia: 'llevar partners' },
   { id: 'sabes-del-negocio', test: /\bque (?:sabes|sabe|conoces|conoce|hay) (?:de|sobre) mi (?:negocio|empresa|marca)\b/, areas: ['negocio'], relevancia: 'contexto negocio perfil' },
+  // ── Video, imagen y AI Avatar (las frases del chat de video: frases-video-imagen-1-2.json) ──
+  { id: 'musica-video', test: /\bmusica\b/, areas: ['video'], relevancia: 'cambiar volumen video', actua: true },
+  { id: 'plantilla-video', test: /\bplantilla\b[^.\n]{0,40}\bvideo\b|\bvideo\b[^.\n]{0,40}\bplantilla\b/, areas: ['video'], relevancia: 'usar plantilla video', actua: true, ganaALaAgenda: true },
+  { id: 'historia-instagram', test: /\bhistorias? de (?:instagram|ig)\b|\bstor(?:y|ies)\b|\bcarrusel\b|\bminiaturas?\b/, areas: ['imagen'], relevancia: 'crear diseno imagen', actua: true },
+  { id: 'se-filma', test: /\bse filma\b|\bfilma\w*\b[^.\n]{0,30}\banuncio\b/, areas: ['video'], relevancia: 'ver puente flow listar trabajos flow' },
+  { id: 'voz-acento', test: /\bmi voz\b|\bclon\w+\b[^.\n]{0,15}\bvoz\b|\bacento\b/, areas: ['video'], relevancia: 'ver voz cliente contexto video', actua: true },
+  { id: 'subtitulos', test: /\bsubtitul\w+/, areas: ['video'], relevancia: 'generar subtitulos video', actua: true },
 ];
 
 export type FamiliaDelPedido = { ids: string[]; areas: Area[]; relevancia: string; actua: boolean; ganaALaAgenda: boolean; ganaAlLead: boolean; ganaALaLanding: boolean };
