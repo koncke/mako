@@ -4235,10 +4235,17 @@ textos fuera de la ventana, textos pisados, cortados con «…» y scroll de cos
   «textos pisados»: hay que excluirlas o se persigue un fantasma. Un texto con «…» tiene su rectángulo de texto entero
   aunque se vea cortado: hay que mirar si una caja con `overflow` lo recorta. Y en el Chrome de la extensión, después
   de cambiar el tamaño de la ventana, sólo una PESTAÑA NUEVA toma el tamaño nuevo: la vieja se queda con el anterior.
+  ⚠️ Con la ventana MAXIMIZADA ni eso: el cambio de tamaño contesta «Successfully resized» y `innerWidth` sigue en el
+  ancho de la pantalla, también en una pestaña nueva (medido el 21/10, chat Dashboard). Ahí se emula el ancho de la
+  caja que importa (el contenedor, calculado con la barra y los márgenes medidos), no el de la ventana.
 
-**Sin hacer:** el Dashboard pisa «Contenido y lanzamiento» con «Sugerido» (una tarjeta de plantilla) con la barra
-abierta a 1283 (es del Dashboard). La vista de lista del CRM, que Martín vio pisada, es del CRM. Lo de después se midió
-inyectando estas mismas reglas en la página de producción, no en un build.
+**Lo del Dashboard era la trampa de arriba, no un pisado** (lo midió el chat Dashboard el mismo 21/10): «Contenido y
+lanzamiento» con «Sugerido» se ve «Contenido y lanza… Sugerido» a 1283 abierta, 1024 y 934 (abierta y plegada), 0
+pisadas. La CAJA del título termina antes del chip (907–1045 contra 1053–1101 a 1283); lo que se cruzaba era el
+rectángulo del TEXTO (907–1079). Lo sostiene el CSS de la tarjeta (`.nh-nombre` con «…», `.nh-sugerido` sin achicarse,
+app/dashboard/NuevaHoja.tsx), atado en tests/plantillas-sugeridas.test.ts.
+**Sin hacer:** la vista de lista del CRM, que Martín vio pisada, es del CRM. Lo de después se midió inyectando estas
+mismas reglas en la página de producción, no en un build.
 
 **Vive en:** `app/_components/Sidebar.tsx` (`ANCHO_BARRA_PLEGADA`) · `app/_ui/ajustes.css` · `app/globals.css`
 (`.mk-svc-modal`) · `app/integraciones/IntegracionesBoard.tsx` · test: `tests/ventana-chica.test.ts`
