@@ -720,4 +720,14 @@ export const BITACORA: Hito[] = [
       'tests/ops-center-landing-receta.test.ts y tests/ops-center-landing-bloques.test.ts — probados rompiéndolos',
     ],
   },
+  {
+    fecha: '20 oct', hora: '22:05', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: el chat del editor de landings deja adjuntar documentos, ya en producción',
+    puntos: [
+      'En producción desde el run 174 (deploy de e0cf9a317): el «+» del Ops Center en el chat del editor, lo adjuntado como material del pedido, el chip de «Lo que vendes» y varios archivos en la caja de crear.',
+      'No se vio con clics: está probado con tests. Se prueba creando o abriendo una landing en el ws3 (no tiene ninguna) y usando el chat de la izquierda.',
+    ],
+    revisar: '/web-generator?ws=3',
+  },
 ];
