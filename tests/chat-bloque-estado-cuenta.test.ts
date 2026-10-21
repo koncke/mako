@@ -13,7 +13,9 @@
 //      archivo, que el modelo dice que es de ESTE lead, cuando toca cobrar una cuota, y que otro lead del mismo mensaje
 //      no tomó; el saneo exige su cuota;
 //   4. `cobranza_lead` dibuja sólo en el chat de la app, con los archivos del mensaje que le pasa el turno, y le dice al
-//      modelo qué pasó con el archivo (con comprobante, no propone `marcar_pago_cobrado`; sin saber de quién es, pregunta).
+//      modelo qué pasó con el archivo (con comprobante, no propone `marcar_pago_cobrado`; sin saber de quién es, pregunta);
+//   5. (revisión de 1b6fc9ad8, baja) el comprobante se lee con la moneda del negocio YA CARGADA: `useMonedaDelNegocio`
+//      empezaba en 'USD' y el del chat se leía al abrir con ésa.
 // Sin DOM en los tests de la casa (docs/hallazgos-infra.md): lo que corre en un efecto (bajar el archivo, leerlo) se fija
 // en el fuente; lo demás se DIBUJA en un node aparte (tests/_bloques-pagos-hijo.ts).
 //
@@ -120,10 +122,29 @@ test('2. ⚠️ el comprobante llega a «Marcar pagada» SÓLO para su cuota, im
   // Sin quitar comentarios: el `accept=".pdf,image/*"` del input abre un «/*» que se comería el botón.
   const modal = leer('app/crm/lead-view/ficha/pagos/piezas.tsx');
   const marcar = modal.slice(modal.indexOf('export function MarcarPagada('), modal.indexOf('export function RegistrarPago('));
-  assert.match(marcar, /comprobante\.leer\(\)\.then\(\(f\) => subir\(f\)/);
+  assert.match(marcar, /comprobante\.leer\(\)\.then\(\(f\) => subir\(f, monedaNegocio\)/);
   assert.match(marcar, /onClick=\{\(\) => archivo\.current\?\.click\(\)\}>Subir el comprobante<\/Button>/);
   assert.match(marcar, /await fetch\('\/api\/extract-receipt', \{ method: 'POST', body: fd \}\)/);
-  assert.match(marcar, /if \(!comprobante \|\| delChat\.current\) return;\s*delChat\.current = true;/, 'se lee una sola vez al abrir');
+  assert.match(marcar, /if \(!comprobante \|\| delChat\.current \|\| monedaNegocio == null\) return;\s*delChat\.current = true;/, 'se lee una sola vez al abrir');
+});
+
+test('5. ⚠️ el comprobante se lee con la moneda del negocio YA CARGADA, nunca con la del primer render', () => {
+  // La moneda es null mientras no llega (antes empezaba en 'USD'): quien lee algo con ella, espera.
+  const datos = sinComentarios(leer('app/crm/lead-view/ficha/pagos/datos.ts'));
+  assert.match(datos, /export function useMonedaDelNegocio\(\): string \| null \{\s*const \[moneda, setMoneda\] = useState<string \| null>\(null\);/);
+  assert.match(datos, /\.catch\(\(\) => \{ if \(vivo\) setMoneda\('USD'\); \}\)/, 'si no se puede leer, la de siempre (y el comprobante se lee igual)');
+  const modal = leer('app/crm/lead-view/ficha/pagos/piezas.tsx');
+  const marcar = modal.slice(modal.indexOf('export function MarcarPagada('), modal.indexOf('export function RegistrarPago('));
+  // El del chat: el efecto espera la moneda y la pasa (no la del render en que se abrió).
+  assert.match(marcar, /\}, \[comprobante, monedaNegocio\]\);/);
+  assert.match(marcar, /const subir = async \(file: File, moneda: string\) => \{/);
+  assert.match(marcar, /const p = plataDeRecibo\(j, moneda, valorUsd\);/);
+  assert.doesNotMatch(marcar, /plataDeRecibo\(j, monedaNegocio/);
+  // «Subir el comprobante» a mano tampoco sale antes de saberla.
+  assert.match(marcar, /loading=\{leyendo \|\| monedaNegocio == null\} onClick=\{\(\) => archivo\.current\?\.click\(\)\}>Subir el comprobante/);
+  assert.match(marcar, /if \(f && monedaNegocio != null\) void subir\(f, monedaNegocio\);/);
+  // Lo que todavía no se sabe se muestra como USD (los campos), pero no se lee nada con eso.
+  assert.match(sinComentarios(leer('app/crm/lead-view/ficha/pagos/cobrar.tsx')), /<RegistrarPago leadId=\{lead\.id\} monedaNegocio=\{moneda \?\? 'USD'\}/);
 });
 
 test('3. ⚠️ el comprobante va atado al lead y al pedido: uno, de ESTE lead, para cobrar una cuota, y de un solo lead', () => {
@@ -229,3 +250,11 @@ test('4. `cobranza_lead` dibuja sólo en la app y le dice al modelo qué pasó c
 //   · la nota de `cobranza_lead` va aunque el bloque no entre                         → 3 / 1 (4)
 //   · sin archivo en el mensaje, no lo dice                                           → 3 / 1 (3)
 //   · preguntar sin pedir que vuelva a adjuntarlo                                     → 3 / 1 (4)
+//
+// ROTURAS de la revisión de 1b6fc9ad8 (21/10/2026, la baja de la moneda). Base: 5 pases, 0 fallos. Rota (pases / fallos):
+//   · la moneda del negocio vuelve a empezar en 'USD'                                 → 4 / 1 (5)
+//   · el comprobante del chat no espera la moneda                                     → 4 / 1 (2)
+//   · el efecto sólo depende del comprobante                                          → 4 / 1 (5)
+//   · `subir` lee con la moneda del render                                            → 4 / 1 (5)
+//   · «Subir el comprobante» antes de saber la moneda                                 → 4 / 1 (5)
+//   · si la lectura de la moneda falla, nunca se sabe (el del chat no se lee nunca)   → 4 / 1 (5)

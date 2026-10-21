@@ -197,4 +197,42 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/clients?ws=3',
   },
+  {
+    fecha: '21 oct', hora: '13:00', chat: 'Pagos', sesion: 'local_d0cd6fc8-e2f9-4ee9-b76a-19264ced015f', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: el chat con MaKo muestra el estado de cuenta del cliente y lee el comprobante que le mandas',
+    pedido: 'la 2.28 de Ops Center = lo principal (Pagos), con tres revisiones del Cerebro',
+    puntos: [
+      'Le preguntas a MaKo cómo está de pagos un cliente y te muestra el estado de cuenta en el chat: el mismo de la pestaña Pagos de su ficha, con «Cobrar la cuota».',
+      'Si le mandas el comprobante en el mismo mensaje, al cobrar la cuota lo lee solo: monto, fecha y hora quedan cargados para revisar y guardar. Sólo para la cuota de ese cliente; si no está claro de quién es, te pregunta.',
+      'El monto del comprobante se lee en SU moneda: unos pesos no se convierten con un tipo de cambio inventado. En un negocio en pesos, un «$» sin código no se toma por dólares, y te avisa si el monto no cuadra con la cuota.',
+      'Un comprobante ya no le cambia el recibo a una cuota que ya estaba cobrada.',
+    ],
+    commits: [{ sha: '1b6fc9ad8', msg: 'Pagos: el estado de cuenta y el comprobante en el chat con MaKo (entró con 83d0c1ddb, run 209)', lineas: 1454, archivos: 36 }],
+    archivos: [
+      'app/_chat/bloques/EstadoCuentaHilo.tsx y app/crm/lead-view/ficha/pagos/comprobante-del-chat.ts — el estado de cuenta y el comprobante en el hilo',
+      'lib/pagos-bloque.ts — `comprobanteDelPedido`: el comprobante va atado al cliente y a su cuota',
+      'app/api/extract-receipt/route.ts y app/crm/lead-view/ficha/pagos/recibo-leido.ts — monto y moneda tal cual, sin convertir',
+      'tests/chat-bloque-estado-cuenta.test.ts y tests/pagos-recibo-leido.test.ts — con la ruta real, probados rompiéndolos',
+    ],
+    revisar: '/second-brain?ws=3',
+  },
+  {
+    fecha: '21 oct', hora: '13:45', chat: 'Pagos', sesion: 'local_d0cd6fc8-e2f9-4ee9-b76a-19264ced015f', cuenta: 'claude4', actor: 'claude', tipo: 'correccion',
+    titulo: 'Hecho: leer un contrato ya no inventa un tipo de cambio',
+    pedido: 'revisión de los bloques de Pagos (Cerebro, 21/10): el lector del contrato convertía como el del comprobante',
+    puntos: [
+      'Al pasar un cliente a Ganado y leer su contrato, el total y las cuotas se leen en SU moneda. Si el contrato está en pesos, te muestra «el contrato dice MX$72.000» y los dólares los cargas tú: ya no salen de una tasa que inventaba la IA.',
+      'Si el contrato es en dólares, las cuotas se cargan solas sólo si suman el total. Un «US$4.000 en 12 mensualidades de $6.000 M.N.» ya no arma un plan de 72.000 dólares.',
+      'Un lector de contratos viejo guardado en Configuraciones que convertía no deja sus montos, y te lo dice.',
+      'La página pública (/vsl) ya no promete la conversión.',
+    ],
+    commits: [{ sha: 'b23ce2a9c', msg: 'Pagos: el lector del contrato lee montos y moneda tal cual, y las cuotas valen si suman el total (entró con 26b44e063, deploy 42efe1713)', lineas: 318, archivos: 10 }],
+    archivos: [
+      'lib/contrato-montos.ts — `montosDelContrato`: qué montos van según la moneda, y la tolerancia del asistente',
+      'lib/prompt-defaults.ts — CONTRACT_EXTRACT_DEFAULT: el total y las cuotas tal como figuran, con su moneda',
+      'app/crm/StageMoveDialog.tsx — el asistente de Ganado dice qué falta cargar',
+      'tests/pagos-contrato-moneda.test.ts — con la ruta real, probado rompiéndolo',
+    ],
+    revisar: '/crm?ws=3',
+  },
 ];
