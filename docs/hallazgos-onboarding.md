@@ -2524,3 +2524,42 @@ pasando a `CajaChat` con `accept: ACCEPT_IMPORTAR` cuando caja-voz llegue a main
 la propuesta ANTES de responder (bajó a 25 s / 45 s con la red); armarla aparte queda para después.
 
 *20/10/2026, noche, chat «Onboarding» (claude4), rama onboarding-v3.*
+
+## El parser escrito necesita confirmación: tres rondas de reglas abrieron agujeros nuevos cada vez (21/10/2026)
+
+**El síntoma.** Hubo tres revisiones del Cerebro seguidas (20/10 tarde, 20/10 noche, 21/10 madrugada) sobre lo que el
+onboarding lee de una respuesta ESCRITA en una pregunta con opciones. Cada ronda cerró los casos de la anterior y abrió
+otros con frases igual de comunes:
+- **Ronda 1:** «15.000» caía en «$0 – $3.000» por el token «000», y «no hago llamadas» era «Llamada de venta».
+- **Ronda 2:** «millones» valía por mil, la negación se aplicaba también a las opciones y «directo» era chat.
+- **Ronda 3:** «2 palos» (pesos) se leía en dólares, lo negado valía doble y pisaba el contenido, «web» sola era
+  carrito, un «a la semana» suelto multiplicaba lo mensual, «treinta y pico mil» quedaba en «todavía nada», y «Sí, es
+  así» proponía el nombre «así».
+
+Cada error se GUARDABA en el diagnóstico con un «Lo tomé como: …» que informaba sin dejar corregir. En producción sólo se
+aceptaba la opción exacta: todo esto entraba nuevo.
+
+- ⚠️ **El diagnóstico obvio de la ronda 3 era el equivocado: «2 millones de pesos» no era un bug de «millones».** Los tramos
+  son en DÓLARES (lib/fase-diagnostico.ts: «$0 – $3k/mes · $20/día en ads»). El arreglo de la ronda 2 multiplicaba bien,
+  pero ignoraba la moneda, y **el test de esa ronda FIJABA el error** (`['unos 2 millones de pesos', 4]`, «Más de $80.000»).
+  Un test que fija una lectura puede fijar la lectura mala: la frase de la batería necesita también la respuesta
+  verdadera, no la que da el código.
+- **La regla (decisión del Cerebro): no hay una cuarta ronda de reglas, hay un toque.** Lo escrito se lee, MaKo muestra
+  «Entendí: «…». ¿Es así?» con «Sí, es eso» y las otras opciones, y se guarda recién con ese toque (`opcionPorConfirmar`,
+  `elegirOpcion`, lib/onboarding-arranque.ts). Un error de lectura cuesta un clic. Sin una lectura clara (un empate, una
+  sola palabra suelta, dos cifras de plata, una moneda que no es el dólar) no se adivina: se muestran las opciones, o se
+  pregunta «¿cuánto es más o menos en dólares?». La regla general quedó en AGENTS.md.
+- **El seguro se prueba BARRIENDO, no caso por caso.** tests/onboarding-opcion-escrita.test.ts pasa ~30 frases por cada
+  pregunta de la fase, el canal y el interés, en los dos modos, y fija que ninguna guarda nada sin el toque. Romper la
+  confirmación tira 6 tests.
+- **Una rotura que ningún test detecta dice que el código sobra.** Sumar los verbos de relleno («tengo», «hago») a las
+  palabras vacías no cambiaba ninguna frase de la batería. Se sacó en vez de inventarle un test.
+- **El «sí» al nombre pendiente se lee por frase entera y nunca se vuelve el nombre.** «Sí, es así», «sisi», «Vale»,
+  «Listo», «es mi negocio» son un sí. Una palabra de acuerdo (o «No, está bien») no reemplaza al nombre que espera: se
+  pregunta de nuevo.
+
+**Sin hacer:** el «¿Está correcto el PDF?» todavía lee un sí o un no escrito sin confirmación. Es un sí/no de bajo riesgo:
+un «no» sólo anota que falta algo. «Vendo 20 a 500 dólares» se sigue leyendo como un rango; la confirmación lo muestra y
+se corrige con un toque. Vive en lib/onboarding-arranque.ts (`leerRespuesta`, etapa 'pdf'; `cifraDe`).
+
+*21/10/2026, chat «Onboarding» (claude4), rama onboarding-v3.*

@@ -1,5 +1,18 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 21/10/2026 ~03:00 AR — TERCERA REVISIÓN (de 8805b81aa): LO ESCRITO SE CONFIRMA CON UN TOQUE
+
+<sub>Chat «Onboarding», claude4, rama onboarding-v3. El Cerebro cambió el enfoque: no más rondas de reglas para leer frases
+(side-session-notes/local_797d5445…/revision-onboarding-tercera-21-10.md).</sub>
+
+- `323c01116`: en la fase, el canal y el interés, lo escrito se muestra («Entendí: «…». ¿Es así?») con «Sí, es eso» y las
+  otras opciones, y se guarda recién con el toque (`opcionPorConfirmar`). En pesos se pregunta en dólares. Los arreglos
+  baratos de la nota: negación sin peso doble y con evidencia, «web» sola, semana pegada, «pico»/«cifras», rangos, espacios,
+  interés negado, «Sí, es así»/«Vale»/«sisi», «N pagos con tarjeta». El barrido que lo fija:
+  tests/onboarding-opcion-escrita.test.ts. La regla general quedó en AGENTS.md.
+- Sin hacer: el «¿Está correcto el PDF?» lee un sí/no escrito sin confirmar (bajo riesgo). Lo de antes sigue: `CajaChat`,
+  el tutorial en /m, la propuesta del CRM aparte, y el ws21 y las keys del ws1 esperan a Martín.
+
 ## ESTADO AL 21/10/2026 ~00:30 AR — LA SEGUNDA REVISIÓN (de 4eef10c7a) ARREGLADA
 
 <sub>Chat «Onboarding», claude4, rama onboarding-v3. El Cerebro revisó 4eef10c7a: el BLOQUEA resuelto, pero los arreglos de

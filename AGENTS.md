@@ -1956,6 +1956,19 @@ envíes un mensaje al grupo de MaKo diciendo que se solucionó eso. Con una acla
   grupo»): lo manda el jefe que arregló, con la herramienta y sus topes. Si el clasificador de permisos de Claude Code
   lo bloquea, se le dice a Martín en una línea, en el chat del jefe, con el comando exacto para que lo apruebe ahí.
 
+# Lo que se LEE de un texto libre y se guarda como dato, se confirma con un toque
+
+Una frase escrita que el código traduce a una opción, un tramo, un canal o un nombre («Facturo 2 palos» → «Más de
+$80.000», «Sí, es así» → el nombre «así») **no se guarda en silencio**. Se muestra lo entendido («Entendí: «…». ¿Es
+así?») con el sí y las otras opciones, y se guarda recién con ese toque. Un error de lectura cuesta un clic, no un dato
+malo. El onboarding lo pagó con tres revisiones seguidas (20-21/10/2026): cada ronda de reglas cerraba los casos de la
+anterior y abría otros (millones por mil, pesos leídos como dólares, la negación aplicada a las opciones, «web» como
+carrito), y un «Lo tomé como: …» que informaba sin dejar corregir. **Un parser de frases no se termina con más reglas:
+la red es la confirmación.** Sin una lectura clara (empate, dos cifras, una moneda que no es la de la pregunta), no se
+adivina: se muestran las opciones. El patrón vive en lib/onboarding-arranque.ts (`elegirOpcion`, `opcionPorConfirmar`)
+y lo fija un barrido en tests/onboarding-opcion-escrita.test.ts. docs/hallazgos-onboarding.md, «El parser escrito
+necesita confirmación».
+
 # Tres topes del entorno que no dan error: te dan otra cosa
 
 Los tres se descubrieron el mismo día, los tres escribiendo código nuevo, y los tres
