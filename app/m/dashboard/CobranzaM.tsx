@@ -73,10 +73,12 @@ export function CobranzaM({ filas, tz, error, fichaLead }: {
     setMarcando(f.pagoId);
     haptico('light');
     try {
-      await marcarPagoAction(f.pagoId, f.leadId, true, hoyEnTz(tz));
+      const r = await marcarPagoAction(f.pagoId, f.leadId, true, hoyEnTz(tz));
       ocultar(f.pagoId, true);
       haptico('success');
-      toast('Cuota cobrada', { deshacer: () => deshacer(f) });
+      // Ya estaba cobrada (la lista era vieja): sin Deshacer, que desmarcaría el cobro de otro.
+      if (r.yaEstaba) toast('Ya estaba cobrada');
+      else toast('Cuota cobrada', { deshacer: () => deshacer(f) });
     } catch (e) {
       console.error('[m/dashboard] marcar cobro:', e instanceof Error ? e.message : String(e));
       haptico('error');
