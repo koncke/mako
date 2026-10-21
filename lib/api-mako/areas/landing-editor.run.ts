@@ -354,7 +354,7 @@ export const RUNNERS_EDITOR: Runners = {
         const productos = await listProductos(true).then((ps) => ps.map((p) => ({ id: String(p.id), nombre: p.nombre }))).catch(() => null);
         const d = productos ? productoDeLanding(pedido, producto, productos) : null;
         if (d?.que === 'preguntar') return { error: d.mensaje, faltan: ['producto'] };
-        if (d || esReferenciaVaga(producto)) {
+        if (d || (producto && esReferenciaVaga(producto))) {
           const { producto: _delModelo, ...resto } = input;
           input = d?.producto ? { ...resto, producto: d.producto } : resto;
         }
