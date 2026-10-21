@@ -25,10 +25,16 @@ export const VENCE_HORAS = 6;
 /** El motivo con el que queda un trabajo vencido. Lo lee la pantalla para el texto. */
 export const MOTIVO_VENCIDO = 'vencido';
 
-/** Lo que queda escrito en el trabajo vencido. La pantalla tiene el suyo, más corto. */
+/**
+ * Lo que queda escrito en el trabajo vencido. La pantalla tiene el suyo, más corto.
+ *
+ * ⚠️ NO PROMETE CUÁNDO ARRANCA. La primera versión decía «al montarlo de nuevo arranca en el momento», y era falso
+ * justo en la caída que el vencimiento cubre: si el cron no puede montar, el nuevo también espera. Ahora el cron no
+ * vence nada en una corrida que no puede montar (app/api/cron/montaje/route.ts), y aun así el texto no promete.
+ */
 export const ERROR_VENCIDO =
   `Quedó en la fila más de ${VENCE_HORAS} horas sin que nadie lo tomara y se dio de baja. ` +
-  'Fue un problema nuestro: al montarlo de nuevo arranca en el momento.';
+  'Fue un problema nuestro, no del anuncio: puedes montarlo de nuevo.';
 
 /** Desde cuándo un `pendiente` ya está vencido. */
 export function corteDeVencimiento(ahora: number = Date.now()): string {
@@ -66,6 +72,20 @@ export function clasificar(e: unknown): MotivoFalla {
  */
 export function esDefinitiva(motivo: string): boolean {
   return motivo === 'material' || motivo === 'verificacion';
+}
+
+/**
+ * La frase que queda en el trabajo cuando falla: la lee el cliente (la pantalla del montaje y la API de MaKo).
+ *
+ * ⚠️ NUNCA EL ERROR CRUDO. La primera versión guardaba hasta 2.000 caracteres de stderr de ffmpeg o de la respuesta
+ * de Groq (con el id de la organización), y la pantalla los mostraba enteros al agotarse los intentos. El detalle
+ * técnico va al log de la función, que es donde se lo busca.
+ */
+export function errorParaLaPersona(motivo: string): string {
+  if (motivo === 'material') return 'Una de las tomas vino dañada o ya no está.';
+  if (motivo === 'verificacion') return 'El montaje quedó con texto de menos.';
+  if (motivo === 'transitorio') return 'Un servicio que usamos para montarlo no respondió.';
+  return 'Falló algo de nuestro lado al montarlo.';
 }
 
 /** Cuánto lleva esperando, dicho como lo diría una persona. */

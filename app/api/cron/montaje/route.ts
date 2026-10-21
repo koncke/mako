@@ -28,7 +28,8 @@ import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { limpiar, montarAnuncio, type Herramientas } from '@/lib/montaje/pipeline';
-import { clasificar, corteDeVencimiento, ERROR_VENCIDO, esDefinitiva, MOTIVO_VENCIDO } from '@/lib/montaje/cola';
+import { clasificar, corteDeVencimiento, ERROR_VENCIDO, errorParaLaPersona, esDefinitiva, MOTIVO_VENCIDO } from '@/lib/montaje/cola';
+import { registrarError } from '@/lib/errores-app';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -79,6 +80,11 @@ async function ffmpegEjecutable(ruta: string): Promise<string> {
   return copia;
 }
 
+/** Un error de NUESTRO lado va a la Ticketera (agrupado por huella): sin esto, el cron caído sólo se ve en un log. */
+async function avisarAlEquipo(mensaje: string): Promise<void> {
+  await registrarError({ origen: 'servidor', nombre: 'MontajeCron', mensaje, ruta: '/api/cron/montaje' }, null).catch(() => {});
+}
+
 export async function GET(req: NextRequest) {
   const guard = checkCronAuth(req);
   if (guard) return guard;
@@ -90,7 +96,27 @@ export async function GET(req: NextRequest) {
   // ninguno (mig 0151). Lo que es de cada uno —el archivo— va a la ruta del plan.
   const db = createClient(url, key, { auth: { persistSession: false } });
 
-  // ── 1. Los vencidos ──────────────────────────────────────────────────────
+  // ── 1. ¿Se puede montar? ─────────────────────────────────────────────────
+  // ⚠️ ANTES DE VENCER Y ANTES DE TOMAR.
+  //   · Tomar suma un intento: sin el binario o sin la clave de la transcripción, cada corrida le quemaría un intento
+  //     a un trabajo que no tiene ninguna culpa, y a la tercera lo daría por fallido.
+  //   · Vencer en una corrida que no puede montar le dice al cliente que lo monte de nuevo, y el nuevo tampoco lo toma
+  //     nadie (revisión del 20/10). Con algo que falta no se toca la cola: se avisa al equipo y se espera.
+  //   · ffmpeg puede faltar de verdad: `ffmpeg-static` es una dependencia OPCIONAL (package.json) para que una caída de
+  //     GitHub en su descarga no tumbe `npm ci` ni el build de todo MaKo; sin el binario, esta ruta no corre.
+  const h = herramientas();
+  const ffmpeg = await ffmpegEjecutable(h.ffmpeg).catch(() => '');
+  const falta = !h.groqKey
+    ? 'falta GROQ_API_KEY (transcribe la voz para los subtítulos)'
+    : !ffmpeg ? 'no está el binario de ffmpeg (ffmpeg-static no se instaló)' : '';
+  h.ffmpeg = ffmpeg;
+  if (falta) {
+    console.error(`[montaje] no se toca la cola: ${falta}`);
+    await avisarAlEquipo(`El cron de montaje no puede montar: ${falta}`);
+    return Response.json({ ok: false, vencidos: 0, error: falta }, { status: 500 });
+  }
+
+  // ── 2. Los vencidos ──────────────────────────────────────────────────────
   // ANTES de tomar: si no, el primero que tomaría sería el más viejo de todos,
   // justo el que ya nadie espera.
   const { data: vencidos, error: eVence } = await db
@@ -100,21 +126,6 @@ export async function GET(req: NextRequest) {
     .lt('created_at', corteDeVencimiento())
     .select('id, workspace_id');
   if (eVence) console.error('[montaje] no se pudieron vencer los viejos:', eVence.message);
-
-  // ── 2. ¿Se puede montar? ─────────────────────────────────────────────────
-  // ⚠️ SE PREGUNTA ANTES DE TOMAR. Tomar suma un intento: sin el binario o sin la
-  // clave de la transcripción, cada corrida le quemaría un intento a un trabajo
-  // que no tiene ninguna culpa, y a la tercera lo daría por fallido.
-  const h = herramientas();
-  const ffmpeg = await ffmpegEjecutable(h.ffmpeg).catch(() => '');
-  const falta = !h.groqKey
-    ? 'falta GROQ_API_KEY (transcribe la voz para los subtítulos)'
-    : !ffmpeg ? `no está ffmpeg en ${h.ffmpeg}` : '';
-  h.ffmpeg = ffmpeg;
-  if (falta) {
-    console.error(`[montaje] no se toma nada: ${falta}`);
-    return Response.json({ ok: false, vencidos: vencidos?.length ?? 0, error: falta }, { status: 500 });
-  }
 
   // ── 3. Tomar uno y montarlo ──────────────────────────────────────────────
   // Uno por corrida: un render satura el CPU de la función, así que dos en la
@@ -171,9 +182,10 @@ export async function GET(req: NextRequest) {
   } catch (e) {
     const motivo = clasificar(e);
     const definitiva = esDefinitiva(motivo);
-    // El stderr de ffmpeg trae la causa al principio y el ruido al final.
+    // El stderr de ffmpeg trae la causa al principio y el ruido al final. Va SÓLO al log: al cliente, una frase.
     const detalle = `${(e as Error)?.message ?? String(e)} ${String((e as { stderr?: string })?.stderr ?? '').slice(0, 1500)}`.trim();
     console.error(`[montaje] #${id} falló (${motivo}):`, detalle);
+    if (motivo === 'interno') await avisarAlEquipo(`Un montaje falló de nuestro lado: ${String((e as Error)?.message ?? e).slice(0, 300)}`);
     await db.from('montaje_trabajos').update({
       // Lo que no es definitivo vuelve a la fila; el tope de intentos lo pone
       // `montaje_tomar` (al tercero, fallido).
@@ -181,7 +193,7 @@ export async function GET(req: NextRequest) {
       tomado_at: null,
       listo_at: definitiva ? new Date().toISOString() : null,
       motivo,
-      error: detalle.slice(0, 2000),
+      error: errorParaLaPersona(motivo),
     }).eq('id', id);
     return Response.json({ ok: false, vencidos: vencidos?.length ?? 0, montado: id, motivo }, { status: 200 });
   } finally {

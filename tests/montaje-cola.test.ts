@@ -36,6 +36,15 @@
 //   R12 vuelven los «${estado.esperando} minutos» en la pantalla        → 11 / 1
 //   R13 los filtros por archivo (`-/filter_complex`, sólo ffmpeg 7)     → 10 / 2
 //   R14 el plan recibe sólo la duración de la primera toma              → 11 / 1
+// Y después de la revisión adversarial del 20/10 (noche; base 14 / 0 sin FFMPEG_PATH, el real se saltea):
+//   N1  vence ANTES de preguntar si puede montar                      → 13 / 1
+//   N2  con algo que falta, no avisa al equipo                        → 13 / 1
+//   N3  vuelve el stderr crudo a la columna que lee el cliente        → 13 / 1
+//   N4  el vencido vuelve a prometer «arranca en el momento»          → 13 / 1
+//   N5  la pantalla vuelve a mostrar `${estado.error}`                → 13 / 1
+//   N6  ffmpeg-static vuelve a ser dependencia obligatoria            → 13 / 1
+//   N7  el lock no la marca opcional                                  → 13 / 1
+//   N8  la frase para el cliente deja ver lo técnico                  → 13 / 1
 // La primera pasada destapó una trampa del propio test: R11 dejó carpetas en
 // /tmp y la base siguiente dio 10 / 2. Por eso cada corrida usa ids propios.
 
@@ -47,7 +56,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { clasificar, corteDeVencimiento, esDefinitiva, MOTIVO_VENCIDO, textoEspera, VENCE_HORAS } from '../lib/montaje/cola';
+import { clasificar, corteDeVencimiento, ERROR_VENCIDO, errorParaLaPersona, esDefinitiva, MOTIVO_VENCIDO, textoEspera, VENCE_HORAS } from '../lib/montaje/cola';
 import { montarAnuncio } from '../lib/montaje/pipeline';
 
 const RAIZ = resolve(import.meta.dirname, '..');
@@ -93,6 +102,16 @@ test('las fallas: una toma rota o que ya no está no se reintenta; la red y el t
   for (const m of ['transitorio', 'interno', '']) assert.equal(esDefinitiva(m), false, m);
 });
 
+test('al cliente le llega una frase, nunca el error técnico, y el vencido no promete cuándo arranca', () => {
+  for (const m of ['material', 'verificacion', 'transitorio', 'interno', 'cualquiera']) {
+    const f = errorParaLaPersona(m);
+    assert.ok(f.length > 10 && f.length < 80, `«${m}»: «${f}»`);
+    assert.doesNotMatch(f, /ffmpeg|groq|stderr|salió|\d{3}|org_/i, `«${m}» deja ver lo técnico: «${f}»`);
+  }
+  // «Arranca ahora» era falso justo en la caída que el vencimiento cubre (revisión del 20/10).
+  assert.doesNotMatch(ERROR_VENCIDO, /ahora|en el momento|enseguida|ya mismo/i);
+});
+
 test('la espera se dice en horas: nunca «68.646 minutos»', () => {
   assert.equal(textoEspera(12), 'Lleva 12 minutos esperando turno. Escríbenos si sigue así.');
   assert.equal(textoEspera(60), 'Lleva una hora esperando turno. Escríbenos si sigue así.');
@@ -115,13 +134,24 @@ test('el cron vence ANTES de tomar, y sólo lo pendiente y anterior al corte', (
   assert.match(bloque, /estado: 'fallido'/);
 });
 
-test('sin ffmpeg o sin la clave de Groq, el cron no toma nada (tomar quema un intento)', () => {
+test('sin ffmpeg o sin la clave de Groq, el cron no vence ni toma nada, y avisa al equipo', () => {
   const falta = RUTA.indexOf('if (falta)');
+  const vence = RUTA.indexOf("estado: 'fallido', motivo: MOTIVO_VENCIDO");
   const toma = RUTA.indexOf("rpc('montaje_tomar'");
-  assert.ok(falta > 0 && falta < toma, 'pregunta por las herramientas DESPUÉS de tomar');
+  assert.ok(falta > 0 && falta < toma, 'pregunta por las herramientas DESPUÉS de tomar: tomar quema un intento');
+  assert.ok(falta < vence, 'vence en una corrida que no puede montar: el cliente lo monta de nuevo y tampoco lo toma nadie');
   assert.match(RUTA, /!h\.groqKey/);
   assert.match(RUTA, /ffmpegEjecutable\(h\.ffmpeg\)/);
-  assert.match(RUTA.slice(falta, toma), /return Response\.json/);
+  const bloque = RUTA.slice(falta, vence);
+  assert.match(bloque, /await avisarAlEquipo\(/, 'el cron caído sólo se vería en un log');
+  assert.match(bloque, /return Response\.json/);
+  assert.match(RUTA, /registrarError\(\{ origen: 'servidor', nombre: 'MontajeCron'/);
+});
+
+test('el error que se guarda en el trabajo es la frase para el cliente; el detalle va al log', () => {
+  assert.match(RUTA, /error: errorParaLaPersona\(motivo\),/);
+  assert.doesNotMatch(RUTA, /error: detalle/, 'volvió el stderr crudo a la columna que lee el cliente');
+  assert.match(RUTA, /console\.error\(`\[montaje\] #\$\{id\} falló \(\$\{motivo\}\):`, detalle\)/);
 });
 
 test('una falla definitiva cierra el trabajo; las otras lo devuelven a la fila', () => {
@@ -151,6 +181,17 @@ test('el cron está agendado, con techo de función larga, y lleva adentro todo 
   }
   // ffmpeg-static fija el binario: un salto de versión cambia el ffmpeg sin avisar.
   assert.match(leer('package.json'), /"ffmpeg-static": "\d+\.\d+\.\d+"/);
+});
+
+test('ffmpeg-static es OPCIONAL: si su descarga de GitHub falla, npm ci y el build siguen', () => {
+  // Medido el 20/10 en una carpeta aparte con FFMPEG_BINARIES_URL cortada: como dependencia común, `npm ci` sale 1
+  // (install.js hace process.exit(1)); como opcional, sale 0 y no queda el binario. Sin el binario, el cron no corre
+  // (`falta`, arriba) y el include del trazado no encuentra nada, que Next acepta sin error.
+  const pkg = JSON.parse(leer('package.json')) as { dependencies?: Record<string, string>; optionalDependencies?: Record<string, string> };
+  assert.equal(pkg.dependencies?.['ffmpeg-static'], undefined, 'como dependencia común, una caída de GitHub tumba npm ci y todos los deploys');
+  assert.match(pkg.optionalDependencies?.['ffmpeg-static'] ?? '', /^\d+\.\d+\.\d+$/);
+  const lock = JSON.parse(leer('package-lock.json')) as { packages: Record<string, { optional?: boolean }> };
+  assert.equal(lock.packages['node_modules/ffmpeg-static']?.optional, true, 'el lock no la marca opcional: npm ci la trataría como obligatoria');
 });
 
 // ── El pipeline ─────────────────────────────────────────────────────────────
@@ -274,4 +315,7 @@ test('la pantalla dice «vencido» como lo que es, y la espera con textoEspera',
   assert.match(src, /textoEspera\(estado\.esperando\)/);
   assert.doesNotMatch(src, /\$\{estado\.esperando\} minutos/, 'volvió el «68.646 minutos»');
   assert.equal(MOTIVO_VENCIDO, 'vencido');
+  // Ni el error crudo de un trabajo viejo, ni la promesa de que arranca ya.
+  assert.doesNotMatch(sinComentarios(src), /\$\{estado\.error\}/, 'la pantalla vuelve a mostrar el error técnico');
+  assert.doesNotMatch(src, /arranca ahora/);
 });

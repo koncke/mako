@@ -1232,6 +1232,29 @@ La primera pasada de roturas dio la base en 10 / 2 después de R11 («no limpia 
 fallar»): esa rotura dejó carpetas `montaje-<id>-*` y la corrida siguiente las encontró. Cada
 corrida del test usa ids propios.
 
+### Lo que encontró la revisión adversarial (20/10, noche)
+
+- **Vencer en una corrida que no puede montar es prometer en falso.** El cron vencía ANTES de mirar si
+  tenía ffmpeg y la clave de Groq, y el texto decía «arranca en el momento»: el cliente montaba de
+  nuevo y el trabajo nuevo tampoco lo tomaba nadie. Ahora pregunta primero; si falta algo no toca la
+  cola y avisa a la Ticketera (`registrarError`, origen `servidor`). El texto del vencido no promete
+  cuándo arranca.
+- **La columna `error` la lee el cliente.** Se guardaba el stderr de ffmpeg o la respuesta de Groq
+  (con el id de la organización), y la pantalla lo mostraba entero al agotarse los intentos. Ahora
+  `error` es una frase (`errorParaLaPersona`) y el detalle va al log; la pantalla no interpola
+  `estado.error` en el caso genérico, por si queda un trabajo viejo con el crudo.
+- **Una dependencia con descarga en el `postinstall` es un punto de falla de TODOS los deploys.**
+  Medido en una carpeta aparte con `FFMPEG_BINARIES_URL` cortada: como dependencia común, `npm ci`
+  sale 1; como `optionalDependencies`, sale 0 y no queda el binario (con la descarga sana, queda).
+  Next acepta un `outputFileTracingIncludes` que no encuentra nada (el glob devuelve una lista vacía).
+  Sin el binario, el cron no corre y avisa.
+- **Quién ve los dos trabajos viejos.** Al primer pase con todo en su lugar, el #3 (ws1, «El Verdadero
+  Origen del Incumplimiento») y el #4 (ws11, «Los 4 sistemas para tu negocio») quedan vencidos. Sus
+  anuncios siguen en el historial: al abrir el paso de montaje de cada uno se lee «Este montaje quedó en
+  la fila sin que nadie lo tomara y se dio de baja. Fue un problema nuestro, no de tu anuncio: puedes
+  montarlo de nuevo», con «Montar de nuevo». La API de MaKo (`ver_montaje_anuncio`) devuelve el mismo
+  texto.
+
 ### Lo que quedó SIN hacer
 
 - **Ver el primer montaje en producción.** En local (Windows, ffmpeg 6.1.1, Groq real)
@@ -1247,6 +1270,5 @@ corrida del test usa ids propios.
   abierta o vuelve a entrar.
 - **El verificador de palabras** (`verificar-corte-anuncio.mjs`) sigue sin invocarse, igual
   que en §13.
-- **Si la instalación de `ffmpeg-static` falla** (baja el binario de GitHub en el
-  `postinstall`), `npm ci` falla entero, en el CI y en el build de Vercel. Escape:
-  `FFMPEG_BIN` apuntando a un binario existente saltea la descarga.
+- **Un deploy sin ffmpeg** (la descarga de GitHub falló): el build sigue y el cron avisa a la
+  Ticketera en cada corrida hasta que se redespliegue. Nadie lo reinstala solo.
