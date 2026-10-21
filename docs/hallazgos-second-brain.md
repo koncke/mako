@@ -2053,13 +2053,17 @@ Probado en `tests/chat-bloques.test.ts`, que confirma `crear_diseno_imagen` de p
 
 **Sin hacer:**
 - ~~Lo que dibuja un TURNO y no una tarjeta.~~ Hecho el 21/10. No fue `RespuestaTurno.bloques`: el bloque va COLGADO DEL
-  MENSAJE de MaKo, así vuelve al recargar.
-  - Lo produce la pregunta de la 1.9.
-  - También cualquier herramienta que devuelva un campo `bloque` en su JSON (`bloqueDeSalida`): el gráfico de una
-    lectura (Dashboard), el antes y el después de una propuesta del Video Editor y la tarjeta de una landing. Es UN solo
-    camino para las tres áreas.
-  - Al modelo le llega la salida sin el bloque, porque lo dibuja el código.
-  - Una propuesta de pantalla que ya trae su bloque no se dibuja dos veces.
+  MENSAJE de MaKo, así vuelve al recargar. Lo producen:
+  - la pregunta de la 1.9;
+  - una LECTURA que devuelve `{ content, bloque }` (el camino de Pagos, d9e69e7a1: «A quién cobrar», un gráfico de
+    Dashboard);
+  - una PROPUESTA de pantalla con `extra.bloque` (el antes y el después del Video Editor).
+  Las dos pasan por `ejecutarOperacion` → `ctx.aDibujar`, que sólo abre el turno de la app. El modelo no lo ve, y en
+  WhatsApp o por HTTP se descarta. Una propuesta de pantalla que ya trae su bloque no se dibuja dos veces.
+- **Lo obvio era el error: «leer un campo `bloque` de cualquier JSON de salida»** (`bloqueDeSalida`, la mañana del 21/10).
+  Funcionaba, pero chocaba con cualquier salida que ya tuviera un campo con ese nombre (la ficha arma `bloques`), y el
+  tipo de la herramienta no lo decía. Se sacó: lo que una herramienta dibuja va TIPADO en su respuesta. Un bloque por
+  herramienta; una lista (las landings de un negocio) es UN bloque.
 - G4 sin «Deshacer»: no hay una operación que deshaga un cambio de textos.
 - G6 sin consultar el estado solo: la 1.11.
 - Las demás áreas no devuelven `bloque` todavía. Por ahora lo devuelven `crear_diseno_imagen` y `duplicar_diseno_imagen`

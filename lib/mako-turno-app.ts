@@ -60,7 +60,7 @@ import {
   renameSession, tituloDesde, type ChartSession, type ChartMsgConBloques,
 } from '@/lib/chart-chats';
 import { adjuntosVisibles, leerRef, sanearBloques } from '@/lib/chat-mako-bloques';
-import { MAX_BLOQUES_MENSAJE, aGuardar, bloqueDeResultado, bloqueDeSalida, bloquesGuardados, type Bloque } from '@/lib/chat-bloques';
+import { MAX_BLOQUES_MENSAJE, aGuardar, bloqueDeResultado, bloquesGuardados, type Bloque } from '@/lib/chat-bloques';
 import { archivarPdfsDelChat, archivarPegadosDelChat, borrarAdjuntos, subirAdjuntos, urlFirmadaDeAdjunto } from '@/lib/chat-mako-adjuntos';
 import { partirPegados, recortarMensaje, textoParaTitulo } from '@/lib/chat-pegado';
 import { archivoATexto } from '@/lib/archivo-a-texto';
@@ -423,12 +423,22 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // si el modelo no lo propone, lo propone el código al final (docs/diseno-ticketera-usuarios.md §2.1).
     const erroresDelTurno: ErrorDelTurno[] = [];
     let ticketPropuesto = false;
+    /** Lo que dibujaron las herramientas del turno (`ctx.aDibujar`), y si vino de una que escribe. */
+    const bloquesDelTurno: { b: Bloque; accion: boolean }[] = [];
+    let herramientaActual = '';
+    // Una sola vez cada uno: un turno que se re-arranca (la cascada rota de cuenta) vuelve a correr las lecturas.
+    const dibujar = (b: Bloque) => {
+      if (bloquesDelTurno.length >= MAX_BLOQUES_MENSAJE || bloquesDelTurno.some((x) => JSON.stringify(x.b) === JSON.stringify(b))) return;
+      bloquesDelTurno.push({ b, accion: porId(herramientaActual)?.tipo !== 'lectura' });
+    };
     const ctx: Ctx = {
       ws, canal: 'app', canalKey,
       // `proponer`: este turno deja pendientes y propuestas; confirmar es de la persona
       // (confirmar_accion pide `ejecutar` y además no viaja: dos cortes).
       alcance: 'proponer', rol: persona.rol, turnStart, mensajeUsuario: textoPersona || textoMemoria, actor: persona.actor, quien: persona.quien,
       aPersona: (t) => { const x = (t ?? '').trim(); if (x && !paraLaPersona.includes(x)) paraLaPersona.push(x); },
+      // Lo que DIBUJA una lectura o una propuesta (lib/chat-bloques.ts): se guarda con la respuesta de MaKo.
+      aDibujar: dibujar,
       // Lo que el ticket sabe sin que lo escriba el modelo: el pedido textual, lo último que dijo MaKo y el error.
       contextoTicket: () => ({
         pedido: textoPersona || textoMemoria,
@@ -477,8 +487,6 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       const d = porId(n);
       return d ? d.tipo !== 'lectura' : NOMBRES_ACCION.has(n) && !n.startsWith('listar_');
     });
-    /** Lo que dibujaron las herramientas del turno (`bloqueDeSalida`), y si vino de una que escribe. */
-    const bloquesDelTurno: { b: Bloque; accion: boolean }[] = [];
     // Desde que MaKo pregunta, no se propone nada en el turno (1.9): una lectura sí, para armar las opciones.
     const guardia = crearGuardiaDePregunta((n) => { const d = porId(n); return d ? d.tipo !== 'lectura' : NOMBRES_ACCION.has(n) && !n.startsWith('listar_'); });
     /** Cuántas herramientas corrieron DE VERDAD en el turno: el guardia de promesas lo necesita (1.5). */
@@ -502,11 +510,10 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       // heredadas, que tienen gemela) por el registro: así cada acción pasa por el gating
       // de la vista de ESTA persona y deja su pendiente con la clave de ESTE chat.
       // La instrucción de una pendiente es la de WhatsApp («pide un sí»): acá se confirma en la tarjeta.
-      // Lo que la herramienta DIBUJA (`bloque` en su salida: el gráfico de una lectura, el antes y el después de una
-      // propuesta del Video Editor) lo cuelga el código del mensaje de MaKo; al modelo le llega la salida sin él.
-      const salida = bloqueDeSalida(conInstruccionDeTarjeta(await (NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input) : runRegistro(name, input))));
-      if (salida.bloque && bloquesDelTurno.length < MAX_BLOQUES_MENSAJE) bloquesDelTurno.push({ b: salida.bloque, accion: porId(name)?.tipo !== 'lectura' });
-      const out = salida.out;
+      // Lo que DIBUJE (`ctx.aDibujar`) queda anotado con el nombre de esta herramienta: con una pregunta, lo de una que
+      // escribe se retira. Las herramientas del turno corren de a una (chatClaudeTools las espera en orden).
+      herramientaActual = name;
+      const out = conInstruccionDeTarjeta(await (NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input) : runRegistro(name, input)));
       memo.anotar(name, out);
       const err = errorParaTicket(name, out);
       if (err) erroresDelTurno.push(err);

@@ -9,6 +9,11 @@
 //   · una operación lo devuelve en `datos.bloque` de su `Ejecutado` (lib/api-mako/tipos.ts);
 //   · al confirmar la tarjeta, `confirmarDesdeTarjeta` (lib/mako-turno-app.ts) lo sanea, lo guarda con el «Hecho: …» en
 //     `chart_chats.bloques` (mig 0305) como `{ k: 'bloque', b }`, y lo devuelve en `ResultadoTarjeta.bloques`;
+//   · una LECTURA lo devuelve en el `bloque` de su salida (`SalidaLectura`), y una PROPUESTA de pantalla en `extra.bloque`
+//     (el antes y el después del Video Editor): `ejecutarOperacion` lo sanea y lo pasa por `ctx.aDibujar`, que sólo pone el
+//     turno de la app, y el turno lo guarda con la respuesta de MaKo. El modelo NO lo ve, y en WhatsApp o por HTTP se
+//     descarta (el camino de Pagos, 20/10/2026, la 2.27; las propuestas, 21/10). Uno por herramienta: una lista va en UN
+//     bloque. Como mucho `MAX_BLOQUES_MENSAJE` por mensaje;
 //   · la pantalla lo suma al hilo como `{ k: 'bloque' }` de `ItemHilo` (app/m/mako/chat-ui.ts) SIN recargar, y al
 //     recargar vuelve desde el mensaje guardado;
 //   · lo dibuja UNA pieza para las dos pantallas: app/_chat/BloqueHilo.tsx.
@@ -182,25 +187,6 @@ export function sanearBloque(crudo: unknown): Bloque | null {
 
 /** El bloque que trae el resultado de una operación (`datos.bloque`), saneado. */
 export const bloqueDeResultado = (datos: Record<string, unknown> | undefined): Bloque | null => sanearBloque(datos?.bloque);
-
-/**
- * El bloque que trae la SALIDA de una herramienta (21/10/2026: una lectura que dibuja su gráfico, una propuesta del Video
- * Editor con su antes y después): un campo `bloque` arriba de todo en su JSON (en una propuesta, `extra.bloque`, que
- * lib/api-mako/ejecutar.ts pone primero). Devuelve el bloque saneado y la salida SIN él: el modelo no necesita leerlo (lo
- * dibuja el código) y un gráfico pesa. Una salida que no es JSON, o sin `bloque`, vuelve igual.
- */
-export function bloqueDeSalida<T>(out: T): { out: T; bloque: Bloque | null } {
-  const o = out as unknown;
-  const texto = typeof o === 'string' ? o : o && typeof o === 'object' && typeof (o as { content?: unknown }).content === 'string' ? (o as { content: string }).content : null;
-  if (!texto || !texto.includes('"bloque"')) return { out, bloque: null };
-  let j: unknown;
-  try { j = JSON.parse(texto); } catch { return { out, bloque: null }; }
-  if (!j || typeof j !== 'object' || Array.isArray(j) || !('bloque' in j)) return { out, bloque: null };
-  const { bloque: crudo, ...resto } = j as Record<string, unknown>;
-  const sin = JSON.stringify(resto);
-  const nuevo = (typeof o === 'string' ? sin : { ...(o as object), content: sin }) as T;
-  return { out: nuevo, bloque: sanearBloque(crudo) };
-}
 
 /** Lo que se guarda en `chart_chats.bloques`. */
 export const aGuardar = (b: Bloque): BloqueGuardado => ({ k: 'bloque', b });
