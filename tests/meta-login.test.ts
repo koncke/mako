@@ -124,6 +124,10 @@ test('reconectar re-deriva el token de la página ACTUAL aunque haya varias', ()
 //   · conectarMetaDisponible con la regla vieja antes (`if (!superAdmin) return false`) → 1 fallo (el de las rutas)
 //   · la ruta del paso 1 sin pasar el ws (`conectarMetaDisponible()`) → 1 fallo (el de las rutas)
 //   ⚠️ Un atajo `if (superAdmin) return true` antes de la regla NO es una rotura: da lo mismo.
+//   Sumadas tras la revisión del Cerebro (21/10), las dos mutaciones que antes pasaban en verde:
+//   · `esSuperAdmin: (await getSesionAdmin()) != null || true` → 1 fallo (el de las rutas)
+//   · `abiertoATodos: true` → 1 fallo (el de las rutas)
+//   · la ruta del paso 1 con `const ws = Number(url.searchParams.get('ws_destino')) || await adminDeWorkspaceActual();` → 1 fallo
 const BASE = { haySecreto: true, abiertoATodos: false, esSuperAdmin: false };
 
 test('botón de Meta: en el negocio de revisión (ws3) lo ve un usuario común', () => {
@@ -158,6 +162,15 @@ test('botón de Meta: conectarMetaDisponible usa la regla, y las dos rutas le pa
   assert.match(fn, /return botonMetaVisible\(\{/);
   assert.equal((fn.match(/\breturn\b/g) ?? []).length, 1, 'conectarMetaDisponible decide con botonMetaVisible y con nada más');
   assert.match(fn, /ws: ws === undefined \? await getWorkspaceActual\(\) : ws/);
-  assert.match(sinComentarios(leer('app/api/integraciones/meta/route.ts')), /conectarMetaDisponible\(ws\)/);
-  assert.match(sinComentarios(leer('app/api/integraciones/credencial/route.ts')), /conectarMetaDisponible\(ctx\.ws\)/);
+  // De DÓNDE salen los datos de la regla (revisión del Cerebro, 21/10): sin esto, `esSuperAdmin: … || true` o
+  // `abiertoATodos: true` abrían el botón para cualquier negocio con la suite en verde.
+  assert.match(fn, /haySecreto: !!process\.env\[ENV_SECRETO_APP\]\?\.trim\(\),/);
+  assert.match(fn, /abiertoATodos: process\.env\.META_OAUTH_ABIERTO === 'true',/);
+  assert.match(fn, /esSuperAdmin: \(await getSesionAdmin\(\)\) != null,/);
+  // Y el ws de las rutas sale de la SESIÓN, nunca del pedido: un `ws` del query abría el filtro del ws3.
+  const RUTA = sinComentarios(leer('app/api/integraciones/meta/route.ts'));
+  assert.match(RUTA, /const ws = await adminDeWorkspaceActual\(\);\s*if \(ws == null\) return fail\('no-permitido'\);\s*if \(!\(await conectarMetaDisponible\(ws\)\)\)/);
+  assert.equal((RUTA.match(/searchParams\.get\(/g) ?? []).length, 1, 'la ruta del paso 1 sólo lee `volver` del query');
+  const CRED = sinComentarios(leer('app/api/integraciones/credencial/route.ts'));
+  assert.match(CRED, /const ctx = await resolverContexto\(\);[\s\S]{0,1200}conectarMetaDisponible\(ctx\.ws\)/);
 });

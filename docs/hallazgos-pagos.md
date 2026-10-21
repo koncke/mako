@@ -629,3 +629,23 @@ de México.
   (el default de la 0280 y la 0310) es de Infra.
 - **El `for update` de la 0318 va `order by id`**, el orden en que toma las filas el delete de la reconciliación: en otro
   orden, los dos podían esperarse y Postgres abortaba a uno (40P01).
+
+## El lector de contratos también convertía con una tasa inventada (21/10/2026)
+
+- **⚠️ El plan de una suscripción salió de una tasa que inventó la IA.** El extractor del contrato
+  (`CONTRACT_EXTRACT_DEFAULT`, app/api/extract-contract) pedía «todos los montos en USD», convertidos «con un tipo de
+  cambio aproximado actual»: 72.000 MXN / 17 = 4.235,29, la mensualidad que quedó en una suscripción del ws11 (lead 2605).
+  Es la misma trampa que el lector de comprobantes (ver «La revisión de los bloques», rama pagos-bloques). **Regla:** la
+  IA devuelve el total y las cuotas TAL COMO FIGURAN, con su `moneda` (un «$» solo no es USD), y `montosDelContrato`
+  (lib/contrato-montos.ts) decide: en dólares van los montos; en otra moneda, el total ORIGINAL y las fechas, y el
+  asistente de Ganado dice «el contrato dice MX$72.000: carga cuánto es en dólares» sin dar el plan por resuelto. Un
+  prompt viejo guardado en Configuraciones (devuelve `total_usd`, sin `moneda`) puede haber convertido: sus montos no se
+  usan y se dice. Test por la ruta REAL: tests/pagos-contrato-moneda.test.ts.
+- **La moneda que dice la IA vale para el total, no para las cuotas** (revisión de bc5fb022d, medio). Un contrato
+  mexicano dice «US$4,000 total, 12 mensualidades de $6,000 M.N.», la IA dice USD, y las 12 cuotas de 6.000 entraban
+  como dólares (72.000 sobre un cierre de 4.000) con el plan dado por resuelto: el asistente se salteaba el único paso
+  que mira la suma (`cuotasCuadran`). **Regla:** con el total en dólares, las cuotas traen monto sólo si SUMAN el total,
+  con la misma tolerancia del asistente (`toleranciaCuotas`, una sola función para los dos); si no, van sin monto, el
+  paso del plan se muestra y se dice que no suman. El copy de /vsl ya no promete la conversión.
+- **Sin hacer:** los planes YA armados con montos convertidos así no se corrigen solos. El que se midió (ws11, lead 2605)
+  lo decide Martín con el cliente.

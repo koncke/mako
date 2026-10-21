@@ -856,7 +856,7 @@ export const FEATURES: Record<string, Feature> = {
         bullets: [
           "De un solo pase MaKo extrae el <strong>plan de cuotas</strong> (monto por monto) y las cuatro secciones del <strong>Deal Details</strong>: datos fiscales del cliente (razón social, ID fiscal, domicilio, correo), el servicio (qué es, fechas, frecuencia, modalidad, sesiones), la promesa con su garantía y las obligaciones de ambas partes.",
           "Las <strong>obligaciones</strong> salen como listas de 3 a 6 compromisos, en frases de hasta 10 palabras. El prompt le prohíbe copiar cláusulas legales textuales: <em>resume la idea, no transcribe el contrato</em>.",
-          "Si el contrato está en otra moneda, lo <strong>convierte a USD</strong> (todo el CRM trabaja en USD) y deja escrito en una nota qué tasa aproximada usó, ej. 'convertido de MXN a USD a ~17 MXN/USD'.",
+          "Si el contrato está en otra moneda, te muestra el total tal como figura y <strong>tú cargas los montos en dólares</strong>: no inventa un tipo de cambio.",
           "Salida determinista: modelo gpt-4o, <strong>temperature 0</strong> y respuesta en JSON estricto para que el parseo no se rompa.",
         ],
       },
