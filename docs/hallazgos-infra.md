@@ -7227,6 +7227,16 @@ al borrar o renombrar un relevo, se buscan sus citas en `docs/pendientes.md` en 
 - **Causa:** `tituloDe` arma el título de la pestaña con el NOMBRE de la entrada de la barra (`nav.ts`), pero `tests-afectados` no relaciona ese test con un cambio en `nav.ts`. En local corre lo afectado, y Actions corre las 422 barredoras.
 - **Regla:** quien renombre una entrada de la barra busca su nombre viejo, entre comillas, en `tests/` antes del VERDE (`grep -rn "'MaKo - <nombre viejo>'" tests`).
 
+## Quien espera RAM no puede tener el candado de lo pesado (21/10/2026, lo vio el Cerebro con `--cola`)
+
+**El síntoma:** la fila de `antes-de-subir` estuvo trabada 25 minutos con cuatro chats detrás. El dueño del candado era un `--solo tipos` (pid 17932, `wt-infra-tandas`) que **no usaba nada**: esperaba 4 GB libres y había 3,2 (la app de Claude ocupaba 4,3 GB y Chrome 2).
+**La causa real:** los tres pasos que esperan RAM (el tsc acotado y las dos esperas de `correrTests`: cada tanda y el grupo compartido) llamaban a `esperarRam` **con el candado en la mano**. Con el default (90 s los tipos) apenas se nota; con `MAKO_TIPOS_ESPERA_S=1500` —que puse yo, para que los tipos tuvieran
+una chance en una PC cargada— o con los 15 min de los tests, la fila entera espera a quien espera. **El diagnóstico obvio («la fila es lenta porque los VERDE son pesados») era el equivocado:** el que la trababa no pesaba nada.
+**La regla:** el candado es para lo que USA la RAM, y esperarla no la usa. `esperarRamSinRetener` (scripts/antes-de-subir.mjs) mira si hay RAM AHORA; si no, SUELTA el candado (entrega al siguiente), espera sin él, vuelve a hacer fila (al final: cedió el turno) y confirma que la RAM sigue al tener el turno
+(se puede ir mientras se espera en la fila). Si la RAM no aparece en el tope devuelve 0 sin el candado y los pasos que siguen salen «sin RAM» sin hacer otra fila. `correrTests` recibe la espera por parámetro (`esperar`, default `esperarRam`: `tests-afectados` suelto no cambia).
+**El test** (tests/antes-de-subir-espera-ram.test.ts) simula la RAM y la fila y mira EN QUÉ MOMENTO se suelta y se retoma, y que los tres pasos reales usen la espera nueva (ninguno llama a `esperarRam` directo). Probado rompiéndolo: 15 roturas, todas rojas (una se cuelga en vez de fallar).
+**Sin hacer:** `correrTsc` toma antes el lock de typecheck de la máquina (`tomarLock(esperaMs)`) y lo espera CON el candado en la mano, hasta `esperaMs`; es otra espera (por otro tsc, no por RAM), acotada, y no se tocó.
+
 ## El candado de lo pesado: es un DIRECTORIO, y quien lo pide cada 15 s no lo consigue nunca (20/10/2026)
 
 > ⚠️ **SUPERADO el mismo 20/10 a la noche (main, run 174):** `antes-de-subir` maneja SOLO el candado, con cola por orden

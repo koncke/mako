@@ -53,7 +53,8 @@
 //   --sin-condiciones: no exige árbol limpio ni origin/main mergeado (lo usa el pre-push, que ya sabe qué commit sube)
 //   --rapido [--sin-tipos]: el modo rápido (arriba) · --sin-compartir: cada test en su proceso, como `npm test`.
 //   --importadores: el tsc acotado suma, además de lo cambiado, a quienes lo importan (un nivel).
-//   MAKO_TIPOS_ESPERA_S=<segundos>: cuánto espera RAM para los tipos antes de decir «los chequea Actions» (default 90).
+//   MAKO_TIPOS_ESPERA_S=<segundos>: cuánto espera RAM para los tipos antes de decir «los chequea Actions» (default 90). Esa espera, como la de los tests,
+//     es SIN el candado de lo pesado: si no hay RAM al llegar el turno, lo suelta, espera, y vuelve a hacer fila (esperarRamSinRetener).
 //   --profundidad N: de los tests que IMPORTAN un archivo cambiado, sólo los que están a N saltos o menos (default: todos).
 //     Es la palanca si el tiempo aprieta (26 min en la PC cargada con una punta de 21 archivos); un VERDE así dice «--profundidad N» en su línea.
 //   --solo guardas|tipos|tests: una sola etapa; la última línea es `PARCIAL …`, nunca `VERDE` (no vale para pasar una punta)
@@ -184,13 +185,51 @@ const pisoTsc = (heapMb) => (() => heapMb / 1024 + 0.1 + ZONA_ROJA_VIGIA_GB);
 // «El gate tiene que poder correr en esta PC con 14 chats abiertos; si no, nadie lo va a usar.»
 const ESPERA_TIPOS_MS = (Number(process.env.MAKO_TIPOS_ESPERA_S) || 90) * 1000;
 
-async function correrTsc(alcance, out, esperaMs = ESPERA_TIPOS_MS) {
+/** Lo que `esperarRam` espera como máximo si nadie le dice otra cosa (el de tests-afectados: 15 min). */
+const ESPERA_RAM_DEFECTO_MS = 15 * 60 * 1000;
+
+/**
+ * Un `esperarRam` que NO retiene el candado de lo pesado mientras espera RAM. ⚠️ El 21/10/2026 un `--solo tipos` con MAKO_TIPOS_ESPERA_S=1500 tuvo el
+ * candado 25 min esperando 4 GB que no había (la app de Claude ocupaba 4,3 y Chrome 2), con cuatro chats detrás que quizás necesitaban 1,3. Quien espera
+ * RAM no está usando RAM: el candado es para lo que SÍ la usa. Tiene que valer para cualquier paso que espere RAM (los tipos y los dos de tests), así que se arma una vez
+ * y se le pasa a los tres.
+ *   1. ¿Hay RAM AHORA? (sin esperar y sin soltar nada): sigue con el candado, como siempre.
+ *   2. No hay: SUELTA el candado (el siguiente de la fila avanza), espera la RAM sin él, y al haber vuelve a hacer fila (al final: el que esperó ya cedió su turno).
+ *   3. Con el turno en la mano, confirma que la RAM SIGUE (se pudo ir mientras esperaba en la fila): si no, vuelve a 2, hasta el tope de espera.
+ * Si la RAM no aparece en el tope: devuelve 0 SIN el candado y marca `ctx.sinCandado`: lo que siga no se corre (no hay RAM, y no hay turno): lo dice como «sin RAM»,
+ * no vuelve a hacer una fila de media hora sólo para decirlo. Sin candado en `ctx` (Actions, `--ya-tengo-el-candado`, MAKO_SIN_COLA) espera como siempre.
+ * `ctx`: { candado: { soltar } | null, tomar: () => Promise<{ soltar } | { vencio: true }>, sinCandado?: boolean }. Todo se inyecta para probarlo sin RAM ni cola de verdad.
+ * @param {{ candado: { soltar: () => unknown } | null, tomar?: () => Promise<any>, sinCandado?: boolean }} ctx
+ * @param {{ esperar?: typeof esperarRam, aviso?: (t: string) => void, ahora?: () => number }} [o]
+ * @returns {typeof esperarRam}
+ */
+export function esperarRamSinRetener(ctx, { esperar = esperarRam, aviso = () => {}, ahora = Date.now } = {}) {
+  return async (concurrencia, opciones = {}) => {
+    if (ctx.sinCandado) return 0;
+    if (!ctx.candado || !ctx.tomar) return esperar(concurrencia, opciones);
+    const hasta = ahora() + (opciones.esperaMaxMs ?? ESPERA_RAM_DEFECTO_MS);
+    for (;;) {
+      const c = await esperar(concurrencia, { ...opciones, esperaMaxMs: 0 });
+      if (c > 0) return c;
+      try { ctx.candado.soltar(); } catch { /* ya estaba suelto */ }
+      ctx.candado = null;
+      aviso('no hay RAM: suelto el candado mientras espero, así los que están detrás siguen (al haber vuelvo a hacer fila)');
+      const e = await esperar(concurrencia, { ...opciones, esperaMaxMs: Math.max(0, hasta - ahora()) });
+      if (e === 0) { ctx.sinCandado = true; return 0; }
+      const turno = await ctx.tomar();
+      if (turno.vencio) { ctx.sinCandado = true; return 0; }
+      ctx.candado = turno;
+    }
+  };
+}
+
+async function correrTsc(alcance, out, esperaMs = ESPERA_TIPOS_MS, esperar = esperarRam) {
   if (alcance.length === 0) { out('  ✔ ningún .ts/.tsx cambió: nada que compilar'); return { ok: true }; }
   const heap = heapPara(alcance.length);
   const saltar = (porque) => { out(`  ⚠ tipos: los chequea Actions (${porque})`); return { ok: true, saltado: porque }; };
   if (!(await tomarLock(esperaMs))) return saltar('otro typecheck está corriendo y no se liberó');
   try {
-    const c = await esperarRam(1, { pisoGb: pisoTsc(heap), quien: 'antes-de-subir', esperaMaxMs: esperaMs });
+    const c = await esperar(1, { pisoGb: pisoTsc(heap), quien: 'antes-de-subir', esperaMaxMs: esperaMs });
     if (c === 0) return saltar(`no hay RAM: quedan ${ramLibreGb().toFixed(1)} GB y el tsc acotado pide ${pisoTsc(heap)(1).toFixed(1)}`);
     const dir = mkdtempSync(path.join(os.tmpdir(), 'antes-de-subir-tsc-'));
     const config = path.join(dir, 'tsconfig.json');
@@ -324,7 +363,9 @@ async function main(argv) {
   // ⚠️ EL CANDADO DE LO PESADO, CON COLA (20/10/2026): ver scripts/candado-pesado.mjs. Se toma ANTES de lo pesado (los tipos y los tests), nunca para `--listar`
   // ni para las guardas solas; en Actions (CI) no hace falta; MAKO_SIN_COLA=1 lo saltea; `--ya-tengo-el-candado` es para quien lo tomó a mano (el viejo mkdir).
   const conCandado = !o.listar && o.solo !== 'guardas' && !process.env.CI && !process.env.MAKO_SIN_COLA && !o.yaTengoElCandado;
-  let candado = null;
+  // `ctx.candado` es el candado QUE TENGO AHORA (null si no hice fila o si lo solté esperando RAM: ver esperarRamSinRetener); `ctx.tomar` vuelve a hacer fila con los mismos datos.
+  /** @type {{ candado: { soltar: () => unknown } | null, tomar: (() => Promise<any>) | null, sinCandado: boolean }} */
+  const ctx = { candado: null, tomar: null, sinCandado: false };
   let yaTraje = false;
   if (conCandado) {
     // Un árbol sucio no puede tener VERDE: no se hace fila para enterarse de eso al final.
@@ -344,8 +385,9 @@ async function main(argv) {
     out('[antes-de-subir] candado de lo pesado: anotándome en la fila…');
     const turno = await tomarTurno({ datos, aviso: (t) => out(`  ${t}`) });
     if (turno.vencio) { lineaFinal(`ROJO: esperé el candado de lo pesado ${Math.round(turno.esperoMs / 60000)} min y no me tocó (no es un rojo del código): mirá quién lo tiene con --cola`); return SALIDA_SIN_CORRER; }
-    candado = turno;
-    const soltarYa = () => { try { candado.soltar(); } catch { /* ya está suelto */ } };
+    ctx.candado = turno;
+    ctx.tomar = () => tomarTurno({ datos, aviso: (t) => out(`  ${t}`) });
+    const soltarYa = () => { try { ctx.candado?.soltar(); } catch { /* ya está suelto */ } };
     process.on('exit', soltarYa);
     for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => { soltarYa(); process.exit(130); });
     out(`  ✔ candado tomado${turno.esperoMs > 1500 ? ` (esperé ${Math.round(turno.esperoMs / 60000)} min ${Math.round((turno.esperoMs % 60000) / 1000)} s)` : ''}`);
@@ -354,7 +396,7 @@ async function main(argv) {
       const m = traerMain({ base: o.base, cuenta: cuentaActiva(), fetch: o.fetch });
       if (m.aviso) out(`  ⚠ ${m.aviso}`);
       if (!m.ok) {
-        candado.soltar();
+        ctx.candado.soltar();
         lineaFinal(m.archivos.length
           ? `ROJO: el merge de ${o.base} chocó en ${m.archivos.length} archivo(s): ${m.archivos.slice(0, 5).join(', ')}${m.archivos.length > 5 ? '…' : ''} — la rama quedó como estaba y solté el candado; mergeá a mano (git merge ${o.base}), resolvé y volvé a correr`
           : `ROJO: no pude mergear ${o.base} (no es un choque de archivos): ${m.detalle || 'git no dijo por qué'} — la rama quedó como estaba y solté el candado`);
@@ -364,11 +406,13 @@ async function main(argv) {
       if (m.mergeado) out(`  ✔ mergeé ${o.base} (+${m.atras} commits): el VERDE vale para el sha NUEVO`);
     }
   }
-  try { return await ejecutar(o, out, lineaFinal, { yaTraje }); }
-  finally { if (candado) candado.soltar(); }
+  try { return await ejecutar(o, out, lineaFinal, { yaTraje, ctx }); }
+  finally { try { ctx.candado?.soltar(); } catch { /* ya está suelto */ } }
 }
 
-async function ejecutar(o, out, lineaFinal, { yaTraje = false } = {}) {
+async function ejecutar(o, out, lineaFinal, { yaTraje = false, ctx = { candado: null, tomar: null, sinCandado: false } } = {}) {
+  // Todo paso que espera RAM la espera SIN el candado (ver esperarRamSinRetener): los tipos y los dos de tests.
+  const esperar = esperarRamSinRetener(ctx, { aviso: (t) => out(`  ⚠ ${t}`) });
   const sha = git(['rev-parse', '--short=9', 'HEAD']).trim();
   if (o.fetch && !yaTraje) {
     const f = spawnSync('git', ['fetch', 'origin', 'main'], { cwd: RAIZ, stdio: 'ignore', timeout: 30000 });
@@ -413,7 +457,7 @@ async function ejecutar(o, out, lineaFinal, { yaTraje = false } = {}) {
     out(`\n[2/3] tipos (tsc acotado a ${alcance.length} archivos)`);
     // En --rapido los tipos se intentan SIN esperar (20 s): si la RAM no alcanza ya, no se frena al jefe. Medido: 3 de los 25 rojos de Actions
     // eran errores de tipos de archivos CAMBIADOS, y los 5 que tuvo mi propio test al armar esto los vio sólo el modo completo.
-    const t = await correrTsc(alcance, out, o.rapido ? 20 * 1000 : ESPERA_TIPOS_MS);
+    const t = await correrTsc(alcance, out, o.rapido ? 20 * 1000 : ESPERA_TIPOS_MS, esperar);
     if (!t.ok) { rojos.push(t.porque); if (t.sinRam) sinRam = true; }
     if (t.saltado) tiposSaltados = t.saltado;
   }
@@ -430,7 +474,7 @@ async function ejecutar(o, out, lineaFinal, { yaTraje = false } = {}) {
       const carpetaTmp = mkdtempSync(path.join(os.tmpdir(), 'antes-de-subir-'));
       const indice = indiceConNuevos(cambios.nuevos, carpetaTmp);
       const env = { ...process.env, ...(indice ? { GIT_INDEX_FILE: indice } : {}) };
-      const r = await correrTests({ lista, compartidos, tanda: 6, concurrencia: 2, cortar: o.cortar, env, carpetaTmp, out });
+      const r = await correrTests({ lista, compartidos, tanda: 6, concurrencia: 2, cortar: o.cortar, env, carpetaTmp, out, esperar });
       if (r.sinRam) { rojos.push(`tests: no hay RAM (quedan ${ramLibreGb().toFixed(1)} GB) — no se corrieron, no es un rojo de código`); sinRam = true; }
       else {
         rmSync(carpetaTmp, { recursive: true, force: true });

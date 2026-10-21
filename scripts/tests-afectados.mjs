@@ -577,9 +577,11 @@ export const min = (ms) => (ms >= 60000 ? `${Math.floor(ms / 60000)} min ${Math.
 /**
  * Corre `lista` por tandas. Devuelve { sinRam, total, rojos, cortada, ms, ramMin }. `env` lleva el índice
  * temporal de git; `carpetaTmp` guarda el log completo de cada tanda roja. `compartidos`: los que corren juntos en un proceso por grupo.
- * @param {{ lista: string[], compartidos?: string[], tanda: number, concurrencia: number, cortar: boolean, env: NodeJS.ProcessEnv, carpetaTmp: string, out: (s: string) => void }} p
+ * `esperar`: cómo se espera la RAM (default `esperarRam`). antes-de-subir pasa uno que SUELTA el candado de lo pesado mientras espera (el 21/10 un
+ * `--solo tipos` lo retuvo 25 min esperando 4 GB que no había, con cuatro chats detrás): quien espera RAM no puede tener el candado.
+ * @param {{ lista: string[], compartidos?: string[], tanda: number, concurrencia: number, cortar: boolean, env: NodeJS.ProcessEnv, carpetaTmp: string, out: (s: string) => void, esperar?: typeof esperarRam }} p
  */
-export async function correrTests({ lista, compartidos = [], tanda, concurrencia, cortar, env, carpetaTmp, out }) {
+export async function correrTests({ lista, compartidos = [], tanda, concurrencia, cortar, env, carpetaTmp, out, esperar = esperarRam }) {
   const tandas = [];
   for (let i = 0; i < lista.length; i += tanda) tandas.push(lista.slice(i, i + tanda));
   const t0 = Date.now();
@@ -593,7 +595,7 @@ export async function correrTests({ lista, compartidos = [], tanda, concurrencia
   out(`  [tests-afectados] ${lista.length} archivos en ${tandas.length} tandas de hasta ${tanda}, ${concurrencia || 'los de node'} procesos a la vez (${os.availableParallelism()} CPU)`);
   try {
     for (let n = 0; n < tandas.length; n++) {
-      const c = await esperarRam(concurrencia || 2);
+      const c = await esperar(concurrencia || 2);
       if (c === 0) { sinRam = true; break; }
       let r = await correrTanda(tandas[n], concurrencia === 0 ? 0 : c, env);
       let res = leerResultado(r.salida);
@@ -631,7 +633,7 @@ export async function correrTests({ lista, compartidos = [], tanda, concurrencia
     // antes de contarlo: si pasa solo es FLAKY, si sigue rojo es rojo.
     if (compartidos.length && !cortada && !sinRam) {
       const grupos = Math.max(1, Math.min(concurrencia || 2, Math.floor(compartidos.length / POR_GRUPO)));
-      const g = await esperarRam(grupos, { pisoGb: pisoCompartido, quien: 'tests-afectados' });
+      const g = await esperar(grupos, { pisoGb: pisoCompartido, quien: 'tests-afectados' });
       if (g === 0) sinRam = true;
       else {
         const partes = Array.from({ length: g }, () => []);
