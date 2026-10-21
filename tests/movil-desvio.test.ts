@@ -108,8 +108,9 @@ test('el admin global SIN cliente SÍ se desvía, a SU negocio (Martín, 12/10: 
   assert.ok(layout.includes('<DesvioMovil telefono={telefono} wsPropio={wsPropioMovil} />'), 'el layout no se lo pasa al desvío');
   // El bucle se corta en la raíz: el guard de /m ya no lo manda a /inicio sino a su negocio.
   const guard = leer('lib/movil-guard.ts');
-  assert.ok(guard.includes("if (ctx.ws == null && ctx.sesion.rol === 'admin') redirect(conWs(HOME_MOVIL, await wsSuperAdmin()));"), 'el guard no manda al admin sin cliente a su negocio');
+  // A su Ops Center (el Centro) desde el 20/10/2026, la tab principal; hasta ese día, al Dashboard.
+  assert.ok(guard.includes("if (ctx.ws == null && ctx.sesion.rol === 'admin') redirect(conWs(RUTA_CENTRO_M, await wsSuperAdmin()));"), 'el guard no manda al admin sin cliente a su negocio');
   assert.ok(!guard.includes("redirect('/inicio')"), 'volvió el rebote a /inicio: con el desvío prendido, un bucle');
   // Y /inicio, en un teléfono, lo manda a /m (no a /clients, ex /customer-success, que el desvío taparía).
-  assert.ok(leer('app/inicio/page.tsx').includes("if (ws == null) redirect(telefono ? '/general' : '/clients');"), '/inicio no reparte al teléfono');
+  assert.ok(leer('app/inicio/page.tsx').includes("if (ws == null) redirect(telefono ? ENTRADA_MOVIL : '/clients');"), '/inicio no reparte al teléfono');
 });
