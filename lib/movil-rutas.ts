@@ -91,6 +91,8 @@ export type DefDestino = {
    * ver, y «More» se arma con lo que el rol ve.
    */
   navKey: string | null;
+  /** Se dibuja con la criatura de MaKo y no con `icon` (sólo el Ops Center; ver `ItemBarra`). `icon` queda de respaldo. */
+  criatura?: true;
 };
 
 export type DefSeccionMas = {
@@ -172,7 +174,7 @@ export const DESTINOS_MOVIL: readonly DefDestino[] = [
   // está el Dashboard, que sea la tab principal»). Hasta ese día era el Dashboard (/m/hoy), que pasó a More. La key es la
   // de la sidebar (nav.ts → MAKO_NAV): la ven el admin, el closer y el setter. Para el super admin sin mirar un cliente,
   // `barraMovil` le cambia el destino por el Centro.
-  { id: 'mako', label: 'Ops Center', href: RUTA_OPS_CENTER_M, icon: 'cerebro', navKey: 'mako' },
+  { id: 'mako', label: 'Ops Center', href: RUTA_OPS_CENTER_M, icon: 'cerebro', navKey: 'mako', criatura: true },
   { id: 'plan', label: 'Plan', href: '/m/plan', icon: 'todo', navKey: 'todo' },
   { id: 'mas', label: 'More', href: RUTA_MAS, icon: 'mas', navKey: null },
 ];
@@ -315,7 +317,12 @@ export const QUERY_DE_SECCION: Partial<Record<IdSeccionMas, readonly string[]>> 
 export type RolMovil = 'admin' | 'closer' | 'setter' | null;
 
 /** Un lugar de la barra: un destino fijo o una sección de More que subió a ocupar un hueco. */
-export type ItemBarra = { id: IdBarra; label: string; href: string; icon: string };
+/**
+ * `criatura`: el lugar se dibuja con la criatura de MaKo (la estrella que flota y parpadea, app/_components/Criatura.tsx) y
+ * no con un ícono de trazo. Sólo el Ops Center, como en la sidebar y en More (Martín, 21/10/2026: «Pusiste a Ops Center
+ * con el logo del Second Brain. Cuando el logo es la criatura de MaKo. Quiero que se mueva, parpadee, como siempre»).
+ */
+export type ItemBarra = { id: IdBarra; label: string; href: string; icon: string; criatura?: true };
 
 /** ¿La ruta es de MaKo Mobile? `/m` o `/m/...`, nunca `/m.js` ni `/mako`. */
 export function esRutaMovil(pathname: string | null | undefined): boolean {
@@ -379,7 +386,10 @@ export function barraMovil(rol: RolMovil, capa: string | null | undefined, centr
   const out: ItemBarra[] = [];
   for (const d of DESTINOS_MOVIL) {
     if (d.id === 'mas') continue;
-    if (visibles.has(d.id)) { out.push({ id: d.id, label: d.label, href: d.id === 'mako' && centro ? RUTA_CENTRO_M : d.href, icon: d.icon }); continue; }
+    if (visibles.has(d.id)) {
+      out.push({ id: d.id, label: d.label, href: d.id === 'mako' && centro ? RUTA_CENTRO_M : d.href, icon: d.icon, ...(d.criatura ? { criatura: true as const } : {}) });
+      continue;
+    }
     const s = reserva.shift();
     if (s) out.push({ id: s.id, label: s.label, href: s.href, icon: s.icon });
   }

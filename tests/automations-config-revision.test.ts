@@ -179,8 +179,9 @@ test('m. sin la zona se cierran SÓLO las que tienen horario; lo propio ilegible
   const m = sinComentarios(leer('lib/nutricion.ts'));
   const pe = cuerpo(m, 'export async function procesarEnvios(');
   assert.match(pe, /if \(conHorario && tz === ZONA_ILEGIBLE\) \{\n\s+cerradas = cerradasAhora\(ids, configs, horario, Date\.now\(\), null\);\n\s+if \(!ids\.length \|\| cerradas\.size === ids\.length\) fueraDeHorario = 'zona-ilegible';/);
-  assert.match(pe, /if \(limites === 'ilegible'\) return \{ \.\.\.res, saltado: 'limites-ilegibles' \};/);
-  assert.doesNotMatch(pe, /configs === 'ilegible'\) return/, 'lo propio ilegible vuelve a cortar el carril de todas');
+  // Revisión del 20/10/2026, noche (tests/automations-aviso-todos-caminos.test.ts): con `ignorar_ventana` (sin corte del horario) lo propio ilegible corta.
+  assert.match(pe, /if \(limites === 'ilegible' \|\| \(configs === 'ilegible' && fueraDeHorario == null\)\) return \{ \.\.\.res, saltado: 'limites-ilegibles' \};/);
+  assert.doesNotMatch(pe, /\|\| configs === 'ilegible'\) return/, 'lo propio ilegible vuelve a cortar el carril de todas');
   // Y sin lo propio, la prospección sigue cerrada (el horario «no pude leer»).
   assert.match(pe, /if \(horario === 'ilegible' \|\| configs === 'ilegible'\) fueraDeHorario = 'horario-ilegible';/);
 });

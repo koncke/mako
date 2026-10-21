@@ -24,7 +24,7 @@ import { usePilaDeshacer } from '@/app/_ui/usePilaDeshacer';
 // LOS CRON (sexta tanda: varios por automatización, y la primera pantalla con Producto / Recurrente /
 // Etiqueta / Instagram / Messenger / Email). El panel, su estado y lo que dice cada uno viven allá.
 import { EditorDisparadores, useDisparadores, useTextoDisparador, disparadoresDeSecuencia, type SecuenciaConDisparadores } from './EditorDisparadores';
-import { disparoActualDe, disparadorDeValorIA, recurrenteDeValorIA, iconoDeDisparador, esDelEmisor, EVENTOS_MAKO, TRIGGER_AVISO_MAKO } from '@/lib/disparadores';
+import { disparoActualDe, disparadorDeValorIA, recurrenteDeValorIA, iconoDeDisparador, esDelEmisor, EVENTOS_MAKO, TRIGGER_AVISO_MAKO, type Disparador } from '@/lib/disparadores';
 import { frenoDelEvento } from '@/lib/aviso-evento';
 import { problemasDeTokens } from '@/lib/tokens-del-flujo';
 import type { AudioSetting, SecuenciaDto, Opcion, PasoSecuenciaDto, ProductoOpcion } from './ChatAgentApp';
@@ -39,7 +39,7 @@ import type { ListoCrearIA } from './CrearConIA';
 import { ChatMako } from './ChatMako';
 import Link from '@/app/_ui/Link';
 import { textoPorAprobar, dejaBorradores, POR_QUE_SE_APRUEBAN, POR_QUE_CORTO, RUTA_APROBAR } from '@/lib/mensajes-por-aprobar';
-import { duplicadaDe, avisoDuplicada } from '@/lib/automatizacion-duplicada';
+import { duplicadaDe, duplicadaAlActivar, avisoDuplicada } from '@/lib/automatizacion-duplicada';
 import { BotonPila } from './BotonPila';
 import { TRIGGER_RECORDATORIO, frenoDelRecordatorio } from '@/lib/recordatorio-automatizacion';
 import { CANALES_PROBAR, type CanalProbar } from './PanelProbar';
@@ -472,7 +472,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * las condiciones (`triggerTipo` del lienzo) y «Crear con IA». `setErr` va en una flecha: se declara
    * más abajo, y pasarlo pelado acá sería leerlo antes de que exista.
    */
-  const crons = useDisparadores(secuencia as SecuenciaConDisparadores, { onCambio, onError: (m) => setErr(m) });
+  /** El aviso de duplicada al guardar un CRON (`alGuardarCrons`, más abajo): el del render de AHORA. */
+  const alGuardarCronsRef = useRef<(nueva: readonly Disparador[], previa: readonly Disparador[]) => void>(() => {});
+  const crons = useDisparadores(secuencia as SecuenciaConDisparadores, { onCambio, onError: (m) => setErr(m), onGuardado: (n, p) => alGuardarCronsRef.current(n, p) });
   const disparo = disparoActualDe(crons.primero);
   /** El CRON abierto en el panel: su id, 'nuevo' (el «＋ Nuevo CRON» de la tarjeta) o null (el primero). */
   const [cronAbierto, setCronAbierto] = useState<string | 'nuevo' | null>(null);
@@ -957,7 +959,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         // ⚠️ «ACTIVADA ✓» Y NO SALE NADA (20/10/2026, el Recurrente de Leila: 31 borradores esperando). A un lead que no
         // pagó, un mensaje de WhatsApp que no sale solo queda para que lo apruebes (lib/mensajes-por-aprobar.ts): el chat
         // lo dice al activarla, y la línea de al lado de «Activar» cuenta los que esperan.
-        if (!activa && dejaBorradores(pasos, est?.envio_automatico === true)) {
+        // Con lo PUBLICADO (revisión del 20/10/2026, noche): Activar prende la fila, no el borrador del lienzo.
+        if (!activa && dejaBorradores(abiertoPublicado, est?.envio_automatico === true)) {
           setNotaChat({ id: `mako-aprobar-${Date.now().toString(36)}`, texto: `${POR_QUE_SE_APRUEBAN}. Se aprueban en Chats › Borradores.` });
         }
         onCambio();
@@ -1057,15 +1060,27 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * publicar no le manda nada a nadie y se avisa al activarla. No frena (puede ser a propósito): pregunta. Compara lo que
    * se ve (el lienzo y los CRON de ahora) con lo PUBLICADO de las otras, que es lo que manda el motor.
    */
-  const conAvisoDuplicada = (vaAMandar: boolean, boton: string, seguir: () => void) => {
+  const conAvisoDuplicada = (vaAMandar: boolean, boton: string, seguir: () => void, queManda: readonly PasoSecuenciaDto[] = pasos) => {
     if (!rolAdmin || !vaAMandar) { seguir(); return; }
     const otra = duplicadaDe(
-      { id: secuencia.id, nombre, disparadores: crons.lista, pasos },
+      { id: secuencia.id, nombre, disparadores: crons.lista, pasos: queManda },
       secuencias.map((s) => ({ id: s.id, nombre: s.nombre, activa: s.activa, disparadores: disparadoresDeSecuencia(s), pasos: s.pasos ?? [] })),
     );
     if (!otra) { seguir(); return; }
     setAvisoDup({ texto: avisoDuplicada(otra.nombre), boton, seguir });
   };
+  /**
+   * UN CRON NUEVO EN UNA QUE YA ESTÁ ACTIVA (revisión del 20/10/2026, noche): se guarda en vivo y no pasa por Publicar, así
+   * que el aviso sale después de guardarlo, si con él pasó a escribirle a la misma gente que otra (con lo PUBLICADO: es lo
+   * que manda). Sólo si ANTES no pasaba: no se repite en cada toque de un CRON que ya era así.
+   */
+  const alGuardarCrons = (nueva: readonly Disparador[], previa: readonly Disparador[]) => {
+    if (!rolAdmin || !activa) return;
+    const con = (lista: readonly Disparador[]) => duplicadaAlActivar(secuencia as SecuenciaConDisparadores, secuencias as readonly SecuenciaConDisparadores[], disparadoresDeSecuencia, { pasos: abiertoPublicado, crons: lista });
+    const otra = con(nueva);
+    if (otra && !con(previa)) setErr(avisoDuplicada(otra.nombre));
+  };
+  useEffect(() => { alGuardarCronsRef.current = alGuardarCrons; });
   const conAvisoProspeccion = (seguir: () => void) => {
     if (!rolAdmin || !Configuraciones || avisadaProspeccion.has(secuencia.id) || !cronDeProspeccion(crons.lista, productos, secuencia.funnel_id ?? null)) { seguir(); return; }
     // ⚠️ UNA CONSULTA A LA VEZ, Y LA QUE YA TIENE LO SUYO QUEDA AVISADA (revisión del 20/10/2026): sin esto cada clic
@@ -1323,7 +1338,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 "Publicar"»). Las dos deciden qué sale y se miran juntas; arriba quedó el ✦ de MaKo. */}
             <div style={{ ...tarjetaChrome, flex: 'none', height: ALTO_ACCION, boxSizing: 'border-box', padding: '0 14px', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 14.5, fontWeight: 700, color: activa ? 'var(--good)' : 'var(--dim)' }}>Activar</span>
-              <button onClick={() => (activa ? void toggle() : conAvisoDuplicada(true, 'Activar igual', () => void toggle()))} disabled={!rolAdmin || busy === 'toggle'} aria-pressed={activa} title={activa ? 'Pausar' : 'Activar'}
+              <button onClick={() => (activa ? void toggle() : conAvisoDuplicada(true, 'Activar igual', () => void toggle(), abiertoPublicado))} disabled={!rolAdmin || busy === 'toggle'} aria-pressed={activa} title={activa ? 'Pausar' : 'Activar'}
                 style={{ width: 46, height: 26, borderRadius: 999, border: 'none', padding: 3, background: activa ? 'var(--good)' : 'var(--border-strong)', cursor: rolAdmin ? 'pointer' : 'default', flex: 'none', transition: 'background .15s' }}>
                 <span style={{ display: 'block', width: 20, height: 20, borderRadius: '50%', background: '#fff', transform: activa ? 'translateX(20px)' : 'none', transition: 'transform .15s' }} />
               </button>

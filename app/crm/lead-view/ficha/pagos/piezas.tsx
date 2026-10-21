@@ -22,7 +22,8 @@ import type { Tono as TonoUi } from '@/app/_ui/tokens';
 import type { Tono } from '@/lib/cobrado-lead';
 import type { Pago } from '@/lib/pagos';
 import { METODOS_PAGO, ROTULO_METODO, nombreCuota, type MetodoPago } from '@/lib/pagos-campo';
-import { fmtDDMMYYYY } from '@/lib/date-utils';
+import { fmtDDMMYYYY, horaEnTz } from '@/lib/date-utils';
+import { useTzWorkspace } from '../../useTzWorkspace';
 import { usd } from '@/lib/pagos-vistazo';
 import { marcarPagoManualAction, registrarPagoSueltoAction } from '@/app/crm/[id]/deal-actions';
 
@@ -59,7 +60,8 @@ export function Semaforo({ tono, children }: { tono: Tono; children: ReactNode }
   return <Status tono={TONO_UI[tono]}>{children}</Status>;
 }
 
-const horaAhora = (): string => new Date().toTimeString().slice(0, 5);
+/** La hora del NEGOCIO (20/10/2026): con la del navegador, alguien en otra zona anotaba el día del negocio con su hora. */
+const useHoraDelNegocio = (): string => { const tz = useTzWorkspace(); return horaEnTz(tz); };
 const numero = (s: string): number | null => {
   const n = Number(String(s).replace(',', '.'));
   return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null;
@@ -153,7 +155,8 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, hoy, onCerrar, onHe
   const [leido, setLeido] = useState<string | null>(null);
   const [plata, setPlata] = useState<Plata>({ moneda: 'USD', monto: String(valorUsd), usd: '' });
   const [fecha, setFecha] = useState(hoy);
-  const [hora, setHora] = useState(horaAhora());
+  const horaNegocio = useHoraDelNegocio();
+  const [hora, setHora] = useState(horaNegocio);
   const [metodo, setMetodo] = useState<MetodoPago | ''>('');
   const [resto, setResto] = useState<'pendiente' | 'descuento'>('pendiente');
   const [error, setError] = useState<string | null>(null);
@@ -249,7 +252,8 @@ export function RegistrarPago({ leadId, monedaNegocio, modo, sugeridoUsd, hoy, o
 }) {
   const [plata, setPlata] = useState<Plata>({ moneda: 'USD', monto: sugeridoUsd ? String(sugeridoUsd) : '', usd: '' });
   const [fecha, setFecha] = useState(hoy);
-  const [hora, setHora] = useState(horaAhora());
+  const horaNegocio = useHoraDelNegocio();
+  const [hora, setHora] = useState(horaNegocio);
   const [metodo, setMetodo] = useState<MetodoPago | ''>('');
   const [concepto, setConcepto] = useState(modo === 'mensualidad' ? 'Mensualidad' : '');
   const [error, setError] = useState<string | null>(null);
