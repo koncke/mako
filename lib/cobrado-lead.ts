@@ -132,6 +132,25 @@ export function sumarMeses(iso: string, meses: number): string {
 }
 
 /**
+ * ⚠️ La fecha que propone «+ Agregar cuota» en el asistente del CRM (21/10/2026, revisión adversarial): la ÚLTIMA cuota
+ * más un mes, en el día PACTADO, que es el de la primera mensualidad (la segunda cuota: la primera suele ser el
+ * anticipo), con el tope de fin de mes. Contar desde la primera por posición ignoraba el día elegido (anticipo el 21,
+ * mensualidades el 05: proponía el 21/12) y, al quitar una del medio, repetía una fecha que ya estaba.
+ */
+export function siguienteFechaDeCuota(fechas: ReadonlyArray<string | null | undefined>, hoy: string): string {
+  const validas = fechas.filter((f): f is string => !!f && /^\d{4}-\d{2}-\d{2}$/.test(f));
+  if (!validas.length) return hoy;
+  const diaDe = (iso: string) => Number(iso.slice(8, 10));
+  const esFinDeMes = (iso: string) => diaDe(iso) === new Date(Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)), 0)).getUTCDate();
+  // Un 30/11 que vino de un 31: el pactado es el 31 (la primera lo dice), no el 30.
+  const mensual = validas[1] ?? validas[0];
+  const dia = validas.length > 1 && esFinDeMes(mensual) && diaDe(validas[0]) > diaDe(mensual) ? diaDe(validas[0]) : diaDe(mensual);
+  // Desde la MÁS TARDÍA (no la última de la lista): el mes siguiente a todas no puede repetir ninguna.
+  const ultima = [...validas].sort().at(-1) as string;
+  return sumarMeses(`${ultima.slice(0, 8)}${String(dia).padStart(2, '0')}`, 1);
+}
+
+/**
  * ¿Es una cuota DEVUELTA? Un reembolso de la pasarela la deja impaga, sin vencimiento y con su proveedor
  * (`desmarcarCobroDeProveedor`, lib/pagos.ts): queda en la tabla para el historial y no es deuda.
  */

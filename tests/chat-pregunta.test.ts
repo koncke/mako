@@ -22,6 +22,7 @@
 //   · `bloquea` que deja pasar las acciones → 1 fallo (2);
 //   · `retirar` que devuelve todo → 1 fallo (2);
 //   · el turno sin guardar la pregunta con el mensaje → 1 fallo (3) (desde el 21/10, `conElMensaje` sin la pregunta);
+//   · (21/10, Dashboard) `bloquesDelMensaje` que recorta la pregunta con 4 dibujos, como antes → 1 fallo (3);
 //   · `itemsDeSesion` sin marcar la contestada → 1 fallo (4);
 //   · (21/10) `aRetirar` sólo con la genérica, como antes → 1 fallo (5); que retira también la que ya estaba pendiente
 //     → 1 fallo (5); el mensaje del borrador con una pregunta → 1 fallo (5); el turno sin retirar por clase → 1 fallo (5);
@@ -38,7 +39,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { REGISTRO, porId } from '../lib/api-mako/registro';
 import { PREGUNTAR, TOOL_PREGUNTAR, crearGuardiaDePregunta, retirar } from '../lib/chat-pregunta';
 import { clasificarIntencion } from '../lib/mako-intencion';
-import { aRetirar, herramientasDelChat, linksDeUnaAccion } from '../lib/mako-turno-app-reglas';
+import { aRetirar, bloquesDelMensaje, herramientasDelChat, linksDeUnaAccion } from '../lib/mako-turno-app-reglas';
 import { conRespuestas, itemsDeRespuesta, itemsDeSesion } from '../app/m/mako/chat-ui';
 import type { Bloque } from '../lib/chat-bloques';
 
@@ -87,7 +88,11 @@ test('3. el turno: lleva la herramienta, la corre antes que todo, retira y guard
   assert.match(s, /resolverPendiente\(ws, t\.pendienteId, 'cancelada', 'MaKo preguntó antes de proponer', \{ soloSiPendiente: true \}\)/, 'retira las tarjetas del turno en la base');
   assert.match(s, /\.\.\.capturados\.map\(\(l\) => retirarEnSuPantalla\(ws, aRetirar\(l\)\)\)/, 'y las propuestas de pantalla (test 5)');
   // Desde el 21/10 va junto con lo que dibujaron las herramientas (tests/chat-bloques-salida.test.ts).
-  assert.match(s, /const conElMensaje = \[\.\.\.dibujos, \.\.\.\(pregunta \? \[pregunta\] : \[\]\)\]/, 'la pregunta va con el mensaje');
+  assert.match(s, /const conElMensaje = bloquesDelMensaje\(dibujos, pregunta, MAX_BLOQUES_MENSAJE\);/, 'la pregunta va con el mensaje');
+  // Y nunca se recorta (lo encontró Dashboard, 21/10): con el tope lleno de dibujos, se recortan los dibujos.
+  assert.deepEqual(bloquesDelMensaje(['d1', 'd2', 'd3', 'd4'], 'P', 4), ['d1', 'd2', 'd3', 'P'], 'con 4 dibujos, la pregunta igual va');
+  assert.deepEqual(bloquesDelMensaje(['d1', 'd2'], 'P', 4), ['d1', 'd2', 'P']);
+  assert.deepEqual(bloquesDelMensaje(['d1', 'd2', 'd3', 'd4', 'd5'], null, 4), ['d1', 'd2', 'd3', 'd4'], 'sin pregunta, el tope de siempre');
   assert.match(s, /await appendMessage\(s\.id, 'assistant', respuesta, conElMensaje\.length \? conElMensaje\.map\(aGuardar\) : undefined\);/);
   // La frase del «Hecho»: hoy, sin herramientas (es de la 1.2). Cuando el clasificador la mande a actuar, esto cambia.
   const frase = 'todos los martes a las 3 a todo el funnel';

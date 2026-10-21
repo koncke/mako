@@ -1840,7 +1840,18 @@ horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, un
   devuelven `yaEstaba`. Quien marca lo DICE («Ya estaba cobrada») y no ofrece Deshacer: sería desmarcar el cobro de otro.
   **Y la escritura es CONDICIONAL** (`siSigue` + `.select('id')`, lib/pagos.ts): leer el estado y compararlo en memoria
   no alcanza con dos pantallas a la vez. Cero filas tocadas = otro llegó antes. `cobrarCuota` escribe el cobro ENTERO
-  (pagado, fecha, hora, monto, moneda) en esa sola escritura, nunca el monto primero y la marca después.
+  (pagado, fecha, hora, monto, moneda) en esa sola escritura, nunca el monto primero y la marca después. Vale para
+  TODO escritor de una cuota, la pasarela incluida. **Un cobro con su diferencia pendiente va en UNA transacción**
+  (`cobrar_cuota_con_resto`, mig 0318): dos escrituras desde PostgREST no tienen un orden seguro (después de tomar la
+  cuota, una falla la dejaba sin su diferencia; antes, la dejaba como una cuota FANTASMA que la cobranza reclamaba). Lo
+  de después de cobrar va en `curarDespues`: corta primero (no tira) y sincroniza después, y el «ya estaba» de todo
+  escritor lo vuelve a correr, porque se puede repetir.
+- **El asistente de Ganado arma el plan UNA vez, y lo decide `planDelAsistente`** (lib/pagos-campo.ts, 21/10/2026):
+  con un plan no se toca; en una suscripción, los meses ya cobrados sueltos son las primeras cuotas y las fechas van
+  desde el cierre (como cuenta `cobradoDelLead`); un pago único con un pago previo no se arma. Nunca nace una cuota por
+  un mes ya cobrado, y lo que no se hizo vuelve en `sinTocar` y el asistente lo MUESTRA: nada se descarta en silencio.
+- **Los meses se suman con `sumarMeses` (lib/cobrado-lead.ts)**, que topa al último día del mes: `new Date(y, m + n, d)`
+  desborda un 29, 30 o 31 (31/10 + 1 mes = 01/12) y un plan de cuotas queda con meses sin cuota y meses con dos.
 
 # Una herramienta de laboratorio montada en el layout raíz es una herramienta EN PRODUCCIÓN
 
@@ -5092,8 +5103,15 @@ la ruta lo que su pantalla le esconde. El detalle, en [docs/hallazgos-seguridad.
 - **Todo handler de `app/api/cron` empieza con `checkCronAuth(req)`** (tiempo constante, fail-closed), y ninguna ruta
   lee `CRON_SECRET` por su cuenta.
 - **Un GET no escribe** (el de `chat-agent/onboarding/resumen` desarchivaba automatizaciones con un link).
-- **Toda función SQL nueva lleva su `revoke … from public, anon, authenticated`**: Supabase le daba EXECUTE directo a la
-  clave pública. La 0280 cambió el default; se mide con `has_function_privilege('anon', …)`, no leyendo la migración.
+- **Toda función SQL nueva lleva su `revoke … from public, anon, authenticated` Y su `grant execute … to service_role`** (el de una
+  función de trigger no hace falta), en su migración: **no es redundante.** La 0280 creía dejar las nuevas cerradas y NO lo hacía: el
+  EXECUTE de PUBLIC es un default GLOBAL de Postgres y un `alter default privileges … in schema` no lo saca, así que la 0310 y la 0318
+  nacieron ejecutables por la clave anon (la que viaja al navegador). La 0319 puso el default global y cerró las existentes;
+  `tests/migraciones-funciones-cerradas.test.ts` frena en Actions toda migración que cree una función sin ese revoke. Se mide con
+  `has_function_privilege('anon', …)` (`scripts/medir-funciones-publicas.mjs`), no leyendo la migración ni su comentario. Un PROCEDURE
+  se revoca con `on procedure` (o `on routine`, que sirve para todo). El default global de la 0319 también le da EXECUTE a service_role a
+  lo que postgres cree en CUALQUIER esquema; una extensión que haga pedidos de red (http, pg_net, dblink) NO debe vivir en `public` (la
+  clave anon la llamaría por /rest/v1/rpc: SSRF). Detalle: docs/hallazgos-seguridad.md («El EXECUTE de PUBLIC es un default GLOBAL»).
 
 # Un canal PROPONE; una persona confirma. Nada escribe directo
 
