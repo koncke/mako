@@ -140,7 +140,7 @@ export async function traerPropuestas(editor: EditorCore, opciones: { incluir?: 
 		for (const p of abiertas.values()) {
 			const crudas = Array.isArray(p.operaciones) ? p.operaciones : [];
 			const suyos = deApi().filter((m) => m.propuestaApi!.id === p.id);
-			const d = queMostrar(p.id, crudas.map(comoLaVe), suyos.map((m) => ({ id: m.id, estado: m.estado, ops: m.propuesta?.operaciones ?? [] })));
+			const d = queMostrar(p.id, crudas.map(comoLaVe), suyos.map((m) => ({ id: m.id, estado: m.estado, cerrada: !!m.propuestaApi?.cerrada, ops: m.propuesta?.operaciones ?? [] })));
 			if (d.accion === "nada") continue;
 			const lineas = Array.isArray(p.lineas) && p.lineas.length === crudas.length ? d.quedan.map((i) => p.lineas[i]) : p.lineas;
 			const m = await mensajeDe(editor, proyectoId, { ...p, operaciones: d.quedan.map((i) => crudas[i]), lineas }, d.id);

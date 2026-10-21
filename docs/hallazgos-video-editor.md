@@ -1674,6 +1674,28 @@ se aceptaba, op1 volvía a ofrecerse y se aplicaba dos veces. Lo que quedó:
 
 **Regla que queda:** para cerrar «lo que el cliente vio», mandar QUÉ vio, no cuánto ni cuándo.
 
+**La tercera revisión (21/10).**
+- **Lo ya cerrado no se resta.** `queMostrar` restaba lo de todo mensaje manejado, también lo que la
+  base ya había sacado: una operación IGUAL pedida después («dejá la música en -12» dos veces) nunca
+  se ofrecía y la propuesta quedaba abierta para siempre. Ahora resta sólo lo manejado cuyo cierre
+  todavía no confirmó la base.
+- **Validar dos veces tiene que dar lo mismo.** `cortar_tramo` y `recortar` comparaban la duración
+  ANTES de redondear a centésimas: 2.104 → 2.155 pasaba, se guardaba 2.1 → 2.15, y al volver a
+  validarlo daba 0.0499… y se tiraba. Esa operación quedaba invisible y su propuesta no cerraba nunca.
+  Ahora se compara después de redondear (con un margen por el punto flotante), y al cerrar el server
+  saca lo que ya no valida.
+
+**Lo que quedó SIN hacer, y por qué** (bajas de la tercera revisión; las dos piden guardar algo en la
+fila, es decir una migración):
+- **Un reintento de cierre ya hecho puede sacar una igual que llegó después.** Si la respuesta del
+  cierre no volvió (pestaña cerrada) y en menos de 2 h se pide la misma operación, el reintento la
+  saca sin aplicarla. Arreglo: una llave de idempotencia por cierre guardada en la fila, o un id por
+  operación al proponerla y cerrar por id.
+- **Dos pestañas del mismo proyecto** pueden reemplazar el mismo `api-X` con contenidos distintos, y
+  la unión del hilo por id se queda con uno: se pierde la tarjeta «aplicada» de una y el pendiente
+  queda doble. Arreglo: que el id del mensaje dependa de lo que muestra (un hash de sus operaciones),
+  o el mismo id por operación.
+
 **Lo que quedó SIN hacer:** colgar `extra.bloque` del mensaje de MaKo en el turno y dibujarlo al
 llegar (`itemsDeRespuesta` hoy sólo dibuja bloques al confirmar una tarjeta): es la 1.8 de Ops
 Center 3. Mirarlo de punta a punta en el navegador con las migraciones 0298 a 0302 aplicadas.

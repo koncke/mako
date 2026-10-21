@@ -169,7 +169,10 @@ export async function resolverPropuesta(p: {
     if (!fila) return { ok: false, yaResuelta: true };
     const ops = Array.isArray(fila.operaciones) ? fila.operaciones : [];
     const lineas = Array.isArray(fila.lineas) ? fila.lineas : [];
-    const quedan = p.vistas ? restarOperaciones(ops.map(comoLaVe), p.vistas) : [];
+    // Lo que ya no valida (una operación de una versión vieja del catálogo) ningún editor lo puede mostrar ni aceptar:
+    // se saca al cerrar, o la propuesta quedaría abierta para siempre.
+    const valida = ops.map((op) => validarOperaciones([op]).operaciones.length > 0);
+    const quedan = p.vistas ? restarOperaciones(ops.map(comoLaVe), p.vistas).filter((i) => valida[i]) : [];
     // Nada de lo que el editor aplicó sigue acá (ya lo cerró otra pestaña): no hay nada que escribir.
     if (p.vistas && quedan.length === ops.length) return { ok: true, quedan: ops.length };
     const cambio = quedan.length === 0

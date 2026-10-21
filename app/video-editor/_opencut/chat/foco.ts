@@ -55,12 +55,20 @@ export type QueMostrar = { accion: "nada" } | { accion: "reemplazar" | "nuevo"; 
  * (validadas), y `mensajes` los de esta propuesta con las operaciones que cada uno mostró.
  *
  * ⚠️ SE OFRECE SÓLO LO QUE NINGÚN MENSAJE MANEJÓ. Lo aceptado, descartado o en curso (aplicando, sin versión) ya se
- * manejó, haya llegado o no su cierre a la base: si el cierre falló y la propuesta creció, ofrecer «todo lo abierto»
- * volvía a ofrecer lo ya aplicado, y se aplicaba dos veces (revisión del 21/10). Y no se renombra nada: el renombre
- * dejaba al mensaje viejo como el «de» la propuesta y cada apertura sumaba uno más.
+ * manejó: si su cierre todavía no llegó a la base y la propuesta creció, ofrecer «todo lo abierto» volvía a ofrecer lo
+ * ya aplicado, y se aplicaba dos veces (segunda revisión del 21/10). Y no se renombra nada: el renombre dejaba al
+ * mensaje viejo como el «de» la propuesta y cada apertura sumaba uno más.
+ *
+ * ⚠️ PERO LO YA CERRADO NO SE RESTA (`cerrada`, tercera revisión). La base ya lo sacó: restarlo otra vez se comía una
+ * operación IGUAL pedida después («dejá la música en -12» dos veces), que nunca se ofrecía, y la propuesta quedaba
+ * abierta para siempre.
  */
-export function queMostrar(propuestaId: string, serverOps: readonly unknown[], mensajes: ReadonlyArray<{ id: string; estado?: string; ops: readonly unknown[] }>): QueMostrar {
-	const manejadas = mensajes.filter((m) => m.estado !== "pendiente").flatMap((m) => m.ops);
+export function queMostrar(
+	propuestaId: string,
+	serverOps: readonly unknown[],
+	mensajes: ReadonlyArray<{ id: string; estado?: string; cerrada?: boolean; ops: readonly unknown[] }>,
+): QueMostrar {
+	const manejadas = mensajes.filter((m) => m.estado !== "pendiente" && !m.cerrada).flatMap((m) => m.ops);
 	const quedan = restarOperaciones(serverOps, manejadas);
 	if (!quedan.length) return { accion: "nada" };
 	const pendiente = [...mensajes].reverse().find((m) => m.estado === "pendiente");

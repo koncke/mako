@@ -57,6 +57,14 @@
 //       en el caso del test el pendiente también era el último)
 //   Q13 el hilo guardado olvida que el cierre llegó                              → 14 / 1
 //   Q14 el server no trae lo que el editor pide por id                           → 14 / 1
+//
+// Y la tercera revisión (21/10; base 17 / 0):
+//   S1  queMostrar resta también lo que la base ya cerró                         → 16 / 1
+//   S2  el editor no le pasa el cierre a queMostrar                              → 16 / 1
+//   S3  el corte de tramo se compara antes de redondear                          → 16 / 1
+//   S4  el recorte se compara antes de redondear                                 → 16 / 1 (la primera vez pasaba:
+//       el caso no tocaba el borde, 1.205 redondea a 1.21)
+//   S5  el server no saca al cerrar lo que ya no valida                          → 16 / 1
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -65,6 +73,7 @@ import { join, resolve } from 'node:path';
 import { focoDePropuesta, idDeMensaje, queMostrar, SIN_PROYECTO_AQUI } from '../app/video-editor/_opencut/chat/foco';
 import { claveDeOperacion, restarOperaciones } from '../lib/editor-video/propuestas';
 import { hiloParaGuardar } from '../lib/editor-video/chat-hilo';
+import { validarOperaciones } from '../lib/editor-video/chat-catalogo';
 
 const RAIZ = resolve(import.meta.dirname, '..');
 const leer = (...p: string[]) => readFileSync(join(RAIZ, ...p), 'utf8').replace(/\r\n/g, '\n');
@@ -182,7 +191,9 @@ test('el cierre saca de la base EXACTAMENTE lo que el editor aplicó, por conten
 
 test('el server cierra restando con compare-and-set, y si choca dice «cambió», no «ya resuelta»', () => {
   const srv = sinComentarios(leer('lib', 'editor-video', 'propuestas-server.ts'));
-  assert.match(srv, /const quedan = p\.vistas \? restarOperaciones\(ops\.map\(comoLaVe\), p\.vistas\) : \[\];/);
+  assert.match(srv, /const quedan = p\.vistas \? restarOperaciones\(ops\.map\(comoLaVe\), p\.vistas\)\.filter\(\(i\) => valida\[i\]\) : \[\];/);
+  // Lo que ya no valida se saca al cerrar: ningún editor lo puede mostrar ni aceptar (tercera revisión).
+  assert.match(srv, /const valida = ops\.map\(\(op\) => validarOperaciones\(\[op\]\)\.operaciones\.length > 0\);/);
   assert.match(srv, /if \(p\.vistas && quedan\.length === ops\.length\) return \{ ok: true, quedan: ops\.length \};/, 'reescribe la fila aunque no saque nada');
   assert.match(srv, /\.eq\('estado', 'abierta'\)\.eq\('version', fila\.version\)\.select\('id'\)/, 'sin compare-and-set, una acción en el medio se pierde');
   assert.match(srv, /return \{ ok: false, cambio: true \};\n\}/, 'tras dos choques dice «ya resuelta» y el editor deja de reintentar con la propuesta abierta');
@@ -222,4 +233,31 @@ test('el editor pide por id lo que le importa, sólo afirma «se resolvió» de 
   assert.match(panel, /resolverEnServidor\(m\.propuestaApi\.id, "descartada", \[\], m\.propuesta\?\.operaciones \?\? \[\]\)\.then\(\(c\) => alCerrar\(m\.id, c\)\)/);
   assert.match(panel, /if \(c\.cerrada\) marcarCerrada\(proyectoId, mensajeId\);/);
   assert.match(panel, /if \(c\.quedan\) void traerPropuestas\(editorRef\.current\);/);
+});
+
+// ── Lo que encontró la tercera revisión (21/10) ────────────────────────────────────────────────────────
+
+test('lo ya CERRADO no se resta: una operación igual pedida después se ofrece', () => {
+  const X = '6f1c2b0e-8a1d-4c2f-9b7e-1a2b3c4d5e6f';
+  const A = { op: 'volumen', ref: 'a1', db: -12 };
+  const B = { op: 'cambiar_texto', ref: 't2', texto: 'Hola' };
+  // «Bajá la música a -12» se aceptó y la base lo cerró; después se pidió lo MISMO otra vez (A2 = A).
+  const hilo = [{ id: `api-${X}`, estado: 'aplicada', cerrada: true, ops: [A] }, { id: `api-${X}-2`, estado: 'pendiente', ops: [B] }];
+  assert.deepEqual(queMostrar(X, [B, A], hilo), { accion: 'reemplazar', id: `api-${X}-2`, quedan: [0, 1] }, 'A2 nunca se ofrece y la propuesta queda abierta para siempre');
+  // Con el cierre SIN confirmar sí se resta (no se ofrece dos veces lo ya aplicado).
+  assert.deepEqual(queMostrar(X, [A, B], [{ id: `api-${X}`, estado: 'aplicada', ops: [A] }]), { accion: 'nuevo', id: `api-${X}-2`, quedan: [1] });
+  assert.match(sinComentarios(leer('app', 'video-editor', '_opencut', 'chat', 'propuestas.ts')), /cerrada: !!m\.propuestaApi\?\.cerrada, ops:/, 'el editor no le pasa el cierre a queMostrar');
+});
+
+test('validar lo ya validado da lo mismo (el redondeo no deja operaciones invisibles)', () => {
+  for (const op of [
+    { op: 'cortar_tramo', inicio: 2.104, fin: 2.155 },
+    { op: 'recortar', ref: 'v1', inicio: 1.004, fin: 1.2049 },
+  ]) {
+    const una = validarOperaciones([op]).operaciones;
+    assert.equal(una.length, 1, `${op.op} no valida la primera vez`);
+    assert.deepEqual(validarOperaciones(una).operaciones, una, `${op.op}: validarla otra vez la cambia o la tira`);
+  }
+  // Lo que de verdad es muy corto se sigue rechazando.
+  assert.equal(validarOperaciones([{ op: 'cortar_tramo', inicio: 2, fin: 2.03 }]).operaciones.length, 0);
 });
