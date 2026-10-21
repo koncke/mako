@@ -36,7 +36,6 @@ import { Badge, Button, ButtonLink, IconButton } from '@/app/_ui';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import '@/app/admin/operaciones/centro.css';
-import { RAIL } from '@/app/_components/Sidebar';
 import { leerRespuesta } from '@/app/m/mako/chat-ui';
 import type { SugerenciaDePantalla } from '@/lib/sugerencias-crm';
 
@@ -50,6 +49,21 @@ const LADO_BOTON = 44;
 const LADO_LOGO = 32;
 /** Debajo de los modales (z ≥ 60) y de la esquina de los avisos (55). */
 const Z_PANEL = 50;
+/**
+ * ⚠️ UNA BARRA FIJA A LA DERECHA (20/10/2026). Martín: «No veo el chat con MaKo que te había pedido». Dos causas:
+ *   · el botón iba en `left: RAIL + 20`, con `RAIL` = 68, el ancho de la sidebar PLEGADA; abierta mide 244 y tiene
+ *     z 60, así que el botón quedaba DEBAJO de la sidebar, invisible;
+ *   · la regla del 18/10 (docs/feedback-18-10.md): «Editar = el patrón de Web Generator: el chat con MaKo como barra
+ *     fija a la derecha». Pisa la del 16/10 («el botón de MaKo a la izquierda»).
+ * Abre sola en una pantalla ancha y recuerda si la persona la plegó; plegada, es una pestaña en el borde derecho, a
+ * media altura (ni la sidebar ni «A revisar», abajo a la derecha, la tapan). Abierta, el tablero le deja el lugar
+ * (`--ancho-panel-mako`, que lee el padding de CrmBoard). El chat es el del CRM hasta que exista la pieza única del
+ * chat del Ops Center: ahí se cambia el de adentro, no la barra.
+ */
+const ANCHO_PANEL = 400;
+const CLAVE_PANEL = 'mako-crm:panel';
+/** Desde este ancho de ventana abre sola la primera vez; en una más angosta taparía el tablero. */
+const ANCHO_PARA_ABRIR = 1280;
 
 /** La cara de `BotonLogoMako` (app/automations/SecuenciaPerfil.tsx): la tarjeta clara del título con el logo adentro. */
 const CARA_BOTON: CSSProperties = {
@@ -112,8 +126,24 @@ function PanelDeUnCrm({ funnelId }: { funnelId: number | null }) {
     return () => { vivo = false; };
   }, [funnelId]);
 
-  const abrir = () => { setAbierto(true); setMontado(true); };
-  const cerrar = useCallback(() => setAbierto(false), []);
+  const recordar = (v: '1' | '0') => { try { window.localStorage.setItem(CLAVE_PANEL, v); } catch { /* sin almacenamiento: no se recuerda */ } };
+  const abrir = () => { setAbierto(true); setMontado(true); recordar('1'); };
+  const cerrar = useCallback(() => { setAbierto(false); recordar('0'); }, []);
+
+  // Abierta de entrada en una pantalla ancha, salvo que la persona la haya plegado (se recuerda en este navegador).
+  useEffect(() => {
+    let pref: string | null = null;
+    try { pref = window.localStorage.getItem(CLAVE_PANEL); } catch { /* sin almacenamiento */ }
+    if (pref === '1' || (pref == null && window.innerWidth >= ANCHO_PARA_ABRIR)) { setAbierto(true); setMontado(true); }
+  }, []);
+
+  // Abierta, el tablero le deja el lugar (el padding derecho de CrmBoard lee la variable). En una ventana angosta se
+  // superpone, como en el teléfono.
+  useEffect(() => {
+    const raiz = document.documentElement;
+    raiz.style.setProperty('--ancho-panel-mako', abierto && window.innerWidth >= 900 ? `${ANCHO_PANEL}px` : '0px');
+    return () => { raiz.style.setProperty('--ancho-panel-mako', '0px'); };
+  }, [abierto]);
 
   useEffect(() => {
     if (!abierto) return;
@@ -164,14 +194,14 @@ function PanelDeUnCrm({ funnelId }: { funnelId: number | null }) {
   return (
     <>
       {!abierto && (
-        // ⚠️ A LA IZQUIERDA desde el 16/10/2026 («El botón de MaKo siempre a la izquierda, no a la derecha», Martín),
-        // pegado a la barra lateral: el layout le reserva siempre `RAIL` (abierta, se superpone). Ya no ocupa el rincón
-        // de abajo a la derecha, así que no lleva `data-esquina-ocupada` («A revisar» vuelve a su esquina).
+        // PLEGADA: una pestaña en el borde DERECHO, a media altura (20/10/2026; ver ANCHO_PANEL). Ni la sidebar ni la
+        // esquina de abajo a la derecha («A revisar») la tapan, así que no lleva `data-esquina-ocupada`.
         <button type="button" data-boton-mako-crm onClick={abrir}
           title="Abrir MaKo" aria-label={n ? `Abrir MaKo · ${n} ${n === 1 ? 'sugerencia' : 'sugerencias'}` : 'Abrir MaKo'}
           style={{
-            ...CARA_BOTON, position: 'fixed', left: RAIL + 20, bottom: 12, zIndex: Z_PANEL,
-            width: LADO_BOTON, height: LADO_BOTON, padding: 0, cursor: 'pointer', boxSizing: 'border-box',
+            ...CARA_BOTON, position: 'fixed', right: 0, top: '50%', transform: 'translateY(-50%)', zIndex: Z_PANEL,
+            borderRight: 'none', borderRadius: '11px 0 0 11px',
+            width: LADO_BOTON + 4, height: LADO_BOTON + 12, padding: 0, cursor: 'pointer', boxSizing: 'border-box',
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           }}>
           {/* El MUÑECO del CRM, no la estrella (16/10/2026, Martín: «En lugar de la estrella de MaKo el ícono debería
@@ -187,12 +217,12 @@ function PanelDeUnCrm({ funnelId }: { funnelId: number | null }) {
       )}
 
       {montado && (
-        // El panel abre del MISMO lado que el botón: a la izquierda, al lado de la barra lateral.
-        <aside aria-label="MaKo"
+        // La barra fija a la DERECHA, del mismo lado que la pestaña (20/10/2026).
+        <aside aria-label="MaKo" data-panel-mako-crm
           style={{
-            position: 'fixed', top: 'var(--barra-agencia, 0px)', left: RAIL, bottom: 0, zIndex: Z_PANEL,
-            width: 'min(420px, 100vw)', display: abierto ? 'flex' : 'none', flexDirection: 'column',
-            background: 'var(--surface)', borderRight: '1px solid var(--border)', boxShadow: '12px 0 32px rgba(18,21,27,.12)',
+            position: 'fixed', top: 'var(--barra-agencia, 0px)', right: 0, bottom: 0, zIndex: Z_PANEL,
+            width: `min(${ANCHO_PANEL}px, 100vw)`, display: abierto ? 'flex' : 'none', flexDirection: 'column',
+            background: 'var(--surface)', borderLeft: '1px solid var(--border)', boxShadow: '-12px 0 32px rgba(18,21,27,.10)',
           }}>
           <header style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderBottom: '1px solid var(--border)', borderTop: '3px solid var(--mako)' }}>
             <Muneco titulo="CRM" animo="despierto" size={28} />

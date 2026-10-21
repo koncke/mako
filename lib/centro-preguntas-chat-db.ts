@@ -15,10 +15,12 @@
 import 'server-only';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
-import { DESTINO_RE } from './operaciones-reglas';
-import { sanearPregunta, unirPreguntas, type PreguntaChat, type RespuestaPregunta } from './centro-preguntas-chat';
+import { DESTINO_RE, sanearTurnos } from './operaciones-reglas';
+import { estaAbierta, sanearPregunta, superarPreguntas, unirPreguntas, type PreguntaChat, type RespuestaPregunta, type TurnoQueSupera } from './centro-preguntas-chat';
 
 const PREFIJO = 'operaciones.preguntas.';
+/** Los turnos de cada chat (lib/centro-turnos-db.ts): una pregunta de wrap_up se supera con un turno posterior. */
+const PREFIJO_TURNOS = 'operaciones.turnos.';
 /** Cuántas espera cada chat, en UNA clave: la lista de chats lo lee en cada refresco (el globito y el orden), sin abrir
  *  la de cada uno. Se recalcula para el chat que se escribe, cada vez que se escribe. */
 const CLAVE_ABIERTAS = 'operaciones.preguntas-abiertas';
@@ -39,7 +41,8 @@ async function anotarAbiertas(porChat: ReadonlyMap<string, readonly PreguntaChat
   try {
     const mapa = parsearMapa(await getSettingEstricto(CLAVE_ABIERTAS));
     for (const [local, ps] of porChat) {
-      const n = ps.filter((p) => !p.respuesta).length;
+      // Una superada (un wrap_up que Martín contestó por otro lado) no espera a nadie.
+      const n = ps.filter(estaAbierta).length;
       if (n) mapa[local] = n; else delete mapa[local];
     }
     await setSetting(CLAVE_ABIERTAS, JSON.stringify(mapa));
@@ -69,7 +72,9 @@ export async function guardarPreguntas(preguntas: readonly PreguntaChat[]): Prom
     const escritas = new Map<string, PreguntaChat[]>();
     for (const [local, nuevas] of porChat) {
       const antes = lista(parsear(await getSettingEstricto(PREFIJO + local)));
-      const juntas = unirPreguntas(antes, nuevas);
+      // Con los turnos del chat: una de wrap_up que llega cuando Martín ya contestó en la app entra superada.
+      const turnos = sanearTurnos(parsear(await getSetting(PREFIJO_TURNOS + local)));
+      const juntas = superarPreguntas(unirPreguntas(antes, nuevas), turnos);
       await setSetting(PREFIJO + local, JSON.stringify(juntas));
       escritas.set(local, juntas);
       entraron.push(...nuevas.map((p) => p.id));
@@ -92,6 +97,27 @@ export async function leerPreguntas(locales: readonly string[]): Promise<Pregunt
   }
 }
 
+/**
+ * Con los turnos NUEVOS de una vuelta: las preguntas de wrap_up que quedaron atrás se marcan superadas (Martín contestó en
+ * la app, en la caja o por Remote Control). Lo llama `guardarTurnos`. Lee estricto: si no puede leer, no escribe.
+ */
+export async function superarConTurnos(turnos: readonly TurnoQueSupera[]): Promise<void> {
+  const locales = [...new Set(turnos.filter((t) => t.rol === 'yo' || t.rol === 'otro').map((t) => t.local))].filter((l) => DESTINO_RE.test(l));
+  if (!locales.length) return;
+  const ws = await wsSuperAdmin();
+  await runWithWorkspace(ws, async () => {
+    const escritas = new Map<string, PreguntaChat[]>();
+    for (const local of locales) {
+      const actuales = lista(parsear(await getSettingEstricto(PREFIJO + local)));
+      const superadas = superarPreguntas(actuales, turnos);
+      if (superadas === actuales) continue;
+      await setSetting(PREFIJO + local, JSON.stringify(superadas));
+      escritas.set(local, superadas);
+    }
+    if (escritas.size) await anotarAbiertas(escritas);
+  });
+}
+
 export type Contestada = { ok: true; pregunta: PreguntaChat } | { ok: false; error: string; yaContestada?: true };
 
 /** Marca contestada una pregunta, sólo si no lo estaba. Quien llama ya verificó el trabajo firmado de la respuesta. */
@@ -103,6 +129,7 @@ export async function marcarContestada(local: string, id: string, respuesta: Res
     const p = actuales.find((x) => x.id === id);
     if (!p) return { ok: false, error: 'Esa pregunta ya no está.' };
     if (p.respuesta) return { ok: false, error: 'Ya la contestaste.', yaContestada: true };
+    if (p.superada) return { ok: false, error: 'Ya la contestaste por otro lado: el chat siguió.', yaContestada: true };
     const nueva: PreguntaChat = { ...p, respuesta };
     const juntas = actuales.map((x) => (x.id === id ? nueva : x));
     await setSetting(PREFIJO + local, JSON.stringify(juntas));

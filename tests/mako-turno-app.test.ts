@@ -172,7 +172,8 @@ test('la tarjeta: la fila de la bandeja + la consecuencia y el detalle del Inbox
 // Rotura: `tarjetaDePendiente(p, { ...p, operacion: p.tipo, escribe: null, … })` sin aFila → 1 fallo (este).
 test('el turno arma la tarjeta con aFila (la fila de /mako/pendientes y de Inbox), no con una copia', () => {
   assert.match(TURNO, /tarjetaDePendiente\(p, aFila\(p, tz\)\)/);
-  assert.match(TURNO, /import \{ aFila \} from '@\/lib\/bandeja-filas';/);
+  // Desde el 20/10/2026 (1.10) también trae `plano`: el formulario de una propuesta, con los mismos datos que /mako/revisar.
+  assert.match(TURNO, /import \{ aFila(, plano)? \} from '@\/lib\/bandeja-filas';/);
 });
 
 // Rotura: el patrón de «ya no existe en MaKo» cambiado a «no existe más» (lo mismo que si el
@@ -203,7 +204,8 @@ test('la pendiente le dice al modelo que se confirma en la TARJETA, no con un «
   assert.equal(conInstruccionDeTarjeta(lectura), lectura);
   const objeto = { content: 'x', isError: true };
   assert.equal(conInstruccionDeTarjeta(objeto), objeto);
-  assert.match(TURNO, /const out = conInstruccionDeTarjeta\(await \(NOMBRES_DE_SIEMPRE\.has\(name\)/, 'el turno no la aplica a la salida antes del memo');
+  // Desde el 21/10 la salida pasa además por `bloqueDeSalida` (tests/chat-bloques-salida.test.ts), antes del memo igual.
+  assert.match(TURNO, /const salida = bloqueDeSalida\(conInstruccionDeTarjeta\(await \(NOMBRES_DE_SIEMPRE\.has\(name\)/, 'el turno no la aplica a la salida antes del memo');
 });
 
 // Rotura: sacar la guarda `porId(nombre)?.tipo === 'lectura'` de linksDeUnaAccion → 1 fallo.
@@ -223,7 +225,8 @@ test('la propuesta de pantalla va a /m/inbox y la ruta de escritorio sin dominio
   assert.equal(rutaDeEscritorio('https://hola-mako.com/plan/revisar/abc?ws=9'), '/plan/revisar/abc');
   assert.equal(rutaDeEscritorio('/crm/revisar/x?ws=3#y'), '/crm/revisar/x');
   const p = propuestaDePantalla({ clase: 'lead', url: 'https://hola-mako.com/crm/revisar/abc?ws=9', operacion: 'proponer_lead', nombre: 'Ana' });
-  assert.deepEqual(p, { clase: 'lead', titulo: 'Ficha de Ana', href: '/m/inbox', escritorio: '/crm/revisar/abc' });
+  // Desde el 20/10/2026 (1.8) la propuesta trae su botón y su nota: el editor y Chats dicen otra cosa (tests/chat-abrir.test.ts).
+  assert.deepEqual(p, { clase: 'lead', titulo: 'Ficha de Ana', href: '/m/inbox', escritorio: '/crm/revisar/abc', boton: 'Abrir para revisar', nota: 'Se revisa y se confirma en su pantalla.' });
 });
 
 // Rotura: sinLinksDeRevision devolviendo el texto tal cual → 1 fallo.

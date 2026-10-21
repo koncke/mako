@@ -4608,3 +4608,77 @@ Las cifras quedan para la próxima vez que alguien calcule un costo o un tope.
 - 8 con una operación que no existe: `crear_campana`, `agregar_conjunto` y `subir_creativos` de Meta;
 - 5 medidas con adjunto;
 - 3 «sí» que dependen del mensaje anterior.
+
+## MaKo pregunta con opciones, y la regla de no proponer la impone el código (20/10/2026, ola 1, pieza 1.9)
+
+**Vive en:** `lib/chat-pregunta.ts` (`TOOL_PREGUNTAR`, `crearGuardiaDePregunta`, `retirar`) · el turno de la app,
+`lib/mako-turno-app.ts`. Probado en `tests/chat-pregunta.test.ts`.
+
+- **Qué hace:** en el chat de la app viaja `preguntar_al_usuario` cuando el turno lleva herramientas. Lo que pasa el
+  modelo se sanea como un G1 (2 a 4 opciones distintas). Una pregunta que no calza vuelve como error y no se muestra.
+- **La regla que impone el código, no el prompt:**
+  - desde que pregunta, el turno rechaza toda acción, y una lectura sí corre, para armar las opciones;
+  - lo que propuso ANTES en el mismo turno se retira también en la base: las tarjetas quedan canceladas y las
+    propuestas de pantalla, descartadas;
+  - la pregunta se guarda con el mensaje: al recargar vuelve, y si ya hubo respuesta, se ve contestada.
+- **La persona contesta tocando** una opción, «Elige tú» o «Saltear», o escribiendo: es su siguiente mensaje. Las
+  cuatro pantallas lo mandan igual.
+- **Trampa:** la frase del «Hecho» («todos los martes a las 3 a todo el funnel») hoy la clasifica `capturar`, sin
+  herramientas. La pregunta no viaja con ella hasta que el clasificador la mande a actuar: eso es la 1.2, con la D1.
+  `tests/chat-pregunta.test.ts` lo fija para que se vea el día que cambie.
+
+**Sin hacer:**
+- El modelo decide CUÁNDO preguntar (la descripción de la herramienta lo guía). Lo que el código impone es qué pasa
+  después.
+- En WhatsApp no hay G1: una pregunta allá sigue siendo texto.
+
+## El chat de la app: el negocio con SU nombre, y el guardia de promesas prendido (20/10/2026, ola 1, pieza 1.5)
+
+**Vive en:** `lib/negocio-rotulo.ts` · `lib/mako-context.ts` (`nombreDelNegocioActual`) · `afirmaHechoDe` y
+`sanearSalida({ hecho })` en `lib/doer-salida.ts` · el contador `corridas` del turno, en `lib/mako-turno-app.ts`. Probado
+en `tests/chat-contexto-guardias.test.ts`.
+
+- **«NEGOCIO DE MARTÍN» en el system de TODOS los negocios:**
+  - Estaba en el chat de MaKo y en el asesor de WhatsApp. «del negocio de Martín» estaba además en la retrospectiva
+    (dos prompts) y en el asesor.
+  - Es el mismo caso del 08/10 (`tests/prompt-sin-dueno.test.ts`), que sólo miraba los encuadres de
+    `lib/prompt-defaults.ts`.
+  - Ahora el perfil va con el nombre del negocio, y el test barre TODO el código.
+  - ⚠️ El asesor de WhatsApp usa `renderPrompt('wa.advisor.system', …)`: un override guardado en Configuraciones puede
+    seguir diciendo «de Martín». No se miró la base.
+- **El guardia de promesas estaba APAGADO en la app:** `sanearSalida(respuesta, { corrioHerramientas: true })` con el
+  `true` fijo. Ahora:
+  - se cuenta lo que DE VERDAD corrió: lo rechazado (no permitido, o después de preguntar) no cuenta;
+  - sin nada corrido, también se marca lo que dice HECHO («Listo, ya lo armé», «te creé…», «quedó programada»): sale la
+    oración y queda «Eso no lo llegué a hacer…»;
+  - un dato del contexto («tu landing está publicada») no se toca;
+  - el doer de WhatsApp sigue igual: `hecho` es una opción.
+- **Lo obvio era el error: «traer `forzarTool` como WhatsApp».** El chat de la app piensa con razonamiento extendido
+  (`thinking: adaptive`), y con él Anthropic no admite `tool_choice: any`. Además `chatClaudeTools` lo pone en TODOS los
+  pasos: el turno nunca podría terminar con texto. WhatsApp lo hace con `chatCheapTools` y `toolChoicePrimerPaso`, que
+  la cascada de Claude no tiene. Por eso la guardia se apoya en lo que corrió, no en forzar.
+
+**Sin hacer:**
+- La persona de MaKo dice «el consultor IA de Martín Koncke» (`lib/mako-persona.ts`). Es la marca: cambiarla es una
+  decisión de Martín.
+- «Mi hoja» por quien chatea (`ctx.actor`, con 2 o más informes no pedir un email) es del Dashboard.
+- `forzarTool` en la app pide un primer paso sin razonamiento, en `lib/anthropic.ts`, que es compartido.
+## El Ops Center no hace lo que la app ya sabe hacer: el freno es el clasificador, no las operaciones (20/10/2026)
+
+**Síntoma:** en el Ops Center del cliente, la mitad de los pedidos naturales no recibe la herramienta que los resuelve. Medido con `herramientasDelChat` y frases reales por área:
+- CRM: 41 de 91;
+- Pagos: 29 de 90;
+- edición de video: 8 de 33;
+- Meta, con tuteo: 0 de 18.
+
+**El diagnóstico obvio era el equivocado:** «faltan operaciones en la API». Muchas existen (795 en el registro). El freno es que el turno de la APP usa el clasificador del grupo de WhatsApp: ante la duda anota el pedido como idea («capturar») y le saca a MaKo la herramienta de escribir. Además, el presupuesto de 12.000 caracteres deja afuera la operación que entiende el pedido, y viajan 18 operaciones muertas de Chatwoot.
+
+**Regla:** antes de pedir una operación nueva, medir si la frase natural la hace viajar (`herramientasDelChat` / `herramientasDelTurno`). Las frases medidas pasan a una batería guardián en `tests/`, la pieza 1.1. El mapa completo y el plan por olas: docs/ops-center-principal.md. Las correcciones del crítico, en su Anexo C: el turno también suma las áreas del clasificador, y sin IA propia la app no usa la red gratis.
+
+## Lo que encontró la revisión de la tanda 1 del clasificador antes de subirla (20/10/2026)
+
+El detalle está en las notas compartidas, `revision-clasificador-tanda-1-20-10.md`.
+- **«WhatsApp no cambia» se mide comparando antes y después con las funciones reales y miles de frases, no con un test que fija un caso.** Un `replace` sin `ctx.canal` (`NOMBRADO`, que saca «llamada <nombre>») rompió en WhatsApp «cancelá la llamada pendiente con Juan»: dejó de cancelar, y con una pendiente vigente cancelaba OTRA cosa.
+- **Un default «actuar» con `dudosa:false` desarma los candados que miran `dudosa`:** un «ahí hice la prueba» volvió a crear un borrador del Plan (el bug del 25/08).
+- **Buscar la operación en TODO el registro trae escrituras de otra cosa cuando la pedida no existe** («borrá la nota» → borrar_audio), y las raíces de 5 letras matchean dentro de palabras («borra» en «borrador»). Una acción que llega sin la lectura que le da el id no «llega».
+

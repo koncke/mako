@@ -12,10 +12,11 @@
 //    Así la pieza se dibuja en un test (tests/chat-bloques.test.ts) sin navegador.
 // ⚠️ LOS LINKS VAN POR `Link` (app/_ui/Link.tsx), que le suma el `?ws=` de quien mira: el bloque guarda la ruta sola.
 
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import dynamic from 'next/dynamic';
-import Link from '@/app/_ui/Link';
-import { ROTULO_PASO, proporcion, razon, type Bloque, type BloqueCreado } from '@/lib/chat-bloques';
+import Link, { useWs } from '@/app/_ui/Link';
+import { conWs } from '@/lib/ws-tab';
+import { ROTULO_PASO, proporcion, razon, sanearBloque, type Bloque, type BloqueCreado } from '@/lib/chat-bloques';
 import { esBloqueWeb } from '@/lib/editor-landing/bloques-web';
 
 /** Los bloques del Web Generator (la tarjeta de una landing, elegir entre 3, lo publicado, el dominio), aparte: traen la
@@ -23,13 +24,20 @@ import { esBloqueWeb } from '@/lib/editor-landing/bloques-web';
 const BloqueWeb = dynamic(() => import('@/app/web-generator/BloqueWeb').then((m) => m.BloqueWeb));
 
 type Pregunta = Extract<Bloque, { t: 'pregunta' }>;
+type Trabajo = Extract<Bloque, { t: 'trabajo' }>;
 
-export function BloqueHilo({ b, onResponder }: {
+/** Cada cuánto pregunta la pantalla cómo va un trabajo largo: arranca en 3 s y se estira hasta 15 s. */
+const CONSULTA_INICIAL_MS = 3_000;
+const CONSULTA_MAX_MS = 15_000;
+
+export function BloqueHilo({ b, onResponder, respondida }: {
   b: Bloque;
   /** Contestar una pregunta (G1): lo elegido sale como un mensaje de la persona. Sin esto, las opciones se ven y no se tocan. */
   onResponder?: (texto: string) => void;
+  /** Una pregunta que ya se contestó (al recargar): se ve contestada y no se toca. */
+  respondida?: string;
 }) {
-  if (esBloqueWeb(b)) return <BloqueWeb b={b} onResponder={onResponder} />;
+  if (esBloqueWeb(b)) return <BloqueWeb b={b} onResponder={onResponder} respondida={respondida} />;
   if (b.t === 'creado') return <Creado b={b} />;
   if (b.t === 'antes_despues') {
     return (
@@ -48,24 +56,60 @@ export function BloqueHilo({ b, onResponder }: {
       </div>
     );
   }
-  if (b.t === 'trabajo') {
-    return (
-      <div className="ch-bloque" data-bloque="trabajo" role="status" aria-live="polite">
-        <p className="ch-bloque__titulo">{b.titulo}</p>
-        <ol className="ch-pasos">
-          {b.pasos.map((p, i) => (
-            <li key={i} className="ch-paso" data-estado={p.estado}>
-              <span className="ch-paso__marca" aria-hidden />
-              <span>{p.texto}</span>
-              <span className="ch-oculto">{` · ${ROTULO_PASO[p.estado]}`}</span>
-            </li>
-          ))}
-        </ol>
-        {b.listo && <Creado b={b.listo} />}
-      </div>
-    );
-  }
-  return <PreguntaHilo b={b} onResponder={onResponder} />;
+  if (b.t === 'trabajo') return <TrabajoHilo b={b} />;
+  return <PreguntaHilo b={b} onResponder={onResponder} respondida={respondida} />;
+}
+
+/**
+ * G6: los pasos de un trabajo largo. Con `consulta` y un paso en curso, la pantalla pregunta cómo va
+ * (GET /api/mako/chat?trabajo=, lib/chat-trabajos.ts) hasta que termina, y entonces dibuja su resultado: el G5 en que
+ * termina, su «Abrir», o lo que dibuje aparte (1.11). Sin recargar.
+ */
+function TrabajoHilo({ b }: { b: Trabajo }) {
+  const ws = useWs();
+  const [actual, setActual] = useState<Trabajo>(b);
+  const [aparte, setAparte] = useState<Bloque[]>([]);
+  const vivo = !!actual.consulta && actual.pasos.some((p) => p.estado === 'en_curso');
+  useEffect(() => {
+    if (!vivo || !actual.consulta) return;
+    const consulta = actual.consulta;
+    let parar = false;
+    let espera = CONSULTA_INICIAL_MS;
+    let reloj: ReturnType<typeof setTimeout> | undefined;
+    const mirar = async () => {
+      try {
+        const res = await fetch(conWs(`/api/mako/chat?trabajo=${encodeURIComponent(consulta)}`, ws), { cache: 'no-store' });
+        const j = await res.json() as { ok?: boolean; bloques?: unknown[] };
+        const bloques = (j.ok && Array.isArray(j.bloques) ? j.bloques : []).map(sanearBloque).filter((x): x is Bloque => !!x);
+        const suyo = bloques.find((x): x is Trabajo => x.t === 'trabajo' && x.consulta === consulta);
+        if (!parar && suyo) { setActual(suyo); setAparte(bloques.filter((x) => x.t !== 'trabajo')); }
+        if (suyo && !suyo.pasos.some((p) => p.estado === 'en_curso')) return;
+      } catch { /* sin red: se vuelve a preguntar */ }
+      if (parar) return;
+      espera = Math.min(Math.round(espera * 1.5), CONSULTA_MAX_MS);
+      reloj = setTimeout(() => void mirar(), espera);
+    };
+    reloj = setTimeout(() => void mirar(), espera);
+    return () => { parar = true; if (reloj) clearTimeout(reloj); };
+  }, [vivo, actual.consulta, ws]);
+  return (
+    <div className="ch-bloque" data-bloque="trabajo" role="status" aria-live="polite">
+      <p className="ch-bloque__titulo">{actual.titulo}</p>
+      <ol className="ch-pasos">
+        {actual.pasos.map((p, i) => (
+          <li key={i} className="ch-paso" data-estado={p.estado}>
+            <span className="ch-paso__marca" aria-hidden />
+            <span>{p.texto}</span>
+            <span className="ch-oculto">{` · ${ROTULO_PASO[p.estado]}`}</span>
+          </li>
+        ))}
+      </ol>
+      {vivo && <p className="ch-tarjeta__nota">Sigue por detrás: puedes cerrar el chat, al volver está.</p>}
+      {actual.listo && <Creado b={actual.listo} />}
+      {actual.abrir && <div className="ch-tarjeta__botones"><Link className="ch-abrir" href={actual.abrir.href}>{actual.abrir.titulo}</Link></div>}
+      {aparte.map((x, i) => <BloqueHilo key={i} b={x} />)}
+    </div>
+  );
 }
 
 /** G5: la miniatura (o un marco con la forma del diseño), el título, el estado y el botón para abrirlo. */
@@ -93,9 +137,9 @@ function Creado({ b }: { b: BloqueCreado }) {
 }
 
 /** G1: las opciones, la recomendada marcada; de a una (tocar contesta) o varias (se marcan y «Listo»). */
-function PreguntaHilo({ b, onResponder }: { b: Pregunta; onResponder?: (texto: string) => void }) {
+function PreguntaHilo({ b, onResponder, respondida }: { b: Pregunta; onResponder?: (texto: string) => void; respondida?: string }) {
   const [marcadas, setMarcadas] = useState<number[]>([]);
-  const [enviada, setEnviada] = useState<string | null>(null);
+  const [enviada, setEnviada] = useState<string | null>(respondida ?? null);
   const quieta = !onResponder || enviada != null;
   const responder = (t: string) => {
     if (quieta) return;

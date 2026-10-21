@@ -24,6 +24,7 @@ import type { CategoriaAviso, SemaforoAviso, AvisoCatalogo } from './avisos-cata
 import { CATALOGO_AVISOS, encabezadoAviso } from './avisos-catalogo';
 import { AVISOS_POR_EVENTO, emitirPorEvento, type DepsEvento, type FilaEvento, type ResultadoEvento } from './aviso-evento';
 import { TRIGGER_AVISO_MAKO } from './disparadores';
+import { linkDelLeadDelAviso, tituloConLead } from './aviso-lead';
 
 const SEV_POR_SEMAFORO: Record<SemaforoAviso, NotifSeveridad> = {
   rojo: 'urgente', amarillo: 'warn', verde: 'ok', na: 'info',
@@ -176,9 +177,11 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
       ws: wsLector,
       tipo: a.tipo,
       severidad: SEV_POR_SEMAFORO[a.semaforo ?? 'na'],
-      titulo: a.titulo,
+      titulo: tituloConLead(a.titulo, a.lead),   // el cliente en el título (lib/aviso-lead.ts)
       descripcion: a.texto,
-      link: a.link ?? '/configuraciones?tab=notif',
+      // Un aviso sobre un lead lleva a su FICHA (20/10/2026, lib/aviso-lead.ts): «cuota vencida» sin decir de quién ni
+      // llevar a ningún lado era lo que Martín vio en el teléfono. Sin lead, lo de siempre.
+      link: a.link ?? linkDelLeadDelAviso(a) ?? '/configuraciones?tab=notif',
       entityType: 'aviso',
       payload: apagado ? { ...payloadFeed, salida: salidaApagado } : payloadFeed,
       origen: `aviso:${a.tipo}`,
@@ -399,13 +402,15 @@ async function enviarAvisoPorEmail(a: EmitirAvisoInput, textoConRotulo: string):
     // banda del correo NO cambia: es el nombre del aviso, y el asunto es el renglón de
     // la bandeja — mezclarlos deja el correo repitiendo lo mismo dos veces.
     const asunto = a.asuntoEmail?.trim() || a.titulo;
+    // Con lead y sin link propio, su ficha (lib/aviso-lead.ts).
+    const destino = a.link ?? linkDelLeadDelAviso(a);
     const html = renderEmailHtml({
       subject: asunto, titulo: a.titulo, bodyText: cuerpo, marca: 'mako',
       // El botón del correo es el link de TODOS los avisos del catálogo: acá se pegaba
       // la base a mano y salía sin `?ws=`, así que quien tiene acceso a más de un
       // workspace —el super admin, una agencia con cartera— aterrizaba en la pantalla
       // del cliente que tuviera la cookie puesta, no en el del aviso que acaba de leer.
-      cta: a.link ? { texto: 'Verlo en MaKo', url: a.link.startsWith('http') ? a.link : linkApp(a.link, wsCorreo) } : undefined,
+      cta: destino ? { texto: 'Verlo en MaKo', url: destino.startsWith('http') ? destino : linkApp(destino, wsCorreo) } : undefined,
     });
     // Uno por destinatario, no en copia: son personas distintas del mismo negocio y
     // no tienen por qué verse los mails entre ellas (igual que los reportes).
@@ -442,11 +447,12 @@ async function enviarPushAviso(wsLector: number, a: EmitirAvisoInput): Promise<N
     const { enviarPush } = await import('./push');
     const r = await enviarPush(wsLector, {
       tipo: a.tipo,
-      titulo: a.titulo,
+      titulo: tituloConLead(a.titulo, a.lead),   // el cliente en el título (lib/aviso-lead.ts)
       cuerpo: a.texto,
       // Sin link propio, el aviso abre la pestaña Avisos del Inbox (no «Para decidir»): rutaMovil
       // conserva la query de una ruta /m (lib/movil-rutas.ts) y /m/inbox lee `?vista=avisos`.
-      ruta: a.link ?? '/m/inbox?vista=avisos',
+      // Con lead, su ficha (lib/aviso-lead.ts; el teléfono la abre en /m/crm/<id>).
+      ruta: a.link ?? linkDelLeadDelAviso(a) ?? '/m/inbox?vista=avisos',
       // La tarjeta por partes no tiene `dedupKey` (sale tal cual, una por tarjeta y por lead): sin algo propio
       // en el tag, cada aviso suyo reemplazaría al anterior en el teléfono.
       tag: `aviso:${a.tipo}${a.dedupKey ? `:${a.dedupKey}` : a.partes?.length ? `:${a.lead?.id ?? ''}:${Date.now().toString(36)}` : ''}`,

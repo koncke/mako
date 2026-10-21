@@ -62,7 +62,8 @@ test('«Vencido» y la cobranza se deciden con el HOY DEL NEGOCIO, no con el de 
   assert.match(cuerpoDe(DATOS, 'async function filasPagos('), /hoyEnWorkspace\(\)\.catch\(\(\) => hoyEnTijuana\(\)\)/);
   const cobranza = cuerpoDe(EXTRA, 'async function filasCobranza(');
   assert.match(cobranza, /const hoy = await hoyEnWorkspace\(\)\.catch\(\(\) => hoyEnTijuana\(\)\);/);
-  assert.match(cobranza, /armarCobranza\(o\.items, hoy\)/);
+  // Las cuotas Y las suscripciones por cobrar (20/10/2026, `getPorCobrar`).
+  assert.match(cobranza, /armarCobranza\(items, hoy\)/);
   assert.match(cuerpoDe(EXTRA, 'async function filasSuscripciones('), /getMrrActivo\(hoy\)/);
 });
 

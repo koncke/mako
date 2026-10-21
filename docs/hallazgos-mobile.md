@@ -1534,3 +1534,31 @@ test: `tests/sidebar-nueva.test.ts`
   «Abrir ficha» lleva a la completa. Antes tocar abría la completa.
 
 **Vive en:** app/m/_ui/KanbanM.tsx · app/m/m.css · app/m/crm/TableroCrm.tsx · *17/10/2026 noche, chat «CRM» (claude4).*
+
+## «Abrir en la computadora» dejaba el teléfono 12 h en la versión de escritorio, sin vuelta (20/10/2026)
+
+Martín, desde su Android: «Veo MaKo mobile roto, como si estuviera en desktop, solucionalo». La captura mostraba la
+barra de escritorio y Configuración del negocio › General (Horario, Criterio de reuniones).
+
+- **El desvío estaba bien; lo obvio era buscar ahí y no era eso.** `pedidoMovil` con un UA de Android y sin cookie
+  reescribe todo a /m.
+- **La causa era la cookie de vista.** «General» no tiene pantalla en el teléfono; su fila abre la hoja «Abrir en la
+  computadora», que ponía `mako_vista=escritorio` por 12 h para TODA la app. `cookieVistaMovil()` existía pero nadie
+  la llamaba, y una ruta /m con la cookie puesta va al escritorio. Una sola fila «En la computadora» dejaba a la persona
+  sin MaKo Mobile medio día.
+- **La regla que queda:** «Abrir en la computadora» abre UNA pantalla. La cookie guarda la ruta
+  (`escritorio:/configuraciones`), y el proxy y el server deciden con la ruta (`vaAMovil(d, vista, pathname)`; el
+  server la lee de `x-mako-ruta`, que pone sólo el proxy). Cualquier otra ruta vuelve al teléfono. `escritorio` a
+  secas sigue siendo toda la app («Versión de computadora» de More).
+- **Y siempre hay vuelta:** un teléfono en la versión de computadora ve «Volver al teléfono» fijo abajo
+  (app/_components/VueltaAlTelefono.tsx), que borra la cookie y recarga la misma URL.
+- **Trampa de la navegación interna:** el layout raíz no se vuelve a pedir en una navegación de cliente, y ése ya decidió
+  «computadora». Con la cookie de una pantalla, al salir de esa ruta la vuelta recarga la página entera para que el proxy
+  decida de nuevo. Si no, la página del teléfono se dibujaba adentro del cromo de escritorio.
+
+**Sin hacer:** General (Horario y Criterio) no tiene pantalla en /m. La regla de MaKo Mobile es toda tab en el teléfono
+(lib/movil-rutas.ts, la nota de `SECCIONES_NEGOCIO_M`).
+
+**Vive en:** `lib/movil-dispositivo.ts` (`vistaEscritorioEn`, `cookieVistaEscritorio(ruta)`) · `proxy.ts` ·
+`lib/movil-guard.ts` (`prefiereMovil`, `vistaEscritorioEnTelefono`) · `app/layout.tsx` ·
+`app/m/_ui/EnComputadoraM.tsx` · test: `tests/movil-vuelta-telefono.test.ts`

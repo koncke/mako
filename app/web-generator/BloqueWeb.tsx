@@ -40,9 +40,14 @@ const QUE: Record<BloqueElegir['que'], string> = { diseno: 'Diseño', tema: 'Tem
 /** La dirección sin `https://` ni la barra del final: lo que se lee. */
 export const direccionLegible = (url: string): string => url.replace(/^https:\/\//, '').replace(/\/$/, '');
 
-export function BloqueWeb({ b, onResponder }: { b: Bloque; onResponder?: (texto: string) => void }) {
+export function BloqueWeb({ b, onResponder, respondida }: {
+  b: Bloque;
+  onResponder?: (texto: string) => void;
+  /** Lo que ya se eligió (al recargar): se ve contestado y no se toca, como el G1 del marco. */
+  respondida?: string;
+}) {
   if (b.t === 'landing') return <Landing b={b} />;
-  if (b.t === 'elegir') return <Elegir b={b} onResponder={onResponder} />;
+  if (b.t === 'elegir') return <Elegir b={b} onResponder={onResponder} respondida={respondida} />;
   if (b.t === 'publicada') return <Publicada b={b} />;
   return <Dominio b={b} />;
 }
@@ -94,8 +99,8 @@ function Landing({ b }: { b: BloqueLanding }) {
 }
 
 /** G2: tres opciones con su vista previa, la recomendada marcada. Tocar una contesta (como el G1 del marco). */
-function Elegir({ b, onResponder }: { b: BloqueElegir; onResponder?: (texto: string) => void }) {
-  const [enviada, setEnviada] = useState<string | null>(null);
+function Elegir({ b, onResponder, respondida }: { b: BloqueElegir; onResponder?: (texto: string) => void; respondida?: string }) {
+  const [enviada, setEnviada] = useState<string | null>(respondida ?? null);
   const quieta = !onResponder || enviada != null;
   const responder = (t: string) => {
     if (quieta) return;

@@ -334,6 +334,8 @@ function seguirOMovil(req: NextRequest, pathname: string) {
   const telefono = MOVIL_ACTIVO && vaAMovil(
     tipoDeDispositivo(req.headers.get('user-agent'), req.headers.get('sec-ch-ua-mobile')),
     req.cookies.get(VISTA_COOKIE)?.value,
+    // La ruta: «Abrir en la computadora» abre sólo ESA pantalla (20/10/2026, lib/movil-dispositivo.ts).
+    pathname,
   );
   const d = pedidoMovil({ pathname, search: req.nextUrl.search, metodo: req.method.toUpperCase(), telefono });
   if (d.tipo === 'redirigir') return NextResponse.redirect(new URL(d.destino, req.url));

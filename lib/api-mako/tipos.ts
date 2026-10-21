@@ -350,6 +350,10 @@ export type Ctx = {
   mensajeUsuario?: string;
   /** quién confirma (email de la sesión), para el historial */
   actor?: string;
+  /** Sólo en la app: la persona de la sesión que chatea (`usuarios.id` como `sub`). «Mi hoja» es la suya: el Dashboard
+   *  y General leen el informe de quien chatea, como la pantalla, salvo que se nombre a otra persona (20/10/2026, Ops
+   *  Center = lo principal, pieza 1.5). Se lee con `quienChatea(ctx)`, que lo ignora en otro canal. */
+  quien?: { sub: string; email: string; nombre: string };
   /** para las lecturas con `formatos`: el pedido por `?formato=` */
   formato?: Formato;
   /** Por dónde el CÓDIGO le habla a la persona sin pasar por el modelo: el doer de
@@ -374,6 +378,10 @@ export type Ctx = {
    *  (lib/mako-turno-app.ts) y lo lee `levantar_ticket`: así el error de un ticket nunca lo escribe el modelo. */
   contextoTicket?: () => Record<string, unknown>;
 };
+
+/** La persona que chatea, sólo en la app (`Ctx.quien`). En WhatsApp, por HTTP o en un flujo no hay nadie «mío». */
+export const quienChatea = (ctx: Pick<Ctx, 'canal' | 'quien'>): { sub: string; email: string; nombre: string } | null =>
+  (ctx.canal === 'app' && ctx.quien ? ctx.quien : null);
 
 // ── Lo que devuelven los runners ─────────────────────────────────────────────
 

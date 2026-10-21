@@ -348,6 +348,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/metricas/dashboard/hojas/{hoja}/componentes', 'agregar_grafico_dashboard'],
   ['PATCH', '/metricas/dashboard/hojas/{hoja}/componentes/{componente}', 'editar_grafico_dashboard'],
   ['DELETE', '/metricas/dashboard/hojas/{hoja}/componentes/{componente}', 'quitar_componente_dashboard'],
+  // 20/10/2026: mover una tarjeta (o cambiarle el ancho) es un POST que crea una MOVIDA, como una copia crea una copia.
+  ['POST', '/metricas/dashboard/hojas/{hoja}/componentes/{componente}/movidas', 'mover_componente_dashboard'],
   // v5 (12/10/2026): la caja «Conclusiones de MaKo» es un componente; generarla, un POST sobre ella.
   ['POST', '/metricas/dashboard/hojas/{hoja}/componentes/{componente}/conclusiones', 'generar_conclusiones_dashboard'],
   ['GET', '/metricas/dashboard/hojas/{hoja}/conclusiones', 'leer_conclusiones_dashboard'],

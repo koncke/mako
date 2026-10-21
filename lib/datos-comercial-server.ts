@@ -18,7 +18,7 @@
 //   cobranza  → getOutstandingDetalle (la misma lectura que el Outstanding de revenue)
 
 import 'server-only';
-import { getOutstandingDetalle, getRevenueBreakdowns, type RevItem } from './pagos';
+import { getOutstandingDetalle, getPorCobrar, getRevenueBreakdowns, type RevItem } from './pagos';
 import { getRevenuePeriod } from './queries';
 import { getWorkspaceActual } from './workspace';
 import { tzDeWorkspace, TZ_DEFAULT } from './timezone';
@@ -86,8 +86,9 @@ async function leerRevenue(desde: string, hastaPedido: string, c: Ctx): Promise<
 
 async function leerCobranza(desde: string, hasta: string, c: Ctx): Promise<DatosCobranza> {
   const ventana = ventanaOutstanding(desde, hasta);
-  const out = await c.una(`out|${ventana.desde}|${ventana.hasta}`, () => getOutstandingDetalle(c.hoy, ventana.desde, ventana.hasta));
-  return { filas: armarCobranza(out.items, c.hoy).filas, tz: c.tz };
+  // Las cuotas Y las suscripciones por cobrar (20/10/2026, `getPorCobrar`): el Outstanding de arriba sigue siendo el de las cuotas.
+  const { items } = await c.una(`porcobrar|${ventana.desde}|${ventana.hasta}`, () => getPorCobrar(c.hoy, ventana.desde, ventana.hasta));
+  return { filas: armarCobranza(items, c.hoy).filas, tz: c.tz };
 }
 
 async function leido<T>(nombre: string, leer: () => Promise<T>): Promise<Leido<T>> {
@@ -113,8 +114,8 @@ async function leido<T>(nombre: string, leer: () => Promise<T>): Promise<Leido<T
 export async function leerAQuienCobrar(): Promise<Leido<DatosCobranza>> {
   return leido('cobranza', async () => {
     const c = await contexto();
-    const out = await getOutstandingDetalle(c.hoy, null, null);
-    return { filas: armarCobranza(out.items, c.hoy).filas, tz: c.tz };
+    const { items } = await getPorCobrar(c.hoy, null, null);
+    return { filas: armarCobranza(items, c.hoy).filas, tz: c.tz };
   });
 }
 

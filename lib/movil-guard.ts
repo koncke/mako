@@ -28,7 +28,8 @@ import {
 import { requireSesion } from './tab-access';
 import { onboardingPendiente } from './onboarding-state';
 import { HOME_MOVIL, puedeVerKey } from './movil-rutas';
-import { tipoDeDispositivo, vaAMovil, VISTA_COOKIE } from './movil-dispositivo';
+import { tipoDeDispositivo, vaAMovil, vistaEscritorioEn, vistaEscritorioGlobal, VISTA_COOKIE } from './movil-dispositivo';
+import { HEADER_RUTA } from './api-tab';
 import { rutaDeSalida } from './agencia-cartera';
 import { agenciaDeCliente } from './agencia';
 import { WS_PARAM, conWs } from './ws-tab';
@@ -131,5 +132,19 @@ export async function salidaDeVista(): Promise<{ salida: string; modoAgencia: bo
  */
 export async function prefiereMovil(): Promise<boolean> {
   const [h, c] = await Promise.all([headers(), cookies()]);
-  return vaAMovil(tipoDeDispositivo(h.get('user-agent'), h.get('sec-ch-ua-mobile')), c.get(VISTA_COOKIE)?.value);
+  // La ruta la pone SÓLO el proxy (`headersSeguros`): una cookie de UNA pantalla (20/10/2026) decide por ella.
+  return vaAMovil(tipoDeDispositivo(h.get('user-agent'), h.get('sec-ch-ua-mobile')), c.get(VISTA_COOKIE)?.value, h.get(HEADER_RUTA) ?? '');
+}
+
+/**
+ * ¿Es un TELÉFONO viendo la versión de computadora por la cookie de vista? Entonces la pantalla lleva «Volver al
+ * teléfono» (20/10/2026): sin eso, quien tocaba «Abrir en la computadora» quedaba 12 h sin MaKo Mobile. `global`: la
+ * pidió para toda la app («Versión de computadora»); si no, sólo para esta ruta.
+ */
+export async function vistaEscritorioEnTelefono(): Promise<{ global: boolean } | null> {
+  const [h, c] = await Promise.all([headers(), cookies()]);
+  if (tipoDeDispositivo(h.get('user-agent'), h.get('sec-ch-ua-mobile')) !== 'telefono') return null;
+  const vista = c.get(VISTA_COOKIE)?.value;
+  if (!vistaEscritorioEn(vista, h.get(HEADER_RUTA) ?? '')) return null;
+  return { global: vistaEscritorioGlobal(vista) };
 }

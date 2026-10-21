@@ -136,12 +136,14 @@ test('4. las tres caras del hilo usan la MISMA pieza, y las pantallas suman lo q
   assert.doesNotMatch(leer('app/_chat/BloqueHilo.tsx'), /import ['"][^'"]+\.css['"]/);
   assert.match(leer('app/_chat/PegadoHilo.tsx'), /import '\.\/chat\.css';/, 'el teléfono carga la hoja con PegadoHilo');
   assert.match(leer('app/_chat/chat.css'), /\.ch-creado__mini \{/);
+  // Desde la 1.8 (20/10/2026) lo que vuelve de la tarjeta lo suma `conTarjeta`, que usa `itemsTrasTarjeta` (tests/chat-abrir.test.ts).
   for (const f of ['app/second-brain/ChatSecondBrain.tsx', 'app/crm/mako-crm/ChatMakoCrm.tsx', 'app/crm/lead-view/MakoAnalystLead.tsx']) {
     const s = sinComentarios(leer(f));
-    assert.match(s, /alEstado\(id, d\.estado \?\? 'pendiente', d\.frase \?\? undefined, itemsTrasTarjeta\(l\.datos\)\);/, `${f}: lo que vuelve de la tarjeta`);
+    assert.match(s, /alEstado\(id, d\.estado \?\? 'pendiente', d\.frase \?\? undefined, l\.datos\);/, `${f}: lo que vuelve de la tarjeta`);
     assert.doesNotMatch(s, /paraLaPersona \?\? \[\]\)\.filter/, `${f}: sin armar los avisos a mano`);
   }
-  assert.match(sinComentarios(leer('app/m/mako/SheetPropuesta.tsx')), /onEstado\(t\.pendienteId, d\.estado \?\? 'pendiente', d\.frase \?\? undefined, itemsTrasTarjeta\(r\)\);/, 'el teléfono');
+  assert.match(sinComentarios(leer('app/m/mako/SheetPropuesta.tsx')), /onEstado\(t\.pendienteId, d\.estado \?\? 'pendiente', d\.frase \?\? undefined, r\);/, 'el teléfono');
+  assert.match(leer('app/m/mako/chat-ui.ts'), /return r \? \[\.\.\.sig, \.\.\.itemsTrasTarjeta\(r\)\] : sig;/, 'conTarjeta suma lo que vuelve');
 });
 
 test('5. G3: lo que no se deshace, en rojo pegado al botón', () => {

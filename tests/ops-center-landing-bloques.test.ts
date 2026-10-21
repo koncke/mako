@@ -184,6 +184,11 @@ test('se dibuja: la miniatura con la sección, el estado, el link y los botones;
   const quieta = await dibujar(elegirFormatoReplicar());
   assert.equal((quieta.match(/class="ch-opcion ch-web__opcion" disabled=""/g) ?? []).length, 3, 'sin dónde contestar, las opciones no se tocan');
   assert.match(quieta, /data-recomendada="true"[^>]*>[\s\S]*?Landing<span class="ch-pildora">Recomendada<\/span>/);
+  // Ya contestada (al recargar): se ve contestada y no se toca, como el G1 del marco.
+  const { BloqueWeb } = await import('../app/web-generator/BloqueWeb');
+  const vieja = renderToStaticMarkup(createElement(BloqueWeb, { b: elegirFormatoReplicar(), onResponder: () => {}, respondida: 'Formato: Landing' }));
+  assert.equal((vieja.match(/class="ch-opcion ch-web__opcion" disabled=""/g) ?? []).length, 3);
+  assert.match(vieja, /Respondiste: Formato: Landing/);
   const temas = await dibujar(elegirTema('mako', TEMAS), () => {});
   assert.equal((temas.match(/class="gp-muestra"/g) ?? []).length, 3, 'cada tema con su muestra');
   assert.doesNotMatch(temas, /disabled=""/, 'con dónde contestar, sí');
@@ -209,7 +214,7 @@ test('elegir: lo elegido sale como un mensaje que dice QUÉ se eligió, y el hil
   assert.match(src, /postJson<RespuestaDominio>\(RUTA_DOMINIO, \{ accion: 'estado', id: d\.id, verificar: true \}, PLAZO_DOCS_MS\);[\s\S]{0,160}setD\(bloqueDominio\(d\.id, r\.dominio\)\)/);
   const hilo = sinComentarios(leer('app/_chat/BloqueHilo.tsx'));
   assert.match(hilo, /const BloqueWeb = dynamic\(\(\) => import\('@\/app\/web-generator\/BloqueWeb'\)\.then\(\(m\) => m\.BloqueWeb\)\);/, 'la hoja de las landings sólo carga con un bloque');
-  assert.match(hilo, /if \(esBloqueWeb\(b\)\) return <BloqueWeb b=\{b\} onResponder=\{onResponder\} \/>;/);
+  assert.match(hilo, /if \(esBloqueWeb\(b\)\) return <BloqueWeb b=\{b\} onResponder=\{onResponder\} respondida=\{respondida\} \/>;/);
   assert.match(sinComentarios(leer('lib/chat-bloques.ts')), /default:\s*return sanearBloqueWeb\(o, rutaInterna\);/);
 });
 
