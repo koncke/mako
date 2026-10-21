@@ -301,7 +301,10 @@ const ORDEN_WS: Record<string, string> = {
  */
 function exportarWorkspaces(filas: Workspace[]) {
   const esc = (v: unknown) => {
-    const t = String(v ?? '');
+    // Lo que empieza con = + - @ (o un tab) Excel lo toma como fórmula: va con una comilla adelante (sexta revisión, 21/10:
+    // la nota del PDF, el nombre y el origen son texto libre del cliente).
+    const crudo = String(v ?? '');
+    const t = /^[=+\-@\t\r]/.test(crudo) ? `'${crudo}` : crudo;
     return /[;"\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
   };
   const cab = ['Cliente', 'Slug', 'Plan', 'Estado', 'Miembros', 'Alta', 'Llegó por', 'Quería resolver', 'A corregir en su oferta'];

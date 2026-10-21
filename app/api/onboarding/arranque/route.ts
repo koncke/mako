@@ -26,7 +26,7 @@ import { idDelFunnelDefault } from '@/lib/funnels';
 import { estaImpersonando } from '@/lib/workspace';
 import { getEstadoOnboarding } from '@/lib/onboarding-state';
 import { chartKeyDePersona } from '@/lib/mako-turno-app-reglas';
-import { etapaDeArranque, leerRespuesta, type EstadoArranque } from '@/lib/onboarding-arranque';
+import { etapaDeArranque, leerRespuesta, pisaElNombreDelPerfil, type EstadoArranque } from '@/lib/onboarding-arranque';
 import {
   FaltaParaCerrar, asegurarFunnelPrincipal, cerrarArranque, hiloDelOnboarding, guardarEstadoArranque, guardarNombre, guardarNombreNegocio,
   hechosDelArranque, propuestaDeCrm, sembrarCrmPrincipal, vistaArranque,
@@ -155,7 +155,9 @@ export async function POST(req: NextRequest) {
         // una agencia que hacen el arranque mirando al cliente se quedaban con sus reportes.
         const [previo, perfil] = await Promise.all([getContactoReportes().catch(() => null), getPerfil().catch(() => null)]);
         await setContactoReportes({
-          nombre: previo?.nombre || e.nombre || undefined,
+          // El nombre del PERFIL si es uno de verdad (sexta revisión, 21/10: lo leído sin toque, «Cómo Estás», llegaba a los
+          // reportes); con el perfil en un email, el perfil ya tiene el confirmado con el toque.
+          nombre: previo?.nombre || (!pisaElNombreDelPerfil(perfil?.nombre) ? perfil?.nombre : '') || e.nombre || undefined,
           email: previo?.email || perfil?.email || undefined,
           telefono: digitos,
         });

@@ -1,5 +1,21 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 21/10/2026 — SEXTA REVISIÓN (de a0cdcfcc6): EL TOQUE DEL PDF CON LA POLARIDAD DE LA PREGUNTA
+
+<sub>Chat «Onboarding», claude4, rama onboarding-v3
+(side-session-notes/local_797d5445…/revision-onboarding-sexta-21-10.md).</sub>
+
+- **PDF:** lo escrito que no es un sí ni un no se confirma con «Escribiste «…». ¿Lo tomo como que está todo bien?»
+  ([Sí, está todo bien] [No, hay algo para corregir]). Ahí valen sólo los botones y un sí o un no pelados
+  (`siONoPelado`), y lo demás se suma a `pdfEscritas`, que reemplazó a `pdfPorConfirmar`. Un «no» sin nada escrito deja
+  `PDF_SIN_DETALLE`, y MaKo sabe que tiene que preguntar (`notaDelPdf`, `ver_estado_onboarding`).
+- **Bajos:** las cuotas se leen antes que lo anual; el contacto de los reportes toma el nombre del perfil; «Su Lin» o
+  «Mi Young» se proponen con el toque (`nombreSinCortar`); con un nombre esperando, «No, Pedro» propone y «Sí, soy Ana»
+  confirma; «Sí, no» no guarda a la persona como negocio. Sin nada que ofrecer, el «+» queda apagado y lo pegado avisa.
+  El CSV de clientes no deja entrar fórmulas. Tests: tests/onboarding-sexta-revision.test.ts.
+- Sin hacer: las otras exportaciones a CSV (leads del CRM, ficha, métricas, gráficos) siguen sin el escape de fórmulas
+  (docs/hallazgos-seguridad.md). No es de esta área.
+
 ## ESTADO AL 21/10/2026 — QUINTA REVISIÓN (de c7226ab77): NO SE CORTA POR PALABRA
 
 <sub>Chat «Onboarding», claude4, rama onboarding-v3. El Cerebro: «reviso sólo el diff»

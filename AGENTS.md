@@ -2014,6 +2014,12 @@ nada esperando, se propone y el toque decide. Y si la confirmación exige un cam
 contesta), el server distingue «no lo mandó» —una pestaña con el JS de antes del despliegue: «recarga la página»— de
 «mandó otro»; si no, esa pestaña queda en un error en bucle.
 
+**La confirmación tiene la polaridad de la pregunta que confirma (sexta revisión, 21/10/2026).** «¿Lo tomo como que falta
+algo?» invertía el sí, y DICE_SI («perfecto», «está bien») anotaba como corrección a quien decía que todo estaba bien. La
+pregunta del toque repite lo que confirma (así el guard de pestaña vieja la distingue). Ahí deciden sólo los botones y un
+sí o un no pelados, y lo demás escrito se SUMA a lo anterior, no lo pisa. Y al exportar a CSV texto que escribió otro, lo
+que empieza con = + - @ va con una comilla simple adelante (docs/hallazgos-seguridad.md).
+
 **El corolario para lo que DICE MaKo (21/10/2026, el guardia de promesas 1.5):** un filtro sobre el texto del modelo
 NUNCA borra una oración. El guardia por raíces de palabras borraba 8 de 14 respuestas verdaderas («Sí, ya te la
 agendé» después de confirmar la tarjeta pasaba a «En este mensaje no hice nada») y atajaba 3 de 18 falsas, medido con

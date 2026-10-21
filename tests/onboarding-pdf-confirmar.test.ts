@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  etapaDeArranque, mensajesDeArranque, leerRespuesta, PDF_PREGUNTA, PDF_OPCIONES, PDF_NO, PDF_CONFIRMAR_PREGUNTA, PDF_FALTA, PDF_BIEN,
+  etapaDeArranque, mensajesDeArranque, leerRespuesta, PDF_PREGUNTA, PDF_OPCIONES, PDF_NO, pdfConfirmarPregunta, PDF_FALTA, PDF_BIEN, PDF_SIN_DETALLE, notaDelPdf,
   type EstadoArranque, type HechosArranque, type Respuesta,
 } from '../lib/onboarding-arranque';
 import { preguntaQueContesta } from '../app/onboarding/arranque-ui';
@@ -40,12 +40,12 @@ test('«sí» sigue; «no» se anota, MaKo dice que lo trabajan en la app, y sig
   const si = leerRespuesta(E, H, { opcion: 0, opcionTexto: PDF_OPCIONES[0] });
   assert.deepEqual(si, { ok: true, patch: { pdfOk: 'si' } });
   assert.deepEqual(leerRespuesta(E, H, { texto: 'No' }), { ok: true, patch: { pdfOk: 'no' } }, 'un no suelto no hace falta confirmarlo');
-  // Lo demás escrito pasa por el toque (quinta revisión, 21/10), y con «falta algo» queda como lo que MaKo dice que anota.
+  // Lo demás escrito pasa por el toque (quinta revisión, 21/10), y con «hay algo para corregir» queda como lo que MaKo dice
+  // que anota (`pdfEscritas`, que el cierre vuelve `pdfNota`).
   const escrito = leerRespuesta(E, H, { texto: 'no, le faltan cosas' });
-  assert.deepEqual(escrito, { ok: true, patch: { pdfPorConfirmar: 'no, le faltan cosas' } });
-  const pend = { ...E, pdfPorConfirmar: 'no, le faltan cosas' };
-  assert.deepEqual(responder(pend, { opcion: 0, opcionTexto: PDF_FALTA }),
-    { ok: true, patch: { pdfOk: 'no', escritas: { pdf: 'no, le faltan cosas' }, pdfPorConfirmar: undefined } });
+  assert.deepEqual(escrito, { ok: true, patch: { pdfEscritas: ['no, le faltan cosas'] } });
+  const pend = { ...E, pdfEscritas: ['no, le faltan cosas'] };
+  assert.deepEqual(responder(pend, { opcion: 1, opcionTexto: PDF_FALTA }), { ok: true, patch: { pdfOk: 'no' } });
   const tras = { ...E, pdfOk: 'no' as const };
   assert.equal(etapaDeArranque(tras, H), 'fase', 'un «no» no traba el onboarding');
   assert.ok(mensajesDeArranque(tras, H).despues.some((x) => x.id === 'arr-pdf-no' && x.texto === PDF_NO));
@@ -58,29 +58,32 @@ test('lo escrito que no es un sí o un no sueltos NO se lee con reglas: pasa por
     'Perfecto! en vez de 997 son 500', 'Está bien, corregí el precio a 500', 'Bien, el precio en realidad es 500'];
   const bien = ['No le falta nada', 'No, todo bien', 'No cambiaría nada', 'No está mal'];
   for (const t of [...correcciones, ...bien]) {
-    assert.deepEqual(leerRespuesta(E, H, { texto: t }), { ok: true, patch: { pdfPorConfirmar: t } }, `«${t}» se decidió sin el toque`);
-    const pend = { ...E, pdfPorConfirmar: t };
-    // Se dibuja lo que escribió, y la pregunta del toque con sus dos opciones.
+    assert.deepEqual(leerRespuesta(E, H, { texto: t }), { ok: true, patch: { pdfEscritas: [t] } }, `«${t}» se decidió sin el toque`);
+    const pend = { ...E, pdfEscritas: [t] };
+    // Se dibuja lo que escribió, y la pregunta del toque —que lo repite— con sus dos opciones.
     const m = mensajesDeArranque(pend, H).despues;
     const i = m.findIndex((x) => x.id === 'arr-pdf');
     assert.equal(m[i + 1]?.texto, t);
-    assert.equal(m[i + 2]?.texto, PDF_CONFIRMAR_PREGUNTA);
-    assert.deepEqual(m[i + 2]?.opciones, [PDF_FALTA, PDF_BIEN]);
+    assert.equal(m[i + 2]?.texto, pdfConfirmarPregunta(t));
+    assert.deepEqual(m[i + 2]?.opciones, [PDF_BIEN, PDF_FALTA]);
     assert.equal(etapaDeArranque(pend, H), 'pdf', 'sin el toque la etapa no avanza');
   }
-  const pend = { ...E, pdfPorConfirmar: correcciones[1] };
-  assert.deepEqual(responder(pend, { texto: 'sí' }), { ok: true, patch: { pdfOk: 'no', escritas: { pdf: correcciones[1] }, pdfPorConfirmar: undefined } });
-  assert.deepEqual(responder(pend, { opcion: 1, opcionTexto: PDF_BIEN }), { ok: true, patch: { pdfOk: 'si', escritas: { pdf: correcciones[1] }, pdfPorConfirmar: undefined } });
-  // Otra cosa escrita reemplaza lo que esperaba, y se vuelve a preguntar.
-  assert.deepEqual(responder(pend, { texto: 'El precio y la garantía' }), { ok: true, patch: { pdfPorConfirmar: 'El precio y la garantía' } });
+  const pend = { ...E, pdfEscritas: [correcciones[1]] };
+  assert.deepEqual(responder(pend, { texto: 'no' }), { ok: true, patch: { pdfOk: 'no' } });
+  assert.deepEqual(responder(pend, { opcion: 0, opcionTexto: PDF_BIEN }), { ok: true, patch: { pdfOk: 'si' } });
+  // Otra cosa escrita se SUMA (sexta revisión: pisaba la corrección) y se vuelve a preguntar.
+  assert.deepEqual(responder(pend, { texto: 'El precio y la garantía' }), { ok: true, patch: { pdfEscritas: [correcciones[1], 'El precio y la garantía'] } });
   assert.deepEqual(leerRespuesta(E, H, { texto: 'Sí' }), { ok: true, patch: { pdfOk: 'si' } }, 'un sí suelto no hace falta guardarlo');
   // Se dibuja lo que escribió, no «Sí, está correcto».
-  const conNota: EstadoArranque = { ...E, pdfOk: 'no', escritas: { pdf: 'Todo perfecto salvo el precio, que es 500' } };
+  const conNota: EstadoArranque = { ...E, pdfOk: 'no', pdfEscritas: ['Todo perfecto salvo el precio, que es 500'] };
   const m = mensajesDeArranque(conNota, H).despues;
   assert.equal(m[m.findIndex((x) => x.id === 'arr-pdf') + 1]?.texto, 'Todo perfecto salvo el precio, que es 500');
-  // Y queda anotado donde lo leen el super admin y la API de MaKo.
+  // Y queda anotado donde lo leen el super admin y la API de MaKo; un «no» sin nada escrito, también.
   const srv = readFileSync(join(__dirname, '..', 'lib/onboarding-arranque-server.ts'), 'utf8').replace(/\r\n/g, '\n');
-  assert.match(srv, /const pdfNota = e\.pdfOk === 'no' \? e\.escritas\?\.pdf \?\? null : null;/);
+  assert.match(srv, /const pdfNota = notaDelPdf\(e\);/);
+  assert.equal(notaDelPdf(conNota), 'Todo perfecto salvo el precio, que es 500');
+  assert.equal(notaDelPdf({ ...E, pdfOk: 'no' }), PDF_SIN_DETALLE, 'un «no» sin nada escrito no dejaba marca');
+  assert.equal(notaDelPdf({ ...E, pdfOk: 'si', pdfEscritas: ['Todo perfecto'] }), null);
   assert.match(srv, /JSON\.stringify\(\{ origen: e\.origen \?\? null, interes: e\.interes \?\? null, at: new Date\(\)\.toISOString\(\), pdfNota \}\)/);
 });
 

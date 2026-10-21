@@ -931,6 +931,8 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     // «Documento» ofrece lo que Offer sabe leer (audio y video incluidos), no lo del Ops Center (revisión del Cerebro, 20/10).
     accept: ACCEPT_IMPORTAR,
     onSinImagen: (puedeLeer) => setErrorChat(puedeLeer ? 'No hay una imagen copiada.' : 'Este navegador no deja pegar: usa Ctrl+V.'),
+    // Lo pegado cuando no se puede sumar se dice (sexta revisión, 21/10: la imagen se perdía sin aviso).
+    onNoPuede: () => setErrorChat(ocupado ? 'Espera a que MaKo conteste para sumar archivos.' : 'Todavía no puedo recibir archivos: prueba en un momento.'),
   };
   // LA CAJA ÚNICA (app/_chat/CajaChat.tsx, 21/10/2026): la misma del Ops Center, con la nota de voz (el micrófono GRABA, no
   // dicta) y la línea de estado, que se sumaron a la pieza para el onboarding. Con sólo texto (el nombre, un código), sin

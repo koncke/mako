@@ -166,7 +166,8 @@ function Caja({ p, grabacion }: { p: PropsCajaChat; grabacion: GrabacionVoz | nu
         {conBarra && grabacion ? (
           <BarraGrabacion voz={grabacion} ocupado={girando} existente={p.voz?.pendiente ?? null} rotuloEnviar={p.voz?.rotuloEnviar} />
         ) : (<>
-        {(p.adjuntos || p.mas) && <MasCaja a={p.adjuntos} apagado={quieto} resumen={null}>{p.mas}</MasCaja>}
+        {/* Sin nada que ofrecer (no se puede adjuntar ahora y no hay más), el «+» queda apagado: abría un panel vacío. */}
+        {(p.adjuntos || p.mas) && <MasCaja a={p.adjuntos} apagado={quieto || (!p.adjuntos?.puede && !p.mas)} resumen={null}>{p.mas}</MasCaja>}
         {/* Los emojis, en su botón junto al campo (WhatsApp; Emojis.tsx). */}
         <BotonEmojis campo={caja} valor={texto} onValor={onTexto} apagado={quieto} />
         {/* Un link se ve azul mientras se escribe (la capa de abajo) y se abre desde su chip (17/10/2026). */}

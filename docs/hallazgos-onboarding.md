@@ -2619,6 +2619,37 @@ aceptaba la opción exacta: todo esto entraba nuevo.
   app/_chat/CajaChat.tsx), y el onboarding no deja grabar ni sumar archivos mientras MaKo contesta (`voz.apagada`,
   `puede`): esa respuesta puede cerrar la etapa, y lo juntado en el medio se perdía sin aviso.
 
+**Y la sexta (punta a0cdcfcc6): el toque nuevo del PDF tenía la polaridad al revés.**
+- ⚠️ **Una confirmación con la polaridad al revés que la pregunta anterior no se puede leer con DICE_SI.** La quinta
+  preguntaba «¿Lo tomo como que falta algo?», donde «sí» quiere decir que falta, y leía lo escrito con `siONo`. DICE_SI
+  trae «perfecto», «está bien», «muy bien», «genial», que son la respuesta natural de quien dice que el PDF está BIEN:
+  «Está perfecto» o «👍» quedaban anotados como corrección, y el super admin veía «Oferta a corregir: Todo perfecto».
+  **Regla:** la confirmación tiene la misma polaridad que la pregunta que confirma («Escribiste «…». ¿Lo tomo como que
+  está todo bien?», con el sí primero), y ahí deciden sólo los dos botones y un sí o un no PELADOS (`siONoPelado`). Lo
+  demás se anota y se vuelve a preguntar. Va en AGENTS.md.
+- **La pregunta de un toque tiene que llevar lo que confirma.** El guard de pestaña vieja compara el texto de la pregunta.
+  Una pregunta fija es igual para cualquier texto, y un toque viejo confirmaba una corrección que esa pantalla no mostró.
+- **Lo escrito a un toque se SUMA, no pisa.** «Sí, el precio» reemplazaba a «Todo bien salvo el precio, que es 200 USD», y
+  el 200 se perdía. Ahora lo escrito al PDF es una lista (`pdfEscritas`, que reemplazó a `pdfPorConfirmar`), y la nota
+  junta todo (`notaDelPdf`).
+- **Un «no» sin detalle también es una nota.** El camino más común, tocar «No, faltan cosas», no dejaba nada: pdfNota
+  salía de lo escrito. Ahora queda `PDF_SIN_DETALLE`, la tabla marca «Oferta a corregir» y `ver_estado_onboarding` le dice
+  a MaKo que pregunte qué es. No se pregunta en el onboarding: el pedido de Martín (18/10) es «lo anotas y seguimos».
+- **El orden de las reglas es una decisión.** La quinta puso lo anual antes que las cuotas, y «Programa anual: 12 cuotas
+  de USD 99» ya no podía cargarse como la suscripción de 12 meses. Las cuotas van primero.
+- **Una lista de corte también es una lista.** PALABRAS_NO_NOMBRE corta en «su», «mi», «una», «tu», «en», y «Su Lin» o
+  «Mi Young» quedaban en «No te entendí» en bucle (ya en producción). Si el corte deja vacío lo que tiene letras, se
+  propone con el toque (`nombreSinCortar`), con cualquier perfil; una pregunta o un «Ok» se siguen pidiendo de nuevo.
+- **«Sólo saluda» hay que verificarlo en TODOS los lugares a donde va el dato.** Con un perfil de verdad, el nombre leído
+  sin toque no iba al perfil, pero la etapa del teléfono lo copiaba a user_nombre, que firma los reportes. Ahora va el
+  nombre del perfil. Antes de decir que un dato «sólo se muestra», hay que hacer `git grep` de cada lugar donde se lee.
+- **Con un pendiente, «No, Pedro» y «Sí, soy Ana» se leen como en el negocio**: el sí o el no del principio y el nombre
+  de después. El mismo nombre escrito otra vez confirma. «Sí, no» no es un sí, ni en el nombre ni en el negocio (con la
+  persona pendiente guardaba su nombre como el del negocio).
+- **Un CSV con texto del cliente puede llevar una fórmula.** `=HYPERLINK(…)` en la nota del PDF entraba como fórmula en
+  Excel. La exportación de clientes antepone «'» a lo que empieza con = + - @. Las otras exportaciones a CSV están en
+  hallazgos-seguridad.
+
 **Sin hacer:** «Vendo 20 a 500 dólares» se sigue leyendo como un rango; la confirmación lo muestra y se corrige con un
 toque. Las etiquetas de los tramos dicen «$» sin «USD» (lib/fase-diagnostico.ts): es una decisión de copy, no de este
 chat. Vive en lib/onboarding-arranque.ts (`cifraDe`). Cobrar por año o por semana necesita un intervalo en el producto

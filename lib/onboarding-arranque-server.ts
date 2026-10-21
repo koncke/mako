@@ -41,7 +41,7 @@ import { tzDeWorkspace } from './timezone';
 import { NOMBRE_WS_PRUEBA } from './reset-workspace';
 import { faltanDelArranque, type OfferSesionVista, type PiezasSabidas } from './offer-marco';
 import {
-  CLAVE_ENCUESTA, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, TITULO_HILO, decisionDelHilo, contextoDelHilo, cobroDelPrecio, mensajesDelHilo, pisaElNombreDelPerfil, sinMarca,
+  CLAVE_ENCUESTA, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, TITULO_HILO, decisionDelHilo, contextoDelHilo, cobroDelPrecio, mensajesDelHilo, pisaElNombreDelPerfil, sinMarca, notaDelPdf,
   type EstadoArranque, type EtapaArranque, type HechosArranque, type MensajeArranque, type ModoArranque,
 } from './onboarding-arranque';
 
@@ -465,7 +465,8 @@ export async function cerrarArranque(): Promise<{ estado: OnboardingState; aviso
   // 4. Cómo llegó y qué quiere resolver primero (17/10/2026): un setting propio, para que el super admin los lea sin
   // abrir la conversación (y la API de MaKo, `ver_estado_onboarding`). Best-effort: no traba el cierre.
   // Con un «no» al PDF, lo que escribió que faltaba va acá: «lo anoto» tiene que quedar anotado (cuarta revisión, 21/10).
-  const pdfNota = e.pdfOk === 'no' ? e.escritas?.pdf ?? null : null;
+  // Un «no» sin nada escrito también deja marca (sexta revisión, 21/10: el «No» tocado no anotaba nada).
+  const pdfNota = notaDelPdf(e);
   if (e.origen || e.interes || pdfNota) {
     await setSetting(CLAVE_ENCUESTA, JSON.stringify({ origen: e.origen ?? null, interes: e.interes ?? null, at: new Date().toISOString(), pdfNota }))
       .catch((err) => console.error('[arranque] encuesta:', err instanceof Error ? err.message : err));
