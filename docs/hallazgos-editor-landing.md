@@ -2117,6 +2117,29 @@ Pedido de Martín (20/10): «que Ops Center sea lo principal en MaKo… crear we
 - **Dónde se mira:** idea, instrucciones, título y audiencia (lo que pide la persona); el texto pegado no, que es
   contenido y puede decir «otro producto» sin que sea un pedido. «Otro de mis productos» y «otro servicio» cuentan.
 - **La receta no nombra herramientas:** no siempre viajan las que nombraría (lo fija su test).
+- **La segunda revisión (20/10, noche, 60 frases reales) tiró la vuelta marcada como estaba:**
+  - **El parámetro `producto` lo llena el MODELO, no la persona.** Copia la referencia tal cual («mi otro producto», «el
+    otro», «no sé», «N/A») y eso saltaba el guardia. Regla: `producto` vale sólo si nombra uno del catálogo (también en
+    plural) o describe uno nuevo (`esReferenciaVaga`). Una referencia a OTRO («el otro», «el segundo») cuenta como
+    pedido de otro aunque la idea que escribió el modelo no lo diga. «Todos» o «el negocio en general» es ningún producto,
+    no uno que se llame así.
+  - **Lo que decide el guardia REEMPLAZA al `producto` del modelo en el payload.** Si no, la referencia ignorada seguía en
+    el input y `pedidoGenerar` le pegaba a la idea «Es para el producto «mi otro producto»».
+  - **«Otro» tiene más formas:** nuevo, segundo, distinto, diferente, aparte; y con curso, mentoría, programa o taller,
+    además de producto, servicio u oferta. Y pide otro sólo como DESTINO («para», «de», «sobre»… en las cuatro palabras de
+    antes, o al principio del renglón): negado («no menciones otros productos») o comparando («más que otros productos»)
+    no pide nada.
+  - **Con «otro» en el pedido, una palabra común del catálogo no es ese producto.** «Mi otro producto, un curso de
+    fotografía» con «Curso» en el catálogo describe el otro: cuenta sólo si se dice como el de ESE producto (artículo
+    definido o su mayúscula). Entre dos nombrados, si uno está adentro del otro («Curso» en «Curso avanzado»), gana el
+    largo.
+  - **Con un solo producto, una mención suelta ya no se pega** («mi producto estrella»): el esquema sale del perfil igual,
+    y pegarlo tapaba el «producto nuevo». Lo que se elige va ADELANTE en el resumen que se confirma («Crear con IA una
+    landing para el producto «X»…»): pegado al final de la idea, el corte de 140 caracteres lo escondía.
+- **Una frase prueba una regla sólo si esa regla es la ÚNICA que la decide.** Varias frases de la revisión daban bien
+  sin la regla que decían probar: «clientes que ya compraron otros productos» no tiene destino, así que no prueba el
+  «que» de las comparaciones. El arnés de roturas lo muestra: una rotura que queda en verde pide una frase nueva
+  («para vender más que otros productos», el título «Mi otro producto» en su renglón).
 
 ### Un bloque no puede viajar en la respuesta de la herramienta
 - La salida de una lectura (`SalidaLectura`) es lo que lee el MODELO, y la tarjeta de una landing necesita su primera
@@ -2138,6 +2161,11 @@ Pedido de Martín (20/10): «que Ops Center sea lo principal en MaKo… crear we
   herramienta (el clasificador, 1.2, chat MaKo WhatsApp).
 - En el chat del EDITOR (/api/mako/pedidos), «mi otro producto» con uno solo sigue creando sin producto: preguntarlo en
   texto libre ahí pide decidir cómo vuelve la respuesta al pedido (cada mensaje se interpreta suelto).
+- `producto` con números fuera del catálogo («Mentoría 1 a 1» si no está cargada) cuenta como referencia: los números
+  solos señalan una lista («el 2»). Vuelve a preguntar y la pregunta pide «su nombre o lo que es»
+  (lib/mako-pedidos.ts, `esReferenciaVaga`).
+- «Landing: mi otro producto» (sin «para» ni nada de destino, y no al principio del renglón) no pide otro: el destino se
+  reconoce por palabras (`DESTINO` en lib/mako-pedidos.ts).
 - `publicar_landing` devuelve en `datos.url` la dirección de MaKo aunque la landing tenga un dominio propio verificado
   (`urlDeLanding(r.slug)` en landing.run.ts): el bloque de publicada tiene que recibir la del dominio.
 

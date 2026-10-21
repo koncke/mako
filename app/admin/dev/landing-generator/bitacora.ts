@@ -749,4 +749,24 @@ export const BITACORA: Hito[] = [
       'tests/ops-center-landing-receta.test.ts — la batería, un caso por hallazgo de la revisión',
     ],
   },
+  {
+    fecha: '21 oct', hora: '00:13', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Una landing «para mi producto nuevo» ya no se arma sobre el producto que tienes',
+    puntos: [
+      'La segunda revisión del Cerebro probó 60 frases reales y encontró dos fallas: si MaKo anotaba el producto como «mi otro producto», creaba igual; y «una landing para un producto nuevo» con un solo producto cargado le pegaba ése.',
+      'Ahora «nuevo», «segundo», «distinto» y «aparte» también cuentan como otro, igual que «mi otro curso» o «mi otra mentoría». Si no dice cuál es, MaKo pregunta.',
+      'Antes de crear, la tarjeta para confirmar dice para qué producto es la landing.',
+      'Tampoco frena por un «no menciones otros productos» en las instrucciones, y «el Curso avanzado» es ése aunque también tengas uno que se llame «Curso».',
+    ],
+    commits: [
+      { sha: '284e0c927', msg: 'Ops Center 1.15, tras la segunda revisión: una referencia en `producto` no salta el guardia', lineas: 492, archivos: 5 },
+    ],
+    archivos: [
+      'lib/mako-pedidos.ts — esReferenciaVaga, pideOtroProducto (destino, sin negar) y productosNombrados (el nombre largo; con «otro», sólo dicho como ése)',
+      'lib/api-mako/areas/landing-editor.run.ts — lo que decide el guardia reemplaza al producto que mandó el modelo',
+      'lib/api-mako/areas/landing-contenido.helpers.ts — el producto adelante en el resumen que se confirma',
+      'tests/ops-center-landing-receta.test.ts — las 60 frases de la revisión y 12 más, 30 roturas en rojo',
+    ],
+  },
 ];
