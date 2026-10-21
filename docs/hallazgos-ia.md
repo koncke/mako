@@ -4702,7 +4702,10 @@ y en lo que pasa en la PC antes de que la persona diga que sí. Lo no obvio:
   **tampoco es «hay errores»**: una vez coincidió con un error real (`'insertada' is possibly 'null'`, que la API sí
   mostró), pero el otro agente vio el mismo `tsc -p` salir 1 mudo tres veces y después 0 con toda la salida, sin cambiar
   nada. Es intermitente y no prueba nada en ningún sentido. **Lo que sirve es la API**: `createProgram` +
-  `getPreEmitDiagnostics` con el tsconfig acotado (un script de 12 líneas, que imprime cada diagnóstico).
+  `getPreEmitDiagnostics` con el tsconfig acotado (un script de 12 líneas, que imprime cada diagnóstico). ⚠️ **Con el
+  tsconfig que arma `armarTsconfig` (scripts/tsc-acotado.mjs), no con uno a mano**: ése suma los globales de Next
+  (`next/types/global.d.ts`), que hacen OBLIGATORIO `NODE_ENV` en `ProcessEnv`. El mío a mano dio 0 y el VERDE 3
+  (`rutaDeClaude({}, …)` en un test: `{}` ya no es un `ProcessEnv`).
 - **Adentro de «sólo su IA», las pantallas mentían** (las rutas del Second Brain y del onboarding): `errorDeCascada` decía
   «No hay ninguna IA conectada… con Gemini alcanza», `leerDocumentoIA` «Carga una API key de Gemini (gratis)», El
   Archivero «Prueba de nuevo en un momento», y Buscar «MaKo eligió 0». Y `CONECTA_TU_CLAUDE` tampoco: le dice «Conecta tu

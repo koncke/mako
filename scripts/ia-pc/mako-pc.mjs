@@ -59,6 +59,8 @@ export const SIN_ESTAS = ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'CLAUDE_C
 /**
  * Dónde está `claude`. El instalador oficial lo deja en ~/.local/bin, y una ventana abierta ANTES de instalarlo (o el
  * arranque al prender la PC) puede no tener ese PATH: se prueba primero la ruta conocida.
+ * @param {Record<string, string | undefined>} [env]
+ * @param {(ruta: string) => boolean} [existe]
  */
 export function rutaDeClaude(env = process.env, existe = existsSync) {
   if (env.MAKO_PC_CLAUDE) return env.MAKO_PC_CLAUDE;
