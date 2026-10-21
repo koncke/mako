@@ -1,5 +1,15 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 21/10/2026 ~14:45 AR — EN PRODUCCIÓN; LA RAMA onboarding-v3 SE CIERRA PARA ESTA RONDA
+
+- De la primera a la sexta revisión, con 689f75560 (run 199). De la séptima a la undécima, con cbafd6eae (aa3ff1c0e,
+  run 212: 3.882 tests y tipos limpios). El «Hecho» está en la bitácora del Onboarding (app/admin/dev/onboarding).
+- Lo que sigue abierto, y dónde: reparar el ws21 de Florencia (el script, sólo con el sí de Martín y el nombre que él
+  elija); las otras exportaciones a CSV sin escape de fórmulas (docs/hallazgos-seguridad.md, no es de esta área); los
+  «Sin hacer» de docs/hallazgos-onboarding.md (cobrar por año o por semana, la nota del PDF en Offer, el campo de la caja
+  que se vuelve a montar, «mínimo 3 meses» o «Hasta 6 cuotas con Mercado Pago» que todavía proponen la N).
+- Una ronda nueva arranca de origin/main en una rama nueva, no sobre onboarding-v3.
+
 ## ESTADO AL 21/10/2026 — UNDÉCIMA REVISIÓN (de 1106e8c16): LA LECTURA CON EL MISMO EXTRACTOR QUE LA RED
 
 <sub>Chat «Onboarding», claude4, rama onboarding-v3. En producción está 689f75560
