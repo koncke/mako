@@ -244,9 +244,10 @@ test('⚠️ las DOS rutas del cron le dan el tope a TODAS sus corridas, y compa
     // Y con el TURNO del negocio: dos corridas del motor a la vez mandan dos veces.
     assert.match(ruta, /conTurno(DelMotor)?\(/, `${archivo} corre el motor sin el turno del negocio`);
   }
-  // El tick, sólo sobre lo que acaba de vencer (salvo al abrir el horario: barre entero).
+  // El tick, sólo sobre lo que acaba de vencer (salvo al abrir el horario: barre entero). 20/10/2026: un Recurrente que
+  // llegó a su hora (`recurrente`) también mira lo fresco: ahí caen los que acaba de inscribir.
   const tick = sinComentarios(leer('app/api/cron/nutricion-tick/route.ts'));
-  assert.match(tick, /\.\.\.\(motivo === 'vencio' \? \{ vencidasDesde: desde \} : \{\}\)/);
+  assert.match(tick, /\.\.\.\(motivo !== 'abrio' \? \{ vencidasDesde: desde \} : \{\}\)/);
 });
 
 test('⚠️ la VÍA RÁPIDA cumple la espera corta DESPUÉS de contestar (after), con su tope y su workspace', () => {

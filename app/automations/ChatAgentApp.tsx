@@ -162,6 +162,8 @@ export type SecuenciaDto = {
   etiqueta_id?: number | null;
   /** El emoji del título (mig 0229). `null`/ausente = el del objetivo. */
   emoji?: string | null;
+  /** Cuántos mensajes suyos esperan que los apruebes (lib/mensajes-por-aprobar.ts). `null`/ausente = no se pudo leer. */
+  por_aprobar?: number | null;
   /** Dónde quedó cada tarjeta movida del lienzo (mig 0233). `{}` = ninguna; `null` = no se pudieron
    *  leer (el lienzo se mueve y no guarda). Ver lib/secuencia-posiciones.ts. */
   posiciones?: Record<string, { x: number; y: number }> | null;

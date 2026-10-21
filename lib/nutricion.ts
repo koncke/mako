@@ -1843,7 +1843,12 @@ async function aInscribir(
 //   insert moría contra el unique — o sea que igual cortaba, pero con un mensaje que culpaba al
 //   insert y no a la lectura. `reunion_at` va sólo en la familia que prepara una reunión: fuera de
 //   ella la columna no dice nada, y no mandarla deja a las demás andando sin la 0205.
-export async function comprometerInscripciones(opts?: { soloGrupo?: boolean }): Promise<number> {
+//
+// · `soloRecurrentes` (20/10/2026): lo pide el TICK de cada minuto cuando un Recurrente llegó a su hora
+//   (`negociosConRecurrenteVencido`, lib/motor-tick.ts). Mira sólo los CRON con horario, con el MISMO
+//   compare-and-set: el tick y la corrida de cada hora no pueden reclamar la misma ocurrencia. Los demás
+//   (por etapa sin horario, por evento) siguen barriéndose a la hora en punto.
+export async function comprometerInscripciones(opts?: { soloGrupo?: boolean; soloRecurrentes?: boolean }): Promise<number> {
   const supabase = (await getTenantDb());
   const secuencias = await getSecuenciasActivas();
   let creadas = 0;
@@ -1858,6 +1863,7 @@ export async function comprometerInscripciones(opts?: { soloGrupo?: boolean }): 
       if (!barridoInscribe(sec)) continue;
       if (!barreElDisparador(sec) && !sec.disparador.grupo) continue;
       if (opts?.soloGrupo && !sec.disparador.grupo) continue;
+      if (opts?.soloRecurrentes && !sec.cron) continue;
       const agenda = decidirAgenda({ cron: sec.cron, cronProximaAt: sec.cron_proxima_at }, tz, ahora);
       if (agenda.proxima) {
         let reclamada = false;

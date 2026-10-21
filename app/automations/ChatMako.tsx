@@ -125,6 +125,12 @@ export type ChatMakoProps = {
   onCrearOtra?: (pedido: string) => Promise<boolean>;
   /** Se eliminó o volvió OTRA automatización desde una burbuja: la lista se vuelve a leer. */
   onListaCambio?: () => void;
+  /**
+   * LO QUE LA PANTALLA LE HACE DECIR A MaKo (20/10/2026): al activarla, por qué sus mensajes quedan para que los apruebes
+   * (`POR_QUE_SE_APRUEBAN`, lib/mensajes-por-aprobar.ts). Una vez por `id`; no se guarda en el hilo: lo sigue diciendo la
+   * línea de la automatización mientras haya alguno esperando.
+   */
+  nota?: { id: string; texto: string } | null;
 };
 
 
@@ -224,6 +230,15 @@ export function ChatMako(p: ChatMakoProps) {
    */
   const onListoRef = useRef(p.onListo);
   useEffect(() => { onListoRef.current = p.onListo; });
+
+  // La nota de la pantalla (`nota`): una vez por id, como un turno de MaKo de esta pantalla.
+  const notaDicha = useRef<string | null>(null);
+  const nota = p.nota ?? null;
+  useEffect(() => {
+    if (!nota || notaDicha.current === nota.id) return;
+    notaDicha.current = nota.id;
+    setMensajes((ms) => [...ms, { id: nota.id, de: 'mako', texto: nota.texto, at: new Date().toISOString(), via: 'app' }]);
+  }, [nota]);
 
   // El reloj de lo que lleva (progreso real, no decorativo). Corre sólo mientras trabaja.
   useEffect(() => {

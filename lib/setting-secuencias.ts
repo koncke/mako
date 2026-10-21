@@ -41,6 +41,7 @@ import { leerBorradoresSecuencias, firmaPublicado, type DbBorrador } from './sec
 import type { PasoGrafo } from './flujo-grafo';
 import { SOLO_DESDE_EL_CRON, MOTIVO_SOLO_DESDE_EL_CRON, TRIGGERS_DEL_EMISOR, MOTIVO_CRON_FIJO } from './disparadores';
 import { pasosDeEsqueleto } from './setting-semillas';
+import { contarPorAprobar } from './mensajes-por-aprobar';
 
 export type SecuenciaConEstrategia = Omit<SecuenciaConStats, 'estrategia'> & {
   estrategia: Estrategia | null; metricas: MetricasSecuencia;
@@ -51,6 +52,11 @@ export type SecuenciaConEstrategia = Omit<SecuenciaConStats, 'estrategia'> & {
   reentrada_efectiva: Reentrada;
   /** El emoji del título (mig 0229). null = el del objetivo, que lo pone la pantalla. */
   emoji: string | null;
+  /**
+   * Cuántos mensajes suyos esperan que los apruebes (`wa_borradores` pendientes del motor, lib/mensajes-por-aprobar.ts).
+   * `null` = no se pudieron leer, que no es «ninguno»: la pantalla no dice nada.
+   */
+  por_aprobar: number | null;
   /**
    * Dónde puso la persona cada tarjeta del lienzo (mig 0233, lib/secuencia-posiciones.ts). `{}` =
    * ninguna movida; `null` = NO SE PUDIERON LEER (falta la columna o falló la consulta): el lienzo se
@@ -107,6 +113,24 @@ export async function setEmojiSecuencia(secuenciaId: number, emoji: unknown): Pr
   if (!data?.length) throw new TriggerInvalidoError('Esa automatización no existe en este negocio.');
 }
 
+/**
+ * LOS MENSAJES QUE ESPERAN QUE LOS APRUEBES, por automatización (20/10/2026: el Recurrente de Leila «que no salió»
+ * dejó 31 borradores y la pantalla decía «Activa»). Los del MOTOR (`origen: 'nutricion'`): los de «Si responde» que
+ * escribe el setter asistido tienen su propia bandeja. Tolerante como las posiciones: `null` = no se pudieron leer.
+ */
+async function leerPorAprobar(supabase: Awaited<ReturnType<typeof getTenantDb>>): Promise<Map<number, number> | null> {
+  try {
+    const filas = await leerTodo<{ secuencia_id: number | null }>(supabase, 'wa_borradores', 'id, secuencia_id', {
+      orden: 'id', eq: { estado: 'pendiente', origen: 'nutricion' },
+      filtros: (q) => q.not('secuencia_id', 'is', null),
+    });
+    return contarPorAprobar(filas);
+  } catch (e) {
+    console.error(`[setting-secuencias] mensajes por aprobar: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  }
+}
+
 /** Secuencias + métricas 30d + la serie diaria del workspace (una sola pasada). */
 export async function getSettingData(): Promise<{ secuencias: SecuenciaConEstrategia[]; serie: PuntoSerie[] }> {
   const supabase = await getTenantDb();
@@ -126,10 +150,11 @@ export async function getSettingData(): Promise<{ secuencias: SecuenciaConEstrat
   const met = agregarMetricas(filasEnvio, filasInsc);
   // Las posiciones y los borradores van aparte y tolerantes (no tiran): ver `leerPosicionesSecuencias`
   // y `leerBorradoresSecuencias`. `null` = no se pudieron leer, que no es «ninguno».
-  const [emojis, posiciones, borradores] = await Promise.all([
+  const [emojis, posiciones, borradores, porAprobar] = await Promise.all([
     emojisDeSecuencias(supabase),
     leerPosicionesSecuencias(supabase as unknown as DbPosiciones),
     leerBorradoresSecuencias(supabase as unknown as DbBorrador),
+    leerPorAprobar(supabase),
   ]);
   const secuencias = secs.map((s) => ({
     ...s,
@@ -138,6 +163,7 @@ export async function getSettingData(): Promise<{ secuencias: SecuenciaConEstrat
     emoji: emojis.get(s.id) ?? null,
     reentrada_efectiva: reentradaDeSecuencia(s),
     posiciones: posiciones ? (posiciones.get(s.id) ?? {}) : null,
+    por_aprobar: porAprobar ? (porAprobar.get(s.id) ?? 0) : null,
     // Sin poder leerlos, la clave NO va: la pantalla distingue «no hay» (null) de «no sé» (ausente) y
     // en el segundo caso no guarda, para no pisar un borrador que no vio.
     //

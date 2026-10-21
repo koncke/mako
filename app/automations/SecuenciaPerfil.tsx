@@ -23,7 +23,7 @@ import dynamic from 'next/dynamic';
 import { usePilaDeshacer } from '@/app/_ui/usePilaDeshacer';
 // LOS CRON (sexta tanda: varios por automatización, y la primera pantalla con Producto / Recurrente /
 // Etiqueta / Instagram / Messenger / Email). El panel, su estado y lo que dice cada uno viven allá.
-import { EditorDisparadores, useDisparadores, useTextoDisparador, type SecuenciaConDisparadores } from './EditorDisparadores';
+import { EditorDisparadores, useDisparadores, useTextoDisparador, disparadoresDeSecuencia, type SecuenciaConDisparadores } from './EditorDisparadores';
 import { disparoActualDe, disparadorDeValorIA, recurrenteDeValorIA, iconoDeDisparador, esDelEmisor, EVENTOS_MAKO, TRIGGER_AVISO_MAKO } from '@/lib/disparadores';
 import { frenoDelEvento } from '@/lib/aviso-evento';
 import { problemasDeTokens } from '@/lib/tokens-del-flujo';
@@ -37,6 +37,9 @@ import { REENTRADAS, ROTULO_REENTRADA, type Reentrada } from '@/lib/reentrada';
 import { useEtiquetasTodas, avisarCambioEtiquetas } from '@/app/_components/etiquetas-cliente';
 import type { ListoCrearIA } from './CrearConIA';
 import { ChatMako } from './ChatMako';
+import Link from '@/app/_ui/Link';
+import { textoPorAprobar, dejaBorradores, POR_QUE_SE_APRUEBAN, POR_QUE_CORTO, RUTA_APROBAR } from '@/lib/mensajes-por-aprobar';
+import { duplicadaDe, avisoDuplicada } from '@/lib/automatizacion-duplicada';
 import { BotonPila } from './BotonPila';
 import { TRIGGER_RECORDATORIO, frenoDelRecordatorio } from '@/lib/recordatorio-automatizacion';
 import { CANALES_PROBAR, type CanalProbar } from './PanelProbar';
@@ -716,8 +719,12 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   // siempre abierto»). En su lugar del título va la tuerca de Configuraciones de ESTA automatización.
   /** Configuraciones de ESTA automatización abierta (la tuerca del título). */
   const [configAbierta, setConfigAbierta] = useState(false);
+  /** Lo que MaKo dice en el chat al activarla (`ChatMako.nota`): por qué sus mensajes quedan para que los apruebes. */
+  const [notaChat, setNotaChat] = useState<{ id: string; texto: string } | null>(null);
   /** El aviso de Prospección pendiente, con lo que se iba a hacer (Publicar o Probar). */
   const [avisoProspeccion, setAvisoProspeccion] = useState<{ seguir: () => void } | null>(null);
+  /** El aviso de una automatización que ya le escribe lo mismo a la misma gente (`conAvisoDuplicada`), con lo que se iba a hacer. */
+  const [avisoDup, setAvisoDup] = useState<{ texto: string; boton: string; seguir: () => void } | null>(null);
   // Identidad FIJA (AGENTS.md: todo `<Modal>` recibe un `onCerrar` estable).
   const cerrarConfig = useCallback(() => setConfigAbierta(false), []);
   /**
@@ -945,6 +952,12 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             ? (caidaLaSec && soloWa ? 'Activada · WhatsApp desconectado' : 'Activada ✓')
             : 'Pausada ✓',
         );
+        // ⚠️ «ACTIVADA ✓» Y NO SALE NADA (20/10/2026, el Recurrente de Leila: 31 borradores esperando). A un lead que no
+        // pagó, un mensaje de WhatsApp que no sale solo queda para que lo apruebes (lib/mensajes-por-aprobar.ts): el chat
+        // lo dice al activarla, y la línea de al lado de «Activar» cuenta los que esperan.
+        if (!activa && dejaBorradores(pasos, est?.envio_automatico === true)) {
+          setNotaChat({ id: `mako-aprobar-${Date.now().toString(36)}`, texto: `${POR_QUE_SE_APRUEBAN}. Se aprueban en Chats › Borradores.` });
+        }
         onCambio();
       } else {
         // Un medio sin conectar abre su modal y NO deja el chip rojo al lado de «Activar» (decimocuarta tanda, punto 4).
@@ -992,6 +1005,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   /** Lo que «✦ guion» de una nota de voz necesita de la estrategia (revisión, costuras-4). */
   const paraGuion = useMemo(() => (est ? { objetivo: est.objetivo, gancho: est.gancho, preguntas: est.preguntas } : undefined), [est]);
   const pendientesOtraCosa = (handoffs ?? []).filter((h) => h.secuenciaId === secuencia.id).length;
+  /** «31 mensajes esperando que los apruebes» (lib/mensajes-por-aprobar.ts). null = ninguno, o no se pudo leer. */
+  const porAprobar = textoPorAprobar(secuencia.por_aprobar);
   const cambioLocal = useRef(onCambioLocal);
   useEffect(() => { cambioLocal.current = onCambioLocal; });
   useEffect(() => {
@@ -1034,6 +1049,21 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * si el CRON elige etapas de un funnel de Prospección (`cronDeProspeccion`) y la automatización no tiene configuración
    * propia, se pregunta antes: «Configurar» abre su modal; «Seguir igual» sigue. Una vez por automatización y visita.
    */
+  /**
+   * OTRA ACTIVA YA LE ESCRIBE LO MISMO A LA MISMA GENTE (20/10/2026: #282 y el d2 de #284 del ws11, la misma etapa con casi
+   * el mismo recordatorio; cada lead lo recibía dos veces). Al ACTIVAR, y al PUBLICAR una que ya está activa: pausada,
+   * publicar no le manda nada a nadie y se avisa al activarla. No frena (puede ser a propósito): pregunta. Compara lo que
+   * se ve (el lienzo y los CRON de ahora) con lo PUBLICADO de las otras, que es lo que manda el motor.
+   */
+  const conAvisoDuplicada = (vaAMandar: boolean, boton: string, seguir: () => void) => {
+    if (!rolAdmin || !vaAMandar) { seguir(); return; }
+    const otra = duplicadaDe(
+      { id: secuencia.id, nombre, disparadores: crons.lista, pasos },
+      secuencias.map((s) => ({ id: s.id, nombre: s.nombre, activa: s.activa, disparadores: disparadoresDeSecuencia(s), pasos: s.pasos ?? [] })),
+    );
+    if (!otra) { seguir(); return; }
+    setAvisoDup({ texto: avisoDuplicada(otra.nombre), boton, seguir });
+  };
   const conAvisoProspeccion = (seguir: () => void) => {
     if (!rolAdmin || !Configuraciones || avisadaProspeccion.has(secuencia.id) || !cronDeProspeccion(crons.lista, productos, secuencia.funnel_id ?? null)) { seguir(); return; }
     void (configPropia ? configPropia(secuencia.id).catch(() => false) : Promise.resolve(false))
@@ -1133,7 +1163,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
           <ChatMako secuenciaId={secuencia.id} pasos={pasos} publicadas={secuencia.pasos?.length ?? 0} onListo={alListoIA}
             onVolver={onVolverALista}
             onTrabajando={setChatTrabajando} pedidoInicial={pedidoPendiente} onPedidoInicialUsado={() => setPedidoPendiente(null)}
-            nombre={secuencia.nombre ?? ''} onCrearOtra={onCrearOtra} onListaCambio={onListaCambio} />
+            nombre={secuencia.nombre ?? ''} onCrearOtra={onCrearOtra} onListaCambio={onListaCambio} nota={notaChat} />
         </div>,
         ranuraChat,
       )}
@@ -1208,6 +1238,11 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 onConfirm={() => { avisadaProspeccion.add(secuencia.id); setAvisoProspeccion(null); setConfigAbierta(true); }}
                 onCancel={() => { const s = avisoProspeccion.seguir; avisadaProspeccion.add(secuencia.id); setAvisoProspeccion(null); s(); }} />
             )}
+            {avisoDup && (
+              <Confirm message={avisoDup.texto} confirmLabel={avisoDup.boton} cancelLabel="Cancelar" tone="primary"
+                onConfirm={() => { const s = avisoDup.seguir; setAvisoDup(null); s(); }}
+                onCancel={() => setAvisoDup(null)} />
+            )}
 
             {/* ⚠️ «PROBAR» A LA DERECHA DEL TODO, separado de Activar (punto 10: «el botón de
                 probar debería estar a la derecha del todo, no pegado a "Activar"»). El
@@ -1266,11 +1301,20 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             {/* ⛔ ACÁ VIVÍA «VOLVER A LO PUBLICADO» (revisión del 10/10/2026). Se fue en la décima tanda (general 5:
                 «Elimina el botón de "Volver a lo publicado" que aparece al lado de "Activar", para eso ya tenemos
                 el CTRL Z»): lo mismo es «Descartar cambios» en el «⋯» de la lista (`descartarCambios`). */}
+            {/* LOS MENSAJES QUE ESPERAN QUE LOS APRUEBES (20/10/2026: el Recurrente de Leila «no salió» y eran 31
+                borradores). Con el porqué corto y el link a donde se aprueban (Chats › Borradores). */}
+            {porAprobar && (
+              <Link href={RUTA_APROBAR} title={`${POR_QUE_SE_APRUEBAN}. Se aprueban en Chats › Borradores.`}
+                style={{ ...tarjetaChrome, flex: 'none', minHeight: ALTO_ACCION, boxSizing: 'border-box', display: 'inline-flex', flexDirection: 'column', justifyContent: 'center', gap: 1, textDecoration: 'none' }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--warn)' }}>{porAprobar} →</span>
+                <span style={{ fontSize: 11.5, color: 'var(--dim)' }}>{POR_QUE_CORTO}</span>
+              </Link>
+            )}
             {/* «ACTIVAR», AL LADO DE «PUBLICAR» (sexta tanda, punto 8: «Activar pasa a estar al lado de
                 "Publicar"»). Las dos deciden qué sale y se miran juntas; arriba quedó el ✦ de MaKo. */}
             <div style={{ ...tarjetaChrome, flex: 'none', height: ALTO_ACCION, boxSizing: 'border-box', padding: '0 14px', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 14.5, fontWeight: 700, color: activa ? 'var(--good)' : 'var(--dim)' }}>Activar</span>
-              <button onClick={toggle} disabled={!rolAdmin || busy === 'toggle'} aria-pressed={activa} title={activa ? 'Pausar' : 'Activar'}
+              <button onClick={() => (activa ? void toggle() : conAvisoDuplicada(true, 'Activar igual', () => void toggle()))} disabled={!rolAdmin || busy === 'toggle'} aria-pressed={activa} title={activa ? 'Pausar' : 'Activar'}
                 style={{ width: 46, height: 26, borderRadius: 999, border: 'none', padding: 3, background: activa ? 'var(--good)' : 'var(--border-strong)', cursor: rolAdmin ? 'pointer' : 'default', flex: 'none', transition: 'background .15s' }}>
                 <span style={{ display: 'block', width: 20, height: 20, borderRadius: '50%', background: '#fff', transform: activa ? 'translateX(20px)' : 'none', transition: 'transform .15s' }} />
               </button>
@@ -1284,7 +1328,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 convertida a tarjetas cuenta como cambio (`sinPublicar`): publicarla es lo que la
                 convierte, y lo que cambió se lee al pasar el cursor. */}
             {rolAdmin && (
-              <button onClick={() => conAvisoProspeccion(() => void publicar())} disabled={busy === 'save' || !sinPublicar}
+              <button onClick={() => conAvisoProspeccion(() => conAvisoDuplicada(activa, 'Publicar igual', () => void publicar()))} disabled={busy === 'save' || !sinPublicar}
                 title={sinPublicar && convertida && inicial.notas.length ? inicial.notas.join(' · ') : undefined}
                 style={{ height: ALTO_ACCION, padding: '0 26px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 15, fontWeight: 700, cursor: sinPublicar ? 'pointer' : 'default', opacity: busy === 'save' || !sinPublicar ? 0.45 : 1, fontFamily: 'inherit' }}>
                 {busy === 'save' ? 'Publicando…' : 'Publicar'}

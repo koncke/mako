@@ -10444,3 +10444,17 @@ después). No visto en pantalla: el build no entró en la RAM de esa tarde.
 **Vive en:** lib/supabase-paginado.ts · lib/evolution-mensajes.ts · lib/evolution-contactos.ts · app/chats/ChatsApp.tsx ·
 app/chats/lista-reglas.ts · app/api/chats/route.ts. Tests: tests/paginado-paralelo.test.ts y
 tests/chats-lista-rapida.test.ts. *20/10/2026, chat «CRM» (claude4).*
+
+## Un link a una BANDEJA de Chats: `?vista=borradores`, con «Mostrar: Todas» (20/10/2026)
+
+Pedido por Automations: «31 mensajes esperando que los apruebes» lleva a donde se aprueban. Chats no tenía link a una
+bandeja (sólo a una conversación: `?c=`, `?lead=`, `?chat=`).
+- **⚠️ La bandeja sola no alcanza: «Mostrar» arranca en «Abiertas».** Un borrador del motor espera aunque la
+  conversación esté cerrada; con el filtro de siempre la bandeja Borradores se veía vacía o a medias. El link pone
+  `vista: 'borradores'` CON `mostrar: 'todas'` (y sin canal ni etapa).
+- **Va después de lo recordado:** el efecto que lee el filtro guardado del navegador corre antes (los efectos van en
+  orden); al revés, lo recordado pisaba «Todas». Y la URL vuelve a /chats: después el filtro es de quien lo toca.
+- Una vista que no está en `VISTAS_CON_LINK` no hace nada.
+
+**Vive en:** lib/chats-links.ts (`rutaChatsDeVista`, `vistaDeLink`) · app/chats/ChatsApp.tsx · test:
+tests/recurrente-no-salio.test.ts · *20/10/2026, claude4.*

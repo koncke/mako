@@ -204,7 +204,8 @@ test('5: Publicar y Probar avisan si el CRON elige un funnel de Prospección y l
   // Una etiqueta o un evento no eligen funnel.
   assert.equal(cronDeProspeccion([{ trigger_tipo: 'etiqueta_puesta' }, { trigger_tipo: 'instagram' }], productos, 7), false);
   const perfil = PERFIL();
-  assert.match(perfil, /<button onClick=\{\(\) => conAvisoProspeccion\(\(\) => void publicar\(\)\)\}/);
+  // 20/10/2026: y adentro, el aviso de una automatización duplicada (tests/recurrente-no-salio.test.ts).
+  assert.match(perfil, /<button onClick=\{\(\) => conAvisoProspeccion\(\(\) => conAvisoDuplicada\(activa, 'Publicar igual', \(\) => void publicar\(\)\)\)\}/);
   assert.match(perfil, /conAvisoProspeccion\(\(\) => onProbar\(canal\)\);/);
   assert.match(perfil, /!cronDeProspeccion\(crons\.lista, productos, secuencia\.funnel_id \?\? null\)\) \{ seguir\(\); return; \}/);
   assert.match(perfil, /\.then\(\(propia\) => \{ if \(propia\) seguir\(\); else setAvisoProspeccion\(\{ seguir \}\); \}\);/);

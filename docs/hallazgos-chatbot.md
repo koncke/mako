@@ -5420,6 +5420,41 @@ tests/crear-ia-recurrente.test.ts · *20/10/2026, claude4.*
 
 **Regla:** antes de decir «no salió», mirar `wa_borradores` pendientes del ws y `cron_proxima_at` de cada disparador. Una automatización que deja borradores tiene que decirlo en su pantalla, con cuántos y dónde se aprueban.
 
+**Hecho el 20/10/2026 a la noche (`claude4`; #282, #284 y sus borradores sin tocar), y lo que no se ve en el código:**
+- **⚠️ #282 NO es un Recurrente, y el que sí es vive en el JSON.** Leído en la base: #282 es «Está en la etapa» sin
+  `cron`; el Recurrente es el d2 de #284, un CRON EXTRA (`disparadores[1]`, mig 0241). Mirar sólo la columna
+  `nutricion_secuencias.cron_proxima_at` no lo encuentra nunca (medido: 20 activas en todos los negocios, NINGUNA con
+  `cron` en las columnas). El tick lee las activas enteras y pregunta con `disparadoresDe`, la lista del motor
+  (`negociosConRecurrenteVencido`, lib/motor-tick.ts). Costo medido antes de decidir: 0,1 ms en la base.
+- **El tick reclama con el MISMO compare-and-set** (`comprometerInscripciones({ soloRecurrentes })`, que salta lo que no
+  tiene horario): una ocurrencia la gana una sola corrida, el tick o la de la hora. Inscribe ANTES de `procesarEnvios`:
+  el primer envío nace «ahora», cae en la ventana fresca y sale ese mismo minuto. Sólo lo fresco (10 min): una
+  ocurrencia vieja que nadie reclama (un CRON que el barrido no inscribe) correría ese negocio cada minuto. Si la
+  lectura falla, el tick sigue (las esperas no dependen de esto) y el Recurrente sale a la hora en punto, como antes.
+- **La pantalla lo dice.** Al lado de «Activar»: «31 mensajes esperando que los apruebes →» con «WhatsApp no oficial a
+  leads sin pago»; el link abre Chats en Borradores (`/chats?vista=borradores`, nuevo). El conteo es del server
+  (`por_aprobar`, sólo los del motor: `origen: 'nutricion'`); `null` = no se pudo leer y la pantalla calla. Al
+  activarla, el chat dice «Por WhatsApp no oficial, los mensajes a leads que no pagaron quedan para que los apruebes»
+  sólo si algún WhatsApp de la salida no sale solo, con `saleSolo` del motor y no una copia (`dejaBorradores`).
+- **El aviso de duplicada pregunta, no frena.** Al Activar, y al Publicar una ACTIVA (pausada, publicar no manda nada):
+  «Ojo: «X» ya le escribe algo parecido a la misma gente», con «Activar igual». Misma cohorte = un CRON de cada una con
+  la misma etapa del mismo funnel (sin funnel = todos), la misma entrega o la misma etiqueta; por evento no se compara.
+  Parecido = Dice de las palabras de 4 letras o más ≥ 0,5 (#282 contra #284: 0,61); con menos de 3, sólo si es el
+  MISMO texto. Compara lo de AHORA de ésta (lienzo y CRON) con lo PUBLICADO de las otras, que es lo que manda el motor.
+- **Guardas que cambiaron a propósito:** tests/motor-tick.test.ts fijaba «el tick no llama a
+  `comprometerInscripciones`»; ahora fija que la llama UNA vez y sólo con `soloRecurrentes`. Y `motivo === 'vencio'`
+  pasó a `motivo !== 'abrio'` (`recurrente` también mira sólo lo fresco), también en tests/espera-duracion.test.ts.
+
+**Lo que quedó SIN hacer:** los 31 borradores de #282 y el de #284 siguen pendientes (aprobar o descartar lo decide
+Martín) · el aviso de duplicada no mira el horario ni la reentrada (dos Recurrentes a la misma etapa en días distintos
+avisan igual) · no avisa por la API de MaKo (`proponer_toggle_nutricion`) ni al crear con IA · el conteo está en la
+automatización abierta, no en la fila de la lista · nada se vio con clics en un navegador.
+
+**Vive en:** lib/mensajes-por-aprobar.ts · lib/setting-secuencias.ts (`leerPorAprobar`) · app/automations/SecuenciaPerfil.tsx
+(la línea, `notaChat`, `conAvisoDuplicada`) · app/automations/ChatMako.tsx (`nota`) · lib/automatizacion-duplicada.ts ·
+lib/motor-tick.ts · app/api/cron/nutricion-tick/route.ts · lib/nutricion.ts (`soloRecurrentes`) · test:
+tests/recurrente-no-salio.test.ts · *20/10/2026, claude4.*
+
 ## «El chat de MaKo siempre abierto en la sidebar»: el pedido no se perdió en el código, se perdió en el relevo (20/10/2026)
 
 **Síntoma.** El 20/10 Martín preguntó: «Te habia pedido varias cosas, ¿No tienes el registro?». Pedía el chat de Automations siempre abierto en la sidebar, sin el logo de MaKo y con la tuerca en su lugar.

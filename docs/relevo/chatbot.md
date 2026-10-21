@@ -1,5 +1,17 @@
 # Relevo: Automations (ex /chatbot) y las secuencias
 
+> **20/10/2026 noche (`claude4`): «NO SALIÓ», HECHO EN `undecima`.** Martín, 20/10 (llegó por el Cerebro, transcript
+> 9bc46b5e, 21:27Z): «Tambien revisa que Leila configuró una automatización recurrente y me dijo que no salió». Lo que
+> no salió era #282, que NO es un Recurrente (por etapa, sin horario): inscribió a 31 y los 31 mensajes quedaron como
+> borradores (WhatsApp no oficial a leads sin pago). El Recurrente de verdad es el d2 de #284, un CRON extra en
+> `disparadores`, que salía a la hora en punto. Ahora: (6) la automatización dice «N mensajes esperando que los
+> apruebes», por qué, y lleva a Chats › Borradores (`/chats?vista=borradores`); el chat lo dice al activarla; (7) el
+> tick reclama un Recurrente a su minuto, con el mismo compare-and-set; (8) Activar (y Publicar una activa) avisa si otra
+> activa le escribe algo parecido a la misma gente. Test: tests/recurrente-no-salio.test.ts. Cosecha:
+> docs/hallazgos-chatbot.md («Configuré una recurrente y no salió»). ⛔ #282, #284 y sus borradores sin tocar: lo decide
+> Martín. **Sin hacer:** el aviso de duplicada no mira el horario ni la reentrada, ni avisa por la API de MaKo; el conteo
+> no está en la fila de la lista; nada visto con clics.
+>
 > **20/10/2026 noche (`claude4`): EL PEDIDO A (el Recurrente de Leila), HECHO EN `undecima`.** «Crear con IA» saca del
 > pedido el horario (`horarioDelPedido`, lib/flujo-ia-recurrente.ts) y a quién («todos los del funnel X» = todas sus
 > etapas; si no lo dice, pregunta «¿A quién le llega?» con cuántos hay hoy), arma SÓLO lo pedido (regla 8 nueva + código:

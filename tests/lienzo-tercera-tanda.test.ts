@@ -265,7 +265,8 @@ test('⚠️ «Publicar» sin el cartel «Sin publicar»: apagado si no hay camb
   const perfil = sinComentarios(leer('../app/automations/SecuenciaPerfil.tsx'));
   assert.doesNotMatch(perfil, />Sin publicar</, 'volvió el cartel «Sin publicar»');
   // 20/10/2026: con el aviso de Prospección antes (`conAvisoProspeccion`, tests/automations-chat-siempre.test.ts).
-  assert.match(perfil, /<button onClick=\{\(\) => conAvisoProspeccion\(\(\) => void publicar\(\)\)\} disabled=\{busy === 'save' \|\| !sinPublicar\}/);
+  // Y adentro, el aviso de una automatización duplicada (20/10/2026, tests/recurrente-no-salio.test.ts).
+  assert.match(perfil, /<button onClick=\{\(\) => conAvisoProspeccion\(\(\) => conAvisoDuplicada\(activa, 'Publicar igual', \(\) => void publicar\(\)\)\)\} disabled=\{busy === 'save' \|\| !sinPublicar\}/);
 });
 
 test('el emoji del título: se guarda sólo un emoji, null vuelve al del objetivo', () => {
