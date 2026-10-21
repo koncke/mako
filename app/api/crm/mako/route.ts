@@ -32,6 +32,7 @@
 // pantalla corta a los 425 s.
 // =============================================================================
 
+import { ID_SUGERENCIA } from '@/lib/sugerencias-crm';
 import type { NextRequest } from 'next/server';
 import { chatDelRequest, abrirDelCrm, turnoDelCrm, tarjetaDelCrm, type ChatDelCrm } from '@/app/crm/mako-crm/chat-server';
 import { sugerenciasDeUnCrm, hacerSugerencia, ahoraNo, volverAMostrar } from '@/lib/sugerencias-crm-server';
@@ -50,7 +51,8 @@ const idDe = (v: unknown): number | null => {
   const n = typeof v === 'number' ? v : Number(String(v ?? '').trim());
   return Number.isInteger(n) && n > 0 ? n : null;
 };
-const idSugerencia = (v: unknown): string | null => (typeof v === 'string' && /^[a-z0-9:_-]{1,120}$/i.test(v) ? v : null);
+// La MISMA regla que el motor y «Ahora no» (`ID_SUGERENCIA`, lib/sugerencias-crm.ts): si difieren, una sugerencia no se calla.
+const idSugerencia = (v: unknown): string | null => (typeof v === 'string' && ID_SUGERENCIA.test(v) ? v : null);
 
 export async function GET(req: NextRequest) {
   try {

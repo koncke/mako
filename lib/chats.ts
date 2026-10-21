@@ -32,6 +32,7 @@ import { etiquetasDeLead, type EtiquetaDelLead } from './etiquetas';
 import { listarLineas, type LineaRow } from './evolution';
 import { getConversacionesNoOficial, getMensajesDeChat, type WaConversacion, type WaMensaje } from './evolution-mensajes';
 import { telefonosBloqueados, telefonosOcultos } from './evolution-block';
+import { TelefonosDe } from './numero-whatsapp';
 import { instanceNameDeWs, lineaPorDefault, rotuloLinea } from './lineas-whatsapp';
 import { getFunnelDefault, getFunnelDe, idDelFunnelDefault } from './funnels';
 import { etapaVigenteDe } from './funnel-etapas';
@@ -460,15 +461,15 @@ async function buscarChats(q: string, ws: number, yo: YoChats): Promise<ListaCha
     const def = lns.leidas.find((l) => l.linea === lns.porDefault) ?? { linea: lns.porDefault, rotulo: 'WhatsApp' };
     const varias = lns.leidas.length > 1;
     const [bloqueados, ocultos] = await Promise.all([
-      telefonosBloqueados().then(por10).catch(() => new Set<string>()),
+      telefonosBloqueados().catch(() => new TelefonosDe([])),
       // ⚠️ Sin poder leer los ocultos no se arma NINGUNA identidad de WhatsApp: mostrar un chat personal es peor que
       // no encontrarlo (verificado el 15/10/2026: el buscador abría el chat oculto de «Mamá»).
-      telefonosOcultos().then(por10).catch(() => null),
+      telefonosOcultos().catch(() => null),
     ]);
     for (const l of ocultos ? leadsQ ?? [] : []) {
       const tel = (l.telefono_normalizado ?? '').replace(/\D/g, '');
-      if (!tel || ocultos?.has(ultimos10(tel))) continue;
-      const bloqueado = bloqueados.has(ultimos10(tel));
+      if (!tel || ocultos?.has(tel)) continue;
+      const bloqueado = bloqueados.has(tel);
       fuentes.push(fuenteWhatsapp({
         chatJid: `${tel}@s.whatsapp.net`, telefono: tel, nombre: l.nombre || tel, leadId: Number(l.id), empresa: l.empresa ?? null,
         etapaKey: null, etapaLabel: null, ultimoTexto: null, ultimoTipo: null, ultimaFecha: null, ultimoEntrante: false, total: 0, bloqueado,
@@ -508,14 +509,10 @@ export type HiloChat = {
   ocultoWhatsapp?: boolean;
 };
 
-/**
- * Los teléfonos de un set (bloqueados, ocultos) por sus ÚLTIMOS 10 dígitos. Se comparan así porque la clave guarda
- * 10, el CRM puede no tener el código de país y /whatsapp guarda el número completo: comparar exacto dejaba un
- * bloqueado o un oculto de /whatsapp como «no bloqueado» o visible en Chats (verificado el 15/10/2026).
- */
-function por10(tels: ReadonlySet<string>): Set<string> {
-  return new Set([...tels].map((t) => ultimos10(t)).filter((t) => t.length >= 8));
-}
+// Los bloqueados y los ocultos se marcan con la regla de identidad de UN teléfono (`TelefonosDe`, lib/numero-whatsapp.ts),
+// la misma de la puerta y de los caminos automáticos: comparar exacto dejaba un bloqueado o un oculto de /whatsapp como
+// «no bloqueado» o visible en Chats (verificado el 15/10/2026). Hasta el 21/10 acá había otra regla, los últimos 10
+// dígitos (`por10`), que no veía los números de 9 de España, Chile y Perú.
 
 /** Un mensaje del espejo de WhatsApp en el formato del hilo. */
 function mensajeWhatsapp(m: WaMensaje, linea: string): MensajeChat {
@@ -663,8 +660,8 @@ export async function hiloDeChat(clave: string, opts?: { usuario?: YoChats }): P
     const varias = lns.leidas.length > 1;
     const todas: LineaLeida[] = lns.leidas.length ? lns.leidas : [{ linea: instanceNameDeWs(ws), rotulo: 'WhatsApp' }];
     const [bloqueados, ocultos] = await Promise.all([
-      telefonosBloqueados().then(por10).catch(() => new Set<string>()),
-      telefonosOcultos().then(por10).catch(falla('ocultos')),
+      telefonosBloqueados().catch(() => new TelefonosDe([])),
+      telefonosOcultos().catch(falla('ocultos')),
     ]);
     let pedidos: Array<{ l: LineaLeida; jid: string; tel: string | null; nombreWa?: string | null }> = [];
     if (p.tipo === 'whatsapp') {
@@ -687,10 +684,10 @@ export async function hiloDeChat(clave: string, opts?: { usuario?: YoChats }): P
     }));
     // ⚠️ UN CHAT OCULTO NO SE LEE (verificado el 15/10/2026). Es un chat personal que el dueño sacó de la bandeja:
     // /whatsapp no lo muestra y MaKo no lo lee. Sin poder leer la lista de ocultos, tampoco se lee ninguno.
-    const tel10Pedido = (x: { tel: string | null; jid: string }) => ultimos10(x.tel ?? x.jid.replace(/@.*/, ''));
+    const telPedido = (x: { tel: string | null; jid: string }) => x.tel ?? x.jid.replace(/@.*/, '');
     if (!ocultos) { if (pedidos.length) ocultoWhatsapp = true; pedidos = []; }
     else {
-      const visibles = pedidos.filter((x) => !ocultos.has(tel10Pedido(x)));
+      const visibles = pedidos.filter((x) => !ocultos.has(telPedido(x)));
       if (visibles.length < pedidos.length) ocultoWhatsapp = true;
       pedidos = visibles;
     }
@@ -700,7 +697,7 @@ export async function hiloDeChat(clave: string, opts?: { usuario?: YoChats }): P
         .catch((e) => { falla(`whatsapp:${x.l.linea}`)(e); return { ...x, ms: [] as WaMensaje[] }; })));
     for (const x of leidas) {
       for (const m of x.ms) mensajes.push(mensajeWhatsapp(m, x.l.linea));
-      const bloqueado = !!x.tel && bloqueados.has(ultimos10(x.tel));
+      const bloqueado = !!x.tel && bloqueados.has(x.tel);
       fuentes.push(fuenteDeHilo(x.ms, x.l, varias, { jid: x.jid, tel: x.tel, leadId, nombre: lead?.nombre || x.nombreWa || (x.tel ?? x.jid), bloqueado }));
     }
   }

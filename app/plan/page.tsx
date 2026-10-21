@@ -10,7 +10,8 @@ import { listTareas, listCategorias, type Tarea, type Categoria } from '@/lib/to
 import { seedTodoBoardSiVacio, autocompletarPorSenales } from '@/lib/todo-seeds';
 import { guardOnboarding, requireCapa } from '@/lib/tab-access';
 import { getUsuarioActual } from '@/lib/auth';
-import { getWorkspaceActual, estaImpersonando, rutaConWs } from '@/lib/workspace';
+import { getWorkspaceActual, estaImpersonando, rutaConWs, getRolWsEfectivo } from '@/lib/workspace';
+import { leerColumnasPlan } from '@/lib/plan-columnas-server';
 import { getPerfil } from '@/lib/perfil';
 import { TodoBoard } from './TodoBoard';
 import { clientesGanadosOVacio } from '@/lib/clientes-ganados';
@@ -99,6 +100,10 @@ export default async function TodoPage({ searchParams }: { searchParams: Promise
   // dibujar igual con el picker vacío. Que un error leyendo el CRM deje a alguien sin su
   // tablero entero es el peor intercambio posible.
   const clientes = await clientesGanadosOVacio();
+  // Los nombres de las columnas de ESTE negocio (lib/plan-columnas.ts) y si quien mira los puede cambiar: el admin,
+  // como el funnel del CRM. Leídos acá para que el primer HTML ya diga el nombre del negocio, sin parpadeo.
+  const [configColumnas, rol] = await Promise.all([leerColumnasPlan(), getRolWsEfectivo().catch(() => null)]);
 
-  return <TodoBoard tareas={tareas} categorias={categorias} demo={demo} user={user} wsId={wsActual} vistaInicial={typeof vista === 'string' ? vista : undefined} clientes={clientes} clienteInicial={leerClienteDeUrl(cliente)} />;
+  return <TodoBoard tareas={tareas} categorias={categorias} demo={demo} user={user} wsId={wsActual} vistaInicial={typeof vista === 'string' ? vista : undefined} clientes={clientes} clienteInicial={leerClienteDeUrl(cliente)}
+    columnas={demo ? null : { config: configColumnas, editables: rol === 'admin' }} />;
 }

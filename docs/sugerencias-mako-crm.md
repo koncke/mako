@@ -75,6 +75,21 @@ todavía.
 | El **primer DM** de Instagram o Messenger | Que MaKo los conteste |
 | Un lead que **vuelve a la landing** o mira el VSL dos veces | Avisarle al closer |
 
+## Qué está andando (20/10/2026)
+
+- **Clase 1 y 3:** desde el 14/10 (`lib/sugerencias-crm.ts`).
+- **Clase 2:** mover a mano 5 o más leads de A a B en 14 días (sólo pasos del recorrido; ganar o perder no), marcar 3 No
+  show a mano y pegar 3 veces el link de Fathom a mano (con Fathom sin conectar). Cuentan los gestos de una PERSONA (el historial firmado con su email); lo de MaKo o una automatización, no.
+  Desde el 20/10 a la noche, también **el mismo mensaje a 3 o más leads de una etapa** (leads distintos, el texto sin
+  mayúsculas, acentos ni el nombre del lead; menos de 25 letras es una respuesta, no una secuencia): MaKo la arma por el
+  chat, con el texto.
+- **Clase 4:** el primer DM de Instagram o Messenger (con las plantillas «Te Escribieron por…»). Desde el 20/10 a la
+  noche, también **el lead de un formulario o una landing que no entra a ningún CRM** (conectarlo, por el chat) y **el
+  lead que vuelve a la landing o mira el VSL dos veces** (uno: su ficha; varios: la lista para el closer, por el chat;
+  no hay disparador «volvió», así que no se arma una automatización).
+- **Faltan:** nada del mapa. Lo que no tiene plantilla (los tres de arriba) va por el chat de MaKo en vez de crear una
+  automatización pausada.
+
 ## Lo que necesito que decidas
 
 1. **¿Te sirve esta lista?** Sacá las que no y sumá las que falten.
