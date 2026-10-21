@@ -20,6 +20,7 @@ import { ventaTipoDe, type VentaTipo } from '@/lib/venta-tipo';
 import type { FathomLink } from '@/lib/leads';
 import { completeStageMoveAction, requisitosDeEtapaAction, type StageMoveCuota, type StageMoveResultado } from './actions';
 import { hoyEnTz } from '@/lib/date-utils';
+import { sumarMeses, siguienteFechaDeCuota } from '@/lib/cobrado-lead';
 import { useTzWorkspace } from './lead-view/useTzWorkspace';
 import { autoReunionesAction } from './auto-actions';
 import type { CrmLead } from './CrmBoard';
@@ -54,11 +55,11 @@ function btnOpcion(activo: boolean): CSSProperties {
 }
 
 /** ISO (yyyy-mm-dd) + n meses, conservando el día. Para las cuotas mensuales de una suscripción a plazo fijo. */
-function sumarMesesISO(iso: string, n: number): string {
-  const [y, m, d] = iso.split('-').map(Number);
-  const dt = new Date(y, (m - 1) + n, d);
-  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
-}
+// ⚠️ LOS MESES SE SUMAN CON EL TOPE DEL ÚLTIMO DÍA (21/10/2026, revisión adversarial): `new Date(y, m - 1 + n, d)` sin tope
+// desborda. Una suscripción cerrada el 31/10 tenía cuotas el 01/12, 31/12, 31/01, 03/03…: noviembre, febrero, abril, junio
+// y septiembre sin cuota, y otros meses con dos. Es `sumarMeses` de lib/cobrado-lead.ts, la misma con que el resto de la
+// app cuenta los meses de una suscripción (31/10 → 30/11 → 31/12 → 31/01 → 28/02), siempre desde el día de cierre.
+const sumarMesesISO = sumarMeses;
 
 // "dd/mm/aaaa" (formato del extractor de contratos) → "aaaa-mm-dd" (input date). '' si no matchea.
 const dmyaIso = (s: string): string => {
@@ -202,6 +203,9 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
 }) {
   const [pending, startTransition] = useTransition();
   const [err, setErr] = useState<string | null>(null);
+  // Lo que el server guardó pero NO como se pidió (`sinTocar`: el plan que ya existía, los pagos ya cobrados, la cuota con
+  // un link sin pagar). Se dice antes de cerrar: el resultado se guarda y `onDone` sale con «Entendido».
+  const [aviso, setAviso] = useState<{ texto: string; r: StageMoveResultado } | null>(null);
   // ⚠️ EL DÍA DEL NEGOCIO (20/10/2026, revisión adversarial): con el UTC, un Ganado de la noche (México) proponía la
   // cuota para mañana, y una suscripción cerrada el 30 a las 20 h nacía el 31: sus cuotas caían en diciembre y noviembre
   // quedaba sin ninguna. La zona es la de la ficha y General (`useTzWorkspace` → `tzActual`).
@@ -259,6 +263,16 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   const [motivo, setMotivo] = useState(move.yaRespondido?.motivo ?? (completarDatos ? lead.motivo ?? '' : ''));
   const [motivoDetalle, setMotivoDetalle] = useState('');
   const [cuotas, setCuotas] = useState<Array<{ monto: string; fecha: string }>>([{ monto: '', fecha: hoyISO }]);
+  // ⚠️ LA PRIMERA CUOTA SIGUE AL DÍA DEL NEGOCIO (21/10/2026, revisión adversarial). Abierto desde el tablero, el primer
+  // render todavía no tiene la zona (`useTzWorkspace` arranca en Tijuana) y `useState` se quedaba con ese día: en un negocio
+  // de México, a las 00:30 la cuota nacía AYER, vencida. Cuando llega la zona, se corre la fecha que nadie tocó.
+  const hoySembrado = useRef(hoyISO);
+  useEffect(() => {
+    const antes = hoySembrado.current;
+    if (antes === hoyISO) return;
+    hoySembrado.current = hoyISO;
+    setCuotas((arr) => arr.map((c, i) => (i === 0 && c.fecha === antes ? { ...c, fecha: hoyISO } : c)));
+  }, [hoyISO]);
   // Higiene (solo se piden en "Completar datos"). Si el equipo es de UNA sola
   // persona, se auto-asigna como setter y closer (no tiene sentido preguntarlo).
   const soloUno = equipo.length === 1 ? equipo[0].nombre : '';
@@ -396,10 +410,13 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   // `placeholder` entra también en la unión final: cuando el caller no pasó
   // `faltantes` es la ÚNICA fuente de la higiene (setter/closer/empresa/teléfono)
   // y del Deal, que el server a propósito no gatea pero "Completar datos" sí pide.
-  const requeridos = useMemo(
-    () => new Set((cargandoReq ? placeholder : unirPasos(placeholder, reqServer, faltanServer)).map((s) => s.id)),
-    [cargandoReq, placeholder, reqServer, faltanServer],
-  );
+  // ⚠️ El tablero no sabe si el lead tiene pagos (`leadToMoveInfo` no trae `tienePlan`): su cálculo local pedía «Plan de
+  // pagos» a un lead con cuotas, y el server lo descartaba (21/10/2026, revisión adversarial). Sin el dato, el plan lo
+  // decide el server, que lee los pagos.
+  const requeridos = useMemo(() => {
+    const local = lead.tienePlan === undefined ? placeholder.filter((s) => s.id !== 'plan') : placeholder;
+    return new Set((cargandoReq ? placeholder : unirPasos(local, reqServer, faltanServer)).map((s) => s.id));
+  }, [cargandoReq, placeholder, reqServer, faltanServer, lead.tienePlan]);
 
   // ── Flujo DINÁMICO: la lista de pasos visibles depende de las respuestas ──
   const pasos = useMemo<PasoId[]>(() => {
@@ -603,8 +620,18 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
         // tracking). Indefinida → sin cuotas (se registran mes a mes desde el Deal).
         // Pago único → las cuotas cargadas a mano.
         // Sin cobro → sin cuotas, aunque el contrato haya prellenado alguna.
+        // ⚠️ (21/10/2026, revisión adversarial) La suscripción manda su plan SÓLO si el lead no tenía uno: volver a
+        // confirmar sobre una ya cerrada rehacía todas sus cuotas desde hoy (el server también lo frena,
+        // `completeStageMoveAction`). Y la PRIMERA cuota es el día del cierre (mes 0), como cuenta lo cobrado el resto de la
+        // app (`cobradoDelLead`, el inicial de `cuotasDelPlan`): un mes después, un cliente al día quedaba para siempre en
+        // «Falta registrar 1 mes».
+        // ⚠️ Y VIAJA SÓLO AL CERRAR O SI ESTE ASISTENTE PREGUNTÓ LA MENSUALIDAD O EL PLAZO (21/10/2026, revisión adversarial):
+        // «Completar datos» abierto por el teléfono mandaba las 12 cuotas otra vez. Si el lead ya tiene pagos, decide el
+        // server con `planDelAsistente` (lib/pagos-campo.ts), el MISMO criterio desde el tablero y desde la ficha: un plan
+        // no se rehace, lo ya cobrado cuenta como los primeros meses, y las fechas van desde el día del cierre.
+        const mandaPlanSus = (to === 'ganado' && !completarDatos) || pide('monto') || pide('susPlazo');
         const cuotasPayload: StageMoveCuota[] = sinCobro ? [] : esSuscripcion
-          ? (meses > 0 ? Array.from({ length: meses }, (_, i) => ({ monto: totalMonto, fecha: sumarMesesISO(hoyISO, i + 1) })) : [])
+          ? (meses > 0 && totalMonto > 0 && mandaPlanSus ? Array.from({ length: meses }, (_, i) => ({ monto: totalMonto, fecha: sumarMesesISO(hoyISO, i) })) : [])
           : requeridos.has('plan')
           ? cuotas.filter((c) => parseFloat(c.monto) > 0).map((c) => ({ monto: parseFloat(c.monto), fecha: c.fecha || null }))
           : [];
@@ -661,6 +688,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
         if (!r.ok) { anclarResumen.current = true; setFaltanServer(r.faltan); setErr(r.mensaje); return; }
         // Solucionar (completar datos) → paso final "¿Ver detalle o salir?".
         // Mover de etapa (drag-drop) → cierra directo (mantiene el toast de undo).
+        if (r.sinTocar) { setAviso({ texto: r.sinTocar, r }); return; }
         onDone(r);
       } catch (e) {
         setErr(e instanceof Error ? e.message : String(e));
@@ -1201,7 +1229,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
               {i > 0 && <button type="button" onClick={() => setCuotas((arr) => arr.filter((_, xi) => xi !== i))} aria-label="Quitar cuota" style={{ flex: 'none', background: 'transparent', border: 'none', color: 'var(--faint)', cursor: 'pointer', fontSize: 15 }}>✕</button>}
             </div>
           ))}
-          <button type="button" onClick={() => { const last = cuotas[cuotas.length - 1]; const d = new Date((last?.fecha || hoyISO) + 'T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() + 1); setCuotas((arr) => [...arr, { monto: '', fecha: d.toISOString().slice(0, 10) }]); }} style={{ padding: 10, borderRadius: 10, border: '1.5px dashed var(--border-strong)', background: 'transparent', color: 'var(--primary)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>+ Agregar cuota</button>
+          <button type="button" onClick={() => { setCuotas((arr) => [...arr, { monto: '', fecha: siguienteFechaDeCuota(arr.map((c) => c.fecha), hoyISO) }]); }} style={{ padding: 10, borderRadius: 10, border: '1.5px dashed var(--border-strong)', background: 'transparent', color: 'var(--primary)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>+ Agregar cuota</button>
           {sumaCuotas > 0 && (
             <div style={{ borderRadius: 10, padding: '9px 13px', fontSize: 13, fontWeight: 600, background: cuotasCuadran ? 'var(--good-bg)' : 'var(--bad-bg)', color: cuotasCuadran ? 'var(--good)' : 'var(--bad)', textAlign: 'left' }}>
               {cuotasCuadran
@@ -1293,6 +1321,34 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   // El guardado ya se confirma solo —la tarjeta cambia y queda en el historial—,
   // así que los dos caminos hacen lo mismo: cerrar. El «Ver detalle» no se pierde:
   // este camino se abre DESDE la ficha o desde la tarjeta, que es el detalle.
+
+  // Lo que el server guardó pero NO como se pidió (`sinTocar`), dicho antes de cerrar. Es otra pantalla y no un paso:
+  // ya se guardó, así que no hay Atrás ni «Guardar» — el único botón cierra y no vuelve a confirmar.
+  if (aviso) {
+    const salir = () => onDone(aviso.r);
+    return (
+      <WizardShell
+        titulo={`${titulo ?? `Mover a ${label}`} · ${lead.name}`}
+        total={1}
+        idx={0}
+        pregunta="Se guardó, con un aviso"
+        puedeAvanzar
+        enUltimo
+        confirmLabel="Entendido"
+        hideAtras
+        atrasLabel=""
+        onAtras={salir}
+        onSiguiente={salir}
+        onConfirmar={salir}
+        onClose={salir}
+        ancho={640}
+      >
+        <div role="status" style={{ textAlign: 'left', background: 'var(--warn-bg)', border: '1px solid var(--warn)', borderRadius: 12, padding: '13px 15px', fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.5 }}>
+          {aviso.texto}
+        </div>
+      </WizardShell>
+    );
+  }
 
   // Chrome de la casa (header ✦ MAKO + puntitos + cuerpo + footer): WizardShell.
   // Este wizard era el ÚNICO con ramas de verdad y tenía el chrome forkeado, así
