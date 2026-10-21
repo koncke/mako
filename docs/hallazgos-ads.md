@@ -4333,8 +4333,19 @@ lib/meta-login.ts · tests/meta-permisos-conectar.test.ts.
   - **La regla:** para saber si un token lee leads, compará `leads_count` del formulario con lo que devuelve `/leads`.
     Una lista vacía no quiere decir «no hay leads».
   - **Lo que quedó SIN hacer:** la primera tanda no se puede mostrar con leads entrando al CRM. El formulario de prueba
-    y su lead quedan en la página para la próxima grabación. La grabación de la conexión (diálogo de Facebook, token
-    y página detectados) quedó en el scratchpad de la sesión del 21/10, sin editar. `pages_manage_metadata` no está
-    pedido en ningún lado.
+    y su lead quedan en la página para la próxima grabación. `pages_manage_metadata` no está pedido en ningún lado.
+  - **Cómo se grabó igual el video de leads (21/10, https://youtu.be/ZUJDwSo_IWg, oculto):** con la página de Mauricio
+    (ws1, 282881742134130), que SÍ está suscripta, pero a la app VIEJA 954456647632371 «Leads - Dashboard MKT
+    (Martin)». La herramienta de prueba de Meta muestra ese id en pantalla. El lead entró en segundos por el webhook.
+    Muestra la función, pero no prueba que la app en revisión lea leads: el revisor que pruebe con la cuenta del ws3 va
+    a chocar con la lista vacía.
+- **Tres trampas al grabar un video de revisión con la extensión de Chrome:**
+  - La extensión trabaja sobre pestañas en segundo plano sin traerlas al frente. Lo que graba `gdigrab` es la pestaña
+    VISIBLE: se pierde todo lo que se hizo en otra. Todo el recorrido va en UNA pestaña, navegando.
+  - El lead de la herramienta de prueba trae `test@meta.com`. Si ya hay uno con ese email, MaKo lo FUNDE en el lead
+    viejo (en el ws1, el #250 del 15/06), y la ficha dice «creado 15/06». Hay que usar un formulario que no pida email:
+    el de diciembre de 2023 de Mauricio creó el lead #2767, nuevo, en «Lead entrante».
+  - En los desplegables del diálogo de Facebook (página, píxel, cuenta) aparecen los activos de OTROS clientes. En el
+    video del 21/10 se cortaron esos 7 segundos, y la columna «Agenda R1» del CRM del ws1 va borroneada.
 
 **Vive en:** lib/meta-login.ts (`config_id`, `WORKSPACES_DE_REVISION`, `botonMetaVisible`) · lib/meta-conexion.ts · app/api/integraciones/meta/ · tests/meta-login.test.ts · panel de la app 2586146911825340
