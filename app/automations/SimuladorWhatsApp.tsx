@@ -638,7 +638,9 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     setErrFila(null); setOcupada(j.id);
     try {
       if (accion === 'activa') {
-        const r = await pedir('/api/whatsapp/secuencias', 'PATCH', { id: j.id, activa: !j.activa });
+        // `aunqueDuplique` sólo con «Activar igual». Si el server encuentra la gemela que esta lista no vio, pregunta acá.
+        const r = await pedir('/api/whatsapp/secuencias', 'PATCH', { id: j.id, activa: !j.activa, ...(o?.sinAviso ? { aunqueDuplique: true } : {}) });
+        if (!r.ok && r.duplicada) { setAvisoActivar({ j, texto: String(r.error) }); return; }
         if (!r.ok) { setErrFila({ id: j.id, texto: r.error || 'No se pudo cambiar' }); return; }
       } else {
         const r = await pedir(API_SECUENCIAS, 'POST', { action: 'duplicar', secuenciaId: j.id });

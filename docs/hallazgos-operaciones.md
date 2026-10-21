@@ -1362,6 +1362,13 @@ cursor cae en otra letra (en el teléfono el campo tiene 10 px 14 px y 1 px de b
 **El Markdown de la casa es de todos.** Los links clickeables los pidió el Ops Center: `Markdown` los dibuja sólo con
 `enlaces` (opt-in), y los otros chats de MaKo quedan como estaban (tests/centro-links.test.ts lo vigila).
 
+**La misma tanda subida dos veces creaba una tarea de más** (la revisión de la ola 1, 21/10/2026). El «Voy a trabajar
+en…» que se dice con otra tarea abierta no crea otra, pero no quedaba anotado como visto. Si la vuelta no avanzaba sus
+marcas (fallaron las preguntas), la PC re-subía la tanda; la abierta ya estaba cerrada por el «Ya está» de la misma tanda,
+y ese «Voy a…» creaba una tarea que nadie cerraba. **Regla:** lo que se lee de una tanda tiene que dar lo mismo leído dos
+veces (`saltados`), y lo que depende de que la vuelta avance va DESPUÉS de saber si avanza: el Plan se anota después de
+las preguntas, sólo con `turnosOk` (lib/operaciones.ts).
+
 **Vive en:** lib/centro-plan-auto-reglas.ts y lib/centro-plan-auto.ts · app/admin/operaciones/Avance.tsx (YaEstaMensaje,
 TareasVinculadas) · lib/centro-munecos.ts · lib/links-texto.ts y app/admin/operaciones/ConLinks.tsx.
 
@@ -1774,6 +1781,11 @@ del cartero; `nav.ts` no se tocó (el Sidebar compara con `OPS_CENTER.key`); la 
   encontró `app/whatsapp/WhatsAppAdvisor.tsx` («Pregúntale a MaKo…»), que el inventario del 20/10 no tenía.
 - **Regla:** en AGENTS.md («UNA SOLA CAJA PARA HABLAR CON MaKo»). tests/chat-unico.test.ts lleva la lista de lo que falta, y
   una migración que no saca su archivo de «pendiente» falla.
+- **Lo que encontró la revisión de la ola 1 (21/10):**
+  - con Enter que manda (la computadora), «1. ¿Cuántos leads…?» seguía la lista y hacían falta tres Enter para mandarlo:
+    con UN ítem todavía no hay lista (`enterEnLista({ conUno: false })`); el teléfono sigue igual;
+  - con `ocupado` el botón giraba entero: no se podía dictar el siguiente mensaje, y quien dictaba perdía el botón de
+    terminar mientras el dictado seguía escribiendo. Ahora sólo la flecha espera (`BotonMandar ocupado`).
 - **Sin hacer:**
   - **El chat de MaKo del teléfono** (app/m/mako/Composer.tsx, el Ops Center de los clientes en el celular). Tiene tres cosas
     que la pieza no tiene: la nota de voz manteniendo apretado, el teclado de iOS (`visualViewport`) y la vista previa a
@@ -1809,15 +1821,25 @@ del cartero; `nav.ts` no se tocó (el Sidebar compara con `OPS_CENTER.key`); la 
 **La pregunta de un wrap_up se SUPERA (20/10, la revisión de caja-voz; cartero 1.17.3):**
 - **Síntoma (comprobado con transcripts reales):** el arreglo de arriba volvía a dar el mismo síntoma por otro lado. La
   pregunta del recuadro de la app quedaba abierta para siempre: 3, 6 y 8 abiertas por chat, y 31 de 31 con un mensaje
-  de Martín después. Martín contesta como le sale: el botón de la app, la caja del Ops Center o Remote Control. Sólo el
+  posterior en su chat. Martín contesta como le sale: el botón de la app, la caja del Ops Center o Remote Control. Sólo el
   formulario la cerraba, y un clic días después le firmaba al chat una orden vencida.
+  - ⚠️ «Un mensaje posterior» NO es «Martín contestó» (la revisión de la ola 1 lo volvió a medir el 21/10: de 21 preguntas de
+    5 días, 14 las supera primero un mensaje de OTRO chat; 3 son relevos de la respuesta de Martín por el Cerebro y 4, la
+    misma pregunta hecha otra vez a los segundos). Por eso la pantalla dice «Ya no espera tu respuesta», no «Contestada».
 - **Arreglo:**
   - la pregunta lleva `origen: 'wrap_up'`;
   - queda `superada` cuando entra un turno `yo` u `otro` POSTERIOR a su `at`, o un wrap_up más nuevo del mismo chat
     (`superarPreguntas`). Se aplica al guardar los turnos (`superarConTurnos`) y al guardar la pregunta, por si el turno
     llegó antes;
-  - una superada no cuenta en el globito, no se contesta, y el formulario se lee como «Contestada por otro lado»;
-  - las de `preguntar` no se tocan: ésas las cierra la respuesta.
+  - una superada no cuenta en el globito, no se contesta, y el formulario se lee como «Ya no espera tu respuesta»;
+  - las de `preguntar` no se tocan: ésas las cierra la respuesta. Y una de `preguntar` igual a una de wrap_up abierta no
+    se descarta en silencio: la que queda se marca `tambienPreguntar` (`unirPreguntas`), así la cierra sólo una respuesta.
+    Al guardar, las de antes se superan ANTES de unir: una que ya quedó atrás no frena a la misma pregunta hecha de nuevo.
+  - ⚠️ **Lo obvio era el error: «sacarle el `origen`» para que no la supere un turno** (91fae9527; lo encontró la segunda
+    revisión de la ola 1). El `origen` también decide el TEXTO de la respuesta: sin él, `textoDeRespuesta` no pone el
+    `message` del botón, y la copia del cliente (que todavía lo tenía) firmaba otro texto; la base no la marcaba y, sin
+    origen, ningún turno la superaba. Abierta para siempre, la queja de Martín otra vez. **Regla:** un campo que ya decide
+    algo no se reusa para decidir otra cosa: la marca nueva va aparte.
 - **La misma pregunta, dos veces:** `preguntasSinRepetir` deduplicaba dentro de UNA vuelta, y `vigilar` da una cada 10 s.
   Ahora `unirPreguntas` descarta una nueva igual (mismo chat, mismo texto normalizado) a una que siga abierta. El cartero
   sube la última de cada chat, con el tope ANTES de mandar y las más nuevas primero (el servidor se quedaba con las 20

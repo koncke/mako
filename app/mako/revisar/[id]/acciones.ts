@@ -17,9 +17,15 @@ import { porId } from '@/lib/api-mako/registro';
 import { validarInput } from '@/lib/api-mako/validar';
 import { esAccion } from '@/lib/api-mako/tipos';
 import { getPropuesta } from '@/lib/propuestas';
+import { bloqueDeResultado, type Abrir, type Bloque } from '@/lib/chat-bloques';
+import { abrirDeResultado } from '@/lib/mako-turno-app-reglas';
+import { enSegundoPlano } from '@/lib/chat-trabajos';
+import { sesionDeClave } from '@/lib/chat-hilo-origen';
 import { ctxDeBandeja } from '../../ctx-bandeja';
 
-export type ResultadoRevision = { ok: true; resumen: string } | { ok: false; error: string };
+/** `bloques` y `abrir`: lo que dibuja el resultado y su «Abrir en <tab>» (lib/chat-bloques.ts), para el chat que
+ *  confirma ADENTRO (1.10). La pantalla de revisión no los usa. */
+export type ResultadoRevision = { ok: true; resumen: string; bloques?: Bloque[]; abrir?: Abrir; enCurso?: true } | { ok: false; error: string };
 
 /** Tope del cuerpo editado, el mismo criterio que http.ts: un JSON de megas no
  *  es una corrección, es un error. */
@@ -57,9 +63,20 @@ export async function confirmarAccionAction(id: string, payloadEditado: Record<s
     def.parametros.map((p) => [p.nombre, p.nombre in v.input ? v.input[p.nombre] : null]),
   );
 
+  // Un trabajo LARGO que nació en un chat de la app (1.11): sigue por detrás, y su avance y su resultado quedan en ESE
+  // chat (lib/chat-trabajos.ts). La respuesta vuelve enseguida. Si no se puede anotar, corre como siempre.
+  const sesion = def.lenta ? sesionDeClave(prop.datos.canalKey) : null;
+  if (sesion != null) {
+    const trabajo = await enSegundoPlano(c.ctx.ws, sesion, def.titulo,
+      () => aplicarPropuestaGenerica(id, editado, c.ctx, { sinAnotar: true }), (x) => abrirDeResultado(def.id, x.datos));
+    if (trabajo) { revalidatePath('/mako/revisar'); return { ok: true, resumen: `En curso: ${def.titulo}`, bloques: [trabajo], enCurso: true }; }
+  }
   const r = await aplicarPropuestaGenerica(id, editado, c.ctx);
   revalidatePath('/mako/revisar');
-  return r.ok ? { ok: true, resumen: r.resumen } : { ok: false, error: r.resumen };
+  if (!r.ok) return { ok: false, error: r.resumen };
+  const bloque = bloqueDeResultado(r.datos);
+  const abrir = bloque ? null : abrirDeResultado(def.id, r.datos);
+  return { ok: true, resumen: r.resumen, ...(bloque ? { bloques: [bloque] } : {}), ...(abrir ? { abrir } : {}) };
 }
 
 export async function descartarAccionAction(id: string): Promise<ResultadoRevision> {

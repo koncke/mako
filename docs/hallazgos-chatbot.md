@@ -5450,14 +5450,25 @@ tests/crear-ia-recurrente.test.ts · *20/10/2026, claude4.*
   aviso se borraba en el mismo tick). Y al ACTIVAR se compara lo PUBLICADO de ésta (`abiertoPublicado`), no el
   borrador del lienzo: Activar prende la fila, no lo que se está editando. Lo mismo la nota del chat (`dejaBorradores`).
   Test: tests/automations-aviso-todos-caminos.test.ts.
+- **⚠️ Y LA LISTA DE CAMINOS SE SACA DEL REPO, NO DE LA MEMORIA** (segunda revisión, 21/10). Arreglados el «⋯» y el
+  CRON, seguían sin preguntar el TELÉFONO (/m/automations, que con `MOVIL_ACTIVO` es la pantalla de cualquier celular),
+  «MaKo escribe tu nutrición» › Aprobar en /email y la API de MaKo. La pregunta pasó al SERVER, a la única puerta que
+  prende (`setSecuenciaActiva` tira `DuplicadaError` sin `aunqueDuplique`; las rutas contestan 409 `duplicada`; Publicar
+  una ACTIVA pregunta lo mismo antes de escribir los pasos). Cada pantalla vuelve a preguntar con eso y manda
+  `aunqueDuplique` recién después de «… igual»; la API de MaKo lo dice en la PROPUESTA y sólo entonces el «sí» lo lleva.
+  Un camino que nadie actualizó no prende en silencio: recibe el aviso como error. tests/automations-activar-todos-los-caminos.test.ts
+  barre `git ls-files`: los llamadores de `setSecuenciaActiva`, quién escribe `activa: true` y qué pantalla hace PATCH con
+  `activa`; uno nuevo lo hace fallar hasta que alguien lo mire.
+- **Un aviso que se calcula no se borra.** El del CRON nuevo en una activa colgaba del guardado (se lo comía el
+  `onError(null)` del guardado siguiente, y se perdía si se cambiaba de automatización antes de que volviera). Ahora se
+  CALCULA de lo que hay (sus CRON de ahora y lo publicado, `dupActiva`) y se dice al lado de «Activar» mientras sea así.
 - **Guardas que cambiaron a propósito:** tests/motor-tick.test.ts fijaba «el tick no llama a
   `comprometerInscripciones`»; ahora fija que la llama UNA vez y sólo con `soloRecurrentes`. Y `motivo === 'vencio'`
   pasó a `motivo !== 'abrio'` (`recurrente` también mira sólo lo fresco), también en tests/espera-duracion.test.ts.
 
 **Lo que quedó SIN hacer:** los 31 borradores de #282 y el de #284 siguen pendientes (aprobar o descartar lo decide
 Martín) · el aviso de duplicada no mira el horario ni la reentrada (dos Recurrentes a la misma etapa en días distintos
-avisan igual) · no avisa por la API de MaKo (`proponer_toggle_nutricion`, ni al cambiarle el CRON por la API) ni al
-crear con IA: el aviso vive en la pantalla, no en el server · el conteo está en la
+avisan igual) · cambiarle los CRON a una activa por la API de MaKo no pregunta (la pantalla lo dice al abrirla) · el conteo está en la
 automatización abierta, no en la fila de la lista · nada se vio con clics en un navegador.
 
 **Vive en:** lib/mensajes-por-aprobar.ts · lib/setting-secuencias.ts (`leerPorAprobar`) · app/automations/SecuenciaPerfil.tsx
