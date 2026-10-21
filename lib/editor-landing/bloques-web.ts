@@ -77,6 +77,15 @@ export type BloqueWeb = BloqueLanding | BloqueLandings | BloqueElegir | BloquePu
 export const TIPOS_WEB = ['landing', 'landings', 'elegir', 'publicada', 'dominio'] as const;
 
 /** Cuántas tarjetas lleva una lista: las demás se ven en el Panel. */
+/** Lo que manda cada opción del «elegir»: «Diseño: Minimal». Con eso MaKo sabe QUÉ se eligió, y el hilo sabe que esa
+ *  respuesta es de ESTE selector (`respuestasDeElegir`, la usa `conRespuestas`). */
+export const QUE_ELEGIR: Record<BloqueElegir['que'], string> = { diseno: 'Diseño', tema: 'Tema', formato: 'Formato' };
+export const ELIGE_TU = 'Elige tú';
+export const SALTEAR = 'Saltear';
+export const textoDeOpcion = (b: BloqueElegir, o: { titulo: string }): string => `${QUE_ELEGIR[b.que]}: ${o.titulo}`;
+/** Todo lo que un toque en este «elegir» puede mandar. */
+export const respuestasDeElegir = (b: BloqueElegir): string[] => [...b.opciones.map((o) => textoDeOpcion(b, o)), ELIGE_TU, SALTEAR];
+
 export const MAX_LANDINGS_BLOQUE = 4;
 
 export const esBloqueWeb = (b: { t: string }): b is BloqueWeb => (TIPOS_WEB as readonly string[]).includes(b.t);

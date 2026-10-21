@@ -26,6 +26,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from '@/app/_ui/Link';
 import type { BloqueDominio, BloqueElegir, BloqueLanding, BloqueLandings, BloquePublicada, BloqueWeb as Bloque } from '@/lib/editor-landing/bloques-web';
+import { ELIGE_TU, SALTEAR, textoDeOpcion } from '@/lib/editor-landing/bloques-web';
 import { bloqueDominio } from '@/lib/editor-landing/bloques-chat';
 import { CSS_CONTENIDO } from '@/lib/editor-landing/css';
 import { temaPorId, urlFuentes, type Tema } from '@/lib/editor-landing/temas';
@@ -36,8 +37,6 @@ import { plantillasDe } from './crear/tipo';
 import { PLAZO_DOCS_MS, postJson } from './cliente';
 
 const ESTADO: Record<BloqueLanding['estado'], string> = { borrador: 'Borrador', publicada: 'Publicada', pausada: 'Pausada' };
-/** Lo que dice el mensaje de la persona al elegir: qué eligió, para que MaKo no tenga que adivinarlo. */
-const QUE: Record<BloqueElegir['que'], string> = { diseno: 'Diseño', tema: 'Tema', formato: 'Formato' };
 
 /** La dirección sin `https://` ni la barra del final: lo que se lee. */
 export const direccionLegible = (url: string): string => url.replace(/^https:\/\//, '').replace(/\/$/, '');
@@ -170,7 +169,8 @@ function Elegir({ b, onResponder, respondida, ocupado }: {
       <p className="ch-bloque__titulo">{b.pregunta}</p>
       <div className="ch-opciones ch-web__opciones" role="group" aria-label={b.pregunta}>
         {b.opciones.map((o) => {
-          const texto = `${QUE[b.que]}: ${o.titulo}`;
+          // Lo que dice el mensaje de la persona al elegir: QUÉ eligió («Diseño: Minimal»), para que MaKo no lo adivine.
+          const texto = textoDeOpcion(b, o);
           return (
             <button key={o.id} type="button" className="ch-opcion ch-web__opcion" disabled={quieta} aria-pressed={dicha === texto}
               data-recomendada={o.id === b.recomendada || undefined} onClick={() => responder(texto)}>
@@ -187,8 +187,8 @@ function Elegir({ b, onResponder, respondida, ocupado }: {
       {noSalio && dicha == null && <p className="ch-tarjeta__nota" role="alert">No salió: espera a que MaKo termine y vuelve a tocar.</p>}
       {dicha == null ? (
         <div className="ch-tarjeta__botones">
-          <button type="button" className="ch-enlace" disabled={quieta} onClick={() => responder('Elige tú')}>Elige tú</button>
-          <button type="button" className="ch-enlace" disabled={quieta} onClick={() => responder('Saltear')}>Saltear</button>
+          <button type="button" className="ch-enlace" disabled={quieta} onClick={() => responder(ELIGE_TU)}>{ELIGE_TU}</button>
+          <button type="button" className="ch-enlace" disabled={quieta} onClick={() => responder(SALTEAR)}>{SALTEAR}</button>
         </div>
       ) : <p className="ch-tarjeta__nota">{`Respondiste: ${dicha}`}</p>}
     </div>

@@ -26,6 +26,7 @@ import type {
 import { ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, type TipoAdjunto } from '@/lib/mako-adjuntos';
 import type { EstadoArchivero } from '@/lib/chat-mako-bloques';
 import type { Abrir, Bloque } from '@/lib/chat-bloques';
+import { respuestasDeElegir } from '@/lib/editor-landing/bloques-web';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 
 // ── El hilo ──────────────────────────────────────────────────────────────────
@@ -119,14 +120,43 @@ export function itemsDeSesion(mensajes: readonly MensajeChat[], propuestas: read
   ]);
 }
 
-/** Una pregunta (G1) seguida de un mensaje de la persona ya está contestada: con eso (1.9). Lo usan también las
- *  pantallas al dibujar (revisión del 21/10/2026): contestar escribiendo apaga las opciones en el acto, no al recargar.
- *  El «elegir» del Web Generator (G2) también: contestado, no se vuelve a tocar al recargar. */
+type ItemBloque = Extract<ItemHilo, { k: 'bloque' }>;
+type ItemMsg = Extract<ItemHilo, { k: 'msg' }>;
+const esSelector = (x: ItemHilo): x is ItemBloque => x.k === 'bloque' && (x.b.t === 'pregunta' || x.b.t === 'elegir');
+const esDeLaPersona = (x: ItemHilo): x is ItemMsg => x.k === 'msg' && x.role === 'user';
+const igual = (s: string): string => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+/** ¿`dicho` es lo que manda un toque en ESTE selector? Una opción del G1 (o varias, «A, B», con «Listo»), o lo que manda
+ *  el «elegir» del Web Generator («Diseño: Minimal», «Elige tú», «Saltear»). */
+function esRespuestaDe(b: Bloque, dicho: string): boolean {
+  const d = igual(dicho);
+  if (b.t === 'elegir') return respuestasDeElegir(b).some((r) => igual(r) === d);
+  if (b.t !== 'pregunta') return false;
+  const titulos = new Set(b.opciones.map((o) => igual(o.titulo)));
+  return titulos.has(d) || (!!b.varias && d.split(/,\s*/).every((p) => titulos.has(p)));
+}
+
+/**
+ * Un selector (la pregunta G1, o el «elegir» G2 del Web Generator) seguido de un mensaje de la persona ya está
+ * contestado: con eso (1.9). Lo usan también las pantallas al dibujar (revisión del 21/10/2026): contestar escribiendo
+ * apaga las opciones en el acto, no al recargar.
+ * ⚠️ UNA respuesta no cierra DOS selectores (revisión del 21/10/2026): MaKo guarda en el mismo mensaje lo que dibujan
+ *    las lecturas y su pregunta (el G2 de diseños y el G1 del producto), y tocar «Mentoría» apagaba también los diseños
+ *    con «Respondiste: Mentoría». Con varios selectores esperando el mismo mensaje, cada uno se cierra sólo con lo que
+ *    manda un toque suyo; lo escrito que no es de ninguno los deja abiertos (abierto de más cuesta poco). Con uno solo,
+ *    escribir lo contesta, como siempre.
+ */
 export function conRespuestas(xs: readonly ItemHilo[]): ItemHilo[] {
   return xs.map((x, i) => {
-    if (x.k !== 'bloque' || (x.b.t !== 'pregunta' && x.b.t !== 'elegir')) return x;
-    const siguiente = xs.slice(i + 1).find((y): y is Extract<ItemHilo, { k: 'msg' }> => y.k === 'msg' && y.role === 'user');
-    return siguiente ? { ...x, respondida: siguiente.texto } : x;
+    if (!esSelector(x)) return x;
+    let j = i + 1;
+    while (j < xs.length && !esDeLaPersona(xs[j])) j++;
+    if (j >= xs.length) return x;
+    let desde = i - 1;
+    while (desde >= 0 && !esDeLaPersona(xs[desde])) desde--;
+    const dicho = (xs[j] as ItemMsg).texto;
+    const esperan = xs.slice(desde + 1, j).filter(esSelector).length;
+    return esperan === 1 || esRespuestaDe(x.b, dicho) ? { ...x, respondida: dicho } : x;
   });
 }
 

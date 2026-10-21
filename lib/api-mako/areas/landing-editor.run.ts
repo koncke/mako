@@ -347,11 +347,13 @@ export const RUNNERS_EDITOR: Runners = {
       // texto: con catálogo, si el modelo no manda un producto que valga, no se prepara nada y el error es la pregunta,
       // con las opciones. Corre en TODO pedido, porque uno que no nombra producto también saldría sobre el principal. Lo
       // decidido REEMPLAZA a lo que mandó el modelo; si el catálogo no se pudo leer, vale lo que no lo necesita (el
-      // negocio en general, un producto nuevo con nombre) y lo demás sigue como antes de esta pieza.
+      // negocio en general, un producto nuevo con nombre), y un `producto` hace volver a intentar (también al confirmar,
+      // que vuelve a preparar: la landing no sale sin el producto que dijo la tarjeta).
       const { producto: _producto, producto_nuevo: _nuevo, ...resto } = input;
       const productos = await listProductos(true).then((ps) => ps.map((p) => ({ id: String(p.id), nombre: p.nombre }))).catch(() => null);
       const d = productoDeLanding({ producto: str(input, 'producto'), nuevo: str(input, 'producto_nuevo') }, productos);
       if (d.que === 'preguntar') return { error: d.mensaje, faltan: ['producto'] };
+      if (d.que === 'reintentar') return { error: d.mensaje };
       input = d.es === 'catalogo' ? { ...resto, producto: d.producto }
         : d.es === 'nuevo' ? { ...resto, producto_nuevo: d.producto }
           : d.es === 'negocio' ? { ...resto, producto: OPCION_NEGOCIO } : resto;

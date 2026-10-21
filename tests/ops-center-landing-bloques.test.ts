@@ -43,6 +43,10 @@
 //   B7  los diseños sin el pedido → 11 / 2 · B8 dibuja aunque no sirva → 12 / 1 · B9 dibuja en una presentación → 10 / 3
 //   B10 dibuja con el diseño ya nombrado → 11 / 2 · B11 «MaKo» la app como diseño → 12 / 1 · B12 sin ordenar por el pedido → 10 / 3
 //   B13 sin el «No salió» → 12 / 1
+//   (5ª revisión, sobre 13 / 0: una respuesta no cierra dos selectores)
+//   C1  todos se cierran con el primer mensaje → 12 / 1 · C2 con uno solo, escribir no lo contesta → 12 / 1
+//   C3  «mentoria» no es «Mentoría» → 12 / 1 · C4 «A, B» de varias no es suya → 12 / 1 · C5 «Saltear» no es del G2 → 12 / 1
+//   C6  cuentan los selectores de turnos anteriores → 12 / 1
 //
 // Correr: node --import tsx --test tests/ops-center-landing-bloques.test.ts
 // =============================================================================
@@ -233,8 +237,10 @@ test('se dibuja: la miniatura con la sección, el estado, el link y los botones;
 
 test('elegir: lo elegido sale como un mensaje que dice QUÉ se eligió, y el hilo los manda a esta pieza', async () => {
   const src = sinComentarios(leer('app/web-generator/BloqueWeb.tsx'));
-  assert.match(src, /const QUE: Record<BloqueElegir\['que'\], string> = \{ diseno: 'Diseño', tema: 'Tema', formato: 'Formato' \};/);
-  assert.match(src, /const texto = `\$\{QUE\[b\.que\]\}: \$\{o\.titulo\}`;[\s\S]{0,400}onClick=\{\(\) => responder\(texto\)\}/);
+  // Lo que manda cada opción sale de UN lugar (bloques-web.ts): el botón y `conRespuestas` comparan lo mismo.
+  assert.match(sinComentarios(leer('lib/editor-landing/bloques-web.ts')), /export const QUE_ELEGIR: Record<BloqueElegir\['que'\], string> = \{ diseno: 'Diseño', tema: 'Tema', formato: 'Formato' \};/);
+  assert.match(src, /const texto = textoDeOpcion\(b, o\);[\s\S]{0,400}onClick=\{\(\) => responder\(texto\)\}/);
+  assert.match(src, /onClick=\{\(\) => responder\(ELIGE_TU\)\}>\{ELIGE_TU\}<\/button>[\s\S]{0,200}onClick=\{\(\) => responder\(SALTEAR\)\}>\{SALTEAR\}<\/button>/);
   assert.doesNotMatch(src, /import ['"][^'"]+\.css['"]/, 'sin CSS en el import: se dibuja en este test');
   // «Verificar ahora» vuelve a mirar el DNS por la MISMA ruta que el diálogo Publicar, y cambia ESTE bloque.
   assert.match(src, /postJson<RespuestaDominio>\(RUTA_DOMINIO, \{ accion: 'estado', id: d\.id, verificar: true \}, PLAZO_DOCS_MS\);[\s\S]{0,160}setD\(bloqueDominio\(d\.id, r\.dominio\)\)/);
@@ -250,6 +256,28 @@ test('elegir: lo elegido sale como un mensaje que dice QUÉ se eligió, y el hil
   const { conRespuestas } = await import('../app/m/mako/chat-ui');
   const items = conRespuestas([{ k: 'bloque', id: 'e', b: elegirDiseno() }, { k: 'msg', id: 'u', role: 'user', texto: 'la minimal', at: null } as never]);
   assert.equal(items[0].k === 'bloque' ? items[0].respondida : null, 'la minimal');
+  // UNA respuesta no cierra DOS selectores (5ª revisión): el G2 de diseños y el G1 del producto en el mismo mensaje.
+  const producto = { t: 'pregunta' as const, pregunta: '¿Para qué producto es?', opciones: [{ titulo: 'Mentoría' }, { titulo: 'Un producto nuevo' }, { titulo: 'El negocio en general' }] };
+  const conDos = (texto: string, g1: typeof producto & { varias?: boolean } = producto) => {
+    const xs = conRespuestas([
+      { k: 'msg', id: 'p', role: 'user', texto: 'Armame una landing', at: null } as never,
+      { k: 'bloque', id: 'g2', b: elegirDiseno() }, { k: 'bloque', id: 'g1', b: g1 },
+      { k: 'msg', id: 'u', role: 'user', texto, at: null } as never,
+    ]);
+    return xs.slice(1, 3).map((x) => (x.k === 'bloque' ? x.respondida ?? null : 'no es bloque'));
+  };
+  assert.deepEqual(conDos('Mentoría'), [null, 'Mentoría'], 'tocar el producto no apaga los diseños');
+  assert.deepEqual(conDos('mentoria'), [null, 'mentoria'], 'escrito igual que la opción, también');
+  assert.deepEqual(conDos('Diseño: Minimal'), ['Diseño: Minimal', null], 'tocar un diseño no contesta el producto');
+  assert.deepEqual(conDos('Saltear'), ['Saltear', null]);
+  assert.deepEqual(conDos('la que quieras, para todo'), [null, null], 'lo escrito que no es de ninguno los deja abiertos');
+  assert.deepEqual(conDos('Mentoría, Un producto nuevo', { ...producto, varias: true }), [null, 'Mentoría, Un producto nuevo'], 'varias con «Listo»');
+  // Los que esperan cada mensaje son los de ESE turno: uno de un turno anterior, ya contestado, no cuenta.
+  const tras = conRespuestas([
+    { k: 'bloque', id: 'g1', b: producto }, { k: 'msg', id: 'u1', role: 'user', texto: 'Mentoría', at: null } as never,
+    { k: 'bloque', id: 'g2', b: elegirDiseno() }, { k: 'msg', id: 'u2', role: 'user', texto: 'la minimal', at: null } as never,
+  ]);
+  assert.deepEqual(tras.filter((x) => x.k === 'bloque').map((x) => (x.k === 'bloque' ? x.respondida : null)), ['Mentoría', 'la minimal']);
   assert.match(sinComentarios(leer('lib/chat-bloques.ts')), /default:\s*return sanearBloqueWeb\(o, rutaInterna\);/);
 });
 

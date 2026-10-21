@@ -39,6 +39,35 @@ const esNegocio = (s: string): boolean => ES_NEGOCIO.has(sinArticulo(s));
 const esOpcionNuevo = (s: string): boolean => sinArticulo(s) === sinArticulo(OPCION_NUEVO);
 
 /**
+ * La CLAVE de un nombre para buscarlo en el catálogo: sin tildes ni mayúsculas, sin la puntuación que no cambia el
+ * nombre (comillas, puntos, comas, dos puntos, paréntesis, guiones) y sin el artículo de adelante. Los símbolos que SÍ lo
+ * cambian quedan (revisión del 21/10/2026: borrarlos hacía de «Curso de C» el «Curso de C++», de «Descuento 50» el
+ * «Descuento 50%» y de «?» un «🚀»): «C++» no es «C». Un nombre que se queda sin nada no se compara.
+ */
+const clave = (s: string): string => plano((s ?? '').normalize('NFC'))
+  .replace(/[\s"'«»“”‘’.,;:!?¡¿()[\]{}\-–—]+/g, ' ').trim().replace(/^(?:el|la|los|las|mi|mis)\s+/, '');
+/** Los del catálogo con esa clave: uno es ése; varios con la misma, no se sabe cuál (se pregunta con ésos). */
+const conClave = (s: string, productos: readonly ObjetoChat[] | null): ObjetoChat[] => {
+  const k = clave(s);
+  return k && productos ? productos.filter((p) => clave(p.nombre) === k) : [];
+};
+/**
+ * ¿`nuevo` es una REFERENCIA a uno del catálogo («no es Kairos», «uno parecido a la Mentoría 1 a 1», «el de después de
+ * Kairos»)? Nombra uno entero y, sacándolo, no queda nada que diga cuál es el nuevo. Uno que nombra el del catálogo Y
+ * dice qué es («Mentoría grupal para emprendedoras» con «Mentoría») es un producto nuevo: si preguntara, la persona
+ * elegiría «Un producto nuevo», volvería lo mismo y no saldría nunca.
+ */
+function nombraDelCatalogo(nuevo: string, productos: readonly ObjetoChat[]): ObjetoChat | null {
+  let resto = ` ${clave(nuevo)} `;
+  let nombrado: ObjetoChat | null = null;
+  for (const p of productos) {
+    const n = clave(p.nombre);
+    if (n.length >= 3 && resto.includes(` ${n} `)) { nombrado ??= p; resto = resto.split(` ${n} `).join(' '); }
+  }
+  return nombrado && esDescripcionVaga(resto) ? nombrado : null;
+}
+
+/**
  * Lo que no dice CUÁL es un producto nuevo: referencias («mi otro», «el que te dije», «el principal», «ambos»),
  * rellenos («a definir», «TBD», «producto no especificado») y el nombre de una cosa sin nada más («un curso»). Es la
  * segunda red; la primera es la tarjeta que se confirma, que muestra lo que llegó.
@@ -56,17 +85,20 @@ const VAGAS = new Set([
   'especificar', 'pendiente', 'tbd', 'desconocido', 'nombre', 'uno', 'dije', 'dijo', 'antes', 'cosa', 'cliente', 'persona',
   'lanzar', 'voy', 'vamos', 'estoy', 'armando', 'vendo', 'tengo', 'menciono', 'mencione', 'nombro', 'catalogo', 'preguntar',
   'opcion', 'numero', 'primero', 'primera', 'ultimo', 'ultima', 'principal', 'ambos', 'ambas', 'dos', 'cualquiera', 'todo',
-  'todos', 'todas', 'toda', 'entero', 'entera', 'pagina', 'negocio', 'agencia', 'general',
+  'todos', 'todas', 'toda', 'entero', 'entera', 'pagina', 'negocio', 'agencia', 'general', 'sea', 'sean', 'despues',
+  'parecido', 'parecida', 'similar', 'igual', 'viene', 'mismo', 'misma', 'anterior', 'siguiente', 'version',
 ]);
-/** ¿Lo que mandó el modelo como producto nuevo no dice cuál es? Sin una palabra con contenido (los números no cuentan). */
+/** ¿Lo que mandó el modelo como producto nuevo no dice cuál es? Sin una palabra con contenido (los números no cuentan).
+ *  «+» y «#» sí cuentan («Curso de C#» no es «curso de c»: sin eso, preguntaba para siempre). */
 export const esDescripcionVaga = (s: string): boolean =>
-  !comparable(s).split(' ').some((w) => w.length >= 2 && !/^\d+$/.test(w) && !VAGAS.has(w));
+  !comparable(s.replace(/\+/g, ' plus ').replace(/#/g, ' sharp ')).split(' ').some((w) => w.length >= 2 && !/^\d+$/.test(w) && !VAGAS.has(w));
 
 /** Lo que decide `productoDeLanding`: seguir (con el producto, si hay) o preguntar antes, con las opciones. */
 export type ProductoDeLanding =
   | { que: 'sigue'; es: 'catalogo' | 'nuevo'; producto: string }
   | { que: 'sigue'; es: 'negocio' | 'ninguno'; producto: null }
-  | { que: 'preguntar'; mensaje: string; opciones: string[] };
+  | { que: 'preguntar'; mensaje: string; opciones: string[] }
+  | { que: 'reintentar'; mensaje: string };
 
 function preguntar(productos: readonly ObjetoChat[], motivo: string): ProductoDeLanding {
   const opciones = [...productos.slice(0, MAX_PRODUCTOS_PREGUNTA).map((p) => p.nombre), OPCION_NUEVO, OPCION_NEGOCIO];
@@ -89,21 +121,33 @@ export function productoDeLanding(
 ): ProductoDeLanding {
   const producto = (dicho.producto ?? '').replace(/\s+/g, ' ').trim();
   const nuevo = (dicho.nuevo ?? '').replace(/\s+/g, ' ').trim();
-  const delCatalogo = (s: string) => productos?.find((p) => sinArticulo(p.nombre) === sinArticulo(s));
-  const enCatalogo = producto ? delCatalogo(producto) : undefined;
-  if (enCatalogo) return { que: 'sigue', es: 'catalogo', producto: enCatalogo.nombre };
+  const iguales = (ps: readonly ObjetoChat[], dicho: string) =>
+    preguntar(ps, `En el catálogo hay más de uno que se llama como «${corto(dicho)}»: ${ps.slice(0, MAX_PRODUCTOS_PREGUNTA).map((p) => `«${p.nombre}»`).join(', ')}.`);
+  const porProducto = conClave(producto, productos);
+  if (porProducto.length === 1) return { que: 'sigue', es: 'catalogo', producto: porProducto[0].nombre };
+  if (porProducto.length > 1) return iguales(porProducto, producto);
   if ((producto && esNegocio(producto)) || (nuevo && esNegocio(nuevo))) return { que: 'sigue', es: 'negocio', producto: null };
   if (nuevo) {
-    const p = delCatalogo(nuevo);
-    if (p) return { que: 'sigue', es: 'catalogo', producto: p.nombre };
+    const porNuevo = conClave(nuevo, productos);
+    if (porNuevo.length === 1) return { que: 'sigue', es: 'catalogo', producto: porNuevo[0].nombre };
+    if (porNuevo.length > 1) return iguales(porNuevo, nuevo);
+    const referido = productos ? nombraDelCatalogo(nuevo, productos) : null;
+    if (referido) return preguntar(productos!, `«${corto(nuevo)}» nombra «${referido.nombre}» pero no dice cuál es el producto nuevo.`);
     if (!esDescripcionVaga(nuevo)) return { que: 'sigue', es: 'nuevo', producto: nuevo.slice(0, 300) };
   }
   // Eligió «Un producto nuevo» y falta cuál: se pregunta el nombre, haya catálogo o no.
   if (esOpcionNuevo(producto)) {
     return { que: 'preguntar', opciones: [], mensaje: `Eligió «${OPCION_NUEVO}»: pregúntale su nombre y de qué se trata, y vuelve a proponer con eso en «producto_nuevo».` };
   }
-  // Sin catálogo legible, como antes de esta pieza: lo que necesitaba el catálogo no se puede comprobar.
-  if (!productos) return { que: 'sigue', es: 'ninguno', producto: null };
+  // Sin catálogo legible, un `producto` no se puede comprobar NI tirar (revisión del 21/10/2026): al confirmar en
+  // /mako/revisar se vuelve a correr el preparar, y si ahí la base fallaba, la tarjeta confirmada decía un producto y la
+  // landing salía sin él. Distinguir un nombre de una referencia sin el catálogo sería otra lista de palabras («Mentoría
+  // 1 a 1» está hecha toda de palabras vagas): no se adivina, se vuelve a intentar.
+  if (!productos) {
+    return producto
+      ? { que: 'reintentar', mensaje: `No pude leer el catálogo de productos para comprobar «${corto(producto)}»: vuelve a intentarlo en un momento.` }
+      : { que: 'sigue', es: 'ninguno', producto: null };
+  }
   // Sin productos activos, un nombre en `producto` es uno nuevo: no hay cuál elegir mal.
   if (!productos.length) {
     return producto && !esDescripcionVaga(producto) ? { que: 'sigue', es: 'nuevo', producto: producto.slice(0, 300) } : { que: 'sigue', es: 'ninguno', producto: null };

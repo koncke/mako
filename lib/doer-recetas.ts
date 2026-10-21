@@ -60,10 +60,15 @@ Si una tool de LECTURA falla, DECÍSELO con las palabras que te dio (falta el to
  * proponer, y el código asegura que no se cree sin saberlo. Sin nombres de herramientas: no siempre viajan las que
  * nombraría.
  */
-const RECETA_LANDING = `CUANDO TE PIDEN UNA LANDING O UNA PRESENTACIÓN:
-- PARA QUÉ PRODUCTO: si te la piden PARA uno del catálogo, pasa su nombre exacto (no si lo nombran para excluirlo, compararlo o de modelo). Si no, NO lo adivines: antes de proponer, pregunta con opciones (los productos del catálogo, «Un producto nuevo» y «El negocio en general»). Si eligen uno nuevo, pregunta su nombre y de qué se trata.
-- Si te nombran una landing que coincide con dos, pregunta cuál: nunca elijas la primera.
-- No inventas testimonios, cifras, garantías ni precios, y no publicas sin que te lo pidan.`;
+// La línea del producto viaja SÓLO con la herramienta que tiene dónde ponerlo (generar_landing_con_ia, `producto` y
+// `producto_nuevo`; revisión del 21/10/2026): con las otras cuatro, la pregunta se hacía y la respuesta se perdía.
+const PRODUCTO_LANDING = `- PARA QUÉ PRODUCTO: si te la piden PARA uno del catálogo, pasa su nombre exacto (no si lo nombran para excluirlo, compararlo o de modelo). Si no, NO lo adivines: antes de proponer, pregunta con opciones (los productos del catálogo, «Un producto nuevo» y «El negocio en general»). Si eligen uno nuevo, pregunta su nombre y de qué se trata.`;
+const RECETA_LANDING = (conProducto: boolean): string => [
+  'CUANDO TE PIDEN UNA LANDING O UNA PRESENTACIÓN:',
+  ...(conProducto ? [PRODUCTO_LANDING] : []),
+  '- Si te nombran una landing que coincide con dos, pregunta cuál: nunca elijas la primera.',
+  '- No inventas testimonios, cifras, garantías ni precios, y no publicas sin que te lo pidan.',
+].join('\n');
 
 const RECETA_CONFIRMAR = `CUANDO EL DUEÑO CONFIRMA ("sí", "dale", "hazlo", "adelante", "confirmo") y hay una acción pendiente: llama 'confirmar_accion' para ejecutarla. Si dice que no, 'cancelar_accion'. Si no estás seguro de a cuál se refiere, usa 'listar_pendientes' y pregunta.`;
 
@@ -126,7 +131,7 @@ export function recetasDelTurno(nombres: ReadonlySet<string>, ofrece: boolean): 
   if (hay(/^(?:crear_link_pago|anular_link_pago|reembolsar_cobro|cancelar_suscripcion)$/)) partes.push(RECETA_COBROS);
   if (hay(/^proponer_leads?$/)) partes.push(RECETA_LEAD);
   if (nombres.has('proponer_agendar_reunion')) partes.push(RECETA_AGENDA);
-  if (hay(/^(?:generar_landing_con_ia|crear_landing_desde_diseno|crear_landing_en_blanco|crear_presentacion_desde_plantilla|replicar_landing)$/)) partes.push(RECETA_LANDING);
+  if (hay(/^(?:generar_landing_con_ia|crear_landing_desde_diseno|crear_landing_en_blanco|crear_presentacion_desde_plantilla|replicar_landing)$/)) partes.push(RECETA_LANDING(hay(/^generar_landing_con_ia$/)));
   if (nombres.has('confirmar_accion')) partes.push(RECETA_CONFIRMAR);
   if (nombres.has('proponer_tareas_plan')) partes.push(RECETA_PLAN);
   if ([...nombres].some((n) => ESCRITURAS_EDITOR_VIDEO.has(n))) partes.push(RECETA_VIDEO_EDITOR);

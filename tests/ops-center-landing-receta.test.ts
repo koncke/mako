@@ -33,6 +33,11 @@
 //   K31 el nuevo como del catálogo · K32 el nuevo no llega al pedido · K33 sin el producto en las instrucciones
 //   K34 la receta viaja con todo · K35 la receta adivina · K36 la receta no distingue «para» de excluir o comparar
 //   K37 la definición sin `producto_nuevo` · K38 el chat del editor (main) pega el único producto con «otro producto»
+//   (5ª revisión, sobre 7 / 0; las 11 en rojo y restauradas)
+//   N1  la clave borra los símbolos («C++» es «C») · N2 un nombre vacío se compara · N3/N11 dos con la misma clave: el primero
+//   N4  una referencia con el nombre del catálogo es nueva · N5 nombrarlo y decir qué es pregunta (el bucle)
+//   N6  «C#» es vago · N7 con el catálogo ilegible se tira el producto · N8 el preparar no frena al reintentar
+//   N9  «sea», «después», «parecido» con contenido · N10 «para qué producto» viaja con las cinco herramientas
 //
 // Correr: node --import tsx --test tests/ops-center-landing-receta.test.ts
 // =============================================================================
@@ -234,7 +239,7 @@ console.log(JSON.stringify(fuera));
 });
 
 // Lo que mandó el modelo. [id, `producto`, `producto_nuevo`, catálogo (null = no se pudo leer), lo que tiene que pasar].
-type Espera = { catalogo: string } | { nuevo: string } | 'negocio' | 'ninguno' | 'pregunta';
+type Espera = { catalogo: string } | { nuevo: string } | 'negocio' | 'ninguno' | 'pregunta' | 'reintentar';
 const REFERENCIAS = ['mi otro', 'ese otro', 'el que te dije', 'el de antes', 'lo otro', 'otra cosa', 'el otro que vendo', 'el que vendo aparte',
   'el segundo producto', 'mi producto 2', 'producto B', 'other product', 'no lo sé', 'no se todavía', 'pendiente', 'a definir', 'TBD',
   'desconocido', 'sin nombre', 'el que no está', 'el que no está en el catálogo', 'mi otro producto (no especificado)', 'otro producto del cliente',
@@ -273,9 +278,26 @@ const DICHO: [string, string | null, string | null, string[] | null, Espera][] =
   ['0n', null, 'Yoga para embarazadas', [], { nuevo: 'Yoga para embarazadas' }], ['0g', OPCION_NEGOCIO, null, [], 'negocio'],
   ['0o', OPCION_NUEVO, null, [], 'pregunta'], ['0a', 'el principal', null, [], 'ninguno'],
   // Sin catálogo legible: vale lo que no lo necesita.
-  ['f1', null, null, null, 'ninguno'], ['f2', 'Kairos', null, null, 'ninguno'], ['f3', null, 'Curso de fotografía para principiantes', null, { nuevo: 'Curso de fotografía para principiantes' }],
+  // Un `producto` no se comprueba ni se tira: se vuelve a intentar (al confirmar se vuelve a preparar, 5ª revisión #4).
+  ['f1', null, null, null, 'ninguno'], ['f2', 'Kairos', null, null, 'reintentar'], ['f7', 'mi otro producto', null, null, 'reintentar'],
+  ['f8', 'Mentoría 1 a 1', null, null, 'reintentar'], ['f3', null, 'Curso de fotografía para principiantes', null, { nuevo: 'Curso de fotografía para principiantes' }],
   ['f4', OPCION_NEGOCIO, null, null, 'negocio'], ['f5', null, 'mi otro', null, 'ninguno'], ['f6', OPCION_NUEVO, null, null, 'pregunta'],
   // Lo que mandó el modelo y no es del catálogo: se pregunta.
+  // La clave del catálogo guarda los símbolos que cambian el nombre (5ª revisión, #3): «C++» no es «C».
+  ['cc1', 'Curso de C', null, ['Curso de C++', 'Curso de C'], { catalogo: 'Curso de C' }],
+  ['cc2', 'curso de c++', null, ['Curso de C++', 'Curso de C'], { catalogo: 'Curso de C++' }],
+  ['cc3', 'Curso de C#', null, ['Curso de C'], 'pregunta'], ['cc4', null, 'Curso de C#', ['Curso de C'], { nuevo: 'Curso de C#' }],
+  ['cc5', 'Plan 🥈', null, ['Plan 🥇'], 'pregunta'], ['cc6', 'Descuento 50', null, ['Descuento 50%'], 'pregunta'],
+  ['cc7', '?', null, ['🚀'], 'pregunta'], ['cc8', 'Курс', null, ['课程'], 'pregunta'], ['cc9', null, '...', ['🚀'], 'pregunta'],
+  ['cc10', 'Mentoría 1-a-1', null, M11, { catalogo: 'Mentoría 1 a 1' }], ['cc11', '«Kairos».', null, ['Kairos'], { catalogo: 'Kairos' }],
+  ['cc12', 'Curso de C', null, ['Curso de C', 'Curso de C'], 'pregunta'], ['cc14', '?', null, ['--'], 'pregunta'], ['cc13', null, 'curso de c++', ['Curso de C++', 'Curso de C'], { catalogo: 'Curso de C++' }],
+  // Una referencia que NOMBRA uno del catálogo y no dice cuál es el nuevo (5ª revisión, #2): pregunta.
+  ...['no es Kairos', 'otro que no sea Kairos', 'distinto de Kairos', 'el otro, no Kairos', 'uno diferente a Kairos', 'el que no es Kairos',
+    'otro producto que no es Kairos', 'otro (no Kairos)', 'el de después de Kairos'].map((r, i): [string, string | null, string | null, string[] | null, Espera] => [`kr${i}`, null, r, ['Kairos'], 'pregunta']),
+  ...['no es la Mentoría 1 a 1', 'otro, no la Mentoría 1 a 1', 'uno parecido a la Mentoría 1 a 1', 'el que viene después de la Mentoría 1 a 1']
+    .map((r, i): [string, string | null, string | null, string[] | null, Espera] => [`mr${i}`, null, r, M11, 'pregunta']),
+  // Nombrar el del catálogo Y decir qué es el nuevo es un producto nuevo: si preguntara, volvería lo mismo para siempre.
+  ['mr4', null, 'la versión grupal de la Mentoría 1 a 1', M11, { nuevo: 'la versión grupal de la Mentoría 1 a 1' }],
   ['z1', 'Mentoría grupal', null, M, 'pregunta'], ['z2', 'mentorías', null, M, 'pregunta'], ['z3', 'un curso', null, MC, 'pregunta'],
   ['x6', 'otro producto distinto a la Mentoría 1 a 1', null, M11, 'pregunta'], ['x7', 'Otro (no la Mentoría 1 a 1)', null, M11, 'pregunta'],
   ['x8', 'no es la Mentoría 1 a 1', null, M11, 'pregunta'], ['y8p', 'el taller de los sábados', null, MCT, 'pregunta'],
@@ -290,7 +312,7 @@ test('lo que mandó el modelo: del catálogo, el negocio o uno nuevo con nombre 
   const ver = (d: ReturnType<typeof productoDeLanding>): string => (d.que === 'preguntar' ? 'preguntó' : `siguió (${d.es}: ${JSON.stringify(d.producto)})`);
   for (const [id, producto, nuevo, cat, espera] of DICHO) {
     const d = productoDeLanding({ producto, nuevo }, cat === null ? null : P(...cat));
-    const bien = espera === 'pregunta' ? d.que === 'preguntar'
+    const bien = espera === 'pregunta' ? d.que === 'preguntar' : espera === 'reintentar' ? d.que === 'reintentar'
       : espera === 'negocio' || espera === 'ninguno' ? d.que === 'sigue' && d.es === espera && d.producto === null
         : 'catalogo' in espera ? d.que === 'sigue' && d.es === 'catalogo' && d.producto === espera.catalogo
           : d.que === 'sigue' && d.es === 'nuevo' && d.producto === espera.nuevo;
@@ -312,6 +334,14 @@ test('la pregunta trae las opciones: los productos, uno nuevo y el negocio en ge
   assert.match(malo.que === 'preguntar' ? malo.mensaje : '', /^«Mentoría grupal» no es un producto del catálogo\./);
   const vago = productoDeLanding({ nuevo: 'mi otro' }, P(...M));
   assert.match(vago.que === 'preguntar' ? vago.mensaje : '', /^«mi otro» no dice cuál es el producto nuevo\./);
+  // Dos del catálogo que se llaman igual: se pregunta con ésos, no se toma el primero.
+  const dos = productoDeLanding({ producto: 'Curso de C' }, P('Curso de C', 'Taller', 'Curso de C'));
+  assert.ok(dos.que === 'preguntar' && /^En el catálogo hay más de uno que se llama como «Curso de C»: «Curso de C», «Curso de C»\./.test(dos.mensaje), JSON.stringify(dos));
+  assert.deepEqual(dos.que === 'preguntar' ? dos.opciones : null, ['Curso de C', 'Curso de C', OPCION_NUEVO, OPCION_NEGOCIO]);
+  const dosNuevo = productoDeLanding({ nuevo: 'Curso de C' }, P('Curso de C', 'Curso de C'));
+  assert.match(dosNuevo.que === 'preguntar' ? dosNuevo.mensaje : '', /^En el catálogo hay más de uno que se llama como «Curso de C»/, 'también por `producto_nuevo`');
+  const ref = productoDeLanding({ nuevo: 'otro que no sea Kairos' }, P('Kairos'));
+  assert.match(ref.que === 'preguntar' ? ref.mensaje : '', /^«otro que no sea Kairos» nombra «Kairos» pero no dice cuál es el producto nuevo\./);
   for (const cat of [P(...M), [], null]) {
     const sinNombre = productoDeLanding({ producto: OPCION_NUEVO }, cat);
     assert.ok(sinNombre.que === 'preguntar' && !sinNombre.opciones.length && /pregúntale su nombre y de qué se trata/.test(sinNombre.mensaje), JSON.stringify(cat));
@@ -409,7 +439,10 @@ const vacioSinNombre = await preparar({ idea: 'créame una landing para mi otro 
 const falla = await preparar({ idea: 'créame una landing para mi otro producto', producto: 'Kairos', producto_nuevo: 'mi otro' }, 'falla');
 const fallaNuevo = await preparar({ idea: 'créame una landing para mi otro producto', producto_nuevo: 'Curso de fotografía para principiantes' }, 'falla');
 const fallaNegocio = await preparar({ idea: 'una landing de mi agencia', producto: 'El negocio en general' }, 'falla');
-console.log(JSON.stringify({ nombrado, referencia, eligio, nuevo, negocio, vacio, vacioNombre, vacioSinNombre, falla, fallaNuevo, fallaNegocio }));
+// Al confirmar en /mako/revisar se vuelve a preparar con lo guardado: si ahí la base falla, vale lo que decía la tarjeta.
+const propuesta = await preparar({ idea: 'Créame una landing de ventas que agende llamadas', producto: 'Mentoría 1 a 1' }, M);
+const confirmada = await preparar(propuesta.payload, 'falla');
+console.log(JSON.stringify({ nombrado, referencia, eligio, nuevo, negocio, vacio, vacioNombre, vacioSinNombre, falla, fallaNuevo, fallaNegocio, propuesta, confirmada }));
 `) as Record<string, { error?: string; faltan?: string[]; payload?: Record<string, unknown>; resumen?: string }>;
   for (const k of ['nombrado', 'referencia'] as const) {
     assert.match(r[k].error ?? '', /pregúntale a la persona con estas opciones: «Mentoría 1 a 1», «Un producto nuevo», «El negocio en general»/, `${k}: ${JSON.stringify(r[k]).slice(0, 200)}`);
@@ -430,7 +463,14 @@ console.log(JSON.stringify({ nombrado, referencia, eligio, nuevo, negocio, vacio
   // Sin catálogo legible: valen el negocio y un producto nuevo con nombre; lo que necesitaba el catálogo, no.
   assert.equal(r.fallaNuevo.payload?.producto_nuevo, 'Curso de fotografía para principiantes', JSON.stringify(r.fallaNuevo).slice(0, 200));
   assert.equal(r.fallaNegocio.payload?.producto, 'El negocio en general');
-  for (const k of ['vacio', 'falla'] as const) {
+  // Sin catálogo legible, un `producto` hace volver a intentar: tampoco al confirmar sale sin el que dijo la tarjeta.
+  assert.equal(r.propuesta.payload?.producto, 'Mentoría 1 a 1');
+  for (const k of ['falla', 'confirmada'] as const) {
+    assert.match(r[k].error ?? '', /^No pude leer el catálogo de productos para comprobar «(?:Kairos|Mentoría 1 a 1)»: vuelve a intentarlo/, `${k}: ${JSON.stringify(r[k]).slice(0, 200)}`);
+    assert.equal(r[k].payload, undefined, `${k}: preparó sin el producto`);
+    assert.equal(r[k].faltan, undefined, `${k}: no es una pregunta`);
+  }
+  for (const k of ['vacio'] as const) {
     assert.ok(r[k].payload && !r[k].error, `${k}: ${JSON.stringify(r[k]).slice(0, 200)}`);
     assert.equal(r[k].payload?.producto, undefined, `${k}: quedó el producto ${JSON.stringify(r[k].payload?.producto)}`);
     assert.equal(r[k].payload?.producto_nuevo, undefined, k);
@@ -445,6 +485,10 @@ test('la receta de landing viaja con las herramientas que crean una landing, y c
   }
   for (const h of ['listar_landings_creadas', 'publicar_landing', 'cambiar_texto_landing', 'buscar_leads', 'ver_plan']) {
     assert.doesNotMatch(recetasDelTurno(new Set([h]), false), /CUANDO TE PIDEN UNA LANDING/, h);
+  }
+  // «Para qué producto» sólo con la herramienta que tiene dónde ponerlo (5ª revisión, #5): con las otras se perdía.
+  for (const h of ['crear_landing_desde_diseno', 'crear_landing_en_blanco', 'crear_presentacion_desde_plantilla', 'replicar_landing']) {
+    assert.doesNotMatch(recetasDelTurno(new Set([h]), false), /PARA QUÉ PRODUCTO/, h);
   }
   const r = recetasDelTurno(new Set(['generar_landing_con_ia']), false);
   assert.match(r, /si te la piden PARA uno del catálogo, pasa su nombre exacto \(no si lo nombran para excluirlo, compararlo o de modelo\)/);
