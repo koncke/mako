@@ -46,10 +46,20 @@ const esOpcionNuevo = (s: string): boolean => sinArticulo(s) === sinArticulo(OPC
  */
 const clave = (s: string): string => plano((s ?? '').normalize('NFC'))
   .replace(/[\s"'«»“”‘’.,;:!?¡¿()[\]{}\-–—]+/g, ' ').trim().replace(/^(?:el|la|los|las|mi|mis)\s+/, '');
-/** Los del catálogo con esa clave: uno es ése; varios con la misma, no se sabe cuál (se pregunta con ésos). */
+/**
+ * Los del catálogo con esa clave. Si son varios («Mentoría» y «Mentoria», o el mismo nombre dos veces), vale el que
+ * coincide EXACTO con lo que se mandó (lo que manda la opción de la pregunta: sin esto, elegir cualquiera volvía a
+ * preguntar); si todos se llaman igual, el primero (abajo sólo llega el nombre: son la misma landing). Si no, quedan
+ * todos y se pregunta con ésos.
+ */
+const exacto = (s: string): string => s.normalize('NFC').replace(/\s+/g, ' ').trim();
 const conClave = (s: string, productos: readonly ObjetoChat[] | null): ObjetoChat[] => {
   const k = clave(s);
-  return k && productos ? productos.filter((p) => clave(p.nombre) === k) : [];
+  const ps = k && productos ? productos.filter((p) => clave(p.nombre) === k) : [];
+  if (ps.length < 2) return ps;
+  const iguales = ps.filter((p) => exacto(p.nombre) === exacto(s));
+  if (iguales.length) return [iguales[0]];
+  return new Set(ps.map((p) => exacto(p.nombre))).size === 1 ? [ps[0]] : ps;
 };
 /**
  * ¿`nuevo` es una REFERENCIA a uno del catálogo («no es Kairos», «uno parecido a la Mentoría 1 a 1», «el de después de

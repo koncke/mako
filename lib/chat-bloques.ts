@@ -220,6 +220,10 @@ export function razon(b: Pick<BloqueCreado, 'ancho' | 'alto'>): number {
 }
 
 /** Lo que dice cada paso de un trabajo largo, para quien no ve el ícono. */
+/** Lo que mandan los dos botones de abajo de una pregunta (G1). `conRespuestas` los reconoce como suyos. */
+export const ELIGE_TU_PREGUNTA = 'Elige tú';
+export const SALTEAR_PREGUNTA = 'Saltear';
+
 export const ROTULO_PASO: Record<EstadoPaso, string> = { listo: 'Listo', en_curso: 'En curso', pendiente: 'Falta', fallo: 'Falló', incierto: 'Sin saber' };
 
 type Trabajo = Extract<Bloque, { t: 'trabajo' }>;
