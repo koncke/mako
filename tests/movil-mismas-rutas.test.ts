@@ -77,9 +77,9 @@ test('cada página de app/m tiene una URL de escritorio (sin /m) y esa URL vuelv
   for (const r of paginas) {
     const url = rutaEscritorio(r);
     assert.ok(!/^\/m(\/|$|\?)/.test(url), `${r} → ${url}: la URL sigue mostrando /m`);
-    // /m sólo reparte (va a la home): su vuelta es Today.
+    // /m sólo reparte (va a la home): su vuelta es la home, el Ops Center desde el 20/10/2026 (antes, Today).
     // /m/mako es el chat de antes: redirige al Second Brain (16/10/2026), y su vuelta es ésa.
-    const esperado = r === '/m' ? '/m/hoy' : r === '/m/mako' ? '/m/second-brain' : r;
+    const esperado = r === '/m' ? '/m/second-brain' : r === '/m/mako' ? '/m/second-brain' : r;
     assert.equal(rutaInterna(url.split('?')[0], url.split('?')[1] ?? ''), esperado, `${r} → ${url} → no vuelve`);
   }
 });
@@ -166,8 +166,9 @@ test('el proxy no toca /api, lo público, el login, el repartidor ni lo que se u
   // Hecho en la página, /inicio se dibujaba con el layout de escritorio antes de su redirect (Vercel:
   // GET /inicio 200 y recién después /general), y Martín veía la Sidebar y el resto en blanco.
   // Probado rompiéndolo: sin la regla de /inicio en pedidoMovil → 13 / 1.
-  assert.deepEqual(pm('/inicio'), { tipo: 'redirigir', destino: '/general' });
-  assert.deepEqual(pm('/inicio', { search: '?ws=3' }), { tipo: 'redirigir', destino: '/general?ws=3' });
+  // Desde el 20/10/2026 al Ops Center, la tab principal (pedido bb885d5f); hasta ese día, a General.
+  assert.deepEqual(pm('/inicio'), { tipo: 'redirigir', destino: '/second-brain' });
+  assert.deepEqual(pm('/inicio', { search: '?ws=3' }), { tipo: 'redirigir', destino: '/second-brain?ws=3' });
   assert.deepEqual(pm('/inicio', { telefono: false }), { tipo: 'seguir' }, 'la computadora reparte en la página, como siempre');
   assert.deepEqual(pm('/inicio', { metodo: 'POST' }), { tipo: 'seguir' });
   // /whatsapp dejó de ser «de la computadora» (v3): en el teléfono es la pestaña Chats.
@@ -177,7 +178,7 @@ test('el proxy no toca /api, lo público, el login, el repartidor ni lo que se u
 test('una URL /m vieja se REDIRIGE a la de escritorio (sólo GET y HEAD), para todos', () => {
   assert.deepEqual(pm('/m/crm/12', { search: '?ws=3' }), { tipo: 'redirigir', destino: '/crm/12?ws=3' });
   assert.deepEqual(pm('/m/hoy', { telefono: false }), { tipo: 'redirigir', destino: '/general' });
-  assert.deepEqual(pm('/m', { metodo: 'HEAD' }), { tipo: 'redirigir', destino: '/general' });
+  assert.deepEqual(pm('/m', { metodo: 'HEAD' }), { tipo: 'redirigir', destino: '/second-brain' }, '/m pelado es la entrada: el Ops Center');
   assert.deepEqual(pm('/m/crm/12', { metodo: 'POST' }), { tipo: 'seguir' });
   // Una /m que no está en la tabla no rebota en bucle.
   assert.deepEqual(pm('/m/inventada'), { tipo: 'seguir' });

@@ -4582,3 +4582,11 @@ Las cifras quedan para la próxima vez que alguien calcule un costo o un tope.
 **El diagnóstico obvio era el equivocado:** «faltan operaciones en la API». Muchas existen (795 en el registro). El freno es que el turno de la APP usa el clasificador del grupo de WhatsApp: ante la duda anota el pedido como idea («capturar») y le saca a MaKo la herramienta de escribir. Además, el presupuesto de 12.000 caracteres deja afuera la operación que entiende el pedido, y viajan 18 operaciones muertas de Chatwoot.
 
 **Regla:** antes de pedir una operación nueva, medir si la frase natural la hace viajar (`herramientasDelChat` / `herramientasDelTurno`). Las frases medidas pasan a una batería guardián en `tests/`, la pieza 1.1. El mapa completo y el plan por olas: docs/ops-center-principal.md. Las correcciones del crítico, en su Anexo C: el turno también suma las áreas del clasificador, y sin IA propia la app no usa la red gratis.
+
+## Lo que encontró la revisión de la tanda 1 del clasificador antes de subirla (20/10/2026)
+
+El detalle está en las notas compartidas, `revision-clasificador-tanda-1-20-10.md`.
+- **«WhatsApp no cambia» se mide comparando antes y después con las funciones reales y miles de frases, no con un test que fija un caso.** Un `replace` sin `ctx.canal` (`NOMBRADO`, que saca «llamada <nombre>») rompió en WhatsApp «cancelá la llamada pendiente con Juan»: dejó de cancelar, y con una pendiente vigente cancelaba OTRA cosa.
+- **Un default «actuar» con `dudosa:false` desarma los candados que miran `dudosa`:** un «ahí hice la prueba» volvió a crear un borrador del Plan (el bug del 25/08).
+- **Buscar la operación en TODO el registro trae escrituras de otra cosa cuando la pedida no existe** («borrá la nota» → borrar_audio), y las raíces de 5 letras matchean dentro de palabras («borra» en «borrador»). Una acción que llega sin la lectura que le da el id no «llega».
+

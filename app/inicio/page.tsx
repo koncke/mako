@@ -4,6 +4,7 @@ import { getWorkspaceActual, getRolWsEfectivo, rutaConWs } from '@/lib/workspace
 import { onboardingPendiente } from '@/lib/onboarding-state';
 import { prefiereMovil } from '@/lib/movil-guard';
 import { MOVIL_ACTIVO } from '@/lib/movil-desvio';
+import { ENTRADA_MOVIL } from '@/lib/movil-rutas';
 
 /** Si un teléfono que entra por /inicio va solo a MaKo Mobile (/m). Ver la nota de abajo. */
 const MOBILE_AL_ENTRAR = MOVIL_ACTIVO;
@@ -35,9 +36,10 @@ export default async function Inicio() {
     // del workspace de plataforma. Hasta el 12/10/2026 iba a /customer-success y el desvío lo dejaba
     // en el escritorio (Martín: «No aún no veo la versión mobile, me sale todo igual...»).
     // Con LAS MISMAS RUTAS (13/10/2026) el teléfono va a /general: el proxy le sirve ahí Today.
-    if (ws == null) redirect(telefono ? '/general' : '/clients');
+    // Desde el 20/10/2026 el teléfono entra al Ops Center, la tab principal (`ENTRADA_MOVIL`); hasta ese día, a /general.
+    if (ws == null) redirect(telefono ? ENTRADA_MOVIL : '/clients');
   }
-  if (telefono) redirect(await rutaConWs('/general'));
+  if (telefono) redirect(await rutaConWs(ENTRADA_MOVIL));
   // ⚠️ TODOS los destinos de acá van con `rutaConWs`. Este archivo es EL repartidor:
   // si pierde la pestaña, el admin que abre un cliente termina mirando otra cuenta con
   // el chrome de admin puesto — se lee como «la app se rompió», no como «me cambió de
