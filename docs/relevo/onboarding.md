@@ -9,7 +9,12 @@
   otras opciones, y se guarda recién con el toque (`opcionPorConfirmar`). En pesos se pregunta en dólares. Los arreglos
   baratos de la nota: negación sin peso doble y con evidencia, «web» sola, semana pegada, «pico»/«cifras», rangos, espacios,
   interés negado, «Sí, es así»/«Vale»/«sisi», «N pagos con tarjeta». El barrido que lo fija:
-  tests/onboarding-opcion-escrita.test.ts. La regla general quedó en AGENTS.md.
+  tests/onboarding-opcion-escrita.test.ts. La regla general quedó en AGENTS.md (la versión del Cerebro, que ya estaba en main).
+- `4aa825cbd`: las listas de lo que escribe la persona (DICE_SI, monedas) a lib/onboarding-frases.ts, fuera del guard de
+  voseo («ándale», «soles»).
+- **La entrada de MaKo al abrir la app en el teléfono es UNA: la de ShellM (main, 21/10).** La de esta rama
+  (EntradaMobile en el layout, `80c997d4c`/`6c3e3a8c4`) se fue al mergear: eran dos para el mismo pedido. Queda la clave
+  compartida `CLAVE_ENTRADA_MOVIL` (app/m/_ui/entrada.ts) para que el final del onboarding no la repita.
 - Sin hacer: el «¿Está correcto el PDF?» lee un sí/no escrito sin confirmar (bajo riesgo). Lo de antes sigue: `CajaChat`,
   el tutorial en /m, la propuesta del CRM aparte, y el ws21 y las keys del ws1 esperan a Martín.
 

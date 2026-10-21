@@ -182,7 +182,7 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     if (entrando.current) return;
     entrando.current = true;
     setEntrandoYa(true);
-    // En el teléfono, la entrada de MaKo ya se vio acá: el layout de /m no la repite (EntradaMobile).
+    // En el teléfono, la entrada de MaKo ya se vio acá: la de abrir la app (ShellM) no se repite.
     try { sessionStorage.setItem(CLAVE_ENTRADA_MOVIL, '1'); } catch { /* sin storage */ }
     let destino = vista.modo === 'oferta' ? RUTA_AL_TERMINAR : '/plan';
     if (vista.modo === 'oferta') {

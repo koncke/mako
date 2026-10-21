@@ -21,13 +21,11 @@ import type { Viewport } from 'next';
 import type { ReactNode } from 'react';
 import './m.css';
 import { ShellM } from './_ui/ShellM';
-import { EntradaMobile } from './_ui/EntradaMobile';
 import { contarBadges } from './badges';
 import { contextoMovil } from '@/lib/movil-guard';
 import { barraMovil } from '@/lib/movil-rutas';
 import { CAPTURA_TEMPRANA } from '@/lib/movil-instalar';
 import { TEMA_ANTES_DE_PINTAR } from './_ui/tema';
-import { ENTRADA_ANTES_DE_PINTAR } from './_ui/entrada';
 import { inicialesM } from './_ui/formato';
 import { leerPerfil } from '@/lib/perfil';
 
@@ -72,8 +70,6 @@ export default async function LayoutMovil({ children }: { children: ReactNode })
           tienen que existir antes del primer pintado y antes de que hidrate React. */}
       <script dangerouslySetInnerHTML={{ __html: TEMA_ANTES_DE_PINTAR }} />
       <script dangerouslySetInnerHTML={{ __html: CAPTURA_TEMPRANA }} />
-      {/* La entrada de MaKo: con la sesión ya vista, oculta desde el primer cuadro (./_ui/entrada.ts). */}
-      <script dangerouslySetInnerHTML={{ __html: ENTRADA_ANTES_DE_PINTAR }} />
       <ShellM
         barra={barra}
         badges={badges}
@@ -82,9 +78,6 @@ export default async function LayoutMovil({ children }: { children: ReactNode })
       >
         {children}
       </ShellM>
-      {/* La entrada de MaKo al abrir la app (20/10/2026, pedido del 18/10, punto 2): una vez por sesión. Va AQUÍ y no
-          en ShellM: el índice de app/m/_ui reexporta ShellM, los tests lo cargan en node, y la entrada trae un .css. */}
-      <EntradaMobile />
     </div>
   );
 }
