@@ -974,7 +974,7 @@ export const BITACORA: Hito[] = [
     revisar: '/admin/operaciones',
     puntos: [
       'A cada cliente, MaKo le habla de SU negocio por su nombre: antes le decía que el negocio era de Martín.',
-      'Si MaKo dice «Listo, ya lo armé» sin haber hecho nada, eso no sale: queda «En este mensaje no hice nada: fíjate si ya quedó».',
+      'Si MaKo dice «Listo, ya lo armé» y no hay nada que lo respalde, lo dice igual con una nota: «No veo esa acción en este chat: revísala antes de darla por hecha».',
       'Lo mismo en la retrospectiva y en el asesor de WhatsApp.',
       'MaKo se sigue presentando como «el consultor IA de Martín Koncke»: eso es la marca, y lo decides tú.',
     ],
@@ -1036,7 +1036,7 @@ export const BITACORA: Hito[] = [
       'En la computadora, Enter con «1.» manda. Y puedes dictar mientras MaKo trabaja.',
     ],
     archivos: [
-      'lib/doer-salida.ts (RespaldoDeHecho, SIN_HECHO), lib/mako-turno-app.ts',
+      'lib/doer-salida.ts (RespaldoDeHecho, NOTA_SIN_RESPALDO), lib/mako-turno-app.ts',
       'lib/chat-trabajos.ts (hasta), app/api/mako/propuesta/route.ts, app/_chat/BloqueHilo.tsx, app/_chat/FormularioEnChat.tsx',
       'lib/mako-turno-app-reglas.ts (aRetirar), app/_chat/CajaChat.tsx, app/admin/operaciones/Microfono.tsx',
       'lib/centro-plan-auto-reglas.ts (saltados), lib/centro-preguntas-chat.ts',
