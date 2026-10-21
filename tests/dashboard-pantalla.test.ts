@@ -21,6 +21,7 @@
 //   · pedidosDeHoja ignora la vista                    -> 18 / 1  «pedidosDeHoja: lo elegido mirando…»
 //   · el CSV sin BOM                                   -> 18 / 1  «el CSV de una hoja…»
 //   · una celda sin la guarda de fórmulas              -> 17 / 2  «una celda…» y «el CSV de una hoja…»
+//   · la guarda sin el «-», o sin el tabulador (20/10/2026, base 22 / 0) -> 21 / 1  «una celda…» (scratchpad/romper-csv.mjs)
 //   · una celda con el separador y sin comillas        -> 17 / 2  los mismos dos
 //   · sinPersonas que no oculta las filas              -> 17 / 2  «lo que lee MaKo…» y «la lista es la del AI Analyst…»
 //   · sinPersonas que no oculta el desglose            -> 18 / 1  «lo que lee MaKo…»
@@ -165,6 +166,10 @@ test('una celda: comillas cuando hacen falta, la comilla de adentro doble, y un 
   assert.equal(celdaCsv('=HYPERLINK("x")'), `"'=HYPERLINK(""x"")"`, 'una campaña que empieza con = se abre como fórmula en Excel');
   assert.equal(celdaCsv('+54 9 11'), "'+54 9 11");
   assert.equal(celdaCsv('@usuario'), "'@usuario");
+  // 20/10/2026 (lo preguntó el Cerebro al revisar la descarga del Ops Center): el «-» y el tabulador también abren una
+  // fórmula, y hasta hoy sacarlos de la guarda no tumbaba ningún test.
+  assert.equal(celdaCsv('-Black Friday'), "'-Black Friday", 'un TEXTO que empieza con - también');
+  assert.equal(celdaCsv('\t=1+1'), "'\t=1+1", 'y uno que empieza con un tabulador');
   assert.equal(celdaCsv(-12.5), '-12.5', 'un NÚMERO negativo es un número: no lleva apóstrofo');
   assert.equal(celdaCsv(null), '');
   assert.equal(celdaCsv('a;b', ';'), '"a;b"', 'el separador manda las comillas');

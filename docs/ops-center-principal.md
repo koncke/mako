@@ -993,4 +993,5 @@ El detalle acción por acción (operación de la API, si se puede hoy, qué falt
 - [pagos-cuenta](ops-center-principal/mapa-pagos-cuenta.md): 77 acciones (sí 16, parcial 13, no 46).
 - [plan-calendario-dashboard](ops-center-principal/mapa-plan-calendario-dashboard.md): 89 acciones (sí 19, parcial 26, no 40).
 - [automations-clients](ops-center-principal/mapa-automations-clients.md): 63 acciones (sí 4, parcial 22, no 35).
+- [experimentos-closing](ops-center-principal/mapa-experimentos-closing.md): 28 acciones (sí 11, parcial 14, no 2, sin verificar 1). Lo pidió el Anexo C (A.1 y A.2); lo mapeó el chat Dashboard el 20/10.
 
