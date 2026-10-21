@@ -9,7 +9,10 @@
 //   3. el turno lleva la herramienta cuando lleva alguna, la corre ANTES que todo, retira en la base lo que propuso antes
 //      de preguntar, y guarda la pregunta con el mensaje;
 //   4. el hilo la dibuja al volver el turno y al recargar, contestada si ya hubo respuesta, y las cuatro pantallas
-//      mandan lo que se toca como el siguiente mensaje.
+//      mandan lo que se toca como el siguiente mensaje;
+//   5. (revisión del 21/10/2026) lo que el turno propuso en una pantalla se retira EN LA BASE, cada uno con su descarte (el
+//      borrador del plan, la ficha de lead, la propuesta de video, el borrador de WhatsApp, la genérica), sólo si lo creó
+//      este turno; y el mensaje no dice «confírmalo abajo» sin nada abajo.
 // ⚠️ La frase del «Hecho» hoy cae en `capturar`, sin herramientas: la pregunta no viaja con ella hasta que el clasificador
 //    la mande a actuar (la 1.2, con la D1). Lo fija el test 3, para que el día que cambie se vea.
 //
@@ -17,7 +20,9 @@
 //   · `bloquea` que deja pasar las acciones → 1 fallo (2);
 //   · `retirar` que devuelve todo → 1 fallo (2);
 //   · el turno sin guardar la pregunta con el mensaje → 1 fallo (3) (desde el 21/10, `conElMensaje` sin la pregunta);
-//   · `itemsDeSesion` sin marcar la contestada → 1 fallo (4).
+//   · `itemsDeSesion` sin marcar la contestada → 1 fallo (4);
+//   · (21/10) `aRetirar` sólo con la genérica, como antes → 1 fallo (5); que retira también la que ya estaba pendiente
+//     → 1 fallo (5); el mensaje del borrador con una pregunta → 1 fallo (5); el turno sin retirar por clase → 1 fallo (5).
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -26,10 +31,10 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { porId } from '../lib/api-mako/registro';
+import { REGISTRO, porId } from '../lib/api-mako/registro';
 import { PREGUNTAR, TOOL_PREGUNTAR, crearGuardiaDePregunta, retirar } from '../lib/chat-pregunta';
 import { clasificarIntencion } from '../lib/mako-intencion';
-import { herramientasDelChat } from '../lib/mako-turno-app-reglas';
+import { aRetirar, herramientasDelChat, linksDeUnaAccion } from '../lib/mako-turno-app-reglas';
 import { itemsDeRespuesta, itemsDeSesion } from '../app/m/mako/chat-ui';
 import type { Bloque } from '../lib/chat-bloques';
 
@@ -76,7 +81,7 @@ test('3. el turno: lleva la herramienta, la corre antes que todo, retira y guard
   assert.match(correr, /if \(name === PREGUNTAR\) \{[\s\S]*guardia\.preguntar\(input\)/, 'la pregunta la toma la guardia');
   assert.match(correr, /if \(guardia\.bloquea\(name\)\) return \{ content: JSON\.stringify\(\{ ok: false, error: ERROR_TRAS_PREGUNTAR \}\), isError: true \};/, 'y rechaza ANTES de correr nada');
   assert.match(s, /resolverPendiente\(ws, t\.pendienteId, 'cancelada', 'MaKo preguntó antes de proponer', \{ soloSiPendiente: true \}\)/, 'retira las tarjetas del turno en la base');
-  assert.match(s, /descartarPropuesta\(id\)/, 'y las propuestas de pantalla');
+  assert.match(s, /\.\.\.capturados\.map\(\(l\) => retirarEnSuPantalla\(ws, aRetirar\(l\)\)\)/, 'y las propuestas de pantalla (test 5)');
   // Desde el 21/10 va junto con lo que dibujaron las herramientas (tests/chat-bloques-salida.test.ts).
   assert.match(s, /const conElMensaje = \[\.\.\.dibujos, \.\.\.\(pregunta \? \[pregunta\] : \[\]\)\]/, 'la pregunta va con el mensaje');
   assert.match(s, /await appendMessage\(s\.id, 'assistant', respuesta, conElMensaje\.length \? conElMensaje\.map\(aGuardar\) : undefined\);/);
@@ -106,4 +111,30 @@ test('4. el hilo la dibuja, contestada si ya hubo respuesta, y lo que se toca sa
   assert.match(sinComentarios(leer('app/crm/mako-crm/ChatMakoCrm.tsx')), /onResponder=\{\(t\) => enviar\(\{ texto: t \}\)\}/, 'el chat del CRM');
   assert.match(sinComentarios(leer('app/crm/lead-view/MakoAnalystLead.tsx')), /<BloqueHilo b=\{x\.b\} respondida=\{x\.respondida\} onResponder=\{\(t\) => enviar\(\{ texto: t, adjuntos: \[\] \}\)\}/, 'el de la ficha');
   assert.match(sinComentarios(leer('app/m/mako/ChatMako.tsx')), /onResponder=\{\(t\) => void enviar\(\{ texto: t, adjuntos: \[\] \}\)\}/, 'el teléfono');
+});
+
+test('5. lo propuesto en una pantalla se retira en la base, cada uno con su descarte, y el mensaje no lo ofrece', () => {
+  const salida = (url: string, extra: Record<string, unknown> = {}, nueva = true) => JSON.stringify({ ...extra, ok: true, url, link: url, nueva });
+  const video = REGISTRO.find((d) => d.area === 'video' && d.tipo === 'accion' && d.confirmacion === 'pantalla' && d.pantalla === '/video-editor')!;
+  const casos: Array<[string, Record<string, unknown>, string, string]> = [
+    ['proponer_tareas_plan', { tareas: [{ titulo: 'a' }] }, JSON.stringify({ ok: true, link: 'https://hola-mako.com/plan/revisar/propabc123?ws=9' }), 'borrador:propabc123'],
+    ['proponer_lead', { nombre: 'Ana' }, salida('https://hola-mako.com/crm/revisar/lead77?ws=9'), 'lead:lead77'],
+    [video.id, {}, salida('https://hola-mako.com/video-editor/proy-1?propuesta=vp42&ws=9'), 'editor:vp42'],
+    ['crear_borrador_whatsapp_empresa', { leadId: 7, texto: 'hola' }, salida('https://hola-mako.com/whatsapp?canal=no-oficial&chat=x', { para: 'Juan', borradorId: 314 }), 'whatsapp:314'],
+    ['proponer_estado_campana', {}, salida('https://hola-mako.com/mako/revisar/zz9?ws=9'), 'accion:zz9'],
+  ];
+  for (const [op, input, out, esperado] of casos) {
+    const [l] = linksDeUnaAccion(op, input, out);
+    const r = l ? aRetirar(l) : null;
+    assert.equal(r ? `${r.clase}:${r.id}` : null, esperado, op);
+  }
+  const [vieja] = linksDeUnaAccion('proponer_lead', { nombre: 'Ana' }, salida('https://hola-mako.com/crm/revisar/lead77?ws=9', {}, false));
+  assert.equal(aRetirar(vieja), null, 'la que ya estaba pendiente de antes no es de este turno: no se toca');
+  const s = sinComentarios(leer('lib/mako-turno-app.ts'));
+  assert.match(s, /const borrador = pregunta \? null : capturados\.find/, 'con una pregunta, el mensaje del borrador no sale');
+  assert.match(s, /const lead = pregunta \? null : capturados\.find/, 'ni el de la ficha');
+  const retiro = s.slice(s.indexOf('async function retirarEnSuPantalla'), s.indexOf('async function anotarEnHilo'));
+  for (const f of ['descartarPropuesta(r.id)', 'descartarBorradorDelPlan(r.id)', "resolverPropuestaDeVideo({ ws, id: r.id, estado: 'descartada'", 'descartarBorrador(Number(r.id))']) {
+    assert.ok(retiro.includes(f), `retira con ${f}`);
+  }
 });

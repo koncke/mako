@@ -66,13 +66,16 @@ import { partirPegados, recortarMensaje, textoParaTitulo } from '@/lib/chat-pega
 import { archivoATexto } from '@/lib/archivo-a-texto';
 import { aFila, plano } from '@/lib/bandeja-filas';
 import { descartarPropuesta, getPropuesta, propuestasPendientesDelChat } from '@/lib/propuestas';
+import { descartarPropuesta as descartarBorradorDelPlan } from '@/lib/plan-propuesta';
+import { resolverPropuesta as resolverPropuestaDeVideo } from '@/lib/editor-video/propuestas-server';
+import { descartarBorrador } from '@/lib/evolution-envio';
 import { getPendiente, resolverPendiente } from '@/lib/mako-pendientes';
 import { PREGUNTAR, TOOL_PREGUNTAR, ERROR_TRAS_PREGUNTAR, crearGuardiaDePregunta, retirar } from '@/lib/chat-pregunta';
 import { enSegundoPlano } from '@/lib/chat-trabajos';
 import { puedeVerKey } from '@/lib/movil-rutas';
 import { bloquesDeAdjuntos, placeholderDeAdjunto, promptDeAdjunto, type AdjuntoListo } from '@/lib/mako-adjuntos';
 import {
-  chartKeyDePersona, canalKeyDeSesion, herramientasDelChat, tarjetaDePendiente, linksDeUnaAccion, abrirDeResultado, idDePropuesta,
+  chartKeyDePersona, canalKeyDeSesion, herramientasDelChat, tarjetaDePendiente, linksDeUnaAccion, abrirDeResultado, idDePropuesta, aRetirar,
   type FormularioPropuesta, type PropuestaPantalla,
   propuestaDePantalla, sinLinksDeRevision, MENSAJE_BORRADOR_APP, mensajeLeadApp, TEXTO_SOLO_TARJETA, TEXTO_SOLO_BLOQUE,
   historialParaModelo, hechoEnElHilo, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA,
@@ -570,7 +573,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     if (pregunta) {
       await Promise.all([
         ...delTurno.map((t) => resolverPendiente(ws, t.pendienteId, 'cancelada', 'MaKo preguntó antes de proponer', { soloSiPendiente: true }).catch(() => false)),
-        ...capturadas.map((p) => { const id = p.clase === 'accion' ? idDePropuesta(p.escritorio) : null; return id ? descartarPropuesta(id).catch(() => undefined) : undefined; }),
+        ...capturados.map((l) => retirarEnSuPantalla(ws, aRetirar(l))),
       ]);
     }
     const retirado = retirar(pregunta, delTurno, capturadas);
@@ -581,8 +584,9 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // editor») no se dibuja dos veces: queda el bloque.
     const conBloque = new Set(dibujos.flatMap((b) => ('abrir' in b && b.abrir ? [b.abrir.href] : [])));
     const pantallas = retirado.pantallas.filter((p) => !conBloque.has(p.escritorio));
-    const borrador = capturados.find((c) => c.clase === 'borrador') ?? null;
-    const lead = capturados.find((c) => c.clase === 'lead') ?? null;
+    // Con lo que QUEDA: con una pregunta se retiró, y el mensaje no puede decir «confírmalo abajo» sin nada abajo.
+    const borrador = pregunta ? null : capturados.find((c) => c.clase === 'borrador') ?? null;
+    const lead = pregunta ? null : capturados.find((c) => c.clase === 'lead') ?? null;
 
     let respuesta: string | null = null;
     let aviso: string | null = avisos.length ? avisos.join(' ') : null;
@@ -639,6 +643,20 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
  *  siguiente («¿ya lo hiciste?»). Es el `resumen` del resultado, que por contrato es apto
  *  para un modelo (lo que no, va en `paraLaPersona` y no se guarda). Si guardarlo falla, la
  *  acción igual quedó hecha: no se revierte una ejecución porque no se pudo anotar. */
+/** Lo que el turno propuso en una pantalla y se retira porque MaKo preguntó (1.9): cada uno con SU descarte, que sólo
+ *  toca lo que sigue pendiente. Si falla, se registra y el turno sigue: la pregunta igual sale. */
+async function retirarEnSuPantalla(ws: number, r: ReturnType<typeof aRetirar>): Promise<void> {
+  if (!r) return;
+  try {
+    if (r.clase === 'accion' || r.clase === 'lead') await descartarPropuesta(r.id);
+    else if (r.clase === 'borrador') await descartarBorradorDelPlan(r.id);
+    else if (r.clase === 'editor') await resolverPropuestaDeVideo({ ws, id: r.id, estado: 'descartada', persona: 'MaKo', descartes: [] });
+    else await descartarBorrador(Number(r.id));
+  } catch (e) {
+    console.error(`[mako-turno-app] ws=${ws} no pude retirar ${r.clase} ${r.id}:`, e instanceof Error ? e.message : String(e));
+  }
+}
+
 async function anotarEnHilo(sessionId: number, texto: string, bloques: readonly Bloque[] = []): Promise<void> {
   // Con el bloque (lib/chat-bloques.ts): al recargar, lo creado vuelve con su miniatura debajo del «Hecho: …».
   try { await appendMessage(sessionId, 'assistant', texto, bloques.length ? bloques.map(aGuardar) : undefined); }

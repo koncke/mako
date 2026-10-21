@@ -172,7 +172,9 @@ export function tarjetaDePendiente(
 /** Una propuesta de PANTALLA que dejó una acción en este turno (un borrador del plan, la
  *  ficha de un lead, el formulario genérico). En el teléfono se revisa en Avisos (/m/inbox). */
 /** `editor` (la propuesta del Video Editor) y `whatsapp` (el borrador en la cola) se aceptan en SU pantalla (1.8). */
-export type LinkCapturado = { clase: 'borrador' | 'lead' | 'accion' | 'editor' | 'whatsapp'; url: string; operacion: string; nombre?: string; tareas?: number };
+/** `nueva`: la creó ESTE turno (no es una igual que ya estaba pendiente; sin el dato, no se sabe y no se retira). `borrador`: el id del borrador de WhatsApp, que
+ *  su link no lleva. Los dos, para retirarla si MaKo pregunta (`aRetirar`). */
+export type LinkCapturado = { clase: 'borrador' | 'lead' | 'accion' | 'editor' | 'whatsapp'; url: string; operacion: string; nombre?: string; tareas?: number; nueva?: boolean; borrador?: number };
 
 const jsonDe = (out: unknown): Record<string, unknown> | null => {
   if (typeof out !== 'string') return null;
@@ -194,23 +196,43 @@ export function linksDeUnaAccion(nombre: string, input: Record<string, unknown>,
   const res: LinkCapturado[] = [];
   const url = typeof j.url === 'string' ? j.url : null;
   const link = typeof j.link === 'string' ? j.link : null;
+  // Sin `nueva` (la salida vieja del borrador del plan), es nueva: esa herramienta crea siempre uno.
+  const nueva = j.nueva !== false;
   // 20/10/2026 (1.8): lo que se acepta en SU pantalla tampoco quedaba con qué abrirlo. La propuesta de video
   // (`/video-editor/<p>?propuesta=<id>`) y el borrador de WhatsApp (`/whatsapp?…&chat=…`) no pasan por /revisar/.
   if (def && esAccion(def) && def.confirmacion === 'pantalla' && url) {
-    if (def.pantalla === '/video-editor' && rutaDeEscritorio(url).startsWith('/video-editor/')) res.push({ clase: 'editor', url, operacion: nombre });
+    if (def.pantalla === '/video-editor' && rutaDeEscritorio(url).startsWith('/video-editor/')) res.push({ clase: 'editor', url, operacion: nombre, nueva });
     if (def.pantalla === '/whatsapp' && rutaDeEscritorio(url) === '/whatsapp') {
-      res.push({ clase: 'whatsapp', url, operacion: nombre, ...(typeof j.para === 'string' && j.para.trim() ? { nombre: j.para.trim() } : {}) });
+      const borrador = typeof j.borradorId === 'number' && Number.isInteger(j.borradorId) && j.borradorId > 0 ? j.borradorId : null;
+      res.push({ clase: 'whatsapp', url, operacion: nombre, nueva, ...(typeof j.para === 'string' && j.para.trim() ? { nombre: j.para.trim() } : {}), ...(borrador ? { borrador } : {}) });
     }
   }
-  if (url && url.includes('/mako/revisar/')) res.push({ clase: 'accion', url, operacion: nombre });
+  if (url && url.includes('/mako/revisar/')) res.push({ clase: 'accion', url, operacion: nombre, nueva });
   if (link && link.includes('/plan/revisar/')) {
     const dadas = (input as { tareas?: unknown }).tareas;
-    res.push({ clase: 'borrador', url: link, operacion: nombre, ...(Array.isArray(dadas) ? { tareas: dadas.length } : {}) });
+    res.push({ clase: 'borrador', url: link, operacion: nombre, nueva, ...(Array.isArray(dadas) ? { tareas: dadas.length } : {}) });
   }
   if (url && url.includes('/crm/revisar/')) {
-    res.push({ clase: 'lead', url, operacion: nombre, nombre: String((input as { nombre?: unknown }).nombre ?? '').trim() });
+    res.push({ clase: 'lead', url, operacion: nombre, nueva, nombre: String((input as { nombre?: unknown }).nombre ?? '').trim() });
   }
   return res;
+}
+
+/**
+ * Lo que hay que retirar EN LA BASE de una propuesta de pantalla cuando MaKo pregunta en el mismo turno (1.9; revisión
+ * del 21/10/2026): antes sólo se descartaba la genérica (/mako/revisar), y el borrador del plan, la ficha de lead, la
+ * propuesta de video y el borrador de WhatsApp quedaban vivos en su pantalla; al contestar, MaKo armaba otro y quedaban
+ * dos. null = no se toca: una que ya estaba pendiente de antes (`nueva: false`) no es de este turno.
+ */
+export function aRetirar(l: LinkCapturado): { clase: LinkCapturado['clase']; id: string } | null {
+  if (l.nueva !== true) return null;
+  const ruta = rutaDeEscritorio(l.url);
+  const id = l.clase === 'accion' ? idDePropuesta(ruta)
+    : l.clase === 'borrador' ? /^\/plan\/revisar\/([A-Za-z0-9_-]{1,80})$/.exec(ruta)?.[1] ?? null
+    : l.clase === 'lead' ? /^\/crm\/revisar\/([A-Za-z0-9_-]{1,80})$/.exec(ruta)?.[1] ?? null
+    : l.clase === 'editor' ? (() => { try { return new URL(l.url, 'https://x.invalid').searchParams.get('propuesta'); } catch { return null; } })()
+    : l.borrador != null ? String(l.borrador) : null;
+  return id && /^[A-Za-z0-9_-]{1,80}$/.test(id) ? { clase: l.clase, id } : null;
 }
 
 /** La ruta de escritorio de un link, sin dominio ni query: el `?ws=` lo pone quien navega
