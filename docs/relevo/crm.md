@@ -54,6 +54,21 @@ derecha (y su pestaña plegada), los íconos de la vista y «⋯» › «Persona
 **Siguiente:** cuando `app/_chat/CajaChat.tsx` (rama `chat-unico`, de Ops Center 3) llegue a main, cambiar el chat de
 adentro de la barra (`PanelMakoCrm.tsx` monta `ChatMakoCrm`). El resto, en «Lo que falta» de docs/pedidos-crm.md.
 
+Después, la misma noche (B2, 2 de 5): «Pago rechazado» / «Cuota vencida» en la tarjeta de un cliente (computadora y
+teléfono, una lectura para la cartera: `app/customer-success/cobro-tarjeta.ts`) y la cara del cliente en el teléfono
+(`CaraCliente`, misma cadena que la computadora). Test `tests/cs-tarjeta-cobro.test.ts`. No visto en pantalla: se revisa
+en /customer-success (una tarjeta con un cobro fallido) y en /m/cs (las caras).
+
+D4 completo (20/10, noche): las sugerencias de MaKo suman el mismo mensaje a 3 leads de una etapa (sin WhatsApp: no sabe
+quién escribió), la landing o campaña sin CRM y el lead que vuelve a la landing o mira el VSL dos veces. Van por el chat
+(no hay plantilla para ninguna). D5 espera a que el pedido B de Automations llegue a main (lo avisa el Cerebro).
+
+B1, primera parte (20/10, noche): las columnas del Plan se renombran (clic en el nombre o «⋯» › «Cambiar el nombre»,
+sólo el admin), por negocio, en la computadora, el teléfono y MaKo. Segunda parte, la misma noche: agregar y quitar
+columnas PROPIAS desde el «⋯» (un paso dentro de un estado; la tarea guarda `columna`, mig 0317, que aplica el Cerebro
+al integrar). B1 queda Hecho. No visto en pantalla: se revisa en /plan («⋯» de una columna › «Agregar columna»,
+arrastrar una tarea ahí y quitarla).
+
 ## 0-Ω17. 20/10/2026 (chat «CRM», cuenta `claude4`): Chats lento, EN PRODUCCIÓN (run 165)
 
 Lo vio Martín en la llamada con Leila del 19/10 (minuto 55:12). Arreglo `b7817fe9f` (+ `87464faa8`), VERDE `3107dbeca`.
@@ -1288,6 +1303,44 @@ Lo que el briefing previo daba por abierto y **ya no es cierto**:
   19:04, ajeno y transitorio: a las 19:11 ya estaba verde (sección 3). **Si lo reportás,
   fechá la lectura y volvé a medir antes de mandar el mensaje** — re-correrlo cuesta
   segundos y acusar a la sesión de al lado de romper el repo cuesta un turno de ella.
+
+## 0-Ω19. 21/10/2026, madrugada (chat «CRM», cuenta `claude4`): Ops Center 2.1, lo que le faltaba a Chats
+
+Cinco operaciones del área `chats` con la tarjeta (D3a: el toque en «Enviar» es la aprobación): mandar un WhatsApp
+(por la cola de borradores), contestar un DM y un email, agregar un contacto al CRM y marcar leído. Test
+`tests/chats-mako-envio.test.ts`; cosecha en hallazgos-comunicacion. El pedido directo depende de la 1.2 (rama
+`mako-wa`); el «sí» a un ofrecimiento ya llega en main (ver la tercera revisión). No visto en el navegador.
+
+Revisión del Cerebro sobre c2de8a159 (21/10): los 7 medios arreglados, más dos bajos (MaKo ve la columna propia; la
+cartera de a tandas). Queda bajo: «Hacerlo» por el chat no calla la sugerencia en el server. Detalle en hallazgos-plan,
+hallazgos-crm y hallazgos-customer-success (las tres «Lo que encontró la revisión…»).
+
+Segunda revisión (21/10): la 2.1 rehecha. Los tres envíos sólo por la app («un envío al lead se aprueba con un toque»),
+la rueda de áreas como en main, la tarjeta muestra entero lo que sale, el canal por la cosa nombrada, el bloqueo en la
+puerta única, y los bajos (VSL sólo después del alta, el rechazo por su evento, MaKo y la columna propia en historial y
+listas). ~~Sin la 1.2, la 2.1 no llega en la app~~: falso, ver abajo.
+
+Tercera revisión (21/10): ⚠️ **la 2.1 llega HOY a la app** por el «sí» a un ofrecimiento (un «¿le contesto por DM…?» +
+«sí, dale» trae los tres envíos); con la integración llega a producción. Arreglado: reusar sólo un borrador de texto de
+la misma línea; el bloqueo por los últimos 10 dígitos en la puerta; el número con país en la tarjeta; la bandeja
+/mako/pendientes con `lineasDelPayload`; mover a una columna propia por su nombre; el canal leído del pedido y no de lo
+dictado; «mándale/contéstale» sólo aceptan; «no sé si salió» en un corte por tiempo; el rechazo de Clients atado a su
+cobro. Queda: el borrador que vuelve a pendiente tras un corte por tiempo (puede duplicar); dos cobros con el mismo
+concepto. Cosecha en hallazgos-comunicacion, hallazgos-api-mako, hallazgos-plan y hallazgos-customer-success.
+
+Al integrar con `mako-wa` (MaKo Alert, 21/10): esa rama suma `AccionDef.aTerceros` y `tests/confirmacion-terceros.test.ts`
+frena las acciones de chat que le escriben a alguien sin la marca. Los tres envíos de la 2.1 (`enviar_borrador_whatsapp`,
+`contestar_dm`, `contestar_email_chat`) llevan `aTerceros: true`: lo pone la rama que entre SEGUNDA (hoy la marca no
+existe en main y el tipo no la acepta).
+
+Cuarta revisión (21/10): la media venía de PRODUCCIÓN (desde el 20/10, ws11): un bloqueado desde /chats seguía
+recibiendo la secuencia, el AI Step, la rama y los recordatorios. La identidad de un bloqueo es ahora UNA regla
+(`TelefonosDe` / `mismoContacto`, lib/numero-whatsapp.ts) en `estaBloqueado`, desbloquear, ocultar y las listas.
+También: `lineasDelPayload` pinta las listas de objetos elemento por elemento; «respóndele sí» dicta; el canal corta en
+«: » y las redes cuentan con «por»; «fetch failed» es «no sé si salió»; el reuso compara el número entero con país;
+`agregar_contacto_al_crm` sólo por la app. Queda: el id del cobro en el evento del rechazo (compartir concepto es lo
+normal), el «sí» a «¿le contesto por WhatsApp?», el borrador incierto que vuelve a pendiente, y MaKo-whatsapp con 9
+dígitos. `aTerceros` sigue sin estar en main al 21/10 (ef0fe3464).
 
 /crm en lista, escritorio chico (21/10, pedido de Martín vía el Cerebro, rama `crm-lista-chica`): columnas con prioridad
 por el ancho medido, encabezado y etapa que recortan, Empresa a la fila. Medido con el arnés: 0 textos fuera de su celda

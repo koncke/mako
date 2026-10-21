@@ -36,6 +36,8 @@ import { emailNormalizado, emailUtilizable } from '@/lib/agencia-altas';
 import { carteraEnEntrega } from '@/app/customer-success/entrega';
 import { esDelProducto } from '@/app/customer-success/pertenencia';
 import { accesoDeFila, estadoDeInvitacion } from '@/app/customer-success/curso-ficha-lectura';
+import { cobrosDeLaCartera } from '@/app/customer-success/cobro-tarjeta';
+import { urlGravatar } from '@/lib/gravatar';
 import { waMeHref } from '@/app/m/crm/reglas';
 import { ComputadoraM, ErrorM, PantallaM, VacioM } from '@/app/m/_ui';
 import { SeccionesClientsM } from './SeccionesClientsM';
@@ -51,19 +53,20 @@ const COMPU = 'Editar etapas, el curso y la ficha completa';
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /**
- * El teléfono de cada ganado, para wa.me cuando quien mira no ve el CRM (con el CRM, el link va
- * al chat de /m/crm, que ya ofrece wa.me si el lead nunca escribió a la línea).
+ * El teléfono de cada ganado y su foto de WhatsApp guardada: el teléfono, para wa.me cuando quien mira
+ * no ve el CRM (con el CRM, el link va al chat de /m/crm, que ya ofrece wa.me si el lead nunca escribió
+ * a la línea); los dos, para su CARA en la tarjeta (20/10/2026: antes eran iniciales para todos).
  *
  * ⚠️ UNA LECTURA APARTE y no un campo de `clientesGanados`: esa lista enumera columnas a propósito
- * (la usan los pickers del tablero) y el teléfono es de esta pantalla. `null` = no se pudo leer:
- * la fila de WhatsApp no se ofrece, que es de menos y no un link roto.
+ * (la usan los pickers del tablero) y esto es de esta pantalla. `null` = no se pudo leer: la fila de
+ * WhatsApp no se ofrece y la cara sale de lo elegido o del email, que es de menos y no algo roto.
  */
-async function telefonosDeGanados(): Promise<Map<number, string | null> | null> {
+async function contactosDeGanados(): Promise<Map<number, { telefono: string | null; fotoGuardada: string | null }> | null> {
   try {
     const db = await getTenantDb();
-    const filas = await leerTodo<{ id: number; telefono: string | null }>(db, 'leads', 'id, telefono',
+    const filas = await leerTodo<{ id: number; telefono: string | null; foto_auto_url: string | null }>(db, 'leads', 'id, telefono, foto_auto_url',
       { orden: 'id', eq: { estado_lead: 'ganado' } });
-    return new Map(filas.map((f) => [Number(f.id), f.telefono]));
+    return new Map(filas.map((f) => [Number(f.id), { telefono: f.telefono, fotoGuardada: f.foto_auto_url?.trim() || null }]));
   } catch (e) {
     console.warn('[m/cs] no pude leer los teléfonos:', msg(e));
     return null;
@@ -142,14 +145,24 @@ export default async function CustomerSuccessMovil() {
   // Con el CRM a la vista, WhatsApp abre el chat de /m/crm (la línea del negocio, y wa.me si nunca
   // escribió). Sin el CRM ese link lo devolvería a Today: ahí va wa.me directo.
   const conCrm = puedeVerKey('crm', ctx.rol, ctx.capa);
-  const telefonos = conCrm ? null : await telefonosDeGanados();
+  // Las dos lecturas a la vez: los contactos (wa.me y la cara) y el cobro de cada uno (el aviso de la tarjeta).
+  const [contactos, cobros] = await Promise.all([contactosDeGanados(), cobrosDeLaCartera(ganados.map((c) => c.leadId))]);
 
-  const clientes: ClienteCs[] = ganados.map((c) => ({
-    id: c.leadId,
-    nombre: c.nombre.trim() || 'Sin nombre',
-    empresa: c.empresa?.trim() || null,
-    wa: conCrm ? `/m/crm/${c.leadId}/chat` : waMeHref(telefonos?.get(c.leadId) ?? null),
-  }));
+  const clientes: ClienteCs[] = ganados.map((c) => {
+    const k = contactos?.get(c.leadId);
+    return {
+      id: c.leadId,
+      nombre: c.nombre.trim() || 'Sin nombre',
+      empresa: c.empresa?.trim() || null,
+      wa: conCrm ? `/m/crm/${c.leadId}/chat` : waMeHref(k?.telefono ?? null),
+      cara: {
+        avatarUrl: c.avatarUrl?.trim() || null, icono: c.icono?.trim() || null,
+        telefono: k?.telefono ?? null, fotoGuardada: k?.fotoGuardada ?? null,
+        fotoEmail: c.email?.trim() ? urlGravatar(c.email, 176) : null,
+      },
+      cobro: cobros?.[c.leadId] ?? null,
+    };
+  });
 
   // De qué servicio es cada uno: su casa (el embudo del CRM) o una fila ahí — la regla del kanban.
   const miembros = new Map<number, number[]>();

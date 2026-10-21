@@ -158,8 +158,9 @@ export async function GET(req: Request) {
 
     // Lo que el dueño ya ocultó desde la tab de WhatsApp no vuelve a aparecer.
     try {
-      const ocultos = new Set([...(await telefonosOcultos())].map((t) => ult10(t)));
-      if (ocultos.size) convs = convs.filter((c) => !ocultos.has(ult10(c.telefono) || c.clave));
+      // Con la regla de identidad de un teléfono (`TelefonosDe`, lib/numero-whatsapp.ts), la misma de /whatsapp y /chats.
+      const ocultos = await telefonosOcultos();
+      if (ocultos.size) convs = convs.filter((c) => !ocultos.has(c.telefono || c.clave));
     } catch { /* sin lista de ocultos, se muestran todas */ }
 
     // Nombre del contacto de WhatsApp (lo llena el importador y el webhook).

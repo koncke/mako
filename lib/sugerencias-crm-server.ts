@@ -37,6 +37,7 @@ import { nombreVisible } from '@/lib/lead-funnel-reglas';
 import { entregasDeProductos } from '@/lib/entrega-servicio';
 import type { EntregaConfig } from '@/lib/servicio-etapas';
 import { leerTodo, type ConsultaPaginada } from '@/lib/supabase-paginado';
+import { CAMPO_ETAPA } from '@/lib/etapa-historial';
 import { credWs } from '@/lib/credenciales';
 import { estadoMedios } from '@/lib/disparadores-canales';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
@@ -48,9 +49,15 @@ import { setSecuenciaPasos, PasosInvalidosError } from '@/lib/nutricion';
 import { guardarDisparadores } from '@/lib/disparadores-guardar';
 import { TriggerInvalidoError } from '@/lib/setting-secuencias';
 import { plantillaPorId } from '@/lib/plantillas-automatizaciones';
+import { CONFIG_KEY as CLAVE_LANDINGS, parsearConfig, funnelIdsDeLanding } from '@/lib/landing-config';
+import { leerCampanasAsignadasEstricto } from '@/lib/campana-funnel';
+import { funnelIdDeCampana } from '@/lib/campana-config';
+import { TERMINAL_DEL_PIPELINE } from '@/lib/pipeline';
+import { conversacionesSocialesNuevas, salientesSocialesDesde } from '@/lib/canal-zernio';
+import { esPreviewDeEditor } from '@/lib/landing-paginas';
 import {
   sugerenciasDelCrm, sinCalladas, parsearCalladas, conCallada, sinCallada, estaCallada, claveCallada,
-  CLAVE_CALLADAS, UMBRALES_SUGERENCIAS,
+  CLAVE_CALLADAS, UMBRALES_SUGERENCIAS, textoComparable,
   type AutomatizacionSug, type EntradaSugerencias, type LeadSug, type Sugerencia,
 } from '@/lib/sugerencias-crm';
 
@@ -134,6 +141,187 @@ async function cuotasDe(leadIds: ReadonlySet<number>, hoy: string): Promise<{ ve
   return { vencidas, pendientes };
 }
 
+/**
+ * CLASE 2 (20/10/2026): los gestos A MANO de una PERSONA en estos leads, en los últimos `gestosDias` días: los cambios de
+ * etapa y los «No asistió» a la R1 del historial (`lead_audit`). Una persona firma con su email; MaKo, una automatización,
+ * Meta o una importación firman con otro nombre y no cuentan. Paginado con tope: si en 14 días hay más de 10.000 líneas,
+ * tira (y el motor se calla esta clase) en vez de leer todo.
+ */
+async function gestosAMano(leadIds: ReadonlySet<number>, ahora: number): Promise<NonNullable<EntradaSugerencias['gestos']>> {
+  const desde = new Date(ahora - UMBRALES_SUGERENCIAS.gestosDias * 86_400_000).toISOString();
+  const filas = await leerTodo<{ lead_id: number; campo: string; valor_anterior: string | null; valor_nuevo: string | null; autor: string | null }>(
+    await getTenantDb(), 'lead_audit', 'id, lead_id, campo, valor_anterior, valor_nuevo, autor', {
+      orden: 'id', maxPaginas: 10, paralelo: 4,
+      filtros: (q) => q.gte('created_at', desde).in('campo', [CAMPO_ETAPA, 'Asistió R1', 'Links de Fathom']) as unknown as ConsultaPaginada,
+    });
+  const movimientos: Array<{ desde: string; hacia: string }> = [];
+  let noShowsAMano = 0;
+  let fathomAMano = 0;
+  for (const f of filas) {
+    if (!leadIds.has(Number(f.lead_id)) || !String(f.autor ?? '').includes('@')) continue;
+    if (f.campo === CAMPO_ETAPA && f.valor_anterior && f.valor_nuevo) movimientos.push({ desde: f.valor_anterior, hacia: f.valor_nuevo });
+    else if (f.campo === 'Asistió R1' && f.valor_nuevo === 'No') noShowsAMano++;
+    else if (f.campo === 'Links de Fathom' && f.valor_nuevo) fathomAMano++;
+  }
+  return { movimientos, noShowsAMano, fathomAMano };
+}
+
+/**
+ * CLASE 4 (20/10/2026): las conversaciones NUEVAS de Instagram y Messenger de esos días. Tira si no se leyó. Las tablas
+ * del canal se leen por el canal (lib/canal-zernio.ts, tests/sin-instagram.test.ts).
+ */
+async function dmsNuevos(ahora: number): Promise<NonNullable<EntradaSugerencias['nuevos']>> {
+  const desde = new Date(ahora - UMBRALES_SUGERENCIAS.gestosDias * 86_400_000).toISOString();
+  const { instagram, messenger } = await conversacionesSocialesNuevas(desde);
+  return { dmInstagram: instagram, dmMessenger: messenger };
+}
+
+/** Un lead de la casa del CRM, con lo que miran los tres lectores de abajo. */
+type LeadDeCasa = { id: number; nombre: string; etapa: string; creado: string | null; visitorId: string | null; prueba: boolean };
+
+/**
+ * CLASE 2 (20/10/2026, noche): los mensajes que una PERSONA mandó a mano a estos leads en la ventana, para «el mismo
+ * mensaje a 3 leads». Sólo Instagram/Messenger (`ig_mensajes` saliente: lo único que escribe ahí es el envío manual de
+ * Chats; las automatizaciones van a `nutricion_envios`) y email (`email_mensajes` con `autor`, el que mandó desde Chats).
+ * ⚠️ WhatsApp NO: `wa_mensajes` no sabe quién escribió un saliente (lib/cs-contacto.ts) y las automatizaciones mandan
+ * por la misma función que Chats; contarlo diría «mandaste el mismo mensaje a 30 leads» por una secuencia.
+ */
+async function mensajesAMano(casa: ReadonlyMap<number, LeadDeCasa>, ahora: number): Promise<NonNullable<NonNullable<EntradaSugerencias['gestos']>['mensajes']>> {
+  const desde = new Date(ahora - UMBRALES_SUGERENCIAS.gestosDias * 86_400_000).toISOString();
+  const db = await getTenantDb();
+  // Instagram y Messenger, por el canal (lib/canal-zernio.ts: sus tablas no se leen desde acá).
+  const [ig, email] = await Promise.all([
+    salientesSocialesDesde(desde),
+    db.from('email_mensajes').select('lead_id, texto').eq('direccion', 'saliente').not('autor', 'is', null).gte('created_at', desde).limit(3000),
+  ]);
+  if (email.error) throw new Error(`emails: ${email.error.message}`);
+  const out: Array<{ texto: string; muestra: string; lead: number; etapa: string }> = [];
+  const sumar = (leadId: number | undefined | null, texto: string | null) => {
+    const l = leadId != null ? casa.get(Number(leadId)) : undefined;
+    const t = (texto ?? '').trim();
+    if (!l || !t) return;
+    out.push({ texto: textoComparable(t, l.nombre), muestra: t.length > 160 ? `${t.slice(0, 159).trimEnd()}…` : t, lead: l.id, etapa: l.etapa });
+  };
+  for (const f of ig) sumar(f.leadId, f.texto);
+  for (const f of (email.data ?? []) as Array<{ lead_id: number | null; texto: string | null }>) sumar(f.lead_id, f.texto);
+  return out;
+}
+
+/** «hola-mako.site/oferta» de «https://www.hola-mako.site/oferta/?x=1»: lo que se lee de una landing en una línea. */
+const nombreDePagina = (url: string): string => url.replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/[?#].*$/, '').replace(/\/+$/, '') || url;
+
+/**
+ * CLASE 4 (20/10/2026, noche): las landings y campañas de Meta que trajeron leads en la ventana SIN estar conectadas a
+ * ningún CRM. En MaKo ese lead cae al CRM principal (`funnel_id` null), igual que uno asignado a propósito al principal:
+ * en la base no se distinguen, así que se vuelve a mirar la asignación de hoy (`landing.config` y `meta.campanas`).
+ * Si el negocio tiene un solo CRM, no hay a dónde conectarla: lista vacía.
+ * ⚠️ Las dos lecturas son ESTRICTAS: un setting caído leído como «sin asignar» haría que TODA landing pareciera suelta.
+ */
+async function fuentesSinCrm(ahora: number): Promise<NonNullable<NonNullable<EntradaSugerencias['nuevos']>['sinCrm']>> {
+  const funnels = await leerFunnels();
+  if (!funnels) throw new Error('no pude leer los CRM');
+  if (!funnels.some((f) => !f.esDefault)) return [];
+  const desde = new Date(ahora - UMBRALES_SUGERENCIAS.gestosDias * 86_400_000).toISOString();
+  const [leads, landings, campanas] = await Promise.all([
+    leerTodo<{ id: number; origen_lead: string | null; pagina_registro: string | null; meta_campaign_id: string | null; adset_id_origen: string | null; meta_campaign_name: string | null }>(
+      await getTenantDb(), 'leads', 'id, origen_lead, pagina_registro, meta_campaign_id, adset_id_origen, meta_campaign_name', {
+        orden: 'id', maxPaginas: 5,
+        filtros: (q) => q.is('funnel_id', null).gte('created_at', desde).in('origen_lead', ['landing', 'instant_form']) as unknown as ConsultaPaginada,
+      }),
+    getSettingEstricto(CLAVE_LANDINGS).then(parsearConfig),
+    leerCampanasAsignadasEstricto(),
+  ]);
+  const cuenta = new Map<string, { tipo: 'landing' | 'campaña'; nombre: string; leads: number }>();
+  const sumar = (tipo: 'landing' | 'campaña', clave: string, nombre: string) => {
+    const k = `${tipo}|${clave}`;
+    const c = cuenta.get(k) ?? { tipo, nombre, leads: 0 };
+    c.leads++;
+    cuenta.set(k, c);
+  };
+  for (const l of leads) {
+    if (l.origen_lead === 'landing' && l.pagina_registro?.trim()) {
+      if (!funnelIdsDeLanding(landings, l.pagina_registro).length) sumar('landing', nombreDePagina(l.pagina_registro), nombreDePagina(l.pagina_registro));
+    } else if (l.origen_lead === 'instant_form' && (l.meta_campaign_id || l.adset_id_origen)) {
+      if (!funnelIdDeCampana(campanas, { campaignId: l.meta_campaign_id, adsetId: l.adset_id_origen }).asignada) {
+        sumar('campaña', String(l.meta_campaign_id ?? l.adset_id_origen), l.meta_campaign_name?.trim() || String(l.meta_campaign_id ?? l.adset_id_origen));
+      }
+    }
+  }
+  return [...cuenta.values()].sort((a, b) => b.leads - a.leads).slice(0, 5);
+}
+
+/**
+ * CLASE 4 (20/10/2026, noche): los leads de este CRM, todavía en el recorrido (ni ganados ni fuera), que VOLVIERON: una
+ * visita a la landing un día DESPUÉS del que entraron, o el VSL dado play dos veces (sin contar el autoplay), en la
+ * ventana. `landing_visits` y `vsl_events` no tienen `lead_id`: se cruzan por `leads.visitor_id`. Con tope: los 1.000
+ * más nuevos con visitor_id (de a 150 por consulta).
+ */
+async function leadsQueVolvieron(casa: ReadonlyMap<number, LeadDeCasa>, enRecorrido: ReadonlySet<string>, tz: string, ahora: number): Promise<NonNullable<NonNullable<EntradaSugerencias['nuevos']>['volvieron']>> {
+  const desde = new Date(ahora - UMBRALES_SUGERENCIAS.gestosDias * 86_400_000).toISOString();
+  const porVisitor = new Map<string, LeadDeCasa>();
+  for (const l of [...casa.values()].sort((a, b) => String(b.creado ?? '').localeCompare(String(a.creado ?? '')))) {
+    if (l.visitorId && !l.prueba && enRecorrido.has(l.etapa) && !porVisitor.has(l.visitorId)) porVisitor.set(l.visitorId, l);
+    if (porVisitor.size >= 1000) break;
+  }
+  const vids = [...porVisitor.keys()];
+  if (!vids.length) return [];
+  const db = await getTenantDb();
+  const visitas: Array<{ visitor_id: string; created_at: string; landing_url: string | null }> = [];
+  const plays: Array<{ visitor_id: string; created_at: string; auto: boolean | null; landing_url: string | null }> = [];
+  const tandas: string[][] = [];
+  for (let i = 0; i < vids.length; i += 150) tandas.push(vids.slice(i, i + 150));
+  for (let i = 0; i < tandas.length; i += 4) {
+    await Promise.all(tandas.slice(i, i + 4).map(async (t) => {
+      const [v, p] = await Promise.all([
+        // Sin las de PRUEBA (`?mko_test`, la prueba del Pixel) ni la vista previa del editor: no son del negocio
+        // (`noEsDelNegocio`, lib/graficos-datos-extra.ts; revisión del 21/10/2026).
+        db.from('landing_visits').select('visitor_id, created_at, landing_url').in('visitor_id', t).gte('created_at', desde).is('prueba', null).limit(5000),
+        db.from('vsl_events').select('visitor_id, created_at, auto, landing_url').in('visitor_id', t).gte('created_at', desde).is('prueba', null).or('tipo_evento.eq.play,event.eq.vsl_play').limit(5000),
+      ]);
+      if (v.error) throw new Error(`visitas: ${v.error.message}`);
+      if (p.error) throw new Error(`plays del VSL: ${p.error.message}`);
+      visitas.push(...((v.data ?? []) as typeof visitas));
+      plays.push(...((p.data ?? []) as typeof plays));
+    }));
+  }
+  const diaDe = (iso: string) => hoyEnTz(tz, new Date(iso));
+  const ultimaVuelta = new Map<number, string>();
+  const marcar = (l: LeadDeCasa, cuando: string) => { if (String(ultimaVuelta.get(l.id) ?? '') < cuando) ultimaVuelta.set(l.id, cuando); };
+  for (const v of visitas) {
+    const l = porVisitor.get(v.visitor_id);
+    if (l?.creado && !esPreviewDeEditor(v.landing_url ?? '') && diaDe(v.created_at) > diaDe(l.creado)) marcar(l, v.created_at);
+  }
+  // LOS PLAYS, POR DÍA (revisión del 21/10/2026): un solo clic en un VSL de Wistia con el snippet v16/v17 deja DOS filas
+  // «play» a milisegundos (lib/video-id.ts), y una página con dos videos o una recarga también. Volver es mirarlo OTRO
+  // día DESPUÉS de ser lead: sólo cuentan los plays posteriores al alta, por HORA (la segunda revisión del 21/10: por día,
+  // un VSL mirado el 14 y el 15 a la mañana, antes del formulario de la tarde del 15, se leía «volvió»). Con el alta
+  // conocida, es la regla de las visitas (un día después); sin el alta, plays en dos días distintos.
+  const diasDe = new Map<string, Map<string, string>>();
+  for (const p of plays) {
+    if (p.auto === true || esPreviewDeEditor(p.landing_url ?? '')) continue;
+    const dueno = porVisitor.get(p.visitor_id);
+    if (dueno?.creado && p.created_at < dueno.creado) continue;
+    const dias = diasDe.get(p.visitor_id) ?? new Map<string, string>();
+    const d = diaDe(p.created_at);
+    if (String(dias.get(d) ?? '') < p.created_at) dias.set(d, p.created_at);
+    diasDe.set(p.visitor_id, dias);
+  }
+  for (const [vid, dias] of diasDe) {
+    const l = porVisitor.get(vid);
+    if (!l) continue;
+    const alta = l.creado ? diaDe(l.creado) : null;
+    const orden = [...dias.keys()].sort();
+    const ultimoDia = orden.at(-1)!;
+    const despuesDelAlta = alta != null && ultimoDia > alta;
+    const dosDias = alta == null && orden.length >= 2;
+    if (despuesDelAlta || dosDias) marcar(l, dias.get(ultimoDia)!);
+  }
+  return [...ultimaVuelta].sort((a, b) => b[1].localeCompare(a[1])).map(([id]) => {
+    const l = casa.get(id)!;
+    return { lead: l.id, nombre: l.nombre, etapa: l.etapa };
+  });
+}
+
 const aLeadSug = (l: Lead, etapa: string): LeadSug => ({
   etapa, creado: l.created_at ?? null,
   r1: l.fecha_junta_1, asistioR1: l.asistio_j1, r2: l.fecha_junta_2, asistioR2: l.asistio_j2,
@@ -165,7 +353,30 @@ async function calcular(ws: number, crm: CrmDeLaPantalla): Promise<Calculo> {
 
   const casa = (leadsCrudos ?? []).filter((l) => l.de_fila == null);
   const leads: LeadSug[] | null = leadsCrudos ? casa.map((l) => aLeadSug(l, etapaVigenteDe(l, cfg.stages))) : null;
-  const cuotas = leadsCrudos ? await cuotasDe(new Set(casa.map((l) => l.id)), hoy).catch(avisar('cuotas')) : null;
+  const idsCasa = new Set(casa.map((l) => l.id));
+  const ahora = Date.now();
+  const deCasa = new Map<number, LeadDeCasa>(casa.map((l) => [l.id, {
+    id: l.id, nombre: l.nombre?.trim() || 'Sin nombre', etapa: etapaVigenteDe(l, cfg.stages), creado: l.created_at ?? null, visitorId: l.visitor_id ?? null,
+    // El lead que crea la prueba del Pixel (lib/lead-de-prueba.ts): no es del negocio.
+    prueba: l.origen_lead === 'prueba',
+  }]));
+  // «Volver» importa mientras se le está vendiendo: los pasos del recorrido, sin el ganado.
+  const enRecorrido = new Set(cfg.stages.filter((s) => (s.band ?? 'pipeline') === 'pipeline' && s.key !== TERMINAL_DEL_PIPELINE).map((s) => s.key));
+  // Las lecturas que dependen de los leads, a la vez. Lo que falla se abstiene (null o ausente): esa sugerencia se calla.
+  const [cuotas, gestosLeidos, mensajes, dms, sinCrm, volvieron] = await Promise.all([
+    leadsCrudos ? cuotasDe(idsCasa, hoy).catch(avisar('cuotas')) : Promise.resolve(null),
+    leadsCrudos ? gestosAMano(idsCasa, ahora).catch(avisar('gestos')) : Promise.resolve(null),
+    leadsCrudos ? mensajesAMano(deCasa, ahora).catch(avisar('mensajes a mano')) : Promise.resolve(null),
+    dmsNuevos(ahora).catch(avisar('conversaciones nuevas')),
+    fuentesSinCrm(ahora).catch(avisar('landings y campañas sin CRM')),
+    leadsCrudos ? leadsQueVolvieron(deCasa, enRecorrido, tz, ahora).catch(avisar('los que volvieron')) : Promise.resolve(null),
+  ]);
+  const gestos = gestosLeidos ? { ...gestosLeidos, ...(mensajes ? { mensajes } : {}) } : null;
+  // Cada lectura de la clase 4 se abstiene sola: un DM que no se leyó no calla al lead que volvió.
+  const nuevos = {
+    dmInstagram: dms?.dmInstagram ?? 0, dmMessenger: dms?.dmMessenger ?? 0,
+    ...(sinCrm ? { sinCrm } : {}), ...(volvieron ? { volvieron } : {}),
+  };
   const { plazos } = sanearPlazosPorEtapa(umbrales?.porEtapa, new Set(cfg.stages.map((s) => s.key)));
   const canal = canalEfectivo(cfg.canal, diag?.canal);
   const entradas = [...cfg.entradas];
@@ -178,7 +389,8 @@ async function calcular(ws: number, crm: CrmDeLaPantalla): Promise<Calculo> {
     },
     etapas: cfg.stages, transiciones: cfg.transitions, plazos,
     automatizaciones: automs, leads, cuotas,
-    conectado: { whatsapp: medios, fathom }, hoy, ahora: Date.now(),
+    conectado: { whatsapp: medios, fathom }, hoy, ahora,
+    gestos, nuevos,
   };
 
   // El conteo por etapa es el del tablero: TODAS las tarjetas, también las agregadas.
