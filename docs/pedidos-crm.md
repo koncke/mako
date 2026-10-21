@@ -13,16 +13,16 @@ Cuento **pedidos**: cada número de las listas de Martín es uno (las filas que 
 
 | | Hecho | Parcial | No hecho | Sin confirmar | Total |
 |---|---|---|---|---|---|
-| Del 13/10 al 20/10 (tablas A, B, C, D e I) | 82 | 5 | 8 | 0 | 95 |
+| Del 13/10 al 20/10 (tablas A, B, C, D e I) | 83 | 4 | 8 | 0 | 95 |
 | Hasta el 12/10 (tablas E, F, G y H) | 164 | 4 | 1 | 1 | 170 |
-| **Todo** | **246** | **9** | **9** | **1** | **265** |
+| **Todo** | **247** | **8** | **9** | **1** | **265** |
 
 - **No hecho (9):** A1 (el chat con la pieza única del Ops Center), B1 (columnas editables del Plan), B2 (cinco cosas del
   prototipo de tarjetas), C1 (Google Calendar en «Asignar evento») y H1, que ya no aplica (Chatwoot se borró). O sea, 8
   que cuentan.
-- **Parcial (9):** B4, C2, C3, D4, D5, E1, F1, F2 y H2.
+- **Parcial (8):** B4, C2, D4, D5, E1, F1, F2 y H2.
 - **Sin confirmar (1):** E2, el título «MaKo - CRM» de la pestaña (no se midió en un navegador).
-- En filas: 71 Hecho, 9 Parcial, 5 No hecho y 1 Sin confirmar (86 filas).
+- En filas: 72 Hecho, 8 Parcial, 5 No hecho y 1 Sin confirmar (86 filas).
 - De los 5 puntos que Martín mandó hoy, 4 se cerraron hoy (A2, A3, A4 y A5) y el quinto (A6, la etapa de reunión con su
   evento) ya estaba hecho desde el 16/10. Lo que sigue abierto de hoy es A1 (la pieza única del chat); la otra mitad
   del pedido de las cards (D1: diseños, arrastrar y vista en vivo) se hizo esa misma noche.
@@ -78,7 +78,7 @@ Cuento **pedidos**: cada número de las listas de Martín es uno (las filas que 
 |---|---|---|---|---|
 | C1 | #3 Google Calendar, además de Calendly y Cal.com, en «Asignar evento» | No hecho | `app/crm/EventosDeEtapaModal.tsx:18`; `fda277870` deja dicho por qué | Lo decidió el chat, no Martín: la API de Google no lista las páginas de reserva ni dice de cuál viene una reserva. Martín escribió «Calendly o Cal o Calendar». |
 | C2 | #3 «Que tenga la opción ahí mismo de crear un nuevo evento para asignarse a esa etapa» | Parcial | `c7f7b5609` | «Crear un evento en Calendly / Cal.com» abre su página en otra pestaña y «Actualizar» lo trae. Las APIs de Calendly y Cal.com no crean tipos de evento desde afuera. |
-| C3 | #4 «Primero mejora la eficiencia al abrir el detail de un lead, tarda un montón» | Parcial | `f808b91d0` · `getLeadFullAction` en `app/crm/actions.ts` | Cinco lecturas pasaron a correr en paralelo (~1,3 s en local). Nunca se midió contra producción; si sigue lento, mirar `leerInsumosDatosLead`, `getTrackingEvents` y `replayDeLead`. |
+| C3 | #4 «Primero mejora la eficiencia al abrir el detail de un lead, tarda un montón» | Hecho | `f808b91d0` (16/10, cinco lecturas en paralelo) y el commit de C3 del 20/10 noche · `getLeadFullAction` en `app/crm/actions.ts` | Medido el 20/10 en el ws1 (3 leads, sólo GET, desde la máquina local con ~230 ms por ida y vuelta): 1,19–1,43 s → 1,01–1,23 s, porque «N sin marcar» ahora va junto con el replay y no después. Quedan 4 tandas en serie (el lead, las lecturas, el replay y la ficha); en Vercel, cerca de la base, cada una cuesta mucho menos. |
 | C4 | #8 «El botón de MaKo siempre a la izquierda, no a la derecha» | Hecho | `c52533e94` (16/10, izquierda) → `44f14b087` (20/10, derecha) | Lo pisó la regla del 18/10, más nueva y de Martín («Editar = el patrón de Web Generator: el chat con MaKo como barra fija a la derecha»), que el Cerebro aplicó al CRM el 20/10; a la izquierda, además, quedaba debajo de la sidebar. Si Martín lo quiere a la izquierda en el CRM, es cambiar el lado en `PanelMakoCrm.tsx` (la pestaña y la barra). El AI Analyst de la ficha sigue abriendo a la izquierda (`588c1ffec`). |
 | C5 | #8 «En lugar de la estrella de MaKo, el muñequito de cada tab» y el chat «con la cara del Second Brain» (2 puntos) | Hecho | `2eb7b00e3` (muñeco), `8db1e3cbc` (hilo y caja con micrófono que dicta) · `ChatMakoCrm.tsx`, `app/_chat/HiloMako.tsx` | El muñeco ya está también en Automations, el Dashboard y el Second Brain; las demás tabs son de sus chats. La caja única del Ops Center: A1. |
 | C6 | #1 Renombrar un CRM: «lo que cambio se queda» | Hecho | `4e9411a71` · `embudoEnDetalleAction` en `app/crm/actions.ts` | `tests/crm-renombrar-16-10.test.ts`. |
@@ -193,13 +193,12 @@ Del pedido más reciente al más viejo. Entre paréntesis, lo que depende de una
 4. **B1** · Columnas editables en el Plan: `app/plan/board/BoardShell.tsx`.
 5. **B4** · Plan del teléfono con el check gris en vez del círculo (si Martín lo quiere): `app/m/plan/ListaPlan.tsx`.
 6. **B2** · «Pago fallido» en la tarjeta de un cliente, foto de Instagram, vista «Prioridades» del Plan, Proyectos del teléfono y foto del cliente en el teléfono: `app/customer-success/aviso-tarjeta.ts`, `app/plan/`, `app/m/plan/`.
-7. **C3** · Medir el pop-up de la ficha en producción y partir `getLeadFullAction` si sigue lento: `app/crm/actions.ts`.
-8. **C1** y **C2** · Google Calendar en «Asignar evento» (decidido que no por la API de Google; decide Martín) y crear el evento desde MaKo en vez de abrir Calendly o Cal.com: `app/crm/EventosDeEtapaModal.tsx`.
-9. **E1** · Buscar Instagram por nombre (decide Martín si se paga una fuente): `lib/instagram-buscar.ts`, `app/api/crm/instagram-buscar/route.ts`.
-10. **E2** · Mirar en un navegador que la pestaña diga «MaKo - CRM»: `app/_components/TituloTab.tsx`.
-11. **F1** · Atribución y VSL por funnel en un lead que está en varios: `lib/lead-funnel.ts`, `supabase/migrations/0207_lead_funnel.sql` (una migración nueva).
-12. **F2** · Los restos de «Producto» → «Funnel»: `lib/api-mako/areas/crm.def.ts`, `lib/graficos-catalogo.ts` y los prompts.
-13. **H2** · Las 3 preguntas a Mauricio y los 1.057 leads fuera del embudo (decide Mauricio o Martín): `docs/friccion-crm.md`, `/admin/friccion`.
+7. **C1** y **C2** · Google Calendar en «Asignar evento» (decidido que no por la API de Google; decide Martín) y crear el evento desde MaKo en vez de abrir Calendly o Cal.com: `app/crm/EventosDeEtapaModal.tsx`.
+8. **E1** · Buscar Instagram por nombre (decide Martín si se paga una fuente): `lib/instagram-buscar.ts`, `app/api/crm/instagram-buscar/route.ts`.
+9. **E2** · Mirar en un navegador que la pestaña diga «MaKo - CRM»: `app/_components/TituloTab.tsx`.
+10. **F1** · Atribución y VSL por funnel en un lead que está en varios: `lib/lead-funnel.ts`, `supabase/migrations/0207_lead_funnel.sql` (una migración nueva).
+11. **F2** · Los restos de «Producto» → «Funnel»: `lib/api-mako/areas/crm.def.ts`, `lib/graficos-catalogo.ts` y los prompts.
+12. **H2** · Las 3 preguntas a Mauricio y los 1.057 leads fuera del embudo (decide Mauricio o Martín): `docs/friccion-crm.md`, `/admin/friccion`.
 
 **Esperan una decisión de Martín** (no son pedidos suyos, pero frenan filas de arriba):
 - **E1**: ¿se paga una fuente para buscar Instagram por nombre?
