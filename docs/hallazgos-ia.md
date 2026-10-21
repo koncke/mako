@@ -4631,3 +4631,35 @@ Las cifras quedan para la próxima vez que alguien calcule un costo o un tope.
 - El modelo decide CUÁNDO preguntar (la descripción de la herramienta lo guía). Lo que el código impone es qué pasa
   después.
 - En WhatsApp no hay G1: una pregunta allá sigue siendo texto.
+
+## El chat de la app: el negocio con SU nombre, y el guardia de promesas prendido (20/10/2026, ola 1, pieza 1.5)
+
+**Vive en:** `lib/negocio-rotulo.ts` · `lib/mako-context.ts` (`nombreDelNegocioActual`) · `afirmaHechoDe` y
+`sanearSalida({ hecho })` en `lib/doer-salida.ts` · el contador `corridas` del turno, en `lib/mako-turno-app.ts`. Probado
+en `tests/chat-contexto-guardias.test.ts`.
+
+- **«NEGOCIO DE MARTÍN» en el system de TODOS los negocios:**
+  - Estaba en el chat de MaKo y en el asesor de WhatsApp. «del negocio de Martín» estaba además en la retrospectiva
+    (dos prompts) y en el asesor.
+  - Es el mismo caso del 08/10 (`tests/prompt-sin-dueno.test.ts`), que sólo miraba los encuadres de
+    `lib/prompt-defaults.ts`.
+  - Ahora el perfil va con el nombre del negocio, y el test barre TODO el código.
+  - ⚠️ El asesor de WhatsApp usa `renderPrompt('wa.advisor.system', …)`: un override guardado en Configuraciones puede
+    seguir diciendo «de Martín». No se miró la base.
+- **El guardia de promesas estaba APAGADO en la app:** `sanearSalida(respuesta, { corrioHerramientas: true })` con el
+  `true` fijo. Ahora:
+  - se cuenta lo que DE VERDAD corrió: lo rechazado (no permitido, o después de preguntar) no cuenta;
+  - sin nada corrido, también se marca lo que dice HECHO («Listo, ya lo armé», «te creé…», «quedó programada»): sale la
+    oración y queda «Eso no lo llegué a hacer…»;
+  - un dato del contexto («tu landing está publicada») no se toca;
+  - el doer de WhatsApp sigue igual: `hecho` es una opción.
+- **Lo obvio era el error: «traer `forzarTool` como WhatsApp».** El chat de la app piensa con razonamiento extendido
+  (`thinking: adaptive`), y con él Anthropic no admite `tool_choice: any`. Además `chatClaudeTools` lo pone en TODOS los
+  pasos: el turno nunca podría terminar con texto. WhatsApp lo hace con `chatCheapTools` y `toolChoicePrimerPaso`, que
+  la cascada de Claude no tiene. Por eso la guardia se apoya en lo que corrió, no en forzar.
+
+**Sin hacer:**
+- La persona de MaKo dice «el consultor IA de Martín Koncke» (`lib/mako-persona.ts`). Es la marca: cambiarla es una
+  decisión de Martín.
+- «Mi hoja» por quien chatea (`ctx.actor`, con 2 o más informes no pedir un email) es del Dashboard.
+- `forzarTool` en la app pide un primer paso sin razonamiento, en `lib/anthropic.ts`, que es compartido.

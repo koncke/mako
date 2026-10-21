@@ -475,6 +475,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     });
     // Desde que MaKo pregunta, no se propone nada en el turno (1.9): una lectura sí, para armar las opciones.
     const guardia = crearGuardiaDePregunta((n) => { const d = porId(n); return d ? d.tipo !== 'lectura' : NOMBRES_ACCION.has(n) && !n.startsWith('listar_'); });
+    /** Cuántas herramientas corrieron DE VERDAD en el turno: el guardia de promesas lo necesita (1.5). */
+    let corridas = 0;
     const runTool = async (name: string, input: Record<string, unknown>) => {
       // El contrato se aplica AL EJECUTAR: lo que no viajó no corre, aunque el modelo lo
       // llame (lo dice el texto, lo pide igual). Confirmar, menos que nada.
@@ -486,6 +488,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
         return q.ok ? JSON.stringify({ ok: true, instruccion: q.texto }) : { content: JSON.stringify({ ok: false, error: q.texto }), isError: true };
       }
       if (guardia.bloquea(name)) return { content: JSON.stringify({ ok: false, error: ERROR_TRAS_PREGUNTAR }), isError: true };
+      // Lo rechazado no cuenta: no corrió.
+      corridas++;
       const previo = memo.previo(name);
       if (previo) return previo.out as Awaited<ReturnType<typeof runRegistro>>;
       // Las de siempre por sus cuerpos de siempre; TODO lo demás (incluidas las acciones
@@ -576,7 +580,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // —el de la app y el teléfono de los clientes— no. Se saca la oración, no la respuesta entera (las promesas no: acá la
     // tarjeta y la pantalla dicen lo que quedó hecho).
     if (respuesta && !borrador && !lead) {
-      const saneo = sanearSalida(respuesta, { corrioHerramientas: true });
+      // Con lo que DE VERDAD corrió (1.5): sin ninguna herramienta, «déjame ver» y «Listo, ya lo armé» son mentira.
+      const saneo = sanearSalida(respuesta, { corrioHerramientas: corridas > 0, hecho: true });
       if (saneo.groserias.length) console.warn(`[mako-turno-app] ws=${ws} sesión=${s.id}: le saqué una grosería (${saneo.groserias.join(', ')})`);
       respuesta = saneo.texto;
     }

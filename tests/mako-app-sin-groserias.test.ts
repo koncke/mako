@@ -27,7 +27,8 @@ test('el corte saca la oración grosera y deja el resto', () => {
 
 test('el chat de la app pasa su respuesta por el corte y pide la voz sin groserías', () => {
   const salida = src.slice(src.indexOf('// ── Lo que sale ──'));
-  assert.ok(salida.indexOf('sanearSalida(respuesta, { corrioHerramientas: true })') > 0, 'turnoApp no corta las groserías');
+  // Desde el 20/10/2026 (1.5) con lo que DE VERDAD corrió y lo que dice hecho: tests/chat-contexto-guardias.test.ts.
+  assert.ok(salida.indexOf('sanearSalida(respuesta, { corrioHerramientas: corridas > 0, hecho: true })') > 0, 'turnoApp no corta las groserías');
   // Desde el 20/10/2026 (1.9) el guardado lleva también la pregunta con opciones: se busca sin cerrar el paréntesis.
   const guardar = salida.indexOf("await appendMessage(s.id, 'assistant', respuesta");
   assert.ok(guardar > 0 && salida.indexOf('sanearSalida(') < guardar, 'se corta ANTES de guardar');

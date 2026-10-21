@@ -966,4 +966,22 @@ export const BITACORA: Hito[] = [
       'tests/chat-pregunta.test.ts',
     ],
   },
+  {
+    fecha: '21 oct', hora: '01:20', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'MaKo sabe de qué negocio es cada cliente, y no dice que hizo lo que no hizo',
+    pedido: 'Ops Center = lo principal en MaKo (ola 1, 1.5)',
+    revisar: '/admin/operaciones',
+    puntos: [
+      'A cada cliente, MaKo le habla de SU negocio por su nombre: antes le decía que el negocio era de Martín.',
+      'Si MaKo dice «Listo, ya lo armé» sin haber hecho nada, eso no sale: queda «Eso no lo llegué a hacer…» para que se lo pidas de nuevo.',
+      'Lo mismo en la retrospectiva y en el asesor de WhatsApp.',
+      'MaKo se sigue presentando como «el consultor IA de Martín Koncke»: eso es la marca, y lo decides tú.',
+    ],
+    archivos: [
+      'lib/negocio-rotulo.ts, lib/mako-context.ts, lib/whatsapp-advisor.ts, lib/retro-pipeline.ts',
+      'lib/doer-salida.ts (afirmaHechoDe), lib/mako-turno-app.ts (lo que corrió)',
+      'tests/chat-contexto-guardias.test.ts',
+    ],
+  },
 ];
