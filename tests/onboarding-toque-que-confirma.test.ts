@@ -90,9 +90,11 @@ test('3. cómo cobra se PROPONE desde el precio y se guarda recién con el toque
   assert.equal(etapaDeArranque(trasPdf, conPrecio), 'cobro');
   assert.equal(etapaDeArranque(trasPdf, { ...H, cobroLeido: null }), 'fase', 'sin precio dicho, no se pregunta');
   const ultimo = mensajesDeArranque(trasPdf, conPrecio).despues.at(-1)!;
-  assert.equal(ultimo.texto, 'Entendí que cobras así: «Suscripción de 6 meses». ¿Es así?');
-  assert.deepEqual(ultimo.opciones, [SI_ES_ESO, COBRO_UNICO, COBRO_MENSUAL]);
-  assert.deepEqual(responder(trasPdf, { opcion: 0, opcionTexto: SI_ES_ESO }, conPrecio), { ok: true, patch: { cobro: { tipo: 'suscripcion', meses: 6 } } });
+  // Las opciones son todas las lecturas, con la leída primera (novena revisión; tests/onboarding-novena-revision.test.ts).
+  assert.equal(ultimo.texto, 'Entendí que cobras así: «Suscripción de 6 meses». ¿Lo cargo así?');
+  assert.deepEqual(ultimo.opciones, ['Suscripción de 6 meses', COBRO_UNICO, COBRO_MENSUAL]);
+  assert.deepEqual(responder(trasPdf, { opcion: 0, opcionTexto: 'Suscripción de 6 meses' }, conPrecio), { ok: true, patch: { cobro: { tipo: 'suscripcion', meses: 6 } } });
+  assert.deepEqual(responder(trasPdf, { texto: 'sí' }, conPrecio), { ok: true, patch: { cobro: { tipo: 'suscripcion', meses: 6 } } }, 'un sí elige la leída');
   assert.deepEqual(responder(trasPdf, { opcion: 1, opcionTexto: COBRO_UNICO }, conPrecio), { ok: true, patch: { cobro: { tipo: 'unico', meses: null } } });
   assert.equal(responder(trasPdf, { texto: 'cobro por mes, creo' }, conPrecio).ok, false, 'lo escrito no se vuelve a leer con reglas');
   assert.equal(etapaDeArranque({ ...trasPdf, cobro: { tipo: 'unico', meses: null } }, conPrecio), 'fase');

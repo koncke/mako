@@ -16,17 +16,31 @@ import { esRecurrente, llevaDeadline, recurrenciaOk, textoRepeticionCorto } from
 // DE QUIÉN es una tarjeta (mig 0172). Mismo criterio que arriba: el predicado y los
 // textos salen del módulo compartido, que también leen los dos pickers y Customer Success.
 import { clienteDe, SIN_CLIENTE } from '@/lib/plan-clientes';
-import { alCrear, trasMover, motivoParaNoMover, etiquetaEstado } from '@/lib/todo-estados';
+import { alCrear, trasMover, motivoParaNoMover } from '@/lib/todo-estados';
 // EL KANBAN POR ESTADO (16/10/2026): la columna que le toca a un avance nuevo y el lugar de
 // «arriba de todo», con la misma regla que el server. Ver app/plan/board/kanban.ts.
 import { avanceLocal, ordenTopeLocal } from './kanban';
+import { aplicarCambioColumnas, etiquetaDeClave, etiquetaDeColumna, type ConfigColumnasPlan, type PedidoColumnas } from '@/lib/plan-columnas';
+import { cambiarColumnasPlanAction } from './columnas-actions';
 
 export type GuardScore = { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number };
 
 const now = () => Date.now();
 
-export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user: BoardUser, repo: Repo, initialDeps: Dep[] = []) {
+/**
+ * LAS COLUMNAS DEL NEGOCIO (20/10/2026, docs/pedidos-crm.md B1): sus nombres y las propias, y si se pueden cambiar (el
+ * admin). Sin esto (`null`, un tablero embebido de OTRO negocio) se dibujan las de siempre y no se editan: las que hay
+ * en el contexto serían las del negocio que mira, no las del dueño del tablero.
+ */
+export type ColumnasDelBoard = { config: ConfigColumnasPlan; editables: boolean } | null;
+
+export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user: BoardUser, repo: Repo, initialDeps: Dep[] = [], columnasIniciales: ColumnasDelBoard = null) {
   const [tasks, setTasks] = useState<BoardTask[]>(initialTasks);
+  const [columnas, setColumnas] = useState<ColumnasDelBoard>(columnasIniciales);
+  /** El nombre que se DIBUJA de una columna (lib/plan-columnas.ts): el toast, el historial y la pantalla dicen el mismo. */
+  const etiqueta = (e: EstadoTarea): string => etiquetaDeColumna(columnas?.config.nombres, e);
+  /** Lo mismo por CLAVE: el estado (las de siempre) o el id de una propia. */
+  const etiquetaClave = (clave: string): string => etiquetaDeClave(columnas?.config, clave);
   const [labels, setLabels] = useState<Label[]>(initialLabels);
   // Las dependencias NO viven adentro de la tarea (mig 0140: tabla propia). El autosave de
   // acá abajo upsertea la FILA ENTERA desde el estado del navegador, así que un campo
@@ -276,30 +290,38 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
    */
   const tasksVivas = useRef<BoardTask[]>(tasks);
   useEffect(() => { tasksVivas.current = tasks; });
-  type AntesDeMover = { estado: EstadoTarea; progress: number; motivoAtorada: string | null; orden: number | undefined };
-  const mover = async (id: string, estado: EstadoTarea, orden?: number, motivo?: string | null): Promise<boolean> => {
+  type AntesDeMover = { estado: EstadoTarea; progress: number; motivoAtorada: string | null; orden: number | undefined; columna: string | null };
+  /**
+   * `columna` (mig 0317): la columna PROPIA de destino; `null`, la de su estado. Sin decirla (`undefined`), se queda en
+   * la suya si el estado no cambia —reordenar o cargarle el motivo no la saca de «En revisión»— y va a la de su estado
+   * si cambia.
+   */
+  const mover = async (id: string, estado: EstadoTarea, orden?: number, motivo?: string | null, columna?: string | null): Promise<boolean> => {
     const t = byId(id); if (!t || !repo.mover) return false;
     const no = motivoParaNoMover(t, estado);
     if (no) { show(no); return false; }
     const desde = estadoDe(t);
-    const lugar = orden ?? (desde === estado ? t.orden : undefined) ?? ordenTopeLocal(tasks, estado, id);
+    const colAntes = t.columna ?? null;
+    const colNueva = columna === undefined ? (estado === desde ? colAntes : null) : columna;
+    const lugar = orden ?? (desde === estado && colNueva === colAntes ? t.orden : undefined) ?? ordenTopeLocal(tasks, estado, id);
     const r = trasMover({ estado: desde, progreso: t.progress, motivo: t.motivoAtorada ?? null }, estado, motivo);
-    const cambiaCol = desde !== estado;
+    const cambiaCol = desde !== estado || colNueva !== colAntes;
     const cambiaMotivo = !cambiaCol && r.motivo !== (t.motivoAtorada ?? null);
     if (!cambiaCol && !cambiaMotivo && lugar === t.orden) return true;
-    const texto = cambiaCol ? `Movió a ${etiquetaEstado(estado)}${r.motivo ? ` — ${r.motivo}` : ''}`
-      : cambiaMotivo ? (r.motivo ? `Atorada: ${r.motivo}` : 'Le quitó el motivo') : null;
+    const texto = cambiaCol ? `Movió a ${etiquetaClave(colNueva ?? estado)}${r.motivo ? ` — ${r.motivo}` : ''}`
+      : cambiaMotivo ? (r.motivo ? `${etiqueta('en_seguimiento')}: ${r.motivo}` : 'Le quitó el motivo') : null;
     const entry: Hist | null = texto ? { id: uid(), ts: now(), actor: 'user', text: texto.slice(0, 220) } : null;
     const historial = entry ? [entry, ...t.historial].slice(0, HIST_CAP) : undefined;
-    const antes: AntesDeMover = { estado: desde, progress: t.progress, motivoAtorada: t.motivoAtorada ?? null, orden: t.orden };
+    const antes: AntesDeMover = { estado: desde, progress: t.progress, motivoAtorada: t.motivoAtorada ?? null, orden: t.orden, columna: colAntes };
     setTasks((ts) => ts.map((x) => (x.id === id
-      ? { ...x, estado: r.estado, progress: r.progreso, motivoAtorada: r.motivo, orden: lugar, ...(entry ? { historial: [entry, ...x.historial].slice(0, HIST_CAP) } : {}) }
+      ? { ...x, estado: r.estado, progress: r.progreso, motivoAtorada: r.motivo, orden: lugar, columna: colNueva, ...(entry ? { historial: [entry, ...x.historial].slice(0, HIST_CAP) } : {}) }
       : x)));
     // El TOAST es corto (3-4 palabras, la regla de la casa): el motivo va al historial, no acá.
-    show(cambiaCol ? `Movió a ${etiquetaEstado(estado)}` : cambiaMotivo ? 'Motivo guardado' : 'Cambió el lugar', () => { void deshacerMover(id, antes, entry?.id); });
+    show(cambiaCol ? `Movió a ${etiquetaClave(colNueva ?? estado)}` : cambiaMotivo ? 'Motivo guardado' : 'Cambió el lugar', () => { void deshacerMover(id, antes, entry?.id); });
     try {
-      const canon = await repo.mover(id, estado, lugar, { motivo, historial });
-      if (canon) { confirmarAvance({ id, progress: canon.progress }); setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, estado: canon.estado ?? x.estado, progress: canon.progress, motivoAtorada: canon.motivoAtorada ?? null, orden: canon.orden ?? x.orden } : x))); }
+      const canon = await repo.mover(id, estado, lugar, { motivo, historial, columna: colNueva });
+      // `columna` de la base: sin la mig 0317 vuelve null y la tarjeta queda en la de su estado, que es la verdad.
+      if (canon) { confirmarAvance({ id, progress: canon.progress }); setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, estado: canon.estado ?? x.estado, progress: canon.progress, motivoAtorada: canon.motivoAtorada ?? null, orden: canon.orden ?? x.orden, columna: canon.columna === undefined ? x.columna : canon.columna } : x))); }
       return true;
     } catch (e) {
       console.error('[board] mover', e);
@@ -323,8 +345,8 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
       // por un SEGUNDO guardado de la tarjeta, y el server lo leía como «cambió el avance»
       // (`estadoAlGuardar`): una tarjeta en «Por iniciar» al 40%, completada y deshecha, quedaba en
       // «Por iniciar» en la pantalla y en «En proceso» en la base hasta el F5.
-      const canon = await repo.mover(id, antes.estado, antes.orden, { motivo: antes.motivoAtorada, historial, progreso: antes.progress });
-      if (canon) { confirmarAvance({ id, progress: canon.progress }); setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, estado: canon.estado ?? x.estado, progress: canon.progress, motivoAtorada: canon.motivoAtorada ?? null, orden: canon.orden ?? x.orden } : x))); }
+      const canon = await repo.mover(id, antes.estado, antes.orden, { motivo: antes.motivoAtorada, historial, progreso: antes.progress, columna: antes.columna });
+      if (canon) { confirmarAvance({ id, progress: canon.progress }); setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, estado: canon.estado ?? x.estado, progress: canon.progress, motivoAtorada: canon.motivoAtorada ?? null, orden: canon.orden ?? x.orden, columna: canon.columna === undefined ? x.columna : canon.columna } : x))); }
     } catch (e) {
       console.error('[board] deshacer mover', e);
       show('No se pudo deshacer');
@@ -865,8 +887,32 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
       c ? `Cliente: ${c.nombre}` : SIN_CLIENTE);
   };
 
+  /**
+   * CAMBIAR LAS COLUMNAS: renombrar, agregar o quitar (lib/plan-columnas.ts). Renombrar y quitar se ven al instante y,
+   * si el server dice que no, vuelve lo de antes con su razón (lo mismo que el CRM con una etapa). Agregar espera al
+   * server: el id de la columna nueva lo acuña él. Devuelve las columnas como quedaron, o null.
+   */
+  const cambiarColumnas = async (p: PedidoColumnas): Promise<ConfigColumnasPlan | null> => {
+    if (!columnas?.editables) return null;
+    const antes = columnas;
+    if (p.tipo !== 'agregar') {
+      const local = aplicarCambioColumnas(antes.config, p);
+      if (!local.ok) { show(local.error); return null; }
+      setColumnas({ ...antes, config: local.config });
+    }
+    const s = await cambiarColumnasPlanAction(p).catch(() => ({ ok: false as const, error: 'No pude guardar el cambio. Prueba de nuevo.' }));
+    if (!s.ok) { setColumnas(antes); show(s.error); return null; }
+    setColumnas({ ...antes, config: s.config });
+    return s.config;
+  };
+  /** Cambiarle el nombre a una columna (de siempre o propia). `null` o vacío vuelve una de siempre a su nombre. */
+  const renombrarColumna = async (clave: string, nombre: string | null): Promise<boolean> =>
+    !!(await cambiarColumnas({ tipo: 'renombrar', clave, nombre }));
+
   return {
     tasks, labels, user, repo, deps, addDep, delDep,
+    // ⚠️ `columnas`, `etiqueta` Y `renombrarColumna` VAN EN ESTE `return` (20/10/2026): la advertencia de abajo.
+    columnas, etiqueta, etiquetaClave, renombrarColumna, cambiarColumnas,
     labelById: (id: string) => labels.find((l) => l.id === id) ?? null,
     create, remove, removeSilent, patch, moveTo, setScore, applyGuardian, aplicarPerroServer, aplicarCascadaManual, soltarCandadoManual, toggleEnPrioridad, setChecklist, replaceTask,
     // ⚠️ `mover` Y `setMotivoAtorada` (16/10/2026): el kanban por estado. Misma advertencia que

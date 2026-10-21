@@ -44,7 +44,7 @@ export const toBoard = (t: Tarea): BoardTask => ({
   // LA COLUMNA DEL KANBAN y su motivo (migs 0159 y 0294), y el lugar dentro de ella. Van en el
   // mapper de ENTRADA o la tarjeta nace en «Por iniciar» en cada carga aunque la fila diga otra
   // cosa. NO van en `editPatch` (TodoBoard.tsx): los escribe la acción `mover`.
-  estado: t.estado, motivoAtorada: t.motivo_atorada, orden: t.orden,
+  estado: t.estado, motivoAtorada: t.motivo_atorada, columna: t.columna ?? null, orden: t.orden,
   progress: t.progreso, deadline: t.deadline ?? '', quarter: t.quarter ?? undefined, recurrente: t.recurrente, recurrencia: t.recurrencia,
   labels: t.categorias.map(String), checklist: t.checklist, historial: t.historial,
   origen: t.origen === 'manual' ? 'user' : 'ia', enPrioridad: t.en_prioridad,

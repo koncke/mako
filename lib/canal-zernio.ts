@@ -628,3 +628,39 @@ export async function crearLeadDeConversacionSocial(convId: number, funnelId: nu
     return { ok: false, error: 'No pude crear el lead.' };
   }
 }
+
+// ── Lo que leen las sugerencias de MaKo en el CRM (20/10/2026) ──────────────
+// lib/sugerencias-crm-server.ts cuenta sobre las conversaciones de Instagram y Messenger, y las tablas del canal se
+// leen SÓLO desde acá (tests/sin-instagram.test.ts). Las dos tiran si no pudieron leer: la sugerencia se calla.
+
+/** Cuántas conversaciones NUEVAS de Instagram y de Messenger (`facebook`) hay desde `desdeIso` (clase 4). */
+export async function conversacionesSocialesNuevas(desdeIso: string): Promise<{ instagram: number; messenger: number }> {
+  const { data, error } = await (await getTenantDb()).from('ig_conversaciones').select('plataforma').gte('created_at', desdeIso).limit(1000);
+  if (error) throw new Error(`conversaciones: ${error.message}`);
+  let instagram = 0; let messenger = 0;
+  for (const r of (data ?? []) as Array<{ plataforma: string | null }>) {
+    if (r.plataforma === 'facebook') messenger++;
+    else if (r.plataforma === 'instagram') instagram++;
+  }
+  return { instagram, messenger };
+}
+
+/**
+ * Los mensajes SALIENTES de Instagram y Messenger desde `desdeIso`, con el lead de su conversación (clase 2, «el mismo
+ * mensaje a 3 leads»). Lo único que escribe un saliente en `ig_mensajes` es el envío a mano de Chats
+ * (`enviarManualSocial`): los de una automatización van a `nutricion_envios`. Así que esto son gestos de una persona.
+ */
+export async function salientesSocialesDesde(desdeIso: string): Promise<Array<{ leadId: number | null; texto: string | null }>> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('ig_mensajes').select('conversacion_id, texto').eq('direccion', 'saliente').gte('created_at', desdeIso).limit(3000);
+  if (error) throw new Error(`mensajes de Instagram: ${error.message}`);
+  const filas = (data ?? []) as Array<{ conversacion_id: number; texto: string | null }>;
+  const convIds = [...new Set(filas.map((f) => Number(f.conversacion_id)))];
+  const leadDeConv = new Map<number, number>();
+  for (let i = 0; i < convIds.length; i += 200) {
+    const r = await db.from('ig_conversaciones').select('id, lead_id').in('id', convIds.slice(i, i + 200));
+    if (r.error) throw new Error(`conversaciones: ${r.error.message}`);
+    for (const c of (r.data ?? []) as Array<{ id: number; lead_id: number | null }>) if (c.lead_id != null) leadDeConv.set(Number(c.id), Number(c.lead_id));
+  }
+  return filas.map((f) => ({ leadId: leadDeConv.get(Number(f.conversacion_id)) ?? null, texto: f.texto }));
+}

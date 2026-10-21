@@ -101,17 +101,19 @@ test('lineasDelPayload: en el orden de los parámetros, con su rótulo, sin vac�
     { rotulo: 'Extra', valor: 'x' },
   ]);
   // Sin parámetros (el payload preparado de una pendiente): el orden del payload.
-  assert.deepEqual(lineasDelPayload({ funnel_id: 9, nombre: 'Ana', items: [{ a: 1 }, { a: 2 }] }), [
+  // Una lista de objetos: una fila por elemento, legible (revisión de la 2.1, 21/10/2026: era «2 elementos» y en
+  // /mako/pendientes se confirmaba sin ver qué entraba).
+  assert.deepEqual(lineasDelPayload({ funnel_id: 9, nombre: 'Ana', items: [{ a: 1, id: 7 }, { a: 2 }] }), [
     { rotulo: 'Nombre', valor: 'Ana' },
-    { rotulo: 'Ítems', valor: '2 elementos' },
+    { rotulo: 'Ítems 1', valor: 'A: 1' },
+    { rotulo: 'Ítems 2', valor: 'A: 2' },
   ]);
   // Lo que se APRUEBA no se recorta (v2): un WhatsApp de 400 caracteres se ve entero en el sheet.
   assert.equal(lineasDelPayload({ texto: 'a'.repeat(400) })[0].valor, 'a'.repeat(400));
-  // Sólo el tope de peso (2000) y la pista de un objeto crudo (160) cortan.
+  // Sólo el tope de peso (2000) corta; un objeto suelto se lee entero como «Clave: valor» (era el JSON en 160).
   const enorme = lineasDelPayload({ texto: 'a'.repeat(5000) })[0].valor;
   assert.ok(enorme.length <= 2001 && enorme.endsWith('…'), 'el tope de peso corta');
-  const objeto = lineasDelPayload({ extra: { k: 'x'.repeat(400) } })[0].valor;
-  assert.ok(objeto.length <= 161 && objeto.endsWith('…'), 'un objeto crudo es una pista corta');
+  assert.equal(lineasDelPayload({ extra: { k: 'x'.repeat(400) } })[0].valor, `K: ${'x'.repeat(400)}`, 'un objeto se lee entero');
   assert.deepEqual(lineasDelPayload(null), []);
 });
 

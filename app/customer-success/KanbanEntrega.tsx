@@ -659,8 +659,8 @@ export function KanbanEntrega({
                               style={{ height: 15, marginTop: 2, cursor: 'pointer', accentColor: 'var(--primary)', flex: 'none' }} />
                           }
                           /* La barra y el aviso de la familia de tarjetas (17/10/2026): la etapa del servicio, y
-                             «Sin entrar al curso» o «N días sin moverse» en rojo (./aviso-tarjeta.ts). */
-                          avance={avanceDeCliente({ etapa: iCol, etapas: visibles.length, enEtapa: t ? { frase: t.frase, trabado: t.trabado } : null, acceso: cursoDe?.(c.leadId)?.acceso ?? null, ahoraMs: Date.now() })}
+                             «Pago rechazado», «Sin entrar al curso» o «N días sin moverse» en rojo (./aviso-tarjeta.ts). */
+                          avance={avanceDeCliente({ etapa: iCol, etapas: visibles.length, enEtapa: t ? { frase: t.frase, trabado: t.trabado } : null, acceso: cursoDe?.(c.leadId)?.acceso ?? null, cobro: c.ficha?.cobro ?? null, ahoraMs: Date.now() })}
                           chipExtra={desde && (
                             <span className={`ke-chip${trabado ? ' ke-chip-trabado' : ''}`}>
                               {trabado ? `${desde.replace(/^hace /, '')} sin moverse` : desde}

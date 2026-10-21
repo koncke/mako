@@ -35,6 +35,7 @@ import { urlGravatar } from '@/lib/gravatar';
 import { getSesionAdmin } from '@/lib/auth';
 import { PARAM_CLIENTE, leerClienteDeUrl } from '@/app/plan/board/filtro-cliente';
 import { ultimoContactoDeClientes } from '@/lib/cs-cartera';
+import { cobrosDeLaCartera } from './cobro-tarjeta';
 import { sincronizarOnboardingClientes } from './onboarding-clientes-sync';
 import { serviciosConEtapas, filasDeEntrega } from './onboarding-clientes';
 import { clasesDelProducto, progresoDeClientes } from '@/lib/curso-datos';
@@ -128,6 +129,8 @@ export async function PantallaClientes({ searchParams }: { searchParams: Promise
    * «23 días sin contacto» sobre una fila que dice «hace 2 días». Nunca tira: `null` es «no pude».
    */
   const lecturaContacto = ultimoContactoDeClientes(clientes.map((c) => c.leadId));
+  /** EL COBRO DE CADA UNO, para el aviso «Pago rechazado» / «Cuota vencida» de la tarjeta (20/10/2026). Nunca tira. */
+  const lecturaCobros = cobrosDeLaCartera(clientes.map((c) => c.leadId));
 
   const tablero = clientes.length
     ? await tableroDeLaCartera(clientes).catch((e) => ({ ok: false as const, error: mensaje(e) }))
@@ -195,6 +198,7 @@ export async function PantallaClientes({ searchParams }: { searchParams: Promise
    */
   const fichas = await lecturaFichas;
   const contactos = await lecturaContacto;
+  const cobros = await lecturaCobros;
 
   /**
    * LA FICHA QUE LLEGA ABIERTA: `?cliente=<leadId>`. Se lee ACÁ y no en el navegador, por
@@ -236,6 +240,7 @@ export async function PantallaClientes({ searchParams }: { searchParams: Promise
       // Sin fila en el mapa con la lectura bien = nunca hubo contacto (`fecha: null`), que no es
       // lo mismo que no haber podido leer (`null`).
       contactoUltimo: contactos ? (contactos[c.leadId] ?? { fecha: null, via: null }) : null,
+      cobro: cobros?.[c.leadId] ?? null,
     },
   }));
 
