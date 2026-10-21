@@ -11,9 +11,11 @@
 // que no baje.
 //
 // Probado rompiéndolo (21/10/2026, con la base en 0 fallos):
-//   · (la sexta revisión) el «:» presenta sólo con espacio, salto o cita, como antes → 2 fallos (2 y 3b); el «(» de «:(»
-//     abre un paréntesis → 1 fallo (2); sin `bloquesDebajo` → 1 fallo (3b); el turno sin pasarlo → 1 fallo (3b); el «:»
-//     pegado a una letra o un dígito presenta (10:30, https:, «:D») → 1 fallo (4, la cobertura bajó);
+//   · (la séptima revisión) el «:» entre paréntesis no presenta, como en la sexta → 1 fallo (2); el «:» pegado a una letra
+//     o a «)» no presenta, como en la sexta → 1 fallo (2); el pegado a un dígito o a «/» presenta (10:30, https:) → 1 fallo
+//     (4, la cobertura bajó);
+//   · (la sexta revisión) el «:» presenta sólo con espacio, salto o cita, como antes → 2 fallos (2 y 3b); sin
+//     `bloquesDebajo` → 1 fallo (3b); el turno sin pasarlo → 1 fallo (3b);
 //   · (la quinta revisión) la promesa juzgada sin lo citado, como antes → 1 fallo (2); sin el «:» en la promesa → 1 fallo
 //     (2); lo que exime mirado sin la cita → 1 fallo (2); cualquier «:» presenta, como antes → 2 fallos (3 y 4); el «:»
 //     entre paréntesis presenta → 1 fallo (4); el «:» que cierra el mensaje presenta → 2 fallos (3 y 4); sólo el «:» con
@@ -161,6 +163,14 @@ const FRASES: Array<[string, Clase]> = [
   ['Uf, perdón la demora :( Te armé el resumen igual:\n- 5 leads nuevos', 'N'],
   ['Perdón la demora :( Te armé el resumen igual: 5 leads nuevos y 2 reuniones :)', 'N'],
   ['**Déjame ver:** tienes 3 reuniones esta semana.', 'N'],
+  // (la séptima revisión) El «:» entre paréntesis, el de un emoticón y el pegado a una palabra también presentan.
+  ['Hice la cuenta (conversión: 21 %).', 'N'],
+  ['Te armé el resumen de la semana (leads: 5, reuniones: 2).', 'N'],
+  ['**Te armé el resumen** (leads: 5, reuniones: 2)', 'N'],
+  ['Te armé el resumen :)\n- 5 leads nuevos\n- 2 reuniones', 'N'],
+  ['Hice la cuenta :D tu conversión es del 21 %.', 'N'],
+  ['Te escribí el filtro `etapa:ganado` para que lo pegues en el buscador.', 'N'],
+  ['Hice la cuenta:con 14 leads y 3 ventas, tu conversión es del 21 %.', 'N'],
   // Datos de estado (lo que hay en el CRM)
   ['Juan quedó agendado ayer por tu closer.', 'D'],
   ['Esta semana quedaron cargados 8 leads nuevos desde Meta.', 'D'],
@@ -198,11 +208,13 @@ const cuantasNotas = (t: string) => NOTAS.reduce((k, n) => k + (t.split(n).lengt
 /**
  * Lo medido el 21/10/2026: de las H, cuántas llevan nota sin respaldo. Sólo puede subir. 26 en 08dc4ce9f; 25 desde la cuarta
  * revisión, a propósito: «Ya te armé el informe semanal: lo tenés en el Dashboard.» presenta con «:» y ya no se marca. 31 de
- * 42 desde la quinta: las 6 del «:» que no presenta (hora, link, emoticón, paréntesis, el último) llevan nota.
+ * 42 desde la quinta: las 6 del «:» que no presenta (hora, link, emoticón, paréntesis, el último) llevan nota. 30 de 42 desde
+ * la séptima, a propósito (precisión antes que cobertura): el «:» entre paréntesis vuelve a presentar, como en producción,
+ * y «Moví a Juan a Ganado (estado: cerrado).» ya no se marca.
  * Fuera del banco, la revisión midió que el «Hecho» de otra cosa respalda 25 de 30 pedidos NUEVOS que el clasificador no
  * ve como pedido: es cobertura, y queda como número.
  */
-const MEDIDO = { conNota: 31, de: 42 };
+const MEDIDO = { conNota: 30, de: 42 };
 
 test('1. ninguna oración se borra, en ninguna variante', () => {
   const borradas: string[] = [];

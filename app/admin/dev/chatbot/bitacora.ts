@@ -2124,4 +2124,25 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "21 oct", hora: "10:17", chat: "Automations", cuenta: "claude4",
+    sesion: "local_f74a2156-23dd-4213-b1dd-cd6c13906ff1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Hecho: el aviso de automatización duplicada también entre automatizaciones distintas que arrancan con el mismo lead nuevo o la misma reserva",
+    puntos: [
+      "Un lead nuevo de Meta entra a «Dejó el formulario sin agendar» y a «Un Lead Entró» a la vez: activar una con la otra prendida avisa.",
+      "Lo mismo con una reserva: «Agendó pero no confirmó» con «Un Lead Agendó Llamada» o con la post-agenda.",
+      "El motor y el aviso usan la misma lista de qué automatizaciones arrancan con cada evento, así no se desfasan.",
+      "En producción: run 204, deploy de 103dadf94 (lo verificó el Cerebro).",
+    ],
+    commits: [
+      { sha: "a3f808dab", msg: "Automations: la duplicada con los grupos de evento del motor (TRIGGERS_POR_EVENTO, una tabla para los dos)", lineas: 217, archivos: 11 },
+      { sha: "34993a22c", msg: "Automations: dos guardas que miraban la tabla de eventos en lib/nutricion.ts leen lib/nutricion-eventos.ts", lineas: 6, archivos: 2 },
+    ],
+    archivos: [
+      "lib/nutricion-eventos.ts — la tabla de eventos que leen el motor y el aviso",
+      "docs/hallazgos-chatbot.md — «Y el mismo disparador tampoco alcanzaba»",
+    ],
+    revisar: "/automations",
+  },
 ];
