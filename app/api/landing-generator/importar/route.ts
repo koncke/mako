@@ -18,11 +18,18 @@
 // es la capa de abajo: un número nuestro por encima del suyo no protege, promete.
 //
 //   multipart { file } → { ok: true, texto, titulo } | { ok: false, error }
+//
+// GET (20/10/2026): lo que el negocio ya tiene para importar. Hoy, el PDF «Lo que vendes» que dejó el onboarding en
+// El Archivero (`elegirLoQueVendes`, lib/lo-que-vendes-pdf.ts): el chat del editor lo ofrece como chip, y al tocarlo
+// lo baja (/api/onboarding/archivero/download, la URL firmada) y lo adjunta como cualquier otro archivo, por acá.
+//   GET → { ok: true, loQueVendes: { id, nombre } | null }
 // =============================================================================
 
 import { getCapaActual, getRolWsEfectivo } from '@/lib/workspace';
 import { tabEnCapa } from '@/lib/capas';
 import { archivoATexto } from '@/lib/archivo-a-texto';
+import { listFiles } from '@/lib/archivero';
+import { elegirLoQueVendes } from '@/lib/lo-que-vendes-pdf';
 
 export const dynamic = 'force-dynamic';
 // Un PDF escaneado o un audio se leen con IA (visión / transcripción): pueden tardar.
@@ -38,6 +45,22 @@ const falla = (status: number, error: string) => Response.json({ ok: false, erro
 /** El nombre del archivo sin la extensión, como título de partida. */
 function tituloDe(nombre: string): string {
   return nombre.replace(/\.[a-z0-9]{1,6}$/i, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
+}
+
+export async function GET() {
+  const rol = await getRolWsEfectivo();
+  if (rol == null) return falla(401, 'no autenticado');
+  if (rol !== 'admin') return falla(403, 'Sólo el admin de la cuenta');
+  if (!tabEnCapa('landing-writer', await getCapaActual())) return falla(404, 'No existe');
+  try {
+    // `listFiles` va por getTenantDb: sólo los del negocio de la pestaña.
+    const f = elegirLoQueVendes(await listFiles());
+    return Response.json({ ok: true, loQueVendes: f ? { id: f.id, nombre: f.nombre } : null });
+  } catch (err) {
+    // Sin la lista, el chat sigue sin el chip: no es un error que la persona tenga que ver.
+    console.error('[landing-generator/importar:GET]', err instanceof Error ? err.message : err);
+    return Response.json({ ok: true, loQueVendes: null });
+  }
 }
 
 export async function POST(req: Request) {

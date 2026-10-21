@@ -57,7 +57,7 @@ const bloque = (src: string, desde: string, hasta: string) => {
 };
 
 const como = (c: Partial<ComoGenerar> = {}): ComoGenerar => ({ tipo: 'landing', modo: 'plan', params: { ...PARAMS_DEFAULT }, ...c });
-const leido = (nombre = 'propuesta.pdf', texto = 'El texto del archivo'): ArchivoCaja => ({ nombre, imagen: false, estado: 'listo', texto });
+const leido = (nombre = 'propuesta.pdf', texto = 'El texto del archivo'): ArchivoCaja => ({ id: `x-${nombre}`, nombre, imagen: false, estado: 'listo', texto });
 const largo = 'Notas de la oferta. '.repeat(30);
 
 // ── 2, 3 y 4 · Los modos ─────────────────────────────────────────────────────────────────────────
@@ -89,8 +89,8 @@ test('elegir un modo cambia el cuadro y NO toca lo escrito (a lo sumo lo tapa el
   const conA = conArchivo(cajaVacia('importar'), leido());
   assert.equal(conA.modo, 'importar');
   assert.equal(vistaDeCaja(conA), 'texto', 'con el archivo, vuelve al texto (con su miniatura)');
-  for (const m of ['generar', 'analizar', 'replicar'] as const) assert.equal(elegirModo(conA, m).archivo, null, m);
-  assert.ok(elegirModo(conA, 'importar').archivo);
+  for (const m of ['generar', 'analizar', 'replicar'] as const) assert.equal(elegirModo(conA, m).archivos.length, 0, m);
+  assert.equal(elegirModo(conA, 'importar').archivos.length, 1);
 });
 
 // ── 5 · El texto largo y «Tu texto» ──────────────────────────────────────────────────────────────
@@ -158,9 +158,9 @@ test('la ✕ del link o del archivo: con algo escrito vuelve al texto; si no, a 
   assert.equal(quitarLink({ ...desdeAnalizar, texto: 'algo' }).modo, 'generar', 'con texto: el texto, a la vista');
   assert.equal(quitarLink(alEscribir(cajaVacia(), 'https://otra.com')).modo, 'generar', 'pegado en Generar: vuelve a Generar');
   const desdeImportar = conArchivo(cajaVacia('importar'), leido());
-  assert.equal(vistaDeCaja(quitarArchivo(desdeImportar)), 'importar', 'vacío: el contenedor de importar');
-  assert.equal(quitarArchivo(conArchivo(cajaVacia(), leido())).modo, 'generar', 'adjuntado desde Generar: vuelve a Generar');
-  assert.equal(quitarArchivo({ ...desdeImportar, texto: 'algo' }).modo, 'generar');
+  assert.equal(vistaDeCaja(quitarArchivo(desdeImportar, 'x-propuesta.pdf')), 'importar', 'vacío: el contenedor de importar');
+  assert.equal(quitarArchivo(conArchivo(cajaVacia(), leido()), 'x-propuesta.pdf').modo, 'generar', 'adjuntado desde Generar: vuelve a Generar');
+  assert.equal(quitarArchivo({ ...desdeImportar, texto: 'algo' }, 'x-propuesta.pdf').modo, 'generar');
 });
 
 test('lo arrastrado: la text/uri-list (sin sus comentarios) o un texto que es SÓLO un link; lo demás sigue al navegador', () => {
@@ -175,7 +175,7 @@ test('lo arrastrado: la text/uri-list (sin sus comentarios) o un texto que es S�
   // Soltar un link con un archivo puesto: va al texto (son sus instrucciones), no pisa nada.
   const conA = conArchivo(cajaVacia(), leido());
   assert.equal(conLink(conA, 'https://otra.com').texto, 'https://otra.com');
-  assert.ok(conLink(conA, 'https://otra.com').archivo);
+  assert.equal(conLink(conA, 'https://otra.com').archivos.length, 1);
 });
 
 // ── Qué se manda en cada modo ────────────────────────────────────────────────────────────────────
@@ -209,8 +209,8 @@ test('alEnviar (se EJECUTA): el pedido corto a Generar, el texto largo como text
     accion: { que: 'ia', tipo: 'presentacion', arranque: { modo: 'express', params, prompt: 'https://ref.com/x hazla corta', archivo: { nombre: 'propuesta.pdf', texto: 'El texto del archivo' } } },
   });
   // Mientras se lee (o si no se pudo), nada.
-  assert.deepEqual(alEnviar(conArchivo(cajaVacia(), { nombre: 'a.pdf', imagen: false, estado: 'leyendo' }), c), { que: 'nada' });
-  assert.equal(listoParaEnviar(conArchivo(cajaVacia(), { nombre: 'a.pdf', imagen: false, estado: 'error' })), false);
+  assert.deepEqual(alEnviar(conArchivo(cajaVacia(), { id: 'a', nombre: 'a.pdf', imagen: false, estado: 'leyendo' }), c), { que: 'nada' });
+  assert.equal(listoParaEnviar(conArchivo(cajaVacia(), { id: 'a', nombre: 'a.pdf', imagen: false, estado: 'error' })), false);
   // Un link de referencia y un pedido corto: el link adelante del pedido.
   const ref = { ...borrarAlInicio(conLink(cajaVacia(), 'https://ref.com/x'))!, texto: 'pero para dentistas' };
   const rr = alEnviar(ref, c);
@@ -279,7 +279,7 @@ test('los ajustes con los que abre: la base VALIDADA contra las analizadas, el o
   assert.equal(instruccionesConArchivo('x'.repeat(MAX_INSTRUCCIONES), 'y').length, MAX_INSTRUCCIONES);
   // Lo de vuelta de Crear con un archivo: Importar con su miniatura y lo escrito al lado.
   const s = cajaDeSemilla('importar', { archivo: { nombre: 'a.pdf', texto: 'x' }, texto: 'hazla corta' });
-  assert.deepEqual([s.modo, vistaDeCaja(s), s.texto, s.archivo?.estado], ['importar', 'texto', 'hazla corta', 'listo']);
+  assert.deepEqual([s.modo, vistaDeCaja(s), s.texto, s.archivos[0]?.estado], ['importar', 'texto', 'hazla corta', 'listo']);
 });
 
 test('la miniatura del archivo dice su tipo', () => {
@@ -308,7 +308,7 @@ test('dibujado: las opciones ARRIBA del cuadro, el MISMO cuadro en los cuatro mo
     assert.doesNotMatch(html, /gp-cc-opcion|Crear con IA|Ejemplos de instrucciones|Aleatorio|Pegar texto/, `${modo}: volvió una tarjeta`);
   }
   assert.match(dibujar({ modo: 'generar' }), /<textarea class="gp-cc-entrada"/);
-  assert.match(dibujar({ modo: 'importar' }), /class="gp-cc-soltar"[\s\S]*Suelta tu archivo aquí o <button type="button" class="gp-cc-soltar-elegir">elígelo<\/button>/);
+  assert.match(dibujar({ modo: 'importar' }), /class="gp-cc-soltar"[\s\S]*Suelta tus archivos aquí o <button type="button" class="gp-cc-soltar-elegir">elígelo<\/button>/);
   assert.match(dibujar({ modo: 'analizar' }), /placeholder="Pega o suelta el link de la landing" aria-label="Link de la landing a analizar"/);
   assert.match(dibujar({ modo: 'replicar' }), /aria-label="Link de la landing a replicar"/);
   // Sin micrófono en los contenedores (no hay campo donde dictar); el «+» y el ↑, siempre.
