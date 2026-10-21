@@ -1288,3 +1288,7 @@ Lo que el briefing previo daba por abierto y **ya no es cierto**:
   19:04, ajeno y transitorio: a las 19:11 ya estaba verde (sección 3). **Si lo reportás,
   fechá la lectura y volvé a medir antes de mandar el mensaje** — re-correrlo cuesta
   segundos y acusar a la sesión de al lado de romper el repo cuesta un turno de ella.
+
+/crm en lista, escritorio chico (21/10, pedido de Martín vía el Cerebro, rama `crm-lista-chica`): columnas con prioridad
+por el ancho medido, encabezado y etapa que recortan, Empresa a la fila. Medido con el arnés: 0 textos fuera de su celda
+a 934×639 y 1024×768 (antes 5 y 4). Falta verlo en la app real.

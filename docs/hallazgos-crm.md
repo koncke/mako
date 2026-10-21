@@ -9990,3 +9990,27 @@ que su hoja no puso aparte (`partesDeReunion1`, `partesDeVisitas`). Nada guardad
 no se migra la configuración guardada.
 **Vive en:** app/crm/lead-view/ficha/reglas-reuniones.ts · reglas-tracking.ts · Armador.tsx · ReunionesCard.tsx ·
 ComportamientoCard.tsx. Test: tests/crm-ficha-bloques-partidos.test.ts. *20/10/2026, chat «CRM» (claude4).*
+
+## /crm en lista en un escritorio chico: columnas con prioridad, y una celda que no recorta se monta sobre la de al lado (21/10/2026)
+
+- **Síntoma (Martín, ~934×639 px de CSS: Chrome al 60 % de 1920×1080 con escala 125 %):** los encabezados se pisaban
+  («¿AGENDÓMONTCREADO»), la etapa «Nutrición – Reactivación» se montaba sobre la fecha y el nombre se cortaba a 8 letras.
+- **Causa:** siete columnas en fracciones fijas (`34px 2fr 1.4fr … 64px`). Con la barra lateral abierta a la tabla le
+  quedan ~600 px y 1fr eran 41 px: el nombre, 82. Y dos celdas NO recortaban: el botón de ordenar del encabezado (no se
+  achica sin `minWidth: 0`) y el chip de la etapa (`nowrap` sin `maxWidth`). En una grilla, lo que no recorta no empuja
+  la columna: se dibuja ENCIMA de la de al lado, sin error.
+- **La regla (app/crm/tabla-columnas.ts):** cada columna tiene un mínimo con que se LEE y una prioridad (nombre, etapa,
+  ¿Agendó?, Creado, Empresa, Monto, Origen); entran por prioridad mientras quepan con su mínimo y la primera que no
+  entra CORTA (si no, a 1024 entraba Monto y no Creado). El nombre y la etapa siempre. La Empresa que no entra va
+  debajo del nombre, con el email. CrmBoard mide el recuadro con `ResizeObserver` (la barra se pliega, el panel de MaKo
+  se abre) y usa la MISMA plantilla en el encabezado y en cada fila.
+- **Medido en un navegador con los componentes reales** (tests/_crm-lista-arnes.tsx, la barra abierta): antes, a
+  934×639, 5 textos fuera de su celda y el nombre en 82 px (11 letras); a 1024×768, 4 y 102 px. Ahora, 0 y 0; el
+  nombre en 178 px a 934 (24 de 26 letras del más largo) y entero a 1024. Con la barra plegada entran Creado y Empresa.
+  **Cómo se cuenta «se pisa»:** el texto VISIBLE (recortado por sus ancestros con `overflow`) que cae fuera de la caja
+  de su celda; una foto no lo cuenta.
+
+**Sin hacer:** verlo en la app real (el arnés dibuja los componentes de la tabla, no la página entera); la vista
+Kanban no se tocó.
+**Vive en:** app/crm/tabla-columnas.ts · app/crm/TablaListaLeads.tsx · app/crm/CrmBoard.tsx ·
+tests/crm-lista-escritorio-chico.test.ts y tests/_crm-lista-arnes.tsx · *21/10/2026, chat «CRM» (claude4).*

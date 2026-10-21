@@ -10,6 +10,8 @@
 
 import { useSearchParams, usePathname } from 'next/navigation';
 import { empujeDeColumna } from './arrastre-columna';
+import { anchoMinimo, columnasQueEntran, plantillaDeColumnas } from './tabla-columnas';
+import { CeldasLead, TitulosLista, estiloEncabezado, estiloFila } from './TablaListaLeads';
 import { fotoVaciaDeArrastre, useArrastreCopia } from '@/app/plan/board/arrastre-copia';
 import { useRouter, useWs } from '@/app/_ui/Link';
 import { BotonIntegracion, VueltaDeGoogle } from '@/app/_components/ConectarIntegracion';
@@ -290,47 +292,10 @@ function IconoWhatsapp() {
 /** Por que columna se ordena la tabla. */
 type OrdenTabla = 'nombre' | 'empresa' | 'origen' | 'etapa' | 'agenda' | 'monto' | 'creado';
 
-/** Las columnas de la tabla, en una sola constante: la usan el encabezado Y cada fila.
- *  Con dos listas, agregar una columna desalinea la tabla entera y no lo dice nadie. */
-const COLS_TABLA = '34px 2fr 1.4fr 1.5fr 1.25fr .95fr .95fr .8fr 64px';
+// Las columnas de la tabla salen de UNA plantilla (`plantillaDeColumnas`, app/crm/tabla-columnas.ts) que usan el
+// encabezado Y cada fila: con dos listas, agregar una columna desalinea la tabla entera y no lo dice nadie. Cuáles entran
+// lo decide el ANCHO medido del recuadro (21/10/2026: en un escritorio chico se pisaban).
 
-/**
- * Un encabezado que ORDENA. Copiado del `Th` de la tabla del plan
- * (app/plan/board/Tablas.tsx), con lo mismo que lo hace usable ahi:
- *
- *   · sin `onSort` no dibuja boton — una columna que no se puede ordenar no finge que si;
- *   · la flecha sale SOLO en la columna activa, o siete flechas grises compiten con los
- *     rotulos y ninguna dice nada;
- *   · `aria-sort` para que se anuncie, que es lo unico que le queda a quien no ve la flecha.
- */
-function ThCrm({ children, activo, dir, onSort, alinear = 'left' }: {
-  children: ReactNode;
-  activo?: boolean;
-  dir?: 'asc' | 'desc';
-  onSort?: () => void;
-  alinear?: 'left' | 'right';
-}) {
-  const base: CSSProperties = {
-    display: 'flex', alignItems: 'center', gap: 4, minWidth: 0,
-    justifyContent: alinear === 'right' ? 'flex-end' : 'flex-start',
-  };
-  if (!onSort) return <span style={base}>{children}</span>;
-  return (
-    <span style={base} aria-sort={activo ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
-      <button type="button" onClick={onSort}
-        title={`Ordenar por ${typeof children === 'string' ? children.toLowerCase() : 'esta columna'}`}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 4, padding: 0, border: 0,
-          background: 'none', cursor: 'pointer', font: 'inherit', letterSpacing: 'inherit',
-          textTransform: 'inherit', color: activo ? 'var(--ink)' : 'inherit',
-          fontWeight: activo ? 700 : 'inherit',
-        }}>
-        {children}
-        {activo && <span aria-hidden style={{ fontSize: 9, lineHeight: 1 }}>{dir === 'asc' ? '▲' : '▼'}</span>}
-      </button>
-    </span>
-  );
-}
 
 /**
  * Las tres bandas del Kanban, en el orden en que se dibujan.
@@ -1727,6 +1692,22 @@ export function CrmBoard({
     };
     return [...filtered].sort(cmp);
   }, [filtered, ordenTabla, dirTabla, stages]);
+
+  // LAS COLUMNAS QUE ENTRAN (21/10/2026, escritorio chico): se mide el recuadro de la tabla y entran las que se leen con
+  // su mínimo, por prioridad (app/crm/tabla-columnas.ts). Antes de medir, todas: lo de siempre en un escritorio grande.
+  const tablaRef = useRef<HTMLDivElement | null>(null);
+  const [anchoTabla, setAnchoTabla] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const el = tablaRef.current;
+    if (!el) return;
+    const medir = () => setAnchoTabla(Math.round(el.clientWidth));
+    medir();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(medir) : null;
+    ro?.observe(el);
+    return () => ro?.disconnect();
+  }, [view]);
+  const colsTabla = useMemo(() => columnasQueEntran(anchoTabla), [anchoTabla]);
+  const plantillaTabla = useMemo(() => plantillaDeColumnas(colsTabla), [colsTabla]);
 
   /** Lo tildado que TODAVIA existe. La lista se recarga sola, asi que un id que ya no
    *  esta (lo borro otra pestaña, se movio de producto) no puede seguir contando. */
@@ -3157,12 +3138,12 @@ export function CrmBoard({
           )}
         </div>
       ) : (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
+        <div ref={tablaRef} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflowX: 'auto', overflowY: 'hidden' }}>
           {/* ⚠️ LA CASILLA DE «TODAS» MARCA LO QUE SE VE, no la tabla entera. Con un filtro
               puesto, «todas» tiene que significar las que el filtro dejo — seleccionar en
               silencio 1.100 leads que no estan en pantalla y despues ofrecer «Eliminar» es
               exactamente el boton que nadie puede auditar antes de apretarlo. */}
-          <div style={{ display: 'grid', gridTemplateColumns: COLS_TABLA, gap: 12, padding: '15px 22px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)', fontFamily: MONO, fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--dim)', alignItems: 'center' }}>
+          <div style={estiloEncabezado(plantillaTabla, anchoMinimo(colsTabla))}>
             <span>
               <input type="checkbox" checked={todosSel}
                 ref={(el) => { if (el) el.indeterminate = !todosSel && idsVisibles.some((id) => selLeads.has(id)); }}
@@ -3171,13 +3152,7 @@ export function CrmBoard({
                 aria-label={todosSel ? 'Quitar la selección' : 'Seleccionar los de esta vista'}
                 style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)' }} />
             </span>
-            <ThCrm activo={ordenTabla === 'nombre'} dir={dirTabla} onSort={() => sortearTabla('nombre')}>Nombre</ThCrm>
-            <ThCrm activo={ordenTabla === 'empresa'} dir={dirTabla} onSort={() => sortearTabla('empresa')}>Empresa</ThCrm>
-            <ThCrm activo={ordenTabla === 'origen'} dir={dirTabla} onSort={() => sortearTabla('origen')}>Origen</ThCrm>
-            <ThCrm activo={ordenTabla === 'etapa'} dir={dirTabla} onSort={() => sortearTabla('etapa')}>Etapa</ThCrm>
-            <ThCrm activo={ordenTabla === 'agenda'} dir={dirTabla} onSort={() => sortearTabla('agenda')}>¿Agendó?</ThCrm>
-            <ThCrm activo={ordenTabla === 'monto'} dir={dirTabla} onSort={() => sortearTabla('monto')}>Monto</ThCrm>
-            <ThCrm activo={ordenTabla === 'creado'} dir={dirTabla} onSort={() => sortearTabla('creado')} alinear="right">Creado</ThCrm>
+            <TitulosLista cols={colsTabla} orden={ordenTabla} dir={dirTabla} onSort={sortearTabla} />
             {/* SIN ROTULO: la columna trae dos acciones distintas y una palabra nombraria
                 mal a una de las dos. Cada boton se anuncia por su `title`/`aria-label`,
                 que es donde el texto no ocupa lugar. */}
@@ -3235,8 +3210,7 @@ export function CrmBoard({
                 }}
                 onDragEnd={() => { filaAgarrada.current = null; setFilaDestino(null); soltarCopia(); }}
                 style={{
-                  display: 'grid', gridTemplateColumns: COLS_TABLA, gap: 12, padding: '15px 22px',
-                  borderBottom: '1px solid var(--border)', alignItems: 'center', cursor: 'pointer',
+                  ...estiloFila(plantillaTabla, anchoMinimo(colsTabla)),
                   background: filaDestino === l.id ? 'var(--surface-2)' : tildado ? 'var(--surface-2)' : undefined,
                   // El destino se marca con un filete, no con un hueco: en una tabla, abrir
                   // un espacio del alto de una fila empuja todo lo de abajo y el ojo pierde
@@ -3252,16 +3226,9 @@ export function CrmBoard({
                   title={tildado ? rotQuitar(l.name) : rotPoner(l.name)}
                   aria-label={tildado ? rotQuitar(l.name) : rotPoner(l.name)}
                   style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)' }} />
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.name}</div>
-                  <div style={{ fontSize: 12.5, color: 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.email}</div>
-                </div>
-                <div style={{ fontSize: 13.5, color: 'var(--ink)', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.company}</div>
-                <div style={{ fontSize: 12.5, color: 'var(--dim)', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.origin}</div>
-                <div style={{ minWidth: 0 }}><span style={chipStyle(m.tone)}>{m.label}</span></div>
-                <div style={{ fontSize: 13, color: 'var(--dim)' }}>{l.agenda ?? '—'}</div>
-                <div style={{ fontSize: 13.5, fontWeight: 600, color: isGanado ? 'var(--good)' : 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{isGanado ? montoDeTarjeta(l).texto : '—'}</div>
-                <div style={{ fontSize: 12.5, color: 'var(--faint)', textAlign: 'right', whiteSpace: 'nowrap' }}>{l.created}</div>
+                <CeldasLead cols={colsTabla} nombre={l.name} email={l.email} empresa={l.company} origen={l.origin}
+                  etapa={{ rotulo: m.label, estilo: chipStyle(m.tone) }} agenda={l.agenda}
+                  monto={{ texto: isGanado ? montoDeTarjeta(l).texto : '', ganado: isGanado }} creado={l.created} />
                 {/* ── LAS ACCIONES DE LA FILA. «Con acciones utiles» (05/10/2026). Son las dos
                     que hoy obligan a abrir la ficha para nada: escribirle, y sacarlo. Las dos
                     frenan la propagacion — un tacho que ademas abre la ficha deja la
