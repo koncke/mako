@@ -18,6 +18,7 @@
 // leads en nutrición aunque el Kanban mostrara cientos.
 
 import { diasAntes, finDeMesDeFecha, primerDiaDelMesDeFecha } from '@/lib/date-utils';
+import { armarCsv } from '@/lib/csv-celda';
 
 // ── Grupos de campos que puede llevar cada lead ──────────────────────────────
 
@@ -266,4 +267,17 @@ export function slugAlcance(f: FiltrosLeads): string {
   if (f.receta !== 'custom') return f.receta;
   if (f.banda === 'elegir') return f.etapas.length === 1 ? f.etapas[0] : `${f.etapas.length}-etapas`;
   return f.banda;
+}
+
+/**
+ * El CSV de los leads: una fila por lead y las columnas elegidas, con BOM y `\r\n`.
+ *
+ * ⚠️ INYECCIÓN DE FÓRMULAS (21/10/2026): los nombres y los campos de un lead vienen de formularios PÚBLICOS. Un lead llamado «=HYPERLINK(…)» o «=cmd|…» se
+ * abría como fórmula en el Excel o en el Sheets de quien exporta. El escape vive en lib/csv-celda.ts, la única vía (tests/csv-una-sola-via.test.ts): lo que
+ * arranca como fórmula lleva un apóstrofo adelante. Un número sigue siendo número (una columna de cifras no se vuelve texto) y un booleano sale «Sí» / «No».
+ * BOM: sin él Excel abre el CSV en Windows-1252 y los acentos salen rotos («Diseño» → «DiseÃ±o»). Un export ilegible no es un export.
+ */
+export function csvDeLeads(columnas: ReadonlyArray<readonly [clave: string, rotulo: string]>, filas: ReadonlyArray<Record<string, unknown>>): string {
+  const dato = (v: unknown): string | number => (v == null ? '' : typeof v === 'number' ? v : typeof v === 'boolean' ? (v ? 'Sí' : 'No') : String(v));
+  return armarCsv([columnas.map(([, rotulo]) => rotulo), ...filas.map((fila) => columnas.map(([clave]) => dato(fila[clave])))], { numero: String });
 }

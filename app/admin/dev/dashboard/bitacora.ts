@@ -721,6 +721,7 @@ export const BITACORA: Hito[] = [
     fecha: '20 oct', hora: '23:45', chat: 'Dashboard', sesion: 'local_ca08f72a-8eb5-4957-a8e0-2b5c7bcbd699', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
     titulo: 'El chat dibuja lo que cambiaste en el Dashboard',
     puntos: [
+      'En producción desde el run 199 (21/10).',
       'Cuando confirmas en el Ops Center un cambio del Dashboard, el chat lo muestra debajo del «Hecho».',
       'Una hoja nueva o duplicada, o una tarjeta agregada, aparece con su nombre, lo que tiene y «Abrir en el Dashboard».',
       'Si editaste, moviste o quitaste algo, aparece el antes y el después, fila por fila, en palabras («Últimos 90 días → Este mes»).',
@@ -728,6 +729,14 @@ export const BITACORA: Hito[] = [
       'Una serie larga («leads por día de los últimos 90 días») muestra los días más recientes, y debajo del título dice qué tramo se ve.',
       'Si un gráfico no se puede dibujar, esa tarjeta dice «Este bloque no cargó» y el chat sigue funcionando.',
       'Si cambias el informe de otra persona, el chat lo muestra con su nombre y sin «Abrir en el Dashboard», que abriría el tuyo.',
+      'Lo que vence («¿qué me vence en los próximos 30 días?») se lee desde hoy: lo más urgente no queda afuera.',
+    ],
+    commits: [
+      { sha: 'ab9769677', msg: 'Ops Center: el chat dibuja lo que confirmaste en el Dashboard — la hoja creada o el antes y el después (2.7)', lineas: 339, archivos: 6 },
+      { sha: '3bc9f2101', msg: 'Ops Center: una pregunta del Dashboard se dibuja en el hilo — el número, la serie o la tabla (2.7, G16)', lineas: 339, archivos: 9 },
+      { sha: '61872a1ed', msg: '2.7, la revisión del 21/10: la serie larga dibuja lo más nuevo, el gráfico del chat tiene red de error y «ya lo ve» sólo si se dibujó', lineas: 406, archivos: 16 },
+      { sha: '17cf2e1cb', msg: '2.7, segunda revisión: lo que lee el modelo es el mismo tramo que se dibuja', lineas: 147, archivos: 9 },
+      { sha: 'b75ef11fd', msg: '2.7, tercera revisión: en el vencimiento el corte toma lo más cercano a hoy, y una lectura le deja lugar a la pregunta', lineas: 268, archivos: 10 },
     ],
     archivos: ['lib/api-mako/areas/dashboard-bloques.ts', 'lib/api-mako/areas/dashboard.run.ts', 'lib/chat-bloques-dashboard.ts', 'app/_chat/bloques/GraficoHilo.tsx', 'tests/dashboard-bloques-chat.test.ts y tests/dashboard-bloque-grafico.test.ts — probados rompiéndolos'],
     revisar: '/second-brain',

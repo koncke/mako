@@ -23,7 +23,7 @@ const sinComentarios = (s: string) => s.split('\n').filter((l) => !/^\s*#/.test(
 test('el workflow corre tipos, guardas y tests sobre integracion, y avanza main SIN forzar', () => {
   const wf = sinComentarios(leer('.github/workflows/integracion.yml'));
   assert.match(wf, /branches:\s*\[integracion\]/, 'corre en la rama integracion');
-  assert.match(wf, /typescript\/bin\/tsc --noEmit/, 'corre el tsc completo');
+  assert.match(wf, /node scripts\/tipos-ci\.mjs/, 'corre el tsc completo, por el script que dice si murió por memoria o por un error de tipos (tests/tipos-ci.test.ts)');
   assert.match(wf, /sh scripts\/guardas-push\.sh/, 'corre la MISMA lista de guardas que el pre-push local');
   assert.match(wf, /npm test/, 'corre los tests');
   assert.match(wf, /git push origin "HEAD:refs\/heads\/main"/, 'avanza main con el commit chequeado');
