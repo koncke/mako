@@ -183,4 +183,17 @@ export const BITACORA: Hito[] = [
       '⚠️ La Mac sigue sin probarse en una Mac.',
     ],
   },
+  {
+    fecha: '21 oct', hora: '17:30', chat: CH, sesion: SESION, cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: tu Claude en tu computadora, con todo lo que pidieron las tres revisiones, en producción',
+    revisar: '/perfil/ia',
+    puntos: [
+      'Al instalar, MaKo pregunta si es tu negocio ANTES de tocar lo que ya andaba: si dices que no, tu computadora sigue como estaba. Y si cierras la ventana mientras inicias sesión en Claude, MaKo igual queda prendido.',
+      'Reinstalar sobre una computadora que anda ya no deja ni un segundo a tu negocio sin su propio Claude.',
+      'Con tu propio Claude, ni las tarjetas que confirmas, ni «Buscar con MaKo», ni El Archivero, ni el AI Analyst programado mandan algo a Gemini o a una IA gratis.',
+      'Una clave de MaKo copiada en tu negocio ya no cuenta como «tu IA»: Buscar y El Archivero te siguen andando.',
+      'El tutorial te dice si el código se usó sin conectar y te da otro; si falta Claude Code, te lleva al paso 2.',
+      '⚠️ Falta que Martín suba los programas 0.3.2: hasta entonces, una instalación nueva dice «No pude preparar la descarga». La Mac sigue sin probarse en una Mac.',
+    ],
+  },
 ];
