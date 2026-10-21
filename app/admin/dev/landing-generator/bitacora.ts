@@ -887,4 +887,20 @@ export const BITACORA: Hito[] = [
       'lib/editor-landing/producto-de-landing.ts — dos con la misma clave: el exacto',
     ],
   },
+  {
+    fecha: '21 oct', hora: '07:55', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: crear webs desde el Ops Center, ya en producción',
+    puntos: [
+      'En producción desde el run 199 (deploy de 81aa8adf6). En el chat del Ops Center, cuando MaKo crea, duplica o publica una landing, aparece su tarjeta con la miniatura y «Abrir en el editor».',
+      '«¿Qué landings tengo?» las muestra con su miniatura. Si pides una landing sin decir el diseño, te deja elegir entre 3. Al publicar queda el link con Copiar y Abrir, y al conectar un dominio, los registros DNS con «Verificar ahora».',
+      'Antes de crear una landing con IA, si no le dijiste para qué producto es, MaKo te pregunta con tus productos, «Un producto nuevo» y «El negocio en general». La tarjeta para confirmar dice cuál quedó.',
+      'No se vio con clics: está probado con tests. Se prueba en el ws3: en el Ops Center, «armame una landing para mi otro producto» y «¿qué landings tengo?».',
+    ],
+    archivos: [
+      'lib/editor-landing/producto-de-landing.ts — para qué producto es la landing',
+      'lib/editor-landing/bloques-web.ts, bloques-chat.ts y app/web-generator/BloqueWeb.tsx — los bloques del Web Generator en el hilo',
+    ],
+    revisar: '/second-brain?ws=3',
+  },
 ];
