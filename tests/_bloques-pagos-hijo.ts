@@ -39,7 +39,7 @@ async function main() {
     const { ComprobanteDelChatCtx } = await import('../app/crm/lead-view/ficha/pagos/comprobante-del-chat');
     function BloquesDePagos(p: { leadId: number; lista: unknown; que: string }) {
       const c = useContext(ComprobanteDelChatCtx);
-      return createElement('div', { 'data-pieza': 'BloquesDePagos', 'data-props': JSON.stringify({ leadId: p.leadId, lista: p.lista, que: p.que, comprobante: c?.nombre ?? null }) });
+      return createElement('div', { 'data-pieza': 'BloquesDePagos', 'data-props': JSON.stringify({ leadId: p.leadId, lista: p.lista, que: p.que, comprobante: c ? { nombre: c.nombre, pagoId: c.pagoId } : null }) });
     }
     mock.module(url('app/customer-success/PagosCliente.tsx'), { namedExports: { BloquesDePagos } });
     const { default: EstadoCuentaHilo } = await import('../app/_chat/bloques/EstadoCuentaHilo');

@@ -37,6 +37,7 @@ import { rotuloDeFunnels } from '@/lib/funnels-elegidos';
 import { getDataSources, sourcesToMap } from '@/lib/sources';
 import { hoyEnWorkspace, tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { bloqueACobrar } from '@/lib/pagos-bloque';
+import { sanearBloque } from '@/lib/chat-bloques';
 import { TIPO_DE_CAMBIO_USD_MXN } from '@/lib/config';
 import { diasAntes, esFechaValida, lunesDeFecha, ayerEnTijuana } from '@/lib/date-utils';
 import { contarFilas, avisoRecorte } from './metricas.helpers';
@@ -451,7 +452,12 @@ export const RUNNERS: Runners = {
       ];
       if (!d !== !h) notas.unshift('Llegó solo uno de desde/hasta: el filtro por vencimiento necesita los dos, así que NO se filtró.');
       // En el chat de la app la lista se DIBUJA (la 2.27, lib/pagos-bloque.ts): la de General, con «Cobrada» en cada cuota.
-      const dibuja = !!ctx.aDibujar;
+      // ⚠️ «YA SE DIBUJA» SÓLO SI EL BLOQUE SOBREVIVE AL SANEO (21/10/2026, revisión adversarial): con una zona que el
+      // saneo no aceptaba, el bloque se descartaba y MaKo igual decía que la lista estaba abajo.
+      const bloque = ctx.aDibujar
+        ? sanearBloque(bloqueACobrar(items, hoy, await tzDeWorkspace(ctx.ws).catch(() => TZ_DEFAULT), filtra ? { desde: d, hasta: h } : null))
+        : null;
+      const dibuja = !!bloque;
       if (dibuja) notas.unshift('En este chat la lista YA SE DIBUJA debajo de tu respuesta, con «Cobrada» en cada cuota: no la copies fila por fila. Di en una o dos líneas cuántos son, cuánto suman y quién está más atrasado.');
       const contenido = json({
         a_la_fecha: hoy,
@@ -470,9 +476,7 @@ export const RUNNERS: Runners = {
         })),
         notas,
       });
-      if (!dibuja) return contenido;
-      const tz = await tzDeWorkspace(ctx.ws).catch(() => TZ_DEFAULT);
-      return { content: contenido, bloque: bloqueACobrar(items, hoy, tz, filtra ? { desde: d, hasta: h } : null) };
+      return bloque ? { content: contenido, bloque } : contenido;
     },
   },
 

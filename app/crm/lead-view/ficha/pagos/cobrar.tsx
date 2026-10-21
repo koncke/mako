@@ -26,7 +26,7 @@ import { CobrarCuotaConLink } from '@/app/crm/[id]/CobrarConLink';
 import type { CtxFicha } from '../tipos';
 import { refrescarCobros, useCobrosDelLead, useMonedaDelNegocio } from './datos';
 import { Aviso, ElegirComoCobrar, MarcarPagada, RegistrarPago, VerComprobante } from './piezas';
-import { ComprobanteDelChatCtx } from './comprobante-del-chat';
+import { ComprobanteDelChatCtx, comprobanteParaCuota } from './comprobante-del-chat';
 
 type Abierto =
   | { que: 'elegir'; cuota: Pago }
@@ -46,7 +46,7 @@ const unMesDespues = (iso: string): string => {
 export function useCobrar(ctx: CtxFicha) {
   const { lead, data } = ctx;
   // El comprobante adjunto en el chat con MaKo (la 2.28): si lo hay, cobrar es marcarla, con él ya leído.
-  const comprobante = useContext(ComprobanteDelChatCtx);
+  const delChat = useContext(ComprobanteDelChatCtx);
   const { opciones } = useCobrosDelLead(lead.id);
   const moneda = useMonedaDelNegocio();
   const [abierto, setAbierto] = useState<Abierto | null>(null);
@@ -66,8 +66,10 @@ export function useCobrar(ctx: CtxFicha) {
     if (a.tipo === 'agregar-cuota') setAbierto({ que: 'agregar', faltaUsd: a.faltaUsd });
     if (a.tipo === 'cargar-venta') setAbierto({ que: 'monto' });
   };
+  // El comprobante del chat va a SU cuota y mientras siga impaga (./comprobante-del-chat.ts): para otra, no está.
+  const comprobantePara = (q: Pago | null) => comprobanteParaCuota(delChat, q);
   // Con un comprobante del chat ya pagó: no se pregunta si mandarle el link.
-  const cobrarCuota = (q: Pago) => setAbierto(pasarelas.length && !comprobante ? { que: 'elegir', cuota: q } : { que: 'marcar', cuota: q });
+  const cobrarCuota = (q: Pago) => setAbierto(pasarelas.length && !comprobantePara(q) ? { que: 'elegir', cuota: q } : { que: 'marcar', cuota: q });
 
   const deshacerMarca = (q: Pago) => start(async () => {
     try { await marcarPagoAction(q.id, lead.id, false, null); cambio(); }
@@ -112,7 +114,7 @@ export function useCobrar(ctx: CtxFicha) {
       onMarcar={() => setAbierto({ que: 'marcar', cuota: q })} onLink={() => setAbierto({ que: 'link', cuota: q })} />;
   } else if (abierto?.que === 'marcar') {
     const q = abierto.cuota;
-    modal = <MarcarPagada cuota={q} leadId={lead.id} monedaNegocio={moneda} hoy={ctx.hoy} comprobante={comprobante} onCerrar={cerrar}
+    modal = <MarcarPagada cuota={q} leadId={lead.id} monedaNegocio={moneda} hoy={ctx.hoy} comprobante={comprobantePara(q)} onCerrar={cerrar}
       onHecho={(m, deshacer) => { cerrar(); cambio(); show(m, deshacer ? () => deshacerMarca(q) : undefined); }} />;
   } else if (abierto?.que === 'link') {
     const q = abierto.cuota;
@@ -132,6 +134,8 @@ export function useCobrar(ctx: CtxFicha) {
   return {
     abrir,
     cobrarCuota,
+    /** El comprobante del chat que esta acción va a leer: sólo cobrar SU cuota (la nota del estado de cuenta). */
+    comprobanteDe: (a: AccionDeCobro | null) => (a?.tipo === 'cobrar-cuota' ? comprobantePara(cuotaPorId(a.pagoId)) : null),
     marcar: (q: Pago) => setAbierto({ que: 'marcar', cuota: q }),
     mandarLink: (q: Pago) => setAbierto({ que: 'link', cuota: q }),
     verComprobante: (q: Pago) => setAbierto({ que: 'comprobante', cuota: q }),

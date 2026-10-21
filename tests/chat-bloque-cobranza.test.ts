@@ -9,7 +9,9 @@
 //   3. la lectura `a_quien_cobrar` dibuja SÓLO en el chat de la app, con las MISMAS filas que lee, y el modelo no recibe el
 //      bloque (va por `ctx.aDibujar`, saneado);
 //   4. el turno de la app lo guarda con la respuesta de MaKo, y la pantalla lo suma debajo sin recargar (y al recargar);
-//   5. se dibuja con la pieza de General, y la lista viva es la misma lectura que General, sólo para el admin.
+//   5. se dibuja con la pieza de General, y la lista viva es la misma lectura que General, sólo para el admin;
+//   6. (21/10/2026, revisión adversarial) la foto guardada dice cuántos son de verdad (30 guardadas de 35), y la zona del
+//      negocio se valida como la valida el motor de fechas: con 'UTC' el bloque se caía y MaKo igual decía «está abajo».
 // El paso 1 dibuja en un node aparte (tests/_bloques-pagos-hijo.ts): las acciones de servidor traen `server-only`.
 //
 // Probado rompiéndolo (20/10/2026, una rotura por vez, restaurando byte a byte): los números, en ROTURAS al final.
@@ -82,7 +84,9 @@ test('2. el saneo: una fila que marcaría otra cuota, una zona o una ventana inv
     assert.deepEqual((sanearBloque({ ...base, filas: [{ ...fila, pagoId }] }) as BloqueCobranza).filas, [], `pagoId ${JSON.stringify(pagoId)}`);
   }
   assert.equal((sanearBloque({ ...base, filas: [{ ...fila, urgencia: 'roja' }] }) as BloqueCobranza).filas[0].urgencia, null);
-  for (const tz of ['javascript:alert(1)', 'UTC', '', 'America/Mexico City']) assert.equal(sanearBloque({ ...base, tz }), null, `zona «${tz}»`);
+  for (const tz of ['javascript:alert(1)', '', 'America/Mexico City', 'Marte/Olympus', 'America/'.padEnd(70, 'x')]) assert.equal(sanearBloque({ ...base, tz }), null, `zona «${tz}»`);
+  // (21/10/2026: 'UTC' pasó al lado de las que valen. Lo decide `Intl`, como `hoyEnTz`: el regex con barra la tiraba.)
+  for (const tz of ['UTC', 'CET', 'EST5EDT', 'Etc/UTC', 'America/Argentina/Buenos_Aires']) assert.equal((sanearBloque({ ...base, tz }) as BloqueCobranza | null)?.tz, tz, `zona «${tz}»`);
   assert.equal(sanearBloque({ ...base, al: '20/10/2026' }), null);
   assert.equal(sanearBloque({ ...base, ventana: { desde: HOY } }), null, 'una ventana a medias leería otra lista');
   assert.deepEqual((sanearBloque({ ...base, ventana: { desde: HOY, hasta: '2026-10-26' } }) as BloqueCobranza).ventana, { desde: HOY, hasta: '2026-10-26' });
@@ -96,10 +100,11 @@ test('3. la lectura dibuja SÓLO en el chat de la app, con las MISMAS filas que 
   const run = sinComentarios(leer('lib/api-mako/areas/metricas.run.ts'));
   const aq = run.slice(run.indexOf('a_quien_cobrar: {'), run.indexOf('cuotas_pendientes: {'));
   assert.match(aq, /leer: async \(input, ctx\) =>/);
-  assert.match(aq, /const dibuja = !!ctx\.aDibujar;/);
-  assert.match(aq, /if \(!dibuja\) return contenido;/, 'en WhatsApp o por HTTP, la salida de siempre');
-  assert.match(aq, /return \{ content: contenido, bloque: bloqueACobrar\(items, hoy, tz, filtra \? \{ desde: d, hasta: h \} : null\) \};/,
-    'el bloque sale de los MISMOS `items` que la lista que lee el modelo');
+  // (21/10/2026: el bloque se arma y se SANEA antes de las notas: «ya se dibuja» sólo si sobrevive.)
+  assert.match(aq, /const bloque = ctx\.aDibujar\s*\? sanearBloque\(bloqueACobrar\(items, hoy, await tzDeWorkspace\(ctx\.ws\)\.catch\(\(\) => TZ_DEFAULT\), filtra \? \{ desde: d, hasta: h \} : null\)\)\s*: null;\s*const dibuja = !!bloque;/,
+    'el bloque sale de los MISMOS `items` que la lista que lee el modelo, y se sanea antes de prometerlo');
+  assert.ok(aq.indexOf('const dibuja = !!bloque;') < aq.indexOf("if (dibuja) notas.unshift('En este chat la lista YA SE DIBUJA"), 'la nota, después de saber si se dibuja');
+  assert.match(aq, /return bloque \? \{ content: contenido, bloque \} : contenido;/, 'en WhatsApp o por HTTP, la salida de siempre');
   const ej = sinComentarios(leer('lib/api-mako/ejecutar.ts'));
   const lectura = ej.slice(ej.indexOf('if (esLectura(def)) {'), ej.indexOf('if (esControl(def)) {'));
   assert.match(lectura, /const bloque = cruda\.bloque && ctx\.aDibujar \? sanearBloque\(cruda\.bloque\) : null;\s*if \(bloque\) ctx\.aDibujar\?\.\(bloque\);/);
@@ -133,13 +138,28 @@ test('5. se dibuja con la pieza de General, y la lista viva es la lectura de Gen
   assert.match(sinComentarios(leer('app/_chat/BloqueHilo.tsx')), /if \(b\.t === 'cobranza'\) return <CobranzaHilo b=\{b\} \/>;/);
   const hilo = sinComentarios(leer('app/_chat/bloques/CobranzaHilo.tsx'));
   assert.match(hilo, /import \{ Cobranza \} from '@\/app\/general\/Cobranza';/);
-  assert.match(hilo, /muestra=\{!viva\} alCambiar=\{releer\}/, 'sin la lista viva no se marca; después de marcar se vuelve a leer');
+  assert.match(hilo, /muestra=\{!viva\} total=\{viva \? undefined : b\.total\} alCambiar=\{releer\}/, 'sin la lista viva no se marca; después de marcar se vuelve a leer');
   const acciones = sinComentarios(leer('app/_chat/bloques/cobranza-actions.ts'));
   const rol = acciones.indexOf("if ((await getRolWsEfectivo()) !== 'admin')");
   assert.ok(rol > 0 && rol < acciones.indexOf('getWorkspaceActual()'), 'el rol va antes que el workspace (sin sesión cae al ws1)');
   assert.match(acciones, /return \{ ok: true, filas: cobrosDeFilas\(armarCobranza\(items, hoy\)\.filas\), tz \};/);
   assert.match(sinComentarios(leer('lib/pagos-bloque.ts')), /const c = cobroDeFila\(f, \(n\) => fmtValor\(n, 'usd'\)\);/, 'el renglón de General (tests/general-cobranza.test.ts)');
   assert.match(sinComentarios(leer('app/general/Cobranza.tsx')), /const refrescar = alCambiar \?\? \(\(\) => router\.refresh\(\)\);/);
+});
+
+test('6. ⚠️ la foto guardada dice cuántos son de verdad: 30 guardadas de 35', () => {
+  const items = Array.from({ length: 35 }, (_, i) => ({
+    ...CUOTA, lead_id: 100 + i, lead_nombre: `Cliente ${i + 1}`,
+    proxima_cuota: { ...CUOTA.proxima_cuota, pago_id: 500 + i },
+  }));
+  const b = bloqueACobrar(items, HOY, 'America/Tijuana');
+  assert.deepEqual([b.filas.length, b.total], [MAX_FILAS_COBRANZA, 35]);
+  const { hilo, viva } = dibujar(b);
+  assert.match(hilo, /<span class="gb-p">35<\/span>/, 'la cabecera de la foto dice 35, como MaKo');
+  assert.match(hilo, /Ver 30 de 35/);
+  // La lista viva trae todas: sin `total`, cuenta lo que tiene (la del hijo trae 30).
+  assert.match(viva, /<span class="gb-p">30<\/span>/);
+  assert.match(viva, /Ver las 30/);
 });
 
 // ROTURAS (20/10/2026). Base: 5 pases, 0 fallos. Rota (pases / fallos):
@@ -152,3 +172,10 @@ test('5. se dibuja con la pieza de General, y la lista viva es la lectura de Gen
 //   · la foto guardada marca sin esperar la lista viva (`muestra={false}`)            → 3 / 2 (1 y 5)
 //   · el bloque deja afuera las suscripciones                                         → 4 / 1 (1)
 //   · General ignora `alCambiar` (el chat refrescaría la página entera)               → 4 / 1 (5)
+//
+// ROTURAS de la revisión de los bloques (21/10/2026). Base: 6 pases, 0 fallos. Rota (pases / fallos):
+//   · la zona vuelve al regex con barra ('UTC' se cae)                                → 5 / 1 (2)
+//   · la zona no se le pregunta al motor de fechas                                    → 5 / 1 (2)
+//   · «ya se dibuja» antes de saber si el bloque sobrevive                            → 5 / 1 (3)
+//   · la foto sin el total                                                            → 4 / 2 (5 y 6)
+//   · la cabecera cuenta las filas guardadas                                          → 5 / 1 (6)

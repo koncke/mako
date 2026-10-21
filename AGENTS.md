@@ -1629,7 +1629,11 @@ código nuevo:
     de la app pone `ctx.aDibujar`. Así el modelo no lo ve y WhatsApp no lo recibe. Un bloque de área se dibuja con la
     pieza de su tab (app/_chat/bloques/*, cargado con `dynamic` desde `BloqueHilo`), nunca con una copia. **Una lista con
     acciones guardada en el hilo es una FOTO:** se vuelve a leer al dibujarse y no actúa hasta tener la viva.
-    docs/hallazgos-second-brain.md, «Una LECTURA también dibuja».
+    docs/hallazgos-second-brain.md, «Una LECTURA también dibuja». **Un archivo del mensaje que usa un bloque va atado,
+    EN LO QUE SE GUARDA, a qué va** (el lead que dijo el modelo y la fila: el comprobante lleva su `pagoId`, 21/10/2026):
+    el bloque vuelve del historial, y una marca de «ya usado» en memoria no sobrevive la recarga. Y cuando dos lados se
+    pasan un JSON (una ruta y su pantalla), el test pasa por los dos reales, no por un mock con el nombre que espera uno:
+    `monto_usd` contra `monto` vivió cinco días así. docs/hallazgos-pagos.md, «La revisión de los bloques».
   - **TODO LO QUE SE TERMINA LLEVA SU `revisar`** (17/10/2026; Martín: «se terminaron y pushearon cosas y no las puedo ver
     en Review»). El hito de la bitácora o el cierre (`cartero.mjs cierre … --revisar`) trae la ruta INTERNA donde Martín
     lo prueba (`/crm?lead=…`, `/general`, `/automations/…`). Sin eso, su «Ya está» sólo lleva a la tab del área.

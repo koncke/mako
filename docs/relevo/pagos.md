@@ -64,7 +64,11 @@ Las dos migraciones las aplica el Cerebro ANTES del deploy que las lee.
 | `908d73d9f` (run 172, en producción) | El aviso de una cuota dice de quién es, cuánto y cuándo venció, y lleva a la ficha (lista, push y correo). «Clientes por cobrar» suma las suscripciones: General, el teléfono, el Dashboard y la API |
 | rama `pagos-bloques` (sobre `ola1` e9ae020b5, **sin main todavía**) | **2.27:** «A quién cobrar» se DIBUJA en el chat (la lista de General, viva, con «Cobrada» y las suscripciones). **2.28:** el estado de cuenta de un lead en el chat (la pieza de la tab Pagos) y el comprobante adjunto que «Marcar pagada» lee solo. Para eso, una LECTURA puede dibujar: `ctx.aDibujar` (hallazgos-second-brain.md) |
 
-**La rama `pagos-bloques` espera a que `ola1` entre en main**: después se mergea main y el sha va al Cerebro.
+~~**La rama `pagos-bloques` espera a que `ola1` entre en main**~~: la ola 1 ya está en main (21/10) y la rama la tiene.
+La revisión del Cerebro (21/10) frenó tres medios del comprobante del chat; arreglados en la misma rama: va atado a su
+cuota y al lead que dice el modelo (`comprobante: true` en `cobranza_lead`), y el monto del recibo llega al formulario.
+El detalle, en hallazgos-pagos («La revisión de los bloques»). **Sin hacer:** /api/extract-receipt guarda el
+comprobante al leerlo, no al guardar el pago.
 
 ## Lo que sigue, en orden
 

@@ -8,14 +8,17 @@
 //      montado con la lectura de la ficha (`BloquesDePagos` → `getLeadFullAction` → `Armador tab="pagos"`), sin una
 //      cuenta propia; y lo que lee MaKo (`cobranza_lead`) sale de las MISMAS dos funciones que la pieza;
 //   2. el comprobante del mensaje le llega a «Marcar pagada», que lo lee solo con el camino de «Subir el comprobante»
-//      (/api/extract-receipt: lo guarda en la cuota y llena monto, fecha y hora para revisar), y se usa UNA vez;
-//   3. el bloque: el comprobante sólo con UN archivo en el mensaje, y su `ref` se sanea;
-//   4. `cobranza_lead` dibuja sólo en el chat de la app, con los archivos del mensaje que le pasa el turno, y con un
-//      comprobante le dice al modelo que no proponga `marcar_pago_cobrado` (la marca la revisa la persona en la pieza).
+//      (/api/extract-receipt: lo guarda en la cuota y llena monto, fecha y hora para revisar), y SÓLO para su cuota;
+//   3. ⚠️ (21/10/2026, revisión adversarial) el comprobante va atado al lead y al pedido (`comprobanteDelPedido`): UN
+//      archivo, que el modelo dice que es de ESTE lead, cuando toca cobrar una cuota, y que otro lead del mismo mensaje
+//      no tomó; el saneo exige su cuota;
+//   4. `cobranza_lead` dibuja sólo en el chat de la app, con los archivos del mensaje que le pasa el turno, y le dice al
+//      modelo qué pasó con el archivo (con comprobante, no propone `marcar_pago_cobrado`; sin saber de quién es, pregunta).
 // Sin DOM en los tests de la casa (docs/hallazgos-infra.md): lo que corre en un efecto (bajar el archivo, leerlo) se fija
 // en el fuente; lo demás se DIBUJA en un node aparte (tests/_bloques-pagos-hijo.ts).
 //
-// Probado rompiéndolo (20/10/2026, una rotura por vez, restaurando byte a byte): los números, en ROTURAS al final.
+// Probado rompiéndolo (20/10/2026 y 21/10/2026, una rotura por vez, restaurando byte a byte): los números, en ROTURAS al
+// final.
 //
 // Correr: node --import tsx --test tests/chat-bloque-estado-cuenta.test.ts
 
@@ -24,17 +27,20 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { bloqueEstadoDeCuenta } from '../lib/pagos-bloque';
+import { bloqueEstadoDeCuenta, comprobanteDelPedido, notaEnPantalla } from '../lib/pagos-bloque';
 import { sanearBloque, type BloqueEstadoCuenta } from '../lib/chat-bloques';
 import { bloqueDef } from '../lib/ficha/catalogo';
+import { porId } from '../lib/api-mako/registro';
+import { comprobanteParaCuota, type ComprobanteDelChat } from '../app/crm/lead-view/ficha/pagos/comprobante-del-chat';
 
 const RAIZ = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
 const desescapar = (s: string) => s.replace(/&quot;/g, '"').replace(/&amp;/g, '&');
 
+type Pieza = { leadId: number; lista: unknown; comprobante: { nombre: string; pagoId: number } | null };
 /** El bloque dibujado en el hijo, y lo que recibió la pieza de la tab (el lead, los bloques y el comprobante). */
-function dibujar(b: BloqueEstadoCuenta): { html: string; pieza: { leadId: number; lista: unknown; comprobante: string | null } } {
+function dibujar(b: BloqueEstadoCuenta): { html: string; pieza: Pieza } {
   const out = execFileSync(process.execPath, ['--experimental-test-module-mocks', '--no-warnings', '--import', 'tsx', join(RAIZ, 'tests/_bloques-pagos-hijo.ts'), JSON.stringify(b)], {
     cwd: RAIZ, encoding: 'utf8', timeout: 120_000,
   });
@@ -46,9 +52,10 @@ function dibujar(b: BloqueEstadoCuenta): { html: string; pieza: { leadId: number
 
 const LEAD = { id: 2739, nombre: 'Francisco (prueba de Pagos)' };
 const RECIBO = { ref: '501:0', nombre: 'recibo.jpg', tipo: 'image' as const };
+const COBRAR_11 = { tipo: 'cobrar-cuota', pagoId: 11 };
 
 test('1. lo que se dibuja ES la pieza de la tab Pagos, con la lectura de la ficha y sin una cuenta propia', () => {
-  const { html, pieza } = dibujar(bloqueEstadoDeCuenta(LEAD, []));
+  const { html, pieza } = dibujar(bloqueEstadoDeCuenta(LEAD, null));
   // El bloque «Estado de cuenta» de la tab, con SU diseño de entrada, a todo el ancho del bloque del chat.
   const def = bloqueDef('cobrado');
   assert.ok(def && def.tab === 'pagos', 'el «Estado de cuenta» es un bloque de la tab Pagos');
@@ -77,53 +84,108 @@ test('1. lo que se dibuja ES la pieza de la tab Pagos, con la lectura de la fich
   assert.match(cl, /const e = estadoDeCuenta\(\{ cobrado: cob, pagos: plan\.pagos, ganado: lead\.estado_lead === 'ganado', hoy \}\);/);
 });
 
-test('2. el comprobante del mensaje llega a «Marcar pagada», que lo lee solo con el camino de la ficha, UNA vez', () => {
-  const { html, pieza } = dibujar(bloqueEstadoDeCuenta(LEAD, [RECIBO]));
-  assert.equal(pieza.comprobante, 'recibo.jpg', 'la pieza de la tab recibe el comprobante del chat');
-  assert.match(html, /Al cobrar la cuota leo recibo\.jpg: queda listo para revisar y guardar\./);
+test('2. ⚠️ el comprobante llega a «Marcar pagada» SÓLO para su cuota, impaga: al volver del historial no va a la siguiente', () => {
+  const comp = { ...RECIBO, pagoId: 11 };
+  const { pieza } = dibujar(bloqueEstadoDeCuenta(LEAD, comp));
+  assert.deepEqual(pieza.comprobante, { nombre: 'recibo.jpg', pagoId: 11 }, 'la pieza de la tab recibe el comprobante, con su cuota');
+
+  // La regla, con lo que vuelve del historial: el bloque guardado (saneado) trae la cuota 11.
+  const guardado = sanearBloque(JSON.parse(JSON.stringify(bloqueEstadoDeCuenta(LEAD, comp)))) as BloqueEstadoCuenta;
+  assert.equal(guardado.comprobante?.pagoId, 11);
+  const c: ComprobanteDelChat = { nombre: 'recibo.jpg', pagoId: 11, leer: async () => new File([], 'recibo.jpg') };
+  assert.equal(comprobanteParaCuota(c, { id: 11, pagado: false }), c, 'la cuota a la que va');
+  assert.equal(comprobanteParaCuota(c, { id: 11, pagado: true }), null, 'cobrada ésa, ya se usó');
+  assert.equal(comprobanteParaCuota(c, { id: 12, pagado: false }), null, 'la cuota SIGUIENTE no recibe el recibo viejo');
+  assert.equal(comprobanteParaCuota(null, { id: 11, pagado: false }), null);
+  assert.equal(comprobanteParaCuota(c, null), null);
 
   const cobrar = sinComentarios(leer('app/crm/lead-view/ficha/pagos/cobrar.tsx'));
-  assert.match(cobrar, /const comprobante = useContext\(ComprobanteDelChatCtx\);/);
-  assert.match(cobrar, /setAbierto\(pasarelas\.length && !comprobante \? \{ que: 'elegir', cuota: q \} : \{ que: 'marcar', cuota: q \}\)/, 'con el comprobante ya pagó: no se ofrece el link');
-  assert.match(cobrar, /<MarcarPagada cuota=\{q\} leadId=\{lead\.id\} monedaNegocio=\{moneda\} hoy=\{ctx\.hoy\} comprobante=\{comprobante\}/);
+  assert.match(cobrar, /const delChat = useContext\(ComprobanteDelChatCtx\);/);
+  assert.match(cobrar, /const comprobantePara = \(q: Pago \| null\) => comprobanteParaCuota\(delChat, q\);/);
+  assert.match(cobrar, /setAbierto\(pasarelas\.length && !comprobantePara\(q\) \? \{ que: 'elegir', cuota: q \} : \{ que: 'marcar', cuota: q \}\)/, 'con SU comprobante ya pagó: no se ofrece el link');
+  assert.match(cobrar, /<MarcarPagada cuota=\{q\} leadId=\{lead\.id\} monedaNegocio=\{moneda\} hoy=\{ctx\.hoy\} comprobante=\{comprobantePara\(q\)\}/);
+  assert.doesNotMatch(cobrar, /comprobante=\{(comprobante|delChat)\}/, 'nunca el del chat sin mirar la cuota');
+  // La nota de que lo va a leer: junto al botón, sólo si el botón es cobrar SU cuota.
+  assert.match(cobrar, /comprobanteDe: \(a: AccionDeCobro \| null\) => \(a\?\.tipo === 'cobrar-cuota' \? comprobantePara\(cuotaPorId\(a\.pagoId\)\) : null\),/);
+  const tab = sinComentarios(leer('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx'));
+  assert.match(tab, /const delChat = cobrar\.comprobanteDe\(e\.accion\);/);
+  assert.match(tab, /Al cobrar la cuota leo \{delChat\.nombre\}: queda listo para revisar y guardar\./);
+  // El hilo ya no lleva una marca en memoria ni promete por su cuenta.
+  const hilo = sinComentarios(leer('app/_chat/bloques/EstadoCuentaHilo.tsx'));
+  assert.doesNotMatch(hilo, /useState|setUsado|Al cobrar la cuota leo/);
+  assert.match(hilo, /pagoId: archivo\.pagoId,/);
+  assert.match(hilo, /<ComprobanteDelChatCtx\.Provider value=\{comprobante\}>/);
+
+  // «Marcar pagada»: el MISMO `subir` que el botón «Subir el comprobante», una vez al abrir.
   // Sin quitar comentarios: el `accept=".pdf,image/*"` del input abre un «/*» que se comería el botón.
   const modal = leer('app/crm/lead-view/ficha/pagos/piezas.tsx');
   const marcar = modal.slice(modal.indexOf('export function MarcarPagada('), modal.indexOf('export function RegistrarPago('));
-  // El MISMO `subir` que el botón «Subir el comprobante»: lo guarda en la cuota y llena el formulario, que se revisa.
   assert.match(marcar, /comprobante\.leer\(\)\.then\(\(f\) => subir\(f\)/);
   assert.match(marcar, /onClick=\{\(\) => archivo\.current\?\.click\(\)\}>Subir el comprobante<\/Button>/);
   assert.match(marcar, /await fetch\('\/api\/extract-receipt', \{ method: 'POST', body: fd \}\)/);
   assert.match(marcar, /if \(!comprobante \|\| delChat\.current\) return;\s*delChat\.current = true;/, 'se lee una sola vez al abrir');
-  // Se usa UNA vez: leído, el bloque deja de pasarlo (el siguiente cobro no le sube ese archivo a otra cuota).
-  const hilo = sinComentarios(leer('app/_chat/bloques/EstadoCuentaHilo.tsx'));
-  assert.match(hilo, /\(!archivo \|\| usado \? null : \{/);
-  assert.match(hilo, /const blob = await r\.blob\(\);\s*setUsado\(true\);/);
-  assert.match(hilo, /<ComprobanteDelChatCtx\.Provider value=\{comprobante\}>/);
 });
 
-test('3. el bloque: el comprobante sólo con UN archivo en el mensaje, y su ref se sanea', () => {
-  assert.deepEqual(bloqueEstadoDeCuenta(LEAD, [RECIBO]).comprobante, RECIBO);
-  assert.equal(bloqueEstadoDeCuenta(LEAD, [RECIBO, { ...RECIBO, ref: '501:1', nombre: 'otro.pdf', tipo: 'document' }]).comprobante, undefined, 'con dos no se adivina');
-  assert.equal(bloqueEstadoDeCuenta(LEAD, undefined).comprobante, undefined);
-  assert.equal(bloqueEstadoDeCuenta({ id: 9, nombre: null }, []).nombre, 'Lead 9');
-  const b = bloqueEstadoDeCuenta(LEAD, [RECIBO]);
+test('3. ⚠️ el comprobante va atado al lead y al pedido: uno, de ESTE lead, para cobrar una cuota, y de un solo lead', () => {
+  const uno = [RECIBO];
+  // El caso bueno: un archivo, el modelo dice que es de este lead, toca cobrar la cuota 11.
+  const bien = comprobanteDelPedido({ adjuntos: uno, lead: LEAD, esSuyo: true, accion: COBRAR_11 });
+  assert.deepEqual(bien, { comprobante: { ...RECIBO, pagoId: 11 }, sin: null });
+  assert.deepEqual(bloqueEstadoDeCuenta(LEAD, bien.comprobante).comprobante, { ...RECIBO, pagoId: 11 });
+  // Un turno que se re-arranca lo vuelve a pedir para el MISMO lead: lo vuelve a tomar.
+  assert.equal(comprobanteDelPedido({ adjuntos: uno, lead: LEAD, esSuyo: true, accion: COBRAR_11 }).comprobante?.pagoId, 11);
+  // «Juan pagó, acá el comprobante. ¿Y cómo está Pedro?»: el de Juan no va a Pedro, aunque el modelo se equivoque.
+  const pedro = comprobanteDelPedido({ adjuntos: uno, lead: { id: 20, nombre: 'Pedro' }, esSuyo: true, accion: { tipo: 'cobrar-cuota', pagoId: 33 } });
+  assert.deepEqual(pedro, { comprobante: null, sin: 'de-otro-lead', de: 'Francisco (prueba de Pagos)' });
+  // Otro mensaje (otra lista de archivos): no hereda el dueño del anterior.
+  assert.equal(comprobanteDelPedido({ adjuntos: [{ ...RECIBO }], lead: { id: 20, nombre: 'Pedro' }, esSuyo: true, accion: { tipo: 'cobrar-cuota', pagoId: 33 } }).comprobante?.pagoId, 33);
+  // Sin decir que es de este lead (el contrato, o no se sabe de quién es): no va.
+  assert.deepEqual(comprobanteDelPedido({ adjuntos: [RECIBO], lead: LEAD, esSuyo: false, accion: COBRAR_11 }), { comprobante: null, sin: 'no-es-suyo' });
+  // Lo que toca no es cobrar una cuota (registrar el mes, el pago suelto): no se promete.
+  for (const accion of [{ tipo: 'registrar-mes' }, { tipo: 'registrar-pago' }, null]) {
+    assert.deepEqual(comprobanteDelPedido({ adjuntos: [RECIBO], lead: LEAD, esSuyo: true, accion }), { comprobante: null, sin: 'no-es-cobrar' }, JSON.stringify(accion));
+  }
+  // Con dos archivos no se adivina; sin archivos, nada.
+  assert.deepEqual(comprobanteDelPedido({ adjuntos: [RECIBO, { ...RECIBO, ref: '501:1' }], lead: LEAD, esSuyo: true, accion: COBRAR_11 }), { comprobante: null, sin: 'varios' });
+  assert.deepEqual(comprobanteDelPedido({ adjuntos: undefined, lead: LEAD, esSuyo: true, accion: COBRAR_11 }), { comprobante: null, sin: null });
+  assert.equal(bloqueEstadoDeCuenta({ id: 9, nombre: null }, null).nombre, 'Lead 9');
+
+  // El saneo: la ref, el tipo y AHORA la cuota.
+  const b = bloqueEstadoDeCuenta(LEAD, { ...RECIBO, pagoId: 11 });
   assert.deepEqual(sanearBloque(b), b);
   for (const ref of ['../x', '/api/x', '501', '501:10', '0:1', 'https://otro.com/a.jpg']) {
-    assert.equal(sanearBloque({ ...b, comprobante: { ...RECIBO, ref } }), null, `ref «${ref}»`);
+    assert.equal(sanearBloque({ ...b, comprobante: { ...RECIBO, pagoId: 11, ref } }), null, `ref «${ref}»`);
   }
-  assert.equal(sanearBloque({ ...b, comprobante: { ...RECIBO, tipo: 'video' } }), null);
+  assert.equal(sanearBloque({ ...b, comprobante: { ...RECIBO, pagoId: 11, tipo: 'video' } }), null);
+  // Uno guardado antes del 21/10 (sin cuota), o con una cuota que no es un id: el bloque queda, el comprobante no.
+  for (const pagoId of [undefined, 0, -3, '11', 1.5]) {
+    assert.deepEqual(sanearBloque({ ...b, comprobante: { ...RECIBO, pagoId } }), { t: 'estado_cuenta', leadId: 2739, nombre: LEAD.nombre }, `pagoId ${JSON.stringify(pagoId)}`);
+  }
   assert.equal(sanearBloque({ ...b, leadId: 0 }), null);
   assert.deepEqual(sanearBloque({ t: 'estado_cuenta', leadId: 7, nombre: 'Ana' }), { t: 'estado_cuenta', leadId: 7, nombre: 'Ana' });
 });
 
-test('4. `cobranza_lead` dibuja sólo en la app, con los archivos que le pasa el turno; con comprobante, no propone la marca', () => {
+test('4. `cobranza_lead` dibuja sólo en la app y le dice al modelo qué pasó con el archivo', () => {
   const run = sinComentarios(leer('lib/api-mako/areas/crm.run.ts'));
   const cl = run.slice(run.indexOf('cobranza_lead: {'), run.indexOf('insight_lead: {'));
   assert.match(cl, /const dibuja = !!ctx\.aDibujar;/);
-  assert.match(cl, /return dibuja \? \{ content: contenido, bloque: bloqueEstadoDeCuenta\(lead, ctx\.adjuntos\) \} : contenido;/);
-  assert.match(cl, /const conComprobante = dibuja && ctx\.adjuntos\?\.length === 1;/, 'la misma regla que el bloque: un solo archivo');
-  assert.match(cl, /NO propongas marcar_pago_cobrado/);
-  assert.match(cl, /\.\.\.\(dibuja \? \{ en_pantalla: enPantalla \} : \{\}\),/, 'fuera de la app, la salida de siempre');
+  assert.match(cl, /comprobanteDelPedido\(\{ adjuntos: ctx\.adjuntos, lead, esSuyo: input\.comprobante === true, accion: /, 'el modelo dice de quién es');
+  assert.ok(cl.indexOf('const accion = ') < cl.indexOf('comprobanteDelPedido('), 'la acción que toca, antes de atar el comprobante');
+  assert.match(cl, /return dibuja \? \{ content: contenido, bloque: bloqueEstadoDeCuenta\(lead, delPedido\.comprobante\) \} : contenido;/);
+  assert.match(cl, /\.\.\.\(dibuja \? \{ en_pantalla: notaEnPantalla\(delPedido\) \} : \{\}\),/, 'fuera de la app, la salida de siempre');
+  assert.doesNotMatch(cl, /ctx\.adjuntos\?\.length === 1/, 'ya no basta con que venga un archivo');
+  // El parámetro, en la definición: el modelo lo pasa sólo si el archivo es de ESTE lead; si no, pregunta.
+  const p = porId('cobranza_lead')?.parametros.find((x) => x.nombre === 'comprobante');
+  assert.equal(p?.tipo, 'boolean');
+  assert.match(String(p?.descripcion), /ESTE lead.*pregúntale/);
+  // Lo que se le dice al modelo, según el caso.
+  const con = notaEnPantalla({ comprobante: { ...RECIBO, pagoId: 11 }, sin: null });
+  assert.match(con, /NO propongas marcar_pago_cobrado/);
+  assert.match(notaEnPantalla({ comprobante: null, sin: 'no-es-suyo' }), /pregúntale antes de marcar nada/);
+  assert.match(notaEnPantalla({ comprobante: null, sin: 'de-otro-lead', de: 'Juan' }), /ya quedó como comprobante de Juan/);
+  for (const sin of ['no-es-cobrar', 'varios', null] as const) {
+    assert.doesNotMatch(notaEnPantalla({ comprobante: null, sin }), /comprobante|NO propongas/, `sin «${sin}»: el camino de siempre`);
+  }
   const turno = sinComentarios(leer('lib/mako-turno-app.ts'));
   assert.match(turno, /adjuntos: conArchivos\.map\(\(\{ ref, nombre, tipo \}\) => \(\{ ref, nombre, tipo \}\)\),/);
   assert.match(sinComentarios(leer('app/_chat/BloqueHilo.tsx')), /if \(b\.t === 'estado_cuenta'\) return <EstadoCuentaHilo b=\{b\} \/>;/);
@@ -142,3 +204,18 @@ test('4. `cobranza_lead` dibuja sólo en la app, con los archivos que le pasa el
 //   · el turno no le pasa los archivos del mensaje                                      → 3 / 1 (4)
 // ⚠️ La primera corrida dio un rojo que no era del código: `sinComentarios` sobre piezas.tsx se comía el botón «Subir el
 //    comprobante», porque el `accept=".pdf,image/*"` del input abre un «/*». Ese archivo se lee sin quitar comentarios.
+// (21/10/2026: «el comprobante se reusa» dejó de existir como rotura: la marca en memoria no sobrevivía una recarga y se
+//  fue; lo que lo frena ahora es la cuota, en las roturas de abajo.)
+//
+// ROTURAS de la revisión de los bloques (21/10/2026). Base: 4 pases, 0 fallos. Rota (pases / fallos):
+//   · el comprobante va a cualquier cuota (sin mirar su pagoId)                       → 3 / 1 (2)
+//   · el comprobante va a su cuota aunque ya esté cobrada                             → 3 / 1 (2)
+//   · «Marcar pagada» recibe el del chat sin mirar la cuota                           → 3 / 1 (2)
+//   · la nota promete leerlo con cualquier botón                                       → 3 / 1 (2)
+//   · el comprobante va aunque el modelo no diga que es de este lead                   → 3 / 1 (3)
+//   · el comprobante va aunque no toque cobrar una cuota                              → 3 / 1 (3)
+//   · el mismo archivo va a dos leads del mismo mensaje                               → 3 / 1 (3)
+//   · el saneo deja el comprobante sin su cuota                                       → 3 / 1 (3)
+//   · `cobranza_lead` toma el archivo como suyo siempre                               → 3 / 1 (4)
+//   · sin saber de quién es, no le dice que pregunte                                  → 3 / 1 (4)
+//   · la herramienta sin el parámetro `comprobante`                                   → 3 / 1 (4)

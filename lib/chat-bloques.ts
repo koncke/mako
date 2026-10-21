@@ -70,11 +70,13 @@ export type Bloque =
   | BloqueEstadoCuenta;
 
 /** El estado de cuenta de UN lead (Pagos, la 2.28): la pieza de la tab Pagos, viva (se lee al dibujarse: lo guardado
- *  es sólo a quién mira). `comprobante`: el archivo que la persona adjuntó en ESE mensaje, que «Cobrar la cuota» lee
- *  (monto, fecha y hora) y deja la marca lista para revisar y guardar. */
+ *  es sólo a quién mira). `comprobante`: el archivo que la persona adjuntó en ESE mensaje como comprobante de ESTE
+ *  lead, que «Cobrar la cuota» lee (monto, fecha y hora) y deja la marca lista para revisar y guardar. `pagoId`: la
+ *  ÚNICA cuota a la que va (la que tocaba cobrar al dibujarse): cobrada ésa, no se ofrece para otra, aunque el bloque
+ *  vuelva del historial (lib/pagos-bloque.ts, `comprobanteDelPedido`). */
 export type BloqueEstadoCuenta = {
   t: 'estado_cuenta'; leadId: number; nombre: string;
-  comprobante?: { ref: string; nombre: string; tipo: 'image' | 'document' };
+  comprobante?: { ref: string; nombre: string; tipo: 'image' | 'document'; pagoId: number };
 };
 
 /** Una fila de «A quién cobrar»: la de General y el teléfono (`CobroM`, app/m/dashboard/modelo.ts). */
@@ -246,7 +248,9 @@ export function sanearBloque(crudo: unknown): Bloque | null {
       const archivo = c ? texto(c.nombre, 120) : '';
       const tipo = c?.tipo === 'image' || c?.tipo === 'document' ? c.tipo : null;
       if (o.comprobante != null && !(ref && archivo && tipo)) return null;
-      return { t: 'estado_cuenta', leadId, nombre, ...(ref && archivo && tipo ? { comprobante: { ref, nombre: archivo, tipo } } : {}) };
+      // Sin su cuota (los guardados antes del 21/10/2026), el comprobante no va: se ofrecía para CUALQUIER cuota al volver.
+      const pagoId = c ? idPositivo(c.pagoId) : null;
+      return { t: 'estado_cuenta', leadId, nombre, ...(ref && archivo && tipo && pagoId ? { comprobante: { ref, nombre: archivo, tipo, pagoId } } : {}) };
     }
     default:
       return null;

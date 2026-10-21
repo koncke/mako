@@ -10,10 +10,12 @@
 // guardado en el hilo es sólo a quién mira. «Abrir la ficha» lleva a la tab Pagos para lo demás.
 //
 // ⚠️ EL COMPROBANTE DEL MENSAJE (`b.comprobante`) le llega al modal «Marcar pagada» por `ComprobanteDelChatCtx`: al
-//    cobrar la cuota, se lee solo (monto, fecha y hora) y queda listo para revisar y guardar. Se usa UNA vez: después
-//    de leerlo, el siguiente cobro del mismo bloque no vuelve a subir ese archivo a otra cuota.
+//    cobrar la cuota, se lee solo (monto, fecha y hora) y queda listo para revisar y guardar. Va atado a SU cuota
+//    (`pagoId`, 21/10/2026): la marca de «ya usado» en memoria no sobrevivía una recarga, y el bloque que volvía del
+//    historial subía el recibo viejo a la cuota siguiente. Ahora la pieza de la tab lo ofrece sólo para esa cuota, y
+//    mientras siga impaga (./cobrar.tsx, `useCobrar`); la nota de que lo va a leer la dibuja ella, junto al botón.
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import Link, { useWs } from '@/app/_ui/Link';
 import { BloquesDePagos } from '@/app/customer-success/PagosCliente';
 import { ComprobanteDelChatCtx, type ComprobanteDelChat } from '@/app/crm/lead-view/ficha/pagos/comprobante-del-chat';
@@ -33,18 +35,17 @@ const nada = () => {};
 
 export default function EstadoCuentaHilo({ b }: { b: BloqueEstadoCuenta }) {
   const ws = useWs();
-  const [usado, setUsado] = useState(false);
   const archivo = b.comprobante;
-  const comprobante = useMemo<ComprobanteDelChat | null>(() => (!archivo || usado ? null : {
+  const comprobante = useMemo<ComprobanteDelChat | null>(() => (!archivo ? null : {
     nombre: archivo.nombre,
+    pagoId: archivo.pagoId,
     leer: async () => {
       const r = await fetch(conWs(rutaDeArchivo(archivo.ref), ws));
       if (!r.ok) throw new Error(r.status === 404 ? 'ya no está guardado' : `respondió ${r.status}`);
       const blob = await r.blob();
-      setUsado(true);
       return new File([blob], archivo.nombre, { type: blob.type || (archivo.tipo === 'document' ? 'application/pdf' : 'image/jpeg') });
     },
-  }), [archivo, usado, ws]);
+  }), [archivo, ws]);
 
   return (
     <div className="ch-bloque" data-bloque="estado_cuenta">
@@ -52,7 +53,6 @@ export default function EstadoCuentaHilo({ b }: { b: BloqueEstadoCuenta }) {
       <ComprobanteDelChatCtx.Provider value={comprobante}>
         <BloquesDePagos leadId={b.leadId} lista={LISTA} que="su estado de cuenta" onCambio={nada} />
       </ComprobanteDelChatCtx.Provider>
-      {comprobante && <p className="ch-tarjeta__nota">{`Al cobrar la cuota leo ${archivo?.nombre}: queda listo para revisar y guardar.`}</p>}
       <div className="ch-tarjeta__botones"><Link className="ch-abrir" href={`/crm/${b.leadId}?tab=pagos`}>Abrir la ficha</Link></div>
     </div>
   );

@@ -297,14 +297,46 @@ estado de cuenta y el comprobante). Tests: tests/chat-bloque-cobranza.test.ts y 
 - **El comprobante adjunto va al modal de la ficha**, no a la tarjeta de la acción. «Marcar pagada» lo lee solo, con el
   mismo `subir` que «Subir el comprobante» (/api/extract-receipt): lo guarda en la cuota y llena monto, fecha y hora para
   revisar. La tarjeta G3 todavía no tiene campos editables (eso es la 1.10), y por ella el archivo no se guardaba en la
-  cuota. Se usa UNA vez: leído, el bloque deja de pasarlo, para que el siguiente cobro no le suba el mismo recibo a otra
-  cuota. Con dos archivos en el mensaje no se adivina cuál es.
+  cuota. ~~Se usa UNA vez: leído, el bloque deja de pasarlo~~ (la marca vivía en memoria y no sobrevivía una recarga:
+  ver «La revisión de los bloques» abajo). Con dos archivos en el mensaje no se adivina cuál es.
 - **⚠️ La ficha cuenta «hoy» en UTC.** FichaPorBloques y PagosCliente usan `new Date().toISOString().slice(0, 10)`, y
   General y la API usan el día del negocio. En México, de 18 a 24 h, la ficha ya está en mañana: una cuota que vence hoy
   sale vencida en la ficha y no en General. Si eso pasa, el texto de MaKo (`cobranza_lead`, con el día del negocio) y el
   bloque (la ficha) pueden decir distinto. **Sin hacer.**
 - **«¿quién me debe plata?» todavía no hace viajar `a_quien_cobrar`**: la batería guardián tiene `llegaHoy: false`. Es la
   1.2, el clasificador. Hoy llega con «mostrame el dashboard de cobranza: a quién le falta pagar».
+
+#### La revisión de los bloques: el comprobante iba a cualquier lado (21/10/2026)
+
+- **⚠️ Una marca de «ya usado» en memoria no protege un bloque que vuelve del historial.** El bloque del estado de cuenta
+  se guarda con el mensaje; al recargar (o al abrir el chat desde el teléfono) se monta de nuevo con la marca en cero, y
+  «Cobrar la cuota» subía el recibo de la cuota 1 a la cuota 2, con la fecha vieja en el formulario. Y /api/extract-receipt
+  escribe `comprobante_path` al LEER, antes de que nadie guarde: aunque se cancele, la cuota queda apuntando al recibo
+  viejo. **Regla:** el comprobante del chat va atado a SU cuota (`pagoId`, la que tocaba cobrar al dibujarse) y se
+  ofrece sólo mientras esa cuota siga impaga (`comprobanteParaCuota`, app/crm/lead-view/ficha/pagos/comprobante-del-chat.ts).
+  Lo que se guarda tiene que decir a qué va; lo que vive en memoria no cuenta como «ya se usó».
+- **El único archivo del mensaje se pegaba a TODO estado de cuenta del turno.** «Juan pagó, acá el comprobante. ¿Y cómo
+  está Pedro?» dejaba el recibo de Juan listo para la cuota de Pedro; «acá el contrato de Juan» lo trataba como
+  comprobante. El diagnóstico obvio («tomar sólo el primer `cobranza_lead`») era el equivocado: el modelo puede pedir
+  primero a Pedro. **Regla:** decide `comprobanteDelPedido` (lib/pagos-bloque.ts). Un archivo, que el MODELO dice que
+  es de este lead (el parámetro `comprobante` de `cobranza_lead`; si no está claro, pregunta), cuando lo que toca es
+  cobrar una cuota, y de un solo lead por mensaje: el primero que lo toma es su dueño (la lista de archivos del turno es
+  una sola, y un turno re-arrancado lo vuelve a tomar para el mismo lead). Con cualquier otra cosa, el modelo sigue el
+  camino de siempre y no promete leerlo.
+- **⚠️ La ruta decía `monto_usd` y la pantalla leía `monto`** (desde el 16/10, 8390f47ad): el monto del comprobante no
+  llegaba nunca, y un pago de menos saldaba la cuota entera sin «Faltan US$200». El test miraba el `fetch` en el fuente,
+  no lo que devuelve la ruta. **Regla:** cuando dos lados se pasan un JSON, el test pasa por la ruta REAL y por la lectura
+  de la pantalla (tests/pagos-recibo-leido.test.ts, con `reciboLeido`), no por un mock con el nombre que espera uno de
+  los dos. El monto viene en dólares (la IA convierte y dice el tipo de cambio en `nota`, que ahora se muestra).
+- **Una forma no es una zona.** El saneo del bloque pedía una barra (`America/…`): un negocio en 'UTC', 'CET' o
+  'EST5EDT', que `zonaCanonica` acepta, perdía la lista, y MaKo igual decía «la lista está abajo» porque la nota se
+  agregaba antes de sanear. Ahora la zona la valida `Intl` (la misma vara que `hoyEnTz`) y la nota va sólo si el bloque
+  sobrevive.
+- **La foto guardada de «A quién cobrar» guarda 30 filas y el total.** La cabecera contaba las filas: «30 por cobrar»
+  cuando MaKo, en el mismo mensaje, decía 35. `Cobranza` recibe `total` mientras se ve la foto («Ver 30 de 35»).
+- **Sin hacer:** /api/extract-receipt sigue escribiendo `comprobante_path` al leer (también desde la ficha): cancelar
+  no lo deshace. Ahora sólo pasa con el comprobante y la cuota correctos, pero lo limpio sería guardarlo al «Guardar el
+  pago». Vive en app/api/extract-receipt/route.ts y piezas.tsx (`subir`).
 
 ### Cliente de agencia (#866 y #867)
 

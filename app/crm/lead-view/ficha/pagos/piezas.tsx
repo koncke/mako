@@ -18,6 +18,7 @@
 
 import { useEffect, useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import type { ComprobanteDelChat } from './comprobante-del-chat';
+import { reciboLeido } from './recibo-leido';
 import { Button, Field, Input, Modal, Status } from '@/app/_ui';
 import type { Tono as TonoUi } from '@/app/_ui/tokens';
 import type { Tono } from '@/lib/cobrado-lead';
@@ -155,7 +156,7 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, hoy, comprobante = 
   const valorUsd = Number(cuota.monto_usd);
   const [paso, setPaso] = useState<'elegir' | 'datos'>('elegir');
   const [leyendo, setLeyendo] = useState(false);
-  const [leido, setLeido] = useState<string | null>(null);
+  const [leido, setLeido] = useState<{ nombre: string; nota: string | null } | null>(null);
   const [plata, setPlata] = useState<Plata>({ moneda: 'USD', monto: String(valorUsd), usd: '' });
   const [fecha, setFecha] = useState(hoy);
   const horaNegocio = useHoraDelNegocio();
@@ -171,13 +172,14 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, hoy, comprobante = 
     try {
       const fd = new FormData(); fd.append('file', file); fd.append('pagoId', String(cuota.id)); fd.append('leadId', String(leadId));
       const r = await fetch('/api/extract-receipt', { method: 'POST', body: fd });
-      const j: { error?: string; monto?: number | null; fecha?: string | null; hora?: string | null; comprobante_nombre?: string | null } = await r.json();
-      if (j.error) throw new Error(j.error);
-      // Lo leído llena el formulario y se revisa ahí: el comprobante dice el monto en SU moneda, que puede no ser USD.
-      if (j.monto != null && Number.isFinite(Number(j.monto))) setPlata((p) => ({ ...p, monto: String(j.monto) }));
-      if (j.fecha && /^\d{4}-\d{2}-\d{2}/.test(j.fecha)) setFecha(j.fecha.slice(0, 10));
-      if (j.hora) setHora(j.hora.slice(0, 5));
-      setLeido(j.comprobante_nombre ?? file.name);
+      const j = reciboLeido(await r.json().catch(() => ({ error: `respondió ${r.status}` })));
+      if ('error' in j) throw new Error(j.error);
+      // Lo leído llena el formulario y se revisa ahí. El monto viene EN DÓLARES (`monto_usd`: la IA convierte, y dice con
+      // qué tipo de cambio en `nota`), así que va en USD; la persona lo corrige a su moneda si hace falta.
+      if (j.montoUsd != null) setPlata({ moneda: 'USD', monto: String(j.montoUsd), usd: '' });
+      if (j.fecha) setFecha(j.fecha);
+      if (j.hora) setHora(j.hora);
+      setLeido({ nombre: j.nombre ?? file.name, nota: j.nota });
       setPaso('datos');
     } catch (e) { setError(`No pude leer el comprobante: ${msg(e)}`); }
     finally { setLeyendo(false); if (archivo.current) archivo.current.value = ''; }
@@ -230,7 +232,7 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, hoy, comprobante = 
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {leido && <p style={{ margin: 0, fontSize: 12.5, color: 'var(--dim)' }}>Leído de <b>{leido}</b>. Revísalo antes de guardar.</p>}
+          {leido && <p style={{ margin: 0, fontSize: 12.5, color: 'var(--dim)' }}>Leído de <b>{leido.nombre}</b>{leido.nota ? ` (${leido.nota})` : ''}. Revísalo antes de guardar.</p>}
           <CamposDePlata plata={plata} set={setPlata} monedaNegocio={monedaNegocio} usdPorDefecto={valorUsd} />
           <CamposDeCuando fecha={fecha} hora={hora} metodo={metodo} setFecha={setFecha} setHora={setHora} setMetodo={setMetodo} />
           {falta > 0 && (

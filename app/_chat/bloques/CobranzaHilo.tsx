@@ -43,7 +43,7 @@ export default function CobranzaHilo({ b }: { b: BloqueCobranza }) {
     <div className="ch-bloque" data-bloque="cobranza" style={{ containerType: 'inline-size' }}>
       <style href="mako-gb-bloques" precedence="default">{CSS_BLOQUES}</style>
       <Cobranza filas={viva?.filas ?? b.filas} tz={viva?.tz ?? b.tz} error={null} alcance={rotuloVentana(b.ventana)}
-        limite={5} muestra={!viva} alCambiar={releer} />
+        limite={5} muestra={!viva} total={viva ? undefined : b.total} alCambiar={releer} />
       {!viva && (
         <p className="ch-tarjeta__nota" role="status">
           {fallo ? `${fallo} Así estaba el ${diaMes(b.al)}.` : 'Actualizando la lista…'}
