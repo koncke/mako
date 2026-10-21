@@ -57,6 +57,17 @@ apagados (tests/plan-acceso.test.ts, tests/api-tab.test.ts, tests/pagos-link-ya-
 
 Las dos migraciones las aplica el Cerebro ANTES del deploy que las lee.
 
+## 21/10/2026 · el cobro a prueba de fallas (tres revisiones adversariales)
+
+- En producción: marcar un cobro dos veces no lo cambia, «hoy» es el día del negocio (4559998ab), y la escritura del cobro es
+  condicional (0f55e9abd).
+- Rama `pagos-cobro-bordes`: el cobro de menos va en una transacción, la **mig 0318** (`cobrar_cuota_con_resto`), que
+  **se aplica ANTES del deploy**. Sin ella, un cobro por menos no se guarda y lo dice; el cobro entero sigue igual.
+  Además: el asistente de Ganado no rehace un plan, la primera cuota es el día del cierre, la pasarela cura su «ya estaba»
+  y el día de cierre es el del negocio. El detalle, en hallazgos-pagos («La tercera revisión»).
+- **Sin hacer:** las suscripciones que el asistente ya armó tienen sus cuotas corridas un mes (siguen en «Falta registrar
+  1 mes»). Hay que medirlas en sólo lectura y decidir si se corren.
+
 ## Lo que sigue, en orden
 
 1. **Que Martín conecte la Mercado Pago de MaKo** en `/integraciones?ws=9` y cargue el **precio en pesos** del cliente de

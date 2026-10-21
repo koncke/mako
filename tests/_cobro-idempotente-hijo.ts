@@ -61,6 +61,7 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
     const g = i >= 0 ? ganchos.splice(i, 1)[0] : null;
     const enLugar = g?.antes?.(cuerpo);
     if (enLugar) return enLugar;
+    // La base de mentira contesta también la función de la mig 0318 (tests/_postgrest-de-mentira.ts).
     const r = await pg.responder(u, init);
     g?.despues?.();
     return r;
@@ -71,6 +72,8 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
 
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://supa.test';
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-de-prueba';
+
+const choque = () => new Response(JSON.stringify({ code: '23505', message: 'duplicate key value violates unique constraint "pagos_lead_numero"', details: null, hint: null }), { status: 409, headers: { 'content-type': 'application/json' } });
 
 const WS = 3;
 const cuota = (id: number, x: Record<string, unknown>) => ({
@@ -93,6 +96,9 @@ async function main() {
     { id: 12, workspace_id: WS, nombre: 'Fede', monto_cierre_usd: 500, total_cobrado_usd: null },
     { id: 13, workspace_id: WS, nombre: 'Gabi', monto_cierre_usd: 500, total_cobrado_usd: null },
     { id: 14, workspace_id: WS, nombre: 'Hugo', monto_cierre_usd: 500, total_cobrado_usd: null },
+    { id: 15, workspace_id: WS, nombre: 'Inés', monto_cierre_usd: 500, total_cobrado_usd: null },
+    { id: 16, workspace_id: WS, nombre: 'Juan', monto_cierre_usd: 500, total_cobrado_usd: null },
+    { id: 17, workspace_id: WS, nombre: 'Kati', monto_cierre_usd: 1000, total_cobrado_usd: null },
   );
   db.pagos.push(
     cuota(10, { pagado: true, fecha_pago: '2026-10-01' }), // ya cobrada el 1/10
@@ -100,11 +106,15 @@ async function main() {
     cuota(12, {}), // impaga: se cobra sin fecha
     cuota(20, { lead_id: 8, numero: 1 }), // la carrera de `marcarPago`
     cuota(21, { lead_id: 9, numero: 1 }), // la carrera de `cobrarCuota`
-    cuota(22, { lead_id: 10, numero: 1 }), // leer las cuotas falla una vez
+    cuota(22, { lead_id: 10, numero: 1 }), // el cobro de menos falla en la base
     cuota(23, { lead_id: 11, numero: 1 }), // sincronizar falla una vez, después de tomar la cuota
-    cuota(24, { lead_id: 12, numero: 1 }), // otro escritor toma el número de la diferencia
+    cuota(24, { lead_id: 12, numero: 1 }), // otro escritor toma el número de la diferencia (23505)
     cuota(30, { lead_id: 13, numero: 1 }), // la pasarela y un cobro a mano a la vez
-    cuota(26, { lead_id: 14, numero: 1 }), // otro la cobra entre la diferencia y la toma
+    cuota(26, { lead_id: 14, numero: 1 }), // otro la cobra justo antes de la transacción
+    cuota(27, { lead_id: 15, numero: 1 }), // la respuesta del cobro de menos se pierde con todo escrito
+    cuota(31, { lead_id: 16, numero: 1 }), // la pasarela: sincronizar falla una vez
+    cuota(43, { lead_id: 17, numero: 1, fecha_esperada: '2026-10-01' }), // el casamiento por monto: la primera…
+    cuota(44, { lead_id: 17, numero: 2, fecha_esperada: '2026-11-01' }), // …y la siguiente del mismo monto
   );
   const fila = (id: number) => {
     const f = db.pagos.find((p) => p.id === id);
@@ -136,13 +146,23 @@ async function main() {
       cobrarCuota(21, 9, { monto: 500, fecha: '2026-10-19', moneda: 'MXN', montoOriginal: 8600 }),
     ]);
 
-    // (revisión del 21/10) Leer las cuotas del lead falla UNA vez antes de dejar la diferencia: no se toca nada, y el
-    // reintento cobra entero.
-    ganchos.push({ cuando: (u, m) => m === 'GET' && u.pathname.endsWith('/pagos') && u.searchParams.get('lead_id') === 'eq.10' && !u.searchParams.has('id'), antes: () => fallar('timeout de la base') });
+    // (revisión del 21/10) El cobro de menos falla en la base: la transacción no escribe NADA (ni la cuota ni una
+    // diferencia fantasma), y el reintento cobra entero, con UNA diferencia.
+    const alRpc = (lead: number) => (u: URL, m: string, c: Record<string, unknown> | null) => m === 'POST' && u.pathname.endsWith('/rpc/cobrar_cuota_con_resto') && Number(c?.p_lead) === lead;
+    ganchos.push({ cuando: alRpc(10), antes: () => fallar('timeout de la base') });
     r.leerFalla = await cobrarCuota(22, 10, { monto: 300, fecha: '2026-10-20', resto: 'pendiente' }).then(() => 'no tiró', (e) => String(e instanceof Error ? e.message : e));
     r.leerFallaCuota = fila(22);
     r.leerFallaFilas = db.pagos.filter((p) => p.lead_id === 10).length;
     r.leerFallaReintento = await cobrarCuota(22, 10, { monto: 300, fecha: '2026-10-20', resto: 'pendiente' });
+    r.leerFallaFilasFin = db.pagos.filter((p) => p.lead_id === 10).map((p) => ({ pagado: p.pagado, monto_usd: p.monto_usd }));
+
+    // La respuesta se pierde con TODO escrito (la función corrió): el reintento ve la cuota cobrada, dice «ya estaba» y
+    // la diferencia está UNA vez.
+    ganchos.push({ cuando: alRpc(15), despues: () => { throw new TypeError('fetch failed'); } });
+    r.ambiguo = await cobrarCuota(27, 15, { monto: 300, fecha: '2026-10-20', resto: 'pendiente' }).then(() => 'no tiró', (e) => String(e instanceof Error ? e.message : e));
+    r.ambiguoReintento = await cobrarCuota(27, 15, { monto: 300, fecha: '2026-10-20', resto: 'pendiente' });
+    r.ambiguoFilas = db.pagos.filter((p) => p.lead_id === 15).map((p) => ({ pagado: p.pagado, monto_usd: p.monto_usd }));
+    r.ambiguoTotal = db.leads.find((l) => l.id === 15)?.total_cobrado_usd ?? null;
 
     // Sincronizar falla UNA vez después de tomar la cuota: el cobro queda entero y el reintento «ya estaba» lo CURA.
     ganchos.push({ cuando: (u, m) => m === 'PATCH' && u.pathname.endsWith('/leads') && u.searchParams.get('id') === 'eq.11', antes: () => fallar('la base no contestó') });
@@ -151,10 +171,11 @@ async function main() {
     r.sincFallaReintento = await cobrarCuota(23, 11, { monto: 500, fecha: '2026-10-20' });
     r.sincCuradoTotal = db.leads.find((l) => l.id === 11)?.total_cobrado_usd ?? null;
 
-    // Otro escritor del lead (un pago suelto) toma el número de la diferencia justo antes: se renumera, no se deshace.
+    // Otro escritor del lead (un pago suelto) toma el número de la diferencia: la transacción entera falla con 23505 (no
+    // escribe nada) y se reintenta una vez con el número siguiente.
     ganchos.push({
-      cuando: (u, m, c) => m === 'POST' && u.pathname.endsWith('/pagos') && Number(c?.lead_id) === 12,
-      antes: (c) => { db.pagos.push(cuota(25, { lead_id: 12, numero: Number(c?.numero), monto_usd: 100, pagado: true, fecha_pago: '2026-10-20', nacio_cobrada: true })); },
+      cuando: alRpc(12),
+      antes: () => { db.pagos.push(cuota(25, { lead_id: 12, numero: 2, monto_usd: 100, pagado: true, fecha_pago: '2026-10-20', nacio_cobrada: true })); return choque(); },
     });
     r.choque = await cobrarCuota(24, 12, { monto: 300, fecha: '2026-10-20', resto: 'pendiente' });
     r.choqueCuota = fila(24);
@@ -169,14 +190,36 @@ async function main() {
     r.pasarelaFilas = db.pagos.filter((p) => p.lead_id === 13).map((p) => ({ id: p.id, pagado: p.pagado, proveedor: p.proveedor, cobro_id: p.cobro_id, moneda: p.moneda, monto_original: p.monto_original, monto_usd: p.monto_usd }));
     r.pasarelaTotal = db.leads.find((l) => l.id === 13)?.total_cobrado_usd ?? null;
 
-    // Cobrar 300 de la 26 deja su diferencia y, ANTES de tomar la cuota, otro la cobra entera: la diferencia de este
-    // cobro, que no fue, se quita (por la reconciliación), y el resultado es «ya estaba».
+    // Cobrar 300 de la 26 y, justo antes de la transacción, otro la cobra entera: «ya estaba», y no queda ninguna
+    // diferencia de un cobro que no fue.
     ganchos.push({
-      cuando: (u, m, c) => m === 'POST' && u.pathname.endsWith('/pagos') && Number(c?.lead_id) === 14,
-      despues: () => { Object.assign(db.pagos.find((p) => p.id === 26) as Record<string, unknown>, { pagado: true, fecha_pago: '2026-10-20' }); },
+      cuando: alRpc(14),
+      antes: () => { Object.assign(db.pagos.find((p) => p.id === 26) as Record<string, unknown>, { pagado: true, fecha_pago: '2026-10-20' }); },
     });
     r.perdio = await cobrarCuota(26, 14, { monto: 300, fecha: '2026-10-20', resto: 'pendiente' });
     r.perdioFilas = db.pagos.filter((p) => p.lead_id === 14).map((p) => ({ id: p.id, pagado: p.pagado, monto_usd: p.monto_usd }));
+
+    // La pasarela marca la 31 y sincronizar falla una vez: corta los recordatorios IGUAL (va primero), y el reintento del
+    // webhook («ya estaba») sincroniza y vuelve a cortar.
+    ganchos.push({ cuando: (u, m) => m === 'PATCH' && u.pathname.endsWith('/leads') && u.searchParams.get('id') === 'eq.16', antes: () => fallar('la base no contestó') });
+    const cortes = () => escrituras.filter((e) => e === 'PATCH flujo_corridas').length;
+    const antesDelCorte = cortes();
+    const pagoLink = { leadId: 16, cobroId: 78, pagoId: 31, proveedor: 'stripe' as const, proveedorPagoId: 'pi_cura', montoUsd: 500, montoOriginal: 500, moneda: 'USD', fechaPago: '2026-10-20' };
+    r.curaFalla = await registrarCobroDeProveedor(pagoLink).then(() => 'no tiró', (e) => String(e instanceof Error ? e.message : e));
+    r.curaCortesPrimera = cortes() - antesDelCorte;
+    r.curaReintento = await registrarCobroDeProveedor(pagoLink);
+    r.curaCortesTotal = cortes() - antesDelCorte;
+    r.curaTotal = db.leads.find((l) => l.id === 16)?.total_cobrado_usd ?? null;
+
+    // Un link SIN cuota de 500 casa por monto con la 43 y, antes de que escriba, alguien la cobra a mano: el pago salda
+    // la 44 (la siguiente del mismo monto), no entra como cuota nueva.
+    ganchos.push({
+      cuando: (u, m) => m === 'PATCH' && u.pathname.endsWith('/pagos') && u.searchParams.get('id') === 'eq.43',
+      antes: () => { Object.assign(db.pagos.find((p) => p.id === 43) as Record<string, unknown>, { pagado: true, fecha_pago: '2026-10-20' }); },
+    });
+    r.casa = await registrarCobroDeProveedor({ leadId: 17, cobroId: 79, pagoId: null, proveedor: 'stripe', proveedorPagoId: 'pi_casa', montoUsd: 500, montoOriginal: 500, moneda: 'USD', fechaPago: '2026-10-20' });
+    r.casaFilas = db.pagos.filter((p) => p.lead_id === 17).map((p) => ({ id: p.id, pagado: p.pagado, proveedor: p.proveedor }));
+    r.casaTotal = db.leads.find((l) => l.id === 17)?.total_cobrado_usd ?? null;
   });
   const lead = (id: number) => db.leads.find((l) => l.id === id)?.total_cobrado_usd ?? null;
   const delLead = (id: number) => db.pagos.filter((p) => p.lead_id === id).map((p) => ({ id: p.id, pagado: p.pagado, monto_usd: p.monto_usd }));

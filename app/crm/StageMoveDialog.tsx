@@ -614,8 +614,13 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
         // tracking). Indefinida → sin cuotas (se registran mes a mes desde el Deal).
         // Pago único → las cuotas cargadas a mano.
         // Sin cobro → sin cuotas, aunque el contrato haya prellenado alguna.
+        // ⚠️ (21/10/2026, revisión adversarial) La suscripción manda su plan SÓLO si el lead no tenía uno: volver a
+        // confirmar sobre una ya cerrada rehacía todas sus cuotas desde hoy (el server también lo frena,
+        // `completeStageMoveAction`). Y la PRIMERA cuota es el día del cierre (mes 0), como cuenta lo cobrado el resto de la
+        // app (`cobradoDelLead`, el inicial de `cuotasDelPlan`): un mes después, un cliente al día quedaba para siempre en
+        // «Falta registrar 1 mes».
         const cuotasPayload: StageMoveCuota[] = sinCobro ? [] : esSuscripcion
-          ? (meses > 0 ? Array.from({ length: meses }, (_, i) => ({ monto: totalMonto, fecha: sumarMesesISO(hoyISO, i + 1) })) : [])
+          ? (meses > 0 && totalMonto > 0 && !lead.tienePlan ? Array.from({ length: meses }, (_, i) => ({ monto: totalMonto, fecha: sumarMesesISO(hoyISO, i) })) : [])
           : requeridos.has('plan')
           ? cuotas.filter((c) => parseFloat(c.monto) > 0).map((c) => ({ monto: parseFloat(c.monto), fecha: c.fecha || null }))
           : [];
@@ -1212,7 +1217,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
               {i > 0 && <button type="button" onClick={() => setCuotas((arr) => arr.filter((_, xi) => xi !== i))} aria-label="Quitar cuota" style={{ flex: 'none', background: 'transparent', border: 'none', color: 'var(--faint)', cursor: 'pointer', fontSize: 15 }}>✕</button>}
             </div>
           ))}
-          <button type="button" onClick={() => { const last = cuotas[cuotas.length - 1]; setCuotas((arr) => [...arr, { monto: '', fecha: sumarMesesISO(last?.fecha || hoyISO, 1) }]); }} style={{ padding: 10, borderRadius: 10, border: '1.5px dashed var(--border-strong)', background: 'transparent', color: 'var(--primary)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>+ Agregar cuota</button>
+          <button type="button" onClick={() => { setCuotas((arr) => [...arr, { monto: '', fecha: sumarMesesISO(arr[0]?.fecha || hoyISO, arr.length) }]); }} style={{ padding: 10, borderRadius: 10, border: '1.5px dashed var(--border-strong)', background: 'transparent', color: 'var(--primary)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>+ Agregar cuota</button>
           {sumaCuotas > 0 && (
             <div style={{ borderRadius: 10, padding: '9px 13px', fontSize: 13, fontWeight: 600, background: cuotasCuadran ? 'var(--good-bg)' : 'var(--bad-bg)', color: cuotasCuadran ? 'var(--good)' : 'var(--bad)', textAlign: 'left' }}>
               {cuotasCuadran

@@ -23,7 +23,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { hoyEnTz, horaEnTz } from '../lib/date-utils';
-import { sumarMeses } from '../lib/cobrado-lead';
+import { cobradoDelLead, sumarMeses } from '../lib/cobrado-lead';
 
 const RAIZ = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -171,8 +171,8 @@ test('6. la cartera de Clients y la del Dashboard dicen «vencida» como la fich
   // El asistente de Ganado: la primera cuota y las de una suscripción salen del día del negocio.
   const wizard = sinComentarios(leer('app/crm/StageMoveDialog.tsx'));
   assert.match(wizard, /const hoyISO = hoyEnTz\(useTzWorkspace\(\)\);/);
-  // (21/10: con el tope de fin de mes, `sumarMesesISO`; el test 8 lo prueba.)
-  assert.match(wizard, /sumarMesesISO\(last\?\.fecha \|\| hoyISO, 1\)/, '«+ Agregar cuota» sin cuotas arranca de hoy, no del UTC');
+  // (21/10: con el tope de fin de mes y desde la primera cuota, `sumarMesesISO`; el test 8 lo prueba.)
+  assert.match(wizard, /sumarMesesISO\(arr\[0\]\?\.fecha \|\| hoyISO, arr\.length\)/, '«+ Agregar cuota» sin cuotas arranca de hoy, no del UTC');
   // La hora: la del negocio, no la del navegador (alguien en Buenos Aires anotaba un cobro de México con su hora).
   const instante = new Date('2026-10-21T03:30:00Z');
   assert.equal(horaEnTz('America/Mexico_City', instante), '21:30');
@@ -185,22 +185,32 @@ test('6. la cartera de Clients y la del Dashboard dicen «vencida» como la fich
 
 test('7. ⚠️ los bordes del cobro: una falla no lo deja a medias, el reintento lo cura, y la pasarela no pisa un cobro a mano', () => {
   const s = correr() as unknown as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any -- la salida del hijo, campo por campo
-  // Leer las cuotas del lead falla ANTES de tomar la cuota: no se toca nada, y el reintento cobra entero.
-  assert.match(String(s.leerFalla), /listando pagos del lead 10/);
+  // El cobro de menos falla en la base: la transacción no escribe NADA (ni la cuota, ni una diferencia FANTASMA que la
+  // cobranza le reclamaría al cliente), y el reintento cobra entero, con UNA diferencia.
+  assert.match(String(s.leerFalla), /Error cobrando el pago 22/);
   assert.deepEqual([s.leerFallaCuota.pagado, s.leerFallaCuota.monto_usd], [false, 500], 'la cuota sigue impaga, con su monto');
-  assert.equal(s.leerFallaFilas, 1, 'sin una diferencia suelta');
+  assert.equal(s.leerFallaFilas, 1, 'sin una diferencia fantasma');
   assert.deepEqual([s.leerFallaReintento.yaEstaba, s.leerFallaReintento.pendiente], [false, 200]);
+  assert.deepEqual(s.leerFallaFilasFin, [{ pagado: true, monto_usd: 300 }, { pagado: false, monto_usd: 200 }], 'una sola diferencia');
+  // La respuesta se pierde con todo escrito: el reintento dice «ya estaba», cura lo cobrado, y la diferencia está UNA vez.
+  assert.match(String(s.ambiguo), /fetch failed/);
+  assert.equal(s.ambiguoReintento.yaEstaba, true);
+  assert.deepEqual(s.ambiguoFilas, [{ pagado: true, monto_usd: 300 }, { pagado: false, monto_usd: 200 }], 'ni dos diferencias ni ninguna');
+  assert.equal(s.ambiguoTotal, 300);
   // Sincronizar falla DESPUÉS de tomarla: el cobro queda, y el reintento dice «ya estaba» y sincroniza lo cobrado.
   assert.match(String(s.sincFalla), /sincronizando total_cobrado del lead 11/);
   assert.equal(s.sincFallaTotal, null);
   assert.equal(s.sincFallaReintento.yaEstaba, true);
   assert.equal(s.sincCuradoTotal, 500, 'el «ya estaba» curó lo cobrado del lead');
-  // Otro escritor toma el número de la diferencia: se renumera, y la cuota NO vuelve a impaga.
+  // Otro escritor toma el número de la diferencia: la transacción falla entera (23505) y el reintento numera bien.
   assert.deepEqual([s.choque.yaEstaba, s.choque.pendiente], [false, 200]);
   assert.deepEqual([s.choqueCuota.pagado, s.choqueCuota.monto_usd], [true, 300]);
   const choque = s.choqueFilas as { numero: number; pagado: boolean; monto_usd: number }[];
   assert.deepEqual(choque.filter((p) => !p.pagado).map((p) => [p.monto_usd, p.numero]), [[200, 3]], 'la diferencia, con el número siguiente');
   assert.equal(new Set(choque.map((p) => p.numero)).size, choque.length, 'ningún número repetido');
+  // Otro la cobró justo antes: «ya estaba», y no queda ninguna diferencia de un cobro que no fue.
+  assert.equal(s.perdio.yaEstaba, true);
+  assert.deepEqual(s.perdioFilas, [{ id: 26, pagado: true, monto_usd: 500 }], 'sin una cuota pendiente de un cobro que no fue');
   // La pasarela leyó la cuota impaga y un cobro a mano la tomó antes de que escribiera: entra como cuota NUEVA.
   const filas = s.pasarelaFilas as { id: number; pagado: boolean; proveedor: string | null; cobro_id: number | null; moneda: string | null; monto_original: number | null }[];
   const aMano = filas.find((p) => p.id === 30);
@@ -209,34 +219,79 @@ test('7. ⚠️ los bordes del cobro: una falla no lo deja a medias, el reintent
   assert.deepEqual([nueva?.pagado, nueva?.proveedor, nueva?.cobro_id], [true, 'stripe', 77], 'el de la pasarela, aparte');
   assert.notEqual(s.pasarela.pagoId, 30);
   assert.equal(s.pasarelaTotal, 1000, 'entraron dos pagos y se ven los dos');
-  // Otro la cobró entre la diferencia y la toma: «ya estaba», y la diferencia de este cobro (que no fue) se quitó.
-  assert.equal(s.perdio.yaEstaba, true);
-  assert.deepEqual(s.perdioFilas, [{ id: 26, pagado: true, monto_usd: 500 }], 'sin una cuota pendiente de un cobro que no fue');
+  // La pasarela marca y sincronizar falla: los recordatorios se cortan IGUAL (primero), y su reintento cura.
+  assert.match(String(s.curaFalla), /sincronizando total_cobrado del lead 16/);
+  assert.equal(s.curaCortesPrimera, 1, 'cortó antes de que fallara sincronizar');
+  assert.equal(s.curaReintento.yaEstaba, true);
+  assert.equal(s.curaCortesTotal, 2, 'el «ya estaba» de la pasarela vuelve a cortar');
+  assert.equal(s.curaTotal, 500, 'y sincroniza');
+  // El casamiento por monto: si la elegida la cobraron a mano en el medio, el pago salda la SIGUIENTE del mismo monto.
+  assert.equal(s.casa.pagoId, 44);
+  assert.deepEqual(s.casaFilas, [{ id: 43, pagado: true, proveedor: null }, { id: 44, pagado: true, proveedor: 'stripe' }], 'sin una cuota nueva');
+  assert.equal(s.casaTotal, 1000);
 
   const pagos = sinComentarios(leer('lib/pagos.ts'));
   const cobrar = pagos.slice(pagos.indexOf('export async function cobrarCuota('), pagos.indexOf('export async function registrarPagoSuelto('));
-  assert.ok(cobrar.indexOf('await insertarDiferencia(') > 0 && cobrar.indexOf('await insertarDiferencia(') < cobrar.indexOf("siSigue(db.from('pagos').update(upd)"),
-    'la diferencia va ANTES de tomar la cuota');
+  assert.match(cobrar, /if \(pend > 0\) \{\s*const r = await cobrarConResto\(db, \{/, 'un cobro de menos va por la transacción');
+  assert.doesNotMatch(cobrar, /\.from\('pagos'\)\.insert\(/, 'la diferencia no es un insert suelto');
   assert.doesNotMatch(cobrar, /update\(\{ pagado: false/, 'nunca devuelve a impaga una cuota que tomó');
+  assert.ok(cobrar.indexOf('await asegurarLeadDelNegocio(leadId)') < cobrar.indexOf('await cobrarConResto('), 'el lead es del negocio ANTES de escribir');
+  const conResto = pagos.slice(pagos.indexOf('async function cobrarConResto('));
+  assert.match(conResto, /db\.rpc\('cobrar_cuota_con_resto', \{ p_ws: ws, \.\.\.p \}\)/);
+  assert.match(conResto, /if \(funcionNoExiste\(error\)\) throw new Error\('Un cobro por menos todavía no se puede guardar: falta la migración 0318/);
+  assert.match(conResto, /if \(error\.code !== PG_DUPLICADO\) throw/);
   const pasarela = pagos.slice(pagos.indexOf('export async function registrarCobroDeProveedor('), pagos.indexOf('export async function remarcarCobroDeProveedor('));
   assert.doesNotMatch(pasarela, /await marcarPago\(/, 'la pasarela no marca en dos pasos');
   assert.equal((pasarela.match(/siSigue\(db\.from\('pagos'\)\.update\(\{ \.\.\.marca, pagado: true, fecha_pago: p\.fechaPago \}\)/g) ?? []).length, 2, 'la cuota del link y la que casa por monto');
+  assert.match(pasarela, /for \(const casa of impagas\) \{/, 'prueba las impagas del mismo monto de a una');
+  const cura = pagos.slice(pagos.indexOf('async function curarDespues('), pagos.indexOf('async function trasCobrar('));
+  assert.ok(cura.indexOf('await trasCobrar(') < cura.indexOf('await sincronizarTotalCobrado('), 'corta ANTES de sincronizar (cortar no tira)');
+
+  // La función de la transacción (supabase/migrations/0318): la toma condicional y la diferencia, juntas.
+  const sql = leer('supabase/migrations/0318_cobrar_cuota_con_resto.sql').replace(/^\s*--.*$/gm, '');
+  assert.match(sql, /create or replace function public\.cobrar_cuota_con_resto\(/);
+  assert.match(sql, /returns jsonb/);
+  assert.match(sql, /security invoker/);
+  assert.match(sql, /perform 1 from pagos where lead_id = p_lead and workspace_id = p_ws for update;/);
+  assert.match(sql, /where id = p_pago and lead_id = p_lead and workspace_id = p_ws and pagado is not true/);
+  assert.match(sql, /if v_id is null then\s*return jsonb_build_object\('tomada', false\);/);
+  assert.match(sql, /insert into pagos \(workspace_id, lead_id, numero, monto_usd, fecha_esperada, pagado\)\s*values \(p_ws, p_lead, v_numero, p_resto, p_vence, false\)/);
+  assert.match(leer('supabase/migrations/0318_cobrar_cuota_con_resto.sql'), /ORDEN DE DESPLIEGUE: ANTES del código/);
 });
 
-test('8. el asistente de Ganado: un mes por cuota aunque se cierre un 31, y la primera cuota sigue al día del negocio', () => {
-  const desde31 = Array.from({ length: 12 }, (_, i) => sumarMeses('2026-10-31', i + 1));
-  assert.deepEqual(desde31.map((f) => f.slice(0, 7)), ['2026-11', '2026-12', '2027-01', '2027-02', '2027-03', '2027-04', '2027-05', '2027-06', '2027-07', '2027-08', '2027-09', '2027-10'], 'ni un mes sin cuota ni uno con dos');
-  assert.deepEqual(desde31.slice(0, 4), ['2026-11-30', '2026-12-31', '2027-01-31', '2027-02-28'], 'el tope es el último día, y vuelve al 31');
-  assert.equal(sumarMeses('2027-01-31', 1), '2027-02-28', '«+ Agregar cuota» después de un 31 de enero');
+test('8. el asistente de Ganado: un mes por cuota desde el cierre, nunca rehace un plan, y el cierre es el día del negocio', () => {
+  const desde31 = Array.from({ length: 12 }, (_, i) => sumarMeses('2026-10-31', i));
+  assert.deepEqual(desde31.map((f) => f.slice(0, 7)), ['2026-10', '2026-11', '2026-12', '2027-01', '2027-02', '2027-03', '2027-04', '2027-05', '2027-06', '2027-07', '2027-08', '2027-09'], 'ni un mes sin cuota ni uno con dos');
+  assert.deepEqual(desde31.slice(0, 5), ['2026-10-31', '2026-11-30', '2026-12-31', '2027-01-31', '2027-02-28'], 'el tope es el último día, y vuelve al 31');
+  // ⚠️ El plan del asistente y lo cobrado cuentan igual: la PRIMERA cuota es el día del cierre. Con la del mes siguiente, un
+  // cliente al día quedaba para siempre en «Falta registrar 1 mes».
+  const cierre = '2026-10-31';
+  for (const hoy of ['2026-10-31', '2026-11-30', '2027-03-31', '2027-09-30']) {
+    const pagos = desde31.map((f, i) => ({ id: i + 1, monto_usd: 500, fecha_esperada: f, pagado: f <= hoy, fecha_pago: f <= hoy ? f : null }));
+    const c = cobradoDelLead({ ventaTipo: 'suscripcion', montoCierreUsd: null, suscripcionMontoUsd: 500, suscripcionMeses: 12, fechaCierre: cierre, suscripcionCanceladaAt: null, pagos, cobros: [], hoy });
+    assert.equal(c.suscripcion?.sinRegistrar, 0, `al día el ${hoy}`);
+    assert.notEqual(c.semaforo.tono, 'ambar', `al día el ${hoy}: ${c.semaforo.texto}`);
+  }
   const wizard = sinComentarios(leer('app/crm/StageMoveDialog.tsx'));
   assert.match(wizard, /const sumarMesesISO = sumarMeses;/);
-  assert.match(wizard, /fecha: sumarMesesISO\(hoyISO, i \+ 1\)/);
-  assert.match(wizard, /setCuotas\(\(arr\) => \[\.\.\.arr, \{ monto: '', fecha: sumarMesesISO\(last\?\.fecha \|\| hoyISO, 1\) \}\]\)/);
+  assert.match(wizard, /meses > 0 && totalMonto > 0 && !lead\.tienePlan \? Array\.from\(\{ length: meses \}, \(_, i\) => \(\{ monto: totalMonto, fecha: sumarMesesISO\(hoyISO, i\) \}\)\) : \[\]/);
+  // «+ Agregar cuota» cuenta desde la PRIMERA (después de un 31 el día vuelve), no desde la anterior.
+  assert.match(wizard, /setCuotas\(\(arr\) => \[\.\.\.arr, \{ monto: '', fecha: sumarMesesISO\(arr\[0\]\?\.fecha \|\| hoyISO, arr\.length\) \}\]\)/);
+  assert.deepEqual(['2027-01-31', ...[1, 2, 3].map((n) => sumarMeses('2027-01-31', n))], ['2027-01-31', '2027-02-28', '2027-03-31', '2027-04-30']);
   assert.doesNotMatch(wizard, /setUTCMonth/, 'nada de sumar meses a mano');
   // La primera cuota se siembra antes de tener la zona (Tijuana): cuando llega, se corre la que nadie tocó.
   assert.match(wizard, /const hoySembrado = useRef\(hoyISO\);/);
   assert.match(wizard, /setCuotas\(\(arr\) => arr\.map\(\(c, i\) => \(i === 0 && c\.fecha === antes \? \{ \.\.\.c, fecha: hoyISO \} : c\)\)\);/);
   assert.match(wizard, /\}, \[hoyISO\]\);/);
+  // ⚠️ El server no rehace un plan que ya existe (volver a confirmar sobre una suscripción ya cerrada rehacía todas sus
+  // cuotas desde hoy: deuda inflada y la vencida escondida).
+  const acciones = sinComentarios(leer('app/crm/actions.ts'));
+  const mover = acciones.slice(acciones.indexOf('export async function completeStageMoveAction('));
+  assert.match(mover, /const yaTienePlan = d\.cuotas\?\.length \? \(await getPagosByLead\(id\)\)\.some\(\(q\) => !q\.nacio_cobrada\) : false;/);
+  assert.ok(mover.indexOf('if (yaTienePlan) {') > 0 && mover.indexOf('if (yaTienePlan) {') < mover.indexOf('await saveLeadPlanManual(id, {'), 'antes de escribir el plan');
+  assert.match(mover, /\} else if \(d\.cuotas\?\.length\) \{\s*const cambios = await saveLeadPlanManual\(id, \{/);
+  // El día del cierre: el del negocio (con el UTC, un Ganado de las 19 h en México cerraba mañana).
+  assert.match(sinComentarios(leer('lib/leads.ts')), /desenlaceAlGuardar\(actual, input, await hoyEnWorkspace\(\), actual\.venta_tipo\)/);
 });
 
 // ROTURAS (20/10/2026). Base: 4 pases, 0 fallos (los tests 1 a 4). Rota (pases / fallos):
@@ -274,3 +329,16 @@ test('8. el asistente de Ganado: un mes por cuota aunque se cierre un 31, y la p
 //   · la diferencia de un cobro que no fue se queda (sin la reconciliación)            → 6 / 2 (5 y 7)
 //   · la pasarela no sigue a cuota nueva si la del link ya no estaba impaga            → 7 / 1 (7)
 //   (y «si falla la etiqueta»: no se puede romper, `etiquetarPago` no tira; ese try/catch sobraba y salió)
+//
+// ROTURAS de la tercera revisión (21/10/2026). Base: 8 pases, 0 fallos. Rota (pases / fallos):
+//   · el cobro de menos vuelve a la escritura suelta (sin la transacción)            → 6 / 2 (5 y 7)
+//   · la transacción sin reintento ante el choque del número                         → 4 / 4 (el hijo tira: 1, 3, 5 y 7)
+//   · la función SQL sin la condición «sigue impaga»                                 → 7 / 1 (7)
+//   · `curarDespues` sincroniza ANTES de cortar                                      → 7 / 1 (7)
+//   · el «ya estaba» de la pasarela sólo sincroniza                                  → 7 / 1 (7)
+//   · el casamiento por monto prueba sólo la primera                                 → 7 / 1 (7)
+//   · el server vuelve a rehacer un plan que ya existe                               → 7 / 1 (8)
+//   · el asistente manda el plan aunque el lead ya tenga uno                         → 7 / 1 (8)
+//   · la primera cuota de la suscripción, un mes después del cierre                  → 7 / 1 (8)
+//   · «+ Agregar cuota» suma desde la anterior                                       → 6 / 2 (6 y 8)
+//   · el día del cierre vuelve al UTC                                                → 7 / 1 (8)

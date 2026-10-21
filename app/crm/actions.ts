@@ -666,7 +666,15 @@ export async function completeStageMoveAction(
   // 3) Plan de pagos (genera las cuotas; el cash del dashboard lee de acá).
   //    Modelo simple: cuotas explícitas (monto + fecha). `plan` queda por compat.
   let sinTocar: string | null = null;
-  if (d.cuotas?.length) {
+  // ⚠️ EL ASISTENTE NO REHACE UN PLAN QUE YA EXISTE (21/10/2026, revisión adversarial, alta). Volver a confirmarlo sobre
+  // una suscripción ya cerrada («Completar datos», pasar a Facturando, volver a Ganado) mandaba otra vez TODAS sus cuotas
+  // desde hoy, y la reconciliación por orden actualizaba las impagas e insertaba de más: 15 cuotas para un plazo de 12, la
+  // deuda inflada y la vencida escondida; con la mensualidad vacía, se borraban todas. El plan se arma UNA vez, al ganar
+  // sin plan; para cambiarlo está la tab Pagos. Un pago suelto (nació cobrado) no es un plan.
+  const yaTienePlan = d.cuotas?.length ? (await getPagosByLead(id)).some((q) => !q.nacio_cobrada) : false;
+  if (yaTienePlan) {
+    console.log(`[crm] lead ${id}: el asistente mandó ${d.cuotas?.length} cuota(s) y ya tenía un plan; no se rehízo`);
+  } else if (d.cuotas?.length) {
     const cambios = await saveLeadPlanManual(id, {
       total_usd: d.monto ?? before?.monto_cierre_usd ?? null,
       duracion_meses: null,

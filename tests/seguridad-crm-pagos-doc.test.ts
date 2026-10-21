@@ -427,8 +427,9 @@ if (process.env.SEG_PAGOS_DOC_HIJO === '1') {
     // Que el barrido vea a los escritores de hoy (si dejara de verlos, pasaría sin mirar nada). savePlanPagos y
     // saveLeadPlanManual escriben por la reconciliación; los cubre el caso ajeno de arriba, ejecutándolos.
     // (`saveCuotasAction` salió de la lista el 17/10/2026: se borró con Editar deal.)
-    // (21/10/2026: la diferencia de un cobro de menos la inserta `insertarDiferencia`, que llama `cobrarCuota`.)
-    for (const f of ['escribirReconciliacion←reconciliarYGuardar', 'insertarDiferencia←cobrarCuota', 'registrarPagoSuelto', 'registrarCobroDeProveedor']) {
+    // (21/10/2026: la diferencia de un cobro de menos ya no es un insert de PostgREST: la deja la transacción
+    // `cobrar_cuota_con_resto` (mig 0318), con el lead ya asegurado antes. tests/pagos-cobro-idempotente.test.ts lo fija.)
+    for (const f of ['escribirReconciliacion←reconciliarYGuardar', 'registrarPagoSuelto', 'registrarCobroDeProveedor']) {
       assert.ok(guardadas.includes(f), `el barrido no encontró el insert de ${f}`);
     }
   });
