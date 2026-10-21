@@ -15,7 +15,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  COBRO_MENSUAL, COBRO_UNICO, NEGOCIO_CONFIRMAR, PDF_BIEN, PDF_FALTA, PDF_TOPE_ESCRITAS, SI_ES_ESO, cobroDelPrecio, cobroSinPropuesta, leerRespuesta,
+  COBRO_MENSUAL, COBRO_UNICO, NEGOCIO_CONFIRMAR, PDF_BIEN, PDF_FALTA, PDF_TOPE_ESCRITAS, cobroDelPrecio, cobroSinPropuesta, leerRespuesta,
   mensajesDeArranque, notaDelPdf, siAlPendiente, type EstadoArranque, type HechosArranque, type Respuesta,
 } from '../lib/onboarding-arranque';
 import { preguntaQueContesta } from '../app/onboarding/arranque-ui';
@@ -49,10 +49,10 @@ test('2. la periodicidad cuenta sólo pegada al pago: la del servicio no le gana
     ['seguimiento semanal: USD 1.500 en 6 cuotas', 6], ['6 pagos mensuales de USD 250 (sesión semanal incluida)', 6],
     ['USD 2000, 10 cuotas, clases 2 veces por semana', 10],
   ] as const) assert.deepEqual(cobroDelPrecio(p), { tipo: 'suscripcion', meses }, p);
-  // Y se propone con «Sí, es eso»: los 3 meses se pueden elegir.
+  // Y se propone primera: los 3 meses se pueden elegir.
   const h: HechosArranque = { ...H, cobroLeido: cobroDelPrecio('3 cuotas mensuales de USD 300, con una llamada semanal') };
   const e: EstadoArranque = { nombre: 'Ana', negocio: 'Acme', pdfOk: 'si' };
-  assert.deepEqual(responder(e, { opcion: 0, opcionTexto: SI_ES_ESO }, h), { ok: true, patch: { cobro: { tipo: 'suscripcion', meses: 3 } } });
+  assert.deepEqual(responder(e, { opcion: 0, opcionTexto: 'Suscripción de 3 meses' }, h), { ok: true, patch: { cobro: { tipo: 'suscripcion', meses: 3 } } });
   // Lo pegado al pago sigue contando (quinta, sexta y séptima revisión).
   for (const [p, periodo] of [
     ['8 cuotas semanales de USD 25', 'semanal'], ['USD 50 por semana, 12 pagos', 'semanal'], ['USD 99 por semana', 'semanal'], ['4 cuotas de USD 50 cada semana', 'semanal'],

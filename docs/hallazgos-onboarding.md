@@ -2691,6 +2691,22 @@ aceptaba la opción exacta: todo esto entraba nuevo.
   comparación contra producción (las mismas frases en las dos puntas, con diff) las encontró. Una prueba de la punta sola
   no las ve.
 
+**Y la novena (punta 82321e397): la cuarta vuelta de reglas sobre la periodicidad. Se cambió la red.**
+- ⚠️ **Cuatro vueltas de reglas sobre la periodicidad, y cada una movió casos de lugar.** La quinta leyó lo anual, la
+  sexta puso las cuotas antes, la séptima movió lo semanal, la octava lo pegó al pago, y en la novena «1 a 1 semanal» o
+  «3x semana» volvieron a ganar a «3 cuotas mensuales»: un número pelado parecía un monto. Cada vez, lo que se perdía era
+  la OPCIÓN correcta, no sólo la lectura, porque la lectura decidía qué opciones se mostraban. **Regla (decisión del
+  Cerebro):** las opciones del cobro son SIEMPRE todas las lecturas posibles (`opcionesDeCobro`): «Pago único»,
+  «Suscripción mensual (sin fin)» y una «Suscripción de N meses» por cada N junto a cuotas, pagos, meses o mensualidades.
+  La lectura sólo ORDENA (va primera y arma el «Entendí»), nunca saca una. Lo que el producto no sabe cobrar se dice sin
+  recomendar nada. Medido con las 204 frases de la sonda del Cerebro: la propuesta de producción está entre las opciones
+  en las 204. Es la misma salida que la del parser escrito (arriba): cuando las reglas no convergen, se cambia la red.
+- **«Suscripción mensual» se leía como «los meses de las cuotas».** Una suscripción sin meses se cobra todos los meses,
+  sin fin, y la persona la elegía para «3 cuotas mensuales». Ahora la etiqueta lo dice: «Suscripción mensual (sin fin)».
+- **Si el tope suma a lo último, la pregunta tiene que cambiar.** La pregunta del PDF repetía los primeros 60 caracteres
+  de lo último, y al sumarle algo quedaba igual: el guard de pestaña vieja no veía el cambio. Ahora repite lo último que
+  se sumó.
+
 **Sin hacer:** «Vendo 20 a 500 dólares» se sigue leyendo como un rango; la confirmación lo muestra y se corrige con un
 toque. Las etiquetas de los tramos dicen «$» sin «USD» (lib/fase-diagnostico.ts): es una decisión de copy, no de este
 chat. Vive en lib/onboarding-arranque.ts (`cifraDe`). Cobrar por año o por semana necesita un intervalo en el producto

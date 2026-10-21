@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  NOMBRE_CONFIRMAR, PDF_BIEN, PDF_FALTA, PDF_SIN_DETALLE, SI_ES_ESO, cobroDelPrecio, etapaDeArranque, etiquetaCobro, leerRespuesta,
+  NOMBRE_CONFIRMAR, PDF_BIEN, PDF_FALTA, PDF_SIN_DETALLE, cobroDelPrecio, etapaDeArranque, etiquetaCobro, leerRespuesta,
   mensajesDeArranque, notaDelPdf, pdfConfirmarPregunta, type EstadoArranque, type HechosArranque, type Respuesta,
 } from '../lib/onboarding-arranque';
 import { preguntaQueContesta } from '../app/onboarding/arranque-ui';
@@ -93,8 +93,8 @@ test('5. el cobro: las cuotas se leen antes que lo anual', () => {
   const e: EstadoArranque = { ...E, pdfOk: 'si' };
   const m = mensajesDeArranque(e, h).despues.at(-1);
   assert.match(m?.texto ?? '', new RegExp(`«${etiquetaCobro({ tipo: 'suscripcion', meses: 12 })}»`));
-  assert.equal(m?.opciones?.[0], SI_ES_ESO);
-  assert.deepEqual(responder(e, { opcion: 0, opcionTexto: SI_ES_ESO }, h), { ok: true, patch: { cobro: { tipo: 'suscripcion', meses: 12 } } });
+  assert.equal(m?.opciones?.[0], 'Suscripción de 12 meses', 'la leída va primera (novena revisión)');
+  assert.deepEqual(responder(e, { opcion: 0, opcionTexto: 'Suscripción de 12 meses' }, h), { ok: true, patch: { cobro: { tipo: 'suscripcion', meses: 12 } } });
   // Lo anual puro sigue sin proponerse.
   assert.equal(cobroDelPrecio('Membresía anual USD 400').periodo, 'anual');
 });

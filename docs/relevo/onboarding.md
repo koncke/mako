@@ -1,5 +1,16 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 21/10/2026 — NOVENA REVISIÓN (de 82321e397): EL COBRO CAMBIA DE RED
+
+<sub>Chat «Onboarding», claude4, rama onboarding-v3. En producción está 689f75560
+(side-session-notes/local_797d5445…/revision-onboarding-novena-21-10.md).</sub>
+
+- **El cobro:** no hay más reglas de periodicidad. Las opciones son todas las lecturas (`opcionesDeCobro`: «Pago único»,
+  «Suscripción mensual (sin fin)», «Suscripción de N meses» por cada N del texto); la lectura (`cobroDelPrecio`) sólo
+  ordena y arma el «Entendí». Si alguien encuentra otro precio mal leído, NO se arregla la lectura: se mira que la
+  opción correcta esté (tests/onboarding-novena-revision.test.ts).
+- La pregunta del PDF repite lo último sumado, así cambia al sumar pasado el tope.
+
 ## ESTADO AL 21/10/2026 — OCTAVA REVISIÓN (de 108b2f270): DOS REGRESIONES CONTRA PRODUCCIÓN, CERRADAS
 
 <sub>Chat «Onboarding», claude4, rama onboarding-v3. En producción está 689f75560 (run 199)

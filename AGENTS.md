@@ -2034,6 +2034,11 @@ de cerrar un caso con una regla que alcanzaba a más («semanal» en cualquier p
 empieza con «Claro»). Antes de pasar la punta, las frases de la revisión anterior se corren en la punta y en producción, y
 se mira el diff.
 
+**Las opciones del toque son todas las lecturas; la lectura sólo ordena (novena revisión, 21/10/2026).** Si una lectura con
+reglas decide QUÉ opciones se muestran, cada error de lectura deja a la persona sin la respuesta correcta, y cada regla
+nueva mueve casos de lugar (el cobro tuvo cuatro vueltas). Las opciones se arman con todo lo que el texto PERMITE
+(`opcionesDeCobro`), y la lectura sólo elige cuál va primera.
+
 **El corolario para lo que DICE MaKo (21/10/2026, el guardia de promesas 1.5):** un filtro sobre el texto del modelo
 NUNCA borra una oración. El guardia por raíces de palabras borraba 8 de 14 respuestas verdaderas («Sí, ya te la
 agendé» después de confirmar la tarjeta pasaba a «En este mensaje no hice nada») y atajaba 3 de 18 falsas, medido con

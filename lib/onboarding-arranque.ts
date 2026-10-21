@@ -135,6 +135,8 @@ export type HechosArranque = {
   loQueVende: boolean;
   /** Cómo cobra, LEÍDO del precio que contó (`cobroDelPrecio`), para proponerlo y que lo confirme. null = no dijo precio. */
   cobroLeido?: Cobro | null;
+  /** Las opciones del cobro: todas las lecturas posibles del precio (`opcionesDeCobro`). Sin esto, las de `cobroLeido`. */
+  cobroOpciones?: Cobro[] | null;
   /** Lo que ya contestó del diagnóstico en la conversación de la oferta (id de pregunta → opción ORIGINAL, y el
    *  canal si lo contestó ahí), o null sin conversación. El arranque no lo vuelve a preguntar. */
   faseOffer?: { respuestas: Record<string, number>; canal: CanalId | null } | null;
@@ -200,8 +202,12 @@ export const PDF_NO = 'Está bien: lo anoto para trabajarlo dentro de la app. Ah
  *  («salvo», «pero»…) no terminaba nunca. CON LA MISMA POLARIDAD que «¿está correcto?» (sexta revisión, 21/10: «¿Lo tomo
  *  como que falta algo?» invertía el sí, y «Está perfecto» se anotaba como corrección), y con lo que confirma adentro: una
  *  pregunta fija no la distingue el guard de pestaña vieja. */
-export const pdfConfirmarPregunta = (escrito: string): string =>
-  `Escribiste «${cortar(escrito, 60) === escrito ? escrito : `${cortar(escrito, 60).trimEnd()}…`}». ¿Lo tomo como que está todo bien?`;
+export const pdfConfirmarPregunta = (escrito: string): string => {
+  // Pasado el tope se suma a lo último con « · »: la pregunta repite lo ÚLTIMO sumado, así cambia y el guard de pestaña
+  // vieja la distingue (novena revisión, 21/10: con lo último de 60 caracteres o más quedaba igual).
+  const ultimo = escrito.split(' · ').pop() ?? escrito;
+  return `Escribiste «${cortar(ultimo, 60) === ultimo ? ultimo : `${cortar(ultimo, 60).trimEnd()}…`}». ¿Lo tomo como que está todo bien?`;
+};
 /** Cuántas cosas escritas se suman al PDF antes de pedir el botón (séptima revisión, 21/10: la nota no tenía tope). */
 export const PDF_TOPE_ESCRITAS = 5;
 export const PDF_BIEN = 'Sí, está todo bien';
@@ -1021,17 +1027,13 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
   if (e.pdfOk === 'no') despues.push({ id: 'arr-pdf-no', de: 'mako', texto: PDF_NO });
 
   // 2c'. Cómo cobra, leído del precio y CONFIRMADO con un toque (cuarta revisión, 21/10): antes se guardaba en el producto
-  // sin que nadie lo viera, y la lectura confundía «sin mensualidades» con una suscripción.
-  if (h.cobroLeido?.periodo && (etapa === 'cobro' || e.cobro)) {
-    // Por año o por semana no se propone (quinta revisión, 21/10): ninguna de las dos opciones era cierta y el botón
-    // principal lo guardaba como mensual. Se dice lo que hay y se elige.
-    preguntar(despues, 'cobro', cobroSinPropuesta(h.cobroLeido.periodo), e.cobro ? etiquetaCobro(e.cobro) : undefined, [COBRO_UNICO, COBRO_MENSUAL]);
-    if (etapa === 'cobro') return { antes, despues };
-  } else if (h.cobroLeido && (etapa === 'cobro' || e.cobro)) {
-    const leido = etiquetaCobro(h.cobroLeido);
-    const elegido = e.cobro ? (mismoCobro(e.cobro, h.cobroLeido) ? SI_ES_ESO : etiquetaCobro(e.cobro)) : undefined;
-    preguntar(despues, 'cobro', `Entendí que cobras así: «${leido}». ¿Es así?`, elegido,
-      [SI_ES_ESO, ...[COBRO_UNICO, COBRO_MENSUAL].filter((c) => c !== leido)]);
+  // sin que nadie lo viera, y la lectura confundía «sin mensualidades» con una suscripción. Las opciones son TODAS las
+  // lecturas posibles (`opcionesDeCobro`, novena revisión): la lectura va primera y arma el «Entendí», nunca saca una. Lo
+  // que el producto no sabe cobrar (por año, por semana) se dice, sin recomendar nada.
+  if (h.cobroLeido && (etapa === 'cobro' || e.cobro)) {
+    const opciones = (h.cobroOpciones ?? opcionesDeCobro(null, h.cobroLeido)).map(etiquetaCobro);
+    const pregunta = h.cobroLeido.periodo ? cobroSinPropuesta(h.cobroLeido.periodo) : `Entendí que cobras así: «${etiquetaCobro(h.cobroLeido)}». ¿Lo cargo así?`;
+    preguntar(despues, 'cobro', pregunta, e.cobro ? etiquetaCobro(e.cobro) : undefined, opciones);
     if (etapa === 'cobro') return { antes, despues };
   }
 
@@ -1268,15 +1270,15 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
     return { ok: true, patch: { pdfEscritas: [texto] } };
   }
   if (etapa === 'cobro') {
-    // Lo LEÍDO del precio se confirma con un toque (cuarta revisión, 21/10). Lo escrito no se vuelve a leer con reglas: un
-    // sí confirma, y si no, se elige una de las dos opciones.
+    // Se elige una de las opciones, que son todas las lecturas (novena revisión, 21/10). Lo escrito no se vuelve a leer con
+    // reglas: la opción tal cual, o un sí, que elige la recomendada (la primera), si la hay.
     const leido = h.cobroLeido;
     if (!leido) return { ok: false, error: 'Ahora no estoy esperando eso.' };
-    if (!leido.periodo && (opcion === SI_ES_ESO || (opcion === undefined && siONo(texto) === 'si'))) return { ok: true, patch: { cobro: leido } };
-    const elegida = opcion ?? [COBRO_UNICO, COBRO_MENSUAL].find((c) => normal(c) === normal(texto));
-    if (elegida === COBRO_UNICO) return { ok: true, patch: { cobro: { tipo: 'unico', meses: null } } };
-    if (elegida === COBRO_MENSUAL) return { ok: true, patch: { cobro: { tipo: 'suscripcion', meses: null } } };
-    return { ok: false, error: `Elige «${COBRO_UNICO}» o «${COBRO_MENSUAL}».` };
+    const opciones = h.cobroOpciones ?? opcionesDeCobro(null, leido);
+    const elegida = opciones.find((c) => normal(etiquetaCobro(c)) === normal(texto))
+      ?? (opcion === undefined && !leido.periodo && siONo(texto) === 'si' ? opciones[0] : undefined);
+    if (elegida) return { ok: true, patch: { cobro: { tipo: elegida.tipo, meses: elegida.meses } } };
+    return { ok: false, error: 'Toca la opción que corresponde.' };
   }
   if (etapa === 'origen') {
     // Una opción o lo que escriba («por un amigo», «en un podcast»): las dos sirven para saber de dónde viene.
@@ -1396,7 +1398,9 @@ const CADA: Record<Periodo, string> = {
   anual: 'por año', semanal: 'por semana', quincenal: 'cada quince días', bimestral: 'cada dos meses', trimestral: 'cada tres meses', semestral: 'cada seis meses',
 };
 export const COBRO_UNICO = 'Pago único';
-export const COBRO_MENSUAL = 'Suscripción mensual';
+/** «(sin fin)»: una suscripción sin meses se cobra todos los meses (novena revisión, 21/10: se elegía creyendo que eran
+ *  los meses de las cuotas). */
+export const COBRO_MENSUAL = 'Suscripción mensual (sin fin)';
 /** Cómo se le muestra un cobro para confirmarlo. */
 export const etiquetaCobro = (c: Cobro): string => (c.tipo === 'unico' ? COBRO_UNICO : c.meses ? `Suscripción de ${c.meses} meses` : COBRO_MENSUAL);
 const mismoCobro = (a: Cobro, b: Cobro): boolean => a.tipo === b.tipo && a.meses === b.meses;
@@ -1459,6 +1463,26 @@ export function cobroDelPrecio(precio: string | null | undefined): Cobro {
   if (!/mensual|por mes|al mes|cada mes|mes a mes|\/\s?mes|cuotas|mensualidad/.test(t)) return { tipo: 'unico', meses: null };
   const meses = t.match(/(\d{1,2})\s*meses\b/);
   return { tipo: 'suscripcion', meses: meses ? Number(meses[1]) || null : null };
+}
+
+/**
+ * LAS OPCIONES DEL COBRO: todas las lecturas posibles, siempre (novena revisión, 21/10/2026). Cuatro vueltas de reglas sobre
+ * la periodicidad movieron casos de lugar cada vez («1 a 1 semanal», «con una llamada semanal»); la red es el toque, y el
+ * toque sólo sirve si la respuesta correcta está entre las opciones. Van «Pago único», «Suscripción mensual (sin fin)» y
+ * una «Suscripción de N meses» por cada N que aparece junto a «cuotas», «pagos», «meses» o «mensualidades». La lectura
+ * (`cobroDelPrecio`) sólo ORDENA: va primera, salvo que sea algo que el producto no cobra (`periodo`); nunca saca una opción.
+ */
+export function opcionesDeCobro(precio: string | null | undefined, leido: Cobro = cobroDelPrecio(precio)): Cobro[] {
+  const t = (precio ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  const ns: number[] = [];
+  for (const m of t.matchAll(/(\d{1,2})\s*(?:cuotas|pagos|meses|mensualidades)\b/g)) {
+    const n = Number(m[1]);
+    if (n >= 2 && n <= 36 && !ns.includes(n)) ns.push(n);
+  }
+  const todas: Cobro[] = [{ tipo: 'unico', meses: null }, { tipo: 'suscripcion', meses: null }, ...ns.slice(0, 4).map((n) => ({ tipo: 'suscripcion' as const, meses: n }))];
+  if (leido.periodo) return todas;
+  const primera: Cobro = { tipo: leido.tipo, meses: leido.meses };
+  return [primera, ...todas.filter((c) => !mismoCobro(c, primera))];
 }
 
 /**
