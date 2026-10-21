@@ -176,6 +176,10 @@ vigía MATÓ a mitad. Un pico de un proceso que no terminó no mide lo que neces
 CON EL REPO:** el 14/10/2026 ya no entraba en 3072 (murió corriendo, con RAM libre), esa tarde tampoco en
 4096 (el Image Editor portado), y va en 5120, con el piso de RAM en ≈ 6,3 GB. Un «se quedó sin heap» con RAM libre se arregla subiendo
 `CAP_HEAP_MB` (el piso sube solo), nunca con un `tsc` suelto ni salteando el hook.
+⚠️ **Y 5120 TAMPOCO** (21/10/2026, run 200 de Actions: exit 134 con 5.082 MB): lo que pide el tsc pasó de >4.083 MB a >5.082 MB en una semana. En Actions el paso «Tipos» corre
+`scripts/tipos-ci.mjs`: el tope se deriva de la RAM del runner (6.144 en el de 7,9 GB), **un OOM sale como `SIN MEMORIA` (exit 98), nunca como errores de tipos**, y cada run deja la
+línea `TIPOS-MEDIDA` con la memoria viva real (`vivo_pct`; un warning desde el 80 %). **Subir el tope otra vez no es el arreglo:** con esos números se decide partir el programa, buscar
+qué infla los tipos o pedir un runner mayor (docs/hallazgos-infra.md → «El paso "Tipos" de Actions se quedó sin memoria»).
 El detalle, en [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «El typecheck que
 "salía con 1 sin errores"».
 
