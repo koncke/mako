@@ -23,6 +23,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { hoyEnTz, horaEnTz } from '../lib/date-utils';
+import { sumarMeses } from '../lib/cobrado-lead';
 
 const RAIZ = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -149,11 +150,13 @@ test('5. ⚠️ dos cobros A LA VEZ sobre la misma cuota: gana uno, el otro «ya
   // La escritura que reserva: en marcarPago y en cobrarCuota, condicional y con las filas que tocó.
   const pagos = sinComentarios(leer('lib/pagos.ts'));
   assert.match(pagos, /siSigue\(supabase\.from\('pagos'\)\.update\(\{ pagado, fecha_pago: fecha \}\)\.eq\('id', pagoId\), pagado\)\.select\('id'\)/);
-  assert.match(pagos, /if \(!tocadas\?\.length\) return \{ quitada: false, porLink: null, yaEstaba: true \};/);
+  // (21/10: el «ya estaba» cura lo de después, `yaEstabaAsi`; el test 7 lo prueba.)
+  assert.match(pagos, /if \(!tocadas\?\.length\) return yaEstabaAsi\(pagoId, pago, pagado\);/);
   assert.match(pagos, /siSigue\(db\.from\('pagos'\)\.update\(upd\)\.eq\('id', pagoId\)\.eq\('lead_id', leadId\), true\)\.select\('id'\)/);
   const cobrar = pagos.slice(pagos.indexOf('export async function cobrarCuota('), pagos.indexOf('export async function registrarPagoSuelto('));
   assert.doesNotMatch(cobrar, /await marcarPago\(/, 'cobrarCuota no escribe en dos pasos');
-  assert.match(cobrar, /await trasCobrar\(pagoId, fila\.cobro_id \?\? null\);/, 'y corta los recordatorios como marcarPago');
+  assert.match(cobrar, /await curarDespues\(pagoId, leadId, true, fila\.cobro_id \?\? null\);/, 'y corta los recordatorios como marcarPago');
+  assert.match(pagos.slice(pagos.indexOf('async function curarDespues(')), /if \(cobrada\) await trasCobrar\(pagoId, cobroId\);/);
 });
 
 test('6. la cartera de Clients y la del Dashboard dicen «vencida» como la ficha; el cobro se anota con la hora del negocio', () => {
@@ -168,7 +171,8 @@ test('6. la cartera de Clients y la del Dashboard dicen «vencida» como la fich
   // El asistente de Ganado: la primera cuota y las de una suscripción salen del día del negocio.
   const wizard = sinComentarios(leer('app/crm/StageMoveDialog.tsx'));
   assert.match(wizard, /const hoyISO = hoyEnTz\(useTzWorkspace\(\)\);/);
-  assert.match(wizard, /const d = new Date\(\(last\?\.fecha \|\| hoyISO\) \+ 'T00:00:00Z'\);/, '«+ Agregar cuota» sin cuotas arranca de hoy, no del UTC');
+  // (21/10: con el tope de fin de mes, `sumarMesesISO`; el test 8 lo prueba.)
+  assert.match(wizard, /sumarMesesISO\(last\?\.fecha \|\| hoyISO, 1\)/, '«+ Agregar cuota» sin cuotas arranca de hoy, no del UTC');
   // La hora: la del negocio, no la del navegador (alguien en Buenos Aires anotaba un cobro de México con su hora).
   const instante = new Date('2026-10-21T03:30:00Z');
   assert.equal(horaEnTz('America/Mexico_City', instante), '21:30');
@@ -177,6 +181,62 @@ test('6. la cartera de Clients y la del Dashboard dicen «vencida» como la fich
   assert.match(piezas, /const useHoraDelNegocio = \(\): string => \{ const tz = useTzWorkspace\(\); return horaEnTz\(tz\); \};/);
   assert.equal((piezas.match(/const horaNegocio = useHoraDelNegocio\(\);\s*const \[hora, setHora\] = useState\(horaNegocio\);/g) ?? []).length, 2);
   assert.doesNotMatch(piezas, /toTimeString\(\)/, 'ni una hora del navegador');
+});
+
+test('7. ⚠️ los bordes del cobro: una falla no lo deja a medias, el reintento lo cura, y la pasarela no pisa un cobro a mano', () => {
+  const s = correr() as unknown as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any -- la salida del hijo, campo por campo
+  // Leer las cuotas del lead falla ANTES de tomar la cuota: no se toca nada, y el reintento cobra entero.
+  assert.match(String(s.leerFalla), /listando pagos del lead 10/);
+  assert.deepEqual([s.leerFallaCuota.pagado, s.leerFallaCuota.monto_usd], [false, 500], 'la cuota sigue impaga, con su monto');
+  assert.equal(s.leerFallaFilas, 1, 'sin una diferencia suelta');
+  assert.deepEqual([s.leerFallaReintento.yaEstaba, s.leerFallaReintento.pendiente], [false, 200]);
+  // Sincronizar falla DESPUÉS de tomarla: el cobro queda, y el reintento dice «ya estaba» y sincroniza lo cobrado.
+  assert.match(String(s.sincFalla), /sincronizando total_cobrado del lead 11/);
+  assert.equal(s.sincFallaTotal, null);
+  assert.equal(s.sincFallaReintento.yaEstaba, true);
+  assert.equal(s.sincCuradoTotal, 500, 'el «ya estaba» curó lo cobrado del lead');
+  // Otro escritor toma el número de la diferencia: se renumera, y la cuota NO vuelve a impaga.
+  assert.deepEqual([s.choque.yaEstaba, s.choque.pendiente], [false, 200]);
+  assert.deepEqual([s.choqueCuota.pagado, s.choqueCuota.monto_usd], [true, 300]);
+  const choque = s.choqueFilas as { numero: number; pagado: boolean; monto_usd: number }[];
+  assert.deepEqual(choque.filter((p) => !p.pagado).map((p) => [p.monto_usd, p.numero]), [[200, 3]], 'la diferencia, con el número siguiente');
+  assert.equal(new Set(choque.map((p) => p.numero)).size, choque.length, 'ningún número repetido');
+  // La pasarela leyó la cuota impaga y un cobro a mano la tomó antes de que escribiera: entra como cuota NUEVA.
+  const filas = s.pasarelaFilas as { id: number; pagado: boolean; proveedor: string | null; cobro_id: number | null; moneda: string | null; monto_original: number | null }[];
+  const aMano = filas.find((p) => p.id === 30);
+  assert.deepEqual([aMano?.pagado, aMano?.proveedor, aMano?.moneda, aMano?.monto_original], [true, null, 'MXN', 8600], 'el cobro a mano no se pisa');
+  const nueva = filas.find((p) => p.id !== 30);
+  assert.deepEqual([nueva?.pagado, nueva?.proveedor, nueva?.cobro_id], [true, 'stripe', 77], 'el de la pasarela, aparte');
+  assert.notEqual(s.pasarela.pagoId, 30);
+  assert.equal(s.pasarelaTotal, 1000, 'entraron dos pagos y se ven los dos');
+  // Otro la cobró entre la diferencia y la toma: «ya estaba», y la diferencia de este cobro (que no fue) se quitó.
+  assert.equal(s.perdio.yaEstaba, true);
+  assert.deepEqual(s.perdioFilas, [{ id: 26, pagado: true, monto_usd: 500 }], 'sin una cuota pendiente de un cobro que no fue');
+
+  const pagos = sinComentarios(leer('lib/pagos.ts'));
+  const cobrar = pagos.slice(pagos.indexOf('export async function cobrarCuota('), pagos.indexOf('export async function registrarPagoSuelto('));
+  assert.ok(cobrar.indexOf('await insertarDiferencia(') > 0 && cobrar.indexOf('await insertarDiferencia(') < cobrar.indexOf("siSigue(db.from('pagos').update(upd)"),
+    'la diferencia va ANTES de tomar la cuota');
+  assert.doesNotMatch(cobrar, /update\(\{ pagado: false/, 'nunca devuelve a impaga una cuota que tomó');
+  const pasarela = pagos.slice(pagos.indexOf('export async function registrarCobroDeProveedor('), pagos.indexOf('export async function remarcarCobroDeProveedor('));
+  assert.doesNotMatch(pasarela, /await marcarPago\(/, 'la pasarela no marca en dos pasos');
+  assert.equal((pasarela.match(/siSigue\(db\.from\('pagos'\)\.update\(\{ \.\.\.marca, pagado: true, fecha_pago: p\.fechaPago \}\)/g) ?? []).length, 2, 'la cuota del link y la que casa por monto');
+});
+
+test('8. el asistente de Ganado: un mes por cuota aunque se cierre un 31, y la primera cuota sigue al día del negocio', () => {
+  const desde31 = Array.from({ length: 12 }, (_, i) => sumarMeses('2026-10-31', i + 1));
+  assert.deepEqual(desde31.map((f) => f.slice(0, 7)), ['2026-11', '2026-12', '2027-01', '2027-02', '2027-03', '2027-04', '2027-05', '2027-06', '2027-07', '2027-08', '2027-09', '2027-10'], 'ni un mes sin cuota ni uno con dos');
+  assert.deepEqual(desde31.slice(0, 4), ['2026-11-30', '2026-12-31', '2027-01-31', '2027-02-28'], 'el tope es el último día, y vuelve al 31');
+  assert.equal(sumarMeses('2027-01-31', 1), '2027-02-28', '«+ Agregar cuota» después de un 31 de enero');
+  const wizard = sinComentarios(leer('app/crm/StageMoveDialog.tsx'));
+  assert.match(wizard, /const sumarMesesISO = sumarMeses;/);
+  assert.match(wizard, /fecha: sumarMesesISO\(hoyISO, i \+ 1\)/);
+  assert.match(wizard, /setCuotas\(\(arr\) => \[\.\.\.arr, \{ monto: '', fecha: sumarMesesISO\(last\?\.fecha \|\| hoyISO, 1\) \}\]\)/);
+  assert.doesNotMatch(wizard, /setUTCMonth/, 'nada de sumar meses a mano');
+  // La primera cuota se siembra antes de tener la zona (Tijuana): cuando llega, se corre la que nadie tocó.
+  assert.match(wizard, /const hoySembrado = useRef\(hoyISO\);/);
+  assert.match(wizard, /setCuotas\(\(arr\) => arr\.map\(\(c, i\) => \(i === 0 && c\.fecha === antes \? \{ \.\.\.c, fecha: hoyISO \} : c\)\)\);/);
+  assert.match(wizard, /\}, \[hoyISO\]\);/);
 });
 
 // ROTURAS (20/10/2026). Base: 4 pases, 0 fallos (los tests 1 a 4). Rota (pases / fallos):
@@ -202,3 +262,15 @@ test('6. la cartera de Clients y la del Dashboard dicen «vencida» como la fich
 //   · el asistente de Ganado vuelve al día UTC                                  → 4 / 2 (4 y 6)
 //   · «+ Agregar cuota» sin cuotas arranca del instante UTC                     → 5 / 1 (6)
 //   · la hora del cobro vuelve a la del navegador                               → 5 / 1 (6)
+//
+// ROTURAS de la segunda revisión (21/10/2026). Base: 8 pases, 0 fallos. Rota (pases / fallos):
+//   · el asistente: `sumarMesesISO` vuelve a desbordar el mes                         → 7 / 1 (8)
+//   · «+ Agregar cuota» vuelve a `setUTCMonth`                                       → 6 / 2 (6 y 8)
+//   · la primera cuota no sigue al día del negocio cuando llega la zona               → 7 / 1 (8)
+//   · la diferencia otra vez DESPUÉS de tomar la cuota, con la vuelta a impaga        → 7 / 1 (7)
+//   · la diferencia sin renumerar ante el choque del número                           → 4 / 4 (el hijo tira: 1, 3, 5 y 7)
+//   · el «ya estaba» de `cobrarCuota` no cura lo cobrado del lead                     → 7 / 1 (7)
+//   · la pasarela marca la cuota del link sin condición                               → 7 / 1 (7)
+//   · la diferencia de un cobro que no fue se queda (sin la reconciliación)            → 6 / 2 (5 y 7)
+//   · la pasarela no sigue a cuota nueva si la del link ya no estaba impaga            → 7 / 1 (7)
+//   (y «si falla la etiqueta»: no se puede romper, `etiquetarPago` no tira; ese try/catch sobraba y salió)

@@ -20,6 +20,7 @@ import { ventaTipoDe, type VentaTipo } from '@/lib/venta-tipo';
 import type { FathomLink } from '@/lib/leads';
 import { completeStageMoveAction, requisitosDeEtapaAction, type StageMoveCuota, type StageMoveResultado } from './actions';
 import { hoyEnTz } from '@/lib/date-utils';
+import { sumarMeses } from '@/lib/cobrado-lead';
 import { useTzWorkspace } from './lead-view/useTzWorkspace';
 import { autoReunionesAction } from './auto-actions';
 import type { CrmLead } from './CrmBoard';
@@ -54,11 +55,11 @@ function btnOpcion(activo: boolean): CSSProperties {
 }
 
 /** ISO (yyyy-mm-dd) + n meses, conservando el día. Para las cuotas mensuales de una suscripción a plazo fijo. */
-function sumarMesesISO(iso: string, n: number): string {
-  const [y, m, d] = iso.split('-').map(Number);
-  const dt = new Date(y, (m - 1) + n, d);
-  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
-}
+// ⚠️ LOS MESES SE SUMAN CON EL TOPE DEL ÚLTIMO DÍA (21/10/2026, revisión adversarial): `new Date(y, m - 1 + n, d)` sin tope
+// desborda. Una suscripción cerrada el 31/10 tenía cuotas el 01/12, 31/12, 31/01, 03/03…: noviembre, febrero, abril, junio
+// y septiembre sin cuota, y otros meses con dos. Es `sumarMeses` de lib/cobrado-lead.ts, la misma con que el resto de la
+// app cuenta los meses de una suscripción (31/10 → 30/11 → 31/12 → 31/01 → 28/02), siempre desde el día de cierre.
+const sumarMesesISO = sumarMeses;
 
 // "dd/mm/aaaa" (formato del extractor de contratos) → "aaaa-mm-dd" (input date). '' si no matchea.
 const dmyaIso = (s: string): string => {
@@ -259,6 +260,16 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   const [motivo, setMotivo] = useState(move.yaRespondido?.motivo ?? (completarDatos ? lead.motivo ?? '' : ''));
   const [motivoDetalle, setMotivoDetalle] = useState('');
   const [cuotas, setCuotas] = useState<Array<{ monto: string; fecha: string }>>([{ monto: '', fecha: hoyISO }]);
+  // ⚠️ LA PRIMERA CUOTA SIGUE AL DÍA DEL NEGOCIO (21/10/2026, revisión adversarial). Abierto desde el tablero, el primer
+  // render todavía no tiene la zona (`useTzWorkspace` arranca en Tijuana) y `useState` se quedaba con ese día: en un negocio
+  // de México, a las 00:30 la cuota nacía AYER, vencida. Cuando llega la zona, se corre la fecha que nadie tocó.
+  const hoySembrado = useRef(hoyISO);
+  useEffect(() => {
+    const antes = hoySembrado.current;
+    if (antes === hoyISO) return;
+    hoySembrado.current = hoyISO;
+    setCuotas((arr) => arr.map((c, i) => (i === 0 && c.fecha === antes ? { ...c, fecha: hoyISO } : c)));
+  }, [hoyISO]);
   // Higiene (solo se piden en "Completar datos"). Si el equipo es de UNA sola
   // persona, se auto-asigna como setter y closer (no tiene sentido preguntarlo).
   const soloUno = equipo.length === 1 ? equipo[0].nombre : '';
@@ -1201,7 +1212,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
               {i > 0 && <button type="button" onClick={() => setCuotas((arr) => arr.filter((_, xi) => xi !== i))} aria-label="Quitar cuota" style={{ flex: 'none', background: 'transparent', border: 'none', color: 'var(--faint)', cursor: 'pointer', fontSize: 15 }}>✕</button>}
             </div>
           ))}
-          <button type="button" onClick={() => { const last = cuotas[cuotas.length - 1]; const d = new Date((last?.fecha || hoyISO) + 'T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() + 1); setCuotas((arr) => [...arr, { monto: '', fecha: d.toISOString().slice(0, 10) }]); }} style={{ padding: 10, borderRadius: 10, border: '1.5px dashed var(--border-strong)', background: 'transparent', color: 'var(--primary)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>+ Agregar cuota</button>
+          <button type="button" onClick={() => { const last = cuotas[cuotas.length - 1]; setCuotas((arr) => [...arr, { monto: '', fecha: sumarMesesISO(last?.fecha || hoyISO, 1) }]); }} style={{ padding: 10, borderRadius: 10, border: '1.5px dashed var(--border-strong)', background: 'transparent', color: 'var(--primary)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>+ Agregar cuota</button>
           {sumaCuotas > 0 && (
             <div style={{ borderRadius: 10, padding: '9px 13px', fontSize: 13, fontWeight: 600, background: cuotasCuadran ? 'var(--good-bg)' : 'var(--bad-bg)', color: cuotasCuadran ? 'var(--good)' : 'var(--bad)', textAlign: 'left' }}>
               {cuotasCuadran

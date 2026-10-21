@@ -1826,7 +1826,12 @@ horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, un
   devuelven `yaEstaba`. Quien marca lo DICE («Ya estaba cobrada») y no ofrece Deshacer: sería desmarcar el cobro de otro.
   **Y la escritura es CONDICIONAL** (`siSigue` + `.select('id')`, lib/pagos.ts): leer el estado y compararlo en memoria
   no alcanza con dos pantallas a la vez. Cero filas tocadas = otro llegó antes. `cobrarCuota` escribe el cobro ENTERO
-  (pagado, fecha, hora, monto, moneda) en esa sola escritura, nunca el monto primero y la marca después.
+  (pagado, fecha, hora, monto, moneda) en esa sola escritura, nunca el monto primero y la marca después. Vale para
+  TODO escritor de una cuota, la pasarela incluida. Lo que acompaña al cobro (la diferencia pendiente) va ANTES de
+  tomar la cuota, y se quita por la reconciliación si la toma no tocó filas: nunca se devuelve a impaga una cuota
+  tomada. El «ya estaba» cura lo de después (sincronizar, cortar recordatorios), que se puede repetir.
+- **Los meses se suman con `sumarMeses` (lib/cobrado-lead.ts)**, que topa al último día del mes: `new Date(y, m + n, d)`
+  desborda un 29, 30 o 31 (31/10 + 1 mes = 01/12) y un plan de cuotas queda con meses sin cuota y meses con dos.
 
 # Una herramienta de laboratorio montada en el layout raíz es una herramienta EN PRODUCCIÓN
 

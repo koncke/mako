@@ -441,8 +441,31 @@ de México.
   hace 0 días» en MaKo y en CS), mientras la ficha, General y el cron decían «vence hoy». Ahora usan el día del negocio y
   `<`, como `getCuotasPendientes`, y los días se cuentan de calendario contra ese día.
 - **El asistente de Ganado armaba el plan con el día UTC** (app/crm/StageMoveDialog.tsx). Un pago único de la noche
-  proponía la cuota para mañana. Una suscripción cerrada el 30 a las 20 h nacía el 31: sus cuotas caían el 1/12 y el
-  31/12, y noviembre quedaba sin ninguna. «+ Agregar cuota» sin cuotas arrancaba del instante UTC. Ahora todo sale de
-  `hoyEnTz(useTzWorkspace())`.
+  proponía la cuota para mañana. «+ Agregar cuota» sin cuotas arrancaba del instante UTC. Ahora todo sale de
+  `hoyEnTz(useTzWorkspace())`. ⚠️ **«Noviembre sin cuota» NO era el UTC** (corregido el 21/10): era el desborde de fin de
+  mes, que pasa con el día correcto también. Está en la entrada de abajo.
 - **La hora del cobro era la del navegador** y el día, el del negocio: alguien en Buenos Aires anotaba un cobro de México
   con el día de allá y la hora de acá. Ahora la hora también es la del negocio (`horaEnTz`, lib/date-utils.ts).
+
+### La segunda revisión: los bordes del cobro y los meses del asistente (21/10/2026)
+
+- **⚠️ El asistente de Ganado saltaba meses en una suscripción cerrada un 29, 30 o 31, con el día que sea.**
+  `sumarMesesISO` hacía `new Date(y, m - 1 + n, d)` sin tope. Cerrada el 31/10, las cuotas nacían el 01/12, 31/12, 31/01,
+  03/03, 31/03, 01/05…: noviembre, febrero, abril, junio y septiembre sin cuota, y otros meses con dos. «+ Agregar
+  cuota» desbordaba igual (31/01 → 03/03). El diagnóstico del 20/10 («el día UTC») era el obvio y el equivocado: arreglar
+  el día no lo arreglaba. **Regla:** los meses se suman con `sumarMeses` (lib/cobrado-lead.ts), la de las suscripciones,
+  que topa al último día y cuenta siempre desde el cierre (31/10 → 30/11 → 31/12 → 31/01 → 28/02).
+- **La primera cuota del asistente abierto desde el tablero nacía con el día de Tijuana.** El tablero no monta nada que
+  pida la zona, `useTzWorkspace` arranca en Tijuana y `useState` se quedaba con ese primer valor: en México, a las 00:30
+  la cuota nacía ayer, vencida. Ahora, cuando llega la zona, se corre la fecha que nadie tocó.
+- **`cobrarCuota` podía quedar a medias, y el reintento decía «ya estaba».** Tomaba la cuota y DESPUÉS leía las cuotas e
+  insertaba la diferencia. Un error en el medio la dejaba cobrada sin su diferencia y sin sincronizar, y el reintento no
+  lo curaba. Además, devolverla a impaga cuando fallaba la diferencia volvía mentira el «ya estaba cobrada» que otra
+  pantalla acababa de mostrar. **Regla:**
+  - lo que acompaña al cobro (la diferencia) va ANTES de tomar la cuota, y se quita si la toma no tocó filas (por la
+    reconciliación: el único borrado de `pagos`);
+  - el número de la diferencia se renumera una vez si otro escritor lo tomó (23505);
+  - el «ya estaba» CURA lo de después (sincronizar, cortar recordatorios), que se puede repetir.
+- **La pasarela marcaba sin condición una cuota recién cobrada a mano.** Si la transferencia a mano llegaba entre su
+  lectura y su escritura, la pisaba: dos pagos se veían como uno. Ahora la marca de la pasarela va con la misma escritura
+  condicional, y si la cuota ya no estaba impaga, el pago entra como una cuota nueva (las dos se ven).

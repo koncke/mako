@@ -575,6 +575,22 @@ function siSigue<Q extends { not: (c: string, op: string, v: boolean) => Q; is: 
  * cobrado. Es la mitad de la tarjeta #19 que dice «sin que nadie la pause a mano». Desmarcar no la reabre: las corridas
  * cerradas no vuelven a `pendiente`, y reabrirla sería mandar de nuevo los mensajes que ya salieron.
  */
+/**
+ * «Ya estaba así»: no se toca la cuota, pero se CURA lo de después, que es idempotente (21/10/2026, revisión adversarial).
+ * Si un intento anterior tomó la cuota y se cortó antes de sincronizar o de cortar los recordatorios, el reintento le
+ * daba «ya estaba» y nada se arreglaba: lo cobrado del lead quedaba desfasado y los recordatorios, vivos.
+ */
+async function yaEstabaAsi(pagoId: number, pago: { lead_id: unknown; cobro_id?: unknown }, cobrada: boolean): Promise<{ quitada: false; porLink: null; yaEstaba: true }> {
+  await curarDespues(pagoId, Number(pago.lead_id), cobrada, pago.cobro_id == null ? null : Number(pago.cobro_id));
+  return { quitada: false, porLink: null, yaEstaba: true };
+}
+
+/** Sincronizar lo cobrado del lead y, si la cuota está cobrada, `trasCobrar`. Las dos cosas se pueden repetir. */
+async function curarDespues(pagoId: number, leadId: number, cobrada: boolean, cobroId: number | null): Promise<void> {
+  await sincronizarTotalCobrado(leadId);
+  if (cobrada) await trasCobrar(pagoId, cobroId);
+}
+
 async function trasCobrar(pagoId: number, cobroId: number | null): Promise<void> {
   try {
     const ws = await getWorkspaceActual();
@@ -610,7 +626,7 @@ export async function marcarPago(
   // veces; desmarcar otra vez una impaga podía QUITAR un pago que nació cobrado. Pasa con una lista vieja (General
   // abierta en otra pestaña, el chat con MaKo, una tarjeta confirmada después de que alguien la marcó en la ficha).
   // Quien llama lo DICE y no ofrece «Deshacer»: deshacer sería desmarcar el cobro de otro.
-  if (Boolean(pago.pagado) === pagado) return { quitada: false, porLink: null, yaEstaba: true };
+  if (Boolean(pago.pagado) === pagado) return yaEstabaAsi(pagoId, pago, pagado);
 
   // ⚠️ MARCAR A MANO una cuota cuyo link ya se pagó contaba la plata dos veces (17/10/2026): ver
   // `linkYaPagado`. Por defecto se mira; sólo no lo miran la pasarela misma y quien ya lo miró.
@@ -628,7 +644,7 @@ export async function marcarPago(
   // Para cobrarla tiene que seguir impaga; para desmarcarla, cobrada.
   const { data: tocadas, error } = await siSigue(supabase.from('pagos').update({ pagado, fecha_pago: fecha }).eq('id', pagoId), pagado).select('id');
   if (error) throw new Error(`Error marcando pago ${pagoId}: ${error.message}`);
-  if (!tocadas?.length) return { quitada: false, porLink: null, yaEstaba: true };
+  if (!tocadas?.length) return yaEstabaAsi(pagoId, pago, pagado);
   const quitada = !pagado && (await quitarSiNacioCobrada(pagoId, pago));
 
   await sincronizarTotalCobrado(pago.lead_id as number);
@@ -676,7 +692,12 @@ export async function cobrarCuota(
   // ⚠️ IDEMPOTENTE, como `marcarPago` (20/10/2026): cobrar una cuota que YA está cobrada no toca NADA. Antes le
   // reescribía el monto, la moneda, la hora y la fecha al cobro que ya había entrado. Ninguna pantalla vuelve a cobrar
   // una cobrada a propósito: para corregirla se desmarca (o se edita la cuota). Lo dice quien llama.
-  if (fila.pagado) return { original, monto: null, pendiente: null, descuento: 0, moneda: null, montoOriginal: null, porLink: null, yaEstaba: true };
+  // «Ya estaba» cura lo de después (sincronizar, cortar recordatorios): un intento anterior pudo cortarse en el medio.
+  const yaCobrada = async () => {
+    await curarDespues(pagoId, leadId, true, fila.cobro_id ?? null);
+    return { original, monto: null, pendiente: null, descuento: 0, moneda: null, montoOriginal: null, porLink: null, yaEstaba: true as const };
+  };
+  if (fila.pagado) return yaCobrada();
   // ⚠️ Si un link de la cuota ya se cobró, la cuota queda cobrada con ESE pago y no se toca nada más: ni el monto, ni
   // la diferencia, ni la moneda (17/10/2026, `linkYaPagado`). Antes la plata se contaba dos veces.
   if (!fila.pagado) {
@@ -699,29 +720,47 @@ export async function cobrarCuota(
   if (monto != null) upd.monto_usd = monto;
   if (enMoneda) { upd.moneda = enMoneda.moneda; upd.monto_original = enMoneda.montoOriginal; }
   else if (aMano) { upd.moneda = null; upd.monto_original = null; }
+  // ⚠️ LA DIFERENCIA VA ANTES DE TOMAR LA CUOTA (21/10/2026, revisión adversarial). Después, un error al insertarla
+  // obligaba a devolver la cuota a impaga, y eso volvía mentira el «ya estaba cobrada» que otra pantalla acababa de
+  // mostrar; y un error en el medio (leer las cuotas, sincronizar) la dejaba cobrada sin su diferencia. Así, si la toma no
+  // toca filas (otro la cobró), se borra la diferencia recién creada, que nadie más pudo usar; y lo que sigue a la toma ya
+  // no puede dejar el cobro a medias.
+  const resto = pend > 0 ? await insertarDiferencia(db, leadId, pend, fila.fecha_esperada ?? datos.fecha) : null;
   const { data: tomada, error } = await siSigue(db.from('pagos').update(upd).eq('id', pagoId).eq('lead_id', leadId), true).select('id');
-  if (error) throw new Error(`Error cobrando el pago ${pagoId}: ${error.message}`);
-  if (!tomada?.length) return { original, monto: null, pendiente: null, descuento: 0, moneda: null, montoOriginal: null, porLink: null, yaEstaba: true };
-
-  if (pend > 0) {
-    const existentes = await getPagosByLead(leadId);
-    const base = existentes.length > 0 ? Math.max(...existentes.map((q) => q.numero)) : 0;
-    const { error: eResto } = await db.from('pagos').insert({ lead_id: leadId, numero: base + 1, monto_usd: pend, fecha_esperada: fila.fecha_esperada ?? datos.fecha, pagado: false });
-    if (eResto) {
-      // Sin la fila de la diferencia, cobrar por menos la borraría: la cuota vuelve a como estaba, IMPAGA (la tomó
-      // este cobro, así que no se le deshace nada a otro).
-      await db.from('pagos').update({ pagado: false, fecha_pago: null, monto_usd: original, pago_hora: fila.pago_hora, moneda: fila.moneda, monto_original: fila.monto_original }).eq('id', pagoId);
-      throw new Error(`No pude dejar pendiente la diferencia: ${eResto.message}`);
+  if (error || !tomada?.length) {
+    // La diferencia de un cobro que no fue se quita por la RECONCILIACIÓN, como toda cuota (el único borrado de `pagos`:
+    // tests/pagos-escritura.test.ts), sólo ella (`vistos`).
+    if (resto != null) {
+      await guardarCuotasPorId(leadId, [], { vistos: new Set([resto]) }).catch((e) =>
+        console.error(`[pagos] quedó la diferencia ${resto} de un cobro que no fue (cuota ${pagoId}):`, e instanceof Error ? e.message : String(e)));
     }
+    if (error) throw new Error(`Error cobrando el pago ${pagoId}: ${error.message}`);
+    return yaCobrada();
   }
+  // El concepto y el método (`etiquetarPago` no tira: una etiqueta que no se guardó no tumba un cobro que ya entró).
   await etiquetarPago(pagoId, datos, { limpiar: aMano });
 
-  await sincronizarTotalCobrado(leadId);
-  await trasCobrar(pagoId, fila.cobro_id ?? null);
+  await curarDespues(pagoId, leadId, true, fila.cobro_id ?? null);
   return {
     original, monto, pendiente: pend > 0 ? pend : null, descuento,
     moneda: enMoneda?.moneda ?? null, montoOriginal: enMoneda?.montoOriginal ?? null, porLink: null, yaEstaba: false,
   };
+}
+
+/**
+ * La cuota pendiente de un cobro de menos, numerada después de la última. El número lo puede tomar otro escritor del
+ * mismo lead en el medio (un pago suelto, la pasarela): ante el choque del índice (lead_id, numero) se vuelve a numerar
+ * UNA vez, como `registrarCobroDeProveedor`. Devuelve su id.
+ */
+async function insertarDiferencia(db: Awaited<ReturnType<typeof getTenantDb>>, leadId: number, monto: number, vence: string): Promise<number> {
+  for (let intento = 0; intento < 2; intento++) {
+    const existentes = await getPagosByLead(leadId);
+    const base = existentes.length > 0 ? Math.max(...existentes.map((q) => q.numero)) : 0;
+    const { data, error } = await db.from('pagos').insert({ lead_id: leadId, numero: base + 1, monto_usd: monto, fecha_esperada: vence, pagado: false }).select('id').single();
+    if (!error && data) return Number((data as { id: number }).id);
+    if (error?.code !== PG_DUPLICADO) throw new Error(`No pude dejar pendiente la diferencia: ${error?.message ?? 'sin fila'}`);
+  }
+  throw new Error('No pude dejar pendiente la diferencia: dos choques seguidos con el número de la cuota.');
 }
 
 /**
@@ -985,13 +1024,18 @@ export async function registrarCobroDeProveedor(p: {
     // SIN cuota (`!p.pagoId`); un link de la cuota 2 pagado de nuevo es plata que entró dos veces, no la cuota 3.
     const mismoMonto = !!cuota.data && Math.abs(Number(cuota.data.monto_usd) - p.montoUsd) < 0.01;
     if (cuota.data && !cuota.data.pagado && !cuota.data.proveedor_pago_id && mismoMonto) {
-      const { error } = await db.from('pagos').update(marca).eq('id', p.pagoId).is('proveedor_pago_id', null);
+      // ⚠️ LA MARCA Y EL COBRO EN UNA ESCRITURA CONDICIONAL (21/10/2026, revisión adversarial): un cobro a mano entre la
+      // lectura y esta escritura quedaba PISADO por la pasarela (dos pagos se veían como uno). Si ya no está impaga, este
+      // pago entra como cuota nueva, abajo: la plata entró dos veces y eso lo tiene que ver una persona.
+      const { data: saldada, error } = await siSigue(db.from('pagos').update({ ...marca, pagado: true, fecha_pago: p.fechaPago }).eq('id', p.pagoId).is('proveedor_pago_id', null), true).select('id');
       if (error) {
         if (error.code === PG_DUPLICADO) return { pagoId: p.pagoId, yaEstaba: true };
         throw new Error(`Error marcando la cuota ${p.pagoId}: ${error.message}`);
       }
-      await marcarPago(p.pagoId, true, p.fechaPago, { mirarLinks: false });
-      return { pagoId: p.pagoId, yaEstaba: false };
+      if (saldada?.length) {
+        await curarDespues(p.pagoId, p.leadId, true, p.cobroId);
+        return { pagoId: p.pagoId, yaEstaba: false };
+      }
     }
   }
 
@@ -1005,10 +1049,11 @@ export async function registrarCobroDeProveedor(p: {
       .sort((a, b) => String(a.fecha_esperada).localeCompare(String(b.fecha_esperada)) || a.numero - b.numero);
     const casa = impagas[0];
     if (casa) {
-      const { data: marcada, error } = await db.from('pagos').update(marca).eq('id', casa.id).eq('lead_id', p.leadId).is('proveedor_pago_id', null).select('id');
+      // Con la misma condición: si alguien la cobró a mano en el medio, este pago no la pisa (sigue como cuota nueva).
+      const { data: marcada, error } = await siSigue(db.from('pagos').update({ ...marca, pagado: true, fecha_pago: p.fechaPago }).eq('id', casa.id).eq('lead_id', p.leadId).is('proveedor_pago_id', null), true).select('id');
       if (error && error.code !== PG_DUPLICADO) throw new Error(`Error saldando la cuota ${casa.id}: ${error.message}`);
       if (!error && marcada && marcada.length) {
-        await marcarPago(casa.id, true, p.fechaPago, { mirarLinks: false });
+        await curarDespues(casa.id, p.leadId, true, p.cobroId);
         return { pagoId: casa.id, yaEstaba: false };
       }
       // Otro escritor la tomó en el medio, o fue la reentrega: se sigue como si no hubiera.
