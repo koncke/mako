@@ -1811,7 +1811,7 @@ function preguntar(archivo) {
 async function retirar(args) {
   const iC = args.indexOf('--chat');
   const local = iC >= 0 ? String(args[iC + 1] ?? '') : sesionQuePregunta();
-  if (!local || !DESTINO_RE.test(local)) throw new Error('no sé qué chat es: corre esto desde el chat que preguntó, o pasá --chat <local_…>');
+  if (!local || !DESTINO_RE.test(local)) throw new Error('no sé qué chat es: corre esto desde el chat que preguntó, o pasa --chat <local_…>');
   const id = String(args.find((a, i) => !a.startsWith('--') && (iC < 0 || i !== iC + 1)) ?? '').trim().toLowerCase();
   if (!/^[0-9a-f]{8}[0-9a-f-]{0,28}$/.test(id)) throw new Error('uso: retirar <id de la pregunta> [--chat <local_…>]');
   // La que todavía no subió: se borra acá y no sale nunca.

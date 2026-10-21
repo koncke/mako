@@ -125,7 +125,7 @@ export function retirarDeLaLista(preguntas: readonly PreguntaChat[], id: string,
   if (!COMIENZO_ID.test(comienzo)) return { ok: false, error: 'el id es el de la pregunta (8 caracteres o más)' };
   const todas = preguntas.filter((p) => p.id.startsWith(comienzo));
   const abiertas = todas.filter(estaAbierta);
-  if (abiertas.length > 1) return { ok: false, error: 'hay más de una abierta que empieza así: pasá el id entero' };
+  if (abiertas.length > 1) return { ok: false, error: 'hay más de una abierta que empieza así: pasa el id entero' };
   if (!abiertas.length) return { ok: false, error: todas.length ? 'esa pregunta ya no espera: está contestada o retirada' : 'no encuentro esa pregunta en este chat' };
   const pregunta: PreguntaChat = { ...abiertas[0], superada: ahora.toISOString() };
   return { ok: true, pregunta, preguntas: preguntas.map((p) => (p.id === pregunta.id ? pregunta : p)) };
