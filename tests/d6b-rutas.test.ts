@@ -190,6 +190,8 @@ const SIN_IA: ReadonlyArray<{ unidad: string; usa: string[]; porque: string }> =
   { unidad: 'app/api/push/suscripcion/route.ts#POST', usa: ['endpointPermitido', 'getSupabaseServer', 'getUsuarioActual', 'plataformaDeUA', 'usuarioPropio'], porque: 'guarda la suscripción a las notificaciones' },
   { unidad: 'app/api/push/suscripcion/route.ts#DELETE', usa: ['getSupabaseServer', 'getUsuarioActual', 'usuarioPropio'], porque: 'borra la suscripción a las notificaciones' },
   { unidad: 'app/_components/zona-actions.ts#detectarZonaAction', usa: ['contextoDeAgencia', 'fijarZonaDelNegocio', 'getUsuarioActual', 'getWorkspaceActual', 'inferirZonaDesdeIntegraciones', 'zonaDeUbicacion', 'zonaDelNegocioDetalle'], porque: 'fija la zona horaria del negocio' },
+  // Llegó con el merge de main (Pagos en el chat, 2.27): lee la cobranza de la base y la arma, sin IA.
+  { unidad: 'app/_chat/bloques/cobranza-actions.ts#leerCobranzaDelHilo', usa: ['TZ_DEFAULT', 'armarCobranza', 'cobrosDeFilas', 'getPorCobrar', 'getRolWsEfectivo', 'getWorkspaceActual', 'hoyEnWorkspace', 'tzDeWorkspace'], porque: 'lee «A quién cobrar» del hilo, de la base' },
 ];
 
 /** Sus carpetas. Lo de app/ fuera de éstas (y de las compartidas, `app/_…`) es de OTRA tab. app/onboarding/ es suya por las
