@@ -64,6 +64,8 @@ export type DisponiblesNegocio = {
 
 const SECCIONES_NEGOCIO: (SeccionAjustes & { si?: keyof DisponiblesNegocio })[] = [
   { key: 'general', label: 'General', href: '/configuraciones', icono: 'configurar', descripcion: 'A qué hora escribe MaKo y qué entra al tablero.', si: 'general' },
+  // «Tu negocio» (21/10/2026, Florencia, ws21): el nombre del negocio lo cambia su admin; General es sólo del super admin.
+  { key: 'negocio', label: 'Tu negocio', href: '/configuraciones/negocio', icono: 'configurar', descripcion: 'El nombre de tu negocio.' },
   { key: 'equipo', label: 'Equipo', href: '/equipo', icono: 'equipo', descripcion: 'Quién trabaja en tu negocio y qué ve cada uno.' },
   { key: 'integraciones', label: 'Integraciones', href: '/integraciones', icono: 'link', descripcion: 'WhatsApp, Meta, tu web y todo lo que se conecta.', si: 'integraciones' },
   { key: 'notificaciones', label: 'Notificaciones', href: '/configuraciones/notificaciones', icono: 'avisar', descripcion: 'A quién le avisa MaKo del negocio.' },
