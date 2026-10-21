@@ -1782,8 +1782,10 @@ del cartero; `nav.ts` no se tocó (el Sidebar compara con `OPS_CENTER.key`); la 
 - **Regla:** en AGENTS.md («UNA SOLA CAJA PARA HABLAR CON MaKo»). tests/chat-unico.test.ts lleva la lista de lo que falta, y
   una migración que no saca su archivo de «pendiente» falla.
 - **Lo que encontró la revisión de la ola 1 (21/10):**
-  - con Enter que manda (la computadora), «1. ¿Cuántos leads…?» seguía la lista y hacían falta tres Enter para mandarlo:
-    con UN ítem todavía no hay lista (`enterEnLista({ conUno: false })`); el teléfono sigue igual;
+  - con Enter que manda (la computadora), «1. ¿Cuántos leads…?» seguía la lista y hacían falta tres Enter para mandarlo.
+    Ahora un ítem SOLO que es una pregunta se manda (`enterEnLista({ conUno: false })`); cualquier otro sigue la lista,
+    como pidió Martín el 17/10. ⚠️ El primer arreglo («con un solo ítem, manda») impedía EMPEZAR una lista con Enter: lo
+    encontró la segunda revisión. El teléfono sigue igual;
   - con `ocupado` el botón giraba entero: no se podía dictar el siguiente mensaje, y quien dictaba perdía el botón de
     terminar mientras el dictado seguía escribiendo. Ahora sólo la flecha espera (`BotonMandar ocupado`).
 - **Sin hacer:**

@@ -1278,13 +1278,19 @@ corrida del test usa ids propios.
   por uno, a los de ahora. **Regla:** un dato derivado (los cortes) se reusa sólo si su fuente (las
   tomas) es la misma, no si «todavía pasa la validación».
 
+### El primer montaje en producción (21/10, run 189)
+
+- **El cron corrió a los minutos del deploy** y venció el #3 y el #4 con el texto nuevo, sin un
+  solo «falta» ni ticket. Sin acceso a los logs de Vercel, la prueba de vida fue la base: un
+  vencido sólo pasa en una corrida que ya verificó ffmpeg y la clave de Groq.
+- **El primer montaje real** (trabajo #5 del ws3, tres tomas de prueba encoladas a mano) llegó a
+  «listo» en menos de un minuto desde que se tomó: 24 s → 11,99 s, h264 720×1280, AAC 48 kHz,
+  −14,04 LUFS, los mismos cortes que en local. Con el ffmpeg 7.0.2 de Linux y sin fontconfig del
+  sistema, los subtítulos salen en Anton (el `fonts.conf` propio alcanza). Queda en el ws3 como
+  prueba.
+
 ### Lo que quedó SIN hacer
 
-- **Ver el primer montaje en producción.** En local (Windows, ffmpeg 6.1.1, Groq real)
-  montó tres tomas de prueba en 7-11 s: 24 s → 12 s, Anton, −14 LUFS. En la función es
-  ffmpeg 7.0.2, sin fontconfig del sistema (se le da un `fonts.conf` propio) y 1 vCPU: el
-  tiempo y la fuente se ven recién ahí. El ws3 no tiene ningún anuncio en su historial, así
-  que la prueba ahí pide filmar uno o encolar un trabajo de ws3 con tomas de prueba.
 - **El worker del contenedor quedó muerto**: `worker/montar-cola.mjs`, `worker/Dockerfile`
   y `app/api/montaje/worker/route.ts` (sin `MONTAJE_WORKER_TOKEN` contesta 404). Borrarlos o
   dejarlos como camino alternativo es una decisión; si alguien los despliega, conviven

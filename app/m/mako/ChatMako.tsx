@@ -331,7 +331,7 @@ function Item({ x, onAbrir, onReintentar, onRecargar, onResponder, onTrabajo, oc
   /** MaKo está trabajando: las opciones esperan. */
   ocupado: boolean;
   /** El trabajo largo de una tarjeta terminó (1.11): la fila deja de decir «En curso». */
-  onTrabajo: (pendienteId: number, ok: boolean) => void;
+  onTrabajo: (pendienteId: number, ok: boolean | null) => void;
   onReintentar: (id: string) => void;
   onRecargar?: () => void;
 }) {

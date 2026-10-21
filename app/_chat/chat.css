@@ -165,6 +165,7 @@
 .ch-paso[data-estado='fallo'] .ch-paso__marca { background: var(--bad); border-color: var(--bad); }
 .ch-paso[data-estado='en_curso'] .ch-paso__marca { border-color: var(--primary); animation: ch-late 1.2s ease-in-out infinite; }
 .ch-paso[data-estado='pendiente'] { color: var(--dim); }
+.ch-paso[data-estado='incierto'] .ch-paso__marca { border-color: var(--warn-fill); background: var(--warn-bg); }
 @keyframes ch-late { 50% { background: var(--primary); } }
 @media (prefers-reduced-motion: reduce) { .ch-paso[data-estado='en_curso'] .ch-paso__marca { animation: none; background: var(--primary); } }
 
