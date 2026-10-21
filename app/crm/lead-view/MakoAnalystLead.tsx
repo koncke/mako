@@ -512,7 +512,7 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
     if (x.k === 'bloque') {
       const de = x.deTarjeta;
       // El trabajo largo de una tarjeta terminó: la tarjeta deja de decir «En curso» y la ficha se relee (lo cambió).
-      const termina = de != null ? (ok: boolean) => { setItems((xs) => trasTrabajo(xs, de, ok)); refrescarFicha(); } : undefined;
+      const termina = de != null ? (ok: boolean | null) => { setItems((xs) => trasTrabajo(xs, de, ok)); refrescarFicha(); } : undefined;
       return <FilaMako><BloqueHilo b={x.b} respondida={x.respondida} ocupado={hayTrabajo} onTermina={termina}
         onResponder={(t) => { if (ocupadoRef.current) return false; enviar({ texto: t, adjuntos: [] }); return true; }} /></FilaMako>;
     }

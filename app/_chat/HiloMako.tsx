@@ -74,7 +74,7 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
   /** Contestar una pregunta con opciones (un bloque G1): sale como un mensaje de la persona. `false` = no salió. */
   onResponder?: (texto: string) => boolean;
   /** El trabajo largo de una tarjeta terminó (1.11): la tarjeta pasa a «Hecho» o «Falló» (`trasTrabajo`). */
-  onTrabajo?: (pendienteId: number, ok: boolean) => void;
+  onTrabajo?: (pendienteId: number, ok: boolean | null) => void;
 }) {
   const filas: ReactNode[] = [];
   let ultimoDia: string | null = null;
