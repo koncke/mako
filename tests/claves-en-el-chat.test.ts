@@ -197,7 +197,7 @@ test('una línea gigante no cuelga el tapado (las reglas son lineales)', () => {
     const { taparClaves } = await import(${JSON.stringify(pathToFileURL(join(RAIZ, 'lib/claves-en-el-chat.ts')).href)});
     const lineas = [
       'KEY'.repeat(300000), 'A_'.repeat(500000), 're_'.repeat(300000), 'KEY\\n'.repeat(200000), 'mkoag_'.repeat(150000),
-      'KEY_'.repeat(250000), ('KEY_'.repeat(19) + 'X:\\n').repeat(12000), 'sk-'.repeat(350000), 'sk-proj-'.repeat(125000),
+      'KEY_'.repeat(250000), ('KEY_'.repeat(19) + 'X' + ':\\n').repeat(12000), 'sk-'.repeat(350000), 'sk-proj-'.repeat(125000),
       'sk-' + 'A1'.repeat(500000), 'TEST-1111111111-'.repeat(60000),
     ];
     for (const t of lineas) {
