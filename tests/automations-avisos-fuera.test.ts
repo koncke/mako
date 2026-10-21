@@ -49,7 +49,9 @@ test('el runner de los LEADS: fuera del horario corre el carril y la tarjeta que
   const nutri = sinComentarios(leer('lib/nutricion.ts'));
   assert.match(nutri, /const sigueIgual = \(p: PasoGrafo \| undefined\): boolean => esTarjetaMako\(p\) && !esperaQueAbra\(/);
   assert.match(nutri, /const corrensFuera = secuencias\.filter\(\(s\) => tieneCarril\(s\.pasos\) \|\| s\.pasos\.some\(sigueIgual\)\)/);
-  assert.match(nutri, /fueraDeHorario != null\s*\? esHiloDelCarril\(sec\.pasos, i\) \|\| sigueIgual\(sec\.pasos\[i\]\)/);
+  // 20/10/2026: «fuera» es de CADA automatización (su horario o el del negocio): `cerrada`, de `fuera(insc.secuencia_id)`.
+  assert.match(nutri, /const cerrada = fuera\(insc\.secuencia_id\);/);
+  assert.match(nutri, /cerrada\s*\? esHiloDelCarril\(sec\.pasos, i\) \|\| sigueIgual\(sec\.pasos\[i\]\)/);
   assert.doesNotMatch(nutri, /makoFueraDeHorario|avisosAlEquipo/, 'volvió la casilla global');
 });
 

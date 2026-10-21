@@ -43,6 +43,7 @@
 
 import type { Gating, OperacionDef, Parametro } from '../tipos';
 import { AJUSTES_TEMA } from '@/lib/graficos-temas';
+import { ANCHOS, LUGARES } from '@/lib/graficos-mover';
 
 /** Los ajustes del estilo de una hoja (17/10/2026), del mismo catálogo que el panel «Estilo de la hoja». */
 const CAMPOS_AJUSTES: readonly Parametro[] = AJUSTES_TEMA.map((a) => ({
@@ -53,6 +54,8 @@ const CAMPOS_AJUSTES: readonly Parametro[] = AJUSTES_TEMA.map((a) => ({
 const TODOS = ['whatsapp', 'app', 'http'] as const;
 /** Nombres de personas (el equipo, los leads): no salen a un token que vive en la máquina de un tercero. */
 const SIN_HTTP = ['whatsapp', 'app'] as const;
+/** Lo que es de quien chatea (su informe, su sesión): sólo el chat de la app. */
+const SOLO_APP = ['app'] as const;
 const GATING: Gating = { tab: 'graphics', rolMinimo: 'admin' };
 
 // ── Los parámetros comunes (los NOMBRES son contrato: los lee el editor de Automations) ──────────
@@ -258,6 +261,33 @@ export const DEFS: readonly OperacionDef[] = [
   // «Copiar dashboard» y pegarlo con su código (mig 0268, 12/10/2026): lo que la pantalla hace en POST /api/graficos/copia,
   // por la API. SIN http: el código se lee desde cualquier negocio que lo tenga, y un token que vive en la máquina de un
   // tercero no tiene por qué publicar un informe. El código NO pasa por el modelo: lo escribe el sistema (`paraLaPersona`).
+  // Exportar a CSV desde el chat (20/10/2026, Ops Center = lo principal, 2.6). Un modelo no pasa un archivo: la persona
+  // recibe un link (`paraLaPersona`) a app/api/graficos/exportar, que corre leer_hoja_dashboard en CSV con SU sesión.
+  // Sólo la app: el link pide la sesión de quien lo abre, y en un grupo de WhatsApp lo abriría otro.
+  {
+    id: 'exportar_hoja_dashboard', area: 'metricas', tipo: 'lectura',
+    titulo: 'Exportar una hoja a CSV',
+    descripcion: 'Deja para descargar en CSV una hoja de TU informe del Dashboard: cada gráfico con su período guardado, como el «Exportar» de la pantalla. El link de descarga se lo manda el sistema a la persona (no aparece en lo que lees): no lo inventes ni lo repitas.',
+    parametros: [hojaObligatoria],
+    salida: 'markdown',
+    canales: SOLO_APP, costo: 'gratis',
+    gating: GATING,
+  },
+  // Compartir TU informe con un link de acceso (20/10/2026, Ops Center = lo principal, 2.6): el MISMO share que el botón
+  // «Compartir» de la pantalla. Sin `persona`: la pantalla tampoco deja compartir el de otro. El link no pasa por el
+  // modelo. Invitar por email (le escribe a un tercero) espera la decisión D3c de docs/ops-center-principal.md.
+  {
+    id: 'compartir_dashboard', area: 'metricas', tipo: 'accion',
+    titulo: 'Compartir tu Dashboard con un link',
+    descripcion: 'Crea un link para ver TU informe del Dashboard (de sólo lectura, con los datos de hoy), como «Compartir» de la pantalla. Quien tenga el link lo ve sin poder editarlo; se revoca desde Compartir, en el Dashboard. El link se lo manda el sistema a la persona (no aparece en lo que lees). Para invitar por email, que lo haga desde Compartir en la pantalla.',
+    parametros: [
+      { nombre: 'hoja', tipo: 'string', max: 80, rotulo: 'Hoja', ejemplo: 'marketing', descripcion: 'La hoja en que abre el link: su id o su nombre. Omitir = la primera.' },
+    ],
+    confirmacion: 'chat', reversible: false,
+    escribe: 'crea un link de sólo lectura al informe de quien chatea (shares, recurso dashboard)',
+    canales: SOLO_APP, costo: 'gratis',
+    gating: GATING,
+  },
   {
     id: 'copiar_dashboard', area: 'metricas', tipo: 'accion',
     titulo: 'Copiar una hoja del Dashboard con su código',
@@ -338,6 +368,23 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [persona, hojaObligatoria, componente],
     confirmacion: 'chat', reversible: false,
     escribe: 'saca un componente de una hoja del informe de esa persona',
+    canales: TODOS, costo: 'gratis',
+    gating: GATING,
+  },
+  // Mover una tarjeta o cambiarle el ancho (20/10/2026, Ops Center = lo principal, 2.6): con la MISMA grilla que la
+  // pantalla (lib/graficos-mover.ts), así lo que deja el chat es lo que la pantalla mostraría al arrastrarla.
+  {
+    id: 'mover_componente_dashboard', area: 'metricas', tipo: 'accion',
+    titulo: 'Mover o ensanchar una tarjeta',
+    descripcion: 'Mueve un gráfico o un elemento de una hoja del Dashboard (arriba o abajo de todo, antes, después o al lado de otra tarjeta) o le cambia el ancho, como arrastrarlo en la pantalla: las demás tarjetas se corren solas. Para deshacerlo se vuelve a mover.',
+    parametros: [
+      persona, hojaObligatoria, componente,
+      { nombre: 'lugar', tipo: 'string', enum: LUGARES, rotulo: 'Adónde', descripcion: 'arriba o abajo de toda la hoja; antes_de, despues_de o al_lado_de la tarjeta de `referencia`. Omitir = queda donde está (sólo cambia el ancho).' },
+      { nombre: 'referencia', tipo: 'string', max: 80, rotulo: 'Con respecto a', descripcion: 'El id o el título de la otra tarjeta, para antes_de, despues_de y al_lado_de.' },
+      { nombre: 'ancho', tipo: 'string', enum: Object.keys(ANCHOS), rotulo: 'Ancho', descripcion: 'completo, dos_tercios, mitad, tercio o cuarto de la hoja. Omitir = el que tiene.' },
+    ],
+    confirmacion: 'chat', reversible: false,
+    escribe: 'cambia el lugar o el ancho de una tarjeta en una hoja del informe de esa persona (las demás se corren)',
     canales: TODOS, costo: 'gratis',
     gating: GATING,
   },

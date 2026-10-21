@@ -140,8 +140,9 @@ test('el Centro en el teléfono: el mismo guard antes de leer, manda por el mism
   const mas = sinComentarios(leer('app/m/mas/page.tsx'));
   const seccion = mas.slice(mas.indexOf("ctx.sesion.rol === 'admin'"), mas.indexOf('</SeccionM>', mas.indexOf('titulo="Super admin"')));
   assert.match(seccion, /^ctx\.sesion\.rol === 'admin' && !ctx\.impersonando/, 'mirando a un cliente, la barra es la del cliente');
-  assert.match(seccion, /href=\{RUTA_CENTRO\}/);
-  assert.match(mas, /const RUTA_CENTRO = '\/m\/operaciones'/);
+  assert.match(seccion, /href=\{RUTA_CENTRO_M\}/);
+  // La ruta vive en lib/movil-rutas.ts desde el 20/10/2026: la barra del super admin la abre en su lugar del medio.
+  assert.match(leer('lib/movil-rutas.ts'), /export const RUTA_CENTRO_M = '\/m\/operaciones';/);
   // LAS MISMAS RUTAS: el teléfono sirve /m/operaciones en /admin/operaciones, y vuelve.
   const { rutaMovil, rutaEscritorio } = await import('../lib/movil-rutas');
   assert.equal(rutaMovil('/admin/operaciones'), '/m/operaciones');

@@ -62,6 +62,9 @@ const PUBLICAS: Array<{ ruta: string; porque: string }> = [
   // 15/10/2026, con «Olvidé mi contraseña»: `linkDeRestablecer` (lib/contrasena-restablecer.ts). Sin esta fila:
   // 1 fallo / 2 pases, nombrando `lib/contrasena-restablecer.ts:35 → /login/restablecer#t=${token}`; restaurada, 3 pases.
   { ruta: '/login/restablecer', porque: 'el link de «Olvidé mi contraseña»: lo abre alguien SIN sesión (por eso lo pide), una persona y no un negocio, y se autentica con el token del fragmento. Un `?ws=` no le aporta nada.' },
+  // 20/10/2026, con «Compartir» desde el chat (`compartir_dashboard`, lib/api-mako/areas/dashboard.run.ts). Sin esta fila:
+  // 1 fallo / 2 pases, nombrando `lib/api-mako/areas/dashboard.run.ts:791 → /compartido/${token}${hojaId`; restaurada, 3 pases.
+  { ruta: '/compartido/', porque: 'el link de sólo lectura de un informe o un curso compartido: lo abre un TERCERO sin sesión y se autentica con el token del share. Un `?ws=` no le aporta nada, y le diría a un extraño el número del negocio.' },
 ];
 
 /**

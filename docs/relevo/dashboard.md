@@ -1,7 +1,22 @@
 # Relevo — chat «Dashboard» (la tab Dashboard y el editor de General)
 
-<sub>Escrito el 18/10/2026 ~01:00 (hora de Argentina) por la cuenta 4 (claude4), desde el chat que hizo el trabajo. Se pisa
+<sub>Escrito el 20/10/2026 ~23:30 (hora de Argentina) por la cuenta 4 (claude4), desde el chat que hizo el trabajo. Se pisa
 en cada relevo. Los anteriores están en el historial: `git log -p -- docs/relevo/dashboard.md`.</sub>
+
+> **Ops Center = lo principal (20/10, pedido de Martín; el plan es docs/ops-center-principal.md, en main desde 0846ff49d).**
+> Lo de este chat:
+> - **1.5** «mi hoja» es la de quien chatea (`Ctx.quien`, `quienChatea`): con 2 o más informes ya no pide un email. En
+>   producción desde el run 172.
+> - **2.6** `mover_componente_dashboard` (la grilla de la pantalla), `exportar_hoja_dashboard` (link a
+>   /api/graficos/exportar) y `compartir_dashboard` (el link de acceso). Integrada por el Cerebro, sube con la próxima
+>   tanda. **Falta:** invitar por email, que espera la D3c; y que la frase natural las traiga, que es la 1.2 (las frases
+>   medidas, en `frases-dashboard-2-6.md` de la carpeta del Cerebro). El CSV ya escapa las fórmulas (`celdaCsv`,
+>   lib/csv-celda.ts): el Cerebro lo preguntó el 20/10, y faltaba que un test cubriera el «-» y el tabulador.
+> - **Mapa** de Experimentos y Closing Analyst: docs/ops-center-principal/mapa-experimentos-closing.md, enlazado desde el
+>   Anexo D del plan.
+> - **2.7 FRENADA:** los bloques del Dashboard en el hilo esperan el marco de bloques (1.7, de Ops Center 3:
+>   `datos.bloque` en lib/api-mako/tipos.ts). Hoy el hilo sólo guarda adjuntos.
+> - El porqué y las trampas, en docs/hallazgos-api-mako.md (las dos entradas del 20/10).
 
 > **Para después del 20/10 (17/10, B5):** «Publicar en Creaciones» desde el ⋮ de la hoja está HECHO y SIN SUBIR en la rama
 > `pend-b5-publicar-dash` (`cc07af5ea`). Antes de mergearla: un antes-de-subir (sus 2 fallos de

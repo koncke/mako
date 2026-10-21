@@ -59,11 +59,13 @@ test('1. el último «Ya está» espera el ✓ aunque el chat haya escrito despu
 
 test('2. la fila dice «Espera tu respuesta» hasta el ✓, en la computadora y en el teléfono', () => {
   const p = vistaPrevia(ONBOARDING.map(linea));
-  assert.equal(segundoRenglon({ estado: 'abierto', viejo: false }, 0, null, p, true), 'revisar', 'aunque lo último no sea el «Ya está»');
-  assert.equal(segundoRenglon({ estado: 'abierto', viejo: false }, 0, null, p, false), 'previa');
+  void p;
+  assert.equal(segundoRenglon({ estado: 'abierto', viejo: false }, 0, true), 'revisar', 'aunque lo último no sea el «Ya está»');
+  assert.equal(segundoRenglon({ estado: 'abierto', viejo: false }, 0, false), null, 'con su ✓, sin subtítulo (20/10/2026)');
   const leer = (r: string) => readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', r), 'utf8');
-  assert.match(leer('app/admin/operaciones/PiezasCentro.tsx'), /case 'revisar': return <span className="co-fila__l2 co-fila__l2--espera">Espera tu respuesta<\/span>;/);
-  assert.match(leer('app/m/operaciones/ChatsMovil.tsx'), /revisar: <span className="m-operaciones-espera">Espera tu respuesta<\/span>,/);
+  // Las palabras son las de la regla (lib/centro-chats.ts → TEXTO_SEGUNDO_RENGLON), en las dos listas.
+  assert.match(leer('app/admin/operaciones/PiezasCentro.tsx'), /\{TEXTO_SEGUNDO_RENGLON\[r\]\}/);
+  assert.match(leer('app/m/operaciones/ChatsMovil.tsx'), /\{TEXTO_SEGUNDO_RENGLON\[renglon\]\}/);
   const motor = leer('app/admin/operaciones/useCentro.ts');
   assert.match(motor, /filter\(\(\[k, l\]\) => esperaCheck\(ultimoYaEsta\(l\), yaVistos, k\)\)/, 'del ✓ guardado, no de lo que vio el dispositivo');
   assert.doesNotMatch(motor, /k !== mirando && avisaYaEsta/, 'abrir el chat ya no lo apaga');
