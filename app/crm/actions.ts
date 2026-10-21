@@ -119,7 +119,7 @@ import { duracionDeReunionEnAgendaMin, moverEventoDeReunion, permisoCalendarioGo
 import { motivoFijo } from '@/lib/agenda-sin-ia';
 import { etapaVigenteDe } from '@/lib/funnel-etapas';
 import { DURACION_DEFECTO_MIN, instanteDeLocal, instanteDeReunionManual } from './horarios-respuesta';
-import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
+import { tzDeWorkspace, TZ_DEFAULT, hoyEnWorkspace } from '@/lib/timezone';
 import type { Step } from '@/lib/stage-requirements';
 import { getSupabaseServer } from '@/lib/supabase';
 import { getTenantDb, getWorkspaceActual, getRolWsEfectivo, getCapaActual, rutaConWs } from '@/lib/workspace';
@@ -170,7 +170,7 @@ async function autorActual(): Promise<string> {
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd, adIdDeLead } from '@/lib/queries';
 import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, leerMarcasDeCobranza, reponerMarcasDeCobranza, type PlanPagos, type Pago } from '@/lib/pagos';
-import { avisoDeConservadas } from '@/lib/pagos-campo';
+import { avisoDeConservadas, planDelAsistente } from '@/lib/pagos-campo';
 import { senalesDeCobroAction } from './[id]/cobros-actions';
 import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
 import { urlGravatar } from '@/lib/gravatar';
@@ -666,18 +666,37 @@ export async function completeStageMoveAction(
   // 3) Plan de pagos (genera las cuotas; el cash del dashboard lee de acá).
   //    Modelo simple: cuotas explícitas (monto + fecha). `plan` queda por compat.
   let sinTocar: string | null = null;
+  // ⚠️ EL ASISTENTE NO REHACE UN PLAN QUE YA EXISTE (21/10/2026, revisión adversarial, alta). Volver a confirmarlo sobre
+  // una suscripción ya cerrada («Completar datos», pasar a Facturando, volver a Ganado) mandaba otra vez TODAS sus cuotas
+  // desde hoy, y la reconciliación por orden actualizaba las impagas e insertaba de más: 15 cuotas para un plazo de 12, la
+  // deuda inflada y la vencida escondida; con la mensualidad vacía, se borraban todas. El plan se arma UNA vez, al ganar
+  // sin plan; para cambiarlo está la tab Pagos. Y los pagos sueltos ya cobrados cuentan (`planDelAsistente`): nunca
+  // nace una cuota por un mes ya cobrado. Lo que no se hizo vuelve a la pantalla en `sinTocar`: antes era un console.log
+  // y el asistente decía que había guardado.
   if (d.cuotas?.length) {
-    const cambios = await saveLeadPlanManual(id, {
-      total_usd: d.monto ?? before?.monto_cierre_usd ?? null,
-      duracion_meses: null,
-      fecha_cierre: null,
-      fecha_inicio: null,
-      cuotas: d.cuotas.map((c) => ({ monto_usd: c.monto, fecha_esperada: c.fecha })),
-    });
-    // Lo que el plan no pudo cambiar queda en el historial y vuelve a la pantalla: si no, el total pedido y el
-    // que quedó escrito difieren sin que nadie lo diga.
-    sinTocar = avisoDeConservadas(cambios);
-    if (sinTocar) await logLeadEvent(id, 'Plan de pagos', `No se tocó: ${sinTocar}`, autor);
+    const plan = planDelAsistente(
+      d.cuotas.map((c) => ({ monto_usd: c.monto, fecha_esperada: c.fecha })),
+      await getPagosByLead(id),
+      { suscripcion: (d.ventaTipo ?? before?.venta_tipo) === 'suscripcion', ancla: before?.fecha_cierre?.slice(0, 10) || (await hoyEnWorkspace()) },
+    );
+    if (plan.aviso) sinTocar = plan.aviso;
+    if (plan.yaCobradas) await logLeadEvent(id, 'Plan de pagos', `Los ${plan.yaCobradas} mes(es) ya cobrado(s) cuentan como las primeras cuotas: se armaron ${plan.cuotas.length}`, autor);
+    if (plan.cuotas.length) {
+      const cambios = await saveLeadPlanManual(id, {
+        total_usd: d.monto ?? before?.monto_cierre_usd ?? null,
+        duracion_meses: null,
+        fecha_cierre: null,
+        fecha_inicio: null,
+        cuotas: plan.cuotas,
+      });
+      // Lo que el plan no pudo cambiar queda en el historial y vuelve a la pantalla: si no, el total pedido y el
+      // que quedó escrito difieren sin que nadie lo diga.
+      const conservadas = avisoDeConservadas(cambios);
+      if (conservadas) {
+        sinTocar = `Del plan no se tocó: ${conservadas}.`;
+        await logLeadEvent(id, 'Plan de pagos', `No se tocó: ${conservadas}`, autor);
+      }
+    }
   } else if (d.plan) {
     await savePlanPagos(id, d.plan);
   }

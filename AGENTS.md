@@ -1850,7 +1850,18 @@ horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, un
   devuelven `yaEstaba`. Quien marca lo DICE («Ya estaba cobrada») y no ofrece Deshacer: sería desmarcar el cobro de otro.
   **Y la escritura es CONDICIONAL** (`siSigue` + `.select('id')`, lib/pagos.ts): leer el estado y compararlo en memoria
   no alcanza con dos pantallas a la vez. Cero filas tocadas = otro llegó antes. `cobrarCuota` escribe el cobro ENTERO
-  (pagado, fecha, hora, monto, moneda) en esa sola escritura, nunca el monto primero y la marca después.
+  (pagado, fecha, hora, monto, moneda) en esa sola escritura, nunca el monto primero y la marca después. Vale para
+  TODO escritor de una cuota, la pasarela incluida. **Un cobro con su diferencia pendiente va en UNA transacción**
+  (`cobrar_cuota_con_resto`, mig 0318): dos escrituras desde PostgREST no tienen un orden seguro (después de tomar la
+  cuota, una falla la dejaba sin su diferencia; antes, la dejaba como una cuota FANTASMA que la cobranza reclamaba). Lo
+  de después de cobrar va en `curarDespues`: corta primero (no tira) y sincroniza después, y el «ya estaba» de todo
+  escritor lo vuelve a correr, porque se puede repetir.
+- **El asistente de Ganado arma el plan UNA vez, y lo decide `planDelAsistente`** (lib/pagos-campo.ts, 21/10/2026):
+  con un plan no se toca; en una suscripción, los meses ya cobrados sueltos son las primeras cuotas y las fechas van
+  desde el cierre (como cuenta `cobradoDelLead`); un pago único con un pago previo no se arma. Nunca nace una cuota por
+  un mes ya cobrado, y lo que no se hizo vuelve en `sinTocar` y el asistente lo MUESTRA: nada se descarta en silencio.
+- **Los meses se suman con `sumarMeses` (lib/cobrado-lead.ts)**, que topa al último día del mes: `new Date(y, m + n, d)`
+  desborda un 29, 30 o 31 (31/10 + 1 mes = 01/12) y un plan de cuotas queda con meses sin cuota y meses con dos.
 
 # Una herramienta de laboratorio montada en el layout raíz es una herramienta EN PRODUCCIÓN
 

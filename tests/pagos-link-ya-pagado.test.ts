@@ -186,7 +186,9 @@ test('la pasarela misma (y quien ya miró) no vuelve a preguntar', async () => {
   const p = fuente('lib/pagos.ts');
   const reg = p.slice(p.indexOf('export async function registrarCobroDeProveedor('), p.indexOf('export async function remarcarCobroDeProveedor('));
   const llamadas = reg.match(/await marcarPago\([^)]*\)/g) ?? [];
-  assert.equal(llamadas.length, 2);
+  // (21/10/2026: la pasarela ya no pasa por `marcarPago`: marca con su escritura condicional y sigue con `curarDespues`,
+  // que no mira links. Lo que se fija sigue siendo que no se pregunte a sí misma.)
+  assert.doesNotMatch(reg, /linkYaPagado\(/, 'la pasarela preguntándose a sí misma');
   for (const l of llamadas) assert.match(l, /\{ mirarLinks: false \}\)$/, `la pasarela preguntándose a sí misma: ${l}`);
 });
 
