@@ -535,7 +535,7 @@ export const DEFS: readonly OperacionDef[] = [
     // WhatsApp y HTTP no hay sesión que diga quién es. Se cambia en el CRM, «⋯» › «Personalizar tarjetas».
     id: 'ver_campos_tarjeta_crm', area: 'crm', tipo: 'lectura',
     titulo: 'Qué muestra la tarjeta de un lead',
-    descripcion: 'Qué datos ve la persona en cada tarjeta del tablero del CRM (foto, plata, por dónde llegó, vencimientos, datos pendientes, reunión, fuera del funnel, empresa, teléfono, campaña, fecha de alta) y el catálogo completo. Se elige en el CRM, «⋯» › «Personalizar tarjetas», y es de cada persona: vale en todos sus funnels.',
+    descripcion: 'Qué datos ve la persona en cada tarjeta del tablero del CRM, en su orden (foto, plata, por dónde llegó, vencimientos, datos pendientes, reunión, fuera del funnel, empresa, teléfono, campaña, fecha de alta), con qué diseño (Completa, Compacta o Con avance) y el catálogo completo. Se elige en el CRM, «⋯» › «Personalizar tarjetas», y es de cada persona: vale en todos sus funnels.',
     parametros: [],
     salida: 'json', canales: ['app'], costo: 'gratis', gating: TAB,
   },

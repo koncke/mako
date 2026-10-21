@@ -42,7 +42,7 @@ import {
 import { buscarLeadsAction, deshacerMoverAction, moverEtapaAction } from './acciones';
 import { MIN_BUSQUEDA, type FilaLeadM } from './reglas';
 import { CaraTarjeta, CuerpoFichaRapida, EstiloTarjetas, TarjetaDestacada } from '@/app/_ui/TarjetaKanban';
-import { insigniaDeCanal, subtituloLead } from '@/lib/tarjeta-kanban';
+import { insigniaDeCanal, subtituloEnOrden, subtituloLead, type CampoTarjetaLead } from '@/lib/tarjeta-kanban';
 import type { TableroCrmM } from './datos';
 
 type Busqueda =
@@ -77,15 +77,15 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
     [datos.columnas],
   );
   // Qué muestra la tarjeta (20/10/2026): la elección de quien mira, la misma que en la computadora.
-  const ve = useMemo(() => new Set<string>(datos.campos ?? []), [datos.campos]);
+  const campos: readonly CampoTarjetaLead[] = datos.campos ?? [];
   const tarjetas: TarjetaKanban[] = useMemo(() => datos.tarjetas.map((t) => ({
     id: String(t.id),
     col: t.col,
     // Sin `href` (17/10/2026): tocar abre la ficha rápida (`onTocar`); desde ahí «Abrir ficha» lleva a la completa.
     // El nombre accesible lleva lo que dice el punto (el color solo no se lee).
     etiqueta: t.senal.dice ? `${t.nombre}, ${t.senal.dice}` : t.nombre,
-    contenido: <FilaLead t={t} ve={ve} />,
-  })), [datos.tarjetas, ve]);
+    contenido: <FilaLead t={t} campos={campos} />,
+  })), [datos.tarjetas, campos]);
 
   const mover = async (id: string, destino: string): Promise<ResultadoMover> => {
     const leadId = Number(id);
@@ -205,16 +205,16 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
  * Las clases van sin `.m-crm-tablero` delante a propósito: la COPIA que sigue al dedo al arrastrar cuelga de #m-root
  * (KanbanM), fuera del tablero, y tiene que dibujarse igual.
  */
-function FilaLead({ t, ve }: { t: TableroCrmM['tarjetas'][number]; ve: ReadonlySet<string> }) {
+function FilaLead({ t, campos }: { t: TableroCrmM['tarjetas'][number]; campos: readonly CampoTarjetaLead[] }) {
   // La familia de tarjetas (17/10/2026): la cara con la insignia del canal, el nombre, «plata · por dónde llegó», la
   // señal (la reunión, el plazo que vence) y «Ver info», como en la computadora. Toda la tarjeta abre la ficha rápida:
   // la píldora es la pista, no un segundo botón adentro de otro.
   // La foto, la plata y por dónde llegó, según «Personalizar tarjetas» de quien mira (20/10/2026; se elige en la
   // computadora y vale acá). La señal (la reunión, el plazo) se queda: es el aviso de la fila.
-  const sub = subtituloLead(ve.has('plata') ? t.plata : null, ve.has('canal') ? t.canal : null);
+  const sub = subtituloEnOrden(campos, { plata: t.plata, canal: t.canal });
   return (
     <span className="m-crm-tj" data-tono={t.senal.tono ?? undefined}>
-      {ve.has('foto') && <CaraTarjeta nombre={t.nombre} foto={t.foto} insignia={insigniaDeCanal(t.canal)} tam={46} />}
+      {campos.includes('foto') && <CaraTarjeta nombre={t.nombre} foto={t.foto} insignia={insigniaDeCanal(t.canal)} tam={46} />}
       <span className="m-crm-tj__txt">
         <span className="m-crm-tj__n">{t.nombre}</span>
         {sub && <span className="m-crm-tj__c">{sub}</span>}
