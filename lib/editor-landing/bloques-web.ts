@@ -101,7 +101,9 @@ export const MAX_JSON_SECCION = 40_000;
 const MAX_OPCIONES = 3;
 const MAX_REGISTROS = 12;
 
-const texto = (v: unknown, max: number): string => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+// Se recorta DESPUÉS de cortar (revisión del 21/10/2026): cortar en un espacio dejaba el texto terminado en uno, y lo
+// que manda el botón (recortado por la pantalla) ya no era igual a lo guardado: un selector viejo no se reconocía.
+const texto = (v: unknown, max: number): string => (typeof v === 'string' ? v.trim().slice(0, max).trim() : '');
 const entero = (v: unknown): number | null => (typeof v === 'number' && Number.isInteger(v) && v > 0 && v < 2 ** 31 ? v : null);
 const ID_CATALOGO = /^(?:ws:)?[a-z0-9][a-z0-9_-]{0,79}$/;
 
