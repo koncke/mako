@@ -21,7 +21,7 @@
 // el proxy con un rewrite, y el componente sólo tapa lo que se usa en la computadora.
 // =============================================================================
 
-import { esRutaMovil, respaldoEscritorio, rutaEscritorio, rutaMovil } from './movil-rutas';
+import { ENTRADA_MOVIL, esRutaMovil, respaldoEscritorio, rutaEscritorio, rutaMovil } from './movil-rutas';
 import { esPublica } from './rutas-publicas';
 import { conWs } from './ws-tab';
 
@@ -118,7 +118,8 @@ export function pedidoMovil(p: { pathname: string; search: string; metodo: strin
   // `GET /inicio 200` y recién después `GET /general` (2,5-3,8 s), y mientras tanto el teléfono
   // mostraba /inicio con el layout de escritorio, la Sidebar angosta y el resto en blanco. Lo vio
   // Martín al abrir la app. Desde el borde es un 307 de ~70 ms y no se dibuja nada.
-  if (path === '/inicio') return lee ? { tipo: 'redirigir', destino: search ? `/general?${search}` : '/general' } : { tipo: 'seguir' };
+  // Desde el 20/10/2026 entra al OPS CENTER, la tab principal (`ENTRADA_MOVIL`, pedido bb885d5f); hasta ese día, a /general.
+  if (path === '/inicio') return lee ? { tipo: 'redirigir', destino: search ? `${ENTRADA_MOVIL}?${search}` : ENTRADA_MOVIL } : { tipo: 'seguir' };
   const d = decidirDesvio(path, search);
   if (d.tipo !== 'movil') return { tipo: 'seguir' };
   return { tipo: 'reescribir', destino: urlReescrita(d.destino, search) };

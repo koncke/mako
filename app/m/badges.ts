@@ -37,8 +37,10 @@ export type FuenteBadge = (ctx: ContextoBadges) => Promise<number | null>;
 
 const FUENTES: Partial<Record<IdBarra, FuenteBadge>> = {
   // `total: null` (alguna bandeja no se pudo leer) = sin número, nunca un 0 inventado.
-  // v3: lo que espera una decisión vive en la campana de General, así que el número va en General.
-  hoy: async (ctx) => (await contarParaDecidir({ rol: ctx.rol, capa: ctx.capa })).total,
+  // v3: lo que espera una decisión vive en la campana de General (hoy el Dashboard), así que el número va donde está él:
+  // desde el 20/10/2026 el Dashboard es una fila de More (el Ops Center tomó su lugar), y el número va en More y en esa
+  // fila (app/m/mas/page.tsx).
+  mas: async (ctx) => (await contarParaDecidir({ rol: ctx.rol, capa: ctx.capa })).total,
 };
 
 /** Los números de los lugares VISIBLES (los otros ni se consultan). */
