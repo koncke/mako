@@ -25,7 +25,8 @@
 // (scripts/tipos-por-tandas.mjs). Es el arreglo de fondo del 21/10/2026: el tsc guarda en memoria todo lo que instancia, y el programa crece ~1 GB de memoria viva por semana. Con K tandas
 // el pico por proceso baja hacia (piso + resto/K). Se decide K con los números de scripts/medir-tipos.mjs (docs/hallazgos-infra.md); acá sólo se enciende.
 // TIPOS_RAICES=1 (con K > 1): cada tanda crea su programa sólo desde SUS archivos (más los ambientes y lo que ellos importan), en vez de desde todo el proyecto: baja el piso por proceso
-// (medido en Actions el 21/10/2026: pico 2.595 MB con 4 tandas contra 3.537 MB sin raíces). Dice lo mismo que el tsc (la unión de las tandas, probada contra el tsc de verdad).
+// (medido en Actions el 21/10/2026: pico 2.595 MB con 4 tandas contra 3.537 MB sin raíces). Igual al tsc salvo ciclos de imports raros: el checker cachea algunos errores (TS2589, TS2303) y los atribuye al primer archivo que los dispara, y las tandas se reparten en el orden del programa para que ese archivo sea del mismo pedazo
+// o de uno anterior (tests/tipos-por-tandas.test.ts, repros del 21/10/2026); un tsc entero de respaldo es lo único que lo garantiza.
 //
 // Lo que NO hace: no arregla que el programa crezca (en 7 días pasó de >4,0 a >5,0 GB de heap). Eso se mide con los números de la línea
 // TIPOS-MEDIDA y se decide con ellos: docs/hallazgos-infra.md.
@@ -34,8 +35,8 @@
 // =============================================================================
 
 import { spawn } from 'node:child_process';
-import { appendFileSync } from 'node:fs';
-import { cpus, totalmem } from 'node:os';
+import { appendFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { cpus, totalmem, tmpdir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { veredicto } from './tsc-bitacoras.mjs';
@@ -141,6 +142,9 @@ export function veredictoDeTipos({ estado, errores = 0, segundos, topeMb, ramMb,
   const lineas = [medida];
   const anotaciones = [];
   const topes = `tope de heap ${miles(topeMb)} MB, RAM del runner ${miles(ramMb)} MB${cpu ? `, ${cpu} CPU` : ''}`;
+  // Con tandas, una puede terminar con errores REALES y otra morir: el que no haya veredicto completo no borra los errores de las que sí terminaron (el 21/10 decía «no hay nada que corregir»).
+  const reales = `  ⚠️ ADEMÁS hay ${errores} error(es) de tipos REALES en las tandas que terminaron (están arriba, con archivo y línea): esos SÍ se corrigen.`;
+  const realesCorto = `hay ${errores} error(es) de tipos REALES en las tandas que terminaron (mirá el log del paso: archivo y línea): esos sí se corrigen.`;
   let codigo;
   let palabra;
   if (estado === 'ok') {
@@ -159,25 +163,36 @@ export function veredictoDeTipos({ estado, errores = 0, segundos, topeMb, ramMb,
     codigo = SALIDA_SIN_TIPOS;
     palabra = 'SIN MEMORIA';
     lineas.push(
-      `Tipos: SIN MEMORIA — NO son errores de tipos. El tsc se quedó sin heap${enTanda} a los ${Math.round(segundos)} s (${topes}) y no llegó a un veredicto.`,
-      '  Qué hacer: no corregir código. Re-correr sólo sirve si el programa estaba justo en el borde. Si se repite: bajar lo que el tsc carga (partir el programa',
+      errores > 0
+        ? `Tipos: SIN MEMORIA — el quedarse sin heap NO es un error de tipos, pero hay errores reales. El tsc se quedó sin heap${enTanda} a los ${Math.round(segundos)} s (${topes}) y no llegó a un veredicto completo.`
+        : `Tipos: SIN MEMORIA — NO son errores de tipos. El tsc se quedó sin heap${enTanda} a los ${Math.round(segundos)} s (${topes}) y no llegó a un veredicto.`,
+      ...(errores > 0 ? [reales] : []),
+      `  Qué hacer: ${errores > 0 ? 'corregir esos errores y, aparte,' : 'no corregir código;'} re-correr sólo sirve si el programa estaba justo en el borde. Si se repite: bajar lo que el tsc carga (partir el programa`,
       '  en dos, o ver qué infla los tipos), subir el tope si el runner tiene RAM de sobra (TIPOS_HEAP_MB), o usar un runner con más RAM. docs/hallazgos-infra.md.',
     );
-    anotaciones.push(`::error title=Tipos: SIN MEMORIA (no son errores de tipos)::El tsc se quedó sin heap${enTanda} a los ${Math.round(segundos)} s con el tope de ${miles(topeMb)} MB (RAM del runner: ${miles(ramMb)} MB). No hay nada que corregir en el código: es el tamaño del programa.`);
+    anotaciones.push(errores > 0
+      ? `::error title=Tipos: SIN MEMORIA y ERRORES DE TIPOS::El tsc se quedó sin heap${enTanda} a los ${Math.round(segundos)} s con el tope de ${miles(topeMb)} MB (RAM del runner: ${miles(ramMb)} MB): eso es el tamaño del programa. Pero ${realesCorto}`
+      : `::error title=Tipos: SIN MEMORIA (no son errores de tipos)::El tsc se quedó sin heap${enTanda} a los ${Math.round(segundos)} s con el tope de ${miles(topeMb)} MB (RAM del runner: ${miles(ramMb)} MB). No hay nada que corregir en el código: es el tamaño del programa.`);
   } else if (estado === 'matado') {
     codigo = SALIDA_SIN_TIPOS;
     palabra = 'MATADO POR EL SISTEMA';
     lineas.push(
-      `Tipos: MATADO POR EL SISTEMA — NO son errores de tipos. El tsc murió${enTanda} por ${signal ?? `código ${status}`} a los ${Math.round(segundos)} s (${topes}).`,
+      `Tipos: MATADO POR EL SISTEMA — NO son errores de tipos${errores > 0 ? ' (pero hay errores reales, abajo)' : ''}. El tsc murió${enTanda} por ${signal ?? `código ${status}`} a los ${Math.round(segundos)} s (${topes}).`,
+      ...(errores > 0 ? [reales] : []),
       '  Eso es el OOM-killer del runner: el tope de heap es mayor que la RAM física que quedaba. Bajar TIPOS_HEAP_MB no lo arregla (el tsc moriría igual por heap);',
       '  hay que bajar lo que carga el programa o usar un runner con más RAM.',
     );
-    anotaciones.push(`::error title=Tipos: MATADO POR EL SISTEMA (no son errores de tipos)::El tsc murió por ${signal ?? `código ${status}`} con el tope de ${miles(topeMb)} MB sobre ${miles(ramMb)} MB de RAM: el sistema se quedó sin memoria física.`);
+    anotaciones.push(`::error title=Tipos: MATADO POR EL SISTEMA${errores > 0 ? ' y ERRORES DE TIPOS' : ' (no son errores de tipos)'}::El tsc murió por ${signal ?? `código ${status}`} con el tope de ${miles(topeMb)} MB sobre ${miles(ramMb)} MB de RAM: el sistema se quedó sin memoria física.${errores > 0 ? ` Además ${realesCorto}` : ''}`);
   } else {
     codigo = SALIDA_SIN_TIPOS;
     palabra = 'SIN VEREDICTO';
-    lineas.push(`Tipos: SIN VEREDICTO — el tsc salió con ${signal ?? `código ${status}`} a los ${Math.round(segundos)} s y sin ninguna línea «error TS»: no hay un error de tipos que corregir. Mirá la cola del log.`);
-    anotaciones.push(`::error title=Tipos: sin veredicto::El tsc salió con ${signal ?? `código ${status}`} y sin errores de tipos: no hay veredicto. Mirá el log.`);
+    lineas.push(
+      errores > 0
+        ? `Tipos: SIN VEREDICTO — una tanda salió con ${signal ?? `código ${status}`} a los ${Math.round(segundos)} s sin ninguna línea «error TS» y no llegó a un veredicto. Mirá la cola del log.`
+        : `Tipos: SIN VEREDICTO — el tsc salió con ${signal ?? `código ${status}`} a los ${Math.round(segundos)} s y sin ninguna línea «error TS»: no hay un error de tipos que corregir. Mirá la cola del log.`,
+      ...(errores > 0 ? [reales] : []),
+    );
+    anotaciones.push(`::error title=Tipos: sin veredicto${errores > 0 ? ' y ERRORES DE TIPOS' : ''}::${errores > 0 ? `Una tanda salió con ${signal ?? `código ${status}`} y sin errores de tipos: no hay veredicto de esa tanda. Además ${realesCorto}` : `El tsc salió con ${signal ?? `código ${status}`} y sin errores de tipos: no hay veredicto. Mirá el log.`}`);
   }
   const resumen = [
     `**Tipos: ${palabra}** · ${Math.round(segundos)} s`,
@@ -213,11 +228,12 @@ export function raicesPedidas(env) {
 
 /**
  * Los argumentos de node + el driver de tandas (scripts/tipos-por-tandas.mjs). El `--expose-gc` es lo que hace que «Memory used» sea la memoria VIVA.
- * @param {{ topeMb: number, script: string, i: number, K: number, extra?: string[], raices?: boolean }} a
+ * Con `raices`, `orden` es el archivo donde la primera tanda deja el orden del programa entero y las demás lo leen (el reparto va en ESE orden: ver tipos-por-tandas.mjs).
+ * @param {{ topeMb: number, script: string, i: number, K: number, extra?: string[], raices?: boolean, orden?: string | null }} a
  * @returns {string[]}
  */
-export function argumentosDeTanda({ topeMb, script, i, K, extra = [], raices = false }) {
-  return [`--max-old-space-size=${topeMb}`, '--expose-gc', script, ...(raices ? ['--raices'] : []), ...extra, '--tanda', `${i}/${K}`];
+export function argumentosDeTanda({ topeMb, script, i, K, extra = [], raices = false, orden = null }) {
+  return [`--max-old-space-size=${topeMb}`, '--expose-gc', script, ...(raices ? ['--raices', ...(orden ? ['--orden', orden] : [])] : []), ...extra, '--tanda', `${i}/${K}`];
 }
 
 /**
@@ -294,9 +310,12 @@ async function main() {
     const script = join(raiz, 'scripts', 'tipos-por-tandas.mjs');
     const hechas = [];
     let ultima = { status: /** @type {number | null} */ (null), signal: /** @type {string | null} */ (null) };
+    // El orden del programa entero, calculado por la primera tanda y leído por las demás: una carpeta de la corrida, que se borra al terminar.
+    const carpetaOrden = raices ? mkdtempSync(join(tmpdir(), 'tipos-orden-')) : null;
+    const orden = carpetaOrden ? join(carpetaOrden, 'orden.json') : null;
     for (let i = 1; i <= K; i++) {
       process.stdout.write(`\n── tanda ${i}/${K} ──\n`);
-      const r = await correrTsc({ topeMb, tsc, args: argumentosDeTanda({ topeMb, script, i, K, extra: process.argv.slice(2), raices }), cwd: raiz });
+      const r = await correrTsc({ topeMb, tsc, args: argumentosDeTanda({ topeMb, script, i, K, extra: process.argv.slice(2), raices, orden }), cwd: raiz });
       const clase = r.fallo ? { estado: 'sin-chequear' } : clasificar({ status: r.status, signal: r.signal, salida: r.salida });
       const estadisticas = leerEstadisticas(r.salida);
       hechas.push({ clase, segundos: r.segundos, estadisticas, lineasDeError: r.salida.split('\n').map((l) => l.trim()).filter((l) => /error TS\d+/.test(l)) });
@@ -305,6 +324,7 @@ async function main() {
       // Una tanda que no llegó a un veredicto (sin memoria, matada, muda) no se compensa con las otras: se corta ahí, que son minutos de runner.
       if (['sin-memoria', 'matado', 'sin-chequear'].includes(clase.estado)) break;
     }
+    if (carpetaOrden) rmSync(carpetaOrden, { recursive: true, force: true });
     const j = juntarTandas(hechas);
     v = veredictoDeTipos({ estado: j.estado, errores: j.errores, segundos: j.segundos, topeMb, ramMb, cpu, estadisticas: j.estadisticas, status: ultima.status, signal: ultima.signal, tandas: K, tandaFallida: j.tandaFallida, raices });
   }

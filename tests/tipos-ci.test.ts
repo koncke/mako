@@ -23,7 +23,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -235,6 +235,7 @@ function correrCli(dir: string, env: Record<string, string> = {}) {
   delete e.NODE_TEST_CONTEXT;
   if (!('TIPOS_HEAP_MB' in env)) delete e.TIPOS_HEAP_MB;
   if (!('TIPOS_TANDAS' in env)) delete e.TIPOS_TANDAS;     // el entorno de afuera no cambia el paso que se prueba
+  if (!('TIPOS_RAICES' in env)) delete e.TIPOS_RAICES;
   const r = spawnSync(process.execPath, [CLI, '-p', join(dir, 'tsconfig.json')], { encoding: 'utf8', env: e, timeout: 120_000 });
   let md = '';
   try { md = readFileSync(resumen, 'utf8'); } catch { /* sin resumen */ }
@@ -312,6 +313,9 @@ test('argumentosDeTanda: el tope y --expose-gc son de node (van antes del script
   const r = argumentosDeTanda({ topeMb: 6144, script: 'ruta/tandas.mjs', i: 2, K: 4, extra: ['-p', 'x.json'], raices: true });
   assert.deepEqual(r, ['--max-old-space-size=6144', '--expose-gc', 'ruta/tandas.mjs', '--raices', '-p', 'x.json', '--tanda', '2/4'], 'con raíces el driver recibe --raices (después del script, que es donde lo lee)');
   assert.ok(!argumentosDeTanda({ topeMb: 6144, script: 's.mjs', i: 1, K: 2 }).includes('--raices'), 'sin pedirlo, no');
+  const o = argumentosDeTanda({ topeMb: 6144, script: 'ruta/tandas.mjs', i: 3, K: 4, raices: true, orden: '/tmp/orden.json' });
+  assert.deepEqual(o, ['--max-old-space-size=6144', '--expose-gc', 'ruta/tandas.mjs', '--raices', '--orden', '/tmp/orden.json', '--tanda', '3/4'], 'con raíces, el archivo donde las tandas comparten el orden del programa');
+  assert.ok(!argumentosDeTanda({ topeMb: 6144, script: 's.mjs', i: 1, K: 2, orden: '/tmp/orden.json' }).includes('--orden'), 'sin raíces el orden no hace falta (cada tanda ya tiene el programa entero)');
 });
 
 test('raicesPedidas: sólo TIPOS_RAICES=1 lo enciende (cualquier otra cosa es el programa entero por tanda)', () => {
@@ -369,6 +373,24 @@ test('veredictoDeTipos con tandas: la línea TIPOS-MEDIDA suma tandas= y base_mb
   assert.match(v.resumen.join('\n'), /\| Tandas \| 3: pico por tanda 3\.300 MB, piso \(programa atado\) 1\.800 MB \|/);
 });
 
+test('veredictoDeTipos: si una tanda murió pero otras terminaron con errores REALES, los errores se dicen (no «no hay nada que corregir»)', () => {
+  const e = { archivos: 7723, tipos: null, instanciaciones: null, simbolos: null, vivoMb: 5900, baseMb: 1800, chequeados: null, chequeoS: 90, totalS: null };
+  for (const estado of ['sin-memoria', 'matado', 'sin-chequear']) {
+    const con = veredictoDeTipos({ estado, errores: 3, segundos: 90, topeMb: 6144, ramMb: 7941, estadisticas: e, tandas: 4, tandaFallida: 2, signal: 'SIGKILL', status: 1 });
+    const texto = `${con.lineas.join('\n')}\n${con.anotaciones.join('\n')}`;
+    assert.equal(con.codigo, SALIDA_SIN_TIPOS, `${estado}: sigue siendo 98, nunca 0 ni 1`);
+    // En el log (las líneas) Y en la anotación de GitHub: son dos lugares que se leen por separado.
+    for (const [donde, t] of [['las líneas del log', con.lineas.join('\n')], ['la anotación', con.anotaciones.join('\n')]] as const) {
+      assert.match(t, /3 error\(es\) de tipos REALES en las tandas que terminaron/, `${estado}: ${donde} dice cuántos`);
+      assert.match(t, /esos SÍ se corrigen|esos sí se corrigen/, `${estado}: ${donde} dice que esos sí se corrigen`);
+    }
+    assert.doesNotMatch(texto, /No hay nada que corregir en el código|no hay un error de tipos que corregir|Qué hacer: no corregir código/, `${estado}: no manda a «no corregir» con errores reales arriba`);
+    const sin = veredictoDeTipos({ estado, errores: 0, segundos: 90, topeMb: 6144, ramMb: 7941, estadisticas: e, tandas: 4, tandaFallida: 2, signal: 'SIGKILL', status: 1 });
+    assert.doesNotMatch(`${sin.lineas.join('\n')}${sin.anotaciones.join('\n')}`, /REALES/, `${estado}: sin errores no inventa ninguno`);
+  }
+  assert.match(veredictoDeTipos({ estado: 'sin-memoria', errores: 0, segundos: 90, topeMb: 6144, ramMb: 7941, tandas: 4, tandaFallida: 1 }).lineas.join('\n'), /NO son errores de tipos/, 'y sin errores reales el mensaje de siempre');
+});
+
 test('leerEstadisticas lee también el piso (Base memory used) y los archivos chequeados de una tanda', () => {
   const e = leerEstadisticas('Files:  7723\nFiles checked:  2500\nBase memory used:  1887436K\nMemory used:  3250000K\n');
   assert.equal(e.baseMb, 1800);
@@ -412,6 +434,31 @@ test('de punta a punta con TIPOS_TANDAS=3 y TIPOS_RAICES=1: los mismos dos error
     assert.doesNotMatch(sin.out, /raices=1|SUS raíces/, 'sin pedirlas, no hay raíces');
     assert.deepEqual(raicesPorTanda(sin.out), ['3', '3', '3'], 'y sin pedirlas cada tanda ata los tres archivos, como siempre');
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('de punta a punta con TIPOS_TANDAS=4 (con y sin raíces): una instanciación profunda (TS2589) que el checker cachea en otro archivo NO da «OK» — la repro del Cerebro, 21/10/2026', () => {
+  const rel = (n: number) => `//${'x'.repeat(n)}\n`;
+  const dir = proyectoVarios({
+    'a_g1.ts': `import { v1 } from './b_h1'; export const g1 = v1;\n${rel(140)}`,
+    'a_h0.ts': `import type { Rec } from './d_rec';\nexport const v0 = [null! as Rec<2000>][0];\n${rel(118)}`,
+    'b_g2.ts': `import { v0 } from './a_h0'; export const g2 = v0;\n${rel(140)}`,
+    'b_h1.ts': `import type { Rec } from './d_rec';\nexport const v1 = [null! as Rec<2000>][0];\n${rel(118)}`,
+    'c_1.ts': `export const c1 = 1;\n${rel(170)}`,
+    'c_2.ts': `export const c2 = 2;\n${rel(170)}`,
+    'd_1.ts': `export const d1 = 3;\n${rel(170)}`,
+    'd_rec.ts': `export type Rec<N extends number, A extends unknown[] = []> = A['length'] extends N ? A : Rec<N, [...A, 0]>;\n${rel(88)}`,
+  });
+  const tmp = mkdtempSync(join(tmpdir(), 'tipos-ci-tmp-'));
+  try {
+    for (const env of [{ TIPOS_TANDAS: '4' }, { TIPOS_TANDAS: '4', TIPOS_RAICES: '1', TEMP: tmp, TMP: tmp, TMPDIR: tmp }]) {
+      const r = correrCli(dir, env);
+      assert.equal(r.status, 1, `${JSON.stringify(env)}: el tsc da exit 2 y esto tiene que dar ERRORES DE TIPOS (exit 1), no OK:\n${r.out}${r.err}`);
+      assert.match(r.out, /error TS2589/);
+      assert.match(r.out, /Tipos: ERRORES DE TIPOS/);
+      assert.doesNotMatch(r.out, /Tipos: OK/);
+    }
+    assert.deepEqual(readdirSync(tmp), [], 'la carpeta del orden del programa (TIPOS_RAICES) se borra al terminar');
+  } finally { rmSync(dir, { recursive: true, force: true }); rmSync(tmp, { recursive: true, force: true }); }
 });
 
 test('de punta a punta con TIPOS_TANDAS=3: un proyecto sano da exit 0 y mide el pico y el piso', () => {

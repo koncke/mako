@@ -6738,7 +6738,7 @@ Es una predicción, no una medición: `scripts/medir-tipos.mjs` la mide (experim
 **Cómo está hecho el problema** (por qué se puede repartir): el `tsc` crea UN programa y UN `TypeChecker`, y el verificador no suelta nada de lo que instancia mientras chequea los 7.723 archivos. La memoria viva es
 **piso** (programa creado y atado: parsear y atar todo, no se puede repartir) **+ lo que se instancia al chequear** (eso sí). `scripts/tipos-por-tandas.mjs` crea el programa entero y chequea sólo un pedazo de los archivos
 (`program.getSemanticDiagnostics(archivo)`, contiguos en el orden de las rutas y balanceados por tamaño de fuente: los archivos de una carpeta comparten imports). Las K tandas corren **de a una** (la RAM del runner no da para dos),
-y su unión es lo que dice el tsc: cada archivo se chequea en exactamente una tanda. El pico por proceso baja hacia `piso + resto/K` — si los tipos que cada tanda instancia no se solapan casi todos.
+y su unión es lo que dice el tsc **salvo lo que el checker cachea (ver «El checker cachea un error y lo atribuye a otro archivo», más abajo; lo escribí sin ese matiz y la revisión del 21/10 lo refutó)**: cada archivo se chequea en exactamente una tanda. El pico por proceso baja hacia `piso + resto/K` — si los tipos que cada tanda instancia no se solapan casi todos.
 
 **Qué se probó y qué NO** (tests/tipos-por-tandas.test.ts, tests/tipos-ci.test.ts):
 - **Equivalencia con el tsc, con el tsc de verdad como oráculo:** sobre un proyecto con errores en tres carpetas, para K = 1, 2, 3 y 5 la unión de las tandas da EXACTAMENTE las líneas de error del tsc; lo mismo con un error de sintaxis
@@ -6806,7 +6806,7 @@ llega al 80 % del tope (el aviso) en ~2 semanas y al tope en ~4. Con 3 tandas, e
   el error sale una sola vez); un `.json` no da errores y no cuenta. ⚠️ Un `.ts` de `node_modules` **sí** lo chequea el tsc (medido con el tsc de verdad: `main: index.ts` con un error de tipos lo reporta), así que tampoco se excluye. El driver imprime `EXTRA <ruta>` por cada uno y la fila `Extra files checked`; el medidor cuenta chequeados + extras sin repetir (por nombre) contra los del chequeo entero y grita `COBERTURA DISTINTA` si no coinciden.
 - **`--pesos`** (el reparto por COSTO): `tandas-1 --medir --costos-out` escribe cuántos tipos creó el chequeo de cada archivo; `--pesos` reparte con eso (más el tamaño, un tipo cada 300 bytes; un archivo nuevo pesa el promedio). Variantes medidas: `tandas-4-balanceadas`, `tandas-4-raices`,
   `tandas-4-raices-balanceadas` y `tandas-3-raices-balanceadas` (¿alcanza con una tanda menos, que son ~35 s menos por run?). Para usarlo en integracion.yml haría falta COMMITEAR el json de costos (queda viejo con el tiempo: el reparto sigue siendo válido, sólo menos parejo); no se decide antes de ver el número.
-Todo con el tsc como oráculo (`--raices` y `--pesos`, K = 1 a 5: la unión de las tandas da exactamente las líneas del tsc) y 23 roturas, 23 rojas.
+Todo con el tsc como oráculo (`--raices` y `--pesos`, K = 1 a 5: la unión de las tandas da exactamente las líneas del tsc **en errores que dependen de un solo archivo**; lo que el checker cachea es otra historia: ver abajo) y 23 roturas, 23 rojas.
 
 **Resultado de la segunda medición** (run 39616608454, runner de 2 CPU y 7.932 MB, tope 6.144):
 
@@ -6822,10 +6822,43 @@ Todo con el tsc como oráculo (`--raices` y `--pesos`, K = 1 a 5: la unión de l
 - Margen (estimación, no medida): el programa crecía ~1 GB de memoria viva por semana en total; repartido en 4 tandas son del orden de 250-300 MB por semana por tanda, y el aviso del 80 % (4.915 MB) queda a unos dos meses de los 2.595 de hoy. Con 3 tandas por raíces (3.064) el margen es menor (~6-7 semanas): no vale ahorrar una tanda.
 
 **Decisión (21/10 tarde):** `TIPOS_TANDAS=4` + `TIPOS_RAICES=1` en el paso «Tipos» de integracion.yml, **una vez que el medidor dé cobertura ✔ en Actions** con la regla de los extras (un run corto de `medir-tipos` con `tandas-1`, `tandas-4` y `tandas-4-raices`). Antes de eso, la unión de las tandas por raíces
-da EXACTAMENTE las líneas del tsc en los proyectos de prueba (K = 1 a 5, con un declare global, un script, un `.d.ts`, un `.ts` fuera del `include`, un `.mjs` con `checkJs`, un `.json` y un `.ts` de un paquete), pero «en el repo real» sólo lo dice el medidor.
+da las líneas del tsc en los proyectos de prueba (K = 1 a 5, con un declare global, un script, un `.d.ts`, un `.ts` fuera del `include`, un `.mjs` con `checkJs`, un `.json` y un `.ts` de un paquete), pero «en el repo real» sólo lo dice el medidor.
+**Y las raíces frente a lo que el checker cachea (ver «El checker cachea un error…», más abajo):** cada tanda arma su propio programa, así que el archivo dueño de un error no se chequea en el mismo programa que lo dispara; se midió con las dos repros del Cerebro (TS2589 y TS2303, K = 2 a 5): repartiendo en el orden del programa
+entero no se pierde ninguno (el TS2589 sale en el mismo archivo y línea que el tsc; el TS2303, dentro de un ciclo, puede salir en el otro archivo del ciclo). Con las candidatas ordenadas por nombre la prueba da rojo (probado rompiéndolo).
 
 **Sin hacer:** el run corto de `medir-tipos` (lo sube el Cerebro) y, con el ✔, encender `TIPOS_RAICES`; project references sólo si el piso por tanda vuelve a acercarse al 70 %.
 
+
+## El checker cachea un error y lo atribuye a OTRO archivo: repartir el chequeo en tandas lo pierde, y el paso decía «OK» (21/10/2026, revisión del Cerebro)
+
+**El síntoma:** con `TIPOS_TANDAS=4`, `node scripts/tipos-ci.mjs` imprimía **«Tipos: OK»** y salía 0 sobre un proyecto de 8 archivos donde el tsc daba exit 2 (TS2589, y con otra repro TS2303). Vercel tiene `typescript.ignoreBuildErrors: true`:
+con las tandas encendidas, el único chequeo de tipos de CI podía dar verde sobre un error real.
+
+**Dónde vive:** `scripts/tipos-por-tandas.mjs`, el orden en que se reparte y se chequea. Lo que decía mi propia documentación («la unión de lo que dicen es lo que diría el tsc», «da EXACTAMENTE las líneas del tsc») estaba probado sólo con errores que dependen
+de UN archivo.
+
+**El diagnóstico obvio —«cada archivo se chequea en una tanda, así que no se pierde nada»— era el equivocado.** TypeScript calcula algunos errores de forma perezosa y los CACHEA, y los atribuye al **primer sitio que dispara el cálculo**: TS2589 (una
+instanciación excesivamente profunda: `Rec<2000>` queda cacheado como `errorType` y el segundo sitio que lo usa ya no da error) y TS2303 (un alias de re-export circular). Si ese primer sitio es de un archivo de OTRA tanda, esa tanda lo descarta (el diagnóstico es
+de un archivo que no es suyo) y la dueña ya no lo encuentra, porque el resultado está cacheado. Con el reparto por NOMBRE (`a_g1` pide el tipo de `b_h1`, que es de la tanda siguiente) las dos tandas se descartaban mutuamente el error y la unión quedaba vacía.
+
+**La regla que queda:**
+- **Repartir y chequear en el orden del PROGRAMA** (`program.getSourceFiles()`: el del tsc, cada archivo después de lo que importa), en pedazos contiguos: quien dispara el cálculo importa al dueño, así que viene después en el orden, en la misma tanda o en una posterior,
+  y el dueño ya reportó el error al chequear su propio archivo. Con una sola tanda es el chequeo del tsc en su orden y el error sale en el MISMO archivo y la MISMA línea.
+- Con `--raices` cada tanda arma su propio programa, y el orden del programa ENTERO se calcula UNA vez por corrida (se parsea todo sin atar ni chequear, y `--orden <archivo>` lo comparte con las demás tandas; tipos-ci y medir-tipos lo hacen solos). Dentro de un ciclo de
+  imports el error puede salir en otro archivo de la misma tanda (mismo código, misma cantidad): el recorrido de un ciclo depende de por dónde se entra.
+- La promesa se corrigió en el script, en AGENTS.md y en integracion.yml: **«igual al tsc salvo ciclos de imports raros»**. Un ciclo que cruce tandas puede volver a perder un error: sólo un tsc entero lo garantiza.
+- Las dos repros son tests de punta a punta contra el tsc (K = 1 a 5, con y sin `--raices`, y por `tipos-ci`), probados rompiéndolos.
+
+**El respaldo:** `.github/workflows/tipos-respaldo.yml`, el tsc ENTERO (sin tandas) una vez por semana en Actions, con 10 GB de swap y el tope de heap en 12 GB (no existen runners grandes en una cuenta Free). Un rojo no frena nada: avisa. Cuesta ~12 minutos por corrida y sólo si entró algo a main
+esa semana (~50 al mes de 2.000); a mano (`workflow_dispatch`) corre siempre. ⚠️ No se probó todavía en Actions: la primera corrida a mano dice cuánto tarda con swap (el tsc entero pide ~5 GB vivos y V8 deja crecer el heap por encima de eso).
+
+**Lo demás de la revisión, que se aprovechó:**
+- **Errores reales en una tanda y sin memoria en otra** decía «NO son errores de tipos, no hay nada que corregir» y escondía los errores: `veredictoDeTipos` ahora los muestra (exit 98 igual).
+- **El driver no pedía `getDeclarationDiagnostics`** (el tsc las pide con `noEmit` + `declaration`/`composite`; TS4094 daba exit 0): ahora FALLA (exit 3, con el motivo) si el tsconfig tiene `declaration` o `composite`. Las project references exigen `composite`: ahí hay que agregarlo.
+- **Una opción que el driver no entiende** (`--strict`) se ignoraba en silencio con K > 1 y con el tsc se usaba: ahora es un error (exit 2).
+
+**Sin hacer:** hacer atómicos los componentes fuertemente conexos del grafo de imports (un ciclo nunca se parte entre tandas): cerraría el hueco de los ciclos sin el respaldo, pero un ciclo gigante por barrels desbalancearía las tandas y no se midió cuántos hay.
+Se podría contar en `medir-tipos` (una pasada por `sf.imports`).
 
 ## Una migración sin aplicar no rompe nada si el código la tolera: la 0283 (21/10/2026) y el verificador de sólo lectura
 
@@ -6845,6 +6878,13 @@ filas de clientes ni imprime la URL de conexión. Un test lo fija (toda consulta
 (índices, vistas, triggers, restricciones, RLS, buckets, funciones, 40 columnas, 15 tablas), los 125 detectados**; y saltear la 0283 da exactamente «AUSENTE 0283_mfa_obligatorio.sql — columna:public.workspaces.mfa_obligatorio_desde». En el repo: tests/verificar-migraciones.test.ts
 (el analizador con SQL de mentira, el cruce, la «sólo lectura», que las dos mitades —el analizador y el lector del catálogo— hablen el mismo idioma de claves, y que las 315 reales se entiendan enteras: **ningún DDL queda «sin entender»**; si una migración nueva trae una forma
 que no conoce, el test lo dice antes de que alguien lea un informe incompleto). Probado rompiéndolo: 24 roturas, 24 rojas.
+
+**Revisión del Cerebro (21/10), lo que cambió:** el informe daba **«aplicada» por existir el nombre**, y eso es falso cuando una migración RE-CREA algo que otra ya había creado (`drop constraint` + `add constraint` con el mismo nombre, `create or replace`, `create … if not exists`): el nombre existe por la versión
+vieja aunque la migración nunca haya corrido. Saltear la 0150 (suma `enlace_clip` a un check que ya existía), 0057, 0084, 0177_capa_agencia, 0199 o 0257 salía «aplicada», 0 ausentes, exit 0 — **el diagnóstico obvio («si el nombre está, corrió») era el equivocado**. Ahora un reemplazo se anota
+(`Estado.reemplazos`): su AUSENCIA prueba que no corrió, su presencia no prueba nada, y una migración que sólo reemplaza sale **«SIN VERIFICAR»** (hoy 7 de 315: esas seis y la 0096), con el motivo. Además: las **15 migraciones que no aparecían en el informe** (la 0231 —`security_invoker` de las vistas de cohortes,
+un cierre de seguridad—, 0280, 0319…) se nombran en «SIN NADA QUE VERIFICAR», y `security_invoker` de una vista se espera en el catálogo (`pg_class.reloptions`): saltear la 0231 ahora sale AUSENTE. Y los bajos: las migraciones se leen de la carpeta del SCRIPT (desde `C:/dev/mako-api`, una rama del 9/10, leía 240 y no veía la 0283),
+`storage.buckets` se pregunta (`to_regclass` + permisos) en vez de atrapar el error (dentro de `sql.begin` un `select` fallido tira abajo toda la corrida aunque el `try/catch` lo trague), `--json` y `--desde` valen en cualquier posición (`indexOf(…) > 0` los ignoraba si iban primeros) y un argumento que no entiende es un error,
+un `)` entre comillas ya no corta la lista de columnas y un renombre de índice/restricción/trigger/vista va a «sin entender». **Sigue sin correrse en producción: necesita el permiso de Martín.**
 
 **Lo que NO mira (el informe lo dice al final):** los datos que una migración siembra (`insert`/`update`, 81 sentencias en 58 migraciones: planes, plantillas, filas), `grant`/`revoke` (eso lo mide `scripts/medir-funciones-publicas.mjs`), `comment on`, el DDL armado con
 `execute format(...)` y lo que está dentro de un `DO` (ahí es condicional). **Cómo leer un «AUSENTE» o «A MEDIAS» en producción:** es una pista fuerte, no una sentencia: un cambio hecho a mano en el editor de Supabase (un renombre, un drop) también lo produce, y una migración reemplazada por otra

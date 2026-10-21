@@ -22,7 +22,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { BYTES_POR_PESO, bloqueEstadisticas, chequearTanda, esRaizAmbiente, leerPesos, leerTanda, pesoDe, repartir } from '../scripts/tipos-por-tandas.mjs';
+import { BYTES_POR_PESO, argumentosInvalidos, bloqueEstadisticas, chequearTanda, esRaizAmbiente, leerPesos, leerTanda, ordenDelPrograma, ordenarPorPrograma, pesoDe, repartir } from '../scripts/tipos-por-tandas.mjs';
 import { leerEstadisticas, tandasPedidas } from '../scripts/tipos-ci.mjs';
 import { aplicarSinLiteralesGrandes, experimentos, leerProceso, resumenDeMedicion, sinLiteralesGrandes, tsconfigsDeMedicion, tsconfigsPartidos } from '../scripts/medir-tipos.mjs';
 
@@ -458,6 +458,137 @@ test('con skipLibCheck: false el tsc SÍ chequea un .d.ts, y las tandas también
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+// ⚠️ LO QUE EL CHECKER CACHEA (revisión del 21/10/2026, repros del Cerebro): TypeScript calcula algunos errores de forma perezosa y los cachea, y los atribuye al PRIMER sitio que dispara el cálculo. Si ese
+// sitio está en un archivo de OTRA tanda, esa tanda lo descarta (no es suyo) y la tanda dueña ya no lo encuentra: la unión da menos errores que el tsc y el paso dice «OK». Pasó con TS2589 (una instanciación
+// profunda, que este repo ya tuvo con supabase-js) y con TS2303 (un alias de re-export circular). El arreglo es chequear en el orden del PROGRAMA (el del tsc: las dependencias primero), que reparte en
+// pedazos contiguos de ese orden: el primer sitio que dispara el cálculo es siempre del mismo pedazo o de uno anterior, y el dueño lo reporta al chequear su propio archivo.
+const RELLENO = (n: number) => `//${'x'.repeat(n)}\n`;     // pesa lo mismo cada archivo: K = 4 los reparte de a dos, como en la repro
+const PROFUNDO: Record<string, string> = {
+  'a_g1.ts': `import { v1 } from './b_h1'; export const g1 = v1;\n${RELLENO(140)}`,
+  'a_h0.ts': `import type { Rec } from './d_rec';\nexport const v0 = [null! as Rec<2000>][0];\n${RELLENO(118)}`,
+  'b_g2.ts': `import { v0 } from './a_h0'; export const g2 = v0;\n${RELLENO(140)}`,
+  'b_h1.ts': `import type { Rec } from './d_rec';\nexport const v1 = [null! as Rec<2000>][0];\n${RELLENO(118)}`,
+  'c_1.ts': `export const c1 = 1;\n${RELLENO(170)}`,
+  'c_2.ts': `export const c2 = 2;\n${RELLENO(170)}`,
+  'd_1.ts': `export const d1 = 3;\n${RELLENO(170)}`,
+  'd_rec.ts': `export type Rec<N extends number, A extends unknown[] = []> = A['length'] extends N ? A : Rec<N, [...A, 0]>;\n${RELLENO(88)}`,
+};
+const ALIAS_CIRCULAR: Record<string, string> = {
+  'a_imp.ts': `import { x } from './bb2'; export const u = x;\n${RELLENO(150)}`,
+  'aa2.ts': `export { x } from './bb2';\n${RELLENO(160)}`,
+  'b_imp.ts': `import { x } from './aa2'; export const w = x;\n${RELLENO(150)}`,
+  'bb2.ts': `export { x } from './aa2';\n${RELLENO(160)}`,
+  'c_1.ts': `export const c_1 = 1;\n${RELLENO(170)}`,
+  'c_2.ts': `export const c_2 = 1;\n${RELLENO(170)}`,
+  'd_1.ts': `export const d_1 = 1;\n${RELLENO(170)}`,
+  'd_2.ts': `export const d_2 = 1;\n${RELLENO(170)}`,
+};
+
+for (const [nombre, archivos, codigo] of [['TS2589 (instanciación profunda)', PROFUNDO, 'TS2589'], ['TS2303 (alias de re-export circular)', ALIAS_CIRCULAR, 'TS2303']] as const) {
+  test(`un error que el checker cachea y atribuye a OTRO archivo, ${nombre}, no se pierde al repartir: ninguna tanda lo da por bueno (con o sin raíces) y con una sola tanda es el del tsc`, () => {
+    const dir = proyecto(archivos);
+    try {
+      const oraculo = tscReal(dir);
+      assert.equal(oraculo.codigo, 2, 'el tsc de verdad sale 2');
+      assert.ok(oraculo.lineas.some((l) => l.includes(codigo)), `el tsc da ${codigo}: ${oraculo.lineas.join(' | ')}`);
+      const una = porTandasCon(dir, 1, []);
+      assert.deepEqual(una.lineas, oraculo.lineas, 'con una sola tanda se chequea en el orden del tsc y el error sale en el MISMO archivo y la MISMA línea');
+      // Los códigos de error con su cantidad: «TS2303 ×1». Con raíces, dentro de un CICLO de imports el error puede salir en otro archivo de la misma tanda (el recorrido de un ciclo depende de por dónde se
+      // entra, y cada tanda arma su programa con otras raíces): mismo código y misma cantidad, otro archivo. Lo que no puede pasar es que falte.
+      const cuenta = (lineas: string[]) => { const m = new Map<string, number>(); for (const l of lineas) { const c = /error (TS\d+)/.exec(l)?.[1] ?? '?'; m.set(c, (m.get(c) ?? 0) + 1); } return m; };
+      const faltanCodigos = (lineas: string[]) => [...cuenta(oraculo.lineas)].filter(([c, n]) => (cuenta(lineas).get(c) ?? 0) < n).map(([c]) => c);
+      for (const K of [2, 3, 4, 5]) {
+        for (const modo of [[], ['--raices']]) {
+          const r = porTandasCon(dir, K, modo);
+          const donde = `K=${K} ${modo.join(' ') || 'entero'}`;
+          if (modo.length === 0) assert.deepEqual(oraculo.lineas.filter((l) => !r.lineas.includes(l)), [], `${donde}: la unión perdió una línea del tsc (códigos de salida ${r.codigos})`);
+          assert.deepEqual(faltanCodigos(r.lineas), [], `${donde}: a los errores de las tandas les falta un código que el tsc da (códigos de salida ${r.codigos})`);
+          assert.ok(r.codigos.includes(2), `${donde}: alguna tanda sale 2, como el tsc`);
+        }
+      }
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+}
+
+test('ordenarPorPrograma: en el orden que dice el programa (no por nombre) y lo que no conoce, al final por nombre', () => {
+  assert.deepEqual(ordenarPorPrograma(['b.ts', 'a.ts', 'c.ts'], ['c.ts', 'a.ts', 'x.ts', 'b.ts']), ['c.ts', 'a.ts', 'b.ts'], 'el orden del programa, ignorando lo que sobra');
+  assert.deepEqual(ordenarPorPrograma(['z.ts', 'b.ts', 'a.ts', 'n2.ts', 'n1.ts'], ['z.ts', 'a.ts', 'b.ts']), ['z.ts', 'a.ts', 'b.ts', 'n1.ts', 'n2.ts'], 'un archivo que el programa no conoce (nuevo) va al final, por nombre');
+  assert.deepEqual(ordenarPorPrograma([], ['a.ts']), []);
+});
+
+test('ordenDelPrograma: lo calcula y lo escribe la primera vez; las demás tandas lo leen; si es de otro proyecto o está roto, se recalcula', () => {
+  const dir = proyecto({ 'a.ts': "import { b } from './b';\nexport const a = b;\n", 'b.ts': 'export const b = 1;\n' });
+  try {
+    const cwd = String(ts.sys.getCurrentDirectory());
+    const parseado = ts.getParsedCommandLineOfConfigFile(join(dir, 'tsconfig.json'), {}, { ...ts.sys, onUnRecoverableConfigFileDiagnostic: () => undefined });
+    const sinArchivo = ordenDelPrograma({ ts, parseado, cwd });
+    const nombres = (l: string[]) => l.map((f) => f.replace(/\\/g, '/').split('/').pop());
+    assert.deepEqual(nombres(sinArchivo).filter((n) => /^[ab]\.ts$/.test(n ?? '')), ['b.ts', 'a.ts'], 'el orden del tsc: b.ts (lo que a.ts importa) ANTES que a.ts, aunque por nombre sea al revés');
+    const f = join(dir, 'orden.json');
+    ordenDelPrograma({ ts, parseado, cwd, ordenArchivo: f });
+    const escrito = JSON.parse(readFileSync(f, 'utf8')) as { version: number; cwd: string; archivos: string[] };
+    assert.equal(escrito.version, 1);
+    assert.equal(escrito.cwd, cwd);
+    assert.deepEqual(escrito.archivos, sinArchivo, 'lo que escribe es lo que calculó');
+    writeFileSync(f, JSON.stringify({ version: 1, cwd, archivos: ['/uno', '/otro'] }));
+    assert.deepEqual(ordenDelPrograma({ ts, parseado, cwd, ordenArchivo: f }), ['/uno', '/otro'], 'si el archivo es de este proyecto, lo lee tal cual (no vuelve a parsear)');
+    writeFileSync(f, JSON.stringify({ version: 1, cwd: '/otro/proyecto', archivos: ['/uno'] }));
+    assert.deepEqual(ordenDelPrograma({ ts, parseado, cwd, ordenArchivo: f }), sinArchivo, 'uno de OTRO proyecto se descarta y se recalcula');
+    writeFileSync(f, '{"version":1,"cwd"');
+    assert.deepEqual(ordenDelPrograma({ ts, parseado, cwd, ordenArchivo: f }), sinArchivo, 'uno a medias (la corrida anterior murió escribiendo) también');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('el CLI con --raices --orden: la primera tanda escribe el orden del programa y las demás lo LEEN (el reparto sigue el archivo)', () => {
+  const dir = proyecto({ 'a.ts': "export const a: number = 'x';\n", 'b.ts': 'export const b = 1;\n', 'c.ts': 'export const c = 2;\n', 'd.ts': "export const d: number = 'y';\n" });
+  try {
+    const f = join(dir, 'orden.json');
+    const tanda1 = () => correr(dir, ['--expose-gc', TANDAS, '-p', 'tsconfig.json', '--tanda', '1/2', '--raices', '--orden', f]);
+    const primera = tanda1();
+    assert.match(primera.stdout, /a\.ts.*TS2322/, `la tanda 1 de 2 chequea a.ts y b.ts (el orden del programa es el de los nombres acá): ${primera.stdout}${primera.stderr}`);
+    assert.doesNotMatch(primera.stdout, /d\.ts.*TS2322/);
+    const escrito = JSON.parse(readFileSync(f, 'utf8')) as { version: number; cwd: string; archivos: string[] };
+    assert.equal(escrito.version, 1, 'la primera tanda dejó el orden en el archivo');
+    const rutas = escrito.archivos.filter((a) => /[\\/][abcd]\.ts$/.test(a)).map((a) => a.replace(/^.*[\\/]/, ''));
+    assert.deepEqual(rutas, ['a.ts', 'b.ts', 'c.ts', 'd.ts']);
+    // Si la segunda tanda LEE el archivo, un orden dado vuelta le da otro pedazo: la tanda 1 pasa a ser d.ts y c.ts.
+    writeFileSync(f, JSON.stringify({ ...escrito, archivos: [...escrito.archivos].reverse() }));
+    const dada = tanda1();
+    assert.match(dada.stdout, /d\.ts.*TS2322/, `con el orden dado vuelta la tanda 1 chequea d.ts: ${dada.stdout}${dada.stderr}`);
+    assert.doesNotMatch(dada.stdout, /a\.ts.*TS2322/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('argumentosInvalidos: lo que el driver no entiende se dice (con el tsc se usaría; acá no se ignora en silencio) y el CLI sale 2', () => {
+  assert.deepEqual(argumentosInvalidos(['-p', 'x.json', '--tanda', '1/4', '--raices', '--orden', 'o.json', '--pesos', 'p.json', '--medir', '--costos-out', 'c.json']), []);
+  assert.deepEqual(argumentosInvalidos(['--strict']), ['--strict'], 'una opción del tsc que el driver no aplica');
+  assert.deepEqual(argumentosInvalidos(['-p']), ['-p (sin valor)'], 'una que pide valor y no lo trae');
+  assert.deepEqual(argumentosInvalidos(['--tanda', '--raices']), ['--tanda (sin valor)'], 'ni lo toma de la opción que sigue');
+  const dir = proyecto({ 'a.ts': 'export const a = 1;\n' });
+  try {
+    const r = correr(dir, ['--expose-gc', TANDAS, '-p', 'tsconfig.json', '--strict']);
+    assert.equal(r.status, 2, `${r.stdout}${r.stderr}`);
+    assert.match(r.stderr, /argumento\(s\) que no entiendo: --strict/);
+    assert.equal(correr(dir, ['--expose-gc', TANDAS, '-p', 'tsconfig.json']).status, 0, 'y sin el argumento de más anda');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('con `declaration` o `composite` el driver FALLA (exit 3, y lo dice): el tsc pide además getDeclarationDiagnostics y las tandas darían OK donde el tsc da error', () => {
+  const archivos = { 'a.ts': 'export function mk() { return class { private p = 1; }; }\n' };
+  for (const opcion of [{ declaration: true }, { composite: true }]) {
+    const dir = proyecto(archivos, { ...TSCONFIG, compilerOptions: { ...TSCONFIG.compilerOptions, ...opcion } });
+    try {
+      const tsc = tscReal(dir);
+      assert.equal(tsc.codigo, 2, `el tsc de verdad da error con ${JSON.stringify(opcion)}: ${tsc.lineas.join(' | ')}`);
+      assert.ok(tsc.lineas.some((l) => l.includes('TS4094')), 'TS4094: la clase anónima con miembros privados que no se puede declarar');
+      const r = correr(dir, ['--expose-gc', TANDAS, '-p', 'tsconfig.json']);
+      assert.equal(r.status, 3, `${JSON.stringify(opcion)}: ${r.stdout}${r.stderr}`);
+      assert.match(r.stderr, /`declaration` o `composite`/);
+      assert.equal(lineasDeError(r.stdout).length, 0, 'y no dice «OK» ni imprime nada que parezca un resultado');
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }
+});
+
 test('el programa por raíces SIN los ambientes daría errores que el tsc no da (por eso se agregan siempre): se ve rompiendo la regla', () => {
   const dir = proyecto(AMBIENTES);
   try {
@@ -526,6 +657,29 @@ test('el paso «Tipos» de integracion.yml pide las TANDAS que se midieron (4) y
   assert.doesNotMatch(codigo.replace(paso, ''), /TIPOS_TANDAS/, 'las tandas son sólo del paso «Tipos»: ningún otro paso las hereda');
 });
 
+test('el tsc de respaldo (tipos-respaldo.yml): UNA vez por semana, barato, sólo lectura, el tsc ENTERO (sin tandas) con swap — y no corre por push ni toca el camino a producción', () => {
+  const wf = readFileSync(join(REPO, '.github', 'workflows', 'tipos-respaldo.yml'), 'utf8').replace(/\r\n/g, '\n');
+  const codigo = wf.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
+  assert.match(codigo, /schedule:\s*\n\s+- cron: '\d+ \d+ \* \* [0-6]'\n/, 'una vez por semana: un día de la semana fijo, no todos los días');
+  assert.equal((codigo.match(/- cron:/g) ?? []).length, 1, 'un solo horario');
+  assert.doesNotMatch(codigo, /^\s{2}(push|pull_request)\b/m, 'nunca por push ni por pull request: los minutos del mes son 2.000');
+  assert.match(codigo, /permissions:\s*\n\s+contents: read/, 'sólo lectura');
+  assert.doesNotMatch(codigo, /contents: write|git push|--force|gh pr|gh api -X/, 'no escribe nada');
+  assert.ok(Number(/timeout-minutes:\s*(\d+)/.exec(codigo)?.[1]) <= 30, 'techo duro de 30 minutos: si se cuelga no se come el mes');
+  assert.match(codigo, /nuevos=.*commits\?sha=main&since=/, 'antes de instalar nada mira si entró algo a main esta semana');
+  assert.match(codigo, /correr=no/, '…y si no entró nada, no corre');
+  assert.doesNotMatch(codigo, /TIPOS_TANDAS|TIPOS_RAICES/, 'es el tsc ENTERO: sin tandas ni raíces (el de las tandas ya corre en cada subida)');
+  assert.ok(Number(/TIPOS_HEAP_MB: '(\d+)'/.exec(codigo)?.[1]) > 8192, 'el tope de heap pasa de la RAM del runner (7,9 GB): hay swap');
+  const orden = ['swapon', 'npx next typegen', 'node scripts/tipos-ci.mjs'].map((x) => codigo.indexOf(x));
+  assert.ok(orden.every((i) => i >= 0), `los tres pasos están: ${orden}`);
+  assert.ok(orden[1] < orden[2] && orden[0] < orden[2], 'los tipos de las rutas y el swap van ANTES del tsc');
+  assert.match(codigo, /exit \$c/, 'el exit del paso es el de tipos-ci: un rojo avisa');
+  const pasos = (codigo.split('\n    steps:\n')[1] ?? '').split('\n      - ').filter(Boolean);
+  assert.ok(pasos.length >= 6, `los pasos: ${pasos.length}`);
+  assert.match(pasos[0], /¿Hubo cambios en la semana\?/, 'el primero es el que mira si hubo cambios');
+  assert.deepEqual(pasos.slice(1).filter((p) => !p.includes("if: steps.cambios.outputs.correr == 'si'")), [], 'todo paso que gasta minutos lleva el `if` de «hubo cambios»: sin cambios en la semana se factura 1 minuto');
+});
+
 // =============================================================================
 // ⚠️ PROBADO ROMPIÉNDOLO (21/10/2026; se rompe UNA pieza, se corren estas pruebas, se restaura): 14 roturas, 14 rojas — dos salieron verdes en la primera pasada y se reforzaron.
 //   el driver (7): un reparto que no es contiguo → 1 · lo semántico que se chequea aunque haya sintaxis rota → 1 · cada tanda que chequea todo → 1 · salir 1 en vez de 2 como el tsc → 1 · la memoria escrita en KiB → 1 ·
@@ -545,4 +699,8 @@ test('el paso «Tipos» de integracion.yml pide las TANDAS que se midieron (4) y
 //     un archivo que es raíz de OTRA tanda y cuenta como extra → 1 (verde la primera vez: ninguna raíz importaba a otra; ahora c.ts importa b.ts) ·
 //     un .d.ts que no cuenta como código → 1 (verde la primera vez Y ERA UN BUG REAL: con `skipLibCheck: false` el tsc chequea los .d.ts y las tandas los dejaban sin chequear; ahora hay un caso con un error en un .d.ts).
 //   la tercera medición (medir-tipos.yml): sin tandas-4-raices → 1 · sin tandas-1 → 1.
+//   EL ORDEN DEL PROGRAMA, --orden, declaration, argumentos y el respaldo semanal (21/10 tarde, revisión del Cerebro: 23 roturas, 23 rojas; 4 salieron verdes la primera vez y se reforzaron):
+//     repartir por nombre en el modo entero → 2 · las candidatas de --raices por nombre → 1 · ordenarPorPrograma que no ordena → 1 y que pone lo desconocido primero → 1 · ordenDelPrograma que no lee el archivo → 1, que lee uno de OTRO proyecto → 1, que no lo escribe → 1 ·
+//     declaration → 1 y composite → 1 que no frenan al driver · un argumento desconocido que se ignora → 1 y uno sin valor → 1 · --orden que no llega al driver → 1 (verde la primera vez: ningún test miraba el archivo; ahora el CLI lo escribe y la segunda tanda lo LEE) ·
+//     el respaldo semanal que corre por push → 1, todos los días → 1, con tandas → 1, sin swap → 1, con permiso de escritura → 1 · tipos-ci que no pasa --orden → 1 y que no borra la carpeta → 1 (tests/tipos-ci.test.ts) · el aviso de OOM/matado/sin veredicto que no dice los errores reales → 3 (verdes la primera vez: el test juntaba el log y la anotación).
 // =============================================================================

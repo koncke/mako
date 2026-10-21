@@ -112,6 +112,10 @@ jobs:
       # (58 %, 227 s). Se eligió 4: con 3 el pico queda justo en el criterio (≤ 60 % del tope) y se pasa en una o dos semanas; las 4 cuestan ~68 s más por run (159 → 227 s) y dejan ~1.200 MB más de aire.
       # El warning del 80 % mira la tanda MÁS PESADA. ⚠️ Es una prórroga de semanas, no la solución: el piso (el programa atado, 47 % del pico) crece con el repo y ninguna cantidad de tandas
       # lo baja. Para volver al tsc de siempre: sacar esta línea (o TIPOS_TANDAS=1).
+      #
+      # ⚠️ Las tandas NO son «lo mismo que el tsc» en todos los casos (revisión del 21/10/2026): el checker cachea algunos errores (TS2589 una instanciación profunda, TS2303 un alias circular) y los atribuye
+      # al primer archivo que los dispara; si ese es de OTRA tanda se perdían y el paso decía «OK» donde el tsc da exit 2 (Vercel tiene ignoreBuildErrors: nada más lo frena). Se reparte en el orden del programa
+      # para evitarlo y las dos repros dan error, pero con un ciclo de imports que cruce tandas puede volver a pasar: es «igual salvo ciclos raros». Sólo un tsc entero lo garantiza: docs/hallazgos-infra.md.
       - name: Tipos
         env:
           TIPOS_TANDAS: '4'

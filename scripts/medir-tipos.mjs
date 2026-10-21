@@ -21,7 +21,7 @@
 // =============================================================================
 
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { cpus, tmpdir, totalmem } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
@@ -243,10 +243,11 @@ export function resumenDeMedicion(resultados, topeMb) {
   return { md: md.join('\n'), filas };
 }
 
-function correr(exp, i, topeMb) {
+/** `orden`: el archivo donde la primera tanda de un experimento por raíces deja el orden del programa entero y las demás lo leen (como en tipos-ci). */
+function correr(exp, i, topeMb, orden = null) {
   const extra = [];
   if (exp.medir) extra.push('--medir', '--costos-out', RUTA_COSTOS);
-  if (exp.raices) extra.push('--raices');
+  if (exp.raices) extra.push('--raices', ...(orden ? ['--orden', orden] : []));
   if (exp.pesos) extra.push('--pesos', RUTA_COSTOS);
   const args = exp.real
     ? [`--max-old-space-size=${topeMb}`, '--expose-gc', TSC, '-p', exp.config, '--noEmit', '--extendedDiagnostics']
@@ -274,6 +275,7 @@ function main(argv) {
   const configs = tsconfigsDeMedicion();
   for (const [nombre, contenido] of Object.entries(configs)) writeFileSync(join(PROYECTO, nombre), JSON.stringify(contenido, null, 2));
   const resultados = [];
+  const carpetaOrden = mkdtempSync(join(tmpdir(), 'medir-tipos-orden-'));
   try {
     for (const exp of experimentos()) {
       if (solo && !solo.has(exp.nombre)) continue;
@@ -287,13 +289,14 @@ function main(argv) {
       }
       try {
         const procesos = [];
-        for (let i = 1; i <= exp.K; i++) procesos.push(correr(exp, i, topeMb));
+        for (let i = 1; i <= exp.K; i++) procesos.push(correr(exp, i, topeMb, exp.raices ? join(carpetaOrden, `${exp.nombre}.json`) : null));
         resultados.push({ nombre: exp.nombre, K: exp.K, nota: exp.nota, procesos });
       } finally { stub?.restaurar(); }
     }
   } finally {
     for (const nombre of Object.keys(configs)) rmSync(join(PROYECTO, nombre), { force: true });
     rmSync(RUTA_COSTOS, { force: true });
+    rmSync(carpetaOrden, { recursive: true, force: true });
   }
   const { md } = resumenDeMedicion(resultados, topeMb);
   process.stdout.write(`\n${md}\n`);
