@@ -688,4 +688,185 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
   },
+  {
+    fecha: '20 oct', hora: '19:10', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Ops Center es lo principal de MaKo: crear webs desde ahí',
+    pedido: 'comienza a implementar directamente toda mi idea de que Ops Center sea lo principal en MaKo... quiero que en Ops Center se pueda hacer todo, editar videos, crear webs, etc...',
+    puntos: [
+      'Llegó por el Cerebro con docs/ops-center-principal.md (el plan por olas) y docs/ops-center-principal/mapa-web-ads.md (las 82 acciones de web y ads).',
+      'A este chat le tocan tres piezas de la ola 1: la 1.12 (la tarjeta de la landing y elegir entre 3), la 1.13 (publicar y conectar el dominio desde el hilo) y la 1.15 (la receta de landing: con un solo producto, «mi otro producto» pregunta cuál).',
+      'Dependen del marco de bloques (1.7), la confirmación adentro (1.10) y los trabajos largos (1.11) del Ops Center 3. Mientras no estén, se adelantan los datos de cada bloque, la receta y los tests. La landing de MaKo de esta semana va primero si choca.',
+    ],
+  },
+  {
+    fecha: '20 oct', hora: '21:20', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Crear webs desde el Ops Center: «mi otro producto» pregunta cuál, y los datos de los bloques',
+    puntos: [
+      'Con un solo producto en el catálogo, «créame una landing para mi otro producto» ya no crea la landing del que hay: MaKo pregunta cuál es el otro, con su nombre y de qué se trata.',
+      'Está listo lo que va a mostrar el chat de una landing: su tarjeta con la miniatura y «Abrir en el editor», elegir entre 3 diseños, temas o formatos, el link publicado y la tabla del dominio con lo que falta.',
+      'Falta que el chat lo dibuje: espera el marco de bloques del Ops Center 3 (pieza 1.7), con quien se está acordando la forma.',
+    ],
+    commits: [
+      { sha: 'a0e95e3bf', msg: 'Ops Center 1.15: «créame una landing para mi otro producto» con un solo producto pregunta cuál', lineas: 181, archivos: 5 },
+      { sha: '66a092ee8', msg: 'Ops Center 1.12 y 1.13: los datos de la tarjeta de la landing, elegir entre 3, publicar y el dominio', lineas: 366, archivos: 2 },
+    ],
+    archivos: [
+      'lib/mako-pedidos.ts — faltaElOtroProducto y pideOtroProducto',
+      'lib/api-mako/areas/landing-editor.run.ts — el guardia en el preparar de generar_landing_con_ia',
+      'lib/doer-recetas.ts — RECETA_LANDING, sólo con las herramientas que crean una landing',
+      'lib/editor-landing/bloques-chat.ts — los datos de cada bloque (puro)',
+      'tests/ops-center-landing-receta.test.ts y tests/ops-center-landing-bloques.test.ts — probados rompiéndolos',
+    ],
+  },
+  {
+    fecha: '20 oct', hora: '22:10', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El chat del Ops Center muestra la landing que crea, el link publicado y el dominio',
+    puntos: [
+      'Cuando confirmas crear, duplicar, generar o replicar una landing, el chat muestra su tarjeta con la miniatura y «Abrir en el editor», sin recargar.',
+      'Al publicar queda el link con Copiar y Abrir. Al conectar un dominio, la tabla de registros DNS con lo que falta, y «Verificar ahora» cambia esa misma tarjeta.',
+      'Elegir entre 3 (diseños, temas, formato de Replicar) ya se dibuja y contesta, pero todavía nada lo muestra solo: espera la herramienta de preguntar del Ops Center 3.',
+      'Va sobre el marco de bloques del Ops Center 3, que todavía no está en main: se integra después de él. Falta verlo con clics en el ws3.',
+    ],
+    commits: [
+      { sha: '3fe9dcac0', msg: 'Ops Center 1.12 y 1.13: la tarjeta de la landing, elegir entre 3, lo publicado y el dominio, en el hilo', lineas: 883, archivos: 8 },
+    ],
+    archivos: [
+      'lib/editor-landing/bloques-web.ts — los tipos y el saneo (liviano: lo carga cada chat)',
+      'app/web-generator/BloqueWeb.tsx — cómo se dibujan, con MiniaturaLanding',
+      'lib/chat-bloques.ts y app/_chat/BloqueHilo.tsx — los enganches en el marco',
+      'lib/api-mako/areas/landing.run.ts y landing-editor.run.ts — `datos.bloque` en cada operación',
+    ],
+    revisar: '/second-brain',
+  },
+  {
+    fecha: '20 oct', hora: '23:40', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Pedirle a MaKo tus landings las muestra con su miniatura, y sin diseño te deja elegir entre 3',
+    puntos: [
+      '«¿Qué landings tengo?» en el Ops Center muestra las últimas cuatro con su miniatura y su estado; tocar una abre su editor, y «Ver todas» lleva al Panel.',
+      '«Armame una landing» sin decir el diseño te muestra tres para elegir (texto y video, video al centro, sólo texto). Lo que eliges le llega a MaKo como tu respuesta.',
+      'Va sobre el camino nuevo del Ops Center 3 (lo que muestra una herramienta llega al hilo sin pasar por la IA), que todavía no está en main. Falta verlo con clics.',
+    ],
+    commits: [
+      { sha: 'dba50f175', msg: 'Ops Center 1.12: listar deja las tarjetas de las landings, y los diseños el «elegir entre 3»', lineas: 176, archivos: 6 },
+    ],
+    archivos: [
+      'lib/api-mako/areas/landing.run.ts — el `bloque` arriba de la salida de listar_landings_creadas y listar_disenos_landing',
+      'lib/editor-landing/bloques-web.ts — el tipo `landings` y su saneo',
+      'app/web-generator/BloqueWeb.tsx — la lista, de a dos por fila',
+    ],
+    revisar: '/second-brain',
+  },
+  {
+    fecha: '20 oct', hora: '22:05', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: el chat del editor de landings deja adjuntar documentos, ya en producción',
+    puntos: [
+      'En producción desde el run 174 (deploy de e0cf9a317): el «+» del Ops Center en el chat del editor, lo adjuntado como material del pedido, el chip de «Lo que vendes» y varios archivos en la caja de crear.',
+      'No se vio con clics: está probado con tests. Se prueba creando o abriendo una landing en el ws3 (no tiene ninguna) y usando el chat de la izquierda.',
+    ],
+    revisar: '/web-generator?ws=3',
+  },
+  {
+    fecha: '20 oct', hora: '23:10', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: '«Créame una landing para mi otro producto»: MaKo pregunta cuál también cuando el pedido trae más palabras',
+    puntos: [
+      'La revisión del Cerebro encontró que la primera versión se equivocaba en los dos sentidos: «una landing de ventas para mi otro producto» se creaba sobre el producto que ya había, y nombrar ese mismo producto la frenaba con un aviso falso.',
+      'Ahora MaKo compara con los nombres de tus productos. Si pides «otro» y no dices cuál, pregunta: con varios, te muestra sus nombres; con uno solo, te pide cuál es el otro. Cuando contestas, aunque sea con una palabra, sigue.',
+      'También se fija en las instrucciones y el título, y entiende «otro de mis productos» y «otro servicio».',
+    ],
+    commits: [
+      { sha: 'd71f85d0d', msg: 'Ops Center 1.15, rehecha tras la revisión: el producto de la landing contra los NOMBRES del catálogo', lineas: 274, archivos: 6 },
+    ],
+    archivos: [
+      'lib/mako-pedidos.ts — productoDeLanding (reemplaza a faltaElOtroProducto) y pideOtroProducto',
+      'lib/api-mako/areas/landing-editor.run.ts y .def.ts — el parámetro `producto` y el guardia del preparar',
+      'lib/api-mako/areas/landing-contenido.helpers.ts — el producto al pedido, con conProducto',
+      'tests/ops-center-landing-receta.test.ts — la batería, un caso por hallazgo de la revisión',
+    ],
+  },
+  {
+    fecha: '21 oct', hora: '00:13', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Una landing «para mi producto nuevo» ya no se arma sobre el producto que tienes',
+    puntos: [
+      'La segunda revisión del Cerebro probó 60 frases reales y encontró dos fallas: si MaKo anotaba el producto como «mi otro producto», creaba igual; y «una landing para un producto nuevo» con un solo producto cargado le pegaba ése.',
+      'Ahora «nuevo», «segundo», «distinto» y «aparte» también cuentan como otro, igual que «mi otro curso» o «mi otra mentoría». Si no dice cuál es, MaKo pregunta.',
+      'Antes de crear, la tarjeta para confirmar dice para qué producto es la landing.',
+      'Tampoco frena por un «no menciones otros productos» en las instrucciones, y «el Curso avanzado» es ése aunque también tengas uno que se llame «Curso».',
+    ],
+    commits: [
+      { sha: '284e0c927', msg: 'Ops Center 1.15, tras la segunda revisión: una referencia en `producto` no salta el guardia', lineas: 492, archivos: 5 },
+    ],
+    archivos: [
+      'lib/mako-pedidos.ts — esReferenciaVaga, pideOtroProducto (destino, sin negar) y productosNombrados (el nombre largo; con «otro», sólo dicho como ése)',
+      'lib/api-mako/areas/landing-editor.run.ts — lo que decide el guardia reemplaza al producto que mandó el modelo',
+      'lib/api-mako/areas/landing-contenido.helpers.ts — el producto adelante en el resumen que se confirma',
+      'tests/ops-center-landing-receta.test.ts — las 60 frases de la revisión y 12 más, 30 roturas en rojo',
+    ],
+  },
+  {
+    fecha: '21 oct', hora: '02:23', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Para crear una landing, MaKo ya no adivina el producto: si no está claro, te pregunta con opciones',
+    puntos: [
+      'La tercera revisión probó unas 200 frases y encontró que MaKo seguía eligiendo mal: «Ya tengo la landing de la Mentoría; créame una para mi otro producto» la armaba sobre la Mentoría.',
+      'Ahora elige solo si nombras un producto de tu catálogo y no hablas de otro. Si no, te pregunta para cuál es: tus productos, «Un producto nuevo» o «El negocio en general».',
+      'Si eliges uno nuevo, te pide su nombre y de qué se trata. La tarjeta para confirmar dice para qué producto queda la landing.',
+      'El chat del editor de landings sigue igual que antes.',
+    ],
+    commits: [
+      { sha: 'bc42804f0', msg: 'Ops Center 1.15: el producto de la landing ya no se adivina; si no es seguro, se pregunta con opciones', lineas: 903, archivos: 7 },
+    ],
+    archivos: [
+      'lib/editor-landing/producto-de-landing.ts — productoDeLanding: elige sólo lo seguro, si no pregunta con opciones',
+      'lib/api-mako/areas/landing-editor.run.ts y .def.ts — el guardia en todo pedido y el parámetro producto_nuevo',
+      'lib/api-mako/areas/landing-contenido.helpers.ts — el producto, uno nuevo o el negocio, adelante en la tarjeta',
+      'lib/mako-pedidos.ts — de vuelta como en producción (el chat del editor)',
+      'tests/ops-center-landing-receta.test.ts — las ~200 frases de las tres revisiones, 42 roturas en rojo',
+    ],
+  },
+  {
+    fecha: '21 oct', hora: '04:37', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Si no le dices para qué producto es la landing, MaKo te pregunta siempre',
+    puntos: [
+      'La revisión probó 44 frases como «créame una landing para mi taller, sin mencionar la Mentoría» y MaKo elegía justo la Mentoría. Ahora no elige por lo que dice el pedido: si no le dices el producto con su nombre, te pregunta cuál, con tus productos, «Un producto nuevo» y «El negocio en general».',
+      'Si todavía no cargaste productos, el nombre que le das queda como un producto nuevo. Y la tarjeta para confirmar dice siempre para qué es, también cuando sale del perfil del negocio.',
+      'Al elegir un diseño en el chat, si MaKo estaba respondiendo, ahora te avisa que no salió en vez de decir «Respondiste». Al recargar, lo que ya elegiste queda elegido.',
+      'Los tres diseños para elegir siguen lo que pediste («una landing oscura» muestra el oscuro) y no aparecen si pides una presentación o ya nombraste el diseño.',
+    ],
+    commits: [
+      { sha: '730894e23', msg: 'Web Generator, revisión de la punta única: el texto no elige el producto, y el G2 con el contrato del G1', lineas: 628, archivos: 12 },
+    ],
+    archivos: [
+      'lib/editor-landing/producto-de-landing.ts — sin la regla del texto; el catálogo vacío o ilegible',
+      'app/web-generator/BloqueWeb.tsx, app/_chat/BloqueHilo.tsx y app/m/mako/chat-ui.ts — el elegir con el contrato del G1',
+      'lib/editor-landing/bloques-chat.ts y lib/api-mako/areas/landing.run.ts — los diseños según el pedido',
+      'tests/ops-center-landing-receta.test.ts y tests/ops-center-landing-bloques.test.ts — 51 roturas en rojo',
+    ],
+  },
+  {
+    fecha: '21 oct', hora: '05:42', chat: 'Web Generator', sesion: 'local_62b18d2c-3bba-49e4-8517-14a7b70d47b4', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Elegir el producto ya no apaga los diseños en el chat',
+    puntos: [
+      'Cuando MaKo te mostraba los diseños y te preguntaba el producto en el mismo mensaje, tocar el producto apagaba también los diseños con «Respondiste» y el producto. Ahora cada uno se contesta con lo suyo.',
+      'Si dos productos tuyos se llaman casi igual («Curso de C» y «Curso de C++»), MaKo ya no confunde uno con otro: si no está claro, pregunta.',
+      'Si MaKo no puede leer tus productos en ese momento, te pide volver a intentar en vez de crear la landing sin el producto que confirmaste.',
+    ],
+    commits: [
+      { sha: 'be32b7022', msg: 'Web Generator, 5ª revisión: una respuesta no cierra dos selectores, y el catálogo por su clave', lineas: 232, archivos: 8 },
+    ],
+    archivos: [
+      'app/m/mako/chat-ui.ts — conRespuestas: cada selector con lo que manda un toque suyo',
+      'lib/editor-landing/bloques-web.ts — lo que manda cada opción del elegir, en un solo lugar',
+      'lib/editor-landing/producto-de-landing.ts — la clave del catálogo, las referencias y reintentar sin catálogo',
+      'lib/doer-recetas.ts — «para qué producto» sólo con generar_landing_con_ia',
+    ],
+  },
 ];

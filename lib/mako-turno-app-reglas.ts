@@ -416,6 +416,18 @@ export function bloquesDelMensaje<B>(dibujos: readonly B[], pregunta: B | null, 
   return [...dibujos.slice(0, Math.max(0, tope - (pregunta ? 1 : 0))), ...(pregunta ? [pregunta] : [])];
 }
 
+/**
+ * ¿Entra un dibujo más en el mensaje? Lo decide `dibujar` (lib/mako-turno-app.ts) ANTES de que la lectura le diga al modelo
+ * «la persona ya lo ve»: recortar al final (`bloquesDelMensaje`) llega tarde. Una LECTURA deja un lugar libre para la
+ * pregunta que el turno puede hacer después (`preguntar_al_usuario` va en todo turno con herramientas): con 4 gráficos y
+ * una pregunta, el cuarto se recortaba después de haber leído «ya lo ve» (la tercera revisión de Dashboard, 21/10/2026).
+ * Lo de una ACCIÓN llega hasta el tope: con una pregunta se retira entero.
+ */
+export function entraOtroDibujo(enElTurno: readonly { accion: boolean }[], accion: boolean, tope: number): boolean {
+  if (enElTurno.length >= tope) return false;
+  return accion || enElTurno.filter((x) => !x.accion).length < tope - 1;
+}
+
 /** Un mensaje que PIDE hacer algo (la intención de lib/mako-intencion.ts): después de él, nada lo respalda todavía. */
 export const esPedido = (intencion: string): boolean => intencion === 'actuar' || intencion === 'confirmar';
 

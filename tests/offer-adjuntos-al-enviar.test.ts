@@ -109,7 +109,8 @@ test('Offer: ELEGIR no llama a subir-url ni a leer; sólo junta en la vista prev
   const chat = sinComentarios(leer('app/offer/ChatOffer.tsx'));
   assert.doesNotMatch(chat, /subirArchivo|llamarOffer/, 'el chat no sube ni lee nada');
   assert.match(chat, /if \(lista\.length\) onArchivos\(lista\);/);
-  assert.match(chat, /if \(!ocupado\) onArchivos\(Array\.from\(e\.dataTransfer\.files\)\);/);
+  // Con sólo texto (el arranque pregunta el nombre o un código) soltar no suma (tests/onboarding-caja-centro.test.ts).
+  assert.match(chat, /if \(!soloTexto && !ocupado\) onArchivos\(Array\.from\(e\.dataTransfer\.files\)\);/);
   assert.match(app, /onArchivos=\{agregarArchivos\}/);
   assert.match(app, /vista=\{vistaAdjuntos\}/);
 });

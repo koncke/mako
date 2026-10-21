@@ -231,10 +231,24 @@ test('(8) los HECHOS que no avisan: otra etapa, otro funnel, la otra pausada, el
   const mes = (diaMes: number) => R({ unidad: 'mes', cada: 1, hora: 9, minuto: 0, diaMes });
   assert.equal(duplicadaDe({ ...ESTA_284, disparadores: mes(5) }, [{ ...A_282, disparadores: mes(20) }]), null, 'el 5 y el 20 de cada mes');
   assert.ok(duplicadaDe({ ...ESTA_284, disparadores: mes(5) }, [{ ...A_282, disparadores: mes(5) }]), 'el 5 de cada mes, las dos');
+  // ⚠️ Cerca de la medianoche, dos días distintos se pisan igual; y con OTRA zona, los días no se comparan (revisión del
+  // 21/10/2026: «lunes 23:30» de Tijuana y «martes 00:30» de Ciudad de México salen en el mismo instante).
+  const lunes2330 = { ...martes, diaSemana: 1, hora: 23, minuto: 30 };
+  const martes0030 = { ...martes, hora: 0, minuto: 30 };
+  assert.ok(duplicadaDe({ ...ESTA_284, disparadores: R(lunes2330) }, [{ ...A_282, disparadores: R(martes0030) }]), 'lunes 23:30 y martes 00:30');
+  assert.ok(duplicadaDe({ ...ESTA_284, disparadores: R(lunes2330) }, [{ ...A_282, disparadores: R({ ...martes0030, hora: 12, tz: 'America/Mexico_City' }) }]), 'otra zona');
+  assert.ok(duplicadaDe({ ...ESTA_284, disparadores: R({ ...lunes2330, diaSemana: 6 }) }, [{ ...A_282, disparadores: R({ ...martes0030, diaSemana: 0 }) }]), 'sábado 23:30 y domingo 00:30');
+  const mesA = (diaMes: number, hora: number) => R({ unidad: 'mes', cada: 1, hora, minuto: 0, diaMes });
+  assert.ok(duplicadaDe({ ...ESTA_284, disparadores: mesA(28, 23) }, [{ ...A_282, disparadores: mesA(1, 1) }]), 'el 28 a las 23 y el 1 a la 1 (en febrero, dos horas)');
+  assert.equal(duplicadaDe({ ...ESTA_284, disparadores: mes(28) }, [{ ...A_282, disparadores: mes(1) }]), null, 'el 28 y el 1 a la misma hora');
+  assert.ok(duplicadaDe({ ...ESTA_284, disparadores: R({ unidad: 'mes', cada: 1, hora: 23, minuto: 0, diaMes: 10 }) }, [{ ...A_282, disparadores: R({ unidad: 'mes', cada: 1, hora: 1, minuto: 0, diaMes: 11 }) }]), 'el 10 a las 23 y el 11 a la 1');
   // Un funnel sin elegir es «todos»: alcanza a la misma gente.
   assert.equal(duplicadaDe({ ...ESTA_284, disparadores: [cron('reactivacion', null)] }, [A_282])?.id, 282);
-  // Por evento no hay cohorte que se pise.
-  assert.equal(mismaCohorte({ trigger_tipo: 'form_enviado' }, { trigger_tipo: 'form_enviado' }), false);
+  // ⚠️ Por evento, el mismo disparador con el mismo evento ES la misma gente: el motor inscribe al lead en todas las activas
+  // (revisión del 21/10/2026; «no hay cohorte que se pise» era falso). «A mano» no: ahí no entra nadie solo.
+  assert.equal(mismaCohorte({ trigger_tipo: 'instagram', subtipo: 'dm' }, { trigger_tipo: 'instagram', subtipo: 'dm' }), true);
+  assert.equal(mismaCohorte({ trigger_tipo: 'instagram', subtipo: 'dm' }, { trigger_tipo: 'instagram', subtipo: 'comentario' }), false);
+  assert.equal(mismaCohorte({ trigger_tipo: 'manual' }, { trigger_tipo: 'manual' }), false);
   assert.equal(mismaCohorte({ trigger_tipo: 'etiqueta_puesta', etiqueta_id: 3 }, { trigger_tipo: 'etiqueta_puesta', etiqueta_id: '3' }), true);
 });
 
@@ -301,3 +315,11 @@ test('(8) la pantalla pregunta al ACTIVAR, y al PUBLICAR sólo si ya está activ
 //   H4. un horario sin leer no se pisa       → 13 / 3   H14. dos mensuales no miran el día del mes
 //   H5. el aviso sin los dos arranques
 // Restaurado: 16 / 0. (H6, H9, H11–H13 y H15–H17 caen en los otros dos tests del aviso.)
+//
+// Por evento, por la API y los bajos (21/10/2026, `roturas-eventos.json`, md5 igual). Base 16 / 0. Cada una → 15 / 1:
+//   E1. por evento vuelve a no compararse     Z2. semanal sin la medianoche
+//   E2. sin mirar el evento (`subtipo`)       Z3. semanal sin la vuelta de la semana
+//   E5. «a mano» cuenta como misma gente      Z4. mensual sin la vuelta del mes
+//   Z1. sin mirar la zona                     Z5. mensual sin la medianoche
+// Restaurado: 16 / 0. (Z4 no caía con la primera versión: la regla miraba «el 31 contra el 1», y el día del mes va
+// hasta el 28; se rehízo con la vuelta de 28 días y se rompió de nuevo.)

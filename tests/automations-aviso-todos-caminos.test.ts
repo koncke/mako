@@ -143,3 +143,6 @@ test('5. el paso au-chat tiene dónde mostrarse con la lista a la vista: la fila
 //   H7. el arranque parte una palabra         H17. `duplicadaAlActivar` ignora los pasos de quien llama
 //   H10. la otra pausada cuenta
 // Restaurado: 7 / 0.
+//
+// Por evento, por la API y los bajos (21/10/2026, `roturas-eventos.json`, md5 igual). Base 7 / 0:
+//   A6. `duplicadaAlActivar` ignora los CRON nuevos → 6 / 1. (Las demás caen en los otros dos tests del aviso.)
