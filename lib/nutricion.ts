@@ -103,7 +103,7 @@ import { KEY_HORARIO_ENVIO, horarioVigente, dentroDelHorario, type HorarioEnvio 
 import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes, type LimitesEnvio } from '@/lib/limites-envio';
 import { cerradasAhora, horarioDeLaAutomatizacion, personaHorasDeLaAutomatizacion, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
 import { configsDelNegocio, leerConfigAutomatizacion } from '@/lib/config-automatizacion-db';
-import { duplicadaAlActivar, avisoDuplicada } from '@/lib/automatizacion-duplicada';
+import { duplicadaAlActivar, avisoDuplicada, type Duplicada } from '@/lib/automatizacion-duplicada';
 import {
   sanearHilos, planDePosicion, hiloSigueEn, hilosIniciales, aplicarAHilo, hilosVencidos, hilosNuevos, repartosDe,
   hayOtrosHilos, nodosDeLaFila, esFilaNueva, proximoDeEntrada, mensajeAnteriorDe, estadoDeCierrePermanente, vuelveALaCola,
@@ -805,8 +805,9 @@ export { textoDelPaso };
  * pregunta; con «… igual», vuelve a pedirlo con `aunqueDuplique`. El mensaje es el aviso, listo para mostrar.
  */
 export class DuplicadaError extends Error {
-  readonly otra: { id: number; nombre: string };
-  constructor(otra: { id: number; nombre: string }) { super(avisoDuplicada(otra.nombre)); this.name = 'DuplicadaError'; this.otra = otra; }
+  /** La otra y el arranque de los dos mensajes: la pantalla los muestra para que la persona compare. */
+  readonly otra: Duplicada;
+  constructor(otra: Duplicada) { super(avisoDuplicada(otra)); this.name = 'DuplicadaError'; this.otra = otra; }
 }
 
 /**
@@ -814,16 +815,36 @@ export class DuplicadaError extends Error {
  * sus CRON guardados: la misma regla que la pantalla (`duplicadaAlActivar`). `soloSiActiva`: sólo si ésta ya está
  * prendida (Publicar una pausada no le manda nada a nadie: se pregunta al activarla). Una lectura que falla TIRA.
  */
-export async function duplicadaDeLaActivacion(id: number, o: { pasos?: readonly PasoGrafo[]; soloSiActiva?: boolean } = {}): Promise<{ id: number; nombre: string } | null> {
+export async function duplicadaDeLaActivacion(
+  id: number,
+  o: { pasos?: readonly PasoGrafo[]; soloSiActiva?: boolean; columnas?: { etapa?: string; trigger_tipo?: string; etiqueta_id?: unknown } } = {},
+): Promise<Duplicada | null> {
   const supabase = (await getTenantDb());
   const filas = await leerFilasDeSecuencias((cols) => supabase.from('nutricion_secuencias').select(cols).is('archivada_at', null), 'duplicadaDeLaActivacion');
+  // `columnas` (/email › Guardar): a quién le va a escribir con la etapa o el disparador NUEVOS, antes de escribirlos.
   const vistas = filas.map((r) => ({
     id: Number(r.id), nombre: String(r.nombre ?? ''), activa: r.activa === true,
-    pasos: Array.isArray(r.pasos) ? (r.pasos as PasoGrafo[]) : [], crons: disparadoresDe(r),
+    pasos: Array.isArray(r.pasos) ? (r.pasos as PasoGrafo[]) : [],
+    crons: disparadoresDe(Number(r.id) === id && o.columnas ? { ...r, ...o.columnas } as FilaSecuencia : r),
   }));
   const esta = vistas.find((v) => v.id === id);
   if (!esta || (o.soloSiActiva && !esta.activa)) return null;
   return duplicadaAlActivar(esta, vistas, (v) => v.crons, o.pasos ? { pasos: o.pasos } : {});
+}
+
+/**
+ * PUBLICAR LOS PASOS COMO LOS PUBLICA UNA PERSONA (revisión del 21/10/2026): con una automatización ACTIVA, publicar es
+ * prender lo nuevo, así que antes de escribir pregunta lo mismo que Activar (`DuplicadaError`, salvo `aunqueDuplique`). La
+ * usan los caminos de una persona: el lienzo y el teléfono (la ruta de WhatsApp), /email › Guardar, «MaKo escribe tu
+ * nutrición» › Aprobar y la API de MaKo. ⚠️ NO va adentro de `setSecuenciaPasos`: ahí escriben también el sistema (el
+ * hand-off, las variantes, los audios del onboarding, Meta), que no tiene a quién preguntarle.
+ */
+export async function publicarPasos(id: number, pasos: PasoSecuencia[], o: { aunqueDuplique?: boolean } = {}): Promise<void> {
+  if (!o.aunqueDuplique) {
+    const otra = await duplicadaDeLaActivacion(id, { pasos: pasos as unknown as PasoGrafo[], soloSiActiva: true });
+    if (otra) throw new DuplicadaError(otra);
+  }
+  await setSecuenciaPasos(id, pasos);
 }
 
 export class PasosInvalidosError extends Error {

@@ -633,7 +633,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     // y lo salteaba. Con lo PUBLICADO de las dos (`duplicadaAlActivar`): Activar no publica nada.
     if (accion === 'activa' && !j.activa && rolAdmin && !o?.sinAviso) {
       const otra = duplicadaAlActivar(j as SecuenciaConDisparadores, secuencias as readonly SecuenciaConDisparadores[], disparadoresDeSecuencia);
-      if (otra) { setErrFila(null); setAvisoActivar({ j, texto: avisoDuplicada(otra.nombre) }); return; }
+      if (otra) { setErrFila(null); setAvisoActivar({ j, texto: avisoDuplicada(otra) }); return; }
     }
     setErrFila(null); setOcupada(j.id);
     try {

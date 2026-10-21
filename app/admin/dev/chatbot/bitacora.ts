@@ -2063,4 +2063,23 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "21 oct", hora: "03:10", chat: "Automations", cuenta: "claude4",
+    sesion: "local_f74a2156-23dd-4213-b1dd-cd6c13906ff1",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Hecho: el aviso de automatización duplicada lo decide el servidor, así sale en el teléfono, en Email y en la API de MaKo",
+    puntos: [
+      "Prender una automatización que le escribe lo mismo a la misma gente que otra activa pregunta «Activar igual» desde cualquier lado: la computadora, el teléfono, Email y MaKo por WhatsApp.",
+      "En una automatización activa, el aviso queda a la vista al lado de «Activar» mientras sea así (antes se borraba con el siguiente cambio del CRON).",
+      "Un test recorre todo el código buscando quién prende una automatización: uno nuevo que no pregunte lo hace fallar.",
+      "En producción: run 186, deploy de 341449b12 (lo verificó el Cerebro).",
+    ],
+    commits: [
+      { sha: "47d9ea6cb", msg: "Automations: el aviso de duplicada en el server, para todos los caminos que prenden una automatización", lineas: 496, archivos: 22 },
+    ],
+    archivos: [
+      "docs/hallazgos-chatbot.md — «Y la lista de caminos se saca del repo, no de la memoria»",
+    ],
+    revisar: "/automations",
+  },
 ];
