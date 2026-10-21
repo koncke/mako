@@ -40,7 +40,7 @@ import { TituloBloque } from './bloques/comun';
 const COLOR: Record<'vencida' | 'pronto' | 'al-dia', string> = { vencida: 'var(--bad)', pronto: 'var(--warn-fill)', 'al-dia': 'var(--faint)' };
 const inicial = (n: string) => n.trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('') || '·';
 
-export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, vacio = null, muestra = false, sinCabeza = false }: {
+export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, vacio = null, muestra = false, sinCabeza = false, alCambiar }: {
   filas: CobroM[]; tz: string; error: string | null;
   /** Un rótulo al lado del título (lo que la hoja mira, si no es todo el negocio). */
   alcance?: string | null;
@@ -52,6 +52,9 @@ export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, 
   muestra?: boolean;
   /** Sin el título ni el conteo: la muestra de su placeholder (el bloque ya puso su cabecera arriba). */
   sinCabeza?: boolean;
+  /** Qué hacer después de marcar o deshacer. Sin esto, `router.refresh()` (la hoja de General); el chat con MaKo vuelve a
+   *  leer su lista (app/_chat/bloques/CobranzaHilo.tsx, la 2.27). */
+  alCambiar?: () => void;
 }) {
   const { toast, show, clear } = useToast();
   const router = useRouter();
@@ -60,6 +63,7 @@ export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, 
   const [marcando, setMarcando] = useState<number | null>(null);
   const [todas, setTodas] = useState(false);
   const enCurso = useRef(false);
+  const refrescar = alCambiar ?? (() => router.refresh());
 
   const ocultar = (pagoId: number, si: boolean) => setOcultas((prev) => {
     const s = new Set(prev);
@@ -73,7 +77,7 @@ export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, 
     empezar(async () => {
       try {
         await marcarPagoAction(f.pagoId, f.leadId, false, null);
-        router.refresh();
+        refrescar();
       } catch (e) {
         console.error('[general] deshacer cobro:', e instanceof Error ? e.message : String(e));
         show('No se pudo deshacer', undefined, 'bad');
@@ -89,7 +93,7 @@ export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, 
       await marcarPagoAction(f.pagoId, f.leadId, true, hoyEnTz(tz));
       ocultar(f.pagoId, true);
       show('Cuota cobrada', () => deshacer(f));
-      empezar(() => router.refresh());
+      empezar(() => refrescar());
     } catch (e) {
       console.error('[general] marcar cobro:', e instanceof Error ? e.message : String(e));
       show('No se pudo marcar', undefined, 'bad');

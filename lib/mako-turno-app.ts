@@ -60,7 +60,7 @@ import {
   renameSession, tituloDesde, type ChartSession, type ChartMsgConBloques,
 } from '@/lib/chart-chats';
 import { adjuntosVisibles, leerRef, sanearBloques } from '@/lib/chat-mako-bloques';
-import { aGuardar, bloqueDeResultado, bloquesGuardados, type Bloque } from '@/lib/chat-bloques';
+import { aGuardar, bloqueDeResultado, bloquesGuardados, MAX_BLOQUES_MENSAJE, type Bloque } from '@/lib/chat-bloques';
 import { archivarPdfsDelChat, archivarPegadosDelChat, borrarAdjuntos, subirAdjuntos, urlFirmadaDeAdjunto } from '@/lib/chat-mako-adjuntos';
 import { partirPegados, recortarMensaje, textoParaTitulo } from '@/lib/chat-pegado';
 import { archivoATexto } from '@/lib/archivo-a-texto';
@@ -386,12 +386,21 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // si el modelo no lo propone, lo propone el código al final (docs/diseno-ticketera-usuarios.md §2.1).
     const erroresDelTurno: ErrorDelTurno[] = [];
     let ticketPropuesto = false;
+    // Lo que una LECTURA dibuja (lib/chat-bloques.ts: «A quién cobrar», la 2.27): se guarda con la respuesta de MaKo y
+    // la pantalla lo suma debajo (`itemsDeRespuesta`). Es del intento que contesta: re-arrancar empieza de cero.
+    const dibujos: Bloque[] = [];
     const ctx: Ctx = {
       ws, canal: 'app', canalKey,
       // `proponer`: este turno deja pendientes y propuestas; confirmar es de la persona
       // (confirmar_accion pide `ejecutar` y además no viaja: dos cortes).
       alcance: 'proponer', rol: persona.rol, turnStart, mensajeUsuario: textoPersona || textoMemoria, actor: persona.actor, quien: persona.quien,
       aPersona: (t) => { const x = (t ?? '').trim(); if (x && !paraLaPersona.includes(x)) paraLaPersona.push(x); },
+      aDibujar: (b) => {
+        const k = JSON.stringify(b);
+        if (dibujos.length < MAX_BLOQUES_MENSAJE && !dibujos.some((x) => JSON.stringify(x) === k)) dibujos.push(b);
+      },
+      // Los archivos de ESTE mensaje, ya guardados: el comprobante del estado de cuenta (la 2.28).
+      adjuntos: conArchivos.map(({ ref, nombre, tipo }) => ({ ref, nombre, tipo })),
       // Lo que el ticket sabe sin que lo escriba el modelo: el pedido textual, lo último que dijo MaKo y el error.
       contextoTicket: () => ({
         pedido: textoPersona || textoMemoria,
@@ -463,7 +472,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       return out;
     };
     /** Cada corrida abre un intento nuevo para el memo (tests/turno-sin-duplicar.test.ts). */
-    const nuevoIntento = () => { memo.nuevoIntento(); return runTool; };
+    const nuevoIntento = () => { memo.nuevoIntento(); dibujos.length = 0; return runTool; };
 
     const msgs: RichMsg[] = [...historial, { role: 'user', content: userContent }];
     let texto = '';
@@ -533,8 +542,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     if (!respuesta && (propuestas.length || pantallas.length)) respuesta = TEXTO_SOLO_TARJETA;
 
     if (respuesta) {
-      await appendMessage(s.id, 'assistant', respuesta);
-      guardados.push({ role: 'assistant', content: respuesta });
+      await appendMessage(s.id, 'assistant', respuesta, dibujos.length ? dibujos.map(aGuardar) : undefined);
+      guardados.push({ role: 'assistant', content: respuesta, ...(dibujos.length ? { bloques: [...dibujos] } : {}) });
     }
     // Sin IA: lo dice MaKo, con el botón que abre el modal de las keys en esta misma pantalla (`conectar`). Salvo en el
     // workspace del entorno, donde la key que pegara pasaría a ser la de la plataforma (`avisoSinIA`): ahí, sin botón.

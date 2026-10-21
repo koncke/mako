@@ -9,6 +9,9 @@
 //   · una operación lo devuelve en `datos.bloque` de su `Ejecutado` (lib/api-mako/tipos.ts);
 //   · al confirmar la tarjeta, `confirmarDesdeTarjeta` (lib/mako-turno-app.ts) lo sanea, lo guarda con el «Hecho: …» en
 //     `chart_chats.bloques` (mig 0305) como `{ k: 'bloque', b }`, y lo devuelve en `ResultadoTarjeta.bloques`;
+//   · una LECTURA lo devuelve en el `bloque` de su salida (`SalidaLectura`) y lo pasa `ejecutarOperacion` por
+//     `ctx.aDibujar`, que sólo pone el turno de la app (`turnoApp`): se guarda con la respuesta de MaKo y la pantalla lo
+//     suma con `itemsDeRespuesta`. El modelo NO lo ve, y en WhatsApp o por HTTP se descarta (20/10/2026, Pagos, la 2.27);
 //   · la pantalla lo suma al hilo como `{ k: 'bloque' }` de `ItemHilo` (app/m/mako/chat-ui.ts) SIN recargar, y al
 //     recargar vuelve desde el mensaje guardado;
 //   · lo dibuja UNA pieza para las dos pantallas: app/_chat/BloqueHilo.tsx.
@@ -20,6 +23,11 @@
 //   · G4 `antes_despues`: «Original | Modificado», fila por fila;
 //   · G5 `creado`: miniatura, título, estado y «Abrir en <tab>»;
 //   · G6 `trabajo`: los pasos de algo largo, que termina en un G5.
+// Los de cada área:
+//   · `cobranza` (Pagos, la 2.27): el G7 «A quién cobrar», dibujado con la pieza de General (app/general/Cobranza.tsx).
+//     Lo guardado es la foto del momento: al dibujarse, la lista se vuelve a leer (app/_chat/bloques/CobranzaHilo.tsx).
+//   · `estado_cuenta` (Pagos, la 2.28): el estado de cuenta de un lead con la pieza de la tab Pagos, y el comprobante
+//     adjunto que deja lista la marca de cobrado (app/_chat/bloques/EstadoCuentaHilo.tsx).
 //
 // ⚠️ EL BLOQUE SALE DE UN CAMPO ESTRUCTURADO, NUNCA DEL TEXTO DEL MODELO, y LOS LINKS LOS ARMA EL CÓDIGO: `sanearBloque`
 //    se queda sólo con rutas de la app (`/image-editor/…`), nunca con un `https://` de afuera ni un `javascript:`. Lo que
@@ -52,7 +60,25 @@ export type Bloque =
   /** G6: un trabajo largo. `listo` es el G5 en que termina. */
   | { t: 'trabajo'; titulo: string; pasos: { texto: string; estado: EstadoPaso }[]; listo?: BloqueCreado }
   /** G1: una pregunta con opciones; `varias` = se puede marcar más de una. */
-  | { t: 'pregunta'; pregunta: string; opciones: { titulo: string; detalle?: string }[]; recomendada?: number; varias?: boolean };
+  | { t: 'pregunta'; pregunta: string; opciones: { titulo: string; detalle?: string }[]; recomendada?: number; varias?: boolean }
+  | BloqueCobranza
+  | BloqueEstadoCuenta;
+
+/** El estado de cuenta de UN lead (Pagos, la 2.28): la pieza de la tab Pagos, viva (se lee al dibujarse: lo guardado
+ *  es sólo a quién mira). `comprobante`: el archivo que la persona adjuntó en ESE mensaje, que «Cobrar la cuota» lee
+ *  (monto, fecha y hora) y deja la marca lista para revisar y guardar. */
+export type BloqueEstadoCuenta = {
+  t: 'estado_cuenta'; leadId: number; nombre: string;
+  comprobante?: { ref: string; nombre: string; tipo: 'image' | 'document' };
+};
+
+/** Una fila de «A quién cobrar»: la de General y el teléfono (`CobroM`, app/m/dashboard/modelo.ts). */
+export type FilaCobranza = { leadId: number; pagoId: number | null; nombre: string; linea: string; urgencia: 'vencida' | 'pronto' | null };
+
+/** El G7 de Pagos: «A quién cobrar». `total` = los clientes por cobrar (puede haber más que filas); `tz`, la zona del
+ *  negocio (la fecha de un cobro es HOY ahí); `al`, el día de la lectura; `ventana`, si se pidió por vencimiento («esta
+ *  semana»): la lista viva se vuelve a leer con ella. */
+export type BloqueCobranza = { t: 'cobranza'; filas: FilaCobranza[]; total: number; tz: string; al: string; ventana?: { desde: string; hasta: string } };
 
 /** Lo que se guarda en `chart_chats.bloques` al lado de los adjuntos (lib/chat-mako-bloques.ts, `k: 'adjunto'`). */
 export type BloqueGuardado = { k: 'bloque'; b: Bloque };
@@ -61,6 +87,13 @@ export type BloqueGuardado = { k: 'bloque'; b: Bloque };
 export const MAX_BLOQUES_MENSAJE = 4;
 const MAX_FILAS = 12;
 const MAX_PASOS = 10;
+/** Las filas de «A quién cobrar» que se guardan (General muestra 5 y «Ver las N»; la lista viva las trae todas). */
+export const MAX_FILAS_COBRANZA = 30;
+/** Una zona IANA («America/Mexico_City»): con otra cosa, `hoyEnTz` tira al marcar. */
+const ZONA = /^[A-Za-z]+(?:\/[A-Za-z0-9_+-]+){1,2}$/;
+const URGENCIAS: readonly FilaCobranza['urgencia'][] = ['vencida', 'pronto', null];
+const idPositivo = (v: unknown): number | null => (typeof v === 'number' && Number.isInteger(v) && v > 0 ? v : null);
+const fecha = (v: unknown): string | null => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
 const ESTADOS_PASO: readonly EstadoPaso[] = ['listo', 'en_curso', 'pendiente', 'fallo'];
 
 const texto = (v: unknown, max: number): string => (typeof v === 'string' ? v.trim().slice(0, max) : '');
@@ -164,6 +197,41 @@ export function sanearBloque(crudo: unknown): Bloque | null {
       const rec = o.recomendada;
       const recomendada = typeof rec === 'number' && Number.isInteger(rec) && rec >= 0 && rec < opciones.length ? rec : undefined;
       return { t: 'pregunta', pregunta, opciones, ...(recomendada !== undefined ? { recomendada } : {}), ...(o.varias === true ? { varias: true } : {}) };
+    }
+    case 'cobranza': {
+      const tz = typeof o.tz === 'string' && o.tz.length <= 64 && ZONA.test(o.tz) ? o.tz : null;
+      const al = fecha(o.al);
+      if (!tz || !al || !Array.isArray(o.filas)) return null;
+      const v = o.ventana && typeof o.ventana === 'object' ? (o.ventana as Record<string, unknown>) : null;
+      const ventana = v && fecha(v.desde) && fecha(v.hasta) ? { desde: fecha(v.desde) as string, hasta: fecha(v.hasta) as string } : null;
+      // Una ventana a medias leería OTRA lista que la que se guardó: el bloque se cae.
+      if (o.ventana != null && !ventana) return null;
+      const filas = o.filas.slice(0, MAX_FILAS_COBRANZA).flatMap((f): FilaCobranza[] => {
+        if (!f || typeof f !== 'object') return [];
+        const r = f as Record<string, unknown>;
+        const leadId = idPositivo(r.leadId);
+        const nombre = texto(r.nombre, 80);
+        const linea = texto(r.linea, 120);
+        // Una fila con un `pagoId` que no es un id marcaría OTRA cuota: se cae entera.
+        const pagoId = r.pagoId == null ? null : idPositivo(r.pagoId);
+        const urgencia = URGENCIAS.includes(r.urgencia as FilaCobranza['urgencia']) ? (r.urgencia as FilaCobranza['urgencia']) : null;
+        if (!leadId || !nombre || !linea || (r.pagoId != null && pagoId == null)) return [];
+        return [{ leadId, pagoId, nombre, linea, urgencia }];
+      });
+      const total = typeof o.total === 'number' && Number.isInteger(o.total) && o.total >= filas.length ? o.total : filas.length;
+      return { t: 'cobranza', filas, total, tz, al, ...(ventana ? { ventana } : {}) };
+    }
+    case 'estado_cuenta': {
+      const leadId = idPositivo(o.leadId);
+      const nombre = texto(o.nombre, 80);
+      if (!leadId || !nombre) return null;
+      const c = o.comprobante && typeof o.comprobante === 'object' ? (o.comprobante as Record<string, unknown>) : null;
+      // La ref de un adjunto del chat (`<id del mensaje>:<n>`, lib/chat-mako-bloques.ts → `leerRef`), nunca una ruta.
+      const ref = c && typeof c.ref === 'string' && /^[1-9][0-9]{0,14}:[0-9]$/.test(c.ref) ? c.ref : null;
+      const archivo = c ? texto(c.nombre, 120) : '';
+      const tipo = c?.tipo === 'image' || c?.tipo === 'document' ? c.tipo : null;
+      if (o.comprobante != null && !(ref && archivo && tipo)) return null;
+      return { t: 'estado_cuenta', leadId, nombre, ...(ref && archivo && tipo ? { comprobante: { ref, nombre: archivo, tipo } } : {}) };
     }
     default:
       return null;

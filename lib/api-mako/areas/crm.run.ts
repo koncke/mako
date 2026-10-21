@@ -44,6 +44,7 @@ import { avisoDeConservadas, avisoMonedaPorOmision, cobroManualDeEntrada, textoD
 // Sólo para la lectura cobranza_lead (14/10/2026): lo cobrado con la misma cuenta que la ficha.
 import { cobradoDelLead, noEsDeuda } from '@/lib/cobrado-lead';
 import { estadoDeCuenta, movimientosDelLead } from '@/lib/pagos-vistazo';
+import { bloqueEstadoDeCuenta } from '@/lib/pagos-bloque';
 import { listarCobros } from '@/lib/cobros';
 import { NOMBRE_PASARELA, type Pasarela } from '@/lib/cobros-tipos';
 import { centavos, diferenciaPendiente, type RestoDeCobro } from '@/lib/pagos-diferencia';
@@ -543,7 +544,12 @@ export const RUNNERS: Runners = {
         suscripcionCanceladaAt: (lead as unknown as { suscripcion_cancelada_at?: string | null }).suscripcion_cancelada_at ?? null,
         pagos: plan.pagos, cobros, hoy,
       });
-      return json({
+      const dibuja = !!ctx.aDibujar;
+      const conComprobante = dibuja && ctx.adjuntos?.length === 1;
+      const enPantalla = conComprobante
+        ? 'En este chat el estado de cuenta YA SE DIBUJA debajo de tu respuesta, y la persona adjuntó un comprobante: el botón de cobrar la cuota lo lee (monto, fecha y hora) y deja la marca lista para revisar y guardar. NO propongas marcar_pago_cobrado: dile en una línea qué debe y que revise y guarde el cobro ahí.'
+        : 'En este chat el estado de cuenta YA SE DIBUJA debajo de tu respuesta, con el botón de lo que toca hacer: no lo copies. Di en una o dos líneas qué debe, qué pagó y qué toca.';
+      const contenido = json({
         lead_id: lead.id, nombre: lead.nombre, estado: lead.estado_lead,
         venta_tipo: lead.venta_tipo ?? 'unico',
         total_vendido_usd: plan.total_usd,
@@ -585,7 +591,10 @@ export const RUNNERS: Runners = {
         })(),
         cuotas,
         ...(cuotas.length ? {} : { nota_cuotas: 'Sin cuotas cargadas: no hay plan de pagos, no significa que no deba nada.' }),
+        ...(dibuja ? { en_pantalla: enPantalla } : {}),
       });
+      // En el chat de la app el estado de cuenta se DIBUJA con la pieza de la tab Pagos (la 2.28, lib/pagos-bloque.ts).
+      return dibuja ? { content: contenido, bloque: bloqueEstadoDeCuenta(lead, ctx.adjuntos) } : contenido;
     }),
   },
   insight_lead: {

@@ -1615,6 +1615,12 @@ código nuevo:
     `ComposerWhatsApp` o `ChatHilo`, ni su botón de mandar para hablar con MaKo: usa la pieza y le pasa su motor por props.
     Si falta algo, se le suma a la pieza (y lo tienen todas), nunca a una copia. tests/chat-unico.test.ts lleva la lista de
     las que faltan, cada una con su chat, y falla si aparece una nueva.
+  - **LO QUE EL CHAT DIBUJA SALE DE UN CAMPO, Y UNA LECTURA TAMBIÉN DIBUJA** (20/10/2026, lib/chat-bloques.ts). Una acción
+    lo devuelve en `datos.bloque`; una LECTURA, en el `bloque` de su salida (`{ content, bloque }`), y sólo cuando el turno
+    de la app pone `ctx.aDibujar`. Así el modelo no lo ve y WhatsApp no lo recibe. Un bloque de área se dibuja con la
+    pieza de su tab (app/_chat/bloques/*, cargado con `dynamic` desde `BloqueHilo`), nunca con una copia. **Una lista con
+    acciones guardada en el hilo es una FOTO:** se vuelve a leer al dibujarse y no actúa hasta tener la viva.
+    docs/hallazgos-second-brain.md, «Una LECTURA también dibuja».
   - **TODO LO QUE SE TERMINA LLEVA SU `revisar`** (17/10/2026; Martín: «se terminaron y pushearon cosas y no las puedo ver
     en Review»). El hito de la bitácora o el cierre (`cartero.mjs cierre … --revisar`) trae la ruta INTERNA donde Martín
     lo prueba (`/crm?lead=…`, `/general`, `/automations/…`). Sin eso, su «Ya está» sólo lleva a la tab del área.

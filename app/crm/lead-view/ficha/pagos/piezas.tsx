@@ -16,7 +16,8 @@
 //    detrás. Y el clic no sube: el fondo de la ficha en modal la cierra (CobrarConLink hace lo mismo).
 // =============================================================================
 
-import { useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
+import type { ComprobanteDelChat } from './comprobante-del-chat';
 import { Button, Field, Input, Modal, Status } from '@/app/_ui';
 import type { Tono as TonoUi } from '@/app/_ui/tokens';
 import type { Tono } from '@/lib/cobrado-lead';
@@ -140,8 +141,10 @@ function CamposDeCuando({ fecha, hora, metodo, setFecha, setHora, setMetodo }: {
  * cliente la sigue debiendo) o es un descuento. Con CUALQUIER diferencia no hay Deshacer: desmarcar dejaría viva la
  * cuota nueva de la diferencia, o la cuota con el monto cobrado en vez del suyo.
  */
-export function MarcarPagada({ cuota, leadId, monedaNegocio, onCerrar, onHecho }: {
+export function MarcarPagada({ cuota, leadId, monedaNegocio, comprobante = null, onCerrar, onHecho }: {
   cuota: Pago; leadId: number; monedaNegocio: string; onCerrar: () => void;
+  /** El comprobante que la persona adjuntó en el chat con MaKo (la 2.28): se lee solo al abrir, como «Subir el comprobante». */
+  comprobante?: ComprobanteDelChat | null;
   /** `deshacer`: la cuota quedó pagada entera y se puede volver atrás. */
   onHecho: (mensaje: string, deshacer: boolean) => void;
 }) {
@@ -175,6 +178,16 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, onCerrar, onHecho }
     } catch (e) { setError(`No pude leer el comprobante: ${msg(e)}`); }
     finally { setLeyendo(false); if (archivo.current) archivo.current.value = ''; }
   };
+  // El del chat se lee UNA vez al abrir (un ref: el doble montaje de React en desarrollo no lo sube dos veces). Si no
+  // se puede bajar, queda el paso de elegir, con el error: se sube a mano o se carga a mano.
+  const delChat = useRef(false);
+  useEffect(() => {
+    if (!comprobante || delChat.current) return;
+    delChat.current = true;
+    setLeyendo(true);
+    comprobante.leer().then((f) => subir(f), (e) => { setLeyendo(false); setError(`No pude traer el comprobante del chat: ${msg(e)}`); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- una sola vez, con el comprobante con que se abrió
+  }, [comprobante]);
 
   const p = plataParaServer(plata, valorUsd);
   const falta = p.ok && p.monto != null && p.monto < valorUsd ? Math.round((valorUsd - p.monto) * 100) / 100 : 0;
@@ -205,6 +218,7 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, onCerrar, onHecho }
       {paso === 'elegir' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <p style={{ margin: 0, fontSize: 13.5, color: 'var(--dim)' }}>{nombre} · {usd(valorUsd)}{cuota.fecha_esperada ? ` · vence el ${fmtDDMMYYYY(cuota.fecha_esperada)}` : ''}</p>
+          {comprobante && leyendo && <p style={{ margin: 0, fontSize: 13, color: 'var(--dim)' }}>Leyendo <b>{comprobante.nombre}</b>, el comprobante del chat…</p>}
           <Button variant="primary" full loading={leyendo} onClick={() => archivo.current?.click()}>Subir el comprobante</Button>
           <Button variant="secondary" full disabled={leyendo} onClick={() => setPaso('datos')}>Cargarlo a mano</Button>
         </div>

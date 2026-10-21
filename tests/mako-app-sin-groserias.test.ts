@@ -28,7 +28,10 @@ test('el corte saca la oración grosera y deja el resto', () => {
 test('el chat de la app pasa su respuesta por el corte y pide la voz sin groserías', () => {
   const salida = src.slice(src.indexOf('// ── Lo que sale ──'));
   assert.ok(salida.indexOf('sanearSalida(respuesta, { corrioHerramientas: true })') > 0, 'turnoApp no corta las groserías');
-  assert.ok(salida.indexOf('sanearSalida(') < salida.indexOf("await appendMessage(s.id, 'assistant', respuesta)"), 'se corta ANTES de guardar');
+  // Desde el 20/10/2026 el guardado lleva también lo que dibujaron las lecturas (la 2.27): se busca el comienzo de la llamada.
+  const guardar = salida.indexOf("await appendMessage(s.id, 'assistant', respuesta");
+  assert.ok(guardar > 0, 'no encontré dónde se guarda la respuesta');
+  assert.ok(salida.indexOf('sanearSalida(') < guardar, 'se corta ANTES de guardar');
   const voz = src.slice(src.indexOf('const VOZ_APP'), src.indexOf('const TOOLS_APP'));
   assert.match(voz, /SIN groserías ni lunfardo/);
 });

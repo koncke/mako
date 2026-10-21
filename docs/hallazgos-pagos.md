@@ -281,6 +281,31 @@ el MRR un 85% (hallazgos-crm.md).
 - **Una fila sin cuota no ofrece «Cobrada»:** abre la ficha, donde se registra el mes. General y el teléfono descartaban
   toda fila sin cuota; ahora las dos usan `cobroDeFila` (app/m/dashboard/modelo.ts). tests/suscripciones-por-cobrar.test.ts.
 
+### «A quién cobrar» y el estado de cuenta, dibujados en el chat con MaKo (20/10/2026, la 2.27 y la 2.28)
+
+**Vive en:** lib/pagos-bloque.ts (arma los dos bloques, puro) · app/_chat/bloques/CobranzaHilo.tsx y cobranza-actions.ts
+(«A quién cobrar») · app/_chat/bloques/EstadoCuentaHilo.tsx y app/crm/lead-view/ficha/pagos/comprobante-del-chat.ts (el
+estado de cuenta y el comprobante). Tests: tests/chat-bloque-cobranza.test.ts y tests/chat-bloque-estado-cuenta.test.ts.
+
+- **⚠️ Marcar una cuota que YA está cobrada le reescribe la fecha.** `marcarPago(id, true, fecha)` no mira si ya estaba
+  pagada: pisa `fecha_pago` y el cobro salta de mes. Una lista guardada en el hilo es una foto. Su «Cobrada», tocado
+  días después, haría eso. Por eso la lista se vuelve a leer al dibujarse, y hasta que llega se ve sin acciones. Pasa
+  igual con General abierta en dos pestañas, pero ahí la foto dura minutos, no días.
+- **El estado de cuenta del chat ES la pieza de la tab**, el bloque `cobrado` montado como en Clients
+  (`BloquesDePagos`, `getLeadFullAction`). No tiene una cuenta propia, así que muestra lo mismo que la ficha. Lo que lee
+  MaKo para contestar (`cobranza_lead`) usa las mismas dos funciones: `cobradoDelLead` y `estadoDeCuenta`.
+- **El comprobante adjunto va al modal de la ficha**, no a la tarjeta de la acción. «Marcar pagada» lo lee solo, con el
+  mismo `subir` que «Subir el comprobante» (/api/extract-receipt): lo guarda en la cuota y llena monto, fecha y hora para
+  revisar. La tarjeta G3 todavía no tiene campos editables (eso es la 1.10), y por ella el archivo no se guardaba en la
+  cuota. Se usa UNA vez: leído, el bloque deja de pasarlo, para que el siguiente cobro no le suba el mismo recibo a otra
+  cuota. Con dos archivos en el mensaje no se adivina cuál es.
+- **⚠️ La ficha cuenta «hoy» en UTC.** FichaPorBloques y PagosCliente usan `new Date().toISOString().slice(0, 10)`, y
+  General y la API usan el día del negocio. En México, de 18 a 24 h, la ficha ya está en mañana: una cuota que vence hoy
+  sale vencida en la ficha y no en General. Si eso pasa, el texto de MaKo (`cobranza_lead`, con el día del negocio) y el
+  bloque (la ficha) pueden decir distinto. **Sin hacer.**
+- **«¿quién me debe plata?» todavía no hace viajar `a_quien_cobrar`**: la batería guardián tiene `llegaHoy: false`. Es la
+  1.2, el clasificador. Hoy llega con «mostrame el dashboard de cobranza: a quién le falta pagar».
+
 ### Cliente de agencia (#866 y #867)
 
 No es de esta tab: es la pasarela y la cuenta de la agencia. Está en
@@ -297,6 +322,8 @@ No es de esta tab: es la pasarela y la cuenta de la agencia. Está en
 | Diseños que no se dibujan: `cobrado` anillo, `cuotas` lista y calendario, `suscripcion` tarjeta y meses, y los de `oferta` (OfertaDelLead es sólo el desplegable) | registro-pagos.tsx | No se ofrecen: el menú «Diseño» sólo muestra los que están en `disenos` |
 | **No se vio en el navegador**, ni en escritorio ni en el teléfono | — | No hubo RAM para `next dev`. Hay que mirarlo en producción con un ganado con cuotas, una suscripción y un lead abierto |
 | El teléfono muestra el saldo pero no cobra: no hay «Mandar link» | app/m/crm/[id]/FichaLead.tsx | El teléfono destila. El cobro con link en el teléfono es otra pieza |
+| La ficha cuenta «hoy» en UTC: de 18 a 24 h (México) una cuota que vence hoy sale vencida en la ficha y no en General ni en lo que dice MaKo | app/crm/lead-view/ficha/FichaPorBloques.tsx:135, app/customer-success/PagosCliente.tsx (`hoy:`) | `LeadFullData` no trae la zona del negocio: hay que sumarla en `getLeadFullAction` y usar `hoyEnTz` en las dos (20/10/2026) |
+| Los bloques de Pagos del chat (la 2.27 y la 2.28) no se vieron en el navegador | app/_chat/bloques/* | Sin Chrome conectado ni RAM para `next dev`. Mirarlo en el ws3 con «mostrame el dashboard de cobranza: a quién le falta pagar» y con un recibo adjunto + «¿cuánto me debe Francisco?» |
 | ~~Marcar a mano una cuota cuyo link ya se pagó pero no se asentó: después el cron la asienta como otra cuota y lo cobrado se cuenta dos veces~~ **Hecho el 17/10/2026 (B4), ver §5** | lib/pagos.ts, `cobrarCuota` | Frenarlo puede trabar una cuota para siempre si el pago entró por otro monto. Se ve el link pagado en «Links de pago» |
 | ~~`epico` llega en PropsBloque en la próxima tanda del CRM. Hasta entonces se lee con un cast~~ Hecho el 17/10/2026: se lee `props.epico`, y un test barre la ficha por casts así | pagos/bloques-cobro.tsx | `e92688cd2` |
 | ~~`PlantillaTab` está declarado localmente~~ Ya se importa de lib/ficha/plantillas-tab.ts (visto el 17/10/2026) | lib/ficha/plantillas-pagos.ts | Hecho |

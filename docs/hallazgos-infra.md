@@ -7099,3 +7099,15 @@ al borrar o renombrar un relevo, se buscan sus citas en `docs/pendientes.md` en 
 - **Síntoma:** el renombre «Second Brain» → «Ops Center» (465f85e6e) dio VERDE en local con 2402 tests, y Actions cayó en el run 140: `tests/notificaciones.test.ts` esperaba el título de pestaña «MaKo - Second Brain».
 - **Causa:** `tituloDe` arma el título de la pestaña con el NOMBRE de la entrada de la barra (`nav.ts`), pero `tests-afectados` no relaciona ese test con un cambio en `nav.ts`. En local corre lo afectado, y Actions corre las 422 barredoras.
 - **Regla:** quien renombre una entrada de la barra busca su nombre viejo, entre comillas, en `tests/` antes del VERDE (`grep -rn "'MaKo - <nombre viejo>'" tests`).
+
+## Dibujar una pieza con acciones de servidor en un test, y el `/*` que se come el fuente (20/10/2026, Pagos)
+
+- **Una pieza cliente que importa una acción de servidor no carga en node**: `server-only` tira. Se dibuja en un node
+  aparte con `--experimental-test-module-mocks` y `mock.module(<url del archivo>, { namedExports })` (los tipos de node
+  no conocen `exports`). Mockear un módulo cuyo default es una FUNCIÓN y que además tiene exports con nombre falla en CJS
+  («named exports cannot be applied to the provided default export»). Para el router, en vez de mockear `Link`, se
+  envuelve en `AppRouterContext.Provider` (`next/dist/shared/lib/app-router-context.shared-runtime`) con uno de mentira.
+  Molde: tests/_bloques-pagos-hijo.ts.
+- **El `sinComentarios` de los tests se come código**: `accept=".pdf,image/*"` abre un `/*` que corre hasta el próximo
+  `*/`. Un test que buscaba el botón «Subir el comprobante» dio rojo con el código bien. Un archivo con `image/*` (o
+  cualquier `/*` adentro de un string) se lee sin quitar comentarios.

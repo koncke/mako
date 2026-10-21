@@ -2042,3 +2042,29 @@ Probado en `tests/chat-bloques.test.ts`, que confirma `crear_diseno_imagen` de p
 - Las demás áreas no devuelven `bloque` todavía. Por ahora lo devuelven `crear_diseno_imagen` y `duplicar_diseno_imagen`
   (G5) y `cambiar_textos_diseno_imagen` (G4).
 - El «Abrir» lleva a la ruta de la computadora también en el teléfono: la 1.8.
+
+## Una LECTURA también dibuja: «A quién cobrar» en el hilo (20/10/2026, Pagos, la 2.27, sobre el marco de la 1.7)
+
+**Vive en:** `SalidaLectura.bloque` y `Ctx.aDibujar` en `lib/api-mako/tipos.ts` · la rama de lecturas de
+`ejecutarOperacion` (`lib/api-mako/ejecutar.ts`) · `turnoApp` en `lib/mako-turno-app.ts` · `itemsDeRespuesta` en
+`app/m/mako/chat-ui.ts`. Probado en `tests/chat-bloque-cobranza.test.ts`.
+
+- **Síntoma:** la 2.27 pide que «¿quién me debe plata?» dibuje la lista. Es una LECTURA (`a_quien_cobrar`), y el marco
+  de la 1.7 sólo llevaba bloques por la tarjeta, al confirmar una acción.
+- **El contrato, el mismo camino que `aPersona` (la agenda):**
+  - la lectura devuelve `{ content, bloque }`;
+  - `ejecutarOperacion` sanea el bloque y lo pasa por `ctx.aDibujar`, que pone SÓLO el turno de la app;
+  - el modelo recibe sólo `content`, y en WhatsApp o por HTTP el bloque se descarta;
+  - el turno lo guarda con la respuesta de MaKo (`chart_chats.bloques`) y lo devuelve en `mensajes[].bloques`;
+  - la pantalla lo suma debajo con `itemsDeRespuesta`, y al recargar vuelve con `itemsDeSesion`.
+  - Es del intento que contesta: si el turno se re-arranca (la cascada rota de cuenta), `nuevoIntento` lo vacía.
+- **Regla:**
+  - una lectura sabe por `ctx.aDibujar` si lo que arma se va a ver, y sólo entonces lo arma y le dice al modelo que no
+    lo copie;
+  - una lista CON ACCIONES guardada en el hilo es una foto: se vuelve a leer al dibujarse y no actúa hasta tener la viva
+    (en Pagos, marcar una fila vieja reescribe la fecha de un cobro, docs/hallazgos-pagos.md);
+  - un bloque de área que trae acciones de servidor se carga con `dynamic` desde `BloqueHilo` (app/_chat/bloques/*). Si
+    se importa directo, `server-only` tira afuera de Next, y `BloqueHilo` deja de cargar en su test.
+- **Para la 1.9:** el «Sin hacer» de arriba esperaba un `RespuestaTurno.bloques` para lo que dibuja un turno. Ya hay un
+  camino: lo que dibuja el turno viaja en el mensaje de MaKo (`mensajes[].bloques`), igual que al recargar. Una
+  herramienta como `preguntar_al_usuario` puede usar `ctx.aDibujar` en vez de sumar un campo.

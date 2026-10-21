@@ -45,15 +45,19 @@ type Props = {
 };
 
 export function PagosCliente(p: Props) {
-  return <BloquesDeCs {...p} lista={LISTA} que="sus pagos" />;
+  return <BloquesDePagos {...p} lista={LISTA} que="sus pagos" />;
 }
 
 /** El estado de cuenta y el deal (servicio, promesa, obligaciones), debajo del Resumen de CS. */
 export function DealCliente(p: Props) {
-  return <BloquesDeCs {...p} lista={LISTA_RESUMEN} que="su venta" />;
+  return <BloquesDePagos {...p} lista={LISTA_RESUMEN} que="su venta" />;
 }
 
-function BloquesDeCs({ leadId, onCambio, lista, que }: Props & { lista: readonly BloquePuesto[]; que: string }) {
+/**
+ * Los bloques de la tab Pagos de UN lead fuera de su ficha, con la MISMA lectura (`getLeadFullAction`). También los
+ * monta el chat con MaKo para el estado de cuenta (app/_chat/bloques/EstadoCuentaHilo.tsx, la 2.28, 20/10/2026).
+ */
+export function BloquesDePagos({ leadId, onCambio, lista, que }: Props & { lista: readonly BloquePuesto[]; que: string }) {
   const [data, setData] = useState<LeadFullData | 'cargando' | 'error'>('cargando');
   const leer = useCallback(() => {
     void getLeadFullAction(leadId).then((d) => setData(d ?? 'error'), () => setData('error'));

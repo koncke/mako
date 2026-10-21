@@ -124,7 +124,10 @@ export function itemsTrasTarjeta(r: ResultadoTarjeta): ItemHilo[] {
 export function itemsDeRespuesta(r: RespuestaTurno, yaVistas: ReadonlySet<number> = new Set()): ItemHilo[] {
   const out: ItemHilo[] = [];
   r.mensajes.forEach((m) => {
-    if (m.role === 'assistant' && m.content.trim()) out.push({ ...aMensaje(m, 0), id: idLocal('a') });
+    if (m.role !== 'assistant' || !m.content.trim()) return;
+    out.push({ ...aMensaje(m, 0), id: idLocal('a') });
+    // Lo que dibujó una lectura del turno («A quién cobrar», la 2.27), debajo de lo que dijo MaKo: igual que al recargar.
+    for (const b of m.bloques ?? []) out.push({ k: 'bloque', id: idLocal('b'), b });
   });
   for (const t of r.paraLaPersona) if (t.trim()) out.push({ k: 'aviso', id: idLocal('v'), texto: t, tono: 'mako' });
   // Al negocio le falta una integración (su IA): no es un cartel de «no pude», lo dice MaKo y trae el botón para conectarla.

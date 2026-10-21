@@ -360,6 +360,13 @@ export type Ctx = {
    *  WhatsApp lo junta y lo agrega a la respuesta. Sin esto (HTTP, la bandeja) el
    *  `paraLaPersona` de un runner no tiene a quién llegar y se descarta. */
   aPersona?: (texto: string) => void;
+  /** Por dónde una LECTURA le DIBUJA algo a la persona (lib/chat-bloques.ts: «A quién cobrar»): lo pone sólo el turno
+   *  de la app (`turnoApp`), que lo guarda con la respuesta de MaKo. El modelo no lo ve; sin esto (WhatsApp, HTTP) se
+   *  descarta. Una lectura sabe por acá si lo que arma para dibujar se va a ver (20/10/2026, la 2.27). */
+  aDibujar?: (b: Bloque) => void;
+  /** Sólo en la app: los archivos que la persona adjuntó en el mensaje de ESTE turno, ya guardados (su `ref` es la de
+   *  /api/mako/chat?adjunto=). El estado de cuenta del lead toma el comprobante de acá (la 2.28). */
+  adjuntos?: readonly { ref: string; nombre: string; tipo: 'image' | 'document' }[];
   /** Sólo un token DETALLADO por /api/v1 (lib/api-mako/permisos.ts): qué nivel tiene en
    *  cada área. Ausente = no hay restricción por área (los demás canales y el token
    *  clásico, que se gobiernan con `alcance`). Lo mira `gatingOk` al proponer Y al
@@ -389,7 +396,7 @@ export const quienChatea = (ctx: Pick<Ctx, 'canal' | 'quien'>): { sub: string; e
  *  adentro de un resultado válido». Para `formatos`, además el tipo y cabeceras. */
 export type SalidaLectura =
   | string
-  | { content: string; isError?: boolean; formato?: Formato; headers?: Record<string, string>; paraLaPersona?: string };
+  | { content: string; isError?: boolean; formato?: Formato; headers?: Record<string, string>; paraLaPersona?: string; bloque?: Bloque };
 
 /** Lo que una acción `chat` deja listo ANTES del «sí»: el payload saneado (lo que
  *  se va a ejecutar, con ids resueltos) y el resumen que lee la persona. `faltan`

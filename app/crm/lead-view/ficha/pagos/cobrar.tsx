@@ -13,7 +13,7 @@
 // «N sin marcar» y los bloques leen las cuotas nuevas). Deshacer escribe en el server, con la misma acción.
 // =============================================================================
 
-import { useState, useTransition, type ReactNode } from 'react';
+import { useContext, useState, useTransition, type ReactNode } from 'react';
 import { Button, Field, Input, Modal, Toast, useToast } from '@/app/_ui';
 import type { Pago } from '@/lib/pagos';
 import { nombreCuota } from '@/lib/pagos-campo';
@@ -26,6 +26,7 @@ import { CobrarCuotaConLink } from '@/app/crm/[id]/CobrarConLink';
 import type { CtxFicha } from '../tipos';
 import { refrescarCobros, useCobrosDelLead, useMonedaDelNegocio } from './datos';
 import { Aviso, ElegirComoCobrar, MarcarPagada, RegistrarPago, VerComprobante } from './piezas';
+import { ComprobanteDelChatCtx } from './comprobante-del-chat';
 
 type Abierto =
   | { que: 'elegir'; cuota: Pago }
@@ -44,6 +45,8 @@ const unMesDespues = (iso: string): string => {
 /** Los botones de cobro de la tab: qué abre cada uno y los modales, ya montados. */
 export function useCobrar(ctx: CtxFicha) {
   const { lead, data } = ctx;
+  // El comprobante adjunto en el chat con MaKo (la 2.28): si lo hay, cobrar es marcarla, con él ya leído.
+  const comprobante = useContext(ComprobanteDelChatCtx);
   const { opciones } = useCobrosDelLead(lead.id);
   const moneda = useMonedaDelNegocio();
   const [abierto, setAbierto] = useState<Abierto | null>(null);
@@ -63,7 +66,8 @@ export function useCobrar(ctx: CtxFicha) {
     if (a.tipo === 'agregar-cuota') setAbierto({ que: 'agregar', faltaUsd: a.faltaUsd });
     if (a.tipo === 'cargar-venta') setAbierto({ que: 'monto' });
   };
-  const cobrarCuota = (q: Pago) => setAbierto(pasarelas.length ? { que: 'elegir', cuota: q } : { que: 'marcar', cuota: q });
+  // Con un comprobante del chat ya pagó: no se pregunta si mandarle el link.
+  const cobrarCuota = (q: Pago) => setAbierto(pasarelas.length && !comprobante ? { que: 'elegir', cuota: q } : { que: 'marcar', cuota: q });
 
   const deshacerMarca = (q: Pago) => start(async () => {
     try { await marcarPagoAction(q.id, lead.id, false, null); cambio(); }
@@ -106,7 +110,7 @@ export function useCobrar(ctx: CtxFicha) {
       onMarcar={() => setAbierto({ que: 'marcar', cuota: q })} onLink={() => setAbierto({ que: 'link', cuota: q })} />;
   } else if (abierto?.que === 'marcar') {
     const q = abierto.cuota;
-    modal = <MarcarPagada cuota={q} leadId={lead.id} monedaNegocio={moneda} onCerrar={cerrar}
+    modal = <MarcarPagada cuota={q} leadId={lead.id} monedaNegocio={moneda} comprobante={comprobante} onCerrar={cerrar}
       onHecho={(m, deshacer) => { cerrar(); cambio(); show(m, deshacer ? () => deshacerMarca(q) : undefined); }} />;
   } else if (abierto?.que === 'link') {
     const q = abierto.cuota;

@@ -28,6 +28,7 @@ import { validarInput } from './validar';
 import { vistaDe } from './vista';
 import { proponerChat, proponerPantallaGenerica, TTL_PENDIENTE_MIN, RUTA_BANDEJA } from './acciones';
 import { esAccion, esControl, esLectura, type Ctx, type Resultado } from './tipos';
+import { sanearBloque } from '@/lib/chat-bloques';
 
 export { vistaDe };
 
@@ -79,6 +80,10 @@ export async function ejecutarOperacion(
         if (typeof cruda !== 'string' && cruda.paraLaPersona) ctx.aPersona?.(cruda.paraLaPersona);
         if (typeof cruda === 'string') return { ok: true, tipo: 'lectura', salida: def.salida, resultado: cruda };
         if (cruda.isError) return { ok: false, status: 400, error: cruda.content };
+        // Lo que la lectura DIBUJA (lib/chat-bloques.ts) va a la pantalla por el canal del código, saneado; el modelo
+        // recibe sólo `content`. Sin `aDibujar` (WhatsApp, HTTP) se descarta.
+        const bloque = cruda.bloque && ctx.aDibujar ? sanearBloque(cruda.bloque) : null;
+        if (bloque) ctx.aDibujar?.(bloque);
         return { ok: true, tipo: 'lectura', salida: def.salida, formato: cruda.formato, headers: cruda.headers, resultado: cruda.content };
       }
 
