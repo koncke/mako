@@ -558,7 +558,7 @@ export const RUNNERS: Runners = {
       const avisos = [
         s.activa ? 'La secuencia está ACTIVA: el copy nuevo sale en el próximo envío.' : 'La secuencia está pausada.',
         ...(borrados > 0 ? [`Se borran ${borrados} paso(s): hoy tiene ${s.pasos.length}.`] : []),
-        ...(otra ? [`${avisoDuplicada(otra.nombre)}.`] : []),
+        ...(otra ? [`${avisoDuplicada(otra)}.`] : []),
       ];
       return {
         payload: { id, pasos, ...(otra ? { aunqueDuplique: true } : {}) },

@@ -301,13 +301,15 @@ export function NutricionGenerar({ onAplicado }: { onAplicado?: () => void } = {
                         </div>
                       )}
 
+                      {/* Quietos mientras se guarda (o MaKo reescribe, o va a Meta): un texto editado a mitad del guardado
+                          dejaba «Guardar igual» armado para el texto de ANTES, y reescribir pisaba lo tecleado. */}
                       {p.canal === 'email' && (
                         <>
-                          <input value={p.asunto ?? ''} onChange={(e) => editPaso(i, 'asunto', e.target.value)} placeholder="Asunto" style={{ ...inp, fontWeight: 600, marginBottom: '8px' }} />
-                          <input value={p.preheader ?? ''} onChange={(e) => editPaso(i, 'preheader', e.target.value)} placeholder="Preheader (vista previa)" style={{ ...inp, marginBottom: '8px' }} />
+                          <input value={p.asunto ?? ''} onChange={(e) => editPaso(i, 'asunto', e.target.value)} disabled={ocupado} placeholder="Asunto" style={{ ...inp, fontWeight: 600, marginBottom: '8px' }} />
+                          <input value={p.preheader ?? ''} onChange={(e) => editPaso(i, 'preheader', e.target.value)} disabled={ocupado} placeholder="Preheader (vista previa)" style={{ ...inp, marginBottom: '8px' }} />
                         </>
                       )}
-                      <textarea value={p.cuerpo} onChange={(e) => editPaso(i, 'cuerpo', e.target.value)} rows={p.canal === 'email' ? 5 : 3} style={{ ...inp, resize: 'vertical' }} />
+                      <textarea value={p.cuerpo} onChange={(e) => editPaso(i, 'cuerpo', e.target.value)} disabled={ocupado} rows={p.canal === 'email' ? 5 : 3} style={{ ...inp, resize: 'vertical' }} />
 
                       {p.canal === 'whatsapp' && (
                         <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -317,8 +319,8 @@ export function NutricionGenerar({ onAplicado }: { onAplicado?: () => void } = {
                               {/* El seleccionado sale de `proveedorDelPaso`, el MISMO que usa el motor:
                                   con `p.proveedor !== 'no_oficial'` la pantalla marcaba «Oficial» en
                                   todo paso sin el campo y el motor mandaba por el otro. */}
-                              <button onClick={() => setProv(i, 'oficial')} style={segBtn(proveedorDelPaso(p) === 'oficial')}>Oficial (Meta)</button>
-                              <button onClick={() => setProv(i, 'no_oficial')} style={segBtn(proveedorDelPaso(p) === 'no_oficial')}>No oficial</button>
+                              <button onClick={() => setProv(i, 'oficial')} disabled={ocupado} style={segBtn(proveedorDelPaso(p) === 'oficial')}>Oficial (Meta)</button>
+                              <button onClick={() => setProv(i, 'no_oficial')} disabled={ocupado} style={segBtn(proveedorDelPaso(p) === 'no_oficial')}>No oficial</button>
                             </div>
                           </div>
 

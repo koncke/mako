@@ -1242,7 +1242,7 @@ export const RUNNERS: Runners = {
       // ⚠️ REESCRIBIR UNA ACTIVA ES PUBLICAR LO NUEVO (revisión del 21/10/2026): si con estos pasos le escribe lo mismo a la
       // misma gente que otra activa, la PROPUESTA lo dice, y sólo entonces el «sí» lleva `aunqueDuplique` (`publicarPasos`).
       const otra = await duplicadaDeLaActivacion(id, { pasos: relinear(pasos), soloSiActiva: true });
-      if (otra) avisos.push(avisoDuplicada(otra.nombre));
+      if (otra) avisos.push(avisoDuplicada(otra));
       return {
         // `relinear`: la cadena vuelve a seguir el orden de la lista nueva. Sin esto, un paso
         // agregado al final quedaba suelto (el anterior decía «termina») y uno borrado del medio

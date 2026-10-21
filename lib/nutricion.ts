@@ -103,7 +103,7 @@ import { KEY_HORARIO_ENVIO, horarioVigente, dentroDelHorario, type HorarioEnvio 
 import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes, type LimitesEnvio } from '@/lib/limites-envio';
 import { cerradasAhora, horarioDeLaAutomatizacion, personaHorasDeLaAutomatizacion, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
 import { configsDelNegocio, leerConfigAutomatizacion } from '@/lib/config-automatizacion-db';
-import { duplicadaAlActivar, avisoDuplicada } from '@/lib/automatizacion-duplicada';
+import { duplicadaAlActivar, avisoDuplicada, type Duplicada } from '@/lib/automatizacion-duplicada';
 import {
   sanearHilos, planDePosicion, hiloSigueEn, hilosIniciales, aplicarAHilo, hilosVencidos, hilosNuevos, repartosDe,
   hayOtrosHilos, nodosDeLaFila, esFilaNueva, proximoDeEntrada, mensajeAnteriorDe, estadoDeCierrePermanente, vuelveALaCola,
@@ -805,8 +805,9 @@ export { textoDelPaso };
  * pregunta; con «… igual», vuelve a pedirlo con `aunqueDuplique`. El mensaje es el aviso, listo para mostrar.
  */
 export class DuplicadaError extends Error {
-  readonly otra: { id: number; nombre: string };
-  constructor(otra: { id: number; nombre: string }) { super(avisoDuplicada(otra.nombre)); this.name = 'DuplicadaError'; this.otra = otra; }
+  /** La otra y el arranque de los dos mensajes: la pantalla los muestra para que la persona compare. */
+  readonly otra: Duplicada;
+  constructor(otra: Duplicada) { super(avisoDuplicada(otra)); this.name = 'DuplicadaError'; this.otra = otra; }
 }
 
 /**
@@ -817,7 +818,7 @@ export class DuplicadaError extends Error {
 export async function duplicadaDeLaActivacion(
   id: number,
   o: { pasos?: readonly PasoGrafo[]; soloSiActiva?: boolean; columnas?: { etapa?: string; trigger_tipo?: string; etiqueta_id?: unknown } } = {},
-): Promise<{ id: number; nombre: string } | null> {
+): Promise<Duplicada | null> {
   const supabase = (await getTenantDb());
   const filas = await leerFilasDeSecuencias((cols) => supabase.from('nutricion_secuencias').select(cols).is('archivada_at', null), 'duplicadaDeLaActivacion');
   // `columnas` (/email › Guardar): a quién le va a escribir con la etapa o el disparador NUEVOS, antes de escribirlos.
@@ -828,10 +829,7 @@ export async function duplicadaDeLaActivacion(
   }));
   const esta = vistas.find((v) => v.id === id);
   if (!esta || (o.soloSiActiva && !esta.activa)) return null;
-  // El nombre del negocio es firma, no contenido (`palabrasDeFirma`). Sin poder leerlo, sin él.
-  const ws = await getWorkspaceActual().catch(() => null);
-  const negocio = ws == null ? '' : await getWorkspace(ws).then((w) => w?.nombre ?? '').catch(() => '');
-  return duplicadaAlActivar(esta, vistas, (v) => v.crons, { ...(o.pasos ? { pasos: o.pasos } : {}), negocio });
+  return duplicadaAlActivar(esta, vistas, (v) => v.crons, o.pasos ? { pasos: o.pasos } : {});
 }
 
 /**

@@ -1080,11 +1080,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     const otra = duplicadaDe(
       { id: secuencia.id, nombre, disparadores: crons.lista, pasos: queManda },
       secuencias.map((s) => ({ id: s.id, nombre: s.nombre, activa: s.activa, disparadores: disparadoresDeSecuencia(s), pasos: s.pasos ?? [] })),
-      // El nombre del negocio es firma, no contenido (`palabrasDeFirma`): como el server.
-      { negocio },
     );
     if (!otra) { seguir(); return; }
-    setAvisoDup({ texto: avisoDuplicada(otra.nombre), boton, seguir });
+    setAvisoDup({ texto: avisoDuplicada(otra), boton, seguir });
   };
   /**
    * UNA ACTIVA QUE YA LE ESCRIBE LO MISMO A LA MISMA GENTE QUE OTRA (revisión del 21/10/2026): se DICE al lado de «Activar»
@@ -1094,9 +1092,9 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    */
   const dupActiva = useMemo(
     () => (rolAdmin && activa
-      ? duplicadaAlActivar(secuencia as SecuenciaConDisparadores, secuencias as readonly SecuenciaConDisparadores[], disparadoresDeSecuencia, { pasos: abiertoPublicado, crons: crons.lista, negocio })
+      ? duplicadaAlActivar(secuencia as SecuenciaConDisparadores, secuencias as readonly SecuenciaConDisparadores[], disparadoresDeSecuencia, { pasos: abiertoPublicado, crons: crons.lista })
       : null),
-    [rolAdmin, activa, secuencia, secuencias, abiertoPublicado, crons.lista, negocio],
+    [rolAdmin, activa, secuencia, secuencias, abiertoPublicado, crons.lista],
   );
   const conAvisoProspeccion = (seguir: () => void) => {
     if (!rolAdmin || !Configuraciones || avisadaProspeccion.has(secuencia.id) || !cronDeProspeccion(crons.lista, productos, secuencia.funnel_id ?? null)) { seguir(); return; }
@@ -1346,7 +1344,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 borradores). Con el porqué corto y el link a donde se aprueban (Chats › Borradores). */}
             {dupActiva && (
               <span data-duplicada="" role="status" style={{ ...tarjetaChrome, flex: 'none', maxWidth: 320, fontSize: 12.5, fontWeight: 600, color: 'var(--warn)', lineHeight: 1.35 }}>
-                {avisoDuplicada(dupActiva.nombre)}
+                {avisoDuplicada(dupActiva)}
               </span>
             )}
             {porAprobar && (

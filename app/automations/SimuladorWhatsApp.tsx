@@ -632,8 +632,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     // ⚠️ ACTIVAR DESDE EL «⋯» TAMBIÉN PREGUNTA (revisión del 20/10/2026, noche): es el camino más común para prender una,
     // y lo salteaba. Con lo PUBLICADO de las dos (`duplicadaAlActivar`): Activar no publica nada.
     if (accion === 'activa' && !j.activa && rolAdmin && !o?.sinAviso) {
-      const otra = duplicadaAlActivar(j as SecuenciaConDisparadores, secuencias as readonly SecuenciaConDisparadores[], disparadoresDeSecuencia, { negocio });
-      if (otra) { setErrFila(null); setAvisoActivar({ j, texto: avisoDuplicada(otra.nombre) }); return; }
+      const otra = duplicadaAlActivar(j as SecuenciaConDisparadores, secuencias as readonly SecuenciaConDisparadores[], disparadoresDeSecuencia);
+      if (otra) { setErrFila(null); setAvisoActivar({ j, texto: avisoDuplicada(otra) }); return; }
     }
     setErrFila(null); setOcupada(j.id);
     try {
