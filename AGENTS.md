@@ -1568,6 +1568,16 @@ código nuevo:
     **El turno (`turnoApp`) lo usan TRES chats** (el Second Brain, el teléfono y el MaKo Analyst de un lead): lo que
     escribe FUERA del hilo (guardar archivos, El Archivero, cualquier efecto nuevo) va detrás de una opción que prende
     quien llama (`guardarAdjuntos`), nunca para todos. El PDF de un lead no es un documento del negocio.
+  - **Un chat de tab adjunta con las piezas de la caja del Ops Center** (regla de Martín del 18/10/2026: un solo chat en
+    toda la app): el «+» (`MasCaja`), las miniaturas (`ListaAdjuntos`) y pegar y soltar (`alPegar`, `alSoltar`) de
+    app/admin/operaciones/AdjuntosCaja.tsx y pegar.ts, nunca un ⊕ propio. Fuera del Centro: se importa `centro.css`
+    (AdjuntosCaja trae sólo chat.css) en la pantalla que monta el chat, NUNCA en un módulo que cargan los tests (en node un
+    `.css` no carga: si el chat es un módulo compartido, `MasCaja` y `ListaAdjuntos` entran con `next/dynamic` y pegar y
+    soltar vienen de pegar.ts); y, si la pantalla tiene su propio tema (el editor de landings), se redefinen bajo su
+    raíz los tokens que usan (`--surface`, `--surface-2`, `--border`, `--ink`, `--dim`, `--velo-hover`, `--focus-ring`):
+    si no, el menú sale con los colores de la app sobre el oscuro del editor. Lo que una pantalla suma (leer el archivo
+    antes de mandar) va por `AdjuntoCaja.estado`, que la miniatura dibuja. El molde: el chat del editor
+    (app/web-generator/editor/paneles/PanelAgente.tsx, 20/10/2026).
   - **EL MODELO JUSTO Y LA INSTRUCCIÓN PRECISA: los tokens son la capacidad** (17/10/2026). Martín: «quiero que los jefes
     y el cerebro tengan la capacidad de ahorrar tokens, dando instrucciones precisas y eligiendo qué modelo de IA debe
     correr». Medido esa noche: con nueve chats abiertos, la ventana de 5 horas de una cuenta Max llegó al 95% en
