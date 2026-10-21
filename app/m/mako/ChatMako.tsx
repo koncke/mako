@@ -266,6 +266,7 @@ export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats
           <ol className="m-mako-hilo" aria-label="Conversación con MaKo">
             {items.map((x) => (
               <Item key={x.id} x={x}
+                onResponder={(t) => void enviar({ texto: t, adjuntos: [] })}
                 onAbrir={(id) => setAbierta(id)}
                 onReintentar={reintentar}
                 onRecargar={sesion ? () => void abrir(sesion.id) : undefined} />
@@ -321,9 +322,11 @@ export function ChatMako({ sesionesIniciales, inicial, hrefMapa = null, masChats
 /** La estrella de MaKo: sólo en lo que MaKo propone (no en cada mensaje suyo). */
 const MARCA_MAKO = <span className="m-mako-marca" aria-hidden><Icon name="mako" size={18} /></span>;
 
-function Item({ x, onAbrir, onReintentar, onRecargar }: {
+function Item({ x, onAbrir, onReintentar, onRecargar, onResponder }: {
   x: ItemHilo;
   onAbrir: (id: string) => void;
+  /** Contestar una pregunta con opciones (1.9): sale como el siguiente mensaje. */
+  onResponder: (texto: string) => void;
   onReintentar: (id: string) => void;
   onRecargar?: () => void;
 }) {
@@ -367,7 +370,7 @@ function Item({ x, onAbrir, onReintentar, onRecargar }: {
       );
   }
   // Lo que dibuja el resultado (lib/chat-bloques.ts): la MISMA pieza de la computadora.
-  if (x.k === 'bloque') return <li className="m-mako-msg m-mako-msg--mk"><BloqueHilo b={x.b} /></li>;
+  if (x.k === 'bloque') return <li className="m-mako-msg m-mako-msg--mk"><BloqueHilo b={x.b} onResponder={onResponder} respondida={x.respondida} /></li>;
   if (x.k === 'pantalla' && x.p.form) {
     return (
       <li className="m-mako-msg m-mako-msg--mk">

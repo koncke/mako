@@ -24,10 +24,12 @@ type Trabajo = Extract<Bloque, { t: 'trabajo' }>;
 const CONSULTA_INICIAL_MS = 3_000;
 const CONSULTA_MAX_MS = 15_000;
 
-export function BloqueHilo({ b, onResponder }: {
+export function BloqueHilo({ b, onResponder, respondida }: {
   b: Bloque;
   /** Contestar una pregunta (G1): lo elegido sale como un mensaje de la persona. Sin esto, las opciones se ven y no se tocan. */
   onResponder?: (texto: string) => void;
+  /** Una pregunta que ya se contestó (al recargar): se ve contestada y no se toca. */
+  respondida?: string;
 }) {
   if (b.t === 'creado') return <Creado b={b} />;
   if (b.t === 'antes_despues') {
@@ -48,7 +50,7 @@ export function BloqueHilo({ b, onResponder }: {
     );
   }
   if (b.t === 'trabajo') return <TrabajoHilo b={b} />;
-  return <PreguntaHilo b={b} onResponder={onResponder} />;
+  return <PreguntaHilo b={b} onResponder={onResponder} respondida={respondida} />;
 }
 
 /**
@@ -128,9 +130,9 @@ function Creado({ b }: { b: BloqueCreado }) {
 }
 
 /** G1: las opciones, la recomendada marcada; de a una (tocar contesta) o varias (se marcan y «Listo»). */
-function PreguntaHilo({ b, onResponder }: { b: Pregunta; onResponder?: (texto: string) => void }) {
+function PreguntaHilo({ b, onResponder, respondida }: { b: Pregunta; onResponder?: (texto: string) => void; respondida?: string }) {
   const [marcadas, setMarcadas] = useState<number[]>([]);
-  const [enviada, setEnviada] = useState<string | null>(null);
+  const [enviada, setEnviada] = useState<string | null>(respondida ?? null);
   const quieta = !onResponder || enviada != null;
   const responder = (t: string) => {
     if (quieta) return;

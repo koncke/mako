@@ -275,7 +275,8 @@ export function ChatMakoCrm({ funnelId, pedido }: {
           </div>
         ) : (
           <HiloMako items={items} quien={{ nombre: 'CRM' }} ahora={ahora} escribiendo={hayTrabajo ? { segs } : null}
-            tarjeta={tarjeta} onTarjeta={(x, a) => void correrTarjeta(x, a)} onReintentar={reintentar} onRecargar={recargar} />
+            tarjeta={tarjeta} onTarjeta={(x, a) => void correrTarjeta(x, a)} onReintentar={reintentar} onRecargar={recargar}
+            onResponder={(t) => enviar({ texto: t })} />
         )}
       </div>
       <div className="co-caja-wrap">

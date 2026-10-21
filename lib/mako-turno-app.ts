@@ -65,8 +65,9 @@ import { archivarPdfsDelChat, archivarPegadosDelChat, borrarAdjuntos, subirAdjun
 import { partirPegados, recortarMensaje, textoParaTitulo } from '@/lib/chat-pegado';
 import { archivoATexto } from '@/lib/archivo-a-texto';
 import { aFila, plano } from '@/lib/bandeja-filas';
-import { getPropuesta, propuestasPendientesDelChat } from '@/lib/propuestas';
-import { getPendiente } from '@/lib/mako-pendientes';
+import { descartarPropuesta, getPropuesta, propuestasPendientesDelChat } from '@/lib/propuestas';
+import { getPendiente, resolverPendiente } from '@/lib/mako-pendientes';
+import { PREGUNTAR, TOOL_PREGUNTAR, ERROR_TRAS_PREGUNTAR, crearGuardiaDePregunta, retirar } from '@/lib/chat-pregunta';
 import { enSegundoPlano } from '@/lib/chat-trabajos';
 import { puedeVerKey } from '@/lib/movil-rutas';
 import { bloquesDeAdjuntos, placeholderDeAdjunto, promptDeAdjunto, type AdjuntoListo } from '@/lib/mako-adjuntos';
@@ -442,7 +443,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       deSiempre: [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS, ...TICKET_TOOLS], vista,
       hayPendientes: vigentes.length > 0, resumenesPendientes: vigentes.map((p) => p.resumen), sinCalendly,
     });
-    const tools = turno.tools as ToolDef[];
+    // Con herramientas, también la de preguntar con opciones (1.9, lib/chat-pregunta.ts): la regla la impone el código.
+    const tools = turno.tools.length ? [...(turno.tools as ToolDef[]), TOOL_PREGUNTAR] : (turno.tools as ToolDef[]);
     const permitidas = new Set(tools.map((t) => t.name));
 
     // El system se arma DESPUÉS de las tools: depende de ellas.
@@ -471,12 +473,19 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       const d = porId(n);
       return d ? d.tipo !== 'lectura' : NOMBRES_ACCION.has(n) && !n.startsWith('listar_');
     });
+    // Desde que MaKo pregunta, no se propone nada en el turno (1.9): una lectura sí, para armar las opciones.
+    const guardia = crearGuardiaDePregunta((n) => { const d = porId(n); return d ? d.tipo !== 'lectura' : NOMBRES_ACCION.has(n) && !n.startsWith('listar_'); });
     const runTool = async (name: string, input: Record<string, unknown>) => {
       // El contrato se aplica AL EJECUTAR: lo que no viajó no corre, aunque el modelo lo
       // llame (lo dice el texto, lo pide igual). Confirmar, menos que nada.
       if (!permitidas.has(name)) {
         return { content: JSON.stringify({ ok: false, error: `«${name}» no está disponible en este chat.` }), isError: true };
       }
+      if (name === PREGUNTAR) {
+        const q = guardia.preguntar(input);
+        return q.ok ? JSON.stringify({ ok: true, instruccion: q.texto }) : { content: JSON.stringify({ ok: false, error: q.texto }), isError: true };
+      }
+      if (guardia.bloquea(name)) return { content: JSON.stringify({ ok: false, error: ERROR_TRAS_PREGUNTAR }), isError: true };
       const previo = memo.previo(name);
       if (previo) return previo.out as Awaited<ReturnType<typeof runRegistro>>;
       // Las de siempre por sus cuerpos de siempre; TODO lo demás (incluidas las acciones
@@ -533,9 +542,17 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     }
 
     // ── Lo que sale ────────────────────────────────────────────────────────────
-    const propuestas = await tarjetasVigentes(ws, canalKey, turnStart).catch(() => [] as TarjetaPendiente[]);
-    // Las genéricas, con su formulario: se confirman ADENTRO del chat (1.10).
-    const pantallas = await Promise.all(capturados.map((l) => conFormulario(propuestaDePantalla(l), persona.rol)));
+    const delTurno = await tarjetasVigentes(ws, canalKey, turnStart).catch(() => [] as TarjetaPendiente[]);
+    const capturadas = await Promise.all(capturados.map((l) => conFormulario(propuestaDePantalla(l), persona.rol)));
+    // Con una pregunta, lo que el turno propuso ANTES se retira, también en la base: depende de la respuesta (1.9).
+    const pregunta = guardia.pregunta;
+    if (pregunta) {
+      await Promise.all([
+        ...delTurno.map((t) => resolverPendiente(ws, t.pendienteId, 'cancelada', 'MaKo preguntó antes de proponer', { soloSiPendiente: true }).catch(() => false)),
+        ...capturadas.map((p) => { const id = p.clase === 'accion' ? idDePropuesta(p.escritorio) : null; return id ? descartarPropuesta(id).catch(() => undefined) : undefined; }),
+      ]);
+    }
+    const { propuestas, pantallas } = retirar(pregunta, delTurno, capturadas);
     const borrador = capturados.find((c) => c.clase === 'borrador') ?? null;
     const lead = capturados.find((c) => c.clase === 'lead') ?? null;
 
@@ -564,10 +581,12 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       respuesta = saneo.texto;
     }
     if (!respuesta && (propuestas.length || pantallas.length)) respuesta = TEXTO_SOLO_TARJETA;
+    // La pregunta va con el mensaje de MaKo (al recargar vuelve); sin texto, el mensaje ES la pregunta.
+    if (pregunta && !respuesta) respuesta = pregunta.pregunta;
 
     if (respuesta) {
-      await appendMessage(s.id, 'assistant', respuesta);
-      guardados.push({ role: 'assistant', content: respuesta });
+      await appendMessage(s.id, 'assistant', respuesta, pregunta ? [aGuardar(pregunta)] : undefined);
+      guardados.push({ role: 'assistant', content: respuesta, ...(pregunta ? { bloques: [pregunta] } : {}) });
     }
     // Sin IA: lo dice MaKo, con el botón que abre el modal de las keys en esta misma pantalla (`conectar`). Salvo en el
     // workspace del entorno, donde la key que pegara pasaría a ser la de la plataforma (`avisoSinIA`): ahí, sin botón.

@@ -947,4 +947,23 @@ export const BITACORA: Hito[] = [
       'tests/chat-trabajos.test.ts, tests/_trabajos-hijo.ts',
     ],
   },
+  {
+    fecha: '21 oct', hora: '00:40', chat: 'Ops Center', sesion: 'local_c2a7cb77-06c2-4bf5-8220-c6bb48d20af7', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Cuando hay que elegir, MaKo pregunta con opciones y no hace nada hasta que contestes',
+    pedido: 'Ops Center = lo principal en MaKo (ola 1, 1.9)',
+    revisar: '/admin/operaciones',
+    puntos: [
+      'Si tu pedido puede ir por caminos distintos, MaKo te pregunta con 2 a 4 opciones para tocar, y marca la recomendada.',
+      'Mientras no contestes, no te propone nada: lo que hubiera armado antes de preguntar se retira.',
+      'Contestas tocando una opción, con «Elige tú» o «Saltear», o escribiendo.',
+      'Al recargar, la pregunta sigue ahí y se ve contestada.',
+      'Falta que pedidos como «todos los martes a las 3 a todo el funnel» lleguen a MaKo como pedidos: eso viene con el ruteo.',
+    ],
+    archivos: [
+      'lib/chat-pregunta.ts, lib/mako-turno-app.ts (la guardia en el turno)',
+      'app/m/mako/chat-ui.ts (contestada al recargar), app/_chat/BloqueHilo.tsx',
+      'tests/chat-pregunta.test.ts',
+    ],
+  },
 ];

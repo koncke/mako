@@ -123,7 +123,7 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
       return;
     }
     if (x.k === 'bloque') {
-      filas.push(<DeMako key={x.id} quien={quien}><BloqueHilo b={x.b} onResponder={onResponder} /></DeMako>);
+      filas.push(<DeMako key={x.id} quien={quien}><BloqueHilo b={x.b} onResponder={onResponder} respondida={x.respondida} /></DeMako>);
       return;
     }
     if (x.k === 'pantalla') {

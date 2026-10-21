@@ -67,7 +67,8 @@ export type ItemHilo =
   | { k: 'aviso'; id: string; texto: string; tono: 'mako' | 'plataforma'; conectar?: string }
   /** Lo que el chat DIBUJA (lib/chat-bloques.ts, app/_chat/BloqueHilo.tsx): lo creado con su miniatura, el antes y el
    *  después, un trabajo largo, una pregunta con opciones. Lo de MaKo, a la izquierda. */
-  | { k: 'bloque'; id: string; b: Bloque };
+  /** `respondida`: una pregunta (G1) que la persona ya contestó (su mensaje siguiente), al recargar. */
+  | { k: 'bloque'; id: string; b: Bloque; respondida?: string };
 
 /** Lo que dice el botón de un aviso con `conectar`. La IA se nombra como la persona la piensa, no por el proveedor. */
 export const botonConectar = (servicio: string): string => (servicio === 'gemini' ? 'Conectar tu IA' : 'Conectar');
@@ -105,10 +106,19 @@ const conSusBloques = (m: MensajeChat, i: number): ItemHilo[] => [
 /** El hilo de una sesión recién abierta: los mensajes guardados y, al final, lo que espera (las tarjetas y, desde la
  *  1.10, las propuestas de pantalla pendientes de este chat, con su formulario). */
 export function itemsDeSesion(mensajes: readonly MensajeChat[], propuestas: readonly TarjetaPendiente[], pantallas: readonly PropuestaPantalla[] = []): ItemHilo[] {
-  return [
+  return conRespuestas([
     ...mensajes.flatMap(conSusBloques), ...propuestas.map(aPropuesta),
     ...pantallas.map((p): ItemHilo => ({ k: 'pantalla', id: `s-${p.escritorio}`, p })),
-  ];
+  ]);
+}
+
+/** Una pregunta (G1) seguida de un mensaje de la persona ya está contestada: con eso (1.9). */
+function conRespuestas(xs: ItemHilo[]): ItemHilo[] {
+  return xs.map((x, i) => {
+    if (x.k !== 'bloque' || x.b.t !== 'pregunta') return x;
+    const siguiente = xs.slice(i + 1).find((y): y is Extract<ItemHilo, { k: 'msg' }> => y.k === 'msg' && y.role === 'user');
+    return siguiente ? { ...x, respondida: siguiente.texto } : x;
+  });
 }
 
 /**
@@ -141,7 +151,11 @@ export function conTarjeta(xs: readonly ItemHilo[], pendienteId: number, estado:
 export function itemsDeRespuesta(r: RespuestaTurno, yaVistas: ReadonlySet<number> = new Set()): ItemHilo[] {
   const out: ItemHilo[] = [];
   r.mensajes.forEach((m) => {
-    if (m.role === 'assistant' && m.content.trim()) out.push({ ...aMensaje(m, 0), id: idLocal('a') });
+    // Con lo que dibuja (una pregunta con opciones, 1.9), debajo del mensaje.
+    if (m.role === 'assistant' && m.content.trim()) {
+      out.push({ ...aMensaje(m, 0), id: idLocal('a') });
+      for (const b of m.bloques ?? []) out.push({ k: 'bloque', id: idLocal('b'), b });
+    }
   });
   for (const t of r.paraLaPersona) if (t.trim()) out.push({ k: 'aviso', id: idLocal('v'), texto: t, tono: 'mako' });
   // Al negocio le falta una integración (su IA): no es un cartel de «no pude», lo dice MaKo y trae el botón para conectarla.

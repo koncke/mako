@@ -4608,3 +4608,26 @@ Las cifras quedan para la próxima vez que alguien calcule un costo o un tope.
 - 8 con una operación que no existe: `crear_campana`, `agregar_conjunto` y `subir_creativos` de Meta;
 - 5 medidas con adjunto;
 - 3 «sí» que dependen del mensaje anterior.
+
+## MaKo pregunta con opciones, y la regla de no proponer la impone el código (20/10/2026, ola 1, pieza 1.9)
+
+**Vive en:** `lib/chat-pregunta.ts` (`TOOL_PREGUNTAR`, `crearGuardiaDePregunta`, `retirar`) · el turno de la app,
+`lib/mako-turno-app.ts`. Probado en `tests/chat-pregunta.test.ts`.
+
+- **Qué hace:** en el chat de la app viaja `preguntar_al_usuario` cuando el turno lleva herramientas. Lo que pasa el
+  modelo se sanea como un G1 (2 a 4 opciones distintas). Una pregunta que no calza vuelve como error y no se muestra.
+- **La regla que impone el código, no el prompt:**
+  - desde que pregunta, el turno rechaza toda acción, y una lectura sí corre, para armar las opciones;
+  - lo que propuso ANTES en el mismo turno se retira también en la base: las tarjetas quedan canceladas y las
+    propuestas de pantalla, descartadas;
+  - la pregunta se guarda con el mensaje: al recargar vuelve, y si ya hubo respuesta, se ve contestada.
+- **La persona contesta tocando** una opción, «Elige tú» o «Saltear», o escribiendo: es su siguiente mensaje. Las
+  cuatro pantallas lo mandan igual.
+- **Trampa:** la frase del «Hecho» («todos los martes a las 3 a todo el funnel») hoy la clasifica `capturar`, sin
+  herramientas. La pregunta no viaja con ella hasta que el clasificador la mande a actuar: eso es la 1.2, con la D1.
+  `tests/chat-pregunta.test.ts` lo fija para que se vea el día que cambie.
+
+**Sin hacer:**
+- El modelo decide CUÁNDO preguntar (la descripción de la herramienta lo guía). Lo que el código impone es qué pasa
+  después.
+- En WhatsApp no hay G1: una pregunta allá sigue siendo texto.

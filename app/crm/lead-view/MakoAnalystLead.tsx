@@ -508,7 +508,7 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
     }
 
     // Lo que dibuja el resultado (lib/chat-bloques.ts): la MISMA pieza del Ops Center y del teléfono.
-    if (x.k === 'bloque') return <FilaMako><BloqueHilo b={x.b} /></FilaMako>;
+    if (x.k === 'bloque') return <FilaMako><BloqueHilo b={x.b} respondida={x.respondida} onResponder={(t) => enviar({ texto: t, adjuntos: [] })} /></FilaMako>;
 
     if (x.k === 'pantalla' && x.p.form) {
       return (
