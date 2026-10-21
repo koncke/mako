@@ -15,6 +15,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import dynamic from 'next/dynamic';
 import Link, { useWs } from '@/app/_ui/Link';
+import { RedDeBloque } from '@/app/dashboard/RedDeBloque';
 import { conWs } from '@/lib/ws-tab';
 import { MAX_CONSULTAS, ROTULO_PASO, leerConsulta, proporcion, razon, type Bloque, type BloqueCreado } from '@/lib/chat-bloques';
 
@@ -62,7 +63,9 @@ export function BloqueHilo({ b, onResponder, respondida, onTermina, ocupado }: {
     );
   }
   if (b.t === 'trabajo') return <TrabajoHilo b={b} onTermina={onTermina} />;
-  if (b.t === 'grafico') return <GraficoHilo b={b} />;
+  // La red atrapa el pedazo que no carga (el import de `next/dynamic` rechazado tira al dibujar): sin ella, subía a
+  // app/error.tsx y se caía la pantalla entera, chat incluido. Adentro, GraficoHilo tiene la suya para el dibujo.
+  if (b.t === 'grafico') return <RedDeBloque nombre={b.titulo} reiniciarCon={[b]}><GraficoHilo b={b} /></RedDeBloque>;
   return <PreguntaHilo b={b} onResponder={onResponder} respondida={respondida} ocupado={ocupado} />;
 }
 

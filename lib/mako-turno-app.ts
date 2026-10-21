@@ -429,10 +429,13 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     /** Lo que dibujaron las herramientas del turno (`ctx.aDibujar`), y si vino de una que escribe. */
     const bloquesDelTurno: { b: Bloque; accion: boolean }[] = [];
     let herramientaActual = '';
-    // Una sola vez cada uno: un turno que se re-arranca (la cascada rota de cuenta) vuelve a correr las lecturas.
-    const dibujar = (b: Bloque) => {
-      if (bloquesDelTurno.length >= MAX_BLOQUES_MENSAJE || bloquesDelTurno.some((x) => JSON.stringify(x.b) === JSON.stringify(b))) return;
+    // Una sola vez cada uno: un turno que se re-arranca (la cascada rota de cuenta) vuelve a correr las lecturas. Dice si
+    // quedó en pantalla (el repetido ya está): con el tope lleno, `false`, y la lectura no le dice al modelo «ya lo ve».
+    const dibujar = (b: Bloque): boolean => {
+      if (bloquesDelTurno.some((x) => JSON.stringify(x.b) === JSON.stringify(b))) return true;
+      if (bloquesDelTurno.length >= MAX_BLOQUES_MENSAJE) return false;
       bloquesDelTurno.push({ b, accion: porId(herramientaActual)?.tipo !== 'lectura' });
+      return true;
     };
     const ctx: Ctx = {
       ws, canal: 'app', canalKey,

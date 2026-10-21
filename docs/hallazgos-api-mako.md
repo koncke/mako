@@ -1762,8 +1762,9 @@ Sobre el marco de bloques de Ops Center 3 (1.7, lib/chat-bloques.ts): una acció
 vendí este mes?» en el chat de la app deja su número, y «leads por mes», su serie.
 - **El camino:** la lectura devuelve el OBJETO `{ content, bloque }`. `ejecutarOperacion` sanea el bloque y lo pasa por
   `ctx.aDibujar`, que sólo existe en la app, y el modelo lee sólo `content`. `consultar_datos_dashboard` lo hace con un
-  gráfico (varias métricas sueltas son varios números, y un bloque es uno). Al modelo le llega el texto con un aviso de que
-  la persona YA VE el resultado, para que no repita la tabla. Sin `aDibujar` (WhatsApp, HTTP) va el texto sin el aviso.
+  gráfico (varias métricas sueltas son varios números, y un bloque es uno). El aviso de que la persona YA VE el resultado
+  (para que no repita la tabla) va aparte, en `siSeDibuja`, y `ejecutarOperacion` lo suma SÓLO si el bloque se dibujó
+  (ver la revisión del 21/10, abajo).
 - **Se mira `ctx.aDibujar`, no el canal:** es lo que dice si hay dónde dibujar. El primer contrato del mismo día (un
   `bloque` metido en el JSON de la salida, que leía el turno) se sacó a la mañana siguiente. Con él, el modelo leía el
   bloque entero.
@@ -1771,8 +1772,8 @@ vendí este mes?» en el chat de la app deja su número, y «leads por mes», su
   `tabla`, y la misma pieza la dibuja (`CuerpoGrafico`, por app/_chat/bloques/GraficoHilo.tsx, que se carga con
   `next/dynamic` porque arrastra recharts). El G7 del documento es otra cosa: la lista con acciones.
 - **Lleva la FOTO del resultado,** no lo vuelve a pedir: es lo que MaKo contestó, y al recargar se ve igual. El gráfico se
-  valida contra el catálogo (`sanearComponente`) y el resultado se acota: 60 filas (lo demás se cuenta en `fuera`), 8
-  columnas y sin `ref` ni `imagen` por fila, que el hilo no usa.
+  valida contra el catálogo (`sanearComponente`) y el resultado se acota: 60 filas (lo demás se cuenta en `fuera`; en el
+  tiempo, las 60 más NUEVAS), 8 columnas y sin `ref` ni `imagen` por fila, que el hilo no usa.
 - **Qué se dibuja:** un número queda número; con el tiempo, una serie; por categoría, barras hasta 12 grupos y tabla
   después; con desglose, columnas (`graficoParaElChat`).
 - **Trampa de test:** `sanearComponente` saca sin avisar un desglose que no es dimensión del conjunto (`fuente` no es de
@@ -1783,9 +1784,40 @@ vendí este mes?» en el chat de la app deja su número, y «leads por mes», su
   largos).
 - **Otras lecturas que podrían dibujar:** `leer_hoja_dashboard` (una hoja entera no cabe en 4 bloques) y las de
   `metricas.run.ts` (`ver_revenue_periodo`, `metricas_negocio`): sumarles el bloque es el mismo molde.
-- La miniatura de una hoja: una hoja no tiene una imagen guardada, así que su G5 va con el marco de su forma.
+- La miniatura de una hoja: una hoja no tiene una imagen guardada, así que su G5 va con el marco vacío y sin medidas.
 
 Tests: tests/dashboard-bloques-chat.test.ts y tests/dashboard-bloque-grafico.test.ts (probados rompiéndolos, cinco roturas
 cada uno). **Nadie lo miró en el Ops Center**: vive en la rama `dashboard-hilo`, que tiene mezclada `ola1` (122bac0d3),
 todavía fuera de main.
 *20/10/2026, claude4 (chat Dashboard).*
+
+**La revisión del 21/10 (sobre 7eb2bbaae): lo que el código hacía mal sin que se viera.**
+- **Una serie de más de 60 puntos dibujaba los 60 MÁS VIEJOS.** «Leads por día de los últimos 90 días» mostraba del
+  23/07 al 20/09, escondía el último mes y la nota decía el período entero. `agregar` devuelve el tiempo en orden
+  ascendente y el saneo cortaba con `slice(0, 60)`, aunque en el mismo archivo `serie` ya usaba `slice(-400)`. Ahora
+  `inicioDibujado` se queda con las más nuevas (con la tabla al revés, las primeras), el desglose se corta igual y la nota
+  dice el tramo dibujado (`desdeDibujado`). **Regla:** un corte de filas en el tiempo se queda con lo más reciente, y el
+  texto que acompaña dice lo que se ve, no lo que se pidió.
+- **«Ya lo ve: no repitas la tabla» se decía aunque el bloque no se dibujara.** El turno tiene un tope de 4 bloques por
+  mensaje (compartido por todas las herramientas) y `dibujar` hacía `return` sin avisar. La quinta tabla no se veía, y al
+  modelo se le había pedido callarla. Ahora `aDibujar` devuelve `false` si no dibujó (el tipo es `boolean | void`: un canal
+  de antes, que no contesta, cuenta como dibujado), y la lectura manda el aviso en `siSeDibuja`, que `ejecutarOperacion`
+  suma sólo si salió. **Regla:** lo que se le dice al modelo sobre la pantalla lo decide quien dibuja, no quien lee.
+- **El gráfico del chat no tenía red de error.** ⚠️ **El diagnóstico obvio (envolver `CuerpoGrafico` adentro de
+  GraficoHilo) no alcanzaba:** el error de un pedazo que no carga (un deploy con el chat abierto, la red del teléfono) lo
+  tira el Lazy de `next/dynamic` en BloqueHilo, AFUERA de GraficoHilo. Sin red, subía a app/error.tsx y se caía la
+  pantalla entera, chat incluido. Van dos redes (`RedDeBloque`): una en BloqueHilo alrededor del Lazy y otra adentro,
+  alrededor del dibujo, que deja el título y el link en pie. ⚠️ React.lazy GUARDA el rechazo: «volver a intentar» no
+  recupera el pedazo, sólo una recarga. Por eso la red no ofrece reintentar.
+- **Bajas:** el G4 de «Editar con MaKo» pone primero «Se saca» (no se deshace, y era lo que perdía el corte de 12 filas
+  del marco) y cuenta el resto en una última fila. Un cambio en el informe de OTRA persona va sin «Abrir en el Dashboard»,
+  que abre el de quien mira (y con una plantilla se la agregaba a SU informe), y con el nombre del dueño en el título. Por
+  la API HTTP ya no sale `datos.bloque` (rutas-http.ts lo saca para todas las áreas). El G5 de una hoja ya no escribe
+  «16 × 10».
+
+**Lo que quedó sin hacer (de la revisión):**
+- **Con 4 dibujos de lecturas y una pregunta (G1), `[...dibujos, pregunta].slice(0, 4)` deja afuera la pregunta**
+  (lib/mako-turno-app.ts, de Ops Center 3). La revisión no lo siguió hasta la pantalla.
+- **El pedazo que no cargó no se recupera sin recargar** (React.lazy guarda el rechazo). Un `import()` con reintento
+  serviría si el runtime de Turbopack no guarda también el chunk fallido: no está medido.
+*21/10/2026, claude4 (chat Dashboard).*

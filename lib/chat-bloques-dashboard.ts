@@ -13,7 +13,7 @@
 //
 // ⚠️ UNA SOLA FORMA PARA EL GRÁFICO Y LA TABLA: una tabla ES un gráfico de tipo `tabla`, y la misma pieza la dibuja. G7 en
 //    el documento es la «lista accionable» (filas con acciones); eso no es esto.
-// ⚠️ ACOTADO: hasta 60 filas, 8 columnas, 12 columnas de desglose y 400 puntos de serie. Lo que no entra se cuenta en
+// ⚠️ ACOTADO: hasta 60 filas (en el tiempo, las 60 más nuevas: `inicioDibujado`), 8 columnas, 12 columnas de desglose y 400 puntos de serie. Lo que no entra se cuenta en
 //    `fuera` (la pieza dice «N más»). Sin `ref` ni `imagen` por fila (ids de leads y fotos de afuera: el hilo no los usa).
 // ⚠️ PURO y sin import circular: lib/chat-bloques.ts le pasa su `sanearAbrir`.
 // =============================================================================
@@ -50,6 +50,23 @@ const valores = (v: unknown, largo: number): Array<number | null> | null => {
 };
 const fecha = (v: unknown): string | undefined => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined);
 
+/**
+ * Desde qué fila se dibuja: hasta 60, y en una serie de TIEMPO, las más NUEVAS. «Leads por día de los últimos 90 días»
+ * dibujaba del 23/07 al 20/09 y escondía el último mes (revisión del 21/10). Con la tabla al revés (la más nueva arriba,
+ * `tabla.descendente`) las más nuevas son las primeras. Las claves de tiempo son fechas `YYYY-MM-DD`: se comparan como texto.
+ */
+export function inicioDibujado(clase: Resultado['clase'], claves: readonly string[]): number {
+  if (clase !== 'tiempo' || claves.length <= MAX_FILAS_GRAFICO) return 0;
+  return claves[0] > claves[claves.length - 1] ? 0 : claves.length - MAX_FILAS_GRAFICO;
+}
+
+/** La fecha más vieja que se dibuja de una serie que no entra entera (la nota dice ese tramo). null = entra entera. */
+export function desdeDibujado(r: Pick<Resultado, 'clase' | 'filas'>): string | null {
+  if (r.clase !== 'tiempo' || r.filas.length <= MAX_FILAS_GRAFICO) return null;
+  const ini = inicioDibujado(r.clase, r.filas.map((f) => f.clave));
+  return r.filas.slice(ini, ini + MAX_FILAS_GRAFICO).map((f) => f.clave).filter((k) => fecha(k)).sort()[0] ?? null;
+}
+
 /** El resultado de un gráfico, acotado y con la forma justa. null = no se dibuja. */
 export function sanearResultado(crudo: unknown): Resultado | null {
   if (!crudo || typeof crudo !== 'object' || Array.isArray(crudo)) return null;
@@ -63,9 +80,11 @@ export function sanearResultado(crudo: unknown): Resultado | null {
   });
   if (!columnas.length) return null;
   const n = columnas.length;
+  const clase = o.clase === 'tiempo' || o.clase === 'categoria' ? o.clase : null;
   const crudas = Array.isArray(o.filas) ? o.filas : [];
+  const ini = inicioDibujado(clase, crudas.map((f) => (f && typeof f === 'object' ? texto((f as Record<string, unknown>).clave, 80) : '')));
   const filas: FilaResultado[] = [];
-  for (const f of crudas.slice(0, MAX_FILAS_GRAFICO)) {
+  for (const f of crudas.slice(ini, ini + MAX_FILAS_GRAFICO)) {
     if (!f || typeof f !== 'object') continue;
     const r = f as Record<string, unknown>;
     const vs = valores(r.valores, n);
@@ -75,7 +94,6 @@ export function sanearResultado(crudo: unknown): Resultado | null {
   }
   const totales = valores(o.totales, n);
   if (!totales) return null;
-  const clase = o.clase === 'tiempo' || o.clase === 'categoria' ? o.clase : null;
   const fueraCrudo = typeof o.fuera === 'number' && Number.isInteger(o.fuera) && o.fuera > 0 ? o.fuera : 0;
   const out: Resultado = { columnas, filas, totales, fuera: fueraCrudo + Math.max(0, crudas.length - MAX_FILAS_GRAFICO), clase };
   const anterior = o.anterior === undefined ? undefined : valores(o.anterior, n);
@@ -83,7 +101,7 @@ export function sanearResultado(crudo: unknown): Resultado | null {
   if (o.cruce && typeof o.cruce === 'object') {
     const c = o.cruce as Record<string, unknown>;
     const claves = (Array.isArray(c.claves) ? c.claves : []).slice(0, MAX_CRUCE).map((k) => texto(k, 80));
-    const celdas = Array.isArray(c.celdas) ? c.celdas.slice(0, filas.length).map((fila) => valores(Array.isArray(fila) ? fila.slice(0, claves.length) : null, claves.length)) : [];
+    const celdas = Array.isArray(c.celdas) ? c.celdas.slice(ini, ini + filas.length).map((fila) => valores(Array.isArray(fila) ? fila.slice(0, claves.length) : null, claves.length)) : [];
     if (claves.length && celdas.length === filas.length && celdas.every(Boolean)) out.cruce = { claves, celdas: celdas as Array<Array<number | null>> };
   }
   if (Array.isArray(o.serie)) {

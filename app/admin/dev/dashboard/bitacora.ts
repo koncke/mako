@@ -725,8 +725,11 @@ export const BITACORA: Hito[] = [
       'Una hoja nueva o duplicada, o una tarjeta agregada, aparece con su nombre, lo que tiene y «Abrir en el Dashboard».',
       'Si editaste, moviste o quitaste algo, aparece el antes y el después, fila por fila, en palabras («Últimos 90 días → Este mes»).',
       'Y si preguntas un número («¿cuánto vendí este mes?», «leads por mes»), el chat lo dibuja: el número, la serie o la tabla, con la misma pieza del Dashboard.',
+      'Una serie larga («leads por día de los últimos 90 días») muestra los días más recientes, y debajo del título dice qué tramo se ve.',
+      'Si un gráfico no se puede dibujar, esa tarjeta dice «Este bloque no cargó» y el chat sigue funcionando.',
+      'Si cambias el informe de otra persona, el chat lo muestra con su nombre y sin «Abrir en el Dashboard», que abriría el tuyo.',
     ],
-    archivos: ['lib/api-mako/areas/dashboard-bloques.ts', 'lib/api-mako/areas/dashboard.run.ts', 'tests/dashboard-bloques-chat.test.ts — probado rompiéndolo'],
+    archivos: ['lib/api-mako/areas/dashboard-bloques.ts', 'lib/api-mako/areas/dashboard.run.ts', 'lib/chat-bloques-dashboard.ts', 'app/_chat/bloques/GraficoHilo.tsx', 'tests/dashboard-bloques-chat.test.ts y tests/dashboard-bloque-grafico.test.ts — probados rompiéndolos'],
     revisar: '/second-brain',
   },
 ];

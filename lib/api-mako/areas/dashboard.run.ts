@@ -65,7 +65,7 @@ import { APP_BASE_URL } from '@/lib/app-url';
 import { crearShare, RECURSO_INFORME } from '@/lib/shares';
 import { ANCHOS, LUGARES, lugarConReferencia, moverComponente, type Ancho, type Lugar, type Movida } from '@/lib/graficos-mover';
 import { csvDeHoja, nombreArchivo, pedidosDeHoja, periodoDeHoja, rangoTexto, seccionCsv } from '@/app/dashboard/exportar';
-import { graficoParaElChat, type BloqueGrafico } from '@/lib/chat-bloques-dashboard';
+import { MAX_FILAS_GRAFICO, desdeDibujado, graficoParaElChat, type BloqueGrafico } from '@/lib/chat-bloques-dashboard';
 import type { Resultado } from '@/lib/graficos-agregar';
 import {
   aplicarCambio, armarConector, armarControlHoja, armarElemento, armarGrafico, analisisMarkdown, buscarCajas, buscarComponente,
@@ -228,7 +228,8 @@ async function proponer(input: In, ctx: Ctx, armar: (r: Resuelto) => Armado | Pr
     const ap = aplicarCambio(r.lectura.tablero, plan.cambio);
     if (!ap.ok) return { error: ap.error, ...(ap.yaEstaba ? { yaEstaba: true } : {}) };
     return {
-      payload: { sub: r.sub, version: r.lectura.version, cambio: plan.cambio, hecho: plan.hecho, deshacer: plan.deshacer, datos: plan.datos ?? {} },
+      // `de`: de quién es el informe, para el bloque que dibuja el chat al confirmar (sólo se usa si no es de quien chatea).
+      payload: { sub: r.sub, de: r.eleccion.persona ? (r.eleccion.persona.nombre || r.eleccion.persona.email) : null, version: r.lectura.version, cambio: plan.cambio, hecho: plan.hecho, deshacer: plan.deshacer, datos: plan.datos ?? {} },
       resumen: `${plan.que}, en ${r.etiqueta}.${plan.aviso ? ` ${plan.aviso}` : ''}`,
     };
   } catch (e) {
@@ -254,8 +255,10 @@ async function aplicar(payload: In, ctx: Ctx): Promise<Ejecutado> {
     const hojaId = typeof datos.hojaId === 'string' ? datos.hojaId : 'hojaId' in cambio && typeof cambio.hojaId === 'string' ? cambio.hojaId : null;
     const sigue = hojaId != null && g.tablero.hojas.some((h) => h.id === hojaId);
     // Lo que el chat DIBUJA con el resultado (2.7, ./dashboard-bloques.ts): con el informe de antes y el GUARDADO, nunca
-    // con el texto del modelo. El marco del chat (lib/chat-bloques.ts) lo sanea antes de guardarlo.
-    const bloque = bloqueDelCambio(cambio, actual.tablero, g.tablero);
+    // con el texto del modelo. El marco del chat (lib/chat-bloques.ts) lo sanea antes de guardarlo. Del informe de OTRA
+    // persona va sin «Abrir en el Dashboard», que abriría el de quien mira (revisión del 21/10).
+    const deOtro = quienChatea(ctx)?.sub !== sub ? (typeof payload.de === 'string' && payload.de.trim()) || 'otra persona' : null;
+    const bloque = bloqueDelCambio(cambio, actual.tablero, g.tablero, deOtro);
     return {
       ok: true, resumen: `${String(payload.hecho ?? 'Listo')}. ${String(payload.deshacer ?? '')}`.trim(),
       datos: { ...datos, link: linkHoja(sigue ? hojaId : null, ctx), ...(bloque ? { bloque } : {}) },
@@ -374,17 +377,22 @@ export const RUNNERS: Runners = {
       const texto = recortar(md, TOPE_MD_CHAT, 'pide un período más corto o menos métricas');
       // En el chat de la app la respuesta se DIBUJA (2.7, lib/chat-bloques-dashboard.ts): la lectura devuelve
       // `{ content, bloque }`, ejecutarOperacion sanea el bloque y lo pasa por `ctx.aDibujar`, y el modelo lee sólo
-      // `content`. `aDibujar` sólo existe en la app: sin él (WhatsApp, HTTP) va el texto, y el aviso de que la persona ya
-      // lo ve no se dice. Con una sola métrica o una dimensión: varias métricas sueltas son varios números, y un bloque es uno.
+      // `content`. `aDibujar` sólo existe en la app: sin él (WhatsApp, HTTP) va el texto. Con una sola métrica o una
+      // dimensión: varias métricas sueltas son varios números, y un bloque es uno.
       if (!ctx.aDibujar || al.graficos.length !== 1) return texto;
       const titulo = tituloAlVuelo(al.graficos);
+      // Una serie de más de 60 puntos dibuja los más NUEVOS, y la nota dice ese tramo, no el período entero.
+      const desdeDib = desdeDibujado(r);
       const bloque: BloqueGrafico = {
         t: 'grafico', titulo,
         // Una fecha «foto de hoy» (sin período) dice «Hoy», como la tarjeta (`resultadoMarkdown`, dashboard.helpers.ts).
-        nota: [fuente.fechas.find((x) => x.id === principal.fecha)?.sinRango ? 'Hoy' : rangoTexto(per.desde, hasta), ...filtros].join(' · '),
+        nota: [fuente.fechas.find((x) => x.id === principal.fecha)?.sinRango ? 'Hoy' : rangoTexto(desdeDib ?? per.desde, hasta), ...filtros].join(' · '),
         grafico: graficoParaElChat({ ...principal, titulo }, r), resultado: r,
       };
-      return { content: `${texto}\n\n(La persona YA VE este resultado dibujado en el chat: no repitas la tabla, comenta lo que importa.)`, bloque };
+      // «Ya lo ve: no repitas la tabla» va SÓLO si el bloque se dibujó (`siSeDibuja`, lo agrega ejecutarOperacion): con el
+      // tope de bloques del turno lleno, el modelo callaba una tabla que nadie veía (revisión del 21/10).
+      const ve = desdeDib ? `los últimos ${MAX_FILAS_GRAFICO} puntos (${rangoTexto(desdeDib, hasta)})` : 'este resultado';
+      return { content: texto, bloque, siSeDibuja: `(La persona YA VE ${ve} dibujado en el chat: no repitas esa tabla, comenta lo que importa.)` };
     },
   },
 

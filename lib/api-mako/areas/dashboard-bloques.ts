@@ -14,7 +14,10 @@
 // ⚠️ Puro y armado por CÓDIGO: los nombres salen del informe guardado, nunca del texto del modelo, y el link es una ruta
 //    de la app (`/dashboard?hoja=<id>`) a la que la pantalla le suma el `?ws=` de quien mira. Lo que no tiene nada que
 //    mostrar (un cambio que no dejó diferencia, un conector) devuelve null y el chat dibuja sólo el «Hecho».
-// ⚠️ Una hoja no tiene una imagen guardada: el G5 de una hoja va sin miniatura, con el marco de su forma.
+// ⚠️ Una hoja no tiene una imagen guardada: el G5 de una hoja va sin miniatura y SIN medidas. Con `16 × 10` (la forma)
+//    el marco vacío escribía «16 × 10», que se lee como el tamaño de una imagen (revisión del 21/10).
+// ⚠️ «Abrir en el Dashboard» abre el informe de quien MIRA (`/dashboard` lee el de la sesión): el de un cambio en el informe
+//    de OTRA persona va sin botón y con su nombre en el título (`enInformeDe`).
 // =============================================================================
 
 import type { Bloque as BloqueChat } from '@/lib/chat-bloques';
@@ -93,28 +96,60 @@ function filasDeHoja(a: Hoja, b: Hoja, ia: number, ib: number, total: number): F
   return filas;
 }
 
-/** Lo que «Editar con MaKo» agregó, sacó o cambió en la hoja. */
+/** Las filas que dibuja un G4: las del marco (`MAX_FILAS`, lib/chat-bloques.ts), que corta el resto sin avisar. */
+export const TOPE_FILAS_G4 = 12;
+
+/**
+ * Lo que «Editar con MaKo» agregó, sacó o cambió en la hoja: primero lo que se SACA (no se deshace), después lo que se
+ * agrega y al final lo editado. Con más de lo que entra, la última fila cuenta el resto: el marco corta en 12 y lo
+ * primero que perdía era «Se saca», que iba al final (revisión del 21/10).
+ */
 function filasDeEdicion(a: Hoja, b: Hoja): Fila[] {
   const deA = new Map(a.componentes.map((c) => [c.id, c] as const));
   const deB = new Map(b.componentes.map((c) => [c.id, c] as const));
-  const filas: Fila[] = [];
+  const sacadas: Fila[] = a.componentes.filter((c) => !deB.has(c.id)).map((c) => ({ campo: 'Se saca', antes: nombreDeComponente(c), despues: '—' }));
+  const agregadas: Fila[] = [];
+  const editadas: Fila[] = [];
   for (const c of b.componentes) {
     const antes = deA.get(c.id);
-    if (!antes) filas.push({ campo: 'Se agrega', antes: '—', despues: nombreDeComponente(c) });
+    if (!antes) agregadas.push({ campo: 'Se agrega', antes: '—', despues: nombreDeComponente(c) });
     else if (JSON.stringify(antes) !== JSON.stringify(c)) {
       const cambios = filasDeComponente(antes, c).filter((f) => f.campo !== 'Lugar');
-      if (cambios.length) filas.push({ campo: nombreDeComponente(c), antes: cambios.map((f) => `${f.campo}: ${f.antes}`).join(' · '), despues: cambios.map((f) => `${f.campo}: ${f.despues}`).join(' · ') });
+      if (cambios.length) editadas.push({ campo: nombreDeComponente(c), antes: cambios.map((f) => `${f.campo}: ${f.antes}`).join(' · '), despues: cambios.map((f) => `${f.campo}: ${f.despues}`).join(' · ') });
     }
   }
-  for (const c of a.componentes) if (!deB.has(c.id)) filas.push({ campo: 'Se saca', antes: nombreDeComponente(c), despues: '—' });
-  return filas;
+  const filas = [...sacadas, ...agregadas, ...editadas];
+  if (filas.length <= TOPE_FILAS_G4) return filas;
+  const resto = filas.length - (TOPE_FILAS_G4 - 1);
+  return [...filas.slice(0, TOPE_FILAS_G4 - 1), { campo: `Y ${resto} cambios más`, antes: '—', despues: 'Los ves en la hoja' }];
+}
+
+/**
+ * El bloque de un cambio en el informe de OTRA persona (un admin que edita el de Ana): sin «Abrir en el Dashboard», que
+ * abre el de quien mira (su «Marketing» sigue igual y el cambio parece no hecho; y una hoja de plantilla que no tiene se le
+ * agrega a SU informe). El título dice de quién es; lo creado, que siempre lleva su botón, pasa a un antes y después.
+ */
+function enInformeDe(b: BloqueChat, de: string): BloqueChat {
+  const titulo = `${b.titulo}, en el informe de ${de}`;
+  if (b.t === 'creado') return { t: 'antes_despues', titulo, filas: [{ campo: b.estado ?? 'Nuevo', antes: '—', despues: b.nota ? `${b.titulo} (${b.nota})` : b.titulo }] };
+  if (b.t === 'antes_despues') {
+    const { abrir: _abrir, ...resto } = b;
+    return { ...resto, titulo };
+  }
+  return b;
 }
 
 /**
  * El bloque de un cambio confirmado: G5 para lo que se crea, G4 para lo que cambia. `antes` es el informe sobre el que
- * se aplicó y `despues` el que quedó guardado. null = nada que dibujar.
+ * se aplicó y `despues` el que quedó guardado; `de`, de quién es el informe cuando NO es de quien chatea (null = suyo).
+ * null = nada que dibujar.
  */
-export function bloqueDelCambio(c: Cambio, antes: Tablero, despues: Tablero): BloqueChat | null {
+export function bloqueDelCambio(c: Cambio, antes: Tablero, despues: Tablero, de: string | null = null): BloqueChat | null {
+  const b = bloqueDeInforme(c, antes, despues);
+  return b && de ? enInformeDe(b, de) : b;
+}
+
+function bloqueDeInforme(c: Cambio, antes: Tablero, despues: Tablero): BloqueChat | null {
   if (c.op === 'restablecer') {
     return {
       t: 'antes_despues', titulo: 'Tu informe, como lo arma MaKo',
@@ -126,7 +161,7 @@ export function bloqueDelCambio(c: Cambio, antes: Tablero, despues: Tablero): Bl
     const id = c.op === 'crear_hoja' ? c.hoja.id : c.copia.id;
     const h = despues.hojas.find((x) => x.id === id);
     if (!h) return null;
-    return { t: 'creado', titulo: nombreHoja(h), estado: c.op === 'crear_hoja' ? 'Nueva' : 'Copia', nota: contenidoDeHoja(h), ancho: 16, alto: 10, abrir: abrir(h.id) };
+    return { t: 'creado', titulo: nombreHoja(h), estado: c.op === 'crear_hoja' ? 'Nueva' : 'Copia', nota: contenidoDeHoja(h), abrir: abrir(h.id) };
   }
   const ia = antes.hojas.findIndex((x) => x.id === c.hojaId);
   const ib = despues.hojas.findIndex((x) => x.id === c.hojaId);

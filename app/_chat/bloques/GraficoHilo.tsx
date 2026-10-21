@@ -12,10 +12,14 @@
 // ⚠️ LOS COLORES son los del tema por defecto (`varsDeTema(sanearTema(null))`): una pregunta no tiene una hoja con su estilo.
 //    Y el alto es fijo para lo que mide su contenedor (recharts); una tabla o un número miden lo que dibujan.
 // ⚠️ El link va por `Link` (app/_ui/Link.tsx), que le suma el `?ws=` de quien mira.
+// ⚠️ EL DIBUJO VA ADENTRO DE `RedDeBloque` (app/dashboard/RedDeBloque.tsx): un gráfico que tira deja «Este bloque no
+//    cargó» con el título y el link en pie. El bloque queda guardado en la sesión: sin la red, tumbaba el chat cada vez que
+//    se abría. El pedazo que no llega (un deploy, la red del teléfono) lo atrapa otra red, la de BloqueHilo (revisión del 21/10).
 // =============================================================================
 
 import Link from '@/app/_ui/Link';
 import { CuerpoGrafico, esTarjetaNumero } from '@/app/dashboard/Grafico';
+import { RedDeBloque } from '@/app/dashboard/RedDeBloque';
 import { sanearTema, varsDeTema } from '@/lib/graficos-temas';
 import type { BloqueGrafico } from '@/lib/chat-bloques-dashboard';
 
@@ -40,9 +44,12 @@ export default function GraficoHilo({ b }: { b: BloqueGrafico }) {
       <p className="ch-bloque__titulo">{b.titulo}</p>
       {b.nota && <p className="ch-grafico__nota">{b.nota}</p>}
       <div className="ch-grafico__cuerpo" data-mide={mideSuCaja(b.grafico.tipo) || undefined} data-tabla={tabla || undefined}>
-        <CuerpoGrafico g={b.grafico} estado={{ cargando: false, resultado: b.resultado }} tema={TEMA} />
+        <RedDeBloque nombre={b.titulo} reiniciarCon={[b]}>
+          <CuerpoGrafico g={b.grafico} estado={{ cargando: false, resultado: b.resultado }} tema={TEMA} />
+        </RedDeBloque>
       </div>
-      {b.resultado.fuera > 0 && <p className="ch-grafico__nota">Y {b.resultado.fuera} más</p>}
+      {/* Una tabla ya dice «+N más» adentro. Una serie que no entra dibuja los puntos más nuevos: lo que falta es de antes. */}
+      {!tabla && b.resultado.fuera > 0 && <p className="ch-grafico__nota">{b.resultado.clase === 'tiempo' ? `Y ${b.resultado.fuera} puntos antes` : `Y ${b.resultado.fuera} más`}</p>}
       {b.abrir && <div className="ch-tarjeta__botones"><Link className="ch-abrir" href={b.abrir.href}>{b.abrir.titulo}</Link></div>}
     </div>
   );
