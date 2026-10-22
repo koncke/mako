@@ -12,7 +12,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { agregadosQueEntran, ambitoDeSecuencia, filaNacidaConElLead, type FilaAgregado, type LeadDelAgregado } from '../lib/nutricion-ambito';
+import { agregadosQueEntran, ambitoDeSecuencia, filaNacidaConElLead, conAgregados, type FilaAgregado, type LeadDelAgregado } from '../lib/nutricion-ambito';
 
 const NEGOCIO = 1;
 const SPRINT = 40;
@@ -96,6 +96,21 @@ test('sin etapas pedidas, nadie; y nadie dos veces', () => {
   assert.deepEqual(agregadosQueEntran(sprint, ['por_contactar'], CORTE, dos, LEADS).sort(), [11, 15]);
 });
 
+test('la ETIQUETA también ve a los agregados de su CRM (el CRON «Tienen la etiqueta» hereda el CRM de la automatización)', () => {
+  // 11 tiene la etiqueta y su casa es otro CRM, con fila en éste: entra. 12 tiene la etiqueta y NO tiene fila: no.
+  assert.deepEqual(conAgregados([5], [11, 12], [{ lead_id: 11 }]).sort((a, b) => a - b), [5, 11]);
+  assert.deepEqual(conAgregados([5], [], []), [5]);
+  assert.deepEqual(conAgregados([5, 11], [11], [{ lead_id: '11' }]), [5, 11], 'sin repetir, y el id como texto');
+  const src = readFileSync(join(__dirname, '..', 'lib/nutricion.ts'), 'utf8');
+  const ini = src.indexOf('async function leadsConEtiqueta(');
+  const fin = /\r?\n\}\r?\n/.exec(src.slice(ini));
+  assert.ok(ini > 0 && fin, 'no encontré leadsConEtiqueta');
+  const cuerpo = src.slice(ini, ini + fin.index);
+  assert.match(cuerpo, /if \(ambito\.modo === 'todos'\) return out;/, 'sin CRM declarado, como siempre');
+  assert.match(cuerpo, /\.eq\('funnel_id', ambito\.id\)\.in\('lead_id', tanda\)/);
+  assert.match(cuerpo, /return conAgregados\(out, resto, filas\);/);
+});
+
 // ── El cableado: la cohorte de `etapa_actual` suma los agregados, con el MISMO corte de 90 días ──────────────────────
 const motor = readFileSync(join(__dirname, '..', 'lib/nutricion.ts'), 'utf8');
 
@@ -124,7 +139,7 @@ test('la lectura de los agregados pide las filas de ESE CRM y sólo leads abiert
   assert.match(cuerpo, /throw new Error/, 'una lectura que falla corta la corrida (no sigue con una cohorte a medias)');
 });
 
-// ── Las roturas, con su conteo (11 tests; sin romper nada: 11 pases, 0 fallos) ───────────────────────────────────────
+// ── Las roturas, con su conteo (12 tests; sin romper nada: 12 pases, 0 fallos) ───────────────────────────────────────
 // (Medidas con 10 tests; la 7, con 11. Con 11 cada una de la 1 a la 6 da 1 fallo / 10 pases.)
 // Cada una con un script de node que reemplaza el texto y vuelve a correr este archivo (no `sed -i`: ver
 // tests/nutricion-ambito-embudo.test.ts, en este entorno no avisó que no aplicaba).
@@ -136,3 +151,5 @@ test('la lectura de los agregados pide las filas de ESE CRM y sólo leads abiert
 // 5. La rama del motor devolviendo `deLaCasa` siempre (lo de antes): 1 fallo / 9 pases.
 // 6. La lectura sin `.eq('estado_lead', 'abierto')`: 1 fallo / 9 pases.
 // 7. Sin el `filaNacidaConElLead` (la segunda bienvenida de la revisión adversarial): 1 fallo / 10 pases.
+// 8. La etiqueta sin los agregados (`return out` en vez de `conAgregados`): 1 fallo / 11 pases. Medido en el ws3: el CRON
+//    «Tienen Sprint · audio» del CRM Sprint juntaba 0; con esto, 3.

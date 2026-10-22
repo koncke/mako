@@ -41,7 +41,7 @@ import type { AutorTexto } from '@/lib/paso-ia';
 import { parseEstrategia, dentroDeAntiguedad, hitoYaHecho, type EscenarioSecuencia } from '@/lib/setting-estrategia';
 import type { TurnoSim } from '@/lib/setting-simulador';
 import { conversacionAbierta, atiendeAlResponder, charlaPasaAUnaPersona, escritoParaElAviso, type InscCharla, type AudioDelLead } from '@/lib/setter-conversacion';
-import { ambitoDeSecuencia, filtroDeAmbito, agregadosQueEntran, type AmbitoFunnel, type FilaAgregado, type LeadDelAgregado } from '@/lib/nutricion-ambito';
+import { ambitoDeSecuencia, filtroDeAmbito, agregadosQueEntran, conAgregados, type AmbitoFunnel, type FilaAgregado, type LeadDelAgregado } from '@/lib/nutricion-ambito';
 import { corteEntrada, esEntradaFresca, reservaParaEntradas, cupoDeCampana, HORAS_ENTRADA } from '@/lib/nutricion-prioridad';
 import {
   secuenciasDeEntrega, secuenciasDeEtiqueta, secuenciasQueSeCierran, etapasDe, normalizarEtapas, deLaEtapaYLasDemas,
@@ -1341,7 +1341,22 @@ async function leadsConEtiqueta(
   for (const tanda of enTandas(conEtiqueta, 200)) {
     out.push(...await idsCohorte(db, `etiqueta-${etiquetaId}`, ambito, (q) => q.in('id', tanda)));
   }
-  return out;
+  if (ambito.modo === 'todos') return out;
+  // ⚠️ Y LOS AGREGADOS A ESTE CRM (21/10/2026), como en la cohorte por etapa: un CRON «Tienen la etiqueta» de una
+  // automatización del CRM de prospección hereda ese CRM, y sin esto sus leads agregados (casa en el principal) daban
+  // CERO. Sin filtro de etapa ni de estado, como la casa: la etiqueta es la decisión.
+  const resto = conEtiqueta.filter((id) => !out.includes(id));
+  const filas: Array<{ lead_id: number | string }> = [];
+  try {
+    for (const tanda of enTandas(resto, 200)) {
+      filas.push(...await leerTodo<{ id: number; lead_id: number | string }>(db, 'lead_funnel', 'id, lead_id', {
+        orden: 'id', filtros: (q) => q.eq('funnel_id', ambito.id).in('lead_id', tanda) as ConsultaPaginada,
+      }));
+    }
+  } catch (e) {
+    throw new Error(`cohorte ${TRIGGER_ETIQUETA}(${etiquetaId}) (agregados al funnel ${ambito.id}): ${e instanceof Error ? e.message : String(e)}`);
+  }
+  return conAgregados(out, resto, filas);
 }
 
 /**

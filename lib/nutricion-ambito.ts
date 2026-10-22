@@ -143,6 +143,16 @@ export function leadEnAmbito(ambito: AmbitoFunnel, leadFunnelId: number | string
 // creó a `NACIDA_CON_EL_LEAD_MS` del alta del lead, y que no se movió después, es parte del alta: la saluda la casa,
 // como hasta hoy. Sumarlo DESPUÉS (la campaña del Sprint, a mano o en lote) o moverlo en ese CRM sí entra.
 
+/**
+ * La cohorte de una ETIQUETA con los agregados: los de la casa (`deLaCasa`) más los `candidatos` (tienen la etiqueta y
+ * su casa es otro CRM) que tienen una fila en este CRM (`filasDelCrm`, ya pedidas con `funnel_id` = el del ámbito). Sin
+ * repetir. Un candidato sin fila en este CRM no entra: la etiqueta sola no lo hace de este CRM.
+ */
+export function conAgregados(deLaCasa: readonly number[], candidatos: readonly number[], filasDelCrm: ReadonlyArray<{ lead_id: number | string }>): number[] {
+  const conFila = new Set(filasDelCrm.map((f) => Number(f.lead_id)));
+  return [...new Set([...deLaCasa, ...candidatos.filter((id) => conFila.has(id))])];
+}
+
 /** Una fila de `lead_funnel` como la lee la cohorte. */
 export type FilaAgregado = { lead_id: number | string; funnel_id: number | string; etapa: string | null; created_at?: string | null; etapa_desde?: string | null };
 /** Lo que la cohorte necesita del lead de esa fila. */
