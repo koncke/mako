@@ -460,6 +460,9 @@ compartido se repite aislado antes de contarlo** (puede ser interferencia: `edit
 dejó algo en el entorno). Un test que toca `process.env`, un global, `Module._load` o el directorio de trabajo NUNCA se comparte
 (regex `PELIGRO_COMPARTIR` en `tests-afectados.mjs`): **si escribís un test que hace eso, va en su proceso solo, sin tocar nada.** El
 riesgo que queda es un FALSO verde por contagio, y por eso Actions sigue corriendo cada test en su proceso.
+⚠️ **Y un archivo que tira AL CARGAR da verde compartido** (22/10/2026, docs/hallazgos-infra.md): se cuentan los `test(...)` de
+arriba de la línea que tira y los demás no corren, con salida 0. **En un test, lo que puede tirar (un `assert` sobre el fuente, un
+recorte con tope) va ADENTRO de un `test(...)` o en una función perezosa, nunca en una constante del módulo.**
 
 **Actions hace lo mismo, primero** (`.github/workflows/integracion.yml`): guardas → tests afectados contra `origin/main`
 → tipos → los demás tests. La suma de las dos fases es la suite entera y ninguno corre dos veces; si el script no puede
