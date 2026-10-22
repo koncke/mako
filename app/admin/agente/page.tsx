@@ -35,7 +35,7 @@ const cuando = (iso: string | null): string => {
 };
 
 export default async function AgenteAdminPage() {
-  if (!(await getSesionAdmin())) redirect('/');
+  if (!(await getSesionAdmin())) redirect('/inicio');
 
   // Sin scope de workspace, a propósito: ver el porqué en la cabecera.
   const { sesiones, nombreWs } = await leerSesionesAgente();
