@@ -116,7 +116,9 @@ test('3: el super admin no ve «Second Brain» en la barra ni en More; el client
 });
 
 test('4: la cabecera del chat: criatura al lado del título, sin chips, el título se renombra en el lugar, sin foto de perfil', () => {
-  const pc = codigo('app/admin/operaciones/Conversacion.tsx');
+  // Desde el 21/10/2026 la cabecera es la del panel de TODOS los Ops Center (PanelChat.tsx), y Conversacion.tsx la monta.
+  assert.match(codigo('app/admin/operaciones/Conversacion.tsx'), /<PanelDeChat hilo=\{hilo\} adjuntos=\{adjuntos\}/);
+  const pc = codigo('app/admin/operaciones/PanelChat.tsx');
   assert.doesNotMatch(pc, /co-chip-cuenta|co-cab__meta|nombreCuenta\(c\)/, 'la computadora: sin chips de cuenta ni estado');
   assert.match(pc, /className="co-cab__muneco"[\s\S]{0,400}<div className="co-cab__texto">[\s\S]{0,200}<h1 className="co-cab__titulo"/, 'la criatura a la izquierda del título');
   assert.match(pc, /onRenombrar \? \(\s*<button type="button" className="co-cab__nombre"/, 'tocar el título lo renombra');

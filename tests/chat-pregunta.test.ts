@@ -117,7 +117,7 @@ test('4. el hilo la dibuja, contestada si ya hubo respuesta, y lo que se toca sa
   assert.match(html, /Respondiste: Agendados/);
   assert.equal((html.match(/class="ch-opcion" disabled=""/g) ?? []).length, 3, 'y no se vuelve a tocar');
   // Desde el 21/10 dicen si salió (test 6).
-  assert.match(sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx')), /onResponder=\{\(t\) => enviar\(t\)\}/, 'el Ops Center');
+  assert.match(sinComentarios(leer('app/second-brain/PiezasCliente.tsx')), /onResponder=\{\(t\) => k\.enviar\(t\)\}/, 'el Ops Center');
   assert.match(sinComentarios(leer('app/crm/mako-crm/ChatMakoCrm.tsx')), /onResponder=\{\(t\) => \{ if \(ocupadoRef\.current\) return false; enviar\(\{ texto: t \}\); return true; \}\}/, 'el chat del CRM');
   assert.match(sinComentarios(leer('app/crm/lead-view/MakoAnalystLead.tsx')), /onResponder=\{\(t\) => \{ if \(ocupadoRef\.current\) return false; enviar\(\{ texto: t, adjuntos: \[\] \}\); return true; \}\}/, 'el de la ficha');
   assert.match(sinComentarios(leer('app/m/mako/ChatMako.tsx')), /onResponder=\{\(t\) => \{ if \(trabajo\) return false; void enviar\(\{ texto: t, adjuntos: \[\] \}\); return true; \}\}/, 'el teléfono');

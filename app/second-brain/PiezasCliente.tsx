@@ -1,0 +1,86 @@
+'use client';
+
+// =============================================================================
+// Las piezas del chat del cliente que dibujan la computadora y el teléfono (22/10/2026)
+// =============================================================================
+// El motor es useChatCliente.ts; esto es lo que se ve adentro de cada panel: el hilo (HiloMako, con lo de WhatsApp y la portada
+// del chat vacío) y la caja ÚNICA (app/_chat/CajaChat.tsx) con todo lo suyo: la cita del mensaje que se responde, los textos
+// largos pegados como documento y, si la persona no tiene su IA, «Conectar tu Claude» al final. La computadora lo pone en el
+// panel del Ops Center (PanelChat.tsx) y el teléfono en su hoja (SheetM), como el super admin pone el suyo
+// (Conversacion.tsx y ChatsMovil.tsx). Una sola vez, para que no se separen.
+
+import type { RefObject } from 'react';
+import { Icon } from '@/app/_components/icons';
+import { CajaChat } from '@/app/_chat/CajaChat';
+import { HiloMako } from '@/app/_chat/HiloMako';
+import { CitaCaja, ContextoWA } from '@/app/admin/operaciones/MensajeWA';
+import { Muneco } from '@/app/admin/operaciones/Muneco';
+import { IconoChat } from '@/app/m/mako/iconos';
+import { caracteres, nombrePegado } from '@/lib/chat-pegado';
+import { ARRANQUES_SECOND_BRAIN } from '@/lib/chat-mako-reglas';
+import type { ChatCliente } from './useChatCliente';
+
+/** El hilo del chat abierto: lo que dijo cada uno, con lo de WhatsApp; vacío, la portada con lo que más se le pide. */
+export function HiloDelCliente({ k }: { k: ChatCliente }) {
+  return (
+    <ContextoWA.Provider value={k.accionesWA}>
+      {!k.cargado ? null : k.errorCarga ? (
+        <div className="co-portada">
+          <p className="co-portada__dato">{k.errorCarga}</p>
+          <button type="button" className="co-chip" onClick={k.recargar}>Reintentar</button>
+        </div>
+      ) : !k.items.length && !k.trabajo ? (
+        <div className="co-portada">
+          <Muneco titulo={k.nombreMuneco} animo="despierto" size={76} />
+          <p className="co-portada__nombre">¿En qué te ayudo?</p>
+          {(k.esJefe || k.idTurno == null) && k.idOffer == null && <div className="ch-arranques">
+            {ARRANQUES_SECOND_BRAIN.map((a) => <button key={a} type="button" className="co-chip" onClick={() => k.enviar(a)}>{a}</button>)}
+          </div>}
+        </div>
+      ) : (
+        <HiloMako items={k.items} quien={{ nombre: k.nombreMuneco }} ahora={k.ahora} escribiendo={k.enCurso ? { segs: k.segs } : null}
+          tarjeta={k.tarjeta} onTarjeta={(x, a) => void k.correrTarjeta(x, a)} onReintentar={k.reintentar} onRecargar={k.recargar}
+          onResponder={(t) => k.enviar(t)} onTrabajo={k.alTerminarTrabajo} marcas={k.marcas} />
+      )}
+    </ContextoWA.Provider>
+  );
+}
+
+/**
+ * La caja del chat del cliente: la ÚNICA de la app (Martín, 20/10: «Te pedí que unificaras el chat del Ops Center en todos lados,
+ * su diseño y funcionalidades»). `movil`: la del teléfono, como la de ChatsMovil.tsx (Enter baja de renglón, crece el CSS).
+ */
+export function CajaDelCliente({ k, campo, seguir, movil = false }: {
+  k: ChatCliente; campo: RefObject<HTMLTextAreaElement | null>; seguir: () => HTMLElement | null; movil?: boolean;
+}) {
+  return (
+    <CajaChat texto={k.texto} onTexto={(v) => { k.setFaltaMic(null); k.setTexto(v); }} onMandar={k.enviarCaja}
+      ocupado={k.enCurso} apagado={!k.cargado || !!k.errorCarga} placeholder={`Escribe a ${k.nombre}`} tituloMandar={movil ? undefined : 'Mandar (Enter)'}
+      enterManda={!movil} campo={campo} seguir={seguir} onErrorMic={k.setFaltaMic} adjuntos={k.adjuntosCaja}
+      {...(movil ? { altoMax: null, fila: 'm-operaciones-caja__fila' } : {})}
+      hayAlgoMas={k.pegados.length > 0} onPegar={k.pegarLargo}
+      // Sin su Claude o su GPT, el botón para conectarlo, al final de la caja (se abre acá mismo: «Tus cuentas de IA»).
+      alFinal={k.iaConectada === false ? (
+        <button type="button" className="co-chip co-conectar-ia" onClick={() => k.setConectando(true)}>Conectar tu Claude</button>
+      ) : null}
+      arriba={<>
+        {k.cita && <CitaCaja cita={k.cita} onQuitar={() => k.setCita(null)} />}
+        {k.pegados.length > 0 && (
+          <ul className="ch-elegidos" aria-label="Textos pegados">
+            {k.pegados.map((p) => (
+              <li key={p.id} className="ch-elegido ch-elegido--pegado">
+                <IconoChat nombre="archivo" size={20} />
+                <span className="ch-elegido__nombre" title={nombrePegado(p.texto)}>{`${nombrePegado(p.texto, 24)} · ${caracteres(p.texto)}`}</span>
+                <button type="button" className="ch-elegido__quitar" onClick={() => k.quitarPegado(p.id)} aria-label="Quitar el texto pegado">
+                  <Icon name="x" size={14} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </>} />
+  );
+}
+
+/** La línea de abajo de la caja: lo que dijo el micrófono, el «+», una marca que no se guardó, o que Offer está armando. */
+export const estadoDelCliente = (k: ChatCliente): string => k.faltaMic ?? (k.armandoOffer ? 'MaKo está armando tu oferta. Puede tardar unos minutos.' : '');

@@ -139,7 +139,7 @@ function Cara({ forma, cara, animo }: { forma: Forma; cara: CaraMuneco; animo: A
         <ellipse cx={20 - dx - 3.2} cy={y + 3.6} rx="2.2" ry="1.3" fill={RUBOR} opacity="0.22" />
         <ellipse cx={20 + dx + 3.2} cy={y + 3.6} rx="2.2" ry="1.3" fill={RUBOR} opacity="0.22" />
       </>}
-      <g className={animo === 'trabajando' ? 'mun-ojos mun-ojos--parpadeo' : 'mun-ojos'} style={{ transformOrigin: `20px ${y}px` }}>
+      <g className="mun-ojos mun-ojos--parpadeo" style={{ transformOrigin: `20px ${y}px` }}>
         <ellipse cx={20 - dx} cy={y} rx="2.5" ry={ry} fill={TINTA} />
         <ellipse cx={20 + dx} cy={y} rx="2.5" ry={ry} fill={TINTA} />
         {animo !== 'cansado' && <>
@@ -152,6 +152,20 @@ function Cara({ forma, cara, animo }: { forma: Forma; cara: CaraMuneco; animo: A
   );
 }
 
+/**
+ * Cuándo arranca su movimiento (`--mun-desfase`, en segundos y negativo: empieza a mitad de su ciclo), sacado de cómo es.
+ * SIEMPRE VIVAS (21/10/2026, Martín: «las criaturas, siempre, donde sea que estén deben tener su animación de movimiento, y
+ * parpadeo»): cada una flota y parpadea con UNA animación CSS (centro.css, criatura.css), sin un timer por criatura; con el
+ * mismo desfase todas parpadeaban a la vez, como un tablero. Sale de su aspecto (no del nombre: la estrella es la misma criatura
+ * se llame «Cerebro» u «Ops Center»), igual en el server y en el navegador.
+ */
+function desfaseDe({ forma, color, cara }: Aspecto): string {
+  const clave = `${forma}${color}${cara}`;
+  let h = 0;
+  for (let i = 0; i < clave.length; i++) h = (h * 31 + clave.charCodeAt(i)) >>> 0;
+  return `-${(h % 37) / 10}s`;
+}
+
 /** El muñeco de un empleado. `titulo` decide cómo es (o `aspecto`, si Martín eligió otro); el estado, los ojos;
  *  `espera`, el globito de las tarjetas de la Ticketera que esperan una respuesta de Martín. */
 export function Muneco({ titulo, animo, size = 40, espera = 0, style, aspecto }: {
@@ -162,7 +176,7 @@ export function Muneco({ titulo, animo, size = 40, espera = 0, style, aspecto }:
   return (
     <svg
       className={`mun mun--${animo}`} width={size} height={size} viewBox="0 0 40 40" aria-hidden
-      style={{ flex: 'none', display: 'block', overflow: 'visible', ...style }}
+      style={{ flex: 'none', display: 'block', overflow: 'visible', ['--mun-desfase' as string]: desfaseDe({ forma, color, cara }), ...style }}
     >
       <g className="mun-cuerpo">
         <Cuerpo forma={forma} color={color} />

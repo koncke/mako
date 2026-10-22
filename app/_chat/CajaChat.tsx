@@ -80,6 +80,9 @@ export type PropsCajaChat = {
   /** La línea de estado debajo de la caja, con lo que dice la pantalla («Leyendo «X»…»). Sin esto, no se dibuja (la pantalla
    *  puede tener la suya afuera, como el Ops Center). */
   estado?: string | null;
+  /** Al final de la fila, antes del botón: lo que la pantalla necesita a mano (21/10/2026, Martín: «Si el usuario aún no
+   *  conectó su Claude o GPT, debería aparecer en la barra de chat, al final... el botón de conectar»). */
+  alFinal?: ReactNode;
 };
 
 /** Cuánto queda apagado el micrófono justo después de mandar: lo que dura un doble toque. */
@@ -192,6 +195,7 @@ function Caja({ p, grabacion }: { p: PropsCajaChat; grabacion: GrabacionVoz | nu
             disabled={quieto}
           />
         </div>
+        {p.alFinal}
         {/* Con nota de voz y nada que mandar, el botón GRABA; si no, el de siempre (dicta, o la flecha con algo escrito). */}
         {grabacion && !hayQueMandar && !enviando ? (
           <button type="button" className="co-enviar co-enviar--mic" onClick={() => void grabacion.start()} disabled={quieto || recien || !!p.voz?.apagada}
