@@ -5998,3 +5998,20 @@ tests: tests/chat-mako-agregar-y-etapa.test.ts, tests/chat-mako-orden-del-flujo.
 audio que el modelo inventa al CREAR; el aviso interno «Una tarjeta seguía en dos lugares» le llega a la persona; «Borrá el
 segundo mensaje» deja «1 día» y «2 días» seguidos sin avisar. Y el arnés con IA sobre esta rama: corre cuando vuelve la cuota
 de Gemini (~04:00 ART del 23/10).
+## «No tienes ninguna IA gratis conectada» era la red de MaKo al tope de hoy (22/10/2026, AU3 del plan del Cerebro)
+
+**Síntoma:** Mauricio (ws1) leyó en el chat de su automatización «No tienes ninguna IA gratis conectada.», con el link a
+Gemini. El arnés del Cerebro se cortó con la misma frase. **El diagnóstico obvio era el equivocado:** no faltaba una IA.
+El ws1 no tiene keys propias, la red gratis de la plataforma sí corrió y se quedó sin cuota (el 429 por día de Gemini,
+`GenerateRequestsPerDayPerProjectPerModel-FreeTier`). **Causa:** `falloDeIA` sólo ve `errores` (las keys DEL NEGOCIO).
+Los de la red (`erroresPlataformaOut`) se guardan aparte a propósito, para que un 429 de la agencia no culpe a las keys
+del cliente, y nunca llegaban al mensaje. Con la lista vacía y sin keys, la frase era «no tienes IA» (lo encontró el chat
+«IA del cliente»). **Regla:** sin keys propias, el mensaje dice qué le pasó a la IA gratis de MaKo («llegó a su tope de
+hoy», «está al tope», «está saturada», «no contestó») y la salida es SU Claude (`/integraciones?abrir=anthropic`), que es
+lo primero que prueba esta cascada. Con keys propias, la red no cambia nada. Un tope POR DÍA no dice «prueba en un rato».
+**Trampa:** «Conecta tu Claude o tu GPT» era el texto pedido, pero OpenAI no está en `PROVS_CREAR_IA` (cobra): una clave
+de OpenAI no arma flujos. El texto dice sólo Claude, y un test avisa si OpenAI entra a la lista. **Vive en:**
+lib/flujo-ia.ts (`falloDeIA`, `sinIAPropia`) · lib/flujo-ia-crear.ts (`generar` le pasa `erroresRed`) · test:
+tests/ia-aviso-sin-ia-propia.test.ts. **Sin hacer:** las otras pantallas que llaman `falloDeIA` (la ficha, los gráficos,
+el «preparar» de la API de MaKo) no le pasan su red. Ven el texto nuevo sin la causa: lib/ficha/ia-generar.ts,
+lib/graficos-ia-*.ts, lib/api-mako/areas/chatbot.run.ts.

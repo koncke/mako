@@ -20,9 +20,11 @@ import { provsDe, transcribirAudio } from '@/lib/ai-cheap';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { negocioConSuIA } from '@/lib/ia-del-negocio';
 import { conSoloSuIA } from '@/lib/solo-su-ia';
+import { errorDeDictado } from '@/lib/dictado-error';
 
 /** Con su propio Claude y sin su OpenAI no hay con qué escuchar la nota sin la cascada gratis. */
 const SIN_OIDO_SU_IA = 'Con tu propio Claude, las notas de voz las escucho con tu clave de OpenAI, y no la tienes conectada. Escríbemelo.';
+
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -52,11 +54,9 @@ export async function POST(req: Request) {
     if (texto == null) return Response.json({ ok: false, error: SIN_OIDO_SU_IA }, { status: 200 });
     return Response.json({ ok: true, texto: texto.trim() });
   } catch (e) {
-    // El error VIAJA tal cual: la cascada ya dice cuál falló y por qué («ninguna IA
-    // pudo: …»), y acá el que lo lee es el dueño del tablero. Inventarle un remedio que
-    // no se midió es peor que decirle lo que pasó.
+    // El detalle de la cascada va al log; la persona lee qué pasó y qué hacer (`errorDeDictado`).
     const msg = e instanceof Error ? e.message : String(e);
     console.error('[plan-dictado]', msg);
-    return Response.json({ ok: false, error: `No pude transcribir el audio. ${msg}`.slice(0, 300) }, { status: 200 });
+    return Response.json({ ok: false, error: errorDeDictado(msg) }, { status: 200 });
   }
 }

@@ -127,7 +127,8 @@ test('O7 · leerLink: después de landing-fetch, y sólo si bloquea o casi no ha
   const ruta = leer('app/api/offer/route.ts');
   const link = funcion(ruta, 'leerLink');
   assert.match(link, /const otra = bloqueaLaLectura\(e\) \? await leerConLectorExterno\(link\.leida\) : null;/);
-  assert.match(link, /if \(pagina\.bloqueada \|\| !pagina\.texto\.trim\(\)\) \{\s*const otra = await leerConLectorExterno\(link\.leida\);/);
+  // Con la guarda de OF2 primero: un link con un acceso no sale (tests/offer-lector-credenciales.test.ts).
+  assert.match(link, /if \(pagina\.bloqueada \|\| !pagina\.texto\.trim\(\)\) \{\s*if \(credencialEnLaUrl\(link\.leida\)\) return no\(422, PIDE_ACCESO\);\s*const otra = await leerConLectorExterno\(link\.leida\);/);
   assert.ok(link.indexOf('extraerLanding(') < link.indexOf('leerConLectorExterno('), 'primero la descarga SSRF-segura');
   assert.doesNotMatch(ruta, /\bfetch\(/);
   assert.match(leer('lib/offer-lector-externo.ts'), /const LECTOR_EXTERNO = 'https:\/\/r\.jina\.ai\/';/);

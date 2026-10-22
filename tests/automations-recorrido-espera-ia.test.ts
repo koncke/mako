@@ -29,7 +29,9 @@ test('la tab no abre el recorrido mientras MaKo arma el flujo (ni lo reabre desd
 
 test('la señal sube del perfil a la tab, pasando por la lista', () => {
   assert.match(APP, /onMakoTrabajando=\{setMakoTrabajando\}/);
-  assert.match(LISTA, /onMakoTrabajando=\{onMakoTrabajando\}/);
+  // 22/10/2026: la lista también la usa (sube encima de la capa a pantalla completa) y la pasa a la tab.
+  assert.match(LISTA, /onMakoTrabajando=\{alMakoTrabajando\}/);
+  assert.match(LISTA, /const alMakoTrabajando = useCallback\(\(t: boolean\) => \{ setMakoTrabajando\(t\); onMakoTrabajando\?\.\(t\); \}, \[onMakoTrabajando\]\);/);
 });
 
 test('el perfil avisa cuando el chat de MaKo trabaja, y al desmontarse deja de trabajar', () => {

@@ -31,7 +31,7 @@ import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { Icon } from '@/app/_components/icons';
 import { MakoStar } from '@/app/_components/MakoBrand';
 import {
-  DIMENSIONES, FUENTE_PUNTAJE, avisosAfirmables, dimensionLabel, sinNumeroDelante,
+  AVISO_DIAGNOSTICO_VIEJO, DIMENSIONES, FUENTE_PUNTAJE, REHACER_DIAGNOSTICO, avisosAfirmables, dimensionLabel, sinNumeroDelante,
   type CalculoDiagnostico, type ConclusionOferta, type DiagnosticoOferta, type NotaDimension, type OfferSesionVista, type PropuestaOferta,
 } from '@/lib/offer-marco';
 import {
@@ -640,7 +640,7 @@ export const PESTANAS: ReadonlyArray<{ id: Pestana; label: string }> = [
   { id: 'oferta', label: 'Oferta nueva' },
 ];
 
-export function Conclusion({ sesion, conclusion, onSeguir, onGuardar, funnels = [], conProbar = true, pestanaInicial = PESTANAS[0].id }: {
+export function Conclusion({ sesion, conclusion, onSeguir, onGuardar, onRehacer, funnels = [], conProbar = true, pestanaInicial = PESTANAS[0].id }: {
   sesion: OfferSesionVista;
   conclusion: ConclusionOferta;
   /**
@@ -654,6 +654,11 @@ export function Conclusion({ sesion, conclusion, onSeguir, onGuardar, funnels = 
   onSeguir: () => void;
   /** Guarda la oferta nueva (v2: ligada al funnel de la conversación). Tira si falla; devuelve el aviso del motor, si hay. */
   onGuardar: (funnelIds?: number[]) => Promise<AvisoGuardado | null>;
+  /**
+   * Vuelve a armar el diagnóstico y la oferta (una versión nueva). Lo ofrece el aviso de un diagnóstico armado con el
+   * embudo de otro funnel (OF1, `sesion.diagnosticoViejo`); sin esto, el aviso va sin botón.
+   */
+  onRehacer?: () => void;
   /** Los funnels del negocio, para elegir en cuáles se guarda (#895). Sin ellos, se guarda en el de la conversación. */
   funnels?: readonly FunnelElegible[];
 }) {
@@ -668,6 +673,12 @@ export function Conclusion({ sesion, conclusion, onSeguir, onGuardar, funnels = 
     <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
       <div style={{ maxWidth: LECTURA, marginInline: 'auto', padding: '2px 2px 40px', display: 'flex', flexDirection: 'column', gap: 18 }}>
         <BarraAcciones sesion={sesion} funnels={funnels} onSeguir={onSeguir} onGuardar={onGuardar} />
+        {/* Arriba de las pestañas: vale para el PDF, el diagnóstico y la oferta (OF1, 22/10/2026). */}
+        {sesion.diagnosticoViejo && (
+          <Banner tono="warn" alcance="local" accion={onRehacer ? { label: REHACER_DIAGNOSTICO, onClick: onRehacer } : undefined}>
+            {AVISO_DIAGNOSTICO_VIEJO}
+          </Banner>
+        )}
         <div role="tablist" aria-label="Qué ver" className="of-seg" style={{ alignSelf: 'flex-start', marginTop: 4 }}>
           {PESTANAS.map((p) => (
             <button key={p.id} type="button" role="tab" id={`${id}-tab-${p.id}`} aria-controls={`${id}-panel`}

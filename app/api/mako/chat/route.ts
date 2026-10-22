@@ -196,7 +196,10 @@ export async function POST(req: NextRequest) {
     if (body.action === 'send') {
       const mensaje = typeof body.mensaje === 'string' ? body.mensaje : '';
       if (!mensaje.trim()) return json({ ok: false, error: 'Escribe algo.' }, 400);
-      const r = await turnoApp(quien, sessionId, { mensaje, contexto: CONTEXTO_SECOND_BRAIN, plazoMs: maxDuration * 1000 });
+      // `guardarAdjuntos` también sin fotos (22/10/2026, la prueba de los chats): un texto PEGADO va en este cuerpo, y sin
+      // la marca el turno no lo archivaba aunque el hilo dijera «el texto entero quedó en El Archivero». El teléfono ya la
+      // pasaba (/api/m/mako); el MaKo Analyst de un lead, que no la pasa, es otra ruta.
+      const r = await turnoApp(quien, sessionId, { mensaje, contexto: CONTEXTO_SECOND_BRAIN, guardarAdjuntos: true, plazoMs: maxDuration * 1000 });
       if (!r) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
       // Un fallo del modelo NO es un error HTTP: el mensaje quedó guardado y el aviso viaja adentro.
       return json({ ...r });
