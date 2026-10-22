@@ -95,7 +95,7 @@ test('los renglones de Claude Code: título, descripción abajo, la recomendada 
 test('el dibujo copia AskUserQuestion: la pestaña, «1 de 2», las opciones numeradas y el renglón libre', () => {
   const a = dec({ opciones: [{ clave: 'A', texto: 'Sí', detalle: 'Se publica hoy' }, { clave: 'B', texto: 'No' }], recomendada: 'A', urgencia: 'bloquea' });
   const b = dec();
-  const html = renderToStaticMarkup(createElement(Pregunta, { preguntas: [a, b], responder: async () => ({ error: null, ok: true }) }));
+  const html = renderToStaticMarkup(createElement(Pregunta, { chat: 'local_infra', preguntas: [a, b], responder: async () => ({ error: null, ok: true }) }));
   assert.match(html, /role="tab"[^>]*aria-selected="true"[^>]*>Frena el chat</);
   assert.match(html, />1 de 2</);
   assert.match(html, new RegExp(`co-preg__texto">${a.pregunta.replace(/[?¿]/g, '.')}<`));
@@ -104,7 +104,7 @@ test('el dibujo copia AskUserQuestion: la pestaña, «1 de 2», las opciones num
   assert.match(html, /co-preg__num" aria-hidden="true">3<[\s\S]*?placeholder="Escribe otra cosa"/, 'el último renglón es el libre');
   assert.match(html, /Elige con 1 a 3/);
   // Una sola: sin «1 de 1».
-  assert.doesNotMatch(renderToStaticMarkup(createElement(Pregunta, { preguntas: [b], responder: async () => ({ error: null, ok: true }) })), /de 1</);
+  assert.doesNotMatch(renderToStaticMarkup(createElement(Pregunta, { chat: 'local_infra', preguntas: [b], responder: async () => ({ error: null, ok: true }) })), /de 1</);
 });
 
 test('la pregunta abierta se sigue por su id: una tarjeta que llega ADELANTE no le roba la respuesta', () => {

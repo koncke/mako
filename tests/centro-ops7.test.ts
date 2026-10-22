@@ -384,6 +384,7 @@ test('md: lo que escribe un chat se dibuja con su formato: nada de asteriscos, a
   })));
   assert.ok(cierre.includes('Hice el filtro') && cierre.includes('Con 3 leads') && !/\*\*|`/.test(cierre), cierre);
   for (const f of ['app/admin/operaciones/PreguntaChat.tsx', 'app/admin/operaciones/Pregunta.tsx']) {
-    assert.match(sinComentarios(leer(f)), /conFormato\((p|d)\.pregunta, 'pq'\)/, `${f}: la pregunta con su formato`);
+    // `conLinks` (PreguntasDelChat.tsx) es `conFormato` con los links sin https: la Ticketera lo usa desde el 22/10/2026.
+    assert.match(sinComentarios(leer(f)), /con(?:Formato|Links)\((p|d)\.pregunta, 'pq'\)/, `${f}: la pregunta con su formato`);
   }
 });

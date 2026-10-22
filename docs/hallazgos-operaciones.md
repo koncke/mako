@@ -27,6 +27,11 @@ un «Ya está» sin su ✓, que la fila dibujaba con el MISMO texto (`TEXTO_SEGU
   Sin pantalla de resumen: «‹ Anterior», los puntos y «Siguiente ›», y con la última salen todas.
 - **Trampa: un link adentro de un `<button>` no se abre** (HTML no lo deja). La opción del bloque es un `div` con rol de botón,
   y tocar el link no elige la opción.
+- **Trampa: «el bloque de decisiones» son DOS tarjetas.** Las preguntas de un chat (PreguntasDelChat.tsx) y las decisiones de
+  la Ticketera (Pregunta.tsx) se ven iguales y están en el mismo lugar. Los ajustes de Martín entraron sólo en la primera: verificado
+  en producción el 22/10, la de «Cuesta dinero» del chat Infra seguía sin flotar, sin flecha y con links que no se tocaban. Ahora
+  Pregunta.tsx usa las MISMAS piezas (`conLinks`, `usePlegado`, `Plegada`, `Plegar`, exportadas de PreguntasDelChat.tsx). El resumen
+  final nunca lo tuvo: ahí cada respuesta se guarda al elegirla.
 - **Y la criatura de la cabecera contaba con OTRO número que la fila** (Martín, 22/10, 18:45: la fila del «Cerebro» avisaba y la
   criatura de arriba dormía, «No se entiende»). La fila usa `k.avisos(c)` (useCentro.ts: las esperas con el vigía y el
   «Completado» sin ✓). La cabecera recibía `esperaDe(chat, k.esperas)`, sin el «Completado», y lo mismo pasaba con las dos del

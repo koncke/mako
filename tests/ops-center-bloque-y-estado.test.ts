@@ -11,10 +11,12 @@
 //   4. «Espera tu respuesta» sólo con una pregunta; un «Ya está» sin su ✓ dice «Completado» y el hilo va a él;
 //   5. lo que el chat le escribió a OTRO chat va plegado en una línea, «Avance: …»;
 //   6. la criatura de la cabecera cuenta con el MISMO número que la fila (Martín, 22/10, 18:45: la fila del «Cerebro» avisaba y
-//      la criatura de arriba dormía, «No se entiende»): con un «Completado» sin ✓ está despierta en los dos lugares.
+//      la criatura de arriba dormía, «No se entiende»): con un «Completado» sin ✓ está despierta en los dos lugares;
+//   7. las decisiones de la Ticketera (Pregunta.tsx, la de «Cuesta dinero» del chat Infra) tienen los MISMOS ajustes que las
+//      preguntas de un chat, con las mismas piezas: flotan, se pliegan y sus links se tocan (verificado en producción, 22/10).
 //
 // Correr: node --import tsx --test tests/ops-center-bloque-y-estado.test.ts
-// PROBADO ROMPIÉNDOLO (base 6/0), ver el pie.
+// PROBADO ROMPIÉNDOLO (base 7/0), ver el pie.
 // =============================================================================
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -24,6 +26,10 @@ import { fileURLToPath } from 'node:url';
 import { conDominiosComoLinks } from '../lib/links-texto';
 import { TEXTO_SEGUNDO_RENGLON, avisosDe, lineasDeConversacion, primeraOracion, segundoRenglon, turnosParaOtro, ultimoYaEsta, yaEstaSinVer, type LineaChat } from '../lib/centro-chats';
 import { animoDe } from '../app/admin/operaciones/Muneco';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { Pregunta } from '../app/admin/operaciones/Pregunta';
+import type { Decision } from '../app/admin/runway/decisiones';
 import type { TurnoChat } from '../lib/operaciones-reglas';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -135,6 +141,28 @@ test('6. la criatura de la cabecera y la de la fila salen del MISMO número: con
   assert.doesNotMatch(movil, /esperaDe\(elegido,/, 'la cabecera del teléfono no cuenta aparte');
 });
 
+test('7. las decisiones de la Ticketera flotan, se pliegan y sus links se tocan, con las piezas de las preguntas del chat', () => {
+  const d: Decision = {
+    id: 41, ref: 'd-41', chat: 'Infra', pregunta: '¿Le ponemos tarjeta a GitHub con un tope?',
+    opciones: [{ clave: 'A', texto: 'Tarjeta con tope', detalle: 'Se pone en github.com/settings/billing en 2 minutos.' }, { clave: 'B', texto: 'Nada' }],
+    destraba: null, contexto: 'Van 835 de 2.000 minutos.', recomendada: 'A', urgencia: 'criterio', href: null, orden: 100,
+    respuesta: null, respuestaTexto: null, respondidaAt: null, recogidaAt: null, creadaAt: '2026-10-22T16:00:00Z',
+  };
+  const html = renderToStaticMarkup(createElement(Pregunta, { chat: 'local_infra', preguntas: [d], responder: async () => ({ error: null, ok: true }) }));
+  assert.match(html, /class="co-preg co-preg--arriba"/, 'la tarjeta flotante');
+  assert.match(html, /class="co-preg__plegar"[^>]*aria-label="Ocultar las preguntas"/, 'la flecha');
+  assert.match(html, /<a [^>]*href="https:\/\/github\.com\/settings\/billing"[^>]*>github\.com\/settings\/billing<\/a>/, 'el link sin https, tocable');
+  assert.match(html, /<div role="button" tabindex="0"[^>]*data-op="0" class="co-preg__op"/, 'la opción no es un <button>');
+  const src = sinComentarios(leer('app/admin/operaciones/Pregunta.tsx'));
+  assert.match(src, /import \{ Plegada, Plegar, conLinks, usePlegado \} from '\.\/PreguntasDelChat';/, 'las MISMAS piezas, no una copia');
+  assert.match(src, /const \[plegado, setPlegado\] = usePlegado\(`ticketera:\$\{chat\}`, preguntas\);/);
+  assert.match(src, /if \(plegado\) return <Plegada n=\{preguntas\.length\} onAbrir=\{\(\) => setPlegado\(false\)\} \/>;/);
+  assert.match(src, /onClick=\{\(e\) => \{ if \(!guardando && !\(e\.target as HTMLElement\)\.closest\('a'\)\) void elegir\(o\.clave\); \}\}/, 'el link no elige');
+  for (const f of ['app/admin/operaciones/Conversacion.tsx', 'app/m/operaciones/ChatsMovil.tsx']) {
+    assert.match(sinComentarios(leer(f)), /<Pregunta key=\{[a-z]+\.clave\} chat=\{[a-z]+\.clave\}/, `${f}: le dice de qué chat es`);
+  }
+});
+
 // PROBADO ROMPIÉNDOLO (22/10/2026, base 5/0):
 //   · el pie vuelve al fondo blanco                       → 4/1 (1)
 //   · sin recordar el plegado                             → 4/1 (1)
@@ -149,3 +177,8 @@ test('6. la criatura de la cabecera y la de la fila salen del MISMO número: con
 //   · la criatura del teléfono con `esperaDe`             → 5/1 (6)
 //   · el título del teléfono con `esperaDe`               → 5/1 (6)
 //   · `avisos` sin el «Completado» sin ✓                  → 5/1 (6)
+// Y el 7 (22/10/2026, base 7/0):
+//   · la tarjeta de la Ticketera sin flotar               → 6/1 (7)
+//   · sin la flecha                                       → 6/1 (7)
+//   · el detalle sin sus links                         → 6/1 (7)
+//   · la opción vuelve a ser un <button>                  → 6/1 (7)
