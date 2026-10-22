@@ -12,6 +12,19 @@ El pedido, literal, en la bitácora del CRM (hito `actor: 'martin'` del 21/10 23
 `C:/dev/wt-crm-2110c` (lleva adentro `crm-2110-t1` y `crm-2110-t2b`). **Sin subir: la punta va a «Cerebro › Integración».**
 Lo que no se deduce del código, en docs/hallazgos-crm.md («El feedback del 21/10 (noche)…») y docs/hallazgos-ui.md.
 
+**22/10, la llamada de Martín con Mauricio (C1–C9 de docs/pedidos-crm.md), EN PRODUCCIÓN:**
+- P0 (traer los 1.050 de otro producto, arrastrar una selección): `16cac1fd1`, run 230. Hecho `26c541444`.
+- P1 (C3 mover sin esperar, C4 «Creando…», C5 el menú que tapaba, C7 las hojas de la ficha a la vista): `50fbb71df`,
+  run 231. Hecho `6f21aa754`.
+- C8 («También en: Sprint 3 días › Prospección activa» en la ficha): `8d1c1cb51`, run 233. Hecho `a4b29ca98`.
+- Avisos al grupo del ws1: P0 y P1 salieron. El del C8 NO (tope de 3 por día, `TOPE_AVISOS_POR_DIA` en
+  lib/aviso-arreglo.ts): su línea la manda Automations en el aviso combinado de las 09:10.
+- **C6 sin reproducir** («los tres puntos de "Lead entrante" lo mandaron a otro lado»): el Chrome de Martín no estuvo
+  conectado. Hipótesis en docs/hallazgos-crm.md: el «⋯» de la BARRA › «Buscar prospectos» navega.
+- El VERDE de esta rama dio ROJO el 22/10 por `tests/ficha-editar-con-mako.test.ts`: `cambiar_tipo_etapa` dejaba afuera a
+  `cambiar_ficha_funnel` al editar la ficha. Arreglado en la pista de «Editar» (`1a5a9d497`); por qué, en
+  docs/hallazgos-api-mako.md.
+
 **Hecho (cada uno con su test probado rompiéndolo):**
 - «Kanban · Lista» juntos en un segmento, con «Kanban» y «Lista» en el tooltip: UNA pieza (app/_ui/SelectorVista.tsx) en
   el CRM, Clientes (y /admin) y el Plan. tests/crm-vista-iconos.test.ts.
@@ -38,8 +51,10 @@ Lo que no se deduce del código, en docs/hallazgos-crm.md («El feedback del 21/
 /customer-success y /plan (el segmento y «Personalizar tarjetas»). Tipos: el tsc acotado lo cortó el vigía de RAM.
 
 **Sin hacer, con el archivo:**
-- Que lo escrito en la criatura vaya al «Cerebro» del negocio y no al hilo del CRM: app/crm/mako-crm/ChatMakoCrm.tsx y
-  chat-server.ts (`chartKeyDelCrm`). Lo coordina el chat «Ops Center» (dueño del chat único); se le preguntó el 21/10.
+- Que lo escrito en la criatura vaya al «Cerebro» del negocio y no al hilo del CRM. El chat «Ops Center» armó la pieza
+  `MakoEnLaTab` (con `arriba` y `aviso`; `6f149d947` subiendo el 22/10 a la mañana). En cuanto esté en main, en una tanda
+  aparte: cambiar app/crm/mako-crm/PanelMakoCrm.tsx por `<MakoEnLaTab tab="CRM" arriba={sugerencias} aviso={n} />`. No
+  armar otra en app/_chat/.
 - Google Calendar en «Asignar evento»: su API no expone las páginas de reserva. **Decisión de Martín** (C1 de
   docs/pedidos-crm.md): una regla por título + un barrido del calendario, o esperar a Google.
 - El teléfono sigue los datos de la tarjeta pero no la forma (app/m/crm/TableroCrm.tsx dibuja filas).
