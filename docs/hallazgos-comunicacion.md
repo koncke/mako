@@ -10658,3 +10658,20 @@ estado que /chats y MaKo no ofrezcan reenviar.
   conexión (`/integraciones?abrir=<servicio>`). Un mensaje que era SÓLO la clave no se encola: no queda nada que contestar.
 - **Sin hacer:** una clave DENTRO de una foto o un PDF (van nativos al modelo) y la que se dice en una nota de voz no se
   tapan. La prueba en el grupo de prueba del ws3, con Martín pegando una clave de mentira, espera el deploy.
+
+## Hola MaKo con el Claude o el GPT del negocio: el escalado a Claude nunca podía llegar (22/10/2026, WA1)
+
+**Vive en:** `lib/mako-doer-in.ts` (`suIA`, los candidatos, el intento con su Claude) · `lib/anthropic.ts`
+(`chatClaudeTools` con `soloSuClaude`) · `tests/doer-su-ia.test.ts`
+
+- **Síntoma:** en 30 días el doer de WhatsApp hizo 231 llamadas a Gemini (ws13: 115, ws15: 53) y ninguna con el Claude de un
+  negocio, aunque el ws10 y el ws11 lo tienen cargado.
+- **Causa (dos, apiladas):** los candidatos eran `[pin, groq, openai]` y el archivo no preguntaba si el negocio tenía su IA;
+  y el escalado a Claude pasaba `model: 'claude-sonnet-5'` explícito, que salta la puerta 2 (la clave del negocio sólo se
+  prueba SIN `model`) y cae en el veto de la plataforma, que no tiene a `mako-doer-in`: el Claude del negocio era
+  inalcanzable por construcción.
+- **Regla que queda:** con su IA, el doer prueba su OpenAI y después su Claude por la puerta 2 (`soloSuClaude`: directo a
+  su clave, sin cascada; sin su clave, «falló la IA»). Sólo si el turno no ejecutó nada (otro modelo duplicaría una
+  escritura). Nunca la suscripción: WhatsApp es de fondo (D6a). La red gratis de la plataforma ni se arma.
+- **Sin hacer:** va después de OC1 (Ops Center 1.2 toca lib/doer-herramientas.ts y lib/mako-intencion.ts, no este archivo).
+  El caso real (el próximo mensaje del grupo del ws11 con su proveedor y la marca, 0 gemini) espera el deploy.

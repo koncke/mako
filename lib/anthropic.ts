@@ -512,6 +512,9 @@ export async function chatClaudeTools(
     /** D6b (21/10/2026): el negocio tiene SU Claude o SU GPT. La cascada sólo prueba su OpenAI y después su Claude: ni
      *  Gemini, ni Groq, ni Mistral, ni OpenRouter (docs/ia-del-cliente.md §12.7). */
     soloSuIA?: boolean;
+    /** WA1 (22/10/2026): DIRECTO a la clave de Claude del negocio (la puerta 2 del veto), sin la cascada: el que llama ya
+     *  probó su OpenAI (el doer de WhatsApp). Sin su clave, tira «falló la IA (…)». Nunca el Claude de MaKo. */
+    soloSuClaude?: boolean;
     sinFallbackClaude?: boolean;    // si el override a IA barata falla, RE-LANZÁ el error (no caigas a Claude): el caller quiere avisar "falló", no gastar Claude en silencio.
     effort?: Effort;
     maxTokens?: number;
@@ -535,7 +538,11 @@ export async function chatClaudeTools(
   let model = opts.model ?? '';   // sin default: el `?? MODEL` era la quinta puerta
   /** La clave de Claude del NEGOCIO, cuando ninguna IA barata suya contestó (abajo). */
   let delNegocio: PermisoClaveDelNegocio | null = null;
-  if (!opts.model && opts.feature) {
+  if (opts.soloSuClaude) {
+    const n = await permisoDeLaClaveDelNegocio(opts.feature).catch(() => null);
+    if (n && 'permiso' in n) delNegocio = n.permiso;
+    else throw new Error(`falló la IA (${n && 'pausa' in n ? CLAUDE_EN_PAUSA : 'el negocio no tiene su clave de Claude'})`);
+  } else if (!opts.model && opts.feature) {
     // ⚠️ El `catch` vacío envuelve SÓLO la lectura del registro (ticket #5, 18/10/2026). Antes envolvía también la
     // cascada, y el «falló la IA» que se re-lanza con `sinFallbackClaude` caía en él y se perdía. El modelo quedaba
     // vacío y el veto contestaba «Claude vetado — «mako-doer»…». La Ticketera lo leyó como un bug: era la IA gratis

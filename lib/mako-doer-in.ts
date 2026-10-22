@@ -65,6 +65,7 @@ import { mimeImagenWhatsApp, bloquesDeAdjuntos, placeholderDeAdjunto } from '@/l
 import { ordenarPorCuota, anotarRebote429 } from '@/lib/ia-cuotas';
 import { recordUsage } from '@/lib/anthropic-usage';
 import { rutearDoer } from '@/lib/mako-router';
+import { negocioConSuIA } from '@/lib/ia-del-negocio';
 import { avisoClaveTapadaEnElGrupo, soloLaClave, taparClavesDelMensaje } from '@/lib/doer-claves';
 import { taparClaves } from '@/lib/claves-en-el-chat';
 import { overrideDeFeature } from '@/lib/model-registry';
@@ -1271,6 +1272,13 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       // runWithWorkspace(wsData)) → getTenantDb scopea al cliente dueño del grupo.
       // Si el dueño fijó un modelo a mano, ese pin manda; si no, el que eligió el router.
       const pin = await overrideDeFeature('mako-doer-in').catch(() => null);
+      // WA1 (22/10/2026): ¿el negocio tiene SU Claude o SU GPT? Entonces Hola MaKo contesta con su OpenAI y después su Claude,
+      // los dos por CLAVE (la puerta 2 del veto para Claude): nunca por la suscripción, porque esto corre de fondo (D6a), y
+      // sin Groq ni Gemini (D6b). Antes los candidatos eran [pin, groq, openai] y el escalado pedía `claude-sonnet-5` con
+      // `model` explícito, que el veto corta: el Claude del negocio no se probaba nunca.
+      const suIA = (await negocioConSuIA(wsData)).suIA;
+      // El loop de las baratas corre con su pin; con su IA y sin pin barato, con su OpenAI.
+      const pinL = pin && pin.provider !== 'anthropic' ? pin : suIA ? { provider: 'openai', model: 'gpt-4o-mini' } : null;
 
       // COSTO (feedback jul-19): el grueso del gasto del doer es el INPUT de los turnos
       // de tool-use (tools + historial + resultados). En Groq el input es ~gratis PERO el
@@ -1297,7 +1305,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
         // IA barata (Gemini/Groq), corremos el loop de tools DIRECTO ahí; si falla, avisamos
         // el error (NUNCA caemos a Claude ni gastamos Opus). Pin Claude o sin pin → Claude.
         try {
-          if (pin && pin.provider !== 'anthropic') {
+          if (pinL) {
             // ROTACIÓN PROACTIVA de IA baratas (NUNCA Claude): armamos [pineado + las que
             // soportan tools] y las ORDENAMOS POR CUOTA (las cerca del tope van al final) →
             // probamos primero las que todavía pueden, sin esperar el 429. OpenRouter ":free"
@@ -1352,7 +1360,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
              * el que estaba pensado para exactamente este turno. Estuvo inalcanzable
              * desde el 13/08 por el bug de `provsDe`.
              */
-            const cands = [pin.provider, 'groq', 'openai'].filter((p, i, a) => a.indexOf(p) === i);
+            const cands = suIA ? ['openai'] : [pinL.provider, 'groq', 'openai'].filter((p, i, a) => a.indexOf(p) === i);
             const orden = await ordenarPorCuota(cands).catch(() => cands);
             let ultErr: unknown = null;
             // ⚠️ TODOS los errores, no solo el último. `ultErr` alcanza para tirar,
@@ -1414,7 +1422,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 // ver lib/ia-rotacion-modelo.ts.
                 const esperaCuotaMaxMs = nInst === instancias.length - 1 ? 30_000 : 0;
                 const corridasAntes = corridasDelTurno;
-                const r = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, clave: inst.clave, model: prov === pin.provider ? pin.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${rotulo(inst)} ${ruta.motivo} «${recorte}»`, toolChoicePrimerPaso: forzarTool ? 'required' : undefined, esperaCuotaMaxMs });
+                const r = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, clave: inst.clave, model: prov === pinL.provider ? pinL.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${rotulo(inst)} ${ruta.motivo} «${recorte}»`, toolChoicePrimerPaso: forzarTool ? 'required' : undefined, esperaCuotaMaxMs });
                 /**
                  * ⚠️ ESTA SALIDA ERA MUDA, Y POR ESO EL CLIENTE LEYÓ «TE QUEDASTE SIN CUOTA».
                  *
@@ -1472,7 +1480,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 if (!vv.ok && vv.razon === 'link-inventado' && !linkBorrador && permitidasDelTurno.has('proponer_tareas_plan')) {
                   quisoBorrador = true;
                   console.warn(`[mako-doer-in] ${prov} inventó el link → reintento con la tool obligatoria`);
-                  const r2 = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, model: prov === pin.provider ? pin.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${prov} ${ruta.motivo} «${recorte}» · tool forzada`, toolChoicePrimerPaso: 'required' });
+                  const r2 = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, model: prov === pinL.provider ? pinL.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${prov} ${ruta.motivo} «${recorte}» · tool forzada`, toolChoicePrimerPaso: 'required' });
                   if (r2.text && !r2.text.startsWith('(')) {
                     texto2 = r2.text;
                     vv = validarRespuestaDoer(r2.text, { motivoRuta: ruta.motivo, linkBorrador });
@@ -1491,7 +1499,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                  */
                 if (!linkBorrador && corridasDelTurno === corridasAntes && tools.length && promesasDe(texto2).length) {
                   console.warn(`[mako-doer-in] ${prov} prometió sin hacer («${promesasDe(texto2).join('», «')}») → reintento con la herramienta obligatoria`);
-                  const r3 = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, clave: inst.clave, model: prov === pin.provider ? pin.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${rotulo(inst)} ${ruta.motivo} «${recorte}» · prometió sin hacer`, toolChoicePrimerPaso: 'required' });
+                  const r3 = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, clave: inst.clave, model: prov === pinL.provider ? pinL.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${rotulo(inst)} ${ruta.motivo} «${recorte}» · prometió sin hacer`, toolChoicePrimerPaso: 'required' });
                   if (r3.text && !r3.text.startsWith('(')) {
                     const v3 = validarRespuestaDoer(r3.text, { motivoRuta: ruta.motivo, linkBorrador });
                     if (v3.ok || v3.razon === 'sin-borrador' || linkBorrador) { texto2 = r3.text; vv = v3; }
@@ -1521,7 +1529,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 if (/429|rate.?limit|resource.?exhausted|quota/i.test(m2)) {
                   // La firma pide el Nº de CUENTA, no el nombre de la env var: es lo que
                   // `ordenarPorCuota` lee después para no volver a arrancar por la muerta.
-                  const modeloPedido = (prov === pin.provider ? pin.model : undefined) ?? inst.chatModel;
+                  const modeloPedido = (prov === pinL.provider ? pinL.model : undefined) ?? inst.chatModel;
                   void anotarRebote429(prov, nroCuenta(inst), modeloPedido, m2).catch(() => {});
                 }
                 console.warn(`[mako-doer-in] ${prov} falló: ${m2}`);
@@ -1553,7 +1561,25 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
             // `catch` de abajo; si no, corre SIN las herramientas que los leen, con el system
             // armado para las que quedan. Las pendientes son las que ve `listar_pendientes`
             // (las del grupo y las de la API del negocio); si no se pueden leer, cuentan.
-            const turnoRed = respuesta ? null : turnoParaLaRed({
+            // ── WA1: CON SU IA, DESPUÉS DE SU OPENAI, SU CLAUDE (por clave, la puerta 2 del veto). Sólo si el turno no ejecutó
+            // nada todavía: otro modelo después de una escritura la duplicaría (la misma regla de la cascada).
+            if (!respuesta && suIA && !linkBorrador && corridasDelTurno === 0) {
+              probadasCliente++;
+              try {
+                const { text } = await chatClaudeTools(system, msgs, tools, nuevoIntento(), {
+                  feature: 'mako-doer-in', soloSuClaude: true, maxSteps: 8, maxTokens: 2500,
+                  motivo: `su Claude · ${ruta.motivo} «${recorte}»`,
+                });
+                contestaronCliente++;
+                if (text?.trim() && !text.startsWith('(')) respuesta = text.trim();
+              } catch (e) {
+                const m = e instanceof Error ? e.message : String(e);
+                erroresIA.push(`anthropic/ANTHROPIC_API_KEY: ${m}`);
+                ultErr = e;
+                console.warn(`[mako-doer-in] ws=${wsData} su Claude no pudo: ${m}`);
+              }
+            }
+            const turnoRed = respuesta || suIA ? null : turnoParaLaRed({
               tools, delRegistro: turno.delRegistro,
               tiposPendientes: await listarPendientes(ctxApi).then((ps) => ps.map((p) => p.operacion)).catch(() => ['(no se pudieron leer las pendientes)']),
               texto, conAdjuntos: !!mediaBlocks,
@@ -1585,8 +1611,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
               // apuesta que ya sabemos perdida — pasó en la verificación de este
               // arreglo, con dos keys de Gemini comiéndose los 25 s enteros.
               const distintoPrimero = [
-                ...red.filter((r) => r.provider !== pin.provider),
-                ...red.filter((r) => r.provider === pin.provider),
+                ...red.filter((r) => r.provider !== pinL.provider),
+                ...red.filter((r) => r.provider === pinL.provider),
               ];
               for (const r of distintoPrimero) {
                 if (Date.now() > limite) {
