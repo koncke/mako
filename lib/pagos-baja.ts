@@ -26,7 +26,9 @@ import { nombreCuota } from './pagos-campo';
 import { anularLinksDeCuota } from './cobros';
 import { centavos } from './pagos-diferencia';
 
-export type ResultadoBaja = { ok: true; cuotas: number; usd: number; resumen: string } | { ok: false; error: string };
+/** `ids`: las cuotas que dio de baja ESTA llamada (las de un link vivo no): lo que guarda el reembolso de un plan para que su
+ *  deshacer devuelva sólo ésas y no las que alguien dio de baja a mano (cuarta revisión de plata de «Vincular cobro»). */
+export type ResultadoBaja = { ok: true; cuotas: number; usd: number; resumen: string; ids?: number[]; bajaAt?: string } | { ok: false; error: string };
 
 const usd = (n: number): string => `US$ ${centavos(n).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
 /** «cuota 3 y cuota 4» · «el inicial, cuota 1 y cuota 2». */
@@ -90,22 +92,27 @@ export async function darDeBajaCliente(leadId: number, autor: string, crm: Crm =
   const total = centavos(hechas.reduce((s, q) => s + Number(q.monto_usd), 0));
   const faltaron = objetivo.length - hechas.length;
   await logLeadEvent(leadId, 'Baja del cliente', `Se dio de baja. Quedó sin cobrar ${usd(total)} (${cuales(hechas)}): no es deuda y no se le recuerda. Lo cobrado queda.${faltaron ? ` ${faltaron} cuota(s) no se dieron de baja porque tenían un link que no se pudo anular.` : ''}`, autor);
-  return { ok: true, cuotas: hechas.length, usd: total, resumen: `Se dio de baja: ${usd(total)} sin cobrar dejan de ser deuda.${faltaron ? ` ${faltaron} cuota(s) siguen: tienen un link sin anular.` : ''}` };
+  return { ok: true, cuotas: hechas.length, usd: total, ids: hechas.map((q) => Number(q.id)), bajaAt: ahora, resumen: `Se dio de baja: ${usd(total)} sin cobrar dejan de ser deuda.${faltaron ? ` ${faltaron} cuota(s) siguen: tienen un link sin anular.` : ''}` };
 }
 
 /** Deshace la baja: cada cuota vuelve a ser deuda con su vencimiento. Los links anulados no vuelven (se crea otro). */
-export async function deshacerBajaCliente(leadId: number, autor: string, crm: Crm = null, opts: { soloIds?: readonly number[] } = {}): Promise<ResultadoBaja> {
+export async function deshacerBajaCliente(leadId: number, autor: string, crm: Crm = null, opts: { soloIds?: readonly number[]; bajaAt?: string } = {}): Promise<ResultadoBaja> {
   await asegurarLeadDelNegocio(leadId);
   // `soloIds`: deshacer la baja de un plan devuelve SÓLO sus cuotas, no las que alguien dio de baja a mano en ese trato.
-  const deBaja = (await getPagosByLead(leadId, crm)).filter(esCuotaDeBaja).filter((q) => !opts.soloIds || opts.soloIds.includes(Number(q.id)));
+  // `bajaAt`: sólo las que dio de baja ESA baja (el mismo instante). Una cuota que se reabrió a mano y después se volvió a dar
+  // de baja a mano tiene otro `baja_at`, y no se reabre (quinta revisión de plata de «Vincular cobro»).
+  const mismaBaja = (v: string | null | undefined) => !opts.bajaAt || (!!v && Date.parse(v) === Date.parse(opts.bajaAt));
+  const deBaja = (await getPagosByLead(leadId, crm)).filter(esCuotaDeBaja)
+    .filter((q) => (!opts.soloIds || opts.soloIds.includes(Number(q.id))) && mismaBaja(q.baja_at));
   if (!deBaja.length) return { ok: false, error: 'Este cliente no está dado de baja.' };
   const db = await getTenantDb();
   const vueltas: Pago[] = [];
   for (const q of deBaja) {
-    const { data, error } = await db.from('pagos')
+    let upd = db.from('pagos')
       .update({ baja_at: null, baja_vencia: null, fecha_esperada: q.baja_vencia ?? null })
-      .eq('id', q.id).eq('lead_id', leadId).eq('pagado', false).not('baja_at', 'is', null)
-      .select('id');
+      .eq('id', q.id).eq('lead_id', leadId).eq('pagado', false).not('baja_at', 'is', null);
+    if (opts.bajaAt) upd = upd.eq('baja_at', opts.bajaAt);
+    const { data, error } = await upd.select('id');
     if (error) throw new Error(`No pude deshacer la baja de ${nombreCuota(q.numero).toLowerCase()}: ${error.message}`);
     if (data?.length) vueltas.push(q);
   }

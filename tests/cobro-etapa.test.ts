@@ -162,7 +162,7 @@ test('medias 3 y 4: el trato se reclama antes de armarse; el que pierde relee o 
 test('media 5: devuelto el primer pago, las cuotas del plan que armó dejan de ser deuda', () => {
   const c = sinComentarios(leer('lib/cobros.ts'));
   // Desde la tercera revisión: la baja es SÓLO de las cuotas del plan (`soloIds`), y queda anotado quién la disparó.
-  assert.match(c, /const \{ darDeBajaCliente \} = await import\('\.\/pagos-baja'\);\s*const r = await darDeBajaCliente\(c\.lead_id, NOMBRE_PASARELA\[c\.proveedor\], plan\.pagoEn, \{ soloIds: d\.ids \}\);\s*if \(r\.ok\) await marcarBajaPorReembolso\(plan\.cobroId, true, c\.id\);/);
+  assert.match(c, /const \{ darDeBajaCliente \} = await import\('\.\/pagos-baja'\);\s*const r = await darDeBajaCliente\(c\.lead_id, NOMBRE_PASARELA\[c\.proveedor\], plan\.pagoEn, \{ soloIds: d\.ids \}\);\s*if \(r\.ok\) await marcarBajaPorReembolso\(plan\.cobroId, true, c\.id, r\.ids \?\? d\.ids, r\.bajaAt \?\? null\);/);
 });
 
 // Media 6 · Rotura: editar con la fila entera de `productoValido` (sin `patchDeEdicion`): 1 fallo. Pisar el plazo sin que venga: 1 fallo.
@@ -247,7 +247,9 @@ test('bajas 1, 2 y 3: «en curso» no es una falla, una devolución fallida desh
   const c = sinComentarios(leer('lib/cobros.ts'));
   assert.match(c, /if \(!\(e instanceof TratoEnCursoError\)\) \{\s*await actualizar\(ws, c\.id, \{ motivo: `El pago entró pero no pude prepararlo/);
   // Desde la tercera revisión: los planes que dio de baja ESTE cobro (sea el primero o una cuota), sólo sus cuotas.
-  assert.match(c, /for \(const plan of await planesDadosDeBajaPor\(c\.lead_id, c\.id\)\) \{\s*const \{ deshacerBajaCliente \} = await import\('\.\/pagos-baja'\);\s*const r = await deshacerBajaCliente\(c\.lead_id, NOMBRE_PASARELA\[c\.proveedor\], plan\.pagoEn, \{ soloIds: plan\.cuotasPlan \}\);/);
+  // Desde la cuarta revisión: se vuelve a decidir con lo de hoy cada plan dado de baja, y se deshace sólo lo que dio de baja
+  // ESE reembolso (`bajaIds`).
+  assert.match(c, /for \(const plan of await planesDadosDeBajaDelLead\(c\.lead_id\)\) \{[\s\S]{0,400}?if \(d\.accion !== 'sostiene'\) continue;\s*const \{ deshacerBajaCliente \} = await import\('\.\/pagos-baja'\);\s*const r = await deshacerBajaCliente\(c\.lead_id, NOMBRE_PASARELA\[c\.proveedor\], plan\.pagoEn, \{ soloIds: plan\.bajaIds\.length \? plan\.bajaIds : plan\.cuotasPlan, bajaAt: plan\.bajaAt \?\? undefined \}\);/);
   const api = sinComentarios(leer('lib/api-mako/areas/cobros.run.ts'));
   assert.match(api, /payload: \{ leadId: lead\.id, productoId: prod\.id, pasarela, montoUsd: enCuotas\?\.primerPagoUsd \?\? prod\.monto_usd \},/);
   assert.match(api, /if \(payload\.montoUsd != null\) \{\s*const ahora = await cobroDelProducto\(Number\(payload\.productoId\)\)\.catch\(\(\) => null\);\s*const cobraria = ahora\?\.primerPagoUsd \?\? null;\s*if \(cobraria == null \|\| Math\.round\(cobraria \* 100\) !== Math\.round\(Number\(payload\.montoUsd\) \* 100\)\) \{\s*return \{ ok: false,/);
@@ -318,6 +320,45 @@ test('tercera revisión: la baja de un plan devuelto toca SÓLO sus cuotas, otro
 test('tercera revisión: la baja y su deshacer aceptan los ids, y un plan sin nada que dar de baja queda cerrado', () => {
   const b = sinComentarios(leer('lib/pagos-baja.ts'));
   assert.match(b, /const objetivo = cuotasParaBaja\(await getPagosByLead\(leadId, crm\)\)\.filter\(\(q\) => !opts\.soloIds \|\| opts\.soloIds\.includes\(Number\(q\.id\)\)\);/);
-  assert.match(b, /const deBaja = \(await getPagosByLead\(leadId, crm\)\)\.filter\(esCuotaDeBaja\)\.filter\(\(q\) => !opts\.soloIds \|\| opts\.soloIds\.includes\(Number\(q\.id\)\)\);/);
+  assert.match(b, /const deBaja = \(await getPagosByLead\(leadId, crm\)\)\.filter\(esCuotaDeBaja\)\s*\.filter\(\(q\) => \(!opts\.soloIds \|\| opts\.soloIds\.includes\(Number\(q\.id\)\)\) && mismaBaja\(q\.baja_at\)\);/);
   assert.match(sinComentarios(leer('lib/cobros.ts')), /if \(d\.accion === 'cerrar'\) \{ await marcarBajaPorReembolso\(plan\.cobroId, true, null\); continue; \}/);
+});
+
+// ── La cuarta revisión de plata (22/10/2026, revision-vincular-cobro-2210-cuarta.md) ─────────────────────────────────
+
+// Baja 1 · Roturas: deshacer sin volver a decidir (todo plan dado de baja): 1 fallo. Volver a mirar sólo «quién disparó»: 1
+// fallo. Baja 2 · Rotura: deshacer con todas las cuotas del plan (sin `bajaIds`): 1 fallo. La baja sin devolver sus ids: 1 fallo.
+test('cuarta revisión: una devolución fallida vuelve a decidir con lo de hoy, y deshace sólo lo que dio de baja ese reembolso', () => {
+  const q = (id: number, extra: Partial<{ pagado: boolean; fecha_esperada: string | null; baja_at: string | null }> = {}) =>
+    ({ id, pagado: false, fecha_esperada: '2026-11-22', baja_at: null, ...extra });
+  // El caso de la revisión: se devolvió X (cuota 0) y después la cuota 1; la cuota 2 quedó de baja (la disparó la cuota 1).
+  // Falla la devolución de X: la cuota 0 vuelve a estar cobrada y sostiene la compra → se deshace, aunque no la disparó X.
+  assert.deepEqual(decidirBajaDelPlan({ cuotasPlan: [50, 51, 52], cuotasDelTrato: [q(50, { pagado: true }), q(51, { fecha_esperada: null }), q(52, { fecha_esperada: null, baja_at: '2026-10-22' })], otroPagoDelProducto: false }),
+    { accion: 'sostiene', por: 'cuota' });
+  // Al revés: falla una devolución ajena y nada del plan está cobrado → no se deshace (sigue siendo «baja» o «cerrar»).
+  assert.notEqual(decidirBajaDelPlan({ cuotasPlan: [50, 51, 52], cuotasDelTrato: [q(50, { fecha_esperada: null }), q(51, { fecha_esperada: null }), q(52, { fecha_esperada: null, baja_at: '2026-10-22' })], otroPagoDelProducto: false }).accion, 'sostiene');
+  const c = sinComentarios(leer('lib/cobros.ts'));
+  assert.match(c, /for \(const plan of await planesDadosDeBajaDelLead\(c\.lead_id\)\) \{\s*const otroPago = plan\.productoId != null && await otroCobroPagadoDelProducto\(c\.lead_id, plan\.productoId, plan\.cobroId, \{ antesDe: plan\.bajaAt \}\);\s*const d = decidirBajaDelPlan\(/);
+  const s = sinComentarios(leer('lib/cobro-etapa-server.ts'));
+  assert.match(s, /\.filter\(\(f\) => f\.trato && f\.trato\.bajaPorReembolso === true && f\.trato\.bajaPor != null\)/, 'todos los planes dados de baja, no sólo los de este cobro');
+  assert.match(s, /bajaIds: valor \? \[\.\.\.bajaIds\] : null/, 'lo que dio de baja el reembolso queda guardado');
+  assert.match(sinComentarios(leer('lib/pagos-baja.ts')), /return \{ ok: true, cuotas: hechas\.length, usd: total, ids: hechas\.map\(\(q\) => Number\(q\.id\)\),/);
+});
+
+// ── La quinta revisión de plata (22/10/2026, revision-vincular-cobro-2210-quinta.md) ─────────────────────────────────
+
+// Baja A · Roturas: el deshacer contando una recompra posterior (sin `antesDe`): 1 fallo. `otroCobroPagadoDelProducto` sin el
+// corte por fecha: 1 fallo. Baja B · Roturas: el deshacer sin `bajaAt`: 1 fallo. El compare-and-set sin el instante: 1 fallo.
+// La baja sin devolver su instante: 1 fallo.
+test('quinta revisión: el deshacer cuenta sólo lo pagado ANTES de la baja y reabre sólo lo que dio de baja ESE instante', () => {
+  const c = sinComentarios(leer('lib/cobros.ts'));
+  assert.match(c, /await otroCobroPagadoDelProducto\(c\.lead_id, plan\.productoId, plan\.cobroId, \{ antesDe: plan\.bajaAt \}\);/, 'una recompra posterior no revive la deuda');
+  assert.match(c, /\{ soloIds: plan\.bajaIds\.length \? plan\.bajaIds : plan\.cuotasPlan, bajaAt: plan\.bajaAt \?\? undefined \}/);
+  assert.match(c, /marcarBajaPorReembolso\(plan\.cobroId, true, c\.id, r\.ids \?\? d\.ids, r\.bajaAt \?\? null\);/);
+  const s = sinComentarios(leer('lib/cobro-etapa-server.ts'));
+  assert.match(s, /if \(opts\.antesDe\) q = q\.lt\('pagado_at', opts\.antesDe\);/);
+  const b = sinComentarios(leer('lib/pagos-baja.ts'));
+  assert.match(b, /const mismaBaja = \(v: string \| null \| undefined\) => !opts\.bajaAt \|\| \(!!v && Date\.parse\(v\) === Date\.parse\(opts\.bajaAt\)\);/);
+  assert.match(b, /if \(opts\.bajaAt\) upd = upd\.eq\('baja_at', opts\.bajaAt\);/, 'y en el compare-and-set');
+  assert.match(b, /ids: hechas\.map\(\(q\) => Number\(q\.id\)\), bajaAt: ahora,/);
 });

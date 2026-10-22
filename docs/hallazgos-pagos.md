@@ -1077,3 +1077,22 @@ inicial (333,33 en vez de 333,34) ya no lo salda el link del producto: entra com
 - Una devolución fallida deshace la baja que disparó ESE cobro (`trato.bajaPor`), aunque sea la cuota 1 y no el primer pago.
 - El pendiente no afirma de quién son las cuotas del monto que ya están (pueden ser de otra compra), y si el pago saldó la
   cuota 0 de un plan que ya estaba, no dice nada: decía «puede ser repetido» a un pago legítimo.
+
+### La cuarta revisión de plata: deshacer una baja es volver a decidir, no recordar quién la hizo (22/10/2026)
+
+- **Deshacer mirando «quién disparó la baja» es una regresión con otro orden de eventos.** Se devolvió el primer pago, después
+  la cuota 1 (que disparó la baja de la cuota 2), y falló la devolución del primer pago: la cuota 0 volvió a estar cobrada,
+  pero nadie deshacía, porque la baja era de la cuota 1. **La regla:** una devolución que falla vuelve a decidir cada plan dado
+  de baja con lo de HOY y la misma regla que lo dio de baja (`decidirBajaDelPlan`); si ahora algo lo sostiene, se deshace.
+- **El deshacer devuelve sólo lo que dio de baja ESE reembolso** (`trato.bajaIds`, de lo que devuelve `darDeBajaCliente`),
+  no las cuotas que el closer dio de baja a mano en ese plan (la cobranza volvía a escribirle a quien se fue).
+
+### La quinta revisión de plata: «volver a decidir con lo de hoy» tiene que saber de CUÁNDO es cada cosa (22/10/2026)
+
+- **Lo de hoy incluye lo que pasó después de la baja.** Si el cliente volvía a comprar el producto después de que se le dio
+  de baja el plan devuelto (y el closer cargaba las cuotas de la compra nueva, como pide el aviso), cualquier devolución
+  fallida del lead encontraba «otro pago del producto» y revivía las cuotas viejas: deuda doble. **La regla:** al deshacer,
+  lo que sostiene la compra es lo pagado ANTES de la baja (`trato.bajaAt`, `otroCobroPagadoDelProducto({ antesDe })`).
+- **Un id de cuota no identifica una baja.** Si el closer deshacía a mano la baja del reembolso y después daba de baja al
+  cliente a mano, las mismas cuotas volvían a estar de baja, y la devolución fallida las reabría (la cobranza le escribía a
+  quien se fue). El deshacer reabre sólo lo que tiene el `baja_at` de ESA baja, también en el compare-and-set.

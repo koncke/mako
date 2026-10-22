@@ -30,7 +30,7 @@ import { getPipelineStagesDeLead } from './funnels';
 import { etapaDeGanado } from './pipeline';
 import { listProductos } from './productos';
 import {
-  TratoEnCursoError, cobroDelProducto, ganarEnElCrm, marcarBajaPorReembolso, otroCobroPagadoDelProducto, planesDadosDeBajaPor,
+  TratoEnCursoError, cobroDelProducto, ganarEnElCrm, marcarBajaPorReembolso, otroCobroPagadoDelProducto, planesDadosDeBajaDelLead,
   planesDevueltosDelLead, prepararTratoDelPago, type TratoDelPago,
 } from './cobro-etapa-server';
 import { decidirBajaDelPlan, mismoCentavo, type PlanCongelado } from './cobro-etapa';
@@ -952,7 +952,7 @@ export async function aplicarReembolso(c: Cobro, p: { proveedorPagoId: string | 
           if (d.accion === 'cerrar') { await marcarBajaPorReembolso(plan.cobroId, true, null); continue; }
           const { darDeBajaCliente } = await import('./pagos-baja');
           const r = await darDeBajaCliente(c.lead_id, NOMBRE_PASARELA[c.proveedor], plan.pagoEn, { soloIds: d.ids });
-          if (r.ok) await marcarBajaPorReembolso(plan.cobroId, true, c.id);
+          if (r.ok) await marcarBajaPorReembolso(plan.cobroId, true, c.id, r.ids ?? d.ids, r.bajaAt ?? null);
         }
       } catch (e) {
         console.error(`[cobros] no pude revisar los planes devueltos del lead ${c.lead_id}:`, e instanceof Error ? e.message : String(e));
@@ -985,13 +985,20 @@ export async function aplicarReembolsoFallido(c: Cobro, p: { proveedorPagoId: st
       }
       // La baja del plan que hizo el reembolso, deshecha (revisión de plata, baja 2): la plata volvió al negocio, así que
       // las cuotas vuelven a ser deuda. Best effort, como el reembolso.
-      // Los planes que dio de baja el reembolso de ESTE cobro, sea el primer pago o una cuota (tercera revisión de plata): sólo
-      // sus cuotas, por id.
+      // ⚠️ SE VUELVE A DECIDIR CON LO DE HOY (cuarta revisión de plata): cada plan del lead que un reembolso dio de baja,
+      // con la misma regla que lo dio de baja (`decidirBajaDelPlan`). Si ahora algo lo sostiene (la cuota que esta
+      // devolución fallida volvió a cobrar, u otro pago del producto), se deshace. Mirar sólo «quién disparó la baja»
+      // dejaba de baja la cuota 2 cuando fallaba la devolución del primer pago y la baja la había disparado la cuota 1.
+      // El deshacer devuelve SÓLO lo que dio de baja ese reembolso (`bajaIds`), no lo que un closer dio de baja a mano.
       if (c.lead_id) {
         try {
-          for (const plan of await planesDadosDeBajaPor(c.lead_id, c.id)) {
+          for (const plan of await planesDadosDeBajaDelLead(c.lead_id)) {
+            // Sólo lo pagado ANTES de la baja: una recompra posterior es otra compra (quinta revisión de plata).
+            const otroPago = plan.productoId != null && await otroCobroPagadoDelProducto(c.lead_id, plan.productoId, plan.cobroId, { antesDe: plan.bajaAt });
+            const d = decidirBajaDelPlan({ cuotasPlan: plan.cuotasPlan, cuotasDelTrato: await getPagosByLead(c.lead_id, plan.pagoEn), otroPagoDelProducto: otroPago });
+            if (d.accion !== 'sostiene') continue;
             const { deshacerBajaCliente } = await import('./pagos-baja');
-            const r = await deshacerBajaCliente(c.lead_id, NOMBRE_PASARELA[c.proveedor], plan.pagoEn, { soloIds: plan.cuotasPlan });
+            const r = await deshacerBajaCliente(c.lead_id, NOMBRE_PASARELA[c.proveedor], plan.pagoEn, { soloIds: plan.bajaIds.length ? plan.bajaIds : plan.cuotasPlan, bajaAt: plan.bajaAt ?? undefined });
             if (r.ok) await marcarBajaPorReembolso(plan.cobroId, false);
           }
         } catch (e) {
