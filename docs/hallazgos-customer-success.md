@@ -1867,7 +1867,7 @@ misma trampa que AGENTS.md documenta para los mappers de lectura — acá aplica
 posterior a un alta.
 
 Verificado creando una tarea en la ficha contra producción: `cliente_lead_id: 2472`,
-`cliente_nombre: 'Mauricio Bustos'`, con el `updated_at` POSTERIOR al alta (o sea que el
+`cliente_nombre: 'Mauricio'`, con el `updated_at` POSTERIOR al alta (o sea que el
 `saveTask` corrió y no la borró). La fila de prueba se borró después.
 
 ### Lo que `embebido` apaga, y por qué cada cosa
@@ -2002,7 +2002,7 @@ la invitación a MaKo?**». La respuesta medida era **no, y no podía llegar**.
 
 ### El caso real, con números
 
-Código Inmobiliario abrió la cuenta de Brigitte Eberlin el 28/09. El super admin la
+Código Inmobiliario abrió la cuenta de Brigitte el 28/09. El super admin la
 aprobó. Estado en la base un rato después:
 
 - workspace **15**, creado, `estado = aprobado`
@@ -2059,7 +2059,7 @@ cuenta») porque esa consecuencia contada DESPUÉS del click es una sorpresa.
 
 ### Lo que quedó SIN hacer
 
-- **La cuenta de Brigitte Eberlin (ws 15) sigue con 0 usuarios.** El flujo nuevo arregla las
+- **La cuenta de Brigitte (ws 15) sigue con 0 usuarios.** El flujo nuevo arregla las
   próximas, no las que ya nacieron rotas. Para repararla hace falta su email, que nadie
   cargó: el lead 2486 tiene teléfono y nada más.
 - **No hay ninguna consulta ni alerta que encuentre esto solo.** Un workspace aprobado sin
@@ -2231,7 +2231,7 @@ hace lo que dice, sin ningún error.
 
 Cosechado de dos frases del mismo mensaje: «¿de qué sirve que tenga una tab de equipo que
 no puede hacer nada? Ahí deberían poder agregarle setter o closer» y «no pongas este
-mensaje "Nadie más entra a la cuenta de Brigitte Eberlin todavía", pareciera que se bugeó
+mensaje "Nadie más entra a la cuenta de Brigitte todavía", pareciera que se bugeó
 y que la propia Brigitte no puede entrar».
 
 **Vive en:** `app/customer-success/FichaCliente.tsx` (`EquipoDelCliente`)
@@ -5233,9 +5233,9 @@ vio en la app real.
 
 ## «No se le envió la invitación a Brigitte»: no había a quién, y /perfil mostraba a la agencia (09/10/2026)
 
-Captura de Joan (Código Inmobiliario, ws13) inspeccionando a Brigitte Eberlin: el cartel decía
-«Estás viendo el dashboard de Brigitte Eberlin» y /perfil mostraba «Codigo Inmobiliario» y
-codigoinmobiliarioia@gmail.com. Martín: «no se le envió la invitación, ella no puede acceder a su
+Captura de Joan (Código Inmobiliario, ws13) inspeccionando a Brigitte: el cartel decía
+«Estás viendo el dashboard de Brigitte» y /perfil mostraba «Codigo Inmobiliario» y
+ejemplo.ws13.mako@gmail.com. Martín: «no se le envió la invitación, ella no puede acceder a su
 propio workspace».
 
 **Vive en:** `app/customer-success/ClienteCard.tsx` · `app/customer-success/page.tsx`
@@ -5289,7 +5289,7 @@ agencia—, nunca con el rol, y en la vista de otro un vacío se dice, nunca se 
 La decisión es `deQuienEsElPerfil` (pura, con DOS agencias en el test); la persona es
 `titularDelCliente`, que es `aQuienReinvitar`: el dueño de la cuenta es uno solo. `setPerfil` resuelve
 lo mismo en cada POST, y sin nadie adentro contesta error en vez de un «ok» que no escribió nada.
-Medido en el navegador (dev :3022): agencia en ws15 → «Perfil de Brigitte Eberlin / Esta cuenta
+Medido en el navegador (dev :3022): agencia en ws15 → «Perfil de Brigitte / Esta cuenta
 todavía no tiene a nadie adentro.»; en ws17 → joan prueba, email de sólo lectura; el POST de prueba
 cortado; un POST real sobre ws15 → 500 «Esta cuenta todavía no tiene a nadie adentro.», 0 filas.
 
@@ -5739,3 +5739,26 @@ tests/cs-tarjeta-cobro.test.ts · *20/10/2026 noche, chat «CRM» (claude4).*
 
 **Vive en:** app/customer-success/aviso-tarjeta.ts y cobro-tarjeta.ts · tests/cs-tarjeta-cobro.test.ts ·
 *21/10/2026, chat «CRM» (claude4), revisión del Cerebro.*
+
+## Las plantillas de la tarjeta de un cliente: copiar el CRM tal cual era lo equivocado (21/10/2026)
+
+Martín, 21/10: las plantillas de tarjeta «en clientes, plan, etc.». Molde del CRM (lib/plantillas-tarjeta.ts y el pop-up
+app/_ui/PersonalizarTarjetas.tsx), pero con una diferencia que no se ve leyendo el CRM:
+
+- **En Clientes el orden de los datos no cambia nada**: la cara va a la izquierda, la empresa debajo del nombre, la
+  barra y el chip en su lugar. Guardar el orden de la persona (como el CRM) sólo hacía que, después de arrastrar,
+  `plantillaPuesta` dejara de reconocer «Completa» con la misma tarjeta. Los datos van en el orden del catálogo
+  (`camposTarjetaClienteDe`) y el pop-up se abre con `ordenFijo` (sin arrastre ni ↑ ↓).
+- **«Sin avance» también esconde los avisos rojos** («Pago rechazado», «Sin entrar al curso»): viven DENTRO de la barra
+  (`avanceDeCliente`, ./aviso-tarjeta.ts). Vuelve el chip de «hace N días», pero el aviso de pago se pierde. **Decisión
+  de producto abierta** (¿el aviso sale de la barra a un chip propio?).
+- **tests/cs-kanban-fases.test.ts le pone un techo de 30.000 caracteres al render de `KanbanEntrega`**: quedó en 29.788
+  (se acortaron comentarios). El próximo cambio ahí lo rompe: medirlo antes.
+- **tests/cs-kanban-ficha-ui.test.ts fija dos cosas de `ClientesApp`**: que la desestructuración de props termine en
+  `clienteInicial = null }` (lo nuevo va antes) y que TODA llamada `xxxAction(` pase por `atajar(`, también la del pop-up.
+- «Nuevo cliente» salió del carril de cada columna al «⋯» de su cabecera (la regla de Martín: lo que se pide en el CRM
+  vale en todos lados). /admin y la ficha de un cliente (FichaCliente) siguen con la tarjeta de siempre.
+
+**Vive en:** lib/tarjeta-clientes.ts · app/customer-success/ClienteCard.tsx, KanbanEntrega.tsx, ClientesApp.tsx,
+tarjeta-actions.ts · tests/clientes-tarjeta-plantillas.test.ts
+*21/10/2026, chat «CRM» (claude3), con un agente.*

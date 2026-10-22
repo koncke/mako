@@ -173,7 +173,9 @@ test('el Kanban suelta con `mover` y NO abre el pop-up de prioridad', () => {
 test('el «＋» de cada columna crea la tarea con ESE estado', () => {
   // (20/10/2026) Con las columnas PROPIAS del negocio (lib/plan-columnas.ts) la columna de una tarjeta es su CLAVE
   // (el estado, o el id de una propia), no su estado: tests/plan-columnas-propias.test.ts.
-  assert.match(COLUMNA, /onClick=\{\(\) => onNew\(estadoCol, propia \? e : null\)\}/);
+  // (21/10/2026) El «＋ Nueva tarea» del carril se mudó al «⋯» de la cabecera (`onNueva` de ColHeader), como «Nuevo
+  // lead» en el CRM; la tarea nace en la misma columna, por el mismo `onNew` (tests/plan-tarjeta-plantillas.test.ts).
+  assert.match(COLUMNA, /onNueva=\{\(\) => onNew\(estadoCol, propia \? e : null\)\}/);
   assert.match(bloque(SHELL, '<Kanban tasks={visibles}', '/>'), /onNew=\{\(e, col\) => \{ setNuevaTareaEstado\(e \?\? null\); setNuevaTareaColumna\(col \?\? null\); setNuevaTarea\(true\); \}\}/);
   assert.match(SHELL, /<CrearTareaModal proyectoInicial=\{nuevaTareaProj\} estadoInicial=\{nuevaTareaEstado\}/);
   const MODAL = sinComentarios(leer('app', 'plan', 'board', 'CrearTareaModal.tsx'));

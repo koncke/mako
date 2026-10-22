@@ -17,8 +17,11 @@
 // Y ejecutar() tampoco lanza (tipos.ts): `seguro()` lo garantiza.
 // =============================================================================
 
-import { getCamposTarjetaCrm } from '@/lib/perfil';
-import { CAMPOS_TARJETA_DEFAULT, CAMPOS_TARJETA_LEAD, DETALLE_DISENO_TARJETA, DISENOS_TARJETA, NOMBRE_CAMPO_TARJETA, NOMBRE_DISENO_TARJETA } from '@/lib/tarjeta-kanban';
+import { getCamposTarjetaCrm, setCamposTarjetaCrm } from '@/lib/perfil';
+import { CAMPOS_TARJETA_DEFAULT, CAMPOS_TARJETA_LEAD, DETALLE_DISENO_TARJETA, DISENOS_TARJETA, NOMBRE_CAMPO_TARJETA, NOMBRE_DISENO_TARJETA, PLANTILLAS_TARJETA_LEAD, camposTarjetaDe, type CampoTarjetaLead, type DisenoTarjeta } from '@/lib/tarjeta-kanban';
+import { guardarPlantillaPropia, idPlantillaNueva, plantillaPuesta } from '@/lib/plantillas-tarjeta';
+import { NOMBRE_TIPO_ETAPA, TIPOS_ETAPA, avisoCambioDeTipo, columnaConTipo, tipoDeColumna, type TipoEtapa } from '@/lib/etapa-reunion';
+import { cambiarTipoDeEtapa } from '@/lib/etapa-tipo-server';
 import 'server-only';
 import type { Ctx, Ejecutado, Runners, SalidaLectura } from '../tipos';
 import { runMakoTool } from '@/lib/mako-tools';
@@ -39,7 +42,7 @@ import { etapaVigenteDe } from '@/lib/funnel-etapas';
 // El candado de «calificado»: el mismo que aplica updateLead y que dibuja la ficha.
 import { calificadoSeDescarta } from '@/lib/calificado-reunion';
 import { getJuntasProximas } from '@/lib/queries';
-import { getLeadPlan, getPagosByLead, savePlanPagos, saveLeadPlanManual, marcarPago, cobrarCuota, registrarPagoSuelto, monedaDelNegocio } from '@/lib/pagos';
+import { getLeadPlan, getPagosByLead, savePlanPagos, saveLeadPlanManual, marcarPago, cobrarCuota, registrarPagoSuelto, monedaDelNegocio, tratosDelLead } from '@/lib/pagos';
 import { avisoDeConservadas, avisoMonedaPorOmision, avisoPlanUniforme, cobroManualDeEntrada, textoDelCobro } from '@/lib/pagos-campo';
 // Sólo para la lectura cobranza_lead (14/10/2026): lo cobrado con la misma cuenta que la ficha.
 import { cobradoDelLead, noEsDeuda } from '@/lib/cobrado-lead';
@@ -49,7 +52,8 @@ import { listarCobros } from '@/lib/cobros';
 import { NOMBRE_PASARELA, type Pasarela } from '@/lib/cobros-tipos';
 import { centavos, diferenciaPendiente, type RestoDeCobro } from '@/lib/pagos-diferencia';
 import { getResumenLead, linkResumenLead } from '@/lib/lead-resumen';
-import { getWorkspaceActual } from '@/lib/workspace';
+import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
+import { cobradoDeLaVenta, faltaDeLaVenta } from '@/lib/pagos-crm';
 import { getUltimoInsightGenerado, generarInsightLead } from '@/lib/lead-insights';
 import { buildJourney } from '@/lib/journey';
 import { propuestasPendientes, crearPropuesta } from '@/lib/propuestas';
@@ -82,7 +86,9 @@ import { campanasParaMaKo, asignarCampanaAFunnels } from '@/lib/campana-funnel';
 // El evento de agenda vinculado a una etapa de reunión (16/10/2026): las mismas funciones que la pantalla.
 import {
   listarEventosDeAgenda, prepararVinculo, vincularEvento, buscarVinculo, desvincularEvento, type AgendaDelNegocio,
+  crearEventoDeAgenda, editarEventoDeAgenda,
 } from '@/lib/agenda-evento-etapa-server';
+import { datosDeEvento, mismoIdentificador } from '@/lib/agenda-evento-etapa';
 import { puedeQuitar, aQuienPromover, etapaDeEntrada, type ProductoDelLead } from '@/lib/lead-funnel-reglas';
 import {
   listarEtiquetas, etiquetaPorId, etiquetasDeLead, conteoPorEtiqueta, crearEtiqueta, editarEtiqueta,
@@ -419,16 +425,33 @@ export const RUNNERS: Runners = {
       const campo = s(input.campo_fecha) ?? 'created_at';
       const limite = n(input.limite) ?? 30;
       const { filas, total_cartera } = await leadsFiltrados({ etapas, banda: s(input.banda), campoFecha: campo, desde: s(input.desde), hasta: s(input.hasta), persona: s(input.persona) });
-      const leads = filas.slice(0, limite).map(({ l, key, label, fecha }) => ({
-        id: l.id, nombre: l.nombre, empresa: l.empresa, etapa: key, etapa_label: label, estado: l.estado_lead,
-        closer: l.closer ?? null, setter: l.setter ?? null, [campo]: fecha,
-        monto_cierre_usd: l.monto_cierre_usd, total_cobrado_usd: l.total_cobrado_usd,
-      }));
+      // Lo cobrado de la VENTA de la casa (mig 0325), leído para esta página. Si la lectura falla, null y `nota_cobrado`.
+      const pagina = filas.slice(0, limite);
+      const deLaCasa = new Map<number, unknown>();
+      // ⚠️ Supabase no tira: devuelve `error` (tercera revisión, B4). Sin leerla, «falta» caía callado a la cuenta de todos los
+      // CRMs; ahora sale null y una nota.
+      let sinCasa = false;
+      try {
+        const { data, error } = await (await getTenantDb()).from('leads').select('id, total_cobrado_casa_usd').in('id', pagina.map(({ l }) => l.id));
+        if (error) sinCasa = true;
+        for (const r of (data ?? []) as Array<{ id: number; total_cobrado_casa_usd: unknown }>) deLaCasa.set(Number(r.id), r.total_cobrado_casa_usd);
+      } catch { sinCasa = true; }
+      const leads = pagina.map(({ l, key, label, fecha }) => {
+        const conCasa = { ...l, total_cobrado_casa_usd: deLaCasa.get(l.id) ?? null };
+        return {
+          id: l.id, nombre: l.nombre, empresa: l.empresa, etapa: key, etapa_label: label, estado: l.estado_lead,
+          closer: l.closer ?? null, setter: l.setter ?? null, [campo]: fecha,
+          monto_cierre_usd: l.monto_cierre_usd, total_cobrado_usd: l.total_cobrado_usd,
+          cobrado_de_la_venta_usd: sinCasa ? null : cobradoDeLaVenta(conCasa), falta_cobrar_usd: sinCasa ? null : faltaDeLaVenta(conCasa),
+        };
+      });
       return json({
         filtro: { etapas: etapas ?? null, banda: s(input.banda) ?? null, campo_fecha: campo, desde: s(input.desde) ?? null, hasta: s(input.hasta) ?? null, persona: s(input.persona) ?? null },
         coinciden: filas.length, devueltos: leads.length, omitidos: filas.length - leads.length, total_cartera,
         ...(campo === 'created_at' ? { nota_fecha: 'created_at se compara por su día en UTC.' } : {}),
-        nota_montos: 'Montos en USD; null = sin cargar, no cero. En suscripciones monto_cierre_usd queda null a propósito.',
+        nota_montos: 'Montos en USD; null = sin cargar, no cero. En suscripciones monto_cierre_usd queda null a propósito. total_cobrado_usd es lo cobrado en TODOS sus CRMs (una renovación incluida); lo que debe es falta_cobrar_usd (la venta de su CRM principal menos lo cobrado de ESA venta).',
+        // Cuarta revisión, B3: una lectura que falló no se confunde con «sin venta cargada».
+        ...(sinCasa ? { nota_cobrado: 'No pude leer lo cobrado de la venta: cobrado_de_la_venta_usd y falta_cobrar_usd van en null por eso, no por falta de venta.' } : {}),
         leads,
       });
     },
@@ -527,6 +550,26 @@ export const RUNNERS: Runners = {
   cobranza_lead: {
     leer: (input, ctx) => conLead(input, async (lead) => {
       const plan = await getLeadPlan(lead.id);
+      // ⚠️ LOS OTROS CRMs (mig 0324, revisión del 22/10/2026, M1): todo lo de arriba es la venta de la CASA. Una renovación
+      // tiene su plan aparte y sus cuotas están en «A quién cobrarle»: sin esto, MaKo decía «Pagó todo» de alguien que debía
+      // la renovación. Si no se pueden leer, se dice.
+      const [tratos, crms] = await Promise.all([tratosDelLead(lead.id).catch(() => null), productosCrm().catch(() => null)]);
+      const conPlata = (tratos ?? []).filter((t) => t.pagos.length || t.monto_cierre_usd != null);
+      const otrosCrms = tratos == null
+        ? { otros_crms_aviso: 'No pude leer sus otros CRMs: lo de arriba es sólo la venta de su CRM principal.' }
+        : conPlata.length ? {
+          otros_crms: conPlata.map((t) => {
+            const impagas = t.pagos.filter((q) => !q.pagado && !noEsDeuda(q));
+            return {
+              crm: crms?.find((c) => c.embudoId === t.funnelId)?.nombre ?? `CRM ${t.funnelId}`, funnel_id: t.funnelId, etapa: t.etapa,
+              vendido_usd: t.monto_cierre_usd, fecha_cierre: t.fecha_cierre,
+              cobrado_usd: Math.round(t.pagos.filter((q) => q.pagado).reduce((a, q) => a + Number(q.monto_usd), 0) * 100) / 100,
+              por_cobrar_usd: Math.round(impagas.reduce((a, q) => a + Number(q.monto_usd), 0) * 100) / 100,
+              cuotas: t.pagos.map((q) => ({ pago_id: q.id, numero: q.numero, monto_usd: Number(q.monto_usd), vence: q.fecha_esperada, pagada: q.pagado, fecha_pago: q.fecha_pago })),
+            };
+          }),
+          nota_otros_crms: 'Cada CRM agregado (una renovación) tiene su propia venta y su plan, aparte del principal: lo que debe ahí no está en el estado de cuenta de arriba.',
+        } : {};
       const cuotas = plan.pagos.map((p) => ({
         pago_id: p.id, numero: p.numero, es_inicial: p.numero === 0, monto_usd: Number(p.monto_usd), vence: p.fecha_esperada, pagada: p.pagado, fecha_pago: p.fecha_pago, tiene_comprobante: !!p.comprobante_path,
         // La moneda en que se cobró (mig 0255 y 0292): sólo donde no fue en dólares, para no llenar de ruido.
@@ -594,6 +637,7 @@ export const RUNNERS: Runners = {
         })(),
         cuotas,
         ...(cuotas.length ? {} : { nota_cuotas: 'Sin cuotas cargadas: no hay plan de pagos, no significa que no deba nada.' }),
+        ...otrosCrms,
       });
       // En el chat de la app el estado de cuenta se DIBUJA con la pieza de la tab Pagos (la 2.28, lib/pagos-bloque.ts).
       // Lo que le dice al modelo del bloque (y del comprobante) va por `siSeDibuja`: SÓLO si el bloque entró en el mensaje
@@ -1025,6 +1069,49 @@ export const RUNNERS: Runners = {
       return { ok: true, resumen: `Listo: quien reserve «${r.evento.nombre}» cae en «${r.etapaNombre}» de «${r.funnel}».`, datos: { evento: r.evento.identificador, embudoId: r.funnelId, etapa: r.etapa } };
     }),
   },
+  // Crear y editar un evento de la agenda (21/10/2026): las MISMAS funciones que «Asignar evento» de la pantalla.
+  crear_pagina_reserva: {
+    preparar: async (input) => {
+      if (input.proveedor !== 'calendly' && input.proveedor !== 'calcom') return { error: 'La agenda es calendly o calcom.', faltan: ['proveedor'] };
+      const d = datosDeEvento({ nombre: input.nombre, duracionMin: input.duracionMin });
+      if (!d.ok) return { error: d.error };
+      const agenda = input.proveedor === 'calcom' ? 'Cal.com' : 'Calendly';
+      return {
+        payload: { proveedor: input.proveedor, nombre: d.nombre, duracionMin: d.duracionMin },
+        resumen: `Crear en ${agenda} el evento «${d.nombre}», de ${d.duracionMin} minutos, con la disponibilidad de la cuenta.`,
+      };
+    },
+    ejecutar: (payload) => seguro('crear el evento', async () => {
+      const r = await crearEventoDeAgenda({ proveedor: payload.proveedor, nombre: payload.nombre, duracionMin: payload.duracionMin });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: `Listo: creado «${r.evento.nombre}». Para que sus reservas caigan en una etapa, vincular_evento_etapa con el evento ${r.evento.identificador}.`, datos: { evento: r.evento.identificador, proveedor: r.evento.proveedor } };
+    }),
+  },
+  editar_pagina_reserva: {
+    preparar: async (input) => {
+      if (input.proveedor !== 'calendly' && input.proveedor !== 'calcom') return { error: 'La agenda es calendly o calcom.', faltan: ['proveedor'] };
+      const d = datosDeEvento({ nombre: input.nombre, duracionMin: input.duracionMin }, true);
+      if (!d.ok) return { error: d.error };
+      let agenda: Awaited<ReturnType<typeof listarEventosDeAgenda>>;
+      try { agenda = await listarEventosDeAgenda(); } catch { return { error: 'No pude leer los eventos de la agenda. Intenta de nuevo.' }; }
+      const buscado = String(input.evento ?? '').trim();
+      const delProveedor = agenda.eventos.filter((e) => e.proveedor === input.proveedor && e.enLaCuenta);
+      const e = delProveedor.find((x) => mismoIdentificador(x.identificador, buscado))
+        ?? delProveedor.find((x) => x.nombre.trim().toLowerCase() === buscado.toLowerCase());
+      if (!e) return { error: `No encontré ese evento en la cuenta.`, disponibles: delProveedor.map((x) => ({ evento: x.identificador, nombre: x.nombre })) };
+      const cambios = [d.nombre != null && d.nombre !== e.nombre ? `el nombre a «${d.nombre}»` : null, d.duracionMin != null && d.duracionMin !== e.duracionMin ? `la duración a ${d.duracionMin} minutos` : null].filter(Boolean);
+      if (!cambios.length) return { error: `«${e.nombre}» ya está así.`, yaEstaba: true };
+      return {
+        payload: { proveedor: e.proveedor, evento: e.identificador, ...(d.nombre != null ? { nombre: d.nombre } : {}), ...(d.duracionMin != null ? { duracionMin: d.duracionMin } : {}) },
+        resumen: `Cambiar en «${e.nombre}» ${cambios.join(' y ')}.${e.vinculo ? ` Sigue vinculado a «${e.vinculo.etapaNombre}».` : ''}`,
+      };
+    },
+    ejecutar: (payload) => seguro('editar el evento', async () => {
+      const r = await editarEventoDeAgenda({ proveedor: payload.proveedor, identificador: payload.evento, nombre: payload.nombre, duracionMin: payload.duracionMin });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: `Listo: «${r.evento.nombre}»${r.evento.duracionMin ? `, ${r.evento.duracionMin} minutos` : ''}.` };
+    }),
+  },
   desvincular_evento_etapa: {
     preparar: async (input) => {
       let v: Awaited<ReturnType<typeof buscarVinculo>>;
@@ -1045,16 +1132,115 @@ export const RUNNERS: Runners = {
 
   ver_campos_tarjeta_crm: {
     leer: async () => {
-      const { campos, diseno, guardable } = await getCamposTarjetaCrm();
+      const { campos, diseno, plantillas, guardable } = await getCamposTarjetaCrm();
+      const plantilla = (p: { nombre: string; forma: DisenoTarjeta; campos: readonly CampoTarjetaLead[] }) =>
+        ({ nombre: p.nombre, forma: p.forma, campos: [...p.campos] });
       return json({
         diseno: { diseno, nombre: NOMBRE_DISENO_TARJETA[diseno] },
         disenos: DISENOS_TARJETA.map((d) => ({ diseno: d, nombre: NOMBRE_DISENO_TARJETA[d], detalle: DETALLE_DISENO_TARJETA[d] })),
         campos: campos.map((c) => ({ campo: c, nombre: NOMBRE_CAMPO_TARJETA[c] })),
+        plantillaPuesta: plantillaPuesta([...PLANTILLAS_TARJETA_LEAD, ...plantillas], diseno, campos)?.nombre ?? 'Personalizada',
+        plantillasDeFabrica: PLANTILLAS_TARJETA_LEAD.map(plantilla),
+        plantillasPropias: plantillas.map(plantilla),
         catalogo: CAMPOS_TARJETA_LEAD.map((c) => ({ campo: c, nombre: NOMBRE_CAMPO_TARJETA[c], deSiempre: CAMPOS_TARJETA_DEFAULT.includes(c) })),
         guardable,
-        dondeSeCambia: 'En el CRM, «⋯» › «Personalizar tarjetas».',
+        dondeSeCambia: 'En el CRM, «⋯» › «Personalizar tarjetas», o clic derecho en una tarjeta › «Personalizar tarjeta».',
       });
     },
+  },
+  // La tarjeta es de UNA persona (usuarios.perfil): la pendiente lleva su email y sólo la confirma ella. Desde la bandeja,
+  // otro del equipo le estaría cambiando la tarjeta a alguien que no la pidió (y la escritura cae en la fila de quien
+  // confirma, no de quien pidió: `setCamposTarjetaCrm` lee la sesión).
+  personalizar_tarjetas_crm: {
+    faltaParaConfirmar: async (payload, ctx) => {
+      const de = String(payload.email ?? '').toLowerCase();
+      const quien = String(ctx.quien?.email ?? ctx.actor ?? '').toLowerCase();
+      return de && quien && de !== quien ? `Esta tarjeta es la de ${payload.email}: la confirma esa persona desde su chat.` : null;
+    },
+    preparar: async (input, ctx) => {
+      const email = ctx.quien?.email ?? ctx.actor ?? '';
+      if (!email) return { error: 'La tarjeta es de cada persona y este pedido no dice de quién: se cambia desde el chat de la app o en el CRM.' };
+      const actual = await getCamposTarjetaCrm();
+      if (!actual.guardable) return { error: 'Tu sesión no tiene un usuario propio: la tarjeta se cambia en el CRM, «⋯» › «Personalizar tarjetas».' };
+      const todas = [...PLANTILLAS_TARJETA_LEAD, ...actual.plantillas];
+      const clave = (x: unknown) => String(x ?? '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+      let forma: DisenoTarjeta;
+      let campos: CampoTarjetaLead[];
+      if (input.plantilla !== undefined && String(input.plantilla).trim()) {
+        const p = todas.find((x) => clave(x.nombre) === clave(input.plantilla));
+        if (!p) return { error: `No hay una plantilla «${String(input.plantilla).trim()}».`, disponibles: todas.map((x) => x.nombre) };
+        forma = p.forma;
+        campos = [...p.campos];
+      } else if (input.forma !== undefined || input.campos !== undefined) {
+        forma = (DISENOS_TARJETA as readonly unknown[]).includes(input.forma) ? input.forma as DisenoTarjeta : actual.diseno;
+        if (input.campos !== undefined) {
+          const pedidos = Array.isArray(input.campos) ? input.campos.map(String) : [];
+          const raros = pedidos.filter((c) => !(CAMPOS_TARJETA_LEAD as readonly string[]).includes(c));
+          if (raros.length) return { error: `No conozco ${raros.map((r) => `«${r}»`).join(', ')}.`, disponibles: CAMPOS_TARJETA_LEAD.map((c) => ({ campo: c, nombre: NOMBRE_CAMPO_TARJETA[c] })) };
+          campos = camposTarjetaDe(pedidos);
+        } else campos = [...actual.campos];
+      } else {
+        return { error: 'Pasa una plantilla por su nombre, o la forma y los datos.', disponibles: todas.map((x) => x.nombre) };
+      }
+      let plantillas: unknown[] | undefined;
+      if (input.guardarComo !== undefined && String(input.guardarComo).trim()) {
+        const g = guardarPlantillaPropia(actual.plantillas, input.guardarComo, forma, campos, idPlantillaNueva());
+        if (!g.ok) return { error: g.error === 'lleno' ? 'Ya tiene 12 plantillas propias: hay que borrar una en el CRM.' : 'Falta el nombre de la plantilla.' };
+        plantillas = g.propias;
+      }
+      const igual = forma === actual.diseno && campos.length === actual.campos.length && campos.every((c, i) => c === actual.campos[i]);
+      if (igual && !plantillas) return { error: 'La tarjeta ya está así.', yaEstaba: true };
+      const nombre = plantillaPuesta(todas, forma, campos)?.nombre;
+      const datos = campos.length ? campos.map((c) => NOMBRE_CAMPO_TARJETA[c]).join(', ') : 'sólo el nombre';
+      return {
+        payload: { email, forma, campos, ...(plantillas ? { plantillas } : {}) },
+        resumen: `Tu tarjeta de leads ${nombre ? `como «${nombre}»` : `en forma ${NOMBRE_DISENO_TARJETA[forma]}`} (${datos})`
+          + (input.guardarComo ? `, guardada como plantilla «${String(input.guardarComo).trim()}»` : '') + '. Sólo la tuya: el resto del equipo sigue viendo la suya.',
+      };
+    },
+    ejecutar: (payload) => seguro('personalizar la tarjeta', async () => {
+      const r = await setCamposTarjetaCrm(payload.campos, payload.forma, payload.plantillas);
+      if (!r.guardado) return { ok: false, resumen: 'No pude guardarla: tu sesión no tiene un usuario propio. Se cambia en el CRM, «⋯» › «Personalizar tarjetas».' };
+      return { ok: true, resumen: `Listo: tu tarjeta de leads quedó en forma ${NOMBRE_DISENO_TARJETA[r.diseno]}. Se ve al volver al CRM.` };
+    }),
+  },
+  // «Tipo de etapa» (21/10/2026): la MISMA función que la op `tipo` del «⋯» de la columna y del pop-up de etapas
+  // (`cambiarTipoDeEtapa`, lib/etapa-tipo-server.ts), y el MISMO aviso de lo que pasa (`avisoCambioDeTipo`).
+  cambiar_tipo_etapa: {
+    preparar: async (input) => {
+      const tipo = s(input.tipo) as TipoEtapa | undefined;
+      if (!tipo || !TIPOS_ETAPA.includes(tipo)) return { error: 'El tipo es etapa, reunion o nutricion.', faltan: ['tipo'] };
+      const pedido = n(input.embudoId);
+      let funnelId: number | null = null;
+      if (pedido != null) {
+        const crms = await productosCrm().catch(() => null);
+        if (!crms) return { error: NO_LEI_PRODUCTOS };
+        const crm = crms.find((p) => p.embudoId === pedido);
+        if (!crm) return { error: `El CRM #${pedido} no es de este negocio.`, disponibles: crms.map((p) => ({ embudoId: p.embudoId, nombre: p.nombre })) };
+        funnelId = crm.esDefault ? null : crm.embudoId;
+      }
+      const cfg = funnelId != null ? await getFunnelDe(funnelId) : await getFunnelDefault();
+      if (cfg.origen === 'error') return { error: 'No pude leer el funnel. Intenta de nuevo.' };
+      const buscada = s(input.etapa) ?? '';
+      const sinAcentos = (x: string) => x.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const col = cfg.stages.find((st) => st.key === buscada) ?? cfg.stages.find((st) => sinAcentos(st.label ?? '') === sinAcentos(buscada));
+      if (!col) return { error: `Ese funnel no tiene la etapa «${buscada}».`, disponibles: cfg.stages.map((st) => ({ key: st.key, nombre: st.label })) };
+      if (!columnaConTipo(col)) return { error: `«${col.label}» no cambia de tipo: la entrada, el cierre y las terminales quedan como están.` };
+      const previo = tipoDeColumna(col);
+      if (previo === tipo) return { error: `«${col.label}» ya es ${NOMBRE_TIPO_ETAPA[tipo]}.`, yaEstaba: true };
+      const aviso = avisoCambioDeTipo({ recorrido: cfg.stages.filter((st) => (st.band ?? 'pipeline') === 'pipeline'), columna: col, tipo, leads: null });
+      return {
+        payload: { funnelId, key: col.key, tipo, previo, nombre: col.label },
+        resumen: `«${col.label}» pasa a ser ${NOMBRE_TIPO_ETAPA[tipo]}. Los leads que ya están ahí no se mueven.${aviso.length ? ' ' + aviso.join(' ') : ''}`,
+      };
+    },
+    ejecutar: (payload) => seguro('cambiar el tipo de la etapa', async () => {
+      const tipo = payload.tipo as TipoEtapa;
+      const r = await cambiarTipoDeEtapa(typeof payload.funnelId === 'number' ? payload.funnelId : null, String(payload.key), tipo);
+      if (!r.ok) return { ok: false, resumen: r.error };
+      invalidar('pipeline', 'leads');
+      return { ok: true, resumen: `Listo: «${String(payload.nombre)}» es ${NOMBRE_TIPO_ETAPA[tipo]}. Para volver, el mismo pedido con el tipo ${String(payload.previo)}.` };
+    }),
   },
   ver_campanas_funnels: {
     leer: async () => {
@@ -1414,7 +1600,8 @@ export const RUNNERS: Runners = {
     preparar: async (input, ctx) => {
       const lead = await leadDe(input.leadId);
       if (!lead) return { error: noExiste(input.leadId) };
-      const pagos = await getPagosByLead(lead.id).catch(() => []);
+      // De CUALQUIER CRM (mig 0324, revisión del 22/10/2026, M1): una cuota de una renovación también se marca por su id.
+      const pagos = await getPagosByLead(lead.id, 'todos').catch(() => []);
       const pago = pagos.find((p) => p.id === input.pagoId);
       if (!pago) return { error: `La cuota #${String(input.pagoId)} no es de ${lead.nombre}. Pide cobranza_lead para ver sus cuotas.`, disponibles: pagos.map((p) => ({ pago_id: p.id, numero: p.numero, monto_usd: p.monto_usd, pagada: p.pagado })) };
       const pagado = input.pagado === true;

@@ -34,6 +34,8 @@ import type { Responder } from './PreguntaChat';
 import type { PreguntaChat as PreguntaChatT } from '@/lib/centro-preguntas-chat';
 import { Pregunta } from './Pregunta';
 import { PreguntasDeLaApp, PreguntasDelChat } from './PreguntasDelChat';
+import { AvisoClave } from '@/app/_chat/AvisoClave';
+import { hayClave } from '@/lib/claves-en-el-chat';
 import type { AdjuntosDeCaja } from './AdjuntosCaja';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { TareasVinculadas, irAlTurno } from './Avance';
@@ -211,6 +213,8 @@ export function Conversacion({
             ven, y se contestan en la app de Claude. */}
         {deLaApp.length > 0 && <PreguntasDeLaApp key={`a-${chat.clave}`} preguntas={deLaApp} />}
         {onResponder && bloque.length > 0 && <PreguntasDelChat key={`p-${chat.clave}`} preguntas={bloque} onResponder={responderPregunta} />}
+        {/* Una clave pegada no sale (mandar.ts): se dice apenas aparece, con el botón a /integraciones. */}
+        {envio.puede && hayClave(texto) && <AvisoClave />}
         {envio.puede ? (
           <div className="co-caja">
             {/* La caja ÚNICA (app/_chat/CajaChat.tsx, 20/10/2026): la misma en toda la app. Arriba, la cita del mensaje que se

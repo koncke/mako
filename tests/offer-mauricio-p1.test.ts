@@ -99,7 +99,7 @@ test('O6 · el turno: en la red de plataforma va directo a flash-lite, y cada in
 
 // ── O7 ──────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-const JINA_SPRINT = `Title: Sprint de Diseño para la Ejecución Empresarial · Mauricio Bustos
+const JINA_SPRINT = `Title: Sprint de Diseño para la Ejecución Empresarial · Mauricio Ejemplo
 
 URL Source: https://sprint.mauriciobustos.com/
 
@@ -115,7 +115,7 @@ Aprende a establecer objetivos claros, impulsar la ejecución y lograr que tu eq
 // rotura (textoDelLectorExterno sin el tope de largo): 1 fallo. rotura (sin el filtro del desafío antibots): 1 fallo.
 test('O7 · lo que trae el lector de afuera: título, URL y texto; un desafío de antibots o una página vacía no sirven', () => {
   const l = textoDelLectorExterno(JINA_SPRINT);
-  assert.equal(l?.titulo, 'Sprint de Diseño para la Ejecución Empresarial · Mauricio Bustos');
+  assert.equal(l?.titulo, 'Sprint de Diseño para la Ejecución Empresarial · Mauricio Ejemplo');
   assert.equal(l?.url, 'https://sprint.mauriciobustos.com/');
   assert.match(l?.texto ?? '', /^\*\*SPRINT EN VIVO\*\*24, 25 Y 26 DE NOVIEMBRE/);
   assert.equal(textoDelLectorExterno('Title: x\n\nMarkdown Content:\nhola'), null);

@@ -227,7 +227,7 @@ adicional» y eso se lee como un problema de permisos cuando es de cuenta):
 | Qué | Estado |
 |---|---|
 | Publishing status | **Testing** (cap de 100 usuarios de por vida) — **PUBLICADA el 07/10**, ver abajo |
-| Test users | **3**: martinkoncke@, mbustos@elevate.com.mx, tejadomartin@ — **el cliente NO está** |
+| Test users | **3**: martinkoncke@, dueno@negocio-uno.com, tejadomartin@ — **el cliente NO está** |
 | Branding | **INCOMPLETO**: `App name` VACÍO, home page, privacy, terms y authorized domains vacíos |
 | Data Access | **CERO scopes registrados** — ni `calendar.readonly` ni `calendar.events`, en ninguna de las tres tablas |
 | Redirect URIs | **OK**: las dos de `hola-mako.com` (login y agenda) están, y también `localhost:3000` |
@@ -1096,3 +1096,24 @@ fila del ws1 (`soloLasPropias` compara contra las filas de la plataforma) y la p
   siempre ya venía con la pestaña.
 
 **Vive en:** lib/ws-tab.ts (`wsDeVuelta`) · app/api/integraciones/meta/callback/ · app/api/integraciones/google-calendar/callback/ · tests/ws-vuelta-oauth.test.ts
+
+## Varias cuentas por pasarela: lo que ya está y la trampa de las claves por NOMBRE (22/10/2026)
+
+«Vincular cobro» (docs/hallazgos-pagos.md, mig 0326) nombra cada cuenta con un id estable (`stripe:principal`,
+`mercadopago:principal`). Hoy cada pasarela tiene UNA: la de las claves sin sufijo. Lo que se midió para sumar otra:
+
+- **Lo que ya sirve:** el aviso de Stripe trae la cuenta en la URL (`?acct=`, `urlAvisoStripe`), y `webhook_routing` ya
+  mapea cada identificador a su negocio (`wsPorIdentificadorEstricto`). Una segunda cuenta es un segundo identificador:
+  rutea sin cambios.
+- **Lo que falta:** las claves se guardan por NOMBRE (`credenciales.clave`). Una segunda cuenta necesita las suyas con un
+  sufijo, el webhook tiene que elegir el secreto de ESA cuenta (hoy lee `STRIPE_WEBHOOK_SECRET` del negocio), y el cobro
+  tiene que guardar por qué cuenta se cobró (`cuentaDelCobro`, lib/cobro-etapa.ts, cae en la principal).
+- **⚠️ La trampa:** las protecciones de las claves de pasarela son listas por nombre EXACTO. `NO_MIGRAR_A_WS` impide que
+  el arranque o «Datos de Mau» copien una clave que cobra a otro negocio, y `CLAVES_DE_PASARELA` impide leerlas del
+  entorno (lib/credenciales.ts; tests/pasarela-sin-env.test.ts barre los nombres). Una clave `STRIPE_SECRET_KEY__otra`
+  queda FUERA de las dos sin que nada falle. **La regla:** la segunda cuenta entra con la pregunta por prefijo
+  (`esClaveDePasarela` mirando el nombre base), no sumando nombres a la lista.
+- Calendly y Cal.com (también pedidos con «varias cuentas») no pasan por esto: son de la agenda, no cobran.
+
+**Vive en:** lib/credenciales.ts (`NO_MIGRAR_A_WS`, `CLAVES_DE_PASARELA`) · lib/cobros-conexion.ts · lib/webhook-routing.ts ·
+app/api/webhooks/stripe/route.ts · lib/cobro-etapa.ts (`cuentaPrincipal`, `cuentaDelCobro`).

@@ -105,6 +105,8 @@ export type ConQueDibujar = {
   llamada: boolean;
   /** El estado de cuenta en una línea (`saldoDelTelefono`); null = nada que contar. */
   saldo?: SaldoTelefono | null;
+  /** El de cada CRM agregado con plata (CO2, mig 0324): con uno, la pieza se dibuja aunque la casa no tenga nada. */
+  saldosCrm?: number;
   /** Las filas del Resumen nativo (`resumenDelTelefono`); una en null no se dibuja. */
   resumen?: ResumenTelefono | null;
 };
@@ -173,7 +175,7 @@ export function piezaVacia(p: PiezaFicha, d: ConQueDibujar): boolean {
     case 'llego-por': return !d.llegoPor;
     case 'contesto': return d.respuestas === 0;
     case 'llamada': return !d.llamada;
-    case 'saldo': return !d.saldo;
+    case 'saldo': return !d.saldo && !d.saldosCrm;
     case 'contacto':
     case 'notas': return false;
     default: return !d.resumen?.[p];

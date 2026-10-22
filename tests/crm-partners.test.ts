@@ -54,7 +54,7 @@ test('el server decide con la regla de /partners: agencia y su admin, para las d
   assert.match(pagina, /partners=\{partners\}/);
   const acciones = leer('app/crm/actions.ts');
   assert.match(acciones, /const \[ficha, rolWs, partners\] = await Promise\.all\(\[fichaP, rolP, ofrecePartners\(\)\]\);/);
-  assert.match(acciones, /puedeEditarFicha: rol === 'admin', partners \};/);
+  assert.match(acciones, /puedeEditarFicha: rol === 'admin', partners, tratos: await tratosP \};/);
 });
 
 test('las dos puertas abren la MISMA ventana, «Ver en…» lleva a su cuenta, y el tablero trae la cuenta', () => {

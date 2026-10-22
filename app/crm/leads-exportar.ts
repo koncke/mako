@@ -61,7 +61,7 @@ export const PREGUNTAS_FORM: Array<[columna: string, pregunta: string]> = [
 export const COLUMNAS_POR_CAMPO: Record<CampoLead, Array<[string, string]>> = {
   contacto:   [['email', 'Email'], ['telefono', 'Teléfono'], ['empresa', 'Empresa']],
   etapa:      [['#etapa', 'Etapa'], ['estado_lead', 'Estado'], ['calificado', 'Calificado']],
-  montos:     [['monto_cierre_usd', 'Vendido USD'], ['total_cobrado_usd', 'Cobrado USD'], ['#falta', 'Falta cobrar USD'], ['venta_tipo', 'Tipo de venta'], ['suscripcion_monto_usd', 'Suscripción USD/mes'], ['suscripcion_meses', 'Meses de suscripción']],
+  montos:     [['monto_cierre_usd', 'Vendido USD'], ['#cobrado', 'Cobrado USD'], ['#falta', 'Falta cobrar USD'], ['venta_tipo', 'Tipo de venta'], ['suscripcion_monto_usd', 'Suscripción USD/mes'], ['suscripcion_meses', 'Meses de suscripción']],
   reuniones:  [['fecha_junta_1', 'Fecha R1'], ['asistio_j1', 'Asistió R1'], ['fecha_junta_2', 'Fecha R2'], ['asistio_j2', 'Asistió R2']],
   equipo:     [['closer', 'Closer'], ['setter', 'Setter']],
   origen:     [['#origen', 'Origen'], ['meta_campaign_name', 'Campaña'], ['meta_ad_name', 'Anuncio'], ['utm_campaign', 'UTM campaña'], ['utm_content', 'UTM contenido']],

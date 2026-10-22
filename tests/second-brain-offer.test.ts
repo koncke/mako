@@ -46,8 +46,10 @@ test('1. un mensaje de Offer se lee como uno del chat', () => {
 
 test('2. la proyección dice su origen y su alcance, corre en el workspace y con la puerta de la tab', () => {
   const ind = leer('lib/chat-mako-indice.ts');
-  assert.match(ind, /export const PROYECCIONES = \[\{ origen: 'offer', alcance: 'workspace', tab: 'offer' \}\] as const;/);
-  assert.match(ind, /return rolWs && ws != null && puedeVerKey\('offer', rolWs, capa\) \? ws : null;/, 'la MISMA puerta que la tab');
+  // Desde el 22/10 (OC5) son dos proyecciones, cada una con la puerta de SU tab (tests/ops-center-automations.test.ts).
+  assert.match(ind, /export const PROYECCIONES = \[\n  \{ origen: 'offer', alcance: 'workspace', tab: 'offer' \},/);
+  assert.match(ind, /return rolWs && ws != null && puedeVerKey\(tab, rolWs, capa\) \? ws : null;/, 'la MISMA puerta que la tab');
+  assert.equal((ind.match(/await wsSiVe\('offer'\)/g) ?? []).length, 2, 'la lista y el hilo de Offer, con la puerta de Offer');
   assert.match(ind, /runWithWorkspace\(ws, \(\) => Promise\.all\(\[listarSesionesOffer\(\)/, 'la lista, dentro del workspace');
   assert.match(ind, /runWithWorkspace\(ws, \(\) => Promise\.all\(\[\n    leerConversacionOffer\(id\),/, 'el hilo, dentro del workspace');
   // Lo que la puerta deja ver, medido: Offer es de admin; un closer o un setter no la ven.
@@ -75,9 +77,9 @@ test('3. la API: ?offer=1 y ?offerId=N, detrás de la puerta de MaKo; uno de otr
 test('4. la pantalla: cada conversación de Offer es una fila de la lista, y se sigue en el Ops Center con el motor de Offer', () => {
   const sb = leer('app/second-brain/useChatCliente.ts');
   // Con el grupo de WhatsApp de MaKo desde el 22/10/2026 (OC3): una fila más de LA lista.
-  assert.match(sb, /listaDelCliente\(\{ sesiones: sesiones \?\? \[\], offer: offer \?\? \[\], antes: antes \?\? \[\], grupo, busca \}\)/, 'una fila por conversación, en LA lista');
+  assert.match(sb, /listaDelCliente\(\{ sesiones: sesiones \?\? \[\], offer: offer \?\? \[\], antes: antes \?\? \[\], grupo, busca, automations: automations \?\? \[\] \}\)/, 'una fila por conversación, en LA lista');
   assert.match(sb, /void abrirOffer\(idOffer\)\.then\(/, 'se abre con el motor de Offer');
-  assert.match(sb, /const r = await turnoOffer\(s\.id, mensaje, s\.mensajes, respuestaDeOffer\(s\.mensajes, mensaje\)\);/, 'lo escrito va a Offer');
+  assert.match(sb, /const r = await turnoOffer\(s\.id, mensaje, s\.mensajes, respuestaDeOffer\(s\.mensajes, mensaje\), archivos\.map\(\(a\) => a\.file\)\);/, 'lo escrito va a Offer');
   assert.doesNotMatch(sb, /Seguir en Offer|AVISO_OFFER|\/offer\?sesion=/, 'nunca «Seguir en Offer»');
   const motor = leer('app/second-brain/motor-offer.ts');
   assert.match(motor, /llamarOffer<\{ sesion: OfferSesionVista \}>\(\s*\{ action: 'turno', sesionId: id, texto, docIds,/, 'el turno de la tab');

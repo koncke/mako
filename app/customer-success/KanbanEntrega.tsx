@@ -100,7 +100,7 @@
 // (`quienesViajan`), y la copia lo dice con el número en la esquina. Arrastrar una que no
 // está marcada se lleva sólo a ésa.
 
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ClienteCruce } from './cruce';
 import type { ResumenTrabajo } from './trabajo';
 import { ClienteCard, type CursoDeTarjeta } from './ClienteCard';
@@ -117,6 +117,9 @@ import { avanceDeCliente } from './aviso-tarjeta';
 import { fotoVaciaDeArrastre, useArrastreCopia } from '@/app/plan/board/arrastre-copia';
 import { quienesViajan } from './LoteClientes';
 import { indiceEnColumna, antesDeQuien } from './orden-manual';
+import { Dropdown } from '@/app/components/Dropdown';
+import { MenuContextual } from '@/app/_ui/MenuContextual';
+import type { CampoTarjetaCliente, FormaTarjetaCliente } from '@/lib/tarjeta-clientes';
 
 /** Dónde está un cliente en esta entrega. */
 export type Asignacion = { etapa: string; etapa_desde: string; por: string };
@@ -131,6 +134,7 @@ export function KanbanEntrega({
   trabajoDe, tableroOk,
   onSoltar, onAbrir, onNuevoCliente,
   seleccion, onSeleccion, cursoDe, onPermisos,
+  forma, campos, onPersonalizar,
 }: {
   etapas: EtapaEntrega[];
   /**
@@ -196,6 +200,14 @@ export function KanbanEntrega({
   cursoDe?: (leadId: number) => CursoDeTarjeta | null;
   /** «Permisos del curso»: abre la ficha en su pestaña Curso. */
   onPermisos?: (leadId: number) => void;
+  /**
+   * LA TARJETA DE QUIEN MIRA (21/10/2026, «Personalizar tarjetas»: lib/tarjeta-clientes.ts). Pasa derecho a cada
+   * `ClienteCard`; ausente, la de siempre.
+   */
+  forma?: FormaTarjetaCliente;
+  campos?: readonly CampoTarjetaCliente[];
+  /** «Personalizar tarjeta» del clic derecho: abre el pop-up, que monta la pantalla (ClientesApp). */
+  onPersonalizar?: () => void;
 }) {
   /**
    * Lo que está en la mano, EN UN REF: qué clientes viajan (el agarrado, o el lote).
@@ -490,6 +502,37 @@ export function KanbanEntrega({
     onSeleccion(n);
   }
 
+  // ── El clic derecho en una tarjeta (21/10/2026): «Abrir ficha» y «Personalizar tarjeta» ──────────
+  // Martín, del CRM: «si le doy click derecho a las cards, debería poder ver la opción de "Personalizar tarjeta"».
+  const [menu, setMenu] = useState<{ n: number; x: number; y: number; leadId: number } | null>(null);
+  const aperturasMenu = useRef(0);
+  const cerrarMenu = useCallback(() => setMenu(null), []);
+  /**
+   * Con las guardas del CRM (`alClicDerecho` en app/crm/CrmBoard.tsx, con su porqué). ⚠️ Un evento de React sube por los
+   * portales (el modal de invitar al curso se monta desde la tarjeta): un diálogo, un menú, una lista o un modal abierto
+   * no se pisan; un campo o un link, tampoco. Fuera de una tarjeta, el menú del navegador.
+   */
+  const alClicDerecho = (ev: React.MouseEvent<HTMLElement>) => {
+    const t = ev.target;
+    if (ev.defaultPrevented || !(t instanceof Element)) return;
+    if (t.closest('[role="dialog"], [role="menu"], [role="listbox"]') || document.querySelector('[aria-modal="true"]')) return;
+    if (t.closest('input:not([type="checkbox"]), textarea, select, [contenteditable="true"], [contenteditable=""], a[href]')) return;
+    const nodo = t.closest<HTMLElement>('[data-lead-id]');
+    const leadId = nodo ? Number(nodo.dataset.leadId) : NaN;
+    if (!Number.isSafeInteger(leadId) || !clientes.some((c) => c.leadId === leadId)) return;
+    ev.preventDefault();
+    // Con el teclado (la tecla de menú, Mayús+F10) el evento llega sin punto: el menú va al borde de lo enfocado.
+    const r = t.getBoundingClientRect();
+    const conPunto = ev.clientX !== 0 || ev.clientY !== 0;
+    aperturasMenu.current += 1;
+    setMenu({ n: aperturasMenu.current, x: conPunto ? ev.clientX : r.left + 12, y: conPunto ? ev.clientY : r.top + 12, leadId });
+  };
+  const elegirDelMenu = (leadId: number, id: string) => {
+    setMenu(null);
+    if (id === 'abrir') onAbrir(leadId);
+    if (id === 'personalizar_tarjeta') onPersonalizar?.();
+  };
+
   if (!etapas.length) {
     // No puede pasar —`entregaPorDefecto` nunca devuelve `[]`— y si pasara, un tablero
     // de cero columnas no se puede dibujar y hay que decirlo en vez de mostrar nada.
@@ -497,13 +540,13 @@ export function KanbanEntrega({
   }
 
   return (
-    <div className="ke">
+    <div className="ke" onContextMenu={alClicDerecho}>
       {/* ⛔ ACÁ HUBO UNA CABECERA Y YA NO HAY NINGUNA (05/10/2026). Se fueron, en este
           orden: «N de M clientes en esta entrega» —que dejó de tener sentido el día que
           TODOS los clientes entran al tablero—, «Etapas de ejemplo · Define las tuyas»
           —una glosa arriba del tablero sobre algo que se arregla en otro lado—, un
-          «＋ Nuevo cliente» —que ahora vive en cada columna y además dice en qué etapa
-          nace— y «Editar etapas», que se mudó al LÁPIZ del desplegable de servicios: ahí
+          «＋ Nuevo cliente» —que pasó a cada columna y además dice en qué etapa nace
+          (desde el 21/10/2026, en el «⋯» de su cabecera)— y «Editar etapas», que se mudó al LÁPIZ del desplegable de servicios: ahí
           edita las etapas de CUALQUIERA de los servicios, no sólo del que estás mirando.
           Un renglón entero para un solo link era, además, el único que separaba la barra
           del tablero. */}
@@ -581,16 +624,26 @@ export function KanbanEntrega({
                 <span className="ke-dot" style={{ background: color }} aria-hidden />
                 <span className="ke-label">{e.label}</span>
                 <span className="ke-n">{cards.length}</span>
+                {/* «NUEVO CLIENTE» AL «⋯» (21/10/2026), como «Nuevo lead» en el CRM: «Quiero que elimines el botón de
+                    "nuevo lead" de donde está en las columnas y lo pongas dentro de los 3 puntos de cada columna»
+                    (Martín). Nace en ESTA etapa, como antes. ⚠️ El `Dropdown` del repo (por portal: la columna
+                    recorta), dentro de `data-nodrag` (no pasa atributos sueltos): abrir el menú no arrastra. */}
+                <span data-nodrag style={{ flex: 'none', display: 'inline-flex' }}>
+                  <Dropdown
+                    value=""
+                    placeholder="⋯"
+                    align="right"
+                    resetAfterSelect
+                    sinFlecha
+                    ariaLabel={`Opciones de la etapa ${e.label}`}
+                    buttonStyle={{ width: 26, height: 26, padding: 0, justifyContent: 'center', border: '1px solid transparent', background: 'transparent', color: 'var(--dim)', fontSize: 16, lineHeight: 1 }}
+                    options={[{ value: 'nuevo', label: 'Nuevo cliente', icono: 'persona-mas' as const }]}
+                    onChange={(v) => { if (v === 'nuevo') onNuevoCliente(e.key); }}
+                  />
+                </span>
               </header>
 
-              {/* ⚠️ CREAR VIVE EN CADA COLUMNA, como «＋ Nuevo lead» en el CRM. Antes era
-                  «Sumar un cliente» y SÓLO en la primera, porque un cliente podía estar
-                  afuera del tablero; desde que todos están adentro, «sumar» no existe como
-                  acción — lo que falta es dar de alta a uno nuevo, y desde una columna eso
-                  dice además en qué etapa nace. */}
-              <button type="button" className="ke-nuevo-col" onClick={() => onNuevoCliente(e.key)}>
-                ＋ Nuevo cliente
-              </button>
+              {/* ⛔ ACÁ VIVÍA «＋ Nuevo cliente» (05/10/2026): desde el 21/10/2026, en el «⋯» de la cabecera. */}
 
               <ul className="ke-cards" data-cuerpo>
                 {hueco(0)}
@@ -620,7 +673,7 @@ export function KanbanEntrega({
                           el mismo que usa el Plan. No hay un selector propio de esta pantalla
                           a propósito — dos selectores para la misma animación son dos lugares
                           que tocar el día que cambie. */}
-                      <div data-tarjeta className={`ke-card mk-tarjeta-sel${elegida ? ' ke-card-elegida' : ''}`}
+                      <div data-tarjeta data-lead-id={c.leadId} className={`ke-card mk-tarjeta-sel${elegida ? ' ke-card-elegida' : ''}`}
                         draggable
                         onPointerDownCapture={(ev) => { origenGesto.current = ev.target as Element; }}
                         onDragStart={(ev) => agarrar(ev, c.leadId)}
@@ -629,6 +682,8 @@ export function KanbanEntrega({
                         <ClienteCard
                           c={c} n={numeroDe.get(c.leadId) ?? 0}
                           trabajo={trabajoDe(c.leadId)} tableroOk={tableroOk}
+                          /* La tarjeta de quien mira («Personalizar tarjetas», 21/10/2026). */
+                          forma={forma} campos={campos}
                           onAbrir={() => onAbrir(c.leadId)}
                           curso={cursoDe?.(c.leadId) ?? null}
                           onPermisos={onPermisos ? () => onPermisos(c.leadId) : undefined}
@@ -708,6 +763,18 @@ export function KanbanEntrega({
         </p>
       )}
 
+      {/* El menú del clic derecho, sobre la tarjeta donde se abrió. */}
+      {menu && (
+        <MenuContextual key={menu.n} punto={{ x: menu.x, y: menu.y }}
+          items={[
+            { id: 'abrir', label: 'Abrir ficha', icono: 'ver' },
+            ...(onPersonalizar ? [null, { id: 'personalizar_tarjeta', label: 'Personalizar tarjeta', icono: 'configurar' as const }] : []),
+          ]}
+          etiqueta={`Acciones de ${clientes.find((c) => c.leadId === menu.leadId)?.nombre.trim() || 'este cliente'}`}
+          onCerrar={cerrarMenu}
+          onElegir={(id) => elegirDelMenu(menu.leadId, id)} />
+      )}
+
       {/* La hoja de la tarjeta la monta la PANTALLA (ClientesApp), no este tablero: la
           vista de tabla también la necesita. */}
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
@@ -785,13 +852,7 @@ const CSS = `
 .ke-label { font-size: 13px; font-weight: 700; color: var(--ink); flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* El pill contrasta contra la columna, que ahora es --surface: va en --surface-2. */
 .ke-n { margin-left: auto; flex: none; font-size: 11.5px; font-weight: 700; color: var(--dim); background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 0 7px; }
-/* Va PRIMERO adentro de la columna, arriba de las tarjetas, igual que el del CRM. */
-.ke-nuevo-col {
-  width: 100%; border: 1px dashed var(--border-strong); background: none; border-radius: 10px;
-  padding: 8px; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--dim); cursor: pointer;
-  transition: background .12s, border-color .12s, color .12s;
-}
-.ke-nuevo-col:hover { color: var(--ink); border-color: var(--ink); background: var(--surface-2); }
+/* (La regla del «＋ Nuevo cliente» de cada columna se fue con el botón, al «⋯» de la cabecera, el 21/10/2026.) */
 /* ⚠️ El min-height en 0 NO ES DECORATIVO: sin el, un hijo flex no baja de su alto de
    contenido y el overflow no recorta nada — la columna crece y vuelve el scroll de la
    tab. El padding derecho deja aire para la barra sin que tape el borde de la tarjeta. */

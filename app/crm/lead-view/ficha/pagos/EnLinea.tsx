@@ -17,7 +17,7 @@
 // =============================================================================
 
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
-import { fmtDDMMYYYY } from '@/lib/date-utils';
+import { fechaEnPalabras } from '@/lib/date-utils';
 
 const SANS = "'Geist', sans-serif";
 
@@ -48,7 +48,8 @@ export function EnLinea({ valor, tipo = 'texto', vacio = '—', titulo, prefijo,
   useEffect(() => { if (!abierto) setBorrador(valor); }, [valor, abierto]);
   useEffect(() => { if (abierto) ref.current?.focus(); }, [abierto]);
 
-  const visible = !valor ? vacio : tipo === 'fecha' ? fmtDDMMYYYY(valor) : `${prefijo ?? ''}${valor}`;
+  // La fecha en palabras («4 de octubre de 2026», 22/10/2026): «04/10/2026» no se sabía si era día/mes o mes/día.
+  const visible = !valor ? vacio : tipo === 'fecha' ? fechaEnPalabras(valor) : `${prefijo ?? ''}${valor}`;
   if (bloqueado) return <span style={{ ...estilo, color: valor ? estilo?.color ?? 'var(--ink)' : 'var(--faint)' }}>{visible}</span>;
 
   const salir = async () => {

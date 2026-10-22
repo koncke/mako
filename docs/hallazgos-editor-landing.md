@@ -2243,3 +2243,23 @@ Pedido de Martín (20/10): «que Ops Center sea lo principal en MaKo… crear we
   (`urlDeLanding(r.slug)` en landing.run.ts): el bloque de publicada tiene que recibir la del dominio.
 
 *20/10/2026, jefe Web Generator (`claude4`).*
+
+## La charla del agente queda en la base y llega al Ops Center (22/10/2026, TB1)
+
+Hasta el 22/10 el chat del agente vivía en la memoria de la pestaña (el store de módulo de PanelAgente.tsx; la cabecera
+decía «no hay tabla para eso»): recargar la perdía y nunca llegaba al Ops Center. La tabla existía: `chart_sessions` con
+la clave `landing:<id>`, por `/api/hilo-de-tab` (lib/hilo-de-tab-reglas.ts). Cada turno se guarda al terminar
+(`terminar`, en `pedirEdicion`), y una landing que la pestaña todavía no trajo trae su charla (`traerHilo`).
+
+- **Se guarda lo que se dijo, no la propuesta**: «Original | Modificado» trae secciones enteras de ESA página. Después de
+  recargar, lo aceptado ya está en el documento y una propuesta pendiente se vuelve a pedir (como antes).
+- **Los archivos del pedido van en un renglón «Adjuntos: …»** y vuelven como chips (../hilo-agente.ts).
+- **Trampa de la ruta, para el que sume otra tab:** escribe lo que manda el navegador. Sin la lista de prefijos
+  (`PREFIJOS_HILO_DE_TAB`) cualquiera escribía en `mako-movil:<persona>`, el chat del Ops Center de OTRA persona. Y dos
+  guardados a la vez sobre una entidad sin charla crean DOS sesiones (los dos ven «no hay»): el cliente los encola por
+  clave (lib/hilo-de-tab-cliente.ts).
+- **Sin hacer:** la etiqueta «Web Generator › …» en la fila del Ops Center es de OC4; el diagnóstico (`landing-diagnostico:*`)
+  ya guardaba por /api/chart-insights; la caja y el hilo únicos, TB3.
+
+**Vive en:** app/web-generator/editor/hilo-agente.ts, paneles/PanelAgente.tsx · app/api/hilo-de-tab/route.ts ·
+tests/hilo-de-tab.test.ts · *22/10/2026, chat «Chats de las tabs».*

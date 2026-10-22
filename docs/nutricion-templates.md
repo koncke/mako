@@ -19,7 +19,7 @@ Fuente de verdad: este archivo. Cuando Meta apruebe, se cargan los nombres en
 **Trigger**: instant form de Meta, sin agendar. **Cadencia**: 3 toques (día 0, 1, 3).
 
 **`nutri_form_1`**
-> Hola {{nombre}}, soy Mauricio Bustos. Completaste el formulario porque querés que tu empresa crezca sin depender de vos en todo. Te ofrezco una sesión de 30 min sin costo para diagnosticar qué te está frenando — no es venta, es análisis. Agendá acá: https://calendly.com/mauriciobustoseguia/60min
+> Hola {{nombre}}, soy Mauricio. Completaste el formulario porque querés que tu empresa crezca sin depender de vos en todo. Te ofrezco una sesión de 30 min sin costo para diagnosticar qué te está frenando — no es venta, es análisis. Agendá acá: https://calendly.com/mauriciobustoseguia/60min
 
 **`nutri_form_2`**
 > {{nombre}}, un dato: la mayoría de los dueños que nos contactan tienen crecimiento pero no les alcanza el tiempo. Eso no se arregla con más marketing, sino con estructura, ritmo de ejecución y accountability. En 30 min de diagnóstico vemos exactamente qué te frena: https://calendly.com/mauriciobustoseguia/60min
@@ -49,7 +49,7 @@ Fuente de verdad: este archivo. Cuando Meta apruebe, se cargan los nombres en
 **Trigger**: agendó (`fecha_agenda`) pero no confirmó asistencia. **Cadencia**: 2 toques (1 día post-agenda, 1 día antes de la cita).
 
 **`conf_agenda_1`**
-> Hola {{nombre}}, soy del equipo de Mauricio Bustos. Tenés agendado tu Diagnóstico Estratégico con nosotros. ¿Me confirmás que vas a poder asistir? Si necesitás reprogramar, podés hacerlo acá: https://calendly.com/mauriciobustoseguia/60min
+> Hola {{nombre}}, soy del equipo de Mauricio. Tenés agendado tu Diagnóstico Estratégico con nosotros. ¿Me confirmás que vas a poder asistir? Si necesitás reprogramar, podés hacerlo acá: https://calendly.com/mauriciobustoseguia/60min
 
 **`conf_agenda_2`**
 > {{nombre}}, te recordamos tu Diagnóstico con Mauricio. ¿Seguís confirmado? Si cambió algo, reprogramá sin problema acá: https://calendly.com/mauriciobustoseguia/60min

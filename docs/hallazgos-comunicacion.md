@@ -112,7 +112,7 @@ Tres cosas que no se ven y cambian cualquier diseño que lo toque:
 
 ## «No puedo», «déjame ver» y «la cagada es real»: el grupo de Pablo y el vigía (16-17/10/2026)
 
-**Síntoma (ws18, Pablo Chavez, 16/10, horas UTC).** «probá el calendario de google» → «primero debes activar la
+**Síntoma (ws18, Pablo, 16/10, horas UTC).** «probá el calendario de google» → «primero debes activar la
 integración» — y la persona: «mentira, ya está conectado». «¿qué tareas quedan hoy?» → «Déjame ver el plan…» y nada más.
 «¿Me agendás una visita mañana a las 9:30?» → «pásame el nombre y la dirección»; se los da y MaKo: «desde este chat no
 tengo acceso para escribir en tu Google Calendar». «te cargo las tareas del plan» y no cargó nada. Y en el medio: «la
@@ -1726,7 +1726,7 @@ status de nutrición» (2026-08-02).
 con el link de agenda de otro y en voseo aunque su audiencia sea mexicana.
 
 **Causa real:** el SYSTEM de `/api/email/generar` arranca literal con «Sos MaKo escribiendo EMAIL
-MARKETING para Mauricio Bustos (consultor: Negocio que Escala™)» y más abajo ordena usar
+MARKETING para Mauricio (consultor: Negocio que Escala™)» y más abajo ordena usar
 `https://calendly.com/mauriciobustoseguia/60min` como link de agenda. No lee el perfil del
 workspace ni la guía de voz destilada: solo pasa por `brandSystem()`.
 
@@ -9266,7 +9266,7 @@ grupos — No quedó adentro del grupo» en los seis.
 
 **El diagnóstico obvio era el equivocado.** Parecía la relectura: con la privacidad nueva los
 participantes vienen como `…@lid`, y un lector que mirara sólo el `id` no vería a nadie. Pero
-`esAdminEn` mira también `phoneNumber`, y medido en vivo el grupo «MaKo <> Mauricio Bustos»
+`esAdminEn` mira también `phoneNumber`, y medido en vivo el grupo «MaKo <> Mauricio»
 seguía con DOS participantes: el número nunca entró.
 
 **Causa, medida a mano en el grupo SuperAdmin (sólo Martín adentro):** Evolution 2.3.7 contestó
@@ -9723,8 +9723,8 @@ cada cliente, no debería decir MaKo».
 **El diagnóstico obvio era el equivocado:** no hay ningún «MaKo» escrito en el render. `renderEmailHtml`
 pinta `fromName` como firma, y los llamadores le pasaban `displayNameDe(getEmailFrom())`, el nombre
 visible del REMITENTE del workspace. El del ws1 es «MaKo <equipo@hola-mako.com>», y el de todo
-workspace sin dominio era el sandbox, `Mauricio Bustos <onboarding@resend.dev>`: el nombre de OTRO
-cliente firmando (y, en la bandeja de «Probar», diciendo «De: Mauricio Bustos»).
+workspace sin dominio era el sandbox, `Mauricio <onboarding@resend.dev>`: el nombre de OTRO
+cliente firmando (y, en la bandeja de «Probar», diciendo «De: Mauricio»).
 
 **Y no vivía en un lugar, vivía en cuatro:** la nutrición de /chatbot, la vista de «Probar», los
 broadcasts de /email (el envío y su prueba) y la prueba de verdad de «Probar», que llegaba sin firma.

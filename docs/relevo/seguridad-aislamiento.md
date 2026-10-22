@@ -71,7 +71,7 @@ distintas, y hay que tenerlas separadas en la cabeza:
 
 **Dos nombres que hay que aprender ANTES de leer el resto, porque todo lo demás cuelga de ahí:**
 
-- **`OWNER_WS` vale 1, y el workspace 1 es de Mauricio Bustos, que es un CLIENTE.** La constante
+- **`OWNER_WS` vale 1, y el workspace 1 es de Mauricio, que es un CLIENTE.** La constante
   se llama así porque MaKo nació como el dashboard de su agencia. Cuando nadie dice de quién es
   algo —un cron, un webhook, un pedido sin cookie— el workspace efectivo cae al 1. O sea que
   cualquier olvido se convierte en una fuga de datos de un cliente real.

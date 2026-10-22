@@ -238,6 +238,8 @@ export const FUENTES_EXTRA: readonly Fuente[] = [
       cat('cliente', 'Cliente'),
       escala(cat('urgencia', 'Urgencia'), ['Vencida', 'Vence pronto', 'Más adelante', 'Sin fecha'], { Vencida: 'var(--bad)', 'Vence pronto': 'var(--warn)' }),
       cat('proxima', 'Próxima cuota'),
+      // El CRM de lo que se le cobra (mig 0324): la casa, o el CRM de una renovación. Lo filtra el «Funnel» de la hoja.
+      cat('producto', 'Funnel'),
     ],
     metricas: [
       m('vendido', 'Vendido', 'usd'), m('cobrado_total', 'Cobrado en total', 'usd'), menos(m('pendiente', 'Pendiente', 'usd')),

@@ -19,8 +19,9 @@ const leer = (p: string) => readFileSync(p, 'utf8').replace(/\r\n/g, '\n').repla
 const board = leer('app/crm/CrmBoard.tsx');
 const modal = leer('app/crm/EventosDeEtapaModal.tsx');
 
-test('el «⋯» de una etapa de REUNIÓN (sólo esas) ofrece «Asignar evento» con el logo de Meet y abre la lista', () => {
-  assert.match(board, /\.\.\.\(c\.kind === 'reunion' \? \[\{ value: 'evento', label: 'Asignar evento', icono: <LogoMeet size=\{17\} \/> \}\] : \[\]\)/);
+test('el «⋯» de una etapa de REUNIÓN (sólo esas) ofrece «Asignar evento» y abre la lista', () => {
+  // Desde el 21/10/2026 con el calendario de línea de la casa y no el logo de Meet (Martín: «no me gusta que tenga color»).
+  assert.match(board, /\.\.\.\(c\.kind === 'reunion' \? \[\{ value: 'evento', label: 'Asignar evento', icono: 'evento' as const \}\] : \[\]\)/);
   assert.match(board, /if \(v === 'evento'\) \{ setEventoDe\(\{ etapa: c\.key, nombre: c\.label \}\); return; \}/);
   assert.match(board, /<EventosDeEtapaModal funnelId=/);
 });
@@ -31,10 +32,10 @@ test('marcar vincula, desmarcar desvincula, y «Traer aquí» primero desvincula
   assert.match(cambiar, /if \(accion !== 'vincular'\) \{\s*const d = await desvincularEventoEtapaAction/);
   assert.match(cambiar, /if \(accion !== 'desvincular'\) \{\s*const v = await vincularEventoEtapaAction\(\{ proveedor: e\.proveedor, identificador: e\.identificador, funnelId, etapa \}\)/);
   assert.match(modal, /onClick=\{\(\) => \{ void cambiar\(e, 'traer'\); \}\}/);
-  // Crear un evento: la página del proveedor, en otra pestaña, y «Actualizar» lo trae.
-  assert.match(modal, /href=\{CREAR_EN\[p\]\} target="_blank"/);
+  // Crear un evento: desde el 21/10/2026 AHÍ MISMO (tests/crm-eventos-crear.test.ts); «Actualizar» sigue releyendo.
   assert.match(modal, /onClick=\{leer\}>Actualizar</);
   // Google Calendar (17/10/2026): no hay cómo vincular sus páginas de reserva (su API no las expone); el modal lo dice
-  // en vez de callarlo (Martín las nombró en el pedido). Probado rompiéndolo: sin la línea, 1 fallo.
-  assert.match(modal, /Google Calendar todavía no: Google no comparte sus páginas de reserva\./);
+  // en vez de callarlo (Martín las nombró en el pedido). Probado rompiéndolo: sin la línea, 1 fallo. Desde el 21/10, con
+  // su estado (conectado o no).
+  assert.match(modal, /Google no comparte sus páginas de reserva, así que no se pueden asignar\./);
 });

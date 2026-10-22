@@ -343,4 +343,21 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/admin/operaciones',
   },
+  {
+    fecha: '22 oct', hora: '00:21', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Plan: «Personalizar tarjetas» con plantillas, «Nueva tarea» en el «⋯» de la columna y «Kanban · Lista» juntos',
+    puntos: [
+      'Lo pidió Martín el 21/10 a las 23:10 para el CRM, y «en clientes, plan, etc.» (el pedido literal está en la bitácora del CRM).',
+      '«Personalizar tarjetas» en el «⋯» de la barra y con clic derecho en una tarea: Completa, Compacta, Sin proyecto, Color del proyecto, Color sin chip, Sólo la fecha y Sólo el título, y las propias. El check y el tacho quedan siempre.',
+      '«Nueva tarea» ya no está arriba de cada columna: está en su «⋯», también para quien no es admin.',
+      '«Kanban · Lista» van juntos en una caja, con el nombre al pasar el mouse.',
+    ],
+    commits: [
+      { sha: 'a847aaed4', msg: 'Plan (feedback 21/10, tanda 3): «Personalizar tarjetas» con PLANTILLAS, «Nueva tarea» al «⋯» de la columna y el clic derecho', lineas: 571, archivos: 11 },
+    ],
+    archivos: [
+    ],
+    revisar: '/plan',
+  },
 ];

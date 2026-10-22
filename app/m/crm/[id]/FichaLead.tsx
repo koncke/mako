@@ -99,6 +99,8 @@ export type FichaLeadProps = {
   piezas: PiezaFicha[];
   /** El estado de cuenta en una fila (la pieza `saldo`, de Pagos). */
   saldo?: SaldoTelefono | null;
+  /** El de cada CRM agregado con plata (una renovación, CO2): una fila más, con el nombre del CRM. */
+  saldosCrm?: Array<{ crm: string; saldo: SaldoTelefono }>;
   /** Las filas del Resumen nativo (16/10/2026, `resumenDelTelefono`): una en null no se dibuja. */
   resumen?: ResumenTelefono | null;
   /** La barra de avance de la etapa (17/10/2026, `progresoEnFunnel`): cuántas etapas y hasta cuál llegó. */
@@ -174,7 +176,15 @@ export function FichaLead(p: FichaLeadProps) {
       );
       case 'llego-por': return p.llegoPor && <FilaDatoM k="Llegó por" v={p.llegoPor} />;
       // El estado de cuenta: lo que debe en rojo, como en escritorio. El teléfono no cobra (destila).
-      case 'saldo': return p.saldo && <FilaDatoM k="Estado de cuenta" v={<span style={{ color: p.saldo.tono === 'rojo' ? 'var(--bad)' : p.saldo.tono === 'ambar' ? 'var(--warn)' : undefined }}>{p.saldo.texto}</span>} />;
+      case 'saldo': {
+        const tono = (t: SaldoTelefono['tono']) => (t === 'rojo' ? 'var(--bad)' : t === 'ambar' ? 'var(--warn)' : undefined);
+        return (
+          <>
+            {p.saldo && <FilaDatoM k="Estado de cuenta" v={<span style={{ color: tono(p.saldo.tono) }}>{p.saldo.texto}</span>} />}
+            {(p.saldosCrm ?? []).map((x) => <FilaDatoM key={x.crm} k={`Estado de cuenta · ${x.crm}`} v={<span style={{ color: tono(x.saldo.tono) }}>{x.saldo.texto}</span>} />)}
+          </>
+        );
+      }
       case 'contesto': return p.respuestas.length > 0 && (
         <FilaM icono="notepencil" navegacion titulo="Lo que contestó al agendar" riel={String(p.respuestas.length)} onClick={() => setSheet('respuestas')} />
       );

@@ -16,7 +16,7 @@
 |---|---|
 | Último login de la cuenta de super admin (#1) | 22:19 UTC del 14/10, «Chrome en Android», **con el código** (un intento falló y el siguiente entró). Desde ahí, ninguno. |
 | Sus dos dispositivos de confianza (Windows 22:09, Android 22:19) | `usado_at` vacío: el atajo de 30 días no se usó nunca. |
-| El único login de las últimas 4 horas | 02:32 UTC, del usuario #8 (`tejadomartin@gmail.com`), que en MaKo es «Leandro Tejado», admin del ws10, capa completo. **No es super admin**: para esa cuenta el 2FA hoy es opcional (hasta el 21/10). |
+| El único login de las últimas 4 horas | 02:32 UTC, del usuario #8 (`ejemplo.colaborador.mako@gmail.com`), que en MaKo es «Leandro», admin del ws10, capa completo. **No es super admin**: para esa cuenta el 2FA hoy es opcional (hasta el 21/10). |
 | Puertas que emiten una sesión | El callback de Google, la ruta del segundo paso, la reemisión de Seguridad (exige una sesión previa) y `dev-login` (404 en cualquier deploy de Vercel). Un token de admin sin `mfa` se rechaza en el proxy y en `getUsuarioActual`. |
 
 O entró con la otra cuenta de Google, o abrió un navegador donde ya había entrado: la sesión dura 30 días y ahí no hay

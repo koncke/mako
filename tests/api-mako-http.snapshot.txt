@@ -81,6 +81,7 @@ cambiar_tema_landing
 cambiar_texto_landing
 cambiar_texto_video
 cambiar_textos_diseno_imagen
+cambiar_tipo_etapa
 cambiar_velocidad_video
 cambiar_volumen_video
 cancelar_accion
@@ -146,6 +147,7 @@ crear_link_cuota
 crear_link_pago
 crear_modulo_curso
 crear_oferta_lead
+crear_pagina_reserva
 crear_presentacion_desde_plantilla
 crear_secuencia_email
 dar_de_baja_mi_plan
@@ -185,6 +187,7 @@ editar_hoja_general_con_ia
 editar_lead_magnet
 editar_meta_secuencia_email
 editar_obligacion_deal
+editar_pagina_reserva
 editar_pasos_secuencia_email
 editar_pasos_secuencia_mensajes
 editar_perfil_comunidad

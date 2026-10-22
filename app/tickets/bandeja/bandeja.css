@@ -1,52 +1,428 @@
 /* =============================================================================
-   La Ticketera de Martín (Linear Triage): grupos arriba, la lista a la izquierda, el ticket a la derecha
+   La Ticketera de Martín: el MAZO (la de entrada) y la TABLA, con el ticket entero en una hoja (22/10/2026)
    =============================================================================
-   Sólo tokens; clases `.tickets-bandeja*` (el nombre entero de la carpeta). Angosto: el ticket reemplaza a la lista. */
+   Sólo tokens; clases `.tickets-bandeja*` (el nombre entero de la carpeta). La hoja la importan las PÁGINAS
+   (app/second-brain/pagina.tsx y app/m/operaciones/page.tsx): un import de CSS en el componente rompe los tests con node.
 
-.tickets-bandeja { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
-.tickets-bandeja__barra { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.tickets-bandeja__grupos { display: flex; flex-wrap: wrap; gap: 6px; }
-.tickets-bandeja__grupo {
-  display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 12px; border-radius: 999px;
-  border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-sm); cursor: pointer;
-}
-.tickets-bandeja__grupo.is-on { background: var(--primary-bg); border-color: var(--primary); color: var(--primary); font-weight: 600; }
-.tickets-bandeja__n { font-variant-numeric: tabular-nums; color: var(--dim); font-size: var(--fs-meta); }
-.tickets-bandeja__grupo.is-on .tickets-bandeja__n { color: var(--primary); }
-.tickets-bandeja__ajustes { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+   ⚠️ LOS CORTES SON DEL PANEL, NO DE LA VENTANA (`container-type`): la Ticketera vive en el panel del Ops Center, que en
+   la compu puede quedar angosto, y en el teléfono es la pantalla entera. La misma regla para los dos.
+   ⚠️ El transform, la opacidad de los sellos y la escala de la de atrás los escribe `motion` (MazoTickets.tsx). Acá NO va
+   ningún `transition` ni `transform` sobre las tarjetas: una transición de CSS sobre un transform que la librería escribe
+   cada cuadro lo arrastra detrás del dedo (el «funciona bastante mal» del 14/10). */
+
+.tickets-bandeja { container: tickets / inline-size; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
 .tickets-bandeja__error { margin: 0; color: var(--bad); font-size: var(--fs-sm); }
+.tickets-bandeja__vacio { margin: 0; padding: 24px 8px; color: var(--dim); text-align: center; }
+.tickets-bandeja__kbd { margin-left: 6px; padding: 0 5px; border-radius: 4px; border: 1px solid var(--border); font-size: 11px; color: var(--dim); font-family: inherit; }
 
-.tickets-bandeja__cuerpo { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
-.tickets-bandeja__cuerpo--detalle { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); }
-.tickets-bandeja__lista { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; background: var(--surface); }
-.tickets-bandeja__lista li + li { border-top: 1px solid var(--border); }
-.tickets-bandeja__vacio { padding: 16px; color: var(--dim); }
-.tickets-bandeja__fila {
-  width: 100%; display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; grid-template-areas: 'prio num titulo tipo' '. . quien quien';
-  align-items: center; column-gap: 10px; row-gap: 2px; padding: 10px 14px; min-height: var(--touch);
-  background: none; border: 0; text-align: left; font: inherit; color: var(--text); cursor: pointer;
+/* ── La franja de arriba: «Volver», «1 de N», y a la derecha la vista y el arreglo automático ───────────────────── */
+.tickets-bandeja__franja { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.tickets-bandeja__franja-der { margin-left: auto; display: flex; align-items: center; gap: 6px; flex: none; }
+
+/* «Volver» vive acá y SIEMPRE: apagado cuando no hay nada que deshacer, nunca escondido. */
+.tickets-bandeja__volver-mazo {
+  flex: none; display: inline-flex; align-items: center; gap: 6px;
+  min-height: 38px; padding: 0 13px 0 10px; border: 1.5px solid var(--border); border-radius: 999px;
+  background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; font-weight: 650;
+  cursor: pointer; touch-action: manipulation; transition: border-color 120ms ease, background-color 120ms ease, transform 100ms ease-out;
 }
-.tickets-bandeja__fila:hover { background: var(--surface-2); }
-.tickets-bandeja__fila.is-on { background: var(--primary-bg); }
-.tickets-bandeja__fila:focus-visible { outline: none; box-shadow: inset var(--focus-ring); }
-.tickets-bandeja__prio { grid-area: prio; width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+.tickets-bandeja__volver-mazo:active { transform: scale(0.97); }
+.tickets-bandeja__volver-mazo:disabled { color: var(--faint); background: transparent; cursor: default; }
+.tickets-bandeja__volver-mazo:disabled svg { opacity: 0.5; }
+
+.tickets-bandeja__cuenta { display: inline-flex; align-items: center; gap: 2px; min-width: 0; font-size: 14px; color: var(--dim); white-space: nowrap; }
+.tickets-bandeja__cuenta b { color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; }
+.tickets-bandeja__cuenta button {
+  width: 30px; height: 30px; display: inline-grid; place-items: center; border: 0; border-radius: 50%;
+  background: transparent; color: var(--dim); cursor: pointer;
+}
+.tickets-bandeja__cuenta button:disabled { opacity: 0.35; cursor: default; }
+
+/* Mazo / Tabla: el segmento de siempre (fondo hundido, la elegida en relieve). Angosto, sólo los íconos. */
+.tickets-bandeja__vistas { display: inline-flex; padding: 3px; gap: 2px; border-radius: 999px; background: var(--surface-2); }
+.tickets-bandeja__vistas button {
+  display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 0; border-radius: 999px;
+  background: transparent; color: var(--dim); font: inherit; font-size: 13px; font-weight: 650; cursor: pointer;
+}
+.tickets-bandeja__vistas button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(46, 52, 64, .12); }
+
+/* El arreglo automático: un rayo que abre el interruptor. Apagado, tachado. */
+.tickets-bandeja__auto { position: relative; flex: none; }
+.tickets-bandeja__auto-btn {
+  position: relative; width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%;
+  border: 1.5px solid var(--border); background: var(--surface); color: var(--faint); cursor: pointer;
+}
+.tickets-bandeja__auto-btn.is-on { color: var(--primary-strong); background: var(--primary-bg); border-color: transparent; }
+.tickets-bandeja__auto-btn:not(.is-on)::after {
+  content: ''; position: absolute; width: 20px; height: 2px; border-radius: 2px; background: currentColor; transform: rotate(-45deg);
+}
+.tickets-bandeja__auto-caja {
+  position: absolute; z-index: 30; top: calc(100% + 8px); right: 0; width: max-content; max-width: min(300px, 86vw);
+  padding: 6px 14px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border);
+  box-shadow: 0 12px 32px rgba(46, 52, 64, .18);
+}
+
+/* ── El MAZO ─────────────────────────────────────────────────────────────────────────────────────────────────── */
+.tickets-bandeja__mazo {
+  display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 14px;
+  height: clamp(520px, calc(100dvh - 190px), 780px);
+}
+/* En el teléfono: el alto que queda entre el encabezado y la barra de abajo (o el área segura, si no hay barra). */
+[data-m] .tickets-bandeja__mazo {
+  height: calc(100dvh - var(--m-header) - env(safe-area-inset-top, 0px) - var(--m-abajo, 0px) - 40px);
+  min-height: 460px;
+}
+.tickets-bandeja__mesa { position: relative; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
+.tickets-bandeja__pila { position: relative; min-height: 0; width: 100%; max-width: 540px; margin: 0 auto; }
+
+.tickets-bandeja__carta {
+  position: absolute; inset: 0; z-index: 2;
+  display: flex; flex-direction: column;
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--border); border-radius: 28px; overflow: hidden; overflow: clip;
+  box-shadow: 0 1px 2px rgba(46, 52, 64, .06), 0 18px 40px color-mix(in srgb, var(--ink) 12%, transparent);
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  will-change: transform; cursor: grab;
+}
+.tickets-bandeja__carta:active { cursor: grabbing; }
+.tickets-bandeja__carta--escribe, .tickets-bandeja__carta--escribe:active { cursor: default; }
+.tickets-bandeja__carta--atras { z-index: 1; pointer-events: none; box-shadow: none; opacity: 0.7; }
+
+.tickets-bandeja__carta-cuerpo { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 14px; padding: 20px 20px 18px; overflow: hidden; }
+.tickets-bandeja__carta-cab { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+.tickets-bandeja__carta-quien { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tickets-bandeja__carta-quien strong { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tickets-bandeja__carta-sub { display: flex; gap: 4px; min-width: 0; font-size: 13.5px; color: var(--dim); white-space: nowrap; }
+.tickets-bandeja__carta-sub > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.tickets-bandeja__carta-sub > time { flex: none; }
+.tickets-bandeja__carta-num { align-self: start; font-size: 13px; font-weight: 650; color: var(--faint); font-variant-numeric: tabular-nums; }
+
+.tickets-bandeja__carta-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tickets-bandeja__tipo, .tickets-bandeja__apura, .tickets-bandeja__origen {
+  display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 650; white-space: nowrap;
+}
+.tickets-bandeja__tipo--bug { background: var(--bad-bg); color: var(--bad); }
+.tickets-bandeja__tipo--pedido { background: var(--primary-bg); color: var(--primary-strong); }
+.tickets-bandeja__tipo--pregunta { background: var(--surface-2); color: var(--dim); }
+.tickets-bandeja__apura { background: var(--warn-bg); color: var(--warn); }
+.tickets-bandeja__apura--urgente { background: var(--bad-bg); color: var(--bad); }
+.tickets-bandeja__apura i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.tickets-bandeja__origen { border: 1px solid var(--border); background: var(--surface); color: var(--ink); }
+.tickets-bandeja__origen svg { color: var(--dim); }
+.tickets-bandeja__origen--automatico svg { color: var(--warn); }
+.tickets-bandeja__origen--chat svg { color: var(--mako-ink); }
+.tickets-bandeja__origen--whatsapp svg { color: var(--wa); }
+.tickets-bandeja__origen--reportar svg { color: var(--primary); }
+
+.tickets-bandeja__carta-titulo {
+  margin: 0; font-size: 23px; line-height: 1.22; font-weight: 700; letter-spacing: -0.02em; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+}
+/* Lo de en medio se corta (la tarjeta no tiene scroll: el dedo vertical es del gesto); lo entero está en «Ver todo». */
+.tickets-bandeja__carta-medio {
+  flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+}
+.tickets-bandeja__carta-texto {
+  margin: 0; padding: 10px 13px; border-radius: 14px; background: var(--surface-2);
+  font-size: 15.5px; line-height: 1.45; white-space: pre-line; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; overflow: hidden; flex: none;
+}
+.tickets-bandeja__carta-error {
+  margin: 0; display: flex; align-items: flex-start; gap: 8px; padding: 9px 12px; border-radius: 12px;
+  background: var(--bad-bg); color: var(--bad); flex: none;
+}
+.tickets-bandeja__carta-error svg { margin-top: 2px; }
+.tickets-bandeja__carta-error code {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; line-height: 1.45; color: var(--ink);
+  overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden;
+}
+.tickets-bandeja__carta-nota {
+  margin: 0; font-size: 14px; line-height: 1.45; color: var(--dim); overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; overflow: hidden; flex: none;
+}
+.tickets-bandeja__carta-nota b { color: var(--ink); font-weight: 650; margin-right: 2px; }
+.tickets-bandeja__carta-pie { margin-top: auto; display: flex; flex-wrap: wrap; gap: 8px; padding-top: 2px; }
+
+.tickets-bandeja__pildora {
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 38px; padding: 0 15px;
+  border-radius: 999px; border: 1.5px solid var(--border-strong); background: transparent; color: var(--ink);
+  font: inherit; font-size: 14px; font-weight: 650; text-decoration: none; cursor: pointer; white-space: nowrap;
+}
+.tickets-bandeja__pildora--suave { background: var(--primary-bg); color: var(--primary-strong); border-color: transparent; }
+
+/* La cara: la de la familia de tarjetas, con la insignia de por dónde entró. */
+.tickets-bandeja__cara { position: relative; display: inline-block; flex: none; }
+.tickets-bandeja__insignia {
+  position: absolute; right: -4px; bottom: -4px; border-radius: 50%; border: 2px solid var(--surface);
+  display: grid; place-items: center; background: var(--surface-2); color: var(--dim);
+}
+.tickets-bandeja__insignia--automatico { background: var(--warn-bg); color: var(--warn); }
+.tickets-bandeja__insignia--chat { background: var(--mako-bg); color: var(--mako-ink); }
+.tickets-bandeja__insignia--whatsapp { background: var(--wa); color: #fff; }
+.tickets-bandeja__insignia--reportar { background: var(--primary-bg); color: var(--primary-strong); }
+
+/* Los sellos del arrastre: lo que va a pasar si suelta. Apagados (punteados) si falta lo que lee el cliente. */
+.tickets-bandeja__sello {
+  position: absolute; z-index: 3; pointer-events: none; padding: 6px 13px; border-radius: 12px; border: 3px solid currentColor;
+  background: var(--surface); font-size: 19px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0;
+}
+.tickets-bandeja__sello--derecha { top: 22px; left: 18px; color: var(--good); rotate: -9deg; }
+.tickets-bandeja__sello--izquierda { top: 22px; right: 18px; color: var(--bad); rotate: 9deg; }
+.tickets-bandeja__sello--arriba { bottom: 84px; left: 0; right: 0; width: max-content; margin: 0 auto; color: var(--primary); }
+.tickets-bandeja__sello--falta { border-style: dashed; color: var(--faint); }
+
+/* La caja de lo que lee el cliente: tapa el pie de la tarjeta (no la agranda) y acá SÍ se toca y se selecciona. */
+.tickets-bandeja__caja {
+  position: absolute; z-index: 4; left: 10px; right: 10px; bottom: 10px;
+  display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 20px;
+  background: var(--surface); border: 1px solid var(--border); box-shadow: 0 -8px 28px rgba(46, 52, 64, .16);
+  touch-action: auto; user-select: text; -webkit-user-select: text; cursor: auto;
+}
+.tickets-bandeja__caja-cab { display: flex; align-items: center; gap: 8px; }
+.tickets-bandeja__caja-cab b { font-size: 15px; font-weight: 700; }
+.tickets-bandeja__caja-cab span { font-size: 13px; color: var(--dim); }
+.tickets-bandeja__caja-cab button {
+  margin-left: auto; width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 50%;
+  background: var(--surface-2); color: var(--dim); cursor: pointer;
+}
+.tickets-bandeja__caja-guardadas { display: flex; flex-wrap: wrap; gap: 6px; }
+.tickets-bandeja__caja-guardadas button {
+  max-width: 100%; padding: 6px 11px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface-2);
+  color: var(--ink); font: inherit; font-size: 13px; text-align: left; cursor: pointer;
+}
+.tickets-bandeja__caja textarea {
+  width: 100%; min-height: 72px; padding: 10px 12px; resize: none; box-sizing: border-box;
+  border-radius: 14px; border: 1.5px solid var(--border); background: var(--bg); color: var(--ink);
+  font: inherit; font-size: 16px; line-height: 1.45;
+}
+.tickets-bandeja__caja textarea:focus { outline: none; border-color: var(--primary); }
+.tickets-bandeja__caja-mandar {
+  align-self: flex-end; min-height: 40px; padding: 0 20px; border: 0; border-radius: 999px;
+  color: #fff; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+}
+.tickets-bandeja__caja-mandar--izquierda { background: var(--bad); }
+.tickets-bandeja__caja-mandar--arriba { background: var(--primary); }
+.tickets-bandeja__caja-mandar--derecha { background: var(--good); }
+.tickets-bandeja__caja-mandar:disabled { opacity: 0.45; cursor: default; }
+
+/* Lo que acaba de pasar: flota abajo, sobre la tarjeta, y se va solo. La rayita es lo que falta para que salga. */
+.tickets-bandeja__aviso {
+  position: absolute; z-index: 6; left: 10px; right: 10px; bottom: 10px; overflow: hidden;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  min-height: 46px; padding: 0 6px 0 16px; border-radius: 14px;
+  background: var(--ink); color: var(--bg); font-size: 15px; font-weight: 600;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--ink) 24%, transparent);
+}
+.tickets-bandeja__aviso span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tickets-bandeja__aviso--error span { white-space: normal; padding: 8px 0; }
+.tickets-bandeja__aviso button {
+  flex: none; min-height: 38px; padding: 0 12px; border: 0; border-radius: 10px; background: transparent;
+  color: inherit; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer;
+}
+.tickets-bandeja__aviso--error { background: var(--bad); color: #fff; }
+.tickets-bandeja__aviso-reloj {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: currentColor; opacity: 0.45;
+  transform-origin: left center; animation: tickets-bandeja-reloj linear forwards;
+}
+@keyframes tickets-bandeja-reloj { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+.tickets-bandeja__mazo-vacio {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  padding: 24px; text-align: center; border-radius: 28px; border: 1.5px dashed var(--border);
+}
+.tickets-bandeja__mazo-vacio h2 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.015em; }
+.tickets-bandeja__mazo-vacio-ico { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; color: var(--good); background: var(--good-bg); }
+
+/* La franja del pulgar: el mismo gesto en botones. ⚠️ OPACA Y ENCIMA: nada de la pila puede taparla (14/10). */
+.tickets-bandeja__pulgar {
+  position: relative; z-index: 5; display: flex; align-items: center; justify-content: center; gap: 14px;
+  padding-top: 2px; background: var(--bg);
+}
+[data-m] .tickets-bandeja__pulgar, .co-ticketera__cuerpo .tickets-bandeja__pulgar { background: transparent; }
+.tickets-bandeja__gesto {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; font: inherit; font-weight: 700;
+  border: 1.5px solid var(--border); background: var(--surface); color: var(--ink);
+  cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none;
+  transition: transform 100ms ease-out, background-color 120ms ease, border-color 120ms ease;
+}
+.tickets-bandeja__gesto:active { transform: scale(0.95); }
+.tickets-bandeja__gesto:focus-visible, .tickets-bandeja__volver-mazo:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.tickets-bandeja__gesto--izquierda, .tickets-bandeja__gesto--arriba {
+  flex-direction: column; gap: 2px; width: 66px; height: 66px; border-radius: 50%; font-size: 10.5px; font-weight: 650;
+}
+.tickets-bandeja__gesto--izquierda { color: var(--bad); }
+.tickets-bandeja__gesto--arriba { width: 58px; height: 58px; color: var(--primary-strong); }
+.tickets-bandeja__gesto--izquierda span, .tickets-bandeja__gesto--arriba span { color: var(--ink); }
+.tickets-bandeja__gesto--derecha {
+  flex: 0 1 230px; min-width: 0; height: 66px; padding: 0 22px; border: 0; border-radius: 999px;
+  background: var(--good); color: #fff; font-size: 17px; box-shadow: 0 6px 18px color-mix(in srgb, var(--good) 30%, transparent);
+}
+.tickets-bandeja__gesto span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tickets-bandeja__gesto .tickets-bandeja__kbd { display: none; }
+@media (hover: hover) and (pointer: fine) {
+  .tickets-bandeja__gesto--derecha .tickets-bandeja__kbd { display: inline; color: inherit; border-color: rgba(255, 255, 255, .5); margin-left: 2px; }
+  .tickets-bandeja__gesto--izquierda:hover, .tickets-bandeja__gesto--arriba:hover { border-color: var(--dim); }
+  .tickets-bandeja__gesto--derecha:hover { filter: brightness(1.05); }
+  .tickets-bandeja__volver-mazo:not(:disabled):hover { border-color: var(--dim); background: var(--surface-2); }
+  .tickets-bandeja__caja-guardadas button:hover { border-color: var(--primary); }
+}
+
+/* En la compu, lo que sigue a un costado (como la lista de Linear junto al issue abierto). */
+.tickets-bandeja__siguen { display: none; list-style: none; margin: 0; padding: 0; }
+@container tickets (min-width: 780px) {
+  .tickets-bandeja__mesa { grid-template-columns: minmax(0, 540px) minmax(220px, 300px); justify-content: center; }
+  .tickets-bandeja__pila { margin: 0; }
+  .tickets-bandeja__siguen { display: flex; flex-direction: column; gap: 4px; align-self: start; max-height: 100%; overflow-y: auto; }
+  .tickets-bandeja__siguen button {
+    width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 0; border-radius: 14px;
+    background: transparent; color: var(--ink); font: inherit; font-size: 13.5px; text-align: left; cursor: pointer;
+  }
+  .tickets-bandeja__siguen button:hover { background: var(--surface-2); }
+  .tickets-bandeja__siguen button > span:last-child {
+    min-width: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.35;
+  }
+  .tickets-bandeja__siguen b { color: var(--dim); font-weight: 650; font-variant-numeric: tabular-nums; }
+}
+@container tickets (max-width: 460px) {
+  .tickets-bandeja__vistas button { width: 38px; padding: 0; justify-content: center; }
+  .tickets-bandeja__vistas button span { display: none; }
+  .tickets-bandeja__carta-cuerpo { padding: 18px 16px 16px; gap: 12px; }
+  .tickets-bandeja__carta-titulo { font-size: 21px; }
+}
+
+/* ── La TABLA ────────────────────────────────────────────────────────────────────────────────────────────────── */
+.tickets-bandeja__tabla-vista { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.tickets-bandeja__franja--tabla .tk-ptabs { flex: 1 1 0; min-width: 0; }
+/* Los chips que no entran se van por la derecha, con un fundido: se ve que hay más (se deslizan). */
+@container tickets (max-width: 720px) {
+  .tickets-bandeja__franja--tabla .tk-ptabs {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  }
+}
+.tickets-bandeja__ordenar { display: none; align-items: center; gap: 8px; font-size: 13.5px; color: var(--dim); }
+.tickets-bandeja__ordenar select {
+  min-height: 36px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface);
+  color: var(--ink); font: inherit; font-size: 14px;
+}
+.tickets-bandeja__tabla {
+  width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 18px; overflow: hidden; font-size: 14px;
+}
+/* Anchos fijos: el título se queda con lo que sobra y se parte en dos renglones; lo demás se corta con «…». Con el panel
+   del Ops Center de 1440 (≈870 px útiles) entran las siete columnas sin scroll. */
+.tickets-bandeja__tabla th.tickets-bandeja__col--id { width: 60px; }
+.tickets-bandeja__tabla th.tickets-bandeja__col--quien { width: 160px; }
+.tickets-bandeja__tabla th.tickets-bandeja__col--negocio { width: 136px; }
+.tickets-bandeja__tabla th.tickets-bandeja__col--canal { width: 64px; }
+.tickets-bandeja__tabla th.tickets-bandeja__col--estado { width: 118px; }
+.tickets-bandeja__tabla th.tickets-bandeja__col--cuando { width: 118px; }
+.tickets-bandeja__tabla th.tickets-bandeja__col--abrir { width: 0; padding: 0; }
+.tickets-bandeja__col--canal .tickets-bandeja__origen { padding: 0 7px; font-size: 0; gap: 0; }
+.tickets-bandeja__col--canal .tickets-bandeja__origen svg { width: 15px; height: 15px; }
+@container tickets (min-width: 1040px) {
+  .tickets-bandeja__tabla th.tickets-bandeja__col--canal { width: 168px; }
+  .tickets-bandeja__col--canal .tickets-bandeja__origen { padding: 0 10px; font-size: 12.5px; gap: 5px; }
+}
+.tickets-bandeja__tabla th {
+  padding: 0; text-align: left; font-size: 12px; font-weight: 650; color: var(--dim); background: var(--surface-2);
+  border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+.tickets-bandeja__tabla th button {
+  display: inline-flex; align-items: center; gap: 4px; width: 100%; padding: 10px 12px; border: 0; background: transparent;
+  color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.tickets-bandeja__tabla th[aria-sort="ascending"] button, .tickets-bandeja__tabla th[aria-sort="descending"] button { color: var(--ink); }
+.tickets-bandeja__flecha { min-width: 10px; }
+.tickets-bandeja__tabla td { padding: 10px 12px; border-top: 1px solid var(--border); vertical-align: middle; min-width: 0; }
+.tickets-bandeja__tabla tbody tr:first-child td { border-top: 0; }
+.tickets-bandeja__tabla tbody tr { cursor: pointer; }
+.tickets-bandeja__tabla tbody tr:hover td { background: var(--surface-2); }
+.tickets-bandeja__tabla tbody tr.is-on td { background: var(--primary-bg); }
+.tickets-bandeja__col--id { width: 64px; color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tickets-bandeja__col--titulo button {
+  padding: 0; border: 0; background: none; color: var(--ink); font: inherit; font-weight: 650; text-align: left; cursor: pointer;
+  overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+}
+.tickets-bandeja__col--titulo .tickets-bandeja__tipo { margin-top: 4px; height: 20px; font-size: 11px; }
+.tickets-bandeja__persona { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.tickets-bandeja__persona > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tickets-bandeja__col--negocio, .tickets-bandeja__col--cuando { color: var(--dim); }
+.tickets-bandeja__col--negocio, .tickets-bandeja__col--cuando { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tickets-bandeja__tabla td.tickets-bandeja__col--abrir { display: none; }
+.tickets-bandeja__solo-angosto { display: none; }
+.tickets-bandeja__prio { display: inline-block; width: 8px; height: 8px; margin-right: 7px; border-radius: 50%; background: var(--faint); vertical-align: 1px; }
 .tickets-bandeja__prio--urgente { background: var(--bad); }
 .tickets-bandeja__prio--alta { background: var(--warn); }
 .tickets-bandeja__prio--media { background: var(--primary); }
-.tickets-bandeja__num { grid-area: num; color: var(--dim); font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
-.tickets-bandeja__titulo { grid-area: titulo; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-md); }
-.tickets-bandeja__fila .mk-tag { grid-area: tipo; }
-.tickets-bandeja__quien { grid-area: quien; color: var(--dim); font-size: var(--fs-meta); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tickets-bandeja__estado {
+  display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 999px; white-space: nowrap;
+  font-size: 12.5px; font-weight: 650; background: var(--surface-2); color: var(--dim);
+}
+.tickets-bandeja__estado--nuevo, .tickets-bandeja__estado--esperando_decision { background: var(--primary-bg); color: var(--primary-strong); }
+.tickets-bandeja__estado--esperando_cliente { background: var(--warn-bg); color: var(--warn); }
+.tickets-bandeja__estado--en_curso, .tickets-bandeja__estado--arreglado { background: var(--mako-bg); color: var(--mako-ink); }
+.tickets-bandeja__estado--resuelto { background: var(--good-bg); color: var(--good); }
+
+/* El teléfono DESTILA la tabla: cada fila es un renglón doble (la cara con su canal; el número y el título; quién, el
+   negocio y cuándo; el estado), y el orden se elige con un selector. */
+@container tickets (max-width: 720px) {
+  .tickets-bandeja__ordenar { display: flex; }
+  .tickets-bandeja__tabla, .tickets-bandeja__tabla tbody { display: block; }
+  .tickets-bandeja__tabla thead { display: none; }
+  .tickets-bandeja__tabla tbody tr {
+    display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; column-gap: 12px; row-gap: 3px; align-items: center;
+    grid-template-areas: 'cara titulo cuando' 'cara sub estado'; padding: 12px 14px; border-top: 1px solid var(--border);
+  }
+  .tickets-bandeja__tabla tbody tr:first-child { border-top: 0; }
+  .tickets-bandeja__tabla td { display: block; padding: 0; border: 0; background: transparent !important; }
+  .tickets-bandeja__tabla tbody tr.is-on { background: var(--primary-bg); }
+  .tickets-bandeja__col--id, .tickets-bandeja__col--canal, .tickets-bandeja__col--abrir,
+  .tickets-bandeja__col--titulo .tickets-bandeja__tipo, .tickets-bandeja__persona > span:last-child { display: none !important; }
+  .tickets-bandeja__col--quien { grid-area: cara; }
+  .tickets-bandeja__col--titulo { grid-area: titulo; min-width: 0; }
+  .tickets-bandeja__col--titulo button { display: block; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tickets-bandeja__col--negocio { grid-area: sub; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+  .tickets-bandeja__col--estado { grid-area: estado; justify-self: end; }
+  .tickets-bandeja__col--estado .tickets-bandeja__estado { height: 22px; font-size: 11.5px; padding: 0 8px; }
+  .tickets-bandeja__col--cuando { grid-area: cuando; justify-self: end; font-size: 12.5px; }
+  .tickets-bandeja__solo-angosto { display: inline; }
+  .tickets-bandeja__col--titulo .tickets-bandeja__solo-angosto { color: var(--dim); font-weight: 600; }
+}
+
+/* ── El ticket entero, en una hoja (desde la derecha en la compu, desde abajo en el teléfono) ─────────────────── */
+.tickets-bandeja__hoja {
+  position: fixed; inset: 0; z-index: 1200; display: flex; justify-content: flex-end;
+  background: var(--scrim, rgba(46, 52, 64, .45));
+}
+.tickets-bandeja__hoja-caja {
+  width: min(600px, 100%); height: 100%; overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box;
+  padding: calc(12px + env(safe-area-inset-top, 0px)) 12px calc(16px + env(safe-area-inset-bottom, 0px));
+  background: var(--bg); box-shadow: -18px 0 44px rgba(46, 52, 64, .22);
+  animation: tickets-bandeja-entra-der var(--dur-sheet, 260ms) var(--ease-drawer, ease-out);
+}
+@media (max-width: 720px) {
+  .tickets-bandeja__hoja { align-items: flex-end; }
+  .tickets-bandeja__hoja-caja { width: 100%; height: calc(100dvh - 24px); border-radius: 22px 22px 0 0; animation-name: tickets-bandeja-entra-abajo; }
+}
+@keyframes tickets-bandeja-entra-der { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes tickets-bandeja-entra-abajo { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
 
 .tickets-bandeja__detalle {
-  border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); padding: 16px 18px;
+  border: 1px solid var(--border); border-radius: 20px; background: var(--surface); padding: 16px 18px;
   display: flex; flex-direction: column; gap: 14px; min-width: 0;
 }
 .tickets-bandeja__cab { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: start; }
-.tickets-bandeja__volver { width: 32px; height: 32px; border-radius: var(--r-md); border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+.tickets-bandeja__volver { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
 .tickets-bandeja__meta { margin: 0; color: var(--dim); font-size: var(--fs-meta); }
 .tickets-bandeja__h { margin: 2px 0 0; font-size: var(--fs-card); font-weight: 600; overflow-wrap: anywhere; }
 .tickets-bandeja__bloque h3 { margin: 0 0 6px; font-size: var(--fs-meta); font-weight: 600; color: var(--dim); text-transform: uppercase; letter-spacing: 0.04em; }
+.tickets-bandeja__de-quien { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.tickets-bandeja__de-quien > div { min-width: 0; }
+.tickets-bandeja__de-donde { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
 .tickets-bandeja__quien-grande { margin: 0; font-size: var(--fs-md); overflow-wrap: anywhere; }
 .tickets-bandeja__dato { margin: 2px 0 0; color: var(--dim); font-size: var(--fs-sm); overflow-wrap: anywhere; }
 .tickets-bandeja__escrito { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-md); background: var(--surface-2); border-radius: var(--r-md); padding: 10px 12px; }
@@ -65,7 +441,6 @@
 .tickets-bandeja__chip:disabled:not(.is-on) { opacity: 0.5; cursor: default; }
 .tickets-bandeja__acciones { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--border); padding-top: 12px; }
 .tickets-bandeja__botones { display: flex; flex-wrap: wrap; gap: 6px; }
-.tickets-bandeja__kbd { margin-left: 6px; padding: 0 5px; border-radius: 4px; border: 1px solid var(--border); font-size: 11px; color: var(--dim); font-family: inherit; }
 .tickets-bandeja__form { display: flex; flex-direction: column; gap: 8px; }
 .tickets-bandeja__confirmar { display: flex; justify-content: flex-end; }
 .tickets-bandeja__avisos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -73,18 +448,25 @@
 .tickets-bandeja__aviso-quien { min-width: 64px; color: var(--dim); font-size: var(--fs-sm); }
 .tickets-bandeja__historial { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-meta); color: var(--dim); }
 .tickets-bandeja__historial strong { color: var(--text); font-weight: 600; }
-
-@media (max-width: 1100px) {
-  .tickets-bandeja__cuerpo--detalle { grid-template-columns: minmax(0, 1fr); }
-  .tickets-bandeja__cuerpo--detalle .tickets-bandeja__lista { display: none; }
+@media (max-width: 720px) {
   .tickets-bandeja__reporte div { grid-template-columns: minmax(0, 1fr); gap: 0; }
 }
 
 /* El teléfono (y la tableta): sin teclado no hay atajos que mostrar, y lo que se toca mide lo de un dedo (--touch). */
 @media (hover: none) {
-  .tickets-bandeja__kbd { display: none; }
+  .tickets-bandeja__kbd { display: none !important; }
 }
 @media (pointer: coarse) {
-  .tickets-bandeja__grupo, .tickets-bandeja__chip { min-height: var(--touch); }
+  .tickets-bandeja__chip { min-height: var(--touch); }
   .tickets-bandeja__volver { width: var(--touch); height: var(--touch); }
+  .tickets-bandeja__cuenta button { width: 36px; height: 36px; }
+}
+/* En oscuro, --good, --bad y --primary son CLAROS: el texto blanco encima no se lee (medido en el arnés). */
+[data-tema="oscuro"] .tickets-bandeja__gesto--derecha,
+[data-tema="oscuro"] .tickets-bandeja__caja-mandar,
+[data-tema="oscuro"] .tickets-bandeja__aviso--error { color: #11151c; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tickets-bandeja__hoja-caja { animation: none; }
+  .tickets-bandeja__aviso-reloj { animation: none; opacity: 0; }
 }

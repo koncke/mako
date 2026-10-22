@@ -11,8 +11,10 @@
 // es lo correcto: el CRM tiene su segmento con `--ink` y Customer Success su
 // `.bc-toggle`, y unificar eso sería una decisión de diseño que nadie tomó.
 //
-// ⚠️ El rótulo NO es decorativo. Un ícono sin texto necesita su `title` y su
-// `aria-label`: ahí sí va una frase, porque no ocupa un píxel.
+// ⚠️ El rótulo NO es decorativo. Un ícono sin texto necesita su tooltip y su
+// `aria-label`. Y es el NOMBRE de la vista, corto: «Kanban», «Lista» (Martín, 21/10/2026:
+// «el placeholder del "tablero" debe ser "kanban"... Esto en todos lados»). Lo dibuja
+// el segmento compartido, ./SelectorVista.tsx.
 
 import type { ReactNode } from 'react';
 
@@ -20,7 +22,7 @@ export type VistaIcono = 'tarjetas' | 'tabla' | 'kanban' | 'avance';
 
 export const ICONO_VISTA: Record<VistaIcono, { titulo: string; icono: ReactNode }> = {
   tarjetas: {
-    titulo: 'Ver en tarjetas',
+    titulo: 'Tarjetas',
     icono: (
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" />
@@ -29,7 +31,7 @@ export const ICONO_VISTA: Record<VistaIcono, { titulo: string; icono: ReactNode 
     ),
   },
   tabla: {
-    titulo: 'Ver en tabla',
+    titulo: 'Lista',
     icono: (
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
@@ -49,7 +51,8 @@ export const ICONO_VISTA: Record<VistaIcono, { titulo: string; icono: ReactNode 
     // una pantalla ofrece kanban Y tarjetas a la vez, ESA necesita otro dibujo para uno
     // de los dos: por eso las dos entradas conviven y no son una.
     // (Customer Success dejó de tener su propia copia de estos íconos el 05/10/2026.)
-    titulo: 'Ver en Kanban',
+    // «Kanban» a secas desde el 21/10/2026 (era «Ver en Kanban», y en el CRM «Tablero»).
+    titulo: 'Kanban',
     icono: (
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" />
@@ -62,7 +65,7 @@ export const ICONO_VISTA: Record<VistaIcono, { titulo: string; icono: ReactNode 
     // clientes»). Barras de progreso de largo distinto: lo que la vista dice es CUÁNTO avanzó cada
     // uno, y ni los cubos ni las tres líneas parejas de la tabla lo cuentan. Lo ofrece SÓLO
     // Customer Success (kanban · tabla · avance): /admin y el CRM no tienen curso.
-    titulo: 'Ver el avance del curso',
+    titulo: 'Avance',
     icono: (
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <line x1="4" y1="6" x2="20" y2="6" /><line x1="4" y1="12" x2="14" y2="12" /><line x1="4" y1="18" x2="9" y2="18" />

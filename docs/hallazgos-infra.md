@@ -2229,13 +2229,13 @@ proyectos**. Hay **10 proyectos Supabase repartidos en 4 organizaciones**, y **s
 
 | Organización | Plan | Qué paga |
 |---|---|---|
-| **Mauricio Bustos Business** (7 proyectos) | **Pro** | US$25 + 5 computes Micro (US$49,06) − US$10 de crédito = **US$64,06** |
+| **Mauricio Business** (7 proyectos) | **Pro** | US$25 + 5 computes Micro (US$49,06) − US$10 de crédito = **US$64,06** |
 | CRM-LEADS · VIRAL-RADAR · GB-LOGISTICS (1 c/u) | Free | US$0 |
 
 Los 5 computes pagos, con su actividad real de 7 días: **MaKo 1.134.762** requests REST ·
 esquer-accountability 30.211 · baja-teriyaki 28.798 · texx-accountability 19.902 ·
 **aspro-tableros 957** (137/día, el único candidato a pausar). Dos proyectos más de esa org no
-pagan compute (`dental-ramos-crm` con 4.676 requests y `mbustos@elevate.com.mx's Project` con
+pagan compute (`dental-ramos-crm` con 4.676 requests y `dueno@negocio-uno.com's Project` con
 **0**, vacío).
 
 **O sea: de los US$64, US$9,81 son MaKo y US$39 son tableros de clientes.** Eso no es desperdicio
@@ -2300,7 +2300,7 @@ la doc.
 **Y el orden importa:** un Viewer tampoco puede **escribir por API**, así que si el token que usás
 es del usuario que vas a degradar, te quedás sin poder administrar ni revertir. Se reemplaza el
 token PRIMERO (por uno de un OWNER que siga siéndolo) y se degrada DESPUÉS. Hoy `VERCEL_API_TOKEN`
-en `.env.local` es de **mbustos@elevate.com.mx**, no de koncke, justamente por esto — y fue lo
+en `.env.local` es de **dueno@negocio-uno.com**, no de koncke, justamente por esto — y fue lo
 único que permitió deshacer el cambio.
 
 **La regla:** después de tocar roles, permisos o integraciones, **el push de prueba no alcanza:
@@ -6209,7 +6209,7 @@ solo template.
 Síntoma (reunión del 13/10, Mauricio): «los temporizadores no coinciden con los textos» de los recordatorios por WhatsApp.
 El diagnóstico obvio era la plantilla o el cálculo de `{{reunion_faltan}}` (los dos estaban bien, medido). Lo que estaba mal
 era el DATO: `mako.timezone` del ws1 (Mauricio, Mexicali) era `America/Argentina/Buenos_Aires`, con origen «navegador» y
-`por: mbustos@elevate.com.mx`, escrito el 12/10 02:00 UTC por `detectarZonaAction`. La regla de quién cuenta como «el
+`por: dueno@negocio-uno.com`, escrito el 12/10 02:00 UTC por `detectarZonaAction`. La regla de quién cuenta como «el
 usuario» se cumplió (era la sesión de un admin propio): alguien entró con la cuenta de Mauricio desde Argentina, o su
 máquina tiene mal la zona. Medido en un envío real: la reunión de Guillermo (lead 2593) era a las 10:00 de Tijuana y los
 recordatorios dijeron «mañana a las 2:00 p. m.» y «empieza en 59 minutos, a las 2:00 p. m.». También corría con esa zona
@@ -6477,7 +6477,7 @@ contando `ahead` muestra como trabajo pendiente lo que ya está hecho.
 ## Una pasada en producción con el Chrome de Martín: la sesión puede ser la de un CLIENTE, y `?ws=3` no avisa (15/10/2026)
 
 El 15/10 la pasada «en ws3» de Automations se hizo en realidad sobre el **ws1 de Mauricio**: el Chrome de Martín tenía
-abierta la sesión de Mauricio Bustos (rol `usuario`, `ws: 1`), no la de super admin. Para alguien que no es admin de
+abierta la sesión de Mauricio (rol `usuario`, `ws: 1`), no la de super admin. Para alguien que no es admin de
 agencia, `proxy.ts` no pone el header del `?ws=` (`lib/ws-tab.ts`) y la página muestra SU negocio sin decir nada. La
 lista se veía normal y con nombres plausibles («Un Lead Entró», «Un Lead Agendó Llamada»), que también existen en otros
 negocios.
@@ -7542,6 +7542,16 @@ vuelve a hacer fila (al final: cedió el turno), y con el turno en la mano confi
 Y una baja: una espera CORTA (≤ 30 s, los tipos del `--rapido`) se hace con el candado en la mano, para no perder el lugar por 20 s.
 **La regla de oficio:** una función que espera un recurso y tiene otro tomado se prueba con una RAM y una fila de MENTIRA y se mira EN QUÉ MOMENTO suelta y retoma (hay 14 pruebas, y 22 roturas dieron rojo; tres se cuelgan en vez de fallar). Y un arreglo de una espera se corre de verdad antes de darlo por bueno: el primer defecto salió del primer VERDE.
 
+## El tsc «acotado» no es acotado si lo cambiado arrastra al Plan (21/10/2026)
+
+Al validar las plantillas de tarjeta en Clientes y el Plan: `BoardShell.tsx`, `ClientesApp.tsx` y
+app/customer-success/pantalla.tsx arrastran ~1.400 archivos del proyecto (FichaCliente → PlanBoard → BoardShell). Con
+`BoardShell` en `files`, tsc se quedó sin memoria a 1,9 y 2,2 GB (salida 134) y a 2,3–2,5 GB lo mató el vigía (salida 1
+sin texto). Lo que sí sirvió: grupos chicos sin esos archivos, y para ellos un tsc con `noResolve` (sólo sintaxis y
+nombres; los errores de import que da son ruido). El tipo de verdad queda para `antes-de-subir` o Actions.
+Y `next-env.d.ts` no existe en un worktree recién creado: ponerlo en `files` corta con TS6053 antes de chequear nada.
+*21/10/2026, chat «CRM» (claude3).*
+
 ## En la corrida COMPARTIDA, un test que tira al CARGAR da verde: se cuentan los de arriba y el resto no corre (22/10/2026, Automations)
 
 **Síntoma:** tests/nutricion-paso-accion.test.ts estuvo roto en main al menos desde el 21/10 sin que ningún VERDE ni
@@ -7598,6 +7608,20 @@ consultas por turno. `credenciales` ×36 (20 desde `provsGratisDePlataforma`, li
 `cache` de React NO deduplica (sólo dentro de un render de servidor). Con ~97 ms por ida serían 5-9 s por turno en Vercel:
 eso es una deducción del código, no se midió en Vercel. Pendiente, de ai-cheap y de la sesión, no de Offer.
 
+## Un test `todo` que falla sale ROJO cuando OTRO archivo falla de verdad (22/10/2026)
+
+- **Síntoma:** el VERDE marcó ROJO `tests/doer-recetas-video-imagen.test.ts`, y aislado da 5 / 0.
+- **Causa:** `leerResultado` (scripts/tests-afectados.mjs) toma como rojo todo archivo con una línea `test at X.test.ts`.
+  El resumen «✖ failing tests:» de node también lista los `todo` que fallan, que no cuentan como falla. Mientras todo pasa,
+  el código de salida es 0 y no se lee esa lista. Cuando otro archivo del mismo proceso falla de verdad, el `todo` entra
+  como rojo, también en la repetición AISLADA, que corre los rojos juntos.
+- **La regla:** ante un ROJO doble, buscar primero el archivo que falla con `ℹ fail` mayor que 0 al correrlo solo. El que
+  aislado da 0 y sólo lista un `todo` en «failing tests» se va solo cuando se arregla el otro. Sin arreglar en el script:
+  `leerResultado` debería ignorar los bloques marcados `# TODO`.
+
+**Vive en:** scripts/tests-afectados.mjs (`leerResultado`, la repetición AISLADA de los rojos del proceso compartido)
+*22/10/2026, chat «CRM» (claude3).*
+
 ## Sin RAM para el tsc entero, el pre-push a main chequea por TANDAS: y dos trampas medidas armándolo (22/10/2026, INF1)
 
 - **Lo que quedó (INF1):** si `scripts/typecheck-lock.mjs` sale con 99 (no consiguió los 6,3 GB), el pre-push a `main` corre
@@ -7637,3 +7661,18 @@ eso es una deducción del código, no se midió en Vercel. Pendiente, de ai-chea
   comando los `sh.exe`/`timeout.exe`/`node.exe` que quedaron y matarlos.
 - ⚠️ **Un test suelto se corre con `node --import tsx --test`**, como el `npm test`. Con `--experimental-strip-types` todos
   fallan con `ERR_MODULE_NOT_FOUND` (los imports del repo van sin extensión) y parece un rojo del código.
+
+## Una batería con piso pasa en la tanda compartida y falla SOLA: el rojo de OC1 llegó a main (22/10/2026, Cerebro › Integración)
+
+- **Síntoma:** después del tren 1, `tests/ops-center-bateria.test.ts` corrido solo daba pagos-cuenta 34/100 con piso 35
+  («devolvele el pago a Carlos» → `reembolsar_cobro` no llegaba al chat de la app). El VERDE de OC1 y la tanda del tren
+  habían dado verde.
+- **Causa real:** las tandas de `tests-afectados` (y de `antes-de-subir`) corren varios archivos en UN proceso con
+  `--test-isolation=none`. Ahí la batería pasa por el estado de módulos que dejan los otros tests. Sola, falla. La causa del
+  código era la puerta de las destructivas de `lib/relevancia-app.ts`: la abre un verbo de quitar, y «devolver» no lo es.
+- **Lo que se descartó:** que `--cortar` hubiera dejado sin correr a las barredoras. Era verdad para ellas, pero la batería no es
+  una barredora (importa) y sí corrió en la tanda, en verde.
+- **Cómo se encontró:** corriendo la batería SOLA en un worktree en detached, en cada punta del tren (81dca4621 verde,
+  b529ff603 rojo, las otras verdes): una corrida por punta, ~1 min cada una.
+- **La regla:** en cada tren, Integración corre la batería SOLA además de la tanda (`node --import tsx --test
+  tests/ops-center-bateria.test.ts`). El chat que toque el clasificador o la selección de herramientas, también.

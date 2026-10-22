@@ -86,9 +86,10 @@ export default async function FichaLeadMovil({ params }: { params: Promise<{ id:
         } : null}
         respuestas={f.respuestas}
         saldo={d.saldo}
+        saldosCrm={d.saldosCrm}
         resumen={d.resumen}
         progreso={d.progreso}
-        piezas={piezasQueSeDibujan(d.piezas, { proxima: d.proxima, llegoPor: d.llegoPor, respuestas: f.respuestas.length, llamada: !!f.llamada, saldo: d.saldo, resumen: d.resumen }).map((x) => x.pieza)}
+        piezas={piezasQueSeDibujan(d.piezas, { proxima: d.proxima, llegoPor: d.llegoPor, respuestas: f.respuestas.length, llamada: !!f.llamada, saldo: d.saldo, saldosCrm: d.saldosCrm.length, resumen: d.resumen }).map((x) => x.pieza)}
       />
     </PantallaM>
   );

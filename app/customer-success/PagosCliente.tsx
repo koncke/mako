@@ -38,6 +38,16 @@ const LISTA = listaFijaDeCs('cs-pagos');
 /** Lo del Resumen de CS que no dibuja su tarjeta de siempre (InfoPrincipalCard y NotasCard). */
 const LISTA_RESUMEN = listaFijaDeCs('cs-resumen', { sin: ['contacto', 'notas'] });
 const nada = () => {};
+/** Los bloques de PLATA de Pagos: los que se repiten por cada CRM agregado (los del deal son del lead). */
+const BLOQUES_DE_PLATA: ReadonlySet<string> = new Set(['cobrado', 'venta', 'cuotas', 'movimientos']);
+const TITULO_CRM: CSSProperties = { margin: '18px 0 6px', fontSize: 15, fontWeight: 650, color: 'var(--ink)' };
+
+/** Los CRMs agregados del lead con plata (una venta o pagos), con su nombre: lo que CS muestra debajo de la casa. */
+export function otrosCrmsConPlata(data: Pick<LeadFullData, 'tratos' | 'productos'>): Array<{ id: number; nombre: string }> {
+  return (data.tratos ?? [])
+    .filter((t) => t.pagos.length > 0 || t.monto_cierre_usd != null)
+    .map((t) => ({ id: t.funnelId, nombre: data.productos?.find((p) => p.id === t.funnelId)?.nombre ?? 'Otro CRM' }));
+}
 const AVISO: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0', fontSize: 13.5, color: 'var(--dim)' };
 
 type Props = {
@@ -86,6 +96,11 @@ export function BloquesDePagos({ leadId, onCambio, lista, que }: Props & { lista
     irATab: nada,
     solucionar: nada,
   };
+  // LOS OTROS CRMs (CO2, 22/10/2026, mig 0324): una renovación tiene su propia venta y su plan. Debajo de la casa, una
+  // sección por cada CRM agregado con plata, con los bloques de PLATA en el trato de ese CRM (./../crm/lead-view/ficha/
+  // pagos/trato.ts). Los del deal (servicio, promesa…) son del lead y no se repiten.
+  const otros = otrosCrmsConPlata(data);
+  const deLaPlata = lista.filter((b) => BLOQUES_DE_PLATA.has(b.id));
   return (
     <FichaCambioProvider value={leer}>
       <div className="fb">
@@ -93,6 +108,12 @@ export function BloquesDePagos({ leadId, onCambio, lista, que }: Props & { lista
         <div className="fb-tab">
           <Armador tab="pagos" lista={lista} ctx={ctx} editando={false} sel={null} onSel={nada} onCambio={nada} />
         </div>
+        {deLaPlata.length > 0 && otros.map((o) => (
+          <div key={o.id} className="fb-tab">
+            <h3 style={TITULO_CRM}>{o.nombre}</h3>
+            <Armador tab="pagos" lista={deLaPlata} ctx={{ ...ctx, crm: o }} editando={false} sel={null} onSel={nada} onCambio={nada} />
+          </div>
+        ))}
       </div>
     </FichaCambioProvider>
   );

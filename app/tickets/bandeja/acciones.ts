@@ -20,19 +20,27 @@ import {
 import { avisarTicket } from '@/lib/tickets-cierre';
 import type { Prioridad, TipoTicket } from '@/lib/tickets-reglas';
 import { getSupabaseServer } from '@/lib/supabase';
+import { getVistaTicketera, setVistaTicketera, type VistaTicketera } from '@/lib/perfil';
 
 const NO_PUEDE = 'Entra con tu segundo factor para usar la Ticketera.';
 async function opera(): Promise<boolean> {
   return puedeOperar(await getSesionAdmin(), await wsSuperAdmin());
 }
 
-export type LecturaBandeja = { ok: true; tickets: FilaTicket[]; autoArreglo: boolean } | { ok: false; error: string; faltaTabla?: boolean };
+export type LecturaBandeja = { ok: true; tickets: FilaTicket[]; autoArreglo: boolean; vista: VistaTicketera } | { ok: false; error: string; faltaTabla?: boolean };
 
-export async function leerBandejaAction(): Promise<LecturaBandeja> {
+/** `conVista`: la primera lectura trae también la vista que eligió la persona (mazo o tabla); los refrescos, no. */
+export async function leerBandejaAction(conVista = false): Promise<LecturaBandeja> {
   if (!(await opera())) return { ok: false, error: NO_PUEDE };
-  const [r, apagado] = await Promise.all([bandeja(), autoArregloApagado()]);
+  const [r, apagado, vista] = await Promise.all([bandeja(), autoArregloApagado(), conVista ? getVistaTicketera() : Promise.resolve<VistaTicketera>('mazo')]);
   if (!r.ok) return { ok: false, error: r.faltaTabla ? 'Falta aplicar la migración 0311 (la tabla de tickets).' : r.error, faltaTabla: r.faltaTabla };
-  return { ok: true, tickets: r.datos, autoArreglo: !apagado };
+  return { ok: true, tickets: r.datos, autoArreglo: !apagado, vista };
+}
+
+/** La vista que eligió (mazo o tabla), en SU perfil: la misma en la computadora y en el teléfono. */
+export async function guardarVistaAction(v: VistaTicketera): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!(await opera())) return { ok: false, error: NO_PUEDE };
+  try { await setVistaTicketera(v); return { ok: true }; } catch { return { ok: false, error: 'No pude recordar la vista' }; }
 }
 
 export async function verTicketBandejaAction(id: number): Promise<{ ok: true; ticket: FilaTicket; eventos: Evento[] } | { ok: false; error: string }> {

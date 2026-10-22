@@ -20,7 +20,7 @@ const leer = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8').repla
 const wa = (id: string, cuerpo: string, siguiente: string | null) => ({ id, canal: 'whatsapp', delay_horas: 0, cuerpo, siguiente });
 const PASOS = [
   { id: 'c1', nodo: 'condicion', canal: 'whatsapp', delay_horas: 0, cuerpo: '', ramas: [{ id: 'r1', modo: 'todas', filas: [{ campo: 'ya_contactado', no: true }], siguiente: 'm1' }], si_no: null },
-  wa('m1', 'Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?', null),
+  wa('m1', 'Hola {{nombre}}, soy Mauricio Ejemplo. ¿Sigues al frente de tu empresa?', null),
 ];
 
 // roturas (sin las archivadas fuera; `automatizacionActiva` siempre true; sin el paso) → 1 rojo de 5 cada una (éste).

@@ -59,10 +59,12 @@ test('las DOS puertas de la ficha usan la misma regla, con las mismas señales',
   }
   assert.match(ficha, /const verPagos = muestraPagos\(/, 'la tab no sale de muestraPagos');
   assert.match(ficha, /\.\.\.\(verPagos \? \['pagos' as const\] : \[\]\)/, 'la tab Pagos no mira verPagos');
-  assert.match(ficha, /planEnLead: planEnLead\(lead\)/, 'el plan no sale de planEnLead');
+  // Desde el 22/10/2026, mig 0324: con el trato del CRM que se mira (./pagos/trato.ts): en la casa es el lead de siempre.
+  assert.match(ficha, /planEnLead: planEnLead\(delTrato\.lead\)/, 'el plan no sale de planEnLead');
   // Desde el 16/10/2026 la lectura arranca temprano (getLeadFullAction, «tarda un montón en cargar») y entra al mismo Promise.all.
   assert.match(codigo('app/crm/actions.ts'), /const cobroP = temprano\(senalesDeCobroAction\(id\)\);[\s\S]*funnelsP, cobroP\]\);/);
-  assert.match(ficha, /muestraPagos\(\{ estado: lead\.estado_lead, etapa, cuotas: pagos\.length, planEnLead: planEnLead\(lead\), \.\.\.data\.cobro \}\)/);
+  assert.match(ficha, /const delTrato = ctxDelTrato\(\{ data, lead, etapa, crm \} as CtxFicha\);/);
+  assert.match(ficha, /muestraPagos\(\{ estado: delTrato\.lead\.estado_lead, etapa: delTrato\.etapa, cuotas: delTrato\.data\.pagos\.length, planEnLead: planEnLead\(delTrato\.lead\), \.\.\.data\.cobro \}\)/);
   assert.match(ruta, /await getLeadFullAction\(idNum\)/, 'la ruta lee las señales con la action del pop-up');
 });
 

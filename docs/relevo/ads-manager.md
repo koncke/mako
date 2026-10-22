@@ -13,7 +13,7 @@ los textos de un anuncio y a quién se le muestra. Del otro lado está la **cone
 token de cada cliente, la cuenta publicitaria, la página, la entrada de leads de los formularios) y
 la tab **`/instagram`**, que se retiró el 06/10 y hoy sólo redirige.
 
-> **Vocabulario mínimo:** *ws1* = el workspace 1, que es de **Mauricio Bustos, un CLIENTE** (la
+> **Vocabulario mínimo:** *ws1* = el workspace 1, que es de **Mauricio, un CLIENTE** (la
 > constante se llama `OWNER_WS` por historia, no porque sea el dueño). *ws9* = el workspace de
 > Martín. *ws3* = Cliente de Prueba. *ws11/13/14/15* = clientes reales. Un *conjunto* es un ad set.
 

@@ -1542,7 +1542,7 @@ export function claveCifra(token: string): string | null {
 
 /**
  * Una hora («0:04:43», «12:30») o una fecha («16/10», «16/10/2026», «2026-10-16»): nunca es una cifra del negocio. Medido
- * el 17/10/2026 en el ws13: la transcripción de una llamada que subió el dueño («0:04:43 Cristian: ¿Qué haces?») volvía
+ * el 17/10/2026 en el ws13: la transcripción de una llamada que subió el dueño («0:04:43 Pedro: ¿Qué haces?») volvía
  * «del negocio» a todos los números del 0 al 59, y el «43%» y el «36%» pasaban por dichos por él.
  */
 const HORA_O_FECHA = /\b\d{1,2}:\d{2}(?::\d{2})?\b|\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b|\b\d{4}-\d{2}-\d{2}\b/g;

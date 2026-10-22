@@ -45,6 +45,8 @@ const unMesDespues = (iso: string): string => {
 /** Los botones de cobro de la tab: qué abre cada uno y los modales, ya montados. */
 export function useCobrar(ctx: CtxFicha) {
   const { lead, data } = ctx;
+  // El CRM agregado que se mira (mig 0324, ./trato.ts): lo que se registra o se agrega es de su trato.
+  const crm = ctx.crm?.id ?? null;
   // El comprobante adjunto en el chat con MaKo (la 2.28): si lo hay, cobrar es marcarla, con él ya leído.
   const delChat = useContext(ComprobanteDelChatCtx);
   const { opciones } = useCobrosDelLead(lead.id);
@@ -89,7 +91,7 @@ export function useCobrar(ctx: CtxFicha) {
         show('Pago quitado', () => start(async () => {
           await registrarPagoSueltoAction(lead.id, {
             monto: Number(q.monto_usd), fecha: q.fecha_pago ?? ctx.hoy, hora: q.pago_hora ?? null,
-            moneda: q.moneda ?? null, montoOriginal: q.monto_original ?? null, concepto: q.concepto ?? null, metodo: q.metodo ?? null,
+            moneda: q.moneda ?? null, montoOriginal: q.monto_original ?? null, concepto: q.concepto ?? null, metodo: q.metodo ?? null, crm,
           }).catch(() => {});
           cambio();
         }));
@@ -123,7 +125,7 @@ export function useCobrar(ctx: CtxFicha) {
   } else if (abierto?.que === 'comprobante') {
     modal = <VerComprobante cuota={abierto.cuota} leadId={lead.id} onCerrar={cerrar} />;
   } else if (abierto?.que === 'registrar') {
-    modal = <RegistrarPago leadId={lead.id} monedaNegocio={moneda ?? 'USD'} modo={abierto.modo} sugeridoUsd={abierto.sugeridoUsd} hoy={ctx.hoy} onCerrar={cerrar}
+    modal = <RegistrarPago leadId={lead.id} crm={crm} monedaNegocio={moneda ?? 'USD'} modo={abierto.modo} sugeridoUsd={abierto.sugeridoUsd} hoy={ctx.hoy} onCerrar={cerrar}
       onHecho={(m) => { cerrar(); cambio(); show(m); }} />;
   } else if (abierto?.que === 'agregar') {
     modal = <AgregarCuota ctx={ctx} faltaUsd={abierto.faltaUsd} onCerrar={cerrar} onHecho={(m) => { cerrar(); cambio(); show(m); }} />;
@@ -168,7 +170,7 @@ function AgregarCuota({ ctx, faltaUsd, onCerrar, onHecho }: { ctx: CtxFicha; fal
     if (!Number.isFinite(m) || m <= 0) { setError('El monto tiene que ser mayor a cero.'); return; }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) { setError('Falta la fecha.'); return; }
     start(async () => {
-      const r = await agregarCuotaAction(ctx.lead.id, { monto: m, fecha });
+      const r = await agregarCuotaAction(ctx.lead.id, { monto: m, fecha }, ctx.crm?.id ?? null);
       if (!r.ok) { setError(r.error); return; }
       onHecho(`Cuota de ${usd(m)} agregada`);
     });
@@ -194,7 +196,7 @@ function CargarMonto({ ctx, onCerrar, onHecho }: { ctx: CtxFicha; onCerrar: () =
     const m = Number(String(monto).replace(',', '.'));
     if (!Number.isFinite(m) || m <= 0) { setError('El monto tiene que ser mayor a cero.'); return; }
     start(async () => {
-      const r = await guardarVentaAction(ctx.lead.id, { campo: 'monto', valor: m }, { tipoVisto: ctx.lead.venta_tipo ?? null });
+      const r = await guardarVentaAction(ctx.lead.id, { campo: 'monto', valor: m }, { tipoVisto: ctx.lead.venta_tipo ?? null, crm: ctx.crm?.id ?? null });
       if (!r.ok) { setError(r.error); return; }
       ctx.parchear(ctx.lead.venta_tipo === 'suscripcion' ? { suscripcion_monto_usd: m } : { monto_cierre_usd: m });
       onHecho(`Venta de ${usd(m)} cargada`);

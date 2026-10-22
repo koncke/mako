@@ -95,11 +95,11 @@ test('EL CASO REAL DEL 12/8: la tarea de Mauricio es de Mauricio, diga lo que di
   // 26 de las 37 tareas de «Mau <> Martin: CUSTOMER SUCCESS». Acá `resolverDueño` ya
   // acertaba —lo que las perdió fue el gate de reunion-auto—, pero el mismo input con
   // el flag en true habría entrado igual al tablero del dueño. Las dos puertas cerradas.
-  const conMau = [...PARTICIPANTES, { nombre: 'Mauricio Bustos Eguia', email: 'mbustos@elevate.com.mx' }];
+  const conMau = [...PARTICIPANTES, { nombre: 'Mauricio Ejemplo Uno', email: 'dueno@negocio-uno.com' }];
   for (const esMio of [true, false, undefined]) {
-    const r = resolverDueño({ dueño: 'Mauricio Bustos Eguia', dueñoEmail: 'mbustos@elevate.com.mx', esMio }, YO, conMau);
+    const r = resolverDueño({ dueño: 'Mauricio Ejemplo Uno', dueñoEmail: 'dueno@negocio-uno.com', esMio }, YO, conMau);
     assert.equal(r.esDeOtro, true, `con esMio=${String(esMio)} la tarea de Mau quedó como del dueño`);
-    assert.equal(r.dueñoEmail, 'mbustos@elevate.com.mx');
+    assert.equal(r.dueñoEmail, 'dueno@negocio-uno.com');
   }
 });
 

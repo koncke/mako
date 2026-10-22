@@ -58,7 +58,7 @@ test('la plataforma tampoco por id, aunque la capa venga mal', () => {
 });
 
 test('el workspace 1 no se borra: es el `default 1` de 29 tablas', () => {
-  const m = motivoNoEliminable({ id: 1, nombre: 'Mauricio Bustos', capa: 'completo' }, ctx({ nombreEscrito: 'Mauricio Bustos' }));
+  const m = motivoNoEliminable({ id: 1, nombre: 'Mauricio Ejemplo', capa: 'completo' }, ctx({ nombreEscrito: 'Mauricio Ejemplo' }));
   assert.match(m ?? '', /default/i);
 });
 

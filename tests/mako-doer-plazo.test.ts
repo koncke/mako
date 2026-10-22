@@ -28,6 +28,7 @@
 //                                                                           «el corte del navegador…» (425 s < 900 s)
 //   · ChatMako.tsx con el corte del navegador en 305_000                  → 2 / 1 «el corte del navegador…»
 //   · ChatMakoCrm.tsx con el corte del navegador en 500_000 (espera de más) → 2 / 1 «el corte del navegador…»
+//     (el 22/10/2026 ChatMakoCrm se fue: lo que se escribe en la estrella del CRM va al Cerebro, useChatCliente.ts)
 // Restaurado: 3 / 0.
 // =============================================================================
 
@@ -73,7 +74,6 @@ test('las rutas donde una confirmación por chat corre replicar_landing aguantan
 
 test('el corte del navegador de esas pantallas va DESPUÉS del techo de su ruta (y no mucho después)', () => {
   const PANTALLAS: Array<[string, string]> = [
-    ['app/crm/mako-crm/ChatMakoCrm.tsx', 'app/api/crm/mako/route.ts'],
     ['app/second-brain/useChatCliente.ts', 'app/api/mako/chat/route.ts'],
     ['app/_chat/acciones-formulario.ts', 'app/api/mako/propuesta/route.ts'],
   ];

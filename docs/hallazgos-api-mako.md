@@ -1892,3 +1892,46 @@ todavía fuera de main.
   muestra todo lo que se aprueba.**
 
 *21/10/2026, chat «CRM» (claude4), tercera revisión del Cerebro de la 2.1.*
+
+## Una operación nueva del registro deja AFUERA a otra, sin que nada falle (22/10/2026)
+
+- **Síntoma:** el VERDE de la tanda del feedback 21/10 del CRM dio ROJO en `tests/ficha-editar-con-mako.test.ts`. Con la
+  ficha en «Editar», «cambia el nombre de esta hoja a Cierre» ya no traía `cambiar_ficha_funnel`, y nadie había tocado ni
+  la ficha ni el selector.
+- **Causa:** `toolsDelRegistro` ordena por relevancia contra el texto y corta en el presupuesto de caracteres. La pista de
+  edición («Cambia la ficha del CRM: ») hacía que el pedido saliera «sobre un lead (etapa)», y la relevancia que suma el
+  clasificador (`RELEVANCIA_CRM.etapa`, «cambio etapa mover lead producto») es la de MOVER un lead. Con eso,
+  `cambiar_ficha_funnel` era la ÚLTIMA que entraba. La operación nueva `cambiar_tipo_etapa` («cambiar» + «etapa» en el id,
+  y una descripción larga) pasó delante y se quedó con su lugar. El corte sólo deja un `console.warn`.
+- **El diagnóstico obvio era el equivocado:** no era la ficha ni la operación nueva, y achicar la descripción de
+  `cambiar_tipo_etapa` sólo corría el problema a la próxima operación. La pista también ORDENA, no sólo clasifica: ahora
+  lleva las palabras de la ficha («Cambia la ficha del CRM (sus bloques, hojas y estilo): ») y la pone primera o segunda
+  en los seis pedidos medidos.
+- **La regla:** un test que dice «el turno TRAE la herramienta X» tiene que pedir también un MARGEN (que entre entre las
+  primeras), no sólo que esté. «Está» pasa mientras X sea la última que entra y se rompe en silencio con la próxima
+  operación de la misma área.
+- **Y volvió a pasar el mismo día con otra víctima.** Integración no tomó la tanda: en `tests/ops-center-bateria.test.ts`
+  (main 3/3, la tanda 1/3), «cambia el teléfono del lead Juan a 5491199998888» dejó de traer `editar_contacto_lead` en la
+  app y en WhatsApp. `cambiar_tipo_etapa` sumaba 5 (cambi + etapa en el id, que regala la relevancia genérica, y «leads»
+  en la descripción) contra 4, y con sus 1.072 caracteres no quedaba lugar para los 1.450 de la otra. Arreglar la pista
+  de la ficha había tapado UN síntoma, y la batería encontró el segundo. Lo que lo arregló, probado rompiéndolo:
+  - la descripción sin «leads», que la deja en 4 (empate);
+  - las 4 operaciones nuevas del feedback del 21/10 declaradas al FINAL del área, porque en un empate gana la declarada
+    antes. Al final, pero ANTES de `armar_tab_ficha`: la misma regla la dejó última el 16/10, y tests/ficha-tabs.test.ts
+    lo fija (el primer VERDE con el arreglo dio ROJO ahí).
+  Cada parte sola deja un canal o los dos en rojo (2/1 y 1/2); juntas, 3/3. La regla quedó en AGENTS.md («Una operación
+  nueva se declara AL FINAL de su área»).
+- **Y una tercera vez, con el piso nuevo de Ops Center (94e9e7e40, cinco frases que ahora llegan):** el tren sacó la
+  punta porque `crear_evento_agenda` y `editar_evento_agenda` dejaban sin herramienta a «crea una etiqueta llamada
+  Caliente», «agenda un reel para el jueves a las 10» y «mové el evento del jueves al viernes». No era el orden: sumaban
+  «agend» y «event» DOBLE por el id y el título, que es justo la relevancia que el clasificador pone en cualquier pedido
+  de agenda (`RELEVANCIA_AGENDA`). Se renombraron por lo que crean, `crear_pagina_reserva` y `editar_pagina_reserva`
+  (nunca estuvieron en producción), y la batería volvió a 3/3. Probado rompiéndolo: con el id viejo de la primera, dos
+  frases se caen. Medido con el commit de Ops Center mergeado SIN commitear (`git merge --no-commit` y `--abort`): la
+  batería se corre SOLA, porque en la tanda compartida pasa aunque esté roja (lo avisó Integración).
+
+**Vive en:** lib/api-mako/registro.ts (`ordenarPorRelevancia`, `toolsDelRegistro`) · lib/mako-analyst-lead-reglas.ts
+(`PISTA_EDICION_FICHA`) · lib/api-mako/areas/crm.def.ts (el final del área) · tests/ficha-editar-con-mako.test.ts ·
+tests/ops-center-bateria.test.ts
+*22/10/2026, chat «CRM» (claude3).*
+

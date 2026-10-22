@@ -95,7 +95,7 @@ function textos(x: unknown, out: string[] = []): string[] {
  * confirmación, la agenda de un cliente, sus nombres y su firma.
  */
 const REALES = [
-  'Mauricio', 'Bustos', 'Leila', 'Martín', 'Joan', 'Juan Francisco',
+  'Mauricio', 'Ejemplo', 'Leila', 'Martín', 'Joan', 'Juan Francisco',
   'Código Inmobiliario', 'Negocio que Escala', 'MasteryHaus', 'Vértice', 'AvatarHype', 'Francisco Ramos', 'Dental Ramos',
   'lovable', 'cal.com', 'Bendiciones', 'auditoría', 'inmobiliari', 'captaciones', 'metodología',
 ];

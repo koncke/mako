@@ -163,6 +163,7 @@ export function mapToCrmLead(
     fechaJ2: l.fecha_junta_2,
     phone: l.telefono ?? '—',
     telefonoNorm: l.telefono_normalizado ?? null,
+    instagram: l.instagram ?? null,
     estadoLead: l.estado_lead,
     asistioJ1: l.asistio_j1,
     asistioJ2: l.asistio_j2,

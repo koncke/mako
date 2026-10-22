@@ -19,6 +19,7 @@
 import 'server-only';
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { asegurarLeadDelNegocio, getPagosByLead, proteccionesDeCuotas, type Pago } from './pagos';
+import type { Crm } from './pagos-crm';
 import { esCuotaDeBaja, noEsDeuda } from './cobrado-lead';
 import { getLead, logLeadEvent } from './leads';
 import { nombreCuota } from './pagos-campo';
@@ -42,12 +43,15 @@ export const cuotasParaBaja = (pagos: readonly Pago[]): Pago[] => pagos.filter((
  * links sin pagar (un link de alguien que se fue no se tiene que poder pagar a escondidas del CRM) y se cortan sus
  * recordatorios de cobro. Lo cobrado no se toca.
  */
-export async function darDeBajaCliente(leadId: number, autor: string): Promise<ResultadoBaja> {
+export async function darDeBajaCliente(leadId: number, autor: string, crm: Crm = null, opts: { soloIds?: readonly number[] } = {}): Promise<ResultadoBaja> {
   await asegurarLeadDelNegocio(leadId);
   const lead = await getLead(leadId);
   if (!lead) return { ok: false, error: 'No encontré ese lead en este negocio.' };
-  if (lead.venta_tipo === 'suscripcion') return { ok: false, error: 'Una suscripción no se da de baja: se cancela.' };
-  const objetivo = cuotasParaBaja(await getPagosByLead(leadId));
+  // La suscripción es de la casa: un CRM agregado (mig 0324) no tiene, y su baja es la de SUS cuotas.
+  if (crm == null && lead.venta_tipo === 'suscripcion') return { ok: false, error: 'Una suscripción no se da de baja: se cancela.' };
+  // `soloIds` (22/10/2026, «Vincular cobro»): el reembolso del plan de un producto da de baja SÓLO las cuotas de ese plan,
+  // nunca las de otra compra del mismo trato (tercera revisión de plata: se llevaba US$400 de otra compra y sus links).
+  const objetivo = cuotasParaBaja(await getPagosByLead(leadId, crm)).filter((q) => !opts.soloIds || opts.soloIds.includes(Number(q.id)));
   if (!objetivo.length) return { ok: false, error: 'No le queda nada por cobrar: no hay cuotas para dar de baja.' };
 
   const ws = await getWorkspaceActual();
@@ -90,9 +94,10 @@ export async function darDeBajaCliente(leadId: number, autor: string): Promise<R
 }
 
 /** Deshace la baja: cada cuota vuelve a ser deuda con su vencimiento. Los links anulados no vuelven (se crea otro). */
-export async function deshacerBajaCliente(leadId: number, autor: string): Promise<ResultadoBaja> {
+export async function deshacerBajaCliente(leadId: number, autor: string, crm: Crm = null, opts: { soloIds?: readonly number[] } = {}): Promise<ResultadoBaja> {
   await asegurarLeadDelNegocio(leadId);
-  const deBaja = (await getPagosByLead(leadId)).filter(esCuotaDeBaja);
+  // `soloIds`: deshacer la baja de un plan devuelve SÓLO sus cuotas, no las que alguien dio de baja a mano en ese trato.
+  const deBaja = (await getPagosByLead(leadId, crm)).filter(esCuotaDeBaja).filter((q) => !opts.soloIds || opts.soloIds.includes(Number(q.id)));
   if (!deBaja.length) return { ok: false, error: 'Este cliente no está dado de baja.' };
   const db = await getTenantDb();
   const vueltas: Pago[] = [];

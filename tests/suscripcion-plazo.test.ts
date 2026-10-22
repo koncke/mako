@@ -101,9 +101,11 @@ test('el cableado: el plazo del producto, MP con un día de margen, y sin poder 
 test('el cableado: Stripe sólo en el PRIMER pago y sin tumbarlo, y el lead que se gana lleva el plazo', () => {
   const c = fuente('lib/cobros.ts');
   const a = cuerpo(c, 'aplicarPagoAprobado');
-  assert.match(a, /const plazo = actual\.tipo === 'suscripcion' && nuevo && !renovacion\s*\?/, 'una renovación o una reentrega no reprograma nada');
-  assert.match(a, /if \(plazo && actual\.proveedor === 'stripe' && actual\.proveedor_suscripcion_id\) actual = await programarPlazoStripe\(actual, plazo\);/);
-  assert.match(a, /await ganarLead\(actual, autor, plazo\)/);
+  // Desde el 22/10/2026 (segunda revisión de plata de «Vincular cobro») el plazo se LEE en todo primer pago, porque el aviso
+  // que no es `nuevo` suele ser el que gana al lead; PROGRAMARLO en Stripe sigue atado a `nuevo`.
+  assert.match(a, /const plazo = actual\.tipo === 'suscripcion' && !renovacion\s*\?/, 'una renovación no lee ni reprograma nada');
+  assert.match(a, /if \(plazo && nuevo && actual\.proveedor === 'stripe' && actual\.proveedor_suscripcion_id\) actual = await programarPlazoStripe\(actual, plazo\);/, 'una reentrega no reprograma');
+  assert.match(a, /await ganarLead\(actual, autor, plazo, trato\?\.montoVenta \?\? null\)/);
   assert.match(cuerpo(c, 'ganarLead'), /suscripcion_meses: plazo \}/, 'sin el plazo en el lead, el MRR la cuenta para siempre');
   const prog = cuerpo(c, 'programarPlazoStripe');
   assert.match(prog, /\} catch \(e\) \{\s*console\.error/, 'la plata ya entró: programar el fin nunca tumba el pago');

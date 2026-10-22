@@ -80,7 +80,7 @@ test('el renglón de una cuota de baja se ve, sin botón ni edición, con el ven
   assert.equal(r.estado, 'baja');
   assert.equal(r.accion, 'ninguna');
   assert.equal(r.editable, false);
-  assert.match(r.cuando, /baja del cliente · vencía el 29\/07/);
+  assert.match(r.cuando, /baja del cliente · vencía el 29 de julio/);
 });
 
 test('cobrada, ya no es «de baja»: el cliente volvió y pagó esa cuota', () => {
@@ -120,7 +120,7 @@ test('⚠️ barrido: toda suma de lo impago sin fecha excluye la baja (usa `noE
   // Las que filtran en memoria leen con `*`: traen `baja_at` si existe, y sin la migración 0307 no rompen (pedido del Cerebro).
   assert.doesNotMatch(leer('lib/pagos.ts') + leer('lib/cobros.ts') + leer('lib/graficos-datos-extra.ts'), /select\([^)]*baja_at|'pagos', '[^']*baja_at/, 'una lista con baja_at rompe sin la migración');
   // Paginado desde el 17/10/2026 (leerTodo): las columnas van en su tercer argumento.
-  assert.match(leer('lib/pagos.ts'), /leerTodo<Record<string, unknown>>\(supabase, 'pagos', '\*, leads\(nombre, monto_cierre_usd, fecha_cierre\)'\)/);
+  assert.match(leer('lib/pagos.ts'), /leerTodo<Record<string, unknown>>\(supabase, 'pagos', '\*, leads\(nombre, monto_cierre_usd, fecha_cierre, funnel_id\)'\)/);
 });
 
 test('sólo lib/pagos-baja.ts escribe la baja, y una suscripción no se da de baja (se cancela)', () => {

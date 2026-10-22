@@ -48,7 +48,7 @@ const todos = (c: LandingContenido) => c.paginas.flatMap((p) => p.doc.content.fl
 const REALES = [
   'Mauricio', 'Leila', 'Martín', 'Joan', 'Juan Francisco', 'Brigitte',
   'Código Inmobiliario', 'Negocio que Escala', 'MasteryHaus', 'Vértice', 'AvatarHype',
-  'Francisco Ramos', 'Dental Ramos', 'Sergio Esquer', 'BG Trucking', 'Aspro', 'Bustos', 'Koncke',
+  'Francisco Ramos', 'Dental Ramos', 'Sergio Esquer', 'BG Trucking', 'Aspro', 'Ejemplo', 'Koncke',
 ];
 
 test('son 10 landings con id único, categoría de la lista y un tema que existe', () => {

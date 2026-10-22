@@ -989,13 +989,23 @@
 .co-uso__lleno { display: block; height: 100%; border-radius: inherit; background: var(--primary); }
 .co-uso__lleno--ojo { background: var(--warn); }
 .co-uso__lleno--mal { background: var(--bad); }
-/* Una medición de más de 6 horas (lib/centro-uso.ts → USO_VENCIDO_MS): apagada, con «Sin medir hace X». */
+/* Una ventana ya reiniciada (desde el 22/10/2026; antes, toda medición de más de 6 horas): su último número en gris y la
+   barra apagada, con «Se reinició … (sin medir desde entonces)». */
 .co-uso__ventana--vencida .co-uso__nombre { color: var(--faint); }
 .co-uso__ventana--vencida .co-uso__barra { opacity: .5; }
 .co-uso__lleno--apagado { background: var(--border-strong); }
 .co-uso__reinicio { margin: 0; font-size: var(--fs-meta); color: var(--faint); }
 .co-uso__pie { display: flex; gap: 8px; margin-top: 10px; }
 .co-runner__cuenta-cmd { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+/* El último número nunca se esconde (22/10/2026): una medición vieja va en gris con su edad al lado y la barra de su color
+   pero más tenue; una ventana ya reiniciada, con la barra apagada (--vencida, arriba). Sin chip «Sin lugar» (Martín, 22/10). */
+.co-uso__edad { color: var(--faint); }
+.co-uso__ventana--vieja .co-uso__pct, .co-uso__ventana--vencida .co-uso__pct { color: var(--faint); }
+.co-uso__ventana--vieja .co-uso__barra { opacity: .6; }
+/* La API (22/10/2026, UsoCredito.tsx): debajo de las cuentas, el crédito de cada plan Max. */
+.co-uso__api { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+.co-uso__credito { padding: 10px; border-radius: var(--r-md); background: var(--velo-hover); display: flex; flex-direction: column; gap: 6px; }
+.co-uso__pct--falta { color: var(--warn); font-weight: 600; }
 
 /* La caja (17/10/2026, la B), copiada de la de Claude: el «+» abajo a la izquierda abre su menú hacia arriba (adjuntar,
    y con qué corre), y lo adjuntado son cuadritos arriba del texto, con aire respecto del placeholder. */

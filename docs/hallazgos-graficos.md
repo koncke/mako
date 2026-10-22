@@ -1529,3 +1529,23 @@ Con «Todo», `filasPagos` pintaba «Pendiente» la cuota de un cliente dado de 
 sumaba en `pendiente`. Ahora dice «De baja» o «Devuelta» y no suma: la regla de toda suma de lo impago (`noEsDeuda`,
 lib/cobrado-lead.ts). Se lee con `*` porque `baja_at` es de la mig 0307 y una lista explícita rompe la tabla sin ella.
 **Vive en:** lib/graficos-datos.ts (`filasPagos`) · tests/graficos-cuota-baja.test.ts · *17/10/2026, agente B4.*
+
+## «Editar con MaKo» guarda su charla en la base y llega al Ops Center (22/10/2026, TB1)
+
+Martín, 22/10: «¿Todos esos chats regresan y se quedan registrados en Ops Center?». «Editar con MaKo» guardaba el hilo en
+el NAVEGADOR (localStorage `mako.editar-con-mako.hilos.<informe>`): otra computadora no lo veía y el Ops Center tampoco.
+Ahora cada turno va a `chart_sessions` con la clave `dashboard:<hoja>` por `/api/hilo-de-tab`, y una hoja sin hilo en el
+editor trae el suyo al abrir el panel. Los chats de cada gráfico siguen siendo `dashboard:<hoja>:<gráfico>`: no chocan.
+
+- **Lo que quedó en el navegador se sube UNA vez y se borra** (EditorInforme.tsx, `siVacia`): si esa hoja ya tiene charla
+  en la base no se duplica, y sin sesión (un link compartido) o sin red queda en el navegador para la próxima.
+- **En la base un mensaje de MaKo es UN texto** (lo que sabe dibujar el Ops Center): lo que cambió va en renglones «• …»
+  y los avisos en «Ojo: …», y `hiloDeFilas` los separa al volver. Un aviso guardado sin su marca vuelve como texto.
+- **Después de recargar no vuelven el «Deshacer» ni las burbujas de pedido**, a propósito: la hoja ya se guardó con el
+  cambio y las burbujas navegan desde ESA sesión.
+- **Sin hacer:** la etiqueta de origen en la fila del Ops Center («Dashboard › …») es de OC4 (lib/chart-chats.ts y
+  lib/chat-mako-reglas.ts, del chat Ops Center); hoy la fila dice «Editar con MaKo · <hoja>» por el título. La caja y el
+  hilo únicos van en TB3.
+
+**Vive en:** app/dashboard/hilo-guardado.ts, PanelEditarMako.tsx, EditorInforme.tsx · lib/hilo-de-tab-reglas.ts ·
+tests/dashboard-hilo-guardado.test.ts, tests/hilo-de-tab.test.ts · *22/10/2026, chat «Chats de las tabs».*

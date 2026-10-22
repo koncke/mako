@@ -100,6 +100,7 @@ import { entradaDe } from './registro';
 import { CSS_FICHA } from './ficha-css';
 import { cambioDeNueva, cambioDeVista, fichaConVista, type VistaGaleria } from './galeria';
 import type { CtxFicha } from './tipos';
+import { ctxDelTrato } from './pagos/trato';
 
 // La galería sólo la ve el admin (desde «Templates»): su código (la caja de la casa, el micrófono) no viaja con la
 // ficha de todos, y no hace falta en el server.
@@ -112,7 +113,7 @@ const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing
 const enUnTexto = (t: EventTarget | null): boolean =>
   t instanceof HTMLElement && !!t.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""]');
 
-export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, fondoTabs, arribaTabs, pedido, onNoEsta, sangria }: {
+export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, fondoTabs, arribaTabs, pedido, onNoEsta, sangria, crm }: {
   /** Lo que trajo `getLeadFullAction`: las dos puertas leen lo mismo. */
   data: LeadFullData;
   /** Aplicar en el acto lo que una acción ya escribió en el lead (el pop-up). Sin esto, se relee. */
@@ -131,6 +132,11 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   onNoEsta: () => void;
   /** Cuánto se corre el título de la hoja para quedar a la altura del nombre del lead (punto 9; un largo de CSS). */
   sangria?: string;
+  /**
+   * El CRM AGREGADO que se mira (el del desplegable de la cabecera: una renovación), o null si es la casa. La tab Pagos
+   * muestra y escribe el trato de ESE CRM (./pagos/trato.ts, mig 0324): «el plan de pagos arranca de cero en el CRM nuevo».
+   */
+  crm?: { id: number; nombre: string } | null;
 }) {
   const { lead, stages, pagos } = data;
   // El `router.refresh()` más, en el pop-up, la relectura de la ficha (lead-view/ficha-cambio.tsx).
@@ -167,7 +173,9 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
 
   // Las tabs que salen, con sus reglas de siempre (las de las dos puertas).
   const verReuniones = tieneEtapaDeReunion(stages);
-  const verPagos = muestraPagos({ estado: lead.estado_lead, etapa, cuotas: pagos.length, planEnLead: planEnLead(lead), ...data.cobro });
+  // Mirando un CRM agregado, con SU trato (la casa puede no tener nada y la renovación sí, o al revés).
+  const delTrato = ctxDelTrato({ data, lead, etapa, crm } as CtxFicha);
+  const verPagos = muestraPagos({ estado: delTrato.lead.estado_lead, etapa: delTrato.etapa, cuotas: delTrato.data.pagos.length, planEnLead: planEnLead(delTrato.lead), ...data.cobro });
   const verTracking = data.verTracking ?? true;
   const delLead: TabFicha[] = ['resumen', ...(verTracking ? ['tracking' as const] : []), ...(verReuniones ? ['reuniones' as const] : []), ...(verPagos ? ['pagos' as const] : [])];
   const tabsBloques: TabFicha[] = enEdicion ? ['resumen', 'tracking', ...(verReuniones ? ['reuniones' as const] : []), 'pagos'] : delLead;
@@ -202,6 +210,7 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
     parchear: parchear ?? (() => refrescar()),
     irATab: (clave) => { if (clave === 'insights') { setPanel('analizar'); return; } setIrA({ key: clave, n: Date.now() }); },
     solucionar: (paso) => solucionar(paso, Date.now()),
+    crm: crm ?? null,
   };
   function solucionar(paso: StepId, n: number) {
     setEditando(false);
@@ -478,7 +487,7 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
     // MaKo Analyst pegado al Historial (las dos contestan «qué pasó con esta persona»).
     ...(tabsBloques.includes('tracking') ? [deTab('tracking')] : []),
     ...(tabsBloques.includes('reuniones') ? [deTab('reuniones')] : []),
-    ...(tabsBloques.includes('pagos') ? [{ ...deTab('pagos'), badge: pagos.filter((p) => !p.pagado).length }] : []),
+    ...(tabsBloques.includes('pagos') ? [{ ...deTab('pagos'), badge: delTrato.data.pagos.filter((p) => !p.pagado).length }] : []),
     // Las hojas propias, después de las cuatro y antes del Historial; y la que se está creando, al final.
     ...efectiva.hojas.map((h) => deTab(h.id)),
     ...(nueva && !efectiva.hojas.some((h) => h.id === nueva.id) ? [{ key: nueva.id, label: 'Nueva hoja', content: contenidoNueva(nueva.id) }] : []),

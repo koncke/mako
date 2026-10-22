@@ -4057,10 +4057,10 @@ Martín, revisión del 16/10 (47:15): «al inspeccionar, muchas veces al entrar 
 Mauricio y luego sale el usuario que se está inspeccionando».
 
 - ⚠️ **El diagnóstico obvio era el equivocado. No era `lib/perfil-sujeto.ts` ni la ficha del cliente:** el Sidebar nacía con
-  `useState('Mauricio Bustos')`, un resto de cuando la app era de una sola cuenta, y con `impersonando = false`. Las
+  `useState('Mauricio')`, un resto de cuando la app era de una sola cuenta, y con `impersonando = false`. Las
   iniciales, sin nombre, caían a «MB». Los dos datos se corregían cuando contestaba `/api/auth/me`. Como se entra a
   inspeccionar con una carga dura (`<a href>` el super admin, `location.href` la agencia), el primer cuadro salía mal en
-  CADA entrada. Y no sólo inspeccionando: **cualquier cliente veía «Mauricio Bustos» abajo a la izquierda** hasta que
+  CADA entrada. Y no sólo inspeccionando: **cualquier cliente veía «Mauricio» abajo a la izquierda** hasta que
   llegaba su nombre. La barra de arriba tenía la misma demora: aparecía después y corría la pantalla 50 px.
 - **El primer cuadro lo arma el server.** `lib/vista-de-otro.ts` dice a quién se mira: el cliente, su nombre, su agencia y la
   salida. El layout se lo pasa al Sidebar (`inicial`) y a la barra, y pone `data-barra-agencia` en `<html>` desde el HTML,
@@ -4249,3 +4249,21 @@ mismas reglas en la página de producción, no en un build.
 
 **Vive en:** `app/_components/Sidebar.tsx` (`ANCHO_BARRA_PLEGADA`) · `app/_ui/ajustes.css` · `app/globals.css`
 (`.mk-svc-modal`) · `app/integraciones/IntegracionesBoard.tsx` · test: `tests/ventana-chica.test.ts`
+
+## «Kanban · Lista» y «Personalizar tarjetas»: UNA pieza cada uno para todos los tableros (21/10/2026)
+
+Martín, 21/10: «Los íconos de "tablero y lista" deberían estar como juntos en una sección, y el placeholder del
+"tablero" debe ser "kanban"... Esto en todos lados» y las plantillas de tarjeta «en clientes, plan, etc.».
+
+- **Había TRES selectores de vista** para la misma pregunta: el CRM con dos píldoras `.tk-ptab` sueltas que decían
+  «Tablero», Clientes con su `.bc-toggle` y el Plan con un `VistaToggle` propio que decía «Ver en tarjetas». Por eso
+  «en todos lados» no se cumplía cambiando uno. Ahora es app/_ui/SelectorVista.tsx, con los nombres cortos del
+  catálogo app/_ui/iconos-vista.tsx («Kanban», «Lista»); tests/crm-vista-iconos.test.ts frena una copia nueva
+  (ningún tablero puede volver a dibujar `ICONO_VISTA[` por su cuenta). /admin lo hereda por BarraClientes.
+- **Una miniatura de plantilla no puede ser un `<button>`**: adentro va la tarjeta DE VERDAD, que trae su píldora «Ver
+  info» (otro botón), y un botón dentro de otro no es HTML válido. Es un `div role="radio"` con teclado propio y la
+  tarjeta `inert`: se mira, no se toca. app/_ui/PersonalizarTarjetas.tsx.
+- **La galería dibuja con la función del tablero** (`vistaPrevia(forma, campos)`), no con un dibujo aparte: si fueran
+  dos, la galería podría prometer una tarjeta que el tablero no dibuja.
+- **El CRM dejó de usar clases `tk-*` en la barra**: salió de la lista de tests/tarjetas-familia.test.ts que exige montar
+  `<EstiloTarjetas />` (si vuelve a usarlas, vuelve a la lista).
