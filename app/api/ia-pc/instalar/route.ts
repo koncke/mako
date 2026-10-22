@@ -13,7 +13,8 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { codigoVivo } from '@/lib/ia-pc';
 import { limitePorIp } from '@/lib/limite-publico';
 import { APP_BASE_URL } from '@/lib/app-url';
-import { SISTEMAS_PC, archivoDelPrograma, normalizarCodigo, scriptDeInstalacion, type SistemaPc } from '@/lib/ia-pc-reglas';
+import { SISTEMAS_PC, VERSION_PC, archivoDelPrograma, normalizarCodigo, scriptDeInstalacion, type SistemaPc } from '@/lib/ia-pc-reglas';
+import { registrarError } from '@/lib/errores-app';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -39,8 +40,17 @@ export async function GET(req: NextRequest) {
   const archivos = sistema === 'windows' ? (['windows-x64'] as const) : (['mac-arm64', 'mac-x64'] as const);
   const urls: Record<string, string> = {};
   for (const a of archivos) {
-    const { data } = await getSupabaseServer().storage.from(BUCKET).createSignedUrl(archivoDelPrograma(a), 600);
-    if (!data?.signedUrl) return aviso('No pude preparar la descarga. Intenta de nuevo en un rato.');
+    const { data, error } = await getSupabaseServer().storage.from(BUCKET).createSignedUrl(archivoDelPrograma(a), 600);
+    if (!data?.signedUrl) {
+      // ⚠️ NO PASA CALLADO (IA2, 22/10/2026). La 0.3.2 se desplegó sin sus ejecutables y esto contestaba el `echo` de abajo
+      // con un 200, que ningún log marca como falla: a todo cliente nuevo le fallaba «Conectar mi computadora» y nadie lo
+      // veía. Ahora queda en errores_app (lo leen el vigía y la Ticketera, que abre el ticket la primera vez).
+      await registrarError({
+        origen: 'servidor', nombre: 'IaPcFaltaEjecutable', ruta: '/api/ia-pc/instalar',
+        mensaje: `ia-pc: falta el ejecutable ${VERSION_PC} (${archivoDelPrograma(a)}): ${error?.message ?? 'sin URL firmada'}`,
+      }, null);
+      return aviso('No pude preparar la descarga. Intenta de nuevo en un rato.');
+    }
     urls[a] = data.signedUrl;
   }
   try {

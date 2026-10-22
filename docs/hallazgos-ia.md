@@ -5128,3 +5128,25 @@ cascada de texto, la de herramientas, la visión y el audio) · `app/integracion
 - **Sin hacer:** la prueba en el ws3 con una clave inválida pegada por Martín (necesita el deploy, y poner una clave en el
   ws3 lo pasa a «sólo su IA» mientras dure: los arneses de otros chats que prueban en el ws3 cambiarían de camino). El ws11
   real: la próxima vez que use IA, su fila dice por qué falla, sin que nosotros usemos su clave.
+
+## Desplegado no es funcionando: el instalador de la PC contestaba el error con un 200 (IA1/IA2, 22/10/2026)
+
+**Vive en:** `app/api/ia-pc/instalar/route.ts` · `scripts/ia-pc/publicar-binarios.mts` · `scripts/ia-pc/verificar-binarios.mts`
+· `lib/ia-pc-reglas.ts` (`faltanEnElBucket`, `informeDeBinarios`) · `tests/ia-pc-binarios.test.ts`
+
+- **Síntoma:** la 0.3.2 está en producción desde el 21/10 y el bucket privado `ia-pc` sólo tiene 0.2.0 y 0.3.0 (medido
+  el 22/10 con `verificar-binarios`). Firmar `mako-pc-0.3.2-*` da «Object not found» y la línea del tutorial contesta
+  «No pude preparar la descarga» a TODO cliente nuevo. Nadie lo vio: la ruta contesta 200 con un `echo` (a propósito: con
+  un 4xx, `irm` y `curl -f` no muestran el cuerpo), y un 200 no es una falla en ningún log.
+- **Por qué pasó:** la prueba de punta a punta del 21/10 pasó porque la 0.3.0 se subió desde la PC de Martín; la 0.3.2 se
+  desplegó sin que nadie subiera la suya, y el comando del resumen apuntaba a un worktree ya borrado (C:/dev/wt-ia-ola2).
+- **Regla que queda** (AGENTS.md, «un código que pide un archivo del Storage no se sube sin el archivo»): antes de subir
+  un cambio de `VERSION_PC`, `verificar-binarios` (lista Y firma, como el instalador; sale con 1 si falta). Y la ruta que
+  no puede firmar deja su fila en `errores_app` (huella «ia-pc: falta el ejecutable …»), que ven el vigía y la Ticketera.
+- **Trampa del script:** `publicar-binarios` terminaba con `process.exit()` después de los pedidos, y en Windows Node
+  revienta así («Assertion failed … async.c line 94», medido en el seco del 22/10): el código de salida mentía. Ahora deja
+  `process.exitCode`. Y un worktree no trae `.env.local`: sin `--env` el script lo dice (antes seguía sin base).
+- **Sin hacer:** subir la 0.3.2 (`publicar-binarios --aplicar`, escribe en producción: espera el OK de Martín) y la
+  prueba de punta a punta en la PC de Martín con el ws3 (`probar-punta-a-punta.mts --instalador --reinstalar`). El título
+  del ticket de la fila sale genérico («Falló la pantalla «Api»», de `tituloDeError` en lib/errores-app-reglas.ts); el
+  mensaje sí dice qué falta.
