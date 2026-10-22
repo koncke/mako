@@ -24,7 +24,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { JEFE_SECOND_BRAIN, criaturaDeOffer, esFilaDe, listaDelCliente } from '../lib/chat-mako-reglas';
 import { aspectoDe, ASPECTO_MAKO, esCriaturaDeMako } from '../lib/centro-munecos';
-import { itemsDeOffer, respuestaDeOffer } from '../app/m/mako/chat-ui';
+import { itemsDeOffer, itemsDeSesion, opcionesDeOffer, respuestaDeOffer } from '../app/m/mako/chat-ui';
 import type { OfferMensaje } from '../lib/offer-marco';
 
 const leer = (r: string) => readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', r), 'utf8').replace(/\r\n/g, '\n');
@@ -83,6 +83,17 @@ test('2. una conversación de Offer se dibuja con el MISMO hilo: la voz se escuc
   assert.deepEqual(respuestaDeOffer(ms, '1 a 5'), { preguntaId: 'clientes', idx: 1 });
   assert.equal(respuestaDeOffer(ms, 'otra cosa'), null);
   assert.equal(respuestaDeOffer(ms.slice(0, 2), 'Un curso'), null);
+  // Lo que se DIBUJA es la proyección (hiloDeOffer: con el arranque del onboarding y sus notas de voz, chat Onboarding 22/10), y
+  // sus opciones vigentes se suman al final; la nota de voz de la proyección también se escucha, con el ?ws= de quien mira.
+  const proy = itemsDeSesion([
+    { role: 'user', content: 'Vendo un curso', created_at: '2026-10-18T22:25:00Z', audio: { url: '/api/offer/audio?id=14&m=b', secs: 9 } },
+  ], [], [], (u) => `${u}&ws=21`);
+  assert.ok(proy[0].k === 'msg' && proy[0].voz?.url === '/api/offer/audio?id=14&m=b&ws=21' && proy[0].texto === 'Vendo un curso', 'la voz de la proyección');
+  assert.equal(opcionesDeOffer(ms)?.k, 'bloque', 'las vigentes');
+  assert.equal(opcionesDeOffer(ms.slice(0, 2)), null, 'el último es de la persona: ninguna');
+  const motor = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
+  assert.match(motor, /const l = await pedir<\{ mensajes: MensajeChat\[\] \}>\(`\$\{RUTA\}\?offerId=\$\{s\.id\}`\);/, 'se dibuja la proyección');
+  assert.match(motor, /setItems\(\[\.\.\.itemsDeSesion\(l\.datos\.mensajes \?\? \[\], \[\], \[\], conWsDeAudio\), \.\.\.\(op \? \[op\] : \[\]\)\]\);/);
   // La pregunta rápida no lleva «Elige tú» ni «Saltear» (BloqueHilo.tsx).
   const b = sinComentarios(leer('app/_chat/BloqueHilo.tsx'));
   assert.match(b, /\{!b\.rapida && <button type="button" className="ch-enlace" disabled=\{quieta\} onClick=\{\(\) => responder\(ELIGE_TU_PREGUNTA\)\}>/);

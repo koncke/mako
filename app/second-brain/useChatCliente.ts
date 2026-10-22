@@ -27,7 +27,7 @@ import { copiar } from '@/app/admin/operaciones/mandar';
 import { SIN_MARCAS, aplicarMarca, armarConCita, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
 import type { ItemPropuesta } from '@/app/_chat/TarjetaAccion';
 import {
-  archivosDeRespuesta, idLocal, itemsDeOffer, itemsDeRespuesta, itemsDeSesion, conTarjeta, leerRespuesta, mensajeWADe, respuestaDeOffer,
+  archivosDeRespuesta, idLocal, itemsDeOffer, itemsDeRespuesta, itemsDeSesion, conTarjeta, leerRespuesta, mensajeWADe, opcionesDeOffer, respuestaDeOffer,
   textoTapadoDeRespuesta, problemaDeSeleccion, tipoDeElegido, trasTarjeta, trasTrabajo, type EstadoPropuesta, type ItemHilo, type Leido,
 } from '@/app/m/mako/chat-ui';
 import { achicarImagen } from '@/app/m/mako/subir';
@@ -139,6 +139,8 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   const [deOfferAbierta, setDeOfferAbierta] = useState<OfferSesionVista | null>(null);
   const offerRef = useRef<OfferSesionVista | null>(null);
   const [ahora, setAhora] = useState(() => Date.now());
+  /** La URL de una nota de voz con el `?ws=` del negocio que se mira (un `<audio src>` no pasa por el `fetch` de la casa). */
+  const conWsDeAudio = useCallback((url: string) => conWs(url, ws), [ws]);
   const ocupadoRef = useRef(false);
   const sesionRef = useRef<number | null>(null);
   /** La conversación que se acaba de crear con el primer mensaje: su hilo YA está dibujado, no se recarga. */
@@ -228,16 +230,24 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
     const l = await pedir<Abierta>(`${RUTA}?sessionId=${id}${deAntes ? '&antes=1' : ''}`);
     if (!vigente()) return;
     if (!l.ok) { setErrorCarga(l.reintentable ? l.error : 'No pude abrir el chat.'); setCargado(true); return; }
-    setItems(itemsDeSesion(l.datos.mensajes ?? [], l.datos.propuestas ?? [], l.datos.pantallas ?? []));
+    setItems(itemsDeSesion(l.datos.mensajes ?? [], l.datos.propuestas ?? [], l.datos.pantallas ?? [], conWsDeAudio));
     setCargado(true);
-  }, []);
+  }, [conWsDeAudio]);
 
-  /** La URL de un audio de Offer con el `?ws=` del negocio que se mira (un `<audio src>` no pasa por el `fetch` de la casa). */
-  const conWsDeAudio = useCallback((url: string) => conWs(url, ws), [ws]);
-  const ponerOffer = useCallback((s: OfferSesionVista) => {
+  /**
+   * Una conversación de Offer: lo que se DIBUJA es la proyección (lib/chat-mako-indice.ts → hiloDeOffer: la conversación con el
+   * arranque del onboarding unido por hora y sus notas de voz), y lo que se SIGUE es la sesión de Offer (sus opciones, su
+   * diagnóstico, si se está armando: motor-offer.ts). Sin la proyección, el arranque de un onboarding no se veía (el chat
+   * Onboarding, 22/10/2026). Si la proyección no llega, se dibuja la de Offer.
+   */
+  const ponerOffer = useCallback(async (s: OfferSesionVista) => {
     offerRef.current = s;
     setDeOfferAbierta(s);
-    setItems(itemsDeOffer(s.mensajes, conWsDeAudio));
+    const l = await pedir<{ mensajes: MensajeChat[] }>(`${RUTA}?offerId=${s.id}`);
+    if (offerRef.current?.id !== s.id) return;
+    if (!l.ok) { setItems(itemsDeOffer(s.mensajes, conWsDeAudio)); return; }
+    const op = opcionesDeOffer(s.mensajes);
+    setItems([...itemsDeSesion(l.datos.mensajes ?? [], [], [], conWsDeAudio), ...(op ? [op] : [])]);
   }, [conWsDeAudio]);
 
   useEffect(() => {
@@ -249,11 +259,11 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
       // Una conversación de Offer: se abre con SU motor (motor-offer.ts) y se sigue acá.
       let vivo = true;
       setCargado(false); setErrorCarga(null);
-      void abrirOffer(idOffer).then((l) => {
+      void abrirOffer(idOffer).then(async (l) => {
         if (!vivo) return;
         if (!l.ok) { setErrorCarga(l.error); setCargado(true); return; }
-        ponerOffer(l.sesion);
-        setCargado(true);
+        await ponerOffer(l.sesion);
+        if (vivo) setCargado(true);
       });
       return () => { vivo = false; };
     }
@@ -269,7 +279,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   useEffect(() => {
     if (!armandoOffer || idOffer == null) return;
     const t = window.setInterval(() => {
-      void abrirOffer(idOffer).then((l) => { if (l.ok && offerRef.current?.id === idOffer) ponerOffer(l.sesion); });
+      void abrirOffer(idOffer).then((l) => { if (l.ok && offerRef.current?.id === idOffer) void ponerOffer(l.sesion); });
     }, RELEER_ARMADO_MS);
     return () => window.clearInterval(t);
   }, [armandoOffer, idOffer, ponerOffer]);
@@ -283,7 +293,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
 
   const recargar = () => {
     if (ocupadoRef.current) return;
-    if (idOffer != null) { void abrirOffer(idOffer).then((l) => { if (l.ok) ponerOffer(l.sesion); }); return; }
+    if (idOffer != null) { void abrirOffer(idOffer).then((l) => { if (l.ok) void ponerOffer(l.sesion); }); return; }
     if (idTurno != null) void cargarHilo(idTurno, idAntes != null);
   };
 
@@ -370,11 +380,11 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
       if (ultimo?.de === 'mako' && !ultimo.pregunta && s.puedeConcluir && esOpcionArmar(mensaje, opcionArmar)) {
         setItems((xs) => xs.filter((x) => x.id !== idU));
         const a = await armarOffer(s.id);
-        if (a.ok) ponerOffer(a.sesion); else setFaltaMic(a.error);
+        if (a.ok) await ponerOffer(a.sesion); else setFaltaMic(a.error);
         return;
       }
       const r = await turnoOffer(s.id, mensaje, s.mensajes, respuestaDeOffer(s.mensajes, mensaje));
-      if (r.sesion && offerRef.current?.id === s.id) ponerOffer(r.sesion);
+      if (r.sesion && offerRef.current?.id === s.id) await ponerOffer(r.sesion);
       // Con la conversación de vuelta, lo dicho ya quedó guardado: el error va en la línea de estado y no se reintenta.
       if (!r.ok && !r.sesion) marcar(idU, { estado: 'error', error: r.error });
       else if (!r.ok) setFaltaMic(r.error);

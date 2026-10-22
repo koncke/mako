@@ -85,9 +85,15 @@ let secuencia = 0;
 /** Un id local para la `key` de React (los mensajes guardados no traen id). */
 export const idLocal = (pre: string): string => `${pre}-${Date.now().toString(36)}-${(++secuencia).toString(36)}`;
 
-const aMensaje = (m: MensajeChat, i: number): ItemHilo => ({
+/** `conWs` le pega a la URL de una nota de voz el `?ws=` de la pestaña: un `<audio src>` no pasa por el `fetch` de la casa, y
+ *  sin él el super admin que mira un cliente recibe 403 (/api/offer/audio). */
+type ConWs = (url: string) => string;
+const sinWs: ConWs = (u) => u;
+const aMensaje = (m: MensajeChat, i: number, conWs: ConWs = sinWs): ItemHilo => ({
   k: 'msg', id: `m${i}-${m.created_at ?? ''}`, role: m.role, texto: m.content, at: m.created_at ?? null,
   ...(m.adjuntos?.length ? { archivos: m.adjuntos } : {}),
+  // La nota de voz (Offer y el onboarding, 22/10/2026): se escucha, y el texto es la transcripción (lib/mako-turno-app-reglas.ts).
+  ...(m.audio?.url ? { voz: { url: conWs(m.audio.url), secs: m.audio.secs } } : {}),
 });
 
 /** Los archivos guardados del mensaje de la persona que devolvió un turno (para cambiar la vista previa por ellos). */
@@ -124,20 +130,20 @@ export const rutaDeArchivo = (ref: string): string => `/api/mako/chat?adjunto=${
 const aPropuesta = (t: TarjetaPendiente): ItemHilo => ({ k: 'propuesta', id: `p${t.pendienteId}`, t, estado: 'pendiente' });
 
 /** Un mensaje guardado y, debajo, lo que dibuja (lo creado de un «Hecho: …» vuelve con su miniatura al recargar). */
-const conSusBloques = (m: MensajeChat, i: number): ItemHilo[] => {
+const conSusBloques = (m: MensajeChat, i: number, conWs: ConWs = sinWs): ItemHilo[] => {
   // El «En curso: …» de un trabajo largo que sigue: su G6 consulta y dice cómo termina; la burbuja quedaba diciendo «En
   // curso» al lado de un G6 terminado (la segunda revisión de la ola 1).
   const sigue = (m.bloques ?? []).some((b) => b.t === 'trabajo' && !!b.consulta && b.pasos.some((p) => p.estado === 'en_curso'));
   return [
-    ...(sigue ? [] : [aMensaje(m, i)]), ...(m.bloques ?? []).map((b, j): ItemHilo => ({ k: 'bloque', id: `b${i}-${j}-${m.created_at ?? ''}`, b })),
+    ...(sigue ? [] : [aMensaje(m, i, conWs)]), ...(m.bloques ?? []).map((b, j): ItemHilo => ({ k: 'bloque', id: `b${i}-${j}-${m.created_at ?? ''}`, b })),
   ];
 };
 
 /** El hilo de una sesión recién abierta: los mensajes guardados y, al final, lo que espera (las tarjetas y, desde la
  *  1.10, las propuestas de pantalla pendientes de este chat, con su formulario). */
-export function itemsDeSesion(mensajes: readonly MensajeChat[], propuestas: readonly TarjetaPendiente[], pantallas: readonly PropuestaPantalla[] = []): ItemHilo[] {
+export function itemsDeSesion(mensajes: readonly MensajeChat[], propuestas: readonly TarjetaPendiente[], pantallas: readonly PropuestaPantalla[] = [], conWs: ConWs = sinWs): ItemHilo[] {
   return conRespuestas([
-    ...mensajes.flatMap(conSusBloques), ...propuestas.map(aPropuesta),
+    ...mensajes.flatMap((m, i) => conSusBloques(m, i, conWs)), ...propuestas.map(aPropuesta),
     ...pantallas.map((p): ItemHilo => ({ k: 'pantalla', id: `s-${p.escritorio}`, p })),
   ]);
 }
@@ -162,11 +168,18 @@ export function itemsDeOffer(mensajes: readonly OfferMensaje[], conWs: (url: str
       }];
     }
     const out: ItemHilo[] = [{ k: 'msg', id: `of-${m.id}`, role: 'assistant', texto: m.texto, at: m.at || null }];
-    if (i === ultimo && m.opciones?.length) {
-      out.push({ k: 'bloque', id: `of-${m.id}-op`, b: { t: 'pregunta', pregunta: '', opciones: m.opciones.map((titulo) => ({ titulo })), varias: !!m.varias, rapida: true } });
-    }
-    return out;
+    const op = i === ultimo ? opcionesDeOffer(mensajes) : null;
+    return op ? [...out, op] : out;
   }));
+}
+
+/** Las opciones VIGENTES de una conversación de Offer: las del último mensaje, si es de MaKo y trae (las de antes ya no se
+ *  contestan). Van al final del hilo, sea el de Offer o el de la proyección con el arranque (lib/chat-mako-indice.ts →
+ *  hiloDeOffer, que no las trae). */
+export function opcionesDeOffer(mensajes: readonly OfferMensaje[]): ItemHilo | null {
+  const m = mensajes[mensajes.length - 1];
+  if (!m || m.de !== 'mako' || !m.opciones?.length) return null;
+  return { k: 'bloque', id: `of-${m.id}-op`, b: { t: 'pregunta', pregunta: '', opciones: m.opciones.map((titulo) => ({ titulo })), varias: !!m.varias, rapida: true } };
 }
 
 /** Lo que se manda a Offer al tocar una opción: si es la de una pregunta del DIAGNÓSTICO (el último mensaje de MaKo), su
