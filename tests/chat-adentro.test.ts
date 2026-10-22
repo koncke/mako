@@ -127,7 +127,7 @@ test('4. las tres caras dibujan el formulario, con los mismos campos que su pant
   assert.match(leer('app/api/mako/propuesta/route.ts'), /await confirmarAccionAction\(id, body\.payload as Record<string, unknown>\)[\s\S]*await descartarAccionAction\(id\)/, 'las MISMAS acciones de /mako/revisar');
   assert.match(leer('app/mako/revisar/[id]/RevisarAccion.tsx'), /import \{ Campo, armarPayload, valorInicial, valorLegible, type OperacionPlana, type Valor \} from '\.\.\/formulario';/, 'la pantalla de revisión usa los mismos campos');
   for (const f of ['app/second-brain/useChatCliente.ts', 'app/crm/mako-crm/ChatMakoCrm.tsx', 'app/crm/lead-view/MakoAnalystLead.tsx', 'app/m/mako/ChatMako.tsx']) {
-    assert.match(leer(f), /itemsDeSesion\([^)]*pantallas \?\? \[\]\)/, `${f}: las propuestas pendientes vuelven al abrir`);
+    assert.match(leer(f), /itemsDeSesion\([^)]*pantallas \?\? \[\](, conWsDeAudio)?\)/, `${f}: las propuestas pendientes vuelven al abrir`);
   }
 });
 
