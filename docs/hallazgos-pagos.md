@@ -813,8 +813,10 @@ renovaciones mostraba «cuota 1, cobrada el 01/04», que era de su primer servic
   (`ddmm`, lib/cobrado-lead.ts): «1 de abril», con el año sólo si no es el de hoy.
 
 **Sin hacer** (con dónde vive):
-- La hoja «Cobros» YA GUARDADA del ws1 no tiene el control: se agrega desde el editor («Filtro» → «Agregar filtro» →
-  «Funnel») o con una escritura en `app_settings` (`general.informe.2`) que pide el OK de Martín.
+- ~~La hoja «Cobros» YA GUARDADA del ws1 no tiene el control~~ (CO1, 22/10/2026): toda hoja que salió de una plantilla de
+  cobros (`plantilla` «cobros» o «cobranza») lo recibe al LEERSE (`conFunnelDeCobros`, lib/graficos-catalogo.ts), en todos
+  los negocios, sin escribir nada en producción. **La regla:** lo que una plantilla gana después se le da a las hojas viejas
+  en el saneo, no escribiéndolas a mano una por una (eso sólo alcanza a la que se mira).
 - Los bloques del DEAL (contrato, datos fiscales, servicio, promesa, obligaciones) siguen siendo del lead en cualquier
   CRM: app/crm/lead-view/ficha/pagos/bloques-deal.tsx.
 - Un CRM agregado no tiene suscripción (`lead_funnel_venta_tipo_check`): una mensualidad es de la casa.

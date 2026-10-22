@@ -15,6 +15,7 @@ import { cobradoDeLaVenta, cobrosDelTrato, cobrosSinLosDe, faltaDeLaVenta } from
 import { crmEnVista, sinTratoLeido } from '../app/crm/lead-view/ficha/pagos/trato';
 import { plata, valoresDelLead } from '../lib/variables-del-lead';
 import type { Lead } from '../lib/leads';
+import { sanearHoja } from '../lib/graficos-catalogo';
 import { cobradoDelLead } from '../lib/cobrado-lead';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -206,4 +207,20 @@ test('2ª · el lote y el rescate no pierden la plata de un CRM, y sin el trato 
   const bloques = sinComentarios(leer('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx'));
   assert.match(bloques, /const editando = props\.editando \|\| sinTrato;/, 'las cuotas');
   assert.match(bloques, /const editando = personalizando \|\| sinTratoLeido\(ctx\);/, 'la venta');
+});
+
+// CO1 (plan del Cerebro del 22/10): la hoja «Cobros» GUARDADA del ws1 no tenía el «Funnel», y escribirla en producción no
+// alcanza a la de los demás negocios. Se lo da el saneo al leerla.
+// Roturas: `conFunnelDeCobros` que no agrega nada: 13 / 1. Que lo agregue a cualquier hoja (sin mirar la plantilla): 13 / 1.
+test('CO1 · una hoja de cobros guardada sin el «Funnel» lo recibe al leerse, una sola vez y con un id estable', () => {
+  const guardada = { id: 'gmvbm0t7x5qzp', nombre: 'Cobros', plantilla: 'cobros', controles: [{ id: 'p1', tipo: 'periodo', preset: 'este_mes_completo' }], componentes: [] };
+  const h = sanearHoja(guardada, 0)!;
+  const f = h.controles.filter((c) => c.tipo === 'lista' && c.campo === 'producto');
+  assert.equal(f.length, 1, 'trae el selector de CRM');
+  assert.equal(f[0].id, 'gmvbm0t7x5qzp-funnel', 'con un id que sale de la hoja: lo elegido mirando sobrevive a recargar');
+  assert.equal(f[0].valores, null, 'en «Todos»: no filtra nada hasta que se elija');
+  assert.equal(sanearHoja(h, 0)!.controles.filter((c) => c.campo === 'producto').length, 1, 'leerla otra vez no lo duplica');
+  assert.equal(sanearHoja({ ...guardada, plantilla: 'cobranza' }, 0)!.controles.filter((c) => c.campo === 'producto').length, 1, 'la Cobranza del Dashboard también');
+  assert.equal(sanearHoja({ ...guardada, plantilla: 'marketing' }, 0)!.controles.filter((c) => c.campo === 'producto').length, 0, 'otra hoja no');
+  assert.equal(sanearHoja({ ...guardada, plantilla: undefined }, 0)!.controles.filter((c) => c.campo === 'producto').length, 0, 'una hoja sin plantilla no');
 });
