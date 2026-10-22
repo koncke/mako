@@ -186,6 +186,16 @@ test('4b. EN VIVO: el mismo toque dos veces (dos POST a la vez) no duplica pregu
   const h2 = conLoNuevo(h1, v, { ahora: 20, vivo: true, respuesta: NEGOCIO_CONFIRMAR[0] })!;
   assert.equal(conLoNuevo(h2, v, { ahora: 30, vivo: true, respuesta: NEGOCIO_CONFIRMAR[0] }), null);
   assert.deepEqual(h2.map((x) => x.texto), ['¿Tu negocio se llama «Acme»?', NEGOCIO_CONFIRMAR[0]]);
+  // CRUZADO: el primer POST ya anotó lo que sigue («Gracias… cuéntame qué vendes») cuando llega el segundo.
+  const h3 = conLoNuevo(h2, vistaDe([m('arr-oferta', 'mako', 'Gracias, Ana. Ahora cuéntame qué vendes en Acme.')]), { ahora: 40, vivo: true })!;
+  assert.equal(conLoNuevo(h3, v, { ahora: 50, vivo: true, respuesta: NEGOCIO_CONFIRMAR[0] }), null, 'tampoco cruzado');
+  // Una pregunta que se VOLVIÓ a hacer, contestada igual: eso sí se anota (pasó dos veces).
+  const otra = vistaDe([m('arr-nombre-ok', 'mako', '¿Te llamo «Que Tal»?', [...NOMBRE_CONFIRMAR])]);
+  let h4 = conLoNuevo([], otra, { ahora: 10, vivo: true })!;
+  h4 = conLoNuevo(h4, otra, { ahora: 20, vivo: true, respuesta: NOMBRE_CONFIRMAR[1] })!;
+  h4 = conLoNuevo(h4, otra, { ahora: 30, vivo: true })!; // la vuelve a hacer
+  h4 = conLoNuevo(h4, otra, { ahora: 40, vivo: true, respuesta: NOMBRE_CONFIRMAR[1] })!;
+  assert.deepEqual(h4.map((x) => x.texto), ['¿Te llamo «Que Tal»?', NOMBRE_CONFIRMAR[1], '¿Te llamo «Que Tal»?', NOMBRE_CONFIRMAR[1]]);
 });
 
 test('5. EN VIVO: la pregunta que vuelve después de una respuesta se anota otra vez («Ver otros tipos»)', () => {
@@ -393,6 +403,8 @@ test('16. el script de reconstrucción: en seco por defecto, y no toca un histor
 //   · a mitad el día del deploy, sin marcar reconstruido → 22/1 (6) · en vivo nunca marca reconstruido → 22/1 (6)
 //   · sin congelar con el cierre → 22/1 (4) · una tanda que no entra entera en el tope → 22/1 (7)
 //   · en el cierre, la última pregunta (ya contestada) como abierta → 22/1 (4) · el mismo toque dos veces → 22/1 (4b)
+//   · el doble toque mirando sólo los dos últimos (el cruzado pasa) → 16/1 (4b) · mirando la PRIMERA vez de la pregunta
+//     (bloquea la que se volvió a hacer) → 16/1 (4b)
 //   · `loQueContesto` con el índice crudo → 21/2 (4, 5)
 //   · el adjunto sin texto se tira → 22/1 (11) · el audio sin texto deja la burbuja vacía → 22/1 (11)
 //   · el aviso «Reconstruido» para cualquiera: en la regla → 22/1 (11) · en el índice → 22/1 (14)
