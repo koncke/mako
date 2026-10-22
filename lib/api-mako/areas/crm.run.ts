@@ -85,7 +85,9 @@ import { campanasParaMaKo, asignarCampanaAFunnels } from '@/lib/campana-funnel';
 // El evento de agenda vinculado a una etapa de reunión (16/10/2026): las mismas funciones que la pantalla.
 import {
   listarEventosDeAgenda, prepararVinculo, vincularEvento, buscarVinculo, desvincularEvento, type AgendaDelNegocio,
+  crearEventoDeAgenda, editarEventoDeAgenda,
 } from '@/lib/agenda-evento-etapa-server';
+import { datosDeEvento, mismoIdentificador } from '@/lib/agenda-evento-etapa';
 import { puedeQuitar, aQuienPromover, etapaDeEntrada, type ProductoDelLead } from '@/lib/lead-funnel-reglas';
 import {
   listarEtiquetas, etiquetaPorId, etiquetasDeLead, conteoPorEtiqueta, crearEtiqueta, editarEtiqueta,
@@ -1026,6 +1028,49 @@ export const RUNNERS: Runners = {
       if (!r.ok) return { ok: false, resumen: r.error };
       if (r.yaEstaba) return { ok: false, resumen: 'Ese evento ya estaba vinculado ahí: no se cambió nada.' };
       return { ok: true, resumen: `Listo: quien reserve «${r.evento.nombre}» cae en «${r.etapaNombre}» de «${r.funnel}».`, datos: { evento: r.evento.identificador, embudoId: r.funnelId, etapa: r.etapa } };
+    }),
+  },
+  // Crear y editar un evento de la agenda (21/10/2026): las MISMAS funciones que «Asignar evento» de la pantalla.
+  crear_evento_agenda: {
+    preparar: async (input) => {
+      if (input.proveedor !== 'calendly' && input.proveedor !== 'calcom') return { error: 'La agenda es calendly o calcom.', faltan: ['proveedor'] };
+      const d = datosDeEvento({ nombre: input.nombre, duracionMin: input.duracionMin });
+      if (!d.ok) return { error: d.error };
+      const agenda = input.proveedor === 'calcom' ? 'Cal.com' : 'Calendly';
+      return {
+        payload: { proveedor: input.proveedor, nombre: d.nombre, duracionMin: d.duracionMin },
+        resumen: `Crear en ${agenda} el evento «${d.nombre}», de ${d.duracionMin} minutos, con la disponibilidad de la cuenta.`,
+      };
+    },
+    ejecutar: (payload) => seguro('crear el evento', async () => {
+      const r = await crearEventoDeAgenda({ proveedor: payload.proveedor, nombre: payload.nombre, duracionMin: payload.duracionMin });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: `Listo: creado «${r.evento.nombre}». Para que sus reservas caigan en una etapa, vincular_evento_etapa con el evento ${r.evento.identificador}.`, datos: { evento: r.evento.identificador, proveedor: r.evento.proveedor } };
+    }),
+  },
+  editar_evento_agenda: {
+    preparar: async (input) => {
+      if (input.proveedor !== 'calendly' && input.proveedor !== 'calcom') return { error: 'La agenda es calendly o calcom.', faltan: ['proveedor'] };
+      const d = datosDeEvento({ nombre: input.nombre, duracionMin: input.duracionMin }, true);
+      if (!d.ok) return { error: d.error };
+      let agenda: Awaited<ReturnType<typeof listarEventosDeAgenda>>;
+      try { agenda = await listarEventosDeAgenda(); } catch { return { error: 'No pude leer los eventos de la agenda. Intenta de nuevo.' }; }
+      const buscado = String(input.evento ?? '').trim();
+      const delProveedor = agenda.eventos.filter((e) => e.proveedor === input.proveedor && e.enLaCuenta);
+      const e = delProveedor.find((x) => mismoIdentificador(x.identificador, buscado))
+        ?? delProveedor.find((x) => x.nombre.trim().toLowerCase() === buscado.toLowerCase());
+      if (!e) return { error: `No encontré ese evento en la cuenta.`, disponibles: delProveedor.map((x) => ({ evento: x.identificador, nombre: x.nombre })) };
+      const cambios = [d.nombre != null && d.nombre !== e.nombre ? `el nombre a «${d.nombre}»` : null, d.duracionMin != null && d.duracionMin !== e.duracionMin ? `la duración a ${d.duracionMin} minutos` : null].filter(Boolean);
+      if (!cambios.length) return { error: `«${e.nombre}» ya está así.`, yaEstaba: true };
+      return {
+        payload: { proveedor: e.proveedor, evento: e.identificador, ...(d.nombre != null ? { nombre: d.nombre } : {}), ...(d.duracionMin != null ? { duracionMin: d.duracionMin } : {}) },
+        resumen: `Cambiar en «${e.nombre}» ${cambios.join(' y ')}.${e.vinculo ? ` Sigue vinculado a «${e.vinculo.etapaNombre}».` : ''}`,
+      };
+    },
+    ejecutar: (payload) => seguro('editar el evento', async () => {
+      const r = await editarEventoDeAgenda({ proveedor: payload.proveedor, identificador: payload.evento, nombre: payload.nombre, duracionMin: payload.duracionMin });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: `Listo: «${r.evento.nombre}»${r.evento.duracionMin ? `, ${r.evento.duracionMin} minutos` : ''}.` };
     }),
   },
   desvincular_evento_etapa: {

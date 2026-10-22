@@ -121,6 +121,45 @@ export async function listarEventTypes(): Promise<EventTypeCalendly[]> {
     }));
 }
 
+// ── CREAR Y EDITAR un tipo de evento (21/10/2026) ───────────────────────────────────────────────
+// Martín, 21/10/2026, sobre «Asignar evento»: «me gustaría que se pueda editar o crear eventos desde allí también».
+// Calendly lo abrió el 17/06/2025 (community.calendly.com, «New Event Type management APIs»): `POST /event_types` y
+// `PATCH /event_types/{uuid}`, SÓLO uno a uno, con los datos básicos (dueño, nombre, duración, ubicación, color…). Lo de
+// la disponibilidad va aparte y no se toca acá: el evento nace con la de la cuenta.
+// ⚠️ NO MEDIDO contra una cuenta real (21/10/2026): la forma sale del anuncio y de la referencia pública. Un token sin
+// permiso de escritura contesta 403: el mensaje de Calendly llega entero (`errorDeCalendly`).
+
+type EventTypeCrudo = { uri?: string; name?: string; duration?: number; active?: boolean; scheduling_url?: string; locations?: Array<{ kind?: string }> };
+
+function eventTypeDe(e: EventTypeCrudo | undefined): EventTypeCalendly {
+  if (!e?.uri) throw new CalendlyAgendaError('Calendly no devolvió el evento.');
+  return {
+    uri: e.uri, nombre: (e.name ?? '').trim(), duracionMin: Number(e.duration) || 0,
+    kinds: (e.locations ?? []).map((l) => l.kind).filter((k): k is string => Boolean(k)),
+    schedulingUrl: e.scheduling_url ?? '',
+  };
+}
+
+/** Crea un tipo de evento uno a uno en la cuenta del token, ACTIVO (sin `active`, Calendly lo deja apagado). */
+export async function crearEventTypeCalendly(i: { nombre: string; duracionMin: number }): Promise<EventTypeCalendly> {
+  const owner = await usuarioUri();
+  const r = await pedir<{ resource?: EventTypeCrudo }>(`${API}/event_types`, {
+    method: 'POST', body: JSON.stringify({ owner, name: i.nombre, duration: i.duracionMin, active: true }),
+  });
+  return eventTypeDe(r.resource);
+}
+
+/** Cambia el nombre o la duración de un tipo de evento (por su URI, la que se vincula). */
+export async function editarEventTypeCalendly(uri: string, i: { nombre?: string; duracionMin?: number }): Promise<EventTypeCalendly> {
+  const uuid = uri.trim().replace(/\/+$/, '').split('/').pop() ?? '';
+  if (!/^[A-Za-z0-9-]{6,}$/.test(uuid)) throw new CalendlyAgendaError('Ese no es un evento de Calendly.');
+  const cuerpo: Record<string, unknown> = {};
+  if (i.nombre != null) cuerpo.name = i.nombre;
+  if (i.duracionMin != null) cuerpo.duration = i.duracionMin;
+  const r = await pedir<{ resource?: EventTypeCrudo }>(`${API}/event_types/${uuid}`, { method: 'PATCH', body: JSON.stringify(cuerpo) });
+  return eventTypeDe(r.resource);
+}
+
 /**
  * A qué event type corresponde una R1 / R2 en ESTE workspace.
  *

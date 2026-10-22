@@ -563,6 +563,45 @@ export function eventTypesDeRespuestaCalcom(body: unknown): EventTypeCalcom[] {
   return out;
 }
 
+/** El slug de un tipo de evento nuevo: minúsculas, sin acentos, con guiones. Cal.com lo exige único por usuario. */
+export function slugCalcom(nombre: string): string {
+  return nombre.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'evento';
+}
+
+/** Un pedido de escritura a `/v2/event-types` (crear o editar): el evento que vuelve, o un error para la persona. */
+async function escribirEventTypeCalcom(apiKey: string, ruta: string, method: 'POST' | 'PATCH', cuerpo: Record<string, unknown>): Promise<EventTypeCalcom> {
+  const r = await fetch(`${CALCOM_API.base}${ruta}`, {
+    method, body: JSON.stringify(cuerpo),
+    headers: { ...calcomHeaders(apiKey), 'cal-api-version': VERSION_EVENT_TYPES_CALCOM },
+    cache: 'no-store', signal: AbortSignal.timeout(10000),
+  });
+  const body = await r.json().catch(() => null) as { status?: unknown; data?: unknown; error?: { message?: unknown } } | null;
+  if (r.status === 401 || r.status === 403) throw new Error('Cal.com no aceptó la API key: cópiala de nuevo en Integraciones.');
+  const motivo = typeof body?.error?.message === 'string' ? body.error.message : null;
+  if (!r.ok || body?.status === 'error') throw new Error(motivo ? `Cal.com: ${motivo}` : `Cal.com respondió ${r.status}.`);
+  const [e] = eventTypesDeRespuestaCalcom({ data: [body?.data] });
+  if (!e) throw new Error('Cal.com no devolvió el evento.');
+  return e;
+}
+
+/**
+ * Crea un tipo de evento (21/10/2026, «Asignar evento»: «que se pueda editar o crear eventos desde allí»). `POST
+ * /v2/event-types` con `cal-api-version: 2024-06-14`: `title`, `slug` y `lengthInMinutes` (cal.com/docs, «v1 v2
+ * differences»: `length` pasó a `lengthInMinutes`). ⚠️ NO MEDIDO contra una cuenta real.
+ */
+export async function crearEventTypeCalcom(apiKey: string, i: { nombre: string; duracionMin: number }): Promise<EventTypeCalcom> {
+  return escribirEventTypeCalcom(apiKey, '/event-types', 'POST', { title: i.nombre, slug: slugCalcom(i.nombre), lengthInMinutes: i.duracionMin });
+}
+
+/** Cambia el nombre o la duración (`PATCH /v2/event-types/{id}`, el mismo cuerpo que crear). */
+export async function editarEventTypeCalcom(apiKey: string, id: string, i: { nombre?: string; duracionMin?: number }): Promise<EventTypeCalcom> {
+  if (!/^\d{1,12}$/.test(id.trim())) throw new Error('Ese no es un evento de Cal.com.');
+  const cuerpo: Record<string, unknown> = {};
+  if (i.nombre != null) cuerpo.title = i.nombre;
+  if (i.duracionMin != null) cuerpo.lengthInMinutes = i.duracionMin;
+  return escribirEventTypeCalcom(apiKey, `/event-types/${id.trim()}`, 'PATCH', cuerpo);
+}
+
 /** Los tipos de evento de la cuenta de esa API key. Tira con el código de Cal.com si no contesta bien. */
 export async function listarEventTypesCalcom(apiKey: string): Promise<EventTypeCalcom[]> {
   const r = await fetch(`${CALCOM_API.base}/event-types`, {

@@ -228,3 +228,28 @@ export function identificadoresNecesarios(input: {
 
 /** La tabla que falta (la mig 0293 sin aplicar): PostgREST la nombra PGRST205 y Postgres 42P01. */
 export const faltaLaTabla = (e: { code?: string | null } | null | undefined): boolean => !!e && (e.code === 'PGRST205' || e.code === '42P01');
+
+// ── CREAR Y EDITAR un evento desde «Asignar evento» (21/10/2026) ───────────────────────────────────
+// Martín: «me gustaría que se pueda editar o crear eventos desde allí también». Lo que viaja a Calendly o Cal.com es
+// el nombre y la duración: lo demás (la disponibilidad, la ubicación) queda con lo de la cuenta y se cambia allá.
+
+/** Las duraciones que ofrece la pantalla, en minutos. La API acepta cualquiera entre 5 y 720. */
+export const DURACIONES_EVENTO: readonly number[] = [15, 30, 45, 60, 90];
+export const MAX_NOMBRE_EVENTO = 80;
+
+/**
+ * Lo que se va a crear o a cambiar, limpio, o por qué no. `parcial`: al EDITAR, lo que no viene queda como está (pero
+ * algo tiene que venir); al CREAR, las dos cosas son obligatorias.
+ */
+export function datosDeEvento(input: { nombre?: unknown; duracionMin?: unknown }, parcial = false):
+  { ok: true; nombre?: string; duracionMin?: number } | { ok: false; error: string } {
+  const nombre = input.nombre == null ? undefined : String(input.nombre).replace(/\s+/g, ' ').trim();
+  const dur = input.duracionMin == null || input.duracionMin === '' ? undefined : Number(input.duracionMin);
+  if (!parcial && !nombre) return { ok: false, error: 'Ponle un nombre al evento.' };
+  if (nombre !== undefined && !nombre) return { ok: false, error: 'El nombre no puede quedar vacío.' };
+  if (nombre && nombre.length > MAX_NOMBRE_EVENTO) return { ok: false, error: `El nombre es largo: hasta ${MAX_NOMBRE_EVENTO} letras.` };
+  if (!parcial && dur === undefined) return { ok: false, error: 'Elige cuánto dura.' };
+  if (dur !== undefined && !(Number.isInteger(dur) && dur >= 5 && dur <= 720)) return { ok: false, error: 'La duración va en minutos, entre 5 y 720.' };
+  if (parcial && nombre === undefined && dur === undefined) return { ok: false, error: 'No hay nada para cambiar: el nombre o la duración.' };
+  return { ok: true, ...(nombre !== undefined ? { nombre } : {}), ...(dur !== undefined ? { duracionMin: dur } : {}) };
+}

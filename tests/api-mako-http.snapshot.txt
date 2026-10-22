@@ -135,6 +135,7 @@ crear_contacto_chatwoot_lead
 crear_crm
 crear_diseno_imagen
 crear_etiqueta
+crear_evento_agenda
 crear_evento_calendario
 crear_evento_comunidad
 crear_experimento
@@ -178,6 +179,7 @@ editar_contacto_lead
 editar_cuota
 editar_dato_deal
 editar_etiqueta
+editar_evento_agenda
 editar_evento_comunidad
 editar_grafico_dashboard
 editar_hoja_con_ia_dashboard

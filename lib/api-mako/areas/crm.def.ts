@@ -39,6 +39,7 @@ import { PLANTILLAS_TEMA, TIPOGRAFIAS } from '@/lib/graficos-temas';
 import { METODOS_PAGO } from '@/lib/pagos-campo';
 import { CAMPOS_TARJETA_LEAD, DISENOS_TARJETA } from '@/lib/tarjeta-kanban';
 import { TIPOS_ETAPA } from '@/lib/etapa-reunion';
+import { MAX_NOMBRE_EVENTO } from '@/lib/agenda-evento-etapa';
 
 const TAB = { tab: 'crm' } as const;
 const TAB_ADMIN = { tab: 'crm', rolMinimo: 'admin' } as const;
@@ -522,6 +523,33 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
     reversible: true, escribe: 'borra el vínculo del evento (agenda_evento_etapa) y suelta su fila del índice de webhooks si ya nadie la usa',
+  },
+  // 21/10/2026, Martín, sobre «Asignar evento»: «me gustaría que se pueda editar o crear eventos desde allí también».
+  // Las mismas funciones que la pantalla (lib/agenda-evento-etapa-server.ts): el nombre y la duración, nada más.
+  {
+    id: 'crear_evento_agenda', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Crear un evento de agenda',
+    descripcion: 'PROPONE crear un tipo de evento en el Calendly o el Cal.com del negocio (queda pendiente hasta el «sí»): un evento uno a uno con su nombre y su duración; la disponibilidad y la ubicación son las de la cuenta. Nace activo. Para que sus reservas caigan en una etapa, después vincular_evento_etapa. Google Calendar no: no expone sus páginas de reserva. Solo el administrador.',
+    parametros: [
+      { nombre: 'proveedor', tipo: 'string', obligatorio: true, enum: ['calendly', 'calcom'], descripcion: 'la agenda: calendly o calcom.' },
+      { nombre: 'nombre', tipo: 'string', obligatorio: true, max: MAX_NOMBRE_EVENTO, descripcion: 'el nombre del evento («Llamada de diagnóstico»).' },
+      { nombre: 'duracionMin', tipo: 'number', obligatorio: true, entero: true, minimo: 5, maximo: 720, descripcion: 'cuánto dura, en minutos.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: false, escribe: 'crea el tipo de evento en la cuenta de Calendly o Cal.com del negocio (se borra desde esa cuenta)',
+  },
+  {
+    id: 'editar_evento_agenda', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Editar un evento de agenda',
+    descripcion: 'PROPONE cambiar el nombre o la duración de un tipo de evento de Calendly o Cal.com del negocio (queda pendiente hasta el «sí»). Lo que no se pasa queda como está. El evento sale de listar_eventos_agenda. Solo el administrador.',
+    parametros: [
+      { nombre: 'proveedor', tipo: 'string', obligatorio: true, enum: ['calendly', 'calcom'], descripcion: 'la agenda: calendly o calcom.' },
+      { nombre: 'evento', tipo: 'string', obligatorio: true, max: 300, descripcion: 'el identificador del evento (de listar_eventos_agenda), o su nombre.' },
+      { nombre: 'nombre', tipo: 'string', max: MAX_NOMBRE_EVENTO, descripcion: 'el nombre nuevo.' },
+      { nombre: 'duracionMin', tipo: 'number', entero: true, minimo: 5, maximo: 720, descripcion: 'la duración nueva, en minutos.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'cambia el nombre o la duración del tipo de evento en la cuenta de Calendly o Cal.com del negocio',
   },
   // #893 (17/10/2026): una campaña o un conjunto de Meta va a UNO O VARIOS funnels (lib/campana-config.ts, `tambien`).
   {
