@@ -2207,6 +2207,9 @@ Martín, con la captura del ws1: todas las criaturas eran círculos, tres «Chat
   (PGRST200). Se usa una lectura de los de la persona para todas, y una por sesión sólo para las que quedan, hasta 20.
 - **Las dos «Mi oferta» del ws1 son del MISMO funnel y la misma base** (funnel 1, base 1). El funnel no las distingue; lo
   primero que dijo la persona sí («sprint.mauriciobustos.com»). Sin tema, se usa la fecha, y si también coincide, un número.
+- **Trampa (el tren 1, 22/10):** tests/d6b-rutas.test.ts fija la tabla «honesta» de lo que la ruta del chat
+  (app/api/mako/chat/route.ts) usa sin IA. `conTemas` entró a la ruta sin entrar a esa tabla, y el tren dio rojo (lo sumó
+  Integración en e115adfbd). Una lectura nueva en esa ruta va a la tabla, y se corre ese test con los tuyos.
 - **Regla:** la lista del cliente se agrupa con `porJefe` y `GruposPorJefe` (app/admin/operaciones/PiezasCentro.tsx), los
   mismos del super admin. Un título nuevo va «Origen › tema»; nunca un nombre fijo que se repite.
 - **SIN HACER:** el teléfono del super admin (app/m/operaciones/ChatsMovil.tsx) no dibuja el nombre de un grupo sin jefe, y el
