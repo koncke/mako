@@ -170,3 +170,64 @@ export function vinculoDelPago(
   const cuenta = cuentaDelCobro(c);
   return vinculos.find((v) => v.productoId === Number(c.producto_id) && v.cuentas.includes(cuenta)) ?? null;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Lo que se corrigió en la revisión adversarial (22/10/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Lo que se escribe al EDITAR un producto: sólo lo que vino. `suscripcionMeses` y `cuotas` son opcionales en el contrato, y
+ * escribir el null de `productoValido` borraba el plazo de una suscripción «6 meses» (los links nuevos cobraban sin fin, el
+ * bug del 15/10) o las cuotas de un pago único. El tipo manda: una suscripción no tiene cuotas, un pago único no tiene plazo.
+ */
+export function patchDeEdicion(
+  i: ProductoCobroInput,
+  fila: { nombre: string; tipo: 'unico' | 'suscripcion'; monto_usd: number; suscripcion_meses: number | null; cuotas: number | null },
+): Record<string, unknown> {
+  const patch: Record<string, unknown> = { nombre: fila.nombre, tipo: fila.tipo, monto_usd: fila.monto_usd };
+  if (fila.tipo === 'suscripcion') {
+    patch.cuotas = null;
+    if (i.suscripcionMeses !== undefined) patch.suscripcion_meses = fila.suscripcion_meses;
+  } else {
+    patch.suscripcion_meses = null;
+    if (i.cuotas !== undefined) patch.cuotas = fila.cuotas;
+  }
+  return patch;
+}
+
+/** El precio y las cuotas del producto AL CREAR el link (`cobros.plan_producto`, mig 0326). */
+export type PlanCongelado = { precio: number; cuotas: number | null };
+
+/** Lo que se guarda en el cobro al crearlo, de un producto. null = sin precio (no hay plan que congelar). */
+export function congelarPlan(p: Pick<ProductoCobro, 'montoUsd' | 'cuotas'>): PlanCongelado | null {
+  return p.montoUsd != null && p.montoUsd > 0 ? { precio: p.montoUsd, cuotas: p.cuotas != null && p.cuotas > 1 ? p.cuotas : null } : null;
+}
+
+/** El `plan_producto` guardado, leído con cuidado (viene de la base como jsonb). */
+export function planCongeladoDe(v: unknown): PlanCongelado | null {
+  if (!v || typeof v !== 'object') return null;
+  const o = v as Record<string, unknown>;
+  const precio = num(o.precio);
+  const cuotas = num(o.cuotas);
+  return precio != null && precio > 0 ? { precio, cuotas: cuotas != null && cuotas > 1 ? cuotas : null } : null;
+}
+
+/**
+ * El plan y la venta de un pago, de lo que COBRÓ el link (revisión adversarial, alta 1): el plan congelado en el cobro, no el
+ * producto de hoy. Si el producto se editó entre el link y el pago, el plan de hoy no es el que se cobró: con el de hoy, un
+ * pago de US$1.000 armaba un plan de 3 cuotas y quedaba suelto al lado (US$1.000 de deuda que no existía). Y el plan se arma
+ * SÓLO si su primer pago es lo que se cobró; si no, sin plan y la venta es lo cobrado. Un cobro de antes de la 0326 (sin
+ * plan congelado) es lo que cobró: su monto, sin cuotas. El tipo es el del COBRO (una suscripción sigue siéndolo).
+ */
+export function planDelCobro(
+  c: { tipo: 'unico' | 'suscripcion'; monto_usd: number | null },
+  congelado: PlanCongelado | null,
+  dia: number,
+): { plan: PlanDelProducto | null; montoVenta: number | null } {
+  if (c.tipo === 'suscripcion') return { plan: null, montoVenta: null };
+  const base = congelado ?? (c.monto_usd != null ? { precio: c.monto_usd, cuotas: null } : null);
+  if (!base) return { plan: null, montoVenta: null };
+  const p = planDelProducto({ tipo: 'unico', montoUsd: base.precio, cuotas: base.cuotas }, dia);
+  const coincide = p.primerPagoUsd != null && c.monto_usd != null && Math.abs(p.primerPagoUsd - c.monto_usd) < 0.01;
+  return coincide ? { plan: p.plan, montoVenta: base.precio } : { plan: null, montoVenta: c.monto_usd };
+}

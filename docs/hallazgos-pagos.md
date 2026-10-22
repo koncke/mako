@@ -980,3 +980,27 @@ notas del Cerebro).
 **Vive en:** supabase/migrations/0326_cobro_en_ganado.sql · lib/cobro-etapa.ts · lib/cobro-etapa-server.ts ·
 lib/cobros.ts (`aplicarPagoAprobado`, `crearCobro`) · lib/pagos.ts (`registrarCobroDeProveedor`, `crm`) ·
 app/crm/cobro-etapa-actions.ts · tests/cobro-etapa.test.ts.
+
+### La revisión adversarial de «Vincular cobro»: el pago se asienta con lo que cobró, no con lo que el producto dice hoy (22/10/2026)
+
+- **El plan salía del producto de HOY.** Un link de US$1.000 creado antes de ponerle 3 cuotas al producto, pagado
+  después, armaba el plan 333,34 + 2 × 333,33 y el pago no encontraba su cuota 0: entraba suelto al lado, y quedaba una
+  deuda de US$1.000 que no existía. **La regla:** lo que el pago asienta sale de lo que COBRÓ el link. El cobro congela el
+  precio y las cuotas al crearse (`cobros.plan_producto`, `planDelCobro`), y el plan sólo se arma si su primer pago es lo
+  que se cobró. El tipo también es el del cobro.
+- **Un CRM archivado dejaba el pago sin asentar en ningún lado** (ni cash, ni Ganado, ni aviso, durante los 14 días del
+  cron): `listarFunnels` filtra los activos y `agregarAProducto` tiraba. Ahora el pago entra en la casa y lo dice en el
+  historial; la etapa de Ganado se busca al pagar, no la que se guardó al vincular.
+- **Dos avisos del mismo pago a la vez** (Mercado Pago reentrega en paralelo, el cron se cruza): el segundo no encontraba
+  la cuota 0 que el primero estaba armando y asentaba suelto. El trato se RECLAMA en el cobro (`trato_estado`, compare-and-
+  set; a los 2 minutos se puede volver a reclamar) y queda escrito al terminar. El que pierde relee o tira y lo completa el
+  próximo intento. Lo que se escribe al armar se puede repetir: un intento cortado entre la venta y el plan se completa.
+- **Devuelto el primer pago, las cuotas del plan que armó seguían como deuda.** El reembolso total las da de baja
+  (`planArmadoPorElCobro` → `darDeBajaCliente` en ese trato).
+- **Editar el producto borraba el plazo** si no se mandaba (es opcional en el contrato): el bug del 15/10 por otro camino.
+  Editar escribe sólo lo que vino (`patchDeEdicion`).
+- **Lo que se aprobaba no era lo que se cobraba:** la API de MaKo resumía con el precio entero y el link cobraba el primer
+  pago; y la landing buscaba su pendiente por el precio y no lo reusaba nunca (cada clic, otro checkout).
+
+**Sin hacer:** cuando el pago gana en un CRM agregado, la casa queda abierta, y sus automatizaciones pueden seguir
+escribiéndole a quien ya pagó (no se midió). La regla de la casa es de CRM (lib/lead-funnel.ts, `moverEtapaEnProducto`).

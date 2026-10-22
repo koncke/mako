@@ -3440,7 +3440,9 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   `prepararTratoDelPago` (lib/cobro-etapa-server.ts) dice en qué CRM entra y dónde se gana, y `aplicarPagoAprobado` asienta
   ahí (`registrarCobroDeProveedor` con `crm`). Asentarlo en la casa y moverlo después deja una ventana con la plata en el
   trato equivocado y un reintento que la duplica. Lo que se escribe al preparar se puede repetir: la venta con una
-  condición, el plan sólo si la venta es nueva, y la cuota 0 se busca por número y monto.
+  condición, el plan sólo si la venta es la de ese pago, y la cuota 0 se busca por número y monto. El trato se RECLAMA en
+  el cobro antes de armarse (`trato_estado`): dos avisos a la vez no arman dos. Y lo que se asienta sale de lo que COBRÓ
+  el link (`cobros.plan_producto`, congelado al crearlo), nunca del producto de hoy: se puede haber editado en el medio.
 
 # Un flag de visibilidad protege la PANTALLA; la API hay que cerrarla aparte
 

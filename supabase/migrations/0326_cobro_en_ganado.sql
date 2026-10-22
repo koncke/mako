@@ -43,4 +43,24 @@ comment on table cobro_etapa_vinculos is 'La etapa (Ganado) de un CRM vinculada 
 alter table cobro_etapa_vinculos enable row level security;
 revoke all on cobro_etapa_vinculos from anon, authenticated;
 
+-- El cobro guarda lo que cobró y a qué trato fue (revisión adversarial del 22/10/2026):
+--   · plan_producto: el precio y las cuotas del producto AL CREAR el link ({precio, cuotas}). El plan del trato sale de acá,
+--     no del producto de hoy: editarlo entre el link y el pago armaba un plan que no era el que se cobró.
+--   · trato_estado / trato_at / trato: el trato se RECLAMA antes de armarse (compare-and-set: 'armando', y a los 2 minutos
+--     se puede volver a reclamar) y queda escrito al terminar ('listo'). Dos avisos del mismo pago no arman dos tratos, y un
+--     reembolso sabe si ese pago armó un plan.
+alter table cobros
+  add column if not exists plan_producto jsonb,
+  add column if not exists trato_estado  text,
+  add column if not exists trato_at      timestamptz,
+  add column if not exists trato         jsonb;
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'cobros_trato_estado_check') then
+    alter table cobros add constraint cobros_trato_estado_check check (trato_estado is null or trato_estado in ('armando', 'listo'));
+  end if;
+end $$;
+comment on column cobros.plan_producto is 'El precio y las cuotas del producto al crear el link (mig 0326): el plan del trato sale de acá, no del producto de hoy.';
+comment on column cobros.trato is 'A qué trato fue el pago y si armó un plan (mig 0326, lib/cobro-etapa-server.ts). trato_estado: armando | listo.';
+
 commit;

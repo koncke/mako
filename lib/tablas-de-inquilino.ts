@@ -43,7 +43,8 @@
  * del chat del Video Editor, `video_editor_chats`, mig 0298, la copia de sus proyectos, `video_editor_proyectos`, mig 0299, y lo
  * que la API propone en ellos, `video_editor_propuestas`, mig 0302, el 16/10; y `plan_reuniones_descartadas`, mig 0300, y
  * `plan_repriorizaciones`, mig 0301, el mismo día; y el hilo del chat del Image Editor, `image_editor_chats`, mig 0303; y el
- * canal email de Chats, `email_mensajes`, mig 0312, el 17/10), en orden alfabético.
+ * canal email de Chats, `email_mensajes`, mig 0312, el 17/10; y los vínculos de «Vincular cobro», `cobro_etapa_vinculos`, mig 0326, el
+ * 22/10), en orden alfabético.
  *
  * ⚠️ EL ORDEN NO ES EL DE BORRADO. 39 de las 87 claves foráneas que apuntan a
  * `workspaces` no cascadean, y adentro de un inquilino hay hijos antes que padres
@@ -60,7 +61,7 @@ export const TABLAS_DE_INQUILINO = [
   // TENANT_TABLES y NO acá, así que vaciar un negocio las dejaba. Medido contra producción el 17/10/2026
   // (las tres existen, con FK a workspaces en cascada). tests/tenant-tables-contract.test.ts → INVERSO 1.
   'avisos_cola', 'avisos_programados', 'branding_assets', 'calendario_eventos', 'chart_chats', 'chart_sessions',
-  'chat_agent_handoffs', 'chat_estado', 'chat_eventos', 'chat_leidos', 'cliente_entrega', 'cliente_entrega_fuera', 'cliente_entrega_orden', 'closing_analyses', 'closing_jobs', 'cobros',
+  'chat_agent_handoffs', 'chat_estado', 'chat_eventos', 'chat_leidos', 'cliente_entrega', 'cliente_entrega_fuera', 'cliente_entrega_orden', 'closing_analyses', 'closing_jobs', 'cobro_etapa_vinculos', 'cobros',
   'comunidad_ajustes', 'comunidad_baneos', 'comunidad_categorias', 'comunidad_comentarios',
   'comunidad_evento_avisos', 'comunidad_eventos', 'comunidad_likes', 'comunidad_notificaciones',
   'comunidad_perfiles', 'comunidad_posts', 'comunidad_seguimientos', 'comunidad_votos',

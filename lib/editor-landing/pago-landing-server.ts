@@ -27,6 +27,8 @@ import { getSupabaseServer } from '../supabase';
 import { getTenantDb, runWithWorkspace } from '../workspace';
 import { urlPublicaLanding } from '../app-url';
 import { listProductos } from '../productos';
+import { productosParaCobrar } from '../cobro-etapa-server';
+import { planDelProducto } from '../cobro-etapa';
 import { createLead, logLeadEvent } from '../leads';
 import { emailComparable, esLeadDuplicado } from '../leads-duplicados';
 import { idDelFunnelDefault } from '../funnels';
@@ -119,15 +121,21 @@ export async function temaDelPaso(ws: number, temaId: string): Promise<{ tema: T
  */
 export async function estadoCobroLanding(ws: number): Promise<EstadoCobroLanding> {
   return runWithWorkspace(ws, async () => {
-    const [conectadas, productos] = await Promise.all([pasarelasConectadas(ws), listProductos(true)]);
+    const [conectadas, productos, enCuotas] = await Promise.all([pasarelasConectadas(ws), listProductos(true), productosParaCobrar().catch(() => [])]);
     return {
       conectadas,
-      productos: productos.map((p): ProductoDePago => ({
-        id: Number(p.id),
-        nombre: String(p.nombre ?? '').trim() || `Producto #${p.id}`,
-        tipo: p.tipo === 'suscripcion' ? 'suscripcion' : 'unico',
-        montoUsd: Number.isFinite(Number(p.monto_usd)) && Number(p.monto_usd) > 0 ? Number(p.monto_usd) : null,
-      })),
+      productos: productos.map((p): ProductoDePago => {
+        const montoUsd = Number.isFinite(Number(p.monto_usd)) && Number(p.monto_usd) > 0 ? Number(p.monto_usd) : null;
+        const c = enCuotas.find((x) => x.id === Number(p.id));
+        return {
+          id: Number(p.id),
+          nombre: String(p.nombre ?? '').trim() || `Producto #${p.id}`,
+          tipo: p.tipo === 'suscripcion' ? 'suscripcion' : 'unico',
+          montoUsd,
+          // Lo que cobra el link (mig 0326): el primer pago si va en cuotas.
+          primerPagoUsd: c && p.tipo !== 'suscripcion' ? planDelProducto(c, 1).primerPagoUsd : montoUsd,
+        };
+      }),
     };
   });
 }
