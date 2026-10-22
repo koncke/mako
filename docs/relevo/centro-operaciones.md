@@ -10,7 +10,7 @@ funcionar». Ramas `ops-center-cliente` (tanda 1, worktree `C:/dev/wt-ops-client
 |---|---|
 | 1. Los chats cortados a la mitad, sin la foto | HECHO (tanda 1): era el hilo fuera de `.co-hilo__col`; las filas son las del super admin, con `MiFoto` |
 | 2. Sin «Offer» ni «Antes» plegables; seguir cualquier chat ahí | HECHO (tanda 1): UNA lista; Offer por /api/offer (motor-offer.ts), los de antes con `antes` |
-| 3. El chat de Onboarding de Florencia y sus audios | Lo GUARDA el chat Onboarding (se le escribió el 21/10 ~23:40, sin respuesta al cerrar). La nota de voz de Offer ya se dibuja como audio con la transcripción debajo (`itemsDeOffer` → `voz`) |
+| 3. El chat de Onboarding de Florencia y sus audios | HECHO con el chat Onboarding (su punta 99453fec5, en Integración): el chat de Offer se DIBUJA con la proyección `hiloDeOffer` (el arranque del onboarding y sus notas de voz, con el `?ws=` del negocio) y se SIGUE con la sesión de Offer |
 | 4. «Cerebro» con la estrella | HECHO (tanda 1): `JEFE_SECOND_BRAIN = 'Cerebro'` (también en el teléfono y en la API de MaKo) |
 | 5. La caja igual, clic derecho, citar | Caja: la ÚNICA desde la tanda 1. Clic derecho, deslizar, reacciones, destacar, fijar, eliminar y la cita: tanda 2 (marcas por persona en el negocio, lib/chat-mako-marcas-db.ts). Sin «Reenviar» |
 | 6. «Conectar» si no conectó su Claude o GPT | Tanda 2: «Conectar tu Claude» al final de la caja, abre «Tus cuentas de IA» ahí mismo (`?suIA=1`, la misma cuenta del turno) |
@@ -20,7 +20,8 @@ cada chat en su hoja, con el motor de la computadora (app/second-brain/useChatCl
 
 **Las tres reglas del 21/10 (~23:10), HECHAS:** la pieza `<MakoEnLaTab tab="…" />` (la estrella abajo a la izquierda y el Cerebro en
 un panel a la izquierda) y las criaturas siempre vivas. Falta que cada tab la monte en lugar de su chat a la derecha: el CRM primero
-(se le pasó la API el 22/10); las demás, cada una su chat (el INVENTARIO de tests/chat-unico.test.ts).
+(se le pasó la API el 22/10, y el 22/10 se le sumó lo que pidió: `arriba`, `aviso` y `--ancho-panel-mako`, sha dfad7f0b7); las
+demás, cada una su chat (el INVENTARIO de tests/chat-unico.test.ts).
 
 **SIN HACER, en este orden:**
 1. **Borrar app/m/mako/ChatMako.tsx**, que quedó sin quien lo monte, con sus 15 tests (ver el hallazgo).
