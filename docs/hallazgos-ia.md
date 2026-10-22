@@ -4268,6 +4268,31 @@ directorio desde el que se corren: van desde el clon (que lo tiene) y con el có
 
 · *2026-10-16 chat «Onboarding» (claude3)*
 
+### Qué deja leer Anthropic del crédito de los planes Max, y quién más lo gasta (22/10/2026)
+
+Para la sección «API» del Uso del Ops Center (Martín: «quiero ver también el USO de la API... deberían ser 800 usd al mes»).
+Medido con las dos claves del crédito, sólo con lecturas (`GET`):
+- **`/v1/organizations/cost_report` y `/v1/organizations/usage_report/messages` contestan 401**: «The Admin API requires an
+  Admin API key or an organization-scoped API key». Las organizaciones del crédito son «Individual Org», y la Admin API no
+  existe para cuentas individuales (platform.claude.com/docs/en/manage-claude/usage-cost-api). Para leer el costo desde acá
+  haría falta convertir cada una en organización (Console → Organization) y crear una Admin key (`sk-ant-admin01-…`) por
+  organización. **El saldo no tiene endpoint**: se ve sólo en platform.claude.com → Billing → Promotional credits, con el
+  monto y el vencimiento.
+- **Lo que sí contesta una clave común es `/v1/organizations/me`**: el nombre de su organización. Así se verificó qué clave
+  es de qué plan: la CUENTA1 es «Mauricio's Individual Org» (claude1) y la CUENTA2, «Lean's Individual Org» (claude2).
+- **El crédito llega con cada cobro del plan, no el 1 del mes**; el tope de gasto de la organización sí se reinicia el 1.
+  MaKo no sabe el día de cobro de ningún plan.
+
+**El diagnóstico obvio («sumar las filas con la marca del crédito») se queda corto.** El ws10 tiene como su
+`ANTHROPIC_API_KEY` la clave del crédito de la cuenta 2 (scripts/claude-propio-de-un-negocio.mts). Todo lo que ese negocio
+paga con «su» Claude sale del mismo crédito y sus filas NO llevan la marca: llevan la del negocio o ninguna. Por eso
+lib/credito-api-db.ts descifra las `ANTHROPIC_API_KEY` de los negocios y las compara con las del crédito. Ni el ws de la
+plataforma ni el del dueño entran: ahí caen filas de varias claves (`wsDeLaFila`). En octubre (al 22): cuenta 1, US$0,25 en
+47 llamadas, todo del onboarding; cuenta 2, US$0, y el ws10 tampoco gastó.
+
+**Regla:** una clave que comparten la plataforma y un negocio se cuenta por la CLAVE, no por la marca del motivo. Y un número
+que Anthropic no deja leer se dice «lo que registra MaKo», con el link a donde está el real.
+
 ## Los pedidos sueltos en los chats: las palabras de un área no rutean, y un plazo corto a la cascada no corre nada (16/10/2026)
 
 **Vive en:** `lib/mako-pedidos.ts` (`decidir`, `PARTES_DE_LO_ABIERTO`, `RE_VERBOS`, `CONECTOR`) · `lib/mako-pedidos-ia.ts`
