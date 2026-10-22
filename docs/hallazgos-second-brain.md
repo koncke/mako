@@ -2165,6 +2165,33 @@ sale «✗ no hay ninguna fila» en una corrida con los dos. Solo, pasa. La marc
 Cerebro); el botón de un negocio sin ninguna IA sigue siendo Gemini, y eso lo decide Martín; la 0316 (`archivero_files.origen`)
 sigue sin aplicar en producción, y cada pegado archivado lo avisa en el log.
 
+## Los documentos del «+» en una conversación de Offer se perdían sin decirlo (22/10/2026, OC7)
+
+En el Ops Center, el «+» de una conversación de Offer juntaba los archivos y el turno salía SÓLO con el texto: `mandarAOffer`
+no los recibía (relevo, «SIN HACER» 2). Ahora se suben y se leen en esa conversación antes del turno, como en la tab
+(app/second-brain/motor-offer.ts → `leerArchivosDeOffer`: subir-url → PUT → `leer`), y viajan como `docIds`.
+
+- **Regla (la de la tab):** si un archivo no se pudo leer, el turno NO sale y el mensaje queda con «Reintentar»; lo ya leído
+  queda anotado por archivo (un `WeakMap` por `File`), así el reintento no lo sube ni lo lee dos veces.
+- **SIN HACER:** la nota de voz de OC7 espera IA7 (la transcripción con la IA del negocio, rama ia15-2210, todavía no en
+  main). Muchos documentos juntos no van por el lote del servidor de la tab (O9, `UMBRAL_LOTE`): se leen uno por uno.
+
+## Las charlas del lienzo de Automations en el Ops Center: la puerta es `setting`, no «automations» (22/10/2026, OC5)
+
+La charla con MaKo de cada automatización vive en app_settings (`automatizacion.chat:<id>`) y nadie la proyectaba (239 chats; el
+ws1 tiene 4, «Sprint · apertura» con 14 mensajes). Ahora el Ops Center las lista como «Automations › <nombre>», agrupadas, y
+las abre de sólo lectura con «Seguir en el lienzo» (lib/chat-mako-indice.ts → `chatsDeAutomations`, `hiloDeAutomatizacion`).
+
+- **Trampa: la clave de la PUERTA no es el nombre de la tab.** `puedeVerKey('automations', 'admin')` da false (medido): la
+  tab Automations se guarda como `setting` (lib/movil-rutas.ts). Con «automations», como decía el plan, la proyección no le
+  mostraba nada a nadie, sin ningún error. **Regla:** `PROYECCIONES[].tab` es la clave de `puedeVerKey`, y se prueba con el
+  admin antes de usarla.
+- **Trampa medida en el plan, cubierta:** el `value` es un STRING JSON, y `value.mensajes` sin parsear da 0 sin error. El
+  índice lista por la clave y lee con `leerChat` (que parsea con `sanearChat`); el test lo fija.
+- **SIN HACER:** se sigue en el lienzo, no en el Ops Center, hasta que AU4 pase el lienzo a las piezas únicas. La URL del Ops
+  Center no abre una charla del lienzo (no hay `?automatizacion=`). Se listan las 60 más recientes del negocio (el ws3, con
+  el arnés de pruebas, tiene más de 200).
+
 ## La lista del cliente: «no hay randomizer» era falso, y «Chat de antes» era un chat sin título (22/10/2026)
 
 Martín, con la captura del ws1: todas las criaturas eran círculos, tres «Chat de antes», dos «Mi oferta», y sin orden.

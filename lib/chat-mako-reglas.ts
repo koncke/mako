@@ -12,7 +12,8 @@
 //
 // SIN imports de valores: lo usan la pantalla ('use client') y los tests.
 
-import type { SesionChat } from './mako-turno-app-reglas';
+import type { MensajeChat, SesionChat } from './mako-turno-app-reglas';
+import type { MensajeChatMako } from './automatizacion-chat';
 
 /** El nombre del jefe del chat con MaKo: «Cerebro», con la estrella de MaKo (lib/centro-munecos.ts → esCriaturaDeMako), como el
  *  del Ops Center del super admin (21/10/2026, Martín: «El chat principal, al igual que SuperAdmin, debe ser "Cerebro" y tener la
@@ -258,10 +259,11 @@ export function seEscondeDeOffer(s: { id: number; updatedAt: string }, copiada: 
 
 /** Lo elegido en la barra: una conversación con MaKo, un chat que todavía no tiene (el jefe sin nada, o «Nuevo chat»), un
  *  chat de antes (de «Pregúntale a MaKo»), una conversación de Offer, o un chat de Claude Code (su clave del Centro). */
-export type ElegidoChat = { id: number } | { virtual: 'jefe' | 'nuevo' } | { antes: number } | { centro: string } | { offer: number } | { grupo: true };
+export type ElegidoChat = { id: number } | { virtual: 'jefe' | 'nuevo' } | { antes: number } | { centro: string } | { offer: number } | { grupo: true }
+  | { automatizacion: number };
 
 /** De dónde sale un chat de la lista: a qué motor va lo que se escribe (MaKo, o el de Offer). El grupo no tiene motor: se lee. */
-export type OrigenDeFila = 'mako' | 'offer' | 'antes' | 'grupo';
+export type OrigenDeFila = 'mako' | 'offer' | 'antes' | 'grupo' | 'automations';
 
 export type FilaDelCliente = {
   /** La key de React y la búsqueda del elegido. */
@@ -299,6 +301,27 @@ export function origenDeClave(clave: string | null | undefined): string | null {
   return null;
 }
 export const ORIGEN_PREGUNTALE = 'Pregúntale a MaKo';
+
+// ── Las charlas del lienzo de Automations (22/10/2026, OC5) ─────────────────────────────────────────────────────────
+export const ORIGEN_AUTOMATIONS = 'Automations';
+/** Dónde se SIGUE una charla del lienzo: el lienzo de esa automatización con su chat abierto (el que sabe editarla). */
+export const rutaDelLienzo = (id: number): string => `/automations?sec=${id}&mako=1`;
+/** Lo que dice la caja de una charla del lienzo: se lee acá y se sigue allá. */
+export const AVISO_LIENZO = 'Esta charla es del lienzo de la automatización: se sigue ahí.';
+
+/**
+ * Los mensajes de una charla del lienzo, para el hilo del Ops Center: lo de la persona y lo de MaKo, con su hora. Una pregunta de
+ * MaKo lleva sus opciones debajo; lo que salió de una tarjeta lo dice («Desde «Mensaje 1»: …»). Lo vacío no se dibuja.
+ */
+export function mensajesDeAutomatizacion(ms: readonly MensajeChatMako[]): MensajeChat[] {
+  return ms.flatMap((m): MensajeChat[] => {
+    const opciones = m.pregunta?.opciones.length ? `\n\n${m.pregunta.opciones.map((o) => `- ${o.label}`).join('\n')}` : '';
+    const cuerpo = `${m.texto.trim()}${opciones}`.trim();
+    if (!cuerpo) return [];
+    const content = m.tarjeta ? `Desde «${m.tarjeta}»: ${cuerpo}` : cuerpo;
+    return [{ role: m.de === 'yo' ? 'user' : 'assistant', content, created_at: m.at }];
+  });
+}
 /** El chat «Onboarding» (lib/onboarding-arranque.ts → TITULO_HILO; acá sin imports de valores): es su propio origen. */
 export const TITULO_ONBOARDING = 'Onboarding';
 
@@ -363,6 +386,8 @@ export const criaturaDeOffer = (titulo: string): string => `Offer › ${titulo}`
 export function listaDelCliente(p: {
   sesiones: readonly SesionChat[]; offer: readonly ConTitulo[]; antes: readonly DeAntes[]; busca: string;
   grupo?: { titulo: string; ultimoAt: string | null } | null;
+  /** Las charlas del lienzo de Automations (OC5): se leen acá y se siguen en el lienzo. */
+  automations?: readonly ConTitulo[];
 }): FilaDelCliente[] {
   const { jefe, subs } = arbolDelJefe(p.sesiones);
   const cerebro: FilaDelCliente = {
@@ -388,6 +413,10 @@ export function listaDelCliente(p: {
       return { clave: `a${a.id}`, elegido: { antes: a.id }, titulo, criatura: origen ?? titulo, actividad: ms(a.updatedAt), origen: 'antes' };
     }),
     ...(p.grupo ? [{ clave: 'grupo', elegido: { grupo: true } as const, titulo: p.grupo.titulo, criatura: TITULO_GRUPO, actividad: ms(p.grupo.ultimoAt), origen: 'grupo' as const }] : []),
+    ...(p.automations ?? []).map((a): FilaDelCliente => ({
+      clave: `au${a.id}`, elegido: { automatizacion: a.id }, titulo: conOrigen(ORIGEN_AUTOMATIONS, a.titulo?.trim() || `Automatización ${a.id}`),
+      criatura: ORIGEN_AUTOMATIONS, actividad: ms(a.updatedAt), origen: 'automations',
+    })),
   ]
     .map((f, i) => ({ f, i }))
     .sort((x, y) => (y.f.actividad ?? 0) - (x.f.actividad ?? 0) || x.i - y.i)

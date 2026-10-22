@@ -24,7 +24,7 @@ import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { runWithWorkspace } from './workspace';
 import { cambiarSettingSi } from './settings';
-import { claveChat, sanearChat, agregarMensajes, type ChatAutomatizacion, type MensajeChatMako } from './automatizacion-chat';
+import { claveChat, idDeClaveChat, sanearChat, agregarMensajes, type ChatAutomatizacion, type MensajeChatMako } from './automatizacion-chat';
 
 const VUELTAS = 3;
 
@@ -60,6 +60,29 @@ export async function secuenciaDelWorkspace(ws: number, secuenciaId: number): Pr
     .eq('workspace_id', ws).eq('id', secuenciaId).maybeSingle();
   if (error) throw new Error(`No pude leer la automatización: ${error.message}`);
   return !!data;
+}
+
+/**
+ * LAS CHARLAS DEL LIENZO DE UN NEGOCIO (22/10/2026, OC5: el Ops Center las lista; medido ese día, 239 chats y nadie los
+ * proyectaba), la más reciente primero, con el nombre de su automatización. Sólo la clave y la fecha: el chat se lee al
+ * abrirlo (`leerChat`, que parsea el value: es un STRING JSON, y `value.mensajes` sin parsear da 0 sin error). Una clave sin su
+ * automatización en este negocio (borrada) no se lista. Tira si no se pudo leer.
+ */
+export async function listarChats(ws: number, tope = 60): Promise<Array<{ secuenciaId: number; nombre: string; updatedAt: string }>> {
+  if (!idValido(ws)) return [];
+  const db = getSupabaseServer();
+  const { data, error } = await db.from('app_settings').select('key, updated_at')
+    .eq('workspace_id', ws).like('key', 'automatizacion.chat:%').order('updated_at', { ascending: false }).limit(tope);
+  if (error) throw new Error(`No pude leer las charlas de Automations: ${error.message}`);
+  const filas = ((data ?? []) as Array<{ key: string; updated_at: string }>)
+    .map((f) => ({ id: idDeClaveChat(f.key), updatedAt: f.updated_at }))
+    .filter((f): f is { id: number; updatedAt: string } => f.id != null);
+  if (!filas.length) return [];
+  const { data: secs, error: e2 } = await db.from('nutricion_secuencias').select('id, nombre')
+    .eq('workspace_id', ws).in('id', filas.map((f) => f.id));
+  if (e2) throw new Error(`No pude leer las automatizaciones: ${e2.message}`);
+  const nombre = new Map(((secs ?? []) as Array<{ id: number; nombre: string | null }>).map((s) => [s.id, s.nombre?.trim() || `Automatización ${s.id}`]));
+  return filas.flatMap((f) => { const n = nombre.get(f.id); return n ? [{ secuenciaId: f.id, nombre: n, updatedAt: f.updatedAt }] : []; });
 }
 
 /** El chat de una automatización (vacío si todavía no tiene). Tira si no se pudo leer. */

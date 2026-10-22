@@ -52,11 +52,11 @@ test('2. quién lo ve lo decide el servidor (sólo el admin, sin el jid) y no va
 test('3. se lee: sin caja, sin el menú de un mensaje, y lo escrito no sale; «Ver anteriores» trae la página de antes', () => {
   const piezas = sinComentarios(leer('app/second-brain/PiezasCliente.tsx'));
   assert.match(piezas, /if \(k\.esGrupo\) return <p className="co-solo-lectura" role="note">\{AVISO_GRUPO\}<\/p>;/, 'en lugar de la caja, dónde se contesta');
-  assert.match(piezas, /<ContextoWA\.Provider value=\{k\.esGrupo \? null : k\.accionesWA\}>/, 'sin responder ni reaccionar');
+  assert.match(piezas, /<ContextoWA\.Provider value=\{k\.esGrupo \|\| k\.esAutomatizacion \? null : k\.accionesWA\}>/, 'sin responder ni reaccionar');
   assert.match(piezas, /onClick=\{\(\) => void k\.verAnteriores\(\)\}/);
   assert.equal(AVISO_GRUPO, 'Se contesta en el grupo de WhatsApp.');
   const motor = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
-  assert.match(motor, /if \(esGrupo \|\| \(!t && !archivos\.length\) \|\| ocupadoRef\.current/, 'lo que se escribe no va a ningún lado');
+  assert.match(motor, /if \(esGrupo \|\| esAutomatizacion \|\| \(!t && !archivos\.length\) \|\| ocupadoRef\.current/, 'lo que se escribe no va a ningún lado');
   assert.match(motor, /pedir<\{ grupo: GrupoDeMaKo \| null \}>\(`\$\{RUTA\}\?grupo=1`\)/);
   assert.match(motor, /`\$\{RUTA\}\?grupoHilo=1&desde=\$\{encodeURIComponent\(desde\)\}`/);
   // La computadora y el teléfono montan las mismas piezas (tests/ops-center-cliente.test.ts, 4).

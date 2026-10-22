@@ -43,7 +43,7 @@ import { validarAdjuntos, ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, MARGEN
 import { CONTEXTO_SECOND_BRAIN, antesValido } from '@/lib/chat-mako-reglas';
 import { estadoDeTrabajo } from '@/lib/chat-trabajos';
 import { runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
-import { chatsDeAntes, chatsDeLasTabs, chatsDeOffer, claveDeAntes, conTemas, claveDeTab, grupoDeMaKo, hiloDeAntes, hiloDeOffer, hiloDelGrupoMaKo, quienChateaDelRequest } from '@/lib/chat-mako-indice';
+import { chatsDeAntes, chatsDeAutomations, chatsDeLasTabs, chatsDeOffer, claveDeAntes, conTemas, hiloDeAutomatizacion, claveDeTab, grupoDeMaKo, hiloDeAntes, hiloDeOffer, hiloDelGrupoMaKo, quienChateaDelRequest } from '@/lib/chat-mako-indice';
 import type { PersonaChat } from '@/lib/mako-turno-app';
 import { esChatDeMarcas, leerMarcasDelChat, marcarEnElChat } from '@/lib/chat-mako-marcas-db';
 import { sanearCambio } from '@/lib/centro-mensajes';
@@ -132,6 +132,15 @@ export async function GET(req: NextRequest) {
     if (sp.get('grupoHilo')) {
       const hilo = await hiloDelGrupoMaKo(persona, antesValido(sp.get('desde')));
       if (!hilo) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
+      return json({ ok: true, ...hilo });
+    }
+    // Automations (22/10/2026, OC5): las charlas del lienzo, una proyección del workspace con la puerta de la tab. Se LEEN; se
+    // siguen en el lienzo. Sin la tab, [].
+    if (sp.get('automations')) return json({ ok: true, automations: await chatsDeAutomations() });
+    if (sp.has('automatizacionId')) {
+      const id = enteroDe(sp.get('automatizacionId'));
+      const hilo = id == null ? null : await hiloDeAutomatizacion(id);
+      if (!hilo) return json({ ok: false, error: 'No encuentro esa charla.' }, 404);
       return json({ ok: true, ...hilo });
     }
     // Offer (20/10/2026): una proyección del workspace, con la puerta de la tab (lib/chat-mako-indice.ts). Sin la tab, [].
