@@ -15,11 +15,14 @@
 // ⚠️ EL PANEL VA PEGADO A LA BARRA DE LA APP (app/_components/Sidebar.tsx, `[data-sidebar]`, 68 o 244 px), no al borde de la
 //    pantalla: se mide al montar y cada vez que la barra cambia de ancho (se fija o se suelta).
 // ⚠️ EL MOTOR SE MONTA SÓLO CON EL PANEL ABIERTO: una tab que nunca abre a MaKo no le pide nada al servidor.
+// ⚠️ ABIERTO, LA TAB LE DEJA EL LUGAR: el panel publica su ancho en `--ancho-panel-mako` (en <html>) y la tab lo usa de margen
+//    izquierdo (el CRM, en su <main>); cerrado vuelve a 0. Lo que cada tab suma arriba del hilo (las sugerencias del CRM) va
+//    en `arriba`, y su número en la estrella plegada, en `aviso` (pedido del chat CRM, 22/10/2026).
 // ⚠️ La caja es la única: este archivo no arma ninguna (tests/chat-unico.test.ts).
 
 import '@/app/admin/operaciones/centro.css';
 import './chat.css';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Modal } from '@/app/_ui';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
@@ -31,6 +34,8 @@ import { JEFE_SECOND_BRAIN, type ElegidoChat } from '@/lib/chat-mako-reglas';
 
 /** El ancho de la barra de la app plegada: lo que se usa hasta medirla (y en el server). */
 const BARRA_PLEGADA = 68;
+/** El ancho del panel abierto (el de .ch-tab-panel, app/_chat/chat.css): lo que la tab le deja. */
+const ANCHO_PANEL = 440;
 
 /** Dónde empieza el contenido: el borde derecho de la barra de la app, medido; cambia cuando la barra se fija o se suelta. */
 function useBordeDeLaBarra(): number {
@@ -47,24 +52,34 @@ function useBordeDeLaBarra(): number {
   return borde;
 }
 
-export function MakoEnLaTab({ tab }: {
+export function MakoEnLaTab({ tab, arriba = null, aviso = 0 }: {
   /** El nombre de la tab («CRM», «Automations»): para el `aria-label`. Lo que se escribe va igual al Cerebro, que reparte. */
   tab: string;
+  /** Lo de la tab arriba del hilo (las sugerencias de MaKo del CRM, con «Hacerlo» y «Ahora no»). */
+  arriba?: ReactNode;
+  /** Cuánto espera a la persona en esta tab (las sugerencias): el globito de la estrella plegada. */
+  aviso?: number;
 }) {
   const [abierto, setAbierto] = useState(false);
   const borde = useBordeDeLaBarra();
+  // Abierto, la tab le deja el lugar (su margen izquierdo lee `--ancho-panel-mako`).
+  useEffect(() => {
+    const raiz = document.documentElement.style;
+    raiz.setProperty('--ancho-panel-mako', abierto ? `${ANCHO_PANEL}px` : '0px');
+    return () => { raiz.removeProperty('--ancho-panel-mako'); };
+  }, [abierto]);
   return abierto
-    ? <PanelDelCerebro tab={tab} izquierda={borde} onCerrar={() => setAbierto(false)} />
+    ? <PanelDelCerebro tab={tab} izquierda={borde} arriba={arriba} onCerrar={() => setAbierto(false)} />
     : (
-      <button type="button" className="ch-tab-mako" style={{ left: borde + 16 }} aria-label={`Escríbele a MaKo desde ${tab}`} title="MaKo"
-        onClick={() => setAbierto(true)}>
-        <Muneco titulo={JEFE_SECOND_BRAIN} animo="despierto" size={40} />
+      <button type="button" className="ch-tab-mako" style={{ left: borde + 16 }} aria-label={aviso > 0 ? `Escríbele a MaKo desde ${tab} (${aviso} para ver)` : `Escríbele a MaKo desde ${tab}`}
+        title="MaKo" onClick={() => setAbierto(true)}>
+        <Muneco titulo={JEFE_SECOND_BRAIN} animo="despierto" size={40} espera={aviso} />
       </button>
     );
 }
 
 /** El panel abierto: la conversación «Cerebro» de la persona, con el motor del Ops Center. */
-function PanelDelCerebro({ tab, izquierda, onCerrar }: { tab: string; izquierda: number; onCerrar: () => void }) {
+function PanelDelCerebro({ tab, izquierda, arriba, onCerrar }: { tab: string; izquierda: number; arriba: ReactNode; onCerrar: () => void }) {
   const [elegido, setElegido] = useState<ElegidoChat | null>(null);
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
@@ -86,7 +101,7 @@ function PanelDelCerebro({ tab, izquierda, onCerrar }: { tab: string; izquierda:
       <div className="ch-tab-panel" style={{ left: izquierda }} role="dialog" aria-label={`MaKo en ${tab}`}>
         <PanelDeChat hilo={hilo} adjuntos={k.adjuntosCaja}
           cabecera={{ clave: 'cerebro', titulo: k.nombre, criatura: k.nombreMuneco, animo: k.enCurso ? 'trabajando' : 'despierto', onVolver: onCerrar }}
-          arriba={<BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={k.nombre} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} />}
+          arriba={<>{arriba}<BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={k.nombre} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} /></>}
           despues={<>
             <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} />
             {k.infoWA && <Modal titulo="Info del mensaje" onCerrar={() => k.setInfoWA(null)} ancho={460}><InfoMensaje m={k.infoWA} /></Modal>}

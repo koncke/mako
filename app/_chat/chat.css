@@ -217,7 +217,7 @@
 .ch-tab-mako:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(18, 21, 27, .2); }
 .ch-tab-mako:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .ch-tab-panel {
-  position: fixed; top: 0; bottom: 0; z-index: 55; width: min(440px, calc(100vw - 68px)); display: flex;
+  position: fixed; top: 0; bottom: 0; z-index: 55; width: min(440px, calc(100vw - 68px)); display: flex; /* 440: ANCHO_PANEL de MakoEnLaTab.tsx */
   background: var(--surface); border-right: 1px solid var(--border); box-shadow: 8px 0 28px rgba(18, 21, 27, .14);
 }
 .ch-tab-panel > .co-panel { flex: 1; }

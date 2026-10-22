@@ -211,14 +211,19 @@ test('8. el teléfono: la lista es la pantalla y cada chat se abre en su hoja, c
 
 // 21/10/2026 (~23:10), tres reglas de Martín para toda la app: el chat de MaKo de cada tab a la IZQUIERDA, con la estrella y al
 // Cerebro; y las criaturas siempre vivas. PROBADO ROMPIENDOLO (base 9/0): la pieza con su propio hilo → 8/1 · las criaturas
-// quietas fuera de «trabajando» → 8/1 · el desfase igual para todas → 8/1.
+// quietas fuera de «trabajando» → 8/1 · el desfase igual para todas → 8/1. Lo del CRM (22/10): la estrella sin su número → 8/1 ·
+// la tab sin dejarle el lugar → 8/1 · sin lo de la tab arriba del hilo → 8/1.
 test('9. MaKo en cada tab (la estrella, a la izquierda, al Cerebro) y las criaturas siempre vivas', async () => {
   const t = sinComentarios(leer('app/_chat/MakoEnLaTab.tsx'));
-  assert.match(t, /<Muneco titulo=\{JEFE_SECOND_BRAIN\} animo="despierto" size=\{40\} \/>/, 'el botón es la estrella de MaKo');
+  assert.match(t, /<Muneco titulo=\{JEFE_SECOND_BRAIN\} animo="despierto" size=\{40\}/, 'el botón es la estrella de MaKo');
   assert.match(t, /useChatCliente\(\{ elegido, setElegido, activo: true, entrarAlCerebro: true,/, 'lo escrito va al Cerebro');
   assert.match(t, /<HiloDelCliente k=\{k\} \/>/);
   assert.doesNotMatch(t, /<CajaChat |<HiloMako |fetch\(/, 'sin caja, hilo ni pedidos propios');
   assert.match(t, /className="ch-tab-panel" style=\{\{ left: izquierda \}\}/, 'el panel, pegado a la barra de la app');
+  // Lo que pidió el CRM: lo suyo arriba del hilo, su número en la estrella, y que la tab le deje el lugar.
+  assert.match(t, /arriba=\{<>\{arriba\}<BarraFijados /);
+  assert.match(t, /<Muneco titulo=\{JEFE_SECOND_BRAIN\} animo="despierto" size=\{40\} espera=\{aviso\} \/>/);
+  assert.match(t, /raiz\.setProperty\('--ancho-panel-mako', abierto \? `\$\{ANCHO_PANEL\}px` : '0px'\);/);
   assert.match(leer('app/_chat/chat.css'), /\.ch-tab-panel \{\s*position: fixed; top: 0; bottom: 0;/);
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { createElement } = await import('react');
