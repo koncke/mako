@@ -385,7 +385,8 @@ test('crear: el disparador que quedó PUESTO viaja en `listo` y la tarjeta CRON 
 // rotura (Cancelar también en 'revision'): 1 fallo de 25, cae éste.
 test('la caja no ofrece Cancelar en «Revisando el flujo»: el server ya no lo respeta', () => {
   const caja = CHAT();
-  assert.match(caja, /\{estado\.fase !== 'revision' && <Button variant="tertiary" size="sm" onClick=\{(?:onC|c)ancelar\}>Cancelar<\/Button>\}/);
+  // 22/10/2026: en el chat de MaKo, Cancelar va envuelto para no partirse en dos líneas (tests/chat-mako-envio-a-la-vista.test.ts).
+  assert.match(caja, /\{estado\.fase !== 'revision' && (?:<span style=\{\{ flex: 'none' \}\}>)?<Button variant="tertiary" size="sm" onClick=\{(?:onC|c)ancelar\}>Cancelar<\/Button>(?:<\/span>)?\}/);
   // Y el Escape tampoco cancela en esa fase.
   assert.match(caja, /e\.key === 'Escape' && fase !== 'revision'/);
 });
