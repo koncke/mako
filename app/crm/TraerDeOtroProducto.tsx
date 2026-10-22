@@ -22,23 +22,27 @@
 // producto, y su casa —con su etapa, su venta y su nutrición— no se toca.
 //
 // ⚠️ LA LISTA DE ORIGEN TRAE A SUS AGREGADOS, y los que YA están acá (por casa o por fila)
-// salen marcados y sin casilla: agregarlos no escribiría nada, y un «Agregar 12» que agrega
-// 9 se lee como que tres fallaron.
+// NO se listan desde el 22/10/2026 (salían en gris y sin casilla): Martín, en la llamada con
+// Mauricio, «ya no deberían saltar ahí, ni siquiera en gris... porque luego ya no me deja los
+// siguientes 300». Se dicen en una línea con su número. Lo puro: ./traer-seleccion.ts.
+//
+// ⚠️ «TILDAR TODOS» TOMA A TODOS LOS QUE CUMPLEN EL FILTRO, no a los 300 que se dibujan (22/10:
+// «que se puedan traer los 1.050»). El filtro dice qué quiere la persona; el tope es de la
+// pantalla. Y el botón de agregar no scrollea: va pegado abajo («que el botón no se tenga que
+// desplazar»).
 //
 // ⚠️ EL DESHACER VIAJA AL PADRE: este componente se desmonta al terminar (el modal se
 // cierra), así que un aviso propio moriría con él. `onTraidos` recibe la función que borra
 // SÓLO las filas que este lote creó, y el padre la cuelga del «Deshacer» de su aviso.
 
 import { useEffect, useMemo, useState, useTransition, type CSSProperties } from 'react';
+import { TANDA_AGREGAR, TOPE_PANTALLA, enTandas, filasParaTraer, miles } from './traer-seleccion';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { leadsDeProductoAction, type LeadParaTraer } from './actions';
 import { agregarLoteAProductoAction, quitarLoteDeProductoAction } from './lead-funnel-actions';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
-
-/** El tope de la PANTALLA, no el de la consulta: se dice cuántos quedaron afuera. */
-const TOPE = 300;
 
 const th: CSSProperties = {
   textAlign: 'left', fontFamily: MONO, fontSize: 10, letterSpacing: '.08em',
@@ -101,35 +105,28 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
     return () => { vivo = false; };
   }, [origen, delNegocio?.id, destino]);
 
-  /** Las etapas que de verdad hay en esta lista: un filtro con opciones vacías no filtra nada. */
+  /** Las etapas que de verdad hay entre los que se pueden traer: un filtro con opciones vacías no filtra nada. */
   const etapas = useMemo(() => {
     const m = new Map<string, string>();
-    for (const f of filas ?? []) if (!m.has(f.etapaKey)) m.set(f.etapaKey, f.etapa);
+    for (const f of filas ?? []) if (!f.yaEsta && !m.has(f.etapaKey)) m.set(f.etapaKey, f.etapa);
     return [...m].map(([key, label]) => ({ key, label }));
   }, [filas]);
 
-  const visibles = useMemo(() => {
-    const texto = q.trim().toLowerCase();
-    return (filas ?? []).filter((f) => {
-      if (etapa && f.etapaKey !== etapa) return false;
-      if (!texto) return true;
-      return [f.nombre, f.email, f.telefono, f.empresa]
-        .some((v) => (v ?? '').toLowerCase().includes(texto));
-    });
-  }, [filas, q, etapa]);
-
-  const enPantalla = visibles.slice(0, TOPE);
-  const ocultos = visibles.length - enPantalla.length;
-  /** Lo que se puede tildar: los que ya están acá no entran en «todos». */
-  const tildables = enPantalla.filter((f) => !f.yaEsta);
-  const todosTildados = tildables.length > 0 && tildables.every((f) => sel.includes(f.id));
+  // Los que cumplen el filtro y NO están en este funnel (los que ya están, sólo se cuentan).
+  const { candidatos, yaEstan } = useMemo(() => filasParaTraer(filas ?? [], { q, etapa }), [filas, q, etapa]);
+  const enPantalla = candidatos.slice(0, TOPE_PANTALLA);
+  const ocultos = candidatos.length - enPantalla.length;
+  const tildados = useMemo(() => new Set(sel), [sel]);
+  /** «Todos» son TODOS los que cumplen el filtro, se vean o no (22/10/2026). */
+  const todosTildados = candidatos.length > 0 && candidatos.every((f) => tildados.has(f.id));
 
   const alternar = (id: number) => setSel((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   const alternarTodos = () => {
-    // ⚠️ Tilda lo VISIBLE, no lo que hay. Con un filtro puesto, un «todos» que se lleve lo
-    // que está escondido agrega gente que la persona no vio.
-    const ids = tildables.map((f) => f.id);
-    setSel((p) => (todosTildados ? p.filter((x) => !ids.includes(x)) : [...new Set([...p, ...ids])]));
+    // ⚠️ Tilda a todos los que CUMPLEN EL FILTRO, también los que no entran en la pantalla: el filtro es lo que la
+    // persona eligió («Nutrición/Reactivación»); el tope de 300 es sólo lo que se dibuja. Lo que el filtro deja
+    // afuera NO se tilda: eso sí sería agregar gente que la persona no eligió.
+    const ids = new Set(candidatos.map((f) => f.id));
+    setSel((p) => (todosTildados ? p.filter((x) => !ids.has(x)) : [...new Set([...p, ...ids])]));
   };
 
   const opciones: DropdownOption[] = origenes.map((p) => ({ value: String(p.id), label: p.nombre }));
@@ -190,9 +187,9 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
             <tr>
               <th style={{ ...th, width: 34, padding: '10px 0 7px 12px' }}>
                 <input type="checkbox" checked={todosTildados} onChange={alternarTodos}
-                  disabled={!tildables.length}
-                  aria-label="Tildar todos los de la lista"
-                  style={{ width: 16, height: 16, cursor: tildables.length ? 'pointer' : 'default', accentColor: 'var(--primary)' }} />
+                  disabled={!candidatos.length}
+                  aria-label={`Tildar a los ${miles(candidatos.length)}`} title={`Tildar a los ${miles(candidatos.length)}`}
+                  style={{ width: 16, height: 16, cursor: candidatos.length ? 'pointer' : 'default', accentColor: 'var(--primary)' }} />
               </th>
               <th style={th}>Nombre</th>
               <th style={th}>Empresa</th>
@@ -203,26 +200,16 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
           </thead>
           <tbody>
             {enPantalla.map((f) => {
-              // ⚠️ El que YA está acá se ve, pero no se tilda: esconderlo haría que buscarlo
-              // contestara «nadie», y dejarlo tildable promete un agregado que no pasa.
-              const on = !f.yaEsta && sel.includes(f.id);
+              const on = tildados.has(f.id);
               return (
-                <tr key={f.id} onClick={f.yaEsta ? undefined : () => alternar(f.id)}
-                  title={f.yaEsta ? 'Ya está en este funnel' : undefined}
-                  style={{ cursor: f.yaEsta ? 'default' : 'pointer', background: on ? 'var(--primary-weak)' : 'transparent', opacity: f.yaEsta ? 0.55 : 1 }}>
+                <tr key={f.id} onClick={() => alternar(f.id)}
+                  style={{ cursor: 'pointer', background: on ? 'var(--primary-weak)' : 'transparent' }}>
                   <td style={{ ...td, padding: '9px 0 9px 12px' }}>
-                    <input type="checkbox" checked={on} readOnly tabIndex={-1} disabled={f.yaEsta}
-                      aria-label={f.yaEsta ? `${f.nombre} ya está en este funnel` : `Agregar a ${f.nombre}`}
-                      style={{ width: 16, height: 16, cursor: f.yaEsta ? 'default' : 'pointer', accentColor: 'var(--primary)', pointerEvents: 'none' }} />
+                    <input type="checkbox" checked={on} readOnly tabIndex={-1}
+                      aria-label={`Agregar a ${f.nombre}`}
+                      style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)', pointerEvents: 'none' }} />
                   </td>
-                  <td style={{ ...td, fontWeight: 600 }}>
-                    {f.nombre}
-                    {f.yaEsta && (
-                      <span style={{ marginLeft: 8, fontFamily: MONO, fontSize: 10, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 600 }}>
-                        Ya está
-                      </span>
-                    )}
-                  </td>
+                  <td style={{ ...td, fontWeight: 600 }}>{f.nombre}</td>
                   <td style={{ ...td, color: 'var(--dim)' }}>{f.empresa || '—'}</td>
                   <td style={{ ...td, color: 'var(--dim)' }}>{f.email || '—'}</td>
                   <td style={{ ...td, color: 'var(--dim)' }}>{f.telefono || '—'}</td>
@@ -242,16 +229,22 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
         {filas?.length === 0 && (
           <p style={{ fontFamily: SANS, fontSize: 13.5, color: 'var(--dim)', padding: '22px 14px', margin: 0 }}>Ese funnel no tiene leads.</p>
         )}
-        {!!filas?.length && visibles.length === 0 && (
-          <p style={{ fontFamily: SANS, fontSize: 13.5, color: 'var(--dim)', padding: '22px 14px', margin: 0 }}>Nadie con esos filtros.</p>
+        {!!filas?.length && candidatos.length === 0 && (
+          <p style={{ fontFamily: SANS, fontSize: 13.5, color: 'var(--dim)', padding: '22px 14px', margin: 0 }}>
+            {yaEstan > 0 ? 'Todos los de esos filtros ya están en este funnel.' : 'Nadie con esos filtros.'}
+          </p>
         )}
       </div>
 
-      {/* ⚠️ SI SE RECORTÓ, SE DICE. Una lista que corta en silencio se lee como que ahí
-          termina el producto, y «tildar todos» dejaría afuera a los que no se ven. */}
-      {ocultos > 0 && (
-        <span style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--warn)' }}>
-          Se muestran {TOPE} de {visibles.length}. Busca o filtra para ver el resto.
+      {/* ⚠️ EL PIE VA PEGADO ABAJO (22/10/2026, «que el botón no se tenga que desplazar»): el cuerpo del modal es el que
+          scrollea, y sin `sticky` el «Agregar» quedaba debajo de 300 filas. Arriba del botón, lo que no se ve: cuántos
+          hay más allá del tope (y que «todos» también los toma) y cuántos no se listan porque ya están acá. */}
+      <div style={{ position: 'sticky', bottom: 0, zIndex: 2, background: 'var(--surface)', borderTop: '1px solid var(--border)', padding: '10px 0 2px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {(ocultos > 0 || yaEstan > 0) && (
+        <span style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--dim)' }}>
+          {ocultos > 0 ? `Se ven ${miles(TOPE_PANTALLA)} de ${miles(candidatos.length)}; la casilla de arriba tilda a los ${miles(candidatos.length)}.` : ''}
+          {ocultos > 0 && yaEstan > 0 ? ' ' : ''}
+          {yaEstan > 0 ? `${miles(yaEstan)} ${yaEstan === 1 ? 'ya está' : 'ya están'} en este funnel y no se ${yaEstan === 1 ? 'muestra' : 'muestran'}.` : ''}
         </span>
       )}
 
@@ -264,16 +257,25 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
             setErr(null);
             // Sin «¿estás seguro?»: agregar no saca a nadie de ningún lado, y el padre ofrece
             // Deshacer (el molde de Customer Success).
-            const r = await agregarLoteAProductoAction(sel, destino);
-            if (!r.ok) { setErr(r.error); return; }
-            if (!r.agregados.length && r.fallaron) { setErr('No se pudo agregar ninguno.'); return; }
-            const agregados = r.agregados;
+            // ⚠️ DE A TANDAS: el server corta en 2.000 sin decirlo (`slice(0, 2000)`), y 1.050 de una vez son seis
+            // tandas de base adentro de UNA action. Se suman lo que entró y lo que falló de cada tanda.
+            const agregados: number[] = [];
+            let fallaron = 0;
+            for (const tanda of enTandas(sel, TANDA_AGREGAR)) {
+              const r = await agregarLoteAProductoAction(tanda, destino);
+              if (!r.ok) { fallaron += tanda.length; if (!agregados.length) { setErr(r.error); return; } continue; }
+              agregados.push(...r.agregados);
+              fallaron += r.fallaron;
+            }
+            if (!agregados.length && fallaron) { setErr('No se pudo agregar ninguno.'); return; }
             // El deshacer TIRA si no pudo: el padre tiene que poder decir «No se pudo
             // deshacer» en vez de dar por vuelto algo que sigue escrito.
-            onTraidos(agregados.length, r.fallaron, agregados.length
+            onTraidos(agregados.length, fallaron, agregados.length
               ? async () => {
-                const q = await quitarLoteDeProductoAction(agregados, destino);
-                if (!q.ok) throw new Error(q.error);
+                for (const tanda of enTandas(agregados, TANDA_AGREGAR)) {
+                  const q = await quitarLoteDeProductoAction(tanda, destino);
+                  if (!q.ok) throw new Error(q.error);
+                }
               }
               : undefined);
           })}
@@ -284,8 +286,9 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
             cursor: agregando || !sel.length ? 'default' : 'pointer',
             opacity: agregando || !sel.length ? 0.45 : 1,
           }}>
-          {agregando ? 'Agregando…' : sel.length ? `Agregar ${sel.length} aquí` : 'Agregar aquí'}
+          {agregando ? 'Agregando…' : sel.length ? `Agregar ${miles(sel.length)} aquí` : 'Agregar aquí'}
         </button>
+      </div>
       </div>
     </div>
   );

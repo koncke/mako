@@ -359,8 +359,12 @@ test('al abrir la app, la MISMA entrada de MaKo del onboarding, una vez por aper
   // La MISMA pieza, cargada diferida: un import estático arrastra su .css a los tests de node (run 182).
   assert.match(shell, /const EntradaMako = dynamic\(\(\) => import\('@\/app\/onboarding\/EntradaMako'\)\.then\(\(m\) => m\.EntradaMako\), \{ ssr: false \}\);/, 'una copia de la animación se queda vieja');
   assert.doesNotMatch(shell, /^import \{ EntradaMako \}/m, 'importada de frente, su .css tumba los tests de node');
-  assert.match(shell, /if \(sessionStorage\.getItem\(LS_ENTRADA\)\) return;\s*sessionStorage\.setItem\(LS_ENTRADA, '1'\);/);
+  // La marca se LEE al montar y se ESCRIBE al terminar (21/10/2026, 22:54): escrita al montar, la gastaba el documento que
+  // se iba con la navegación dura de /second-brain al Centro, y Martín no la veía nunca (tests/movil-carga-sin-error.test.ts).
+  // Rota: sacar el setItem de `finEntrada` → este archivo y el de la carga, 21 / 2 juntos (base 23 / 0).
+  assert.match(shell, /if \(sessionStorage\.getItem\(LS_ENTRADA\)\) return;/);
+  assert.match(shell, /const finEntrada = useCallback\(\(\) => \{\s*try \{ sessionStorage\.setItem\(LS_ENTRADA, '1'\); \}/);
   assert.match(shell, /if \(cliente \|\| limpia\(pathname\) === RUTA_CONFIGURAR\) return;/);
-  assert.match(shell, /\{entrada && <EntradaMako destino=\{`\[\$\{DESTINO_ENTRADA\}\]`\} onFin=\{\(\) => setEntrada\(false\)\} \/>\}/);
+  assert.match(shell, /\{entrada && <EntradaMako destino=\{`\[\$\{DESTINO_ENTRADA\}\]`\} onFin=\{finEntrada\} \/>\}/);
   assert.match(shell, /const DESTINO_ENTRADA = 'data-mako-foto-barra';/);
 });
