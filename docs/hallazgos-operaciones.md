@@ -34,6 +34,14 @@ un «Ya está» sin su ✓, que la fila dibujaba con el MISMO texto (`TEXTO_SEGU
   plegado y una navegación para las tres fuentes, en la computadora y en el teléfono. Cada una se contesta como siempre: la de la
   Ticketera se guarda al elegirla (Pregunta.tsx → `CuerpoTicketera`), las del chat salen todas cuando están todas, y las de la app
   se contestan en la app. Una clave en el «Otra» de la Ticketera tampoco se guarda (iba a admin_decisiones sin tapar).
+- **Y lo de una tab que le pregunta a la persona va por el mismo bloque** (Martín, con captura del /crm de ws1: «Mira lo mal que se
+  ve esto»). Las sugerencias del CRM eran una lista suelta arriba del hilo de la estrella, cada una con su «Hacerlo» y su «Ahora no»,
+  con un scroll propio que se comía la mitad del panel. Ahora la estrella las recibe como `preguntas` (MakoEnLaTab →
+  BloqueDePreguntas, `PreguntaDeLaTab`) y van de a una, arriba de la caja. Arriba del hilo queda sólo lo que no es una pregunta: el
+  aviso de que no se pudieron leer y «Calladas (N)».
+- **Trampa: la cabecera de la estrella decía «Chat nuevo» con una criatura redonda hasta que llegaba la lista,** y recién ahí
+  saltaba a «Cerebro» con la estrella. Sin la fila, `nombre` caía en `SIN_TITULO`. Con `entrarAlCerebro` y nada pedido ni elegido,
+  ahora es el Cerebro desde el primer cuadro (useChatCliente.ts → `vaAlCerebro`). Pasaba también al entrar al Ops Center del cliente.
 
 ## Un refresco que falla desarmaba el Ops Center: el `centro` null de una vuelta del servidor (22/10/2026)
 

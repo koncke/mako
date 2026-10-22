@@ -15,10 +15,13 @@
 //   7. las decisiones de la Ticketera (Pregunta.tsx, la de «Cuesta dinero» del chat Infra) tienen los MISMOS ajustes que las
 //      preguntas de un chat, con las mismas piezas: flotan, se pliegan y sus links se tocan (verificado en producción, 22/10);
 //   8. UN SOLO BLOQUE (el Cerebro, midiéndolo en producción: «Martín pide unificar siempre»): la Ticketera, lo que pregunta el chat
-//      y lo de la app en UNA tarjeta, con una flecha y una navegación para todas, en la computadora y en el teléfono.
+//      y lo de la app en UNA tarjeta, con una flecha y una navegación para todas, en la computadora y en el teléfono;
+//   9. lo que una TAB le pregunta a la persona (las sugerencias del CRM) entra por el MISMO bloque, en la estrella de cada tab:
+//      una por vez, con «Hacerlo» y «Ahora no» como opciones (Martín con captura del /crm: «Mira lo mal que se ve esto»);
+//  10. la cabecera del panel de la estrella es el Cerebro con su estrella desde el primer cuadro (decía «Chat nuevo»).
 //
 // Correr: node --import tsx --test tests/ops-center-bloque-y-estado.test.ts
-// PROBADO ROMPIÉNDOLO (base 8/0), ver el pie.
+// PROBADO ROMPIÉNDOLO (base 10/0), ver el pie.
 // =============================================================================
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -33,6 +36,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { BloqueDePreguntas, itemsDelBloque } from '../app/admin/operaciones/PreguntasDelChat';
 import type { Decision } from '../app/admin/runway/decisiones';
 import type { PreguntaChat } from '../lib/centro-preguntas-chat';
+import { esCriaturaDeMako } from '../lib/centro-munecos';
+import { JEFE_SECOND_BRAIN, SIN_TITULO } from '../lib/chat-mako-reglas';
 import type { TurnoChat } from '../lib/operaciones-reglas';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -197,7 +202,42 @@ test('8. UN solo bloque: la Ticketera, lo que pregunta el chat y lo de la app, e
   }
 });
 
-// PROBADO ROMPIÉNDOLO (22/10/2026, base 5/0):
+test('9. lo que una tab le pregunta (las sugerencias del CRM) va en EL bloque: una por vez, con «Hacerlo» y «Ahora no»', () => {
+  const html = renderToStaticMarkup(createElement(BloqueDePreguntas, {
+    chat: 'tab:CRM',
+    deLaTab: [
+      { id: 'cuota', pregunta: '1 cuota vencida sin cobrar. ¿Te aviso cuando venza una?', opciones: [{ titulo: 'Hacerlo', recomendada: true, onElegir: () => {} }, { titulo: 'Ahora no', onElegir: () => {} }] },
+      { id: 'r1', pregunta: 'Escribirle para reagendar a quien cae en «Nutrición No Show R1»', opciones: [{ titulo: 'Hacerlo', href: '/automations?ws=1' }] },
+    ],
+  }));
+  assert.equal((html.match(/class="co-preg co-preg--arriba/g) ?? []).length, 1, 'una tarjeta, no una lista');
+  assert.match(html, /1 cuota vencida sin cobrar/);
+  assert.doesNotMatch(html, /Nutrición No Show R1/, 'una por vez: la otra espera su turno');
+  assert.match(html, />1 de 2</);
+  assert.match(html, /Hacerlo<span class="co-preg__rec"> \(Recomendada\)<\/span>/);
+  assert.match(html, />Ahora no</);
+  assert.match(html, /class="co-preg__plegar"/, 'con la flecha');
+  // La estrella lo monta arriba de la caja, y el CRM ya no dibuja su lista suelta arriba del hilo.
+  const pieza = sinComentarios(leer('app/_chat/MakoEnLaTab.tsx'));
+  assert.match(pieza, /\{preguntas && preguntas\.length > 0 && <BloqueDePreguntas chat=\{`tab:\$\{tab\}`\} deLaTab=\{preguntas\} \/>\}\n\s*<div className="co-caja">/);
+  const crm = sinComentarios(leer('app/crm/mako-crm/PanelMakoCrm.tsx'));
+  assert.match(crm, /return <MakoEnLaTab tab="CRM" arriba=\{sugerencias\} preguntas=\{preguntas\} aviso=\{n\} pedido=\{pedido\} \/>;/);
+  assert.match(crm, /titulo: 'Hacerlo', recomendada: true, \.\.\.\(s\.tipo === 'link' && s\.href \? \{ href: s\.href \} : \{ onElegir: \(\) => hacer\(s\) \}\)/);
+  assert.match(crm, /titulo: 'Ahora no', onElegir: \(\) => void pedirAlServer\('ahora_no', s\)/);
+  assert.doesNotMatch(crm, /maxHeight: '42%'|>Hacerlo<\/(Button|ButtonLink)>/, 'la lista suelta, con su scroll, volvió');
+});
+
+test('10. la cabecera de la estrella es el Cerebro desde el primer cuadro, con su estrella (no «Chat nuevo» y una redonda)', () => {
+  assert.equal(esCriaturaDeMako(JEFE_SECOND_BRAIN), true, 'el Cerebro se dibuja con la estrella');
+  assert.equal(esCriaturaDeMako(SIN_TITULO), false, '«Chat nuevo» era la redonda');
+  const hook = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
+  assert.match(hook, /const vaAlCerebro = !filaAbierta && elegido == null && entrarAlCerebro && chatInicial == null;/);
+  assert.match(hook, /const nombre = filaAbierta\?\.titulo \?\? \(vaAlCerebro \? JEFE_SECOND_BRAIN\n/);
+  assert.match(hook, /const nombreMuneco = filaAbierta\?\.criatura \?\? \(idOffer != null \? criaturaDeOffer\(nombre\) : nombre\);/, 'la criatura sale del nombre');
+  // La estrella y el Ops Center del cliente entran al Cerebro: los dos lo dibujan así desde el principio.
+  assert.match(sinComentarios(leer('app/_chat/MakoEnLaTab.tsx')), /useChatCliente\(\{ elegido, setElegido, activo: true, entrarAlCerebro: true,/);
+  assert.match(sinComentarios(leer('app/_chat/MakoEnLaTab.tsx')), /cabecera=\{\{ clave: 'cerebro', titulo: k\.nombre, criatura: k\.nombreMuneco,/);
+});
 
 // PROBADO ROMPIÉNDOLO (22/10/2026, base 5/0):
 //   · el pie vuelve al fondo blanco                       → 4/1 (1)
@@ -222,3 +262,7 @@ test('8. UN solo bloque: la Ticketera, lo que pregunta el chat y lo de la app, e
 //   · la Ticketera fuera del bloque en la computadora     → 7/1 (8)
 //   · la Ticketera fuera de la lista                      → 6/2 (7, 8)
 //   · la navegación sólo para las del chat                → 7/1 (8)
+// Y el 9 y el 10 (22/10/2026, base 10/0):
+//   · la estrella sin el bloque (las sugerencias, sueltas) → 9/1 (9)
+//   · la tab fuera de la lista del bloque                 → 9/1 (9)
+//   · la cabecera vuelve a «Chat nuevo» mientras llega   → 9/1 (10)

@@ -1750,7 +1750,8 @@ código nuevo:
     La criatura de la cabecera y la de la fila cuentan con UN número, `avisos` (useCentro.ts), en la computadora y en el teléfono:
     nunca `esperaDe` suelto, que no cuenta el «Completado» sin ✓ (tests/ops-center-bloque-y-estado.test.ts, 6).
     Todo lo que espera a Martín arriba de la caja va en UN bloque (PreguntasDelChat.tsx → `BloqueDePreguntas`): la Ticketera, lo
-    que pregunta el chat y lo de la app. Una fuente nueva se suma a `itemsDelBloque`, nunca como otra tarjeta (el 8 de ese test).
+    que pregunta el chat, lo de la app y lo que pregunta una TAB (la estrella: `MakoEnLaTab preguntas`, las sugerencias del CRM). Una
+    fuente nueva se suma a `itemsDelBloque`, nunca como otra tarjeta ni como una lista arriba del hilo (el 8 y el 9 de ese test).
     Y un refresco que falla no cambia lo dibujado: ni «Cargando…» otra vez, ni una fila que cambia de estado (22/10/2026,
     tests/ops-center-refresco-sin-parpadeo.test.ts).
   - **UNA CLAVE PEGADA EN EL OPS CENTER NO SALE** (22/10/2026, la de Apify que quedó en un pedido firmado). Lo que escribe Martín

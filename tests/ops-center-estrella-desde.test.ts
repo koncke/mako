@@ -98,7 +98,8 @@ test('3. el turno la usa y la ruta y el motor la pasan', () => {
   const motor = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
   assert.match(motor, /\.\.\.\(desdeTab \? \{ desde: desdeTab \} : \{\}\)/);
   const estrella = sinComentarios(leer('app/_chat/MakoEnLaTab.tsx'));
-  assert.match(estrella, /export function MakoEnLaTab\(\{ tab, arriba = null, aviso = 0, pedido = null, entidad = null, modo = null, onModo \}/);
+  // Lo de OC6, sin fijar los otros props (las tabs le suman los suyos: `preguntas`, el `pedido` del CRM…).
+  assert.match(estrella, /export function MakoEnLaTab\(\{ tab,[^}]*\bentidad = null, modo = null, onModo\b[^}]*\}/);
   assert.match(estrella, /useChatCliente\(\{[^}]*caja, desde \}\)/);
   assert.match(estrella, /\{onModo && <ModosMako modo=\{modo \?\? 'editar'\} onModo=\{onModo\} \/>\}/, 'el slot de Analizar · Editar');
 });

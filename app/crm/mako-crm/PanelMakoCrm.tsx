@@ -28,8 +28,9 @@
 // =============================================================================
 
 import { useEffect, useState } from 'react';
-import { Button, ButtonLink } from '@/app/_ui';
+import { Button } from '@/app/_ui';
 import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
+import type { PreguntaDeLaTab } from '@/app/admin/operaciones/PreguntasDelChat';
 import { leerRespuesta } from '@/app/m/mako/chat-ui';
 import { pedidoParaElCerebro, type SugerenciaDePantalla } from '@/lib/sugerencias-crm';
 
@@ -128,37 +129,26 @@ function PanelDeUnCrm({ funnelId }: { funnelId: number | null }) {
 
   const visibles = (sugs ?? []).filter((s) => !hechas[s.id]);
   const n = visibles.length;
-  const hayAlgo = visibles.length > 0 || Object.keys(hechas).length > 0 || !!errorSugs || (callar && calladas.length > 0);
 
-  const sugerencias = hayAlgo ? (
-    <section aria-label="Sugerencias del CRM" data-sugerencias-crm
-      style={{ flex: 'none', maxHeight: '42%', overflowY: 'auto', borderBottom: '1px solid var(--border)', padding: '6px 0' }}>
+  // LAS SUGERENCIAS VAN EN EL BLOQUE DE PREGUNTAS de la estrella (22/10/2026, Martín con captura: «Mira lo mal que se ve
+  // esto»): una por vez arriba de la caja, con «Hacerlo» y «Ahora no» como sus opciones. Eran una lista suelta arriba del hilo,
+  // con su propio scroll, que se comía la mitad del panel. Lo que hace cada opción es lo de siempre (`hacer`, `pedirAlServer`).
+  const preguntas: PreguntaDeLaTab[] = (sugs ?? []).map((s) => {
+    const hecha = hechas[s.id];
+    const opciones: PreguntaDeLaTab['opciones'] = [
+      ...(s.hacer ? [{ titulo: 'Hacerlo', recomendada: true, ...(s.tipo === 'link' && s.href ? { href: s.href } : { onElegir: () => hacer(s) }) }] : []),
+      ...(callar ? [{ titulo: 'Ahora no', onElegir: () => void pedirAlServer('ahora_no', s) }] : []),
+    ];
+    const enCurso = ocupada === `hacer:${s.id}` ? 0 : ocupada === `ahora_no:${s.id}` ? (s.hacer ? 1 : 0) : null;
+    return {
+      id: s.id, pregunta: s.texto, opciones, ocupada: enCurso, quieta: !!ocupada && enCurso == null, error: errorFila[s.id] ?? null,
+      hecha: hecha ? { texto: `Quedó pausada${hecha.aviso ? ` · ${hecha.aviso}` : ''}`, href: hecha.href, rotulo: 'Abrir' } : null,
+    };
+  });
+  // Arriba del hilo queda sólo lo que no es una pregunta: que no se pudieron leer, y «Calladas (N)».
+  const sugerencias = (errorSugs || (callar && calladas.length > 0)) ? (
+    <section aria-label="Sugerencias del CRM" data-sugerencias-crm style={{ flex: 'none', borderBottom: '1px solid var(--border)', padding: '6px 0' }}>
       {errorSugs && <p role="status" style={{ margin: '8px 14px', fontSize: 13, color: 'var(--dim)' }}>{errorSugs}</p>}
-      {(sugs ?? []).map((s) => {
-        const hecha = hechas[s.id];
-        const enCurso = ocupada === `hacer:${s.id}` ? 'hacer' : ocupada === `ahora_no:${s.id}` ? 'ahora_no' : null;
-        return (
-          <div key={s.id} style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.4, color: 'var(--ink)', overflowWrap: 'anywhere' }}>{s.texto}</p>
-            {hecha ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 12.5, color: 'var(--dim)' }}>
-                <span>Quedó pausada{hecha.aviso ? ` · ${hecha.aviso}` : ''}</span>
-                <ButtonLink href={hecha.href} variant="secondary" size="sm">Abrir</ButtonLink>
-              </div>
-            ) : (s.hacer || callar) ? (
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {s.hacer && (s.tipo === 'link' && s.href
-                  ? <ButtonLink href={s.href} variant="primary" size="sm">Hacerlo</ButtonLink>
-                  : <Button variant="primary" size="sm" loading={enCurso === 'hacer'} disabled={!!ocupada && enCurso !== 'hacer'} onClick={() => hacer(s)}>Hacerlo</Button>)}
-                {callar && (
-                  <Button variant="tertiary" size="sm" loading={enCurso === 'ahora_no'} disabled={!!ocupada && enCurso !== 'ahora_no'} onClick={() => void pedirAlServer('ahora_no', s)}>Ahora no</Button>
-                )}
-              </div>
-            ) : null}
-            {errorFila[s.id] && <p role="alert" style={{ margin: 0, fontSize: 12.5, color: 'var(--warn)' }}>{errorFila[s.id]}</p>}
-          </div>
-        );
-      })}
       {callar && calladas.length > 0 && (
         <div style={{ padding: '4px 14px 6px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
           <Button variant="tertiary" size="sm" aria-expanded={verCalladas} onClick={() => setVerCalladas((v) => !v)}>
@@ -179,5 +169,5 @@ function PanelDeUnCrm({ funnelId }: { funnelId: number | null }) {
     </section>
   ) : null;
 
-  return <MakoEnLaTab tab="CRM" arriba={sugerencias} aviso={n} pedido={pedido} />;
+  return <MakoEnLaTab tab="CRM" arriba={sugerencias} preguntas={preguntas} aviso={n} pedido={pedido} />;
 }

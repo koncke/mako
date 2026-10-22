@@ -22,7 +22,10 @@
 // (`itemsDelBloque`), con una flecha, un plegado y una navegación para todas, y cada una se contesta como siempre:
 //   · una decisión de la Ticketera se GUARDA al elegirla (admin_decisiones: Pregunta.tsx → CuerpoTicketera);
 //   · lo que pregunta el chat (`cartero preguntar`) sale TODO junto cuando está todo contestado (con una sola, al elegirla);
-//   · lo de AskUserQuestion se ve, y se contesta en la app de Claude.
+//   · lo de AskUserQuestion se ve, y se contesta en la app de Claude;
+//   · lo que una TAB le pregunta a la persona (las sugerencias del CRM: «Hacerlo» / «Ahora no») corre lo que la tab dice al
+//     elegirlo. Antes era una lista suelta arriba del hilo, con su propio scroll, que se comía la mitad del panel (22/10/2026,
+//     Martín con captura del /crm: «Mira lo mal que se ve esto»). Entra por la estrella de cada tab (MakoEnLaTab → `preguntas`).
 // En la computadora y en el teléfono (Conversacion.tsx y ChatsMovil.tsx lo montan igual); en el teléfono los renglones tienen
 // el alto de un dedo (centro.css, `pointer: coarse`).
 //
@@ -43,18 +46,37 @@ import { AVISO_CLAVE_EN_EL_CENTRO, hayClave } from '@/lib/claves-en-el-chat';
 
 type Elegido = { elegidas: number[]; otra: string };
 
-/** Lo que espera a Martín arriba de la caja, de cualquiera de las tres fuentes. El id lleva la fuente: dos no se pisan. */
+/**
+ * Lo que una TAB le pregunta a la persona (las sugerencias del CRM), para el bloque. Cada opción corre lo de la tab (`onElegir`)
+ * o lleva a una pantalla (`href`). `ocupada`: la opción que está corriendo (su «…»); `quieta`: otra pregunta de la tab está
+ * corriendo; `hecha`: ya se hizo (lo que se dice y dónde verlo).
+ */
+export type PreguntaDeLaTab = {
+  id: string;
+  pregunta: string;
+  contexto?: string | null;
+  opciones: ReadonlyArray<{ titulo: string; recomendada?: boolean; href?: string; onElegir?: () => void }>;
+  ocupada?: number | null;
+  quieta?: boolean;
+  error?: string | null;
+  hecha?: { texto: string; href?: string; rotulo?: string } | null;
+};
+
+/** Lo que espera a Martín arriba de la caja, de cualquiera de las fuentes. El id lleva la fuente: dos no se pisan. */
 export type ItemDelBloque =
   | { de: 'ticketera'; id: string; d: Decision }
   | { de: 'chat'; id: string; p: PreguntaChat }
+  | { de: 'tab'; id: string; q: PreguntaDeLaTab }
   | { de: 'app'; id: string; p: PreguntaChat };
 
-/** Las tres fuentes en UNA lista, en el orden en que se contestan: la Ticketera (ya viene con la que frena primero), lo que
- *  pregunta el chat (la más vieja primero) y lo de la app, que acá sólo se lee. */
-export function itemsDelBloque(ticketera: readonly Decision[], delChat: readonly PreguntaChat[], deLaApp: readonly PreguntaChat[]): ItemDelBloque[] {
+/** Las fuentes en UNA lista, en el orden en que se contestan: la Ticketera (ya viene con la que frena primero), lo que pregunta
+ *  el chat (la más vieja primero), lo que pregunta la tab, y lo de la app, que acá sólo se lee. */
+export function itemsDelBloque(ticketera: readonly Decision[], delChat: readonly PreguntaChat[], deLaApp: readonly PreguntaChat[],
+  deLaTab: readonly PreguntaDeLaTab[] = []): ItemDelBloque[] {
   return [
     ...ticketera.map((d) => ({ de: 'ticketera' as const, id: `t:${d.id}`, d })),
     ...delChat.map((p) => ({ de: 'chat' as const, id: `c:${p.id}`, p })),
+    ...deLaTab.map((q) => ({ de: 'tab' as const, id: `s:${q.id}`, q })),
     ...deLaApp.map((p) => ({ de: 'app' as const, id: `a:${p.id}`, p })),
   ];
 }
@@ -112,7 +134,7 @@ function Pasos({ items, pos, ir, contestada, enviando }: {
   );
 }
 
-export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, delChat = [], onResponder, deLaApp = [] }: {
+export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, delChat = [], onResponder, deLaApp = [], deLaTab = [] }: {
   /** El chat (su clave en el Ops Center): el plegado se recuerda por chat y por lo que espera. */
   chat: string;
   /** Las decisiones de la Ticketera que espera este chat (`preguntasDelChat`); sin `responderTicketera`, no se ofrecen. */
@@ -123,9 +145,11 @@ export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, de
   onResponder?: Responder;
   /** Las de AskUserQuestion (`preguntasDeLaApp`): se ven, y se contestan en la app. */
   deLaApp?: readonly PreguntaChat[];
+  /** Lo que le pregunta la tab donde está la estrella (MakoEnLaTab → `preguntas`): las sugerencias del CRM. */
+  deLaTab?: readonly PreguntaDeLaTab[];
 }) {
-  const items = useMemo(() => itemsDelBloque(responderTicketera ? ticketera : [], onResponder ? delChat : [], deLaApp),
-    [ticketera, responderTicketera, delChat, onResponder, deLaApp]);
+  const items = useMemo(() => itemsDelBloque(responderTicketera ? ticketera : [], onResponder ? delChat : [], deLaApp, deLaTab),
+    [ticketera, responderTicketera, delChat, onResponder, deLaApp, deLaTab]);
   const [idActual, setIdActual] = useState<string | null>(null);
   /** Lo elegido en cada pregunta del chat (salen todas juntas) y las decisiones ya guardadas (hasta que el refresco las saca). */
   const [elegidos, setElegidos] = useState<Record<string, Elegido>>({});
@@ -143,7 +167,7 @@ export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, de
   // La abierta se sigue por su id (la regla de siempre de la Ticketera: si se fue, la primera).
   const { d: abierta, pos } = preguntaAbierta(items, idActual);
   const it = abierta ?? null;
-  const p = it && it.de !== 'ticketera' ? it.p : null;
+  const p = it && (it.de === 'chat' || it.de === 'app') ? it.p : null;
   const ops = useMemo(() => (p ? opcionesEnOrden(p) : []), [p]);
 
   // Al llegar a una pregunta del chat, lo que ya se había elegido en ella (al volver con «‹ Anterior» o un punto) o nada.
@@ -163,7 +187,7 @@ export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, de
   if (plegado) return <Plegada n={items.length} onAbrir={() => setPlegado(false)} app={items.every((x) => x.de === 'app')} />;
 
   const ir = (i: number) => { setAviso(null); setIdActual(items[Math.min(items.length - 1, Math.max(0, i))]?.id ?? null); };
-  const contestada = (id: string) => !!elegidos[id] || guardadas.includes(id);
+  const contestada = (id: string) => !!elegidos[id] || guardadas.includes(id) || items.some((x) => x.id === id && x.de === 'tab' && !!x.q.hecha);
   /** A la próxima que falta contestar ACÁ (las de la app se contestan en la app): primero las de después, después las de antes. */
   const aLaSiguiente = (hecho: ReadonlySet<string>) => {
     const falta = (x: ItemDelBloque) => x.de !== 'app' && !hecho.has(x.id);
@@ -227,7 +251,7 @@ export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, de
 
   const elegida = (i: number) => marcadas.includes(i);
   const ultimaDelChat = it.de === 'chat' && delChatAbiertas.every((q) => q.id === it.id || elegidos[q.id]);
-  const titulo = it.de === 'ticketera' ? it.d.pregunta : it.p.pregunta;
+  const titulo = it.de === 'ticketera' ? it.d.pregunta : it.de === 'tab' ? it.q.pregunta : it.p.pregunta;
   return (
     <div className={`co-preg co-preg--arriba${it.de === 'app' ? ' co-preg--app' : ''}`} role="group"
       aria-label={it.de === 'app' ? `Pregunta en la app de Claude: ${titulo}` : `Pregunta: ${titulo}`} onKeyDown={it.de === 'chat' ? tecla : undefined}>
@@ -240,6 +264,8 @@ export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, de
       {it.de === 'ticketera' && responderTicketera ? (
         <CuerpoTicketera key={it.id} d={it.d} responder={responderTicketera} onGuardada={() => guardada(it.id)}
           onEscribe={(hay) => { escrito.current = hay ? it.id : escrito.current === it.id ? null : escrito.current; }} />
+      ) : it.de === 'tab' ? (
+        <CuerpoDeLaTab key={it.id} q={it.q} />
       ) : it.de === 'app' ? (
         <CuerpoDeLaApp p={it.p} />
       ) : p ? (<>
@@ -284,6 +310,49 @@ export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, de
           )}
         </div>
       </>) : null}
+    </div>
+  );
+}
+
+/** Lo que pregunta la tab (una sugerencia del CRM): sus opciones corren lo de la tab; hecha, dice qué quedó y dónde verlo. */
+function CuerpoDeLaTab({ q }: { q: PreguntaDeLaTab }) {
+  const quieta = q.quieta || q.ocupada != null;
+  function tecla(e: KeyboardEvent<HTMLDivElement>) {
+    if (quieta || q.hecha || !/^[1-9]$/.test(e.key)) return;
+    const o = q.opciones[Number(e.key) - 1];
+    if (o) { e.preventDefault(); elegir(o); }
+  }
+  const elegir = (o: PreguntaDeLaTab['opciones'][number]) => { if (o.href) window.location.assign(o.href); else o.onElegir?.(); };
+  return (
+    <div className="co-preg__cuerpo" onKeyDown={tecla}>
+      <p className="co-preg__texto">{conLinks(q.pregunta, 'pq')}</p>
+      {q.contexto && <p className="co-preg__contexto">{conLinks(q.contexto, 'pc')}</p>}
+      {q.hecha ? (
+        <p className="co-preg__pie">
+          <span className="co-preg__ayuda">{q.hecha.texto}</span>
+          {q.hecha.href && <a className="co-chip" href={q.hecha.href}>{q.hecha.rotulo ?? 'Abrir'}</a>}
+        </p>
+      ) : (<>
+        <ol className="co-preg__ops">
+          {q.opciones.map((o, n) => (
+            <li key={o.titulo}>
+              {/* Como las otras opciones del bloque: un `div` con rol de botón (un link de la pregunta no elige). */}
+              <div role="button" tabIndex={quieta ? -1 : 0} aria-disabled={quieta || undefined} className="co-preg__op"
+                onClick={(e) => { if (!quieta && !(e.target as HTMLElement).closest('a')) elegir(o); }}
+                onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && !quieta) { e.preventDefault(); elegir(o); } }}>
+                <span className="co-preg__num" aria-hidden>{q.ocupada === n ? '…' : n + 1}</span>
+                <span className="co-preg__op-txt">
+                  <span className="co-preg__titulo">{o.titulo}{o.recomendada && <span className="co-preg__rec"> (Recomendada)</span>}</span>
+                </span>
+              </div>
+            </li>
+          ))}
+        </ol>
+        <p className="co-preg__pie">
+          {q.error ? <span className="co-preg__error" role="alert">{q.error}</span>
+            : q.opciones.length ? <span className="co-preg__ayuda">{`Elige con 1 a ${q.opciones.length}`}</span> : null}
+        </p>
+      </>)}
     </div>
   );
 }

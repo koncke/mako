@@ -35,6 +35,7 @@ import { CajaDelCliente, HiloDelCliente, estadoDelCliente } from '@/app/second-b
 import { JEFE_SECOND_BRAIN, type ElegidoChat } from '@/lib/chat-mako-reglas';
 import { etiquetaDesde, type Desde, type EntidadChat, type ModoChat } from '@/lib/chat-desde';
 import { ModosMako } from '@/app/dashboard/ModosMako';
+import { BloqueDePreguntas, type PreguntaDeLaTab } from '@/app/admin/operaciones/PreguntasDelChat';
 
 /** El ancho de la barra de la app plegada: lo que se usa hasta medirla (y en el server). */
 const BARRA_PLEGADA = 68;
@@ -56,7 +57,7 @@ function useBordeDeLaBarra(): number {
   return borde;
 }
 
-export function MakoEnLaTab({ tab, arriba = null, aviso = 0, pedido = null, entidad = null, modo = null, onModo }: {
+export function MakoEnLaTab({ tab, arriba = null, preguntas = null, aviso = 0, pedido = null, entidad = null, modo = null, onModo }: {
   /** El nombre de la tab («CRM», «Automations»): el `aria-label` y desde dónde va lo que se escribe al Cerebro, que reparte. */
   tab: string;
   /** Lo que la pantalla tiene abierto (OC6, lib/chat-desde.ts): el lead de la ficha, la automatización del lienzo. El turno lo
@@ -66,8 +67,11 @@ export function MakoEnLaTab({ tab, arriba = null, aviso = 0, pedido = null, enti
   modo?: ModoChat | null;
   /** Si la pantalla deja cambiar de modo sin salir: «Analizar · Editar» arriba del hilo (el slot de Discutir/Editar). */
   onModo?: (m: ModoChat) => void;
-  /** Lo de la tab arriba del hilo (las sugerencias de MaKo del CRM, con «Hacerlo» y «Ahora no»). */
+  /** Lo de la tab arriba del hilo que NO es una pregunta (el «Calladas» del CRM, un aviso de que no se pudo leer). */
   arriba?: ReactNode;
+  /** Lo que la tab le pregunta a la persona (las sugerencias del CRM, con «Hacerlo» y «Ahora no»): va en el MISMO bloque de
+   *  preguntas del Ops Center, una por vez arriba de la caja (22/10/2026). Nunca una lista suelta arriba del hilo. */
+  preguntas?: readonly PreguntaDeLaTab[] | null;
   /** Cuánto espera a la persona en esta tab (las sugerencias): el globito de la estrella plegada. */
   aviso?: number;
   /** Lo que la tab le manda al Cerebro (el «Hacerlo» de una sugerencia): abre el panel y sale UNA vez por `vez`. */
@@ -92,7 +96,7 @@ export function MakoEnLaTab({ tab, arriba = null, aviso = 0, pedido = null, enti
     return () => { raiz.removeProperty('--ancho-panel-mako'); };
   }, [abierto]);
   return abierto
-    ? <PanelDelCerebro tab={tab} izquierda={borde} arriba={arriba} pedido={porMandar} onMandado={() => setPorMandar(null)} entidad={entidad} modo={modo} onModo={onModo} onCerrar={cerrar} />
+    ? <PanelDelCerebro tab={tab} izquierda={borde} arriba={arriba} preguntas={preguntas} pedido={porMandar} onMandado={() => setPorMandar(null)} entidad={entidad} modo={modo} onModo={onModo} onCerrar={cerrar} />
     : (
       <button type="button" className="ch-tab-mako" style={{ left: borde + 16 }} aria-label={aviso > 0 ? `Escríbele a MaKo desde ${tab} (${aviso} para ver)` : `Escríbele a MaKo desde ${tab}`}
         title="MaKo" onClick={() => setAbierto(true)}>
@@ -102,8 +106,8 @@ export function MakoEnLaTab({ tab, arriba = null, aviso = 0, pedido = null, enti
 }
 
 /** El panel abierto: la conversación «Cerebro» de la persona, con el motor del Ops Center. */
-function PanelDelCerebro({ tab, izquierda, arriba, pedido, onMandado, entidad, modo, onModo, onCerrar }: {
-  tab: string; izquierda: number; arriba: ReactNode;
+function PanelDelCerebro({ tab, izquierda, arriba, preguntas, pedido, onMandado, entidad, modo, onModo, onCerrar }: {
+  tab: string; izquierda: number; arriba: ReactNode; preguntas: readonly PreguntaDeLaTab[] | null;
   pedido: { texto: string; vez: number } | null; onMandado: () => void;
   entidad: EntidadChat | null; modo: ModoChat | null; onModo?: (m: ModoChat) => void; onCerrar: () => void;
 }) {
@@ -143,7 +147,10 @@ function PanelDelCerebro({ tab, izquierda, arriba, pedido, onMandado, entidad, m
             <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} />
             {k.infoWA && <Modal titulo="Info del mensaje" onCerrar={() => k.setInfoWA(null)} ancho={460}><InfoMensaje m={k.infoWA} /></Modal>}
           </>}
-          caja={<div className="co-caja">
+          caja={<>
+            {/* Lo que la tab le pregunta, arriba de la caja y en EL bloque de preguntas (el del Ops Center). */}
+            {preguntas && preguntas.length > 0 && <BloqueDePreguntas chat={`tab:${tab}`} deLaTab={preguntas} />}
+            <div className="co-caja">
             {/* Desde dónde va lo que se escribe, y en qué modo (OC6): lo mismo que dirá el chip del mensaje. */}
             {(entidad || modo || onModo) && (
               <div className="ch-desde-caja">
@@ -152,7 +159,8 @@ function PanelDelCerebro({ tab, izquierda, arriba, pedido, onMandado, entidad, m
               </div>
             )}
             <CajaDelCliente k={k} campo={caja} seguir={seguirHilo} />
-          </div>}
+            </div>
+          </>}
           estado={estadoDelCliente(k)}>
           <HiloDelCliente k={k} />
         </PanelDeChat>
