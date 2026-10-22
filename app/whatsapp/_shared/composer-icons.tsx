@@ -9,7 +9,10 @@ import type { CSSProperties } from 'react';
 const strokeProps = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
 
 // Animación de la onda de grabación + parpadeo del punto rojo.
-export const WAVE_CSS = '@keyframes mako-wave{0%{transform:scaleY(.28)}100%{transform:scaleY(1)}}@keyframes mako-blink{0%,49%{opacity:1}50%,100%{opacity:.25}}';
+export const WAVE_CSS = '@keyframes mako-wave{0%{transform:scaleY(.28)}100%{transform:scaleY(1)}}@keyframes mako-blink{0%,49%{opacity:1}50%,100%{opacity:.25}}'
+  // El punto rojo que LATE mientras graba (22/10/2026, la llamada con Mauricio): un halo que sale y se apaga, siempre rojo.
+  + '@keyframes mako-latido{0%{box-shadow:0 0 0 0 rgba(229,57,53,.6);transform:scale(1)}50%{transform:scale(1.15)}70%{box-shadow:0 0 0 7px rgba(229,57,53,0)}100%{box-shadow:0 0 0 0 rgba(229,57,53,0);transform:scale(1)}}'
+  + '@media (prefers-reduced-motion:reduce){[data-punto-rec]{animation:none!important}}';
 
 export function SendArrow() {
   return <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20.5 L21 12 L3 3.5 L3 10 L15 12 L3 14 Z" fill="currentColor" /></svg>;
