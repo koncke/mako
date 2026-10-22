@@ -855,6 +855,15 @@ textarea.mako-field {
 .mk-sel-tarjeta[data-marcada='1'],
 .mk-sel-tarjeta[data-seleccionando='1'] { width: 15px; margin-right: 0; opacity: 1; }
 
+/* LA COPIA QUE VIAJA CON VARIOS TILDADOS dice cuántos van (CRM, 22/10/2026: arrastrar uno de los tildados mueve a todos).
+   La marca la pone el tablero en el origen sólo mientras se clona: la tarjeta que se queda no la lleva. */
+.mk-tarjeta-lead[data-varios]::after {
+  content: attr(data-varios);
+  position: absolute; top: -9px; right: -9px; padding: 3px 9px; border-radius: 99px;
+  background: var(--primary); color: var(--on-primary, #fff); font: 700 12px/1.2 'Geist', sans-serif;
+  box-shadow: 0 4px 12px rgba(18, 21, 27, .25); white-space: nowrap;
+}
+
 /* ⚠️ En la fila de un video los botones van AL ALTO DEL DESPLEGABLE. El botón de
    ícono mide 34 px y el `Select` mide `--touch` (40, y 44 en táctil): puestos en
    la misma fila se veían de dos tamaños, como si fueran de dos piezas distintas.
