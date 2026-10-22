@@ -1,20 +1,20 @@
 'use client';
 
 // =============================================================================
-// SecondBrainM — el buscador, el mapa chico, «Tu negocio» y la hoja de un área o un dato
+// SecondBrainM — el grafo del Second Brain a pantalla entera, y la hoja de un área o un dato
 // =============================================================================
-// Obsidian en el teléfono: escribir arriba y la pantalla pasa a ser la lista de lo encontrado
-// (el «3/72» de escritorio va en el campo, y la ✕ en modo MaKo vuelve a la búsqueda normal, como
-// allá); sin texto, el mapa en chico y las carpetas. Tocar un área o un dato abre UNA hoja (Notion:
-// la página como hoja, las propiedades como filas nombre → valor) que navega adentro: área → dato →
-// dato conectado; el área de arriba del dato lleva a su área. «Atrás» cierra la hoja.
+// Desde el 22/10/2026 (Martín, pedido 4a15e2c3) la pantalla ES el grafo: no hay portada con «Abrir el grafo». Buscar va
+// arriba del grafo; «Lo último» y las áreas, en su barra lateral («Áreas» en vertical); subir al Archivero, en el «+» de
+// su barra. Tocar «Editar» de un área (o entrar con `?area=`) abre UNA hoja (Notion: la página como hoja, las propiedades
+// como filas nombre → valor) ENCIMA del grafo, que navega adentro: área → dato → dato conectado. «Atrás» cierra la hoja,
+// y el «‹» del grafo sale del Second Brain.
 //
 // ⚠️ Nada de lo que llega del server se copia a un estado: refrescar trae el cerebro nuevo y la hoja
 //    abierta se vuelve a leer por id (si el dato ya no está, lo dice).
 // ⚠️ La hoja guarda su última vista mientras se cierra: sin eso, los 220 ms de la salida bajan vacíos.
-// =============================================================================
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { useWs } from '@/app/_ui/Link';
 import { Button, ButtonLink } from '@/app/_ui/Button';
@@ -22,29 +22,23 @@ import { Icon } from '@/app/_components/icons';
 import { conWs } from '@/lib/ws-tab';
 import type { AreaId, Cerebro, NodoCerebro } from '@/lib/cerebro-modelo';
 import {
-  AUTORIA_CORTA, agruparConexiones, claveVistos, contarPorArea, fechaCortaNodo, idsVistos, nuevosDesde, rellenoNodo, rutaVistaDocumento,
-  sePuedeVerDocumento, tipoDeNodo, ultimosDelCerebro, OPACIDAD_PENDIENTE,
+  AUTORIA_CORTA, agruparConexiones, contarPorArea, fechaCortaNodo, rellenoNodo, rutaVistaDocumento, sePuedeVerDocumento, tipoDeNodo,
+  OPACIDAD_PENDIENTE,
 } from '@/lib/cerebro-areas';
-import { wsDeBusqueda } from '@/lib/ws-tab';
 import { AUTORIA_TEXTO } from '@/lib/cerebro-modelo';
 import {
-  CabeceraM, ComputadoraM, FilaDatoM, FilaM, ListaM, PieM, SeccionM, SegmentadoM, SheetM, SkeletonFilas, VacioM,
+  ComputadoraM, FilaDatoM, FilaM, ListaM, PieM, SeccionM, SheetM, VacioM,
 } from '@/app/m/_ui';
 import {
-  R, accesos, areaPorId, buscarNodos, carpetaDeArea, carpetas, conexionesDe, datosConValor, datosDelArea, deDondeSalio,
-  elegidosPorMako, esCorto, miniMapa, primeraLinea, totalBuscable, type DondeBuscar,
+  R, areaPorId, carpetaDeArea, conexionesDe, datosConValor, datosDelArea, deDondeSalio, esCorto, primeraLinea,
 } from './modelo';
 import { ArchiveroM } from './ArchiveroM';
-import { SUBTITULO_SECOND_BRAIN, SUBTITULO_UNIDO, TITULO_SECOND_BRAIN, VistaCerebro } from '@/app/second-brain/VistaCerebro';
-// El «atrás» de Android cierra el grafo (la capa de arriba) y no la pantalla: la misma pieza del Ops Center.
-import { useAtrasCierra } from '@/app/admin/operaciones/atras';
+import { TITULO_SECOND_BRAIN, VistaCerebro } from '@/app/second-brain/VistaCerebro';
 
 type Hoja = { tipo: 'area'; area: AreaId } | { tipo: 'dato'; id: string };
 
 /** «12 oct»: la misma regla de la barra lateral de la computadora (lib/cerebro-areas.ts). */
 const fechaCorta = fechaCortaNodo;
-type EstadoIA = { pensando: boolean; ids: string[] | null; explico: string };
-const SIN_IA: EstadoIA = { pensando: false, ids: null, explico: '' };
 
 /** El punto de color de un área o un dato, en su baldosa oscura (el lienzo de escritorio, en chico). */
 export function Punto({ color, apagado = false }: { color: string; apagado?: boolean }) {
@@ -69,62 +63,33 @@ function ParLargo({ k, v }: { k: string; v: string }) {
   );
 }
 
-/** La foto del mapa: las mismas posiciones del server, sin gestos, adentro del lienzo oscuro. Los puntos NUEVOS desde
- *  la última visita entran viajando desde el borde izquierdo, de a uno (el nodo que viaja de la computadora, en chico). */
-export function MapaChico({ cerebro, nuevos }: { cerebro: Cerebro<string>; nuevos: readonly string[] }) {
-  const { puntos, lineas } = useMemo(() => miniMapa(cerebro, 340, 200), [cerebro]);
-  if (!puntos.length) return null;
-  return (
-    <div className="m-second-brain-mapa" role="img" aria-label="El Second Brain de tu negocio">
-      <svg viewBox="0 0 340 200" preserveAspectRatio="xMidYMid meet" aria-hidden focusable="false">
-        <g className="m-second-brain-mapa__aristas">
-          {lineas.map((l, i) => <line key={i} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} />)}
-        </g>
-        {puntos.map((p) => {
-          const i = nuevos.indexOf(p.id);
-          if (i < 0) return <circle key={p.id} cx={p.x} cy={p.y} r={p.r} fill={p.color} opacity={p.opacidad} />;
-          // SMIL y no una animación CSS: cada punto sale de SU lugar en el borde, y un `var()` local por punto no es un
-          // token de la casa (tests/m-second-brain.test.ts). Con movimiento reducido, `nuevos` llega vacío.
-          const desde = `${300 + i * 380}ms`;
-          return (
-            <circle key={`${p.id}-nuevo`} cx={-12} cy={p.y} r={p.r} fill={p.color} opacity={0}>
-              <animate attributeName="cx" from={-12} to={p.x} begin={desde} dur="950ms" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines=".2 .7 .3 1" />
-              <animate attributeName="opacity" from={0} to={p.opacidad} begin={desde} dur="300ms" fill="freeze" />
-            </circle>
-          );
-        })}
-      </svg>
-    </div>
-  );
-}
-
 export function SecondBrainM({ cerebro, grafo = cerebro, areaInicial }: {
-  /** El negocio: las listas, la búsqueda y las hojas de esta pantalla. */
+  /** El negocio: las hojas de un área y de un dato. */
   cerebro: Cerebro;
-  /** Lo que se DIBUJA (la foto y el grafo entero): para quien opera, UN cerebro con la construcción de MaKo adentro
-   *  (mapa/page.tsx). Martín, 20/10/2026: «En ningún caso jamás los cerebros se deben dividir en 2»; hasta ese día acá
-   *  había un «Negocio · Construcción» que cambiaba un grafo por otro. */
+  /** Lo que se DIBUJA (el grafo entero): para quien opera, UN cerebro con la construcción de MaKo adentro (mapa/page.tsx).
+   *  Martín, 20/10/2026: «En ningún caso jamás los cerebros se deben dividir en 2». */
   grafo?: Cerebro<string>;
   areaInicial: AreaId | null;
 }) {
   const ws = useWs();
-  const [q, setQ] = useState('');
-  const [donde, setDonde] = useState<DondeBuscar>('nombre');
-  const [ia, setIa] = useState<EstadoIA>(SIN_IA);
-  const pedido = useRef(0);
+  const router = useRouter();
   const [hoja, setHoja] = useState<Hoja | null>(null);
   const [subir, setSubir] = useState(false);
-  // EL GRAFO REAL, a pantalla entera (17/10/2026). Antes esta pantalla sólo tenía la foto del mapa, sin gestos, y de ahí
-  // «no puedo clickear en nodos» (Martín, desde su Android). Ahora el Mapa ABRE en el grafo de la computadora —el mismo
-  // componente: tocar un nodo, pellizcar, la barra lateral con scroll, apaisado— y la lista queda a un toque (←).
-  // `?area=` abre la hoja de esa área en cambio: es una intención explícita de otra pantalla.
-  const [grafoAbierto, setGrafoAbierto] = useState(() => !areaInicial && cerebro.nodos.length > 1);
+  // EL GRAFO ES LA PANTALLA (22/10/2026, Martín desde el Centro, pedido 4a15e2c3: «no quiero que siga existiendo la vista
+  // "Abrir Grafo", por defecto SIEMPRE abierto»). Hasta ese día el grafo era una capa encima de una portada (la foto del
+  // mapa con «Abrir el grafo», el buscador, «Lo último» y las carpetas con su «falta»), y cerrarlo dejaba la portada. Lo que
+  // tenía la portada sigue en el grafo: buscar arriba, «Lo último» y las áreas en su barra lateral («Áreas» en vertical), y
+  // subir al Archivero en el «+» de su barra. Su «atrás» sale del Second Brain.
   // El portal necesita el documento: recién después de montar (el servidor no lo tiene).
   const [montado, setMontado] = useState(false);
   useEffect(() => { setMontado(true); }, []);
-  useAtrasCierra(grafoAbierto, () => setGrafoAbierto(false));
+  /** Salir del Second Brain: a la pantalla de antes; si se entró directo (sin historial), al Ops Center del teléfono. */
+  const salir = () => {
+    if (window.history.length > 1) router.back();
+    else router.replace(conWs('/m/second-brain', ws));
+  };
 
-  // `?area=` (la clave de escritorio): entra con esa área abierta. El parámetro se saca de la URL
+  // `?area=` (la clave de escritorio): entra con esa área abierta, encima del grafo. El parámetro se saca de la URL
   // antes de que la hoja ponga el suyo, para que «atrás» no la vuelva a abrir.
   const abrioInicial = useRef(false);
   useEffect(() => {
@@ -139,72 +104,9 @@ export function SecondBrainM({ cerebro, grafo = cerebro, areaInicial }: {
     setHoja({ tipo: 'area', area: areaInicial });
   }, [areaInicial]);
 
-  const accion = useMemo(() => (
-    <button type="button" className="m-cabecera__accion" aria-label={R.abrirArchivero} onClick={() => setSubir(true)}>
-      <Icon name="plus" size={22} />
-    </button>
-  ), []);
-
   const conteo = useMemo(() => contarPorArea(cerebro.nodos), [cerebro.nodos]);
-  // Lo nuevo desde la última visita, con la MISMA regla y la misma clave que la computadora (lib/cerebro-areas.ts).
-  const [nuevos, setNuevos] = useState<string[]>([]);
-  useEffect(() => {
-    const clave = claveVistos(cerebro.negocio, wsDeBusqueda(window.location.search));
-    let antes: unknown = null;
-    try { antes = JSON.parse(window.localStorage.getItem(clave) ?? 'null'); } catch { antes = null; }
-    // ⚠️ SE SUMA a lo guardado y no lo pisa: el grafo (Grafo.tsx) guarda en la MISMA clave los ids de las dos capas (el
-    // negocio y la construcción de MaKo), y si esta lista los pisara con los del negocio solo, cada vez que se abre el
-    // grafo los nodos de la construcción volverían a «ser nuevos» y viajarían de nuevo.
-    const previos = Array.isArray(antes) ? antes.filter((x): x is string => typeof x === 'string') : [];
-    try { window.localStorage.setItem(clave, JSON.stringify([...new Set([...previos, ...idsVistos(cerebro.nodos)])])); } catch { /* es una comodidad */ }
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-    setNuevos((nuevosDesde(antes, cerebro.nodos) ?? []).map((n) => n.id));
-  }, [cerebro]);
-  /** «Lo último»: lo mismo que el navegador de la computadora (lib/cerebro-areas.ts). */
-  const ultimos = useMemo(() => ultimosDelCerebro(cerebro.nodos), [cerebro.nodos]);
-  const { norte, cuello } = useMemo(() => accesos(cerebro.nodos), [cerebro.nodos]);
-  const total = useMemo(() => totalBuscable(cerebro), [cerebro]);
-
-  const hayTexto = q.trim() !== '';
-  const conIA = ia.ids !== null || ia.pensando;
-  const resultados = useMemo(
-    () => (ia.ids ? elegidosPorMako(cerebro, ia.ids) : buscarNodos(cerebro, q, donde)),
-    [cerebro, q, donde, ia.ids],
-  );
-
-  const volverANormal = () => { pedido.current++; setIa(SIN_IA); };
-  const escribir = (v: string) => { setQ(v); if (conIA || ia.explico) volverANormal(); };
-
-  /** Le pide a MaKo que lea el mapa (la misma ruta de escritorio). Devuelve IDS: se dibujan los nodos de acá. */
-  const buscarConMako = async () => {
-    const texto = q.trim();
-    if (!texto) return;
-    const n = ++pedido.current;
-    setIa({ pensando: true, ids: null, explico: '' });
-    try {
-      const r = await fetch('/api/second-brain/buscar', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ q: texto }), signal: AbortSignal.timeout(60_000),
-      });
-      const j = await r.json().catch(() => null) as { ok?: boolean; ids?: unknown; explico?: unknown; porTexto?: boolean } | null;
-      if (n !== pedido.current) return;
-      if (!j || j.ok === false) { setIa({ pensando: false, ids: [], explico: R.sinMako }); return; }
-      // `porTexto` (D6b): con su propio Claude y sin una clave que busque, MaKo no buscó: queda la búsqueda por texto, con el porqué.
-      if (j.porTexto) { setIa({ pensando: false, ids: null, explico: String(j.explico ?? '') }); return; }
-      setIa({ pensando: false, ids: Array.isArray(j.ids) ? j.ids.map(String) : [], explico: String(j.explico ?? '') });
-    } catch {
-      if (n === pedido.current) setIa({ pensando: false, ids: [], explico: R.sinMako });
-    }
-  };
 
   const abrirArea = (area: AreaId) => setHoja({ tipo: 'area', area });
-  /** «Editar» de la barra lateral del grafo: se cierra el grafo y se abre la hoja del área. ⚠️ Con una demora, no en el
-   *  mismo instante: cerrar el grafo consume su entrada del historial con `history.back()` (atras.ts), y una hoja que
-   *  hiciera su `pushState` antes de que ese «atrás» termine lo pisaría y se cerraría sola. */
-  const editarDesdeElGrafo = (area: AreaId) => {
-    setGrafoAbierto(false);
-    window.setTimeout(() => abrirArea(area), 350);
-  };
   const abrirNodo = (n: NodoCerebro) => {
     // La caja de un área (o su «falta») se abre como el área: es la lista, no un dato.
     if (n.id.startsWith('area:') || n.id.startsWith('falta:')) abrirArea(n.area);
@@ -273,151 +175,10 @@ export function SecondBrainM({ cerebro, grafo = cerebro, areaInicial }: {
 
   return (
     <>
-      {/* La página dibuja su encabezado (`grande={false}`): el título va ADENTRO del lienzo oscuro, como en la
-          computadora (Martín, 17/10/2026: «el grafo va SIEMPRE en modo oscuro; arriba dice Second Brain y Todo lo que
-          MaKo sabe de tu negocio»). `data-m-titulo-grande` hace que el nombre chico aparezca en la barra al bajar. */}
-      <CabeceraM accion={accion} grande={false} />
-      <section className="m-second-brain-lienzo" data-tema="oscuro" aria-label={TITULO_SECOND_BRAIN}>
-        <h1 className="m-second-brain-titulo" data-m-titulo-grande>{TITULO_SECOND_BRAIN}</h1>
-        <p className="m-second-brain-sub">{grafo.taxonomia?.capas?.length ? SUBTITULO_UNIDO : SUBTITULO_SECOND_BRAIN}</p>
-        {/* La foto del mapa es la puerta al grafo de verdad: tocarla lo abre. UNA foto, del cerebro entero. */}
-        {grafo.cuenta.total > 0 && (
-          <button type="button" className="m-second-brain-abrir" onClick={() => setGrafoAbierto(true)} aria-label="Abrir el grafo">
-            <MapaChico cerebro={grafo} nuevos={nuevos} />
-            <span className="m-second-brain-abrir__txt" aria-hidden>Abrir el grafo</span>
-          </button>
-        )}
-      </section>
+      {/* El título, para quien no ve el grafo (un lector de pantalla). */}
+      <h1 className="m-sr">{TITULO_SECOND_BRAIN}</h1>
 
-
-      <div className="m-second-brain-buscar" role="search">
-        <span className="m-second-brain-buscar__ico" aria-hidden><Icon name="search" size={18} /></span>
-        <input
-          type="search"
-          inputMode="search"
-          enterKeyHint="search"
-          autoComplete="off"
-          autoCorrect="off"
-          spellCheck={false}
-          value={q}
-          onChange={(e) => escribir(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-          placeholder={R.buscar}
-          aria-label={R.buscar}
-        />
-        {hayTexto && !conIA && (
-          <span className="m-second-brain-buscar__n" aria-hidden>{resultados.length ? `${resultados.length}/${total}` : 'nada'}</span>
-        )}
-        {hayTexto && (
-          <button
-            type="button"
-            className="m-second-brain-buscar__limpiar"
-            // En modo MaKo la ✕ vuelve a la búsqueda normal (con el texto), como en escritorio.
-            aria-label={conIA ? 'Volver a la búsqueda normal' : 'Borrar la búsqueda'}
-            onClick={() => { if (conIA) volverANormal(); else setQ(''); }}
-          >
-            <Icon name="x" size={18} />
-          </button>
-        )}
-      </div>
-      <p className="m-sr" aria-live="polite">
-        {!hayTexto ? '' : ia.pensando ? R.leyendo : `${resultados.length} ${resultados.length === 1 ? 'resultado' : 'resultados'}`}
-      </p>
-
-      {hayTexto ? (
-        <>
-          {!conIA && (
-            <div className="m-second-brain-donde">
-              <SegmentadoM<DondeBuscar>
-                etiqueta={R.donde}
-                valor={donde}
-                onCambio={setDonde}
-                opciones={[{ id: 'nombre', label: R.soloNombre }, { id: 'todo', label: R.todo }]}
-              />
-            </div>
-          )}
-          {/* MaKo no buscó (D6b, `porTexto`): lo de abajo es la búsqueda por texto, y se dice por qué. */}
-          {!conIA && ia.explico && <p className="m-second-brain-estado">{ia.explico}</p>}
-
-          {ia.pensando ? (
-            <>
-              <p className="m-second-brain-estado">{R.leyendo}</p>
-              <SkeletonFilas filas={3} />
-            </>
-          ) : conIA ? (
-            resultados.length ? (
-              <SeccionM titulo={`${R.eligio} ${resultados.length}`}>
-                <ListaM etiqueta={`${R.eligio} ${resultados.length}`}>{resultados.map((n) => filaNodo(n))}</ListaM>
-              </SeccionM>
-            ) : (
-              <VacioM frase={ia.explico || 'MaKo no encontró nada.'} />
-            )
-          ) : resultados.length ? (
-            <div className="m-second-brain-resultados">
-              <ListaM etiqueta="Resultados">{resultados.map((n) => filaNodo(n))}</ListaM>
-            </div>
-          ) : (
-            <VacioM
-              frase={donde === 'nombre' ? 'Nada con ese nombre.' : 'Nada con esas palabras.'}
-              accion={donde === 'nombre' ? { rotulo: 'Buscar en todo', onClick: () => setDonde('todo') } : undefined}
-            />
-          )}
-
-          {!conIA && (
-            <div className="m-second-brain-mako">
-              <Button variant="mako" size="lg" full icon={<Icon name="mako" size={18} />} onClick={() => void buscarConMako()}>
-                {R.conMako}
-              </Button>
-            </div>
-          )}
-        </>
-      ) : (
-        <>
-          {cerebro.cuenta.total === 0 && (
-            <VacioM frase={`${R.vacio}.`} accion={{ rotulo: R.abrirArchivero, onClick: () => setSubir(true) }} />
-          )}
-
-          {(norte || cuello) && (
-            <SeccionM titulo={R.negocio}>
-              <ListaM etiqueta={R.negocio}>
-                {norte && <FilaM leading={<Punto color={rellenoNodo(norte)} />} titulo={R.norte} segunda={norte.etiqueta} onClick={() => abrirNodo(norte)} />}
-                {cuello && <FilaM leading={<Punto color={rellenoNodo(cuello)} />} titulo={R.cuello} segunda={cuello.etiqueta} onClick={() => abrirNodo(cuello)} />}
-              </ListaM>
-            </SeccionM>
-          )}
-
-          {ultimos.length > 0 && (
-            <SeccionM titulo="Lo último">
-              <ListaM etiqueta="Lo último">
-                {ultimos.map((n) => filaNodo(n, `${fechaCorta(n.nace)} · ${areaPorId(n.area).nombre}`))}
-              </ListaM>
-            </SeccionM>
-          )}
-
-          {carpetas().map((c) => (
-            <SeccionM key={c.id} titulo={c.nombre}>
-              <ListaM etiqueta={c.nombre}>
-                {c.areas.map((a) => {
-                  const n = conteo[a.id] ?? 0;
-                  return (
-                    <FilaM
-                      key={a.id}
-                      leading={<Punto color={a.color} />}
-                      titulo={a.nombre}
-                      navegacion
-                      // El conteo dice que hay algo; «falta», que no. Nunca un 0, que se lee como un dato que vale cero.
-                      riel={n ? <span className="m-second-brain-n">{n}</span> : <span className="m-second-brain-falta">falta</span>}
-                      etiqueta={`${a.nombre}: ${n ? `${n} ${n === 1 ? 'dato' : 'datos'}` : 'falta'}`}
-                      onClick={() => abrirArea(a.id)}
-                    />
-                  );
-                })}
-              </ListaM>
-            </SeccionM>
-          ))}
-        </>
-      )}
-
+      {/* Las hojas (capa 80) van ENCIMA del grafo (60): «Editar» de un área y `?area=` las abren sin cerrarlo. */}
       <SheetM id="cerebro" abierto={hoja != null} onCerrar={() => setHoja(null)} titulo={tituloHoja} snap="alto" pie={pieHoja}>
         <div ref={cuerpoHoja}>
           {vista?.tipo === 'area' && (
@@ -433,17 +194,22 @@ export function SecondBrainM({ cerebro, grafo = cerebro, areaInicial }: {
 
       <ArchiveroM abierto={subir} onCerrar={() => setSubir(false)} />
 
-      {/* El grafo, a pantalla entera, encima de la lista. En `#m-root` y no en el <body>: ahí viven los tokens del
-          teléfono (`[data-m]`: los tamaños de letra, el toque de 44). UN cerebro: el negocio y, para el super admin,
-          la construcción de MaKo colgada de la misma raíz, con las capas como filtro (VistaCerebro). */}
-      {montado && grafoAbierto && createPortal(
-        <div className="m-second-brain-grafo" data-tema="oscuro" role="dialog" aria-label={TITULO_SECOND_BRAIN}>
+      {/* El grafo, a pantalla entera: ES la pantalla. En `#m-root` y no en el <body>: ahí viven los tokens del teléfono
+          (`[data-m]`: los tamaños de letra, el toque de 44). UN cerebro: el negocio y, para el super admin, la
+          construcción de MaKo colgada de la misma raíz, con las capas como filtro (VistaCerebro). */}
+      {montado && createPortal(
+        <div className="m-second-brain-grafo" data-tema="oscuro" role="region" aria-label={TITULO_SECOND_BRAIN}>
           <VistaCerebro
             movil
             cerebro={grafo}
             funnelPanel={null}
-            alCerrar={() => setGrafoAbierto(false)}
-            alEditarArea={editarDesdeElGrafo}
+            alCerrar={salir}
+            alEditarArea={abrirArea}
+            accionMovil={(
+              <button type="button" className="cbg-ico" aria-label={R.abrirArchivero} title={R.abrirArchivero} onClick={() => setSubir(true)}>
+                <Icon name="plus" size={18} />
+              </button>
+            )}
           />
         </div>,
         document.getElementById('m-root') ?? document.body,

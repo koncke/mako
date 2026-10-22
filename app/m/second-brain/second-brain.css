@@ -1,69 +1,23 @@
 /* ============================================================================
-   /m/second-brain — el buscador, el mapa chico, «Tu negocio» y la hoja de un área o un dato
+   /m/second-brain/mapa — el grafo a pantalla entera y la hoja de un área o un dato
    ============================================================================
-   Referencia: docs/prototipos/mako-mobile-tableros.html (la pantalla «second-brain»: el campo
-   .buscar, la caja oscura .nodos y la lista «Tu negocio» con su conteo o «falta»).
+   Desde el 22/10/2026 no hay portada (el buscador, la foto del mapa, las carpetas con su «falta»): la pantalla es el grafo.
    Todo con prefijo .m-second-brain-* (el nombre ENTERO de la carpeta: Next deja la hoja cargada al
    salir de la ruta). Sólo var(--token) de app/globals.css. Un h1/p con margen va con [data-m] delante.
-   El mapa chico es una isla oscura: `data-tema="oscuro"` en su caja redefine los tokens (AGENTS.md,
-   «Una pantalla oscura se hace redefiniendo TOKENS»), así --bg y --border-strong son los del lienzo.
+   El grafo es oscuro: `data-tema="oscuro"` en su caja redefine los tokens (AGENTS.md, «Una pantalla oscura se hace
+   redefiniendo TOKENS»), así --bg y --border-strong son los del lienzo.
    ========================================================================== */
 
-/* ── El buscador (gris de iOS, 44 de alto, input a 16 px para que iOS no haga zoom) ── */
-.m-second-brain-buscar {
-  display: flex; align-items: center; gap: 8px;
-  min-height: 44px; padding: 0 0 0 12px; border-radius: 12px;
-  background: color-mix(in srgb, var(--ink) 7%, var(--bg)); color: var(--faint);
-}
-.m-second-brain-buscar__ico { flex: none; display: grid; place-items: center; }
-.m-second-brain-buscar input {
-  flex: 1; min-width: 0; min-height: 44px; border: 0; background: none; padding: 0;
-  font: inherit; font-size: 16px; color: var(--ink); outline: none;
-  -webkit-appearance: none; appearance: none;
-}
-.m-second-brain-buscar input::placeholder { color: var(--faint); }
-.m-second-brain-buscar input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
-.m-second-brain-buscar:focus-within { box-shadow: var(--focus-ring); }
-/* El «3/72» de escritorio: cuántos matchean de cuántos hay. */
-.m-second-brain-buscar__n {
-  flex: none; font-size: var(--fs-meta); color: var(--faint); font-variant-numeric: tabular-nums; white-space: nowrap;
-}
-.m-second-brain-buscar__limpiar {
-  flex: none; width: 44px; height: 44px; display: grid; place-items: center;
-  border: 0; background: none; color: var(--faint); border-radius: 12px; padding: 0; cursor: pointer;
-}
-
-.m-second-brain-donde { margin-top: 12px; }
-.m-second-brain-resultados { margin-top: 14px; }
-.m-second-brain-mako { margin-top: 22px; }
-[data-m] .m-second-brain-estado { margin: 16px 4px 10px; font-size: var(--fs-sm); color: var(--dim); }
-
-/* ── El esqueleto (loading.tsx): la misma forma, sin datos ────────────────── */
+/* ── El esqueleto (loading.tsx de /m/second-brain, que es la lista del Ops Center) ── */
 .m-second-brain-skel-buscar { height: 44px; border-radius: 12px; }
 .m-second-brain-skel-mapa { margin-top: 16px; aspect-ratio: 2 / 1; border-radius: var(--r-lg); }
 .m-second-brain-skel-lista { margin-top: 28px; }
 
-/* ── El lienzo: la isla oscura con el título, el subtítulo y el mapa chico (17/10/2026) ──
-   El grafo va SIEMPRE en oscuro (Martín). `data-tema="oscuro"` en la caja da vuelta los tokens sólo acá: la barra del
-   teléfono y las listas siguen el tema de la persona (el tema de la PWA es del shell, app/m/_ui/ShellM.tsx). */
-.m-second-brain-lienzo {
-  margin-bottom: 16px; padding: 18px 16px 14px; border-radius: var(--r-lg);
-  background: var(--bg); border: 1px solid var(--border); color: var(--ink);
-}
-[data-m] .m-second-brain-titulo { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -.01em; line-height: 1.15; color: var(--ink); }
-[data-m] .m-second-brain-sub { margin: 4px 0 0; font-size: var(--fs-sm); color: var(--dim); line-height: 1.4; }
-.m-second-brain-mapa {
-  margin-top: 12px; aspect-ratio: 17 / 10; overflow: hidden;
-}
-.m-second-brain-mapa svg { display: block; width: 100%; height: 100%; }
-/* La foto del mapa es un botón: abre el grafo de verdad (Martín, 17/10/2026). */
-.m-second-brain-abrir {
-  position: relative; display: block; width: 100%; padding: 0; margin: 0; border: 0; background: none;
-  color: inherit; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent;
-}
-.m-second-brain-abrir__txt {
-  position: absolute; right: 10px; bottom: 10px; padding: 8px 14px; border-radius: 999px;
-  background: var(--primary); color: #fff; font-size: var(--fs-meta); font-weight: 600;
+/* ── El grafo ES la pantalla (22/10/2026, Martín: sin la vista «Abrir el grafo»). Mientras se arma (mapa/loading.tsx),
+   el mismo lienzo oscuro con una mancha donde va a aparecer: sin pasar por una pantalla clara. */
+.m-second-brain-skel-grafo {
+  position: absolute; left: 50%; top: 50%; width: min(62vw, 62vh); aspect-ratio: 1; transform: translate(-50%, -50%);
+  border-radius: 50%; opacity: .5;
 }
 /* El grafo a pantalla entera, sobre la barra de abajo (z 40) y debajo de las hojas (z 80). Un teléfono de costado mide
    340 px de alto: ni un píxel para la barra del shell. `dvh` y no `vh`: la barra del navegador sube y baja. */
@@ -71,7 +25,6 @@
   position: fixed; inset: 0; z-index: 60; height: 100dvh; display: flex; flex-direction: column;
   background: var(--bg); color: var(--ink); overscroll-behavior: none;
 }
-.m-second-brain-mapa__aristas line { stroke: var(--border-strong); stroke-width: .75; }
 
 /* ── El punto de un área o un dato, en su baldosa oscura (32, como IconoM) ── */
 .m-second-brain-punto {
@@ -83,9 +36,6 @@
   background: currentColor; box-shadow: 0 0 8px currentColor;
 }
 
-/* El riel de un área: el conteo, o «falta» (nunca un 0). */
-.m-second-brain-n { font-size: var(--fs-md); color: var(--dim); font-variant-numeric: tabular-nums; }
-.m-second-brain-falta { font-size: var(--fs-sm); font-weight: 600; color: var(--warn); }
 
 /* ── La hoja de un dato ───────────────────────────────────────────────────── */
 /* Su área, arriba (las migas de Notion): lleva a la lista del área. */

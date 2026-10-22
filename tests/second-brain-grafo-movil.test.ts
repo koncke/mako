@@ -269,17 +269,27 @@ test('la barra lateral apaisada: al costado, con scroll, y el botón «Girar la 
   assert.match(j, /data-movil=\{movil \? '1' : undefined\}/);
 });
 
-test('el Mapa del teléfono abre el grafo real a pantalla entera, y la foto es la puerta', () => {
+// 22/10/2026 (Martín, pedido 4a15e2c3: «no quiero que siga existiendo la vista "Abrir Grafo", por defecto SIEMPRE abierto»):
+// el grafo ES la pantalla. Sin portada ni foto que lo abra, su «‹» sale del Second Brain y las hojas abren ENCIMA de él.
+// rotura (vuelve el estado `grafoAbierto`): 1 fallo. rotura (el «‹» cierra en vez de salir): 1 fallo.
+// rotura («Editar» cierra el grafo antes de abrir la hoja): 1 fallo. rotura (el «+» del teléfono no llega al grafo): 1 fallo.
+test('el Mapa del teléfono ES el grafo real a pantalla entera: sin portada, su «‹» sale y las hojas abren encima', () => {
   const m = sinComentarios(leer('app/m/second-brain/SecondBrainM.tsx'));
   assert.match(m, /<VistaCerebro\s+movil\s/, 'el mismo componente de escritorio, en su modo teléfono');
   assert.match(m, /<VistaCerebro\s+movil\s+cerebro=\{grafo\}/, 'con la construcción adentro: UN cerebro también acá (20/10/2026)');
-  assert.match(m, /useAtrasCierra\(grafoAbierto, \(\) => setGrafoAbierto\(false\)\)/, 'el «atrás» de Android cierra el grafo');
-  assert.match(m, /className="m-second-brain-abrir"/, 'la foto del mapa es un botón');
+  assert.match(m, /\{montado && createPortal\(/, 'siempre: no depende de ningún «abierto»');
+  assert.doesNotMatch(m, /grafoAbierto|m-second-brain-abrir|MapaChico|Abrir el grafo/, 'sin la portada ni la foto que abría el grafo');
+  assert.match(m, /alCerrar=\{salir\}/);
+  assert.match(m, /if \(window\.history\.length > 1\) router\.back\(\);\s*else router\.replace\(conWs\('\/m\/second-brain', ws\)\);/, 'el «‹» sale del Second Brain');
+  assert.match(m, /alEditarArea=\{abrirArea\}/, '«Editar» abre la hoja encima, sin cerrar el grafo');
+  assert.match(m, /accionMovil=\{\(/, 'subir al Archivero, en la barra del grafo');
   assert.match(m, /document\.getElementById\('m-root'\) \?\? document\.body/, 'en el shell del teléfono (ahí viven sus tokens)');
-  assert.match(m, /useState\(\(\) => !areaInicial && cerebro\.nodos\.length > 1\)/, 'el Mapa abre en el grafo, salvo que otra pantalla pida un área');
+  // Las hojas (80) quedan por encima del grafo (60).
+  assert.match(leer('app/m/m.css'), /\.m-sheet-capa \{ position: fixed; inset: 0; z-index: 80; \}/);
   const css = leer('app/m/second-brain/second-brain.css');
   assert.match(css, /\.m-second-brain-grafo \{[^}]*position: fixed; inset: 0; z-index: 60; height: 100dvh/);
   const v = sinComentarios(leer('app/second-brain/VistaCerebro.tsx'));
   assert.match(v, /\{!movil && \(\s*<header/, 'sin cabecera en el teléfono: son 340 px de alto');
   assert.match(v, /\{!movil && <AreasHub/, 'y sin el editor de escritorio');
+  assert.match(v, /accion=\{movil \? accionMovil : /, 'el «+» del teléfono entra al grafo por el slot de «Exportar»');
 });
