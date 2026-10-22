@@ -41,7 +41,8 @@ import type { AutorTexto } from '@/lib/paso-ia';
 import { parseEstrategia, dentroDeAntiguedad, hitoYaHecho, type EscenarioSecuencia } from '@/lib/setting-estrategia';
 import type { TurnoSim } from '@/lib/setting-simulador';
 import { conversacionAbierta, atiendeAlResponder, charlaPasaAUnaPersona, escritoParaElAviso, type InscCharla, type AudioDelLead } from '@/lib/setter-conversacion';
-import { ambitoDeSecuencia, filtroDeAmbito, type AmbitoFunnel } from '@/lib/nutricion-ambito';
+import { ambitoDeSecuencia, filtroDeAmbito, agregadosQueEntran, type AmbitoFunnel, type FilaAgregado, type LeadDelAgregado } from '@/lib/nutricion-ambito';
+import { corteEntrada, esEntradaFresca, reservaParaEntradas, cupoDeCampana, HORAS_ENTRADA } from '@/lib/nutricion-prioridad';
 import {
   secuenciasDeEntrega, secuenciasDeEtiqueta, secuenciasQueSeCierran, etapasDe, normalizarEtapas, deLaEtapaYLasDemas,
   TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA,
@@ -1343,6 +1344,36 @@ async function leadsConEtiqueta(
   return out;
 }
 
+/**
+ * Los leads AGREGADOS a un CRM (`lead_funnel`) parados en alguna de `keys` de ESE CRM, que entran a la cohorte de un
+ * CRON por etapa (21/10/2026). Las filas y sus leads se leen paginados y en tandas, como toda cohorte; la decisión es
+ * `agregadosQueEntran` (pura, con su test). TIRA si no puede leer: una cohorte a medias le escribe a quien no
+ * corresponde, y una que falla corta la corrida y vuelve en una hora.
+ */
+async function agregadosEnEtapa(
+  db: Awaited<ReturnType<typeof getTenantDb>>,
+  ambito: Exclude<AmbitoFunnel, { modo: 'todos' }>,
+  keys: readonly string[],
+  corteMs: number,
+): Promise<number[]> {
+  try {
+    const filas = await leerTodo<FilaAgregado & { id: number }>(db, 'lead_funnel', 'id, lead_id, funnel_id, etapa, created_at, etapa_desde', {
+      orden: 'id', filtros: (q) => q.eq('funnel_id', ambito.id).in('etapa', [...keys]) as ConsultaPaginada,
+    });
+    if (!filas.length) return [];
+    const ids = [...new Set(filas.map((f) => Number(f.lead_id)).filter((n) => Number.isFinite(n) && n > 0))];
+    const leads: LeadDelAgregado[] = [];
+    for (const tanda of enTandas(ids, 200)) {
+      leads.push(...await leerTodo<LeadDelAgregado>(db, 'leads', 'id, funnel_id, estado_lead', {
+        orden: 'id', filtros: (q) => q.in('id', tanda).eq('estado_lead', 'abierto') as ConsultaPaginada,
+      }));
+    }
+    return agregadosQueEntran(ambito, keys, corteMs, filas, leads);
+  } catch (e) {
+    throw new Error(`cohorte etapa_actual (agregados al funnel ${ambito.id}): ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
 // El ámbito viaja YA RESUELTO para que la rama de la post-agenda —que se llama a
 // sí misma con otro trigger— no vuelva a consultar `funnels`, y sobre todo para
 // que no pueda perderlo en el camino: el trigger hermano juntaría los leads de
@@ -1396,10 +1427,15 @@ async function cohorteDeTrigger(triggerTipo: string, etapa: EtapasPedidas, ambit
         .filter((ms) => Number.isFinite(ms)),
       0,
     );
-    return (data as LeadEtapa[])
+    const deLaCasa = (data as LeadEtapa[])
       .filter((l) => ultimoHito(l) >= corte)
       .filter((l) => keys.includes(pipelineStageOf({ ...l, nutricion_realizada: l.nutricion_realizada ?? undefined })))
       .map((l) => l.id);
+    // ⚠️ Y LOS AGREGADOS A ESTE CRM (21/10/2026): la etapa que tienen EN ESTE CRM y, para la ventana, cuándo se los
+    // sumó. Sin esto, un CRM nuevo con sus leads agregados inscribía a CERO. La regla, en `agregadosQueEntran`
+    // (lib/nutricion-ambito.ts); sin CRM declarado (`todos`) no se lee nada.
+    if (ambito.modo === 'todos') return deLaCasa;
+    return [...new Set([...deLaCasa, ...await agregadosEnEtapa(supabase, ambito, keys, corte)])];
   }
 
   if (triggerTipo === 'instant_form_sin_agenda') {
@@ -3684,6 +3720,32 @@ function partesConDatos(partes: readonly ParteMensaje[], vars: Record<string, st
 //     entre las corridas de esa hora, y no 6 por corrida — con un tick por minuto serían 360 por hora.
 //   · `vencidasDesde`: el tick mira sólo lo que venció desde ese instante (`VENTANA_FRESCA_MIN`,
 //     lib/espera-duracion.ts). Lo más viejo es algo frenado, y lo barre la corrida de cada hora.
+/** El techo de ids del `.in()` de «primero lo que entra»: con más, la cola no se ordena (la reserva sigue). */
+const TOPE_FRESCOS_EN_CONSULTA = 300;
+
+/**
+ * LOS LEADS QUE ENTRARON O AGENDARON en las últimas 24 h (`esEntradaFresca`, lib/nutricion-prioridad.ts): los que van
+ * primero en la cola de esta corrida. Con `soloLeadId` (la vía rápida de un evento), sólo ése. NUNCA TIRA: si no se
+ * puede leer, nadie va primero —la campaña queda con su cupo recortado y lo que entra con el mismo—, que manda menos.
+ */
+async function entradasFrescas(db: Awaited<ReturnType<typeof getTenantDb>>, soloLeadId: number | null): Promise<Set<number>> {
+  const c = corteEntrada(Date.now());
+  try {
+    const filas = await leerTodo<{ id: number; created_at: string | null; fecha_agenda: string | null }>(db, 'leads', 'id, created_at, fecha_agenda', {
+      orden: 'id',
+      filtros: (q) => {
+        const base = q.or(`created_at.gte.${new Date(c.ms).toISOString()},fecha_agenda.gte.${c.fecha}`);
+        return (soloLeadId != null ? base.eq('id', soloLeadId) : base) as ConsultaPaginada;
+      },
+    });
+    // La misma regla que la consulta, en memoria: la del módulo es la que tiene el test.
+    return new Set(filas.filter((l) => esEntradaFresca(l, Date.now())).map((l) => Number(l.id)));
+  } catch (e) {
+    console.error(`[nutricion] quién entró en las últimas ${HORAS_ENTRADA} h (primero lo que entra): ${e instanceof Error ? e.message : String(e)}`);
+    return new Set();
+  }
+}
+
 export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularApagados?: boolean; soloLeadId?: number; esperarHastaMs?: number; cupoPorHora?: boolean; vencidasDesde?: string }): Promise<ResultadoProceso> {
   const res: ResultadoProceso = { enviados: 0, simulados: 0, omitidos: 0, esperando: 0, borradores: 0, fallos: 0, acciones: 0, detalle: [] };
   // `sandbox` = el negocio no tiene un remitente PROPIO (undécima tanda, decisión 3 de la décima: la regla es POSITIVA,
@@ -3830,6 +3892,17 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   // El cupo cuenta SÓLO WhatsApp (decisión 5): `waEnCorrida`, no `res.enviados`, que suma el email.
   let waEnCorrida = 0;
   const cupoLleno = (): boolean => waEnCorrida >= cupo;
+  // ⚠️ PRIMERO LO QUE ENTRA (21/10/2026, lib/nutricion-prioridad.ts): el cupo es UNO por negocio y la cola era FIFO, así
+  // que una campaña de 1.000 le comía el día a la bienvenida de un lead de anuncios. Las inscripciones de un lead que
+  // entró o agendó en las últimas 24 h van primero (`primeroEntradas`, abajo) y un WhatsApp a cualquier otro usa el
+  // cupo menos lo que se le deja a lo que entra (`cupoCampana`). Si no se pudo leer quién entró, nadie va primero y la
+  // reserva queda sin usar: se manda MENOS, nunca más.
+  const frescos = await entradasFrescas(supabase, opts?.soloLeadId ?? null);
+  const cupoCampana = cupoDeCampana({
+    cupo, presupuesto, horaTope: limites.wa.hora, enLaHora, reserva: reservaParaEntradas(limites.wa), porHora: !!opts?.cupoPorHora,
+  });
+  /** ¿Un MENSAJE a este lead se queda sin lugar en esta corrida? Lo que entra, con el cupo entero; lo demás, con el de campaña. */
+  const sinLugar = (leadId: number): boolean => cupoLleno() || (!frescos.has(leadId) && waEnCorrida >= cupoCampana);
   /** ¿Este nodo puede correr con el cupo de WhatsApp lleno? Una acción sí; un email, si queda su tope. */
   const sigueSinCupoWa = (p: PasoSecuencia): boolean => esPasoAccion(p) || (claseDe(p) === 'mensaje' && p.canal === 'email' && !emailLleno());
   /** Y por su lugar en el flujo: lo del carril también (M3 e). */
@@ -4092,6 +4165,9 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
 
   // «Pausar» CONGELA (14/10/2026): lo de una automatización pausada no se levanta (antes se cerraba por `!sec`).
   const pausadas = await idsDePausadas(supabase);
+  // Mientras quede algo vencido de lo que ENTRÓ, cada vuelta mira sólo eso (ver `frescos`). Con muchísimos (un `.in()`
+  // de más de `TOPE_FRESCOS_EN_CONSULTA` ids) no se ordena, y la reserva igual los cuida.
+  let primeroEntradas = !opts?.soloLeadId && frescos.size > 0 && frescos.size <= TOPE_FRESCOS_EN_CONSULTA;
   while ((!cupoLleno() || sinTopeWa.length > 0) && rondas < 6) {
     rondas += 1;
     // Una acción de esta vuelta dejó su inscripción con el paso siguiente ya vencido.
@@ -4107,6 +4183,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     // Vía rápida de UN lead (enrolamiento por evento): reusa TODO el motor
     // (anti-ban, audio, borradores, gates) sin esperar la corrida del cron.
     if (opts?.soloLeadId) q = q.eq('lead_id', opts.soloLeadId);
+    if (primeroEntradas) q = q.in('lead_id', [...frescos]);
     if (pausadas.length) q = q.not('secuencia_id', 'in', `(${pausadas.join(',')})`);
     // El tick: sólo lo que venció hace poco (ver la firma). Lo que esta misma corrida acaba de
     // mover a un paso que ya toca vence AHORA, así que sigue adentro.
@@ -4134,7 +4211,12 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     const fetched = (dueRaw ?? []) as FilaCola[];
     const due = fetched.filter((d) => !vistos.has(d.id));
     // Nada vencido: si hay una espera corta por cumplir, se duerme y se vuelve a mirar.
-    if (due.length === 0) { if (await dormirEsperaCorta()) continue; break; }
+    if (due.length === 0) {
+      // Ya no queda nada de lo que entró: la misma vuelta, con todo lo demás.
+      if (primeroEntradas) { primeroEntradas = false; rondas -= 1; continue; }
+      if (await dormirEsperaCorta()) continue;
+      break;
+    }
     for (const d of due) vistos.add(d.id);
 
     // LOS HECHOS DEL LEAD, sólo si alguien del lote está por pasar por una condición, y en UNA
@@ -4261,7 +4343,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       const pasoLeido = sec && idxLeido >= 0 ? sec.pasos[idxLeido] : undefined;
       // Con el cupo de mensajes lleno, un MENSAJE queda para la corrida que viene, sin
       // tocarlo (era un `break`: lo mismo para los mensajes). Una ACCIÓN sigue: no gasta cupo. El carril, también.
-      if (cupoLleno() && !(pasoLeido && sec && sigueSinCupo(sec.pasos, idxLeido))) { if (sec) await aplazarSiTapa(insc, sec); continue; }
+      if (sinLugar(insc.lead_id) && !(pasoLeido && sec && sigueSinCupo(sec.pasos, idxLeido))) { if (sec) await aplazarSiTapa(insc, sec); continue; }
       if (!sec || !pasoLeido) {
         // Una automatización SIN salida (sólo «Si responde») no tiene nada que mandar por su
         // cuenta: la inscripción queda ACTIVA y sin próximo envío, esperando que el lead
@@ -4380,7 +4462,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         insc.paso_actual = r.idx;
         insc.nodo_actual = idDe(destino, r.idx);
         if (!enSuHora) { res.detalle.push({ lead_id: insc.lead_id, canal: destino.canal, estado: 'saltado', nota: 'espera su hora' }); continue; }
-        if (cupoLleno() && !sigueSinCupo(sec.pasos, r.idx)) { await aplazarSiTapa(insc, sec); continue; }
+        if (sinLugar(insc.lead_id) && !sigueSinCupo(sec.pasos, r.idx)) { await aplazarSiTapa(insc, sec); continue; }
         // Lo que esta corrida no puede mover (fuera del horario) queda en su tarjeta y sale al abrir.
         if (!seMueve(r.idx)) continue;
       } else if (idxLeido !== insc.paso_actual || (insc.nodo_actual != null && insc.nodo_actual !== idDe(pasoLeido, idxLeido))) {
@@ -5216,6 +5298,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     }
 
     // Cola drenada, salvo una espera corta de esta corrida por cumplir: se duerme y otra vuelta.
+    // Lo que entró ya se miró entero: la vuelta siguiente, con todo lo demás.
+    if (primeroEntradas && fetched.length < LOTE && !otraVuelta) { primeroEntradas = false; continue; }
     if (fetched.length < LOTE && !otraVuelta && (await dormirEsperaCorta())) continue;
     if (fetched.length < LOTE && !otraVuelta) break; // cola drenada: no quedan más vencidas
   }

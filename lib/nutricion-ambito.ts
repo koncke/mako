@@ -117,3 +117,58 @@ export function leadEnAmbito(ambito: AmbitoFunnel, leadFunnelId: number | string
   if (!Number.isFinite(id)) return false;
   return id === ambito.id;
 }
+
+// =============================================================================
+// LOS AGREGADOS: un CRM ve también a los leads que se le SUMARON (21/10/2026)
+// =============================================================================
+// «No se debe "Mover" se debe agregar al otro producto» (Martín, 06/10/2026): un lead en varios CRM tiene UNA casa
+// (`leads.funnel_id`) y una fila de `lead_funnel` por cada otro, con su etapa en ESE CRM. Hasta hoy la cohorte de un
+// CRON por etapa miraba sólo la casa, así que un CRM nuevo con sus leads agregados (la prospección del Sprint de
+// Mauricio: 1.094 nunca contactados, todos con casa en el CRM principal) inscribía a CERO, sin un error.
+//
+// La regla, la MISMA que la de la casa con dos cambios:
+//   · la etapa es la que el lead tiene EN ESE CRM (`lead_funnel.etapa`), no la de su casa;
+//   · el «último hito» de la ventana de 90 días es cuándo se lo agregó o se lo movió en ese CRM
+//     (`created_at` / `etapa_desde` de la fila): un lead de hace un año sumado ayer a la campaña entra.
+// Y lo que NO cambia: sólo leads `abierto` (el estado es de la PERSONA, como en la casa), y una secuencia que no
+// declara CRM (`todos`) sigue mirando sólo la casa — las 62 de antes del ámbito aplican a todos los productos, y
+// sumarles las filas le escribiría dos veces a la misma persona (lib/lead-funnel.ts).
+// Una fila que nombra la CASA del lead se ignora (no debería existir: «nunca hay fila para la casa», `productosDe`):
+// ahí manda la etapa de la casa, que ya entra por el otro camino.
+
+/** Una fila de `lead_funnel` como la lee la cohorte. */
+export type FilaAgregado = { lead_id: number | string; funnel_id: number | string; etapa: string | null; created_at?: string | null; etapa_desde?: string | null };
+/** Lo que la cohorte necesita del lead de esa fila. */
+export type LeadDelAgregado = { id: number | string; funnel_id: number | string | null; estado_lead: string | null };
+
+/**
+ * Los leads AGREGADOS a este CRM que entran a la cohorte de un CRON por etapa. `corteMs`: el borde de la ventana de
+ * 90 días (lo calcula el motor, igual que para la casa). Sin ámbito propio (`todos`), nadie: ver arriba.
+ */
+export function agregadosQueEntran(
+  ambito: AmbitoFunnel,
+  etapas: readonly string[],
+  corteMs: number,
+  filas: readonly FilaAgregado[],
+  leads: readonly LeadDelAgregado[],
+): number[] {
+  if (ambito.modo === 'todos' || !etapas.length) return [];
+  const porId = new Map(leads.map((l) => [Number(l.id), l]));
+  const out = new Set<number>();
+  for (const f of filas) {
+    if (Number(f.funnel_id) !== ambito.id) continue;
+    if (!f.etapa || !etapas.includes(f.etapa)) continue;
+    const id = Number(f.lead_id);
+    const lead = porId.get(id);
+    if (!lead || lead.estado_lead !== 'abierto') continue;
+    // Su casa ES este CRM: decide la etapa de la casa (el otro camino), no esta fila.
+    if (leadEnAmbito(ambito, lead.funnel_id)) continue;
+    const hito = Math.max(
+      ...[f.created_at, f.etapa_desde].filter((x): x is string => Boolean(x)).map((x) => Date.parse(x)).filter((ms) => Number.isFinite(ms)),
+      0,
+    );
+    if (hito < corteMs) continue;
+    out.add(id);
+  }
+  return [...out];
+}

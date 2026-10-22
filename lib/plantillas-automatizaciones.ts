@@ -540,7 +540,7 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     origen: 'el aviso «Mensaje de WhatsApp entrante» (wa-mensaje-entrante), con lo que escribió',
     objetivo: 'vender',
     cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'lead_contesta' },
-    pasos: [mako('mc_aviso', '💬 {{nombre_completo}} te escribió y no le contesté.\n«{{lead_escribio}}»\n👉 {{link_lead}}', null)],
+    pasos: [mako('mc_aviso', '💬 {{nombre_completo}} te escribió y no le contesté.\n«{{lead_escribio}}»\n👉 {{link_lead}}\n💬 Contéstale aquí: {{link_chat_lead}}', null)],
   },
   // Instagram y Messenger: salen por Zernio, dentro de la ventana de 24 h o como la respuesta privada a un comentario.
   // SIN AI Step (ver la cabecera: hoy contestaría por WhatsApp). Los eventos apagados («Todavía no») no van.
