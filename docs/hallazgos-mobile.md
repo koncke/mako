@@ -1278,7 +1278,8 @@ pantallas de escritorio; implementado esa misma noche: ver la sección siguiente
   la barra con 4 de sus 5 destinos, sobre una página que a 390 de verdad mide 390 justos. Para mirar
   a ancho de teléfono va `Emulation.setDeviceMetricsOverride` por CDP (molde: el puente `mirar.mjs`
   de `verificar-en-navegador`), y la medición que lo confirma es `document.documentElement.scrollWidth`
-  contra `innerWidth`, no la captura. **Vive en:** docs/prototipos/mako-mobile-v2.html
+  contra `innerWidth`, no la captura. Sin CDP también sirve un iframe del ancho exacto: adentro, `innerWidth` y los `@media` son
+  los del iframe (medido el 22/10/2026 con el grafo del Second Brain a 375, 360 y 340). **Vive en:** docs/prototipos/mako-mobile-v2.html
 
 ## La implementación v2 y el desvío PRENDIDO (11/10/2026, noche)
 

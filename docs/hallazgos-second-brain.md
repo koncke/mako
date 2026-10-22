@@ -28,6 +28,34 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
 
 ---
 
+## El grafo ES la pantalla del teléfono, «Girar» al lado del zoom y sin «falta» (22/10/2026)
+
+Martín, desde el Centro (pedido 4a15e2c3, con capturas del teléfono): sin la vista «Abrir Grafo», el grafo siempre abierto;
+«girar la pantalla» abajo a la derecha, alineado; y ningún «falta» en la barra lateral. Código: app/m/second-brain/SecondBrainM.tsx,
+app/m/second-brain/mapa/loading.tsx, app/second-brain/{Grafo,VistaCerebro}.tsx, lib/cerebro-areas.ts (`carpetasConDatos`) ·
+tests/second-brain-sin-falta.test.ts, tests/second-brain-grafo-movil.test.ts.
+
+- **La portada existía sólo en el teléfono.** La computadora ya entraba directo al grafo (`?panel=mapa`). En el teléfono el grafo
+  era una capa (`grafoAbierto`) encima de una portada: la foto del mapa, el buscador, «Lo último» y las carpetas. Ahora el grafo
+  ES la pantalla (el portal se monta siempre) y su «‹» sale del Second Brain (`router.back()`, o al Ops Center si se entró
+  directo). Lo de la portada sigue en el grafo: buscar arriba, «Lo último» y las áreas en la barra lateral (botón «Áreas») y subir
+  al Archivero en un «+» (`accionMovil`: el lugar que en la computadora ocupa «Exportar»).
+- **«Editar» ya no cierra el grafo:** la hoja (capa 80) abre ENCIMA del grafo (60), así que la demora de 350 ms del 17/10 se fue.
+- **«Girar la pantalla» no entraba a 375 px al lado del zoom.** Con el CSS real, el zoom mide 217 px y el botón con el texto
+  largo, 145: se salía 13 px por la derecha. No tapaba el zoom, quedaba cortado, y en el código «se veía» bien. Ahora dice
+  «Girar» (el nombre entero queda en `aria-label`): entra desde 350 px, y en un teléfono más angosto queda sólo el ícono. Los dos
+  van en `.cbg-pie`, un flex y no dos `position: absolute`: `align-items: stretch` les iguala el alto (46 y 46) y no se pisan.
+- **Sin «falta»:** la barra lateral arma sus carpetas con `carpetasConDatos`. Muestra sólo las áreas con algún dato, y una
+  carpeta sin ninguna no deja su título. El resumen tampoco dice ya «· N faltan». **Trampa:** el título de una CAPA (el mapa del
+  super admin) iba en la primera carpeta de la capa; si esa carpeta queda vacía, el título se perdía. Ahora va en la primera
+  carpeta que SE VE.
+- **Cómo se miró sin levantar la app (levantarla escribe en producción, y con 1 GB libre no entraba):** una maqueta con el CSS
+  real, extraído del worktree, metida en un iframe del tamaño exacto (375×812, 360, 340 y 812×375), y las cajas medidas con
+  `getBoundingClientRect`. Chrome sin ventana no baja de ~500 px de ancho (docs/hallazgos-mobile.md); el iframe es la salida sin CDP.
+- **Sin hacer / sin ver:** no se vio en un Android real. Un área sin datos ya no tiene puerta en el Second Brain del teléfono
+  (antes era su «falta» con «Editar»): se llena desde los chats, desde Offer o con un `?area=<id>`. Si Martín quiere poder abrirla
+  vacía, es una decisión suya.
+
 ## El link de un cliente abría la lista del CRM, y el test lo fijaba así (20/10/2026)
 
 Lo encontró el chat de CRM. Código: lib/cerebro-vivo.ts (el nodo `cliente:<id>`) · tests/second-brain-links.test.ts.
@@ -87,6 +115,7 @@ lib/cerebro-union.ts, app/m/second-brain/SecondBrainM.tsx · tests/second-brain-
   (y `/admin/operaciones` cae en `/m/operaciones`). Ante un reporte del teléfono, lo primero es ver QUÉ pantalla sirve el teléfono
   (lib/movil-rutas.ts), no leer el componente de escritorio. Ahora el Mapa abre el MISMO `<Grafo>` a pantalla entera
   (`VistaCerebro movil`, un portal a `#m-root` para tener los tokens `[data-m]`) y la foto es el botón que lo reabre.
+  ⚠️ Desde el 22/10/2026 no hay foto ni portada: [el grafo ES la pantalla](#el-grafo-es-la-pantalla-del-teléfono-girar-al-lado-del-zoom-y-sin-falta-22102026).
 - **Con el dedo, tres cosas del grafo de escritorio estaban mal para un teléfono:** la tolerancia de 5 px (la rodada del pulgar ya era
   un arrastre y el nodo no se fijaba: 10 px con `pointerType === 'touch'`); arrastrar sobre un nodo movía el NODO (con 44 px de blanco por
   nodo, en un mapa denso no había por dónde panear: con el dedo siempre se panea); y mantener apretado abre el menú del navegador
@@ -111,7 +140,8 @@ lib/cerebro-union.ts, app/m/second-brain/SecondBrainM.tsx · tests/second-brain-
   probarlo en producción con Chrome de Android, en vertical y apaisado, y con el super admin. La lista del teléfono
   (`SecondBrainM`) conserva su selector «Negocio / Construcción» (son listas, no grafos; `ConstruccionM`). «Editar» desde el grafo
   del teléfono cierra el grafo y abre la hoja del área con una demora de 350 ms: cerrar el grafo consume su entrada del historial con
-  `history.back()` asíncrono y una hoja que hiciera su `pushState` antes se cerraría sola.
+  `history.back()` asíncrono y una hoja que hiciera su `pushState` antes se cerraría sola. ⚠️ SUPERADO el 22/10/2026: la hoja
+  abre encima del grafo, sin cerrarlo.
 
 **Vive en:** app/second-brain/Grafo.tsx · app/second-brain/VistaCerebro.tsx · app/second-brain/FiltroMapa.tsx ·
 app/second-brain/apaisar.ts · lib/cerebro-union.ts · lib/cerebro-filtro.ts · app/m/second-brain/SecondBrainM.tsx · *2026-10-17*
@@ -129,7 +159,8 @@ lib/cerebro-grafo.ts · tests/second-brain-negocio-vivo.test.ts.
   los leads. Sin datos no hay nodo; una lectura que falla no tumba el mapa (`.catch`); una venta nueva entra sola con el grafo vivo.
 - **Se quitó la estructura fija de huecos:** hasta hoy cada sección sin un dato dibujaba un `falta:<área>` colgado de la raíz (once
   casillas iguales para todos los negocios). Ahora lo que falta se DICE (el dato «Todavía sin info» de la raíz y el «falta» de cada
-  sección en la barra lateral, con su «Editar») y no se dibuja. `vacias` sigue en el modelo (el ZIP lo usa). El filtro «Sin completar»
+  sección en la barra lateral, con su «Editar») y no se dibuja. ⚠️ El 22/10/2026 Martín sacó el «falta»: una sección sin datos
+  ya no aparece en la barra lateral. `vacias` sigue en el modelo (el ZIP lo usa). El filtro «Sin completar»
   sólo se ofrece si hay algo sin completar.
 - **La excepción que este archivo ya conoce, aplicada de antemano (NO medida con clientes reales):** los clientes y las reuniones no se
   cuelgan además del nodo de área del funnel (`realesPorArea`). Colgar los 15 le subiría el grado hacia el de la raíz, y el hub tiene
