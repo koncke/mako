@@ -225,8 +225,13 @@ export const MOTIVO_CLAVE_DEL_NEGOCIO = '⚠ clave de Anthropic del negocio';
 export const CLAVE_MODELO_SU_CLAUDE = 'ia.su_claude.modelo';
 export const MODELO_SU_CLAUDE = { haiku: 'claude-haiku-4-5', sonnet: 'claude-sonnet-5' } as const;
 export type EleccionSuClaude = keyof typeof MODELO_SU_CLAUDE;
-export const modeloDeSuClaude = (guardado: unknown): string =>
-  MODELO_SU_CLAUDE[(typeof guardado === 'string' && guardado in MODELO_SU_CLAUDE ? guardado : 'haiku') as EleccionSuClaude];
+/**
+ * ¿Es una de las elecciones? Con `Object.hasOwn`, no `in`: `in` acepta lo heredado («constructor», «toString»), y guardado
+ * así el modelo salía una función, la puerta 2 tiraba un TypeError y el Claude del negocio desaparecía sin aviso, con la
+ * tarjeta diciendo Haiku (revisión de IA5, 22/10/2026).
+ */
+export const esEleccionSuClaude = (x: unknown): x is EleccionSuClaude => typeof x === 'string' && Object.hasOwn(MODELO_SU_CLAUDE, x);
+export const modeloDeSuClaude = (guardado: unknown): string => MODELO_SU_CLAUDE[esEleccionSuClaude(guardado) ? guardado : 'haiku'];
 export const esDeLaClaveDelNegocio = (motivo: string | null | undefined): boolean =>
   typeof motivo === 'string' && motivo.trimStart().startsWith(MOTIVO_CLAVE_DEL_NEGOCIO);
 
@@ -239,6 +244,10 @@ export const esDeLaClaveDelNegocio = (motivo: string | null | undefined): boolea
  */
 export const FEATURES_DEL_PLAN: readonly string[] = [
   'mako-guardian', 'checklist-coach', 'plan-seed-ia', 'plan-fathom', 'plan-criterio',
+  // Revisión de IA5 (22/10/2026): el buscador del tablero (app/api/plan-buscar) y el cierre de tareas por commits
+  // (lib/cerrar-por-commits.ts, cron sin workspace: cae en el ws1) pasaban la puerta 2 con Sonnet. Una función del Plan con
+  // nombre nuevo queda abierta por default: tests/su-claude-modelo.test.ts exige que toda feature del Plan esté acá.
+  'plan-buscar', 'cerrar-por-commits',
 ];
 
 /**

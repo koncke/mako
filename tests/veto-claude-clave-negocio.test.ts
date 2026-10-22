@@ -102,8 +102,9 @@ function cuerpoDelIntento(): string {
   assert.ok(ini > 0 && con > ini, 'permisoDeLaClaveDelNegocio y después conClaveDelNegocio, en lib/anthropic.ts');
   const fin = src.indexOf('\nexport async function ', con + 10);
   const b = src.slice(ini, fin);
-  // Contra un recorte desbocado: medido el 20/10/2026, unos 3.600 caracteres.
-  assert.ok(b.length > 800 && b.length < 7000, `el recorte mide ${b.length}: está mirando otra cosa`);
+  // Contra un recorte desbocado: medido el 20/10/2026, unos 3.600 caracteres; el 22/10/2026, unos 8.100 (el modelo que
+  // elige el negocio y el crédito de Martín, IA5, y las claves de la plataforma en su propia función, en el medio).
+  assert.ok(b.length > 800 && b.length < 10_000, `el recorte mide ${b.length}: está mirando otra cosa`);
   return sinComentarios(b);
 }
 

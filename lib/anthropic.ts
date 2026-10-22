@@ -61,6 +61,36 @@ async function registrarBloqueo(e: unknown, feature: string | undefined, model: 
   await recordUsage(feature?.trim() || 'sin-feature', `vetado:${model || '-'}`, {}, razon).catch(() => {});
 }
 
+/** ¿Esta clave es una de la plataforma? `null`: no se pudieron leer (y entonces no se sabe de quién es). */
+async function esClaveAnthropicDeLaPlataforma(key: string): Promise<boolean | null> {
+  const k = key.trim();
+  if (!k) return false;
+  if (k === process.env.ANTHROPIC_API_KEY?.trim()) return true;
+  const deLaPlataforma = await clavesAnthropicDeLaPlataforma().catch(() => null);
+  if (!deLaPlataforma) return null;
+  return deLaPlataforma.some((x) => typeof x === 'string' && x.trim() !== '' && x.trim() === k);
+}
+
+/** Lo que dice una función cuando no se pudo comprobar la clave de Claude del negocio: se reintenta, no se paga otra. */
+export const NO_PUDE_COMPROBAR_SU_CLAUDE = 'No pude comprobar tu clave de Claude (la base no contestó). Se reintenta en la próxima corrida.';
+
+/**
+ * La puerta 1 (la lista blanca) paga con la clave de la PLATAFORMA, y con ninguna otra (revisión de IA5/IA12, 22/10/2026).
+ * `credWs` devuelve la fila del negocio si tiene una: sin esto, una función de la lista blanca corrida en un negocio con SU
+ * clave pagaba con ella el modelo de la plataforma (Sonnet con thinking), sin su marca en el gasto, y con el crédito de Max
+ * de Martín si ésa era la clave (el ws10). La clave del negocio va por SU puerta (`permisoDeLaClaveDelNegocio`). Sin poder
+ * leer las de la plataforma, tampoco: no se sabe de quién es.
+ */
+async function exigirClaveDeLaPlataforma(key: string, feature?: string): Promise<void> {
+  const deLaPlataforma = await esClaveAnthropicDeLaPlataforma(key);
+  if (deLaPlataforma) return;
+  const razon = deLaPlataforma === false
+    ? 'la clave de Claude de este negocio es SUYA: va por su puerta (su modelo, su marca en el gasto), no por la lista blanca de la plataforma'
+    : 'no pude leer las claves de la plataforma, y sin eso no se sabe de quién es la clave';
+  await registrarBloqueo(new Error(`Claude vetado — ${razon}`), feature, '');
+  throw new Error(`${feature ?? 'Claude'}: ${razon}. Se reintenta en la próxima corrida.`);
+}
+
 /**
  * LA CLAVE DE ANTHROPIC DEL NEGOCIO, como primer intento de la cascada de texto
  * (`chatCheapCascade`). Decisión de Martín del 15/10/2026: el crédito de API de Claude Max
@@ -82,20 +112,14 @@ async function registrarBloqueo(e: unknown, feature: string | undefined, model: 
  * turno con herramientas del chat (`chatClaudeTools`): un negocio que conectó SÓLO su Claude no tenía ninguna IA para el
  * chat, y «Conectar tu IA» le pedía Gemini (docs/investigacion-ops-center-19-10.md).
  */
-export async function permisoDeLaClaveDelNegocio(feature?: string): Promise<{ permiso: PermisoClaveDelNegocio } | { pausa: true } | null> {
+export async function permisoDeLaClaveDelNegocio(feature?: string): Promise<{ permiso: PermisoClaveDelNegocio } | { pausa: true } | { noPudeLeer: true } | null> {
   const clave = await credDelCliente('ANTHROPIC_API_KEY').catch(() => null);
   if (!clave) return null;
+  // ⚠️ «NO PUDE LEER» NO ES «NO TIENE» (revisión de IA5/IA12, 22/10/2026). Con `null`, el closing lo leía como «sin su clave»
+  // y caía a `chatClaude`, que pagaba con ESA misma clave (`credWs`): Sonnet con thinking sobre la clave de un negocio que
+  // eligió Haiku, sin su marca en el gasto, y en el ws10, sobre el crédito de Martín.
   let clavesPlataforma: Array<string | null | undefined>;
-  try {
-    const { wsSuperAdmin } = await import('@/lib/workspace');
-    clavesPlataforma = [
-      process.env.ANTHROPIC_API_KEY,
-      // La fila de la que sale el ENTORNO de esta clave (`wsDelEntorno`). Hasta el 18/10 era la del ws1 (`OWNER_WS`), y
-      // así la clave propia que pegara Mauricio se leía como la de la plataforma y nunca contaba como suya.
-      await credWsEstricta('ANTHROPIC_API_KEY', await wsDelEntorno('ANTHROPIC_API_KEY')),
-      await credWsEstricta('ANTHROPIC_API_KEY', await wsSuperAdmin()),
-    ];
-  } catch { return null; }
+  try { clavesPlataforma = await clavesAnthropicDeLaPlataforma(); } catch { return { noPudeLeer: true }; }
   const pausa = await claudePausado();
   // IA5 (22/10/2026): el modelo que eligió el negocio para SU Claude, y las claves del crédito de Max de la plataforma: una
   // de ésas puesta como clave de un negocio (el ws10) va con el barato, elija lo que elija (lo paga Martín). Sin poder
@@ -110,11 +134,28 @@ export async function permisoDeLaClaveDelNegocio(feature?: string): Promise<{ pe
     const { wsSuperAdmin } = await import('@/lib/workspace');
     const wsSA = await wsSuperAdmin();
     creditosPlataforma = [];
-    for (const nombre of CLAVES_CREDITO_PLATAFORMA) creditosPlataforma.push(process.env[nombre]?.trim() || (await credWsEstricta(nombre, wsSA)));
+    // Las DOS fuentes, siempre: con el entorno puesto, la fila no se leía, y una clave rotada en la fila (o un entorno que
+    // no coincide) dejaba al ws10 elegir Sonnet sobre el crédito de Martín.
+    for (const nombre of CLAVES_CREDITO_PLATAFORMA) creditosPlataforma.push(process.env[nombre]?.trim() || null, await credWsEstricta(nombre, wsSA));
   } catch { creditosPlataforma = null; }
   const v = evaluarClaveDelNegocio({ feature, clave, clavesPlataforma, pausa, model: modelo, creditosPlataforma });
   if (!v.ok) return pausa ? { pausa: true } : null;
   return { permiso: v.permiso };
+}
+
+/**
+ * Las claves de Anthropic de la PLATAFORMA, ESTRICTAS: si la base no contesta, tira. Las lee la frontera (la puerta 2: una
+ * copia de éstas en un negocio no es suya) y la puerta 1 (`chatClaude` y `chatClaudeTools` sólo pagan con una de éstas).
+ */
+async function clavesAnthropicDeLaPlataforma(): Promise<Array<string | null | undefined>> {
+  const { wsSuperAdmin } = await import('@/lib/workspace');
+  return [
+    process.env.ANTHROPIC_API_KEY,
+    // La fila de la que sale el ENTORNO de esta clave (`wsDelEntorno`). Hasta el 18/10 era la del ws1 (`OWNER_WS`), y
+    // así la clave propia que pegara Mauricio se leía como la de la plataforma y nunca contaba como suya.
+    await credWsEstricta('ANTHROPIC_API_KEY', await wsDelEntorno('ANTHROPIC_API_KEY')),
+    await credWsEstricta('ANTHROPIC_API_KEY', await wsSuperAdmin()),
+  ];
 }
 
 /** La clave del negocio en la cascada de TEXTO: su primer intento (arriba, `permisoDeLaClaveDelNegocio`, la frontera). */
@@ -123,9 +164,11 @@ export async function conClaveDelNegocio(p: {
   /** Lo que MIRA (IA6): imágenes y PDF como bloques de Claude, antes del texto. Las fotos de un negocio con su IA las lee su
    *  Claude o su OpenAI, nunca Gemini (lib/ai-cheap.ts → `leerDocumentoIA`). */
   bloques?: Array<Record<string, unknown>>;
-}): Promise<{ texto: string; model?: string } | { error: string } | null> {
+}): Promise<{ texto: string; model?: string } | { error: string; noPudeLeer?: true } | null> {
   const r = await permisoDeLaClaveDelNegocio(p.feature);
   if (!r) return null;
+  // No es un fallo de SU clave: no se anota en su tarjeta (`anotarFalloDeSuClave`), y quien llama no paga con otra.
+  if ('noPudeLeer' in r) return { error: NO_PUDE_COMPROBAR_SU_CLAUDE, noPudeLeer: true };
   // ⚠️ LA PAUSA SE DICE (17/10/2026, docs/hallazgos-graficos.md): con `null`, el negocio que conectó SU Claude quedaba sin
   // ningún error suyo y la caja le decía «Conecta tu Claude en Integraciones» (`avisoSinIA`), que ya está conectado. La
   // pausa es de la plataforma, pero la clave que no se usó es la SUYA: va a su lista, con lo que pasa de verdad.
@@ -411,6 +454,7 @@ export async function chatClaude(
   // dueño. Antes leía process.env directo → un cliente con su key pega no la usaba.
   const key = await credWs('ANTHROPIC_API_KEY');
   if (!key) throw new Error('ANTHROPIC_API_KEY no configurada');
+  await exigirClaveDeLaPlataforma(key, opts.feature);
 
   // thinking === false → sin razonamiento extendido (tareas chicas, p.ej. títulos).
   const thinkingOn = opts.thinking ?? true;
@@ -541,7 +585,7 @@ export async function chatClaudeTools(
   if (opts.soloSuClaude) {
     const n = await permisoDeLaClaveDelNegocio(opts.feature).catch(() => null);
     if (n && 'permiso' in n) delNegocio = n.permiso;
-    else throw new Error(`falló la IA (${n && 'pausa' in n ? CLAUDE_EN_PAUSA : 'el negocio no tiene su clave de Claude'})`);
+    else throw new Error(`falló la IA (${n && 'pausa' in n ? CLAUDE_EN_PAUSA : n && 'noPudeLeer' in n ? NO_PUDE_COMPROBAR_SU_CLAUDE : 'el negocio no tiene su clave de Claude'})`);
   } else if (!opts.model && opts.feature) {
     // ⚠️ El `catch` vacío envuelve SÓLO la lectura del registro (ticket #5, 18/10/2026). Antes envolvía también la
     // cascada, y el «falló la IA» que se re-lanza con `sinFallbackClaude` caía en él y se perdía. El modelo quedaba
@@ -625,6 +669,7 @@ export async function chatClaudeTools(
   // veto verificó (`permiso.clave`), sin volver a resolver nada.
   const key = delNegocio ? delNegocio.clave : await credWs('ANTHROPIC_API_KEY');
   if (!key) throw new Error('ANTHROPIC_API_KEY no configurada');
+  if (!delNegocio) await exigirClaveDeLaPlataforma(key, opts.feature);
   const effort: Effort = opts.effort ?? DEFAULT_EFFORT;
   const maxSteps = opts.maxSteps ?? 8;
   const msgs: RichMsg[] = [...messages];

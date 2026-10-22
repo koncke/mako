@@ -5239,6 +5239,42 @@ devuelve el modelo) · `tests/closing-su-claude.test.ts` (corre `analyzeMeeting`
   rechaza). Qué pasa después lo decide Martín (pedido al Cerebro). El caso de uso real (una llamada del ws3 con la clave de
   prueba) espera el deploy y la clave.
 
+### Lo que encontró la revisión adversarial de IA5 + IA12 (22/10/2026), y cómo quedó
+
+- **ALTA — «no pude leer» la frontera se leía como «no tiene su clave», y el closing pagaba con ESA clave.** Si no se podían
+  leer las claves de la plataforma (`credWsEstricta` tira), `permisoDeLaClaveDelNegocio` devolvía `null`. `analyzeMeeting`
+  lo tomó como «sin su clave» y cayó a `chatClaude`, que paga con `credWs`: la fila del negocio. Resultado: Sonnet con
+  thinking sobre la clave de un negocio que eligió Haiku, sin su marca en el gasto (contaba como gasto de MaKo); en el ws10,
+  sobre el crédito de Max de Martín. Los tests estaban en verde. **Regla:** una puerta que decide plata tiene TRES salidas,
+  no dos: «sí», «no» y «no pude saber». Ahora la tercera es `{ noPudeLeer: true }`, y el closing queda en error (lo reintenta
+  el cron) sin pedirle nada a Anthropic.
+- **Y la puerta 1 (la lista blanca) ya no paga con una clave que no es de la plataforma.** `chatClaude` y `chatClaudeTools`
+  exigen que lo que devolvió `credWs` sea una clave de la plataforma (`exigirClaveDeLaPlataforma`). Hoy la lista blanca es
+  sólo `closing`, que ya prueba la clave del negocio primero: un negocio con SU clave que llegue ahí es un camino roto, y se
+  corta con una fila `vetado:` a US$0.
+- **El cron preguntaba otra cosa que el análisis.** `closing-sync` miraba «¿hay una clave?» (`credWs`), y el ws1 (una copia
+  de la de la plataforma) iba a pasar después del 13/11 para fallar tres veces por ronda con «Conecta tu Claude». Ahora el
+  cron hace la MISMA pregunta que el análisis (`conQueAnalizaElClosing`). **Regla:** el guard de un cron no reimplementa la
+  decisión del trabajo: la llama.
+- **`in` acepta lo heredado.** `'constructor' in MODELO_SU_CLAUDE` es `true`: guardado así por un POST a mano, el modelo
+  salía una función, la puerta 2 tiraba un TypeError que sus llamadores se tragan, y el Claude del negocio desaparecía sin
+  aviso con la tarjeta diciendo Haiku. Se valida con `Object.hasOwn` (`esEleccionSuClaude`), en el veto y en la ruta.
+- **Una función del Plan con nombre nuevo pagaba IA.** `plan-buscar` (el buscador del tablero) y `cerrar-por-commits` (cron
+  sin workspace: cae en el ws1) no estaban en `FEATURES_DEL_PLAN`, y la puerta 2 no exige estar en el catálogo: abierta por
+  default. Ahora tests/su-claude-modelo.test.ts barre las features que usa el código del Plan y exige que estén en la lista.
+- **El crédito se comparaba contra el entorno O la fila.** Con el entorno puesto, la fila no se leía: una clave rotada en
+  la fila (o un entorno viejo) dejaba al ws10 elegir Sonnet sobre el crédito de Martín. Se leen las dos, en la puerta 2 y en
+  la tarjeta (lib/su-clave.ts).
+- **`esLaPlataforma` sin poder saberlo decía «no».** La plataforma leía «Conecta tu Claude» por un bache. Ahora, sin poder
+  saberlo, se dice el veto como es.
+- **Trampa de los tests estáticos:** `tests/ia-pc.test.ts` fijaba la cascada del turno con herramientas sin el `soloSuIA()`
+  que sumó IA6, y estaba ROJO desde IA6 sin que nadie lo corriera (las corridas de cada paquete eran de sus tests). Un
+  cambio en la capa de IA se cierra corriendo TODOS los tests que la nombran, no sólo los del paquete.
+
+**SIN hacer:** `lib/anthropic.ts` → `conCreditoDeLaPlataforma` (la puerta 3, el crédito del onboarding) todavía lee el
+entorno O la fila de cada cuenta del crédito, como hacía la puerta 2. Ahí no cambia el modelo (siempre Haiku), sólo con qué
+cuenta se paga primero.
+
 ## «Conecta tu Claude o tu GPT»: el pedido de «Gemini gratis» vivía en cinco lugares (IA9, 22/10/2026)
 
 - **Dónde estaba:** el mensaje sin IA (`mensajeIAFallo`, lib/ia-mensajes.ts: «con Gemini alcanza»), el botón «Conectar tu

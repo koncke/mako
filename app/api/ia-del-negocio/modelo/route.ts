@@ -8,7 +8,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { personaDelRequest } from '@/lib/mako-turno-app';
 import { setSetting } from '@/lib/settings';
-import { CLAVE_MODELO_SU_CLAUDE, MODELO_SU_CLAUDE } from '@/lib/veto-claude';
+import { CLAVE_MODELO_SU_CLAUDE, esEleccionSuClaude } from '@/lib/veto-claude';
 import { runWithWorkspace } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
@@ -20,7 +20,9 @@ export async function POST(req: NextRequest) {
   if (persona.rol !== 'admin') return NextResponse.json({ ok: false, error: 'Sólo el admin del negocio.' }, { status: 403 });
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return NextResponse.json({ ok: false, error: 'Pedido inválido.' }, { status: 400 }); }
-  if (typeof body?.modelo !== 'string' || !(body.modelo in MODELO_SU_CLAUDE)) return NextResponse.json({ ok: false, error: 'Ese modelo no está.' }, { status: 400 });
-  await runWithWorkspace(persona.ws, () => setSetting(CLAVE_MODELO_SU_CLAUDE, String(body.modelo)));
+  // `esEleccionSuClaude`, no `in`: «constructor» o «toString» pasaban, y guardados así apagaban su Claude sin aviso.
+  const modelo = body?.modelo;
+  if (!esEleccionSuClaude(modelo)) return NextResponse.json({ ok: false, error: 'Ese modelo no está.' }, { status: 400 });
+  await runWithWorkspace(persona.ws, () => setSetting(CLAVE_MODELO_SU_CLAUDE, modelo));
   return NextResponse.json({ ok: true });
 }

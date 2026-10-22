@@ -71,9 +71,11 @@ async function modeloDeSuClaudeEn(ws: number): Promise<{ modelo: EleccionSuClaud
   try {
     const clave = (await credDelCliente('ANTHROPIC_API_KEY', ws))?.trim();
     const wsSA = await wsSuperAdmin();
+    // Las dos fuentes, como la puerta 2: con el entorno puesto, la fila no se leía.
     for (const nombre of CLAVES_CREDITO_PLATAFORMA) {
-      const c = process.env[nombre]?.trim() || (await credWsEstricta(nombre, wsSA))?.trim();
-      if (c && c === clave) return { modelo, soloHaiku: true };
+      for (const c of [process.env[nombre]?.trim(), (await credWsEstricta(nombre, wsSA))?.trim()]) {
+        if (c && c === clave) return { modelo, soloHaiku: true };
+      }
     }
     return { modelo, soloHaiku: false };
   } catch { return { modelo, soloHaiku: true }; }

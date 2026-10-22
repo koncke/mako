@@ -283,6 +283,7 @@ test('un negocio con SÓLO su Claude: el chat contesta con su clave, y «Conecta
   // Rota: `iaPropiaDelTurno` sin su Claude → este test falla (le pediría conectar algo que ya tiene).
   const turno = sinComentarios(leer('lib/mako-turno-app.ts'));
   // Desde el 21/10 también en pausa: sigue siendo SU Claude, y lo que se le dice es la pausa (tests/ia-pc-revision.test.ts).
-  assert.match(turno, /const claude = await permisoDeLaClaveDelNegocio\(FEATURE\);\s*if \(claude\) n\+\+;/);
+  // Sin poder comprobarla (revisión de IA5/IA12), «no sé», como el `catch`: ni la cuenta ni le pide conectarla.
+  assert.match(turno, /const claude = await permisoDeLaClaveDelNegocio\(FEATURE\);\s*if \(claude && 'noPudeLeer' in claude\) return null;\s*if \(claude\) n\+\+;/);
   assert.match(turno, /for \(const s of IA_PARA_CONECTAR\) if \(await credDelCliente\(ENV_DE_IA\[s\]\)/);
 });

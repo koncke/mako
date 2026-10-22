@@ -21,6 +21,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { CLAUDE_CON_CLAVE_DEL_NEGOCIO, MODELO_SU_CLAUDE, evaluarClaveDelNegocio, modeloDeSuClaude } from '../lib/veto-claude';
 
 const RAIZ = join(__dirname, '..');
@@ -58,4 +59,31 @@ test('3. la puerta real: el ws3 pide Sonnet con su clave y su marca; el ws10 (el
   assert.deepEqual(r.pedidos, [{ ws: 3, model: 'claude-sonnet-5' }, { ws: 10, model: 'claude-haiku-4-5' }]);
   assert.equal(r.plan, null);
   for (const g of r.gasto as Array<{ motivo: string }>) assert.match(g.motivo, /^⚠ clave de Anthropic del negocio/, 'lo paga el negocio: su marca primero');
+});
+
+// ── Lo que encontró la revisión adversarial de IA5 (22/10/2026) ───────────────────────────────────────────────────────
+test('4. lo heredado no es una elección: «constructor» o «toString» guardados son Haiku, y la ruta no los acepta', async () => {
+  const { esEleccionSuClaude } = await import('../lib/veto-claude');
+  for (const x of ['constructor', 'toString', '__proto__', 'hasOwnProperty', 1, null, undefined]) {
+    assert.equal(esEleccionSuClaude(x), false, String(x));
+    assert.equal(modeloDeSuClaude(x), 'claude-haiku-4-5', String(x));
+  }
+  assert.ok(esEleccionSuClaude('haiku') && esEleccionSuClaude('sonnet'));
+  const ruta = readFileSync(join(RAIZ, 'app/api/ia-del-negocio/modelo/route.ts'), 'utf8');
+  assert.match(ruta, /if \(!esEleccionSuClaude\(modelo\)\) return/);
+  assert.doesNotMatch(ruta, / in MODELO_SU_CLAUDE/);
+});
+
+test('5. toda función de IA del Plan está en FEATURES_DEL_PLAN: la puerta 2 no la deja pagar con la clave del negocio', async () => {
+  const { FEATURES_DEL_PLAN } = await import('../lib/veto-claude');
+  const archivos = execFileSync('git', ['ls-files', 'app/api/plan*', 'app/plan/**', 'lib/plan-*.ts', 'lib/plan/**', 'lib/cerrar-por-commits.ts', 'lib/mako-guardian.ts', 'lib/checklist-coach.ts'], { cwd: RAIZ, encoding: 'utf8' })
+    .split('\n').filter((f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f));
+  assert.ok(archivos.length > 10, `el barrido no encontró el Plan (${archivos.length} archivos)`);
+  const usadas = new Set<string>();
+  for (const f of archivos) {
+    for (const m of readFileSync(join(RAIZ, f), 'utf8').matchAll(/\bfeature:\s*'([a-z][a-z0-9-]*)'/g)) usadas.add(m[1]);
+  }
+  assert.ok(usadas.has('plan-buscar') && usadas.has('cerrar-por-commits'), `el barrido no ve las dos de la revisión: ${[...usadas]}`);
+  const afuera = [...usadas].filter((f) => !FEATURES_DEL_PLAN.includes(f));
+  assert.deepEqual(afuera, [], `funciones del Plan que pagarían IA con la clave del negocio: ${afuera.join(', ')}`);
 });

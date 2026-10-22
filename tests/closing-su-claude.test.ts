@@ -19,6 +19,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
 
 const RAIZ = join(__dirname, '..');
 type Corrida = { r: { ok: boolean; model?: string; error?: string }; pedidos: Array<{ host: string; clave: string; model: string }> };
@@ -46,4 +47,36 @@ test('3. sin clave y con el permiso vencido: «Conecta tu Claude para el Closing
   assert.equal(R.ws13.r.ok, false);
   assert.match(R.ws13.r.error ?? '', /^Conecta tu Claude para el Closing Analyst/);
   assert.deepEqual(R.ws13.pedidos, []);
+});
+
+// ── Lo que encontró la revisión adversarial de IA5/IA12 (22/10/2026) ──────────────────────────────────────────────────
+type Bache = { ws3: Corrida; ws10: Corrida; cron: string };
+const X = R as unknown as { bache: Bache; ws10: Corrida; chatClaudeConSuClave: { r: string; pedidos: unknown[] }; chatClaudeToolsConSuClave: { r: string; pedidos: unknown[] }; cron: { antesDel13: Record<string, string>; despuesDel13: Record<string, string> } };
+
+test('4. con un bache en la frontera, el closing NO cae a pagar con la clave del negocio ni con el crédito de Martín', () => {
+  for (const ws of ['ws3', 'ws10'] as const) {
+    assert.equal(X.bache[ws].r.ok, false, `${ws} analizó sin poder comprobar su clave`);
+    assert.match(X.bache[ws].r.error ?? '', /^No pude comprobar tu clave de Claude/, `${ws}: ${X.bache[ws].r.error}`);
+    assert.deepEqual(X.bache[ws].pedidos, [], `${ws} le pidió a Anthropic sin poder comprobar su clave`);
+  }
+  assert.equal(X.bache.cron, 'no-se', 'el cron lo deja para la próxima ronda');
+  // El control: sin bache, el ws10 (el crédito de Martín) analiza con Haiku aunque eligió Sonnet.
+  assert.equal(X.ws10.r.ok, true, String(X.ws10.r.error));
+  assert.deepEqual(X.ws10.pedidos.map((p) => p.model), ['claude-haiku-4-5']);
+});
+
+test('5. la lista blanca de la plataforma no paga con la clave propia de un negocio', () => {
+  assert.match(X.chatClaudeConSuClave.r, /^tiró: closing: la clave de Claude de este negocio es SUYA/);
+  assert.deepEqual(X.chatClaudeConSuClave.pedidos, []);
+  assert.match(X.chatClaudeToolsConSuClave.r, /^tiró: closing: la clave de Claude de este negocio es SUYA/, 'con herramientas, lo mismo');
+  assert.deepEqual(X.chatClaudeToolsConSuClave.pedidos, []);
+  assert.ok(R.gasto.some((g) => g.ws === 3 && g.model.startsWith('vetado:') && /es SUYA/.test(g.motivo)), 'el bloqueo queda en el gasto, a US$0');
+});
+
+test('6. el cron pregunta lo mismo que el análisis: el ws1 (copia de la plataforma) deja de intentarlo el 13/11', () => {
+  assert.deepEqual(X.cron.antesDel13, { ws1: 'plataforma', ws3: 'su-clave', ws13: 'no' });
+  assert.deepEqual(X.cron.despuesDel13, { ws1: 'no', ws3: 'su-clave' });
+  const cron = readFileSync(join(RAIZ, 'app/api/cron/closing-sync/route.ts'), 'utf8');
+  assert.match(cron, /const con = await conQueAnalizaElClosing\(\);/);
+  assert.doesNotMatch(cron, /credWs\(/, 'el cron volvió a preguntar sólo si hay una clave');
 });
