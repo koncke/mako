@@ -9535,6 +9535,18 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
   /customer-success → /m/cs → /inicio), **lo público no se tapa nunca** (`esPublica`), y la página de una sección
   mapeada sale en el MISMO deploy que el mapa: los Web Push ya abren esa ruta.
 
+# La pantalla de entrada se decide en /inicio: un camino nuevo de «entrar» lleva ahí, nunca a una tab
+
+En la computadora se entra al Ops Center (21/10/2026, Martín: «dijimos que debería ir a Ops Center siempre»): el super
+admin al suyo (`/admin/operaciones`) y los demás al de su negocio (`/second-brain`), con el onboarding pendiente antes. Lo
+decide `casaEnLaComputadora` (lib/ops-center-ruta.ts) y lo aplica el repartidor (app/inicio/page.tsx); el teléfono, el
+desvío (`ENTRADA_MOVIL`).
+- **Un link o redirect que «entra» (login, 2FA, «Inspeccionar», «Entrar» de Partners, «Ir al inicio») va a `/inicio`**,
+  con su `?ws=N` si es la cuenta de otro (`rutaConWs`/`conWs`), nunca a `/general` ni a otra tab: así sigue a la casa el
+  día que cambie. Hasta el 21/10 «Inspeccionar» y Partners iban derecho a `/general?ws=N`, por afuera del repartidor.
+- **«Sin impersonar» no es «sin workspace».** El super admin TIENE workspace (Martín, ws 9): `getWorkspaceActual() == null`
+  no lo detecta. La pregunta es `quienOpera()` o `estaImpersonando()` (docs/hallazgos-operaciones.md).
+
 # Un modelo «latest» es un nombre que PROMETE moverse: lo que le mandamos puede dejar de valer solo
 
 `gemini-flash-latest`, `*-latest`, `:free`: el proveedor cambia el modelo de abajo sin avisar y sin que cambie una línea

@@ -8,7 +8,8 @@ import { AlertaVozMaKo } from './_components/AlertaVozMaKo';
 import { MakoConfirmGate } from './_components/MakoConfirmGate';
 import { AvisoPixelViejo } from './_components/AvisoPixelViejo';
 import { EsquinaAvisos } from './_components/EsquinaAvisos';
-import { HideOnPublicLanding } from './_components/PublicRouteGate';
+import { FueraDeLoPublico, HideOnPublicLanding } from './_components/PublicRouteGate';
+import { CentinelaArranque } from './_components/CentinelaArranque';
 import { SeccionesTab } from './_components/SeccionesTab';
 import { TituloTab } from './_components/TituloTab';
 import { WsFetch } from './_components/WsFetch';
@@ -179,6 +180,9 @@ export default async function RootLayout({
             interruptor de la barra. Va ANTES del taller de paletas: el script tiene que correr antes del primer pintado.
             Sólo con sesión: una página pública no se pinta con la preferencia de nadie. */}
         {sesion && <ModoArranque />}
+        {/* Si la app muere arriba de app/global-error.tsx (la pantalla «This page couldn't load» de Next), avisa el error
+            real y recarga UNA vez (21/10/2026, Martín en su Android: «siempre que entro me sale el reload»). Sin React. */}
+        {sesion && <CentinelaArranque />}
         {sesion && <ModoDelUsuario />}
         {esAdmin && <TemaCandidato />}
         {/* La zona del negocio sale de la ubicación de SUS admins (decisión 4 de la décima, 11/10/2026). No pinta
@@ -257,8 +261,10 @@ export default async function RootLayout({
               {/* Las secciones de las tabs unificadas (Video, Image, Copywriting): una barra, acá, para
                   todas sus pantallas. Ver app/_components/SeccionesTab.tsx. */}
               <HideOnPublicLanding><SeccionesTab /></HideOnPublicLanding>
-              {/* Los errores sueltos de la ventana van solos a la Ticketera (17/10/2026): sólo con sesión, nunca en lo público. */}
-              {sesion && <HideOnPublicLanding><ReportadorDeErrores /></HideOnPublicLanding>}
+              {/* Los errores sueltos de la ventana van solos a la Ticketera (17/10/2026): sólo con sesión, nunca en lo público.
+                  ⚠️ Y TAMBIÉN EN EL TELÉFONO (21/10/2026): adentro de <HideOnPublicLanding>, que apaga el cromo de escritorio en
+                  un teléfono, no se montaba nunca ahí, y la Ticketera no tenía ni un error de MaKo Mobile. */}
+              {sesion && <FueraDeLoPublico><ReportadorDeErrores /></FueraDeLoPublico>}
               {children}
               {/* Toast global: avisa CADA operación de IA que gasta tokens y
                   linkea al detalle en Integraciones › Costo de MaKo. */}
