@@ -7574,6 +7574,15 @@ fuente, o que corra aislado todo archivo que en la corrida compartida contó men
   red de todo lo que subió así.
 - **Lo que deja:** `main` no avanza por `integracion` hasta que haya medio de pago o tope de gasto, o hasta el 1º del mes.
   Vercel despliega `main` igual, porque no depende de Actions.
+- ⚠️ **El «camino de emergencia» a `main` no entra en esta PC con la app de Claude abierta** (medido el 22/10). El pre-push de
+  un push a `main` corre el tsc COMPLETO por `scripts/typecheck-lock.mjs`, que pide **6,3 GB libres** (el tsc capado a 5.120 MB,
+  más el margen del vigía). Hubo tres intentos:
+  - con espera: se bloqueó esperando 15 minutos, con 5,2 y después 5,8 GB libres;
+  - con `MAKO_TYPECHECK_SIN_ESPERA=1`: el vigía lo mató a los 4.954 MB privados, con 750 MB libres;
+  - con los cinco chats de área archivados y la máquina quieta: el máximo fue 6,0-6,1 GB, así que no llegó tampoco.
+  El chequeo de tipos de todo el repo por tandas (`scripts/tipos-por-tandas.mjs`, 3 tandas, con picos de 3,8 a 4,2 GB) sí entra,
+  pero el hook no lo acepta. Sin Actions, a `main` se llega sólo con un medio de pago en GitHub, o con `--no-verify` autorizado
+  por Martín después de las tandas. Que el hook acepte las tandas como respaldo es trabajo de Infra, y queda Sin hacer.
 - **Regla:** un run que termina en segundos y sin pasos NO se lee como un rojo de código y no se le pasa a ningún chat. Se miran
   sus anotaciones. Y antes de culpar a un test, se mira cuánto duró el job (`started_at` / `completed_at`).
 
