@@ -137,7 +137,10 @@ test('alta 1: el plan sale de lo que COBRÓ el link (el congelado), no del produ
 test('alta 2: un vínculo a un CRM archivado (o sin Ganado) no deja el pago afuera: entra en la casa y lo dice', () => {
   const s = sinComentarios(leer('lib/cobro-etapa-server.ts'));
   assert.match(s, /const g = await ganadoDelCrm\(v\.funnelId\);\s*if \(g\) ganaEnCrm = \{ crm: v\.funnelId, etapa: g\.etapa \};\s*else aviso = /);
-  assert.match(s, /if \(ganaEnCrm\) \{\s*const crm = ganaEnCrm\.crm;\s*await agregarAProducto/, 'sólo un CRM usable se agrega');
+  assert.match(s, /if \(ganaEnCrm\) \{[\s\S]{0,400}?try \{\s*await agregarAProducto\(leadId, ganaEnCrm\.crm, \{ autor: 'Pasarela' \}\);/, 'sólo un CRM usable se agrega');
+  // Y si el guard de agregar lo frena (tiene pagos de su casa vieja en ese CRM), el pago entra en la casa. Rotura: dejar
+  // que el error suba: 1 fallo.
+  assert.match(s, /if \(!\(e instanceof TienePagosDeEseCrmError\)\) throw e;\s*aviso = '[^']+';\s*ganaEnCrm = null;/);
   assert.match(sinComentarios(leer('lib/cobros.ts')), /if \(trato\?\.aviso && trato\.nuevo\) await logLeadEvent\(actual\.lead_id, 'Pago registrado', trato\.aviso, autor\);/);
 });
 

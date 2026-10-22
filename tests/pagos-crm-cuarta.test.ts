@@ -23,7 +23,7 @@ const cuerpo = (f: string, firma: string) => { const i = f.indexOf(firma); retur
 // M1 · Roturas: `agregarAProducto` sin el guard: 1 fallo. El lote sin saltear a los de pagos huérfanos: 1 fallo.
 test('M1: no se vuelve a agregar a un lead al CRM que fue su casa con pagos (uno o en lote)', () => {
   const uno = cuerpo(F(), 'export async function agregarAProducto(');
-  const guard = uno.indexOf('if ((await pagosHuerfanosDe([leadId], funnelId)).size) throw new Error(TIENE_PAGOS_DE_ESE_CRM(');
+  const guard = uno.indexOf('if ((await pagosHuerfanosDe([leadId], funnelId)).size) throw new TienePagosDeEseCrmError(TIENE_PAGOS_DE_ESE_CRM(');
   assert.ok(guard > 0 && guard < uno.indexOf(".from('lead_funnel').upsert("), 'el guard va ANTES de escribir');
   const lote = cuerpo(F(), 'export async function agregarLoteAProducto(');
   assert.match(lote, /fallaron \+= huerfanos\.size;\s*const nuevos = candidatos\.filter\(\(id\) => !huerfanos\.has\(id\)\);/);

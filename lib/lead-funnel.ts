@@ -70,6 +70,9 @@ async function pagosHuerfanosDe(leadIds: readonly number[], funnelId: number): P
   return new Set(((data ?? []) as Array<{ lead_id: number | string }>).map((r) => Number(r.lead_id)));
 }
 
+/** El error del guard de agregar: quien agrega solo (un pago de «Vincular cobro») lo reconoce y sigue por la casa. */
+export class TienePagosDeEseCrmError extends Error {}
+
 export const TIENE_PAGOS_DE_ESE_CRM = (nombre: string) =>
   `Tiene pagos de su venta principal hechos cuando su CRM era «${nombre}»: si lo vuelves a agregar ahí, esa plata pasaría a ese CRM y su saldo cambiaría. Déjalo donde está.`;
 
@@ -119,7 +122,7 @@ export async function agregarAProducto(leadId: number, funnelId: number, opts?: 
   if (opts?.etapa != null && !etapas.some((s) => s.key === opts.etapa)) throw new Error('Esa etapa no existe en ese funnel.');
   const etapa = opts?.etapa ?? etapaDeEntrada(etapas);
   if (!etapa) throw new Error('Ese funnel no tiene etapas.');
-  if ((await pagosHuerfanosDe([leadId], funnelId)).size) throw new Error(TIENE_PAGOS_DE_ESE_CRM(await nombreDeProducto(funnelId)));
+  if ((await pagosHuerfanosDe([leadId], funnelId)).size) throw new TienePagosDeEseCrmError(TIENE_PAGOS_DE_ESE_CRM(await nombreDeProducto(funnelId)));
   const autor = await autorDelMovimiento(opts?.autor);
   const db = await getTenantDb();
   const { error } = await db.from('lead_funnel').upsert(

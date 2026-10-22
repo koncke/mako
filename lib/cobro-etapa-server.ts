@@ -21,7 +21,7 @@ import { getTenantDb } from './workspace';
 import { getLead } from './leads';
 import { listarFunnels } from './funnels';
 import { etapaDeGanado } from './pipeline';
-import { agregarAProducto, etapasDeProducto, moverEtapaEnProducto } from './lead-funnel';
+import { TienePagosDeEseCrmError, agregarAProducto, etapasDeProducto, moverEtapaEnProducto } from './lead-funnel';
 import { nombreVisible } from './lead-funnel-reglas';
 import { ajustarPlanPagos, casaDelLead, filaDelTrato, getPagosByLead } from './pagos';
 import {
@@ -304,18 +304,28 @@ async function armarTrato(c: Cobro, leadId: number, v: VinculoCobro | null, plan
     if (g) ganaEnCrm = { crm: v.funnelId, etapa: g.etapa };
     else aviso = 'El producto está vinculado a un CRM que ya no está activo (o no tiene etapa de Ganado): el pago entró en su CRM principal.';
   }
+  if (ganaEnCrm) {
+    // El lead entra al CRM del vínculo (si no estaba). ⚠️ Si tiene pagos de su venta principal hechos cuando su casa era
+    // ESE CRM, agregarlo movería esa plata (el guard de la cuarta revisión de Cobros, lib/lead-funnel.ts): el pago entra
+    // en la casa y lo dice, en vez de quedar sin asentar.
+    try {
+      await agregarAProducto(leadId, ganaEnCrm.crm, { autor: 'Pasarela' });
+    } catch (e) {
+      if (!(e instanceof TienePagosDeEseCrmError)) throw e;
+      aviso = 'Tenía pagos de su venta principal hechos en el CRM del producto: el pago entró en su CRM principal.';
+      ganaEnCrm = null;
+    }
+  }
   const base = { ganaEnCrm, aviso, nuevo: true };
 
   // UNA SUSCRIPCIÓN SE QUEDA EN LA CASA (la cabecera): el pago y la venta como siempre; además, Ganado en el CRM.
   if (c.tipo === 'suscripcion') {
-    if (ganaEnCrm) await agregarAProducto(leadId, ganaEnCrm.crm, { autor: 'Pasarela' });
     return { ...base, pagoEn: null, pagoId: null, ganaEnCasa: true, montoVenta: null, armoPlan: false };
   }
 
   if (ganaEnCrm) {
     // EL TRATO DE UN CRM AGREGADO: el lead entra al CRM (si no estaba), y la venta y el plan se escriben si son de este pago.
     const crm = ganaEnCrm.crm;
-    await agregarAProducto(leadId, crm, { autor: 'Pasarela' });
     const fila = await filaDelTrato(leadId, crm);
     if (!fila) throw new Error('El lead no quedó en el CRM del vínculo.');
     let nuestra = fila.venta_tipo === 'unico' && montoVenta != null && fila.monto_cierre_usd != null

@@ -1004,6 +1004,8 @@ app/crm/cobro-etapa-actions.ts · tests/cobro-etapa.test.ts.
 - **Un CRM archivado dejaba el pago sin asentar en ningún lado** (ni cash, ni Ganado, ni aviso, durante los 14 días del
   cron): `listarFunnels` filtra los activos y `agregarAProducto` tiraba. Ahora el pago entra en la casa y lo dice en el
   historial; la etapa de Ganado se busca al pagar, no la que se guardó al vincular.
+  Lo mismo si lo frena el guard de agregar de la cuarta revisión (tiene pagos de su casa vieja en ese CRM,
+  `TienePagosDeEseCrmError`): un guard que protege una pantalla no puede dejar un pago sin asentar.
 - **Dos avisos del mismo pago a la vez** (Mercado Pago reentrega en paralelo, el cron se cruza): el segundo no encontraba
   la cuota 0 que el primero estaba armando y asentaba suelto. El trato se RECLAMA en el cobro (`trato_estado`, compare-and-
   set; a los 2 minutos se puede volver a reclamar) y queda escrito al terminar. El que pierde relee o tira y lo completa el
