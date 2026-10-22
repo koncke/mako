@@ -412,7 +412,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'leadId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'id del lead (de buscar_leads).' },
       pSecuenciaId,
     ],
-    reversible: false, escribe: 'cancela su inscripción en nutricion_inscripciones (estado cancelada, sin próximo envío) y deja historial del lead',
+    reversible: false, escribe: 'cancela su inscripción en nutricion_inscripciones (estado cancelada, sin próximo envío), descarta sus borradores pendientes de esa secuencia y deja historial del lead',
     canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   // El «Otra cosa» de «Si responde» (08/10/2026): lo que antes era el hand-off —«MaKo se calla y

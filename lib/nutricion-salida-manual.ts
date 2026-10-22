@@ -46,6 +46,11 @@ export async function sacarDeSecuencia(leadId: number, secuenciaId: number, opts
     .eq('id', insc.id).eq('estado', insc.estado).select('id');
   if (error) throw new Error(`sacarDeSecuencia: ${error.message}`);
   if (!(data ?? []).length) return { sale: false, porque: 'carrera', secuencia, lead };
+  // ⚠️ Y SUS BORRADORES PENDIENTES (22/10/2026, «Frenar» desde el CRM): con una automatización que deja los mensajes para
+  // aprobar, el borrador ya escrito se podía aprobar igual y salía. «No le sale nada más» incluye lo que esperaba aprobación.
+  const { error: eBorr } = await db.from('wa_borradores').update({ estado: 'descartado' })
+    .eq('lead_id', lead.id).eq('secuencia_id', secuencia.id).eq('estado', 'pendiente');
+  if (eBorr) console.error(`[nutricion] lead ${lead.id}: no pude descartar sus borradores de la secuencia ${secuencia.id}: ${eBorr.message}`);
   console.log(`[nutricion] lead ${lead.id}: sale de la secuencia ${secuencia.id} (${v.estadoAntes} → cancelada)`);
   return hecho;
 }
