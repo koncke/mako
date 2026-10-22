@@ -13,6 +13,7 @@ import { listarDispositivos } from '@/lib/ia-pc';
 import { CLAVE_MODELO_PC, modeloPc } from '@/lib/ia-pc-reglas';
 import { getSetting } from '@/lib/settings';
 import { estadoDeSusClaves } from '@/lib/su-clave';
+import { nombreAdminDelNegocio } from '@/lib/usuarios';
 import { runWithWorkspace } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
@@ -31,8 +32,10 @@ export async function GET() {
   // Las claves de API del negocio y si anduvieron o fallaron (IA3): sólo al admin, que es quien las guarda y las prueba.
   // `null` = no se pudo leer (la tarjeta no inventa «Todavía no se usó»).
   const claves = esAdmin ? await estadoDeSusClaves(persona.ws) : undefined;
+  // A quien no es admin, la clave no se le ofrece: «Pídele a <admin> que conecte la IA del negocio» (IA4).
+  const admin = esAdmin ? undefined : await nombreAdminDelNegocio(persona.ws).catch(() => '');
   return NextResponse.json({
-    ok: true, esAdmin, modelo: modeloPc(modelo), ...(esAdmin ? { claves } : {}),
+    ok: true, esAdmin, modelo: modeloPc(modelo), ...(esAdmin ? { claves } : { admin }),
     pcs: pcs.map((d) => ({
       id: d.id, nombre: d.nombre, esMia: d.esMia, ...(esAdmin && !d.esMia ? { de: d.persona } : {}),
       enLinea: d.enLinea, ultimoLatido: d.ultimoLatido, version: d.version, cuentas: d.cuentas,

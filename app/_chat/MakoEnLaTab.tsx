@@ -114,7 +114,7 @@ function PanelDelCerebro({ tab, izquierda, arriba, onCerrar }: { tab: string; iz
       </div>
       {k.conectando && (
         <Modal titulo="Tus cuentas de IA" onCerrar={() => { k.setConectando(false); k.mirarSuIA(); }} ancho={640}>
-          <TusCuentasIA sinCabecera />
+          <TusCuentasIA sinCabecera conectar />
         </Modal>
       )}
     </>

@@ -383,7 +383,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
       {/* «Tus cuentas de IA» ahí mismo (/perfil/ia): conectar su computadora con su Claude o, si es admin, la clave. */}
       {k.conectando && (
         <Modal titulo="Tus cuentas de IA" onCerrar={() => { k.setConectando(false); k.mirarSuIA(); }} ancho={640}>
-          <TusCuentasIA sinCabecera />
+          <TusCuentasIA sinCabecera conectar />
         </Modal>
       )}
     </div>

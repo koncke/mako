@@ -118,7 +118,7 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
           </button>
         )}
         {panel === 'info' && k.infoWA && <InfoMensaje m={k.infoWA} />}
-        {panel === 'conectar' && <TusCuentasIA sinCabecera />}
+        {panel === 'conectar' && <TusCuentasIA sinCabecera conectar />}
         {!panel && (
           <div className="m-operaciones-hilo" ref={hilo}>
             {/* Los fijados, pegados arriba de la conversación (WhatsApp): tocar va al mensaje. */}
