@@ -23,7 +23,9 @@
 export const CSS = `
 .lk { --lk-azul: var(--primary); --lk-azul-claro: var(--primary-bg); --lk-verde: var(--good); --lk-verde-claro: var(--good-bg); --lk-tinta: var(--ink); --lk-gris: var(--dim); --lk-borde: var(--border); --lk-barra: var(--surface-2); --lk-lienzo: var(--bg); font-family: 'Geist', system-ui, sans-serif; color: var(--ink); }
 .lk button { font-family: inherit; }
-.lk-app { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--bg); min-width: 0; }
+.lk-app { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--bg); min-width: 0;
+  /* La estrella de MaKo abierta (app/_chat/MakoEnLaTab.tsx) publica su ancho: el editor le deja el lugar, como el CRM. */
+  margin-left: var(--ancho-panel-mako, 0px); }
 /* Quien nunca guardó un informe: el lienzo vacío con «Nuevo Dashboard» en el medio (EditorInforme, enBlanco). */
 .lk-en-blanco { min-height: calc(100dvh - 200px); padding: 0; }
 .lk-en-blanco-crear { display: flex; flex-direction: column; gap: 16px; max-width: 1080px; margin: 0 auto; padding: 36px 24px 56px; box-sizing: border-box; }

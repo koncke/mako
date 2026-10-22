@@ -1551,3 +1551,26 @@ editor trae el suyo al abrir el panel. Los chats de cada gráfico siguen siendo 
 
 **Vive en:** app/dashboard/hilo-guardado.ts, PanelEditarMako.tsx, EditorInforme.tsx · lib/hilo-de-tab-reglas.ts ·
 tests/dashboard-hilo-guardado.test.ts, tests/hilo-de-tab.test.ts · *22/10/2026, chat «Chats de las tabs».*
+
+## El MaKo de los gráficos va a la estrella, y «Editar con MaKo» con las piezas del Ops Center (22/10/2026, TB3)
+
+Martín, 22/10: «quiero que todos los chats de MaKo en las tabs sean el del Ops Center». El botón de MaKo de cada gráfico y
+el «Preguntarle a MaKo» del clic derecho abrían un modal con su chat propio (`MakoChat`); ahora le mandan el gráfico a la
+estrella de la tab (`MakoEnLaTab`, que monta EditorInforme.tsx) con la hoja como entidad y en «analizar», así que en vista
+MaKo asesora y no toca la hoja. «Editar con MaKo» sigue con su motor (el único escritor de la hoja abierta), pero su hilo
+es `HiloMako` y su caja `CajaChat`; lo que cambió con su Deshacer va en el hueco `enMensaje`. Y el marco `.an` (el AI
+Analyst y «Editar con MaKo») pasó a la IZQUIERDA; el editor le deja el lugar a la estrella con `--ancho-panel-mako`.
+
+- **`CajaChat` y `HiloMako` NO cargan en node** (AdjuntosCaja trae `chat.css`): un módulo que un test importa por valor no
+  los puede importar. PanelAnalista.tsx lo importa tests/dashboard-topbar.test.ts (dibuja `ChatMakoGrafico`), así que el
+  botón le habla a la estrella por un EVENTO de la ventana (app/dashboard/pregunta-grafico.ts) y no importa la estrella.
+  Antes de sumar la caja a un archivo, se mira si algún test lo trae por el grafo (`node scripts/tests-afectados.mjs
+  --listar --explicar` con un cambio de sonda en ese archivo).
+- **El texto que sale es `contextoDeGrafico`** (las personas ya cambiadas por alias), el mismo que leía el modelo antes;
+  ahora además se ve en el mensaje de la persona.
+- **Sin hacer:** las sugerencias propias de cada gráfico (`makoIA.sugerencias`) no viajan a la estrella; los chats de los
+  gráficos de antes siguen en el Ops Center como «de antes» (`dashboard:<hoja>:<gráfico>`).
+
+**Vive en:** app/dashboard/pregunta-grafico.ts, items-edicion.ts, PanelAnalista.tsx (`ChatMakoGrafico`, `.an`),
+PanelEditarMako.tsx, EditorInforme.tsx, editor-css.ts · tests/dashboard-estrella-grafico.test.ts,
+tests/dashboard-editar-mako-muneco.test.ts · *22/10/2026, chat «Chats de las tabs».*
