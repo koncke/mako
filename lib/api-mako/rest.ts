@@ -123,8 +123,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['DELETE', '/crm/eventos-agenda/vinculo', 'desvincular_evento_etapa'],
   // Crear y editar un tipo de evento de la agenda (21/10/2026). El evento va en el CUERPO, como en el vínculo (en Calendly
   // es una URI con barras): `/evento` es la cosa, no un id en la ruta.
-  ['POST', '/crm/eventos-agenda', 'crear_evento_agenda'],
-  ['PATCH', '/crm/eventos-agenda/evento', 'editar_evento_agenda'],
+  ['POST', '/crm/paginas-reserva', 'crear_pagina_reserva'],
+  ['PATCH', '/crm/paginas-reserva/pagina', 'editar_pagina_reserva'],
   ['GET', '/crm/etapas', 'ver_funnel'],
   ['GET', '/crm/etapas/{etapa}/transiciones', 'transiciones_desde_etapa'],
   // «Tipo de etapa» (21/10/2026): Etapa / Reunión / Nutrición. PUT porque FIJA el tipo.

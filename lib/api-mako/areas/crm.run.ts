@@ -1070,7 +1070,7 @@ export const RUNNERS: Runners = {
     }),
   },
   // Crear y editar un evento de la agenda (21/10/2026): las MISMAS funciones que «Asignar evento» de la pantalla.
-  crear_evento_agenda: {
+  crear_pagina_reserva: {
     preparar: async (input) => {
       if (input.proveedor !== 'calendly' && input.proveedor !== 'calcom') return { error: 'La agenda es calendly o calcom.', faltan: ['proveedor'] };
       const d = datosDeEvento({ nombre: input.nombre, duracionMin: input.duracionMin });
@@ -1087,7 +1087,7 @@ export const RUNNERS: Runners = {
       return { ok: true, resumen: `Listo: creado «${r.evento.nombre}». Para que sus reservas caigan en una etapa, vincular_evento_etapa con el evento ${r.evento.identificador}.`, datos: { evento: r.evento.identificador, proveedor: r.evento.proveedor } };
     }),
   },
-  editar_evento_agenda: {
+  editar_pagina_reserva: {
     preparar: async (input) => {
       if (input.proveedor !== 'calendly' && input.proveedor !== 'calcom') return { error: 'La agenda es calendly o calcom.', faltan: ['proveedor'] };
       const d = datosDeEvento({ nombre: input.nombre, duracionMin: input.duracionMin }, true);

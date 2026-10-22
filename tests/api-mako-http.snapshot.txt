@@ -135,7 +135,6 @@ crear_contacto_chatwoot_lead
 crear_crm
 crear_diseno_imagen
 crear_etiqueta
-crear_evento_agenda
 crear_evento_calendario
 crear_evento_comunidad
 crear_experimento
@@ -148,6 +147,7 @@ crear_link_cuota
 crear_link_pago
 crear_modulo_curso
 crear_oferta_lead
+crear_pagina_reserva
 crear_presentacion_desde_plantilla
 crear_secuencia_email
 dar_de_baja_mi_plan
@@ -179,7 +179,6 @@ editar_contacto_lead
 editar_cuota
 editar_dato_deal
 editar_etiqueta
-editar_evento_agenda
 editar_evento_comunidad
 editar_grafico_dashboard
 editar_hoja_con_ia_dashboard
@@ -188,6 +187,7 @@ editar_hoja_general_con_ia
 editar_lead_magnet
 editar_meta_secuencia_email
 editar_obligacion_deal
+editar_pagina_reserva
 editar_pasos_secuencia_email
 editar_pasos_secuencia_mensajes
 editar_perfil_comunidad

@@ -1130,10 +1130,15 @@ export const DEFS: readonly OperacionDef[] = [
   //    última por la misma regla desde el 16/10 (lenta y con IA; tests/ficha-tabs.test.ts).
   // 21/10/2026, Martín, sobre «Asignar evento»: «me gustaría que se pueda editar o crear eventos desde allí también».
   // Las mismas funciones que la pantalla (lib/agenda-evento-etapa-server.ts): el nombre y la duración, nada más.
+  // ⚠️ «PÁGINA DE RESERVA» Y NO «EVENTO DE AGENDA» EN EL ID Y EL TÍTULO (22/10/2026): «agenda» y «evento» son lo que el
+  //    clasificador suma a CUALQUIER pedido de agenda (`RELEVANCIA_AGENDA`), y en el id pesan doble. Llamadas
+  //    `crear_evento_agenda` y `editar_evento_agenda` le ganaban el presupuesto a `crear_evento_calendario`,
+  //    `proponer_cambiar_reunion` y `crear_etiqueta` (tests/ops-center-bateria.test.ts, el piso de Ops Center del 22/10).
+  //    Es lo que de verdad crean: lo que Calendly y Cal.com llaman «event type», la página donde se reserva.
   {
-    id: 'crear_evento_agenda', area: 'crm', tipo: 'accion', confirmacion: 'chat',
-    titulo: 'Crear un evento de agenda',
-    descripcion: 'PROPONE crear un tipo de evento en el Calendly o el Cal.com del negocio (queda pendiente hasta el «sí»): un evento uno a uno con su nombre y su duración; la disponibilidad y la ubicación son las de la cuenta. Nace activo. Para que sus reservas caigan en una etapa, después vincular_evento_etapa. Google Calendar no: no expone sus páginas de reserva. Solo el administrador.',
+    id: 'crear_pagina_reserva', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Crear una página de reserva (Calendly o Cal.com)',
+    descripcion: 'PROPONE crear una página de reserva (lo que Calendly y Cal.com llaman tipo de evento) en la cuenta del negocio (queda pendiente hasta el «sí»): uno a uno, con su nombre y su duración; la disponibilidad y la ubicación son las de la cuenta. Nace activa. Para que sus reservas caigan en una etapa, después vincular_evento_etapa. Google Calendar no: no expone sus páginas de reserva. Solo el administrador.',
     parametros: [
       { nombre: 'proveedor', tipo: 'string', obligatorio: true, enum: ['calendly', 'calcom'], descripcion: 'la agenda: calendly o calcom.' },
       { nombre: 'nombre', tipo: 'string', obligatorio: true, max: MAX_NOMBRE_EVENTO, descripcion: 'el nombre del evento («Llamada de diagnóstico»).' },
@@ -1143,9 +1148,9 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: false, escribe: 'crea el tipo de evento en la cuenta de Calendly o Cal.com del negocio (se borra desde esa cuenta)',
   },
   {
-    id: 'editar_evento_agenda', area: 'crm', tipo: 'accion', confirmacion: 'chat',
-    titulo: 'Editar un evento de agenda',
-    descripcion: 'PROPONE cambiar el nombre o la duración de un tipo de evento de Calendly o Cal.com del negocio (queda pendiente hasta el «sí»). Lo que no se pasa queda como está. El evento sale de listar_eventos_agenda. Solo el administrador.',
+    id: 'editar_pagina_reserva', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Editar una página de reserva (Calendly o Cal.com)',
+    descripcion: 'PROPONE cambiar el nombre o la duración de una página de reserva de Calendly o Cal.com del negocio (queda pendiente hasta el «sí»). Lo que no se pasa queda como está. Su identificador sale de listar_eventos_agenda. Solo el administrador.',
     parametros: [
       { nombre: 'proveedor', tipo: 'string', obligatorio: true, enum: ['calendly', 'calcom'], descripcion: 'la agenda: calendly o calcom.' },
       { nombre: 'evento', tipo: 'string', obligatorio: true, max: 300, descripcion: 'el identificador del evento (de listar_eventos_agenda), o su nombre.' },

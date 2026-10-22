@@ -106,7 +106,7 @@ test('la pantalla: crear y asignar en un gesto, editar en el lugar, conectar sin
 
 test('la API de MaKo: crear y editar un evento, sólo el admin, con «sí», por las MISMAS funciones', () => {
   const def = sinComentarios(leer('lib/api-mako/areas/crm.def.ts'));
-  for (const id of ['crear_evento_agenda', 'editar_evento_agenda']) {
+  for (const id of ['crear_pagina_reserva', 'editar_pagina_reserva']) {
     const i = def.indexOf(`id: '${id}'`);
     assert.ok(i > 0, `la API no declara ${id}`);
     const op = def.slice(i, def.indexOf('\n  },', i));
