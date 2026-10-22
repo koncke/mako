@@ -2067,6 +2067,26 @@ hoja (una hoja sobre otra la cierra). Tres cosas que costaron:
 - **La foto en un mensaje de Offer es la de quien MIRA** (`MiFoto`, /api/perfil): para el dueño es la suya; el super admin que mira
   un cliente ve la propia en lo que escribió el dueño. Offer no guarda quién escribió cada mensaje.
 
+## MaKo en WhatsApp en el Ops Center: el lector existía y nadie lo llamaba (22/10/2026, OC3)
+
+El grupo de WhatsApp de MaKo de cada negocio (`mako_doer_conv` con el jid de `getGrupoJidMaKo`) tenía su lector desde la tanda
+8, con todos los cortes ya escritos (lib/chat-mako-indice.ts → `grupoDeMaKo`, `hiloDelGrupoMaKo`: sólo el admin, sólo el grupo
+oficial, el jid no sale, no va a ningún modelo). **Tenía 0 llamadores:** 1.375 mensajes en 10 negocios que el cliente no veía
+en ningún lado. Ahora es una fila más de la lista del Ops Center, en la computadora y en el teléfono. Test:
+tests/ops-center-grupo-mako.test.ts.
+
+- **Se lee y no se sigue:** en lugar de la caja dice «Se contesta en el grupo de WhatsApp.» (`AVISO_GRUPO`, que también estaba
+  escrito y sin uso), sin el menú de un mensaje, y `enviar` no sale. «Ver anteriores» pide la página de antes con `?desde=`
+  (saneada con `antesValido`, que tampoco tenía uso).
+- **El parámetro `antes` de la ruta ya era de los chats de antes:** la paginación del grupo usa `desde`, para no chocar.
+- **Medido con el lector de verdad, contra la base:** el admin del ws13 ve la fila (último mensaje de hoy) y 386 mensajes en
+  7 páginas, 206 de los últimos 30 días; con rol miembro, null. El plan decía 212 en 30 días: era otro día.
+- **Antes de escribir un lector nuevo, buscar si ya está y nadie lo llama** (`grep` del nombre fuera de su archivo). Este
+  tenía hasta el texto del aviso.
+
+**SIN HACER:** mirarlo en el Chrome de Martín con ?ws=13 a 390 px (la extensión no conectó el 22/10). El grupo no se anota en
+la URL (`?chat=`, `?offer=`…): al recargar se vuelve al Cerebro.
+
 ## Ops Center del cliente: «el chat de X no llegó» se mide en la base, nunca mirando la pantalla como super admin (20/10/2026)
 
 - **Síntoma:** en /second-brain?ws=21 sólo se ve el chat «Second Brain», sin la conversación de Offer de la clienta.

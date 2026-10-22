@@ -17,13 +17,21 @@ import { CitaCaja, ContextoWA } from '@/app/admin/operaciones/MensajeWA';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { IconoChat } from '@/app/m/mako/iconos';
 import { caracteres, nombrePegado } from '@/lib/chat-pegado';
-import { ARRANQUES_SECOND_BRAIN } from '@/lib/chat-mako-reglas';
+import { ARRANQUES_SECOND_BRAIN, AVISO_GRUPO } from '@/lib/chat-mako-reglas';
 import type { ChatCliente } from './useChatCliente';
 
 /** El hilo del chat abierto: lo que dijo cada uno, con lo de WhatsApp; vacío, la portada con lo que más se le pide. */
 export function HiloDelCliente({ k }: { k: ChatCliente }) {
+  // El grupo de WhatsApp se lee: sin el menú de un mensaje (no se responde, no se reacciona; se contesta en el grupo).
   return (
-    <ContextoWA.Provider value={k.accionesWA}>
+    <ContextoWA.Provider value={k.esGrupo ? null : k.accionesWA}>
+      {k.esGrupo && k.hayMasDelGrupo && k.cargado && (
+        <div className="co-anteriores">
+          <button type="button" className="co-chip" onClick={() => void k.verAnteriores()} disabled={k.trayendoAnteriores}>
+            {k.trayendoAnteriores ? 'Trayendo…' : 'Ver anteriores'}
+          </button>
+        </div>
+      )}
       {!k.cargado ? null : k.errorCarga ? (
         <div className="co-portada">
           <p className="co-portada__dato">{k.errorCarga}</p>
@@ -32,8 +40,8 @@ export function HiloDelCliente({ k }: { k: ChatCliente }) {
       ) : !k.items.length && !k.trabajo ? (
         <div className="co-portada">
           <Muneco titulo={k.nombreMuneco} animo="despierto" size={76} />
-          <p className="co-portada__nombre">¿En qué te ayudo?</p>
-          {(k.esJefe || k.idTurno == null) && k.idOffer == null && <div className="ch-arranques">
+          <p className="co-portada__nombre">{k.esGrupo ? 'Todavía no hay mensajes en el grupo.' : '¿En qué te ayudo?'}</p>
+          {(k.esJefe || k.idTurno == null) && k.idOffer == null && !k.esGrupo && <div className="ch-arranques">
             {ARRANQUES_SECOND_BRAIN.map((a) => <button key={a} type="button" className="co-chip" onClick={() => k.enviar(a)}>{a}</button>)}
           </div>}
         </div>
@@ -53,6 +61,8 @@ export function HiloDelCliente({ k }: { k: ChatCliente }) {
 export function CajaDelCliente({ k, campo, seguir, movil = false }: {
   k: ChatCliente; campo: RefObject<HTMLTextAreaElement | null>; seguir: () => HTMLElement | null; movil?: boolean;
 }) {
+  // El grupo de WhatsApp de MaKo no se sigue desde acá: en lugar de la caja, dónde se contesta.
+  if (k.esGrupo) return <p className="co-solo-lectura" role="note">{AVISO_GRUPO}</p>;
   return (
     <CajaChat texto={k.texto} onTexto={(v) => { k.setFaltaMic(null); k.setTexto(v); }} onMandar={k.enviarCaja}
       ocupado={k.enCurso} apagado={!k.cargado || !!k.errorCarga} placeholder={`Escribe a ${k.nombre}`} tituloMandar={movil ? undefined : 'Mandar (Enter)'}

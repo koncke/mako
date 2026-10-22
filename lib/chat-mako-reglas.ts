@@ -254,10 +254,10 @@ export function seEscondeDeOffer(s: { id: number; updatedAt: string }, copiada: 
 
 /** Lo elegido en la barra: una conversación con MaKo, un chat que todavía no tiene (el jefe sin nada, o «Nuevo chat»), un
  *  chat de antes (de «Pregúntale a MaKo»), una conversación de Offer, o un chat de Claude Code (su clave del Centro). */
-export type ElegidoChat = { id: number } | { virtual: 'jefe' | 'nuevo' } | { antes: number } | { centro: string } | { offer: number };
+export type ElegidoChat = { id: number } | { virtual: 'jefe' | 'nuevo' } | { antes: number } | { centro: string } | { offer: number } | { grupo: true };
 
-/** De dónde sale un chat de la lista: a qué motor va lo que se escribe (MaKo, o el de Offer). */
-export type OrigenDeFila = 'mako' | 'offer' | 'antes';
+/** De dónde sale un chat de la lista: a qué motor va lo que se escribe (MaKo, o el de Offer). El grupo no tiene motor: se lee. */
+export type OrigenDeFila = 'mako' | 'offer' | 'antes' | 'grupo';
 
 export type FilaDelCliente = {
   /** La key de React y la búsqueda del elegido. */
@@ -277,9 +277,11 @@ const ms = (iso: string | null | undefined): number | null => { const t = iso ? 
 export const criaturaDeOffer = (titulo: string): string => `Offer › ${titulo}`;
 
 /** La lista entera: el Cerebro primero (siempre, aunque no tenga conversación todavía) y el resto, lo más reciente arriba. La
- *  búsqueda no esconde al Cerebro (es la casa). */
+ *  búsqueda no esconde al Cerebro (es la casa). `grupo`: el grupo de WhatsApp de MaKo del negocio, de SÓLO LECTURA y sólo del
+ *  admin (22/10/2026, OC3: el lector existía y nadie lo llamaba; lib/chat-mako-indice.ts → grupoDeMaKo, que ya corta al resto). */
 export function listaDelCliente(p: {
   sesiones: readonly SesionChat[]; offer: readonly ConTitulo[]; antes: readonly ConTitulo[]; busca: string;
+  grupo?: { titulo: string; ultimoAt: string | null } | null;
 }): FilaDelCliente[] {
   const { jefe, subs } = arbolDelJefe(p.sesiones);
   const cerebro: FilaDelCliente = {
@@ -297,6 +299,7 @@ export function listaDelCliente(p: {
       const titulo = a.titulo?.trim() || 'Chat de antes';
       return { clave: `a${a.id}`, elegido: { antes: a.id }, titulo, criatura: titulo, actividad: ms(a.updatedAt), origen: 'antes' };
     }),
+    ...(p.grupo ? [{ clave: 'grupo', elegido: { grupo: true } as const, titulo: p.grupo.titulo, criatura: TITULO_GRUPO, actividad: ms(p.grupo.ultimoAt), origen: 'grupo' as const }] : []),
   ]
     .filter((f) => !b || normal(f.titulo).includes(b))
     .map((f, i) => ({ f, i }))
