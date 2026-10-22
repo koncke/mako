@@ -69,6 +69,9 @@ export const PROVS_OFFER: readonly ProvName[] = ['gemini', 'groq', 'openrouter']
  * medido el 09/10/2026: `nvidia/nemotron-3-super-120b-a12b:free` contestó 200 con el prompt real; el de
  * `MODELO_DOCS` (`minimax/minimax-m3:free`) ya no es gratis. Si allá cambia, cambia acá.
  */
+/** El modelo de Gemini del turno en la red de plataforma (ver `Pedido.modelosRed`). */
+export const MODELO_TURNO_RED = 'gemini-flash-lite-latest';
+
 export const MODELOS_OFFER: Partial<Record<ProvName, string>> = {
   openrouter: 'nvidia/nemotron-3-super-120b-a12b:free',
 };
@@ -126,6 +129,7 @@ CÓMO CONVERSAS (no negociable):
 Tu charla con el dueño sigue en el idioma de abajo.
 17. Nunca preguntes «¿quieres que avancemos con el diagnóstico?» ni ofrezcas «ver el diagnóstico» como un paso: no existe. Cuando ya están las piezas mínimas, dilo en una frase y sigue con lo que falta; el botón «Armar mi oferta» ya está.
 18. EL NIVEL: junto a las piezas viene «EL NIVEL DE ESTA OFERTA», que calcula el sistema con el precio. Respétalo: en una oferta de ticket bajo (una ENTRADA), la pregunta de la escalera es la que dice ahí, la de qué le vende DESPUÉS.
+19. No saludes ni te despidas: ya están conversando. Nada de «Hola…», «espero que estés muy bien» ni «Bendiciones»: la voz del negocio es para lo que el negocio les dice a SUS clientes, no para hablarle al dueño.
 
 ${SEGURIDAD}
 
@@ -179,7 +183,7 @@ CÓMO CONVERSAS (no negociable):
 7. No construyas lo que falta ni sugieras nada: si no tiene garantía o no sabe su resultado con números, se anota como lo dijo.
 8. "listo": true cuando ya están las piezas de «LO QUE NECESITAS SABER». Ese turno dice SÓLO «¡Gracias!», sin otra frase ni pregunta, y "opciones" []: el mensaje del PDF lo dice la pantalla.
 9. "diagnostico": null y "diagnostico_respuesta": null, siempre. No inventes datos.
-10. ANTES de la pregunta, reconoce lo que acaba de contar con UNA frase cálida y GENUINA: nombra algo concreto de su respuesta y por qué es bueno de verdad («¡Me encanta ese cliente! Los dueños de pymes que ya facturan suelen valorar mucho su tiempo»). Nunca un elogio genérico («¡Perfecto!», «¡Excelente!» solos), nunca de algo que no dijo, y nunca elogies algo que no sea bueno de verdad (precio, garantía o resultado flojos no se elogian: se agradecen y se sigue). Si no hay nada para destacar, agradece en pocas palabras.
+10. No saludes ni te despidas en tus mensajes: ya están conversando. ANTES de la pregunta, reconoce lo que acaba de contar con UNA frase cálida y GENUINA: nombra algo concreto de su respuesta y por qué es bueno de verdad («¡Me encanta ese cliente! Los dueños de pymes que ya facturan suelen valorar mucho su tiempo»). Nunca un elogio genérico («¡Perfecto!», «¡Excelente!» solos), nunca de algo que no dijo, y nunca elogies algo que no sea bueno de verdad (precio, garantía o resultado flojos no se elogian: se agradecen y se sigue). Si no hay nada para destacar, agradece en pocas palabras.
 
 ${SEGURIDAD}
 
@@ -392,6 +396,14 @@ type Pedido<T> = {
    * corta: buscar más no le compra nada al dueño y quema cuota. Con un flojo, la red de plataforma no corre.
    */
   parseFlojo?: (raw: string) => T | null;
+  /**
+   * El modelo de cada proveedor en la RED DE PLATAFORMA (sin esto, el de fábrica de `chatCheapTools`). Para el turno,
+   * flash-lite (22/10/2026, medido en la conversación de Mauricio, ws1 id 18: `gemini-flash-latest` salió 4 de 4 veces
+   * con 1.996 tokens, el tope del turno, porque la red no le pasa el nivel de razonamiento y razonar se come la
+   * respuesta; el JSON llegaba cortado, se descartaba y se reintentaba el MISMO modelo con la key siguiente. Cada vuelta,
+   * de 20 a 60 s. Todos sus turnos los terminó contestando flash-lite.)
+   */
+  modelosRed?: Partial<Record<ProvName, string>>;
 };
 
 async function pedir<T>(p: Pedido<T>): Promise<ResultadoIA<T>> {
@@ -457,7 +469,7 @@ async function pedir<T>(p: Pedido<T>): Promise<ResultadoIA<T>> {
     if (queda < MIN_INTENTO_MS) { erroresRed.push(`sin tiempo para ${r.provider}`); break; }
     try {
       const out = await chatCheapTools(p.system, [{ role: 'user', content: p.user }], [], async () => '', {
-        provider: r.provider, clave: r.clave, wsKey: superWs as number,
+        provider: r.provider, clave: r.clave, wsKey: superWs as number, model: p.modelosRed?.[r.provider],
         maxTokens: p.maxTokens, timeoutMs: Math.min(p.timeoutMs, queda),
         feature: FEATURE_OFFER, motivo: `⚠ red de plataforma (${r.provider}) — las keys del negocio no contestaron · ${p.motivo}`,
       });
@@ -520,9 +532,13 @@ export async function turnoOffer(p: {
     diagnostico: p.diagnostico.trim() || '(nada pendiente)', conversacion: b.conversacion,
   });
   const obligatorio = p.diagnosticoObligatorio;
+  // ⏱ 30 s por intento (22/10/2026): un turno de chat que tarda más no va a contestar. En la conversación de Mauricio
+  // una de cada cuatro respuestas tardó 66 s: un intento con las keys del negocio esperaba sus 60 s enteros (sin dejar
+  // fila en el Saldo de IA) antes de caer a la red, que contestaba en 2 a 6 s.
   return pedir({
-    system, user, maxTokens: 2_000, timeoutMs: 60_000, esfuerzo: 'low',
+    system, user, maxTokens: 2_000, timeoutMs: 30_000, esfuerzo: 'low',
     hastaMs: p.inicio + (obligatorio ? 90_000 : 150_000), hastaRedMs: p.inicio + (obligatorio ? 130_000 : 280_000),
+    modelosRed: { gemini: MODELO_TURNO_RED },
     motivo: 'Offer: conversar con el dueño', tema: 'contestarte ahora',
     // Con la obligatoria se busca un turno que la ADAPTE, y uno que sirve sin adaptarla no se tira: trae las
     // piezas que dio el dueño, y la pregunta sale ORIGINAL (revisión adversarial del 11/10/2026).

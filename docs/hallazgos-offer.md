@@ -984,3 +984,57 @@ Llamada Mau <> Martín del 22/10 (Fathom 195129619, 01:42:50-01:46:05). Mauricio
 `lib/offer-sesiones.ts` (`aFila`) · `lib/offer-ia.ts` · `tests/offer-sprint-mauricio.test.ts` (25 roturas, las 25 cazadas)
 
 *22/10/2026, chat «Offer» (claude3).*
+
+## Lo demás de la llamada con Mauricio: el saludo, la demora, la landing que no se dejaba leer, el .zip (22/10/2026, P1)
+
+Misma llamada (Fathom 195129619) y misma conversación medida (ws1, id 18), más el Saldo de IA de esa hora.
+
+- **La demora (O6) no era «la IA es lenta».** Mediana de 6 s; 6 de 25 respuestas tardaron 66 a 124 s, por dos causas
+  medidas en `anthropic_usage`: (1) en la red de plataforma, `gemini-flash-latest` salió **4 de 4 veces con 1.996
+  tokens**, el tope del turno: la red no le pasa el nivel de razonamiento (`chatCheapTools`), razonar se come la
+  respuesta, el JSON llega cortado, se descarta y el bucle prueba **el mismo modelo** con la key siguiente (20 a 60 s
+  cada vuelta). Todos sus turnos los terminó contestando flash-lite. (2) Las de 66 s no dejan ninguna fila entre el
+  mensaje y la respuesta: un intento con las keys del ws1 (tiene OpenRouter, con un modelo gratis) esperó sus 60 s
+  enteros. **Ahora** el turno va a flash-lite en la red (`Pedido.modelosRed`) y corta cada intento a los 30 s.
+  Trampa: un intento que muere por timeout no deja rastro en el Saldo de IA; se ve como un HUECO entre filas.
+- **El saludo en cada mensaje (O5)** era la voz del negocio («Hola estimado… espero que estés muy bien… Bendiciones»)
+  aplicada a la charla con el DUEÑO. El primer mensaje lo escribe el código, así que ningún turno de la IA saluda:
+  `sinSaludo` en `parseTurno` (la única entrada del turno), más la regla en los prompts.
+- **«¿Es pago único?» dos veces (O4):** la guía pregunta el precio y después el % al firmar. Con «pago único» en el
+  precio, el cobro se anota solo (`conCobroDelPrecio`). Y el aviso «te pagan el 100% al firmar: súbelo» ya no sale con
+  un pago único: la señal del §6.2 es que el cliente PODÍA pagar en cuotas y no quiso.
+- **La landing «bloqueada» (O7):** desde acá abre con 200; el hosting (cabeceras de SiteGround) frena a los servidores y
+  nuestro User-Agent se declara bot. No se tocó lib/landing-fetch.ts (es de Landing): la ruta de Offer, si la descarga
+  SSRF-segura bloquea (401/403/429) o trae casi nada de texto, pide la página a r.jina.ai (`lib/offer-lector-externo.ts`),
+  que la abre con un navegador desde su red. Medido: trae la landing del Sprint entera (precio, fechas, testimonios).
+  Viaja sólo la URL pública. La baranda «ningún fetch en la ruta» (tests/offer-ia-cableado.test.ts) se respetó.
+- **El .zip (O8):** el navegador no deja elegir una carpeta; un .zip sí. `lib/offer-zip.ts` lo abre con el jszip que
+  ya estaba, lee las páginas con el MISMO extractor de copy de Landing (`copyDeHtml`) y los textos, saltea el resto, y el
+  aviso del documento dice qué leyó. `archivoATexto` no se tocó: es compartido (Archivero, Plan, WhatsApp). La pantalla
+  valida por extensión: importar `esZip` de lib/offer-reglas.ts habría metido 3.000 líneas en el navegador.
+- **El PDF «muy raro» (O11), lo que se pudo ver:** se armaron sus 6 páginas con su conclusión real. El aviso «la garantía
+  que escribió la IA era incondicional: en high ticket…» salía en una entrada SIN garantía porque la regex leyó «no se
+  contempla reembolso **ni** garantía incondicional» como que la tenía; ahora mira la negación y sólo en alto ticket. Y
+  «Lo que me gustó» repetía, en la misma página, las notas de 7 o más con su porqué: ahora son las fortalezas y el
+  control final. También salían «Sistema DOS» (una oferta de prueba del contexto, P0) y Zoom (P0).
+- **El selector (O12)** abría «parado en lo elegido» (decisión CRON 4 del Dropdown de la casa): adentro del funnel de la
+  conversación abierta. Ahora Offer lo abre en la raíz (`abrirEnLaRaiz`, prop nueva; el resto de la app, igual).
+- **«¿Cuál es el propósito?» (O13):** el mensaje del PDF y el de «Así está bien» lo dicen (`PARA_QUE_SIRVE`).
+
+**Lo que quedó SIN hacer:**
+- **O9, «los analizo y te aviso»** con muchos documentos: pide leerlos en el servidor (como el armado) con un estado en la
+  fila y un evento de la plataforma nuevo con su fila en el ws 9. Camino de aviso que hay: `emitirEventoDePlataforma`
+  (WhatsApp del grupo, como `oferta_lista`) y la campanita de escritorio (`notificaciones`, lib/campanita.ts).
+- **O10, el micrófono que no muestra que graba**, vive en app/whatsapp/_shared/ComposerWhatsApp.tsx + VoiceRecorder.tsx
+  (compartido con los chats de WhatsApp y el lienzo): no se tocó desde Offer.
+- **No se vio en el navegador** el selector abierto en la raíz ni el chip del .zip; el lector de afuera se probó con curl.
+- Que un fuerte del diagnóstico sea una OBJECIÓN («Ya probé otras capacitaciones y la gente vuelve a lo mismo» salió en
+  «Lo que me gustó») depende del modelo: no hay regla que lo frene.
+
+**Vive en:** `lib/offer-reglas.ts` (`sinSaludo`, `parseTurno`, `esPagoUnico`, `conCobroDelPrecio`, `textoDelLectorExterno`,
+`esZip`, `PARA_QUE_SIRVE`, la garantía en `aplicarReglasPropuesta`) · `lib/offer-ia.ts` (`modelosRed`, el turno) ·
+`lib/offer-lector-externo.ts` · `lib/offer-zip.ts` · `lib/offer-marco.ts` (`loQueMeGusto`) · `app/api/offer/route.ts`
+(`leerLink`, `leer`, `responder`) · `app/components/Dropdown.tsx` (`abrirEnLaRaiz`) · `app/offer/SelectorFunnel.tsx` ·
+`app/offer/OfferApp.tsx`, `ChatOffer.tsx` (el .zip) · `tests/offer-mauricio-p1.test.ts` (24 roturas, las 24 cazadas)
+
+*22/10/2026, chat «Offer» (claude3).*

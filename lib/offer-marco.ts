@@ -316,21 +316,20 @@ export const PUNTOS_CONTROL: ReadonlyArray<{ punto: PuntoControl; label: string 
 // «me gustó esto, esto y esto, y esto lo cambiaría y lo haría de tal forma», y aparte «esta es la propuesta que yo te
 // armo». Lo que va en la primera parte lo arman estas dos funciones con lo que YA dejó el diagnóstico: no hay IA nueva.
 
-/** Una nota alta (7 o más) es algo que la oferta ya hace bien; una baja (5 o menos), lo que más conviene subir. */
-const NOTA_FUERTE = 7;
+/** Una nota baja (5 o menos) es lo que más conviene subir. */
 const NOTA_FLOJA = 5;
 
 /**
  * LO QUE ME GUSTÓ de la oferta de hoy: lo que el diagnóstico marcó como fuerte (`fuertes`, o `fuerte` en las
- * conclusiones de antes), las dimensiones con nota alta (con su porqué, que cita al dueño) y los puntos del control
- * final que ya cumple. Sin repetidas y con tope: es una lista para leer, no el diagnóstico entero.
+ * conclusiones de antes) y los puntos del control final que ya cumple. Sin repetidas y con tope: es una lista para
+ * leer, no el diagnóstico entero.
+ * 22/10/2026: ya no suma las dimensiones de nota alta con su porqué. El PDF las lista a todas, con su porqué, justo
+ * arriba en la misma página, y la misma frase salía dos veces (el PDF del Sprint de Mauricio: «está muy rara»).
  */
 export function loQueMeGusto(c: Pick<ConclusionOferta, 'diagnostico' | 'calculo'>, tope = 6): string[] {
   const d = c.diagnostico;
-  const etiqueta = (id: DimensionId) => DIMENSIONES.find((x) => x.id === id)?.label ?? id;
   const out = [
     ...(d.fuertes?.length ? d.fuertes : d.fuerte ? [d.fuerte] : []),
-    ...d.dimensiones.filter((n) => n.nota >= NOTA_FUERTE && n.porque?.trim()).map((n) => `${etiqueta(n.id)}: ${n.porque.trim()}`),
     ...(c.calculo.controlFinal ?? []).filter((x) => x.ok && x.porque?.trim()).map((x) => x.porque.trim()),
   ].map((s) => s.trim()).filter(Boolean);
   return [...new Set(out)].slice(0, tope);

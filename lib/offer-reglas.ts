@@ -1136,6 +1136,24 @@ function indiceDiag(v: unknown): number | null {
  * La respuesta puede venir VACÍA sólo si el modelo hizo la pregunta del diagnóstico: en ese turno lo que se
  * dibuja es la pregunta (y la respuesta, si la hay, es un puente corto).
  */
+/**
+ * El turno sin el saludo de arriba ni la despedida de abajo (22/10/2026, Mauricio, 43:11: «saluda de nuevo en cada
+ * mensaje»). Las 25 respuestas de su conversación empezaban con «Hola estimado Mauricio ! espero que estes muy bien !»
+ * y una terminaba en «Bendiciones.»: el modelo copiaba a la charla con el DUEÑO la voz que el negocio usa con SUS
+ * clientes. Ningún turno saluda: el primer mensaje de la conversación lo escribe el código, así que cuando habla la IA
+ * ya están conversando. La regla del prompt va igual; esto es lo que no depende del modelo.
+ */
+export function sinSaludo(t: string): string {
+  let out = t.trimStart();
+  // «Hola estimado Mauricio !», «¡Buenas tardes!», «Hola Mauricio, …» (hasta la coma), y atrás «espero que estés muy bien».
+  out = out.replace(/^[¡!]?\s*(?:hola|buen(?:os|as)\s+(?:d[ií]as|tardes|noches)|saludos|qu[eé]\s+tal)\b[^.!?¿,\n]{0,60}(?:[.!?]+|,)\s*/i, '');
+  out = out.replace(/^[¡!]?\s*espero\s+que\s+(?:est[eé]s|te\s+encuentres|se\s+encuentre|est[eé]|te\s+vaya)\b[^.!?¿\n]{0,60}[.!?]+\s*/i, '');
+  out = out.replace(/\s*[¡]?\s*(?:bendiciones|saludos(?:\s+cordiales)?|un\s+(?:fuerte\s+)?abrazo|abrazos|quedo\s+atent[oa])\s*[.!]*\s*$/i, '');
+  out = out.trim();
+  if (!out) return '';
+  return out === t.trim() ? out : out.charAt(0).toUpperCase() + out.slice(1);
+}
+
 export function parseTurno(raw: unknown): TurnoOffer | null {
   const o = aObjeto(raw);
   if (!o) return null;
@@ -1143,8 +1161,9 @@ export function parseTurno(raw: unknown): TurnoOffer | null {
   if (crudo && pareceRazonamiento(crudo)) return null;
   const diagnostico = limpiarDiagnostico(o.diagnostico);
   if (!crudo && !diagnostico) return null;
+  const sinSaludar = crudo ? sinSaludo(crudo) : '';
   return {
-    respuesta: crudo ? recortarRespuesta(unaSolaPregunta(crudo)) : '',
+    respuesta: sinSaludar ? recortarRespuesta(unaSolaPregunta(sinSaludar)) : '',
     opciones: limpiarOpciones(o.opciones),
     piezas: limpiarPiezas(o.piezas),
     listo: o.listo === true,
@@ -1553,6 +1572,47 @@ export function bloqueNivel(n: NivelOferta | null): string {
 }
 
 /** El % cobrado al firmar que dijo el dueño, o null: «50%», «la mitad», «todo de contado». */
+/**
+ * Lo que devuelve el lector de afuera (r.jina.ai, app/api/offer/route.ts → `leerConLectorExterno`), como texto de una
+ * página: el título, la URL y el contenido. null si no sirve: muy corto (menos de 200 caracteres: una página vacía o un
+ * error) o una página de desafío de un antibots, que el lector también puede recibir en vez de la página.
+ */
+export function textoDelLectorExterno(raw: string): { titulo: string; url: string; texto: string } | null {
+  const t = (raw ?? '').replace(/\r\n/g, '\n');
+  const titulo = t.match(/^Title:\s*(.+)$/m)?.[1]?.trim() ?? '';
+  const url = t.match(/^URL Source:\s*(\S+)/m)?.[1]?.trim() ?? '';
+  const i = t.indexOf('Markdown Content:');
+  const texto = (i >= 0 ? t.slice(i + 'Markdown Content:'.length) : t).trim();
+  if (texto.length < 200) return null;
+  if (/\b(?:just a moment|checking your browser|verify you are human|access denied|attention required|captcha)\b/i.test(`${titulo}\n${texto.slice(0, 600)}`)) return null;
+  return { titulo, url, texto };
+}
+
+/**
+ * ¿Es un .zip? Por la extensión o el tipo (los navegadores mandan varios). Offer lo abre y lee sus páginas
+ * (lib/offer-zip.ts, 22/10/2026: la carpeta de la landing de Mauricio). Vive acá y no allá porque la pantalla también lo
+ * usa, y allá está jszip.
+ */
+export const esZip = (nombre: string, mime: string): boolean =>
+  /\.zip$/i.test(nombre) || /^application\/(?:x-)?zip(?:-compressed)?$/i.test(mime);
+
+/** ¿El precio se cobra en UN solo pago? («Pago único de $270 USD vía Stripe», «de contado», «un solo pago»). */
+export function esPagoUnico(valor: string | null | undefined): boolean {
+  const t = (valor ?? '').trim();
+  if (!t || esSinDato(t)) return false;
+  return /\b(?:pago unico|un solo pago|un unico pago|de contado|al contado)\b/.test(normalizar(t));
+}
+
+/**
+ * Con un precio de PAGO ÚNICO, el cobro al firmar ya se sabe: el 100% (22/10/2026, Mauricio, 01:10:49: MaKo le
+ * preguntó «¿es pago único?» dos veces, primero con el precio y después con el % al firmar). Se anota la pieza `cobro`
+ * para que la guía la salte; si ya tenía dato, no se toca.
+ */
+export function conCobroDelPrecio(piezas: PiezasSabidas, at: string = new Date().toISOString()): PiezasSabidas {
+  if (tieneDato(piezas, 'cobro') || !esPagoUnico(piezas.precio?.valor)) return piezas;
+  return mergePiezas(piezas, { cobro: '100% al inscribirse: es un pago único, lo dijo con el precio' }, 'chat', at);
+}
+
 export function porcentajeAlFirmar(valor: string | null | undefined): number | null {
   const t = (valor ?? '').trim();
   if (!t || esSinDato(t)) return null;
@@ -2001,9 +2061,12 @@ export function avisosAntesDelDiagnostico(p: {
   const foco = alertaFoco({ ...p.foco, otrasDeclaradas: ofertasDeclaradas(p.piezas.otras?.valor) });
   const margen = alertaMargen(p.piezas);
   const sinDatos = alertaSinDatos({ embudo: p.embudo, ventas: p.piezas.ventas?.valor });
+  // El % al firmar es señal de precio barato cuando el cliente PODÍA pagar en cuotas y no quiso (§6.2). Con un pago
+  // único no hay cuotas: el 100% no dice nada (22/10/2026, el Sprint de 270 USD: «súbelo entre 250 y 1.000 USD»).
+  const cobroComoSenal = esPagoUnico(p.piezas.precio?.valor) ? null : porcentajeAlFirmar(p.piezas.cobro?.valor);
   return {
     foco,
-    otras: [...(sinDatos ? [sinDatos] : []), ...(margen ? [margen] : []), ...alertasEmbudo(p.embudo), ...alertasPrecio({ cobro: porcentajeAlFirmar(p.piezas.cobro?.valor), embudo: p.embudo })],
+    otras: [...(sinDatos ? [sinDatos] : []), ...(margen ? [margen] : []), ...alertasEmbudo(p.embudo), ...alertasPrecio({ cobro: cobroComoSenal, embudo: p.embudo })],
   };
 }
 
@@ -2243,6 +2306,12 @@ export function provisionalDe(d: Pick<DiagnosticoOferta, 'dimensiones'>): { part
  * Lo agrega el servidor después de cada «generar». Propone empezar por lo provisional; si no hay, por el
  * cuello de botella; si está lista, ofrece pulirla igual.
  */
+/**
+ * Para qué sirve lo que se acaba de armar (22/10/2026, Mauricio al recibir el PDF, 01:49:58: «¿le guardo o qué hago? O
+ * sea, ¿cuál es el propósito?»). Lo dice el mensaje del PDF y el de «Así está bien».
+ */
+export const PARA_QUE_SIRVE = 'Guárdala en tu funnel: MaKo usa esta oferta como contexto para prospectar y para escribirles a tus leads.';
+
 export function mensajePdf(p: {
   version: number; dimensiones: NotaDimension[]; cuello: DimensionId; lista: boolean; id: string; at: string;
 }): MensajeSinAudio {
@@ -2253,7 +2322,7 @@ export function mensajePdf(p: {
       : `Empezaría por «${dimensionLabel(p.cuello)}», que es lo que más la frena.`;
   return {
     id: p.id, de: 'mako', at: p.at,
-    texto: `Aquí está la versión ${p.version} de tu oferta, en PDF. ¿La pulimos? ${empezar}`,
+    texto: `Aquí está la versión ${p.version} de tu oferta, en PDF. ${PARA_QUE_SIRVE} ¿La pulimos? ${empezar}`,
     opciones: [OPCION_PULIR, OPCION_ASI_ESTA_BIEN],
     pdf: { version: p.version },
   };
@@ -2280,7 +2349,7 @@ export function respuestaSinIA(mensajes: Array<Pick<MensajeGuardado, 'de' | 'pdf
   if (!ultimoMako?.pdf) return null;
   return {
     id: p.id, de: 'mako', at: p.at,
-    texto: `Perfecto: la versión ${ultimoMako.pdf.version} es la final. Puedes guardarla como tu oferta, o volver a pulirla cuando quieras.`,
+    texto: `Perfecto: la versión ${ultimoMako.pdf.version} es la final. ${PARA_QUE_SIRVE} También puedes volver a pulirla cuando quieras.`,
     opciones: [OPCION_PULIR],
   };
 }
@@ -2534,9 +2603,12 @@ export function aplicarReglasPropuesta(p: PropuestaOferta, piezas: PiezasSabidas
     return /\(propuesta\)\s*$/i.test(nm) ? nm : `${nm} ${PROPUESTA_SUFIJO}`;
   });
 
-  // La garantía nunca incondicional en high ticket: se le sacan las condiciones y se marca.
-  const textoGarantia = `${out.garantia.nombre} ${out.garantia.condiciones} ${out.garantia.siNoCumple}`;
-  if (/incondicional|sin (?:hacer )?preguntas|sin condiciones/i.test(textoGarantia)) {
+  // La garantía nunca incondicional en high ticket: se le sacan las condiciones y se marca. Sólo en high ticket (en una
+  // entrada no es la regla), y sólo si la AFIRMA (22/10/2026, el Sprint de Mauricio, una entrada sin garantía: «no se
+  // contempla reembolso ni garantía incondicional» disparaba el aviso y le pedía «[completar] las condiciones»).
+  const textoGarantia = `${out.garantia.nombre} ${out.garantia.condiciones} ${out.garantia.siNoCumple}`
+    .replace(/\b(?:ni|no|sin|nunca)\b[^.;]{0,40}?\b(?:incondicional|sin (?:hacer )?preguntas|sin condiciones)/gi, '');
+  if (nivelDeOferta(piezas)?.nivel !== 'bajo' && /incondicional|sin (?:hacer )?preguntas|sin condiciones/i.test(textoGarantia)) {
     out.garantia.condiciones = `${MARCA_COMPLETAR} lo que el cliente tiene que cumplir para reclamarla (asistir, hacer las tareas)`;
     if (/incondicional/i.test(out.garantia.nombre)) out.garantia.nombre = `${MARCA_COMPLETAR} el nombre de la garantía`;
     avisos.push('La garantía que escribió la IA era incondicional: en high ticket va atada a que el cliente cumpla el método. Completa sus condiciones.');

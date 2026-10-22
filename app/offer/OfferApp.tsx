@@ -127,10 +127,15 @@ type Resultado = 'salio' | 'volver' | 'tirar';
  * Sin `accept` acá a propósito: `validar` dice el motivo PROPIO de cada formato («los .pages no se pueden
  * leer: expórtalo a PDF»), y el rebote genérico del `accept` lo taparía. El «+» igual lleva el `accept`.
  */
+/** Lo que Offer sabe leer: lo de la casa y un .zip (la carpeta de una landing). */
+const ACCEPT_OFFER = `${ACCEPT_IMPORTAR},.zip`;
+const ZIP = /[.]zip$/i;
+
 const TOPES_OFFER = {
   maxBytes: MAX_ARCHIVO_BYTES,
   maxArchivos: MAX_ADJUNTOS,
-  validar: (f: { name: string; type: string }): string | null => (puedeLeerse(f.name, f.type) ? null : `«${f.name}» ${porQueNoPuedo(f.name) || 'no se puede leer.'}`),
+  // Un .zip también (22/10/2026): la carpeta de una landing; lo abre el servidor (lib/offer-zip.ts, `esZip`).
+  validar: (f: { name: string; type: string }): string | null => (puedeLeerse(f.name, f.type) || ZIP.test(f.name) ? null : `«${f.name}» ${porQueNoPuedo(f.name) || 'no se puede leer.'}`),
 };
 
 const cuantosArchivos = (n: number): string => `${n} ${n === 1 ? 'archivo' : 'archivos'}`;
@@ -885,7 +890,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
       texto={texto}
       onTexto={setTexto}
       onEnviar={() => void enviarVista()}
-      accept={ACCEPT_IMPORTAR}
+      accept={ACCEPT_OFFER}
       maxArchivos={MAX_ADJUNTOS}
       enviando={leyendo}
       puedeEnviar={puedeMandar}
@@ -929,7 +934,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     onSumar: agregarArchivos,
     onQuitar: quitarArchivo,
     // «Documento» ofrece lo que Offer sabe leer (audio y video incluidos), no lo del Ops Center (revisión del Cerebro, 20/10).
-    accept: ACCEPT_IMPORTAR,
+    accept: ACCEPT_OFFER,
     onSinImagen: (puedeLeer) => setErrorChat(puedeLeer ? 'No hay una imagen copiada.' : 'Este navegador no deja pegar: usa Ctrl+V.'),
     // Lo pegado cuando no se puede sumar se dice (sexta revisión, 21/10: la imagen se perdía sin aviso).
     onNoPuede: () => setErrorChat(ocupado ? 'Espera a que MaKo conteste para sumar archivos.' : 'Todavía no puedo recibir archivos: prueba en un momento.'),

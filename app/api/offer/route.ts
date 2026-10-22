@@ -79,7 +79,9 @@ import { marcarPasoTab } from '@/lib/tab-onboarding-state';
 import { onboardingPendiente } from '@/lib/onboarding-state';
 import { frenoDeIa } from '@/lib/onboarding-guardia-server';
 import { transcribirAudio, SttSinEscucha, errorDeCascada } from '@/lib/ai-cheap';
-import { extraerLanding } from '@/lib/landing-fetch';
+import { bloqueaLaLectura, extraerLanding } from '@/lib/landing-fetch';
+import { leerConLectorExterno } from '@/lib/offer-lector-externo';
+import { esZip, textoDeZip } from '@/lib/offer-zip';
 import { leerFunnels } from '@/lib/funnels';
 import { sanearFunnelIds } from '@/lib/funnels-elegidos';
 import { listarOfertas } from '@/lib/ofertas';
@@ -89,7 +91,7 @@ import { MARCA_COMPLETAR, faltanDelArranque, faltanMinimas, type ArchiveroDoc, t
 import {
   MAX_DOCS_SESION, NOMBRE_DOC_TEXTO_LARGO, PRINCIPIO_TEXTO_LARGO, TOPE_DOC_ENTERO, repartirTextoLargo, sanearLinksSinLeer, conOpcionesDelArranque, conTopeDelArranque, mensajeDeCierreDelArranque, TOPE_TEXTO_DOC, adjuntoDe, avisoDeLectura, lecturaPorPartes, partirEnPartes, avisosAntesDelDiagnostico, calcularDiagnostico, canalParaElNegocio, cifrasConFuente, cifrasConPorcentaje, conArchivero, conRespuestaInferida,
   diagnosticoConFuentes, diagnosticoFaltante, diagnosticoParaPrompt, docsDeLaConversacion, estadoDiagnostico, faltanTexto, faseDeSetting,
-  faseVigenteDe, fuentesDelDueno, linkParaLeer, mensajeDeMako, mensajePdf, mergePiezas, motivoArchivoOffer, planDiagnostico, primerMensaje, primerMensajeFunnel, provisionalDe, recortar,
+  conCobroDelPrecio, faseVigenteDe, fuentesDelDueno, linkParaLeer, mensajeDeMako, mensajePdf, mergePiezas, motivoArchivoOffer, planDiagnostico, primerMensaje, primerMensajeFunnel, provisionalDe, recortar,
   repartirTranscripcion, respuestaDiagnostico, respuestaSinIA, seArchivaDesdeOffer, armadoEnCurso, pasoInicialDelArmado, valoresDeLasPiezas,
   type AudioGuardado, type DocumentoGuardado, type MensajeGuardado, type PlanDiagnostico,
 } from '@/lib/offer-reglas';
@@ -428,8 +430,13 @@ async function leer(ws: number, body: Record<string, unknown>, inicio: number): 
     if (error || !data) return no(400, `No encontré «${nombre}» en la subida. Vuelve a subirlo.`);
     const contenido = new Uint8Array(await data.arrayBuffer());
     const file = new File([contenido], nombre, { type: mime || data.type || '' });
+    // Un .zip (la carpeta de una landing, 22/10/2026): sus páginas y textos, sin IA, y el aviso dice qué leyó.
+    const zip = esZip(nombre, file.type) ? await textoDeZip(contenido) : null;
+    if (esZip(nombre, file.type) && !zip) return no(422, `No pude abrir «${nombre}» como .zip. Si es la carpeta de tu landing, comprímela de nuevo o pega el link.`);
     // Con la red: Offer es de la primera semana de un cliente nuevo, que no trae una API (16/10/2026).
-    const lectura = await archivoATexto(file, { feature: 'offer', motivo: `Offer: leer «${nombre}»`, redDePlataforma: true });
+    const lectura: { texto: string; warning?: string; via: string } = zip
+      ? { texto: zip.texto, warning: zip.aviso, via: 'zip' }
+      : await archivoATexto(file, { feature: 'offer', motivo: `Offer: leer «${nombre}»`, redDePlataforma: true });
     const texto = (lectura.texto ?? '').trim();
     if (!texto) return no(422, lectura.warning || `No pude sacar texto de «${nombre}». Si es una foto o un escaneo borroso, prueba con otra versión o pega el texto en el chat.`);
     // Entero (#865): uno que no entra en un pedido se lee por partes, todas, antes de guardarlo.
@@ -554,17 +561,26 @@ async function leerLink(body: Record<string, unknown>, inicio: number): Promise<
   if (!link.ok) return no(422, link.error);
   const previo = await antesDeLeer(body);
   if (previo) return previo;
-  let pagina: Awaited<ReturnType<typeof extraerLanding>>;
+  let pagina: { urlFinal: string; titulo: string; descripcion: string; texto: string; bloqueada: boolean };
   try {
     pagina = await extraerLanding(link.leida, { talCual: true });
   } catch (e) {
-    const cual = link.leida === url.trim() ? '' : ` (${link.leida})`;
-    return no(422, `No pude abrir esa página${cual}: ${msg(e)} Si es privada o pide iniciar sesión, copia su texto y pégalo aquí.`);
+    // Una página que no NOS deja leerla (401/403/429: un antibots que frena a los servidores, como la del Sprint de
+    // Mauricio, 22/10/2026) se pide por el lector de afuera; si tampoco, el mismo mensaje de antes.
+    const otra = bloqueaLaLectura(e) ? await leerConLectorExterno(link.leida) : null;
+    if (!otra) {
+      const cual = link.leida === url.trim() ? '' : ` (${link.leida})`;
+      return no(422, `No pude abrir esa página${cual}: ${msg(e)} Si es privada o pide iniciar sesión, copia su texto y pégalo aquí.`);
+    }
+    pagina = otra;
   }
   // `bloqueada` sólo MIDE que hay poco texto en los titulares, párrafos y botones: el porqué no se sabe,
-  // así que no se afirma uno (AGENTS.md «Un DIAGNÓSTICO escrito de antemano deja de ser cierto sin avisar»).
+  // así que no se afirma uno (AGENTS.md «Un DIAGNÓSTICO escrito de antemano deja de ser cierto sin avisar»). Una página
+  // que se arma con JavaScript es la causa más común: el lector de afuera la abre en un navegador.
   if (pagina.bloqueada || !pagina.texto.trim()) {
-    return no(422, 'Entré a tu página pero casi no encontré texto para leer. Copia el texto de la página y pégalo aquí.');
+    const otra = await leerConLectorExterno(link.leida);
+    if (!otra) return no(422, 'Entré a tu página pero casi no encontré texto para leer. Copia el texto de la página y pégalo aquí.');
+    pagina = otra;
   }
   let host = url;
   try { host = new URL(pagina.urlFinal).host; } catch { /* queda el link tal cual */ }
@@ -803,7 +819,8 @@ async function responder(p: { sesionId: number; fila: FilaOffer; ctx: ContextoOf
     // Si mientras tanto llegó otra respuesta de MaKo, no se agrega una segunda.
     const u = f.mensajes[f.mensajes.length - 1];
     if (!u || u.de !== 'yo') return null;
-    const fundidas = turnoIA ? mergePiezas(f.piezas, turnoIA.piezas, fuente) : f.piezas;
+    // Con un precio de pago único, el % al firmar ya se sabe y no se vuelve a preguntar (22/10/2026, Mauricio).
+    const fundidas = conCobroDelPrecio(turnoIA ? mergePiezas(f.piezas, turnoIA.piezas, fuente) : f.piezas);
     // En el onboarding una pieza se pregunta dos veces como mucho, y el que termina es el CÓDIGO (20/10/2026, Florencia).
     const piezas = p.arranque ? conTopeDelArranque(fundidas, f.mensajes, new Date().toISOString()) : fundidas;
     const cierra = !!p.arranque && faltanDelArranque(piezas).length === 0;
