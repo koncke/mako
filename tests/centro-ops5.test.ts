@@ -7,7 +7,8 @@
 //   2. mantener apretado en el teléfono abre la hoja de WhatsApp, que no se cierra con el dedo que la abrió;
 //   3. un solo botón: el micrófono sin nada escrito, la flecha con texto;
 //   8. el «atrás» cierra el visor y la hoja del mensaje, no la conversación; «Ya está» se dice «Completado»; la fila avisa;
-//   9. una medición de más de 6 horas se ve apagada («Sin medir hace X») y el botón no la usa; «Medido hace X» siempre;
+//   9. una medición de más de 6 horas no la usa el botón; «Medido hace X» siempre. (Hasta el 22/10 la tarjeta la apagaba
+//      con «Sin medir hace X»; desde ahí muestra el último número en gris con su edad: tests/centro-uso-ultimo.test.ts.)
 //   18:06. «Uso y Runners» sin la sección repetida «N de N activos», y la hoja abre en «alto» (scrollea hasta el final).
 //
 // Probado rompiéndolo (17/10/2026, con la base en 0 fallos):
@@ -137,7 +138,7 @@ test('8: «Completado» en pantalla, el aviso en la fila sólo si no se vio, y e
   assert.match(atras, /if \(!porAtras\) window\.history\.back\(\)/, 'cerrada con la ✕, consume su entrada');
 });
 
-test('9: una medición de más de 6 horas se ve apagada y el botón no la usa; «Medido hace X» siempre', () => {
+test('9: una medición de más de 6 horas no la usa el botón, y la tarjeta nunca la lee como de ahora; «Medido hace X» siempre', () => {
   const cuota = (medido: string): Cuota => ({ cinco: { pct: 12, reinicia: '2026-10-17T23:00:00Z' }, semana: { pct: 47, reinicia: '2026-10-21T09:00:00Z' }, medido });
   const fresca = cuota(new Date(AHORA - 5 * 60_000).toISOString());
   const vieja = cuota(new Date(AHORA - 8 * 3_600_000).toISOString());
@@ -151,9 +152,10 @@ test('9: una medición de más de 6 horas se ve apagada y el botón no la usa; �
   }));
   const [una, dos] = h.split('<section').slice(1).map((s) => s.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim());
   assert.match(una, /Sin Runner · se mide a mano/);
-  assert.match(una, /Sesión de 5 horas Sin medir hace 8 h Semana Sin medir hace 8 h/);
+  // 22/10/2026 (Martín: «no debería desaparecer los % de uso que tenía la última vez»): el último número con su edad, en gris.
+  assert.match(una, /Sesión de 5 horas 12% · medido hace 8 h .*Semana 47% · medido hace 8 h/);
   assert.doesNotMatch(una, /% usado/, 'nunca el número viejo como si fuera de ahora');
-  assert.match(h, /co-uso__ventana--vencida/);
+  assert.match(h, /co-uso__ventana--vieja/);
   assert.match(dos, /47% usado/);
   assert.match(dos, /Medido hace 5 min$/);
 });

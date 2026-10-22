@@ -81,14 +81,21 @@ export function cuentaDeLaSemana(
 /** Una medición de hace más que esto lleva su edad al lado. */
 export const USO_VIEJO_MS = 30 * 60 * 1000;
 /**
- * Una medición de hace más que esto ya NO es un dato (17/10/2026, Martín: «el Uso de una cuenta muestra datos viejos»): se
- * dibuja apagada, como «Sin medir hace X», y el botón no la usa. Lo obvio era «el número está mal», y el número era el de
- * otra cuenta en su archivo (lo corrigió el Cerebro); lo que faltaba es que una medición vieja no se lea como de ahora.
- * La cuenta 1 no tiene Runner y se mide a mano: su número envejece hasta que alguien la mide.
+ * Una medición de hace más que esto ya NO es un dato para DECIDIR (17/10/2026, Martín: «el Uso de una cuenta muestra datos
+ * viejos»): el botón no la usa. Lo obvio era «el número está mal», y el número era el de otra cuenta en su archivo (lo
+ * corrigió el Cerebro); lo que faltaba es que una medición vieja no se lea como de ahora.
+ * ⚠️ Desde el 22/10/2026 la TARJETA no la apaga: muestra el último número en gris con su edad («99% · medido hace 14 h»).
+ * Apagarla («Sin medir hace X», barras vacías) escondía justo lo que Martín necesita ver: qué cuenta ya no tiene lugar.
  */
 export const USO_VENCIDO_MS = 6 * 3_600_000;
 
-export type UsoVentana = { pct: number | null; reinicia: number | null; reinicio: boolean };
+/**
+ * `pct`: lo que VALE ahora (null pasado el reinicio): lo leen el botón, «Automático» y el aviso de la cuota, que deciden con él.
+ * `ultimo`: lo que dijo la última medición, haya pasado o no el reinicio. Lo dibuja la tarjeta (22/10/2026, Martín: «Cuando no
+ * mide hace mucho tiempo no debería desaparecer los % de uso que tenía la última vez... esa cuenta ya estaba al 99% semanal, y
+ * ahora ya no aparece»), siempre con su edad al lado; nunca decide nada.
+ */
+export type UsoVentana = { pct: number | null; ultimo: number; reinicia: number | null; reinicio: boolean };
 /** `vencido`: la medición tiene más de `USO_VENCIDO_MS` (o no hay): sus porcentajes no se muestran como vigentes. */
 export type UsoDeCuenta = { cinco: UsoVentana | null; semana: UsoVentana | null; medido: number | null; viejo: boolean; vencido: boolean };
 
@@ -99,7 +106,7 @@ export function usoDeCuenta(c: Cuota | null | undefined, ahora: number): UsoDeCu
     if (!v) return null;
     const r = v.reinicia ? Date.parse(v.reinicia) : NaN;
     const reinicio = Number.isFinite(r) && r <= ahora;
-    return { pct: reinicio ? null : v.pct, reinicia: Number.isFinite(r) ? r : null, reinicio };
+    return { pct: reinicio ? null : v.pct, ultimo: v.pct, reinicia: Number.isFinite(r) ? r : null, reinicio };
   };
   return {
     cinco: leer(c?.cinco), semana: leer(c?.semana),
@@ -175,6 +182,26 @@ export function textoReinicio(t: number | null, ahora: number): string {
   const dia = new Date(t).toLocaleDateString('es-AR', { timeZone: AR, weekday: 'short', day: 'numeric' }).replace('.', '').replace(',', '');
   return `el ${dia} a las ${hora}`;
 }
+
+/** Un reinicio que ya pasó: «hoy a las 06:00», «ayer a las 22:59» o «el lun 20 a las 06:00», con el reloj de Martín. */
+export function textoReinicioPasado(t: number, ahora: number): string {
+  const hora = new Date(t).toLocaleTimeString('es-AR', { timeZone: AR, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const d = diaAR(ahora) - diaAR(t);
+  if (d <= 0) return `hoy a las ${hora}`;
+  if (d === 1) return `ayer a las ${hora}`;
+  const dia = new Date(t).toLocaleDateString('es-AR', { timeZone: AR, weekday: 'short', day: 'numeric' }).replace('.', '').replace(',', '');
+  return `el ${dia} a las ${hora}`;
+}
+
+/** Desde cuánto de la semana una cuenta se marca «Sin lugar» en el Uso (22/10/2026, Martín: «no puedo ver qué cuentas ya no
+ *  me queda espacio»). */
+export const SIN_LUGAR_PCT = 90;
+/**
+ * ¿A esta cuenta ya no le queda lugar en la semana? La ÚLTIMA medición de la semana al 90% o más, por vieja que sea (la
+ * semana no se vacía sola), salvo que ya haya pasado su reinicio: ahí el lugar volvió y la tarjeta dice «se reinició».
+ */
+export const sinLugarEnLaSemana = (u: Pick<UsoDeCuenta, 'semana'>): boolean =>
+  !!u.semana && !u.semana.reinicio && u.semana.ultimo >= SIN_LUGAR_PCT;
 
 /**
  * Lo que la barra de estado de Claude Code le pasa a su comando (stdin), reducido a la cuota (cartero.mjs `uso` la anota

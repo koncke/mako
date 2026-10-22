@@ -1,5 +1,5 @@
 // =============================================================================
-// credito-claude-a-plataforma — guarda las dos claves del crédito de Claude Max en la base
+// credito-claude-a-plataforma — guarda las claves del crédito de Claude Max en la base (la 1 y la 2; la 3 y la 4 si están)
 // =============================================================================
 // Uso (desde la raíz del CLON, donde está el .env.local; ESCRIBE en la base de .env.local, que
 // es PRODUCCIÓN):
@@ -31,6 +31,12 @@ const { credWsEstricta, cifrarSecreto, auditarCredencial } = await imp('lib/cred
 const { wsSuperAdmin } = await imp('lib/workspace.ts');
 const { getSupabaseServer } = await imp('lib/supabase.ts');
 const { CLAVES_CREDITO_PLATAFORMA } = await imp('lib/veto-claude.ts');
+// Las cuatro cuentas (22/10/2026, la sección «API» del Uso, lib/credito-api.ts): la 3 y la 4 se guardan si su clave ya está en
+// el .env.local, y si no, se saltean sin fallar (su crédito todavía no se vinculó). Guardarlas NO las pone a trabajar: el
+// onboarding usa sólo las de CLAVES_CREDITO_PLATAFORMA, y sumarlas ahí lo decide Martín.
+const { CUENTAS_DEL_CREDITO } = await imp('lib/credito-api.ts');
+const OBLIGATORIAS = CLAVES_CREDITO_PLATAFORMA as readonly string[];
+const TODAS = [...new Set([...OBLIGATORIAS, ...(CUENTAS_DEL_CREDITO as ReadonlyArray<{ clave: string }>).map((c) => c.clave)])];
 
 const huella = (v: string) => `${v.length} caracteres, termina en …${v.slice(-4)}`;
 const ws: number = await wsSuperAdmin();
@@ -38,8 +44,9 @@ console.log(`workspace de plataforma: ${ws}`);
 const db = getSupabaseServer();
 let fallas = 0;
 
-for (const clave of CLAVES_CREDITO_PLATAFORMA as readonly string[]) {
+for (const clave of TODAS) {
   const valor = (process.env[clave] ?? '').trim();
+  if (!valor && !OBLIGATORIAS.includes(clave)) { console.log(`· ${clave}: no está en .env.local (su crédito todavía no se vinculó). No se toca.`); continue; }
   if (!valor.startsWith('sk-ant-')) { console.error(`⛔ ${clave}: no está en .env.local (o no empieza con sk-ant-). No se toca.`); fallas++; continue; }
 
   let ya: string | null = null;

@@ -1579,8 +1579,18 @@ código nuevo:
 - **EL USO DE UNA CUENTA SALE DE LA BARRA DE ESTADO DE SU RUNNER** (16/10/2026; Martín: «El "Uso" debe ser visible
   siempre»): `rate_limits` por stdin, con `resets_at` en SEGUNDOS (lib/centro-uso.ts, `cartero.mjs uso`), y la semanal de
   la app desde `~/.claude/uso-semanal.txt`. Un porcentaje pasado su reinicio no se muestra como de ahora, y una medición de
-  más de 6 horas tampoco (17/10/2026): se dibuja apagada con «Sin medir hace X» y no cuenta para el número del botón
-  (`USO_VENCIDO_MS`, lib/centro-uso.ts). Toda cuenta con un número dice «Medido hace X».
+  más de 6 horas no cuenta para el número del botón (`USO_VENCIDO_MS`, lib/centro-uso.ts). Toda cuenta con un número dice
+  «Medido hace X». **Y EL ÚLTIMO NÚMERO NUNCA SE ESCONDE** (22/10/2026; Martín: «no debería desaparecer los % de uso que
+  tenía la última vez... no puedo ver qué cuentas ya no me queda espacio»): la tarjeta lo dibuja siempre, con su barra; vieja,
+  en gris con su edad al lado y sin «usado»; reiniciada, con «Se reinició … (sin medir desde entonces)»; una semana al 90% o
+  más lleva «Sin lugar». Lo que se DIBUJA sale de `UsoVentana.ultimo`; lo que DECIDE (el botón, «Automático», `libreDe`) sale
+  de `pct` y `vencido`, nunca de `ultimo`. Lo fija tests/centro-uso-ultimo.test.ts.
+- **LA API EN EL USO SALE DE LO QUE MAKO REGISTRA, NUNCA DE UN NÚMERO SUPUESTO** (22/10/2026; Martín: «quiero ver también el USO
+  de la API... deberían ser 800 usd al mes»): por cuenta, lo gastado del crédito de su plan Max (lib/credito-api.ts), por la marca
+  del crédito en el motivo O por el negocio cuya `ANTHROPIC_API_KEY` es la clave de un crédito (el ws10 usa la de la cuenta 2).
+  Sin el registro, la fila dice «No pude leer lo gastado», nunca «US$0». Anthropic no deja leer el saldo con estas claves
+  (docs/hallazgos-ia.md). Una clave de crédito nueva se suma en `CUENTAS_DEL_CREDITO`; usarla en el onboarding es otra
+  decisión (`CLAVES_CREDITO_PLATAFORMA`, lib/veto-claude.ts). Lo fija tests/credito-api.test.ts.
 - **EN EL OPS CENTER, EL «ATRÁS» CIERRA LA CAPA DE ARRIBA** (17/10/2026; Martín: «si abro la vista de una imagen y voy para
   atrás, se cierra la imagen, no el chat»). Toda capa nueva que se abra encima de una conversación (un visor, la hoja de un
   mensaje, un selector a pantalla completa) usa `useAtrasCierra` (app/admin/operaciones/atras.ts), y va en un portal: dentro

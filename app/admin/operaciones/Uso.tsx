@@ -16,6 +16,11 @@
 // ⚠️ Las CUATRO cuentas salen siempre (lib/centro-uso.ts → cuentasDeUso arma la lista; esta pieza dibuja lo que le dan).
 // ⚠️ Las DOS ventanas salen siempre que la cuenta tenga algún dato: la que no se midió dice «Sin medir», no se esconde
 //    (antes `Barra` devolvía null y la de 5 horas desaparecía: la cuenta de la app sólo trae la semanal).
+// ⚠️ EL ÚLTIMO NÚMERO NUNCA SE ESCONDE (22/10/2026, Martín: «Cuando no mide hace mucho tiempo no debería desaparecer los % de
+//    uso que tenía la última vez... esa cuenta ya estaba al 99% semanal, y ahora ya no aparece»): una medición vieja se ve
+//    en gris con su edad, una ventana ya reiniciada dice desde cuándo no se mide, y una semana al 90% o más lleva «Sin lugar».
+// LA API (22/10/2026, Martín: «En USO de SuperAdmin quiero ver también el USO de la API... deberían ser 800 usd al mes»):
+// debajo de las cuentas, el crédito de API de cada plan Max (UsoCredito.tsx); se pide al abrir el desplegable.
 // ⚠️ Ningún texto pide pegar nada en una terminal: el Runner de una cuenta lo conecta la app sola.
 // ⚠️ `ListaUso` NO TIENE HOOKS: la usa el teléfono adentro de su hoja (app/m/operaciones/RunnerMovil.tsx). El nombre
 //    editable es una pieza aparte (`NombreDeCuenta`), con su estado.
@@ -29,7 +34,11 @@ import { Icon } from '@/app/_components/icons';
 import { carteroVivo } from '@/lib/operaciones-reglas';
 import { nombreCuenta } from '@/lib/centro-chats';
 import { hace } from '@/lib/progreso-reglas';
-import { estadoRunnerUso, textoReinicio, usoDeCuenta, usoPrincipal, type Cuota, type EstadoRunnerUso, type UsoVentana } from '@/lib/centro-uso';
+import {
+  SIN_LUGAR_PCT, estadoRunnerUso, sinLugarEnLaSemana, textoReinicio, textoReinicioPasado, usoDeCuenta, usoPrincipal,
+  type Cuota, type EstadoRunnerUso, type UsoVentana,
+} from '@/lib/centro-uso';
+import { SeccionCredito, type LeerCredito } from './UsoCredito';
 import { TOPE_NOMBRE_CUENTA, nombreDeLaCuenta, type DatosDeCuenta } from '@/lib/centro-titulares';
 
 export type CuentaUso = { cuenta: string; vistoAt: string | null; cuota: Cuota | null; titular?: DatosDeCuenta | null };
@@ -87,19 +96,45 @@ function NombreDeCuenta({ cuenta, datos, onRenombrar }: { cuenta: string; datos:
   );
 }
 
-function Barra({ titulo, v, ahora, vencida }: { titulo: string; v: UsoVentana | null; ahora: number; vencida?: string | null }) {
-  // Vencida (medida hace más de 6 horas, lib/centro-uso.ts → USO_VENCIDO_MS): la barra se apaga y dice desde cuándo no se
-  // mide, nunca el porcentaje como si fuera de ahora.
-  const lleno = v?.pct ?? 0;
-  const tono = vencida ? 'apagado' : lleno >= 90 ? 'mal' : lleno >= 75 ? 'ojo' : 'bien';
+/**
+ * Una ventana del Uso. SIEMPRE con el último número y su barra (22/10/2026, Martín: «Cuando no mide hace mucho tiempo no
+ * debería desaparecer los % de uso que tenía la última vez... no puedo ver qué cuentas ya no me queda espacio»). Lo que
+ * cambia con la edad es CÓMO se dice, nunca si se ve:
+ *   · al día (menos de 30 min): «47% usado», y abajo cuándo se reinicia;
+ *   · vieja (`edad`): «99% · medido hace 14 h», en gris, con la barra de su color pero más tenue;
+ *   · pasado su reinicio: el último número en gris, la barra apagada y «Se reinició ayer a las 22:59 (sin medir desde entonces)».
+ * Nunca «% usado» en una vieja: eso la leería como de ahora (lo que el 17/10 se arregló apagándola).
+ */
+function Barra({ titulo, v, ahora, edad }: { titulo: string; v: UsoVentana | null; ahora: number; edad: string | null }) {
+  if (!v) {
+    return (
+      <div className="co-uso__ventana">
+        <div className="co-uso__fila">
+          <span className="co-uso__nombre">{titulo}</span>
+          <span className="co-uso__pct co-uso__pct--sin">Sin medir</span>
+        </div>
+        <div className="co-uso__barra" aria-hidden><span className="co-uso__lleno co-uso__lleno--apagado" style={{ width: '0%' }} /></div>
+      </div>
+    );
+  }
+  const lleno = v.ultimo;
+  const tono = v.reinicio ? 'apagado' : lleno >= SIN_LUGAR_PCT ? 'mal' : lleno >= 75 ? 'ojo' : 'bien';
+  const vieja = v.reinicio || !!edad;
   return (
-    <div className={`co-uso__ventana${vencida ? ' co-uso__ventana--vencida' : ''}`}>
+    <div className={`co-uso__ventana${v.reinicio ? ' co-uso__ventana--vencida' : edad ? ' co-uso__ventana--vieja' : ''}`}>
       <div className="co-uso__fila">
         <span className="co-uso__nombre">{titulo}</span>
-        <span className={`co-uso__pct${v && !vencida ? '' : ' co-uso__pct--sin'}`}>{vencida ?? (!v ? 'Sin medir' : v.pct == null ? 'Se reinició' : `${v.pct}% usado`)}</span>
+        <span className="co-uso__pct">
+          {vieja ? `${lleno}%` : `${lleno}% usado`}
+          {edad && <span className="co-uso__edad">{` · ${edad}`}</span>}
+        </span>
       </div>
-      <div className="co-uso__barra" aria-hidden><span className={`co-uso__lleno co-uso__lleno--${tono}`} style={{ width: `${vencida ? 0 : lleno}%` }} /></div>
-      {v && !vencida && v.reinicia != null && !v.reinicio && <p className="co-uso__reinicio">{`Se reinicia ${textoReinicio(v.reinicia, ahora)}`}</p>}
+      <div className="co-uso__barra" aria-hidden><span className={`co-uso__lleno co-uso__lleno--${tono}`} style={{ width: `${lleno}%` }} /></div>
+      {v.reinicia != null && (
+        <p className="co-uso__reinicio">
+          {v.reinicio ? `Se reinició ${textoReinicioPasado(v.reinicia, ahora)} (sin medir desde entonces)` : `Se reinicia ${textoReinicio(v.reinicia, ahora)}`}
+        </p>
+      )}
     </div>
   );
 }
@@ -133,11 +168,14 @@ export function ListaUso({ cuentas, ahora, onRenombrar }: { cuentas: readonly Cu
         const vivo = estado !== 'apagado';
         const u = usoDeCuenta(k.cuota, ahora);
         const plan = k.cuota?.plan ?? null;
-        // «Medido hace X» SIEMPRE que haya un número (17/10/2026, Martín: el Uso mostraba datos viejos como de ahora), y
-        // pasadas las 6 horas las barras se apagan con «Sin medir hace X» (lib/centro-uso.ts → USO_VENCIDO_MS).
-        const vencida = u.medido != null && u.vencido ? `Sin medir ${hace(u.medido, ahora)}` : null;
+        // «Medido hace X» SIEMPRE que haya un número (17/10/2026, Martín: el Uso mostraba datos viejos como de ahora): al día,
+        // en un renglón abajo; vieja (más de 30 min, USO_VIEJO_MS), al lado de cada número, en gris («99% · medido hace 14 h»).
+        // Desde el 22/10 nada se apaga por viejo: la tarjeta guarda el último número (lib/centro-uso.ts → USO_VENCIDO_MS).
+        const edad = u.medido != null && u.viejo ? `medido ${hace(u.medido, ahora)}` : null;
+        // Sin lugar en la semana (90% o más, y su reinicio todavía no pasó): se ve de un vistazo, aunque la medición sea vieja.
+        const sinLugar = sinLugarEnLaSemana(u);
         return (
-          <section key={k.cuenta} className="co-uso__cuenta" aria-label={nombreCuenta(k.cuenta) ?? k.cuenta}>
+          <section key={k.cuenta} className={`co-uso__cuenta${sinLugar ? ' co-uso__cuenta--sin-lugar' : ''}`} aria-label={nombreCuenta(k.cuenta) ?? k.cuenta}>
             <div className="co-uso__fila">
               <span className="co-uso__quien">
                 <LogoClaude />
@@ -145,6 +183,7 @@ export function ListaUso({ cuentas, ahora, onRenombrar }: { cuentas: readonly Cu
                   <span className="co-uso__linea">
                     <NombreDeCuenta cuenta={k.cuenta} datos={k.titular} onRenombrar={onRenombrar} />
                     {plan && <span className="co-uso__plan">{plan}</span>}
+                    {sinLugar && <span className="co-uso__sin-lugar" title={`La semana va al ${u.semana?.ultimo}%`}>Sin lugar</span>}
                   </span>
                   {k.titular?.email && <span className="co-uso__email">{k.titular.email}</span>}
                 </span>
@@ -156,9 +195,9 @@ export function ListaUso({ cuentas, ahora, onRenombrar }: { cuentas: readonly Cu
             </div>
             {u.cinco || u.semana ? (
               <>
-                <Barra titulo="Sesión de 5 horas" v={u.cinco} ahora={ahora} vencida={vencida} />
-                <Barra titulo="Semana" v={u.semana} ahora={ahora} vencida={vencida} />
-                {u.medido != null && !vencida && <p className="co-uso__reinicio co-uso__medido">{`Medido ${hace(u.medido, ahora)}`}</p>}
+                <Barra titulo="Sesión de 5 horas" v={u.cinco} ahora={ahora} edad={edad} />
+                <Barra titulo="Semana" v={u.semana} ahora={ahora} edad={edad} />
+                {u.medido != null && !edad && <p className="co-uso__reinicio co-uso__medido">{`Medido ${hace(u.medido, ahora)}`}</p>}
               </>
             ) : (
               // ⚠️ Lo que dice acá sale del MISMO estado que el renglón del Runner de arriba (`textoSinMedicion(estado)`): escrito
@@ -174,8 +213,10 @@ export function ListaUso({ cuentas, ahora, onRenombrar }: { cuentas: readonly Cu
 
 /** El botón de abajo de la barra: el número siempre a la vista, y el desplegable al tocarlo. Desde el 17/10/2026 no copia
  *  ningún comando (Martín: «no quiero copiar en PowerShell, que se instale todo solo»). */
-export function BotonUso({ cuentas, ahora, onRenombrar }: {
+export function BotonUso({ cuentas, ahora, onRenombrar, onLeerCredito }: {
   cuentas: readonly CuentaUso[]; ahora: number; onRenombrar?: RenombrarCuenta;
+  /** El crédito de API de los planes (UsoCredito.tsx): se pide recién al abrir. Sin esto, la sección no sale. */
+  onLeerCredito?: LeerCredito;
 }) {
   const [abierto, setAbierto] = useState(false);
   const caja = useRef<HTMLDivElement>(null);
@@ -196,6 +237,7 @@ export function BotonUso({ cuentas, ahora, onRenombrar }: {
         <div className="co-uso__panel" role="dialog" aria-label="Uso y Runners">
           <p className="co-uso__cab">Uso</p>
           <ListaUso cuentas={cuentas} ahora={ahora} onRenombrar={onRenombrar} />
+          {onLeerCredito && <SeccionCredito leer={onLeerCredito} cuentas={cuentas} />}
         </div>
       )}
       <button type="button" className="co-acceso" aria-expanded={abierto} onClick={() => setAbierto((a) => !a)}
