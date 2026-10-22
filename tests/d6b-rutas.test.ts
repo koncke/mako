@@ -74,15 +74,11 @@ const HANDLERS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTI
 // La tabla: lo que se DECIDIÓ dejar afuera de D6b, y por qué
 // ─────────────────────────────────────────────────────────────────────────────
 
-const FONDO = 'lo de FONDO: no va por la suscripción del negocio (D6a), y «lo de fondo sin Gemini» (AI Step, nutrición, reuniones) es de cada chat — docs/ia-del-cliente.md §8 y §13';
-const ENTRANTE = 'lo que ENTRA de afuera (webhooks, WhatsApp, el tracking de las landings): sin la pantalla del Ops Center; WhatsApp no va por la suscripción (§13, «MaKo en WhatsApp»)';
-const PLAN = 'el Plan, el Perro y las reuniones: «lo interno sigue por ahora» (el Cerebro, D6b), y el Plan nunca paga IA (FEATURES_DEL_PLAN, lib/veto-claude.ts)';
-const PLATAFORMA = 'el super admin y la agencia: sus claves son las de la plataforma, no «su IA» de un cliente (`negocioConSuIA` dice que no para el workspace de la plataforma)';
-const API_MAKO = 'la API de MaKo y el agente externo: los llama un agente con su token, sin la pantalla del Ops Center; si D6b los alcanza lo decide la API (lib/api-mako) — pendiente';
-const OTRA_TAB = 'otra tab, no el Ops Center: D6b (Martín, 21/10/2026) es el Ops Center, y esta tab sigue con la cascada del negocio, también cuando el chat embebe uno de sus bloques. Extenderlo es una decisión pendiente, no un olvido (docs/ia-del-cliente.md §13)';
-const OFFER = 'Offer y el chat de arranque del onboarding (que ES el de Offer): corre con el crédito de Claude de la plataforma mientras el onboarding está en curso; otra tab — extender D6b es de Offer';
-const CUENTA = 'la cuenta de la persona, el login y sus avisos: no es una pantalla del negocio, y lo que la alcanza es de paso (los avisos y las plantillas)';
-const PC = 'la conexión de la PC (emparejar, estado, modelo, desconectar): no le pide nada a una IA; el turno de la PC lo corre `turnoApp`, que prende el contexto';
+// IA6 (22/10/2026): lo que llega SÓLO a la cascada lo decide la PUERTA de la capa de IA (lib/solo-su-ia.ts → `conD6bDelPedido`):
+// los crons, los webhooks, WhatsApp, las tabs, Offer, la API… todo lo que corre con un workspace usa SU IA si la tiene. Las
+// únicas excepciones son de Martín y viven en la puerta: las funciones del Plan (`FEATURES_DEL_PLAN`) y la plataforma. Esta
+// tabla quedó para lo que la puerta NO ve: lib/transcribe.ts, que transcribe con las keys del ENTORNO (lo arregla IA7).
+const TRANSCRIBE = 'llega a lib/transcribe.ts, que no pasa por la puerta de D6b: va directo a Groq, OpenAI y Gemini con las keys del ENTORNO (IA7: una sola puerta para el audio)';
 
 /**
  * Por PREFIJO de archivo. Un prefijo que ya no toca ninguna unidad sin decidir, se borra (lo pide la prueba 5). `salvo`:
@@ -90,62 +86,13 @@ const PC = 'la conexión de la PC (emparejar, estado, modelo, desconectar): no l
  */
 const FUERA_DE_D6B: ReadonlyArray<{ prefijo: string; porque: string; salvo?: string[] }> = [
   {
-    prefijo: 'app/api/cron/', porque: FONDO,
-    // Lo programado DESDE el Ops Center («analizá la hoja Ventas todos los lunes», una landing que se declara en el chat)
-    // corre en estos crons, en otro pedido: cada negocio adentro de «sólo su IA» (tercera revisión del Cerebro, 21/10/2026).
+    prefijo: 'app/api/cron/', porque: `lo de FONDO que transcribe (cron/transcribe-ads): ${TRANSCRIBE}`,
+    // Lo programado DESDE el Ops Center corre en estos crons, en otro pedido: cada negocio adentro de «sólo su IA».
     salvo: ['app/api/cron/dashboard-analisis/route.ts', 'app/api/cron/landing-analyst-auto/route.ts'],
   },
-  { prefijo: 'app/api/webhooks/', porque: ENTRANTE },
-  { prefijo: 'app/api/whatsapp/', porque: ENTRANTE },
-  { prefijo: 'app/api/zernio/', porque: ENTRANTE },
-  { prefijo: 'app/api/track/', porque: ENTRANTE },
-  { prefijo: 'app/api/plan-', porque: PLAN },
-  { prefijo: 'app/api/todo/', porque: PLAN },
-  { prefijo: 'app/api/mako-guardian/', porque: PLAN },
-  { prefijo: 'app/api/checklist-coach/', porque: PLAN },
-  { prefijo: 'app/api/regenerate-transcript/', porque: PLAN },
-  { prefijo: 'app/api/onboarding/plan-arranque/', porque: PLAN },
-  { prefijo: 'app/m/plan/', porque: PLAN },
-  { prefijo: 'app/configuraciones/plan/', porque: PLAN },
-  { prefijo: 'app/api/admin/', porque: PLATAFORMA },
-  { prefijo: 'app/api/agencia/', porque: PLATAFORMA },
-  { prefijo: 'app/api/anthropic-usage/', porque: PLATAFORMA },
-  { prefijo: 'app/api/operaciones/', porque: PLATAFORMA },
-  { prefijo: 'app/api/centro/', porque: PLATAFORMA },
-  { prefijo: 'app/api/mako/knowledge/', porque: PLATAFORMA },
-  { prefijo: 'app/api/mako/copywriting/', porque: PLATAFORMA },
-  { prefijo: 'app/api/mako/config-prompts/', porque: PLATAFORMA },
-  { prefijo: 'app/api/datos-mau/', porque: PLATAFORMA },
-  { prefijo: 'app/admin/', porque: PLATAFORMA },
-  { prefijo: 'app/api/v1/', porque: API_MAKO },
-  { prefijo: 'app/api/agente/', porque: API_MAKO },
-  { prefijo: 'app/api-mako/', porque: API_MAKO },
-  { prefijo: 'app/api/offer/', porque: OFFER },
-  { prefijo: 'app/api/onboarding/arranque/', porque: OFFER },
-  { prefijo: 'app/api/auth/', porque: CUENTA },
-  { prefijo: 'app/api/perfil/', porque: CUENTA },
-  { prefijo: 'app/api/notificaciones/', porque: CUENTA },
-  { prefijo: 'app/api/ia-pc/', porque: PC },
-  // UN handler: confirmar y cancelar del inbox del teléfono están adentro (prenden o SIN_IA); esto resuelve un cambio que MaKo
-  // propuso en el CRM.
-  { prefijo: 'app/m/inbox/acciones.ts#resolverConfirmacionMovil', porque: 'resuelve un cambio que MaKo propuso en el CRM (mover de etapa): es la acción del CRM (app/crm/mako-confirm-actions.ts, otra tab), y lo que el movimiento dispara (secuencias, AI Step) es de fondo (D6a)' },
-  // Las otras tabs. ⚠️ app/_components/ NO está: es del Ops Center también (useDictar, ConectarIA…), y una acción suya que
-  // llega a la IA tiene que prender o estar en SIN_IA (tercera revisión del Cerebro).
-  ...[
-    'app/api/account-insights/', 'app/api/ad-insights/', 'app/api/ads-analyst/', 'app/api/ads-manager/', 'app/api/alumno/',
-    'app/api/anuncios/', 'app/api/automations/', 'app/api/chart-insights/', 'app/api/chat-agent/', 'app/api/chats/',
-    'app/api/closing/', 'app/api/compartido/', 'app/api/compartir/', 'app/api/crm/', 'app/api/datos-sin-marcar-count/',
-    'app/api/email/', 'app/api/entity-insights/', 'app/api/equipo/', 'app/api/experimentos/', 'app/api/extract-',
-    'app/api/flujos/', 'app/api/graficos/', 'app/api/image-editor/', 'app/api/integraciones/',
-    'app/api/landing-analyst/', 'app/api/landing-generator/', 'app/api/lead-plan/', 'app/api/meta-', 'app/api/metodo/',
-    'app/api/pagar/', 'app/api/plantillas/', 'app/api/video-editor/', 'app/api/mako-doer/', 'app/api/mako/nutricion/',
-    'app/api/mako/voz/', 'app/api/mako/onboarding/', 'app/api/onboarding/voz/', 'app/api/onboarding/extraccion/',
-    'app/api/onboarding/route.ts',
-    'app/ai-avatar/', 'app/automations/', 'app/calendario/', 'app/carousels/',
-    'app/configuraciones/', 'app/creaciones/', 'app/crm/', 'app/customer-success/', 'app/general/',
-    'app/integraciones/', 'app/m/crm/', 'app/partners/', 'app/reels/', 'app/stories/',
-    'app/tickets/', 'app/video-editor/', 'app/video-generator/',
-  ].map((prefijo) => ({ prefijo, porque: OTRA_TAB })),
+  ...['app/api/regenerate-transcript/', 'app/api/mako/knowledge/', 'app/api/mako/config-prompts/', 'app/api/ads-manager/',
+    'app/api/integraciones/', 'app/api/metodo/', 'app/api/onboarding/extraccion/', 'app/api/onboarding/route.ts',
+  ].map((prefijo) => ({ prefijo, porque: TRANSCRIBE })),
 ];
 
 /**
@@ -347,6 +294,9 @@ const prendeMemo = new Map<string, boolean>();
 function prende(f: string, nombre: string, pila: Set<string>): boolean {
   const k = `${f}#${nombre}`;
   if (prendeMemo.has(k)) return prendeMemo.get(k)!;
+  // La PUERTA de la capa de IA (IA6) decide sola por el workspace: no es «quien atiende el pedido prende». Sin esto, todo lo
+  // que llama a una IA «prendería» (cada función de lib/ai-cheap.ts pasa por ella) y el detector no distinguiría nada.
+  if (f === 'lib/solo-su-ia.ts' && nombre === 'conD6bDelPedido') return false;
   if (pila.has(k)) return false;
   pila.add(k);
   const cuerpo = declaraciones(f).get(nombre);
@@ -466,7 +416,16 @@ function decision(u: Unidad): string | null {
   if (sinIADe(u.clave)) return 'SIN_IA';
   if (u.sinCorte && !fuera) return null;
   if (u.cascada && unidadPrende(u.clave)) return u.sinCorte ? `PRENDE, y FUERA ${fuera!.prefijo} por ${SIN_CORTE}` : 'PRENDE';
+  // IA6 (22/10/2026): lo que llega SÓLO a la cascada lo decide la PUERTA de la capa de IA (lib/solo-su-ia.ts →
+  // `conD6bDelPedido`), con el workspace del pedido: no hace falta que la ruta prenda nada. Las excepciones (el Plan y la
+  // plataforma) viven en la puerta, no en esta tabla. Lo que llega a ${SIN_CORTE} no pasa por la puerta: sigue acá.
+  if (porLaPuerta(u)) return 'PUERTA';
   return fuera ? `FUERA ${fuera.prefijo}` : null;
+}
+
+/** ¿La decide la puerta de la capa de IA? (IA6) Llega a la cascada y no a lib/transcribe.ts. */
+function porLaPuerta(u: Unidad): boolean {
+  return u.cascada && !u.sinCorte;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -541,7 +500,8 @@ test('5. la tabla es HONESTA: cada «afuera» dice por qué y toca algo, y cada 
     for (const s of x.salvo ?? []) assert.ok(existe(s) && s.startsWith(x.prefijo), `«${s}» en el «salvo» de «${x.prefijo}» no existe o no es de ese prefijo`);
   }
   // Rota: dejar un prefijo que ya no toca nada → esta prueba lo nombra (una tabla vieja deja de decir lo que pasa).
-  const viejos = FUERA_DE_D6B.filter((x) => !ALCANZAN.some((u) => fueraDe(u.clave) === x && !sinIADe(u.clave) && (u.sinCorte || !unidadPrende(u.clave)))).map((x) => x.prefijo);
+  // Desde IA6 lo que llega sólo a la cascada lo decide la puerta: un prefijo «toca algo» si cubre algo que la puerta no ve.
+  const viejos = FUERA_DE_D6B.filter((x) => !ALCANZAN.some((u) => fueraDe(u.clave) === x && !sinIADe(u.clave) && !porLaPuerta(u) && (u.sinCorte || !unidadPrende(u.clave)))).map((x) => x.prefijo);
   assert.deepEqual(viejos, [], 'estos prefijos de FUERA_DE_D6B ya no tocan ninguna unidad que llegue a una IA gratis sin prender el contexto: bórralos');
   for (const x of SIN_IA) {
     const u = UNIDADES.find((v) => v.clave === x.unidad);
@@ -590,7 +550,7 @@ test('7. con sólo su PC (su Claude), las rutas de verdad no mandan NADA a una I
   assert.equal(b.ids, null);
   assert.match(String(b.explico), /^Con tu propio Claude, para buscar con MaKo necesito tu clave de Claude o de OpenAI.* por texto\.$/);
   // El Archivero: la foto pide su OpenAI (sólo su OpenAI mira); el texto, su clave de Claude o de OpenAI. Nunca «Gemini».
-  assert.match(String(R.conSuPc.archiveroFoto.cuerpo.warnings?.[0]), /las fotos y los PDF escaneados los leo con tu clave de OpenAI/);
+  assert.match(String(R.conSuPc.archiveroFoto.cuerpo.warnings?.[0]), /las fotos y los PDF escaneados los leo con tu clave de Claude o de OpenAI/);
   assert.match(String(R.conSuPc.archiveroTexto.cuerpo.warnings?.[0]), /para leer tus documentos necesito tu clave de Claude o de OpenAI/);
   for (const c of Object.values(R.conSuPc)) assert.doesNotMatch(JSON.stringify(c.cuerpo), /Gemini|IA gratis/, 'con su propio Claude no se le ofrece Gemini');
   // Un área (lib/ai-cheap.ts, `errorDeCascada`): sin nada suyo, lo de D6b; con un error suyo, tiene IA (nunca «no hay ninguna IA»).

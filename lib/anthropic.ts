@@ -13,6 +13,7 @@ import {
   type PermisoClaveDelNegocio,
 } from './veto-claude';
 import type { ProvName } from './ai-cheap';
+import { conD6bDelPedido, d6bDecidida, soloSuIA } from './solo-su-ia';
 
 // ⛔ ACÁ NO HAY NI `MODEL` NI `ENDPOINT`, y ese es el punto entero del veto.
 //
@@ -104,6 +105,9 @@ export async function permisoDeLaClaveDelNegocio(feature?: string): Promise<{ pe
 /** La clave del negocio en la cascada de TEXTO: su primer intento (arriba, `permisoDeLaClaveDelNegocio`, la frontera). */
 export async function conClaveDelNegocio(p: {
   system: string; user: string; json?: boolean; maxTokens?: number; feature?: string; motivo?: string; timeoutMs: number;
+  /** Lo que MIRA (IA6): imágenes y PDF como bloques de Claude, antes del texto. Las fotos de un negocio con su IA las lee su
+   *  Claude o su OpenAI, nunca Gemini (lib/ai-cheap.ts → `leerDocumentoIA`). */
+  bloques?: Array<Record<string, unknown>>;
 }): Promise<{ texto: string } | { error: string } | null> {
   const r = await permisoDeLaClaveDelNegocio(p.feature);
   if (!r) return null;
@@ -119,7 +123,7 @@ export async function conClaveDelNegocio(p: {
     const res = await fetch(permiso.endpoint, {
       method: 'POST',
       headers: { 'x-api-key': permiso.clave, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: permiso.model, max_tokens: p.maxTokens ?? 1024, system, messages: [{ role: 'user', content: p.user }] }),
+      body: JSON.stringify({ model: permiso.model, max_tokens: p.maxTokens ?? 1024, system, messages: [{ role: 'user', content: p.bloques?.length ? [...p.bloques, { type: 'text', text: p.user }] : p.user }] }),
       cache: 'no-store',
       signal: AbortSignal.timeout(Math.max(1_000, p.timeoutMs)),
     });
@@ -271,6 +275,8 @@ export async function chatClaude(
   // un modelo flojo llegaba crudo a la pantalla como «Unexpected end of JSON input».
   opts: { model?: string; thinking?: boolean; effort?: Effort; maxTokens?: number; feature?: string; motivo?: string; onUsage?: (u: UsageInfo) => void; hastaMs?: number; sinRespaldoDeModelo?: boolean; redDePlataforma?: boolean; erroresOut?: string[]; erroresPlataformaOut?: string[]; validar?: (t: string) => boolean } = {},
 ): Promise<string> {
+  // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
+  if (!d6bDecidida()) return conD6bDelPedido(opts.feature, () => chatClaude(system, messages, opts));
   // Override configurable por feature (tab /modelos-ia). Si el caller NO forzó un
   // modelo y la feature está ruteada a otra IA (Groq/OpenAI/Gemini), delegamos a la
   // capa barata ANTES de exigir la key de Anthropic (un cliente puede tener SOLO
@@ -502,6 +508,8 @@ export async function chatClaudeTools(
     onStep?: (info: { step: number; toolCalls: Array<{ name: string; input: Record<string, unknown> }> }) => void;
   } = {},
 ): Promise<ToolsResult> {
+  // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
+  if (!d6bDecidida()) return conD6bDelPedido(opts.feature, () => chatClaudeTools(system, messages, tools, runTool, opts));
   // Override configurable por feature (tab /modelos-ia). Si el caller NO forzó un
   // modelo y la feature está ruteada a otra IA (Groq/OpenAI/Gemini), corremos el
   // LOOP de tools por chatCheapTools (function-calling OpenAI-compat) ANTES de
@@ -539,7 +547,7 @@ export async function chatClaudeTools(
       try {
         const { chatCheapToolsCascade, CASCADA_TOOLS } = await import('@/lib/ai-cheap');
         // Con su Claude o su GPT (`soloSuIA`), sólo su OpenAI: la cascada barata no participa en sus turnos (D6b).
-        const provs: ProvName[] = opts.soloSuIA ? ['openai'] : [ref.provider as ProvName, ...CASCADA_TOOLS.filter((p) => p !== ref.provider)];
+        const provs: ProvName[] = opts.soloSuIA || soloSuIA() ? ['openai'] : [ref.provider as ProvName, ...CASCADA_TOOLS.filter((p) => p !== ref.provider)];
         const r = await chatCheapToolsCascade(system, messages, tools, runTool, {
           maxSteps: opts.maxSteps, maxTokens: opts.maxTokens, feature: opts.feature, motivo: opts.motivo,
           provs, modelos: { [ref.provider as ProvName]: ref.model }, erroresOut: errores,

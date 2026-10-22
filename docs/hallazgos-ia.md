@@ -5150,3 +5150,33 @@ cascada de texto, la de herramientas, la visión y el audio) · `app/integracion
   prueba de punta a punta en la PC de Martín con el ws3 (`probar-punta-a-punta.mts --instalador --reinstalar`). El título
   del ticket de la fila sale genérico («Falló la pantalla «Api»», de `tituloDeError` en lib/errores-app-reglas.ts); el
   mensaje sí dice qué falta.
+
+## D6b para TODO el negocio: la decisión baja a la PUERTA de la capa de IA (IA6, 22/10/2026)
+
+**Vive en:** `lib/solo-su-ia.ts` (`conD6bDelPedido`, `esFueraDeD6b`) · la primera línea de cada función pública de
+`lib/ai-cheap.ts` y de `chatClaude`/`chatClaudeTools` (lib/anthropic.ts) · `tests/d6b-puerta.test.ts` (corre las entradas a
+pelo) · `tests/d6b-rutas.test.ts` (la tabla quedó para lib/transcribe.ts)
+
+- **Síntoma:** D6b se prendía sólo donde quien atendía el pedido lo prendía (el turno del Ops Center y sus pantallas). El
+  ws11, con su Claude y su OpenAI, corrió el simulador del Chat Agent con Groq y OpenRouter el 21/10 a las 20:51 UTC, con
+  D6b ya desplegado; su plan-fathom y su Perro, con Gemini. La tabla `FUERA_DE_D6B` tenía ~90 prefijos «decididos afuera».
+- **El diagnóstico obvio era el equivocado:** prender `conSuIADelNegocio` en cada cron, webhook y tab. Son ~370 entradas que
+  llegan a la cascada, y la próxima que se agregue no lo haría. El corte ya vivía abajo (`provDe`, la red, el orden por
+  cuota); lo que faltaba bajar era la DECISIÓN. Ahora cada función pública de la capa de IA, si nadie decidió antes, decide
+  con el workspace del pedido (`negocioConSuIA`, con 60 s de memoria por negocio). Las excepciones son de Martín y viven en
+  la puerta: las funciones del Plan (`FEATURES_DEL_PLAN`) y la plataforma (y lo que corre sin workspace).
+- **Con su IA, la cascada es SU IA aunque el que llama pida otra lista.** Una función «que no se degrada» (`fallback: []`)
+  atada a Gemini, con D6b, no corría con NADA y fallaba; ahora corre con su Claude (primero) y su OpenAI.
+- **Las fotos, con su Claude:** `leerDocumentoIA` prueba primero la clave de Claude del negocio con la imagen o el PDF como
+  bloques (antes, con sólo su Claude, una foto era «no puedo»).
+- **Trampas de la guarda:** (1) el detector de «prende» sigue llamadas, y como cada función de la capa de IA llama a la
+  puerta (que llama a `conSoloSuIA`), TODO «prendía»: la puerta se excluye del detector. (2) El control de
+  tests/d6b-confirmar.test.ts era «la misma ejecución, a pelo» y suponía que a pelo salía a Gemini: con la puerta ya no; el
+  control ahora decide afuera a mano. (3) Sacar la puerta de `leerDocumentoIA` no da rojo, y está bien: adentro usa
+  `provsDe` y la red, que tienen la suya.
+- **Contracara, medir:** falla cerrada en todo: si la base no contesta, un negocio sin su IA pierde su Gemini en ESE pedido
+  (hasta 60 s, por la memoria). Y el ws10 corre TODO con la clave de Claude que es el crédito de Max de Martín: medir su gasto
+  una semana después del deploy.
+- **Sin hacer:** lib/transcribe.ts sigue fuera de la puerta (IA7); el doer de WhatsApp elige proveedores a mano (WA1); los
+  `model` explícitos (closing, el escalado del doer) siguen yendo al veto de la plataforma (IA5, IA12). Caso real a medir
+  después del deploy: 0 filas de gemini, groq u openrouter del ws11 fuera del Plan en 48 h.

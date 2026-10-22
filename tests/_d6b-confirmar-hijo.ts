@@ -74,8 +74,12 @@ async function main() {
     try { ok = await f(); } catch (e) { ok = `tiró: ${e instanceof Error ? e.message : String(e)}`; }
     out[nombre] = { red: [...new Set(red)], adentro: ejecuciones.length > antes ? ejecuciones[ejecuciones.length - 1] : null, ok: (ok as { ok?: unknown })?.ok ?? ok };
   };
-  // El control: la misma ejecución, llamada a pelo dentro del negocio (como antes del arreglo).
-  await medir('control', () => runWithWorkspace(WS, ejecutarTarjeta));
+  // El control: la misma ejecución con D6b decidido AFUERA (como un negocio sin su IA): tiene que salir a la red gratis, o la
+  // prueba no vería nada. Desde IA6 «a pelo» ya no sirve de control: la puerta de la capa de IA la pone adentro sola.
+  const { conSoloSuIA } = await import('../lib/solo-su-ia');
+  await medir('control', () => runWithWorkspace(WS, () => conSoloSuIA(false, ejecutarTarjeta)));
+  // A pelo dentro del negocio, sin que nadie decida (IA6): la puerta decide por el negocio, que tiene su OpenAI.
+  await medir('aPelo', () => runWithWorkspace(WS, ejecutarTarjeta));
   await medir('tarjetaDelChat', () => confirmarDesdeTarjeta(PERSONA, SESION, 123));
   await medir('bandeja', () => confirmarPendienteAction(123));
   process.stdout.write(`@@RESULTADO@@${JSON.stringify(out)}`);

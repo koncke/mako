@@ -560,7 +560,7 @@ export const AVISO_SU_CLAVE = 'Tu clave de Claude no funcionó (sin crédito o d
 /** A quien no conectó su computadora, en un negocio que corre con su propio Claude (D6b): dónde conectar la suya. */
 export const AVISO_CONECTA_TU_PC = 'Tu negocio contesta con su propio Claude. Para que te conteste a ti, conecta tu computadora en Tu cuenta → Tus cuentas de IA.';
 /** Con su propio Claude, una foto o un PDF escaneado se leen con SU OpenAI (D6b): nunca con Gemini. */
-export const AVISO_NO_LEI_SU_IA = (nombre: string) => `No pude leer «${nombre}»: con tu propio Claude, las fotos y los PDF escaneados los leo con tu clave de OpenAI. Escríbeme lo que dice.`;
+export const AVISO_NO_LEI_SU_IA = (nombre: string) => `No pude leer «${nombre}»: con tu propio Claude, las fotos y los PDF escaneados los leo con tu clave de Claude o de OpenAI. Escríbeme lo que dice.`;
 /** Con su propio Claude y sin una clave que lea (su Claude por clave o su OpenAI), El Archivero no corre: se dice. */
 export const AVISO_SIN_ARCHIVERO = 'Lo dejé en el chat, pero no en El Archivero: con tu propio Claude, para archivarlo necesito tu clave de Claude o de OpenAI.';
 /** Tiene su clave de Claude, pero la plataforma la pausó por un rato: no se le pide «tu clave», que ya la tiene. */
