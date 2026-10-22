@@ -90,7 +90,8 @@ export function Conversacion({
   respuestas: readonly Decision[];
   responder: AccionResponder;
   chat: ChatCentro;
-  /** Cuántas tarjetas de la Ticketera esperan una respuesta de Martín para este chat. */
+  /** Lo que este chat le avisa a Martín: el MISMO número de su fila (`k.avisos` de useCentro.ts: las tarjetas que esperan su
+   *  respuesta y su «Completado» sin ✓). La criatura de la cabecera duerme sólo cuando la fila está en gris (22/10/2026). */
   espera: number;
   pedidos: ReadonlyMap<string, PedidoP>;
   trabajos: readonly TrabajoP[];
