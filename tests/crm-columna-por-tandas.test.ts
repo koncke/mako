@@ -12,7 +12,8 @@
 //   · todas dibujadas: 1.169 tarjetas, 14.528 nodos, pinta en 3,0–3,6 s, recalcular el estilo de todo 189–236 ms;
 //   · 60 por columna: 480 tarjetas, 6.190 nodos, 1,8 s, 102 ms · 30 por columna: 240, 3.280 nodos, 0,4–0,9 s, 48–52 ms.
 //   ⚠️ El arnés MIENTE A LA BAJA: en el Chrome de Martín (producción, ws3, 302 tarjetas y 4.923 nodos) recalcular el
-//   estilo de todo tardó 410 ms (177–759) contra 60 ms del arnés con 3.947: unas 7 veces por nodo. Lo que pesa es la
+//   estilo de todo tardó 410 ms (177–759) contra 60 ms del arnés con 3.947: unas 7 veces por nodo, con varios chats
+//   corriendo tests. Una hora después, con la máquina más quieta, el mismo tablero: 95 ms (1,5 veces). Lo que pesa es la
 //   CANTIDAD DE NODOS, no una regla ni el JS: por eso la tanda chica.
 // Lo que NO puede cambiar: el conteo de la columna, la casilla que tilda a TODOS los de la columna (también los que no
 // se dibujaron) y el orden al soltar miran la columna entera.
