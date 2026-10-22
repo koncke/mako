@@ -155,6 +155,8 @@ test('2ª · el saldo es la venta de la casa menos lo cobrado de ESA venta: debe
   assert.equal(faltaDeLaVenta({ monto_cierre_usd: 2000, total_cobrado_usd: 1500 }), 500);
   assert.equal(faltaDeLaVenta({ monto_cierre_usd: 2000, total_cobrado_usd: 2500, total_cobrado_casa_usd: 2500 }), 0, 'nunca negativo');
   assert.equal(faltaDeLaVenta({ monto_cierre_usd: null, total_cobrado_usd: 500 }), null, 'sin venta no hay saldo');
+  // Quien sólo pagó la renovación: lo cobrado de la venta es CERO (no «no se sabe»), y debe la venta entera.
+  assert.equal(faltaDeLaVenta({ monto_cierre_usd: 2000, total_cobrado_usd: 500, total_cobrado_casa_usd: 0 }), 2000);
   // El mensaje al cliente: `{{lead_saldo}}` dice US$1.000.
   const v = valoresDelLead({ nombre: 'Juan Pérez', ...caso } as unknown as Lead);
   assert.equal(v.lead_saldo, plata(1000));
@@ -176,11 +178,12 @@ test('2ª · el filtro «Solo los que deben», el export y listar_leads usan lo 
 test('2ª · sincronizar escribe lo cobrado de la casa, y la 0325 lo llena con la regla de esDelTrato', () => {
   const s = cuerpo(PAGOS, 'export async function sincronizarTotalCobrado(');
   assert.match(s, /const deLaCasa = pagados\.filter\(\(p\) => esDelTrato\(p\.funnel_id, null, agregados\)\)/);
-  assert.match(s, /total_cobrado_casa_usd: deLaCasa > 0 \? deLaCasa : null/);
+  assert.match(s, /total_cobrado_casa_usd: Math\.round\(deLaCasa \* 100\) \/ 100 \}/, 'cero, no null: quien sólo pagó una renovación');
   assert.match(s, /if \(error && \/total_cobrado_casa_usd\/\.test\(error\.message\)\)/, 'sin la 0325, escribe lo de siempre');
   const sql = leer('supabase/migrations/0325_cobrado_de_la_casa.sql');
   assert.match(sql, /alter table leads add column if not exists total_cobrado_casa_usd numeric\(12, 2\);/);
   assert.match(sql, /where p\.pagado and not exists \(\s*select 1 from lead_funnel lf/);
+  assert.match(sql, /coalesce\(sum\(p\.monto_usd\) filter \([\s\S]*?\), 0\) as casa/, 'cero, no null, si no pagó nada de la casa');
   assert.match(sql, /and lf\.funnel_id <> coalesce\(l2\.funnel_id,/, 'la fila que repite la casa no la saca de la casa');
 });
 

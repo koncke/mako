@@ -12,7 +12,9 @@
 -- fila guarda las dos: lo cobrado de la venta de la casa va con su venta, y lo cobrado en total, con la caja.
 --
 -- EL BACKFILL: lo pagado que es de la casa con la regla de `esDelTrato` (lib/pagos-crm.ts): todo pago que NO es de un CRM
--- agregado del lead (su `lead_funnel`, sin la fila que repita la casa). Medido el 22/10/2026 (sólo lectura): un solo pago
+-- agregado del lead (su `lead_funnel`, sin la fila que repita la casa). ⚠️ CERO, no NULL, si tiene pagos y ninguno cobrado de
+-- la casa (sólo pagó una renovación): con NULL el código caía a `total_cobrado_usd` y volvía el saldo de menos justo ahí (lo
+-- vio el Cerebro al revisar el SQL). Un lead sin ninguna fila en `pagos` no entra: queda NULL, y su total también es 0. Medido el 22/10/2026 (sólo lectura): un solo pago
 -- en un CRM agregado en toda la base (ws11, lead 2632, US$40); en todos los demás leads da lo mismo que `total_cobrado_usd`.
 
 begin;
@@ -25,13 +27,13 @@ update leads l
 set total_cobrado_casa_usd = sub.casa
 from (
   select p.lead_id,
-    sum(p.monto_usd) filter (
+    coalesce(sum(p.monto_usd) filter (
       where p.pagado and not exists (
         select 1 from lead_funnel lf
         where lf.lead_id = p.lead_id and lf.funnel_id = p.funnel_id
           and lf.funnel_id <> coalesce(l2.funnel_id, (select f.id from funnels f where f.workspace_id = l2.workspace_id and f.es_default limit 1))
       )
-    ) as casa
+    ), 0) as casa
   from pagos p
   join leads l2 on l2.id = p.lead_id
   group by p.lead_id

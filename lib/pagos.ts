@@ -1162,7 +1162,9 @@ export async function sincronizarTotalCobrado(leadId: number): Promise<void> {
     total_cobrado_usd: total > 0 ? total : null,
     ...(fechaPrimerPago ? { fecha_primer_pago: fechaPrimerPago } : {}),
   };
-  let { error } = await supabase.from('leads').update({ ...fila, total_cobrado_casa_usd: deLaCasa > 0 ? deLaCasa : null }).eq('id', leadId);
+  // ⚠️ CERO, no NULL (revisión del SQL de la 0325): con NULL, quien sólo pagó una renovación caía a `total_cobrado_usd`
+  // (`cobradoDeLaVenta`) y el saldo de su venta volvía a salir de menos.
+  let { error } = await supabase.from('leads').update({ ...fila, total_cobrado_casa_usd: Math.round(deLaCasa * 100) / 100 }).eq('id', leadId);
   // Sin la 0325 la columna no está: lo de siempre, sin ella (el saldo cae a `total_cobrado_usd`, `cobradoDeLaVenta`).
   if (error && /total_cobrado_casa_usd/.test(error.message)) ({ error } = await supabase.from('leads').update(fila).eq('id', leadId));
   if (error) throw new Error(`Error sincronizando total_cobrado del lead ${leadId}: ${error.message}`);
