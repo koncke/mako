@@ -8,7 +8,7 @@
 // Puro: lo prueba tests/crm-cobro-ganado.test.ts.
 // =============================================================================
 
-import type { CuentaPago, FotoCobroEtapa, ProductoCobro, ProductoCobroInput } from './cobro-etapa-stub';
+import { MAX_CUOTAS_PRODUCTO, type CuentaPago, type FotoCobroEtapa, type ProductoCobro, type ProductoCobroInput } from './cobro-etapa-stub';
 
 export const NOMBRE_PROVEEDOR_PAGO: Record<CuentaPago['proveedor'], string> = { stripe: 'Stripe', mercadopago: 'Mercado Pago' };
 export const MAX_NOMBRE_PRODUCTO = 80;
@@ -44,6 +44,6 @@ export function productoDeLoEscrito(f: { nombre: string; tipo: 'unico' | 'suscri
   const meses = f.tipo === 'suscripcion' ? entero(f.meses) : null;
   const cuotas = f.tipo === 'unico' ? entero(f.cuotas) : null;
   if (meses != null && !(meses >= 1 && meses <= 60)) return { ok: false, error: 'Los meses van de 1 a 60 (vacío: sin fin).' };
-  if (cuotas != null && !(cuotas >= 1 && cuotas <= 36)) return { ok: false, error: 'Las cuotas van de 1 a 36.' };
+  if (cuotas != null && !(cuotas >= 1 && cuotas <= MAX_CUOTAS_PRODUCTO)) return { ok: false, error: `Un pago único va en 1 a ${MAX_CUOTAS_PRODUCTO} cuotas.` };
   return { ok: true, input: { nombre, tipo: f.tipo, montoUsd: Math.round(monto * 100) / 100, suscripcionMeses: meses, cuotas } };
 }

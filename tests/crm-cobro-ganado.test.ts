@@ -56,7 +56,8 @@ test('crear o editar un producto: lo escrito se valida antes de mandarlo', () =>
   assert.equal(productoDeLoEscrito({ ...base, nombre: '  ' }).ok, false);
   assert.equal(productoDeLoEscrito({ ...base, monto: '0' }).ok, false, 'un producto sin precio no cobra');
   assert.equal(productoDeLoEscrito({ ...base, monto: 'mil' }).ok, false);
-  assert.equal(productoDeLoEscrito({ ...base, cuotas: '50' }).ok, false);
+  assert.equal(productoDeLoEscrito({ ...base, cuotas: '8' }).ok, false, 'un pago único va en 1 a 7 cuotas (Cobros)');
+  assert.equal(productoDeLoEscrito({ ...base, cuotas: '7' }).ok, true);
 });
 
 test('el ⋯ y el clic derecho de Ganado (y sólo de Ganado) abren «Vincular cobro»', () => {
@@ -75,7 +76,8 @@ test('el ⋯ y el clic derecho de Ganado (y sólo de Ganado) abren «Vincular co
 
 test('el modal: una casilla por cuenta (Stripe y MP a la vez), conectar ahí mismo, crear y vincular, y «Quitar» con Deshacer', () => {
   const m = sinComentarios(leer('app/crm/CobroDeEtapaModal.tsx'));
-  assert.match(m, /Cuando alguien paga este producto, pasa a «\{etapaNombre\}» aquí, con su plan de pagos\./);
+  assert.match(m, /\{TEXTO_AL_PAGAR\}/, 'la línea de Cobros');
+  assert.doesNotMatch(m, /Copiar link|linkDelVinculoAction/, 'el link todavía no existe sin un lead: no se dibuja');
   assert.match(m, /\{foto\.cuentas\.map\(\(c\) => \{\s*const marcada = v\.cuentas\.includes\(c\.id\);/, 'una casilla por cuenta');
   assert.match(m, /if \(!cuentas\.length\) \{ show\('Deja al menos una cuenta, o quita el producto\.', undefined, 'bad'\); return false; \}/);
   assert.match(m, /\(\['stripe', 'mercadopago'\] as const\)\.map\(\(prov\) => \(\s*<BotonIntegracion key=\{prov\} servicio=\{prov\} onConectado=\{\(\) => leer\(\)\}/, 'sin cuentas no se conecta ahí mismo');

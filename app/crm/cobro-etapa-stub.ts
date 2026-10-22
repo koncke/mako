@@ -22,6 +22,11 @@ export type VinculoCobro = { id: number; funnelId: number; etapa: string; produc
 export type FotoCobroEtapa = { cuentas: CuentaPago[]; productos: ProductoCobro[]; vinculos: VinculoCobro[]; puedeEditar: boolean };
 export type ResCobro<T> = ({ ok: true } & T) | { ok: false; error: string };
 
+/** La línea del modal, la de Cobros tal cual (lib/cobro-etapa.ts). */
+export const TEXTO_AL_PAGAR = 'Cuando alguien paga este producto, pasa a Ganado aquí, con su plan de pagos.';
+/** Lo más que se parte un pago único (lib/cobro-etapa.ts: el primero lo cobra el link y quedan hasta 6 cuotas, el CHECK de la 0014). */
+export const MAX_CUOTAS_PRODUCTO = 7;
+
 const NO_ESTA = { ok: false as const, error: 'Vincular cobro todavía no está listo.' };
 
 export async function leerCobroDeEtapaAction(funnelId: number, etapa: string): Promise<ResCobro<{ foto: FotoCobroEtapa }>> {

@@ -9,7 +9,9 @@
 // que pueda tener varias cuentas de stripe y MP conectadas». Se abre desde el «⋯» de la columna Ganado y su clic derecho
 // (app/crm/CrmBoard.tsx), con el molde de «Asignar evento» (EventosDeEtapaModal.tsx).
 //   · Cada producto vinculado, con su precio y una casilla por cuenta: Stripe y Mercado Pago a la vez, y varias de cada
-//     uno. Con la casilla marcada, «Copiar link» da el link de pago de esa cuenta.
+//     uno (hoy Cobros trae la principal de cada pasarela; las demás llegan después, con los mismos ids).
+//   · SIN «COPIAR LINK» POR AHORA: `linkDelVinculoAction` todavía no da el link sin un lead (Cobros, 22/10). Vuelve
+//     cuando lo dé.
 //   · «+ Producto»: elegir uno del catálogo o crearlo ahí mismo; nace vinculado con todas las cuentas. «Editar» lo cambia
 //     en el lugar. «Quitar» lo desvincula y deja Deshacer.
 //   · Sin cuentas, se conectan AHÍ MISMO (el modal de /integraciones arriba de éste: `BotonIntegracion`).
@@ -25,7 +27,7 @@ import { IconoMenu } from '@/app/_ui/iconos-menu';
 // ⚠️ STUB hasta que las acciones de Cobros lleguen a main (ver su cabecera): al integrar, este import cambia.
 import {
   leerCobroDeEtapaAction, vincularProductoAEtapaAction, cambiarCuentasDelVinculoAction, desvincularProductoAction,
-  guardarProductoCobroAction, linkDelVinculoAction,
+  guardarProductoCobroAction, TEXTO_AL_PAGAR,
   type FotoCobroEtapa, type ProductoCobro, type VinculoCobro,
 } from './cobro-etapa-stub';
 import { MAX_NOMBRE_PRODUCTO, NOMBRE_PROVEEDOR_PAGO, nombreDeCuenta, precioDeProducto, productoDeLoEscrito, productosParaVincular } from './cobro-ganado';
@@ -39,7 +41,6 @@ const CAMPO: CSSProperties = {
   height: 34, padding: '0 10px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)',
   color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, minWidth: 0,
 };
-const ENLACE: CSSProperties = { border: 'none', background: 'none', padding: 0, cursor: 'pointer', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, color: 'var(--primary)' };
 const ICONO: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, border: 'none', borderRadius: 7, background: 'transparent', color: 'var(--dim)', cursor: 'pointer', padding: 0 };
 
 /** Lo escrito en «Crear producto» / «Editar» (textos: lo valida `productoDeLoEscrito`). */
@@ -120,12 +121,6 @@ export function CobroDeEtapaModal({ funnelId, etapa, etapaNombre, onCerrar }: {
     show(v.ok ? `Creado y cobra en «${etapaNombre}»` : `Creado, pero no se vinculó: ${v.error}`, undefined, v.ok ? undefined : 'bad');
     return true;
   });
-  const copiarLink = (v: VinculoCobro, cuentaId: string) => correr(`l:${v.id}:${cuentaId}`, async () => {
-    const r = await linkDelVinculoAction(v.id, cuentaId);
-    if (!r.ok) { show(r.error, undefined, 'bad'); return false; }
-    try { await navigator.clipboard.writeText(r.url); show('Link de pago copiado'); } catch { show(r.url); }
-    return false;
-  });
 
   const formProducto = (escrito: Escrito, poner: (e: Escrito) => void, guardar: () => void, cancelar: () => void, rotulo: string, cargando: boolean) => (
     <form onSubmit={(ev) => { ev.preventDefault(); guardar(); }}
@@ -198,7 +193,6 @@ export function CobroDeEtapaModal({ funnelId, etapa, etapaNombre, onCerrar }: {
                     onChange={() => void alternarCuenta(v, c.id)} />
                   {nombreDeCuenta(c, foto.cuentas)}
                 </label>
-                {marcada && <button type="button" disabled={ocupado != null} onClick={() => void copiarLink(v, c.id)} style={ENLACE}>Copiar link</button>}
               </span>
             );
           })}
@@ -211,9 +205,7 @@ export function CobroDeEtapaModal({ funnelId, etapa, etapaNombre, onCerrar }: {
   const contenido = (
     <div style={{ fontFamily: SANS }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
-        <span style={{ fontSize: 13.5, color: 'var(--dim)', flex: '1 1 260px' }}>
-          Cuando alguien paga este producto, pasa a «{etapaNombre}» aquí, con su plan de pagos.
-        </span>
+        <span style={{ fontSize: 13.5, color: 'var(--dim)', flex: '1 1 260px' }}>{TEXTO_AL_PAGAR}</span>
         {foto?.puedeEditar && foto.cuentas.length > 0 && !sumando && (
           <Button size="sm" icon={<IconoMenu nombre="agregar" size={15} />} disabled={ocupado != null}
             onClick={() => { setErrorForm(null); setSumando(paraVincular.length ? { modo: 'elegir' } : { modo: 'crear', escrito: VACIO }); }}>

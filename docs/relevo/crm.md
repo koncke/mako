@@ -14,8 +14,10 @@ Lo que no se deduce del código, en docs/hallazgos-crm.md («El feedback del 21/
 
 **22/10, «Vincular cobro» en Ganado** (punto 3 del feedback de Martín): rama `crm-cobro-ganado-2210` en
 C:/dev/wt-crm-cobro (sobre `crm-aut-lead-2210`). El ⋯ y el clic derecho de Ganado abren app/crm/CobroDeEtapaModal.tsx:
-producto con precio, una casilla por cuenta (Stripe y Mercado Pago a la vez, varias por proveedor), «Copiar link»,
-«+ Producto» (catálogo o crear), «Editar» y «Quitar» con Deshacer: tests/crm-cobro-ganado.test.ts. **Va contra un STUB**
+producto con precio, una casilla por cuenta (Stripe y Mercado Pago a la vez, varias por proveedor), «+ Producto»
+(catálogo o crear), «Editar» y «Quitar» con Deshacer: tests/crm-cobro-ganado.test.ts. Sin «Copiar link» hasta que
+`linkDelVinculoAction` dé el link sin un lead (Cobros). Las acciones de Cobros están en 823c735ca (rama
+vincular-cobro-2210, sin la mig 0326 aplicada). **Va contra un STUB**
 (app/crm/cobro-etapa-stub.ts) del contrato de Cobros (contrato-cobro-en-ganado.md, notas compartidas). Cuando
 `lib/cobro-etapa.ts` y `app/crm/cobro-etapa-actions.ts` estén en main: los imports de cobro-ganado.ts y
 CobroDeEtapaModal.tsx pasan ahí, se borra el stub, y recién ahí sube. Sin tipos: el tsc acotado dio 99 (RAM).
