@@ -123,6 +123,7 @@ import { Toast, useToast } from '@/app/_ui/Toast';
 import { nombreVisible } from '@/lib/lead-funnel-reglas';
 import { motivoCorto, chipsFaltantes } from './worklist-fila';
 import { Modal } from '@/app/_ui/Modal';
+import { Confirm } from '@/app/_ui/Confirm';
 import { Spinner } from '@/app/_ui/Feedback';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { NewLeadForm } from './new/NewLeadForm';
@@ -131,6 +132,9 @@ import { AccionesLoteLeads, destinosDeLote, type ManijaLote } from './AccionesLo
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { FUNNEL_DEL_NEGOCIO, esLote, itemsCrm, opcionesCrm, tituloCrm, type ContextoCrm, type IdOpcionCrm } from './menu-contextual-crm';
 import { alternarColumna, estadoDeColumna, rotuloDeColumna } from './seleccion-columna';
+import { chipDeAutomatizacion, enTandasDe, lineaDeAutomatizacion, preguntaDeFrenar } from './automatizacion-lead';
+// ⚠️ STUB hasta que las acciones de Automations lleguen a main (ver su cabecera): al integrar, este import cambia.
+import { enAutomatizacionesAction, frenarLeadsEnAutomatizacionesAction, type EnAutomatizacion } from './automatizaciones-stub';
 import { useEtiquetas, type Etiqueta } from '@/app/_components/etiquetas-cliente';
 import { ModalLlevarAPartners } from '@/app/partners/LlevarAPartners';
 import { EstiloTarjetas, FichaRapida, TarjetaDestacada, TarjetaPersona } from '@/app/_ui/TarjetaKanban';
@@ -2058,6 +2062,46 @@ export function CrmBoard({
   // La hoja con la que abre la ficha: «Ver detalle» de una reunión la abre en «Reuniones» (22/10/2026).
   const [focoFicha, setFocoFicha] = useState<string | undefined>(undefined);
 
+  // ── EL LEAD EN UNA AUTOMATIZACIÓN (22/10/2026, app/crm/automatizacion-lead.ts) ──────────────────────────────────────
+  // Una lectura por tablero, en tandas de 500 (el tope de Automations), y sólo vienen los que están en alguna. Una tanda
+  // que vuelve `null` (sin sesión, o no se pudo leer) deja lo que había: no es «ninguno». Después de «Frenar» se vuelve
+  // a leer (`versionAut`).
+  const [enAut, setEnAut] = useState<ReadonlyMap<number, EnAutomatizacion[]>>(() => new Map());
+  const [versionAut, setVersionAut] = useState(0);
+  const [frenarUno, setFrenarUno] = useState<CrmLead | null>(null);
+  const [frenando, setFrenando] = useState(false);
+  const cancelarFrenar = useCallback(() => setFrenarUno(null), []);
+  const idsTablero = useMemo(() => leads.map((l) => l.id).join(','), [leads]);
+  useEffect(() => {
+    let vivo = true;
+    void (async () => {
+      const ids = idsTablero ? idsTablero.split(',').map(Number) : [];
+      const out = new Map<number, EnAutomatizacion[]>();
+      for (const tanda of enTandasDe(ids)) {
+        const r = await enAutomatizacionesAction(tanda).catch(() => null);
+        if (!vivo || r === null) return;
+        for (const [k, v] of Object.entries(r)) if (v.length) out.set(Number(k), v);
+      }
+      if (vivo) setEnAut(out);
+    })();
+    return () => { vivo = false; };
+  }, [idsTablero, versionAut]);
+  /** «Frenar automatización» de UN lead (el clic derecho): lo saca de TODAS las que le corren. No se deshace. */
+  const confirmarFrenar = async () => {
+    const l = frenarUno;
+    if (!l || frenando) return;
+    setFrenando(true);
+    try {
+      const r = await frenarLeadsEnAutomatizacionesAction([l.id]);
+      mostrarAviso(r.ok ? r.resumen : r.error, undefined, r.ok ? undefined : 'bad');
+    } catch {
+      mostrarAviso('No se pudo frenar', undefined, 'bad');
+    }
+    setFrenando(false);
+    setFrenarUno(null);
+    setVersionAut((v) => v + 1);
+  };
+
   // ── Editar las etapas desde la cabecera de su columna ──────────────────────
   // Pedido de Martín (28/09/2026). El menú vive acá y no en /funnel porque es donde se
   // ve el problema: la columna que sobra o el nombre que no es el del negocio se notan
@@ -2412,6 +2456,8 @@ export function CrmBoard({
           seleccionado: selLeads.has(id), seleccionados: elegidos.length,
           hayEquipo: equipo.length > 0, hayOtroFunnel: destinosLote.length > 0,
           partners: partners ? (l.cuentaPartners != null ? 'ver' : 'llevar') : null,
+          enAutomatizacion: enAut.has(id),
+          loteEnAutomatizacion: elegidos.filter((x) => enAut.has(x.id)).length,
         },
       };
     }
@@ -2505,6 +2551,8 @@ export function CrmBoard({
       case 'lote_funnel': if (valor) manijaLote.current?.agregarAFunnel(valor === FUNNEL_DEL_NEGOCIO ? null : Number(valor)); return;
       case 'lote_limpiar': limpiarSel(); return;
       case 'lote_eliminar': manijaLote.current?.eliminar(); return;
+      case 'lote_frenar': manijaLote.current?.frenar(); return;
+      case 'frenar_automatizacion': if (l) setFrenarUno(l); return;
       case 'personalizar_tarjeta':
       case 'personalizar_tarjetas': setPersonalizando(true); return;
       // El «Nuevo lead» del «⋯» de esa columna, por el mismo camino (`altaPendiente`).
@@ -2971,6 +3019,8 @@ export function CrmBoard({
     };
     // «Con avance» (como Clients): el paso del lead en el CAMINO del funnel (sin nutrición ni salidas).
     const iPaso = caminoTarjeta.findIndex((s) => s.key === etapa);
+    // En una automatización (22/10/2026): el chip va SIEMPRE, no es un dato que se elige en «Personalizar tarjetas».
+    const aut = chipDeAutomatizacion(enAut.get(l.id));
     const plata = isGanado ? montoDeTarjeta(l).texto : plataDeLead({ ganado: false, ingresoEstimado: l.ingresoEstimado });
     // LAS FORMAS DE LAS PLANTILLAS (21/10/2026): el dato que la forma pone GRANDE sale del subtítulo y de los chips, para
     // no decirlo dos veces. Va aunque falte («Sin monto», «Sin agendar»): la forma promete ese lugar, y vacío se lee roto.
@@ -2991,7 +3041,7 @@ export function CrmBoard({
       avance: dis === 'avance' && iPaso >= 0
         ? { pct: ((iPaso + 1) / caminoTarjeta.length) * 100, texto: `Paso ${iPaso + 1} de ${caminoTarjeta.length} · ${caminoTarjeta[iPaso].label}` }
         : null,
-      chips: <>{csChicos.map((c) => <Fragment key={c}>{chip(c)}</Fragment>)}</>,
+      chips: <>{csChicos.map((c) => <Fragment key={c}>{chip(c)}</Fragment>)}{aut && <span className={`tk-chip tk-chip--${aut.tono}`} data-en-automatizacion title={aut.detalle}>{aut.texto}</span>}</>,
     };
   };
   // La vista previa del pop-up: un lead del tablero, con lo que se está eligiendo. Para «Monto grande» y «Próxima
@@ -3176,7 +3226,7 @@ export function CrmBoard({
           <AccionesLoteLeads
             // El clic derecho sobre un tildado pide sus acciones por acá (`manijaLote`, ver `elegirContextual`).
             ref={manijaLote}
-            elegidos={elegidos.map((l) => ({ id: l.id, name: l.name, stage: effStage(l), closer: l.closer, setter: l.setter }))}
+            elegidos={elegidos.map((l) => ({ id: l.id, name: l.name, stage: effStage(l), closer: l.closer, setter: l.setter, enAutomatizacion: enAut.has(l.id) }))}
             stages={stages}
             productos={funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }))}
             equipo={equipo}
@@ -3187,6 +3237,8 @@ export function CrmBoard({
             // un producto» (mig 0207), que borra sólo las filas que ese lote creó. Deshacer
             // escribe en el server; si no puede, se dice.
             onListo={(r) => {
+              // «Frenar automatización» del lote cambia en qué automatizaciones está cada uno: se vuelve a leer.
+              setVersionAut((v) => v + 1);
               const deshacer = r.deshacer;
               mostrarAviso(r.texto, deshacer ? () => {
                 startTransition(async () => {
@@ -3393,6 +3445,13 @@ export function CrmBoard({
         <LeadEditModal leadId={selected.id} seed={{ nombre: selected.name, empresa: selected.company }} focus={focoFicha} onClose={closeDetail} />
       )}
 
+      {/* «Frenar automatización» de un lead (el clic derecho): NOMBRA a quién y de dónde, y dice que no se deshace. */}
+      {frenarUno && (() => {
+        const q = preguntaDeFrenar({ leads: 1, nombre: frenarUno.name, auts: enAut.get(frenarUno.id) });
+        return <Confirm title={q.titulo} message={q.mensaje} confirmLabel="Frenar" tone="danger" loading={frenando}
+          onConfirm={() => void confirmarFrenar()} onCancel={cancelarFrenar} />;
+      })()}
+
       {/* Importar / exportar: los MISMOS formularios de a una pregunta que el plan. */}
       {eventoDe && (funnelActivo ?? funnels.find((f) => f.esDefault)?.id) != null && (
         <EventosDeEtapaModal funnelId={(funnelActivo ?? funnels.find((f) => f.esDefault)?.id) as number}
@@ -3535,6 +3594,7 @@ export function CrmBoard({
               ...(l.company?.trim() && l.company !== 'Sin empresa' ? [{ k: 'Empresa', v: l.company }] : []),
               ...(l.origin?.trim() && !/^sin origen$/i.test(l.origin.trim()) ? [{ k: 'Llegó por', v: l.origin }] : []),
               ...(l.agenda ? [{ k: 'Agenda', v: l.agenda }] : []),
+              ...(enAut.get(l.id) ?? []).map((a) => ({ k: 'Automatización', v: lineaDeAutomatizacion(a) })),
               { k: 'Entró', v: l.created },
             ]}
             acciones={[

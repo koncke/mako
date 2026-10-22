@@ -12,13 +12,18 @@
 //    un bloque que manda un mensaje a un cliente es una puerta nueva a un envío, y eso pide su propia revisión.
 // =============================================================================
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from '@/app/_ui/Link';
+import { Button } from '@/app/_ui';
+import { Confirm } from '@/app/_ui/Confirm';
+import { lineaDeAutomatizacion, preguntaDeFrenar } from '@/app/crm/automatizacion-lead';
+// ⚠️ STUB hasta que las acciones de Automations lleguen a main (ver su cabecera): al integrar, este import cambia.
+import { automatizacionesDelLeadAction, frenarEnAutomatizacionAction, type EnAutomatizacion } from '@/app/crm/automatizaciones-stub';
 import type { PropsBloque } from '../tipos';
 import { Bloque } from './piezas';
 import {
-  automatizacionesDelLeadAction, cambiosDeMakoAction, charlaDmAction, charlaWhatsAppAction, loQueLeMandamosAction,
-  mensajesListosAction, paseAHumanoAction, type AutomatizacionDelLead, type CambioDeMako, type LoQueLeMandamos,
+  cambiosDeMakoAction, charlaDmAction, charlaWhatsAppAction, loQueLeMandamosAction,
+  mensajesListosAction, paseAHumanoAction, type CambioDeMako, type LoQueLeMandamos,
   type MensajeCorto, type MensajeListo, type PaseAHumano,
 } from './charla-actions';
 
@@ -188,29 +193,68 @@ export function MensajeListoBloque({ ctx, titulo, diseno, epico }: PropsBloque) 
 
 // ── Las automatizaciones en curso ────────────────────────────────────────────
 
-/** En qué automatización está y cuándo sale lo próximo; si respondió, que se frenó. Sin ninguna, se calla. */
+/**
+ * En qué automatización está, en qué paso y cuándo sale lo próximo; si respondió, que se frenó. Sin ninguna, se calla.
+ * «FRENAR» EN CADA UNA (22/10/2026, Martín: «que desde el CRM también se pueda frenar»): lo saca de ESA automatización y
+ * no le sale nada más. No se deshace, así que pregunta antes. Después se vuelve a leer (`version` cambia la identidad de
+ * `leer`, que es lo que mira `useLectura`). Los datos y el frenar son de Automations (app/crm/automatizaciones-stub.ts).
+ */
 export function AutomatizacionesEnCurso({ ctx, titulo, diseno, epico }: PropsBloque) {
-  const { dato: r, ahora } = useLectura<AutomatizacionDelLead[]>(ctx.lead.id, automatizacionesDelLeadAction);
-  if (r === 'cargando' || (r !== null && !r.length)) return null;
-  if (r === null) return <NoPude titulo={titulo} epico={epico} que="sus automatizaciones" />;
-  const estado = (a: AutomatizacionDelLead) => (a.estado === 'respondio'
-    ? 'Frenada: respondió'
-    : a.proximo ? `Lo próximo sale ${new Date(a.proximo).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : 'Corriendo');
-  if (diseno === 'linea' && !epico) {
-    return <Bloque titulo={titulo} epico={false}><span className="fr-linea">{r.map((a) => `${a.secuencia} (${estado(a)})`).join(' · ')}</span></Bloque>;
+  const [version, setVersion] = useState(0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const leer = useCallback((id: number) => automatizacionesDelLeadAction(id), [version]);
+  const { dato: r } = useLectura<EnAutomatizacion[]>(ctx.lead.id, leer);
+  const [frenar, setFrenar] = useState<EnAutomatizacion | null>(null);
+  const [frenando, setFrenando] = useState(false);
+  const [resultado, setResultado] = useState<string | null>(null);
+  const cancelar = useCallback(() => setFrenar(null), []);
+  const confirmar = async () => {
+    if (!frenar || frenando) return;
+    setFrenando(true);
+    try {
+      const q = await frenarEnAutomatizacionAction(ctx.lead.id, frenar.secuenciaId);
+      setResultado(q.ok ? q.resumen : q.error);
+    } catch {
+      setResultado('No se pudo frenar.');
+    }
+    setFrenando(false);
+    setFrenar(null);
+    setVersion((v) => v + 1);
+  };
+  if (r === 'cargando' || (r !== null && !r.length)) {
+    // Frenó la última: lo dice, en vez de desaparecer sin explicación.
+    return resultado ? <Bloque titulo={titulo} epico={epico}><span className="fr-sub" role="status">{resultado}</span></Bloque> : null;
   }
+  if (r === null) return <NoPude titulo={titulo} epico={epico} que="sus automatizaciones" />;
+  const estado = (a: EnAutomatizacion) => (a.estado === 'respondio'
+    ? 'Frenada: respondió'
+    : !a.automatizacionActiva ? 'La automatización está en pausa'
+    : a.proximoEnvioAt ? `Lo próximo sale ${new Date(a.proximoEnvioAt).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : 'Corriendo');
+  const pregunta = frenar ? preguntaDeFrenar({ leads: 1, nombre: ctx.lead.nombre, auts: [frenar] }) : null;
   return (
-    <Bloque titulo={titulo} epico={epico} derecha={<Link href="/automations" className="fr-link">Ver</Link>}>
-      <div className="fr-props">
-        {r.map((a, i) => (
-          <div key={i} className="fr-prop">
-            <span className="fr-k">{a.secuencia}</span>
-            <span className="fr-v">{estado(a)}</span>
-            <span className="fr-sub">{a.ultimo ? `último paso ${hace(a.ultimo, ahora)}` : ''}</span>
+    <>
+      {diseno === 'linea' && !epico ? (
+        <Bloque titulo={titulo} epico={false}><span className="fr-linea">{r.map((a) => `${a.nombre} (${estado(a)})`).join(' · ')}</span></Bloque>
+      ) : (
+        <Bloque titulo={titulo} epico={epico} derecha={<Link href="/automations" className="fr-link">Ver</Link>}>
+          <div className="fr-props">
+            {r.map((a) => (
+              <div key={a.secuenciaId} className="fr-prop" data-automatizacion={a.secuenciaId}>
+                <span className="fr-k"><Link href={a.link} className="fr-link">{a.nombre}</Link></span>
+                <span className="fr-v">{estado(a)}</span>
+                <span className="fr-sub">{a.paso ? `Paso ${a.paso.numero}: ${a.paso.titulo}` : lineaDeAutomatizacion(a)}</span>
+                <span><Button variant="tertiary" size="sm" onClick={() => { setResultado(null); setFrenar(a); }}>Frenar</Button></span>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-    </Bloque>
+          {resultado && <span className="fr-sub" role="status">{resultado}</span>}
+        </Bloque>
+      )}
+      {pregunta && (
+        <Confirm title={pregunta.titulo} message={pregunta.mensaje} confirmLabel="Frenar" tone="danger" loading={frenando}
+          onConfirm={() => void confirmar()} onCancel={cancelar} />
+      )}
+    </>
   );
 }
 

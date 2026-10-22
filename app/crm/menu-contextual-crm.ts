@@ -37,10 +37,12 @@ export type IdOpcionCrm =
   | 'abrir' | 'mover_etapa' | 'whatsapp' | 'copiar_telefono' | 'copiar_email' | 'seleccionar' | 'quitar_seleccion' | 'eliminar'
   // la TARJETA del Kanban (21/10/2026): el pop-up de «Personalizar tarjetas» del «⋯» de la barra
   | 'personalizar_tarjeta'
+  // el lead en una automatización (22/10/2026): sacarlo de todas las que le corren (app/crm/automatizacion-lead.ts)
+  | 'frenar_automatizacion'
   // MaKo Partners (17/10/2026): sólo el admin de una agencia
   | 'partners_llevar' | 'partners_ver'
   // la selección (las de app/crm/AccionesLoteLeads.tsx)
-  | 'lote_etapa' | 'lote_etiqueta' | 'lote_closer' | 'lote_setter' | 'lote_funnel' | 'lote_limpiar' | 'lote_eliminar'
+  | 'lote_etapa' | 'lote_etiqueta' | 'lote_closer' | 'lote_setter' | 'lote_funnel' | 'lote_frenar' | 'lote_limpiar' | 'lote_eliminar'
   // una columna (las del «⋯» de su cabecera; «Nuevo lead» vive ahí desde el 21/10/2026)
   | 'col_nuevo_lead' | 'col_izquierda' | 'col_derecha' | 'col_campanas' | 'col_evento' | 'col_tipo' | 'col_curso_prender' | 'col_curso_apagar'
   | 'col_renombrar' | 'col_agregar' | 'col_eliminar'
@@ -70,6 +72,10 @@ export type ContextoCrm =
      * `llevarAPartnersAction` lo exigen).
      */
     partners?: 'llevar' | 'ver' | null;
+    /** Este lead está en una automatización (22/10/2026): se ofrece «Frenar automatización». */
+    enAutomatizacion?: boolean;
+    /** Cuántos de los tildados están en una automatización: con alguno, el lote ofrece «Frenar automatización». */
+    loteEnAutomatizacion?: number;
   }
   | {
     sobre: 'columna';
@@ -132,6 +138,8 @@ export function opcionesCrm(c: ContextoCrm): Array<IdOpcionCrm | null> {
       ...(c.hayEquipo ? ['lote_closer', 'lote_setter'] as const : []),
       ...(c.hayOtroFunnel ? ['lote_funnel' as const] : []),
       null,
+      ...((c.loteEnAutomatizacion ?? 0) > 0 ? ['lote_frenar' as const] : []),
+      null,
       'lote_limpiar',
       null,
       'lote_eliminar',
@@ -149,6 +157,8 @@ export function opcionesCrm(c: ContextoCrm): Array<IdOpcionCrm | null> {
     // «Si le doy click derecho a las cards, debería poder ver la opción de "Personalizar tarjeta"» (Martín, 21/10/2026).
     // Sólo en la TARJETA: la fila de la lista no es una tarjeta.
     ...(c.sobre === 'tarjeta' ? ['personalizar_tarjeta' as const] : []),
+    null,
+    ...(c.enAutomatizacion ? ['frenar_automatizacion' as const] : []),
     null,
     c.seleccionado ? 'quitar_seleccion' : 'seleccionar',
     null,
@@ -176,12 +186,14 @@ export const OPCION_CRM: Readonly<Record<IdOpcionCrm, { texto: string; icono: No
   quitar_seleccion: { texto: 'Quitar de la selección', icono: 'quitar' },
   eliminar: { texto: 'Eliminar', icono: 'borrar', peligro: true },
   personalizar_tarjeta: { texto: 'Personalizar tarjeta', icono: 'configurar' },
+  frenar_automatizacion: { texto: 'Frenar automatización', icono: 'pausar', peligro: true },
   lote_etapa: { texto: 'Mover a etapa', icono: 'etapa' },
   lote_etiqueta: { texto: 'Agregar etiqueta', icono: 'etiqueta-mas' },
   lote_closer: { texto: 'Asignar closer', icono: 'persona' },
   lote_setter: { texto: 'Asignar setter', icono: 'persona' },
   lote_funnel: { texto: 'Agregar a un funnel', icono: ICONO_FUNNEL },
   lote_limpiar: { texto: 'Quitar la selección', icono: 'quitar' },
+  lote_frenar: { texto: 'Frenar automatización', icono: 'pausar', peligro: true },
   lote_eliminar: { texto: 'Eliminar', icono: 'borrar', peligro: true },
   col_nuevo_lead: { texto: 'Nuevo lead', icono: 'persona-mas' },
   col_izquierda: { texto: 'Mover a la izquierda', icono: 'mover' },

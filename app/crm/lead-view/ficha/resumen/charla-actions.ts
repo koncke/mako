@@ -21,7 +21,6 @@
 import { getUsuarioActual } from '@/lib/auth';
 import { getTenantDb } from '@/lib/workspace';
 import { hiloWhatsApp } from '@/lib/crm-movil';
-import { inscripcionesDeLead } from '@/lib/api-mako/areas/chatbot.helpers';
 import { conversacionesSocialesDe, mensajesSociales } from '@/lib/canal-zernio';
 
 const idValido = (x: unknown): x is number => typeof x === 'number' && Number.isInteger(x) && x > 0;
@@ -119,21 +118,8 @@ export async function mensajesListosAction(leadId: number): Promise<MensajeListo
   }
 }
 
-/** En qué automatizaciones está el lead: las que corren y las frenadas porque respondió. */
-export type AutomatizacionDelLead = { secuencia: string; estado: string; proximo: string | null; ultimo: string | null };
-export async function automatizacionesDelLeadAction(leadId: number): Promise<AutomatizacionDelLead[] | null> {
-  if (!(await haySesion())) return null;
-  if (!idValido(leadId)) return null;
-  try {
-    const filas = await inscripcionesDeLead(leadId);
-    // Las que siguen vivas: corriendo, o frenadas porque respondió (`respondio`). Terminada, cancelada o «no responde» ya no corre.
-    // (El `desenlace` NO sirve para esto: medido el 17/10/2026, una `activa` lo tiene puesto.)
-    return filas.filter((f) => f.estado === 'activa' || f.estado === 'respondio')
-      .map((f) => ({ secuencia: f.secuencia?.nombre?.trim() || 'Una automatización', estado: f.estado, proximo: f.proximo_envio_at, ultimo: f.ultimo_paso_at }));
-  } catch {
-    return null;
-  }
-}
+// «En qué automatizaciones está el lead» se fue de acá el 22/10/2026: el bloque de la ficha lee la de Automations
+// (automatizacionesDelLeadAction, con el paso y «Frenar»; app/crm/automatizaciones-stub.ts dice dónde vive).
 
 /** Lo que le mandaron las automatizaciones: cuántos toques, por canal, y cuántos abrió, clickeó o respondió. */
 export type LoQueLeMandamos = { toques: number; porCanal: Record<string, number>; abiertos: number; clics: number; respuestas: number; ultimo: string | null };

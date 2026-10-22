@@ -70,7 +70,10 @@ import { useImperativeHandle, useState, useTransition } from 'react';
 import type { CSSProperties, Ref } from 'react';
 import { Confirm, SANS, MONO } from '@/app/_ui';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
-import { IconoFunnel } from '@/app/_ui/iconos-menu';
+import { IconoFunnel, IconoMenu } from '@/app/_ui/iconos-menu';
+import { preguntaDeFrenar } from './automatizacion-lead';
+// ⚠️ STUB hasta que las acciones de Automations lleguen a main (ver su cabecera): al integrar, este import cambia.
+import { frenarLeadsEnAutomatizacionesAction } from './automatizaciones-stub';
 import { Dropdown } from '@/app/components/Dropdown';
 import type { Stage } from '@/lib/pipeline';
 import type { MiembroEquipo } from './actions';
@@ -90,6 +93,8 @@ export type LeadDeLote = {
   stage: string;
   closer: string;
   setter: string;
+  /** Está en una automatización (22/10/2026): con alguno así, la barra ofrece «Frenar». */
+  enAutomatizacion?: boolean;
 };
 
 export type ProductoDeLote = { id: number; nombre: string; esDefault: boolean };
@@ -141,7 +146,8 @@ async function loteEtiqueta(action: 'poner_lote' | 'sacar_lote', leadIds: number
 type Pendiente =
   | { tipo: 'etapa'; stage: Stage }
   | { tipo: 'persona'; campo: 'closer' | 'setter'; valor: string; pisa: number }
-  | { tipo: 'borrar' };
+  | { tipo: 'borrar' }
+  | { tipo: 'frenar' };
 
 /**
  * Los funnels a los que se puede AGREGAR la seleccion: todos menos el que se esta mirando (ahi ya estan
@@ -167,6 +173,8 @@ export type ManijaLote = {
   etiquetar: (e: Etiqueta) => void;
   agregarAFunnel: (funnelId: number | null) => void;
   eliminar: () => void;
+  /** «Frenar automatización» de los tildados que están en una (22/10/2026). */
+  frenar: () => void;
 };
 
 export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelActivo, onLimpiar, onListo, estilo, ref }: {
@@ -189,6 +197,8 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
   const ids = elegidos.map((l) => l.id);
 
   const rotCuenta = `${n} ${n === 1 ? 'lead seleccionado' : 'leads seleccionados'}`;
+  // Los tildados que están en una automatización: sólo a ésos los frena «Frenar» (22/10/2026).
+  const idsEnAut = elegidos.filter((l) => l.enAutomatizacion).map((l) => l.id);
   const cuantos = `${n} ${n === 1 ? 'lead' : 'leads'}`;
 
   // ⚠️ CUANTOS TIENEN YA UN VALOR PUESTO. Es lo unico que convierte «asignar» en una
@@ -288,6 +298,10 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
           const r = await bulkFillLeadFieldAction(pide.campo, pide.valor, ids, true);
           const campo = pide.campo === 'closer' ? 'Closer' : 'Setter';
           onListo({ texto: `${campo} «${pide.valor}» en ${r.updated}`, hubo: r.updated > 0 });
+        } else if (pide.tipo === 'frenar') {
+          // UNA escritura sobre los que están en una automatización (Automations): no queda a medias.
+          const r = await frenarLeadsEnAutomatizacionesAction(idsEnAut);
+          onListo({ texto: r.ok ? r.resumen : r.error, hubo: r.ok && r.frenados > 0 });
         } else {
           const r = await eliminarLeadsAction(ids);
           const mal = r.fallaron ? ` · ${r.fallaron} no se pudieron` : '';
@@ -314,6 +328,7 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
     etiquetar: (e: Etiqueta) => { if (!corriendo) etiquetar(e); },
     agregarAFunnel,
     eliminar: () => setPide({ tipo: 'borrar' }),
+    frenar: () => { if (idsEnAut.length) setPide({ tipo: 'frenar' }); },
   }));
 
   if (n === 0) return null;
@@ -381,6 +396,15 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
 
         {/* ── DERECHA: lo irreversible, solo. ──────────────────────────────────── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0, justifyContent: 'flex-end' }}>
+          {/* «Frenar automatización» (22/10/2026): sólo si alguno de los tildados está en una. No se deshace: pregunta. */}
+          {idsEnAut.length > 0 && (
+            <button type="button" className="mk-icon-btn" data-tone="bad" data-frenar-lote
+              title={`Frenar la automatización de ${idsEnAut.length} ${idsEnAut.length === 1 ? 'lead' : 'leads'}`}
+              aria-label={`Frenar la automatización de ${idsEnAut.length} ${idsEnAut.length === 1 ? 'lead' : 'leads'}`}
+              onClick={() => setPide({ tipo: 'frenar' })} style={btnIcono}>
+              <IconoMenu nombre="pausar" size={16} />
+            </button>
+          )}
           <button type="button" className="mk-icon-btn" data-tone="bad"
             title={`Eliminar ${cuantos}`} aria-label={`Eliminar ${cuantos}`}
             onClick={() => setPide({ tipo: 'borrar' })} style={btnIcono}>
@@ -411,6 +435,17 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
           confirmLabel="Asignar" tone="primary" loading={corriendo}
           onConfirm={ejecutar} onCancel={cerrar} />
       )}
+      {pide?.tipo === 'frenar' && (() => {
+        const q = preguntaDeFrenar({ leads: idsEnAut.length, nombre: idsEnAut.length === 1 ? elegidos.find((l) => l.id === idsEnAut[0])?.name : null });
+        // Los tildados que NO están en una automatización no se tocan: se dice, para que el número no sorprenda.
+        const fuera = n - idsEnAut.length;
+        return (
+          <Confirm title={q.titulo}
+            message={fuera > 0 ? `${q.mensaje} ${fuera === 1 ? 'El otro tildado no está' : `Los otros ${fuera} tildados no están`} en ninguna.` : q.mensaje}
+            confirmLabel="Frenar" tone="danger" loading={corriendo}
+            onConfirm={ejecutar} onCancel={cerrar} />
+        );
+      })()}
       {pide?.tipo === 'borrar' && (
         <Confirm
           title={`¿Eliminar ${cuantos}?`}
