@@ -95,7 +95,7 @@ import { SenalesMetaChips } from './MoverEtapaConfirm';
 import { coincideBusqueda } from '@/lib/buscar-texto';
 import type { FunnelResumen } from '@/lib/funnel-fila';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
-import { LogoMeet, LogoMeta } from '@/app/_components/ServicioVisual';
+import { LogoMeta } from '@/app/_components/ServicioVisual';
 import { openCalendlyEn } from './calendly-widget';
 import {
   AccionesHeader,
@@ -2367,7 +2367,7 @@ export function CrmBoard({
       return {
         leadId: null, colKey: c.key,
         ctx: {
-          sobre: 'columna', mover: seArrastraCol(c), entrada: c.kind === 'entrada',
+          sobre: 'columna', mover: seArrastraCol(c), entrada: c.kind === 'entrada', reunion: c.kind === 'reunion',
           // La MISMA condición que el renglón del «⋯» (y su test, tests/crm-curso-al-ganar.test.ts).
           curso: cursoAlGanar && terminalEstadoFor(c.key) === 'ganado' ? cursoPrendido : null,
           borrable: colsBorrables.has(c.key),
@@ -2451,11 +2451,14 @@ export function CrmBoard({
       case 'lote_funnel': if (valor) manijaLote.current?.agregarAFunnel(valor === FUNNEL_DEL_NEGOCIO ? null : Number(valor)); return;
       case 'lote_limpiar': limpiarSel(); return;
       case 'lote_eliminar': manijaLote.current?.eliminar(); return;
-      // El «＋ Nuevo lead» del carril de esa columna, por el mismo camino (`altaPendiente`).
+      case 'personalizar_tarjeta':
+      case 'personalizar_tarjetas': setPersonalizando(true); return;
+      // El «Nuevo lead» del «⋯» de esa columna, por el mismo camino (`altaPendiente`).
       case 'col_nuevo_lead': if (c) { setAltaPendiente(null); setNuevoLead({ etapa: c.key }); } return;
       case 'col_izquierda': if (c) moverCol(c.key, -1); return;
       case 'col_derecha': if (c) moverCol(c.key, 1); return;
       case 'col_campanas': setCampanasAbierto(true); return;
+      case 'col_evento': if (c) setEventoDe({ etapa: c.key, nombre: c.label }); return;
       case 'col_curso_prender': void cambiarCurso(true); return;
       case 'col_curso_apagar': void cambiarCurso(false); return;
       case 'col_renombrar': if (c) setRenombrando(c.key); return;
@@ -2686,6 +2689,10 @@ export function CrmBoard({
                       },
                     ],
                   }] : []),
+                  // «Quiero que elimines el botón de "nuevo lead" de donde está en las columnas y lo pongas dentro de los 3
+                  // puntos de cada columna» (Martín, 21/10/2026). Era un placeholder punteado arriba de cada carril
+                  // (29/09). Sigue entrando por el MISMO camino (`setNuevoLead({ etapa })` → `altaPendiente` → `handleDrop`).
+                  { value: 'nuevo', label: 'Nuevo lead', icono: 'persona-mas' as const },
                   // «En la opción de los 3 puntos de "Lead entrante" debería estar la opción
                   // para asignar una campaña» (Martín, 05/10/2026). Sólo en la ENTRADA: es la
                   // etapa por la que entra un lead de Meta, y es el mismo lugar donde vive la
@@ -2695,7 +2702,9 @@ export function CrmBoard({
                   ...(c.kind === 'entrada' ? [{ value: 'campanas', label: 'Asignar campañas', icono: <LogoMeta size={17} /> }] : []),
                   // «Falta la misma opción para las etapas de reunión "Asignar evento" con el logo de Meet» (Martín,
                   // 16/10/2026): el evento de agenda cuyas reservas caen en esta etapa (./EventosDeEtapaModal.tsx).
-                  ...(c.kind === 'reunion' ? [{ value: 'evento', label: 'Asignar evento', icono: <LogoMeet size={17} /> }] : []),
+                  // El ícono, desde el 21/10/2026, es el calendario de línea de la casa (`evento`) y no el logo de Meet a color:
+                  // «no me gusta que tenga color, un ícono más simple, que se entienda» (Martín).
+                  ...(c.kind === 'reunion' ? [{ value: 'evento', label: 'Asignar evento', icono: 'evento' as const }] : []),
                   // «Automatizar la invitación al curso cuando un lead cae a Ganado... Pero que sea
                   // opcional» (Martín, 07/10/2026). En Ganado, que es donde se ve a quién le llega, y
                   // sólo si el producto tiene clases (sin curso no hay a qué invitar).
@@ -2732,6 +2741,7 @@ export function CrmBoard({
                   ...(colsBorrables.has(c.key) ? [{ value: 'eliminar', label: 'Eliminar etapa', icono: 'borrar' as const }] : []),
                 ]}
                 onChange={(v) => {
+                  if (v === 'nuevo') { setAltaPendiente(null); setNuevoLead({ etapa: c.key }); return; }
                   if (v === 'campanas') { setCampanasAbierto(true); return; }
                   if (v === 'evento') { setEventoDe({ etapa: c.key, nombre: c.label }); return; }
                   if (v === 'curso') { void cambiarCurso(!cursoPrendido); return; }
@@ -2744,25 +2754,12 @@ export function CrmBoard({
           )}
         </div>
         <div data-carril style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
-          {/* ⚠️ EL PLACEHOLDER PASA POR EL MISMO CAMINO QUE SOLTAR UNA TARJETA ACÁ.
-              Pedido de Martín (29/09/2026): «en todas las columnas, siempre al principio un
-              placeholder más finito que las cards normales, que diga Nuevo lead».
-
-              Por qué NO crea el lead «en esta etapa» de una: el alta no acepta una etapa a
-              propósito. Escribir `pipeline_stage` en el alta sería un SEGUNDO escritor que
-              saltea el choke point donde `setPipelineStage` audita TODO movimiento
-              (lib/leads.ts). Y hay columnas donde un alta a ciegas MIENTE: «Nutrición -
-              Manual» pide su plazo, las de reunión abren la agenda, Ganado escribiría una
-              venta sin monto que después cuentan los números de facturación, y Perdido un
-              lead nacido perdido sin motivo. Entrando por `handleDrop`, cada columna abre lo mismo
-              que abre al soltar una tarjeta ahí.
-
-              Apagado y se ilumina al pasar el cursor: el mismo molde que «＋ Nueva tarea» del
-              tablero del plan. El hover lo pone el velo de `.crm-hover button:hover`. */}
-          <button type="button" onClick={() => { setAltaPendiente(null); setNuevoLead({ etapa: c.key }); }}
-            title={`Cargar un lead en ${c.label}`}
-            style={{ flex: 'none', textAlign: 'left', border: '1px dashed var(--border-strong)', background: 'none', color: 'var(--faint)', borderRadius: 11, padding: '7px 13px', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}
-          >＋ Nuevo lead</button>
+          {/* ⚠️ ACÁ HUBO UN PLACEHOLDER «＋ Nuevo lead» arriba de cada carril (29/09/2026) y se fue el 21/10/2026 al «⋯» de
+              la columna: «Quiero que elimines el botón de "nuevo lead" de donde está en las columnas y lo pongas dentro de
+              los 3 puntos de cada columna» (Martín). El alta sigue pasando por el mismo camino que soltar una tarjeta
+              acá (`handleDrop`): el alta no acepta una etapa a propósito (sería un segundo escritor que saltea la
+              auditoría de `setPipelineStage`), y cada columna abre lo que abre al soltar (el plazo de «Nutrición -
+              Manual», la agenda de las de reunión, el monto de Ganado, el motivo de Perdido). */}
           {cards.map((l, iCard) => {
             const hueco = insTarjeta?.col === c.key && insTarjeta.idx === iCard;
             return (

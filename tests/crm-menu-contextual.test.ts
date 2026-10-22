@@ -56,11 +56,12 @@ const finalEsBorrar = (xs: ReadonlyArray<IdOpcionCrm | null>, id: IdOpcionCrm) =
 // Roturas: WhatsApp sin la condición `conWhatsapp` → 1 fallo. «Eliminar» antes de «Seleccionar» → 1 fallo.
 test('una tarjeta: su menú, con WhatsApp y copiar sólo si hay el dato, y «Eliminar» al final y separado', () => {
   const pelado = opcionesCrm(lead());
-  assert.deepEqual(pelado, ['abrir', 'mover_etapa', null, 'seleccionar', null, 'eliminar'], 'sin teléfono ni email no hay a dónde escribir ni qué copiar');
+  assert.deepEqual(pelado, ['abrir', 'mover_etapa', null, 'personalizar_tarjeta', null, 'seleccionar', null, 'eliminar'], 'sin teléfono ni email no hay a dónde escribir ni qué copiar');
   const completo = opcionesCrm(lead({ conWhatsapp: true, conTelefono: true, conEmail: true }));
   assert.deepEqual(completo.slice(0, 6), ['abrir', 'mover_etapa', null, 'whatsapp', 'copiar_telefono', 'copiar_email']);
   finalEsBorrar(completo, 'eliminar');
-  assert.deepEqual(opcionesCrm(lead({ sobre: 'fila' })), pelado, 'la fila de la tabla es el mismo lead: el mismo menú');
+  // La fila de la lista es el mismo lead: el mismo menú, menos «Personalizar tarjeta» (una fila no es una tarjeta).
+  assert.deepEqual(opcionesCrm(lead({ sobre: 'fila' })), pelado.filter((x, i) => x !== 'personalizar_tarjeta' && !(x === null && pelado[i - 1] === 'personalizar_tarjeta')));
   assert.ok(sinSeparadoresDeMas(completo).length === completo.length, 'sin rayas de más');
 });
 
@@ -92,6 +93,9 @@ test('la columna: flechas si se arrastra, campañas en la entrada, el curso en G
   // La entrada: no se mueve ni se borra (el server la fuerza primera), y es donde viven las campañas de Meta.
   assert.deepEqual(opcionesCrm(col({ mover: false, entrada: true, borrable: false })), ['col_nuevo_lead', null, 'col_campanas', 'col_renombrar', 'col_agregar']);
   assert.ok(!comun.includes('col_campanas'), 'las campañas sólo en la entrada');
+  // La de reunión: «Asignar evento», como en su «⋯» (21/10/2026: también en el clic derecho).
+  assert.deepEqual(opcionesCrm(col({ reunion: true })), ['col_izquierda', 'col_derecha', null, 'col_nuevo_lead', null, 'col_evento', 'col_renombrar', 'col_agregar', null, 'col_eliminar']);
+  assert.ok(!comun.includes('col_evento'), 'el evento sólo en una etapa de reunión');
   // Ganado: el rótulo dice lo que va a pasar al tocarlo (sin subtítulo «Prendido»/«Apagado»).
   assert.ok(opcionesCrm(col({ curso: true })).includes('col_curso_apagar'));
   assert.ok(opcionesCrm(col({ curso: false })).includes('col_curso_prender'));
@@ -100,7 +104,7 @@ test('la columna: flechas si se arrastra, campañas en la entrada, el curso en G
 
 // Rotura: «Quitar la selección» sin la condición → 1 fallo.
 test('el fondo: lo del «⋯» de la barra, y «Quitar la selección» sólo con selección', () => {
-  assert.deepEqual(opcionesCrm({ sobre: 'fondo', seleccionados: 0 }), ['nuevo_lead', null, 'importar', 'exportar', null, 'editar_etapas']);
+  assert.deepEqual(opcionesCrm({ sobre: 'fondo', seleccionados: 0 }), ['nuevo_lead', null, 'importar', 'exportar', null, 'editar_etapas', 'personalizar_tarjetas']);
   assert.deepEqual(opcionesCrm({ sobre: 'fondo', seleccionados: 4 }).slice(-2), [null, 'lote_limpiar']);
 });
 
@@ -159,7 +163,7 @@ test('los textos de la columna son LOS MISMOS del «⋯», y el «⋯» ya no ll
   const opciones = BOARD.slice(ini, BOARD.indexOf('onChange={(v) => {', ini));
   assert.ok(ini > 0 && opciones.length > 300, 'no encontré las opciones del «⋯» de la columna');
   assert.doesNotMatch(opciones, /\bsub:/, '«elimina todos los subtitulos de los botones de los 3 puntos» (14/10/2026)');
-  for (const id of ['col_campanas', 'col_curso_prender', 'col_curso_apagar', 'col_renombrar', 'col_agregar', 'col_eliminar'] as const) {
+  for (const id of ['col_nuevo_lead', 'col_campanas', 'col_evento', 'col_curso_prender', 'col_curso_apagar', 'col_renombrar', 'col_agregar', 'col_eliminar'] as const) {
     assert.ok(opciones.includes(`'${OPCION_CRM[id].texto}'`), `«${OPCION_CRM[id].texto}» del clic derecho no es el texto del «⋯»`);
   }
 });

@@ -25,7 +25,7 @@ import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { Modal, Spinner, Toast, useToast, Button, SANS, MONO } from '@/app/_ui';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
-import { LogoMeet } from '@/app/_components/ServicioVisual';
+import { IconoMenu } from '@/app/_ui/iconos-menu';
 import {
   listarEventosAgendaAction, vincularEventoEtapaAction, desvincularEventoEtapaAction,
   type AgendaDelNegocio, type EventoDeAgenda,
@@ -168,7 +168,7 @@ export function EventosDeEtapaModal({ funnelId, etapa, etapaNombre, onCerrar }: 
 
   if (!montado) return null;
   return createPortal(
-    <Modal titulo={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><LogoMeet size={18} /> Asignar evento</span>}
+    <Modal titulo={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><IconoMenu nombre="evento" size={18} /> Asignar evento</span>}
       encabezado={<span style={{ fontSize: 12.5, color: 'var(--faint)' }}>{etapaNombre}</span>}
       onCerrar={onCerrar} ancho={820} alto="min(80vh, 640px)" sinFiletes>
       {contenido}

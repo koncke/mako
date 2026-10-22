@@ -92,6 +92,10 @@ const TRAZOS = {
   mako: <path d="M12 3.5c.6 3.9 2.6 5.9 6.5 6.5-3.9.6-5.9 2.6-6.5 6.5-.6-3.9-2.6-5.9-6.5-6.5 3.9-.6 5.9-2.6 6.5-6.5ZM18.5 15.5c.3 1.6 1 2.3 2.5 2.5-1.5.3-2.2 1-2.5 2.5-.3-1.5-1-2.2-2.5-2.5 1.5-.2 2.2-.9 2.5-2.5Z" />,
   curso: <><path d="M4.5 5.5A2 2 0 0 1 6.5 3.5h12v14h-12a2 2 0 0 0-2 2V5.5Z" /><path d="M4.5 19.5a2 2 0 0 0 2 2h12" /></>,
   calendario: <><rect x="3.5" y="5" width="17" height="15.5" rx="2" /><path d="M3.5 10h17M8 3v4M16 3v4" /></>,
+  // «Asignar evento» de una etapa de reunión (21/10/2026). Martín: «El ícono de "Asignar evento" que sea otro, no me
+  // gusta que tenga color, un ícono más simple, que se entienda... algo como el que adjunto» (un calendario de línea
+  // con un check). Era el logo de Meet, a color. El mismo calendario de arriba, con el check adentro.
+  evento: <><rect x="3.5" y="5" width="17" height="15.5" rx="2" /><path d="M3.5 10h17M8 3v4M16 3v4" /><path d="m9 15.2 2.1 2.1 4-4.1" /></>,
   reloj: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></>,
   cronometro: <><circle cx="12" cy="13.5" r="7" /><path d="M12 10v3.5l2 1.5M10 3h4M12 3v3.5" /></>,
   condicion: <><circle cx="6" cy="6" r="2" /><circle cx="6" cy="18" r="2" /><circle cx="18" cy="8" r="2" /><path d="M6 8v8M18 10c0 4-6 3.5-11 6.5" /></>,

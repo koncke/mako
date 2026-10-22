@@ -19,7 +19,7 @@
 //    title con el valor completo.
 
 import Link, { useRouter, useWs } from '@/app/_ui/Link';
-import { ICONO_VISTA } from '@/app/_ui/iconos-vista';
+import { SelectorVista } from '@/app/_ui/SelectorVista';
 import { conWs } from '@/lib/ws-tab';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { useEffect, useLayoutEffect, useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
@@ -38,8 +38,6 @@ import { ANCHO_PANEL, MARGEN_VENTANA, lugarDelPanel } from './filtro-panel';
 import { Confirm } from '@/app/_ui/Confirm';
 import { LapizIcon } from './iconos';
 import { BANDAS_KANBAN } from './filtros-guardados';
-import { EstiloTarjetas } from '@/app/_ui/TarjetaKanban';
-import { Tooltip } from '@/app/_ui/Tooltip';
 // El CUBO del desplegable de funnels (punto 24): el ícono `producto` del set de los menús, el
 // mismo que dibuja un funnel en el resto de la app. No se dibuja uno propio.
 import { IconoFunnel, IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
@@ -318,27 +316,13 @@ export function VistaSelector({ vista, onVista, pendientes }: {
   pendientes: number;
 }) {
   void pendientes;
-  // ⚠️ PESTAÑAS PÍLDORA (17/10/2026, la familia del prototipo docs/prototipos/coherencia-1710.html): «Tablero · Lista»,
-  //    las dos vistas que existen (decidido: las del prototipo se mapean a las de hoy). El ícono sigue saliendo de
-  //    app/_ui/iconos-vista (el mismo que Customer Success). El estilo es el de `.tk-ptab` (app/_ui/TarjetaKanban.tsx).
-  // ⚠️ SÓLO EL ÍCONO, CON TOOLTIP (20/10/2026, Martín: «Los botones de "Tablero y lista" solo con íconos debería
-  //    estar»). El nombre de la vista sigue en el tooltip de la casa y en el `aria-label`: el teléfono no tiene este
-  //    selector, así que el tooltip no esconde nada que haga falta (la regla de app/_ui/Tooltip.tsx).
-  const NOMBRE: Record<CrmVista, string> = { kanban: 'Tablero', tabla: 'Lista' };
-  return (
-    <div className="tk-ptabs" role="tablist" aria-label="Cómo ver los leads" style={{ flex: 'none', padding: 0, overflow: 'visible' }}>
-      <EstiloTarjetas />
-      {(['kanban', 'tabla'] as const).map((v) => (
-        <Tooltip key={v} text={NOMBRE[v]} side="bottom">
-          <button type="button" role="tab" className="tk-ptab" onClick={() => onVista(v)} aria-selected={vista === v}
-            aria-label={NOMBRE[v]} style={{ height: 34, width: 40, padding: 0, justifyContent: 'center' }}>
-            {ICONO_VISTA[v].icono}
-          </button>
-        </Tooltip>
-      ))}
-    </div>
-  );
+  // ⚠️ «KANBAN · LISTA», JUNTOS EN UN SEGMENTO (21/10/2026, Martín: «Los íconos de "tablero y lista" deberían estar como
+  //    juntos en una sección, y el placeholder del "tablero" debe ser "kanban"... Esto en todos lados»). Es la pieza
+  //    compartida con Clientes y el Plan (app/_ui/SelectorVista.tsx): sólo el ícono, con el nombre en el tooltip
+  //    (20/10: «solo con íconos»). Hasta el 21/10 eran dos píldoras `.tk-ptab` sueltas y la primera decía «Tablero».
+  return <SelectorVista vistas={VISTAS_CRM} vista={vista} onVista={onVista} ariaLabel="Cómo ver los leads" />;
 }
+const VISTAS_CRM: readonly CrmVista[] = ['kanban', 'tabla'];
 
 // -- «Sin marcar» se mudó al panel de abajo a la derecha ---------------------
 // Acá vivía `PendientesAtajo`, un chip con su contador al lado del toggle. Primero

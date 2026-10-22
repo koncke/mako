@@ -63,7 +63,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   // hacer es quitar eso… tengo que quitar toda la fricción que hay en el CRM y que se entre
   // automáticamente»; y el que probaba: «no entiendo nada, siento que es mucho texto».
   // Un CRM vacío NO es una bienvenida muerta: los leads se cargan a mano, se importan o
-  // entran desde WhatsApp, y el tablero ya tiene el «＋ Nuevo lead» en cada columna.
+  // entran desde WhatsApp, y el tablero tiene «+ Nuevo lead» en la barra (y en el «⋯» de cada columna, desde el 21/10).
   // Lo que el panel decía (qué conectar para que entren solos) sigue en TABS_ACTIVACION.crm
   // (lib/tab-activacion.ts), que es lo que MaKo contesta cuando se lo preguntan
   // (ver_activacion_tab); lo fija tests/crm-entra-directo.test.ts.

@@ -31,7 +31,8 @@
 //   sueltas sin color (tk-pr--0..4, tk-c-*, tk-insignia, tk-medidor, tk-sub, tk-ptab…).
 // Y el 7 (18/10/2026), con el archivo en 7 / 0: el kit como estaba en producción (sólo la ficha rápida montaba los
 //   estilos) → 6 / 1, nombrando CaraTarjeta y PestanasPildora (las tarjetas pasan porque dibujan una CaraTarjeta); y
-//   VistaSelector del CRM sin el suyo → 6 / 1, nombrando app/crm/CrmToolbar.tsx. Sacarlo SÓLO de TarjetaPersona da
+//   VistaSelector del CRM sin el suyo → 6 / 1, nombrando app/crm/CrmToolbar.tsx (21/10: ya no usa clases tk-*, es el
+//   segmento compartido app/_ui/SelectorVista.tsx, y salió de la lista). Sacarlo SÓLO de TarjetaPersona da
 //   7 / 0, y está bien: su CaraTarjeta lo monta igual (una rotura que no cambia la pantalla no prueba nada).
 // Y el 8 (18/10/2026), con el archivo en 8 / 0: el CrmBoard de antes (columna al 55 % y «Próximo» siempre abierto)
 //   → 7 / 1; y KanbanEntrega de antes (su columna al 55 %) → 7 / 1.
@@ -173,7 +174,7 @@ test('cada componente del kit monta sus estilos, y quien usa clases tk-* sueltas
   });
   assert.deepEqual(sinEstilo, [], `componentes del kit que dependen de que otro monte los estilos: ${sinEstilo.join(', ')}`);
   // Quien escribe clases del kit a mano (sin un componente del kit en el mismo archivo) monta los estilos él mismo.
-  const conClases = ['app/crm/CrmBoard.tsx', 'app/crm/CrmToolbar.tsx', 'app/customer-success/ClienteCard.tsx', 'app/m/crm/TableroCrm.tsx',
+  const conClases = ['app/crm/CrmBoard.tsx', 'app/customer-success/ClienteCard.tsx', 'app/m/crm/TableroCrm.tsx',
     'app/m/cs/CustomerSuccessM.tsx', 'app/m/plan/ListaPlan.tsx', 'app/plan/board/BoardShell.tsx'];
   const huerfanos = conClases.filter((f) => {
     const t = leer(f);

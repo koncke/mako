@@ -9,6 +9,7 @@
 // de MaKo + Change history (avatar + deshacer por entrada), editor de proyectos
 // con emoji, y el form bloqueante para tareas Alta sin deadline/checklist.
 
+import { SelectorVista } from '@/app/_ui/SelectorVista';
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { UndoToast } from '../../_components/UndoToast';
@@ -2423,25 +2424,15 @@ function IEMeter({ label, v, color }: { label: string; v: number; color: string 
 function ProjScore({ score, color, big }: { score: number; color: string; big?: boolean }) {
   return <span title="Prioridad del proyecto" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: big ? 15 : 11, fontWeight: 700, color, background: color + '18', border: `1px solid ${color}33`, borderRadius: 6, padding: big ? '3px 10px' : '2px 6px 2px 5px' }}><ScoreIcon size={big ? 15 : 11} color={color} />{score}</span>;
 }
-// TARJETAS o TABLA. Vive al lado de «Filtrar» porque es lo mismo que un filtro: cambia
+// KANBAN o LISTA. Vive al lado de «Filtrar» porque es lo mismo que un filtro: cambia
 // cómo mirás lo que ya está, no lo que hay. Se recuerda por navegador y por vista.
+// Es el segmento COMPARTIDO con el CRM y Clientes (app/_ui/SelectorVista.tsx): hasta el 21/10/2026 era una copia
+// propia que decía «Ver en tarjetas» y «Ver en tabla». Martín: «el placeholder del "tablero" debe ser "kanban"...
+// Esto en todos lados».
 function VistaToggle({ tabla, onSet }: { tabla: boolean; onSet: (v: boolean) => void }) {
-  const btn = (activo: boolean): CSSProperties => ({
-    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 30, borderRadius: 7,
-    border: 'none', background: activo ? 'var(--surface)' : 'transparent', color: activo ? 'var(--primary)' : 'var(--faint)',
-    boxShadow: activo ? '0 1px 2px rgba(18,21,27,.08)' : 'none', cursor: 'pointer', flex: 'none',
-  });
-  return (
-    <div style={{ display: 'inline-flex', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, padding: 2 }}>
-      <button type="button" onClick={() => onSet(false)} aria-pressed={!tabla} title="Ver en tarjetas" aria-label="Ver en tarjetas" style={btn(!tabla)}>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>
-      </button>
-      <button type="button" onClick={() => onSet(true)} aria-pressed={tabla} title="Ver en tabla — con deadline, días que faltan y atraso" aria-label="Ver en tabla" style={btn(tabla)}>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
-      </button>
-    </div>
-  );
+  return <SelectorVista vistas={VISTAS_PLAN} vista={tabla ? 'tabla' : 'kanban'} onVista={(v) => onSet(v === 'tabla')} ariaLabel="Cómo ver las tareas" />;
 }
+const VISTAS_PLAN = ['kanban', 'tabla'] as const;
 // LA RAZÓN DEL NÚMERO, PLEGADA. Estaba suelta arriba de todo en las dos sidebars y son
 // dos o tres renglones de itálica que nadie lee dos veces: «eso está bien que exista, ya
 // que el perro seguirá funcionando, pero es mucho texto suelto, entonces mejor que sea un
