@@ -1035,10 +1035,17 @@ Misma llamada (Fathom 195129619) y misma conversación medida (ws1, id 18), más
   (el O8 sin esto no andaba).
 
 **Lo que quedó SIN hacer:**
-- **El lector de afuera recibe la URL entera (revisión del Cerebro, 22/10):** si alguien pega un link privado con un token
-  en la URL (un Drive compartido, una página con `?token=` o `?key=`), ese token le llega a r.jina.ai. El arreglo pendiente
-  es no mandarle al lector externo una URL con parámetros que parezcan credenciales (`lib/offer-lector-externo.ts`,
-  `leerConLectorExterno`): sin el lector, queda el mensaje de siempre («copia su texto y pégalo aquí»).
+- ~~**El lector de afuera recibe la URL entera.**~~ Cerrado el 22/10 (OF2): un link con algo que parece un acceso no sale a
+  r.jina.ai y se le dice al dueño «Esa página pide acceso: súbela en .zip o copia su texto y pégalo aquí.»
+  (`credencialEnLaUrl` en lib/offer-reglas.ts; la ruta frena antes y `leerConLectorExterno` es la última puerta). Mira el
+  nombre del parámetro (token, key, sig, auth, code, secret, session, las firmas de S3 y GCS), un valor que parece un código
+  (24 o más caracteres con letras y números) y el usuario y clave del link. **La trampa: un Drive compartido NO lleva el
+  token en un parámetro**, lo lleva en la RUTA (`/d/<id>`), y una regla de parámetros lo dejaba salir. Mirar la ruta de
+  cualquier página tampoco sirve (`/webinar-gratuito-octubre-2026-registro` es una landing), así que los links para
+  compartir archivos van por su host (Drive, Docs, Dropbox, OneDrive, SharePoint, Box, WeTransfer). Un Google Doc
+  publicado, que antes se leía por el lector, ahora pide el texto o el archivo: es el precio de no mandar el acceso a un
+  tercero. Lo prueba `tests/offer-lector-credenciales.test.ts` con el lector REAL y un fetch de mentira (8 roturas, las 8
+  cazadas); la landing del Sprint, con su `fbclid`, se sigue leyendo.
 - **El aviso de O9 por el WhatsApp del grupo:** no había camino. Pide un evento de la plataforma nuevo (como
   `oferta_lista`: el catálogo de avisos, lib/disparadores.ts, sus variables) y su fila en el ws 9 con la mudanza. Hoy
   avisa sólo la campanita.
