@@ -9782,3 +9782,17 @@ En una grilla CSS lo que no recorta no empuja la columna: se dibuja encima de la
 Si la tabla tiene más de cuatro columnas, salen de un ancho MEDIDO con mínimo y prioridad (el molde:
 app/crm/tabla-columnas.ts), no de fracciones fijas, y se mide a 934×639 y 1024×768 contando el texto fuera de su celda
 (tests/_crm-lista-arnes.tsx). Detalle: docs/hallazgos-crm.md.
+
+# Arreglar la regla que arma un documento GUARDADO no arregla lo guardado
+
+Un diagnóstico, un PDF, un resumen o una propuesta que se guarda armado es un documento: cuando se arregla la regla que lo
+arma, lo ya guardado sigue diciendo lo de antes y nadie lo vuelve a armar. El 22/10/2026 la v1 del Sprint de Mauricio
+siguió diciendo «solo 2 ventas de 24 asistentes» después del arreglo, y la API de MaKo se la daba a los chats como contexto
+para prospectar (docs/hallazgos-offer.md, OF1).
+
+- **En el mismo cambio que arregla la regla, se decide qué pasa con lo de antes.** Lo seguro es MARCAR al leer (la vista
+  avisa y ofrece rehacerlo; lo que lee la IA no lo recibe) y no reescribir: se escribe cuando la persona lo rehace. La
+  marca no se guarda en la fila: con el próximo guardado quedaría escrita sola.
+- **La marca se mide contra la base, no sólo contra la fecha del deploy.** Un corte por fecha marca también lo que estaba
+  bien: el ws13 tenía un solo funnel y su diagnóstico de antes decía lo mismo que hoy. Antes de subir, un script de sólo
+  lectura cuenta qué filas se marcan y por qué.
