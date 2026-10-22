@@ -24,7 +24,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { sanearPregunta, superarPreguntas, textoDeDecision, type PreguntaChat } from '../lib/centro-preguntas-chat';
 import { historialDelChat, preguntasDeLaApp, preguntasParaElBloque, type ChatCentro } from '../lib/centro-chats';
-import { PreguntasDeLaApp, PreguntasDelChat } from '../app/admin/operaciones/PreguntasDelChat';
+import { BloqueDePreguntas } from '../app/admin/operaciones/PreguntasDelChat';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -101,23 +101,23 @@ test('3. qué va a cada bloque, y cómo queda en el hilo', () => {
 
 test('4. el bloque: de a una con «1 de 2», la recomendada marcada y «otra cosa»; las de la app, sin contestar; en las dos pantallas', () => {
   const dos = [pq(ID(3), '2026-10-22T12:02:00Z'), pq(ID(4), '2026-10-22T12:03:00Z')];
-  const html = renderToStaticMarkup(createElement(PreguntasDelChat, { preguntas: dos, onResponder: async () => null }));
+  const html = renderToStaticMarkup(createElement(BloqueDePreguntas, { chat: 'x', delChat: dos, onResponder: async () => null }));
   assert.match(html, /1 de 2/);
   assert.match(html, /Pregunta 0000/);
   assert.match(html, /\(Recomendada\)/);
   assert.match(html, /placeholder="Escribe otra cosa"/);
-  const una = renderToStaticMarkup(createElement(PreguntasDelChat, { preguntas: [dos[0]], onResponder: async () => null }));
+  const una = renderToStaticMarkup(createElement(BloqueDePreguntas, { chat: 'x', delChat: [dos[0]], onResponder: async () => null }));
   assert.doesNotMatch(una, /1 de 1/, 'con una sola no hay contador: tocar una opción la manda');
-  const app = renderToStaticMarkup(createElement(PreguntasDeLaApp, { preguntas: [pq(ID(5), '2026-10-22T12:03:00Z', { origen: 'ask' })] }));
+  const app = renderToStaticMarkup(createElement(BloqueDePreguntas, { chat: 'x', deLaApp: [pq(ID(5), '2026-10-22T12:03:00Z', { origen: 'ask' })] }));
   assert.match(app, /Te la hizo en la app de Claude: contéstala ahí/);
   assert.doesNotMatch(app, /<button[^>]*class="co-preg__op"|<input/, 'no se contesta desde acá');
   const comp = sinComentarios(leer('app/admin/operaciones/PreguntasDelChat.tsx'));
-  assert.match(comp, /if \(!varias\) \{ void enviar\(todo\); return; \}/, 'con una sola pregunta, sale al elegir');
-  assert.match(comp, /for \(const q of preguntas\) \{/, 'al final salen todas, en orden');
+  assert.match(comp, /if \(delChatAbiertas\.every\(\(q\) => todo\[q\.id\]\)\) \{ void enviar\(todo\); return; \}/, 'con una sola pregunta, sale al elegir; con varias, al contestar todas');
+  assert.match(comp, /for \(const q of delChatAbiertas\) \{/, 'al final salen todas, en orden');
   for (const f of ['app/admin/operaciones/Conversacion.tsx', 'app/m/operaciones/ChatsMovil.tsx']) {
     const src = sinComentarios(leer(f));
-    assert.match(src, /<PreguntasDelChat key=\{`p-\$\{/, `${f}: el bloque`);
-    assert.match(src, /<PreguntasDeLaApp key=\{`a-\$\{/, `${f}: las de la app`);
+    assert.match(src, /<BloqueDePreguntas key=\{`b-\$\{/, `${f}: el bloque`);
+    assert.match(src, /deLaApp=\{deLaApp\} \/>/, `${f}: las de la app, en el mismo bloque`);
     assert.match(src, /const bloque = preguntasParaElBloque\(lineas\);/);
   }
   assert.match(leer('app/admin/operaciones/centro.css'), /@media \(hover: none\) and \(pointer: coarse\) \{ \.co-preg--arriba \.co-preg__op \{ min-height: 48px; \}/, 'en el teléfono, del alto de un dedo');

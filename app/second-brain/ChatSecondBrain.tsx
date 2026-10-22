@@ -132,8 +132,15 @@ type Props = {
 };
 
 export function ChatSecondBrain(props: Props) {
-  return props.centro
-    ? <ConCentro datos={props.centro}>{(k) => <Cuerpo {...props} centro={k} />}</ConCentro>
+  // ⚠️ UNA VUELTA DEL SERVIDOR QUE FALLA NO DESARMA EL OPS CENTER (22/10/2026, el 503 de cada deploy, medido por el Cerebro):
+  // si `datosDelCentroSiOpera` no pudo leer la sesión, `centro` llegaba null, el árbol pasaba de `ConCentro` a `Cuerpo` solo y
+  // TODO se volvía a montar: la Ticketera en «Cargando…» y la lista sin sus «Completado», con otro orden. Se queda el último que
+  // se vio. Lo que se lee DESPUÉS sigue pasando por la guarda de cada acción (`puedeOperar`): esto no muestra nada nuevo.
+  const visto = useRef<DatosCentro | null>(null);
+  if (props.centro) visto.current = props.centro;
+  const datos = props.centro ?? visto.current;
+  return datos
+    ? <ConCentro datos={datos}>{(k) => <Cuerpo {...props} centro={k} />}</ConCentro>
     : <Cuerpo {...props} centro={null} />;
 }
 

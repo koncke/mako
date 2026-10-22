@@ -489,9 +489,18 @@ export function teclaDelMazo(
  * ⚠️ LA VISTA (mazo o tabla) SE PIDE HASTA QUE UNA LECTURA LA TRAE: si la primera fallaba y la siguiente andaba, la
  *    bandeja quedaba en «Cargando…» para siempre (los refrescos no la piden) y sin el botón de reintentar.
  */
+/** Lo que espera una lectura de la Ticketera antes de darla por fallida (22/10/2026: en un deploy, una quedó colgada y la
+ *  bandeja se quedó en «Cargando…» más de 12 s, hasta recargar: `leyendo` no se soltaba y ninguna otra salía). */
+export const TOPE_LECTURA_BANDEJA_MS = 15_000;
+/** Cuántas lecturas seguidas tienen que fallar, con tickets a la vista, para decirlo: una suelta (un 503 del deploy) no es
+ *  algo que Martín tenga que ver, y decirla cada vez era el parpadeo. Sin tickets todavía, se dice a la primera. */
+export const FALLOS_PARA_DECIRLO = 3;
+export const decirFalloDeLectura = (fallosSeguidos: number, hayTickets: boolean): boolean => !hayTickets || fallosSeguidos >= FALLOS_PARA_DECIRLO;
+
 export function lectorDeBandeja<R extends { ok: boolean }>(
   leer: (conVista: boolean) => Promise<R>,
   aplicar: (r: R | null, conVista: boolean) => void,
+  topeMs = TOPE_LECTURA_BANDEJA_MS,
 ): () => Promise<void> {
   let leyendo = false, otraVez = false, vistaSabida = false;
   return async () => {
@@ -501,7 +510,9 @@ export function lectorDeBandeja<R extends { ok: boolean }>(
       do {
         otraVez = false;
         const conVista = !vistaSabida;
-        const r = await leer(conVista).catch(() => null);
+        let reloj: ReturnType<typeof setTimeout> | undefined;
+        const tope = new Promise<null>((ok) => { reloj = setTimeout(() => ok(null), topeMs); });
+        const r = await Promise.race([leer(conVista).catch(() => null), tope]).finally(() => clearTimeout(reloj));
         if (r?.ok && conVista) vistaSabida = true;
         aplicar(r, conVista);
       } while (otraVez);

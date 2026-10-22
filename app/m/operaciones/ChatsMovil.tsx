@@ -35,8 +35,7 @@ import {
 import type { PedidoP, PushP } from '@/lib/progreso-reglas';
 import type { AccionResponder, Decision } from '@/app/admin/runway/decisiones';
 import { preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
-import { Pregunta } from '@/app/admin/operaciones/Pregunta';
-import { PreguntasDeLaApp, PreguntasDelChat } from '@/app/admin/operaciones/PreguntasDelChat';
+import { BloqueDePreguntas } from '@/app/admin/operaciones/PreguntasDelChat';
 import { CirculoNuevo } from '@/app/admin/operaciones/NuevoChat';
 import { useChatNuevo } from '@/app/admin/operaciones/ChatNuevo';
 import { CajaChatNuevo, CriaturaChatNuevo, CuerpoChatNuevo, TituloChatNuevo } from '@/app/admin/operaciones/ChatNuevoPiezas';
@@ -465,13 +464,10 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
                 yaVisto={centro.yaVistos?.[elegido.clave] ?? null} onYaVisto={yaVistoCb}
                 mostrar={cuantos} onVerAnteriores={verTodo} />
             </ContextoWA.Provider>
-            {/* Lo que espera de Martín, al final de la conversación y pegado a la caja: AskUserQuestion de Claude Code. */}
-            {preguntas.length > 0 && <Pregunta key={elegido.clave} chat={elegido.clave} preguntas={preguntas} responder={responder} />}
-            {/* Lo que ESTE chat le pregunta, de a una y como en Claude (22/10/2026, PreguntasDelChat.tsx): las de `cartero preguntar` y
-                los botones del cierre con wrap_up se contestan acá (quedan en el hilo como «Decisión: …»); las de AskUserQuestion se
-                ven, y se contestan en la app de Claude. */}
-            {deLaApp.length > 0 && <PreguntasDeLaApp key={`a-${elegido.clave}`} chat={elegido.clave} preguntas={deLaApp} />}
-            {bloque.length > 0 && <PreguntasDelChat key={`p-${elegido.clave}`} chat={elegido.clave} preguntas={bloque} onResponder={responderPregunta} />}
+            {/* TODO lo que espera a Martín, pegado a la caja y en UN bloque, como en la computadora (PreguntasDelChat.tsx →
+                BloqueDePreguntas): la Ticketera, lo que pregunta el chat y lo de la app de Claude. */}
+            <BloqueDePreguntas key={`b-${elegido.clave}`} chat={elegido.clave} ticketera={preguntas} responderTicketera={responder}
+              delChat={bloque} onResponder={responderPregunta} deLaApp={deLaApp} />
           </div>
         )}
       </SheetM>}

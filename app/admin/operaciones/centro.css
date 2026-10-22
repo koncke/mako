@@ -811,6 +811,9 @@
 .co-preg--contestada .co-preg__op[data-elegida='true'] { background: var(--primary-bg); }
 .co-preg__otra-dicha { margin: 0; align-items: center; background: var(--primary-bg); }
 .co-preg__pie--chat { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; }
+/* El cuerpo de una decisión de la Ticketera adentro del bloque (Pregunta.tsx → CuerpoTicketera): no suma una caja, sólo agrupa
+   su teclado. */
+.co-preg__cuerpo { display: contents; }
 /* Las preguntas de un chat arriba de su caja, de a una (22/10/2026, PreguntasDelChat.tsx). En el teléfono, cada renglón del
    alto de un dedo. La respuesta queda en el hilo como «Decisión: …» (Hilo.tsx). Las de la app de Claude se leen (`--app`). */
 .co-preg--arriba { margin: 0 auto 10px; box-shadow: 0 0 0 1px var(--border-strong), 0 10px 30px rgba(18, 21, 27, .12); }
