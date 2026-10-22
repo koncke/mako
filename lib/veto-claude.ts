@@ -350,6 +350,8 @@ export const CREDITO_HABILITADO_PARA: ReadonlyArray<{ feature: string; soloDuran
 
 /** La marca del gasto de este crédito en `anthropic_usage`, al PRINCIPIO del motivo (ver la del negocio). */
 export const MOTIVO_CREDITO_PLATAFORMA = '⚠ crédito de Claude de la plataforma';
+/** La marca del gasto de la clave de un NEGOCIO que es el crédito de Max de la plataforma (el ws10, lib/credito-marca.ts). */
+export const MOTIVO_CREDITO_SU_CLAVE = `${MOTIVO_CREDITO_PLATAFORMA} (su clave es el crédito)`;
 export const esDelCreditoDeLaPlataforma = (motivo: string | null | undefined): boolean =>
   typeof motivo === 'string' && motivo.trimStart().startsWith(MOTIVO_CREDITO_PLATAFORMA);
 

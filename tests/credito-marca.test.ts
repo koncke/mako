@@ -44,6 +44,13 @@ test('BORRADA la fila del crédito de la plataforma, el ws10 hace exactamente lo
   assert.equal(B.ws10.pedidos[0].clave, claves.CREDITO);
 });
 
+test('con la fila del crédito ILEGIBLE, la marca igual dice que es crédito; y la tarjeta ve que su Claude anduvo', () => {
+  const { B2, tarjetaAnduvo } = correr();
+  assert.deepEqual(B2.ws10.pedidos.map((p: { model: string }) => p.model), ['claude-haiku-4-5']);
+  assert.match(B2.gasto, CREDITO_DEL_GASTO, 'con la fila de la plataforma ilegible, el gasto del crédito se anotó como del negocio');
+  assert.ok(tarjetaAnduvo, 'la tarjeta del ws10 no ve los usos del crédito («anduvo»)');
+});
+
 test('el control y el borde: su clave de verdad elige Sonnet; si el ws10 cambia por una suya, la marca ya no vale', () => {
   const { C, D } = correr();
   assert.deepEqual(C.ws11.pedidos.map((p: { model: string }) => p.model), ['claude-sonnet-5']);

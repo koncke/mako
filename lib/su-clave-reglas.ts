@@ -12,7 +12,7 @@
 // Puro (sin `server-only`): lo usan la tarjeta de «Tus cuentas de IA» y los tests.
 // =============================================================================
 
-import { MOTIVO_CLAVE_DEL_NEGOCIO } from './veto-claude';
+import { MOTIVO_CLAVE_DEL_NEGOCIO, MOTIVO_CREDITO_SU_CLAVE } from './veto-claude';
 
 export type ProvSuClave = 'anthropic' | 'openai';
 export const PROVS_SU_CLAVE: readonly ProvSuClave[] = ['anthropic', 'openai'];
@@ -75,7 +75,9 @@ const esLlamadaQueContesto = (f: FilaUsoClave): boolean => !MARCAS_NO_CONTESTO.s
 function esDeSuClave(p: ProvSuClave, f: FilaUsoClave): boolean {
   if ((f.provider ?? 'anthropic') !== p) return false;
   const motivo = (f.motivo ?? '').trimStart();
-  if (p === 'anthropic') return motivo.startsWith(MARCA_SU_CLAVE.anthropic);
+  // También la del crédito: la clave del negocio que es el crédito de Max de la plataforma (el ws10) anota su gasto como del
+  // crédito, y sin esto la tarjeta dejaba de ver que anduvo.
+  if (p === 'anthropic') return motivo.startsWith(MARCA_SU_CLAVE.anthropic) || motivo.startsWith(MOTIVO_CREDITO_SU_CLAVE);
   return !/red de plataforma/i.test(motivo);
 }
 
