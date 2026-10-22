@@ -32,6 +32,7 @@ import {
 } from '@/app/m/mako/chat-ui';
 import { achicarImagen } from '@/app/m/mako/subir';
 import { abrirOffer, armarOffer, turnoOffer, type NotaDeVoz } from './motor-offer';
+import { notaEnMp3 } from './nota-de-voz';
 import { esOpcionArmar } from '@/app/offer/ayudas';
 import { conPegados, esPegadoLargo } from '@/lib/chat-pegado';
 import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
@@ -63,10 +64,15 @@ type ItemMsg = Extract<ItemHilo, { k: 'msg' }>;
 /** Un archivo elegido en la caja, antes de mandar. `url` es su vista previa (`blob:`): la usa también la burbuja
  *  mientras sale, y se suelta cuando vuelve guardado o cuando se quita. */
 type ArchivoElegido = { id: string; file: File; tipo: 'image' | 'document'; url: string };
-/** Una nota de voz de la caja: el binario, cuánto dura, su URL `blob:` (la del reproductor mientras sale) y de qué conversación. */
-type NotaEnLaCaja = NotaDeVoz & { url: string; offer: number };
-/** Cómo terminó mandar una nota: salió (o quedó guardada), vuelve a la barra para reintentar, o se tira (el motivo ya se dijo). */
-type FinDeNota = 'salio' | 'volver' | 'tirar';
+/** Una nota de voz de la caja: el binario, cuánto dura, su URL `blob:` (la del reproductor mientras sale) y de qué chat (su clave). */
+type NotaEnLaCaja = NotaDeVoz & { url: string; chat: string };
+/**
+ * Cómo terminó mandar una nota: salió (o quedó guardada) y ya se escucha desde el servidor; vuelve a la barra para reintentar;
+ * se tira (el motivo ya se dijo); o quedó en el hilo con su URL local (no se sabe si llegó, o no se pudo guardar el audio).
+ */
+type FinDeNota = 'salio' | 'volver' | 'tirar' | 'quedo';
+/** Lo que el servidor ya dijo que no va a entrar igual: muy pesada, un formato que no es, o se escuchó y no había voz. */
+const NOTA_DEFINITIVA = new Set([413, 415, 422]);
 export type Pegado = { id: string; texto: string };
 
 export async function pedir<T>(url: string, init: RequestInit = {}): Promise<Leido<T>> {
@@ -84,13 +90,16 @@ const postLargo = <T,>(cuerpo: Record<string, unknown>) =>
   pedir<T>(RUTA, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo), signal: AbortSignal.timeout(TOPE_MS) });
 /** Un turno con archivos: multipart, como el teléfono (el `?ws=` lo pone el `fetch` de la casa, WsFetch). `antes`: un chat
  *  de antes que se sigue (la ruta corre el turno sobre ESA sesión). */
-const postArchivos = <T,>(sessionId: number, mensaje: string, archivos: readonly ArchivoElegido[], antes: boolean, desde: Desde | null) => {
+const postArchivos = <T,>(sessionId: number, mensaje: string, archivos: readonly ArchivoElegido[], antes: boolean, desde: Desde | null,
+  voz: { mp3: Blob; secs: number } | null = null) => {
   const fd = new FormData();
   fd.append('sessionId', String(sessionId));
   fd.append('mensaje', mensaje);
   if (antes) fd.append('antes', '1');
   if (desde) fd.append('desde', JSON.stringify(desde));
   for (const a of archivos) fd.append('adjuntos', a.file, a.file.name);
+  // La nota de voz (OC7): SOLA, en MP3. La ruta la escucha con la IA del negocio antes de guardar nada.
+  if (voz) { fd.append('voz', voz.mp3, 'nota-de-voz.mp3'); fd.append('vozSecs', String(voz.secs)); }
   return pedir<T>(RUTA, { method: 'POST', body: fd, signal: AbortSignal.timeout(TOPE_MS) });
 };
 
@@ -486,21 +495,66 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   };
 
   /**
-   * LA NOTA DE VOZ (OC7, 22/10/2026), en una conversación de Offer: el micrófono GRABA como en la tab, la escucha el servidor de
-   * Offer con la IA del negocio y se escucha en el hilo. Con MaKo contestando, espera en la barra (como la tab: `apagada`).
+   * La nota de voz a un chat de MaKo (OC7): en MP3 a /api/mako/chat, que la escucha con la IA del negocio ANTES de guardar nada
+   * y corre el turno con lo que entendió. Rechazada antes del turno (un 4xx), no se guardó nada: vuelve a la barra, o se tira si
+   * lo mismo no va a entrar. Sin saber si llegó (un corte, un 5xx), queda en el hilo «incierto», como un texto.
    */
-  const mandarNota = async (a: NotaEnLaCaja) => {
-    if (idOffer !== a.offer || ocupadoRef.current || !cargado || errorCarga) { setNotaEnEspera(a); return; }
+  const mandarNotaAlChat = async (idU: string, a: NotaDeVoz): Promise<FinDeNota> => {
+    setTrabajo({ desde: Date.now() });
+    const deAntes = idAntes != null;
+    const sacar = (error: string) => { setItems((xs) => xs.filter((x) => x.id !== idU)); setFaltaMic(error); };
+    try {
+      let mp3: Blob;
+      try { mp3 = await notaEnMp3(a.blob); } catch (e) { sacar(e instanceof Error ? e.message : 'No se pudo procesar el audio.'); return 'tirar'; }
+      let sid = sesionRef.current;
+      if (sid == null) {
+        // La primera nota crea la conversación, como el primer mensaje (`mandar`).
+        const n = await postJson<{ sesion: SesionChat }>({ action: 'new' });
+        if (!n.ok) { sacar(n.reintentable ? n.error : 'No pude crear el chat.'); return 'volver'; }
+        sid = n.datos.sesion.id;
+        sesionRef.current = sid;
+        recienCreada.current = sid;
+        setSesiones((ss) => [...(ss ?? []), n.datos.sesion]);
+        setElegido({ id: sid });
+      }
+      const l = await postArchivos<RespuestaTurno>(sid, '', [], deAntes, desdeTab, { mp3, secs: Math.max(1, Math.round(a.secs)) });
+      if (!l.ok) {
+        if (!l.reintentable) { marcar(idU, { estado: 'incierto', error: l.error }); return 'quedo'; }
+        sacar(l.error);
+        return l.status != null && NOTA_DEFINITIVA.has(l.status) ? 'tirar' : 'volver';
+      }
+      // Lo que se entendió va debajo de la nota; y la nota pasa a escucharse desde el servidor (si se pudo guardar).
+      const yo = l.datos.mensajes.find((m) => m.role === 'user');
+      const delServidor = yo?.audio?.url ? { url: conWsDeAudio(yo.audio.url), secs: yo.audio.secs } : null;
+      marcar(idU, { estado: undefined, error: undefined, texto: yo?.content ?? '', ...(delServidor ? { voz: delServidor } : {}) });
+      setItems((xs) => {
+        const vistas = new Set(xs.flatMap((x) => (x.k === 'propuesta' ? [x.t.pendienteId] : [])));
+        return [...xs, ...itemsDeRespuesta(l.datos, vistas)];
+      });
+      if (deAntes) cargarOtros(); else void cargarLista();
+      return delServidor ? 'salio' : 'quedo';
+    } finally {
+      ocupadoRef.current = false;
+      setTrabajo(null);
+    }
+  };
+
+  /**
+   * LA NOTA DE VOZ (OC7, 22/10/2026): el micrófono GRABA, como en la tab de Offer, y la nota se escucha en el hilo con lo que se
+   * entendió debajo. En una conversación de Offer va a SU motor (la escucha el servidor de Offer); en un chat de MaKo, a la ruta
+   * del chat. Las dos la escuchan con la IA del negocio. Con MaKo contestando, o si el chat cambió, espera en la barra.
+   */
+  const mandarNota = async (a: NotaEnLaCaja, chatAbierto: string) => {
+    if (esGrupo || esAutomatizacion || esEditor) return;
+    if (a.chat !== chatAbierto || ocupadoRef.current || !cargado || errorCarga) { setNotaEnEspera(a); return; }
     ocupadoRef.current = true;
     setFaltaMic(null);
     const idU = idLocal('u');
     setItems((xs) => [...xs, { k: 'msg', id: idU, role: 'user', texto: '', at: new Date().toISOString(), estado: 'enviando', voz: { url: a.url, secs: Math.max(1, Math.round(a.secs)) } }]);
-    const fin = await mandarAOffer(idU, '', [], a);
-    // La URL local se suelta cuando ya no se dibuja: lo que salió se escucha desde el servidor (/api/offer/audio).
-    if (fin === 'volver') setNotaEnEspera(a); else URL.revokeObjectURL(a.url);
+    const fin = idOffer != null ? await mandarAOffer(idU, '', [], a) : await mandarNotaAlChat(idU, a);
+    // La URL local se suelta cuando ya no se dibuja: lo que salió se escucha desde el servidor. La que quedó en el hilo, no.
+    if (fin === 'volver') setNotaEnEspera(a); else if (fin !== 'quedo') URL.revokeObjectURL(a.url);
   };
-  const tirarNota = () => { if (notaEnEspera) URL.revokeObjectURL(notaEnEspera.url); setNotaEnEspera(null); };
-  const reenviarNota = () => { const a = notaEnEspera; if (!a) return; setNotaEnEspera(null); void mandarNota(a); };
 
   const enviar = (mensaje: string, archivos: readonly ArchivoElegido[] = []): boolean => {
     const t = mensaje.trim();
@@ -623,14 +677,17 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   const editorPropio = !!deEditor && (editores ?? []).some((e) => e.tipo === deEditor.editor && e.clave === deEditor.clave && e.propio);
   const hrefEditor = deEditor && idDelEditor && editorPropio ? conWs(EDITORES[deEditor.editor].ruta(idDelEditor), ws) : null;
   const enCurso = !!trabajo || armandoOffer;
-  /** La nota de voz de la caja: sólo en una conversación de Offer (la de los otros chats va con su servidor: el relevo). */
-  const vozCaja = idOffer != null ? {
-    onAudio: (blob: Blob, secs: number) => { void mandarNota({ blob, secs, url: URL.createObjectURL(blob), offer: idOffer }); },
+  /** La nota de voz de la caja (OC7): en cada chat que se sigue desde acá (el grupo, el lienzo y los editores no tienen caja). */
+  const chatAbierto = filaAbierta?.clave ?? 'nuevo';
+  const tirarNota = () => { if (notaEnEspera) URL.revokeObjectURL(notaEnEspera.url); setNotaEnEspera(null); };
+  const reenviarNota = () => { const a = notaEnEspera; if (!a) return; setNotaEnEspera(null); void mandarNota(a, chatAbierto); };
+  const vozCaja = {
+    onAudio: (blob: Blob, secs: number) => { void mandarNota({ blob, secs, url: URL.createObjectURL(blob), chat: chatAbierto }, chatAbierto); },
     onError: setFaltaMic, rotuloEnviar: 'Enviar audio', apagada: enCurso,
-    // La de OTRA conversación no se ofrece acá: una grabación a medias no viaja a otra (como la tab, `key` por conversación).
-    pendiente: notaEnEspera && notaEnEspera.offer === idOffer
+    // La de OTRO chat no se ofrece acá: una grabación a medias no viaja a otro (como la tab de Offer, `key` por conversación).
+    pendiente: notaEnEspera && notaEnEspera.chat === chatAbierto
       ? { url: notaEnEspera.url, secs: notaEnEspera.secs, onBorrar: tirarNota, onDejar: reenviarNota } : null,
-  } : undefined;
+  };
   /** Los mensajes del hilo, para la barra de los fijados. */
   const mensajesWA = useMemo(() => items.flatMap((x) => (x.k === 'msg' ? [mensajeWADe(x, nombreMuneco)] : [])), [items, nombreMuneco]);
 

@@ -8,7 +8,8 @@
 //      negocio); el reintento de la misma grabación no la vuelve a subir;
 //   2. cómo termina, como la tab: guardada aunque MaKo no contestó → se dibuja lo guardado; rechazada (un audio sin voz) → se
 //      tira; cortada → vuelve a la barra. Y lo que NO quedó guardado no se tapa con la conversación leída en el camino;
-//   3. la caja: el «+» abierto, la grabación sólo acá, y la nota que espera no viaja a otra conversación.
+//   3. la caja: el «+» abierto, la nota a SU motor, y la que espera no viaja a otro chat (la de los chats de MaKo:
+//      tests/ops-center-voz-chat.test.ts).
 //
 // Correr: node --import tsx --test tests/ops-center-offer-voz.test.ts
 // PROBADO ROMPIÉNDOLO (base 3/0), ver el pie.
@@ -72,12 +73,12 @@ test('2. cómo termina, como la tab; y lo que no quedó guardado no se tapa con 
   assert.deepEqual(cortada.ok ? null : [cortada.guardado, cortada.definitivo, 'sesion' in cortada], [false, false, false]);
 });
 
-test('3. la caja: el «+» abierto en Offer, la grabación sólo acá, y la nota que espera no viaja a otra conversación', () => {
+test('3. la caja: el «+» abierto en Offer, la nota a SU motor, y la que espera no viaja a otro chat', () => {
   const motor = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
   assert.match(motor, /items: elegidos, puede: cargado && !errorCarga, onSumar:/, 'el «+» no depende de que no sea Offer');
-  assert.match(motor, /const vozCaja = idOffer != null \? \{/);
-  assert.match(motor, /pendiente: notaEnEspera && notaEnEspera\.offer === idOffer/);
-  assert.match(motor, /if \(fin === 'volver'\) setNotaEnEspera\(a\); else URL\.revokeObjectURL\(a\.url\);/);
+  assert.match(motor, /const fin = idOffer != null \? await mandarAOffer\(idU, '', \[\], a\) :/, 'en Offer, la nota va a SU motor');
+  assert.match(motor, /pendiente: notaEnEspera && notaEnEspera\.chat === chatAbierto/);
+  assert.match(motor, /if \(fin === 'volver'\) setNotaEnEspera\(a\);/);
   // Lo que no salió no se dibuja con la conversación de vuelta: se saca la nota (vuelve a la barra) o el texto queda con «Reintentar».
   assert.match(motor, /if \(r\.ok \|\| r\.guardado\) \{\n\s*if \(r\.sesion && offerRef\.current\?\.id === s\.id\) await ponerOffer\(r\.sesion\);/);
   assert.match(motor, /if \(nota\) \{ setItems\(\(xs\) => xs\.filter\(\(x\) => x\.id !== idU\)\); setFaltaMic\(r\.error\); \}\n\s*else marcar\(idU, \{ estado: 'error', error: r\.error \}\);/);
@@ -92,4 +93,4 @@ test('3. la caja: el «+» abierto en Offer, la grabación sólo acá, y la nota
 //   · un 422 se reintenta                           → 2/1 (2)
 //   · lo no guardado vuelve con la conversación     → 2/1 (2)
 //   · el «+» cerrado en Offer                       → 2/1 (3)
-//   · la nota de otra conversación se ofrece acá    → 2/1 (3)
+//   · la nota de otro chat se ofrece acá            → 2/1 (3)

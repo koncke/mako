@@ -122,6 +122,34 @@ export function audioDeBloques(crudo: unknown): BloqueAudio | null {
   return null;
 }
 
+/**
+ * LA NOTA DE VOZ DE LA PERSONA en el chat de MaKo (OC7, 22/10/2026): el MP3 en la carpeta de los adjuntos y cuánto dura. Se
+ * escucha pidiéndola POR SU MENSAJE (`rutaDeVozDelChat`), como un adjunto: el path no sale a la pantalla. `sanearBloques` la
+ * saltea (no es un archivo para El Archivero) y va SOLA en su mensaje (la ruta no la acepta con archivos).
+ */
+export type BloqueVoz = { k: 'voz'; path: string; secs: number };
+
+/** Lo que dura una nota, en segundos enteros: al menos 1, a lo sumo una hora. */
+const segundosDeNota = (secs: unknown) => Math.min(3600, Math.max(1, Math.round(typeof secs === 'number' && Number.isFinite(secs) ? secs : 0)));
+
+export function bloqueDeVoz(path: string, secs: number): BloqueVoz {
+  return { k: 'voz', path, secs: segundosDeNota(secs) };
+}
+
+/** La nota de voz guardada en los bloques de un mensaje de ESTE workspace, saneada, o null. Nunca tira. */
+export function vozDeBloques(ws: number, crudo: unknown): BloqueVoz | null {
+  if (!Array.isArray(crudo)) return null;
+  for (const b of crudo.slice(0, MAX_BLOQUES)) {
+    if (!b || typeof b !== 'object' || (b as { k?: unknown }).k !== 'voz') continue;
+    const { path, secs } = b as Record<string, unknown>;
+    if (esRutaDeChat(ws, path)) return bloqueDeVoz(path, secs as number);
+  }
+  return null;
+}
+
+/** El link de una nota de voz guardada, SIN el `?ws=`: es un `<audio src>`, y se lo pone quien lo dibuja (`conWs`). */
+export const rutaDeVozDelChat = (msgId: number): string => `/api/mako/chat?voz=${msgId}`;
+
 /** Lo que ve la pantalla de los adjuntos de un mensaje (sin el path). */
 export function adjuntosVisibles(msgId: number, bloques: readonly BloqueChat[]): AdjuntoVisible[] {
   return bloques.map((b, i) => ({ ref: `${msgId}:${i}`, nombre: b.nombre, tipo: b.tipo, ...(b.archivero ? { archivero: b.archivero } : {}) }));

@@ -2222,7 +2222,7 @@ Ahora la pantalla le pasa `entidad` ({ tipo, id, titulo }) y `modo` ('analizar' 
 - **SIN HACER:** ninguna tab pasa todavía `entidad` ni `modo`. Les toca al CRM (CR3, CR4), a Automations (AU4) y a los chats de
   las tabs (TB3).
 
-## Los documentos del «+» en una conversación de Offer se perdían sin decirlo (22/10/2026, OC7)
+## Los documentos del «+» y la nota de voz en el Ops Center: la lectura existía y la puerta estaba cerrada (22/10/2026, OC7)
 
 En el Ops Center, el «+» de una conversación de Offer juntaba los archivos y el turno salía SÓLO con el texto: `mandarAOffer`
 no los recibía (relevo, «SIN HACER» 2). Ahora se suben y se leen en esa conversación antes del turno, como en la tab
@@ -2241,10 +2241,27 @@ no los recibía (relevo, «SIN HACER» 2). Ahora se suben y se leen en esa conve
 - **Trampa: lo que NO quedó guardado no se dibuja con la conversación leída en el camino.** `turnoOffer` devolvía la
   conversación de los documentos o links leídos aunque el turno no hubiera salido, y dibujarla borraba el mensaje con su
   «Reintentar». Ahora el resultado dice `guardado`.
-- **SIN HACER:** la nota de voz en los chats de MaKo (el Cerebro y los demás): /api/mako/chat no recibe audio, y hace falta
-  guardarlo, transcribirlo con la IA del negocio y servirlo para escucharlo. Ahí el micrófono sigue dictando. En Offer, el «+»
-  ofrece fotos y PDF (lo del Ops Center), no todo lo que Offer sabe leer. Muchos documentos juntos no van por el lote del
-  servidor de la tab (O9, `UMBRAL_LOTE`): se leen uno por uno.
+- **La nota de voz en los chats de MaKo** (el Cerebro y los demás, también la estrella de cada tab y el teléfono): va SOLA,
+  en MP3, a /api/mako/chat. La ruta la escucha con la IA del negocio ANTES de guardar nada (`escucharNotaDelChat`, adentro de
+  D6b), y lo que se entendió es el mensaje del turno. El MP3 se guarda como un adjunto (`<ws>/chat/<uuid>`, bloque `voz`, al
+  FINAL del mensaje para no correr los `<id>:<n>` de los adjuntos) y se escucha por su mensaje (`?voz=<id>`), nunca por su path.
+- **Lo que dejó la revisión de privacidad (Integración):**
+  - `pii: true` en la escucha: sin él, el MP3 caía a la red gratis que entrena (docs/hallazgos-ia.md, IA7).
+  - El chat es de quien manda la nota ANTES de escucharla.
+  - Con una clave dictada, se tapa en el texto y el audio no se guarda.
+  - Lo guardado de un chat que se SIGUE con `antes` (uno de antes, o el de una tab: el CRM, la ficha de un lead) daba 404
+    aun recién mandado: la nota, y también la foto y el PDF (`?adjunto=`, el mismo hueco desde el 16/10). Ahora el servidor
+    prueba SU chat y, si no, la regla que deja seguirlo (lib/mako-turno-app.ts → `quienAbre`, con `personaDelChat` de la ruta).
+    Para el admin es la de leer el texto: quien lee el mensaje abre su foto o escucha su nota, a propósito.
+  - **Trampa: un `&antes=1` en la URL no protege nada.** La primera versión lo pedía en la URL de la nota, pero lo pone el
+    navegador: la regla tiene que estar en el servidor. Así tampoco hizo falta tocar `ArchivosHilo` ni el estado de cuenta.
+- **Trampa: un 5xx no le dice a la pantalla que no se guardó nada.** `leerRespuesta` (app/m/mako/chat-ui.ts) toma cualquier 5xx
+  por «no sé si llegó». Con el 502 de Offer, una nota que ninguna IA pudo escuchar quedaba «incierta» en el hilo en vez de
+  volver a la barra. Por eso «ninguna IA pudo» es un **424**, y el 4xx ahora trae su `status`: 413, 415 y 422 tiran la nota, el
+  resto la devuelve a la barra.
+- **SIN HACER:** en Offer, el «+» ofrece fotos y PDF (lo del Ops Center), no todo lo que Offer sabe leer. Muchos documentos
+  juntos no van por el lote del servidor de la tab (O9, `UMBRAL_LOTE`): se leen uno por uno. El chat del super admin (los de
+  Claude Code) sigue dictando: no hay quién escuche una nota ahí. Probado sólo con tests: falta verlo en el teléfono en el ws3.
 
 ## Las charlas del lienzo de Automations en el Ops Center: la puerta es `setting`, no «automations» (22/10/2026, OC5)
 
