@@ -21,14 +21,16 @@ const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').r
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
 test('OfferApp le pasa a la caja la nota de voz de Offer (con la que no salió), salvo con sólo texto', () => {
+  // Desde el 22/10/2026 (OF4) la caja es la misma para la tab y el onboarding: OfferApp arma sus props y ChatOffer la dibuja.
   const app = sinComentarios(leer('app/offer/OfferApp.tsx'));
-  assert.match(app, /voz=\{arranque\.manda \? undefined : \{\s*onAudio: mandarAudio, onError: setErrorChat, rotuloEnviar: 'Enviar audio',/);
+  assert.match(app, /const sinAdjuntos = !!arranque\?\.manda;/);
+  assert.match(app, /voz: sinAdjuntos \? undefined : \{\s*onAudio: mandarAudio, onError: setErrorChat, rotuloEnviar: 'Enviar audio',/);
   assert.match(app, /pendiente: audioEnEspera \? \{ url: audioEnEspera\.url, secs: audioEnEspera\.secs, onBorrar: descartarAudio, onDejar: reenviarAudio \} : null,/);
 });
 
 test('la barra de grabar va sin el verde de WhatsApp', () => {
-  const app = sinComentarios(leer('app/offer/OfferApp.tsx'));
+  const chat = sinComentarios(leer('app/offer/ChatOffer.tsx'));
   // Y el ícono del ✓ y la ➤ con el color que se lee encima de la tinta (22/10/2026: en oscuro iba blanco sobre casi blanco).
-  assert.match(app, /const SIN_VERDE = \{ '--good': 'var\(--ink\)', '--sobre-good': 'var\(--surface\)' \} as CSSProperties;/);
-  assert.match(app, /className="co-caja-wrap" style=\{SIN_VERDE\}/);
+  assert.match(chat, /const SIN_VERDE = \{ '--good': 'var\(--ink\)', '--sobre-good': 'var\(--surface\)' \} as CSSProperties;/);
+  assert.match(chat, /className="co-caja-wrap" style=\{SIN_VERDE\}/);
 });

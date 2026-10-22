@@ -35,8 +35,9 @@ const INVENTARIO: Record<string, 'caja única' | `pendiente, ${string}`> = {
   'app/m/operaciones/ChatsMovil.tsx': 'caja única',
   // El chat del cliente (22/10/2026): su caja vive en PiezasCliente.tsx y la montan la computadora y el teléfono.
   'app/second-brain/PiezasCliente.tsx': 'caja única',
-  'app/offer/ChatOffer.tsx': 'pendiente, de Offer',
-  'app/m/offer/ComposerOfferM.tsx': 'pendiente, de Offer',
+  // Offer, la tab y el onboarding, y Offer en el teléfono (22/10/2026, OF4): con el hilo del Ops Center (HiloMako) en la tab.
+  'app/offer/ChatOffer.tsx': 'caja única',
+  'app/m/offer/ComposerOfferM.tsx': 'caja única',
   'app/automations/ChatMako.tsx': 'pendiente, de Automations',
   'app/crm/lead-view/MakoAnalystLead.tsx': 'pendiente, de CRM',
   'app/crm/mako-crm/ChatMakoCrm.tsx': 'pendiente, de CRM',

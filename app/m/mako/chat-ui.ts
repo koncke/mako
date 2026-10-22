@@ -38,7 +38,14 @@ import type { IdMensaje, MensajeWA } from '@/lib/centro-mensajes';
  * Un archivo de un mensaje de la persona. Guardado (mig 0305): `ref`, que se pide a /api/mako/chat?adjunto=. Recién
  * elegido, mientras sale: `local`, la vista previa del navegador (un `blob:`), que no se guarda.
  */
-export type ArchivoHilo = { nombre: string; tipo: TipoAdjunto; ref?: string; local?: string; archivero?: EstadoArchivero };
+export type ArchivoHilo = {
+  nombre: string; tipo: TipoAdjunto; ref?: string; local?: string; archivero?: EstadoArchivero;
+  /** Lo que la pantalla dice de ese archivo, debajo del nombre (Offer: «Ojo: …» de lo que leyó). Gana a la del Archivero. */
+  nota?: string;
+  /** No se abre desde el chat: Offer guarda lo que LEYÓ, no el archivo (22/10/2026, OF4). Sin esto, la ficha sin link decía
+   *  «No pude abrir el archivo.» en cada documento de una conversación de Offer, también en el Ops Center. */
+  sinAbrir?: boolean;
+};
 
 /** `en_curso`: confirmada, y es un trabajo largo que sigue por detrás (1.11); su avance va en el G6 de abajo. */
 /** `incierta`: su trabajo largo se cortó y no se sabe si terminó (no es «falló»: no hay que pedirlo de nuevo sin mirar). */
@@ -175,15 +182,24 @@ export function itemsDeSesion(mensajes: readonly MensajeChat[], propuestas: read
 // tab (app/offer/ChatOffer.tsx), las opciones son sólo las del ÚLTIMO mensaje: las de antes ya no se contestan.
 
 /** El hilo de una conversación de Offer. `conWs` le pega a una URL de audio el `?ws=` de la pestaña (un `<audio src>` no
- *  pasa por el `fetch` de la casa: lib/offer-marco.ts → `audio`). */
-export function itemsDeOffer(mensajes: readonly OfferMensaje[], conWs: (url: string) => string = (u) => u): ItemHilo[] {
+ *  pasa por el `fetch` de la casa: lib/offer-marco.ts → `audio`). `notaDe`: lo que la pantalla dice de cada documento leído
+ *  (la tab: `notaDelAdjunto`, app/offer/ayudas.ts). */
+export function itemsDeOffer(
+  mensajes: readonly OfferMensaje[], conWs: (url: string) => string = (u) => u,
+  notaDe?: (a: NonNullable<OfferMensaje['adjuntos']>[number]) => string,
+): ItemHilo[] {
   const ultimo = mensajes.length - 1;
   return conRespuestas(mensajes.flatMap((m, i): ItemHilo[] => {
     if (m.de === 'yo') {
       return [{
         k: 'msg', id: `of-${m.id}`, role: 'user', texto: m.texto, at: m.at || null,
         ...(m.audio?.url ? { voz: { url: conWs(m.audio.url), secs: m.audio.secs } } : {}),
-        ...(m.adjuntos?.length ? { archivos: m.adjuntos.map((a): ArchivoHilo => ({ nombre: a.nombre, tipo: 'document' })) } : {}),
+        ...(m.adjuntos?.length ? {
+          archivos: m.adjuntos.map((a): ArchivoHilo => {
+            const nota = notaDe?.(a);
+            return { nombre: a.nombre, tipo: 'document', sinAbrir: true, ...(nota ? { nota } : {}) };
+          }),
+        } : {}),
       }];
     }
     const out: ItemHilo[] = [{ k: 'msg', id: `of-${m.id}`, role: 'assistant', texto: m.texto, at: m.at || null }];

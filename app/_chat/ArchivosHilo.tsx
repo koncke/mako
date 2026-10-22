@@ -37,13 +37,15 @@ function Foto({ a, href }: { a: ArchivoHilo; href: string }) {
 
 /** Un PDF (o una foto que no cargó): su nombre y, si es del admin, lo que pasó en El Archivero. */
 function Ficha({ a, href }: { a: ArchivoHilo; href: string | null }) {
-  const nota = notaDelArchivero(a);
+  const nota = a.nota || notaDelArchivero(a);
+  // Sin link: el que se cortó lo dice; uno que no se abre desde el chat (`sinAbrir`, los de Offer) sólo lleva su nota.
+  const texto = href || a.sinAbrir ? nota : 'No pude abrir el archivo.';
   const cuerpo = (
     <>
       <IconoChat nombre={a.tipo === 'image' ? 'foto' : 'archivo'} size={20} />
       <span className="ch-archivo__texto">
         <span className="ch-archivo__nombre">{a.nombre}</span>
-        {(nota || !href) && <span className="ch-archivo__nota">{href ? nota : 'No pude abrir el archivo.'}</span>}
+        {texto && <span className="ch-archivo__nota">{texto}</span>}
       </span>
     </>
   );

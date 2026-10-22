@@ -61,9 +61,7 @@ export const ROTULOS = {
   paraSubirla: 'Para subirla: ', // Conclusion.tsx (lo que sube la nota de una dimensión)
   noContesto: 'MaKo no contestó tu último mensaje.', // ChatOffer.tsx
   marcarVarias: 'Puedes marcar varias', // ChatOffer.tsx (una pregunta con `varias`)
-  fotoVideo: 'Foto o video', // ChatOffer.tsx (el menú del clip)
-  documento: 'Documento', // ChatOffer.tsx
-  enviarAudio: 'Enviar audio', // ChatOffer.tsx (la nota que no salió)
+  enviarAudio: 'Enviar audio', // OfferApp.tsx (el botón de la barra de la grabación, en la caja única)
   noCargaron: 'No cargaron tus funnels.', // OfferApp.tsx
   volverACargar: 'Volver a cargar', // OfferApp.tsx
   sinFunnels: 'Para empezar, crea un funnel en el CRM.', // OfferApp.tsx
@@ -101,9 +99,7 @@ export const DONDE_VIVE: Record<keyof typeof ROTULOS, readonly string[]> = {
   paraSubirla: ['app/offer/Conclusion.tsx'],
   noContesto: ['app/offer/ChatOffer.tsx'],
   marcarVarias: ['app/offer/ChatOffer.tsx'],
-  fotoVideo: ['app/offer/ChatOffer.tsx'],
-  documento: ['app/offer/ChatOffer.tsx'],
-  enviarAudio: ['app/offer/ChatOffer.tsx'],
+  enviarAudio: ['app/offer/OfferApp.tsx'],
   noCargaron: ['app/offer/OfferApp.tsx'],
   volverACargar: ['app/offer/OfferApp.tsx'],
   sinFunnels: ['app/offer/OfferApp.tsx'],

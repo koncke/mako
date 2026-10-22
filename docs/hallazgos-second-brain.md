@@ -28,6 +28,22 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
 
 ---
 
+## Cada documento de una conversación de Offer decía «No pude abrir el archivo.» (22/10/2026)
+
+Medido al pasar la tab Offer al hilo del Ops Center (OF4, hallazgos-offer.md). La ficha de un archivo del hilo
+(app/_chat/ArchivosHilo.tsx) dice «No pude abrir el archivo.» cuando no tiene link, y `itemsDeOffer` (app/m/mako/chat-ui.ts)
+armaba cada documento de Offer sin link, porque **Offer no guarda el archivo: guarda lo que leyó**. El diagnóstico obvio («no
+se subió») era el equivocado. Ahora `ArchivoHilo.sinAbrir` lo marca (sólo su nombre y, si la hay, su `nota`), en el Ops
+Center y en la tab.
+
+**Sin hacer:** el Ops Center todavía no muestra el PDF de una versión de la oferta ni la nota de voz de MaKo en una
+conversación de Offer: `itemsDeOffer` no los trae, y la tab los dibuja por el hueco `enMensaje` de HiloMako, que
+app/second-brain/PiezasCliente.tsx no pasa.
+
+*22/10/2026, chat «Offer» (claude3).*
+
+---
+
 ## El grafo ES la pantalla del teléfono, «Girar» al lado del zoom y sin «falta» (22/10/2026)
 
 Martín, desde el Centro (pedido 4a15e2c3, con capturas del teléfono): sin la vista «Abrir Grafo», el grafo siempre abierto;

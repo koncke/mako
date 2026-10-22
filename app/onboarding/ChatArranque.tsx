@@ -239,7 +239,6 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     },
     ocupado,
     extra,
-    avatar: (animar) => <CriaturaMako size={30} reaccion={animar ? 'piensa' : 'escucha'} />,
     // Sólo si NUNCA hubo una conversación anotada: con una anotada que no se pudo leer, abrir otra hacía
     // rehacer la oferta y dejaba la vieja huérfana (revisión del 16/10).
     abrirEnFunnel: vista.modo === 'oferta' && vista.etapa === 'oferta' && !vista.tieneSesion && !vista.sesionCaida
@@ -447,13 +446,12 @@ const CSS_ARRANQUE = `
   padding: 8px max(16px, calc((100vw - 960px) / 2)) 16px;
 }
 /* SIN RECUADRO (17/10/2026, Martín: «Me gusta que el onboarding sea como la imagen que adjunto, sin recuadro de chat,
-   sin el bloque»): la caja del chat de Offer, la de su hilo y los fondos de sus franjas se vuelven transparentes, y
-   los mensajes quedan sueltos sobre el fondo. Sólo acá: la tab Offer sigue con su caja. Los estilos de esas cajas van
-   en línea, por eso el !important. */
+   sin el bloque»): la tarjeta del chat de Offer y el fondo de su hilo se vuelven transparentes, y los mensajes quedan
+   sueltos sobre el fondo. Sólo acá: la tab Offer sigue con su tarjeta. Los estilos de la tarjeta van en línea, por eso el
+   !important. Desde el 22/10/2026 el hilo y la caja son los del Ops Center (.co-hilo, .co-caja-wrap: OF4). */
 .arr-capa .of-hilo { background: transparent !important; border: 0 !important; border-radius: 0 !important; }
-.arr-capa .of-hilo-lista > div { background: transparent !important; }
-.arr-capa .of-hilo-lista > div > div { background: transparent !important; border-top-color: transparent !important; }
-.arr-capa .of-hilo-lista > div > div:first-child { padding-left: 0 !important; padding-right: 0 !important; }
+.arr-capa .of-hilo .co-hilo { background: transparent; padding-inline: 0; }
+.arr-capa .of-hilo .co-caja-wrap { padding-inline: 0; }
 @media (max-width: 640px) {
   .arr-cabecera { padding: 12px 16px; gap: 12px; }
   .arr-nombre { font-size: 16px; }
