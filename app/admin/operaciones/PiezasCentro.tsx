@@ -134,7 +134,7 @@ export function FilaCentro({ centro: k, c, sub, actual, onElegir }: {
   // Dormido (ojos cerrados y la fila apagada) si no trabaja y no tiene nada para Martín: despierto sólo con un trabajo o un aviso.
   const animo = animoDe(c, k.avisos(c));
   return (
-    <FilaDeChat titulo={c.titulo} texto={sub ? partesDelNombre(c.titulo).sub : c.titulo} aspecto={elegidoPara(k.munecos, c.titulo)}
+    <FilaDeChat titulo={c.titulo} texto={sub ? partesDelNombre(c.titulo).sub ?? c.titulo : c.titulo} aspecto={elegidoPara(k.munecos, c.titulo)}
       animo={animo} espera={k.avisos(c)} sub={sub} actual={actual} apagada={!c.sesion} dormida={animo === 'dormido'}
       hace={edadCorta(c.actividad, k.ahora)}
       // Un chat de la nube (lo anota el Runner de la app): se ve, con su marca, y no se le escribe desde acá.
