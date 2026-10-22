@@ -763,8 +763,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
       ) : (
         // Un chat con MaKo (o de Offer, o de antes): el panel del Ops Center (PanelChat.tsx), con SU motor.
         <PanelDeChat hilo={hilo} adjuntos={adjuntosCaja}
-          // La criatura del chat (el Cerebro es la estrella; uno de Offer, la de Offer) y, si es de otra tab, de cuál.
-          cabecera={{ clave: JSON.stringify(elegido), titulo: nombre, criatura: nombreMuneco, animo, onVolver: () => setConChat(false), meta: idOffer != null ? SECCION_OFFER : null }}
+          // La criatura del chat: el Cerebro es la estrella; uno de Offer, la de Offer (la cabecera del super admin, sin chips).
+          cabecera={{ clave: JSON.stringify(elegido), titulo: nombre, criatura: nombreMuneco, animo, onVolver: () => setConChat(false) }}
           caja={caja_}
           estado={faltaMic ?? (armandoOffer ? 'MaKo está armando tu oferta. Puede tardar unos minutos.' : '')}>
           {!cargado ? null : errorCarga ? (

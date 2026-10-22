@@ -155,7 +155,8 @@ const FUERA_DE_D6B: ReadonlyArray<{ prefijo: string; porque: string; salvo?: str
  */
 const SIN_IA: ReadonlyArray<{ unidad: string; usa: string[]; porque: string }> = [
   // El chat: abrir y listar las conversaciones (el turno, el POST, prende).
-  { unidad: 'app/api/mako/chat/route.ts#GET', usa: ['abrirSesion', 'chatsDeAntes', 'chatsDeOffer', 'estadoDeTrabajo', 'hiloDeAntes', 'hiloDeOffer', 'listarSesiones', 'personaDelRequest', 'quienChateaDelRequest', 'runWithWorkspace', 'urlDeAdjunto'], porque: 'lee las conversaciones y el avance de un trabajo' },
+  // `claveDeAntes` (21/10/2026): de quién es un chat de antes que se sigue en el Ops Center; lee chart_sessions, ninguna IA.
+  { unidad: 'app/api/mako/chat/route.ts#GET', usa: ['abrirSesion', 'chatsDeAntes', 'chatsDeOffer', 'claveDeAntes', 'estadoDeTrabajo', 'hiloDeAntes', 'hiloDeOffer', 'listarSesiones', 'personaDelRequest', 'quienChateaDelRequest', 'runWithWorkspace', 'urlDeAdjunto'], porque: 'lee las conversaciones y el avance de un trabajo' },
   { unidad: 'app/api/m/mako/route.ts#GET', usa: ['abrirSesion', 'listarSesiones', 'personaDelRequest'], porque: 'lee las conversaciones del teléfono' },
   // Cancelar o descartar una tarjeta: no ejecuta nada (confirmarla sí, y prende).
   { unidad: 'app/m/mako/acciones.ts#cancelarEnChatAction', usa: ['cancelarDesdeTarjeta', 'personaDelRequest'], porque: 'cancela una tarjeta: no la ejecuta' },

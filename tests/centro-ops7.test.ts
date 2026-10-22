@@ -206,9 +206,10 @@ test('3b: «Nuevo chat» lleva un círculo, no el muñeco gris; en el Centro, el
   assert.match(html, /class="co-circulo-nuevo"[^>]*width:40px;height:40px/);
   assert.doesNotMatch(html, /mun-cuerpo|co-muneco-nuevo/, 'ningún muñeco');
   assert.match(css, /\.co-circulo-nuevo \{[^}]*border-radius: 50%; background: var\(--good\);/);
+  // El Ops Center del cliente usa el MISMO «Nuevo chat» del super admin (PiezasCentro.tsx → NuevoChatCentro, 21/10/2026).
   for (const f of ['app/admin/operaciones/PiezasCentro.tsx', 'app/m/operaciones/ChatsMovil.tsx', 'app/second-brain/ChatSecondBrain.tsx']) {
     const s = sinComentarios(leer(f));
-    assert.match(s, /<CirculoNuevo/, `${f}: el círculo`);
+    assert.match(s, /<CirculoNuevo|<NuevoChatCentro /, `${f}: el círculo`);
     assert.doesNotMatch(s, /MunecoNuevo/, `${f}: sin el muñeco`);
   }
 });
@@ -325,9 +326,9 @@ test('4: un chat con pasos recientes está TRABAJANDO aunque el estado del Runne
 test('g: con el grafo abierto, tocar un chat no deja que la URL vuelva a «?panel=mapa»', () => {
   const src = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
   assert.match(src, /const hayMapa = mapa != null;/);
-  assert.match(src, /useEffect\(\(\) => \{ if \(elegido && !hayMapa\) anotarEnUrl\(idElegido, urlCentro\); \}, \[elegido, idElegido, urlCentro, hayMapa\]\);/,
+  assert.match(src, /useEffect\(\(\) => \{ if \(elegido && !hayMapa\) anotarEnUrl\(elegido, urlCentro\); \}, \[elegido, urlCentro, hayMapa\]\);/,
     'el grafo es dueño de la URL mientras está: anotar el chat con replaceState antes de que termine el router.push lo dejaba en el grafo');
-  assert.match(src, /if \(mapa\) \{ router\.push\('id' in e/, 'tocar un chat con el grafo abierto navega a ese chat');
+  assert.match(src, /if \(mapa\) \{\s*router\.push\('id' in e/, 'tocar un chat con el grafo abierto navega a ese chat');
 });
 
 test('6: un chat sin aviso y sin trabajo se ve DORMIDO; despierto sólo con un aviso, y trabajando si trabaja', () => {
@@ -340,7 +341,9 @@ test('6: un chat sin aviso y sin trabajo se ve DORMIDO; despierto sólo con un a
   // Las filas y las cabeceras de las dos pantallas lo piden con sus avisos.
   const fila = sinComentarios(leer('app/admin/operaciones/PiezasCentro.tsx'));
   assert.match(fila, /const animo = animoDe\(c, k\.avisos\(c\)\);/);
-  assert.match(fila, /animo === 'dormido' \? ' co-fila--dormida' : ''/);
+  // La fila es la de todos los Ops Center (FilaDeChat, 21/10/2026): FilaCentro le dice si duerme.
+  assert.match(fila, /dormida=\{animo === 'dormido'\}/);
+  assert.match(fila, /\$\{dormida \? ' co-fila--dormida' : ''\}/);
   const movil = sinComentarios(leer('app/m/operaciones/ChatsMovil.tsx'));
   assert.match(movil, /const animo = animoDe\(c, avisosDe\(espera, nuevo\)\);/);
   assert.match(movil, /animoDe\(elegido, esperaDe\(elegido, esperas\)\)/);

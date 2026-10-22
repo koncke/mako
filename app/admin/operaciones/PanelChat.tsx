@@ -32,8 +32,6 @@ export type CabeceraChat = {
   animo: Animo;
   /** Lo que espera de la persona (el globito de la criatura). */
   espera?: number;
-  /** Debajo del título, chico: de qué tab viene (un chat de Offer). Sin esto, el título solo. */
-  meta?: string | null;
   /** Tocar la criatura abre el selector. Sin esto (el Cerebro, que es siempre la estrella de MaKo) no se toca. */
   onMuneco?: () => void;
   /** Renombrar en el lugar: devuelve el error, o null si salió. Sin esto el título no se toca. */
@@ -42,7 +40,7 @@ export type CabeceraChat = {
 };
 
 /** La cabecera: «volver» (en la ventana angosta), la criatura, el título que se renombra en el lugar. */
-export function CabeceraDeChat({ clave, titulo, criatura: deCriatura = titulo, aspecto, animo, espera = 0, meta = null, onMuneco, onRenombrar, onVolver }: CabeceraChat) {
+export function CabeceraDeChat({ clave, titulo, criatura: deCriatura = titulo, aspecto, animo, espera = 0, onMuneco, onRenombrar, onVolver }: CabeceraChat) {
   // El título se renombra en el lugar: `editando` es lo que se está escribiendo.
   const [editando, setEditando] = useState<{ texto: string; error: string | null; mandando: boolean } | null>(null);
   useEffect(() => { setEditando(null); }, [clave]);
@@ -79,9 +77,7 @@ export function CabeceraDeChat({ clave, titulo, criatura: deCriatura = titulo, a
               onClick={() => setEditando({ texto: titulo, error: null, mandando: false })}>{titulo}</button>
           ) : titulo}
         </h1>
-        {editando?.error
-          ? <span className="co-cab__error" role="alert">{editando.error}</span>
-          : meta && <span className="co-cab__meta">{meta}</span>}
+        {editando?.error && <span className="co-cab__error" role="alert">{editando.error}</span>}
       </div>
     </header>
   );
