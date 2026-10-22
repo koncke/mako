@@ -4378,14 +4378,14 @@ asistencias del PERÍODO, y 4 de esas ventas nunca habían pasado por una llamad
 
 Detalle en docs/hallazgos-offer.md → «El “43” de Código Inmobiliario» y «El Sprint de Mauricio».
 
-# Una feature que analiza UNA cosa no reescribe el perfil del negocio con lo de esa cosa
+# Un documento nuevo nunca pisa un dato que ya tenía el negocio
 
 El 22/10/2026 Mauricio (ws1) subió en Offer el guion de su Sprint, una oferta de entrada, y su perfil del negocio
 (`mako.onboarding.answers`) quedó con el Sprint como oferta principal, su promesa y su avatar: el registro en El Archivero
 sumaba las claves de cada documento «pisando», como un recálculo. Lo leen ~20 features (las automatizaciones, los
 mensajes). Un documento que entra por una feature describe lo que ESA feature analiza: al perfil sólo puede LLENAR lo
 que falta (`answersConDocumento`, lib/archivero-registro.ts), y lo que guarde en su fila del Archivero no puede imponerse
-en un recálculo. Detalle en docs/hallazgos-offer.md → «La prueba de los chats».
+en un recálculo. Detalle en docs/hallazgos-offer.md → «Un archivo subido en Offer pisaba el perfil del negocio».
 
 # Dos números que se comparan salen de UN juicio — no de una fórmula sobre el otro
 

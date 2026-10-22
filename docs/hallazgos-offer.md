@@ -1059,16 +1059,8 @@ Misma llamada (Fathom 195129619) y misma conversación medida (ws1, id 18), más
 El Cerebro corrió un arnés contra el POST real de /api/offer (ws3, 3 corridas, rama `probar-chats-offer`, worktree
 `C:/dev/wt-probar-offer`, `scripts/probar-chats/offer.mts`) y confirmó 8 fallas, más una para Mauricio.
 
-- **Un archivo subido en Offer pisaba el perfil del negocio, y ya le pasó a Mauricio.** El registro en El Archivero
-  (`answersConDocumento`) sumaba las claves de cada documento al brief con «el más nuevo gana», como un recálculo del
-  Archivero. El diagnóstico equivocado era de qué es un documento de Offer: describe la oferta que se ANALIZA, no el
-  negocio. Medido en el ws1: a las 04:08:26 UTC su guion y su landing del Sprint pisaron 7 claves (`oferta_nombre`,
-  `oferta_promesa`, `oferta_incluye`, `avatar_quien`, `avatar_dolor`, `avatar_deseo`, `negocio_que_hace`). La oferta
-  principal es `desde_brief`, así que «Negocio que Escala» se leía con la promesa del Sprint en las ~20 features que
-  usan el perfil. **Ahora** un documento de Offer sólo LLENA lo que el perfil no tiene, y su fila del Archivero guarda
-  sólo eso (si guardara todo, el próximo recálculo del Archivero lo volvía a imponer). Restaurar el ws1 es escribir en
-  prod: los valores de antes salen del archivo del 29/07 («Avatar_Dolores_Oferta_DOS_v2 (2).pdf»), y las 4 filas del
-  Sprint en `archivero_files` tienen que perder esas claves de `campos`.
+- **Un archivo subido en Offer pisaba el perfil del negocio, y ya le pasó a Mauricio:** salió aparte, como P0, con la
+  restauración del ws1. Ver «Un archivo subido en Offer pisaba el perfil del negocio», abajo.
 - **De dónde sale cada pieza.** La ruta ponía la fuente del TURNO entero (`'doc'` si traía documentos, si no `'chat'`):
   lo que el modelo sacaba de lo cargado en MaKo quedaba como dicho por el dueño. Ahora el modelo dice el origen por
   pieza (`{"valor": …, "de": "contexto" | "documento"}`) y `fundirPiezasDelTurno` las guarda con su fuente. ⚠️ El origen
@@ -1087,14 +1079,46 @@ El Cerebro corrió un arnés contra el POST real de /api/offer (ws3, 3 corridas,
   la pantalla).
 
 **Lo que quedó SIN hacer:**
-- Restaurar el perfil del ws1 (escritura en prod; los valores están medidos, pasados al Cerebro).
 - Las ~90 consultas a la base por turno: en docs/hallazgos-infra.md, no es de Offer.
 - El arnés no se corrió contra esta rama (gasta la cuota diaria de Gemini de la plataforma): los tests fijan lo que decide el código.
 
-**Vive en:** `lib/archivero-registro.ts` (`answersConDocumento`) · `lib/archivero.ts` (`registrarDocumentoSinPisar`) ·
-`lib/offer-reglas.ts` (`fundirPiezasDelTurno`, `limpiarPiezas`, `sinMarcaDeFuente`, `estadoDeLaOferta`,
+**Vive en:** `lib/offer-reglas.ts` (`fundirPiezasDelTurno`, `limpiarPiezas`, `sinMarcaDeFuente`, `estadoDeLaOferta`,
 `conCanalDeLaOferta`, `ofertasDeclaradas`, `resultadoMedible`, `filtrarCifras`, `entradaCompletar`) · `lib/offer-marco.ts`
 (`sinNumeroDelante`) · `lib/offer-pdf.ts` · `lib/offer-ia.ts` (reglas 8, 14 y 20) · `app/api/offer/route.ts` (`responder`,
 `generarSesion`) · `tests/offer-prueba-chats-2210.test.ts` y `tests/offer-archivero.test.ts` (18 roturas, las 18 cazadas)
+
+## Un archivo subido en Offer pisaba el perfil del negocio (22/10/2026, P0, cliente roto)
+
+- **Síntoma.** A Mauricio (ws1) su perfil del negocio le quedó con el Sprint: «Sprint de Diseño para la Ejecución
+  Empresarial» como oferta principal, la promesa, lo que incluye y el avatar del Sprint, y otro «qué hace el negocio». Lo
+  leen ~20 features (las automatizaciones, los mensajes de los envíos). Lo encontró la prueba de los chats del Cerebro en
+  el ws3; medido en el ws1: `mako.onboarding.answers` se escribió a las 04:08:26 UTC, cuando subió en Offer el guion y
+  la landing del Sprint (7 claves: `oferta_nombre`, `oferta_promesa`, `oferta_incluye`, `avatar_quien`, `avatar_dolor`,
+  `avatar_deseo`, `negocio_que_hace`). La oferta principal es `desde_brief`, así que «Negocio que Escala» se leía con la
+  promesa del Sprint.
+- **Causa.** Cada archivo del chat de Offer pasa por El Archivero (`registrarDocumentoSinPisar`, decisión del 15/10), y
+  `answersConDocumento` sumaba sus claves al perfil con «el más nuevo gana», como un recálculo del Archivero. El
+  diagnóstico equivocado era de qué es un documento de Offer: describe la oferta que se ANALIZA, no el negocio. Y no
+  alcanzaba con dejar de pisar el perfil: la fila del archivo guardaba todos sus `campos`, y el próximo recálculo del
+  Archivero (`computeEffective`, el más nuevo gana) los volvía a imponer.
+- **Ahora.** Un documento de Offer sólo LLENA lo que el perfil no tiene (ni a mano ni de otro documento), y su fila del
+  Archivero guarda sólo lo que llenó. Lo fija `tests/offer-archivero.test.ts` (con el caso del Sprint).
+- **La restauración del ws1 (autorizada por el Cerebro, 22/10 ~07:55 UTC).** No hay historial de `app_settings`. La fuente
+  de cada clave fue el último valor antes de las 04:05: una edición del dueño a esas claves va a `mako.archivero.manual`
+  («una puerta por campo», lib/api-mako/areas/negocio.helpers.ts), que no cambió desde el 29/07 ni tiene ninguna; el único
+  archivo anterior es el del 29/07 («Avatar_Dolores_Oferta_DOS_v2 (2).pdf»), y la conversación de Offer del 18/10 nació
+  con su promesa y lo que incluye. Se escribió en una transacción con compare-and-set sobre el valor exacto: las 7 claves
+  del perfil y los `campos` de las 4 filas del Sprint sin esas claves. Releído: el resto del perfil igual, un recálculo
+  del Archivero da lo mismo, «Negocio que Escala» se lee con su promesa y el Sprint (oferta 24, su propia fila: no es
+  `desde_brief`) con la suya. Backup, script y foto del después: en las notas del Cerebro,
+  `side-session-notes/local_428051c1-…/restauracion-ws1-2210/`.
+
+**Regla (AGENTS.md):** un documento nuevo nunca pisa un dato que ya tenía el negocio.
+
+**Lo que quedó SIN hacer:** las filas del Sprint conservan `oferta_ticket` (lo tapa el valor manual del dueño). Otros
+negocios que hayan subido archivos en Offer desde el 15/10 pueden tener el perfil pisado igual: no se midió.
+
+**Vive en:** `lib/archivero-registro.ts` (`answersConDocumento`) · `lib/archivero.ts` (`registrarDocumentoSinPisar`) ·
+`tests/offer-archivero.test.ts`
 
 *22/10/2026, chat «Offer» (claude3).*

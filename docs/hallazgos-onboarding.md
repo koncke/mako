@@ -2866,4 +2866,4 @@ y `answersConDocumento` sumaba sus claves con «el más nuevo gana». Un documen
 analiza, no el negocio: el ws1 (Mauricio) subió su Sprint, una oferta de entrada, y su perfil quedó con el Sprint como
 oferta principal y su avatar (04:08 UTC). Desde el 22/10 sólo llena lo que el perfil no tiene. La regla para quien
 escriba el brief desde otra tab: una feature que analiza UNA cosa no escribe el perfil del negocio con lo de esa cosa.
-Detalle en docs/hallazgos-offer.md → «La prueba de los chats».
+Detalle en docs/hallazgos-offer.md → «Un archivo subido en Offer pisaba el perfil del negocio».
