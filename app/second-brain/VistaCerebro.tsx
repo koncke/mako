@@ -47,16 +47,19 @@ export const SUBTITULO_SECOND_BRAIN = 'Todo lo que MaKo sabe de tu negocio.';
 /** Lo que se lee arriba del cerebro del super admin, que además trae la construcción de MaKo. */
 export const SUBTITULO_UNIDO = 'Tu negocio y cómo se construye MaKo.';
 
-export function VistaCerebro({ cerebro: delServidor, funnelPanel, movil = false, alCerrar, alEditarArea }: {
+export function VistaCerebro({ cerebro: delServidor, funnelPanel, movil = false, alCerrar, alEditarArea, accionMovil }: {
   /** UN cerebro: el del negocio o, para quien opera, el mismo con la construcción de MaKo adentro (con `capas`). */
   cerebro: Cerebro<string>;
   funnelPanel: ReactNode;
   /** El teléfono: la capa a pantalla entera (sin cabecera ni editor ni «Exportar»). */
   movil?: boolean;
-  /** Sólo en el teléfono: la flecha que vuelve a la lista. */
+  /** Sólo en el teléfono: la flecha del grafo, que sale del Second Brain (desde el 22/10/2026 no hay lista debajo). */
   alCerrar?: () => void;
-  /** Sólo en el teléfono: «Editar» de la barra lateral abre la hoja del área en la lista, no el editor de escritorio. */
+  /** Sólo en el teléfono: «Editar» de la barra lateral abre la hoja del área encima del grafo, no el editor de escritorio. */
   alEditarArea?: (area: AreaId) => void;
+  /** Sólo en el teléfono: lo que va al final de la barra del grafo, donde la computadora tiene «Exportar» (el «+» del
+   *  Archivero, que hasta el 22/10/2026 vivía en la portada). */
+  accionMovil?: ReactNode;
 }) {
   // ── EL GRAFO VIVO (punto 13, 17/10/2026) ──────────────────────────────────
   // El grafo llega del servidor y se vuelve a pedir cada 3 minutos mientras la pestaña está a la vista. Con la huella
@@ -151,7 +154,7 @@ export function VistaCerebro({ cerebro: delServidor, funnelPanel, movil = false,
         onFiltro={setFiltro}
         movil={movil}
         alCerrar={alCerrar}
-        accion={!movil && filtroExportable ? <BotonExportar cerebro={delNegocio} filtroMapa={filtroExportable} recorte={verse} /> : undefined}
+        accion={movil ? accionMovil : filtroExportable ? <BotonExportar cerebro={delNegocio} filtroMapa={filtroExportable} recorte={verse} /> : undefined}
       />
       {!movil && <AreasHub abierta={editando} onAbrir={setEditando} funnelPanel={funnelPanel} vistaInicial={vistaInicial} />}
     </div>
