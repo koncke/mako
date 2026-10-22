@@ -1,5 +1,32 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 22/10/2026 — LAS PREGUNTAS DEL ARRANQUE, GUARDADAS (rama onboarding-arranque-historial, C:/dev/wt-onboarding-arranque)
+
+- Chat «Onboarding», claude3. Lo pidió el Cerebro como cliente roto: en el Ops Center del ws21 (Florencia) faltaban las
+  preguntas. Medido en pantalla: faltaba el arranque entero (nunca se guardó); la conversación de Offer sí estaba.
+- Ahora el arranque se anota como se dibujó en `onboarding.historial` (lib/onboarding-historial.ts), y el Ops Center y
+  el chat «Onboarding» lo juntan por hora con Offer. Detalle y trampas: docs/hallazgos-onboarding.md («Las preguntas del
+  arranque, guardadas»). Test: tests/onboarding-historial.test.ts.
+- Pedido de Martín sumado (21/10 ~23:00): el super admin ve la conversación del onboarding como «Onboarding», y las
+  respuestas por voz viajan con su audio (`MensajeChat.audio`). El reproductor en la burbuja lo hace el chat «Ops Center»
+  (local_dd16f102…): sin eso, el audio llega pero todavía no se ve.
+- Tres revisiones adversariales: 14 hallazgos, después 6 y al final ninguno alto ni medio. Lo que tapaban (lecturas
+  caídas que quedaban guardadas, las respuestas a las confirmaciones, la fase sin respuesta, el cierre duplicado) está en
+  el hallazgo.
+- **Reconstrucción APLICADA el 22/10** (scripts/reconstruir-historial-onboarding.mts --aplicar): ws3 (31), ws20 (35),
+  ws21 (33) y ws22 (36), todo marcado `reconstruido`. Una segunda corrida dice «ya tiene historial» en los cuatro. Quedó
+  ANTES del script que arregla el nombre del ws21, así que ese script ya no cambia lo que ella contestó. Después del
+  deploy se vuelve a correr EN SECO: sólo toca negocios sin historial, para cubrir a quien terminó en el medio.
+- **Punta para integrar:** el commit que trae este relevo, rama onboarding-arranque-historial. El código llega hasta
+  c07334eff, encima de 318b32714, 55231b7e6 y b87e59c46, desde origin/main 2d1d099e0. El VERDE rápido es sin tipos.
+- Al estar en producción (deploy Ready, no el push): se manda el aviso al grupo del ws21 desde este worktree, como
+  «Desarrollador de MaKo» (docs/relevo/mako-en-whatsapp.md). Sin `--enviar` sólo muestra el texto:
+  `NODE_OPTIONS=--conditions=react-server npx tsx scripts/avisar-arreglo-al-grupo.mts --ws 21 --clave onboarding:historial-ws21 --commit c07334eff --origen "Onboarding" --texto "Ya quedó arreglado: en tu Ops Center, el chat «Onboarding» muestra tu onboarding completo, con cada pregunta de MaKo y tu respuesta." --enviar`
+  Después se anota el «Hecho» en app/admin/dev/onboarding/bitacora.ts.
+- Sigue abierto (detalle en el hallazgo, «Sin hacer»): el reproductor del audio (chat «Ops Center»); el modo 'plan' (sin
+  Offer: el historial se guarda, pero el super admin no lo ve en ningún hilo); el doble toque cruzado; «Empresa» y el
+  script del ws21 (el sí de Martín), como abajo.
+
 ## ESTADO AL 22/10/2026 ~00:45 AR — EL NOMBRE EN EL PERFIL, EN PRODUCCIÓN (1166cbdca, run 223)
 
 - El «Hecho» está en la bitácora del Onboarding. La rama onboarding-perfil-negocio se cierra para esta ronda.

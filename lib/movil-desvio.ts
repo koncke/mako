@@ -21,7 +21,7 @@
 // el proxy con un rewrite, y el componente sólo tapa lo que se usa en la computadora.
 // =============================================================================
 
-import { ENTRADA_MOVIL, esRutaMovil, respaldoEscritorio, rutaEscritorio, rutaMovil } from './movil-rutas';
+import { ENTRADA_MOVIL, RUTA_CENTRO_M, esRutaMovil, respaldoEscritorio, rutaEscritorio, rutaMovil } from './movil-rutas';
 import { esPublica } from './rutas-publicas';
 import { conWs } from './ws-tab';
 
@@ -81,6 +81,26 @@ export function esVistaMovil(pathname: string | null | undefined, search: string
   return telefono && decidirDesvio(pathname, search).tipo === 'movil';
 }
 
+/** El Centro de Operaciones en su URL de siempre (/admin/operaciones): el teléfono la ve con la página de /m. */
+export const CENTRO_MOVIL = rutaEscritorio(RUTA_CENTRO_M);
+
+/**
+ * ADÓNDE ENTRA LA APP DEL TELÉFONO, y por qué el super admin va derecho al Centro (21/10/2026).
+ *
+ * Martín, desde su Android: «Aún no veo la animación de MaKo en mobile y siempre que entro me sale el reload». Medido en
+ * los logs de Vercel de sus aperturas (21/10, 22:37 y 22:53): cada una eran DOS documentos. /inicio → /second-brain
+ * (200) → y recién ahí la página decidía «super admin → Centro» con un `redirect()` que, por el `loading.tsx` de
+ * /m/second-brain, viaja adentro del stream (Next lo manda como `<meta refresh>` + redirect de cliente: una navegación
+ * DURA). La entrada de MaKo arrancaba en el primer documento, gastaba su marca de «ya salió» y moría con él; el segundo
+ * ya no la mostraba. Y la apertura de las 22:37 murió en el primero: después del /second-brain el teléfono no pidió nada
+ * más (la pantalla «This page couldn't load» de Next). Desde el borde es un solo documento: el del Centro.
+ *
+ * Sin `?ws=` nada más: con uno, la pestaña es de un negocio y la decide la página (`contextoMovil`).
+ */
+export function entradaMovil(operador: boolean, search: string): string {
+  return operador && !new URLSearchParams(search).has('ws') ? CENTRO_MOVIL : ENTRADA_MOVIL;
+}
+
 /** Lo que el proxy hace con un pedido de PÁGINA con sesión (las de /api no pasan por acá). */
 export type PedidoMovil = { tipo: 'seguir' } | { tipo: 'redirigir'; destino: string } | { tipo: 'reescribir'; destino: string };
 
@@ -96,7 +116,11 @@ export type PedidoMovil = { tipo: 'seguir' } | { tipo: 'redirigir'; destino: str
  *   · Una computadora en una URL que sólo existe en el teléfono (/mas, /crm/12/chat…) → se REDIRIGE
  *     a la pantalla de escritorio que corresponde (`respaldoEscritorio`).
  */
-export function pedidoMovil(p: { pathname: string; search: string; metodo: string; telefono: boolean }): PedidoMovil {
+export function pedidoMovil(p: {
+  pathname: string; search: string; metodo: string; telefono: boolean;
+  /** La sesión firmada dice admin GLOBAL (el super admin). Sólo cambia adónde entra (`entradaMovil`). */
+  operador?: boolean;
+}): PedidoMovil {
   const path = p.pathname.replace(/\/+$/, '') || '/';
   if (path === '/api' || path.startsWith('/api/')) return { tipo: 'seguir' };
   const lee = p.metodo === 'GET' || p.metodo === 'HEAD';
@@ -119,7 +143,13 @@ export function pedidoMovil(p: { pathname: string; search: string; metodo: strin
   // mostraba /inicio con el layout de escritorio, la Sidebar angosta y el resto en blanco. Lo vio
   // Martín al abrir la app. Desde el borde es un 307 de ~70 ms y no se dibuja nada.
   // Desde el 20/10/2026 entra al OPS CENTER, la tab principal (`ENTRADA_MOVIL`, pedido bb885d5f); hasta ese día, a /general.
-  if (path === '/inicio') return lee ? { tipo: 'redirigir', destino: search ? `${ENTRADA_MOVIL}?${search}` : ENTRADA_MOVIL } : { tipo: 'seguir' };
+  if (path === '/inicio') {
+    if (!lee) return { tipo: 'seguir' };
+    const destino = entradaMovil(!!p.operador, search);
+    return { tipo: 'redirigir', destino: search ? `${destino}?${search}` : destino };
+  }
+  // El Second Brain pelado del super admin es el Centro (app/m/second-brain/page.tsx): un link viejo entra derecho.
+  if (path === ENTRADA_MOVIL && lee && !search && p.operador) return { tipo: 'redirigir', destino: CENTRO_MOVIL };
   const d = decidirDesvio(path, search);
   if (d.tipo !== 'movil') return { tipo: 'seguir' };
   return { tipo: 'reescribir', destino: urlReescrita(d.destino, search) };

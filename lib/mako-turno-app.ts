@@ -64,7 +64,8 @@ import {
   createSession, getSession, listSessions, getSessionMessages, getSessionMessagesConBloques, getMensajeConBloques, appendMessage,
   renameSession, tituloDesde, type ChartSession, type ChartMsgConBloques,
 } from '@/lib/chart-chats';
-import { adjuntosVisibles, leerRef, sanearBloques } from '@/lib/chat-mako-bloques';
+import { adjuntosVisibles, audioDeBloques, leerRef, sanearBloques } from '@/lib/chat-mako-bloques';
+import { urlAudio } from '@/lib/offer-reglas';
 import { MAX_BLOQUES_MENSAJE, aGuardar, bloqueDeResultado, bloquesGuardados, type Bloque } from '@/lib/chat-bloques';
 import { archivarPdfsDelChat, archivarPegadosDelChat, borrarAdjuntos, subirAdjuntos, urlFirmadaDeAdjunto } from '@/lib/chat-mako-adjuntos';
 import { partirPegados, recortarMensaje, textoParaTitulo } from '@/lib/chat-pegado';
@@ -216,9 +217,12 @@ async function pantallasDelChat(persona: PersonaChat, canalKey: string): Promise
 function aMensajeChat(ws: number, m: ChartMsgConBloques): MensajeChat {
   const bloques = sanearBloques(ws, m.bloques);
   const vista = bloquesGuardados(m.bloques);
+  const audio = audioDeBloques(m.bloques);
   return {
     role: m.role, content: m.content, created_at: m.created_at,
     ...(bloques.length ? { adjuntos: adjuntosVisibles(m.id, bloques) } : {}), ...(vista.length ? { bloques: vista } : {}),
+    // La nota de voz de una respuesta copiada de Offer (el chat «Onboarding»): se reproduce desde la ruta de Offer.
+    ...(audio ? { audio: { url: urlAudio(audio.sesion, audio.mensaje), secs: audio.secs } } : {}),
   };
 }
 
