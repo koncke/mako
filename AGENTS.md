@@ -1686,6 +1686,11 @@ código nuevo:
     `ComposerWhatsApp` o `ChatHilo`, ni su botón de mandar para hablar con MaKo: usa la pieza y le pasa su motor por props.
     Si falta algo, se le suma a la pieza (y lo tienen todas), nunca a una copia. tests/chat-unico.test.ts lleva la lista de
     las que faltan, cada una con su chat, y falla si aparece una nueva.
+  - **Y UN SOLO ALMACÉN: lo que se habla con MaKo en una tab queda en la base, nunca en el navegador ni en la memoria de la
+    pestaña** (22/10/2026; Martín: «¿Todos esos chats regresan y se quedan registrados en Ops Center?»). Un chat de tab sin
+    tabla propia guarda en `chart_sessions` con la clave `<tab>:<entidad>` por `/api/hilo-de-tab` (lib/hilo-de-tab-cliente.ts),
+    y así el Ops Center lo lista como «de antes». Un prefijo nuevo se suma a `PREFIJOS_HILO_DE_TAB` (lib/hilo-de-tab-reglas.ts):
+    la ruta escribe lo que manda el navegador y sin esa lista se podía escribir en el chat del Ops Center de OTRA persona.
   - **Y UN SOLO PANEL: el Ops Center del cliente ES el del super admin** (21/10/2026; Martín: «el ops center de los clientes se
     ve muy mal comparado al de SuperAdmin»). La conversación de un chat del Ops Center —de Claude Code o con MaKo— se monta con
     `PanelDeChat` (app/admin/operaciones/PanelChat.tsx), sus mensajes con `FilaMia` y `FilaDelChat` (Hilo.tsx, la foto incluida)
