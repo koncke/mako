@@ -298,6 +298,22 @@ async function leerCalificacion(desde: string, hasta: string): Promise<Calificac
  *    ése. Se cuentan también los que quedaron con el id del default escrito (`idDefault`): son suyos.
  * ⚠️ Sin la inversión de Meta: los anuncios no saben de funnels, y Offer no la usa.
  */
+/**
+ * ¿El negocio tiene leads FUERA de este funnel? (OF1, 22/10/2026) Con el mismo criterio que `embudoDeFunnel`: el
+ * default son los NULL más los que traen su id. Si no tiene ninguno, el embudo del negocio entero ERA el del funnel, y
+ * un diagnóstico armado con el embudo viejo dice lo mismo que diría hoy. Mira si hay alguno, sin fechas: un lead de
+ * otro funnel sin actividad en el período no cambia los números, y se lo cuenta igual (el lado seguro es rehacer).
+ */
+export async function hayLeadsFueraDelFunnel(funnelId: number, esDefault: boolean): Promise<boolean> {
+  const db = await getTenantDb();
+  const base = db.from('leads').select('id').limit(1);
+  const { data, error } = await (esDefault
+    ? base.not('funnel_id', 'is', null).neq('funnel_id', funnelId)
+    : base.or(`funnel_id.is.null,funnel_id.neq.${funnelId}`));
+  if (error) throw new Error(`leer los leads de otros funnels falló: ${error.message}`);
+  return ((data ?? []) as unknown[]).length > 0;
+}
+
 export async function embudoDeFunnel(opts: {
   funnelId: number | null; idDefault?: number | null; desde?: string | null; hasta?: string | null;
 }): Promise<{

@@ -494,6 +494,28 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/offer',
   },
+  {
+    fecha: '22 oct', hora: '09:32', chat: 'Offer', sesion: 'local_4b2d1f57-62a3-4ace-81ec-c5013086bbb8', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: subir un archivo en Offer ya no pisa el perfil del negocio, y lo demás de la llamada con Mauricio, ya en producción',
+    puntos: [
+      'En producción desde 87365c830 (deploy Ready). Son el arreglo del perfil (P0), los P1 de la llamada con Mauricio del 22/10 (O4 a O9, O11 a O13) y las 8 fallas de la prueba de los chats.',
+      'El perfil: el guion del Sprint de Mauricio había pisado su oferta principal y su avatar; se restauró el ws1 y ahora un archivo de Offer sólo llena lo que falta.',
+      'El chat: no saluda en cada mensaje, no repite «¿es pago único?», contesta primero lo que le preguntan («¿ya quedó guardada?») y tarda menos cuando Gemini anda mal.',
+      'Los documentos: lee una landing que frena a los servidores, acepta el .zip de la carpeta y, con 3 o más archivos, dice «te aviso cuando termine» y avisa en la campanita.',
+      'El PDF: sin «Zoom», sin «Llamada de venta» ni «garantía incondicional» en una entrada, las fechas que dio el dueño enteras, sin «1. 1.», y dice para qué sirve la oferta.',
+      'El selector abre con todos los funnels a la vista.',
+      'Para verlo: Offer › «Sprint 3 días» › corregir las fechas a 24-26/11 y «Armar mi oferta» otra vez. El aviso al grupo del ws1 va en el combinado de Automations.',
+    ],
+    archivos: [
+      'lib/archivero-registro.ts — `answersConDocumento`: un documento nunca pisa un dato que ya tenía el negocio',
+      'lib/offer-reglas.ts — `sinSaludo`, `conCobroDelPrecio`, `fundirPiezasDelTurno`, `estadoDeLaOferta`, las fechas enteras',
+      'lib/offer-lector-externo.ts — la página que frena a los servidores, por r.jina.ai',
+      'lib/offer-zip.ts — el .zip de la landing',
+      'app/api/offer/route.ts — `leer-lote`: muchos documentos por detrás',
+      'tests/offer-mauricio-p1.test.ts, offer-lote-documentos.test.ts y offer-prueba-chats-2210.test.ts — 55 roturas, todas caen',
+    ],
+    revisar: '/offer',
+  },
 ];
 
 export const PARTES: Parte[] = [
