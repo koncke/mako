@@ -84,11 +84,15 @@ export function documentoYaArchivado(
 }
 
 /**
- * Las answers con un documento NUEVO sumado, SIN recalcular el brief: sólo se escriben las claves que el
- * documento trae y que el dueño no editó a mano. Da lo mismo que recalcular con `computeEffective`
- * agregando el archivo al final (el más nuevo pisa a los otros archivos; lo manual gana siempre), y no
- * toca nada más: lo que el wizard guardó por la otra puerta (negocio_objetivo, negocio_freno, marca_*)
- * queda como estaba, igual que las claves de otros documentos.
+ * Las answers con un documento NUEVO de OFFER sumado, SIN recalcular el brief: sólo LLENA las claves que el perfil del
+ * negocio todavía no tiene (ni a mano ni de otro documento). Nunca pisa.
+ *
+ * Hasta el 22/10/2026 pisaba («el más nuevo gana», como un recálculo del Archivero), y era el diagnóstico equivocado de
+ * qué es un documento de Offer: describe la oferta que se ANALIZA, no el negocio. Mauricio (ws1) subió en Offer el guion
+ * y la landing de su Sprint, una oferta de ENTRADA, y su perfil quedó con el Sprint como oferta principal, la promesa
+ * del Sprint y el avatar del Sprint (7 claves, 04:08 UTC). Lo leen ~20 features: las automatizaciones, los mensajes.
+ * `aportadas` son las que llenó: la fila del Archivero guarda SÓLO ésas (lib/archivero.ts), así un recálculo del
+ * Archivero tampoco las impone después.
  */
 export function answersConDocumento(
   previas: Record<string, string>, manual: Record<string, string>, campos: Record<string, string>,
@@ -99,6 +103,8 @@ export function answersConDocumento(
     if (v == null || !String(v).trim()) continue;
     const m = manual?.[k];
     if (m != null && String(m).trim()) continue;
+    const ya = previas?.[k];
+    if (ya != null && String(ya).trim()) continue;
     siguiente[k] = String(v);
     aportadas.push(k);
   }
