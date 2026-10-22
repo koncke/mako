@@ -300,6 +300,12 @@
   .tickets-bandeja__pulgar { gap: 16px; }
   .tickets-bandeja__gesto { width: 58px; height: 58px; }
 }
+/* Un panel MUY angosto (la pantalla de afuera de un plegable): 4 × 58 + 3 × 16 = 280 px ya no entran y la fila se sale
+   por los dos lados. Más chicos y más juntos, los cuatro iguales y al centro. */
+@container tickets (max-width: 300px) {
+  .tickets-bandeja__pulgar { gap: 10px; }
+  .tickets-bandeja__gesto { width: 52px; height: 52px; }
+}
 
 /* ── La TABLA ────────────────────────────────────────────────────────────────────────────────────────────────── */
 .tickets-bandeja__tabla-vista { display: flex; flex-direction: column; gap: 12px; min-width: 0; }

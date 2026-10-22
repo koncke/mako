@@ -11,7 +11,7 @@
 //   2. QUIÉN: la foto de la persona («Lo levantó Mauricio desde el chat de MaKo») o el logo de MaKo («Lo detectó MaKo
 //      solo»), con dónde, el negocio si suma, y cuándo;
 //   3. QUÉ HAY QUE HACER, en un renglón, y la nota del Cerebro como «Estado: …» en una línea;
-//   4. el tipo CHEQUEADO contra el error (`tipoDe`) y la prioridad si apura;
+//   4. el tipo (el de la fila: el último juicio, ./mazo-reglas.ts) y la prioridad si apura;
 //   5. «Detalle», plegado: el error técnico, la nota entera, lo que escribió la persona y los links.
 // Todo eso sale de reglas (./mazo-reglas.ts → `leerTicket`), nunca de una IA.
 //

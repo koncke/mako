@@ -13,7 +13,7 @@
 //   G. el contrato de la pantalla: «Volver» siempre (en la fila de botones), la decisión ESPERA antes de salir, «1 de N»,
 //      un botón por gesto (redondo, sólo el ícono), sin «Actualizar», la vista se recuerda por persona, y la foto sale de
 //      la base;
-//   H. lo que DICE la tarjeta, por reglas: la frase, la tabla de errores, quién y dónde, el tipo chequeado, la nota en una
+//   H. lo que DICE la tarjeta, por reglas: la frase, la tabla de errores, quién y dónde, el tipo de la fila, la nota en una
 //      línea y el botón que se marca al arrastrar.
 // Probado ROMPIÉNDOLO (22/10/2026, cada rotura contra este archivo):
 //   · `linkDeOrigen` sin el `&ws=`                                           → A2 falla
@@ -35,12 +35,20 @@
 // bloque H y rehízo B1, F1 y G1. Probado ROMPIENDO cada regla (22/10/2026, cada rotura contra este archivo):
 //   · `quePaso` devuelve el título del cliente (`t.titulo`) también en los automáticos               → H1, H7 y F1
 //   · «Claude vetado» fuera de la tabla de errores (cae al genérico «Algo falló en el código»)       → H2 y F1
-//   · `tipoDe` sin la regla del automático con error (vuelve a decir «Pedido»)                       → H4 y B1
 //   · `estadoDeLaNota` devuelve la nota entera                                                        → H5
 //   · el error técnico a la vista otra vez (la tarjeta dibuja `<code>` cerrada)                       → F1
 //   · la lista de «lo que sigue» al costado otra vez (`tickets-bandeja__siguen`)                      → G1
 //   · el botón «Hacer» con su texto visible (`<span>{a.rotulo}</span>`)                               → G3
 //   · `gestoMarcado` sin el umbral (marca con 1 px)                                                   → H6
+// La revisión de la tarjeta clara (22/10/2026, noche) sumó H8 y rehízo B1, F1, H4 y H7, probados ROMPIENDO cada arreglo:
+//   · otra vez «automático con error = Bug» por encima del tipo de la fila (pisa el veredicto del Cerebro) → H4, B1, F1 y H7
+//   · `quePaso` con el nombre de la identidad del sistema («A MaKo le falló el servidor»)                  → H8
+//   · `quePaso` sin el «Volvió a pasar» de una regresión                                                   → H8
+//   · `errorFrecuente` sobre el error con su «· 429 veces» pegado                                          → H8
+//   · «permission denied» a secas otra vez como permiso de la base                                         → H8
+//   · «Arreglar el código» sobre lo que el Cerebro devolvió como «no es un bug»                            → H8
+//   · el negocio de la plataforma en un ticket sin persona                                                 → H8
+//   · la tarjeta nombrada con el título del cliente para un lector de pantalla                             → F1
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -51,8 +59,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import type { FilaTicket } from '../lib/tickets-db';
 import {
   accionesDe, errorCorto, errorFrecuente, estadoDeLaNota, estadoObvio, gestoMarcado, leerTicket, lectorDeBandeja, linkDeOrigen, nombreDe,
-  ordenDelMazo, ordenarTabla, origenDe, primerNombre, quePaso, refrescarMazo, siguienteOrden, teclaDelMazo, textoDeLaPersona, tipoDe,
-  veredictoGesto, versionesDe, ERROR_GENERICO, MARCA_PX, ORDEN_INICIAL, VENTANA_DESHACER_MS,
+  ordenDelMazo, ordenarTabla, origenDe, primerNombre, quePaso, refrescarMazo, siguienteOrden, teclaDelMazo, textoDeLaPersona,
+  veredictoGesto, versionesDe, EMAIL_DEL_SISTEMA, ERROR_GENERICO, MARCA_PX, ORDEN_INICIAL, VENTANA_DESHACER_MS,
 } from '../app/tickets/bandeja/mazo-reglas';
 import { DetalleDeLaTarjeta, TarjetaTicket } from '../app/tickets/bandeja/TarjetaTicket';
 import { TablaTickets } from '../app/tickets/bandeja/TablaTickets';
@@ -162,9 +170,11 @@ test('B1: los gestos son las acciones de siempre; las que le escriben al cliente
   assert.deepEqual([bug.izquierda?.decision, bug.izquierda?.pideTexto], ['rechazar', true]);
   assert.deepEqual([bug.arriba?.decision, bug.arriba?.rotulo, bug.arriba?.pideTexto], ['preguntar', 'Preguntar', true]);
   assert.deepEqual([accionesDe(dePersona({ tipo: 'pedido' })).derecha?.decision, accionesDe(dePersona({ tipo: 'pedido' })).derecha?.rotulo], ['hacer', 'Hacer']);
-  // El #6 real: automático con un error, guardado como «pedido» (lo devolvió el Cerebro). La tarjeta dice Bug y el botón,
-  // Arreglar: aprobar sale del tipo CHEQUEADO (`tipoDe`), no del que quedó en la fila.
-  assert.deepEqual([accionesDe(ticket()).derecha?.decision, accionesDe(ticket()).derecha?.rotulo], ['arreglar', 'Arreglar']);
+  // El #6 real: automático con un error, que el Cerebro devolvió como «pedido» («no es de código»). Aprobar sale del tipo de
+  // la FILA, su veredicto: Hacer, nunca «ARREGLARLO (es un bug)» sobre lo que él dijo que no lo es.
+  assert.deepEqual([accionesDe(ticket()).derecha?.decision, accionesDe(ticket()).derecha?.rotulo], ['hacer', 'Hacer']);
+  // Si lo devolvió como pregunta, el ✓ responde (con texto).
+  assert.deepEqual([accionesDe(ticket({ tipo: 'pregunta' })).derecha?.decision, accionesDe(ticket({ tipo: 'pregunta' })).derecha?.pideTexto], ['responder', true]);
   // Una pregunta no se aprueba: se responde (con texto).
   const pregunta = accionesDe(dePersona({ tipo: 'pregunta' })).derecha!;
   assert.deepEqual([pregunta.decision, pregunta.pideTexto], ['responder', true]);
@@ -331,7 +341,7 @@ test('F1: la tarjeta se entiende en 3 segundos: qué pasó, quién, qué hacer, 
   // El #5 real, el de la captura de Martín.
   const html = renderToStaticMarkup(createElement(TarjetaTicket, { t: ticket5(), ahora: AHORA, onVerTodo: () => {} }));
   const orden = ['MaKo no le pudo contestar a Mauricio en su chat', 'No tenía una IA para contestarle', 'Lo detectó MaKo solo',
-    'Conectar su IA', '<b>Estado:</b> el código ya está arreglado · lo decides tú', '>Bug<', 'Detalle'];
+    'Conectar su IA', '<b>Estado:</b> el código ya está arreglado · lo decides tú', '>Pedido<', 'Detalle'];
   let desde = 0;
   for (const x of orden) {
     const k = html.indexOf(x, desde);
@@ -345,7 +355,7 @@ test('F1: la tarjeta se entiende en 3 segundos: qué pasó, quién, qué hacer, 
   assert.doesNotMatch(html, /<code|veto-claude|lista blanca/);
   assert.doesNotMatch(html, /depende de con qué IA lo hace/);
   assert.match(html, /aria-expanded="false"[^>]*>Detalle/);
-  assert.doesNotMatch(html, />Pedido</, 'el tipo guardado («pedido») no es el que se muestra');
+  assert.doesNotMatch(html, />Bug</, 'el tipo es el veredicto del Cerebro («pedido»), no «automático con error = Bug»');
   assert.match(html, /#5/);
   // Una persona: su foto, por dónde lo levantó, la pantalla y el negocio.
   const laura = renderToStaticMarkup(createElement(TarjetaTicket, { t: dePersona(), ahora: AHORA }));
@@ -366,6 +376,8 @@ test('F1: la tarjeta se entiende en 3 segundos: qué pasó, quién, qué hacer, 
   assert.match(det, />Ver todo</);
   assert.match(det, /data-sin-gesto=""/);
   assert.match(leer('app/tickets/bandeja/MazoTickets.tsx'), /el\.closest\('textarea, input, a, button, select, \[data-sin-gesto\]'\)/);
+  // El nombre de la tarjeta para un lector de pantalla es la MISMA frase, no el título que lee el cliente.
+  assert.match(leer('app/tickets/bandeja/MazoTickets.tsx'), /aria-label=\{`Ticket #\$\{t\.id\}: \$\{quePaso\(t\)\}`\}/);
   assert.match(leer('app/tickets/bandeja/bandeja.css'), /\.tickets-bandeja__tecnico \{[^}]*overflow-y: auto;[^}]*touch-action: pan-y;/);
 });
 
@@ -502,21 +514,18 @@ test('H3: QUIÉN, sin ambigüedad (MaKo solo o la persona, y por dónde), y DÓN
   assert.equal(leerTicket(dePersona({ negocio: null, workspace_id: 34 })).negocio, 'Negocio 34');
 });
 
-test('H4: el tipo, chequeado contra el error: un automático con un error de código es un Bug, aunque la fila diga Pedido', () => {
-  // Los #5 y #6 reales: el Cerebro los devolvió con `reclasificar <n> pedido` (su único camino para devolver).
-  assert.equal(tipoDe(ticket5()), 'bug');
-  assert.equal(tipoDe(ticket()), 'bug');
-  assert.equal(leerTicket(ticket()).tipo, 'bug');
-  // Lo que Martín corrigió a mano no se toca; una persona que pide algo es un pedido; un automático sin error, lo guardado.
-  assert.equal(tipoDe(ticket({ tipo_manual: true })), 'pedido');
-  assert.equal(tipoDe(dePersona({ tipo: 'pedido' })), 'pedido');
-  assert.equal(tipoDe(ticket({ tipo: 'pregunta', contexto: { chat: { donde: 'error-mako' } } })), 'pregunta');
-  // La tabla y la hoja dicen el mismo tipo que la tarjeta.
-  assert.match(leer('app/tickets/bandeja/TablaTickets.tsx'), /tickets-bandeja__tipo--\$\{tipoDe\(t\)\}`\}>\{tipoCorto\(tipoDe\(t\)\)\}/);
+test('H4: el tipo es el de la FILA, el último juicio: lo que el Cerebro devolvió como «no es un bug» no vuelve a decir Bug', () => {
+  // Los #5 y #6 reales: el triage dijo bug (el error lo vio el código) y el Cerebro los devolvió con `reclasificar <n>
+  // pedido` («no se arregla con código»). La tarjeta, la tabla y el ✓ dicen su veredicto.
+  assert.equal(leerTicket(ticket5()).tipo, 'pedido');
+  assert.equal(leerTicket(ticket()).tipo, 'pedido');
+  assert.equal(leerTicket(ticket({ tipo: 'pregunta' })).tipo, 'pregunta');
+  assert.equal(leerTicket(ticket({ tipo: 'bug' })).tipo, 'bug');
+  // El pedido que se le firma al Cerebro lleva la fila tal cual (su `Tipo:`), desde el mazo y desde el ticket entero.
+  assert.match(leer('app/tickets/bandeja/MazoTickets.tsx'), /pedidoAlCerebro\(p\.t, d, null\)/);
   const bandeja = leer('app/tickets/bandeja/BandejaTickets.tsx');
-  assert.match(bandeja, /decisionDeAprobar\(tipo\)/);
-  assert.match(bandeja, /pedidoAlCerebro\(\{ \.\.\.fila, tipo: tipoDe\(fila\) \}/);
-  assert.match(leer('app/tickets/bandeja/MazoTickets.tsx'), /pedidoAlCerebro\(\{ \.\.\.p\.t, tipo: tipoDe\(p\.t\) \}/);
+  assert.match(bandeja, /pedidoAlCerebro\(fila, decision, notaCerebro \|\| null\)/);
+  assert.match(bandeja, /decisionDeAprobar\(t\.tipo\)/);
 });
 
 test('H5: la nota del Cerebro, en UNA línea («Estado: …»); la entera queda plegada', () => {
@@ -552,7 +561,59 @@ test('H7: la TABLA dice lo mismo: la columna «Qué pasó» con la frase de la t
   assert.match(html, />Qué pasó</);
   assert.match(html, /MaKo no le pudo contestar a Mauricio en su chat/);
   assert.doesNotMatch(html, /contestarte/);
+  assert.match(html, /tickets-bandeja__tipo--pedido">Pedido</, 'el #5: el tipo de la fila, el mismo de la tarjeta');
   assert.match(html, /No se guardan los cambios del funnel/);
   // Ordenar por esa columna ordena por lo que se ve.
   assert.deepEqual(ordenarTabla([dePersona({ id: 1 }), ticket5()], { col: 'titulo', dir: 'asc' }).map((t) => t.id), [5, 1]);
+});
+
+test('H8: la frase nunca dice algo FALSO: sin persona, la regresión, el contador pegado, el permiso, lo que devolvió el Cerebro', () => {
+  // Sin persona (un cron, un webhook, MaKo en WhatsApp sin saber quién): la identidad del SISTEMA no es un afectado.
+  const sistema = (p: Partial<FilaTicket>) => ticket({ usuario_nombre: 'MaKo (lo detectó solo)', usuario_email: EMAIL_DEL_SISTEMA, negocio: 'Plataforma', foto: null, ...p });
+  assert.equal(quePaso(sistema({ titulo: 'Falló la pantalla «CRM»', contexto: { ruta: '/crm', chat: { donde: 'error-servidor' }, error: 'Error: boom' } })), 'Falló el servidor en «CRM»');
+  assert.equal(quePaso(sistema({ contexto: { chat: { donde: 'error-servidor' }, error: 'MontajeCron: x' } })), 'Falló el servidor');
+  assert.equal(quePaso(sistema({ contexto: { ruta: '/crm', chat: { donde: 'error-navegador' }, error: 'TypeError: x' } })), 'Se rompió la pantalla «CRM»');
+  assert.equal(quePaso(sistema({})), 'MaKo no pudo contestar en un chat');
+  assert.equal(quePaso(sistema({ titulo: 'MaKo no pudo «Mover un lead de etapa»', contexto: { chat: { donde: 'error-mako' }, error: 'x', herramienta: 'mover_lead' } })),
+    'MaKo no pudo mover un lead de etapa en un chat');
+  assert.equal(leerTicket(sistema({})).negocio, null, 'el negocio de la plataforma no es el de un cliente');
+  assert.deepEqual(leerTicket(sistema({})).quien, { mako: true, texto: 'Lo detectó MaKo solo' });
+  // La identidad del sistema es ésa (lib/errores-app.ts → identidadDelSistema): si cambia, esto se entera.
+  assert.ok(leer('lib/errores-app.ts').includes(`email: '${EMAIL_DEL_SISTEMA}', nombre: 'MaKo (lo detectó solo)'`));
+
+  // Una REGRESIÓN (`Volvió a pasar: …`, lib/errores-app.ts → abrirTicket): la frase lo dice, y lo que intentó se sigue leyendo.
+  const ana = { usuario_nombre: 'Ana Torres', usuario_email: 'ana@prueba.test' };
+  assert.equal(quePaso(ticket({ ...ana, titulo: 'Volvió a pasar: MaKo no pudo «Mover un lead de etapa»', contexto: { chat: { donde: 'error-mako' }, error: 'x', herramienta: 'mover_lead' } })),
+    'Volvió a pasar: MaKo no pudo mover un lead de etapa en el chat de Ana');
+  assert.equal(quePaso(ticket({ ...ana, titulo: 'Volvió a pasar: Falló la pantalla «CRM»', contexto: { ruta: '/crm', chat: { donde: 'error-servidor' }, error: 'x' } })),
+    'Volvió a pasar: a Ana le falló el servidor en «CRM»');
+
+  // El contador y el digest que le pega `ticketDeError` no son el error: un TypeError de 429 veces no es «la IA saturada».
+  assert.equal(errorFrecuente("TypeError: Cannot read properties of undefined (reading 'x') · 429 veces").porque, 'Un error de programación');
+  assert.deepEqual(errorFrecuente('Error: algo raro · 503 veces'), { ...ERROR_GENERICO });
+  assert.deepEqual(errorFrecuente('Error: algo raro (digest 529) · 2 veces'), { ...ERROR_GENERICO });
+  assert.equal(errorFrecuente('responder: overloaded_error · 3 veces').porque, 'La IA estaba saturada', 'lo que sí es saturación se sigue leyendo');
+
+  // «Permission denied» a secas es del navegador (el micrófono); el de la base dice sobre qué.
+  assert.equal(errorFrecuente('NotAllowedError: Permission denied').porque, 'El navegador no le dio permiso');
+  assert.equal(errorFrecuente('Error: permission denied for table leads').porque, 'La base no le dio permiso');
+  assert.equal(errorFrecuente('Error: new row violates row-level security policy for table «…»').porque, 'La base no le dio permiso');
+
+  // Lo que el Cerebro devolvió como «no es un bug» no dice «Arreglar el código»: manda su veredicto. Lo del NEGOCIO, sí.
+  const devuelto = (tipo: FilaTicket['tipo']) => leerTicket(ticket({ tipo, contexto: { chat: { donde: 'error-navegador' }, ruta: '/crm', error: 'Error: algo raro' } }));
+  assert.equal(devuelto('pedido').hacer, 'Decidir si se hace');
+  assert.equal(devuelto('pregunta').hacer, 'Responderle');
+  assert.equal(devuelto('bug').hacer, 'Arreglar el código');
+  assert.equal(leerTicket(ticket5()).hacer, 'Conectar su IA');
+});
+
+test('H9: la marca del botón no queda encendida cuando la tarjeta se va, y la fila entra en un panel muy angosto', () => {
+  const src = leer('app/tickets/bandeja/MazoTickets.tsx');
+  assert.match(src, /useEffect\(\(\) => \(\) => onMarca\(null\), \[onMarca\]\);/);
+  const css = leer('app/tickets/bandeja/bandeja.css');
+  const angosto = /@container tickets \(max-width: 300px\) \{([\s\S]*?)\n\}/.exec(css);
+  assert.ok(angosto, 'falta el corte de 300 px');
+  const w = Number(/\.tickets-bandeja__gesto \{ width: (\d+)px; height: \1px; \}/.exec(angosto![1])?.[1]);
+  const gap = Number(/\.tickets-bandeja__pulgar \{ gap: (\d+)px; \}/.exec(angosto![1])?.[1]);
+  assert.ok(4 * w + 3 * gap <= 248, `4 botones de ${w} px con ${gap} px entre ellos no entran en 248 px (280 menos el margen del teléfono)`);
 });

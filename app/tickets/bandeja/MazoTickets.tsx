@@ -40,7 +40,7 @@ import { anotarDespachoAction, decidirTicketAction } from './acciones';
 import type { CerebroParaTickets } from './cerebro';
 import { TarjetaTicket } from './TarjetaTicket';
 import {
-  RESPUESTAS_GUARDADAS, VENTANA_DESHACER_MS, accionesDe, gestoMarcado, ordenDelMazo, refrescarMazo, teclaDelMazo, tipoDe, veredictoGesto,
+  RESPUESTAS_GUARDADAS, VENTANA_DESHACER_MS, accionesDe, gestoMarcado, ordenDelMazo, quePaso, refrescarMazo, teclaDelMazo, veredictoGesto,
   versionesDe, type AccionMazo, type Salida,
 } from './mazo-reglas';
 
@@ -136,7 +136,7 @@ export function MazoTickets({ tickets, cerebro, ahora, onCambio, onVerTodo, quie
       if (!c) falla = 'no hay un chat «Cerebro»';
       else if (!c.listo.ok) falla = c.listo.motivo;
       else {
-        const m = await c.mandar(pedidoAlCerebro({ ...p.t, tipo: tipoDe(p.t) }, d, null)).catch(() => ({ ok: false as const, error: 'no salió' }));
+        const m = await c.mandar(pedidoAlCerebro(p.t, d, null)).catch(() => ({ ok: false as const, error: 'no salió' }));
         if (!m.ok) falla = m.error;
         else {
           const a = await anotarDespachoAction(id, m.id).catch(() => ({ ok: false as const, error: 'no se anotó' }));
@@ -383,6 +383,9 @@ function CartaArriba(p: {
     const m = gestoMarcado(x.get(), y.get());
     if (m !== marcada.current) { marcada.current = m; p.onMarca(m); }
   };
+  // La que se va en pleno arrastre (la sacó un refresco, o «Volver» trajo otra) apaga lo que encendió.
+  const onMarca = p.onMarca;
+  useEffect(() => () => onMarca(null), [onMarca]);
   useMotionValueEvent(x, 'change', (v) => { if (!saliendo.current) progreso.set(Math.min(1, Math.max(Math.abs(v), Math.abs(y.get())) / 160)); marcar(); });
   useMotionValueEvent(y, 'change', (v) => { if (!saliendo.current) progreso.set(Math.min(1, Math.max(Math.abs(v), Math.abs(x.get())) / 160)); marcar(); });
 
@@ -462,7 +465,7 @@ function CartaArriba(p: {
       onDragStart={() => { arrastro.current = true; }}
       onDragEnd={alSoltar}
       onClickCapture={comerClick}
-      aria-label={`Ticket #${t.id}: ${t.titulo}`}
+      aria-label={`Ticket #${t.id}: ${quePaso(t)}`}
     >
       {acciones.derecha && (
         <motion.span className={`tickets-bandeja__sello tickets-bandeja__sello--derecha${listo('derecha') ? '' : ' tickets-bandeja__sello--falta'}`} style={{ opacity: selloSi }} aria-hidden>

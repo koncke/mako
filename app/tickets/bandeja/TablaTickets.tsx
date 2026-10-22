@@ -7,8 +7,8 @@
 // canal, estado y cuándo. Tocar el título de una columna ordena (y otra vez, al revés); los chips de siempre filtran por
 // estado (Por decidir · Esperan al cliente · En curso · Cerrados). Tocar una fila abre el ticket entero.
 //
-// ⚠️ «QUÉ PASÓ» ES LA FRASE DE LA TARJETA (`quePaso`), no el título que lee el cliente («MaKo no pudo «contestarte»»), y
-//    el tipo es el CHEQUEADO contra el error (`tipoDe`): la tabla y el mazo dicen lo mismo del mismo ticket.
+// ⚠️ «QUÉ PASÓ» ES LA FRASE DE LA TARJETA (`quePaso`), no el título que lee el cliente («MaKo no pudo «contestarte»»):
+//    la tabla y el mazo dicen lo mismo del mismo ticket.
 // ⚠️ EL TELÉFONO DESTILA ESTO, no lo achica: debajo de 720 px de ANCHO DEL PANEL (container query, no la ventana: en la
 //    compu el Ops Center también puede quedar angosto) cada fila es un renglón doble —la cara, el número y el título; abajo
 //    quién, el negocio y cuándo— y el orden se elige con un selector, porque no hay títulos de columna que tocar.
@@ -20,7 +20,7 @@ import { avisoAlCliente } from '@/lib/tickets-aviso';
 import type { FilaTicket } from '@/lib/tickets-db';
 import { CaraTicket, ChipOrigen } from './TarjetaTicket';
 import {
-  COLUMNAS, GRUPOS, ROTULO_ESTADO, enGrupo, estadoObvio, haceCuanto, nombreDe, ordenarTabla, quePaso, siguienteOrden, tipoCorto, tipoDe,
+  COLUMNAS, GRUPOS, ROTULO_ESTADO, enGrupo, estadoObvio, haceCuanto, nombreDe, ordenarTabla, quePaso, siguienteOrden, tipoCorto,
   type ColumnaTabla, type Orden,
 } from './mazo-reglas';
 
@@ -90,7 +90,7 @@ export function TablaTickets({ tickets, ahoraLista, grupo, onGrupo, orden, setOr
                       <button type="button" onClick={(e) => { e.stopPropagation(); onAbrir(t.id); }}>
                         <span className="tickets-bandeja__solo-angosto">#{t.id} </span>{quePaso(t)}
                       </button>
-                      <span className={`tickets-bandeja__tipo tickets-bandeja__tipo--${tipoDe(t)}`}>{tipoCorto(tipoDe(t))}</span>
+                      <span className={`tickets-bandeja__tipo tickets-bandeja__tipo--${t.tipo}`}>{tipoCorto(t.tipo)}</span>
                     </td>
                     <td className="tickets-bandeja__col--quien">
                       <span className="tickets-bandeja__persona"><CaraTicket t={t} tam={28} /><span>{nombreDe(t)}</span></span>

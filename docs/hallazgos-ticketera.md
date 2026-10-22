@@ -17,13 +17,12 @@ entiende ni de qué es el bug, ni qué hay que hacer, ni cómo se originó, o si
   frase, armada por reglas desde el canal, `chat.donde`, la herramienta y la pantalla (`quePaso`): «MaKo no le pudo
   contestar a Mauricio en su chat». La pantalla se nombra como en la barra (`tituloDe`, lib/titulo-tab.ts), no por la ruta.
 - **«El triage clasificó mal el #5 y el #6: son Pedido».** El triage dijo `bug` con confianza alta (el error lo registró el
-  código). Los pasó a `pedido` el CEREBRO, con `scripts/tickets.ts reclasificar <n> pedido`: es su ÚNICO camino para
-  devolverle un ticket a Martín, y el texto fijo del Runner (`mensajeTicket`, lib/tickets-aviso.ts) se lo dicta así, con
-  «pedido». Nadie pidió nada nuevo: «Pedido» quedó como el efecto de DEVOLVERLO, no como una clasificación. La regla de la
-  pantalla (`tipoDe`): un automático con un error registrado es **Bug**, salvo que Martín lo haya corregido a mano
-  (`tipo_manual`). La fila NO se reescribe; lo chequeado lo usan la tarjeta, la tabla, la hoja, el ✓ (Arreglar, no Hacer) y
-  el pedido que se le firma al Cerebro. Y la naturaleza real de esos dos es CONFIGURACIÓN (abajo, «Un negocio sin IA no es
-  un bug»): el tipo no tiene esa casilla, la dice el renglón de qué hacer («Conectar su IA»).
+  código). Los pasó a `pedido` el CEREBRO, con `scripts/tickets.ts reclasificar <n> pedido`, que es lo que le pide el texto
+  fijo del Runner (`mensajeTicket`, lib/tickets-aviso.ts) cuando «no es un bug de verdad (es algo nuevo, o no se
+  entiende)». **«Pedido» ES un veredicto: «no es un bug»** (ver abajo, la revisión). La pantalla muestra el tipo de la fila,
+  que es el último juicio: el triage, el Cerebro al devolverlo, Martín a mano. Y la naturaleza real de esos dos es
+  CONFIGURACIÓN (abajo, «Un negocio sin IA no es un bug»): el tipo no tiene esa casilla, la dice el renglón de qué hacer
+  («Conectar su IA»).
 - **«Lo que sigue al costado sirve en la compu».** Era lo que sacaba la tarjeta del centro: dos columnas desde 780 px de
   PANEL. Tinder no tiene lista: lo que sigue es la tarjeta que asoma detrás y el «1 de N». Se fue.
 - **«"Volver" arriba lo pidió Martín».** Pidió «un botón para volver» (14/10); «arriba» lo decidió un chat. Ahora es el
@@ -56,9 +55,34 @@ sólo lectura): a 375, 1024 y 1440 el centro de la tarjeta es el del panel y el 
 los cuatro botones miden lo mismo (58 o 60 px), sin texto; sin scroll horizontal ni código a la vista; arrastrar 88 px a la
 derecha marca el ✓ y soltar lo apaga; «Detalle» abre el error y la nota. Los tests, probados rompiendo cada regla.
 
-**Vive en:** app/tickets/bandeja/mazo-reglas.ts (`leerTicket`, `quePaso`, `tipoDe`, `ERRORES_FRECUENTES`, `estadoDeLaNota`,
-`gestoMarcado`) · TarjetaTicket.tsx · MazoTickets.tsx · TablaTickets.tsx · BandejaTickets.tsx · bandeja.css ·
-tests/ticketera-mazo.test.ts (B1, F1, G1, G3 y H1–H7)
+**La revisión (22/10, noche): lo que la tarjeta clara decía FALSO.**
+- **El diagnóstico obvio equivocado: «"Pedido" es el efecto de devolverlo; un automático con error es Bug».** El triage da
+  `bug` a TODO automático con error (`clasificar`: +4 por el error, +2 por declararlo el sistema; nada lo lleva a pedido).
+  Así que la regla «automático con error = Bug» sólo cambiaba algo donde el Cerebro ya había dicho «no es un bug»: pisaba
+  su veredicto. La tarjeta del #6 decía «Bug» al lado de «Estado: … no es de código», y el ✓ («Arreglar») le firmaba al
+  Cerebro «ARREGLARLO (es un bug)» sobre lo que él acababa de devolver: otra vuelta del mismo ticket. Se fue `tipoDe`: el
+  tipo es el de la fila. Y «Arreglar el código» (las filas de código de `ERRORES_FRECUENTES`) no se dice sobre un ticket
+  devuelto: ahí manda el tipo («Decidir si se hace», «Responderle»). Lo del negocio («Conectar su IA») sigue.
+- **«A MaKo le falló el servidor».** Un error sin persona (un cron, un webhook, una página pública, MaKo en WhatsApp sin
+  saber quién escribió) lo firma la identidad del SISTEMA (`identidadDelSistema`, lib/errores-app.ts: «MaKo (lo detectó
+  solo)», sistema@hola-mako.com, el negocio de la plataforma). La frase la tomaba por la afectada: «MaKo no le pudo
+  contestar a MaKo en su chat». Ahora: «Falló el servidor en «CRM»», «MaKo no pudo contestar en un chat», sin negocio.
+- **La regresión se perdía.** `abrirTicket` titula «Volvió a pasar: …», y la frase se armaba sin el título: Martín no veía
+  que era algo que ya se había arreglado, y el regex de lo que intentó MaKo no calzaba (caía al nombre de la herramienta).
+- **El contador pegado al error.** `ticketDeError` le suma «· 429 veces» y el digest al final de `contexto.error`; la tabla
+  lo leía entero, y un TypeError de 429 veces calzaba con `\b429\b`: «La IA estaba saturada · Probar de nuevo».
+- **«Permission denied» a secas no es la base:** es el navegador (el micrófono o la cámara, `NotAllowedError`). El de
+  Postgres dice sobre qué («permission denied for table leads»).
+- **De paso:** la tarjeta se anunciaba al lector de pantalla con el título del cliente (ahora con la frase); la marca del
+  botón quedaba encendida si la tarjeta se iba en pleno arrastre; y a menos de 280 px de panel los cuatro botones se salían
+  por los dos lados (corte de 300 px: 52 px, 10 de separación; la cuenta la fija H9, no se midió en el arnés).
+- Los botones redondos sí tienen nombre (`aria-label` con la tecla y `title`), el centrado sale de `margin: 0 auto` y de la
+  fila con `justify-content: center` en el mismo ancho, y lo que escribió el cliente sólo se dibuja como texto: eso estaba
+  bien.
+
+**Vive en:** app/tickets/bandeja/mazo-reglas.ts (`leerTicket`, `quePaso`, `EMAIL_DEL_SISTEMA`, `ERRORES_FRECUENTES`,
+`errorFrecuente`, `estadoDeLaNota`, `gestoMarcado`) · TarjetaTicket.tsx · MazoTickets.tsx · TablaTickets.tsx ·
+BandejaTickets.tsx · bandeja.css · tests/ticketera-mazo.test.ts (B1, F1, G1, G3 y H1–H9)
 
 ---
 
@@ -369,8 +393,9 @@ bug: es de la plataforma.
 | Qué | Dónde | Por qué |
 |---|---|---|
 | Ver el mazo y la tabla en el teléfono de Martín (Android) | app/tickets/bandeja/MazoTickets.tsx | 22/10 (dos veces, la segunda con la tarjeta clara): medido en Chrome sin ventana a 375, 1024 y 1440 con los #5 y #6 reales y datos de prueba; la app no se levantó (`next dev` escribe en producción). El modo oscuro de la tarjeta clara no se midió |
-| Devolver un ticket sin cambiarle el tipo | scripts/tickets.ts (`reclasificar`) · lib/tickets-aviso.ts (`mensajeTicket`) | El Cerebro sigue devolviendo con `reclasificar <n> pedido`, que reescribe el tipo. La pantalla muestra el chequeado (`tipoDe`), pero la fila, el script `ver` y quien lea la base siguen viendo «pedido». Lo limpio es un `devolver <n> --porque` que sólo cambie el estado |
-| Qué hace el ✓ con un ticket de CONFIGURACIÓN | app/tickets/bandeja/mazo-reglas.ts (`accionesDe`) | El #5 y el #6 piden «Conectar su IA», y el ✓ le firma al Cerebro «ARREGLARLO (es un bug)». No hay una decisión «que la conecte el negocio»: se usa ↑ Preguntar o «Responder» en el ticket entero. Es una decisión de producto |
+| Devolver un ticket que no es «algo nuevo» | scripts/tickets.ts (`reclasificar`) · lib/tickets-aviso.ts (`mensajeTicket`) | El Runner le pide al Cerebro `reclasificar <n> pedido` para TODO lo que no es un bug («es algo nuevo, o no se entiende»), y lo de configuración (el #5 y el #6) queda como «Pedido». Una casilla o un `devolver <n> --porque` que no lo meta en «pedido» es decisión de producto |
+| Qué hace el ✓ con un ticket de CONFIGURACIÓN | app/tickets/bandeja/mazo-reglas.ts (`accionesDe`) | El #5 y el #6 piden «Conectar su IA», y el ✓ dice «Hacer»: le firma al Cerebro «HACERLO (es algo nuevo)», que sirve si MaKo paga la IA y no si la conecta el negocio (ahí van ↑ Preguntar o «Responder» en el ticket entero). Hasta la revisión del 22/10 (noche) firmaba «ARREGLARLO (es un bug)», peor. Es una decisión de producto |
+| OpenAI sin crédito no abre ticket | lib/errores-app-reglas.ts (`RUIDO`) | «429 You exceeded your current quota» calza con `\b429\b` y `quota`, que son «el proveedor no contestó»: es ruido y no hay ticket, pero reintentar no lo arregla (hay que cargar crédito). Leído en el código, no medido |
 | La frase de un ticket de PERSONA es su título tal cual | app/tickets/bandeja/mazo-reglas.ts (`quePaso`) | Si MaKo lo propuso hablándole al cliente («No se pudo: …» está bien; uno con «tu» o «te» se leería raro). No se midió con tickets reales de personas: en producción hay sólo el #5 y el #6 |
 | «Abrir el chat» de un ticket del MaKo de OTRA tab (el del CRM) | app/tickets/bandeja/mazo-reglas.ts (`linkDeOrigen`) | Abre `/second-brain?chat=<hilo>&ws=`; no se verificó que ese hilo se abra ahí |
 | Posponer un ticket (el «Snooze» de Linear) | app/tickets/bandeja/MazoTickets.tsx | La Ticketera no tiene esa acción y no se inventó: en el mazo se recorre con ‹ › (J / K) |
