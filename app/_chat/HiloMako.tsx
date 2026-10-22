@@ -155,8 +155,10 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
       return;
     }
     if (x.k === 'aviso') {
+      // Un mensaje que quedó sin respuesta (`conSinRespuesta`): se dice, y se puede mandar de nuevo.
       filas.push(x.tono === 'plataforma'
-        ? <p key={x.id} className="co-nota co-nota--mal" role="status">{x.texto}</p>
+        ? <p key={x.id} className="co-nota co-nota--mal" role="status">{x.texto}
+          {x.reintentar && onResponder && <> <button type="button" className="ch-enlace" onClick={() => onResponder(x.reintentar!)}>Reintentar</button></>}</p>
         : <DeMako key={x.id} quien={quien}><div className="ch-md"><Markdown text={x.texto} /></div>{x.conectar && <ConectarDelAviso servicio={x.conectar} />}</DeMako>);
       return;
     }

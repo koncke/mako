@@ -66,7 +66,7 @@ import { Dropdown } from '../components/Dropdown';
 import { Confirm } from '@/app/_ui/Confirm';
 import { Toast, useToast } from '@/app/_ui/Toast';
 import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
-import { SecuenciaPerfil, type EdicionLocal } from './SecuenciaPerfil';
+import { SecuenciaPerfil, Z_CHAT_ENCIMA, type EdicionLocal } from './SecuenciaPerfil';
 // Sólo el TIPO del modal: el modal lo pasa la tab (`Configuraciones`).
 import type { PropsConfiguraciones } from '@/lib/config-automatizacion';
 import { PanelProbar, type CanalProbar } from './PanelProbar';
@@ -352,6 +352,9 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   abrir?: AbrirSecuencia | null;
 }) {
   const [busq, setBusq] = useState('');
+  // MaKo trabajando: la capa tapa TODA la pantalla (SecuenciaPerfil.tsx, `Z_CAPA_MAKO`) y esta lista, con el chat, queda encima.
+  const [makoTrabajando, setMakoTrabajando] = useState(false);
+  const alMakoTrabajando = useCallback((t: boolean) => { setMakoTrabajando(t); onMakoTrabajando?.(t); }, [onMakoTrabajando]);
   /**
    * Lo marcado en el filtro (quinta tanda, punto 4): varios a la vez, como los guarda el Dropdown
    * con `varios` (`estado:activas`, `emoji:📅`, `canal:whatsapp`, `destino:mako`…). `[]` = sin filtro.
@@ -833,7 +836,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             insetDer={m.insets.der || undefined}
             muelles={m}
             onSinPublicar={setSinPublicar}
-            onMakoTrabajando={onMakoTrabajando}
+            onMakoTrabajando={alMakoTrabajando}
             onCrearOtra={onCrearOtra ? crearOtra : undefined} onListaCambio={onReload}
             descartarBorrador={descartarBorrador}
             handoffs={handoffs}
@@ -868,7 +871,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
           Y lleva su `overflowY` con la barra teñida de la casa: el scroll es del
           CONTENIDO —sus secuencias—, no de la navegación de la app, así que se ve. */}
       <aside aria-label={verLista ? 'Tus automatizaciones' : 'Chat con MaKo'} data-sidebar={verLista ? 'lista' : 'chat'} style={{
-        position: 'absolute', left: LISTA_HUECO, top: LISTA_HUECO, bottom: LISTA_HUECO, width: LISTA_ANCHO, zIndex: 3,
+        position: 'absolute', left: LISTA_HUECO, top: LISTA_HUECO, bottom: LISTA_HUECO, width: LISTA_ANCHO, zIndex: makoTrabajando ? Z_CHAT_ENCIMA : 3,
         display: 'flex', flexDirection: 'column', minHeight: 0,
         background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18,
         boxShadow: '0 8px 28px rgba(18,21,27,.12)', overflow: 'hidden',

@@ -109,8 +109,9 @@ test('falloDeIA: cada causa en una línea, con la acción que corresponde', () =
     'Gemini falló: Algo raro pasó. Prueba de nuevo.');
   // Sin tiempo.
   assert.equal(falloDeIA(['sin tiempo: el plazo del pedido vence en 3 s'], true).error, 'Las IA tardaron demasiado. Prueba de nuevo.');
-  // Sin ninguna IA: conectar una gratis, con el link.
-  assert.deepEqual(falloDeIA([], false), { error: 'No tienes ninguna IA gratis conectada.', link: '/integraciones?abrir=gemini' });
+  // Sin ninguna IA (y sin red que probar): conectar su Claude, con el link (AU3, 22/10/2026: antes «conecta una gratis»,
+  // con el link a Gemini; lo de la red, en tests/ia-aviso-sin-ia-propia.test.ts).
+  assert.deepEqual(falloDeIA([], false), { error: 'No tienes una IA conectada: conecta tu Claude.', link: '/integraciones?abrir=anthropic' });
   // Todo corto: es una línea que se dibuja.
   for (const e of [BOLSA_WS1, ['gemini: chatCheap(gemini): HTTP 429']]) assert.ok(falloDeIA(e, true).error.length <= 90);
 });
@@ -337,14 +338,14 @@ test('el placeholder para mientras la caja tiene el foco, y vuelve si se sale si
 
 // rotura (la capa adentro del componente, sin portal): 1 fallo.
 // Duodécima (romper.mjs): la capa sin portal → 13 / 1; Cancelar sin `abort()` en el lector → 13 / 1 (éste las dos).
-// ⚠️ DECIMOTERCERA (puntos 2 y 6): la capa ya no es un portal sobre TODA la pantalla. La pone SecuenciaPerfil de la lista
-// para la derecha (la fila recién creada se sigue viendo) y POR ENCIMA de «Publicar» (`Z_ACCION_LIENZO`, el mismo
-// contexto de apilamiento: el Lienzo no crea uno), y el chat (el hilo de WhatsApp, con el «escribiendo…», las fases y
-// Cancelar) queda encima de la capa.
-test('mientras MaKo trabaja: la capa tapa el lienzo (no la lista) por encima de «Publicar», y el teclado no llega al lienzo', () => {
-  assert.match(PERFIL, /\{rolAdmin && chatTrabajando && \(\n\s+<div data-capa-mako="" aria-hidden style=\{\{\n\s+position: 'absolute', top: 0, bottom: 0, left: insetIzq \?\? 0, right: 0, zIndex: Z_CAPA_MAKO,/);
-  // 20/10/2026: el chat es la sidebar (afuera de la capa, que arranca en `insetIzq`): sin z propio encima de la capa.
-  const z = /const Z_CAPA_MAKO = (\d+);/.exec(PERFIL);
+// ⚠️ DECIMOTERCERA (puntos 2 y 6): la capa la pone SecuenciaPerfil y el chat (el hilo de WhatsApp, con el «escribiendo…»,
+// las fases y Cancelar) queda encima. Desde el 22/10/2026 (Martín: «debería quedar todo, incluso atrás de la sidebar,
+// todo») la capa vuelve a ser un portal sobre TODA la pantalla, encima de la barra de la app, y la lista flotante con el
+// chat sube por encima mientras tanto. Los z, en tests/lienzo-capas.test.ts.
+test('mientras MaKo trabaja: la capa tapa TODA la pantalla (la barra de la app también), el chat queda encima y el teclado no llega al lienzo', () => {
+  assert.match(PERFIL, /\{rolAdmin && chatTrabajando && typeof document !== 'undefined' && createPortal\(\n\s+<div data-capa-mako="" aria-hidden style=\{\{\n\s+position: 'fixed', inset: 0, zIndex: Z_CAPA_MAKO,/);
+  assert.match(PERFIL, /<\/div>,\n\s+document\.body,\n\s+\)\}/, 'la capa no va al body: queda adentro del lienzo y la barra de la app no se tapa');
+  const z = /export const Z_CAPA_MAKO = (\d+);/.exec(PERFIL);
   assert.ok(z, 'no está el z de la capa');
   assert.ok(Number(z![1]) > Z_ACCION_LIENZO, 'la capa queda debajo de «Publicar»');
   assert.match(PERFIL, /\{rolAdmin && ranuraChat && createPortal\(/);
