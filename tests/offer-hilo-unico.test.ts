@@ -17,7 +17,7 @@
 // las opciones también como pregunta del hilo → 1 · «Trabajando…» en la espera → 2 · lo del dueño sin «Enviando…» → 1 ·
 // `itemsDeOffer` sin `sinAbrir` → 2 · la ficha que ignora `sinAbrir` → 1 · la ficha sin la nota de Offer → 1 · el teléfono sin
 // el .zip → 1 · el teléfono sin la fila de la caja del Ops Center → 1 · el arranque que adjunta con sólo texto → 1 · la caja
-// sin `key` por conversación → 2.
+// sin `key` por conversación → 2. Y (el caso de uso a 390 px, mismo día) las opciones fijas arriba de la caja → 1.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -81,8 +81,12 @@ test('2. las respuestas rápidas son las de Offer, y no se repiten en el hilo', 
   const html = await dibujarChat();
   assert.match(html, /<button type="button" class="of-pill of-pill--mako">Armar mi oferta<\/button>/, '«Armar mi oferta» en dorado');
   assert.equal(html.split('Otra cosa').length - 1, 1, 'la opción sale dos veces: como pastilla y como pregunta del hilo');
-  assert.ok(html.indexOf('class="of-rapidas"') > html.indexOf('id="co-msg-t-of-m2"'), 'van debajo de la conversación, arriba de la caja');
-  assert.ok(html.indexOf('class="of-rapidas"') < html.indexOf('class="co-caja-wrap"'));
+  assert.ok(html.indexOf('class="of-rapidas"') > html.indexOf('id="co-msg-t-of-m2"'), 'van debajo del último mensaje');
+  // ADENTRO del hilo, y se desplazan con él (22/10/2026, el caso de uso a 390 px: fijas arriba de la caja, cuatro opciones
+  // largas ocupaban 250 px y la conversación quedaba en 240).
+  const tramo = html.slice(html.indexOf('<div class="co-hilo">'), html.indexOf('class="of-rapidas"'));
+  const abiertos = (tramo.match(/<div\b/g) ?? []).length - (tramo.match(/<\/div>/g) ?? []).length;
+  assert.ok(abiertos >= 2, 'las opciones quedaron fuera del hilo (fijas arriba de la caja)');
 });
 
 test('3. la espera: los puntitos o «Analizando», nunca «Trabajando…»; lo que sale, «Enviando…»', async () => {
@@ -118,4 +122,14 @@ test('4. la caja única con la nota de voz, en la computadora y en el teléfono'
   assert.match(documento, /\.pdf/);
   assert.match(documento, /,\.zip$/, 'el teléfono no deja elegir el .zip de la landing');
   assert.deepEqual(elegidos, []);
+});
+
+test('5. la pantalla de Offer descuenta la barra de arriba, y la caja no queda debajo del borde', async () => {
+  // La barra de «Estás viendo el dashboard de…» (50 px) o la alerta de la voz de MaKo caída (64 px, la ve un cliente):
+  // `--barra-agencia`. La regla global de app/globals.css sólo toca un alto en línea que EMPIEZA con `height: 100dvh`.
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const pagina = readFileSync(join(__dirname, '..', 'app/offer/page.tsx'), 'utf8');
+  assert.match(pagina, /height: 'calc\(100dvh - var\(--alto-secciones, 0px\) - var\(--barra-agencia, 0px\)\)'/,
+    'con la barra de arriba la página queda más alta que la ventana (medido el 22/10/2026: 50 px)');
 });
