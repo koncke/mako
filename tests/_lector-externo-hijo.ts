@@ -6,6 +6,8 @@
 // línea JSON, a qué URLs se llamó y qué devolvió el lector con cada link.
 // =============================================================================
 
+export {};
+
 const pedidos: string[] = [];
 globalThis.fetch = (async (entrada: RequestInfo | URL) => {
   pedidos.push(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url);
