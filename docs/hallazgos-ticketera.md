@@ -4,6 +4,64 @@ Lo que no se deduce leyendo el código. El diseño, con lo que se copió de qui�
 
 ---
 
+## La tarjeta se entiende en 3 segundos: Martín no lee el título del cliente, y «Pedido» era el efecto de DEVOLVERLO (22/10/2026, 17:25)
+
+**El síntoma** (Martín, desde el Ops Center, con la captura del #5): el mazo corrido a la izquierda con «#6 …» suelta a la
+derecha; Rechazar y Preguntar chicos y con texto, «Hacer» enorme y verde; la tarjeta decía «MaKo no pudo «contestarte»»,
+los chips «Pedido · Alta · Automático», un bloque rosa de código (`lib/veto-claude.ts`…) y un párrafo del Cerebro. «No se
+entiende ni de qué es el bug, ni qué hay que hacer, ni cómo se originó, o si lo levantó Mauricio o si lo detectó MaKo».
+
+**Los diagnósticos obvios que estaban mal:**
+- **«El título está mal escrito».** Está bien escrito para quien lo lee: el CLIENTE, en «Tus tickets» y en el aviso a su
+  grupo (`tituloDeError`, lib/errores-app-reglas.ts: «contestarte» le habla a él). No se toca. Lo que lee Martín es OTRA
+  frase, armada por reglas desde el canal, `chat.donde`, la herramienta y la pantalla (`quePaso`): «MaKo no le pudo
+  contestar a Mauricio en su chat». La pantalla se nombra como en la barra (`tituloDe`, lib/titulo-tab.ts), no por la ruta.
+- **«El triage clasificó mal el #5 y el #6: son Pedido».** El triage dijo `bug` con confianza alta (el error lo registró el
+  código). Los pasó a `pedido` el CEREBRO, con `scripts/tickets.ts reclasificar <n> pedido`: es su ÚNICO camino para
+  devolverle un ticket a Martín, y el texto fijo del Runner (`mensajeTicket`, lib/tickets-aviso.ts) se lo dicta así, con
+  «pedido». Nadie pidió nada nuevo: «Pedido» quedó como el efecto de DEVOLVERLO, no como una clasificación. La regla de la
+  pantalla (`tipoDe`): un automático con un error registrado es **Bug**, salvo que Martín lo haya corregido a mano
+  (`tipo_manual`). La fila NO se reescribe; lo chequeado lo usan la tarjeta, la tabla, la hoja, el ✓ (Arreglar, no Hacer) y
+  el pedido que se le firma al Cerebro. Y la naturaleza real de esos dos es CONFIGURACIÓN (abajo, «Un negocio sin IA no es
+  un bug»): el tipo no tiene esa casilla, la dice el renglón de qué hacer («Conectar su IA»).
+- **«Lo que sigue al costado sirve en la compu».** Era lo que sacaba la tarjeta del centro: dos columnas desde 780 px de
+  PANEL. Tinder no tiene lista: lo que sigue es la tarjeta que asoma detrás y el «1 de N». Se fue.
+- **«"Volver" arriba lo pidió Martín».** Pidió «un botón para volver» (14/10); «arriba» lo decidió un chat. Ahora es el
+  primero de la fila de botones (el rewind de Tinder), siempre a la vista y apagado si no hay nada que deshacer.
+- **«El "Hacer" grande es el llamado principal».** Martín no lo quiere distinto: los cuatro redondos e iguales, sólo el
+  ícono con su color; lo que hace cada uno, en el `title` y el `aria-label`. Al pasar el mouse o arrastrar hacia su lado,
+  se llena con su color (`gestoMarcado`, desde 24 px: donde arrancan los sellos).
+
+**La regla del texto: todo sale de reglas, nunca de un modelo** (`leerTicket`, app/tickets/bandeja/mazo-reglas.ts). El
+porqué y el qué hacer de un error salen de `ERRORES_FRECUENTES` («Claude vetado» o «sin proveedor gratis» = «No tenía una
+IA para contestarle» / «Conectar su IA»; un error que no calza cae en «Algo falló en el código» / «Arreglar el código»). La
+nota del Cerebro va en una línea con piezas conocidas (`estadoDeLaNota`: «el código ya está arreglado · lo decides tú») o
+su primer tramo recortado; la entera, el error técnico y los links quedan plegados en «Detalle». Un error nuevo que se
+repite es una fila más en la tabla.
+
+**Trampas del entorno:**
+- En el arnés, un `button.click()` de JS sobre la tarjeta DESPUÉS de un arrastre no hace nada: `comerClick` se come el clic
+  que sigue a un arrastre, y `arrastro` sólo baja con un `pointerdown` real. Una persona siempre aprieta antes de soltar
+  (anda); el arnés tiene que apretar y soltar de verdad (`cdp-clara.mjs`, pasos `apretar` / `soltar`).
+- La marca del botón se ENCIENDE sólo arrastrando: la tarjeta que vuelve con «Volver» entra desde el costado y encendía el
+  ✓. Y una encendida se sigue mirando aunque `arrastro` ya haya bajado (el clic de después), para que se apague con el
+  resorte.
+- Chrome sin ventana con el MISMO perfil en dos corridas seguidas: «Chrome no abrió el puerto» (el anterior todavía lo
+  tenía tomado). Un perfil por plan.
+- `python -I` ignora `PYTHONIOENCODING`: imprimir «→» en la consola de Windows (cp1252) tira el script a mitad de camino
+  (el archivo roto se restauró en el `finally`). Va `sys.stdout.reconfigure(encoding='utf-8')`.
+
+**Medido** (22/10, Chrome sin ventana por CDP, la bandeja real empaquetada con esbuild, el #5 y el #6 leídos de producción,
+sólo lectura): a 375, 1024 y 1440 el centro de la tarjeta es el del panel y el de la fila de botones (188 / 778 / 986 px);
+los cuatro botones miden lo mismo (58 o 60 px), sin texto; sin scroll horizontal ni código a la vista; arrastrar 88 px a la
+derecha marca el ✓ y soltar lo apaga; «Detalle» abre el error y la nota. Los tests, probados rompiendo cada regla.
+
+**Vive en:** app/tickets/bandeja/mazo-reglas.ts (`leerTicket`, `quePaso`, `tipoDe`, `ERRORES_FRECUENTES`, `estadoDeLaNota`,
+`gestoMarcado`) · TarjetaTicket.tsx · MazoTickets.tsx · TablaTickets.tsx · BandejaTickets.tsx · bandeja.css ·
+tests/ticketera-mazo.test.ts (B1, F1, G1, G3 y H1–H7)
+
+---
+
 ## La Ticketera vuelve a ser un MAZO, con TABLA a elección y la cara de quien lo levantó (22/10/2026)
 
 **El síntoma** (Martín, 22/10 13:18, con una captura de su Android): «La ticketera se ve horrible... vuelva la vista de
@@ -310,7 +368,10 @@ bug: es de la plataforma.
 
 | Qué | Dónde | Por qué |
 |---|---|---|
-| Ver el mazo y la tabla en el teléfono de Martín (Android) | app/tickets/bandeja/MazoTickets.tsx | 22/10: medido en Chrome sin ventana a 375, 1024 y 1440 con los #5 y #6 reales y datos de prueba; la app no se levantó (`next dev` escribe en producción) |
+| Ver el mazo y la tabla en el teléfono de Martín (Android) | app/tickets/bandeja/MazoTickets.tsx | 22/10 (dos veces, la segunda con la tarjeta clara): medido en Chrome sin ventana a 375, 1024 y 1440 con los #5 y #6 reales y datos de prueba; la app no se levantó (`next dev` escribe en producción). El modo oscuro de la tarjeta clara no se midió |
+| Devolver un ticket sin cambiarle el tipo | scripts/tickets.ts (`reclasificar`) · lib/tickets-aviso.ts (`mensajeTicket`) | El Cerebro sigue devolviendo con `reclasificar <n> pedido`, que reescribe el tipo. La pantalla muestra el chequeado (`tipoDe`), pero la fila, el script `ver` y quien lea la base siguen viendo «pedido». Lo limpio es un `devolver <n> --porque` que sólo cambie el estado |
+| Qué hace el ✓ con un ticket de CONFIGURACIÓN | app/tickets/bandeja/mazo-reglas.ts (`accionesDe`) | El #5 y el #6 piden «Conectar su IA», y el ✓ le firma al Cerebro «ARREGLARLO (es un bug)». No hay una decisión «que la conecte el negocio»: se usa ↑ Preguntar o «Responder» en el ticket entero. Es una decisión de producto |
+| La frase de un ticket de PERSONA es su título tal cual | app/tickets/bandeja/mazo-reglas.ts (`quePaso`) | Si MaKo lo propuso hablándole al cliente («No se pudo: …» está bien; uno con «tu» o «te» se leería raro). No se midió con tickets reales de personas: en producción hay sólo el #5 y el #6 |
 | «Abrir el chat» de un ticket del MaKo de OTRA tab (el del CRM) | app/tickets/bandeja/mazo-reglas.ts (`linkDeOrigen`) | Abre `/second-brain?chat=<hilo>&ws=`; no se verificó que ese hilo se abra ahí |
 | Posponer un ticket (el «Snooze» de Linear) | app/tickets/bandeja/MazoTickets.tsx | La Ticketera no tiene esa acción y no se inventó: en el mazo se recorre con ‹ › (J / K) |
 | Pasar a la Tabla manda lo que esperaba en el mazo | app/tickets/bandeja/MazoTickets.tsx | La espera vive en el mazo; al desmontarse, sale. Compartirla entre vistas, si molesta |

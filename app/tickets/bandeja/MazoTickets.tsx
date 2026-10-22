@@ -8,11 +8,13 @@
 // tiene su botón y su tecla (→ ← ↑): un gesto sin control visible es una función que sólo encuentra el que la conoce
 // (Superhuman lleva sus dos gestos también en una barra de botones). Las reglas: ./mazo-reglas.ts.
 //
-// ⚠️ «VOLVER» ARRIBA Y SIEMPRE (Martín, 14/10/2026: «arrastré sin querer una tarjeta y ya no tengo forma de volver»).
-//    Y deshace DE VERDAD: una decisión de la Ticketera le escribe al cliente o se la firma al Cerebro, y eso no se
-//    recoge. Por eso cada decisión ESPERA `VENTANA_DESHACER_MS` antes de salir (el «Deshacer envío» de Gmail: no
-//    recoge el mail, lo demora), y «Volver» la saca de la espera: no llega nada a ningún lado. Si Martín se va de la
-//    pantalla (otra pestaña, otra vista, cierra), lo que esperaba sale en el acto: lo decidió.
+// ⚠️ «VOLVER» SIEMPRE A LA VISTA (Martín, 14/10/2026: «arrastré sin querer una tarjeta y ya no tengo forma de volver,
+//    debería haber un botón para volver»). Desde el 22/10 (tarde) vive en la FILA de los botones, el primero, como el
+//    «rewind» de Tinder: apagado cuando no hay nada que deshacer, nunca escondido. Y deshace DE VERDAD: una decisión de
+//    la Ticketera le escribe al cliente o se la firma al Cerebro, y eso no se recoge. Por eso cada decisión ESPERA
+//    `VENTANA_DESHACER_MS` antes de salir (el «Deshacer envío» de Gmail: no recoge el mail, lo demora), y «Volver» la
+//    saca de la espera: no llega nada a ningún lado. Si Martín se va de la pantalla (otra pestaña, otra vista, cierra),
+//    lo que esperaba sale en el acto: lo decidió.
 // ⚠️ EL GESTO ES EL DEL MAZO VIEJO (app/tickets/decisiones/Mazo.tsx, el que Martín aprobó el 14/10): `motion` sigue al
 //    dedo, mide la velocidad y bloquea la dirección (`dragDirectionLock`); el arrastre arranca a mano
 //    (`useDragControls`) y nunca sobre un link, un botón, un campo o el borde de la pantalla (el «volver» del sistema).
@@ -20,6 +22,11 @@
 //    vertical es del gesto (`touch-action: none`), no de la página.
 // ⚠️ EL MAZO NO SE REARMA AL REFRESCAR (se refresca solo): lo nuevo va al final y lo que decidió otro se va
 //    (`refrescarMazo`). La tarjeta de adelante no cambia bajo el dedo.
+// ⚠️ LA TARJETA SIEMPRE EN EL CENTRO (Martín, 22/10, 17:25: «las tarjetas siempre en el medio, mira como se rompe el
+//    diseño»). «Lo que sigue» ya no se corre al costado: como en Tinder, lo que sigue es la tarjeta que asoma detrás y el
+//    «1 de N» de arriba. Los botones, una fila centrada debajo: redondos, del MISMO tamaño, sólo con su ícono y su color
+//    («no me gusta que tengan texto, solo iconos, para eso está el placeholder»: lo que hace cada uno va en el `title` y
+//    el `aria-label`). Al pasar el mouse o al arrastrar hacia su lado, el botón del gesto se marca (`gestoMarcado`).
 
 import { useCallback, useEffect, useRef, useState, type MouseEventHandler, type ReactNode, type RefObject } from 'react';
 import {
@@ -31,10 +38,10 @@ import { pedidoAlCerebro } from '@/lib/tickets-reglas';
 import type { FilaTicket } from '@/lib/tickets-db';
 import { anotarDespachoAction, decidirTicketAction } from './acciones';
 import type { CerebroParaTickets } from './cerebro';
-import { CaraTicket, TarjetaTicket } from './TarjetaTicket';
+import { TarjetaTicket } from './TarjetaTicket';
 import {
-  RESPUESTAS_GUARDADAS, VENTANA_DESHACER_MS, accionesDe, ordenDelMazo, refrescarMazo, teclaDelMazo, veredictoGesto, versionesDe,
-  type AccionMazo, type Salida,
+  RESPUESTAS_GUARDADAS, VENTANA_DESHACER_MS, accionesDe, gestoMarcado, ordenDelMazo, refrescarMazo, teclaDelMazo, tipoDe, veredictoGesto,
+  versionesDe, type AccionMazo, type Salida,
 } from './mazo-reglas';
 
 type Manejo = { volar: (s: Salida, velocidad?: number) => Promise<void> };
@@ -69,6 +76,8 @@ export function MazoTickets({ tickets, cerebro, ahora, onCambio, onVerTodo, quie
   const [textos, setTextos] = useState<Record<string, string>>({});
   const [aviso, setAviso] = useState<Aviso | null>(null);
   const [entrada, setEntrada] = useState<Salida | null>(null);
+  // El botón del gesto que se está haciendo (arrastrando hacia su lado, o decidido con una tecla): se marca.
+  const [marca, setMarca] = useState<Salida | null>(null);
   const manejo = useRef<Manejo | null>(null);
   const ocupado = useRef(false);
   const progreso = useMotionValue(0);
@@ -127,7 +136,7 @@ export function MazoTickets({ tickets, cerebro, ahora, onCambio, onVerTodo, quie
       if (!c) falla = 'no hay un chat «Cerebro»';
       else if (!c.listo.ok) falla = c.listo.motivo;
       else {
-        const m = await c.mandar(pedidoAlCerebro(p.t, d, null)).catch(() => ({ ok: false as const, error: 'no salió' }));
+        const m = await c.mandar(pedidoAlCerebro({ ...p.t, tipo: tipoDe(p.t) }, d, null)).catch(() => ({ ok: false as const, error: 'no salió' }));
         if (!m.ok) falla = m.error;
         else {
           const a = await anotarDespachoAction(id, m.id).catch(() => ({ ok: false as const, error: 'no se anotó' }));
@@ -170,8 +179,10 @@ export function MazoTickets({ tickets, cerebro, ahora, onCambio, onVerTodo, quie
     ocupado.current = true;
     const t = actual;
     try { navigator.vibrate?.(8); } catch { /* sin vibración */ }
+    setMarca(s);
     void (manejo.current?.volar(s, velocidad) ?? Promise.resolve()).then(() => {
       const p: Pendiente = { t, accion: acc, texto, hasta: Date.now() + VENTANA_DESHACER_MS };
+      setMarca(null);
       setEntrada(null);
       setCaja(null);
       setOrden((o) => o.filter((x) => x !== t.id));
@@ -226,19 +237,10 @@ export function MazoTickets({ tickets, cerebro, ahora, onCambio, onVerTodo, quie
 
   const hayVuelta = pendientes.length > 0;
   const enCaja = actual && caja?.id === actual.id ? caja.salida : null;
-  const resto = ids.filter((id) => id !== actual?.id).slice(0, 6);
 
   return (
     <section className="tickets-bandeja__mazo" aria-label="Tickets por decidir" data-m-sin-pull="">
       <header className="tickets-bandeja__franja">
-        <button type="button" className="tickets-bandeja__volver-mazo" onClick={volver} disabled={!hayVuelta}
-          aria-label={hayVuelta ? 'Volver: deshacer la última decisión (⌫)' : 'Nada para volver'}>
-          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
-            <path d="M4.5 9.5h9.8a4.7 4.7 0 010 9.4H9" stroke="currentColor" strokeWidth="2.1" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M8 5.2L3.8 9.5 8 13.8" stroke="currentColor" strokeWidth="2.1" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <span>Volver</span>
-        </button>
         {ids.length > 0 && (
           <div className="tickets-bandeja__cuenta">
             <button type="button" onClick={() => mover(-1)} disabled={ids.length < 2} aria-label="La anterior (K)">
@@ -272,6 +274,7 @@ export function MazoTickets({ tickets, cerebro, ahora, onCambio, onVerTodo, quie
               onCaja={(s) => setCaja(s ? { id: actual.id, salida: s } : null)}
               onVerTodo={() => onVerTodo(actual.id)}
               onTocar={() => setAviso((a) => (a && !a.error ? null : a))}
+              onMarca={setMarca}
             />
           ) : (
             <div className="tickets-bandeja__mazo-vacio">
@@ -292,49 +295,43 @@ export function MazoTickets({ tickets, cerebro, ahora, onCambio, onVerTodo, quie
             </div>
           )}
         </div>
-
-        {/* En la compu, lo que sigue a un costado: tocarlo lo trae adelante (como la lista de Linear junto al issue). */}
-        {resto.length > 0 && (
-          <ol className="tickets-bandeja__siguen" aria-label="Lo que sigue">
-            {resto.map((id) => {
-              const t = porId.get(id)!;
-              return (
-                <li key={id}>
-                  <button type="button" onClick={() => { setCaja(null); setEntrada(null); setIndice(ids.indexOf(id)); }}>
-                    <CaraTicket t={t} tam={30} />
-                    <span><b>#{t.id}</b> {t.titulo}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-        )}
       </div>
 
-      {actual && acciones && (
-        <div className="tickets-bandeja__pulgar">
-          <BotonGesto s="izquierda" a={acciones.izquierda} onClick={() => decidir('izquierda')} />
-          {acciones.arriba && <BotonGesto s="arriba" a={acciones.arriba} onClick={() => decidir('arriba')} />}
-          <BotonGesto s="derecha" a={acciones.derecha} onClick={() => decidir('derecha')} />
-        </div>
-      )}
+      {/* La fila de los botones, centrada debajo de la tarjeta: ↺ ✕ ↑ ✓ (el orden de Tinder: volver, no, el del medio, sí). */}
+      <div className="tickets-bandeja__pulgar">
+        <button type="button" className="tickets-bandeja__gesto tickets-bandeja__gesto--volver" onClick={volver} disabled={!hayVuelta}
+          aria-label={hayVuelta ? 'Volver: deshacer la última (⌫)' : 'Nada para volver'} title={hayVuelta ? 'Volver: deshacer la última (⌫)' : 'Nada para volver'}>
+          <svg viewBox="0 0 24 24" width="25" height="25" aria-hidden>
+            <path d="M4.5 9.5h9.8a4.7 4.7 0 010 9.4H9" stroke="currentColor" strokeWidth="2.3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M8 5.2L3.8 9.5 8 13.8" stroke="currentColor" strokeWidth="2.3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        {actual && acciones && (
+          <>
+            <BotonGesto s="izquierda" a={acciones.izquierda} marcado={marca === 'izquierda'} onClick={() => decidir('izquierda')} />
+            {acciones.arriba && <BotonGesto s="arriba" a={acciones.arriba} marcado={marca === 'arriba'} onClick={() => decidir('arriba')} />}
+            <BotonGesto s="derecha" a={acciones.derecha} marcado={marca === 'derecha'} onClick={() => decidir('derecha')} />
+          </>
+        )}
+      </div>
     </section>
   );
 }
 
 const TECLA: Record<Salida, string> = { derecha: '→', izquierda: '←', arriba: '↑' };
-function BotonGesto({ s, a, onClick }: { s: Salida; a: AccionMazo | null; onClick: () => void }) {
+const ICONO_GESTO: Record<Salida, ReactNode> = {
+  derecha: <path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />,
+  izquierda: <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />,
+  arriba: <path d="M12 19V6M6.5 11.5L12 6l5.5 5.5" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />,
+};
+/** Un botón por gesto: redondo, sólo el ícono; lo que hace, en el `title` (el «placeholder») y el `aria-label`. */
+function BotonGesto({ s, a, marcado, onClick }: { s: Salida; a: AccionMazo | null; marcado: boolean; onClick: () => void }) {
   if (!a) return null;
-  const ico = s === 'derecha'
-    ? <path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-    : s === 'izquierda'
-      ? <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
-      : <path d="M12 19V6M6.5 11.5L12 6l5.5 5.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />;
+  const dice = `${a.rotulo} (${TECLA[s]})`;
   return (
-    <button type="button" className={`tickets-bandeja__gesto tickets-bandeja__gesto--${s}`} onClick={onClick} aria-label={`${a.rotulo} (${TECLA[s]})`}>
-      <svg viewBox="0 0 24 24" width={s === 'derecha' ? 24 : 22} height={s === 'derecha' ? 24 : 22} aria-hidden>{ico}</svg>
-      <span>{a.rotulo}</span>
-      <kbd className="tickets-bandeja__kbd">{TECLA[s]}</kbd>
+    <button type="button" className={`tickets-bandeja__gesto tickets-bandeja__gesto--${s}${marcado ? ' is-marcado' : ''}`} onClick={onClick}
+      aria-label={dice} title={dice}>
+      <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden>{ICONO_GESTO[s]}</svg>
     </button>
   );
 }
@@ -356,6 +353,8 @@ function CartaArriba(p: {
   onCaja: (s: Salida | null) => void;
   onVerTodo: () => void;
   onTocar: () => void;
+  /** El botón que se marca mientras se arrastra (o null). */
+  onMarca: (s: Salida | null) => void;
 }) {
   const { t, progreso, acciones } = p;
   const ref = useRef<HTMLElement>(null);
@@ -375,8 +374,17 @@ function CartaArriba(p: {
   const arrastro = useRef(false);
 
   useEffect(() => { progreso.set(0); }, [progreso]);
-  useMotionValueEvent(x, 'change', (v) => { if (!saliendo.current) progreso.set(Math.min(1, Math.max(Math.abs(v), Math.abs(y.get())) / 160)); });
-  useMotionValueEvent(y, 'change', (v) => { if (!saliendo.current) progreso.set(Math.min(1, Math.max(Math.abs(v), Math.abs(x.get())) / 160)); });
+  // El botón del gesto se ENCIENDE sólo arrastrando: la que vuelve con «Volver» entra desde el costado y no tiene que
+  // encender el botón de ese lado. Uno encendido se sigue mirando hasta que se apaga: al soltar sin decidir, la tarjeta
+  // vuelve con el resorte (y el clic de después del arrastre ya bajó `arrastro`) y la marca se apaga sola.
+  const marcada = useRef<Salida | null>(null);
+  const marcar = () => {
+    if (saliendo.current || (!arrastro.current && marcada.current === null)) return;
+    const m = gestoMarcado(x.get(), y.get());
+    if (m !== marcada.current) { marcada.current = m; p.onMarca(m); }
+  };
+  useMotionValueEvent(x, 'change', (v) => { if (!saliendo.current) progreso.set(Math.min(1, Math.max(Math.abs(v), Math.abs(y.get())) / 160)); marcar(); });
+  useMotionValueEvent(y, 'change', (v) => { if (!saliendo.current) progreso.set(Math.min(1, Math.max(Math.abs(v), Math.abs(x.get())) / 160)); marcar(); });
 
   useEffect(() => {
     if (!desde.current) return;
@@ -446,7 +454,8 @@ function CartaArriba(p: {
         p.onTocar();
         if (saliendo.current || p.enCaja) return;
         const el = e.target as HTMLElement;
-        if (el.closest('textarea, input, a, button, select')) return;
+        // Ni sobre un control, ni sobre el «Detalle» abierto (ahí el dedo es del scroll del texto).
+        if (el.closest('textarea, input, a, button, select, [data-sin-gesto]')) return;
         if (e.pointerType === 'touch' && (e.clientX < 24 || e.clientX > window.innerWidth - 24)) return;
         controles.start(e);
       }}

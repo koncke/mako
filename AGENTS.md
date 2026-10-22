@@ -6319,6 +6319,10 @@ lo que costó: [docs/hallazgos-ticketera.md](docs/hallazgos-ticketera.md). Lo qu
   cuando el build lo trae, el cron lo cierra y le avisa al cliente por donde lo levantó. No se cierra a mano.
 - **Lo del cliente filtra por SU workspace Y SU email** (lib/tickets-db.ts); lo de Martín pasa por `puedeOperar`. Lo fija
   tests/tickets.test.ts.
+- **Lo que LEE Martín de un ticket sale de `leerTicket`** (app/tickets/bandeja/mazo-reglas.ts), nunca del título ni del
+  tipo de la fila: el título de un automático le habla al CLIENTE («MaKo no pudo «contestarte»»), y el tipo puede ser el
+  efecto de DEVOLVERLO (`reclasificar <n> pedido`), no una clasificación (`tipoDe`). Un error nuevo que se repite es una
+  fila en `ERRORES_FRECUENTES` (por qué y qué hacer), nunca un modelo. Lo fija tests/ticketera-mazo.test.ts (H).
 - **Un error de la app NO se reporta a mano: va solo a `registrarError`** (lib/errores-app.ts, 17/10/2026; Martín: «córrelo
   en toda la app... Y todo lo solucionas automáticamente»). Lo llaman los boundaries, el reportador de la ventana,
   `onRequestError` y el turno del chat. Lo que gobierna código nuevo:

@@ -5,8 +5,9 @@
 // vista de tarjetas y el desplazamiento tipo tinder... Luego si quiero elegir la vista tabla también... ver quién levantó
 // el ticket con su foto de perfil, por donde lo levantó, etc...». Lo que se copió de quién: docs/hallazgos-ticketera.md.
 //
-// Acá vive lo que DECIDE (sin React ni base, lo importan los tests): por dónde entró un ticket y su link, qué hace cada
-// gesto con cada ticket, cuándo cuenta un gesto, cómo se arma y se refresca el mazo, y el orden de la tabla.
+// Acá vive lo que DECIDE (sin React ni base, lo importan los tests): por dónde entró un ticket y su link, lo que DICE la
+// tarjeta (`leerTicket`: qué pasó, quién, qué hay que hacer, el tipo chequeado), qué hace cada gesto con cada ticket,
+// cuándo cuenta un gesto, cómo se arma y se refresca el mazo, y el orden de la tabla.
 //
 // ⚠️ LOS GESTOS SON LAS ACCIONES QUE YA EXISTÍAN (lib/tickets-reglas.ts → DECISIONES), ninguna nueva:
 //   derecha = Aprobar (un bug se ARREGLA, un pedido se HACE; una pregunta no se aprueba: se RESPONDE) ·
@@ -15,7 +16,8 @@
 // (`motivoDecisionInvalida`): el gesto sin texto abre la caja, no manda nada.
 
 import { PRIORIDADES, TIPOS, decisionDeAprobar, type DecisionTicket, type EstadoTicket, type TipoTicket } from '@/lib/tickets-reglas';
-import type { FilaTicket } from '@/lib/tickets-db';
+import { tituloDe } from '@/lib/titulo-tab';
+import type { FilaTicket, NotaTicket } from '@/lib/tickets-db';
 
 export type VistaBandeja = 'mazo' | 'tabla';
 export const esVistaBandeja = (v: unknown): v is VistaBandeja => v === 'mazo' || v === 'tabla';
@@ -141,12 +143,196 @@ export function quienDiceLaNota(n: { actor: string; tipo: string }): string {
   return n.actor.charAt(0).toUpperCase() + n.actor.slice(1);
 }
 
+// ── Lo que dice la tarjeta (y la fila de la tabla), en palabras de producto (22/10/2026, tarde) ────────────────────
+// Martín (22/10, 17:25, con la captura del #5): «la información de la tarjeta se tiene que entender fácil y mucho más
+// rápido... no se entiende ni de qué es el bug, ni qué hay que hacer, ni cómo se originó, o si lo levantó Mauricio o si
+// lo detectó MaKo». El título de un ticket automático está escrito para el CLIENTE, que lo lee en «Tus tickets»
+// («MaKo no pudo «contestarte»», lib/errores-app-reglas.ts → `tituloDeError`). Martín lee otra cosa: qué le pasó a
+// QUIÉN, por qué, quién lo levantó y qué hay que hacer.
+// ⚠️ SIN IA (la regla del triage): todo sale del ticket —el canal, el contexto, el código de error, la nota— y de las
+//    tablas de acá. Una frase que no calza con ninguna regla cae en un genérico que se lee bien, nunca en un modelo.
+
+type ParaLeer = Pick<FilaTicket, 'tipo' | 'canal' | 'contexto' | 'titulo' | 'usuario_nombre' | 'usuario_email'> & { tipo_manual?: boolean };
+
+/**
+ * El tipo, chequeado contra el error: un ticket AUTOMÁTICO con un error que registró el código es un BUG, diga lo que
+ * diga la fila. Lo que Martín corrigió a mano (`tipo_manual`) no se toca.
+ *
+ * ⚠️ POR QUÉ LA FILA PUEDE DECIR OTRA COSA (los #5 y #6, 18/10/2026): el Cerebro tiene UN solo camino para devolverle un
+ *    ticket a Martín, `scripts/tickets.ts reclasificar <n> pedido` (el mensaje del Runner se lo escribe así, con
+ *    «pedido»). «Pedido» quedó como el efecto de DEVOLVERLO, no como una clasificación: nadie pidió nada nuevo, MaKo
+ *    falló y no se arregla con código. El tipo de la fila no se reescribe acá: se muestra el correcto.
+ */
+export function tipoDe(t: Pick<FilaTicket, 'tipo' | 'canal' | 'contexto'> & { tipo_manual?: boolean }): TipoTicket {
+  if (t.tipo_manual) return t.tipo;
+  if (t.canal === 'sistema' && (t.contexto.error ?? '').trim()) return 'bug';
+  return t.tipo;
+}
+
+/** La primera letra en minúscula, salvo en una sigla («CRM»). */
+const minuscula = (s: string) => (/^\p{Lu}\p{Ll}/u.test(s) ? s.charAt(0).toLowerCase() + s.slice(1) : s);
+const mayuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const normal = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
+const cortar = (s: string, tope: number) => {
+  if (s.length <= tope) return s;
+  const c = s.slice(0, tope);
+  const sp = c.lastIndexOf(' ');
+  return `${(sp > tope * 0.6 ? c.slice(0, sp) : c).replace(/[\s.,;:—-]+$/, '')}…`;
+};
+
+/** El nombre de pila: «Mauricio Bustos Eguia» → «Mauricio». Un teléfono queda entero; un email, su parte antes de la @. */
+export function primerNombre(nombre: string): string {
+  const n = nombre.trim();
+  if (!n || /^\+\d/.test(n)) return n || 'Sin nombre';
+  const base = n.includes('@') ? n.split('@')[0] : n;
+  return mayuscula(base.split(/[\s._-]+/)[0] || base);
+}
+
+/** El nombre de la pantalla como la ve el cliente en la barra («CRM»), no la ruta. null = no se sabe. */
+export function pantallaDe(ruta: string | undefined): string | null {
+  if (!ruta || !ruta.startsWith('/')) return null;
+  const p = tituloDe(ruta.split('?')[0]).replace(/^MaKo - /, '').trim();
+  return p && p !== 'MaKo' ? p : null;
+}
+
+/** Lo que intentó MaKo: del título del ticket automático («MaKo no pudo «Mover un lead de etapa»») o la herramienta. */
+function loQueIntento(t: Pick<FilaTicket, 'titulo' | 'contexto'>): string {
+  const m = /^MaKo no pudo «(.+)»$/.exec(t.titulo.trim());
+  return (m?.[1] ?? t.contexto.herramienta ?? '').replace(/_/g, ' ').trim();
+}
+
+/**
+ * QUÉ PASÓ, en una frase. Un ticket automático se cuenta desde lo que el código vio (el chat, la pantalla, el servidor);
+ * el de una persona es su título: lo escribió ella (o MaKo con ella) y ya dice qué pasó.
+ *   MaKo falló en un chat          → «MaKo no le pudo contestar a Mauricio en su chat»
+ *   una pantalla se rompió         → «A Ana se le rompió la pantalla «CRM»»
+ *   falló el servidor              → «A Ana le falló el servidor en «CRM»»
+ */
+export function quePaso(t: ParaLeer): string {
+  if (t.canal !== 'sistema') return t.titulo.trim() || 'Sin título';
+  const n = primerNombre(nombreDe(t));
+  const donde = t.contexto.chat?.donde ?? '';
+  if (donde === 'error-mako') {
+    const intento = loQueIntento(t);
+    if (t.contexto.herramienta === 'responder' || /^contestarte$/i.test(intento)) return `MaKo no le pudo contestar a ${n} en su chat`;
+    // El título le habla al cliente («avisarte»): para Martín, «avisar a Mauricio».
+    const te = /^(\p{L}+(?:ar|er|ir))te$/iu.exec(intento);
+    if (te) return `MaKo no le pudo ${te[1].toLowerCase()} a ${n} en su chat`;
+    return intento ? `MaKo no pudo ${minuscula(intento)} en el chat de ${n}` : `MaKo falló en el chat de ${n}`;
+  }
+  const pantalla = pantallaDe(t.contexto.ruta);
+  if (donde === 'error-servidor') return pantalla ? `A ${n} le falló el servidor en «${pantalla}»` : `A ${n} le falló el servidor`;
+  return pantalla ? `A ${n} se le rompió la pantalla «${pantalla}»` : `A ${n} se le rompió una pantalla`;
+}
+
+/**
+ * Los errores que más llegan, en palabras de producto: POR QUÉ falló y QUÉ HAY QUE HACER. Gana el primero que calza.
+ * `{lo}` = «contestarle» si lo que falló fue contestar, si no «hacerlo». Los textos de la cascada de IA son los de
+ * `esDeConfiguracion` (lib/errores-app-reglas.ts): al negocio le falta algo SUYO, no hay código roto.
+ */
+export const ERRORES_FRECUENTES: ReadonlyArray<{ re: RegExp; porque: string; hacer: string }> = [
+  { re: /claude vetado|sin proveedor (gratis|de ia)|red gratis salteada/i, porque: 'No tenía una IA para {lo}', hacer: 'Conectar su IA' },
+  { re: /tu clave de claude: .*(credit balance|billing)/i, porque: 'Su Claude se quedó sin crédito', hacer: 'Cargar crédito en su Claude' },
+  { re: /tu clave de claude: .*(invalid x-api-key|authentication|permission|\b40[13]\b)/i, porque: 'Su clave de Claude no anda', hacer: 'Volver a conectar su Claude' },
+  { re: /en pausa por un rato/i, porque: 'Claude estaba en pausa', hacer: 'Esperar a que vuelva Claude' },
+  { re: /\b(429|503|529)\b|overloaded|high demand|rate.?limit|quota|resource.?exhausted/i, porque: 'La IA estaba saturada', hacer: 'Probar de nuevo' },
+  { re: /timed? ?out|ETIMEDOUT|tard[oó] demasiado/i, porque: 'Tardó demasiado y se cortó', hacer: 'Arreglar el código' },
+  { re: /access token|oauth|session has expired|token .*(expir|venc|inv[aá]lid)/i, porque: 'Se venció una conexión de su cuenta', hacer: 'Volver a conectar la cuenta' },
+  { re: /permission denied|row-level security|\b42501\b/i, porque: 'La base no le dio permiso', hacer: 'Arreglar el código' },
+  { re: /duplicate key|violates .* constraint|\b2350[35]\b|PGRST\d{3}/i, porque: 'La base rechazó lo que se guardaba', hacer: 'Arreglar el código' },
+  { re: /cannot read propert|is not a function|is not defined|is not iterable|TypeError|ReferenceError|SyntaxError/i, porque: 'Un error de programación', hacer: 'Arreglar el código' },
+];
+/** Lo que se dice de un error que no está en la tabla. */
+export const ERROR_GENERICO = { porque: 'Algo falló en el código', hacer: 'Arreglar el código' } as const;
+
+/** Por qué falló y qué hay que hacer, según el error que registró el código. */
+export function errorFrecuente(error: string, herramienta?: string): { porque: string; hacer: string } {
+  const f = ERRORES_FRECUENTES.find((x) => x.re.test(error)) ?? ERROR_GENERICO;
+  return { porque: f.porque.replace('{lo}', herramienta === 'responder' ? 'contestarle' : 'hacerlo'), hacer: f.hacer };
+}
+
+/** Qué hay que hacer cuando no hay un error que lo diga: lo que pide el tipo. */
+const HACER_POR_TIPO: Record<TipoTicket, string> = { bug: 'Revisar y arreglar', pedido: 'Decidir si se hace', pregunta: 'Responderle' };
+
+/** Lo que dice una nota del Cerebro, en piezas cortas. El orden es el de la tabla. */
+const PIEZAS_DE_LA_NOTA: ReadonlyArray<[RegExp, (m: RegExpExecArray) => string]> = [
+  [/mismo caso que el #(\d+)/i, (m) => `igual que el #${m[1]}`],
+  [/arreglo de c[oó]digo ya sali[oó]|ya (qued[oó]|est[aá]) arreglad/i, () => 'el código ya está arreglado'],
+  [/no se arregla con c[oó]digo|no es (un bug|de c[oó]digo)/i, () => 'no es de código'],
+  [/(lo |que )?decid[ae] mart[ií]n/i, () => 'lo decides tú'],
+];
+
+/**
+ * La nota que dejó el Cerebro (o lo que contestó el cliente), en UNA línea: lo que va después de «Estado:». La nota
+ * entera va plegada en «Detalle». Sin una pieza conocida, el comienzo de la nota hasta el primer corte, recortado.
+ */
+export function estadoDeLaNota(n: NotaTicket | null | undefined): string | null {
+  const texto = (n?.texto ?? '').replace(/\s+/g, ' ').trim();
+  if (!n || !texto) return null;
+  if (quienDiceLaNota(n) === 'Respondió') return `respondió «${cortar(texto, 60)}»`;
+  const piezas = PIEZAS_DE_LA_NOTA.map(([re, dice]) => { const m = re.exec(texto); return m ? dice(m) : null; }).filter((x): x is string => !!x);
+  if (piezas.length) return piezas.join(' · ');
+  return cortar(minuscula(texto.split(/(?<=\D)[.:;—](?:\s|$)/)[0].trim()), 80);
+}
+
+export type LecturaTicket = {
+  /** Qué pasó, en una frase. */
+  quePaso: string;
+  /** Por qué, en corto (del error o de lo que vio MaKo). null = no se sabe más que la frase. */
+  porque: string | null;
+  /** Quién lo levantó: MaKo solo (la estrella) o la persona (su foto), con por dónde. */
+  quien: { mako: boolean; texto: string };
+  /** La pantalla donde estaba la persona, si no la dice ya la frase. */
+  donde: string | null;
+  /** El negocio, si suma: no cuando es el mismo nombre de la persona («Mauricio Bustos» de Mauricio Bustos Eguia). */
+  negocio: string | null;
+  /** Qué hay que hacer, en un renglón. */
+  hacer: string;
+  /** Lo que dejó el Cerebro o contestó el cliente, en una línea (va después de «Estado:»). */
+  estado: string | null;
+  /** El tipo, chequeado contra el error (`tipoDe`). */
+  tipo: TipoTicket;
+};
+
+/** Todo lo que dice la tarjeta, de arriba hacia abajo. Puro: lo usan la tarjeta, la tabla y la hoja del ticket. */
+export function leerTicket(t: ParaLeer & Pick<FilaTicket, 'workspace_id'> & { negocio?: string | null; nota?: NotaTicket | null }): LecturaTicket {
+  const sistema = t.canal === 'sistema';
+  const error = (t.contexto.error ?? '').trim();
+  const fallo = error ? errorFrecuente(error, t.contexto.herramienta) : null;
+  const tipo = tipoDe(t);
+  const nombre = nombreDe(t);
+  const desde = t.canal === 'whatsapp' ? 'por WhatsApp' : t.canal === 'api' ? 'por la API'
+    : t.canal === 'formulario' ? 'desde «Reportar problema»' : 'desde el chat de MaKo';
+  const pantalla = sistema ? null : pantallaDe(t.contexto.ruta);
+  const neg = (t.negocio ?? '').trim();
+  const mismo = !!neg && (normal(nombre).startsWith(normal(neg)) || normal(neg).startsWith(normal(nombre)));
+  return {
+    quePaso: quePaso(t),
+    porque: fallo ? fallo.porque : t.contexto.noExiste ? 'La app todavía no lo tiene' : null,
+    quien: sistema ? { mako: true, texto: 'Lo detectó MaKo solo' } : { mako: false, texto: `Lo levantó ${primerNombre(nombre)} ${desde}` },
+    donde: pantalla ? `En «${pantalla}»` : null,
+    negocio: mismo ? null : neg || `Negocio ${t.workspace_id}`,
+    hacer: fallo ? fallo.hacer : HACER_POR_TIPO[t.contexto.noExiste ? 'pedido' : tipo],
+    estado: estadoDeLaNota(t.nota),
+    tipo,
+  };
+}
+
 // ── Qué hace cada gesto ───────────────────────────────────────────────────────────────────────────────────────────
 export type Salida = 'derecha' | 'izquierda' | 'arriba';
 export type AccionMazo = { decision: DecisionTicket; rotulo: string; pideTexto: boolean; salida: Salida };
 
-export function accionesDe(t: Pick<FilaTicket, 'tipo' | 'estado'>): Record<Salida, AccionMazo | null> {
-  const aprobar = t.estado === 'en_curso' ? null : decisionDeAprobar(t.tipo);
+/** Desde cuántos px de arrastre se MARCA el botón del gesto (los sellos de la tarjeta arrancan en el mismo punto). */
+export const MARCA_PX = 24;
+/** Qué botón se marca mientras se arrastra: el del eje más largo, pasado `MARCA_PX`. Hacia abajo, ninguno. */
+export function gestoMarcado(dx: number, dy: number): Salida | null {
+  if (Math.abs(dx) >= Math.abs(dy)) return dx >= MARCA_PX ? 'derecha' : dx <= -MARCA_PX ? 'izquierda' : null;
+  return dy <= -MARCA_PX ? 'arriba' : null;
+}
+
+/** Lo que hace cada gesto. «Aprobar» sale del tipo CHEQUEADO (`tipoDe`): la tarjeta dice Bug, el botón dice Arreglar. */
+export function accionesDe(t: Pick<FilaTicket, 'tipo' | 'estado' | 'canal' | 'contexto'> & { tipo_manual?: boolean }): Record<Salida, AccionMazo | null> {
+  const aprobar = t.estado === 'en_curso' ? null : decisionDeAprobar(tipoDe(t));
   const derecha: AccionMazo = aprobar
     ? { decision: aprobar, rotulo: aprobar === 'arreglar' ? 'Arreglar' : 'Hacer', pideTexto: false, salida: 'derecha' }
     : { decision: 'responder', rotulo: 'Responder', pideTexto: true, salida: 'derecha' };
@@ -295,7 +481,7 @@ export function lectorDeBandeja<R extends { ok: boolean }>(
 // ── La tabla ──────────────────────────────────────────────────────────────────────────────────────────────────────
 export type ColumnaTabla = 'id' | 'titulo' | 'quien' | 'negocio' | 'canal' | 'estado' | 'cuando';
 export const COLUMNAS: ReadonlyArray<{ clave: ColumnaTabla; titulo: string }> = [
-  { clave: 'id', titulo: '#' }, { clave: 'titulo', titulo: 'Título' }, { clave: 'quien', titulo: 'Quién' },
+  { clave: 'id', titulo: '#' }, { clave: 'titulo', titulo: 'Qué pasó' }, { clave: 'quien', titulo: 'Quién' },
   { clave: 'negocio', titulo: 'Negocio' }, { clave: 'canal', titulo: 'Canal' }, { clave: 'estado', titulo: 'Estado' },
   { clave: 'cuando', titulo: 'Cuándo' },
 ];
@@ -306,7 +492,8 @@ const quienDe = (t: FilaTicket) => (t.usuario_nombre || t.usuario_email || '').t
 const clave = (t: FilaTicket, c: ColumnaTabla): string | number => {
   switch (c) {
     case 'id': return t.id;
-    case 'titulo': return t.titulo.toLowerCase();
+    // La columna «Qué pasó» dice la frase de la tarjeta (`quePaso`), no el título del cliente: ordena por lo que se ve.
+    case 'titulo': return quePaso(t).toLowerCase();
     case 'quien': return quienDe(t);
     case 'negocio': return (t.negocio ?? '').toLowerCase();
     case 'canal': return origenDe(t).rotulo.toLowerCase();

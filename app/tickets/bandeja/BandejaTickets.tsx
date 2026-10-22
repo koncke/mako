@@ -38,8 +38,8 @@ import { MazoTickets } from './MazoTickets';
 import { TablaTickets } from './TablaTickets';
 import { CaraTicket, ChipOrigen } from './TarjetaTicket';
 import {
-  ROTULO_ESTADO, enGrupo, lectorDeBandeja, linkDeOrigen, nombreDe, ordenarTabla, textoDeLaPersona, tipoCorto as corto, ORDEN_INICIAL,
-  type Orden, type VistaBandeja,
+  ROTULO_ESTADO, enGrupo, lectorDeBandeja, linkDeOrigen, nombreDe, ordenarTabla, quePaso, textoDeLaPersona, tipoCorto as corto, tipoDe,
+  ORDEN_INICIAL, type Orden, type VistaBandeja,
 } from './mazo-reglas';
 // ⚠️ Su hoja (./bandeja.css) la importa la PÁGINA (app/second-brain/pagina.tsx), como las del mazo: un import de CSS acá
 // rompería un test que dibuje esto con node.
@@ -210,7 +210,9 @@ function Detalle({ id, cerebro, todos, onCerrar, onCambio }: {
   useEffect(() => { void leer(); }, [leer]);
 
   // Sobre uno EN CURSO no se aprueba de nuevo: el Cerebro ya lo tiene (`sePuedeDecidir`, que el servidor vuelve a mirar).
-  const aprobar = t && t.estado !== 'en_curso' ? decisionDeAprobar(t.tipo) : null;
+  // El tipo es el CHEQUEADO contra el error (`tipoDe`): el mismo que dice la tarjeta del mazo.
+  const tipo = t ? tipoDe(t) : null;
+  const aprobar = t && tipo && t.estado !== 'en_curso' ? decisionDeAprobar(tipo) : null;
   const decidible = !!t && ['nuevo', 'esperando_decision', 'esperando_cliente', 'en_curso'].includes(t.estado);
   // «Mandar al Cerebro» otra vez: Martín aprobó y la firma no salió (el ticket quedó en curso sin despacho).
   const faltaMandar = !!t && t.estado === 'en_curso' && (t.decision === 'arreglar' || t.decision === 'hacer') && !t.despacho;
@@ -231,7 +233,7 @@ function Detalle({ id, cerebro, todos, onCerrar, onCambio }: {
   const mandarAlCerebro = async (fila: FilaTicket, decision: 'arreglar' | 'hacer', notaCerebro: string): Promise<string | null> => {
     if (!cerebro) return 'No hay un chat «Cerebro» en Ops Center: quedó aprobado, mándaselo cuando esté.';
     if (!cerebro.listo.ok) return `${cerebro.listo.motivo}: quedó aprobado, mándaselo cuando se pueda.`;
-    const r = await cerebro.mandar(pedidoAlCerebro(fila, decision, notaCerebro || null));
+    const r = await cerebro.mandar(pedidoAlCerebro({ ...fila, tipo: tipoDe(fila) }, decision, notaCerebro || null));
     if (!r.ok) return `No le llegó al Cerebro (${r.error}): quedó aprobado, vuelve a mandárselo.`;
     const a = await anotarDespachoAction(fila.id, r.id);
     return a.ok ? null : a.error;
@@ -293,8 +295,9 @@ function Detalle({ id, cerebro, todos, onCerrar, onCambio }: {
       <header className="tickets-bandeja__cab">
         <button type="button" className="tickets-bandeja__volver" onClick={onCerrar} aria-label="Cerrar el ticket">←</button>
         <div className="tickets-bandeja__cab-texto">
-          <p className="tickets-bandeja__meta">#{t.id} · {corto(t.tipo)}{t.tipo_manual ? ' (corregido)' : ''} · {ROTULO_ESTADO[t.estado]} · el cliente ve «{ROTULO_ESTADO_CLIENTE[estadoParaElCliente(t.estado)]}»</p>
-          <h2 className="tickets-bandeja__h">{t.titulo}</h2>
+          <p className="tickets-bandeja__meta">#{t.id} · {corto(tipoDe(t))}{t.tipo_manual ? ' (corregido)' : ''} · {ROTULO_ESTADO[t.estado]} · el cliente ve «{ROTULO_ESTADO_CLIENTE[estadoParaElCliente(t.estado)]}»</p>
+          {/* La misma frase que la tarjeta y la tabla; el título que lee el cliente queda en el `title`. */}
+          <h2 className="tickets-bandeja__h" title={t.titulo}>{quePaso(t)}</h2>
         </div>
         <Status tono={TONO_PRIORIDAD[t.prioridad]}>{ROTULO_PRIORIDAD[t.prioridad]}</Status>
       </header>
@@ -337,7 +340,7 @@ function Detalle({ id, cerebro, todos, onCerrar, onCambio }: {
           <div className="tickets-bandeja__corregir">
             <span>¿Se equivocó? Es</span>
             {TIPOS.map((x) => (
-              <button key={x.clave} type="button" className={`tickets-bandeja__chip${t.tipo === x.clave ? ' is-on' : ''}`} disabled={haciendo || t.tipo === x.clave} onClick={() => corregir(x.clave)}>{x.corto.toLowerCase()}</button>
+              <button key={x.clave} type="button" className={`tickets-bandeja__chip${tipo === x.clave ? ' is-on' : ''}`} disabled={haciendo || tipo === x.clave} onClick={() => corregir(x.clave)}>{x.corto.toLowerCase()}</button>
             ))}
             <span className="tickets-bandeja__sep">· Prioridad</span>
             {PRIORIDADES.map((p) => (
