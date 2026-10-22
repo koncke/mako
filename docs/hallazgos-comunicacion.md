@@ -10636,3 +10636,25 @@ lib/mako-turno-app.ts). Un borrador incierto vuelve a «pendiente» (lib/evoluti
 estado que /chats y MaKo no ofrezcan reenviar.
 **Vive en:** lib/chats-envio-reglas.ts · lib/api-mako/areas/chats.run.ts y chats.def.ts · tests/chats-mako-envio.test.ts ·
 *21/10/2026, chat «CRM» (claude4).*
+
+## Una clave pegada en el grupo de MaKo: se tapa el MENSAJE, no el texto (22/10/2026, WA2)
+
+**Vive en:** `lib/doer-claves.ts` · `lib/mako-doer-in.ts` (`manejarEntranteDoer`, `bufferearYResponder`, `textoDeArchivo`)
+· `tests/doer-claves.test.ts` (corre la entrada real del grupo contra una base de mentira)
+
+- **Por qué ahora:** desde el 22/10 se les pide a los clientes su clave de API (IA4), y el chat de la app ya las tapaba
+  (pieza 1.6, `lib/claves-en-el-chat.ts`). En el grupo no: la clave llegaba al modelo y quedaba entera en la cola
+  (`mako_doer_buffer.payload`, el webhook crudo) y en `mako_doer_conv`.
+- **El diagnóstico obvio era tapar `textoDe(data)`, y no alcanzaba.** El mismo texto viaja en TRES lugares más: el
+  `payload` que va a la cola (de donde el lote vuelve a leer), el `caption` de una foto o un documento, y el mensaje CITADO
+  (un «responder» trae copiado en `contextInfo.quotedMessage` el texto del otro: citar el mensaje de la clave la volvía a
+  meter). Por eso se tapa el objeto `message` entero, recorriéndolo, al entrar a `manejarEntranteDoer`, y desde ahí el
+  crudo no se vuelve a leer.
+- **Lo binario NO se toca** (`base64`, `jpegThumbnail`, las llaves y hashes de medios): no lo escribe nadie, y tapar un
+  pedazo rompe la imagen. Trampa del test: un base64 con la clave pegada sin borde de palabra (`…Ggosk-ant-…`) no lo muerde
+  ninguna regla, y la prueba de «no se toca» pasaba aunque se tocara; con un `/` antes (como en un base64 real), sí.
+- **El aviso no puede decir lo que dice la app.** En la app el crudo no se guarda («no quedó en el chat»); en WhatsApp el
+  mensaje con la clave SIGUE en el grupo (MaKo no borra lo que manda otro). El aviso pide que la borre y trae el link a su
+  conexión (`/integraciones?abrir=<servicio>`). Un mensaje que era SÓLO la clave no se encola: no queda nada que contestar.
+- **Sin hacer:** una clave DENTRO de una foto o un PDF (van nativos al modelo) y la que se dice en una nota de voz no se
+  tapan. La prueba en el grupo de prueba del ws3, con Martín pegando una clave de mentira, espera el deploy.

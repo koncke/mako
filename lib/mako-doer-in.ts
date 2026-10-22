@@ -65,6 +65,8 @@ import { mimeImagenWhatsApp, bloquesDeAdjuntos, placeholderDeAdjunto } from '@/l
 import { ordenarPorCuota, anotarRebote429 } from '@/lib/ia-cuotas';
 import { recordUsage } from '@/lib/anthropic-usage';
 import { rutearDoer } from '@/lib/mako-router';
+import { avisoClaveTapadaEnElGrupo, soloLaClave, taparClavesDelMensaje } from '@/lib/doer-claves';
+import { taparClaves } from '@/lib/claves-en-el-chat';
 import { overrideDeFeature } from '@/lib/model-registry';
 import { encolar, reclamar, soltar, pendientes, esperarSilencio, marcarProcesados, unirMensajes, huerfanosGlobal, VENTANA_MS, VENTANA_AUDIO_MS } from '@/lib/mako-doer-buffer';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
@@ -404,7 +406,11 @@ export async function manejarEntranteDoer(instance: string, data: MsgIn): Promis
   if (jid !== suyo && !(await gruposDoer(OWNER_WS)).includes(jid)) {
     return { engaged: false, skip: 'grupo no habilitado' };
   }
-  return runWithWorkspace(wsData, () => bufferearYResponder(wsData, instance, data));
+  // ⚠️ NUNCA UNA KEY EN EL GRUPO (WA2, 22/10/2026; la pieza 1.6 del chat de la app, en este canal). Una clave pegada se
+  // TAPA en el mensaje entero —el texto, el caption, la cita y por eso el payload que va a la cola— antes de todo: la
+  // cola, la memoria (`mako_doer_conv`), el router y el modelo. Desde acá el crudo no se vuelve a leer (lib/doer-claves.ts).
+  const tapado = taparClavesDelMensaje(data);
+  return runWithWorkspace(wsData, () => bufferearYResponder(wsData, instance, tapado.mensaje, tapado));
 }
 
 /**
@@ -417,7 +423,7 @@ export async function manejarEntranteDoer(instance: string, data: MsgIn): Promis
  * Todo mensaje se ENCOLA. Una sola invocación gana el candado del grupo, espera el
  * silencio y contesta una vez por todo. Las otras encolan y se van calladas.
  */
-async function bufferearYResponder(wsData: number, instance: string, data: MsgIn): Promise<ResultadoDoer> {
+async function bufferearYResponder(wsData: number, instance: string, data: MsgIn, tapado?: { tapadas: number; servicio: string | null }): Promise<ResultadoDoer> {
   const jid = data.key?.remoteJid ?? '';
   const msgId = data.key?.id ?? '';
   const audio = audioDe(data);
@@ -458,6 +464,15 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
   // El eco de nuestra propia respuesta no entra a la cola (si no, MaKo se contesta sola).
   if (data.key?.fromMe && msgId && (await idsEnviados(OWNER_WS, jid)).includes(msgId)) {
     return { engaged: false, skip: 'eco de mi propia respuesta' };
+  }
+
+  // La clave tapada se le dice YA, con el link a su conexión (WA2). El mensaje con la clave sigue en el grupo (MaKo no borra
+  // lo que manda otro): el aviso le pide que lo borre. Si el mensaje era SÓLO la clave, no queda nada que contestar.
+  if (tapado?.tapadas) {
+    const aviso = avisoClaveTapadaEnElGrupo(linkApp(`/integraciones${tapado.servicio ? `?abrir=${tapado.servicio}` : ''}`, wsData));
+    const env = await enviarAGrupoJid(jid, aviso, 0);
+    if (env.ok && env.id) await registrarEnviado(OWNER_WS, jid, env.id);
+    if (soloLaClave(texto) && !audio && !adjunto) return { engaged: true, reply: aviso };
   }
 
   const nuevo = await encolar(jid, { waId: msgId, texto, tieneMedia: !!adjunto, tieneAudio: !!audio, payload: data as unknown });
@@ -617,7 +632,8 @@ async function textoDeArchivo(instance: string, m: MsgIn): Promise<{ texto: stri
   // vía cara para algo que se resuelve con file.text(). Se lee y su contenido ES el texto.
   const file = new File([Buffer.from(b64, 'base64')], adj.nombre, { type: adj.mime || 'text/plain' });
   const lect = await archivoATexto(file).catch((e) => ({ texto: '', via: 'no-soportado' as const, warning: e instanceof Error ? e.message : String(e) }));
-  const contenido = (lect.texto || '').trim();
+  // Un .txt o un .env con una clave adentro también se tapa antes del modelo (WA2): lo que se lee es texto como el pegado.
+  const contenido = taparClaves((lect.texto || '').trim()).texto;
   if (!contenido) {
     return { texto: '', error: lect.warning
       ? `Me llegó «${adj.nombre}» pero no lo pude leer: ${lect.warning}`
