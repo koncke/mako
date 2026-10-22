@@ -1988,6 +1988,40 @@ tests/inicio-ops-center.test.ts. La regla para código nuevo, en AGENTS.md («La
 - `homeDeCapa` (lib/tab-access.ts), el rebote de una tab que el rol no ve, sigue en /crm o /plan: no es la entrada.
 - Nada de esto se miró en un navegador: es un redirect del servidor que pide la sesión de Martín con 2FA.
 
+## Las decisiones como en Claude: un bloque arriba de la caja, de a una; y AskUserQuestion no se contesta desde acá (22/10/2026)
+
+Martín, con captura del chat «Cerebro»: «Las decisiones deben salir como en Claude, un bloque arriba del chat con las opciones,
+y tipo form de 1 pregunta, respondo 1 y va a la siguiente». Y después: «las preguntas tipo bloque de Claude en la app… siempre
+deben aparecer en la app de Ops Center». Código: app/admin/operaciones/PreguntasDelChat.tsx, lib/centro-chats.ts
+(`preguntasParaElBloque`, `preguntasDeLaApp`), lib/centro-preguntas-chat.ts (origen `ask`), scripts/operaciones/cartero.mjs
+1.18.0 (`preguntasDeAsk`). Test: tests/ops-center-decisiones.test.ts.
+
+- **Ya había un bloque así, para otra cosa:** `Pregunta.tsx` (arriba de la caja, copiado de AskUserQuestion) es el de las
+  decisiones de la Ticketera (`admin_decisiones`). Las preguntas de los chats (`cartero preguntar` y los botones de un
+  wrap_up) iban como tarjeta ADENTRO del hilo (`PreguntaChat.tsx`), y la que el chat dejaba atrás quedaba con «Ya no espera tu
+  respuesta». Ahora van al bloque de arriba, de a una («1 de 3», «Atrás», el repaso y «Enviar»; con una sola, tocar la manda).
+  En el hilo, la contestada es un mensaje de Martín, «Decisión: …», con la pregunta citada, y la superada no se dibuja.
+- **Mandarlas «todas juntas» no cambia el camino de la firma:** cada respuesta sale firmada sola, en orden (`contestarPregunta`).
+  El servidor sólo marca una pregunta si el trabajo dice EXACTAMENTE su `textoDeRespuesta`, así que un texto con varias no la
+  marcaría. Si una falla, las que salieron quedan y el resto sigue en el bloque.
+- **Una respuesta desde el Ops Center NO destraba un AskUserQuestion. Medido en 27 de los transcripts:** mientras espera, al
+  chat no le entra ningún mensaje. El resultado llega sólo de la UI de la app («The user answered…»), y la mensajería entre
+  sesiones retiene lo que llega con un turno en curso. La respuesta firmada quedaría detrás de la pregunta. Por eso el cartero
+  1.18.0 la SUBE (se ve en el bloque, de sólo lectura, con «contéstala en la app»), y la regla en AGENTS.md es preguntar con
+  `cartero preguntar`. MaKo la da por superada con lo primero que el chat escribe después: hasta que se contesta, no escribe nada.
+- **El cartero nuevo hay que instalarlo:** `node scripts/operaciones/cartero.mjs instalar`, con el Runner quieto. Sin eso,
+  la PC sigue con la 1.17.4 y las de AskUserQuestion no suben.
+
+## La guarda del chat único no veía «Pídele un cambio a MaKo» (22/10/2026, OC2)
+
+tests/chat-unico.test.ts reconoce una pantalla de MaKo por su hilo, su API o una caja que le escribe «a MaKo». La regex pedía el
+verbo PEGADO a «a MaKo» («Pídele a MaKo»), así que el panel del Dashboard («Pídele un cambio a MaKo», PanelEditarMako.tsx) y
+la caja de «Pídeselo a MaKo» (app/web-generator/CajaPedido.tsx, la usan Automations, CRM y Dashboard) no estaban en la lista.
+En cambio sí estaba app/dashboard/EditorMako.tsx, que no es un chat: edita el pedido y las sugerencias del botón de un
+gráfico. Ahora la regex acepta hasta 40 caracteres en el medio y «Pídeselo», la lista tiene las pantallas reales, y el chat
+viejo del teléfono (app/m/mako/ChatMako.tsx con su Composer) se borró. **Una guarda por regex se prueba con el texto real de
+cada pantalla**: el inventario se armó a mano y la regex nunca se corrió contra él.
+
 ## El Ops Center sólo muestra lo que es para Martín: lo que se dicen los chats no se dibuja (22/10/2026)
 
 Martín, desde el teléfono y con captura (pedido f7fb8e80): «me salen estos textos largos innecesarios en muchos chats... No

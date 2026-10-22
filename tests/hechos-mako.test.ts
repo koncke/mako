@@ -80,10 +80,11 @@ test('Una intención DUDOSA no puede crear un borrador de plan', () => {
   // La selección de herramientas se mudó a lib/doer-herramientas.ts el 08/10/2026 (la misma
   // que usa el test de agenda): el corte vive ahí, y el doer le pasa el veredicto entero.
   const src = leer('../lib/doer-herramientas.ts');
-  assert.match(src, /if \(!dudosa\) return base;/, 'se perdió el corte por clasificación dudosa');
+  // (20/10/2026: el corte también mira `adivina`, el default de la app, que lleva dudosa: false a propósito.)
+  assert.match(src, /if \(!dudosa(?: && !adivina)?\) return base;/, 'se perdió el corte por clasificación dudosa');
   assert.match(src, /t\.name !== 'proponer_tareas_plan'/,
     'la tool de crear tareas volvió a estar disponible en un turno que no se pudo clasificar');
-  assert.match(src, /toolsParaIntencion<[^>]*>\(v\.intencion, \[[^\]]*\], v\.dudosa\)/,
+  assert.match(src, /toolsParaIntencion<[^>]*>\(v\.intencion, \[[^\]]*\], v\.dudosa(?:, !!v\.adivina)?\)/,
     'el flag `dudosa` dejó de llegar al selector de tools');
   assert.match(leer('../lib/mako-doer-in.ts'), /herramientasDelTurno\(\{\s*veredicto: intencion,/,
     'el doer dejó de pasarle el veredicto a la selección');

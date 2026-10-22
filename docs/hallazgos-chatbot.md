@@ -5961,7 +5961,7 @@ del cliente, y nunca llegaban al mensaje. Con la lista vacía y sin keys, la fra
 hoy», «está al tope», «está saturada», «no contestó») y la salida es SU Claude (`/integraciones?abrir=anthropic`), que es
 lo primero que prueba esta cascada. Con keys propias, la red no cambia nada. Un tope POR DÍA no dice «prueba en un rato».
 **Trampa:** «Conecta tu Claude o tu GPT» era el texto pedido, pero OpenAI no está en `PROVS_CREAR_IA` (cobra): una clave
-de OpenAI no arma flujos. El texto dice sólo Claude, y un test avisa si OpenAI entra a la lista. **Vive en:**
+de OpenAI no arma flujos HOY (la cascada de main no usa `PROVS_SU_IA` por su cuenta; lo midió «IA del cliente»). Con el IA6 (lote 2 de IA) sí: entonces `SU_IA` y `SU_CLAVE` (lib/flujo-ia.ts) pasan a «tu Claude o tu GPT», y el test falla hasta que se cambien. **Vive en:**
 lib/flujo-ia.ts (`falloDeIA`, `sinIAPropia`) · lib/flujo-ia-crear.ts (`generar` le pasa `erroresRed`) · test:
 tests/ia-aviso-sin-ia-propia.test.ts. **Sin hacer:** las otras pantallas que llaman `falloDeIA` (la ficha, los gráficos,
 el «preparar» de la API de MaKo) no le pasan su red. Ven el texto nuevo sin la causa: lib/ficha/ia-generar.ts,

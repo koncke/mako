@@ -27,7 +27,7 @@ import { instanteHito, type AreaP, type PasoP, type PedidoP } from './progreso-r
 import { destinoDeDecision } from './decisiones-aviso';
 import { textoDeRespuesta, type Decision } from '../app/admin/runway/decisiones';
 import { usoDeCuenta, type Cuota } from './centro-uso';
-import { preguntaDeTrabajo, resumenDeRespuesta, type PreguntaChat } from './centro-preguntas-chat';
+import { estaAbierta, preguntaDeTrabajo, resumenDeRespuesta, seContestaEnLaApp, type PreguntaChat } from './centro-preguntas-chat';
 
 export type EstadoChat = 'trabajando' | 'abierto' | 'cerrado' | 'sin_dato';
 
@@ -461,14 +461,14 @@ export function partesDelNombre(titulo: string): { jefe: string; sub: string | n
   return { jefe: (jefe ?? '').trim() || titulo.trim(), sub: sub || null };
 }
 
-export type GrupoJefe = { clave: string; jefe: string; chat: ChatCentro | null; subs: ChatCentro[] };
+export type GrupoJefe<T extends { titulo: string } = ChatCentro> = { clave: string; jefe: string; chat: T | null; subs: T[] };
 
 /**
  * La lista agrupada por jefe, en el orden en que llega (lo que trabaja arriba): el grupo va donde aparece el primero
  * de los suyos. Un sub-chat cuyo jefe no está en la lista igual se agrupa bajo su nombre (`chat: null`).
  */
-export function porJefe(chats: readonly ChatCentro[]): GrupoJefe[] {
-  const grupos = new Map<string, GrupoJefe>();
+export function porJefe<T extends { titulo: string } = ChatCentro>(chats: readonly T[]): GrupoJefe<T>[] {
+  const grupos = new Map<string, GrupoJefe<T>>();
   for (const c of chats) {
     const { jefe, sub } = partesDelNombre(c.titulo);
     const k = normal(jefe);
@@ -507,6 +507,20 @@ export type LineaChat =
 export const lineasDeConversacion = (lineas: readonly LineaChat[]): LineaChat[] =>
   lineas.filter((l) => l.tipo === 'trabajo' || l.tipo === 'respuesta' || l.tipo === 'pregunta'
     || (l.tipo === 'turno' && esParaMartin(l.turno) && !(l.turno.rol === 'yo' && l.turno.trabajo)));
+
+/** Las abiertas de este chat cuya respuesta todavía no salió (la línea no tiene su trabajo), la más vieja primero. */
+const abiertasSinRespuesta = (lineas: readonly LineaChat[]): PreguntaChat[] =>
+  lineas.flatMap((l) => (l.tipo === 'pregunta' && !l.trabajo && estaAbierta(l.pregunta) ? [l] : []))
+    .sort((a, b) => a.instante - b.instante).map((l) => l.pregunta);
+
+/**
+ * Las preguntas que van al BLOQUE de arriba de la caja (22/10/2026, Martín: «Las decisiones deben salir como en Claude, un bloque
+ * arriba del chat con las opciones… respondo 1 y va a la siguiente»): las de `cartero preguntar` y las de botones del cierre con
+ * wrap_up, que se contestan acá. Las de un AskUserQuestion van aparte (`preguntasDeLaApp`): se ven, y se contestan en la app.
+ */
+export const preguntasParaElBloque = (lineas: readonly LineaChat[]): PreguntaChat[] => abiertasSinRespuesta(lineas).filter((p) => !seContestaEnLaApp(p));
+/** Las que el chat le hizo con AskUserQuestion en la app de Claude (cartero 1.18.0): se VEN arriba de la caja, de sólo lectura. */
+export const preguntasDeLaApp = (lineas: readonly LineaChat[]): PreguntaChat[] => abiertasSinRespuesta(lineas).filter(seContestaEnLaApp);
 
 /** Un chat que trabaja y todavía no escribió nada lo dice (Martín, 17/10/2026: «No puede haber un chat en "trabajando"
  *  sin nada escrito»): nunca una conversación vacía. null = escribió algo, o no está trabajando. */

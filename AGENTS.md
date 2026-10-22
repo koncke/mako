@@ -375,16 +375,39 @@ pushear.** No se suma al hook a propósito: son ~9 segundos más en cada push y 
 de los cambios no los necesita — pero los renombres, sí. (17/10/2026: «acordarse a mano» costó 16
 runs rojos de 90; ahora hay una herramienta que elige los tests sola — ver la sección de abajo.)
 
-# Antes de pasarle una punta a «Cerebro › Integración»: `antes-de-subir` en VERDE, sobre tu rama con `origin/main` mergeado
+# Cómo se sube: la punta pasa en el acto y «Cerebro › Integración» chequea el TREN (desde el 22/10/2026)
 
-**La regla** (17/10/2026; Martín: «asegúrate por todos los medios de que no vuelva a ocurrir nunca más»). Un chat **no le
-pasa una punta a «Cerebro › Integración»** (el que integra y sube) sin haber corrido esto, con el árbol commiteado y `origin/main` mergeado en la rama:
+**La regla de hoy** (22/10/2026; Martín: «Organiza los push y que salgan todos… para pushear es un montón de tiempo, podríamos
+optimizarlo»). Cada punta corría su `antes-de-subir` completo en la fila del candado y después Integración repetía los tests
+afectados: dos chequeos de lo mismo. El primero, con 8 chats y 1-2 GB libres, tardaba HORAS (ops-lista, 4 h en la fila). Ahora:
+1. **El chat de área** corre los tests que escribió o tocó (`node --import tsx --test tests/<…>.test.ts`), con el árbol
+   commiteado y `origin/main` mergeado, y le pasa el sha a Integración EN EL ACTO, **«sin tipos»**. No corre `antes-de-subir`,
+   ni hace la fila, ni corre `tsc`: **en la máquina hay UN solo `tsc`, el del tren** (22/10, medido: con el `tsc` del tren, el
+   de un chat y el de un workflow a la vez, el vigía mataba los tres por debajo de 0,9 GB y cada `.tsx` salía 99).
+2. **Integración corre UN chequeo por TREN**, sobre el lote ya mergeado: los tests afectados del lote
+   (`scripts/tests-afectados.mjs --base origin/main`) y las guardas (`sh scripts/guardas-push.sh origin`, que es la etapa de
+   guardas de `antes-de-subir`). **Tests y guardas en verde es la condición del tren.** Si algo da rojo, devuelve SÓLO esa punta
+   y el tren sale sin ella.
+   **Los tipos son RED, no traba** (22/10, decisión del Cerebro sobre el «que avance siempre, no quiero limitaciones» de Martín).
+   Medido: con 8 chats abiertos quedan 1,6 GB libres de 15,7 aun con todo lo pesado frenado (las sesiones de Claude y sus node
+   suman ~8 GB), y las 3 tandas de INF1 piden 5,3; esta PC no tipa nunca. Un error de tipos no rompe la ejecución (Next
+   transpila sin tipos y el build no los mira) y lo que sí rompe lo cazan los tests. Después de cada push, Integración corre en
+   segundo plano el `tsc` acotado de lo que entró, de a un archivo, cuando haya RAM. Lo que dé error vuelve como arreglo al
+   chat dueño y sale en el tren siguiente. La red completa vuelve con GitHub Actions o, a la noche con pocos chats, con las 3
+   tandas (`node scripts/tipos-respaldo-push.mjs`).
+3. **El tren sale cada 30 min** con todo lo que llegó, o antes si trae un cliente roto. No se espera a juntar más.
+4. Integración le pasa el sha al Cerebro y el Cerebro sube en el acto (sin minutos de Actions, con `--no-verify`: ver
+   «Sin minutos de Actions» en docs/hallazgos-infra.md).
+
+Lo que sigue describe `antes-de-subir`: ahora es la herramienta de Integración para el tren (y de un jefe con RAM de sobra que
+quiera adelantarse), no el peaje de cada punta. **La regla anterior** (17/10/2026; Martín: «asegúrate por todos los medios de
+que no vuelva a ocurrir nunca más») pedía, antes de pasar una punta, con el árbol commiteado y `origin/main` mergeado:
 
 ```sh
 node scripts/antes-de-subir.mjs --rapido
 ```
 
-**Es el MÍNIMO OBLIGATORIO** y tarda ~3-4 min en esta PC con 14 chats abiertos (medido sobre una punta de 21 archivos que traía 3
+**Era el mínimo obligatorio** y tardaba ~3-4 min en esta PC con 14 chats abiertos (medido sobre una punta de 21 archivos que traía 3
 rojos reales: 3 min 28 s y los tres salieron; la misma punta tardaba 26 min antes de compartir procesos). Corre las guardas, los
 tests que **nombran o importan DIRECTO** un archivo cambiado, **todas las barredoras** y los **tipos de lo cambiado si entran en RAM
 sin esperar** (20 s; si no, lo dice en la línea y los decide Actions; `--sin-tipos` los apaga); le deja a Actions los importadores a dos
@@ -393,8 +416,8 @@ fueron errores de tipos de archivos cambiados. Sin `--rapido` es el chequeo COMP
 y los tipos de lo cambiado: ~6-7 min, estimado: 4 min 21 s medidos para los tests más las guardas y los tipos); «Cerebro › Integración» lo usa para
 el push a `integracion`, y un jefe con tiempo puede correrlo también.
 
-El jefe le pasa a «Cerebro › Integración» **la última línea**, `VERDE <sha> (rápido: …)`, junto con la punta. Integración compara ese sha con el de la
-punta: **sin la línea, no integra.**
+Hasta el 22/10 el jefe le pasaba a Integración **la última línea**, `VERDE <sha> (rápido: …)`, junto con la punta; desde el tren,
+la punta va sin ella (el chequeo es el del tren).
 Un `ROJO: …` se arregla ANTES de pasarla, no después de que falle Actions (cada rojo allá costó ~15 min y minutos del
 mes: 140 de los 2.000 gratis en dos días). Un exit **99** es «no corrió por falta de RAM», no un rojo del código: cerrá chats
 o esperá. Para ver qué elige sin correr nada: `--listar` (y `--explicar` en `tests-afectados.mjs`).
@@ -1180,6 +1203,17 @@ Ocho cosas que no se ven en el código y ya mordieron:
    caía `capturar` con DOS herramientas — MaKo no podía registrar un pago, con o sin moneda
    (`tests/api-mako-pago-intencion.test.ts`, docs/hallazgos-api-mako.md → «Pendientes B1 de la API»).
 
+**Y el chat de la APP no anota ante la duda** (20/10/2026, Ops Center pieza 1.2; docs/hallazgos-ia.md → «Ops Center, pieza 1.2»):
+`clasificarIntencion` recibe `canal: 'app'` (lo pasa lib/mako-turno-app.ts) y, sin señal clara, MaKo propone con una tarjeta (D1 = A);
+WhatsApp sigue anotando como idea. Una frase nueva de la app entra a `tests/ops-center-clasificador-app.test.ts` con su operación, y
+si no llega: (1) un verbo de hacer al arranque va en `lib/mako-intencion-app.ts`; (2) si el pedido no nombra el área, una fila de
+`FAMILIAS` con las palabras del NOMBRE de la operación (verbo y sustantivo; un verbo suelto puntúa en cientos de operaciones y la saca
+del presupuesto); (3) un veredicto dudoso no suma las áreas del texto, así que el default de la app va `dudosa: false` Y lleva `adivina: true` (que le saca `proponer_tareas_plan`: una adivinanza no crea nada); una familia sola, sin verbo de hacer, también es una adivinanza. La búsqueda en todo el registro es de `lib/relevancia-app.ts`.
+
+**⚠️ Lo que le llega a un TERCERO se confirma por WhatsApp con un «sí» y nada más** (21/10/2026; docs/hallazgos-comunicacion.md): la regex `CONFIRMACION` toma como confirmación cualquier mensaje que ARRANCA con «ok», «perfecto» o «dale» («ok, esperá que lo reviso»). Una acción de chat que le manda un email, un WhatsApp, una invitación o un link a otra persona lleva `aTerceros: true` en su def (lib/api-mako/tipos.ts) y `confirmarPendiente` no la ejecuta si el mensaje no es `confirmacionPura` (lib/confirmacion-pura.ts): la pendiente sigue viva y MaKo repregunta mostrando qué va a salir. La red es esa puerta de código, no más palabras en el clasificador; `tests/confirmacion-terceros.test.ts` frena la acción nueva que dice que le llega a alguien y no está marcada.
+
+**⚠️ La red del chat de la app es la TARJETA, no una tabla de palabras** (21/10/2026, segunda revisión adversarial; docs/hallazgos-ia.md → «La red es la tarjeta, no la regla»). Dos rondas de reglas dejaron 11 errores medidos: cada regla nueva sacaba una frase legítima y metía otra irreversible. Por eso: (1) en la app NO viaja nada que cambie algo sin dejar una tarjeta (`cancelar_accion` y `confirmar_accion` no viajan: cancelar es el botón de la tarjeta; `tests/ops-center-clasificador-app.test.ts` recorre el REGISTRO ENTERO y frena un control en el chat); (2) una operación que quita, corta o cancela algo (el verbo está en su id; `reversible: false` NO es destructiva: lo llevan los envíos y las altas) entra SÓLO si el pedido pide quitar Y nombra la COSA de esa operación —el sustantivo de su id o de su título, o un sinónimo de `SINONIMOS`—, nunca por el área; si no la nombra no llega ninguna parecida y MaKo pregunta cuál; (3) las lecturas que dan el id de una acción llegan en TODO turno de la app (`herramientasDelChat`), no sólo con `buscaEnTodo`; (4) «WhatsApp no cambia» y «qué cambia en la app» se miden con `node --import tsx scripts/medir-turnos-por-sha.mts <antes> <después> --exigir-igual`: extrae cada commit con `git archive` y corre UN proceso por árbol (cargar dos árboles en un proceso comparte módulos por el alias `@/`, y un worktree vivo no es un commit).
+
 **Y al sumar operaciones a un área** (15/10/2026, 40 de una vez en `landing`;
 docs/hallazgos-api-mako.md → «El editor entero del Web Generator»):
 
@@ -1761,12 +1795,11 @@ código nuevo:
     nada escrito... Siempre debe enviar un mensaje tipo "Voy a trabajar en..."»). Lo primero que escribe un chat al
     tomar un pedido es una línea, en palabras de producto, con qué va a hacer y para qué. Recién después arrancan las
     herramientas.
-    **Y ninguna punta llega a «Cerebro › Integración» sin `antes-de-subir` en VERDE** (17/10/2026; Martín: «asegúrate por todos los medios
-    de que no vuelva a ocurrir nunca más»). Antes de pasarle una punta, el jefe corre `node scripts/antes-de-subir.mjs --rapido`
-    (~3-4 min: es el mínimo obligatorio) sobre su rama con `origin/main` mergeado y el árbol commiteado, y le pasa la última línea
-    (`VERDE <sha> (rápido: …)`) junto con la punta:
-    Integración no integra una punta que no la trae. Qué corre y por qué «los tests de tu área» no alcanzaba: la sección
-    «Antes de pasarle una punta a «Cerebro › Integración»» (más arriba, junto al pre-push).
+    **Y la punta va a «Cerebro › Integración» EN EL ACTO, y el chequeo completo es uno por TREN** (22/10/2026; reemplaza el
+    «VERDE obligatorio» del 17/10, porque la fila del candado con 8 chats tardaba horas). El jefe corre los tests que escribió
+    o tocó y pasa el sha «sin tipos» (en la máquina hay UN solo `tsc`, el del tren). Integración junta lo que llegó, corre
+    tipos, tests afectados y guardas sobre el lote mergeado, devuelve sólo la punta que dé rojo y el tren sale cada
+    30 min (antes si trae un cliente roto). La sección «Cómo se sube» (más arriba, junto al pre-push) lo detalla.
   - **Cada jefe ES un proyecto del Plan** (16/10/2026; los dos se llaman como la tab). El Centro lee y escribe el Plan
     SÓLO con las operaciones de la API de MaKo (`listar_tareas_plan`, `proponer_tareas_plan`, `proponer_cierre_tareas`)
     aplicadas en el acto con `ctxDelCentro` (lib/centro-plan.ts), por la ruta `/api/centro/plan` y NO por una server
@@ -6350,6 +6383,26 @@ usuarios. Lo que pasa la prueba de arriba se pregunta así, y nunca en texto sue
 
 Martín la ve en tu chat del Ops Center como un formulario y elige. La respuesta te llega como un mensaje
 firmado: «Respuesta a tu pregunta «…» [pregunta <id>]: 2. …». Las reglas: lib/centro-preguntas-chat.ts.
+⚠️ **NO LE PREGUNTES A MARTÍN CON AskUserQuestion** (22/10/2026; Martín: «las preguntas tipo bloque de Claude… siempre deben
+aparecer en la app de Ops Center»). AskUserQuestion TRABA tu turno hasta que la conteste en la app de Claude, y el Ops Center no
+la puede contestar: medido en 27 de los transcripts, mientras espera no te entra ningún mensaje (los de otras sesiones quedan
+retenidos hasta que el turno termina). El cartero 1.18.0 la sube para que la VEA en el Ops Center, pero ahí no se contesta.
+Preguntá con `cartero preguntar` y terminá el turno: se contesta desde el Ops Center, una por vez, en la compu y en el teléfono.
+Con varias decisiones, un archivo por decisión (uno tras otro): Martín las ve juntas y las contesta de a una, con «1 de 3».
+Un ejemplo, con su recomendada (el índice desde 0) y el detalle de lo que pasa con cada una:
+
+```json
+{
+  "pregunta": "¿Subo hoy el instalador 0.3.2 de «MaKo en tu computadora»?",
+  "contexto": "Sin él, a todo cliente nuevo le falla «Conectar mi computadora».",
+  "opciones": [
+    { "titulo": "Súbelo ya", "detalle": "Lo sube el chat «IA del cliente» y prueba una instalación de cero en el ws3." },
+    { "titulo": "Lo subo yo", "detalle": "Queda esperando: los clientes nuevos siguen sin poder conectar su computadora." }
+  ],
+  "recomendada": 0
+}
+```
+
 Si una pregunta tuya ya no hace falta (se resolvió por otro lado, o Martín dijo «no más preguntas»), **retírala**:
 `node ~/.claude/operaciones/cartero.mjs retirar <id>` (cartero 1.17.4; el id entero o sus primeros 8). Deja de esperarlo
 en el Ops Center; si todavía no había subido, no sale.
@@ -9825,3 +9878,25 @@ para prospectar (docs/hallazgos-offer.md, OF1).
 - **La marca se mide contra la base, no sólo contra la fecha del deploy.** Un corte por fecha marca también lo que estaba
   bien: el ws13 tenía un solo funnel y su diagnóstico de antes decía lo mismo que hoy. Antes de subir, un script de sólo
   lectura cuenta qué filas se marcan y por qué.
+
+# Lo que devuelve un modelo con un nombre que no existe se mapea o se avisa, nunca se tira callado
+
+El 22/10/2026 MaKo contestó «queda anotada tal cual» y la promesa no quedó en ninguna pieza: el modelo la mandó con la key
+`promesa`, que no existe, y el parseo la descartó sin un log (docs/hallazgos-offer.md, segunda prueba de los chats).
+
+- Al leer el JSON de un modelo, una key desconocida va a la suya por un mapa de alias (con y sin tilde) o sale en el log.
+- Lo que el usuario dice con todas las letras (un número, un «no», un texto entre comillas que pide tal cual) lo anota el
+  CÓDIGO, no depende de que el modelo lo devuelva.
+
+# Un documento que habla DEL negocio pero no es DEL negocio no llena su perfil
+
+El 22/10/2026 una propuesta de Código Inmobiliario A SU PROSPECTO dejó como «qué hace tu negocio» el negocio del prospecto,
+y una lectura apurada la tomó por una propuesta de MaKo (docs/hallazgos-offer.md, OF3).
+
+- La extracción del Archivero dice de QUIÉN es el documento (`habla_de`: negocio, prospecto o proveedor) y el CÓDIGO decide
+  qué llena (`camposSegunQuien`, lib/archivero-registro.ts): de un prospecto, la oferta y el cliente ideal pero nunca la
+  identidad del negocio (`negocio_*`); de un proveedor, nada.
+- Un cambio en un prompt de extracción compartido se prueba con documentos REALES antes de subir
+  (scripts/banco-archivero-quien.mts): tiene que dar bien antes y después.
+- Antes de reparar datos de un cliente se lee quién prepara el documento y para quién («Preparado para…», quién habla en
+  una llamada), no sólo de qué habla.

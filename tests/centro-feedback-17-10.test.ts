@@ -20,6 +20,7 @@
 //     1 fallo; el retrato sin su paseo → 1 fallo; el «Diamante» o la cara «Gato» cayendo al dibujo de siempre → 1 fallo
 //     cada uno (todos en el mismo test).
 
+import { PreguntasDelChat } from '../app/admin/operaciones/PreguntasDelChat';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -125,13 +126,18 @@ test('A en la pantalla: el formulario con la recomendada primero, y contestada c
     opciones: [{ titulo: 'No, después', detalle: null }, { titulo: 'Sí, ábrela', detalle: 'Ahora' }], recomendada: 1, varias: false,
     at: new Date(AHORA - 60_000).toISOString(), respuesta: null,
   };
+  // Desde el 22/10/2026 la abierta va ARRIBA de la caja, de a una (PreguntasDelChat.tsx, «como en Claude»), no en el hilo.
   const abierta = dibujar([{ tipo: 'pregunta', instante: AHORA - 60_000, pregunta: p, trabajo: null }]);
-  assert.ok(abierta.indexOf('Sí, ábrela') < abierta.indexOf('No, después'), 'la recomendada primero');
-  assert.match(abierta, /\(Recomendada\)/);
-  assert.match(abierta, /placeholder="Escribe otra cosa"/);
+  assert.doesNotMatch(abierta, /¿Abro la ventana\?/, 'la abierta no se dibuja en el hilo');
+  const bloque = renderToStaticMarkup(createElement(PreguntasDelChat, { preguntas: [p], onResponder: async () => null }));
+  assert.ok(bloque.indexOf('Sí, ábrela') < bloque.indexOf('No, después'), 'la recomendada primero');
+  assert.match(bloque, /\(Recomendada\)/);
+  assert.match(bloque, /placeholder="Escribe otra cosa"/);
   const contestada = dibujar([{ tipo: 'pregunta', instante: AHORA - 60_000, pregunta: { ...p, respuesta: { elegidas: [1], otra: null, at: new Date(AHORA).toISOString(), trabajo: 'bbbbbbbb-1111-4222-8333-444444444444' } }, trabajo: null }]);
-  assert.match(contestada, /Respondiste · 10:00/);
-  assert.match(contestada, /data-elegida="true"[^>]*>[\s\S]*?Sí, ábrela/);
+  // Contestada: un mensaje de Martín, «Decisión: …», con la pregunta citada arriba.
+  assert.match(contestada, /¿Abro la ventana\?/);
+  assert.match(contestada, /Decisión: Sí, ábrela/);
+  assert.match(contestada, /10:00/);
   assert.doesNotMatch(contestada, /Escribe otra cosa/, 'contestada no se vuelve a contestar');
 });
 

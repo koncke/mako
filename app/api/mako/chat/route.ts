@@ -40,10 +40,10 @@ import {
   personaDelRequest, listarSesiones, abrirSesion, nuevaSesion, turnoApp, confirmarDesdeTarjeta, cancelarDesdeTarjeta, urlDeAdjunto,
 } from '@/lib/mako-turno-app';
 import { validarAdjuntos, ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, MARGEN_MULTIPART_BYTES } from '@/lib/mako-adjuntos';
-import { CONTEXTO_SECOND_BRAIN } from '@/lib/chat-mako-reglas';
+import { CONTEXTO_SECOND_BRAIN, antesValido } from '@/lib/chat-mako-reglas';
 import { estadoDeTrabajo } from '@/lib/chat-trabajos';
 import { runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
-import { chatsDeAntes, chatsDeOffer, claveDeAntes, hiloDeAntes, hiloDeOffer, quienChateaDelRequest } from '@/lib/chat-mako-indice';
+import { chatsDeAntes, chatsDeLasTabs, chatsDeOffer, claveDeAntes, conTemas, claveDeTab, grupoDeMaKo, hiloDeAntes, hiloDeOffer, hiloDelGrupoMaKo, quienChateaDelRequest } from '@/lib/chat-mako-indice';
 import type { PersonaChat } from '@/lib/mako-turno-app';
 import { esChatDeMarcas, leerMarcasDelChat, marcarEnElChat } from '@/lib/chat-mako-marcas-db';
 import { sanearCambio } from '@/lib/centro-mensajes';
@@ -86,7 +86,8 @@ async function conSuIA(persona: PersonaChat): Promise<boolean> {
 async function personaDelChat(persona: PersonaChat, sessionId: number, antes: unknown): Promise<PersonaChat | null> {
   if (antes !== true && antes !== '1' && antes !== 1) return persona;
   const q = await quienChateaDelRequest();
-  const chartKey = q ? await claveDeAntes(q, sessionId) : null;
+  // Un chat de antes (su regla de siempre) o uno de una tab de ESTA persona (CRM, la ficha de un lead: OC4, 22/10/2026).
+  const chartKey = (q ? await claveDeAntes(q, sessionId) : null) ?? await claveDeTab(persona, sessionId);
   return chartKey ? { ...persona, chartKey } : null;
 }
 
@@ -113,9 +114,23 @@ export async function GET(req: NextRequest) {
     if (sp.get('antes') || sp.has('antesId')) {
       const q = await quienChateaDelRequest();
       if (!q) return json({ ok: false, error: 'Tu sesión venció.' }, 401);
-      if (sp.get('antes')) return json({ ok: true, antes: await chatsDeAntes(q) });
+      // Con los de las tabs de la persona (el CRM, la ficha de un lead), que se siguen igual (OC4, 22/10/2026).
+      if (sp.get('antes')) {
+        const [deAntes, deTabs] = await Promise.all([chatsDeAntes(q), chatsDeLasTabs(persona)]);
+        // Con su tema: lo que no tiene título se nombra por lo que se dijo (22/10/2026, nunca «Chat de antes»).
+        const todos = await conTemas([...deAntes, ...deTabs]);
+        return json({ ok: true, antes: todos.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)) });
+      }
       const id = enteroDe(sp.get('antesId'));
       const hilo = id == null ? null : await hiloDeAntes(q, id);
+      if (!hilo) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
+      return json({ ok: true, ...hilo });
+    }
+    // El grupo de WhatsApp de MaKo (22/10/2026, OC3): SÓLO del admin y de SÓLO LECTURA. El corte lo hace el lector
+    // (lib/chat-mako-indice.ts → grupoDeMaKo, hiloDelGrupoMaKo): a un miembro le da null, y el jid nunca sale de acá.
+    if (sp.get('grupo')) return json({ ok: true, grupo: await grupoDeMaKo(persona) });
+    if (sp.get('grupoHilo')) {
+      const hilo = await hiloDelGrupoMaKo(persona, antesValido(sp.get('desde')));
       if (!hilo) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
       return json({ ok: true, ...hilo });
     }

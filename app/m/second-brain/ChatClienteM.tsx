@@ -22,7 +22,7 @@ import { FilaM, ListaM, SeccionM, SheetM } from '@/app/m/_ui';
 import { CirculoNuevo } from '@/app/admin/operaciones/NuevoChat';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operaciones/MensajeWA';
-import { TEXTO_SEGUNDO_RENGLON } from '@/lib/centro-chats';
+import { TEXTO_SEGUNDO_RENGLON, partesDelNombre, porJefe } from '@/lib/centro-chats';
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 import { useChatCliente } from '@/app/second-brain/useChatCliente';
 import { CajaDelCliente, HiloDelCliente, estadoDelCliente } from '@/app/second-brain/PiezasCliente';
@@ -68,13 +68,14 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
 
   const [cerebro, ...resto] = k.lista;
   const corte = todas ? resto : resto.filter((f, i) => i < VISIBLES || esFilaDe(f, elegido));
-  /** Una fila: la criatura, el nombre, la edad a la derecha y, si trabaja, «Trabajando…» (las de ChatsMovil.tsx). */
-  const fila = (f: (typeof k.lista)[number]) => {
+  /** Una fila: la criatura (la SUYA), el nombre, la edad a la derecha y, si trabaja, «Trabajando…» (las de ChatsMovil.tsx). En su
+   *  grupo (`sub`, debajo de su jefe), corrida a la derecha y con «↳» y lo de después de «›», como un sub-chat del super admin. */
+  const fila = (f: (typeof k.lista)[number], sub = false) => {
     const vivo = esFilaDe(f, elegido) && k.enCurso;
     return (
       <FilaM key={f.clave} chevron={false}
-        leading={<Muneco titulo={f.criatura} animo={vivo ? 'trabajando' : 'despierto'} size={40} />}
-        titulo={<span className="m-operaciones-texto1">{f.titulo}</span>}
+        leading={<span className={sub ? 'm-operaciones-sub' : undefined}><Muneco titulo={f.criatura} aspecto={f.aspecto} animo={vivo ? 'trabajando' : 'despierto'} size={sub ? 32 : 40} /></span>}
+        titulo={<span className="m-operaciones-texto1">{sub ? `↳ ${partesDelNombre(f.titulo).sub}` : f.titulo}</span>}
         segunda={vivo ? <span className="m-operaciones-vivo">{TEXTO_SEGUNDO_RENGLON.vivo}</span> : undefined}
         riel={<span className="m-operaciones-riel"><span className="m-operaciones-hace">{edadCorta(f.actividad, k.ahora)}</span></span>}
         onClick={() => abrir(f.elegido)} />
@@ -90,7 +91,9 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
         <ListaM etiqueta="Chats">
           <FilaM leading={<CirculoNuevo size={40} />} titulo="Nuevo chat" onClick={() => abrir({ virtual: 'nuevo' })} navegacion />
           {cerebro && fila(cerebro)}
-          {corte.map(fila)}
+          {/* Agrupados por su origen (22/10/2026), con el agrupado del super admin: un grupo con su jefe lleva los suyos debajo; uno
+              sin jefe («Offer», «Dashboard»), sus chats juntos y con el nombre entero. */}
+          {porJefe(corte).flatMap((g) => (g.chat ? [fila(g.chat), ...g.subs.map((f) => fila(f, true))] : g.subs.map((f) => fila(f))))}
           {!todas && resto.length > corte.length && <FilaM titulo={`Ver los ${resto.length} chats`} onClick={() => setTodas(true)} navegacion />}
         </ListaM>
       </SeccionM>
@@ -101,7 +104,7 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
         titulo={panel === 'conectar' ? 'Tus cuentas de IA' : panel === 'info' ? 'Info del mensaje' : (
           // El título es el chat, como la cabecera de WhatsApp: la criatura a la izquierda del nombre (ChatsMovil.tsx).
           <span className="m-operaciones-titulo">
-            <span className="m-operaciones-titulo__muneco"><Muneco titulo={k.nombreMuneco} animo={k.enCurso ? 'trabajando' : 'despierto'} size={34} /></span>
+            <span className="m-operaciones-titulo__muneco"><Muneco titulo={k.nombreMuneco} aspecto={k.aspectoMuneco} animo={k.enCurso ? 'trabajando' : 'despierto'} size={34} /></span>
             <span className="m-operaciones-titulo__texto"><span className="m-operaciones-titulo__nombre">{k.nombre}</span></span>
           </span>
         )}

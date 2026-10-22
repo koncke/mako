@@ -22,6 +22,10 @@
 //      la pasarela de MaKo: nunca `credWs`/`envCred`, que caen al ws1, que es un cliente). Gratis
 //      hasta 100 búsquedas por día: el componente espera 500 ms y pide 3 letras, y acá hay caché.
 //      ⚠️ Google cerró esa API a clientes nuevos y la apaga el 1/1/2027 (lib/instagram-buscar.ts).
+//   3. APIFY — con un @ EXACTO que Meta y Google no trajeron: el scraper de perfiles por usuario (cuentas personales
+//      también), por LA función de Instagram (`leerPerfilInstagram` de lib/instagram-perfil-server.ts, la misma que lee el
+//      perfil en el onboarding y en Offer). La paga la plataforma; si no tiene key, el negocio. Medido el 22/10/2026: ni
+//      Google ni Apify tienen claves en ningún negocio, y sólo 1 de 11 conexiones de Meta tiene permisos de Instagram.
 //
 // ⚠️ LA SESIÓN SE CHEQUEA ACÁ y no sólo en el gate de proxy.ts: sin AUTH_SECRET el gate queda inactivo
 // (local) y `getWorkspaceActual()` sin cookie cae al ws 1, que es un cliente. La ruta NO va en
@@ -41,6 +45,7 @@ import {
   MAX_LARGO, alcanzaParaBuscar, combinarPerfiles, leerRespuestaGoogle, leerRespuestaMeta,
   motivoDeErrorGraph, normalizarBusqueda, usuarioDeTexto, usuariosCandidatos, type EstadoMeta, type PerfilIg,
 } from '@/lib/instagram-buscar';
+import { leerPerfilInstagram } from '@/lib/instagram-perfil-server';
 
 export const dynamic = 'force-dynamic';
 /** Meta (6 s) y después Google (6 s) en el peor caso; el componente corta a los 17 s. */
@@ -250,6 +255,12 @@ export async function GET(req: NextRequest) {
   if (usuarioDeTexto(texto) != null) {
     meta = await buscarEnMeta(candidatos, ws);
     google = meta.perfiles.length ? null : await buscarEnGoogle(texto);
+    // Ni Meta ni Google: el @ exacto por Apify (cuentas personales también). Con caché y tope por día.
+    if (!meta.perfiles.length && !google?.perfiles.length) {
+      const u = usuarioDeTexto(texto) as string;
+      const l = await leerPerfilInstagram(u, { ws, fuentes: ['apify'] });
+      if (l.ok) meta = { ...meta, perfiles: [{ usuario: l.perfil.usuario, nombre: l.perfil.nombre, foto: l.perfil.foto }] };
+    }
   } else {
     [meta, google] = await Promise.all([buscarEnMeta(candidatos, ws), buscarEnGoogle(texto)]);
   }

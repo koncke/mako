@@ -2089,14 +2089,52 @@ hoja (una hoja sobre otra la cierra). Tres cosas que costaron:
 - **Mover código de lugar rompe ~20 tests de otras áreas** que lo buscaban por archivo (ChatSecondBrain.tsx): se los apunta al motor
   o a las piezas, nunca se los borra. d6b-rutas, además, sigue el micrófono: el teléfono dejó de dictar con el Composer de
   app/m/mako/ y pasó al de la caja única (app/admin/operaciones/Microfono.tsx), que ese test tomaba por «otra tab».
-- `ChatMako.tsx` (el chat viejo del teléfono) quedó SIN quien lo monte: sigue en el repo porque lo leen 15 tests.
+- `ChatMako.tsx` (el chat viejo del teléfono) quedó SIN quien lo monte. **Se borró el 22/10 (OC2)** con su Composer, y lo suyo
+  de los 15 tests pasó al chat de ahora (ChatClienteM.tsx, PiezasCliente.tsx) o se fue con él. Lo que sigue vivo de app/m/mako/
+  (chat-ui.ts, subir.ts, la capa de adjuntos que usa Offer) conserva sus tests.
 
 **SIN HACER:**
-- **Borrar app/m/mako/ChatMako.tsx** con lo suyo de esos 15 tests (el Composer queda: lo usa app/chats/VentanaChat.tsx).
 - **Los documentos en una conversación de Offer** (el «+» en Offer dice «pega el texto o el link»): van por `subir-url` y `leer`
   de Offer (app/offer/offer-api.ts → subirArchivo), no por /api/mako/chat.
 - **La foto en un mensaje de Offer es la de quien MIRA** (`MiFoto`, /api/perfil): para el dueño es la suya; el super admin que mira
   un cliente ve la propia en lo que escribió el dueño. Offer no guarda quién escribió cada mensaje.
+
+## Cada chat dice de dónde viene, y los del CRM se ven en el Ops Center (22/10/2026, OC4)
+
+La lista del Ops Center del cliente pintaba «de antes» sólo con el título y listaba los chats de la persona por la clave
+EXACTA (`mako-movil:<persona>`): los del CRM (`…:crm:<id>`) y los de la ficha de un lead (`…:lead:<id>`) no salían en ningún
+lado, y «de antes» saca a propósito todo `mako-movil:%`. Código: lib/chat-mako-reglas.ts (`origenDeClave`, `conOrigen`),
+lib/chat-mako-indice.ts (`chatsDeLasTabs`, `claveDeTab`), app/api/mako/chat/route.ts. Test: tests/ops-center-origen.test.ts.
+
+- **Medido en chart_sessions ese día:** 274 sesiones. 185 son el chat de cada persona, 68 son del CRM (TODAS de una persona del
+  ws3, de las pruebas) y ninguna es de la ficha todavía. El resto son de antes: gráficos del Dashboard (`dashboard:…`,
+  `comercial-…`, `marketing-…`), Ads (`ad-detail-…`, `mkt-campaign-…`) y las secuencias de WhatsApp. El origen se saca de
+  esas formas, no de una lista inventada.
+- **Un chat de una tab se sigue IGUAL que uno de antes:** la ruta prueba la regla de antes y, si no, si la clave es de una tab de
+  ESTA persona (`claveDeTab`). La pantalla no cambió de motor: sólo el título, «CRM › …» o «Ficha · Ana › …».
+- **El prefijo lleva su «:»:** `listSessionsDePersona('mako-movil:ana')` es un LIKE `ana%` que traería también a `anabel`.
+- **La mitad no tiene título:** sin él, la fila dice sólo su origen («CRM»), no «CRM › Chat de antes».
+- «Conectar tu Claude» pasó a «Conectar tu IA»: el negocio puede conectar Claude o GPT.
+
+## MaKo en WhatsApp en el Ops Center: el lector existía y nadie lo llamaba (22/10/2026, OC3)
+
+El grupo de WhatsApp de MaKo de cada negocio (`mako_doer_conv` con el jid de `getGrupoJidMaKo`) tenía su lector desde la tanda
+8, con todos los cortes ya escritos (lib/chat-mako-indice.ts → `grupoDeMaKo`, `hiloDelGrupoMaKo`: sólo el admin, sólo el grupo
+oficial, el jid no sale, no va a ningún modelo). **Tenía 0 llamadores:** 1.375 mensajes en 10 negocios que el cliente no veía
+en ningún lado. Ahora es una fila más de la lista del Ops Center, en la computadora y en el teléfono. Test:
+tests/ops-center-grupo-mako.test.ts.
+
+- **Se lee y no se sigue:** en lugar de la caja dice «Se contesta en el grupo de WhatsApp.» (`AVISO_GRUPO`, que también estaba
+  escrito y sin uso), sin el menú de un mensaje, y `enviar` no sale. «Ver anteriores» pide la página de antes con `?desde=`
+  (saneada con `antesValido`, que tampoco tenía uso).
+- **El parámetro `antes` de la ruta ya era de los chats de antes:** la paginación del grupo usa `desde`, para no chocar.
+- **Medido con el lector de verdad, contra la base:** el admin del ws13 ve la fila (último mensaje de hoy) y 386 mensajes en
+  7 páginas, 206 de los últimos 30 días; con rol miembro, null. El plan decía 212 en 30 días: era otro día.
+- **Antes de escribir un lector nuevo, buscar si ya está y nadie lo llama** (`grep` del nombre fuera de su archivo). Este
+  tenía hasta el texto del aviso.
+
+**SIN HACER:** mirarlo en el Chrome de Martín con ?ws=13 a 390 px (la extensión no conectó el 22/10). El grupo no se anota en
+la URL (`?chat=`, `?offer=`…): al recargar se vuelve al Cerebro.
 
 ## Las cuatro fallas de la prueba de los chats, ARREGLADAS: lo guardado ya no miente (22/10/2026)
 
@@ -2127,6 +2165,27 @@ sale «✗ no hay ninguna fila» en una corrida con los dos. Solo, pasa. La marc
 Cerebro); el botón de un negocio sin ninguna IA sigue siendo Gemini, y eso lo decide Martín; la 0316 (`archivero_files.origen`)
 sigue sin aplicar en producción, y cada pegado archivado lo avisa en el log.
 
+## La lista del cliente: «no hay randomizer» era falso, y «Chat de antes» era un chat sin título (22/10/2026)
+
+Martín, con la captura del ws1: todas las criaturas eran círculos, tres «Chat de antes», dos «Mi oferta», y sin orden.
+
+- **El diagnóstico obvio era el equivocado:** el sorteo existía (`aspectoDe`, lib/centro-munecos.ts). Lo anulaban dos cosas:
+  la familia del equipo (`EQUIPO`), que le da a todo lo que empieza con «Offer» u «Onboarding» un círculo, y que la criatura
+  salía del NOMBRE, así que tres chats con el mismo nombre eran la misma criatura. Ahora la del cliente sale del mismo sorteo
+  con la CLAVE del chat (`aspectoDeChat('o13')`). Se mantiene al recargar y al renombrar, y el Cerebro sigue siendo la estrella.
+- **«Chat de antes» = una sesión sin título.** Medido: los análisis de un gráfico (`dashboard:…`) arrancan con un mensaje
+  de MaKo y no tienen ninguno de la persona; y `mako-general`/`mako-doer` («Pregúntale a MaKo») no tenían origen. El tema
+  sale del primer mensaje de la persona o, si no hay, del primero que haya (`temasDeSesiones`, lib/chart-chats.ts).
+- **Trampa: chart_sessions y chart_chats no tienen FK.** PostgREST no puede embeber el primer mensaje de cada sesión
+  (PGRST200). Se usa una lectura de los de la persona para todas, y una por sesión sólo para las que quedan, hasta 20.
+- **Las dos «Mi oferta» del ws1 son del MISMO funnel y la misma base** (funnel 1, base 1). El funnel no las distingue; lo
+  primero que dijo la persona sí («sprint.mauriciobustos.com»). Sin tema, se usa la fecha, y si también coincide, un número.
+- **Regla:** la lista del cliente se agrupa con `porJefe` y `GruposPorJefe` (app/admin/operaciones/PiezasCentro.tsx), los
+  mismos del super admin. Un título nuevo va «Origen › tema»; nunca un nombre fijo que se repite.
+- **SIN HACER:** el teléfono del super admin (app/m/operaciones/ChatsMovil.tsx) no dibuja el nombre de un grupo sin jefe, y el
+  del cliente tampoco (sus chats van juntos, con el nombre entero). El estado de la fila del cliente es sólo «Trabajando…»: no
+  tiene «Espera tu respuesta» porque la lista no sabe de las tarjetas que esperan.
+
 ## El «Cerebro» de Mauricio quedó mudo: el aviso de un turno que falla no se guarda (22/10/2026, cliente roto)
 
 Martín, con captura del ws1 (/second-brain?chat=40): dos mensajes de Mauricio del 18/10 («Dame claridad de mi avatar…» y
@@ -2140,10 +2199,12 @@ negocio (`chatCheapToolsCascade` no tiene la red de la plataforma, a diferencia 
 - **El silencio era de la pantalla, no del turno:** lo que dice un turno que falla es un aviso que NO se guarda. Al recargar,
   el hilo terminaba en la pregunta de la persona. Ahora, pasado el techo del turno (7 minutos), se dice «No te pude
   contestar esto.» con «Reintentar» (app/m/mako/chat-ui.ts → `conSinRespuesta`; test: tests/ops-sin-silencio.test.ts).
-- **SIN DECIDIR (pregunta al Cerebro, 22/10):** darle «Gemini de base» a un negocio sin IA choca con la regla del 16/10. Los
-  datos de los clientes de un cliente no van a un proveedor que entrena (el plan gratis de Gemini), y el chat del Ops Center
-  lee leads, cobros y reuniones. Las salidas son esa Gemini igual (decisión de Martín), el crédito de Claude de la plataforma
-  (no entrena; hoy sólo para el onboarding) o que conecte su IA.
+- **DECIDIDO (el Cerebro, 22/10):** «Gemini de base» (Martín: «No quiero que se corte Gemini») y la regla del 16/10 (los
+  datos de los clientes de un cliente no van a un proveedor que entrena) se cumplen juntas sólo con Gemini PAGO. Hasta que
+  Martín active el pago por uso (pregunta f50d3545), el chat de un negocio sin IA contesta «Conecta la tuya» con el botón,
+  sin Gemini gratis y sin el crédito de Claude de la plataforma (sigue sólo para el onboarding). Medido: eso ya lo hacía el
+  turno (`soloSuIA` en chatClaudeTools, lib/mako-turno-app.ts → `AVISO_SIN_IA`). El cambio a Gemini pago es una marca de la
+  cascada de lib/ai-cheap.ts, del chat «IA del cliente».
 
 ## Ops Center del cliente: «el chat de X no llegó» se mide en la base, nunca mirando la pantalla como super admin (20/10/2026)
 

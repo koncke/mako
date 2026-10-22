@@ -20,10 +20,10 @@ const RAIZ = join(import.meta.dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
 
 test('la burbuja de MaKo del teléfono va por <Markdown>, como escritorio', () => {
-  const src = leer('app/m/mako/ChatMako.tsx');
-  assert.match(src, /tuyo \? t : <Markdown text=\{t\} \/>/, 'lo que dice MaKo se dibuja con <Markdown>; lo tuyo, tal cual');
-  assert.doesNotMatch(src, /conNegritas\(/, 'una segunda regla de markdown se desvía de escritorio');
-  assert.match(leer('app/_chat/HiloMako.tsx'), /<Markdown text=\{x\.texto\} \/>/, 'escritorio sigue usando el mismo componente');
+  // Desde el 22/10/2026 el teléfono dibuja con el MISMO hilo de la computadora (PiezasCliente.tsx → HiloMako).
+  assert.match(leer('app/second-brain/PiezasCliente.tsx'), /<HiloMako items=\{k\.items\}/);
+  assert.match(leer('app/m/second-brain/ChatClienteM.tsx'), /<HiloDelCliente k=\{k\} \/>/);
+  assert.match(leer('app/_chat/HiloMako.tsx'), /<Markdown text=\{x\.texto\} \/>/, 'lo que dice MaKo se dibuja con <Markdown>');
 });
 
 test('una lista de MaKo es una lista, no texto con guiones', () => {
