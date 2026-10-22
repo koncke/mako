@@ -380,12 +380,15 @@ runs rojos de 90; ahora hay una herramienta que elige los tests sola — ver la 
 **La regla de hoy** (22/10/2026; Martín: «Organiza los push y que salgan todos… para pushear es un montón de tiempo, podríamos
 optimizarlo»). Cada punta corría su `antes-de-subir` completo en la fila del candado y después Integración repetía los tests
 afectados: dos chequeos de lo mismo. El primero, con 8 chats y 1-2 GB libres, tardaba HORAS (ops-lista, 4 h en la fila). Ahora:
-1. **El chat de área** corre los tests que escribió o tocó (`node --import tsx --test tests/<…>.test.ts`) y el `tsc` acotado de
-   sus archivos (`node scripts/tsc-acotado.mjs <archivos>`; si la RAM no da, la punta va marcada **«sin tipos»**), con el árbol
-   commiteado y `origin/main` mergeado. Le pasa el sha a Integración EN EL ACTO. No corre `antes-de-subir` ni hace la fila.
-2. **Integración corre UN chequeo por TREN**, sobre el lote ya mergeado: los tests afectados del lote
-   (`scripts/tests-afectados.mjs --base origin/main`), el `tsc` acotado de lo tocado y las guardas (`sh scripts/guardas-push.sh
-   origin`, que es la etapa de guardas de `antes-de-subir`). Si algo da rojo, devuelve SÓLO esa punta y el tren sale sin ella.
+1. **El chat de área** corre los tests que escribió o tocó (`node --import tsx --test tests/<…>.test.ts`), con el árbol
+   commiteado y `origin/main` mergeado, y le pasa el sha a Integración EN EL ACTO, **«sin tipos»**. No corre `antes-de-subir`,
+   ni hace la fila, ni corre `tsc`: **en la máquina hay UN solo `tsc`, el del tren** (22/10, medido: con el `tsc` del tren, el
+   de un chat y el de un workflow a la vez, el vigía mataba los tres por debajo de 0,9 GB y cada `.tsx` salía 99).
+2. **Integración corre UN chequeo por TREN**, sobre el lote ya mergeado: los tipos, los tests afectados del lote
+   (`scripts/tests-afectados.mjs --base origin/main`) y las guardas (`sh scripts/guardas-push.sh origin`, que es la etapa de
+   guardas de `antes-de-subir`). Los tipos van con las 3 tandas del programa entero (`node scripts/tipos-respaldo-push.mjs`, INF1:
+   ~4,2 GB, cubre TODO el repo): con el tren armado, Integración avisa al Cerebro y los chats dejan lo pesado 15 min. Sin esa
+   ventana, `tsc-acotado` de lo tocado, de a un archivo. Si algo da rojo, devuelve SÓLO esa punta y el tren sale sin ella.
 3. **El tren sale cada 30 min** con todo lo que llegó, o antes si trae un cliente roto. No se espera a juntar más.
 4. Integración le pasa el sha al Cerebro y el Cerebro sube en el acto (sin minutos de Actions, con `--no-verify`: ver
    «Sin minutos de Actions» en docs/hallazgos-infra.md).
@@ -1788,8 +1791,8 @@ código nuevo:
     herramientas.
     **Y la punta va a «Cerebro › Integración» EN EL ACTO, y el chequeo completo es uno por TREN** (22/10/2026; reemplaza el
     «VERDE obligatorio» del 17/10, porque la fila del candado con 8 chats tardaba horas). El jefe corre los tests que escribió
-    o tocó y el `tsc` acotado de sus archivos («sin tipos» si la RAM no da) y pasa el sha. Integración junta lo que llegó, corre
-    tests afectados, tsc acotado y guardas sobre el lote mergeado, devuelve sólo la punta que dé rojo y el tren sale cada
+    o tocó y pasa el sha «sin tipos» (en la máquina hay UN solo `tsc`, el del tren). Integración junta lo que llegó, corre
+    tipos, tests afectados y guardas sobre el lote mergeado, devuelve sólo la punta que dé rojo y el tren sale cada
     30 min (antes si trae un cliente roto). La sección «Cómo se sube» (más arriba, junto al pre-push) lo detalla.
   - **Cada jefe ES un proyecto del Plan** (16/10/2026; los dos se llaman como la tab). El Centro lee y escribe el Plan
     SÓLO con las operaciones de la API de MaKo (`listar_tareas_plan`, `proponer_tareas_plan`, `proponer_cierre_tareas`)

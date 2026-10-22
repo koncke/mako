@@ -7621,10 +7621,13 @@ eso es una deducción del código, no se midió en Vercel. Pendiente, de ai-chea
 - **Causa real:** el diagnóstico obvio era «falta RAM», pero el problema es que el mismo chequeo corría dos veces. Cada chat corría su
   `antes-de-subir` completo (miles de tests) en la fila del candado, con 8 chats y 1-2 GB libres, y después Integración repetía
   los tests afectados sobre el lote. Lo que traba es la fila del primero: con N chats, N chequeos completos en serie.
-- **La regla (AGENTS.md, «Cómo se sube»):** el chat corre sólo los tests que tocó y el `tsc` acotado de sus archivos («sin
-  tipos» si no hay RAM) y pasa el sha en el acto. Integración corre UN chequeo por tren sobre el lote mergeado (tests
-  afectados, `tsc` acotado, `guardas-push.sh`), devuelve sólo la punta que dé rojo y el tren sale cada 30 min.
+- **La regla (AGENTS.md, «Cómo se sube»):** el chat corre sólo los tests que tocó y pasa el sha en el acto, «sin tipos».
+  Integración corre UN chequeo por tren sobre el lote mergeado (tipos, tests afectados, `guardas-push.sh`), devuelve sólo la punta que dé rojo y el tren sale cada 30 min.
 - ⚠️ **Con ~2 GB libres, el `tsc` acotado sólo entra de a UN archivo.** Con dos o tres sale 99 («NO SE PUDO CHEQUEAR, 0 bytes»,
   el vigía de RAM), y también de a uno mientras corre un subagente. Un 99 no es un verde ni un rojo: se reintenta solo.
+- ⚠️ **UN solo `tsc` en la máquina, el del tren.** Con el del tren, el `tsc` acotado de un chat (1,2 GB) y un
+  `tipos-por-tandas` de un workflow (heap de 8 GB) a la vez, el vigía (mata `tsc` por debajo de 0,9 GB libres) los mataba a
+  todos: un `.tsx` estuvo 7 min saliendo 99. Los chats ya no corren `tsc`; con el tren armado, dejan lo pesado 15 min y el
+  tren corre las 3 tandas del programa entero (INF1, ~4,2 GB, todo el repo).
 - ⚠️ **Un test suelto se corre con `node --import tsx --test`**, como el `npm test`. Con `--experimental-strip-types` todos
   fallan con `ERR_MODULE_NOT_FOUND` (los imports del repo van sin extensión) y parece un rojo del código.

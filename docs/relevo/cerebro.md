@@ -28,16 +28,16 @@ del 21/10 (`relevamiento-21-10.md`, `worktrees-21-10.tsv`). Las notas de revisi�
 sesión que inició al Cerebro (hoy `side-session-notes/local_428051c1…`).
 
 **EL TREN (22/10, pedido de Martín «que salgan todos… podríamos optimizarlo»; AGENTS.md, «Cómo se sube»):** los chats ya
-no corren `antes-de-subir` ni hacen la fila del candado; pasan la punta en el acto con sus tests y su tsc acotado («sin
-tipos» si no hay RAM). Integración hace UN chequeo por tren sobre el lote mergeado y el tren sale cada 30 min (antes si
+no corren `antes-de-subir`, ni hacen la fila del candado, ni corren tsc; pasan la punta en el acto con sus tests, «sin tipos». Integración hace UN chequeo por tren sobre el lote mergeado y el tren sale cada 30 min (antes si
 trae un cliente roto). Una punta en rojo se devuelve sola y el tren sale sin ella.
 
 **Cómo se integra** (en `C:/dev/wt-push-q`; ningún otro chat commitea ahí):
 1. `git merge --no-edit <sha>` por cada punta, nunca rebase. Un choque en `docs/hallazgos.md` se resuelve con
    `node C:/dev/cerebro-herramientas/unir-filas.cjs` y se verifica que no se perdió ningún título del índice.
 2. Tests del tren: `MAKO_TESTS_SIN_ESPERA=1 node scripts/tests-afectados.mjs --base origin/main --cortar --concurrencia 2 --tanda 100 --compartir`.
-3. Tipos: `node scripts/tsc-acotado.mjs <archivo>` de lo tocado, DE A UNO con ~2 GB libres (con más, sale 99), reintentando
-   el 99. Guardas: `sh scripts/guardas-push.sh origin`.
+3. Tipos: UN solo tsc en la máquina, el del tren (los chats pasan «sin tipos»). Con el tren armado, avisarle al Cerebro: los
+   chats dejan lo pesado 15 min y corren las 3 tandas (`node scripts/tipos-respaldo-push.mjs`, ~4,2 GB, todo el repo). Sin
+   ventana, `node scripts/tsc-acotado.mjs <archivo>` de a uno, reintentando el 99. Guardas: `sh scripts/guardas-push.sh origin`.
 4. Sin minutos de Actions: el sha al Cerebro, que sube `main` e `integracion` con `--no-verify`; después,
    `npx vercel ls -m githubCommitSha=<sha>` desde el clon principal hasta el Ready. Con minutos:
    `MAKO_SIN_ANTES_DE_SUBIR=1 git push origin HEAD:refs/heads/integracion`, y `esperar-deploy.sh` en segundo plano.
