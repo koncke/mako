@@ -12,6 +12,13 @@ El pedido, literal, en la bitácora del CRM (hito `actor: 'martin'` del 21/10 23
 `C:/dev/wt-crm-2110c` (lleva adentro `crm-2110-t1` y `crm-2110-t2b`). **Sin subir: la punta va a «Cerebro › Integración».**
 Lo que no se deduce del código, en docs/hallazgos-crm.md («El feedback del 21/10 (noche)…») y docs/hallazgos-ui.md.
 
+**22/10, el feedback de Martín con dos capturas** (C:/dev/cerebro-herramientas/feedback-crm-martin-22-10.md): rama
+`crm-feedback-2210b` en C:/dev/wt-crm-fb2210 (sobre `crm-estrella-2210`). Hechos el 1 y el 2 (el Kanban hasta el fondo),
+el 4 (la casilla de la columna) y el 5 («Tus reuniones», un pop-up para todos con el bloque azul y «Ver detalle»):
+tests/crm-feedback-22-10.test.ts. El 3 («Vincular cobro» en Ganado) espera las acciones de Cobros: el contrato está en las
+notas compartidas (contrato-cobro-en-ganado.md), y no se crean `lib/cobro-etapa.ts` ni `app/crm/cobro-etapa-actions.ts`
+(son de Cobros).
+
 **22/10, la llamada de Martín con Mauricio (C1–C9 de docs/pedidos-crm.md), EN PRODUCCIÓN:**
 - P0 (traer los 1.050 de otro producto, arrastrar una selección): `16cac1fd1`, run 230. Hecho `26c541444`.
 - P1 (C3 mover sin esperar, C4 «Creando…», C5 el menú que tapaba, C7 las hojas de la ficha a la vista): `50fbb71df`,

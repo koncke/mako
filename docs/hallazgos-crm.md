@@ -10201,3 +10201,28 @@ sugerencias. Borrar lo demás toca la ruta y la parte 4 de tests/sugerencias-crm
 **Vive en:** app/crm/mako-crm/PanelMakoCrm.tsx · lib/sugerencias-crm.ts (`pedidoParaElCerebro`) · app/_chat/MakoEnLaTab.tsx
 · tests/sugerencias-crm.test.ts
 *22/10/2026, chat «CRM» (claude3).*
+
+## El feedback de Martín del 22/10: el tablero hasta el fondo, la casilla de la columna y «Tus reuniones»
+
+- **«Al super admin le sale el bloque azul y a Mauricio el pop-up viejo» NO era el rol.** Desde el 18/10, el calendario
+  de la barra desplegaba «Próximo» (el bloque azul, arriba del tablero) sólo si había una reunión POR DELANTE
+  (`hayProxima`). Si todas las reuniones cercanas ya habían pasado, abría la lista vieja. Martín miró su CRM con una
+  reunión hoy, y Mauricio el suyo con las de ayer. Ahora el calendario abre siempre el MISMO pop-up, con el bloque azul de
+  cada reunión y «Ver detalle», que abre la ficha en «Reuniones» (`LeadEditModal` → `focus: 'reuniones'`).
+- **Las columnas de distinto largo eran un tope por columna, no un problema de datos.** Cada columna topeaba en 68vh y
+  medía lo de sus tarjetas (`alignItems: 'flex-start'`). La raíz de la app sólo pone `minHeight: 100vh`, así que nada
+  tenía un alto definido contra el que estirarse. En el Kanban el <main> mide la pantalla (`ALTO_TABLERO`, menos la barra
+  de agencia que ya descuenta el <body>), la fila estira las columnas y el que scrollea es el carril. Con eso la barra del
+  scroll horizontal queda en los últimos píxeles, debajo de «A revisar» (a 20 px del borde). En la Lista la página
+  scrollea como siempre.
+- **La casilla de la columna tilda lo que SE VE**, la misma regla que la de «todas» de la Lista: con un filtro, sólo lo
+  filtrado. Suma a lo que ya estaba tildado, y con todos tildados quita sólo los de esa columna. El rótulo dice cuántos
+  son («Seleccionar los 3 que se ven de «Agenda R2»»). Lleva `data-nodrag`, porque la cabecera arrastra la columna.
+
+**Sin hacer:** el 3 («Vincular cobro» en Ganado) espera las acciones de Cobros (contrato en las notas compartidas,
+contrato-cobro-en-ganado.md). El teléfono (app/m/crm) no tiene Kanban de columnas: el 1, el 2 y el 4 son de la
+computadora.
+
+**Vive en:** app/crm/CrmBoard.tsx (`ALTO_TABLERO`, `bloquesDeReuniones`, la casilla en `renderColumn`) ·
+app/crm/ReunionesProximas.tsx · app/crm/seleccion-columna.ts · tests/crm-feedback-22-10.test.ts
+*22/10/2026, chat «CRM» (claude3).*

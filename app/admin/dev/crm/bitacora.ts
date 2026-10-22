@@ -2941,4 +2941,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '22 oct', hora: '11:17', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Columnas del mismo alto hasta abajo, la casilla para tildar una columna y «Tus reuniones» igual para todos',
+    puntos: [
+      'Es el feedback de Martín del 22/10 sobre el CRM (puntos 1, 2, 4 y 5).',
+      'En el Kanban las columnas miden todas lo mismo y llegan al fondo de la pantalla; la barra para moverse de costado queda abajo de todo, debajo de «A revisar».',
+      'Al pasar por una columna aparece una casilla en su encabezado: tilda a todos los que se ven en esa columna (con un filtro, sólo los filtrados).',
+      'El calendario de la barra («Tienes N reuniones cerca») abre siempre el mismo pop-up, con el bloque azul de cada reunión y «Ver detalle».',
+      'Lo de Mauricio no era por ser cliente: el bloque azul salía sólo si había una reunión por delante.',
+    ],
+    commits: [
+      { sha: '54c07a1b6', msg: 'CRM (feedback de Martín del 22/10): columnas del mismo alto hasta el fondo, el scroll debajo de «A revisar», la casilla de la columna y «Tus reuniones» con el bloque azul', lineas: 602, archivos: 11 },
+    ],
+    archivos: [
+    ],
+    revisar: '/crm',
+  },
 ];
