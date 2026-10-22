@@ -81,6 +81,7 @@ cambiar_tema_landing
 cambiar_texto_landing
 cambiar_texto_video
 cambiar_textos_diseno_imagen
+cambiar_tipo_etapa
 cambiar_velocidad_video
 cambiar_volumen_video
 cancelar_accion

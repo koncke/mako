@@ -38,6 +38,7 @@ import { PLANTILLAS_TEMA, TIPOGRAFIAS } from '@/lib/graficos-temas';
 // Puro: los métodos de pago son los de la ficha (copiarlos a mano sería otro catálogo).
 import { METODOS_PAGO } from '@/lib/pagos-campo';
 import { CAMPOS_TARJETA_LEAD, DISENOS_TARJETA } from '@/lib/tarjeta-kanban';
+import { TIPOS_ETAPA } from '@/lib/etapa-reunion';
 
 const TAB = { tab: 'crm' } as const;
 const TAB_ADMIN = { tab: 'crm', rolMinimo: 'admin' } as const;
@@ -554,6 +555,20 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: ['app'], costo: 'gratis', gating: TAB,
     reversible: true, escribe: 'la tarjeta de los leads de esa persona (usuarios.perfil.crmTarjeta)',
+  },
+  {
+    // 21/10/2026, Martín: «En cada columna… debes poner en los 3 puntos una opción de "Tipo de etapa" para poder decidir si
+    // es una etapa de reunión, o las otras que tenemos». La misma regla que la pantalla (lib/etapa-tipo-server.ts).
+    id: 'cambiar_tipo_etapa', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Cambiar el tipo de una etapa',
+    descripcion: 'PROPONE cambiar el tipo de una etapa del CRM (queda pendiente hasta el «sí»): etapa, reunion o nutricion, lo mismo que «⋯» › «Tipo de etapa» de la columna. Reunión: cada lead que pase por ahí lleva la fecha y la asistencia, y se le puede vincular un evento (vincular_evento_etapa); nutricion la pasa a la banda Nutrición. Los leads que ya están en la etapa no se mueven. La entrada, el cierre y las terminales no cambian de tipo. La etapa por su key (de ver_funnel) o su nombre; con embudoId, la de otro CRM. Solo el administrador.',
+    parametros: [
+      { nombre: 'etapa', tipo: 'string', obligatorio: true, max: 80, descripcion: 'la key de la etapa (de ver_funnel) o su nombre.' },
+      { nombre: 'tipo', tipo: 'string', obligatorio: true, enum: [...TIPOS_ETAPA], descripcion: 'etapa, reunion o nutricion.' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo. Sin él, el CRM principal.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'el tipo de la etapa en el pipeline del funnel (y su banda: Nutrición o el recorrido)',
   },
   {
     id: 'asignar_campana_funnels', area: 'crm', tipo: 'accion', confirmacion: 'chat',

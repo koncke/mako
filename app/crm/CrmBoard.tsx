@@ -73,6 +73,8 @@ import { ImportarLeadsModal } from './ImportarLeadsModal';
 import { EtapasModal } from './EtapasModal';
 import { TraerDeOtroProducto } from './TraerDeOtroProducto';
 import { CampanasModal } from './CampanasModal';
+import { TipoEtapaModal } from './TipoEtapaModal';
+import { NOMBRE_TIPO_ETAPA, columnaConTipo, tipoDeColumna } from '@/lib/etapa-reunion';
 import { EventosDeEtapaModal } from './EventosDeEtapaModal';
 import { FlechaDerechaIcon, FlechaIzquierdaIcon } from './iconos';
 import { ExportarLeadsModal } from './ExportarLeadsModal';
@@ -1798,6 +1800,8 @@ export function CrmBoard({
   const [campanasAbierto, setCampanasAbierto] = useState(false);
   // «Asignar evento» de una etapa de reunión (16/10/2026): qué evento de Calendly o Cal.com cae en ella.
   const [eventoDe, setEventoDe] = useState<{ etapa: string; nombre: string } | null>(null);
+  // «Tipo de etapa» de una columna (21/10/2026): Etapa / Reunión / Nutrición, con lo que pasa al cambiarlo (./TipoEtapaModal.tsx).
+  const [tipoDe, setTipoDe] = useState<string | null>(null);
   // El nombre que se acaba de escribir en el pop-up de etapas, por embudo, hasta que llegue la lista nueva del
   // server: el desplegable lo dibuja al instante (16/10/2026). Cuando `funnels` cambia, manda el server.
   const [nombresLocales, setNombresLocales] = useState<Record<number, string>>({});
@@ -2372,7 +2376,7 @@ export function CrmBoard({
       return {
         leadId: null, colKey: c.key,
         ctx: {
-          sobre: 'columna', mover: seArrastraCol(c), entrada: c.kind === 'entrada', reunion: c.kind === 'reunion',
+          sobre: 'columna', mover: seArrastraCol(c), entrada: c.kind === 'entrada', reunion: c.kind === 'reunion', tipo: columnaConTipo(c),
           // La MISMA condición que el renglón del «⋯» (y su test, tests/crm-curso-al-ganar.test.ts).
           curso: cursoAlGanar && terminalEstadoFor(c.key) === 'ganado' ? cursoPrendido : null,
           borrable: colsBorrables.has(c.key),
@@ -2464,6 +2468,7 @@ export function CrmBoard({
       case 'col_derecha': if (c) moverCol(c.key, 1); return;
       case 'col_campanas': setCampanasAbierto(true); return;
       case 'col_evento': if (c) setEventoDe({ etapa: c.key, nombre: c.label }); return;
+      case 'col_tipo': if (c) setTipoDe(c.key); return;
       case 'col_curso_prender': void cambiarCurso(true); return;
       case 'col_curso_apagar': void cambiarCurso(false); return;
       case 'col_renombrar': if (c) setRenombrando(c.key); return;
@@ -2710,6 +2715,10 @@ export function CrmBoard({
                   // El ícono, desde el 21/10/2026, es el calendario de línea de la casa (`evento`) y no el logo de Meet a color:
                   // «no me gusta que tenga color, un ícono más simple, que se entienda» (Martín).
                   ...(c.kind === 'reunion' ? [{ value: 'evento', label: 'Asignar evento', icono: 'evento' as const }] : []),
+                  // «En cada columna, a excepción de las que ya sabes que no deberían cambiar, debes poner en los 3 puntos una
+                  // opción de "Tipo de etapa"» (Martín, 21/10/2026). Las que no cambian: la entrada, el cierre y las terminales
+                  // (`columnaConTipo`, lib/etapa-reunion.ts; el server lo vuelve a mirar en `cambiarTipo`).
+                  ...(columnaConTipo(c) ? [{ value: 'tipo', label: 'Tipo de etapa', icono: 'etapa' as const }] : []),
                   // «Automatizar la invitación al curso cuando un lead cae a Ganado... Pero que sea
                   // opcional» (Martín, 07/10/2026). En Ganado, que es donde se ve a quién le llega, y
                   // sólo si el producto tiene clases (sin curso no hay a qué invitar).
@@ -2749,6 +2758,7 @@ export function CrmBoard({
                   if (v === 'nuevo') { setAltaPendiente(null); setNuevoLead({ etapa: c.key }); return; }
                   if (v === 'campanas') { setCampanasAbierto(true); return; }
                   if (v === 'evento') { setEventoDe({ etapa: c.key, nombre: c.label }); return; }
+                  if (v === 'tipo') { setTipoDe(c.key); return; }
                   if (v === 'curso') { void cambiarCurso(!cursoPrendido); return; }
                   if (v === 'renombrar') { setRenombrando(c.key); return; }
                   if (v === 'agregar') { void opEtapa({ op: 'agregar', despuesDe: c.key }); return; }
@@ -3297,6 +3307,23 @@ export function CrmBoard({
         <EventosDeEtapaModal funnelId={(funnelActivo ?? funnels.find((f) => f.esDefault)?.id) as number}
           etapa={eventoDe.etapa} etapaNombre={eventoDe.nombre} onCerrar={() => setEventoDe(null)} />
       )}
+      {tipoDe && (() => {
+        const col = columnasKanban.find((s) => s.key === tipoDe);
+        if (!col) return null;
+        const previo = tipoDeColumna(col);
+        return (
+          <TipoEtapaModal columna={col} recorrido={columnasKanban.filter((s) => (s.band ?? 'pipeline') === 'pipeline')}
+            leads={leads.filter((l) => effStage(l) === col.key).length} funnelId={funnelActivo ?? null}
+            onCerrar={() => setTipoDe(null)}
+            onCambiar={async (tipo) => {
+              // La MISMA op que el desplegable del pop-up de etapas, con su «Deshacer» (vuelve al tipo de antes).
+              const r = await opEtapa({ op: 'tipo', key: col.key, tipo });
+              if (!r?.ok) return false;
+              mostrarAviso(`«${col.label}» es ${NOMBRE_TIPO_ETAPA[tipo]}`, () => { void opEtapa({ op: 'tipo', key: col.key, tipo: previo }); });
+              return true;
+            }} />
+        );
+      })()}
       {campanasAbierto && (
         <CampanasModal
           // ⚠️ EL PRINCIPAL VA COMO `null`: `funnelActivo` puede traer su id numérico, y con

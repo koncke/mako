@@ -20,6 +20,8 @@
 import { getCamposTarjetaCrm, setCamposTarjetaCrm } from '@/lib/perfil';
 import { CAMPOS_TARJETA_DEFAULT, CAMPOS_TARJETA_LEAD, DETALLE_DISENO_TARJETA, DISENOS_TARJETA, NOMBRE_CAMPO_TARJETA, NOMBRE_DISENO_TARJETA, PLANTILLAS_TARJETA_LEAD, camposTarjetaDe, type CampoTarjetaLead, type DisenoTarjeta } from '@/lib/tarjeta-kanban';
 import { guardarPlantillaPropia, idPlantillaNueva, plantillaPuesta } from '@/lib/plantillas-tarjeta';
+import { NOMBRE_TIPO_ETAPA, TIPOS_ETAPA, avisoCambioDeTipo, columnaConTipo, tipoDeColumna, type TipoEtapa } from '@/lib/etapa-reunion';
+import { cambiarTipoDeEtapa } from '@/lib/etapa-tipo-server';
 import 'server-only';
 import type { Ctx, Ejecutado, Runners, SalidaLectura } from '../tipos';
 import { runMakoTool } from '@/lib/mako-tools';
@@ -1116,6 +1118,44 @@ export const RUNNERS: Runners = {
       const r = await setCamposTarjetaCrm(payload.campos, payload.forma, payload.plantillas);
       if (!r.guardado) return { ok: false, resumen: 'No pude guardarla: tu sesión no tiene un usuario propio. Se cambia en el CRM, «⋯» › «Personalizar tarjetas».' };
       return { ok: true, resumen: `Listo: tu tarjeta de leads quedó en forma ${NOMBRE_DISENO_TARJETA[r.diseno]}. Se ve al volver al CRM.` };
+    }),
+  },
+  // «Tipo de etapa» (21/10/2026): la MISMA función que la op `tipo` del «⋯» de la columna y del pop-up de etapas
+  // (`cambiarTipoDeEtapa`, lib/etapa-tipo-server.ts), y el MISMO aviso de lo que pasa (`avisoCambioDeTipo`).
+  cambiar_tipo_etapa: {
+    preparar: async (input) => {
+      const tipo = s(input.tipo) as TipoEtapa | undefined;
+      if (!tipo || !TIPOS_ETAPA.includes(tipo)) return { error: 'El tipo es etapa, reunion o nutricion.', faltan: ['tipo'] };
+      const pedido = n(input.embudoId);
+      let funnelId: number | null = null;
+      if (pedido != null) {
+        const crms = await productosCrm().catch(() => null);
+        if (!crms) return { error: NO_LEI_PRODUCTOS };
+        const crm = crms.find((p) => p.embudoId === pedido);
+        if (!crm) return { error: `El CRM #${pedido} no es de este negocio.`, disponibles: crms.map((p) => ({ embudoId: p.embudoId, nombre: p.nombre })) };
+        funnelId = crm.esDefault ? null : crm.embudoId;
+      }
+      const cfg = funnelId != null ? await getFunnelDe(funnelId) : await getFunnelDefault();
+      if (cfg.origen === 'error') return { error: 'No pude leer el funnel. Intenta de nuevo.' };
+      const buscada = s(input.etapa) ?? '';
+      const sinAcentos = (x: string) => x.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const col = cfg.stages.find((st) => st.key === buscada) ?? cfg.stages.find((st) => sinAcentos(st.label ?? '') === sinAcentos(buscada));
+      if (!col) return { error: `Ese funnel no tiene la etapa «${buscada}».`, disponibles: cfg.stages.map((st) => ({ key: st.key, nombre: st.label })) };
+      if (!columnaConTipo(col)) return { error: `«${col.label}» no cambia de tipo: la entrada, el cierre y las terminales quedan como están.` };
+      const previo = tipoDeColumna(col);
+      if (previo === tipo) return { error: `«${col.label}» ya es ${NOMBRE_TIPO_ETAPA[tipo]}.`, yaEstaba: true };
+      const aviso = avisoCambioDeTipo({ recorrido: cfg.stages.filter((st) => (st.band ?? 'pipeline') === 'pipeline'), columna: col, tipo, leads: null });
+      return {
+        payload: { funnelId, key: col.key, tipo, previo, nombre: col.label },
+        resumen: `«${col.label}» pasa a ser ${NOMBRE_TIPO_ETAPA[tipo]}. Los leads que ya están ahí no se mueven.${aviso.length ? ' ' + aviso.join(' ') : ''}`,
+      };
+    },
+    ejecutar: (payload) => seguro('cambiar el tipo de la etapa', async () => {
+      const tipo = payload.tipo as TipoEtapa;
+      const r = await cambiarTipoDeEtapa(typeof payload.funnelId === 'number' ? payload.funnelId : null, String(payload.key), tipo);
+      if (!r.ok) return { ok: false, resumen: r.error };
+      invalidar('pipeline', 'leads');
+      return { ok: true, resumen: `Listo: «${String(payload.nombre)}» es ${NOMBRE_TIPO_ETAPA[tipo]}. Para volver, el mismo pedido con el tipo ${String(payload.previo)}.` };
     }),
   },
   ver_campanas_funnels: {

@@ -82,8 +82,9 @@ import { getFunnelDefault, getFunnelDe, getPipelineStagesDefault, getPipelineSta
 import { type EntradaId, type EventoFunnel, generateFunnel, labelDeCatalogo,
   conTerminales, esTerminal, etapaDeGanado, problemasDePipeline, ETAPAS_SIN_SECUENCIA, MAX_LABEL_ETAPA, DEFAULT_STAGES, deriveStageKey, stageMeta, terminalEstadoFor, withLayout, MAKO_SETTER, type Stage, type StageBand, type StageDerivable,
   colorParaNueva, CHIP, DOT_SIN_COLOR, type StageTone } from '@/lib/pipeline';
-import { puedeSerReunion, conTipo, reunionPorNombre, TIPOS_ETAPA, type TipoEtapa } from '@/lib/etapa-reunion';
-import { armarPipeline, cambiarTipo, ordenConClave } from '@/lib/etapa-banda';
+import { puedeSerReunion, conTipo, reunionPorNombre, type TipoEtapa } from '@/lib/etapa-reunion';
+import { armarPipeline, ordenConClave } from '@/lib/etapa-banda';
+import { cambiarTipoDeEtapa } from '@/lib/etapa-tipo-server';
 import { puedeTenerPlazo, sanearPlazo, PLAZO_MAX_DIAS } from '@/lib/lead-quieto';
 import {
   CAMPOS_LEAD, COLUMNAS_POR_CAMPO, PREGUNTAS_FORM, SIN_ASIGNAR,
@@ -3763,19 +3764,11 @@ export async function editarEtapaAction(op: OpEtapa, funnelId?: number): Promise
       // ⚠️ DESDE EL 12/10/2026 EL TIPO DECIDE LA BANDA (sexto feedback: «si se coloca "Etapa" se
       // desplaza automáticamente hacia arriba, y viceversa»). Lo decide `cambiarTipo` (lib/etapa-banda.ts,
       // puro y con test), que además valida la etapa: la entrada, el cierre y las terminales no llevan
-      // tipo (`puedeTenerTipo`), y una clave que no es de este funnel se rechaza. Un tipo que no existe
-      // tampoco se guarda: `op` lo escribe quien quiera.
-      if (!TIPOS_ETAPA.includes(op.tipo)) return { ok: false, error: 'Ese tipo de etapa no existe.' };
-      const at = typeof op.at === 'number' && Number.isFinite(op.at) ? op.at : undefined;
-      const ordenAhora = actual.stages.filter((x) => x.band === 'nutricion').map((x) => x.key);
-      const r = cambiarTipo({ pipeline, suppressed: actual.suppressed, labels, ordenNutricion: ordenAhora }, op.key, op.tipo, at);
+      // tipo (`puedeTenerTipo`), y una clave que no es de este funnel se rechaza. Desde el 21/10/2026 el
+      // cuerpo vive en lib/etapa-tipo-server.ts (`cambiarTipoDeEtapa`), que usa también la API de MaKo
+      // (`cambiar_tipo_etapa`): «Tipo de etapa» del «⋯» de cada columna pasa por acá, como el pop-up.
+      const r = await cambiarTipoDeEtapa(funnelId ?? null, op.key, op.tipo, op.at);
       if (!r.ok) return r;
-      // Guarda TODO lo que el cambio de banda toca: el pipeline, las transiciones apagadas (una nutrición
-      // de catálogo que sube apaga las suyas), los nombres y el orden de la banda.
-      const conGanadoT = conTerminales(r.estado.pipeline);
-      const extraT = { labels: r.estado.labels, ordenNutricion: r.estado.ordenNutricion };
-      if (funnelId != null) await saveFunnelDe(funnelId, conGanadoT, r.estado.suppressed, extraT);
-      else await saveFunnelDefault(conGanadoT, r.estado.suppressed, extraT);
       bust(TAG.pipeline, TAG.leads);
       revalidatePath('/crm');
       revalidatePath('/funnel');
