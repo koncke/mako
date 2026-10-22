@@ -122,7 +122,7 @@ test('4. la caja es la ÚNICA y lo escrito va al motor de cada chat', () => {
   assert.match(piezas, /placeholder=\{`Escribe a \$\{k\.nombre\}`\}/, 'a quién se le escribe, como en el super admin');
   const motor = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
   assert.match(motor, /if \(idOffer != null\) void mandarAOffer\(idU, t, archivos\); else void mandar\(idU, t, archivos\);/);
-  assert.match(motor, /\{ action: 'send', sessionId: sid, mensaje, \.\.\.\(deAntes \? \{ antes: 1 \} : \{\}\) \}/, 'un chat de antes se sigue');
+  assert.match(motor, /\{ action: 'send', sessionId: sid, mensaje, \.\.\.\(deAntes \? \{ antes: 1 \} : \{\}\)(?:, \.\.\.\(desdeTab \? \{ desde: desdeTab \} : \{\}\))? \}/, 'un chat de antes se sigue');
   // La computadora y el teléfono montan la MISMA caja y el MISMO hilo (el teléfono, la caja del suyo: `movil`).
   assert.match(sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx')), /<CajaDelCliente k=\{k\} campo=\{caja\} seguir=\{seguirHilo\} \/>/);
   assert.match(sinComentarios(leer('app/m/second-brain/ChatClienteM.tsx')), /<CajaDelCliente k=\{k\} campo=\{caja\} seguir=\{seguirHoja\} movil \/>/);
@@ -163,7 +163,7 @@ test('6. el clic derecho, la cita y las marcas del super admin, en cada mensaje 
   assert.deepEqual([m.de, m.propio, m.texto], ['Tú', true, 'hola']);
   const piezas = sinComentarios(leer('app/second-brain/PiezasCliente.tsx'));
   // El grupo de WhatsApp de MaKo, sin el menú (OC3, 22/10/2026: se lee, no se responde; tests/ops-center-grupo-mako.test.ts).
-  assert.match(piezas, /<ContextoWA\.Provider value=\{k\.esGrupo \|\| k\.esAutomatizacion \? null : k\.accionesWA\}>/, 'el hilo con lo de WhatsApp');
+  assert.match(piezas, /<ContextoWA\.Provider value=\{k\.esGrupo \|\| k\.esAutomatizacion(?: \|\| k\.esEditor)? \? null : k\.accionesWA\}>/, 'el hilo con lo de WhatsApp');
   assert.match(piezas, /\{k\.cita && <CitaCaja cita=\{k\.cita\} onQuitar=\{\(\) => k\.setCita\(null\)\} \/>\}/, 'la cita arriba de la caja');
   for (const f of ['app/second-brain/ChatSecondBrain.tsx', 'app/m/second-brain/ChatClienteM.tsx']) {
     assert.match(sinComentarios(leer(f)), /<MenuMensajeWA abierto=\{k\.menuWA\} marcas=\{k\.marcas\} onCerrar=\{\(\) => k\.setMenuWA\(null\)\} onElegir=\{k\.elegirEnMenu\} sin=\{\['reenviar'\]\} \/>/, f);

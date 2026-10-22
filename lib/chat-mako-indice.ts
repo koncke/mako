@@ -26,7 +26,9 @@ import {
   type ChartMsg, type ChartSession,
 } from '@/lib/chart-chats';
 import { claveVisible, personaDeSesion, prefijoDePersona, puedeUsarSesion, type QuienChatea } from '@/lib/chart-chats-reglas';
-import { TITULO_GRUPO, baseDeLaPersona, mensajesDeAutomatizacion, origenDeClave, temaDe } from '@/lib/chat-mako-reglas';
+import { TITULO_GRUPO, baseDeLaPersona, claveDeEditor, mensajesDeAutomatizacion, mensajesDeEditor, origenDeClave, partesDeClaveDeEditor, temaDe, type TipoEditor } from '@/lib/chat-mako-reglas';
+import { hiloAlAbrir as hiloImagenAlAbrir } from '@/lib/image-editor/chat/hilo';
+import { hiloAlAbrir as hiloVideoAlAbrir } from '@/lib/editor-video/chat-hilo';
 import { leerChat as leerChatDeAutomatizacion, listarChats as listarChatsDeAutomations, secuenciaDelWorkspace } from '@/lib/automatizacion-chat-db';
 import { getGrupoJidMaKo } from '@/lib/mako-grupo';
 import { hiloDelGrupo } from '@/lib/mako-doer-conv';
@@ -200,6 +202,9 @@ export async function hiloDelGrupoMaKo(
 export const PROYECCIONES = [
   { origen: 'offer', alcance: 'workspace', tab: 'offer' },
   { origen: 'automations', alcance: 'workspace', tab: 'setting' },
+  // Los de los editores son por PERSONA (como los de antes): el admin ve los del negocio; los demás, los suyos (OC8).
+  { origen: 'image-editor', alcance: 'persona', tab: 'image-editor' },
+  { origen: 'video-editor', alcance: 'persona', tab: 'video-editor' },
 ] as const;
 export type OrigenDeChat = (typeof PROYECCIONES)[number]['origen'];
 
@@ -276,6 +281,62 @@ export async function hiloDeAutomatizacion(id: number): Promise<{ sesion: ChatDe
     sesion: { id, titulo, updatedAt: chat.mensajes[chat.mensajes.length - 1]?.at ?? '', origen: 'automations', alcance: 'workspace' },
     mensajes: mensajesDeAutomatizacion(chat.mensajes),
   };
+}
+
+// ── Los chats del Image Editor y del Video Editor (22/10/2026, OC8) ───────────────────────────────────────────────
+// Una fila por (negocio, persona, diseño o proyecto), en la base del inquilino; medido por TB2: sí guardan (hasta ese día nadie
+// los había usado). Se LEEN: se siguen en el editor, que aplica lo que propone.
+
+export type ChatDeEditor = { tipo: TipoEditor; clave: string; titulo: string | null; updatedAt: string };
+const DE_EDITOR: Readonly<Record<TipoEditor, { tabla: string; col: string; tab: 'image-editor' | 'video-editor' }>> = {
+  imagen: { tabla: 'image_editor_chats', col: 'diseno_id', tab: 'image-editor' },
+  video: { tabla: 'video_editor_chats', col: 'proyecto_id', tab: 'video-editor' },
+};
+
+/** Los chats de los dos editores que ve quien pide, el más reciente primero. [] = no ve la tab, no hay, o no se pudo leer. */
+export async function chatsDeLosEditores(q: QuienChatea & { sub: string }): Promise<ChatDeEditor[]> {
+  const out: ChatDeEditor[] = [];
+  for (const tipo of ['imagen', 'video'] as const) {
+    const t = DE_EDITOR[tipo];
+    const ws = await wsSiVe(t.tab);
+    if (ws == null) continue;
+    const filas = await runWithWorkspace(ws, async () => {
+      let consulta = (await getTenantDb()).from(t.tabla).select(`persona, ${t.col}, nombre, updated_at`).eq('workspace_id', ws);
+      if (!q.admin) consulta = consulta.eq('persona', q.persona);
+      const { data, error } = await consulta.order('updated_at', { ascending: false }).limit(40);
+      if (error) throw new Error(error.message);
+      return (data ?? []) as unknown as Array<Record<string, unknown>>;
+    }).catch((e) => {
+      console.warn(`[chat-mako-indice] ws=${ws}: no pude listar los chats del ${tipo === 'imagen' ? 'Image' : 'Video'} Editor: ${e instanceof Error ? e.message : String(e)}`);
+      return [] as Array<Record<string, unknown>>;
+    });
+    for (const f of filas) {
+      const persona = typeof f.persona === 'string' ? f.persona : '';
+      const id = typeof f[t.col] === 'string' ? (f[t.col] as string) : '';
+      if (!persona || !id) continue;
+      out.push({ tipo, clave: claveDeEditor(persona, id), titulo: typeof f.nombre === 'string' ? f.nombre : null, updatedAt: String(f.updated_at ?? '') });
+    }
+  }
+  return out;
+}
+
+/** Un chat de un editor, para leerlo. null = no ve la tab, no es suyo (y no es admin), o no existe: no se distingue. */
+export async function hiloDeEditor(q: QuienChatea & { sub: string }, tipo: TipoEditor, clave: string): Promise<{ mensajes: MensajeChat[] } | null> {
+  const partes = partesDeClaveDeEditor(clave);
+  if (!partes) return null;
+  if (!q.admin && partes.persona !== q.persona) return null;
+  const t = DE_EDITOR[tipo];
+  const ws = await wsSiVe(t.tab);
+  if (ws == null) return null;
+  const fila = await runWithWorkspace(ws, async () => {
+    const { data } = await (await getTenantDb()).from(t.tabla).select('mensajes')
+      .eq('workspace_id', ws).eq('persona', partes.persona).eq(t.col, partes.id).maybeSingle();
+    return (data as { mensajes?: unknown } | null) ?? null;
+  }).catch(() => null);
+  if (!fila) return null;
+  // Con el saneo de cada editor: lo que no se entiende se descarta y el resto se lee.
+  const ms = tipo === 'imagen' ? hiloImagenAlAbrir(fila.mensajes) : hiloVideoAlAbrir(fila.mensajes);
+  return { mensajes: mensajesDeEditor(ms) };
 }
 
 /**
