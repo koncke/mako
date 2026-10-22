@@ -274,7 +274,7 @@ test('las métricas que cuentan en JS o por conteo también lo excluyen', () => 
   assert.match(neg, /'id, created_at,[^']*\bventa_tipo'/, 'la lectura baja venta_tipo');
   assert.match(neg, /r\.cerro === true && cuentaComoVenta\(r\)/, 'ganados / ingreso_usd');
   const obj = fuente('lib/objectives-fuentes.ts');
-  assert.match(obj, /cierres: \(desde, hasta\) => contar\('leads', \[[^\]]*\{ col: 'venta_tipo', op: 'neq', val: VENTA_SIN_COBRO \}/, 'el KPI «Cierres»');
+  assert.match(obj, /cierres: async \(desde, hasta\) => \{\s*const r = await contar\('leads', \[[^\]]*\{ col: 'venta_tipo', op: 'neq', val: VENTA_SIN_COBRO \}/, 'el KPI «Cierres»');
   assert.match(obj, /f\.op === 'neq'\) q = q\.neq\(/, '`contar` sabe hacer un neq');
   // El aviso de recorte cuenta el MISMO universo que la lectura que vigila.
   const run = fuente('lib/api-mako/areas/metricas.run.ts');

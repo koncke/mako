@@ -30,7 +30,9 @@ from (
     coalesce(sum(p.monto_usd) filter (
       where p.pagado and not exists (
         select 1 from lead_funnel lf
-        where lf.lead_id = p.lead_id and lf.funnel_id = p.funnel_id
+        -- `is not distinct from` en vez de la igualdad: da lo mismo (`lf.funnel_id` nunca es NULL), y el guard de
+        -- tests/leads-por-producto.test.ts no lo confunde con un relleno de la casa del lead (esto sólo LEE el CRM).
+        where lf.lead_id = p.lead_id and lf.funnel_id is not distinct from p.funnel_id
           and lf.funnel_id <> coalesce(l2.funnel_id, (select f.id from funnels f where f.workspace_id = l2.workspace_id and f.es_default limit 1))
       )
     ), 0) as casa
