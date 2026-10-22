@@ -13,6 +13,10 @@
 //     Martín no quiere sobre los leads de un anuncio;
 //   · ⚠️ LOS TOPES DE LA LÍNEA NO (por día y por hora de WhatsApp, por día de email): son el presupuesto anti-ban de UNA
 //     línea que comparten todas las automatizaciones. Un tope por automatización no la protege; sigue siendo del negocio.
+//   · EL GOTEO SÍ (22/10/2026, la llamada con Mauricio: «que no salgan juntos: uno, esperar 4-5 min, el siguiente»;
+//     configurable por automatización: minutos entre envíos y tope por día). Es un SUB-TOPE adentro del de la línea
+//     (decisión del Cerebro): nunca deja mandar más que la línea; sólo frena a ESTA automatización. Los días de la
+//     semana son los del horario propio. La regla vive en lib/goteo.ts.
 //
 // SIN NADA GUARDADO, LA DEL NEGOCIO. Así cada automatización que ya existía arranca con lo que hoy tiene su negocio
 // (regla «nunca una versión vieja»), sin escribir nada en producción, y lo que cambie el negocio le llega.
@@ -43,7 +47,12 @@ export function secuenciaDeClave(clave: string): number | null {
 export type ConfigAutomatizacion = {
   horario?: HorarioEnvio | null;
   personaHoras?: { whatsapp?: number; email?: number };
+  /** El goteo de sus WhatsApp (lib/goteo.ts): minutos entre dos envíos y tope en 24 h. Ausente = sin goteo propio. */
+  goteo?: { minutos?: number; dia?: number };
 };
+
+/** Los rangos del goteo: hasta 4 h entre envíos, y el tope por día no pasa el máximo de la línea. */
+export const RANGOS_GOTEO = { minutos: [1, 240] as const, dia: RANGOS_LIMITES.wa.dia } as const;
 
 const enRango = (n: unknown, [min, max]: readonly [number, number]): n is number =>
   typeof n === 'number' && Number.isInteger(n) && n >= min && n <= max;
@@ -69,6 +78,12 @@ export function sanearConfigAutomatizacion(raw: unknown): ConfigAutomatizacion {
     const em = enRango(ph.email, RANGOS_LIMITES.email.personaHoras) ? ph.email : undefined;
     if (wa !== undefined || em !== undefined) out.personaHoras = { ...(wa !== undefined ? { whatsapp: wa } : {}), ...(em !== undefined ? { email: em } : {}) };
   }
+  const go = o.goteo && typeof o.goteo === 'object' ? o.goteo as Record<string, unknown> : null;
+  if (go) {
+    const min = enRango(go.minutos, RANGOS_GOTEO.minutos) ? go.minutos : undefined;
+    const dia = enRango(go.dia, RANGOS_GOTEO.dia) ? go.dia : undefined;
+    if (min !== undefined || dia !== undefined) out.goteo = { ...(min !== undefined ? { minutos: min } : {}), ...(dia !== undefined ? { dia } : {}) };
+  }
   return out;
 }
 
@@ -86,7 +101,7 @@ export function textoDeHorario(h: HorarioEnvio | null): string {
 export type PropsConfiguraciones = { secuenciaId: number; nombre: string; onCerrar: () => void };
 
 /** ¿Tiene algo propio? (si no, es la del negocio entera). */
-export const tieneConfigPropia = (c: ConfigAutomatizacion): boolean => c.horario !== undefined || c.personaHoras !== undefined;
+export const tieneConfigPropia = (c: ConfigAutomatizacion): boolean => c.horario !== undefined || c.personaHoras !== undefined || c.goteo !== undefined;
 
 /**
  * EL HORARIO QUE VALE PARA ESA AUTOMATIZACIÓN: el propio si eligió uno (también «sin horario»), si no el del negocio.
@@ -140,6 +155,20 @@ export function configParaGuardar(previo: ConfigAutomatizacion, cambio: unknown)
         nuevo[canal] = ph[canal] as number;
       }
       if (Object.keys(nuevo).length) out.personaHoras = nuevo; else delete out.personaHoras;
+    }
+  }
+  if ('goteo' in o) {
+    if (o.goteo === null) delete out.goteo;
+    else {
+      const g = o.goteo && typeof o.goteo === 'object' ? o.goteo as Record<string, unknown> : {};
+      const nuevo = { ...(out.goteo ?? {}) };
+      for (const [campo, rango, texto] of [['minutos', RANGOS_GOTEO.minutos, 'Los minutos entre envíos'], ['dia', RANGOS_GOTEO.dia, 'El tope por día']] as const) {
+        if (!(campo in g)) continue;
+        if (g[campo] === null) { delete nuevo[campo]; continue; }
+        if (!enRango(g[campo], rango)) return { ok: false, error: `${texto} van de ${rango[0]} a ${rango[1]}.` };
+        nuevo[campo] = g[campo] as number;
+      }
+      if (Object.keys(nuevo).length) out.goteo = nuevo; else delete out.goteo;
     }
   }
   // Vacío = todo como el negocio: quien guarda BORRA la clave (`vacia`), no deja un '{}' (revisión del 20/10/2026).

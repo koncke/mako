@@ -90,8 +90,9 @@ const proc = motor.slice(motor.indexOf('export async function procesarEnvios('),
 
 test('procesarEnvios: los mensajes chequean `sinLugar` (no el cupo a secas) y lo que entra va primero', () => {
   assert.ok(proc.length > 1000, 'no encontré procesarEnvios');
-  assert.match(proc, /const sinLugar = \(leadId: number\): boolean => cupoLleno\(\) \|\| \(!frescos\.has\(leadId\) && waEnCorrida >= cupoCampana\);/);
-  assert.equal((proc.match(/if \(sinLugar\(insc\.lead_id\) && !/g) ?? []).length, 2, 'los dos puntos donde un mensaje espera al cupo');
+  assert.match(proc, /const sinLugarEnLaLinea = \(leadId: number\): boolean => cupoLleno\(\) \|\| \(!frescos\.has\(leadId\) && waEnCorrida >= cupoCampana\);/);
+  // (Desde el 22/10/2026 `sinLugar` suma el goteo de la automatización: tests/goteo-automatizacion.test.ts.)
+  assert.equal((proc.match(/if \(sinLugar\(insc\) && !/g) ?? []).length, 2, 'los dos puntos donde un mensaje espera al cupo');
   assert.doesNotMatch(proc, /if \(cupoLleno\(\) && !/, 'quedó un mensaje que mira el cupo sin la reserva');
   assert.match(proc, /if \(primeroEntradas\) q = q\.in\('lead_id', \[\.\.\.frescos\]\);/);
   assert.match(proc, /const frescos = await entradasFrescas\(supabase, opts\?\.soloLeadId \?\? null\);/);

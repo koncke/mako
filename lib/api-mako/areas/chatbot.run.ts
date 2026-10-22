@@ -56,6 +56,7 @@ import { conConteos } from '@/lib/flujo-ia-crear-core';
 import { KEY_HORARIO_ENVIO, horarioVigente, type DiaSemana } from '@/lib/horario-envio';
 import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes } from '@/lib/limites-envio';
 import { horarioDeLaAutomatizacion, personaHorasDeLaAutomatizacion, textoDeHorario, configParaGuardar } from '@/lib/config-automatizacion';
+import { textoDeGoteo } from '@/lib/goteo';
 import { leerConfigAutomatizacion, guardarConfigAutomatizacion, copiarConfigAutomatizacion } from '@/lib/config-automatizacion-db';
 import { preguntaAntes, preguntaParaWhatsApp, respuestaDeTexto, sanearRespuestas } from '@/lib/flujo-ia-preguntas';
 import { TOPE_RONDAS, type RespuestaMako } from '@/lib/automatizacion-chat';
@@ -140,7 +141,15 @@ function cambioDeConfigDelInput(input: Record<string, unknown>): { cambio: Recor
     if (input.horasEmail != null) { ph.email = num(input, 'horasEmail'); partes.push(`${ph.email} h entre dos emails a la misma persona`); }
     if (Object.keys(ph).length) cambio.personaHoras = ph;
   }
-  if (!partes.length) return { error: 'No dice qué cambiar: el horario (horario) o las horas a la misma persona (horasWhatsapp, horasEmail).' };
+  // EL GOTEO (22/10/2026, lib/goteo.ts): uno cada N minutos y hasta M por día, adentro del tope de la línea.
+  if (input.sinGoteo === true) { cambio.goteo = null; partes.push('sin goteo'); }
+  else {
+    const g: Record<string, number> = {};
+    if (input.goteoMinutos != null) { g.minutos = num(input, 'goteoMinutos'); partes.push(`uno cada ${g.minutos} min`); }
+    if (input.goteoPorDia != null) { g.dia = num(input, 'goteoPorDia'); partes.push(`hasta ${g.dia} WhatsApp por día`); }
+    if (Object.keys(g).length) cambio.goteo = g;
+  }
+  if (!partes.length) return { error: 'No dice qué cambiar: el horario (horario), las horas a la misma persona (horasWhatsapp, horasEmail) o el goteo (goteoMinutos, goteoPorDia).' };
   const prueba = configParaGuardar({}, cambio);
   if (!prueba.ok) return { error: prueba.error };
   return { cambio, resumen: partes.join(' · ') };
@@ -850,7 +859,9 @@ export const RUNNERS: Runners = {
           whatsapp: { horas: persona.whatsapp, de: config.personaHoras?.whatsapp === undefined ? 'negocio' : 'propio' },
           email: { horas: persona.email, de: config.personaHoras?.email === undefined ? 'negocio' : 'propio' },
         },
-        nota: 'Los topes por día y por hora son de la LÍNEA, para todas las automatizaciones: no se configuran por automatización.',
+        goteo: { vale: textoDeGoteo(config.goteo), minutos: config.goteo?.minutos ?? null, por_dia: config.goteo?.dia ?? null },
+        linea: { por_dia: lim.wa.dia, por_hora: lim.wa.hora },
+        nota: 'Los topes por día y por hora de la LÍNEA son de todas las automatizaciones; el goteo es un sub-tope adentro de esos, de ésta sola.',
       });
     },
   },

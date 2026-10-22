@@ -161,7 +161,8 @@ test('cada turno re-POSTea el pedido ORIGINAL con las respuestas acumuladas (y l
   assert.match(turno, /const modo = crea \? 'crear' : 'editar';\n\s+const base = modo === 'editar' \? p\.pasos : undefined;/);
   assert.match(turno, /pedido: enCurso\.pedido, modo, respuestas: enCurso\.respuestas, secuenciaId: p\.secuenciaId,/);
   // El hilo de ANTES del turno (`mensajes`): la ruta guarda el turno.
-  assert.match(turno, /historial: mensajes,\n\s+\}\);/);
+  // (Y desde el 22/10/2026, detrás, Discutir / Editar al editar: tests/chat-mako-discutir-editar.test.ts.)
+  assert.match(turno, /historial: mensajes,\n(?:\s+\/\/[^\n]*\n)*\s+\.\.\.\(modo === 'editar' \? \{ intencion \} : \{\}\),\n\s+\}\);/);
   // Por qué (lo hace la ruta, lib/flujo-ia-preguntas.ts): la pregunta que se contesta se busca EN EL HILO.
   const conCron = [...HILO, mako('m2', 'Cambié 2', { cambios: { cambiadas: 2, quitadas: 0, agregadas: 0 }, pregunta: cron })];
   const eligeTu = respuestaMako(cron, { eligeTu: true });

@@ -38,6 +38,7 @@ import {
   type DocumentoGuardado, type MensajeGuardado, type SesionParaArbol,
 } from './offer-reglas';
 import { contextoOffer } from './offer-contexto';
+import { conversacionSinHerramientasAjenas } from './offer-hechos';
 
 const TABLA = 'offer_sesiones';
 const COLS = 'id, titulo, estado, mensajes, piezas, documentos, borrador, conclusiones, oferta_id, oferta_version, funnel_id, oferta_base_id, armado, updated_at';
@@ -107,7 +108,9 @@ function sanearBorrador(raw: unknown): BorradorOffer | null {
 }
 
 function aFila(r: Record<string, unknown>): FilaOffer {
-  return {
+  // Lo que anotó o escribió la IA, sin las herramientas que el negocio no nombró («por Zoom», 22/10/2026,
+  // lib/offer-hechos.ts): ésta es la única entrada de la fila, así que lo limpio llega a todos los que la leen.
+  return conversacionSinHerramientasAjenas({
     id: num(r.id) ?? 0,
     titulo: typeof r.titulo === 'string' && r.titulo.trim() ? r.titulo : TITULO_DEFAULT,
     estado: r.estado === 'concluida' ? 'concluida' : 'conversando',
@@ -122,7 +125,7 @@ function aFila(r: Record<string, unknown>): FilaOffer {
     ofertaBaseId: num(r.oferta_base_id),
     armado: sanearArmado(r.armado),
     updatedAt: typeof r.updated_at === 'string' ? r.updated_at : '',
-  };
+  });
 }
 
 /**

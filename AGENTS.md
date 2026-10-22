@@ -460,6 +460,9 @@ compartido se repite aislado antes de contarlo** (puede ser interferencia: `edit
 dejó algo en el entorno). Un test que toca `process.env`, un global, `Module._load` o el directorio de trabajo NUNCA se comparte
 (regex `PELIGRO_COMPARTIR` en `tests-afectados.mjs`): **si escribís un test que hace eso, va en su proceso solo, sin tocar nada.** El
 riesgo que queda es un FALSO verde por contagio, y por eso Actions sigue corriendo cada test en su proceso.
+⚠️ **Y un archivo que tira AL CARGAR da verde compartido** (22/10/2026, docs/hallazgos-infra.md): se cuentan los `test(...)` de
+arriba de la línea que tira y los demás no corren, con salida 0. **En un test, lo que puede tirar (un `assert` sobre el fuente, un
+recorte con tope) va ADENTRO de un `test(...)` o en una función perezosa, nunca en una constante del módulo.**
 
 **Actions hace lo mismo, primero** (`.github/workflows/integracion.yml`): guardas → tests afectados contra `origin/main`
 → tipos → los demás tests. La suma de las dos fases es la suite entera y ninguno corre dos veces; si el script no puede
@@ -4372,8 +4375,14 @@ asistencias del PERÍODO, y 4 de esas ventas nunca habían pasado por una llamad
 - **Ni una hora ni una fecha es una cifra del negocio.** Una transcripción («0:04:43 Cristian: …») vuelve «dicho por el
   dueño» a todo número del 0 al 59 si se cuentan (`cifrasDelNegocio` ya no las lee).
 - **Un conteo no le da fuente a un porcentaje**: «43 llamadas» y «43%» son claves distintas (`claveConFuente`).
+- **Un número sobre UNA cosa (una oferta, un funnel, una campaña) se lee de ESA cosa**, nunca del negocio entero en su
+  lugar; si esa cosa no tiene datos, se dice («es una oferta sin datos de venta»), no se cae a otro conteo. El 22/10 el
+  diagnóstico del Sprint de Mauricio, nacido ese día, dijo «2 ventas de 24 asistentes»: eran las del CRM entero. El
+  funnel default son los leads con `funnel_id` NULL (`embudoDeFunnel`, lib/analisis-negocio.ts).
+- **Lo que la IA sugirió no es un dato del usuario.** Una opción que MaKo propuso («por Zoom») y el dueño no eligió no se
+  anota como dicha por él: las herramientas que el negocio no nombró salen al leer (lib/offer-hechos.ts).
 
-Detalle en docs/hallazgos-offer.md → «El “43” de Código Inmobiliario».
+Detalle en docs/hallazgos-offer.md → «El “43” de Código Inmobiliario» y «El Sprint de Mauricio».
 
 # Dos números que se comparan salen de UN juicio — no de una fórmula sobre el otro
 
