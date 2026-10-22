@@ -121,9 +121,16 @@ export async function enviarBorradorPorSuCanal(id: number, porEmail: string): Pr
 export async function frenoDelGoteoAlAprobar(secuenciaId: number | null): Promise<string | null> {
   if (secuenciaId == null) return null;
   try {
+    const db = await getTenantDb();
+    // ⚠️ UNA AUTOMATIZACIÓN PAUSADA NO MANDA NADA (22/10/2026, Martín: «se puede pausar el envío desde Automations»): el motor
+    // ya congela su cola (lib/nutricion.ts, `idsDePausadas`), pero un borrador suyo ya escrito se podía aprobar y salía.
+    const { data: sec, error: eSec } = await db.from('nutricion_secuencias').select('nombre, activa').eq('id', secuenciaId).maybeSingle();
+    if (eSec) throw new Error(eSec.message);
+    const fila = sec as { nombre?: unknown; activa?: unknown } | null;
+    const nombre = String(fila?.nombre ?? 'Esta automatización');
+    if (fila && fila.activa !== true) return `«${nombre}» está pausada: no sale nada hasta que la actives en Automations.`;
     const g = (await leerConfigAutomatizacion(secuenciaId)).goteo;
     if (!g || (g.minutos == null && g.dia == null)) return null;
-    const db = await getTenantDb();
     const desde = new Date(Date.now() - 86_400_000).toISOString();
     const { data, error } = await db.from('wa_borradores').select('enviado_at')
       .eq('secuencia_id', secuenciaId).eq('estado', 'enviado').gte('enviado_at', desde).limit(1000);
@@ -134,8 +141,7 @@ export async function frenoDelGoteoAlAprobar(secuenciaId: number | null): Promis
       if (!Number.isFinite(ms)) continue;
       uso = { enviados: uso.enviados + 1, ultimoMs: Math.max(uso.ultimoMs ?? ms, ms), primeroMs: Math.min(uso.primeroMs ?? ms, ms) };
     }
-    const { data: sec } = await db.from('nutricion_secuencias').select('nombre').eq('id', secuenciaId).maybeSingle();
-    return frenoAlAprobar(g, uso, Date.now(), String((sec as { nombre?: unknown } | null)?.nombre ?? 'Esta automatización'));
+    return frenoAlAprobar(g, uso, Date.now(), nombre);
   } catch (e) {
     return `No pude comprobar el goteo de esta automatización (${e instanceof Error ? e.message : String(e)}): prueba de nuevo en un momento.`;
   }

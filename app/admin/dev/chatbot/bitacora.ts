@@ -2257,4 +2257,37 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "22 oct", hora: "14:10", chat: "Automations", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "«Sprint · apertura»: sale sola por la línea de Mauricio, se pausa desde Automations y el CRM muestra y frena a los leads que están en ella",
+    puntos: [
+      "Llegó por el Cerebro: la campaña del Sprint empieza el sábado 24/10 con 50 por día.",
+      "Antes, el AU1 del plan: probar que el goteo espacia también si los mensajes quedan para aprobar.",
+      "La activa Mauricio.",
+    ],
+    pedido: "«Sale sola, su línea. Y se puede pausar el envío desde Automations... Y en el CRM debería indicar en la tarjeta o en algún lugar que esos leads están en una automatización activa, y que desde el CRM también se pueda frenar»",
+  },
+  {
+    fecha: "22 oct", hora: "14:45", chat: "Automations", cuenta: "claude3",
+    sesion: "local_5acdaea2-2605-48fb-b890-f79e8476faa3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Hecho: el goteo también espacia lo que queda para aprobar, y «Sprint · apertura» quedó con «Sale sola», pausada",
+    puntos: [
+      "Con los mensajes para aprobar, los 50 de un día ya no aparecen juntos: nacen de a uno cada 5 minutos, como si salieran solos.",
+      "Aprobar uno en Chats respeta el goteo: si salió otro hace menos de 5 minutos, dice en cuántos minutos se puede.",
+      "«Sprint · apertura» tiene «Sale sola» prendido y sale por la línea de Mauricio. Sigue pausada: la activa Mauricio con «Activar», abajo a la derecha del lienzo.",
+      "En producción: deploy de f6bd295e7 (lo verificó Integración).",
+    ],
+    commits: [
+      { sha: "eb96ffc85", msg: "Automations · el goteo también con aprobación: los borradores nacen de a uno y aprobar no los manda juntos (AU1)", lineas: 178, archivos: 6 },
+      { sha: "87e24aa72", msg: "Automations · cosecha del AU1: el goteo con aprobación no espaciaba nada (contaba sólo lo enviado, y aprobar mandaba en el acto)", lineas: 17, archivos: 2 },
+    ],
+    archivos: [
+      "lib/goteo.ts — lo que cuenta para el goteo, y el freno al aprobar",
+      "lib/borrador-camino.ts — la única puerta de envío de un borrador",
+      "docs/hallazgos-chatbot.md — «El goteo con APROBACIÓN no espaciaba nada»",
+    ],
+    revisar: "/automations",
+  },
 ];

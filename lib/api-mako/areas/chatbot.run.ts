@@ -78,6 +78,7 @@ import { armarSecuenciasDeAudios } from '@/lib/secuencias-audios';
 import { getContactoReportes } from '@/lib/perfil';
 import { getSetting, getSettingEstricto, setSetting } from '@/lib/settings';
 import { getFunnelDefault } from '@/lib/funnels';
+import { enAutomatizaciones } from '@/lib/automatizaciones-del-lead';
 import {
   secuenciaFila, inscripcionesVivas, handoffFila, inscripcionesDeLead, TOPE_INSCRIPCIONES_LEAD,
   estadoCanalWhatsapp, etapasParaSecuencia, leerObjetivosCustom, esObjetivoDelCatalogo, agregarObjetivoCustom, TOPE_OBJETIVOS_CUSTOM,
@@ -561,7 +562,11 @@ export const RUNNERS: Runners = {
 
   inscripciones_lead: {
     leer: async (input) => {
-      const filas = await inscripcionesDeLead(num(input, 'leadId'));
+      const leadId = num(input, 'leadId');
+      const filas = await inscripcionesDeLead(leadId);
+      // 22/10/2026 (el CRM: «en qué paso está»): de las vivas, la tarjeta como la nombra el lienzo y si la automatización está
+      // pausada (lib/automatizaciones-del-lead.ts, lo mismo que ve el CRM).
+      const vivas = new Map(((await enAutomatizaciones([leadId])).get(leadId) ?? []).map((a) => [a.secuenciaId, a]));
       return json({
         total: filas.length, tope: TOPE_INSCRIPCIONES_LEAD,
         inscripciones: filas.map((f) => ({
@@ -570,6 +575,10 @@ export const RUNNERS: Runners = {
           // Dónde está: la tarjeta (con ramas, `pasos_avanzados` es una posición del array) y, con
           // flechas en paralelo, cuántos caminos corren a la vez.
           tarjeta: f.nodo_actual, caminos_en_paralelo: Array.isArray(f.hilos) ? f.hilos.length : 0,
+          ...(vivas.has(Number(f.secuencia_id)) ? {
+            paso: vivas.get(Number(f.secuencia_id))!.paso?.titulo ?? null,
+            automatizacion_pausada: !vivas.get(Number(f.secuencia_id))!.automatizacionActiva,
+          } : {}),
           desenlace: f.desenlace, desenlace_at: f.desenlace_at, inscripto: f.inscripto_at,
         })),
         nota: filas.length
