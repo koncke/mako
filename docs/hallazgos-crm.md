@@ -10178,3 +10178,26 @@ lead-view/LeadTabs.tsx · tests/crm-llamada-22-10-p1.test.ts
 tests/crm-ficha-de-donde-vino.test.ts
 *22/10/2026, chat «CRM» (claude3).*
 
+## La estrella del CRM es la del Ops Center: lo que se perdió al mandar todo al Cerebro (22/10/2026)
+
+- **«Este CRM» no le dice nada al Cerebro.** Los pedidos de las sugerencias que se revisan con MaKo (`tipo: 'chat'`,
+  lib/sugerencias-crm.ts) están escritos en primera persona del CRM: «En este CRM hay 12 leads…», «Si es a éste,
+  conéctala». En el chat propio del CRM el turno sabía de qué CRM se hablaba (`contextoDelCrm`). En el Cerebro no hay
+  CRM. `pedidoParaElCerebro` lo nombra («En el CRM «Sprint 3 días» hay…»), y el test corre TODOS los pedidos del motor.
+- **El Cerebro no recibe las lecturas del CRM.** `contextoDelCrm` le pasaba al turno las etapas y los números del CRM
+  abierto. El Cerebro tiene que pedirlos con sus herramientas. Si contesta peor que el chat de antes, la causa está acá
+  y no en el modelo.
+- **La estrella ya no se abre sola en una pantalla ancha** (`mako-crm:panel` en el navegador, desde el 20/10). La pieza
+  nace plegada: abrirla monta el motor del Cerebro, y eso no se hace sin un toque.
+- **Trampa de los tests: en JS, `\b` no ve la «é» como letra.** `/\béste\b/` NUNCA matchea «éste» (entre un espacio y
+  la «é» no hay borde de palabra), así que un `doesNotMatch` con eso pasa siempre. Se busca con `(?:^|\s)éste\b`. Lo
+  mismo vale para cualquier palabra que EMPIEZA con tilde o ñ.
+
+**Sin hacer:** el server del chat propio del CRM quedó sin pantalla: las acciones `send`, `confirmar`, `cancelar` y el
+`hilo=1` de app/api/crm/mako/route.ts, y `abrirDelCrm` / `turnoDelCrm` / `tarjetaDelCrm` de
+app/crm/mako-crm/chat-server.ts (con app/crm/mako-crm/chat-reglas.ts). `chatDelRequest` sigue siendo la puerta de las
+sugerencias. Borrar lo demás toca la ruta y la parte 4 de tests/sugerencias-crm.test.ts.
+
+**Vive en:** app/crm/mako-crm/PanelMakoCrm.tsx · lib/sugerencias-crm.ts (`pedidoParaElCerebro`) · app/_chat/MakoEnLaTab.tsx
+· tests/sugerencias-crm.test.ts
+*22/10/2026, chat «CRM» (claude3).*

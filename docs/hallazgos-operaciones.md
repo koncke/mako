@@ -1987,3 +1987,20 @@ tests/inicio-ops-center.test.ts. La regla para código nuevo, en AGENTS.md («La
 - El teléfono, sin tocar (lo lleva otro chat): «Entrar» de Partners en app/m/partners/PartnersM.tsx sigue yendo a `/general`.
 - `homeDeCapa` (lib/tab-access.ts), el rebote de una tab que el rol no ve, sigue en /crm o /plan: no es la entrada.
 - Nada de esto se miró en un navegador: es un redirect del servidor que pide la sesión de Martín con 2FA.
+
+## MakoEnLaTab: un pedido de la tab al Cerebro vive en la PIEZA, no en el panel (22/10/2026)
+
+- **El caso:** el «Hacerlo» de una sugerencia del CRM le escribía al chat propio del CRM. Con la estrella de todas las
+  tabs, tiene que salir al Cerebro. `MakoEnLaTab` suma `pedido` (`{ texto, vez }`): abre el panel y lo manda UNA vez por
+  `vez`.
+- **Por qué en la pieza:** el panel (`PanelDelCerebro`) se DESMONTA al cerrar. Un `useRef` del último pedido mandado
+  adentro del panel se pierde, y al reabrir el mismo pedido volvía a salir. La pieza guarda el último `vez` y el panel
+  sólo recibe lo que falta mandar.
+- **Sale al Cerebro y cuando se puede:** espera `k.esJefe` (la lista llegó y se eligió el Cerebro) y usa lo que devuelve
+  `k.enviar`: con el hilo cargando o MaKo trabajando devuelve `false`, y el efecto reintenta cuando cambian `cargado` o
+  `trabajo`. Cerrar el panel antes suelta el pedido: no sale «solo» más tarde.
+- **La regla para la próxima tab que migre:** lo que esa tab le inyectaba a SU chat va como `pedido`, y NOMBRANDO su
+  contexto. El Cerebro no sabe desde qué tab ni qué CRM le escriben (en el CRM: `pedidoParaElCerebro`).
+
+**Vive en:** app/_chat/MakoEnLaTab.tsx (`pedido`, `porMandar`, `ultimaVez`) · tests/sugerencias-crm.test.ts
+*22/10/2026, chat «CRM» (claude3).*

@@ -2924,4 +2924,21 @@ export const BITACORA: Hito[] = [
     archivos: [
     ],
   },
+  {
+    fecha: '22 oct', hora: '09:43', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La estrella del CRM es la de MaKo en todas las tabs: lo que se escribe va al chat «Cerebro»',
+    puntos: [
+      'Es el último punto del feedback de Martín del 21/10: «se envía lo que sea que envíen al cerebro y ya el cerebro se encarga de repartir».',
+      'La estrella abajo a la izquierda abre el chat «Cerebro», el mismo del Ops Center, a la izquierda. El CRM ya no tiene un chat propio.',
+      'Las sugerencias de MaKo del CRM siguen arriba del chat, con «Hacerlo» y «Ahora no»; su número, en la estrella.',
+      '«Hacerlo» de una sugerencia que se revisa con MaKo le escribe al Cerebro nombrando el CRM («En el CRM «Sprint 3 días» hay…»).',
+    ],
+    commits: [
+      { sha: '6df018c41', msg: 'CRM: la estrella es la del Ops Center (MakoEnLaTab) y lo que se escribe va al Cerebro; las sugerencias, arriba del hilo', lineas: 746, archivos: 15 },
+    ],
+    archivos: [
+    ],
+    revisar: '/crm',
+  },
 ];

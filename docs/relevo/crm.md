@@ -38,6 +38,9 @@ Lo que no se deduce del código, en docs/hallazgos-crm.md («El feedback del 21/
 - «Asignar evento»: crear (y asignar), editar nombre y duración, y conectar Calendly o Cal.com ahí mismo.
   tests/crm-eventos-crear.test.ts.
 - La criatura de MaKo (la estrella) abajo a la izquierda y la barra que se abre a la izquierda, pegada a la sidebar medida.
+  Desde el 22/10 (rama `crm-estrella-2210`, en C:/dev/wt-crm-estrella, que lleva la t3 adentro) es la pieza del Ops Center,
+  `MakoEnLaTab`: lo escrito va al chat «Cerebro», las sugerencias van arriba del hilo y su número en la estrella. «Hacerlo»
+  de una sugerencia de chat le escribe al Cerebro nombrando el CRM. `ChatMakoCrm.tsx` se borró. tests/sugerencias-crm.test.ts.
 - Clientes y el Plan (con un agente, `06050cd20` y `a847aaed4`): las mismas plantillas (7 cada uno), «Personalizar
   tarjetas» en el «⋯» y el clic derecho, «Nuevo cliente» / «Nueva tarea» al «⋯» de la columna.
   tests/clientes-tarjeta-plantillas.test.ts y tests/plan-tarjeta-plantillas.test.ts.
@@ -51,10 +54,9 @@ Lo que no se deduce del código, en docs/hallazgos-crm.md («El feedback del 21/
 /customer-success y /plan (el segmento y «Personalizar tarjetas»). Tipos: el tsc acotado lo cortó el vigía de RAM.
 
 **Sin hacer, con el archivo:**
-- Que lo escrito en la criatura vaya al «Cerebro» del negocio y no al hilo del CRM. El chat «Ops Center» armó la pieza
-  `MakoEnLaTab` (con `arriba` y `aviso`; `6f149d947` subiendo el 22/10 a la mañana). En cuanto esté en main, en una tanda
-  aparte: cambiar app/crm/mako-crm/PanelMakoCrm.tsx por `<MakoEnLaTab tab="CRM" arriba={sugerencias} aviso={n} />`. No
-  armar otra en app/_chat/.
+- El server del chat propio del CRM quedó sin pantalla desde la estrella (22/10): `send`, `confirmar`, `cancelar` y
+  `hilo=1` de app/api/crm/mako/route.ts, y `abrirDelCrm` / `turnoDelCrm` / `tarjetaDelCrm` de app/crm/mako-crm/chat-server.ts
+  (con chat-reglas.ts). `chatDelRequest` sigue siendo la puerta de las sugerencias. Detalle en docs/hallazgos-crm.md.
 - Google Calendar en «Asignar evento»: su API no expone las páginas de reserva. **Decisión de Martín** (C1 de
   docs/pedidos-crm.md): una regla por título + un barrido del calendario, o esperar a Google.
 - El teléfono sigue los datos de la tarjeta pero no la forma (app/m/crm/TableroCrm.tsx dibuja filas).
