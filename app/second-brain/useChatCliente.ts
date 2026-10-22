@@ -27,7 +27,7 @@ import { copiar } from '@/app/admin/operaciones/mandar';
 import { SIN_MARCAS, aplicarMarca, armarConCita, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
 import type { ItemPropuesta } from '@/app/_chat/TarjetaAccion';
 import {
-  archivosDeRespuesta, idLocal, itemsDeOffer, itemsDeRespuesta, itemsDeSesion, conTarjeta, leerRespuesta, mensajeWADe, opcionesDeOffer, respuestaDeOffer,
+  archivosDeRespuesta, conSinRespuesta, idLocal, itemsDeOffer, itemsDeRespuesta, itemsDeSesion, conTarjeta, leerRespuesta, mensajeWADe, opcionesDeOffer, respuestaDeOffer,
   textoTapadoDeRespuesta, problemaDeSeleccion, tipoDeElegido, trasTarjeta, trasTrabajo, type EstadoPropuesta, type ItemHilo, type Leido,
 } from '@/app/m/mako/chat-ui';
 import { achicarImagen } from '@/app/m/mako/subir';
@@ -237,7 +237,8 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
     const l = await pedir<Abierta>(`${RUTA}?sessionId=${id}${deAntes ? '&antes=1' : ''}`);
     if (!vigente()) return;
     if (!l.ok) { setErrorCarga(l.reintentable ? l.error : 'No pude abrir el chat.'); setCargado(true); return; }
-    setItems(itemsDeSesion(l.datos.mensajes ?? [], l.datos.propuestas ?? [], l.datos.pantallas ?? [], conWsDeAudio));
+    // Lo último de la persona sin respuesta (un turno que falló: su aviso no se guarda) se dice, con «Reintentar».
+    setItems(conSinRespuesta(itemsDeSesion(l.datos.mensajes ?? [], l.datos.propuestas ?? [], l.datos.pantallas ?? [], conWsDeAudio), Date.now()));
     setCargado(true);
   }, [conWsDeAudio]);
 

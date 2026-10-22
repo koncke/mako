@@ -113,7 +113,7 @@ test('punto 2: «Pídeselo a MaKo» cierra el modal y crea la fila por la puerta
 
 test('punto 2: «que dentro aparezca un loader»: la capa con «Creando tu automatización» en el lienzo vacío', () => {
   // (20/10/2026: el chat que sigue a la capa es el de la sidebar, por portal.)
-  const capa = tramo(PERFIL, '{rolAdmin && chatTrabajando && (', '{rolAdmin && ranuraChat && createPortal(', 1_600);
+  const capa = tramo(PERFIL, "{rolAdmin && chatTrabajando && typeof document !== 'undefined' && createPortal(",'{rolAdmin && ranuraChat && createPortal(', 1_600);
   assert.match(capa, /\{pasos\.length === 0 && \(\n\s+<div data-creando-mako="" /);
   assert.match(capa, /Creando tu automatización/);
   // Mientras la fila todavía se crea, el lienzo también lo dice (no un «Creando…» a secas).

@@ -64,7 +64,9 @@ test('11 · los controles: la búsqueda a la izquierda y «Filtrar» pegado; «E
   assert.match(barra, /<div className="cbg-barra__fin">[\s\S]*\{accion\}/, '«Exportar» al final de la barra (arriba a la derecha)');
   assert.ok(!/zoomPaso/.test(barra), 'el zoom ya no va arriba');
   assert.match(g, /<div className="cbg-zoom" role="toolbar"[^>]*>[\s\S]*zoomPaso\(1 \/ 1\.3\)[\s\S]*pantallaCompleta/, 'el zoom, ajustar y pantalla completa juntos');
-  assert.match(g, /\.cbg \.cbg-zoom \{\s*position: absolute; left: 10px; bottom: 10px;/, 'abajo a la izquierda');
+  // Abajo a la izquierda, en la fila de abajo (`.cbg-pie`, 22/10/2026), que en el teléfono comparte con «Girar la pantalla».
+  assert.match(g, /\.cbg \.cbg-pie \{\s*position: absolute; left: 10px; right: 10px; bottom: 10px;/, 'abajo, a todo el ancho');
+  assert.match(g, /<div className="cbg-pie">\s*<div className="cbg-zoom"/, 'el zoom, primero: a la izquierda');
   const vista = sinComentarios(leer('app/second-brain/VistaCerebro.tsx'));
   assert.match(vista, /accion=\{[^}]*<BotonExportar /, '«Exportar» entra al grafo por su slot');
 });
@@ -110,16 +112,16 @@ test('12 · las conexiones agrupadas por área, en el orden del lienzo, con tope
   assert.deepEqual(dos.map((g) => [g.area, g.items.length]), [['norte', 1], ['productos', 1]], 'el tope corta en el orden del lienzo');
 });
 
-test('11 y 12 en el teléfono: el lienzo oscuro con el mismo título, y la hoja con el tipo y las conexiones agrupadas', () => {
+// 22/10/2026: el lienzo oscuro del teléfono ES el grafo (sin portada); el título queda para quien no lo ve.
+test('11 y 12 en el teléfono: el grafo en oscuro con el mismo título, y la hoja con el tipo y las conexiones agrupadas', () => {
   const m = sinComentarios(leer('app/m/second-brain/SecondBrainM.tsx'));
-  assert.match(m, /<section className="m-second-brain-lienzo" data-tema="oscuro"/, 'el grafo del teléfono, en oscuro');
-  assert.match(m, /\{TITULO_SECOND_BRAIN\}<\/h1>/);
-  assert.match(m, /SUBTITULO_SECOND_BRAIN\}<\/p>/);
+  assert.match(m, /<div className="m-second-brain-grafo" data-tema="oscuro"/, 'el grafo del teléfono, en oscuro');
+  assert.match(m, /<h1 className="m-sr">\{TITULO_SECOND_BRAIN\}<\/h1>/);
   assert.match(m, /from '@\/app\/second-brain\/VistaCerebro'/, 'los textos son los de la computadora, no una copia');
   assert.match(m, /agruparConexiones\(conexiones, /, 'la misma regla de agrupar que la barra lateral');
   assert.match(m, /tipoDeNodo\(n\)/, 'el mismo tipo arriba del dato');
   const pagina = leer('app/m/second-brain/mapa/page.tsx');
   assert.ok(!pagina.includes('Claude'), 'sin «Claude» en el aviso de la computadora');
-  const css = leer('app/m/second-brain/second-brain.css');
-  assert.match(css, /\[data-m\] \.m-second-brain-titulo \{/, 'el h1 con [data-m] delante (el margen de la casa)');
+  // Mientras se arma, el mismo lienzo oscuro: no la forma de la portada que ya no existe.
+  assert.match(leer('app/m/second-brain/mapa/loading.tsx'), /<div className="m-second-brain-grafo" data-tema="oscuro" aria-busy="true"/);
 });
