@@ -64,7 +64,10 @@ const PROPIAS_ANTES: ReglaDeClave[] = [
  */
 // Ni pegado a un link: después de `=`, `/`, `?`, `&` o `#`, o seguido de `.`, es un parámetro o un camino, no una clave
 // pegada («…zoom.us/j/1?pwd=<32>.1» junto a «Av. Gabriela Mistral», revisión del lote 2).
-const TOKEN_MISTRAL = '(?<![A-Za-z0-9_=/?&#])(?=[A-Za-z0-9]{32}(?![A-Za-z0-9_.]))(?=[A-Za-z0-9]{0,31}[a-z])(?=[A-Za-z0-9]{0,31}[A-Z])(?=[A-Za-z0-9]{0,31}[0-9])[A-Za-z0-9]{32}';
+// El punto que cierra una frase («…es <clave>.») SÍ cuenta: sólo un punto seguido de algo más es parte de un link
+// (`(?!\.[A-Za-z0-9])`). Con `(?![A-Za-z0-9_.])` la clave al final de una oración pasaba entera (tercera revisión).
+const CUERPO_MISTRAL = '(?=[A-Za-z0-9]{32}(?![A-Za-z0-9_])(?!\\.[A-Za-z0-9]))(?=[A-Za-z0-9]{0,31}[a-z])(?=[A-Za-z0-9]{0,31}[A-Z])(?=[A-Za-z0-9]{0,31}[0-9])[A-Za-z0-9]{32}';
+const TOKEN_MISTRAL = `(?<![A-Za-z0-9_=/?&#])${CUERPO_MISTRAL}`;
 const MISTRAL = '[Mm][Ii][Ss][Tt][Rr][Aa][Ll]';
 
 /**
@@ -109,6 +112,9 @@ const PROPIAS_DESPUES: ReglaDeClave[] = [
   { nombre: 'together', re: /\btgp_v1_[A-Za-z0-9_-]{30,}/g, con: CLAVE_TAPADA, servicio: null },
   // Anclada al principio (`^`, sin `m`: una vez por texto). Un `(?<=^\s*)` en cada posición era cuadrático con espacios.
   { nombre: 'mistral-sola', re: new RegExp(`^(\\s*)${TOKEN_MISTRAL}(?=\\s*$)`, 'g'), con: `$1${CLAVE_TAPADA}`, servicio: null },
+  // Asignada a un nombre que dice «mistral» (`mistral_key=…`, `Mistral: …`): el `=` no la protege, como sí al pwd de un link.
+  // En minúscula, la regla de .env (sólo MAYÚSCULAS) no la agarraba. Arranca por la palabra: no se vuelve lenta.
+  { nombre: 'mistral-asignada', re: new RegExp(`(${MISTRAL}[A-Za-z0-9_]*[ \\t]*[=:][ \\t]*)${CUERPO_MISTRAL}`, 'g'), con: `$1${CLAVE_TAPADA}`, servicio: null },
   // Una línea de .env: SÓLO al principio de la línea (con su `export` y su sangría) y con el nombre en MAYÚSCULAS, como se
   // pega. El NOMBRE tiene que TERMINAR en KEY, TOKEN, SECRET, PASSWORD, PASS o CREDENTIAL(S), con un sufijo numérico
   // opcional (`GEMINI_API_KEY_2`, que existe): «contiene KEY» se comía `KEYWORDS: zapatillas-running-mujer-ofertas`.

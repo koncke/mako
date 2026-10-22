@@ -25,9 +25,10 @@ export type MarcaDeCredito = { cuenta: string; huella: string };
 
 /** La marca del negocio en curso (o de `ws`): `null` sin marca. Tira si no pudo leer. */
 export async function leerMarcaDeCredito(ws?: number): Promise<MarcaDeCredito | null> {
-  const { getSetting } = await import('./settings');
+  // Estricto: si la base no contesta, TIRA (y quien llama decide «no sé»). Con `getSetting`, un bache se leía «sin marca».
+  const { getSettingEstricto } = await import('./settings');
   const { runWithWorkspace } = await import('./workspace');
-  const crudo = ws == null ? await getSetting(CLAVE_CREDITO_DE) : await runWithWorkspace(ws, () => getSetting(CLAVE_CREDITO_DE));
+  const crudo = ws == null ? await getSettingEstricto(CLAVE_CREDITO_DE) : await runWithWorkspace(ws, () => getSettingEstricto(CLAVE_CREDITO_DE));
   if (!crudo) return null;
   try {
     const m = JSON.parse(crudo) as Partial<MarcaDeCredito>;

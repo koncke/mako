@@ -131,6 +131,11 @@ test('Mistral nombrada en CUALQUIER lugar: en otra línea, lejos, y dos claves c
   }
   // Sin nombrar a Mistral, un id de 32 en una frase no se toca (tapar de más también es un daño).
   assert.equal(taparClavesDelMensaje({ message: { conversation: `el pedido ${K}\ngracias` } }).tapadas, 0);
+  // La clave al FINAL de una oración (con su punto) y asignada en minúscula SÍ se tapan (tercera revisión: el punto la dejaba
+  // pasar, y `mistral_key=` no lo agarraba la regla de .env, que es sólo de MAYÚSCULAS).
+  for (const t of [`Mi clave de Mistral es ${K}.`, `Mistral: ${K}.\nGracias`, `mistral_key=${K}`, `mistral_api_key: ${K}`]) {
+    assert.ok(!JSON.stringify(taparClavesDelMensaje({ message: { conversation: t } }).mensaje).includes(K), `quedó la clave en: ${JSON.stringify(t)}`);
+  }
   // Y aun nombrándola, uno pegado a un link es un parámetro, no una clave (revisión del lote 2).
   const zoom = `Nos vemos en Av. Gabriela Mistral 1234, o por Zoom: https://zoom.us/j/123?pwd=${K}.1`;
   assert.equal(taparClavesDelMensaje({ message: { conversation: zoom } }).tapadas, 0, 'tapó el pwd de un link de Zoom');

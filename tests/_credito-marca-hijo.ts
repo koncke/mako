@@ -76,6 +76,13 @@ async function main() {
     planConSuClave: await planConSuClave(10),
     tarjeta: await tarjeta(10),
   };
+  // B2. La fila del crédito de vuelta, pero ILEGIBLE (cifrada para otro ws): con la marca, el gasto sigue siendo del
+  //     crédito (sin la marca, «no sé» lo anotaba como del negocio). Y la tarjeta ve que su Claude anduvo.
+  pg.db.credenciales.push({ workspace_id: 9, clave: 'ANTHROPIC_CREDITO_CUENTA2', valor_enc: cifrarSecreto(CREDITO, 99, 'ANTHROPIC_CREDITO_CUENTA2'), servicio: 'anthropic' });
+  olvidarD6b();
+  out.B2 = { ws10: await correr(10, 'landing-analyst'), gasto: gasto(10) };
+  pg.db.credenciales = pg.db.credenciales.filter((f) => !(f.workspace_id === 9 && f.clave === 'ANTHROPIC_CREDITO_CUENTA2'));
+  out.tarjetaAnduvo = ((await estadoDeSusClaves(10)) ?? []).find((c) => c.proveedor === 'anthropic')?.anduvo ?? null;
   // C. El control: su clave de verdad.
   out.C = { ws11: await correr(11, 'landing-analyst'), gasto: gasto(11) };
   // D. El ws10 cambia su clave por una suya: la marca (de la vieja) ya no vale.
