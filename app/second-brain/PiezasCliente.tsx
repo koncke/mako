@@ -17,7 +17,7 @@ import { CitaCaja, ContextoWA } from '@/app/admin/operaciones/MensajeWA';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { IconoChat } from '@/app/m/mako/iconos';
 import { caracteres, nombrePegado } from '@/lib/chat-pegado';
-import { ARRANQUES_SECOND_BRAIN, AVISO_EDITOR, AVISO_GRUPO, AVISO_LIENZO } from '@/lib/chat-mako-reglas';
+import { ARRANQUES_SECOND_BRAIN, AVISO_EDITOR, AVISO_EDITOR_AJENO, AVISO_GRUPO, AVISO_LIENZO } from '@/lib/chat-mako-reglas';
 import type { ChatCliente } from './useChatCliente';
 
 /** El hilo del chat abierto: lo que dijo cada uno, con lo de WhatsApp; vacío, la portada con lo que más se le pide. */
@@ -66,7 +66,10 @@ export function CajaDelCliente({ k, campo, seguir, movil = false }: {
   // Una charla del lienzo de Automations (OC5): se lee acá y se sigue en el lienzo, que es el que sabe editar la automatización.
   // Un chat de un editor (OC8): se lee acá y se sigue en el editor, que es el que aplica lo que propone.
   if (k.esEditor) {
-    return <p className="co-solo-lectura" role="note">{AVISO_EDITOR}{k.hrefEditor && <> <a className="ch-enlace" href={k.hrefEditor}>Seguir en el editor</a></>}</p>;
+    // El de otra persona del equipo se lee acá: en el editor se abriría el tuyo (`hrefEditor` es null).
+    return k.hrefEditor
+      ? <p className="co-solo-lectura" role="note">{AVISO_EDITOR} <a className="ch-enlace" href={k.hrefEditor}>Seguir en el editor</a></p>
+      : <p className="co-solo-lectura" role="note">{AVISO_EDITOR_AJENO}</p>;
   }
   if (k.esAutomatizacion) {
     return <p className="co-solo-lectura" role="note">{AVISO_LIENZO}{k.hrefLienzo && <> <a className="ch-enlace" href={k.hrefLienzo}>Seguir en el lienzo</a></>}</p>;
@@ -74,7 +77,7 @@ export function CajaDelCliente({ k, campo, seguir, movil = false }: {
   return (
     <CajaChat texto={k.texto} onTexto={(v) => { k.setFaltaMic(null); k.setTexto(v); }} onMandar={k.enviarCaja}
       ocupado={k.enCurso} apagado={!k.cargado || !!k.errorCarga} placeholder={`Escribe a ${k.nombre}`} tituloMandar={movil ? undefined : 'Mandar (Enter)'}
-      enterManda={!movil} campo={campo} seguir={seguir} onErrorMic={k.setFaltaMic} adjuntos={k.adjuntosCaja}
+      enterManda={!movil} campo={campo} seguir={seguir} onErrorMic={k.setFaltaMic} adjuntos={k.adjuntosCaja} voz={k.vozCaja}
       {...(movil ? { altoMax: null, fila: 'm-operaciones-caja__fila' } : {})}
       hayAlgoMas={k.pegados.length > 0} onPegar={k.pegarLargo}
       // Sin su Claude o su GPT, el botón para conectarlo, al final de la caja (se abre acá mismo: «Tus cuentas de IA»).

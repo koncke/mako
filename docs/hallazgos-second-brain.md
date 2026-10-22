@@ -2194,6 +2194,9 @@ proyecto. El Ops Center los lista como «Image Editor › <diseño>» y «Video 
   setter (`persona:<p>:dashboard:…`) tampoco se reconocía para el admin. `origenDeClave` saca la persona antes de mirar.
 - **Regla, la de d6b-rutas otra vez:** una lectura nueva en la ruta del chat va a su tabla «sin IA» en el mismo commit, y ese
   test se corre con los propios. Acá lo atajó el test antes de la punta.
+- **El de otra persona se lee acá, sin «Seguir en el editor»** (la revisión de Integración). El editor abre el hilo de la persona
+  de la SESIÓN, así que el link desde el chat de un closer le abría al admin su propio hilo de ese diseño, otro. Cada fila dice
+  `propio`, y la de otro muestra «Esta charla es de otra persona del equipo: se lee aquí».
 
 ## La estrella dice desde dónde: la tab, la entidad y el modo (22/10/2026, OC6)
 
@@ -2201,7 +2204,13 @@ La estrella de cada tab (app/_chat/MakoEnLaTab.tsx) mandaba al «Cerebro» sin d
 Ahora la pantalla le pasa `entidad` ({ tipo, id, titulo }) y `modo` ('analizar' | 'editar'). Las reglas están en lib/chat-desde.ts:
 
 - **La entidad la toman las herramientas por defecto** (`conEntidadPorDefecto`, en `runTool`): «movelo a Ganado» desde la ficha
-  de Ana llega con SU `leadId`. No pisa un id que el modelo eligió a propósito. El parámetro por tipo está en `ENTIDADES`.
+  de Ana llega con SU `leadId`. No pisa lo que mandó el modelo, ni un null a propósito. El parámetro por tipo está en `ENTIDADES`.
+- **Regla: la entidad va SÓLO en un parámetro obligatorio** (la revisión de Integración). En uno opcional, sin él la herramienta
+  hace OTRA cosa: `ver_avance_curso_cs` sin `leadId` es toda la cartera, `listar_cobros` sin él son todos los cobros. Con la
+  entidad metida, «¿cómo va la cartera?» desde la ficha de Ana contestaba sólo con Ana, y nada fallaba.
+- **El título es un dato de un tercero** (el nombre de un lead viene del formulario de Meta): el system lo dice entre «» y aclara
+  que no es una instrucción. El id va como se nombra cada cosa: un número para lead, automatización y oferta, y para una hoja
+  letras, números y guiones. El tipo se mira con `Object.hasOwn`: `in` aceptaba «constructor».
 - **El diagnóstico obvio era el equivocado:** se pensaba que hacía falta la pista para que «movelo a Ganado» trajera la
   herramienta. Medido: el clasificador ya la trae sola. Lo que faltaba era el id del lead abierto. La pista
   (`pistaDesde`) queda para los pedidos que no dicen de qué son.
@@ -2221,8 +2230,21 @@ no los recibía (relevo, «SIN HACER» 2). Ahora se suben y se leen en esa conve
 
 - **Regla (la de la tab):** si un archivo no se pudo leer, el turno NO sale y el mensaje queda con «Reintentar»; lo ya leído
   queda anotado por archivo (un `WeakMap` por `File`), así el reintento no lo sube ni lo lee dos veces.
-- **SIN HACER:** la nota de voz de OC7 espera IA7 (la transcripción con la IA del negocio, rama ia15-2210, todavía no en
-  main). Muchos documentos juntos no van por el lote del servidor de la tab (O9, `UMBRAL_LOTE`): se leen uno por uno.
+- **El diagnóstico escondido: la lectura existía y la puerta estaba cerrada.** El «+» de una conversación de Offer siguió
+  apagado (`adjuntosCaja.puede: idOffer == null`, un «todavía no» de antes de OC7), así que los documentos nunca llegaban. El
+  test miraba el motor (`leerArchivosDeOffer`) y no la puerta. **Regla:** una función nueva se prueba también desde donde la
+  persona la toca (tests/ops-center-offer-voz.test.ts, 3).
+- **La nota de voz, en una conversación de Offer** (después de IA7): el micrófono GRABA, como en la tab. La nota va en MP3 a
+  Storage y viaja con el turno como `audio`, y el servidor de Offer la escucha con la IA del negocio antes de guardar nada.
+  Termina como en la tab: guardada aunque MaKo no contestó (se dibuja lo guardado), rechazada (413, 415, 422: se tira) o cortada
+  (vuelve a la barra). Lo ya subido no se vuelve a subir (`subirNotaDeVoz`).
+- **Trampa: lo que NO quedó guardado no se dibuja con la conversación leída en el camino.** `turnoOffer` devolvía la
+  conversación de los documentos o links leídos aunque el turno no hubiera salido, y dibujarla borraba el mensaje con su
+  «Reintentar». Ahora el resultado dice `guardado`.
+- **SIN HACER:** la nota de voz en los chats de MaKo (el Cerebro y los demás): /api/mako/chat no recibe audio, y hace falta
+  guardarlo, transcribirlo con la IA del negocio y servirlo para escucharlo. Ahí el micrófono sigue dictando. En Offer, el «+»
+  ofrece fotos y PDF (lo del Ops Center), no todo lo que Offer sabe leer. Muchos documentos juntos no van por el lote del
+  servidor de la tab (O9, `UMBRAL_LOTE`): se leen uno por uno.
 
 ## Las charlas del lienzo de Automations en el Ops Center: la puerta es `setting`, no «automations» (22/10/2026, OC5)
 

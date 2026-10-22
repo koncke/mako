@@ -55,8 +55,8 @@ test('1. uno por uno y en orden; si uno no se pudo leer, para ahí y lo dice (el
   assert.deepEqual(t2.subidos, ['roto.pdf'], 'el de después ni se sube');
   // turnoOffer lee los archivos ANTES del turno y, si fallan, vuelve sin mandarlo.
   const motor = sinComentarios(leer('app/second-brain/motor-offer.ts'));
-  assert.match(motor, /const docs = await leerArchivosDeOffer\(id, archivos\);\n\s*if \(!docs\.ok\) return \{ ok: false, error: docs\.error \};/);
-  assert.ok(motor.indexOf('leerArchivosDeOffer(id, archivos)') < motor.indexOf("action: 'turno'"), 'antes del turno');
+  assert.match(motor, /const docs = await leerArchivosDeOffer\(id, archivos, con\);\n\s*if \(!docs\.ok\) return \{ ok: false, error: docs\.error, guardado: false, definitivo: false \};/);
+  assert.ok(motor.indexOf('leerArchivosDeOffer(id, archivos, con)') < motor.indexOf("action: 'turno'"), 'antes del turno');
 });
 
 test('2. el reintento no vuelve a subir ni a leer lo que ya se leyó', async () => {
@@ -73,7 +73,9 @@ test('2. el reintento no vuelve a subir ni a leer lo que ya se leyó', async () 
 test('3. la pantalla le pasa los archivos del «+» al motor de Offer', () => {
   const motor = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
   assert.match(motor, /if \(idOffer != null\) void mandarAOffer\(idU, t, archivos\);/);
-  assert.match(motor, /turnoOffer\(s\.id, mensaje, s\.mensajes, respuestaDeOffer\(s\.mensajes, mensaje\), archivos\.map\(\(a\) => a\.file\)\)/);
+  assert.match(motor, /turnoOffer\(s\.id, mensaje, s\.mensajes, respuestaDeOffer\(s\.mensajes, mensaje\), archivos\.map\(\(a\) => a\.file\), nota\)/);
+  // ⚠️ Y la puerta: este test miraba el motor y no el «+», que siguió apagado en Offer (tests/ops-center-offer-voz.test.ts, 3).
+  assert.match(motor, /items: elegidos, puede: cargado && !errorCarga,/);
 });
 
 // PROBADO ROMPIÉNDOLO (22/10/2026, base 3/0):

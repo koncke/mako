@@ -1725,6 +1725,9 @@ código nuevo:
     y la fila de la barra con `FilaDeChat` (PiezasCentro.tsx). Nunca una cabecera, una columna de hilo o una fila propias: lo
     nuevo va en la pieza y lo tienen los dos. La lista del cliente es UNA, sin secciones plegables, y un chat de otra tab se SIGUE
     ahí con su motor (Offer por /api/offer), nunca «sigue en <tab>». tests/ops-center-cliente.test.ts.
+    **Lo que se sigue con su motor se prueba también desde la CAJA** (22/10/2026, OC7): la lectura de los documentos de Offer
+    existía y el «+» seguía apagado en Offer (`adjuntosCaja.puede`); el test miraba el motor y nadie podía usarla. Una función
+    nueva del chat lleva su aserción en la puerta que toca la persona (tests/ops-center-offer-voz.test.ts).
   - **MaKo EN CADA TAB: la estrella abajo a la izquierda y el panel a la IZQUIERDA, con el Cerebro** (21/10/2026; Martín: «el
     chat de MaKo en las otras tabs se debe abrir siempre a la izquierda» y «los iconos de las criaturas siempre debe ser el
     icono de MaKo, se envía lo que sea que envíen al cerebro y ya el cerebro se encarga de repartir»). Reemplaza el «chat fijo

@@ -31,7 +31,7 @@ import {
   textoTapadoDeRespuesta, problemaDeSeleccion, tipoDeElegido, trasTarjeta, trasTrabajo, type EstadoPropuesta, type ItemHilo, type Leido,
 } from '@/app/m/mako/chat-ui';
 import { achicarImagen } from '@/app/m/mako/subir';
-import { abrirOffer, armarOffer, turnoOffer } from './motor-offer';
+import { abrirOffer, armarOffer, turnoOffer, type NotaDeVoz } from './motor-offer';
 import { esOpcionArmar } from '@/app/offer/ayudas';
 import { conPegados, esPegadoLargo } from '@/lib/chat-pegado';
 import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
@@ -63,6 +63,10 @@ type ItemMsg = Extract<ItemHilo, { k: 'msg' }>;
 /** Un archivo elegido en la caja, antes de mandar. `url` es su vista previa (`blob:`): la usa también la burbuja
  *  mientras sale, y se suelta cuando vuelve guardado o cuando se quita. */
 type ArchivoElegido = { id: string; file: File; tipo: 'image' | 'document'; url: string };
+/** Una nota de voz de la caja: el binario, cuánto dura, su URL `blob:` (la del reproductor mientras sale) y de qué conversación. */
+type NotaEnLaCaja = NotaDeVoz & { url: string; offer: number };
+/** Cómo terminó mandar una nota: salió (o quedó guardada), vuelve a la barra para reintentar, o se tira (el motivo ya se dijo). */
+type FinDeNota = 'salio' | 'volver' | 'tirar';
 export type Pegado = { id: string; texto: string };
 
 export async function pedir<T>(url: string, init: RequestInit = {}): Promise<Leido<T>> {
@@ -133,6 +137,8 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
   const [texto, setTexto] = useState('');
   const [faltaMic, setFaltaMic] = useState<string | null>(null);
+  /** Una nota de voz que no llegó a salir (se grabó mientras MaKo contestaba, o se cortó): vuelve a la barra para mandarla. */
+  const [notaEnEspera, setNotaEnEspera] = useState<NotaEnLaCaja | null>(null);
   const [trabajo, setTrabajo] = useState<{ desde: number } | null>(null);
   const [segs, setSegs] = useState(0);
   const [tarjeta, setTarjeta] = useState<{ id: number; accion: 'confirmar' | 'cancelar' } | null>(null);
@@ -448,30 +454,53 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   };
 
   /** Lo escrito en una conversación de Offer va a SU motor (motor-offer.ts). Tocar «Armar mi oferta» la arma, como en la tab. */
-  const mandarAOffer = async (idU: string, mensaje: string, archivos: readonly ArchivoElegido[] = []) => {
+  const mandarAOffer = async (idU: string, mensaje: string, archivos: readonly ArchivoElegido[] = [], nota: NotaDeVoz | null = null): Promise<FinDeNota> => {
     const s = offerRef.current;
-    if (!s) return;
+    if (!s) return 'volver';
     setTrabajo({ desde: Date.now() });
     try {
       const ultimo = s.mensajes[s.mensajes.length - 1];
-      if (ultimo?.de === 'mako' && !ultimo.pregunta && s.puedeConcluir && esOpcionArmar(mensaje, opcionArmar)) {
+      if (!nota && ultimo?.de === 'mako' && !ultimo.pregunta && s.puedeConcluir && esOpcionArmar(mensaje, opcionArmar)) {
         setItems((xs) => xs.filter((x) => x.id !== idU));
         const a = await armarOffer(s.id);
         if (a.ok) await ponerOffer(a.sesion); else setFaltaMic(a.error);
-        return;
+        return 'salio';
       }
-      // Con los archivos del «+» (OC7): se suben y se leen en ESTA conversación antes del turno, como en la tab.
-      const r = await turnoOffer(s.id, mensaje, s.mensajes, respuestaDeOffer(s.mensajes, mensaje), archivos.map((a) => a.file));
-      if (r.sesion && offerRef.current?.id === s.id) await ponerOffer(r.sesion);
-      // Con la conversación de vuelta, lo dicho ya quedó guardado: el error va en la línea de estado y no se reintenta.
-      if (!r.ok && !r.sesion) marcar(idU, { estado: 'error', error: r.error });
-      else if (!r.ok) setFaltaMic(r.error);
-      cargarOtros();
+      // Con los archivos del «+» y la nota de voz (OC7): se suben (y se leen) en ESTA conversación antes del turno, como en la tab.
+      const r = await turnoOffer(s.id, mensaje, s.mensajes, respuestaDeOffer(s.mensajes, mensaje), archivos.map((a) => a.file), nota);
+      if (r.ok || r.guardado) {
+        if (r.sesion && offerRef.current?.id === s.id) await ponerOffer(r.sesion);
+        // Guardado pero MaKo no contestó: el error va en la línea de estado, y lo dicho no se vuelve a mandar.
+        if (!r.ok) setFaltaMic(r.error);
+        cargarOtros();
+        return 'salio';
+      }
+      // No salió. La nota vuelve a la barra (o se tira, si el servidor ya dijo que no entra); el texto queda con «Reintentar».
+      if (nota) { setItems((xs) => xs.filter((x) => x.id !== idU)); setFaltaMic(r.error); }
+      else marcar(idU, { estado: 'error', error: r.error });
+      return r.definitivo ? 'tirar' : 'volver';
     } finally {
       ocupadoRef.current = false;
       setTrabajo(null);
     }
   };
+
+  /**
+   * LA NOTA DE VOZ (OC7, 22/10/2026), en una conversación de Offer: el micrófono GRABA como en la tab, la escucha el servidor de
+   * Offer con la IA del negocio y se escucha en el hilo. Con MaKo contestando, espera en la barra (como la tab: `apagada`).
+   */
+  const mandarNota = async (a: NotaEnLaCaja) => {
+    if (idOffer !== a.offer || ocupadoRef.current || !cargado || errorCarga) { setNotaEnEspera(a); return; }
+    ocupadoRef.current = true;
+    setFaltaMic(null);
+    const idU = idLocal('u');
+    setItems((xs) => [...xs, { k: 'msg', id: idU, role: 'user', texto: '', at: new Date().toISOString(), estado: 'enviando', voz: { url: a.url, secs: Math.max(1, Math.round(a.secs)) } }]);
+    const fin = await mandarAOffer(idU, '', [], a);
+    // La URL local se suelta cuando ya no se dibuja: lo que salió se escucha desde el servidor (/api/offer/audio).
+    if (fin === 'volver') setNotaEnEspera(a); else URL.revokeObjectURL(a.url);
+  };
+  const tirarNota = () => { if (notaEnEspera) URL.revokeObjectURL(notaEnEspera.url); setNotaEnEspera(null); };
+  const reenviarNota = () => { const a = notaEnEspera; if (!a) return; setNotaEnEspera(null); void mandarNota(a); };
 
   const enviar = (mensaje: string, archivos: readonly ArchivoElegido[] = []): boolean => {
     const t = mensaje.trim();
@@ -522,10 +551,11 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
     ponerElegidos(elegidosRef.current.filter((x) => x.id !== id));
   };
   /** Las fotos y los PDF de la caja, para la caja única: sólo fotos y PDF (lo que lee /api/mako/chat, lib/mako-adjuntos.ts).
-   *  En una conversación de Offer todavía no: sus documentos van por la lectura de Offer (lo que queda, en el relevo). */
+   *  En una conversación de Offer también: se suben y se leen en ella (motor-offer.ts → leerArchivosDeOffer). ⚠️ OC7 hizo la
+   *  lectura y dejó esta puerta cerrada (`idOffer == null`): los documentos de Offer nunca llegaban (tests/ops-center-offer-voz). */
   const adjuntosCaja: AdjuntosDeCaja = {
-    items: elegidos, puede: idOffer == null && cargado && !errorCarga, onSumar: (fs) => void sumarArchivos(fs), onQuitar: quitarArchivo, accept: ACCEPT_ADJUNTOS_CHAT,
-    onNoPuede: () => setFaltaMic('En esta conversación de Offer, pega el texto o el link en el mensaje.'),
+    items: elegidos, puede: cargado && !errorCarga, onSumar: (fs) => void sumarArchivos(fs), onQuitar: quitarArchivo, accept: ACCEPT_ADJUNTOS_CHAT,
+    onNoPuede: () => setFaltaMic('Espera a que cargue la conversación para sumar archivos.'),
     onSinImagen: (puedeLeer) => setFaltaMic(puedeLeer ? 'No hay una imagen copiada' : 'Este navegador no deja pegar'),
   };
   /** Un texto de más de 1.000 caracteres no entra a la caja: queda como un documento pegado (#864, como Claude). Una imagen
@@ -589,8 +619,18 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   const hrefLienzo = idAutomatizacion != null ? conWs(rutaDelLienzo(idAutomatizacion), ws) : null;
   /** Dónde se sigue el chat de un editor abierto: ese diseño o ese proyecto, en este negocio. */
   const idDelEditor = deEditor ? partesDeClaveDeEditor(deEditor.clave)?.id ?? null : null;
-  const hrefEditor = deEditor && idDelEditor ? conWs(EDITORES[deEditor.editor].ruta(idDelEditor), ws) : null;
+  // Sólo si es de quien mira: el editor abre el hilo de la persona de la sesión, y el de otra persona sería otro.
+  const editorPropio = !!deEditor && (editores ?? []).some((e) => e.tipo === deEditor.editor && e.clave === deEditor.clave && e.propio);
+  const hrefEditor = deEditor && idDelEditor && editorPropio ? conWs(EDITORES[deEditor.editor].ruta(idDelEditor), ws) : null;
   const enCurso = !!trabajo || armandoOffer;
+  /** La nota de voz de la caja: sólo en una conversación de Offer (la de los otros chats va con su servidor: el relevo). */
+  const vozCaja = idOffer != null ? {
+    onAudio: (blob: Blob, secs: number) => { void mandarNota({ blob, secs, url: URL.createObjectURL(blob), offer: idOffer }); },
+    onError: setFaltaMic, rotuloEnviar: 'Enviar audio', apagada: enCurso,
+    // La de OTRA conversación no se ofrece acá: una grabación a medias no viaja a otra (como la tab, `key` por conversación).
+    pendiente: notaEnEspera && notaEnEspera.offer === idOffer
+      ? { url: notaEnEspera.url, secs: notaEnEspera.secs, onBorrar: tirarNota, onDejar: reenviarNota } : null,
+  } : undefined;
   /** Los mensajes del hilo, para la barra de los fijados. */
   const mensajesWA = useMemo(() => items.flatMap((x) => (x.k === 'msg' ? [mensajeWADe(x, nombreMuneco)] : [])), [items, nombreMuneco]);
 
@@ -598,7 +638,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
     sesiones, errorLista, lista, elegido, elegir, filaAbierta, esJefe, nombre, nombreMuneco, aspectoMuneco, idOffer, idAntes, idTurno,
     esGrupo, esAutomatizacion, hrefLienzo, esEditor, hrefEditor, hayMasDelGrupo: delGrupo.hayMas, trayendoAnteriores: delGrupo.trayendo, verAnteriores,
     items, cargado, errorCarga, recargar, ahora, trabajo, segs, enCurso, armandoOffer, tarjeta, correrTarjeta, alTerminarTrabajo, reintentar,
-    texto, setTexto, faltaMic, setFaltaMic, enviar, enviarCaja, adjuntosCaja, pegados, quitarPegado, pegarLargo, cita, setCita,
+    texto, setTexto, faltaMic, setFaltaMic, enviar, enviarCaja, adjuntosCaja, vozCaja, pegados, quitarPegado, pegarLargo, cita, setCita,
     marcas, ponerMarca, accionesWA, menuWA, setMenuWA, infoWA, setInfoWA, elegirEnMenu, mensajesWA,
     iaConectada, conectando, setConectando, mirarSuIA,
   };
