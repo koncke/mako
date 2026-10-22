@@ -29,6 +29,8 @@ import { ELIGE_TU_PREGUNTA, SALTEAR_PREGUNTA, type Abrir, type Bloque } from '@/
 import { respuestasDeElegir } from '@/lib/editor-landing/bloques-web';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 import { CLAVE_TAPADA } from '@/lib/claves-en-el-chat';
+import type { OfferMensaje } from '@/lib/offer-marco';
+import type { IdMensaje, MensajeWA } from '@/lib/centro-mensajes';
 
 // ── El hilo ──────────────────────────────────────────────────────────────────
 
@@ -83,9 +85,15 @@ let secuencia = 0;
 /** Un id local para la `key` de React (los mensajes guardados no traen id). */
 export const idLocal = (pre: string): string => `${pre}-${Date.now().toString(36)}-${(++secuencia).toString(36)}`;
 
-const aMensaje = (m: MensajeChat, i: number): ItemHilo => ({
+/** `conWs` le pega a la URL de una nota de voz el `?ws=` de la pestaña: un `<audio src>` no pasa por el `fetch` de la casa, y
+ *  sin él el super admin que mira un cliente recibe 403 (/api/offer/audio). */
+type ConWs = (url: string) => string;
+const sinWs: ConWs = (u) => u;
+const aMensaje = (m: MensajeChat, i: number, conWs: ConWs = sinWs): ItemHilo => ({
   k: 'msg', id: `m${i}-${m.created_at ?? ''}`, role: m.role, texto: m.content, at: m.created_at ?? null,
   ...(m.adjuntos?.length ? { archivos: m.adjuntos } : {}),
+  // La nota de voz (Offer y el onboarding, 22/10/2026): se escucha, y el texto es la transcripción (lib/mako-turno-app-reglas.ts).
+  ...(m.audio?.url ? { voz: { url: conWs(m.audio.url), secs: m.audio.secs } } : {}),
 });
 
 /** Los archivos guardados del mensaje de la persona que devolvió un turno (para cambiar la vista previa por ellos). */
@@ -122,26 +130,82 @@ export const rutaDeArchivo = (ref: string): string => `/api/mako/chat?adjunto=${
 const aPropuesta = (t: TarjetaPendiente): ItemHilo => ({ k: 'propuesta', id: `p${t.pendienteId}`, t, estado: 'pendiente' });
 
 /** Un mensaje guardado y, debajo, lo que dibuja (lo creado de un «Hecho: …» vuelve con su miniatura al recargar). */
-const conSusBloques = (m: MensajeChat, i: number): ItemHilo[] => {
+const conSusBloques = (m: MensajeChat, i: number, conWs: ConWs = sinWs): ItemHilo[] => {
   // El «En curso: …» de un trabajo largo que sigue: su G6 consulta y dice cómo termina; la burbuja quedaba diciendo «En
   // curso» al lado de un G6 terminado (la segunda revisión de la ola 1).
   const sigue = (m.bloques ?? []).some((b) => b.t === 'trabajo' && !!b.consulta && b.pasos.some((p) => p.estado === 'en_curso'));
   return [
-    ...(sigue ? [] : [aMensaje(m, i)]), ...(m.bloques ?? []).map((b, j): ItemHilo => ({ k: 'bloque', id: `b${i}-${j}-${m.created_at ?? ''}`, b })),
+    ...(sigue ? [] : [aMensaje(m, i, conWs)]), ...(m.bloques ?? []).map((b, j): ItemHilo => ({ k: 'bloque', id: `b${i}-${j}-${m.created_at ?? ''}`, b })),
   ];
 };
 
 /** El hilo de una sesión recién abierta: los mensajes guardados y, al final, lo que espera (las tarjetas y, desde la
  *  1.10, las propuestas de pantalla pendientes de este chat, con su formulario). */
-export function itemsDeSesion(mensajes: readonly MensajeChat[], propuestas: readonly TarjetaPendiente[], pantallas: readonly PropuestaPantalla[] = []): ItemHilo[] {
+export function itemsDeSesion(mensajes: readonly MensajeChat[], propuestas: readonly TarjetaPendiente[], pantallas: readonly PropuestaPantalla[] = [], conWs: ConWs = sinWs): ItemHilo[] {
   return conRespuestas([
-    ...mensajes.flatMap(conSusBloques), ...propuestas.map(aPropuesta),
+    ...mensajes.flatMap((m, i) => conSusBloques(m, i, conWs)), ...propuestas.map(aPropuesta),
     ...pantallas.map((p): ItemHilo => ({ k: 'pantalla', id: `s-${p.escritorio}`, p })),
   ]);
 }
 
-type ItemBloque = Extract<ItemHilo, { k: 'bloque' }>;
+// ── Una conversación de Offer en el Ops Center (21/10/2026) ─────────────────────────────────────────────────────────
+// Martín: «las personas deberían poder continuar lo que quieran siempre desde el Ops Center». Una conversación de Offer se
+// LEE y se SIGUE en el Ops Center con el motor de Offer (/api/offer: 'abrir' y 'turno', app/second-brain/motor-offer.ts),
+// dibujada con el MISMO hilo: lo del dueño a la derecha (su nota de voz como audio, con la transcripción debajo), lo de
+// MaKo a la izquierda y sus opciones como una pregunta que se toca (G1 «rápida»: sin «Elige tú» ni «Saltear»). Como en la
+// tab (app/offer/ChatOffer.tsx), las opciones son sólo las del ÚLTIMO mensaje: las de antes ya no se contestan.
+
+/** El hilo de una conversación de Offer. `conWs` le pega a una URL de audio el `?ws=` de la pestaña (un `<audio src>` no
+ *  pasa por el `fetch` de la casa: lib/offer-marco.ts → `audio`). */
+export function itemsDeOffer(mensajes: readonly OfferMensaje[], conWs: (url: string) => string = (u) => u): ItemHilo[] {
+  const ultimo = mensajes.length - 1;
+  return conRespuestas(mensajes.flatMap((m, i): ItemHilo[] => {
+    if (m.de === 'yo') {
+      return [{
+        k: 'msg', id: `of-${m.id}`, role: 'user', texto: m.texto, at: m.at || null,
+        ...(m.audio?.url ? { voz: { url: conWs(m.audio.url), secs: m.audio.secs } } : {}),
+        ...(m.adjuntos?.length ? { archivos: m.adjuntos.map((a): ArchivoHilo => ({ nombre: a.nombre, tipo: 'document' })) } : {}),
+      }];
+    }
+    const out: ItemHilo[] = [{ k: 'msg', id: `of-${m.id}`, role: 'assistant', texto: m.texto, at: m.at || null }];
+    const op = i === ultimo ? opcionesDeOffer(mensajes) : null;
+    return op ? [...out, op] : out;
+  }));
+}
+
+/** Las opciones VIGENTES de una conversación de Offer: las del último mensaje, si es de MaKo y trae (las de antes ya no se
+ *  contestan). Van al final del hilo, sea el de Offer o el de la proyección con el arranque (lib/chat-mako-indice.ts →
+ *  hiloDeOffer, que no las trae). */
+export function opcionesDeOffer(mensajes: readonly OfferMensaje[]): ItemHilo | null {
+  const m = mensajes[mensajes.length - 1];
+  if (!m || m.de !== 'mako' || !m.opciones?.length) return null;
+  return { k: 'bloque', id: `of-${m.id}-op`, b: { t: 'pregunta', pregunta: '', opciones: m.opciones.map((titulo) => ({ titulo })), varias: !!m.varias, rapida: true } };
+}
+
+/** Lo que se manda a Offer al tocar una opción: si es la de una pregunta del DIAGNÓSTICO (el último mensaje de MaKo), su
+ *  índice (`respuesta`), como la tab (app/offer/OfferApp.tsx); si no, el texto y nada más. */
+export function respuestaDeOffer(mensajes: readonly OfferMensaje[], texto: string): { preguntaId: string; idx: number } | null {
+  const ultimo = [...mensajes].reverse().find((m) => m.de === 'mako');
+  if (!ultimo?.pregunta || !ultimo.opciones?.length) return null;
+  const idx = ultimo.opciones.findIndex((o) => igual(o) === igual(texto));
+  return idx >= 0 ? { preguntaId: ultimo.pregunta.id, idx } : null;
+}
+
+// ── Lo de WhatsApp en el chat con MaKo (21/10/2026, el del super admin: app/admin/operaciones/MensajeWA.tsx) ─────────────
+
 type ItemMsg = Extract<ItemHilo, { k: 'msg' }>;
+/** El id de un mensaje para lo de WhatsApp (lib/centro-mensajes.ts → IdMensaje: `t:` y hasta 64 letras, números o guiones). Sale
+ *  de quién lo dijo y de su hora, que no cambian al recargar (el id de la fila sí: lleva su lugar en el hilo). Lo que todavía no
+ *  tiene hora, de su id. */
+export const idWA = (x: Pick<ItemMsg, 'id' | 'role' | 'at'>): IdMensaje =>
+  `t:${x.at ? `${x.role === 'user' ? 'u' : 'm'}${x.at.replace(/\D/g, '')}` : x.id.replace(/[^\w-]/g, '-').slice(-60)}`;
+/** El mensaje, para el menú del clic derecho, la cita y los fijados (sin el contexto de WhatsApp, no hace nada). */
+export const mensajeWADe = (x: ItemMsg, nombre: string): MensajeWA => ({
+  id: idWA(x), texto: x.texto, de: x.role === 'user' ? 'Tú' : nombre, propio: x.role === 'user',
+  instante: x.at ? Date.parse(x.at) || 0 : 0, trabajo: null,
+});
+
+type ItemBloque = Extract<ItemHilo, { k: 'bloque' }>;
 const esSelector = (x: ItemHilo): x is ItemBloque => x.k === 'bloque' && (x.b.t === 'pregunta' || x.b.t === 'elegir');
 const esDeLaPersona = (x: ItemHilo): x is ItemMsg => x.k === 'msg' && x.role === 'user';
 const igual = (s: string): string => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();

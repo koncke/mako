@@ -63,9 +63,10 @@ test('el corte del turno respeta las marcas y dice lo que cortó', () => {
 
 test('#848: el hilo de escritorio y el del teléfono parten el mensaje y pliegan lo largo', () => {
   const hilo = sinComentarios(leer('app/_chat/HiloMako.tsx'));
-  assert.match(hilo, /const \{ texto, pegados \} = partirPegados\(/);
+  // Desde el 21/10/2026 lo partido puede traer la cita del mensaje que responde (lo de WhatsApp): va arriba, en el globo.
+  assert.match(hilo, /const \{ texto: conTodo, pegados \} = partirPegados\(/);
   assert.match(hilo, /<PegadosHilo pegados=\{pegados\} \/>/);
-  assert.match(hilo, /<TextoPlegable texto=\{texto\} className="co-burbuja" pie=\{pie\} \/>/);
+  assert.match(hilo, /<TextoPlegable texto=\{texto\} className="co-burbuja" pie=\{pie\} arriba=\{cita\} \/>/);
   const tel = sinComentarios(leer('app/m/mako/ChatMako.tsx'));
   assert.match(tel, /const \{ texto: t, pegados \} = partirPegados\(/);
   assert.match(tel, /<PegadosHilo pegados=\{pegados\} \/>/);
@@ -74,8 +75,10 @@ test('#848: el hilo de escritorio y el del teléfono parten el mensaje y pliegan
 });
 
 test('#864: pegar más de 1.000 caracteres deja una ficha, en la computadora y en el teléfono', () => {
-  const sb = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
-  assert.match(sb, /if \(esPegadoLargo\(pegado\)\) \{ e\.preventDefault\(\); ponerPegados\(/);
+  // El motor del chat del cliente (22/10/2026, useChatCliente.ts: la computadora y el teléfono). En una conversación de Offer lo
+  // largo va entero: su motor lo parte en documentos.
+  const sb = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
+  assert.match(sb, /if \(idOffer == null && esPegadoLargo\(pegado\)\) \{ e\.preventDefault\(\); ponerPegados\(/);
   assert.match(sb, /if \(enviar\(conPegados\(t, pg\), elegidosRef\.current\)\)/, 'sale con el mensaje, entre marcas');
   const comp = sinComentarios(leer('app/m/mako/Composer.tsx'));
   assert.match(comp, /onPaste=\{\(e\) => \{[\s\S]*?if \(esPegadoLargo\(pegado\)\) \{ e\.preventDefault\(\); setPegados\(/);
@@ -97,13 +100,13 @@ test('#884: lo pegado se guarda solo en El Archivero, entero, del admin y con gu
 });
 
 test('la caja de escritorio suelta los pegados al cambiar de chat', () => {
-  const sb = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
-  const elegir = sb.slice(sb.indexOf('const elegir = (e: Elegido) => {'), sb.indexOf('const alternarAntes'));
+  const sb = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
+  const elegir = sb.slice(sb.indexOf('const elegir = (e: ElegidoChat): boolean => {'), sb.indexOf('const marcar = '));
   assert.match(elegir, /ponerPegados\(\[\]\);/);
 });
 
 test('la ficha se puede quitar antes de mandar', () => {
-  const sb = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
+  const sb = sinComentarios(leer('app/second-brain/PiezasCliente.tsx'));
   assert.match(sb, /aria-label="Quitar el texto pegado"/);
   assert.match(sinComentarios(leer('app/m/mako/Composer.tsx')), /aria-label="Quitar el texto pegado"/);
 });

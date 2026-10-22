@@ -82,8 +82,10 @@ test('3. arrastrar archivos a la conversación los adjunta; un texto arrastrado 
   alSoltar(evento(['Files'], [png]).e, caja(false));
   assert.equal(noPuede, 1, 'si el chat no recibe archivos, se dice');
   assert.equal(traeArchivos({ types: ['Files'] } as unknown as DataTransfer), true);
-  const conv = leer('app/admin/operaciones/Conversacion.tsx');
+  // La zona es el panel de TODOS los Ops Center (PanelChat.tsx, 21/10/2026), que montan la de Claude Code y la del cliente.
+  const conv = leer('app/admin/operaciones/PanelChat.tsx');
   assert.match(conv, /onDrop=\{\(e\) => \{ setSoltando\(false\); alSoltar\(e, adjuntos\); \}\}/, 'la conversación de la computadora');
+  assert.match(leer('app/admin/operaciones/Conversacion.tsx'), /<PanelDeChat hilo=\{hilo\} adjuntos=\{adjuntos\}/, 'Claude Code la monta');
 });
 
 const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';

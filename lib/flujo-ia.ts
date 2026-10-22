@@ -115,6 +115,8 @@ import { PLANTILLAS, pasosDePlantilla, type PlantillaAutomatizacion } from './pl
 import type { PreguntaMako, ExtrasEdicionIA } from './automatizacion-chat';
 import type { CronAviso } from './cron-aviso';
 import { respuestaDelModelo } from './flujo-ia-consulta';
+import { OP_MOVER_ETAPA } from './flujo-legado';
+import { LIMITES_CONSTANTES } from './limites-envio';
 
 // ── Constantes que comparten la ruta y los tests ─────────────────────────────────
 
@@ -402,6 +404,17 @@ const RX_LLAVE_SUELTA = /\{\{[a-z][a-z0-9_]*\}\}|[{}]/g;
 const TLD_SUELTO = 'com|net|org|io|co|app|me|ly|link|page|site|ar|mx|es|cl|pe|uy';
 const RX_DOMINIO = new RegExp(`(?<![@\\w.\\/:-])[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)*\\.(?:${TLD_SUELTO})(?![A-Za-z0-9-])(?:\\/[^\\s<>"'()\\]]*)?`, 'g');
 
+/** Un link para comparar: sin protocolo, `www.`, barra final ni el signo que lo cierra, y en minúsculas. */
+function formaDeLink(u: string): string {
+  return u.trim().replace(/[.,;:!?)»]+$/, '').replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/+$/, '').toLowerCase();
+}
+
+/** Los links que el dueño escribió en su pedido (con `http`, con `www.` o un dominio suelto). */
+export function linksDelPedido(pedido: string | null | undefined): string[] {
+  const t = String(pedido ?? '');
+  return [...(t.match(RX_URL) ?? []), ...(t.match(RX_DOMINIO) ?? [])];
+}
+
 /** El host de una URL o de un dominio suelto, sin `www.` y en minúsculas. */
 function hostDe(u: string): string {
   const s = u.trim().replace(/^https?:\/\//i, '');
@@ -414,18 +427,27 @@ function hostDe(u: string): string {
  *     un dominio suelto (`RX_DOMINIO`);
  *   · los corchetes (un `[algo]` deja el paso sin salir nunca: `RX_RELLENO`);
  *   · las variables que el motor no resuelve (`esVariableConocida`) y TODA llave suelta. Las que sí
- *     resuelve se reescriben con doble llave, que es como las lee `aplicarVariables`.
+ *     resuelve se reescriben con doble llave, que es como las lee `aplicarVariables`. Una que NOMBRA un dato que existe
+ *     con otra forma (`{{empresa_del_lead}}`, `{{nombre_lead}}`) pasa a la del catálogo (`aliasDeVariable`): borrada dejaba
+ *     la frase rota al lead («¿Sigues al frente de?», 22/10/2026, 3 de 4 en la prueba de los chats del Cerebro).
  * Devuelve el texto y qué clase de cosa se sacó, para el aviso.
  */
-export function limpiarTexto(t: string, o: { destino?: DestinoMensaje } = {}): { texto: string; quitado: Array<'link' | 'corchete' | 'variable'> } {
-  const quitado = new Set<'link' | 'corchete' | 'variable'>();
+export function limpiarTexto(t: string, o: { destino?: DestinoMensaje; deja?: readonly string[] } = {}): { texto: string; quitado: Array<Quitado> } {
+  const quitado = new Set<Quitado>();
   let s = String(t ?? '');
-  s = s.replace(RX_URL, () => { quitado.add('link'); return ''; });
-  s = s.replace(RX_DOMINIO, () => { quitado.add('link'); return ''; });
+  // ⚠️ EL LINK QUE ESCRIBIÓ EL DUEÑO SE QUEDA (22/10/2026, la prueba de los chats del Cerebro, 3 de 3): «que les mande el link
+  // del Sprint https://sprint.mauriciobustos.com/» se borraba y el mensaje prometía un link que no llevaba. Lo que se borra es
+  // el link que INVENTA el modelo; uno escrito tal cual en el pedido (`deja`, `linksDelPedido`) no es inventado.
+  const dejados = new Set((o.deja ?? []).map(formaDeLink));
+  const sale = (m: string): string => { if (dejados.has(formaDeLink(m))) return m; quitado.add('link'); return ''; };
+  s = s.replace(RX_URL, sale);
+  s = s.replace(RX_DOMINIO, sale);
   s = s.replace(RX_CORCHETE, () => { quitado.add('corchete'); return ''; });
   s = s.replace(RX_LLAVES, (_m, k: string) => {
     const key = String(k).trim().toLowerCase();
     if (/^[a-z][a-z0-9_]*$/.test(key) && (esVariableConocida(key) || (o.destino != null && datoPermitido(key, o.destino)))) return `{{${key}}}`;
+    const alias = aliasDeVariable(key);
+    if (alias) { quitado.add('renombrada'); return `{{${alias}}}`; }
     quitado.add('variable');
     return '';
   });
@@ -455,11 +477,21 @@ export function datoPermitido(key: string, destino: DestinoMensaje): boolean {
 /** ¿Una variable que un MENSAJE AL LEAD puede llevar? La del motor de siempre o un dato del catálogo para el lead. */
 const variableDelLead = (k: string): boolean => esVariableConocida(k) || datoPermitido(k, 'lead');
 
-const AVISO_QUITADO: Record<'link' | 'corchete' | 'variable', string> = {
+type Quitado = 'link' | 'corchete' | 'variable' | 'renombrada';
+const AVISO_QUITADO: Record<Quitado, string> = {
   link: 'Borré un link escrito en un texto: los pone MaKo desde tus links',
   corchete: 'Borré un texto entre corchetes',
-  variable: 'Borré una variable que no existe',
+  variable: 'Borré una variable que no existe: revisa que la frase se lea bien',
+  renombrada: 'Cambié una variable por la que existe ({{nombre}}, {{nombre_completo}}, {{apellido}} o {{empresa}})',
 };
+
+/** Un dato del lead escrito con otra forma → la variable del catálogo que lo resuelve; null si no nombra ninguno. */
+export function aliasDeVariable(key: string): string | null {
+  const k = key.toLowerCase();
+  const alias = /empresa|compan/.test(k) ? 'empresa' : /apellido/.test(k) ? 'apellido'
+    : /nombre/.test(k) && /complet/.test(k) ? 'nombre_completo' : /nombre/.test(k) ? 'nombre' : null;
+  return alias && esVariableConocida(alias) ? alias : null;
+}
 
 // ── El JSON del modelo, tarjeta por tarjeta ───────────────────────────────────────
 
@@ -557,6 +589,8 @@ type Estado = {
   social?: CanalSocial | null;
   /** EDITAR, en un cambio de canal: las tarjetas de un tramo que son COPIA de un mensaje que ya existe (`armar` las saca). */
   copias?: ReadonlySet<string>;
+  /** El CRON del flujo (el que eligió el modelo o el que ya tiene): de su CRM sale la etapa de «Mover de etapa» (`crmDeLaEtapa`). */
+  cron?: string | null;
 };
 
 /**
@@ -602,6 +636,23 @@ function resolverProducto(v: unknown, ctx: CtxIA): ProductoIA | null {
 }
 
 /** Una etapa por su key o su rótulo, en un producto. */
+/**
+ * EL CRM DE LA ETAPA de una acción que no pide CRM («Mover de etapa», `proponer_cambio_etapa`): primero el del CRON del flujo
+ * (`venta:<embudo>:…`), después el principal y después cualquiera que la tenga; si ninguno la tiene, el del CRON (o el
+ * principal), para que el aviso diga de cuál no es.
+ * ⚠️ 22/10/2026 (la prueba de los chats del Cerebro, 3 de 3, y la llamada con Mauricio): se buscaba SIEMPRE en el principal
+ * (`resolverProducto(null)`), así que «movelo a Respondió» en una automatización del CRM «Sprint 3 días» salía «Saqué
+ * «Mover de etapa»: esa etapa no existe». En el A5 se leyó como una etapa que ese CRM no tenía: era el CRM equivocado.
+ */
+function crmDeLaEtapa(etapa: unknown, est: Pick<Estado, 'ctx' | 'cron'>): ProductoIA | null {
+  const conEmbudo = est.ctx.productos.filter((p) => p.funnelId != null);
+  const fid = /^venta:(\d+):/.exec(est.cron ?? '')?.[1];
+  const delCron = fid ? conEmbudo.find((p) => String(p.funnelId) === fid) ?? null : null;
+  const principal = resolverProducto(null, est.ctx);
+  const orden = [delCron, principal, ...conEmbudo].filter((p): p is ProductoIA => !!p);
+  return orden.find((p) => etapaEn(p, etapa) != null) ?? delCron ?? principal;
+}
+
 function etapaEn(p: ProductoIA, v: unknown): string | null {
   const k = normNombre(v);
   if (!k) return null;
@@ -834,12 +885,15 @@ function resolverAccion(opCruda: unknown, datosCrudos: unknown, est: Estado): { 
       continue;
     }
     if (p.nombre === 'etapa') {
-      const en = producto ?? resolverProducto(null, est.ctx);
+      const en = producto ?? crmDeLaEtapa(datos.etapa, est);
       const key = en ? etapaEn(en, datos.etapa) : null;
       // CUÁL etapa y de QUÉ CRM (22/10/2026, A5 de la llamada con Mauricio): «esa etapa no existe» justo después de crear
       // «Prospección activa» se leyó como un cache viejo, y era «Contactado», que el CRM «Sprint 3 días» no tiene.
       if (!key) return { quitar: `Saqué «${def.titulo}»: ${str(datos.etapa) ? `«${str(datos.etapa)}»` : 'esa etapa'} no es una etapa de ${en ? `«${en.nombre}»` : 'ese CRM'}` };
       params.etapa = key;
+      // «Mover de etapa» guarda su CRM, como el control de etapa del lienzo: el motor mueve la tarjeta de ESE CRM
+      // (`crmDelPaso` → `moverEnElCrmDelPaso`, lib/api-mako/flujo.ts). Sin él movería la casa del lead.
+      if (def.id === OP_MOVER_ETAPA && !producto && en?.funnelId != null) params.embudoId = en.funnelId;
       continue;
     }
     // ⚠️ UNA ACCIÓN NO COMPLETA VARIABLES: `aplicarVariables` corre sobre el texto de un MENSAJE
@@ -939,7 +993,7 @@ const relleno = (): Pick<PasoIA, 'orden' | 'canal' | 'delay_horas' | 'asunto' | 
 const vacio = (tmp: string, clase: NodoIA['clase']): NodoIA => ({ tmp, clase, paso: {}, sigue: [], ramas: [], siNo: null, casos: [], quitar: false });
 
 function textoLimpio(v: unknown, est: Estado, tope: number, destino?: DestinoMensaje): string {
-  const r = limpiarTexto(str(v).slice(0, tope * 2), { destino });
+  const r = limpiarTexto(str(v).slice(0, tope * 2), { destino, deja: linksDelPedido(est.ctx.pedido) });
   for (const q of r.quitado) est.avisos.push(AVISO_QUITADO[q]);
   return r.texto.slice(0, tope).trim();
 }
@@ -1528,6 +1582,13 @@ function entregaNombrada(valor: string | null, ctx: CtxIA, avisos: string[]): st
   if (valor && !valor.startsWith('venta:')) return undefined;
   const pedido = ` ${palabras(ctx.pedido)} `;
   const nombreDe = (d: DisparadorIA) => palabras(/«(.+)»$/.exec(d.corto ?? d.label)?.[1] ?? '');
+  // ⚠️ LA ETAPA DE VENTA QUE EL PEDIDO NOMBRA NO SE PISA (22/10/2026, la prueba de los chats del Cerebro, 3 de 3): «Que ARRANQUE
+  // cuando el lead entra a la etapa Prospección activa» tomaba el verbo por la etapa de entrega «Arranque» y cambiaba el CRON
+  // que el modelo había elegido bien. Si lo que eligió el modelo está escrito en el pedido, es lo pedido, salvo que el pedido
+  // hable de un CLIENTE («no es lead entrante, es un cliente entrante»: ahí nombra la de venta para decir que no es).
+  const elegida = valor ? ctx.disparadores.find((d) => d.value === valor) : undefined;
+  const nombreElegida = elegida ? nombreDe(elegida) : '';
+  if (nombreElegida && pedido.includes(` ${nombreElegida} `) && !hablaDeAlumno(ctx.pedido ?? '')) return undefined;
   const porProducto = new Map<string, { valores: string[]; nombres: Set<string> }>();
   for (const d of ctx.disparadores) {
     const m = /^entrega:([^:]+):[^,]+$/.exec(d.value);
@@ -1608,6 +1669,7 @@ export function deIA(json: unknown, ctx: CtxIA, rnd: () => number = Math.random)
   est.condiciones = idsDeCondiciones(ambitoDeValor(disparador), ctx.catalogoCondicion ?? {});
   est.canalDefecto = social ?? 'whatsapp';
   est.social = social;
+  est.cron = disparador;
 
   const cards = tarjetasDe(Array.isArray(json) ? json : o.tarjetas, est.avisos);
   if (cards.length > TOPE_TARJETAS_IA * 3) est.avisos.push('Eran demasiadas tarjetas: armé las primeras');
@@ -1915,15 +1977,49 @@ function claseEditable(p: PasoGrafo): ClaseEditable {
 const CLASE_DE_TIPO: Readonly<Record<TipoTarjeta, ClaseEditable>> = {
   mensaje: 'mensaje', email: 'mensaje', esperar: 'esperar', condicion: 'condicion', etiqueta: 'etiqueta', accion: 'accion', ir_a: 'ir_a', si_responde: 'respuesta',
 };
+/**
+ * UNA ESPERA CORTA ENTRE DOS WHATSAPP NO SE CUMPLE (22/10/2026, la prueba de los chats del Cerebro, cinco-min-entre-mensajes 3 de
+ * 3): el motor frena el segundo hasta que pasan las horas de «Misma persona» (Configuraciones › Límites; de 3 a 72, 20 de
+ * fábrica: `LIMITES_CONSTANTES`). El modelo ponía los 5 minutos sin decirlo, o se negaba culpando a Meta. Lo dice el código.
+ */
+export const AVISO_MISMA_PERSONA = 'Entre dos WhatsApp a la misma persona la línea espera las horas de «Misma persona» (Configuraciones › Límites; 20 de fábrica): el segundo sale cuando pasen';
+const MINUTOS_MISMA_PERSONA = LIMITES_CONSTANTES.wa.personaHoras * 60;
+function esperaCortaEntreWhatsapp(pasos: readonly PasoIA[], tocadas: ReadonlySet<string>): boolean {
+  const porId = new Map(pasos.map((p, i) => [idDe(p, i), p]));
+  const esWa = (q: PasoIA | undefined) => !!q && claseDe(q) === 'mensaje' && (q.canal ?? 'whatsapp') === 'whatsapp';
+  return pasos.some((p, i) => {
+    const id = idDe(p, i);
+    if (!tocadas.has(id) || claseDe(p) !== 'esperar') return false;
+    const e = p.espera as { modo?: string; minutos?: number } | undefined;
+    if (e?.modo !== 'tiempo' || !(Number(e.minutos) < MINUTOS_MISMA_PERSONA)) return false;
+    return esWa(porId.get(String(p.siguiente ?? ''))) && pasos.some((q) => q.siguiente === id && esWa(q));
+  });
+}
+
+/** Las tarjetas de UNA salida «sig» (en el grafo): ahí un tramo puede ir EN EL MEDIO (`agregarTramos`). */
+const SALIDA_SIMPLE: ReadonlySet<string> = new Set(['mensaje', 'esperar', 'accion']);
 /** Las de UNA salida: cambiar de clase las reemplaza en su mismo lugar. */
 const SIMPLES: ReadonlySet<ClaseEditable> = new Set<ClaseEditable>(['mensaje', 'esperar', 'etiqueta', 'accion']);
 
-/** El contenido de una tarjeta SIN sus flechas: lo que cuenta para decir que CAMBIÓ. */
+/**
+ * El contenido de una tarjeta SIN sus flechas: lo que cuenta para decir que CAMBIÓ.
+ * ⚠️ UN CAMPO VACÍO ES UN CAMPO AUSENTE (22/10/2026, la prueba de los chats del Cerebro): lo guardado trae `preheader: null`
+ * (lib/nutricion.ts) y el parche de un WhatsApp lo BORRA (`delete q.preheader`), así que cualquier «cambiar» sin cambio real
+ * decía «Cambié «Hola {{nombre}}…»» (3 de 3 en agrega-estos-textos y esperar-2-dias). `null` y ausente son lo mismo, y el
+ * ORDEN de las claves no cuenta (un parche arma sus objetos en otro orden): se compara la forma estable (`estable`).
+ */
 function contenido(p: PasoGrafo): string {
   const q: Record<string, unknown> = { ...p };
   for (const k of ['siguiente', 'paralelos', 'orden', 'si_no', 'paralelos_si_no']) delete q[k];
   if (Array.isArray(q.ramas)) q.ramas = (q.ramas as Array<Record<string, unknown>>).map((r) => ({ ...r, siguiente: null, paralelos: null }));
-  return JSON.stringify(q);
+  return JSON.stringify(estable(q));
+}
+
+/** Un valor con las claves ordenadas y sin las vacías (`null`/ausente), en todos los niveles: para comparar contenido. */
+function estable(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(estable);
+  if (!v || typeof v !== 'object') return v;
+  return Object.fromEntries(Object.entries(v as Record<string, unknown>).filter(([, x]) => x != null).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([k, x]) => [k, estable(x)]));
 }
 
 /** Para reconocer una COPIA de un mensaje: su texto sin links ni signos, los primeros 80 caracteres. */
@@ -2232,6 +2328,7 @@ export function deIAEdicion(json: unknown, base: readonly PasoGrafo[], ctx: CtxI
   est.condiciones = idsDeCondiciones(cron ? ambitoDeValor(cron) : 'cualquiera', ctx.catalogoCondicion ?? {});
   est.canalDefecto = social ?? 'whatsapp';
   est.social = social;
+  est.cron = cron ?? null;
 
   for (const id of refs(o.quitar)) pasos = quitarTarjeta(pasos, id, est);
   for (const x of Array.isArray(o.cambiar) ? o.cambiar : []) {
@@ -2283,6 +2380,7 @@ export function deIAEdicion(json: unknown, base: readonly PasoGrafo[], ctx: CtxI
     }
   }
 
+  if (esperaCortaEntreWhatsapp(pasos, new Set([...ed.agregadas, ...ed.cambiadas]))) est.avisos.push(AVISO_MISMA_PERSONA);
   const vivos = new Set(pasos.map((p, i) => idDe(p, i)));
   const out: ResultadoEdicion = {
     pasos: renumerar(pasos),
@@ -2339,6 +2437,8 @@ function agregarTramos(pasosIn: PasoIA[], grupos: readonly unknown[], ed: Edicio
     type Lugar = { tipo: 'cron' } | { tipo: 'puerto'; nodo: string; puerto: string } | { tipo: 'par'; nodo: string } | { tipo: 'caso'; titulo: string; cuando: string };
     let lugar: Lugar | null = null;
     let hilo: Hilo = 'salida';
+    /** La tarjeta que seguía en la «sig» ocupada: va después del tramo (EN EL MEDIO). */
+    let enElMedio: string | null = null;
     if (despues === 'cron' || despues === ID_INICIO) lugar = { tipo: 'cron' };
     else if (despues === 'si_responde' || despues === 'respuesta' || (resp && g.despues_de === resp && (salida === 'caso' || !salida))) {
       // ⚠️ UN AI STEP (novena tanda) LLEVA LO DE CADA CASO ADENTRO: colgarle tarjetas es lo que
@@ -2376,7 +2476,11 @@ function agregarTramos(pasosIn: PasoIA[], grupos: readonly unknown[], ed: Edicio
         const nombre = salida === 'otra_cosa' ? 'si_no' : (salida === 'siguiente' ? 'sig' : str(g.salida).trim());
         const pt = puertos.find((x) => x.puerto === nombre) ?? (nombre === '' ? puertos[0] : undefined);
         if (!pt || pt.puerto.startsWith('par:')) { est.avisos.push('Un tramo nuevo iba en una salida que no existe: no lo agregué'); continue; }
-        if (pt.destino) { est.avisos.push('Esa salida ya tiene tarjetas: no la pisé'); continue; }
+        // ⚠️ EN EL MEDIO (22/10/2026, la prueba de los chats del Cerebro, 4 de 4): «entre el primer y el segundo mensaje esperá 2
+        // días» no hacía nada, porque un tramo sólo iba a una salida vacía. En la «sig» de una tarjeta simple, lo que seguía
+        // pasa a seguir DESPUÉS del tramo (como el ＋ en medio de una flecha del lienzo), si el tramo termina en una sola punta.
+        if (pt.destino && !(pt.puerto === 'sig' && SALIDA_SIMPLE.has(claseDe(pasos[i])))) { est.avisos.push('Esa salida ya tiene tarjetas: no la pisé'); continue; }
+        enElMedio = pt.destino ?? null;
         lugar = { tipo: 'puerto', nodo: ancla, puerto: pt.puerto };
       }
     }
@@ -2428,9 +2532,14 @@ function agregarTramos(pasosIn: PasoIA[], grupos: readonly unknown[], ed: Edicio
       const k = pasos.findIndex((p) => p.id === r);
       pasos = [...pasos.slice(0, k + 1), ...armado.nodos, ...pasos.slice(k + 1)];
     } else {
+      // EN EL MEDIO: el tramo tiene que terminar en UNA punta libre (una tarjeta simple sin «sig»), que es donde se cuelga lo
+      // que seguía. Con más de una (una condición con dos ramas abiertas), no se adivina cuál: no se agrega.
+      const colas = enElMedio ? armado.nodos.filter((n) => SALIDA_SIMPLE.has(claseDe(n)) && !n.siguiente) : [];
+      if (enElMedio && colas.length !== 1) { est.avisos.push('Esa salida ya tiene tarjetas y el tramo nuevo no termina en una sola: no lo agregué'); for (const p of armado.nodos) ed.agregadas.delete(p.id!); continue; }
+      const nodos = enElMedio ? armado.nodos.map((n) => (n === colas[0] ? { ...n, siguiente: enElMedio } : n)) : armado.nodos;
       pasos = conectarPuerto(pasos, lugar.nodo, lugar.tipo === 'par' ? 'par' : lugar.puerto, raiz);
       const k = pasos.findIndex((p) => p.id === lugar!.nodo);
-      pasos = [...pasos.slice(0, k + 1), ...armado.nodos, ...pasos.slice(k + 1)];
+      pasos = [...pasos.slice(0, k + 1), ...nodos, ...pasos.slice(k + 1)];
     }
   }
   return pasos;
@@ -3162,7 +3271,7 @@ export const EDITAR_IA_SYSTEM_TEMPLATE = `Cambias una AUTOMATIZACIÓN de ${NOMBR
 LO QUE PUEDES HACER (sólo lo que pide el pedido):
 - "cambiar": [{"id": "<id del flujo actual>", y sólo los campos que cambian}]. La tarjeta se queda en su lugar. En una "condicion": "ramas": [{"id": "<id de la rama>", "si": [filas]}]. Con otro "tipo", se reemplaza en el mismo lugar.
 - "quitar": ["<id>"]. Lo que seguía pasa a su lugar; una "condicion" o un "si_responde" se llevan lo que cuelga de ellos.
-- "agregar": tramos nuevos. "despues_de": "cron", "si_responde" (un caso nuevo, con "caso": {"titulo", "cuando"}) o el id de una tarjeta. "salida": "paralelo" (arranca a la vez), "sig", "si_no", "otra_cosa" o el id de una rama o de un caso, sólo si está VACÍA. "inicio": la primera tarjeta nueva. "tarjetas": las nuevas, con ids nuevos ("t1"…), que no siguen en una del flujo actual.
+- "agregar": tramos nuevos. "despues_de": "cron", "si_responde" (un caso nuevo, con "caso": {"titulo", "cuando"}) o el id de una tarjeta. "salida": "paralelo" (arranca a la vez), "sig" (si ya sigue algo, el tramo va EN EL MEDIO), "si_no", "otra_cosa" o el id de una rama o de un caso vacíos. "inicio": la primera tarjeta nueva. "tarjetas": las nuevas, con ids nuevos ("t1"…), que no siguen en una del flujo actual.
 - "disparador": una clave de DISPARADORES, sólo si el pedido cambia qué la dispara.
 - "respuesta": si el pedido es una PREGUNTA o no pide ningún cambio, contéstala aquí (corto, en tú) y no devuelvas nada más.
 Para pasar un mensaje a otro canal, cámbiale el "canal": nunca lo copies.

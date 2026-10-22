@@ -9,8 +9,9 @@
 // disparador por etapa de /automations); su DATO lo arma ./arbol.ts, puro.
 //
 // El botón dice el CAMINO de lo que está abierto («Funnel › Oferta»), con `variante="principal"`:
-// ocupa el lugar del título y tiene que leerse como lo que manda en la pantalla. Abre PARADO en la
-// conversación abierta (el Dropdown baja solo por `caminoDe`).
+// ocupa el lugar del título y tiene que leerse como lo que manda en la pantalla. Abre en la RAÍZ, con los funnels a
+// la vista y el de la conversación abierta pintado (`abrirEnLaRaiz`, 22/10/2026). Antes abría parado en la conversación
+// abierta y para ir a otro funnel había que volver dos niveles: Mauricio no encontraba «Sprint» (llamada del 22/10, 29:00).
 //
 // ⚠️ Elegir NO cambia el `value` acá: lo cambia la pantalla cuando el servidor contesta (abrir una
 // conversación o crear una nueva puede fallar, y un botón que ya dice lo nuevo sobre una pantalla que
@@ -46,6 +47,7 @@ export function SelectorFunnel({ arbol, sesion, ocupado, onElegir }: {
         secciones={seccionesDelArbol(arbol, ICONOS)}
         onChange={onElegir}
         variante="principal"
+        abrirEnLaRaiz
         width="100%"
         menuAncho={400}
         menuAlto={460}

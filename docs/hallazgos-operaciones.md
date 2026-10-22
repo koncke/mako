@@ -1923,6 +1923,38 @@ tests/centro-preguntas-retirar.test.ts. La regla para los chats, en AGENTS.md.
 centro-textos, tickets-cartero…) no escriben el log hoy porque no llaman a lo que loguea; no hay una guarda que lo
 impida.
 
+## El panel de un chat es UNO para todos los Ops Center (21/10/2026)
+
+- **Síntoma:** el Ops Center de un cliente se veía como otra app al lado del de Martín (capturas del 21/10). Lo que pasó, con la
+  medición, en [hallazgos-second-brain.md](hallazgos-second-brain.md#el-ops-center-del-cliente-es-el-del-super-admin-las-mismas-piezas-no-un-parecido-21102026).
+- **Lo que cambió en el Centro:** la cabecera, la columna del hilo, el soltar archivos y la caja de Conversacion.tsx salieron a
+  app/admin/operaciones/PanelChat.tsx (`PanelDeChat`, `CabeceraDeChat`), y la fila de la barra a `FilaDeChat` (PiezasCentro.tsx).
+  Las filas de un mensaje (`FilaMia`, `FilaDelChat`) se exportan de Hilo.tsx. `FilaCentro` y Conversacion las montan sin cambiar
+  lo que dibujan.
+- **Regla:** algo nuevo de la conversación del Ops Center va en el panel o en las filas, y le llega al cliente solo. Un cambio de
+  la cabecera en Conversacion.tsx ya no existe: está en PanelChat.tsx.
+- **MensajeWA.tsx** suma `sin` (las opciones que un chat no tiene: el cliente no reenvía) y `mensajes` en `BarraFijados` (un hilo
+  que no es de líneas del Centro).
+
+## MaKo en cada tab a la izquierda, y las criaturas siempre vivas (21/10/2026, noche)
+
+Martín (~23:10): «el chat de MaKo en las otras tabs se debe abrir siempre a la izquierda», «los iconos de las criaturas siempre debe
+ser el icono de MaKo, se envía lo que sea que envíen al cerebro» y «las criaturas, siempre, donde sea que estén deben tener su
+animación de movimiento, y parpadeo». Código: app/_chat/MakoEnLaTab.tsx, Muneco.tsx, centro.css, criatura.css.
+
+- **La pieza de las tabs no es otro chat:** es la conversación «Cerebro» del Ops Center del cliente (useChatCliente.ts), con su
+  panel, su hilo y su caja. Cada tab la monta con `<MakoEnLaTab tab="…" />`; la migración de cada tab es de su chat (el CRM la
+  pidió primero).
+- **El panel se pega a la barra de la app, no al borde de la pantalla:** la barra mide 68 o 244 px según esté fija, y cambia sin
+  un `resize`. Se mide con un ResizeObserver sobre `[data-sidebar]`.
+- **El motor se monta con el panel abierto:** una tab que nunca abre a MaKo no pide nada.
+- **Lo de cada tab entra por la pieza, no al lado (22/10, pedido del CRM):** `arriba` (las sugerencias, sobre el hilo), `aviso` (el
+  globito de la estrella plegada) y, abierto, `--ancho-panel-mako` en <html> (440 px; 0 cerrado) para que la tab le deje el margen
+  con `padding-left: var(--ancho-panel-mako, 0px)`. Una tab que mide el panel por su cuenta se desfasa cuando la barra se fija.
+- **El desfase de cada criatura sale de su ASPECTO, no de su nombre.** Con el nombre, la estrella del «Ops Center» de la barra y la
+  del «Cerebro» dejaban de ser la misma criatura (tests/centro-ops7.test.ts lo fija comparando el HTML). Sin desfase, todas
+  parpadeaban a la vez, como un tablero.
+
 ## En la computadora se entra al Ops Center: el super admin TIENE workspace (21/10/2026)
 
 **Vive en:** `casaEnLaComputadora` (lib/ops-center-ruta.ts) · el repartidor app/inicio/page.tsx · fijado en

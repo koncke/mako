@@ -274,10 +274,13 @@ export function ChatMakoCrm({ funnelId, pedido }: {
             </div>
           </div>
         ) : (
-          <HiloMako items={items} quien={{ nombre: 'CRM' }} ahora={ahora} escribiendo={hayTrabajo ? { segs } : null}
-            tarjeta={tarjeta} onTarjeta={(x, a) => void correrTarjeta(x, a)} onReintentar={reintentar} onRecargar={recargar}
-            onResponder={(t) => { if (ocupadoRef.current) return false; enviar({ texto: t }); return true; }}
-            onTrabajo={(id, ok) => { setItems((xs) => trasTrabajo(xs, id, ok)); router.refresh(); }} />
+          // La columna del Ops Center (.co-hilo__col, flex): sin ella lo de la persona queda a la izquierda, cortado (21/10/2026).
+          <div className="co-hilo__col">
+            <HiloMako items={items} quien={{ nombre: 'CRM' }} ahora={ahora} escribiendo={hayTrabajo ? { segs } : null}
+              tarjeta={tarjeta} onTarjeta={(x, a) => void correrTarjeta(x, a)} onReintentar={reintentar} onRecargar={recargar}
+              onResponder={(t) => { if (ocupadoRef.current) return false; enviar({ texto: t }); return true; }}
+              onTrabajo={(id, ok) => { setItems((xs) => trasTrabajo(xs, id, ok)); router.refresh(); }} />
+          </div>
         )}
       </div>
       <div className="co-caja-wrap">

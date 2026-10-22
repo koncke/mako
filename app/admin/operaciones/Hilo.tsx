@@ -36,8 +36,8 @@ import { TEXTO_SOLO_ADJUNTOS, bloquesDeMensaje } from '@/lib/centro-caja';
 import { AdjuntosDeLaApp, AdjuntosEnBurbuja } from './FotosEnviadas';
 import { MiFoto } from './MiFoto';
 import { ConLinks } from './ConLinks';
-import { memo } from 'react';
-import { idDeLinea, leerCita, leerReenvio, mensajeDeLinea, sinOcultos, type MarcasChat } from '@/lib/centro-mensajes';
+import { memo, type ReactNode } from 'react';
+import { idDeLinea, leerCita, leerReenvio, mensajeDeLinea, sinOcultos, type MarcasChat, type MensajeWA } from '@/lib/centro-mensajes';
 import { CitaEnBurbuja, Deslizable, MarcasEnHora, ReaccionWA } from './MensajeWA';
 import type { PasoDelTurno } from '@/lib/centro-pasos';
 import { Trabajando } from './Trabajando';
@@ -159,6 +159,47 @@ function Trabajo({ l, w, quien, vivo, ahora, wa }: { l: LineaChat; w: TrabajoP; 
   );
 }
 
+/**
+ * UN mensaje de la persona: su globo a la derecha, con SU foto (MiFoto.tsx), lo de WhatsApp (deslizar para responder, el
+ * menú del clic derecho: MensajeWA.tsx → Deslizable) y su reacción. La MISMA fila en el Ops Center de Martín y en el chat con
+ * MaKo de cada cliente (app/_chat/HiloMako.tsx): 21/10/2026, Martín: «Los chats cortados a la mitad, sin la foto de perfil del
+ * dueño». `children` es el globo; `despues`, lo que va debajo (un aviso, en qué está).
+ */
+export function FilaMia({ m, marcas, foto, children, despues }: {
+  m: MensajeWA | null; marcas: MarcasChat | null | undefined; foto?: ReactNode; children: ReactNode; despues?: ReactNode;
+}) {
+  return (
+    <Deslizable m={m} className="co-yo">
+      {children}
+      {foto ?? <MiFoto />}
+      <ReaccionWA id={m?.id ?? null} marcas={marcas} />
+      {despues}
+    </Deslizable>
+  );
+}
+
+/**
+ * UN mensaje del chat: su criatura a la izquierda y lo que dijo en su globo (o, con `ancho`, una tarjeta especial sin globo:
+ * un «Completado», una pregunta, una tarjeta de MaKo), con la hora abajo. La MISMA fila en el Ops Center y en el chat con MaKo.
+ */
+export function FilaDelChat({ m, quien, marcas, hora, especial = false, ancho = especial, idTurno, children }: {
+  m: MensajeWA | null; quien: Quien; marcas: MarcasChat | null | undefined; hora: string | null;
+  especial?: boolean; ancho?: boolean; idTurno?: string; children: ReactNode;
+}) {
+  return (
+    <Deslizable m={m} className="co-el-wa">
+      <div className={`co-el${especial ? ' co-el--especial' : ''}`} id={idTurno}>
+        <Muneco titulo={quien.titulo} aspecto={quien.aspecto} animo="despierto" size={26} />
+        <div className={`co-el__cuerpo${ancho ? ' co-el__cuerpo--ancho' : ''}`}>
+          {children}
+          {hora != null && <p className="co-el__rotulo"><MarcasEnHora id={m?.id ?? null} marcas={marcas} />{hora}</p>}
+          <ReaccionWA id={m?.id ?? null} marcas={marcas} />
+        </div>
+      </div>
+    </Deslizable>
+  );
+}
+
 /** El Markdown de una respuesta, MEMORIZADO por su texto: es lo más caro de dibujar, y el refresco (cada 8 s, o 2,5 s con
  *  algo en camino) vuelve a armar la conversación aunque la respuesta sea la misma. */
 const MarkdownDeTurno = memo(function MarkdownDeTurno({ texto }: { texto: string }) {
@@ -174,34 +215,20 @@ function Turno({ l, t, quien, vivo, extras, wa }: { l: LineaChat; t: TurnoChat; 
   // El «Ya está» es un mensaje aparte (17/10/2026, la C): qué cambió, dónde revisarlo, su tarea del Plan y responder.
   if (t.rol === 'el' && esYaEsta(t.texto)) {
     return (
-      <Deslizable m={m} className="co-el-wa">
-        <div className="co-el co-el--especial" id={`co-turno-${t.uuid}`}>
-        <Muneco titulo={quien.titulo} aspecto={quien.aspecto} animo="despierto" size={26} />
-        <div className="co-el__cuerpo co-el__cuerpo--ancho">
-          <YaEstaMensaje t={t} chat={vivo?.chat} tareas={extras?.tareas} onFeedback={extras?.onFeedback} yaVisto={extras?.yaVisto} onYaVisto={extras?.onYaVisto} />
-          <p className="co-el__rotulo"><MarcasEnHora id={id} marcas={wa.marcas} />{hora}</p>
-          <ReaccionWA id={id} marcas={wa.marcas} />
-        </div>
-        </div>
-      </Deslizable>
+      <FilaDelChat m={m} quien={quien} marcas={wa.marcas} hora={hora} especial idTurno={`co-turno-${t.uuid}`}>
+        <YaEstaMensaje t={t} chat={vivo?.chat} tareas={extras?.tareas} onFeedback={extras?.onFeedback} yaVisto={extras?.yaVisto} onYaVisto={extras?.onYaVisto} />
+      </FilaDelChat>
     );
   }
   if (t.rol === 'el') {
     return (
-      <Deslizable m={m} className="co-el-wa">
-        <div className="co-el" id={`co-turno-${t.uuid}`}>
-        <Muneco titulo={quien.titulo} aspecto={quien.aspecto} animo="despierto" size={26} />
-        <div className="co-el__cuerpo">
-          <div className="co-el__texto co-el__md"><MarkdownDeTurno texto={t.texto} /></div>
-          <p className="co-el__rotulo"><MarcasEnHora id={id} marcas={wa.marcas} />{hora}</p>
-          <ReaccionWA id={id} marcas={wa.marcas} />
-        </div>
-        </div>
-      </Deslizable>
+      <FilaDelChat m={m} quien={quien} marcas={wa.marcas} hora={hora} idTurno={`co-turno-${t.uuid}`}>
+        <div className="co-el__texto co-el__md"><MarkdownDeTurno texto={t.texto} /></div>
+      </FilaDelChat>
     );
   }
   return (
-    <Deslizable m={m} className="co-yo">
+    <FilaMia m={m} marcas={wa.marcas} foto={t.rol === 'yo' ? undefined : <span className="co-mifoto co-mifoto--otro" aria-hidden><Icon name="chats" size={14} /></span>}>
       <div className={`co-burbuja${t.adjuntos?.length ? ' co-burbuja--con-adjuntos' : ''}`}>
         {t.rol === 'otro' && <span className="co-burbuja__cita">{t.de ?? 'Otro chat'}</span>}
         {/* Lo que adjuntó en la app de Claude (20/10/2026): arriba del texto, como las fotos que salen por el Ops Center. */}
@@ -211,9 +238,7 @@ function Turno({ l, t, quien, vivo, extras, wa }: { l: LineaChat; t: TurnoChat; 
             chico y en gris junto a la hora (18/10/2026: «un pequeño y sutil aclaración de que ese mensaje se envió por aquí»). */}
         <span className="co-burbuja__pie"><MarcasEnHora id={id} marcas={wa.marcas} />{t.rol === 'yo' && !t.trabajo && <span className="co-burbuja__desde" title="Lo escribiste directo en la app de Claude">En la app de Claude</span>}{hora}</span>
       </div>
-      {t.rol === 'yo' ? <MiFoto /> : <span className="co-mifoto co-mifoto--otro" aria-hidden><Icon name="chats" size={14} /></span>}
-      <ReaccionWA id={id} marcas={wa.marcas} />
-    </Deslizable>
+    </FilaMia>
   );
 }
 

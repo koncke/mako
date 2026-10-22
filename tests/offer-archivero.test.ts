@@ -64,7 +64,9 @@ test('el origen tiene que ser un binario de una pantalla de ESTE workspace; un p
   assert.equal(origenDelWs(0, `0/offer/${u}`), false);
 });
 
-test('«sin pisar»: sumar un documento da lo MISMO que recalcular con él al final, y no toca lo del wizard', () => {
+// 22/10/2026: un documento de Offer ya no pisa el perfil (el Sprint de Mauricio pisó su oferta principal y su avatar).
+// rotura (answersConDocumento vuelve a pisar lo que el perfil tiene): 1 fallo. rotura (la fila guarda todos los campos): 1 fallo.
+test('«sin pisar»: un documento de Offer sólo LLENA lo que el perfil no tiene; con lo que guarda su fila, recalcular da lo mismo', () => {
   const files: ArchivoConCampos[] = [
     { id: 'a', nombre: 'avatar.pdf', campos: { avatar_quien: 'Coaches', oferta_promesa: 'Vieja promesa' } },
     { id: 'b', nombre: 'oferta.docx', campos: { oferta_precio: '2000', avatar_dolor: 'No escala' } },
@@ -74,13 +76,23 @@ test('«sin pisar»: sumar un documento da lo MISMO que recalcular con él al fi
   const previas: Record<string, string> = { negocio_objetivo: 'Duplicar', marca_tono: 'Cercano', ...computeEffective(files, manual).answers };
   const nuevo: ArchivoConCampos = { id: 'c', nombre: 'chat.pdf', campos: { oferta_promesa: 'Nueva promesa', oferta_precio: '1800', negocio_que_hace: 'Mentorías', avatar_quien: '   ' } };
   const { siguiente, aportadas } = answersConDocumento(previas, manual, nuevo.campos);
-  const recalculado: Record<string, string> = { negocio_objetivo: 'Duplicar', marca_tono: 'Cercano', ...computeEffective([...files, nuevo], manual).answers };
+  // La fila del Archivero guarda SÓLO lo que aportó (lib/archivero.ts): con eso, un recálculo da lo mismo.
+  const guardado: ArchivoConCampos = { ...nuevo, campos: Object.fromEntries(aportadas.map((k) => [k, nuevo.campos[k]])) };
+  const recalculado: Record<string, string> = { negocio_objetivo: 'Duplicar', marca_tono: 'Cercano', ...computeEffective([...files, guardado], manual).answers };
   assert.deepEqual(siguiente, recalculado);
-  // Lo manual gana (no se escribe el precio del documento) y un valor vacío no es un aporte.
-  assert.deepEqual(aportadas.sort(), ['negocio_que_hace', 'oferta_promesa']);
+  // Lo manual gana, lo que el perfil ya tiene no se pisa y un valor vacío no es un aporte: sólo llena lo que faltaba.
+  assert.deepEqual(aportadas.sort(), ['negocio_que_hace']);
+  assert.equal(siguiente.oferta_promesa, 'Vieja promesa');
   assert.equal(siguiente.oferta_precio, '2500');
   assert.equal(siguiente.avatar_quien, 'Coaches');
   assert.equal(previas.oferta_promesa, 'Vieja promesa', 'no muta lo que recibe');
+  // El caso de Mauricio (ws1, 22/10/2026): el guion del Sprint no reemplaza su oferta principal ni su avatar.
+  const sprint = answersConDocumento(
+    { oferta_nombre: 'Negocio que Escala', avatar_quien: 'Empresario humanista, dueño-director o CEO fundador' }, {},
+    { oferta_nombre: 'Sprint de Diseño para la Ejecución Empresarial', avatar_quien: 'Dueño de empresa con un equipo…' },
+  );
+  assert.deepEqual(sprint.aportadas, []);
+  assert.equal(sprint.siguiente.oferta_nombre, 'Negocio que Escala');
 });
 
 test('¿ya está en El Archivero? por el id de contenido, o subido por su pantalla con el mismo nombre y los mismos bytes', () => {
@@ -214,7 +226,8 @@ test('lib/archivero.ts: una extracción por documento, DESPUÉS de mirar si ya e
   const estrictas = r.indexOf('mapaParaEscribir(MANUAL_KEY), mapaParaEscribir(ANSWERS_KEY)');
   const inserta = r.indexOf('await insertFile(ws, {');
   const suma = r.indexOf('answersConDocumento(previas, manual, ex.campos)');
-  assert.ok(origen > 0 && ya > origen && lugar > ya && extrae > lugar && estrictas > extrae && inserta > estrictas && suma > inserta,
+  // Lo que aporta se calcula ANTES de insertar: la fila guarda sólo eso (22/10/2026).
+  assert.ok(origen > 0 && ya > origen && lugar > ya && extrae > lugar && estrictas > extrae && suma > estrictas && inserta > suma,
     `origen ${origen} · ya ${ya} · lugar ${lugar} · extrae ${extrae} · estrictas ${estrictas} · inserta ${inserta} · suma ${suma}`);
   assert.equal([...r.matchAll(/extraerDeArchivo\(/g)].length, 1, 'una extracción por documento: la que aprobó Martín');
   assert.doesNotMatch(r, /buildEstado|generarPanorama|persistirBrief/, 'ni recalcula el brief ni paga un panorama');
@@ -223,6 +236,8 @@ test('lib/archivero.ts: una extracción por documento, DESPUÉS de mirar si ya e
   assert.match(r, /\} finally \{\n\s*if \(!conFila\) await borrarBinario\(destino\);\n\s*\}/);
   assert.match(r, /\} catch \(e\) \{\n\s*await soltarOrigen\(\);/);
   assert.match(r, /storage_path: destino/);
+  assert.match(r, /const campos = Object\.fromEntries\(aportadas\.map\(\(k\) => \[k, ex\.campos\[k\]\]\)\);/);
+  assert.match(r, /razonamiento: ex\.razonamiento, campos, origen: 'offer'/);
   // Mover no pisa: un destino ocupado sólo se reemplaza si es basura vieja.
   const rl = funcion(ARCH, 'reclamarLugar');
   assert.match(rl, /const r = await storage\.move\(origen, destino\);/);

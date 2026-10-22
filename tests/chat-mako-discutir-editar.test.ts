@@ -13,6 +13,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   intencionDe, vaAExplicar, bloqueDeLaCharla, extrasDelUser, REGLAS_EDITAR, REGLAS_DISCUTIR, ERROR_EDITAR_SIN_CAMBIOS, MENSAJES_DE_LA_CHARLA,
+  LO_QUE_NO_ES_TARJETA, errorDeRespuestaEnEditar, charlaConTextos, esPreguntaDirecta, traeTextosPegados, REGLAS_PEGADO,
 } from '../lib/flujo-ia-intencion';
 import { cuerpoIA } from '../app/automations/stream-ia';
 
@@ -50,7 +51,12 @@ test('a cada intención, sus reglas; sin elegir, sólo la charla', () => {
   const h = [{ de: 'yo', texto: 'hola' }];
   assert.ok(extrasDelUser('editar', h).includes(REGLAS_EDITAR));
   assert.ok(extrasDelUser('discutir', h).includes(REGLAS_DISCUTIR));
-  assert.deepEqual(extrasDelUser(null, h), [bloqueDeLaCharla(h)]);
+  // Y siempre, lo que no se arma con tarjetas (22/10/2026, la prueba de los chats del Cerebro).
+  assert.deepEqual(extrasDelUser(null, h), [bloqueDeLaCharla(h), LO_QUE_NO_ES_TARJETA]);
+  assert.match(LO_QUE_NO_ES_TARJETA, /Configuraciones › Horario/);
+  assert.match(LO_QUE_NO_ES_TARJETA, /Goteo de sus WhatsApp/);
+  assert.match(LO_QUE_NO_ES_TARJETA, /Misma persona/);
+  assert.match(REGLAS_EDITAR, /no agregues esperas que no pidió/);
   assert.match(REGLAS_EDITAR, /TAL CUAL/);
   assert.match(REGLAS_EDITAR, /«\{Nombre\}».*es \{\{nombre\}\}/);
   assert.match(REGLAS_EDITAR, /NO se inventa/);
@@ -67,11 +73,59 @@ const chat = readFileSync(join(__dirname, '..', 'app/automations/ChatMako.tsx'),
 
 test('la ruta: la intención decide explicar o editar, la charla va en los dos, y en Editar contestar es un error', () => {
   assert.match(ruta, /const intencion = intencionDe\(body\.intencion\);/);
-  assert.match(ruta, /const extras = extrasDelUser\(intencion, historial\);\n\s+if \(vaAExplicar\(intencion, respuestas\.length > 0, esConsulta\(pedido\)\)\) \{/);
+  assert.match(ruta, /const extras = extrasDelUser\(intencion, historial\);\n\s+if \(vaAExplicar\(intencion, respuestas\.length > 0, esConsulta\(pedido\), esPreguntaDirecta\(pedido\)\)\) \{/);
   assert.match(ruta, /const user = \[userDeExplicar\(\{[^\n]+\}\), \.\.\.extras\]\.join\('\\n\\n'\);/);
   assert.match(ruta, /const user = \[userDeEditar\(ctx, \{ perfil, voz, pedido: pedidoEditar \}, base\), \.\.\.extras\]\.join\('\\n\\n'\);/);
-  assert.match(ruta, /if \(r\.respuesta && intencion === 'editar'\) return \{ r, errores: \[ERROR_EDITAR_SIN_CAMBIOS\] \};/);
+  assert.match(ruta, /const errorRespuesta = r\.respuesta && intencion === 'editar' \? errorDeRespuestaEnEditar\(pedido, r\.respuesta, \{ esPregunta: esConsulta\(pedido\), charlaConTextos: charlaConTextos\(historial\) \}\) : null;\n\s+if \(errorRespuesta\) return \{ r, errores: \[errorRespuesta\] \};/);
   assert.ok(ERROR_EDITAR_SIN_CAMBIOS.length > 20);
+  // En Editar, una pregunta DIRECTA va a explicar (22/10/2026: «¿A cuántos les va a llegar?» en editar decía «Configuraciones»).
+  assert.equal(vaAExplicar('editar', false, true, true), true);
+  assert.equal(vaAExplicar('editar', false, true, false), false, '«que no le mande nada» (esConsulta) no basta');
+  assert.equal(esPreguntaDirecta('¿A cuántos les va a llegar?'), true);
+  assert.equal(esPreguntaDirecta('Quiero que estos sean los mensajes:\n1. ¿Sigues al frente?'), false);
+  assert.equal(esPreguntaDirecta('si no la tiene, que no le mande nada'), false);
+});
+
+// 22/10/2026 (la prueba de los chats del Cerebro: mau-pega-secuencia y emojis-saltos): AL CREAR, con textos pegados, van tal cual,
+// con las esperas que escribió y sin las de la regla 3. Crear no tiene «Discutir / Editar».
+// rotura (crear sin `REGLAS_PEGADO`) → 1 rojo (éste).
+test('al crear con textos pegados, el pedido lleva sus reglas; sin pegar, no', () => {
+  const core = readFileSync(join(__dirname, '..', 'lib/flujo-ia-crear-core.ts'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(core, /const user = \[userDeCrear\([^\n]+\), \.\.\.\(traeTextosPegados\(o\.pedido\) \? \[REGLAS_PEGADO\] : \[\]\)\]\.join\('\\n\\n'\);/);
+  assert.match(REGLAS_PEGADO, /\(esperar 1 día\)/);
+  assert.match(REGLAS_PEGADO, /no pongas un "esperar"/);
+  assert.match(REGLAS_PEGADO, /«\{Nombre\}» es \{\{nombre\}\}/);
+});
+
+// 22/10/2026, las corridas del arnés del Cerebro: en 4de3fe769 Editar rechazaba TODA respuesta («que no salgan todos juntos» o
+// «cambiá el mensaje» terminaban en «No cambió nada»), y con el bloque de Configuraciones el modelo inventó «Configuraciones ›
+// Acciones». Lo que no vale: contestar a textos pegados (o con los textos en la charla), a una orden, o un lugar que no existe.
+// roturas (siempre el error: lo de 4de3fe769; sin `traeTextosPegados`; sin mirar el lugar) → 1 rojo cada una (éste).
+test('en Editar vale aclarar, decir dónde se configura (un lugar real) o que no se puede; no a textos pegados ni a una orden', () => {
+  const pegado = 'Quiero que estos sean los mensajes:\n1. Hola {Nombre}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?\n2. ¿Te puedo hacer una pregunta rápida?';
+  const sin = { esPregunta: false, charlaConTextos: false };
+  assert.equal(traeTextosPegados(pegado), true);
+  assert.equal(traeTextosPegados('Agregá este texto: «Hola {Nombre}, me quedan 3 lugares para el Sprint»'), true);
+  assert.equal(traeTextosPegados('¿Qué hace esta automatización?'), false);
+  assert.equal(traeTextosPegados('Que arranque en la etapa Prospección activa del CRM «Sprint 3 días»'), false);
+  // Lo de la llamada: a textos pegados no se contesta, aunque traigan «?».
+  assert.equal(errorDeRespuestaEnEditar(pegado, 'Habría que editarlos o añadir nuevas tarjetas.', { ...sin, esPregunta: true }), ERROR_EDITAR_SIN_CAMBIOS);
+  assert.equal(errorDeRespuestaEnEditar(pegado, 'Eso va en Configuraciones › Límites.', sin), ERROR_EDITAR_SIN_CAMBIOS);
+  // Una pregunta sobre el flujo, sí.
+  assert.equal(errorDeRespuestaEnEditar('¿Qué hace esta automatización?', 'Le escribe a quien entra a Prospección activa.', { ...sin, esPregunta: true }), null);
+  // Lo que se configura fuera de las tarjetas, sí, aunque sea una orden; un lugar que NO existe, no (y el error lo dice).
+  assert.equal(errorDeRespuestaEnEditar('que no salgan todos juntos, esperá 5 minutos', 'Eso se configura en Configuraciones › Límites, «Goteo de sus WhatsApp».', sin), null);
+  assert.match(String(errorDeRespuestaEnEditar('que lo llame por teléfono', 'Configura la llamada en Configuraciones › Acciones de la automatización.', sin)), /«Configuraciones › Acciones» no existe/);
+  // Lo que no se puede, sí; pero no «pídemelo» ni «habría que».
+  assert.equal(errorDeRespuestaEnEditar('que lo llame por teléfono', 'No se puede: MaKo no hace llamadas, sólo escribe.', sin), null);
+  assert.equal(errorDeRespuestaEnEditar('cambiá el segundo mensaje', 'No puedo modificarlo, pídemelo en el chat.', sin), ERROR_EDITAR_SIN_CAMBIOS);
+  // Aclarar un pedido ambiguo, sí; pero no «¿qué cambios?» con los textos ya en la charla (el «Hazlo como te lo indiqué»).
+  assert.equal(errorDeRespuestaEnEditar('cambiá el mensaje', '¿Cuál de los tres mensajes y qué le cambio?', sin), null);
+  assert.equal(errorDeRespuestaEnEditar('Hazlo como te lo indiqué', '¿Podrías detallarme qué cambios quieres?', { ...sin, charlaConTextos: true }), ERROR_EDITAR_SIN_CAMBIOS);
+  assert.equal(charlaConTextos([{ de: 'yo', texto: pegado }, { de: 'mako', texto: 'Habría que…' }]), true);
+  assert.equal(charlaConTextos([{ de: 'yo', texto: '¿Qué hace?' }]), false);
+  // Una orden sin nada de eso: se cambia el flujo.
+  assert.equal(errorDeRespuestaEnEditar('Borrá el segundo mensaje', 'Listo, lo tengo en cuenta.', sin), ERROR_EDITAR_SIN_CAMBIOS);
 });
 
 test('el chat: Discutir / Editar encima de la barra (no al crear), arranca en Editar y viaja en el pedido de editar', () => {

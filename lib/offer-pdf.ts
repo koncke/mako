@@ -19,7 +19,7 @@
 // =============================================================================
 
 import {
-  DIMENSIONES, FUENTE_PUNTAJE, MARCA_COMPLETAR, PUNTOS_CONTROL, avisosAfirmables, dimensionLabel, loQueMeGusto, paraSubirCadaParte,
+  DIMENSIONES, FUENTE_PUNTAJE, MARCA_COMPLETAR, PUNTOS_CONTROL, avisosAfirmables, dimensionLabel, loQueMeGusto, paraSubirCadaParte, sinNumeroDelante,
   type ConclusionOferta, type PropuestaOferta, type PuntoControl,
 } from './offer-marco';
 import { CANALES, dimensionDeFase, faseDef, repartoTexto, type Diagnostico } from './fase-diagnostico';
@@ -132,7 +132,7 @@ export function seccionesExternas(p: PropuestaOferta): Array<[string, Array<{ t:
     .map(([t, cuerpo]): [string, Bloque[]] => {
       let bloques = cuerpo.filter(sinHueco);
       // Lo que es del DUEÑO adentro de una sección del cliente: el guion del precio y la objeción que ataca cada bono.
-      if (t === 'Inversión') bloques = bloques.filter((b) => b.rotulo !== 'Cómo decirlo en la llamada');
+      if (t === 'Inversión') bloques = bloques.filter((b) => b.rotulo !== ROTULO_COMO_DECIRLO);
       if (t === 'Bonos') bloques = p.bonos.filter((x) => lleno(x.nombre) && !x.nombre.includes(MARCA_COMPLETAR))
         .map((x) => ({ t: [x.nombre, lleno(x.valor) && !x.valor.includes(MARCA_COMPLETAR) ? `valor: ${x.valor}` : ''].filter(lleno).join(' — '), vineta: true }));
       // Los nombres del método van SIN «(propuesta)»: es la marca interna de que lo propuso MaKo.
@@ -324,6 +324,13 @@ function documentoDeOferta(c: ConclusionOferta, meta: MetaPdfOferta): PdfDoc {
   return doc;
 }
 
+/**
+ * El rótulo del guion del precio. Decía «Cómo decirlo en la llamada», y no todas las ofertas se venden en una llamada
+ * (22/10/2026, prueba de los chats: un dueño dijo tres veces «no hay llamadas» y el PDF lo seguía diciendo).
+ */
+const ROTULO_COMO_DECIRLO = 'Cómo decirlo';
+
+
 const etiquetaPunto = (k: PuntoControl): string => PUNTOS_CONTROL.find((x) => x.punto === k)?.label ?? k;
 
 /** Cuántas cosas de «todavía no» entran: la sección es contexto, no un segundo informe. */
@@ -434,14 +441,14 @@ function seccionesPropuesta(p: PropuestaOferta): Array<[string, Bloque[]]> {
     ['Mensajes', sinNulos([r('Corto', p.mensajes.corto), r('Largo', p.mensajes.largo), r('Para el anuncio', p.mensajes.entrada)])],
     ['Para quién es', sinNulos([r('Perfil', p.paraQuien.perfil), r('Mínimo para entrar', p.paraQuien.minimo), r('No es para', p.paraQuien.noEs)])],
     ['Problema y destino', sinNulos([r('Hoy', p.problema.hoy), r('Después', p.problema.despues), ...p.problema.obstaculos.filter(lleno).map(v), r('Lo que ya probó', p.problema.yaProbo)])],
-    ['Método', sinNulos([p.mecanismo.nombres.filter(lleno).length ? { rotulo: 'Nombres propuestos', t: p.mecanismo.nombres.filter(lleno).join(' · ') } : null, ...p.mecanismo.pasos.filter(lleno).map((x, i) => ({ t: `${i + 1}. ${x}` })), r('Por qué es distinto', p.mecanismo.distinto)])],
+    ['Método', sinNulos([p.mecanismo.nombres.filter(lleno).length ? { rotulo: 'Nombres propuestos', t: p.mecanismo.nombres.filter(lleno).join(' · ') } : null, ...p.mecanismo.pasos.filter(lleno).map((x, i) => ({ t: `${i + 1}. ${sinNumeroDelante(x)}` })), r('Por qué es distinto', p.mecanismo.distinto)])],
     ['Ruta', p.ruta.filter((x) => lleno(x.fase)).map((x) => ({ t: [x.fase, x.objetivo, x.hito ? `Hito: ${x.hito}` : ''].filter(lleno).join(' — '), vineta: true }))],
     ['Qué incluye', p.incluye.filter((x) => lleno(x.nombre)).map((x) => ({ t: x.beneficio ? `${x.nombre}: ${x.beneficio}` : x.nombre, vineta: true }))],
     ['Formato', sinNulos([f(p.formato)])],
     ['Prueba', sinNulos([f(p.prueba)])],
     ['Garantía', sinNulos([r('Nombre', p.garantia.nombre), r('Condiciones', p.garantia.condiciones), r('Plazo', p.garantia.plazo), r('Si no se cumple', p.garantia.siNoCumple)])],
     ['Bonos', p.bonos.filter((x) => lleno(x.nombre)).map((x) => ({ t: [x.nombre, x.objecion ? `ataca: ${x.objecion}` : '', x.valor ? `valor: ${x.valor}` : ''].filter(lleno).join(' — '), vineta: true }))],
-    ['Inversión', sinNulos([r('Valor total', p.inversion.valorTotal), r('Precio', p.inversion.precio), r('De contado', p.inversion.contado), r('Plan de pagos', p.inversion.plan), r('Cómo decirlo en la llamada', p.inversion.comoDecirlo)])],
+    ['Inversión', sinNulos([r('Valor total', p.inversion.valorTotal), r('Precio', p.inversion.precio), r('De contado', p.inversion.contado), r('Plan de pagos', p.inversion.plan), r(ROTULO_COMO_DECIRLO, p.inversion.comoDecirlo)])],
     ['Urgencia', sinNulos([f(p.urgencia)])],
     ['Mejor y peor escenario', sinNulos([r('Mejor', p.escenarios.mejor), r('Peor', p.escenarios.peor)])],
     ['Ecuación de valor', p.ecuacion.filter((x) => lleno(x.antes) || lleno(x.despues)).map((x) => ({ rotulo: ETIQUETA_VARIABLE[x.variable] ?? x.variable, t: `${x.antes || '—'}  ›  ${x.despues || '—'}` }))],

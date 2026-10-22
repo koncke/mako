@@ -43,6 +43,7 @@ import {
   ERROR_RECURRENTE_SIN_COHORTE,
 } from './flujo-ia-recurrente';
 import { separarValor } from './flujo-conversacion';
+import { REGLAS_PEGADO, traeTextosPegados } from './flujo-ia-intencion';
 import { textoCron, type CronAviso } from './cron-aviso';
 import type { Reentrada } from './reentrada';
 
@@ -181,7 +182,8 @@ export async function crearConIA(o: OptsCrearIA, deps: DepsCrearIA): Promise<Res
   const forzado = rec?.quien ?? disparadorForzado;
 
   const system = await deps.system();
-  const user = userDeCrear(ctx, { perfil, voz, pedido, ...(rec ? { recurrente: { linea: lineaRecurrente(rec, ctx), conQuien: !!rec.quien } } : {}) });
+  // Con textos PEGADOS (22/10/2026, lo de Mauricio): van tal cual, con las esperas que escribió y sin las que no (`REGLAS_PEGADO`).
+  const user = [userDeCrear(ctx, { perfil, voz, pedido, ...(rec ? { recurrente: { linea: lineaRecurrente(rec, ctx), conQuien: !!rec.quien } } : {}) }), ...(traeTextosPegados(o.pedido) ? [REGLAS_PEGADO] : [])].join('\n\n');
   // DUODÉCIMA TANDA: la revisión conoce el PERFIL (una herramienta que no está ni ahí ni en el pedido es inventada) y el
   // CRON que eligió el modelo (las condiciones de su ámbito y las reglas de un DM: `validarIA(…, r.disparador)`).
   // 20/10/2026: y `deIA` saca lo que el pedido no pidió (`soloLoPedido`: un aviso al equipo, un «Si responde»).

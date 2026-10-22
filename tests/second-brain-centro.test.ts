@@ -49,7 +49,7 @@ test('las dos páginas del Second Brain leen el Centro SÓLO por la lectura guar
 });
 
 test('las pantallas del Second Brain escriben a un chat sólo por mandar.ts (la firma del dispositivo)', () => {
-  for (const f of ['app/second-brain/ChatSecondBrain.tsx', 'app/m/second-brain/SecondBrainCentroM.tsx', 'app/admin/operaciones/PiezasCentro.tsx',
+  for (const f of ['app/second-brain/ChatSecondBrain.tsx', 'app/second-brain/useChatCliente.ts', 'app/m/second-brain/SecondBrainCentroM.tsx', 'app/admin/operaciones/PiezasCentro.tsx',
     'app/admin/operaciones/useCentro.ts', 'app/m/operaciones/CentroAppMovil.tsx']) {
     assert.doesNotMatch(sinComentarios(leer(f)), /encolarPedido|cancelarPedido|crearTokenCartero/, `${f}: el único camino es mandar.ts`);
   }
@@ -61,10 +61,10 @@ test('las pantallas del Second Brain escriben a un chat sólo por mandar.ts (la 
   assert.match(sb, /<ChatDelCentro centro=\{centro\} chat=\{chatCentro\}/);
 });
 
-test('el teléfono: la hoja de la conversación vive AFUERA de «Tus chats»', () => {
+test('el teléfono: la hoja de la conversación vive AFUERA de la lista', () => {
   const src = sinComentarios(leer('app/m/second-brain/SecondBrainCentroM.tsx'));
-  const ini = src.indexOf('masChats={(cerrar) => (');
-  assert.ok(ini > 0, 'las filas van en la hoja «Tus chats»');
+  const ini = src.indexOf('masChats={() => (');
+  assert.ok(ini > 0, 'las filas van en la lista de chats');
   const fin = src.indexOf(')} />', ini);
   const adentro = src.slice(ini, fin);
   assert.match(adentro, /parte="lista"/, 'adentro, sólo las filas');
@@ -85,13 +85,13 @@ test('buscar un chat de Claude Code no distingue tildes ni mayúsculas', async (
 // mandar el turno (la respuesta se demora), o el mensaje partido (en el Second Brain todo sería «otra tab» y MaKo
 // dejaría de contestar). Probado ROMPIÉNDOLO: con `await linksDelPedido(mensaje)` antes del turno → 1 fallo (éste).
 test('el Second Brain pide los links EN PARALELO al turno, con la tab de MaKo, y no parte el mensaje', () => {
-  const src = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
+  const src = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
   assert.match(src, /body: JSON\.stringify\(\{ texto, tab: 'mako' \}\)/);
   const mandar = src.slice(src.indexOf('const mandar = async ('), src.indexOf('const enviar = ('));
   const pide = mandar.indexOf('const irA = linksDelPedido(mensaje);');
   assert.ok(pide > 0 && pide < mandar.indexOf('await postArchivos') && pide < mandar.indexOf('await postLargo'), 'arranca antes del turno, sin esperarlo');
   assert.match(mandar, /void irA\.then\(\(links\) => \{ if \(links\.length\) setItems\(\(xs\) => colgarIrA\(xs, links, idU\)\); \}\);/);
-  assert.match(mandar, /mensaje \}\)/, 'el turno lleva el mensaje entero');
+  assert.match(mandar, /\{ action: 'send', sessionId: sid, mensaje, /, 'el turno lleva el mensaje entero');
 });
 
 

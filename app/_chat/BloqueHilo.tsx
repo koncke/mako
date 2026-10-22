@@ -199,7 +199,7 @@ function PreguntaHilo({ b, onResponder, respondida, ocupado }: { b: Pregunta; on
   };
   return (
     <div className="ch-bloque" data-bloque="pregunta">
-      <p className="ch-bloque__titulo">{b.pregunta}</p>
+      {!b.rapida && <p className="ch-bloque__titulo">{b.pregunta}</p>}
       <div className="ch-opciones" role="group" aria-label={b.pregunta}>
         {b.opciones.map((o, i) => (
           <button key={i} type="button" className="ch-opcion" disabled={quieta}
@@ -219,8 +219,9 @@ function PreguntaHilo({ b, onResponder, respondida, ocupado }: { b: Pregunta; on
             <button type="button" className="ch-abrir" disabled={quieta || !marcadas.length}
               onClick={() => responder(marcadas.slice().sort((x, y) => x - y).map((i) => b.opciones[i].titulo).join(', '))}>Listo</button>
           )}
-          <button type="button" className="ch-enlace" disabled={quieta} onClick={() => responder(ELIGE_TU_PREGUNTA)}>{ELIGE_TU_PREGUNTA}</button>
-          <button type="button" className="ch-enlace" disabled={quieta} onClick={() => responder(SALTEAR_PREGUNTA)}>{SALTEAR_PREGUNTA}</button>
+          {/* Las respuestas rápidas de Offer (`rapida`) no los llevan: se contesta tocando o escribiendo, como en la tab. */}
+          {!b.rapida && <button type="button" className="ch-enlace" disabled={quieta} onClick={() => responder(ELIGE_TU_PREGUNTA)}>{ELIGE_TU_PREGUNTA}</button>}
+          {!b.rapida && <button type="button" className="ch-enlace" disabled={quieta} onClick={() => responder(SALTEAR_PREGUNTA)}>{SALTEAR_PREGUNTA}</button>}
         </div>
       ) : <p className="ch-tarjeta__nota">{`Respondiste: ${dicha}`}</p>}
     </div>

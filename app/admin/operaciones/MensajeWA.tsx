@@ -33,7 +33,7 @@ import { ROTULO } from '@/lib/operaciones-reglas';
 import { nombreCuenta, type ChatCentro, type LineaChat } from '@/lib/centro-chats';
 import {
   REACCIONES, TOPE_REENVIO, buscarCitado, idDeLinea, idDelElemento, mensajeDeLinea, opcionesDelMensaje, renglonDeCita,
-  type Cita, type IdMensaje, type MarcasChat, type MensajeWA,
+  type Cita, type IdMensaje, type MarcasChat, type MensajeWA, type OpcionMensaje,
 } from '@/lib/centro-mensajes';
 
 export type { MensajeWA } from '@/lib/centro-mensajes';
@@ -193,9 +193,10 @@ export function ReaccionWA({ id, marcas }: { id: IdMensaje | null; marcas: Marca
 }
 
 /** La cita adentro de una burbuja: quién y un renglón; se toca y lleva al mensaje citado (si sigue en la conversación). */
-export function CitaEnBurbuja({ de, texto, lineas }: { de: string; texto: string; lineas: readonly LineaChat[] }) {
+export function CitaEnBurbuja({ de, texto, lineas, citado }: { de: string; texto: string; lineas: readonly LineaChat[]; citado?: IdMensaje | null }) {
   const wa = useContext(ContextoWA);
-  const id = buscarCitado(lineas, { texto });
+  // `citado`: el hilo que no es de líneas del Centro (el chat con MaKo de un cliente) ya sabe cuál es.
+  const id = citado !== undefined ? citado : buscarCitado(lineas, { texto });
   const cuerpo = <><span className="co-cita__de">{de}</span><span className="co-cita__texto">{texto}</span></>;
   return id
     ? <button type="button" className="co-cita co-cita--ir" onClick={() => irAlMensaje(id, wa?.verTodo)} title="Ir al mensaje">{cuerpo}</button>
@@ -216,15 +217,19 @@ export function CitaCaja({ cita, onQuitar, verTodo }: { cita: Cita; onQuitar: ()
 }
 
 /** La barra de los fijados, arriba de la conversación: muestra uno; tocarla va a ése y pasa al siguiente (WhatsApp). */
-export function BarraFijados({ marcas, lineas, titulo, onSoltar, verTodo }: {
+export function BarraFijados({ marcas, lineas, titulo, onSoltar, verTodo, mensajes }: {
   marcas: MarcasChat; lineas: readonly LineaChat[]; titulo: string; onSoltar: (id: IdMensaje) => void; verTodo?: () => void;
+  /** Los mensajes de un hilo que no es de líneas del Centro (el chat con MaKo de un cliente, 21/10/2026): se buscan acá. */
+  mensajes?: readonly MensajeWA[];
 }) {
-  const fijados = marcas.fijados.map((id) => ({ id, l: lineas.find((x) => idDeLinea(x) === id) })).filter((x): x is { id: IdMensaje; l: LineaChat } => !!x.l);
+  const fijados = marcas.fijados
+    .map((id) => ({ id, m: mensajes ? mensajes.find((x) => x.id === id) ?? null : (() => { const l = lineas.find((x) => idDeLinea(x) === id); return l ? mensajeDeLinea(l, titulo) : null; })() }))
+    .filter((x): x is { id: IdMensaje; m: MensajeWA } => !!x.m);
   const [i, setI] = useState(0);
   if (!fijados.length) return null;
   const k = Math.min(i, fijados.length - 1);
   const actual = fijados[fijados.length - 1 - k];
-  const m = mensajeDeLinea(actual.l, titulo);
+  const m = actual.m;
   return (
     <div className="co-fijados" role="region" aria-label="Mensajes fijados">
       {fijados.length > 1 && (
@@ -244,12 +249,14 @@ export function BarraFijados({ marcas, lineas, titulo, onSoltar, verTodo }: {
 export type MenuAbiertoWA = { m: MensajeWA; x: number; y: number; tactil?: boolean };
 
 /** El menú de un mensaje, con la fila de reacciones arriba. Elegir algo lo cierra. Abierto con el dedo, la hoja de WhatsApp. */
-export function MenuMensajeWA({ abierto, marcas, onCerrar, onElegir }: {
+export function MenuMensajeWA({ abierto, marcas, onCerrar, onElegir, sin = [] }: {
   abierto: MenuAbiertoWA | null;
   marcas: MarcasChat;
   onCerrar: () => void;
   /** `reaccion:<emoji>` o una opción de `opcionesDelMensaje`. */
   onElegir: (m: MensajeWA, id: string) => void;
+  /** Lo que este chat no tiene: el Ops Center de un cliente no reenvía a otro chat (21/10/2026). */
+  sin?: readonly OpcionMensaje['id'][];
 }) {
   const [confirmar, setConfirmar] = useState<{ m: MensajeWA; x: number; y: number } | null>(null);
   if (confirmar) {
@@ -261,7 +268,7 @@ export function MenuMensajeWA({ abierto, marcas, onCerrar, onElegir }: {
     );
   }
   if (!abierto) return null;
-  if (abierto.tactil) return <HojaMensajeWA m={abierto.m} marcas={marcas} onCerrar={onCerrar} onElegir={onElegir} />;
+  if (abierto.tactil) return <HojaMensajeWA m={abierto.m} marcas={marcas} onCerrar={onCerrar} onElegir={onElegir} sin={sin} />;
   const { m } = abierto;
   const actual = marcas.reacciones[m.id] ?? null;
   const iconos: Record<string, ItemMenuContextual['icono']> = {
@@ -274,7 +281,7 @@ export function MenuMensajeWA({ abierto, marcas, onCerrar, onElegir }: {
       enLinea: REACCIONES.map((e) => ({ id: `reaccion:${e}`, label: actual === e ? `Quitar ${e}` : `Reaccionar con ${e}`, icono: <span className="co-wa__emoji" data-actual={actual === e ? 'true' : undefined}>{e}</span> })),
     },
     null,
-    ...opcionesDelMensaje(m, marcas).flatMap((o): EntradaMenuContextual[] => [
+    ...opcionesDelMensaje(m, marcas).filter((o) => !sin.includes(o.id)).flatMap((o): EntradaMenuContextual[] => [
       ...(o.id === 'eliminar' ? [null] : []),
       { id: o.id, label: o.label, icono: iconos[o.id], peligro: o.id === 'eliminar' },
     ]),
@@ -300,8 +307,8 @@ export function MenuMensajeWA({ abierto, marcas, onCerrar, onElegir }: {
  * abría y se cerraba en el mismo gesto. Esta hoja sólo se cierra con un toque que EMPIEZA afuera después de abrirla, con
  * Escape, con el «atrás» (atras.ts) o eligiendo algo; levantar el dedo que la abrió no elige nada.
  */
-export function HojaMensajeWA({ m, marcas, onCerrar, onElegir }: {
-  m: MensajeWA; marcas: MarcasChat; onCerrar: () => void; onElegir: (m: MensajeWA, id: string) => void;
+export function HojaMensajeWA({ m, marcas, onCerrar, onElegir, sin = [] }: {
+  m: MensajeWA; marcas: MarcasChat; onCerrar: () => void; onElegir: (m: MensajeWA, id: string) => void; sin?: readonly OpcionMensaje['id'][];
 }) {
   // Un toque cuenta sólo si su dedo bajó con la hoja ya abierta: el que la abrió todavía está apoyado.
   const listo = useRef(false);
@@ -347,7 +354,7 @@ export function HojaMensajeWA({ m, marcas, onCerrar, onElegir }: {
               </button>
               <button type="button" role="menuitem" className="co-wa-hoja__accion" onClick={(e) => { if (vale(e)) setConfirmar(false); }}><span>Cancelar</span></button>
             </>
-          ) : opcionesDelMensaje(m, marcas).map((o) => (
+          ) : opcionesDelMensaje(m, marcas).filter((o) => !sin.includes(o.id)).map((o) => (
             <button key={o.id} type="button" role="menuitem" className={`co-wa-hoja__accion${o.id === 'eliminar' ? ' co-wa-hoja__accion--peligro' : ''}`} onClick={elegir(o.id)}>
               <span>{o.label}</span>{iconos[o.id]}
             </button>
