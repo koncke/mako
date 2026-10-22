@@ -41,7 +41,7 @@ test('⚠️ una mensualidad activa con lo registrado cobrado está «Al día ·
     pagos: [pago(800, true, '2026-08-05'), pago(800, true, '2026-09-05'), pago(800, true, '2026-10-05')],
   }));
   assert.equal(c.seDibuja, true);
-  assert.deepEqual(c.semaforo, { tono: 'verde', texto: 'Al día · próxima el 05/11' });
+  assert.deepEqual(c.semaforo, { tono: 'verde', texto: 'Al día · próxima el 5 de noviembre' });
   assert.equal(c.cobradoUsd, 2400);
   assert.equal(c.totalUsd, null, 'una suscripción mes a mes no tiene total');
   assert.equal(c.texto, '$2,400 cobrado');
@@ -72,7 +72,7 @@ test('una suscripción cancelada (en la pasarela o la manual) es gris, y una de 
   assert.equal(manual.semaforo.texto, 'Cancelada');
   const termino = cobradoDelLead(lead({ ventaTipo: 'suscripcion', suscripcionMontoUsd: 100, suscripcionMeses: 3, fechaCierre: '2026-06-10', pagos: [pago(100, true, '2026-06-10'), pago(100, true, '2026-07-10'), pago(100, true, '2026-08-10')] }));
   assert.equal(termino.suscripcion?.estado, 'terminada');
-  assert.deepEqual(termino.semaforo, { tono: 'gris', texto: 'Terminó el 10/09' });
+  assert.deepEqual(termino.semaforo, { tono: 'gris', texto: 'Terminó el 10 de septiembre' });
   assert.equal(termino.totalUsd, 300, 'plazo fijo: el total es la mensualidad por los meses');
   assert.equal(termino.texto, '$300 cobrado de $300');
 });

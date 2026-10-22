@@ -190,6 +190,8 @@ export type Lead = {
   fecha_primer_pago: string | null;
   monto_primer_pago: number | null;
   total_cobrado_usd: number | null;
+  /** Lo cobrado de la venta de la CASA (mig 0325). Lo traen `select('*')` y la lista del CRM; no se escribe desde un lead. */
+  total_cobrado_casa_usd?: number | null;
   fecha_inicio_servicio: string | null;
 
   // Plan de pagos (Fase 8-bis) — genera las filas de `pagos`
@@ -404,7 +406,8 @@ export type EstadoMadurez = 'madura' | 'madurando' | 'reciente' | 'sin_j1';
 const LISTA_COLS =
   'id, nombre, email, empresa, telefono, telefono_normalizado, created_at, estado_lead, pipeline_stage, nutricion_realizada, nutricion_manual_deadline, ' +
   'fecha_agenda, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, calificado, fecha_confirmacion, fecha_primer_pago, fecha_cierre, ' +
-  'monto_cierre_usd, total_cobrado_usd, closer, setter, fathom_links, motivo_perdida, visitor_id, ' +
+  // `total_cobrado_casa_usd`: mig 0325, APLICADA en producción el 22/10/2026 (lo cobrado de la venta de la casa).
+  'monto_cierre_usd, total_cobrado_usd, total_cobrado_casa_usd, closer, setter, fathom_links, motivo_perdida, visitor_id, ' +
   'venta_tipo, suscripcion_monto_usd, suscripcion_meses, ' +
   // ⚠️ MIG 0258 ANTES DEL DEPLOY: el tablero suma `ingreso_estimado` por columna (punto 21) y
   // la ficha muestra `instagram` (punto 28). Una columna que no existe acá rechaza la consulta

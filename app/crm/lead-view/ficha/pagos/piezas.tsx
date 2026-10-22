@@ -24,7 +24,7 @@ import type { Tono as TonoUi } from '@/app/_ui/tokens';
 import type { Tono } from '@/lib/cobrado-lead';
 import type { Pago } from '@/lib/pagos';
 import { METODOS_PAGO, ROTULO_METODO, nombreCuota, type MetodoPago } from '@/lib/pagos-campo';
-import { fmtDDMMYYYY, horaEnTz } from '@/lib/date-utils';
+import { fechaEnPalabras, horaEnTz } from '@/lib/date-utils';
 import { useTzWorkspace } from '../../useTzWorkspace';
 import { usd } from '@/lib/pagos-vistazo';
 import { marcarPagoManualAction, registrarPagoSueltoAction } from '@/app/crm/[id]/deal-actions';
@@ -232,7 +232,7 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, hoy, comprobante = 
       <input ref={archivo} type="file" accept=".pdf,image/*" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f && monedaNegocio != null) void subir(f, monedaNegocio); }} />
       {paso === 'elegir' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <p style={{ margin: 0, fontSize: 13.5, color: 'var(--dim)' }}>{nombre} · {usd(valorUsd)}{cuota.fecha_esperada ? ` · vence el ${fmtDDMMYYYY(cuota.fecha_esperada)}` : ''}</p>
+          <p style={{ margin: 0, fontSize: 13.5, color: 'var(--dim)' }}>{nombre} · {usd(valorUsd)}{cuota.fecha_esperada ? ` · vence el ${fechaEnPalabras(cuota.fecha_esperada)}` : ''}</p>
           {comprobante && leyendo && <p style={{ margin: 0, fontSize: 13, color: 'var(--dim)' }}>Leyendo <b>{comprobante.nombre}</b>, el comprobante del chat…</p>}
           <Button variant="primary" full loading={leyendo || monedaNegocio == null} onClick={() => archivo.current?.click()}>Subir el comprobante</Button>
           <Button variant="secondary" full disabled={leyendo} onClick={() => setPaso('datos')}>Cargarlo a mano</Button>
@@ -264,8 +264,10 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, hoy, comprobante = 
  * MENSUALIDAD cobrada de una suscripción manual. Entra como una cuota nueva ya cobrada por `marcarPago`, el mismo
  * camino que cualquier cobro: suma a lo cobrado y corta los recordatorios. No toca el monto de la venta.
  */
-export function RegistrarPago({ leadId, monedaNegocio, modo, sugeridoUsd, hoy, onCerrar, onHecho }: {
+export function RegistrarPago({ leadId, crm = null, monedaNegocio, modo, sugeridoUsd, hoy, onCerrar, onHecho }: {
   leadId: number; monedaNegocio: string;
+  /** El CRM agregado que mira la tab (mig 0324): el pago es de ese trato. null = la casa. */
+  crm?: number | null;
   /** El día del NEGOCIO (`ctx.hoy`), la fecha que se propone: con el UTC, de noche el pago caía mañana. */
   hoy: string;
   /** 'mensualidad': el título, el concepto y el monto sugerido son los de la suscripción. */
@@ -287,7 +289,7 @@ export function RegistrarPago({ leadId, monedaNegocio, modo, sugeridoUsd, hoy, o
     setError(null);
     start(async () => {
       try {
-        await registrarPagoSueltoAction(leadId, { monto: p.monto as number, fecha, hora: hora || null, moneda: p.moneda, montoOriginal: p.montoOriginal, metodo: metodo || null, concepto: concepto.trim() || null, mensualidad: modo === 'mensualidad' });
+        await registrarPagoSueltoAction(leadId, { monto: p.monto as number, fecha, hora: hora || null, moneda: p.moneda, montoOriginal: p.montoOriginal, metodo: metodo || null, concepto: concepto.trim() || null, mensualidad: modo === 'mensualidad', crm });
         onHecho(`${modo === 'mensualidad' ? 'Mensualidad' : 'Pago'} de ${usd(p.monto as number)} registrado`);
       } catch (e) { setError(msg(e)); }
     });
@@ -314,7 +316,7 @@ export function VerComprobante({ cuota, leadId, onCerrar }: { cuota: Pago; leadI
       <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
         <div style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)', padding: '9px 13px', fontFamily: MONO, fontSize: 12, color: 'var(--dim)', display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cuota.comprobante_nombre ?? 'comprobante'}</span>
-          <span>{usd(Number(cuota.monto_usd))}{cuota.fecha_pago ? ` · ${fmtDDMMYYYY(cuota.fecha_pago)}` : ''}{cuota.pago_hora ? ` · ${cuota.pago_hora.slice(0, 5)}` : ''}</span>
+          <span>{usd(Number(cuota.monto_usd))}{cuota.fecha_pago ? ` · ${fechaEnPalabras(cuota.fecha_pago)}` : ''}{cuota.pago_hora ? ` · ${cuota.pago_hora.slice(0, 5)}` : ''}</span>
         </div>
         <iframe src={src} title="Comprobante" style={{ display: 'block', width: '100%', height: 380, border: 'none', background: 'var(--surface-2)' }} />
       </div>

@@ -367,3 +367,14 @@ export function alternarValor(elegidos: readonly string[] | null, valor: string)
   if (actual.length >= MAX_VALORES) return { valores: actual.length ? actual : null, topeado: true };
   return { valores: [...actual, k], topeado: false };
 }
+
+/**
+ * Los funnels elegidos en el control «Funnel» de la HOJA (el de arriba, con lo que se eligió mirando), por nombre; null si
+ * no hay o está en «Todos». 22/10/2026 (llamada con un cliente): la hoja «Cobros» tiene que poder mirar uno o varios CRMs
+ * (la venta, las renovaciones, el low ticket) con UN selector, y «A quién cobrarle» es un bloque de General que no
+ * pasa por los filtros de los gráficos (`efectivoDe` no lo alcanza).
+ */
+export function funnelsDeLaHoja(hoja: Hoja | null | undefined, vista: VistaValores | null | undefined): string[] | null {
+  const c = (hoja?.controles ?? []).map((k) => conVista(k, vista ?? {})).find((k) => k.tipo === 'lista' && k.campo === 'producto');
+  return c && controlActivo(c) ? [...(c.valores ?? [])] : null;
+}

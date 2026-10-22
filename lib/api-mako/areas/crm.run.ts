@@ -42,7 +42,7 @@ import { etapaVigenteDe } from '@/lib/funnel-etapas';
 // El candado de «calificado»: el mismo que aplica updateLead y que dibuja la ficha.
 import { calificadoSeDescarta } from '@/lib/calificado-reunion';
 import { getJuntasProximas } from '@/lib/queries';
-import { getLeadPlan, getPagosByLead, savePlanPagos, saveLeadPlanManual, marcarPago, cobrarCuota, registrarPagoSuelto, monedaDelNegocio } from '@/lib/pagos';
+import { getLeadPlan, getPagosByLead, savePlanPagos, saveLeadPlanManual, marcarPago, cobrarCuota, registrarPagoSuelto, monedaDelNegocio, tratosDelLead } from '@/lib/pagos';
 import { avisoDeConservadas, avisoMonedaPorOmision, avisoPlanUniforme, cobroManualDeEntrada, textoDelCobro } from '@/lib/pagos-campo';
 // Sólo para la lectura cobranza_lead (14/10/2026): lo cobrado con la misma cuenta que la ficha.
 import { cobradoDelLead, noEsDeuda } from '@/lib/cobrado-lead';
@@ -52,7 +52,8 @@ import { listarCobros } from '@/lib/cobros';
 import { NOMBRE_PASARELA, type Pasarela } from '@/lib/cobros-tipos';
 import { centavos, diferenciaPendiente, type RestoDeCobro } from '@/lib/pagos-diferencia';
 import { getResumenLead, linkResumenLead } from '@/lib/lead-resumen';
-import { getWorkspaceActual } from '@/lib/workspace';
+import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
+import { cobradoDeLaVenta, faltaDeLaVenta } from '@/lib/pagos-crm';
 import { getUltimoInsightGenerado, generarInsightLead } from '@/lib/lead-insights';
 import { buildJourney } from '@/lib/journey';
 import { propuestasPendientes, crearPropuesta } from '@/lib/propuestas';
@@ -424,16 +425,33 @@ export const RUNNERS: Runners = {
       const campo = s(input.campo_fecha) ?? 'created_at';
       const limite = n(input.limite) ?? 30;
       const { filas, total_cartera } = await leadsFiltrados({ etapas, banda: s(input.banda), campoFecha: campo, desde: s(input.desde), hasta: s(input.hasta), persona: s(input.persona) });
-      const leads = filas.slice(0, limite).map(({ l, key, label, fecha }) => ({
-        id: l.id, nombre: l.nombre, empresa: l.empresa, etapa: key, etapa_label: label, estado: l.estado_lead,
-        closer: l.closer ?? null, setter: l.setter ?? null, [campo]: fecha,
-        monto_cierre_usd: l.monto_cierre_usd, total_cobrado_usd: l.total_cobrado_usd,
-      }));
+      // Lo cobrado de la VENTA de la casa (mig 0325), leído para esta página. Si la lectura falla, null y `nota_cobrado`.
+      const pagina = filas.slice(0, limite);
+      const deLaCasa = new Map<number, unknown>();
+      // ⚠️ Supabase no tira: devuelve `error` (tercera revisión, B4). Sin leerla, «falta» caía callado a la cuenta de todos los
+      // CRMs; ahora sale null y una nota.
+      let sinCasa = false;
+      try {
+        const { data, error } = await (await getTenantDb()).from('leads').select('id, total_cobrado_casa_usd').in('id', pagina.map(({ l }) => l.id));
+        if (error) sinCasa = true;
+        for (const r of (data ?? []) as Array<{ id: number; total_cobrado_casa_usd: unknown }>) deLaCasa.set(Number(r.id), r.total_cobrado_casa_usd);
+      } catch { sinCasa = true; }
+      const leads = pagina.map(({ l, key, label, fecha }) => {
+        const conCasa = { ...l, total_cobrado_casa_usd: deLaCasa.get(l.id) ?? null };
+        return {
+          id: l.id, nombre: l.nombre, empresa: l.empresa, etapa: key, etapa_label: label, estado: l.estado_lead,
+          closer: l.closer ?? null, setter: l.setter ?? null, [campo]: fecha,
+          monto_cierre_usd: l.monto_cierre_usd, total_cobrado_usd: l.total_cobrado_usd,
+          cobrado_de_la_venta_usd: sinCasa ? null : cobradoDeLaVenta(conCasa), falta_cobrar_usd: sinCasa ? null : faltaDeLaVenta(conCasa),
+        };
+      });
       return json({
         filtro: { etapas: etapas ?? null, banda: s(input.banda) ?? null, campo_fecha: campo, desde: s(input.desde) ?? null, hasta: s(input.hasta) ?? null, persona: s(input.persona) ?? null },
         coinciden: filas.length, devueltos: leads.length, omitidos: filas.length - leads.length, total_cartera,
         ...(campo === 'created_at' ? { nota_fecha: 'created_at se compara por su día en UTC.' } : {}),
-        nota_montos: 'Montos en USD; null = sin cargar, no cero. En suscripciones monto_cierre_usd queda null a propósito.',
+        nota_montos: 'Montos en USD; null = sin cargar, no cero. En suscripciones monto_cierre_usd queda null a propósito. total_cobrado_usd es lo cobrado en TODOS sus CRMs (una renovación incluida); lo que debe es falta_cobrar_usd (la venta de su CRM principal menos lo cobrado de ESA venta).',
+        // Cuarta revisión, B3: una lectura que falló no se confunde con «sin venta cargada».
+        ...(sinCasa ? { nota_cobrado: 'No pude leer lo cobrado de la venta: cobrado_de_la_venta_usd y falta_cobrar_usd van en null por eso, no por falta de venta.' } : {}),
         leads,
       });
     },
@@ -532,6 +550,26 @@ export const RUNNERS: Runners = {
   cobranza_lead: {
     leer: (input, ctx) => conLead(input, async (lead) => {
       const plan = await getLeadPlan(lead.id);
+      // ⚠️ LOS OTROS CRMs (mig 0324, revisión del 22/10/2026, M1): todo lo de arriba es la venta de la CASA. Una renovación
+      // tiene su plan aparte y sus cuotas están en «A quién cobrarle»: sin esto, MaKo decía «Pagó todo» de alguien que debía
+      // la renovación. Si no se pueden leer, se dice.
+      const [tratos, crms] = await Promise.all([tratosDelLead(lead.id).catch(() => null), productosCrm().catch(() => null)]);
+      const conPlata = (tratos ?? []).filter((t) => t.pagos.length || t.monto_cierre_usd != null);
+      const otrosCrms = tratos == null
+        ? { otros_crms_aviso: 'No pude leer sus otros CRMs: lo de arriba es sólo la venta de su CRM principal.' }
+        : conPlata.length ? {
+          otros_crms: conPlata.map((t) => {
+            const impagas = t.pagos.filter((q) => !q.pagado && !noEsDeuda(q));
+            return {
+              crm: crms?.find((c) => c.embudoId === t.funnelId)?.nombre ?? `CRM ${t.funnelId}`, funnel_id: t.funnelId, etapa: t.etapa,
+              vendido_usd: t.monto_cierre_usd, fecha_cierre: t.fecha_cierre,
+              cobrado_usd: Math.round(t.pagos.filter((q) => q.pagado).reduce((a, q) => a + Number(q.monto_usd), 0) * 100) / 100,
+              por_cobrar_usd: Math.round(impagas.reduce((a, q) => a + Number(q.monto_usd), 0) * 100) / 100,
+              cuotas: t.pagos.map((q) => ({ pago_id: q.id, numero: q.numero, monto_usd: Number(q.monto_usd), vence: q.fecha_esperada, pagada: q.pagado, fecha_pago: q.fecha_pago })),
+            };
+          }),
+          nota_otros_crms: 'Cada CRM agregado (una renovación) tiene su propia venta y su plan, aparte del principal: lo que debe ahí no está en el estado de cuenta de arriba.',
+        } : {};
       const cuotas = plan.pagos.map((p) => ({
         pago_id: p.id, numero: p.numero, es_inicial: p.numero === 0, monto_usd: Number(p.monto_usd), vence: p.fecha_esperada, pagada: p.pagado, fecha_pago: p.fecha_pago, tiene_comprobante: !!p.comprobante_path,
         // La moneda en que se cobró (mig 0255 y 0292): sólo donde no fue en dólares, para no llenar de ruido.
@@ -599,6 +637,7 @@ export const RUNNERS: Runners = {
         })(),
         cuotas,
         ...(cuotas.length ? {} : { nota_cuotas: 'Sin cuotas cargadas: no hay plan de pagos, no significa que no deba nada.' }),
+        ...otrosCrms,
       });
       // En el chat de la app el estado de cuenta se DIBUJA con la pieza de la tab Pagos (la 2.28, lib/pagos-bloque.ts).
       // Lo que le dice al modelo del bloque (y del comprobante) va por `siSeDibuja`: SÓLO si el bloque entró en el mensaje
@@ -1561,7 +1600,8 @@ export const RUNNERS: Runners = {
     preparar: async (input, ctx) => {
       const lead = await leadDe(input.leadId);
       if (!lead) return { error: noExiste(input.leadId) };
-      const pagos = await getPagosByLead(lead.id).catch(() => []);
+      // De CUALQUIER CRM (mig 0324, revisión del 22/10/2026, M1): una cuota de una renovación también se marca por su id.
+      const pagos = await getPagosByLead(lead.id, 'todos').catch(() => []);
       const pago = pagos.find((p) => p.id === input.pagoId);
       if (!pago) return { error: `La cuota #${String(input.pagoId)} no es de ${lead.nombre}. Pide cobranza_lead para ver sus cuotas.`, disponibles: pagos.map((p) => ({ pago_id: p.id, numero: p.numero, monto_usd: p.monto_usd, pagada: p.pagado })) };
       const pagado = input.pagado === true;

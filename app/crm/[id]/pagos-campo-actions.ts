@@ -30,8 +30,8 @@ import { getUsuarioActual } from '@/lib/auth';
 import { getRolWsEfectivo, getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { getLead, logLeadEvent } from '@/lib/leads';
 import {
-  ajustarPlanPagos, anotarEnHistorial, cambiarEstadoSuscripcionManual, cortarRecordatoriosDeCuota, editarCuota,
-  escribirCampoDeal, escribirObligacion, escribirVenta, getPagosByLead, guardarCuotasPorId, guardarMonedaDelNegocio,
+  ajustarPlanPagos, anotarEnHistorial, cambiarEstadoSuscripcionManual, cortarRecordatoriosDeCuota, crmDelTrato, editarCuota,
+  escribirCampoDeal, escribirObligacion, escribirVenta, filaDelTrato, getPagosByLead, guardarCuotasPorId, guardarMonedaDelNegocio,
   monedaDelNegocio, type CambioCampoDeal,
 } from '@/lib/pagos';
 import {
@@ -117,11 +117,12 @@ export async function guardarObligacionAction(leadId: number, cambio: CambioObli
  * tipo (pago único, suscripción o «sin cobro»), con compare-and-set sobre el tipo. `tipoVisto` es el tipo que
  * dibujó el bloque. Deshacer: llamarla con cada cambio de `deshacer`, en orden.
  */
-export async function guardarVentaAction(leadId: number, cambio: CambioVenta, opts: { tipoVisto?: VentaTipo | null } = {}): Promise<{ ok: true; cambio: boolean; ventaTipo: VentaTipo; deshacer: CambioVenta[] } | Fallo> {
+export async function guardarVentaAction(leadId: number, cambio: CambioVenta, opts: { tipoVisto?: VentaTipo | null; crm?: number | null } = {}): Promise<{ ok: true; cambio: boolean; ventaTipo: VentaTipo; deshacer: CambioVenta[] } | Fallo> {
   try {
     if (!(await haySesion())) return { ok: false, error: SIN_SESION };
     if (!idValido(leadId) || !cambio) return { ok: false, error: 'Lead inválido.' };
-    const r = await escribirVenta(leadId, cambio, { autor: await autor(), tipoVisto: opts.tipoVisto ?? null });
+    // `crm`: la venta de un CRM agregado (una renovación, mig 0324); sin él, la de la casa.
+    const r = await escribirVenta(leadId, cambio, { autor: await autor(), tipoVisto: opts.tipoVisto ?? null, crm: await crmDelTrato(leadId, opts.crm) });
     if (r.ok && r.cambio) { bust(TAG.leads, TAG.pagos); revalidar(leadId, true); }
     return r;
   } catch (e) {
@@ -174,6 +175,8 @@ export async function guardarCuotasAction(
   plan?: PlanUniforme | null,
   /** Los ids de las impagas que la pantalla tenía cargadas: una que no vio no se borra (ver `reconciliarCuotas`). */
   idsVistos?: number[] | null,
+  /** El CRM agregado del plan (mig 0324); sin él, la casa. */
+  crm: number | null = null,
 ): Promise<ResultadoCuotas | Fallo> {
   try {
     if (!(await haySesion())) return { ok: false, error: SIN_SESION };
@@ -184,16 +187,20 @@ export async function guardarCuotasAction(
     }
     const quien = await autor();
     const vistos = Array.isArray(idsVistos) ? new Set(idsVistos.filter((x) => idValido(x))) : undefined;
+    const trato = await crmDelTrato(leadId, crm);
     const cambios = await guardarCuotasPorId(leadId, cuotas.map((c) => {
       const id = c?.id;
       const numero = typeof c?.numero === 'number' && Number.isInteger(c.numero) && c.numero >= 0 && c.numero <= 60 ? c.numero : null;
       return { id: idValido(id) ? id : null, numero, monto_usd: Number(c?.monto), fecha_esperada: c?.fecha ?? null };
-    }), { vistos });
+    }), { vistos, crm: trato });
     if (plan) {
       // ⚠️ TAL CUAL ESTABA, nulls incluidos (`planComoEstaba`), no por `validarPlan`: un plan anterior todo en null
       // (las cuotas se habían cargado a mano) fallaba la validación y se descartaba en silencio, así que el
       // Deshacer devolvía las cuotas y dejaba escrito el plan que se estaba deshaciendo.
-      const { error } = await (await getTenantDb()).from('leads').update({ ...planComoEstaba(plan) }).eq('id', leadId);
+      const db = await getTenantDb();
+      const { error } = trato != null
+        ? await db.from('lead_funnel').update({ ...planComoEstaba(plan), updated_at: new Date().toISOString() }).eq('lead_id', leadId).eq('funnel_id', trato)
+        : await db.from('leads').update({ ...planComoEstaba(plan) }).eq('id', leadId);
       if (error) console.error(`[pagos-campo] no pude devolver el plan del lead ${leadId}: ${error.message}`);
     }
     await anotarEnHistorial(leadId, lineasDeCuotas(cambios), quien);
@@ -214,7 +221,7 @@ export async function guardarCuotasAction(
  * Deshacer: `guardarCuotasAction(leadId, deshacer.cuotas, deshacer.plan, deshacer.vistos)` (`vistos`: las impagas que
  * quedaron después del ajuste, para que una cuota que nazca en el medio no se borre al deshacer).
  */
-export async function ajustarPlanAction(leadId: number, plan: Partial<PlanUniforme>): Promise<(ResultadoCuotas & {
+export async function ajustarPlanAction(leadId: number, plan: Partial<PlanUniforme>, crm: number | null = null): Promise<(ResultadoCuotas & {
   deshacer: { cuotas: Array<{ id: number; numero: number; monto: number; fecha: string | null }>; plan: PlanUniforme; vistos: number[] };
 }) | Fallo> {
   try {
@@ -222,7 +229,11 @@ export async function ajustarPlanAction(leadId: number, plan: Partial<PlanUnifor
     if (!idValido(leadId)) return { ok: false, error: 'Lead inválido.' };
     const lead = await getLead(leadId);
     if (!lead) return { ok: false, error: 'No encontré ese lead en este negocio.' };
-    const fila = lead as unknown as Record<string, unknown>;
+    // El plan de un CRM agregado (una renovación, mig 0324) está en su fila de `lead_funnel`; el de la casa, en el lead.
+    const trato = await crmDelTrato(leadId, crm);
+    const delCrm = trato != null ? await filaDelTrato(leadId, trato) : null;
+    if (trato != null && !delCrm) return { ok: false, error: 'Este lead ya no está en ese CRM. Recarga la ficha.' };
+    const fila = (delCrm ?? lead) as unknown as Record<string, unknown>;
     const num = (x: unknown): number | null => (x == null || x === '' ? null : Number(x));
     const planAntes: PlanUniforme = {
       cobro_inicial_usd: num(fila.cobro_inicial_usd), monto_cuota_usd: num(fila.monto_cuota_usd),
@@ -232,7 +243,7 @@ export async function ajustarPlanAction(leadId: number, plan: Partial<PlanUnifor
     // como plan entero, cambiar sólo el inicial borraba las cuotas 1 a N y corría los vencimientos al día 1.
     const v = ajustarSobre(planAntes, plan);
     if (!v.ok) return v;
-    const antes = (await getPagosByLead(leadId)).filter((q) => !q.pagado);
+    const antes = (await getPagosByLead(leadId, trato)).filter((q) => !q.pagado);
     // ⚠️ SIN PLAN EN LA BASE NO HAY CONTRA QUÉ AJUSTAR. Si el lead tiene cuotas impagas cargadas a mano (Editar deal,
     // el wizard), aplicar un plan encima las duplicaría (insertarlas al lado) o las borraría (reimponerlo entero), y
     // las dos cosas son plata. Se cambian en las cuotas, que es donde se cargaron.
@@ -240,7 +251,7 @@ export async function ajustarPlanAction(leadId: number, plan: Partial<PlanUnifor
       return { ok: false, error: 'Las cuotas de este lead se cargaron a mano: cámbialas en las cuotas.', faltan: ['cuotas'] };
     }
     const quien = await autor();
-    const { cambios, pagos: despues } = await ajustarPlanPagos(leadId, v.plan, await hoyEnWorkspace(), { antes: planAntes });
+    const { cambios, pagos: despues } = await ajustarPlanPagos(leadId, v.plan, await hoyEnWorkspace(), { antes: planAntes, crm: trato });
     await anotarEnHistorial(leadId, lineasDeCuotas(cambios), quien);
     const sinTocar = avisoDeConservadas(cambios);
     const partes = [
@@ -269,7 +280,7 @@ export async function cortarRecordatoriosCuotaAction(leadId: number, pagoId: num
   try {
     if (!(await haySesion())) return { ok: false, error: SIN_SESION };
     if (!idValido(leadId) || !idValido(pagoId)) return { ok: false, error: 'Cuota inválida.' };
-    const cuota = (await getPagosByLead(leadId)).find((q) => q.id === pagoId);
+    const cuota = (await getPagosByLead(leadId, 'todos')).find((q) => q.id === pagoId);
     const cortados = await cortarRecordatoriosDeCuota(leadId, pagoId);
     if (cortados > 0) {
       await logLeadEvent(leadId, 'Recordatorio de cobro', `Cortado a mano: ${cuota ? nombreCuota(cuota.numero) : `cuota #${pagoId}`}`, await autor());

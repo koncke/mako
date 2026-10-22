@@ -22,6 +22,60 @@ import { productosDe, puedeQuitar, aQuienPromover, etapaDeEntrada, casaParaEscri
 import { terminalEstadoFor } from './pipeline';
 import { pasaAGanado } from './crm-curso-al-ganar-reglas';
 
+/**
+ * Lo cobrado de la casa (`total_cobrado_casa_usd`, mig 0325) depende de en qué CRMs está el lead: un pago con el funnel de
+ * un CRM agregado no es de la casa. Agregar, quitar o deshacer cambia ese conjunto, y la columna lo sigue (tercera revisión
+ * del 22/10/2026, B1: re-agregar a un CRM viejo dejaba la columna con plata que ya no era de la casa, y el saldo saltaba
+ * en el próximo pago). Con `funnelId`, sólo los leads con pagos en ese CRM (un lote de 1.000 no se sincroniza entero).
+ * Nunca tira: el movimiento ya está hecho, y el próximo pago la vuelve a sincronizar.
+ */
+async function resincronizarCobrado(leadIds: readonly number[], funnelId?: number): Promise<void> {
+  let ids = [...new Set(leadIds)];
+  try {
+    if (!ids.length) return;
+    // Sólo los que tienen pagos (en ese CRM, si se dice): un lead sin pagos no tiene nada que re-sincronizar, y
+    // sincronizarlo escribía casa = 0 donde había NULL (cuarta revisión, B4).
+    let q = (await getTenantDb()).from('pagos').select('lead_id').in('lead_id', ids);
+    if (funnelId != null) q = q.eq('funnel_id', funnelId);
+    const { data, error } = await q;
+    if (error) throw new Error(error.message);
+    ids = [...new Set(((data ?? []) as Array<{ lead_id: number | string }>).map((r) => Number(r.lead_id)))];
+  } catch (e) {
+    console.error(`[lead-funnel] no pude ver a quién re-sincronizar (${leadIds.length} lead(s)):`, e instanceof Error ? e.message : e);
+    return;
+  }
+  if (!ids.length) return;
+  // Import dinámico: lib/pagos.ts es pesado y no hace falta para mover de CRM.
+  const { sincronizarTotalCobrado } = await import('./pagos');
+  // De a uno, cada uno con su catch (cuarta revisión, B1): una falla en el tercero no deja a los siete siguientes viejos.
+  for (const id of ids) {
+    try {
+      await sincronizarTotalCobrado(id);
+    } catch (e) {
+      console.error(`[lead-funnel] no pude re-sincronizar lo cobrado del lead ${id}:`, e instanceof Error ? e.message : e);
+    }
+  }
+}
+
+/**
+ * ¿El lead tiene pagos con el funnel de este CRM, sin estar en él? Sólo pasa si se le quitó ESA casa con pagos: los pagos
+ * conservan su funnel y hoy cuentan como de la casa nueva. Volver a agregarlo a ese CRM los movería a ese trato, y el saldo
+ * de la venta saltaría en el acto a la venta entera (cuarta revisión, M1), sin un Deshacer (quitar lo frena por la plata).
+ * Es el espejo del guard de quitar. Tira si no puede leer.
+ */
+async function pagosHuerfanosDe(leadIds: readonly number[], funnelId: number): Promise<Set<number>> {
+  if (!leadIds.length) return new Set();
+  const { data, error } = await (await getTenantDb()).from('pagos').select('lead_id').eq('funnel_id', funnelId).in('lead_id', [...leadIds]);
+  if (error) throw new Error('No se pudieron revisar los pagos del lead: ' + error.message);
+  return new Set(((data ?? []) as Array<{ lead_id: number | string }>).map((r) => Number(r.lead_id)));
+}
+
+/** El error del guard de agregar: quien agrega solo (un pago de «Vincular cobro») lo reconoce y sigue por la casa. */
+export class TienePagosDeEseCrmError extends Error {}
+
+export const TIENE_PAGOS_DE_ESE_CRM = (nombre: string) =>
+  `Tiene pagos de su venta principal hechos cuando su CRM era «${nombre}»: si lo vuelves a agregar ahí, esa plata pasaría a ese CRM y su saldo cambiaría. Déjalo donde está.`;
+
 /** Las etapas de un producto (el del negocio por su propio camino: su config vive en la fila default). */
 export async function etapasDeProducto(funnelId: number): Promise<Array<{ key: string; label: string; kind?: string | null; band?: string; dot?: string }>> {
   const def = await idDelFunnelDefault();
@@ -68,6 +122,7 @@ export async function agregarAProducto(leadId: number, funnelId: number, opts?: 
   if (opts?.etapa != null && !etapas.some((s) => s.key === opts.etapa)) throw new Error('Esa etapa no existe en ese funnel.');
   const etapa = opts?.etapa ?? etapaDeEntrada(etapas);
   if (!etapa) throw new Error('Ese funnel no tiene etapas.');
+  if ((await pagosHuerfanosDe([leadId], funnelId)).size) throw new TienePagosDeEseCrmError(TIENE_PAGOS_DE_ESE_CRM(await nombreDeProducto(funnelId)));
   const autor = await autorDelMovimiento(opts?.autor);
   const db = await getTenantDb();
   const { error } = await db.from('lead_funnel').upsert(
@@ -75,6 +130,7 @@ export async function agregarAProducto(leadId: number, funnelId: number, opts?: 
     { onConflict: 'workspace_id,lead_id,funnel_id', ignoreDuplicates: true },
   );
   if (error) throw new Error('No se pudo agregar al funnel: ' + error.message);
+  await resincronizarCobrado([leadId], funnelId);
   await logLeadEvent(leadId, 'Funnel', `Agregado a «${await nombreDeProducto(funnelId)}»`, autor);
   return { agregado: true, etapa };
 }
@@ -111,10 +167,26 @@ export async function quitarDeProducto(leadId: number, funnelId: number, opts?: 
   const autor = await autorDelMovimiento(opts?.autor);
   const db = await getTenantDb();
   const nombre = await nombreDeProducto(funnelId);
+  // ⚠️ UN CRM AGREGADO CON PLATA NO SE QUITA (revisión del 22/10/2026, M4, mig 0324): su venta y su plan viven en ESTA
+  // fila de `lead_funnel`, y sus pagos llevan su `funnel_id`. Borrarla perdía la venta (el Deshacer recrea la fila vacía) y
+  // los pagos caían en la casa, mezclados con los de la venta de siempre (dos «cuota 1»). Lo mismo al quitar la CASA: la
+  // fila que se promueve a casa se borra. Se dice por qué y qué hacer; nada se pierde de un clic.
+  const conPlata = !p.esCasa ? funnelId : aQuienPromover(productos)?.funnelId ?? null;
+  if (conPlata != null) {
+    const { tratoConPlata } = await import('./pagos');
+    if (await tratoConPlata(leadId, conPlata)) {
+      // Un texto por caso (segunda revisión del 22/10/2026): quitar un CRM agregado, o quitar la casa cuando el CRM que la
+      // reemplazaría tiene su propia venta (renovó y se quiere sacar de la venta vieja).
+      throw new Error(!p.esCasa
+        ? `Tiene una venta o pagos en «${nombre}»: si lo quitas, se quedan sin su CRM. Si ya no sigue ahí, márcalo como perdido en «${nombre}».`
+        : `«${nombre}» es su CRM principal, y el que tomaría su lugar («${await nombreDeProducto(conPlata)}») tiene su propia venta o pagos: se mezclarían. Déjalo en «${nombre}» y muévelo de etapa ahí.`);
+    }
+  }
 
   if (!p.esCasa) {
     const { error } = await db.from('lead_funnel').delete().eq('lead_id', leadId).eq('funnel_id', funnelId);
     if (error) throw new Error('No se pudo quitar del funnel: ' + error.message);
+    await resincronizarCobrado([leadId]);
     await logLeadEvent(leadId, 'Funnel', `Quitado de «${nombre}»`, autor);
     return { leadId, funnelId, fila: { funnel_id: funnelId, etapa: p.etapa ?? '', etapa_desde: p.desde }, casaAntes: null };
   }
@@ -147,6 +219,7 @@ export async function quitarDeProducto(leadId: number, funnelId: number, opts?: 
   }
   const { error: e2 } = await db.from('lead_funnel').delete().eq('lead_id', leadId).eq('funnel_id', nueva.funnelId);
   if (e2) console.error('[lead-funnel] la fila promovida no se borró:', e2.message);
+  await resincronizarCobrado([leadId]);
   await logLeadEvent(leadId, 'Funnel', `Quitado de «${nombre}»: ahora su funnel es «${await nombreDeProducto(nueva.funnelId)}»`, autor);
   return {
     leadId, funnelId,
@@ -172,6 +245,7 @@ export async function deshacerQuitar(d: DeshacerQuitar, opts?: { autor?: string 
     );
     if (error) throw new Error('No se pudo deshacer: ' + error.message);
   }
+  await resincronizarCobrado([d.leadId]);
   await logLeadEvent(d.leadId, 'Funnel', `Vuelve a «${await nombreDeProducto(d.funnelId)}» (se deshizo)`, autor);
 }
 
@@ -242,9 +316,14 @@ export async function agregarLoteAProducto(leadIds: number[], funnelId: number, 
     const { data: filas, error: ef } = await db.from('lead_funnel').select('lead_id').eq('funnel_id', funnelId).in('lead_id', tanda);
     if (ef) { fallaron += tanda.length; continue; }
     const yaFila = new Set(((filas ?? []) as Array<{ lead_id: number | string }>).map((f) => Number(f.lead_id)));
-    const nuevos = ((casas ?? []) as Array<{ id: number | string; funnel_id: number | string | null }>)
+    const candidatos = ((casas ?? []) as Array<{ id: number | string; funnel_id: number | string | null }>)
       .filter((l) => casaReal(l.funnel_id == null ? null : Number(l.funnel_id), defaultId) !== funnelId && !yaFila.has(Number(l.id)))
       .map((l) => Number(l.id));
+    // Los que tienen pagos de una casa vieja que era ESTE CRM se saltean (cuarta revisión, M1): se cuentan como fallados.
+    let huerfanos: Set<number>;
+    try { huerfanos = await pagosHuerfanosDe(candidatos, funnelId); } catch { fallaron += candidatos.length; continue; }
+    fallaron += huerfanos.size;
+    const nuevos = candidatos.filter((id) => !huerfanos.has(id));
     if (!nuevos.length) continue;
     const ahora = new Date().toISOString();
     const { data: ins, error } = await db.from('lead_funnel')
@@ -253,6 +332,7 @@ export async function agregarLoteAProducto(leadIds: number[], funnelId: number, 
     if (error) { fallaron += nuevos.length; continue; }
     const ok = ((ins ?? []) as Array<{ lead_id: number | string }>).map((r) => Number(r.lead_id));
     agregados.push(...ok);
+    await resincronizarCobrado(ok, funnelId);
     const audit = ok.map((lead_id) => ({ lead_id, campo: 'Funnel', valor_anterior: null, valor_nuevo: porQue, autor }));
     if (audit.length) {
       const { error: ea } = await db.from('lead_audit').insert(audit);
@@ -266,9 +346,15 @@ export async function agregarLoteAProducto(leadIds: number[], funnelId: number, 
 export async function quitarLoteDeProducto(leadIds: number[], funnelId: number, porQue: string, opts?: { autor?: string }): Promise<number> {
   const db = await getTenantDb();
   const autor = await autorDelMovimiento(opts?.autor);
+  // ⚠️ Los que tienen PLATA en ese CRM no se quitan (segunda revisión del 22/10/2026, M4): su venta vive en esa fila y sus
+  // pagos llevan ese CRM. Pasa con el Deshacer de «Agregar», si en esos segundos se registró un pago ahí. Se saltean.
+  const { leadsConPlataEn } = await import('./pagos');
+  const conPlata = await leadsConPlataEn(funnelId, leadIds);
+  if (conPlata.size) console.warn(`[lead-funnel] quitar en lote: ${conPlata.size} lead(s) con venta o pagos en el funnel ${funnelId} no se quitan.`);
+  const aQuitar = leadIds.filter((id) => !conPlata.has(Number(id)));
   let n = 0;
-  for (let i = 0; i < leadIds.length; i += 200) {
-    const tanda = leadIds.slice(i, i + 200);
+  for (let i = 0; i < aQuitar.length; i += 200) {
+    const tanda = aQuitar.slice(i, i + 200);
     const { data, error } = await db.from('lead_funnel').delete().eq('funnel_id', funnelId).in('lead_id', tanda).select('lead_id');
     if (error) { console.error('[lead-funnel] quitar en lote falló:', error.message); continue; }
     const ok = ((data ?? []) as Array<{ lead_id: number | string }>).map((r) => Number(r.lead_id));

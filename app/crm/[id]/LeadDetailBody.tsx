@@ -33,6 +33,7 @@ import type { FathomLink } from '@/lib/leads';
 import { suscripcionDeFila } from '@/lib/venta-tipo';
 import type { StepId } from '@/lib/stage-requirements';
 import { FunnelYEtapa, useProductosDeLaFicha } from '../lead-view/ProductoDelLead';
+import { crmEnVista } from '../lead-view/ficha/pagos/trato';
 import { DatosSinMarcarCard } from '../lead-view/DatosSinMarcarCard';
 import { CabeceraLead, SANGRIA_NOMBRE_LEAD } from '../lead-view/CabeceraLead';
 import { EtiquetasDelLead, versionDeEtiquetas } from '../lead-view/EtiquetasDelLead';
@@ -199,7 +200,7 @@ export function LeadDetailBody({ data, initialTab, initialSolucionar }: {
           del pop-up (`FichaPorBloques`): en esta ruta el lead viene del server y el refresh lo trae. */}
       {/* El título de la hoja a la altura del nombre del lead: la cabecera es una caja del mismo ancho que la ficha. */}
       <FichaPorBloques data={data} initialTab={initialTab} fondoTabs="var(--bg)" arribaTabs="var(--barra-agencia, 0px)" altoChat={ALTO_CHAT_EN_LA_RUTA} sangria={`${SANGRIA_NOMBRE_LEAD}px`}
-        pedido={pedido} onNoEsta={() => setMoveTo(currentStage)} />
+        pedido={pedido} onNoEsta={() => setMoveTo(currentStage)} crm={crmEnVista(fichaProd, data)} />
       {/* ⚠️ BORRAR LEAD NO SE FUE CON EL BOTÓN DE EDITAR. Vivía al pie del formulario,
           que era el único lugar de ESTA ruta donde se podía borrar (el modal tiene el
           suyo). Es irreversible, así que queda al fondo y con su confirmación

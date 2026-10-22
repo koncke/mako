@@ -109,6 +109,8 @@ export type CobroM = {
   /** «US$500 · vence el jue». */
   linea: string;
   urgencia: 'vencida' | 'pronto' | null;
+  /** El CRM de lo que se le cobra (mig 0324, `FilaCobro.funnelId`): con él, «A quién cobrarle» de un CRM filtra por trato. */
+  funnelId?: number | null;
 };
 export type HojaM = {
   id: string;
@@ -207,13 +209,14 @@ export function textoVence(vence: string | null, dias: number | null): string {
  *     registrar 1 mes». Se toca y abre su ficha.
  * null = nada que mostrar. `plata` es el formato del monto (`fmtValor(n, 'usd')`).
  */
-export function cobroDeFila(f: Pick<FilaCobro, 'leadId' | 'nombre' | 'pendiente' | 'cuota' | 'suscripcion' | 'dias' | 'urgencia'>, plata: (n: number) => string): CobroM | null {
+export function cobroDeFila(f: Pick<FilaCobro, 'leadId' | 'nombre' | 'pendiente' | 'cuota' | 'suscripcion' | 'dias' | 'urgencia' | 'funnelId'>, plata: (n: number) => string): CobroM | null {
+  const crm = f.funnelId != null ? { funnelId: f.funnelId } : {};
   if (f.cuota) {
-    return { leadId: f.leadId, pagoId: f.cuota.pagoId, nombre: f.nombre, linea: `${plata(f.cuota.monto)} · ${textoVence(f.cuota.vence, f.dias)}`, urgencia: f.urgencia };
+    return { leadId: f.leadId, pagoId: f.cuota.pagoId, nombre: f.nombre, linea: `${plata(f.cuota.monto)} · ${textoVence(f.cuota.vence, f.dias)}`, urgencia: f.urgencia, ...crm };
   }
   if (f.suscripcion) {
     const que = textoDeSuscripcion(f.suscripcion) ?? textoVence(f.suscripcion.vence, f.dias);
-    return { leadId: f.leadId, pagoId: null, nombre: f.nombre, linea: `${plata(f.pendiente)} · ${que}`, urgencia: f.urgencia };
+    return { leadId: f.leadId, pagoId: null, nombre: f.nombre, linea: `${plata(f.pendiente)} · ${que}`, urgencia: f.urgencia, ...crm };
   }
   return null;
 }

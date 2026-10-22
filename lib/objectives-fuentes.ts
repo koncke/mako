@@ -24,6 +24,7 @@
 import 'server-only';
 import { getTenantDb } from './workspace';
 import { leerPorPaginas, leerTodo, type ConsultaPaginada as Consulta } from './supabase-paginado';
+import { firmadoEnCrms, ventasDeCrms } from './ventas-crm';
 import { conversorGastoMeta } from './moneda-meta';
 import type { FuenteDef, FuenteId } from './objectives-modelo';
 import { FUENTES_KPI, fuentePorFunnel } from './objectives-modelo';
@@ -144,7 +145,8 @@ async function soldUsd(desde: string, hasta: string): Promise<LecturaFuente> {
       .lte('fecha_cierre', hasta);
     if (error) return { valor: null, error: error.message };
     const total = (data ?? []).reduce((s, r) => s + Number((r as { monto_cierre_usd: number | null }).monto_cierre_usd ?? 0), 0);
-    return { valor: total };
+    // Y las ventas de los CRMs agregados (una renovación, mig 0324): «Firmado» también es lo vendido ahí (CO2, 22/10/2026).
+    return { valor: total + (await firmadoEnCrms(desde, hasta)).usd };
   } catch (e) {
     return fallo(e);
   }
@@ -170,13 +172,17 @@ const LECTORES: Record<FuenteId, Lector> = {
     { col: 'created_at', op: 'gte', val: desde },
     { col: 'created_at', op: 'lte', val: finDeDia(hasta) },
   ]),
-  cierres: (desde, hasta) => contar('leads', [
-    { col: 'cerro', op: 'eq', val: true },
-    // Sin los «sin cobro» (#747): `venta_tipo` es NOT NULL (mig 0116).
-    { col: 'venta_tipo', op: 'neq', val: VENTA_SIN_COBRO },
-    { col: 'fecha_cierre', op: 'gte', val: desde },
-    { col: 'fecha_cierre', op: 'lte', val: hasta },
-  ]),
+  cierres: async (desde, hasta) => {
+    const r = await contar('leads', [
+      { col: 'cerro', op: 'eq', val: true },
+      // Sin los «sin cobro» (#747): `venta_tipo` es NOT NULL (mig 0116).
+      { col: 'venta_tipo', op: 'neq', val: VENTA_SIN_COBRO },
+      { col: 'fecha_cierre', op: 'gte', val: desde },
+      { col: 'fecha_cierre', op: 'lte', val: hasta },
+    ]);
+    // Más las ventas cerradas en un CRM agregado (una renovación es un cierre, CO2).
+    return r.valor == null ? r : { valor: r.valor + (await firmadoEnCrms(desde, hasta)).cierres };
+  },
   llamadas_analizadas: (desde, hasta) => contar('closing_analyses', [
     { col: 'call_date', op: 'gte', val: desde },
     { col: 'call_date', op: 'lte', val: hasta },
@@ -217,8 +223,12 @@ async function hechosDelPeriodo(fuenteId: string, desde: string, hasta: string):
   };
   // Los mismos universos que los lectores de arriba: sin los «sin cobro» (#747), R1 con fecha, el último día entero.
   const ganados = (q: Consulta) => q.eq('cerro', true).neq('venta_tipo', VENTA_SIN_COBRO);
-  if (fuenteId === 'cierres') return deLeads('fecha_cierre', ganados, false);
-  if (fuenteId === 'sold_usd') return deLeads('fecha_cierre', ganados, true);
+  if (fuenteId === 'cierres' || fuenteId === 'sold_usd') {
+    const monto = fuenteId === 'sold_usd';
+    const [deLaCasa, deCrms] = await Promise.all([deLeads('fecha_cierre', ganados, monto), ventasDeCrms(desde, hasta)]);
+    // Las ventas de un CRM agregado llevan SU funnel (CO2): cuentan en Renovación, no donde esté el lead ese día.
+    return { hechos: [...deLaCasa.hechos, ...deCrms.map((v) => ({ lead: v.leadId, fecha: v.fecha, valor: monto ? v.monto : 1, funnel: v.funnelId }))], casas: deLaCasa.casas };
+  }
   if (fuenteId === 'agendas') return deLeads('fecha_junta_1', (q) => q.not('fecha_junta_1', 'is', null), false);
   if (fuenteId === 'leads_nuevos') return deLeads('created_at', (q) => q, false, finDeDia(hasta));
   if (fuenteId === 'cash_usd') {
