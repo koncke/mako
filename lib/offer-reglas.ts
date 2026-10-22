@@ -1476,8 +1476,14 @@ export function precioDe(valor: string | null | undefined): Monto | null {
 
 /** El costo de atender a un cliente: el PRIMER monto de la pieza (lo que viene después suele ser la capacidad). */
 export function costoDe(valor: string | null | undefined): Monto | null {
+  // Un PRESUPUESTO de anuncios no es lo que cuesta atender a un cliente (22/10/2026, Mauricio: «tenemos pensado
+  // invertir $3,000 usd en publicidad en Meta» quedó como el costo por cliente de un taller de 270 USD, y el aviso dijo
+  // «el margen bruto queda en 0%»). Sin un «por cliente» explícito, no hay costo para calcular el margen.
+  if (PRESUPUESTO_DE_ANUNCIOS.test(valor ?? '') && !COSTO_POR_CLIENTE.test(valor ?? '')) return null;
   return montosDe(valor)[0] ?? null;
 }
+const PRESUPUESTO_DE_ANUNCIOS = /\b(?:publicidad|anuncios?|ads|pauta|campañas?)\b/i;
+const COSTO_POR_CLIENTE = /\bpor\s+(?:cliente|participante|alumno|persona|asistente|inscrito|cupo)\b|\bcada\s+(?:cliente|participante|alumno|persona|uno)\b/i;
 
 // ── El NIVEL de la oferta (16/10/2026) ───────────────────────────────────────
 // Feedback de la llamada con Leila (12/10): cargó su oferta de ENTRADA (800 MXN al mes) y MaKo le preguntó «¿qué le
@@ -1701,7 +1707,11 @@ export function calcularDiagnostico(
  * tener variantes de precio de UNA oferta, y eso no es falta de foco. Por eso la pregunta de las otras
  * ofertas: lo que dice el dueño es mejor dato que lo que está cargado.
  */
-export function alertaFoco(p: { productosActivos: number; ofertasActivas: number; bandaFacturacion: number | null; otrasDeclaradas?: number | null }): string | null {
+export function alertaFoco(p: {
+  productosActivos: number; ofertasActivas: number; bandaFacturacion: number | null; otrasDeclaradas?: number | null;
+  /** Los nombres de lo que se cuenta en `ofertasActivas` (lib/offer-reglas.ts → `loQueVendeEnMako`). */
+  nombres?: readonly string[] | null;
+}): string | null {
   const prods = Math.max(0, Math.floor(Number(p.productosActivos) || 0));
   const ofs = Math.max(0, Math.floor(Number(p.ofertasActivas) || 0));
   const decl = typeof p.otrasDeclaradas === 'number' && p.otrasDeclaradas >= 0 ? Math.floor(p.otrasDeclaradas) + 1 : 0;
@@ -1711,12 +1721,52 @@ export function alertaFoco(p: { productosActivos: number; ofertasActivas: number
   if (conocida && (b as number) >= 2) return null;
   if (n < 3) return null;
   // Cada número dice de dónde sale (17/10/2026, tarjeta #888): lo cargado en MaKo, lo que dijo el dueño o su
-  // diagnóstico de fase.
-  const que = decl >= prods && decl >= ofs ? `Vendes ${decl} ofertas, contando las que me dijiste que no están cargadas en MaKo`
-    : prods >= ofs ? `Tienes ${prods} productos activos en MaKo` : `Tienes ${ofs} ofertas activas en MaKo`;
+  // diagnóstico de fase. Y lo de MaKo se NOMBRA (22/10/2026, Mauricio: «no tiene seis, no sé por qué dice que tiene
+  // seis»): un conteo que el dueño no puede contrastar no le sirve. Con un empate gana lo cargado, que se nombra.
+  const nombres = (p.nombres ?? []).map((x) => x.trim()).filter(Boolean);
+  const cuales = nombres.length === ofs ? ` (${listaConY(nombres.map((x) => `«${x}»`))})` : '';
+  const que = ofs === n ? `Tienes ${ofs} ofertas activas en tus funnels de MaKo${cuales}`
+    : decl === n ? `Vendes ${decl} ofertas, según me dijiste`
+      : `Tienes ${prods} productos activos en tus funnels de MaKo`;
   // El monto se dice en la MISMA unidad de la pregunta que el dueño contestó («$0 – $3.000»).
   const factura = !conocida ? '' : `, y según tu diagnóstico de fase facturas menos de ${b === 0 ? '$3.000' : '$10.000'} al mes`;
   return `${que}${factura}: en la fase 1 conviene empujar una sola oferta hasta tener un anuncio ganador.`;
+}
+
+/**
+ * Lo que el negocio VENDE hoy según MaKo, para el aviso de foco y el contexto de la IA (22/10/2026): cada funnel
+ * ACTIVO del CRM con al menos una oferta activa ligada es una cosa que vende, y sus ofertas son las que cuentan.
+ *
+ * Por qué no `ofertas.activa` a secas: en el ws1 eran 6 y Mauricio vende 3. Las otras 3 eran de prueba, con su funnel
+ * archivado o sin funnel, y el diagnóstico de su Sprint le dijo «tienes seis ofertas activas en MaKo» (Fathom
+ * 195129619, 01:44:37). Y por qué se cuentan FUNNELS y no ofertas: «Guardar» suma cada versión de una oferta a su
+ * funnel, así que el Sprint y su versión mejorada son dos filas y una sola cosa que se vende.
+ *
+ * Los productos: los activos que van en esas ofertas (`oferta_productos`). Un producto suelto del catálogo no se
+ * está vendiendo en ningún funnel. null = alguna lectura falló: no se sabe, y no se afirma nada.
+ */
+export function loQueVendeEnMako(p: {
+  funnels: ReadonlyArray<{ id: number; nombre: string }> | null;
+  ligas: ReadonlyArray<{ funnel_id: number; oferta_id: number; es_principal?: boolean }> | null;
+  ofertas: ReadonlyArray<{ id: number; nombre: string; activa: boolean }> | null;
+  ligasProducto: ReadonlyArray<{ oferta_id: number; producto_id: number }> | null;
+  productos: ReadonlyArray<{ id: number }> | null;
+}): { nombres: string[]; ofertaIds: Set<number>; productos: number } | null {
+  if (!p.funnels || !p.ligas || !p.ofertas || !p.ligasProducto || !p.productos) return null;
+  const activas = new Map(p.ofertas.filter((o) => o.activa).map((o) => [o.id, o] as const));
+  const nombres: string[] = [];
+  const ofertaIds = new Set<number>();
+  for (const f of p.funnels) {
+    const suyas = p.ligas.filter((l) => l.funnel_id === f.id && activas.has(l.oferta_id))
+      .sort((a, b) => Number(!!b.es_principal) - Number(!!a.es_principal));
+    if (!suyas.length) continue;
+    // Se nombra por su oferta (la principal del funnel): es como el dueño la llama («Sprint 3 días»).
+    nombres.push(activas.get(suyas[0].oferta_id)?.nombre.trim() || f.nombre);
+    for (const l of suyas) ofertaIds.add(l.oferta_id);
+  }
+  const vivos = new Set(p.productos.map((x) => x.id));
+  const productos = new Set(p.ligasProducto.filter((l) => ofertaIds.has(l.oferta_id) && vivos.has(l.producto_id)).map((l) => l.producto_id)).size;
+  return { nombres, ofertaIds, productos };
 }
 
 /**
@@ -1764,6 +1814,11 @@ export type EmbudoOffer = {
   llamadas: { asistieron: number; noAsistieron: number; sinMarcar: number };
   calificados: number; sinCalificar: number;
   compraron: number; compraronCalificados: number;
+  /**
+   * El funnel del que salen las cuentas (22/10/2026), o ausente si son del negocio entero (una conversación sin
+   * funnel). Va en la fuente de cada número: «tu CRM, funnel «Sprint 3 días», del 25/07 al 21/10».
+   */
+  funnel?: string;
 };
 
 /** Con menos llamadas que esto, una tasa es ruido. */
@@ -1781,7 +1836,7 @@ export type AnalisisParaEmbudo = {
  * compras (`leerCalificacion`, los que asistieron a una primera llamada del período). null si el análisis no trae las
  * compras de esa gente o las cuentas no cierran (`embudoValido`).
  */
-export function embudoDeAnalisis(a: AnalisisParaEmbudo | null | undefined): EmbudoOffer | null {
+export function embudoDeAnalisis(a: AnalisisParaEmbudo | null | undefined, funnel?: string | null): EmbudoOffer | null {
   if (!a?.calificacion || !Array.isArray(a.serie)) return null;
   const k = a.calificacion;
   if (k.compraron == null || k.compraron_calificados == null) return null;
@@ -1792,6 +1847,7 @@ export function embudoDeAnalisis(a: AnalisisParaEmbudo | null | undefined): Embu
     llamadas: { asistieron: k.asistieron, noAsistieron: suma((x) => x.j1_noshow), sinMarcar: suma((x) => x.j1_sin_marcar) },
     calificados: k.calificados, sinCalificar: k.sin_marcar,
     compraron: k.compraron, compraronCalificados: k.compraron_calificados,
+    ...(funnel?.trim() ? { funnel: funnel.trim() } : {}),
   };
   return embudoValido(e) ? e : null;
 }
@@ -1821,7 +1877,33 @@ export function periodoCorto(desde: string, hasta: string): string {
 }
 
 /** De dónde sale cada número del embudo, como se dice en un aviso. */
-const enTuCrm = (e: EmbudoOffer): string => `tu CRM, ${periodoCorto(e.desde, e.hasta)}`;
+const enTuCrm = (e: EmbudoOffer): string => `tu CRM, ${e.funnel ? `funnel «${e.funnel}», ` : ''}${periodoCorto(e.desde, e.hasta)}`;
+
+/**
+ * ¿El funnel de esta oferta todavía no tiene NADA que medir? Ni agendas, ni primeras llamadas, ni compras (22/10/2026,
+ * el Sprint de Mauricio: una oferta nueva). Sólo con las cuentas de UN funnel: del negocio entero no se deduce nada
+ * de una oferta.
+ */
+export function embudoSinDatos(e: EmbudoOffer | null | undefined): boolean {
+  if (!embudoValido(e) || !e.funnel) return false;
+  const l = e.llamadas;
+  return e.agendas === 0 && l.asistieron + l.noAsistieron + l.sinMarcar === 0 && e.compraron === 0;
+}
+
+/**
+ * El aviso de una oferta que todavía no tiene datos de venta: lo dice su funnel (sin agendas, llamadas ni compras) o
+ * lo dijo el dueño («¿cuántas personas ya pagaron?» → «0»). Sin esto, el diagnóstico buscaba un cuello de botella en
+ * el embudo y lo encontraba en el de OTRA oferta (Mauricio, 22/10/2026, 01:42:50).
+ */
+export function alertaSinDatos(p: { embudo?: EmbudoOffer | null; ventas?: string | null }): string | null {
+  const dijoCero = /^\s*(?:0|cero|ninguna?|nadie)\b/i.test(p.ventas ?? '');
+  if (embudoSinDatos(p.embudo)) {
+    const e = p.embudo as EmbudoOffer;
+    return `«${e.funnel}» todavía no tiene agendas, llamadas ni ventas en tu CRM (${periodoCorto(e.desde, e.hasta)})${dijoCero ? ', y me dijiste que nadie la compró todavía' : ''}: es una oferta sin datos de venta. Este diagnóstico mira la oferta, no sus resultados.`;
+  }
+  if (dijoCero) return 'Me dijiste que nadie compró esta oferta todavía: es una oferta sin datos de venta. Este diagnóstico mira la oferta, no sus resultados.';
+  return null;
+}
 
 /**
  * El cierre que un aviso puede AFIRMAR: sobre los calificados si hay suficientes (los rangos del marco son sobre las
@@ -1891,6 +1973,13 @@ export function alertasPrecio(p: { cobro: number | null; embudo?: EmbudoOffer | 
 export function embudoParaPrompt(e: EmbudoOffer | null | undefined): string {
   if (!embudoValido(e)) return '';
   const l = e.llamadas;
+  if (embudoSinDatos(e)) {
+    return [
+      `Fuente: ${enTuCrm(e)}.`,
+      `- El funnel de esta oferta todavía NO tiene agendas, llamadas ni ventas: es una oferta sin datos de venta.`,
+      '- No digas dónde se corta su embudo ni cuánto cierra, y no uses números de otros funnels ni del negocio entero.',
+    ].join('\n');
+  }
   const lineas = [
     `Fuente: ${enTuCrm(e)}.`,
     `- Agendas (reservaron una llamada): ${e.agendas}.`,
@@ -1906,14 +1995,15 @@ export function embudoParaPrompt(e: EmbudoOffer | null | undefined): string {
  * lee la IA que pone las notas (tarjeta «foco»: «se calcula ANTES del diagnóstico») y quedan en el cálculo.
  */
 export function avisosAntesDelDiagnostico(p: {
-  foco: { productosActivos: number; ofertasActivas: number; bandaFacturacion: number | null };
+  foco: { productosActivos: number; ofertasActivas: number; bandaFacturacion: number | null; nombres?: readonly string[] | null };
   piezas: PiezasSabidas; embudo?: EmbudoOffer | null;
 }): { foco: string | null; otras: string[] } {
   const foco = alertaFoco({ ...p.foco, otrasDeclaradas: ofertasDeclaradas(p.piezas.otras?.valor) });
   const margen = alertaMargen(p.piezas);
+  const sinDatos = alertaSinDatos({ embudo: p.embudo, ventas: p.piezas.ventas?.valor });
   return {
     foco,
-    otras: [...(margen ? [margen] : []), ...alertasEmbudo(p.embudo), ...alertasPrecio({ cobro: porcentajeAlFirmar(p.piezas.cobro?.valor), embudo: p.embudo })],
+    otras: [...(sinDatos ? [sinDatos] : []), ...(margen ? [margen] : []), ...alertasEmbudo(p.embudo), ...alertasPrecio({ cobro: porcentajeAlFirmar(p.piezas.cobro?.valor), embudo: p.embudo })],
   };
 }
 

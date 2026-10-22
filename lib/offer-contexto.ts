@@ -12,7 +12,8 @@
 //   · las ofertas (todas; activas al prompt)      → listarOfertas()           lib/ofertas.ts
 //   · los productos activos                       → listProductos(true)       lib/productos.ts
 //   · la fase y el cuello de botella              → getDiagnosticoFase()      lib/fase-store.ts
-//   · el embudo de los últimos 90 días (opcional) → analisisNegocio()         lib/analisis-negocio.ts
+//   · el embudo de los últimos 90 días (opcional) → embudoDeFunnel()          lib/analisis-negocio.ts
+//     (sólo los leads del funnel de la conversación; sin funnel, analisisNegocio(), el negocio entero)
 //   v2 (pedido de Martín del 11/10: «aprovechá El archivero, Avatares, Razones»):
 //   · los funnels del CRM y su canal              → leerFunnels()             lib/funnels.ts
 //   · las ofertas de cada funnel                  → ofertasDeFunnels()        lib/ofertas.ts (funnel_ofertas)
@@ -44,8 +45,8 @@ import { getRazones } from './razones';
 import { getDiagnosticoFase } from './fase-store';
 import { vozDelNegocio } from './nutricion-generator';
 import { CANALES, esCanal, faseContextoTexto, type CanalId, type Diagnostico } from './fase-diagnostico';
-import { analisisNegocio } from './analisis-negocio';
-import { embudoDeAnalisis, embudoParaPrompt, estadoDiagnostico, faseVigenteDe, recortar, semillaDePiezas, semillaDeProducto, type EmbudoOffer, type MensajeGuardado } from './offer-reglas';
+import { analisisNegocio, embudoDeFunnel } from './analisis-negocio';
+import { embudoDeAnalisis, embudoParaPrompt, loQueVendeEnMako, estadoDiagnostico, faseVigenteDe, recortar, semillaDePiezas, semillaDeProducto, type EmbudoOffer, type MensajeGuardado } from './offer-reglas';
 import type { PiezasSabidas } from './offer-marco';
 import { resolverOfertaPrincipal, type Oferta } from './oferta-modelo';
 import type { Producto } from './productos';
@@ -55,7 +56,11 @@ export const TOPE_CONTEXTO = 12_000;
 /** La voz, aparte (el turno y la oferta). Las guías destiladas medidas en prod el 14/10/2026: 1.055 y 1.502. */
 export const TOPE_VOZ = 2_000;
 
-export type FocoNegocio = { productosActivos: number; ofertasActivas: number; bandaFacturacion: number | null };
+/**
+ * Lo que mira el aviso de foco. `ofertasActivas` son los funnels ACTIVOS con una oferta activa (lo que vende hoy, con su
+ * nombre en `nombres`) y `productosActivos` los productos de esas ofertas: `loQueVendeEnMako` (22/10/2026).
+ */
+export type FocoNegocio = { productosActivos: number; ofertasActivas: number; bandaFacturacion: number | null; nombres?: string[] };
 
 export type FunnelDeLaSesion = { id: number; nombre: string; canal: CanalId | null; esDefault: boolean };
 
@@ -153,6 +158,17 @@ export async function contextoOffer(opts: {
   mensajes?: Array<Pick<MensajeGuardado, 'de' | 'pregunta' | 'respuesta' | 'opciones'>>;
 } = {}): Promise<ContextoOffer> {
   const conFunnel = opts.funnelId != null;
+  const funnelsP = leerFunnels().catch(logFallo('los funnels'));
+  // El embudo de ESTA oferta: los leads de su funnel (22/10/2026, el Sprint de Mauricio: «solo 2 ventas de 24
+  // asistentes» eran del CRM entero). Un funnel que ya no está no tiene embudo: nunca el del negocio en su lugar.
+  const embudoP = !opts.conEmbudo ? Promise.resolve(null)
+    : !conFunnel ? analisisNegocio({ desde: haceDias(89), hasta: null }).catch(logFallo('el embudo de los últimos 90 días'))
+      : funnelsP.then((fs) => {
+        const f = (fs ?? []).find((x) => x.id === opts.funnelId);
+        if (!f) return null;
+        const idDefault = (fs ?? []).find((x) => x.esDefault)?.id ?? null;
+        return embudoDeFunnel({ funnelId: f.esDefault ? null : f.id, idDefault, desde: haceDias(89), hasta: null });
+      }).catch(logFallo('el embudo del funnel'));
   const [perfil, panorama, answers, ofertas, productos, fase, analisis, funnels, ligasFunnel, ligasProducto, avatares, razones, voz] = await Promise.all([
     perfilNegocioTexto().catch(logFallo('el perfil del negocio')),
     getPanorama().catch(logFallo('el panorama del Archivero')),
@@ -160,12 +176,11 @@ export async function contextoOffer(opts: {
     listarOfertas().catch(logFallo('las ofertas')),
     listProductos(true).catch(logFallo('los productos activos')),
     getDiagnosticoFase().catch(logFallo('el diagnóstico de fase')),
-    opts.conEmbudo
-      ? analisisNegocio({ desde: haceDias(89), hasta: null }).catch(logFallo('el embudo de los últimos 90 días'))
-      : Promise.resolve(null),
-    leerFunnels().catch(logFallo('los funnels')),
-    conFunnel ? ofertasDeFunnels().catch(logFallo('las ofertas de cada funnel')) : Promise.resolve(null),
-    conFunnel ? productosDeOfertas().catch(logFallo('los productos de cada oferta')) : Promise.resolve(null),
+    embudoP,
+    funnelsP,
+    // Siempre, no sólo con funnel: el foco cuenta lo que se vende en los funnels activos (`loQueVendeEnMako`).
+    ofertasDeFunnels().catch(logFallo('las ofertas de cada funnel')),
+    productosDeOfertas().catch(logFallo('los productos de cada oferta')),
     getAvatares().catch(logFallo('los avatares')),
     getRazones().catch(logFallo('las razones de compra')),
     vozDelNegocio().catch(logFallo('la voz del negocio')),
@@ -174,11 +189,18 @@ export async function contextoOffer(opts: {
   // El embudo en CUENTAS de la misma gente (17/10/2026, tarjeta #888): los avisos y el prompt dicen lo mismo y de
   // dónde sale. Antes el prompt llevaba el informe entero del análisis, con la tasa del período que daba el «43%».
   let embudoOffer: EmbudoOffer | null = null;
-  try { embudoOffer = embudoDeAnalisis(analisis); } catch (e) { logFallo('el embudo en cuentas')(e); }
+  const nombreDelFunnel = conFunnel ? (() => {
+    const f = (funnels ?? []).find((x) => x.id === opts.funnelId);
+    return f ? (f.producto ?? '').trim() || f.nombre : null;
+  })() : null;
+  try { embudoOffer = embudoDeAnalisis(analisis, nombreDelFunnel); } catch (e) { logFallo('el embudo en cuentas')(e); }
 
   const todasOfertas = ofertas ?? [];
-  const listaOfertas = todasOfertas.filter((o) => o.activa);
   const listaProductos = productos ?? [];
+  // Lo que vende HOY: las ofertas activas de sus funnels activos. Si una lectura falló no se sabe: el foco no cuenta
+  // nada (no se afirma) y la IA ve las ofertas activas cargadas, rotuladas como tales.
+  const vende = loQueVendeEnMako({ funnels, ligas: ligasFunnel, ofertas, ligasProducto, productos });
+  const listaOfertas = todasOfertas.filter((o) => o.activa && (!vende || vende.ofertaIds.has(o.id)));
   const filaPrincipal = principal?.oferta ?? listaOfertas.find((o) => o.es_principal) ?? null;
   const semilla = semillaDePiezas({ campos: principal?.campos ?? null, oferta: filaPrincipal });
 
@@ -223,8 +245,13 @@ export async function contextoOffer(opts: {
     bloques.push(`EL FUNNEL DE ESTA CONVERSACIÓN:\n${recortar(lineas.join('\n'), 2_000)}`);
   }
   if (ofertaBase) bloques.push(`LA OFERTA QUE SE ESTÁ ANALIZANDO (no la reemplaces: se mejora y se guarda como otra):\n${recortar(ofertaTexto(ofertaBase), 1_200)}`);
-  if (listaOfertas.length) bloques.push(`TODAS LAS OFERTAS ACTIVAS DEL NEGOCIO (${listaOfertas.length}):\n${recortar(listaOfertas.map(ofertaTexto).join('\n'), 1_500)}`);
-  if (listaProductos.length) bloques.push(`PRODUCTOS ACTIVOS (${listaProductos.length}):\n${recortar(listaProductos.map(productoTexto).join('\n'), 1_000)}`);
+  if (listaOfertas.length) {
+    const rotulo = vende
+      ? `LO QUE VENDE HOY EN MaKo: ${vende.nombres.length} ${vende.nombres.length === 1 ? 'oferta' : 'ofertas'} en sus funnels activos (${vende.nombres.join(' · ')}); cada versión guardada de una oferta va en su mismo funnel`
+      : 'LAS OFERTAS ACTIVAS CARGADAS EN MaKo (no se pudo leer en qué funnel está cada una: no las cuentes)';
+    bloques.push(`${rotulo}:\n${recortar(listaOfertas.map(ofertaTexto).join('\n'), 1_500)}`);
+  }
+  if (listaProductos.length) bloques.push(`EL CATÁLOGO DE PRODUCTOS (activos; no todos se venden en un funnel):\n${recortar(listaProductos.map(productoTexto).join('\n'), 1_000)}`);
   const avs = avatares ?? [];
   if (avs.length) bloques.push(`AVATARES DEL NEGOCIO (a quién le vende, ya definidos en MaKo):\n${recortar(avataresTexto(avs), 1_500)}`);
   const rz = razones ?? [];
@@ -249,7 +276,7 @@ export async function contextoOffer(opts: {
     embudoOffer,
     semilla,
     semillaSesion,
-    foco: { productosActivos: listaProductos.length, ofertasActivas: listaOfertas.length, bandaFacturacion: banda },
+    foco: { productosActivos: vende?.productos ?? 0, ofertasActivas: vende?.nombres.length ?? 0, bandaFacturacion: banda, nombres: vende?.nombres ?? [] },
     voz: voz?.trim() ? recortar(voz.trim(), TOPE_VOZ) : null,
     funnel,
     ofertaBase,

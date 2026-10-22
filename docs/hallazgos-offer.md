@@ -931,3 +931,56 @@ guarda siempre en el funnel de la conversación (`app/m/offer/OfferM.tsx`, no ma
   chat.css y centro.css) la arma OfferApp y entra por la prop `caja`. Lo fija tests/onboarding-caja-centro.test.ts.
 
 *20/10/2026, chat «Onboarding» (claude4).*
+
+## El Sprint de Mauricio: cada número es de SU funnel, lo que vende se nombra, y lo que MaKo sugirió no es un hecho (22/10/2026)
+
+Llamada Mau <> Martín del 22/10 (Fathom 195129619, 01:42:50-01:46:05). Mauricio armó en Offer su oferta nueva, el Sprint
+(USD 270, taller en vivo de 3 días), y el diagnóstico afirmó cuatro cosas falsas. Todo medido en su conversación (ws1,
+`offer_sesiones` id 18, sólo lectura).
+
+- **«Solo 2 ventas de 24 asistentes», «cuello de botella en la conversión de llamadas».** Mauricio lo adivinó en la
+  llamada («tal vez lo habrá tomado de otro funnel»). Era el CRM ENTERO: `analisisNegocio` no conoce funnels, y Offer le
+  pedía los últimos 90 días del negocio. Lo que lo hace engañoso: en el ws1 los **1.169 leads tienen `funnel_id` NULL**,
+  que es como se guarda el funnel DEFAULT (lib/campana-funnel.ts, regla 2), así que «el negocio» era el embudo de
+  «Negocio que ESCALA», y el Sprint (funnel 44, nacido ese día) no tenía un lead. **Ahora** el embudo de una conversación
+  con funnel sale de `embudoDeFunnel` (lib/analisis-negocio.ts: sus leads; el default son los NULL más los que traen su
+  id), cada número dice de qué funnel es («tu CRM, funnel «Sprint 3 días», del 25/07 al 22/10»), y un funnel sin agendas,
+  llamadas ni ventas da el aviso «… es una oferta sin datos de venta. Este diagnóstico mira la oferta, no sus
+  resultados» (`alertaSinDatos`, también si el dueño dijo «0» en la pieza `ventas`). Un funnel que ya no está no tiene
+  embudo: **nunca** cae al del negocio. Sin funnel (las conversaciones v1) sigue el negocio entero.
+- **«Tienes 6 ofertas activas en MaKo».** Contaba `ofertas.activa`: 3 eran de prueba (dos con su funnel archivado, una
+  sin funnel). Y había una trampa más: «Guardar» suma cada VERSIÓN de una oferta a su funnel (el Sprint y «Sprint de
+  Diseño…» son dos filas de lo mismo), así que contar ofertas ligadas tampoco alcanza. **Ahora** se cuentan los funnels
+  ACTIVOS con una oferta activa, y se NOMBRAN por su oferta principal («Tienes 3 ofertas activas en tus funnels de MaKo
+  («Negocio que Escala», «Renovación» y «Sprint 3 días»)»): un conteo que el dueño no puede contrastar no le sirve
+  (`loQueVendeEnMako`). Con una lectura fallida no se cuenta nada. El de «lo que me dijiste» ya no agrega «que no están
+  cargadas en MaKo», que también era falso. ⚠️ Los productos casi nunca están ligados a una oferta (ws13: 3 activos, 0
+  ligados): el foco cuenta sólo los ligados, y en esos negocios el que manda es el conteo de ofertas.
+- **«Tres sesiones en vivo por Zoom».** El diagnóstico obvio («la IA inventó Zoom») estaba corto. La cadena: MaKo
+  PREGUNTÓ «¿es 100% en vivo por Zoom…?» con la opción «Tres sesiones 100% en vivo por Zoom»; Mauricio eligió otra, y el
+  turno igual anotó la pieza `formato` con «por Zoom». De ahí pasó al diagnóstico y a la propuesta. **La IA confunde lo
+  que ella sugirió con lo que dijo el dueño.** La regla del prompt va (turno, diagnóstico y propuesta) y no alcanza (se
+  editan en /configuraciones); lo determinista es `lib/offer-hechos.ts`: un catálogo de HERRAMIENTAS (videollamada,
+  mensajería, cursos, cobro, agenda) que se sacan de lo que escribió la IA si el negocio no las nombró en sus mensajes
+  (las opciones que tocó viajan como su mensaje), sus documentos o las piezas que vienen de lo cargado. Corre en `aFila`
+  (lib/offer-sesiones.ts), la única entrada de la fila: la pantalla, el PDF, los prompts, la API y «Guardar» la leen
+  limpia, y lo ya guardado se arregla sin reescribir nada. Los mensajes de MaKo no se tocan: son lo que preguntó.
+  Las redes sociales quedaron afuera del catálogo a propósito (el copy las nombra: «tu bio de Instagram»).
+- **«El margen bruto queda en 0%».** Mauricio dijo «tenemos pensado invertir $3,000 usd en publicidad en Meta» y
+  `costoDe` lo leyó como el costo de atender a UN participante. Un presupuesto de anuncios sin un «por cliente» explícito
+  ya no es un costo para el margen.
+
+**Lo que quedó SIN hacer:**
+- **La versión 1 de Mauricio sigue diciendo «2 ventas de 24 asistentes»** al leerla: se guardó con `cifrasConFuente`
+  (las cifras tenían fuente, la del negocio entero) y lo guardado no se recalcula. «Zoom» sí sale al leer. Para verla
+  bien hay que armar la versión 2 («Pulir la oferta» → «Armar mi oferta»).
+- El aviso «Te pagan el 100% al firmar… súbelo entre 250 y 1.000 USD» no tiene sentido en una entrada de pago único de
+  270 USD (O4, en la tanda P1).
+- El catálogo de herramientas es una lista: una plataforma que no está ahí (o una fecha, un lugar) pasa si la IA la
+  inventa; para esos sólo está la regla del prompt.
+
+**Vive en:** `lib/analisis-negocio.ts` (`embudoDeFunnel`) · `lib/offer-contexto.ts` · `lib/offer-reglas.ts`
+(`embudoSinDatos`, `alertaSinDatos`, `loQueVendeEnMako`, `alertaFoco`, `costoDe`) · `lib/offer-hechos.ts` ·
+`lib/offer-sesiones.ts` (`aFila`) · `lib/offer-ia.ts` · `tests/offer-sprint-mauricio.test.ts` (25 roturas, las 25 cazadas)
+
+*22/10/2026, chat «Offer» (claude3).*
