@@ -5857,6 +5857,11 @@ textos pegados y nombra un lugar REAL (Horario o Límites), dice que no se puede
 pregunta para aclarar sin que los textos ya estén en la charla. Un lugar que no existe vuelve al modelo con el error que lo
 nombra. **Vive en:** lib/flujo-ia-intencion.ts · app/api/chat-agent/secuencias/ia/route.ts · test:
 tests/chat-mako-discutir-editar.test.ts.
+**Cómo se metió, y la regla que queda (AGENTS.md):** el test de 4de3fe769 fijaba la regla tal como se escribió («en Editar,
+contestar es un error») y sólo probaba la falla que se buscaba (los textos pegados de la llamada). Nadie probó una pregunta
+con Editar prendido por defecto, y el arnés, que lo veía, se corrió después del deploy. **Un cambio en un chat de MaKo pasa
+su arnés de casos de uso ANTES de pasar la punta**, con los casos que el cambio no buscaba (preguntar en el modo nuevo,
+imposible, ambiguo). El test que fija la regla tal como la escribiste no cuenta como prueba de uso.
 
 ### Lo que era código y no modelo
 
