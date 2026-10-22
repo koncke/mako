@@ -594,7 +594,7 @@ test('el motor: no inscribe una fila del emisor, Publicar frena el evento y el C
   const motor = bloque(NUT, 'export async function procesarEnvios(', '\n}\n');
   const guarda = motor.indexOf('if (sec && TRIGGERS_DEL_EMISOR.has(sec.trigger_tipo)) {');
   assert.ok(guarda > 0, 'el motor no frena las filas del emisor');
-  assert.ok(guarda < motor.indexOf('let hs = sanearHilos(insc.hilos);') && guarda < motor.indexOf('if (sinLugar(insc.lead_id) && !(pasoLeido'), 'la guarda va antes de los hilos y del cupo');
+  assert.ok(guarda < motor.indexOf('let hs = sanearHilos(insc.hilos);') && guarda < motor.indexOf('if (sinLugar(insc) && !(pasoLeido'), 'la guarda va antes de los hilos y del cupo');
   assert.match(motor.slice(guarda), /^[^\n]*\n\s*await escribir\(insc, \{ estado: 'cancelada', proximo_envio_at: null \}, \{ modo: 'fila', alcance: 'inscripcion' \}\);\n[\s\S]*?\n\s*continue;\n\s*\}/);
   const g = sinComentarios(leer('lib/disparadores-guardar.ts'));
   assert.equal([...g.matchAll(/const cambio = problemaDeCambio\(previos, lista\);\n\s*if \(cambio\) throw new TriggerInvalidoError/g)].length, 2, 'guardar y preparar');

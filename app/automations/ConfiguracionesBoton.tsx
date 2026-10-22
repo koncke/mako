@@ -56,7 +56,7 @@ import { createPortal } from 'react-dom';
 import { Modal, Tabs } from '@/app/_ui';
 import { useCerrarEstable } from '@/app/customer-success/curso/dialogo-foco';
 import { LimitesEnvioPanel } from './LimitesEnvioPanel';
-import { HorarioDeLaAutomatizacion, PersonaDeLaAutomatizacion } from './ConfigAutomatizacionPanel';
+import { HorarioDeLaAutomatizacion, PersonaDeLaAutomatizacion, GoteoDeLaAutomatizacion } from './ConfigAutomatizacionPanel';
 import { getConfigAutomatizacionAction } from './config-automatizacion-actions';
 import { tieneConfigPropia, type PropsConfiguraciones } from '@/lib/config-automatizacion';
 import { LADO_FILTRO } from './FiltroLista';
@@ -77,12 +77,13 @@ export const TITULO_LIMITES_LINEA = 'De la línea, para todas tus automatizacion
 export function ConfiguracionesModal({ secuenciaId, nombre, onCerrar }: PropsConfiguraciones) {
   const [pestana, setPestana] = useState<Pestana>('horario');
   /** Guardados en vuelo, por panel: mientras haya uno, el modal no se cierra. */
-  const [sucios, setSucios] = useState<{ horario: boolean; persona: boolean; limites: boolean }>({ horario: false, persona: false, limites: false });
-  const ocupado = sucios.horario || sucios.persona || sucios.limites;
+  const [sucios, setSucios] = useState<{ horario: boolean; persona: boolean; goteo: boolean; limites: boolean }>({ horario: false, persona: false, goteo: false, limites: false });
+  const ocupado = sucios.horario || sucios.persona || sucios.goteo || sucios.limites;
   const cerrar = useCerrarEstable(onCerrar, ocupado);
   // Identidades FIJAS: los paneles las tienen en las dependencias de un efecto.
   const alSucioHorario = useCallback((s: boolean) => setSucios((p) => (p.horario === s ? p : { ...p, horario: s })), []);
   const alSucioPersona = useCallback((s: boolean) => setSucios((p) => (p.persona === s ? p : { ...p, persona: s })), []);
+  const alSucioGoteo = useCallback((s: boolean) => setSucios((p) => (p.goteo === s ? p : { ...p, goteo: s })), []);
   const alSucioLimites = useCallback((s: boolean) => setSucios((p) => (p.limites === s ? p : { ...p, limites: s })), []);
 
   return createPortal(
@@ -95,6 +96,8 @@ export function ConfiguracionesModal({ secuenciaId, nombre, onCerrar }: PropsCon
         <div hidden={pestana !== 'horario'}><HorarioDeLaAutomatizacion secuenciaId={secuenciaId} onSucio={alSucioHorario} /></div>
         <div hidden={pestana !== 'limites'}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* EL GOTEO (22/10/2026): sus WhatsApp de a uno y con tope, adentro del de la línea (lib/goteo.ts). */}
+            <GoteoDeLaAutomatizacion secuenciaId={secuenciaId} onSucio={alSucioGoteo} />
             <PersonaDeLaAutomatizacion secuenciaId={secuenciaId} onSucio={alSucioPersona} />
             <p style={{ margin: '6px 0 0', fontSize: 13, fontWeight: 600, color: 'var(--dim)', fontFamily: "'Geist', sans-serif" }}>{TITULO_LIMITES_LINEA}</p>
             <LimitesEnvioPanel onSucio={alSucioLimites} personaPorDefecto />
