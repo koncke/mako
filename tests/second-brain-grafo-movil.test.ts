@@ -280,7 +280,8 @@ test('el Mapa del teléfono ES el grafo real a pantalla entera: sin portada, su 
   assert.match(m, /\{montado && createPortal\(/, 'siempre: no depende de ningún «abierto»');
   assert.doesNotMatch(m, /grafoAbierto|m-second-brain-abrir|MapaChico|Abrir el grafo/, 'sin la portada ni la foto que abría el grafo');
   assert.match(m, /alCerrar=\{salir\}/);
-  assert.match(m, /if \(window\.history\.length > 1\) router\.back\(\);\s*else router\.replace\(conWs\('\/m\/second-brain', ws\)\);/, 'el «‹» sale del Second Brain');
+  assert.match(m, /if \(window\.history\.length > 1\) router\.back\(\);\s*else router\.replace\('\/m\/second-brain'\);/, 'el «‹» sale del Second Brain');
+  assert.match(m, /import \{ useRouter, useWs \} from '@\/app\/_ui\/Link';/, 'el router de la casa, que conserva el ?ws= (tests/movil-shell.test.ts)');
   assert.match(m, /alEditarArea=\{abrirArea\}/, '«Editar» abre la hoja encima, sin cerrar el grafo');
   assert.match(m, /accionMovil=\{\(/, 'subir al Archivero, en la barra del grafo');
   assert.match(m, /document\.getElementById\('m-root'\) \?\? document\.body/, 'en el shell del teléfono (ahí viven sus tokens)');

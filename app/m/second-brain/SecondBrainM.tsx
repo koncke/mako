@@ -14,9 +14,8 @@
 // ⚠️ La hoja guarda su última vista mientras se cierra: sin eso, los 220 ms de la salida bajan vacíos.
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
-import { useWs } from '@/app/_ui/Link';
+import { useRouter, useWs } from '@/app/_ui/Link';
 import { Button, ButtonLink } from '@/app/_ui/Button';
 import { Icon } from '@/app/_components/icons';
 import { conWs } from '@/lib/ws-tab';
@@ -86,7 +85,7 @@ export function SecondBrainM({ cerebro, grafo = cerebro, areaInicial }: {
   /** Salir del Second Brain: a la pantalla de antes; si se entró directo (sin historial), al Ops Center del teléfono. */
   const salir = () => {
     if (window.history.length > 1) router.back();
-    else router.replace(conWs('/m/second-brain', ws));
+    else router.replace('/m/second-brain');   // el router de la casa le pega el ?ws=
   };
 
   // `?area=` (la clave de escritorio): entra con esa área abierta, encima del grafo. El parámetro se saca de la URL
