@@ -81,7 +81,7 @@ test('2. desde que pregunta, ninguna acción; lo propuesto antes se retira', () 
 
 test('3. el turno: lleva la herramienta, la corre antes que todo, retira y guarda la pregunta', () => {
   const s = sinComentarios(leer('lib/mako-turno-app.ts'));
-  assert.match(s, /const tools = turno\.tools\.length \? \[\.\.\.\(turno\.tools as ToolDef\[\]\), TOOL_PREGUNTAR\]/, 'viaja cuando hay herramientas');
+  assert.match(s, /const tools = herramientasDelModo\(turno\.tools\.length \? \[\.\.\.\(turno\.tools as ToolDef\[\]\), TOOL_PREGUNTAR\]/, 'viaja cuando hay herramientas');
   const correr = s.slice(s.indexOf('const runTool = async'), s.indexOf('const previo = memo.previo(name);'));
   assert.match(correr, /if \(name === PREGUNTAR\) \{[\s\S]*guardia\.preguntar\(input\)/, 'la pregunta la toma la guardia');
   assert.match(correr, /if \(guardia\.bloquea\(name\)\) return \{ content: JSON\.stringify\(\{ ok: false, error: ERROR_TRAS_PREGUNTAR \}\), isError: true \};/, 'y rechaza ANTES de correr nada');

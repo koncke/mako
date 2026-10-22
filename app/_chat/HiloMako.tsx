@@ -127,6 +127,8 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
               <button type="button" className="ch-enlace" onClick={onRecargar}>Recargar el chat</button></p>
           )}
         </>}>
+          {/* Desde dónde lo escribió (la estrella de una tab, OC6): un chip arriba de la burbuja. */}
+          {x.desde && <span className="ch-desde">desde {x.desde}</span>}
           {archivos.length > 0 && <ArchivosHilo archivos={archivos} />}
           <PegadosHilo pegados={pegados} />
           {/* Una nota de voz se ESCUCHA (21/10/2026): el audio en su globo y, debajo, lo que se entendió, chico (Offer la

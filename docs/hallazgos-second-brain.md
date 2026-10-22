@@ -2165,6 +2165,24 @@ sale «✗ no hay ninguna fila» en una corrida con los dos. Solo, pasa. La marc
 Cerebro); el botón de un negocio sin ninguna IA sigue siendo Gemini, y eso lo decide Martín; la 0316 (`archivero_files.origen`)
 sigue sin aplicar en producción, y cada pegado archivado lo avisa en el log.
 
+## La estrella dice desde dónde: la tab, la entidad y el modo (22/10/2026, OC6)
+
+La estrella de cada tab (app/_chat/MakoEnLaTab.tsx) mandaba al «Cerebro» sin decir desde dónde: `tab` era sólo el aria-label.
+Ahora la pantalla le pasa `entidad` ({ tipo, id, titulo }) y `modo` ('analizar' | 'editar'). Las reglas están en lib/chat-desde.ts:
+
+- **La entidad la toman las herramientas por defecto** (`conEntidadPorDefecto`, en `runTool`): «movelo a Ganado» desde la ficha
+  de Ana llega con SU `leadId`. No pisa un id que el modelo eligió a propósito. El parámetro por tipo está en `ENTIDADES`.
+- **El diagnóstico obvio era el equivocado:** se pensaba que hacía falta la pista para que «movelo a Ganado» trajera la
+  herramienta. Medido: el clasificador ya la trae sola. Lo que faltaba era el id del lead abierto. La pista
+  (`pistaDesde`) queda para los pedidos que no dicen de qué son.
+- **En «analizar» no viaja nada que escriba** (`herramientasDelModo`, la generalización de `permisoEdicionMako`). Lo cumple el
+  servidor, no el modelo. El modo lo pone la PANTALLA; «Analizar · Editar» aparece sólo si la pantalla pasa `onModo`.
+- **Trampa: el contexto que ata la pantalla va ÚLTIMO en el system** (tests/mako-analyst-lead.test.ts): el «desde dónde» va antes.
+- **Trampa: el chip se guarda como marca al principio del mensaje** (`[desde: CRM › Ana]`), y lo que vuelve en la respuesta
+  del turno va SIN ella. Si no, el hilo lo toma por un texto tapado (`textoTapadoDeRespuesta`) y dibuja la marca.
+- **SIN HACER:** ninguna tab pasa todavía `entidad` ni `modo`. Les toca al CRM (CR3, CR4), a Automations (AU4) y a los chats de
+  las tabs (TB3).
+
 ## Los documentos del «+» en una conversación de Offer se perdían sin decirlo (22/10/2026, OC7)
 
 En el Ops Center, el «+» de una conversación de Offer juntaba los archivos y el turno salía SÓLO con el texto: `mandarAOffer`

@@ -20,6 +20,7 @@
 // lib/mako-adjuntos.ts y lib/claves-en-el-chat.ts (una constante), que son puros y sin server.
 // =============================================================================
 
+import { sinDesde } from '@/lib/chat-desde';
 import type {
   MensajeChat, PropuestaPantalla, RespuestaTurno, ResultadoTarjeta, TarjetaPendiente,
 } from '@/lib/mako-turno-app-reglas';
@@ -60,6 +61,8 @@ export type ItemHilo =
       /** enviando · error (no llegó: se puede reintentar) · incierto (no sé si llegó) */
       estado?: 'enviando' | 'error' | 'incierto';
       error?: string;
+      /** desde dónde lo escribió la persona («CRM › Ana»: la estrella de una tab, OC6, lib/chat-desde.ts) */
+      desde?: string;
       /** los links a la pantalla donde se hace lo pedido (sólo de MaKo, y sólo en esta sesión de la pantalla: el
        *  Second Brain los pide a /api/mako/pedidos; lib/chat-mako-reglas.ts → colgarIrA) */
       irA?: { titulo: string; link: string }[];
@@ -92,7 +95,9 @@ export const idLocal = (pre: string): string => `${pre}-${Date.now().toString(36
 type ConWs = (url: string) => string;
 const sinWs: ConWs = (u) => u;
 const aMensaje = (m: MensajeChat, i: number, conWs: ConWs = sinWs): ItemHilo => ({
-  k: 'msg', id: `m${i}-${m.created_at ?? ''}`, role: m.role, texto: m.content, at: m.created_at ?? null,
+  k: 'msg', id: `m${i}-${m.created_at ?? ''}`, role: m.role, at: m.created_at ?? null,
+  // Lo de la persona trae su marca de desde dónde (OC6): el chip, y el texto sin ella.
+  ...(m.role === 'user' ? (({ desde, texto }) => ({ texto, ...(desde ? { desde } : {}) }))(sinDesde(m.content)) : { texto: m.content }),
   ...(m.adjuntos?.length ? { archivos: m.adjuntos } : {}),
   // La nota de voz (Offer y el onboarding, 22/10/2026): se escucha, y el texto es la transcripción (lib/mako-turno-app-reglas.ts).
   ...(m.audio?.url ? { voz: { url: conWs(m.audio.url), secs: m.audio.secs } } : {}),
