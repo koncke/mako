@@ -82,7 +82,20 @@ test('4 · «Pensando la respuesta 50 s · hasta 5 min» y «Cancelar», en una 
   const fasesIA = bloque(chat, 'function FasesIA(');
   assert.match(fasesIA, /\{segundos\} s · hasta/);
   assert.match(fasesIA, /whiteSpace: 'nowrap' \}\}>\{segundos\} s/);
-  assert.match(fasesIA, /<span style=\{\{ flex: 'none' \}\}><Button variant="tertiary" size="sm" onClick=\{onCancelar\}>Cancelar<\/Button><\/span>/, '«Cancelar» se puede achicar y partir');
+  assert.match(fasesIA, /<button type="button" onClick=\{onCancelar\} style=\{S\.cancelar\}>Cancelar<\/button>/, '«Cancelar» volvió al botón del kit (82 px): no entra');
+  assert.match(chat, /\n {2}cancelar: \{ flex: 'none', [^}]*padding: '4px 2px'/, '«Cancelar» se puede achicar y partir');
+});
+
+// MEDIDO EN PRODUCCIÓN (22/10/2026, ad4d3e1d2, ws3): la fila mide 292 px; los puntos 29, «69 s · hasta 5 min» 100 y el
+// Cancelar del kit 82, más 3 huecos de 8. Con «Pensando la respuesta» (174) pedía 409 y se veía «Pensan…». Un rótulo de
+// una palabra y Cancelar como enlace (~52) suman ~280: entra entero. Si un rótulo vuelve a crecer, se corta de nuevo.
+test('4 · los rótulos de las fases son de una palabra: con el tiempo y Cancelar entran enteros en los 292 px', () => {
+  const stream = sinComentarios(leer('app/automations/stream-ia.ts'));
+  const m = /export const TEXTO_FASE: Record<FaseIA, string> = \{([\s\S]*?)\};/.exec(stream);
+  assert.ok(m, 'no encontré TEXTO_FASE');
+  const rotulos = [...m![1].matchAll(/(\w+): '([^']*)'/g)].map((x) => [x[1], x[2]] as const);
+  assert.deepEqual(rotulos.map(([f]) => f).sort(), ['contexto', 'modelo', 'respuesta', 'revision']);
+  for (const [f, r] of rotulos) assert.ok(!/\s/.test(r) && r.length <= 11, `«${r}» (${f}) no entra en la fila: se corta con «…»`);
 });
 
 // ── Probado rompiéndolo (22/10/2026, romper.mjs) ───────────────────────────────────────────────────────────────────
@@ -95,6 +108,8 @@ test('4 · «Pensando la respuesta 50 s · hasta 5 min» y «Cancelar», en una 
 //   R6. las fases con `flexWrap: 'wrap'`                               → 4 / 1 (4)
 //   R7. Cancelar sin su `flex: 'none'`                                  → 4 / 1 (4)
 //   R8. la ayuda sin el `title` del segmento                            → 4 / 1 (1)
+// Con la medida de producción (mismo día, 5 tests): Cancelar vuelve al botón del kit → 5 / 1; «Pensando la respuesta» de
+// nuevo → 5 / 1; Cancelar sin `flex: 'none'` → 5 / 1.
 // La capa a pantalla completa (mismo día): sin `document.body` (adentro del chat) → crear-ia-tercera 14 / 1; `absolute`
 // en vez de `fixed` → crear-ia-tercera 14 / 1; la capa en 58, debajo de la barra de la app → lienzo-capas 3 / 1; la lista
 // sin subir encima de la capa → lienzo-capas 3 / 1.

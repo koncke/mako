@@ -50,7 +50,6 @@
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { Button } from '@/app/_ui';
 import { LinkIntegracion } from '@/app/_components/ConectarIntegracion';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { avisarCambioEtiquetas } from '@/app/_components/etiquetas-cliente';
@@ -298,7 +297,7 @@ export function ChatMako(p: ChatMakoProps) {
    * ⚠️ MIENTRAS TRABAJA, EL TECLADO NO LLEGA AL LIENZO (tercera tanda, punto 6). La capa de quien monta se traga los
    * clics, pero un atajo vive en `document` (el deshacer del lienzo, Suprimir sobre una tarjeta): se corta en CAPTURA
    * lo que no nace en el chat ni en un campo de texto. Escape cancela, igual que el botón, y sólo cuando el botón está
-   * (en «Revisando el flujo» el server ya no mira la señal).
+   * (en «Verificando» el server ya no mira la señal).
    */
   const fase = estado.t === 'trabajando' ? estado.fase : null;
   useEffect(() => {
@@ -689,7 +688,7 @@ export function TarjetaPregunta({ pregunta, onElegir, onOtraCosa, deshabilitado 
   );
 }
 
-/** Las fases REALES del server, lo que lleva y Cancelar (menos en «Revisando el flujo»), arriba de la barra. */
+/** Las fases REALES del server, lo que lleva y Cancelar (menos en «Verificando»), arriba de la barra. */
 function FasesIA({ estado, segundos, onCancelar }: {
   estado: Extract<EstadoIA, { t: 'trabajando' }>; segundos: number; onCancelar: () => void;
 }) {
@@ -709,9 +708,9 @@ function FasesIA({ estado, segundos, onCancelar }: {
       {/* ⚠️ EL TOPE SALE DEL TOPE REAL (revisión, 09/10/2026): «75 s · hasta 1 min» se lee como colgado y la persona
           cancela un pedido que iba a terminar. */}
       <span style={{ ...S.dim, marginLeft: 'auto', whiteSpace: 'nowrap' }}>{segundos} s · hasta {Math.round(TOPE_CLIENTE_MS / 60_000)} min</span>
-      {/* ⚠️ SIN «Cancelar» EN «Revisando el flujo» (revisión, 09/10/2026): el server mira la señal una sola vez, antes de
+      {/* ⚠️ SIN «Cancelar» EN «Verificando» (revisión, 09/10/2026): el server mira la señal una sola vez, antes de
           esa fase, y después crea las etiquetas y guarda igual. */}
-      {estado.fase !== 'revision' && <span style={{ flex: 'none' }}><Button variant="tertiary" size="sm" onClick={onCancelar}>Cancelar</Button></span>}
+      {estado.fase !== 'revision' && <button type="button" onClick={onCancelar} style={S.cancelar}>Cancelar</button>}
     </div>
   );
 }
@@ -934,7 +933,8 @@ const S: Record<string, CSSProperties> = {
   opciones: { display: 'flex', flexWrap: 'wrap', gap: 6, maxWidth: '92%' },
   vacio: { margin: 'auto', color: 'var(--faint)', fontSize: 13.5, textAlign: 'center' },
   // EN UNA SOLA LÍNEA (22/10/2026, Martín: «no me gusta que "cancelar" tenga un salto de línea»): sin `wrap`; si falta lugar,
-  // se achica el rótulo (`rotulo`, con «…»), nunca el tiempo ni Cancelar.
+  // se achica el rótulo (`rotulo`, con «…»), nunca el tiempo ni Cancelar. Medido en producción: con el botón del kit (82 px)
+  // y el rótulo largo no entraba nada; por eso el rótulo es de una palabra (stream-ia.ts) y Cancelar es un enlace (`cancelar`).
   fases: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'nowrap', paddingBottom: 8, fontSize: 13, minWidth: 0 },
   puntos: { display: 'inline-flex', gap: 4, flex: 'none' },
   punto: { width: 7, height: 7, borderRadius: 999 },
@@ -943,6 +943,7 @@ const S: Record<string, CSSProperties> = {
   error: { margin: '0 0 8px', fontSize: 13, lineHeight: 1.4, color: 'var(--bad)' },
   fallido: { display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, margin: '2px 4px 6px', fontSize: 12, color: 'var(--bad)' },
   reintentar: { border: 'none', background: 'none', padding: 0, font: 'inherit', fontWeight: 600, color: 'var(--primary)', cursor: 'pointer' },
+  cancelar: { flex: 'none', border: 'none', background: 'none', padding: '4px 2px', font: 'inherit', fontSize: 12.5, fontWeight: 600, color: 'var(--dim)', cursor: 'pointer' },
   link: { color: 'var(--primary)', fontWeight: 600, textDecoration: 'underline' },
 };
 
