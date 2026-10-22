@@ -7568,3 +7568,18 @@ archivo con menos tests. **Regla:** en un test, todo lo que puede tirar va ADENT
 declara es un rojo. **Medido:** de los 211 archivos que leen el motor de Automations, sólo éste (corridos aislados).
 **Sin hacer:** que `scripts/tests-afectados.mjs` compare, por archivo, los tests que el runner contó contra los `test(` del
 fuente, o que corra aislado todo archivo que en la corrida compartida contó menos de los que declara.
+
+## Un test `todo` que falla sale ROJO cuando OTRO archivo falla de verdad (22/10/2026)
+
+- **Síntoma:** el VERDE marcó ROJO `tests/doer-recetas-video-imagen.test.ts`, y aislado da 5 / 0.
+- **Causa:** `leerResultado` (scripts/tests-afectados.mjs) toma como rojo todo archivo con una línea `test at X.test.ts`.
+  El resumen «✖ failing tests:» de node también lista los `todo` que fallan, que no cuentan como falla. Mientras todo pasa,
+  el código de salida es 0 y no se lee esa lista. Cuando otro archivo del mismo proceso falla de verdad, el `todo` entra
+  como rojo, también en la repetición AISLADA, que corre los rojos juntos.
+- **La regla:** ante un ROJO doble, buscar primero el archivo que falla con `ℹ fail` mayor que 0 al correrlo solo. El que
+  aislado da 0 y sólo lista un `todo` en «failing tests» se va solo cuando se arregla el otro. Sin arreglar en el script:
+  `leerResultado` debería ignorar los bloques marcados `# TODO`.
+
+**Vive en:** scripts/tests-afectados.mjs (`leerResultado`, la repetición AISLADA de los rojos del proceso compartido)
+*22/10/2026, chat «CRM» (claude3).*
+

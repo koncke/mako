@@ -1892,3 +1892,26 @@ todavía fuera de main.
   muestra todo lo que se aprueba.**
 
 *21/10/2026, chat «CRM» (claude4), tercera revisión del Cerebro de la 2.1.*
+
+## Una operación nueva del registro deja AFUERA a otra, sin que nada falle (22/10/2026)
+
+- **Síntoma:** el VERDE de la tanda del feedback 21/10 del CRM dio ROJO en `tests/ficha-editar-con-mako.test.ts`. Con la
+  ficha en «Editar», «cambia el nombre de esta hoja a Cierre» ya no traía `cambiar_ficha_funnel`, y nadie había tocado ni
+  la ficha ni el selector.
+- **Causa:** `toolsDelRegistro` ordena por relevancia contra el texto y corta en el presupuesto de caracteres. La pista de
+  edición («Cambia la ficha del CRM: ») hacía que el pedido saliera «sobre un lead (etapa)», y la relevancia que suma el
+  clasificador (`RELEVANCIA_CRM.etapa`, «cambio etapa mover lead producto») es la de MOVER un lead. Con eso,
+  `cambiar_ficha_funnel` era la ÚLTIMA que entraba. La operación nueva `cambiar_tipo_etapa` («cambiar» + «etapa» en el id,
+  y una descripción larga) pasó delante y se quedó con su lugar. El corte sólo deja un `console.warn`.
+- **El diagnóstico obvio era el equivocado:** no era la ficha ni la operación nueva, y achicar la descripción de
+  `cambiar_tipo_etapa` sólo corría el problema a la próxima operación. La pista también ORDENA, no sólo clasifica: ahora
+  lleva las palabras de la ficha («Cambia la ficha del CRM (sus bloques, hojas y estilo): ») y la pone primera o segunda
+  en los seis pedidos medidos.
+- **La regla:** un test que dice «el turno TRAE la herramienta X» tiene que pedir también un MARGEN (que entre entre las
+  primeras), no sólo que esté. «Está» pasa mientras X sea la última que entra y se rompe en silencio con la próxima
+  operación de la misma área.
+
+**Vive en:** lib/api-mako/registro.ts (`ordenarPorRelevancia`, `toolsDelRegistro`) · lib/mako-analyst-lead-reglas.ts
+(`PISTA_EDICION_FICHA`) · tests/ficha-editar-con-mako.test.ts
+*22/10/2026, chat «CRM» (claude3).*
+
