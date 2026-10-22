@@ -25,7 +25,7 @@ import { TienePagosDeEseCrmError, agregarAProducto, etapasDeProducto, moverEtapa
 import { nombreVisible } from './lead-funnel-reglas';
 import { ajustarPlanPagos, casaDelLead, filaDelTrato, getPagosByLead } from './pagos';
 import {
-  congelarPlan, cuentasValidas, patchDeEdicion, planCongeladoDe, planDelCobro, planDelProducto, productoDeFila, productoValido, vinculoDelPago,
+  congelarPlan, cuentasValidas, mismoCentavo, patchDeEdicion, planCongeladoDe, planDelCobro, planDelProducto, productoDeFila, productoValido, vinculoDelPago,
   type CuentaPago, type PlanCongelado, type PlanDelProducto, type ProductoCobro, type ProductoCobroInput, type ResCobro, type VinculoCobro,
 } from './cobro-etapa';
 import type { Cobro } from './cobros-tipos';
@@ -198,13 +198,28 @@ export type TratoDelPago = {
   ganaEnCrm: { crm: number; etapa: string } | null;
   armoPlan: boolean;
   aviso: string | null;
+  /**
+   * Lo que quedó SIN armar y alguien tiene que cargar (revisión de plata, media 3): el cobro era el primer pago de N y el
+   * plan no se armó (un lead ya ganado, una venta que ya estaba). Va al historial y al `motivo` del cobro.
+   */
+  pendiente: string | null;
   nuevo: boolean;
 };
+
+/**
+ * Otro aviso del MISMO pago tiene el trato tomado. No es una falla: no se escribe en el `motivo` del cobro (revisión de
+ * plata, baja 1: quedaba «no pude prepararlo en su CRM» pegado a un pago que salió bien) y el próximo intento lo completa.
+ */
+export class TratoEnCursoError extends Error {}
+
+/** «faltan 2 cuotas de US$ 333,33: cárgalas en Pagos». */
+const textoPendiente = (plan: PlanDelProducto, motivo: string): string =>
+  `Entró el primer pago de ${plan.total_cuotas + 1}; faltan ${plan.total_cuotas} cuota${plan.total_cuotas === 1 ? '' : 's'} de US$ ${plan.monto_cuota_usd.toFixed(2)} (${motivo}): cárgalas en Pagos.`;
 
 /** La cuota impaga del primer pago en ese trato: número 0, sin pasarela, del monto del cobro. */
 async function cuotaDelPrimerPago(leadId: number, crm: number | null, montoUsd: number | null): Promise<number | null> {
   if (montoUsd == null) return null;
-  const q = (await getPagosByLead(leadId, crm)).find((x) => x.numero === 0 && !x.pagado && !x.proveedor_pago_id && Math.abs(Number(x.monto_usd) - montoUsd) < 0.01);
+  const q = (await getPagosByLead(leadId, crm)).find((x) => x.numero === 0 && !x.pagado && !x.proveedor_pago_id && mismoCentavo(x.monto_usd, montoUsd));
   return q ? Number(q.id) : null;
 }
 
@@ -225,16 +240,27 @@ const tratoGuardado = (t: Record<string, unknown>): TratoDelPago => {
     pagoEn: t.pagoEn == null ? null : Number(t.pagoEn), pagoId: t.pagoId == null ? null : Number(t.pagoId),
     ganaEnCasa: t.ganaEnCasa === true, montoVenta: t.montoVenta == null ? null : Number(t.montoVenta),
     ganaEnCrm: g && g.crm != null && typeof g.etapa === 'string' ? { crm: Number(g.crm), etapa: g.etapa } : null,
-    armoPlan: t.armoPlan === true, aviso: null, nuevo: false,
+    armoPlan: t.armoPlan === true, aviso: null, pendiente: null, nuevo: false,
   };
 };
 
-/** Lo que el trato de un cobro dice de su plan: para el reembolso total del primer pago. null = no se armó ninguno. */
-export async function planArmadoPorElCobro(cobroId: number): Promise<{ pagoEn: number | null } | null> {
+/**
+ * Lo que el trato de un cobro dice de su plan: para el reembolso total del primer pago (y su devolución fallida). null = no
+ * se armó ninguno. `bajaPorReembolso`: si un reembolso ya lo dio de baja (lo deshace una devolución que falla).
+ */
+export async function planArmadoPorElCobro(cobroId: number): Promise<{ pagoEn: number | null; bajaPorReembolso: boolean } | null> {
   const m = await marcaDelCobro(cobroId);
   if (m === 'sin-0326' || m.estado !== 'listo' || !m.trato) return null;
   const t = tratoGuardado(m.trato);
-  return t.armoPlan ? { pagoEn: t.pagoEn } : null;
+  return t.armoPlan ? { pagoEn: t.pagoEn, bajaPorReembolso: m.trato.bajaPorReembolso === true } : null;
+}
+
+/** Anota en el trato del cobro si un reembolso dio de baja su plan (lo lee `planArmadoPorElCobro`). Tira si no puede. */
+export async function marcarBajaPorReembolso(cobroId: number, valor: boolean): Promise<void> {
+  const m = await marcaDelCobro(cobroId);
+  if (m === 'sin-0326' || !m.trato) return;
+  const { error } = await (await getTenantDb()).from('cobros').update({ trato: { ...m.trato, bajaPorReembolso: valor } }).eq('id', cobroId);
+  if (error) throw new Error(`No pude anotar la baja del plan del cobro ${cobroId}: ${error.message}`);
 }
 
 /** El reclamo del trato vence a los 2 minutos: un aviso que se cortó armándolo no lo deja tomado para siempre. */
@@ -258,6 +284,14 @@ export async function prepararTratoDelPago(c: Cobro, opts: { renovacion: boolean
   const marca = await marcaDelCobro(c.id);
   if (marca === 'sin-0326') return null; // sin la 0326 no hay vínculos ni planes congelados: el camino de siempre
   if (marca.estado === 'listo' && marca.trato) return tratoGuardado(marca.trato);
+  // UN PAGO YA ASENTADO SIN TRATO (revisión de plata): un cobro de antes de la 0326, o que no tenía vínculo al pagarse, que
+  // vuelve a pasar (el cron de altas). Armarle un trato ahora escribía una venta y un Ganado en ese CRM con la plata en la
+  // casa: la venta doble. Sigue el camino de siempre.
+  {
+    const { data: ya, error: eYa } = await db.from('pagos').select('id').eq('lead_id', leadId).eq('cobro_id', c.id).limit(1);
+    if (eYa) throw new Error(`No pude ver si el pago del cobro ${c.id} ya estaba asentado: ${eYa.message}`);
+    if ((ya ?? []).length) return null;
+  }
 
   let vinculos: VinculoCobro[] = [];
   {
@@ -281,10 +315,11 @@ export async function prepararTratoDelPago(c: Cobro, opts: { renovacion: boolean
   if (!reclamo) {
     const otra = await marcaDelCobro(c.id);
     if (otra !== 'sin-0326' && otra.estado === 'listo' && otra.trato) return tratoGuardado(otra.trato);
-    throw new Error('Otro aviso está armando el trato de este pago: se completa en el próximo intento.');
+    throw new TratoEnCursoError('Otro aviso está armando el trato de este pago: se completa en el próximo intento.');
   }
 
-  const t = await armarTrato(c, leadId, v, plan, montoVenta, opts.fecha);
+  const ventaEnAntes = marca.trato && marca.trato.ventaEn != null ? Number(marca.trato.ventaEn) : null;
+  const t = await armarTrato(c, leadId, v, plan, montoVenta, opts.fecha, ventaEnAntes);
   const guardar = { pagoEn: t.pagoEn, pagoId: t.pagoId, ganaEnCasa: t.ganaEnCasa, montoVenta: t.montoVenta, ganaEnCrm: t.ganaEnCrm, armoPlan: t.armoPlan };
   const { error: eG } = await db.from('cobros').update({ trato_estado: 'listo', trato: guardar }).eq('id', c.id);
   if (eG) throw new Error(`No pude guardar el trato del cobro ${c.id}: ${eG.message}`);
@@ -292,7 +327,7 @@ export async function prepararTratoDelPago(c: Cobro, opts: { renovacion: boolean
 }
 
 /** Arma el trato (con el reclamo tomado). Ver `prepararTratoDelPago`. */
-async function armarTrato(c: Cobro, leadId: number, v: VinculoCobro | null, plan: PlanDelProducto | null, montoVenta: number | null, fecha: string): Promise<TratoDelPago> {
+async function armarTrato(c: Cobro, leadId: number, v: VinculoCobro | null, plan: PlanDelProducto | null, montoVenta: number | null, fecha: string, ventaEnAntes: number | null): Promise<TratoDelPago> {
   const casa = await casaDelLead(leadId);
   let aviso: string | null = null;
   let ganaEnCrm: { crm: number; etapa: string } | null = null;
@@ -316,7 +351,7 @@ async function armarTrato(c: Cobro, leadId: number, v: VinculoCobro | null, plan
       ganaEnCrm = null;
     }
   }
-  const base = { ganaEnCrm, aviso, nuevo: true };
+  const base = { ganaEnCrm, aviso, pendiente: null as string | null, nuevo: true };
 
   // UNA SUSCRIPCIÓN SE QUEDA EN LA CASA (la cabecera): el pago y la venta como siempre; además, Ganado en el CRM.
   if (c.tipo === 'suscripcion') {
@@ -328,14 +363,20 @@ async function armarTrato(c: Cobro, leadId: number, v: VinculoCobro | null, plan
     const crm = ganaEnCrm.crm;
     const fila = await filaDelTrato(leadId, crm);
     if (!fila) throw new Error('El lead no quedó en el CRM del vínculo.');
-    let nuestra = fila.venta_tipo === 'unico' && montoVenta != null && fila.monto_cierre_usd != null
-      && Math.abs(fila.monto_cierre_usd - montoVenta) < 0.01 && fila.fecha_cierre === fecha;
+    // `nuestra`: la venta la escribió ESTE cobro, ahora o en un intento cortado. La marca vive en el cobro (`trato.ventaEn`),
+    // no en la fecha (revisión de plata, baja 4: el cron completa con la fecha de cuando se procesó, otro día, y la venta de
+    // un intento cortado a las 23:59 parecía de otra compra).
+    let nuestra = ventaEnAntes === crm && fila.venta_tipo === 'unico' && mismoCentavo(fila.monto_cierre_usd, montoVenta);
     if (fila.monto_cierre_usd == null && fila.venta_tipo !== 'sin_cobro' && montoVenta != null) {
       const { data: escrita, error } = await (await getTenantDb()).from('lead_funnel')
         .update({ venta_tipo: 'unico', monto_cierre_usd: montoVenta, fecha_cierre: fecha, updated_at: new Date().toISOString() })
         .eq('id', fila.id).is('monto_cierre_usd', null).select('id');
       if (error) throw new Error(`No pude escribir la venta en el CRM del vínculo: ${error.message}`);
-      nuestra = nuestra || !!escrita?.length;
+      if (escrita?.length) {
+        nuestra = true;
+        const { error: eM } = await (await getTenantDb()).from('cobros').update({ trato: { ventaEn: crm } }).eq('id', c.id);
+        if (eM) throw new Error(`No pude anotar la venta en el cobro ${c.id}: ${eM.message}`);
+      }
     }
     let armoPlan = false;
     if (plan && nuestra && !(await getPagosByLead(leadId, crm)).some((q) => q.pagado)) {
@@ -347,6 +388,7 @@ async function armarTrato(c: Cobro, leadId: number, v: VinculoCobro | null, plan
         ? 'Su trato en ese CRM estaba marcado «sin cobro»: el pago entró igual, sin cambiar la venta.'
         : 'Ya tenía una venta en ese CRM: el pago entró ahí sin armar el plan del producto.';
     }
+    if (plan && !armoPlan) base.pendiente = textoPendiente(plan, nuestra ? 'ese CRM ya tenía pagos cobrados' : 'ese CRM ya tenía otra venta');
     return { ...base, pagoEn: crm, pagoId: await cuotaDelPrimerPago(leadId, crm, c.monto_usd), ganaEnCasa: false, montoVenta, armoPlan };
   }
 
@@ -356,10 +398,14 @@ async function armarTrato(c: Cobro, leadId: number, v: VinculoCobro | null, plan
   if (plan) {
     const lead = await getLead(leadId);
     const cuotas = await getPagosByLead(leadId);
-    const mismoPlan = lead?.total_cuotas == null || (lead.total_cuotas === plan.total_cuotas && Number(lead.monto_cuota_usd) === plan.monto_cuota_usd);
+    const mismoPlan = lead?.total_cuotas == null || (lead.total_cuotas === plan.total_cuotas && mismoCentavo(lead.monto_cuota_usd, plan.monto_cuota_usd));
     if (lead && lead.estado_lead !== 'ganado' && lead.monto_cierre_usd == null && mismoPlan && !cuotas.some((q) => q.pagado)) {
       await ajustarPlanPagos(leadId, plan, fecha);
       armoPlan = true;
+    } else {
+      // ⚠️ EL PLAN QUE NO SE ARMA SE DICE (revisión de plata, media 3): un cliente que ya ganó y compra otro producto en
+      // cuotas pagaba el primero y las demás cuotas no existían en ningún lado (ni Outstanding, ni cobranza, ni aviso).
+      base.pendiente = textoPendiente(plan, lead?.estado_lead === 'ganado' ? 'ya era cliente' : 'su CRM principal ya tenía una venta o pagos');
     }
   }
   return { ...base, pagoEn: null, pagoId: await cuotaDelPrimerPago(leadId, null, c.monto_usd), ganaEnCasa: true, montoVenta, armoPlan };

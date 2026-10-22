@@ -1023,3 +1023,21 @@ app/crm/cobro-etapa-actions.ts · tests/cobro-etapa.test.ts.
 
 **Sin hacer:** cuando el pago gana en un CRM agregado, la casa queda abierta, y sus automatizaciones pueden seguir
 escribiéndole a quien ya pagó (no se midió). La regla de la casa es de CRM (lib/lead-funnel.ts, `moverEtapaEnProducto`).
+
+### La revisión de plata de «Vincular cobro»: lo que el trato no tiene que cortar (22/10/2026)
+
+- **El reclamo del trato cortaba pasos que no eran suyos.** Con una suscripción de Stripe vinculada llegan dos avisos casi
+  juntos. Si el que ganó el pago (`nuevo`) perdía el reclamo del trato, tiraba ANTES de programar el fin del plazo en
+  Stripe, y el otro aviso no lo programa (no es `nuevo`): la tarjeta se seguía cobrando pasado el mes 6. **La regla:**
+  lo que no depende del trato va antes que él (el plazo y la reapertura de la suscripción). Y «otro aviso lo está armando»
+  no es una falla: no se escribe en el `motivo` del cobro (`TratoEnCursoError`).
+- **Devolver el primer pago daba de baja TODO lo impago del trato**, aunque otro pago del mismo producto siguiera
+  sosteniendo la compra (quien pagó dos veces). Si en ese trato queda otro pago cobrado, no se da de baja: se dice. Una
+  devolución que falla deshace la baja que hizo el reembolso (`trato.bajaPorReembolso`).
+- **El plan que no se arma se dice.** Un cliente que ya ganó y compra otro producto en cuotas pagaba el primero y las
+  demás cuotas no existían en ningún lado. Ahora va al historial y al `motivo` del cobro: «faltan N cuotas de US$X».
+- **`Math.abs(a - b) < 0.01` no es «el mismo monto»:** da por iguales 333,34 y 333,33, justo la diferencia que fabrica el
+  plan. Se compara al centavo (`mismoCentavo`), también al asentar (lib/pagos.ts).
+- **Un pago ya asentado sin trato no arma uno nuevo** (un cobro viejo que vuelve a pasar por el cron): era una venta doble.
+- La API de MaKo guarda lo que se aprobó y no cobra otro monto si el producto cambió mientras esperaba. La venta de un
+  intento cortado se reconoce por una marca en el cobro (`trato.ventaEn`), no por la fecha (el cron completa otro día).

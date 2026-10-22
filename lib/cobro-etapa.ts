@@ -89,6 +89,13 @@ export const cuentaDelCobro = (c: { proveedor: ProveedorPago; cuenta?: string | 
 
 const num = (v: unknown): number | null => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
 
+/**
+ * ¿Dos montos son el mismo, al centavo? (revisión de plata del 22/10/2026, baja 5): `Math.abs(a - b) < 0.01` daba por
+ * iguales 333,34 y 333,33 (la resta es 0,00999…), justo la diferencia que fabrica el plan entre el inicial y las cuotas.
+ */
+export const mismoCentavo = (a: number | string | null | undefined, b: number | string | null | undefined): boolean =>
+  a != null && b != null && Number.isFinite(Number(a)) && Number.isFinite(Number(b)) && Math.round(Number(a) * 100) === Math.round(Number(b) * 100);
+
 /** Una fila de `productos` como la lee el modal (una base sin la 0326 no trae `cuotas`: un pago). */
 export function productoDeFila(f: Record<string, unknown>): ProductoCobro {
   const cuotas = num(f.cuotas);
@@ -228,6 +235,6 @@ export function planDelCobro(
   const base = congelado ?? (c.monto_usd != null ? { precio: c.monto_usd, cuotas: null } : null);
   if (!base) return { plan: null, montoVenta: null };
   const p = planDelProducto({ tipo: 'unico', montoUsd: base.precio, cuotas: base.cuotas }, dia);
-  const coincide = p.primerPagoUsd != null && c.monto_usd != null && Math.abs(p.primerPagoUsd - c.monto_usd) < 0.01;
+  const coincide = mismoCentavo(p.primerPagoUsd, c.monto_usd);
   return coincide ? { plan: p.plan, montoVenta: base.precio } : { plan: null, montoVenta: c.monto_usd };
 }

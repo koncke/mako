@@ -29,9 +29,9 @@ import { getLead, logLeadEvent, setPipelineStage } from './leads';
 import { getPipelineStagesDeLead } from './funnels';
 import { etapaDeGanado } from './pipeline';
 import { listProductos } from './productos';
-import { cobroDelProducto, ganarEnElCrm, planArmadoPorElCobro, prepararTratoDelPago, type TratoDelPago } from './cobro-etapa-server';
+import { TratoEnCursoError, cobroDelProducto, ganarEnElCrm, marcarBajaPorReembolso, planArmadoPorElCobro, prepararTratoDelPago, type TratoDelPago } from './cobro-etapa-server';
 import type { PlanCongelado } from './cobro-etapa';
-import { registrarCobroDeProveedor, desmarcarCobroDeProveedor, remarcarCobroDeProveedor } from './pagos';
+import { getPagosByLead, registrarCobroDeProveedor, desmarcarCobroDeProveedor, remarcarCobroDeProveedor } from './pagos';
 import { hoyEnWorkspace } from './timezone';
 import { capaDef, type CapaId } from './capas';
 import { darDeAltaCliente, esCapaVendible } from './alta-cliente';
@@ -543,6 +543,21 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
       actual = (await actualizar(ws, c.id, { motivo: null })) ?? actual;
     }
 
+    // 2a. ⚠️ EL PLAZO de un producto con fin (15/10/2026). En Stripe se programa ACÁ (Checkout no acepta un fin); en Mercado
+    //     Pago nació con él. ⚠️ ANTES DEL TRATO (revisión de plata del 22/10/2026, media 1): no depende de él, y si el aviso que
+    //     ganó el pago (`nuevo`) perdía el reclamo del trato, se cortaba antes de programar el fin y la tarjeta se seguía
+    //     cobrando pasado el mes 6 (el otro aviso no es `nuevo`). Y el lead que se GANA con este pago lo lleva (su `fecha_cierre` es hoy), así el MRR deja de
+    //     contarla cuando se cumple. Hasta este día un producto «6 meses» se cobraba para siempre. Best effort: la plata
+    //     ya entró; si falla, queda dicho (en el cobro, o en el log si no se pudo ni leer el plazo).
+    const plazo = actual.tipo === 'suscripcion' && nuevo && !renovacion
+      ? await plazoDelCobro(actual).catch((e) => { console.error(`[cobros] no pude leer el plazo del cobro ${c.id}:`, e instanceof Error ? e.message : String(e)); return null; })
+      : null;
+    if (plazo && actual.proveedor === 'stripe' && actual.proveedor_suscripcion_id) actual = await programarPlazoStripe(actual, plazo);
+
+    // 2b. Una suscripción NUEVA de la pasarela sobre un lead que ya era suscripción: la cancelada o con plazo vuelve a
+    //     activa y sin fin (`reabrirSuscripcionDelLead`). Va antes de ganar, que no la toca si el lead ya ganó.
+    if (actual.lead_id && actual.tipo === 'suscripcion' && nuevo && !renovacion) await reabrirSuscripcionDelLead(actual, autor);
+
     // 1b. ⚠️ EL TRATO DEL PAGO (mig 0326, «Vincular cobro»): un producto vinculado a la etapa Ganado de un CRM entra en el
     //     trato de ESE CRM, con su plan si va en cuotas; uno en cuotas sin vínculo arma su plan en la casa. null = el camino
     //     de siempre. Si falla, como el CRM de abajo: queda dicho en el cobro y el próximo aviso lo completa (se repite sin
@@ -552,11 +567,19 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
       try {
         trato = await prepararTratoDelPago(actual, { renovacion, fecha });
       } catch (e) {
-        await actualizar(ws, c.id, { motivo: `El pago entró pero no pude prepararlo en su CRM: ${e instanceof Error ? e.message : String(e)}`.slice(0, 300) });
+        // Otro aviso del mismo pago lo está armando: no es una falla y no va al `motivo` (revisión de plata, baja 1).
+        if (!(e instanceof TratoEnCursoError)) {
+          await actualizar(ws, c.id, { motivo: `El pago entró pero no pude prepararlo en su CRM: ${e instanceof Error ? e.message : String(e)}`.slice(0, 300) });
+        }
         throw e;
       }
       // Lo que el trato tiene que dejar dicho (un CRM archivado, una venta que ya estaba): una vez, al armarse.
       if (trato?.aviso && trato.nuevo) await logLeadEvent(actual.lead_id, 'Pago registrado', trato.aviso, autor);
+      // Y las cuotas que quedaron sin armar, también en el cobro, para que alguien las cargue (revisión de plata, media 3).
+      if (trato?.pendiente && trato.nuevo) {
+        await logLeadEvent(actual.lead_id, 'Pago registrado', trato.pendiente, autor);
+        actual = (await actualizar(ws, c.id, { motivo: trato.pendiente.slice(0, 300) })) ?? actual;
+      }
     }
 
     // 2. El CRM: la cuota. Idempotente por (workspace, proveedor, proveedor_pago_id).
@@ -587,19 +610,6 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
         }
       }
     }
-
-    // 2a. ⚠️ EL PLAZO de un producto con fin (15/10/2026). En Stripe se programa ACÁ (Checkout no acepta un fin); en Mercado
-    //     Pago nació con él. Y el lead que se GANA con este pago lo lleva (su `fecha_cierre` es hoy), así el MRR deja de
-    //     contarla cuando se cumple. Hasta este día un producto «6 meses» se cobraba para siempre. Best effort: la plata
-    //     ya entró; si falla, queda dicho (en el cobro, o en el log si no se pudo ni leer el plazo).
-    const plazo = actual.tipo === 'suscripcion' && nuevo && !renovacion
-      ? await plazoDelCobro(actual).catch((e) => { console.error(`[cobros] no pude leer el plazo del cobro ${c.id}:`, e instanceof Error ? e.message : String(e)); return null; })
-      : null;
-    if (plazo && actual.proveedor === 'stripe' && actual.proveedor_suscripcion_id) actual = await programarPlazoStripe(actual, plazo);
-
-    // 2b. Una suscripción NUEVA de la pasarela sobre un lead que ya era suscripción: la cancelada o con plazo vuelve a
-    //     activa y sin fin (`reabrirSuscripcionDelLead`). Va antes de ganar, que no la toca si el lead ya ganó.
-    if (actual.lead_id && actual.tipo === 'suscripcion' && nuevo && !renovacion) await reabrirSuscripcionDelLead(actual, autor);
 
     // 3. Ganar el lead (sólo si no está ganado): por setPipelineStage y la etapa de SU embudo,
     //    nunca escribiendo estado_lead a mano (tests/crm-curso-al-ganar.test.ts). Esto es lo que
@@ -916,8 +926,17 @@ export async function aplicarReembolso(c: Cobro, p: { proveedorPagoId: string | 
         try {
           const armado = await planArmadoPorElCobro(c.id);
           if (armado) {
-            const { darDeBajaCliente } = await import('./pagos-baja');
-            await darDeBajaCliente(c.lead_id, NOMBRE_PASARELA[c.proveedor], armado.pagoEn);
+            // ⚠️ SÓLO SI NADA MÁS SOSTIENE LA COMPRA (revisión de plata, media 2): quien pagó dos veces el mismo producto y
+            // recibe una devolución sigue debiendo las cuotas. Si en ese trato queda otro pago cobrado, no se da de baja:
+            // se dice, y lo decide una persona.
+            const quedan = (await getPagosByLead(c.lead_id, armado.pagoEn)).filter((q) => q.pagado);
+            if (quedan.length) {
+              await logLeadEvent(c.lead_id, 'Pago reembolsado', 'Se devolvió el primer pago del plan, pero en ese CRM quedan otros pagos cobrados: sus cuotas siguen como deuda. Revísalas en Pagos.', NOMBRE_PASARELA[c.proveedor]);
+            } else {
+              const { darDeBajaCliente } = await import('./pagos-baja');
+              const r = await darDeBajaCliente(c.lead_id, NOMBRE_PASARELA[c.proveedor], armado.pagoEn);
+              if (r.ok) await marcarBajaPorReembolso(c.id, true);
+            }
           }
         } catch (e) {
           console.error(`[cobros] no pude dar de baja el plan del cobro ${c.id} reembolsado:`, e instanceof Error ? e.message : String(e));
@@ -948,6 +967,20 @@ export async function aplicarReembolsoFallido(c: Cobro, p: { proveedorPagoId: st
       if (c.lead_id && pagoId) {
         const fecha = await hoyEnWorkspace(p.fechaCargo ? new Date(p.fechaCargo) : new Date());
         await remarcarCobroDeProveedor({ leadId: c.lead_id, proveedor: c.proveedor, proveedorPagoId: pagoId, fechaPago: fecha });
+      }
+      // La baja del plan que hizo el reembolso, deshecha (revisión de plata, baja 2): la plata volvió al negocio, así que
+      // las cuotas vuelven a ser deuda. Best effort, como el reembolso.
+      if (c.lead_id && esElPrimero) {
+        try {
+          const armado = await planArmadoPorElCobro(c.id);
+          if (armado?.bajaPorReembolso) {
+            const { deshacerBajaCliente } = await import('./pagos-baja');
+            const r = await deshacerBajaCliente(c.lead_id, NOMBRE_PASARELA[c.proveedor], armado.pagoEn);
+            if (r.ok) await marcarBajaPorReembolso(c.id, false);
+          }
+        } catch (e) {
+          console.error(`[cobros] no pude deshacer la baja del plan del cobro ${c.id}:`, e instanceof Error ? e.message : String(e));
+        }
       }
     }
     if (c.lead_id) {

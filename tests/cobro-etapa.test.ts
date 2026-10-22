@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  congelarPlan, cuentaDelCobro, cuentasDePasarelas, cuentasValidas, patchDeEdicion, planCongeladoDe, planDelCobro, planDelProducto, productoDeFila,
+  congelarPlan, cuentaDelCobro, cuentasDePasarelas, cuentasValidas, mismoCentavo, patchDeEdicion, planCongeladoDe, planDelCobro, planDelProducto, productoDeFila,
   productoValido, proveedorDeCuenta, vinculoDelPago,
   type PlanCongelado, type VinculoCobro,
 } from '../lib/cobro-etapa';
@@ -104,9 +104,10 @@ test('el trato de un pago nunca pisa una venta, y el reintento completa el MISMO
   const s = sinComentarios(leer('lib/cobro-etapa-server.ts'));
   assert.match(s, /\.eq\('id', fila\.id\)\.is\('monto_cierre_usd', null\)\.select\('id'\);/);
   assert.match(s, /if \(plan && nuestra && !\(await getPagosByLead\(leadId, crm\)\)\.some\(\(q\) => q\.pagado\)\) \{\s*await ajustarPlanPagos\(leadId, plan, fecha, \{ crm \}\);/);
-  // `nuestra`: la venta que dejó un intento anterior de este mismo pago (su precio y su fecha) cuenta como de este pago.
-  assert.match(s, /Math\.abs\(fila\.monto_cierre_usd - montoVenta\) < 0\.01 && fila\.fecha_cierre === fecha;/);
-  assert.match(s, /x\.numero === 0 && !x\.pagado && !x\.proveedor_pago_id && Math\.abs\(Number\(x\.monto_usd\) - montoUsd\) < 0\.01/);
+  // `nuestra`: la venta que dejó un intento anterior de ESTE cobro (la marca `trato.ventaEn` en el cobro, no la fecha).
+  assert.match(s, /let nuestra = ventaEnAntes === crm && fila\.venta_tipo === 'unico' && mismoCentavo\(fila\.monto_cierre_usd, montoVenta\);/);
+  assert.match(s, /nuestra = true;\s*const \{ error: eM \} = await \(await getTenantDb\(\)\)\.from\('cobros'\)\.update\(\{ trato: \{ ventaEn: crm \} \}\)/);
+  assert.match(s, /x\.numero === 0 && !x\.pagado && !x\.proveedor_pago_id && mismoCentavo\(x\.monto_usd, montoUsd\)/);
   assert.match(s, /if \(c\.tipo === 'suscripcion'\) \{[\s\S]{0,200}return \{ \.\.\.base, pagoEn: null, pagoId: null, ganaEnCasa: true,/, 'una suscripción (la del COBRO) se queda en la casa');
 });
 
@@ -149,7 +150,7 @@ test('alta 2: un vínculo a un CRM archivado (o sin Ganado) no deja el pago afue
 test('medias 3 y 4: el trato se reclama antes de armarse; el que pierde relee o tira, y queda escrito al terminar', () => {
   const s = sinComentarios(leer('lib/cobro-etapa-server.ts'));
   assert.match(s, /\.update\(\{ trato_estado: 'armando', trato_at: ahora\.toISOString\(\) \}\)\s*\.eq\('id', c\.id\)\.or\(`trato_estado\.is\.null,and\(trato_estado\.eq\.armando,trato_at\.lt\.\$\{vencido\}\)`\)/);
-  assert.match(s, /if \(!reclamo\) \{[\s\S]{0,240}throw new Error\('Otro aviso está armando el trato de este pago/);
+  assert.match(s, /if \(!reclamo\) \{[\s\S]{0,240}throw new TratoEnCursoError\('Otro aviso está armando el trato de este pago/);
   assert.match(s, /if \(marca\.estado === 'listo' && marca\.trato\) return tratoGuardado\(marca\.trato\);/, 'un trato listo no se vuelve a armar');
   assert.match(s, /update\(\{ trato_estado: 'listo', trato: guardar \}\)/);
   const m = leer('supabase/migrations/0326_cobro_en_ganado.sql');
@@ -160,7 +161,7 @@ test('medias 3 y 4: el trato se reclama antes de armarse; el que pierde relee o 
 // Media 5 · Rotura: el reembolso sin dar de baja el plan que armó: 1 fallo.
 test('media 5: devuelto el primer pago, las cuotas del plan que armó dejan de ser deuda', () => {
   const c = sinComentarios(leer('lib/cobros.ts'));
-  assert.match(c, /const armado = await planArmadoPorElCobro\(c\.id\);\s*if \(armado\) \{\s*const \{ darDeBajaCliente \} = await import\('\.\/pagos-baja'\);\s*await darDeBajaCliente\(c\.lead_id, NOMBRE_PASARELA\[c\.proveedor\], armado\.pagoEn\);/);
+  assert.match(c, /const \{ darDeBajaCliente \} = await import\('\.\/pagos-baja'\);\s*const r = await darDeBajaCliente\(c\.lead_id, NOMBRE_PASARELA\[c\.proveedor\], armado\.pagoEn\);\s*if \(r\.ok\) await marcarBajaPorReembolso\(c\.id, true\);/);
 });
 
 // Media 6 · Rotura: editar con la fila entera de `productoValido` (sin `patchDeEdicion`): 1 fallo. Pisar el plazo sin que venga: 1 fallo.
@@ -199,4 +200,57 @@ test('las puertas: el negocio en curso, sesión siempre y admin para escribir; u
   const m = leer('supabase/migrations/0326_cobro_en_ganado.sql');
   assert.match(m, /create unique index if not exists cobro_etapa_vinculos_un_crm_por_producto on cobro_etapa_vinculos \(workspace_id, producto_id\);/);
   assert.match(m, /revoke all on cobro_etapa_vinculos from anon, authenticated;/);
+});
+
+// ── La revisión de plata (22/10/2026, revision-vincular-cobro-2210.md) ────────────────────────────────────────────────
+
+// Baja 5 · Rotura: `mismoCentavo` con `Math.abs(a - b) < 0.01`: 1 fallo.
+test('baja 5: los montos se comparan al centavo: 333,34 no es 333,33', () => {
+  assert.equal(mismoCentavo(333.34, 333.33), false, 'la diferencia que fabrica el plan');
+  assert.equal(mismoCentavo(0.1 + 0.2, 0.3), true, 'el error de coma flotante no cuenta');
+  assert.equal(mismoCentavo('1000.00', 1000), true);
+  assert.equal(mismoCentavo(null, 0), false);
+  // Un link hecho a mano por 333,33 no arma el plan de 333,34 + 2 × 333,33.
+  assert.deepEqual(planDelCobro({ tipo: 'unico', monto_usd: 333.33 }, { precio: 1000, cuotas: 3 }, 22), { plan: null, montoVenta: 333.33 });
+});
+
+// Media 1 · Rotura: el plazo y la reapertura otra vez DESPUÉS del trato: 1 fallo.
+test('media 1: el plazo de la suscripción y su reapertura van ANTES del trato (no dependen de él)', () => {
+  const c = sinComentarios(leer('lib/cobros.ts'));
+  const trato = c.indexOf('trato = await prepararTratoDelPago(actual, { renovacion, fecha });');
+  assert.ok(trato > 0);
+  assert.ok(c.indexOf('actual = await programarPlazoStripe(actual, plazo);') < trato, 'el plazo de Stripe');
+  assert.ok(c.indexOf('await reabrirSuscripcionDelLead(actual, autor);') < trato, 'la reapertura');
+});
+
+// Media 2 · Rotura: dar de baja sin mirar si quedan pagos cobrados en el trato: 1 fallo.
+test('media 2: devolver el primer pago no borra la deuda si otro pago sostiene la compra', () => {
+  const c = sinComentarios(leer('lib/cobros.ts'));
+  assert.match(c, /const quedan = \(await getPagosByLead\(c\.lead_id, armado\.pagoEn\)\)\.filter\(\(q\) => q\.pagado\);\s*if \(quedan\.length\) \{\s*await logLeadEvent\(/);
+});
+
+// Media 3 · Roturas: la casa sin el pendiente: 1 fallo. El cobro sin el pendiente en su motivo: 1 fallo.
+test('media 3: el plan que no se arma se dice en el historial y en el cobro, con cuántas cuotas faltan', () => {
+  const s = sinComentarios(leer('lib/cobro-etapa-server.ts'));
+  assert.match(s, /\} else \{\s*base\.pendiente = textoPendiente\(plan, lead\?\.estado_lead === 'ganado'/, 'la casa');
+  assert.match(s, /if \(plan && !armoPlan\) base\.pendiente = textoPendiente\(plan,/, 'un CRM agregado');
+  const c = sinComentarios(leer('lib/cobros.ts'));
+  assert.match(c, /if \(trato\?\.pendiente && trato\.nuevo\) \{\s*await logLeadEvent\(actual\.lead_id, 'Pago registrado', trato\.pendiente, autor\);\s*actual = \(await actualizar\(ws, c\.id, \{ motivo: trato\.pendiente\.slice\(0, 300\) \}\)\) \?\? actual;/);
+});
+
+// Bajas 1, 2 y 3 · Roturas: el «en curso» escrito en el motivo: 1 fallo. La devolución fallida sin deshacer la baja: 1
+// fallo. La API sin comparar lo aprobado: 1 fallo.
+test('bajas 1, 2 y 3: «en curso» no es una falla, una devolución fallida deshace la baja, y la API cobra lo aprobado', () => {
+  const c = sinComentarios(leer('lib/cobros.ts'));
+  assert.match(c, /if \(!\(e instanceof TratoEnCursoError\)\) \{\s*await actualizar\(ws, c\.id, \{ motivo: `El pago entró pero no pude prepararlo/);
+  assert.match(c, /if \(armado\?\.bajaPorReembolso\) \{\s*const \{ deshacerBajaCliente \} = await import\('\.\/pagos-baja'\);/);
+  const api = sinComentarios(leer('lib/api-mako/areas/cobros.run.ts'));
+  assert.match(api, /payload: \{ leadId: lead\.id, productoId: prod\.id, pasarela, montoUsd: enCuotas\?\.primerPagoUsd \?\? prod\.monto_usd \},/);
+  assert.match(api, /if \(payload\.montoUsd != null\) \{\s*const ahora = await cobroDelProducto\(Number\(payload\.productoId\)\)\.catch\(\(\) => null\);\s*const cobraria = ahora\?\.primerPagoUsd \?\? null;\s*if \(cobraria == null \|\| Math\.round\(cobraria \* 100\) !== Math\.round\(Number\(payload\.montoUsd\) \* 100\)\) \{\s*return \{ ok: false,/);
+});
+
+// Rotura: armar el trato de un pago que ya estaba asentado: 1 fallo.
+test('un pago ya asentado sin trato no arma uno nuevo (la venta doble)', () => {
+  const s = sinComentarios(leer('lib/cobro-etapa-server.ts'));
+  assert.match(s, /\.from\('pagos'\)\.select\('id'\)\.eq\('lead_id', leadId\)\.eq\('cobro_id', c\.id\)\.limit\(1\);[\s\S]{0,200}if \(\(ya \?\? \[\]\)\.length\) return null;/);
 });

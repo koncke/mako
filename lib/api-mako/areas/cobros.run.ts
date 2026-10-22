@@ -209,11 +209,21 @@ export const RUNNERS: Runners = {
         };
       }
       return {
-        payload: { leadId: lead.id, productoId: prod.id, pasarela },
+        // `montoUsd`: lo que se aprobó. Si el producto cambia mientras la pendiente espera, `ejecutar` no cobra otro monto.
+        payload: { leadId: lead.id, productoId: prod.id, pasarela, montoUsd: enCuotas?.primerPagoUsd ?? prod.monto_usd },
         resumen: `Crear un link de pago de ${NOMBRE_PASARELA[pasarela]} para ${lead.nombre}: ${prod.nombre}, ${formatoMonto(d.monto, d.moneda)}${tipo === 'suscripcion' ? ' por mes' : enCuotas?.cuotas ? ` (el primero de ${enCuotas.cuotas} pagos)` : ''}.`,
       };
     },
     ejecutar: (payload, ctx) => seguro('crear el link de pago', async () => {
+      // Lo aprobado es lo que se cobra (revisión de plata, baja 3): si el precio o las cuotas del producto cambiaron
+      // mientras esto esperaba la aprobación, no se crea el link por otro monto.
+      if (payload.montoUsd != null) {
+        const ahora = await cobroDelProducto(Number(payload.productoId)).catch(() => null);
+        const cobraria = ahora?.primerPagoUsd ?? null;
+        if (cobraria == null || Math.round(cobraria * 100) !== Math.round(Number(payload.montoUsd) * 100)) {
+          return { ok: false, resumen: 'El producto cambió de precio o de cuotas desde que lo aprobaste: pídelo de nuevo para ver el monto actual.' };
+        }
+      }
       const r = await crearCobro(ctx.ws, {
         leadId: Number(payload.leadId),
         productoId: Number(payload.productoId),
