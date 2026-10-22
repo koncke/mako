@@ -1053,3 +1053,48 @@ Misma llamada (Fathom 195129619) y misma conversación medida (ws1, id 18), más
 `tests/offer-lote-documentos.test.ts` (13 roturas, las 13 cazadas)
 
 *22/10/2026, chat «Offer» (claude3).*
+
+## La prueba de los chats (22/10/2026): el perfil pisado, de dónde sale cada pieza, lo que el turno no sabía
+
+El Cerebro corrió un arnés contra el POST real de /api/offer (ws3, 3 corridas, rama `probar-chats-offer`, worktree
+`C:/dev/wt-probar-offer`, `scripts/probar-chats/offer.mts`) y confirmó 8 fallas, más una para Mauricio.
+
+- **Un archivo subido en Offer pisaba el perfil del negocio, y ya le pasó a Mauricio.** El registro en El Archivero
+  (`answersConDocumento`) sumaba las claves de cada documento al brief con «el más nuevo gana», como un recálculo del
+  Archivero. El diagnóstico equivocado era de qué es un documento de Offer: describe la oferta que se ANALIZA, no el
+  negocio. Medido en el ws1: a las 04:08:26 UTC su guion y su landing del Sprint pisaron 7 claves (`oferta_nombre`,
+  `oferta_promesa`, `oferta_incluye`, `avatar_quien`, `avatar_dolor`, `avatar_deseo`, `negocio_que_hace`). La oferta
+  principal es `desde_brief`, así que «Negocio que Escala» se leía con la promesa del Sprint en las ~20 features que
+  usan el perfil. **Ahora** un documento de Offer sólo LLENA lo que el perfil no tiene, y su fila del Archivero guarda
+  sólo eso (si guardara todo, el próximo recálculo del Archivero lo volvía a imponer). Restaurar el ws1 es escribir en
+  prod: los valores de antes salen del archivo del 29/07 («Avatar_Dolores_Oferta_DOS_v2 (2).pdf»), y las 4 filas del
+  Sprint en `archivero_files` tienen que perder esas claves de `campos`.
+- **De dónde sale cada pieza.** La ruta ponía la fuente del TURNO entero (`'doc'` si traía documentos, si no `'chat'`):
+  lo que el modelo sacaba de lo cargado en MaKo quedaba como dicho por el dueño. Ahora el modelo dice el origen por
+  pieza (`{"valor": …, "de": "contexto" | "documento"}`) y `fundirPiezasDelTurno` las guarda con su fuente. ⚠️ El origen
+  lo declara el modelo: una pieza inventada y marcada «contexto» cuenta como del negocio para `lib/offer-hechos.ts`.
+- **«otras» se anotaba sin que el dueño la contestara** («0» leído de «no vendí ninguno», que es la pregunta de las
+  ventas). Ahora sólo con la respuesta a ESA pregunta (`preguntaPorOtrasOfertas` de la última de MaKo), y «1: sólo esta»
+  no es otra oferta (`ofertasDeclaradas`).
+- **El turno no sabía el estado de la oferta**: «¿ya quedó guardada?» se contestaba que sí. Va en su contexto
+  (`estadoDeLaOferta`), y una regla le pide contestar primero lo que le preguntan.
+- **«[de: chat]» guardado en las piezas:** es la marca que `piezasParaPrompt` pone al lado de cada pieza, copiada de
+  vuelta. Se saca al entrar y al leer (`sinMarcaDeFuente`).
+- **El PDF:** «Dónde cierras la venta» es ahora el canal del funnel de la oferta (`conCanalDeLaOferta`) y el guion del
+  precio es «Cómo decirlo»; un resultado con un número en letras («tu primer cliente en 14 días») es medible; una fecha
+  se mira ENTERA (la que dio el dueño queda, otra pasa entera a «[completar]»: antes «24/10» salía «[completar]/10»); la
+  caja de completar no se queda con un resto; y los pasos ya numerados no salen «1. 1.» (`sinNumeroDelante`, también en
+  la pantalla).
+
+**Lo que quedó SIN hacer:**
+- Restaurar el perfil del ws1 (escritura en prod; los valores están medidos, pasados al Cerebro).
+- Las ~90 consultas a la base por turno: en docs/hallazgos-infra.md, no es de Offer.
+- El arnés no se corrió contra esta rama (gasta la cuota diaria de Gemini de la plataforma): los tests fijan lo que decide el código.
+
+**Vive en:** `lib/archivero-registro.ts` (`answersConDocumento`) · `lib/archivero.ts` (`registrarDocumentoSinPisar`) ·
+`lib/offer-reglas.ts` (`fundirPiezasDelTurno`, `limpiarPiezas`, `sinMarcaDeFuente`, `estadoDeLaOferta`,
+`conCanalDeLaOferta`, `ofertasDeclaradas`, `resultadoMedible`, `filtrarCifras`, `entradaCompletar`) · `lib/offer-marco.ts`
+(`sinNumeroDelante`) · `lib/offer-pdf.ts` · `lib/offer-ia.ts` (reglas 8, 14 y 20) · `app/api/offer/route.ts` (`responder`,
+`generarSesion`) · `tests/offer-prueba-chats-2210.test.ts` y `tests/offer-archivero.test.ts` (18 roturas, las 18 cazadas)
+
+*22/10/2026, chat «Offer» (claude3).*

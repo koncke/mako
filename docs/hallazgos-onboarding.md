@@ -2858,3 +2858,12 @@ trabaja la oferta: la ven el super admin y MaKo cuando la busca. Al pasar de lo 
 árbol (con voz → sin voz) y el campo se vuelve a montar: se pierde el foco y en el teléfono se cierra el teclado.
 
 *21/10/2026, chat «Onboarding» (claude4), rama onboarding-v3.*
+
+## Un documento de Offer pisaba el perfil del negocio (22/10/2026, chat «Offer»)
+
+El brief (`mako.onboarding.answers`) se escribía también desde Offer: cada archivo subido en el chat pasa por El Archivero
+y `answersConDocumento` sumaba sus claves con «el más nuevo gana». Un documento de Offer describe la oferta que se
+analiza, no el negocio: el ws1 (Mauricio) subió su Sprint, una oferta de entrada, y su perfil quedó con el Sprint como
+oferta principal y su avatar (04:08 UTC). Desde el 22/10 sólo llena lo que el perfil no tiene. La regla para quien
+escriba el brief desde otra tab: una feature que analiza UNA cosa no escribe el perfil del negocio con lo de esa cosa.
+Detalle en docs/hallazgos-offer.md → «La prueba de los chats».

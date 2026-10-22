@@ -91,7 +91,7 @@ import { MARCA_COMPLETAR, faltanDelArranque, faltanMinimas, type ArchiveroDoc, t
 import {
   MAX_DOCS_SESION, NOMBRE_DOC_TEXTO_LARGO, PRINCIPIO_TEXTO_LARGO, TOPE_DOC_ENTERO, repartirTextoLargo, sanearLinksSinLeer, conOpcionesDelArranque, conTopeDelArranque, mensajeDeCierreDelArranque, TOPE_TEXTO_DOC, adjuntoDe, avisoDeLectura, lecturaPorPartes, partirEnPartes, avisosAntesDelDiagnostico, calcularDiagnostico, canalParaElNegocio, cifrasConFuente, cifrasConPorcentaje, conArchivero, conRespuestaInferida,
   diagnosticoConFuentes, diagnosticoFaltante, diagnosticoParaPrompt, docsDeLaConversacion, estadoDiagnostico, faltanTexto, faseDeSetting,
-  conCobroDelPrecio, faseVigenteDe, fuentesDelDueno, linkParaLeer, mensajeDeMako, mensajePdf, mergePiezas, motivoArchivoOffer, planDiagnostico, primerMensaje, primerMensajeFunnel, provisionalDe, recortar,
+  conCobroDelPrecio, conCanalDeLaOferta, fundirPiezasDelTurno, preguntaPorOtrasOfertas, estadoDeLaOferta, faseVigenteDe, fuentesDelDueno, linkParaLeer, mensajeDeMako, mensajePdf, mergePiezas, motivoArchivoOffer, planDiagnostico, primerMensaje, primerMensajeFunnel, provisionalDe, recortar,
   repartirTranscripcion, respuestaDiagnostico, respuestaSinIA, seArchivaDesdeOffer, armadoEnCurso, pasoInicialDelArmado, valoresDeLasPiezas,
   MAX_DOCS_LOTE, leyendoParaVista, mensajeLeyendo, resumenDelLote,
   type AudioGuardado, type DocumentoGuardado, type MensajeGuardado, type PlanDiagnostico,
@@ -914,7 +914,9 @@ async function responder(p: { sesionId: number; fila: FilaOffer; ctx: ContextoOf
     : planDiagnostico(e, { puedeConcluir: faltanMinimas(fila.piezas).length === 0, mensajesDelDueno: duenos(fila.mensajes), conDocumentosNuevos: p.nuevos.length > 0 });
   const ia = await turnoOffer({
     mensajes: fila.mensajes, piezas: fila.piezas, docs: docsDeLaConversacion(fila.documentos, fila.mensajes, p.nuevos), nuevos: p.nuevos,
-    contexto: ctx.texto, inicio: p.inicio, diagnostico: diagnosticoParaPrompt(plan, e), diagnosticoObligatorio: plan.modo === 'forzar',
+    // Con el estado de ESTA oferta (armada, guardada): «¿ya quedó guardada?» se contestaba que sí sin saberlo (22/10/2026).
+    contexto: [ctx.texto, estadoDeLaOferta(fila)].filter((x) => x.trim()).join('\n\n'),
+    inicio: p.inicio, diagnostico: diagnosticoParaPrompt(plan, e), diagnosticoObligatorio: plan.modo === 'forzar',
     voz: ctx.voz, arranque: p.arranque,
   });
   // Sin IA sólo se sigue si la pregunta que toca es la obligatoria del diagnóstico (sale la original).
@@ -927,8 +929,10 @@ async function responder(p: { sesionId: number; fila: FilaOffer; ctx: ContextoOf
     // Si mientras tanto llegó otra respuesta de MaKo, no se agrega una segunda.
     const u = f.mensajes[f.mensajes.length - 1];
     if (!u || u.de !== 'yo') return null;
-    // Con un precio de pago único, el % al firmar ya se sabe y no se vuelve a preguntar (22/10/2026, Mauricio).
-    const fundidas = conCobroDelPrecio(turnoIA ? mergePiezas(f.piezas, turnoIA.piezas, fuente) : f.piezas);
+    // Cada pieza con SU fuente (lo de lo cargado en MaKo no es «dicho por el dueño»), y «otras» sólo si MaKo la acababa de
+    // preguntar (22/10/2026, prueba de los chats). Con un precio de pago único, el % al firmar ya se sabe (Mauricio).
+    const preguntoOtras = preguntaPorOtrasOfertas([...f.mensajes].reverse().find((m) => m.de === 'mako' && !m.leyendo)?.texto ?? '');
+    const fundidas = conCobroDelPrecio(turnoIA ? fundirPiezasDelTurno(f.piezas, turnoIA, { porDefecto: fuente, preguntoOtras }) : f.piezas);
     // En el onboarding una pieza se pregunta dos veces como mucho, y el que termina es el CÓDIGO (20/10/2026, Florencia).
     const piezas = p.arranque ? conTopeDelArranque(fundidas, f.mensajes, new Date().toISOString()) : fundidas;
     const cierra = !!p.arranque && faltanDelArranque(piezas).length === 0;
@@ -1095,7 +1099,9 @@ async function generarSesion(id: number, inicio: number): Promise<{ ok: true; fi
   // gana el guardado en el negocio), releída después de `asegurarFaseGuardada`. Si no hay ninguno porque el
   // dueño armó la oferta con preguntas pendientes, la conclusión lo dice y el PDF también (no se omite en
   // silencio).
-  const fase = faseVigenteDe(ctx);
+  // «Dónde cierras la venta» es el canal de ESTA oferta (su funnel) si se sabe, no el del negocio (22/10/2026: el PDF
+  // decía «Llamada de venta» de una oferta que se vende sin llamadas).
+  const fase = conCanalDeLaOferta(faseVigenteDe(ctx), ctx.funnel?.canal ?? null);
   const faltante = fase ? null : diagnosticoFaltante(estadoDiagnostico(fila.mensajes, { canal: ctx.canal, yaGuardado: !!ctx.faseGuardada }));
   // Las cifras que SÍ dio el negocio salen de lo que escribió el dueño, sus documentos y lo que tenía cargado
   // (las piezas las suma el parse): toda otra cifra de resultados, de prueba, de bonos o de valor pasa a

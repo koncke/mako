@@ -7558,3 +7558,11 @@ archivo con menos tests. **Regla:** en un test, todo lo que puede tirar va ADENT
 declara es un rojo. **Medido:** de los 211 archivos que leen el motor de Automations, sólo éste (corridos aislados).
 **Sin hacer:** que `scripts/tests-afectados.mjs` compare, por archivo, los tests que el runner contó contra los `test(` del
 fuente, o que corra aislado todo archivo que en la corrida compartida contó menos de los que declara.
+
+## Un turno de Offer hace ~90 consultas a la base (22/10/2026, prueba de los chats; no arreglado)
+
+Lo contó la traza del arnés del Cerebro (`scripts/probar-chats/traza-consultas.mts`, rama `probar-chats-offer`): unas 90
+consultas por turno. `credenciales` ×36 (20 desde `provsGratisDePlataforma`, lib/ai-cheap.ts, y 10 desde
+`saldoOpenRouter`, lib/openrouter-saldo.ts), `app_settings` ×15-22, y la sesión se resuelve 8 veces. En una ruta, el
+`cache` de React NO deduplica (sólo dentro de un render de servidor). Con ~97 ms por ida serían 5-9 s por turno en Vercel:
+eso es una deducción del código, no se midió en Vercel. Pendiente, de ai-cheap y de la sesión, no de Offer.

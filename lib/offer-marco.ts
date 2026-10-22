@@ -356,6 +356,9 @@ export function paraSubirCadaParte(c: Pick<ConclusionOferta, 'diagnostico'>, top
     .map((n) => ({ label: DIMENSIONES.find((x) => x.id === n.id)?.label ?? n.id, nota: n.nota, mejora: n.mejora.trim() }));
 }
 
+/** Un paso que el modelo ya trae numerado («1. Diagnóstico», «Paso 2: …») sin su número: el PDF y la pantalla los numeran (salía «1. 1.», 22/10/2026). */
+export const sinNumeroDelante = (t: string): string => t.replace(/^\s*(?:paso\s*)?\d+\s*[.):-]\s*/i, '');
+
 export type FaseRuta = { fase: string; objetivo: string; hito: string };
 export type Entregable = { nombre: string; beneficio: string };
 export type BonoPropuesto = { nombre: string; objecion: string; valor: string };
