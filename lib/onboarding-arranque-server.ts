@@ -150,12 +150,13 @@ export async function anotarHistorial(
 /**
  * Lo que la persona contestó, en vivo (la ruta, después de guardar la respuesta): la pregunta que contestaba (si todavía no
  * estaba anotada, como la del PDF, que aparece sin pasar por acá) y su respuesta TAL CUAL, con el texto de la opción que
- * tocó. `e` es el estado leído estricto ANTES de la respuesta, y `h` sus hechos. Best-effort: el historial no traba nada.
+ * tocó. `e` es el estado leído estricto ANTES de la respuesta, y `h` sus hechos; `confirmado`, `hechosConfirmados(h)`
+ * calculado ANTES de escribir nada: la respuesta que cierra la fase guarda el diagnóstico, y confirmado después ya no
+ * coincidía con `h` (segunda revisión, 22/10: esa respuesta no se anotaba nunca). Best-effort: el historial no traba nada.
  */
-export async function anotarRespuesta(e: EstadoArranque, h: HechosServer, dicho: string | null): Promise<void> {
-  if (!dicho?.trim()) return;
+export async function anotarRespuesta(e: EstadoArranque, h: HechosServer, dicho: string | null, confirmado: boolean): Promise<void> {
+  if (!dicho?.trim() || !confirmado) return;
   try {
-    if (!(await hechosConfirmados(h))) return;
     await anotarHistorial(mensajesDeArranque(e, h), { primeroDeOffer: primeroDeOffer(h), respuesta: dicho });
   } catch (err) {
     console.error('[arranque] historial (respuesta):', err instanceof Error ? err.message : err);
@@ -345,7 +346,7 @@ export type VistaArranque = {
  * el estado se lee ESTRICTO y los hechos se confirman (`hechosConfirmados`): con una lectura caída, lo dibujado («Un
  * gusto, . ¿Cómo se llama tu negocio?») no es lo que pasó, y quedaría para siempre (revisión adversarial, 21/10).
  */
-export async function vistaArranque(o: { anotar?: boolean } = {}): Promise<VistaArranque> {
+export async function vistaArranque(o: { anotar?: boolean | 'cierre' } = {}): Promise<VistaArranque> {
   let estricto = false;
   let e: EstadoArranque;
   if (o.anotar) {
@@ -360,7 +361,9 @@ export async function vistaArranque(o: { anotar?: boolean } = {}): Promise<Vista
     getSesionAdmin().catch(() => null),
   ]);
   const { antes, despues } = mensajesDeArranque(e, h);
-  if (estricto && (await hechosConfirmados(h))) {
+  // Con el onboarding ya terminado anota sólo el POST que lo cierra (`'cierre'`): el congelado del historial depende de que
+  // el cierre quede anotado, y un POST viejo con todo terminado no tiene nada nuevo que contar (segunda revisión, 22/10).
+  if (estricto && (o.anotar === 'cierre' || !h.terminado) && (await hechosConfirmados(h))) {
     await anotarHistorial({ antes, despues }, { primeroDeOffer: primeroDeOffer(h) })
       .catch((err) => console.error('[arranque] historial:', err instanceof Error ? err.message : err));
   }

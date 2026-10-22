@@ -2809,6 +2809,16 @@ aceptaba la opción exacta: todo esto entraba nuevo.
   - **Con el cierre anotado, el historial se congela**: una pestaña vieja o el arreglo del nombre del ws21 no le suman
     variantes. Pasado el tope no se anota más (antes tiraba lo más viejo: el saludo y el nombre). Y lo que no se
     entiende entero no se pisa (`leerHistorial(…, { estricto: true })`).
+  - ⚠️ **Segunda revisión (22/10): confirmar con el `h` de ANTES de una escritura da falso justo cuando la respuesta
+    escribe lo que se compara.** La respuesta que cierra la fase guarda el diagnóstico, y `hechosConfirmados` corrido
+    después ya no coincidía con `h`: esa respuesta no se anotaba nunca, en ningún onboarding. Ahora se confirma antes de
+    escribir nada y se pasa el resultado.
+  - **El último mensaje de MaKo no siempre es una pregunta abierta.** En el cierre ya tiene su respuesta dibujada
+    («Listo, ya lo cargué.», «Ahora no»), y la regla de «la pregunta que vuelve» lo duplicaba. La pregunta abierta es el
+    último mensaje de la vista, y sólo si es de MaKo. Con el teléfono ya verificado no se manda código, pero la
+    conversación lo dibuja como cargado: se anota igual, con su respuesta.
+  - El test que cuenta es el recorrido entero como lo corre la ruta (`leerRespuesta` en cada etapa, con «Ver otros
+    tipos», «Cambiar número» y «Ahora no»), y no un salto del PDF al final: el salto pasaba con diez preguntas sin respuesta.
 - **La reconstrucción** (scripts/reconstruir-historial-onboarding.mts, en seco por defecto) alcanzó 4 negocios: ws3
   (prueba), 20, 21 y 22, todos terminados. Lo de antes de Offer va justo antes de su primer mensaje. Lo de después va
   antes de que se cerrara el onboarding. Todo lleva la marca `reconstruido`, que en el Ops Center ve sólo el super admin
@@ -2834,6 +2844,11 @@ aceptaba la opción exacta: todo esto entraba nuevo.
     porque la proyección cuelga de la conversación de Offer. Vive en lib/chat-mako-indice.ts.
   - La proyección le muestra a cualquier admin del negocio el WhatsApp de los avisos que cargó el dueño. Antes eso
     estaba sólo en el chat «Onboarding» del dueño. Es el contacto del negocio, pero queda anotado.
+  - El doble toque CRUZADO: dos POST del mismo toque que leen el estado de antes, donde el `listo` del primero anota la
+    pregunta siguiente antes de que llegue la respuesta del segundo. El chequeo de `conLoNuevo` mira sólo los dos
+    últimos anotados, así que ahí la pregunta y la respuesta quedan dos veces. Es raro, porque las dos pestañas tienen
+    que leer antes de que la primera guarde. El arreglo: buscar la última aparición de esa pregunta y no anotar si la
+    sigue la misma respuesta sin otra en el medio.
 
 **Sin hacer:** «Vendo 20 a 500 dólares» se sigue leyendo como un rango; la confirmación lo muestra y se corrige con un
 toque. Las etiquetas de los tramos dicen «$» sin «USD» (lib/fase-diagnostico.ts): es una decisión de copy, no de este

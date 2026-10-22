@@ -275,7 +275,8 @@ export type CrmMarcar = {
  *  cada uno sale DOS veces (el `title` que se ve al pasar el cursor y el `aria-label`
  *  que se anuncia), y dos copias de un texto divergen a la primera correccion. */
 const rotQuitar = (nombre: string) => `Quitar «${nombre}» de la selección`;
-const rotPoner = (nombre: string) => `Seleccionar «${nombre}»`;
+// «No entiendo para qué es el clic de la cajita» (Mauricio, llamada del 22/10/2026, 02:13:38): el rótulo dice PARA QUÉ.
+const rotPoner = (nombre: string) => `Seleccionar «${nombre}» para moverlo o editarlo junto con otros`;
 const rotWa = (nombre: string) => `Escribirle a ${nombre} por WhatsApp`;
 const rotEliminar = (nombre: string) => `Eliminar «${nombre}»`;
 /** El telefono ya viene solo-digitos (`telefonoNorm`), que es lo que wa.me espera. */
@@ -955,6 +956,8 @@ export function CrmBoard({
    * igual: dibujaba un lugar que después no se respetaba. Ahora reordena (`reordenarColumna`).
    */
   const handleDrop = (stageKey: string, antesDe?: number | null) => {
+    // Un ARRASTRE de verdad (y no «Mover a…» del menú o de la ficha, que pasan por `idASoltar`).
+    const desdeArrastre = idASoltar.current == null;
     const id = idASoltar.current ?? dragId;
     idASoltar.current = null;
     setDragId(null);
@@ -963,6 +966,13 @@ export function CrmBoard({
     if (!lead) return;
     if (effStage(lead) === stageKey) {
       if (antesDe !== undefined) reordenarColumna(id, stageKey, antesDe, false);
+      return;
+    }
+    // ⚠️ ARRASTRAR UNO DE VARIOS TILDADOS MUEVE A TODOS (llamada del 22/10/2026, 02:14: «también debería funcionar si
+    // los arrastras»; Mauricio va a mover 50 por día a «Prospección activa» así). Es la MISMA pregunta que la barra de
+    // lote («Etapa»), con el número: `manijaLote` → `pedirEtapa`. Arrastrar uno NO tildado sigue moviendo sólo ése.
+    if (desdeArrastre && selLeads.has(id) && elegidos.length > 1 && manijaLote.current) {
+      manijaLote.current.moverDeEtapa(stageKey);
       return;
     }
     // El lugar donde cayó se guarda recién cuando el movimiento SE HACE: si la confirmación
@@ -2790,7 +2800,13 @@ export function CrmBoard({
                   fotoVaciaDeArrastre(ev.dataTransfer);
                   const nodo = ev.currentTarget as HTMLElement;
                   const r = nodo.getBoundingClientRect();
+                  // Con varios tildados la copia que viaja dice CUÁNTOS van (22/10/2026): la marca se pone en el origen
+                  // sólo mientras se clona (`montarCopia` hace `cloneNode`) y se saca en el acto, así la ve la copia y
+                  // no la tarjeta que se queda.
+                  const varios = selLeads.has(l.id) && elegidos.length > 1;
+                  if (varios) nodo.dataset.varios = `${elegidos.length} leads`;
                   montarCopia(nodo, ev.clientX - r.left, ev.clientY - r.top);
+                  if (varios) delete nodo.dataset.varios;
                   // Los puntos medios se fotografían ACÁ, con el tablero todavía quieto.
                   medirTarjetas();
                 }}
@@ -2812,6 +2828,9 @@ export function CrmBoard({
                   <input type="checkbox" checked={selLeads.has(l.id)}
                     className="mk-sel-tarjeta"
                     data-marcada={selLeads.has(l.id) ? '1' : '0'}
+                    /* Con algo tildado se ven TODAS las casillas (como en el Plan): así se entiende que es para elegir
+                       varios, y se suma el segundo sin apuntarle a una casilla invisible (22/10/2026). */
+                    data-seleccionando={selLeads.size > 0 ? '1' : undefined}
                     onPointerDown={(ev) => ev.stopPropagation()}
                     onClick={(ev) => { ev.stopPropagation(); alternarSel(l.id); }}
                     onChange={() => { /* lo hace el onClick: ver arriba */ }}
@@ -3337,10 +3356,14 @@ export function CrmBoard({
               productos={funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }))}
               destino={funnelActivo}
               onAtras={() => setNuevoLead({ ...nuevoLead, traer: false })}
-              onTraidos={(movidos, fallaron) => {
+              onTraidos={(movidos, fallaron, deshacer) => {
                 setNuevoLead(null);
                 const falla = fallaron ? ` · ${fallaron} no se pudieron` : '';
-                mostrarAviso(`${movidos} ${movidos === 1 ? 'lead traído' : 'leads traídos'}${falla}`);
+                // Con su «Deshacer» (22/10/2026): el componente lo mandaba y el tablero lo tiraba. Traer 1.050 de una vez
+                // sin vuelta atrás es justo lo que no puede pasar; borra SÓLO las filas que este lote creó.
+                mostrarAviso(`${movidos} ${movidos === 1 ? 'lead traído' : 'leads traídos'}${falla}`, deshacer ? () => {
+                  void deshacer().then(() => router.refresh(), () => mostrarAviso('No se pudo deshacer', undefined, 'bad'));
+                } : undefined);
                 router.refresh();
               }}
             />

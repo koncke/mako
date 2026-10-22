@@ -2726,4 +2726,33 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '22 oct', hora: '06:02', chat: 'CRM', sesion: 'local_428051c1-0369-4df2-ae6b-bcb42f63b64b', cuenta: 'claude3',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Llamada con Mauricio: traer a todos de otro funnel, y arrastrar a varios tildados',
+    pedido: '(26:23) «yo vi que eran como mil y tantos, se muestran 300 de 1050, busca o filtra para ver el resto... primero que el botón no se tenga que desplazar». (28:00) «están dentro de este funnel, no sé, ya no deberían saltar ahí, ni siquiera en gris, o debería directamente no verse... porque luego ya no me deja los siguientes 300». (02:14:00) «Ahí se cambiaría de etapa, pero también debería funcionar si los arrastras». (02:13:38, Mauricio) «No entiendo para qué es el clic de la cajita todavía».',
+    puntos: [
+      'Llamada de Martín con Mauricio del 22/10 (fathom.video/calls/871165870); llegó por el Cerebro como C1 y C2, los dos P0 del CRM.',
+      'Mauricio arranca el sábado 24/10 a mover 50 leads por día a «Prospección activa».',
+    ],
+  },
+  {
+    fecha: '22 oct', hora: '03:45', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Traer a todos de otro funnel y arrastrar a varios tildados',
+    puntos: [
+      'Es lo que pidió Martín en la llamada con Mauricio del 22/10 (el hito de arriba, literal).',
+      '«Traer de otro funnel»: la casilla de arriba tilda a TODOS los del filtro (en el ws1, los 750 de Reactivación que faltan), no sólo los 300 que se ven.',
+      'Los que ya están en el CRM no aparecen: se dice cuántos son.',
+      'El botón de agregar queda siempre a la vista, y el aviso tiene «Deshacer».',
+      'Arrastrar uno de varios tildados mueve a todos (pregunta antes, con el número). La tarjeta que viaja dice cuántos van.',
+      'La cajita junto a la foto dice para qué es, y con uno tildado se ven todas.',
+    ],
+    commits: [
+      { sha: '3c43c005c', msg: 'CRM (P0 de la llamada con Mauricio, 22/10): traer a TODOS de otro funnel y arrastrar a varios tildados', lineas: 325, archivos: 6 },
+    ],
+    archivos: [
+    ],
+    revisar: '/crm',
+  },
 ];
