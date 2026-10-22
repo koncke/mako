@@ -1,7 +1,7 @@
 // =============================================================================
 // #875: una key de Resend de SÓLO ENVÍO, dicha en palabras y con su dueño (17/10/2026)
 // =============================================================================
-// Mauricio conectando elevate.com.mx (Fathom 863534245, 42:02) leyó «This API key is restricted to only send emails»,
+// Mauricio conectando negocio-uno.com (Fathom 863534245, 42:02) leyó «This API key is restricted to only send emails»,
 // crudo. Martín: «esto es un error de MaKo». Medido el 17/10: la key de la plataforma guardada en la fila del ws1 (la
 // que el arranque pone en el entorno) es de sólo envío; el alta de dominio («Opción A», la cuenta de MaKo) no anda con
 // ella para nadie. El arreglo de fondo es una key con «Full access» en esa fila (de Martín: es su cuenta). El código
@@ -37,7 +37,7 @@ const cred = await import(${url('lib/credenciales.ts')});
 mock.module(${url('lib/credenciales.ts')}, { exports: { ...real(cred), credWs: async () => 're_k', envCred: async () => 're_k', esDeLaPlataforma: async () => ${deMako} } });
 globalThis.fetch = async () => new Response(JSON.stringify(${JSON.stringify(RESTRINGIDA)}), { status: 401, headers: { 'Content-Type': 'application/json' } });
 const { createResendDomain, verifyResendDomain } = await import(${url('lib/resend.ts')});
-console.log(JSON.stringify({ crear: await createResendDomain('elevate.com.mx'), verificar: await verifyResendDomain('d1') }));
+console.log(JSON.stringify({ crear: await createResendDomain('negocio-uno.com'), verificar: await verifyResendDomain('d1') }));
 `;
   const out = execFileSync(process.execPath, [
     '--conditions=react-server', '--experimental-test-module-mocks', '--no-warnings', '--import', 'tsx', '--input-type=module', '-e', codigo,

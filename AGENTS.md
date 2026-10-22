@@ -10,7 +10,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 le habla a Claude. Las ~30 veces que este archivo dice «el dueño reclamó», «el dueño lo
 rechazó», «la pantalla del dueño», es él.
 
-**Mauricio Bustos es un CLIENTE de MaKo. Nunca el dueño.** No se escribe «el dueño»
+**Mauricio es un CLIENTE de MaKo. Nunca el dueño.** No se escribe «el dueño»
 refiriéndose a él, ni se le atribuye el producto, la marca ni la voz de MaKo.
 
 Se confunde porque todo lo histórico apunta a él, y ninguna de estas cosas lo hace dueño:
@@ -4464,7 +4464,7 @@ asistencias del PERÍODO, y 4 de esas ventas nunca habían pasado por una llamad
 - **Un número que ve un cliente lleva su fuente al lado** («tu CRM, del 19/07 al 16/10», «según me dijiste», «en MaKo»).
   Lo que la IA escribe con cifras se revisa cifra por cifra contra lo que dio el dueño y lo que calculó el código
   (lib/offer-reglas.ts → `diagnosticoConFuentes`): una cifra sin fuente saca su frase.
-- **Ni una hora ni una fecha es una cifra del negocio.** Una transcripción («0:04:43 Cristian: …») vuelve «dicho por el
+- **Ni una hora ni una fecha es una cifra del negocio.** Una transcripción («0:04:43 Pedro: …») vuelve «dicho por el
   dueño» a todo número del 0 al 59 si se cuentan (`cifrasDelNegocio` ya no las lee).
 - **Un conteo no le da fuente a un porcentaje**: «43 llamadas» y «43%» son claves distintas (`claveConFuente`).
 - **Un número sobre UNA cosa (una oferta, un funnel, una campaña) se lee de ESA cosa**, nunca del negocio entero en su
@@ -9825,7 +9825,7 @@ Con un cliente inspeccionado (o la alerta de la voz), `<html>` lleva `data-barra
   escribe «height:100dvh», sin espacios, y la hidratación no lo reescribe. Con una sola, la regla falla justo en la carga
   del server, que es como se entra a inspeccionar. `tests/barra-inspeccion-alto.test.ts` lo fija.
 - **Un estado que se corrige con un fetch nace con lo que sabe el server, nunca con un literal**: el Sidebar nacía con
-  «Mauricio Bustos», y TODOS los clientes lo veían en el primer cuadro. A quién se mira sale de `lib/vista-de-otro.ts`, que
+  «Mauricio», y TODOS los clientes lo veían en el primer cuadro. A quién se mira sale de `lib/vista-de-otro.ts`, que
   usan el layout y `/api/auth/me`, y de ningún otro lado.
 
 # Lo que paga el negocio decide qué abre: un negocio PAUSADO no se abre, y una API de una sola tab va en `TAB_DE_API`
@@ -9914,3 +9914,16 @@ y una lectura apurada la tomó por una propuesta de MaKo (docs/hallazgos-offer.m
   (scripts/banco-archivero-quien.mts): tiene que dar bien antes y después.
 - Antes de reparar datos de un cliente se lee quién prepara el documento y para quién («Preparado para…», quién habla en
   una llamada), no sólo de qué habla.
+
+# Nada de datos reales de clientes ni de terceros en tests/, docs/ y AGENTS.md
+
+Un test, un ejemplo o una cosecha se escriben con datos INVENTADOS del mismo formato: un gmail por un gmail inventado, un
+dominio propio por otro (cada negocio con uno distinto), un nombre y apellido por otro que conserve el nombre de pila si la
+regla compara por él. A los clientes se los nombra por su nombre de pila o por su ws; a sus prospectos y a sus leads, nunca
+por su nombre. El 22/10/2026 había mails de dueños y colaboradores, nombres y apellidos y el @ de una clienta en 89 archivos
+(docs/hallazgos-offer.md, «Datos reales en el repo»).
+
+- `tests/sin-mails-reales.test.ts` frena los mails reales de los usuarios de MaKo por su HUELLA (sha256): el repo no guarda
+  ningún mail en claro. Un dueño nuevo: se suma su huella ahí.
+- Una guarda que necesita los nombres que prohíbe (la de las plantillas, tests/editor-landing-presentaciones.test.ts) es la
+  excepción, y lo dice.

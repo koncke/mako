@@ -272,7 +272,7 @@ test('9. Florencia (ws21): terminó el 18/10 sin historial; reconstruido, su con
   const historial = conLoNuevo([], mensajesDeArranque(e, hh), { ahora: Date.parse('2026-10-18T23:07:30.832Z') - 1_000, primeroDeOffer: primero, reconstruido: true })!;
   const offer = [
     { de: 'mako' as const, texto: '¿Tienes un documento de tu oferta, tu guion de ventas o el link de tu web o landing?', at: '2026-10-18T22:24:41.169Z' },
-    { de: 'yo' as const, texto: 'https://www.instagram.com/florencia__consultora_tesis/', at: '2026-10-18T22:25:21.500Z' },
+    { de: 'yo' as const, texto: 'https://www.instagram.com/asesora_tesis_demo/', at: '2026-10-18T22:25:21.500Z' },
     { de: 'mako' as const, texto: 'Perfecto: en la primera semana logran claridad absoluta. ¡Gracias!', at: '2026-10-18T22:53:45.918Z' },
   ];
   const unido = unirConOffer(historial, offer);

@@ -70,7 +70,7 @@
 
 **Qué es esto, para quien nunca lo vio.** MaKo es la plataforma de Martín (marketing, CRM,
 automatizaciones, cursos). Cada negocio cliente es un **workspace** (`ws`): «ws 9» es el workspace
-donde se prueban las cosas de punta a punta, «ws 1» es el de Mauricio Bustos (un cliente, NO el
+donde se prueban las cosas de punta a punta, «ws 1» es el de Mauricio (un cliente, NO el
 dueño). La **API de MaKo** es un registro único donde cada cosa que se puede *leer* o *hacer* en la
 plataforma se declara UNA vez (`lib/api-mako/areas/<área>.def.ts` = el contrato,
 `<área>.run.ts` = el cuerpo), y de esa única declaración salen, sin copiar:

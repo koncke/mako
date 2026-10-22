@@ -84,7 +84,7 @@ Sigue siendo lo primero a mirar si alguien toca el arrastre.
 
 ## Lo que vale para cualquier chat de este relevo
 
-- **Esta sesión fue `claude2` (Leandro Tejado); Martín se pasa a `claude1`.** Antes de
+- **Esta sesión fue `claude2` (Leandro); Martín se pasa a `claude1`.** Antes de
   firmar un commit releé el marcador: `head -1 ~/.claude/cuenta-activa.txt`. Lo que te
   inyectó el hook al arrancar es una **foto** y no se entera si Martín cambia de cuenta con
   la sesión abierta.

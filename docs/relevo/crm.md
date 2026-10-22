@@ -983,7 +983,7 @@ landing del cliente, Calendly/Cal.com, WhatsApp) o importados de una planilla.
 
 Vocabulario que se usa acá y no se explica dos veces:
 
-- **ws1, ws11, ws13**: los negocios (workspaces) por número. **ws1 es Mauricio Bustos, un
+- **ws1, ws11, ws13**: los negocios (workspaces) por número. **ws1 es Mauricio, un
   CLIENTE** (el primer cliente, por eso la constante se llama `OWNER_WS` — no es el dueño).
   ws11 es Leila, ws13 es Código Inmobiliario, ws3 es el Cliente de Prueba.
 - **La casa de un lead**: el producto donde «vive» (`leads.funnel_id` + `leads.pipeline_stage`).

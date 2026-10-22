@@ -12,17 +12,17 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { inviteeSpoke, externalInvitee, type FathomWebhookPayload } from '../lib/fathom';
 
-const HOST = 'mbustos@elevate.com.mx';
+const HOST = 'dueno@negocio-uno.com';
 const LEAD = 'contacto@prosesamed.com';
 
 /** El payload tal cual lo manda Fathom, con los hablantes que se le pasen. */
 const P = (speakers: Array<string | null>, extra: Partial<FathomWebhookPayload> = {}): FathomWebhookPayload => ({
-  recorded_by: { name: 'Mauricio Bustos Eguia', email: HOST },
+  recorded_by: { name: 'Mauricio Ejemplo Uno', email: HOST },
   calendar_invitees: [
     // OJO: el `name` del invitado ES el email — una casilla genérica. Por eso
     // Fathom nunca lo matchea contra «Fernando», la persona real en la llamada.
     { name: LEAD, email: LEAD, is_external: true },
-    { name: 'Mauricio Bustos Eguia', email: HOST, is_external: false },
+    { name: 'Mauricio Ejemplo Uno', email: HOST, is_external: false },
   ],
   transcript: speakers.map((s) => ({ speaker: { matched_calendar_invitee_email: s } })),
   ...extra,
@@ -44,10 +44,10 @@ test('la ausencia SOLO se afirma si el transcript prueba que habló gente de cas
   // El host solo, esperando a alguien que nunca llegó: eso sí es un No Show.
   assert.equal(inviteeSpoke(P([HOST, HOST, HOST]), LEAD), false);
   // Host + un colega interno matcheado: sigue siendo todo gente de casa.
-  const conInterno = P([HOST, 'ana@elevate.com.mx'], {
+  const conInterno = P([HOST, 'ana@negocio-uno.com'], {
     calendar_invitees: [
       { name: LEAD, email: LEAD, is_external: true },
-      { name: 'Ana', email: 'ana@elevate.com.mx', is_external: false },
+      { name: 'Ana', email: 'ana@negocio-uno.com', is_external: false },
     ],
   });
   assert.equal(inviteeSpoke(conInterno, LEAD), false);

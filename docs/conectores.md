@@ -44,7 +44,7 @@ Es la trampa más cara de esta lista.
   para que `migrarEnvACredenciales` no la copie a la base y no se mezcle con la del
   cliente.
 - Y el **conector MCP de Fathom** de la sesión de Claude es una TERCERA cuenta
-  (`tejadomartin@gmail.com`, ~188 reuniones), que **no tiene las «Mau ↔ Martín»**.
+  (`ejemplo.colaborador.mako@gmail.com`, ~188 reuniones), que **no tiene las «Mau ↔ Martín»**.
 
 ⚠️ **El diagnóstico obvio acá es el equivocado, y cuesta media sesión.** Buscando las
 reuniones con Mauricio por el conector MCP: `find_person "Mauricio"` devuelve *«no

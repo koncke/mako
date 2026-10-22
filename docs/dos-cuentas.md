@@ -68,9 +68,9 @@ Ya están las funciones en el `$PROFILE` de PowerShell
 | Comando | Cuenta | Config dir | Ventana |
 |---|---|---|---|
 | `claude1` | Mauricio | `~\.claude` | miércoles a viernes |
-| `claude2` | **Leandro Tejado** | `~\.claude-martin` | sábado a martes |
+| `claude2` | **Leandro** | `~\.claude-martin` | sábado a martes |
 
-⚠️ **La cuenta 2 es de Leandro Tejado, no de Martín** (corregido el 2026-08-08 por el
+⚠️ **La cuenta 2 es de Leandro, no de Martín** (corregido el 2026-08-08 por el
 propio Martín). Martín tiene su cuenta, pero **por ahora no se trabaja con ella**. El
 nombre del config dir `~\.claude-martin` quedó de cuando se pensaba al revés: es una
 ruta, no un dato — no deduzcas de ahí quién está logueado.
@@ -82,7 +82,7 @@ la cuenta 2:
 
 | Señal | Qué dio | Por qué no sirve |
 |---|---|---|
-| El `userEmail` que el harness inyecta en el system prompt | `mbustos@elevate.com.mx`, o sea **Mauricio / cuenta 1** | Sale de `~\.claude.json` → `oauthAccount.emailAddress`: **es ese archivo, no una lectura viva**. Y **va con retraso**: se actualiza al *loguearse*, no al abrir sesión |
+| El `userEmail` que el harness inyecta en el system prompt | `dueno@negocio-uno.com`, o sea **Mauricio / cuenta 1** | Sale de `~\.claude.json` → `oauthAccount.emailAddress`: **es ese archivo, no una lectura viva**. Y **va con retraso**: se actualiza al *loguearse*, no al abrir sesión |
 | `~\.claude\.credentials.json` | existe | mtime **21 de julio**. Ningún login por CLI desde entonces |
 | `~\.claude-martin\` | sin `.claude.json` ni `.credentials.json` | Nunca se logueó ahí |
 | `%APPDATA%\Claude\Local Storage\leveldb` (la app de escritorio) | `martinkoncke@gmail.com` | **Constante desde julio de 2025** — no discrimina una cuenta de la otra |
@@ -217,7 +217,7 @@ cientos de commits seguidos no se explican por ruido. Y la firma **no existe ant
 
 ℹ️ De paso, esto explica un corte: el 2026-08-25 a las 16:35:50 las cuatro sesiones del
 día murieron casi juntas con «Your organization has disabled Claude subscription access for
-Claude Code». Esa organización es la de `mbustos@elevate.com.mx` — la cuenta 1 — y de ahí
+Claude Code». Esa organización es la de `dueno@negocio-uno.com` — la cuenta 1 — y de ahí
 el pase a la 2. El `userEmail` siguió mostrando la cuenta vieja después del cambio: es la
 firma exacta de un indicador con retraso.
 

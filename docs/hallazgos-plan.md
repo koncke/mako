@@ -1073,7 +1073,7 @@ Cuando dos workspaces tienen cada uno su propia key de Fathom, el mismo call que
 
 ### Resolver una persona por nombre NO se filtra por workspace: filtrarlo devuelve cero
 
-El diagnóstico obvio fue «hay dos Mauricio Bustos Eguia en la base, desambiguá filtrando por workspace_id». Está mal y empeora lo que ya funciona: la reunión vive en el ws 9 y las dos cuentas homónimas están en ws1 y ws3 — filtrando por el ws de la reunión quedan CERO candidatos. `buscarUsuarioPorNombre` (lib/usuarios.ts:79-107) es cross-workspace A PROPÓSITO y desambigua por ESTADO: busca primero entre las cuentas `activo` y solo si ahí no hay ninguna mira el resto; con 0 o con >1 candidato devuelve null. La regla: el nombre que aparece en una reunión pertenece a una PERSONA, no al inquilino de la reunión.
+El diagnóstico obvio fue «hay dos Mauricio en la base, desambiguá filtrando por workspace_id». Está mal y empeora lo que ya funciona: la reunión vive en el ws 9 y las dos cuentas homónimas están en ws1 y ws3 — filtrando por el ws de la reunión quedan CERO candidatos. `buscarUsuarioPorNombre` (lib/usuarios.ts:79-107) es cross-workspace A PROPÓSITO y desambigua por ESTADO: busca primero entre las cuentas `activo` y solo si ahí no hay ninguna mira el resto; con 0 o con >1 candidato devuelve null. La regla: el nombre que aparece en una reunión pertenece a una PERSONA, no al inquilino de la reunión.
 
 **Vive en:** lib/usuarios.ts:79 (buscarUsuarioPorNombre), consumido por lib/reunion-destinatarios.ts · *2026-08-05 · ~borrador-reunion-fathom-frentes*
 
@@ -6895,7 +6895,7 @@ Martín pidió revisar si la extracción funciona. Se leyeron completas las dos 
 **Lo que anda.** Cada tarjeta trae el minuto y el link, y la cita textual es fiel. No junta cosas distintas. De lo que Martín dijo «me lo llevo», casi todo está.
 
 **Lo que no anda, en orden de daño:**
-1. **El proyecto.** Las 26 tarjetas de la revisión cayeron en «Cliente: Código Inmobiliario». Las 11 de Mauricio cayeron en «Cliente: Mauricio Bustos», un proyecto que la importación CREÓ a las 23:43. Son bugs y features de MaKo (Automations, CRM, Dashboard, Pagos…), así que en el tablero del dueño van al proyecto de la TAB (lib/plan-proyectos-catalogo.ts). La regla «el proyecto lo define la reunión» (memoria `proyecto-lo-define-la-reunion`) la dictó Mauricio para SUS reuniones con SUS clientes, donde lo que sale es trabajo de ese cliente. Aplicada sin mirar de quién es el tablero, archiva el producto como si fuera la entrega a un cliente. **El diagnóstico obvio («la IA eligió mal») es el equivocado:** `lib/reunion-cliente.ts` IGNORA lo que eligió el modelo cuando detecta cliente.
+1. **El proyecto.** Las 26 tarjetas de la revisión cayeron en «Cliente: Código Inmobiliario». Las 11 de Mauricio cayeron en «Cliente: Mauricio», un proyecto que la importación CREÓ a las 23:43. Son bugs y features de MaKo (Automations, CRM, Dashboard, Pagos…), así que en el tablero del dueño van al proyecto de la TAB (lib/plan-proyectos-catalogo.ts). La regla «el proyecto lo define la reunión» (memoria `proyecto-lo-define-la-reunion`) la dictó Mauricio para SUS reuniones con SUS clientes, donde lo que sale es trabajo de ese cliente. Aplicada sin mirar de quién es el tablero, archiva el producto como si fuera la entrega a un cliente. **El diagnóstico obvio («la IA eligió mal») es el equivocado:** `lib/reunion-cliente.ts` IGNORA lo que eligió el modelo cuando detecta cliente.
 2. **Detalles inventados.** El prompt pide detalle largo y el modelo rellena con datos que nadie dijo: «Claude 3.5 Sonnet de 200k» (#865), «Sendgrid / Resend o similar» (#875), «Baileys» (#851; MaKo usa Evolution), «inicio de 2025» (#878; la llamada nunca nombra un año), «suscripción Pro/Team… segunda cuenta» (#877; era la quinta y ya se compró), y un «React Error Boundary» supuesto (#853). Un dato técnico inventado en una tarjeta lo toma por cierto el chat que la trabaja.
 3. **El nombre del que habla.** Fathom rotula a Martín «Martin Carballo» y la tarjeta lo copia. Además, la diarización le atribuye a Joan frases de Martín (01:54-01:57 de la revisión).
 4. **Lo que faltó** (~12). De la revisión:
@@ -6926,7 +6926,7 @@ Martín pidió revisar si la extracción funciona. Se leyeron completas las dos 
 
 **Síntoma, en los dos tableros a la vez (llamadas del 16/10):**
 - **Tablero de Martín (ws9):** las 26 tarjetas de la revisión con Código Inmobiliario cayeron en «Cliente: Código
-  Inmobiliario». Las 11 de «Mau <> Martin» cayeron en «Cliente: Mauricio Bustos», un proyecto que la importación CREÓ al
+  Inmobiliario». Las 11 de «Mau <> Martin» cayeron en «Cliente: Mauricio», un proyecto que la importación CREÓ al
   lado de «Cliente: Mauricio». Eran bugs y features de MaKo.
 - **Tablero de Mauricio (ws1):** de la «Junta Monserrat HMO», 7 de 15 tareas cayeron en «Sin proyecto». Y el mismo
   cliente (lead 31, Congelados HMO / Macario Romero) tenía TRES proyectos: «hay dos Macarios», dijo él en vivo.

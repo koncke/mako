@@ -227,7 +227,7 @@ adicional» y eso se lee como un problema de permisos cuando es de cuenta):
 | Qué | Estado |
 |---|---|
 | Publishing status | **Testing** (cap de 100 usuarios de por vida) — **PUBLICADA el 07/10**, ver abajo |
-| Test users | **3**: martinkoncke@, mbustos@elevate.com.mx, tejadomartin@ — **el cliente NO está** |
+| Test users | **3**: martinkoncke@, dueno@negocio-uno.com, tejadomartin@ — **el cliente NO está** |
 | Branding | **INCOMPLETO**: `App name` VACÍO, home page, privacy, terms y authorized domains vacíos |
 | Data Access | **CERO scopes registrados** — ni `calendar.readonly` ni `calendar.events`, en ninguna de las tres tablas |
 | Redirect URIs | **OK**: las dos de `hola-mako.com` (login y agenda) están, y también `localhost:3000` |

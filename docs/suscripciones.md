@@ -115,10 +115,10 @@ Medido contra el servidor el 13/10: **10 instancias, 6 conectadas**.
 
 | Instancia | Estado | Quién |
 |---|---|---|
-| `mako_ws1` | conectada | Mauricio Bustos |
-| `mako_ws10` | conectada | Leandro Tejado |
-| `mako_ws11` | conectada | Leila Fittipaldi |
-| `mako_ws13` | conectada | Joan Dowd |
+| `mako_ws1` | conectada | Mauricio |
+| `mako_ws10` | conectada | Leandro |
+| `mako_ws11` | conectada | Leila |
+| `mako_ws13` | conectada | Joan |
 | `mako_superadmin` | conectada | Martín |
 | `mako_superadmin_muylqv8r` | conectada | el número propio de MaKo |
 | `mako_superadmin_mtxclf3x` | **cerrada** | duplicado del número de Martín |

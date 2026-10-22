@@ -2629,7 +2629,7 @@ un software: la IA y los botones tienen que resolverlo por él. *(2026-06-30)*
 ### ⚠️ El Closing Analyst tiene el equipo de Mauricio hardcodeado
 
 Los emails y dominios que marcan una llamada como «interna» están escritos a mano en el código
-(martinkoncke@gmail.com, tejadomartin@gmail.com, elevate.com.mx) y no son configurables por
+(martinkoncke@gmail.com, ejemplo.colaborador.mako@gmail.com, negocio-uno.com) y no son configurables por
 workspace: en cualquier otro cliente la clasificación venta-vs-interna se equivoca **en
 silencio** y contamina los promedios de score. En la misma línea, el prompt de análisis está
 afinado a un negocio concreto —consultoría/coaching que vende mentoría, método SPIN, entrega
