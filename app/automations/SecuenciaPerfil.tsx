@@ -94,11 +94,17 @@ const ALTO_ACCION = 44;
  * WhatsApp (ChatMako.tsx) y, desde el 20/10/2026, ES LA SIDEBAR (Martín, 16/10 punto 6 y 20/10 punto 5: «al abrir una
  * automatización, toda la sidebar se transforme en el chat con MaKo y que esté permanentemente abierta»): se monta por
  * portal en la ranura de la lista flotante (`ranuraChat`, SimuladorWhatsApp). Entre la decimocuarta tanda y esa fecha iba
- * en el muelle de «Probar» y se abría con el logo de MaKo. La capa va de la sidebar para la derecha (`insetIzq`: el chat
- * queda afuera y se sigue usando) y por ENCIMA de «Publicar» (`Z_ACCION_LIENZO`, 57, en el mismo contexto de
- * apilamiento: el Lienzo no lo crea).
+ * en el muelle de «Probar» y se abría con el logo de MaKo. Hasta el 22/10/2026 la capa iba de la sidebar para la derecha
+ * (`insetIzq`) y la barra de la app quedaba sin tapar.
+ *
+ * LA CAPA DE «MaKo trabajando» TAPA TODA LA PANTALLA (22/10/2026, Martín: «No me gusta que quede blureado, tipo opaco solo una
+ * parte del lienzo, debería quedar todo, incluso atrás de la sidebar, todo»). Por encima de la barra lateral de la app (z 60,
+ * app/_components/Sidebar.tsx) y por debajo de la lista flotante con el chat, que sube a `Z_CHAT_ENCIMA` mientras tanto
+ * (SimuladorWhatsApp.tsx).
  */
-const Z_CAPA_MAKO = 58;
+export const Z_CAPA_MAKO = 61;
+/** La lista flotante con el chat de MaKo, mientras MaKo trabaja: encima de la capa. */
+export const Z_CHAT_ENCIMA = 62;
 
 const tarjetaChrome: CSSProperties = {
   background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 11,
@@ -1175,10 +1181,10 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
           encima del composer y un alto máximo de ~45% del lienzo (crece hacia arriba desde la franja; el hilo scrollea). */}
       {/* DECIMOTERCERA TANDA: el chat ES el hilo de WhatsApp (punto 6), de alto fijo, y está también con el lienzo VACÍO
           (punto 2: la fila que nació con un pedido de «Nueva automatización», donde MaKo CREA). Mientras MaKo trabaja, la
-          capa tapa el lienzo de la lista para la derecha y el chat queda encima: el «escribiendo…», las fases y Cancelar. */}
-      {rolAdmin && chatTrabajando && (
+          capa tapa TODA la pantalla (por portal, `position: fixed`) y la lista con el chat queda encima: el «escribiendo…», las fases y Cancelar. */}
+      {rolAdmin && chatTrabajando && typeof document !== 'undefined' && createPortal(
         <div data-capa-mako="" aria-hidden style={{
-          position: 'absolute', top: 0, bottom: 0, left: insetIzq ?? 0, right: 0, zIndex: Z_CAPA_MAKO,
+          position: 'fixed', inset: 0, zIndex: Z_CAPA_MAKO,
           display: 'flex', justifyContent: 'center', alignItems: 'flex-start', paddingTop: '12vh',
           background: 'rgba(18,21,27,.32)', backdropFilter: 'blur(1.5px)',
         }}>
@@ -1189,7 +1195,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
               Creando tu automatización
             </div>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
       {/* EL CHAT ES LA SIDEBAR (20/10/2026, Martín: «que quede SIEMPRE abierto en donde está la sidebar de todas las
           automatizaciones»): SIEMPRE montado, por portal en la ranura de la lista flotante (`ranuraChat`), sin ✕. La «←»
