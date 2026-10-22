@@ -1948,6 +1948,9 @@ animación de movimiento, y parpadeo». Código: app/_chat/MakoEnLaTab.tsx, Mune
 - **El panel se pega a la barra de la app, no al borde de la pantalla:** la barra mide 68 o 244 px según esté fija, y cambia sin
   un `resize`. Se mide con un ResizeObserver sobre `[data-sidebar]`.
 - **El motor se monta con el panel abierto:** una tab que nunca abre a MaKo no pide nada.
+- **Lo de cada tab entra por la pieza, no al lado (22/10, pedido del CRM):** `arriba` (las sugerencias, sobre el hilo), `aviso` (el
+  globito de la estrella plegada) y, abierto, `--ancho-panel-mako` en <html> (440 px; 0 cerrado) para que la tab le deje el margen
+  con `padding-left: var(--ancho-panel-mako, 0px)`. Una tab que mide el panel por su cuenta se desfasa cuando la barra se fija.
 - **El desfase de cada criatura sale de su ASPECTO, no de su nombre.** Con el nombre, la estrella del «Ops Center» de la barra y la
   del «Cerebro» dejaban de ser la misma criatura (tests/centro-ops7.test.ts lo fija comparando el HTML). Sin desfase, todas
   parpadeaban a la vez, como un tablero.
