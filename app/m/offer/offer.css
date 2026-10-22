@@ -283,6 +283,9 @@
 [data-m] .m-offer-paso__marca[data-estado="fallo"] { border: 1.5px solid var(--bad); background: var(--bad-bg); color: var(--bad); }
 [data-m] .m-offer-generando__nota { margin: 0; text-align: center; font-size: var(--fs-sm); color: var(--dim); }
 
+/* Un diagnóstico armado con el embudo de otro funnel (OF1, 22/10/2026): el aviso y «Rehacer», arriba de la conclusión. */
+[data-m] .m-offer-viejo { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-bottom: 16px; }
+
 /* La conclusión: el héroe (la frase y el puntaje), el segmentado y lo de cada pestaña. */
 [data-m] .m-offer-conclusion { display: flex; flex-direction: column; gap: 16px; padding-bottom: 12px; }
 [data-m] .m-offer-heroe {
