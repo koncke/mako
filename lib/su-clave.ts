@@ -59,7 +59,8 @@ export async function anotarFalloDeSuClave(p: { proveedor: ProvSuClave; error: s
 }
 
 export type SuClaveEnTarjeta = EstadoSuClave & {
-  es: 'propia' | 'copia' | 'ilegible';
+  /** `credito`: su Claude es el crédito que le asignó Martín (lib/credito-negocio.ts), no una clave suya ni una copia. */
+  es: 'propia' | 'copia' | 'ilegible' | 'credito';
   /** Su Claude: el modelo que eligió (IA5), y si su clave es el crédito de Max de la plataforma (va con Haiku igual). */
   modelo?: EleccionSuClaude; soloHaiku?: boolean;
 };
@@ -94,7 +95,10 @@ async function modeloDeSuClaudeEn(ws: number): Promise<{ modelo: EleccionSuClaud
 export async function estadoDeSusClaves(ws: number): Promise<SuClaveEnTarjeta[] | null> {
   try {
     const guardadas = await susClaves(ws);
-    if (!guardadas.length) return [];
+    // Con el crédito asignado prendido (el ws1, 22/10/2026), su Claude es ese crédito: la tarjeta lo dice y las copias de las
+    // claves de MaKo no salen («Es la clave de MaKo, no la tuya» no tiene sentido mientras el crédito le contesta).
+    const conCredito = !!(await (await import('./credito-negocio')).claveDelCreditoAsignado(ws));
+    if (!guardadas.length && !conCredito) return [];
     const desde = new Date(Date.now() - 30 * 86_400_000).toISOString();
     const { data, error } = await getSupabaseServer().from('anthropic_usage')
       .select('created_at, provider, model, motivo')
@@ -103,8 +107,11 @@ export async function estadoDeSusClaves(ws: number): Promise<SuClaveEnTarjeta[] 
     if (error) throw new Error(error.message);
     const filas = (data ?? []) as FilaUsoClave[];
     const claude = guardadas.find((c) => c.clave === 'ANTHROPIC_API_KEY' && c.es === 'propia') ? await modeloDeSuClaudeEn(ws) : null;
-    return PROVS_SU_CLAVE.flatMap((p) => {
+    return PROVS_SU_CLAVE.flatMap((p): SuClaveEnTarjeta[] => {
       const guardada = guardadas.find((c) => c.clave === CLAVE_DE[p]);
+      // Su clave propia gana sobre el crédito (como en la puerta 2).
+      if (conCredito && p === 'anthropic' && guardada?.es !== 'propia') return [{ ...estadoDeSuClave(p, filas), es: 'credito' }];
+      if (conCredito && guardada?.es === 'copia') return [];
       return guardada ? [{ ...estadoDeSuClave(p, filas), es: guardada.es, ...(p === 'anthropic' && claude ? claude : {}) }] : [];
     });
   } catch (e) {

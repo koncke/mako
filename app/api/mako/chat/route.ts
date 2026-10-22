@@ -54,6 +54,7 @@ import type { PersonaChat } from '@/lib/mako-turno-app';
 import { esChatDeMarcas, leerMarcasDelChat, marcarEnElChat } from '@/lib/chat-mako-marcas-db';
 import { sanearCambio } from '@/lib/centro-mensajes';
 import { negocioConSuIA } from '@/lib/ia-del-negocio';
+import { claveDelCreditoAsignado } from '@/lib/credito-negocio';
 import { pcDe } from '@/lib/ia-pc';
 
 export const dynamic = 'force-dynamic';
@@ -81,6 +82,8 @@ const enteroDe = (v: unknown): number | null => {
 async function conSuIA(persona: PersonaChat): Promise<boolean> {
   try {
     if (persona.ws === (await wsSuperAdmin())) return true;
+    // Con el crédito de Claude que le asignó Martín, prendido (lib/credito-negocio.ts; 22/10/2026, el ws1): tiene con qué.
+    if (await claveDelCreditoAsignado(persona.ws)) return true;
     const negocio = await negocioConSuIA(persona.ws);
     if (negocio.suIA && !negocio.conPc) return true;
     return (await pcDe(persona.ws, persona.actor)) != null;

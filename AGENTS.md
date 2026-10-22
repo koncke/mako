@@ -4767,6 +4767,9 @@ nuevo:
   plataforma), leídas estrictas, en `evaluarClaveDelNegocio` (lib/veto-claude.ts, puro). Si no se pudo leer, no se
   llama.
 - **El `fetch` usa la clave que lleva el permiso** (`permiso.clave`), nunca vuelve a resolver otra.
+- **Un crédito de la plataforma como el Claude de un negocio se ASIGNA, nunca se pega en su fila** (`CREDITO_DE_UN_NEGOCIO`,
+  lib/veto-claude.ts; el ws1 → la cuenta 1, Martín 22/10/2026). Pasa por esta puerta (`claveDelCreditoAsignado`,
+  lib/credito-negocio.ts) y se apaga en SuperAdmin › Uso. Pegarlo en la fila del ws1 la volvería la clave de MaKo.
 - Lo fija `tests/veto-claude-clave-negocio.test.ts`, probado rompiéndolo (7 de 7). El porqué, en la cabecera del veto.
 
 **Y una TERCERA puerta, también desde el 16/10/2026: el crédito de API de dos planes Max de Martín** («Vinculalas a

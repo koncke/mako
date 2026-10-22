@@ -5515,6 +5515,42 @@ TODAS 429 (0 respuestas), OpenRouter 12 llamadas y su modelo gratis caducó tres
 - **Sin hacer:** Fathom, Panda y Zernio no tienen regla, y su formato no se verificó. Una clave de Mistral pegada con otro
   texto y sin nombrar a Mistral («<clave>\ngracias!») sigue pasando: sin el nombre ni el texto solo, es la forma de un id.
 
+## El crédito de la cuenta 1 como el Claude del ws1, con su interruptor en el Uso (22/10/2026)
+
+**La decisión, textual** (Martín, por el Cerebro): «habilita los tokens de la API de la cuenta de Mauricio, esos 200, para su
+Ops Center, que lo pueda usar, así puedo seguir probando en Automations», y «dame luego una opción para deshabilitarle esa
+API a Mauricio en SuperAdmin, tal vez en USO, que pueda desactivar». Es una excepción a «Por ahora solo en onboarding».
+
+**Vive en:** `CREDITO_DE_UN_NEGOCIO` (lib/veto-claude.ts: ws1 → `ANTHROPIC_CREDITO_CUENTA1`) · lib/credito-negocio.ts (el
+interruptor y la clave) · la puerta 2 (`permisoDeLaClaveDelNegocio`, lib/anthropic.ts) · la sección «API» del Uso
+(app/admin/operaciones/UsoCredito.tsx, en la computadora y en el teléfono) · tests/credito-negocio.test.ts.
+
+- **Entra por la puerta 2, no por la 3.** La puerta 3 (`conCreditoDeLaPlataforma`) sólo contesta TEXTO y sólo en la red de
+  la plataforma, y el Ops Center y la estrella de cada tab son el chat con herramientas. La puerta 2 sirve a las dos cosas
+  (el chat con herramientas y la cascada de texto, que la prueba primero), y ya sabía tratar un crédito como el Claude de
+  un negocio (el ws10): con Haiku, nunca el Plan, y el gasto con la marca del crédito. Sin su clave propia, o con una copia
+  de la de MaKo, la puerta 2 usa la del crédito asignado. Si la conecta, gana la suya.
+- **Trampa: no se pega en la fila del ws1.** Es el workspace del entorno (`hidratarCredenciales`), y su fila pasaría a ser
+  la clave de MaKo (lo del 18/10). Tampoco se escribe la marca del crédito en el ws1: la puerta la escribía al reconocer un
+  crédito por su valor, y el asignado no es su fila.
+- **El interruptor vive en el workspace de la plataforma** (`ia.credito_negocio.1`): el negocio no lo ve ni lo toca. Sin
+  fila, PRENDIDO (lo pidió Martín, y prenderlo no necesita escribir en producción). «No pude leerlo» es apagado para ese
+  pedido.
+- **Lo que deja de verse:** «Conecta tu IA» (la caja pregunta `claveDelCreditoAsignado`), y «Es la clave de MaKo, no la
+  tuya» (la tarjeta muestra `credito` y saca las copias; en /integraciones, la de Claude sale conectada).
+- **Error que ya estaba en el Uso:** las filas «(su clave es el crédito)» no traen el número de la cuenta, y `creditoQuePago`
+  las mandaba todas a la cuenta 1: lo del ws10 (cuenta 2) se le sumaba a Mauricio. Ahora van a la cuenta del NEGOCIO.
+- **Medido en producción (22/10, sólo lectura, nada escrito en el ws1: 564 ajustes antes y después):** el crédito asignado
+  está prendido y su clave se lee; la puerta 2 da permiso para `mako-doer` y `chatbot-crear-ia` (Haiku, como crédito) y no
+  para `plan-fathom`; la tarjeta dice `anthropic:credito`; la clave contesta 200 a `count_tokens` (que no cobra).
+- **Probado rompiéndolo** (las 11 en rojo): la puerta sin el crédito, el crédito tapando su clave propia, la marca en el ws1,
+  el interruptor que no apaga, «no pude leer» prendido, cualquier negocio prendible, la tarjeta, la caja, la cuenta de «su
+  clave es el crédito», la pantalla y la acción sin la puerta del super admin.
+- **SIN hacer — por qué esto NO alcanza para soltar IA16:** el crédito cubre lo que pasa por la puerta 2. Al ws1, con IA16, le
+  seguirían faltando: el Plan (que nunca paga IA de MaKo: hace falta su clave, o que Martín amplíe la excepción); las notas
+  de voz (Claude no transcribe: hace falta su Gemini o su OpenAI); «Hola MaKo» en WhatsApp (el doer escala a su Claude sólo
+  con «su IA»); y el buscador de conocimiento (embebe con su Gemini). Con su Gemini gratis conectada, eso se resuelve.
+
 ## Las decisiones de Martín del 22/10/2026 sobre la IA de MaKo, y el Plan con la clave del negocio
 
 **Las decisiones, textuales** (las tomó en el formulario del Cerebro el 22/10/2026):
