@@ -537,11 +537,11 @@ export function avisoSinIA(delEntorno: boolean, servicio: string = SERVICIO_IA):
  * ésa —para arreglarla, no para pedirle otra—, en este orden: su Claude y su OpenAI primero (la decisión A de Martín:
  * cada negocio conecta la suya), después las gratis. Sin ninguna, su Claude (IA9; el mismo link que manda WhatsApp).
  */
-export const IA_PARA_CONECTAR = ['anthropic', 'openai', 'gemini', 'groq', 'mistral', 'openrouter'] as const;
+export const IA_PARA_CONECTAR = ['anthropic', 'openai', 'gemini', 'groq'] as const;
 /** La credencial base de cada una (lib/integraciones-catalogo.ts): la que se mira en la fila del negocio. */
 export const ENV_DE_IA: Record<(typeof IA_PARA_CONECTAR)[number], string> = {
   anthropic: 'ANTHROPIC_API_KEY', openai: 'OPENAI_API_KEY', gemini: 'GEMINI_API_KEY',
-  groq: 'GROQ_API_KEY', mistral: 'MISTRAL_API_KEY', openrouter: 'OPENROUTER_API_KEY',
+  groq: 'GROQ_API_KEY',
 };
 export function iaParaConectar(conFila: readonly string[], soloSuya = false): string {
   // D6b (lib/solo-su-ia.ts): un negocio con su Claude o su GPT no usa las gratis, así que no se le ofrece Gemini aunque

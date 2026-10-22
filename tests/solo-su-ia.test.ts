@@ -135,7 +135,8 @@ test('lo prenden los caminos del Ops Center: el turno (con El Archivero y los ar
   assert.match(voz, /pii: true/, 'una nota de voz no va a la red gratis');
   // Y el corte vive abajo: en `provDe`, en la red de la plataforma, y en el orden por cuota.
   const ai = sinComentarios(leer('lib/ai-cheap.ts'));
-  assert.match(ai, /async function provDe\([^)]*\): Promise<Prov \| null> \{\s*if \(!proveedorPermitido\(nombre, wsKey != null\)\) return null;/);
+  // IA8: antes del corte de D6b va el de los proveedores sacados; los dos devuelven null antes de leer ninguna key.
+  assert.match(ai, /async function provDe\([^)]*\): Promise<Prov \| null> \{\s*if \(PROVS_SACADOS\.includes\(nombre\)\) return null;\s*if \(!proveedorPermitido\(nombre, wsKey != null\)\) return null;/);
   const red = ai.slice(ai.indexOf('export async function provsGratisDePlataforma('));
   assert.ok(red.indexOf('if (soloSuIA()) return [];') > 0 && red.indexOf('if (soloSuIA()) return [];') < red.indexOf('wsSuperAdmin'), 'la red de la plataforma corta antes de leer nada');
   assert.match(sinComentarios(leer('lib/ia-cuotas.ts')), /export async function ordenarPorCuota\(orden: string\[\]\): Promise<string\[\]> \{\s*if \(soloSuIA\(\)\) return orden\.filter/);

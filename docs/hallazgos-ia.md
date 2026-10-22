@@ -5275,3 +5275,36 @@ devuelve el modelo) · `tests/closing-su-claude.test.ts` (corre `analyzeMeeting`
   ninguno (0 PC conectadas), pero el tutorial tiene que decir que para lo que corre solo hace falta la clave. Y el crédito de
   Claude de la plataforma (sólo onboarding) va antes del corte: en el onboarding de un negocio con su Claude que falla, paga
   Martín.
+
+## Sacar un proveedor de IA: se corta en `provDe`, y su clave pegada se sigue tapando (IA8, 22/10/2026)
+
+Cerebras, Mistral y OpenRouter, medidos en 30 días: Cerebras 0 llamadas (402 en todas sus cuentas), Mistral 74 filas y
+TODAS 429 (0 respuestas), OpenRouter 12 llamadas y su modelo gratis caducó tres veces. No daban IA, pero sí costaban:
+
+- **El costo que no se veía era el saldo.** `limitesEfectivos` (lib/ia-cuotas.ts) pedía el saldo de OpenRouter en CADA
+  `ordenarPorCuota`, o sea en cada cascada: ~10 de las ~90 consultas de un turno de Offer (docs/hallazgos-infra.md) eran
+  para un proveedor que contestaba 12 veces al mes. Un proveedor muerto no se mide por sus llamadas sino por lo que se
+  consulta POR él.
+- **El tipo no se puede sacar todavía, y no hace falta.** `ProvName` lo nombran las listas del lienzo (lib/flujo-ia.ts, de
+  Automations, AU3): sacarlo del tipo rompe un archivo ajeno. La puerta única de las cuentas es `provDe`: con
+  `PROVS_SACADOS` devolviendo `null` ahí, ninguna lista vieja ni fila guardada en `credenciales` llega a la red, aunque la
+  pida a mano (tests/ia8-sacados.test.ts lo corre con las tres cuentas guardadas en el negocio, la plataforma y el
+  entorno). **Regla:** para sacar un proveedor, primero el corte en `provDe`; las listas y el tipo pueden ir atrás.
+- **La regla de la clave pegada NO se borra con el proveedor.** lib/claves-en-el-chat.ts sigue tapando `sk-or-…` y `csk-…`,
+  sólo sin botón (`servicio: null`). Sin esa regla, una clave de OpenRouter pegada en el chat la agarra la de OpenAI
+  (`sk-…`): no sólo quedaría a la vista, el chat le ofrecería «conectarla» como si fuera de OpenAI.
+- **Un hijo sin tipos puede pasar en vacío.** La primera versión del test filtraba `p.nombre` sobre
+  `provsGratisDePlataforma()`, que devuelve `{ provider, clave }`: `undefined` nunca está en la lista, y el chequeo pasaba
+  siempre. Lo vio `tsc` acotado sobre el hijo, no la rotura. Los hijos (`tests/_*-hijo.ts`) no los tipa el test runner:
+  pasarlos por `tsc` antes de confiar en un verde.
+
+### Lo que quedó SIN hacer
+
+- `ProvName`, los `case` de `cfgDe`, `LIMITES_PROVEEDOR`, los modelos y timeouts de los tres (lib/ai-cheap.ts,
+  lib/ia-cuotas-calculo.ts): se van cuando AU3 saque los tres de lib/flujo-ia.ts. Hoy son inertes (`provDe` corta).
+- lib/openrouter-saldo.ts sigue: lo lee el panel de gasto (lib/anthropic-usage.ts → `saldoOpenRouter`). Mostrará el saldo
+  que quedó; sacarlo es del panel.
+- Las filas guardadas en `credenciales` (CEREBRAS/MISTRAL/OPENROUTER_API_KEY) quedan cifradas, inertes y sin botón para
+  borrarlas (hallazgos-integraciones, «Sacar una integración»): es SQL, y la Cerebras del ws1 la decide Martín.
+- Un negocio con SÓLO Gemini no tiene texto barato: `CASCADA_GRATIS` es `['groq', 'openai']` (ya no tenía Gemini antes de
+  IA8). Con IA10 eso deja de importar: el camino es su Claude o su GPT.

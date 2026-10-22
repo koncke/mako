@@ -195,7 +195,8 @@ test('un negocio cuya IA fuera el entorno: ni botón ni «pega tu key»; lo resu
 test('la IA de la plataforma sale de la PLATAFORMA, no del ws1: hidratación, lecturas, guardar y la migración', () => {
   // Martín (18/10/2026): «Sí: separá el ws1 de las claves de la plataforma (que salgan del ws9 o del entorno) para que
   // Mauricio pueda conectar su propia IA». Qué es IA: la cascada (con sus cuentas y rótulos), OpenAI, Cerebras y Claude.
-  for (const c of ['GEMINI_API_KEY', 'GEMINI_API_KEY_4', 'GEMINI_API_KEY_4_ACCOUNT', 'GROQ_API_KEY_2', 'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'CEREBRAS_API_KEY', 'ANTHROPIC_API_KEY']) {
+  // IA8 (22/10/2026): OpenRouter y Cerebras se sacaron: sus claves ya no son «de IA» (nadie las lee).
+  for (const c of ['GEMINI_API_KEY', 'GEMINI_API_KEY_4', 'GEMINI_API_KEY_4_ACCOUNT', 'GROQ_API_KEY_2', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY']) {
     assert.ok(esClaveDeIA(c), `${c} es de IA`);
   }
   for (const c of ['META_ACCESS_TOKEN', 'RESEND_API_KEY', 'FATHOM_WEBHOOK_SECRET', 'ANTHROPIC_CREDITO_CUENTA1', 'GEMINI_API_KEY_11', 'ELEVENLABS_API_KEY']) {
@@ -266,7 +267,8 @@ test('un negocio con SÓLO su Claude: el chat contesta con su clave, y «Conecta
   // Rota: sacar el intento con la clave del negocio → este test falla.
   const ant = sinComentarios(leer('lib/anthropic.ts'));
   const tools = ant.slice(ant.indexOf('export async function chatClaudeTools('));
-  const intento = tools.indexOf('const n = await permisoDeLaClaveDelNegocio(opts.feature).catch(() => null);');
+  // Desde WA1 la misma lectura aparece antes, en `soloSuClaude` (directo a su clave): ésta es la de DESPUÉS de la cascada.
+  const intento = tools.indexOf('const n = await permisoDeLaClaveDelNegocio(opts.feature).catch(() => null);', tools.indexOf('if (r) return { text: r.text'));
   assert.ok(intento > tools.indexOf('if (r) return { text: r.text') && intento < tools.indexOf("'sin proveedor gratis disponible'"),
     'después de la cascada que no contestó, antes de tirar');
   // Con su Claude en pausa, la pausa (no «sin proveedor», que le pedía conectar lo que ya tiene: revisión del 21/10/2026).

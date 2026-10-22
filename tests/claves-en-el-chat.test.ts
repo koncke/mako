@@ -58,11 +58,12 @@ const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(
 const X = 'A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6';
 const CASOS: Array<[string, string, string | null]> = [
   ['anthropic', `mi clave es sk-ant-api03-${X}`, 'anthropic'],
-  ['openrouter', `toma sk-or-v1-${X}`, 'openrouter'],
+  // IA8 (22/10/2026): OpenRouter y Cerebras se sacaron de /integraciones: su clave se tapa igual, sin botón.
+  ['openrouter', `toma sk-or-v1-${X}`, null],
   ['openai', `sk-proj-${X}T3BlbkFJ${X}`, 'openai'],
   ['google', `AIzaSy${X}`, 'gemini'],
   ['groq', `gsk_${X}`, 'groq'],
-  ['cerebras', `csk-${X}`, 'cerebras'],
+  ['cerebras', `csk-${X}`, null],
   ['stripe', `sk_live_${X}`, 'stripe'],
   ['resend', `re_${X}`, 'email'],
   ['env con una de Google', `GEMINI_API_KEY=AIzaSy${X}`, 'gemini'],
@@ -166,7 +167,7 @@ test('las claves de verdad de OpenAI, Mercado Pago, Resend y .env siguen tapánd
     ['OpenAI de usuario sin proyecto, sk-None-', `sk-None-${b64u(70)}T3BlbkFJ${b64u(70)}`, 'openai', b64u(70)],
     ['OpenAI en una línea de .env: el botón es el de OpenAI', `OPENAI_API_KEY=sk-proj-${b64u(70)}T3BlbkFJ${b64u(70)}`, 'openai', b64u(70)],
     ['Anthropic larga: sigue ganando sk-ant-, no OpenAI', `sk-ant-api03-${b64u(93)}AA`, 'anthropic', b64u(93)],
-    ['OpenRouter larga: sigue ganando sk-or-, no OpenAI', `sk-or-v1-${hex(64)}`, 'openrouter', hex(64)],
+    ['OpenRouter larga: sigue ganando sk-or-, no OpenAI (sin botón desde IA8)', `sk-or-v1-${hex(64)}`, null, hex(64)],
     ['.env con sufijo numérico (GEMINI_API_KEY_2)', `GEMINI_API_KEY_2=AIzaSy${X}`, 'gemini', X],
     ['.env con la clave seguida de más palabras (nombre real del .env.local)', `FATHOM_API_KEY_MARTIN=${hex(32)}`, null, hex(32)],
     ['.env con dos puntos, nombre que termina en TOKEN', `SLACK_BOT_TOKEN: ${hex(24)}`, null, hex(24)],

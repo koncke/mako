@@ -40,8 +40,9 @@ type ReglaDeClave = Regla & { servicio: string | null };
 
 /** Las que agente-redaccion no tenía. Van primero, antes de las heredadas: `sk-or-` lo cumplía también la OpenAI de allá. */
 const PROPIAS_ANTES: ReglaDeClave[] = [
-  { nombre: 'openrouter', re: /\bsk-or-[A-Za-z0-9_-]{20,}/g, con: CLAVE_TAPADA, servicio: 'openrouter' },
-  { nombre: 'cerebras', re: /\bcsk-[A-Za-z0-9]{20,}/g, con: CLAVE_TAPADA, servicio: 'cerebras' },
+  // IA8: OpenRouter y Cerebras se sacaron de /integraciones. Su clave pegada se sigue tapando, sin botón para conectarla.
+  { nombre: 'openrouter', re: /\bsk-or-[A-Za-z0-9_-]{20,}/g, con: CLAVE_TAPADA, servicio: null },
+  { nombre: 'cerebras', re: /\bcsk-[A-Za-z0-9]{20,}/g, con: CLAVE_TAPADA, servicio: null },
   // Resend: `re_` + 8 + `_` + 24 (la forma de las de verdad). Sin un dígito o una mayúscula NO es una clave —una al azar de
   // 32 caracteres sin ninguno de los dos es una en cien mil—, es una etiqueta en snake_case del negocio
   // (`re_agendar_despues_de_la_llamada`, que con `[A-Za-z0-9_]{20,}` se tapaba y perdía el botón de email por nada).

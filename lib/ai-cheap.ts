@@ -40,6 +40,12 @@ import { aprenderSinMinimal, esfuerzoParaGemini, rechazaElEsfuerzo } from '@/lib
 import { CATALOGO_MODELOS } from '@/lib/model-catalogo';
 
 export type ProvName = 'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral' | 'openrouter';
+/**
+ * Sacados el 22/10/2026 (IA8), medido en 30 días: Cerebras 0 llamadas (402 en todas sus cuentas), Mistral 74 filas y TODAS
+ * 429 (0 respuestas), OpenRouter 12 llamadas y su modelo gratis caducó tres veces. Siguen en `ProvName` hasta que las listas
+ * del lienzo (lib/flujo-ia.ts, AU3) dejen de nombrarlos; mientras, `provDe` no entrega ninguna cuenta suya.
+ */
+export const PROVS_SACADOS: readonly ProvName[] = ['cerebras', 'mistral', 'openrouter'];
 /** `clave` = de QUÉ credencial salió esta key. Con varias cuentas del mismo
  *  proveedor (GEMINI_API_KEY, _2, _3) es lo único que las distingue: sin ese dato,
  *  un reintento «del mismo proveedor» volvía a pegarle a la cuenta ya agotada. */
@@ -125,6 +131,9 @@ const clavesProv = clavesAProbar;
 // y su gasto corre contra SU cuenta; un cliente sin fila propia → null, nunca la
 // del dueño (aislamiento). Antes se leía process.env directo → pagaba la agencia.
 async function provDe(nombre: ProvName, clave?: string, wsKey?: number): Promise<Prov | null> {
+  // IA8 (22/10/2026): Cerebras, Mistral y OpenRouter se sacaron. Ninguna cuenta suya se entrega, aunque quede una fila
+  // guardada o una lista vieja que los nombre (las del lienzo, lib/flujo-ia.ts, se van con AU3).
+  if (PROVS_SACADOS.includes(nombre)) return null;
   // ⛔ D6b (lib/solo-su-ia.ts): en el turno de un negocio con su Claude o su GPT, ninguna key barata ni de la plataforma.
   // Por acá pasan TODAS las cascadas (texto, herramientas, documentos, visión, audio), así que el corte es uno solo.
   if (!proveedorPermitido(nombre, wsKey != null)) return null;
@@ -346,7 +355,7 @@ export async function sttDisponible(): Promise<boolean> {
 // diferencia de CASCADA_GRATIS, INCLUYE Gemini y lo pone primero: es la IA gratis y
 // generosa que el cliente carga en el onboarding (#4), así que la extracción tiene
 // que poder usarla. Sin esto, un workspace con SOLO key de Gemini extrae vacío.
-export const CASCADA_DOCS: ProvName[] = ['gemini', 'groq', 'openrouter', 'mistral', 'openai'];
+export const CASCADA_DOCS: ProvName[] = ['gemini', 'groq', 'openai'];
 // Modelo CAPAZ por proveedor para EXTRAER de documentos. El default barato de cada
 // uno (ej. Groq gpt-oss-20b) es demasiado chico: con un doc real de +10k chars
 // genera JSON malformado/truncado y devuelve 0 campos (probado: 20b falla, 70b saca
@@ -546,7 +555,7 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
  *  queremos caer en el gasto de Claude. Devuelve el texto de la primera que funcione, o ''. */
 // Orden por default: GRATIS primero (Groq, Cerebras, OpenRouter, Mistral) y OpenAI (barato)
 // al final. Claude NUNCA entra acá. Cada uno se usa solo si tiene su key cargada (si no, se salta).
-export const CASCADA_GRATIS: ProvName[] = ['groq', 'openrouter', 'mistral', 'openai'];
+export const CASCADA_GRATIS: ProvName[] = ['groq', 'openai'];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EL TECHO DE ENTRADA: por qué la cascada mira cuánto pesa el prompt
@@ -937,7 +946,7 @@ export { motivoDeErroresCascada };
  *
  * Groq NO está: se le pidió la lista y no tiene un solo modelo con entrada de imagen.
  */
-export const VISION_CASCADE: ProvName[] = ['gemini', 'openrouter', 'openai'];
+export const VISION_CASCADE: ProvName[] = ['gemini', 'openai'];
 
 /**
  * El modelo que MIRA, por proveedor. Va aparte de `MODELO_DOCS` porque no todo modelo de
@@ -1445,7 +1454,7 @@ async function cerrarSinTools(
 // AGENTS.md documenta como cerrado —«Claude es el ÚLTIMO recurso, no el segundo»—
 // vivo en la otra mitad del sistema, y con el error más común de todos: el 429 de
 // Gemini. Todos estos proveedores hacen function-calling.
-export const CASCADA_TOOLS: ProvName[] = ['gemini', 'groq', 'mistral', 'openrouter', 'openai'];
+export const CASCADA_TOOLS: ProvName[] = ['gemini', 'groq', 'openai'];
 
 /**
  * Corre el loop de herramientas por la cascada gratis: cada CUENTA de cada

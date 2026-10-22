@@ -340,7 +340,7 @@ Ej: "Con Jesús la R1 se ve floja en el cierre. El análisis completo lo tienes 
  */
 async function contarKeysIA(): Promise<number> {
   let n = 0;
-  for (const prov of ['gemini', 'groq', 'cerebras', 'mistral', 'openrouter']) {
+  for (const prov of ['gemini', 'groq']) {
     n += (await clavesCargadas(prov).catch(() => [])).length;
   }
   return n;
