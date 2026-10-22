@@ -18,6 +18,7 @@
 //   · el rótulo sin «que se ven» con un filtro puesto                                            → 2 / 1
 //   · el bloque azul sin «Ver detalle»                                                           → 2 / 1
 //   · la ficha que no abre en «Reuniones»                                                        → 2 / 1
+//   · el bloque azul del teléfono sin «Ver detalle» (sólo «Abrir ficha» sin teléfono)             → 2 / 1
 // Correr: node --import tsx --test tests/crm-feedback-22-10.test.ts
 // =============================================================================
 
@@ -94,4 +95,6 @@ test('5: «Tienes N reuniones cerca» abre el MISMO pop-up para todos, con el bl
   assert.match(BOARD, /const openDetail = \(l: CrmLead, foco\?: string\) => \{ setFocoFicha\(foco\); setSelectedId\(l\.id\); \};/);
   assert.match(BOARD, /<LeadEditModal leadId=\{selected\.id\} seed=\{\{ nombre: selected\.name, empresa: selected\.company \}\} focus=\{focoFicha\} onClose=\{closeDetail\} \/>/);
   assert.match(leer('app/crm/LeadEditModal.tsx'), /const initialTab = focus === 'plan-pagos' \? 'cobranza' : focus === 'reuniones' \? 'reuniones' : 'resumen';/);
+  // En el teléfono el bloque azul ya va arriba de la lista (sin barra no hay calendario): lleva «Ver detalle» también.
+  assert.match(sinComentarios(leer('app/m/crm/TableroCrm.tsx')), /\{ texto: 'Ver detalle', onClick: \(\) => router\.push\(ficha\(px\.id\)\), primaria: !px\.telefono \},/);
 });

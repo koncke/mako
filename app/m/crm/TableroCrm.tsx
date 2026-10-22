@@ -120,9 +120,12 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
       bajada={[px.cuando, px.plata].filter(Boolean).join(' · ')}
       cara={{ nombre: px.nombre, foto: px.foto }}
       avance={iPx >= 0 ? { pct: ((iPx + 1) / camino.length) * 100, izq: `Paso ${iPx + 1} de ${camino.length} · ${camino[iPx].titulo}` } : null}
-      acciones={px.telefono
-        ? [{ texto: 'Llamar', href: `tel:+${px.telefono}`, primaria: true }, { texto: 'WhatsApp', href: `https://wa.me/${px.telefono}`, externo: true }]
-        : [{ texto: 'Abrir ficha', onClick: () => router.push(ficha(px.id)), primaria: true }]} />
+      // «Ver detalle» SIEMPRE, como el bloque azul de la computadora (22/10/2026, Martín: «Quiero siempre unificar las cosas
+      // en todos lados... me falta un botón para poder ver el detalle»). Acá no hay pop-up: el bloque ya va arriba de la lista.
+      acciones={[
+        ...(px.telefono ? [{ texto: 'Llamar', href: `tel:+${px.telefono}`, primaria: true }, { texto: 'WhatsApp', href: `https://wa.me/${px.telefono}`, externo: true }] : []),
+        { texto: 'Ver detalle', onClick: () => router.push(ficha(px.id)), primaria: !px.telefono },
+      ]} />
   ) : null;
   const arriba = selector || proximo ? <div className="m-crm-arriba">{selector}{proximo}</div> : undefined;
 

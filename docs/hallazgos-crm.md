@@ -10220,8 +10220,12 @@ sugerencias. Borrar lo demás toca la ruta y la parte 4 de tests/sugerencias-crm
   son («Seleccionar los 3 que se ven de «Agenda R2»»). Lleva `data-nodrag`, porque la cabecera arrastra la columna.
 
 **Sin hacer:** el 3 («Vincular cobro» en Ganado) espera las acciones de Cobros (contrato en las notas compartidas,
-contrato-cobro-en-ganado.md). El teléfono (app/m/crm) no tiene Kanban de columnas: el 1, el 2 y el 4 son de la
-computadora.
+contrato-cobro-en-ganado.md).
+
+**El teléfono ya estaba bien en el 1 y el 2:** `KanbanM` (app/m/m.css, `.m-kb__pista`) mide el alto de la pantalla, estira
+las columnas y no muestra barra de scroll, porque se pasa de columna con la barra de etapas. Tampoco tiene selección
+múltiple, así que el 4 es de la computadora. Del 5, el bloque azul del teléfono (arriba de la lista, sin pop-up) suma
+«Ver detalle».
 
 **Vive en:** app/crm/CrmBoard.tsx (`ALTO_TABLERO`, `bloquesDeReuniones`, la casilla en `renderColumn`) ·
 app/crm/ReunionesProximas.tsx · app/crm/seleccion-columna.ts · tests/crm-feedback-22-10.test.ts
