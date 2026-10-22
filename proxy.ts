@@ -330,14 +330,15 @@ function headersSeguros(req: NextRequest): Headers {
  * «Versión completa». Si las dos preguntas no coincidieran, la página de escritorio se dibujaría
  * tapada por <DesvioMovil> o el shell de /m sin su cromo; por eso las dos llaman a `vaAMovil`.
  */
-function seguirOMovil(req: NextRequest, pathname: string) {
+function seguirOMovil(req: NextRequest, pathname: string, operador = false) {
   const telefono = MOVIL_ACTIVO && vaAMovil(
     tipoDeDispositivo(req.headers.get('user-agent'), req.headers.get('sec-ch-ua-mobile')),
     req.cookies.get(VISTA_COOKIE)?.value,
     // La ruta: «Abrir en la computadora» abre sólo ESA pantalla (20/10/2026, lib/movil-dispositivo.ts).
     pathname,
   );
-  const d = pedidoMovil({ pathname, search: req.nextUrl.search, metodo: req.method.toUpperCase(), telefono });
+  // `operador`: el super admin entra derecho al Centro, en un solo documento (`entradaMovil`, lib/movil-desvio.ts).
+  const d = pedidoMovil({ pathname, search: req.nextUrl.search, metodo: req.method.toUpperCase(), telefono, operador });
   if (d.tipo === 'redirigir') return NextResponse.redirect(new URL(d.destino, req.url));
   if (d.tipo === 'reescribir') {
     return NextResponse.rewrite(new URL(d.destino, req.url), { request: { headers: headersSeguros(req) } });
@@ -443,7 +444,7 @@ export function proxy(req: NextRequest) {
   const sesion = verificarToken(req.cookies.get(SESSION_COOKIE)?.value);
   if (sesion) {
     if (esAdminRoute && sesion.rol !== 'admin') return denegarRol(req, pathname);
-    return seguirOMovil(req, pathname);
+    return seguirOMovil(req, pathname, sesion.rol === 'admin');
   }
 
   return denegar(req, pathname);
