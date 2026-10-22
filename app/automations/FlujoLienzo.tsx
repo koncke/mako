@@ -86,7 +86,7 @@ import {
 } from '@/lib/flujo-grafo';
 import {
   grafoDeSecuencia, opcionesDelMas, opcionesSueltas, nombreDeTarjeta, agregarRama, quitarRama, agregarCaso, quitarCaso, cambiarNodo,
-  revisarHeredado, cambioApila, nombreEtiqueta, vistaDeArchivo, etiquetaDeAccion, esMako, errorLegible,
+  revisarHeredado, saleSolaDelPaso, cambioApila, nombreEtiqueta, vistaDeArchivo, etiquetaDeAccion, esMako, errorLegible,
   ID_ENTRADA, tarjetasIncompletas, PARTES_EN_TARJETA, RENGLONES_CON_DOS, SEP_BURBUJAS_TARJETA, ALTO_MAS_PARTES, ALTO_PALOMITAS,
   MARCO_MAIL, RENGLON_ASUNTO, RENGLON_PREHEADER, RENGLON_CUERPO_MAIL, SEP_MAIL, RENGLONES_EMAIL, RENGLON_MAS_PARTES, altoDeMensaje,
   MARCO_DISPARO, RENGLON_DISPARO, SEP_DISPARO, ALTO_NUEVO_DISPARO, burbujasDeTarjeta,
@@ -1266,6 +1266,20 @@ function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSec
     {noOficial && ofreceVistaPrevia(paso, recordatorio) && (
       <div data-vista-previa style={{ flex: 'none', marginTop: 10 }}>
         <Switch checked={!sinVistaPrevia(paso)} onChange={(v) => cambiar({ sin_vista_previa: !v }, true)} label="Vista previa del link" />
+      </div>
+    )}
+    {/* «SALE SOLA», DE VUELTA Y A LA VISTA (21/10/2026, la prospección del Sprint de Mauricio). Salió de la pantalla el
+        09/10 («¿Qué es "Revisar antes de enviar"?... Quitalo») y el dato `revisar` lo siguió leyendo el motor: una
+        tarjeta nueva, a un lead sin pago, quedaba como BORRADOR en Chats sin que nada lo dijera (los 31 de Leila del
+        20/10; una campaña de 1.000 serían 1.000 borradores). Ahora se elige acá, con lo que pasa en cada caso. El valor
+        sin elegir es el que el MOTOR le da (`saleSolaDelPaso`), y la regla de a quien ya pagó va dicha. */}
+    {noOficial && !recordatorio && paso.canal === 'whatsapp' && (
+      <div data-sale-sola style={{ flex: 'none', marginTop: 10 }}>
+        <Switch checked={saleSolaDelPaso(paso, pasos, id, envioAutoSecuencia)} onChange={(v) => cambiar({ revisar: !v }, true)}
+          label="Sale sola"
+          hint={saleSolaDelPaso(paso, pasos, id, envioAutoSecuencia)
+            ? 'Le llega sin que la apruebes.'
+            : 'Queda en Chats › Borradores para que la apruebes. A quien ya te pagó le sale sola igual.'} />
       </div>
     )}
     {/* La reentrada de la automatización (#846): debajo del WhatsApp, fuera del teléfono, como un ajuste. */}

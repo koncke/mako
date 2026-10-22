@@ -72,7 +72,10 @@ test('la pantalla marca el paso «Tu WhatsApp» al cargar con la línea conectad
 test('«Sale sola» es de cada mensaje («Revisar antes de enviar»), con el valor heredado de la secuencia', () => {
   const lienzo = sinComentarios(leer('app/automations/FlujoLienzo.tsx'));
   assert.match(lienzo, /mostrarRevisar=\{!recordatorio\}\s+revisarHeredado=\{revisarHeredado\(pasos, id, envioAutoSecuencia\)\}/);
-  assert.doesNotMatch(lienzo, /label="Sale sola"|onEnvioAuto/, 'volvió «Sale sola» a la tarjeta del disparador');
+  // «Sale sola» volvió el 21/10/2026, pero a CADA mensaje (`data-sale-sola`, el editor del mensaje; lo fija
+  // tests/sale-sola-por-tarjeta.test.ts), no a la tarjeta del disparador.
+  const sinLaDelMensaje = lienzo.replace(/<div data-sale-sola[\s\S]*?<\/div>/, '');
+  assert.doesNotMatch(sinLaDelMensaje, /label="Sale sola"|onEnvioAuto/, 'volvió «Sale sola» a la tarjeta del disparador');
   const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   assert.match(perfil, /envioAutoSecuencia=\{est\?\.envio_automatico === true\}/);
 });

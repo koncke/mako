@@ -42,6 +42,8 @@ la revisión.*
   y el motor dejaba un borrador → [El lienzo](#el-lienzo).
 - **«A mi WhatsApp» le escribía al cliente**, y el arreglo obvio (`getPerfil`) devuelve al admin del
   cliente → [«Probar» y la página](#probar-y-la-página).
+- **Un CRM nuevo con sus leads AGREGADOS inscribía a CERO, sin un error** (21/10/2026): la cohorte miraba sólo la casa
+  (`leads.funnel_id`); ahora mira también `lead_funnel` → [La prospección del Sprint](#la-prospección-del-sprint-de-mauricio-el-crm-nuevo-no-inscribía-a-nadie-y-el-cupo-era-de-la-campaña-21102026).
 - **Un escritor que no sabe de ramas aplana un flujo SIN ERROR**: una lista es un flujo válido.
   `armarSecuenciasDeAudios` (onboarding) lo hacía en cada carga sobre #198/#212/#213 →
   [Escritores que no saben de ramas](#escritores-que-no-saben-de-ramas-aplanaban-un-flujo-sin-error-cosecha).
@@ -1598,6 +1600,7 @@ leads con principales distintos, así que con las dos en el menú la equivocada 
 al dueño. Se dejó afuera, con su porqué en `ACCIONES_DEL_FLUJO`. Lo que falta es UNA «Mover de etapa» que, por
 lead, corra una u otra según el producto elegido sea su principal o uno agregado (en el ejecutor, o una acción
 nueva del registro).
+**Hecho el 21/10/2026, en el ejecutor** (`moverEnElCrmDelPaso`, lib/api-mako/flujo.ts): ver «La prospección del Sprint».
 
 **Vive en:** `lib/editor-acciones.ts` (`ACCIONES_DEL_FLUJO`) · `lib/api-mako/areas/crm.run.ts` · `app/_components/CamposAccion.tsx` (`SelectorEtapa`)
 
@@ -5688,3 +5691,94 @@ La secuencia, el AI Step que contesta solo, la rama y los recordatorios de reuni
 2233550684 en el CRM seguía recibiendo, y desde el 20/10 le llega. La regla ahora vive en `estaBloqueado` y el motor la
 hereda sin cambios; el residuo de nutrición inscribe con la misma (`TelefonosDe`). Detalle y porqué en
 hallazgos-comunicacion («La identidad de un bloqueo es UNA regla»). *21/10/2026, chat «CRM» (claude4).*
+
+## La prospección del Sprint de Mauricio: el CRM nuevo no inscribía a nadie, y el cupo era de la campaña (21/10/2026)
+
+Martín, 21/10: «que pruebes y valides que todo funcione bien en Automations de punta a punta para que con Mauricio
+podamos hacer esta estrategia de prospección con todos los contactos que tiene en su CRM que nunca fueron contactados».
+El plan obvio: un CRM nuevo de Prospección, sumarle los 1.094 nunca contactados y colgarle una automatización. El
+relevamiento previo (C:/dev/cerebro-herramientas/automations-mauricio-21-10.md) midió por qué no andaba; esto es lo
+que quedó de arreglarlo.
+
+### Un CRM nuevo con sus leads AGREGADOS inscribía a CERO, sin un error
+
+**Síntoma:** CRON «Sprint de Diseño › Por contactar» con 301 leads agregados en esa columna → «inscribiría: 0».
+**Causa:** la cohorte de un CRON por etapa (`cohorteDeTrigger`, `etapa_actual`) filtraba por la CASA del lead
+(`leads.funnel_id`) y su etapa (`pipelineStageOf`). Sumar a otro CRM («se AGREGA, nunca se mueve», Martín 06/10)
+escribe sólo una fila de `lead_funnel`, que ninguna cohorte leía. Los 1.169 leads del ws1 tienen casa NULL (el CRM
+principal): toda automatización colgada de otro CRM era sorda a ellos. Y el CRON «Tienen la etiqueta» de esa misma
+automatización hereda su CRM, así que el camino «alternativo» (etiqueta + Recurrente) también daba cero si la
+automatización declaraba el CRM.
+**Regla:** una automatización que DECLARA un CRM ve a la casa y a los agregados a ese CRM (`agregadosQueEntran` y
+`conAgregados`, lib/nutricion-ambito.ts): la etapa es la de ESE CRM, sólo `abierto` (el estado es de la persona), y la
+ventana de 90 días mira cuándo se lo sumó o se lo movió ahí. Sin CRM declarado (las de antes del ámbito) no cambia
+nada: aplican a todos los productos, y sumarles las filas escribiría dos veces a la misma persona.
+**Medido:** ws3 con 301 agregados: origin/main 0, con el arreglo 288 (los 13 cerrados quedan afuera). Producción, las
+20 cohortes activas de los 7 negocios con automatizaciones: iguales antes y después (scratchpad de la sesión,
+`cohortes-todos.mts`; sólo lectura).
+**La trampa que encontró la revisión adversarial:** una fila que NACE con el lead (Meta con varios CRM en la campaña,
+una landing con varios) no puede entrar: la casa ya lo saluda por el evento del alta y el «Un Lead Entró» del otro CRM
+le mandaba una SEGUNDA bienvenida en el barrido de la hora. `filaNacidaConElLead` (10 min, y sin movimiento después).
+**Vive en:** `lib/nutricion.ts` (`cohorteDeTrigger`, `agregadosEnEtapa`, `leadsConEtiqueta`) · `lib/nutricion-ambito.ts`
+· test: tests/cohorte-crm-agregados.test.ts.
+
+### «Mover de etapa» escribía la etapa del OTRO CRM en la principal del lead
+
+**Síntoma (por leer el código, nadie lo vio pasar todavía):** «Mover a Contactado» del CRM de prospección, corrido
+sobre un lead agregado, llamaba `setPipelineStage(lead, 'st1')` en su CASA. `setPipelineStage` no valida que la key
+exista en el CRM del lead: la etapa principal de Mauricio quedaba en una key que su CRM no tiene (el tablero la dibuja
+en la primera columna, como los 1.050 'reactivacion' de hoy) y la tarjeta del Sprint no se movía.
+**Causa:** el control de etapa guarda `embudoId`, pero `proponer_cambio_etapa` no lo declara y `paramsDelPaso` lo saca.
+**Regla:** el flujo decide por lead (`moverEnElCrmDelPaso`, lib/api-mako/flujo.ts; `dondeMoverEtapa`,
+lib/editor-acciones.ts): en su casa, la casa; agregado, `mover_lead_en_producto`; donde no está, no mueve y lo dice.
+Salvo lo de antes (revisión adversarial): si la etapa existe en su casa, o su casa no se pudo resolver, se mueve la
+casa como siempre — las 62 automatizaciones sin CRM guardan igual el `embudoId` del principal.
+**Sin hacer:** en un CRM agregado, «Ganado» no registra la venta ni cambia el estado (es el modelo de
+`mover_lead_en_producto`) y el paso no lo dice. `setPipelineStage` sigue aceptando una key que el CRM del lead no tiene.
+
+### «Simulado» cuenta como «ya le escribiste» pero NO gasta el tope
+
+`?commit=1` del cron marca 'simulado' los pasos de un canal apagado. `leadsYaContactados` incluye 'simulado' (la
+condición «Nunca le escribiste» lo da por contactado), pero `enviosUltimas24h` / `enviosEnLaHora` cuentan sólo
+'enviado'. Así que un commit forzado no reproduce el reparto de una campaña (el cupo nunca se llena) y además
+«quema» a esos leads para una campaña de verdad. **Regla:** el reparto se prueba con el envío real y topes bajos
+(Configuraciones › Límites en 1-2 por día), nunca con `commit=1`, y nunca en el ws1.
+**Vive en:** `lib/nutricion.ts` (`leadsYaContactados`, `enviosUltimas24h`) · app/api/cron/nutricion/route.ts.
+
+### El cupo de WhatsApp es UNO por negocio: una campaña le comía el día a la bienvenida
+
+**Síntoma (medido en la cola, no en un envío):** la cola era FIFO por `proximo_envio_at`. Una campaña de 1.000
+inscripta a las 10:00 se ponía delante del audio de «Un Lead Entró» de un lead de anuncios de las 10:05, y hacia la
+tarde se llevaba las 40 del día: la bienvenida salía mañana. Ordenar no alcanza: el día se gasta de a poco.
+**Regla, a la vista en Configuraciones › Límites (`textoPrioridad`):** primero lo que ENTRA — un lead que llegó por un
+canal (`origen_lead`: formulario, landing, agenda) o agendó en 24 h va primero en la cola (una vuelta) — y un
+WhatsApp a cualquier otro usa el cupo menos una reserva (`reservaParaEntradas`: una hora del cupo por día, con techo
+10, y 1 por hora). **La trampa de la revisión:** sin el `origen_lead`, una base fría IMPORTADA a la mañana y lanzada a
+la tarde contaba como «fresca» y se llevaba el cupo entero. Y «Datos de Mau» copia los leads al ws3 con su
+`origen_lead` y su alta: los que Mauricio recibió en las últimas 24 h cuentan como entrada en la prueba (6 de 300 el 21/10).
+**Vive en:** `lib/nutricion-prioridad.ts` · `lib/nutricion.ts` (`procesarEnvios`, `entradasFrescas`, `sinLugar`) ·
+`app/automations/LimitesEnvioPanel.tsx` · test: tests/primero-lo-que-entra.test.ts.
+
+### «Sale sola» volvió, a la vista, en cada tarjeta
+
+Salió del editor el 09/10 («¿Qué es "Revisar antes de enviar"?... Quitalo») y el motor lo siguió leyendo: a un lead
+sin pago, una tarjeta nueva quedaba como borrador en Chats sin que nada lo dijera (los 31 de Leila del 20/10; la
+campaña serían 1.000). Ahora es un interruptor debajo del teléfono, con lo que pasa en cada caso y la regla de quien
+ya pagó. **Regla:** lo que la casilla pinta sale de la regla del motor (`saleSolaDelPaso` → `revisarHeredado` /
+`saleSolo`), probado para cada combinación. **Vive en:** `app/automations/FlujoLienzo.tsx` (`data-sale-sola`) ·
+`lib/flujo-conversacion.ts` · test: tests/sale-sola-por-tarjeta.test.ts.
+
+### El aviso de «Si responde» lleva a la CHARLA, y en «Si responde» la tarjeta deja de ser «tal cual»
+
+`{{link_chat_lead}}` («Link a su conversación», /chats?lead=<id>) está en el «{ }» y el aviso armado suma «💬 <link>»
+debajo de la ficha. **Lo que no se ve:** en «Si responde» el motor le pasa a la tarjeta lo que escribió el lead
+(`LLENA_EL_FLUJO`) y, con eso, `armarAvisoDeTarjeta` arma el formato de siempre (🟡 título, la cita, nombre ·
+teléfono, ficha y charla) aunque la tarjeta sea «tal cual». Y Publicar rechaza `{{lead_escribio}}` en esa tarjeta
+(«No existe»: `contextoDeTarjeta` no le da `conEscrito`), aunque el motor la cita igual. **Sin hacer:** decir en la
+tarjeta que en «Si responde» sale con la cita, o darle `conEscrito` y dejarla tal cual.
+
+### En un negocio sin línea, ni Publicar ni «Probar» abren: piden conectar el WhatsApp
+
+En el ws3 (sin línea), con tarjetas de WhatsApp, Publicar y «Probar» abren «Vincular número» (y eso crea la fila
+`mako_ws3` en «conectando», sin escanear). O sea: el simulador, que no manda nada, también necesita el chip. La cohorte
+se midió por script (`leadsDeCohorte` con cada árbol, sólo lectura) en vez del dry-run de una automatización activa.

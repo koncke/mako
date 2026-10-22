@@ -222,12 +222,10 @@ export type AccionDelFlujo = {
  *   · `proponer_tareas_plan`: aplicar un borrador del plan corre al Perro, que re-curva TODO el
  *     tablero (AGENTS.md); una tarea por lead lo dispararía en cada inscripción. Del Plan no queda
  *     ninguna que sea de UN lead;
- *   · `mover_lead_en_producto`: mueve SÓLO en un producto AGREGADO, y «Mover de etapa»
- *     (`proponer_cambio_etapa`) SÓLO en el principal. Cuál es el principal depende del LEAD, no del
- *     flujo: ofrecer las dos es pedirle a quien arma la automatización que sepa eso de cada lead que va a
- *     pasar, y la equivocada falla en cada uno con una alarma al dueño (medido en `preparar`,
- *     lib/api-mako/areas/crm.run.ts). Lo que falta es UNA «Mover de etapa» que elija cuál correr por
- *     lead (docs/hallazgos-chatbot.md, parte «editores»);
+ *   · `mover_lead_en_producto`: mueve SÓLO en un producto AGREGADO. Cuál es el principal depende del LEAD,
+ *     no del flujo: ofrecer las dos es pedirle a quien arma la automatización que sepa eso de cada lead.
+ *     Desde el 21/10/2026 «Mover de etapa» (`proponer_cambio_etapa`) elige por lead según el CRM que
+ *     eligió el paso (`dondeMoverEtapa`, abajo): ésa es la UNA que hacía falta;
  *   · `marcar_asistencia_reunion`: la asistencia la marca el evento de la agenda, no un flujo;
  *   · las que usan IA (`generar_insight_lead`, `redactar_followup_post_llamada`, `analizar_llamadas_lead`):
  *     tardan y gastan en cada lead;
@@ -509,6 +507,35 @@ export function productoDeLaEtapa(productos: readonly ProductoDeAccion[], embudo
   const tiene = (p: ProductoDeAccion) => typeof etapa === 'string' && p.etapas.some((e) => e.value === etapa);
   if (typeof etapa === 'string' && etapa) return productos.find((p) => p.esDefault && tiene(p)) ?? productos.find(tiene) ?? null;
   return productos.find((p) => p.esDefault) ?? productos[0] ?? null;
+}
+
+/**
+ * «MOVER DE ETAPA» EN EL CRM QUE ELIGIÓ EL PASO (21/10/2026). El control de etapa guarda el producto (`embudoId`), y
+ * hasta hoy el flujo lo tiraba: `proponer_cambio_etapa` movía SIEMPRE la casa, así que «Mover a Contactado» del CRM de
+ * prospección, corrido sobre un lead AGREGADO (su casa es el CRM principal), escribía la key de la etapa del otro CRM
+ * en su etapa principal —una etapa que ese CRM no tiene— y la tarjeta del CRM nuevo no se movía. Ahora el paso corre
+ * donde está el lead EN ESE CRM:
+ *   · `casa`     → su CRM principal: `proponer_cambio_etapa`, como siempre (requisitos, estado, Meta);
+ *   · `agregado` → la fila de ese CRM: `mover_lead_en_producto`;
+ *   · `fuera`    → no está en ese CRM: no se mueve nada, y el paso lo dice.
+ * ⚠️ SALVO LO DE ANTES (revisión adversarial del 21/10/2026). El control guarda SIEMPRE el producto, casi siempre el
+ * principal, también en las automatizaciones sin CRM (las 62 de antes): «Mover a Ganado» guardado con el principal,
+ * corrido sobre un lead cuya casa es OTRO CRM con la misma etapa, movía su casa. Para no romperlo: si la etapa existe
+ * en el kanban de su casa (`etapaEnLaCasa`), se mueve la casa como siempre; y si su casa no se pudo resolver (el CRM
+ * del negocio ilegible), también lo de siempre — un error de lectura no puede apagar el paso para todos.
+ * Sin CRM elegido (`crmDelPaso` = null: un paso de antes, uno de la API): lo de siempre, la casa.
+ */
+export type DondeMover = 'casa' | 'agregado' | 'fuera';
+/** El CRM que eligió el paso (`embudoId` guardado), o `null` si no eligió ninguno. */
+export function crmDelPaso(embudoId: unknown): number | null {
+  const id = typeof embudoId === 'number' ? embudoId : typeof embudoId === 'string' && embudoId.trim() ? Number(embudoId) : NaN;
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+export function dondeMoverEtapa(crm: number, productos: readonly { funnelId: number; esCasa: boolean }[], etapaEnLaCasa: boolean | null): DondeMover {
+  const p = productos.find((x) => x.funnelId === crm);
+  if (p) return p.esCasa ? 'casa' : 'agregado';
+  if (!productos.some((x) => x.esCasa)) return 'casa';
+  return etapaEnLaCasa === true ? 'casa' : 'fuera';
 }
 
 /** La etapa elegida en un paso, con lo que pide; null si no hay o no se pudo leer. */

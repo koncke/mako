@@ -38,7 +38,7 @@ hablan entre sí por `SendMessage` (no cruza carpetas de config) — pasan por e
 | Sidebar | `Leé docs/diseno-sidebar.md y seguimos desde ahí.` |
 | MaKo Mobile | `Leé docs/relevo/mako-mobile.md y seguimos desde ahí.` |
 | CRM | `Leé docs/relevo/crm.md y seguimos desde ahí.` |
-| Automations (ex Chatbot) | `Leé docs/relevo/chatbot.md y seguimos desde ahí.` |
+| Automations (ex Chatbot) | `Leé docs/relevo/automations.md y docs/relevo/chatbot.md y seguimos desde ahí.` (automations.md: la prospección del Sprint, 21/10) |
 | Dashboard | `Leé docs/relevo/dashboard.md y seguimos desde ahí.` |
 | General (vistas personalizables, pagos de Mauricio y el Calendario) | `Leé docs/relevo/general-y-calendario.md y seguimos desde ahí.` |
 | Offer | `Leé docs/relevo/offer.md y seguimos desde ahí.` |
