@@ -7,6 +7,24 @@ del código.
 
 ---
 
+## Una clave pegada en el Ops Center no se puede tapar después: no sale (22/10/2026)
+
+Martín contestó en el bloque de decisiones la pregunta de Apify del Cerebro con «Otra:» y su token pegado (pedido 253f6e11).
+Quedó guardado en tres lugares: `operaciones_pedidos.texto` y `.firmado`, y la respuesta de la pregunta
+(`app_settings` → `operaciones.preguntas.<local>`, en `respuesta.otra`). En el turno que sube el cartero no quedó. Se tapó con
+`apify_api_…(tapada)`, cambiando sólo la clave y escribiendo con comparar-y-escribir. Fuera de la base no apareció en ningún
+texto (el buzón, los transcripts y las notas). Lo que la inutiliza de verdad es generar una nueva.
+
+- **Trampa: lo del Ops Center del super admin sale FIRMADO desde el navegador** (app/admin/operaciones/mandar.ts). El servidor
+  no puede taparlo sin romper la firma, como sí hace el chat del negocio (lib/mako-turno-app.ts → `taparClaves`). Por eso
+  NO SALE: `mandar` la frena antes de firmar, y `encolarPedido` no guarda un pedido que la traiga (una pestaña de antes).
+  La caja y el «Otra» lo dicen apenas aparece, con el botón a /integraciones (app/_chat/AvisoClave.tsx).
+- **Trampa: `taparClaves` no conocía las de Apify** (`apify_api_` + 36). Una regla nueva de clave va en PROPIAS_ANTES de
+  lib/claves-en-el-chat.ts, con el servicio de /integraciones para su botón.
+- Lo que Martín escribe en la app de Claude y sube el cartero se guarda tapado (lib/centro-turnos-db.ts → `guardarTurnos`).
+- **SIN HACER:** el cartero sube el turno sin tapar (lo tapa el servidor al guardarlo); el transcript de la sesión en la PC
+  conserva lo que se pegó en la app de Claude.
+
 ## Un script no le puede escribir a una sesión; un chat sí, menos a sí mismo (15/10/2026)
 
 No hay una vía documentada para que un proceso le mande un mensaje a una sesión de Claude Code. Cada

@@ -42,6 +42,8 @@ type ReglaDeClave = Regla & { servicio: string | null };
 const PROPIAS_ANTES: ReglaDeClave[] = [
   { nombre: 'openrouter', re: /\bsk-or-[A-Za-z0-9_-]{20,}/g, con: CLAVE_TAPADA, servicio: 'openrouter' },
   { nombre: 'cerebras', re: /\bcsk-[A-Za-z0-9]{20,}/g, con: CLAVE_TAPADA, servicio: 'cerebras' },
+  // Apify (22/10/2026): Martín pegó su token en el «Otra» de una pregunta del Ops Center y quedó guardado en el pedido firmado.
+  { nombre: 'apify', re: /\bapify_api_[A-Za-z0-9]{20,}/g, con: CLAVE_TAPADA, servicio: 'apify' },
   // Resend: `re_` + 8 + `_` + 24 (la forma de las de verdad). Sin un dígito o una mayúscula NO es una clave —una al azar de
   // 32 caracteres sin ninguno de los dos es una en cien mil—, es una etiqueta en snake_case del negocio
   // (`re_agendar_despues_de_la_llamada`, que con `[A-Za-z0-9_]{20,}` se tapaba y perdía el botón de email por nada).
@@ -127,6 +129,16 @@ export function taparClaves(entrada: string): Tapado {
   const r = redactarCon(texto, REGLAS_DE_SECRETOS);
   return { texto: r.texto, tapadas: r.tapadas, servicio: r.tapadas ? servicio : null };
 }
+
+/**
+ * UNA CLAVE EN EL OPS CENTER DEL SUPER ADMIN (22/10/2026): lo que se escribe ahí sale FIRMADO desde el navegador
+ * (app/admin/operaciones/mandar.ts) y se guarda tal cual en el pedido, en la respuesta de una pregunta y en el turno que sube el
+ * cartero. No se tapa después: NO SALE. La caja y el «Otra» lo dicen apenas aparece, con el botón a /integraciones.
+ */
+export const AVISO_CLAVE_EN_EL_CENTRO = 'Eso parece una clave: pégala en /integraciones, no acá.';
+export const RUTA_INTEGRACIONES = '/integraciones';
+/** ¿El texto trae una clave? (las mismas reglas que la tapan). */
+export const hayClave = (texto: string): boolean => taparClaves(texto).tapadas > 0;
 
 /** Lo que se le dice a la persona: corto, y con el botón del servicio cuando se sabe cuál es. */
 export function avisoClaveTapada(servicio: string | null): string {
