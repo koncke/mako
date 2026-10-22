@@ -72,8 +72,7 @@ import { Confirm, SANS, MONO } from '@/app/_ui';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { IconoFunnel, IconoMenu } from '@/app/_ui/iconos-menu';
 import { preguntaDeFrenar } from './automatizacion-lead';
-// ⚠️ STUB hasta que las acciones de Automations lleguen a main (ver su cabecera): al integrar, este import cambia.
-import { frenarLeadsEnAutomatizacionesAction } from './automatizaciones-stub';
+import { frenarLeadsEnAutomatizacionesAction } from '@/app/automations/automatizaciones-del-lead-actions';
 import { Dropdown } from '@/app/components/Dropdown';
 import type { Stage } from '@/lib/pipeline';
 import type { MiembroEquipo } from './actions';

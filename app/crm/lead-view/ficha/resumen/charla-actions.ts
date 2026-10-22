@@ -119,7 +119,7 @@ export async function mensajesListosAction(leadId: number): Promise<MensajeListo
 }
 
 // «En qué automatizaciones está el lead» se fue de acá el 22/10/2026: el bloque de la ficha lee la de Automations
-// (automatizacionesDelLeadAction, con el paso y «Frenar»; app/crm/automatizaciones-stub.ts dice dónde vive).
+// (app/automations/automatizaciones-del-lead-actions.ts → automatizacionesDelLeadAction, con el paso y «Frenar»).
 
 /** Lo que le mandaron las automatizaciones: cuántos toques, por canal, y cuántos abrió, clickeó o respondió. */
 export type LoQueLeMandamos = { toques: number; porCanal: Record<string, number>; abiertos: number; clics: number; respuestas: number; ultimo: string | null };

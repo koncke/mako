@@ -17,8 +17,8 @@ import Link from '@/app/_ui/Link';
 import { Button } from '@/app/_ui';
 import { Confirm } from '@/app/_ui/Confirm';
 import { lineaDeAutomatizacion, preguntaDeFrenar } from '@/app/crm/automatizacion-lead';
-// ⚠️ STUB hasta que las acciones de Automations lleguen a main (ver su cabecera): al integrar, este import cambia.
-import { automatizacionesDelLeadAction, frenarEnAutomatizacionAction, type EnAutomatizacion } from '@/app/crm/automatizaciones-stub';
+import { automatizacionesDelLeadAction, frenarEnAutomatizacionAction } from '@/app/automations/automatizaciones-del-lead-actions';
+import type { EnAutomatizacion } from '@/lib/automatizaciones-del-lead-reglas';
 import type { PropsBloque } from '../tipos';
 import { Bloque } from './piezas';
 import {
@@ -197,7 +197,8 @@ export function MensajeListoBloque({ ctx, titulo, diseno, epico }: PropsBloque) 
  * En qué automatización está, en qué paso y cuándo sale lo próximo; si respondió, que se frenó. Sin ninguna, se calla.
  * «FRENAR» EN CADA UNA (22/10/2026, Martín: «que desde el CRM también se pueda frenar»): lo saca de ESA automatización y
  * no le sale nada más. No se deshace, así que pregunta antes. Después se vuelve a leer (`version` cambia la identidad de
- * `leer`, que es lo que mira `useLectura`). Los datos y el frenar son de Automations (app/crm/automatizaciones-stub.ts).
+ * `leer`, que es lo que mira `useLectura`). Los datos y el frenar son de Automations
+ * (app/automations/automatizaciones-del-lead-actions.ts).
  */
 export function AutomatizacionesEnCurso({ ctx, titulo, diseno, epico }: PropsBloque) {
   const [version, setVersion] = useState(0);

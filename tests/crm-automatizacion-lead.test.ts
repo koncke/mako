@@ -21,7 +21,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chipDeAutomatizacion, corre, enTandasDe, lineaDeAutomatizacion, preguntaDeFrenar, TANDA_AUTOMATIZACIONES } from '../app/crm/automatizacion-lead';
 import { opcionesCrm, OPCION_CRM, type ContextoCrm } from '../app/crm/menu-contextual-crm';
-import type { EnAutomatizacion } from '../app/crm/automatizaciones-stub';
+import type { EnAutomatizacion } from '../lib/automatizaciones-del-lead-reglas';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');

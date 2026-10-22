@@ -8,11 +8,12 @@
 //     cuál y en qué paso (`detalle`, en el `title`); tocando, la ficha rápida lo dice en una fila.
 //   · El clic derecho de la tarjeta y la barra de lote: «Frenar automatización». No se deshace: se pregunta antes.
 //   · La ficha: el bloque «Automatizaciones en curso», con el paso y un «Frenar» por automatización.
-// Los datos y el frenar son de Automations (app/crm/automatizaciones-stub.ts dice dónde viven). Puro: lo prueba
+// Los datos y el frenar son de Automations (app/automations/automatizaciones-del-lead-actions.ts y
+// lib/automatizaciones-del-lead-reglas.ts). Puro: lo prueba
 // tests/crm-automatizacion-lead.test.ts.
 // =============================================================================
 
-import type { EnAutomatizacion } from './automatizaciones-stub';
+import type { EnAutomatizacion } from '@/lib/automatizaciones-del-lead-reglas';
 
 /** Hasta cuántos leads por pedido (el tope de `enAutomatizacionesAction`): un tablero más grande se pide en tandas. */
 export const TANDA_AUTOMATIZACIONES = 500;

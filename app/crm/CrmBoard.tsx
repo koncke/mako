@@ -133,8 +133,8 @@ import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { FUNNEL_DEL_NEGOCIO, esLote, itemsCrm, opcionesCrm, tituloCrm, type ContextoCrm, type IdOpcionCrm } from './menu-contextual-crm';
 import { alternarColumna, estadoDeColumna, rotuloDeColumna } from './seleccion-columna';
 import { chipDeAutomatizacion, enTandasDe, lineaDeAutomatizacion, preguntaDeFrenar } from './automatizacion-lead';
-// ⚠️ STUB hasta que las acciones de Automations lleguen a main (ver su cabecera): al integrar, este import cambia.
-import { enAutomatizacionesAction, frenarLeadsEnAutomatizacionesAction, type EnAutomatizacion } from './automatizaciones-stub';
+import { enAutomatizacionesAction, frenarLeadsEnAutomatizacionesAction } from '@/app/automations/automatizaciones-del-lead-actions';
+import type { EnAutomatizacion } from '@/lib/automatizaciones-del-lead-reglas';
 import { useEtiquetas, type Etiqueta } from '@/app/_components/etiquetas-cliente';
 import { ModalLlevarAPartners } from '@/app/partners/LlevarAPartners';
 import { EstiloTarjetas, FichaRapida, TarjetaDestacada, TarjetaPersona } from '@/app/_ui/TarjetaKanban';
