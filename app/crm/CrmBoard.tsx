@@ -155,6 +155,9 @@ const SANS = "'Geist', sans-serif";
  * del borde (app/_components/EsquinaAvisos.tsx). En la Lista no: la página scrollea como siempre.
  */
 const ALTO_TABLERO = 'calc(100dvh - var(--barra-agencia, 0px))';
+// ⚠️ CON `maxHeight` TAMBIÉN, NO SÓLO `height` (22/10/2026, medido en producción): el <main> es hijo de un flex en
+// COLUMNA (el envoltorio de la app) y lleva `flex: 1`, que en una columna manda sobre `height`. Medía 21.285 px en el
+// ws3 (las columnas con todas sus tarjetas) y la barra del scroll quedaba fuera de la pantalla. `maxHeight` sí topea.
 /** El aire de abajo del <main> en el Kanban: la barra del scroll, pegada al borde. */
 const ABAJO_KANBAN = 4;
 
@@ -3100,7 +3103,7 @@ export function CrmBoard({
     // El padding IZQUIERDO deja el lugar de la barra de MaKo cuando está abierta (`--ancho-panel-mako`, la prende esa
     // barra): desde el 21/10/2026 se abre a la izquierda («el chat de MaKo en las otras tabs se debe abrir siempre a la
     // izquierda»).
-    <main className="crm-hover" style={{ flex: 1, minWidth: 0, padding: `16px 44px ${view === 'kanban' ? ABAJO_KANBAN : 60}px calc(44px + var(--ancho-panel-mako, 0px))`, display: 'flex', flexDirection: 'column', ...(view === 'kanban' ? { height: ALTO_TABLERO, minHeight: 0 } : {}) }} onContextMenu={alClicDerecho}>
+    <main className="crm-hover" style={{ flex: 1, minWidth: 0, padding: `16px 44px ${view === 'kanban' ? ABAJO_KANBAN : 60}px calc(44px + var(--ancho-panel-mako, 0px))`, display: 'flex', flexDirection: 'column', ...(view === 'kanban' ? { height: ALTO_TABLERO, maxHeight: ALTO_TABLERO, minHeight: 0 } : {}) }} onContextMenu={alClicDerecho}>
       <CrmToolbarStyles />
       <EstiloTarjetas />
       {/* Conectar Google desde el reagendar abre el modal acá (14/10/2026, «para una integración jamás se debe salir de

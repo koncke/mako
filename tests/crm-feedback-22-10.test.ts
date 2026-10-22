@@ -47,7 +47,9 @@ const columna = () => { const i = BOARD.indexOf('const renderColumn = '); return
 
 test('1 y 2: el Kanban llena la pantalla, las columnas del mismo alto hasta abajo, y la barra del scroll debajo de «A revisar»', () => {
   assert.match(BOARD, /const ALTO_TABLERO = 'calc\(100dvh - var\(--barra-agencia, 0px\)\)';/);
-  assert.match(BOARD, /\.\.\.\(view === 'kanban' \? \{ height: ALTO_TABLERO, minHeight: 0 \} : \{\}\)/, 'el Kanban no mide la pantalla');
+  // Con `maxHeight` también (22/10/2026, medido en producción): el <main> es hijo de un flex en COLUMNA y su `flex: 1` le
+  // gana a `height`; medía 21.285 px y la barra del scroll quedaba fuera de la pantalla.
+  assert.match(BOARD, /\.\.\.\(view === 'kanban' \? \{ height: ALTO_TABLERO, maxHeight: ALTO_TABLERO, minHeight: 0 \} : \{\}\)/, 'el Kanban no mide la pantalla (sin maxHeight, el flex en columna lo estira)');
   // La barra del scroll queda en los últimos píxeles: el aire de abajo, más chico que el de «A revisar» (20 px del borde).
   const abajo = Number(/const ABAJO_KANBAN = (\d+);/.exec(BOARD)?.[1]);
   assert.ok(abajo >= 0 && abajo <= 6, `el Kanban deja ${abajo} px abajo`);
