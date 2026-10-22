@@ -1236,6 +1236,12 @@ docs/hallazgos-api-mako.md → «El editor entero del Web Generator»):
   («cambio etapa mover lead producto») le regala 4 puntos a cualquier id con «cambiar» y «etapa». Declarada a mitad
   del área, `cambiar_tipo_etapa` dejó sin `editar_contacto_lead` a «cambia el teléfono del lead Juan…» en la app y en
   WhatsApp. Su descripción tampoco nombra «leads» si la operación no es sobre un lead.
+- **El id y el título de una operación nueva no llevan las palabras que el clasificador suma a todo un tipo de pedido**
+  (`RELEVANCIA_AGENDA`, `RELEVANCIA_CRM` en lib/mako-intencion.ts: «agenda», «evento», «mover», «cambiar», «lead»…).
+  En el id pesan doble, y una operación rara gana el presupuesto de los pedidos comunes. El 22/10/2026,
+  `crear_evento_agenda` dejó sin herramienta a «agenda un reel para el jueves a las 10» y a «crea una etiqueta
+  llamada Caliente» con el piso nuevo de Ops Center. Se llama por lo que de verdad crea (`crear_pagina_reserva`), y la
+  palabra común va en la descripción, donde pesa 1.
 
 `/api/v1` es la única carpeta que entra a `PUBLICOS` como PREFIJO: toda ella es bearer por
 construcción, y `tests/api-mako-registro.test.ts` enumera en positivo los `route.ts` que puede

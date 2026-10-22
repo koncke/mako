@@ -1921,6 +1921,14 @@ todavía fuera de main.
     lo fija (el primer VERDE con el arreglo dio ROJO ahí).
   Cada parte sola deja un canal o los dos en rojo (2/1 y 1/2); juntas, 3/3. La regla quedó en AGENTS.md («Una operación
   nueva se declara AL FINAL de su área»).
+- **Y una tercera vez, con el piso nuevo de Ops Center (94e9e7e40, cinco frases que ahora llegan):** el tren sacó la
+  punta porque `crear_evento_agenda` y `editar_evento_agenda` dejaban sin herramienta a «crea una etiqueta llamada
+  Caliente», «agenda un reel para el jueves a las 10» y «mové el evento del jueves al viernes». No era el orden: sumaban
+  «agend» y «event» DOBLE por el id y el título, que es justo la relevancia que el clasificador pone en cualquier pedido
+  de agenda (`RELEVANCIA_AGENDA`). Se renombraron por lo que crean, `crear_pagina_reserva` y `editar_pagina_reserva`
+  (nunca estuvieron en producción), y la batería volvió a 3/3. Probado rompiéndolo: con el id viejo de la primera, dos
+  frases se caen. Medido con el commit de Ops Center mergeado SIN commitear (`git merge --no-commit` y `--abort`): la
+  batería se corre SOLA, porque en la tanda compartida pasa aunque esté roja (lo avisó Integración).
 
 **Vive en:** lib/api-mako/registro.ts (`ordenarPorRelevancia`, `toolsDelRegistro`) · lib/mako-analyst-lead-reglas.ts
 (`PISTA_EDICION_FICHA`) · lib/api-mako/areas/crm.def.ts (el final del área) · tests/ficha-editar-con-mako.test.ts ·
