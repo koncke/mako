@@ -26,7 +26,9 @@ export default async function VideoEditorPage() {
   // local del motor por cliente (ver espacio.ts).
   const ws = await getWorkspaceActual();
   return (
-    <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, height: 'calc(100vh - var(--alto-secciones, 0px))', display: 'flex', flexDirection: 'column' }}>
+    // Menos la barra de arriba (`--barra-agencia`: la de «Estás viendo el dashboard de…» o la alerta de la voz caída): la regla
+    // global sólo corrige un alto que EMPIEZA con `height: 100vh`, y éste es un `calc(` (docs/hallazgos-ui.md, 22/10/2026).
+    <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, height: 'calc(100vh - var(--alto-secciones, 0px) - var(--barra-agencia, 0px))', display: 'flex', flexDirection: 'column' }}>
       <TemaOscuroScript />
       <VideoEditorCliente vista="inicio" ws={ws} />
     </Pagina>

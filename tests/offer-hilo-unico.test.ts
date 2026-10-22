@@ -17,7 +17,8 @@
 // las opciones también como pregunta del hilo → 1 · «Trabajando…» en la espera → 2 · lo del dueño sin «Enviando…» → 1 ·
 // `itemsDeOffer` sin `sinAbrir` → 2 · la ficha que ignora `sinAbrir` → 1 · la ficha sin la nota de Offer → 1 · el teléfono sin
 // el .zip → 1 · el teléfono sin la fila de la caja del Ops Center → 1 · el arranque que adjunta con sólo texto → 1 · la caja
-// sin `key` por conversación → 2. Y (el caso de uso a 390 px, mismo día) las opciones fijas arriba de la caja → 1.
+// sin `key` por conversación → 2. Y (el caso de uso a 390 px, mismo día) las opciones fijas arriba de la caja → 1 · la página
+// sin descontar la barra de arriba → 2 · la caja sin el color del ▶ → 1 · la barra que ignora `colorPlay` → 1.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -132,4 +133,25 @@ test('5. la pantalla de Offer descuenta la barra de arriba, y la caja no queda d
   const pagina = readFileSync(join(__dirname, '..', 'app/offer/page.tsx'), 'utf8');
   assert.match(pagina, /height: 'calc\(100dvh - var\(--alto-secciones, 0px\) - var\(--barra-agencia, 0px\)\)'/,
     'con la barra de arriba la página queda más alta que la ventana (medido el 22/10/2026: 50 px)');
+});
+
+test('6. el ▶ de escuchar la nota de voz va con el color de MaKo, no con el verde de WhatsApp', async () => {
+  // 22/10/2026 (el caso de uso de OF4): el ✓ y la ➤ ya iban en el negro del Ops Center (SIN_VERDE) y el ▶ seguía verde,
+  // porque `AudioPlay` trae `--wa` por defecto. La caja única le pasa `--primary`, el de la nota ya mandada en el hilo.
+  const pendiente = { url: 'blob:nota', secs: 12, onBorrar: () => {}, onDejar: () => {} };
+  const html = await dibujarChat({ caja: { texto: '', onTexto: () => {}, onMandar: () => {}, placeholder: 'Escríbele a MaKo', voz: { onAudio: () => {}, pendiente } } });
+  const barra = html.slice(html.indexOf('data-barra-voz="revisando"'));
+  assert.ok(barra.length < html.length, 'no se dibujó la barra de escuchar la nota que no salió');
+  assert.match(barra, /background:var\(--primary\)/, 'el ▶ de la caja de MaKo');
+  assert.doesNotMatch(barra.slice(0, barra.indexOf('Enviar audio')), /var\(--wa\)/, 'volvió el verde de WhatsApp');
+
+  const { createElement } = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { ComposerOfferM } = await import('../app/m/offer/ComposerOfferM');
+  const movil = renderToStaticMarkup(createElement(ComposerOfferM, {
+    texto: '', onTexto: () => {}, onEnviar: () => {}, ocupado: false, enLinea: true, onArchivos: () => {}, puedeAdjuntar: true,
+    onAudio: () => {}, audioEnEspera: { url: 'blob:nota', secs: 12 }, onReenviarAudio: () => {}, onDescartarAudio: () => {},
+    onError: () => {}, onAltura: () => {},
+  }));
+  assert.match(movil.slice(movil.indexOf('data-barra-voz="revisando"')), /background:var\(--primary\)/, 'el ▶ en el teléfono');
 });

@@ -31,5 +31,6 @@ test('la raíz del editor no va `fixed` encima de la app', () => {
 test('la page del proyecto usa el mismo marco que el inicio', () => {
   const page = leer('app', 'video-editor', '[proyecto]', 'page.tsx');
   assert.match(page, /<Pagina ancho="completo" densidad="compacta"/, 'El editor ya no se dibuja adentro de `Pagina`.');
-  assert.match(page, /calc\(100vh - var\(--alto-secciones, 0px\)\)/, 'El editor no resta el alto de la barra de secciones: el pie queda tapado.');
+  // Y la de arriba (`--barra-agencia`, 22/10/2026): tests/barra-inspeccion-alto.test.ts, 5.
+  assert.match(page, /calc\(100vh - var\(--alto-secciones, 0px\) - var\(--barra-agencia, 0px\)\)/, 'El editor no resta el alto de la barra de secciones: el pie queda tapado.');
 });
