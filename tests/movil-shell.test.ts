@@ -354,17 +354,19 @@ test('el Ops Center de la barra es la criatura de MaKo, que flota y parpadea, y 
 // Martín (21/10/2026, pedido e180365d): «tampoco veo me haya salido la animación de la criatura, la misma del onboarding.
 // Al iniciar la app en mobile». Probado rompiéndolo: sin el `sessionStorage` sale en cada montaje; sin el destino de la
 // barra vuela a la foto del onboarding (que en /m no existe); sin la guarda de /m/configurar se pisa con la del onboarding.
-test('al abrir la app, la MISMA entrada de MaKo del onboarding, una vez por apertura, y vuela al Ops Center de la barra', () => {
+// 22/10/2026 (Martín: «entre medio, se ve el ops center por unos segundos y luego viene la animación de la criatura»): la
+// entrada es EntradaApp y va en el PRIMER HTML; ya no es la EntradaMako diferida (`dynamic`, sin SSR), que existía recién
+// después de hidratar. Lo de la entrada en sí lo fija tests/movil-entrada.test.ts; acá, lo del shell.
+test('al abrir la app, la entrada de MaKo va en el primer HTML, una vez por apertura, y vuela al Ops Center de la barra', () => {
   const shell = sinComentariosTs(leer('app/m/_ui/ShellM.tsx'));
-  // La MISMA pieza, cargada diferida: un import estático arrastra su .css a los tests de node (run 182).
-  assert.match(shell, /const EntradaMako = dynamic\(\(\) => import\('@\/app\/onboarding\/EntradaMako'\)\.then\(\(m\) => m\.EntradaMako\), \{ ssr: false \}\);/, 'una copia de la animación se queda vieja');
-  assert.doesNotMatch(shell, /^import \{ EntradaMako \}/m, 'importada de frente, su .css tumba los tests de node');
-  // La marca se LEE al montar y se ESCRIBE al terminar (21/10/2026, 22:54): escrita al montar, la gastaba el documento que
-  // se iba con la navegación dura de /second-brain al Centro, y Martín no la veía nunca (tests/movil-carga-sin-error.test.ts).
+  assert.match(shell, /^import \{ EntradaApp \} from '\.\/EntradaApp';$/m);
+  assert.doesNotMatch(shell, /next\/dynamic|ssr: false/, 'la entrada vuelve a esperar a que React hidrate');
+  // Nace prendida salvo en el onboarding pendiente (/m/configurar tiene la suya) o mirando a un cliente.
+  assert.match(shell, /useState\(\(\) => !cliente && limpia\(pathname\) !== RUTA_CONFIGURAR\)/);
+  // La marca se ESCRIBE al terminar (21/10/2026, 22:54): escrita al montar, la gastaba el documento que se iba con la
+  // navegación dura de /second-brain al Centro, y Martín no la veía nunca (tests/movil-carga-sin-error.test.ts).
   // Rota: sacar el setItem de `finEntrada` → este archivo y el de la carga, 21 / 2 juntos (base 23 / 0).
-  assert.match(shell, /if \(sessionStorage\.getItem\(LS_ENTRADA\)\) return;/);
   assert.match(shell, /const finEntrada = useCallback\(\(\) => \{\s*try \{ sessionStorage\.setItem\(LS_ENTRADA, '1'\); \}/);
-  assert.match(shell, /if \(cliente \|\| limpia\(pathname\) === RUTA_CONFIGURAR\) return;/);
-  assert.match(shell, /\{entrada && <EntradaMako destino=\{`\[\$\{DESTINO_ENTRADA\}\]`\} onFin=\{finEntrada\} \/>\}/);
+  assert.match(shell, /\{entrada && <EntradaApp destino=\{`\[\$\{DESTINO_ENTRADA\}\]`\} onFin=\{finEntrada\} \/>\}/);
   assert.match(shell, /const DESTINO_ENTRADA = 'data-mako-foto-barra';/);
 });

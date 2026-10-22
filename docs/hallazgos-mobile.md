@@ -7,6 +7,116 @@ Corridas del 11/10/2026: la v1 (relevo de 7 agentes + 11 de implementación + 1 
 el diseño v2 a la tarde, y a la noche la implementación v2 (12 agentes + la integración) con el desvío
 de teléfonos PRENDIDO. Lo de la v2 está en su propia sección, más abajo.
 
+## «Me sigue apareciendo el logo… y entre medio se ve el Ops Center» (22/10/2026, 09:46, Android de Martín, app instalada)
+
+**Síntoma:** al tocar el ícono, el splash con el ícono (baldosa oscura con la estrella), después el Ops Center unos
+segundos, y recién ahí la animación de la criatura. Martín quiere ver SÓLO la criatura hasta que la app está lista.
+
+**Lo que se midió:**
+- **Logs de Vercel de la apertura de las 09:45** (UA `Chrome/155`, Android: es una WebAPK): `GET /inicio` 307 →
+  `/admin/operaciones` en el borde (32 ms) y UN documento, `GET /admin/operaciones` 200 en **3.039 ms**. La primera acción
+  del Centro (React ya hidratado) salió **0,7 s** después de terminar el HTML. Lo del 21/10 (un solo documento) se sostiene.
+- **La entrada no estaba en el HTML.** ShellM la cargaba con `dynamic(() => import(EntradaMako), { ssr: false })` y la
+  prendía un `useEffect`: existía recién después de hidratar y de bajar su chunk. Chrome saca el splash en el primer
+  pintado de la página, y lo primero que se pintaba era el Centro del server, sin hidratar. De ahí «el ops center por unos
+  segundos» y la criatura que entra después.
+- **El splash lo dibuja la WebAPK, con el ícono MASKABLE.** No es el splash de Android 12: el shell lo apaga
+  (`windowIsTranslucent`) y dibuja el suyo, un ImageView de 240 dp (`SplashUtilsForS.createSplashView`). Chrome elige el
+  maskable para el splash y también para la pantalla de inicio (`ShortcutInfo::UpdateBestSplashIcon` prefiere MASKABLE).
+  Le agrega un margen del 15 % por lado (`webapk_adaptive_icon_size`, 83 dp) y lo recorta con la forma del lanzador. En la
+  captura (1080×2316 a 2,625 px por punto; la barra de 3 botones mide 126 px = 48 dp): fondo `#F4F6F9` (el
+  `background_color`), la forma una superelipse n ≈ 2,7 de 615 px (235 dp), el maskable dibujado a 720 px (274 dp), todo
+  centrado en la pantalla ENTERA (y = 1157 de 2316).
+- **El splash dura lo que tarda el server en mandar el primer byte** (~3 s): sin un Suspense arriba, React no escribe
+  nada hasta que el Centro tiene sus datos.
+
+**Lo obvio era lo equivocado:**
+- (a) **«El splash usa el ícono "any"».** La proporción estrella/forma de la captura (0,52) se parece a la del "any"
+  (0,54) y no a la del maskable (0,45). Pero es el maskable con el margen de la WebAPK. Lo decidió el degradé del fondo en
+  las franjas laterales: error 0,26–0,35 con el maskable contra 0,65–0,79 con el "any".
+- (b) **«Es el splash de Android 12»** (160 dp, AdaptiveIconDrawable recortado a 2/3). Ese cálculo da una estrella 25 %
+  más grande que la que se ve. La WebAPK lo apaga.
+- (c) **«Se puede cambiar el splash sin tocar el ícono de inicio».** No: es el mismo archivo. Separarlos por tamaños
+  (`FindBestMatchingIcon` toma el más chico ≥ al ideal) depende de la densidad de cada teléfono, y en uno de 3,5x la
+  pantalla de inicio se llevaría el del splash.
+- (d) **El reloj de una animación CSS terminada se queda quieto.** El `currentTime` de `ea-nace` queda en 800 ms aunque
+  pasen 2,5 s (medido con CDP en Chromium). Para saber cuánto lleva la entrada en pantalla se lee una animación que sigue
+  corriendo (`ea-seguro`, 15 s), no el primer pintado de la página: con ese reloj, una entrada montada navegando (después
+  del login) se iba en el acto.
+
+**Lo que se hizo:** la entrada es `EntradaApp` (app/m/_ui), dibujada por el server con CSS en línea. ShellM la hace nacer
+prendida y la pone PRIMERA en el shell. Su primer cuadro es el splash copiado: medido contra la captura en Chromium a
+411×882 @2,625, la diferencia media es de 1,6/255, ruido de JPEG. Después la baldosa se va y la chispa se vuelve la
+criatura, que flota y parpadea. Cuando React hidrató Y la página terminó de llegar (`paginaLista`, ver la revisión de
+abajo), nunca antes de 1 s y como mucho a los 15 s, vuela a su lugar en la barra en 420 ms. Con movimiento reducido
+queda quieta (sólo fundidos). Sin JavaScript, el CSS la saca a los 15 s. Un script de antes de pintar
+(`ARRANQUE_ANTES_DE_PINTAR`) la apaga si ya salió en esta apertura y corrige el centro en la app instalada. El
+`background_color` del manifest sale de la misma constante que el fondo de la entrada.
+
+**Reglas:**
+- Lo que se ve al abrir va en el HTML del server, con CSS. Nunca un `dynamic(..., { ssr: false })` ni un estado que
+  prende un efecto: hasta que hidrata se ve lo de abajo.
+- El ícono maskable ES el splash y el ícono de inicio a la vez. Cambiarlo obliga a medir de nuevo `app/m/_ui/entrada.ts`
+  (el test fija su sha256).
+- Un script de antes de pintar no lee estilos: `getComputedStyle` fuerza el cálculo y las animaciones CSS arrancan antes
+  de que se vean.
+
+**Sin hacer:**
+- **El splash sigue durando lo que tarda el primer byte (~3 s).** Para que la criatura se mueva antes, el server tendría
+  que escribir el shell antes de los datos del Centro (un Suspense/`loading.tsx` en /m/operaciones). Eso trae de vuelta
+  el redirect adentro del stream del 21/10: la página tiene `redirect()`. Vive en `app/m/operaciones/page.tsx` y en
+  `app/m/layout.tsx` (espera `contextoMovil`, los badges y el perfil).
+- **La forma de la baldosa es la de Samsung.** En un Pixel el splash se recorta en círculo, y ahí el primer cuadro difiere
+  en las esquinas.
+- **El centro vertical se corrige sólo con la página edge-to-edge** (`safe-area-inset-bottom` > 0). Si no, puede quedar
+  ~8 dp arriba. No se midió el `innerHeight` real de la app instalada: no hay telemetría del viewport.
+- **Sin verlo en el teléfono:** se verificó en Chromium headless y con los tests. Los tipos de `app/m/layout.tsx` no se
+  pudieron chequear en esta PC (el tsc acotado se queda sin heap con 2,3 GB libres); el cambio ahí es un import de un
+  texto y un `<script>`.
+
+**Vive en:** `app/m/_ui/EntradaApp.tsx` · `app/m/_ui/entrada.ts` (medidas, `ARRANQUE_ANTES_DE_PINTAR`, `trazoForma`) ·
+`app/m/_ui/ShellM.tsx` · `app/m/layout.tsx` · `app/manifest.ts` · tests: `tests/movil-entrada.test.ts`,
+`tests/movil-entrada-salida.test.ts`
+
+### La revisión adversarial del mismo día: tres agujeros que los tests (regex sobre el fuente) no veían
+
+- **«El efecto corrió = la app está lista» es falso con streaming.** El efecto de EntradaApp corre cuando React hidrata el
+  SHELL. En una ruta con `loading.tsx` —la entrada de los CLIENTES (`/second-brain`, su «Ops Center»), y /crm, /inbox,
+  /plan, /chats… al abrir un aviso— el server manda primero el layout con el esqueleto, el shell hidrata enseguida y la
+  página llega después por el stream. La criatura se iba al segundo y dejaba a la vista el esqueleto a medio cargar: el
+  mismo reclamo de Martín, en el camino de los clientes. En el de Martín (super admin → /m/operaciones, sin `loading.tsx`)
+  no se notaba, por eso pasó. Ahora espera además a `paginaLista`: `readyState` ya no es `'loading'` (el stream cerró) y no
+  queda ningún comentario `<!--$?-->` (borde de Suspense cuyo contenido no llegó) ni `<!--$~-->`. **La trampa del `$~`:**
+  React 19.2 (también el que trae Next 16 en `next/dist/compiled`) JUNTA las revelaciones: `$RC` marca el borde `$~` y lo
+  revela `$RV` en el próximo cuadro o hasta 300 ms después (`$RT+300`; si cae entre los 2,0 y 2,3 s de la navegación, espera
+  a los 2,3 s). Mirar sólo `$?` destapa un esqueleto que ya llegó pero todavía no se ve. Comprobado en Chrome headless
+  (`--dump-dom`): durante el parseo da no-lista, con `$?` y con `$~` también, con `$` lista.
+- **«Está en el HTML del server» no es «es lo primero que se pinta».** La capa venía AL FINAL del shell, detrás del Centro
+  entero (en el SSR de ShellM: la capa en el carácter 1.870, el contenido en el 373). Chrome pinta por tandas mientras lee
+  el documento, y el splash de la WebAPK se va en el primer pintado con contenido: ese cuadro podía ser el Centro. Ahora es
+  el primer hijo de `.m-shell`; arriba la pone su z-index, no el orden.
+- **Un `useEffect` que saca algo ya visto corre DESPUÉS de pintar.** Si ShellM se vuelve a montar navegando (ida y vuelta
+  por /mi-curso, /onboarding: fuera del layout de /m), la entrada nace prendida y la marca de sessionStorage la saca en el
+  efecto, un cuadro tarde: se veía un parpadeo de la baldosa. El script de antes de pintar no ayuda (corre una vez por
+  documento). Al irse, la entrada marca `<html>` con el mismo atributo (`marcarDocumento`) y el CSS la apaga desde el
+  primer cuadro.
+- **Lo que engaña de los tests:** (a) jsdom está en `node_modules` pero NO en package.json y le falta una dependencia
+  (`@asamuzakjp/css-color`): `import 'jsdom'` revienta. No hay DOM para hidratar en node; la salida vive en funciones con el
+  navegador inyectado (`programarSalida`, `paginaLista`, `marcarDocumento`) y se corre con un reloj falso. (b) ShellM SÍ se
+  puede dibujar en node con `renderToString` dándole `AppRouterContext`, `PathnameContext` y `SearchParamsContext`: así se
+  prueba lo que ve el teléfono, no el fuente. (c) Un test escrito como `reloj(MS_MINIMO - 300)` se mueve con la constante:
+  con `MS_MINIMO = 0` seguía verde. El número de la regla va escrito a mano.
+
+**Reglas que suma:** una pantalla que tapa la carga se va cuando la PÁGINA llegó (`paginaLista`), no cuando hidrató su
+componente; lo que tapa va primero en el HTML; lo que «ya se vio» se apaga por CSS desde un atributo de `<html>`, nunca
+sólo en un efecto.
+
+**Sin hacer (revisión):** con el tema OSCURO, ShellM pinta la meta `theme-color` oscura al hidratar mientras la capa clara
+sigue arriba: la barra de estado se oscurece ~1 s antes que la app (`pintarBarraDelSistema`, app/m/_ui/ShellM.tsx). Sin ver
+en el teléfono: ni la salida nueva ni el orden.
+
+*22/10/2026, pedido de Martín desde el Ops Center (claude3); revisión adversarial el mismo día (claude3).*
+
 ## «Siempre que entro me sale el reload» y la entrada de MaKo que nunca se veía (21/10/2026, 22:54, Android de Martín)
 
 **Síntoma:** al abrir la app instalada, el splash y después, en negro, «This page couldn't load. Reload to try again, or
