@@ -2992,6 +2992,7 @@ export const BITACORA: Hito[] = [
       'En el CRM, la estrella sabe qué lead tienes abierto.',
     ],
     commits: [
+      { sha: '4b534f2f0', msg: 'CR3 y CR4: el MaKo Analyst de la ficha con el hilo y la caja del Ops Center; la estrella en el Plan y en Clientes, con lo abierto', lineas: 729, archivos: 27 },
     ],
     archivos: [
       'app/crm/lead-view/MakoAnalystLead.tsx — el chat de la ficha con las piezas únicas',
