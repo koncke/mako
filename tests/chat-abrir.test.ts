@@ -103,7 +103,7 @@ test('4. las pantallas dibujan el botón', () => {
   const lead = sinComentarios(leer('app/crm/lead-view/MakoAnalystLead.tsx'));
   assert.match(lead, /<ButtonLink href=\{x\.p\.escritorio\} variant="secondary" size="sm">\{x\.p\.boton\}<\/ButtonLink>/);
   assert.match(lead, /x\.estado === 'hecho' && x\.abrir && \(/);
-  for (const f of ['app/second-brain/useChatCliente.ts', 'app/crm/mako-crm/ChatMakoCrm.tsx', 'app/crm/lead-view/MakoAnalystLead.tsx', 'app/m/mako/ChatMako.tsx']) {
+  for (const f of ['app/second-brain/useChatCliente.ts', 'app/crm/lead-view/MakoAnalystLead.tsx', 'app/m/mako/ChatMako.tsx']) {
     assert.match(sinComentarios(leer(f)), /setItems\(\(xs\) => conTarjeta\(xs, pendienteId, estado, nota, r\)\);/, `${f}: el estado de la tarjeta, con conTarjeta`);
   }
 });

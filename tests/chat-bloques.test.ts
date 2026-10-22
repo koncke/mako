@@ -137,7 +137,7 @@ test('4. las tres caras del hilo usan la MISMA pieza, y las pantallas suman lo q
   assert.match(leer('app/_chat/PegadoHilo.tsx'), /import '\.\/chat\.css';/, 'el teléfono carga la hoja con PegadoHilo');
   assert.match(leer('app/_chat/chat.css'), /\.ch-creado__mini \{/);
   // Desde la 1.8 (20/10/2026) lo que vuelve de la tarjeta lo suma `conTarjeta`, que usa `itemsTrasTarjeta` (tests/chat-abrir.test.ts).
-  for (const f of ['app/second-brain/useChatCliente.ts', 'app/crm/mako-crm/ChatMakoCrm.tsx', 'app/crm/lead-view/MakoAnalystLead.tsx']) {
+  for (const f of ['app/second-brain/useChatCliente.ts', 'app/crm/lead-view/MakoAnalystLead.tsx']) {
     const s = sinComentarios(leer(f));
     assert.match(s, /alEstado\(id, d\.estado \?\? 'pendiente', d\.frase \?\? undefined, l\.datos\);/, `${f}: lo que vuelve de la tarjeta`);
     assert.doesNotMatch(s, /paraLaPersona \?\? \[\]\)\.filter/, `${f}: sin armar los avisos a mano`);

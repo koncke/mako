@@ -164,7 +164,6 @@ test('7. la pantalla no pregunta para siempre, dice lo que pasó, y la tarjeta d
   assert.deepEqual(PILL_PROPUESTA.incierta, { texto: 'Revísalo', tono: 'warn' });
   assert.match(hilo, /\{fin\.texto \?\? \(fin\.ok == null \? 'No sé cómo terminó: recarga el chat para verlo\.' : null\)\}/, 'y lo dice en palabras');
   assert.match(sinComentarios(leer('app/_chat/HiloMako.tsx')), /onTermina=\{de != null && onTrabajo \? \(ok\) => onTrabajo\(de, ok\) : undefined\}/, 'la computadora');
-  assert.match(sinComentarios(leer('app/crm/mako-crm/ChatMakoCrm.tsx')), /onTrabajo=\{\(id, ok\) => \{? ?setItems\(\(xs\) => trasTrabajo\(xs, id, ok\)\)/, 'el chat del CRM');
   // El del cliente (22/10/2026): el motor lo arma una vez (useChatCliente.ts) y el hilo de las dos pantallas lo usa (PiezasCliente.tsx).
   assert.match(sinComentarios(leer('app/second-brain/useChatCliente.ts')), /const alTerminarTrabajo = \(pendienteId: number, ok: boolean \| null\) => setItems\(\(xs\) => trasTrabajo\(xs, pendienteId, ok\)\);/, 'el Ops Center del cliente');
   assert.match(sinComentarios(leer('app/second-brain/PiezasCliente.tsx')), /onTrabajo=\{k\.alTerminarTrabajo\}/, 'el hilo del cliente');

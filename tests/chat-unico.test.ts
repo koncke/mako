@@ -38,7 +38,6 @@ const INVENTARIO: Record<string, 'caja única' | `pendiente, ${string}`> = {
   'app/m/offer/ComposerOfferM.tsx': 'pendiente, de Offer',
   'app/automations/ChatMako.tsx': 'pendiente, de Automations',
   'app/crm/lead-view/MakoAnalystLead.tsx': 'pendiente, de CRM',
-  'app/crm/mako-crm/ChatMakoCrm.tsx': 'pendiente, de CRM',
   'app/dashboard/EditorMako.tsx': 'pendiente, de Dashboard',
   'app/web-generator/editor/paneles/PanelAgente.tsx': 'pendiente, de Web Generator',
   'app/video-editor/_opencut/chat/PanelChat.tsx': 'pendiente, de Video Generator',
