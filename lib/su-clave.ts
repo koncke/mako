@@ -11,7 +11,9 @@
 
 import 'server-only';
 import { recordUsage } from './anthropic-usage';
-import { credDelCliente } from './credenciales';
+import { credDelCliente, credWsEstricta } from './credenciales';
+import { getSetting } from './settings';
+import { CLAVES_CREDITO_PLATAFORMA, CLAVE_MODELO_SU_CLAUDE, type EleccionSuClaude } from './veto-claude';
 import { susClaves } from './ia-del-negocio';
 import { getSupabaseServer } from './supabase';
 import { getWorkspaceActual, runWithWorkspace, wsSuperAdmin } from './workspace';
@@ -52,7 +54,29 @@ export async function anotarFalloDeSuClave(p: { proveedor: ProvSuClave; error: s
   }
 }
 
-export type SuClaveEnTarjeta = EstadoSuClave & { es: 'propia' | 'copia' | 'ilegible' };
+export type SuClaveEnTarjeta = EstadoSuClave & {
+  es: 'propia' | 'copia' | 'ilegible';
+  /** Su Claude: el modelo que eligió (IA5), y si su clave es el crédito de Max de la plataforma (va con Haiku igual). */
+  modelo?: EleccionSuClaude; soloHaiku?: boolean;
+};
+
+/**
+ * El modelo que eligió el negocio para su Claude y si su clave es una de las del crédito de Max de la plataforma (el ws10:
+ * Martín le puso su cuenta 2). Sin poder leer las del crédito, `soloHaiku`: es lo que hace la puerta 2 del veto.
+ */
+async function modeloDeSuClaudeEn(ws: number): Promise<{ modelo: EleccionSuClaude; soloHaiku: boolean }> {
+  const guardado = await runWithWorkspace(ws, () => getSetting(CLAVE_MODELO_SU_CLAUDE)).catch(() => null);
+  const modelo: EleccionSuClaude = guardado === 'sonnet' ? 'sonnet' : 'haiku';
+  try {
+    const clave = (await credDelCliente('ANTHROPIC_API_KEY', ws))?.trim();
+    const wsSA = await wsSuperAdmin();
+    for (const nombre of CLAVES_CREDITO_PLATAFORMA) {
+      const c = process.env[nombre]?.trim() || (await credWsEstricta(nombre, wsSA))?.trim();
+      if (c && c === clave) return { modelo, soloHaiku: true };
+    }
+    return { modelo, soloHaiku: false };
+  } catch { return { modelo, soloHaiku: true }; }
+}
 
 /**
  * Las claves de IA del negocio, con su último «anduvo» y «falló» (30 días). `null` si no se pudo leer: la tarjeta no dice
@@ -69,9 +93,10 @@ export async function estadoDeSusClaves(ws: number): Promise<SuClaveEnTarjeta[] 
       .order('created_at', { ascending: false }).limit(500);
     if (error) throw new Error(error.message);
     const filas = (data ?? []) as FilaUsoClave[];
+    const claude = guardadas.find((c) => c.clave === 'ANTHROPIC_API_KEY' && c.es === 'propia') ? await modeloDeSuClaudeEn(ws) : null;
     return PROVS_SU_CLAVE.flatMap((p) => {
       const guardada = guardadas.find((c) => c.clave === CLAVE_DE[p]);
-      return guardada ? [{ ...estadoDeSuClave(p, filas), es: guardada.es }] : [];
+      return guardada ? [{ ...estadoDeSuClave(p, filas), es: guardada.es, ...(p === 'anthropic' && claude ? claude : {}) }] : [];
     });
   } catch (e) {
     console.error(`[su-clave] ws=${ws}: no pude leer el estado de sus claves: ${e instanceof Error ? e.message : String(e)}`);

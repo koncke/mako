@@ -23,7 +23,9 @@ import { IAS_DEL_CLIENTE, NOMBRE_IA, SERVICIO_DE_CLAVE, comoConectar, notaDeCone
 import './tus-cuentas-ia.css';
 
 type Pc = { id: number; nombre: string; esMia: boolean; de?: string; enLinea: boolean; ultimoLatido: string | null; version: string | null; cuentas: CuentaPc[]; sinClaude?: boolean };
-type SuClave = EstadoSuClave & { es: 'propia' | 'copia' | 'ilegible' };
+type SuClave = EstadoSuClave & { es: 'propia' | 'copia' | 'ilegible'; modelo?: 'haiku' | 'sonnet'; soloHaiku?: boolean };
+/** El modelo de su Claude por clave (IA5). Lo paga su cuenta. */
+const MODELOS_SU_CLAUDE: Array<{ v: 'haiku' | 'sonnet'; t: string }> = [{ v: 'haiku', t: 'Haiku' }, { v: 'sonnet', t: 'Sonnet' }];
 /** `claves`: sólo para el admin. `null` = no se pudo leer (no se inventa «Todavía no se usó»). */
 type Estado = { ok: boolean; esAdmin: boolean; modelo: string; pcs: Pc[]; claves?: SuClave[] | null; /** A quien no es admin: el nombre del admin («Pídele a…»). */ admin?: string };
 
@@ -237,6 +239,12 @@ function SusClaves({ claves, ahora, recargar }: { claves: SuClave[] | null; ahor
     setProbando(null);
     void recargar();
   };
+  const [modelos, setModelos] = useState<Partial<Record<ProvSuClave, string>>>({});
+  const elegirModelo = async (modelo: string) => {
+    setModelos((s) => ({ ...s, anthropic: modelo }));
+    await fetch('/api/ia-del-negocio/modelo', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ modelo }) }).catch(() => null);
+    void recargar();
+  };
   if (claves === null) return <p className="tci-nota">No pude ver tus claves de API. Intenta de nuevo en un rato.</p>;
   return (
     <div className="tci-claves">
@@ -260,6 +268,18 @@ function SusClaves({ claves, ahora, recargar }: { claves: SuClave[] | null; ahor
             {c.es === 'copia' && <p className="tci-nota">Es la clave de MaKo, no la tuya. <BotonIntegracion servicio={c.proveedor} style={{ color: 'var(--primary)', fontWeight: 600 }}>Pegar la tuya</BotonIntegracion></p>}
             {c.es === 'ilegible' && <p className="tci-nota">No puedo leerla. <BotonIntegracion servicio={c.proveedor} style={{ color: 'var(--primary)', fontWeight: 600 }}>Pegarla de nuevo</BotonIntegracion></p>}
             {r && <p className={`tci-nota tci-clave__estado tci-clave__estado--${r.anda ? 'bien' : 'mal'}`} role="status">{r.texto}</p>}
+            {/* IA5: el modelo de SU Claude, que paga su cuenta. El crédito de Max de MaKo puesto como clave va con Haiku. */}
+            {c.proveedor === 'anthropic' && c.es === 'propia' && c.modelo && (
+              <div className="tci-modelo">
+                <div className="tci-opciones">
+                  {MODELOS_SU_CLAUDE.map((m) => (
+                    <button key={m.v} type="button" className={`tci-opcion${(modelos[c.proveedor] ?? c.modelo) === m.v ? ' is-on' : ''}`}
+                      disabled={c.soloHaiku && m.v !== 'haiku'} onClick={() => void elegirModelo(m.v)}>{m.t}</button>
+                  ))}
+                </div>
+                <p className="tci-nota">{c.soloHaiku ? 'Con esta clave, Haiku.' : 'Sonnet escribe mejor y gasta más de tu cuenta.'}</p>
+              </div>
+            )}
           </div>
         );
       })}

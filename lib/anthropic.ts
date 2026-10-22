@@ -10,7 +10,7 @@ import { credWs, credDelCliente, credWsEstricta, wsDelEntorno } from './credenci
 import {
   permisoDeGasto, evaluarClaveDelNegocio, MOTIVO_CLAVE_DEL_NEGOCIO,
   evaluarCreditoDeLaPlataforma, CLAVES_CREDITO_PLATAFORMA, CREDITO_HABILITADO_PARA, MOTIVO_CREDITO_PLATAFORMA, type PermisoClaude,
-  type PermisoClaveDelNegocio,
+  type PermisoClaveDelNegocio, CLAVE_MODELO_SU_CLAUDE, modeloDeSuClaude,
 } from './veto-claude';
 import type { ProvName } from './ai-cheap';
 import { conD6bDelPedido, d6bDecidida, soloSuIA } from './solo-su-ia';
@@ -97,7 +97,22 @@ export async function permisoDeLaClaveDelNegocio(feature?: string): Promise<{ pe
     ];
   } catch { return null; }
   const pausa = await claudePausado();
-  const v = evaluarClaveDelNegocio({ feature, clave, clavesPlataforma, pausa });
+  // IA5 (22/10/2026): el modelo que eligió el negocio para SU Claude, y las claves del crédito de Max de la plataforma: una
+  // de ésas puesta como clave de un negocio (el ws10) va con el barato, elija lo que elija (lo paga Martín). Sin poder
+  // leerlas, `null`: también el barato.
+  let modelo: string;
+  try {
+    const { getSetting } = await import('@/lib/settings');
+    modelo = modeloDeSuClaude(await getSetting(CLAVE_MODELO_SU_CLAUDE));
+  } catch { modelo = modeloDeSuClaude(null); }
+  let creditosPlataforma: Array<string | null> | null;
+  try {
+    const { wsSuperAdmin } = await import('@/lib/workspace');
+    const wsSA = await wsSuperAdmin();
+    creditosPlataforma = [];
+    for (const nombre of CLAVES_CREDITO_PLATAFORMA) creditosPlataforma.push(process.env[nombre]?.trim() || (await credWsEstricta(nombre, wsSA)));
+  } catch { creditosPlataforma = null; }
+  const v = evaluarClaveDelNegocio({ feature, clave, clavesPlataforma, pausa, model: modelo, creditosPlataforma });
   if (!v.ok) return pausa ? { pausa: true } : null;
   return { permiso: v.permiso };
 }

@@ -197,7 +197,9 @@ function fabricar<T extends { model: string; feature: string; porque: string }>(
  * y lo que lo habilita no es una fecha sino de quién es la clave.
  */
 export const CLAUDE_CON_CLAVE_DEL_NEGOCIO = {
-  modelos: ['claude-haiku-4-5'],
+  // IA5 (22/10/2026): el negocio elige el modelo de SU Claude en «Tus cuentas de IA» (`MODELO_SU_CLAUDE`). El primero es el
+  // default. Lo paga su cuenta; la frontera (nunca una copia de la clave de la plataforma) no cambia.
+  modelos: ['claude-haiku-4-5', 'claude-sonnet-5'],
   porque: 'El negocio cargó SU clave de Anthropic (el crédito de API de Claude Max, o la suya paga): '
     + 'MaKo la usa primero para sus funciones de texto, y lo paga su cuenta, no la de MaKo.',
   pidio: 'Martín, 15/10/2026 — opción A de la Ticketera `clientes-usan-su-claude`.',
@@ -213,6 +215,16 @@ export const CLAUDE_CON_CLAVE_DEL_NEGOCIO = {
  * use su crédito de Max, Martín ve un gasto de Claude que no es suyo y el veto parece roto.
  */
 export const MOTIVO_CLAVE_DEL_NEGOCIO = '⚠ clave de Anthropic del negocio';
+
+/**
+ * El modelo de SU Claude que eligió el negocio (IA5, 22/10/2026), en `app_settings` de su workspace. Sin elegir, el barato.
+ * Lo elige el admin en «Tus cuentas de IA»; lo paga su cuenta.
+ */
+export const CLAVE_MODELO_SU_CLAUDE = 'ia.su_claude.modelo';
+export const MODELO_SU_CLAUDE = { haiku: 'claude-haiku-4-5', sonnet: 'claude-sonnet-5' } as const;
+export type EleccionSuClaude = keyof typeof MODELO_SU_CLAUDE;
+export const modeloDeSuClaude = (guardado: unknown): string =>
+  MODELO_SU_CLAUDE[(typeof guardado === 'string' && guardado in MODELO_SU_CLAUDE ? guardado : 'haiku') as EleccionSuClaude];
 export const esDeLaClaveDelNegocio = (motivo: string | null | undefined): boolean =>
   typeof motivo === 'string' && motivo.trimStart().startsWith(MOTIVO_CLAVE_DEL_NEGOCIO);
 
@@ -238,6 +250,12 @@ export const FEATURES_DEL_PLAN: readonly string[] = [
 export function evaluarClaveDelNegocio(p: {
   feature?: string; model?: string; pausa?: boolean;
   clave?: string | null; clavesPlataforma: ReadonlyArray<string | null | undefined>;
+  /**
+   * Las claves del CRÉDITO de Max de la plataforma (`CLAVES_CREDITO_PLATAFORMA`), o `null` si no se pudieron leer. Una clave
+   * del negocio que ES una de ésas (el ws10: Martín le puso su cuenta 2) se usa sólo con el modelo barato, elija lo que
+   * elija: lo paga Martín (IA5). Sin poder leerlas, igual: «no pude leer» nunca habilita gastar más.
+   */
+  creditosPlataforma?: ReadonlyArray<string | null | undefined> | null;
 }): { ok: true; permiso: PermisoClaveDelNegocio } | { ok: false; razon: string } {
   if (p.pausa) return { ok: false, razon: 'Claude está PAUSADO a mano (`mako.claude.pausa`): apaga también la clave del negocio.' };
   const feature = (p.feature ?? '').trim();
@@ -251,8 +269,12 @@ export function evaluarClaveDelNegocio(p: {
     return { ok: false, razon: 'esa clave es una copia de la de la PLATAFORMA: con ella paga MaKo, y eso sólo pasa por la lista blanca.' };
   }
   const modelos: readonly string[] = CLAUDE_CON_CLAVE_DEL_NEGOCIO.modelos;
-  const model = (p.model ?? '').trim() || modelos[0];
+  let model = (p.model ?? '').trim() || modelos[0];
   if (!modelos.includes(model)) return { ok: false, razon: `con la clave del negocio sólo ${modelos.join(', ')}, no «${model}».` };
+  // El crédito de Max de la PLATAFORMA puesto como clave de un negocio: sólo el barato (IA5).
+  const esCredito = p.creditosPlataforma === null
+    || (p.creditosPlataforma ?? []).some((x) => typeof x === 'string' && x.trim() !== '' && x.trim() === clave);
+  if (esCredito) model = modelos[0];
   return { ok: true, permiso: fabricar({ model, feature, porque: CLAUDE_CON_CLAVE_DEL_NEGOCIO.porque, clave }) };
 }
 

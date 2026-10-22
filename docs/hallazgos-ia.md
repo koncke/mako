@@ -5204,3 +5204,19 @@ pelo) · `tests/d6b-rutas.test.ts` (la tabla quedó para lib/transcribe.ts)
   deploy. `scripts/backfill-transcripts.ts` y `scripts/test-one.ts` ahora necesitan el server: corren con
   `--conditions=react-server` y adentro de `runWithWorkspace` del negocio. lib/embeddings.ts (los vectores del RAG con la
   OpenAI muerta) sigue igual: re-embeber es una migración que decide Martín.
+
+## El negocio elige el modelo de SU Claude, y el crédito de Martín se queda en Haiku (IA5, 22/10/2026)
+
+**Vive en:** `lib/veto-claude.ts` (`CLAUDE_CON_CLAVE_DEL_NEGOCIO`, `MODELO_SU_CLAUDE`, `evaluarClaveDelNegocio` con
+`creditosPlataforma`) · `lib/anthropic.ts` (`permisoDeLaClaveDelNegocio`) · `app/api/ia-del-negocio/modelo/route.ts` ·
+«Tus cuentas de IA» · `tests/su-claude-modelo.test.ts`
+
+- **Por qué:** con la clave del negocio sólo se podía usar Haiku 4.5, y el Closing Analyst necesita Sonnet (IA12). Ahora el
+  admin elige Haiku o Sonnet (`ia.su_claude.modelo`, por negocio); lo paga su cuenta y la frontera (nunca una copia de la
+  clave de la plataforma, nunca el Plan) no cambia. Opus no está en la lista a propósito.
+- **Trampa que el veto no veía:** la clave «propia» del ws10 es el crédito de Max de Martín (`ANTHROPIC_CREDITO_CUENTA2`).
+  El veto compara la clave del negocio sólo contra las copias de `ANTHROPIC_API_KEY`, así que esa cuenta pasa como «del
+  negocio». Abrir Sonnet sin mirar eso le daba a Leandro Sonnet pagado por Martín. Ahora la puerta lee las claves del
+  crédito: si la del negocio es una de ésas, o si no se pueden leer, va con Haiku aunque elija Sonnet.
+- **Sin hacer:** el caso de uso (el closing del ws3 con una clave de prueba) espera el deploy y una clave de Martín. Medir el
+  gasto del ws10 una semana después (con IA6 TODO su negocio corre con ese crédito, en Haiku).
