@@ -7278,6 +7278,15 @@ borraron; **10 tenían commits que no están en ninguna rama remota** (no son vi
   frena si cambian. Se sacan sólo las que `LinkType` dice `Junction` o `SymbolicLink` y son carpetas: en OneDrive un archivo «bajo demanda» también es un
   punto de reanálisis, y borrarlo dejaría el árbol sucio.
 - **PowerShell 5.1 lee un .ps1 sin BOM como ANSI**: un guion con tildes en los textos ni arranca («Unexpected token»). Los guiones de borrado van en ASCII.
+- ⚠️ **Desde sh (Git Bash), `cmd //c "dir \"<ruta>\""` con comillas escapadas FALLA** (22/10/2026, disco al 99 % con 1,3 GB): cmd contesta «The
+  filename, directory name, or volume label syntax is incorrect», el `grep "<JUNCTION>"` no encuentra nada y la detección dice «carpeta real» para
+  TODAS. Lo frenó la red del guion («un node_modules real fuera de la lista conocida → no se toca»): 55 árboles saltados, ninguno roto. Las rutas
+  de C:/dev no tienen espacios: van sin comillas (`cmd //c "dir $w"`). Probá el guion sobre UN árbol y medí el `node_modules` del clon antes de largar el resto.
+- ⚠️ **Una junction de `node_modules` puede apuntar a OTRO worktree, no al clon** (`wt-crm-lista` → `wt-crm-ficha2/node_modules`, que era real).
+  Borrado primero el de destino, el enlace queda colgado: `[ -e ]` da falso, el paso de la junction se saltea y git saca el worktree pero deja la
+  carpeta con el enlace. Se mira `[ -e ] || [ -L ]`, y el destino de la junction está en la salida de `dir`.
+- **`require.resolve('<paquete>/package.json')` no sirve para ver si un `node_modules` está entero**: los paquetes con `exports` no exponen su
+  package.json y dio 39 «faltan» que estaban. Se mira la carpeta (`existsSync('node_modules/<paquete>/package.json')`): 83 de 83.
 - **Los `refs/wip` y los stash son del REPO, no de un árbol**: borrar el worktree no los toca (los 15 `refs/wip` y los stash siguen). Aun así no se borró el
   que tiene un `refs/wip` con su nombre.
 - Las **ramas locales no se borran**: un worktree borrado con su rama intacta se recrea en minutos con `git worktree add`.
