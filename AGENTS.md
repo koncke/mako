@@ -1697,7 +1697,23 @@ código nuevo:
     - **Un jefe se abre con un mensaje de Martín en el chat del Cerebro, en la app.** `start_session` sólo corre en un
       turno que empieza con palabras de Martín: con un pedido que llega por el Ops Center contesta «Start sessions only on
       the user's own words» (docs/hallazgos-operaciones.md, «Los dos topes»). Una sesión de la nube no abre chats de la PC:
-      uno que se crea en la nube sale en el Ops Center con la marca «Nube» y sin caja.
+      uno que se crea en la nube sale en el Ops Center con la marca «Nube» y sin caja. Medido el 21/10 con un Cerebro que
+      abrió otro chat: en un turno que no empezó Martín, el jefe sale como TARJETA que él toca, y uno en la nube con
+      repositorio ni siquiera se puede proponer (se le pide el OK con un botón). Una rama local que necesita un chat de la
+      nube se sube antes a origin: la nube no ve los worktrees de la PC.
+    - **AL INICIAR UNA CUENTA NUEVA, PRIMERO ESTO, EN ORDEN** (21/10/2026; Martín: «eso siempre primero al iniciar una nueva
+      cuenta»): medir la cuenta (`get_usage`); abrir el Runner, para que el uso salga en el Ops Center y los mensajes
+      lleguen; archivar los chats viejos de esa cuenta; abrir el Cerebro fresco desde `docs/relevo/cerebro.md` («LEER
+      PRIMERO»); y los jefes de a uno, cuando tienen trabajo. Recién después, lo demás.
+    - **AL CEREBRO SE LE ESCRIBE POR NOMBRE** («Cerebro», con ListAgents), no por id (21/10/2026): cada cuenta abre uno nuevo
+      y el id del anterior da «not found». Si un mensaje no se entrega, la punta queda igual arriba de `docs/relevo/<área>.md`
+      y en la nota del chat: el Cerebro la lee de ahí, no espera.
+    - **A LO SUMO ~8 CHATS ABIERTOS** (21/10/2026; la PC tiene 16 GB). Un jefe con su punta en producción y su relevo
+      commiteado se archiva, y se reabre desde `docs/relevo/<área>.md` cuando vuelve a tener trabajo. Lo que es sólo código
+      (no lee la base ni usa el Chrome de Martín) va a la nube: deja su rama en origin y su punta arriba de su relevo.
+    - **NADA TERMINADO QUEDA SIN NOMBRAR EN «PENDIENTE DE INTEGRAR»** (21/10/2026): el relevamiento del cambio de cuenta
+      encontró dos ramas terminadas (`mako-wa`, 15 commits; `infra-tests-afectados`) que ningún relevo nombraba. Una rama
+      con su VERDE va al relevo del Cerebro el mismo día, aunque se integre después.
   - **EL «YA ESTÁ» LO DICE CADA CHAT EN EL OPS CENTER, NO EL CEREBRO** (17/10/2026; Martín: «Todos los mensajes de "Ya
     está x cosa" quiero que me los manden los chats del Center... No por aquí... Así puedo verlos y darles feedback...
     además de ponerlo en Review»). Cuando el Cerebro le avisa a un jefe que su punta llegó a producción, el jefe:

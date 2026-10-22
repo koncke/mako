@@ -30,7 +30,7 @@ hablan entre sí por `SendMessage` (no cruza carpetas de config) — pasan por e
 
 | Chat | Pegar |
 |---|---|
-| **Cerebro** (el orquestador; antes «Estrategia 3 cuentas») | `Leé docs/relevo/cerebro.md y decime cómo seguimos.` |
+| **Cerebro** (el orquestador; antes «Estrategia 3 cuentas») | `Leé docs/relevo/cerebro.md («LEER PRIMERO») y decime cómo seguimos.` Lo viejo: `cerebro-historia.md`. |
 | **Sesión en la NUBE** (o una cuenta nueva) | `Lee docs/relevo/nube.md y seguimos desde ahí.` |
 | Ops Center (ex Centro de Operaciones) y el **Runner** | `Leé docs/relevo/centro-operaciones.md y seguimos desde ahí.` |
 | Ticketera (los tickets de los usuarios) | `Leé docs/hallazgos-ticketera.md y docs/diseno-ticketera-usuarios.md y seguimos desde ahí.` |

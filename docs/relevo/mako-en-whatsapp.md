@@ -13,7 +13,7 @@ informativo y en todo caso le manda mensajes a los otros chats para que se encar
   `anthropic_usage`) y los errores que registra la app (`errores_app`, mig 0313, lib/errores-app.ts: uno por huella,
   con sus negocios y el ticket que abrió la Ticketera). Los lee el mismo `scripts/vigia-mako-grupos.mts`.
 - **Un incidente lo resuelve el CHAT DEL ÁREA, no Martín ni este chat**: se le manda por SendMessage, con lo medido y la
-  causa si se tiene, para que lo arregle y le pase el sha verde al Cerebro (local_797d5445-2365-464d-ae3d-1d71aa7baa8c).
+  causa si se tiene, para que lo arregle y le pase el sha verde al Cerebro (se le escribe por nombre, «Cerebro», con ListAgents: el id cambia con cada cuenta).
   Si no se sabe de qué área es, al Cerebro. A Martín no se le pregunta nada. Lo del doer de WhatsApp sí es de este chat.
 - **Una vuelta sin novedad dice sólo «Sin incidentes nuevos.»**, sin el uso de la cuenta ni nada más.
 **Rama:** `mako-wa` (worktree `C:/dev/wt-mako-wa`, desde `origin/main` `0bf0c181`). Las puntas las sube el Cerebro.
