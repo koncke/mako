@@ -327,6 +327,8 @@ export function partesDeClaveDeEditor(clave: string): { persona: string; id: str
 }
 /** Lo que dice la caja de un chat de un editor: se lee acá y se sigue allá. */
 export const AVISO_EDITOR = 'Esta charla es del editor: se sigue ahí.';
+/** La de otra persona del equipo: en el editor se abre la tuya, así que ésta sólo se lee acá (la revisión del 22/10/2026). */
+export const AVISO_EDITOR_AJENO = 'Esta charla es de otra persona del equipo: se lee acá.';
 /** Los mensajes de un chat de un editor, para el hilo: lo de la persona y lo de MaKo, con su hora. Lo vacío no se dibuja. */
 export function mensajesDeEditor(ms: ReadonlyArray<{ de: 'yo' | 'mako'; texto: string; c: number }>): MensajeChat[] {
   return ms.flatMap((m): MensajeChat[] => {

@@ -2178,6 +2178,9 @@ proyecto. El Ops Center los lista como «Image Editor › <diseño>» y «Video 
   setter (`persona:<p>:dashboard:…`) tampoco se reconocía para el admin. `origenDeClave` saca la persona antes de mirar.
 - **Regla, la de d6b-rutas otra vez:** una lectura nueva en la ruta del chat va a su tabla «sin IA» en el mismo commit, y ese
   test se corre con los propios. Acá lo atajó el test antes de la punta.
+- **El de otra persona se lee acá, sin «Seguir en el editor»** (la revisión de Integración). El editor abre el hilo de la persona
+  de la SESIÓN, así que el link desde el chat de un closer le abría al admin su propio hilo de ese diseño, otro. Cada fila dice
+  `propio`, y la de otro muestra «Esta charla es de otra persona del equipo: se lee acá».
 
 ## La estrella dice desde dónde: la tab, la entidad y el modo (22/10/2026, OC6)
 
@@ -2185,7 +2188,13 @@ La estrella de cada tab (app/_chat/MakoEnLaTab.tsx) mandaba al «Cerebro» sin d
 Ahora la pantalla le pasa `entidad` ({ tipo, id, titulo }) y `modo` ('analizar' | 'editar'). Las reglas están en lib/chat-desde.ts:
 
 - **La entidad la toman las herramientas por defecto** (`conEntidadPorDefecto`, en `runTool`): «movelo a Ganado» desde la ficha
-  de Ana llega con SU `leadId`. No pisa un id que el modelo eligió a propósito. El parámetro por tipo está en `ENTIDADES`.
+  de Ana llega con SU `leadId`. No pisa lo que mandó el modelo, ni un null a propósito. El parámetro por tipo está en `ENTIDADES`.
+- **Regla: la entidad va SÓLO en un parámetro obligatorio** (la revisión de Integración). En uno opcional, sin él la herramienta
+  hace OTRA cosa: `ver_avance_curso_cs` sin `leadId` es toda la cartera, `listar_cobros` sin él son todos los cobros. Con la
+  entidad metida, «¿cómo va la cartera?» desde la ficha de Ana contestaba sólo con Ana, y nada fallaba.
+- **El título es un dato de un tercero** (el nombre de un lead viene del formulario de Meta): el system lo dice entre «» y aclara
+  que no es una instrucción. El id va como se nombra cada cosa: un número para lead, automatización y oferta, y para una hoja
+  letras, números y guiones. El tipo se mira con `Object.hasOwn`: `in` aceptaba «constructor».
 - **El diagnóstico obvio era el equivocado:** se pensaba que hacía falta la pista para que «movelo a Ganado» trajera la
   herramienta. Medido: el clasificador ya la trae sola. Lo que faltaba era el id del lead abierto. La pista
   (`pistaDesde`) queda para los pedidos que no dicen de qué son.

@@ -589,7 +589,9 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   const hrefLienzo = idAutomatizacion != null ? conWs(rutaDelLienzo(idAutomatizacion), ws) : null;
   /** Dónde se sigue el chat de un editor abierto: ese diseño o ese proyecto, en este negocio. */
   const idDelEditor = deEditor ? partesDeClaveDeEditor(deEditor.clave)?.id ?? null : null;
-  const hrefEditor = deEditor && idDelEditor ? conWs(EDITORES[deEditor.editor].ruta(idDelEditor), ws) : null;
+  // Sólo si es de quien mira: el editor abre el hilo de la persona de la sesión, y el de otra persona sería otro.
+  const editorPropio = !!deEditor && (editores ?? []).some((e) => e.tipo === deEditor.editor && e.clave === deEditor.clave && e.propio);
+  const hrefEditor = deEditor && idDelEditor && editorPropio ? conWs(EDITORES[deEditor.editor].ruta(idDelEditor), ws) : null;
   const enCurso = !!trabajo || armandoOffer;
   /** Los mensajes del hilo, para la barra de los fijados. */
   const mensajesWA = useMemo(() => items.flatMap((x) => (x.k === 'msg' ? [mensajeWADe(x, nombreMuneco)] : [])), [items, nombreMuneco]);

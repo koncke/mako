@@ -287,7 +287,8 @@ export async function hiloDeAutomatizacion(id: number): Promise<{ sesion: ChatDe
 // Una fila por (negocio, persona, diseño o proyecto), en la base del inquilino; medido por TB2: sí guardan (hasta ese día nadie
 // los había usado). Se LEEN: se siguen en el editor, que aplica lo que propone.
 
-export type ChatDeEditor = { tipo: TipoEditor; clave: string; titulo: string | null; updatedAt: string };
+/** `propio`: es de quien mira. El editor abre el hilo de la persona de la sesión: el de otra persona se lee acá y no se «sigue» allá. */
+export type ChatDeEditor = { tipo: TipoEditor; clave: string; titulo: string | null; updatedAt: string; propio: boolean };
 const DE_EDITOR: Readonly<Record<TipoEditor, { tabla: string; col: string; tab: 'image-editor' | 'video-editor' }>> = {
   imagen: { tabla: 'image_editor_chats', col: 'diseno_id', tab: 'image-editor' },
   video: { tabla: 'video_editor_chats', col: 'proyecto_id', tab: 'video-editor' },
@@ -314,7 +315,7 @@ export async function chatsDeLosEditores(q: QuienChatea & { sub: string }): Prom
       const persona = typeof f.persona === 'string' ? f.persona : '';
       const id = typeof f[t.col] === 'string' ? (f[t.col] as string) : '';
       if (!persona || !id) continue;
-      out.push({ tipo, clave: claveDeEditor(persona, id), titulo: typeof f.nombre === 'string' ? f.nombre : null, updatedAt: String(f.updated_at ?? '') });
+      out.push({ tipo, clave: claveDeEditor(persona, id), titulo: typeof f.nombre === 'string' ? f.nombre : null, updatedAt: String(f.updated_at ?? ''), propio: persona === q.persona });
     }
   }
   return out;

@@ -6,17 +6,19 @@
 //   1. en la lista: «Image Editor › <diseño>» y «Video Editor › <proyecto>», agrupados, cada uno con su clave (persona|id);
 //   2. por PERSONA: el admin ve los del negocio, los demás sólo los suyos; con la puerta de cada tab (`image-editor`, `video-editor`);
 //   3. se LEEN acá y se siguen en el editor; lo que se escribe no sale;
-//   4. y el origen de lo que midió TB1: `landing:` es del Web Generator, y la clave de otra persona se reconoce igual.
+//   4. y el origen de lo que midió TB1: `landing:` es del Web Generator, y la clave de otra persona se reconoce igual;
+//   5. el de OTRA persona del equipo (el admin los ve) se lee acá sin «Seguir en el editor»: el editor abre el hilo de la
+//      persona de la sesión, y el link llevaba a otro (la revisión de Integración).
 //
 // Correr: node --import tsx --test tests/ops-center-editores.test.ts
-// PROBADO ROMPIÉNDOLO (base 4/0), ver el pie.
+// PROBADO ROMPIÉNDOLO (base 5/0), ver el pie.
 // =============================================================================
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { AVISO_EDITOR, EDITORES, claveDeEditor, listaDelCliente, mensajesDeEditor, origenDeClave, partesDeClaveDeEditor } from '../lib/chat-mako-reglas';
+import { AVISO_EDITOR, AVISO_EDITOR_AJENO, EDITORES, claveDeEditor, listaDelCliente, mensajesDeEditor, origenDeClave, partesDeClaveDeEditor } from '../lib/chat-mako-reglas';
 import { partesDelNombre, porJefe } from '../lib/centro-chats';
 import { puedeVerKey } from '../lib/movil-rutas';
 
@@ -32,9 +34,9 @@ test('1. en la lista, «Image Editor › …» y «Video Editor › …», agrup
   const lista = listaDelCliente({
     sesiones: [], offer: [], antes: [], busca: '',
     editores: [
-      { tipo: 'imagen', clave: claveDeEditor('u1', DISENO), titulo: 'Portada del Sprint', updatedAt: '2026-10-22T15:00:00Z' },
-      { tipo: 'video', clave: claveDeEditor('u1', PROYECTO), titulo: '1022', updatedAt: '2026-10-22T14:00:00Z' },
-      { tipo: 'imagen', clave: claveDeEditor('u1', 'otro-diseno'), titulo: null, updatedAt: '2026-10-21T10:00:00Z' },
+      { tipo: 'imagen', clave: claveDeEditor('u1', DISENO), titulo: 'Portada del Sprint', updatedAt: '2026-10-22T15:00:00Z', propio: true },
+      { tipo: 'video', clave: claveDeEditor('u1', PROYECTO), titulo: '1022', updatedAt: '2026-10-22T14:00:00Z', propio: true },
+      { tipo: 'imagen', clave: claveDeEditor('u1', 'otro-diseno'), titulo: null, updatedAt: '2026-10-21T10:00:00Z', propio: true },
     ],
   });
   const filas = lista.slice(1);
@@ -74,9 +76,9 @@ test('2. por persona y con la puerta de cada tab: el admin ve los del negocio; l
 test('3. se leen acá y se siguen en el editor; lo que se escribe no sale', () => {
   const motor = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
   assert.match(motor, /if \(esGrupo \|\| esAutomatizacion \|\| esEditor \|\| \(!t && !archivos\.length\)/);
-  assert.match(motor, /const hrefEditor = deEditor && idDelEditor \? conWs\(EDITORES\[deEditor\.editor\]\.ruta\(idDelEditor\), ws\) : null;/);
+  assert.match(motor, /const hrefEditor = deEditor && idDelEditor && editorPropio \? conWs\(EDITORES\[deEditor\.editor\]\.ruta\(idDelEditor\), ws\) : null;/);
   const piezas = sinComentarios(leer('app/second-brain/PiezasCliente.tsx'));
-  assert.match(piezas, /if \(k\.esEditor\) \{\n\s*return <p className="co-solo-lectura" role="note">\{AVISO_EDITOR\}\{k\.hrefEditor && <> <a className="ch-enlace" href=\{k\.hrefEditor\}>Seguir en el editor<\/a><\/>\}<\/p>;/);
+  assert.match(piezas, /if \(k\.esEditor\) \{\n\s*return k\.hrefEditor\n\s*\? <p className="co-solo-lectura" role="note">\{AVISO_EDITOR\} <a className="ch-enlace" href=\{k\.hrefEditor\}>Seguir en el editor<\/a><\/p>/);
   assert.match(AVISO_EDITOR, /se sigue ahí/);
   const ruta = sinComentarios(leer('app/api/mako/chat/route.ts'));
   assert.match(ruta, /return json\(\{ ok: true, editores: q \? await chatsDeLosEditores\(q\) : \[\] \}\);/);
@@ -90,10 +92,23 @@ test('4. el origen de lo que midió TB1: `landing:` es del Web Generator, y la c
   assert.equal(origenDeClave('dashboard:gmvjxtei82ve3'), 'Dashboard', 'el de siempre, igual');
 });
 
-// PROBADO ROMPIÉNDOLO (22/10/2026, base 4/0):
+test('5. el de otra persona del equipo se lee acá, sin «Seguir en el editor» (abriría el de quien mira)', () => {
+  const indice = sinComentarios(leer('lib/chat-mako-indice.ts'));
+  assert.match(indice, /propio: persona === q\.persona \}\);/, 'cada fila dice si es de quien mira');
+  const motor = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
+  assert.match(motor, /const editorPropio = !!deEditor && \(editores \?\? \[\]\)\.some\(\(e\) => e\.tipo === deEditor\.editor && e\.clave === deEditor\.clave && e\.propio\);/);
+  const piezas = sinComentarios(leer('app/second-brain/PiezasCliente.tsx'));
+  assert.match(piezas, /: <p className="co-solo-lectura" role="note">\{AVISO_EDITOR_AJENO\}<\/p>;/);
+  assert.match(AVISO_EDITOR_AJENO, /de otra persona del equipo: se lee acá/);
+  assert.doesNotMatch(AVISO_EDITOR_AJENO, /se sigue/);
+});
+
+// PROBADO ROMPIÉNDOLO (22/10/2026, base 5/0):
 //   · la lista sin los editores                  → 3/1 (1)
 //   · un miembro ve los de otros                 → 3/1 (2)
 //   · el hilo de otro se abre                    → 3/1 (2)
 //   · enviar no frena un chat de editor          → 3/1 (3)
 //   · `landing:` sin origen                      → 3/1 (4)
 //   · la clave de otra persona sin reconocer     → 3/1 (4)
+//   · «Seguir en el editor» en el de otra persona → 4/1 (5)
+//   · la fila sin decir de quién es              → 4/1 (5)
