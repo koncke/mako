@@ -59,7 +59,7 @@ test('la ruta va por la cascada GRATIS (gemini → groq → openrouter), con el 
   assert.match(RUTA, /PROVS_GRATIS_PIN\.includes\(pin\.provider as ProvName\)/);
   assert.match(RUTA, /\[pinGratis\.provider as ProvName, \.\.\.PROVS_CREAR_IA\.filter\(/);
   assert.match(RUTA, /\.\.\.MODELO_DOCS, \.\.\.MODELOS_CREAR_IA,/);
-  assert.match(RUTA, /return falloDeIA\(errores, hayIA\);/);
+  assert.match(RUTA, /return falloDeIA\(errores, hayIA, erroresRed\);/);
   assert.doesNotMatch(RUTA, /errorDeCascada/);
   assert.match(RUTA, /export const maxDuration = 300;/);
 });
