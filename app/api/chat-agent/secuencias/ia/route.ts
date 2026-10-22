@@ -6,7 +6,7 @@
 // creando...». Decisión 14 de docs/chatbot-flujo-ramas-diseno.md; el diseño completo, en el
 // relevo R5 de esa tanda.
 //
-// POST { pedido, secuenciaId?, modo: 'crear' | 'editar', pasos?, respuestas?, historial? } → STREAM NDJSON de
+// POST { pedido, secuenciaId?, modo: 'crear' | 'editar', pasos?, respuestas?, historial?, intencion? } → STREAM NDJSON de
 // `EventoIA` (lib/flujo-ia.ts) o `EventoPreguntaIA` (lib/automatizacion-chat.ts): fases REALES, que es lo que exige
 // `GRAMATICA.analizando`:
 //   {t:'fase', fase:'contexto', leyendo, texto}  — lo que se leyó («tu perfil · 4 etapas · 3 audios»)
@@ -61,6 +61,7 @@ import { disparadorDeValorIA, valorIADeDisparador, type Disparador } from '@/lib
 import { disparadoresDeSecuencia } from '@/lib/disparadores-canales';
 import { armarContexto, crearNuevas, generar, crearFlujoConIA } from '@/lib/flujo-ia-crear';
 import { esConsulta, deIARespuesta, userDeExplicar, EXPLICAR_IA_SYSTEM_TEMPLATE } from '@/lib/flujo-ia-consulta';
+import { intencionDe, extrasDelUser, vaAExplicar, ERROR_EDITAR_SIN_CAMBIOS } from '@/lib/flujo-ia-intencion';
 import {
   sanearRespuestas, aplicarRespuestas, turnoDelUsuario, mensajeChat, mensajeDePregunta, respuestaDelCron,
 } from '@/lib/flujo-ia-preguntas';
@@ -81,7 +82,7 @@ const PLAZO_MODELO_MS = 220_000;
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-type Body = { pedido?: unknown; secuenciaId?: unknown; modo?: unknown; pasos?: unknown; respuestas?: unknown; historial?: unknown };
+type Body = { pedido?: unknown; secuenciaId?: unknown; modo?: unknown; pasos?: unknown; respuestas?: unknown; historial?: unknown; intencion?: unknown };
 
 /**
  * EL GUARD DE LAS DOS (POST y GET): el workspace del pedido y que sea su ADMINISTRADOR. El chat de una automatización
@@ -126,6 +127,8 @@ export async function POST(req: NextRequest) {
   const secuenciaId = sinId ? null : Number(body.secuenciaId);
   // Lo que la persona contestó y el chat de la galería: saneados y con tope (lo malformado se descarta).
   const respuestas = sanearRespuestas(body.respuestas);
+  // «Discutir» o «Editar» (22/10/2026, lib/flujo-ia-intencion.ts). Sin elegir (la API, un cliente viejo): lo de antes.
+  const intencion = intencionDe(body.intencion);
   const historial = sanearChat({ v: 1, mensajes: Array.isArray(body.historial) ? body.historial : [] }).mensajes;
   if (!pedido) return Response.json({ ok: false, error: 'Escribe qué quieres que haga.' }, { status: 400 });
   if (secuenciaId != null && (!Number.isInteger(secuenciaId) || secuenciaId <= 0)) return Response.json({ ok: false, error: 'secuenciaId inválido' }, { status: 400 });
@@ -271,10 +274,13 @@ export async function POST(req: NextRequest) {
         // ⚠️ UNA PREGUNTA NO PASA POR EDITAR (15/10/2026, lib/flujo-ia-consulta.ts): «¿Qué hace esta automatización? No
         // cambies nada, sólo explícamelo.» terminaba en «Cambié 1», con el texto del video de #198 reescrito. Va a un prompt
         // que sólo puede devolver {"respuesta"}; con respuestas a una pregunta de MaKo, es un pedido y sigue abajo.
-        if (!respuestas.length && esConsulta(pedido)) {
+        // ⚠️ Y DESDE EL 22/10/2026 LO ELIGE LA PERSONA (lib/flujo-ia-intencion.ts): «Discutir» va siempre acá, «Editar»
+        // nunca; sin elegir, lo de antes. En los tres, lo último de la charla viaja (sin eso «como te dije» no existía).
+        const extras = extrasDelUser(intencion, historial);
+        if (vaAExplicar(intencion, respuestas.length > 0, esConsulta(pedido))) {
           const system = await getPromptText('chatbot.explicar-ia.system', EXPLICAR_IA_SYSTEM_TEMPLATE);
           const cron = ctx.disparadores.find((x) => x.value === disparadorActual)?.label ?? null;
-          const user = userDeExplicar({ cron, flujo: JSON.stringify(aIA(base, ctx)), pregunta: pedido });
+          const user = [userDeExplicar({ cron, flujo: JSON.stringify(aIA(base, ctx)), pregunta: pedido }), ...extras].join('\n\n');
           send({ t: 'fase', fase: 'respuesta' });
           const g = await generar({ system, user, hastaMs: inicio + PLAZO_MODELO_MS, traducir: deIARespuesta, motivo: 'Contestar una pregunta sobre una automatización' });
           if ('error' in g) {
@@ -288,9 +294,11 @@ export async function POST(req: NextRequest) {
 
         // Sin slots: lo variable va en el `user` (un override guardado no conoce bloques nuevos).
         const system = await getPromptText('chatbot.editar-ia.system', EDITAR_IA_SYSTEM_TEMPLATE);
-        const user = userDeEditar(ctx, { perfil, voz, pedido: pedidoEditar }, base);
+        const user = [userDeEditar(ctx, { perfil, voz, pedido: pedidoEditar }, base), ...extras].join('\n\n');
         const traducir = (obj: Record<string, unknown>): { r: ResultadoEdicion; errores: string[] } => {
           const r = deIAEdicion(obj, base, ctx);
+          // En «Editar» contestar sin cambiar es un ERROR que el reintento corrige (lo que pasó con Mauricio el 22/10).
+          if (r.respuesta && intencion === 'editar') return { r, errores: [ERROR_EDITAR_SIN_CAMBIOS] };
           // Una respuesta no cambió nada: no hay qué revisar (un borrador con algo roto no la tiene que tumbar).
           return { r, errores: r.respuesta ? [] : erroresEdicion(base, r, ctx) };
         };
