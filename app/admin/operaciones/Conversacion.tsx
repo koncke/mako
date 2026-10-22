@@ -218,7 +218,7 @@ export function Conversacion({
       caja={<>
         {/* Lo que el empleado espera de Martín, arriba de la caja, como AskUserQuestion de Claude Code (Pregunta.tsx).
             La que se contesta se va de acá y queda en la conversación. */}
-        {preguntas.length > 0 && <Pregunta key={chat.clave} preguntas={preguntas} responder={responder} />}
+        {preguntas.length > 0 && <Pregunta key={chat.clave} chat={chat.clave} preguntas={preguntas} responder={responder} />}
         {/* Lo que ESTE chat le pregunta, de a una y como en Claude (22/10/2026, PreguntasDelChat.tsx): las de `cartero preguntar` y
             los botones del cierre con wrap_up se contestan acá (quedan en el hilo como «Decisión: …»); las de AskUserQuestion se
             ven, y se contestan en la app de Claude. */}

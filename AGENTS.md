@@ -1747,6 +1747,8 @@ código nuevo:
     dice «Espera tu respuesta» SÓLO con una pregunta abierta: un «Ya está» sin su ✓ dice «Completado» (22/10/2026).
     La criatura de la cabecera y la de la fila cuentan con UN número, `avisos` (useCentro.ts), en la computadora y en el teléfono:
     nunca `esperaDe` suelto, que no cuenta el «Completado» sin ✓ (tests/ops-center-bloque-y-estado.test.ts, 6).
+    «El bloque de decisiones» son dos tarjetas, las preguntas de un chat (PreguntasDelChat.tsx) y las decisiones de la Ticketera
+    (Pregunta.tsx): un cambio de cómo se ven va a las dos, con las piezas que exporta PreguntasDelChat.tsx (el 7 de ese test).
   - **UNA CLAVE PEGADA EN EL OPS CENTER NO SALE** (22/10/2026, la de Apify que quedó en un pedido firmado). Lo que escribe Martín
     en el Ops Center del super admin sale FIRMADO desde el navegador y no se puede tapar después: `mandar` (app/admin/operaciones/
     mandar.ts) lo frena si `hayClave` (lib/claves-en-el-chat.ts), y `encolarPedido` no lo guarda. Un texto nuevo que salga de ahí

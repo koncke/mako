@@ -34,13 +34,17 @@ import { AVISO_CLAVE_EN_EL_CENTRO, hayClave } from '@/lib/claves-en-el-chat';
 
 type Elegido = { elegidas: number[]; otra: string };
 
+// ⚠️ LAS DOS TARJETAS SON LA MISMA PIEZA EN LO QUE SE VE (22/10/2026): las decisiones de la Ticketera (Pregunta.tsx) usan
+// `conLinks`, `usePlegado`, `Plegada` y `Plegar` de acá. Hasta ese día los ajustes de Martín estaban sólo en ésta, y la de
+// «Cuesta dinero» del chat Infra seguía sin flotar, sin flecha y con links que no se tocaban.
+
 /** Un texto del bloque con su formato y sus links clickeables, también los que vienen sin https («aistudio.google.com/apikey»). */
-const conLinks = (texto: string, k: string): ReactNode => conFormato(conDominiosComoLinks(texto), k);
+export const conLinks = (texto: string, k: string): ReactNode => conFormato(conDominiosComoLinks(texto), k);
 
 /** Plegado, por chat y por las preguntas que espera: si llega una nueva, se abre solo. En el navegador: si no hay, abierto. */
 const CLAVE_PLEGADO = 'ops.preguntas.plegado.';
-const firmaDe = (preguntas: readonly PreguntaChat[]) => preguntas.map((p) => p.id).join(',');
-function usePlegado(chat: string, preguntas: readonly PreguntaChat[]): [boolean, (v: boolean) => void] {
+const firmaDe = (preguntas: ReadonlyArray<{ id: string | number }>) => preguntas.map((p) => p.id).join(',');
+export function usePlegado(chat: string, preguntas: ReadonlyArray<{ id: string | number }>): [boolean, (v: boolean) => void] {
   const firma = firmaDe(preguntas);
   const [plegado, setPlegado] = useState(false);
   useEffect(() => {
@@ -55,7 +59,7 @@ function usePlegado(chat: string, preguntas: readonly PreguntaChat[]): [boolean,
 const esperando = (n: number) => (n === 1 ? '1 pregunta esperando' : `${n} preguntas esperando`);
 
 /** La tira plegada: cuántas esperan, y la flecha para abrir. */
-function Plegada({ n, onAbrir, app = false }: { n: number; onAbrir: () => void; app?: boolean }) {
+export function Plegada({ n, onAbrir, app = false }: { n: number; onAbrir: () => void; app?: boolean }) {
   return (
     <button type="button" className={`co-preg co-preg--arriba co-preg--plegada${app ? ' co-preg--app' : ''}`} onClick={onAbrir} aria-expanded={false}>
       <span>{esperando(n)}</span><span className="co-preg__flecha" aria-hidden>▴</span>
@@ -64,7 +68,7 @@ function Plegada({ n, onAbrir, app = false }: { n: number; onAbrir: () => void; 
 }
 
 /** La flecha para plegar, arriba a la derecha de la tarjeta. */
-const Plegar = ({ onPlegar }: { onPlegar: () => void }) => (
+export const Plegar = ({ onPlegar }: { onPlegar: () => void }) => (
   <button type="button" className="co-preg__plegar" onClick={onPlegar} aria-expanded aria-label="Ocultar las preguntas" title="Ocultar">
     <span aria-hidden>▾</span>
   </button>

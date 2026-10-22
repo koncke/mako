@@ -18,16 +18,22 @@
 // Lo de Claude que no aplica: «Chat about this» (para eso está la caja de abajo) y el «Review your answers» final:
 // acá cada respuesta se guarda al elegirla, como en la Ticketera, así no hay un envío del final que se pierda.
 //
+// LOS AJUSTES DE MARTÍN AL BLOQUE (22/10/2026), también acá y con las MISMAS piezas que PreguntasDelChat.tsx: flota sobre el
+// fondo del chat (`co-preg--arriba`), la flecha lo pliega a una tira (recordado por chat y por las decisiones que espera) y los
+// links se tocan, también sin https. Sin pantalla de resumen ya era así: cada respuesta se guarda al elegirla.
+//
 // ⚠️ CONTESTAR GUARDA EN admin_decisiones COMO HOY: por la misma acción de la Ticketera (la pasa la página como
 // prop, igual que al mazo), así lo que se contesta acá sale contestado allá y el chat se entera por el aviso del
 // Runner. La pregunta contestada se va de acá y la conversación la muestra como respuesta de Martín.
 
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { conFormato } from '@/app/_components/Markdown';
 import { OTRA, type AccionResponder, type Decision, type EstadoRespuesta } from '@/app/admin/runway/decisiones';
 import { opcionesDePregunta, preguntaAbierta, temaDePregunta } from '@/lib/centro-preguntas';
+import { Plegada, Plegar, conLinks, usePlegado } from './PreguntasDelChat';
 
 type Props = {
+  /** De qué chat es (su clave): el plegado se recuerda por chat. */
+  chat: string;
   /** Las que este chat espera, en el orden en que se contestan. */
   preguntas: readonly Decision[];
   responder: AccionResponder;
@@ -35,7 +41,9 @@ type Props = {
   onRespondida?: (d: Decision, clave: string, texto: string) => void;
 };
 
-export function Pregunta({ preguntas, responder, onRespondida }: Props) {
+export function Pregunta({ chat, preguntas, responder, onRespondida }: Props) {
+  // Aparte de las preguntas del chat (PreguntasDelChat usa la clave del chat sola): plegar una no pliega la otra.
+  const [plegado, setPlegado] = usePlegado(`ticketera:${chat}`, preguntas);
   // ⚠️ LA PREGUNTA ABIERTA SE SIGUE POR SU ID, NUNCA POR SU POSICIÓN (revisión adversarial, 16/10/2026): el refresco de
   // cada 8 s puede meter una tarjeta que frena ADELANTE de la que se está contestando, y con la posición lo que Martín
   // escribía para una se guardaba en la otra.
@@ -67,6 +75,7 @@ export function Pregunta({ preguntas, responder, onRespondida }: Props) {
   }, [foco]);
 
   if (!d) return null;
+  if (plegado) return <Plegada n={preguntas.length} onAbrir={() => setPlegado(false)} />;
   const n = ops.length;
 
   async function elegir(clave: string, texto = '') {
@@ -106,7 +115,7 @@ export function Pregunta({ preguntas, responder, onRespondida }: Props) {
   }
 
   return (
-    <div className="co-preg" ref={caja} role="group" aria-label={`Pregunta: ${d.pregunta}`} onKeyDown={tecla}>
+    <div className="co-preg co-preg--arriba" ref={caja} role="group" aria-label={`Pregunta: ${d.pregunta}`} onKeyDown={tecla}>
       <div className="co-preg__cab">
         <div className="co-preg__temas" role="tablist" aria-label="Preguntas">
           {preguntas.map((p, i) => (
@@ -116,22 +125,28 @@ export function Pregunta({ preguntas, responder, onRespondida }: Props) {
           ))}
         </div>
         {preguntas.length > 1 && <span className="co-preg__paso">{`${pos + 1} de ${preguntas.length}`}</span>}
+        <Plegar onPlegar={() => setPlegado(true)} />
       </div>
-      <p className="co-preg__texto">{conFormato(d.pregunta, 'pq')}</p>
-      {d.contexto && <p className="co-preg__contexto">{conFormato(d.contexto, 'pc')}</p>}
+      <p className="co-preg__texto">{conLinks(d.pregunta, 'pq')}</p>
+      {d.contexto && <p className="co-preg__contexto">{conLinks(d.contexto, 'pc')}</p>}
       <ol className="co-preg__ops">
         {ops.map((o, i) => (
           <li key={o.clave}>
-            <button
-              type="button" data-op={i} className="co-preg__op" aria-current={i === foco ? 'true' : undefined}
-              disabled={!!guardando} onFocus={() => setFoco(i)} onMouseEnter={() => setFoco(i)} onClick={() => void elegir(o.clave)}
+            {/* Un `div` con rol de botón y no un <button>, como en PreguntasDelChat: un link adentro de un botón no se abre.
+                Tocar el link lo abre SIN elegir la opción; Enter o espacio la eligen. */}
+            <div
+              role="button" tabIndex={guardando ? -1 : 0} aria-disabled={!!guardando || undefined}
+              data-op={i} className="co-preg__op" aria-current={i === foco ? 'true' : undefined}
+              onFocus={() => setFoco(i)} onMouseEnter={() => setFoco(i)}
+              onClick={(e) => { if (!guardando && !(e.target as HTMLElement).closest('a')) void elegir(o.clave); }}
+              onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && !guardando) { e.preventDefault(); void elegir(o.clave); } }}
             >
               <span className="co-preg__num" aria-hidden>{guardando === o.clave ? '…' : i + 1}</span>
               <span className="co-preg__op-txt">
                 <span className="co-preg__titulo">{o.titulo}{o.recomendada && <span className="co-preg__rec"> (Recomendada)</span>}</span>
-                {o.detalle && <span className="co-preg__detalle">{conFormato(o.detalle, `pd${i}`)}</span>}
+                {o.detalle && <span className="co-preg__detalle">{conLinks(o.detalle, `pd${i}`)}</span>}
               </span>
-            </button>
+            </div>
           </li>
         ))}
         <li>

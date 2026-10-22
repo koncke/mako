@@ -466,7 +466,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
                 mostrar={cuantos} onVerAnteriores={verTodo} />
             </ContextoWA.Provider>
             {/* Lo que espera de Martín, al final de la conversación y pegado a la caja: AskUserQuestion de Claude Code. */}
-            {preguntas.length > 0 && <Pregunta key={elegido.clave} preguntas={preguntas} responder={responder} />}
+            {preguntas.length > 0 && <Pregunta key={elegido.clave} chat={elegido.clave} preguntas={preguntas} responder={responder} />}
             {/* Lo que ESTE chat le pregunta, de a una y como en Claude (22/10/2026, PreguntasDelChat.tsx): las de `cartero preguntar` y
                 los botones del cierre con wrap_up se contestan acá (quedan en el hilo como «Decisión: …»); las de AskUserQuestion se
                 ven, y se contestan en la app de Claude. */}
