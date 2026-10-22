@@ -68,7 +68,20 @@ estaba en 1,3 GB; quedó en 26): `docs/hallazgos-infra.md`, «Limpiar worktrees�
 started because recent account payments have failed or your spending limit needs to be increased». Mientras tanto se sube
 DIRECTO a `main` (e `integracion` al mismo sha) con el chequeo local completo en verde: tests afectados, tsc acotado,
 guardas y la rotura de lo nuevo. Se juntan puntas y se verifica el Ready. Cuando Martín ponga un medio de pago, se re-corre
-la última corrida de `integracion` como red (docs/hallazgos-infra.md, «Sin minutos de Actions»).
+la última corrida de `integracion` como red (docs/hallazgos-infra.md, «Sin minutos de Actions»). ⚠️ El hook del push a
+`main` pide 6,3 GB libres y esta PC no pasa de 6,1, así que **`87365c830` salió con `--no-verify`** (22/10, ~09:30): Martín lo
+autorizó para ESE lote, contestando la pregunta a6967bef de Integración desde el Centro. Lo que se había corrido: los tests
+afectados de cada punta, el tsc acotado de lo tocado, las guardas y los tipos de todo el repo en 3 tandas, con 0 errores.
+**Al volver los minutos, re-correr en Actions la corrida de `integracion` de `87365c830`** (o la última que lo contenga).
+**Desde el 22/10, permiso PERMANENTE de Martín** (escrito por él en el chat del Cerebro): «Si, que avance siempre, no quiero
+limitaciones, me estas sacando tiempo valioso con restricciones». Cada lote que pasó el chequeo local completo (tests afectados,
+tsc acotado y guardas) sube a `main` sin preguntarle. Las 3 tandas de INF1 son la red cuando hay RAM, no una traba. Como el
+permiso llegó por el Cerebro, Integración le pasa el sha verificado y el Cerebro hace el push `--no-verify`. Si Martín se lo
+escribe a Integración en su chat, sube Integración directo. Memoria: `subir-a-main-sin-traba`. Así salió `f6bd295e7`
+(22/10): el chequeo local completo lo hizo Integración, y el push `--no-verify` lo hizo el Cerebro, con el deploy Ready. Ese
+lote traía AU1, OF1, OF2, los arreglos de los chats del Ops Center e INF1, y desde ahí el hook de INF1 está instalado en
+`.git/hooks/pre-push`. **Falta:** la prueba de punta a punta de INF1 con un error plantado en la tanda 3 (no hubo RAM), y
+re-correr en Actions `87365c830` y `f6bd295e7` cuando vuelvan los minutos.
 
 **La llamada del 22/10 con Mauricio:** `docs/feedback-22-10.md` (lo P0 va antes que todo: reunión de validación HOY; los mensajes salen desde el sáb 24/10).
 

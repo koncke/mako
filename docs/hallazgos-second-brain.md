@@ -28,6 +28,34 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
 
 ---
 
+## El grafo ES la pantalla del teléfono, «Girar» al lado del zoom y sin «falta» (22/10/2026)
+
+Martín, desde el Centro (pedido 4a15e2c3, con capturas del teléfono): sin la vista «Abrir Grafo», el grafo siempre abierto;
+«girar la pantalla» abajo a la derecha, alineado; y ningún «falta» en la barra lateral. Código: app/m/second-brain/SecondBrainM.tsx,
+app/m/second-brain/mapa/loading.tsx, app/second-brain/{Grafo,VistaCerebro}.tsx, lib/cerebro-areas.ts (`carpetasConDatos`) ·
+tests/second-brain-sin-falta.test.ts, tests/second-brain-grafo-movil.test.ts.
+
+- **La portada existía sólo en el teléfono.** La computadora ya entraba directo al grafo (`?panel=mapa`). En el teléfono el grafo
+  era una capa (`grafoAbierto`) encima de una portada: la foto del mapa, el buscador, «Lo último» y las carpetas. Ahora el grafo
+  ES la pantalla (el portal se monta siempre) y su «‹» sale del Second Brain (`router.back()`, o al Ops Center si se entró
+  directo). Lo de la portada sigue en el grafo: buscar arriba, «Lo último» y las áreas en la barra lateral (botón «Áreas») y subir
+  al Archivero en un «+» (`accionMovil`: el lugar que en la computadora ocupa «Exportar»).
+- **«Editar» ya no cierra el grafo:** la hoja (capa 80) abre ENCIMA del grafo (60), así que la demora de 350 ms del 17/10 se fue.
+- **«Girar la pantalla» no entraba a 375 px al lado del zoom.** Con el CSS real, el zoom mide 217 px y el botón con el texto
+  largo, 145: se salía 13 px por la derecha. No tapaba el zoom, quedaba cortado, y en el código «se veía» bien. Ahora dice
+  «Girar» (el nombre entero queda en `aria-label`): entra desde 350 px, y en un teléfono más angosto queda sólo el ícono. Los dos
+  van en `.cbg-pie`, un flex y no dos `position: absolute`: `align-items: stretch` les iguala el alto (46 y 46) y no se pisan.
+- **Sin «falta»:** la barra lateral arma sus carpetas con `carpetasConDatos`. Muestra sólo las áreas con algún dato, y una
+  carpeta sin ninguna no deja su título. El resumen tampoco dice ya «· N faltan». **Trampa:** el título de una CAPA (el mapa del
+  super admin) iba en la primera carpeta de la capa; si esa carpeta queda vacía, el título se perdía. Ahora va en la primera
+  carpeta que SE VE.
+- **Cómo se miró sin levantar la app (levantarla escribe en producción, y con 1 GB libre no entraba):** una maqueta con el CSS
+  real, extraído del worktree, metida en un iframe del tamaño exacto (375×812, 360, 340 y 812×375), y las cajas medidas con
+  `getBoundingClientRect`. Chrome sin ventana no baja de ~500 px de ancho (docs/hallazgos-mobile.md); el iframe es la salida sin CDP.
+- **Sin hacer / sin ver:** no se vio en un Android real. Un área sin datos ya no tiene puerta en el Second Brain del teléfono
+  (antes era su «falta» con «Editar»): se llena desde los chats, desde Offer o con un `?area=<id>`. Si Martín quiere poder abrirla
+  vacía, es una decisión suya.
+
 ## El link de un cliente abría la lista del CRM, y el test lo fijaba así (20/10/2026)
 
 Lo encontró el chat de CRM. Código: lib/cerebro-vivo.ts (el nodo `cliente:<id>`) · tests/second-brain-links.test.ts.
@@ -87,6 +115,7 @@ lib/cerebro-union.ts, app/m/second-brain/SecondBrainM.tsx · tests/second-brain-
   (y `/admin/operaciones` cae en `/m/operaciones`). Ante un reporte del teléfono, lo primero es ver QUÉ pantalla sirve el teléfono
   (lib/movil-rutas.ts), no leer el componente de escritorio. Ahora el Mapa abre el MISMO `<Grafo>` a pantalla entera
   (`VistaCerebro movil`, un portal a `#m-root` para tener los tokens `[data-m]`) y la foto es el botón que lo reabre.
+  ⚠️ Desde el 22/10/2026 no hay foto ni portada: [el grafo ES la pantalla](#el-grafo-es-la-pantalla-del-teléfono-girar-al-lado-del-zoom-y-sin-falta-22102026).
 - **Con el dedo, tres cosas del grafo de escritorio estaban mal para un teléfono:** la tolerancia de 5 px (la rodada del pulgar ya era
   un arrastre y el nodo no se fijaba: 10 px con `pointerType === 'touch'`); arrastrar sobre un nodo movía el NODO (con 44 px de blanco por
   nodo, en un mapa denso no había por dónde panear: con el dedo siempre se panea); y mantener apretado abre el menú del navegador
@@ -111,7 +140,8 @@ lib/cerebro-union.ts, app/m/second-brain/SecondBrainM.tsx · tests/second-brain-
   probarlo en producción con Chrome de Android, en vertical y apaisado, y con el super admin. La lista del teléfono
   (`SecondBrainM`) conserva su selector «Negocio / Construcción» (son listas, no grafos; `ConstruccionM`). «Editar» desde el grafo
   del teléfono cierra el grafo y abre la hoja del área con una demora de 350 ms: cerrar el grafo consume su entrada del historial con
-  `history.back()` asíncrono y una hoja que hiciera su `pushState` antes se cerraría sola.
+  `history.back()` asíncrono y una hoja que hiciera su `pushState` antes se cerraría sola. ⚠️ SUPERADO el 22/10/2026: la hoja
+  abre encima del grafo, sin cerrarlo.
 
 **Vive en:** app/second-brain/Grafo.tsx · app/second-brain/VistaCerebro.tsx · app/second-brain/FiltroMapa.tsx ·
 app/second-brain/apaisar.ts · lib/cerebro-union.ts · lib/cerebro-filtro.ts · app/m/second-brain/SecondBrainM.tsx · *2026-10-17*
@@ -129,7 +159,8 @@ lib/cerebro-grafo.ts · tests/second-brain-negocio-vivo.test.ts.
   los leads. Sin datos no hay nodo; una lectura que falla no tumba el mapa (`.catch`); una venta nueva entra sola con el grafo vivo.
 - **Se quitó la estructura fija de huecos:** hasta hoy cada sección sin un dato dibujaba un `falta:<área>` colgado de la raíz (once
   casillas iguales para todos los negocios). Ahora lo que falta se DICE (el dato «Todavía sin info» de la raíz y el «falta» de cada
-  sección en la barra lateral, con su «Editar») y no se dibuja. `vacias` sigue en el modelo (el ZIP lo usa). El filtro «Sin completar»
+  sección en la barra lateral, con su «Editar») y no se dibuja. ⚠️ El 22/10/2026 Martín sacó el «falta»: una sección sin datos
+  ya no aparece en la barra lateral. `vacias` sigue en el modelo (el ZIP lo usa). El filtro «Sin completar»
   sólo se ofrece si hay algo sin completar.
 - **La excepción que este archivo ya conoce, aplicada de antemano (NO medida con clientes reales):** los clientes y las reuniones no se
   cuelgan además del nodo de área del funnel (`realesPorArea`). Colgar los 15 le subiría el grado hacia el de la raíz, y el hub tiene
@@ -2066,6 +2097,53 @@ hoja (una hoja sobre otra la cierra). Tres cosas que costaron:
   de Offer (app/offer/offer-api.ts → subirArchivo), no por /api/mako/chat.
 - **La foto en un mensaje de Offer es la de quien MIRA** (`MiFoto`, /api/perfil): para el dueño es la suya; el super admin que mira
   un cliente ve la propia en lo que escribió el dueño. Offer no guarda quién escribió cada mensaje.
+
+## Las cuatro fallas de la prueba de los chats, ARREGLADAS: lo guardado ya no miente (22/10/2026)
+
+El Cerebro probó el chat del Ops Center sin pantalla, como el cliente del ws3 (`scripts/probar-chats/ops-center.mts`, rama
+probar-chats-ops-center; el síntoma y la causa de cada una están en su entrada, «El chat del Ops Center probado SIN
+PANTALLA…»). Lo que quedó, en `lib/mako-turno-app.ts`, `lib/chat-pegado.ts`, `app/api/mako/chat/route.ts` y
+`lib/dictado-error.ts` (test: tests/chats-fallas-2210.test.ts):
+
+- **El pegado de la computadora va a El Archivero:** el envío sin fotos también pasa `guardarAdjuntos`. El test viejo
+  (second-brain-chat) fijaba «una sola vez, en el envío con archivos»: era la forma, no una regla.
+- **Lo escrito entra hasta 20.000 y lo que pasa se DICE:** `recortarMensaje` corta lo escrito con el mismo aviso que un
+  pegado, y lo escrito entero va a El Archivero como un pegado (`textosParaArchivar`). El test de chat-pegado fijaba el
+  corte CALLADO («lo escrito, hasta su tope»): un test puede proteger la falla.
+- **Un aviso que promete El Archivero sólo se escribe si se archiva:** se decide ANTES de cortar (`archiva`: el admin, con
+  `guardarAdjuntos`, y en un negocio con su IA, con qué). Si no, «[…se cortó aquí por largo]» (`AVISO_CORTE_SIN_ARCHIVO`).
+  La promesa falsa tampoco era sólo de la computadora: un pegado de alguien que no es el admin la escribía igual.
+- **Con una clave pegada gana el botón de SU servicio** (`tapado.servicio ?? conectar`).
+- **La nota de voz que no se escuchó se dice como el chat:** «ninguna IA pudo» → «necesito una IA conectada. Conecta la
+  tuya», y lo demás, que la grabe de nuevo. El detalle de la cascada va al log. ⚠️ Vive en `lib/`, no en la ruta: un
+  `route.ts` de Next sólo puede exportar sus métodos y su configuración, y la build se cae con cualquier otro export.
+
+**Una trampa del arnés que destapó el arreglo:** la marca contra los duplicados de El Archivero es por CORRIDA, y
+`largo-pegado-15000` y `largo-pegado-telefono` pegan el MISMO texto. Antes la computadora no archivaba y el teléfono
+entraba primero; ahora la computadora archiva primero, El Archivero no duplica el del teléfono (mismo hash), y ese caso
+sale «✗ no hay ninguna fila» en una corrida con los dos. Solo, pasa. La marca tiene que ser por CASO.
+
+**SIN HACER:** el «Conecta la tuya» tarda 12-16 s porque el turno arma el system antes de saber si hay IA (ver la entrada del
+Cerebro); el botón de un negocio sin ninguna IA sigue siendo Gemini, y eso lo decide Martín; la 0316 (`archivero_files.origen`)
+sigue sin aplicar en producción, y cada pegado archivado lo avisa en el log.
+
+## El «Cerebro» de Mauricio quedó mudo: el aviso de un turno que falla no se guarda (22/10/2026, cliente roto)
+
+Martín, con captura del ws1 (/second-brain?chat=40): dos mensajes de Mauricio del 18/10 («Dame claridad de mi avatar…» y
+«¿funciona esta sección?») sin nada debajo. Medido, sólo lectura: chart_chats de la sesión 40 tiene SÓLO esos dos `user`, y
+anthropic_usage del ws1 tiene, 8 s después del primero, «anthropic vetado: mako-doer» y nada más (del segundo, ni un intento).
+El turno fue a Claude, el veto lo cortó y no cayó a nada. Hoy el ws1 no tiene IA propia: sus claves son copias de las de
+MaKo y no cuentan (`negocioConSuIA(1)` → suIA false; `provsDe` → 0 de todo). El turno con herramientas usa SÓLO las cuentas del
+negocio (`chatCheapToolsCascade` no tiene la red de la plataforma, a diferencia de `chatCheap`), así que hoy le contestaría
+«Conecta la tuya».
+
+- **El silencio era de la pantalla, no del turno:** lo que dice un turno que falla es un aviso que NO se guarda. Al recargar,
+  el hilo terminaba en la pregunta de la persona. Ahora, pasado el techo del turno (7 minutos), se dice «No te pude
+  contestar esto.» con «Reintentar» (app/m/mako/chat-ui.ts → `conSinRespuesta`; test: tests/ops-sin-silencio.test.ts).
+- **SIN DECIDIR (pregunta al Cerebro, 22/10):** darle «Gemini de base» a un negocio sin IA choca con la regla del 16/10. Los
+  datos de los clientes de un cliente no van a un proveedor que entrena (el plan gratis de Gemini), y el chat del Ops Center
+  lee leads, cobros y reuniones. Las salidas son esa Gemini igual (decisión de Martín), el crédito de Claude de la plataforma
+  (no entrena; hoy sólo para el onboarding) o que conecte su IA.
 
 ## Ops Center del cliente: «el chat de X no llegó» se mide en la base, nunca mirando la pantalla como super admin (20/10/2026)
 

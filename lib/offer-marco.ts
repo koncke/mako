@@ -500,7 +500,17 @@ export type OfferSesionVista = {
    * `LECTURA_VENCE_MS` y se da por cortada (se puede volver a mandar).
    */
   leyendo: { nombres: string[]; vencido: boolean } | null;
+  /**
+   * La última conclusión se armó con el embudo del NEGOCIO ENTERO y el negocio tenía leads de otros funnels (OF1,
+   * 22/10/2026: `armadaConElEmbudoViejo` en lib/offer-reglas.ts, y la base la mira `nombresDeSesion`). La pantalla
+   * avisa y ofrece rehacerlo; la API de MaKo no entrega ese diagnóstico. Ausente o false en todo lo demás.
+   */
+  diagnosticoViejo?: boolean;
 };
+
+/** Lo que dice la pantalla de un diagnóstico armado con el embudo de otro funnel, y su botón (OF1, `diagnosticoViejo`). */
+export const AVISO_DIAGNOSTICO_VIEJO = 'Este diagnóstico usó datos de otro funnel.';
+export const REHACER_DIAGNOSTICO = 'Rehacer el diagnóstico';
 
 /** El paso del armado de la oferta en el servidor. */
 export type PasoArmado = 'diagnostico' | 'oferta';

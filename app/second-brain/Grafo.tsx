@@ -41,7 +41,7 @@ type NodoCerebro = NodoNegocio<string>;
 // 'use client' (AGENTS.md, MaKo Mobile: lo que /m reusa se muda a lib; nunca una copia).
 import {
   AUTORIA_CORTA, OPACIDAD_PENDIENTE, agruparConexiones, contarPorArea, esImagenDocumento, gradosDe, rellenoNodo, rutaVistaDocumento, sePuedeVerDocumento,
-  claveVistos, fechaCortaNodo, idsVistos, nuevosDesde, tipoDeNodo, ultimosDelCerebro,
+  carpetasConDatos, claveVistos, fechaCortaNodo, idsVistos, nuevosDesde, tipoDeNodo, ultimosDelCerebro,
 } from '@/lib/cerebro-areas';
 import { conWs, wsDeBusqueda } from '@/lib/ws-tab';
 import type { NodoFisico, Simulacion } from './fisica';
@@ -903,6 +903,8 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
   /** Cuántos datos REALES tiene cada sección. No cuenta el nodo de la propia área ni los
    *  pendientes: un «3 datos» que incluye lo que falta miente sobre lo que hay. */
   const porArea = useMemo(() => contarPorArea(nodos), [nodos]);
+  /** La barra lateral: sólo las áreas con algún dato, y sólo las carpetas que tienen alguna (`carpetasConDatos`). */
+  const carpetasDelNav = useMemo(() => carpetasConDatos(tax, porArea), [tax, porArea]);
 
   /** El área «en foco» no es un estado propio: ES el filtro cuando hay UNA sección
    *  elegida. Con dos o más no hay foco — atenuar «todo menos estas tres» no dice nada
@@ -1349,9 +1351,16 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
           align-self: center; font-family: var(--font-mono, ui-monospace, monospace); font-size: 11px;
           color: var(--cbg-tenue); white-space: nowrap; padding: 0 4px;
         }
+        /* LA FILA DE ABAJO: el zoom a la izquierda y, en el teléfono vertical, «Girar la pantalla» a la derecha, en la
+           MISMA fila y con el MISMO alto (22/10/2026, Martín: «abajo a la derecha, alineado»). Un contenedor flex y no dos
+           \`position: absolute\`: así el alto lo iguala \`align-items: stretch\` y nunca se tapan. */
+        .cbg .cbg-pie {
+          position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 3;
+          display: flex; align-items: stretch; gap: 8px; pointer-events: none;
+        }
+        .cbg .cbg-pie > * { pointer-events: auto; }
         .cbg .cbg-zoom {
-          position: absolute; left: 10px; bottom: 10px; z-index: 3;
-          display: flex; align-items: center; gap: 2px; padding: 3px;
+          display: flex; align-items: center; gap: 2px; padding: 3px; flex: none;
           border-radius: 12px; border: 1px solid var(--cbg-linea);
           background: color-mix(in srgb, var(--surface) 86%, transparent);
           backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
@@ -1677,7 +1686,6 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
         .cbg .cbg-nav__carpeta { margin-top: 16px; }
         .cbg .cbg-nav__areas { display: flex; flex-direction: column; gap: 1px; margin-top: 4px; }
         .cbg .cbg-nav__conteo { font-family: var(--font-mono, ui-monospace, monospace); font-size: 10.5px; color: var(--faint); flex: none; }
-        .cbg .cbg-nav__conteo[data-falta="1"] { color: var(--warn); }
         .cbg .cbg-nav__pista { margin: 18px 0 0; font-size: 12.5px; color: var(--faint); }
 
         /* El título de cada CAPA en el navegador (sólo el mapa único del super admin) y lo que es del teléfono. */
@@ -1695,11 +1703,15 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
           background: color-mix(in srgb, var(--surface) 86%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
         }
         .cbg .cbg-girar {
-          position: absolute; left: 10px; bottom: 58px; z-index: 4;
+          margin-left: auto; flex: none;
           display: inline-flex; align-items: center; gap: 8px; border: none; cursor: pointer;
-          padding: 10px 15px; border-radius: 999px; font: inherit; font-size: 13px; font-weight: 600;
+          padding: 0 14px; border-radius: 12px; font: inherit; font-size: 13px; font-weight: 600; white-space: nowrap;
           background: var(--primary); color: #fff; box-shadow: 0 6px 20px rgba(0,0,0,.4);
         }
+        /* Dice «Girar» y no «Girar la pantalla» (que queda en su aria-label): medido el 22/10/2026, a 375 px el texto largo
+           no entra al lado del zoom (217 px) y el botón se salía 13 px por la derecha. Con «Girar» la fila entra desde 350 px;
+           más angosto queda el ícono solo. */
+        @media (max-width: 359px) { .cbg .cbg-girar__txt { display: none; } }
         .cbg[data-movil] .cbg-ico { width: 38px; height: 38px; font-size: 17px; }
         .cbg[data-movil] .cbg-chip { padding: 9px 12px; }
         .cbg[data-movil] .cbg-link, .cbg[data-movil] .cbg-nav-fila { min-height: 40px; }
@@ -2023,20 +2035,23 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
         {/* El zoom es UN control (alejar · cuánto · acercar) y va junto; «ajustar» y «pantalla completa» cambian el
             ENCUADRE y van al lado, separados por una raya. Abajo a la izquierda desde el 17/10/2026. */}
         {/* El teléfono en vertical: el grafo pide ser mirado de costado. Es un BOTÓN y no algo que pase solo porque la
-            pantalla completa (y con ella bloquear la rotación) exige un toque (app/second-brain/apaisar.ts). */}
-        {movil && retrato && !sinGiro && !nodoSel && (
-          <button type="button" className="cbg-girar" onClick={pantallaCompleta}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="3" y="7" width="18" height="11" rx="2" /><path d="M12 3v2M7 3.5l1 1.6M17 3.5l-1 1.6" /></svg>
-            Girar la pantalla
-          </button>
-        )}
-        <div className="cbg-zoom" role="toolbar" aria-label="Zoom del grafo">
-          <button type="button" className="cbg-ico" onClick={() => zoomPaso(1 / 1.3)} title="Alejar" aria-label="Alejar">−</button>
-          <span className="cbg-zoom__pct">{zoomPct}%</span>
-          <button type="button" className="cbg-ico" onClick={() => zoomPaso(1.3)} title="Acercar" aria-label="Acercar">+</button>
-          <span className="cbg-zoom__sep" aria-hidden />
-          <button type="button" className="cbg-ico" onClick={() => { tocoElZoom.current = false; ajustar(); }} title="Ajustar a la vista" aria-label="Ajustar a la vista">⤢</button>
-          <button type="button" className="cbg-ico" onClick={pantallaCompleta} title={enPantallaCompleta ? 'Salir de pantalla completa' : 'Pantalla completa'} aria-label={enPantallaCompleta ? 'Salir de pantalla completa' : 'Pantalla completa'}>⛶</button>
+            pantalla completa (y con ella bloquear la rotación) exige un toque (app/second-brain/apaisar.ts). Va abajo a la
+            DERECHA, en la fila del zoom y con su alto (`.cbg-pie`, 22/10/2026); antes flotaba arriba del zoom. */}
+        <div className="cbg-pie">
+          <div className="cbg-zoom" role="toolbar" aria-label="Zoom del grafo">
+            <button type="button" className="cbg-ico" onClick={() => zoomPaso(1 / 1.3)} title="Alejar" aria-label="Alejar">−</button>
+            <span className="cbg-zoom__pct">{zoomPct}%</span>
+            <button type="button" className="cbg-ico" onClick={() => zoomPaso(1.3)} title="Acercar" aria-label="Acercar">+</button>
+            <span className="cbg-zoom__sep" aria-hidden />
+            <button type="button" className="cbg-ico" onClick={() => { tocoElZoom.current = false; ajustar(); }} title="Ajustar a la vista" aria-label="Ajustar a la vista">⤢</button>
+            <button type="button" className="cbg-ico" onClick={pantallaCompleta} title={enPantallaCompleta ? 'Salir de pantalla completa' : 'Pantalla completa'} aria-label={enPantallaCompleta ? 'Salir de pantalla completa' : 'Pantalla completa'}>⛶</button>
+          </div>
+          {movil && retrato && !sinGiro && !nodoSel && (
+            <button type="button" className="cbg-girar" onClick={pantallaCompleta} aria-label="Girar la pantalla">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="3" y="7" width="18" height="11" rx="2" /><path d="M12 3v2M7 3.5l1 1.6M17 3.5l-1 1.6" /></svg>
+              <span className="cbg-girar__txt" aria-hidden>Girar</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -2194,7 +2209,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
             </div>
             {cuenta.total > 0 && (
               <p className="cbg-nav__desglose">
-                {cuenta.mako} de MaKo · {cuenta.usuario} tuyas{cuenta.pendientes ? ` · ${cuenta.pendientes} ${cuenta.pendientes === 1 ? 'falta' : 'faltan'}` : ''}
+                {cuenta.mako} de MaKo · {cuenta.usuario} tuyas
               </p>
             )}
 
@@ -2225,11 +2240,12 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
               </div>
             )}
 
-            {tax.carpetas.map((c) => {
-              const suyas = tax.areas.filter((a) => a.padre === c.id);
-              if (!suyas.length) return null;
-              // El título de cada CAPA (sólo el mapa único del super admin): también es el atajo para verla sola.
-              const capa = (tax.capas?.length ?? 0) > 1 ? tax.capas?.find((k) => k.carpetas[0] === c.id) : undefined;
+            {carpetasDelNav.map(({ carpeta: c, suyas }) => {
+              // El título de cada CAPA (sólo el mapa único del super admin): también es el atajo para verla sola. Va en la
+              // primera carpeta de la capa QUE SE VE: si la primera no tiene datos, ya no está.
+              const capa = (tax.capas?.length ?? 0) > 1
+                ? tax.capas?.find((k) => k.carpetas.find((id) => carpetasDelNav.some((x) => x.carpeta.id === id)) === c.id)
+                : undefined;
               return (
                 <Fragment key={c.id}>
                 {capa && (
@@ -2279,8 +2295,7 @@ export function Grafo({ cerebro, onEditarArea, onVerse, filtro, onFiltro: setFil
                           >
                             <span className="cbg-punto" style={{ background: a.color }} />
                             <span className="cbg-nav-txt">{a.nombre}</span>
-                            {/* El conteo dice si hay algo; el «falta» dice que no. Nunca un 0. */}
-                            <span className="cbg-nav__conteo" data-falta={n ? undefined : '1'}>{n || 'falta'}</span>
+                            <span className="cbg-nav__conteo">{n}</span>
                           </button>
                           {onEditarArea && esAreaDeNegocio(a.id) && (
                             <button
