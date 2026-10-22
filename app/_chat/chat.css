@@ -205,3 +205,26 @@
   flex: none; align-self: center; margin: 0 4px; white-space: nowrap; font-weight: 600;
   color: var(--primary-strong); background: var(--primary-bg); border-color: var(--primary-weak);
 }
+
+/* MaKo en cada tab (21/10/2026, MakoEnLaTab.tsx): la estrella abajo a la izquierda, pegada a la barra de la app, y el panel del
+   Cerebro a la IZQUIERDA («el chat de MaKo en las otras tabs se debe abrir siempre a la izquierda»), con la conversación del Ops
+   Center adentro (.co-panel). Encima del contenido de la tab y debajo de los modales. */
+.ch-tab-mako {
+  position: fixed; bottom: 16px; z-index: 55; display: grid; place-items: center; width: 56px; height: 56px; padding: 0;
+  border: 1px solid var(--border); border-radius: 50%; background: var(--surface); cursor: pointer;
+  box-shadow: 0 4px 16px rgba(18, 21, 27, .16);
+}
+.ch-tab-mako:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(18, 21, 27, .2); }
+.ch-tab-mako:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.ch-tab-panel {
+  position: fixed; top: 0; bottom: 0; z-index: 55; width: min(440px, calc(100vw - 68px)); display: flex;
+  background: var(--surface); border-right: 1px solid var(--border); box-shadow: 8px 0 28px rgba(18, 21, 27, .14);
+}
+.ch-tab-panel > .co-panel { flex: 1; }
+.ch-tab-panel__cerrar {
+  position: absolute; top: 10px; right: 10px; z-index: 2; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px;
+  background: none; color: var(--dim); font-size: 22px; line-height: 1; cursor: pointer;
+}
+.ch-tab-panel__cerrar:hover { background: var(--velo-hover); color: var(--ink); }
+.ch-tab-panel__cerrar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+@media (prefers-reduced-motion: reduce) { .ch-tab-mako:hover { transform: none; } }

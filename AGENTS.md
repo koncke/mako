@@ -1651,6 +1651,14 @@ código nuevo:
     y la fila de la barra con `FilaDeChat` (PiezasCentro.tsx). Nunca una cabecera, una columna de hilo o una fila propias: lo
     nuevo va en la pieza y lo tienen los dos. La lista del cliente es UNA, sin secciones plegables, y un chat de otra tab se SIGUE
     ahí con su motor (Offer por /api/offer), nunca «sigue en <tab>». tests/ops-center-cliente.test.ts.
+  - **MaKo EN CADA TAB: la estrella abajo a la izquierda y el panel a la IZQUIERDA, con el Cerebro** (21/10/2026; Martín: «el
+    chat de MaKo en las otras tabs se debe abrir siempre a la izquierda» y «los iconos de las criaturas siempre debe ser el
+    icono de MaKo, se envía lo que sea que envíen al cerebro y ya el cerebro se encarga de repartir»). Reemplaza el «chat fijo
+    a la derecha» del 18/10. La pieza es `<MakoEnLaTab tab="…" />` (app/_chat/MakoEnLaTab.tsx): lo que se escribe va al chat
+    «Cerebro» de la persona, el del Ops Center, con su motor y sus piezas. Ninguna tab abre un chat de MaKo suelto a la derecha.
+  - **LAS CRIATURAS, SIEMPRE VIVAS** (21/10/2026; Martín: «siempre, donde sea que estén deben tener su animación de movimiento,
+    y parpadeo»): Muneco.tsx flota y parpadea en cualquier ánimo (dormida, respira), cada una con su desfase (`--mun-desfase`),
+    con una animación CSS y nunca un timer; con `prefers-reduced-motion`, quietas. Una criatura nueva usa Muneco o Criatura.
   - **LO QUE EL CHAT DIBUJA SALE DE UN CAMPO, Y UNA LECTURA TAMBIÉN DIBUJA** (20/10/2026, lib/chat-bloques.ts). Una acción
     lo devuelve en `datos.bloque`; una LECTURA, en el `bloque` de su salida (`{ content, bloque }`), y sólo cuando el turno
     de la app pone `ctx.aDibujar`. Así el modelo no lo ve y WhatsApp no lo recibe. Un bloque de área se dibuja con la

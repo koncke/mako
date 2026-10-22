@@ -18,6 +18,10 @@ funcionar». Ramas `ops-center-cliente` (tanda 1, worktree `C:/dev/wt-ops-client
 **El teléfono (tanda 3, 22/10):** HECHO en la rama de la tanda 2: app/m/second-brain/ChatClienteM.tsx, la lista como pantalla y
 cada chat en su hoja, con el motor de la computadora (app/second-brain/useChatCliente.ts) y sus piezas (PiezasCliente.tsx).
 
+**Las tres reglas del 21/10 (~23:10), HECHAS:** la pieza `<MakoEnLaTab tab="…" />` (la estrella abajo a la izquierda y el Cerebro en
+un panel a la izquierda) y las criaturas siempre vivas. Falta que cada tab la monte en lugar de su chat a la derecha: el CRM primero
+(se le pasó la API el 22/10); las demás, cada una su chat (el INVENTARIO de tests/chat-unico.test.ts).
+
 **SIN HACER, en este orden:**
 1. **Borrar app/m/mako/ChatMako.tsx**, que quedó sin quien lo monte, con sus 15 tests (ver el hallazgo).
 2. **Los documentos en una conversación de Offer**: hoy el «+» dice que se pegue el texto o el link. Van por `subir-url` + `leer`

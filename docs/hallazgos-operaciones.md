@@ -1935,3 +1935,19 @@ impida.
   la cabecera en Conversacion.tsx ya no existe: está en PanelChat.tsx.
 - **MensajeWA.tsx** suma `sin` (las opciones que un chat no tiene: el cliente no reenvía) y `mensajes` en `BarraFijados` (un hilo
   que no es de líneas del Centro).
+
+## MaKo en cada tab a la izquierda, y las criaturas siempre vivas (21/10/2026, noche)
+
+Martín (~23:10): «el chat de MaKo en las otras tabs se debe abrir siempre a la izquierda», «los iconos de las criaturas siempre debe
+ser el icono de MaKo, se envía lo que sea que envíen al cerebro» y «las criaturas, siempre, donde sea que estén deben tener su
+animación de movimiento, y parpadeo». Código: app/_chat/MakoEnLaTab.tsx, Muneco.tsx, centro.css, criatura.css.
+
+- **La pieza de las tabs no es otro chat:** es la conversación «Cerebro» del Ops Center del cliente (useChatCliente.ts), con su
+  panel, su hilo y su caja. Cada tab la monta con `<MakoEnLaTab tab="…" />`; la migración de cada tab es de su chat (el CRM la
+  pidió primero).
+- **El panel se pega a la barra de la app, no al borde de la pantalla:** la barra mide 68 o 244 px según esté fija, y cambia sin
+  un `resize`. Se mide con un ResizeObserver sobre `[data-sidebar]`.
+- **El motor se monta con el panel abierto:** una tab que nunca abre a MaKo no pide nada.
+- **El desfase de cada criatura sale de su ASPECTO, no de su nombre.** Con el nombre, la estrella del «Ops Center» de la barra y la
+  del «Cerebro» dejaban de ser la misma criatura (tests/centro-ops7.test.ts lo fija comparando el HTML). Sin desfase, todas
+  parpadeaban a la vez, como un tablero.

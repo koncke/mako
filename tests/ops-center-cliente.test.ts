@@ -208,3 +208,25 @@ test('8. el teléfono: la lista es la pantalla y cada chat se abre en su hoja, c
   assert.match(m, /<FilaM leading=\{<CirculoNuevo size=\{40\} \/>\} titulo="Nuevo chat"/, '«Nuevo chat» arriba, con su círculo');
   assert.match(m, /\{cerebro && fila\(cerebro\)\}\s*\{corte\.map\(fila\)\}/, 'el Cerebro y después todos, en la MISMA lista');
 });
+
+// 21/10/2026 (~23:10), tres reglas de Martín para toda la app: el chat de MaKo de cada tab a la IZQUIERDA, con la estrella y al
+// Cerebro; y las criaturas siempre vivas. PROBADO ROMPIENDOLO (base 9/0): la pieza con su propio hilo → 8/1 · las criaturas
+// quietas fuera de «trabajando» → 8/1 · el desfase igual para todas → 8/1.
+test('9. MaKo en cada tab (la estrella, a la izquierda, al Cerebro) y las criaturas siempre vivas', async () => {
+  const t = sinComentarios(leer('app/_chat/MakoEnLaTab.tsx'));
+  assert.match(t, /<Muneco titulo=\{JEFE_SECOND_BRAIN\} animo="despierto" size=\{40\} \/>/, 'el botón es la estrella de MaKo');
+  assert.match(t, /useChatCliente\(\{ elegido, setElegido, activo: true, entrarAlCerebro: true,/, 'lo escrito va al Cerebro');
+  assert.match(t, /<HiloDelCliente k=\{k\} \/>/);
+  assert.doesNotMatch(t, /<CajaChat |<HiloMako |fetch\(/, 'sin caja, hilo ni pedidos propios');
+  assert.match(t, /className="ch-tab-panel" style=\{\{ left: izquierda \}\}/, 'el panel, pegado a la barra de la app');
+  assert.match(leer('app/_chat/chat.css'), /\.ch-tab-panel \{\s*position: fixed; top: 0; bottom: 0;/);
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { createElement } = await import('react');
+  const { Muneco } = await import('../app/admin/operaciones/Muneco');
+  const html = (titulo: string, animo: 'despierto' | 'dormido') => renderToStaticMarkup(createElement(Muneco, { titulo, animo }));
+  assert.match(html('CRM', 'despierto'), /class="mun-ojos mun-ojos--parpadeo"/, 'despierta también parpadea');
+  assert.notEqual(/--mun-desfase:([^;"]+)/.exec(html('CRM', 'despierto'))?.[1], /--mun-desfase:([^;"]+)/.exec(html('Pagos', 'despierto'))?.[1], 'cada una a su ritmo');
+  const css = leer('app/admin/operaciones/centro.css');
+  assert.match(css, /\.mun-cuerpo \{ animation: mun-flota 3\.8s ease-in-out var\(--mun-desfase, 0s\) infinite; \}/, 'flota en cualquier ánimo');
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{ \.mun-cuerpo, \.mun-ojos--parpadeo \{ animation: none !important; \} \}/);
+});
