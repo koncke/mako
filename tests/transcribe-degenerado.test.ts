@@ -21,7 +21,11 @@ import { readFileSync } from 'node:fs';
 
 const leer = (r: string) => readFileSync(new URL(r, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-const SRC = sinComentarios(leer('../lib/transcribe.ts'));
+// IA7 (22/10/2026): lo de los cursos (la cascada de Whisper y Gemini inline) se mudó a lib/transcribe-plataforma.ts, y los
+// anuncios escuchan con la IA del negocio (`transcribirAudio`, que tiene su propio detector) más el chequeo de `escuchar`.
+// lib/transcribe.ts ya no le pide nada a un STT directo: el último test lo fija.
+const SRC = sinComentarios(leer('../lib/transcribe-plataforma.ts'));
+const ANUNCIOS = sinComentarios(leer('../lib/transcribe.ts'));
 
 const entre = (desde: string, hasta: string) => {
   const i = SRC.indexOf(desde);
@@ -41,14 +45,17 @@ test('Whisper (cascada de cursos): un bucle se anota y se prueba el proveedor qu
   assert.match(cuerpo, /salidaDegenerada\(tr\.text \?\? ''\);\s*if \(bucle\) \{\s*errores\.push\([^;]*bucle\.motivo[^;]*\);[\s\S]*?continue;\s*\}/);
 });
 
-test('Whisper de los anuncios: un bucle es un error, no el guion', () => {
-  const cuerpo = entre('export async function transcribeAd(', '\n}\n');
-  assert.match(cuerpo, /const bucle = salidaDegenerada\(text\);\s*if \(bucle\) return \{[^}]*status: 'error'/);
+test('los anuncios: un bucle es un error, no el guion', () => {
+  const i = ANUNCIOS.indexOf('async function escuchar(');
+  assert.ok(i >= 0, 'no encontré «async function escuchar(»');
+  assert.match(ANUNCIOS.slice(i), /const bucle = salidaDegenerada\(texto\);\s*if \(bucle\) return \{ error: bucle\.motivo \};/);
+  assert.match(ANUNCIOS, /return \{ \.\.\.base, tipo: 'video', status: 'error', error: r\.error \};/, 'el error de escuchar llega a la fila');
 });
 
-test('cada pedido a un STT de lib/transcribe.ts tiene su detector', () => {
+test('cada pedido a un STT de lib/transcribe-plataforma.ts tiene su detector, y lib/transcribe.ts no pide ninguno directo', () => {
+  assert.equal((ANUNCIOS.match(/audio\/transcriptions|:generateContent|api\.openai\.com/g) || []).length, 0, 'lib/transcribe.ts le pide a un STT directo: tiene que ir por transcribirAudio (la IA del negocio)');
   const pedidos = (SRC.match(/audio\/transcriptions|:generateContent/g) || []).length;
   const detectores = (SRC.match(/salidaDegenerada\(/g) || []).length;
-  assert.ok(pedidos >= 3, `esperaba al menos 3 pedidos a un STT, vi ${pedidos}`);
+  assert.ok(pedidos >= 2, `esperaba al menos 2 pedidos a un STT, vi ${pedidos}`);
   assert.equal(detectores, pedidos, `${pedidos} pedidos a un STT y ${detectores} llamadas al detector`);
 });

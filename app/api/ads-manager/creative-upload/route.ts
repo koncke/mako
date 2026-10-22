@@ -139,7 +139,7 @@ async function transcribirYGuardar(bajada: Promise<ArrayBuffer | null>, tamano: 
     const secciones = t.status === 'ok' && t.transcript ? await structureTranscript(t.transcript) : null;
     await guardarTranscripcion(videoId, {
       status: t.status, transcript: t.transcript, secciones, idioma: t.idioma,
-      duracion_s: t.duracion_s, model: t.status === 'ok' ? 'whisper-1+gpt-4o-mini' : null, error: t.error, filename,
+      duracion_s: t.duracion_s, model: t.status === 'ok' ? t.model ?? null : null, error: t.error, filename,
     });
   } catch (e) {
     console.error('[creative-upload] transcripción al subir falló (sigue el cron)', e);

@@ -375,72 +375,8 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       ],
     },
   },
-  {
-    key: 'cerebras',
-    nombre: 'Cerebras',
-    categoria: 'Inteligencia',
-    paraQue: 'IA gratis y MUY rápida (corre Llama en su propio chip). Con function-calling. Ideal para rotar cuando Gemini se queda sin cuota, sin gastar.',
-    campos: [
-      { env: 'CEREBRAS_API_KEY', label: 'API key', secreto: true, placeholder: 'csk-…', nota: 'Empieza con csk-. Desde agosto de 2026 pide una tarjeta cargada: sin ella da error aunque esté bien escrita.' },
-      cuentaDe('CEREBRAS_API_KEY'),
-      ...keysExtra('cerebras', 'csk-…'),
-    ],
-    tutorial: {
-      url: 'https://cloud.cerebras.ai',
-      urlLabel: 'Cerebras Cloud → API Keys',
-      pasos: [
-        'Si no quieres cargar una tarjeta, omite Cerebras: con Groq tienes lo mismo, gratis.',
-        'Entra a cloud.cerebras.ai y carga la tarjeta que te pide (o en "Billing"): sin ella la key no responde.',
-        'En "API Keys" toca "Create API Key" y copia la key (csk-…, se ve UNA vez).',
-        'Pégala en "API key" y guarda.',
-        '"API key 2" es opcional: la key de otra cuenta, para cuando la primera llega a su tope.',
-      ],
-    },
-  },
-  {
-    key: 'mistral',
-    nombre: 'Mistral AI',
-    categoria: 'Inteligencia',
-    paraQue: 'IA europea con free tier (La Plateforme) y function-calling. Otra IA gratis para rotar sin caer en gasto.',
-    campos: [
-      { env: 'MISTRAL_API_KEY', label: 'API key', secreto: true, placeholder: '…', nota: 'Sin prefijo: cópiala entera. El plan gratis "Experiment" pide verificar tu teléfono por SMS.' },
-      cuentaDe('MISTRAL_API_KEY'),
-      ...keysExtra('mistral', '…'),
-    ],
-    tutorial: {
-      url: 'https://console.mistral.ai/api-keys',
-      urlLabel: 'Mistral Console → API Keys',
-      pasos: [
-        'Entra a console.mistral.ai y verifica tu teléfono con el código por SMS (no pide tarjeta).',
-        'Elige el plan "Experiment", el gratis. Ojo: en él Mistral puede usar tus textos para mejorar sus modelos.',
-        'En "API Keys" toca "Create new key" y copia la key entera (no tiene prefijo, se ve UNA vez).',
-        'Pégala en "API key" y guarda.',
-        '"API key 2" es opcional: la key de otra cuenta, para cuando la primera llega a su tope.',
-      ],
-    },
-  },
-  {
-    key: 'openrouter',
-    nombre: 'OpenRouter',
-    categoria: 'Inteligencia',
-    paraQue: 'Agregador: UNA key para decenas de modelos, varios GRATIS (Llama y otros con sufijo ":free"). Sirve para rotar y probar modelos sin múltiples cuentas.',
-    campos: [
-      { env: 'OPENROUTER_API_KEY', label: 'API key', secreto: true, placeholder: 'sk-or-…', nota: 'Empieza con sk-or-. Una sola key te da acceso a decenas de modelos, incluidos los gratis (los que terminan en ":free").' },
-      cuentaDe('OPENROUTER_API_KEY'),
-      ...keysExtra('openrouter', 'sk-or-…'),
-    ],
-    tutorial: {
-      url: 'https://openrouter.ai/keys',
-      urlLabel: 'OpenRouter → Keys',
-      pasos: [
-        'Entra a openrouter.ai/keys con Google, GitHub o tu correo. Es gratis y no pide tarjeta.',
-        'Toca "Create Key", ponle de nombre MaKo y deja vacío el tope de gasto ("Credit limit").',
-        'Copia la key (sk-or-…, se ve UNA vez), pégala en "API key" y guarda.',
-        'Los modelos ":free" no cobran: 50 usos por día, o 1.000 si cargas 10 dólares UNA sola vez.',
-        '"API key 2" es opcional: la key de otra cuenta, para cuando la primera llega a su tope.',
-      ],
-    },
-  },
+  // IA8 (22/10/2026): Cerebras, Mistral y OpenRouter se sacaron (docs/hallazgos-ia.md). ⚠️ Sin su método, una fila ya
+  // guardada no se puede borrar ni revelar desde la pantalla (ENVS_METODO): queda inerte; borrarla es SQL.
   {
     key: 'github',
     nombre: 'GitHub',

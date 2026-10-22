@@ -35,15 +35,13 @@
  * Antes de sacar o agregar uno acá: probá una llamada real con las keys que YA existen en
  * la base. «Está en la documentación» no es evidencia de nada.
  */
-export const PROVS_MULTIKEY = ['gemini', 'groq', 'mistral', 'openrouter'] as const;
+export const PROVS_MULTIKEY = ['gemini', 'groq'] as const;
 export type ProvMultiKey = (typeof PROVS_MULTIKEY)[number];
 
 /** La clave BASE de cada proveedor (la que ya existía y la que leen las libs). */
 export const ENV_BASE: Record<ProvMultiKey, string> = {
   gemini: 'GEMINI_API_KEY',
   groq: 'GROQ_API_KEY',
-  mistral: 'MISTRAL_API_KEY',
-  openrouter: 'OPENROUTER_API_KEY',
 };
 
 /**
@@ -200,7 +198,7 @@ export function veredictoDeIA(p: { fila: boolean; propia: boolean; delEntorno?: 
  * `wsDelEntorno`; Martín: «separá el ws1 de las claves de la plataforma... para que Mauricio pueda conectar su propia
  * IA»). Las del crédito de Claude (`ANTHROPIC_CREDITO_CUENTA*`) no entran: ya se leen sólo de la plataforma (veto).
  */
-const IA_DE_UNA_CUENTA: ReadonlySet<string> = new Set(['OPENAI_API_KEY', 'CEREBRAS_API_KEY', 'ANTHROPIC_API_KEY']);
+const IA_DE_UNA_CUENTA: ReadonlySet<string> = new Set(['OPENAI_API_KEY', 'ANTHROPIC_API_KEY']);
 export function esClaveDeIA(clave: string): boolean {
   const c = esClaveDeCuenta(clave) ? clave.slice(0, -SUFIJO_CUENTA.length) : clave;
   return IA_DE_UNA_CUENTA.has(c) || PROVS_MULTIKEY.some((p) => clavesDe(p).includes(c));

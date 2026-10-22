@@ -25,20 +25,21 @@ const GEMINI_SATURADO = 'gemini/GEMINI_API_KEY: chatCheap(gemini): HTTP 503: Thi
 test('el caso del ws1: sin keys propias y la red al tope de hoy → «llegó a su tope de hoy», con el link a Claude', () => {
   for (const red of [[GEMINI_DIA], [GROQ_TPD], [GEMINI_DIA, GROQ_TPD]]) {
     const f = falloDeIA([], false, red);
-    assert.deepEqual(f, { error: 'La IA gratis de MaKo llegó a su tope de hoy. Conecta tu Claude para seguir.', link: '/integraciones?abrir=anthropic' });
+    assert.deepEqual(f, { error: 'La IA gratis de MaKo llegó a su tope de hoy. Conecta tu Claude o tu GPT para seguir.', link: '/integraciones?abrir=anthropic' });
   }
   assert.equal(LINK_CONECTA_CLAUDE, '/integraciones?abrir=anthropic');
 });
 
 test('sin keys propias: cada cosa que le pasó a la red se dice distinto, y siempre con la salida (su Claude)', () => {
-  assert.equal(sinIAPropia([GEMINI_MINUTO]).error, 'La IA gratis de MaKo está al tope. Prueba en un rato o conecta tu Claude.');
-  assert.equal(sinIAPropia([GEMINI_SATURADO]).error, 'La IA gratis de MaKo está saturada. Prueba en un rato o conecta tu Claude.');
-  assert.equal(sinIAPropia(['groq/CHEAP_API_KEY: chatCheap(groq): socket hang up']).error, 'La IA gratis de MaKo no contestó. Prueba de nuevo o conecta tu Claude.');
+  assert.equal(sinIAPropia([GEMINI_MINUTO]).error, 'La IA gratis de MaKo está al tope. Prueba en un rato o conecta tu Claude o tu GPT.');
+  assert.equal(sinIAPropia([GEMINI_SATURADO]).error, 'La IA gratis de MaKo está saturada. Prueba en un rato o conecta tu Claude o tu GPT.');
+  assert.equal(sinIAPropia(['groq/CHEAP_API_KEY: chatCheap(groq): socket hang up']).error, 'La IA gratis de MaKo no contestó. Prueba de nuevo o conecta tu Claude o tu GPT.');
   // Sin red que probar (ninguna key de la agencia, o el ws del super admin): no tiene IA, y se dice así.
-  assert.deepEqual(sinIAPropia([]), { error: 'No tienes una IA conectada: conecta tu Claude.', link: LINK_CONECTA_CLAUDE });
+  assert.deepEqual(sinIAPropia([]), { error: 'No tienes una IA conectada: conecta tu Claude o tu GPT.', link: LINK_CONECTA_CLAUDE });
   // La red salteada a propósito: con su propio Claude (D6b), o porque el pedido lleva datos de clientes.
   assert.equal(sinIAPropia(['red gratis salteada: el negocio usa su propia IA (su Claude o su GPT)']).error,
-    'Con tu propio Claude, para armar el flujo necesito tu clave de Claude (en Integraciones).');
+    // Desde IA6 la IA propia también puede ser su GPT: «tu propia IA», y el link ya lleva a Integraciones.
+    'Con tu propia IA, para armar el flujo necesito tu clave de Claude o de OpenAI.');
   assert.match(sinIAPropia(['red gratis salteada: el pedido lleva datos de clientes y el plan gratis entrena con lo que recibe']).error, /^Conecta tu Claude en Integraciones: lleva datos de tus clientes/);
   // Todos llevan el link a Claude, y ninguno vuelve a «IA gratis conectada» ni al link de Gemini.
   for (const red of [[GEMINI_DIA], [GEMINI_MINUTO], [GEMINI_SATURADO], [], ['red gratis salteada: x']]) {

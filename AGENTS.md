@@ -2278,6 +2278,16 @@ Antes de escribir un límite —de tamaño, de progreso, de espaciado— comprob
 el límite real de la capa de abajo. Un número tuyo por encima del suyo no protege:
 promete.
 
+## Y un código que pide un archivo del Storage no se sube sin el archivo
+
+La 0.3.2 de «MaKo en tu computadora» se desplegó el 21/10/2026 sin sus ejecutables en el bucket `ia-pc`: a todo cliente
+nuevo el instalador le contestó «No pude preparar la descarga», con un 200, y nada lo marcó (IA1/IA2,
+docs/hallazgos-ia.md). **Antes de subir un cambio de `VERSION_PC` (lib/ia-pc-reglas.ts), Integración corre
+`npx tsx --conditions=react-server scripts/ia-pc/verificar-binarios.mts --env <.env.local del clon>`** (sólo lee: lista y
+firma). Si dice «⛔ falta», primero `scripts/ia-pc/publicar-binarios.mts --aplicar` (escribe en el Storage de producción:
+con el OK de Martín), después el deploy. Y una ruta que no puede servir lo que el código pide deja su fila en
+`errores_app` (`registrarError`), aunque le conteste a la persona con un 200.
+
 # NINGUNA pantalla se diseña de cero: se COPIA de una app que ya resolvió eso
 
 Pedido de Martín, textual, el 15/10/2026, después de rechazar dos pantallas seguidas (la de
@@ -4720,8 +4730,17 @@ permitido hacer las cosas MÁS restrictivas.
 **Y desde el 16/10/2026 hay una SEGUNDA puerta, y no se deriva de la primera: la clave de Anthropic DEL
 NEGOCIO.** Martín eligió que el crédito de API de Claude Max de un cliente entre por su clave propia (Ticketera
 `clientes-usan-su-claude`), y esa plata es del negocio, no de MaKo. La cascada de texto (`chatCheapCascade`) la prueba
-primero, por `conClaveDelNegocio` (lib/anthropic.ts), con un solo modelo barato y nunca en las funciones del Plan
-(`FEATURES_DEL_PLAN`). Lo que gobierna código nuevo:
+primero, por `conClaveDelNegocio` (lib/anthropic.ts), con el modelo que eligió el negocio (Haiku por default, IA5). Las
+funciones del Plan (`FEATURES_DEL_PLAN`) pasan desde el 22/10/2026 por la EXCEPCIÓN de Martín («Sí, si es su clave»): sólo
+con la clave que paga el negocio (nunca el crédito de Max de la plataforma), siempre con el barato, y su D6b se decide aparte
+(`planConSuClave`, lib/ia-del-negocio.ts). El Plan sigue sin pagar IA de MaKo por ninguna puerta. Lo que gobierna código
+nuevo:
+
+- **La puerta 2 de una función del Plan pide la decisión del Plan, en «sí» y CIERTA** (`planPuedePagarConSuClave`,
+  lib/solo-su-ia.ts). La cascada prueba la puerta 2 en cualquier pedido: sin esto, una frontera que no reconocía el crédito
+  de Martín (una fila de la plataforma ilegible, o el crédito con otro nombre) dejaba pagar al Plan con él.
+- **Una fila que existe y no se descifra también es «no pude leer»** en la frontera de la IA: `credWsEstricta(…, {
+  ilegibleTira: true })`. Sin la opción devuelve `null`, y una copia de la plataforma o el crédito pasaban por del negocio.
 
 - **La clave del negocio se lee con `credDelCliente`, nunca con `credWs`**: `credWs` cae al env de la plataforma
   cuando el workspace es el del dueño, y esa clave pasaría como del negocio.

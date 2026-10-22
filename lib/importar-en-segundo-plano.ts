@@ -59,7 +59,9 @@ export async function completarBorradorDeArchivos(opts: {
       // Los archivos se leen en paralelo; la extracción es UNA sola sobre el texto
       // pegado (son partes de un mismo asunto: extraer cada uno por separado devolvería
       // la misma tarea repetida N veces).
-      const lecturas = await Promise.all(archivos.map(async (a) => ({ nombre: a.nombre, ...(await archivoATexto(a.file)) })));
+      // Con la feature del PLAN (`plan-importar`, en FEATURES_DEL_PLAN): sin ella, la lectura de una foto o un PDF escaneado
+      // iba como «Importar al plan», que no es del Plan, y pagaba con Sonnet o con el crédito de Martín (revisión del lote 2).
+      const lecturas = await Promise.all(archivos.map(async (a) => ({ nombre: a.nombre, ...(await archivoATexto(a.file, { feature: 'plan-importar' })) })));
       const avisos = lecturas.filter((l) => l.warning).map((l) => l.warning!);
       const conTexto = lecturas.filter((l) => l.texto.trim());
 

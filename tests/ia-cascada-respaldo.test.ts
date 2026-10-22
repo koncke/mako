@@ -129,7 +129,8 @@ test('⚠️ NI MISTRAL NI CEREBRAS: un 4xx garantizado FABRICA el veredicto de 
   // proveedor que rebota siempre no es un escalón: es una línea de «rate limit»
   // garantizada en la lista con la que `causaDelFallo` decide.
   const linea = sinComentarios(leer('../lib/mako-doer-in.ts'))
-    .split('\n').find((l) => l.includes('const cands = ['));
+    // WA1 (22/10/2026): con su IA, la lista es sólo su OpenAI (`suIA ? ['openai'] : [...]`); la línea sigue siendo una.
+    .split('\n').find((l) => l.includes('const cands = '));
   assert.ok(linea, 'se fue la lista de candidatos del doer');
   assert.ok(!/mistral/.test(linea), `mistral volvió a la cascada del doer: ${linea}`);
   assert.ok(!/cerebras/.test(linea), `cerebras volvió a la cascada del doer: ${linea}`);

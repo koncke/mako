@@ -74,10 +74,17 @@ test('el interruptor de pánico y la falta de feature también cierran la puerta
   assert.equal(evaluarClaveDelNegocio({ feature: '', clave: NEGOCIO, clavesPlataforma: PLAT }).ok, false);
 });
 
-test('el Plan nunca paga IA, ni con la clave del negocio', () => {
+// Hasta el 22/10/2026: «el Plan nunca paga IA, ni con la clave del negocio». Desde ahí, la excepción de Martín, textual:
+// «Sí, si es su clave». MaKo sigue sin pagar el Plan; el negocio, con SU clave, sí, y con el barato.
+test('el Plan paga sólo con la clave que paga el negocio, y con el barato; nunca con el crédito de la plataforma', () => {
   assert.ok(FEATURES_DEL_PLAN.length >= 5);
+  const CREDITO = 'sk-ant-api03-credito-de-max-zzzzzzzzzzzzzzzzzzzzzzzzz';
   for (const f of FEATURES_DEL_PLAN) {
-    assert.equal(evaluarClaveDelNegocio({ feature: f, clave: NEGOCIO, clavesPlataforma: PLAT }).ok, false, `${f} usaría el crédito del negocio`);
+    const v = evaluarClaveDelNegocio({ feature: f, clave: NEGOCIO, clavesPlataforma: PLAT, model: 'claude-sonnet-5', creditosPlataforma: [CREDITO] });
+    assert.ok(v.ok && v.permiso.model === 'claude-haiku-4-5', `${f}: con su clave, sí, y con el barato aunque elija Sonnet`);
+    assert.equal(evaluarClaveDelNegocio({ feature: f, clave: CREDITO, clavesPlataforma: PLAT, creditosPlataforma: [CREDITO] }).ok, false, `${f} pagaría con el crédito de Martín`);
+    assert.equal(evaluarClaveDelNegocio({ feature: f, clave: NEGOCIO, clavesPlataforma: PLAT, creditosPlataforma: null }).ok, false, `${f}: sin poder comparar con el crédito, no`);
+    assert.equal(evaluarClaveDelNegocio({ feature: f, clave: PLAT[0], clavesPlataforma: PLAT, creditosPlataforma: [] }).ok, false, `${f}: con una copia de la de MaKo, no`);
   }
 });
 
@@ -102,8 +109,9 @@ function cuerpoDelIntento(): string {
   assert.ok(ini > 0 && con > ini, 'permisoDeLaClaveDelNegocio y después conClaveDelNegocio, en lib/anthropic.ts');
   const fin = src.indexOf('\nexport async function ', con + 10);
   const b = src.slice(ini, fin);
-  // Contra un recorte desbocado: medido el 20/10/2026, unos 3.600 caracteres.
-  assert.ok(b.length > 800 && b.length < 7000, `el recorte mide ${b.length}: está mirando otra cosa`);
+  // Contra un recorte desbocado: medido el 20/10/2026, unos 3.600 caracteres; el 22/10/2026, unos 8.100 (el modelo que
+  // elige el negocio y el crédito de Martín, IA5, y las claves de la plataforma en su propia función, en el medio).
+  assert.ok(b.length > 800 && b.length < 10_000, `el recorte mide ${b.length}: está mirando otra cosa`);
   return sinComentarios(b);
 }
 
@@ -118,9 +126,11 @@ test('se compara contra las TRES copias de la plataforma, leídas estrictas', ()
   assert.match(b, /process\.env\.ANTHROPIC_API_KEY/, 'falta el env');
   // La fila de la que sale el entorno de esta clave (`wsDelEntorno`). Hasta el 18/10/2026 era la del ws1 (`OWNER_WS`), y
   // así la clave propia de Mauricio nunca contaba como suya (Martín: «separá el ws1 de las claves de la plataforma»).
-  assert.match(b, /credWsEstricta\('ANTHROPIC_API_KEY', await wsDelEntorno\('ANTHROPIC_API_KEY'\)\)/, 'falta la fila del entorno');
-  assert.doesNotMatch(b, /credWsEstricta\('ANTHROPIC_API_KEY', OWNER_WS\)/, 'la fila del ws1 ya no es la de la plataforma');
-  assert.match(b, /credWsEstricta\('ANTHROPIC_API_KEY', await wsSuperAdmin\(\)\)/, 'falta la fila de la plataforma');
+  // Y una fila que existe y no se descifra TAMBIÉN es «no pude leer» (`ilegibleTira`, revisión adversarial de IA15): con
+  // `null`, una copia o el crédito de Martín pasaban por del negocio.
+  assert.match(b, /credWsEstricta\('ANTHROPIC_API_KEY', await wsDelEntorno\('ANTHROPIC_API_KEY'\), \{ ilegibleTira: true \}\)/, 'falta la fila del entorno (con ilegibleTira)');
+  assert.doesNotMatch(b, /credWsEstricta\('ANTHROPIC_API_KEY', OWNER_WS/, 'la fila del ws1 ya no es la de la plataforma');
+  assert.match(b, /credWsEstricta\('ANTHROPIC_API_KEY', await wsSuperAdmin\(\), \{ ilegibleTira: true \}\)/, 'falta la fila de la plataforma (con ilegibleTira)');
   assert.match(b, /evaluarClaveDelNegocio\(/);
 });
 
@@ -142,7 +152,9 @@ test('la marca del gasto del negocio se reconoce, y una fila de MaKo no', () => 
 
 test('la llamada con la clave del negocio se registra con la marca PRIMERO', () => {
   const b = cuerpoDelIntento();
-  assert.match(b, /recordUsage\([^)]*\[MOTIVO_CLAVE_DEL_NEGOCIO, /, 'la marca tiene que ir al principio del motivo');
+  assert.match(b, /recordUsage\([^)]*\[marcaDelGasto\(permiso\), /, 'la marca tiene que ir al principio del motivo');
+  // Y la marca es la del negocio, salvo que su clave sea el crédito de Max de la plataforma (revisión del lote 2).
+  assert.match(sinComentarios(leer('lib/anthropic.ts')), /const marcaDelGasto = \(permiso: PermisoClaveDelNegocio\): string =>\s*permiso\.esCredito \? `\$\{MOTIVO_CREDITO_PLATAFORMA\} \(su clave es el crédito\)` : MOTIVO_CLAVE_DEL_NEGOCIO;/);
 });
 
 test('el gasto de MaKo (lib/costos-ia.ts) no suma lo que pagó un negocio con su clave', () => {

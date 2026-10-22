@@ -65,6 +65,9 @@ import { mimeImagenWhatsApp, bloquesDeAdjuntos, placeholderDeAdjunto } from '@/l
 import { ordenarPorCuota, anotarRebote429 } from '@/lib/ia-cuotas';
 import { recordUsage } from '@/lib/anthropic-usage';
 import { rutearDoer } from '@/lib/mako-router';
+import { negocioConSuIA } from '@/lib/ia-del-negocio';
+import { avisoClaveTapadaEnElGrupo, escribioUnaClave, soloLaClave, taparClavesDelMensaje } from '@/lib/doer-claves';
+import { taparClaves } from '@/lib/claves-en-el-chat';
 import { overrideDeFeature } from '@/lib/model-registry';
 import { encolar, reclamar, soltar, pendientes, esperarSilencio, marcarProcesados, unirMensajes, huerfanosGlobal, VENTANA_MS, VENTANA_AUDIO_MS } from '@/lib/mako-doer-buffer';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
@@ -124,6 +127,16 @@ export async function gruposDoer(ws: number): Promise<string[]> {
 }
 export async function setGruposDoer(ws: number, jids: string[]): Promise<void> {
   await runWithWorkspace(ws, () => setSetting(KEY_GRUPOS, JSON.stringify([...new Set(jids)])));
+}
+/** ¿Ya se avisó la clave tapada de este mensaje? Recuerda 10 minutos, por proceso (las re-entregas llegan en segundos). */
+const avisosDeClave = ((globalThis as unknown as { __avisosDeClave?: Map<string, number> }).__avisosDeClave ??= new Map<string, number>());
+function avisoYaDado(msgId: string): boolean {
+  if (!msgId) return false;
+  const ahora = Date.now();
+  for (const [k, t] of avisosDeClave) if (ahora - t > 10 * 60_000) avisosDeClave.delete(k);
+  if (avisosDeClave.has(msgId)) return true;
+  avisosDeClave.set(msgId, ahora);
+  return false;
 }
 async function doerActivo(ws: number): Promise<boolean> {
   return runWithWorkspace(ws, async () => (await getSetting(KEY_ACTIVO)) !== 'false');
@@ -337,7 +350,7 @@ Ej: "Con Jesús la R1 se ve floja en el cierre. El análisis completo lo tienes 
  */
 async function contarKeysIA(): Promise<number> {
   let n = 0;
-  for (const prov of ['gemini', 'groq', 'cerebras', 'mistral', 'openrouter']) {
+  for (const prov of ['gemini', 'groq']) {
     n += (await clavesCargadas(prov).catch(() => [])).length;
   }
   return n;
@@ -404,7 +417,11 @@ export async function manejarEntranteDoer(instance: string, data: MsgIn): Promis
   if (jid !== suyo && !(await gruposDoer(OWNER_WS)).includes(jid)) {
     return { engaged: false, skip: 'grupo no habilitado' };
   }
-  return runWithWorkspace(wsData, () => bufferearYResponder(wsData, instance, data));
+  // ⚠️ NUNCA UNA KEY EN EL GRUPO (WA2, 22/10/2026; la pieza 1.6 del chat de la app, en este canal). Una clave pegada se
+  // TAPA en el mensaje entero —el texto, el caption, la cita y por eso el payload que va a la cola— antes de todo: la
+  // cola, la memoria (`mako_doer_conv`), el router y el modelo. Desde acá el crudo no se vuelve a leer (lib/doer-claves.ts).
+  const tapado = taparClavesDelMensaje(data);
+  return runWithWorkspace(wsData, () => bufferearYResponder(wsData, instance, tapado.mensaje, tapado));
 }
 
 /**
@@ -417,7 +434,7 @@ export async function manejarEntranteDoer(instance: string, data: MsgIn): Promis
  * Todo mensaje se ENCOLA. Una sola invocación gana el candado del grupo, espera el
  * silencio y contesta una vez por todo. Las otras encolan y se van calladas.
  */
-async function bufferearYResponder(wsData: number, instance: string, data: MsgIn): Promise<ResultadoDoer> {
+async function bufferearYResponder(wsData: number, instance: string, data: MsgIn, tapado?: { tapadas: number; servicio: string | null }): Promise<ResultadoDoer> {
   const jid = data.key?.remoteJid ?? '';
   const msgId = data.key?.id ?? '';
   const audio = audioDe(data);
@@ -460,8 +477,27 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
     return { engaged: false, skip: 'eco de mi propia respuesta' };
   }
 
-  const nuevo = await encolar(jid, { waId: msgId, texto, tieneMedia: !!adjunto, tieneAudio: !!audio, payload: data as unknown });
-  if (!nuevo && msgId) return { engaged: false, skip: 'ya estaba en la cola (re-entrega)' };
+  // Si el mensaje era SÓLO la clave, no queda nada que contestar: no se encola. Y el aviso, sólo si la clave estaba en lo
+  // que escribió ESTA persona: la de una cita se tapa en silencio (segunda revisión del lote 1).
+  const suyaTapada = !!tapado?.tapadas && escribioUnaClave(data);
+  const soloClave = suyaTapada && soloLaClave(texto) && !audio && !adjunto;
+  if (!soloClave) {
+    const nuevo = await encolar(jid, { waId: msgId, texto, tieneMedia: !!adjunto, tieneAudio: !!audio, payload: data as unknown });
+    if (!nuevo && msgId) return { engaged: false, skip: 'ya estaba en la cola (re-entrega)' };
+  }
+
+  // La clave tapada se le dice YA, con el link a su conexión (WA2). El mensaje con la clave sigue en el grupo (MaKo no borra
+  // lo que manda otro): el aviso le pide que lo borre. DESPUÉS de la deduplicación de la cola y sólo con MaKo prendido
+  // (revisión del lote 1): antes, una re-entrega repetía el aviso, y MaKo hablaba en un grupo donde está apagado. El que
+  // era sólo la clave no pasa por la cola: lo deduplica `avisoYaDado` (por proceso; una re-entrega a otra instancia lo
+  // repite, y es un aviso, no una escritura).
+  if (suyaTapada && (await doerActivo(OWNER_WS)) && (!soloClave || !avisoYaDado(msgId))) {
+    const aviso = avisoClaveTapadaEnElGrupo(linkApp(`/integraciones${tapado.servicio ? `?abrir=${tapado.servicio}` : ''}`, wsData));
+    const env = await enviarAGrupoJid(jid, aviso, 0);
+    if (env.ok && env.id) await registrarEnviado(OWNER_WS, jid, env.id);
+    if (soloClave) return { engaged: true, reply: aviso };
+  }
+  if (soloClave) return { engaged: false, skip: 'sólo una clave (tapada)' };
 
   const quien = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   if (!(await reclamar(jid, quien))) return { engaged: false, skip: 'encolado — ya hay alguien juntando' };
@@ -617,7 +653,8 @@ async function textoDeArchivo(instance: string, m: MsgIn): Promise<{ texto: stri
   // vía cara para algo que se resuelve con file.text(). Se lee y su contenido ES el texto.
   const file = new File([Buffer.from(b64, 'base64')], adj.nombre, { type: adj.mime || 'text/plain' });
   const lect = await archivoATexto(file).catch((e) => ({ texto: '', via: 'no-soportado' as const, warning: e instanceof Error ? e.message : String(e) }));
-  const contenido = (lect.texto || '').trim();
+  // Un .txt o un .env con una clave adentro también se tapa antes del modelo (WA2): lo que se lee es texto como el pegado.
+  const contenido = taparClaves((lect.texto || '').trim()).texto;
   if (!contenido) {
     return { texto: '', error: lect.warning
       ? `Me llegó «${adj.nombre}» pero no lo pude leer: ${lect.warning}`
@@ -1255,6 +1292,13 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       // runWithWorkspace(wsData)) → getTenantDb scopea al cliente dueño del grupo.
       // Si el dueño fijó un modelo a mano, ese pin manda; si no, el que eligió el router.
       const pin = await overrideDeFeature('mako-doer-in').catch(() => null);
+      // WA1 (22/10/2026): ¿el negocio tiene SU Claude o SU GPT? Entonces Hola MaKo contesta con su OpenAI y después su Claude,
+      // los dos por CLAVE (la puerta 2 del veto para Claude): nunca por la suscripción, porque esto corre de fondo (D6a), y
+      // sin Groq ni Gemini (D6b). Antes los candidatos eran [pin, groq, openai] y el escalado pedía `claude-sonnet-5` con
+      // `model` explícito, que el veto corta: el Claude del negocio no se probaba nunca.
+      const suIA = (await negocioConSuIA(wsData)).suIA;
+      // El loop de las baratas corre con su pin; con su IA y sin pin barato, con su OpenAI.
+      const pinL = pin && pin.provider !== 'anthropic' ? pin : suIA ? { provider: 'openai', model: 'gpt-4o-mini' } : null;
 
       // COSTO (feedback jul-19): el grueso del gasto del doer es el INPUT de los turnos
       // de tool-use (tools + historial + resultados). En Groq el input es ~gratis PERO el
@@ -1281,7 +1325,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
         // IA barata (Gemini/Groq), corremos el loop de tools DIRECTO ahí; si falla, avisamos
         // el error (NUNCA caemos a Claude ni gastamos Opus). Pin Claude o sin pin → Claude.
         try {
-          if (pin && pin.provider !== 'anthropic') {
+          if (pinL) {
             // ROTACIÓN PROACTIVA de IA baratas (NUNCA Claude): armamos [pineado + las que
             // soportan tools] y las ORDENAMOS POR CUOTA (las cerca del tope van al final) →
             // probamos primero las que todavía pueden, sin esperar el 429. OpenRouter ":free"
@@ -1336,7 +1380,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
              * el que estaba pensado para exactamente este turno. Estuvo inalcanzable
              * desde el 13/08 por el bug de `provsDe`.
              */
-            const cands = [pin.provider, 'groq', 'openai'].filter((p, i, a) => a.indexOf(p) === i);
+            const cands = suIA ? ['openai'] : [pinL.provider, 'groq', 'openai'].filter((p, i, a) => a.indexOf(p) === i);
             const orden = await ordenarPorCuota(cands).catch(() => cands);
             let ultErr: unknown = null;
             // ⚠️ TODOS los errores, no solo el último. `ultErr` alcanza para tirar,
@@ -1398,7 +1442,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 // ver lib/ia-rotacion-modelo.ts.
                 const esperaCuotaMaxMs = nInst === instancias.length - 1 ? 30_000 : 0;
                 const corridasAntes = corridasDelTurno;
-                const r = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, clave: inst.clave, model: prov === pin.provider ? pin.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${rotulo(inst)} ${ruta.motivo} «${recorte}»`, toolChoicePrimerPaso: forzarTool ? 'required' : undefined, esperaCuotaMaxMs });
+                const r = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, clave: inst.clave, model: prov === pinL.provider ? pinL.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${rotulo(inst)} ${ruta.motivo} «${recorte}»`, toolChoicePrimerPaso: forzarTool ? 'required' : undefined, esperaCuotaMaxMs });
                 /**
                  * ⚠️ ESTA SALIDA ERA MUDA, Y POR ESO EL CLIENTE LEYÓ «TE QUEDASTE SIN CUOTA».
                  *
@@ -1456,7 +1500,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 if (!vv.ok && vv.razon === 'link-inventado' && !linkBorrador && permitidasDelTurno.has('proponer_tareas_plan')) {
                   quisoBorrador = true;
                   console.warn(`[mako-doer-in] ${prov} inventó el link → reintento con la tool obligatoria`);
-                  const r2 = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, model: prov === pin.provider ? pin.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${prov} ${ruta.motivo} «${recorte}» · tool forzada`, toolChoicePrimerPaso: 'required' });
+                  const r2 = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, model: prov === pinL.provider ? pinL.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${prov} ${ruta.motivo} «${recorte}» · tool forzada`, toolChoicePrimerPaso: 'required' });
                   if (r2.text && !r2.text.startsWith('(')) {
                     texto2 = r2.text;
                     vv = validarRespuestaDoer(r2.text, { motivoRuta: ruta.motivo, linkBorrador });
@@ -1475,7 +1519,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                  */
                 if (!linkBorrador && corridasDelTurno === corridasAntes && tools.length && promesasDe(texto2).length) {
                   console.warn(`[mako-doer-in] ${prov} prometió sin hacer («${promesasDe(texto2).join('», «')}») → reintento con la herramienta obligatoria`);
-                  const r3 = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, clave: inst.clave, model: prov === pin.provider ? pin.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${rotulo(inst)} ${ruta.motivo} «${recorte}» · prometió sin hacer`, toolChoicePrimerPaso: 'required' });
+                  const r3 = await chatCheapTools(system, msgs, tools, nuevoIntento(), { provider: prov, clave: inst.clave, model: prov === pinL.provider ? pinL.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${rotulo(inst)} ${ruta.motivo} «${recorte}» · prometió sin hacer`, toolChoicePrimerPaso: 'required' });
                   if (r3.text && !r3.text.startsWith('(')) {
                     const v3 = validarRespuestaDoer(r3.text, { motivoRuta: ruta.motivo, linkBorrador });
                     if (v3.ok || v3.razon === 'sin-borrador' || linkBorrador) { texto2 = r3.text; vv = v3; }
@@ -1505,7 +1549,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
                 if (/429|rate.?limit|resource.?exhausted|quota/i.test(m2)) {
                   // La firma pide el Nº de CUENTA, no el nombre de la env var: es lo que
                   // `ordenarPorCuota` lee después para no volver a arrancar por la muerta.
-                  const modeloPedido = (prov === pin.provider ? pin.model : undefined) ?? inst.chatModel;
+                  const modeloPedido = (prov === pinL.provider ? pinL.model : undefined) ?? inst.chatModel;
                   void anotarRebote429(prov, nroCuenta(inst), modeloPedido, m2).catch(() => {});
                 }
                 console.warn(`[mako-doer-in] ${prov} falló: ${m2}`);
@@ -1537,7 +1581,25 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
             // `catch` de abajo; si no, corre SIN las herramientas que los leen, con el system
             // armado para las que quedan. Las pendientes son las que ve `listar_pendientes`
             // (las del grupo y las de la API del negocio); si no se pueden leer, cuentan.
-            const turnoRed = respuesta ? null : turnoParaLaRed({
+            // ── WA1: CON SU IA, DESPUÉS DE SU OPENAI, SU CLAUDE (por clave, la puerta 2 del veto). Sólo si el turno no ejecutó
+            // nada todavía: otro modelo después de una escritura la duplicaría (la misma regla de la cascada).
+            if (!respuesta && suIA && !linkBorrador && corridasDelTurno === 0) {
+              probadasCliente++;
+              try {
+                const { text } = await chatClaudeTools(system, msgs, tools, nuevoIntento(), {
+                  feature: 'mako-doer-in', soloSuClaude: true, maxSteps: 8, maxTokens: 2500,
+                  motivo: `su Claude · ${ruta.motivo} «${recorte}»`,
+                });
+                contestaronCliente++;
+                if (text?.trim() && !text.startsWith('(')) respuesta = text.trim();
+              } catch (e) {
+                const m = e instanceof Error ? e.message : String(e);
+                erroresIA.push(`anthropic/ANTHROPIC_API_KEY: ${m}`);
+                ultErr = e;
+                console.warn(`[mako-doer-in] ws=${wsData} su Claude no pudo: ${m}`);
+              }
+            }
+            const turnoRed = respuesta || suIA ? null : turnoParaLaRed({
               tools, delRegistro: turno.delRegistro,
               tiposPendientes: await listarPendientes(ctxApi).then((ps) => ps.map((p) => p.operacion)).catch(() => ['(no se pudieron leer las pendientes)']),
               texto, conAdjuntos: !!mediaBlocks,
@@ -1569,8 +1631,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
               // apuesta que ya sabemos perdida — pasó en la verificación de este
               // arreglo, con dos keys de Gemini comiéndose los 25 s enteros.
               const distintoPrimero = [
-                ...red.filter((r) => r.provider !== pin.provider),
-                ...red.filter((r) => r.provider === pin.provider),
+                ...red.filter((r) => r.provider !== pinL.provider),
+                ...red.filter((r) => r.provider === pinL.provider),
               ];
               for (const r of distintoPrimero) {
                 if (Date.now() > limite) {
@@ -1693,7 +1755,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
           // nuestra IA no lo cubrió: lo dice `textoSinRedPorDatos`. Con keys que fallaron, su causa sigue siendo la verdad.
           const sinRedPorSusDatos = sinRedPorDatos(errsPlat) && causa === 'sin_keys';
           respuesta = sinRedPorSusDatos
-            ? textoSinRedPorDatos(linkApp('/integraciones?abrir=gemini', wsData), eraDePlan ? 'armar el borrador' : 'contestar')
+            ? textoSinRedPorDatos(linkApp('/integraciones?abrir=anthropic', wsData), eraDePlan ? 'armar el borrador' : 'contestar')
             : causa === 'proveedor_caido'
             ? avisoNoPude(eraDePlan)
             : textoFalloIA(causa, linkKeysIA(APP_URL), eraDePlan ? 'armar el borrador' : 'contestar', nKeys);

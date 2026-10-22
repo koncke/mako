@@ -246,6 +246,19 @@ export async function emailDuenoWorkspace(ws: number | null): Promise<string> {
 }
 
 /**
+ * El nombre de pila del admin del negocio, para decirle a un closer «Pídele a Mauricio que conecte la IA del negocio»
+ * (IA4, 22/10/2026). '' si no hay o no se pudo leer: la pantalla dice «al admin de tu negocio».
+ */
+export async function nombreAdminDelNegocio(ws: number): Promise<string> {
+  const { data, error } = await getSupabaseServer()
+    .from('usuarios').select('nombre, email').eq('workspace_id', ws).eq('rol_ws', 'admin').neq('estado', 'suspendido')
+    .order('created_at', { ascending: true }).limit(1);
+  if (error) return '';
+  const f = (data ?? [])[0] as { nombre?: string | null; email?: string | null } | undefined;
+  return (f?.nombre ?? '').trim().split(/\s+/)[0] ?? '';
+}
+
+/**
  * Admins-de-cliente NO suspendidos de un workspace. Guard análogo a
  * contarAdminsActivos pero por-negocio: evita dejar a un cliente sin un
  * admin-cliente (rol_ws='admin') al suspender/eliminar/degradar un miembro.

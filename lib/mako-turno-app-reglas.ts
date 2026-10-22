@@ -516,7 +516,8 @@ export type RespuestaTurno = {
 export const AVISO_SIN_IA = 'Para contestarte necesito una IA conectada. Conecta la tuya y mándamelo de nuevo.';
 /** El modal que abre el botón (app/m/mako/chat-ui.ts → `botonConectar`): el de las keys de IA, el mismo que manda WhatsApp
  *  (`linkKeysIA`, lib/fallo-ia-texto.ts). */
-export const SERVICIO_IA = 'gemini';
+// IA9 (22/10/2026): su Claude (antes, Gemini gratis). Desde el modal se llega también a su GPT.
+export const SERVICIO_IA = 'anthropic';
 
 /** Lo que escribe la cascada cuando no tuvo NINGUNA cuenta que probar (lib/anthropic.ts, `chatClaudeTools`). */
 const SIN_NINGUNA_CUENTA = /sin proveedor gratis disponible/i;
@@ -548,13 +549,13 @@ export function avisoSinIA(delEntorno: boolean, servicio: string = SERVICIO_IA):
  * QUÉ IA LE ABRE «Conectar tu IA»: LA QUE EL NEGOCIO YA ELIGIÓ (20/10/2026, docs/investigacion-ops-center-19-10.md: «un
  * negocio que conectó sólo su Claude igual recibe el modal de Gemini»). Si tiene alguna guardada en su fila, se le abre
  * ésa —para arreglarla, no para pedirle otra—, en este orden: su Claude y su OpenAI primero (la decisión A de Martín:
- * cada negocio conecta la suya), después las gratis. Sin ninguna, Gemini (gratis, y el mismo link que manda WhatsApp).
+ * cada negocio conecta la suya), después las gratis. Sin ninguna, su Claude (IA9; el mismo link que manda WhatsApp).
  */
-export const IA_PARA_CONECTAR = ['anthropic', 'openai', 'gemini', 'groq', 'mistral', 'openrouter'] as const;
+export const IA_PARA_CONECTAR = ['anthropic', 'openai', 'gemini', 'groq'] as const;
 /** La credencial base de cada una (lib/integraciones-catalogo.ts): la que se mira en la fila del negocio. */
 export const ENV_DE_IA: Record<(typeof IA_PARA_CONECTAR)[number], string> = {
   anthropic: 'ANTHROPIC_API_KEY', openai: 'OPENAI_API_KEY', gemini: 'GEMINI_API_KEY',
-  groq: 'GROQ_API_KEY', mistral: 'MISTRAL_API_KEY', openrouter: 'OPENROUTER_API_KEY',
+  groq: 'GROQ_API_KEY',
 };
 export function iaParaConectar(conFila: readonly string[], soloSuya = false): string {
   // D6b (lib/solo-su-ia.ts): un negocio con su Claude o su GPT no usa las gratis, así que no se le ofrece Gemini aunque
@@ -574,7 +575,7 @@ export const AVISO_SU_CLAVE = 'Tu clave de Claude no funcionó (sin crédito o d
 /** A quien no conectó su computadora, en un negocio que corre con su propio Claude (D6b): dónde conectar la suya. */
 export const AVISO_CONECTA_TU_PC = 'Tu negocio contesta con su propio Claude. Para que te conteste a ti, conecta tu computadora en Tu cuenta → Tus cuentas de IA.';
 /** Con su propio Claude, una foto o un PDF escaneado se leen con SU OpenAI (D6b): nunca con Gemini. */
-export const AVISO_NO_LEI_SU_IA = (nombre: string) => `No pude leer «${nombre}»: con tu propio Claude, las fotos y los PDF escaneados los leo con tu clave de OpenAI. Escríbeme lo que dice.`;
+export const AVISO_NO_LEI_SU_IA = (nombre: string) => `No pude leer «${nombre}»: con tu propio Claude, las fotos y los PDF escaneados los leo con tu clave de Claude o de OpenAI. Escríbeme lo que dice.`;
 /** Con su propio Claude y sin una clave que lea (su Claude por clave o su OpenAI), El Archivero no corre: se dice. */
 export const AVISO_SIN_ARCHIVERO = 'Lo dejé en el chat, pero no en El Archivero: con tu propio Claude, para archivarlo necesito tu clave de Claude o de OpenAI.';
 /** Tiene su clave de Claude, pero la plataforma la pausó por un rato: no se le pide «tu clave», que ya la tiene. */

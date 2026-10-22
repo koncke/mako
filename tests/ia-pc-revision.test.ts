@@ -339,5 +339,6 @@ test('los topes y la limpieza: por negocio, el del código, y los turnos (con da
   const ui = sinComentarios(leer('app/integraciones/TusCuentasIA.tsx'));
   assert.match(ui, /const vencido = !!codigo && venceAt != null && ahora >= venceAt && delCodigo !== 'eligiendo';/);
   assert.match(ui, /\{\(error \|\| vencido \|\| delCodigo === 'gastado'\) && \(/);
-  assert.match(ui, /\{estado\?\.esAdmin && \(\s*<p className="tci-nota tci-otra">/, 'la clave de API es del negocio: sólo el admin');
+  assert.match(ui, /esAdmin=\{!!estado\?\.esAdmin\}/, 'la clave de API es del negocio: sólo el admin (IA4: lib/conectar-ia-reglas.ts)');
+  assert.match(sinComentarios(leer('lib/conectar-ia-reglas.ts')), /quien\.esAdmin\s*\?\s*\{ que: 'clave'/);
 });

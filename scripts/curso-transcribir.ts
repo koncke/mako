@@ -19,7 +19,7 @@ config({ path: resolve(process.cwd(), '.env.local') });
 import { readdirSync, readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from 'node:fs';
 import { join, extname, basename } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { transcribeMediaBuffer } from '../lib/transcribe';
+import { transcribeMediaBuffer } from '../lib/transcribe-plataforma';
 
 const arg = (n: string, d: string) => {
   const i = process.argv.indexOf(`--${n}`);

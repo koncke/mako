@@ -200,22 +200,31 @@ export function resumirErrores(errores: string[], max = 3): string {
  * la causa.** A una key vencida no la arregla esperar, y a una cuota agotada no la
  * arregla pegar otra key del mismo proveedor si ya tenés varias.
  */
+/**
+ * Lo que se le pide conectar a un negocio sin IA (IA9, 22/10/2026): SU Claude o SU GPT, la vía principal de todo lo que
+ * hace MaKo. Gemini y Groq dejan de ser lo recomendado. Lo importan las pantallas que dicen qué falta (TB3: PanelAnalista).
+ */
+export const CONECTA_TU_IA = 'Conecta tu Claude o tu GPT';
+/** El «Qué falta» de una tarjeta, corto. */
+export const FALTA_TU_IA = 'Tu Claude o tu GPT';
+
 export function mensajeIAFallo({ hayIA, motivo, errores = [], tema = 'esto' }: MotivoIA): string {
   const detalle = errores.length ? ` (${resumirErrores(errores)})` : '';
 
   // Nada conectado: es el ÚNICO caso donde pedir una key es la respuesta correcta.
   if (!hayIA) {
-    return `No hay ninguna IA conectada, así que MaKo no puede ${tema}. Conecta una IA gratis para empezar — con Gemini alcanza.`;
+    // IA9 (22/10/2026): la vía principal es la IA del cliente. Antes: «Conecta una IA gratis para empezar — con Gemini alcanza».
+    return `No hay ninguna IA conectada, así que MaKo no puede ${tema}. ${CONECTA_TU_IA} en Integraciones.`;
   }
   if (motivo?.startsWith('Se quedó sin cuota')) {
-    return `${motivo} Vuelve a andar cuando se reinicie (el free de Gemini reinicia cada día). Si no quieres esperar: suma otra cuenta del mismo proveedor o conecta otra IA gratis.${detalle}`;
+    return `${motivo} Vuelve a andar cuando se reinicie (el free de Gemini reinicia cada día). Si no quieres esperar: conecta tu Claude o tu GPT.${detalle}`;
   }
   if (motivo?.startsWith('La API key')) {
     return `${motivo} Pega una nueva.${detalle}`;
   }
   // Sin «Prueba de nuevo»: el mismo pedido rebota igual. Gemini es el que lee textos largos.
   if (motivo?.startsWith('El pedido es más largo')) {
-    return `${motivo} Conecta Gemini, que acepta textos largos.${detalle}`;
+    return `${motivo} ${CONECTA_TU_IA}, que aceptan textos largos.${detalle}`;
   }
   if (motivo) {
     return `${motivo} Prueba de nuevo en un momento.${detalle}`;

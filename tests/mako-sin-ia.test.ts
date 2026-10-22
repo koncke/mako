@@ -99,7 +99,7 @@ test('¿falta la IA del negocio?: el texto de la cascada, o cero cuentas propias
   assert.ok(AVISO_SIN_IA.length <= 100, AVISO_SIN_IA);
   assert.doesNotMatch(AVISO_SIN_IA, /api|key|gemini|groq|proveedor|vos|tenés|conectá/i);
   assert.match(AVISO_SIN_IA, /Conecta la tuya/);
-  assert.equal(SERVICIO_IA, 'gemini', 'el modal de las keys de IA, el mismo que manda WhatsApp (`linkKeysIA`)');
+  assert.equal(SERVICIO_IA, 'anthropic', 'el modal de su Claude, el mismo que manda WhatsApp (`linkKeysIA`; IA9: antes, Gemini)');
   assert.equal(servicioDeLink(`/integraciones?abrir=${SERVICIO_IA}`), SERVICIO_IA, 'es un modal que se abre suelto en cualquier tab');
   assert.equal(botonConectar(SERVICIO_IA), 'Conectar tu IA');
 
@@ -195,7 +195,8 @@ test('un negocio cuya IA fuera el entorno: ni botón ni «pega tu key»; lo resu
 test('la IA de la plataforma sale de la PLATAFORMA, no del ws1: hidratación, lecturas, guardar y la migración', () => {
   // Martín (18/10/2026): «Sí: separá el ws1 de las claves de la plataforma (que salgan del ws9 o del entorno) para que
   // Mauricio pueda conectar su propia IA». Qué es IA: la cascada (con sus cuentas y rótulos), OpenAI, Cerebras y Claude.
-  for (const c of ['GEMINI_API_KEY', 'GEMINI_API_KEY_4', 'GEMINI_API_KEY_4_ACCOUNT', 'GROQ_API_KEY_2', 'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'CEREBRAS_API_KEY', 'ANTHROPIC_API_KEY']) {
+  // IA8 (22/10/2026): OpenRouter y Cerebras se sacaron: sus claves ya no son «de IA» (nadie las lee).
+  for (const c of ['GEMINI_API_KEY', 'GEMINI_API_KEY_4', 'GEMINI_API_KEY_4_ACCOUNT', 'GROQ_API_KEY_2', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY']) {
     assert.ok(esClaveDeIA(c), `${c} es de IA`);
   }
   for (const c of ['META_ACCESS_TOKEN', 'RESEND_API_KEY', 'FATHOM_WEBHOOK_SECRET', 'ANTHROPIC_CREDITO_CUENTA1', 'GEMINI_API_KEY_11', 'ELEVENLABS_API_KEY']) {
@@ -224,7 +225,8 @@ test('la IA de la plataforma sale de la PLATAFORMA, no del ws1: hidratación, le
   for (const f of ['lib/anthropic.ts', 'lib/integraciones.ts']) {
     const s = sinComentarios(leer(f));
     assert.doesNotMatch(s, /credWsEstricta\([^)]*, OWNER_WS\)/, `${f}: la clave de Claude no se compara con la fila del ws1`);
-    assert.match(s, /await credWsEstricta\((?:'ANTHROPIC_API_KEY'|envBase), await wsDelEntorno\((?:'ANTHROPIC_API_KEY'|envBase)\)\)/, f);
+    // Con `{ ilegibleTira: true }` en la frontera de la IA (revisión adversarial de IA15).
+    assert.match(s, /await credWsEstricta\((?:'ANTHROPIC_API_KEY'|envBase), await wsDelEntorno\((?:'ANTHROPIC_API_KEY'|envBase)\)(?:, \{ ilegibleTira: true \})?\)/, f);
   }
   // La migración: en seco salvo `--aplicar`, aditiva (nunca borra), sin pisar, y sin imprimir un valor.
   const mig = sinComentarios(leer('scripts/ia-del-ws1-a-la-plataforma.mts'));
@@ -266,7 +268,8 @@ test('un negocio con SÓLO su Claude: el chat contesta con su clave, y «Conecta
   // Rota: sacar el intento con la clave del negocio → este test falla.
   const ant = sinComentarios(leer('lib/anthropic.ts'));
   const tools = ant.slice(ant.indexOf('export async function chatClaudeTools('));
-  const intento = tools.indexOf('const n = await permisoDeLaClaveDelNegocio(opts.feature).catch(() => null);');
+  // Desde WA1 la misma lectura aparece antes, en `soloSuClaude` (directo a su clave): ésta es la de DESPUÉS de la cascada.
+  const intento = tools.indexOf('const n = await permisoDeLaClaveDelNegocio(opts.feature).catch(() => null);', tools.indexOf('if (r) return { text: r.text'));
   assert.ok(intento > tools.indexOf('if (r) return { text: r.text') && intento < tools.indexOf("'sin proveedor gratis disponible'"),
     'después de la cascada que no contestó, antes de tirar');
   // Con su Claude en pausa, la pausa (no «sin proveedor», que le pedía conectar lo que ya tiene: revisión del 21/10/2026).
@@ -274,13 +277,16 @@ test('un negocio con SÓLO su Claude: el chat contesta con su clave, y «Conecta
   assert.match(tools, /if \(delNegocio\) permiso = delNegocio;/, 'el permiso es el de la puerta 2, no el de la plataforma');
   assert.match(tools, /const key = delNegocio \? delNegocio\.clave : await credWs\('ANTHROPIC_API_KEY'\);/, 'la clave que verificó el veto');
   assert.match(tools, /delNegocio\s*\? \{ model, max_tokens: opts\.maxTokens \?\? 4096, system, messages: msgs, tools \}/, 'el pedido que ya anda con su clave');
-  assert.match(tools, /delNegocio \? \[MOTIVO_CLAVE_DEL_NEGOCIO, /, 'lo paga el negocio: su marca primero');
+  // La marca del gasto, PRIMERO: la del negocio, o la del crédito de la plataforma si su clave es el crédito (`marcaDelGasto`,
+  // revisión del lote 2).
+  assert.match(tools, /delNegocio \? \[marcaDelGasto\(delNegocio\), /, 'lo paga el negocio: su marca primero');
   assert.match(tools, /if \(!delNegocio\) \{\s*model = opts\.fallbackModel \?\? 'claude-sonnet-5';/, 'no cae a Claude de la plataforma');
 
   // 4. El turno cuenta su Claude como IA propia, y mira SU fila (no el entorno) para elegir qué abrir.
   // Rota: `iaPropiaDelTurno` sin su Claude → este test falla (le pediría conectar algo que ya tiene).
   const turno = sinComentarios(leer('lib/mako-turno-app.ts'));
   // Desde el 21/10 también en pausa: sigue siendo SU Claude, y lo que se le dice es la pausa (tests/ia-pc-revision.test.ts).
-  assert.match(turno, /const claude = await permisoDeLaClaveDelNegocio\(FEATURE\);\s*if \(claude\) n\+\+;/);
+  // Sin poder comprobarla (revisión de IA5/IA12), «no sé», como el `catch`: ni la cuenta ni le pide conectarla.
+  assert.match(turno, /const claude = await permisoDeLaClaveDelNegocio\(FEATURE\);\s*if \(claude && 'noPudeLeer' in claude\) return null;\s*if \(claude\) n\+\+;/);
   assert.match(turno, /for \(const s of IA_PARA_CONECTAR\) if \(await credDelCliente\(ENV_DE_IA\[s\]\)/);
 });

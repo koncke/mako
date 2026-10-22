@@ -58,7 +58,8 @@ test('«su IA» son sus claves PROPIAS: la copia de la plataforma no cuenta; la 
   assert.deepEqual(V.claves.propia, SI);
   assert.deepEqual(V.claves.placeholder, NO, 'un «PENDING…» no es una clave');
   assert.deepEqual(V.claves.plataforma, NO, 'la plataforma misma queda afuera');
-  assert.deepEqual(V.plataformaIlegible, SI, 'sin poder leer la de la plataforma, no se sabe si es copia: falla cerrada');
+  // IA6 (revisión): la falla cerrada dice que es INCIERTA, para que la puerta de D6b no la recuerde 60 s.
+  assert.deepEqual(V.plataformaIlegible, { ...SI, incierto: true }, 'sin poder leer la de la plataforma, no se sabe si es copia: falla cerrada');
 });
 
 test('sin la mig 0322, un negocio sin ninguna PC registrada sigue con su IA de siempre (no todos sin IA)', () => {

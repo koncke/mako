@@ -24,6 +24,7 @@ import 'server-only';
 import { descifrarSecreto, wsDelEntorno } from './credenciales';
 import { negocioConPc } from './ia-pc';
 import { MAX_KEYS } from './ia-keys';
+import { CLAVES_CREDITO_PLATAFORMA } from './veto-claude';
 import { conSoloSuIA } from './solo-su-ia';
 import { getSupabaseServer } from './supabase';
 import { wsSuperAdmin } from './workspace';
@@ -53,19 +54,33 @@ async function clavesDeLaPlataforma(clave: string): Promise<Set<string>> {
   return out;
 }
 
-/** ¿El negocio tiene una clave de IA PROPIA? Copia de la plataforma: no. Guardada e ilegible: sí. Tira si no pudo leer. */
-async function claveDeIAPropia(ws: number): Promise<boolean> {
+/** Cómo está cada clave de IA guardada en la fila del negocio. Sin fila (o un valor vacío o PENDING), no aparece. */
+export type SuClaveGuardada = { clave: (typeof CLAVES_SU_IA)[number]; es: 'propia' | 'copia' | 'ilegible' };
+
+/** Las claves de IA del negocio, cada una con lo que es. Tira si no pudo leer (la falla cerrada la decide quien llama). */
+export async function susClaves(ws: number): Promise<SuClaveGuardada[]> {
   const { data, error } = await getSupabaseServer().from('credenciales').select('clave, valor_enc').eq('workspace_id', ws).in('clave', [...CLAVES_SU_IA]);
   if (error) throw new Error(`credenciales: ${error.message}`);
+  const out: SuClaveGuardada[] = [];
   for (const f of data ?? []) {
-    const valor = descifrarSecreto(String(f.valor_enc ?? ''), ws, String(f.clave));
-    if (valor == null) {
-      console.error(`[ia-del-negocio] ws=${ws}: ${String(f.clave)} está guardada pero no se puede leer: cuenta como suya`);
+    const clave = String(f.clave) as SuClaveGuardada['clave'];
+    const valor = descifrarSecreto(String(f.valor_enc ?? ''), ws, clave);
+    if (valor == null) { out.push({ clave, es: 'ilegible' }); continue; }
+    if (!esReal(valor)) continue;
+    out.push({ clave, es: (await clavesDeLaPlataforma(clave)).has(valor.trim()) ? 'copia' : 'propia' });
+  }
+  return out;
+}
+
+/** ¿El negocio tiene una clave de IA PROPIA? Copia de la plataforma: no. Guardada e ilegible: sí. Tira si no pudo leer. */
+async function claveDeIAPropia(ws: number): Promise<boolean> {
+  for (const c of await susClaves(ws)) {
+    if (c.es === 'ilegible') {
+      console.error(`[ia-del-negocio] ws=${ws}: ${c.clave} está guardada pero no se puede leer: cuenta como suya`);
       return true;
     }
-    if (!esReal(valor)) continue;
-    if ((await clavesDeLaPlataforma(String(f.clave))).has(valor.trim())) {
-      console.warn(`[ia-del-negocio] ws=${ws}: ${String(f.clave)} es una copia de la de la plataforma: no es su IA`);
+    if (c.es === 'copia') {
+      console.warn(`[ia-del-negocio] ws=${ws}: ${c.clave} es una copia de la de la plataforma: no es su IA`);
       continue;
     }
     return true;
@@ -73,11 +88,54 @@ async function claveDeIAPropia(ws: number): Promise<boolean> {
   return false;
 }
 
+/** El valor de una clave de la fila del negocio, o null. Tira si no pudo leer. */
+async function valorDeSuClave(ws: number, clave: string): Promise<string | null> {
+  const { data, error } = await getSupabaseServer().from('credenciales').select('valor_enc').eq('workspace_id', ws).eq('clave', clave).maybeSingle();
+  if (error) throw new Error(`credenciales: ${error.message}`);
+  if (!data) return null;
+  const v = descifrarSecreto(String(data.valor_enc ?? ''), ws, clave);
+  if (v == null) throw new Error(`la clave ${clave} del negocio no se puede leer`);
+  return esReal(v) ? v.trim() : null;
+}
+
+/**
+ * ¿El PLAN de este negocio usa SU IA? Martín, 22/10/2026, textual: «Sí, si es su clave». Es una EXCEPCIÓN a «NO, JAMÁS
+ * algo pago para el plan» (30/09/2026): el Plan no paga IA de MaKo, pero si el negocio conectó y paga su propia clave, su
+ * Plan la usa; si no, sigue como siempre.
+ *   · Cuenta su OpenAI, o su Claude si NO es el crédito de Max de la plataforma (el ws10: esa clave la paga Martín).
+ *   · La PC no cuenta: el Plan corre de fondo (el Perro, las reuniones), y la suscripción no se puede usar de fondo (D6a).
+ *   · Falla CERRADA, como `negocioConSuIA`: sin poder leer, sí (no se arriesgan datos de clientes en Gemini; la puerta 2
+ *     igual no paga con una clave que no pudo comparar con el crédito).
+ */
+export async function planConSuClave(ws: number): Promise<{ suClave: boolean; incierto?: true }> {
+  try {
+    if (ws === (await wsSuperAdmin())) return { suClave: false };
+    for (const c of await susClaves(ws)) {
+      if (c.es === 'copia') continue;
+      if (c.es === 'ilegible' || c.clave === 'OPENAI_API_KEY') return { suClave: true };
+      const suya = await valorDeSuClave(ws, c.clave);
+      let credito = false;
+      // La MARCA explícita primero (lib/credito-marca.ts): vale aunque la fila del crédito de la plataforma ya no exista. El
+      // valor, de respaldo.
+      const { leerMarcaDeCredito, esElCreditoMarcado } = await import('./credito-marca');
+      if (suya && esElCreditoMarcado(suya, await leerMarcaDeCredito(ws))) credito = true;
+      for (const nombre of CLAVES_CREDITO_PLATAFORMA) if (!credito && suya && (await clavesDeLaPlataforma(nombre)).has(suya)) credito = true;
+      if (!credito) return { suClave: true };
+    }
+    return { suClave: false };
+  } catch (e) {
+    console.error(`[ia-del-negocio] ws=${ws}: no pude saber si su Plan tiene su clave, así que va como si la tuviera: ${e instanceof Error ? e.message : String(e)}`);
+    return { suClave: true, incierto: true };
+  }
+}
+
 export type IaDelNegocio = {
   /** Con su IA: el turno corre dentro de `conSoloSuIA` (lib/solo-su-ia.ts). */
   suIA: boolean;
   /** Alguien del negocio conectó su computadora: a quien no conectó la suya se le dice dónde. */
   conPc: boolean;
+  /** No se pudo saber (la base no contestó): `suIA` es la falla cerrada. La puerta de D6b no la recuerda (IA6, revisión). */
+  incierto?: true;
 };
 
 export async function negocioConSuIA(ws: number): Promise<IaDelNegocio> {
@@ -88,7 +146,7 @@ export async function negocioConSuIA(ws: number): Promise<IaDelNegocio> {
     return { suIA: await claveDeIAPropia(ws), conPc: false };
   } catch (e) {
     console.error(`[ia-del-negocio] ws=${ws}: no pude saber si tiene su IA, así que va como si la tuviera: ${e instanceof Error ? e.message : String(e)}`);
-    return { suIA: true, conPc: false };
+    return { suIA: true, conPc: false, incierto: true };
   }
 }
 
