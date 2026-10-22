@@ -29,6 +29,7 @@ import { getLead, logLeadEvent, setPipelineStage } from './leads';
 import { getPipelineStagesDeLead } from './funnels';
 import { etapaDeGanado } from './pipeline';
 import { listProductos } from './productos';
+import { ganarEnElCrm, prepararTratoDelPago, primerPagoDelProducto, type TratoDelPago } from './cobro-etapa-server';
 import { registrarCobroDeProveedor, desmarcarCobroDeProveedor, remarcarCobroDeProveedor } from './pagos';
 import { hoyEnWorkspace } from './timezone';
 import { capaDef, type CapaId } from './capas';
@@ -324,7 +325,15 @@ export async function crearCobro(ws: number, p: {
     if (p.productoId) {
       const prod = (await listProductos(true)).find((x) => x.id === p.productoId);
       if (!prod) return { ok: false, error: 'Ese producto no está activo en el catálogo.' };
-      producto = { id: prod.id, nombre: prod.nombre, tipo: prod.tipo === 'suscripcion' ? 'suscripcion' : 'unico', monto_usd: prod.monto_usd };
+      // UN PRODUCTO EN CUOTAS (mig 0326) cobra su PRIMER pago: el resto es el plan que se arma al pagarse
+      // (`prepararTratoDelPago`, lib/cobro-etapa-server.ts). Sin cuotas, su precio, como siempre.
+      let primero: number | null;
+      try {
+        primero = prod.tipo === 'suscripcion' ? null : await primerPagoDelProducto(prod.id);
+      } catch (e) {
+        return { ok: false, error: `No pude leer el producto: ${e instanceof Error ? e.message : String(e)}` };
+      }
+      producto = { id: prod.id, nombre: prod.nombre, tipo: prod.tipo === 'suscripcion' ? 'suscripcion' : 'unico', monto_usd: primero ?? prod.monto_usd };
     }
     const tipo: TipoCobro = p.tipo ?? producto?.tipo ?? 'unico';
     const email = (p.email ?? lead.email ?? '').trim().toLowerCase() || null;
@@ -527,6 +536,20 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
       actual = (await actualizar(ws, c.id, { motivo: null })) ?? actual;
     }
 
+    // 1b. ⚠️ EL TRATO DEL PAGO (mig 0326, «Vincular cobro»): un producto vinculado a la etapa Ganado de un CRM entra en el
+    //     trato de ESE CRM, con su plan si va en cuotas; uno en cuotas sin vínculo arma su plan en la casa. null = el camino
+    //     de siempre. Si falla, como el CRM de abajo: queda dicho en el cobro y el próximo aviso lo completa (se repite sin
+    //     pisar nada: lib/cobro-etapa-server.ts).
+    let trato: TratoDelPago | null = null;
+    if (actual.lead_id && !renovacion) {
+      try {
+        trato = await prepararTratoDelPago(actual, { renovacion, fecha });
+      } catch (e) {
+        await actualizar(ws, c.id, { motivo: `El pago entró pero no pude prepararlo en su CRM: ${e instanceof Error ? e.message : String(e)}`.slice(0, 300) });
+        throw e;
+      }
+    }
+
     // 2. El CRM: la cuota. Idempotente por (workspace, proveedor, proveedor_pago_id).
     let cuotaNueva = false;
     let cuotaAsentada = false;
@@ -541,7 +564,7 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
       } else {
         try {
           const r = await registrarCobroDeProveedor({
-            leadId: actual.lead_id, cobroId: actual.id, pagoId: renovacion ? null : actual.pago_id,
+            leadId: actual.lead_id, cobroId: actual.id, pagoId: renovacion ? null : (actual.pago_id ?? trato?.pagoId ?? null), crm: trato?.pagoEn ?? null,
             proveedor: actual.proveedor, proveedorPagoId: p.proveedorPagoId, montoUsd,
             montoOriginal: renovacion && p.monto ? p.monto : actual.monto, moneda: (renovacion && p.moneda) || actual.moneda, fechaPago: fecha,
           });
@@ -572,7 +595,10 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
     // 3. Ganar el lead (sólo si no está ganado): por setPipelineStage y la etapa de SU embudo,
     //    nunca escribiendo estado_lead a mano (tests/crm-curso-al-ganar.test.ts). Esto es lo que
     //    evita que el CRM automático le escriba «no agendaste» a quien pagó (docs/proyeccion-04oct.md §4.6).
-    if (actual.lead_id) await ganarLead(actual, autor, plazo);
+    //    Con un vínculo (mig 0326): en el CRM del vínculo, y la casa sólo si el pago es suyo (una suscripción, o el vínculo
+    //    es la casa misma). Un producto en cuotas gana por su PRECIO, no por el primer pago.
+    if (actual.lead_id && (!trato || trato.ganaEnCasa)) await ganarLead(actual, autor, plazo, trato?.montoVenta ?? null);
+    if (actual.lead_id && trato?.ganaEnCrm) await ganarEnSuCrm(actual, trato.ganaEnCrm, autor);
 
     // 4. El historial: una línea por cuota nueva, firmada por la pasarela.
     if (actual.lead_id && cuotaNueva) {
@@ -734,7 +760,7 @@ async function reabrirSuscripcionDelLead(c: Cobro, autor: string): Promise<void>
   }
 }
 
-async function ganarLead(c: Cobro, autor: string, plazo: number | null = null): Promise<void> {
+async function ganarLead(c: Cobro, autor: string, plazo: number | null = null, montoVenta: number | null = null): Promise<void> {
   if (!c.lead_id) return;
   const lead = await getLead(c.lead_id);
   if (!lead || lead.estado_lead === 'ganado') return;
@@ -753,13 +779,27 @@ async function ganarLead(c: Cobro, autor: string, plazo: number | null = null): 
     }
     await setPipelineStage(lead.id, etapa, {
       autor,
-      monto: c.tipo === 'unico' ? c.monto_usd : null,
+      monto: c.tipo === 'unico' ? (montoVenta ?? c.monto_usd) : null,
       requisitos: { omitir: `Pago confirmado por ${NOMBRE_PASARELA[c.proveedor]}` },
     });
   } catch (e) {
     // Mover nunca puede tumbar el registro del pago: queda dicho en el cobro y en los logs.
     console.error(`[cobros] no pude pasar a Ganado el lead ${lead.id}:`, e instanceof Error ? e.message : String(e));
     await actualizar(c.workspace_id, c.id, { motivo: `Pagado, pero no pude pasarlo a Ganado: ${e instanceof Error ? e.message : String(e)}`.slice(0, 300) });
+  }
+}
+
+/**
+ * Gana al lead en el CRM del vínculo de su producto (mig 0326). Como `ganarLead`: mover nunca tumba el registro del pago,
+ * queda dicho en el cobro y en los logs.
+ */
+async function ganarEnSuCrm(c: Cobro, g: { crm: number; etapa: string }, autor: string): Promise<void> {
+  if (!c.lead_id) return;
+  try {
+    await ganarEnElCrm(c.lead_id, g, autor);
+  } catch (e) {
+    console.error(`[cobros] no pude pasar a Ganado el lead ${c.lead_id} en el CRM ${g.crm}:`, e instanceof Error ? e.message : String(e));
+    await actualizar(c.workspace_id, c.id, { motivo: `Pagado, pero no pude pasarlo a Ganado en su CRM: ${e instanceof Error ? e.message : String(e)}`.slice(0, 300) });
   }
 }
 

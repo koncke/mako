@@ -3436,6 +3436,11 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   CRM nunca cae a la casa porque le falte el trato (la revisión del 22/10 encontró las dos). Y un SALDO compara una venta
   con lo cobrado de ESA venta: `faltaDeLaVenta` (venta de la casa − `total_cobrado_casa_usd`, mig 0325), nunca con
   `total_cobrado_usd`, que es lo cobrado en todos los CRMs (la caja).
+- **Un pago de la pasarela decide su trato ANTES de asentarse** (22/10/2026, mig 0326, «Vincular cobro»):
+  `prepararTratoDelPago` (lib/cobro-etapa-server.ts) dice en qué CRM entra y dónde se gana, y `aplicarPagoAprobado` asienta
+  ahí (`registrarCobroDeProveedor` con `crm`). Asentarlo en la casa y moverlo después deja una ventana con la plata en el
+  trato equivocado y un reintento que la duplica. Lo que se escribe al preparar se puede repetir: la venta con una
+  condición, el plan sólo si la venta es nueva, y la cuota 0 se busca por número y monto.
 
 # Un flag de visibilidad protege la PANTALLA; la API hay que cerrarla aparte
 

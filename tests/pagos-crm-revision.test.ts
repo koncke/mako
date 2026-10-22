@@ -116,7 +116,8 @@ test('M4: no se quita a nadie de un CRM donde tiene plata, ni se borra para siem
 // Rotura: `getPagosByLead(p.leadId, 'todos')` en el casamiento: 1 fallo.
 test('M5: un pago de la pasarela sin cuota casa por monto sólo con las cuotas de la casa', () => {
   const r = cuerpo(PAGOS, 'export async function registrarCobroDeProveedor(');
-  const casamiento = r.slice(r.indexOf('if (!p.pagoId) {'), r.indexOf('for (const casa of impagas)'));
+  // Y sólo si el pago no es de otro CRM (`p.crm`, mig 0326): ese pago no casa con la casa.
+  const casamiento = r.slice(r.indexOf('if (!p.pagoId && p.crm == null) {'), r.indexOf('for (const casa of impagas)'));
   assert.match(casamiento, /const impagas = \(await getPagosByLead\(p\.leadId\)\)\s*\.filter/);
 });
 
@@ -125,7 +126,8 @@ test('M5: un pago de la pasarela sin cuota casa por monto sólo con las cuotas d
 // Rotura: el insert sin `funnel_id: crmDeLaCuota`: 1 fallo.
 test('M6: el pago repetido de una cuota entra en el CRM de esa cuota', () => {
   const r = cuerpo(PAGOS, 'export async function registrarCobroDeProveedor(');
-  assert.match(r, /crmDeLaCuota = cuota\.data\?\.funnel_id != null \? Number\(cuota\.data\.funnel_id\) : null;/);
+  // Sin `funnel_id` en la cuota, el CRM que dijo quien llama (mig 0326, «Vincular cobro»), que sin decirlo es la casa.
+  assert.match(r, /crmDeLaCuota = cuota\.data\?\.funnel_id != null \? Number\(cuota\.data\.funnel_id\) : crmDeLaCuota;/);
   assert.match(r, /nacio_cobrada: true,\s*\.\.\.marca,\s*\.\.\.\(crmDeLaCuota != null \? \{ funnel_id: crmDeLaCuota \} : \{\}\),/);
 });
 
