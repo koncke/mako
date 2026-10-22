@@ -12,6 +12,14 @@ El pedido, literal, en la bitácora del CRM (hito `actor: 'martin'` del 21/10 23
 `C:/dev/wt-crm-2110c` (lleva adentro `crm-2110-t1` y `crm-2110-t2b`). **Sin subir: la punta va a «Cerebro › Integración».**
 Lo que no se deduce del código, en docs/hallazgos-crm.md («El feedback del 21/10 (noche)…») y docs/hallazgos-ui.md.
 
+**22/10, «Vincular cobro» en Ganado** (punto 3 del feedback de Martín): rama `crm-cobro-ganado-2210` en
+C:/dev/wt-crm-cobro (sobre `crm-aut-lead-2210`). El ⋯ y el clic derecho de Ganado abren app/crm/CobroDeEtapaModal.tsx:
+producto con precio, una casilla por cuenta (Stripe y Mercado Pago a la vez, varias por proveedor), «Copiar link»,
+«+ Producto» (catálogo o crear), «Editar» y «Quitar» con Deshacer: tests/crm-cobro-ganado.test.ts. **Va contra un STUB**
+(app/crm/cobro-etapa-stub.ts) del contrato de Cobros (contrato-cobro-en-ganado.md, notas compartidas). Cuando
+`lib/cobro-etapa.ts` y `app/crm/cobro-etapa-actions.ts` estén en main: los imports de cobro-ganado.ts y
+CobroDeEtapaModal.tsx pasan ahí, se borra el stub, y recién ahí sube. Sin tipos: el tsc acotado dio 99 (RAM).
+
 **22/10, «está en una automatización» y «Frenar»** (Martín: «en el CRM debería indicar en la tarjeta o en algún lugar
 que esos leads están en una automatización activa, y que desde el CRM también se pueda frenar»): rama `crm-aut-lead-2210` en
 C:/dev/wt-crm-aut (sobre `crm-feedback-2210b`). El chip en la tarjeta, la fila en la ficha rápida, «Frenar automatización»
