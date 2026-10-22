@@ -174,7 +174,10 @@ const MOTOR = sinComentarios(leer('lib/nutricion.ts'));
 // la rama del mensaje de VARIAS partes (cuarta tanda, punto 15), y 42.457 con las dos juntas.
 // Si se pasa, que se mire qué creció antes de subirlo.
 // (Undécima tanda: el carril del recordatorio y lo de una respuesta, M3 y M4, sumaron ~7.000 al motor.)
-const PROC = bloque(MOTOR, 'export async function procesarEnvios(', '\nexport async function pausarPorRespuesta(', 56_000);
+// 22/10/2026: 56.603 ANTES de la prospección del Sprint (ya pasado, y nadie lo vio: este archivo tira AL CARGAR, y en la
+// corrida compartida de Actions, `--test-isolation=none`, un archivo que tira al cargar informa sólo los tests de ARRIBA de
+// esta línea, en verde, y salida 0; docs/hallazgos-infra.md). 57.350 con lo que entra primero y 58.758 con el goteo.
+const PROC = bloque(MOTOR, 'export async function procesarEnvios(', '\nexport async function pausarPorRespuesta(', 60_000);
 // Hasta la primera guarda que es sólo del mensaje que sigue a la rama (`canalOn`). Perezoso:
 // si la rama se mueve de lugar, que caigan los tests que la miran, no el archivo entero.
 const rama = (): string => bloque(PROC, 'if (esPasoAccion(paso)) {', 'const canalOn = ', 4_000);
@@ -252,8 +255,10 @@ test('el cupo de mensajes no frena a las acciones: con el tope cumplido el motor
   // las tarjetas de control: una condición puede llevar a un mensaje o a una acción.
   // (Undécima tanda: por su LUGAR en el flujo, `sigueSinCupo`, que suma el carril a `sigueSinCupoWa`.)
   // (Y lo que se deja, si la fila tiene el carril pendiente, se aplaza para no taparlo: `aplazarSiTapa`.)
-  assert.match(PROC, /if \(cupoLleno\(\) && !\(pasoLeido && sec && sigueSinCupo\(sec\.pasos, idxLeido\)\)\) \{ if \(sec\) await aplazarSiTapa\(insc, sec\); continue; \}/);
-  assert.match(PROC, /if \(cupoLleno\(\) && !sigueSinCupo\(sec\.pasos, r\.idx\)\) \{ await aplazarSiTapa\(insc, sec\); continue; \}/);
+  // (Desde el 21/10/2026 el freno es `sinLugar`, el cupo entero o el de campaña; y desde el 22/10 lo frenado pasa por
+  // `quedaFrenada`, que si lo frena el goteo lo lleva a su turno y si no, `aplazarSiTapa`: tests/goteo-automatizacion.test.ts.)
+  assert.match(PROC, /if \(sinLugar\(insc\) && !\(pasoLeido && sec && sigueSinCupo\(sec\.pasos, idxLeido\)\)\) \{ await quedaFrenada\(insc, sec\); continue; \}/);
+  assert.match(PROC, /if \(sinLugar\(insc\) && !sigueSinCupo\(sec\.pasos, r\.idx\)\) \{ await quedaFrenada\(insc, sec\); continue; \}/);
   assert.match(PROC, /!!pasos\[idx\] && \(sigueSinCupoWa\(pasos\[idx\]\) \|\| esHiloDelCarril\(pasos, idx\)\)/);
   // Y la ventana horaria vale para todo: el corte sigue ANTES de mirar nada.
   assert.ok(PROC.indexOf("saltado: 'fuera-de-ventana-horaria'") < PROC.indexOf('const conAcciones'));
@@ -288,7 +293,9 @@ test('⚠️ `setSecuenciaPasos` conserva la acción, frena la inválida y no le
 
 test('las puertas de escritura dejan pasar el paso entero (no lo reconstruyen sin `accion`)', () => {
   // El PATCH del lienzo pasa los pasos tal cual; el de email y el doer los SPREADEAN.
-  assert.match(sinComentarios(leer('app/api/whatsapp/secuencias/route.ts')), /await setSecuenciaPasos\(id, body\.pasos as PasoSecuencia\[\]\);/);
+  // (Desde el aviso de duplicada, 21/10/2026, la puerta es `publicarPasos`, que los pasa tal cual a `setSecuenciaPasos`.)
+  assert.match(sinComentarios(leer('app/api/whatsapp/secuencias/route.ts')), /await publicarPasos\(id, body\.pasos as PasoSecuencia\[\], /);
+  assert.match(sinComentarios(leer('lib/nutricion.ts')), /export async function publicarPasos\([^]*?\n {2}await setSecuenciaPasos\(id, pasos\);\n\}/);
   assert.match(sinComentarios(leer('app/api/email/secuencias/route.ts')), /\(body\.pasos as PasoSecuencia\[\]\)\.map\(\(p\) => \(\{ \.\.\.p, /);
   const doer = sinComentarios(leer('lib/api-mako/areas/chatbot.run.ts'));
   assert.match(doer, /s\.pasos\.map\(\(p\) => \(p\.orden === orden \? \{ \.\.\.p, delay_horas: horas \} : p\)\)/);

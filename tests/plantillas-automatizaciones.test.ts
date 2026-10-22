@@ -109,6 +109,8 @@ const sinAcentos = (t: string) => t.normalize('NFD').replace(/\p{Diacritic}/gu, 
  */
 const LAS_13: ReadonlyArray<readonly [id: string, nombre: string, objetivo: ObjetivoPlantilla]> = [
   ['lead-entro', 'Un Lead Entró', 'agendar'],
+  // 22/10/2026 (A4 de la llamada con Mauricio): la apertura de una prospección, a los que se mueven a una etapa.
+  ['prospeccion-apertura', 'Prospección: apertura', 'captar'],
   ['lead-agendo', 'Un Lead Agendó Llamada', 'reunion'],
   ['lead-no-asistio', 'Un Lead No Asistió', 'recuperar'],
   ['lead-tuvo-reunion', 'Un Lead Tuvo la Reunión', 'vender'],
@@ -757,6 +759,7 @@ test('la etapa se pregunta sólo si hay etapas de ese kanban para ofrecer; una d
 
 /** POR DÓNDE SALE CADA UNA, A MANO leyendo sus tarjetas (deducido de `canalesDe` daría verde sobre la función rota). */
 const CANALES: Readonly<Record<string, readonly CanalPlantilla[]>> = {
+  'prospeccion-apertura': ['whatsapp'],
   'lead-entro': ['whatsapp', 'email', 'mako'], 'lead-agendo': ['whatsapp', 'email', 'mako'], 'lead-no-asistio': ['whatsapp', 'email', 'mako'],
   'lead-tuvo-reunion': ['whatsapp', 'mako'], 'lead-confirmo-compra': ['whatsapp', 'mako'], 'lead-no-avanzo': ['mako'], 'cliente-empezo': ['whatsapp', 'email'],
   'mako-cobranza': ['mako'], 'mako-pago': ['mako'], 'mako-analisis': ['mako'], 'mako-charla': ['mako'],

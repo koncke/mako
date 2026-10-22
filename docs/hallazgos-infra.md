@@ -7551,3 +7551,20 @@ sin texto). Lo que sí sirvió: grupos chicos sin esos archivos, y para ellos un
 nombres; los errores de import que da son ruido). El tipo de verdad queda para `antes-de-subir` o Actions.
 Y `next-env.d.ts` no existe en un worktree recién creado: ponerlo en `files` corta con TS6053 antes de chequear nada.
 *21/10/2026, chat «CRM» (claude3).*
+
+## En la corrida COMPARTIDA, un test que tira al CARGAR da verde: se cuentan los de arriba y el resto no corre (22/10/2026, Automations)
+
+**Síntoma:** tests/nutricion-paso-accion.test.ts estuvo roto en main al menos desde el 21/10 sin que ningún VERDE ni
+Actions lo dijera. Corrido SOLO (`node --import tsx --test <archivo>`) da «✖ tests\nutricion-paso-accion.test.ts» y salida
+1; corrido con `--test-isolation=none` (como corren `antes-de-subir --rapido` y la fase compartida de Actions,
+`scripts/tests-afectados.mjs --compartir`) da **«ℹ tests 6 · pass 6 · fail 0» y salida 0**, sin una línea de error.
+**Causa:** el archivo arma una constante A NIVEL DE MÓDULO (`const PROC = bloque(..., 56_000)`) con un tope de largo que el
+motor ya pasaba (56.603). Esa línea tira mientras el módulo carga: los 6 `test(...)` de ARRIBA ya se registraron y pasan,
+los 10 de abajo nunca existen, y en un proceso compartido el error de carga no se cuenta como fallo. Detrás había dos
+rojos de verdad que nadie veía (una regex de `cupoLleno` que ya era `sinLugar`, y la puerta del PATCH que pasó a
+`publicarPasos`). **Lo obvio era mirar el tope; lo que muerde es el runner:** un archivo que tira al cargar se ve como un
+archivo con menos tests. **Regla:** en un test, todo lo que puede tirar va ADENTRO de un `test(...)` (o perezoso, como
+`rama()` en ese mismo archivo), nunca en una constante del módulo; y un verde que dice MENOS tests de los que el archivo
+declara es un rojo. **Medido:** de los 211 archivos que leen el motor de Automations, sólo éste (corridos aislados).
+**Sin hacer:** que `scripts/tests-afectados.mjs` compare, por archivo, los tests que el runner contó contra los `test(` del
+fuente, o que corra aislado todo archivo que en la corrida compartida contó menos de los que declara.

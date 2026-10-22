@@ -836,7 +836,9 @@ function resolverAccion(opCruda: unknown, datosCrudos: unknown, est: Estado): { 
     if (p.nombre === 'etapa') {
       const en = producto ?? resolverProducto(null, est.ctx);
       const key = en ? etapaEn(en, datos.etapa) : null;
-      if (!key) return { quitar: `Saqué «${def.titulo}»: esa etapa no existe` };
+      // CUÁL etapa y de QUÉ CRM (22/10/2026, A5 de la llamada con Mauricio): «esa etapa no existe» justo después de crear
+      // «Prospección activa» se leyó como un cache viejo, y era «Contactado», que el CRM «Sprint 3 días» no tiene.
+      if (!key) return { quitar: `Saqué «${def.titulo}»: ${str(datos.etapa) ? `«${str(datos.etapa)}»` : 'esa etapa'} no es una etapa de ${en ? `«${en.nombre}»` : 'ese CRM'}` };
       params.etapa = key;
       continue;
     }
