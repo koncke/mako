@@ -10146,3 +10146,23 @@ Medido en el ws1 (sólo lectura): 1.050 en `reactivacion` del CRM principal, 300
 tests/crm-traer-todos.test.ts
 *22/10/2026, chat «CRM» (claude3).*
 
+## Los P1 de la llamada con Mauricio (22/10/2026): lo que «tarda» y lo que tapaba
+
+- **«Mover tarda» no era el arrastre de siempre**: `persistStage` y `moverEnProducto` ya movían en el acto. El que
+  esperaba al server era «Agenda» → «Ya está agendada» / «Ya ocurrió» (`confirmManualMeeting`), justo lo que Mauricio
+  hizo en el minuto 4. Ahora mueve antes y vuelve si la acción tira (`markMeetingManualAction` no devuelve `ok`: tira).
+- **Crear una etapa es guardar el funnel, releerlo y refrescar el tablero**: segundos sin señal. «Creando…» en su lugar,
+  en el pop-up (`FilaCreando`) y en el tablero (`creandoTras`, que se va cuando llegan las `stages` nuevas o si falla).
+- **El menú de CRMs flotando encima del pop-up**: el desplegable vive en un portal con su z-index; la marca `cierra` de
+  `DropdownAccion` existía desde el 05/10 (Customer Success) y el lápiz del CRM no la usaba.
+- **C7 contradecía una decisión de Martín** (16/10: las hojas en el desplegable del título, como el Dashboard). En la
+  llamada él mismo dijo «voy a hacer de que esté un poco más visible», no «volvé a las pestañas»: el desplegable queda
+  (es donde se crea y se ordena una hoja) y las otras hojas van como atajos al lado del título; en el teléfono, no.
+- **C6 («los tres puntos de "Lead entrante" lo mandaron a otro lado») no se reproduce leyendo el código**: ninguna opción
+  del «⋯» de una columna de entrada navega. La que SÍ navega está en el «⋯» de la BARRA: «Buscar prospectos»
+  (`href="/crm/prospectos"`), la única de ese menú que no abre un pop-up. Sin confirmar en un navegador.
+
+**Vive en:** app/crm/CrmBoard.tsx (`confirmManualMeeting`, `opEtapa`), EtapasModal.tsx, CrmToolbar.tsx,
+lead-view/LeadTabs.tsx · tests/crm-llamada-22-10-p1.test.ts
+*22/10/2026, chat «CRM» (claude3).*
+

@@ -122,6 +122,7 @@ import { Toast, useToast } from '@/app/_ui/Toast';
 import { nombreVisible } from '@/lib/lead-funnel-reglas';
 import { motivoCorto, chipsFaltantes } from './worklist-fila';
 import { Modal } from '@/app/_ui/Modal';
+import { Spinner } from '@/app/_ui/Feedback';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { NewLeadForm } from './new/NewLeadForm';
 import { BotonReuniones } from './ReunionesProximas';
@@ -1599,9 +1600,21 @@ export function CrmBoard({
     const from = lead ? effStage(lead) : undefined;
     const nota = modo === 'futura' ? mmNota.trim() : null;
     setManualMeeting(null);
+    // ⚠️ OPTIMISTA (llamada con Mauricio del 22/10/2026, min 04:32: «al mover un lead a otra etapa, no tarde tanto en
+    // cambiarse... ese ya se movió, solamente que permanece en la etapa anterior, porque todavía está cargando»). Era
+    // el ÚNICO camino del arrastre que esperaba al server para mover la tarjeta: «Agenda» con «Ya está agendada» o «Ya
+    // ocurrió». `persistStage` y `moverEnProducto` ya movían en el acto. Si la acción falla, la tarjeta vuelve.
+    const previo = localStage[leadId];
+    setLocalStage((m) => ({ ...m, [leadId]: which }));
     startTransition(async () => {
-      const r = await markMeetingManualAction(leadId, which, mmFecha, asistio, nota);
-      setUndoInfo((u) => (u && u.id === leadId ? { ...u, deshacer: r.deshacer } : u));
+      try {
+        const r = await markMeetingManualAction(leadId, which, mmFecha, asistio, nota);
+        setUndoInfo((u) => (u && u.id === leadId ? { ...u, deshacer: r.deshacer } : u));
+      } catch {
+        setLocalStage((m) => { const n = { ...m }; if (previo === undefined) delete n[leadId]; else n[leadId] = previo; return n; });
+        setUndoInfo(null);
+        mostrarAviso('No se pudo guardar la reunión', undefined, 'bad');
+      }
       router.refresh();
     });
     // Toast Deshacer también en este camino (antes solo lo tenía el drag directo).
@@ -2047,10 +2060,15 @@ export function CrmBoard({
    * Y `router.refresh()` al final porque las etapas las decide el SERVER: sin eso el
    * cambio se guarda y la pantalla sigue mostrando lo de antes.
    */
+  const [creandoTras, setCreandoTras] = useState<string | null>(null);
   const opEtapa = async (op: OpEtapa) => {
     setErrorEtapa(null);
+    // «Agregar etapa» del «⋯» de una columna: la columna nueva se anuncia en su lugar con un «Creando…» (llamada con
+    // Mauricio del 22/10/2026: «tarda mucho en crearse y tal vez necesita un loader»). Se va cuando llegan las columnas
+    // nuevas (el efecto de abajo) o si falla.
+    if (op.op === 'agregar') setCreandoTras(op.despuesDe ?? null);
     const r = await editarEtapaAction(op, funnelActivo ?? undefined);
-    if (!r.ok) { setErrorEtapa(r.error); return; }
+    if (!r.ok) { setCreandoTras(null); setErrorEtapa(r.error); return; }
     setRenombrando(null);
     setBorrarEtapa(null);
     // Agregar o quitar una etapa cambia la lista: el orden local recién arrastrado no sabe
@@ -2118,6 +2136,9 @@ export function CrmBoard({
       .filter((s) => activeBands.has(s.band ?? 'pipeline'))
       .sort((a, b) => (KANBAN_BANDS.indexOf(a.band ?? 'pipeline') - KANBAN_BANDS.indexOf(b.band ?? 'pipeline')) || (pos(a) - pos(b)));
   }, [stages, activeBands, ordenCols, funnelActivo]);
+
+  // El «Creando la etapa…» se va cuando el server manda las etapas nuevas (`stages` cambia con el refresh).
+  useEffect(() => { setCreandoTras(null); }, [stages]);
 
 
   /**
@@ -3178,7 +3199,16 @@ export function CrmBoard({
               }}
               style={{ flex: 1, minHeight: 0, overflowX: 'auto', paddingBottom: 14 }}>
               <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', width: 'max-content' }}>
-                {columnasKanban.map((c) => renderColumn(c))}
+                {columnasKanban.map((c) => (
+                  <Fragment key={c.key}>
+                    {renderColumn(c)}
+                    {creandoTras === c.key && (
+                      <div role="status" aria-live="polite" style={{ flex: 'none', width: 304, minHeight: 'min(68vh, 520px)', background: FONDO_COLUMNA, borderRadius: 26, padding: '18px 16px', display: 'flex', alignItems: 'flex-start', gap: 10, fontFamily: SANS, fontSize: 14, color: 'var(--dim)' }}>
+                        <Spinner size={15} /> Creando la etapa…
+                      </div>
+                    )}
+                  </Fragment>
+                ))}
               </div>
             </div>
           )}
