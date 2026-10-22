@@ -7637,3 +7637,18 @@ eso es una deducción del código, no se midió en Vercel. Pendiente, de ai-chea
   comando los `sh.exe`/`timeout.exe`/`node.exe` que quedaron y matarlos.
 - ⚠️ **Un test suelto se corre con `node --import tsx --test`**, como el `npm test`. Con `--experimental-strip-types` todos
   fallan con `ERR_MODULE_NOT_FOUND` (los imports del repo van sin extensión) y parece un rojo del código.
+
+## Una batería con piso pasa en la tanda compartida y falla SOLA: el rojo de OC1 llegó a main (22/10/2026, Cerebro › Integración)
+
+- **Síntoma:** después del tren 1, `tests/ops-center-bateria.test.ts` corrido solo daba pagos-cuenta 34/100 con piso 35
+  («devolvele el pago a Carlos» → `reembolsar_cobro` no llegaba al chat de la app). El VERDE de OC1 y la tanda del tren
+  habían dado verde.
+- **Causa real:** las tandas de `tests-afectados` (y de `antes-de-subir`) corren varios archivos en UN proceso con
+  `--test-isolation=none`. Ahí la batería pasa por el estado de módulos que dejan los otros tests. Sola, falla. La causa del
+  código era la puerta de las destructivas de `lib/relevancia-app.ts`: la abre un verbo de quitar, y «devolver» no lo es.
+- **Lo que se descartó:** que `--cortar` hubiera dejado sin correr a las barredoras. Era verdad para ellas, pero la batería no es
+  una barredora (importa) y sí corrió en la tanda, en verde.
+- **Cómo se encontró:** corriendo la batería SOLA en un worktree en detached, en cada punta del tren (81dca4621 verde,
+  b529ff603 rojo, las otras verdes): una corrida por punta, ~1 min cada una.
+- **La regla:** en cada tren, Integración corre la batería SOLA además de la tanda (`node --import tsx --test
+  tests/ops-center-bateria.test.ts`). El chat que toque el clasificador o la selección de herramientas, también.

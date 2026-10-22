@@ -387,7 +387,9 @@ afectados: dos chequeos de lo mismo. El primero, con 8 chats y 1-2 GB libres, ta
 2. **Integración corre UN chequeo por TREN**, sobre el lote ya mergeado: los tests afectados del lote
    (`scripts/tests-afectados.mjs --base origin/main`) y las guardas (`sh scripts/guardas-push.sh origin`, que es la etapa de
    guardas de `antes-de-subir`). **Tests y guardas en verde es la condición del tren.** Si algo da rojo, devuelve SÓLO esa punta
-   y el tren sale sin ella.
+   y el tren sale sin ella. **La batería del ruteo se corre además SOLA** (`node --import tsx --test
+   tests/ops-center-bateria.test.ts`): en la tanda compartida (`--test-isolation=none`) pasa por el estado que dejan otros tests,
+   y así llegó a main el rojo de OC1 (22/10, docs/hallazgos-infra.md). Sin `--cortar`: un rojo cortaba el resto del chequeo.
    **Los tipos son RED, no traba** (22/10, decisión del Cerebro sobre el «que avance siempre, no quiero limitaciones» de Martín).
    Medido: con 8 chats abiertos quedan 1,6 GB libres de 15,7 aun con todo lo pesado frenado (las sesiones de Claude y sus node
    suman ~8 GB), y las 3 tandas de INF1 piden 5,3; esta PC no tipa nunca. Un error de tipos no rompe la ejecución (Next

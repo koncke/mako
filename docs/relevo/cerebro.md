@@ -34,7 +34,10 @@ trae un cliente roto). Una punta en rojo se devuelve sola y el tren sale sin ell
 **Cómo se integra** (en `C:/dev/wt-push-q`; ningún otro chat commitea ahí):
 1. `git merge --no-edit <sha>` por cada punta, nunca rebase. Un choque en `docs/hallazgos.md` se resuelve con
    `node C:/dev/cerebro-herramientas/unir-filas.cjs` y se verifica que no se perdió ningún título del índice.
-2. Tests del tren: `MAKO_TESTS_SIN_ESPERA=1 node scripts/tests-afectados.mjs --base origin/main --cortar --concurrencia 2 --tanda 100 --compartir`.
+2. Tests del tren: `MAKO_TESTS_SIN_ESPERA=1 node scripts/tests-afectados.mjs --base origin/main --concurrencia 2 --tanda 100 --compartir`
+   (sin `--cortar`, ~22 min) y la batería SOLA: `node --import tsx --test tests/ops-center-bateria.test.ts` (en la tanda
+   compartida pasa aunque esté roja). Un rojo de `d6b-rutas` «la tabla es HONESTA» suele ser una lectura nueva de una ruta:
+   si no llama a una IA, va a `usa` de SIN_IA.
 3. Guardas: `sh scripts/guardas-push.sh origin`. Tests y guardas en verde son la condición del tren. Los TIPOS son red, no
    traba (22/10: con 8 chats quedan 1,6 GB libres y las 3 tandas piden 5,3). Después de cada push, en segundo plano,
    `node scripts/tsc-acotado.mjs <archivo>` de lo que entró, de a uno, cuando haya RAM. Un error vuelve al chat dueño para el
