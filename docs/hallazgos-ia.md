@@ -4812,8 +4812,14 @@ medias y tres bajas. Lo no obvio:
   confirmar sólo se guarda el horario. Cada negocio corre ahora adentro de `conSuIADelNegocio`; con su IA y sin una
   clave que lea, la fila queda en error con el porqué (el hijo lo corre: cero hosts gratis).
 - **Lo que quedó SIN hacer:**
-  - **La 0322 sin aplicar y los ejecutables 0.3.2 sin subir** (los arma en seco la Ticketera; los sube Martín). La prueba
-    de punta a punta (`--instalador --reinstalar`) espera a las dos.
+  - ~~La 0322 sin aplicar~~: aplicada el 21/10, antes del deploy del run 215. Los ejecutables 0.3.2 siguen sin subir (los
+    sube Martín). La prueba de punta a punta (`--instalador --reinstalar`) espera a los ejecutables.
+  - ⚠️ **Una migración «idempotente» no lo es si su backfill lee un estado que el código nuevo vuelve a producir** (revisión
+    de la Ticketera, 21/10 noche). El backfill de la 0322 confirmaba toda PC con `confirmado_at` nulo: antes del deploy eran
+    las viejas; después, las que esperan el «sí». Volver a correrla las confirmaba sin el «sí», y la purga (sólo
+    `confirmado_at is null`) ya no las revocaba nunca. Ahora el backfill exige `ultimo_latido is not null` (una pendiente
+    no puede latir) y la cabecera dice «NO SE VUELVE A CORRER». Regla: el backfill de una migración apunta a lo que existía
+    ANTES del código, con una condición que el código nuevo no puede producir. Test: tests/ia-pc-segunda-revision.test.ts.
   - **El AI Analyst programado desde el Ops Center decide con qué IA corre cada vez, no cuando se programó**: la fila no
     guarda desde dónde se programó (tests/d6b-rutas.test.ts lo cubre por el cron).
   - **La Mac, sin probar en una Mac.**

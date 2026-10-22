@@ -1,6 +1,8 @@
 -- =============================================================================
 -- 0322 · La PC del cliente nace PENDIENTE y pasa a activa sola (docs/ia-del-cliente.md §3, 21/10/2026)
--- ⚠️ SIN APLICAR: la aplica el Cerebro recién después de su revisión. Idempotente.
+-- ⚠️ APLICADA el 21/10/2026, antes del deploy del run 215. NO SE VUELVE A CORRER: con el código desplegado, una PC que espera el
+-- «sí» queda sin `confirmado_at`, y el backfill de abajo la confirmaría. Por si igual se corre, el backfill sólo confirma las que
+-- latieron alguna vez (una pendiente no puede latir: /api/ia-pc/latido no acepta pendientes). Lo demás es idempotente.
 -- ⚠️ ORDEN DE DESPLIEGUE: esta migración ANTES de integrar la rama ia-ola2 a main. Es segura con el código de main (main
 -- no lee ninguna tabla ia_pc_*). Si el código llegara antes, lib/ia-pc.ts lo aguanta (un error de esquema se loguea
 -- «FALTA LA MIG 0322» y un negocio sin PC registrada sigue con su IA), pero las pantallas de la PC contestan 503.
@@ -27,8 +29,11 @@ alter table ia_pc_dispositivos add column if not exists activa_at timestamptz;
 alter table ia_pc_dispositivos add column if not exists claude_falta boolean not null default false;
 
 -- Las que ya existían (de la prueba del ws3, todas desconectadas): confirmadas desde que se conectaron, y activas si
--- alguna vez latieron con una cuenta.
-update ia_pc_dispositivos set confirmado_at = coalesce(consentimiento_at, creado_at) where confirmado_at is null;
+-- alguna vez latieron con una cuenta. ⚠️ Revisión de la Ticketera (21/10 noche): sin «ultimo_latido is not null», volver a
+-- correrla después del deploy confirmaba sin el «sí» a las PC pendientes, y la purga (lib/ia-pc.ts, sólo `confirmado_at is
+-- null`) ya no las revocaba nunca. Las de antes que nunca latieron quedaron confirmadas en la primera corrida.
+update ia_pc_dispositivos set confirmado_at = coalesce(consentimiento_at, creado_at)
+  where confirmado_at is null and ultimo_latido is not null;
 update ia_pc_dispositivos set activa_at = ultimo_latido
   where activa_at is null and ultimo_latido is not null and jsonb_array_length(cuentas) > 0;
 

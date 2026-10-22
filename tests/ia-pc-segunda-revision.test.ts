@@ -110,6 +110,11 @@ test('las rutas: confirmar es de la PC (pública, con su token pendiente), y sol
   assert.match(mig, /ORDEN DE DESPLIEGUE: esta migración ANTES de integrar/);
   for (const c of ['confirmado_at timestamptz', 'activa_at timestamptz', 'claude_falta boolean not null default false']) assert.ok(mig.includes(`add column if not exists ${c}`), c);
   assert.match(mig, /add column if not exists dispositivo_id bigint references ia_pc_dispositivos\(id\) on delete set null/);
+  // Volver a correrla después del deploy no confirma una PC que espera el «sí» (revisión de la Ticketera, 21/10 noche): el
+  // backfill de `confirmado_at` sólo toca las que latieron, y una pendiente no puede latir. Rota (sin el filtro) → este test
+  // falla: probado sacando «and ultimo_latido is not null» de la 0322, 1 rojo; restaurado, verde.
+  const backfill = mig.match(/update ia_pc_dispositivos set confirmado_at[^;]*;/)?.[0] ?? '';
+  assert.match(backfill, /where confirmado_at is null and ultimo_latido is not null;/, 'el backfill de confirmado_at no confirma pendientes');
 });
 
 // ── MEDIOS 3 y 4. El instalador ──────────────────────────────────────────────
