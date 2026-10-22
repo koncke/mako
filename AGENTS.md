@@ -2307,6 +2307,10 @@ firma). Si dice «⛔ falta», primero `scripts/ia-pc/publicar-binarios.mts --ap
 con el OK de Martín), después el deploy. Y una ruta que no puede servir lo que el código pide deja su fila en
 `errores_app` (`registrarError`), aunque le conteste a la persona con un 200.
 
+**Y todo `Invoke-WebRequest` de un script que corre en la PC de un cliente va con `$ProgressPreference = 'SilentlyContinue'`
+antes:** en Windows PowerShell 5.1 la barra de progreso hace que el programa (42,7 MB) tarde 58,6 s en vez de 4,1 s
+(medido el 22/10/2026; con ventana, peor), y la persona ve «Descargando…» para siempre.
+
 # NINGUNA pantalla se diseña de cero: se COPIA de una app que ya resolvió eso
 
 Pedido de Martín, textual, el 15/10/2026, después de rechazar dos pantallas seguidas (la de
