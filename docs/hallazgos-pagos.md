@@ -823,10 +823,8 @@ renovaciones mostraba «cuota 1, cobrada el 01/04», que era de su primer servic
 - Lo que entra SIN CRM va a la casa: el link de pago libre de la pasarela (`registrarCobroDeProveedor`, salda primero
   una deuda de cualquier CRM por monto), la API de MaKo (`guardar_plan_pagos`, `registrar_pago`) y el asistente de Ganado
   (que es el de la casa). La API no sabe elegir CRM: lib/api-mako/areas/cobros.run.ts.
-- «Firmado» (`sold_usd`) sigue sumando la venta de la casa: el monto de una renovación (`lead_funnel.monto_cierre_usd`)
-  no entra en Revenue ni en los OKRs de cierre (lib/objectives-fuentes.ts, `hechosDelPeriodo`).
-- La tab Pagos de Customer Success (DealDetailsCard) y la ficha del teléfono (app/m/crm/[id]/FichaLead.tsx) muestran la
-  casa.
+- ~~«Firmado» sólo sumaba la venta de la casa~~; ~~el teléfono y Customer Success mostraban la casa~~ (CO2, 22/10/2026):
+  ver «Una renovación también es una venta», abajo.
 - «Links de pago» lista los links del LEAD (`cobros` no tiene CRM) también mirando una renovación; «Movimientos» sí se
   queda con los de SUS cuotas (`cobrosDelTrato`, lib/pagos-crm.ts).
 
@@ -891,3 +889,20 @@ lib/funnels.ts (`eliminarFunnelDefinitivo`) · lib/api-mako/areas/crm.run.ts · 
 **Vive en:** supabase/migrations/0325_cobrado_de_la_casa.sql · lib/pagos-crm.ts (`cobradoDeLaVenta`, `faltaDeLaVenta`) ·
 lib/pagos.ts (`sincronizarTotalCobrado`, `leadsConPlataEn`) · lib/variables-del-lead.ts · app/crm/actions.ts ·
 tests/pagos-crm-revision.test.ts (la segunda tanda prueba el número del saldo).
+
+### Una renovación también es una venta: «Firmado», el teléfono y Customer Success (22/10/2026, CO2)
+
+- **Lo que faltaba:** desde la 0324 la renovación tiene su venta (monto, fecha y tipo en su fila de `lead_funnel`), pero
+  «Firmado» y los cierres sumaban sólo `leads.monto_cierre_usd`. Una renovación ganada no contaba en ningún número.
+- **Los lectores son SEIS, no uno:** el Revenue del período (lib/queries.ts), su serie por mes, el objetivo, el desglose
+  del Revenue (lib/pagos.ts), los OKR y KPIs «Firmado» y «Cierres» (lib/objectives-fuentes.ts, por funnel con SU funnel), y
+  los conjuntos «Negocio» y «Revenue» del Dashboard. Todos leen `ventasDeCrms` (lib/ventas-crm.ts), y la regla de qué es
+  una venta es pura (`ventasDeFilas`): ganada en ese CRM, con monto y fecha, no «sin cobro», y nunca la fila que repite la
+  casa (sumaría dos veces). Antes de cambiar qué es «lo vendido», hay que enumerar dónde se suma: no hay un solo lugar.
+- **El teléfono y CS:** el teléfono suma una fila «Estado de cuenta · <CRM>» por cada CRM con plata; CS, una sección por
+  CRM con los bloques de PLATA en el trato de ese CRM (los del deal son del lead).
+- **Sin hacer:** el conjunto «Leads» del Dashboard (`filasLeads`) cuenta la venta por lead desde su casa; la renovación no
+  tiene fila propia ahí. La ficha del teléfono no cobra en ningún CRM (de antes).
+
+**Vive en:** lib/ventas-crm.ts · lib/pagos-crm.ts (`ventasDeFilas`) · app/customer-success/PagosCliente.tsx ·
+app/m/crm/datos.ts · tests/pagos-crm-co2.test.ts.

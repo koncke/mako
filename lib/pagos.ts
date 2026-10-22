@@ -1442,7 +1442,7 @@ async function _getRevenueBreakdowns(start: string, end: string): Promise<Revenu
   // PAGINADAS (17/10/2026): los pop-ups del Revenue listan cuotas, y PostgREST corta en 1.000 sin error.
   const enPeriodo = (q: ConsultaPaginada) => q.eq('pagado', true).gte('fecha_pago', start).lte('fecha_pago', end);
   const cashDe = (cols: string) => leerTodo<FilaCash>(supabase, 'pagos', cols, { filtros: enPeriodo });
-  const [soldRes, cashData, outData] = await Promise.all([
+  const [soldRes, cashData, outData, enCrms] = await Promise.all([
     // Sin los «sin cobro» (#747): el desglose cuenta lo MISMO que el «N cierres» de
     // getRevenuePeriod, o el pop-up lista un cierre más que el número de arriba.
     supabase.from('leads').select('id, nombre, monto_cierre_usd, fecha_cierre').eq('cerro', true).neq('venta_tipo', VENTA_SIN_COBRO).gte('fecha_cierre', start).lte('fecha_cierre', end),
@@ -1453,14 +1453,19 @@ async function _getRevenueBreakdowns(start: string, end: string): Promise<Revenu
     leerTodo<FilaOut>(supabase, 'pagos', 'id, monto_usd, fecha_esperada, numero, lead_id, leads(nombre)', {
       filtros: (q) => q.eq('pagado', false).gte('fecha_esperada', start),
     }).catch((e: unknown) => { throw new Error(`Outstanding detalle: ${e instanceof Error ? e.message : String(e)}`); }),
+    // Las ventas de los CRMs agregados (una renovación, CO2): el desglose lista lo MISMO que suma el número de arriba.
+    (async () => { const { ventasDeCrms } = await import('./ventas-crm'); return ventasDeCrms(start, end); })(),
   ]);
   if (soldRes.error) throw new Error(`Sold detalle: ${soldRes.error.message}`);
   const cashRes = { data: cashData };
   const outRes = { data: outData };
 
   const cuotaLabel = (n: number) => (n === 0 ? 'cobro inicial' : `cuota ${n}`);
-  const sold: RevItem[] = (soldRes.data ?? []).map((r) => ({ nombre: (r.nombre as string) ?? '—', monto: Number(r.monto_cierre_usd ?? 0), fecha: (r.fecha_cierre as string | null) ?? null, leadId: Number(r.id) }))
-    .sort((a, b) => b.monto - a.monto);
+  const sold: RevItem[] = [
+    ...(soldRes.data ?? []).map((r) => ({ nombre: (r.nombre as string) ?? '—', monto: Number(r.monto_cierre_usd ?? 0), fecha: (r.fecha_cierre as string | null) ?? null, leadId: Number(r.id) })),
+    // Con SU funnel: el desglose por funnel la pone en la renovación.
+    ...enCrms.map((v) => ({ nombre: v.nombre ?? '—', monto: v.monto, fecha: v.fecha, leadId: v.leadId, funnel: v.funnelId })),
+  ].sort((a, b) => b.monto - a.monto);
   const cash: RevItem[] = (cashRes.data ?? []).map((r) => ({ nombre: relNombre(r.leads), monto: Number(r.monto_usd ?? 0), fecha: (r.fecha_pago as string | null) ?? null, detalle: cuotaLabel(Number(r.numero)), leadId: Number(r.lead_id), funnel: r.funnel_id == null ? null : Number(r.funnel_id) }))
     .sort((a, b) => (a.fecha && b.fecha ? (a.fecha < b.fecha ? 1 : -1) : 0));
   const outstanding: RevItem[] = (outRes.data ?? []).map((r) => ({ nombre: relNombre(r.leads), monto: Number(r.monto_usd ?? 0), fecha: (r.fecha_esperada as string | null) ?? null, detalle: cuotaLabel(Number(r.numero)), leadId: Number(r.lead_id) }))

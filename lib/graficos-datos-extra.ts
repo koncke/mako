@@ -61,6 +61,7 @@ import { diasAntes, hoyEnTijuana, TZ_TIJUANA } from './date-utils';
 import { hoyEnWorkspace } from './timezone';
 import { getMrrActivo } from './queries';
 import { getPorCobrar } from './pagos';
+import { ventasDeCrms } from './ventas-crm';
 import { noEsDeuda } from './cobrado-lead';
 import { armarCobranza, nombreCuota } from './datos-comercial';
 import { cartera } from './cs-cartera';
@@ -634,12 +635,14 @@ type FCuota = { id: number; lead_id: number | null; monto_usd: number | null; fe
  */
 async function filasRevenue(rg: Rango): Promise<Fila[]> {
   const todo = rg.desde <= DESDE_TODO;
-  const [cierres, cobros, pendientes, sinFecha] = await Promise.all([
+  const [cierres, cobros, pendientes, sinFecha, enCrms] = await Promise.all([
     leer<FLeadVenta>('leads', 'id, fecha_cierre, cerro, estado_lead, venta_tipo, monto_cierre_usd', rg, { col: 'fecha_cierre' }),
     leer<FCuota>('pagos', 'id, lead_id, monto_usd, fecha_pago, fecha_esperada', rg, { col: 'fecha_pago', extra: (q) => q.eq('pagado', true) }),
     leer<FCuota>('pagos', 'id, lead_id, monto_usd, fecha_pago, fecha_esperada', rg, { col: 'fecha_esperada', extra: (q) => q.eq('pagado', false) }),
     // `*`: la regla mira proveedor, cobro_id y `baja_at` (mig 0307); con `*` una base sin la migración no rompe el Revenue.
     todo ? leer<FCuota>('pagos', '*', { ...rg, sinRango: true }, { extra: (q) => q.eq('pagado', false).is('fecha_esperada', null) }) : Promise.resolve([] as FCuota[]),
+    // Las ventas de los CRMs agregados (una renovación, CO2), por su fecha de cierre como las de la casa.
+    ventasDeCrms(todo ? null : rg.desde, todo ? null : rg.hasta),
   ]);
   // Las sin fecha son deuda… salvo las DEVUELTAS por un reembolso, que también quedan impagas y sin vencimiento (15/10/2026).
   // Y las de un cliente que se DIO DE BAJA (#871, 17/10/2026): la baja las deja igual, impagas y sin vencimiento.
@@ -649,6 +652,7 @@ async function filasRevenue(rg: Rango): Promise<Fila[]> {
     if (!gano(x)) continue;
     out.push({ f: x.fecha_cierre, d: {}, v: { cierres: 1, vendido: num(x.monto_cierre_usd) }, r: { lead: String(x.id) } });
   }
+  for (const v of enCrms) out.push({ f: v.fecha, d: {}, v: { cierres: 1, vendido: v.monto }, r: { lead: String(v.leadId) } });
   const cuota = (x: FCuota) => ({ cuota: String(x.id), cliente: x.lead_id != null ? String(x.lead_id) : null });
   for (const x of cobros) out.push({ f: x.fecha_pago, d: {}, v: { cobrado: num(x.monto_usd), cuotas_cobradas: 1 }, r: cuota(x) });
   for (const x of [...pendientes, ...sinFechaDeuda]) out.push({ f: x.fecha_esperada, d: {}, v: { pendiente: num(x.monto_usd), cuotas_pendientes: 1 }, r: cuota(x) });

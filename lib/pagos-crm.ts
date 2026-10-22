@@ -146,6 +146,26 @@ export function faltaDeLaVenta(l: { monto_cierre_usd?: unknown; total_cobrado_ca
   return Math.max(0, Math.round((monto - cobradoDeLaVenta(l)) * 100) / 100);
 }
 
+/** Una venta de un CRM agregado (una renovación): la de su fila de `lead_funnel`. */
+export type VentaDeCrm = { leadId: number; funnelId: number; monto: number; fecha: string; nombre: string | null };
+
+/**
+ * Qué filas de `lead_funnel` son una VENTA que suma a «Firmado» (CO2, 22/10/2026): ganada en ese CRM (etapa `ganado`), con
+ * monto y fecha de cierre, que no es «sin cobro». Una fila que repite la CASA del lead no cuenta: esa venta es la de
+ * `leads` y sumaría dos veces. `filas` trae `leads(nombre, funnel_id)`; `casaDelNegocio` es la casa de un lead con NULL.
+ */
+export function ventasDeFilas(filas: readonly Record<string, unknown>[], casaDelNegocio: number | null): VentaDeCrm[] {
+  return filas.flatMap((f) => {
+    const c = camposDeFila(f);
+    const relCrudo = f.leads as { nombre?: string | null; funnel_id?: number | string | null } | Array<{ nombre?: string | null; funnel_id?: number | string | null }> | null | undefined;
+    const rel = Array.isArray(relCrudo) ? relCrudo[0] : relCrudo;
+    const casa = rel?.funnel_id != null ? Number(rel.funnel_id) : casaDelNegocio;
+    const funnelId = Number(f.funnel_id);
+    if (f.etapa !== 'ganado' || c.venta_tipo === 'sin_cobro' || c.monto_cierre_usd == null || !c.fecha_cierre || funnelId === casa) return [];
+    return [{ leadId: Number(f.lead_id), funnelId, monto: c.monto_cierre_usd, fecha: c.fecha_cierre, nombre: rel?.nombre ?? null }];
+  });
+}
+
 /** Los tipos de venta de un CRM agregado: sin suscripción (una mensualidad es de la casa). */
 export const TIPOS_DE_UN_CRM: ReadonlyArray<'unico' | 'sin_cobro'> = ['unico', 'sin_cobro'];
 
