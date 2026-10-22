@@ -2755,4 +2755,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '22 oct', hora: '04:15', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Mover sin esperar, «Creando…» al crear una etapa, el menú que tapaba y las hojas de la ficha a la vista',
+    puntos: [
+      'Son los P1 del CRM de la llamada con Mauricio del 22/10.',
+      'Mover un lead a «Agenda» con «Ya está agendada» lo mueve en el acto (antes esperaba a que cargara).',
+      'Crear una etapa muestra «Creando…» en su lugar, en «Editar etapas» y en el tablero.',
+      'El lápiz «Editar» de la lista de CRMs cierra la lista: ya no queda encima del pop-up.',
+      'En la ficha de un lead, las otras hojas («Pagos», «Reuniones»…) se ven al lado del título; el desplegable sigue.',
+      'Lo de los tres puntos de «Lead entrante» que llevó a otra pantalla no se pudo reproducir: falta mirarlo en el navegador.',
+    ],
+    commits: [
+      { sha: '50fbb71df', msg: 'CRM (P1 de la llamada con Mauricio, 22/10): mover sin esperar, «Creando…» al crear una etapa, el menú que tapaba el pop-up y las hojas de la ficha a la vista', lineas: 169, archivos: 6 },
+    ],
+    archivos: [
+    ],
+    revisar: '/crm',
+  },
 ];
