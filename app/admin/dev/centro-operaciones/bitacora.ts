@@ -1216,4 +1216,40 @@ export const BITACORA: Hito[] = [
       'tests/confirmacion-terceros.test.ts',
     ],
   },
+  {
+    fecha: '22 oct', hora: '17:40', chat: 'Ops Center', sesion: 'local_dd16f102-c670-41ff-9bfc-2780dca3fc05', cuenta: 'claude3',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Hecho: las charlas con MaKo del lienzo de Automations se ven en el Ops Center',
+    pedido: 'OC5 (el plan del Cerebro): las conversaciones de Automations en el Ops Center',
+    revisar: '/second-brain?ws=1',
+    puntos: [
+      'Cada charla con MaKo del lienzo de una automatización aparece en la lista del Ops Center, en su grupo «Automations», con el nombre de la automatización.',
+      'Se abre para leerla, con las preguntas de MaKo y sus opciones, y lo que salió de cada tarjeta.',
+      'Se sigue en el lienzo: «Seguir en el lienzo» abre esa automatización con su chat.',
+      'La ve quien ve la tab Automations de ese negocio.',
+      '**Cómo se prueba:** /second-brain?ws=1, mirando como super admin: el grupo Automations trae «Sprint · apertura» y tres más. En producción desde cb7b45568.',
+    ],
+    archivos: [
+      'lib/chat-mako-indice.ts (chatsDeAutomations, hiloDeAutomatizacion), lib/automatizacion-chat-db.ts (listarChats)',
+      'app/second-brain/useChatCliente.ts, app/second-brain/PiezasCliente.tsx — se lee y se sigue en el lienzo',
+      'tests/ops-center-automations.test.ts',
+    ],
+  },
+  {
+    fecha: '22 oct', hora: '17:45', chat: 'Ops Center', sesion: 'local_dd16f102-c670-41ff-9bfc-2780dca3fc05', cuenta: 'claude3',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Hecho: los documentos que adjuntas en una conversación de Offer desde el Ops Center llegan a MaKo',
+    pedido: 'OC7 (el plan del Cerebro): el «+» en una conversación de Offer no sube documentos',
+    revisar: '/second-brain?ws=3',
+    puntos: [
+      'En una conversación de Offer abierta en el Ops Center, lo que adjuntas con el «+» se sube y se lee en esa conversación, como en la tab Offer, y MaKo lo tiene para contestar.',
+      'Si un archivo no se pudo leer, el mensaje no sale y queda con «Reintentar»; lo que ya se leyó no se vuelve a subir.',
+      'La nota de voz en el chat del Ops Center todavía no: espera la transcripción con la IA del negocio.',
+      '**Cómo se prueba:** en /second-brain?ws=3, abre una conversación de Offer, adjunta un PDF con el «+» y pregúntale por él. En producción desde cb7b45568.',
+    ],
+    archivos: [
+      'app/second-brain/motor-offer.ts (leerArchivosDeOffer) — subir-url, PUT y leer, como la tab',
+      'tests/ops-center-offer-documentos.test.ts',
+    ],
+  },
 ];

@@ -14,6 +14,7 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { runWithWorkspace, getTenantDb, OWNER_WS } from '@/lib/workspace';
 import { jidToNumero, registrarWebhookInstancia } from '@/lib/evolution';
 import { guardarMensajeUpsert } from '@/lib/evolution-mensajes';
+import { taparClaves } from '@/lib/claves-en-el-chat';
 import { manejarEntranteDoer, wsDeGrupoJid } from '@/lib/mako-doer-in';
 import { INSTANCIA_SUPERADMIN, esNombreDeCanal, instanciaCanal, usarCanalComoVoz } from '@/lib/mako-canal';
 import { instanciaVoz } from '@/lib/mako-grupo';
@@ -253,7 +254,8 @@ export async function POST(req: NextRequest) {
               // manda el mensaje antes de tiempo. La condición se evalúa cuando a la
               // corrida le toca, con la marca ya puesta.
               const m = await marcarRespondieron(wsGrupo);
-              if (n || m) console.log(`[webhook:evolution] acuse «${texto}» en ${jid} → ${n} insistencia(s) cerrada(s) y ${m} corrida(s) marcada(s) en ws${wsGrupo}`);
+              // Tapado: un acuse es corto (≤40), y una clave `AIza…` suelta tiene 39 (revisión del lote 1).
+              if (n || m) console.log(`[webhook:evolution] acuse «${taparClaves(texto).texto}» en ${jid} → ${n} insistencia(s) cerrada(s) y ${m} corrida(s) marcada(s) en ws${wsGrupo}`);
             }
           } catch (e) { console.error('[webhook:evolution] acuse:', e instanceof Error ? e.message : String(e)); }
         });

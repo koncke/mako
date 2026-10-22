@@ -40,10 +40,9 @@ type ReglaDeClave = Regla & { servicio: string | null };
 
 /** Las que agente-redaccion no tenía. Van primero, antes de las heredadas: `sk-or-` lo cumplía también la OpenAI de allá. */
 const PROPIAS_ANTES: ReglaDeClave[] = [
-  { nombre: 'openrouter', re: /\bsk-or-[A-Za-z0-9_-]{20,}/g, con: CLAVE_TAPADA, servicio: 'openrouter' },
-  { nombre: 'cerebras', re: /\bcsk-[A-Za-z0-9]{20,}/g, con: CLAVE_TAPADA, servicio: 'cerebras' },
-  // Apify (22/10/2026): Martín pegó su token en el «Otra» de una pregunta del Ops Center y quedó guardado en el pedido firmado.
-  { nombre: 'apify', re: /\bapify_api_[A-Za-z0-9]{20,}/g, con: CLAVE_TAPADA, servicio: 'apify' },
+  // IA8: OpenRouter y Cerebras se sacaron de /integraciones. Su clave pegada se sigue tapando, sin botón para conectarla.
+  { nombre: 'openrouter', re: /\bsk-or-[A-Za-z0-9_-]{20,}/g, con: CLAVE_TAPADA, servicio: null },
+  { nombre: 'cerebras', re: /\bcsk-[A-Za-z0-9]{20,}/g, con: CLAVE_TAPADA, servicio: null },
   // Resend: `re_` + 8 + `_` + 24 (la forma de las de verdad). Sin un dígito o una mayúscula NO es una clave —una al azar de
   // 32 caracteres sin ninguno de los dos es una en cien mil—, es una etiqueta en snake_case del negocio
   // (`re_agendar_despues_de_la_llamada`, que con `[A-Za-z0-9_]{20,}` se tapaba y perdía el botón de email por nada).
@@ -58,6 +57,18 @@ const PROPIAS_ANTES: ReglaDeClave[] = [
   // El fine-grained de GitHub (`github_pat_` + 22 + `_` + 59); el clásico `ghp_…` ya lo cubre agente-redaccion.
   { nombre: 'github-fine', re: /\bgithub_pat_[A-Za-z0-9_]{50,}/g, con: CLAVE_TAPADA, servicio: null },
 ];
+
+/**
+ * Una clave de Mistral: 32 alfanuméricos con mayúscula, minúscula y dígito, sin nada pegado (ni `_`) a los lados. El borde y
+ * el largo exacto se miran PRIMERO (baratos, y fallan enseguida adentro de una tirada larga); las tres clases, después.
+ */
+// Ni pegado a un link: después de `=`, `/`, `?`, `&` o `#`, o seguido de `.`, es un parámetro o un camino, no una clave
+// pegada («…zoom.us/j/1?pwd=<32>.1» junto a «Av. Gabriela Mistral», revisión del lote 2).
+// El punto que cierra una frase («…es <clave>.») SÍ cuenta: sólo un punto seguido de algo más es parte de un link
+// (`(?!\.[A-Za-z0-9])`). Con `(?![A-Za-z0-9_.])` la clave al final de una oración pasaba entera (tercera revisión).
+const CUERPO_MISTRAL = '(?=[A-Za-z0-9]{32}(?![A-Za-z0-9_])(?!\\.[A-Za-z0-9]))(?=[A-Za-z0-9]{0,31}[a-z])(?=[A-Za-z0-9]{0,31}[A-Z])(?=[A-Za-z0-9]{0,31}[0-9])[A-Za-z0-9]{32}';
+const TOKEN_MISTRAL = `(?<![A-Za-z0-9_=/?&#])${CUERPO_MISTRAL}`;
+const MISTRAL = '[Mm][Ii][Ss][Tt][Rr][Aa][Ll]';
 
 /**
  * Las que van DESPUÉS de las heredadas: la línea de .env necesita que el valor de una clave ya conocida sea un marcador
@@ -84,6 +95,26 @@ const PROPIAS_DESPUES: ReglaDeClave[] = [
   // (Los fixtures de tests/mercadopago-api.test.ts traen un hex corto —12— y NO tienen la forma: esa regla es de aquel
   // archivo, no de este. La Public Key, `APP_USR-` + un UUID, tampoco cae: no es secreta.)
   { nombre: 'mercadopago', re: /\b(?:APP_USR|TEST)-\d{10,}-\d{6}-[A-Fa-f0-9]{32}-\d+/g, con: CLAVE_TAPADA, servicio: 'mercadopago' },
+  // Las que pasaban enteras (revisión del lote 1, 22/10/2026), con su forma:
+  //   · Apify: `apify_api_` + 20+ alfanuméricos (20 y no 30: la del Ops Center, f871fe72a, se tapaba desde 20) (el producto se la pide al cliente para buscar prospectos);
+  //   · DeepSeek: `sk-` + 32 hex en MINÚSCULA. No la cumple la de OpenAI (pide una mayúscula y 40+), ni un slug (lleva guiones);
+  //   · Mistral: 32 alfanuméricos SIN prefijo, con mayúscula, minúscula y dígito. Sin prefijo, la forma sola es la de
+  //     cualquier id: se tapa si el texto es SÓLO eso (lo que se pega cuando se pega una clave) o si el texto NOMBRA a
+  //     Mistral en cualquier lugar (`taparClaves` suma `MISTRAL_NOMBRADA`). La primera versión pedía «mistral» a menos de
+  //     40 caracteres en la misma línea, y «Clave de Mistral 👇» con la clave abajo —como se pega en WhatsApp— pasaba
+  //     entera (segunda revisión del lote 1).
+  //   · xAI (`xai-`), Perplexity (`pplx-`), Hugging Face (`hf_`) y Together (`tgp_v1_`), con su prefijo y un largo de clave.
+  { nombre: 'apify', re: /\bapify_api_[A-Za-z0-9]{20,}/g, con: CLAVE_TAPADA, servicio: 'apify' },
+  { nombre: 'deepseek', re: /\bsk-[a-f0-9]{32}\b/g, con: CLAVE_TAPADA, servicio: null },
+  { nombre: 'xai', re: /\bxai-[A-Za-z0-9]{40,}/g, con: CLAVE_TAPADA, servicio: null },
+  { nombre: 'perplexity', re: /\bpplx-[A-Za-z0-9]{40,}/g, con: CLAVE_TAPADA, servicio: null },
+  { nombre: 'huggingface', re: /\bhf_[A-Za-z]{30,}\b/g, con: CLAVE_TAPADA, servicio: null },
+  { nombre: 'together', re: /\btgp_v1_[A-Za-z0-9_-]{30,}/g, con: CLAVE_TAPADA, servicio: null },
+  // Anclada al principio (`^`, sin `m`: una vez por texto). Un `(?<=^\s*)` en cada posición era cuadrático con espacios.
+  { nombre: 'mistral-sola', re: new RegExp(`^(\\s*)${TOKEN_MISTRAL}(?=\\s*$)`, 'g'), con: `$1${CLAVE_TAPADA}`, servicio: null },
+  // Asignada a un nombre que dice «mistral» (`mistral_key=…`, `Mistral: …`): el `=` no la protege, como sí al pwd de un link.
+  // En minúscula, la regla de .env (sólo MAYÚSCULAS) no la agarraba. Arranca por la palabra: no se vuelve lenta.
+  { nombre: 'mistral-asignada', re: new RegExp(`(${MISTRAL}[A-Za-z0-9_]*[ \\t]*[=:][ \\t]*)${CUERPO_MISTRAL}`, 'g'), con: `$1${CLAVE_TAPADA}`, servicio: null },
   // Una línea de .env: SÓLO al principio de la línea (con su `export` y su sangría) y con el nombre en MAYÚSCULAS, como se
   // pega. El NOMBRE tiene que TERMINAR en KEY, TOKEN, SECRET, PASSWORD, PASS o CREDENTIAL(S), con un sufijo numérico
   // opcional (`GEMINI_API_KEY_2`, que existe): «contiene KEY» se comía `KEYWORDS: zapatillas-running-mujer-ofertas`.
@@ -107,6 +138,19 @@ const REGLAS_DE_SECRETOS: ReglaDeClave[] = [
   ...PROPIAS_DESPUES,
 ];
 
+/**
+ * Con el texto que NOMBRA a Mistral (en cualquier lugar, cualquier línea): toda clave de su forma, todas las veces. Va
+ * después de la de «sola» y antes de la de .env (`MISTRAL_API_KEY=…` dice el nombre: la tapa ésta, y .env conserva el
+ * nombre). Sin captura del contexto: un `$1` que se tragaba el marcador de OTRA clave dejaba bytes NUL en el texto, la
+ * base lo rechazaba y el mensaje se perdía (segunda revisión del lote 1; ver también `redactarCon`).
+ */
+const MISTRAL_NOMBRADA: ReglaDeClave = { nombre: 'mistral-nombrada', re: new RegExp(TOKEN_MISTRAL, 'g'), con: CLAVE_TAPADA, servicio: null };
+const REGLAS_CON_MISTRAL: ReglaDeClave[] = (() => {
+  const i = REGLAS_DE_SECRETOS.findIndex((r) => r.nombre === 'mistral-sola');
+  return [...REGLAS_DE_SECRETOS.slice(0, i + 1), MISTRAL_NOMBRADA, ...REGLAS_DE_SECRETOS.slice(i + 1)];
+})();
+const NOMBRA_A_MISTRAL = new RegExp(MISTRAL);
+
 export type Tapado = {
   /** El texto con cada clave cambiada por `CLAVE_TAPADA`. */
   texto: string;
@@ -119,14 +163,15 @@ export type Tapado = {
 /** Tapa las claves de un mensaje del chat. Nunca tira. */
 export function taparClaves(entrada: string): Tapado {
   const texto = typeof entrada === 'string' ? entrada : '';
+  const reglas = NOMBRA_A_MISTRAL.test(texto) ? REGLAS_CON_MISTRAL : REGLAS_DE_SECRETOS;
   let servicio: string | null = null;
-  for (const r of REGLAS_DE_SECRETOS) {
+  for (const r of reglas) {
     if (servicio) break;
     r.re.lastIndex = 0;
     if (r.re.test(texto)) servicio = r.servicio;
     r.re.lastIndex = 0;
   }
-  const r = redactarCon(texto, REGLAS_DE_SECRETOS);
+  const r = redactarCon(texto, reglas);
   return { texto: r.texto, tapadas: r.tapadas, servicio: r.tapadas ? servicio : null };
 }
 

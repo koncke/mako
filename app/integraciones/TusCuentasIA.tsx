@@ -15,12 +15,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { LogoClaude } from '@/app/admin/operaciones/Uso';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
+import { BrandDefs, SvcIcon } from '@/app/_components/ServicioVisual';
 import { hace } from '@/lib/progreso-reglas';
 import { TEXTO_CONSENTIMIENTO, VERSION_CONSENTIMIENTO, estadoDeLaPc, lineaDeInstalacion, yaPaso, type CuentaPc, type SistemaPc } from '@/lib/ia-pc-reglas';
+import { nombreDeSuClave, queHacer, textoDeSuClave, type EstadoSuClave, type ProvSuClave } from '@/lib/su-clave-reglas';
+import { IAS_DEL_CLIENTE, NOMBRE_IA, SERVICIO_DE_CLAVE, comoConectar, notaDeConectar, type IaDelCliente } from '@/lib/conectar-ia-reglas';
 import './tus-cuentas-ia.css';
 
 type Pc = { id: number; nombre: string; esMia: boolean; de?: string; enLinea: boolean; ultimoLatido: string | null; version: string | null; cuentas: CuentaPc[]; sinClaude?: boolean };
-type Estado = { ok: boolean; esAdmin: boolean; modelo: string; pcs: Pc[] };
+type SuClave = EstadoSuClave & { es: 'propia' | 'copia' | 'ilegible'; modelo?: 'haiku' | 'sonnet'; soloHaiku?: boolean };
+/** El modelo de su Claude por clave (IA5). Lo paga su cuenta. */
+const MODELOS_SU_CLAUDE: Array<{ v: 'haiku' | 'sonnet'; t: string }> = [{ v: 'haiku', t: 'Haiku' }, { v: 'sonnet', t: 'Sonnet' }];
+/** `claves`: sólo para el admin. `null` = no se pudo leer (no se inventa «Todavía no se usó»). */
+type Estado = { ok: boolean; esAdmin: boolean; modelo: string; pcs: Pc[]; claves?: SuClave[] | null; /** A quien no es admin: el nombre del admin («Pídele a…»). */ admin?: string };
 
 const MODELOS: Array<{ v: string; t: string }> = [{ v: 'sonnet', t: 'Sonnet (recomendado)' }, { v: 'opus', t: 'Opus' }, { v: 'haiku', t: 'Haiku' }];
 const COMANDO_CLAUDE: Record<SistemaPc, string> = {
@@ -215,9 +222,152 @@ function Tutorial({ onCerrar, pcsAntes, recargar }: { onCerrar: () => void; pcsA
   );
 }
 
-/** `sinCabecera`: donde la página ya pone el título (/perfil/ia), sólo el botón; si no, el título salía dos veces. */
-export function TusCuentasIA({ sinCabecera = false }: { sinCabecera?: boolean } = {}) {
+/**
+ * Las claves de API del negocio y si anduvieron o fallaron (IA3, 22/10/2026). Antes una clave sin crédito se veía igual que
+ * «nunca se usó»: cada fallo ahora deja su fila (lib/su-clave.ts) y acá se lee la más reciente. «Probar mi clave» hace un
+ * pedido que no cobra: dice si la clave es válida, no si tiene crédito (eso lo dice la próxima respuesta).
+ */
+function SusClaves({ claves, ahora, recargar }: { claves: SuClave[] | null; ahora: number; recargar: () => Promise<Estado | null> }) {
+  const [probando, setProbando] = useState<ProvSuClave | null>(null);
+  const [prueba, setPrueba] = useState<Partial<Record<ProvSuClave, { anda: boolean; texto: string }>>>({});
+  const probar = async (p: ProvSuClave) => {
+    setProbando(p);
+    const r = await fetch('/api/ia-del-negocio/probar-clave', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ proveedor: p }),
+    }).then((x) => x.json()).catch(() => null);
+    setPrueba((s) => ({ ...s, [p]: r?.ok ? { anda: !!r.anda, texto: String(r.texto) } : { anda: false, texto: r?.error ?? 'No pude probarla. Intenta de nuevo.' } }));
+    setProbando(null);
+    void recargar();
+  };
+  const [modelos, setModelos] = useState<Partial<Record<ProvSuClave, string>>>({});
+  const elegirModelo = async (modelo: string) => {
+    setModelos((s) => ({ ...s, anthropic: modelo }));
+    await fetch('/api/ia-del-negocio/modelo', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ modelo }) }).catch(() => null);
+    void recargar();
+  };
+  if (claves === null) return <p className="tci-nota">No pude ver tus claves de API. Intenta de nuevo en un rato.</p>;
+  return (
+    <div className="tci-claves">
+      <BrandDefs />
+      {claves.map((c) => {
+        const linea = c.es === 'propia' ? textoDeSuClave(c, ahora, hace) : null;
+        const hacer = linea?.tono === 'mal' && c.fallo ? queHacer(c.fallo.motivo) : null;
+        const r = prueba[c.proveedor];
+        return (
+          <div key={c.proveedor} className="tci-clave">
+            <div className="tci-fila">
+              <span className="tci-quien"><SvcIcon k={c.proveedor} size={14} box={24} radius={6} />{`Tu clave de ${nombreDeSuClave(c.proveedor)}`}</span>
+              {c.es === 'propia' && (
+                <button type="button" className="tci-boton tci-boton--suave tci-boton--chico" disabled={probando != null} onClick={() => void probar(c.proveedor)}>
+                  {probando === c.proveedor ? 'Probando…' : 'Probar mi clave'}
+                </button>
+              )}
+            </div>
+            {linea && <p className={`tci-nota tci-clave__estado tci-clave__estado--${linea.tono}`}>{linea.texto}</p>}
+            {hacer && <p className="tci-nota">{hacer}</p>}
+            {c.es === 'copia' && <p className="tci-nota">Es la clave de MaKo, no la tuya. <BotonIntegracion servicio={c.proveedor} style={{ color: 'var(--primary)', fontWeight: 600 }}>Pegar la tuya</BotonIntegracion></p>}
+            {c.es === 'ilegible' && <p className="tci-nota">No puedo leerla. <BotonIntegracion servicio={c.proveedor} style={{ color: 'var(--primary)', fontWeight: 600 }}>Pegarla de nuevo</BotonIntegracion></p>}
+            {r && <p className={`tci-nota tci-clave__estado tci-clave__estado--${r.anda ? 'bien' : 'mal'}`} role="status">{r.texto}</p>}
+            {/* IA5: el modelo de SU Claude, que paga su cuenta. El crédito de Max de MaKo puesto como clave va con Haiku. */}
+            {c.proveedor === 'anthropic' && c.es === 'propia' && c.modelo && (
+              <div className="tci-modelo">
+                <div className="tci-opciones">
+                  {MODELOS_SU_CLAUDE.map((m) => (
+                    <button key={m.v} type="button" className={`tci-opcion${(modelos[c.proveedor] ?? c.modelo) === m.v ? ' is-on' : ''}`}
+                      disabled={c.soloHaiku && m.v !== 'haiku'} onClick={() => void elegirModelo(m.v)}>{m.t}</button>
+                  ))}
+                </div>
+                <p className="tci-nota">{c.soloHaiku ? 'Con esta clave, Haiku.' : 'Sonnet escribe mejor y gasta más de tu cuenta.'}</p>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** El logo de cada IA, para los botones grandes del paso 1. */
+const LogoIA = ({ ia }: { ia: IaDelCliente }) => (ia === 'claude' ? <LogoClaude size={28} /> : <SvcIcon k="openai" size={18} box={28} radius={7} />);
+
+/**
+ * «Conectar tu IA» (IA4, 22/10/2026), un paso por pantalla: ¿qué IA? (Claude o ChatGPT) → ¿cómo? (mi computadora, o una
+ * clave de API que carga el admin; a los demás, «Pídele a <admin>»). Las opciones y sus textos: lib/conectar-ia-reglas.ts.
+ * La computadora abre el tutorial de siempre; la clave, el modal de la integración (el mismo de /integraciones).
+ */
+function ConectarTuIA({ esAdmin, admin, listo: puedeComputadora, onComputadora, onCerrar, onConectada }: {
+  esAdmin: boolean; admin?: string; listo: boolean;
+  onComputadora: () => void; onCerrar: () => void; onConectada: () => void;
+}) {
+  const [ia, setIa] = useState<IaDelCliente | null>(null);
+  const [conectada, setConectada] = useState(false);
+  return (
+    <div className="tci-tutorial" role="dialog" aria-label="Conectar tu IA">
+      <BrandDefs />
+      <div className="tci-tutorial__cab">
+        <span className="tci-paso">{conectada ? '¡Listo!' : `Paso ${ia ? 2 : 1} de 2`}</span>
+        <button type="button" className="tci-cerrar" aria-label="Cerrar" onClick={onCerrar}>×</button>
+      </div>
+      {!ia && (
+        <>
+          <h3>¿Qué IA usas?</h3>
+          <div className="tci-grandes">
+            {IAS_DEL_CLIENTE.map((x) => (
+              <button key={x} type="button" className="tci-grande" onClick={() => setIa(x)}>
+                <LogoIA ia={x} /><span className="tci-grande__titulo">{NOMBRE_IA[x]}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      {ia && !conectada && (
+        <>
+          <h3>¿Cómo la conectas?</h3>
+          <div className="tci-grandes">
+            {comoConectar(ia, { esAdmin, admin }).map((o) => {
+              const contenido = <><span className="tci-grande__titulo">{o.titulo}</span><span className="tci-grande__detalle">{o.detalle}</span></>;
+              if (o.que === 'clave') {
+                return (
+                  <BotonIntegracion key={o.que} servicio={SERVICIO_DE_CLAVE[ia]} className="tci-grande"
+                    onConectado={() => { setConectada(true); onConectada(); }}>
+                    {contenido}
+                  </BotonIntegracion>
+                );
+              }
+              // A quien no es admin no se le ofrece la clave (es del negocio): se le dice a quién pedírsela, sin botón.
+              if (o.que === 'pedir') return <div key={o.que} className="tci-grande tci-grande--pedir" role="note">{contenido}</div>;
+              const anda = o.habilitada && (o.que !== 'pc' || puedeComputadora);
+              return (
+                <button key={o.que} type="button" className="tci-grande" disabled={!anda} onClick={o.que === 'pc' ? onComputadora : undefined}>
+                  {contenido}
+                </button>
+              );
+            })}
+          </div>
+          {notaDeConectar(ia) && <p className="tci-nota">{notaDeConectar(ia)}</p>}
+        </>
+      )}
+      {ia && conectada && (
+        <>
+          <h3>{`Tu ${NOMBRE_IA[ia]} está conectado`}</h3>
+          <p>Desde ahora MaKo usa tu clave, también para lo que hace solo.</p>
+        </>
+      )}
+      <div className="tci-tutorial__pie">
+        {ia && !conectada && <button type="button" className="tci-boton tci-boton--suave" onClick={() => setIa(null)}>Atrás</button>}
+        {conectada && <button type="button" className="tci-boton" onClick={onCerrar}>Listo</button>}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * `sinCabecera`: donde la página ya pone el título (/perfil/ia), sólo el botón; si no, el título salía dos veces.
+ * `conectar`: abre directo «¿Qué IA usas?» (el modal del botón «Conectar tu IA» del Ops Center).
+ */
+export function TusCuentasIA({ sinCabecera = false, conectar = false }: { sinCabecera?: boolean; conectar?: boolean } = {}) {
   const [estado, setEstado] = useState<Estado | null>(null);
+  const [eligiendo, setEligiendo] = useState(conectar);
   const [tutorial, setTutorial] = useState(false);
   const [confirmar, setConfirmar] = useState<number | null>(null);
   const [ahora, setAhora] = useState(() => Date.now());
@@ -241,7 +391,7 @@ export function TusCuentasIA({ sinCabecera = false }: { sinCabecera?: boolean } 
     setEstado((e) => (e ? { ...e, modelo } : e));
     await fetch('/api/ia-pc/modelo', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ modelo }) }).catch(() => null);
   };
-  const abrirTutorial = () => { antes.current = (estado?.pcs ?? []).map((p) => p.id); setTutorial(true); };
+  const abrirTutorial = () => { antes.current = (estado?.pcs ?? []).map((p) => p.id); setEligiendo(false); setTutorial(true); };
 
   return (
     <section className="tci" aria-labelledby="tci-titulo">
@@ -249,17 +399,22 @@ export function TusCuentasIA({ sinCabecera = false }: { sinCabecera?: boolean } 
         {sinCabecera ? <span id="tci-titulo" hidden>Tus cuentas de IA</span> : (
           <div>
             <h2 id="tci-titulo" className="tci-titulo">Tus cuentas de IA</h2>
-            <p className="tci-bajada">Tu Ops Center contesta con tu Claude, en tu computadora y con tu cuenta.</p>
+            <p className="tci-bajada">Tu Ops Center contesta con tu Claude o tu GPT.</p>
           </div>
         )}
-        {/* Hasta que llegue el estado no se sabe qué PC ya estaban: una en línea de antes contaba como la nueva y el
-            tutorial decía «¡Listo!» sin que se conectara nada (segunda revisión, 21/10/2026). */}
-        <button type="button" className="tci-boton" onClick={abrirTutorial} disabled={!estado}>Conectar mi computadora</button>
+        {!eligiendo && !tutorial && <button type="button" className="tci-boton" onClick={() => setEligiendo(true)}>Conectar tu IA</button>}
       </div>
 
+      {/* Hasta que llegue el estado no se sabe qué PC ya estaban: una en línea de antes contaba como la nueva y el
+          tutorial decía «¡Listo!» sin que se conectara nada (segunda revisión, 21/10/2026). Por eso «Mi computadora»
+          espera al estado (`listo`). */}
+      {eligiendo && (
+        <ConectarTuIA esAdmin={!!estado?.esAdmin} admin={estado?.admin} listo={!!estado}
+          onComputadora={abrirTutorial} onCerrar={() => { setEligiendo(false); void recargar(); }} onConectada={() => void recargar()} />
+      )}
       {tutorial && <Tutorial onCerrar={() => { setTutorial(false); void recargar(); }} pcsAntes={antes.current} recargar={recargar} />}
 
-      {estado && !estado.pcs.length && !tutorial && <p className="tci-vacio">Todavía no conectaste ninguna computadora.</p>}
+      {estado && !estado.pcs.length && !tutorial && !eligiendo && <p className="tci-vacio">Todavía no conectaste ninguna computadora.</p>}
       {estado?.pcs.map((pc) => (
         <div key={pc.id} className="tci-pc">
           <div className="tci-fila">
@@ -305,11 +460,8 @@ export function TusCuentasIA({ sinCabecera = false }: { sinCabecera?: boolean } 
         </div>
       )}
 
-      {/* La clave de API es del NEGOCIO (la guarda el admin): a un closer no se le ofrece. */}
-      {estado?.esAdmin && (
-        <p className="tci-nota tci-otra">
-          ¿Prefieres tu clave de API de Claude? <BotonIntegracion servicio="anthropic" style={{ color: 'var(--primary)', fontWeight: 600 }}>Conectar con tu clave</BotonIntegracion>
-        </p>
+      {estado?.esAdmin && (estado.claves === null || !!estado.claves?.length) && (
+        <SusClaves claves={estado.claves ?? null} ahora={ahora} recargar={recargar} />
       )}
     </section>
   );

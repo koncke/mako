@@ -170,7 +170,7 @@ test('el doer corre la red con lo que decide `turnoParaLaRed`, y no con el turno
 test('sin keys propias y con la red cortada, el aviso dice por qué y adónde ir (y no manda a conectar Claude)', () => {
   const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
   assert.match(doer, /const sinRedPorSusDatos = sinRedPorDatos\(errsPlat\) && causa === 'sin_keys';/);
-  assert.match(doer, /respuesta = sinRedPorSusDatos\s*\?\s*textoSinRedPorDatos\(linkApp\('\/integraciones\?abrir=gemini', wsData\)/);
+  assert.match(doer, /respuesta = sinRedPorSusDatos\s*\?\s*textoSinRedPorDatos\(linkApp\('\/integraciones\?abrir=anthropic', wsData\)/);
   assert.ok(sinRedPorDatos(['red gratis salteada: el turno lleva datos de clientes (buscar_leads) y el plan gratis entrena con lo que recibe']));
   const txt = textoSinRedPorDatos('https://app/integraciones?abrir=gemini&ws=13', 'armar el borrador');
   assert.match(txt, /No puedo armar el borrador/);

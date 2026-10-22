@@ -9,7 +9,8 @@
 // de MaKo + Change history (avatar + deshacer por entrada), editor de proyectos
 // con emoji, y el form bloqueante para tareas Alta sin deadline/checklist.
 
-import { Fragment, useEffect, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction, useMemo, useCallback } from 'react';
+import { SelectorVista } from '@/app/_ui/SelectorVista';
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction, useMemo, useCallback, createContext, useContext } from 'react';
 import { createPortal } from 'react-dom';
 import { UndoToast } from '../../_components/UndoToast';
 import { ConfirmModal } from '../../_components/ConfirmModal';
@@ -146,6 +147,14 @@ import { TablaProyectos, TablaTareas, LineaRepeticion } from './Tablas';
 // este código no las nombra: dos modelos de lo mismo es el bug que la 0167 vino a cerrar.
 import { ROTULO_RECURRENTE, esRecurrente, sinRecurrentes, llevaDeadline, recurrenciaDe, ROTULO_REPETICION } from '@/lib/plan-recurrentes';
 import { EstiloTarjetas } from '@/app/_ui/TarjetaKanban';
+import { MenuContextual } from '@/app/_ui/MenuContextual';
+import { IconoMenu } from '@/app/_ui/iconos-menu';
+import { PersonalizarTarjetas } from '@/app/_ui/PersonalizarTarjetas';
+import {
+  CAMPOS_TARJETA_PLAN, CAMPOS_TARJETA_PLAN_DEFAULT, NOMBRE_CAMPO_TARJETA_PLAN, PLANTILLAS_TARJETA_PLAN,
+  type CampoTarjetaPlan, type FormaTarjetaPlan,
+} from '@/lib/tarjeta-plan';
+import { guardarTarjetaPlanAction } from './tarjeta-actions';
 import { FONDO_COLUMNA } from '@/lib/tarjeta-kanban';
 
 const MONO = "'Geist Mono', monospace";
@@ -1234,10 +1243,53 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
     // checklist de estas tareas, y re-curvaba el tablero. Se fue el 16/10/2026 (ver arriba).
   };
 
+  // ── «PERSONALIZAR TARJETAS» (21/10/2026) ───────────────────────────────────────
+  // Martín: «la personalización de las tarjetas en clientes, plan, etc.», y del CRM: «si le doy click derecho a las cards,
+  // debería poder ver la opción de "Personalizar tarjeta"». La forma y los datos de la tarjeta de una tarea son de QUIEN
+  // MIRA (`board.tarjeta`, lo lee la página: lib/tarjeta-plan.ts) y le llegan a cada `CardTile` por contexto
+  // (`TarjetaPlanCtx`), así la del Kanban, la de Recurrentes y la de «Lo que cargó MaKo» dicen lo mismo.
+  // `board.tarjeta` null = un tablero embebido (la ficha de un cliente, Admin): la de siempre, sin ofrecerlo.
+  const tarjetaVista = useMemo<TarjetaPlanVista | null>(
+    () => (board.tarjeta ? { forma: board.tarjeta.forma, campos: board.tarjeta.campos } : null), [board.tarjeta]);
+  const [personalizando, setPersonalizando] = useState(false);
+  const cerrarPersonalizar = useCallback(() => setPersonalizando(false), []);
+  /** Hay tarjetas a la vista: el Kanban y la grilla de Recurrentes. En una tabla o en Prioridades no cambiaría nada. */
+  const hayTarjetas = (view === 'tareas' || view === 'recurrentes') && !tabla;
+  /** La tarea de muestra del pop-up: una abierta con proyecto y fecha si hay, para que la galería muestre la diferencia. */
+  const muestraTarjeta = tasks.find((t) => t.progress < 100 && t.labels.length > 0 && !!t.deadline)
+    ?? tasks.find((t) => t.progress < 100 && t.labels.length > 0) ?? tasks[0] ?? null;
+  const [menuTarjeta, setMenuTarjeta] = useState<{ n: number; x: number; y: number; id: string } | null>(null);
+  const aperturasMenuTarjeta = useRef(0);
+  const cerrarMenuTarjeta = useCallback(() => setMenuTarjeta(null), []);
+  /**
+   * EL CLIC DERECHO EN UNA TARJETA: «Abrir» y «Personalizar tarjeta». Con las guardas del CRM (`alClicDerecho`,
+   * app/crm/CrmBoard.tsx):
+   *   · ⚠️ UN EVENTO DE REACT SUBE POR LOS PORTALES: lo que ya lo atendió, o vive en un diálogo, un menú o una lista, no
+   *     se pisa; con un modal abierto (`aria-modal`), tampoco.
+   *   · Escribiendo (un campo, el motivo de «Atorada», el nombre de una columna) o sobre un link, el del navegador. La
+   *     casilla de la tarjeta NO: es de la tarjeta.
+   *   · Fuera de una tarjeta, el del navegador. Y sin `board.tarjeta` (embebido) tampoco se abre: sería un menú de uno.
+   */
+  const alClicDerechoTarjeta = (ev: React.MouseEvent<HTMLElement>) => {
+    const t = ev.target;
+    if (!board.tarjeta || ev.defaultPrevented || !(t instanceof Element)) return;
+    if (t.closest('[role="dialog"], [role="menu"], [role="listbox"]') || document.querySelector('[aria-modal="true"]')) return;
+    if (t.closest('input:not([type="checkbox"]), textarea, select, [contenteditable="true"], [contenteditable=""], a[href]')) return;
+    const id = t.closest<HTMLElement>('[data-tarea-id]')?.dataset.tareaId;
+    if (!id || !tasks.some((x) => x.id === id)) return;
+    ev.preventDefault();
+    // Con el teclado (la tecla de menú, Mayús+F10) el evento llega sin punto: el menú va al borde de lo enfocado.
+    const r = t.getBoundingClientRect();
+    const conPunto = ev.clientX !== 0 || ev.clientY !== 0;
+    aperturasMenuTarjeta.current += 1;
+    setMenuTarjeta({ n: aperturasMenuTarjeta.current, x: conPunto ? ev.clientX : r.left + 12, y: conPunto ? ev.clientY : r.top + 12, id });
+  };
+
   return (
     // El porqué del layout —la grilla `auto 1fr`, el `minHeight` y por qué NO lleva
     // `overflow: hidden`— vive entero en `Marco`, acá arriba. Una sola copia: la vez que
     // estuvo en los dos lados, una se quedó vieja.
+    <TarjetaPlanCtx.Provider value={tarjetaVista}>
     <Marco embebido={embebido}>
       {/* símbolos de marca (para el logo de Fathom del toolbar/modal) — una vez por página */}
       <BrandDefs />
@@ -1426,6 +1478,16 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
           </button>
           ), menu: { icono: <RepriorizarIcon />, label: 'Re-priorizar todo',
             desc: rpUI.linea ?? 'MaKo ordena todo en segundo plano', onClick: () => { void rpUI.iniciar(); } } }] : []),
+          /* «PERSONALIZAR TARJETAS» (21/10/2026), como en el «⋯» del CRM y de Clientes: la forma y los datos de la
+             tarjeta de una tarea, de quien mira. Sólo donde hay tarjetas (`hayTarjetas`) y en el tablero que la página
+             leyó para quien mira (`board.tarjeta`; embebido no). */
+          ...(board.tarjeta && hayTarjetas ? [{ key: 'personalizar', nodo: (
+          <button type="button" onClick={() => setPersonalizando(true)} aria-label="Personalizar tarjetas" title="Personalizar tarjetas"
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', cursor: 'pointer', flex: 'none', color: 'var(--dim)' }}>
+            <IconoMenu nombre="configurar" size={17} />
+          </button>
+          ), menu: { icono: <IconoMenu nombre="configurar" size={15} />, label: 'Personalizar tarjetas',
+            desc: 'Cómo se ve cada tarea', onClick: () => setPersonalizando(true) } }] : []),
           /* Bajarse el tablero. Sale del estado que ya está en memoria, así que anda
              igual en el tablero del dueño que en el del cliente, y baja al instante. */
           { key: 'exportar', nodo: <ExportarBoton onAbrir={() => setExportar(true)} />,
@@ -1446,7 +1508,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
           debajo nada. Se reportó tres veces como «el plan está vacío» desde una Mac.
           El patrón que sí funciona en los dos: el padre es columna y el hijo estira
           con `flex: 1` + `minHeight: 0`. Ninguna vista vuelve a pedir `height: 100%`. */}
-      <div style={{ minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ minHeight: 0, display: 'flex', flexDirection: 'column' }} onContextMenu={alClicDerechoTarjeta}>
         {view === 'prioridades' && <Prioridades tasks={enPrio} board={board} objetivo={objetivoVista} cliente={nombreFiltroCli ?? nombreCliente ?? null} onOpen={setOpenId} onOpenProj={setOpenProj} />}
         {view === 'tareas' && (tabla
           ? <div style={{ flex: '1 0 auto', padding: '18px 30px 40px', display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -1754,8 +1816,43 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
         renderProjCard={(l) => <ProyectoCardTile l={l} prog={projProgress(tasks, l.id)} isTop={l.id === topProjectId} onOpen={() => setOpenProj(l.id)} />}
         onClose={() => setWelcomeVisible(false)} />}
       {confirm && <ConfirmModal msg={confirm.msg} onOk={() => { confirm.onOk(); setConfirm(null); }} onCancel={() => setConfirm(null)} />}
+      {/* El menú del clic derecho en una tarjeta (21/10/2026). */}
+      {menuTarjeta && (
+        <MenuContextual key={menuTarjeta.n} punto={{ x: menuTarjeta.x, y: menuTarjeta.y }}
+          items={[{ id: 'abrir', label: 'Abrir', icono: 'ver' }, null, { id: 'personalizar_tarjeta', label: 'Personalizar tarjeta', icono: 'configurar' }]}
+          etiqueta={`Acciones de ${tasks.find((x) => x.id === menuTarjeta.id)?.title ?? 'esta tarea'}`}
+          onCerrar={cerrarMenuTarjeta}
+          onElegir={(id) => {
+            setMenuTarjeta(null);
+            if (id === 'abrir') setOpenId(menuTarjeta.id);
+            if (id === 'personalizar_tarjeta') setPersonalizando(true);
+          }} />
+      )}
+      {/* «Personalizar tarjetas» (el «⋯» de la barra o el clic derecho en una tarjeta): la pieza de TODOS los tableros
+          (app/_ui/PersonalizarTarjetas.tsx), con las plantillas del Plan y la tarjeta DE VERDAD (`CardTile`, con una tarea
+          del tablero y lo que se está eligiendo). */}
+      {personalizando && board.tarjeta && (
+        <PersonalizarTarjetas<FormaTarjetaPlan, CampoTarjetaPlan>
+          fabrica={PLANTILLAS_TARJETA_PLAN} propias={board.tarjeta.plantillas} forma={board.tarjeta.forma} campos={board.tarjeta.campos}
+          catalogo={CAMPOS_TARJETA_PLAN} nombreCampo={NOMBRE_CAMPO_TARJETA_PLAN} guardable={board.tarjeta.guardable}
+          guardar={async (f, cs, ps) => {
+            const r = await guardarTarjetaPlanAction(cs, f, ps);
+            return r.ok ? { ok: true } : r;
+          }}
+          onCambio={(f, cs, ps) => board.setTarjeta((p) => (p ? { ...p, forma: f, campos: cs, plantillas: ps } : p))}
+          onCerrar={cerrarPersonalizar}
+          vistaPrevia={muestraTarjeta ? (f, cs) => (
+            // ⚠️ `inert`: se mira, no se toca. Es la tarjeta de verdad, y su check gris completaría la tarea de verdad.
+            <div inert>
+              <CardTile t={muestraTarjeta} board={board} warn={false} frenanA={frenanA(muestraTarjeta.id)}
+                onOpen={() => {}} onWarn={() => {}} onEliminar={() => {}} tarjeta={{ forma: f, campos: cs }} />
+            </div>
+          ) : null}
+          sinMuestra="Carga una tarea para ver cómo queda." ayudaDatos="Arrástralos para acomodar el renglón de abajo. El título va siempre." />
+      )}
       <UndoToast state={board.undo} onClose={board.clearUndo} />
     </Marco>
+    </TarjetaPlanCtx.Provider>
   );
 }
 
@@ -2423,25 +2520,15 @@ function IEMeter({ label, v, color }: { label: string; v: number; color: string 
 function ProjScore({ score, color, big }: { score: number; color: string; big?: boolean }) {
   return <span title="Prioridad del proyecto" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: big ? 15 : 11, fontWeight: 700, color, background: color + '18', border: `1px solid ${color}33`, borderRadius: 6, padding: big ? '3px 10px' : '2px 6px 2px 5px' }}><ScoreIcon size={big ? 15 : 11} color={color} />{score}</span>;
 }
-// TARJETAS o TABLA. Vive al lado de «Filtrar» porque es lo mismo que un filtro: cambia
+// KANBAN o LISTA. Vive al lado de «Filtrar» porque es lo mismo que un filtro: cambia
 // cómo mirás lo que ya está, no lo que hay. Se recuerda por navegador y por vista.
+// Es el segmento COMPARTIDO con el CRM y Clientes (app/_ui/SelectorVista.tsx): hasta el 21/10/2026 era una copia
+// propia que decía «Ver en tarjetas» y «Ver en tabla». Martín: «el placeholder del "tablero" debe ser "kanban"...
+// Esto en todos lados».
 function VistaToggle({ tabla, onSet }: { tabla: boolean; onSet: (v: boolean) => void }) {
-  const btn = (activo: boolean): CSSProperties => ({
-    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 30, borderRadius: 7,
-    border: 'none', background: activo ? 'var(--surface)' : 'transparent', color: activo ? 'var(--primary)' : 'var(--faint)',
-    boxShadow: activo ? '0 1px 2px rgba(18,21,27,.08)' : 'none', cursor: 'pointer', flex: 'none',
-  });
-  return (
-    <div style={{ display: 'inline-flex', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, padding: 2 }}>
-      <button type="button" onClick={() => onSet(false)} aria-pressed={!tabla} title="Ver en tarjetas" aria-label="Ver en tarjetas" style={btn(!tabla)}>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>
-      </button>
-      <button type="button" onClick={() => onSet(true)} aria-pressed={tabla} title="Ver en tabla — con deadline, días que faltan y atraso" aria-label="Ver en tabla" style={btn(tabla)}>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
-      </button>
-    </div>
-  );
+  return <SelectorVista vistas={VISTAS_PLAN} vista={tabla ? 'tabla' : 'kanban'} onVista={(v) => onSet(v === 'tabla')} ariaLabel="Cómo ver las tareas" />;
 }
+const VISTAS_PLAN = ['kanban', 'tabla'] as const;
 // LA RAZÓN DEL NÚMERO, PLEGADA. Estaba suelta arriba de todo en las dos sidebars y son
 // dos o tres renglones de itálica que nadie lee dos veces: «eso está bien que exista, ya
 // que el perro seguirá funcionando, pero es mucho texto suelto, entonces mejor que sea un
@@ -2893,6 +2980,16 @@ function ActorAvatar({ actor, nombre, avatarUrl, size = 24 }: { actor: Actor; no
 // y coherente que un emoji propio por tarea. Sin proyecto → 📌.
 const emojiTarea = (board: Board, t: BoardTask): string => board.labelById(t.labels[0])?.emoji || t.emoji || '📌';
 
+/**
+ * LA TARJETA DE QUIEN MIRA, para toda `CardTile` del tablero (21/10/2026, «Personalizar tarjetas»: lib/tarjeta-plan.ts).
+ * ⚠️ POR CONTEXTO Y NO POR PROPS: la tarjeta se monta en el Kanban, en Recurrentes, en «Lo que cargó MaKo» y en lo que
+ *    salió de una reunión; por props, cada uno tendría que acordarse de pasarla, y el que se olvida dibuja otra tarjeta.
+ *    Lo provee `BoardShell`; sin proveedor (`null`), la de siempre. La vista previa del pop-up la pisa con `tarjeta`.
+ */
+type TarjetaPlanVista = { forma: FormaTarjetaPlan; campos: readonly CampoTarjetaPlan[] };
+const TarjetaPlanCtx = createContext<TarjetaPlanVista | null>(null);
+const TARJETA_PLAN_DE_SIEMPRE: TarjetaPlanVista = { forma: 'completa', campos: CAMPOS_TARJETA_PLAN_DEFAULT };
+
 
 // Tarjeta de tarea: ALTURA FIJA para que todas midan igual (feedback jul-18). El
 // título se recorta a 2 líneas; el toggle de completar es compacto (inline), no una
@@ -2901,7 +2998,7 @@ const emojiTarea = (board: Board, t: BoardTask): string => board.labelById(t.lab
 const SOMBRA_TARJETA = '0 1px 2px rgba(46, 52, 64, .06), 0 6px 20px rgba(46, 52, 64, .07)';
 const SOMBRA_TARJETA_HOVER = '0 2px 4px rgba(46, 52, 64, .08), 0 10px 26px rgba(46, 52, 64, .10)';
 
-function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, onEliminar, tactil, onAgarrar, oculta = false, elegida = false, haySeleccion = false, onElegir, sinRanking = false }: {
+function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, onEliminar, tactil, onAgarrar, oculta = false, elegida = false, haySeleccion = false, onElegir, sinRanking = false, tarjeta }: {
   t: BoardTask; board: Board; warn: boolean; frenanA?: string[]; onOpen: (id: string) => void; onWarn: (id: string) => void; onOpenProj?: (id: string) => void;
   /** ⚠️ EN LA VISTA «RECURRENTES» NO SE PINTAN NI EL PUNTAJE NI EL CHIP «Se repite», y no es
    *  cosmética: ahí TODAS se repiten, así que el chip es ruido en el 100% de las tarjetas, y
@@ -2923,8 +3020,14 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
   /** ya hay algo seleccionado: la casilla se queda a la vista en todas */
   haySeleccion?: boolean;
   onElegir?: (id: string) => void;
+  /** La forma y los datos, si no son los del tablero: la vista previa de «Personalizar tarjetas» (21/10/2026). */
+  tarjeta?: TarjetaPlanVista;
 }) {
   const done = t.progress >= 100;
+  // LA TARJETA DE QUIEN MIRA (21/10/2026): la del pop-up, la del tablero (`TarjetaPlanCtx`) o la de siempre.
+  const delTablero = useContext(TarjetaPlanCtx);
+  const { forma, campos } = tarjeta ?? delTablero ?? TARJETA_PLAN_DE_SIEMPRE;
+  const compacta = forma === 'compacta';
   const levantada = tactil?.arrastrando === t.id;
   // ⚠️ EL ARRASTRE CON MOUSE NO TENÍA NINGÚN FEEDBACK. `levantada` es del camino TÁCTIL
   // (pointer events); el de mouse es HTML5 drag-and-drop, que no avisa nada por su cuenta:
@@ -2947,6 +3050,30 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
   // mudo— para no gastar una fila: la card mide 138px fijos y el título necesita sus
   // dos líneas. Mismo chip que el detalle (color del proyecto), no un estilo nuevo.
   const proys = t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null);
+  /**
+   * Un dato del renglón de abajo, EN EL ORDEN DE QUIEN MIRA (21/10/2026). El motivo de «Atorada» no va acá: va debajo del
+   * título, que es donde se lee. «Se repite» acompaña al plazo y va al final, donde estaba.
+   */
+  const datoDelRenglon = (c: CampoTarjetaPlan): ReactNode => {
+    switch (c) {
+      case 'proyecto':
+        return proys.length > 0
+          ? <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}>
+              <LabelChips chips={proys} max={1} cap={proys.length > 1 ? 150 : 200} onOpen={onOpenProj} />
+            </span>
+          : <span style={{ fontSize: 15, lineHeight: 1, flex: 'none' }}>{emojiTarea(board, t)}</span>;
+      case 'plazo':
+        return esRecurrente(t)
+          ? <LineaRepeticion de={t} tam={10} style={{ flex: '0 1 auto', minWidth: 0 }} />
+          : t.deadline
+            ? <LineaDeadline iso={t.deadline} hoy={hoyISO()} hecho={t.progress >= 100} tam={10} color="var(--dim)" style={{ flex: '0 1 auto', minWidth: 0 }} />
+            : null;
+      case 'bloqueo':
+        return <BloqueoChip porQue={frenanA} compacto />;
+      default:
+        return null;
+    }
+  };
   return (
     <div className="mk-tarjeta-sel"
       // ⚠️ El click se traga si el gesto anterior fue un arrastre: el navegador sintetiza un
@@ -2971,6 +3098,8 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
       // Kanban la habilita con `repo.mover`: arrastrar es cambiar de columna, no de prioridad.)
       draggable={!!onAgarrar}
       data-card
+      // Lo que el clic derecho del tablero busca para saber sobre qué tarea se abrió (`alClicDerechoTarjeta`).
+      data-tarea-id={t.id}
       // ⚠️ LA COPIA QUE VIAJA CON EL CURSOR NO LA DIBUJA EL NAVEGADOR: LA DIBUJAMOS NOSOTROS.
       //
       // Siete rondas de reportes sobre lo mismo, y el que lo cerró fue el dueño: «me doy
@@ -3008,7 +3137,9 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
       // mientras la misma página cargaba perfecto.
       // LA TARJETA DE LA FAMILIA (17/10/2026, prototipo docs/prototipos/coherencia-1710.html, «8 · Plan»): grande y
       // redonda, sombra suave, y el alto lo pone el contenido (ya no 138 fijos: la fecha y el proyecto van en un renglón).
-      style={{ background: elegida ? 'var(--primary-bg)' : 'var(--card-bg, var(--surface))', border: `1px solid ${elegida ? 'var(--primary)' : 'color-mix(in srgb, var(--ink) 6%, transparent)'}`, borderRadius: 22, padding: '13px 13px 12px', cursor: onAgarrar ? 'grab' : 'pointer', opacity: done ? 0.62 : 1, display: 'flex', flexDirection: 'column', transition: 'border-color .12s, background .12s, box-shadow .15s', boxShadow: SOMBRA_TARJETA,
+      // LAS FORMAS (21/10/2026): «Compacta» con menos aire y radio más chico; «Color del proyecto» sin aire arriba, para
+      // que la banda de color llegue al borde (y `overflow: hidden` para que tome el redondeo de la tarjeta).
+      style={{ background: elegida ? 'var(--primary-bg)' : 'var(--card-bg, var(--surface))', border: `1px solid ${elegida ? 'var(--primary)' : 'color-mix(in srgb, var(--ink) 6%, transparent)'}`, borderRadius: compacta ? 16 : 22, padding: forma === 'color' ? '0 13px 12px' : compacta ? '9px 11px 9px' : '13px 13px 12px', overflow: forma === 'color' ? 'hidden' : undefined, cursor: onAgarrar ? 'grab' : 'pointer', opacity: done ? 0.62 : 1, display: 'flex', flexDirection: 'column', transition: 'border-color .12s, background .12s, box-shadow .15s', boxShadow: SOMBRA_TARJETA,
         // `manipulation` saca el retardo del doble-tap sin tocar el scroll. `none` NO va:
         // es CSS, decide antes de que exista el listener y apagaría el scroll de la página
         // sobre cada tarjeta.
@@ -3023,6 +3154,9 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
       onMouseEnter={(e) => { e.currentTarget.style.boxShadow = SOMBRA_TARJETA_HOVER; }}
       onMouseLeave={(e) => { e.currentTarget.style.boxShadow = SOMBRA_TARJETA; }}>
       <EstiloTarjetas />
+      {/* «COLOR DEL PROYECTO» (21/10/2026): una banda arriba con el color de su primer proyecto, como la portada de la
+          tarjeta de un cliente. Sin proyecto, gris: la forma promete la banda, y sin ella se leería como otra tarjeta. */}
+      {forma === 'color' && <div aria-hidden style={{ flex: 'none', height: 26, margin: '0 -13px 10px', background: proys[0]?.color ?? 'var(--surface-2)' }} />}
       {/* EL MOLDE DE LA FAMILIA (17/10/2026), con el feedback del 18/10 (Martín, pt 9): el título de dos líneas y
           debajo el renglón de lo que se sabe de ella —el chip del proyecto, el plazo, el candado, «se repite»— y a la
           derecha el CHECK GRIS para completarla, al lado del tacho. La vista previa NO lleva la prioridad (ni el círculo
@@ -3040,31 +3174,22 @@ function CardTile({ t, board, warn, frenanA = [], onOpen, onWarn, onOpenProj, on
             )}
             {/* TÍTULO DE DOS LÍNEAS, con el entero en el `title` (25/09/2026: «permite el salto de línea 1 vez»). El tope
                 va en líneas, no en caracteres: el corte lo decide el ancho real de la tarjeta. */}
-            <div title={t.title} style={{ flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: 650, lineHeight: 1.3, letterSpacing: '-.005em', color: done ? 'var(--faint)' : 'var(--ink)', textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2 }}>{t.title}</div>
+            <div title={t.title} style={{ flex: 1, minWidth: 0, fontSize: compacta ? 14 : 14.5, fontWeight: 650, lineHeight: 1.3, letterSpacing: '-.005em', color: done ? 'var(--faint)' : 'var(--ink)', textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: compacta ? 1 : 2 }}>{t.title}</div>
           </div>
           {/* POR QUÉ ESTÁ ATORADA, en una línea (16/10/2026): «porque el cliente no da o porque yo no tengo dinero… o los
               recursos» (Mauricio). El entero, en el `title`. */}
-          {estadoDe(t) === 'en_seguimiento' && t.motivoAtorada && (
+          {campos.includes('motivo') && estadoDe(t) === 'en_seguimiento' && t.motivoAtorada && (
             <div title={t.motivoAtorada} style={{ marginTop: 4, fontSize: 11.5, lineHeight: 1.35, color: COLOR_ESTADO.en_seguimiento, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: 'italic' }}>⏸ {t.motivoAtorada}</div>
           )}
           {/* EL RENGLÓN DE ABAJO, como el del prototipo: el proyecto, el cuándo y los avisos. ⚠️ EL CHIP DEL PROYECTO SE
               QUEDA: Mauricio tiene proyectos que son clientes y necesita verlos sin abrir la tarjeta. El plazo dice los días
               que faltan o sobran (24/09/2026: «me gusta este formato»); si se repite, el ritmo (mig 0165). */}
-          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px 8px', marginTop: 7, minWidth: 0 }}>
-            {proys.length > 0
-              ? <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}>
-                  <LabelChips chips={proys} max={1} cap={proys.length > 1 ? 150 : 200} onOpen={onOpenProj} />
-                </span>
-              : <span style={{ fontSize: 15, lineHeight: 1, flex: 'none' }}>{emojiTarea(board, t)}</span>}
-            {esRecurrente(t)
-              ? <LineaRepeticion de={t} tam={10} style={{ flex: '0 1 auto', minWidth: 0 }} />
-              : t.deadline
-                ? <LineaDeadline iso={t.deadline} hoy={hoyISO()} hecho={t.progress >= 100} tam={10} color="var(--dim)" style={{ flex: '0 1 auto', minWidth: 0 }} />
-                : null}
-            {/* El candado y «se repite», COMPACTOS: el nombre de lo que la frena y el ritmo viven en el tooltip y en el
-                detalle. La ALARMA (`WarnMark`) se queda: esa pide una acción. */}
-            <BloqueoChip porQue={frenanA} compacto />
-            {esRecurrente(t) && !sinRanking && <RepiteChip soloIcono />}
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px 8px', marginTop: compacta ? 5 : 7, minWidth: 0 }}>
+            {/* LOS DATOS QUE ELIGIÓ QUIEN MIRA, en su orden (`datoDelRenglon`, arriba). El candado y «se repite»,
+                COMPACTOS: el nombre de lo que la frena y el ritmo viven en el tooltip y en el detalle. La ALARMA
+                (`WarnMark`) se queda: esa pide una acción. */}
+            {campos.map((c) => <Fragment key={c}>{datoDelRenglon(c)}</Fragment>)}
+            {campos.includes('plazo') && esRecurrente(t) && !sinRanking && <RepiteChip soloIcono />}
             <span style={{ flex: 1 }} />
             {/* EL CHECK GRIS (18/10/2026, Martín, pt 9): «marcar como completo» es un cuadro gris a la derecha, al lado
                 del tacho; verde con el tilde cuando está hecha. Mismo camino que el detalle: `board.toggleDone`. */}
@@ -3559,13 +3684,14 @@ function ColumnaKanban({ clave: e, estado: estadoCol, propia, claveDe, editarAlM
         // negocio que mira (`board.columnas`, ./useBoard.ts).
         renombrar={board.columnas?.editables ? (nombre) => board.renombrarColumna(e, nombre) : undefined}
         renombrada={!propia && !!board.columnas?.config.nombres[estadoCol]}
-        agregar={agregar} quitar={quitar} editarAlMontar={editarAlMontar} onEditado={onEditado} />
+        agregar={agregar} quitar={quitar} editarAlMontar={editarAlMontar} onEditado={onEditado}
+        // «NUEVA TAREA» VA AL «⋯» DE LA COLUMNA (21/10/2026). Martín, sobre el CRM: «Quiero que elimines el botón de "nuevo
+        // lead" de donde está en las columnas y lo pongas dentro de los 3 puntos de cada columna», y lo que se pide en un
+        // lugar vale en todos. Nace en ESTA columna, como antes (decisión 4 del 16/10/2026).
+        onNueva={() => onNew(estadoCol, propia ? e : null)} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9, minHeight: 30, paddingRight: 2 }}>
-        {/* card gris translúcida para crear (arriba de todo, más bajita que las tarjetas). Nace
-            en ESTA columna: es la decisión 4 del 16/10/2026. */}
-        <button onClick={() => onNew(estadoCol, propia ? e : null)} style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, border: '1.5px dashed var(--border-strong)', background: 'transparent', borderRadius: 10, padding: '9px 10px', cursor: 'pointer', color: 'var(--faint)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, opacity: 0.8, transition: 'border-color .12s, color .12s' }}
-          aria-label={`Nueva tarea en ${label}`}
-          onMouseEnter={(ev) => { ev.currentTarget.style.borderColor = 'var(--primary)'; ev.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(ev) => { ev.currentTarget.style.borderColor = 'var(--border-strong)'; ev.currentTarget.style.color = 'var(--faint)'; }}>＋ Nueva tarea</button>
+        {/* ⛔ ACÁ VIVÍA «＋ Nueva tarea», una card gris punteada arriba de cada columna (16/10/2026), y se fue el 21/10/2026
+            al «⋯» de la cabecera (`onNueva`), como «Nuevo lead» en el CRM. */}
         {items.length === 0 && !hueco(0) && <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', padding: '10px 0' }}>—</div>}
         {/* EL HUECO. Es lo que convierte «la estoy soltando en En proceso» en «la estoy
             soltando ACÁ». Tiene el alto de una tarjeta para que lo de abajo se corra de
@@ -3622,8 +3748,10 @@ function CampoMotivo({ inicial, onGuardar, onCerrar }: { inicial: string; onGuar
  * LA CABECERA DE UNA COLUMNA. Con `renombrar` (el admin, en el tablero de su negocio) el nombre se edita EN SU LUGAR,
  * como una etapa del CRM: clic en el texto, o «⋯» › «Cambiar el nombre». Enter o salir guarda; Esc no.
  */
-function ColHeader({ label, color, count, renombrar, renombrada, agregar, quitar, editarAlMontar, onEditado }: {
+function ColHeader({ label, color, count, renombrar, renombrada, agregar, quitar, editarAlMontar, onEditado, onNueva }: {
   label: string; color: string; count: number;
+  /** «Nueva tarea» en esta columna (21/10/2026): el primer renglón del «⋯», para todo el que puede crear tareas. */
+  onNueva?: () => void;
   renombrar?: (nombre: string | null) => Promise<boolean>;
   /** Tiene un nombre del negocio: se ofrece volver al de siempre. */
   renombrada?: boolean;
@@ -3661,12 +3789,17 @@ function ColHeader({ label, color, count, renombrar, renombrada, agregar, quitar
           <span style={estiloNombre}>{label}</span>
         )}
         <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', background: 'var(--surface-2)', borderRadius: 999, padding: '1px 8px', flex: 'none' }}>{count}</span>
-        {(renombrar || agregar || quitar) && !editando && (
-          <span style={{ marginLeft: 'auto', flex: 'none' }}>
+        {/* ⚠️ EL «⋯» SE DIBUJA TAMBIÉN PARA QUIEN NO ES ADMIN (21/10/2026): hasta acá existía sólo con renombrar, agregar
+            o quitar (las tres, del admin), y al mudarse «Nueva tarea» adentro, un cliente sin admin se quedaba sin cómo
+            crear una tarea en una columna. Sin admin, el menú trae sólo «Nueva tarea». `data-nodrag` como en el CRM:
+            abrir el menú no arranca ningún arrastre. */}
+        {(onNueva || renombrar || agregar || quitar) && !editando && (
+          <span data-nodrag style={{ marginLeft: 'auto', flex: 'none' }}>
             <Dropdown value="" placeholder="⋯" align="right" resetAfterSelect sinFlecha
               ariaLabel={`Opciones de la columna ${label}`}
               buttonStyle={{ width: 26, height: 26, padding: 0, justifyContent: 'center', border: '1px solid transparent', background: 'transparent', color: 'var(--dim)', fontSize: 16, lineHeight: 1 }}
               options={[
+                ...(onNueva ? [{ value: 'nueva', label: 'Nueva tarea', icono: 'agregar' as const }] : []),
                 ...(renombrar ? [{ value: 'renombrar', label: 'Cambiar el nombre', icono: 'renombrar' as const }] : []),
                 ...(agregar ? [{ value: 'agregar', label: 'Agregar columna', icono: 'agregar' as const }] : []),
                 ...(renombrar && renombrada ? [{ value: 'volver', label: 'Volver al nombre de siempre', icono: 'restaurar' as const }] : []),
@@ -3674,6 +3807,7 @@ function ColHeader({ label, color, count, renombrar, renombrada, agregar, quitar
                 ...(quitar ? [{ value: 'quitar', label: 'Quitar columna', icono: 'borrar' as const }] : []),
               ]}
               onChange={(v) => {
+                if (v === 'nueva') onNueva?.();
                 if (v === 'renombrar') setEditando(true);
                 if (v === 'agregar') agregar?.();
                 if (v === 'volver') void renombrar?.(null);

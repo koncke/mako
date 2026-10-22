@@ -16,7 +16,6 @@ import 'server-only';
 import { getSupabaseServer } from '@/lib/supabase';
 import { leerPorPaginas } from '@/lib/supabase-paginado';
 import { getSaldo, recordUsage } from '@/lib/anthropic-usage';
-import { openrouterConCredito } from './openrouter-saldo';
 import { credWs } from '@/lib/credenciales';
 import { clavesDe, slotDe } from '@/lib/ia-keys';
 import { clavesCargadas } from '@/lib/ia-keys-ws';
@@ -25,7 +24,6 @@ import { getWorkspaceActual, WS_NINGUNO } from '@/lib/workspace';
 import {
   GEMINI_PAGO,
   LIMITES_PROVEEDOR,
-  OPENROUTER_PAGO,
   UMBRAL,
   claveCuenta,
   MARCA_REBOTE,
@@ -110,13 +108,11 @@ async function limitesEfectivos(): Promise<Record<string, LimiteProv>> {
   // el de Gemini se carga A MANO porque su API no publica el prepago; el de OpenRouter
   // se LEE, porque sí lo publica. Un saldo que hay que copiar a mano queda viejo al día
   // siguiente, así que donde se puede leer, se lee.
-  const [geminiConCredito, orConCredito] = await Promise.all([
-    getSaldo('gemini').then((s) => !!s).catch(() => false),
-    openrouterConCredito().catch(() => false),
-  ]);
+  // IA8 (22/10/2026): OpenRouter se sacó, y su saldo se pedía en CADA orden de la cuota (~10 de las ~90 consultas de un
+  // turno de Offer, docs/hallazgos-infra.md). Queda Gemini, que se carga a mano.
+  const geminiConCredito = await getSaldo('gemini').then((s) => !!s).catch(() => false);
   const out: Record<string, LimiteProv> = { ...LIMITES_PROVEEDOR };
   if (geminiConCredito) out.gemini = GEMINI_PAGO;
-  if (orConCredito) out.openrouter = OPENROUTER_PAGO;
   return out;
 }
 

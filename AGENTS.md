@@ -1232,6 +1232,18 @@ docs/hallazgos-api-mako.md → «El editor entero del Web Generator»):
   dejaron a `proponer_mover_reunion` fuera de WhatsApp sin cambiar ningún puntaje). La lista de bloques,
   avisos o íconos se valida en la traducción y devuelve `disponibles`. Se mide
   `JSON.stringify(aToolDef(def)).length` y, si la op importa, un test le pone tope.
+- **Una operación nueva se declara AL FINAL de su área (en el CRM, justo antes de `armar_tab_ficha`, que va última
+  desde el 16/10: tests/ficha-tabs.test.ts), y antes de commitear corre `tests/ops-center-bateria.test.ts`** (22/10/2026, docs/hallazgos-api-mako.md → «Una operación nueva deja AFUERA a
+  otra»). En un empate de relevancia gana la declarada ANTES, y la relevancia genérica de un pedido sobre un lead
+  («cambio etapa mover lead producto») le regala 4 puntos a cualquier id con «cambiar» y «etapa». Declarada a mitad
+  del área, `cambiar_tipo_etapa` dejó sin `editar_contacto_lead` a «cambia el teléfono del lead Juan…» en la app y en
+  WhatsApp. Su descripción tampoco nombra «leads» si la operación no es sobre un lead.
+- **El id y el título de una operación nueva no llevan las palabras que el clasificador suma a todo un tipo de pedido**
+  (`RELEVANCIA_AGENDA`, `RELEVANCIA_CRM` en lib/mako-intencion.ts: «agenda», «evento», «mover», «cambiar», «lead»…).
+  En el id pesan doble, y una operación rara gana el presupuesto de los pedidos comunes. El 22/10/2026,
+  `crear_evento_agenda` dejó sin herramienta a «agenda un reel para el jueves a las 10» y a «crea una etiqueta
+  llamada Caliente» con el piso nuevo de Ops Center. Se llama por lo que de verdad crea (`crear_pagina_reserva`), y la
+  palabra común va en la descripción, donde pesa 1.
 
 `/api/v1` es la única carpeta que entra a `PUBLICOS` como PREFIJO: toda ella es bearer por
 construcción, y `tests/api-mako-registro.test.ts` enumera en positivo los `route.ts` que puede
@@ -2269,6 +2281,16 @@ dijera. Es el mismo modo de falla que `<Icon name="inventado">`, que dibuja un p
 Antes de escribir un límite —de tamaño, de progreso, de espaciado— comprobá cuál es
 el límite real de la capa de abajo. Un número tuyo por encima del suyo no protege:
 promete.
+
+## Y un código que pide un archivo del Storage no se sube sin el archivo
+
+La 0.3.2 de «MaKo en tu computadora» se desplegó el 21/10/2026 sin sus ejecutables en el bucket `ia-pc`: a todo cliente
+nuevo el instalador le contestó «No pude preparar la descarga», con un 200, y nada lo marcó (IA1/IA2,
+docs/hallazgos-ia.md). **Antes de subir un cambio de `VERSION_PC` (lib/ia-pc-reglas.ts), Integración corre
+`npx tsx --conditions=react-server scripts/ia-pc/verificar-binarios.mts --env <.env.local del clon>`** (sólo lee: lista y
+firma). Si dice «⛔ falta», primero `scripts/ia-pc/publicar-binarios.mts --aplicar` (escribe en el Storage de producción:
+con el OK de Martín), después el deploy. Y una ruta que no puede servir lo que el código pide deja su fila en
+`errores_app` (`registrarError`), aunque le conteste a la persona con un 200.
 
 # NINGUNA pantalla se diseña de cero: se COPIA de una app que ya resolvió eso
 
@@ -3494,6 +3516,13 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   CRM nunca cae a la casa porque le falte el trato (la revisión del 22/10 encontró las dos). Y un SALDO compara una venta
   con lo cobrado de ESA venta: `faltaDeLaVenta` (venta de la casa − `total_cobrado_casa_usd`, mig 0325), nunca con
   `total_cobrado_usd`, que es lo cobrado en todos los CRMs (la caja).
+- **Un pago de la pasarela decide su trato ANTES de asentarse** (22/10/2026, mig 0326, «Vincular cobro»):
+  `prepararTratoDelPago` (lib/cobro-etapa-server.ts) dice en qué CRM entra y dónde se gana, y `aplicarPagoAprobado` asienta
+  ahí (`registrarCobroDeProveedor` con `crm`). Asentarlo en la casa y moverlo después deja una ventana con la plata en el
+  trato equivocado y un reintento que la duplica. Lo que se escribe al preparar se puede repetir: la venta con una
+  condición, el plan sólo si la venta es la de ese pago, y la cuota 0 se busca por número y monto. El trato se RECLAMA en
+  el cobro antes de armarse (`trato_estado`): dos avisos a la vez no arman dos. Y lo que se asienta sale de lo que COBRÓ
+  el link (`cobros.plan_producto`, congelado al crearlo), nunca del producto de hoy: se puede haber editado en el medio.
 
 # Un flag de visibilidad protege la PANTALLA; la API hay que cerrarla aparte
 
@@ -4705,8 +4734,17 @@ permitido hacer las cosas MÁS restrictivas.
 **Y desde el 16/10/2026 hay una SEGUNDA puerta, y no se deriva de la primera: la clave de Anthropic DEL
 NEGOCIO.** Martín eligió que el crédito de API de Claude Max de un cliente entre por su clave propia (Ticketera
 `clientes-usan-su-claude`), y esa plata es del negocio, no de MaKo. La cascada de texto (`chatCheapCascade`) la prueba
-primero, por `conClaveDelNegocio` (lib/anthropic.ts), con un solo modelo barato y nunca en las funciones del Plan
-(`FEATURES_DEL_PLAN`). Lo que gobierna código nuevo:
+primero, por `conClaveDelNegocio` (lib/anthropic.ts), con el modelo que eligió el negocio (Haiku por default, IA5). Las
+funciones del Plan (`FEATURES_DEL_PLAN`) pasan desde el 22/10/2026 por la EXCEPCIÓN de Martín («Sí, si es su clave»): sólo
+con la clave que paga el negocio (nunca el crédito de Max de la plataforma), siempre con el barato, y su D6b se decide aparte
+(`planConSuClave`, lib/ia-del-negocio.ts). El Plan sigue sin pagar IA de MaKo por ninguna puerta. Lo que gobierna código
+nuevo:
+
+- **La puerta 2 de una función del Plan pide la decisión del Plan, en «sí» y CIERTA** (`planPuedePagarConSuClave`,
+  lib/solo-su-ia.ts). La cascada prueba la puerta 2 en cualquier pedido: sin esto, una frontera que no reconocía el crédito
+  de Martín (una fila de la plataforma ilegible, o el crédito con otro nombre) dejaba pagar al Plan con él.
+- **Una fila que existe y no se descifra también es «no pude leer»** en la frontera de la IA: `credWsEstricta(…, {
+  ilegibleTira: true })`. Sin la opción devuelve `null`, y una copia de la plataforma o el crédito pasaban por del negocio.
 
 - **La clave del negocio se lee con `credDelCliente`, nunca con `credWs`**: `credWs` cae al env de la plataforma
   cuando el workspace es el del dueño, y esa clave pasaría como del negocio.

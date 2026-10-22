@@ -294,6 +294,12 @@ const EXCEPCIONES: Array<{ archivo: string; contiene?: string; motivo: string }>
   // de la operación (título, video, html, minutos), no los campos de la tarea. Cuando esa área lea la
   // tarea de una clase (`clase.campos`), el guard la va a mirar como a cualquier otra.
   { archivo: 'lib/api-mako/areas/curso.run.ts', contiene: 'v.campos', motivo: '`v.campos` son los parámetros de la operación de la API, no la tarea' },
+  // La tarjeta de un cliente en el tablero de Clients (21/10/2026, lib/tarjeta-clientes.ts): sus `campos` son los DATOS
+  // que muestra la tarjeta (foto, empresa, avance, trabajo), no la tarea del curso. El área importa lib/curso por otras
+  // operaciones; estas tres líneas son las de la tarjeta.
+  { archivo: 'lib/api-mako/areas/cs.run.ts', contiene: 'forma: p.forma, campos: [...p.campos]', motivo: 'una plantilla de la tarjeta de Clients: sus datos, no la tarea' },
+  { archivo: 'lib/api-mako/areas/cs.run.ts', contiene: 'NOMBRE_CAMPO_TARJETA_CLIENTE', motivo: 'los datos de la tarjeta de Clients, con su nombre' },
+  { archivo: 'lib/api-mako/areas/cs.run.ts', contiene: 'setTarjetaClientes(payload.campos', motivo: 'guarda los datos de la tarjeta de Clients' },
 ];
 
 /** ¿Esta línea con `.campos` está bien? (ver las reglas en el test) */

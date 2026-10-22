@@ -637,7 +637,8 @@ test('la vista Avance vive en Clientes: el toggle la ofrece y la pantalla la dib
   assert.match(app, /\.\.\.\(hayAvance \? \['avance' as const\] : \[\]\)/);
   assert.match(app, /enAvance && servicio \? \(\s*<AvanceDelServicio /);
   // El ícono existe en el catálogo compartido (un ícono inventado dibuja un punto).
-  assert.match(sinComentarios(leer('app/_ui/iconos-vista.tsx')), /\n\s*avance: \{\s*titulo: 'Ver el avance del curso',/);
+  // (El nombre es corto desde el 21/10/2026: «Avance», el tooltip del segmento compartido app/_ui/SelectorVista.tsx.)
+  assert.match(sinComentarios(leer('app/_ui/iconos-vista.tsx')), /\n\s*avance: \{\s*titulo: 'Avance',/);
 });
 
 // ── invitar-actions.ts: la puerta y nada más que funciones async ────────────────

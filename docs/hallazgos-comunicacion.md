@@ -10637,6 +10637,69 @@ estado que /chats y MaKo no ofrezcan reenviar.
 **Vive en:** lib/chats-envio-reglas.ts · lib/api-mako/areas/chats.run.ts y chats.def.ts · tests/chats-mako-envio.test.ts ·
 *21/10/2026, chat «CRM» (claude4).*
 
+## Una clave pegada en el grupo de MaKo: se tapa el MENSAJE, no el texto (22/10/2026, WA2)
+
+**Vive en:** `lib/doer-claves.ts` · `lib/mako-doer-in.ts` (`manejarEntranteDoer`, `bufferearYResponder`, `textoDeArchivo`)
+· `tests/doer-claves.test.ts` (corre la entrada real del grupo contra una base de mentira)
+
+- **Por qué ahora:** desde el 22/10 se les pide a los clientes su clave de API (IA4), y el chat de la app ya las tapaba
+  (pieza 1.6, `lib/claves-en-el-chat.ts`). En el grupo no: la clave llegaba al modelo y quedaba entera en la cola
+  (`mako_doer_buffer.payload`, el webhook crudo) y en `mako_doer_conv`.
+- **El diagnóstico obvio era tapar `textoDe(data)`, y no alcanzaba.** El mismo texto viaja en TRES lugares más: el
+  `payload` que va a la cola (de donde el lote vuelve a leer), el `caption` de una foto o un documento, y el mensaje CITADO
+  (un «responder» trae copiado en `contextInfo.quotedMessage` el texto del otro: citar el mensaje de la clave la volvía a
+  meter). Por eso se tapa el objeto `message` entero, recorriéndolo, al entrar a `manejarEntranteDoer`, y desde ahí el
+  crudo no se vuelve a leer.
+- **Lo binario NO se toca** (`base64`, `jpegThumbnail`, las llaves y hashes de medios): no lo escribe nadie, y tapar un
+  pedazo rompe la imagen. Trampa del test: un base64 con la clave pegada sin borde de palabra (`…Ggosk-ant-…`) no lo muerde
+  ninguna regla, y la prueba de «no se toca» pasaba aunque se tocara; con un `/` antes (como en un base64 real), sí.
+- **El aviso no puede decir lo que dice la app.** En la app el crudo no se guarda («no quedó en el chat»); en WhatsApp el
+  mensaje con la clave SIGUE en el grupo (MaKo no borra lo que manda otro). El aviso pide que la borre y trae el link a su
+  conexión (`/integraciones?abrir=<servicio>`). Un mensaje que era SÓLO la clave no se encola: no queda nada que contestar.
+- **Sin hacer:** una clave DENTRO de una foto o un PDF (van nativos al modelo) y la que se dice en una nota de voz no se
+  tapan. La prueba en el grupo de prueba del ws3, con Martín pegando una clave de mentira, espera el deploy.
+
+### Lo que encontró la revisión del lote 1 (Integración, 22/10/2026), y cómo quedó
+
+- **La cita viaja DOS veces, y la segunda estaba afuera de `message`.** Evolution v2 manda la cita adentro de
+  `message.…contextInfo` y TAMBIÉN en `contextInfo.quotedMessage`, en el nivel de arriba del webhook. El primer arreglo
+  recorría sólo `message`: quien citaba el mensaje con la clave la dejaba entera en `mako_doer_buffer.payload`, y el aviso
+  decía «no la guardé». **Regla:** un tapado sobre el payload de un proveedor recorre TODO el payload, salvo los
+  identificadores (`key`, que además deduplica la cola) y lo binario. Nunca se supone en qué campo pone el proveedor lo
+  que escribió una persona.
+- **El aviso salía antes de la deduplicación, y con MaKo apagado.** Una re-entrega de Evolution repetía «Tapé tu clave», y
+  MaKo hablaba en un grupo donde está apagado. Ahora el aviso va después de `encolar`, y sólo con `doerActivo`. El mensaje
+  que es SÓLO la clave no se encola, así que no tiene el dedup del motor: lo frena `avisoYaDado` (una memoria del proceso
+  de 10 minutos). Si una re-entrega cae en otra instancia, el aviso se repite; es un aviso, no una escritura.
+- **Trampa del test: la base de mentira no tenía el índice único de la cola.** Sin `ux_doer_buffer_msg`
+  (supabase/migrations/0113), una re-entrega se encolaba dos veces en el test, y el arreglo del dedup no se podía ver. El
+  hijo ahora declara el índice con `unicos`, igual que la migración. Si un test usa `_postgrest-de-mentira` sobre una tabla
+  cuyo dedup hace el motor, tiene que declarar el índice; si no, el dedup no existe en el test.
+- **La segunda revisión (el mismo día):** el aviso le hablaba a quien CITABA la clave («¡no pegues claves acá!») como si la
+  hubiera pegado él, porque contaba lo tapado en la cita. Ahora el aviso sale sólo si la clave estaba en lo que escribió esa
+  persona (`escribioUnaClave`, su texto o el caption); lo de la cita se tapa en silencio. Y el aviso ya no dice «no la
+  guardé»: Evolution guarda los mensajes en su base por default, y el mensaje sigue en el grupo. Lo cierto es «la IA no la
+  vio».
+- **El acuse del webhook logueaba el texto crudo de hasta 40 caracteres**, y una clave `AIza…` suelta tiene 39. Ahora se
+  tapa antes del log (app/api/webhooks/evolution/route.ts).
+
+## Hola MaKo con el Claude o el GPT del negocio: el escalado a Claude nunca podía llegar (22/10/2026, WA1)
+
+**Vive en:** `lib/mako-doer-in.ts` (`suIA`, los candidatos, el intento con su Claude) · `lib/anthropic.ts`
+(`chatClaudeTools` con `soloSuClaude`) · `tests/doer-su-ia.test.ts`
+
+- **Síntoma:** en 30 días el doer de WhatsApp hizo 231 llamadas a Gemini (ws13: 115, ws15: 53) y ninguna con el Claude de un
+  negocio, aunque el ws10 y el ws11 lo tienen cargado.
+- **Causa (dos, apiladas):** los candidatos eran `[pin, groq, openai]` y el archivo no preguntaba si el negocio tenía su IA;
+  y el escalado a Claude pasaba `model: 'claude-sonnet-5'` explícito, que salta la puerta 2 (la clave del negocio sólo se
+  prueba SIN `model`) y cae en el veto de la plataforma, que no tiene a `mako-doer-in`: el Claude del negocio era
+  inalcanzable por construcción.
+- **Regla que queda:** con su IA, el doer prueba su OpenAI y después su Claude por la puerta 2 (`soloSuClaude`: directo a
+  su clave, sin cascada; sin su clave, «falló la IA»). Sólo si el turno no ejecutó nada (otro modelo duplicaría una
+  escritura). Nunca la suscripción: WhatsApp es de fondo (D6a). La red gratis de la plataforma ni se arma.
+- **Sin hacer:** va después de OC1 (Ops Center 1.2 toca lib/doer-herramientas.ts y lib/mako-intencion.ts, no este archivo).
+  El caso real (el próximo mensaje del grupo del ws11 con su proveedor y la marca, 0 gemini) espera el deploy.
+
 ## Lo que le llega a un TERCERO se confirma por WhatsApp con un «sí» y nada más (21/10/2026)
 
 **Pedido (el Cerebro, revisando la 2.1 de CRM):** la regex `CONFIRMACION` (lib/mako-intencion.ts) arranca con `^` y no cierra con `$`: «ok, esperá que lo reviso», «perfecto, después lo veo», «sí pero cambiale la hora» o «dale que lo pienso» llegan como `confirmar`, con `confirmar_accion`, y lo que decide si se ejecuta es el criterio del modelo. Para lo interno ejecutar de más cuesta poco. Pero hay acciones con confirmación por chat que **le llegan a otra persona** (un email y un WhatsApp al alumno, el aviso de Calendly o la invitación de Google al lead, el link de pago) y no se deshacen.

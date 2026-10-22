@@ -214,6 +214,20 @@ export const dePantalla = (s: Sugerencia, admin: boolean): SugerenciaDePantalla 
   hacer: admin || !s.soloAdmin,
 });
 
+/**
+ * El pedido de una sugerencia `chat` cuando sale al chat «Cerebro» (22/10/2026, la estrella del CRM es la del Ops
+ * Center): el Cerebro no sabe desde qué CRM se lo mandan, así que «este CRM» y «a éste» pasan a NOMBRARLO. Sin el
+ * nombre (no se pudo leer el CRM) sale como está.
+ */
+export function pedidoParaElCerebro(pedido: string, crm: string | null | undefined): string {
+  const nombre = crm?.trim();
+  if (!nombre) return pedido;
+  return pedido
+    .replace(/\b([Ee])n este CRM\b/g, (_, e: string) => `${e}n el CRM ${comillas(nombre)}`)
+    .replace(/\bde este CRM\b/g, `del CRM ${comillas(nombre)}`)
+    .replace(/\ba éste\b/g, `al CRM ${comillas(nombre)}`);
+}
+
 /** El techo de una línea de una lista de N (AGENTS.md, «La pantalla dice QUÉ pasó»). */
 export const TOPE_TEXTO = 110;
 

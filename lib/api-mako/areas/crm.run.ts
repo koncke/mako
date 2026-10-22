@@ -17,8 +17,11 @@
 // Y ejecutar() tampoco lanza (tipos.ts): `seguro()` lo garantiza.
 // =============================================================================
 
-import { getCamposTarjetaCrm } from '@/lib/perfil';
-import { CAMPOS_TARJETA_DEFAULT, CAMPOS_TARJETA_LEAD, DETALLE_DISENO_TARJETA, DISENOS_TARJETA, NOMBRE_CAMPO_TARJETA, NOMBRE_DISENO_TARJETA } from '@/lib/tarjeta-kanban';
+import { getCamposTarjetaCrm, setCamposTarjetaCrm } from '@/lib/perfil';
+import { CAMPOS_TARJETA_DEFAULT, CAMPOS_TARJETA_LEAD, DETALLE_DISENO_TARJETA, DISENOS_TARJETA, NOMBRE_CAMPO_TARJETA, NOMBRE_DISENO_TARJETA, PLANTILLAS_TARJETA_LEAD, camposTarjetaDe, type CampoTarjetaLead, type DisenoTarjeta } from '@/lib/tarjeta-kanban';
+import { guardarPlantillaPropia, idPlantillaNueva, plantillaPuesta } from '@/lib/plantillas-tarjeta';
+import { NOMBRE_TIPO_ETAPA, TIPOS_ETAPA, avisoCambioDeTipo, columnaConTipo, tipoDeColumna, type TipoEtapa } from '@/lib/etapa-reunion';
+import { cambiarTipoDeEtapa } from '@/lib/etapa-tipo-server';
 import 'server-only';
 import type { Ctx, Ejecutado, Runners, SalidaLectura } from '../tipos';
 import { runMakoTool } from '@/lib/mako-tools';
@@ -83,7 +86,9 @@ import { campanasParaMaKo, asignarCampanaAFunnels } from '@/lib/campana-funnel';
 // El evento de agenda vinculado a una etapa de reunión (16/10/2026): las mismas funciones que la pantalla.
 import {
   listarEventosDeAgenda, prepararVinculo, vincularEvento, buscarVinculo, desvincularEvento, type AgendaDelNegocio,
+  crearEventoDeAgenda, editarEventoDeAgenda,
 } from '@/lib/agenda-evento-etapa-server';
+import { datosDeEvento, mismoIdentificador } from '@/lib/agenda-evento-etapa';
 import { puedeQuitar, aQuienPromover, etapaDeEntrada, type ProductoDelLead } from '@/lib/lead-funnel-reglas';
 import {
   listarEtiquetas, etiquetaPorId, etiquetasDeLead, conteoPorEtiqueta, crearEtiqueta, editarEtiqueta,
@@ -420,8 +425,7 @@ export const RUNNERS: Runners = {
       const campo = s(input.campo_fecha) ?? 'created_at';
       const limite = n(input.limite) ?? 30;
       const { filas, total_cartera } = await leadsFiltrados({ etapas, banda: s(input.banda), campoFecha: campo, desde: s(input.desde), hasta: s(input.hasta), persona: s(input.persona) });
-      // Lo cobrado de la VENTA de la casa (mig 0325): `listLeads` no lo trae, se lee para esta página. Sin la columna (o si
-      // falla), cae a lo de siempre (`cobradoDeLaVenta`).
+      // Lo cobrado de la VENTA de la casa (mig 0325), leído para esta página. Si la lectura falla, null y `nota_cobrado`.
       const pagina = filas.slice(0, limite);
       const deLaCasa = new Map<number, unknown>();
       // ⚠️ Supabase no tira: devuelve `error` (tercera revisión, B4). Sin leerla, «falta» caía callado a la cuenta de todos los
@@ -446,6 +450,8 @@ export const RUNNERS: Runners = {
         coinciden: filas.length, devueltos: leads.length, omitidos: filas.length - leads.length, total_cartera,
         ...(campo === 'created_at' ? { nota_fecha: 'created_at se compara por su día en UTC.' } : {}),
         nota_montos: 'Montos en USD; null = sin cargar, no cero. En suscripciones monto_cierre_usd queda null a propósito. total_cobrado_usd es lo cobrado en TODOS sus CRMs (una renovación incluida); lo que debe es falta_cobrar_usd (la venta de su CRM principal menos lo cobrado de ESA venta).',
+        // Cuarta revisión, B3: una lectura que falló no se confunde con «sin venta cargada».
+        ...(sinCasa ? { nota_cobrado: 'No pude leer lo cobrado de la venta: cobrado_de_la_venta_usd y falta_cobrar_usd van en null por eso, no por falta de venta.' } : {}),
         leads,
       });
     },
@@ -1063,6 +1069,49 @@ export const RUNNERS: Runners = {
       return { ok: true, resumen: `Listo: quien reserve «${r.evento.nombre}» cae en «${r.etapaNombre}» de «${r.funnel}».`, datos: { evento: r.evento.identificador, embudoId: r.funnelId, etapa: r.etapa } };
     }),
   },
+  // Crear y editar un evento de la agenda (21/10/2026): las MISMAS funciones que «Asignar evento» de la pantalla.
+  crear_pagina_reserva: {
+    preparar: async (input) => {
+      if (input.proveedor !== 'calendly' && input.proveedor !== 'calcom') return { error: 'La agenda es calendly o calcom.', faltan: ['proveedor'] };
+      const d = datosDeEvento({ nombre: input.nombre, duracionMin: input.duracionMin });
+      if (!d.ok) return { error: d.error };
+      const agenda = input.proveedor === 'calcom' ? 'Cal.com' : 'Calendly';
+      return {
+        payload: { proveedor: input.proveedor, nombre: d.nombre, duracionMin: d.duracionMin },
+        resumen: `Crear en ${agenda} el evento «${d.nombre}», de ${d.duracionMin} minutos, con la disponibilidad de la cuenta.`,
+      };
+    },
+    ejecutar: (payload) => seguro('crear el evento', async () => {
+      const r = await crearEventoDeAgenda({ proveedor: payload.proveedor, nombre: payload.nombre, duracionMin: payload.duracionMin });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: `Listo: creado «${r.evento.nombre}». Para que sus reservas caigan en una etapa, vincular_evento_etapa con el evento ${r.evento.identificador}.`, datos: { evento: r.evento.identificador, proveedor: r.evento.proveedor } };
+    }),
+  },
+  editar_pagina_reserva: {
+    preparar: async (input) => {
+      if (input.proveedor !== 'calendly' && input.proveedor !== 'calcom') return { error: 'La agenda es calendly o calcom.', faltan: ['proveedor'] };
+      const d = datosDeEvento({ nombre: input.nombre, duracionMin: input.duracionMin }, true);
+      if (!d.ok) return { error: d.error };
+      let agenda: Awaited<ReturnType<typeof listarEventosDeAgenda>>;
+      try { agenda = await listarEventosDeAgenda(); } catch { return { error: 'No pude leer los eventos de la agenda. Intenta de nuevo.' }; }
+      const buscado = String(input.evento ?? '').trim();
+      const delProveedor = agenda.eventos.filter((e) => e.proveedor === input.proveedor && e.enLaCuenta);
+      const e = delProveedor.find((x) => mismoIdentificador(x.identificador, buscado))
+        ?? delProveedor.find((x) => x.nombre.trim().toLowerCase() === buscado.toLowerCase());
+      if (!e) return { error: `No encontré ese evento en la cuenta.`, disponibles: delProveedor.map((x) => ({ evento: x.identificador, nombre: x.nombre })) };
+      const cambios = [d.nombre != null && d.nombre !== e.nombre ? `el nombre a «${d.nombre}»` : null, d.duracionMin != null && d.duracionMin !== e.duracionMin ? `la duración a ${d.duracionMin} minutos` : null].filter(Boolean);
+      if (!cambios.length) return { error: `«${e.nombre}» ya está así.`, yaEstaba: true };
+      return {
+        payload: { proveedor: e.proveedor, evento: e.identificador, ...(d.nombre != null ? { nombre: d.nombre } : {}), ...(d.duracionMin != null ? { duracionMin: d.duracionMin } : {}) },
+        resumen: `Cambiar en «${e.nombre}» ${cambios.join(' y ')}.${e.vinculo ? ` Sigue vinculado a «${e.vinculo.etapaNombre}».` : ''}`,
+      };
+    },
+    ejecutar: (payload) => seguro('editar el evento', async () => {
+      const r = await editarEventoDeAgenda({ proveedor: payload.proveedor, identificador: payload.evento, nombre: payload.nombre, duracionMin: payload.duracionMin });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: `Listo: «${r.evento.nombre}»${r.evento.duracionMin ? `, ${r.evento.duracionMin} minutos` : ''}.` };
+    }),
+  },
   desvincular_evento_etapa: {
     preparar: async (input) => {
       let v: Awaited<ReturnType<typeof buscarVinculo>>;
@@ -1083,16 +1132,115 @@ export const RUNNERS: Runners = {
 
   ver_campos_tarjeta_crm: {
     leer: async () => {
-      const { campos, diseno, guardable } = await getCamposTarjetaCrm();
+      const { campos, diseno, plantillas, guardable } = await getCamposTarjetaCrm();
+      const plantilla = (p: { nombre: string; forma: DisenoTarjeta; campos: readonly CampoTarjetaLead[] }) =>
+        ({ nombre: p.nombre, forma: p.forma, campos: [...p.campos] });
       return json({
         diseno: { diseno, nombre: NOMBRE_DISENO_TARJETA[diseno] },
         disenos: DISENOS_TARJETA.map((d) => ({ diseno: d, nombre: NOMBRE_DISENO_TARJETA[d], detalle: DETALLE_DISENO_TARJETA[d] })),
         campos: campos.map((c) => ({ campo: c, nombre: NOMBRE_CAMPO_TARJETA[c] })),
+        plantillaPuesta: plantillaPuesta([...PLANTILLAS_TARJETA_LEAD, ...plantillas], diseno, campos)?.nombre ?? 'Personalizada',
+        plantillasDeFabrica: PLANTILLAS_TARJETA_LEAD.map(plantilla),
+        plantillasPropias: plantillas.map(plantilla),
         catalogo: CAMPOS_TARJETA_LEAD.map((c) => ({ campo: c, nombre: NOMBRE_CAMPO_TARJETA[c], deSiempre: CAMPOS_TARJETA_DEFAULT.includes(c) })),
         guardable,
-        dondeSeCambia: 'En el CRM, «⋯» › «Personalizar tarjetas».',
+        dondeSeCambia: 'En el CRM, «⋯» › «Personalizar tarjetas», o clic derecho en una tarjeta › «Personalizar tarjeta».',
       });
     },
+  },
+  // La tarjeta es de UNA persona (usuarios.perfil): la pendiente lleva su email y sólo la confirma ella. Desde la bandeja,
+  // otro del equipo le estaría cambiando la tarjeta a alguien que no la pidió (y la escritura cae en la fila de quien
+  // confirma, no de quien pidió: `setCamposTarjetaCrm` lee la sesión).
+  personalizar_tarjetas_crm: {
+    faltaParaConfirmar: async (payload, ctx) => {
+      const de = String(payload.email ?? '').toLowerCase();
+      const quien = String(ctx.quien?.email ?? ctx.actor ?? '').toLowerCase();
+      return de && quien && de !== quien ? `Esta tarjeta es la de ${payload.email}: la confirma esa persona desde su chat.` : null;
+    },
+    preparar: async (input, ctx) => {
+      const email = ctx.quien?.email ?? ctx.actor ?? '';
+      if (!email) return { error: 'La tarjeta es de cada persona y este pedido no dice de quién: se cambia desde el chat de la app o en el CRM.' };
+      const actual = await getCamposTarjetaCrm();
+      if (!actual.guardable) return { error: 'Tu sesión no tiene un usuario propio: la tarjeta se cambia en el CRM, «⋯» › «Personalizar tarjetas».' };
+      const todas = [...PLANTILLAS_TARJETA_LEAD, ...actual.plantillas];
+      const clave = (x: unknown) => String(x ?? '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+      let forma: DisenoTarjeta;
+      let campos: CampoTarjetaLead[];
+      if (input.plantilla !== undefined && String(input.plantilla).trim()) {
+        const p = todas.find((x) => clave(x.nombre) === clave(input.plantilla));
+        if (!p) return { error: `No hay una plantilla «${String(input.plantilla).trim()}».`, disponibles: todas.map((x) => x.nombre) };
+        forma = p.forma;
+        campos = [...p.campos];
+      } else if (input.forma !== undefined || input.campos !== undefined) {
+        forma = (DISENOS_TARJETA as readonly unknown[]).includes(input.forma) ? input.forma as DisenoTarjeta : actual.diseno;
+        if (input.campos !== undefined) {
+          const pedidos = Array.isArray(input.campos) ? input.campos.map(String) : [];
+          const raros = pedidos.filter((c) => !(CAMPOS_TARJETA_LEAD as readonly string[]).includes(c));
+          if (raros.length) return { error: `No conozco ${raros.map((r) => `«${r}»`).join(', ')}.`, disponibles: CAMPOS_TARJETA_LEAD.map((c) => ({ campo: c, nombre: NOMBRE_CAMPO_TARJETA[c] })) };
+          campos = camposTarjetaDe(pedidos);
+        } else campos = [...actual.campos];
+      } else {
+        return { error: 'Pasa una plantilla por su nombre, o la forma y los datos.', disponibles: todas.map((x) => x.nombre) };
+      }
+      let plantillas: unknown[] | undefined;
+      if (input.guardarComo !== undefined && String(input.guardarComo).trim()) {
+        const g = guardarPlantillaPropia(actual.plantillas, input.guardarComo, forma, campos, idPlantillaNueva());
+        if (!g.ok) return { error: g.error === 'lleno' ? 'Ya tiene 12 plantillas propias: hay que borrar una en el CRM.' : 'Falta el nombre de la plantilla.' };
+        plantillas = g.propias;
+      }
+      const igual = forma === actual.diseno && campos.length === actual.campos.length && campos.every((c, i) => c === actual.campos[i]);
+      if (igual && !plantillas) return { error: 'La tarjeta ya está así.', yaEstaba: true };
+      const nombre = plantillaPuesta(todas, forma, campos)?.nombre;
+      const datos = campos.length ? campos.map((c) => NOMBRE_CAMPO_TARJETA[c]).join(', ') : 'sólo el nombre';
+      return {
+        payload: { email, forma, campos, ...(plantillas ? { plantillas } : {}) },
+        resumen: `Tu tarjeta de leads ${nombre ? `como «${nombre}»` : `en forma ${NOMBRE_DISENO_TARJETA[forma]}`} (${datos})`
+          + (input.guardarComo ? `, guardada como plantilla «${String(input.guardarComo).trim()}»` : '') + '. Sólo la tuya: el resto del equipo sigue viendo la suya.',
+      };
+    },
+    ejecutar: (payload) => seguro('personalizar la tarjeta', async () => {
+      const r = await setCamposTarjetaCrm(payload.campos, payload.forma, payload.plantillas);
+      if (!r.guardado) return { ok: false, resumen: 'No pude guardarla: tu sesión no tiene un usuario propio. Se cambia en el CRM, «⋯» › «Personalizar tarjetas».' };
+      return { ok: true, resumen: `Listo: tu tarjeta de leads quedó en forma ${NOMBRE_DISENO_TARJETA[r.diseno]}. Se ve al volver al CRM.` };
+    }),
+  },
+  // «Tipo de etapa» (21/10/2026): la MISMA función que la op `tipo` del «⋯» de la columna y del pop-up de etapas
+  // (`cambiarTipoDeEtapa`, lib/etapa-tipo-server.ts), y el MISMO aviso de lo que pasa (`avisoCambioDeTipo`).
+  cambiar_tipo_etapa: {
+    preparar: async (input) => {
+      const tipo = s(input.tipo) as TipoEtapa | undefined;
+      if (!tipo || !TIPOS_ETAPA.includes(tipo)) return { error: 'El tipo es etapa, reunion o nutricion.', faltan: ['tipo'] };
+      const pedido = n(input.embudoId);
+      let funnelId: number | null = null;
+      if (pedido != null) {
+        const crms = await productosCrm().catch(() => null);
+        if (!crms) return { error: NO_LEI_PRODUCTOS };
+        const crm = crms.find((p) => p.embudoId === pedido);
+        if (!crm) return { error: `El CRM #${pedido} no es de este negocio.`, disponibles: crms.map((p) => ({ embudoId: p.embudoId, nombre: p.nombre })) };
+        funnelId = crm.esDefault ? null : crm.embudoId;
+      }
+      const cfg = funnelId != null ? await getFunnelDe(funnelId) : await getFunnelDefault();
+      if (cfg.origen === 'error') return { error: 'No pude leer el funnel. Intenta de nuevo.' };
+      const buscada = s(input.etapa) ?? '';
+      const sinAcentos = (x: string) => x.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const col = cfg.stages.find((st) => st.key === buscada) ?? cfg.stages.find((st) => sinAcentos(st.label ?? '') === sinAcentos(buscada));
+      if (!col) return { error: `Ese funnel no tiene la etapa «${buscada}».`, disponibles: cfg.stages.map((st) => ({ key: st.key, nombre: st.label })) };
+      if (!columnaConTipo(col)) return { error: `«${col.label}» no cambia de tipo: la entrada, el cierre y las terminales quedan como están.` };
+      const previo = tipoDeColumna(col);
+      if (previo === tipo) return { error: `«${col.label}» ya es ${NOMBRE_TIPO_ETAPA[tipo]}.`, yaEstaba: true };
+      const aviso = avisoCambioDeTipo({ recorrido: cfg.stages.filter((st) => (st.band ?? 'pipeline') === 'pipeline'), columna: col, tipo, leads: null });
+      return {
+        payload: { funnelId, key: col.key, tipo, previo, nombre: col.label },
+        resumen: `«${col.label}» pasa a ser ${NOMBRE_TIPO_ETAPA[tipo]}. Los leads que ya están ahí no se mueven.${aviso.length ? ' ' + aviso.join(' ') : ''}`,
+      };
+    },
+    ejecutar: (payload) => seguro('cambiar el tipo de la etapa', async () => {
+      const tipo = payload.tipo as TipoEtapa;
+      const r = await cambiarTipoDeEtapa(typeof payload.funnelId === 'number' ? payload.funnelId : null, String(payload.key), tipo);
+      if (!r.ok) return { ok: false, resumen: r.error };
+      invalidar('pipeline', 'leads');
+      return { ok: true, resumen: `Listo: «${String(payload.nombre)}» es ${NOMBRE_TIPO_ETAPA[tipo]}. Para volver, el mismo pedido con el tipo ${String(payload.previo)}.` };
+    }),
   },
   ver_campanas_funnels: {
     leer: async () => {

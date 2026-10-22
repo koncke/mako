@@ -292,7 +292,8 @@ test('el tutorial: el código gastado sin conectar ofrece otro, cuenta con SU re
   assert.ok((ui.match(/onClick=\{otroCodigo\}>Pedir otro código</g) ?? []).length >= 2, '«Pedir otro código» también mientras espera');
   assert.match(ui, /setVenceAt\(Date\.now\(\) \+ \(Number\(r\.duraMs\) \|\| 10 \* 60_000\)\)/, 'con su reloj');
   assert.match(sinComentarios(leer('app/api/ia-pc/codigo/route.ts')), /duraMs: CODIGO_MS/);
-  assert.match(ui, /onClick=\{abrirTutorial\} disabled=\{!estado\}/, 'hasta saber qué PC ya estaban');
+  assert.match(ui, /listo=\{!!estado\}/, 'hasta saber qué PC ya estaban');
+  assert.match(ui, /const anda = o\.habilitada && \(o\.que !== 'pc' \|\| puedeComputadora\);/, '«Mi computadora» espera al estado (IA4)');
   assert.match(ui, /setSinSesion\(nueva\.sinClaude \? 'claude' : 'sesion'\)/);
   assert.match(ui, /onClick=\{\(\) => setPaso\(2\)\}>Instalar Claude Code \(paso 2\)</);
   assert.match(ui, /no la app de escritorio/);

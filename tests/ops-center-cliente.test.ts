@@ -193,9 +193,9 @@ test('7. «Conectar tu Claude» al final de la caja, sólo si la persona todaví
   assert.match(sinComentarios(leer('app/second-brain/PiezasCliente.tsx')), /alFinal=\{k\.iaConectada === false \? \(\s*<button type="button" className="co-chip co-conectar-ia" onClick=\{\(\) => k\.setConectando\(true\)\}>Conectar tu IA<\/button>/);
   // Sólo se pregunta fuera del Ops Center del super admin (`activo`): ahí contesta la IA de la plataforma.
   assert.match(sinComentarios(leer('app/second-brain/useChatCliente.ts')), /useEffect\(\(\) => \{ if \(activo\) mirarSuIA\(\); \}, \[activo, mirarSuIA\]\);/);
-  assert.match(sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx')), /<Modal titulo="Tus cuentas de IA" onCerrar=\{\(\) => \{ k\.setConectando\(false\); k\.mirarSuIA\(\); \}\} ancho=\{640\}>\s*<TusCuentasIA sinCabecera \/>/, 'sin salir de la tab');
+  assert.match(sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx')), /<Modal titulo="Tus cuentas de IA" onCerrar=\{\(\) => \{ k\.setConectando\(false\); k\.mirarSuIA\(\); \}\} ancho=\{640\}>\s*<TusCuentasIA sinCabecera conectar \/>/, 'sin salir de la tab (IA4: abre directo «¿Qué IA usas?»)');
   // En el teléfono, adentro de la hoja del chat (una hoja sobre otra la cerraría), con su «‹».
-  assert.match(sinComentarios(leer('app/m/second-brain/ChatClienteM.tsx')), /\{panel === 'conectar' && <TusCuentasIA sinCabecera \/>\}/, 'el teléfono, en la misma hoja');
+  assert.match(sinComentarios(leer('app/m/second-brain/ChatClienteM.tsx')), /\{panel === 'conectar' && <TusCuentasIA sinCabecera conectar \/>\}/, 'el teléfono, en la misma hoja');
 });
 
 // 22/10/2026: «Computadora Y teléfono». El teléfono del cliente es el del super admin (app/m/operaciones/ChatsMovil.tsx): la

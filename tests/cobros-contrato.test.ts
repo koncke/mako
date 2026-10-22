@@ -97,7 +97,8 @@ test('lib/pagos.ts: un reembolso no deja DEUDA y un pago salda la cuota impaga q
   const desm = pagos.slice(pagos.indexOf('export async function desmarcarCobroDeProveedor('));
   assert.match(desm, /update\(\{ pagado: false, fecha_pago: null, fecha_esperada: null \}\)/, 'la cuota devuelta volvería a cobranza y al Outstanding');
   const reg = pagos.slice(pagos.indexOf('export async function registrarCobroDeProveedor('), pagos.indexOf('export async function desmarcarCobroDeProveedor('));
-  assert.match(reg, /!q\.pagado && !q\.proveedor_pago_id && q\.fecha_esperada && Math\.abs\(Number\(q\.monto_usd\) - p\.montoUsd\) < 0\.01/, 'el pago no casa la cuota impaga del plan: doble cash');
+  // Desde el 22/10/2026 se compara al centavo (`mismoCentavo`): `< 0.01` daba por iguales 333,34 y 333,33.
+  assert.match(reg, /!q\.pagado && !q\.proveedor_pago_id && q\.fecha_esperada && mismoCentavo\(q\.monto_usd, p\.montoUsd\)/, 'el pago no casa la cuota impaga del plan: doble cash');
   // (21/10/2026: prueba las impagas del mismo monto de a una, en orden: si la primera la cobraron a mano en el medio,
   // salda la siguiente. tests/pagos-cobro-idempotente.test.ts.)
   const iCasa = reg.indexOf('for (const casa of impagas) {');

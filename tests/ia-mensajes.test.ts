@@ -250,10 +250,11 @@ test('VISION tiene un respaldo GRATIS, no solo el que cobra', () => {
   const m = ai.match(/VISION_CASCADE: ProvName\[\] = \[([^\]]+)\]/);
   assert.ok(m, 'no encontre VISION_CASCADE');
   const lista = m[1];
-  assert.ok(/openrouter/.test(lista), 'vision se quedo sin respaldo gratis');
-  // Y el que cobra va ULTIMO: es la regla de la casa para toda la capa barata.
-  assert.ok(lista.indexOf('openai') > lista.indexOf('openrouter'),
-    'el proveedor que cobra dejo de ir ultimo en la cascada de vision');
+  // IA8 (22/10/2026): el respaldo gratis de OpenRouter se saco (su modelo gratis caduco tres veces). El respaldo de vision
+  // es la IA del negocio: su clave de Claude (que leerDocumentoIA prueba primero, IA6) y su OpenAI, que va ULTIMO.
+  assert.ok(!/openrouter|mistral|cerebras/.test(lista), 'volvio a la vision un proveedor que se saco');
+  assert.ok(lista.indexOf('openai') > lista.indexOf('gemini'), 'el proveedor que cobra dejo de ir ultimo en la cascada de vision');
+  assert.match(ai, /const bloques = bloquesParaClaude\(opts\);/, 'la vision prueba primero la clave de Claude del negocio');
 
   // El lector OpenAI-compat no puede volver a estar clavado a un host: es lo que impedia
   // usar el respaldo gratis que el cliente YA tenia cargado.

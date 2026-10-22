@@ -39,6 +39,11 @@ test('el control: la tarjeta fuera de «sólo su IA» sale a Gemini y a Groq', (
   assert.ok(R.control.red.some((h) => GRATIS.test(h)), `el control no salió a la red gratis: ${R.control.red.join(', ')}`);
 });
 
+test('IA6: a pelo dentro del negocio, sin que nadie decida, la puerta de la capa de IA la pone adentro: cero pedidos a la red gratis', () => {
+  // Rota: sacar la puerta de lib/ai-cheap.ts (`conD6bDelPedido`) → este test falla (sale a Gemini y a Groq, como el control).
+  assert.deepEqual(R.aPelo.red.filter((h) => GRATIS.test(h)), [], `a pelo salió a un proveedor gratis: ${R.aPelo.red.join(', ')}`);
+});
+
 test('confirmar en el chat y en la bandeja corre la tarjeta adentro: cero pedidos a la red gratis', () => {
   for (const camino of ['tarjetaDelChat', 'bandeja'] as const) {
     const c = R[camino];

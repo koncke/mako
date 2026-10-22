@@ -27,7 +27,8 @@ import { getSupabaseServer } from './supabase';
 import { leerTodo } from './supabase-paginado';
 import { credWs } from './credenciales';
 import { esInterno, internosDe, SIN_INTERNOS, type Internos } from './closing-internos';
-import { chatClaude } from './anthropic';
+import { chatClaude, conClaveDelNegocio, permisoDeLaClaveDelNegocio } from './anthropic';
+import { CLAUDE_PERMITIDO } from './veto-claude';
 import { contenidoNoConfiable, getPromptText, renderPrompt } from './prompt-render';
 import { isoToFechaTijuana } from './calendly';
 import {
@@ -280,6 +281,41 @@ function primaryInviteeEmail(m: FathomMeeting, lead: LeadMatch | null, internos:
 // dijera Opus para siempre aunque corriera otra cosa.
 const ANALYSIS_MODEL = 'claude-sonnet-5';
 
+/** Lo que lee un cliente cuando no hay con qué analizar sus llamadas (IA12): su Claude, por clave. */
+export const CONECTA_TU_CLAUDE_CLOSING = 'Conecta tu Claude para el Closing Analyst: pega tu clave de Claude en Tus cuentas de IA (Integraciones).';
+
+/**
+ * ¿El pedido es de la plataforma (el super admin)? Lo interno lee el veto como es. Sin poder saberlo, TAMBIÉN el veto como
+ * es: con `false`, la plataforma leía «Conecta tu Claude» por un bache de la base (revisión de IA5/IA12).
+ */
+async function esLaPlataforma(): Promise<boolean> {
+  try {
+    const { wsSuperAdmin } = await import('./workspace');
+    return (await getWorkspaceActual()) === (await wsSuperAdmin());
+  } catch { return true; }
+}
+
+/**
+ * ¿Con qué analizaría hoy `analyzeMeeting` las llamadas del negocio en curso? La MISMA pregunta, para que el cron no la
+ * conteste distinto (revisión de IA5/IA12, 22/10/2026). Antes miraba sólo «¿hay una clave?» (`credWs`): el ws1, cuya clave es
+ * una copia de la de la plataforma, pasaba después del 13/11 y cada ronda fallaba tres veces con «Conecta tu Claude»,
+ * dejando filas `error` (que se reintentan) y una `vetado:` por intento.
+ *   · 'su-clave': su Claude (la puerta 2), o su Claude en pausa (se dice al analizar);
+ *   · 'plataforma': el permiso de la lista blanca, vigente, con una clave de la plataforma;
+ *   · 'no': nada con qué; el cron no lo intenta;
+ *   · 'no-se': no se pudo comprobar (la base no contestó); el cron lo deja para la próxima ronda.
+ */
+export async function conQueAnalizaElClosing(): Promise<'su-clave' | 'plataforma' | 'no' | 'no-se'> {
+  const suya = await permisoDeLaClaveDelNegocio('closing').catch(() => ({ noPudeLeer: true as const }));
+  if (suya && 'noPudeLeer' in suya) return 'no-se';
+  if (suya) return 'su-clave';
+  const permiso = CLAUDE_PERMITIDO.find((p) => p.feature === 'closing');
+  if (!permiso || new Date().toISOString().slice(0, 10) > permiso.hasta) return 'no';
+  // Si la puerta 2 dijo que no, lo que devuelve `credWs` es una clave de la plataforma (la copia del ws1, o el entorno del
+  // ws9) o nada. Igual `chatClaude` lo exige (`exigirClaveDeLaPlataforma`): una clave propia nunca la paga la lista blanca.
+  return (await credWs('ANTHROPIC_API_KEY').catch(() => null)) ? 'plataforma' : 'no';
+}
+
 export const SYSTEM_ANALISIS = `Eres MaKo, analista de cierres de Mauricio Bustos (consultoría/coaching ejecutivo que vende un programa de mentoría a dueños de negocio). Analizas grabaciones de reuniones para evaluar el desempeño del closer.
 
 Tu primera tarea es CLASIFICAR la llamada. Distingue con cuidado:
@@ -481,17 +517,39 @@ export type AnalyzeResult =
 export async function analyzeMeeting(m: FathomMeeting, lead: LeadMatch | null, feedback?: string): Promise<AnalyzeResult> {
   try {
     const system = await getPromptText('closing.analyze.system', SYSTEM_ANALISIS);
+    const user = await buildUserPrompt(m, lead, feedback);
+    // ── PRIMERO, EL CLAUDE DEL NEGOCIO (IA12, 22/10/2026) ──────────────────────────────────────────────────────────────
+    // El closing de un cliente lo pagaba MaKo: 123 llamadas por US$13,22 en 30 días, y la clave del ws1 es una copia de la de
+    // la plataforma. Ahora corre con SU clave (la puerta 2 del veto) y el modelo que eligió en «Tus cuentas de IA» (IA5): lo
+    // paga su cuenta, con su marca en el gasto. Si su clave falla, se dice: con su clave cargada no paga MaKo.
+    const suya = await conClaveDelNegocio({ system, user, maxTokens: 8000, feature: 'closing', motivo: 'Analizar una llamada de venta', timeoutMs: 120_000 });
+    if (suya && 'texto' in suya) return { ok: true, analysis: parseJsonObject(suya.texto) as ClaudeAnalysis, model: suya.model ?? 'claude-haiku-4-5' };
+    // Sin poder comprobar su clave, NO se cae a la de abajo: `chatClaude` pagaría con esa misma clave el modelo de la
+    // plataforma (revisión de IA5/IA12). Queda en error, que el cron reintenta.
+    if (suya && 'noPudeLeer' in suya) return { ok: false, error: suya.error };
+    if (suya) return { ok: false, error: `Tu clave de Claude no pudo analizar la llamada: ${suya.error}` };
+    // Sin su clave: lo de siempre (el permiso de la plataforma, que vence el 2026-11-13). Vencido, para un cliente no es
+    // «Claude vetado»: es que conecte el suyo.
     // Qué modelo corrió DE VERDAD. `onUsage` es el único que lo sabe: chatClaude
     // resuelve override → catálogo → cascada por dentro y devuelve solo el texto.
     let modelUsado = '';
-    const text = await chatClaude(system, [{ role: 'user', content: await buildUserPrompt(m, lead, feedback) }], {
-      // Sin model hardcodeado: el override de /modelos-ia (feature 'closing') manda.
-      thinking: true,
-      effort: 'high',
-      maxTokens: 8000,
-      feature: 'closing',
-      onUsage: (u) => { modelUsado = u.model; },
-    });
+    let text: string;
+    try {
+      text = await chatClaude(system, [{ role: 'user', content: user }], {
+        // Sin model hardcodeado: el override de /modelos-ia (feature 'closing') manda.
+        thinking: true,
+        effort: 'high',
+        maxTokens: 8000,
+        feature: 'closing',
+        onUsage: (u) => { modelUsado = u.model; },
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      // El permiso de la plataforma vencido (o una feature fuera de la lista): para un cliente, que conecte el suyo. La pausa a
+      // mano de Claude NO: ésa es de la plataforma y se dice como es.
+      if (/Claude vetado — (el permiso de «closing» venció|«closing» no está en la lista blanca)/.test(msg) && !(await esLaPlataforma())) return { ok: false, error: CONECTA_TU_CLAUDE_CLOSING };
+      throw e;
+    }
     const raw = parseJsonObject(text) as ClaudeAnalysis;
     return { ok: true, analysis: raw, model: modelUsado || ANALYSIS_MODEL };
   } catch (err) {

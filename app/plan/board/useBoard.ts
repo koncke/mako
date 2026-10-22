@@ -22,6 +22,7 @@ import { alCrear, trasMover, motivoParaNoMover } from '@/lib/todo-estados';
 import { avanceLocal, ordenTopeLocal } from './kanban';
 import { aplicarCambioColumnas, etiquetaDeClave, etiquetaDeColumna, type ConfigColumnasPlan, type PedidoColumnas } from '@/lib/plan-columnas';
 import { cambiarColumnasPlanAction } from './columnas-actions';
+import type { PrefsTarjetaPlan } from '@/lib/tarjeta-plan';
 
 export type GuardScore = { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number };
 
@@ -34,9 +35,18 @@ const now = () => Date.now();
  */
 export type ColumnasDelBoard = { config: ConfigColumnasPlan; editables: boolean } | null;
 
-export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user: BoardUser, repo: Repo, initialDeps: Dep[] = [], columnasIniciales: ColumnasDelBoard = null) {
+/**
+ * LA TARJETA DE QUIEN MIRA (21/10/2026, «Personalizar tarjetas»: lib/tarjeta-plan.ts): la forma, los datos, sus
+ * plantillas propias y si se puede guardar. Viaja por el MISMO camino que las columnas: la lee la página en el server
+ * (`getTarjetaPlan`) y llega con el HTML, así la tarjeta no parpadea de la de siempre a la suya. `null` = un tablero
+ * embebido (la ficha de un cliente, Admin): la de siempre, y el tablero no ofrece cambiarla.
+ */
+export type TarjetaDelBoard = (PrefsTarjetaPlan & { guardable: boolean }) | null;
+
+export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user: BoardUser, repo: Repo, initialDeps: Dep[] = [], columnasIniciales: ColumnasDelBoard = null, tarjetaInicial: TarjetaDelBoard = null) {
   const [tasks, setTasks] = useState<BoardTask[]>(initialTasks);
   const [columnas, setColumnas] = useState<ColumnasDelBoard>(columnasIniciales);
+  const [tarjeta, setTarjeta] = useState<TarjetaDelBoard>(tarjetaInicial);
   /** El nombre que se DIBUJA de una columna (lib/plan-columnas.ts): el toast, el historial y la pantalla dicen el mismo. */
   const etiqueta = (e: EstadoTarea): string => etiquetaDeColumna(columnas?.config.nombres, e);
   /** Lo mismo por CLAVE: el estado (las de siempre) o el id de una propia. */
@@ -913,6 +923,8 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     tasks, labels, user, repo, deps, addDep, delDep,
     // ⚠️ `columnas`, `etiqueta` Y `renombrarColumna` VAN EN ESTE `return` (20/10/2026): la advertencia de abajo.
     columnas, etiqueta, etiquetaClave, renombrarColumna, cambiarColumnas,
+    // ⚠️ `tarjeta` Y `setTarjeta` (21/10/2026), por lo mismo: sin esto «Personalizar tarjetas» no tiene qué mostrar.
+    tarjeta, setTarjeta,
     labelById: (id: string) => labels.find((l) => l.id === id) ?? null,
     create, remove, removeSilent, patch, moveTo, setScore, applyGuardian, aplicarPerroServer, aplicarCascadaManual, soltarCandadoManual, toggleEnPrioridad, setChecklist, replaceTask,
     // ⚠️ `mover` Y `setMotivoAtorada` (16/10/2026): el kanban por estado. Misma advertencia que

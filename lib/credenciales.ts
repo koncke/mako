@@ -132,7 +132,15 @@ async function credDeBase(ws: number, clave: string): Promise<string | null> {
  * El error lleva `code`, `details` y `hint` del original, que es lo que lee el clasificador de
  * lib/calendly-error.ts.
  */
-export async function credWsEstricta(clave: string, ws: number): Promise<string | null> {
+export async function credWsEstricta(clave: string, ws: number, opts: {
+  /**
+   * Una fila que EXISTE pero no se descifra (el secreto rotó, la fila se dañó) también es «no pude leer»: tira. Lo pide
+   * la frontera de la IA (las claves de la plataforma y el crédito de Max): con `null`, la copia de la plataforma o el
+   * crédito de Martín en la fila de un negocio pasaban por suyos y pagaban (revisión adversarial de IA15, 22/10/2026).
+   * Opcional porque los webhooks la usan sin eso, y que tiren ahí es otra decisión.
+   */
+  ilegibleTira?: boolean;
+} = {}): Promise<string | null> {
   if (supabaseConfigurado()) {
     const { data, error } = await getSupabaseServer()
       .from('credenciales').select('valor_enc').eq('workspace_id', ws).eq('clave', clave).maybeSingle();
@@ -142,6 +150,7 @@ export async function credWsEstricta(clave: string, ws: number): Promise<string 
       });
     }
     const v = data ? descifrar(data.valor_enc as string, ws, clave) : null;
+    if (data && v == null && opts.ilegibleTira) throw new Error(`credenciales (${clave}): la fila del ws ${ws} existe y no se puede descifrar`);
     if (esValorReal(v)) return v;
   }
   if (esValorReal(process.env[clave]) && ws === (await wsDelEntorno(clave))) return process.env[clave]!;

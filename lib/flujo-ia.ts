@@ -138,22 +138,15 @@ export const FEATURE_CREAR_IA = 'chatbot-crear-ia';
  * Y Groq, el único que contestaba, NO SE PROBABA: el pedido pesaba ~10k tokens (con los 6000 de
  * salida) y `TECHO_ENTRADA.groq` es 7000, así que la cascada lo salteaba antes de preguntarle.
  */
-export const PROVS_CREAR_IA: readonly ProvName[] = ['gemini', 'groq', 'openrouter'];
+// IA8 (22/10/2026): sin OpenRouter (su modelo gratis caducó tres veces), Mistral (429 siempre) ni Cerebras (402). Groq se
+// va también (Martín, 22/10), después de que se active el pago de Gemini y se midan las notas de voz.
+export const PROVS_CREAR_IA: readonly ProvName[] = ['gemini', 'groq'];
 
 /** Los proveedores GRATIS que el pin de /modelos-ia puede poner primero. Uno pago se ignora. */
-export const PROVS_GRATIS_PIN: readonly ProvName[] = ['gemini', 'groq', 'openrouter', 'mistral', 'cerebras'];
+export const PROVS_GRATIS_PIN: readonly ProvName[] = ['gemini', 'groq'];
 
-/**
- * El modelo de OpenRouter para ESTA feature. El de `MODELO_DOCS` (`minimax/minimax-m3:free`) ya no
- * es gratis. Medido el 09/10/2026 con el prompt real contra los `:free` que lista la API:
- * `nvidia/nemotron-3-super-120b-a12b:free` → 200 en 21 s, 9 tarjetas, cero errores; los dos Gemma
- * → 429 «rate-limited upstream» (pool compartido); `apodex-1.1-mini`, `dots-3-note-preview` y
- * `openrouter/free` se gastan los 6000 tokens pensando y no devuelven el JSON. Va acá y no en
- * lib/ai-cheap.ts porque cambiar el de `MODELO_DOCS` les cambia el modelo a las demás features.
- */
-export const MODELOS_CREAR_IA: Partial<Record<ProvName, string>> = {
-  openrouter: 'nvidia/nemotron-3-super-120b-a12b:free',
-};
+/** El modelo de cada proveedor para ESTA feature, cuando no es el de siempre. Desde IA8 (sin OpenRouter), ninguno. */
+export const MODELOS_CREAR_IA: Partial<Record<ProvName, string>> = {};
 
 /** La salida mínima que sirve (un flujo de ~20 tarjetas con lo que piensa un modelo de razonamiento). */
 export const SALIDA_MIN_IA = 3_000;
@@ -3404,13 +3397,12 @@ export function falloDeIA(errores: readonly string[], hayIA: boolean, red: reado
 export const LINK_CONECTA_CLAUDE = '/integraciones?abrir=anthropic';
 
 /**
- * QUÉ IA PROPIA ARMA FLUJOS HOY: sólo su Claude. ⚠️ Una clave de OpenAI todavía no: OpenAI no está en `PROVS_CREAR_IA`
- * (cobra) y la cascada de main no usa `PROVS_SU_IA` por su cuenta (lo midió el chat «IA del cliente» el 22/10/2026). Con
- * el IA6 (lote 2 de IA: un negocio con su IA corre la cascada con SU OpenAI) pasan a «tu Claude o tu GPT» y «tu clave de
- * Claude o de OpenAI»; tests/ia-aviso-sin-ia-propia.test.ts falla hasta que se cambien.
+ * QUÉ IA PROPIA ARMA FLUJOS: su Claude (la puerta 2, primera en la cascada) o su GPT. Desde IA6 (lote 2 de IA, 22/10/2026)
+ * un negocio con su IA corre la cascada con SU OpenAI (`PROVS_SU_IA`, lib/solo-su-ia.ts) aunque `PROVS_CREAR_IA` no la
+ * nombre. tests/ia-aviso-sin-ia-propia.test.ts lo ata: si la cascada deja de usarla, el texto vuelve a «tu Claude».
  */
-export const SU_IA = 'tu Claude';
-export const SU_CLAVE = 'tu clave de Claude';
+export const SU_IA = 'tu Claude o tu GPT';
+export const SU_CLAVE = 'tu clave de Claude o de OpenAI';
 
 /** Un tope POR DÍA (Gemini «…PerDay…», Groq «tokens per day (TPD)»): «prueba en un rato» sería mentira hasta mañana. */
 const TOPE_DEL_DIA = /per ?day|\bTPD\b|\bRPD\b|daily/i;
@@ -3425,7 +3417,8 @@ const TOPE_DEL_DIA = /per ?day|\bTPD\b|\bRPD\b|daily/i;
 export function sinIAPropia(red: readonly string[]): FalloIA {
   const link = LINK_CONECTA_CLAUDE;
   if (red.some((e) => e.startsWith('red gratis salteada: el negocio usa su propia IA'))) {
-    return { error: `Con tu propio Claude, para armar el flujo necesito ${SU_CLAVE} (en Integraciones).`, link };
+    // «tu propia IA» y no «tu propio Claude»: desde IA6 la IA propia también puede ser su GPT (y su PC no arma flujos).
+    return { error: `Con tu propia IA, para armar el flujo necesito ${SU_CLAVE}.`, link };
   }
   if (sinRedPorDatos(red)) return { error: `${CONECTA_TU_CLAUDE}.`, link };
   const intentos = red.filter((e) => !e.startsWith('red gratis salteada:'));

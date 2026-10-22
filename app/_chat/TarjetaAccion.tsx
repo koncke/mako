@@ -3,7 +3,7 @@
 // =============================================================================
 // La tarjeta de una acción que MaKo propuso, en la pieza única de chat (16/10/2026)
 // =============================================================================
-// La MISMA tarjeta del chat del CRM (app/crm/mako-crm/ChatMakoCrm.tsx) y del MaKo Analyst de la ficha, sacada a un
+// La MISMA tarjeta del chat del CRM (ChatMakoCrm.tsx, que se fue el 22/10/2026) y del MaKo Analyst de la ficha, sacada a un
 // componente: lo que se ejecuta, a la vista ANTES del botón; la consecuencia pegada al botón; y después, lo que pasó.
 // Los textos y el estado salen de app/m/mako/chat-ui.ts (`PILL_PROPUESTA`, `rotuloPrimario`, `SALIDA_PROPUESTA`):
 // una tarjeta no puede decir una cosa acá y otra en el teléfono.

@@ -39,15 +39,23 @@
 //     exceptuándola · el GET sin la lista de calladas
 //   · `volver_a_mostrar_sugerencia` sin `rolMinimo: 'admin'` · `sugerencias_crm` sin lo callado
 //   · el panel sin la `key` por CRM · «Calladas» a la vista de quien no es admin
+//
+// La estrella del Ops Center (22/10/2026): el chat propio del CRM se fue y lo escrito va al Cerebro. Base 19 / 0, una
+// rotura por vez y restaurada:
+//   · el panel montando su propia `<aside>` en vez de la pieza                                    → 18 / 1
+//   · «Hacerlo» de una `chat` mandando `s.pedido` sin nombrar el CRM                              → 18 / 1
+//   · `pedidoParaElCerebro` sin cambiar «a éste»                                                   → 18 / 1
+//   · la pieza sin recordar el último `vez` (el pedido vuelve a salir al reabrir)                  → 18 / 1
+//   · la pieza mandando el pedido sin esperar al Cerebro (`!k.esJefe`)                             → 18 / 1
 // =============================================================================
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   sugerenciasDelCrm, yaExiste, diasParadosDe, plantillaDeClave, parsearCalladas, conCallada, sinCalladas, sinCallada, estaCallada, claveCallada,
-  dePantalla, esperaDePlantilla, UMBRALES_SUGERENCIAS, TOPE_TEXTO, CLAVE_CALLADAS,
+  dePantalla, esperaDePlantilla, pedidoParaElCerebro, UMBRALES_SUGERENCIAS, TOPE_TEXTO, CLAVE_CALLADAS,
   type EntradaSugerencias, type LeadSug, type AutomatizacionSug, type Sugerencia,
 } from '../lib/sugerencias-crm';
 import { generateFunnel, DEFAULT_PIPELINE } from '../lib/pipeline';
@@ -430,48 +438,50 @@ test('el server: cuenta FRESCA antes de crear, por la puerta de la galería, la 
   assert.match(volver, /const clave = claveCallada\(crm\.id, sugerenciaId\);/);
 });
 
-test('el chat: permiso del CRM, el hilo sólo al abrir, y el rincón marcado', () => {
+test('el chat: permiso del CRM en el server; en la pantalla, la estrella del Ops Center con las sugerencias arriba', () => {
   const srv = sinComentarios(leer('app/crm/mako-crm/chat-server.ts'));
   assert.match(srv, /puedeVerKey\('crm', rolWs, capa\)/);
   assert.match(srv, /return turnoApp\(c\.persona, sid, \{ mensaje: entrada\.mensaje, contexto \}\)/);
   const panel = sinComentarios(leer('app/crm/mako-crm/PanelMakoCrm.tsx'));
-  const chat = sinComentarios(leer('app/crm/mako-crm/ChatMakoCrm.tsx'));
-  // El chat (y su GET del hilo) viaja con `dynamic` y se monta recién al abrir.
-  assert.match(panel, /dynamic\(\(\) => import\('\.\/ChatMakoCrm'\)/);
-  assert.match(panel, /\{montado && \(/);
-  assert.ok(!panel.includes('hilo=1') && chat.includes('&hilo=1'), 'el botón plegado pide el hilo');
-  // UN PANEL POR CRM: lo exportado sólo monta el de ESE CRM con su `key`. Sin la key, cambiar de CRM con
-  // el chat ya montado y el panel plegado le pasa el CRM nuevo al chat, que carga (y escribe) su hilo.
+  // UN PANEL POR CRM: lo exportado sólo monta el de ESE CRM con su `key` (sus sugerencias, y la estrella plegada).
   const exportado = panel.slice(panel.indexOf('export function PanelMakoCrm'), panel.indexOf('function PanelDeUnCrm'));
   assert.match(exportado, /return <PanelDeUnCrm key=\{funnelId \?\? 'principal'\} funnelId=\{funnelId\} \/>;/);
   assert.ok(!/use(State|Effect|Callback)\(/.test(exportado), 'el envoltorio guarda estado: sobrevive al cambio de CRM');
-  assert.equal((panel.match(/<ChatMakoCrm /g) ?? []).length, 1);
-  assert.ok(panel.indexOf('<ChatMakoCrm ') > panel.indexOf('function PanelDeUnCrm'), 'el chat se monta fuera del panel de UN CRM');
   // «Calladas (N)» y «Volver a mostrar»: del admin, como «Ahora no».
   assert.match(panel, /\{callar && calladas\.length > 0 && \(/);
   assert.match(panel, /onClick=\{\(\) => void pedirAlServer\('volver_a_mostrar', s\)\}>Volver a mostrar</);
-  // Los dos fetch del botón y los del chat con corte.
-  for (const [nombre, src] of [['panel', panel], ['chat', chat]] as const) {
-    // Cada `fetch(` con su corte antes del siguiente `fetch(` (y dentro de sus primeros 600 caracteres).
-    const tramos = src.split(/\bfetch\(/).slice(1);
-    assert.ok(tramos.length >= 2, `${nombre}: no encontré los fetch`);
-    for (const t of tramos) assert.match(t.slice(0, 600), /AbortSignal\.timeout\(/, `${nombre}: un fetch sin corte`);
-  }
-  // La BARRA FIJA A LA DERECHA desde el 20/10/2026 (regla del 18/10: «Editar = el patrón de Web Generator»; y a la
-  // izquierda, con `left: RAIL + 20`, quedaba DEBAJO de la sidebar abierta: Martín no la veía). Plegada, una pestaña en
-  // el borde derecho a media altura; abierta, la barra entera a la derecha, y el tablero le deja el lugar.
-  // Probado rompiéndolo (20/10/2026): el PanelMakoCrm de antes (a la izquierda, sobre RAIL) → 1 fallo.
-  assert.match(panel, /<button type="button" data-boton-mako-crm onClick=\{abrir\}/);
-  assert.match(panel, /position: 'fixed', right: 0, top: '50%', transform: 'translateY\(-50%\)'/);
-  assert.match(panel, /<aside aria-label="MaKo" data-panel-mako-crm\n\s*style=\{\{\n\s*position: 'fixed', top: 'var\(--barra-agencia, 0px\)', right: 0, bottom: 0/);
-  assert.doesNotMatch(panel, /\bRAIL\b/, 'el panel volvió a medirse con el riel de la sidebar plegada');
-  // Abre sola en una pantalla ancha y recuerda si la plegaron; abierta, el tablero le deja el lugar.
-  assert.match(panel, /pref === '1' \|\| \(pref == null && window\.innerWidth >= ANCHO_PARA_ABRIR\)/);
-  assert.match(leer('app/crm/CrmBoard.tsx'), /padding: '16px calc\(44px \+ var\(--ancho-panel-mako, 0px\)\) 60px 44px'/);
-  assert.doesNotMatch(panel, /data-esquina-ocupada/);
-  // Y con el MUÑECO del CRM, no la estrella (16/10/2026). Probado rompiéndolo: volver a <MakoLogo> → 1 fallo.
-  assert.match(panel, /<Muneco titulo="CRM" animo="despierto" size=\{LADO_LOGO\} \/>/);
-  assert.doesNotMatch(panel, /<MakoLogo/);
+  // Los fetch del panel, con corte.
+  const tramos = panel.split(/\bfetch\(/).slice(1);
+  assert.ok(tramos.length >= 2, 'no encontré los fetch');
+  for (const t of tramos) assert.match(t.slice(0, 600), /AbortSignal\.timeout\(/, 'un fetch sin corte');
+  // LA ESTRELLA ES LA DEL OPS CENTER desde el 22/10/2026 (Martín, 21/10: «los iconos de las criaturas siempre debe ser el
+  // icono de MaKo, se envía lo que sea que envíen al cerebro y ya el cerebro se encarga de repartir»): la pieza de todas
+  // las tabs, con lo del CRM arriba del hilo y su número en la estrella. Ni barra, ni estrella, ni chat propios.
+  assert.match(panel, /import \{ MakoEnLaTab \} from '@\/app\/_chat\/MakoEnLaTab';/);
+  assert.match(panel, /return <MakoEnLaTab tab="CRM" arriba=\{sugerencias\} aviso=\{n\} pedido=\{pedido\} \/>;/);
+  assert.doesNotMatch(panel, /ChatMakoCrm|hilo=1|<aside\b|<Muneco\b|data-sidebar|--ancho-panel-mako/, 'el CRM volvió a armar su chat, su barra o su estrella');
+  assert.ok(!existsSync(join(RAIZ, 'app/crm/mako-crm/ChatMakoCrm.tsx')), 'volvió el chat propio del CRM');
+  // «Hacerlo» de una que se revisa con MaKo: al Cerebro, con el CRM nombrado.
+  assert.match(panel, /setPedido\(\{ texto: pedidoParaElCerebro\(s\.pedido, crm\), vez: Date\.now\(\) \}\)/);
+  // La pieza: el pedido abre el panel, sale UNA vez por `vez` (el panel se desmonta al cerrar: lo recuerda la pieza) y sale
+  // al Cerebro, no al chat que esté cargando.
+  const pieza = sinComentarios(leer('app/_chat/MakoEnLaTab.tsx'));
+  assert.match(pieza, /if \(!pedido \|\| ultimaVez\.current === pedido\.vez\) return;\n\s*ultimaVez\.current = pedido\.vez;\n\s*setPorMandar\(pedido\);\n\s*setAbierto\(true\);/);
+  assert.match(pieza, /if \(!pedido \|\| !k\.esJefe\) return;\n\s*if \(k\.enviar\(pedido\.texto\)\) onMandado\(\);/);
+  // Abierta, el tablero le deja el lugar: la pieza publica su ancho y el padding izquierdo de CrmBoard lo lee.
+  assert.match(leer('app/crm/CrmBoard.tsx'), /padding: `16px 44px \$\{view === 'kanban' \? ABAJO_KANBAN : 60\}px calc\(44px \+ var\(--ancho-panel-mako, 0px\)\)`/);
   // Nada de next/link: los links con el `?ws=` de la casa.
-  assert.ok(!/from 'next\/link'/.test(panel + chat));
+  assert.ok(!/from 'next\/link'/.test(panel));
+});
+
+test('el pedido que sale al Cerebro NOMBRA el CRM: «este CRM» no le dice nada', () => {
+  assert.equal(pedidoParaElCerebro('En este CRM hay 3 leads en «Manual».', 'Sprint 3 días'), 'En el CRM «Sprint 3 días» hay 3 leads en «Manual».');
+  assert.equal(pedidoParaElCerebro('Estos leads de este CRM volvieron', 'Sprint'), 'Estos leads del CRM «Sprint» volvieron');
+  assert.equal(pedidoParaElCerebro('¿A qué CRM conviene conectarla? Si es a éste, conéctala.', 'Sprint'), '¿A qué CRM conviene conectarla? Si es al CRM «Sprint», conéctala.');
+  assert.equal(pedidoParaElCerebro('En este CRM hay 3', null), 'En este CRM hay 3', 'sin el nombre, como está');
+  // TODOS los pedidos del motor: ninguno sale al Cerebro con «este CRM» o «éste» sin nombrar.
+  const pedidos = [...leer('lib/sugerencias-crm.ts').matchAll(/pedido: `([^`]*)`/g)].map((m) => m[1]);
+  assert.ok(pedidos.length >= 5, `encontré ${pedidos.length} pedidos`);
+  // (`\b` no ve la «é» como letra: «éste» se busca después de un espacio.)
+  for (const p of pedidos) assert.doesNotMatch(pedidoParaElCerebro(p, 'X'), /\beste CRM\b|(?:^|\s)éste\b/i, p.slice(0, 70));
 });

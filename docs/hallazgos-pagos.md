@@ -767,7 +767,8 @@ ni corta una automatización que le siga escribiendo, ni aparece en Pagos.
 **Los caminos que sí entran:** «Cobrar con link» desde la ficha (un link de Stripe de MaKo para ESE lead) o el botón
 de pago de una landing del Web Generator (`cobrar_producto_landing`, busca el lead por email). Con los dos, el pago
 gana al lead en su CRM de ORIGEN (`ganarLead` en la casa): la tarjeta del CRM de la campaña (agregado) no se mueve.
-**Sin hacer:** match de un pago externo por email/teléfono; mover a «Pagó» del CRM agregado al ganar.
+**Sin hacer:** match de un pago externo por email/teléfono. ~~Mover a «Pagó» del CRM agregado al ganar~~: hecho para un
+producto vinculado a la etapa Ganado de ese CRM (22/10/2026, ver «Vincular cobro», abajo).
 **Vive en:** lib/cobros-webhook.ts · lib/cobros.ts (`cobroDelAviso`, `ganarLead`) · app/crm/[id]/CobrarConLink.tsx.
 
 ## Los pagos son de un CRM: el plan de una renovación arranca de cero (22/10/2026, mig 0324)
@@ -935,3 +936,144 @@ app/m/crm/datos.ts · tests/pagos-crm-co2.test.ts.
 
 **Vive en:** lib/pagos-crm.ts (`cobradoDeLaVentaSiHay`) · app/crm/actions.ts (`filaALeadDoc`) · lib/variables-del-lead.ts ·
 lib/lead-funnel.ts (`resincronizarCobrado`) · tests/pagos-crm-tercera.test.ts.
+
+### La cuarta revisión: arreglar la columna no arreglaba su propio caso (22/10/2026)
+
+- **Re-sincronizar al agregar adelantaba el salto del saldo.** Un lead al que se le quitó la casa A con pagos conserva
+  esos pagos con el funnel A, y hoy cuentan como de la casa nueva. Volver a agregarlo a A (lo hacen solos un optin, una
+  reserva de agenda, un formulario de Meta, «Traer») los pasaba al trato de A: con la re-sincronización, el saldo que le
+  llega al cliente pasaba en el acto de «te falta US$1.000» a «US$2.000», y quitar no lo deshacía (lo frena la plata).
+  **La regla:** agregar tiene el espejo del guard de quitar: un lead con pagos de ESE funnel sin estar en él no se agrega
+  (`pagosHuerfanosDe`, lib/lead-funnel.ts); en lote, se saltea y cuenta como fallado. Re-etiquetar los pagos a la casa no
+  sirve: choca con el índice de la 0324 si la casa nueva ya tiene su cuota 1. Medido: hoy no hay ningún lead así.
+  **Y quien agrega solo tiene que atraparlo** (revisión del 22/10/2026): la reserva de Calendly o Cal.com vinculada a una
+  etapa (lib/agenda-evento-etapa-server.ts) lo dejaba subir, y el lead se quedaba sin el aviso de «agendó», sin sus
+  automatizaciones de reunión y sin el evento de Meta, con un 500 a Cal.com en cada reintento. El optin, Meta, las fuentes
+  y la página de gracias ya lo atrapaban; un pago de «Vincular cobro» cae a la casa (`TienePagosDeEseCrmError`).
+- **Una sincronización que falla no corta a los demás**, y sin pagos no se sincroniza (escribía 0 donde había NULL).
+- `{{lead_cobrado}}` sin venta en la casa es lo pagado en total: no hay saldo con el que sumar. «Solo con dinero cobrado»
+  mira lo cobrado de la venta, como la columna «Cobrado USD» del mismo export.
+
+## «Vincular cobro»: quien paga el producto pasa a Ganado en ESE CRM (22/10/2026, mig 0326)
+
+Punto 3 del feedback de Martín: en el ⋯ de la columna Ganado de un CRM, vincular un producto, cobrable por Stripe y Mercado
+Pago a la vez. El CRM dibuja el modal; Cobros hizo el modelo y las acciones (el contrato: contrato-cobro-en-ganado.md en las
+notas del Cerebro).
+
+- **Lo obvio era hacer un camino nuevo de cobro, y no hacía falta.** Todo pago de MaKo ya es un `cobros` con lead (el link
+  de la ficha, el Botón de pago de una landing). Lo que faltaba era una sola pregunta al aplicar el pago: ¿a qué trato va?
+  `prepararTratoDelPago` (lib/cobro-etapa-server.ts) la contesta ANTES de asentar, y `aplicarPagoAprobado` asienta en ese
+  trato y gana ahí. Un pago sin vínculo y sin cuotas sigue el camino de siempre (null).
+- **Un producto, un CRM** (índice único de la 0326). Si el mismo producto pudiera cobrar en dos CRMs, el pago no sabría en
+  qué trato asentarse. Vincularlo a otro CRM dice dónde cobra hoy.
+- **Una suscripción se queda en la casa.** Un CRM agregado no tiene suscripción (la 0324). La mensualidad, el MRR y la casa
+  ganada siguen como siempre, y además el lead pasa a Ganado en el CRM del vínculo.
+- **Un producto en cuotas cobra el PRIMER pago** (`productos.cuotas`, `planDelProducto`). Las cuotas se redondean para abajo
+  al centavo y el inicial se lleva el resto: la suma da exacto el precio (US$1.000 en 3 = 333,34 + 2 × 333,33). Con la
+  cuota igual para todos, faltaba un centavo. El lead gana por el PRECIO, no por el primer pago (`montoVenta`).
+- **Trampa · `upsertProducto` (lib/productos.ts) pisa con null lo que no viene.** Editar el producto desde el modal con esa
+  función borraba la promesa, lo que incluye y la garantía del catálogo. El modal edita con un update angosto
+  (`guardarProducto`).
+- **Trampa · el reintento.** Si el plan se arma y el asiento se corta, el próximo aviso no puede entrar como un pago nuevo
+  al lado de una cuota 0 impaga (eso es Outstanding de más y recordatorios a quien pagó). Por eso la venta se escribe con
+  una condición (`.is('monto_cierre_usd', null)`), el plan sólo si la venta se escribió recién, y la cuota que se salda se
+  busca por número 0 y monto, sea del intento de ahora o del cortado.
+- **Asentar en otro CRM no casa por monto con la casa** (`registrarCobroDeProveedor` con `crm`). Si casara, saldaría una cuota
+  de la venta de siempre con plata de la renovación.
+
+**Sin hacer** (con dónde vive):
+- **El link para pegar sin lead** (`linkDelVinculoAction`) contesta que se cobre con el Botón de pago de una landing o con el
+  link de la ficha. Un link sin lead necesita su propia página que pida nombre y email antes de cobrar, como el paso de pago
+  de la landing (lib/editor-landing/pago-pagina.ts, que está atado a una landing publicada).
+- **Varias cuentas por proveedor:** hoy cada uno tiene una (la principal, `cuentaPrincipal`). Una cuenta más necesita las
+  claves con sufijo, el webhook que encuentre la cuenta por su id (`?acct=` ya lo trae en Stripe) y que el cobro guarde la
+  cuenta (`cuentaDelCobro` cae en la principal). Lo de Calendly y Cal.com es de Integraciones.
+- **El caso del Sprint de Mauricio sigue sin entrar.** Lo cobra con un link de Stripe PROPIO, y el webhook sólo aplica cobros
+  creados por MaKo (ver «El pago por un link de Stripe PROPIO…», arriba). Un vínculo no lo arregla: falta casar un pago
+  externo por el producto o precio del proveedor y el email.
+- **El paso de pago de la landing muestra el precio entero** de un producto en cuotas y cobra el primer pago. Falta que diga
+  «en N pagos» (lib/editor-landing/pago-pagina.ts, `precioDe`).
+
+**Vive en:** supabase/migrations/0326_cobro_en_ganado.sql · lib/cobro-etapa.ts · lib/cobro-etapa-server.ts ·
+lib/cobros.ts (`aplicarPagoAprobado`, `crearCobro`) · lib/pagos.ts (`registrarCobroDeProveedor`, `crm`) ·
+app/crm/cobro-etapa-actions.ts · tests/cobro-etapa.test.ts.
+
+### La revisión adversarial de «Vincular cobro»: el pago se asienta con lo que cobró, no con lo que el producto dice hoy (22/10/2026)
+
+- **El plan salía del producto de HOY.** Un link de US$1.000 creado antes de ponerle 3 cuotas al producto, pagado
+  después, armaba el plan 333,34 + 2 × 333,33 y el pago no encontraba su cuota 0: entraba suelto al lado, y quedaba una
+  deuda de US$1.000 que no existía. **La regla:** lo que el pago asienta sale de lo que COBRÓ el link. El cobro congela el
+  precio y las cuotas al crearse (`cobros.plan_producto`, `planDelCobro`), y el plan sólo se arma si su primer pago es lo
+  que se cobró. El tipo también es el del cobro.
+- **Un CRM archivado dejaba el pago sin asentar en ningún lado** (ni cash, ni Ganado, ni aviso, durante los 14 días del
+  cron): `listarFunnels` filtra los activos y `agregarAProducto` tiraba. Ahora el pago entra en la casa y lo dice en el
+  historial; la etapa de Ganado se busca al pagar, no la que se guardó al vincular.
+  Lo mismo si lo frena el guard de agregar de la cuarta revisión (tiene pagos de su casa vieja en ese CRM,
+  `TienePagosDeEseCrmError`): un guard que protege una pantalla no puede dejar un pago sin asentar.
+- **Dos avisos del mismo pago a la vez** (Mercado Pago reentrega en paralelo, el cron se cruza): el segundo no encontraba
+  la cuota 0 que el primero estaba armando y asentaba suelto. El trato se RECLAMA en el cobro (`trato_estado`, compare-and-
+  set; a los 2 minutos se puede volver a reclamar) y queda escrito al terminar. El que pierde relee o tira y lo completa el
+  próximo intento. Lo que se escribe al armar se puede repetir: un intento cortado entre la venta y el plan se completa.
+- **Devuelto el primer pago, las cuotas del plan que armó seguían como deuda.** El reembolso total las da de baja
+  (`planArmadoPorElCobro` → `darDeBajaCliente` en ese trato).
+- **Editar el producto borraba el plazo** si no se mandaba (es opcional en el contrato): el bug del 15/10 por otro camino.
+  Editar escribe sólo lo que vino (`patchDeEdicion`).
+- **Lo que se aprobaba no era lo que se cobraba:** la API de MaKo resumía con el precio entero y el link cobraba el primer
+  pago; y la landing buscaba su pendiente por el precio y no lo reusaba nunca (cada clic, otro checkout).
+
+**Sin hacer:** cuando el pago gana en un CRM agregado, la casa queda abierta, y sus automatizaciones pueden seguir
+escribiéndole a quien ya pagó (no se midió). La regla de la casa es de CRM (lib/lead-funnel.ts, `moverEtapaEnProducto`).
+
+### La revisión de plata de «Vincular cobro»: lo que el trato no tiene que cortar (22/10/2026)
+
+- **El reclamo del trato cortaba pasos que no eran suyos.** Con una suscripción de Stripe vinculada llegan dos avisos casi
+  juntos. Si el que ganó el pago (`nuevo`) perdía el reclamo del trato, tiraba ANTES de programar el fin del plazo en
+  Stripe, y el otro aviso no lo programa (no es `nuevo`): la tarjeta se seguía cobrando pasado el mes 6. **La regla:**
+  lo que no depende del trato va antes que él (el plazo y la reapertura de la suscripción). Y «otro aviso lo está armando»
+  no es una falla: no se escribe en el `motivo` del cobro (`TratoEnCursoError`).
+- **Devolver el primer pago daba de baja TODO lo impago del trato**, aunque otro pago del mismo producto siguiera
+  sosteniendo la compra (quien pagó dos veces). Si en ese trato queda otro pago cobrado, no se da de baja: se dice. Una
+  devolución que falla deshace la baja que hizo el reembolso (`trato.bajaPorReembolso`).
+- **El plan que no se arma se dice.** Un cliente que ya ganó y compra otro producto en cuotas pagaba el primero y las
+  demás cuotas no existían en ningún lado. Ahora va al historial y al `motivo` del cobro: «faltan N cuotas de US$X».
+- **`Math.abs(a - b) < 0.01` no es «el mismo monto»:** da por iguales 333,34 y 333,33, justo la diferencia que fabrica el
+  plan. Se compara al centavo (`mismoCentavo`), también al asentar (lib/pagos.ts).
+- **Un pago ya asentado sin trato no arma uno nuevo** (un cobro viejo que vuelve a pasar por el cron): era una venta doble.
+- La API de MaKo guarda lo que se aprobó y no cobra otro monto si el producto cambió mientras esperaba. La venta de un
+  intento cortado se reconoce por una marca en el cobro (`trato.ventaEn`), no por la fecha (el cron completa otro día).
+
+### La segunda revisión de plata: un aviso que dice «cárgalas» tiene que contar lo que ya está (22/10/2026)
+
+- **«Faltan 2 cuotas: cárgalas en Pagos» aunque ya estuvieran.** Con un pago repetido del mismo producto, o un plan que el
+  closer ya había cargado, quien siguiera el aviso cargaba US$666,66 de deuda inventada. **La regla:** un aviso que pide
+  cargar algo cuenta antes lo que ya está (`pendienteDelPlan`: las impagas, no dadas de baja y con vencimiento, del monto
+  de la cuota). Si ya están, dice «puede ser un pago repetido».
+- **Mover el plazo antes del trato arregló Stripe y agrandó la carrera del lead:** el aviso `nuevo` tarda más (Stripe) y el
+  otro gana el reclamo y el lead, con `suscripcion_meses = null`. El plazo se LEE en todo primer pago; sólo programarlo
+  en Stripe queda atado a `nuevo`. El aviso del link anulado se dice en el corte, porque el otro aviso no lo dice.
+- **El reembolso miraba sólo al devolver el primer pago.** Devolver el primero y después la cuota 1 dejaba la cuota 2 como
+  deuda. Ahora cada reembolso total revisa los planes devueltos del lead (`planesDevueltosDelLead`) y mira SÓLO las cuotas
+  de ese plan (sus ids, en `cobros.trato.cuotasPlan`): una renovación cobrada ya no frena la baja.
+- Quedó un `< 0.01` en el link de una cuota (lib/cobros.ts): al centavo.
+
+**Sin hacer:** la marca `trato.ventaEn` se escribe después de la venta (dos escrituras): un corte de milisegundos entre las
+dos deja el plan sin armar, y lo dice el pendiente. Un plan que el asistente de Ganado reparte con otro centavo en el
+inicial (333,33 en vez de 333,34) ya no lo salda el link del producto: entra como pago nuevo y el pendiente avisa.
+
+### La tercera revisión de plata: decidir con las cuotas del plan y después dar de baja todo el trato (22/10/2026)
+
+- **Angostar la decisión destapó la acción amplia.** La segunda revisión pasó a decidir mirando sólo las cuotas del plan,
+  pero `darDeBajaCliente` seguía dando de baja TODAS las impagas del trato y anulando sus links: devolver el producto A se
+  llevaba US$400 de deuda de la compra B, cargada en la misma casa. Antes, el chequeo amplio (cualquier fila cobrada frenaba)
+  lo tapaba. **La regla:** si la decisión se angosta, la acción se angosta con ella. La baja y su deshacer aceptan los ids
+  (`soloIds`, lib/pagos-baja.ts) y el reembolso pasa SÓLO los del plan.
+- **El pago repetido devuelto «al revés»** (devuelven el que armó el plan y queda el repetido, que entró suelto y no es una
+  cuota del plan) borraba US$666,66 a quien pagó el producto una vez. Otro cobro pagado del mismo producto en ese lead
+  sostiene la compra.
+- **Un plan sin nada que dar de baja quedaba abierto para siempre**, y un reembolso de otra cosa meses después volvía a
+  pasar por él. Ahora se cierra.
+- La decisión es una función pura con test de COMPORTAMIENTO con esos tres casos (`decidirBajaDelPlan`): los tests de antes
+  eran regex sobre la fuente y pasaban igual con el bug.
+- Una devolución fallida deshace la baja que disparó ESE cobro (`trato.bajaPor`), aunque sea la cuota 1 y no el primer pago.
+- El pendiente no afirma de quién son las cuotas del monto que ya están (pueden ser de otra compra), y si el pago saldó la
+  cuota 0 de un plan que ya estaba, no dice nada: decía «puede ser repetido» a un pago legítimo.

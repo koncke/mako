@@ -36,6 +36,7 @@ import { laCobraLaPasarela } from './cobros-reglas';
 import type { Pasarela } from './cobros-tipos';
 import type { CobroParaCobrado } from './cobrado-lead';
 import { itemDeSuscripcion, type ItemPorCobrar, type LeadSuscripcion } from './suscripciones-por-cobrar';
+import { mismoCentavo } from './cobro-etapa';
 import { FALTA_0324, camposDeFila, esDelTrato, faltaIndicePorCrm, type CamposTrato, type Crm } from './pagos-crm';
 
 export type Pago = {
@@ -1203,6 +1204,11 @@ export async function registrarCobroDeProveedor(p: {
   montoOriginal: number;
   moneda: string;
   fechaPago: string;
+  /**
+   * El CRM agregado donde entra un pago NUEVO (mig 0326: el producto vinculado a la etapa Ganado de ese CRM). Sin él, la
+   * casa (o el CRM de la cuota que saldaba el link). Con él no se casa por monto contra las cuotas de la casa: es otro trato.
+   */
+  crm?: number | null;
 }): Promise<{ pagoId: number; yaEstaba: boolean }> {
   // El lead sale del cobro (crearCobro ya lo leyó de este negocio), pero esta función INSERTA en `pagos`: la
   // regla es una sola para todos los escritores. Si tira, cobros.ts lo deja en el `motivo` del cobro.
@@ -1233,18 +1239,18 @@ export async function registrarCobroDeProveedor(p: {
   // La cuota que saldaba el link, si sigue existiendo y sigue sin pagar. Si ya la marcó alguien a
   // mano, el pago de la pasarela NO la pisa: entra como cuota nueva (la plata entró dos veces y
   // eso lo tiene que ver una persona, no esconderse).
-  let crmDeLaCuota: number | null = null;
+  let crmDeLaCuota: number | null = p.crm ?? null;
   if (p.pagoId) {
     // De ESTE lead: un pagoId que viniera de otro lado no puede saldar la cuota de otra persona.
     const cuota = await db.from('pagos').select('*').eq('id', p.pagoId).eq('lead_id', p.leadId).maybeSingle();
     if (cuota.error) throw new Error(`Error leyendo la cuota ${p.pagoId}: ${cuota.error.message}`);
     // El CRM de la cuota que saldaba el link (M6): si este pago entra como uno nuevo, entra en ESE trato, no en la casa.
-    crmDeLaCuota = cuota.data?.funnel_id != null ? Number(cuota.data.funnel_id) : null;
+    crmDeLaCuota = cuota.data?.funnel_id != null ? Number(cuota.data.funnel_id) : crmDeLaCuota;
     // ⚠️ Y POR LO MISMO QUE COBRA (14/10/2026, el link por cuota): saldarla la marca pagada por SU monto, no por el del
     // link. Si alguien la cambió después de crear el link, marcarla mentiría en el cash: entra como una cuota nueva
     // y la persona ve las dos. NO salda otra del mismo monto: el casamiento por monto de abajo es sólo para los links
     // SIN cuota (`!p.pagoId`); un link de la cuota 2 pagado de nuevo es plata que entró dos veces, no la cuota 3.
-    const mismoMonto = !!cuota.data && Math.abs(Number(cuota.data.monto_usd) - p.montoUsd) < 0.01;
+    const mismoMonto = !!cuota.data && mismoCentavo(cuota.data.monto_usd, p.montoUsd);
     if (cuota.data && !cuota.data.pagado && !cuota.data.proveedor_pago_id && mismoMonto) {
       // ⚠️ LA MARCA Y EL COBRO EN UNA ESCRITURA CONDICIONAL (21/10/2026, revisión adversarial): un cobro a mano entre la
       // lectura y esta escritura quedaba PISADO por la pasarela (dos pagos se veían como uno). Si ya no está impaga, este
@@ -1265,12 +1271,12 @@ export async function registrarCobroDeProveedor(p: {
   // link nace atado a una cuota (`pagoId`), y sin esto el pago entraba como cuota NUEVA con la del plan
   // todavía impaga: Outstanding de más, recordatorios de cobranza a quien ya pagó y, cuando el closer la
   // marcaba a mano, el doble de cash. Se casa por monto en USD, la más vieja primero, sólo una sin pasarela.
-  if (!p.pagoId) {
+  if (!p.pagoId && p.crm == null) {
     // ⚠️ SÓLO EN LA CASA (revisión del 22/10/2026, M5): un pago sin cuota (un link suelto, la renovación mensual de una
     // suscripción) es de la casa, que es donde nace (el trigger). Contra todos los CRMs, la mensualidad de Stripe saldaba
     // por monto la cuota de una renovación. La cuota de un CRM agregado se cobra con SU link (`pagoId`), arriba.
     const impagas = (await getPagosByLead(p.leadId))
-      .filter((q) => !q.pagado && !q.proveedor_pago_id && q.fecha_esperada && Math.abs(Number(q.monto_usd) - p.montoUsd) < 0.01)
+      .filter((q) => !q.pagado && !q.proveedor_pago_id && q.fecha_esperada && mismoCentavo(q.monto_usd, p.montoUsd))
       .sort((a, b) => String(a.fecha_esperada).localeCompare(String(b.fecha_esperada)) || a.numero - b.numero);
     // ⚠️ DE A UNA, EN ORDEN (21/10/2026, segunda revisión adversarial): con la misma condición, si la elegida la cobró
     // alguien a mano en el medio, este pago no la pisa y prueba la SIGUIENTE del mismo monto. Antes entraba como cuota

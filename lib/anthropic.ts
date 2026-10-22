@@ -8,11 +8,12 @@ import 'server-only';
 import { recordUsage, type UsageInfo } from './anthropic-usage';
 import { credWs, credDelCliente, credWsEstricta, wsDelEntorno } from './credenciales';
 import {
-  permisoDeGasto, evaluarClaveDelNegocio, MOTIVO_CLAVE_DEL_NEGOCIO,
+  permisoDeGasto, evaluarClaveDelNegocio, MOTIVO_CLAVE_DEL_NEGOCIO, MOTIVO_CREDITO_SU_CLAVE, FEATURES_DEL_PLAN,
   evaluarCreditoDeLaPlataforma, CLAVES_CREDITO_PLATAFORMA, CREDITO_HABILITADO_PARA, MOTIVO_CREDITO_PLATAFORMA, type PermisoClaude,
-  type PermisoClaveDelNegocio,
+  type PermisoClaveDelNegocio, CLAVE_MODELO_SU_CLAUDE, modeloDeSuClaude,
 } from './veto-claude';
 import type { ProvName } from './ai-cheap';
+import { conD6bDelPedido, pasaPorLaPuerta, planPuedePagarConSuClave, soloSuIA } from './solo-su-ia';
 
 // ⛔ ACÁ NO HAY NI `MODEL` NI `ENDPOINT`, y ese es el punto entero del veto.
 //
@@ -60,6 +61,46 @@ async function registrarBloqueo(e: unknown, feature: string | undefined, model: 
   await recordUsage(feature?.trim() || 'sin-feature', `vetado:${model || '-'}`, {}, razon).catch(() => {});
 }
 
+/** ¿Esta clave es una de la plataforma? `null`: no se pudieron leer (y entonces no se sabe de quién es). */
+async function esClaveAnthropicDeLaPlataforma(key: string): Promise<boolean | null> {
+  const k = key.trim();
+  if (!k) return false;
+  if (k === process.env.ANTHROPIC_API_KEY?.trim()) return true;
+  const deLaPlataforma = await clavesAnthropicDeLaPlataforma().catch(() => null);
+  if (!deLaPlataforma) return null;
+  return deLaPlataforma.some((x) => typeof x === 'string' && x.trim() !== '' && x.trim() === k);
+}
+
+/**
+ * De quién es el gasto de la clave del negocio, PRIMERO en el motivo: lib/costos-ia.ts lo saca del de MaKo. Si su clave es el
+ * crédito de Max de la plataforma (el ws10, `esCredito`), es del CRÉDITO: el panel lo muestra aparte, no como del negocio
+ * (revisión del lote 2 de IA: si no, ese gasto no se veía en ningún lado).
+ */
+const marcaDelGasto = (permiso: PermisoClaveDelNegocio): string =>
+  permiso.esCredito ? MOTIVO_CREDITO_SU_CLAVE : MOTIVO_CLAVE_DEL_NEGOCIO;
+
+/** Lo que dice una función cuando no se pudo comprobar la clave de Claude del negocio: se reintenta, no se paga otra. */
+// Sin la causa: puede ser la base que no contestó o una fila de la plataforma que no se descifra (revisión del lote 2), y
+// decir «la base no contestó» en el segundo caso era falso.
+export const NO_PUDE_COMPROBAR_SU_CLAUDE = 'No pude comprobar tu clave de Claude. Se reintenta en la próxima corrida.';
+
+/**
+ * La puerta 1 (la lista blanca) paga con la clave de la PLATAFORMA, y con ninguna otra (revisión de IA5/IA12, 22/10/2026).
+ * `credWs` devuelve la fila del negocio si tiene una: sin esto, una función de la lista blanca corrida en un negocio con SU
+ * clave pagaba con ella el modelo de la plataforma (Sonnet con thinking), sin su marca en el gasto, y con el crédito de Max
+ * de Martín si ésa era la clave (el ws10). La clave del negocio va por SU puerta (`permisoDeLaClaveDelNegocio`). Sin poder
+ * leer las de la plataforma, tampoco: no se sabe de quién es.
+ */
+async function exigirClaveDeLaPlataforma(key: string, feature?: string): Promise<void> {
+  const deLaPlataforma = await esClaveAnthropicDeLaPlataforma(key);
+  if (deLaPlataforma) return;
+  const razon = deLaPlataforma === false
+    ? 'la clave de Claude de este negocio es SUYA: va por su puerta (su modelo, su marca en el gasto), no por la lista blanca de la plataforma'
+    : 'no pude leer las claves de la plataforma, y sin eso no se sabe de quién es la clave';
+  await registrarBloqueo(new Error(`Claude vetado — ${razon}`), feature, '');
+  throw new Error(`${feature ?? 'Claude'}: ${razon}. Se reintenta en la próxima corrida.`);
+}
+
 /**
  * LA CLAVE DE ANTHROPIC DEL NEGOCIO, como primer intento de la cascada de texto
  * (`chatCheapCascade`). Decisión de Martín del 15/10/2026: el crédito de API de Claude Max
@@ -81,32 +122,86 @@ async function registrarBloqueo(e: unknown, feature: string | undefined, model: 
  * turno con herramientas del chat (`chatClaudeTools`): un negocio que conectó SÓLO su Claude no tenía ninguna IA para el
  * chat, y «Conectar tu IA» le pedía Gemini (docs/investigacion-ops-center-19-10.md).
  */
-export async function permisoDeLaClaveDelNegocio(feature?: string): Promise<{ permiso: PermisoClaveDelNegocio } | { pausa: true } | null> {
+export async function permisoDeLaClaveDelNegocio(feature?: string): Promise<{ permiso: PermisoClaveDelNegocio } | { pausa: true } | { noPudeLeer: true } | null> {
   const clave = await credDelCliente('ANTHROPIC_API_KEY').catch(() => null);
   if (!clave) return null;
+  // ⚠️ EL PLAN, SÓLO CON LA DECISIÓN DEL PLAN EN «SÍ» Y CIERTA (revisión adversarial de IA15, 22/10/2026). La cascada prueba
+  // esta puerta en cualquier pedido, decida lo que decida el Plan: con una fila de la plataforma ilegible, la frontera no
+  // reconocía el crédito de Martín ni la copia de la clave de MaKo, y el Plan pagaba con ellas. `planConSuClave` sí los
+  // reconoce (o dice «no pude saber»), y es la que manda.
+  if (FEATURES_DEL_PLAN.includes((feature ?? '').trim()) && !(await planPuedePagarConSuClave())) return null;
+  // ⚠️ «NO PUDE LEER» NO ES «NO TIENE» (revisión de IA5/IA12, 22/10/2026). Con `null`, el closing lo leía como «sin su clave»
+  // y caía a `chatClaude`, que pagaba con ESA misma clave (`credWs`): Sonnet con thinking sobre la clave de un negocio que
+  // eligió Haiku, sin su marca en el gasto, y en el ws10, sobre el crédito de Martín.
   let clavesPlataforma: Array<string | null | undefined>;
+  try { clavesPlataforma = await clavesAnthropicDeLaPlataforma(); } catch { return { noPudeLeer: true }; }
+  const pausa = await claudePausado();
+  // IA5 (22/10/2026): el modelo que eligió el negocio para SU Claude, y las claves del crédito de Max de la plataforma: una
+  // de ésas puesta como clave de un negocio (el ws10) va con el barato, elija lo que elija (lo paga Martín). Sin poder
+  // leerlas, `null`: también el barato.
+  let modelo: string;
+  try {
+    const { getSetting } = await import('@/lib/settings');
+    modelo = modeloDeSuClaude(await getSetting(CLAVE_MODELO_SU_CLAUDE));
+  } catch { modelo = modeloDeSuClaude(null); }
+  let creditosPlataforma: Array<string | null> | null;
   try {
     const { wsSuperAdmin } = await import('@/lib/workspace');
-    clavesPlataforma = [
-      process.env.ANTHROPIC_API_KEY,
-      // La fila de la que sale el ENTORNO de esta clave (`wsDelEntorno`). Hasta el 18/10 era la del ws1 (`OWNER_WS`), y
-      // así la clave propia que pegara Mauricio se leía como la de la plataforma y nunca contaba como suya.
-      await credWsEstricta('ANTHROPIC_API_KEY', await wsDelEntorno('ANTHROPIC_API_KEY')),
-      await credWsEstricta('ANTHROPIC_API_KEY', await wsSuperAdmin()),
-    ];
-  } catch { return null; }
-  const pausa = await claudePausado();
-  const v = evaluarClaveDelNegocio({ feature, clave, clavesPlataforma, pausa });
+    const wsSA = await wsSuperAdmin();
+    creditosPlataforma = [];
+    // Las DOS fuentes, siempre: con el entorno puesto, la fila no se leía, y una clave rotada en la fila (o un entorno que
+    // no coincide) dejaba al ws10 elegir Sonnet sobre el crédito de Martín.
+    for (const nombre of CLAVES_CREDITO_PLATAFORMA) {
+      const env = process.env[nombre]?.trim() || null;
+      const fila = await credWsEstricta(nombre, wsSA, { ilegibleTira: true });
+      creditosPlataforma.push(env, fila);
+      // Reconocido por su VALOR y sin marca: se marca, para que la próxima vez no dependa de que esa fila siga ahí.
+      if ([env, fila].some((x) => x && x.trim() === clave.trim())) {
+        const { leerMarcaDeCredito, esElCreditoMarcado, marcarCredito } = await import('@/lib/credito-marca');
+        if (!esElCreditoMarcado(clave, await leerMarcaDeCredito().catch(() => null))) await marcarCredito(clave, nombre);
+      }
+    }
+  } catch { creditosPlataforma = null; }
+  // ⚠️ LA MARCA EXPLÍCITA MANDA (lib/credito-marca.ts; decisión del Cerebro, 22/10/2026: «que no dependa del valor»): una
+  // clave marcada como el crédito de Martín se trata como crédito aunque la fila del crédito de la plataforma ya no exista.
+  // Sin poder leer la marca, «no sé»: el barato y el Plan cerrado.
+  try {
+    const { leerMarcaDeCredito, esElCreditoMarcado } = await import('@/lib/credito-marca');
+    // Marcada: es crédito, se pudieran leer las filas de la plataforma o no (sin leerlas, `null` decía «no sé» y el gasto se
+    // anotaba como del negocio; la marca SÍ sabe).
+    if (esElCreditoMarcado(clave, await leerMarcaDeCredito())) creditosPlataforma = [...(creditosPlataforma ?? []), clave];
+  } catch { creditosPlataforma = null; }
+  const v = evaluarClaveDelNegocio({ feature, clave, clavesPlataforma, pausa, model: modelo, creditosPlataforma });
   if (!v.ok) return pausa ? { pausa: true } : null;
   return { permiso: v.permiso };
+}
+
+/**
+ * Las claves de Anthropic de la PLATAFORMA, ESTRICTAS: si la base no contesta, tira. Las lee la frontera (la puerta 2: una
+ * copia de éstas en un negocio no es suya) y la puerta 1 (`chatClaude` y `chatClaudeTools` sólo pagan con una de éstas).
+ */
+async function clavesAnthropicDeLaPlataforma(): Promise<Array<string | null | undefined>> {
+  const { wsSuperAdmin } = await import('@/lib/workspace');
+  return [
+    process.env.ANTHROPIC_API_KEY,
+    // La fila de la que sale el ENTORNO de esta clave (`wsDelEntorno`). Hasta el 18/10 era la del ws1 (`OWNER_WS`), y
+    // así la clave propia que pegara Mauricio se leía como la de la plataforma y nunca contaba como suya.
+    await credWsEstricta('ANTHROPIC_API_KEY', await wsDelEntorno('ANTHROPIC_API_KEY'), { ilegibleTira: true }),
+    await credWsEstricta('ANTHROPIC_API_KEY', await wsSuperAdmin(), { ilegibleTira: true }),
+  ];
 }
 
 /** La clave del negocio en la cascada de TEXTO: su primer intento (arriba, `permisoDeLaClaveDelNegocio`, la frontera). */
 export async function conClaveDelNegocio(p: {
   system: string; user: string; json?: boolean; maxTokens?: number; feature?: string; motivo?: string; timeoutMs: number;
-}): Promise<{ texto: string } | { error: string } | null> {
+  /** Lo que MIRA (IA6): imágenes y PDF como bloques de Claude, antes del texto. Las fotos de un negocio con su IA las lee su
+   *  Claude o su OpenAI, nunca Gemini (lib/ai-cheap.ts → `leerDocumentoIA`). */
+  bloques?: Array<Record<string, unknown>>;
+}): Promise<{ texto: string; model?: string } | { error: string; noPudeLeer?: true } | null> {
   const r = await permisoDeLaClaveDelNegocio(p.feature);
   if (!r) return null;
+  // No es un fallo de SU clave: no se anota en su tarjeta (`anotarFalloDeSuClave`), y quien llama no paga con otra.
+  if ('noPudeLeer' in r) return { error: NO_PUDE_COMPROBAR_SU_CLAUDE, noPudeLeer: true };
   // ⚠️ LA PAUSA SE DICE (17/10/2026, docs/hallazgos-graficos.md): con `null`, el negocio que conectó SU Claude quedaba sin
   // ningún error suyo y la caja le decía «Conecta tu Claude en Integraciones» (`avisoSinIA`), que ya está conectado. La
   // pausa es de la plataforma, pero la clave que no se usó es la SUYA: va a su lista, con lo que pasa de verdad.
@@ -119,22 +214,31 @@ export async function conClaveDelNegocio(p: {
     const res = await fetch(permiso.endpoint, {
       method: 'POST',
       headers: { 'x-api-key': permiso.clave, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: permiso.model, max_tokens: p.maxTokens ?? 1024, system, messages: [{ role: 'user', content: p.user }] }),
+      body: JSON.stringify({ model: permiso.model, max_tokens: p.maxTokens ?? 1024, system, messages: [{ role: 'user', content: p.bloques?.length ? [...p.bloques, { type: 'text', text: p.user }] : p.user }] }),
       cache: 'no-store',
       signal: AbortSignal.timeout(Math.max(1_000, p.timeoutMs)),
     });
     const body = await res.json().catch(() => ({}));
-    if (!res.ok || body?.error) return { error: String(body?.error?.message ?? `Anthropic ${res.status}`) };
+    if (!res.ok || body?.error) {
+      const error = String(body?.error?.message ?? `Anthropic ${res.status}`);
+      // ⚠️ EL FALLO DE SU CLAVE QUEDA ESCRITO (IA3, 22/10/2026). Antes se devolvía sin anotar y la cascada seguía con
+      // Gemini: en toda la historia hubo 0 filas con la marca del negocio, y una clave sin crédito se veía igual que «nunca
+      // se usó». El status va adelante: el motivo corto lo lee de ahí (lib/su-clave-reglas.ts).
+      await (await import('./su-clave')).anotarFalloDeSuClave({ proveedor: 'anthropic', error: `HTTP ${res.status} ${body?.error?.type ?? ''} ${error}`, feature: permiso.feature, modelo: permiso.model });
+      return { error };
+    }
     // Lo paga el negocio: la marca va PRIMERO en el motivo, y lib/costos-ia.ts la saca del gasto de MaKo.
-    await recordUsage(permiso.feature, permiso.model, body.usage, [MOTIVO_CLAVE_DEL_NEGOCIO, (p.motivo ?? '').trim()].filter(Boolean).join(' · ')).catch(() => {});
+    await recordUsage(permiso.feature, permiso.model, body.usage, [marcaDelGasto(permiso), (p.motivo ?? '').trim()].filter(Boolean).join(' · ')).catch(() => {});
     const texto = (body.content ?? [])
       .filter((c: { type?: string }) => c.type === 'text')
       .map((c: { text?: string }) => c.text ?? '')
       .join('\n')
       .trim();
-    return texto ? { texto } : { error: 'Claude contestó vacío' };
+    return texto ? { texto, model: permiso.model } : { error: 'Claude contestó vacío' };
   } catch (e) {
-    return { error: e instanceof Error ? e.message : String(e) };
+    const error = e instanceof Error ? e.message : String(e);
+    await (await import('./su-clave')).anotarFalloDeSuClave({ proveedor: 'anthropic', error, feature: permiso.feature, modelo: permiso.model });
+    return { error };
   }
 }
 
@@ -262,6 +366,8 @@ export async function chatClaude(
   // un modelo flojo llegaba crudo a la pantalla como «Unexpected end of JSON input».
   opts: { model?: string; thinking?: boolean; effort?: Effort; maxTokens?: number; feature?: string; motivo?: string; onUsage?: (u: UsageInfo) => void; hastaMs?: number; sinRespaldoDeModelo?: boolean; redDePlataforma?: boolean; erroresOut?: string[]; erroresPlataformaOut?: string[]; validar?: (t: string) => boolean } = {},
 ): Promise<string> {
+  // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
+  if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => chatClaude(system, messages, opts));
   // Override configurable por feature (tab /modelos-ia). Si el caller NO forzó un
   // modelo y la feature está ruteada a otra IA (Groq/OpenAI/Gemini), delegamos a la
   // capa barata ANTES de exigir la key de Anthropic (un cliente puede tener SOLO
@@ -381,6 +487,7 @@ export async function chatClaude(
   // dueño. Antes leía process.env directo → un cliente con su key pega no la usaba.
   const key = await credWs('ANTHROPIC_API_KEY');
   if (!key) throw new Error('ANTHROPIC_API_KEY no configurada');
+  await exigirClaveDeLaPlataforma(key, opts.feature);
 
   // thinking === false → sin razonamiento extendido (tareas chicas, p.ej. títulos).
   const thinkingOn = opts.thinking ?? true;
@@ -482,6 +589,9 @@ export async function chatClaudeTools(
     /** D6b (21/10/2026): el negocio tiene SU Claude o SU GPT. La cascada sólo prueba su OpenAI y después su Claude: ni
      *  Gemini, ni Groq, ni Mistral, ni OpenRouter (docs/ia-del-cliente.md §12.7). */
     soloSuIA?: boolean;
+    /** WA1 (22/10/2026): DIRECTO a la clave de Claude del negocio (la puerta 2 del veto), sin la cascada: el que llama ya
+     *  probó su OpenAI (el doer de WhatsApp). Sin su clave, tira «falló la IA (…)». Nunca el Claude de MaKo. */
+    soloSuClaude?: boolean;
     sinFallbackClaude?: boolean;    // si el override a IA barata falla, RE-LANZÁ el error (no caigas a Claude): el caller quiere avisar "falló", no gastar Claude en silencio.
     effort?: Effort;
     maxTokens?: number;
@@ -493,6 +603,8 @@ export async function chatClaudeTools(
     onStep?: (info: { step: number; toolCalls: Array<{ name: string; input: Record<string, unknown> }> }) => void;
   } = {},
 ): Promise<ToolsResult> {
+  // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
+  if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => chatClaudeTools(system, messages, tools, runTool, opts));
   // Override configurable por feature (tab /modelos-ia). Si el caller NO forzó un
   // modelo y la feature está ruteada a otra IA (Groq/OpenAI/Gemini), corremos el
   // LOOP de tools por chatCheapTools (function-calling OpenAI-compat) ANTES de
@@ -503,7 +615,11 @@ export async function chatClaudeTools(
   let model = opts.model ?? '';   // sin default: el `?? MODEL` era la quinta puerta
   /** La clave de Claude del NEGOCIO, cuando ninguna IA barata suya contestó (abajo). */
   let delNegocio: PermisoClaveDelNegocio | null = null;
-  if (!opts.model && opts.feature) {
+  if (opts.soloSuClaude) {
+    const n = await permisoDeLaClaveDelNegocio(opts.feature).catch(() => null);
+    if (n && 'permiso' in n) delNegocio = n.permiso;
+    else throw new Error(`falló la IA (${n && 'pausa' in n ? CLAUDE_EN_PAUSA : n && 'noPudeLeer' in n ? NO_PUDE_COMPROBAR_SU_CLAUDE : 'el negocio no tiene su clave de Claude'})`);
+  } else if (!opts.model && opts.feature) {
     // ⚠️ El `catch` vacío envuelve SÓLO la lectura del registro (ticket #5, 18/10/2026). Antes envolvía también la
     // cascada, y el «falló la IA» que se re-lanza con `sinFallbackClaude` caía en él y se perdía. El modelo quedaba
     // vacío y el veto contestaba «Claude vetado — «mako-doer»…». La Ticketera lo leyó como un bug: era la IA gratis
@@ -530,7 +646,7 @@ export async function chatClaudeTools(
       try {
         const { chatCheapToolsCascade, CASCADA_TOOLS } = await import('@/lib/ai-cheap');
         // Con su Claude o su GPT (`soloSuIA`), sólo su OpenAI: la cascada barata no participa en sus turnos (D6b).
-        const provs: ProvName[] = opts.soloSuIA ? ['openai'] : [ref.provider as ProvName, ...CASCADA_TOOLS.filter((p) => p !== ref.provider)];
+        const provs: ProvName[] = opts.soloSuIA || soloSuIA() ? ['openai'] : [ref.provider as ProvName, ...CASCADA_TOOLS.filter((p) => p !== ref.provider)];
         const r = await chatCheapToolsCascade(system, messages, tools, runTool, {
           maxSteps: opts.maxSteps, maxTokens: opts.maxTokens, feature: opts.feature, motivo: opts.motivo,
           provs, modelos: { [ref.provider as ProvName]: ref.model }, erroresOut: errores,
@@ -586,6 +702,7 @@ export async function chatClaudeTools(
   // veto verificó (`permiso.clave`), sin volver a resolver nada.
   const key = delNegocio ? delNegocio.clave : await credWs('ANTHROPIC_API_KEY');
   if (!key) throw new Error('ANTHROPIC_API_KEY no configurada');
+  if (!delNegocio) await exigirClaveDeLaPlataforma(key, opts.feature);
   const effort: Effort = opts.effort ?? DEFAULT_EFFORT;
   const maxSteps = opts.maxSteps ?? 8;
   const msgs: RichMsg[] = [...messages];
@@ -615,12 +732,14 @@ export async function chatClaudeTools(
     const body = await res.json();
     if (!res.ok || body.error) {
       const m = body?.error?.message ?? `Anthropic ${res.status}`;
+      // Con su clave, el fallo queda escrito (IA3): es lo que la tarjeta de «Tus cuentas de IA» le muestra al negocio.
+      if (delNegocio) await (await import('./su-clave')).anotarFalloDeSuClave({ proveedor: 'anthropic', error: `HTTP ${res.status} ${body?.error?.type ?? ''} ${m}`, feature: permiso.feature, modelo: String(model) });
       throw new Error(delNegocio ? `falló la IA (tu clave de Claude: ${m})` : m);
     }
 
     // Lo que paga el negocio lleva su marca PRIMERO: lib/costos-ia.ts lo saca del gasto de MaKo.
     const usage = await recordUsage(permiso.feature, String(model), body.usage,
-      delNegocio ? [MOTIVO_CLAVE_DEL_NEGOCIO, (opts.motivo ?? '').trim()].filter(Boolean).join(' · ') : opts.motivo);
+      delNegocio ? [marcaDelGasto(delNegocio), (opts.motivo ?? '').trim()].filter(Boolean).join(' · ') : opts.motivo);
     opts.onUsage?.(usage);
 
     const content: Block[] = Array.isArray(body.content) ? (body.content as Block[]) : [];

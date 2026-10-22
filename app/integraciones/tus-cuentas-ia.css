@@ -57,3 +57,19 @@
   .tci-fila { flex-wrap: wrap; }
 }
 .tci-acepto { padding: 10px 12px; border-radius: var(--r-md); background: var(--primary-bg); color: var(--text); }
+/* Las claves de API del negocio y si anduvieron o fallaron (IA3, 22/10/2026). */
+.tci-claves { display: flex; flex-direction: column; gap: 8px; }
+.tci-clave { display: flex; flex-direction: column; gap: 4px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-2); }
+.tci-clave .tci-quien { font-size: var(--fs-sm); font-weight: 600; }
+.tci-clave__estado--bien { color: var(--good); }
+.tci-clave__estado--mal { color: var(--bad); }
+/* «Conectar tu IA» (IA4, 22/10/2026): un paso por pantalla, opciones GRANDES. El `!important` es por BotonIntegracion, que
+   trae un estilo en línea para verse como texto (COMO_TEXTO en app/_components/ConectarIntegracion.tsx). */
+.tci-grandes { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.tci-grande { display: flex !important; flex-direction: column; align-items: flex-start; justify-content: center; gap: 6px; min-height: 96px; padding: 16px !important; border: 1px solid var(--border-strong) !important; border-radius: var(--r-lg); background: var(--surface) !important; color: var(--text); text-align: left !important; font: inherit; cursor: pointer; }
+.tci-grande:hover:not(:disabled) { border-color: var(--primary) !important; }
+.tci-grande:disabled { opacity: 0.55; cursor: default; }
+.tci-grande--pedir { cursor: default; background: var(--surface-2) !important; }
+.tci-grande__titulo { font-size: var(--fs-md); font-weight: 600; }
+.tci-grande__detalle { font-size: var(--fs-sm); color: var(--dim); line-height: 1.4; }
+@media (pointer: coarse) { .tci-grande { min-height: calc(var(--touch) * 2); } }

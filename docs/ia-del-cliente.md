@@ -213,6 +213,14 @@ programa no lleva la marca de «descargado de internet», así que **SmartScreen
 - **La vía oficial nueva** «Sign in with ChatGPT» para apps de terceros (anunciada el 29/09/2026) está en prueba limitada
   con socios, sólo Plus y Pro (developers.openai.com/siwc/quickstart).
 - **Fragilidad:** los modelos cambian rápido («GPT-5.5 retires from Codex with ChatGPT sign-in on October 14, 2026»).
+- **La medición que falta (IA11, 22/10/2026), lista para correr:** `node scripts/ia-pc/medir-codex-mcp.mjs` levanta un MCP de
+  mentira en 127.0.0.1 (una herramienta, `eco`, que contesta una palabra al azar y exige el token del turno), corre
+  `codex exec --json --ephemeral` con ese MCP en la línea (`-c mcp_servers.mako.url=…`, `bearer_token_env_var`) y dice si
+  Codex cargó el servidor, lo llamó con el token y devolvió la palabra. Probado con un `codex` de mentira; con el de verdad
+  falta una PC con Codex y la sesión de ChatGPT iniciada (`codex login`, de Martín). ⚠️ En Windows, `codex` instalado con
+  npm es un `.cmd`: con `shell: true` el prompt y las comillas TOML de `-c` llegaban partidos; el script entrecomilla a mano.
+  Si da ✓, sigue el turno (el programa de la PC), el % usado (`account/rateLimits/read`) y la tarjeta; si da ✗, GPT queda
+  sólo por su clave de API.
 
 ---
 

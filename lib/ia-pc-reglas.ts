@@ -255,6 +255,28 @@ export const SISTEMAS_PC = ['windows', 'mac'] as const;
 export type SistemaPc = (typeof SISTEMAS_PC)[number];
 /** Los archivos que sube scripts/ia-pc/publicar-binarios.mts al bucket privado `ia-pc` (comprimidos: entran en 50 MB). */
 export const archivoDelPrograma = (archivo: 'windows-x64' | 'mac-arm64' | 'mac-x64'): string => `mako-pc-${VERSION_PC}-${archivo}.gz`;
+export const ARCHIVOS_PC = ['windows-x64', 'mac-arm64', 'mac-x64'] as const;
+
+/**
+ * Qué archivos de ESTA versión faltan en el bucket (IA1/IA2, 22/10/2026). La 0.3.2 se desplegó sin sus ejecutables y el
+ * instalador contestaba «No pude preparar la descarga» con un 200, a todo cliente nuevo, sin que nada lo marcara. Lo usan
+ * publicar-binarios (en seco dice qué falta) y verificar-binarios (lo corre Integración antes de subir un cambio de acá).
+ * Las versiones que están, para decirlo: «hay 0.2.0 y 0.3.0».
+ */
+export function faltanEnElBucket(nombres: readonly string[], version: string = VERSION_PC): { faltan: string[]; versiones: string[] } {
+  const hay = new Set(nombres);
+  const versiones = [...new Set(nombres.map((n) => /^mako-pc-(\d+\.\d+\.\d+)-/.exec(n)?.[1]).filter((v): v is string => !!v))]
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  return { faltan: ARCHIVOS_PC.map((a) => `mako-pc-${version}-${a}.gz`).filter((n) => !hay.has(n)), versiones };
+}
+
+/** Lo que dice scripts/ia-pc/verificar-binarios.mts: «0.3.2 completa» o «falta 0.3.2: …» (con lo que no firma). */
+export function informeDeBinarios(nombres: readonly string[], version: string = VERSION_PC, noFirman: readonly string[] = []): { completa: boolean; texto: string } {
+  const { faltan, versiones } = faltanEnElBucket(nombres, version);
+  const mal = [...faltan, ...noFirman.map((n) => `${n} (no firma)`)];
+  if (!mal.length) return { completa: true, texto: `✓ ${version} completa: el instalador puede bajarla.` };
+  return { completa: false, texto: `⛔ falta ${version}: ${mal.join(', ')}. En el bucket hay: ${versiones.join(', ') || 'nada'}. Súbela con scripts/ia-pc/publicar-binarios.mts antes de desplegar.` };
+}
 
 /** La línea que el tutorial le da a copiar. El código va en la URL: es de un uso y vence en 10 minutos. */
 export function lineaDeInstalacion(servidor: string, sistema: SistemaPc, codigo: string): string {

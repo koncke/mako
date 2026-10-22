@@ -181,6 +181,25 @@ export function usuarioInstagram(t: string | null | undefined): string | null {
 }
 
 /**
+ * EL BUSCADOR DEL CRM ENCUENTRA POR EL INSTAGRAM (22/10/2026, Martín: «no estaba buscando bien a los @»). Buscaba en el
+ * id, el nombre, la empresa, el email y el teléfono, y no en `instagram`. Ahora el lead se encuentra con o sin @, con
+ * mayúsculas o sin, y por el link de su perfil: el campo entra como `@usuario` (`arrobaInstagram`) y un link pegado en el
+ * buscador se cambia por su `@usuario` antes de buscar (`linksDeInstagramComoArroba`). Lo usan el tablero
+ * (CrmBoard.tsx) y el teléfono (app/m/crm/reglas.ts, `buscarEnCartera`).
+ * ⚠️ `coincideBusqueda` NO se toca: «@gmail.com» tiene que seguir encontrando los emails de ese dominio.
+ */
+export const arrobaInstagram = (u: string | null | undefined): string | null => {
+  const s = (u ?? '').trim().replace(/^@+/, '').toLowerCase();
+  return s ? `@${s}` : null;
+};
+export function linksDeInstagramComoArroba(q: string): string {
+  return (q ?? '').replace(/(?:https?:\/\/)?(?:www\.|m\.)?instagram\.com\/\S*/gi, (link) => {
+    const u = usuarioInstagram(link);
+    return u ? `@${u}` : link;
+  });
+}
+
+/**
  * Qué se guarda al cerrar el teléfono de la ficha (el editor con el país primero, punto 5 del
  * 12/10/2026). `null` = NO se escribe nada; `''` = se borra el teléfono; si no, los dígitos.
  *

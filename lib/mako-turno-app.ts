@@ -324,6 +324,8 @@ async function iaPropiaDelTurno(): Promise<number | null> {
     // su Claude TIENE con qué contestar. En pausa también: es SU Claude, y lo que hay que decirle es que está en pausa,
     // no que conecte uno (revisión del Cerebro, 21/10/2026).
     const claude = await permisoDeLaClaveDelNegocio(FEATURE);
+    // Sin poder comprobarla no se sabe si tiene: lo mismo que el `catch` de abajo.
+    if (claude && 'noPudeLeer' in claude) return null;
     if (claude) n++;
     return n;
   } catch {

@@ -250,7 +250,7 @@ async function integracionDeDef(d: Def): Promise<Integracion> {
 }
 
 /** Las IA de la cascada barata: las que MaKo usa con las keys del negocio (`provsDe`, lib/ai-cheap.ts). */
-const IA_DE_LA_CASCADA: ReadonlySet<string> = new Set<ProvName>(['gemini', 'groq', 'cerebras', 'mistral', 'openrouter', 'openai']);
+const IA_DE_LA_CASCADA: ReadonlySet<string> = new Set<ProvName>(['gemini', 'groq', 'openai']);
 
 /**
  * ¿Qué tiene de SUYO el negocio en esta IA? Con las MISMAS lecturas que la usan, para que la tarjeta no pueda decir
