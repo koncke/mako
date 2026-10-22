@@ -61,6 +61,14 @@ están arregladas. El registro de corridas está en [corridas-multiagente.md](co
   estaban Offer, Image Editor (el inicio y el diseño) y Video Editor (el inicio y el proyecto); los cinco restan ahora
   `var(--barra-agencia, 0px)` en su `calc`. **Lo hace cumplir** tests/barra-inspeccion-alto.test.ts, 7: toda `page.tsx` con
   un alto en línea `calc(100vh…)` o `calc(100dvh…)` tiene que descontarla.
+- **Y el `min-height: 100vh` también estira la página** (22/10/2026, medido por CRM y repetido en el CRM del ws3 con una
+  ventana de 811). El reporte fue «el menú de la sidebar no entra y la página se estira 50 px», y el diagnóstico obvio era el
+  equivocado: la sidebar ya descontaba la barra (su regla de app/globals.css) y su menú scrolleaba adentro (608 px de contenido
+  en 548). Lo que estiraba era el CONTENEDOR RAÍZ de app/layout.tsx (`minHeight: '100vh'`): con la barra, `body` gana sus 50 px
+  de padding, y el documento medía 860. La regla de `height` dejaba afuera `min-height` a propósito («no desborda nada»), y sí
+  desborda. Ahora hay una regla para `min-height: 100vh` y `100dvh` (las dos escrituras del estilo, como la de `height`), que
+  cubre el raíz y los otros 21 `main` con ese alto mínimo, y el raíz lo descuenta además en línea. Medido con la regla
+  inyectada en la pestaña: documento 811, raíz y `main` 761. Lo fija tests/barra-inspeccion-alto.test.ts, 8.
 
 ---
 
