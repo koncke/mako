@@ -5933,3 +5933,18 @@ rojos, cortados por la cuota. La segunda pasada, 15 de 16 cortados por «No tien
 `GenerateRequestsPerDayPerProjectPerModel-FreeTier`).
 - **Los turnos tardan 16-76 s** (la regla de Martín es 20 s).
 - **Medir con Gemini:** las tres corridas de hoy contestó Groq. El arnés hay que correrlo otra vez cuando vuelva la cuota.
+
+## El goteo con APROBACIÓN no espaciaba nada (22/10/2026, AU1 del plan del Cerebro: #289 nace para aprobar)
+
+**Síntoma (sospecha del relevamiento, confirmada leyendo el código):** con una automatización cuyos WhatsApp nacen para
+aprobar (#289 «Sprint · apertura»: estrategia null y «Sale sola» en false), el goteo de 5 minutos no frenaba nada. **Causa,
+dos puntas:** (1) el goteo contaba sólo los `nutricion_envios` 'enviado', y un borrador no gasta el cupo de la línea, así
+que el barrido dejaba los 50 borradores de una; (2) aprobar (`enviarBorradorPorSuCanal`, la única puerta) mandaba en el
+acto: aprobar diez seguidos eran diez juntos por la línea personal de Mauricio. **Regla:** para el goteo cuenta lo que
+salió Y lo que quedó para aprobar (`cuentaParaElGoteo`, `ESTADOS_DEL_GOTEO`), y aprobar respeta el goteo de su
+automatización (`frenoDelGoteoAlAprobar`: lo aprobado en 24 h por su `enviado_at`; si no hay lugar, no sale y dice en
+cuántos minutos sí; si no puede leer, no sale). **Cómo se probó:** el caso de 50 inscriptos a la vez en los dos modos, con
+la MISMA vuelta del motor (un tick por minuto, lo frenado a su turno como `quedaFrenada`): de a uno cada 5 minutos, los 50
+en 4 h 5 min, y con 60, 50 en 24 h. **Vive en:** lib/goteo.ts · lib/nutricion.ts (`usoDelGoteo` y la corrida) ·
+lib/borrador-camino.ts · test: tests/goteo-con-aprobacion.test.ts. **Sin hacer:** aprobar no PROGRAMA el envío para su
+turno (`wa_borradores` no tiene dónde guardarlo; haría falta una columna): dice cuándo, y hay que volver a tocar.

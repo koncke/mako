@@ -70,14 +70,15 @@ test('procesarEnvios: el goteo frena además de la línea, y lo frenado pasa a s
   const q = proc.slice(proc.indexOf('const quedaFrenada = async'), proc.indexOf('const soltarToque'));
   assert.match(q, /if \(g && f\.frena && !sinLugarEnLaLinea\(insc\.lead_id\)\)/, 'sólo si lo frena el goteo, no la línea');
   assert.match(q, /proximo_envio_at: new Date\(turnoDeGoteo\(f\.desdeMs, k, g\)\)\.toISOString\(\)/);
-  assert.match(proc, /if \(estado === 'enviado' && goteos\.has\(insc\.secuencia_id\)\) usoGoteo\.set\(insc\.secuencia_id, conEnvio\(/, 'lo que sale en la corrida cuenta');
+  // (22/10/2026, AU1: y lo que queda para aprobar, `cuentaParaElGoteo`: tests/goteo-con-aprobacion.test.ts.)
+  assert.match(proc, /if \(cuentaParaElGoteo\(estado\) && goteos\.has\(insc\.secuencia_id\)\) usoGoteo\.set\(insc\.secuencia_id, conEnvio\(/, 'lo que sale en la corrida cuenta');
   assert.match(proc, /const usoGoteo = goteos\.size \? await usoDelGoteo\(supabase, \[\.\.\.goteos\.keys\(\)\]\)/);
 });
 
-test('el uso del goteo cuenta los WhatsApp ENVIADOS de esas automatizaciones en 24 h', () => {
+test('el uso del goteo cuenta los WhatsApp ENVIADOS (y los que quedan para aprobar) de esas automatizaciones en 24 h', () => {
   const i = motor.indexOf('async function usoDelGoteo(');
   const cuerpo = motor.slice(i, motor.indexOf('\n}\n', i));
-  assert.match(cuerpo, /\.in\('secuencia_id', \[\.\.\.ids\]\)\.eq\('canal', 'whatsapp'\)\.eq\('estado', 'enviado'\)\.gte\('created_at', haceHorasISO\(24\)\)/);
+  assert.match(cuerpo, /\.in\('secuencia_id', \[\.\.\.ids\]\)\.eq\('canal', 'whatsapp'\)\.in\('estado', \[\.\.\.ESTADOS_DEL_GOTEO\]\)\.gte\('created_at', haceHorasISO\(24\)\)/);
 });
 
 // ── Las roturas (7 tests; sin romper nada: 7 pases, 0 fallos) ──────────────────────────────────────────────────────
