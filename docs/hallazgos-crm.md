@@ -10117,3 +10117,32 @@ de etiqueta contra 1 de funnel. **Regla:** dos acciones de la misma barra con to
 (en el botón, con cuántos hay tildados), no en un toast después. **Sin hacer.** Desde el 21/10 la cohorte de una
 automatización ve a los agregados a su CRM (hallazgos-chatbot, «La prospección del Sprint»): para una campaña ya no
 hace falta etiquetar a todos, sólo para partir audio y texto.
+
+## Traer a 1.050 de otro funnel y arrastrar a 50 tildados: los P0 de la llamada con Mauricio (22/10/2026)
+
+Mauricio arranca el sábado 24/10 a mover 50 leads por día del CRM principal al del Sprint («Prospección activa»).
+Medido en el ws1 (sólo lectura): 1.050 en `reactivacion` del CRM principal, 300 ya agregados a «Sprint 3 días».
+
+- **«300 de 1050» no era un tope de la consulta, era de la PANTALLA**: `leadsDeProductoAction` ya trae a todos; lo que
+  cortaba era `slice(0, 300)` y que «tildar todos» mirara sólo esos 300. Ahora «todos» son todos los que cumplen el
+  filtro (app/crm/traer-seleccion.ts → `filasParaTraer`). Lo que el filtro deja afuera sigue sin tildarse.
+- **Los que ya estaban ocupaban los 300 lugares**: salían en gris y sin casilla, y como la lista los traía primero, la
+  pantalla mostraba siempre a los mismos 300 ya traídos y nunca a los siguientes. No se listan: se cuentan en una línea.
+- **El server corta en 2.000 sin decirlo** (`agregarLoteAProductoAction`: `slice(0, 2000)`): la pantalla agrega de a
+  1.000 (`TANDA_AGREGAR`) y suma lo que entró y lo que falló de cada tanda; el deshacer, igual.
+- **El tablero tiraba el «Deshacer» del traer**: `TraerDeOtroProducto` lo mandaba como tercer argumento de `onTraidos` y
+  CrmBoard sólo leía dos. Traer 750 sin vuelta atrás era justo lo que no podía pasar.
+- **El botón de agregar no se veía** porque el que scrollea es el cuerpo del Modal (`.mk-modal__cuerpo`), no la tabla:
+  el pie va `position: sticky; bottom: 0` adentro del cuerpo.
+- **Arrastrar uno de varios tildados movía sólo ése.** Ahora `handleDrop`, si el arrastre es de verdad (no `idASoltar`,
+  que usan «Mover a…» del menú y la ficha), el lead está tildado y hay más de uno, llama a la barra de lote
+  (`manijaLote.moverDeEtapa`): la MISMA pregunta con el número que su desplegable «Etapa». Soltar el grupo en su propia
+  columna sigue reordenando a ése. La copia que viaja dice «50 leads»: la marca `data-varios` se pone en el origen sólo
+  mientras `montarCopia` lo clona.
+- **«No entiendo para qué es la cajita»**: el rótulo dice para qué («…para moverlo o editarlo junto con otros») y, con
+  algo tildado, se ven todas las casillas (`data-seleccionando`, la regla que el Plan ya usaba).
+
+**Vive en:** app/crm/TraerDeOtroProducto.tsx, traer-seleccion.ts, CrmBoard.tsx (`handleDrop`) · app/globals.css ·
+tests/crm-traer-todos.test.ts
+*22/10/2026, chat «CRM» (claude3).*
+

@@ -387,25 +387,26 @@ test('⚠️ importar tiene DOS orígenes, y el de otro producto no pasa por la 
   const tr = limpio(leer('app/crm/TraerDeOtroProducto.tsx'));
   // ⚠️ AGREGA EN LOTE, NO MUEVE (06/10/2026, mig 0207). Probado rompiéndolo: volver a
   // importar `moverLeadsAFunnelAction` -> cae acá (y además no compila: se borró).
-  assert.match(tr, /agregarLoteAProductoAction\(sel, destino\)/, 'traer de otro producto dejó de AGREGAR en lote');
+  // Desde el 22/10/2026 de a tandas (el server corta en 2.000): la selección entra en `enTandas(sel, …)`.
+  assert.match(tr, /for \(const tanda of enTandas\(sel, TANDA_AGREGAR\)\) \{\s*const r = await agregarLoteAProductoAction\(tanda, destino\)/, 'traer de otro producto dejó de AGREGAR en lote');
   assert.ok(!/moverLeadsAFunnelAction/.test(tr), 'traer de otro producto volvió a MOVER: le saca el lead al tablero donde estaba');
   // Y UN deshacer, que borra sólo lo que este lote creó.
-  assert.match(tr, /quitarLoteDeProductoAction\(agregados, destino\)/, 'el «traer» perdió su deshacer');
+  assert.match(tr, /for \(const tanda of enTandas\(agregados, TANDA_AGREGAR\)\) \{\s*const q = await quitarLoteDeProductoAction\(tanda, destino\)/, 'el «traer» perdió su deshacer');
   // Las tres cosas que Martín pidió ver en esa pantalla.
   assert.match(tr, /Traer de/, 'se fue el selector de DE QUÉ producto traer');
   assert.match(tr, /Buscar por nombre, email o teléfono/, 'se fue la barra de búsqueda');
   assert.match(tr, /Todas las etapas/, 'se fue el filtro por etapa');
   assert.match(tr, /alternarTodos/, 'se fue la selección múltiple');
-  // ⚠️ Y «tildar todos» tilda lo VISIBLE, no lo que hay: con un filtro puesto, llevarse lo
-  //    escondido agrega gente que la persona no vio. Y de lo visible, sólo lo TILDABLE: los
-  //    que ya están acá (`yaEsta`) no entran.
-  assert.match(tr, /const tildables = enPantalla\.filter\(\(f\) => !f\.yaEsta\)/,
-    '«tildar todos» dejó de saltear a los que YA están en este producto');
-  assert.match(tr, /const ids = tildables\.map/,
-    '«tildar todos» volvió a mirar la lista entera en vez de lo que está en pantalla');
+  // ⚠️ «Tildar todos» tilda a TODOS LOS QUE CUMPLEN EL FILTRO (22/10/2026, llamada con Mauricio: «que se puedan traer
+  //    los 1.050»), no sólo los 300 que se dibujan; lo que el filtro deja afuera NO entra. Y los que ya están acá
+  //    (`yaEsta`) ni se listan ni entran. Lo prueba ejecutándolo tests/crm-traer-todos.test.ts.
+  assert.match(tr, /filasParaTraer\(filas \?\? \[\], \{ q, etapa \}\)/,
+    '«tildar todos» dejó de usar el filtro que saca a los que YA están en este producto');
+  assert.match(tr, /const ids = new Set\(candidatos\.map/,
+    '«tildar todos» volvió a mirar sólo lo que está en pantalla');
   // El lote dice lo que ENTRÓ y lo que no: «listo» sobre diez cuando entraron seis manda a
   // buscar los cuatro a un tablero donde no están.
-  assert.match(tr, /onTraidos\(agregados\.length, r\.fallaron,/,
+  assert.match(tr, /onTraidos\(agregados\.length, fallaron,/,
     'el «traer» dejó de reportar cuántos ENTRARON (no cuántos se tildaron) y cuántos fallaron');
 });
 

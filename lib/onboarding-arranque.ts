@@ -41,6 +41,7 @@ import { TIPOS_CRM, type TipoCrm, type TipoCrmId } from './pipeline';
 import type { PiezasSabidas, PropuestaOferta } from './offer-marco';
 import type { PropuestaCrm } from './onboarding-crm';
 import { RUTA_AUTOMATIONS } from './ruta-automations';
+import { NOTA_DE_VOZ } from './chat-mako-reglas';
 import {
   DICE_NO, DICE_SI, MONEDA_DOLAR, MONEDA_LOCAL, NO_DE_UNA_PALABRA, NOMBRA_LO_PREGUNTADO, PUEDE_SER_NOMBRE, SI_DE_UNA_PALABRA, TRAS_EL_NO,
 } from './onboarding-frases';
@@ -167,6 +168,8 @@ export type MensajeArranque = {
 // ── Textos ──────────────────────────────────────────────────────────────────
 export const OBJETIVOS_SUGERIDOS = ['Conseguir mis primeros clientes', 'Vender más cada mes', 'Escalar sin depender de mí'] as const;
 export const AHORA_NO = 'Ahora no';
+/** La respuesta que se dibuja (y se anota) al cargar el código del WhatsApp: el código no se guarda. */
+export const CODIGO_CARGADO = 'Listo, ya lo cargué.';
 export const CAMBIAR_NUMERO = 'Cambiar número';
 export const VER_OTROS_TIPOS = 'Ver otros tipos';
 /** La primera respuesta del CRM (18/10/2026, Martín, punto 10: «las respuestas rápidas tiene que ser ‹Sí, es correcto› u
@@ -322,12 +325,16 @@ export function salidaDelOnboarding(interes: InteresId | undefined): string {
  * nombre: si no, se perdía) y al final la salida (`salidaDelOnboarding`).
  */
 export function mensajesDelHilo(
-  mensajes: ReadonlyArray<{ de: 'mako' | 'yo'; texto: string; adjuntos?: ReadonlyArray<{ nombre: string }> }>, interes: InteresId | undefined,
-): Array<{ role: 'user' | 'assistant'; content: string }> {
-  const out = mensajes.map((m) => ({
-    role: m.de === 'yo' ? 'user' as const : 'assistant' as const,
-    content: (m.texto ?? '').trim() || (m.adjuntos ?? []).map((a) => `Adjunto: ${a.nombre}`).join('\n'),
-  })).filter((m) => m.content);
+  mensajes: ReadonlyArray<{ de: 'mako' | 'yo'; texto: string; adjuntos?: ReadonlyArray<{ nombre: string }>; id?: string; audio?: { secs: number } }>,
+  interes: InteresId | undefined,
+): Array<{ role: 'user' | 'assistant'; content: string; audio?: { mensaje: string; secs: number } }> {
+  // Una respuesta por VOZ lleva cuál mensaje de Offer tiene el audio (21/10/2026, Florencia: se copiaba sólo la
+  // transcripción): el audio no se copia, se reproduce desde la conversación (/api/offer/audio).
+  const out = mensajes.map((m) => {
+    const audio = m.audio && typeof m.id === 'string' && m.id ? { audio: { mensaje: m.id, secs: Math.max(0, Math.round(m.audio.secs || 0)) } } : {};
+    const content = (m.texto ?? '').trim() || (m.adjuntos ?? []).map((a) => `Adjunto: ${a.nombre}`).join('\n') || ('audio' in audio ? NOTA_DE_VOZ : '');
+    return { role: m.de === 'yo' ? 'user' as const : 'assistant' as const, content, ...audio };
+  }).filter((m) => m.content);
   return [...out, { role: 'assistant', content: salidaDelOnboarding(interes) }];
 }
 
@@ -1107,7 +1114,7 @@ function cierre(e: EstadoArranque, h: HechosArranque, etapa: EtapaArranque, nomb
     if (e.telefono === 'codigo' || e.telefono === 'verificado') {
       out.push({ id: 'arr-codigo', de: 'mako', texto: `Te mandé un código de 6 dígitos por WhatsApp${e.telefonoNumero ? ` al ${e.telefonoNumero}` : ''}. Escríbelo aquí.`, ...(etapa === 'codigo' ? { opciones: [CAMBIAR_NUMERO, AHORA_NO] } : {}) });
       if (etapa === 'codigo') return out;
-      if (e.telefono === 'verificado') out.push({ id: 'arr-codigo-r', de: 'yo', texto: 'Listo, ya lo cargué.' });
+      if (e.telefono === 'verificado') out.push({ id: 'arr-codigo-r', de: 'yo', texto: CODIGO_CARGADO });
     }
   }
   if (etapa === 'listo') {

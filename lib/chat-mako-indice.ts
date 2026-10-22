@@ -12,10 +12,13 @@ import 'server-only';
 //     persona sale del dato y no de un parámetro que el modelo pueda cambiar.
 // ⚠️ NADA SE COPIA: se lee de chart_sessions/chart_chats, donde ya está (el principio del grafo: una proyección).
 
-import { getUsuarioActual } from '@/lib/auth';
+import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
+import { CLAVE_HISTORIAL, leerHistorial, sesionDelArranque, unirConOffer } from '@/lib/onboarding-historial';
 import { getCapaActual, getRolWsEfectivo, getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
 import { puedeVerKey } from '@/lib/movil-rutas';
 import { leerConversacionOffer, listarSesionesOffer } from '@/lib/offer-sesiones';
+import { urlAudio } from '@/lib/offer-reglas';
+import { TITULO_HILO } from '@/lib/onboarding-arranque';
 import { mensajesDeOffer, offerDelOnboardingCopiada, seEscondeDeOffer } from '@/lib/chat-mako-reglas';
 import { getSetting } from '@/lib/settings';
 import {
@@ -151,15 +154,36 @@ export async function chatsDeOffer(): Promise<ChatDeOffer[]> {
   // después de la copia (`seEscondeDeOffer`).
   const [lista, arranque, sesion] = await runWithWorkspace(ws, () => Promise.all([listarSesionesOffer(), getSetting('onboarding.arranque').catch(() => null), getUsuarioActual()]));
   const copiada = offerDelOnboardingCopiada(arranque, sesion ? chartKeyDePersona(sesion) : null);
-  return lista.filter((s) => s.id > 0 && !seEscondeDeOffer(s, copiada)).map((s) => ({ id: s.id, titulo: s.titulo, updatedAt: s.updatedAt, origen: 'offer', alcance: 'workspace' }));
+  // Para quien no tiene su chat «Onboarding» (el super admin mirando, otro admin), la del onboarding se llama así: trae el
+  // arranque entero (`hiloDeOffer`). Martín, 21/10, ws21: «No veo el chat de ONBOARDING tampoco en el ws de Florencia».
+  const delOnboarding = sesionDelArranque(arranque);
+  return lista.filter((s) => s.id > 0 && !seEscondeDeOffer(s, copiada)).map((s) => ({
+    id: s.id, titulo: s.id === delOnboarding && !copiada ? TITULO_HILO : s.titulo, updatedAt: s.updatedAt, origen: 'offer', alcance: 'workspace',
+  }));
 }
 
-/** Una conversación de Offer, para leerla en el Ops Center. null = no ve la tab, o no es de este negocio (no se distingue). */
+/**
+ * Una conversación de Offer, para leerla en el Ops Center. null = no ve la tab, o no es de este negocio (no se distingue).
+ * La del ONBOARDING trae alrededor las preguntas del arranque con sus respuestas (21/10/2026, Florencia, ws21: el super
+ * admin la leía empezando en «¿Tienes un documento…?»), del historial guardado (lib/onboarding-historial.ts), por hora.
+ * Para DIBUJAR: si el historial no se puede leer, se ve la conversación de Offer sola, como antes.
+ */
 export async function hiloDeOffer(id: number): Promise<{ sesion: ChatDeOffer; mensajes: MensajeChat[] } | null> {
   if (!Number.isInteger(id) || id <= 0) return null;
   const ws = await wsSiVeOffer();
   if (ws == null) return null;
-  const c = await runWithWorkspace(ws, () => leerConversacionOffer(id));
+  const [c, arranque, historial, superAdmin] = await runWithWorkspace(ws, () => Promise.all([
+    leerConversacionOffer(id),
+    getSetting('onboarding.arranque').catch(() => null),
+    getSetting(CLAVE_HISTORIAL).catch(() => null),
+    getSesionAdmin().catch(() => null),
+  ]));
   if (!c) return null;
-  return { sesion: { id: c.id, titulo: c.titulo, updatedAt: c.updatedAt, origen: 'offer', alcance: 'workspace' }, mensajes: mensajesDeOffer(c.mensajes) };
+  // La nota de voz, con la URL de la ruta de Offer (que vuelve a mirar la puerta y el workspace): la ruta de Storage no sale.
+  const deOffer = c.mensajes.map(({ audio, ...m }) => (audio ? { ...m, audio: { url: urlAudio(c.id, m.id), secs: audio.secs } } : m));
+  const conversacion = sesionDelArranque(arranque) === c.id ? unirConOffer(leerHistorial(historial) ?? [], deOffer) : deOffer;
+  return {
+    sesion: { id: c.id, titulo: c.titulo, updatedAt: c.updatedAt, origen: 'offer', alcance: 'workspace' },
+    mensajes: mensajesDeOffer(conversacion, { avisoReconstruido: !!superAdmin }),
+  };
 }

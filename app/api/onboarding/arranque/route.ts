@@ -26,9 +26,10 @@ import { idDelFunnelDefault } from '@/lib/funnels';
 import { estaImpersonando } from '@/lib/workspace';
 import { getEstadoOnboarding } from '@/lib/onboarding-state';
 import { chartKeyDePersona } from '@/lib/mako-turno-app-reglas';
-import { etapaDeArranque, leerRespuesta, pisaElNombreDelPerfil, type EstadoArranque } from '@/lib/onboarding-arranque';
+import { CODIGO_CARGADO, etapaDeArranque, leerRespuesta, mensajesDeArranque, pisaElNombreDelPerfil, type EstadoArranque } from '@/lib/onboarding-arranque';
+import { loQueContesto } from '@/lib/onboarding-historial';
 import {
-  FaltaParaCerrar, asegurarFunnelPrincipal, cerrarArranque, hiloDelOnboarding, guardarEstadoArranque, guardarNombre, guardarNombreNegocio,
+  FaltaParaCerrar, anotarRespuesta, asegurarFunnelPrincipal, hechosConfirmados, cerrarArranque, hiloDelOnboarding, guardarEstadoArranque, guardarNombre, guardarNombreNegocio,
   hechosDelArranque, propuestaDeCrm, sembrarCrmPrincipal, vistaArranque,
 } from '@/lib/onboarding-arranque-server';
 
@@ -61,7 +62,10 @@ export async function POST(req: NextRequest) {
   if ('error' in g) return no(g.status, g.error);
   let body: Record<string, unknown>;
   try { body = (await req.json()) as Record<string, unknown>; } catch { return no(400, 'body inválido'); }
-  const listo = async (extra: Record<string, unknown> = {}) => NextResponse.json({ ok: true, ...extra, vista: await vistaArranque() });
+  // Lo que la respuesta dejó dibujado queda en el historial del onboarding (21/10/2026, lib/onboarding-historial.ts).
+  // Con el onboarding ya terminado sólo anota el POST que lo cierra: un POST viejo no le suma variantes (segunda revisión).
+  const listo = async (extra: Record<string, unknown> = {}, o: { cierre?: boolean } = {}) =>
+    NextResponse.json({ ok: true, ...extra, vista: await vistaArranque({ anotar: o.cierre ? 'cierre' : true }) });
   // Quién escribe, SÓLO para la guardia (la ráfaga por usuario): nunca para los datos del negocio (el contacto de los
   // reportes es el del negocio, ver 'telefono').
   const usuarioGuardia = (await getUsuarioActual().catch(() => null))?.email ?? null;
@@ -76,6 +80,8 @@ export async function POST(req: NextRequest) {
       case 'responder': {
         const e = await estadoEstricto();
         const h = await hechosDelArranque(e);
+        // Para el historial, ANTES de escribir nada (la respuesta que cierra la fase guarda el diagnóstico que se compara).
+        const confirmado = await hechosConfirmados(h);
         const etapa = etapaDeArranque(e, h);
         const texto = typeof body.texto === 'string' ? body.texto : undefined;
         const opcion = typeof body.opcion === 'number' ? body.opcion : undefined;
@@ -93,6 +99,8 @@ export async function POST(req: NextRequest) {
           const r = await verificarCodigoContacto(g.ws, texto.replace(/\D/g, ''));
           if (!r.ok) return no(422, r.error);
           await guardarEstadoArranque({ telefono: 'verificado' });
+          // El código no se guarda: queda lo que dibuja la conversación.
+          await anotarRespuesta(e, h, CODIGO_CARGADO, confirmado);
           return listo();
         }
 
@@ -117,6 +125,9 @@ export async function POST(req: NextRequest) {
         if (patch.nombre) await guardarNombre(patch.nombre);
         if (patch.negocio) await guardarNombreNegocio(patch.negocio);
         const nuevo = await guardarEstadoArranque(patch);
+        // Lo que contestó, TAL CUAL, en el historial del onboarding (lib/onboarding-historial.ts): con lo dibujado se perdía
+        // el toque de cada confirmación («Sí, se llama así»), porque la pantalla muestra el dato confirmado.
+        await anotarRespuesta(e, h, loQueContesto(mensajesDeArranque(e, h), { texto, opcion }), confirmado);
         // Al entrar a la oferta, la conversación nace en el funnel principal: que exista.
         if (h.modo === 'oferta' && etapaDeArranque(nuevo, h) === 'oferta') await asegurarFunnelPrincipal().catch(() => {});
         // El CRM a medida (20/10/2026, pedido del 18/10, punto 10): al pasar del PDF o de la fase a la pregunta del CRM, MaKo lo
@@ -146,6 +157,7 @@ export async function POST(req: NextRequest) {
         if (frenoTel) return NextResponse.json({ ok: false, error: frenoTel.error, ...(frenoTel.bloqueado ? { bloqueado: true } : {}), vista: await vistaArranque() }, { status: frenoTel.status });
         const e = await estadoEstricto();
         const h = await hechosDelArranque(e);
+        const confirmado = await hechosConfirmados(h);
         if (etapaDeArranque(e, h) !== 'telefono') return no(409, 'Ahora no estoy esperando tu teléfono.');
         const crudo = typeof body.telefono === 'string' ? body.telefono : '';
         const digitos = crudo.replace(/\D/g, '');
@@ -164,6 +176,9 @@ export async function POST(req: NextRequest) {
         const r = await enviarCodigoVerificacion(g.ws, digitos, e.negocio || 'tu negocio');
         if (!r.ok) return no(422, r.error);
         await guardarEstadoArranque({ telefono: r.yaVerificado ? 'verificado' : 'codigo', telefonoNumero: `+${digitos}` });
+        await anotarRespuesta(e, h, `+${digitos}`, confirmado);
+        // Ya verificado: la conversación dibuja el código como cargado sin pedirlo, y ésa es su respuesta (segunda revisión).
+        if (r.yaVerificado) await anotarRespuesta({ ...e, telefono: 'verificado', telefonoNumero: `+${digitos}` }, h, CODIGO_CARGADO, confirmado);
         return listo();
       }
 
@@ -192,7 +207,7 @@ export async function POST(req: NextRequest) {
 
       case 'cerrar': {
         const r = await cerrarArranque();
-        return listo(r.avisos.length ? { aviso: r.avisos.join(' ') } : {});
+        return listo(r.avisos.length ? { aviso: r.avisos.join(' ') } : {}, { cierre: true });
       }
 
       default:
