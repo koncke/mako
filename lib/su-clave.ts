@@ -15,6 +15,7 @@ import { credDelCliente } from './credenciales';
 import { susClaves } from './ia-del-negocio';
 import { getSupabaseServer } from './supabase';
 import { getWorkspaceActual, runWithWorkspace, wsSuperAdmin } from './workspace';
+import { ENDPOINT_CONTAR_TOKENS } from './veto-claude';
 import {
   PROVS_SU_CLAVE, estadoDeSuClave, filaDeFallo, motivoCorto, nombreDeSuClave,
   type EstadoSuClave, type FilaUsoClave, type ProvSuClave,
@@ -98,7 +99,7 @@ export async function probarSuClave(ws: number, proveedor: ProvSuClave): Promise
   let error: string | null = null;
   try {
     const res = proveedor === 'anthropic'
-      ? await fetch('https://api.anthropic.com/v1/messages/count_tokens', {
+      ? await fetch(ENDPOINT_CONTAR_TOKENS, {
         method: 'POST',
         headers: { 'x-api-key': clave, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
         body: JSON.stringify({ model: 'claude-haiku-4-5', messages: [{ role: 'user', content: 'hola' }] }),

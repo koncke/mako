@@ -61,6 +61,8 @@
 import { CATALOGO_MODELOS } from '@/lib/model-catalogo';
 
 const ENDPOINT = 'https://api.anthropic.com/v1/messages' as const;
+/** «Probar mi clave» (IA3): contar tokens no cobra ni compra nada. Vive acá porque la URL de mensajes vive SÓLO acá. */
+export const ENDPOINT_CONTAR_TOKENS = `${ENDPOINT}/count_tokens` as const;
 
 /**
  * LA MARCA. El símbolo NO se exporta: ningún otro módulo puede FABRICAR un
