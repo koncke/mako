@@ -8620,9 +8620,10 @@ en el código:
   numeran el registro globalmente); la numeración por cuenta es de documentos (facturas, tickets).
 
 **SIN HACER:**
-- El buscador de Instagram no encontró `@martin.koncke` (captura de Martín). Sin medir por qué: lo probable
-  es que la app de Meta todavía no tenga `instagram_basic` / `pages_read_engagement`, o que la cuenta no sea
-  de empresa o creador (Business Discovery no ve cuentas personales). Y la fuente para buscar por nombre,
+- El buscador de Instagram no encontró `@martin.koncke` (captura de Martín). **Medido el 22/10/2026** (docs/hallazgos-offer.md,
+  «Un @ de Instagram»): es una cuenta personal (Business Discovery da 2207013), sólo 1 de 11 conexiones de Meta tiene
+  permisos de Instagram y Google nunca tuvo claves. Desde ese día el alta también pregunta a Apify por el @ exacto, por la
+  función única `leerPerfilInstagram`. Y la fuente para buscar por nombre,
   sin elegir (Martín pidió investigar alternativas gratis a Brave). Las dos quedaron para después, a pedido.
 - El editor de etiquetas de la ficha no tiene el vínculo a una etapa ni la etiqueta del WhatsApp: siguen en
   `app/crm/EditorEtiquetas.tsx`, sin montar.

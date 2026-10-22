@@ -74,7 +74,6 @@ test('las rutas donde una confirmación por chat corre replicar_landing aguantan
 
 test('el corte del navegador de esas pantallas va DESPUÉS del techo de su ruta (y no mucho después)', () => {
   const PANTALLAS: Array<[string, string]> = [
-    ['app/m/mako/ChatMako.tsx', 'app/api/m/mako/route.ts'],
     ['app/second-brain/useChatCliente.ts', 'app/api/mako/chat/route.ts'],
     ['app/_chat/acciones-formulario.ts', 'app/api/mako/propuesta/route.ts'],
   ];

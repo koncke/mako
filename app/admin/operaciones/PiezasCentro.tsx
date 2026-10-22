@@ -188,12 +188,7 @@ export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }:
             )}
             {!plegada && (clave === SECCION_CHATS
               // Los sub-chats con su jefe; un grupo cuyo jefe no está en la lista lleva su nombre arriba.
-              ? porJefe(corte).map((g) => (
-                <div key={g.clave} className="co-jefe">
-                  {g.chat ? fila(g.chat, false) : <p className="co-jefe__nombre">{g.jefe}</p>}
-                  {g.subs.length > 0 && <div className="co-jefe__subs">{g.subs.map((s) => fila(s, true))}</div>}
-                </div>
-              ))
+              ? <GruposPorJefe chats={corte} fila={fila} />
               : corte.map((c) => fila(c, false)))}
             {!plegada && !todas && lista.length > corte.length && (
               <button type="button" className="co-mas" onClick={() => setEnteras((s) => alternar(s, clave))}>{`Mostrar ${lista.length - corte.length} más`}</button>
@@ -204,6 +199,24 @@ export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }:
           </div>
         );
       })}
+    </>
+  );
+}
+
+/**
+ * Los chats agrupados por su jefe (`porJefe`): el jefe y, debajo, sus sub-chats corridos a la derecha; un grupo cuyo jefe no está
+ * en la lista lleva su nombre arriba. UNO para las dos listas: la del super admin (`ListaCentro`) y la del cliente
+ * (app/second-brain/ChatSecondBrain.tsx, sus chats agrupados por origen: 22/10/2026, «un orden como en Super Admin»).
+ */
+export function GruposPorJefe<T extends { titulo: string }>({ chats, fila }: { chats: readonly T[]; fila: (c: T, sub: boolean) => ReactNode }) {
+  return (
+    <>
+      {porJefe(chats).map((g) => (
+        <div key={g.clave} className="co-jefe">
+          {g.chat ? fila(g.chat, false) : <p className="co-jefe__nombre">{g.jefe}</p>}
+          {g.subs.length > 0 && <div className="co-jefe__subs">{g.subs.map((s) => fila(s, true))}</div>}
+        </div>
+      ))}
     </>
   );
 }

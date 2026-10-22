@@ -193,6 +193,11 @@ export type FiltroTools = {
    *  orden de declaración, y en un área de 50 operaciones «pausá la campaña X» se
    *  quedaba con las primeras 15 lecturas y sin la acción que pidió. */
   relevanteA?: string;
+  /** un corte más, a gusto de quien llama (el chat de la app lo usa para no abrir el registro entero a acciones destructivas
+   *  de otra área). Se aplica antes del orden y del presupuesto. Sin esto, todo igual. */
+  donde?: (d: OperacionDef) => boolean;
+  /** no avisar por consola lo que quedó afuera del presupuesto (cuando un turno se arma en varias pasadas). */
+  sinAviso?: boolean;
 };
 
 /** Los ToolDefs para un turno del doer, según el filtro. */
@@ -203,7 +208,8 @@ export function toolsDelRegistro(f: FiltroTools): ToolDef[] {
     .filter((d) => f.incluirAcciones !== false || esLectura(d))
     .filter((d) => visible(d, f.vista))
     .filter((d) => !ids || ids.has(d.id) || (d.alias ?? []).some((a) => ids.has(a)))
-    .filter((d) => !f.excluir || !(f.excluir.has(d.id) || (d.alias ?? []).some((a) => f.excluir!.has(a))));
+    .filter((d) => !f.excluir || !(f.excluir.has(d.id) || (d.alias ?? []).some((a) => f.excluir!.has(a))))
+    .filter((d) => !f.donde || f.donde(d));
   const tools = (f.relevanteA ? ordenarPorRelevancia(defs, f.relevanteA) : defs).map(aToolDef);
   if (!f.maxChars) return tools;
   const out: ToolDef[] = [];
@@ -214,7 +220,7 @@ export function toolsDelRegistro(f: FiltroTools): ToolDef[] {
     if (usados + largo > f.maxChars) { afuera.push(t.name); continue; }
     usados += largo; out.push(t);
   }
-  if (afuera.length) console.warn(`[api-mako] presupuesto de ${f.maxChars} chars: quedaron afuera ${afuera.join(', ')}`);
+  if (afuera.length && !f.sinAviso) console.warn(`[api-mako] presupuesto de ${f.maxChars} chars: quedaron afuera ${afuera.join(', ')}`);
   return out;
 }
 

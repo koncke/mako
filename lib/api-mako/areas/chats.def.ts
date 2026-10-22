@@ -146,8 +146,10 @@ export const DEFS: readonly OperacionDef[] = [
   },
 
   // ── Envíos (D3a, 21/10/2026): el toque en «Enviar» de la tarjeta ES la aprobación ──
+  // `aTerceros` (22/10/2026, al traer Ops Center 1.2): le llegan al contacto. Hoy son sólo de la app, donde el toque es la
+  //   aprobación; la marca es para que el día que viajen por WhatsApp se confirmen con un «sí» y nada más (lib/confirmacion-pura.ts).
   {
-    id: 'enviar_borrador_whatsapp', area: 'chats', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    id: 'enviar_borrador_whatsapp', aTerceros: true, area: 'chats', tipo: 'accion', confirmacion: 'chat', reversible: false,
     titulo: 'Enviar el WhatsApp',
     descripcion: 'Propone MANDAR un WhatsApp por la línea no oficial del negocio, y sale cuando la persona toca «Enviar» en la tarjeta (ese toque es la aprobación). Dos formas: un borrador que ya está en la cola (su id, de hilo_chat → borradores_de_mako o listar_borradores_whatsapp_empresa), o un texto nuevo para una conversación (clave o leadId + texto), que queda como borrador y sale aprobado con el mismo toque. El texto lo tiene que haber dicho o aprobado la persona: «sí, dale» no es el mensaje. Sale por la línea en la que viene la charla (o la que pidas). No usa el WhatsApp oficial ni plantillas.',
     parametros: [
@@ -160,7 +162,7 @@ export const DEFS: readonly OperacionDef[] = [
     escribe: 'el borrador (wa_borradores) queda enviado por quien confirma y el mensaje sale al contacto por la línea no oficial; se ve en el hilo de Chats',
   },
   {
-    id: 'contestar_dm', area: 'chats', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    id: 'contestar_dm', aTerceros: true, area: 'chats', tipo: 'accion', confirmacion: 'chat', reversible: false,
     titulo: 'Enviar el mensaje directo',
     descripcion: 'Propone CONTESTAR un mensaje directo de Instagram o Messenger desde la tab Chats, y sale cuando la persona toca «Enviar» en la tarjeta (ese toque es la aprobación). Sólo dentro de la ventana que permite la red (si se cerró, lo dice). El texto lo tiene que haber dicho o aprobado la persona: «sí, dale» no es el mensaje. Pasa la clave de listar_chats («ig:…», «fb:…» o la del lead).',
     parametros: [
@@ -172,7 +174,7 @@ export const DEFS: readonly OperacionDef[] = [
     escribe: 'el mensaje sale al contacto por Instagram o Messenger y queda en su hilo de Chats, con quien lo confirma',
   },
   {
-    id: 'contestar_email_chat', area: 'chats', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    id: 'contestar_email_chat', aTerceros: true, area: 'chats', tipo: 'accion', confirmacion: 'chat', reversible: false,
     titulo: 'Enviar el email',
     descripcion: 'Propone CONTESTAR por email a un contacto de la tab Chats, desde el dominio del negocio (nunca desde MaKo), y sale cuando la persona toca «Enviar» en la tarjeta (ese toque es la aprobación). Sin asunto, va como respuesta al último que llegó («Re: …»). El texto lo tiene que haber dicho o aprobado la persona: «sí, dale» no es el mensaje. Pasa la clave de listar_chats o el leadId.',
     parametros: [

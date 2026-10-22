@@ -135,7 +135,7 @@ test('el chat lo dice MaKo, con el botón que abre el modal ahí mismo, en los t
   assert.match(boton, /<BotonIntegracion servicio=\{servicio\}/);
   assert.doesNotMatch(boton, /<Link|href=|\/integraciones/);
   // Rota: sacar `ConectarDelAviso` de uno de los hilos → este test falla.
-  for (const f of ['app/_chat/HiloMako.tsx', 'app/m/mako/ChatMako.tsx', 'app/crm/lead-view/MakoAnalystLead.tsx']) {
+  for (const f of ['app/_chat/HiloMako.tsx', 'app/crm/lead-view/MakoAnalystLead.tsx']) {
     assert.match(sinComentarios(leer(f)), /\{x\.conectar && <ConectarDelAviso servicio=\{x\.conectar\} \/>\}/, `${f} dibuja el botón`);
   }
 });

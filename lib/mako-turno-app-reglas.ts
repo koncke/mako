@@ -14,6 +14,8 @@
 
 import { herramientasDelTurno, type EntradaTurno, type Turno } from './doer-herramientas';
 import { porId, visible, REGISTRO, type Vista } from './api-mako/registro';
+import { esDestructiva, lecturasDeLasAcciones, INSTRUCCION_QUITAR_SIN_OBJETO } from './relevancia-app';
+import { pideQuitar } from './mako-intencion-app';
 import { canalKeyDe } from './api-mako/canal';
 import { AREA_INFO, esAccion, type Parametro } from './api-mako/tipos';
 import { rutaMovil, TITULO_INBOX } from './movil-rutas';
@@ -58,9 +60,13 @@ export function canalKeyDeSesion(sessionId: number): string {
 
 // ── Qué herramientas viajan ───────────────────────────────────────────────────
 
-/** Confirmar la da una PERSONA tocando la tarjeta del hilo, nunca el modelo: en este
- *  chat no hay un «sí» escrito que interpretar. */
-const CONFIRMAR: ReadonlySet<string> = new Set(['confirmar_accion']);
+/** Confirmar y cancelar las da una PERSONA tocando la tarjeta del hilo, nunca el modelo: en este
+ *  chat no hay un «sí» escrito que interpretar. ⚠️ `cancelar_accion` es la ÚNICA operación del
+ *  registro que cambia algo sin dejar una tarjeta (un control, no una acción): viajaba por acá y un
+ *  «eso está mal» o un falso «no» le tiraba a la persona una propuesta que sí quería. La red del chat
+ *  es la tarjeta —toda escritura la deja y el toque es de la persona—, así que lo que no la deja no viaja
+ *  (revisión del 21/10/2026; tests/ops-center-clasificador-app.test.ts, «la red es la tarjeta»). */
+const CONFIRMAR: ReadonlySet<string> = new Set(['confirmar_accion', 'cancelar_accion']);
 
 /**
  * Las LECTURAS de la agenda de Google no viajan: la agenda no pasa por ninguna IA
@@ -110,10 +116,18 @@ export function herramientasDelChat<T extends { name: string }>(p: EntradaTurno<
   const propias = p.deSiempre.filter((t) => entraAlChat(t.name, p.vista));
   const centinelas = [...CONFIRMAR, ...LECTURAS_DE_AGENDA].map((name) => ({ name, description: '', input_schema: {} }) as unknown as T);
   const turno = herramientasDelTurno({ ...p, deSiempre: [...propias, ...centinelas] });
+  const tools = turno.tools.filter((t) => entraAlChat(t.name, p.vista));
+  const delRegistro = turno.delRegistro.filter((t) => entraAlChat(t.name, p.vista));
+  // Las lecturas que dan el id de lo que viaja («(de listar_landings_creadas)»): en TODO turno de la app, no sólo con `buscaEnTodo`.
+  // Una acción que llega sin ellas no «llega»: MaKo inventa el id o vuelve a preguntar (medido el 21/10/2026).
+  const conLectura = delRegistro.length ? lecturasDeLasAcciones(delRegistro.map((t) => t.name), p.vista, (n) => entraAlChat(n, p.vista), new Set(tools.map((t) => t.name))) : [];
+  // Le piden quitar algo y no llegó ninguna operación que lo quite con lo que nombró: que pregunte cuál, no que elija una parecida.
+  const sinCosa = p.veredicto.intencion === 'actuar' && pideQuitar(p.texto) && !tools.some((t) => { const d = porId(t.name); return !!d && esDestructiva(d); });
   return {
     ...turno,
-    tools: turno.tools.filter((t) => entraAlChat(t.name, p.vista)),
-    delRegistro: turno.delRegistro.filter((t) => entraAlChat(t.name, p.vista)),
+    tools: [...tools, ...conLectura],
+    delRegistro: [...delRegistro, ...conLectura],
+    instruccion: [turno.instruccion, sinCosa ? INSTRUCCION_QUITAR_SIN_OBJETO : null].filter(Boolean).join(' ') || null,
   };
 }
 

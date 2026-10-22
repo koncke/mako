@@ -103,7 +103,8 @@ export async function leerPreguntas(locales: readonly string[]): Promise<Pregunt
  * la app, en la caja o por Remote Control). Lo llama `guardarTurnos`. Lee estricto: si no puede leer, no escribe.
  */
 export async function superarConTurnos(turnos: readonly TurnoQueSupera[]): Promise<void> {
-  const locales = [...new Set(turnos.filter((t) => t.rol === 'yo' || t.rol === 'otro').map((t) => t.local))].filter((l) => DESTINO_RE.test(l));
+  // `el` también (cartero 1.18.0): lo que el chat escribe después de un AskUserQuestion la deja atrás (superarPreguntas).
+  const locales = [...new Set(turnos.filter((t) => t.rol === 'yo' || t.rol === 'otro' || t.rol === 'el').map((t) => t.local))].filter((l) => DESTINO_RE.test(l));
   if (!locales.length) return;
   const ws = await wsSuperAdmin();
   await runWithWorkspace(ws, async () => {
