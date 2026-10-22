@@ -2098,6 +2098,35 @@ hoja (una hoja sobre otra la cierra). Tres cosas que costaron:
 - **La foto en un mensaje de Offer es la de quien MIRA** (`MiFoto`, /api/perfil): para el dueño es la suya; el super admin que mira
   un cliente ve la propia en lo que escribió el dueño. Offer no guarda quién escribió cada mensaje.
 
+## Las cuatro fallas de la prueba de los chats, ARREGLADAS: lo guardado ya no miente (22/10/2026)
+
+El Cerebro probó el chat del Ops Center sin pantalla, como el cliente del ws3 (`scripts/probar-chats/ops-center.mts`, rama
+probar-chats-ops-center; el síntoma y la causa de cada una están en su entrada, «El chat del Ops Center probado SIN
+PANTALLA…»). Lo que quedó, en `lib/mako-turno-app.ts`, `lib/chat-pegado.ts`, `app/api/mako/chat/route.ts` y
+`lib/dictado-error.ts` (test: tests/chats-fallas-2210.test.ts):
+
+- **El pegado de la computadora va a El Archivero:** el envío sin fotos también pasa `guardarAdjuntos`. El test viejo
+  (second-brain-chat) fijaba «una sola vez, en el envío con archivos»: era la forma, no una regla.
+- **Lo escrito entra hasta 20.000 y lo que pasa se DICE:** `recortarMensaje` corta lo escrito con el mismo aviso que un
+  pegado, y lo escrito entero va a El Archivero como un pegado (`textosParaArchivar`). El test de chat-pegado fijaba el
+  corte CALLADO («lo escrito, hasta su tope»): un test puede proteger la falla.
+- **Un aviso que promete El Archivero sólo se escribe si se archiva:** se decide ANTES de cortar (`archiva`: el admin, con
+  `guardarAdjuntos`, y en un negocio con su IA, con qué). Si no, «[…se cortó aquí por largo]» (`AVISO_CORTE_SIN_ARCHIVO`).
+  La promesa falsa tampoco era sólo de la computadora: un pegado de alguien que no es el admin la escribía igual.
+- **Con una clave pegada gana el botón de SU servicio** (`tapado.servicio ?? conectar`).
+- **La nota de voz que no se escuchó se dice como el chat:** «ninguna IA pudo» → «necesito una IA conectada. Conecta la
+  tuya», y lo demás, que la grabe de nuevo. El detalle de la cascada va al log. ⚠️ Vive en `lib/`, no en la ruta: un
+  `route.ts` de Next sólo puede exportar sus métodos y su configuración, y la build se cae con cualquier otro export.
+
+**Una trampa del arnés que destapó el arreglo:** la marca contra los duplicados de El Archivero es por CORRIDA, y
+`largo-pegado-15000` y `largo-pegado-telefono` pegan el MISMO texto. Antes la computadora no archivaba y el teléfono
+entraba primero; ahora la computadora archiva primero, El Archivero no duplica el del teléfono (mismo hash), y ese caso
+sale «✗ no hay ninguna fila» en una corrida con los dos. Solo, pasa. La marca tiene que ser por CASO.
+
+**SIN HACER:** el «Conecta la tuya» tarda 12-16 s porque el turno arma el system antes de saber si hay IA (ver la entrada del
+Cerebro); el botón de un negocio sin ninguna IA sigue siendo Gemini, y eso lo decide Martín; la 0316 (`archivero_files.origen`)
+sigue sin aplicar en producción, y cada pegado archivado lo avisa en el log.
+
 ## Ops Center del cliente: «el chat de X no llegó» se mide en la base, nunca mirando la pantalla como super admin (20/10/2026)
 
 - **Síntoma:** en /second-brain?ws=21 sólo se ve el chat «Second Brain», sin la conversación de Offer de la clienta.

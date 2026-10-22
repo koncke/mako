@@ -123,7 +123,8 @@ test('los adjuntos: se abren por su mensaje mirando de quién es, no quedan suel
   // Revisión del 16/10/2026: el MaKo Analyst de un lead usa este mismo turno, y su PDF es del lead. Guardar (y El
   // Archivero) es SÓLO de quien lo pide: el Second Brain y el teléfono.
   assert.match(turno, /adjuntos\.length && entrada\.guardarAdjuntos \? await subirAdjuntos\(/, 'subir sólo si quien llama lo pide');
-  assert.equal((ruta.match(/guardarAdjuntos: true/g) ?? []).length, 1, 'el Second Brain lo pide (sólo en el envío con archivos)');
+  // En los DOS envíos (22/10/2026): sin fotos el cuerpo va en JSON, y un texto PEGADO va ahí; sin la marca no se archivaba.
+  assert.equal((ruta.match(/guardarAdjuntos: true/g) ?? []).length, 2, 'el Second Brain lo pide, con archivos y sin ellos');
   assert.match(sinComentarios(leer('app/api/m/mako/route.ts')), /guardarAdjuntos: true/, 'el teléfono lo pide');
   assert.ok(!/guardarAdjuntos/.test(sinComentarios(leer('lib/mako-analyst-lead.ts'))), 'el Analyst del lead no');
   // `msgId` es `msg.id` (21/10/2026: El Archivero se decide antes, con D6b; tests/solo-su-ia.test.ts).

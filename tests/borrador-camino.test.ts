@@ -92,7 +92,8 @@ test('Un borrador que nombra su línea sale por ELLA o no sale', () => {
 
 test('El camino se vuelve a calcular al enviar, con la línea de la FILA', () => {
   const b = cuerpo(LIB, 'export async function enviarBorradorPorSuCanal');
-  assert.ok(b.length < 700, `el recorte mide ${b.length}: está mirando otra cosa`);
+  // 22/10/2026: 740 con el goteo de la automatización al aprobar (`frenoDelGoteoAlAprobar`, tests/goteo-con-aprobacion.test.ts).
+  assert.ok(b.length < 900, `el recorte mide ${b.length}: está mirando otra cosa`);
   assert.match(b, /caminosDeEnvio\(\[\{ id: b\.id, linea: b\.instance_name \}\]\)/, 'el envío dejó de recalcular el camino con la línea del borrador: confía en el botón');
   assert.match(b, /if \(camino\?\.via === 'empresa'\) return enviarBorrador\(id, porEmail\);/);
   // Sin camino no se manda nada y se devuelve el motivo.

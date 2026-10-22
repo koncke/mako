@@ -6,8 +6,13 @@
 // envíos y tope por día (los días de la semana son los de su horario propio, lib/config-automatizacion.ts).
 //
 // ⚠️ ES UN SUB-TOPE ADENTRO DEL DE LA LÍNEA, nunca uno más alto (decisión del Cerebro): el motor lo mira además del
-// cupo del negocio (`sinLugar`, lib/nutricion.ts). Cuenta sólo los WhatsApp que SALIERON de esta automatización
-// (`nutricion_envios` 'enviado', en 24 h móviles, como el tope de la línea).
+// cupo del negocio (`sinLugar`, lib/nutricion.ts). Cuenta los WhatsApp de esta automatización en 24 h móviles, como el
+// tope de la línea: los que SALIERON y los que quedaron PARA APROBAR (`cuentaParaElGoteo`).
+//
+// ⚠️ CON APROBACIÓN TAMBIÉN (22/10/2026, AU1 del plan del Cerebro: #289 nace para aprobar). Contando sólo 'enviado', el motor
+// dejaba los 50 borradores de una (un borrador no gasta el cupo de la línea), y al aprobarlos salían en el acto, de a
+// varios. Ahora el borrador cuenta para el goteo (nacen de a uno cada N minutos) y APROBAR también lo respeta
+// (`frenoAlAprobar`, en la única puerta de envío de un borrador: lib/borrador-camino.ts).
 //
 // ⚠️ Y LO FRENADO SE CORRE A SU TURNO, no se deja vencido: el tick de cada minuto mira sólo lo que venció hace menos de
 // `VENTANA_FRESCA_MIN` (lib/espera-duracion.ts). Si los 49 que esperan quedaran con la hora vieja, sólo los vería la
@@ -49,6 +54,28 @@ export function turnoDeGoteo(desdeMs: number, k: number, g: Goteo): number {
 /** Lo que salió (en esta corrida) se suma al uso: un envío más, y el último es ahora. */
 export function conEnvio(uso: UsoGoteo, ahoraMs: number): UsoGoteo {
   return { enviados: uso.enviados + 1, ultimoMs: ahoraMs, primeroMs: uso.primeroMs ?? ahoraMs };
+}
+
+/** Los estados de `nutricion_envios` que cuentan para el goteo: lo que salió y lo que quedó para aprobar. */
+export const ESTADOS_DEL_GOTEO = ['enviado', 'borrador'] as const;
+export function cuentaParaElGoteo(estado: string): boolean {
+  return (ESTADOS_DEL_GOTEO as readonly string[]).includes(estado);
+}
+
+/**
+ * EL FRENO AL APROBAR un borrador de una automatización con goteo: null = sale; si no, por qué no y cuándo sí. `uso` es lo
+ * APROBADO de esa automatización en 24 h (`wa_borradores` enviados, por su `enviado_at`): lo que cuenta es cuándo salió.
+ */
+export function frenoAlAprobar(g: Goteo | null | undefined, uso: UsoGoteo, ahoraMs: number, nombre: string): string | null {
+  const f = frenoDeGoteo(g, uso, ahoraMs);
+  if (!f.frena) return null;
+  const donde = 'su goteo, en Configuraciones › Límites';
+  if (f.motivo === 'dia') {
+    const horas = Math.max(1, Math.ceil((f.desdeMs - ahoraMs) / 3_600_000));
+    return `«${nombre}» ya mandó ${g?.dia} en 24 horas (${donde}). El próximo sale en ${horas === 1 ? '1 hora' : `${horas} horas`}.`;
+  }
+  const min = Math.max(1, Math.ceil((f.desdeMs - ahoraMs) / 60_000));
+  return `Todavía no: «${nombre}» manda uno cada ${g?.minutos} minutos (${donde}). Apruébalo en ${min === 1 ? '1 minuto' : `${min} minutos`}.`;
 }
 
 /** Cómo se dice el goteo (la pantalla y la API de MaKo). */

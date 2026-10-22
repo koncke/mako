@@ -93,7 +93,7 @@ import {
   diagnosticoConFuentes, diagnosticoFaltante, diagnosticoParaPrompt, docsDeLaConversacion, estadoDiagnostico, faltanTexto, faseDeSetting,
   conCobroDelPrecio, conCanalDeLaOferta, fundirPiezasDelTurno, preguntaPorOtrasOfertas, estadoDeLaOferta, faseVigenteDe, fuentesDelDueno, linkParaLeer, mensajeDeMako, mensajePdf, mergePiezas, motivoArchivoOffer, planDiagnostico, primerMensaje, primerMensajeFunnel, provisionalDe, recortar,
   repartirTranscripcion, respuestaDiagnostico, respuestaSinIA, seArchivaDesdeOffer, armadoEnCurso, pasoInicialDelArmado, valoresDeLasPiezas,
-  MAX_DOCS_LOTE, leyendoParaVista, mensajeLeyendo, resumenDelLote,
+  MAX_DOCS_LOTE, leyendoParaVista, mensajeLeyendo, resumenDelLote, credencialEnLaUrl, PIDE_ACCESO,
   type AudioGuardado, type DocumentoGuardado, type MensajeGuardado, type PlanDiagnostico,
 } from '@/lib/offer-reglas';
 import { contextoOffer, type ContextoOffer } from '@/lib/offer-contexto';
@@ -574,6 +574,8 @@ async function leerLink(body: Record<string, unknown>, inicio: number): Promise<
   } catch (e) {
     // Una página que no NOS deja leerla (401/403/429: un antibots que frena a los servidores, como la del Sprint de
     // Mauricio, 22/10/2026) se pide por el lector de afuera; si tampoco, el mismo mensaje de antes.
+    // Con un acceso en el link (OF2), no sale afuera: se pide el .zip o el texto.
+    if (bloqueaLaLectura(e) && credencialEnLaUrl(link.leida)) return no(422, PIDE_ACCESO);
     const otra = bloqueaLaLectura(e) ? await leerConLectorExterno(link.leida) : null;
     if (!otra) {
       const cual = link.leida === url.trim() ? '' : ` (${link.leida})`;
@@ -585,6 +587,7 @@ async function leerLink(body: Record<string, unknown>, inicio: number): Promise<
   // así que no se afirma uno (AGENTS.md «Un DIAGNÓSTICO escrito de antemano deja de ser cierto sin avisar»). Una página
   // que se arma con JavaScript es la causa más común: el lector de afuera la abre en un navegador.
   if (pagina.bloqueada || !pagina.texto.trim()) {
+    if (credencialEnLaUrl(link.leida)) return no(422, PIDE_ACCESO);
     const otra = await leerConLectorExterno(link.leida);
     if (!otra) return no(422, 'Entré a tu página pero casi no encontré texto para leer. Copia el texto de la página y pégalo aquí.');
     pagina = otra;
