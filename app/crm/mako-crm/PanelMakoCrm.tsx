@@ -7,15 +7,11 @@
 // al costado… que siempre esté plegado y que ahí aparezcan notificaciones». El 14/10: «No veo nada
 // sobre el chat de MaKo y las recomendaciones...». El mapa: docs/sugerencias-mako-crm.md.
 //
-//   · PLEGADO SIEMPRE AL ENTRAR: el botón del logo de MaKo (el de la cabecera de una automatización,
-//     `BotonLogoMako`) en el rincón de abajo a la derecha, con el punto y el número de sugerencias.
-//     ⚠️ Es una COPIA de su aspecto, no un import: `BotonLogoMako` vive en
-//     app/automations/SecuenciaPerfil.tsx, que arrastra el lienzo entero (FlujoLienzo, el wizard…) al
-//     bundle de /crm. El día que suba a app/_ui, esto lo importa.
-//   · ⚠️ EL RINCÓN: el botón y el panel llevan `data-esquina-ocupada` (AGENTS.md): la esquina de los
-//     avisos pinta en toda la app y, sin la marca, taparía el botón y el «Enviar» del chat.
-//   · ABIERTO: un panel a la derecha, de arriba abajo, con las sugerencias arriba (UNA línea cada una,
-//     «Hacerlo» y «Ahora no») y el chat abajo. Va DEBAJO de los modales (z 50 < 60).
+//   · PLEGADO: desde el 21/10/2026, la criatura de MaKo (la ESTRELLA) ABAJO A LA IZQUIERDA, con la cara de «A
+//     revisar» y el número de sugerencias (ver ANCHO_PANEL). La esquina de los avisos es la de abajo a la DERECHA:
+//     acá no hace falta `data-esquina-ocupada`.
+//   · ABIERTO: un panel a la izquierda, pegado a la sidebar, de arriba abajo, con las sugerencias arriba (UNA línea
+//     cada una, «Hacerlo» y «Ahora no») y el chat abajo. Va DEBAJO de los modales (z 50 < 60).
 //   · LO CARO NO SE CALCULA ACÁ NI EN LA PÁGINA: el botón pide las sugerencias UNA vez al montarse
 //     (GET /api/crm/mako, que no escribe y sale de la caché del server). El HILO se pide recién al ABRIR
 //     (el chat se monta ahí): abrirlo escribe.
@@ -30,7 +26,7 @@
 //     chat (hijo) corre ANTES que el del panel, con el CRM nuevo, y el GET ya salió.
 // =============================================================================
 
-import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Badge, Button, ButtonLink, IconButton } from '@/app/_ui';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
@@ -43,8 +39,6 @@ import type { SugerenciaDePantalla } from '@/lib/sugerencias-crm';
 const ChatMakoCrm = dynamic(() => import('./ChatMakoCrm').then((m) => m.ChatMakoCrm), { ssr: false });
 
 const RUTA = '/api/crm/mako';
-/** El lado del botón plegado: el alto de «Probar» y «Publicar» del lienzo (`ALTO_ACCION`). */
-const LADO_BOTON = 44;
 /** El logo adentro (`LADO_LOGO` de BotonLogoMako). */
 const LADO_LOGO = 32;
 /** Debajo de los modales (z ≥ 60) y de la esquina de los avisos (55). */
@@ -61,15 +55,35 @@ const Z_PANEL = 50;
  * chat del Ops Center: ahí se cambia el de adentro, no la barra.
  */
 const ANCHO_PANEL = 400;
+/**
+ * ⚠️ A LA IZQUIERDA DESDE EL 21/10/2026, y con la ESTRELLA. Martín: «En el caso del CRM, debes poner el ícono de la
+ * criatura abajo a la izquierda, como "A revisar", solo que a la izquierda... los iconos de las criaturas siempre debe ser
+ * el icono de MaKo», y la regla del mismo día: «el chat de MaKo en las otras tabs se debe abrir siempre a la izquierda».
+ * Pisa la barra a la derecha del 20/10 (y el muñeco del CRM del 16/10).
+ * ⚠️ EL BORDE ES EL DE LA SIDEBAR MEDIDA, no un número: el 20/10 el botón iba en `left: RAIL + 20` (el ancho de la sidebar
+ * PLEGADA) y la abierta (244, z 60) lo tapaba entero. Se mide `[data-sidebar]` (app/_components/Sidebar.tsx) y se sigue
+ * con un ResizeObserver: plegar o desplegar la sidebar corre el botón y la barra con ella.
+ */
+const DESDE_ABAJO = 20;
+/** El borde derecho de la sidebar, en px (0 sin sidebar). */
+function useBordeSidebar(): number {
+  const [x, setX] = useState(0);
+  useEffect(() => {
+    const sb = document.querySelector<HTMLElement>('[data-sidebar]');
+    if (!sb) return;
+    const medir = () => setX(Math.max(0, Math.round(sb.getBoundingClientRect().right)));
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(sb);
+    window.addEventListener('resize', medir);
+    return () => { ro.disconnect(); window.removeEventListener('resize', medir); };
+  }, []);
+  return x;
+}
 const CLAVE_PANEL = 'mako-crm:panel';
 /** Desde este ancho de ventana abre sola la primera vez; en una más angosta taparía el tablero. */
 const ANCHO_PARA_ABRIR = 1280;
 
-/** La cara de `BotonLogoMako` (app/automations/SecuenciaPerfil.tsx): la tarjeta clara del título con el logo adentro. */
-const CARA_BOTON: CSSProperties = {
-  background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 11,
-  boxShadow: '0 2px 8px rgba(0,0,0,.06)',
-};
 
 type Respuesta = {
   crm: { id: number; nombre: string }; sugerencias: SugerenciaDePantalla[];
@@ -105,6 +119,7 @@ function PanelDeUnCrm({ funnelId }: { funnelId: number | null }) {
   const [ocupada, setOcupada] = useState<string | null>(null);
   const [errorFila, setErrorFila] = useState<Record<string, string>>({});
   const [pedido, setPedido] = useState<{ texto: string; vez: number } | null>(null);
+  const borde = useBordeSidebar();
 
   // ── Las sugerencias: UNA vez, al montarse (el server las tiene calculadas) ──
   useEffect(() => {
@@ -137,7 +152,7 @@ function PanelDeUnCrm({ funnelId }: { funnelId: number | null }) {
     if (pref === '1' || (pref == null && window.innerWidth >= ANCHO_PARA_ABRIR)) { setAbierto(true); setMontado(true); }
   }, []);
 
-  // Abierta, el tablero le deja el lugar (el padding derecho de CrmBoard lee la variable). En una ventana angosta se
+  // Abierta, el tablero le deja el lugar (el padding IZQUIERDO de CrmBoard lee la variable). En una ventana angosta se
   // superpone, como en el teléfono.
   useEffect(() => {
     const raiz = document.documentElement;
@@ -194,38 +209,34 @@ function PanelDeUnCrm({ funnelId }: { funnelId: number | null }) {
   return (
     <>
       {!abierto && (
-        // PLEGADA: una pestaña en el borde DERECHO, a media altura (20/10/2026; ver ANCHO_PANEL). Ni la sidebar ni la
-        // esquina de abajo a la derecha («A revisar») la tapan, así que no lleva `data-esquina-ocupada`.
+        // PLEGADA: la criatura ABAJO A LA IZQUIERDA, con la cara de «A revisar» (app/_components/MakoConfirmGate.tsx), que
+        // está abajo a la derecha: la tarjeta blanca con borde, el nombre y el número de sugerencias.
         <button type="button" data-boton-mako-crm onClick={abrir}
           title="Abrir MaKo" aria-label={n ? `Abrir MaKo · ${n} ${n === 1 ? 'sugerencia' : 'sugerencias'}` : 'Abrir MaKo'}
           style={{
-            ...CARA_BOTON, position: 'fixed', right: 0, top: '50%', transform: 'translateY(-50%)', zIndex: Z_PANEL,
-            borderRight: 'none', borderRadius: '11px 0 0 11px',
-            width: LADO_BOTON + 4, height: LADO_BOTON + 12, padding: 0, cursor: 'pointer', boxSizing: 'border-box',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            position: 'fixed', left: borde + DESDE_ABAJO, bottom: DESDE_ABAJO, zIndex: Z_PANEL,
+            display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 13px 7px 8px', cursor: 'pointer',
+            background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 14,
+            boxShadow: '0 14px 40px rgba(18,21,27,.22)', fontFamily: 'inherit',
           }}>
-          {/* El MUÑECO del CRM, no la estrella (16/10/2026, Martín: «En lugar de la estrella de MaKo el ícono debería
-              ser el muñequito que se asignó para CRM, para Dashboard, o para cada tab»). Sale del nombre de la tab,
-              como en el Centro y el Second Brain (lib/centro-munecos.ts → aspectoDe). */}
-          <Muneco titulo="CRM" animo="despierto" size={LADO_LOGO} />
-          {n > 0 && (
-            <span aria-hidden style={{ position: 'absolute', top: -7, right: -7, pointerEvents: 'none' }}>
-              <Badge>{n}</Badge>
-            </span>
-          )}
+          {/* LA ESTRELLA DE MaKo, la criatura del Cerebro (lib/centro-munecos.ts → FORMA_MAKO): lo que se escribe acá es
+              para MaKo, que reparte. Se mueve y parpadea sola (la regla del 21/10 para toda criatura). */}
+          <Muneco titulo="Cerebro" animo="despierto" size={LADO_LOGO - 4} />
+          <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>MaKo</span>
+          {n > 0 && <Badge>{n}</Badge>}
         </button>
       )}
 
       {montado && (
-        // La barra fija a la DERECHA, del mismo lado que la pestaña (20/10/2026).
+        // La barra fija a la IZQUIERDA (21/10/2026), pegada a la sidebar: del mismo lado que la criatura.
         <aside aria-label="MaKo" data-panel-mako-crm
           style={{
-            position: 'fixed', top: 'var(--barra-agencia, 0px)', right: 0, bottom: 0, zIndex: Z_PANEL,
-            width: `min(${ANCHO_PANEL}px, 100vw)`, display: abierto ? 'flex' : 'none', flexDirection: 'column',
-            background: 'var(--surface)', borderLeft: '1px solid var(--border)', boxShadow: '-12px 0 32px rgba(18,21,27,.10)',
+            position: 'fixed', top: 'var(--barra-agencia, 0px)', left: borde, bottom: 0, zIndex: Z_PANEL,
+            width: `min(${ANCHO_PANEL}px, calc(100vw - ${borde}px))`, display: abierto ? 'flex' : 'none', flexDirection: 'column',
+            background: 'var(--surface)', borderRight: '1px solid var(--border)', boxShadow: '12px 0 32px rgba(18,21,27,.10)',
           }}>
           <header style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderBottom: '1px solid var(--border)', borderTop: '3px solid var(--mako)' }}>
-            <Muneco titulo="CRM" animo="despierto" size={28} />
+            <Muneco titulo="Cerebro" animo="despierto" size={28} />
             <strong style={{ flex: 1, fontSize: 15, color: 'var(--ink)' }}>MaKo</strong>
             <IconButton title="Cerrar MaKo" onClick={cerrar}><IconoMenu nombre="cerrar" /></IconButton>
           </header>

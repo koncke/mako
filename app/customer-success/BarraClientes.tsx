@@ -29,7 +29,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
 import { BarraAcciones, type AccionPlegable } from '@/app/_components/BarraAcciones';
-import { ICONO_VISTA } from '@/app/_ui/iconos-vista';
+import { SelectorVista } from '@/app/_ui/SelectorVista';
 import { repartirEnEtapas, type EtapaEntrega, type FaseEntrega } from '@/lib/servicio-etapas';
 
 /**
@@ -54,19 +54,11 @@ export type VistaClientes = 'tarjetas' | 'tabla' | 'kanban' | 'avance';
 /** El orden en que se dibujan los botones, sea cual sea el orden de `vistas`. */
 const ORDEN_VISTAS: readonly VistaClientes[] = ['kanban', 'tarjetas', 'tabla', 'avance'];
 
-/**
- * Qué dibuja cada botón del toggle: el catálogo COMPARTIDO con el CRM y el Plan.
- *
- * ⚠️ ACÁ HABÍA UNA COPIA PROPIA, con el kanban dibujado como tres columnas de alto
- * distinto y el rótulo «Ver la entrega en etapas». Martín (05/10/2026): «el ícono de
- * kanban debería ser como en el plan, que son cubos. Y el placeholder debería ser "Ven
- * en Kanban"». El catálogo `ICONO_VISTA` ya lo tenía resuelto para el CRM ese mismo día
- * —los cuatro cubos y «Ver en Kanban»—; la copia era justo lo que hacía que los dos
- * toggles se vieran distintos. Ningún uso de esta barra ofrece kanban Y tarjetas a la
- * vez (Customer Success: kanban + tabla; /admin: tarjetas + tabla), así que los cubos
- * no se confunden con nada.
- */
-const VISTA_META: Record<VistaClientes, { titulo: string; icono: ReactNode }> = ICONO_VISTA;
+// Qué dibuja cada botón: el catálogo COMPARTIDO con el CRM y el Plan (app/_ui/iconos-vista.tsx), por el segmento
+// de la casa (app/_ui/SelectorVista.tsx). ⚠️ Acá hubo una copia propia hasta el 05/10/2026 (el kanban como tres
+// columnas, «Ver la entrega en etapas») y un `.bc-toggle` propio hasta el 21/10: cada copia es un control que se ve
+// distinto. Ningún uso de esta barra ofrece kanban Y tarjetas a la vez (Clientes: kanban + tabla + avance; /admin:
+// tarjetas + tabla), así que los cubos no se confunden con nada.
 
 export type OrdenClientes = 'nombre' | 'abiertas' | 'proyectos' | 'antiguedad' | 'contacto' | 'vencidas';
 export type FiltroClientes = 'todos' | 'con-trabajo' | 'sin-trabajo' | 'sin-proyecto' | 'con-cuenta' | 'sin-cuenta';
@@ -391,29 +383,19 @@ export function BarraClientes({
 }
 
 /**
- * Los botones de vista. Se dibuja UNO por cada vista que la pantalla declara.
+ * Los botones de vista: el segmento COMPARTIDO con el CRM y el Plan (app/_ui/SelectorVista.tsx), con las
+ * vistas que la pantalla declara, en el orden de `ORDEN_VISTAS`.
  *
- * ⚠️ CON UNA SOLA VISTA NO SE DIBUJA NADA. Un toggle de un botón no ofrece ninguna
- * decisión y, peor, el botón queda permanentemente activo: se lee como un control
- * trabado. Mismo molde y mismos íconos que el del tablero.
+ * ⚠️ CON UNA SOLA VISTA NO SE DIBUJA NADA (lo decide la pieza): un toggle de un botón no ofrece ninguna
+ * decisión y queda permanentemente activo, que se lee como un control trabado.
+ * Hasta el 21/10/2026 era un `.bc-toggle` propio con el mismo molde; Martín: «Esto en todos lados».
  */
 function VistaToggleClientes({ vista, onSet, vistas }: {
   vista: VistaClientes;
   onSet: (v: VistaClientes) => void;
   vistas: readonly VistaClientes[];
 }) {
-  const disponibles = ORDEN_VISTAS.filter((v) => vistas.includes(v));
-  if (disponibles.length < 2) return null;
-  return (
-    <div className="bc-toggle">
-      {disponibles.map((v) => (
-        <button key={v} type="button" onClick={() => onSet(v)} aria-pressed={vista === v}
-          className={vista === v ? 'on' : ''} title={VISTA_META[v].titulo} aria-label={VISTA_META[v].titulo}>
-          {VISTA_META[v].icono}
-        </button>
-      ))}
-    </div>
-  );
+  return <SelectorVista vistas={ORDEN_VISTAS.filter((v) => vistas.includes(v))} vista={vista} onVista={onSet} ariaLabel="Cómo ver los clientes" />;
 }
 
 /** Un desplegable que se cierra con Escape, con un click afuera y al elegir. */
@@ -636,11 +618,6 @@ const CSS = `
 .bc-buscar button:hover{ color:var(--ink); }
 .bc-cuenta{ font-size:12.5px; color:var(--dim); white-space:nowrap; }
 
-.bc-toggle{ display:inline-flex; flex:none; background:var(--surface-2); border:1px solid var(--border);
-  border-radius:9px; padding:2px; }
-.bc-toggle button{ display:inline-flex; align-items:center; justify-content:center; width:32px; height:30px;
-  border-radius:7px; border:0; background:transparent; color:var(--faint); cursor:pointer; flex:none; }
-.bc-toggle button.on{ background:var(--surface); color:var(--primary); box-shadow:0 1px 2px rgba(18,21,27,.08); }
 
 .bc-pop{ position:relative; flex:none; }
 .bc-btn{ display:inline-flex; align-items:center; justify-content:center; gap:7px; height:38px;

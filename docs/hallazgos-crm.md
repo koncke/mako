@@ -10058,6 +10058,55 @@ Kanban no se tocó.
 **Vive en:** app/crm/tabla-columnas.ts · app/crm/TablaListaLeads.tsx · app/crm/CrmBoard.tsx ·
 tests/crm-lista-escritorio-chico.test.ts y tests/_crm-lista-arnes.tsx · *21/10/2026, chat «CRM» (claude4).*
 
+## El feedback del 21/10 (noche): «Tipo de etapa», «Asignar evento» que crea y edita, y las plantillas de la tarjeta (21/10/2026)
+
+Pedido literal en la bitácora del CRM (hito `actor: 'martin'` de las 23:10). Lo que no se deduce del código:
+
+- **«Abre la agenda» NO es lo que pasa al mover un lead a CUALQUIER reunión.** El diálogo «¿ya ocurrió o se va a
+  agendar?» sale sólo en `agenda`/`agendaj2` y sólo si el negocio tiene `CALENDLY_EVENT_TYPE_J1/J2` (`calendlyStages`,
+  app/crm/page.tsx). Lo que SÍ cambia en toda etapa `kind: 'reunion'`: lleva la fecha y la asistencia de la reunión
+  (las piden los requisitos de las etapas que siguen, por ORDEN: `reunionesDe` → `slotPorIndice`). El aviso de «Tipo de
+  etapa» lo dice así; la primera versión prometía la agenda y habría mentido en todos los funnels propios.
+- **El tipo de una COLUMNA no es `tipoDeEtapa(c)`.** Las columnas derivadas de la banda Nutrición no traen `kind` ni
+  `marcadaComo`, así que `tipoDeEtapa` dice «Etapa». Se lee por la banda: `tipoDeColumna` (lib/etapa-reunion.ts).
+- **Cambiar el tipo no mueve a ningún lead**: la op `tipo` sólo reescribe el pipeline. Lo que sí se mueve es la
+  FECHA que se ve: marcar Reunión una etapa ANTES de la R1 corre la R1 al segundo lugar y la R2 queda tercera, sin
+  dónde guardar fecha (`cambioDeReuniones`). Y una reunión que deja de serlo suelta su evento de agenda: el ruteo vuelve
+  a mirar el tipo en cada reserva (`problemaDeVinculo`), y sus reservas caen en el CRM principal.
+- **`columnaConTipo` sin el corte de las terminales sigue verde**: `puedeTenerTipo` ya las corta. Se dejó de red; la
+  rotura que prueba algo es sacar `puedeTenerTipo` (la entrada pasaría a tener tipo).
+- **Calendly crea tipos de evento desde el 17/06/2025** (`POST /event_types`, `PATCH /event_types/{uuid}`), SÓLO uno a
+  uno y con los datos básicos. ⚠️ **Sin `active: true` nace APAGADO**, y `listarEventTypes` filtra los activos: el
+  evento recién creado no aparecía en la lista ni se podía vincular. La disponibilidad no se toca (es la de la cuenta).
+- **Cal.com v2 escribe `lengthInMinutes`, no `length`** (la v1, apagada desde el 8/4/2026), y `/v2/event-types` versiona
+  aparte (`cal-api-version: 2024-06-14`, no la de las reservas). El `slug` tiene que ser único por usuario: el error
+  llega como un 200/400 con `{ status: 'error', error: { message } }` y se muestra tal cual.
+- **Google Calendar sigue sin poder vincularse** (C1 de docs/pedidos-crm.md): su API no lista las páginas de reserva ni
+  dice de cuál viene una reserva. Martín lo volvió a pedir el 21/10 («puedo tener eventos en Calendly, Cal o Google
+  Calendar»); la pantalla lo dice con el estado de la conexión y la decisión de cómo hacerlo (una regla por título más
+  un barrido del calendario, o esperar a Google) quedó planteada.
+- **La galería de plantillas con el primer lead dice «Sin monto» ocho veces**: para «Monto grande» y «Próxima reunión»
+  la vista previa elige un lead que TENGA ese dato (`muestraPara`, CrmBoard). La forma promete ese lugar aunque falte
+  el dato («Sin monto», «Sin agendar»): vacío se leía como tarjeta rota.
+- **Una preferencia de UNA persona confirmada desde la bandeja se escribe en la fila de QUIEN CONFIRMA**:
+  `setCamposTarjetaCrm` lee la sesión. `personalizar_tarjetas_crm` guarda el email de quien pidió en la pendiente y
+  `faltaParaConfirmar` frena a cualquier otro.
+- **Un VERDE en cola lee el worktree cuando le toca, no cuando se pidió.** El de la tanda 1 esperó 30 min el candado
+  detrás de cinco chats; seguir editando ese worktree lo habría hecho probar otra cosa que el sha de su línea. Lo que
+  sigue se trabaja en OTRO worktree (acá: `wt-crm-2110b` y `wt-crm-2110c`) y se corre un VERDE sobre la rama juntada.
+  Y uno de esos VERDE habría salido rojo: tests/crm-asignar-evento.test.ts fijaba el logo de Meet que la tanda 1 sacó.
+
+- **El VERDE de esta tanda salió ROJO por cuatro barredoras que no nombran ningún archivo del CRM**, y las cuatro
+  tenían razón: (1) una operación nueva por HTTP necesita su fila en `RUTAS_REST` (lib/api-mako/rest.ts) — el
+  generador de la doc no la crea y el snapshot dice «al día»; (2) toda unidad de `app/plan/**` cuenta como del Ops
+  Center para D6b: una server action nueva sin IA va a `SIN_IA` de tests/d6b-rutas.test.ts con lo que usa; (3) la guarda
+  de `.campos` del curso mira CUALQUIER archivo que importe lib/curso, y lib/api-mako/areas/cs.run.ts lo importa: los
+  `campos` de una tarjeta van a sus EXCEPCIONES con motivo; (4) «acá» en un texto que se dibuja es rioplatense: «aquí».
+  Ninguna de las cuatro salía corriendo los tests que nombran lo cambiado: sólo el VERDE las ve.
+
+Sin hacer, con el archivo: el teléfono sigue los DATOS de la tarjeta pero no la forma (app/m/crm/TableroCrm.tsx dibuja
+filas, no tarjetas); Google Calendar en «Asignar evento» (app/crm/EventosDeEtapaModal.tsx, decisión de Martín).
+
 ## La etiqueta en lote corta en 200 y el aviso se pierde; «Agregar a un funnel» acepta 2.000 (21/10/2026)
 
 Armando la prueba de la prospección del Sprint en el ws3: con 301 leads tildados, «Funnel › Sprint de Diseño» los

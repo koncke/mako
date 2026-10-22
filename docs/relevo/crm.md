@@ -6,6 +6,66 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω20. 21-22/10/2026, noche (chat «CRM», cuenta `claude3`): el feedback de Martín de las 23:10
+
+El pedido, literal, en la bitácora del CRM (hito `actor: 'martin'` del 21/10 23:10). Rama final `crm-2110-t3` en
+`C:/dev/wt-crm-2110c` (lleva adentro `crm-2110-t1` y `crm-2110-t2b`). **Sin subir: la punta va a «Cerebro › Integración».**
+Lo que no se deduce del código, en docs/hallazgos-crm.md («El feedback del 21/10 (noche)…») y docs/hallazgos-ui.md.
+
+**22/10, la llamada de Martín con Mauricio (C1–C9 de docs/pedidos-crm.md), EN PRODUCCIÓN:**
+- P0 (traer los 1.050 de otro producto, arrastrar una selección): `16cac1fd1`, run 230. Hecho `26c541444`.
+- P1 (C3 mover sin esperar, C4 «Creando…», C5 el menú que tapaba, C7 las hojas de la ficha a la vista): `50fbb71df`,
+  run 231. Hecho `6f21aa754`.
+- C8 («También en: Sprint 3 días › Prospección activa» en la ficha): `8d1c1cb51`, run 233. Hecho `a4b29ca98`.
+- Avisos al grupo del ws1: P0 y P1 salieron. El del C8 NO (tope de 3 por día, `TOPE_AVISOS_POR_DIA` en
+  lib/aviso-arreglo.ts): su línea la manda Automations en el aviso combinado de las 09:10.
+- **C6 sin reproducir** («los tres puntos de "Lead entrante" lo mandaron a otro lado»): el Chrome de Martín no estuvo
+  conectado. Hipótesis en docs/hallazgos-crm.md: el «⋯» de la BARRA › «Buscar prospectos» navega.
+- El VERDE de esta rama dio ROJO el 22/10 por `tests/ficha-editar-con-mako.test.ts`: `cambiar_tipo_etapa` dejaba afuera a
+  `cambiar_ficha_funnel` al editar la ficha. Arreglado en la pista de «Editar» (`1a5a9d497`); por qué, en
+  docs/hallazgos-api-mako.md.
+
+**Hecho (cada uno con su test probado rompiéndolo):**
+- «Kanban · Lista» juntos en un segmento, con «Kanban» y «Lista» en el tooltip: UNA pieza (app/_ui/SelectorVista.tsx) en
+  el CRM, Clientes (y /admin) y el Plan. tests/crm-vista-iconos.test.ts.
+- «Nuevo lead» salió del carril de cada columna y va al «⋯» de la columna (y a su clic derecho). tests/crm-feedback-21-10.test.ts.
+- Clic derecho en una tarjeta → «Personalizar tarjeta»; en el fondo, «Personalizar tarjetas».
+- «Asignar evento» con el calendario de línea (`evento` en app/_ui/iconos-menu.tsx), sin el logo de Meet.
+- «Personalizar tarjetas» con PLANTILLAS en un pop-up de 1060 px (app/_ui/PersonalizarTarjetas.tsx, la pieza de todos los
+  tableros): ocho del CRM y las propias de cada persona. tests/crm-tarjeta-personalizable.test.ts.
+- «Tipo de etapa» (Etapa / Reunión / Nutrición) en el «⋯» y el clic derecho de cada columna, con lo que pasa antes de
+  cambiarlo; no lo llevan la entrada, el cierre ni las terminales. tests/crm-tipo-etapa.test.ts.
+- «Asignar evento»: crear (y asignar), editar nombre y duración, y conectar Calendly o Cal.com ahí mismo.
+  tests/crm-eventos-crear.test.ts.
+- La criatura de MaKo (la estrella) abajo a la izquierda y la barra que se abre a la izquierda, pegada a la sidebar medida.
+- Clientes y el Plan (con un agente, `06050cd20` y `a847aaed4`): las mismas plantillas (7 cada uno), «Personalizar
+  tarjetas» en el «⋯» y el clic derecho, «Nuevo cliente» / «Nueva tarea» al «⋯» de la columna.
+  tests/clientes-tarjeta-plantillas.test.ts y tests/plan-tarjeta-plantillas.test.ts.
+- API de MaKo: `personalizar_tarjetas_crm`, `cambiar_tipo_etapa`, `crear_evento_agenda`, `editar_evento_agenda`,
+  `ver_tarjeta_clientes`, `personalizar_tarjetas_clientes`, `ver_tarjeta_plan` y `personalizar_tarjetas_plan`.
+  docs/api-mako.md y el snapshot, regenerados.
+
+**No visto en pantalla:** el disco C: tenía 1,3 GB libres y la RAM 1,4 GB: no entra un build parcial (pide copiar
+`node_modules`). Se mira al desplegar, en el ws3: /crm (el «⋯» de una columna, clic derecho en una tarjeta, «⋯» ›
+«Personalizar tarjetas», «Tipo de etapa», «Asignar evento» de una reunión, la estrella abajo a la izquierda),
+/customer-success y /plan (el segmento y «Personalizar tarjetas»). Tipos: el tsc acotado lo cortó el vigía de RAM.
+
+**Sin hacer, con el archivo:**
+- Que lo escrito en la criatura vaya al «Cerebro» del negocio y no al hilo del CRM. El chat «Ops Center» armó la pieza
+  `MakoEnLaTab` (con `arriba` y `aviso`; `6f149d947` subiendo el 22/10 a la mañana). En cuanto esté en main, en una tanda
+  aparte: cambiar app/crm/mako-crm/PanelMakoCrm.tsx por `<MakoEnLaTab tab="CRM" arriba={sugerencias} aviso={n} />`. No
+  armar otra en app/_chat/.
+- Google Calendar en «Asignar evento»: su API no expone las páginas de reserva. **Decisión de Martín** (C1 de
+  docs/pedidos-crm.md): una regla por título + un barrido del calendario, o esperar a Google.
+- El teléfono sigue los datos de la tarjeta pero no la forma (app/m/crm/TableroCrm.tsx dibuja filas).
+- «Sin avance» en Clientes también esconde «Pago rechazado» (vive en la barra): **decisión de producto** (docs/hallazgos-customer-success.md).
+- El teléfono no lee la elección en Clientes ni en el Plan (app/m/cs/CustomerSuccessM.tsx, app/m/plan/ListaPlan.tsx); la ficha
+  de un cliente y /admin usan la tarjeta de siempre (FichaCliente.tsx, AdminView.tsx).
+- `personalizar_tarjetas_crm` (lib/api-mako/areas/crm.run.ts) tiene su copia de la lógica; podría usar `pedidoDeTarjeta`
+  (lib/plantillas-tarjeta.ts), como Clientes y el Plan.
+- La Ticketera tiene «Tarjetas · Lista» como texto (app/tickets/decisiones/CambioVista.tsx): es un mazo, no un kanban; no
+  se tocó.
+
 ## 0-Ω15. 17/10/2026 (chat «Pendientes B2: CRM y clientes», cuenta `claude4`): los pendientes del CRM del 17/10
 
 Rama `pend-b2-1710` en `C:/dev/wt-pend-b2`. **Sin subir: la punta se le pasa al Cerebro.** El porqué de cada cosa, y

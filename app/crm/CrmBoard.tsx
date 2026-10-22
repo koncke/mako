@@ -73,6 +73,8 @@ import { ImportarLeadsModal } from './ImportarLeadsModal';
 import { EtapasModal } from './EtapasModal';
 import { TraerDeOtroProducto } from './TraerDeOtroProducto';
 import { CampanasModal } from './CampanasModal';
+import { TipoEtapaModal } from './TipoEtapaModal';
+import { NOMBRE_TIPO_ETAPA, columnaConTipo, tipoDeColumna } from '@/lib/etapa-reunion';
 import { EventosDeEtapaModal } from './EventosDeEtapaModal';
 import { FlechaDerechaIcon, FlechaIzquierdaIcon } from './iconos';
 import { ExportarLeadsModal } from './ExportarLeadsModal';
@@ -95,7 +97,7 @@ import { SenalesMetaChips } from './MoverEtapaConfirm';
 import { coincideBusqueda } from '@/lib/buscar-texto';
 import type { FunnelResumen } from '@/lib/funnel-fila';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
-import { LogoMeet, LogoMeta } from '@/app/_components/ServicioVisual';
+import { LogoMeta } from '@/app/_components/ServicioVisual';
 import { openCalendlyEn } from './calendly-widget';
 import {
   AccionesHeader,
@@ -130,8 +132,9 @@ import { FUNNEL_DEL_NEGOCIO, esLote, itemsCrm, opcionesCrm, tituloCrm, type Cont
 import { useEtiquetas, type Etiqueta } from '@/app/_components/etiquetas-cliente';
 import { ModalLlevarAPartners } from '@/app/partners/LlevarAPartners';
 import { EstiloTarjetas, FichaRapida, TarjetaDestacada, TarjetaPersona } from '@/app/_ui/TarjetaKanban';
-import { CAMPOS_TARJETA_DEFAULT, FONDO_COLUMNA, insigniaDeCanal, plataDeLead, subtituloEnOrden, subtituloLead, type CampoTarjetaLead, type DisenoTarjeta } from '@/lib/tarjeta-kanban';
-import { CamposTarjetaModal } from './CamposTarjetaModal';
+import { CAMPOS_TARJETA_DEFAULT, CAMPOS_TARJETA_LEAD, FONDO_COLUMNA, NOMBRE_CAMPO_TARJETA, PLANTILLAS_TARJETA_LEAD, colorDeNombre, fechaReunionCorta, insigniaDeCanal, plataDeLead, subtituloEnOrden, subtituloLead, type CampoTarjetaLead, type DisenoTarjeta, type PlantillaTarjetaLead } from '@/lib/tarjeta-kanban';
+import { PersonalizarTarjetas } from '@/app/_ui/PersonalizarTarjetas';
+import { guardarCamposTarjetaAction } from './tarjeta-campos-actions';
 import { avisoAlQuitarEtapa } from './aviso-quitar-etapa';
 
 const MONO = "'Geist Mono', monospace";
@@ -423,6 +426,7 @@ export function CrmBoard({
   puedeCrearCrm = false,
   camposTarjeta = CAMPOS_TARJETA_DEFAULT,
   disenoTarjeta = 'completa',
+  plantillasTarjeta = [],
   camposGuardables = false,
 }: {
   leads: CrmLead[];
@@ -477,8 +481,10 @@ export function CrmBoard({
   puedeCrearCrm?: boolean;
   /** Qué datos muestra la tarjeta de un lead para quien mira (20/10/2026; lib/tarjeta-kanban → CAMPOS_TARJETA_LEAD). */
   camposTarjeta?: readonly CampoTarjetaLead[];
-  /** Con qué diseño (Completa, Compacta, Con avance). */
+  /** Con qué forma (Completa, Compacta, Con avance, Monto grande, Próxima reunión, Con portada). */
   disenoTarjeta?: DisenoTarjeta;
+  /** Las plantillas PROPIAS de quien mira (21/10/2026; las de fábrica son PLANTILLAS_TARJETA_LEAD). */
+  plantillasTarjeta?: readonly PlantillaTarjetaLead[];
   /** ¿Se puede guardar? (sin fila propia en `usuarios`, vale sólo en esta pestaña). */
   camposGuardables?: boolean;
 }) {
@@ -1817,6 +1823,8 @@ export function CrmBoard({
   const [campanasAbierto, setCampanasAbierto] = useState(false);
   // «Asignar evento» de una etapa de reunión (16/10/2026): qué evento de Calendly o Cal.com cae en ella.
   const [eventoDe, setEventoDe] = useState<{ etapa: string; nombre: string } | null>(null);
+  // «Tipo de etapa» de una columna (21/10/2026): Etapa / Reunión / Nutrición, con lo que pasa al cambiarlo (./TipoEtapaModal.tsx).
+  const [tipoDe, setTipoDe] = useState<string | null>(null);
   // El nombre que se acaba de escribir en el pop-up de etapas, por embudo, hasta que llegue la lista nueva del
   // server: el desplegable lo dibuja al instante (16/10/2026). Cuando `funnels` cambia, manda el server.
   const [nombresLocales, setNombresLocales] = useState<Record<number, string>>({});
@@ -2029,6 +2037,7 @@ export function CrmBoard({
   // LA TARJETA PERSONALIZADA (20/10/2026): qué datos ve quien mira. Cambia en el acto desde «Personalizar tarjetas».
   const [campos, setCampos] = useState<readonly CampoTarjetaLead[]>(camposTarjeta);
   const [diseno, setDiseno] = useState<DisenoTarjeta>(disenoTarjeta);
+  const [plantillas, setPlantillas] = useState<readonly PlantillaTarjetaLead[]>(plantillasTarjeta);
   const [personalizando, setPersonalizando] = useState(false);
   const cerrarPersonalizar = useCallback(() => setPersonalizando(false), []);
   // «Próximo» arranca PLEGADO y lo abre el ícono del calendario (18/10/2026, Martín, pt 8).
@@ -2398,7 +2407,7 @@ export function CrmBoard({
       return {
         leadId: null, colKey: c.key,
         ctx: {
-          sobre: 'columna', mover: seArrastraCol(c), entrada: c.kind === 'entrada',
+          sobre: 'columna', mover: seArrastraCol(c), entrada: c.kind === 'entrada', reunion: c.kind === 'reunion', tipo: columnaConTipo(c),
           // La MISMA condición que el renglón del «⋯» (y su test, tests/crm-curso-al-ganar.test.ts).
           curso: cursoAlGanar && terminalEstadoFor(c.key) === 'ganado' ? cursoPrendido : null,
           borrable: colsBorrables.has(c.key),
@@ -2482,11 +2491,15 @@ export function CrmBoard({
       case 'lote_funnel': if (valor) manijaLote.current?.agregarAFunnel(valor === FUNNEL_DEL_NEGOCIO ? null : Number(valor)); return;
       case 'lote_limpiar': limpiarSel(); return;
       case 'lote_eliminar': manijaLote.current?.eliminar(); return;
-      // El «＋ Nuevo lead» del carril de esa columna, por el mismo camino (`altaPendiente`).
+      case 'personalizar_tarjeta':
+      case 'personalizar_tarjetas': setPersonalizando(true); return;
+      // El «Nuevo lead» del «⋯» de esa columna, por el mismo camino (`altaPendiente`).
       case 'col_nuevo_lead': if (c) { setAltaPendiente(null); setNuevoLead({ etapa: c.key }); } return;
       case 'col_izquierda': if (c) moverCol(c.key, -1); return;
       case 'col_derecha': if (c) moverCol(c.key, 1); return;
       case 'col_campanas': setCampanasAbierto(true); return;
+      case 'col_evento': if (c) setEventoDe({ etapa: c.key, nombre: c.label }); return;
+      case 'col_tipo': if (c) setTipoDe(c.key); return;
       case 'col_curso_prender': void cambiarCurso(true); return;
       case 'col_curso_apagar': void cambiarCurso(false); return;
       case 'col_renombrar': if (c) setRenombrando(c.key); return;
@@ -2717,6 +2730,10 @@ export function CrmBoard({
                       },
                     ],
                   }] : []),
+                  // «Quiero que elimines el botón de "nuevo lead" de donde está en las columnas y lo pongas dentro de los 3
+                  // puntos de cada columna» (Martín, 21/10/2026). Era un placeholder punteado arriba de cada carril
+                  // (29/09). Sigue entrando por el MISMO camino (`setNuevoLead({ etapa })` → `altaPendiente` → `handleDrop`).
+                  { value: 'nuevo', label: 'Nuevo lead', icono: 'persona-mas' as const },
                   // «En la opción de los 3 puntos de "Lead entrante" debería estar la opción
                   // para asignar una campaña» (Martín, 05/10/2026). Sólo en la ENTRADA: es la
                   // etapa por la que entra un lead de Meta, y es el mismo lugar donde vive la
@@ -2726,7 +2743,13 @@ export function CrmBoard({
                   ...(c.kind === 'entrada' ? [{ value: 'campanas', label: 'Asignar campañas', icono: <LogoMeta size={17} /> }] : []),
                   // «Falta la misma opción para las etapas de reunión "Asignar evento" con el logo de Meet» (Martín,
                   // 16/10/2026): el evento de agenda cuyas reservas caen en esta etapa (./EventosDeEtapaModal.tsx).
-                  ...(c.kind === 'reunion' ? [{ value: 'evento', label: 'Asignar evento', icono: <LogoMeet size={17} /> }] : []),
+                  // El ícono, desde el 21/10/2026, es el calendario de línea de la casa (`evento`) y no el logo de Meet a color:
+                  // «no me gusta que tenga color, un ícono más simple, que se entienda» (Martín).
+                  ...(c.kind === 'reunion' ? [{ value: 'evento', label: 'Asignar evento', icono: 'evento' as const }] : []),
+                  // «En cada columna, a excepción de las que ya sabes que no deberían cambiar, debes poner en los 3 puntos una
+                  // opción de "Tipo de etapa"» (Martín, 21/10/2026). Las que no cambian: la entrada, el cierre y las terminales
+                  // (`columnaConTipo`, lib/etapa-reunion.ts; el server lo vuelve a mirar en `cambiarTipo`).
+                  ...(columnaConTipo(c) ? [{ value: 'tipo', label: 'Tipo de etapa', icono: 'etapa' as const }] : []),
                   // «Automatizar la invitación al curso cuando un lead cae a Ganado... Pero que sea
                   // opcional» (Martín, 07/10/2026). En Ganado, que es donde se ve a quién le llega, y
                   // sólo si el producto tiene clases (sin curso no hay a qué invitar).
@@ -2763,8 +2786,10 @@ export function CrmBoard({
                   ...(colsBorrables.has(c.key) ? [{ value: 'eliminar', label: 'Eliminar etapa', icono: 'borrar' as const }] : []),
                 ]}
                 onChange={(v) => {
+                  if (v === 'nuevo') { setAltaPendiente(null); setNuevoLead({ etapa: c.key }); return; }
                   if (v === 'campanas') { setCampanasAbierto(true); return; }
                   if (v === 'evento') { setEventoDe({ etapa: c.key, nombre: c.label }); return; }
+                  if (v === 'tipo') { setTipoDe(c.key); return; }
                   if (v === 'curso') { void cambiarCurso(!cursoPrendido); return; }
                   if (v === 'renombrar') { setRenombrando(c.key); return; }
                   if (v === 'agregar') { void opEtapa({ op: 'agregar', despuesDe: c.key }); return; }
@@ -2775,25 +2800,12 @@ export function CrmBoard({
           )}
         </div>
         <div data-carril style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
-          {/* ⚠️ EL PLACEHOLDER PASA POR EL MISMO CAMINO QUE SOLTAR UNA TARJETA ACÁ.
-              Pedido de Martín (29/09/2026): «en todas las columnas, siempre al principio un
-              placeholder más finito que las cards normales, que diga Nuevo lead».
-
-              Por qué NO crea el lead «en esta etapa» de una: el alta no acepta una etapa a
-              propósito. Escribir `pipeline_stage` en el alta sería un SEGUNDO escritor que
-              saltea el choke point donde `setPipelineStage` audita TODO movimiento
-              (lib/leads.ts). Y hay columnas donde un alta a ciegas MIENTE: «Nutrición -
-              Manual» pide su plazo, las de reunión abren la agenda, Ganado escribiría una
-              venta sin monto que después cuentan los números de facturación, y Perdido un
-              lead nacido perdido sin motivo. Entrando por `handleDrop`, cada columna abre lo mismo
-              que abre al soltar una tarjeta ahí.
-
-              Apagado y se ilumina al pasar el cursor: el mismo molde que «＋ Nueva tarea» del
-              tablero del plan. El hover lo pone el velo de `.crm-hover button:hover`. */}
-          <button type="button" onClick={() => { setAltaPendiente(null); setNuevoLead({ etapa: c.key }); }}
-            title={`Cargar un lead en ${c.label}`}
-            style={{ flex: 'none', textAlign: 'left', border: '1px dashed var(--border-strong)', background: 'none', color: 'var(--faint)', borderRadius: 11, padding: '7px 13px', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}
-          >＋ Nuevo lead</button>
+          {/* ⚠️ ACÁ HUBO UN PLACEHOLDER «＋ Nuevo lead» arriba de cada carril (29/09/2026) y se fue el 21/10/2026 al «⋯» de
+              la columna: «Quiero que elimines el botón de "nuevo lead" de donde está en las columnas y lo pongas dentro de
+              los 3 puntos de cada columna» (Martín). El alta sigue pasando por el mismo camino que soltar una tarjeta
+              acá (`handleDrop`): el alta no acepta una etapa a propósito (sería un segundo escritor que saltea la
+              auditoría de `setPipelineStage`), y cada columna abre lo que abre al soltar (el plazo de «Nutrición -
+              Manual», la agenda de las de reunión, el monto de Ganado, el motivo de Perdido). */}
           {cards.map((l, iCard) => {
             const hueco = insTarjeta?.col === c.key && insTarjeta.idx === iCard;
             return (
@@ -2926,29 +2938,44 @@ export function CrmBoard({
     };
     // «Con avance» (como Clients): el paso del lead en el CAMINO del funnel (sin nutrición ni salidas).
     const iPaso = caminoTarjeta.findIndex((s) => s.key === etapa);
+    const plata = isGanado ? montoDeTarjeta(l).texto : plataDeLead({ ganado: false, ingresoEstimado: l.ingresoEstimado });
+    // LAS FORMAS DE LAS PLANTILLAS (21/10/2026): el dato que la forma pone GRANDE sale del subtítulo y de los chips, para
+    // no decirlo dos veces. Va aunque falte («Sin monto», «Sin agendar»): la forma promete ese lugar, y vacío se lee roto.
+    const enGrande: CampoTarjetaLead | null = dis === 'monto' ? 'plata' : dis === 'evento' ? 'agenda' : null;
+    const csChicos = enGrande ? cs.filter((c) => c !== enGrande) : cs;
+    const destacado = dis === 'monto'
+      ? { rotulo: isGanado ? 'Vendido' : 'Estimado', texto: plata ?? 'Sin monto', icono: 'sales' as const, ...(isGanado && plata ? { tono: 'bien' as const } : {}) }
+      : dis === 'evento'
+        ? { rotulo: 'Reunión', texto: l.fechaJ1 ? fechaReunionCorta(l.fechaJ1) : 'Sin agendar', icono: 'calendario' as const }
+        : null;
     return {
       alerta: overdueManual,
       sinCara: !cs.includes('foto'),
       compacta: dis === 'compacta',
-      subtitulo: subtituloEnOrden(cs, {
-        plata: isGanado ? montoDeTarjeta(l).texto : plataDeLead({ ganado: false, ingresoEstimado: l.ingresoEstimado }),
-        canal: l.canal,
-      }),
+      portada: dis === 'portada' ? colorDeNombre(l.name) : null,
+      destacado,
+      subtitulo: subtituloEnOrden(csChicos, { plata, canal: l.canal }),
       avance: dis === 'avance' && iPaso >= 0
         ? { pct: ((iPaso + 1) / caminoTarjeta.length) * 100, texto: `Paso ${iPaso + 1} de ${caminoTarjeta.length} · ${caminoTarjeta[iPaso].label}` }
         : null,
-      chips: <>{cs.map((c) => <Fragment key={c}>{chip(c)}</Fragment>)}</>,
+      chips: <>{csChicos.map((c) => <Fragment key={c}>{chip(c)}</Fragment>)}</>,
     };
   };
-  // La vista previa del pop-up: el primer lead del tablero, con lo que se está eligiendo.
+  // La vista previa del pop-up: un lead del tablero, con lo que se está eligiendo. Para «Monto grande» y «Próxima
+  // reunión», uno que TENGA ese dato si hay alguno: la galería tiene que mostrar la diferencia, no «Sin monto» ocho veces.
   const muestraTarjeta = leads[0] ?? null;
+  const muestraPara = (dis: DisenoTarjeta): CrmLead | null =>
+    (dis === 'evento' ? leads.find((l) => l.fechaJ1) : dis === 'monto' ? leads.find((l) => (l.ingresoEstimado ?? 0) > 0 || (l.monto ?? 0) > 0) : null)
+      ?? muestraTarjeta;
 
   return (
     // ⚠️ ARRIBA, 16 Y NO 34 (punto 23 del 12/10/2026: «Sube la topbar del todo»). Con el título
     // fuera ya no hay header: la primera fila es la barra, y los 34 px de arriba eran el aire de
     // un título que no está. El esqueleto (app/crm/loading.tsx) lleva el mismo número.
-    // El padding derecho deja el lugar de la barra de MaKo cuando está abierta (`--ancho-panel-mako`, la prende esa barra).
-    <main className="crm-hover" style={{ flex: 1, minWidth: 0, padding: '16px calc(44px + var(--ancho-panel-mako, 0px)) 60px 44px', display: 'flex', flexDirection: 'column' }} onContextMenu={alClicDerecho}>
+    // El padding IZQUIERDO deja el lugar de la barra de MaKo cuando está abierta (`--ancho-panel-mako`, la prende esa
+    // barra): desde el 21/10/2026 se abre a la izquierda («el chat de MaKo en las otras tabs se debe abrir siempre a la
+    // izquierda»).
+    <main className="crm-hover" style={{ flex: 1, minWidth: 0, padding: '16px 44px 60px calc(44px + var(--ancho-panel-mako, 0px))', display: 'flex', flexDirection: 'column' }} onContextMenu={alClicDerecho}>
       <CrmToolbarStyles />
       <EstiloTarjetas />
       {/* Conectar Google desde el reagendar abre el modal acá (14/10/2026, «para una integración jamás se debe salir de
@@ -3331,6 +3358,23 @@ export function CrmBoard({
         <EventosDeEtapaModal funnelId={(funnelActivo ?? funnels.find((f) => f.esDefault)?.id) as number}
           etapa={eventoDe.etapa} etapaNombre={eventoDe.nombre} onCerrar={() => setEventoDe(null)} />
       )}
+      {tipoDe && (() => {
+        const col = columnasKanban.find((s) => s.key === tipoDe);
+        if (!col) return null;
+        const previo = tipoDeColumna(col);
+        return (
+          <TipoEtapaModal columna={col} recorrido={columnasKanban.filter((s) => (s.band ?? 'pipeline') === 'pipeline')}
+            leads={leads.filter((l) => effStage(l) === col.key).length} funnelId={funnelActivo ?? null}
+            onCerrar={() => setTipoDe(null)}
+            onCambiar={async (tipo) => {
+              // La MISMA op que el desplegable del pop-up de etapas, con su «Deshacer» (vuelve al tipo de antes).
+              const r = await opEtapa({ op: 'tipo', key: col.key, tipo });
+              if (!r?.ok) return false;
+              mostrarAviso(`«${col.label}» es ${NOMBRE_TIPO_ETAPA[tipo]}`, () => { void opEtapa({ op: 'tipo', key: col.key, tipo: previo }); });
+              return true;
+            }} />
+        );
+      })()}
       {campanasAbierto && (
         <CampanasModal
           // ⚠️ EL PRINCIPAL VA COMO `null`: `funnelActivo` puede traer su id numérico, y con
@@ -4117,13 +4161,25 @@ export function CrmBoard({
           onCancel={() => setErrorEtapa(null)}
         />
       )}
+      {/* «Personalizar tarjetas» (el «⋯» de la barra, el clic derecho en una tarjeta o en el fondo): la pieza de TODOS los
+          tableros (app/_ui/PersonalizarTarjetas.tsx), con las plantillas del CRM y la tarjeta de verdad (`propsDeTarjeta`). */}
       {personalizando && (
-        <CamposTarjetaModal campos={campos} diseno={diseno} guardable={camposGuardables}
-          onCambio={(cs, d) => { setCampos(cs); setDiseno(d); }} onCerrar={cerrarPersonalizar}
-          vistaPrevia={muestraTarjeta ? (cs, d) => (
-            <TarjetaPersona nombre={muestraTarjeta.name} foto={muestraTarjeta.foto} insignia={insigniaDeCanal(muestraTarjeta.canal)}
-              {...propsDeTarjeta(muestraTarjeta, cs, d)} pildora={{ texto: 'Ver info', onClick: () => {} }} />
-          ) : null} />
+        <PersonalizarTarjetas<DisenoTarjeta, CampoTarjetaLead>
+          fabrica={PLANTILLAS_TARJETA_LEAD} propias={plantillas} forma={diseno} campos={campos}
+          catalogo={CAMPOS_TARJETA_LEAD} nombreCampo={NOMBRE_CAMPO_TARJETA} guardable={camposGuardables}
+          guardar={async (d, cs, ps) => {
+            const r = await guardarCamposTarjetaAction(cs, d, ps);
+            return r.ok ? { ok: true } : r;
+          }}
+          onCambio={(d, cs, ps) => { setCampos(cs); setDiseno(d); setPlantillas(ps); }} onCerrar={cerrarPersonalizar}
+          vistaPrevia={muestraTarjeta ? (d, cs) => {
+            const m = muestraPara(d) ?? muestraTarjeta;
+            return (
+              <TarjetaPersona nombre={m.name} foto={m.foto} insignia={insigniaDeCanal(m.canal)}
+                {...propsDeTarjeta(m, cs, d)} pildora={{ texto: 'Ver info', onClick: () => {} }} />
+            );
+          } : null}
+          sinMuestra="Carga un lead para ver cómo queda." ayudaDatos="Arrástralos para acomodarlos. El nombre va siempre." />
       )}
     </main>
   );

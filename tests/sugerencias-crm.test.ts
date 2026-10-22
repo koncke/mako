@@ -457,21 +457,27 @@ test('el chat: permiso del CRM, el hilo sólo al abrir, y el rincón marcado', (
     assert.ok(tramos.length >= 2, `${nombre}: no encontré los fetch`);
     for (const t of tramos) assert.match(t.slice(0, 600), /AbortSignal\.timeout\(/, `${nombre}: un fetch sin corte`);
   }
-  // La BARRA FIJA A LA DERECHA desde el 20/10/2026 (regla del 18/10: «Editar = el patrón de Web Generator»; y a la
-  // izquierda, con `left: RAIL + 20`, quedaba DEBAJO de la sidebar abierta: Martín no la veía). Plegada, una pestaña en
-  // el borde derecho a media altura; abierta, la barra entera a la derecha, y el tablero le deja el lugar.
-  // Probado rompiéndolo (20/10/2026): el PanelMakoCrm de antes (a la izquierda, sobre RAIL) → 1 fallo.
+  // A LA IZQUIERDA desde el 21/10/2026 (Martín: «el ícono de la criatura abajo a la izquierda, como "A revisar"» y «el
+  // chat de MaKo en las otras tabs se debe abrir siempre a la izquierda»), con el borde de la sidebar MEDIDO: el 20/10
+  // el botón iba en `left: RAIL + 20` y la sidebar abierta lo tapaba. Abierta, la barra a la izquierda y el tablero le
+  // deja el lugar por su padding izquierdo.
+  // Probado rompiéndolo (21/10/2026): el botón a la derecha otra vez → 1 fallo; `left: RAIL + 20` → 1 fallo.
   assert.match(panel, /<button type="button" data-boton-mako-crm onClick=\{abrir\}/);
-  assert.match(panel, /position: 'fixed', right: 0, top: '50%', transform: 'translateY\(-50%\)'/);
-  assert.match(panel, /<aside aria-label="MaKo" data-panel-mako-crm\n\s*style=\{\{\n\s*position: 'fixed', top: 'var\(--barra-agencia, 0px\)', right: 0, bottom: 0/);
+  assert.match(panel, /position: 'fixed', left: borde \+ DESDE_ABAJO, bottom: DESDE_ABAJO, zIndex: Z_PANEL,/);
+  assert.match(panel, /<aside aria-label="MaKo" data-panel-mako-crm\n\s*style=\{\{\n\s*position: 'fixed', top: 'var\(--barra-agencia, 0px\)', left: borde, bottom: 0/);
+  assert.match(panel, /const sb = document\.querySelector<HTMLElement>\('\[data-sidebar\]'\);/, 'el borde sale de la sidebar medida');
+  assert.match(panel, /new ResizeObserver\(medir\)/, 'plegar la sidebar corre el botón');
+  assert.match(leer('app/_components/Sidebar.tsx'), /<aside data-sidebar /, 'la marca que se mide');
   assert.doesNotMatch(panel, /\bRAIL\b/, 'el panel volvió a medirse con el riel de la sidebar plegada');
   // Abre sola en una pantalla ancha y recuerda si la plegaron; abierta, el tablero le deja el lugar.
   assert.match(panel, /pref === '1' \|\| \(pref == null && window\.innerWidth >= ANCHO_PARA_ABRIR\)/);
-  assert.match(leer('app/crm/CrmBoard.tsx'), /padding: '16px calc\(44px \+ var\(--ancho-panel-mako, 0px\)\) 60px 44px'/);
+  assert.match(leer('app/crm/CrmBoard.tsx'), /padding: '16px 44px 60px calc\(44px \+ var\(--ancho-panel-mako, 0px\)\)'/);
   assert.doesNotMatch(panel, /data-esquina-ocupada/);
-  // Y con el MUÑECO del CRM, no la estrella (16/10/2026). Probado rompiéndolo: volver a <MakoLogo> → 1 fallo.
-  assert.match(panel, /<Muneco titulo="CRM" animo="despierto" size=\{LADO_LOGO\} \/>/);
-  assert.doesNotMatch(panel, /<MakoLogo/);
+  // Y con la ESTRELLA de MaKo (21/10/2026: «los iconos de las criaturas siempre debe ser el icono de MaKo»); era el
+  // muñeco del CRM desde el 16/10. Probado rompiéndolo: volver a `titulo="CRM"` → 1 fallo.
+  assert.match(panel, /<Muneco titulo="Cerebro" animo="despierto" size=\{LADO_LOGO - 4\} \/>/);
+  assert.doesNotMatch(panel, /<Muneco titulo="CRM"/);
+  assert.doesNotMatch(panel, /<MakoLogo/);
   // Nada de next/link: los links con el `?ws=` de la casa.
   assert.ok(!/from 'next\/link'/.test(panel + chat));
 });

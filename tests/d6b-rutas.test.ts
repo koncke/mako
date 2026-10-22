@@ -154,6 +154,8 @@ const FUERA_DE_D6B: ReadonlyArray<{ prefijo: string; porque: string; salvo?: str
  * se vuelve a mirar: si ahora le pide algo a una IA, va adentro de `conSuIADelNegocio`.
  */
 const SIN_IA: ReadonlyArray<{ unidad: string; usa: string[]; porque: string }> = [
+  // Cómo se ve la tarjeta de una tarea (21/10/2026, las plantillas de tarjeta): de quien mira, en `usuarios.perfil`.
+  { unidad: 'app/plan/board/tarjeta-actions.ts#guardarTarjetaPlanAction', usa: ['exigirSesion', 'getRolWsEfectivo', 'setTarjetaPlan'], porque: 'guarda cómo se ve la tarjeta de quien mira (usuarios.perfil): no le pide nada a una IA' },
   // El chat: abrir y listar las conversaciones (el turno, el POST, prende).
   // `claveDeAntes` (21/10/2026): de quién es un chat de antes que se sigue en el Ops Center; lee chart_sessions, ninguna IA. Las
   // marcas (lib/chat-mako-marcas-db.ts) y si ya tiene su IA (`negocioConSuIA`, `pcDe`: leen la base, no llaman a ninguna).

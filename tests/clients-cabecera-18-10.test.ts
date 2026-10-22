@@ -29,7 +29,9 @@ test('la cartera no repite el título de la tab', () => {
 test('sin el desplegable del servicio, y «Editar etapas» en los tres puntos', () => {
   const app = leer('app/customer-success/ClientesApp.tsx');
   assert.doesNotMatch(app, /<SelectorServicio\b/, 'volvió el desplegable del servicio: el de la cabecera ya elige');
-  assert.match(app, /accionesExtra=\{puedeEditarEtapas && servicio \? \[\{[\s\S]{0,200}label: 'Editar etapas'[\s\S]{0,120}onClick: \(\) => setEditandoEtapas\(true\)/,
+  // (21/10/2026) Los tres puntos son una LISTA desde que también llevan «Personalizar tarjetas» (sólo en el kanban):
+  // «Editar etapas» sigue igual, ahora como uno de sus renglones (tests/clientes-tarjeta-plantillas.test.ts).
+  assert.match(app, /accionesExtra=\{\[\s*\.\.\.\(puedeEditarEtapas && servicio \? \[\{[\s\S]{0,200}label: 'Editar etapas'[\s\S]{0,120}onClick: \(\) => setEditandoEtapas\(true\)/,
     'editar las etapas tiene que seguir a mano');
 });
 

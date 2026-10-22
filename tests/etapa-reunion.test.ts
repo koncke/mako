@@ -87,13 +87,19 @@ test('la action lo decide del lado del server, con la misma regla', () => {
   const j = src.indexOf("} else if (op.op === 'tipo') {");
   assert.ok(j > 0, 'falta la op tipo en editarEtapaAction');
   const ramaTipo = src.slice(j, src.indexOf("} else if (op.op === 'agregar') {", j));
-  assert.match(ramaTipo, /if \(!TIPOS_ETAPA\.includes\(op\.tipo\)\) return \{ ok: false/, 'un tipo inventado se guardaría');
+  // Desde el 21/10/2026 el cuerpo vive en lib/etapa-tipo-server.ts (`cambiarTipoDeEtapa`), que usa también la API de
+  // MaKo (`cambiar_tipo_etapa`): la action lo llama, y las guardas viven allá.
+  assert.match(ramaTipo, /const r = await cambiarTipoDeEtapa\(funnelId \?\? null, op\.key, op\.tipo, op\.at\);/);
+  assert.match(ramaTipo, /if \(!r\.ok\) return r;/);
+  const srv = sinComentarios(leer('lib/etapa-tipo-server.ts'));
+  assert.match(srv, /if \(!TIPOS_ETAPA\.includes\(tipo\)\) return \{ ok: false/, 'un tipo inventado se guardaría');
+  assert.match(srv, /if \(actual\.origen === 'error'\) return \{ ok: false/, 'con la lectura caída pisaría el funnel real con el genérico');
   // Desde el sexto feedback del 12/10/2026 el tipo decide la BANDA: lo resuelve `cambiarTipo`
   // (lib/etapa-banda.ts), que valida con `puedeTenerTipo` (la entrada, el cierre y las terminales no
   // llevan tipo; el pago sí, y conserva el suyo). Su comportamiento se prueba en
   // tests/crm-etapas-banda-12-10.test.ts.
-  assert.match(ramaTipo, /const r = cambiarTipo\(\{ pipeline, suppressed: actual\.suppressed, labels, ordenNutricion: ordenAhora \}, op\.key, op\.tipo, at\);/);
-  assert.match(ramaTipo, /if \(!r\.ok\) return r;/);
+  assert.match(srv, /const r = cambiarTipo\(\{ pipeline: actual\.pipeline, suppressed: actual\.suppressed, labels: actual\.labels, ordenNutricion: ordenAhora \}, key, tipo,/);
+  assert.match(srv, /if \(!r\.ok\) return r;/);
   assert.match(sinComentarios(leer('lib/etapa-banda.ts')), /if \(!puedeTenerTipo\(enPipeline\)\) return \{ ok: false/, 'la entrada y el cierre perderían su lugar');
 });
 

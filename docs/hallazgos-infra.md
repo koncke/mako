@@ -7542,6 +7542,16 @@ vuelve a hacer fila (al final: cedió el turno), y con el turno en la mano confi
 Y una baja: una espera CORTA (≤ 30 s, los tipos del `--rapido`) se hace con el candado en la mano, para no perder el lugar por 20 s.
 **La regla de oficio:** una función que espera un recurso y tiene otro tomado se prueba con una RAM y una fila de MENTIRA y se mira EN QUÉ MOMENTO suelta y retoma (hay 14 pruebas, y 22 roturas dieron rojo; tres se cuelgan en vez de fallar). Y un arreglo de una espera se corre de verdad antes de darlo por bueno: el primer defecto salió del primer VERDE.
 
+## El tsc «acotado» no es acotado si lo cambiado arrastra al Plan (21/10/2026)
+
+Al validar las plantillas de tarjeta en Clientes y el Plan: `BoardShell.tsx`, `ClientesApp.tsx` y
+app/customer-success/pantalla.tsx arrastran ~1.400 archivos del proyecto (FichaCliente → PlanBoard → BoardShell). Con
+`BoardShell` en `files`, tsc se quedó sin memoria a 1,9 y 2,2 GB (salida 134) y a 2,3–2,5 GB lo mató el vigía (salida 1
+sin texto). Lo que sí sirvió: grupos chicos sin esos archivos, y para ellos un tsc con `noResolve` (sólo sintaxis y
+nombres; los errores de import que da son ruido). El tipo de verdad queda para `antes-de-subir` o Actions.
+Y `next-env.d.ts` no existe en un worktree recién creado: ponerlo en `files` corta con TS6053 antes de chequear nada.
+*21/10/2026, chat «CRM» (claude3).*
+
 ## En la corrida COMPARTIDA, un test que tira al CARGAR da verde: se cuentan los de arriba y el resto no corre (22/10/2026, Automations)
 
 **Síntoma:** tests/nutricion-paso-accion.test.ts estuvo roto en main al menos desde el 21/10 sin que ningún VERDE ni
@@ -7593,3 +7603,18 @@ consultas por turno. `credenciales` ×36 (20 desde `provsGratisDePlataforma`, li
 `saldoOpenRouter`, lib/openrouter-saldo.ts), `app_settings` ×15-22, y la sesión se resuelve 8 veces. En una ruta, el
 `cache` de React NO deduplica (sólo dentro de un render de servidor). Con ~97 ms por ida serían 5-9 s por turno en Vercel:
 eso es una deducción del código, no se midió en Vercel. Pendiente, de ai-cheap y de la sesión, no de Offer.
+
+## Un test `todo` que falla sale ROJO cuando OTRO archivo falla de verdad (22/10/2026)
+
+- **Síntoma:** el VERDE marcó ROJO `tests/doer-recetas-video-imagen.test.ts`, y aislado da 5 / 0.
+- **Causa:** `leerResultado` (scripts/tests-afectados.mjs) toma como rojo todo archivo con una línea `test at X.test.ts`.
+  El resumen «✖ failing tests:» de node también lista los `todo` que fallan, que no cuentan como falla. Mientras todo pasa,
+  el código de salida es 0 y no se lee esa lista. Cuando otro archivo del mismo proceso falla de verdad, el `todo` entra
+  como rojo, también en la repetición AISLADA, que corre los rojos juntos.
+- **La regla:** ante un ROJO doble, buscar primero el archivo que falla con `ℹ fail` mayor que 0 al correrlo solo. El que
+  aislado da 0 y sólo lista un `todo` en «failing tests» se va solo cuando se arregla el otro. Sin arreglar en el script:
+  `leerResultado` debería ignorar los bloques marcados `# TODO`.
+
+**Vive en:** scripts/tests-afectados.mjs (`leerResultado`, la repetición AISLADA de los rojos del proceso compartido)
+*22/10/2026, chat «CRM» (claude3).*
+

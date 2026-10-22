@@ -95,9 +95,9 @@ test('sin el título «CRM» con su ícono, y la barra arriba del todo (el esque
   const b = codigo('app/crm/CrmBoard.tsx');
   assert.doesNotMatch(b, />CRM<\/h1>/, 'volvió el título');
   assert.doesNotMatch(b, /<Icon name="crm"/, 'volvió el ícono del título');
-  // Desde el 20/10/2026 el lado derecho suma el ancho de la barra de MaKo cuando está abierta (en 0 es el mismo
-  // 16 / 44 / 60 del esqueleto): tests/sugerencias-crm.test.ts.
-  assert.match(b, /<main className="crm-hover" style=\{\{ flex: 1, minWidth: 0, padding: '16px calc\(44px \+ var\(--ancho-panel-mako, 0px\)\) 60px 44px'/);
+  // Desde el 20/10/2026 un lado suma el ancho de la barra de MaKo cuando está abierta (en 0 es el mismo 16 / 44 / 60
+  // del esqueleto); desde el 21/10 es el IZQUIERDO (la barra se abre a la izquierda): tests/sugerencias-crm.test.ts.
+  assert.match(b, /<main className="crm-hover" style=\{\{ flex: 1, minWidth: 0, padding: '16px 44px 60px calc\(44px \+ var\(--ancho-panel-mako, 0px\)\)'/);
   const l = codigo('app/crm/loading.tsx');
   assert.match(l, /padding: '16px 44px 60px'/, 'el esqueleto tiene otro aire que el tablero: salta al cargar');
   assert.doesNotMatch(l, /<header/, 'el esqueleto todavía dibuja el header que se fue');

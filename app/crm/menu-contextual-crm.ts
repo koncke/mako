@@ -35,15 +35,17 @@ import { ICONO_FUNNEL } from '@/app/_ui/icono-funnel';
 export type IdOpcionCrm =
   // un lead
   | 'abrir' | 'mover_etapa' | 'whatsapp' | 'copiar_telefono' | 'copiar_email' | 'seleccionar' | 'quitar_seleccion' | 'eliminar'
+  // la TARJETA del Kanban (21/10/2026): el pop-up de «Personalizar tarjetas» del «⋯» de la barra
+  | 'personalizar_tarjeta'
   // MaKo Partners (17/10/2026): sólo el admin de una agencia
   | 'partners_llevar' | 'partners_ver'
   // la selección (las de app/crm/AccionesLoteLeads.tsx)
   | 'lote_etapa' | 'lote_etiqueta' | 'lote_closer' | 'lote_setter' | 'lote_funnel' | 'lote_limpiar' | 'lote_eliminar'
-  // una columna (las del «⋯» de su cabecera, más el «＋ Nuevo lead» de su carril)
-  | 'col_nuevo_lead' | 'col_izquierda' | 'col_derecha' | 'col_campanas' | 'col_curso_prender' | 'col_curso_apagar'
+  // una columna (las del «⋯» de su cabecera; «Nuevo lead» vive ahí desde el 21/10/2026)
+  | 'col_nuevo_lead' | 'col_izquierda' | 'col_derecha' | 'col_campanas' | 'col_evento' | 'col_tipo' | 'col_curso_prender' | 'col_curso_apagar'
   | 'col_renombrar' | 'col_agregar' | 'col_eliminar'
   // el fondo (las del «⋯» de la barra)
-  | 'nuevo_lead' | 'importar' | 'exportar' | 'editar_etapas';
+  | 'nuevo_lead' | 'importar' | 'exportar' | 'editar_etapas' | 'personalizar_tarjetas';
 
 /** Dónde cayó el clic y qué se sabe ahí. Lo arma la pantalla; acá no se lee el DOM. */
 export type ContextoCrm =
@@ -75,6 +77,10 @@ export type ContextoCrm =
     mover: boolean;
     /** Es la etapa de entrada: ahí van las campañas de Meta. */
     entrada: boolean;
+    /** Es una etapa de reunión: ahí se asigna el evento de agenda cuyas reservas caen en ella. */
+    reunion?: boolean;
+    /** Lleva «Tipo de etapa» (21/10/2026; `columnaConTipo`, lib/etapa-reunion.ts): ni la entrada, ni el cierre, ni las terminales. */
+    tipo?: boolean;
     /** La invitación al curso al ganar: `null` = no se ofrece (no es Ganado, o el producto no tiene clases). */
     curso: boolean | null;
     /** Lo que el server sabe borrar (`colsBorrables`). */
@@ -100,7 +106,7 @@ function compactar(xs: ReadonlyArray<IdOpcionCrm | null>): Array<IdOpcionCrm | n
 /** Las opciones, en orden. `null` = un separador. Vacío = no hay menú propio (sale el del navegador). */
 export function opcionesCrm(c: ContextoCrm): Array<IdOpcionCrm | null> {
   if (c.sobre === 'fondo') {
-    return compactar(['nuevo_lead', null, 'importar', 'exportar', null, 'editar_etapas', null, ...(c.seleccionados > 0 ? ['lote_limpiar' as const] : [])]);
+    return compactar(['nuevo_lead', null, 'importar', 'exportar', null, 'editar_etapas', 'personalizar_tarjetas', null, ...(c.seleccionados > 0 ? ['lote_limpiar' as const] : [])]);
   }
   if (c.sobre === 'columna') {
     return compactar([
@@ -111,6 +117,8 @@ export function opcionesCrm(c: ContextoCrm): Array<IdOpcionCrm | null> {
       'col_nuevo_lead',
       null,
       ...(c.entrada ? ['col_campanas' as const] : []),
+      ...(c.reunion ? ['col_evento' as const] : []),
+      ...(c.tipo ? ['col_tipo' as const] : []),
       ...(c.curso === null ? [] : [c.curso ? 'col_curso_apagar' as const : 'col_curso_prender' as const]),
       'col_renombrar',
       'col_agregar',
@@ -138,6 +146,10 @@ export function opcionesCrm(c: ContextoCrm): Array<IdOpcionCrm | null> {
     null,
     ...(c.partners === 'llevar' ? ['partners_llevar' as const] : c.partners === 'ver' ? ['partners_ver' as const] : []),
     null,
+    // «Si le doy click derecho a las cards, debería poder ver la opción de "Personalizar tarjeta"» (Martín, 21/10/2026).
+    // Sólo en la TARJETA: la fila de la lista no es una tarjeta.
+    ...(c.sobre === 'tarjeta' ? ['personalizar_tarjeta' as const] : []),
+    null,
     c.seleccionado ? 'quitar_seleccion' : 'seleccionar',
     null,
     'eliminar',
@@ -163,6 +175,7 @@ export const OPCION_CRM: Readonly<Record<IdOpcionCrm, { texto: string; icono: No
   seleccionar: { texto: 'Seleccionar', icono: 'check' },
   quitar_seleccion: { texto: 'Quitar de la selección', icono: 'quitar' },
   eliminar: { texto: 'Eliminar', icono: 'borrar', peligro: true },
+  personalizar_tarjeta: { texto: 'Personalizar tarjeta', icono: 'configurar' },
   lote_etapa: { texto: 'Mover a etapa', icono: 'etapa' },
   lote_etiqueta: { texto: 'Agregar etiqueta', icono: 'etiqueta-mas' },
   lote_closer: { texto: 'Asignar closer', icono: 'persona' },
@@ -175,6 +188,8 @@ export const OPCION_CRM: Readonly<Record<IdOpcionCrm, { texto: string; icono: No
   col_derecha: { texto: 'Mover a la derecha', icono: 'mover' },
   // «Asignar campañas» desde el 16/10/2026, como el «⋯» (que lleva el logo de Meta; acá van sólo los íconos de la casa).
   col_campanas: { texto: 'Asignar campañas', icono: 'anuncio' },
+  col_evento: { texto: 'Asignar evento', icono: 'evento' },
+  col_tipo: { texto: 'Tipo de etapa', icono: 'etapa' },
   col_curso_prender: { texto: 'Invitar al curso al ganar', icono: 'curso' },
   col_curso_apagar: { texto: 'Dejar de invitar al curso', icono: 'curso' },
   col_renombrar: { texto: 'Cambiar el nombre', icono: 'renombrar' },
@@ -184,6 +199,7 @@ export const OPCION_CRM: Readonly<Record<IdOpcionCrm, { texto: string; icono: No
   importar: { texto: 'Importar leads', icono: 'subir' },
   exportar: { texto: 'Exportar leads', icono: 'descargar' },
   editar_etapas: { texto: 'Editar las etapas', icono: 'etapa' },
+  personalizar_tarjetas: { texto: 'Personalizar tarjetas', icono: 'configurar' },
 };
 
 /**

@@ -37,6 +37,8 @@ import { conIconos, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { useFotoCliente } from './foto-cliente';
 import { ModalInvitar } from './curso/InvitarAlCurso';
 import { opcionesDeCursoEnTarjeta, type AccesoFicha, type AccesoInvitacion } from './curso-ficha-lectura';
+import { colorDeNombre } from '@/lib/tarjeta-kanban';
+import { CAMPOS_TARJETA_CLIENTE_DEFAULT, type CampoTarjetaCliente, type FormaTarjetaCliente } from '@/lib/tarjeta-clientes';
 
 /** El ícono de cada acción del menú de la tarjeta (sexta tanda, general 10). Las listas las arma
  *  `opcionesDeCursoEnTarjeta` (pura, con test) y esta tarjeta; el ícono es cosa de la pantalla. */
@@ -69,7 +71,7 @@ export type CursoDeTarjeta = {
   onAcceso: (a: AccesoFicha) => void;
 };
 
-export function ClienteCard({ c, n, trabajo, tableroOk, chipExtra, accionExtra, antesDelNombre, onAbrir, curso, onPermisos, avance }: {
+export function ClienteCard({ c, n, trabajo, tableroOk, chipExtra, accionExtra, antesDelNombre, onAbrir, curso, onPermisos, avance, forma = 'completa', campos = CAMPOS_TARJETA_CLIENTE_DEFAULT }: {
   c: ClienteCruce;
   /** Su número de cliente: «Cliente 1». No es el id del lead — ver `NumeroCliente`. */
   n: number;
@@ -115,6 +117,14 @@ export function ClienteCard({ c, n, trabajo, tableroOk, chipExtra, accionExtra, 
    * aviso en rojo (`avanceDeCliente`, ./aviso-tarjeta.ts). Lo arma el tablero, que sabe la etapa.
    */
   avance?: AvanceTarjeta | null;
+  /**
+   * «PERSONALIZAR TARJETAS» (21/10/2026, Martín: «la personalización de las tarjetas en clientes, plan, etc.»): con qué
+   * forma se dibuja y qué datos lleva, de quien mira (lib/tarjeta-clientes.ts). Ausentes = la de siempre, con todo.
+   * La MISMA traducción arma la tarjeta del tablero y la vista previa del pop-up (ClientesApp): si fueran dos, la vista
+   * previa podría prometer una tarjeta que el tablero no dibuja.
+   */
+  forma?: FormaTarjetaCliente;
+  campos?: readonly CampoTarjetaCliente[];
 }) {
   const nombre = c.nombre.trim() || 'Sin nombre';
   /** Su WhatsApp o su email, si nadie le eligió una foto (./foto-cliente.ts). */
@@ -146,23 +156,32 @@ export function ClienteCard({ c, n, trabajo, tableroOk, chipExtra, accionExtra, 
   //    `TarjetaEntidad` (portada arriba, pie de números), que sigue en /admin. Lo del tablero de trabajo (proyectos,
   //    tareas, recurrentes) pasa a un renglón de chips: «LOS TRES NÚMEROS O NINGUNO» sigue valiendo.
   const foto = (c.avatarUrl?.trim() || fotoAuto) || null;
+  // LO QUE ELIGIÓ QUIEN MIRA (21/10/2026), dato por dato: sin foto, sin la cara; sin empresa, sin subtítulo; sin avance,
+  // sin la barra (y entonces vuelve el chip de «hace cuánto», que la barra traía adentro); sin trabajo, sin el chip de
+  // los tres números. La forma: compacta, o la banda de color arriba con el color estable del nombre (la de /admin).
+  const conAvance = campos.includes('avance') ? (avance ?? null) : null;
+  const conTrabajo = campos.includes('trabajo');
   return (
     <>
     <TarjetaPersona
       nombre={nombre}
       foto={foto}
-      subtitulo={c.empresa?.trim() || `Cliente ${n}`}
+      subtitulo={campos.includes('empresa') ? (c.empresa?.trim() || `Cliente ${n}`) : undefined}
       antes={antesDelNombre}
       onClick={onAbrir}
       aria-label={`Abrir la ficha de ${nombre}`}
       pildora={{ texto: 'Ver info', onClick: onAbrir }}
-      avance={avance ?? null}
+      avance={conAvance}
+      sinCara={!campos.includes('foto')}
+      compacta={forma === 'compacta'}
+      portada={forma === 'portada' ? colorDeNombre(nombre) : null}
       chips={
         <>
-          {avance ? null : chipExtra}
+          {conAvance ? null : chipExtra}
           {/* ⚠️ LOS TRES NÚMEROS O NINGUNO. Cuando el tablero no se pudo leer, poner ceros sería afirmar que no tiene
-              trabajo — que es distinto de no haber podido mirar. */}
-          {tableroOk ? (
+              trabajo — que es distinto de no haber podido mirar. Y «No pude leer el tablero» sólo si el dato está
+              elegido: sin él, la tarjeta no habla del tablero. */}
+          {!conTrabajo ? null : tableroOk ? (
             <span className="tk-chip tk-chip--gris">{trabajo?.proyectos ?? 0} proyectos · {trabajo?.abiertas ?? 0} tareas · {trabajo?.recurrentes ?? 0} recurrentes</span>
           ) : (
             <span className="tk-chip tk-chip--mal">No pude leer el tablero</span>
