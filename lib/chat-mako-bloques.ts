@@ -96,6 +96,32 @@ export function sanearBloques(ws: number, crudo: unknown): BloqueChat[] {
   return out;
 }
 
+/**
+ * La nota de voz de un mensaje copiado de Offer (21/10/2026, el chat «Onboarding»: lib/onboarding-arranque-server.ts). NO
+ * lleva ruta de Storage: dice qué mensaje de qué conversación de Offer la tiene, y la ruta de audio de Offer
+ * (/api/offer/audio) la vuelve a buscar con su puerta y su workspace. `sanearBloques` y `bloquesGuardados` la saltean.
+ */
+export type BloqueAudio = { k: 'audio'; sesion: number; mensaje: string; secs: number };
+
+const MENSAJE_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
+export function bloqueDeAudio(sesion: number, mensaje: string, secs: number): BloqueAudio {
+  return { k: 'audio', sesion, mensaje, secs: Math.max(0, Math.round(secs || 0)) };
+}
+
+/** La nota de voz guardada en los bloques de un mensaje, saneada, o null. Nunca tira. */
+export function audioDeBloques(crudo: unknown): BloqueAudio | null {
+  if (!Array.isArray(crudo)) return null;
+  for (const b of crudo.slice(0, MAX_BLOQUES)) {
+    if (!b || typeof b !== 'object' || (b as { k?: unknown }).k !== 'audio') continue;
+    const { sesion, mensaje, secs } = b as Record<string, unknown>;
+    if (typeof sesion !== 'number' || !Number.isInteger(sesion) || sesion <= 0) continue;
+    if (typeof mensaje !== 'string' || !MENSAJE_ID.test(mensaje)) continue;
+    return bloqueDeAudio(sesion, mensaje, typeof secs === 'number' && Number.isFinite(secs) ? secs : 0);
+  }
+  return null;
+}
+
 /** Lo que ve la pantalla de los adjuntos de un mensaje (sin el path). */
 export function adjuntosVisibles(msgId: number, bloques: readonly BloqueChat[]): AdjuntoVisible[] {
   return bloques.map((b, i) => ({ ref: `${msgId}:${i}`, nombre: b.nombre, tipo: b.tipo, ...(b.archivero ? { archivero: b.archivero } : {}) }));

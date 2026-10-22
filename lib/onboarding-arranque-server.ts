@@ -17,9 +17,9 @@ import { getSesionAdmin, getUsuarioActual } from './auth';
 import { CLAVE_GUARDIA, parseGuardia } from './onboarding-guardia';
 import { wsDelOnboarding } from './onboarding-guard';
 import { getPerfil, setPerfil } from './perfil';
-import { getDiagnosticoFase } from './fase-store';
+import { getDiagnosticoFase, getDiagnosticoFaseEstricto } from './fase-store';
 import { PREGUNTAS, esCanal } from './fase-diagnostico';
-import { getEstadoOnboarding, cerrarPasosOnboarding, type OnboardingState } from './onboarding-state';
+import { getEstadoOnboarding, getEstadoOnboardingEstricto, cerrarPasosOnboarding, type OnboardingState } from './onboarding-state';
 import { getEstadoVerificacionContacto } from './mako-grupo';
 import { getContactoReportes } from './perfil';
 import { integracionConectada } from './credenciales';
@@ -40,6 +40,9 @@ import { nombreArchivoLoQueVendes, pdfDeLoQueVendes } from './lo-que-vendes-pdf'
 import { tzDeWorkspace } from './timezone';
 import { NOMBRE_WS_PRUEBA } from './reset-workspace';
 import { faltanDelArranque, type OfferSesionVista, type PiezasSabidas } from './offer-marco';
+import { CLAVE_HISTORIAL, anotarCon, conLoNuevo, leerHistorial, unirConOffer } from './onboarding-historial';
+import { getSupabaseServer } from './supabase';
+import { bloqueDeAudio } from './chat-mako-bloques';
 import {
   CLAVE_ENCUESTA, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, TITULO_HILO, decisionDelHilo, contextoDelHilo, cobroDelPrecio, opcionesDeCobro, mensajesDelHilo, pisaElNombreDelPerfil, sinMarca, notaDelPdf,
   type EstadoArranque, type EtapaArranque, type HechosArranque, type MensajeArranque, type ModoArranque,
@@ -82,12 +85,81 @@ export async function guardarEstadoArranque(patch: Partial<EstadoArranque>): Pro
  * pudieron leer, tira y no se escribe nada (AGENTS.md: una lectura que cae al default no decide). Sin esto se guardaba una
  * copia a medias para siempre: sin la conversación de lo que vende, o con «Un gusto, . ¿Cómo se llama tu negocio?».
  */
-async function mensajesParaElHilo(e: EstadoArranque): Promise<Array<{ role: 'user' | 'assistant'; content: string }>> {
+async function mensajesParaElHilo(e: EstadoArranque): Promise<ReturnType<typeof mensajesDelHilo>> {
   const h = await hechosDelArranque(e);
   if (!h.terminado) throw new Error('El onboarding todavía no terminó (o no se pudo leer su estado): no armo el chat.');
   if (e.sesionId && (h.sesionCaida || !h.sesion)) throw new Error('No pude leer la conversación del onboarding: no armo el chat a medias.');
-  const { antes, despues } = mensajesDeArranque(e, h);
-  return mensajesDelHilo([...antes, ...(h.sesion?.mensajes ?? []), ...despues], e.interes);
+  if (!(await hechosConfirmados(h))) throw new Error('No pude leer entero lo que decide el onboarding: no armo el chat a medias.');
+  // Del HISTORIAL guardado (21/10/2026): lo que se le preguntó y contestó, con los textos de ese día. Armado del estado de
+  // hoy, un arreglo posterior (el nombre del negocio de Florencia, ws21) cambiaba lo que «contestó». Quien terminó antes de
+  // que se guardara se anota ahora, marcado `reconstruido` (`vivo` con el historial vacío). Sin poder leerlo, no se arma.
+  await anotarHistorial(mensajesDeArranque(e, h), { primeroDeOffer: primeroDeOffer(h) });
+  const historial = leerHistorial(await getSettingEstricto(CLAVE_HISTORIAL));
+  if (!historial) throw new Error('No pude leer el historial del onboarding: no armo el chat a medias.');
+  return mensajesDelHilo(unirConOffer(historial, h.sesion?.mensajes ?? []), e.interes);
+}
+
+/** La hora del primer mensaje de la conversación de Offer del onboarding (lo de antes se anota antes de él). */
+const primeroDeOffer = (h: Pick<HechosServer, 'sesion'>): number | null => {
+  const t = Date.parse(h.sesion?.mensajes[0]?.at ?? '');
+  return Number.isFinite(t) ? t : null;
+};
+
+/**
+ * ¿Lo que decide QUÉ se dibuja se leyó bien? `hechosDelArranque` lee tolerante (para dibujar): la capa cae a «completa»
+ * (modo 'oferta'), el diagnóstico y el estado del onboarding a «no hay», y con eso se dibujan preguntas que no se hicieron.
+ * Para ANOTAR se releen ESTRICTOS y tienen que dar lo mismo. ⚠️ Un `.catch` sobre `getSetting` no sirve para saber si cayó:
+ * `getSetting` nunca tira, devuelve null (revisión adversarial, 21/10: el `faseCaida` de la primera versión no se activaba).
+ */
+export async function hechosConfirmados(h: HechosServer): Promise<boolean> {
+  if (h.sesionCaida) return false;
+  try {
+    const ws = await getWorkspaceActual();
+    if (ws == null) return false;
+    const [fila, diag, onb] = await Promise.all([
+      getSupabaseServer().from('workspaces').select('capa').eq('id', ws).maybeSingle(),
+      getDiagnosticoFaseEstricto(),
+      getEstadoOnboardingEstricto(),
+    ]);
+    if (fila.error || !fila.data) return false;
+    const capa = capaDef((fila.data as { capa?: string }).capa);
+    const modo: ModoArranque = capa.onboarding.includes('productos') ? 'oferta' : 'plan';
+    const canal = diag?.canal && esCanal(diag.canal) ? diag.canal : null;
+    return modo === h.modo && capa.onboarding.includes('tabs') === h.conTelefono && (diag != null) === h.faseGuardada
+      && canal === h.canalNegocio && (onb.status === 'done') === h.terminado;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Anota en el historial (lib/onboarding-historial.ts, `conLoNuevo` en modo `vivo`): lo que MaKo dice la primera vez que se
+ * ve, y lo que la persona mandó (`respuesta`) tal cual. Con compare-and-set (dos pestañas a la vez no se pisan) y la
+ * lectura ESTRICTA: caída, o con algo que no se entiende, no se escribe nada (tira). Devuelve cuántos anotó.
+ */
+export async function anotarHistorial(
+  vista: { antes: readonly MensajeArranque[]; despues: readonly MensajeArranque[] },
+  o: { primeroDeOffer?: number | null; respuesta?: string | null } = {},
+): Promise<number> {
+  return anotarCon(
+    { leer: () => getSettingEstricto(CLAVE_HISTORIAL), cambiar: (raw, nuevo) => cambiarSettingSi(CLAVE_HISTORIAL, raw, nuevo) },
+    (previo) => conLoNuevo(previo, vista, { ahora: Date.now(), primeroDeOffer: o.primeroDeOffer, vivo: true, respuesta: o.respuesta }),
+  );
+}
+
+/**
+ * Lo que la persona contestó, en vivo (la ruta, después de guardar la respuesta): la pregunta que contestaba (si todavía no
+ * estaba anotada, como la del PDF, que aparece sin pasar por acá) y su respuesta TAL CUAL, con el texto de la opción que
+ * tocó. `e` es el estado leído estricto ANTES de la respuesta, y `h` sus hechos. Best-effort: el historial no traba nada.
+ */
+export async function anotarRespuesta(e: EstadoArranque, h: HechosServer, dicho: string | null): Promise<void> {
+  if (!dicho?.trim()) return;
+  try {
+    if (!(await hechosConfirmados(h))) return;
+    await anotarHistorial(mensajesDeArranque(e, h), { primeroDeOffer: primeroDeOffer(h), respuesta: dicho });
+  } catch (err) {
+    console.error('[arranque] historial (respuesta):', err instanceof Error ? err.message : err);
+  }
 }
 
 /**
@@ -131,9 +203,18 @@ export async function hiloDelOnboarding(): Promise<number | null> {
       // Cada mensaje con su hora, creciente (cuarta revisión, 21/10): en UN insert todas las filas llevaban el mismo now(),
       // y el chat se lee ordenado sólo por esa hora: los empates salían en el orden físico de la tabla, desordenados.
       const t0 = Date.now() - mensajes.length;
-      const { error } = await db.from('chart_chats').insert(mensajes.map((m, i) => ({
+      // Una respuesta por voz guarda en `bloques` (mig 0305) cuál mensaje de Offer tiene el audio (lib/chat-mako-bloques.ts).
+      // La columna va sólo si hay audio, y sin ella (una base sin la 0305) se copia el texto igual.
+      const filas = mensajes.map((m, i) => ({
         session_id: hilo.id, role: m.role, content: m.content, created_at: new Date(t0 + i).toISOString(),
-      })));
+        bloques: m.audio && previo.sesionId ? [bloqueDeAudio(previo.sesionId, m.audio.mensaje, m.audio.secs)] : null,
+      }));
+      const conAudio = filas.some((f) => f.bloques);
+      let { error } = await db.from('chart_chats').insert(conAudio ? filas : filas.map(({ bloques: _b, ...f }) => f));
+      if (error && conAudio) {
+        console.error('[arranque] chat «Onboarding» con audio:', error.message, '— lo copio sin los audios');
+        ({ error } = await db.from('chart_chats').insert(filas.map(({ bloques: _b, ...f }) => f)));
+      }
       if (error) throw new Error(`No pude copiar la conversación del onboarding: ${error.message}`);
       await db.from('chart_sessions').update({ updated_at: new Date().toISOString() }).eq('id', hilo.id);
     } catch (err) {
@@ -258,8 +339,20 @@ export type VistaArranque = {
   equipo: { ultimasFaltas: string[] } | null;
 };
 
-export async function vistaArranque(): Promise<VistaArranque> {
-  const e = await leerEstadoArranque();
+/**
+ * `anotar` (la ruta, después de una respuesta que se guardó): lo que MaKo dice ahora queda en el historial. Mirar no anota
+ * (la página y el GET: la hora sería la de quien mira). Best-effort, el historial no traba la conversación. Para anotar,
+ * el estado se lee ESTRICTO y los hechos se confirman (`hechosConfirmados`): con una lectura caída, lo dibujado («Un
+ * gusto, . ¿Cómo se llama tu negocio?») no es lo que pasó, y quedaría para siempre (revisión adversarial, 21/10).
+ */
+export async function vistaArranque(o: { anotar?: boolean } = {}): Promise<VistaArranque> {
+  let estricto = false;
+  let e: EstadoArranque;
+  if (o.anotar) {
+    try { e = parseEstado(await getSettingEstricto(CLAVE)); estricto = true; } catch { e = {}; }
+  } else {
+    e = await leerEstadoArranque();
+  }
   const [h, guardia, superAdmin] = await Promise.all([
     hechosDelArranque(e),
     // Para DIBUJAR: una lectura caída no muestra el bloqueo (las rutas lo vuelven a mirar estricto antes de dejar pasar).
@@ -267,6 +360,10 @@ export async function vistaArranque(): Promise<VistaArranque> {
     getSesionAdmin().catch(() => null),
   ]);
   const { antes, despues } = mensajesDeArranque(e, h);
+  if (estricto && (await hechosConfirmados(h))) {
+    await anotarHistorial({ antes, despues }, { primeroDeOffer: primeroDeOffer(h) })
+      .catch((err) => console.error('[arranque] historial:', err instanceof Error ? err.message : err));
+  }
   return {
     modo: h.modo,
     etapa: etapaDeArranque(e, h),

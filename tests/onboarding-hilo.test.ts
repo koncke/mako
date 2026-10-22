@@ -30,7 +30,9 @@ test('el chat «Onboarding» se crea una vez, con la conversación entera y en o
   // Una segunda llamada no duplica (la decisión 'listo'); la carrera, la copia a medias y el dueño los prueba con la base de
   // mentira tests/onboarding-hilo-carrera.test.ts (20/10/2026, revisión del Cerebro).
   assert.match(f, /if \(decision === 'listo'\) return/, 'una segunda llamada duplicaría el chat');
-  assert.match(s, /mensajesDelHilo\(\[\.\.\.antes, \.\.\.\(h\.sesion\?\.mensajes \?\? \[\]\), \.\.\.despues\], e\.interes\)/, 'la conversación no va tal cual (el orden de la pantalla)');
+  // Desde el 21/10 sale del HISTORIAL guardado, junto por hora con Offer (tests/onboarding-historial.test.ts): armado del
+  // estado de hoy, un dato arreglado después cambiaba lo que la persona «contestó».
+  assert.match(s, /mensajesDelHilo\(unirConOffer\(historial, h\.sesion\?\.mensajes \?\? \[\]\), e\.interes\)/, 'la conversación no va tal cual (lo que se le preguntó y contestó)');
   assert.match(f, /if \(!sesiones\.some\(\(s\) => !s\.archived && s\.contexto !== marca\)\) await createSession\(chartKey, null, null\);/,
     'sin un chat principal antes, el más viejo es el jefe y «Onboarding» se mostraría como «Second Brain»');
   assert.match(f, /const hilo = await createSession\(chartKey, TITULO_HILO, marca\);/);

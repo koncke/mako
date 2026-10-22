@@ -49,7 +49,7 @@ test('2. la proyección dice su origen y su alcance, corre en el workspace y con
   assert.match(ind, /export const PROYECCIONES = \[\{ origen: 'offer', alcance: 'workspace', tab: 'offer' \}\] as const;/);
   assert.match(ind, /return rolWs && ws != null && puedeVerKey\('offer', rolWs, capa\) \? ws : null;/, 'la MISMA puerta que la tab');
   assert.match(ind, /runWithWorkspace\(ws, \(\) => Promise\.all\(\[listarSesionesOffer\(\)/, 'la lista, dentro del workspace');
-  assert.match(ind, /runWithWorkspace\(ws, \(\) => leerConversacionOffer\(id\)\)/, 'el hilo, dentro del workspace');
+  assert.match(ind, /runWithWorkspace\(ws, \(\) => Promise\.all\(\[\n    leerConversacionOffer\(id\),/, 'el hilo, dentro del workspace');
   // Lo que la puerta deja ver, medido: Offer es de admin; un closer o un setter no la ven.
   assert.equal(puedeVerKey('offer', 'admin', null), true);
   assert.equal(puedeVerKey('offer', 'closer', null), false);
@@ -114,6 +114,6 @@ test('6. la conversación del onboarding no sale dos veces (acordado con el chat
   assert.equal(seEscondeDeOffer({ id: 15, updatedAt: '2026-10-21T02:00:00.000Z' }, c), false, 'otra conversación');
   assert.equal(seEscondeDeOffer({ id: 14, updatedAt: '2026-10-21T04:10:00.000Z' }, { id: 14, at: null }), true, 'una copia sin hora, como antes');
   const ind = leer('lib/chat-mako-indice.ts');
-  assert.match(ind, /const copiada = offerDelOnboardingCopiada\(arranque, sesion \? chartKeyDePersona\(sesion\) : null\);\n  return lista\.filter\(\(s\) => s\.id > 0 && !seEscondeDeOffer\(s, copiada\)\)/);
+  assert.match(ind, /const copiada = offerDelOnboardingCopiada\(arranque, sesion \? chartKeyDePersona\(sesion\) : null\);\n[\s\S]{0,400}?return lista\.filter\(\(s\) => s\.id > 0 && !seEscondeDeOffer\(s, copiada\)\)/);
   assert.match(leer('lib/onboarding-arranque-server.ts'), /hiloChat: hilo\.id, hiloDe: chartKey, hiloAt: new Date\(\)\.toISOString\(\),/);
 });

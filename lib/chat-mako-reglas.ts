@@ -185,11 +185,38 @@ export function estadoDeLoHecho(estado: string, venceAt: string | null, ahora: n
   return 'fallo';
 }
 
+/** El texto de una nota de voz que no trae transcripción (sin él, la burbuja quedaba vacía). */
+export const NOTA_DE_VOZ = 'Nota de voz';
+
+/** Lo que lee el super admin antes de las preguntas del onboarding que se armaron después (lib/onboarding-historial.ts). */
+export const AVISO_RECONSTRUIDO = 'Reconstruido: estas preguntas del onboarding se armaron después, con las respuestas que quedaron guardadas.';
+
 /** Un mensaje de Offer como uno del chat (20/10/2026, lib/chat-mako-indice.ts → hiloDeOffer): 'yo' es la persona, 'mako' es
- *  MaKo; lo vacío no se dibuja. */
-export function mensajesDeOffer(ms: ReadonlyArray<{ de: 'mako' | 'yo'; texto: string; at: string }>): Array<{ role: 'user' | 'assistant'; content: string; created_at?: string }> {
-  return ms.filter((m) => typeof m.texto === 'string' && m.texto.trim())
-    .map((m) => ({ role: m.de === 'yo' ? 'user' : 'assistant', content: m.texto, ...(m.at ? { created_at: m.at } : {}) }));
+ *  MaKo; lo vacío no se dibuja. Un adjunto sin texto dice su nombre, como en el chat «Onboarding» (`mensajesDelHilo`): sin
+ *  esto, el documento que Florencia mandó como respuesta (ws21) no se veía y quedaban dos preguntas de MaKo seguidas.
+ *  Con `avisoReconstruido` (sólo el super admin), cada tramo armado después lleva `AVISO_RECONSTRUIDO` adelante.
+ *  Una nota de voz viaja como `audio` (la URL ya armada por quien llama, lib/chat-mako-indice.ts), con la transcripción
+ *  como texto: el Ops Center mostraba sólo la transcripción. Nada más del audio sale de acá (ni su ruta de Storage). */
+export function mensajesDeOffer(
+  ms: ReadonlyArray<{
+    de: 'mako' | 'yo'; texto: string; at?: string; adjuntos?: ReadonlyArray<{ nombre: string }>; reconstruido?: boolean;
+    audio?: { url: string; secs: number };
+  }>,
+  o: { avisoReconstruido?: boolean } = {},
+): Array<{ role: 'user' | 'assistant'; content: string; created_at?: string; audio?: { url: string; secs: number } }> {
+  const out: Array<{ role: 'user' | 'assistant'; content: string; created_at?: string; audio?: { url: string; secs: number } }> = [];
+  let enTramo = false;
+  for (const m of ms) {
+    const texto = typeof m.texto === 'string' && m.texto.trim() ? m.texto : '';
+    const audio = m.audio && typeof m.audio.url === 'string' && m.audio.url ? { audio: { url: m.audio.url, secs: m.audio.secs } } : {};
+    const content = texto || (m.adjuntos ?? []).map((a) => `Adjunto: ${a.nombre}`).join('\n') || ('audio' in audio ? NOTA_DE_VOZ : '');
+    if (!content.trim()) continue;
+    const at = m.at ? { created_at: m.at } : {};
+    if (o.avisoReconstruido && m.reconstruido && !enTramo) out.push({ role: 'assistant', content: AVISO_RECONSTRUIDO, ...at });
+    enTramo = !!m.reconstruido;
+    out.push({ role: m.de === 'yo' ? 'user' : 'assistant', content, ...at, ...audio });
+  }
+  return out;
 }
 
 /**

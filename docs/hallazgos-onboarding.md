@@ -2772,15 +2772,68 @@ aceptaba la opción exacta: todo esto entraba nuevo.
 - **Medido en la base (21/10, noche): el ws21 tiene CERO chats en chart_sessions.** Lo único que su Ops Center puede
   mostrar es la proyección de Offer (`hiloDeOffer`), y ésa tiene las 33 filas con las preguntas de MaKo. Lo que falta
   son las preguntas Y las respuestas del arranque (nombre, negocio, fase, cómo llegó, interés, cobro). Además,
-  `mensajesDeOffer` descarta el mensaje del PDF (texto vacío y `adjuntos`), y `mensajesDelHilo` lo escribe como
-  «Adjunto: …»: son dos mapeos del mismo dato.
-- ⚠️ **Trampa para reconstruirlo:** `hechosDelArranque` lee la CAPA y el PERFIL de quien mira. Armado para el super
-  admin, da otro modo («plan» u «oferta») y otro nombre que armado para ella. Una reconstrucción para el Ops Center
-  tiene que leer la capa del negocio, no la de la sesión.
-- **Sin hacer (punto 1 del Cerebro):** guardar cada pregunta del arranque con su respuesta en la sesión de Offer
-  (`de: 'mako'` / `'yo'`, en el mismo lugar que la conversación), mostrarlo en el Ops Center y en el historial del
-  super admin, y para Florencia reconstruirlo desde `onboarding.arranque`, marcado «reconstruido». Vive en
-  lib/onboarding-arranque-server.ts (`mensajesParaElHilo`) y en lib/chat-mako-indice.ts (`hiloDeOffer`).
+  `mensajesDeOffer` descartaba la fila 3, el documento que ella mandó como respuesta (texto vacío y `adjuntos`), y
+  `mensajesDelHilo` lo escribe como «Adjunto: …»: eran dos mapeos del mismo dato.
+
+**Las preguntas del arranque, guardadas (21/10, noche, chat «Onboarding», claude3).**
+- **Medido en pantalla, no supuesto** (Chrome de Martín, `/api/auth/me` = super admin, `/second-brain?ws=21`): la barra
+  muestra «Second Brain» vacío (es el de Martín), «Offer › Mi oferta» y «Antes» sin nada. «Mi oferta»
+  (`/api/mako/chat?offerId=14`) trae 32 mensajes que alternan bien, con todas las preguntas de Offer. ⚠️ **El diagnóstico
+  obvio («la proyección pierde las preguntas» o «dibuja sólo `role: user`») era el equivocado.** Lo que faltaba era otra
+  cosa: el arranque entero, preguntas y respuestas, porque nunca se guardó. La conversación empezaba en «¿Tienes un
+  documento de tu oferta…?». Y el documento que ella mandó no se veía, así que quedaban dos preguntas de MaKo seguidas.
+- **Ahora se guarda como pasó**: lib/onboarding-historial.ts anota lo que MaKo dice la primera vez que la pantalla lo
+  dibuja, y lo que la persona manda, tal cual. Se anota en cada respuesta (la ruta: `anotarRespuesta` y
+  `vistaArranque({ anotar: true })`), nunca al mirar. La lectura es estricta y se escribe con compare-and-set. El Ops Center (`hiloDeOffer`) y el chat «Onboarding»
+  (`mensajesParaElHilo`) lo juntan por hora con la conversación de Offer. Regla general en AGENTS.md («Una conversación
+  que se le mostró a alguien es un HECHO»).
+- ⚠️ **No va en los `mensajes` de Offer**, aunque era lo pedido («en la sesión de Offer»). Esa lista maneja el
+  diagnóstico de Offer: el primer turno (`primero.era`), qué fase ya contestó (`estadoDiagnostico`), el último mensaje y
+  lo que lee el modelo. Y Offer la reescribe entera en cada turno. Una pregunta del arranque ahí adentro Offer la toma
+  como suya. Va en `onboarding.historial`, atada por `sesionId`.
+- ⚠️ **La «trampa» de `hechosDelArranque` era a medias.** `getCapaActual` lee la capa del WORKSPACE que está en contexto
+  (`workspaces.capa`), no la de quien mira. Y el perfil (`nombreCuenta`) no lo usa `mensajesDeArranque`, sólo
+  `leerRespuesta`. Lo que sí hay que mirar al reconstruir es que el ws esté en contexto (`runWithWorkspace`).
+- ⚠️ **Lo que tapó la revisión adversarial (21/10, noche), y cómo quedó:**
+  - **Una lectura que cae cambia lo que se dibuja, y lo dibujado quedaba para siempre.** Con el estado leído tolerante
+    caído, se anotaba «Un gusto, . ¿Cómo se llama tu negocio?». Con la capa caída a «completa», el modo plan se
+    dibujaba como oferta. Con la fase caída, salían preguntas que no se hicieron. Ahora, para anotar, el estado se lee
+    estricto, y lo que decide el dibujo (capa, diagnóstico, estado del onboarding, conversación) se relee estricto y
+    tiene que dar lo mismo (`hechosConfirmados`).
+  - ⚠️ **El primer guard (`faseCaida`) era código muerto:** `getSetting` nunca tira, así que su `.catch` no se ejecutaba.
+    La regla quedó en AGENTS.md («Una lectura que cae al DEFAULT…»).
+  - **Las respuestas a las confirmaciones se perdían.** La pantalla dibuja el dato CONFIRMADO («Acme»), no el toque
+    («Sí, se llama así»): anotar desde lo dibujado dejaba dos preguntas seguidas. Ahora, en vivo, lo de MaKo sale de lo
+    dibujado y lo de la persona sale de lo que MANDÓ (`anotarRespuesta`, con el texto de la opción que tocó). La pregunta
+    que vuelve («Ver otros tipos», «No, lo escribo de nuevo», «Cambiar número») se anota otra vez.
+  - **Con el cierre anotado, el historial se congela**: una pestaña vieja o el arreglo del nombre del ws21 no le suman
+    variantes. Pasado el tope no se anota más (antes tiraba lo más viejo: el saludo y el nombre). Y lo que no se
+    entiende entero no se pisa (`leerHistorial(…, { estricto: true })`).
+- **La reconstrucción** (scripts/reconstruir-historial-onboarding.mts, en seco por defecto) alcanzó 4 negocios: ws3
+  (prueba), 20, 21 y 22, todos terminados. Lo de antes de Offer va justo antes de su primer mensaje. Lo de después va
+  antes de que se cerrara el onboarding. Todo lleva la marca `reconstruido`, que en el Ops Center ve sólo el super admin
+  («Reconstruido: …»). Los textos son los de hoy, no los del día en que pasó. Un negocio que ya tiene historial no se
+  toca, así que se puede volver a correr después del deploy. ⚠️ **Va ANTES del script que arregla el nombre del ws21**,
+  porque ése cambia `onboarding.arranque.negocio`, y armado después diría que ella contestó el nombre nuevo.
+- **«No veo el chat de ONBOARDING» (Martín, 21/10 ~23:00).** El chat «Onboarding» es de la clienta (chart_sessions con su
+  chart_key) y el super admin que mira un ws ve SUS chats, no los de ella. Por eso no aparecía aunque existiera. Ahora la
+  conversación del onboarding se lista con el título «Onboarding» para quien no tiene su copia (`chatsDeOffer`), y trae el
+  arranque entero. A Florencia, el suyo se le crea en su próxima visita al Ops Center, ya desde el historial.
+- **Los audios, medidos (ws21):** 7 de sus 16 respuestas fueron por voz, y los 7 audios están guardados (sesión 14,
+  `mensajes[].audio.path`, y los 7 archivos en archivero/21/offer/). No se perdió ninguno. En el arranque no hay audios
+  que perder: mientras pregunta el arranque el micrófono está apagado (`voz={arranque.manda ? undefined : …}` en
+  app/offer/OfferApp.tsx). Lo que faltaba era MOSTRARLOS: `mensajesDeOffer` pasaba sólo la transcripción, y la copia al
+  chat «Onboarding» guardaba sólo texto. Ahora `MensajeChat.audio = { url, secs }`, con la URL de /api/offer/audio sin el
+  `?ws=` (la pantalla le pone `conWs`). En chart_chats queda `bloques: [{ k: 'audio', sesion, mensaje, secs }]`, sin ruta
+  de Storage: la ruta de Offer la vuelve a buscar con su puerta.
+- **Sin hacer:**
+  - El reproductor en la burbuja, que lo hace el chat «Ops Center». Hasta entonces el audio llega en los datos pero no se
+    ve: `aMensaje` (app/m/mako/chat-ui.ts) no copia `audio`, y `NotaDeVoz` usa la URL sin `conWs`, así que el super admin
+    mirando recibiría 403.
+  - En modo 'plan' (sin Offer) el historial se guarda pero ningún hilo del Ops Center se lo muestra al super admin,
+    porque la proyección cuelga de la conversación de Offer. Vive en lib/chat-mako-indice.ts.
+  - La proyección le muestra a cualquier admin del negocio el WhatsApp de los avisos que cargó el dueño. Antes eso
+    estaba sólo en el chat «Onboarding» del dueño. Es el contacto del negocio, pero queda anotado.
 
 **Sin hacer:** «Vendo 20 a 500 dólares» se sigue leyendo como un rango; la confirmación lo muestra y se corrige con un
 toque. Las etiquetas de los tramos dicen «$» sin «USD» (lib/fase-diagnostico.ts): es una decisión de copy, no de este
