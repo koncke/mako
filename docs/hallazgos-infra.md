@@ -7583,6 +7583,10 @@ fuente, o que corra aislado todo archivo que en la corrida compartida contó men
   El chequeo de tipos de todo el repo por tandas (`scripts/tipos-por-tandas.mjs`, 3 tandas, con picos de 3,8 a 4,2 GB) sí entra,
   pero el hook no lo acepta. Sin Actions, a `main` se llega sólo con un medio de pago en GitHub, o con `--no-verify` autorizado
   por Martín después de las tandas. Que el hook acepte las tandas como respaldo es trabajo de Infra, y queda Sin hacer.
+- **Cómo salió el 22/10:** `87365c830` (el arreglo de la regresión de Automations, el Ops Center del cliente, Offer y los hitos)
+  salió con `--no-verify`. Martín lo autorizó para ese lote, contestando desde el Centro la pregunta de Integración. Una
+  autorización que traía otra sesión, citada, no alcanzó: hizo falta que contestara a la pregunta del propio chat que sube.
+  La red pendiente: re-correr en Actions la corrida de `integracion` de ese sha cuando vuelvan los minutos.
 - **Regla:** un run que termina en segundos y sin pasos NO se lee como un rojo de código y no se le pasa a ningún chat. Se miran
   sus anotaciones. Y antes de culpar a un test, se mira cuánto duró el job (`started_at` / `completed_at`).
 
