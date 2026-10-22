@@ -2223,4 +2223,38 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "22 oct", hora: "06:30", chat: "Automations", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Probar el chat de MaKo de Automations con muchos casos de uso: todo tiene que funcionar",
+    puntos: [
+      "Llegó por el Cerebro: su arnés corrió 36 casos sin pantalla contra producción y dejó 18 fallas con su causa.",
+      "Coordinarlo con lo que ya estaba armado (Discutir / Editar, el goteo) y avisar cuando esté en producción.",
+    ],
+    pedido: "«prueba los chats... Como el chat de MaKo en Automations, todo debe funcionar. Prueba muchos casos de uso»",
+  },
+  {
+    fecha: "22 oct", hora: "12:35", chat: "Automations", cuenta: "claude3",
+    sesion: "local_5acdaea2-2605-48fb-b890-f79e8476faa3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Hecho: el chat de MaKo vuelve a contestar en «Editar», mueve de etapa en el CRM de la automatización y deja tus textos y tus links tal cual",
+    puntos: [
+      "En «Editar» MaKo vuelve a contestar lo que le preguntas, a decir dónde se configura algo (Horario o Límites) y a avisar lo que no se puede. Antes decía «MaKo armó el flujo pero quedó mal: No cambió nada».",
+      "«Si responde, muévelo a Respondió» mueve la tarjeta en el CRM de esa automatización, no en el principal.",
+      "Lo que pegas al crear queda tal cual, con las esperas que escribiste y sin las que nadie pidió.",
+      "El link que escribes se queda en el mensaje, {{empresa}} reemplaza a una variable mal escrita, y una espera se puede meter entre dos mensajes.",
+      "Ya no dice «Cambié» de una tarjeta que no cambió, y un mensaje de más de 2.000 caracteres se avisa en vez de cortarse.",
+      "En producción: deploy de 87365c830 (lo verificó el Cerebro).",
+    ],
+    commits: [
+      { sha: "b2118c397", msg: "Automations · el chat de MaKo con la prueba de los chats del Cerebro: Editar vuelve a contestar lo que vale, «Mover de etapa» en el CRM del CRON, y lo que era código", lineas: 540, archivos: 12 },
+      { sha: "1af6c3bd8", msg: "Automations · la regla que deja la regresión de Editar: un cambio en un chat de MaKo pasa su arnés de casos de uso antes de pasar la punta", lineas: 21, archivos: 2 },
+    ],
+    archivos: [
+      "lib/flujo-ia-intencion.ts — qué vale contestar en «Editar», y las reglas de los textos pegados",
+      "lib/flujo-ia.ts — «Mover de etapa» en el CRM del CRON, el link del dueño, las variables, la espera en el medio",
+      "docs/hallazgos-chatbot.md — «La prueba de los chats del Cerebro»",
+    ],
+    revisar: "/automations",
+  },
 ];

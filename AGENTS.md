@@ -2071,6 +2071,22 @@ envíes un mensaje al grupo de MaKo diciendo que se solucionó eso. Con una acla
   grupo»): lo manda el jefe que arregló, con la herramienta y sus topes. Si el clasificador de permisos de Claude Code
   lo bloquea, se le dice a Martín en una línea, en el chat del jefe, con el comando exacto para que lo apruebe ahí.
 
+# Un cambio en un chat de MaKo pasa su arnés de casos de uso ANTES de pasar la punta
+
+Pasó el 22/10/2026 (docs/hallazgos-chatbot.md, «La prueba de los chats del Cerebro»). «Editar», prendido por defecto en el
+chat de Automations (4de3fe769), rechazaba TODA respuesta: «¿Qué hace esta automatización?» terminaba en «No cambió nada».
+El test fijaba la regla TAL COMO SE ESCRIBIÓ («en Editar, contestar es un error») y sólo probaba la falla que se buscaba (los
+textos pegados de la llamada). El arnés lo veía, y se corrió después del deploy.
+
+- **El arnés va ANTES de pasar el sha a Integración, no después del deploy.** El de Automations:
+  `scripts/probar-chats/automations.mts` (rama `probar-chats-automations`), corrido en un worktree de TU rama, cada caso al
+  menos 2 veces (la IA no es determinista). Un caso cortado por la cuota de IA («No tienes ninguna IA gratis conectada») no
+  mide nada: se repite.
+- **Con los casos que el cambio NO buscaba:** preguntar en el modo nuevo, pedir algo imposible, un pedido ambiguo, una
+  pregunta sobre el flujo. Lo que se cambia para una falla rompe otra cosa que nadie estaba mirando.
+- **El test que fija la regla tal como la escribiste no es una prueba de uso.** Prueba que el código dice lo que pensaste,
+  no que lo que pensaste sirve.
+
 # Leer texto libre con reglas falla en lo obvio: la red es que la persona CONFIRME lo que se entendió
 
 Dos piezas leían texto con heurísticas: el onboarding (cifras, opciones, el «sí», el nombre del negocio) y el
