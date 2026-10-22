@@ -805,6 +805,13 @@
 .co-preg--contestada .co-preg__op[data-elegida='true'] { background: var(--primary-bg); }
 .co-preg__otra-dicha { margin: 0; align-items: center; background: var(--primary-bg); }
 .co-preg__pie--chat { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; }
+/* Las preguntas de un chat arriba de su caja, de a una (22/10/2026, PreguntasDelChat.tsx). En el teléfono, cada renglón del
+   alto de un dedo. La respuesta queda en el hilo como «Decisión: …» (Hilo.tsx). Las de la app de Claude se leen (`--app`). */
+.co-preg--arriba { margin: 0 0 8px; }
+.co-preg__acciones { display: flex; gap: 8px; flex: none; }
+.co-preg__op--leer { margin: 0; cursor: default; }
+.co-preg--app .co-preg__pie { color: var(--dim); }
+@media (hover: none) and (pointer: coarse) { .co-preg--arriba .co-preg__op { min-height: 48px; } .co-preg--arriba .co-chip { min-height: 44px; } }
 .co-chip--primario { border-color: var(--primary); background: var(--primary); color: var(--surface); font-weight: 600; }
 .co-chip--primario:hover { background: var(--primary-strong); }
 .co-chip--primario:disabled { opacity: .5; cursor: default; }
