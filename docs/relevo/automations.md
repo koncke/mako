@@ -139,3 +139,7 @@ vuelva la extensión de Chrome.
   crear no tiene «Discutir / Editar» (app/api/chat-agent/secuencias/ia/route.ts, rama `crear`).
 - Los días del goteo son los del horario propio de la automatización; no hay un «sólo estos días» aparte del horario
   (lib/config-automatizacion.ts).
+- Cuando IA16 (chat «IA del cliente») esté en main: sacar de `sinIAPropia` las ramas «La IA gratis de MaKo llegó a su
+  tope / está al tope / está saturada / no contestó» (con IA16 la red no corre fuera del ws9) y dejar «No tienes una IA
+  conectada: conecta {SU_IA}» y los dos marcadores de red salteada (lib/flujo-ia.ts; su test,
+  tests/ia-aviso-sin-ia-propia.test.ts). IA16 está retenido hasta que el ws1 conecte su IA o el lunes 26/10.
