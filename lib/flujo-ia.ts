@@ -3417,7 +3417,8 @@ const TOPE_DEL_DIA = /per ?day|\bTPD\b|\bRPD\b|daily/i;
 export function sinIAPropia(red: readonly string[]): FalloIA {
   const link = LINK_CONECTA_CLAUDE;
   if (red.some((e) => e.startsWith('red gratis salteada: el negocio usa su propia IA'))) {
-    return { error: `Con tu propio Claude, para armar el flujo necesito ${SU_CLAVE} (en Integraciones).`, link };
+    // «tu propia IA» y no «tu propio Claude»: desde IA6 la IA propia también puede ser su GPT (y su PC no arma flujos).
+    return { error: `Con tu propia IA, para armar el flujo necesito ${SU_CLAVE}.`, link };
   }
   if (sinRedPorDatos(red)) return { error: `${CONECTA_TU_CLAUDE}.`, link };
   const intentos = red.filter((e) => !e.startsWith('red gratis salteada:'));
