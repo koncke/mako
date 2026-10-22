@@ -77,7 +77,11 @@ afectados de cada punta, el tsc acotado de lo tocado, las guardas y los tipos de
 limitaciones, me estas sacando tiempo valioso con restricciones». Cada lote que pasó el chequeo local completo (tests afectados,
 tsc acotado y guardas) sube a `main` sin preguntarle. Las 3 tandas de INF1 son la red cuando hay RAM, no una traba. Como el
 permiso llegó por el Cerebro, Integración le pasa el sha verificado y el Cerebro hace el push `--no-verify`. Si Martín se lo
-escribe a Integración en su chat, sube Integración directo. Memoria: `subir-a-main-sin-traba`.
+escribe a Integración en su chat, sube Integración directo. Memoria: `subir-a-main-sin-traba`. Así salió `f6bd295e7`
+(22/10): el chequeo local completo lo hizo Integración, y el push `--no-verify` lo hizo el Cerebro, con el deploy Ready. Ese
+lote traía AU1, OF1, OF2, los arreglos de los chats del Ops Center e INF1, y desde ahí el hook de INF1 está instalado en
+`.git/hooks/pre-push`. **Falta:** la prueba de punta a punta de INF1 con un error plantado en la tanda 3 (no hubo RAM), y
+re-correr en Actions `87365c830` y `f6bd295e7` cuando vuelvan los minutos.
 
 **La llamada del 22/10 con Mauricio:** `docs/feedback-22-10.md` (lo P0 va antes que todo: reunión de validación HOY; los mensajes salen desde el sáb 24/10).
 
