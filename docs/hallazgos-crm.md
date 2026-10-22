@@ -10218,6 +10218,11 @@ sugerencias. Borrar lo demás toca la ruta y la parte 4 de tests/sugerencias-crm
 - **La casilla de la columna tilda lo que SE VE**, la misma regla que la de «todas» de la Lista: con un filtro, sólo lo
   filtrado. Suma a lo que ya estaba tildado, y con todos tildados quita sólo los de esa columna. El rótulo dice cuántos
   son («Seleccionar los 3 que se ven de «Agenda R2»»). Lleva `data-nodrag`, porque la cabecera arrastra la columna.
+- **El buscador no encontraba por Instagram porque no buscaba ahí** (lo midió Offer): los campos eran id, nombre,
+  empresa, email y teléfono. Ahora el Instagram entra como `@usuario` y un link del perfil pegado en el buscador se
+  cambia por su @ antes de buscar, en el tablero y en el teléfono (`buscarEnCartera`, que el server del teléfono tiene
+  que alimentar con `instagram`). La trampa que se evitó: normalizar el @ adentro de `coincideBusqueda` rompía buscar
+  «@gmail.com» en los emails.
 
 **Sin hacer:** el 3 («Vincular cobro» en Ganado) espera las acciones de Cobros (contrato en las notas compartidas,
 contrato-cobro-en-ganado.md).
@@ -10227,6 +10232,6 @@ las columnas y no muestra barra de scroll, porque se pasa de columna con la barr
 múltiple, así que el 4 es de la computadora. Del 5, el bloque azul del teléfono (arriba de la lista, sin pop-up) suma
 «Ver detalle».
 
-**Vive en:** app/crm/CrmBoard.tsx (`ALTO_TABLERO`, `bloquesDeReuniones`, la casilla en `renderColumn`) ·
+**Vive en:** app/crm/CrmBoard.tsx (`ALTO_TABLERO`, `bloquesDeReuniones`, la casilla en `renderColumn`) · app/crm/campo-inline.ts (`arrobaInstagram`) ·
 app/crm/ReunionesProximas.tsx · app/crm/seleccion-columna.ts · tests/crm-feedback-22-10.test.ts
 *22/10/2026, chat «CRM» (claude3).*
