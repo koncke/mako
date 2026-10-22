@@ -19,6 +19,11 @@
 //   · el bloque azul sin «Ver detalle»                                                           → 2 / 1
 //   · la ficha que no abre en «Reuniones»                                                        → 2 / 1
 //   · el bloque azul del teléfono sin «Ver detalle» (sólo «Abrir ficha» sin teléfono)             → 2 / 1
+// Y el 6 (Instagram, «no estaba buscando bien a los @»), con el archivo en 4 / 0:
+//   · el tablero sin el Instagram entre los campos                                             → 3 / 1
+//   · un link del perfil que no se vuelve `@usuario`                                            → 3 / 1
+//   · el buscador del teléfono sin el Instagram                                                 → 3 / 1
+//   · el server del teléfono (`buscarLeads`) sin pasarle el Instagram                           → 3 / 1
 // Correr: node --import tsx --test tests/crm-feedback-22-10.test.ts
 // =============================================================================
 
@@ -27,6 +32,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { alternarColumna, estadoDeColumna, rotuloDeColumna } from '../app/crm/seleccion-columna';
+import { arrobaInstagram, linksDeInstagramComoArroba } from '../app/crm/campo-inline';
+import { coincideBusqueda } from '../lib/buscar-texto';
+import { buscarEnCartera } from '../app/m/crm/reglas';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -97,4 +105,27 @@ test('5: «Tienes N reuniones cerca» abre el MISMO pop-up para todos, con el bl
   assert.match(leer('app/crm/LeadEditModal.tsx'), /const initialTab = focus === 'plan-pagos' \? 'cobranza' : focus === 'reuniones' \? 'reuniones' : 'resumen';/);
   // En el teléfono el bloque azul ya va arriba de la lista (sin barra no hay calendario): lleva «Ver detalle» también.
   assert.match(sinComentarios(leer('app/m/crm/TableroCrm.tsx')), /\{ texto: 'Ver detalle', onClick: \(\) => router\.push\(ficha\(px\.id\)\), primaria: !px\.telefono \},/);
+});
+
+test('6 (Instagram): el buscador encuentra al lead por su @, con o sin @, en mayúsculas o no, y por el link del perfil', () => {
+  // Lo que guarda `leads.instagram`: sin @ y en minúsculas. El campo entra como `@usuario`.
+  const campos = (ig: string | null) => [7, 'Ana Pérez', 'Estudio', 'ana@gmail.com', '+54 11 5555 5555', arrobaInstagram(ig)];
+  const busca = (q: string, ig: string | null = 'martinkoncke') => coincideBusqueda(campos(ig), linksDeInstagramComoArroba(q));
+  for (const q of ['@martinkoncke', 'martinkoncke', '@MartinKoncke', 'MARTINKONCKE', 'https://www.instagram.com/martinkoncke/?igsh=abc123', 'instagram.com/MartinKoncke', 'koncke']) {
+    assert.ok(busca(q), `«${q}» no encontró a @martinkoncke`);
+  }
+  assert.equal(busca('@otra.cuenta'), false);
+  assert.equal(busca('@martinkoncke', null), false, 'sin Instagram no aparece por un @');
+  // Un link que no es un perfil (un post) no se vuelve un @, y «@gmail.com» sigue encontrando el email.
+  assert.equal(linksDeInstagramComoArroba('https://www.instagram.com/p/Cx12/'), 'https://www.instagram.com/p/Cx12/');
+  assert.ok(busca('@gmail.com'), '«@gmail.com» dejó de encontrar el email');
+  assert.equal(arrobaInstagram('@@Ana_ok '), '@ana_ok');
+  // El teléfono busca igual.
+  const cartera = [{ id: 1, nombre: 'Ana', instagram: 'martinkoncke' }, { id: 2, nombre: 'Beto', instagram: null }];
+  assert.deepEqual(buscarEnCartera(cartera, 'instagram.com/MartinKoncke/').filas.map((f) => f.id), [1]);
+  assert.deepEqual(buscarEnCartera(cartera, '@martinkoncke').filas.map((f) => f.id), [1]);
+  // Cableado: el tablero y el teléfono pasan el Instagram, y el mapa del tablero lo trae.
+  assert.match(BOARD, /coincideBusqueda\(\[l\.id, l\.name, l\.company, l\.email, l\.phone, arrobaInstagram\(l\.instagram\)\], linksDeInstagramComoArroba\(search\)\)/);
+  assert.match(leer('app/crm/crm-map.ts'), /instagram: l\.instagram \?\? null,/);
+  assert.match(leer('lib/crm-movil.ts'), /telefono: l\.telefono, instagram: l\.instagram \}\)\), q\);/);
 });

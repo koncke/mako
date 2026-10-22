@@ -9,6 +9,7 @@
 // =============================================================================
 
 import { coincideBusqueda } from '@/lib/buscar-texto';
+import { arrobaInstagram, linksDeInstagramComoArroba } from '@/app/crm/campo-inline';
 import { numeroCanonico } from '@/lib/contacto-lead';
 import { pideWizardAlElegir } from '@/app/crm/mover-etapa';
 import { terminalEstadoFor } from '@/lib/pipeline';
@@ -22,6 +23,8 @@ export type LeadBuscable = {
   empresa?: string | null;
   email?: string | null;
   telefono?: string | null;
+  /** Sin @ (`leads.instagram`): se encuentra con o sin @ y por el link del perfil, como en el tablero (22/10/2026). */
+  instagram?: string | null;
 };
 
 /** La fila que viaja al teléfono: ~20 de éstas, NUNCA la cartera. */
@@ -41,7 +44,7 @@ export function buscarEnCartera(leads: readonly LeadBuscable[], q: string, max =
   if (query.length < MIN_BUSQUEDA) return { filas: [], hayMas: false };
   const filas: FilaLeadM[] = [];
   for (const l of leads) {
-    if (!coincideBusqueda([l.id, l.nombre, l.empresa, l.email, l.telefono], query)) continue;
+    if (!coincideBusqueda([l.id, l.nombre, l.empresa, l.email, l.telefono, arrobaInstagram(l.instagram)], linksDeInstagramComoArroba(query))) continue;
     if (filas.length === max) return { filas, hayMas: true };
     filas.push({ id: l.id, nombre: l.nombre?.trim() || 'Sin nombre', segunda: l.empresa?.trim() || l.email?.trim() || null });
   }

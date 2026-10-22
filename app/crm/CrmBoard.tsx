@@ -95,6 +95,7 @@ import { senalesAOfrecer, hayAlgoQueOfrecer, asistenciaImplicita } from './senal
 // La misma pieza que usan las fichas: los dos toques de Meta viven en UN lugar.
 import { SenalesMetaChips } from './MoverEtapaConfirm';
 import { coincideBusqueda } from '@/lib/buscar-texto';
+import { arrobaInstagram, linksDeInstagramComoArroba } from './campo-inline';
 import type { FunnelResumen } from '@/lib/funnel-fila';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import { LogoMeta } from '@/app/_components/ServicioVisual';
@@ -185,6 +186,8 @@ export type CrmLead = {
   stageFuera?: string | null;   // posición real en el funnel (ignora override) — para el worklist
   created: string;
   telefonoNorm: string | null;   // teléfono solo-dígitos — para wa.me / WhatsApp
+  /** El usuario de Instagram, sin @ (`leads.instagram`): el buscador lo encuentra (22/10/2026, `arrobaInstagram`). */
+  instagram?: string | null;
   // Fechas crudas (ISO) para la línea de tiempo del recorrido.
   createdISO: string;
   agendaISO: string | null;
@@ -1644,7 +1647,7 @@ export function CrmBoard({
   const matches = (l: CrmLead, salvo?: 'ads') => {
     // Buscar como busca una persona (sin acentos, por palabras sueltas, por #id):
     // la regla vive en lib/buscar-texto, no acá — ver «Una cosa, un lugar».
-    if (!coincideBusqueda([l.id, l.name, l.company, l.email, l.phone], search)) return false;
+    if (!coincideBusqueda([l.id, l.name, l.company, l.email, l.phone, arrobaInstagram(l.instagram)], linksDeInstagramComoArroba(search))) return false;
     if (stageFilter.size > 0 && !stageFilter.has(effStage(l))) return false;
     if (originFilter.size > 0 && !originFilter.has(l.canal)) return false;
     // El filtro «Anuncio» es UN árbol (campaña › anuncio): pasa la campaña elegida entera O
