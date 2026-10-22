@@ -137,7 +137,8 @@ test('P1: el «Funnel» de arriba de la hoja llega a «A quién cobrarle», y la
   assert.equal(funnelsDeLaHoja(hoja, {}), null, 'en «Todos», nada');
   assert.deepEqual(funnelsDeLaHoja(hoja, { f: { valores: ['Renovación', 'Sprint 3 días'] } }), ['Renovación', 'Sprint 3 días']);
   const prov = sinComentarios(leer('app/general/ProveedorGeneral.tsx'));
-  assert.match(prov, /elegidos=\{propios\.length \? propios : deLaHoja\}/, 'los propios del bloque mandan; si no, los de la hoja');
+  assert.match(prov, /case 'cobranza': return <BloqueCobranza d=\{d\.cobranza\} elegidos=\{funnelsDeCobranza\(g, d, hoja\)\}/);
+  assert.match(prov, /const propios = funnelsDeBloque\(g\);\s*if \(propios\.length \|\| !hoja\?\.funnels\?\.length \|\| !d\.funnels\.ok\) return propios;/, 'los propios del bloque mandan; si no, los de la hoja');
   assert.match(sinComentarios(leer('app/dashboard/Elemento.tsx')), /<ElementoGeneral e=\{e\} hoja=\{ctx\?\.hoja \?\? null\} vista=\{ctx\?\.vista \?\? null\} \/>/);
   const plantillas = sinComentarios(leer('lib/general-plantillas.ts'));
   const cobros = plantillas.slice(plantillas.indexOf("id: 'cobros'"), plantillas.indexOf("id: 'anuncios'"));

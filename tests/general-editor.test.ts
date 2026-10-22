@@ -114,9 +114,10 @@ test('un bloque se ata a un funnel sólo si sabe, y el bloque elige el suyo por 
   assert.match(datos, /deQuien: deQuien == null \? null :/);
   const bloque = leer('app/general/bloques/Negocio.tsx');
   assert.match(bloque, /const f = funnel \? d\.d\.find\(\(x\) => x\.id === funnel\) : d\.d\.find\(\(x\) => x\.principal\) \?\? d\.d\[0\];/, 'el funnel de hoy no busca el elegido por su id');
-  assert.match(bloque, /if \(filtra && d\.d\.deQuien\) filas = filas\.filter\(\(c\) => d\.d\.deQuien\?\.\[c\.leadId\]\?\.some\(\(f\) => elegidos\.includes\(f\)\)\);/, 'la cobranza no filtra por los funnels elegidos');
+  // Desde el 22/10/2026, mig 0324 cada fila es lo que se le cobra en UN CRM (`funnelId`); sin CRM, la pertenencia (`deQuien`).
+  assert.match(bloque, /if \(filtra\) filas = filas\.filter\(\(c\) => \(c\.funnelId != null \? elegidos\.includes\(c\.funnelId\) : !!d\.d\.deQuien\?\.\[c\.leadId\]\?\.some\(\(f\) => elegidos\.includes\(f\)\)\)\);/, 'la cobranza no filtra por los funnels elegidos');
   // Un filtro que no se pudo armar no es «nadie debe»: la cobranza de un funnel sin saber de quién es cada cliente lo dice.
-  assert.match(bloque, /if \(filtra && d\.d\.deQuien == null\) return <Cobranza filas=\{\[\]\} tz=\{d\.d\.tz\} error="No pude leer de qué funnel es cada cliente\."/);
+  assert.match(bloque, /if \(filtra && sinCrm && d\.d\.deQuien == null\) return <Cobranza filas=\{\[\]\} tz=\{d\.d\.tz\} error="No pude leer de qué funnel es cada cliente\."/);
 });
 
 test('el informe con que arranca es la General de siempre, con la cabecera arriba', () => {

@@ -28,6 +28,12 @@ import { BloquePendientes, BloqueFunnel, BloqueCobranza, BloqueMes, MuestraFunne
  * «Funnel» de arriba, por nombre). «A quién cobrarle» sin funnels propios lee esos, así la hoja «Cobros» entera mira el
  * mismo CRM o CRMs. Los propios del bloque (su panel) mandan.
  */
+function funnelsDeCobranza(g: NonNullable<Elemento['general']>, d: DatosGeneral, hoja?: { funnels: readonly string[] | null }): number[] {
+  const propios = funnelsDeBloque(g);
+  if (propios.length || !hoja?.funnels?.length || !d.funnels.ok) return propios;
+  return d.funnels.d.filter((f) => hoja.funnels?.includes(f.nombre)).map((f) => f.id);
+}
+
 export function dibujarBloque(e: Elemento, d: DatosGeneral, hoja?: { funnels: readonly string[] | null }): ReactNode {
   const g = e.general;
   if (!g) return null;
@@ -47,12 +53,7 @@ export function dibujarBloque(e: Elemento, d: DatosGeneral, hoja?: { funnels: re
     case 'llamadas': return <BloqueLlamadas d={d.calendario} op={op} />;
     case 'pendientes': return <BloquePendientes d={d.pendientes} />;
     case 'funnel': return <BloqueFunnel d={d.funnels} funnel={funnel} op={op} />;
-    case 'cobranza': {
-      const propios = funnelsDeBloque(g);
-      const deLaHoja = !propios.length && hoja?.funnels?.length && d.funnels.ok
-        ? d.funnels.d.filter((f) => hoja.funnels?.includes(f.nombre)).map((f) => f.id) : [];
-      return <BloqueCobranza d={d.cobranza} elegidos={propios.length ? propios : deLaHoja} funnels={d.funnels} op={op} />;
-    }
+    case 'cobranza': return <BloqueCobranza d={d.cobranza} elegidos={funnelsDeCobranza(g, d, hoja)} funnels={d.funnels} op={op} />;
     case 'mes': return <BloqueMes d={d.mes} op={op} />;
     case 'publicaciones': return <BloquePublicaciones d={d.calendario} op={op} />;
   }
