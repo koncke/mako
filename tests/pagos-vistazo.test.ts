@@ -65,7 +65,7 @@ test('al día: la próxima con su fecha; el botón sólo si vence en 14 días o 
   assert.equal(lejos?.detalle, 'Próxima: $500 el 20 de noviembre');
   assert.equal(lejos?.accion, null, 'una cuota de dentro de un mes no es «qué hago ahora»');
   const cerca = estado({ cierre: 1000, pagos: [cuota({ numero: 1, monto_usd: 500, fecha_esperada: '2026-10-19' }), cuota({ numero: 2, monto_usd: 500, fecha_esperada: '2026-11-19' })] });
-  assert.equal(cerca?.detalle, 'Próxima: $500 el 19/10 · en 3 días');
+  assert.equal(cerca?.detalle, 'Próxima: $500 el 19 de octubre · en 3 días');
   assert.equal(cerca?.tono, 'ambar');
   assert.equal(cerca?.accion?.tipo, 'cobrar-cuota');
 });
@@ -102,7 +102,7 @@ test('el renglón: la cobrada a mano se deshace; la de la pasarela, no (se devue
   const stripe = renglonDeCuota(cuota({ numero: 1, monto_usd: 300, pagado: true, fecha_pago: '2026-10-05', proveedor: 'stripe', cobro_id: 3 }), HOY);
   assert.deepEqual([stripe.accion, stripe.cuando, stripe.editable], ['ninguna', 'cobrada el 5 de octubre · por Stripe', false]);
   const vencida = renglonDeCuota(cuota({ numero: 2, monto_usd: 300, fecha_esperada: '2026-10-15' }), HOY);
-  assert.deepEqual([vencida.estado, vencida.cuando, vencida.accion, vencida.editable], ['vencida', 'venció el 15/10 · hace 1 día', 'marcar', true]);
+  assert.deepEqual([vencida.estado, vencida.cuando, vencida.accion, vencida.editable], ['vencida', 'venció el 15 de octubre · hace 1 día', 'marcar', true]);
   const pesos = renglonDeCuota(cuota({ numero: 1, monto_usd: 50, pagado: true, fecha_pago: '2026-10-05', moneda: 'ARS', monto_original: 50000 }), HOY);
   assert.match(pesos.montoTexto, /50\.000 ARS · \$50$/, 'la moneda en que se cobró, y al lado su valor en dólares');
 });

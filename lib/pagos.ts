@@ -1847,7 +1847,7 @@ async function escribirVentaDeCrm(leadId: number, crm: number, cambio: CambioVen
   if (!t) return { ok: false, error: 'Este lead ya no está en ese CRM. Recarga la ficha.' };
   const tipo = ventaTipoDe(t.venta_tipo);
   if (opts.tipoVisto && opts.tipoVisto !== tipo) return { ok: false, error: 'El tipo de venta cambió en otra pantalla. Recarga la ficha.' };
-  if (cambio.campo === 'tipo' && cambio.valor === 'suscripcion') return { ok: false, error: 'Una suscripción va en el CRM de la casa del lead: acá la venta es de un pago o en cuotas.' };
+  if (cambio.campo === 'tipo' && cambio.valor === 'suscripcion') return { ok: false, error: 'Una suscripción va en el CRM de la casa del lead: aquí la venta es de un pago o en cuotas.' };
   const db = await getTenantDb();
   const ahora = new Date().toISOString();
   const nombre = await nombreDelCrm(crm);
