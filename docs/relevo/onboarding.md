@@ -23,9 +23,10 @@
   «Desarrollador de MaKo» (docs/relevo/mako-en-whatsapp.md). Sin `--enviar` sólo muestra el texto:
   `NODE_OPTIONS=--conditions=react-server npx tsx scripts/avisar-arreglo-al-grupo.mts --ws 21 --clave onboarding:historial-ws21 --commit c07334eff --origen "Onboarding" --texto "Ya quedó arreglado: en tu Ops Center, el chat «Onboarding» muestra tu onboarding completo, con cada pregunta de MaKo y tu respuesta." --enviar`
   Después se anota el «Hecho» en app/admin/dev/onboarding/bitacora.ts.
-- Sigue abierto (detalle en el hallazgo, «Sin hacer»): el reproductor del audio (chat «Ops Center»); el modo 'plan' (sin
-  Offer: el historial se guarda, pero el super admin no lo ve en ningún hilo); el doble toque cruzado; «Empresa» y el
-  script del ws21 (el sí de Martín), como abajo.
+- El reproductor del audio lo hizo el chat «Ops Center» en su rama (ops-center-cliente-t2, con 318b32714 adentro). El
+  doble toque cruzado se arregló después, en una punta aparte encima de 99453fec5.
+- Sigue abierto (detalle en el hallazgo, «Sin hacer»): el modo 'plan' en el Ops Center del super admin (hoy no lo usa
+  ningún cliente activo: ws5 pausado y ws9 de Martín); «Empresa» y el script del ws21 (el sí de Martín), como abajo.
 
 ## ESTADO AL 22/10/2026 ~00:45 AR — EL NOMBRE EN EL PERFIL, EN PRODUCCIÓN (1166cbdca, run 223)
 
