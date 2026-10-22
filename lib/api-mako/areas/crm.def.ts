@@ -37,6 +37,7 @@ import { TABS_FICHA, DENSIDADES } from '@/lib/ficha/catalogo';
 import { PLANTILLAS_TEMA, TIPOGRAFIAS } from '@/lib/graficos-temas';
 // Puro: los métodos de pago son los de la ficha (copiarlos a mano sería otro catálogo).
 import { METODOS_PAGO } from '@/lib/pagos-campo';
+import { CAMPOS_TARJETA_LEAD, DISENOS_TARJETA } from '@/lib/tarjeta-kanban';
 
 const TAB = { tab: 'crm' } as const;
 const TAB_ADMIN = { tab: 'crm', rolMinimo: 'admin' } as const;
@@ -535,9 +536,24 @@ export const DEFS: readonly OperacionDef[] = [
     // WhatsApp y HTTP no hay sesión que diga quién es. Se cambia en el CRM, «⋯» › «Personalizar tarjetas».
     id: 'ver_campos_tarjeta_crm', area: 'crm', tipo: 'lectura',
     titulo: 'Qué muestra la tarjeta de un lead',
-    descripcion: 'Qué datos ve la persona en cada tarjeta del tablero del CRM, en su orden (foto, plata, por dónde llegó, vencimientos, datos pendientes, reunión, fuera del funnel, empresa, teléfono, campaña, fecha de alta), con qué diseño (Completa, Compacta o Con avance) y el catálogo completo. Se elige en el CRM, «⋯» › «Personalizar tarjetas», y es de cada persona: vale en todos sus funnels.',
+    descripcion: 'Qué datos ve la persona en cada tarjeta del tablero del CRM, en su orden (foto, plata, por dónde llegó, vencimientos, datos pendientes, reunión, fuera del funnel, empresa, teléfono, campaña, fecha de alta), con qué forma (Completa, Compacta, Con avance, Monto grande, Próxima reunión o Con portada), qué plantilla tiene puesta, las plantillas de fábrica y las propias, y el catálogo completo. Se elige en el CRM, «⋯» › «Personalizar tarjetas» (o clic derecho en una tarjeta), y es de cada persona: vale en todos sus funnels.',
     parametros: [],
     salida: 'json', canales: ['app'], costo: 'gratis', gating: TAB,
+  },
+  {
+    // 21/10/2026: las plantillas de la tarjeta (Martín: «poder ver TEMPLATES de estilos de tarjeta… y puedes crear otras
+    // más»). Sólo por la app, como su lectura: es de UNA persona, y por WhatsApp o HTTP no hay sesión que diga quién es.
+    id: 'personalizar_tarjetas_crm', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Personalizar la tarjeta de los leads',
+    descripcion: 'PROPONE cómo se ve la tarjeta de un lead en el tablero del CRM para la persona que lo pide (queda pendiente hasta el «sí»): poner una plantilla por su nombre (de fábrica o propia, de ver_campos_tarjeta_crm), o elegir la forma y los datos en su orden. Con guardarComo, además la guarda como plantilla propia con ese nombre (con el mismo nombre, la reemplaza). Es de cada persona: no cambia la tarjeta del resto del equipo.',
+    parametros: [
+      { nombre: 'plantilla', tipo: 'string', max: 40, descripcion: 'el nombre de una plantilla (Completa, Compacta, Sin foto, Monto grande, Próxima reunión, Con avance, Con portada, Sólo el nombre, o una propia).' },
+      { nombre: 'forma', tipo: 'string', enum: [...DISENOS_TARJETA], descripcion: 'la forma, si no se pasa una plantilla.' },
+      { nombre: 'campos', tipo: 'string[]', max: CAMPOS_TARJETA_LEAD.length, vaciaEsValor: true, descripcion: 'los datos en su orden, si no se pasa una plantilla ([] = sólo el nombre).' },
+      { nombre: 'guardarComo', tipo: 'string', max: 32, descripcion: 'guardar lo elegido como plantilla propia con este nombre.' },
+    ],
+    canales: ['app'], costo: 'gratis', gating: TAB,
+    reversible: true, escribe: 'la tarjeta de los leads de esa persona (usuarios.perfil.crmTarjeta)',
   },
   {
     id: 'asignar_campana_funnels', area: 'crm', tipo: 'accion', confirmacion: 'chat',

@@ -129,8 +129,9 @@ import { FUNNEL_DEL_NEGOCIO, esLote, itemsCrm, opcionesCrm, tituloCrm, type Cont
 import { useEtiquetas, type Etiqueta } from '@/app/_components/etiquetas-cliente';
 import { ModalLlevarAPartners } from '@/app/partners/LlevarAPartners';
 import { EstiloTarjetas, FichaRapida, TarjetaDestacada, TarjetaPersona } from '@/app/_ui/TarjetaKanban';
-import { CAMPOS_TARJETA_DEFAULT, FONDO_COLUMNA, insigniaDeCanal, plataDeLead, subtituloEnOrden, subtituloLead, type CampoTarjetaLead, type DisenoTarjeta } from '@/lib/tarjeta-kanban';
-import { CamposTarjetaModal } from './CamposTarjetaModal';
+import { CAMPOS_TARJETA_DEFAULT, CAMPOS_TARJETA_LEAD, FONDO_COLUMNA, NOMBRE_CAMPO_TARJETA, PLANTILLAS_TARJETA_LEAD, colorDeNombre, fechaReunionCorta, insigniaDeCanal, plataDeLead, subtituloEnOrden, subtituloLead, type CampoTarjetaLead, type DisenoTarjeta, type PlantillaTarjetaLead } from '@/lib/tarjeta-kanban';
+import { PersonalizarTarjetas } from '@/app/_ui/PersonalizarTarjetas';
+import { guardarCamposTarjetaAction } from './tarjeta-campos-actions';
 import { avisoAlQuitarEtapa } from './aviso-quitar-etapa';
 
 const MONO = "'Geist Mono', monospace";
@@ -421,6 +422,7 @@ export function CrmBoard({
   puedeCrearCrm = false,
   camposTarjeta = CAMPOS_TARJETA_DEFAULT,
   disenoTarjeta = 'completa',
+  plantillasTarjeta = [],
   camposGuardables = false,
 }: {
   leads: CrmLead[];
@@ -475,8 +477,10 @@ export function CrmBoard({
   puedeCrearCrm?: boolean;
   /** Qué datos muestra la tarjeta de un lead para quien mira (20/10/2026; lib/tarjeta-kanban → CAMPOS_TARJETA_LEAD). */
   camposTarjeta?: readonly CampoTarjetaLead[];
-  /** Con qué diseño (Completa, Compacta, Con avance). */
+  /** Con qué forma (Completa, Compacta, Con avance, Monto grande, Próxima reunión, Con portada). */
   disenoTarjeta?: DisenoTarjeta;
+  /** Las plantillas PROPIAS de quien mira (21/10/2026; las de fábrica son PLANTILLAS_TARJETA_LEAD). */
+  plantillasTarjeta?: readonly PlantillaTarjetaLead[];
   /** ¿Se puede guardar? (sin fila propia en `usuarios`, vale sólo en esta pestaña). */
   camposGuardables?: boolean;
 }) {
@@ -2006,6 +2010,7 @@ export function CrmBoard({
   // LA TARJETA PERSONALIZADA (20/10/2026): qué datos ve quien mira. Cambia en el acto desde «Personalizar tarjetas».
   const [campos, setCampos] = useState<readonly CampoTarjetaLead[]>(camposTarjeta);
   const [diseno, setDiseno] = useState<DisenoTarjeta>(disenoTarjeta);
+  const [plantillas, setPlantillas] = useState<readonly PlantillaTarjetaLead[]>(plantillasTarjeta);
   const [personalizando, setPersonalizando] = useState(false);
   const cerrarPersonalizar = useCallback(() => setPersonalizando(false), []);
   // «Próximo» arranca PLEGADO y lo abre el ícono del calendario (18/10/2026, Martín, pt 8).
@@ -2883,22 +2888,35 @@ export function CrmBoard({
     };
     // «Con avance» (como Clients): el paso del lead en el CAMINO del funnel (sin nutrición ni salidas).
     const iPaso = caminoTarjeta.findIndex((s) => s.key === etapa);
+    const plata = isGanado ? montoDeTarjeta(l).texto : plataDeLead({ ganado: false, ingresoEstimado: l.ingresoEstimado });
+    // LAS FORMAS DE LAS PLANTILLAS (21/10/2026): el dato que la forma pone GRANDE sale del subtítulo y de los chips, para
+    // no decirlo dos veces. Va aunque falte («Sin monto», «Sin agendar»): la forma promete ese lugar, y vacío se lee roto.
+    const enGrande: CampoTarjetaLead | null = dis === 'monto' ? 'plata' : dis === 'evento' ? 'agenda' : null;
+    const csChicos = enGrande ? cs.filter((c) => c !== enGrande) : cs;
+    const destacado = dis === 'monto'
+      ? { rotulo: isGanado ? 'Vendido' : 'Estimado', texto: plata ?? 'Sin monto', icono: 'sales' as const, ...(isGanado && plata ? { tono: 'bien' as const } : {}) }
+      : dis === 'evento'
+        ? { rotulo: 'Reunión', texto: l.fechaJ1 ? fechaReunionCorta(l.fechaJ1) : 'Sin agendar', icono: 'calendario' as const }
+        : null;
     return {
       alerta: overdueManual,
       sinCara: !cs.includes('foto'),
       compacta: dis === 'compacta',
-      subtitulo: subtituloEnOrden(cs, {
-        plata: isGanado ? montoDeTarjeta(l).texto : plataDeLead({ ganado: false, ingresoEstimado: l.ingresoEstimado }),
-        canal: l.canal,
-      }),
+      portada: dis === 'portada' ? colorDeNombre(l.name) : null,
+      destacado,
+      subtitulo: subtituloEnOrden(csChicos, { plata, canal: l.canal }),
       avance: dis === 'avance' && iPaso >= 0
         ? { pct: ((iPaso + 1) / caminoTarjeta.length) * 100, texto: `Paso ${iPaso + 1} de ${caminoTarjeta.length} · ${caminoTarjeta[iPaso].label}` }
         : null,
-      chips: <>{cs.map((c) => <Fragment key={c}>{chip(c)}</Fragment>)}</>,
+      chips: <>{csChicos.map((c) => <Fragment key={c}>{chip(c)}</Fragment>)}</>,
     };
   };
-  // La vista previa del pop-up: el primer lead del tablero, con lo que se está eligiendo.
+  // La vista previa del pop-up: un lead del tablero, con lo que se está eligiendo. Para «Monto grande» y «Próxima
+  // reunión», uno que TENGA ese dato si hay alguno: la galería tiene que mostrar la diferencia, no «Sin monto» ocho veces.
   const muestraTarjeta = leads[0] ?? null;
+  const muestraPara = (dis: DisenoTarjeta): CrmLead | null =>
+    (dis === 'evento' ? leads.find((l) => l.fechaJ1) : dis === 'monto' ? leads.find((l) => (l.ingresoEstimado ?? 0) > 0 || (l.monto ?? 0) > 0) : null)
+      ?? muestraTarjeta;
 
   return (
     // ⚠️ ARRIBA, 16 Y NO 34 (punto 23 del 12/10/2026: «Sube la topbar del todo»). Con el título
@@ -4061,13 +4079,25 @@ export function CrmBoard({
           onCancel={() => setErrorEtapa(null)}
         />
       )}
+      {/* «Personalizar tarjetas» (el «⋯» de la barra, el clic derecho en una tarjeta o en el fondo): la pieza de TODOS los
+          tableros (app/_ui/PersonalizarTarjetas.tsx), con las plantillas del CRM y la tarjeta de verdad (`propsDeTarjeta`). */}
       {personalizando && (
-        <CamposTarjetaModal campos={campos} diseno={diseno} guardable={camposGuardables}
-          onCambio={(cs, d) => { setCampos(cs); setDiseno(d); }} onCerrar={cerrarPersonalizar}
-          vistaPrevia={muestraTarjeta ? (cs, d) => (
-            <TarjetaPersona nombre={muestraTarjeta.name} foto={muestraTarjeta.foto} insignia={insigniaDeCanal(muestraTarjeta.canal)}
-              {...propsDeTarjeta(muestraTarjeta, cs, d)} pildora={{ texto: 'Ver info', onClick: () => {} }} />
-          ) : null} />
+        <PersonalizarTarjetas<DisenoTarjeta, CampoTarjetaLead>
+          fabrica={PLANTILLAS_TARJETA_LEAD} propias={plantillas} forma={diseno} campos={campos}
+          catalogo={CAMPOS_TARJETA_LEAD} nombreCampo={NOMBRE_CAMPO_TARJETA} guardable={camposGuardables}
+          guardar={async (d, cs, ps) => {
+            const r = await guardarCamposTarjetaAction(cs, d, ps);
+            return r.ok ? { ok: true } : r;
+          }}
+          onCambio={(d, cs, ps) => { setCampos(cs); setDiseno(d); setPlantillas(ps); }} onCerrar={cerrarPersonalizar}
+          vistaPrevia={muestraTarjeta ? (d, cs) => {
+            const m = muestraPara(d) ?? muestraTarjeta;
+            return (
+              <TarjetaPersona nombre={m.name} foto={m.foto} insignia={insigniaDeCanal(m.canal)}
+                {...propsDeTarjeta(m, cs, d)} pildora={{ texto: 'Ver info', onClick: () => {} }} />
+            );
+          } : null}
+          sinMuestra="Carga un lead para ver cómo queda." ayudaDatos="Arrástralos para acomodarlos. El nombre va siempre." />
       )}
     </main>
   );

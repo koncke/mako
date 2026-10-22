@@ -17,8 +17,9 @@
 // Y ejecutar() tampoco lanza (tipos.ts): `seguro()` lo garantiza.
 // =============================================================================
 
-import { getCamposTarjetaCrm } from '@/lib/perfil';
-import { CAMPOS_TARJETA_DEFAULT, CAMPOS_TARJETA_LEAD, DETALLE_DISENO_TARJETA, DISENOS_TARJETA, NOMBRE_CAMPO_TARJETA, NOMBRE_DISENO_TARJETA } from '@/lib/tarjeta-kanban';
+import { getCamposTarjetaCrm, setCamposTarjetaCrm } from '@/lib/perfil';
+import { CAMPOS_TARJETA_DEFAULT, CAMPOS_TARJETA_LEAD, DETALLE_DISENO_TARJETA, DISENOS_TARJETA, NOMBRE_CAMPO_TARJETA, NOMBRE_DISENO_TARJETA, PLANTILLAS_TARJETA_LEAD, camposTarjetaDe, type CampoTarjetaLead, type DisenoTarjeta } from '@/lib/tarjeta-kanban';
+import { guardarPlantillaPropia, idPlantillaNueva, plantillaPuesta } from '@/lib/plantillas-tarjeta';
 import 'server-only';
 import type { Ctx, Ejecutado, Runners, SalidaLectura } from '../tipos';
 import { runMakoTool } from '@/lib/mako-tools';
@@ -1045,16 +1046,77 @@ export const RUNNERS: Runners = {
 
   ver_campos_tarjeta_crm: {
     leer: async () => {
-      const { campos, diseno, guardable } = await getCamposTarjetaCrm();
+      const { campos, diseno, plantillas, guardable } = await getCamposTarjetaCrm();
+      const plantilla = (p: { nombre: string; forma: DisenoTarjeta; campos: readonly CampoTarjetaLead[] }) =>
+        ({ nombre: p.nombre, forma: p.forma, campos: [...p.campos] });
       return json({
         diseno: { diseno, nombre: NOMBRE_DISENO_TARJETA[diseno] },
         disenos: DISENOS_TARJETA.map((d) => ({ diseno: d, nombre: NOMBRE_DISENO_TARJETA[d], detalle: DETALLE_DISENO_TARJETA[d] })),
         campos: campos.map((c) => ({ campo: c, nombre: NOMBRE_CAMPO_TARJETA[c] })),
+        plantillaPuesta: plantillaPuesta([...PLANTILLAS_TARJETA_LEAD, ...plantillas], diseno, campos)?.nombre ?? 'Personalizada',
+        plantillasDeFabrica: PLANTILLAS_TARJETA_LEAD.map(plantilla),
+        plantillasPropias: plantillas.map(plantilla),
         catalogo: CAMPOS_TARJETA_LEAD.map((c) => ({ campo: c, nombre: NOMBRE_CAMPO_TARJETA[c], deSiempre: CAMPOS_TARJETA_DEFAULT.includes(c) })),
         guardable,
-        dondeSeCambia: 'En el CRM, «⋯» › «Personalizar tarjetas».',
+        dondeSeCambia: 'En el CRM, «⋯» › «Personalizar tarjetas», o clic derecho en una tarjeta › «Personalizar tarjeta».',
       });
     },
+  },
+  // La tarjeta es de UNA persona (usuarios.perfil): la pendiente lleva su email y sólo la confirma ella. Desde la bandeja,
+  // otro del equipo le estaría cambiando la tarjeta a alguien que no la pidió (y la escritura cae en la fila de quien
+  // confirma, no de quien pidió: `setCamposTarjetaCrm` lee la sesión).
+  personalizar_tarjetas_crm: {
+    faltaParaConfirmar: async (payload, ctx) => {
+      const de = String(payload.email ?? '').toLowerCase();
+      const quien = String(ctx.quien?.email ?? ctx.actor ?? '').toLowerCase();
+      return de && quien && de !== quien ? `Esta tarjeta es la de ${payload.email}: la confirma esa persona desde su chat.` : null;
+    },
+    preparar: async (input, ctx) => {
+      const email = ctx.quien?.email ?? ctx.actor ?? '';
+      if (!email) return { error: 'La tarjeta es de cada persona y este pedido no dice de quién: se cambia desde el chat de la app o en el CRM.' };
+      const actual = await getCamposTarjetaCrm();
+      if (!actual.guardable) return { error: 'Tu sesión no tiene un usuario propio: la tarjeta se cambia en el CRM, «⋯» › «Personalizar tarjetas».' };
+      const todas = [...PLANTILLAS_TARJETA_LEAD, ...actual.plantillas];
+      const clave = (x: unknown) => String(x ?? '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+      let forma: DisenoTarjeta;
+      let campos: CampoTarjetaLead[];
+      if (input.plantilla !== undefined && String(input.plantilla).trim()) {
+        const p = todas.find((x) => clave(x.nombre) === clave(input.plantilla));
+        if (!p) return { error: `No hay una plantilla «${String(input.plantilla).trim()}».`, disponibles: todas.map((x) => x.nombre) };
+        forma = p.forma;
+        campos = [...p.campos];
+      } else if (input.forma !== undefined || input.campos !== undefined) {
+        forma = (DISENOS_TARJETA as readonly unknown[]).includes(input.forma) ? input.forma as DisenoTarjeta : actual.diseno;
+        if (input.campos !== undefined) {
+          const pedidos = Array.isArray(input.campos) ? input.campos.map(String) : [];
+          const raros = pedidos.filter((c) => !(CAMPOS_TARJETA_LEAD as readonly string[]).includes(c));
+          if (raros.length) return { error: `No conozco ${raros.map((r) => `«${r}»`).join(', ')}.`, disponibles: CAMPOS_TARJETA_LEAD.map((c) => ({ campo: c, nombre: NOMBRE_CAMPO_TARJETA[c] })) };
+          campos = camposTarjetaDe(pedidos);
+        } else campos = [...actual.campos];
+      } else {
+        return { error: 'Pasa una plantilla por su nombre, o la forma y los datos.', disponibles: todas.map((x) => x.nombre) };
+      }
+      let plantillas: unknown[] | undefined;
+      if (input.guardarComo !== undefined && String(input.guardarComo).trim()) {
+        const g = guardarPlantillaPropia(actual.plantillas, input.guardarComo, forma, campos, idPlantillaNueva());
+        if (!g.ok) return { error: g.error === 'lleno' ? 'Ya tiene 12 plantillas propias: hay que borrar una en el CRM.' : 'Falta el nombre de la plantilla.' };
+        plantillas = g.propias;
+      }
+      const igual = forma === actual.diseno && campos.length === actual.campos.length && campos.every((c, i) => c === actual.campos[i]);
+      if (igual && !plantillas) return { error: 'La tarjeta ya está así.', yaEstaba: true };
+      const nombre = plantillaPuesta(todas, forma, campos)?.nombre;
+      const datos = campos.length ? campos.map((c) => NOMBRE_CAMPO_TARJETA[c]).join(', ') : 'sólo el nombre';
+      return {
+        payload: { email, forma, campos, ...(plantillas ? { plantillas } : {}) },
+        resumen: `Tu tarjeta de leads ${nombre ? `como «${nombre}»` : `en forma ${NOMBRE_DISENO_TARJETA[forma]}`} (${datos})`
+          + (input.guardarComo ? `, guardada como plantilla «${String(input.guardarComo).trim()}»` : '') + '. Sólo la tuya: el resto del equipo sigue viendo la suya.',
+      };
+    },
+    ejecutar: (payload) => seguro('personalizar la tarjeta', async () => {
+      const r = await setCamposTarjetaCrm(payload.campos, payload.forma, payload.plantillas);
+      if (!r.guardado) return { ok: false, resumen: 'No pude guardarla: tu sesión no tiene un usuario propio. Se cambia en el CRM, «⋯» › «Personalizar tarjetas».' };
+      return { ok: true, resumen: `Listo: tu tarjeta de leads quedó en forma ${NOMBRE_DISENO_TARJETA[r.diseno]}. Se ve al volver al CRM.` };
+    }),
   },
   ver_campanas_funnels: {
     leer: async () => {

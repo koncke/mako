@@ -9,7 +9,7 @@
 // preferencias de notificaciones son por-WORKSPACE: los crons (sin sesión →
 // workspace dueño) las leen de app_settings. Se mantienen las keys de siempre.
 
-import { CAMPOS_TARJETA_DEFAULT, prefsTarjetaDe, type CampoTarjetaLead, type DisenoTarjeta } from '@/lib/tarjeta-kanban';
+import { CAMPOS_TARJETA_DEFAULT, prefsTarjetaDe, type CampoTarjetaLead, type DisenoTarjeta, type PlantillaTarjetaLead } from '@/lib/tarjeta-kanban';
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { getSetting, setSetting } from './settings';
@@ -443,20 +443,27 @@ const TARJETA_CRM_KEY = 'crmTarjeta';
  * lib/tarjeta-kanban.ts → CAMPOS_TARJETA_LEAD). Sin fila propia (la sesión compartida vieja): lo de siempre, y la
  * pantalla sabe que no se puede guardar.
  */
-export async function getCamposTarjetaCrm(): Promise<{ campos: CampoTarjetaLead[]; diseno: DisenoTarjeta; guardable: boolean }> {
+export async function getCamposTarjetaCrm(): Promise<{ campos: CampoTarjetaLead[]; diseno: DisenoTarjeta; plantillas: PlantillaTarjetaLead[]; guardable: boolean }> {
   try {
     const u = await filaPropia();
-    if (!u) return { campos: [...CAMPOS_TARJETA_DEFAULT], diseno: 'completa', guardable: false };
+    if (!u) return { campos: [...CAMPOS_TARJETA_DEFAULT], diseno: 'completa', plantillas: [], guardable: false };
     return { ...prefsTarjetaDe(u.perfil[TARJETA_CRM_KEY]), guardable: true };
   } catch {
-    return { campos: [...CAMPOS_TARJETA_DEFAULT], diseno: 'completa', guardable: false };
+    return { campos: [...CAMPOS_TARJETA_DEFAULT], diseno: 'completa', plantillas: [], guardable: false };
   }
 }
 
-/** Guarda qué muestra la tarjeta y con qué diseño. `guardado:false` = sesión sin fila propia (ver setNotifInApp). */
-export async function setCamposTarjetaCrm(campos: unknown, diseno?: unknown): Promise<{ campos: CampoTarjetaLead[]; diseno: DisenoTarjeta; guardado: boolean }> {
-  const limpios = prefsTarjetaDe({ campos, diseno });
+/**
+ * Guarda qué muestra la tarjeta, con qué forma y (si llegan) las plantillas PROPIAS de la persona. `plantillas`
+ * ausente = se quedan las que tenía: elegir una plantilla o sacar un dato no borra las guardadas.
+ * `guardado:false` = sesión sin fila propia (ver setNotifInApp).
+ */
+export async function setCamposTarjetaCrm(campos: unknown, diseno?: unknown, plantillas?: unknown): Promise<{ campos: CampoTarjetaLead[]; diseno: DisenoTarjeta; plantillas: PlantillaTarjetaLead[]; guardado: boolean }> {
   const u = await filaPropia();
+  const previas = u && u.perfil[TARJETA_CRM_KEY] && typeof u.perfil[TARJETA_CRM_KEY] === 'object'
+    ? (u.perfil[TARJETA_CRM_KEY] as { plantillas?: unknown }).plantillas
+    : undefined;
+  const limpios = prefsTarjetaDe({ campos, diseno, plantillas: plantillas === undefined ? previas : plantillas });
   if (!u) return { ...limpios, guardado: false };
   const perfil = { ...u.perfil, [TARJETA_CRM_KEY]: limpios };
   const { error } = await getSupabaseServer()
