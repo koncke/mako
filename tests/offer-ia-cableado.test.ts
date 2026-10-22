@@ -333,8 +333,9 @@ test('el diagnóstico de fase: se guarda en el negocio SÓLO si no había uno (i
   assert.doesNotMatch(RUTA, /\bdiagnosticar\(/);
   // El PDF y los prompts: la MISMA regla (`faseVigenteDe`), leída después de asegurar; y lo que falta, dicho.
   const gen = funcion(RUTA, 'generarSesion');
-  assert.match(gen, /const fase = faseVigenteDe\(ctx\);/);
-  assert.ok(gen.indexOf('await asegurarFaseGuardada(fila, ctx);') < gen.indexOf('const fase = faseVigenteDe(ctx);'), 'la fase se lee DESPUÉS de asegurar');
+  // Con el canal del funnel de ESTA oferta, si se sabe (22/10/2026, tests/offer-prueba-chats-2210.test.ts).
+  assert.match(gen, /const fase = conCanalDeLaOferta\(faseVigenteDe\(ctx\), ctx\.funnel\?\.canal \?\? null\);/);
+  assert.ok(gen.indexOf('await asegurarFaseGuardada(fila, ctx);') < gen.indexOf('const fase = conCanalDeLaOferta(faseVigenteDe(ctx)'), 'la fase se lee DESPUÉS de asegurar');
   assert.doesNotMatch(gen, /ctx\.faseSesion \?\?/);
   assert.match(gen, /const faltante = fase \? null : diagnosticoFaltante\(estadoDiagnostico\(fila\.mensajes, \{ canal: ctx\.canal, yaGuardado: !!ctx\.faseGuardada \}\)\);/);
   assert.match(gen, /\n\s*fase,\n\s*\.\.\.\(faltante \? \{ diagnosticoFaltante: faltante \} : \{\}\),\n/);
@@ -515,7 +516,8 @@ test('«A definir»: ningún texto que lee la IA exige los 10 a 15 casos, y el t
     assert.doesNotMatch(src, /10\s*(?:a|-|–)\s*15\s*casos/i, `${nombre} dice «10 a 15 casos»`);
   }
   const turno = IA.slice(IA.indexOf('export const OFFER_TURNO_SYSTEM_TEMPLATE'), IA.indexOf('export const OFFER_TURNO_USER_TEMPLATE'));
-  assert.match(turno, /14\. SIEMPRE, temprano \(en tus primeras preguntas\): pregunta si vende otras ofertas además de ésta/);
+  // Salvo que ya esté anotada (22/10/2026: una vez de tres la volvía a preguntar), y sólo con la respuesta a ESA pregunta.
+  assert.match(turno, /14\. SIEMPRE, temprano \(en tus primeras preguntas\), salvo que la pieza "otras" ya esté anotada: pregunta si vende otras ofertas además de ésta/);
   assert.match(turno, /La pieza "otras" empieza SIEMPRE por el número de ofertas/);
   // Las mínimas del prompt salen del catálogo, no de una lista escrita a mano.
   assert.match(turno, /\$\{PIEZAS_MINIMAS\.length\} piezas mínimas/);

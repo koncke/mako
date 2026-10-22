@@ -7576,3 +7576,11 @@ fuente, o que corra aislado todo archivo que en la corrida compartida contó men
   Vercel despliega `main` igual, porque no depende de Actions.
 - **Regla:** un run que termina en segundos y sin pasos NO se lee como un rojo de código y no se le pasa a ningún chat. Se miran
   sus anotaciones. Y antes de culpar a un test, se mira cuánto duró el job (`started_at` / `completed_at`).
+
+## Un turno de Offer hace ~90 consultas a la base (22/10/2026, prueba de los chats; no arreglado)
+
+Lo contó la traza del arnés del Cerebro (`scripts/probar-chats/traza-consultas.mts`, rama `probar-chats-offer`): unas 90
+consultas por turno. `credenciales` ×36 (20 desde `provsGratisDePlataforma`, lib/ai-cheap.ts, y 10 desde
+`saldoOpenRouter`, lib/openrouter-saldo.ts), `app_settings` ×15-22, y la sesión se resuelve 8 veces. En una ruta, el
+`cache` de React NO deduplica (sólo dentro de un render de servidor). Con ~97 ms por ida serían 5-9 s por turno en Vercel:
+eso es una deducción del código, no se midió en Vercel. Pendiente, de ai-cheap y de la sesión, no de Offer.

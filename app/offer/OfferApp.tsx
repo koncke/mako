@@ -128,10 +128,17 @@ type Resultado = 'salio' | 'volver' | 'tirar';
  * Sin `accept` acá a propósito: `validar` dice el motivo PROPIO de cada formato («los .pages no se pueden
  * leer: expórtalo a PDF»), y el rebote genérico del `accept` lo taparía. El «+» igual lleva el `accept`.
  */
+/** Lo que Offer sabe leer: lo de la casa y un .zip (la carpeta de una landing). */
+const ACCEPT_OFFER = `${ACCEPT_IMPORTAR},.zip`;
+/** Desde cuántos documentos sin leer los lee el servidor y MaKo avisa (O9, `leer-lote`); con menos, se leen acá como siempre. */
+const UMBRAL_LOTE = 3;
+const ZIP = /[.]zip$/i;
+
 const TOPES_OFFER = {
   maxBytes: MAX_ARCHIVO_BYTES,
   maxArchivos: MAX_ADJUNTOS,
-  validar: (f: { name: string; type: string }): string | null => (puedeLeerse(f.name, f.type) ? null : `«${f.name}» ${porQueNoPuedo(f.name) || 'no se puede leer.'}`),
+  // Un .zip también (22/10/2026): la carpeta de una landing; lo abre el servidor (lib/offer-zip.ts, `esZip`).
+  validar: (f: { name: string; type: string }): string | null => (puedeLeerse(f.name, f.type) || ZIP.test(f.name) ? null : `«${f.name}» ${porQueNoPuedo(f.name) || 'no se puede leer.'}`),
 };
 
 const cuantosArchivos = (n: number): string => `${n} ${n === 1 ? 'archivo' : 'archivos'}`;
@@ -481,7 +488,10 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   };
 
   const respondiendo = pendiente != null || reintentando;
-  const puedeMandar = !!sesion && !respondiendo && !leyendo && !gen.corriendo && !cambiando;
+  // Mientras el servidor lee un lote de documentos, en ESTA conversación no se manda otro mensaje (O9): quedaría antes de
+  // los documentos. El resto de MaKo sigue andando.
+  const leyendoDocs = !!sesion?.leyendo && !sesion.leyendo.vencido;
+  const puedeMandar = !!sesion && !respondiendo && !leyendo && !leyendoDocs && !gen.corriendo && !cambiando;
   const hayAlgo = texto.trim().length > 0;
 
   /**
@@ -539,6 +549,8 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     const s = sesionRef.current;
     if (id == null || !s) return;
     const e = epoca.current;
+    // Muchos documentos: los lee el SERVIDOR y MaKo avisa cuando termina (O9, 22/10/2026). La persona puede seguir.
+    if (items.filter((it) => !docsLeidos.current.has(it.id)).length >= UMBRAL_LOTE) { await enviarLote(items, id, e); return; }
     // El texto que se manda es el de cuando se apretó Enviar. Si se sigue escribiendo mientras se leen los
     // archivos, eso queda en la barra (no se pisa ni se pierde).
     const t = texto.trim();
@@ -572,6 +584,46 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     if (e === epoca.current) {
       setTexto((ahora) => (ahora.trim() ? ahora : t));
       lista.poner([...items, ...lista.ref.current.filter((x) => !items.some((y) => y.id === x.id))]);
+    }
+  };
+
+  /**
+   * Muchos documentos de una vez (O9, 22/10/2026, Mauricio: «los analizo y te aviso cuando termine»): se SUBEN acá (es
+   * rápido) y los lee el servidor (`leer-lote`), que contesta al toque con el «estoy leyendo». La vista se cierra; la
+   * conversación se relee sola hasta que llega la respuesta, y la persona puede irse a otra tab. Si `leer-lote` no
+   * acepta, la vista vuelve con el error y lo subido se suelta.
+   */
+  const enviarLote = async (items: ItemAdjunto[], id: number, e: number) => {
+    const t = texto.trim();
+    leyendoRef.current = true;
+    setLeyendo(true);
+    setErrorVista(null);
+    setErrorChat(null);
+    setFalloId(null);
+    const subidos: Array<{ path: string; nombre: string; mime: string }> = [];
+    try {
+      for (const it of items.filter((x) => !docsLeidos.current.has(x.id))) {
+        if (e !== epoca.current) return;
+        setEstadoVista(`Subiendo «${it.file.name}»…`);
+        const mime = it.file.type || 'application/octet-stream';
+        subidos.push({ path: await subirArchivo(it.file, mime), nombre: it.file.name, mime });
+      }
+      if (e !== epoca.current) { for (const x of subidos) descartarSubida(x.path); return; }
+      const docIds = items.map((it) => docsLeidos.current.get(it.id)?.id).filter((x): x is string => !!x);
+      const r = await llamarOffer<{ sesion: OfferSesionVista }>(
+        { action: 'leer-lote', sesionId: id, archivos: subidos, docIds, texto: t },
+        TOPE.corto,
+        'Mandar los documentos tardó demasiado.',
+      );
+      aplicarSesion(r.sesion, e);
+      setTexto((ahora) => (ahora.trim() === t ? '' : ahora));
+      lista.vaciar();
+      for (const it of items) docsLeidos.current.delete(it.id);
+    } catch (err) {
+      for (const x of subidos) descartarSubida(x.path);
+      if (e === epoca.current) setErrorVista(mensajeDeError(err));
+    } finally {
+      if (e === epoca.current) { leyendoRef.current = false; setLeyendo(false); setEstadoVista(null); }
     }
   };
 
@@ -704,7 +756,8 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   }, [armadoCorre, armadoError, idSesion, versionConclusion, arranque]);
   // Mientras el servidor arma, la conversación se relee: la conclusión aparece sola, y una pestaña que se
   // durmió se pone al día al despertar. Un fallo de red no corta nada: se reintenta en la vuelta siguiente.
-  const idSesionArmando = armadoCorre ? (sesion?.id ?? null) : null;
+  // Lo mismo mientras el servidor lee un lote de documentos (O9): la respuesta aparece sola.
+  const idSesionArmando = armadoCorre || leyendoDocs ? (sesion?.id ?? null) : null;
   useEffect(() => {
     if (idSesionArmando == null) return;
     const e = epoca.current;
@@ -886,7 +939,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
       texto={texto}
       onTexto={setTexto}
       onEnviar={() => void enviarVista()}
-      accept={ACCEPT_IMPORTAR}
+      accept={ACCEPT_OFFER}
       maxArchivos={MAX_ADJUNTOS}
       enviando={leyendo}
       puedeEnviar={puedeMandar}
@@ -930,7 +983,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     onSumar: agregarArchivos,
     onQuitar: quitarArchivo,
     // «Documento» ofrece lo que Offer sabe leer (audio y video incluidos), no lo del Ops Center (revisión del Cerebro, 20/10).
-    accept: ACCEPT_IMPORTAR,
+    accept: ACCEPT_OFFER,
     onSinImagen: (puedeLeer) => setErrorChat(puedeLeer ? 'No hay una imagen copiada.' : 'Este navegador no deja pegar: usa Ctrl+V.'),
     // Lo pegado cuando no se puede sumar se dice (sexta revisión, 21/10: la imagen se perdía sin aviso).
     onNoPuede: () => setErrorChat(ocupado ? 'Espera a que MaKo conteste para sumar archivos.' : 'Todavía no puedo recibir archivos: prueba en un momento.'),

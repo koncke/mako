@@ -150,17 +150,68 @@ export const tieneDato = (piezas: PiezasSabidas, k: PiezaKey): boolean => {
   return !!v && !esSinDato(v);
 };
 
-/** Lo que el modelo anotó de las piezas en un turno: sólo keys válidas, texto corto. */
-function limpiarPiezas(v: unknown): Partial<Record<PiezaKey, string>> {
-  if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
-  const out: Partial<Record<PiezaKey, string>> = {};
+/**
+ * La marca de la fuente que el prompt pone al lado de cada pieza (`piezasParaPrompt`: «… [de: chat]») y que el modelo
+ * copia de vuelta al anotar (22/10/2026, prueba de los chats: 3 de 3; las piezas de Mauricio la tienen). Se saca al
+ * ENTRAR lo del modelo y al LEER lo guardado: en el riel se veía y en el prompt se duplicaba.
+ */
+export const sinMarcaDeFuente = (t: string): string => t.replace(/\s*\[de:\s*[a-záéíóúñ ]{2,20}\]\s*/gi, ' ').trim();
+
+/** De dónde dice el modelo que sacó una pieza (`"de"` en el JSON del turno). Sin `de`, lo dijo el dueño. */
+export type OrigenDePieza = 'contexto' | 'documento';
+
+/**
+ * Lo que el modelo anotó de las piezas en un turno: sólo keys válidas, texto corto, y de dónde la sacó si lo dice
+ * (`{"valor": "…", "de": "contexto"}`, 22/10/2026: lo que salía de lo cargado en MaKo se guardaba como dicho por el dueño).
+ */
+function limpiarPiezas(v: unknown): { piezas: Partial<Record<PiezaKey, string>>; origen: Partial<Record<PiezaKey, OrigenDePieza>> } {
+  const piezas: Partial<Record<PiezaKey, string>> = {};
+  const origen: Partial<Record<PiezaKey, OrigenDePieza>> = {};
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return { piezas, origen };
   for (const [k, raw] of Object.entries(v as Record<string, unknown>)) {
     if (!esPiezaKey(k)) continue;
     // El modelo a veces devuelve {valor: "…"} en vez del texto pelado: se acepta igual.
-    const val = colapsar(typeof raw === 'string' ? raw : (raw as { valor?: unknown } | null)?.valor);
-    if (val) out[k] = recortar(val, TOPE_PIEZA);
+    const val = sinMarcaDeFuente(colapsar(typeof raw === 'string' ? raw : (raw as { valor?: unknown } | null)?.valor));
+    if (!val) continue;
+    piezas[k] = recortar(val, TOPE_PIEZA);
+    const de = raw && typeof raw === 'object' ? normalizar(String((raw as { de?: unknown }).de ?? '')) : '';
+    if (de === 'contexto') origen[k] = 'contexto';
+    else if (de === 'documento' || de === 'documentos') origen[k] = 'documento';
   }
-  return out;
+  return { piezas, origen };
+}
+
+/**
+ * Lo que el turno sabe de ESTA oferta en MaKo: si se armó y si se guardó (22/10/2026, prueba de los chats: «¿ya quedó
+ * guardada mi oferta en MaKo?» se contestaba «sí, ya está registrada» sin una versión armada ni guardada). Va al
+ * contexto del turno, que lo leen también los prompts editados en /configuraciones.
+ */
+export function estadoDeLaOferta(f: { conclusiones: ReadonlyArray<{ version: number }>; ofertaId: number | null; ofertaVersion: number | null }): string {
+  const v = f.conclusiones.reduce((m, c) => Math.max(m, c.version), 0);
+  const titulo = 'ESTADO DE ESTA OFERTA EN MaKo (si el dueño pregunta, contesta con esto)';
+  if (!v) return `${titulo}: todavía NO está armada ni guardada. Se arma cuando el dueño toca «Armar mi oferta», y después la puede guardar en su funnel.`;
+  if (f.ofertaId != null && f.ofertaVersion === v) return `${titulo}: la versión ${v} está armada y GUARDADA en MaKo.`;
+  return `${titulo}: la versión ${v} está armada (en PDF) pero NO está guardada: se guarda desde la ventana de la oferta, en su funnel.`;
+}
+
+/**
+ * Las piezas de un turno sumadas a las que ya se sabían, cada una con SU fuente (22/10/2026, prueba de los chats):
+ * lo que el modelo sacó de lo cargado en MaKo va como 'negocio', de un documento como 'doc', y lo demás con la de
+ * siempre (`porDefecto`: 'doc' si el turno trajo documentos, si no 'chat'). Y «otras» (cuántas ofertas vende además de
+ * ésta) sólo si MaKo ACABA de preguntarlo (`preguntoOtras`): el modelo la anotaba con «0» leído de «no vendí ninguno»,
+ * que es otra pregunta, y con eso la guía la daba por sabida.
+ */
+export function fundirPiezasDelTurno(
+  sabidas: PiezasSabidas, turno: Pick<TurnoOffer, 'piezas' | 'origen'>, p: { porDefecto: FuentePieza; preguntoOtras: boolean; at?: string },
+): PiezasSabidas {
+  const at = p.at ?? new Date().toISOString();
+  const grupos: Record<FuentePieza, Partial<Record<PiezaKey, string>>> = { negocio: {}, doc: {}, chat: {} };
+  for (const [k, v] of Object.entries(turno.piezas) as Array<[PiezaKey, string]>) {
+    if (k === 'otras' && !p.preguntoOtras) continue;
+    const o = turno.origen?.[k];
+    grupos[o === 'contexto' ? 'negocio' : o === 'documento' ? 'doc' : p.porDefecto][k] = v;
+  }
+  return (['negocio', 'doc', 'chat'] as const).reduce((acc, f) => mergePiezas(acc, grupos[f], f, at), sabidas);
 }
 
 /**
@@ -196,7 +247,7 @@ export function sanearPiezas(raw: unknown): PiezasSabidas {
   for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
     if (!esPiezaKey(k) || !v || typeof v !== 'object') continue;
     const o = v as Record<string, unknown>;
-    const valor = colapsar(o.valor);
+    const valor = sinMarcaDeFuente(colapsar(o.valor));
     if (!valor) continue;
     const fuente: FuentePieza = o.fuente === 'negocio' || o.fuente === 'doc' ? o.fuente : 'chat';
     out[k] = { valor, fuente, at: typeof o.at === 'string' ? o.at : '' };
@@ -271,6 +322,8 @@ export function sanearMensajes(raw: unknown): MensajeGuardado[] {
     const respuesta = de === 'yo' ? sanearRespuesta(o.respuesta) : undefined;
     const linksSinLeer = de === 'yo' ? sanearLinksSinLeer(o.linksSinLeer) : [];
     const pdf = de === 'mako' ? sanearPdf(o.pdf) : undefined;
+    // Sin esta línea, «estoy leyendo tus documentos» se perdía en la primera escritura y la pantalla dejaba de esperar.
+    const leyendo = de === 'mako' ? sanearLeyendo(o.leyendo) : undefined;
     // Sin esta línea la selección múltiple se veía al llegar el turno y se perdía al reabrir la conversación.
     const varias = de === 'mako' && !pregunta && opciones.length > 1 && o.varias === true;
     out.push({
@@ -283,9 +336,61 @@ export function sanearMensajes(raw: unknown): MensajeGuardado[] {
       ...(respuesta ? { respuesta } : {}),
       ...(linksSinLeer.length ? { linksSinLeer } : {}),
       ...(pdf ? { pdf } : {}),
+      ...(leyendo ? { leyendo } : {}),
     });
   }
   return out;
+}
+
+function sanearLeyendo(raw: unknown): MensajeGuardado['leyendo'] {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.desde !== 'string' || typeof o.intento !== 'string' || !Array.isArray(o.nombres)) return undefined;
+  const nombres = o.nombres.filter((x): x is string => typeof x === 'string').slice(0, MAX_DOCS_LOTE);
+  return { nombres, desde: o.desde, intento: o.intento, texto: typeof o.texto === 'string' ? o.texto : '' };
+}
+
+// ── Muchos documentos: los lee el servidor y MaKo avisa (22/10/2026, O9) ─────────────────────────────────────────
+// Mauricio (llamada del 22/10, 39:44): «mientras analiza muchos documentos, que diga "los analizo y te aviso cuando
+// termine"» y dejar seguir usando la app. Con 3 o más archivos (`UMBRAL_LOTE`, app/offer/OfferApp.tsx), la pantalla los sube y manda `leer-lote`: el
+// servidor anota este mensaje, los lee en un `after()` (la misma lectura de uno por uno) y al terminar manda el turno
+// con lo que escribió el dueño y avisa en la campanita.
+
+/** Hasta cuántos en un lote (el tope de documentos de una conversación manda igual). */
+export const MAX_DOCS_LOTE = 12;
+/** Una lectura que lleva más que esto se cortó (el `maxDuration` de la ruta es 800 s). */
+export const LECTURA_VENCE_MS = 15 * 60_000;
+
+/** El mensaje de MaKo mientras lee. */
+export function mensajeLeyendo(p: { id: string; at: string; nombres: string[]; texto: string; intento: string }): MensajeGuardado {
+  const n = p.nombres.length;
+  const cuales = p.nombres.slice(0, 4).map((x) => `«${x}»`);
+  const lista = n > 4 ? `${cuales.join(', ')} y ${n - 4} más` : listaConY(cuales);
+  return {
+    id: p.id, de: 'mako', at: p.at,
+    texto: `Estoy leyendo tus ${n} documentos (${lista}). Te aviso cuando termine: mientras, puedes seguir usando MaKo.`,
+    leyendo: { nombres: p.nombres, desde: p.at, intento: p.intento, texto: p.texto },
+  };
+}
+
+/** La lectura en curso de una conversación, como la ve la pantalla: la del último mensaje que la tenga. */
+export function leyendoParaVista(mensajes: ReadonlyArray<Pick<MensajeGuardado, 'leyendo'>>, ahora: number): { nombres: string[]; vencido: boolean } | null {
+  const m = [...mensajes].reverse().find((x) => x.leyendo);
+  if (!m?.leyendo) return null;
+  const desde = Date.parse(m.leyendo.desde);
+  return { nombres: m.leyendo.nombres, vencido: !Number.isFinite(desde) || ahora - desde > LECTURA_VENCE_MS };
+}
+
+/** El texto de un «estoy leyendo» que se cortó: deja de prometer un aviso que no va a llegar. */
+export const TEXTO_LECTURA_CORTADA = 'Se cortó la lectura de tus documentos. Vuelve a mandarlos y los leo de nuevo.';
+
+/** Lo que dice MaKo de los que no pudo leer (queda en lugar del «estoy leyendo»). null si leyó todos. */
+export function resumenDelLote(p: { total: number; leidos: number; errores: string[] }): string | null {
+  if (!p.errores.length) return null;
+  const cuales = p.errores.slice(0, 4).join(' · ');
+  return p.leidos
+    ? `Leí ${p.leidos} de tus ${p.total} documentos. No pude con: ${cuales}. Si los necesitas, mándalos de nuevo.`
+    : `No pude leer tus documentos: ${cuales}. Prueba de nuevo, o pega el texto en el chat.`;
 }
 
 /** Los links que no abrieron, como los manda la pantalla o los guarda la base: sólo http(s), cinco como mucho. */
@@ -869,6 +974,16 @@ export function faseVigenteDe(c: { faseGuardada: Diagnostico | null; faseSesion:
 }
 
 /**
+ * El diagnóstico de fase que se congela en la conclusión, con el canal de ESTA oferta (el de su funnel) si se sabe: el
+ * del negocio dice dónde cierra la venta su oferta de siempre, no ésta (22/10/2026, prueba de los chats: «Dónde cierras
+ * la venta: Llamada de venta» en el PDF de una oferta que el dueño dijo tres veces que se vende sin llamadas). Sólo el
+ * rótulo: la fase y el cuello de botella no cambian.
+ */
+export function conCanalDeLaOferta(fase: Diagnostico | null, canalDelFunnel: CanalId | null): Diagnostico | null {
+  return fase && canalDelFunnel ? { ...fase, canal: canalDelFunnel } : fase;
+}
+
+/**
  * El valor del setting del diagnóstico de fase (`negocio.fase.diagnostico`), leído: el diagnóstico, o null
  * si no hay o no se entiende. Es la misma regla que `getDiagnosticoFase` (lib/fase-store.ts), que no la
  * exporta y lee con la lectura TOLERANTE; la ruta la necesita sobre una lectura ESTRICTA.
@@ -1051,6 +1166,8 @@ export type TurnoOffer = {
   respuesta: string;
   opciones: string[];
   piezas: Partial<Record<PiezaKey, string>>;
+  /** De dónde sacó el modelo cada pieza, si lo dijo (`fundirPiezasDelTurno`). */
+  origen?: Partial<Record<PiezaKey, OrigenDePieza>>;
   /** Lo que dijo el modelo. NO decide nada: decide `faltanMinimas` sobre las piezas ya fusionadas. */
   listo: boolean;
   /** Las opciones se suman (el dueño puede marcar varias). Ver `OfferMensaje.varias`. `parseTurno` lo pone siempre. */
@@ -1136,6 +1253,24 @@ function indiceDiag(v: unknown): number | null {
  * La respuesta puede venir VACÍA sólo si el modelo hizo la pregunta del diagnóstico: en ese turno lo que se
  * dibuja es la pregunta (y la respuesta, si la hay, es un puente corto).
  */
+/**
+ * El turno sin el saludo de arriba ni la despedida de abajo (22/10/2026, Mauricio, 43:11: «saluda de nuevo en cada
+ * mensaje»). Las 25 respuestas de su conversación empezaban con «Hola estimado Mauricio ! espero que estes muy bien !»
+ * y una terminaba en «Bendiciones.»: el modelo copiaba a la charla con el DUEÑO la voz que el negocio usa con SUS
+ * clientes. Ningún turno saluda: el primer mensaje de la conversación lo escribe el código, así que cuando habla la IA
+ * ya están conversando. La regla del prompt va igual; esto es lo que no depende del modelo.
+ */
+export function sinSaludo(t: string): string {
+  let out = t.trimStart();
+  // «Hola estimado Mauricio !», «¡Buenas tardes!», «Hola Mauricio, …» (hasta la coma), y atrás «espero que estés muy bien».
+  out = out.replace(/^[¡!]?\s*(?:hola|buen(?:os|as)\s+(?:d[ií]as|tardes|noches)|saludos|qu[eé]\s+tal)\b[^.!?¿,\n]{0,60}(?:[.!?]+|,)\s*/i, '');
+  out = out.replace(/^[¡!]?\s*espero\s+que\s+(?:est[eé]s|te\s+encuentres|se\s+encuentre|est[eé]|te\s+vaya)\b[^.!?¿\n]{0,60}[.!?]+\s*/i, '');
+  out = out.replace(/\s*[¡]?\s*(?:bendiciones|saludos(?:\s+cordiales)?|un\s+(?:fuerte\s+)?abrazo|abrazos|quedo\s+atent[oa])\s*[.!]*\s*$/i, '');
+  out = out.trim();
+  if (!out) return '';
+  return out === t.trim() ? out : out.charAt(0).toUpperCase() + out.slice(1);
+}
+
 export function parseTurno(raw: unknown): TurnoOffer | null {
   const o = aObjeto(raw);
   if (!o) return null;
@@ -1143,10 +1278,11 @@ export function parseTurno(raw: unknown): TurnoOffer | null {
   if (crudo && pareceRazonamiento(crudo)) return null;
   const diagnostico = limpiarDiagnostico(o.diagnostico);
   if (!crudo && !diagnostico) return null;
+  const sinSaludar = crudo ? sinSaludo(crudo) : '';
   return {
-    respuesta: crudo ? recortarRespuesta(unaSolaPregunta(crudo)) : '',
+    respuesta: sinSaludar ? recortarRespuesta(unaSolaPregunta(sinSaludar)) : '',
     opciones: limpiarOpciones(o.opciones),
-    piezas: limpiarPiezas(o.piezas),
+    ...(() => { const l = limpiarPiezas(o.piezas); return { piezas: l.piezas, origen: l.origen }; })(),
     listo: o.listo === true,
     varias: o.varias === true,
     diagnostico,
@@ -1379,12 +1515,32 @@ export function claveCifra(token: string): string | null {
 const HORA_O_FECHA = /\b\d{1,2}:\d{2}(?::\d{2})?\b|\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b|\b\d{4}-\d{2}-\d{2}\b/g;
 const sinHorasNiFechas = (t: string | null | undefined): string => (t ?? '').replace(HORA_O_FECHA, ' ');
 
-/** Todas las cifras de unos textos, como claves (`claveCifra`). Es «lo que dio el negocio». Sin horas ni fechas. */
+/**
+ * Una FECHA de calendario («24/10», «24/10/2026», «24 de octubre»), como clave (`fecha:24/10`), o null. 22/10/2026 (prueba
+ * de los chats): la fecha que dio el dueño salía «[completar]/10» en el PDF. Sus números no son cifras del negocio
+ * (`sinHorasNiFechas`, el 0:04:43 de una transcripción), pero la fecha ENTERA sí es un dato que dio: se compara entera.
+ */
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const FECHA_CALENDARIO = new RegExp(`\\b(\\d{1,2})/(\\d{1,2})(?:/\\d{2,4})?\\b|\\b(\\d{1,2})\\s+de\\s+(${MESES.join('|')})\\b`, 'gi');
+function claveFecha(m: RegExpMatchArray): string | null {
+  const dia = Number(m[1] ?? m[3]);
+  const mes = m[2] != null ? Number(m[2]) : MESES.indexOf(String(m[4]).toLowerCase()) + 1;
+  return dia >= 1 && dia <= 31 && mes >= 1 && mes <= 12 ? `fecha:${dia}/${mes}` : null;
+}
+
+/**
+ * Todas las cifras de unos textos, como claves (`claveCifra`). Es «lo que dio el negocio». Sin horas ni fechas sueltas:
+ * las fechas van ENTERAS (`claveFecha`).
+ */
 export function cifrasDelNegocio(textos: Array<string | null | undefined>): Set<string> {
   const out = new Set<string>();
   for (const t of textos) {
     for (const m of sinHorasNiFechas(t).matchAll(CIFRA_ESCALA)) {
       const k = claveCifra(m[0]);
+      if (k) out.add(k);
+    }
+    for (const m of (t ?? '').matchAll(FECHA_CALENDARIO)) {
+      const k = claveFecha(m);
       if (k) out.add(k);
     }
   }
@@ -1424,6 +1580,22 @@ const ES_ANIO = /^20[2-3]\d$/;
  */
 export function filtrarCifras(texto: string, permitidas: Set<string>, opts: { plazos?: boolean } = {}): string {
   if (!texto || texto === MARCA_COMPLETAR) return texto;
+  // Una fecha se mira ENTERA (22/10/2026): la que dio el dueño queda tal cual; una que nadie dio es un dato inventado y
+  // pasa entera a «[completar]» (antes, cada número por su lado: «24/10» salía «[completar]/10»).
+  const partes: string[] = [];
+  let desde = 0;
+  for (const m of texto.matchAll(FECHA_CALENDARIO)) {
+    const k = claveFecha(m);
+    if (!k) continue;
+    partes.push(filtrarCifrasSinFechas(texto.slice(desde, m.index), permitidas, opts), permitidas.has(k) ? m[0] : MARCA_COMPLETAR);
+    desde = (m.index ?? 0) + m[0].length;
+  }
+  if (!partes.length) return filtrarCifrasSinFechas(texto, permitidas, opts);
+  return partes.join('') + filtrarCifrasSinFechas(texto.slice(desde), permitidas, opts);
+}
+
+function filtrarCifrasSinFechas(texto: string, permitidas: Set<string>, opts: { plazos?: boolean }): string {
+  if (!texto) return texto;
   return texto.replace(CIFRA_ESCALA, (m: string, offset: number, todo: string) => {
     const k = claveCifra(m);
     if (!k || permitidas.has(k)) return m;
@@ -1553,6 +1725,47 @@ export function bloqueNivel(n: NivelOferta | null): string {
 }
 
 /** El % cobrado al firmar que dijo el dueño, o null: «50%», «la mitad», «todo de contado». */
+/**
+ * Lo que devuelve el lector de afuera (r.jina.ai, app/api/offer/route.ts → `leerConLectorExterno`), como texto de una
+ * página: el título, la URL y el contenido. null si no sirve: muy corto (menos de 200 caracteres: una página vacía o un
+ * error) o una página de desafío de un antibots, que el lector también puede recibir en vez de la página.
+ */
+export function textoDelLectorExterno(raw: string): { titulo: string; url: string; texto: string } | null {
+  const t = (raw ?? '').replace(/\r\n/g, '\n');
+  const titulo = t.match(/^Title:\s*(.+)$/m)?.[1]?.trim() ?? '';
+  const url = t.match(/^URL Source:\s*(\S+)/m)?.[1]?.trim() ?? '';
+  const i = t.indexOf('Markdown Content:');
+  const texto = (i >= 0 ? t.slice(i + 'Markdown Content:'.length) : t).trim();
+  if (texto.length < 200) return null;
+  if (/\b(?:just a moment|checking your browser|verify you are human|access denied|attention required|captcha)\b/i.test(`${titulo}\n${texto.slice(0, 600)}`)) return null;
+  return { titulo, url, texto };
+}
+
+/**
+ * ¿Es un .zip? Por la extensión o el tipo (los navegadores mandan varios). Offer lo abre y lee sus páginas
+ * (lib/offer-zip.ts, 22/10/2026: la carpeta de la landing de Mauricio). Vive acá y no allá porque la pantalla también lo
+ * usa, y allá está jszip.
+ */
+export const esZip = (nombre: string, mime: string): boolean =>
+  /\.zip$/i.test(nombre) || /^application\/(?:x-)?zip(?:-compressed)?$/i.test(mime);
+
+/** ¿El precio se cobra en UN solo pago? («Pago único de $270 USD vía Stripe», «de contado», «un solo pago»). */
+export function esPagoUnico(valor: string | null | undefined): boolean {
+  const t = (valor ?? '').trim();
+  if (!t || esSinDato(t)) return false;
+  return /\b(?:pago unico|un solo pago|un unico pago|de contado|al contado)\b/.test(normalizar(t));
+}
+
+/**
+ * Con un precio de PAGO ÚNICO, el cobro al firmar ya se sabe: el 100% (22/10/2026, Mauricio, 01:10:49: MaKo le
+ * preguntó «¿es pago único?» dos veces, primero con el precio y después con el % al firmar). Se anota la pieza `cobro`
+ * para que la guía la salte; si ya tenía dato, no se toca.
+ */
+export function conCobroDelPrecio(piezas: PiezasSabidas, at: string = new Date().toISOString()): PiezasSabidas {
+  if (tieneDato(piezas, 'cobro') || !esPagoUnico(piezas.precio?.valor)) return piezas;
+  return mergePiezas(piezas, { cobro: '100% al inscribirse: es un pago único, lo dijo con el precio' }, 'chat', at);
+}
+
 export function porcentajeAlFirmar(valor: string | null | undefined): number | null {
   const t = (valor ?? '').trim();
   if (!t || esSinDato(t)) return null;
@@ -1577,9 +1790,11 @@ const NUMEROS_EN_LETRAS: Record<string, number> = { una: 1, uno: 1, un: 1, dos: 
 export function ofertasDeclaradas(valor: string | null | undefined): number | null {
   const t = (valor ?? '').trim();
   if (!t || esSinDato(t)) return null;
+  const n = normalizar(t);
+  // «1: sólo esta» cuenta ESTA oferta, no otra (22/10/2026, prueba de los chats: se leía como 1 otra oferta).
+  if (/^\d+\s*:?\s*(?:solo|unicamente)\s+(?:esta|este|esa|ese)\b/.test(n)) return 0;
   const d = t.match(/\d+/);
   if (d) return Number(d[0]);
-  const n = normalizar(t);
   if (/^(?:no|ninguna|ninguno|nada)\b|\bsolo (?:esta|esa|una)\b|\bunicamente esta\b|\bnada mas\b/.test(n)) return 0;
   const w = n.match(/\b(una|uno|un|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\b/);
   return w ? NUMEROS_EN_LETRAS[w[1]] : null;
@@ -1593,7 +1808,9 @@ export function resultadoMedible(valor: string | null | undefined): boolean {
   const m = t.match(plazo);
   if (!m) return false;
   const sinPlazo = t.replace(m[0], ' ');
-  return /\d/.test(sinPlazo) || /\b(?:duplic|triplic|el doble|la mitad|el triple)/i.test(sinPlazo);
+  // Un número con letras también lo es (22/10/2026: «Tu primer cliente de diseño en 14 días» salía «no tiene número»).
+  return /\d/.test(sinPlazo) || /\b(?:duplic|triplic|el doble|la mitad|el triple)/i.test(sinPlazo)
+    || /\b(?:primer[oa]?s?|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|veinte|cien|mil)\s+[a-záéíóúñ]/i.test(sinPlazo);
 }
 
 // ── El cálculo ───────────────────────────────────────────────────────────────
@@ -2001,9 +2218,12 @@ export function avisosAntesDelDiagnostico(p: {
   const foco = alertaFoco({ ...p.foco, otrasDeclaradas: ofertasDeclaradas(p.piezas.otras?.valor) });
   const margen = alertaMargen(p.piezas);
   const sinDatos = alertaSinDatos({ embudo: p.embudo, ventas: p.piezas.ventas?.valor });
+  // El % al firmar es señal de precio barato cuando el cliente PODÍA pagar en cuotas y no quiso (§6.2). Con un pago
+  // único no hay cuotas: el 100% no dice nada (22/10/2026, el Sprint de 270 USD: «súbelo entre 250 y 1.000 USD»).
+  const cobroComoSenal = esPagoUnico(p.piezas.precio?.valor) ? null : porcentajeAlFirmar(p.piezas.cobro?.valor);
   return {
     foco,
-    otras: [...(sinDatos ? [sinDatos] : []), ...(margen ? [margen] : []), ...alertasEmbudo(p.embudo), ...alertasPrecio({ cobro: porcentajeAlFirmar(p.piezas.cobro?.valor), embudo: p.embudo })],
+    otras: [...(sinDatos ? [sinDatos] : []), ...(margen ? [margen] : []), ...alertasEmbudo(p.embudo), ...alertasPrecio({ cobro: cobroComoSenal, embudo: p.embudo })],
   };
 }
 
@@ -2243,6 +2463,12 @@ export function provisionalDe(d: Pick<DiagnosticoOferta, 'dimensiones'>): { part
  * Lo agrega el servidor después de cada «generar». Propone empezar por lo provisional; si no hay, por el
  * cuello de botella; si está lista, ofrece pulirla igual.
  */
+/**
+ * Para qué sirve lo que se acaba de armar (22/10/2026, Mauricio al recibir el PDF, 01:49:58: «¿le guardo o qué hago? O
+ * sea, ¿cuál es el propósito?»). Lo dice el mensaje del PDF y el de «Así está bien».
+ */
+export const PARA_QUE_SIRVE = 'Guárdala en tu funnel: MaKo usa esta oferta como contexto para prospectar y para escribirles a tus leads.';
+
 export function mensajePdf(p: {
   version: number; dimensiones: NotaDimension[]; cuello: DimensionId; lista: boolean; id: string; at: string;
 }): MensajeSinAudio {
@@ -2253,7 +2479,7 @@ export function mensajePdf(p: {
       : `Empezaría por «${dimensionLabel(p.cuello)}», que es lo que más la frena.`;
   return {
     id: p.id, de: 'mako', at: p.at,
-    texto: `Aquí está la versión ${p.version} de tu oferta, en PDF. ¿La pulimos? ${empezar}`,
+    texto: `Aquí está la versión ${p.version} de tu oferta, en PDF. ${PARA_QUE_SIRVE} ¿La pulimos? ${empezar}`,
     opciones: [OPCION_PULIR, OPCION_ASI_ESTA_BIEN],
     pdf: { version: p.version },
   };
@@ -2280,7 +2506,7 @@ export function respuestaSinIA(mensajes: Array<Pick<MensajeGuardado, 'de' | 'pdf
   if (!ultimoMako?.pdf) return null;
   return {
     id: p.id, de: 'mako', at: p.at,
-    texto: `Perfecto: la versión ${ultimoMako.pdf.version} es la final. Puedes guardarla como tu oferta, o volver a pulirla cuando quieras.`,
+    texto: `Perfecto: la versión ${ultimoMako.pdf.version} es la final. ${PARA_QUE_SIRVE} También puedes volver a pulirla cuando quieras.`,
     opciones: [OPCION_PULIR],
   };
 }
@@ -2534,9 +2760,12 @@ export function aplicarReglasPropuesta(p: PropuestaOferta, piezas: PiezasSabidas
     return /\(propuesta\)\s*$/i.test(nm) ? nm : `${nm} ${PROPUESTA_SUFIJO}`;
   });
 
-  // La garantía nunca incondicional en high ticket: se le sacan las condiciones y se marca.
-  const textoGarantia = `${out.garantia.nombre} ${out.garantia.condiciones} ${out.garantia.siNoCumple}`;
-  if (/incondicional|sin (?:hacer )?preguntas|sin condiciones/i.test(textoGarantia)) {
+  // La garantía nunca incondicional en high ticket: se le sacan las condiciones y se marca. Sólo en high ticket (en una
+  // entrada no es la regla), y sólo si la AFIRMA (22/10/2026, el Sprint de Mauricio, una entrada sin garantía: «no se
+  // contempla reembolso ni garantía incondicional» disparaba el aviso y le pedía «[completar] las condiciones»).
+  const textoGarantia = `${out.garantia.nombre} ${out.garantia.condiciones} ${out.garantia.siNoCumple}`
+    .replace(/\b(?:ni|no|sin|nunca)\b[^.;]{0,40}?\b(?:incondicional|sin (?:hacer )?preguntas|sin condiciones)/gi, '');
+  if (nivelDeOferta(piezas)?.nivel !== 'bajo' && /incondicional|sin (?:hacer )?preguntas|sin condiciones/i.test(textoGarantia)) {
     out.garantia.condiciones = `${MARCA_COMPLETAR} lo que el cliente tiene que cumplir para reclamarla (asistir, hacer las tareas)`;
     if (/incondicional/i.test(out.garantia.nombre)) out.garantia.nombre = `${MARCA_COMPLETAR} el nombre de la garantía`;
     avisos.push('La garantía que escribió la IA era incondicional: en high ticket va atada a que el cliente cumpla el método. Completa sus condiciones.');
@@ -2631,12 +2860,15 @@ function propuestoPorMako(
 }
 
 /** «Etiqueta: lo que dice después de la marca», o sólo la etiqueta si después no dice nada. */
-function entradaCompletar(etiqueta: string, valor: string): string | null {
+export function entradaCompletar(etiqueta: string, valor: string): string | null {
   const i = valor.indexOf(MARCA_COMPLETAR);
   if (i < 0) return null;
   // Si el campo tiene más de una marca («[completar] de [completar] clientes»), las de después se
   // leen como «…»: la entrada dice qué falta, y repetir la marca no agrega nada.
   const detalle = valor.slice(i + MARCA_COMPLETAR.length).replace(/^[\s:.—-]+/, '').split(MARCA_COMPLETAR).join('…').trim();
+  // Lo de después de la marca es «qué hay que poner» cuando empieza con palabras. Si es un resto («/10)», de una cifra
+  // marcada adentro de una frase), va el campo entero con «…» donde falta (22/10/2026, prueba de los chats).
+  if (detalle && !/^[a-záéíóúñ¿«"(]/i.test(detalle)) return `${etiqueta}: ${recortar(valor.split(MARCA_COMPLETAR).join('…').replace(/\s+/g, ' ').trim(), 140)}`;
   return detalle ? `${etiqueta}: ${recortar(detalle, 140)}` : etiqueta;
 }
 
@@ -2827,10 +3059,12 @@ export const TOPE_DOCS_PROMPT = 24_000;
  * modelo lee como dato.
  */
 /** Lo que el prompt lee de un mensaje: le da igual si es la forma guardada o la de la pantalla. */
-export type MensajeParaPrompt = Pick<OfferMensaje, 'de' | 'texto' | 'adjuntos' | 'linksSinLeer'> & { audio?: unknown };
+export type MensajeParaPrompt = Pick<OfferMensaje, 'de' | 'texto' | 'adjuntos' | 'linksSinLeer' | 'leyendo'> & { audio?: unknown };
 
 export function conversacionParaPrompt(mensajes: MensajeParaPrompt[], max = MAX_MENSAJES_PROMPT): string {
-  const ult = mensajes.slice(-max);
+  // «Estoy leyendo tus documentos» es de la pantalla, no de la conversación: al modelo no le dice nada (O9, 22/10/2026).
+  const visibles = mensajes.filter((m) => !m.leyendo);
+  const ult = visibles.slice(-max);
   const lineas = ult.map((m) => {
     // «por audio»: el texto es una transcripción, y el modelo tiene que poder dudar de una palabra rara.
     const quien = m.de === 'yo' ? (m.audio ? 'DUEÑO (por audio)' : 'DUEÑO') : 'MaKo';
@@ -2843,7 +3077,7 @@ export function conversacionParaPrompt(mensajes: MensajeParaPrompt[], max = MAX_
     // que preguntaba por el precio que estaba en el tramo cortado. Lo de MaKo es corto por construcción.
     return `${quien}${adj}${sinLeer}: ${recortar(cuerpo, m.de === 'yo' ? 12_000 : 2_000)}`;
   });
-  if (mensajes.length > ult.length) lineas.unshift(`(Se omiten los ${mensajes.length - ult.length} mensajes más viejos.)`);
+  if (visibles.length > ult.length) lineas.unshift(`(Se omiten los ${visibles.length - ult.length} mensajes más viejos.)`);
   return lineas.join('\n');
 }
 

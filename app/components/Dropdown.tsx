@@ -393,6 +393,7 @@ export function Dropdown({
   align = 'left',
   buttonStyle,
   resetAfterSelect = false,
+  abrirEnLaRaiz = false,
   sinFlecha: sinFlechaPedida = false,
   ariaLabel,
   botonLabel,
@@ -429,6 +430,12 @@ export function Dropdown({
   buttonStyle?: CSSProperties;
   /** Para selects-acción (ej. "Mover a…"): no refleja la selección, vuelve al placeholder. */
   resetAfterSelect?: boolean;
+  /**
+   * Con `secciones`: abre SIEMPRE en la raíz, con la sección de lo elegido pintada, en vez de parado en lo elegido. Para un
+   * árbol donde lo que se busca casi siempre es OTRA rama (el selector de Offer, 22/10/2026: abría adentro del funnel de la
+   * conversación abierta y para ver «Sprint» había que volver dos niveles).
+   */
+  abrirEnLaRaiz?: boolean;
   /** Menú de acciones: sin la flecha del desplegable. */
   sinFlecha?: boolean;
   ariaLabel?: string;
@@ -748,7 +755,7 @@ export function Dropdown({
     // Se abre PARADO EN LO ELEGIDO (CRON 4); sin nada elegido, en la raíz. Un valor que no está en el
     // árbol (una opción que se fue) también abre en la raíz.
     const elegido = !resetAfterSelect ? (varios?.length ? varios[0] : value) : '';
-    const camino = caminoDe(secciones, elegido);
+    const camino = abrirEnLaRaiz ? null : caminoDe(secciones, elegido);
     if (camino) setRuta(camino);
     const t = setTimeout(() => searchRef.current?.focus(), 0);
     return () => clearTimeout(t);

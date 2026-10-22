@@ -69,6 +69,9 @@ export const PROVS_OFFER: readonly ProvName[] = ['gemini', 'groq', 'openrouter']
  * medido el 09/10/2026: `nvidia/nemotron-3-super-120b-a12b:free` contestó 200 con el prompt real; el de
  * `MODELO_DOCS` (`minimax/minimax-m3:free`) ya no es gratis. Si allá cambia, cambia acá.
  */
+/** El modelo de Gemini del turno en la red de plataforma (ver `Pedido.modelosRed`). */
+export const MODELO_TURNO_RED = 'gemini-flash-lite-latest';
+
 export const MODELOS_OFFER: Partial<Record<ProvName, string>> = {
   openrouter: 'nvidia/nemotron-3-super-120b-a12b:free',
 };
@@ -113,19 +116,21 @@ CÓMO CONVERSAS (no negociable):
 {{guia}}
 6. "opciones": si la pregunta se contesta eligiendo, propone hasta 4 respuestas CERRADAS, cortas (60 caracteres como máximo) y a medida de ESTE negocio, con sus palabras y sus rangos reales, nunca genéricas. El dueño siempre puede escribir lo suyo. Las opciones no suponen hechos que no sabes: si el dueño no nombró la plataforma, la herramienta, la fecha o el lugar, la opción no los nombra («En vivo, en grupo», no «En vivo por Zoom»). Si la pregunta es abierta, []. "varias": true sólo cuando el dueño puede elegir MÁS DE UNA a la vez (qué otras ofertas vende, por qué canales consigue clientes, qué incluye hoy): esas opciones son cosas que se suman, y si va una que dice que no hay ninguna («No, sólo ésta»), va última. En las demás, false.
 7. LO QUE FALTA SE CONSTRUYE: si el dueño no tiene una pieza (nunca pensó una garantía, no tiene bonos, no tiene claro a quién le vende), no la des por perdida: constrúyela con él con preguntas CERRADAS de a una, con opciones a medida de su negocio (por ejemplo, tres garantías que encajan con lo que vende). Para el cliente, parte de los AVATARES del contexto si los hay; si no hay o son difusos, constrúyelo preguntando a qué se dedica, qué tamaño tiene y qué le duele.
-8. "piezas": sólo lo NUEVO que aprendiste en este turno (del último mensaje, de los documentos o del contexto), con la key de la pieza y en una o dos frases con las palabras del dueño. Anota sólo lo que el dueño DIJO o ELIGIÓ y lo que está en sus documentos o en el contexto, nunca lo que TÚ sugeriste en una pregunta o en una opción que no eligió: si le preguntaste «¿es por Zoom?» y contestó otra cosa, Zoom no se anota. Lo que ya estaba anotado y no cambió no se repite. Si después de ofrecerle opciones el dueño sigue sin saber o no quiere definirla, anota en esa pieza "sin dato: " seguido de lo que dijo, y pasa a otra. La pieza "otras" empieza SIEMPRE por el número de ofertas que vende además de ésta («0», «2: un curso grabado y una mentoría»).
+8. "piezas": sólo lo NUEVO que aprendiste en este turno (del último mensaje, de los documentos o del contexto), con la key de la pieza y en una o dos frases con las palabras del dueño. Anota sólo lo que el dueño DIJO o ELIGIÓ y lo que está en sus documentos o en el contexto, nunca lo que TÚ sugeriste en una pregunta o en una opción que no eligió: si le preguntaste «¿es por Zoom?» y contestó otra cosa, Zoom no se anota. Lo que sacas del contexto o de un documento va con su origen: {"valor": "…", "de": "contexto"} o {"valor": "…", "de": "documento"}; lo que dijo el dueño, el texto solo. No copies la marca «[de: …]» que ves al lado de las piezas. Lo que ya estaba anotado y no cambió no se repite. Si después de ofrecerle opciones el dueño sigue sin saber o no quiere definirla, anota en esa pieza "sin dato: " seguido de lo que dijo, y pasa a otra. La pieza "otras" empieza SIEMPRE por el número de ofertas que vende además de ésta («0», «2: un curso grabado y una mentoría»).
 9. "listo": true cuando ya están las ${PIEZAS_MINIMAS.length} piezas mínimas (${PIEZAS_MINIMAS.map((k) => piezaLabel(k).toLowerCase()).join(', ')}). Ese turno dice en una frase «Ya tengo lo necesario para armar tu oferta»; el dueño puede seguir afinando las piezas que faltan si quiere.
 10. EL DIAGNÓSTICO DEL NEGOCIO: en «DIAGNÓSTICO» te paso, si la hay, la próxima pregunta de un diagnóstico cerrado con sus 5 opciones originales. Si dice OBLIGATORIA, tu pregunta de este turno ES ésa. Si dice OPCIONAL, hazla cuando te parezca natural (ya entendiste lo básico de la oferta, o el dueño no tiene documentos). Para hacerla devuelve "diagnostico": {"texto": "la pregunta adaptada a ESTE negocio, una sola, con su signo de pregunta", "opciones": ["las 5 respuestas"]}. Las 5 opciones dicen LO MISMO que las originales, en el MISMO orden, con las palabras de este negocio, y conservan los números y rangos tal cual (no los cambies ni los redondees). En ese turno "respuesta" es un puente corto sin pregunta (o vacío) y "opciones" []. Si no la haces, "diagnostico": null.
 11. Si «DIAGNÓSTICO» dice que QUEDÓ ABIERTA una pregunta y el último mensaje del dueño la contesta con sus palabras, devuelve en "diagnostico_respuesta" el número de la opción original (0 a 4). Si no la contesta, null.
 12. Nunca le digas al dueño en qué fase está su negocio, cuál es su cuello de botella ni qué significan sus respuestas del diagnóstico: eso va en el informe final, no en el chat.
 13. No des notas, diagnóstico ni la oferta armada en el chat, y no inventes datos.
-14. SIEMPRE, temprano (en tus primeras preguntas): pregunta si vende otras ofertas además de ésta, aunque no estén cargadas en MaKo. No la saltes porque el contexto muestre una sola oferta: lo cargado en MaKo no alcanza para saberlo. Con opciones de lo que podría vender este negocio, "varias": true y la última «No, sólo ésta».
+14. SIEMPRE, temprano (en tus primeras preguntas), salvo que la pieza "otras" ya esté anotada: pregunta si vende otras ofertas además de ésta, aunque no estén cargadas en MaKo. "otras" se anota sólo con la respuesta a ESA pregunta. No la saltes porque el contexto muestre una sola oferta: lo cargado en MaKo no alcanza para saberlo. Con opciones de lo que podría vender este negocio, "varias": true y la última «No, sólo ésta».
 15. Si el último mensaje de MaKo trae el PDF de una versión y el dueño eligió «Pulir la oferta», pulan juntos lo que ese mensaje propone primero (lo provisional o lo que más la frena), una pregunta por mensaje; cuando esté, el dueño vuelve a tocar «Armar mi oferta» y sale la versión siguiente.
 16. LA VOZ DEL NEGOCIO: cuando le propongas al dueño un texto que va a usar con SUS clientes (un nombre, una frase, una garantía, las opciones de un mensaje), escríbelo como habla este negocio, con esta guía:
 {{voz}}
 Tu charla con el dueño sigue en el idioma de abajo.
 17. Nunca preguntes «¿quieres que avancemos con el diagnóstico?» ni ofrezcas «ver el diagnóstico» como un paso: no existe. Cuando ya están las piezas mínimas, dilo en una frase y sigue con lo que falta; el botón «Armar mi oferta» ya está.
 18. EL NIVEL: junto a las piezas viene «EL NIVEL DE ESTA OFERTA», que calcula el sistema con el precio. Respétalo: en una oferta de ticket bajo (una ENTRADA), la pregunta de la escalera es la que dice ahí, la de qué le vende DESPUÉS.
+19. No saludes ni te despidas: ya están conversando. Nada de «Hola…», «espero que estés muy bien» ni «Bendiciones»: la voz del negocio es para lo que el negocio les dice a SUS clientes, no para hablarle al dueño.
+20. Si el dueño te PREGUNTA algo (cuántas ofertas tiene en MaKo, si su oferta ya quedó guardada), contéstalo primero en una frase con lo que dice el contexto («LO QUE VENDE HOY EN MaKo», «ESTADO DE ESTA OFERTA EN MaKo»); si no lo sabes, dilo. Después, tu pregunta.
 
 ${SEGURIDAD}
 
@@ -152,7 +157,7 @@ DIAGNÓSTICO:
 LA CONVERSACIÓN HASTA AHORA (contestas el último mensaje del DUEÑO):
 {{conversacion}}
 
-Contesta con UNA sola pregunta. Devuelve SOLO el JSON ${FORMA_TURNO}`;
+Si el dueño te preguntó algo, contéstalo primero; después, UNA sola pregunta. Devuelve SOLO el JSON ${FORMA_TURNO}`;
 
 /**
  * La conversación del ONBOARDING (17/10/2026). Martín: «simular "Offer" en el onboarding simplemente para organizar
@@ -179,7 +184,7 @@ CÓMO CONVERSAS (no negociable):
 7. No construyas lo que falta ni sugieras nada: si no tiene garantía o no sabe su resultado con números, se anota como lo dijo.
 8. "listo": true cuando ya están las piezas de «LO QUE NECESITAS SABER». Ese turno dice SÓLO «¡Gracias!», sin otra frase ni pregunta, y "opciones" []: el mensaje del PDF lo dice la pantalla.
 9. "diagnostico": null y "diagnostico_respuesta": null, siempre. No inventes datos.
-10. ANTES de la pregunta, reconoce lo que acaba de contar con UNA frase cálida y GENUINA: nombra algo concreto de su respuesta y por qué es bueno de verdad («¡Me encanta ese cliente! Los dueños de pymes que ya facturan suelen valorar mucho su tiempo»). Nunca un elogio genérico («¡Perfecto!», «¡Excelente!» solos), nunca de algo que no dijo, y nunca elogies algo que no sea bueno de verdad (precio, garantía o resultado flojos no se elogian: se agradecen y se sigue). Si no hay nada para destacar, agradece en pocas palabras.
+10. No saludes ni te despidas en tus mensajes: ya están conversando. ANTES de la pregunta, reconoce lo que acaba de contar con UNA frase cálida y GENUINA: nombra algo concreto de su respuesta y por qué es bueno de verdad («¡Me encanta ese cliente! Los dueños de pymes que ya facturan suelen valorar mucho su tiempo»). Nunca un elogio genérico («¡Perfecto!», «¡Excelente!» solos), nunca de algo que no dijo, y nunca elogies algo que no sea bueno de verdad (precio, garantía o resultado flojos no se elogian: se agradecen y se sigue). Si no hay nada para destacar, agradece en pocas palabras.
 
 ${SEGURIDAD}
 
@@ -392,6 +397,14 @@ type Pedido<T> = {
    * corta: buscar más no le compra nada al dueño y quema cuota. Con un flojo, la red de plataforma no corre.
    */
   parseFlojo?: (raw: string) => T | null;
+  /**
+   * El modelo de cada proveedor en la RED DE PLATAFORMA (sin esto, el de fábrica de `chatCheapTools`). Para el turno,
+   * flash-lite (22/10/2026, medido en la conversación de Mauricio, ws1 id 18: `gemini-flash-latest` salió 4 de 4 veces
+   * con 1.996 tokens, el tope del turno, porque la red no le pasa el nivel de razonamiento y razonar se come la
+   * respuesta; el JSON llegaba cortado, se descartaba y se reintentaba el MISMO modelo con la key siguiente. Cada vuelta,
+   * de 20 a 60 s. Todos sus turnos los terminó contestando flash-lite.)
+   */
+  modelosRed?: Partial<Record<ProvName, string>>;
 };
 
 async function pedir<T>(p: Pedido<T>): Promise<ResultadoIA<T>> {
@@ -457,7 +470,7 @@ async function pedir<T>(p: Pedido<T>): Promise<ResultadoIA<T>> {
     if (queda < MIN_INTENTO_MS) { erroresRed.push(`sin tiempo para ${r.provider}`); break; }
     try {
       const out = await chatCheapTools(p.system, [{ role: 'user', content: p.user }], [], async () => '', {
-        provider: r.provider, clave: r.clave, wsKey: superWs as number,
+        provider: r.provider, clave: r.clave, wsKey: superWs as number, model: p.modelosRed?.[r.provider],
         maxTokens: p.maxTokens, timeoutMs: Math.min(p.timeoutMs, queda),
         feature: FEATURE_OFFER, motivo: `⚠ red de plataforma (${r.provider}) — las keys del negocio no contestaron · ${p.motivo}`,
       });
@@ -520,9 +533,13 @@ export async function turnoOffer(p: {
     diagnostico: p.diagnostico.trim() || '(nada pendiente)', conversacion: b.conversacion,
   });
   const obligatorio = p.diagnosticoObligatorio;
+  // ⏱ 30 s por intento (22/10/2026): un turno de chat que tarda más no va a contestar. En la conversación de Mauricio
+  // una de cada cuatro respuestas tardó 66 s: un intento con las keys del negocio esperaba sus 60 s enteros (sin dejar
+  // fila en el Saldo de IA) antes de caer a la red, que contestaba en 2 a 6 s.
   return pedir({
-    system, user, maxTokens: 2_000, timeoutMs: 60_000, esfuerzo: 'low',
+    system, user, maxTokens: 2_000, timeoutMs: 30_000, esfuerzo: 'low',
     hastaMs: p.inicio + (obligatorio ? 90_000 : 150_000), hastaRedMs: p.inicio + (obligatorio ? 130_000 : 280_000),
+    modelosRed: { gemini: MODELO_TURNO_RED },
     motivo: 'Offer: conversar con el dueño', tema: 'contestarte ahora',
     // Con la obligatoria se busca un turno que la ADAPTE, y uno que sirve sin adaptarla no se tira: trae las
     // piezas que dio el dueño, y la pregunta sale ORIGINAL (revisión adversarial del 11/10/2026).
