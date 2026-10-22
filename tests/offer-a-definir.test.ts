@@ -183,7 +183,9 @@ test('6 · los avisos: margen bajo 60%, dónde se cortan las ventas, cuándo sub
   assert.equal(ofertasDeclaradas('No, sólo esta'), 0);
   assert.equal(ofertasDeclaradas('dos más'), 2);
   assert.equal(ofertasDeclaradas('sin dato: no quiso decir'), null);
-  assert.match(alertaFoco({ productosActivos: 1, ofertasActivas: 1, bandaFacturacion: 1, otrasDeclaradas: 2 }) ?? '', /^Vendes 3 ofertas, contando las que me dijiste que no están cargadas en MaKo/);
+  assert.match(alertaFoco({ productosActivos: 1, ofertasActivas: 1, bandaFacturacion: 1, otrasDeclaradas: 2 }) ?? '', /^Vendes 3 ofertas, según me dijiste/);
+  // 22/10/2026: el texto viejo («contando las que me dijiste que no están cargadas en MaKo») afirmaba algo que el
+  // dueño no dijo (Mauricio sí tenía cargadas las otras): tests/offer-sprint-mauricio.test.ts.
   // Margen: precio y costo leídos de lo que escribió el dueño; el aviso dice los números.
   assert.match(alertaMargen({ precio: pieza('2.000 USD'), costo: pieza('900 USD por cliente, atiendo 10 a la vez') }) ?? '', /2\.000 USD.*900 USD.*55%/);
   assert.equal(alertaMargen({ precio: pieza('2.000 USD'), costo: pieza('400 USD por cliente') }), null);
@@ -234,7 +236,7 @@ test('6b · el cierre: sobre la misma gente, nunca arriba de 100%, y bajo 25% s�
 
 // rotura (alertaFoco con el umbral viejo de 6 sin facturación): 2 fallos, 8 pases (cae también el 6, que cuenta las otras ofertas sin facturación). rotura (que salga con 10.000 o más): 1 fallo, 9 pases.
 test('7 · foco: sin la facturación sale desde 3 ofertas; con 10.000 al mes o más no sale', () => {
-  assert.match(alertaFoco({ productosActivos: 3, ofertasActivas: 0, bandaFacturacion: null }) ?? '', /^Tienes 3 productos activos en MaKo: en la fase 1/);
+  assert.match(alertaFoco({ productosActivos: 3, ofertasActivas: 0, bandaFacturacion: null }) ?? '', /^Tienes 3 productos activos en tus funnels de MaKo: en la fase 1/);
   assert.equal(alertaFoco({ productosActivos: 2, ofertasActivas: 0, bandaFacturacion: null }), null);
   assert.equal(alertaFoco({ productosActivos: 8, ofertasActivas: 8, bandaFacturacion: 2 }), null);
   assert.equal(alertaFoco({ productosActivos: 1, ofertasActivas: 1, bandaFacturacion: 3, otrasDeclaradas: 5 }), null);

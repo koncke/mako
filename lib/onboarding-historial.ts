@@ -115,10 +115,15 @@ export function conLoNuevo(
   const ultimoDeLaVista = todo[todo.length - 1];
   const abierta = ultimoDeLaVista?.de === 'mako' ? ultimoDeLaVista : undefined;
   const respuesta = o.respuesta ? limpio(o.respuesta) : '';
-  // El mismo toque dos veces (dos POST a la vez): lo último anotado ya es esa pregunta con esa respuesta.
-  const [penultimo, ultimoAnotado] = previo.slice(-2);
-  if (respuesta && abierta && ultimoAnotado?.de === 'yo' && ultimoAnotado.texto === respuesta && penultimo
-    && claveDe(penultimo) === claveDe({ id: abierta.id, texto: limpio(abierta.texto) })) return null;
+  // El mismo toque dos veces (dos POST que leyeron el mismo estado): la última vez que se anotó esa pregunta la sigue esa
+  // misma respuesta, y ninguna otra después. No alcanza con mirar los dos últimos: el primer POST pudo haber anotado ya la
+  // pregunta siguiente (tercera revisión, 22/10). Una pregunta que se volvió a hacer tiene su última vez DESPUÉS de esa
+  // respuesta, así que contestarla igual se anota.
+  if (respuesta && abierta) {
+    const i = claves.lastIndexOf(claveDe({ id: abierta.id, texto: limpio(abierta.texto) }));
+    const contestadas = i >= 0 ? previo.slice(i + 1).filter((m) => m.de === 'yo') : [];
+    if (previo[i + 1]?.de === 'yo' && contestadas.length === 1 && contestadas[0].texto === respuesta) return null;
+  }
   if (abierta) {
     const k = claveDe({ id: abierta.id, texto: limpio(abierta.texto) });
     if (claves.lastIndexOf(k) >= 0 && claves.lastIndexOf(k) < previo.map((m) => m.de).lastIndexOf('yo')) vistos.delete(k);

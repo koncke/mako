@@ -2810,4 +2810,20 @@ export const BITACORA: Hito[] = [
     archivos: [
     ],
   },
+  {
+    fecha: '22 oct', hora: '05:30', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La ficha dice en qué otros CRMs está el lead: «También en: Sprint 3 días › Prospección activa»',
+    revisar: '/crm',
+    puntos: [
+      'Es el C8 de la llamada con Mauricio del 22/10: «en la R1 de allá, de alguna manera, marque que el lead vino del webinar».',
+      'Al lado del funnel de la ficha, los otros CRMs donde está el lead, con su etapa; tocarlo muestra su etapa ahí.',
+      'De qué anuncio vino ya lo dice el bloque «Origen».',
+    ],
+    commits: [
+      { sha: '8d1c1cb51', msg: 'CRM (C8 de la llamada con Mauricio, 22/10): la ficha dice en qué otros CRMs está el lead', lineas: 86, archivos: 3 },
+    ],
+    archivos: [
+    ],
+  },
 ];
