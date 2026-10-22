@@ -2344,4 +2344,27 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "22 oct", hora: "16:05", chat: "Automations", cuenta: "claude3",
+    sesion: "local_5acdaea2-2605-48fb-b890-f79e8476faa3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Hecho: cuando la IA gratis de MaKo llega a su tope, el chat lo dice y te lleva a conectar tu Claude",
+    puntos: [
+      "Antes decía «No tienes ninguna IA gratis conectada» con el link a Gemini, aunque lo que pasaba era que la IA gratis de MaKo había llegado a su tope del día. Lo vio Mauricio en el chat de su automatización.",
+      "Sin IA propia, ahora dice qué le pasó a la IA gratis de MaKo (llegó a su tope de hoy, está al tope, está saturada o no contestó) y te lleva a Integraciones a conectar tu Claude.",
+      "Si tu clave de Claude se queda sin saldo, lo dice así en vez de mandarte a cambiarla.",
+      "Dice «tu Claude» y no «tu GPT» porque hoy una clave de OpenAI no arma flujos. Cuando lo haga, el texto cambia.",
+      "En producción: deploy de e115adfbd (lo verificó Integración).",
+    ],
+    commits: [
+      { sha: "81dca4621", msg: "Automations · el aviso de IA dice la verdad (AU3): sin keys propias, qué le pasó a la IA gratis de MaKo («llegó a su tope de hoy») y conectar su Claude; la clave de Claude del negocio se nombra y sin saldo no se la manda a cambiar", lineas: 199, archivos: 9 },
+      { sha: "637333086", msg: "Automations · AU3: «tu Claude» en una constante y el test atado al IA6 (cuando la cascada use la OpenAI del negocio, el aviso pasa a «tu Claude o tu GPT»)", lineas: 46, archivos: 3 },
+    ],
+    archivos: [
+      "lib/flujo-ia.ts — falloDeIA y sinIAPropia: qué se dice cuando ninguna IA contestó",
+      "lib/flujo-ia-crear.ts — generar le pasa lo que le pasó a la IA gratis de MaKo",
+      "docs/hallazgos-chatbot.md — «No tienes ninguna IA gratis conectada» era la red de MaKo al tope de hoy",
+    ],
+    revisar: "/automations",
+  },
 ];
