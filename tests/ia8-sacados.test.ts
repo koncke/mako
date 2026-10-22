@@ -20,7 +20,7 @@ const HOSTS_SACADOS = ['api.cerebras.ai', 'api.mistral.ai', 'openrouter.ai'];
 const SACADOS = ['cerebras', 'mistral', 'openrouter'];
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8');
 
-type Listas = { cascadas: Record<string, string[]>; integraciones: string[]; metodo: string[]; paraConectar: string[]; multikey: string[] };
+type Listas = { cascadas: Record<string, string[]>; lienzo: Record<string, string[]>; integraciones: string[]; metodo: string[]; paraConectar: string[]; multikey: string[] };
 let cache: (Record<string, Record<string, { red: string[]; valor?: unknown }>> & { listas: Listas }) | null = null;
 function correr() {
   if (cache) return cache;
@@ -69,6 +69,7 @@ test('/integraciones, el Método y el chat ya no ofrecen conectarlos', () => {
   assert.deepEqual(vueltos(metodo), [], 'el Método los sigue ofreciendo');
   assert.deepEqual(vueltos(paraConectar), [], 'el chat los sigue ofreciendo para conectar');
   assert.deepEqual(vueltos(multikey), [], 'siguen como IA de varias cuentas');
+  for (const [nombre, lista] of Object.entries(correr().listas.lienzo)) assert.deepEqual(vueltos(lista), [], `${nombre} (lib/flujo-ia.ts) los volvió a nombrar`);
   // El verificador de cada uno se fue con su entrada del Método (si quedara, verificaría una clave que nada usa).
   assert.doesNotMatch(leer('lib/metodo-verificar.ts'), /api\.cerebras\.ai|api\.mistral\.ai|openrouter\.ai/);
 });

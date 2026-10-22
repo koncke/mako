@@ -5337,7 +5337,8 @@ TODAS 429 (0 respuestas), OpenRouter 12 llamadas y su modelo gratis caducó tres
 ### Lo que quedó SIN hacer
 
 - `ProvName`, los `case` de `cfgDe`, `LIMITES_PROVEEDOR`, los modelos y timeouts de los tres (lib/ai-cheap.ts,
-  lib/ia-cuotas-calculo.ts): se van cuando AU3 saque los tres de lib/flujo-ia.ts. Hoy son inertes (`provDe` corta).
+  lib/ia-cuotas-calculo.ts). Las listas del lienzo (lib/flujo-ia.ts) ya no los nombran (22/10, con el OK de Automations),
+  así que lo que queda se puede sacar; hoy es inerte (`provDe` corta). tests/openrouter-modelo.test.ts se va con eso.
 - lib/openrouter-saldo.ts sigue: lo lee el panel de gasto (lib/anthropic-usage.ts → `saldoOpenRouter`). Mostrará el saldo
   que quedó; sacarlo es del panel.
 - Las filas guardadas en `credenciales` (CEREBRAS/MISTRAL/OPENROUTER_API_KEY) quedan cifradas, inertes y sin botón para

@@ -79,8 +79,11 @@ async function main() {
   const { SERVICIOS_METODO } = await import('../lib/metodo-catalogo');
   const { IA_PARA_CONECTAR } = await import('../lib/mako-turno-app-reglas');
   const { PROVS_MULTIKEY } = await import('../lib/ia-keys');
+  const { PROVS_CREAR_IA, PROVS_GRATIS_PIN } = await import('../lib/flujo-ia');
   const listas = {
     cascadas: { CASCADA_DOCS: ai.CASCADA_DOCS, CASCADA_GRATIS: ai.CASCADA_GRATIS, VISION_CASCADE: ai.VISION_CASCADE, CASCADA_TOOLS: ai.CASCADA_TOOLS },
+    // Las del lienzo de Automations (crear un flujo con IA y el pin de /modelos-ia).
+    lienzo: { PROVS_CREAR_IA: [...PROVS_CREAR_IA], PROVS_GRATIS_PIN: [...PROVS_GRATIS_PIN] },
     integraciones: DEFS.map((d) => d.key), metodo: SERVICIOS_METODO.map((s) => s.key),
     paraConectar: [...IA_PARA_CONECTAR], multikey: [...PROVS_MULTIKEY],
   };

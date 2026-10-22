@@ -138,22 +138,15 @@ export const FEATURE_CREAR_IA = 'chatbot-crear-ia';
  * Y Groq, el único que contestaba, NO SE PROBABA: el pedido pesaba ~10k tokens (con los 6000 de
  * salida) y `TECHO_ENTRADA.groq` es 7000, así que la cascada lo salteaba antes de preguntarle.
  */
-export const PROVS_CREAR_IA: readonly ProvName[] = ['gemini', 'groq', 'openrouter'];
+// IA8 (22/10/2026): sin OpenRouter (su modelo gratis caducó tres veces), Mistral (429 siempre) ni Cerebras (402). Groq se
+// va también (Martín, 22/10), después de que se active el pago de Gemini y se midan las notas de voz.
+export const PROVS_CREAR_IA: readonly ProvName[] = ['gemini', 'groq'];
 
 /** Los proveedores GRATIS que el pin de /modelos-ia puede poner primero. Uno pago se ignora. */
-export const PROVS_GRATIS_PIN: readonly ProvName[] = ['gemini', 'groq', 'openrouter', 'mistral', 'cerebras'];
+export const PROVS_GRATIS_PIN: readonly ProvName[] = ['gemini', 'groq'];
 
-/**
- * El modelo de OpenRouter para ESTA feature. El de `MODELO_DOCS` (`minimax/minimax-m3:free`) ya no
- * es gratis. Medido el 09/10/2026 con el prompt real contra los `:free` que lista la API:
- * `nvidia/nemotron-3-super-120b-a12b:free` → 200 en 21 s, 9 tarjetas, cero errores; los dos Gemma
- * → 429 «rate-limited upstream» (pool compartido); `apodex-1.1-mini`, `dots-3-note-preview` y
- * `openrouter/free` se gastan los 6000 tokens pensando y no devuelven el JSON. Va acá y no en
- * lib/ai-cheap.ts porque cambiar el de `MODELO_DOCS` les cambia el modelo a las demás features.
- */
-export const MODELOS_CREAR_IA: Partial<Record<ProvName, string>> = {
-  openrouter: 'nvidia/nemotron-3-super-120b-a12b:free',
-};
+/** El modelo de cada proveedor para ESTA feature, cuando no es el de siempre. Desde IA8 (sin OpenRouter), ninguno. */
+export const MODELOS_CREAR_IA: Partial<Record<ProvName, string>> = {};
 
 /** La salida mínima que sirve (un flujo de ~20 tarjetas con lo que piensa un modelo de razonamiento). */
 export const SALIDA_MIN_IA = 3_000;
