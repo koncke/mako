@@ -44,6 +44,11 @@ Estado a las 19:35 del 21/10 (detalle en `side-session-notes/local_797d5445-…/
 - **Script en seco** listo: `feedback-20-10/reparar-ws21-v2.ts`, con su salida en `reparar-ws21-v2.salida.txt`. Para el tipo de cobro espera que Martín elija `--meses=6` o `--mensual`. Funnel, nombre del producto, PDF y grupo esperan a que ella cambie el nombre.
 - **Preguntas que no se ven en su Ops Center:** el arreglo de raíz NO está empezado. Hay que guardar las preguntas del arranque con su respuesta en la sesión de Offer y reconstruir las de ella marcadas «reconstruido».
 
+**DECISIÓN DE MARTÍN (21/10, 21:45): modularizar el chequeo de GitHub (Actions).** Hoy cada push a `integracion` corre los tipos de TODO el repo, las guardas y los más de 10.000 tests: tarda entre 7 y 10 minutos más Vercel, y Martín ve que «antes salían antes». Lo que pidió:
+1. **Vía rápida:** un cambio chico o urgente (copy, un arreglo de un cliente, quitar una sección) no pasa por todo el chequeo.
+2. **El resto, sólo lo afectado:** tests y tipos de la rama del código que cambió (lo que hace `scripts/tests-afectados.mjs` y `scripts/tsc-acotado.mjs` en local), no absolutamente todo.
+Es de **Infra**. Va junto con sus dos puntas pendientes, el candado y «Tipos» con tandas de respaldo, porque tocan el mismo workflow. Lo que no se negocia: lo que va a `main` no puede dar un OK falso (ver `revision-infra-candado-tandas-21-10.md`). Un chequeo completo nocturno o semanal sirve de red.
+
 **Pendiente de Martín:** está en el resumen de OneDrive (2FA, ejecutables 0.3.2, hilo de Google, pedido 9a143455, Florencia ws21, claves del ws1, Leila ws11, lectura de producción para Infra).
 
 ## Qué es este chat
