@@ -90,7 +90,7 @@ test('⚠️ la lista lee las cuotas Y las suscripciones en todos lados; el Outs
   assert.match(server, /getPorCobrar\(c\.hoy, ventana\.desde, ventana\.hasta\)/);
   assert.match(server, /const \{ items \} = await getPorCobrar\(c\.hoy, null, null\);/);
   assert.match(server, /outstanding: out\.total,/, 'el número de Outstanding no cambia');
-  assert.match(fuente('lib/graficos-datos-extra.ts'), /const \{ items \} = await getPorCobrar\(hoy, todo \? null : rg\.desde, todo \? null : rg\.hasta\);/);
+  assert.match(fuente('lib/graficos-datos-extra.ts'), /const \[\{ items \}, rot\] = await Promise\.all\(\[getPorCobrar\(hoy, todo \? null : rg\.desde, todo \? null : rg\.hasta\), rotulosDelCrm\(\)\]\);/);
   assert.match(fuente('lib/api-mako/areas/metricas.run.ts'), /getPorCobrar\(hoy, filtra \? d : null, filtra \? h : null\)/);
   assert.match(fuente('lib/pagos.ts'), /items: \[\.\.\.detalle\.items, \.\.\.subs\.filter\(\(s\) => !conCuota\.has\(Number\(s\.lead_id\)\)\)\]/);
 });

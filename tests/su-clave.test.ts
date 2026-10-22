@@ -79,6 +79,9 @@ test('las funciones reales: cada fallo de su clave deja su fila, y la tarjeta lo
   });
   const r = JSON.parse(salida.split('@@RESULTADO@@').pop() ?? '{}');
   assert.equal(r.error, undefined, r.error);
+  // La fila que la base rechazó no frena la siguiente (insertUsage ahora dice si escribió).
+  assert.equal(r.filasConLaBaseCaida, 0);
+  assert.equal(r.filasDespues, 1, 'con la base de vuelta, el próximo fallo tiene que quedar escrito, sin esperar 5 min');
   const filas = r.filasTexto as Array<{ ws: number; provider: string; model: string; motivo: string }>;
   const claude = filas.find((f) => f.provider === 'anthropic');
   const openai = filas.find((f) => f.provider === 'openai');

@@ -71,16 +71,28 @@ export type FilaTicket = {
   avisado_at: string | null;
   /** El nombre del negocio (join con workspaces), sólo en lo que lee Martín. */
   negocio?: string | null;
+  /** La foto de perfil de quien lo levantó (`usuarios.foto_url`, la misma de /api/perfil), sólo en lo que lee Martín.
+   *  null = no tiene, o no es https (un ticket por WhatsApp sin usuario no tiene fila). */
+  foto?: string | null;
+  /** Lo último que se dijo del ticket después de abrirlo (el Cerebro que lo devolvió, el cliente que contestó). Sólo en
+   *  la bandeja: es lo que explica por qué está ahí (22/10/2026, los tickets #5 y #6). */
+  nota?: NotaTicket | null;
 };
+
+/** Una línea del historial que explica el ticket: quién, qué tipo de evento y su texto. */
+export type NotaTicket = { actor: string; tipo: string; texto: string; at: string };
+/** Los eventos que cuentan como «lo último que se dijo»: el Cerebro que lo devuelve o anota, el cliente que contesta. */
+export const TIPOS_NOTA = ['reclasificado', 'nota', 'comentario'] as const;
 
 export type Evento = { id: number; at: string; actor: string; tipo: string; texto: string | null; datos: Record<string, unknown> | null };
 
 const COLS = 'id, created_at, updated_at, workspace_id, usuario_id, usuario_email, usuario_nombre, rol, plan, tipo, tipo_manual, titulo, descripcion, canal, contexto, estado, prioridad, triage, decision, decision_nota, decidido_at, duplicado_de, respuesta, despacho, pedido_id, despachado_at, aviso_estado, aviso_intentos, aviso_motivo, aviso_at, arreglado_at, arreglo_nota, resuelto_at, avisado_at';
 
 function aFila(f: Record<string, unknown>): FilaTicket {
-  const ws = f.workspaces as { nombre?: unknown } | null | undefined;
+  const { workspaces: ws, usuarios: us, ...resto } = f as { workspaces?: { nombre?: unknown } | null; usuarios?: { foto_url?: unknown } | null };
+  const foto = us && typeof us.foto_url === 'string' && /^https:\/\//i.test(us.foto_url) ? us.foto_url : null;
   return {
-    ...(f as unknown as FilaTicket),
+    ...(resto as unknown as FilaTicket),
     contexto: sanearContexto(f.contexto),
     triage: leerTriage(f.triage),
     estado: (ESTADOS as readonly unknown[]).includes(f.estado) ? f.estado as EstadoTicket : 'nuevo',
@@ -88,6 +100,7 @@ function aFila(f: Record<string, unknown>): FilaTicket {
     tipo: esTipo(f.tipo) ? f.tipo : 'bug',
     aviso_intentos: Number(f.aviso_intentos) || 0,
     ...(ws !== undefined ? { negocio: typeof ws?.nombre === 'string' ? ws.nombre : null } : {}),
+    ...(us !== undefined ? { foto } : {}),
   };
 }
 
@@ -265,16 +278,33 @@ export async function comentarComoCliente(ws: number, email: string, id: number,
 }
 
 // ── Lo de MARTÍN: quien llama ya pasó por `puedeOperar` ───────────────────────────────────────────────────────────
+/** Lo que lee Martín: la fila, el negocio y la FOTO de quien lo levantó (el `usuario_id` apunta a `usuarios`). */
+const COLS_MARTIN = `${COLS}, workspaces(nombre), usuarios(foto_url)`;
+
 export async function bandeja(limite = 200): Promise<Lectura<FilaTicket[]>> {
-  const { data, error } = await getSupabaseServer().from(T).select(`${COLS}, workspaces(nombre)`)
+  const db = getSupabaseServer();
+  const { data, error } = await db.from(T).select(COLS_MARTIN)
     .order('created_at', { ascending: false }).limit(limite);
   if (error) return { ok: false, faltaTabla: faltaTabla(error), error: error.message };
-  return { ok: true, datos: (data ?? []).map((f) => aFila(f as Record<string, unknown>)) };
+  const filas = (data ?? []).map((f) => aFila(f as Record<string, unknown>));
+  // La última nota de los que todavía se deciden: una lectura más, de pocos tickets. Si falla, la bandeja sale igual.
+  const abiertos = filas.filter((t) => t.estado === 'nuevo' || t.estado === 'esperando_decision' || t.estado === 'esperando_cliente').map((t) => t.id);
+  if (abiertos.length) {
+    const { data: ev } = await db.from(T_EV).select('ticket_id, at, actor, tipo, texto')
+      .in('ticket_id', abiertos).in('tipo', [...TIPOS_NOTA]).not('texto', 'is', null).order('at', { ascending: false }).limit(500);
+    const ultima = new Map<number, NotaTicket>();
+    for (const e of (ev ?? []) as Array<{ ticket_id: number; at: string; actor: string; tipo: string; texto: string | null }>) {
+      const id = Number(e.ticket_id);
+      if (!ultima.has(id) && e.texto) ultima.set(id, { actor: e.actor, tipo: e.tipo, texto: e.texto, at: e.at });
+    }
+    for (const t of filas) t.nota = ultima.get(t.id) ?? null;
+  }
+  return { ok: true, datos: filas };
 }
 
 export async function ticketEntero(id: number): Promise<{ ticket: FilaTicket; eventos: Evento[] } | null> {
   const db = getSupabaseServer();
-  const { data, error } = await db.from(T).select(`${COLS}, workspaces(nombre)`).eq('id', id).maybeSingle();
+  const { data, error } = await db.from(T).select(COLS_MARTIN).eq('id', id).maybeSingle();
   if (error || !data) return null;
   const { data: ev } = await db.from(T_EV).select('id, at, actor, tipo, texto, datos').eq('ticket_id', id).order('at');
   return { ticket: aFila(data as Record<string, unknown>), eventos: (ev ?? []) as Evento[] };

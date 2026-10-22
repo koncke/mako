@@ -60,7 +60,7 @@ test('1. el jefe es «Cerebro», con la estrella de MaKo, y la lista es UNA: lo 
     assert.doesNotMatch(sinComentarios(leer(f)), /co-cuenta__cab|aria-expanded|SECCION_ANTES|AVISO_OFFER|AVISO_ANTES|Seguir en Offer|Seguir en uno nuevo|\/offer\?sesion=|\/m\/offer\?sesion=/, f);
   }
   assert.match(sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx')), /<FilaDeChat key=\{f\.clave\} titulo=\{f\.titulo\} criatura=\{f\.criatura\}/, 'la fila del super admin');
-  assert.match(sinComentarios(leer('app/m/second-brain/ChatClienteM.tsx')), /leading=\{<Muneco titulo=\{f\.criatura\}/, 'en el teléfono, cada fila con su criatura');
+  assert.match(sinComentarios(leer('app/m/second-brain/ChatClienteM.tsx')), /<Muneco titulo=\{f\.criatura\} aspecto=\{f\.aspecto\}/, 'en el teléfono, cada fila con su criatura');
 });
 
 test('2. una conversación de Offer se dibuja con el MISMO hilo: la voz se escucha y las opciones se tocan', () => {
@@ -121,8 +121,8 @@ test('4. la caja es la ÚNICA y lo escrito va al motor de cada chat', () => {
   assert.equal((piezas.match(/<CajaChat /g) ?? []).length, 1, 'una caja');
   assert.match(piezas, /placeholder=\{`Escribe a \$\{k\.nombre\}`\}/, 'a quién se le escribe, como en el super admin');
   const motor = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
-  assert.match(motor, /if \(idOffer != null\) void mandarAOffer\(idU, t\); else void mandar\(idU, t, archivos\);/);
-  assert.match(motor, /\{ action: 'send', sessionId: sid, mensaje, \.\.\.\(deAntes \? \{ antes: 1 \} : \{\}\) \}/, 'un chat de antes se sigue');
+  assert.match(motor, /if \(idOffer != null\) void mandarAOffer\(idU, t, archivos\); else void mandar\(idU, t, archivos\);/);
+  assert.match(motor, /\{ action: 'send', sessionId: sid, mensaje, \.\.\.\(deAntes \? \{ antes: 1 \} : \{\}\)(?:, \.\.\.\(desdeTab \? \{ desde: desdeTab \} : \{\}\))? \}/, 'un chat de antes se sigue');
   // La computadora y el teléfono montan la MISMA caja y el MISMO hilo (el teléfono, la caja del suyo: `movil`).
   assert.match(sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx')), /<CajaDelCliente k=\{k\} campo=\{caja\} seguir=\{seguirHilo\} \/>/);
   assert.match(sinComentarios(leer('app/m/second-brain/ChatClienteM.tsx')), /<CajaDelCliente k=\{k\} campo=\{caja\} seguir=\{seguirHoja\} movil \/>/);
@@ -137,7 +137,8 @@ test('4. la caja es la ÚNICA y lo escrito va al motor de cada chat', () => {
 test('5. un chat de antes se sigue con la regla de quién lo ve, y el turno corre sobre ESA sesión', () => {
   const r = sinComentarios(leer('app/api/mako/chat/route.ts'));
   const f = r.slice(r.indexOf('async function personaDelChat('), r.indexOf('export async function GET'));
-  assert.match(f, /const q = await quienChateaDelRequest\(\);\s*const chartKey = q \? await claveDeAntes\(q, sessionId\) : null;\s*return chartKey \? \{ \.\.\.persona, chartKey \} : null;/);
+  // Y si no es de antes, uno de una tab de ESTA persona (OC4, 22/10/2026: tests/ops-center-origen.test.ts).
+  assert.match(f, /const q = await quienChateaDelRequest\(\);\s*const chartKey = \(q \? await claveDeAntes\(q, sessionId\) : null\) \?\? await claveDeTab\(persona, sessionId\);\s*return chartKey \? \{ \.\.\.persona, chartKey \} : null;/);
   const post = r.slice(r.indexOf('export async function POST'));
   assert.match(post, /const quien = await personaDelChat\(persona, sessionId, body\.antes\);\s*if \(!quien\) return json\(\{ ok: false, error: 'No encuentro ese chat\.' \}, 404\);/);
   assert.match(post, /await turnoApp\(quien, sessionId, \{ mensaje, contexto/, 'el turno, con la sesión de antes');
@@ -161,7 +162,8 @@ test('6. el clic derecho, la cita y las marcas del super admin, en cada mensaje 
   const m = mensajeWADe({ k: 'msg', id: 'u1', role: 'user', texto: 'hola', at: '2026-10-18T04:19:00.000Z' }, 'Cerebro');
   assert.deepEqual([m.de, m.propio, m.texto], ['Tú', true, 'hola']);
   const piezas = sinComentarios(leer('app/second-brain/PiezasCliente.tsx'));
-  assert.match(piezas, /<ContextoWA\.Provider value=\{k\.accionesWA\}>/, 'el hilo con lo de WhatsApp');
+  // El grupo de WhatsApp de MaKo, sin el menú (OC3, 22/10/2026: se lee, no se responde; tests/ops-center-grupo-mako.test.ts).
+  assert.match(piezas, /<ContextoWA\.Provider value=\{k\.esGrupo \|\| k\.esAutomatizacion(?: \|\| k\.esEditor)? \? null : k\.accionesWA\}>/, 'el hilo con lo de WhatsApp');
   assert.match(piezas, /\{k\.cita && <CitaCaja cita=\{k\.cita\} onQuitar=\{\(\) => k\.setCita\(null\)\} \/>\}/, 'la cita arriba de la caja');
   for (const f of ['app/second-brain/ChatSecondBrain.tsx', 'app/m/second-brain/ChatClienteM.tsx']) {
     assert.match(sinComentarios(leer(f)), /<MenuMensajeWA abierto=\{k\.menuWA\} marcas=\{k\.marcas\} onCerrar=\{\(\) => k\.setMenuWA\(null\)\} onElegir=\{k\.elegirEnMenu\} sin=\{\['reenviar'\]\} \/>/, f);
@@ -188,7 +190,7 @@ test('7. «Conectar tu Claude» al final de la caja, sólo si la persona todaví
   assert.match(f, /\} catch \{\s*return true;/, 'sin saberlo, no se le pide');
   const caja = sinComentarios(leer('app/_chat/CajaChat.tsx'));
   assert.ok(caja.indexOf('{p.alFinal}') > caja.indexOf('<textarea') && caja.indexOf('{p.alFinal}') < caja.indexOf('<BotonMandar'), 'al final, antes del botón');
-  assert.match(sinComentarios(leer('app/second-brain/PiezasCliente.tsx')), /alFinal=\{k\.iaConectada === false \? \(\s*<button type="button" className="co-chip co-conectar-ia" onClick=\{\(\) => k\.setConectando\(true\)\}>Conectar tu Claude<\/button>/);
+  assert.match(sinComentarios(leer('app/second-brain/PiezasCliente.tsx')), /alFinal=\{k\.iaConectada === false \? \(\s*<button type="button" className="co-chip co-conectar-ia" onClick=\{\(\) => k\.setConectando\(true\)\}>Conectar tu IA<\/button>/);
   // Sólo se pregunta fuera del Ops Center del super admin (`activo`): ahí contesta la IA de la plataforma.
   assert.match(sinComentarios(leer('app/second-brain/useChatCliente.ts')), /useEffect\(\(\) => \{ if \(activo\) mirarSuIA\(\); \}, \[activo, mirarSuIA\]\);/);
   assert.match(sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx')), /<Modal titulo="Tus cuentas de IA" onCerrar=\{\(\) => \{ k\.setConectando\(false\); k\.mirarSuIA\(\); \}\} ancho=\{640\}>\s*<TusCuentasIA sinCabecera conectar \/>/, 'sin salir de la tab (IA4: abre directo «¿Qué IA usas?»)');
@@ -206,7 +208,8 @@ test('8. el teléfono: la lista es la pantalla y cada chat se abre en su hoja, c
   const m = sinComentarios(leer('app/m/second-brain/ChatClienteM.tsx'));
   assert.match(m, /<SheetM abierto=\{abierta && elegido != null\} onCerrar=\{cerrar\} snap="alto"/, 'la conversación, en una hoja alta');
   assert.match(m, /<FilaM leading=\{<CirculoNuevo size=\{40\} \/>\} titulo="Nuevo chat"/, '«Nuevo chat» arriba, con su círculo');
-  assert.match(m, /\{cerebro && fila\(cerebro\)\}\s*\{corte\.map\(fila\)\}/, 'el Cerebro y después todos, en la MISMA lista');
+  // Desde el 22/10, agrupados por su origen con `porJefe` (tests/ops-center-lista-cliente.test.ts), en la misma lista.
+  assert.match(m, /\{cerebro && fila\(cerebro\)\}\s*(?:\{\}\s*)?\{porJefe\(corte\)\.flatMap\(/, 'el Cerebro y después todos, en la MISMA lista');
 });
 
 // 21/10/2026 (~23:10), tres reglas de Martín para toda la app: el chat de MaKo de cada tab a la IZQUIERDA, con la estrella y al

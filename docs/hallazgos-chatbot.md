@@ -2187,7 +2187,7 @@ Medido el 09/10/2026 (doc oficial y la cuenta, sólo lectura):
   (a /api/webhooks/resend) YA está suscripto a `email.received`** y lo tira al `default`. O sea: el día
   que alguien prenda la recepción, los mails llegan a esa ruta y se pierden sin un error.
 - ⚠️ **«Opción A: una cuenta de Resend para todos» no es del todo cierto**: los ws 1, 4, 10 y 11 tienen
-  su propia `RESEND_API_KEY`, y el único `resend_domain` cargado (ws11, leilafittipaldi.com) NO está en
+  su propia `RESEND_API_KEY`, y el único `resend_domain` cargado (ws11, marca-ejemplo.com) NO está en
   la cuenta de MaKo. Un cliente con cuenta propia recibe en SU cuenta: haría falta un webhook allá con su
   secreto.
 - **Se rutea por `resend_domain` (se reclama con titularidad), NUNCA por `resend_from`**: el del ws1 es
@@ -5961,7 +5961,7 @@ del cliente, y nunca llegaban al mensaje. Con la lista vacía y sin keys, la fra
 hoy», «está al tope», «está saturada», «no contestó») y la salida es SU Claude (`/integraciones?abrir=anthropic`), que es
 lo primero que prueba esta cascada. Con keys propias, la red no cambia nada. Un tope POR DÍA no dice «prueba en un rato».
 **Trampa:** «Conecta tu Claude o tu GPT» era el texto pedido, pero OpenAI no está en `PROVS_CREAR_IA` (cobra): una clave
-de OpenAI no arma flujos. El texto dice sólo Claude, y un test avisa si OpenAI entra a la lista. **Vive en:**
+de OpenAI no arma flujos HOY (la cascada de main no usa `PROVS_SU_IA` por su cuenta; lo midió «IA del cliente»). Con el IA6 (lote 2 de IA) sí: entonces `SU_IA` y `SU_CLAVE` (lib/flujo-ia.ts) pasan a «tu Claude o tu GPT», y el test falla hasta que se cambien. **Vive en:**
 lib/flujo-ia.ts (`falloDeIA`, `sinIAPropia`) · lib/flujo-ia-crear.ts (`generar` le pasa `erroresRed`) · test:
 tests/ia-aviso-sin-ia-propia.test.ts. **Sin hacer:** las otras pantallas que llaman `falloDeIA` (la ficha, los gráficos,
 el «preparar» de la API de MaKo) no le pasan su red. Ven el texto nuevo sin la causa: lib/ficha/ia-generar.ts,

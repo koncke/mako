@@ -187,7 +187,7 @@ const CONVERSACION_18 = {
     diagnostico: { dimensiones: [{ id: 'D6', nota: 7, porque: 'El formato de 3 sesiones en vivo por Zoom con grabaciones y plantillas es perfectamente escalable.', mejora: '' }] },
     propuesta: {
       formato: 'Tres sesiones 100% en vivo de 2 horas por Zoom los días 18, 19 y 20 de noviembre de 2026, con acceso a grabaciones.',
-      incluye: [{ nombre: 'Sesiones en vivo', beneficio: 'Tres sesiones en vivo de 2 horas cada una impartidas por Mauricio Bustos vía Zoom.' }],
+      incluye: [{ nombre: 'Sesiones en vivo', beneficio: 'Tres sesiones en vivo de 2 horas cada una impartidas por Mauricio Ejemplo vía Zoom.' }],
       inversion: { precio: '$270 USD, pago único vía Stripe' },
     },
   }],
@@ -203,7 +203,7 @@ test('O3 · «por Zoom» sale de la pieza, el diagnóstico y la propuesta; Strip
   const c = f.conclusiones[0] as unknown as typeof CONVERSACION_18.conclusiones[0];
   assert.equal(c.diagnostico.dimensiones[0].porque, 'El formato de 3 sesiones en vivo con grabaciones y plantillas es perfectamente escalable.');
   assert.equal(c.propuesta.formato, 'Tres sesiones 100% en vivo de 2 horas los días 18, 19 y 20 de noviembre de 2026, con acceso a grabaciones.');
-  assert.equal(c.propuesta.incluye[0].beneficio, 'Tres sesiones en vivo de 2 horas cada una impartidas por Mauricio Bustos.');
+  assert.equal(c.propuesta.incluye[0].beneficio, 'Tres sesiones en vivo de 2 horas cada una impartidas por Mauricio Ejemplo.');
   assert.equal(c.propuesta.inversion.precio, '$270 USD, pago único vía Stripe');
   assert.match(f.mensajes[0].texto, /por Zoom/, 'lo que MaKo preguntó es historia');
   assert.ok(!JSON.stringify(f).replace(f.mensajes[0].texto, '').includes('Zoom'));

@@ -17,6 +17,8 @@
 //   · Conversacion.tsx con su <textarea> otra vez → 1 fallo (2);
 //   · una pantalla nueva de MaKo con su propio <textarea> → 1 fallo (4);
 //   · la caja con `voz` que dicta en vez de grabar → 1 fallo (5).
+// Y el 22/10/2026 (OC2: la regex ve «Pídele un cambio a MaKo», con palabras en el medio): PanelEditarMako fuera de la lista
+// → 1 fallo (4) · una pantalla nueva con un <textarea> «Pídele algo nuevo a MaKo» → 1 fallo (4).
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -33,13 +35,15 @@ const INVENTARIO: Record<string, 'caja única' | `pendiente, ${string}`> = {
   'app/m/operaciones/ChatsMovil.tsx': 'caja única',
   // El chat del cliente (22/10/2026): su caja vive en PiezasCliente.tsx y la montan la computadora y el teléfono.
   'app/second-brain/PiezasCliente.tsx': 'caja única',
-  'app/m/mako/Composer.tsx': 'pendiente, de Ops Center',
-  'app/offer/ChatOffer.tsx': 'pendiente, de Offer',
-  'app/m/offer/ComposerOfferM.tsx': 'pendiente, de Offer',
+  // Offer, la tab y el onboarding, y Offer en el teléfono (22/10/2026, OF4): con el hilo del Ops Center (HiloMako) en la tab.
+  'app/offer/ChatOffer.tsx': 'caja única',
+  'app/m/offer/ComposerOfferM.tsx': 'caja única',
   'app/automations/ChatMako.tsx': 'pendiente, de Automations',
   'app/crm/lead-view/MakoAnalystLead.tsx': 'pendiente, de CRM',
-  'app/crm/mako-crm/ChatMakoCrm.tsx': 'pendiente, de CRM',
-  'app/dashboard/EditorMako.tsx': 'pendiente, de Dashboard',
+  // 22/10/2026 (OC2): EditorMako.tsx no es un chat (edita el pedido y las sugerencias del botón de un gráfico) y salió de la
+  // lista; el panel «Pídele un cambio a MaKo» del Dashboard y la caja de «Pídeselo a MaKo» no estaban, y la regex no los veía.
+  'app/dashboard/PanelEditarMako.tsx': 'pendiente, de Dashboard',
+  'app/web-generator/CajaPedido.tsx': 'pendiente, de Web Generator (la usan Automations, CRM y Dashboard)',
   'app/web-generator/editor/paneles/PanelAgente.tsx': 'pendiente, de Web Generator',
   'app/video-editor/_opencut/chat/PanelChat.tsx': 'pendiente, de Video Generator',
   'app/image-editor/mako/chat/PanelMakoIA.tsx': 'pendiente, de Image Editor',
@@ -52,7 +56,8 @@ const INVENTARIO: Record<string, 'caja única' | `pendiente, ${string}`> = {
 /** Arma su PROPIA caja: un campo de texto, la barra de WhatsApp (sola o adentro de su hilo) o el botón de mandar del chat. */
 const CAJA_PROPIA = /<textarea\b|<ComposerWhatsApp\b|<ChatHilo\b|className="co-enviar"/;
 /** Es un chat con MaKo: su hilo, su API, o una caja que le escribe «a MaKo». */
-const ES_DE_MAKO = /<HiloMako\b|['"`]\/api\/mako\/chat|['"`]\/api\/m\/mako|(placeholder|aria-label)=\{?["'`][^"'`]*\b(Escr[ií]bele|Escribile|Escribe|Preg[uú]ntale|Pregunt[aá]le|P[ií]dele|Pedile|Dile|Habla con) a MaKo/;
+// Con palabras en el medio («Pídele un cambio a MaKo», 22/10/2026: el panel del Dashboard esquivaba la de antes) y «Pídeselo».
+const ES_DE_MAKO = /<HiloMako\b|['"`]\/api\/mako\/chat|['"`]\/api\/m\/mako|(placeholder|aria-label)=\{?["'`][^"'`]*\b(Escr[ií]bele|Escribile|Escribe|Preg[uú]ntale|Pregunt[aá]le|P[ií]dele|P[ií]deselo|Pedile|Dile|Habla con)\b[^"'`]{0,40}\ba MaKo/;
 
 function tsxDe(dir: string): string[] {
   const out: string[] = [];

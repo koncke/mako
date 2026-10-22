@@ -19,14 +19,19 @@ import { ProspectosApp } from './ProspectosApp';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function ProspectosPage() {
+export default async function ProspectosPage({ searchParams }: { searchParams: Promise<{ funnel?: string }> }) {
   await requireRolWs(['closer', 'setter'], { nav: 'crm' });
-  const [funnels, rol] = await Promise.all([listarFunnels(), getRolWsEfectivo()]);
+  const [funnels, rol, sp] = await Promise.all([listarFunnels(), getRolWsEfectivo(), searchParams]);
+  // «Volver» vuelve al CRM del que se vino (C6, 22/10/2026): desde «Sprint 3 días», volver al principal era «me mandó a
+  // otro lado». Sólo un funnel de ESTE negocio: un id ajeno o roto vuelve al CRM de siempre.
+  const desde = funnels.find((f) => String(f.id) === sp.funnel && !f.esDefault);
+  const volver = desde ? { href: `/crm?funnel=${desde.id}`, nombre: nombreVisible(desde) } : null;
   return (
     <Pagina ancho="completo">
       <ProspectosApp
         funnels={funnels.map((f) => ({ id: f.id, nombre: nombreVisible(f), esDefault: f.esDefault }))}
         esAdmin={rol === 'admin'}
+        volver={volver}
       />
     </Pagina>
   );

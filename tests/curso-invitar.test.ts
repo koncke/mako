@@ -116,12 +116,12 @@ const bloque = (src: string, firma: string, hasta: string) => {
 
 test('el mail: asunto con el programa, de qué negocio es, el link de entrada y la línea de Google', () => {
   const t = textoInvitacionCurso({
-    nombre: 'Teresa de Jesus Hernandez', programa: 'Negocio que Escala', negocio: 'Mauricio Bustos',
+    nombre: 'Teresa de Jesus Hernandez', programa: 'Negocio que Escala', negocio: 'Mauricio Ejemplo',
     enlace: 'https://x.test/api/compartido/curso/entrar?t=c1.1.2.3.firma', entrarConGoogle: 'https://x.test/login',
   });
   assert.equal(t.asunto, 'Tu acceso a Negocio que Escala');
   assert.match(t.cuerpo, /^Hola Teresa,\n/, 'saluda por el primer nombre');
-  assert.ok(t.cuerpo.includes('Tu acceso al programa Negocio que Escala de Mauricio Bustos ya está listo.'), t.cuerpo);
+  assert.ok(t.cuerpo.includes('Tu acceso al programa Negocio que Escala de Mauricio Ejemplo ya está listo.'), t.cuerpo);
   assert.ok(t.cuerpo.includes('https://x.test/api/compartido/curso/entrar?t=c1.1.2.3.firma'), 'falta el link de entrada');
   assert.ok(t.cuerpo.includes('También puedes entrar en https://x.test/login con Google si este correo es de Google.'), t.cuerpo);
   // Sin nombre ni negocio sigue siendo una frase entera, no «Hola undefined» ni «de null».
@@ -132,7 +132,7 @@ test('el mail: asunto con el programa, de qué negocio es, el link de entrada y 
 });
 
 test('el mail va en neutro con TÚ y sin jerga: lo lee un cliente mexicano de otro negocio', () => {
-  const t = textoInvitacionCurso({ nombre: 'Ana', programa: 'Negocio que Escala', negocio: 'Mauricio Bustos', enlace: 'https://e', entrarConGoogle: 'https://l' });
+  const t = textoInvitacionCurso({ nombre: 'Ana', programa: 'Negocio que Escala', negocio: 'Mauricio Ejemplo', enlace: 'https://e', entrarConGoogle: 'https://l' });
   const todo = `${t.asunto}\n${t.preheader}\n${t.cuerpo}`;
   assert.deepEqual(marcasDeVoseo(todo), [], 'el mail vosea');
   assert.match(todo, /\bEntra\b/);
@@ -140,7 +140,7 @@ test('el mail va en neutro con TÚ y sin jerga: lo lee un cliente mexicano de ot
   // Quien lo lee no sabe qué es MaKo, ni un «portal», ni un «token».
   assert.doesNotMatch(todo, /MaKo|portal|token|workspace/i);
   // El del link de entrada por email, con las mismas reglas.
-  const l = textoLinkAlumno({ enlace: 'https://x/login?entrar=am1.x', minutos: 15, negocio: 'Mauricio Bustos' });
+  const l = textoLinkAlumno({ enlace: 'https://x/login?entrar=am1.x', minutos: 15, negocio: 'Mauricio Ejemplo' });
   const todoL = `${l.asunto}\n${l.preheader}\n${l.cuerpo}`;
   assert.deepEqual(marcasDeVoseo(todoL), [], 'el mail del link vosea');
   assert.doesNotMatch(todoL, /MaKo|portal|token|workspace|undefined|null/i);
@@ -294,7 +294,7 @@ function correrNucleo(): Corrida {
         linkDeEntrada: async () => { log.push('link'); return 'link' in o ? o.link : 'https://x/api/compartido/curso/entrar?t=c1.9.21.1.f'; },
         reclamar: async (l, p) => { log.push('reclamar'); if (p != null) log.push('reclamarDe:' + p); return o.reclamar !== false; },
         soltar: async () => { log.push('soltar'); },
-        negocio: async () => 'Mauricio Bustos',
+        negocio: async () => 'Mauricio Ejemplo',
         entrarConGoogle: () => 'https://x/login',
         mandar: async (m) => { log.push('mandar:' + m.email + ':' + m.enlace + ':' + (d.dentro ? 'dentro' : 'fuera')); log.push('programa:' + m.programa); return o.mandar || { enviado: true, enlace: m.enlace }; },
         marcar: async (id, e, a, p) => { log.push('marcar:' + e); if (p != null) log.push('marcarDe:' + p); },
@@ -637,7 +637,8 @@ test('la vista Avance vive en Clientes: el toggle la ofrece y la pantalla la dib
   assert.match(app, /\.\.\.\(hayAvance \? \['avance' as const\] : \[\]\)/);
   assert.match(app, /enAvance && servicio \? \(\s*<AvanceDelServicio /);
   // El ícono existe en el catálogo compartido (un ícono inventado dibuja un punto).
-  assert.match(sinComentarios(leer('app/_ui/iconos-vista.tsx')), /\n\s*avance: \{\s*titulo: 'Ver el avance del curso',/);
+  // (El nombre es corto desde el 21/10/2026: «Avance», el tooltip del segmento compartido app/_ui/SelectorVista.tsx.)
+  assert.match(sinComentarios(leer('app/_ui/iconos-vista.tsx')), /\n\s*avance: \{\s*titulo: 'Avance',/);
 });
 
 // ── invitar-actions.ts: la puerta y nada más que funciones async ────────────────

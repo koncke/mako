@@ -31,14 +31,17 @@ import {
   textoTapadoDeRespuesta, problemaDeSeleccion, tipoDeElegido, trasTarjeta, trasTrabajo, type EstadoPropuesta, type ItemHilo, type Leido,
 } from '@/app/m/mako/chat-ui';
 import { achicarImagen } from '@/app/m/mako/subir';
-import { abrirOffer, armarOffer, turnoOffer } from './motor-offer';
+import { abrirOffer, armarOffer, turnoOffer, type NotaDeVoz } from './motor-offer';
 import { esOpcionArmar } from '@/app/offer/ayudas';
 import { conPegados, esPegadoLargo } from '@/lib/chat-pegado';
 import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import {
-  SECCION_OFFER, SIN_TITULO, colgarIrA, criaturaDeOffer, esFilaDe, linksDePedidos, listaDelCliente, type ElegidoChat, type IrA,
+  EDITORES, SECCION_OFFER, SIN_TITULO, TITULO_GRUPO, colgarIrA, criaturaDeOffer, esFilaDe, linksDePedidos, listaDelCliente, partesDeClaveDeEditor, rutaDelLienzo,
+  type ElegidoChat, type IrA,
 } from '@/lib/chat-mako-reglas';
-import type { ChatDeAntes, ChatDeOffer } from '@/lib/chat-mako-indice';
+import type { ChatDeAntes, ChatDeAutomatizacion, ChatDeEditor, ChatDeOffer, GrupoDeMaKo } from '@/lib/chat-mako-indice';
+import { etiquetaDesde, type Desde } from '@/lib/chat-desde';
+import { aspectoDeChat } from '@/lib/centro-munecos';
 import type { MensajeChat, PropuestaPantalla, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 import type { OfferSesionVista } from '@/lib/offer-marco';
 
@@ -60,6 +63,10 @@ type ItemMsg = Extract<ItemHilo, { k: 'msg' }>;
 /** Un archivo elegido en la caja, antes de mandar. `url` es su vista previa (`blob:`): la usa también la burbuja
  *  mientras sale, y se suelta cuando vuelve guardado o cuando se quita. */
 type ArchivoElegido = { id: string; file: File; tipo: 'image' | 'document'; url: string };
+/** Una nota de voz de la caja: el binario, cuánto dura, su URL `blob:` (la del reproductor mientras sale) y de qué conversación. */
+type NotaEnLaCaja = NotaDeVoz & { url: string; offer: number };
+/** Cómo terminó mandar una nota: salió (o quedó guardada), vuelve a la barra para reintentar, o se tira (el motivo ya se dijo). */
+type FinDeNota = 'salio' | 'volver' | 'tirar';
 export type Pegado = { id: string; texto: string };
 
 export async function pedir<T>(url: string, init: RequestInit = {}): Promise<Leido<T>> {
@@ -77,11 +84,12 @@ const postLargo = <T,>(cuerpo: Record<string, unknown>) =>
   pedir<T>(RUTA, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo), signal: AbortSignal.timeout(TOPE_MS) });
 /** Un turno con archivos: multipart, como el teléfono (el `?ws=` lo pone el `fetch` de la casa, WsFetch). `antes`: un chat
  *  de antes que se sigue (la ruta corre el turno sobre ESA sesión). */
-const postArchivos = <T,>(sessionId: number, mensaje: string, archivos: readonly ArchivoElegido[], antes: boolean) => {
+const postArchivos = <T,>(sessionId: number, mensaje: string, archivos: readonly ArchivoElegido[], antes: boolean, desde: Desde | null) => {
   const fd = new FormData();
   fd.append('sessionId', String(sessionId));
   fd.append('mensaje', mensaje);
   if (antes) fd.append('antes', '1');
+  if (desde) fd.append('desde', JSON.stringify(desde));
   for (const a of archivos) fd.append('adjuntos', a.file, a.file.name);
   return pedir<T>(RUTA, { method: 'POST', body: fd, signal: AbortSignal.timeout(TOPE_MS) });
 };
@@ -102,7 +110,7 @@ async function linksDelPedido(texto: string): Promise<IrA[]> {
 
 export type ChatCliente = ReturnType<typeof useChatCliente>;
 
-export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, chatInicial, opcionArmar, busca, caja, sesionesIniciales = null }: {
+export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, chatInicial, opcionArmar, busca, caja, sesionesIniciales = null, desde: desdeTab = null }: {
   elegido: ElegidoChat | null;
   setElegido: Dispatch<SetStateAction<ElegidoChat | null>>;
   /** Lee Offer, los chats de antes y si tiene su IA. En el Ops Center del super admin la lista es la de Claude Code: no. */
@@ -118,6 +126,8 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   caja: RefObject<HTMLTextAreaElement | null>;
   /** Las conversaciones que ya leyó el servidor (el teléfono las trae en el HTML: la lista se ve sin esperar). */
   sesionesIniciales?: SesionChat[] | null;
+  /** Desde dónde escribe (OC6, lib/chat-desde.ts): la estrella de una tab, con su entidad y su modo. Viaja con cada mensaje. */
+  desde?: Desde | null;
 }) {
   const ws = useWs();
   const [sesiones, setSesiones] = useState<SesionChat[] | null>(sesionesIniciales);
@@ -127,6 +137,8 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
   const [texto, setTexto] = useState('');
   const [faltaMic, setFaltaMic] = useState<string | null>(null);
+  /** Una nota de voz que no llegó a salir (se grabó mientras MaKo contestaba, o se cortó): vuelve a la barra para mandarla. */
+  const [notaEnEspera, setNotaEnEspera] = useState<NotaEnLaCaja | null>(null);
   const [trabajo, setTrabajo] = useState<{ desde: number } | null>(null);
   const [segs, setSegs] = useState(0);
   const [tarjeta, setTarjeta] = useState<{ id: number; accion: 'confirmar' | 'cancelar' } | null>(null);
@@ -135,6 +147,14 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   /** Las conversaciones de Offer del negocio (20/10/2026, Martín: «el chat de OFFER no está llegando al Ops Center»): una
    *  proyección de offer_sesiones (lib/chat-mako-indice.ts → chatsDeOffer), con la puerta de la tab. null = todavía no llegó. */
   const [offer, setOffer] = useState<ChatDeOffer[] | null>(null);
+  /** El grupo de WhatsApp de MaKo del negocio (22/10/2026, OC3): sólo lo trae el admin; null = no lo ve, o no hay grupo. */
+  const [grupo, setGrupo] = useState<GrupoDeMaKo | null>(null);
+  /** Las charlas del lienzo de Automations (22/10/2026, OC5): se leen acá y se siguen en el lienzo. */
+  const [automations, setAutomations] = useState<ChatDeAutomatizacion[] | null>(null);
+  /** Los chats del Image Editor y del Video Editor (22/10/2026, OC8): se leen acá y se siguen en el editor. */
+  const [editores, setEditores] = useState<ChatDeEditor[] | null>(null);
+  /** Lo leído del grupo (se pide de a páginas, lo más viejo arriba) y si hay más atrás. */
+  const [delGrupo, setDelGrupo] = useState<{ mensajes: MensajeChat[]; hayMas: boolean; trayendo: boolean }>({ mensajes: [], hayMas: false, trayendo: false });
   /** La conversación de Offer abierta, entera (sus opciones, su diagnóstico, si se está armando): la da el motor de Offer. */
   const [deOfferAbierta, setDeOfferAbierta] = useState<OfferSesionVista | null>(null);
   const offerRef = useRef<OfferSesionVista | null>(null);
@@ -191,6 +211,9 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   const cargarOtros = useCallback(() => {
     void pedir<{ offer: ChatDeOffer[] }>(`${RUTA}?offer=1`).then((l) => setOffer(l.ok ? l.datos.offer ?? [] : []));
     void pedir<{ antes: ChatDeAntes[] }>(`${RUTA}?antes=1`).then((l) => setAntes(l.ok ? l.datos.antes ?? [] : []));
+    void pedir<{ grupo: GrupoDeMaKo | null }>(`${RUTA}?grupo=1`).then((l) => setGrupo(l.ok ? l.datos.grupo ?? null : null));
+    void pedir<{ automations: ChatDeAutomatizacion[] }>(`${RUTA}?automations=1`).then((l) => setAutomations(l.ok ? l.datos.automations ?? [] : []));
+    void pedir<{ editores: ChatDeEditor[] }>(`${RUTA}?editores=1`).then((l) => setEditores(l.ok ? l.datos.editores ?? [] : []));
   }, []);
   useEffect(() => { if (activo) cargarOtros(); }, [activo, cargarOtros]);
   const mirarSuIA = useCallback(() => {
@@ -202,6 +225,14 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   const idElegido = elegido && 'id' in elegido ? elegido.id : null;
   const idAntes = elegido && 'antes' in elegido ? elegido.antes : null;
   const idOffer = elegido && 'offer' in elegido ? elegido.offer : null;
+  /** El grupo de WhatsApp de MaKo: se LEE y no se sigue desde acá (se contesta en el grupo, `AVISO_GRUPO`). */
+  const esGrupo = !!elegido && 'grupo' in elegido;
+  /** Una charla del lienzo de Automations: se LEE acá y se sigue en el lienzo (`hrefLienzo`). */
+  const idAutomatizacion = elegido && 'automatizacion' in elegido ? elegido.automatizacion : null;
+  const esAutomatizacion = idAutomatizacion != null;
+  /** Un chat de un editor (OC8): se LEE acá y se sigue en el editor (`hrefEditor`). */
+  const deEditor = elegido && 'editor' in elegido ? elegido : null;
+  const esEditor = deEditor != null;
   /** ¿Lo elegido es un chat del cliente (con MaKo, de Offer o de antes)? Un chat de Claude Code, no. */
   const esDelCliente = elegido != null && !('centro' in elegido);
   /** La sesión de chart_sessions a la que va el turno: la conversación con MaKo, o el chat de antes que se sigue. */
@@ -256,6 +287,42 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
     sesionRef.current = idTurno;
     offerRef.current = null;
     setDeOfferAbierta(null);
+    if (esGrupo) {
+      // La última página del grupo; las de antes, con «Ver anteriores» (`verAnteriores`).
+      let vivo = true;
+      setCargado(false); setErrorCarga(null);
+      void pedir<{ mensajes: MensajeChat[]; hayMas: boolean }>(`${RUTA}?grupoHilo=1`).then((l) => {
+        if (!vivo) return;
+        if (!l.ok) { setErrorCarga(l.reintentable ? l.error : 'No pude abrir el grupo.'); setCargado(true); return; }
+        const mensajes = l.datos.mensajes ?? [];
+        setDelGrupo({ mensajes, hayMas: !!l.datos.hayMas, trayendo: false });
+        setItems(itemsDeSesion(mensajes, []));
+        setCargado(true);
+      });
+      return () => { vivo = false; };
+    }
+    if (deEditor) {
+      let vivo = true;
+      setCargado(false); setErrorCarga(null);
+      void pedir<{ mensajes: MensajeChat[] }>(`${RUTA}?editor=${deEditor.editor}&editorClave=${encodeURIComponent(deEditor.clave)}`).then((l) => {
+        if (!vivo) return;
+        if (!l.ok) { setErrorCarga(l.reintentable ? l.error : 'No pude abrir la charla.'); setCargado(true); return; }
+        setItems(itemsDeSesion(l.datos.mensajes ?? [], []));
+        setCargado(true);
+      });
+      return () => { vivo = false; };
+    }
+    if (idAutomatizacion != null) {
+      let vivo = true;
+      setCargado(false); setErrorCarga(null);
+      void pedir<{ mensajes: MensajeChat[] }>(`${RUTA}?automatizacionId=${idAutomatizacion}`).then((l) => {
+        if (!vivo) return;
+        if (!l.ok) { setErrorCarga(l.reintentable ? l.error : 'No pude abrir la charla.'); setCargado(true); return; }
+        setItems(itemsDeSesion(l.datos.mensajes ?? [], []));
+        setCargado(true);
+      });
+      return () => { vivo = false; };
+    }
     if (idOffer != null) {
       // Una conversación de Offer: se abre con SU motor (motor-offer.ts) y se sigue acá.
       let vivo = true;
@@ -273,7 +340,20 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
     let vivo = true;
     void cargarHilo(idTurno, idAntes != null, () => vivo);
     return () => { vivo = false; };
-  }, [elegido, esDelCliente, idTurno, idAntes, idOffer, cargarHilo, ponerOffer]);
+  }, [elegido, esDelCliente, esGrupo, idAutomatizacion, deEditor?.editor, deEditor?.clave, idTurno, idAntes, idOffer, cargarHilo, ponerOffer]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** La página anterior del grupo, arriba de lo que ya se ve. */
+  const verAnteriores = async () => {
+    if (!esGrupo || delGrupo.trayendo || !delGrupo.hayMas) return;
+    const desde = delGrupo.mensajes[0]?.created_at;
+    if (!desde) return;
+    setDelGrupo((d) => ({ ...d, trayendo: true }));
+    const l = await pedir<{ mensajes: MensajeChat[]; hayMas: boolean }>(`${RUTA}?grupoHilo=1&desde=${encodeURIComponent(desde)}`);
+    if (!l.ok) { setDelGrupo((d) => ({ ...d, trayendo: false })); setFaltaMic('No pude traer los mensajes anteriores.'); return; }
+    const mensajes = [...(l.datos.mensajes ?? []), ...delGrupo.mensajes];
+    setDelGrupo({ mensajes, hayMas: !!l.datos.hayMas, trayendo: false });
+    setItems(itemsDeSesion(mensajes, []));
+  };
 
   // Mientras Offer arma la oferta por detrás (`armar`), la conversación se relee: la oferta aparece sola, con su PDF.
   const armandoOffer = idOffer != null && !!deOfferAbierta?.armando?.corriendo;
@@ -294,6 +374,8 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
 
   const recargar = () => {
     if (ocupadoRef.current) return;
+    // El grupo se recarga eligiéndolo de nuevo (su efecto trae la última página).
+    if (esGrupo) { setElegido({ grupo: true }); return; }
     if (idOffer != null) { void abrirOffer(idOffer).then((l) => { if (l.ok) void ponerOffer(l.sesion); }); return; }
     if (idTurno != null) void cargarHilo(idTurno, idAntes != null);
   };
@@ -350,8 +432,8 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
         setElegido({ id: sid });
       }
       const l = archivos.length
-        ? await postArchivos<RespuestaTurno>(sid, mensaje, archivos, deAntes)
-        : await postLargo<RespuestaTurno>({ action: 'send', sessionId: sid, mensaje, ...(deAntes ? { antes: 1 } : {}) });
+        ? await postArchivos<RespuestaTurno>(sid, mensaje, archivos, deAntes, desdeTab)
+        : await postLargo<RespuestaTurno>({ action: 'send', sessionId: sid, mensaje, ...(deAntes ? { antes: 1 } : {}), ...(desdeTab ? { desde: desdeTab } : {}) });
       if (!l.ok) { marcar(idU, { estado: l.reintentable ? 'error' : 'incierto', error: l.error }); return; }
       // Los archivos volvieron guardados: la burbuja pasa a pedirlos por su mensaje y la vista previa se suelta.
       const guardados = archivosDeRespuesta(l.datos);
@@ -372,40 +454,66 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   };
 
   /** Lo escrito en una conversación de Offer va a SU motor (motor-offer.ts). Tocar «Armar mi oferta» la arma, como en la tab. */
-  const mandarAOffer = async (idU: string, mensaje: string) => {
+  const mandarAOffer = async (idU: string, mensaje: string, archivos: readonly ArchivoElegido[] = [], nota: NotaDeVoz | null = null): Promise<FinDeNota> => {
     const s = offerRef.current;
-    if (!s) return;
+    if (!s) return 'volver';
     setTrabajo({ desde: Date.now() });
     try {
       const ultimo = s.mensajes[s.mensajes.length - 1];
-      if (ultimo?.de === 'mako' && !ultimo.pregunta && s.puedeConcluir && esOpcionArmar(mensaje, opcionArmar)) {
+      if (!nota && ultimo?.de === 'mako' && !ultimo.pregunta && s.puedeConcluir && esOpcionArmar(mensaje, opcionArmar)) {
         setItems((xs) => xs.filter((x) => x.id !== idU));
         const a = await armarOffer(s.id);
         if (a.ok) await ponerOffer(a.sesion); else setFaltaMic(a.error);
-        return;
+        return 'salio';
       }
-      const r = await turnoOffer(s.id, mensaje, s.mensajes, respuestaDeOffer(s.mensajes, mensaje));
-      if (r.sesion && offerRef.current?.id === s.id) await ponerOffer(r.sesion);
-      // Con la conversación de vuelta, lo dicho ya quedó guardado: el error va en la línea de estado y no se reintenta.
-      if (!r.ok && !r.sesion) marcar(idU, { estado: 'error', error: r.error });
-      else if (!r.ok) setFaltaMic(r.error);
-      cargarOtros();
+      // Con los archivos del «+» y la nota de voz (OC7): se suben (y se leen) en ESTA conversación antes del turno, como en la tab.
+      const r = await turnoOffer(s.id, mensaje, s.mensajes, respuestaDeOffer(s.mensajes, mensaje), archivos.map((a) => a.file), nota);
+      if (r.ok || r.guardado) {
+        if (r.sesion && offerRef.current?.id === s.id) await ponerOffer(r.sesion);
+        // Guardado pero MaKo no contestó: el error va en la línea de estado, y lo dicho no se vuelve a mandar.
+        if (!r.ok) setFaltaMic(r.error);
+        cargarOtros();
+        return 'salio';
+      }
+      // No salió. La nota vuelve a la barra (o se tira, si el servidor ya dijo que no entra); el texto queda con «Reintentar».
+      if (nota) { setItems((xs) => xs.filter((x) => x.id !== idU)); setFaltaMic(r.error); }
+      else marcar(idU, { estado: 'error', error: r.error });
+      return r.definitivo ? 'tirar' : 'volver';
     } finally {
       ocupadoRef.current = false;
       setTrabajo(null);
     }
   };
 
+  /**
+   * LA NOTA DE VOZ (OC7, 22/10/2026), en una conversación de Offer: el micrófono GRABA como en la tab, la escucha el servidor de
+   * Offer con la IA del negocio y se escucha en el hilo. Con MaKo contestando, espera en la barra (como la tab: `apagada`).
+   */
+  const mandarNota = async (a: NotaEnLaCaja) => {
+    if (idOffer !== a.offer || ocupadoRef.current || !cargado || errorCarga) { setNotaEnEspera(a); return; }
+    ocupadoRef.current = true;
+    setFaltaMic(null);
+    const idU = idLocal('u');
+    setItems((xs) => [...xs, { k: 'msg', id: idU, role: 'user', texto: '', at: new Date().toISOString(), estado: 'enviando', voz: { url: a.url, secs: Math.max(1, Math.round(a.secs)) } }]);
+    const fin = await mandarAOffer(idU, '', [], a);
+    // La URL local se suelta cuando ya no se dibuja: lo que salió se escucha desde el servidor (/api/offer/audio).
+    if (fin === 'volver') setNotaEnEspera(a); else URL.revokeObjectURL(a.url);
+  };
+  const tirarNota = () => { if (notaEnEspera) URL.revokeObjectURL(notaEnEspera.url); setNotaEnEspera(null); };
+  const reenviarNota = () => { const a = notaEnEspera; if (!a) return; setNotaEnEspera(null); void mandarNota(a); };
+
   const enviar = (mensaje: string, archivos: readonly ArchivoElegido[] = []): boolean => {
     const t = mensaje.trim();
-    if ((!t && !archivos.length) || ocupadoRef.current || !cargado || errorCarga) return false;
+    // El grupo es de sólo lectura: lo que se escribe no va a ningún modelo ni al grupo (decisión 11).
+    // Una charla del lienzo, tampoco: se sigue en el lienzo (`AVISO_LIENZO`).
+    if (esGrupo || esAutomatizacion || esEditor || (!t && !archivos.length) || ocupadoRef.current || !cargado || errorCarga) return false;
     ocupadoRef.current = true;
     setFaltaMic(null);
     const idU = idLocal('u');
     envios.current.set(idU, { texto: t, archivos: [...archivos] });
     const locales = archivos.map((a) => ({ nombre: a.file.name, tipo: a.tipo, local: a.url }));
-    setItems((xs) => [...xs, { k: 'msg', id: idU, role: 'user', texto: t, at: new Date().toISOString(), estado: 'enviando', ...(locales.length ? { archivos: locales } : {}) }]);
-    if (idOffer != null) void mandarAOffer(idU, t); else void mandar(idU, t, archivos);
+    setItems((xs) => [...xs, { k: 'msg', id: idU, role: 'user', texto: t, at: new Date().toISOString(), estado: 'enviando', ...(locales.length ? { archivos: locales } : {}), ...(desdeTab ? { desde: etiquetaDesde(desdeTab) } : {}) }]);
+    if (idOffer != null) void mandarAOffer(idU, t, archivos); else void mandar(idU, t, archivos);
     return true;
   };
 
@@ -443,10 +551,11 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
     ponerElegidos(elegidosRef.current.filter((x) => x.id !== id));
   };
   /** Las fotos y los PDF de la caja, para la caja única: sólo fotos y PDF (lo que lee /api/mako/chat, lib/mako-adjuntos.ts).
-   *  En una conversación de Offer todavía no: sus documentos van por la lectura de Offer (lo que queda, en el relevo). */
+   *  En una conversación de Offer también: se suben y se leen en ella (motor-offer.ts → leerArchivosDeOffer). ⚠️ OC7 hizo la
+   *  lectura y dejó esta puerta cerrada (`idOffer == null`): los documentos de Offer nunca llegaban (tests/ops-center-offer-voz). */
   const adjuntosCaja: AdjuntosDeCaja = {
-    items: elegidos, puede: idOffer == null && cargado && !errorCarga, onSumar: (fs) => void sumarArchivos(fs), onQuitar: quitarArchivo, accept: ACCEPT_ADJUNTOS_CHAT,
-    onNoPuede: () => setFaltaMic('En esta conversación de Offer, pega el texto o el link en el mensaje.'),
+    items: elegidos, puede: cargado && !errorCarga, onSumar: (fs) => void sumarArchivos(fs), onQuitar: quitarArchivo, accept: ACCEPT_ADJUNTOS_CHAT,
+    onNoPuede: () => setFaltaMic('Espera a que cargue la conversación para sumar archivos.'),
     onSinImagen: (puedeLeer) => setFaltaMic(puedeLeer ? 'No hay una imagen copiada' : 'Este navegador no deja pegar'),
   };
   /** Un texto de más de 1.000 caracteres no entra a la caja: queda como un documento pegado (#864, como Claude). Una imagen
@@ -493,23 +602,43 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   const alTerminarTrabajo = (pendienteId: number, ok: boolean | null) => setItems((xs) => trasTrabajo(xs, pendienteId, ok));
 
   // ── Lo que se dibuja ──
-  const lista = useMemo(() => listaDelCliente({ sesiones: sesiones ?? [], offer: offer ?? [], antes: antes ?? [], busca }), [sesiones, offer, antes, busca]);
+  // Cada fila con SU criatura (lib/centro-munecos.ts → aspectoDeChat): el Cerebro, la estrella (sale de su nombre).
+  const lista = useMemo(() => listaDelCliente({ sesiones: sesiones ?? [], offer: offer ?? [], antes: antes ?? [], grupo, busca, automations: automations ?? [], editores: editores ?? [] })
+    .map((f) => ({ ...f, aspecto: f.clave === 'jefe' ? null : aspectoDeChat(f.clave) })), [sesiones, offer, antes, grupo, busca, automations, editores]);
   /** La fila de lo abierto (un chat nuevo no tiene). */
   const filaAbierta = elegido ? lista.find((f) => esFilaDe(f, elegido)) ?? null : null;
   const esJefe = filaAbierta?.clave === 'jefe';
   const deOffer = idOffer != null ? (offer ?? []).find((o) => o.id === idOffer) ?? null : null;
   const deAntes = idAntes != null ? (antes ?? []).find((a) => a.id === idAntes) ?? null : null;
   const nombre = filaAbierta?.titulo
-    ?? (idOffer != null ? deOfferAbierta?.titulo || deOffer?.titulo || SECCION_OFFER : idAntes != null ? deAntes?.titulo?.trim() || 'Chat de antes' : SIN_TITULO);
+    ?? (idOffer != null ? deOfferAbierta?.titulo || deOffer?.titulo || SECCION_OFFER : idAntes != null ? deAntes?.titulo?.trim() || deAntes?.tema?.trim() || SIN_TITULO : esGrupo ? TITULO_GRUPO : SIN_TITULO);
   const nombreMuneco = filaAbierta?.criatura ?? (idOffer != null ? criaturaDeOffer(nombre) : nombre);
+  /** La criatura del chat abierto: la de su fila (la cabecera, la portada y el hilo, la misma que en la lista). */
+  const aspectoMuneco = filaAbierta?.aspecto ?? null;
+  /** Dónde se sigue la charla del lienzo abierta: el lienzo de su automatización, en este negocio. */
+  const hrefLienzo = idAutomatizacion != null ? conWs(rutaDelLienzo(idAutomatizacion), ws) : null;
+  /** Dónde se sigue el chat de un editor abierto: ese diseño o ese proyecto, en este negocio. */
+  const idDelEditor = deEditor ? partesDeClaveDeEditor(deEditor.clave)?.id ?? null : null;
+  // Sólo si es de quien mira: el editor abre el hilo de la persona de la sesión, y el de otra persona sería otro.
+  const editorPropio = !!deEditor && (editores ?? []).some((e) => e.tipo === deEditor.editor && e.clave === deEditor.clave && e.propio);
+  const hrefEditor = deEditor && idDelEditor && editorPropio ? conWs(EDITORES[deEditor.editor].ruta(idDelEditor), ws) : null;
   const enCurso = !!trabajo || armandoOffer;
+  /** La nota de voz de la caja: sólo en una conversación de Offer (la de los otros chats va con su servidor: el relevo). */
+  const vozCaja = idOffer != null ? {
+    onAudio: (blob: Blob, secs: number) => { void mandarNota({ blob, secs, url: URL.createObjectURL(blob), offer: idOffer }); },
+    onError: setFaltaMic, rotuloEnviar: 'Enviar audio', apagada: enCurso,
+    // La de OTRA conversación no se ofrece acá: una grabación a medias no viaja a otra (como la tab, `key` por conversación).
+    pendiente: notaEnEspera && notaEnEspera.offer === idOffer
+      ? { url: notaEnEspera.url, secs: notaEnEspera.secs, onBorrar: tirarNota, onDejar: reenviarNota } : null,
+  } : undefined;
   /** Los mensajes del hilo, para la barra de los fijados. */
   const mensajesWA = useMemo(() => items.flatMap((x) => (x.k === 'msg' ? [mensajeWADe(x, nombreMuneco)] : [])), [items, nombreMuneco]);
 
   return {
-    sesiones, errorLista, lista, elegido, elegir, filaAbierta, esJefe, nombre, nombreMuneco, idOffer, idAntes, idTurno,
+    sesiones, errorLista, lista, elegido, elegir, filaAbierta, esJefe, nombre, nombreMuneco, aspectoMuneco, idOffer, idAntes, idTurno,
+    esGrupo, esAutomatizacion, hrefLienzo, esEditor, hrefEditor, hayMasDelGrupo: delGrupo.hayMas, trayendoAnteriores: delGrupo.trayendo, verAnteriores,
     items, cargado, errorCarga, recargar, ahora, trabajo, segs, enCurso, armandoOffer, tarjeta, correrTarjeta, alTerminarTrabajo, reintentar,
-    texto, setTexto, faltaMic, setFaltaMic, enviar, enviarCaja, adjuntosCaja, pegados, quitarPegado, pegarLargo, cita, setCita,
+    texto, setTexto, faltaMic, setFaltaMic, enviar, enviarCaja, adjuntosCaja, vozCaja, pegados, quitarPegado, pegarLargo, cita, setCita,
     marcas, ponerMarca, accionesWA, menuWA, setMenuWA, infoWA, setInfoWA, elegirEnMenu, mensajesWA,
     iaConectada, conectando, setConectando, mirarSuIA,
   };

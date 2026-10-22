@@ -573,7 +573,7 @@ nada de configuración manual en ninguna feature (30/06).
 ### 🔴 El CRM de una clienta abría la agenda de Calendly de OTRO cliente
 
 **Síntoma (13/08/2026, visto en producción por el dueño):** en el CRM del workspace 11
-(Leila), el botón «Agendarla por Calendly» abría el embed de **Mauricio Bustos** —su firma,
+(Leila), el botón «Agendarla por Calendly» abría el embed de **Mauricio** —su firma,
 su foto y su oferta «Calificación para Programa Directivo»— dentro de la app de ella.
 
 **Causa.** `app/crm/calendly-widget.ts` es un módulo `'use client'` y tenía adentro:
@@ -616,9 +616,9 @@ vive adentro del workspace de nadie.
 
 **Lo que quedó SIN hacer, del mismo barrido:** `lib/closing.ts:117-121` tiene la identidad
 del dueño hardcodeada para TODOS los workspaces —
-`INTERNAL_EMAILS = {martinkoncke@…, tejadomartin@…}` y `INTERNAL_DOMAINS = {elevate.com.mx}`.
+`INTERNAL_EMAILS = {martinkoncke@…, tejadomartin@…}` y `INTERNAL_DOMAINS = {negocio-uno.com}`.
 No filtra datos, pero clasifica mal: a otro cliente, una llamada con alguien de
-`elevate.com.mx` se le descarta como «interna», y su propio dominio NO se excluye nunca —
+`negocio-uno.com` se le descarta como «interna», y su propio dominio NO se excluye nunca —
 así que sus reuniones de equipo entran como candidatas a venta y se pagan a Claude. El
 arreglo real es que «mi equipo» sea un dato del workspace, y eso es materia del onboarding.
 
@@ -1576,7 +1576,7 @@ real de esa llamada:
 ```
 invitee externo: name = "contacto@prosesamed.com"  (el name ES el email: un buzón genérico)
 transcript (540 turnos):
-  Mauricio Bustos Eguia :: mbustos@elevate.com.mx → 322
+  Mauricio :: dueno@negocio-uno.com → 322
   Fernando              :: NULL                   → 218   ← habló 218 veces
 ```
 
@@ -7194,7 +7194,7 @@ en Customer Success, no aquí.»
   **cierre**: medido contra la categoría del Closing Analyst, 28 de 28 entregas y 19 de 19 ventas
   bien. Y la comparación es **estricta**: con `>=` hay 3 falsos positivos (R2 que se cierran en la
   misma llamada).
-- **El título no sirve** para separar: «Junta X y Y» y «X y Mauricio Bustos» se solapan (el
+- **El título no sirve** para separar: «Junta X y Y» y «X y Mauricio» se solapan (el
   detector `RE_SERVICIO_EXPLICITO` caza 0 de 28 entregas). **La categoría del Closing Analyst es
   la más precisa, pero llega DESPUÉS del webhook** (el análisis corre en el `after()`): al escribir
   sólo hay fecha y lead.
@@ -8620,9 +8620,10 @@ en el código:
   numeran el registro globalmente); la numeración por cuenta es de documentos (facturas, tickets).
 
 **SIN HACER:**
-- El buscador de Instagram no encontró `@martin.koncke` (captura de Martín). Sin medir por qué: lo probable
-  es que la app de Meta todavía no tenga `instagram_basic` / `pages_read_engagement`, o que la cuenta no sea
-  de empresa o creador (Business Discovery no ve cuentas personales). Y la fuente para buscar por nombre,
+- El buscador de Instagram no encontró `@martin.koncke` (captura de Martín). **Medido el 22/10/2026** (docs/hallazgos-offer.md,
+  «Un @ de Instagram»): es una cuenta personal (Business Discovery da 2207013), sólo 1 de 11 conexiones de Meta tiene
+  permisos de Instagram y Google nunca tuvo claves. Desde ese día el alta también pregunta a Apify por el @ exacto, por la
+  función única `leerPerfilInstagram`. Y la fuente para buscar por nombre,
   sin elegir (Martín pidió investigar alternativas gratis a Brave). Las dos quedaron para después, a pedido.
 - El editor de etiquetas de la ficha no tiene el vínculo a una etapa ni la etiqueta del WhatsApp: siguen en
   `app/crm/EditorEtiquetas.tsx`, sin montar.
@@ -10058,6 +10059,55 @@ Kanban no se tocó.
 **Vive en:** app/crm/tabla-columnas.ts · app/crm/TablaListaLeads.tsx · app/crm/CrmBoard.tsx ·
 tests/crm-lista-escritorio-chico.test.ts y tests/_crm-lista-arnes.tsx · *21/10/2026, chat «CRM» (claude4).*
 
+## El feedback del 21/10 (noche): «Tipo de etapa», «Asignar evento» que crea y edita, y las plantillas de la tarjeta (21/10/2026)
+
+Pedido literal en la bitácora del CRM (hito `actor: 'martin'` de las 23:10). Lo que no se deduce del código:
+
+- **«Abre la agenda» NO es lo que pasa al mover un lead a CUALQUIER reunión.** El diálogo «¿ya ocurrió o se va a
+  agendar?» sale sólo en `agenda`/`agendaj2` y sólo si el negocio tiene `CALENDLY_EVENT_TYPE_J1/J2` (`calendlyStages`,
+  app/crm/page.tsx). Lo que SÍ cambia en toda etapa `kind: 'reunion'`: lleva la fecha y la asistencia de la reunión
+  (las piden los requisitos de las etapas que siguen, por ORDEN: `reunionesDe` → `slotPorIndice`). El aviso de «Tipo de
+  etapa» lo dice así; la primera versión prometía la agenda y habría mentido en todos los funnels propios.
+- **El tipo de una COLUMNA no es `tipoDeEtapa(c)`.** Las columnas derivadas de la banda Nutrición no traen `kind` ni
+  `marcadaComo`, así que `tipoDeEtapa` dice «Etapa». Se lee por la banda: `tipoDeColumna` (lib/etapa-reunion.ts).
+- **Cambiar el tipo no mueve a ningún lead**: la op `tipo` sólo reescribe el pipeline. Lo que sí se mueve es la
+  FECHA que se ve: marcar Reunión una etapa ANTES de la R1 corre la R1 al segundo lugar y la R2 queda tercera, sin
+  dónde guardar fecha (`cambioDeReuniones`). Y una reunión que deja de serlo suelta su evento de agenda: el ruteo vuelve
+  a mirar el tipo en cada reserva (`problemaDeVinculo`), y sus reservas caen en el CRM principal.
+- **`columnaConTipo` sin el corte de las terminales sigue verde**: `puedeTenerTipo` ya las corta. Se dejó de red; la
+  rotura que prueba algo es sacar `puedeTenerTipo` (la entrada pasaría a tener tipo).
+- **Calendly crea tipos de evento desde el 17/06/2025** (`POST /event_types`, `PATCH /event_types/{uuid}`), SÓLO uno a
+  uno y con los datos básicos. ⚠️ **Sin `active: true` nace APAGADO**, y `listarEventTypes` filtra los activos: el
+  evento recién creado no aparecía en la lista ni se podía vincular. La disponibilidad no se toca (es la de la cuenta).
+- **Cal.com v2 escribe `lengthInMinutes`, no `length`** (la v1, apagada desde el 8/4/2026), y `/v2/event-types` versiona
+  aparte (`cal-api-version: 2024-06-14`, no la de las reservas). El `slug` tiene que ser único por usuario: el error
+  llega como un 200/400 con `{ status: 'error', error: { message } }` y se muestra tal cual.
+- **Google Calendar sigue sin poder vincularse** (C1 de docs/pedidos-crm.md): su API no lista las páginas de reserva ni
+  dice de cuál viene una reserva. Martín lo volvió a pedir el 21/10 («puedo tener eventos en Calendly, Cal o Google
+  Calendar»); la pantalla lo dice con el estado de la conexión y la decisión de cómo hacerlo (una regla por título más
+  un barrido del calendario, o esperar a Google) quedó planteada.
+- **La galería de plantillas con el primer lead dice «Sin monto» ocho veces**: para «Monto grande» y «Próxima reunión»
+  la vista previa elige un lead que TENGA ese dato (`muestraPara`, CrmBoard). La forma promete ese lugar aunque falte
+  el dato («Sin monto», «Sin agendar»): vacío se leía como tarjeta rota.
+- **Una preferencia de UNA persona confirmada desde la bandeja se escribe en la fila de QUIEN CONFIRMA**:
+  `setCamposTarjetaCrm` lee la sesión. `personalizar_tarjetas_crm` guarda el email de quien pidió en la pendiente y
+  `faltaParaConfirmar` frena a cualquier otro.
+- **Un VERDE en cola lee el worktree cuando le toca, no cuando se pidió.** El de la tanda 1 esperó 30 min el candado
+  detrás de cinco chats; seguir editando ese worktree lo habría hecho probar otra cosa que el sha de su línea. Lo que
+  sigue se trabaja en OTRO worktree (acá: `wt-crm-2110b` y `wt-crm-2110c`) y se corre un VERDE sobre la rama juntada.
+  Y uno de esos VERDE habría salido rojo: tests/crm-asignar-evento.test.ts fijaba el logo de Meet que la tanda 1 sacó.
+
+- **El VERDE de esta tanda salió ROJO por cuatro barredoras que no nombran ningún archivo del CRM**, y las cuatro
+  tenían razón: (1) una operación nueva por HTTP necesita su fila en `RUTAS_REST` (lib/api-mako/rest.ts) — el
+  generador de la doc no la crea y el snapshot dice «al día»; (2) toda unidad de `app/plan/**` cuenta como del Ops
+  Center para D6b: una server action nueva sin IA va a `SIN_IA` de tests/d6b-rutas.test.ts con lo que usa; (3) la guarda
+  de `.campos` del curso mira CUALQUIER archivo que importe lib/curso, y lib/api-mako/areas/cs.run.ts lo importa: los
+  `campos` de una tarjeta van a sus EXCEPCIONES con motivo; (4) «acá» en un texto que se dibuja es rioplatense: «aquí».
+  Ninguna de las cuatro salía corriendo los tests que nombran lo cambiado: sólo el VERDE las ve.
+
+Sin hacer, con el archivo: el teléfono sigue los DATOS de la tarjeta pero no la forma (app/m/crm/TableroCrm.tsx dibuja
+filas, no tarjetas); Google Calendar en «Asignar evento» (app/crm/EventosDeEtapaModal.tsx, decisión de Martín).
+
 ## La etiqueta en lote corta en 200 y el aviso se pierde; «Agregar a un funnel» acepta 2.000 (21/10/2026)
 
 Armando la prueba de la prospección del Sprint en el ws3: con 301 leads tildados, «Funnel › Sprint de Diseño» los
@@ -10112,6 +10162,51 @@ tests/crm-traer-todos.test.ts
 - **C6 («los tres puntos de "Lead entrante" lo mandaron a otro lado») no se reproduce leyendo el código**: ninguna opción
   del «⋯» de una columna de entrada navega. La que SÍ navega está en el «⋯» de la BARRA: «Buscar prospectos»
   (`href="/crm/prospectos"`), la única de ese menú que no abre un pop-up. Sin confirmar en un navegador.
+  **Confirmado el 22/10 en el Chrome de Martín** (ws3, y el principal y «Sprint 3 días» del ws1): el «⋯» de «Lead
+  entrante» trae «Asignar campañas», «Cambiar el nombre» y «Agregar etapa», todos pop-ups. «Buscar prospectos» saca a
+  /crm/prospectos, y había un segundo salto: «Volver al CRM» iba a /crm pelado, así que desde «Sprint 3 días» devolvía
+  al CRM principal. Ahora el renglón que navega lleva «→», «Buscar prospectos» lleva el CRM (`?funnel=`) y «Volver a
+  «Sprint 3 días»» vuelve a él (tests/crm-llamada-22-10-p1.test.ts, C6).
+- **El tablero trabado en el Chrome de Martín: lo que pesa son los NODOS, y en ese Chrome cada uno cuesta ~7 veces lo
+  que en el arnés (22/10, noche, medido en producción).** Con `long-animation-frame`, que atribuye el JS de cada cuadro
+  largo: en el ws3 (302 tarjetas, 4.923 nodos) los cuadros de 4 a 7,5 s casi no tenían JS (React redibuja las 302 en
+  100–300 ms). Eran estilo, layout y pintado. Recalcular el estilo de todo (una variable en `<html>`, como
+  `--ancho-panel-mako`) tardó 410 ms (177–759); con el `<main>` escondido, 36 ms. En el arnés, 60 ms con 3.947 nodos.
+  El ws1 principal (1.169 tarjetas, 17.256 nodos, la página de 86.636 px) seguía sin contestar una hora después.
+- **Lo que NO era (descartado midiendo, que era lo obvio):**
+  - el CSS de la app: la hoja de producción en el arnés (`ARNES_CSS`) da 1–2 s, igual que sin ella;
+  - el árbol de accesibilidad: `ARNES_A11Y` y `ARNES_CDP` (lo que prende una extensión) dan igual;
+  - un bucle del tablero: 8 s quieto dan cero tareas largas;
+  - las fotos: 13 en el ws3;
+  - los `<style>` repetidos: hay 5 en toda la página.
+- **El arreglo: 30 tarjetas por columna (eran 60) y el `maxHeight`.** Medido con la hoja de producción y los 1.169
+  repartidos en 8 columnas (`?cols=8`):
+  - todas: 14.528 nodos, 3,0–3,6 s y 189–236 ms el estilo de todo;
+  - 60: 6.190 nodos, 1,8 s y 102 ms;
+  - 30: 3.280 nodos, 0,4–0,9 s y 48–52 ms.
+  «Sprint 3 días», con los 1.050 en una sola columna: 30 tarjetas, 709 nodos, 76–349 ms. El conteo, la casilla de la
+  columna, mover a los tildados y el orden al soltar siguen mirando la columna entera.
+- **`flex: 1` le gana a `height` cuando el padre es un flex en COLUMNA**, como el envoltorio de la app. El `<main>` del
+  Kanban medía 21.285 px en el ws3 y 86.636 en el ws1, y la barra del scroll quedaba fuera de la pantalla. Peor: el
+  observador de las tandas veía siempre el fondo y las cargaba todas. `maxHeight` sí topea. El arnés replica ese
+  envoltorio (`#raiz` en columna) y mide `altoMain` contra `altoVentana`.
+- **Trampas para medir en el Chrome de Martín:**
+  - `long-animation-frame` con `buffered: true` dice de quién es cada cuadro largo; `longtask` no.
+  - Un cuadro de ~1 s con `blockingDuration` 0 no es una traba: el navegador demoró el pintado de una pestaña oculta.
+  - Con la pestaña trabada, la extensión corta a los 45 s (`Runtime.evaluate timed out`).
+  - El foco que da la extensión dispara el `router.refresh` del tablero (uno cada 15 s): medir lo empeora.
+- **Trampas del arnés** (para el próximo que mida una pantalla así):
+  - Una acción `'use server'` se cambia por funciones vacías. Lo que sólo existe en el server (módulos de Node, SDKs,
+    `next/server`) va como ESM con los nombres que pide quien lo importa. Un CommonJS no sirve: esbuild copia sólo las
+    propiedades propias del Proxy, y `new AsyncLocalStorage()` daba «is not a constructor» al cargar.
+  - Sin `onUncaughtError` en `createRoot`, un error de render desmonta todo en silencio: se mide un tablero vacío
+    («0 tarjetas en 60 ms») y parece rapidísimo.
+  - Un clic en la tarjeta abre la ficha completa, que sin base se rompe. Lo que redibuja el tablero sin la ficha es
+    «Ver info» (la ficha rápida es estado del tablero).
+  - La primera corrida de cada Chrome carga el script: hay que calentar con una corrida chica antes de comparar.
+  - El arnés carga el CSS como vacío (`loader: { '.css': 'empty' }`). Sin `ARNES_CSS`, no ve las reglas globales. Igual, no
+    explican la traba, y el arnés sigue midiendo ~7 veces más rápido que el Chrome de Martín: un número del arnés es una
+    cota de abajo, no lo que va a ver la persona.
 
 **Vive en:** app/crm/CrmBoard.tsx (`confirmManualMeeting`, `opEtapa`), EtapasModal.tsx, CrmToolbar.tsx,
 lead-view/LeadTabs.tsx · tests/crm-llamada-22-10-p1.test.ts
@@ -10129,3 +10224,60 @@ lead-view/LeadTabs.tsx · tests/crm-llamada-22-10-p1.test.ts
 tests/crm-ficha-de-donde-vino.test.ts
 *22/10/2026, chat «CRM» (claude3).*
 
+## La estrella del CRM es la del Ops Center: lo que se perdió al mandar todo al Cerebro (22/10/2026)
+
+- **«Este CRM» no le dice nada al Cerebro.** Los pedidos de las sugerencias que se revisan con MaKo (`tipo: 'chat'`,
+  lib/sugerencias-crm.ts) están escritos en primera persona del CRM: «En este CRM hay 12 leads…», «Si es a éste,
+  conéctala». En el chat propio del CRM el turno sabía de qué CRM se hablaba (`contextoDelCrm`). En el Cerebro no hay
+  CRM. `pedidoParaElCerebro` lo nombra («En el CRM «Sprint 3 días» hay…»), y el test corre TODOS los pedidos del motor.
+- **El Cerebro no recibe las lecturas del CRM.** `contextoDelCrm` le pasaba al turno las etapas y los números del CRM
+  abierto. El Cerebro tiene que pedirlos con sus herramientas. Si contesta peor que el chat de antes, la causa está acá
+  y no en el modelo.
+- **La estrella ya no se abre sola en una pantalla ancha** (`mako-crm:panel` en el navegador, desde el 20/10). La pieza
+  nace plegada: abrirla monta el motor del Cerebro, y eso no se hace sin un toque.
+- **Trampa de los tests: en JS, `\b` no ve la «é» como letra.** `/\béste\b/` NUNCA matchea «éste» (entre un espacio y
+  la «é» no hay borde de palabra), así que un `doesNotMatch` con eso pasa siempre. Se busca con `(?:^|\s)éste\b`. Lo
+  mismo vale para cualquier palabra que EMPIEZA con tilde o ñ.
+
+**Sin hacer:** el server del chat propio del CRM quedó sin pantalla: las acciones `send`, `confirmar`, `cancelar` y el
+`hilo=1` de app/api/crm/mako/route.ts, y `abrirDelCrm` / `turnoDelCrm` / `tarjetaDelCrm` de
+app/crm/mako-crm/chat-server.ts (con app/crm/mako-crm/chat-reglas.ts). `chatDelRequest` sigue siendo la puerta de las
+sugerencias. Borrar lo demás toca la ruta y la parte 4 de tests/sugerencias-crm.test.ts.
+
+**Vive en:** app/crm/mako-crm/PanelMakoCrm.tsx · lib/sugerencias-crm.ts (`pedidoParaElCerebro`) · app/_chat/MakoEnLaTab.tsx
+· tests/sugerencias-crm.test.ts
+*22/10/2026, chat «CRM» (claude3).*
+
+## El feedback de Martín del 22/10: el tablero hasta el fondo, la casilla de la columna y «Tus reuniones»
+
+- **«Al super admin le sale el bloque azul y a Mauricio el pop-up viejo» NO era el rol.** Desde el 18/10, el calendario
+  de la barra desplegaba «Próximo» (el bloque azul, arriba del tablero) sólo si había una reunión POR DELANTE
+  (`hayProxima`). Si todas las reuniones cercanas ya habían pasado, abría la lista vieja. Martín miró su CRM con una
+  reunión hoy, y Mauricio el suyo con las de ayer. Ahora el calendario abre siempre el MISMO pop-up, con el bloque azul de
+  cada reunión y «Ver detalle», que abre la ficha en «Reuniones» (`LeadEditModal` → `focus: 'reuniones'`).
+- **Las columnas de distinto largo eran un tope por columna, no un problema de datos.** Cada columna topeaba en 68vh y
+  medía lo de sus tarjetas (`alignItems: 'flex-start'`). La raíz de la app sólo pone `minHeight: 100vh`, así que nada
+  tenía un alto definido contra el que estirarse. En el Kanban el <main> mide la pantalla (`ALTO_TABLERO`, menos la barra
+  de agencia que ya descuenta el <body>), la fila estira las columnas y el que scrollea es el carril. Con eso la barra del
+  scroll horizontal queda en los últimos píxeles, debajo de «A revisar» (a 20 px del borde). En la Lista la página
+  scrollea como siempre.
+- **La casilla de la columna tilda lo que SE VE**, la misma regla que la de «todas» de la Lista: con un filtro, sólo lo
+  filtrado. Suma a lo que ya estaba tildado, y con todos tildados quita sólo los de esa columna. El rótulo dice cuántos
+  son («Seleccionar los 3 que se ven de «Agenda R2»»). Lleva `data-nodrag`, porque la cabecera arrastra la columna.
+- **El buscador no encontraba por Instagram porque no buscaba ahí** (lo midió Offer): los campos eran id, nombre,
+  empresa, email y teléfono. Ahora el Instagram entra como `@usuario` y un link del perfil pegado en el buscador se
+  cambia por su @ antes de buscar, en el tablero y en el teléfono (`buscarEnCartera`, que el server del teléfono tiene
+  que alimentar con `instagram`). La trampa que se evitó: normalizar el @ adentro de `coincideBusqueda` rompía buscar
+  «@gmail.com» en los emails.
+
+**Sin hacer:** el 3 («Vincular cobro» en Ganado) espera las acciones de Cobros (contrato en las notas compartidas,
+contrato-cobro-en-ganado.md).
+
+**El teléfono ya estaba bien en el 1 y el 2:** `KanbanM` (app/m/m.css, `.m-kb__pista`) mide el alto de la pantalla, estira
+las columnas y no muestra barra de scroll, porque se pasa de columna con la barra de etapas. Tampoco tiene selección
+múltiple, así que el 4 es de la computadora. Del 5, el bloque azul del teléfono (arriba de la lista, sin pop-up) suma
+«Ver detalle».
+
+**Vive en:** app/crm/CrmBoard.tsx (`ALTO_TABLERO`, `bloquesDeReuniones`, la casilla en `renderColumn`) · app/crm/campo-inline.ts (`arrobaInstagram`) ·
+app/crm/ReunionesProximas.tsx · app/crm/seleccion-columna.ts · tests/crm-feedback-22-10.test.ts
+*22/10/2026, chat «CRM» (claude3).*

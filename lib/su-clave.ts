@@ -46,11 +46,13 @@ export async function anotarFalloDeSuClave(p: { proveedor: ProvSuClave; error: s
     const k = `${ws}:${p.proveedor}:${motivo}`;
     const antes = ultimos.get(k);
     if (antes != null && Date.now() - antes < CADA_MS) return;
+    // Marcada ANTES de escribir, así dos fallos al mismo tiempo no escriben dos filas; y DESMARCADA si la fila no quedó
+    // (`escrita`), así la próxima lo vuelve a intentar en vez de esperar 5 min (revisiones del lote 1, 22/10/2026).
+    ultimos.set(k, Date.now());
     const fila = filaDeFallo(p.proveedor, p.modelo, motivo);
     console.warn(`[su-clave] ws=${ws}: la clave de ${nombreDeSuClave(p.proveedor)} del negocio falló (${motivo})`);
-    await recordUsage(p.feature?.trim() || 'su-clave', fila.model, {}, fila.motivo, p.proveedor, undefined, ws);
-    // DESPUÉS de escribirla (revisión del lote 1): marcada antes, una fila que no llegó a la base frenaba la siguiente 5 min.
-    ultimos.set(k, Date.now());
+    const r = await recordUsage(p.feature?.trim() || 'su-clave', fila.model, {}, fila.motivo, p.proveedor, undefined, ws);
+    if (!r.escrita) ultimos.delete(k);
   } catch (e) {
     console.warn(`[su-clave] no pude anotar el fallo: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -73,8 +75,11 @@ async function modeloDeSuClaudeEn(ws: number): Promise<{ modelo: EleccionSuClaud
     const clave = (await credDelCliente('ANTHROPIC_API_KEY', ws))?.trim();
     const wsSA = await wsSuperAdmin();
     // Las dos fuentes, como la puerta 2: con el entorno puesto, la fila no se leía.
+    // La marca explícita (lib/credito-marca.ts) primero: vale aunque la fila del crédito de la plataforma ya no exista.
+    const { leerMarcaDeCredito, esElCreditoMarcado } = await import('./credito-marca');
+    if (clave && esElCreditoMarcado(clave, await leerMarcaDeCredito(ws))) return { modelo, soloHaiku: true };
     for (const nombre of CLAVES_CREDITO_PLATAFORMA) {
-      for (const c of [process.env[nombre]?.trim(), (await credWsEstricta(nombre, wsSA))?.trim()]) {
+      for (const c of [process.env[nombre]?.trim(), (await credWsEstricta(nombre, wsSA, { ilegibleTira: true }))?.trim()]) {
         if (c && c === clave) return { modelo, soloHaiku: true };
       }
     }

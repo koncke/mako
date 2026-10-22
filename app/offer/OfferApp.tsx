@@ -11,8 +11,9 @@
 //   · ARRIBA, EN EL LUGAR DEL TÍTULO, EL SELECTOR DEL FUNNEL en árbol (./SelectorFunnel.tsx):
 //     funnel → sus ofertas → sus conversaciones; «＋ Nueva oferta» en cada funnel y «＋ Analizar» en
 //     cada oferta (POST 'nueva'). Reemplaza al botón de «Ofertas anteriores» y a «Nueva oferta».
-//   · EL CHAT ES EL DE WHATSAPP DE LA CASA (./ChatOffer.tsx): burbujas, emoji, clip, micrófono con su
-//     grabación; MaKo con su foto (la estrella sola sobre negro, ./AvatarMako.tsx).
+//   · EL CHAT ES EL DEL OPS CENTER desde el 22/10/2026 (./ChatOffer.tsx, OF4): el hilo único (HiloMako) y la caja única
+//     (CajaChat, con la nota de voz), los mismos con los que el Ops Center lee y sigue esta conversación. Hasta ese día era
+//     el de WhatsApp de la casa.
 //   · LAS PREGUNTAS DEL DIAGNÓSTICO (`m.pregunta`) se ven como cualquier pregunta de MaKo, con sus
 //     opciones; tocar la opción N manda `respuesta: { preguntaId, idx: N }`. El RESULTADO del
 //     diagnóstico no se dibuja: va al PDF.
@@ -22,10 +23,10 @@
 //     servidor la transcribe y el `texto` del mensaje es la transcripción.
 //   · LOS ARCHIVOS SE LEEN AL ENVIAR, NO AL ELEGIR (pedido de Martín, 11/10/2026: «No se si apenas lo
 //     subí ya lo quiso analizar, eso estaría mal. Solo cuando le doy a ENVIAR debería... Sino, debería
-//     salir la vista previa del documento que acabo de subir, como lo tiene whatsapp»). Elegir (clip o
-//     soltar) abre la vista previa de la casa (app/whatsapp/_shared/VistaAdjuntos.tsx) sobre el chat; ahí
-//     se suman más y se escribe el mensaje. Recién Enviar sube y lee cada uno (./adjuntos-envio.ts,
-//     «Leyendo «X»…») y después manda el turno. Se fue el chip con el ✓ de «leído» de arriba de la barra.
+//     salir la vista previa del documento que acabo de subir, como lo tiene whatsapp»). Elegir (el «+», pegar o
+//     soltar) los junta en las miniaturas de la caja, arriba del texto (hasta el 22/10/2026, en la vista previa de
+//     WhatsApp sobre el chat). Recién mandar sube y lee cada uno (./adjuntos-envio.ts, «Leyendo «X»…» en la línea de
+//     la caja) y después manda el turno.
 // Lo que estaba bien en la v1 se queda: el riel de piezas, la vista Generando, la Conclusión con su
 // PDF, los topes de cada llamada y el reintento.
 //
@@ -42,8 +43,7 @@
 // los mensajes del arranque (quién es, el CRM, el teléfono), que contesta el arranque y no Offer. Desde el
 // 17/10/2026 la conversación del arranque sólo pregunta qué vende (`origen: 'arranque'` en cada turno) y no
 // arma la oferta: el análisis es de esta tab. Desde el 20/10/2026 escribe en la caja del Ops Center (la caja única app/_chat/CajaChat.tsx desde el 21/10,
-// pedido del 18/10, punto 3): lo adjuntado va arriba del texto (sus miniaturas) y no en la vista previa, y se lee igual al
-// mandar (`enviarVista`).
+// pedido del 18/10, punto 3), y desde el 22/10 la tab también: las dos con la MISMA caja (`caja`), y el hilo del Ops Center.
 //
 // El motor vive en app/api/offer/route.ts y lib/offer-sesiones.ts; acá sólo se llama al contrato
 // (./offer-api.ts) y se dibuja lo que vuelve.
@@ -54,18 +54,18 @@
 // ⚠️ CAMBIAR DE CONVERSACIÓN DESCARTA LO QUE ESTABA EN VUELO (`epoca`). Lo que el servidor ya
 // recibió se guarda igual en la de antes; lo que no puede pasar es que su respuesta se dibuje acá.
 // ⚠️ LO QUE LLAMA UNA SESIÓN DE VOZ CORRE CON LAS PROPS DEL RENDER EN QUE SE APRETÓ EL 🎤
-// (ComposerWhatsApp guarda ese `onAudio`). Por eso `mandar` y `mandarAudio` deciden con REFS
+// (la grabación de la caja, `useGrabacionVoz`, guarda ese `onAudio`). Por eso `mandar` y `mandarAudio` deciden con REFS
 // (`sesionRef`, `enviando`, `leyendoRef`), nunca con el estado de su render.
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Banner, Button, ButtonLink, Modal, Spinner } from '@/app/_ui';
 import { ACCEPT_IMPORTAR, MAX_ARCHIVO_BYTES, porQueNoPuedo, puedeLeerse } from '@/lib/formatos-archivo';
 import type { AdjuntoVista, ArbolOffer, OfferMensaje, OfferSesionVista } from '@/lib/offer-marco';
-import { VistaAdjuntos, useListaAdjuntos } from '@/app/whatsapp/_shared/VistaAdjuntos';
+import { useListaAdjuntos } from '@/app/whatsapp/_shared/VistaAdjuntos';
 import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import { MAX_ADJUNTOS, type ItemAdjunto } from '@/app/whatsapp/_shared/adjuntos-vista';
 import { AvatarMako } from './AvatarMako';
-import { CajaChat } from '@/app/_chat/CajaChat';
+import type { PropsCajaChat } from '@/app/_chat/CajaChat';
 import '@/app/admin/operaciones/centro.css';
 import { ChatOffer } from './ChatOffer';
 import { Conclusion } from './Conclusion';
@@ -84,9 +84,6 @@ import { ErrorOfferApi, TOPE, esRechazoDefinitivo, llamarOffer, mensajeDeError, 
 type EstadoGeneracion = { paso: PasoGeneracion; corriendo: boolean; error: string | null };
 const GEN_QUIETA: EstadoGeneracion = { paso: 'diagnostico', corriendo: false, error: null };
 
-/** El ➤ y el ✓ de la barra de grabar del onboarding van en el negro del Ops Center: la barra los pinta con `--good` (el verde),
- *  y el ícono, con `--sobre-good` (sin él, el ✓ blanco no se veía sobre la tinta clara del modo oscuro). */
-const SIN_VERDE = { '--good': 'var(--ink)', '--sobre-good': 'var(--surface)' } as CSSProperties;
 /** Cada cuánto se relee la conversación mientras el servidor arma la oferta. */
 const RELEER_ARMADO_MS = 4_000;
 
@@ -177,10 +174,9 @@ export type ArranqueOffer = {
   onOpcion: (idx: number) => void;
   /** El arranque está guardando una respuesta. */
   ocupado: boolean;
-  /** Las tarjetas del arranque (el CRM, el teléfono, el cierre), adentro de su burbuja. */
+  /** Las tarjetas del arranque (el CRM, el teléfono, el cierre), adentro de su mensaje. (Su muñeco, desde el 22/10/2026, es
+   *  el del hilo del Ops Center: el de la fila «Onboarding».) */
   extra: (m: OfferMensaje) => ReactNode | null;
-  /** La foto de MaKo (su muñeco). */
-  avatar: (animar: boolean) => ReactNode;
   /** El funnel principal: si todavía no hay conversación y toca la oferta, se abre una ahí. */
   abrirEnFunnel: number | null;
   /** Cada vez que la conversación cambia. */
@@ -263,7 +259,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   const docsLeidos = useRef(new Map<string, AdjuntoVista>());
 
   // ── Las URL `blob:` de las notas de voz: se sueltan al sacarlas y al salir ──
-  // (Las de los archivos de la vista previa las crea y las suelta VistaAdjuntos, por elemento.)
+  // (Las de lo juntado en la caja van en `urlsCaja`, abajo.)
   const urls = useRef(new Set<string>());
   const crearUrl = (b: Blob): string => { const u = URL.createObjectURL(b); urls.current.add(u); return u; };
   const soltarUrl = (u: string | null | undefined) => {
@@ -645,16 +641,8 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     lista.quitar(idArchivo);
     docsLeidos.current.delete(idArchivo);
     if (idArchivo === falloId) { setFalloId(null); setErrorVista(null); }
-    // Sin nada juntado no queda de qué quejarse (en la caja del arranque no hay vista que cerrar).
+    // Sin nada juntado no queda de qué quejarse (en la caja no hay vista que cerrar: cada miniatura tiene su ✕).
     if (!lista.ref.current.length) setErrorVista(null);
-  };
-  /** La ✕ de la vista o Escape: descarta los archivos (el texto queda en la barra). */
-  const cerrarVista = () => {
-    if (leyendoRef.current) return;
-    lista.vaciar();
-    docsLeidos.current = new Map();
-    setErrorVista(null);
-    setFalloId(null);
   };
 
   // ── Notas de voz ───────────────────────────────────────────────────────────
@@ -927,28 +915,6 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   const ultimo = sesion?.mensajes[sesion.mensajes.length - 1];
   const sinContestar = !!sesion && !respondiendo && ultimo?.de === 'yo' && !arranque?.manda;
   const bienvenida = bienvenidaDe(arbolLeido, arbolVacio(arbol));
-  // La vista previa, sobre el área del chat, mientras haya archivos juntados. Su error: el de la vista
-  // (un archivo que no entró o no se pudo leer) o, si el turno no salió, el que dejó `mandar`.
-  // En el arranque no hay vista: lo juntado va en la caja del Ops Center (abajo, `cajaArranque`).
-  const vistaAdjuntos = !arranque && lista.items.length ? (
-    <VistaAdjuntos
-      items={lista.items}
-      onAgregar={agregarArchivos}
-      onQuitar={quitarArchivo}
-      onCerrar={cerrarVista}
-      texto={texto}
-      onTexto={setTexto}
-      onEnviar={() => void enviarVista()}
-      accept={ACCEPT_OFFER}
-      maxArchivos={MAX_ADJUNTOS}
-      enviando={leyendo}
-      puedeEnviar={puedeMandar}
-      estado={estadoVista}
-      error={errorVista ?? errorChat}
-      conError={falloId}
-    />
-  ) : null;
-
   // En el arranque, la conversación que se dibuja lleva alrededor los mensajes del arranque. Antes de que
   // exista la de la oferta, se dibujan sobre una vacía.
   // Memo: un arreglo nuevo en cada tecla del composer haría que el hilo se vuelva a desplazar con cada letra.
@@ -969,8 +935,9 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     ? { paso: gen.paso, corriendo: gen.corriendo, error: gen.error, onReintentar: () => void armar() }
     : null;
   const conRiel = !arranque || arranque.conRiel;
-  // El arranque escribe en la caja del Ops Center (20/10/2026): lo juntado, como sus miniaturas, con la URL `blob:` que nace
-  // al verlas (`urlsCaja`) y se suelta al quitarlas. Sumar y quitar son los de siempre: se leen al mandar.
+  // La tab y el arranque escriben en la caja del Ops Center (el arranque desde el 20/10/2026, la tab desde el 22/10): lo juntado,
+  // como sus miniaturas, con la URL `blob:` que nace al verlas (`urlsCaja`) y se suelta al quitarlas. Sumar y quitar son los de
+  // siempre: se leen al mandar (`enviarComposer` → `enviarVista`; muchos, por el servidor: `enviarLote`).
   const adjuntosCaja: AdjuntosDeCaja = {
     items: lista.items.map((it): AdjuntosDeCaja['items'][number] => {
       let url = urlsCaja.current.get(it.id);
@@ -989,21 +956,18 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     onNoPuede: () => setErrorChat(ocupado ? 'Espera a que MaKo conteste para sumar archivos.' : 'Todavía no puedo recibir archivos: prueba en un momento.'),
   };
   // LA CAJA ÚNICA (app/_chat/CajaChat.tsx, 21/10/2026): la misma del Ops Center, con la nota de voz (el micrófono GRABA, no
-  // dicta) y la línea de estado, que se sumaron a la pieza para el onboarding. Con sólo texto (el nombre, un código), sin
-  // adjuntos ni voz. La barra de grabar, sin el verde de WhatsApp (`SIN_VERDE`).
-  const cajaArranque = arranque ? (
-    <div key={sesion?.id ?? 0} className="co-caja-wrap" style={SIN_VERDE}>
-      <div className="co-caja">
-        <CajaChat texto={texto} onTexto={setTexto} onMandar={() => void enviarComposer()} ocupado={ocupado} enterManda
-          placeholder={arranque.placeholder ?? 'Escríbele a MaKo'} tituloMandar="Mandar (Enter)" onErrorMic={setErrorChat}
-          adjuntos={arranque.manda ? undefined : adjuntosCaja} estado={estadoVista}
-          voz={arranque.manda ? undefined : {
-            onAudio: mandarAudio, onError: setErrorChat, rotuloEnviar: 'Enviar audio', apagada: ocupado,
-            pendiente: audioEnEspera ? { url: audioEnEspera.url, secs: audioEnEspera.secs, onBorrar: descartarAudio, onDejar: reenviarAudio } : null,
-          }} />
-      </div>
-    </div>
-  ) : null;
+  // dicta: con O10 se ve que graba) y la línea de estado, que se sumaron a la pieza para el onboarding. La dibuja ChatOffer.
+  // Con sólo texto (el arranque pregunta el nombre o un código), sin adjuntos ni voz.
+  const sinAdjuntos = !!arranque?.manda;
+  const caja: PropsCajaChat = {
+    texto, onTexto: setTexto, onMandar: () => void enviarComposer(), ocupado, enterManda: true,
+    placeholder: arranque?.placeholder ?? 'Escríbele a MaKo', tituloMandar: 'Mandar (Enter)', onErrorMic: setErrorChat,
+    adjuntos: sinAdjuntos ? undefined : adjuntosCaja, estado: estadoVista,
+    voz: sinAdjuntos ? undefined : {
+      onAudio: mandarAudio, onError: setErrorChat, rotuloEnviar: 'Enviar audio', apagada: ocupado,
+      pendiente: audioEnEspera ? { url: audioEnEspera.url, secs: audioEnEspera.secs, onBorrar: descartarAudio, onDejar: reenviarAudio } : null,
+    },
+  };
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
@@ -1074,25 +1038,16 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
               onOpcion={alElegirOpcion}
               onVarias={elegirVarias}
               onReintentar={sinContestar ? () => void reintentarRespuesta() : null}
-              texto={texto}
-              onTexto={setTexto}
-              onEnviar={() => void enviarComposer()}
-              ocupado={ocupado}
-              vista={vistaAdjuntos}
-              caja={cajaArranque}
+              caja={caja}
               onArchivos={agregarArchivos}
-              onAudio={mandarAudio}
-              audioEnEspera={audioEnEspera ? { url: audioEnEspera.url, secs: audioEnEspera.secs } : null}
-              onReenviarAudio={reenviarAudio}
-              onDescartarAudio={descartarAudio}
-              error={arranque ? errorVista ?? errorChat : errorChat}
+              ocupado={ocupado}
+              // El error de lo juntado (un archivo que no entró o no se pudo leer) o, si el turno no salió, el que dejó `mandar`.
+              error={errorVista ?? errorChat}
               onError={setErrorChat}
               armando={armandoEnChat}
               onVerOferta={conclusion ? verOferta : null}
-              avatar={arranque?.avatar}
               extra={arranque?.extra}
-              soloTexto={!!arranque?.manda}
-              placeholder={arranque?.placeholder}
+              soloTexto={sinAdjuntos}
               errorExtra={arranque?.errorExtra}
             />
           </div>

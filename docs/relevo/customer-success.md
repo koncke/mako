@@ -251,7 +251,7 @@ Avance, ni la ficha por producto. Y los 20 ajustes del 08/10 y el feedback del a
 tampoco. Se verificó en bancos de prueba y con Chromium apuntando a un dev server, **nunca
 en el producto andando**. El motivo está medido: el ws3 («Cliente de Prueba», el workspace
 donde se puede romper cosas) tiene **0 productos**, y el único con datos es el **ws1, que es
-de Mauricio Bustos — un CLIENTE real**.
+de Mauricio — un CLIENTE real**.
 
 ### Arreglos escritos y no aplicados, con las líneas exactas
 
@@ -303,7 +303,7 @@ de Mauricio Bustos — un CLIENTE real**.
 - **La fila de acceso de Leandro** (ws10, lead 2625, `curso_accesos.id = 5`) seguiría
   abriendo **los DOS cursos**: es un `productos = NULL` ya usado, y ninguna invitación nueva
   lo acota (`yaSeLeDio`, `lib/curso-invitar-reglas.ts`). Afirmado el 09/10.
-- **El acceso de Brigitte Eberlin (ws15)**: `usuarios where workspace_id = 15` daba **0** el
+- **El acceso de Brigitte (ws15)**: `usuarios where workspace_id = 15` daba **0** el
   09/10, y su email **no está en ninguna columna de texto de la base**. No hay a quién
   mandarle la invitación, y por eso nunca salió. **Falta que alguien consiga su email.**
 - **El análisis de las llamadas de entrega (#107) no habría analizado ninguna todavía**:

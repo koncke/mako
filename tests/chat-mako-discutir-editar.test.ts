@@ -102,7 +102,7 @@ test('al crear con textos pegados, el pedido lleva sus reglas; sin pegar, no', (
 // Acciones». Lo que no vale: contestar a textos pegados (o con los textos en la charla), a una orden, o un lugar que no existe.
 // roturas (siempre el error: lo de 4de3fe769; sin `traeTextosPegados`; sin mirar el lugar) → 1 rojo cada una (éste).
 test('en Editar vale aclarar, decir dónde se configura (un lugar real) o que no se puede; no a textos pegados ni a una orden', () => {
-  const pegado = 'Quiero que estos sean los mensajes:\n1. Hola {Nombre}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?\n2. ¿Te puedo hacer una pregunta rápida?';
+  const pegado = 'Quiero que estos sean los mensajes:\n1. Hola {Nombre}, soy Mauricio Ejemplo. ¿Sigues al frente de tu empresa?\n2. ¿Te puedo hacer una pregunta rápida?';
   const sin = { esPregunta: false, charlaConTextos: false };
   assert.equal(traeTextosPegados(pegado), true);
   assert.equal(traeTextosPegados('Agregá este texto: «Hola {Nombre}, me quedan 3 lugares para el Sprint»'), true);

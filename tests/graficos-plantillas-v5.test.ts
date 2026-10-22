@@ -164,7 +164,7 @@ test('lo que DEFINE una tarjeta va FIJO, y el período propio también salvo el 
 
 test('ningún nombre de un cliente real, en ninguna plantilla (tampoco en los pop-ups)', () => {
   const texto = JSON.stringify([CRUDAS, POPUPS, DEFINICIONES_GENERALES, PLANTILLAS_HOJA.map((p) => [p.nombre, p.linea, p.buscar ?? ''])]);
-  for (const nombre of ['Mauricio', 'Bustos', 'Leila', 'Brigitte', 'Leandro', 'Ananda', 'Código Inmobiliario', 'Codigo Inmobiliario', 'Vértice', 'Vertice', 'Martín', 'Koncke']) {
+  for (const nombre of ['Mauricio', 'Ejemplo', 'Leila', 'Brigitte', 'Leandro', 'Ananda', 'Código Inmobiliario', 'Codigo Inmobiliario', 'Vértice', 'Vertice', 'Martín', 'Koncke']) {
     assert.ok(!texto.toLowerCase().includes(nombre.toLowerCase()), `una plantilla nombra a «${nombre}»`);
   }
 });

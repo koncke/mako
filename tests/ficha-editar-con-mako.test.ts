@@ -19,6 +19,9 @@
 //   · el CRM del contexto tomado de la pantalla (`edicion.embudoId`) en vez del lead              → 4 / 1
 //   · «Editar» sin abrir el panel de edición                                                      → 4 / 1
 //   · un paso de la guía sin su `data-recorrido` en la pantalla (sin «fb-templates»)              → 4 / 1
+// Y el 22/10/2026, con el archivo en 5 / 0:
+//   · la pista corta de antes («Cambia la ficha del CRM: »), con `cambiar_tipo_etapa` en el registro → 4 / 1
+//   · una pista que la trae pero en el 5.º puesto («…, sus bloques y hojas: »)                    → 4 / 1
 // Correr: node --import tsx --test tests/ficha-editar-con-mako.test.ts
 // =============================================================================
 
@@ -59,9 +62,15 @@ test('editando, el turno trae cambiar_ficha_funnel: la pista va ADELANTE del tex
   const solos = PEDIDOS.filter((m) => herramientas(m).includes('cambiar_ficha_funnel'));
   assert.ok(solos.length < PEDIDOS.length, 'sin la pista ya alcanzaba: este test no está midiendo nada');
   for (const m of PEDIDOS) assert.ok(herramientas(`${PISTA_EDICION_FICHA}${m}`).includes('cambiar_ficha_funnel'), `«${m}» editando no trae cambiar_ficha_funnel`);
+  // Y entra ADELANTE, no última (22/10/2026): una operación nueva del CRM la dejaba afuera del presupuesto sin aviso.
+  for (const m of PEDIDOS) {
+    const texto = `${PISTA_EDICION_FICHA}${m}`;
+    const delRegistro = herramientasDelChat({ veredicto: clasificarIntencion(texto, {}), texto, agendaAbierta: false, deSiempre: DE_SIEMPRE, vista: VISTA, hayPendientes: false }).delRegistro.map((t) => t.name);
+    assert.ok(delRegistro.indexOf('cambiar_ficha_funnel') >= 0 && delRegistro.indexOf('cambiar_ficha_funnel') < 3, `«${m}»: cambiar_ficha_funnel entra en el puesto ${delRegistro.indexOf('cambiar_ficha_funnel')} del registro`);
+  }
   // El turno antepone la pista SÓLO al texto que se clasifica (no al que lee el modelo ni al que se guarda).
   const turno = sinComentarios(leer('lib/mako-turno-app.ts'));
-  assert.match(turno, /const textoClasificar = `\$\{\(entrada\.pista \?\? ''\)\.slice\(0, 120\)\}\$\{adjuntos\.length \? textoMemoria : textoPersona\}`;/);
+  assert.match(turno, /const textoClasificar = `\$\{\(entrada\.pista \?\? ''\)\.slice\(0, 120\)\}(?:\$\{pistaDesde\(desde\)\})?\$\{adjuntos\.length \? textoMemoria : textoPersona\}`;/);
   const lead = sinComentarios(leer('lib/mako-analyst-lead.ts'));
   assert.match(lead, /pista: PISTA_EDICION_FICHA,/, 'el turno del lead no pasa la pista al editar');
 });

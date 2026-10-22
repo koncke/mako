@@ -121,7 +121,7 @@ export type FichaProductos = {
   cerrarAviso: () => void;
 };
 
-export function useProductosDeLaFicha({ leadId, casa, foto, onCasaCambiada }: {
+export function useProductosDeLaFicha({ leadId, casa, foto, onCasaCambiada, onProductosCambiados }: {
   leadId: number;
   /** `leads.funnel_id` tal como lo tienen los datos de la pantalla (NULL = el del negocio). */
   casa: number | null | undefined;
@@ -132,6 +132,12 @@ export function useProductosDeLaFicha({ leadId, casa, foto, onCasaCambiada }: {
    * sus datos los trajo una action al abrir y el refresh no los toca.
    */
   onCasaCambiada?: () => void;
+  /**
+   * Se agregó o se quitó un CRM, o se movió la etapa en uno agregado, sin cambiar la casa (22/10/2026, mig 0324): los
+   * tratos de la ficha (la venta y el plan de cada CRM, `data.tratos`) quedaron viejos. El pop-up relee; la ruta no lo
+   * necesita (su `router.refresh()` le trae la ficha de nuevo).
+   */
+  onProductosCambiados?: () => void;
 }): FichaProductos {
   const router = useRouter();
   // ⚠️ EL TABLERO DESDE EL QUE SE ABRIÓ: el de un producto secundario viaja con `?funnel=N`, el del
@@ -180,7 +186,9 @@ export function useProductosDeLaFicha({ leadId, casa, foto, onCasaCambiada }: {
   const despues = async (casaCambio: boolean) => {
     aplicar(await productosDeLaFichaAction(leadId));
     router.refresh();
-    if (casaCambio) onCasaCambiada?.();
+    // ⚠️ SIEMPRE SE RELEE (revisión del 22/10/2026, A2): con sólo `router.refresh()`, después de «Agregar a Renovación» el
+    // pop-up seguía con los tratos de antes, la tab Pagos mostraba la casa y «Armar el plan» escribía el de la casa.
+    if (casaCambio) onCasaCambiada?.(); else onProductosCambiados?.();
   };
   const fallar = (msg: string) => show(msg, undefined, 'bad');
 
@@ -231,6 +239,8 @@ export function useProductosDeLaFicha({ leadId, casa, foto, onCasaCambiada }: {
       const r = await moverEtapaEnProductoAction(leadId, p.id, etapa);
       if (!r.ok) { poner(previa); fallar(r.error); return; }
       router.refresh();
+      // La etapa en ese CRM decide si está ganado ahí (la tab Pagos de ese trato).
+      onProductosCambiados?.();
       show(`Movido a ${nombre}`, () => {
         poner(r.antes);
         startTrabajo(async () => {

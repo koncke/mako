@@ -123,7 +123,9 @@ import type { ModoMako } from './ModosMako';
 import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
 import { ChatMakoGrafico, LogoMako, PanelAnalista, PuntoNuevo, useAnalisisNuevo } from './PanelAnalista';
 import { PanelEditarMako, type MensajeEdicion } from './PanelEditarMako';
-import { CLAVE_HILOS, hilosGuardados, hilosParaGuardar } from './hilo-guardado';
+import { CLAVE_HILOS, filasDeHilo, hilosGuardados, tituloDeHoja } from './hilo-guardado';
+import { guardarEnHiloDeTab } from '@/lib/hilo-de-tab-cliente';
+import { claveDeHoja } from '@/lib/hilo-de-tab-reglas';
 import { pedidoDeProbar } from '@/lib/experimentos-catalogo';
 import { BarraControles } from './BarraControles';
 import { MenuFiltro } from './MenuFiltro';
@@ -368,25 +370,27 @@ export function EditorInforme({
   const [enBlanco, setEnBlanco] = useState(sinPaginas && !soloLectura && !compartido);
   const [analista, setAnalista] = useState(false);
   // «Editar con MaKo» (16/10/2026, ./PanelEditarMako.tsx): el panel, y el hilo de cada hoja (cerrar y abrir el panel no lo
-  // pierde, y desde el 17/10 recargar tampoco).
+  // pierde; recargar tampoco: desde el 22/10 está en la base y el panel lo trae).
   const [makoEditar, setMakoEditar] = useState(!!probarInicial);
   // La hipótesis de `?probar=` va escrita UNA vez: cerrado el panel, abrirlo de nuevo no la vuelve a poner.
   const [probar, setProbar] = useState(probarInicial ?? '');
   const [hilosMako, setHilosMako] = useState<Record<string, MensajeEdicion[]>>({});
-  // Y SOBREVIVE A RECARGAR (17/10/2026, ./hilo-guardado.ts): se lee del navegador DESPUÉS de montar (el primer dibujo del
-  // server no lo conoce) y se guarda liviano en cada cambio. `hilosListos` evita guardar el `{}` del primer render encima.
-  const [hilosListos, setHilosListos] = useState(false);
+  // Lo que dejó en el NAVEGADOR antes del 22/10/2026 (./hilo-guardado.ts) se ve igual y se sube UNA vez a la base, con
+  // `siVacia` (si esa hoja ya tiene charla allá, no se duplica). Se borra de acá recién cuando subió todo: sin sesión (un
+  // link compartido) o sin red, queda para la próxima.
   useEffect(() => {
-    try {
-      const g = hilosGuardados(window.localStorage.getItem(CLAVE_HILOS(informe)));
-      if (Object.keys(g).length) setHilosMako((x) => ({ ...g, ...x }));
-    } catch { /* sin almacenamiento (modo privado): el hilo queda de la sesión */ }
-    setHilosListos(true);
+    let g: Record<string, MensajeEdicion[]>;
+    try { g = hilosGuardados(window.localStorage.getItem(CLAVE_HILOS(informe))); } catch { return; /* sin almacenamiento */ }
+    const hojas = Object.entries(g);
+    if (!hojas.length) return;
+    setHilosMako((x) => ({ ...g, ...x }));
+    const nombre = (id: string) => tableroRef.current.hojas.find((h) => h.id === id)?.nombre;
+    void Promise.all(hojas.map(([id, ms]) => guardarEnHiloDeTab(claveDeHoja(id), tituloDeHoja(nombre(id)), filasDeHilo(ms), { siVacia: true })))
+      .then((oks) => {
+        if (!oks.every(Boolean)) return;
+        try { window.localStorage.removeItem(CLAVE_HILOS(informe)); } catch { /* bloqueado */ }
+      });
   }, [informe]);
-  useEffect(() => {
-    if (!hilosListos) return;
-    try { window.localStorage.setItem(CLAVE_HILOS(informe), JSON.stringify(hilosParaGuardar(hilosMako))); } catch { /* lleno o bloqueado */ }
-  }, [hilosMako, hilosListos, informe]);
   const [detalle, setDetalle] = useState<{ id: string; sel: SelDetalle } | null>(null);
   const [vista, setVista] = useState<VistaValores>({});
   const [version, setVersion] = useState(0);

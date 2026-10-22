@@ -91,6 +91,16 @@ export const CSS_TARJETAS = `
 .tk-pill--linea { background: transparent; border: 1.5px solid var(--border-strong); color: var(--ink); }
 .tk-pill:hover { filter: brightness(.96); }
 
+/* LAS FORMAS DE LAS PLANTILLAS (21/10/2026, lib/plantillas-tarjeta.ts): el dato GRANDE y la portada. */
+.tk-dest { display: grid; gap: 1px; min-width: 0; }
+.tk-dest-rot { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 650; color: var(--tk-sub); text-transform: uppercase; letter-spacing: .04em; }
+.tk-dest-val { font-size: 21px; font-weight: 750; letter-spacing: -.02em; line-height: 1.15; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.tk-dest--bien .tk-dest-val { color: var(--good); }
+.tk.tk--portada { padding-top: 0; overflow: hidden; }
+.tk-portada { height: 40px; margin: 0 -12px; }
+.tk-portada-cara { margin-top: -30px; line-height: 0; }
+.tk-portada-cara .tk-cara { border-radius: 50%; box-shadow: 0 0 0 3px var(--tk-card); }
+
 /* La barra de avance de un cliente, y su aviso. */
 .tk-medidor { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--tk-sub); min-width: 0; }
 .tk-barra { flex: 1; min-width: 40px; height: 7px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
@@ -244,19 +254,30 @@ type PropsPersona = Omit<HTMLAttributes<HTMLElement>, 'title'> & {
   sinCara?: boolean;
   /** El diseño «Compacta» (20/10/2026): la cara chica y menos aire, para ver más tarjetas por columna. */
   compacta?: boolean;
+  /**
+   * Un dato GRANDE debajo del nombre (21/10/2026, las plantillas «Monto grande» y «Próxima reunión»): el rótulo chico
+   * arriba y el valor en 21 px. `tono: 'bien'` lo pinta verde (lo vendido).
+   */
+  destacado?: { texto: string; rotulo: string; icono?: 'calendario' | 'sales'; tono?: 'bien' } | null;
+  /** Una banda de color arriba con la cara montada (21/10/2026, la plantilla «Con portada», como la tarjeta de /admin). */
+  portada?: ColorTarjeta | null;
 };
 
 export const TarjetaPersona = forwardRef<HTMLElement, PropsPersona>(function TarjetaPersona(
-  { nombre, foto, insignia, subtitulo, antes, sinLeer, pildora, avance, chips, acciones, marcada, alerta, className, titulo, onClick, sinCara, compacta, ...resto }, ref,
+  { nombre, foto, insignia, subtitulo, antes, sinLeer, pildora, avance, chips, acciones, marcada, alerta, className, titulo, onClick, sinCara, compacta, destacado, portada, ...resto }, ref,
 ) {
-  const clases = ['tk', compacta ? 'tk--compacta' : '', onClick ? 'tk--clic' : '', marcada ? 'tk--marcada' : '', alerta ? 'tk--alerta' : '', className ?? ''].filter(Boolean).join(' ');
+  const clases = ['tk', compacta ? 'tk--compacta' : '', portada ? 'tk--portada' : '', onClick ? 'tk--clic' : '', marcada ? 'tk--marcada' : '', alerta ? 'tk--alerta' : '', className ?? ''].filter(Boolean).join(' ');
   const pct = avance ? Math.max(0, Math.min(100, Math.round(avance.pct))) : 0;
+  // Con portada, la cara va montada sobre la banda, en su propio renglón; el nombre, debajo.
+  const cara = sinCara ? null : <CaraTarjeta nombre={nombre} foto={foto} insignia={insignia} tam={compacta ? 34 : portada ? 50 : undefined} />;
   return (
     <article ref={ref} className={clases} onClick={onClick} title={titulo} {...resto}>
       <EstiloTarjetas />
+      {portada ? <div className={`tk-portada tk-c-${portada}`} aria-hidden /> : null}
+      {portada && cara ? <div className="tk-portada-cara">{cara}</div> : null}
       <div className="tk-fila">
         {antes}
-        {sinCara ? null : <CaraTarjeta nombre={nombre} foto={foto} insignia={insignia} tam={compacta ? 34 : undefined} />}
+        {portada ? null : cara}
         <div className="tk-tx">
           <div className="tk-nom"><span>{nombre || 'Sin nombre'}</span>{sinLeer && <i className="tk-punto" title="Espera respuesta" />}</div>
           {subtitulo ? <span className="tk-sub">{subtitulo}</span> : null}
@@ -267,6 +288,12 @@ export const TarjetaPersona = forwardRef<HTMLElement, PropsPersona>(function Tar
             onClick={(e) => { e.stopPropagation(); pildora.onClick(e); }}>{pildora.texto}</button>
         )}
       </div>
+      {destacado && (
+        <div className={`tk-dest${destacado.tono ? ` tk-dest--${destacado.tono}` : ''}`}>
+          <span className="tk-dest-rot">{destacado.icono ? <Icon name={destacado.icono} size={12} /> : null}{destacado.rotulo}</span>
+          <span className="tk-dest-val" title={destacado.texto}>{destacado.texto}</span>
+        </div>
+      )}
       {avance && (
         <div className="tk-medidor">
           <div className="tk-barra" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${pct}%` }} /></div>

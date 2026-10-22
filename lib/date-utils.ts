@@ -82,6 +82,21 @@ export function fechaHoraEnTz(iso: string | null | undefined, tz: string): strin
   } catch { return ''; } // zona inválida → mejor sin fecha que con una hora mentirosa
 }
 
+const MESES_LARGOS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+/**
+ * «4 de octubre» de «2026-10-04» (22/10/2026, llamada con un cliente: «01/04» no se entendía, ¿día y mes, o mes y día?).
+ * Con `hoy` de OTRO año, «4 de octubre de 2025»; sin `hoy`, siempre con el año. Sin `Intl`: un locale distinto no
+ * cambia el texto. Lo que no es una fecha AAAA-MM-DD vuelve tal cual (vacío, «—»).
+ */
+export function fechaEnPalabras(iso: string | null | undefined, hoy?: string | null): string {
+  if (!iso) return '—';
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m || Number(m[2]) < 1 || Number(m[2]) > 12) return iso;
+  const base = `${Number(m[3])} de ${MESES_LARGOS[Number(m[2]) - 1]}`;
+  return hoy && hoy.slice(0, 4) === m[1] ? base : `${base} de ${m[1]}`;
+}
+
 export function fmtDDMMYYYY(iso: string | null | undefined): string {
   if (!iso) return '—';
   const [y, m, d] = iso.slice(0, 10).split('-');

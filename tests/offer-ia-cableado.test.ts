@@ -335,7 +335,7 @@ test('el diagnóstico de fase: se guarda en el negocio SÓLO si no había uno (i
   // El PDF y los prompts: la MISMA regla (`faseVigenteDe`), leída después de asegurar; y lo que falta, dicho.
   const gen = funcion(RUTA, 'generarSesion');
   // Con el canal del funnel de ESTA oferta, si se sabe (22/10/2026, tests/offer-prueba-chats-2210.test.ts).
-  assert.match(gen, /const fase = conCanalDeLaOferta\(faseVigenteDe\(ctx\), ctx\.funnel\?\.canal \?\? null\);/);
+  assert.match(gen, /const fase = conCanalDeLaOferta\(faseVigenteDe\(ctx\), ctx\.funnel\?\.canal \?\? null, canalQueDijo\(fila\.mensajes\.filter\(\(m\) => m\.de === 'yo'\)\.map\(\(m\) => m\.texto\)\)\);/);
   assert.ok(gen.indexOf('await asegurarFaseGuardada(fila, ctx);') < gen.indexOf('const fase = conCanalDeLaOferta(faseVigenteDe(ctx)'), 'la fase se lee DESPUÉS de asegurar');
   assert.doesNotMatch(gen, /ctx\.faseSesion \?\?/);
   assert.match(gen, /const faltante = fase \? null : diagnosticoFaltante\(estadoDiagnostico\(fila\.mensajes, \{ canal: ctx\.canal, yaGuardado: !!ctx\.faseGuardada \}\)\);/);

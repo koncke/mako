@@ -25,6 +25,7 @@ import { cuandoEs, horaDe, faltanTexto } from './curso-mensajes-texto';
 import { proximaReunion, type FilaReunion } from './nutricion-reinscripcion';
 import { renglonesDeRespuestas, cortar } from './respuestas-agenda';
 import { formatoMonto } from './pasarela-moneda';
+import { cobradoDeLaVentaSiHay, faltaDeLaVenta } from './pagos-crm';
 import { NOMBRE_PASARELA } from './cobros-tipos';
 import { sinRenglonesVacios } from './variables-aviso';
 import { aplicarVariables } from './template-vars';
@@ -101,12 +102,17 @@ export function valoresDelLead(l: Lead): Record<string, string> {
   si('lead_asistio_r2', l.asistio_j2);
 
   num('lead_monto_cierre', l.monto_cierre_usd);
-  num('lead_cobrado', l.total_cobrado_usd);
+  // Lo pagado de ESA venta (tercera revisión, M2): al lado de un saldo de la casa, el total de todos los CRMs decía
+  // «Pagaste 1.500 de 2.000, te falta 1.000». Los tres tokens suman.
+  // Sin venta en la casa no hay saldo con el que sumar: lo pagado en total (cuarta revisión, B2: decía «US$ 0» a quien
+  // pagó US$500 en otro CRM).
+  num('lead_cobrado', l.monto_cierre_usd == null ? l.total_cobrado_usd : cobradoDeLaVentaSiHay(fila));
   // El saldo se CALCULA, y sólo si hay cierre: sin monto de cierre, «falta cobrar» no
-  // tiene referencia y daría el negativo de lo pagado.
-  if (typeof l.monto_cierre_usd === 'number' && Number.isFinite(l.monto_cierre_usd)) {
-    out.lead_saldo = plata(Math.max(0, l.monto_cierre_usd - (l.total_cobrado_usd ?? 0)));
-  }
+  // tiene referencia y daría el negativo de lo pagado. ⚠️ Con lo cobrado de ESA venta (mig 0325,
+  // `faltaDeLaVenta`): con lo cobrado en todos los CRMs, una renovación pagada le bajaba el saldo
+  // a la venta de la casa, y el mensaje al cliente decía que debía menos de lo que debe.
+  const saldo = faltaDeLaVenta(fila);
+  if (saldo != null) out.lead_saldo = plata(saldo);
   num('lead_cuota', l.monto_cuota_usd);
   if (typeof l.dia_de_pago === 'number') out.lead_dia_de_pago = String(l.dia_de_pago);
   dia('lead_fecha_cierre', l.fecha_cierre);

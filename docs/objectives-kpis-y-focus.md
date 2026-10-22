@@ -25,7 +25,7 @@ Eso es exactamente lo que Mauricio nombró como el hueco de su propia metodolog�
 
 Y es la bajada literal de su pedido de producto más fuerte, del 31/07:
 
-> *«no solamente es la parte del resultado, sino que si Mauricio Bustos no subió con
+> *«no solamente es la parte del resultado, sino que si Mauricio no subió con
 > evidencia los siete videos a la semana, no va a ocurrir… porque obligas a la gente»*
 
 O sea: a la tab General no le falta un bloque. **Le falta la columna vertebral entera.**

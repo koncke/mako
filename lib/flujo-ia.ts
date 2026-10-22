@@ -3396,6 +3396,14 @@ export function falloDeIA(errores: readonly string[], hayIA: boolean, red: reado
 /** Donde se conecta la clave de Claude del negocio: la que va PRIMERA en esta cascada (`conClaveDelNegocio`, lib/ai-cheap.ts). */
 export const LINK_CONECTA_CLAUDE = '/integraciones?abrir=anthropic';
 
+/**
+ * QUÉ IA PROPIA ARMA FLUJOS: su Claude (la puerta 2, primera en la cascada) o su GPT. Desde IA6 (lote 2 de IA, 22/10/2026)
+ * un negocio con su IA corre la cascada con SU OpenAI (`PROVS_SU_IA`, lib/solo-su-ia.ts) aunque `PROVS_CREAR_IA` no la
+ * nombre. tests/ia-aviso-sin-ia-propia.test.ts lo ata: si la cascada deja de usarla, el texto vuelve a «tu Claude».
+ */
+export const SU_IA = 'tu Claude o tu GPT';
+export const SU_CLAVE = 'tu clave de Claude o de OpenAI';
+
 /** Un tope POR DÍA (Gemini «…PerDay…», Groq «tokens per day (TPD)»): «prueba en un rato» sería mentira hasta mañana. */
 const TOPE_DEL_DIA = /per ?day|\bTPD\b|\bRPD\b|daily/i;
 
@@ -3404,25 +3412,25 @@ const TOPE_DEL_DIA = /per ?day|\bTPD\b|\bRPD\b|daily/i;
  * ninguna IA gratis conectada» con el link a Gemini, y era falso dos veces: el ws1 no conecta IA gratis (la red de la
  * plataforma va sola) y lo que había pasado es que esa red llegó a su tope de hoy (el 429 por día de Gemini). Mauricio lo
  * leyó en el chat de su automatización el 22/10. La salida es SU Claude: la clave de Anthropic del negocio es lo primero
- * que prueba esta cascada. ⚠️ No dice «o tu GPT»: OpenAI no está en `PROVS_CREAR_IA` (cobra), así que una clave de
- * OpenAI no arma flujos. Si entra a la lista, el texto cambia con ella.
+ * que prueba esta cascada.
  */
 export function sinIAPropia(red: readonly string[]): FalloIA {
   const link = LINK_CONECTA_CLAUDE;
   if (red.some((e) => e.startsWith('red gratis salteada: el negocio usa su propia IA'))) {
-    return { error: 'Con tu propio Claude, para armar el flujo necesito tu clave de Claude (en Integraciones).', link };
+    // «tu propia IA» y no «tu propio Claude»: desde IA6 la IA propia también puede ser su GPT (y su PC no arma flujos).
+    return { error: `Con tu propia IA, para armar el flujo necesito ${SU_CLAVE}.`, link };
   }
   if (sinRedPorDatos(red)) return { error: `${CONECTA_TU_CLAUDE}.`, link };
   const intentos = red.filter((e) => !e.startsWith('red gratis salteada:'));
-  if (!intentos.length) return { error: 'No tienes una IA conectada: conecta tu Claude.', link };
+  if (!intentos.length) return { error: `No tienes una IA conectada: conecta ${SU_IA}.`, link };
   const veredictos = intentos.map(veredictoDe);
   if (veredictos.includes('cuota')) {
     return intentos.some((e) => veredictoDe(e) === 'cuota' && TOPE_DEL_DIA.test(e))
-      ? { error: 'La IA gratis de MaKo llegó a su tope de hoy. Conecta tu Claude para seguir.', link }
-      : { error: 'La IA gratis de MaKo está al tope. Prueba en un rato o conecta tu Claude.', link };
+      ? { error: `La IA gratis de MaKo llegó a su tope de hoy. Conecta ${SU_IA} para seguir.`, link }
+      : { error: `La IA gratis de MaKo está al tope. Prueba en un rato o conecta ${SU_IA}.`, link };
   }
-  if (veredictos.includes('saturado')) return { error: 'La IA gratis de MaKo está saturada. Prueba en un rato o conecta tu Claude.', link };
-  return { error: 'La IA gratis de MaKo no contestó. Prueba de nuevo o conecta tu Claude.', link };
+  if (veredictos.includes('saturado')) return { error: `La IA gratis de MaKo está saturada. Prueba en un rato o conecta ${SU_IA}.`, link };
+  return { error: `La IA gratis de MaKo no contestó. Prueba de nuevo o conecta ${SU_IA}.`, link };
 }
 
 /** Un error de la revisión sin lo que le habla al modelo: la instrucción de después de «: usa…» y las comillas de claves. */

@@ -28,6 +28,7 @@ import type { OperacionDef } from '../tipos';
 // el que lo amplía. Declararlo a mano acá sería la segunda copia, y la que se queda vieja.
 import { TOPE_DETALLE } from '@/lib/detalle-contrato';
 import { TOPE_PRUEBA_CIERRE } from '@/lib/cierre-tarjeta';
+import { CAMPOS_TARJETA_PLAN, FORMAS_TARJETA_PLAN } from '@/lib/tarjeta-plan';
 
 const TODOS = ['whatsapp', 'app', 'http'] as const;
 const SIN_HTTP = ['whatsapp', 'app'] as const;
@@ -329,6 +330,30 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     escribe: 'los nombres de las columnas del plan del negocio (app_settings, plan.columnas)',
     canales: ['app'], costo: 'gratis', gating: TAB_ADMIN,
+  },
+  {
+    // LA TARJETA DE UNA TAREA, PERSONALIZADA (21/10/2026, Martín: «la personalización de las tarjetas en clientes, plan,
+    // etc.»). Es DE UNA PERSONA (usuarios.perfil), así que sale sólo por la app, como la del CRM (crm.def.ts,
+    // `ver_campos_tarjeta_crm`): por WhatsApp o HTTP no hay sesión que diga quién es.
+    id: 'ver_tarjeta_plan', area: 'plan', tipo: 'lectura',
+    titulo: 'Cómo se ve la tarjeta de una tarea',
+    descripcion: 'Cómo ve la persona cada tarjeta del kanban del plan: con qué forma (Completa, Compacta o Color del proyecto), qué datos lleva en su orden (proyecto, fecha límite o repetición, lo que la frena, por qué está atorada), qué plantilla tiene puesta, las plantillas de fábrica y las propias, y el catálogo completo. El título, el check de completar y el tacho van siempre. Se elige en el plan, «⋯» › «Personalizar tarjetas» (o clic derecho en una tarjeta), y es de cada persona.',
+    parametros: [],
+    salida: 'json', canales: ['app'], costo: 'gratis', gating: TAB,
+  },
+  {
+    // Sólo por la app, como su lectura: es de UNA persona.
+    id: 'personalizar_tarjetas_plan', area: 'plan', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Personalizar la tarjeta de las tareas',
+    descripcion: 'PROPONE cómo se ve la tarjeta de una tarea en el kanban del plan para la persona que lo pide (queda pendiente hasta el «sí»): poner una plantilla por su nombre (de fábrica o propia, de ver_tarjeta_plan), o elegir la forma y los datos en su orden. Con guardarComo, además la guarda como plantilla propia con ese nombre (con el mismo nombre, la reemplaza). Es de cada persona: no cambia la tarjeta del resto del equipo.',
+    parametros: [
+      { nombre: 'plantilla', tipo: 'string', max: 40, descripcion: 'el nombre de una plantilla (Completa, Compacta, Sin proyecto, Color del proyecto, Color sin chip, Sólo la fecha, Sólo el título, o una propia).' },
+      { nombre: 'forma', tipo: 'string', enum: [...FORMAS_TARJETA_PLAN], descripcion: 'la forma, si no se pasa una plantilla.' },
+      { nombre: 'campos', tipo: 'string[]', max: CAMPOS_TARJETA_PLAN.length, vaciaEsValor: true, descripcion: 'los datos en su orden, si no se pasa una plantilla ([] = sólo el título).' },
+      { nombre: 'guardarComo', tipo: 'string', max: 32, descripcion: 'guardar lo elegido como plantilla propia con este nombre.' },
+    ],
+    canales: ['app'], costo: 'gratis', gating: TAB,
+    reversible: true, escribe: 'la tarjeta de las tareas de esa persona (usuarios.perfil.planTarjeta)',
   },
   {
     // «Re-priorizar todo» (16/10/2026, decisión 9): el mismo trabajo que el botón de los tres puntos

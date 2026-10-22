@@ -2,8 +2,8 @@
 // /perfil en una «vista de otro», y la cuenta a la que no puede entrar nadie (09/10/2026)
 // =============================================================================
 // Pedido de Martín, con una captura de Joan (Código Inmobiliario, ws13) inspeccionando a
-// Brigitte Eberlin (ws15): el cartel decía «Estás viendo el dashboard de Brigitte Eberlin»
-// y /perfil mostraba nombre «Codigo Inmobiliario» y codigoinmobiliarioia@gmail.com. Y
+// Ana Ejemplo (ws15): el cartel decía «Estás viendo el dashboard de Ana Ejemplo»
+// y /perfil mostraba nombre «Codigo Inmobiliario» y ejemplo.ws13.mako@gmail.com. Y
 // «no se le envió la invitación a Brigitte»: medido, el ws15 tiene CERO usuarios.
 //
 // Lo que fija este archivo:
@@ -77,8 +77,8 @@ test('de quién es el perfil: el super admin, parado en un cliente, ve el del cl
 
 test('la persona del perfil es la del workspace MIRADO, y con cero personas es null — nunca otra', () => {
   const gente = [
-    { id: 10, workspace_id: AGENCIA, rol_ws: 'admin', email: 'codigoinmobiliarioia@gmail.com' },
-    { id: 13, workspace_id: JOAN_PRUEBA, rol_ws: 'admin', email: 'joandowd5469@gmail.com' },
+    { id: 10, workspace_id: AGENCIA, rol_ws: 'admin', email: 'ejemplo.ws13.mako@gmail.com' },
+    { id: 13, workspace_id: JOAN_PRUEBA, rol_ws: 'admin', email: 'ejemplo.ws17.mako@gmail.com' },
     { id: 20, workspace_id: OTRA_AGENCIA, rol_ws: 'closer', email: 'closer@x.com' },
     { id: 21, workspace_id: OTRA_AGENCIA, rol_ws: null, email: 'duena@x.com' },
   ];
@@ -129,7 +129,7 @@ test('sumar desde la ficha de la cuenta dice si el mail SALIÓ, con `avisoInvita
 
 test('los textos nuevos de pantalla son cortos y sin voseo', async () => {
   const { marcasDeVoseo } = await import('../lib/puestas-data');
-  for (const t of ['Nadie puede entrar todavía', 'Esta cuenta todavía no tiene a nadie adentro.', 'No pude leer el perfil de esta cuenta.', 'Perfil de Brigitte Eberlin']) {
+  for (const t of ['Nadie puede entrar todavía', 'Esta cuenta todavía no tiene a nadie adentro.', 'No pude leer el perfil de esta cuenta.', 'Perfil de Ana Ejemplo']) {
     assert.deepEqual(marcasDeVoseo(t), [], t);
     assert.ok(t.split(/\s+/).length <= 8, `largo: ${t}`);
   }

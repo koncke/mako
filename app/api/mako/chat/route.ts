@@ -40,10 +40,11 @@ import {
   personaDelRequest, listarSesiones, abrirSesion, nuevaSesion, turnoApp, confirmarDesdeTarjeta, cancelarDesdeTarjeta, urlDeAdjunto,
 } from '@/lib/mako-turno-app';
 import { validarAdjuntos, ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, MARGEN_MULTIPART_BYTES } from '@/lib/mako-adjuntos';
-import { CONTEXTO_SECOND_BRAIN } from '@/lib/chat-mako-reglas';
+import { CONTEXTO_SECOND_BRAIN, antesValido } from '@/lib/chat-mako-reglas';
+import { sanearDesde } from '@/lib/chat-desde';
 import { estadoDeTrabajo } from '@/lib/chat-trabajos';
 import { runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
-import { chatsDeAntes, chatsDeOffer, claveDeAntes, hiloDeAntes, hiloDeOffer, quienChateaDelRequest } from '@/lib/chat-mako-indice';
+import { chatsDeAntes, chatsDeAutomations, chatsDeLasTabs, chatsDeLosEditores, chatsDeOffer, claveDeAntes, conTemas, hiloDeAutomatizacion, hiloDeEditor, claveDeTab, grupoDeMaKo, hiloDeAntes, hiloDeOffer, hiloDelGrupoMaKo, quienChateaDelRequest } from '@/lib/chat-mako-indice';
 import type { PersonaChat } from '@/lib/mako-turno-app';
 import { esChatDeMarcas, leerMarcasDelChat, marcarEnElChat } from '@/lib/chat-mako-marcas-db';
 import { sanearCambio } from '@/lib/centro-mensajes';
@@ -86,7 +87,8 @@ async function conSuIA(persona: PersonaChat): Promise<boolean> {
 async function personaDelChat(persona: PersonaChat, sessionId: number, antes: unknown): Promise<PersonaChat | null> {
   if (antes !== true && antes !== '1' && antes !== 1) return persona;
   const q = await quienChateaDelRequest();
-  const chartKey = q ? await claveDeAntes(q, sessionId) : null;
+  // Un chat de antes (su regla de siempre) o uno de una tab de ESTA persona (CRM, la ficha de un lead: OC4, 22/10/2026).
+  const chartKey = (q ? await claveDeAntes(q, sessionId) : null) ?? await claveDeTab(persona, sessionId);
   return chartKey ? { ...persona, chartKey } : null;
 }
 
@@ -110,13 +112,53 @@ export async function GET(req: NextRequest) {
       return new Response(null, { status: 302, headers: { Location: url, 'Cache-Control': 'private, max-age=240' } });
     }
     // «Antes»: lo que tenía /mako, con SU regla de quién ve qué (lib/chat-mako-indice.ts).
-    if (sp.get('antes') || sp.has('antesId')) {
+    // ⚠️ CON `sessionId` NO ES LA LISTA: `?sessionId=N&antes=1` es el hilo de un chat de antes que se sigue (abajo, con
+    //    `personaDelChat`). Hasta el 22/10/2026 esta rama lo atrapaba primero y devolvía la lista: todo chat de antes (los
+    //    del CRM, los gráficos, Editar con MaKo, el Web Generator) se abría VACÍO en el Ops Center del cliente, aunque la
+    //    fila estaba y sus mensajes también (medido en el ws3). tests/ops-center-hilo-de-antes.test.ts.
+    if ((sp.get('antes') && !sp.has('sessionId')) || sp.has('antesId')) {
       const q = await quienChateaDelRequest();
       if (!q) return json({ ok: false, error: 'Tu sesión venció.' }, 401);
-      if (sp.get('antes')) return json({ ok: true, antes: await chatsDeAntes(q) });
+      // Con los de las tabs de la persona (el CRM, la ficha de un lead), que se siguen igual (OC4, 22/10/2026).
+      if (sp.get('antes')) {
+        const [deAntes, deTabs] = await Promise.all([chatsDeAntes(q), chatsDeLasTabs(persona)]);
+        // Con su tema: lo que no tiene título se nombra por lo que se dijo (22/10/2026, nunca «Chat de antes»).
+        const todos = await conTemas([...deAntes, ...deTabs]);
+        return json({ ok: true, antes: todos.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)) });
+      }
       const id = enteroDe(sp.get('antesId'));
       const hilo = id == null ? null : await hiloDeAntes(q, id);
       if (!hilo) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
+      return json({ ok: true, ...hilo });
+    }
+    // El grupo de WhatsApp de MaKo (22/10/2026, OC3): SÓLO del admin y de SÓLO LECTURA. El corte lo hace el lector
+    // (lib/chat-mako-indice.ts → grupoDeMaKo, hiloDelGrupoMaKo): a un miembro le da null, y el jid nunca sale de acá.
+    if (sp.get('grupo')) return json({ ok: true, grupo: await grupoDeMaKo(persona) });
+    if (sp.get('grupoHilo')) {
+      const hilo = await hiloDelGrupoMaKo(persona, antesValido(sp.get('desde')));
+      if (!hilo) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
+      return json({ ok: true, ...hilo });
+    }
+    // Automations (22/10/2026, OC5): las charlas del lienzo, una proyección del workspace con la puerta de la tab. Se LEEN; se
+    // siguen en el lienzo. Sin la tab, [].
+    if (sp.get('automations')) return json({ ok: true, automations: await chatsDeAutomations() });
+    if (sp.has('automatizacionId')) {
+      const id = enteroDe(sp.get('automatizacionId'));
+      const hilo = id == null ? null : await hiloDeAutomatizacion(id);
+      if (!hilo) return json({ ok: false, error: 'No encuentro esa charla.' }, 404);
+      return json({ ok: true, ...hilo });
+    }
+    // Los chats del Image Editor y del Video Editor (22/10/2026, OC8): por persona (el admin, los del negocio), con la puerta de
+    // cada tab. Se LEEN; se siguen en el editor.
+    if (sp.get('editores')) {
+      const q = await quienChateaDelRequest();
+      return json({ ok: true, editores: q ? await chatsDeLosEditores(q) : [] });
+    }
+    if (sp.has('editorClave')) {
+      const q = await quienChateaDelRequest();
+      const tipo = sp.get('editor') === 'video' ? 'video' : sp.get('editor') === 'imagen' ? 'imagen' : null;
+      const hilo = q && tipo ? await hiloDeEditor(q, tipo, String(sp.get('editorClave'))) : null;
+      if (!hilo) return json({ ok: false, error: 'No encuentro esa charla.' }, 404);
       return json({ ok: true, ...hilo });
     }
     // Offer (20/10/2026): una proyección del workspace, con la puerta de la tab (lib/chat-mako-indice.ts). Sin la tab, [].
@@ -169,7 +211,9 @@ export async function POST(req: NextRequest) {
       if (!mensaje.trim() && !v.adjuntos.length) return json({ ok: false, error: 'Escribe algo.' }, 400);
       const quien = await personaDelChat(persona, sessionId, form.get('antes'));
       if (!quien) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
-      const r = await turnoApp(quien, sessionId, { mensaje, adjuntos: v.adjuntos, contexto: CONTEXTO_SECOND_BRAIN, guardarAdjuntos: true, plazoMs: maxDuration * 1000 });
+      // Desde dónde escribe (OC6): la estrella de una tab lo manda como JSON en el form.
+      const desde = sanearDesde((() => { try { return JSON.parse(String(form.get('desde') ?? 'null')); } catch { return null; } })());
+      const r = await turnoApp(quien, sessionId, { mensaje, adjuntos: v.adjuntos, contexto: CONTEXTO_SECOND_BRAIN, guardarAdjuntos: true, plazoMs: maxDuration * 1000, desde });
       if (!r) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
       return json({ ...r });
     } catch (e) {
@@ -177,7 +221,7 @@ export async function POST(req: NextRequest) {
       return json({ ok: false, error: 'Algo falló de nuestro lado. Intenta de nuevo.' }, 500);
     }
   }
-  let body: { action?: unknown; sessionId?: unknown; mensaje?: unknown; pendienteId?: unknown; antes?: unknown; chat?: unknown; cambio?: unknown };
+  let body: { action?: unknown; sessionId?: unknown; mensaje?: unknown; pendienteId?: unknown; antes?: unknown; chat?: unknown; cambio?: unknown; desde?: unknown };
   try { body = await req.json(); } catch { return json({ ok: false, error: 'Pedido inválido.' }, 400); }
   try {
     if (body.action === 'new') return json({ ok: true, sesion: await nuevaSesion(persona) });
@@ -199,7 +243,8 @@ export async function POST(req: NextRequest) {
       // `guardarAdjuntos` también sin fotos (22/10/2026, la prueba de los chats): un texto PEGADO va en este cuerpo, y sin
       // la marca el turno no lo archivaba aunque el hilo dijera «el texto entero quedó en El Archivero». El teléfono ya la
       // pasaba (/api/m/mako); el MaKo Analyst de un lead, que no la pasa, es otra ruta.
-      const r = await turnoApp(quien, sessionId, { mensaje, contexto: CONTEXTO_SECOND_BRAIN, guardarAdjuntos: true, plazoMs: maxDuration * 1000 });
+      // Desde dónde escribe (OC6, lib/chat-desde.ts): la tab, la entidad y el modo de la estrella; saneado, nunca tal cual.
+      const r = await turnoApp(quien, sessionId, { mensaje, contexto: CONTEXTO_SECOND_BRAIN, guardarAdjuntos: true, plazoMs: maxDuration * 1000, desde: sanearDesde(body.desde) });
       if (!r) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
       // Un fallo del modelo NO es un error HTTP: el mensaje quedó guardado y el aviso viaja adentro.
       return json({ ...r });

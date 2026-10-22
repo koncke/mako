@@ -37,6 +37,12 @@ import { rutaParaRevisar } from '@/lib/operaciones-reglas';
 // Las columnas del kanban (16/10/2026): claves, etiquetas y qué es un pendiente, de UN lugar.
 import { ESTADOS, esEstado, estaPendiente, motivoAtoradaOk, type EstadoTarea } from '@/lib/todo-estados';
 import { etiquetasDeColumnasPlan, leerColumnasPlan, cambiarColumnasPlan } from '@/lib/plan-columnas-server';
+import { getTarjetaPlan, setTarjetaPlan } from '@/lib/perfil';
+import {
+  CAMPOS_TARJETA_PLAN, CAMPOS_TARJETA_PLAN_DEFAULT, DETALLE_FORMA_TARJETA_PLAN, FORMAS_TARJETA_PLAN, NOMBRE_CAMPO_TARJETA_PLAN,
+  NOMBRE_FORMA_TARJETA_PLAN, PLANTILLAS_TARJETA_PLAN, camposTarjetaPlanDe, type CampoTarjetaPlan, type FormaTarjetaPlan,
+} from '@/lib/tarjeta-plan';
+import { idPlantillaNueva, pedidoDeTarjeta, plantillaPuesta } from '@/lib/plantillas-tarjeta';
 import { aplicarCambioColumnas, claveDeTarea, columnasEnOrden, destinoDeClave, etiquetaDeClave, nuevoIdColumna, propiaDeEstado, type CambioColumnas } from '@/lib/plan-columnas';
 import {
   getPropuesta, getPropuestaPorRef, listPropuestasPendientes, estadoDePropuesta, resumenPropuestasPorRefs,
@@ -846,6 +852,67 @@ export const RUNNERS: Runners = {
       const r = await cambiarColumnasPlan(c);
       if (!r.ok) return { ok: false, resumen: r.error };
       return { ok: true, resumen: c.tipo === 'quitar' ? 'Columna quitada: sus tareas volvieron a la de su estado.' : `Listo: las columnas son ${columnasEnOrden(r.config, false).map((x) => `«${x.label}»`).join(', ')}.` };
+    },
+  },
+
+  // ── La tarjeta de una tarea, de cada persona (21/10/2026) ──────────────────
+  // El molde es `ver_campos_tarjeta_crm` / `personalizar_tarjetas_crm` (crm.run.ts). La cuenta de QUÉ se pidió vive una
+  // vez en `pedidoDeTarjeta` (lib/plantillas-tarjeta.ts), para Clientes y el Plan.
+  ver_tarjeta_plan: {
+    leer: async () => {
+      const { forma, campos, plantillas, guardable } = await getTarjetaPlan();
+      const plantilla = (p: { nombre: string; forma: FormaTarjetaPlan; campos: readonly CampoTarjetaPlan[] }) =>
+        ({ nombre: p.nombre, forma: p.forma, campos: [...p.campos] });
+      return json({
+        forma: { forma, nombre: NOMBRE_FORMA_TARJETA_PLAN[forma] },
+        formas: FORMAS_TARJETA_PLAN.map((f) => ({ forma: f, nombre: NOMBRE_FORMA_TARJETA_PLAN[f], detalle: DETALLE_FORMA_TARJETA_PLAN[f] })),
+        campos: campos.map((c) => ({ campo: c, nombre: NOMBRE_CAMPO_TARJETA_PLAN[c] })),
+        plantillaPuesta: plantillaPuesta([...PLANTILLAS_TARJETA_PLAN, ...plantillas], forma, campos)?.nombre ?? 'Personalizada',
+        plantillasDeFabrica: PLANTILLAS_TARJETA_PLAN.map(plantilla),
+        plantillasPropias: plantillas.map(plantilla),
+        catalogo: CAMPOS_TARJETA_PLAN.map((c) => ({ campo: c, nombre: NOMBRE_CAMPO_TARJETA_PLAN[c], deSiempre: CAMPOS_TARJETA_PLAN_DEFAULT.includes(c) })),
+        siempre: 'El título, el check de completar y el tacho van siempre.',
+        guardable,
+        dondeSeCambia: 'En el plan (Kanban o Recurrentes), «⋯» › «Personalizar tarjetas», o clic derecho en una tarjeta › «Personalizar tarjeta».',
+      });
+    },
+  },
+  // La tarjeta es de UNA persona (usuarios.perfil): la pendiente lleva su email y sólo la confirma ella (la escritura cae
+  // en la fila de quien confirma: `setTarjetaPlan` lee la sesión).
+  personalizar_tarjetas_plan: {
+    faltaParaConfirmar: async (payload, ctx) => {
+      const de = String(payload.email ?? '').toLowerCase();
+      const quien = String(ctx.quien?.email ?? ctx.actor ?? '').toLowerCase();
+      return de && quien && de !== quien ? `Esta tarjeta es la de ${payload.email}: la confirma esa persona desde su chat.` : null;
+    },
+    preparar: async (input, ctx) => {
+      const email = ctx.quien?.email ?? ctx.actor ?? '';
+      if (!email) return { error: 'La tarjeta es de cada persona y este pedido no dice de quién: se cambia desde el chat de la app o en el plan.' };
+      const actual = await getTarjetaPlan();
+      if (!actual.guardable) return { error: 'Tu sesión no tiene un usuario propio: la tarjeta se cambia en el plan, «⋯» › «Personalizar tarjetas».' };
+      const r = pedidoDeTarjeta(input, actual, {
+        fabrica: PLANTILLAS_TARJETA_PLAN, formas: FORMAS_TARJETA_PLAN, campos: CAMPOS_TARJETA_PLAN,
+        limpiarCampos: camposTarjetaPlanDe, nombreCampo: NOMBRE_CAMPO_TARJETA_PLAN, donde: 'el plan',
+      }, idPlantillaNueva());
+      if (!r.ok) return { error: r.error, ...(r.disponibles !== undefined ? { disponibles: r.disponibles } : {}), ...(r.yaEstaba ? { yaEstaba: true } : {}) };
+      const datos = r.campos.length ? r.campos.map((c) => NOMBRE_CAMPO_TARJETA_PLAN[c]).join(', ') : 'sólo el título';
+      return {
+        payload: { email, forma: r.forma, campos: r.campos, ...(r.propias ? { plantillas: r.propias } : {}) },
+        resumen: `Tu tarjeta de tareas ${r.plantilla ? `como «${r.plantilla}»` : `en forma ${NOMBRE_FORMA_TARJETA_PLAN[r.forma]}`} (${datos})`
+          + (input.guardarComo ? `, guardada como plantilla «${String(input.guardarComo).trim()}»` : '') + '. Sólo la tuya: el resto del equipo sigue viendo la suya.',
+      };
+    },
+    // ejecutar() no lanza (tipos.ts): si algo falla, ok:false con el motivo.
+    ejecutar: async (payload): Promise<Ejecutado> => {
+      try {
+        const r = await setTarjetaPlan(payload.campos, payload.forma, payload.plantillas);
+        if (!r.guardado) return { ok: false, resumen: 'No pude guardarla: tu sesión no tiene un usuario propio. Se cambia en el plan, «⋯» › «Personalizar tarjetas».' };
+        return { ok: true, resumen: `Listo: tu tarjeta de tareas quedó en forma ${NOMBRE_FORMA_TARJETA_PLAN[r.forma]}. Se ve al volver al plan.` };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error('[api-mako plan] personalizar la tarjeta:', msg);
+        return { ok: false, resumen: `No se pudo personalizar la tarjeta (${msg}).` };
+      }
     },
   },
 

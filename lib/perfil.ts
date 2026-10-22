@@ -9,7 +9,9 @@
 // preferencias de notificaciones son por-WORKSPACE: los crons (sin sesión →
 // workspace dueño) las leen de app_settings. Se mantienen las keys de siempre.
 
-import { CAMPOS_TARJETA_DEFAULT, prefsTarjetaDe, type CampoTarjetaLead, type DisenoTarjeta } from '@/lib/tarjeta-kanban';
+import { CAMPOS_TARJETA_DEFAULT, prefsTarjetaDe, type CampoTarjetaLead, type DisenoTarjeta, type PlantillaTarjetaLead } from '@/lib/tarjeta-kanban';
+import { prefsTarjetaClientesDe, type PrefsTarjetaCliente } from '@/lib/tarjeta-clientes';
+import { prefsTarjetaPlanDe, type PrefsTarjetaPlan } from '@/lib/tarjeta-plan';
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { getSetting, setSetting } from './settings';
@@ -443,22 +445,114 @@ const TARJETA_CRM_KEY = 'crmTarjeta';
  * lib/tarjeta-kanban.ts → CAMPOS_TARJETA_LEAD). Sin fila propia (la sesión compartida vieja): lo de siempre, y la
  * pantalla sabe que no se puede guardar.
  */
-export async function getCamposTarjetaCrm(): Promise<{ campos: CampoTarjetaLead[]; diseno: DisenoTarjeta; guardable: boolean }> {
+export async function getCamposTarjetaCrm(): Promise<{ campos: CampoTarjetaLead[]; diseno: DisenoTarjeta; plantillas: PlantillaTarjetaLead[]; guardable: boolean }> {
   try {
     const u = await filaPropia();
-    if (!u) return { campos: [...CAMPOS_TARJETA_DEFAULT], diseno: 'completa', guardable: false };
+    if (!u) return { campos: [...CAMPOS_TARJETA_DEFAULT], diseno: 'completa', plantillas: [], guardable: false };
     return { ...prefsTarjetaDe(u.perfil[TARJETA_CRM_KEY]), guardable: true };
   } catch {
-    return { campos: [...CAMPOS_TARJETA_DEFAULT], diseno: 'completa', guardable: false };
+    return { campos: [...CAMPOS_TARJETA_DEFAULT], diseno: 'completa', plantillas: [], guardable: false };
   }
 }
 
-/** Guarda qué muestra la tarjeta y con qué diseño. `guardado:false` = sesión sin fila propia (ver setNotifInApp). */
-export async function setCamposTarjetaCrm(campos: unknown, diseno?: unknown): Promise<{ campos: CampoTarjetaLead[]; diseno: DisenoTarjeta; guardado: boolean }> {
-  const limpios = prefsTarjetaDe({ campos, diseno });
+/**
+ * Guarda qué muestra la tarjeta, con qué forma y (si llegan) las plantillas PROPIAS de la persona. `plantillas`
+ * ausente = se quedan las que tenía: elegir una plantilla o sacar un dato no borra las guardadas.
+ * `guardado:false` = sesión sin fila propia (ver setNotifInApp).
+ */
+export async function setCamposTarjetaCrm(campos: unknown, diseno?: unknown, plantillas?: unknown): Promise<{ campos: CampoTarjetaLead[]; diseno: DisenoTarjeta; plantillas: PlantillaTarjetaLead[]; guardado: boolean }> {
   const u = await filaPropia();
+  const previas = u && u.perfil[TARJETA_CRM_KEY] && typeof u.perfil[TARJETA_CRM_KEY] === 'object'
+    ? (u.perfil[TARJETA_CRM_KEY] as { plantillas?: unknown }).plantillas
+    : undefined;
+  const limpios = prefsTarjetaDe({ campos, diseno, plantillas: plantillas === undefined ? previas : plantillas });
   if (!u) return { ...limpios, guardado: false };
   const perfil = { ...u.perfil, [TARJETA_CRM_KEY]: limpios };
+  const { error } = await getSupabaseServer()
+    .from('usuarios').update({ perfil, updated_at: new Date().toISOString() }).eq('id', u.id);
+  if (error) throw new Error(`perfil: ${error.message}`);
+  return { ...limpios, guardado: true };
+}
+
+// ── La vista de la Ticketera, por PERSONA (22/10/2026) ───────────────────────
+// Martín: «vuelva la vista de tarjetas… Luego si quiero elegir la vista tabla también». La que eligió vale en la
+// computadora y en el teléfono (es de la persona, no del navegador). Sin fila propia: el mazo, sin guardar.
+const TICKETERA_VISTA_KEY = 'ticketeraVista';
+export type VistaTicketera = 'mazo' | 'tabla';
+const vistaTicketeraDe = (v: unknown): VistaTicketera => (v === 'tabla' ? 'tabla' : 'mazo');
+
+export async function getVistaTicketera(): Promise<VistaTicketera> {
+  try {
+    const u = await filaPropia();
+    return vistaTicketeraDe(u?.perfil[TICKETERA_VISTA_KEY]);
+  } catch {
+    return 'mazo';
+  }
+}
+
+export async function setVistaTicketera(v: unknown): Promise<{ vista: VistaTicketera; guardado: boolean }> {
+  const vista = vistaTicketeraDe(v);
+  const u = await filaPropia();
+  if (!u) return { vista, guardado: false };
+  const perfil = { ...u.perfil, [TICKETERA_VISTA_KEY]: vista };
+  const { error } = await getSupabaseServer()
+    .from('usuarios').update({ perfil, updated_at: new Date().toISOString() }).eq('id', u.id);
+  if (error) throw new Error(`perfil: ${error.message}`);
+  return { vista, guardado: true };
+}
+
+// ── La tarjeta de Clientes y la del Plan, por PERSONA (21/10/2026) ───────────
+// Martín: «la personalización de las tarjetas en clientes, plan, etc.». EL MISMO PATRÓN que la del CRM, de arriba: por
+// persona (es cómo mira cada uno), releyendo la fila (el jsonb `perfil` se reescribe ENTERO: no se pisan `notifInApp`
+// ni `crmTarjeta`), y sin tocar las plantillas propias cuando no llegan. Lo puro, en lib/tarjeta-clientes.ts y
+// lib/tarjeta-plan.ts.
+const TARJETA_CLIENTES_KEY = 'clientesTarjeta';
+const TARJETA_PLAN_KEY = 'planTarjeta';
+
+/** Las plantillas propias guardadas bajo `clave`, para no pisarlas cuando el pedido no las trae. */
+const propiasGuardadas = (u: { perfil: Record<string, unknown> } | null, clave: string): unknown =>
+  u && u.perfil[clave] && typeof u.perfil[clave] === 'object' ? (u.perfil[clave] as { plantillas?: unknown }).plantillas : undefined;
+
+/** Cómo ve quien mira la tarjeta de un cliente (Clientes › kanban). Sin fila propia: lo de siempre, sin guardar. */
+export async function getTarjetaClientes(): Promise<PrefsTarjetaCliente & { guardable: boolean }> {
+  try {
+    const u = await filaPropia();
+    if (!u) return { ...prefsTarjetaClientesDe(undefined), guardable: false };
+    return { ...prefsTarjetaClientesDe(u.perfil[TARJETA_CLIENTES_KEY]), guardable: true };
+  } catch {
+    return { ...prefsTarjetaClientesDe(undefined), guardable: false };
+  }
+}
+
+/** Guarda la tarjeta de un cliente de quien mira. `plantillas` ausente = se quedan las propias que tenía. */
+export async function setTarjetaClientes(campos: unknown, forma?: unknown, plantillas?: unknown): Promise<PrefsTarjetaCliente & { guardado: boolean }> {
+  const u = await filaPropia();
+  const limpios = prefsTarjetaClientesDe({ campos, forma, plantillas: plantillas === undefined ? propiasGuardadas(u, TARJETA_CLIENTES_KEY) : plantillas });
+  if (!u) return { ...limpios, guardado: false };
+  const perfil = { ...u.perfil, [TARJETA_CLIENTES_KEY]: limpios };
+  const { error } = await getSupabaseServer()
+    .from('usuarios').update({ perfil, updated_at: new Date().toISOString() }).eq('id', u.id);
+  if (error) throw new Error(`perfil: ${error.message}`);
+  return { ...limpios, guardado: true };
+}
+
+/** Cómo ve quien mira la tarjeta de una tarea (el Plan › kanban). Sin fila propia: lo de siempre, sin guardar. */
+export async function getTarjetaPlan(): Promise<PrefsTarjetaPlan & { guardable: boolean }> {
+  try {
+    const u = await filaPropia();
+    if (!u) return { ...prefsTarjetaPlanDe(undefined), guardable: false };
+    return { ...prefsTarjetaPlanDe(u.perfil[TARJETA_PLAN_KEY]), guardable: true };
+  } catch {
+    return { ...prefsTarjetaPlanDe(undefined), guardable: false };
+  }
+}
+
+/** Guarda la tarjeta de una tarea de quien mira. `plantillas` ausente = se quedan las propias que tenía. */
+export async function setTarjetaPlan(campos: unknown, forma?: unknown, plantillas?: unknown): Promise<PrefsTarjetaPlan & { guardado: boolean }> {
+  const u = await filaPropia();
+  const limpios = prefsTarjetaPlanDe({ campos, forma, plantillas: plantillas === undefined ? propiasGuardadas(u, TARJETA_PLAN_KEY) : plantillas });
+  if (!u) return { ...limpios, guardado: false };
+  const perfil = { ...u.perfil, [TARJETA_PLAN_KEY]: limpios };
   const { error } = await getSupabaseServer()
     .from('usuarios').update({ perfil, updated_at: new Date().toISOString() }).eq('id', u.id);
   if (error) throw new Error(`perfil: ${error.message}`);

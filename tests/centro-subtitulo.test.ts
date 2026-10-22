@@ -31,11 +31,12 @@ test('1. «Trabajando…», «Espera tu respuesta» o nada; nunca el texto de un
   assert.equal(TEXTO_SEGUNDO_RENGLON.vivo, 'Trabajando…');
   assert.equal(segundoRenglon(quieto, 2), 'espera', 'una pregunta o una tarjeta que espera a Martín');
   assert.equal(segundoRenglon(quieto, 0, true), 'revisar', 'un «Completado» sin su ✓');
+  // Desde el 22/10 dice «Completado», no «Espera tu respuesta»: eso es SÓLO para una pregunta abierta (tests/ops-center-estado-honesto.test.ts).
+  assert.equal(TEXTO_SEGUNDO_RENGLON.revisar, 'Completado');
   assert.equal(TEXTO_SEGUNDO_RENGLON.espera, 'Espera tu respuesta');
-  assert.equal(TEXTO_SEGUNDO_RENGLON.revisar, 'Espera tu respuesta');
   assert.equal(segundoRenglon(quieto, 0), null, 'sin nada que esperar: sin subtítulo (ni el último mensaje, ni el borrador)');
   assert.equal(segundoRenglon({ estado: 'trabajando', viejo: true }, 0), null, 'un «trabajando» viejo no es trabajando');
-  assert.deepEqual(Object.values(TEXTO_SEGUNDO_RENGLON).sort(), ['Espera tu respuesta', 'Espera tu respuesta', 'Trabajando…'], 'no hay otro texto');
+  assert.deepEqual(Object.values(TEXTO_SEGUNDO_RENGLON).sort(), ['Completado', 'Espera tu respuesta', 'Trabajando…'], 'no hay otro texto');
 });
 
 test('2. las dos listas dibujan sólo esas palabras; el paso en curso sigue adentro del chat', () => {

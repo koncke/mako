@@ -72,7 +72,7 @@ function correrHandler(mensajes: unknown[]) {
 
 // Los dos mensajes que ese embed manda por UNA reserva. El viejo es el único que
 // trae los datos de quien reserva; el nuevo llega igual y describe lo mismo.
-const RESERVA = { uid: 'bk_abc123', attendees: [{ name: 'Codigo Inmobiliario', email: 'codigoinmobiliarioia@gmail.com' }] };
+const RESERVA = { uid: 'bk_abc123', attendees: [{ name: 'Codigo Inmobiliario', email: 'ejemplo.ws13.mako@gmail.com' }] };
 const MSG_VIEJO = { originator: 'CAL', type: 'bookingSuccessful', data: { booking: RESERVA } };
 const MSG_NUEVO = { originator: 'CAL', fullType: 'CAL:bookingSuccessfulV2', data: { booking: RESERVA } };
 
@@ -85,7 +85,7 @@ test('una reserva es UN evento, aunque el embed mande dos mensajes', () => {
 test('y llega el lead UNA vez, con el nombre y el mail de quien reservó', () => {
   const { optins } = correrHandler([MSG_VIEJO, MSG_NUEVO]);
   assert.equal(optins.length, 1, 'dos opt-ins por una reserva son dos leads para la misma persona');
-  assert.equal(optins[0].email, 'codigoinmobiliarioia@gmail.com');
+  assert.equal(optins[0].email, 'ejemplo.ws13.mako@gmail.com');
   assert.equal(optins[0].nombre, 'Codigo Inmobiliario');
   assert.equal(optins[0].origen, 'agenda', 'el origen distingue la agenda del formulario, y el server lo usa para el motivo del bloqueo');
 });

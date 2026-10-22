@@ -69,3 +69,20 @@ test('C7: las otras hojas de la ficha, a la vista al lado del título (el desple
   assert.match(t, /\.lt-nueva, \.lt-hoja-mas, \.lt-atajos \{ display: none; \}/, 'en el teléfono, sólo el desplegable');
 });
 
+
+// C6 (min ~13): «los tres puntos de "Lead entrante" lo mandaron a otro lado». Reproducido el 22/10/2026 en el Chrome de
+// Martín (ws3, y el principal y «Sprint 3 días» del ws1): el «⋯» de una columna trae sólo pop-ups (Asignar campañas,
+// Cambiar el nombre, Agregar etapa). El ÚNICO renglón de los menús del CRM que abre otra pantalla es «Buscar prospectos»,
+// del «⋯» de la barra (/crm/prospectos). Y «Volver al CRM» de allá iba a /crm pelado: desde «Sprint 3 días» devolvía al
+// CRM principal. Probado rompiéndolo (base 5 / 0): sin la flecha → 4 / 1 · sin llevar el CRM → 4 / 1 · «Volver» a /crm
+// pelado → 4 / 1.
+test('C6: «Buscar prospectos» avisa que abre otra pantalla, lleva el CRM, y «Volver» vuelve a ESE CRM', () => {
+  const t = sinComentarios(leer('app/crm/CrmToolbar.tsx'));
+  assert.match(t, /\{href && <span aria-hidden style=\{\{ marginLeft: 'auto', fontSize: 13, color: 'var\(--faint\)' \}\}>→<\/span>\}/, 'el renglón que navega no lo dice');
+  assert.match(t, /label="Buscar prospectos" href=\{funnelActivo != null \? `\/crm\/prospectos\?funnel=\$\{funnelActivo\}` : '\/crm\/prospectos'\}/);
+  assert.match(BOARD, /onPersonalizarTarjetas=\{\(\) => setPersonalizando\(true\)\} funnelActivo=\{funnelActivo\} \/>/);
+  const page = sinComentarios(leer('app/crm/prospectos/page.tsx'));
+  assert.match(page, /const desde = funnels\.find\(\(f\) => String\(f\.id\) === sp\.funnel && !f\.esDefault\);/);
+  const app = sinComentarios(leer('app/crm/prospectos/ProspectosApp.tsx'));
+  assert.match(app, /<Link href=\{volver\?\.href \?\? '\/crm'\}[^>]*>\{volver \? `Volver a «\$\{volver\.nombre\}»` : 'Volver al CRM'\}<\/Link>/, '«Volver» no vuelve al CRM del que se vino');
+});

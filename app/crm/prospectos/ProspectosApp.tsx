@@ -91,7 +91,11 @@ function EstadoBusqueda({ b }: { b: Busqueda }) {
   return <Status tono="good">{b.nuevos} nuevos</Status>;
 }
 
-export function ProspectosApp({ funnels, esAdmin }: { funnels: FunnelOpcion[]; esAdmin: boolean }) {
+export function ProspectosApp({ funnels, esAdmin, volver = null }: {
+  funnels: FunnelOpcion[]; esAdmin: boolean;
+  /** El CRM del que se vino (`?funnel=`): «Volver» lleva a ÉL y lo nombra. Sin él, el CRM de siempre. */
+  volver?: { href: string; nombre: string } | null;
+}) {
   const [lista, setLista] = useState<ListaProspectos | null>(null);
   const [vista, setVista] = useState<Vista>('nuevo');
   const [fuente, setFuente] = useState<'todas' | FuenteProspeccion>('todas');
@@ -150,7 +154,7 @@ export function ProspectosApp({ funnels, esAdmin }: { funnels: FunnelOpcion[]; e
         accion={esAdmin
           ? <Button variant="primary" icon={<Icon name="search" size={16} />} onClick={() => setBuscar(true)}>Nueva búsqueda</Button>
           : <Button variant="secondary" disabled title="Buscar se cobra en la cuenta de Apify del negocio: lo hace un admin">Nueva búsqueda</Button>}
-        acciones={<Link href="/crm" style={{ fontSize: 14, color: 'var(--dim)', textDecoration: 'none' }}>Volver al CRM</Link>}
+        acciones={<Link href={volver?.href ?? '/crm'} style={{ fontSize: 14, color: 'var(--dim)', textDecoration: 'none' }}>{volver ? `Volver a «${volver.nombre}»` : 'Volver al CRM'}</Link>}
       />
 
       {'error' in lista ? (

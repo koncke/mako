@@ -84,7 +84,7 @@ export const DEFS: readonly OperacionDef[] = [
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_TAB,
   },
   {
-    id: 'crear_link_pago', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    id: 'crear_link_pago', aTerceros: true, area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Crear un link de pago',
     descripcion: 'PROPONE crear un link de pago de Stripe o Mercado Pago, con la cuenta del negocio, para que UN lead pague un producto del catálogo de ofertas. El precio sale del catálogo (listar_productos), nunca se escribe a mano: un monto libre se carga desde la ficha del lead. Pide antes el leadId (buscar_leads) y el productoId (listar_productos). Al confirmar, el link le llega a la persona por aparte y queda en la ficha del lead: NO lo escribas ni lo copies. Si el lead ya tiene un link pendiente de ese producto, no crea otro.',
     escribe: 'crea el cobro en `cobros` y su checkout (Stripe) o su preferencia (Mercado Pago) con la cuenta del negocio, y deja historial en el lead',
@@ -178,7 +178,7 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'gratis', gating: G_TAB,
   },
   {
-    id: 'editar_venta_lead', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    id: 'editar_venta_lead', plata: true, area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Editar la venta de un lead',
     descripcion: 'PROPONE cambiar la venta de un lead: el tipo (unico = pago único, suscripcion, sin_cobro = becado), el monto en USD (en una suscripción es la mensualidad), el plazo de una suscripción en meses (vacío = mes a mes) o la fecha de cierre. Pasar a suscripción deja la mensualidad por cargar; pasar a becado no se puede si ya hay cuotas cobradas; tipo=unico sobre un becado lo saca de «Sin cobro». No gana ni mueve el lead de etapa. Si el tipo cambió antes del «sí», no se escribe.',
     escribe: 'cambia venta_tipo, monto_cierre_usd o suscripcion_monto_usd, suscripcion_meses o fecha_cierre del lead (compare-and-set sobre el tipo) y deja el antes y el después en el historial',
@@ -192,7 +192,7 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'gratis', gating: G_TAB,
   },
   {
-    id: 'editar_cuota', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    id: 'editar_cuota', plata: true, area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Editar una cuota del plan',
     descripcion: 'PROPONE cambiar el monto en USD o el vencimiento de UNA cuota sin cobrar de un lead, por su id (el pago_id de cobranza_lead). No borra ni recrea la cuota: su link de pago y sus recordatorios siguen apuntando a ella. No se puede: una cuota cobrada (se corrige desmarcándola con marcar_pago_cobrado); el monto de una cuota con un link sin pagar (anula el link primero); nada de una cuota con un recordatorio de cobro en curso (córtalo con cortar_recordatorio_cuota).',
     escribe: 'cambia monto_usd o fecha_esperada de esa fila de pagos y deja el antes y el después en el historial',
@@ -205,7 +205,7 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'gratis', gating: G_TAB,
   },
   {
-    id: 'crear_link_cuota', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    id: 'crear_link_cuota', aTerceros: true, area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Cobrar una cuota con un link',
     descripcion: 'PROPONE crear un link de pago de Stripe, con la cuenta del negocio, que cobra UNA cuota sin cobrar de un lead por su monto exacto en USD (el pago_id de cobranza_lead). Al pagarse, la cuota queda cobrada y se cortan sus recordatorios. Si la cuota ya tiene un link sin pagar, devuelve ése. Mercado Pago cobra en la moneda de su cuenta: ese link se crea desde la ficha del lead. El link le llega a la persona por aparte: NO lo escribas ni lo copies.',
     escribe: 'crea el cobro en `cobros` atado a la cuota y su checkout de Stripe con la cuenta del negocio, y deja historial en el lead',

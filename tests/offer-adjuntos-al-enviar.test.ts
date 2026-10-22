@@ -105,14 +105,15 @@ test('Offer: ELEGIR no llama a subir-url ni a leer; sólo junta en la vista prev
   const elegir = bloque(app, 'const agregarArchivos = (archivos: File[]) =>', 'const quitarArchivo =');
   assert.doesNotMatch(elegir, /subirArchivo|llamarOffer|'leer'|leerAdjuntos|leerUno|enviarVista/, 'elegir un archivo volvió a subirlo o a leerlo');
   assert.match(elegir, /lista\.agregar\(archivos\)/);
-  // El chat (clip y soltar) sólo entrega los archivos.
+  // El chat (soltar) y la caja (el «+» y pegar) sólo entregan los archivos: van a las miniaturas de la caja (22/10/2026, OF4;
+  // antes, a la vista previa de WhatsApp).
   const chat = sinComentarios(leer('app/offer/ChatOffer.tsx'));
   assert.doesNotMatch(chat, /subirArchivo|llamarOffer/, 'el chat no sube ni lee nada');
-  assert.match(chat, /if \(lista\.length\) onArchivos\(lista\);/);
   // Con sólo texto (el arranque pregunta el nombre o un código) soltar no suma (tests/onboarding-caja-centro.test.ts).
   assert.match(chat, /if \(!soloTexto && !ocupado\) onArchivos\(Array\.from\(e\.dataTransfer\.files\)\);/);
   assert.match(app, /onArchivos=\{agregarArchivos\}/);
-  assert.match(app, /vista=\{vistaAdjuntos\}/);
+  assert.match(bloque(app, 'const adjuntosCaja: AdjuntosDeCaja = {', '\n  };'), /onSumar: agregarArchivos,/, 'el «+» de la caja junta, no lee');
+  assert.doesNotMatch(app, /<VistaAdjuntos\b/, 'la vista previa de WhatsApp volvió encima del chat');
 });
 
 test('Offer: subir y leer viven SÓLO en Enviar (leerUno ← leerAdjuntos ← enviarVista), y antes del turno', () => {

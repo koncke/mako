@@ -52,6 +52,8 @@ import { listarCobros } from '@/lib/cobros';
 import { cobradoDelLead } from '@/lib/cobrado-lead';
 import { estadoDeCuenta } from '@/lib/pagos-vistazo';
 import { planEnLead, tieneDeal } from '@/lib/muestra-pagos';
+import { tratosDelLead } from '@/lib/pagos';
+import { leadConTrato } from '@/lib/pagos-crm';
 import { pipelineStageOf } from '@/lib/pipeline';
 import {
   cuandoEnLista, etapaEnTablero, lineaActividad, llegoPor, progresoEnFunnel, proximaLlamada, senalDeTarjeta, seMueveEnElTelefono,
@@ -82,6 +84,11 @@ export type FichaV2 = {
   /** El estado de cuenta en una fila (la pieza `saldo`), con la MISMA cuenta que el escritorio. null = nada que contar. */
   saldo: SaldoTelefono | null;
   /**
+   * El de cada CRM agregado con plata (una renovación, CO2, 22/10/2026, mig 0324): su venta y su plan son otros. Una fila
+   * más en la pieza `saldo`, con el nombre del CRM. Vacío si no está en otro CRM con plata.
+   */
+  saldosCrm: Array<{ crm: string; saldo: SaldoTelefono }>;
+  /**
    * Las filas del Resumen nativo (16/10/2026): la siguiente acción, el equipo, la calificación, cuánto lleva en la
    * etapa… (`resumenDelTelefono`, ./ficha-bloques.ts). null = sin el lead (no se dibuja ninguna).
    */
@@ -99,18 +106,20 @@ export type FichaV2 = {
  * pantalla de escritorio), las etapas DEL LEAD para saber si ve Reuniones, la regla de Tracking, y
  * «N sin marcar» con sus insumos. Nunca tira: lo que falla no se dibuja.
  */
-async function fichaDelFunnel(lead: Lead | null): Promise<{ piezas: PiezaPuesta[]; sinMarcar: number | null; saldo: SaldoTelefono | null }> {
+async function fichaDelFunnel(lead: Lead | null): Promise<{ piezas: PiezaPuesta[]; sinMarcar: number | null; saldo: SaldoTelefono | null; saldosCrm: Array<{ crm: string; saldo: SaldoTelefono }> }> {
   // El respaldo del negocio sólo cambia redes, ingreso, dirección, sexo y cohorte: ninguna tiene versión de
   // teléfono, así que el vacío da las mismas piezas que la pantalla de escritorio con su `resumen`.
   const respaldo = fichaEfectiva('respaldo', null, RESPALDO_VACIO);
-  if (!lead) return { piezas: piezasDelTelefono(respaldo.tabs, ['resumen']), sinMarcar: null, saldo: null };
+  if (!lead) return { piezas: piezasDelTelefono(respaldo.tabs, ['resumen']), sinMarcar: null, saldo: null, saldosCrm: [] };
   const [ficha, insumos, verTracking] = await Promise.all([
     fichaDelFunnelDelLead(lead.funnel_id ?? null),
     leerInsumosDatosLead(lead),
     verTrackingDeLead(lead.funnel_id),
   ]);
   const efectiva = ficha?.efectiva ?? respaldo;
-  const verPagos = tieneDeal({ estado: lead.estado_lead, etapa: pipelineStageOf(lead), cuotas: insumos.pagos.length, planEnLead: planEnLead(lead) });
+  const saldosCrm = await saldosDeCrms(lead);
+  // Con una renovación con plata, la pieza del estado de cuenta se ve aunque la casa no tenga nada.
+  const verPagos = saldosCrm.length > 0 || tieneDeal({ estado: lead.estado_lead, etapa: pipelineStageOf(lead), cuotas: insumos.pagos.length, planEnLead: planEnLead(lead) });
   const piezas = piezasDelTelefono(efectiva.tabs, tabsQueVe({ verTracking, verReuniones: tieneEtapaDeReunion(insumos.stages), verPagos }));
   let sinMarcar: number | null = null;
   try {
@@ -118,7 +127,33 @@ async function fichaDelFunnel(lead: Lead | null): Promise<{ piezas: PiezaPuesta[
   } catch (e) {
     console.error(`[m/crm] datos sin marcar ${lead.id}: ${msg(e)}`);
   }
-  return { piezas, sinMarcar, saldo: verPagos ? await saldoDelLead(lead, insumos.pagos) : null };
+  return { piezas, sinMarcar, saldo: verPagos ? await saldoDelLead(lead, insumos.pagos) : null, saldosCrm };
+}
+
+/**
+ * El estado de cuenta de cada CRM agregado con plata (una venta o pagos), con la cuenta del escritorio sobre SU trato
+ * (`leadConTrato`, lib/pagos-crm.ts): lo que ve la tab Pagos mirando ese CRM. Nunca tira: sin leer, ninguno.
+ */
+async function saldosDeCrms(lead: Lead): Promise<Array<{ crm: string; saldo: SaldoTelefono }>> {
+  try {
+    const [tratos, funnels, hoy] = await Promise.all([tratosDelLead(lead.id), listarFunnels(), hoyEnWorkspace()]);
+    const out: Array<{ crm: string; saldo: SaldoTelefono }> = [];
+    for (const t of tratos) {
+      if (!t.pagos.length && t.monto_cierre_usd == null) continue;
+      const l = leadConTrato(lead, t);
+      const cobrado = cobradoDelLead({
+        ventaTipo: l.venta_tipo ?? null, montoCierreUsd: l.monto_cierre_usd ?? null, suscripcionMontoUsd: null, suscripcionMeses: null,
+        fechaCierre: l.fecha_cierre ?? null, pagos: t.pagos, cobros: [], hoy,
+      });
+      const saldo = saldoDelTelefono(estadoDeCuenta({ cobrado, pagos: t.pagos, ganado: l.estado_lead === 'ganado', hoy }));
+      const f = funnels.find((x) => x.id === t.funnelId);
+      if (saldo) out.push({ crm: f ? nombreVisible(f) : 'Otro CRM', saldo });
+    }
+    return out;
+  } catch (e) {
+    console.error(`[m/crm] estado de cuenta de los otros CRMs ${lead.id}: ${msg(e)}`);
+    return [];
+  }
 }
 
 /**

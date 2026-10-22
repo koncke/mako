@@ -76,12 +76,13 @@ export function leerHilo(proyectoId: string): Hilo {
 }
 
 /** Cambia el hilo de un proyecto (y lo deja para guardar si cambiaron los mensajes). */
-export function cambiarHilo(proyectoId: string, f: (h: Hilo) => Hilo) {
+/** `guardar: false`: se muestra sin volver a guardar (lo que se acaba de leer de la base, `cargarHilo`). */
+export function cambiarHilo(proyectoId: string, f: (h: Hilo) => Hilo, op: { guardar?: boolean } = {}) {
 	const antes = hilos.get(proyectoId) ?? HILO_VACIO;
 	const despues = f(antes);
 	hilos.set(proyectoId, despues);
 	for (const o of oyentes) o();
-	if (despues.mensajes !== antes.mensajes) programarGuardado(proyectoId);
+	if (despues.mensajes !== antes.mensajes && op.guardar !== false) programarGuardado(proyectoId);
 }
 
 /** Cambia un mensaje de MaKo (su estado, su aviso…), con la hora del cambio. */
@@ -205,7 +206,11 @@ export async function cargarHilo(proyectoId: string, nombre?: string | null): Pr
 	if (r.hilo) {
 		s.version = r.hilo.version;
 		const guardados = hiloAlAbrir(r.hilo.mensajes);
-		cambiarHilo(proyectoId, (h) => ({ ...h, mensajes: unirConServidor(h.mensajes, guardados, proyectoId) }));
+		// ABRIR NO ES UN CAMBIO: lo leído se muestra y NO se vuelve a guardar. Antes cada apertura subía la versión y el
+		// `updated_at` con los mismos mensajes (medido en el ws3 el 22/10/2026), y el Ops Center, que ordena por actividad,
+		// subiría arriba un chat sólo por mirarlo. Lo que la pestaña escribió antes de que llegara ya marcó `sucio`: eso sí se
+		// guarda (abajo), unido.
+		cambiarHilo(proyectoId, (h) => ({ ...h, mensajes: unirConServidor(h.mensajes, guardados, proyectoId) }), { guardar: false });
 	}
 	if (s.sucio || (leerHilo(proyectoId).mensajes.length && !r.hilo)) programarGuardado(proyectoId);
 }

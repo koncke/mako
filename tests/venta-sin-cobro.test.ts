@@ -274,7 +274,7 @@ test('las métricas que cuentan en JS o por conteo también lo excluyen', () => 
   assert.match(neg, /'id, created_at,[^']*\bventa_tipo'/, 'la lectura baja venta_tipo');
   assert.match(neg, /r\.cerro === true && cuentaComoVenta\(r\)/, 'ganados / ingreso_usd');
   const obj = fuente('lib/objectives-fuentes.ts');
-  assert.match(obj, /cierres: \(desde, hasta\) => contar\('leads', \[[^\]]*\{ col: 'venta_tipo', op: 'neq', val: VENTA_SIN_COBRO \}/, 'el KPI «Cierres»');
+  assert.match(obj, /cierres: async \(desde, hasta\) => \{\s*const r = await contar\('leads', \[[^\]]*\{ col: 'venta_tipo', op: 'neq', val: VENTA_SIN_COBRO \}/, 'el KPI «Cierres»');
   assert.match(obj, /f\.op === 'neq'\) q = q\.neq\(/, '`contar` sabe hacer un neq');
   // El aviso de recorte cuenta el MISMO universo que la lectura que vigila.
   const run = fuente('lib/api-mako/areas/metricas.run.ts');
@@ -308,7 +308,7 @@ test('un «sin cobro» marcado por error tiene salida (el bloque de la venta)', 
   // El wizard ofrece el tipo sólo cuando falta el monto, y a un becado nunca le falta.
   const acc = bloque(fuente('app/crm/[id]/deal-actions.ts'), 'export async function quitarSinCobroAction(');
   assert.match(acc, /\.eq\('venta_tipo', VENTA_SIN_COBRO\)/, 'compare-and-set sobre el tipo');
-  assert.match(fuente('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx'), /if \(tipo === 'sin_cobro'\) \{\s*const r = await quitarSinCobroAction\(lead\.id\)/);
+  assert.match(fuente('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx'), /if \(tipo === 'sin_cobro' && crm == null\) \{\s*const r = await quitarSinCobroAction\(lead\.id\)/);
 });
 
 test('«Quitar "Sin cobro"» se ve en las TRES superficies, no sólo donde el refresh llega', () => {
@@ -350,7 +350,7 @@ test('«Quitar "Sin cobro"» se ve en las TRES superficies, no sólo donde el re
   // `ctx.parchear` del tipo devuelto → 1 fallo; sin el aviso de «ya no era» → 1 fallo.
   assert.doesNotMatch(fuente('app/crm/lead-view/ficha/registro-pagos.tsx'), /<DealDetailsCard\b/);
   const venta = fuente('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx');
-  const salir = venta.slice(venta.indexOf("if (tipo === 'sin_cobro') {"), venta.indexOf("const e = await guardar({ campo: 'tipo', valor: nuevo }"));
+  const salir = venta.slice(venta.indexOf("if (tipo === 'sin_cobro' && crm == null) {"), venta.indexOf("const e = await guardar({ campo: 'tipo', valor: nuevo }"));
   assert.ok(salir.length > 100 && salir.length < 1500, `recorte de la salida de «Sin cobro»: ${salir.length}`);
   assert.match(salir, /await quitarSinCobroAction\(lead\.id\)/, 'sale por su acción (compare-and-set), no por guardar la venta');
   assert.match(salir, /if \(!r\.cambio\) show\(/, 'un clic que no escribió lo dice');

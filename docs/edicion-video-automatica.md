@@ -70,12 +70,12 @@ bloqueante del onboarding de voz**, no un checkbox: es la voz de una persona rea
 material entró y qué se excluyó — es lo que permite entender un año después por qué un clon
 suena como suena. La del clon de Mauricio dice, textual:
 
-> *"3 notas de voz de Mauricio Bustos del 22/08/2026 en registro de anuncio, con CTA:
+> *"3 notas de voz de Mauricio del 22/08/2026 en registro de anuncio, con CTA:
 > incendio del viernes, todos dijeron que sí, junta de rendición de cuentas. 313 s, m4a
 > 73 kbps mono 48 kHz, sin recompresión. Excluye 'Dejar de preguntar' (123 Hz, más grave)
 > y la autorización legal. Autorización de uso de voz grabada por el titular el 19/08/2026."*
 
-Voz vigente de Mauricio: **`dKQBE4K2Lu9KFMvS8sgP`** — «Mauricio Bustos (anuncios 22-08)».
+Voz vigente de Mauricio: **`dKQBE4K2Lu9KFMvS8sgP`** — «Mauricio (anuncios 22-08)».
 
 > ⚠️ **Un `voice_id` anotado se verifica antes de usarlo**, con `GET /v1/voices/{id}`. El id
 > anterior (`cw1FCBOoMtF4joFyHYy9`) devuelve `voice_not_found`: la voz se re-clonó y el id

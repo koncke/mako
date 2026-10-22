@@ -129,5 +129,5 @@ dueño)**.
 
 Las cuentas que eran admin (por `AUTH_ALLOWED_EMAILS`) ahora ven el **panel
 admin**, no el dashboard de marketing. Para ver los datos de Mauricio: **Entrar
-como → Mauricio Bustos**. Si Mauricio necesita su propio login como usuario
+como → Mauricio**. Si Mauricio necesita su propio login como usuario
 normal, creá un usuario asignado al **workspace 1** desde /admin.

@@ -55,7 +55,8 @@ const VISIBLES = 14;
 function Previa({ c, espera, sinVer }: { c: ChatCentro; espera: number; sinVer: boolean }) {
   const r = segundoRenglon(c, espera, sinVer);
   if (!r) return null;
-  return <span className={`co-fila__l2 ${r === 'vivo' ? 'co-fila__l2--vivo' : 'co-fila__l2--espera'}`}>{TEXTO_SEGUNDO_RENGLON[r]}</span>;
+  // «Completado» en verde, como «Trabajando…»: sólo una pregunta abierta va en el color que pide algo (22/10/2026).
+  return <span className={`co-fila__l2 ${r === 'vivo' ? 'co-fila__l2--vivo' : r === 'revisar' ? 'co-fila__l2--ok' : 'co-fila__l2--espera'}`}>{TEXTO_SEGUNDO_RENGLON[r]}</span>;
 }
 
 /** El sello de un «Ya está» en la lista (17/10/2026: en pantalla «Ya está» se dice «Completado»). */
@@ -188,12 +189,7 @@ export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }:
             )}
             {!plegada && (clave === SECCION_CHATS
               // Los sub-chats con su jefe; un grupo cuyo jefe no está en la lista lleva su nombre arriba.
-              ? porJefe(corte).map((g) => (
-                <div key={g.clave} className="co-jefe">
-                  {g.chat ? fila(g.chat, false) : <p className="co-jefe__nombre">{g.jefe}</p>}
-                  {g.subs.length > 0 && <div className="co-jefe__subs">{g.subs.map((s) => fila(s, true))}</div>}
-                </div>
-              ))
+              ? <GruposPorJefe chats={corte} fila={fila} />
               : corte.map((c) => fila(c, false)))}
             {!plegada && !todas && lista.length > corte.length && (
               <button type="button" className="co-mas" onClick={() => setEnteras((s) => alternar(s, clave))}>{`Mostrar ${lista.length - corte.length} más`}</button>
@@ -204,6 +200,24 @@ export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }:
           </div>
         );
       })}
+    </>
+  );
+}
+
+/**
+ * Los chats agrupados por su jefe (`porJefe`): el jefe y, debajo, sus sub-chats corridos a la derecha; un grupo cuyo jefe no está
+ * en la lista lleva su nombre arriba. UNO para las dos listas: la del super admin (`ListaCentro`) y la del cliente
+ * (app/second-brain/ChatSecondBrain.tsx, sus chats agrupados por origen: 22/10/2026, «un orden como en Super Admin»).
+ */
+export function GruposPorJefe<T extends { titulo: string }>({ chats, fila }: { chats: readonly T[]; fila: (c: T, sub: boolean) => ReactNode }) {
+  return (
+    <>
+      {porJefe(chats).map((g) => (
+        <div key={g.clave} className="co-jefe">
+          {g.chat ? fila(g.chat, false) : <p className="co-jefe__nombre">{g.jefe}</p>}
+          {g.subs.length > 0 && <div className="co-jefe__subs">{g.subs.map((s) => fila(s, true))}</div>}
+        </div>
+      ))}
     </>
   );
 }
@@ -235,7 +249,9 @@ export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; c
         chats: k.chats, onReenviar: (texto, claves) => k.reenviar(chat, texto, k.chats.filter((c) => claves.includes(c.clave))),
         onCopiar: (t) => void k.copiarConAviso(t, 'Copiado'),
       }}
-      espera={esperaDe(chat, k.esperas)}
+      // El MISMO número que su fila (`k.avisos`: lo que espera a Martín y su «Completado» sin ✓). Con `esperaDe` la criatura de
+      // la cabecera dormía mientras la fila decía «Completado» (Martín, 22/10/2026: «No se entiende»).
+      espera={k.avisos(chat)}
       preguntas={preguntasDelChat(chat, k.decisiones, k.carteros)}
       respuestas={respuestasDelChat(chat, k.decisiones, k.carteros)}
       responder={k.responderAca}
@@ -358,7 +374,7 @@ export function PieCentro({ centro: k }: { centro: Centro }) {
   return (
     <div className="co-barra__abajo">
       {/* Las CUATRO cuentas siempre, tengan o no Runner (Martín: «no sale el uso de las otras 2 cuentas»). */}
-      <BotonUso cuentas={cuentasConTitular(k)} ahora={k.ahora} onRenombrar={k.renombrarCuenta} />
+      <BotonUso cuentas={cuentasConTitular(k)} ahora={k.ahora} onRenombrar={k.renombrarCuenta} onLeerCredito={k.leerCreditoApi} />
     </div>
   );
 }

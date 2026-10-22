@@ -27,6 +27,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { FilaM, ListaM, PieM, SeccionM, SheetM, VacioM, useToastM } from '@/app/m/_ui';
 import { Button } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
+import { preguntasDeLaApp, preguntasParaElBloque } from '@/lib/centro-chats';
 import {
   SECCION_CHATS, TEXTO_SEGUNDO_RENGLON, avisosDe, comoSale, esPrioritario, seguirChat, esperaDe, historialDelChat, partesDelNombre, porJefe, seccionesDeChats, segundoRenglon, trabajaSinEscribir,
   textoDeEnvio, type CarteroP, type ChatCentro, type LineaChat, type TrabajoP,
@@ -35,6 +36,7 @@ import type { PedidoP, PushP } from '@/lib/progreso-reglas';
 import type { AccionResponder, Decision } from '@/app/admin/runway/decisiones';
 import { preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
 import { Pregunta } from '@/app/admin/operaciones/Pregunta';
+import { PreguntasDeLaApp, PreguntasDelChat } from '@/app/admin/operaciones/PreguntasDelChat';
 import { CirculoNuevo } from '@/app/admin/operaciones/NuevoChat';
 import { useChatNuevo } from '@/app/admin/operaciones/ChatNuevo';
 import { CajaChatNuevo, CriaturaChatNuevo, CuerpoChatNuevo, TituloChatNuevo } from '@/app/admin/operaciones/ChatNuevoPiezas';
@@ -146,7 +148,7 @@ const FilaChatM = memo(function FilaChatM({ c, sub, espera, aspecto, ahora, onAb
       leading={<span className={sub ? 'm-operaciones-sub' : undefined}><Muneco titulo={c.titulo} aspecto={aspecto} animo={animo} size={sub ? 32 : 40} espera={avisosDe(espera, nuevo)} /></span>}
       titulo={<span className={`m-operaciones-texto1${animo === 'dormido' ? ' m-operaciones-texto1--dormido' : ''}`}>{sub ? `↳ ${partesDelNombre(c.titulo).sub}` : c.titulo}{c.nube && <> <span className="co-chip-cuenta">Nube</span></>}</span>}
       // «Trabajando…», «Espera tu respuesta» o nada (20/10/2026): lo decide `segundoRenglon`, el mismo de la computadora.
-      segunda={renglon ? <span className={renglon === 'vivo' ? 'm-operaciones-vivo' : 'm-operaciones-espera'}>{TEXTO_SEGUNDO_RENGLON[renglon]}</span> : undefined}
+      segunda={renglon ? <span className={renglon === 'espera' ? 'm-operaciones-espera' : 'm-operaciones-vivo'}>{TEXTO_SEGUNDO_RENGLON[renglon]}</span> : undefined}
       riel={<span className="m-operaciones-riel"><span className="m-operaciones-hace">{edad(c.actividad, ahora)}</span></span>}
       onClick={() => onAbrir(c.clave)}
       chevron={false}
@@ -228,6 +230,8 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
     return () => mirar(null);
   }, [elegido?.clave, mirar, parte]); // eslint-disable-line react-hooks/exhaustive-deps
   const preguntas = elegido ? preguntasDelChat(elegido, decisiones, carteros) : [];
+  const bloque = preguntasParaElBloque(lineas);
+  const deLaApp = preguntasDeLaApp(lineas);
   const hilo = useRef<HTMLDivElement>(null);
   // La caja: el campo, para enfocarlo desde afuera. Lo que crece y el scroll que acompaña son de la caja única
   // (app/_chat/CajaChat.tsx): acá crece el CSS (`field-sizing`) y la que sigue abajo es la hoja.
@@ -289,7 +293,9 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
     return c ? k.contestarPregunta(c, p, e, o) : Promise.resolve(null);
   }, []);
   const aspectoAbierto = elegido ? elegidoPara(munecos, elegido.titulo) : null;
-  const animoAbierto = elegido ? animoDe(elegido, esperaDe(elegido, esperas)) : 'despierto';
+  // La criatura de la cabecera, con el MISMO número que su fila (`centro.avisos`, con el «Completado» sin ✓): la de la fila estaba
+  // despierta y ésta dormía (22/10/2026).
+  const animoAbierto = elegido ? animoDe(elegido, centro.avisos(elegido)) : 'despierto';
   const datoAbierto = elegido ? trabajaSinEscribir(elegido, lineas) ?? metaDe(elegido) : '';
   const quien = useMemo(() => ({ titulo: elegido?.titulo ?? '', aspecto: aspectoAbierto, animo: animoAbierto, dato: datoAbierto }), [elegido?.titulo, aspectoAbierto, animoAbierto, datoAbierto]);
   const vivo = useMemo(() => (elegido ? { chat: elegido, carteros } : undefined), [elegido, carteros]);
@@ -416,7 +422,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
           perfil» (eso se cambia en Tu cuenta). */}
       {conHoja && <SheetM abierto={!!elegido} onCerrar={cerrarHoja} snap="alto"
         titulo={eligiendo ? 'Su criatura' : panelWA ? (panelWA.tipo === 'info' ? 'Info del mensaje' : 'Reenviar a…') : elegido ? (
-          <TituloDeChat chat={elegido} aspecto={aspectoAbierto} avisos={esperaDe(elegido, esperas)} renombre={renombre}
+          <TituloDeChat chat={elegido} aspecto={aspectoAbierto} avisos={centro.avisos(elegido)} renombre={renombre}
             onMuneco={esCriaturaDeMako(elegido.titulo) ? undefined : abrirMuneco}
             onRenombrar={elegido.sesiones.length > 0 ? () => setRenombre({ texto: elegido.titulo, error: null, mandando: false }) : undefined}
             onTexto={(texto) => setRenombre((r) => (r ? { ...r, texto, error: null } : r))}
@@ -461,6 +467,11 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
             </ContextoWA.Provider>
             {/* Lo que espera de Martín, al final de la conversación y pegado a la caja: AskUserQuestion de Claude Code. */}
             {preguntas.length > 0 && <Pregunta key={elegido.clave} preguntas={preguntas} responder={responder} />}
+            {/* Lo que ESTE chat le pregunta, de a una y como en Claude (22/10/2026, PreguntasDelChat.tsx): las de `cartero preguntar` y
+                los botones del cierre con wrap_up se contestan acá (quedan en el hilo como «Decisión: …»); las de AskUserQuestion se
+                ven, y se contestan en la app de Claude. */}
+            {deLaApp.length > 0 && <PreguntasDeLaApp key={`a-${elegido.clave}`} chat={elegido.clave} preguntas={deLaApp} />}
+            {bloque.length > 0 && <PreguntasDelChat key={`p-${elegido.clave}`} chat={elegido.clave} preguntas={bloque} onResponder={responderPregunta} />}
           </div>
         )}
       </SheetM>}

@@ -48,6 +48,7 @@ import { validarInput } from './validar';
 import { vistaDe } from './vista';
 import { canalKeyDe, canalDeClave, etiquetaDeCanal, puedeConfirmar, PREFIJO_APP, PREFIJO_FLUJO } from './canal';
 import { esAccion, type AccionDef, type Ctx, type Ejecutado } from './tipos';
+import { rechazoSiNoEsConfirmacionPura } from '@/lib/confirmacion-pura';
 import { anotarEnHiloDeOrigen } from '@/lib/chat-hilo-origen';
 import { bloqueDeResultado } from '@/lib/chat-bloques';
 
@@ -261,6 +262,13 @@ export async function confirmarPendiente(ctx: Ctx, id: number | null) {
     await resolverPendiente(ctx.ws, p.id, 'error', 'se confirma en pantalla, no por chat', { soloSiPendiente: true });
     return { error: 'Esta acción se confirma en su pantalla de revisión, no por el chat: la pendiente quedó cerrada sin ejecutar. Pide la propuesta de nuevo y confírmala en el link.' };
   }
+
+  // Lo que LE LLEGA A OTRA PERSONA (un email, un WhatsApp, una invitación) y se confirma por WhatsApp pide un «sí» y nada más: «ok, esperá que
+  // lo reviso» no lo ejecuta. La pendiente sigue viva; el rechazo vuelve al modelo, que repregunta mostrando qué va a salir (lib/confirmacion-pura.ts).
+  const rechazoATercero = rechazoSiNoEsConfirmacionPura({
+    canal: ctx.canal, aTerceros: def && esAccion(def) ? def.aTerceros : undefined, plata: def && esAccion(def) ? def.plata : undefined, mensaje: ctx.mensajeUsuario, titulo: def?.titulo ?? p.tipo, resumen: p.resumen,
+  });
+  if (rechazoATercero) return { error: rechazoATercero };
 
   if (!registrada) {
     // Una heredada que ningún área declaró todavía: se ejecuta por el camino viejo,

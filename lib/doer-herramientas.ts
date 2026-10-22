@@ -19,6 +19,8 @@ import { toolsDelRegistro, porId, leeDatosDeClientes, type Vista } from './api-m
 import { llevaDatosPersonales } from './mako-pedidos';
 import type { ToolDef } from './anthropic';
 import type { Area } from './api-mako/tipos';
+import { registroParaLaApp, puertaDeDestructivas } from './relevancia-app';
+import { sinVerboAlArranque, ordenDelPedido, pideQuitar } from './mako-intencion-app';
 
 /** Las de Calendly. A un negocio sin Calendly no le sirven, y su receta («buscá el lead,
  *  pedile el email, ofrecé 3 huecos») le gana a la de Google: con un evento sin lead,
@@ -137,7 +139,7 @@ export function turnoParaLaRed<T extends { name: string }>(p: {
  * recibía las veinte tools y ninguna obligación — y el mismo mensaje terminaba
  * en un borrador o en un ensayo según el día. Ver lib/mako-intencion.ts.
  */
-export function toolsParaIntencion<T extends { name: string }>(intencion: Intencion, todas: T[], dudosa = false): T[] {
+export function toolsParaIntencion<T extends { name: string }>(intencion: Intencion, todas: T[], dudosa = false, adivina = false): T[] {
   const permitidas = CONTRATO[intencion].tools;
   const base = permitidas === null ? todas : todas.filter((t) => permitidas.includes(t.name));
 
@@ -159,8 +161,12 @@ export function toolsParaIntencion<T extends { name: string }>(intencion: Intenc
   // ⛔ Y no se toca el default del clasificador: ante la duda, seguir capturando es
   // correcto para el dueño volcando ideas. Lo que se corrige es que la duda no
   // EJECUTE.
-  if (!dudosa) return base;
-  return base.filter((t) => t.name !== 'proponer_tareas_plan');
+  // `adivina` (lib/mako-intencion.ts): en la APP el default de «sin señal clara» es actuar con `dudosa: false` (D1 = A), y eso
+  // desarmaba este candado: «ahí hice la prueba» volvía a crear un borrador del plan que nadie pidió (el bug del 25/08). Una
+  // adivinanza tampoco trae `cancelar_accion`, la única que actúa sin tarjeta: «eso está mal» no cancela una propuesta; un «no»
+  // o un «cancelá» explícito ya es `confirmar` y la trae.
+  if (!dudosa && !adivina) return base;
+  return base.filter((t) => t.name !== 'proponer_tareas_plan' && !(adivina && t.name === 'cancelar_accion'));
 }
 
 export type EntradaTurno<T extends { name: string }> = {
@@ -247,13 +253,30 @@ export function herramientasDelTurno<T extends { name: string }>(p: EntradaTurno
   ])];
   const relevanteA = [sobre, v.relevancia ?? '', ...(p.resumenesPendientes ?? [])].filter(Boolean).join('\n');
   const deSiempre = p.sinCalendly ? p.deSiempre.filter((t) => !DE_CALENDLY.includes(t.name)) : p.deSiempre;
-  const delRegistro = areas.length
-    ? toolsDelRegistro({
-        vista: p.vista, areas, incluirAcciones: v.intencion === 'actuar',
-        excluir: new Set([...p.deSiempre.map((t) => t.name), ...(p.sinCalendly ? DE_CALENDLY : []), ...(v.mover ? NO_MUEVEN_DE_DIA : [])]),
-        maxChars: PRESUPUESTO_REGISTRO_CHARS, relevanteA,
+  const excluir = new Set([...p.deSiempre.map((t) => t.name), ...(p.sinCalendly ? DE_CALENDLY : []), ...(v.mover ? NO_MUEVEN_DE_DIA : [])]);
+  // En la app (`buscaEnTodo`, lib/mako-intencion.ts) el pedido no siempre nombra el área de su operación («creá una etiqueta»,
+  // «cortá el video»): la operación se busca en TODO el registro, con los frenos y las pasadas de lib/relevancia-app.ts (áreas
+  // nombradas hasta el 60%; las otras sólo por una raíz al principio de una palabra, sin destructivas ni lecturas que cuestan; el
+  // resto de las nombradas; y las lecturas que dan el id de lo que entró). Lo que se elige es una tarjeta que la persona confirma.
+  const buscaEnTodo = !!v.buscaEnTodo && (v.intencion === 'actuar' || v.intencion === 'consultar' || v.intencion === 'pensar');
+  const conAcciones = v.intencion === 'actuar';
+  // En la app, las operaciones que quitan, cortan o cancelan algo no entran por el ÁREA que se nombra sino por la COSA que se nombra
+  // (lib/relevancia-app.ts, `nombraLaCosa`): el 21/10/2026 se midió que `area-negocio` abría `reiniciar_personalidad` en «eliminá las
+  // muletillas». WhatsApp (otra vista) no pasa por acá y sigue como estaba.
+  const deLaApp = p.vista.canal === 'app';
+  const sinOrden = deLaApp ? sinVerboAlArranque(sobre) : '';
+  const quita = deLaApp && pideQuitar(sobre);
+  const delRegistro = buscaEnTodo
+    ? registroParaLaApp({
+        vista: p.vista, areas, texto: sinOrden || sinVerboAlArranque(sobre), relevanteA, relevancia: v.relevancia ?? '', quita, orden: ordenDelPedido(sobre), conAcciones, excluir, presupuesto: PRESUPUESTO_REGISTRO_CHARS,
       })
-    : [];
+    : areas.length
+      ? toolsDelRegistro({
+          vista: p.vista, areas, incluirAcciones: v.intencion === 'actuar',
+          excluir, maxChars: PRESUPUESTO_REGISTRO_CHARS, relevanteA,
+          ...(deLaApp ? { donde: puertaDeDestructivas(sinOrden, quita) } : {}),
+        })
+      : [];
   /**
    * ⚠️ EN UNA PREGUNTA NO VIAJAN LAS HERRAMIENTAS QUE ESCRIBEN: MaKo OFRECE la acción.
    *
@@ -264,7 +287,7 @@ export function herramientasDelTurno<T extends { name: string }>(p: EntradaTurno
    * algo pendiente de confirmar, confirmar/cancelar quedan (la persona puede contestarlo).
    */
   const ofrece = v.intencion === 'consultar' || v.intencion === 'pensar';
-  const tools = toolsParaIntencion<T | ToolDef>(v.intencion, [...deSiempre, ...delRegistro], v.dudosa)
+  const tools = toolsParaIntencion<T | ToolDef>(v.intencion, [...deSiempre, ...delRegistro], v.dudosa, !!v.adivina)
     .filter((t) => !ofrece || !escribe(t.name) || (p.hayPendientes && (t.name === 'confirmar_accion' || t.name === 'cancelar_accion')));
   // Lo dice el VEREDICTO, no el texto leído otra vez: con una propuesta de agenda abierta el
   // clasificador ya decidió que es la reunión y no marca nada. Re-leer el texto acá tenía su

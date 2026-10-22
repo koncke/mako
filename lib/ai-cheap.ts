@@ -24,6 +24,7 @@
 
 import 'server-only';
 import { recordUsage, recordSttUsage } from '@/lib/anthropic-usage';
+import { conTechoDeSalida } from '@/lib/ai-cheap-techo';
 import type { ToolDef, ToolRunner, RichMsg, ToolsResult } from '@/lib/anthropic';
 import { createHash } from 'node:crypto';
 import { credDelCliente, credWs, credWsEstricta } from '@/lib/credenciales';
@@ -170,7 +171,7 @@ async function huellasDeLaPlataforma(nombre: ProvName, wsSA: number): Promise<Se
     }
     const cargadas = clavesDe(nombre).length ? await clavesCargadas(nombre, wsSA) : clavesProv(nombre);
     for (const cl of cargadas) {
-      const v = await credWsEstricta(cl, wsSA);
+      const v = await credWsEstricta(cl, wsSA, { ilegibleTira: true });
       if (v?.trim()) huellas.add(huellaDeKey(v));
     }
     huellasCache.set(nombre, { hasta: Date.now() + HUELLAS_TTL_MS, huellas });
@@ -503,7 +504,7 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
         { role: 'system', content: opts.system },
         { role: 'user', content: opts.user },
       ],
-      max_tokens: (opts.maxTokens ?? 512) + aire,
+      max_tokens: conTechoDeSalida(p, model, (opts.maxTokens ?? 512) + aire),
       temperature: opts.temperature ?? 0.2,
       ...(opts.json ? { response_format: { type: 'json_object' } } : {}),
       // Gemini 2.5 Flash "piensa" por default y ese razonamiento oculto consume del
@@ -1292,7 +1293,7 @@ export async function chatCheapTools(
             ...(oaiTools.length
               ? { tools: oaiTools, tool_choice: step === 0 && opts.toolChoicePrimerPaso ? opts.toolChoicePrimerPaso : 'auto' }
               : {}),
-            max_tokens: opts.maxTokens ?? 1400, temperature: 0.2,
+            max_tokens: conTechoDeSalida(p, model, opts.maxTokens ?? 1400), temperature: 0.2,
           }),
           cache: 'no-store',
           signal: AbortSignal.timeout(opts.timeoutMs ?? 45000),
@@ -1432,7 +1433,7 @@ async function cerrarSinTools(
   const res = await fetch(`${p.base}/chat/completions`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${p.key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, messages: msgs, max_tokens: opts.maxTokens ?? 1400, temperature: 0.2 }),
+    body: JSON.stringify({ model, messages: msgs, max_tokens: conTechoDeSalida(p, model, opts.maxTokens ?? 1400), temperature: 0.2 }),
     cache: 'no-store',
     signal: AbortSignal.timeout(opts.timeoutMs ?? 45000),
   });

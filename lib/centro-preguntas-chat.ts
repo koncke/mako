@@ -60,8 +60,9 @@ export type PreguntaChat = {
   varias: boolean;
   at: string;
   respuesta: RespuestaPregunta | null;
-  /** 'wrap_up' = la armó el cartero del recuadro de próximo paso de la app (1.17.2); sin esto, de `preguntar`. */
-  origen?: 'wrap_up';
+  /** 'wrap_up' = la armó el cartero del recuadro de próximo paso de la app (1.17.2); 'ask' = un AskUserQuestion de la app de
+   *  Claude (cartero 1.18.0): se VE en el Ops Center y se contesta en la app; sin esto, de `preguntar`. */
+  origen?: 'wrap_up' | 'ask';
   /** Cuándo quedó superada: una de wrap_up que el chat dejó atrás, o una que su chat RETIRÓ (`retirarDeLaLista`, cartero
    *  1.17.4). No cuenta como abierta. */
   superada?: string;
@@ -109,7 +110,7 @@ export function sanearPregunta(x: unknown): PreguntaChat | null {
   const superada = ISO(o.superada);
   return {
     id: o.id, local: o.local, pregunta, contexto, opciones, recomendada, varias: o.varias === true, at, respuesta,
-    ...(o.origen === 'wrap_up' ? { origen: 'wrap_up' as const } : {}), ...(superada ? { superada } : {}),
+    ...(o.origen === 'wrap_up' || o.origen === 'ask' ? { origen: o.origen } : {}), ...(superada ? { superada } : {}),
     ...(o.origen === 'wrap_up' && o.tambienPreguntar === true ? { tambienPreguntar: true as const } : {}),
   };
 }
@@ -209,6 +210,14 @@ export function superarPreguntas(preguntas: readonly PreguntaChat[], turnos: rea
   const t = (s: string) => Date.parse(s);
   let cambio = false;
   const out = preguntas.map((p) => {
+    // Una de AskUserQuestion (cartero 1.18.0): el chat no escribe NADA hasta que Martín la contesta en la app, así que lo
+    // primero que el chat dice después la deja atrás (también un turno suyo, `el`).
+    if (p.origen === 'ask' && estaAbierta(p)) {
+      const sigue = turnos.filter((x) => x.local === p.local && (x.rol === 'el' || x.rol === 'yo' || x.rol === 'otro') && t(x.at) > t(p.at)).map((x) => t(x.at)).sort((a, b) => a - b)[0];
+      if (sigue == null) return p;
+      cambio = true;
+      return { ...p, superada: new Date(sigue).toISOString() };
+    }
     if (p.origen !== 'wrap_up' || p.tambienPreguntar || !estaAbierta(p)) return p;
     const despues = [
       ...turnos.filter((x) => x.local === p.local && (x.rol === 'yo' || x.rol === 'otro') && t(x.at) > t(p.at)).map((x) => x.at),
@@ -256,6 +265,13 @@ export function textoDeRespuesta(p: Pick<PreguntaChat, 'id' | 'pregunta' | 'opci
   if (otra) lineas.push(`Otra: ${otra}`);
   return `Respuesta a tu pregunta «${p.pregunta}» ${marcaDePregunta(p.id)}:\n${lineas.join('\n')}`;
 }
+
+/** ¿Se contesta en la app de Claude y no acá? (un AskUserQuestion: traba el chat hasta que se conteste ahí). */
+export const seContestaEnLaApp = (p: Pick<PreguntaChat, 'origen'>): boolean => p.origen === 'ask';
+
+/** Cómo queda una respuesta en el hilo, como un mensaje de Martín (22/10/2026, «como en Claude»): corta, con lo elegido. */
+export const textoDeDecision = (p: Pick<PreguntaChat, 'opciones'>, r: Pick<RespuestaPregunta, 'elegidas' | 'otra'>): string =>
+  `Decisión: ${resumenDeRespuesta(p, r)}`;
 
 /** Lo que se ve de una respuesta en la conversación: los títulos elegidos y lo escrito, sin el marcador. */
 export function resumenDeRespuesta(p: Pick<PreguntaChat, 'opciones'>, r: Pick<RespuestaPregunta, 'elegidas' | 'otra'>): string {

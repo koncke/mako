@@ -1527,7 +1527,7 @@ producto y no en un tropiezo de sesión — de 8 usuarios, **pasan 2**:
 | Cuenta | rol global | ws | pasa |
 |---|---|---|---|
 | martinkoncke@gmail.com | admin | 9 | **sí** (admin de plataforma) |
-| mbustos@elevate.com.mx | usuario | 1 | **sí** (admin del ws1) |
+| dueno@negocio-uno.com | usuario | 1 | **sí** (admin del ws1) |
 | Leila, Código Inmobiliario, P2P, Ananda, Leandro, prueba | usuario | 5·10·11·13·14·3 | **no** |
 
 Los **seis clientes reales** ven la tab, entran, cargan creativos, eligen objetivo,
@@ -2339,7 +2339,7 @@ acá la página salía FIJA de la credencial `META_PAGE_ID`, y el Instagram, del
 devolviera Meta.
 
 **Lo medido antes de construir:** ninguna conexión real tiene hoy más de una opción. ws1, ws4,
-ws11, ws13 y ws14 tienen UNA página cada una (ws13 y ws14 con @joandowd.gm; ws1 sin
+ws11, ws13 y ws14 tienen UNA página cada una (ws13 y ws14 con @cuenta.ws13.demo; ws1 sin
 Instagram). Así que el paso existe para cuando aparezca una cuenta con varias, y **en las
 actuales no se ve**: con una sola opción el spec no lleva identidad y el pedido a Meta es
 byte a byte el de antes.
@@ -2407,7 +2407,7 @@ Medido el 11/09 con `debug_token` + `/me/adaccounts?fields=business` y `/me/acco
 
 | Workspace | App que firmó el token | Scopes | Activos que ve, y de qué negocio |
 |---|---|---|---|
-| 1, 4 | «Leads - Dashboard MKT (Martin)» (954456647632371), la de MaKo, **Modo: Publicada**, negocio **Elévate** | 10 | `act_564003520636790` + página «Mauricio Bustos Eguia», las dos de **Elévate** (341119389591872). ws4 «Cliente de Diseño» comparte token y activos con ws1 |
+| 1, 4 | «Leads - Dashboard MKT (Martin)» (954456647632371), la de MaKo, **Modo: Publicada**, negocio **Elévate** | 10 | `act_564003520636790` + página «Mauricio», las dos de **Elévate** (341119389591872). ws4 «Cliente de Diseño» comparte token y activos con ws1 |
 | 11 | «Lidermente_Agent» (1003134039095160) | 22, incluye publicar y mensajería de Instagram | dos cuentas + página, todas de **Leila Negocios** (819927318349061) |
 | 13, 14 | «Joan P2P app» (2300908653979362), en modo de **desarrollo** | 9 | `act_1357728489423123` de **P2P Consulting Portfolio** (1515383529607420) y página «Joan» de **Codigo Inmobiliario** (2062429174256666) — **el MISMO token y los MISMOS activos en los dos workspaces** |
 
@@ -2510,7 +2510,7 @@ con token de app (`app_id|META_APP_SECRET`, que está en `.env.local`):
   socio (leer con nuestro token la cuenta de otro negocio) no se puede correr hasta que un
   cliente comparta**. Es la única forma de cerrar la pregunta del acceso avanzado midiendo.
 - **La app declara `privacy_policy_url: https://multiplicatusresultados.com/privacidad`** —
-  resuelve 200, pero es otro dominio— y `contact_email: bustoseguia@gmail.com`. Con **App
+  resuelve 200, pero es otro dominio— y `contact_email: ejemplo.ws1.mako@gmail.com`. Con **App
   Purpose = «Clients»** eso hace que la política que el revisor lea no sea la de MaKo.
 
 ⚠️ **Lo que la Graph API NO contesta, y por eso hay que pedir la captura del panel** (probado

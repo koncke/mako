@@ -135,7 +135,7 @@ test('el chat lo dice MaKo, con el botón que abre el modal ahí mismo, en los t
   assert.match(boton, /<BotonIntegracion servicio=\{servicio\}/);
   assert.doesNotMatch(boton, /<Link|href=|\/integraciones/);
   // Rota: sacar `ConectarDelAviso` de uno de los hilos → este test falla.
-  for (const f of ['app/_chat/HiloMako.tsx', 'app/m/mako/ChatMako.tsx', 'app/crm/lead-view/MakoAnalystLead.tsx']) {
+  for (const f of ['app/_chat/HiloMako.tsx', 'app/crm/lead-view/MakoAnalystLead.tsx']) {
     assert.match(sinComentarios(leer(f)), /\{x\.conectar && <ConectarDelAviso servicio=\{x\.conectar\} \/>\}/, `${f} dibuja el botón`);
   }
 });
@@ -225,7 +225,8 @@ test('la IA de la plataforma sale de la PLATAFORMA, no del ws1: hidratación, le
   for (const f of ['lib/anthropic.ts', 'lib/integraciones.ts']) {
     const s = sinComentarios(leer(f));
     assert.doesNotMatch(s, /credWsEstricta\([^)]*, OWNER_WS\)/, `${f}: la clave de Claude no se compara con la fila del ws1`);
-    assert.match(s, /await credWsEstricta\((?:'ANTHROPIC_API_KEY'|envBase), await wsDelEntorno\((?:'ANTHROPIC_API_KEY'|envBase)\)\)/, f);
+    // Con `{ ilegibleTira: true }` en la frontera de la IA (revisión adversarial de IA15).
+    assert.match(s, /await credWsEstricta\((?:'ANTHROPIC_API_KEY'|envBase), await wsDelEntorno\((?:'ANTHROPIC_API_KEY'|envBase)\)(?:, \{ ilegibleTira: true \})?\)/, f);
   }
   // La migración: en seco salvo `--aplicar`, aditiva (nunca borra), sin pisar, y sin imprimir un valor.
   const mig = sinComentarios(leer('scripts/ia-del-ws1-a-la-plataforma.mts'));
@@ -276,7 +277,9 @@ test('un negocio con SÓLO su Claude: el chat contesta con su clave, y «Conecta
   assert.match(tools, /if \(delNegocio\) permiso = delNegocio;/, 'el permiso es el de la puerta 2, no el de la plataforma');
   assert.match(tools, /const key = delNegocio \? delNegocio\.clave : await credWs\('ANTHROPIC_API_KEY'\);/, 'la clave que verificó el veto');
   assert.match(tools, /delNegocio\s*\? \{ model, max_tokens: opts\.maxTokens \?\? 4096, system, messages: msgs, tools \}/, 'el pedido que ya anda con su clave');
-  assert.match(tools, /delNegocio \? \[MOTIVO_CLAVE_DEL_NEGOCIO, /, 'lo paga el negocio: su marca primero');
+  // La marca del gasto, PRIMERO: la del negocio, o la del crédito de la plataforma si su clave es el crédito (`marcaDelGasto`,
+  // revisión del lote 2).
+  assert.match(tools, /delNegocio \? \[marcaDelGasto\(delNegocio\), /, 'lo paga el negocio: su marca primero');
   assert.match(tools, /if \(!delNegocio\) \{\s*model = opts\.fallbackModel \?\? 'claude-sonnet-5';/, 'no cae a Claude de la plataforma');
 
   // 4. El turno cuenta su Claude como IA propia, y mira SU fila (no el entorno) para elegir qué abrir.

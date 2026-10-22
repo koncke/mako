@@ -46,8 +46,10 @@ test('1. un mensaje de Offer se lee como uno del chat', () => {
 
 test('2. la proyección dice su origen y su alcance, corre en el workspace y con la puerta de la tab', () => {
   const ind = leer('lib/chat-mako-indice.ts');
-  assert.match(ind, /export const PROYECCIONES = \[\{ origen: 'offer', alcance: 'workspace', tab: 'offer' \}\] as const;/);
-  assert.match(ind, /return rolWs && ws != null && puedeVerKey\('offer', rolWs, capa\) \? ws : null;/, 'la MISMA puerta que la tab');
+  // Desde el 22/10 (OC5) son dos proyecciones, cada una con la puerta de SU tab (tests/ops-center-automations.test.ts).
+  assert.match(ind, /export const PROYECCIONES = \[\n  \{ origen: 'offer', alcance: 'workspace', tab: 'offer' \},/);
+  assert.match(ind, /return rolWs && ws != null && puedeVerKey\(tab, rolWs, capa\) \? ws : null;/, 'la MISMA puerta que la tab');
+  assert.equal((ind.match(/await wsSiVe\('offer'\)/g) ?? []).length, 2, 'la lista y el hilo de Offer, con la puerta de Offer');
   assert.match(ind, /runWithWorkspace\(ws, \(\) => Promise\.all\(\[listarSesionesOffer\(\)/, 'la lista, dentro del workspace');
   assert.match(ind, /runWithWorkspace\(ws, \(\) => Promise\.all\(\[\n    leerConversacionOffer\(id\),/, 'el hilo, dentro del workspace');
   // Lo que la puerta deja ver, medido: Offer es de admin; un closer o un setter no la ven.
@@ -74,14 +76,15 @@ test('3. la API: ?offer=1 y ?offerId=N, detrás de la puerta de MaKo; uno de otr
 // listaDelCliente, con su test en tests/ops-center-cliente.test.ts) y se SIGUE ahí, con el motor de Offer.
 test('4. la pantalla: cada conversación de Offer es una fila de la lista, y se sigue en el Ops Center con el motor de Offer', () => {
   const sb = leer('app/second-brain/useChatCliente.ts');
-  assert.match(sb, /listaDelCliente\(\{ sesiones: sesiones \?\? \[\], offer: offer \?\? \[\], antes: antes \?\? \[\], busca \}\)/, 'una fila por conversación, en LA lista');
+  // Con el grupo de WhatsApp de MaKo desde el 22/10/2026 (OC3): una fila más de LA lista.
+  assert.match(sb, /listaDelCliente\(\{ sesiones: sesiones \?\? \[\], offer: offer \?\? \[\], antes: antes \?\? \[\], grupo, busca, automations: automations \?\? \[\](?:, editores: editores \?\? \[\])? \}\)/, 'una fila por conversación, en LA lista');
   assert.match(sb, /void abrirOffer\(idOffer\)\.then\(/, 'se abre con el motor de Offer');
-  assert.match(sb, /const r = await turnoOffer\(s\.id, mensaje, s\.mensajes, respuestaDeOffer\(s\.mensajes, mensaje\)\);/, 'lo escrito va a Offer');
+  assert.match(sb, /const r = await turnoOffer\(s\.id, mensaje, s\.mensajes, respuestaDeOffer\(s\.mensajes, mensaje\), archivos\.map\(\(a\) => a\.file\), nota\);/, 'lo escrito (y la nota de voz, OC7) va a Offer');
   assert.doesNotMatch(sb, /Seguir en Offer|AVISO_OFFER|\/offer\?sesion=/, 'nunca «Seguir en Offer»');
   const motor = leer('app/second-brain/motor-offer.ts');
-  assert.match(motor, /llamarOffer<\{ sesion: OfferSesionVista \}>\(\s*\{ action: 'turno', sesionId: id, texto, docIds,/, 'el turno de la tab');
+  assert.match(motor, /con\.llamar<\{ sesion: OfferSesionVista \}>\(\s*\{ action: 'turno', sesionId: id, texto, docIds,/, 'el turno de la tab');
   assert.match(motor, /\{ action: 'leer-link', sesionId: id, url \}/, 'los links, leídos antes, como en la tab');
-  assert.match(motor, /quedoGuardado\(leida\.sesion\.mensajes, antes\.length, \{ texto, audio: false \}\)/, 'un corte no lo manda dos veces');
+  assert.match(motor, /quedoGuardado\(leida\.sesion\.mensajes, antes\.length, \{ texto, audio: !!voz \}\)/, 'un corte no lo manda dos veces');
   assert.doesNotMatch(leer('lib/chat-mako-reglas.ts').slice(leer('lib/chat-mako-reglas.ts').indexOf('export function arbolDelJefe')).split('\n}')[0], /offer/i, 'el jefe sigue mirando sólo la clave exacta');
   // Offer abre ESA conversación con ?sesion=, si es de este negocio (en la computadora y en el teléfono).
   for (const p of ['app/offer/page.tsx', 'app/m/offer/page.tsx']) {
@@ -89,10 +92,12 @@ test('4. la pantalla: cada conversación de Offer es una fila de la lista, y se 
   }
 });
 
-test('5. en el teléfono, «Tus chats» trae las conversaciones de Offer y lleva a ellas', () => {
-  const m = leer('app/m/mako/ChatMako.tsx');
-  assert.match(m, /const RUTA_OFFER = '\/api\/mako\/chat\?offer=1';/);
-  assert.match(m, /<FilaM key=\{`o\$\{o\.id\}`\} navegacion titulo=\{o\.titulo\} href=\{`\/m\/offer\?sesion=\$\{o\.id\}`\}/);
+// 22/10/2026 (OC2): el chat viejo del teléfono (app/m/mako/ChatMako.tsx) se borró. El de ahora (ChatClienteM.tsx) usa el MISMO
+// motor que la computadora: las conversaciones de Offer están en LA lista y se siguen ahí, sin ir a /m/offer.
+test('5. en el teléfono, las conversaciones de Offer están en LA lista y se siguen ahí', () => {
+  const m = leer('app/m/second-brain/ChatClienteM.tsx');
+  assert.match(m, /useChatCliente\(\{ elegido, setElegido, /);
+  assert.doesNotMatch(m, /\/m\/offer\?sesion=/, 'ya no lleva a /m/offer');
 });
 
 test('6. la conversación del onboarding no sale dos veces (acordado con el chat Onboarding)', () => {
@@ -114,6 +119,7 @@ test('6. la conversación del onboarding no sale dos veces (acordado con el chat
   assert.equal(seEscondeDeOffer({ id: 15, updatedAt: '2026-10-21T02:00:00.000Z' }, c), false, 'otra conversación');
   assert.equal(seEscondeDeOffer({ id: 14, updatedAt: '2026-10-21T04:10:00.000Z' }, { id: 14, at: null }), true, 'una copia sin hora, como antes');
   const ind = leer('lib/chat-mako-indice.ts');
-  assert.match(ind, /const copiada = offerDelOnboardingCopiada\(arranque, sesion \? chartKeyDePersona\(sesion\) : null\);\n[\s\S]{0,400}?return lista\.filter\(\(s\) => s\.id > 0 && !seEscondeDeOffer\(s, copiada\)\)/);
+  // Desde el 22/10 la lista filtrada se guarda (`filas`) para ponerle el tema a las que se llaman igual, y se devuelve ésa.
+  assert.match(ind, /const copiada = offerDelOnboardingCopiada\(arranque, sesion \? chartKeyDePersona\(sesion\) : null\);\n[\s\S]{0,400}?const filas = lista\.filter\(\(s\) => s\.id > 0 && !seEscondeDeOffer\(s, copiada\)\)[\s\S]{0,900}?return filas\.map\(/);
   assert.match(leer('lib/onboarding-arranque-server.ts'), /hiloChat: hilo\.id, hiloDe: chartKey, hiloAt: new Date\(\)\.toISOString\(\),/);
 });

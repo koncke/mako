@@ -13,7 +13,7 @@ instalarlos en las rutinas de trabajo» no entra donde entraría «Lorem ipsum»
 
 ## Contexto común (va en los dos prompts)
 
-Mauricio Bustos es consultor de negocios en México. Vende un programa de ~6 meses
+Mauricio es consultor de negocios en México. Vende un programa de ~6 meses
 a dueños de PyMEs —supermercados, restaurantes, distribuidoras—. Tiene 13
 clientes activos. Cada cliente firma un contrato con una duración distinta: uno
 16 semanas, otro 3 meses, otro sin duración escrita.

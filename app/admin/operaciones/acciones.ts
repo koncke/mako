@@ -36,6 +36,8 @@ import { leerTareasDelChat } from '@/lib/centro-plan-auto';
 import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import { leerMarcasDe, marcarDe } from '@/lib/centro-mensajes-db';
 import { guardarAlias, leerCuentasConNombre } from '@/lib/centro-titulares-db';
+import { leerCreditoApi } from '@/lib/credito-api-db';
+import type { LecturaCredito } from '@/lib/credito-api';
 import { CUENTA_RE } from '@/lib/operaciones-reglas';
 import { aliasValido, type CuentasConNombre } from '@/lib/centro-titulares';
 import { leerPasos } from '@/lib/centro-pasos-db';
@@ -110,6 +112,18 @@ export async function guardarAliasCuentaAction(cuenta: string, alias: string): P
   if (!v.ok) return v;
   try {
     return { ok: true, cuentas: await guardarAlias(cuenta, v.alias) };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+/** El crédito de API de los planes Max, para el Uso (22/10/2026, Martín: «En USO de SuperAdmin quiero ver también el USO de
+ *  la API»): por cuenta, si está vinculado y lo gastado según lo que registra MaKo. Sólo números: ninguna clave sale de acá. */
+export async function creditoApiAction(): Promise<LecturaCredito> {
+  const admin = await getSesionAdmin();
+  if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
+  try {
+    return await leerCreditoApi();
   } catch (e) {
     return { ok: false, error: msg(e) };
   }

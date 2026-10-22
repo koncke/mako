@@ -25,6 +25,7 @@ import 'server-only';
 import type { Ctx, Ejecutado, Runners, SalidaLectura } from '../tipos';
 import { getLead, logLeadEvent } from '@/lib/leads';
 import { listProductos } from '@/lib/productos';
+import { cobroDelProducto } from '@/lib/cobro-etapa-server';
 import {
   anularCobro, cancelarSuscripcionCobro, crearCobro, getCobro, linkDelCobro, listarCobros, pasarelasConectadas, reembolsarCobro,
 } from '@/lib/cobros';
@@ -190,7 +191,9 @@ export const RUNNERS: Runners = {
         return { error: 'Mercado Pago cobra en la moneda de tu cuenta y el precio del catálogo está en dólares: ese link se crea desde la ficha del lead, con el monto en tu moneda.', faltan: ['monto'] };
       }
       const tipo = prod.tipo === 'suscripcion' ? 'suscripcion' : 'unico';
-      const d = decidirCobro({ pasarela, conectadas, productoMontoUsd: prod.monto_usd, tipo, email: lead.email ?? null });
+      // Un producto en cuotas (mig 0326) cobra su PRIMER pago, como `crearCobro`: lo que se aprueba es lo que se cobra.
+      const enCuotas = tipo === 'unico' ? await cobroDelProducto(prod.id).catch(() => null) : null;
+      const d = decidirCobro({ pasarela, conectadas, productoMontoUsd: enCuotas?.primerPagoUsd ?? prod.monto_usd, tipo, email: lead.email ?? null });
       if (!d.ok) return { error: d.error, faltan: d.faltan };
 
       // Un link pendiente del MISMO producto por la MISMA pasarela ya es lo pedido: no se crea otro
@@ -206,11 +209,21 @@ export const RUNNERS: Runners = {
         };
       }
       return {
-        payload: { leadId: lead.id, productoId: prod.id, pasarela },
-        resumen: `Crear un link de pago de ${NOMBRE_PASARELA[pasarela]} para ${lead.nombre}: ${prod.nombre}, ${formatoMonto(d.monto, d.moneda)}${tipo === 'suscripcion' ? ' por mes' : ''}.`,
+        // `montoUsd`: lo que se aprobó. Si el producto cambia mientras la pendiente espera, `ejecutar` no cobra otro monto.
+        payload: { leadId: lead.id, productoId: prod.id, pasarela, montoUsd: enCuotas?.primerPagoUsd ?? prod.monto_usd },
+        resumen: `Crear un link de pago de ${NOMBRE_PASARELA[pasarela]} para ${lead.nombre}: ${prod.nombre}, ${formatoMonto(d.monto, d.moneda)}${tipo === 'suscripcion' ? ' por mes' : enCuotas?.cuotas ? ` (el primero de ${enCuotas.cuotas} pagos)` : ''}.`,
       };
     },
     ejecutar: (payload, ctx) => seguro('crear el link de pago', async () => {
+      // Lo aprobado es lo que se cobra (revisión de plata, baja 3): si el precio o las cuotas del producto cambiaron
+      // mientras esto esperaba la aprobación, no se crea el link por otro monto.
+      if (payload.montoUsd != null) {
+        const ahora = await cobroDelProducto(Number(payload.productoId)).catch(() => null);
+        const cobraria = ahora?.primerPagoUsd ?? null;
+        if (cobraria == null || Math.round(cobraria * 100) !== Math.round(Number(payload.montoUsd) * 100)) {
+          return { ok: false, resumen: 'El producto cambió de precio o de cuotas desde que lo aprobaste: pídelo de nuevo para ver el monto actual.' };
+        }
+      }
       const r = await crearCobro(ctx.ws, {
         leadId: Number(payload.leadId),
         productoId: Number(payload.productoId),
@@ -450,7 +463,8 @@ export const RUNNERS: Runners = {
     preparar: async (input) => {
       const lead = await getLead(Number(input.leadId)).catch(() => null);
       if (!lead) return { error: noExisteLead(input.leadId) };
-      const pagos = await getPagosByLead(lead.id).catch(() => null);
+      // De CUALQUIER CRM (mig 0324): una cuota de una renovación también se cobra por su id.
+      const pagos = await getPagosByLead(lead.id, 'todos').catch(() => null);
       if (!pagos) return { error: 'No pude leer las cuotas. Prueba de nuevo en un rato.' };
       const q = pagos.find((p) => p.id === Number(input.cuotaId));
       if (!q) return { error: `La cuota #${String(input.cuotaId)} no es de ${lead.nombre}. Pide cobranza_lead para ver sus cuotas.`, disponibles: pagos.map((p) => ({ cuotaId: p.id, numero: p.numero, monto_usd: p.monto_usd, pagada: p.pagado })) };
@@ -490,7 +504,8 @@ export const RUNNERS: Runners = {
     preparar: async (input, ctx) => {
       const lead = await getLead(Number(input.leadId)).catch(() => null);
       if (!lead) return { error: noExisteLead(input.leadId) };
-      const pagos = await getPagosByLead(lead.id).catch(() => null);
+      // De CUALQUIER CRM (mig 0324): una cuota de una renovación también se cobra por su id.
+      const pagos = await getPagosByLead(lead.id, 'todos').catch(() => null);
       if (!pagos) return { error: 'No pude leer las cuotas. Prueba de nuevo en un rato.' };
       const q = pagos.find((p) => p.id === Number(input.cuotaId));
       if (!q) return { error: `La cuota #${String(input.cuotaId)} no es de ${lead.nombre}. Pide cobranza_lead para ver sus cuotas.` };
@@ -532,7 +547,7 @@ export const RUNNERS: Runners = {
     preparar: async (input) => {
       const lead = await getLead(Number(input.leadId)).catch(() => null);
       if (!lead) return { error: noExisteLead(input.leadId) };
-      const q = (await getPagosByLead(lead.id).catch(() => [])).find((p) => p.id === Number(input.cuotaId));
+      const q = (await getPagosByLead(lead.id, 'todos').catch(() => [])).find((p) => p.id === Number(input.cuotaId));
       if (!q) return { error: `La cuota #${String(input.cuotaId)} no es de ${lead.nombre}. Pide cobranza_lead para ver sus cuotas.` };
       const prot = await proteccionesDeCuotas(lead.id, [q.id]).catch(() => null);
       if (!prot) return { error: 'No pude revisar los recordatorios de la cuota. Prueba de nuevo en un rato.' };

@@ -77,6 +77,7 @@ import { resolverPropuesta as resolverPropuestaDeVideo } from '@/lib/editor-vide
 import { descartarBorrador } from '@/lib/evolution-envio';
 import { getPendiente, resolverPendiente } from '@/lib/mako-pendientes';
 import { PREGUNTAR, TOOL_PREGUNTAR, ERROR_TRAS_PREGUNTAR, crearGuardiaDePregunta, retirar } from '@/lib/chat-pregunta';
+import { conDesde, conEntidadPorDefecto, contextoDesde, herramientasDelModo, pistaDesde, type Desde } from '@/lib/chat-desde';
 import { enSegundoPlano } from '@/lib/chat-trabajos';
 import { puedeVerKey } from '@/lib/movil-rutas';
 import { bloquesDeAdjuntos, placeholderDeAdjunto, promptDeAdjunto, type AdjuntoListo } from '@/lib/mako-adjuntos';
@@ -285,6 +286,12 @@ export type EntradaTurnoApp = {
    */
   pista?: string;
   /**
+   * DESDE DÓNDE ESCRIBE (22/10/2026, OC6, lib/chat-desde.ts): la tab, la entidad que tiene abierta y el modo. La entidad va en
+   * la pista y en el system, y las herramientas la toman por defecto; en «analizar» no viaja ninguna que escriba. El mensaje
+   * se guarda con su marca («[desde: CRM › Ana]»): el chip vuelve al recargar.
+   */
+  desde?: Desde | null;
+  /**
    * Guardar los archivos (mig 0305) y pasar los PDF del admin a El Archivero. Lo prenden SÓLO el Second Brain y el chat
    * del teléfono (las rutas /api/mako/chat y /api/m/mako). Sin esto, el turno de siempre: los lee y no los guarda.
    */
@@ -376,6 +383,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // plataforma.
     const negocio = await negocioConSuIA(ws);
     entrarSoloSuIA(negocio.suIA);
+    const desde = entrada.desde ?? null;
     const canalKey = canalKeyDeSesion(s.id);
     // El corte respeta los TEXTOS PEGADOS (lib/chat-pegado.ts, #848/#864): lo escrito hasta TOPE_MENSAJE, los pegados
     // con su propio tope, y las marcas siempre cerradas.
@@ -429,7 +437,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const bloques = subidos.map((x) => x.bloque);
     let msg: Awaited<ReturnType<typeof appendMessage>>;
     try {
-      msg = await appendMessage(s.id, 'user', textoMemoria, bloques);
+      // Con su marca de desde dónde (OC6): lo que vuelve en `guardados` va sin ella, así el hilo no lo toma por un texto tapado.
+      msg = await appendMessage(s.id, 'user', conDesde(textoMemoria, desde), bloques);
     } catch (e) {
       await borrarAdjuntos(bloques.map((b) => b.path)); // el mensaje no quedó: sus binarios tampoco
       throw e;
@@ -479,8 +488,10 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const claveAgenda = `mako.doer.agenda.${canalKey}`;
     const agendaAbierta = agendaVigente(await getSetting(claveAgenda).catch(() => null), Date.now());
     const ultimoDeMako = previos.slice(-2).reverse().find((r) => r.role === 'assistant')?.content ?? null;
-    const textoClasificar = `${(entrada.pista ?? '').slice(0, 120)}${adjuntos.length ? textoMemoria : textoPersona}`;
+    const textoClasificar = `${(entrada.pista ?? '').slice(0, 120)}${pistaDesde(desde)}${adjuntos.length ? textoMemoria : textoPersona}`;
     const intencion = clasificarIntencion(textoClasificar, {
+      // Por la app MaKo sólo PROPONE y la persona confirma: ante la duda se actúa, no se anota (D1 = A, lib/mako-intencion.ts).
+      canal: 'app',
       hayMedia: adjuntos.length > 0,
       hayPendientes: vigentes.length > 0,
       hayPendienteDeAgenda: vigentes.some((p) => (ACCIONES_AGENDA as readonly string[]).includes(p.tipo)),
@@ -537,16 +548,18 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       deSiempre: [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS, ...TICKET_TOOLS], vista,
       hayPendientes: vigentes.length > 0, resumenesPendientes: vigentes.map((p) => p.resumen), sinCalendly,
     });
-    // Con herramientas, también la de preguntar con opciones (1.9, lib/chat-pregunta.ts): la regla la impone el código.
-    const tools = turno.tools.length ? [...(turno.tools as ToolDef[]), TOOL_PREGUNTAR] : (turno.tools as ToolDef[]);
+    // Lo que ESCRIBE (una acción o un control; no una lectura): el memo, la guardia de la pregunta y el modo «analizar».
+    const escribe = (n: string) => { const d = porId(n); return d ? d.tipo !== 'lectura' : NOMBRES_ACCION.has(n) && !n.startsWith('listar_'); };
+    // Con herramientas, también la de preguntar con opciones (1.9, lib/chat-pregunta.ts): la regla la impone el código. En
+    // «analizar» (OC6) no viaja ninguna que escriba: lo cumple el servidor, no el modelo.
+    const tools = herramientasDelModo(turno.tools.length ? [...(turno.tools as ToolDef[]), TOOL_PREGUNTAR] : (turno.tools as ToolDef[]), desde, escribe);
     const permitidas = new Set(tools.map((t) => t.name));
 
     // El system se arma DESPUÉS de las tools: depende de ellas.
     const base = await buildSystemPrompt({ chartKey: 'mako-doer', titulo: titulo ?? 'MaKo', contexto: '', query: textoPersona || textoMemoria, sinNumerosDelNegocio: persona.rol !== 'admin' });
     const tz = tools.length ? await tzDeWorkspace(ws).catch(() => TZ_DEFAULT) : null;
-    const puedeCancelar = permitidas.has('cancelar_accion');
     const ctxPend = vigentes.length
-      ? `\n\nACCIONES ESPERANDO CONFIRMACIÓN EN ESTE CHAT (la más reciente primero):\n${vigentes.map((p) => `- #${p.id}: ${p.resumen}`).join('\n')}\nLa persona las confirma tocando su tarjeta; tú no puedes confirmarlas.${puedeCancelar ? ' Si te dice que no la quiere, usa cancelar_accion con su id.' : ''}`
+      ? `\n\nACCIONES ESPERANDO CONFIRMACIÓN EN ESTE CHAT (la más reciente primero):\n${vigentes.map((p) => `- #${p.id}: ${p.resumen}`).join('\n')}\nLa persona las confirma o las cancela tocando su tarjeta; tú no puedes hacer ninguna de las dos. Si te dice que no la quiere, dile que toque «Cancelar» en la tarjeta.`
       : '';
     const ctxAgenda = agendaAbierta && tools.some((t) => herramientasQueSiguen(agendaAbierta).includes(t.name)) ? contextoAgendaAbierta(agendaAbierta) : '';
     const ctxPuntos = avisoDePuntos(textoPersona);
@@ -555,7 +568,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       : `\n\n${SIN_TOOLS_APP}`;
     const ctxHoy = tz ? `\n\nHOY ES ${hoyLegible(tz)} (zona ${tz}). Para «mañana», «el jueves» o «la semana que viene», calcula la fecha desde aquí; las horas que te digan son de esta zona.` : '';
     const ctxAtado = (entrada.contexto ?? '').trim();
-    const system = `${base}\n\n${VOZ_APP}${bloqueTools}${ctxHoy}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${ctxAtado ? `\n\n${ctxAtado}` : ''}`;
+    const ctxDesde = contextoDesde(desde);
+    const system = `${base}\n\n${VOZ_APP}${bloqueTools}${ctxHoy}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${ctxDesde ? `\n\n${ctxDesde}` : ''}${ctxAtado ? `\n\n${ctxAtado}` : ''}`;
 
     // ── Las herramientas ───────────────────────────────────────────────────────
     const runRegistro = runnerDelRegistro(ctx);
@@ -563,7 +577,6 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const capturados: LinkCapturado[] = [];
     // Un turno que se re-arranca (la cascada de chatClaudeTools rota de cuenta) no repite
     // acciones: el mismo memo que el doer de WhatsApp.
-    const escribe = (n: string) => { const d = porId(n); return d ? d.tipo !== 'lectura' : NOMBRES_ACCION.has(n) && !n.startsWith('listar_'); };
     const memo = crearMemoDeAcciones(escribe);
     // Desde que MaKo pregunta, no se propone nada en el turno (1.9): una lectura sí, para armar las opciones.
     const guardia = crearGuardiaDePregunta(escribe);
@@ -578,6 +591,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       if (!permitidas.has(name)) {
         return { content: JSON.stringify({ ok: false, error: `«${name}» no está disponible en este chat.` }), isError: true };
       }
+      // La entidad que la persona tiene abierta, por defecto (OC6): «movelo a Ganado» desde la ficha de Ana es ESE lead.
+      input = conEntidadPorDefecto(porId(name), input, desde);
       if (name === PREGUNTAR) {
         const q = guardia.preguntar(input);
         return q.ok ? JSON.stringify({ ok: true, instruccion: q.texto }) : { content: JSON.stringify({ ok: false, error: q.texto }), isError: true };

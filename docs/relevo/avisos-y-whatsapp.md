@@ -21,12 +21,12 @@ Las tres salen por WhatsApp, y **el WhatsApp del producto es UNO solo desde el 0
 
 - **MaKo** es el producto. Es de **Martín Koncke**. Es multi-inquilino: cada negocio es un
   *workspace* («ws»). ⚠️ **La constante `OWNER_WS` vale 1 y el ws1 NO es el dueño: es
-  Mauricio Bustos, un CLIENTE** (el primero que hubo). La plataforma es `wsSuperAdmin()`, que
+  Mauricio, un CLIENTE** (el primero que hubo). La plataforma es `wsSuperAdmin()`, que
   resuelve al **ws9 = Martín Koncke**.
 - **Los 11 workspaces, medidos el 10/10/2026 a las 22:04 UTC** (`workspaces`, por la API REST
-  con la service role, sólo lectura): ws1 Mauricio Bustos · ws3 Cliente de Prueba · ws4 Cliente
-  de Diseño · ws5 Prueba real - Ananda (**pausado**) · ws9 Martin Koncke · ws10 Leandro Tejado ·
-  ws11 Leila · ws13 Codigo Inmobiliario · ws14 P2P Consulting · ws15 Brigitte Eberlin · ws17
+  con la service role, sólo lectura): ws1 Mauricio · ws3 Cliente de Prueba · ws4 Cliente
+  de Diseño · ws5 Prueba real - Ananda (**pausado**) · ws9 Martin Koncke · ws10 Leandro ·
+  ws11 Leila · ws13 Codigo Inmobiliario · ws14 P2P Consulting · ws15 Brigitte · ws17
   joan prueba. **Diez activos**, ws5 pausado (los crons no lo iteran).
 - **Había DOS WhatsApp y quedó UNO:**
   - **El no oficial («Evolution»)**: un WhatsApp Web automatizado. El negocio escanea un QR y
@@ -106,12 +106,12 @@ mano por `destinosDelReporte` + `decidirReporte`):
 
 | Workspace | Qué pasa el 12/10 | Por qué |
 |---|---|---|
-| ws1 Mauricio | **sale** a `tejadomartin@gmail.com` | sin lista propia → cae al `user_email` |
+| ws1 Mauricio | **sale** a `ejemplo.colaborador.mako@gmail.com` | sin lista propia → cae al `user_email` |
 | ws9 Martín | **sale** a `equipo@hola-mako.com` | lista propia |
-| ws10 Leandro | **sale** a `tejadomartin@gmail.com` | sin lista → `user_email` |
-| ws11 Leila | **sale** a `hola@leilafittipaldi.com` | lista propia |
-| ws13 Código Inmobiliario | **sale** a `codigoinmobiliarioia@gmail.com` | lista propia |
-| ws14 P2P | **sale** a `p2pconsultingg@gmail.com` | sin lista → `user_email` |
+| ws10 Leandro | **sale** a `ejemplo.colaborador.mako@gmail.com` | sin lista → `user_email` |
+| ws11 Leila | **sale** a `hola@marca-ejemplo.com` | lista propia |
+| ws13 Código Inmobiliario | **sale** a `ejemplo.ws13.mako@gmail.com` | lista propia |
+| ws14 P2P | **sale** a `ejemplo.ws14.mako@gmail.com` | sin lista → `user_email` |
 | ws3, ws4, ws17 | **salteado** (`sin_destinatario`) | no tienen ni email ni teléfono cargado |
 | ws15 Brigitte | **salteado** (`sin_destinatario`) | tiene **dos teléfonos y `notif_emails` vacío**, y el WhatsApp está apagado |
 | ws5 Ananda | no se itera | pausado |
@@ -119,7 +119,7 @@ mano por `destinosDelReporte` + `decidirReporte`):
 ⚠️ **Dos cosas de esa tabla que conviene mirar antes del lunes:**
 1. **ws15 no recibe NADA** y antes de apagar WhatsApp tenía dos teléfonos: el único canal que
    tenía se apagó. No es un bug — es la consecuencia de la decisión, y nadie se la contó.
-2. **ws1 y ws10 comparten destinatario** (`tejadomartin@gmail.com`): el reporte semanal del
+2. **ws1 y ws10 comparten destinatario** (`ejemplo.colaborador.mako@gmail.com`): el reporte semanal del
    negocio de Mauricio va a una dirección que también es la de otro workspace. **Sin verificar
    de quién es esa casilla.** Es un dato de la base del ws1, no de nuestro código.
 

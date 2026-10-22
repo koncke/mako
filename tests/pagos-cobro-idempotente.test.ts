@@ -486,8 +486,8 @@ test('13. ⚠️ «Registrar el mes cobrado» marca la fila como la mensualidad;
   const s = correr() as unknown as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any -- la salida del hijo, campo por campo
   assert.deepEqual(s.mensualidadFilas, [{ monto_usd: 1000, pagado: true, es_mensualidad: true }, { monto_usd: 300, pagado: true, es_mensualidad: false }]);
   // La pantalla lo dice según el modo, y la acción lo deja pasar.
-  assert.match(leer('app/crm/lead-view/ficha/pagos/piezas.tsx'), /concepto: concepto\.trim\(\) \|\| null, mensualidad: modo === 'mensualidad' \}\);/);
-  assert.match(leer('app/crm/[id]/deal-actions.ts'), /registrarPagoSueltoAction\(leadId: number, datos: \{ monto: number; fecha: string; hora\?: string \| null; mensualidad\?: boolean \} & DatosDeMoneda\)/);
+  assert.match(leer('app/crm/lead-view/ficha/pagos/piezas.tsx'), /concepto: concepto\.trim\(\) \|\| null, mensualidad: modo === 'mensualidad', crm \}\);/);
+  assert.match(leer('app/crm/[id]/deal-actions.ts'), /registrarPagoSueltoAction\(leadId: number, datos: \{ monto: number; fecha: string; hora\?: string \| null; mensualidad\?: boolean; crm\?: number \| null \} & DatosDeMoneda\)/);
   // Sólo la marca, si viene: sin la migración, un pago suelto se sigue guardando.
   assert.match(sinComentarios(leer('lib/pagos.ts')), /nacio_cobrada: true,\s*\.\.\.\(datos\.mensualidad \? \{ es_mensualidad: true \} : \{\}\),/);
 });

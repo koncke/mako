@@ -120,16 +120,23 @@ export function redactarCon(entrada: string, reglas: Regla[]): Redactado {
   for (const r of reglas) {
     texto = texto.replace(r.re, (...args) => {
       const bruto = String(args[0]);
+      // `$1` en `con` toma el primer grupo de captura (el dominio del mail, el nombre
+      // de la variable de entorno). Sin esto, tapar un email borraría también de qué
+      // empresa se estaba hablando, que es justo el dato útil y no sensible.
+      // ⚠️ Y SI EL GRUPO SE TRAGÓ EL MARCADOR DE OTRA REGLA, se expande ACÁ (22/10/2026):
+      // el reemplazo final no se vuelve a mirar, y el marcador quedaba crudo, con sus
+      // bytes NUL. Postgres rechaza un NUL en `text` y en `jsonb`: el mensaje del grupo
+      // no se encolaba y MaKo lo perdía sin avisar.
+      const grupo = String(args[1] ?? '');
+      const adentro = (grupo.match(MARCA) ?? []).length;
       // Si esta regla se está comiendo marcadores de reglas anteriores, esos secretos
       // YA se contaron y desaparecen adentro de este reemplazo. Descontarlos es lo que
       // mantiene honesto el contador — que no es cosmético: `redacciones` es la alarma
       // que avisa si el filtro de «solo turnos humanos» está dejando pasar salidas de
-      // herramientas. Una alarma que cuenta de más no se puede mirar.
-      tapadas += 1 - (bruto.match(MARCA) ?? []).length;
-      // `$1` en `con` toma el primer grupo de captura (el dominio del mail, el nombre
-      // de la variable de entorno). Sin esto, tapar un email borraría también de qué
-      // empresa se estaba hablando, que es justo el dato útil y no sensible.
-      finales.push(r.con.replace('$1', String(args[1] ?? '')));
+      // herramientas. Una alarma que cuenta de más no se puede mirar. Los que vuelven
+      // con el grupo no desaparecen: no se descuentan.
+      tapadas += 1 - ((bruto.match(MARCA) ?? []).length - adentro);
+      finales.push(r.con.replace('$1', grupo.replace(MARCA, (_, i) => finales[Number(i)] ?? '')));
       return `\u0000${finales.length - 1}\u0000`;
     });
   }

@@ -106,7 +106,7 @@ la campaña. Con goteo de 5 min la campaña pide 12 por hora: línea en **65 por
 
 **A6, cómo quedó en el ws1 (22/10 ~04:18, en producción 4de3fe769, run 232):** #289 «Sprint · apertura», **pausada**,
 0 inscripciones. CRM #44, CRON `etapa_actual` en `st0` = «Prospección activa». Tres tarjetas: «Nunca le escribiste» →
-WhatsApp «Hola {{nombre}}, soy Mauricio Bustos. ¿Sigues al frente de tu empresa?» (para aprobar: «Sale sola» lo decide
+WhatsApp «Hola {{nombre}}, soy Mauricio. ¿Sigues al frente de tu empresa?» (para aprobar: «Sale sola» lo decide
 la reunión) → «Si responde» = AI Step sin escenarios (no contesta: avisa al grupo con el link a la charla), objetivo «…lo
 pase a «Oferta / Checkout» cuando le mande el link». Goteo 5 min / 50 por día. Línea del ws1: `mako.limites_envio` =
 65 por día y 15 por hora (era la de fábrica, 40 / 6). Se hizo con Chrome desconectado, por las funciones de la pantalla

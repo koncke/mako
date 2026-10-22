@@ -53,6 +53,7 @@
 // =============================================================================
 
 import type { OperacionDef, Parametro } from '../tipos';
+import { CAMPOS_TARJETA_CLIENTE, FORMAS_TARJETA_CLIENTE } from '@/lib/tarjeta-clientes';
 
 const SIN_HTTP = ['whatsapp', 'app'] as const;
 const CS = { tab: 'customer-success' } as const;
@@ -124,7 +125,7 @@ export const DEFS: readonly OperacionDef[] = [
     // #874 (17/10/2026): traída de la rama a medias `wip/api-acciones-1410` (quieta desde el 14/10, sólo esta acción),
     // para la ⚡ Acción «Invitar al curso» de un flujo. Lo que manda y anota es `invitarAlCurso` (lib/curso-invitar.ts),
     // el MISMO de la ficha, la tarjeta del kanban y el CRM al ganar.
-    id: 'invitar_cliente_curso_cs', area: 'cs', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    id: 'invitar_cliente_curso_cs', aTerceros: true, area: 'cs', tipo: 'accion', confirmacion: 'chat', reversible: false,
     titulo: 'Invitar un cliente al curso',
     descripcion: 'Invita a un cliente al curso: le manda por email (y también por WhatsApp si se pide) su link de entrada al portal, y le crea el acceso si no lo tenía. Con productoId invita al curso de ESE servicio, como la ficha y la tarjeta del kanban: el email nombra sólo ese curso y su acceso pasa a abrirlo (sin cerrarle los que ya veía); sin productoId, el email nombra los cursos que ya ve. Sin email usa el del CRM; si el CRM no tenía ninguno, el que se pasa queda guardado en el lead. Si ya estaba invitado (a ese curso) o ya entró, no reenvía, salvo reenviar: true. Si su acceso está cortado o el curso no tiene clases, no invita y dice por qué. El WhatsApp sale solo si el email salió. Después, {{curso_link}} en un mensaje es su link.',
     escribe: 'crea su acceso al portal si no lo tenía, anota la invitación y qué curso abre (curso_accesos), guarda el email en el lead si no tenía, y manda un email (y opcionalmente un WhatsApp)',
@@ -142,7 +143,7 @@ export const DEFS: readonly OperacionDef[] = [
     // Partners", que le aparezca la opción en el CRM para llevarlos allí»), por chat. El núcleo es el MISMO de la tab y
     // del CRM: `abrirCuentaDePartner` (lib/partners.ts). Crea una cuenta de la plataforma: lo confirma una persona, y
     // sólo el admin.
-    id: 'llevar_a_partners', area: 'cs', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    id: 'llevar_a_partners', aTerceros: true, area: 'cs', tipo: 'accion', confirmacion: 'chat', reversible: false,
     titulo: 'Llevar un lead a MaKo Partners',
     descripcion: 'Sólo para una AGENCIA (un negocio del programa MaKo Partners): le abre a un lead de su CRM (de cualquier etapa: no hace falta que sea cliente) su propia cuenta de MaKo, como cliente de la agencia. La cuenta nace esperando: se habilita al pagar su primer mes (el link queda en MaKo Partners y se le pasa a la persona aparte) y su mes corre desde que termina el onboarding. A quien la va a usar le llega su acceso cuando quede habilitada. Necesita un email: sin email usa el del CRM. Si el lead ya tiene cuenta, no abre otra.',
     escribe: 'crea la cuenta de MaKo del cliente (un workspace nuevo de la plataforma, pendiente), su usuario admin (sin avisarle todavía), lo liga al lead (leads.cliente_ws) y crea el link de pago de su primer mes',
@@ -151,5 +152,30 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'email', tipo: 'string', max: 200, descripcion: 'el email de quien va a usar la cuenta. Sin esto, el del CRM.' },
     ],
     canales: SIN_HTTP, costo: 'gratis', gating: { tab: 'customer-success', rolMinimo: 'admin' },
+  },
+  {
+    // LA TARJETA DE UN CLIENTE, PERSONALIZADA (21/10/2026, Martín: «la personalización de las tarjetas en clientes, plan,
+    // etc.»). Es DE UNA PERSONA (usuarios.perfil), así que sale sólo por la app, como la del CRM (crm.def.ts,
+    // `ver_campos_tarjeta_crm`): por WhatsApp o HTTP no hay sesión que diga quién es. Se cambia en Clientes, «⋯» ›
+    // «Personalizar tarjetas».
+    id: 'ver_tarjeta_clientes', area: 'cs', tipo: 'lectura',
+    titulo: 'Cómo se ve la tarjeta de un cliente',
+    descripcion: 'Cómo ve la persona cada tarjeta del kanban de Clientes: con qué forma (Completa, Compacta o Con portada), qué datos lleva (foto, empresa, la etapa y su aviso, proyectos · tareas · recurrentes), qué plantilla tiene puesta, las plantillas de fábrica y las propias, y el catálogo completo. Se elige en Clientes, «⋯» › «Personalizar tarjetas» (o clic derecho en una tarjeta), y es de cada persona.',
+    parametros: [],
+    salida: 'json', canales: ['app'], costo: 'gratis', gating: CS,
+  },
+  {
+    // Sólo por la app, como su lectura: es de UNA persona.
+    id: 'personalizar_tarjetas_clientes', area: 'cs', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Personalizar la tarjeta de los clientes',
+    descripcion: 'PROPONE cómo se ve la tarjeta de un cliente en el kanban de Clientes para la persona que lo pide (queda pendiente hasta el «sí»): poner una plantilla por su nombre (de fábrica o propia, de ver_tarjeta_clientes), o elegir la forma y los datos. Con guardarComo, además la guarda como plantilla propia con ese nombre (con el mismo nombre, la reemplaza). Es de cada persona: no cambia la tarjeta del resto del equipo.',
+    parametros: [
+      { nombre: 'plantilla', tipo: 'string', max: 40, descripcion: 'el nombre de una plantilla (Completa, Compacta, Sin foto, Con portada, Sin avance, Sólo la etapa, Sólo el nombre, o una propia).' },
+      { nombre: 'forma', tipo: 'string', enum: [...FORMAS_TARJETA_CLIENTE], descripcion: 'la forma, si no se pasa una plantilla.' },
+      { nombre: 'campos', tipo: 'string[]', max: CAMPOS_TARJETA_CLIENTE.length, vaciaEsValor: true, descripcion: 'los datos, si no se pasa una plantilla ([] = sólo el nombre). Cada uno va en su lugar de la tarjeta: el orden no cambia nada.' },
+      { nombre: 'guardarComo', tipo: 'string', max: 32, descripcion: 'guardar lo elegido como plantilla propia con este nombre.' },
+    ],
+    canales: ['app'], costo: 'gratis', gating: CS,
+    reversible: true, escribe: 'la tarjeta de los clientes de esa persona (usuarios.perfil.clientesTarjeta)',
   },
 ];

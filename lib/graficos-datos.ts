@@ -25,6 +25,8 @@ import 'server-only';
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { getSupabaseServer } from './supabase';
 import { enRango, queTableroLeer, fechaTj, funnelsAgregados, host, leer, leerPorIds, lindo, nombres, num, rotulosDelCrm, ruta, txt, type Rango } from './graficos-lectura';
+import { productosCrm } from './api-mako/areas/crm.helpers';
+import { ventasDeCrms, type VentaDeCrm } from './ventas-crm';
 import { LECTORES_EXTRA, noEsDelNegocio } from './graficos-datos-extra';
 export type { Rango };
 import { conversorGastoMeta } from './moneda-meta';
@@ -366,12 +368,15 @@ async function filasLlamadas(rg: Rango): Promise<Fila[]> {
 // ── Negocio: la pauta, el CRM y los cobros en una sola serie ────────────────────────────────
 
 async function filasNegocio(rg: Rango): Promise<Fila[]> {
-  const [meta, altas, agendas, cierres, cobros, vsl] = await Promise.all([
+  const [meta, altas, agendas, cierres, cobros, vsl, enCrms] = await Promise.all([
     filasMeta(rg), leadsCrudos('alta', rg), leadsCrudos('agenda', rg), leadsCrudos('cierre', rg),
     leer<FPago>('pagos', 'id, lead_id, numero, monto_usd, fecha_esperada, pagado, fecha_pago', rg, { col: 'fecha_pago', extra: (q) => q.eq('pagado', true) }),
     vistasVslPorDia(rg),
+    // Las ventas de los CRMs agregados (una renovación, CO2): también son cierres y vendido del negocio.
+    rg.sinRango ? Promise.resolve([] as VentaDeCrm[]) : ventasDeCrms(rg.desde, rg.hasta),
   ]);
   const out: Fila[] = [];
+  for (const v of enCrms) out.push({ f: v.fecha, d: {}, v: { cierres: 1, vendido: v.monto } });
   for (const x of meta) out.push({ f: x.f, d: {}, v: { gasto: x.v.gasto, impresiones: x.v.impresiones, clics: x.v.clics, vistas_landing: x.v.vistas_landing } });
   for (const x of vsl) out.push({ f: x.f, d: {}, v: { vistas_vsl: x.n } });
   for (const x of altas) out.push({ f: fechaTj(x.created_at), d: {}, v: { leads: 1 } });
@@ -805,5 +810,12 @@ export async function valoresDeCampo(campoId: string, desde: string, hasta: stri
       console.error(`[graficos] valores ${campoId}/${fid}: ${e instanceof Error ? e.message : String(e)}`);
     }
   }));
+  // EL «FUNNEL» OFRECE TODOS LOS CRMs del negocio (22/10/2026, llamada con un cliente: «que tú le puedas seleccionar de qué
+  // CRM quieres ver ese dashboard»), también los que todavía no tienen filas en el período: la hoja «Cobros» se arma para
+  // mirar las renovaciones antes de que se cobre la primera. Sin filas van al final (0).
+  if (campo.id === 'producto') {
+    const prods = await productosCrm().catch(() => null);
+    for (const p of prods ?? []) if (p.nombre && !cuenta.has(p.nombre)) cuenta.set(p.nombre, 0);
+  }
   return [...cuenta.entries()].map(([valor, filas]) => ({ valor, filas })).sort((a, b) => b.filas - a.filas || a.valor.localeCompare(b.valor)).slice(0, 300);
 }

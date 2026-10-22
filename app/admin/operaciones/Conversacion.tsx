@@ -19,7 +19,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { Icon } from '@/app/_components/icons';
 import { PanelDeChat } from './PanelChat';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
-import { historialDelChat, nombreCuenta, textoDeEnvio, trabajaSinEscribir, type CarteroP, type ChatCentro, type Envio, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
+import { preguntasDeLaApp, preguntasParaElBloque } from '@/lib/centro-chats';
+import { historialDelChat, yaEstaSinVer, nombreCuenta, textoDeEnvio, trabajaSinEscribir, type CarteroP, type ChatCentro, type Envio, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
 import { Modal } from '@/app/_ui';
 import { SIN_MARCAS, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
 import { BarraFijados, CitaCaja, ContextoWA, InfoMensaje, MenuMensajeWA, ReenviarA, type AccionesWA, type MenuAbiertoWA, type MensajeWA } from './MensajeWA';
@@ -32,6 +33,9 @@ import { Hilo, TANDA_HILO } from './Hilo';
 import type { Responder } from './PreguntaChat';
 import type { PreguntaChat as PreguntaChatT } from '@/lib/centro-preguntas-chat';
 import { Pregunta } from './Pregunta';
+import { PreguntasDeLaApp, PreguntasDelChat } from './PreguntasDelChat';
+import { AvisoClave } from '@/app/_chat/AvisoClave';
+import { hayClave } from '@/lib/claves-en-el-chat';
 import type { AdjuntosDeCaja } from './AdjuntosCaja';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { TareasVinculadas, irAlTurno } from './Avance';
@@ -86,7 +90,8 @@ export function Conversacion({
   respuestas: readonly Decision[];
   responder: AccionResponder;
   chat: ChatCentro;
-  /** Cuántas tarjetas de la Ticketera esperan una respuesta de Martín para este chat. */
+  /** Lo que este chat le avisa a Martín: el MISMO número de su fila (`k.avisos` de useCentro.ts: las tarjetas que esperan su
+   *  respuesta y su «Completado» sin ✓). La criatura de la cabecera duerme sólo cuando la fila está en gris (22/10/2026). */
   espera: number;
   pedidos: ReadonlyMap<string, PedidoP>;
   trabajos: readonly TrabajoP[];
@@ -111,6 +116,8 @@ export function Conversacion({
   onVolver: () => void;
 }) {
   const lineas = lineasDeFuera ?? historialDelChat(chat, pedidos, trabajos, respuestas, turnos, preguntasChat);
+  const bloque = preguntasParaElBloque(lineas);
+  const deLaApp = preguntasDeLaApp(lineas);
   // Lo que dijo el micrófono si no pudo (permiso, transcripción): va en la línea de estado de la caja.
   const [faltaMic, setFaltaMic] = useState<string | null>(null);
   useEffect(() => { setFaltaMic(null); }, [chat.clave]);
@@ -152,6 +159,16 @@ export function Conversacion({
   const [cuantos, setCuantos] = useState(TANDA_HILO);
   useEffect(() => { setCuantos(TANDA_HILO); }, [chat.clave]);
   const verTodo = useCallback(() => setCuantos(Number.MAX_SAFE_INTEGER), []);
+  // AL ABRIR UN CHAT CON UN «COMPLETADO» SIN SU ✓, EL HILO VA A ESE «YA ESTÁ» (22/10/2026, Martín: «cuando entro, no veo el mensaje
+  // de "Completado"»): puede estar arriba de lo que el chat escribió después. Una vez por chat abierto.
+  const sinVer = useMemo(() => yaEstaSinVer(lineas, yaVisto), [lineas, yaVisto]);
+  const fueAlYaEsta = useRef<string | null>(null);
+  useEffect(() => {
+    if (!sinVer || fueAlYaEsta.current === chat.clave) return;
+    fueAlYaEsta.current = chat.clave;
+    verTodo();
+    window.setTimeout(() => irAlTurno(sinVer), 120);
+  }, [chat.clave, sinVer, verTodo]);
   const [menuWA, setMenuWA] = useState<MenuAbiertoWA | null>(null);
   const [panelWA, setPanelWA] = useState<{ tipo: 'info' | 'reenviar'; m: MensajeWA } | null>(null);
   const [reenviando, setReenviando] = useState(false);
@@ -202,6 +219,13 @@ export function Conversacion({
         {/* Lo que el empleado espera de Martín, arriba de la caja, como AskUserQuestion de Claude Code (Pregunta.tsx).
             La que se contesta se va de acá y queda en la conversación. */}
         {preguntas.length > 0 && <Pregunta key={chat.clave} preguntas={preguntas} responder={responder} />}
+        {/* Lo que ESTE chat le pregunta, de a una y como en Claude (22/10/2026, PreguntasDelChat.tsx): las de `cartero preguntar` y
+            los botones del cierre con wrap_up se contestan acá (quedan en el hilo como «Decisión: …»); las de AskUserQuestion se
+            ven, y se contestan en la app de Claude. */}
+        {deLaApp.length > 0 && <PreguntasDeLaApp key={`a-${chat.clave}`} chat={chat.clave} preguntas={deLaApp} />}
+        {onResponder && bloque.length > 0 && <PreguntasDelChat key={`p-${chat.clave}`} chat={chat.clave} preguntas={bloque} onResponder={responderPregunta} />}
+        {/* Una clave pegada no sale (mandar.ts): se dice apenas aparece, con el botón a /integraciones. */}
+        {envio.puede && hayClave(texto) && <AvisoClave />}
         {envio.puede ? (
           <div className="co-caja">
             {/* La caja ÚNICA (app/_chat/CajaChat.tsx, 20/10/2026): la misma en toda la app. Arriba, la cita del mensaje que se

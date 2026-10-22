@@ -45,6 +45,12 @@ export const TOPE_CHAT = 60;
 /** Cuántas rondas de preguntas antes de que MaKo elija solo (§0: «Como mucho, 2 rondas»). */
 export const TOPE_RONDAS = 2;
 export const claveChat = (secuenciaId: number) => `automatizacion.chat:${secuenciaId}`;
+/** El id de la automatización de una clave de chat (`claveChat` al revés); null = no es la clave de un chat. */
+export function idDeClaveChat(clave: string): number | null {
+  const m = /^automatizacion\.chat:(\d{1,12})$/.exec(clave);
+  const n = m ? Number(m[1]) : NaN;
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
 
 /** El largo máximo de un texto guardado (un mensaje, una pregunta, un aviso). Lo de más se corta. */
 export const TOPE_TEXTO_CHAT = 4000;

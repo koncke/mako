@@ -17,7 +17,7 @@ const REGLA_AGENDA = '{"and":[{"event":{"eq":"PageView"}},{"or":[{"URL":{"i_cont
 const EVENTOS_PIXEL_WS13 = ['PageView', 'ViewContent', 'CompleteRegistration', 'agendar llamada 1 arriba', 'Lead'];
 const SNAPSHOTS_WS13 = {
   'https://landingvsl.vercel.app': { piezas: ['botones', 'embed-agenda'] },
-  'https://v0-joandowd.vercel.app': { piezas: ['botones', 'embed-agenda'] },
+  'https://landing-ws13.vercel.app': { piezas: ['botones', 'embed-agenda'] },
 };
 
 test('la regla de «AGENDA» se dice como lo que cuenta: visitas a una URL, no agendas', () => {
@@ -52,7 +52,7 @@ test('activa/inactiva/nunca sale de last_fired_time, con el huso como lo manda M
 test('los motivos citan hechos: lo declarado y lo medido en la landing', () => {
   assert.deepEqual(motivosVentaPorLlamada({ canal: 'llamadas', entradas: [], snapshots: SNAPSHOTS_WS13 }), [
     'declaraste que vendes por llamada',
-    'tus landings landingvsl.vercel.app y v0-joandowd.vercel.app tienen una agenda para reservar',
+    'tus landings landingvsl.vercel.app y landing-ws13.vercel.app tienen una agenda para reservar',
   ]);
   assert.deepEqual(motivosVentaPorLlamada({ canal: null, entradas: ['agenda_sola'], snapshots: {} }), ['tu funnel dice que agendan solos desde un link']);
   // Un carrito sin agenda en la landing: no hay con qué decir que vende por llamada.

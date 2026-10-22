@@ -8,12 +8,12 @@ import 'server-only';
 import { recordUsage, type UsageInfo } from './anthropic-usage';
 import { credWs, credDelCliente, credWsEstricta, wsDelEntorno } from './credenciales';
 import {
-  permisoDeGasto, evaluarClaveDelNegocio, MOTIVO_CLAVE_DEL_NEGOCIO,
+  permisoDeGasto, evaluarClaveDelNegocio, MOTIVO_CLAVE_DEL_NEGOCIO, MOTIVO_CREDITO_SU_CLAVE, FEATURES_DEL_PLAN,
   evaluarCreditoDeLaPlataforma, CLAVES_CREDITO_PLATAFORMA, CREDITO_HABILITADO_PARA, MOTIVO_CREDITO_PLATAFORMA, type PermisoClaude,
   type PermisoClaveDelNegocio, CLAVE_MODELO_SU_CLAUDE, modeloDeSuClaude,
 } from './veto-claude';
 import type { ProvName } from './ai-cheap';
-import { conD6bDelPedido, pasaPorLaPuerta, soloSuIA } from './solo-su-ia';
+import { conD6bDelPedido, pasaPorLaPuerta, planPuedePagarConSuClave, soloSuIA } from './solo-su-ia';
 
 // ⛔ ACÁ NO HAY NI `MODEL` NI `ENDPOINT`, y ese es el punto entero del veto.
 //
@@ -71,8 +71,18 @@ async function esClaveAnthropicDeLaPlataforma(key: string): Promise<boolean | nu
   return deLaPlataforma.some((x) => typeof x === 'string' && x.trim() !== '' && x.trim() === k);
 }
 
+/**
+ * De quién es el gasto de la clave del negocio, PRIMERO en el motivo: lib/costos-ia.ts lo saca del de MaKo. Si su clave es el
+ * crédito de Max de la plataforma (el ws10, `esCredito`), es del CRÉDITO: el panel lo muestra aparte, no como del negocio
+ * (revisión del lote 2 de IA: si no, ese gasto no se veía en ningún lado).
+ */
+const marcaDelGasto = (permiso: PermisoClaveDelNegocio): string =>
+  permiso.esCredito ? MOTIVO_CREDITO_SU_CLAVE : MOTIVO_CLAVE_DEL_NEGOCIO;
+
 /** Lo que dice una función cuando no se pudo comprobar la clave de Claude del negocio: se reintenta, no se paga otra. */
-export const NO_PUDE_COMPROBAR_SU_CLAUDE = 'No pude comprobar tu clave de Claude (la base no contestó). Se reintenta en la próxima corrida.';
+// Sin la causa: puede ser la base que no contestó o una fila de la plataforma que no se descifra (revisión del lote 2), y
+// decir «la base no contestó» en el segundo caso era falso.
+export const NO_PUDE_COMPROBAR_SU_CLAUDE = 'No pude comprobar tu clave de Claude. Se reintenta en la próxima corrida.';
 
 /**
  * La puerta 1 (la lista blanca) paga con la clave de la PLATAFORMA, y con ninguna otra (revisión de IA5/IA12, 22/10/2026).
@@ -115,6 +125,11 @@ async function exigirClaveDeLaPlataforma(key: string, feature?: string): Promise
 export async function permisoDeLaClaveDelNegocio(feature?: string): Promise<{ permiso: PermisoClaveDelNegocio } | { pausa: true } | { noPudeLeer: true } | null> {
   const clave = await credDelCliente('ANTHROPIC_API_KEY').catch(() => null);
   if (!clave) return null;
+  // ⚠️ EL PLAN, SÓLO CON LA DECISIÓN DEL PLAN EN «SÍ» Y CIERTA (revisión adversarial de IA15, 22/10/2026). La cascada prueba
+  // esta puerta en cualquier pedido, decida lo que decida el Plan: con una fila de la plataforma ilegible, la frontera no
+  // reconocía el crédito de Martín ni la copia de la clave de MaKo, y el Plan pagaba con ellas. `planConSuClave` sí los
+  // reconoce (o dice «no pude saber»), y es la que manda.
+  if (FEATURES_DEL_PLAN.includes((feature ?? '').trim()) && !(await planPuedePagarConSuClave())) return null;
   // ⚠️ «NO PUDE LEER» NO ES «NO TIENE» (revisión de IA5/IA12, 22/10/2026). Con `null`, el closing lo leía como «sin su clave»
   // y caía a `chatClaude`, que pagaba con ESA misma clave (`credWs`): Sonnet con thinking sobre la clave de un negocio que
   // eligió Haiku, sin su marca en el gasto, y en el ws10, sobre el crédito de Martín.
@@ -136,7 +151,25 @@ export async function permisoDeLaClaveDelNegocio(feature?: string): Promise<{ pe
     creditosPlataforma = [];
     // Las DOS fuentes, siempre: con el entorno puesto, la fila no se leía, y una clave rotada en la fila (o un entorno que
     // no coincide) dejaba al ws10 elegir Sonnet sobre el crédito de Martín.
-    for (const nombre of CLAVES_CREDITO_PLATAFORMA) creditosPlataforma.push(process.env[nombre]?.trim() || null, await credWsEstricta(nombre, wsSA));
+    for (const nombre of CLAVES_CREDITO_PLATAFORMA) {
+      const env = process.env[nombre]?.trim() || null;
+      const fila = await credWsEstricta(nombre, wsSA, { ilegibleTira: true });
+      creditosPlataforma.push(env, fila);
+      // Reconocido por su VALOR y sin marca: se marca, para que la próxima vez no dependa de que esa fila siga ahí.
+      if ([env, fila].some((x) => x && x.trim() === clave.trim())) {
+        const { leerMarcaDeCredito, esElCreditoMarcado, marcarCredito } = await import('@/lib/credito-marca');
+        if (!esElCreditoMarcado(clave, await leerMarcaDeCredito().catch(() => null))) await marcarCredito(clave, nombre);
+      }
+    }
+  } catch { creditosPlataforma = null; }
+  // ⚠️ LA MARCA EXPLÍCITA MANDA (lib/credito-marca.ts; decisión del Cerebro, 22/10/2026: «que no dependa del valor»): una
+  // clave marcada como el crédito de Martín se trata como crédito aunque la fila del crédito de la plataforma ya no exista.
+  // Sin poder leer la marca, «no sé»: el barato y el Plan cerrado.
+  try {
+    const { leerMarcaDeCredito, esElCreditoMarcado } = await import('@/lib/credito-marca');
+    // Marcada: es crédito, se pudieran leer las filas de la plataforma o no (sin leerlas, `null` decía «no sé» y el gasto se
+    // anotaba como del negocio; la marca SÍ sabe).
+    if (esElCreditoMarcado(clave, await leerMarcaDeCredito())) creditosPlataforma = [...(creditosPlataforma ?? []), clave];
   } catch { creditosPlataforma = null; }
   const v = evaluarClaveDelNegocio({ feature, clave, clavesPlataforma, pausa, model: modelo, creditosPlataforma });
   if (!v.ok) return pausa ? { pausa: true } : null;
@@ -153,8 +186,8 @@ async function clavesAnthropicDeLaPlataforma(): Promise<Array<string | null | un
     process.env.ANTHROPIC_API_KEY,
     // La fila de la que sale el ENTORNO de esta clave (`wsDelEntorno`). Hasta el 18/10 era la del ws1 (`OWNER_WS`), y
     // así la clave propia que pegara Mauricio se leía como la de la plataforma y nunca contaba como suya.
-    await credWsEstricta('ANTHROPIC_API_KEY', await wsDelEntorno('ANTHROPIC_API_KEY')),
-    await credWsEstricta('ANTHROPIC_API_KEY', await wsSuperAdmin()),
+    await credWsEstricta('ANTHROPIC_API_KEY', await wsDelEntorno('ANTHROPIC_API_KEY'), { ilegibleTira: true }),
+    await credWsEstricta('ANTHROPIC_API_KEY', await wsSuperAdmin(), { ilegibleTira: true }),
   ];
 }
 
@@ -195,7 +228,7 @@ export async function conClaveDelNegocio(p: {
       return { error };
     }
     // Lo paga el negocio: la marca va PRIMERO en el motivo, y lib/costos-ia.ts la saca del gasto de MaKo.
-    await recordUsage(permiso.feature, permiso.model, body.usage, [MOTIVO_CLAVE_DEL_NEGOCIO, (p.motivo ?? '').trim()].filter(Boolean).join(' · ')).catch(() => {});
+    await recordUsage(permiso.feature, permiso.model, body.usage, [marcaDelGasto(permiso), (p.motivo ?? '').trim()].filter(Boolean).join(' · ')).catch(() => {});
     const texto = (body.content ?? [])
       .filter((c: { type?: string }) => c.type === 'text')
       .map((c: { text?: string }) => c.text ?? '')
@@ -706,7 +739,7 @@ export async function chatClaudeTools(
 
     // Lo que paga el negocio lleva su marca PRIMERO: lib/costos-ia.ts lo saca del gasto de MaKo.
     const usage = await recordUsage(permiso.feature, String(model), body.usage,
-      delNegocio ? [MOTIVO_CLAVE_DEL_NEGOCIO, (opts.motivo ?? '').trim()].filter(Boolean).join(' · ') : opts.motivo);
+      delNegocio ? [marcaDelGasto(delNegocio), (opts.motivo ?? '').trim()].filter(Boolean).join(' · ') : opts.motivo);
     opts.onUsage?.(usage);
 
     const content: Block[] = Array.isArray(body.content) ? (body.content as Block[]) : [];

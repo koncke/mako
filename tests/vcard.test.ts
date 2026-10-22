@@ -47,8 +47,8 @@ test('Prefiere el waid al número visible', () => {
 });
 
 test('Sin FN, arma el nombre desde N (apellido;nombre)', () => {
-  const c = leerVcard('BEGIN:VCARD\nVERSION:3.0\nN:Fittipaldi;Leila;;;\nTEL:+5491100000000\nEND:VCARD');
-  assert.equal(c!.nombre, 'Leila Fittipaldi', 'no dio vuelta apellido/nombre');
+  const c = leerVcard('BEGIN:VCARD\nVERSION:3.0\nN:Ejemplo;Leila;;;\nTEL:+5491100000000\nEND:VCARD');
+  assert.equal(c!.nombre, 'Leila Ejemplo', 'no dio vuelta apellido/nombre');
 });
 
 test('Aguanta las líneas cortadas del estándar', () => {

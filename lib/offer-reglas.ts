@@ -105,7 +105,9 @@ export function normalizarCompletar(t: string): string {
   return t.replace(/\[\s*completar\s*(?::\s*)?([^\]]*)\]/gi, (_, resto: string) => (resto.trim() ? `${MARCA_COMPLETAR} ${resto.trim()}` : MARCA_COMPLETAR));
 }
 function conMarcaCompletar(v: unknown): unknown {
-  if (typeof v === 'string') return normalizarCompletar(v);
+  // Y sin la marca de fuente que el modelo copia del bloque de piezas («[de: chat]» salía 7 veces en un PDF: en las
+  // notas del diagnóstico, en «Lo que me gustó» y en un paso; segunda prueba, 22/10/2026).
+  if (typeof v === 'string') return normalizarCompletar(/\[de:/i.test(v) ? sinMarcaDeFuente(v) : v);
   if (Array.isArray(v)) return v.map(conMarcaCompletar);
   if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, conMarcaCompletar(x)]));
   return v;
@@ -160,6 +162,13 @@ export const sinMarcaDeFuente = (t: string): string => t.replace(/\s*\[de:\s*[a-
 /** De dónde dice el modelo que sacó una pieza (`"de"` en el JSON del turno). Sin `de`, lo dijo el dueño. */
 export type OrigenDePieza = 'contexto' | 'documento';
 
+/** Las keys que el modelo inventa con el nombre de todos los días, y la pieza que son (sin tildes, en minúscula). */
+const ALIAS_PIEZA: Readonly<Record<string, PiezaKey>> = {
+  promesa: 'resultado', transformacion: 'resultado', avatar: 'cliente', publico: 'cliente', cliente_ideal: 'cliente',
+  dolor: 'problema', metodo: 'mecanismo', entregable: 'entregables', incluye: 'entregables', testimonios: 'prueba',
+  casos: 'prueba', ticket: 'precio', bono: 'bonos',
+};
+
 /**
  * Lo que el modelo anotó de las piezas en un turno: sólo keys válidas, texto corto, y de dónde la sacó si lo dice
  * (`{"valor": "…", "de": "contexto"}`, 22/10/2026: lo que salía de lo cargado en MaKo se guardaba como dicho por el dueño).
@@ -168,8 +177,12 @@ function limpiarPiezas(v: unknown): { piezas: Partial<Record<PiezaKey, string>>;
   const piezas: Partial<Record<PiezaKey, string>> = {};
   const origen: Partial<Record<PiezaKey, OrigenDePieza>> = {};
   if (!v || typeof v !== 'object' || Array.isArray(v)) return { piezas, origen };
-  for (const [k, raw] of Object.entries(v as Record<string, unknown>)) {
-    if (!esPiezaKey(k)) continue;
+  for (const [crudo, raw] of Object.entries(v as Record<string, unknown>)) {
+    // Una key que no existe se descartaba EN SILENCIO (22/10/2026, segunda prueba: «queda anotada tal cual» y la
+    // promesa no quedó en ninguna pieza). Las que el modelo inventa con el nombre de todos los días van a la suya.
+    const plano = normalizar(crudo);
+    const k = esPiezaKey(crudo) ? crudo : esPiezaKey(plano) ? plano : ALIAS_PIEZA[plano];
+    if (!k) { console.warn(`[offer] el modelo anotó una pieza que no existe: «${crudo}»`); continue; }
     // El modelo a veces devuelve {valor: "…"} en vez del texto pelado: se acepta igual.
     const val = sinMarcaDeFuente(colapsar(typeof raw === 'string' ? raw : (raw as { valor?: unknown } | null)?.valor));
     if (!val) continue;
@@ -185,13 +198,25 @@ function limpiarPiezas(v: unknown): { piezas: Partial<Record<PiezaKey, string>>;
  * Lo que el turno sabe de ESTA oferta en MaKo: si se armó y si se guardó (22/10/2026, prueba de los chats: «¿ya quedó
  * guardada mi oferta en MaKo?» se contestaba «sí, ya está registrada» sin una versión armada ni guardada). Va al
  * contexto del turno, que lo leen también los prompts editados en /configuraciones.
+ * Segunda prueba (22/10/2026): «se guarda automáticamente cuando tocas Armar mi oferta» (Armar no guarda: guarda el botón
+ * «Guardar»), y «¿qué más te falta saber?» se contestaba con una pieza opcional (o con «otras», que empuja la regla 14)
+ * mientras lo que frenaba «Armar» era la prueba. Por eso dice, como un HECHO, qué falta para armarla con las `piezas`.
  */
-export function estadoDeLaOferta(f: { conclusiones: ReadonlyArray<{ version: number }>; ofertaId: number | null; ofertaVersion: number | null }): string {
+export function estadoDeLaOferta(f: {
+  conclusiones: ReadonlyArray<{ version: number }>; ofertaId: number | null; ofertaVersion: number | null; piezas?: PiezasSabidas;
+}): string {
   const v = f.conclusiones.reduce((m, c) => Math.max(m, c.version), 0);
   const titulo = 'ESTADO DE ESTA OFERTA EN MaKo (si el dueño pregunta, contesta con esto)';
-  if (!v) return `${titulo}: todavía NO está armada ni guardada. Se arma cuando el dueño toca «Armar mi oferta», y después la puede guardar en su funnel.`;
-  if (f.ofertaId != null && f.ofertaVersion === v) return `${titulo}: la versión ${v} está armada y GUARDADA en MaKo.`;
-  return `${titulo}: la versión ${v} está armada (en PDF) pero NO está guardada: se guarda desde la ventana de la oferta, en su funnel.`;
+  const guardar = 'Se guarda SÓLO con el botón «Guardar» de la ventana de la oferta, en su funnel: «Armar mi oferta» la arma pero NO la guarda. Nunca digas que se guarda sola.';
+  const faltan = f.piezas ? faltanMinimas(f.piezas) : null;
+  const armar = v ? 'armar otra versión' : 'armarla';
+  const paraArmar = faltan == null ? ''
+    : faltan.length
+      ? ` Para ${armar} falta: ${faltan.map((k) => piezaLabel(k).toLowerCase()).join(', ')}. Si pregunta qué te falta, es eso y nada más.`
+      : ` Ya tiene lo mínimo para ${armar}: si pregunta qué te falta, dile que puede tocar «Armar mi oferta»; lo demás es opcional, para afinarla.`;
+  if (!v) return `${titulo}: todavía NO está armada ni guardada. ${guardar}${paraArmar}`;
+  if (f.ofertaId != null && f.ofertaVersion === v) return `${titulo}: la versión ${v} está armada y GUARDADA en MaKo.${paraArmar}`;
+  return `${titulo}: la versión ${v} está armada (en PDF) pero NO está guardada. ${guardar}${paraArmar}`;
 }
 
 /**
@@ -978,9 +1003,17 @@ export function faseVigenteDe(c: { faseGuardada: Diagnostico | null; faseSesion:
  * del negocio dice dónde cierra la venta su oferta de siempre, no ésta (22/10/2026, prueba de los chats: «Dónde cierras
  * la venta: Llamada de venta» en el PDF de una oferta que el dueño dijo tres veces que se vende sin llamadas). Sólo el
  * rótulo: la fase y el cuello de botella no cambian.
+ * Sin canal en el funnel (los que crea Customer Success, el alta sin canal), el que DIJO el dueño (`canalQueDijo`); y si
+ * dijo que no hay llamadas y no nombró otro canal, el de llamadas del negocio no se imprime (segunda prueba, 22/10).
  */
-export function conCanalDeLaOferta(fase: Diagnostico | null, canalDelFunnel: CanalId | null): Diagnostico | null {
-  return fase && canalDelFunnel ? { ...fase, canal: canalDelFunnel } : fase;
+export function conCanalDeLaOferta(
+  fase: Diagnostico | null, canalDelFunnel: CanalId | null, dicho: { canal: CanalId | null; sinLlamadas: boolean } = { canal: null, sinLlamadas: false },
+): Diagnostico | null {
+  if (!fase) return fase;
+  if (canalDelFunnel) return { ...fase, canal: canalDelFunnel };
+  if (dicho.canal) return { ...fase, canal: dicho.canal };
+  if (dicho.sinLlamadas && fase.canal === 'llamadas') { const { canal: _sin, ...resto } = fase; return resto; }
+  return fase;
 }
 
 /**
@@ -1075,7 +1108,7 @@ export function repartirTextoLargo(
 }
 
 /** Los parámetros de un link que no cambian la página que se ve (seguimiento de anuncios, de mails, de previews). */
-const PARAM_DE_SEGUIMIENTO = /^(utm_[a-z0-9_]+|fbclid|gclid|gbraid|wbraid|dclid|msclkid|ttclid|yclid|twclid|igshid|mc_cid|mc_eid|_ga|_gl|_hs[a-z]+|hsa_[a-z]+|ref|ref_src|sfnsn|__lovable_load_id)$/i;
+const PARAM_DE_SEGUIMIENTO = /^(utm_[a-z0-9_]+|fbclid|gclid|gbraid|wbraid|dclid|msclkid|ttclid|yclid|twclid|igshid|igsh|mc_cid|mc_eid|_ga|_gl|_hs[a-z]+|hsa_[a-z]+|ref|ref_src|sfnsn|__lovable_load_id)$/i;
 
 /**
  * La URL que se va a bajar para «pega el link de tu web»: LA que pegó el dueño, tal cual.
@@ -1509,7 +1542,7 @@ export function claveCifra(token: string): string | null {
 
 /**
  * Una hora («0:04:43», «12:30») o una fecha («16/10», «16/10/2026», «2026-10-16»): nunca es una cifra del negocio. Medido
- * el 17/10/2026 en el ws13: la transcripción de una llamada que subió el dueño («0:04:43 Cristian: ¿Qué haces?») volvía
+ * el 17/10/2026 en el ws13: la transcripción de una llamada que subió el dueño («0:04:43 Pedro: ¿Qué haces?») volvía
  * «del negocio» a todos los números del 0 al 59, y el «43%» y el «36%» pasaban por dichos por él.
  */
 const HORA_O_FECHA = /\b\d{1,2}:\d{2}(?::\d{2})?\b|\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b|\b\d{4}-\d{2}-\d{2}\b/g;
@@ -1803,6 +1836,74 @@ export function esPagoUnico(valor: string | null | undefined): boolean {
 export function conCobroDelPrecio(piezas: PiezasSabidas, at: string = new Date().toISOString()): PiezasSabidas {
   if (tieneDato(piezas, 'cobro') || !esPagoUnico(piezas.precio?.valor)) return piezas;
   return mergePiezas(piezas, { cobro: '100% al inscribirse: es un pago único, lo dijo con el precio' }, 'chat', at);
+}
+
+// ── Lo que el dueño DICE con todas las letras, anotado por el código (22/10/2026, segunda prueba de los chats) ──
+// Las piezas salían sólo de lo que devolvía el modelo (`fundirPiezasDelTurno`), y tres cosas dichas sin vueltas se
+// perdían o quedaban al revés: «Todavía no vendí ninguno… No tengo casos ni testimonios» (no anotaba la prueba, volvía a
+// preguntar las ventas y «Armar» rebotaba con «falta: prueba»; otra vez anotó ventas «sin dato: ya vende el Sprint»,
+// leído de «Vendo el Sprint»), «quiero que la promesa sea exactamente esta: «…». Anótala así» (contestaba «queda
+// anotada tal cual» y no la anotaba), y «por WhatsApp… no hay llamadas de venta» (el PDF decía «Llamada de venta»).
+// Como `conCobroDelPrecio`: lo determinista no depende de que el modelo lo anote.
+
+/** «Todavía no vendí ninguno», «nadie la compró todavía», «cero ventas». Sobre el texto normalizado (sin tildes). */
+const SIN_VENTAS = /\b(?:todavia no (?:vendi|he vendido|vendo)|aun no (?:vendi|he vendido|vendo)|no (?:vendi|he vendido) (?:ninguno|ninguna|nada|ni uno|ni una)|nadie (?:la |lo )?(?:compro|pago|ha comprado)|cero ventas|0 ventas|ninguna venta|sin ventas)\b/;
+/** «No tengo casos ni testimonios», «todavía no tengo resultados». */
+const SIN_PRUEBA = /\b(?:no tengo|todavia no tengo|aun no tengo|no hay|sin) (?:casos|testimonios|resultados|pruebas)\b/;
+/** El dueño pide que algo quede LITERAL. Sobre el texto sin tildes: «anótala así» llega como «anot[ao]l[ao] asi». */
+const LITERAL = /\b(?:exactamente|tal cual|textual|textualmente|palabra por palabra|sin cambiar\w*|anot[ao]l[ao] asi)\b/;
+/** La pieza que nombra antes de las comillas. «La promesa» es el resultado prometido (la pieza `resultado`). */
+const PIEZA_NOMBRADA: ReadonlyArray<[string, PiezaKey]> = [['promesa', 'resultado'], ['resultado', 'resultado'], ['frase', 'frase'], ['garantia', 'garantia'], ['precio', 'precio']];
+
+/**
+ * Lo que el dueño pidió anotar TAL CUAL: la pieza que nombra (la última antes de las comillas) y el texto entre «», "" o
+ * “”. null si no pidió que quede literal, si no hay comillas o si no nombra una pieza.
+ */
+export function literalDelDueno(texto: string): { key: PiezaKey; valor: string } | null {
+  if (!LITERAL.test(normalizar(texto))) return null;
+  const q = texto.match(/[«"“]([^»"”]{3,400})[»"”]/);
+  if (!q || q.index == null) return null;
+  const antes = normalizar(texto.slice(0, q.index));
+  let mejor: { key: PiezaKey; i: number } | null = null;
+  for (const [nombre, key] of PIEZA_NOMBRADA) {
+    const i = antes.lastIndexOf(nombre);
+    if (i >= 0 && (!mejor || i > mejor.i)) mejor = { key, i };
+  }
+  return mejor ? { key: mejor.key, valor: q[1].trim() } : null;
+}
+
+/**
+ * Las piezas con lo que el dueño acaba de decir sin vueltas (`texto`: su último mensaje): que todavía no vendió, que no
+ * tiene casos, o el texto que pidió anotar tal cual. Gana sobre lo que haya: es lo último que dijo. Va con fuente
+ * 'chat' y en sus palabras: «0: …» es lo que lee `alertaSinDatos` como una oferta sin ventas.
+ */
+export function conLoQueDijoElDueno(piezas: PiezasSabidas, texto: string, at: string = new Date().toISOString()): PiezasSabidas {
+  const n = normalizar(texto ?? '');
+  const nuevas: Partial<Record<PiezaKey, string>> = {};
+  if (SIN_VENTAS.test(n)) nuevas.ventas = '0: todavía no vendió ninguna (lo dijo en el chat)';
+  if (SIN_PRUEBA.test(n)) nuevas.prueba = 'Todavía no tiene casos ni testimonios (lo dijo en el chat)';
+  const literal = literalDelDueno(texto ?? '');
+  if (literal) nuevas[literal.key] = literal.valor;
+  return Object.keys(nuevas).length ? mergePiezas(piezas, nuevas, 'chat', at) : piezas;
+}
+
+/**
+ * Dónde cierra la venta según lo que DIJO el dueño, del mensaje más nuevo al más viejo: el primero que nombra un canal
+ * gana. «No hay llamadas» / «sin llamadas» descarta las llamadas (también las de un mensaje más viejo) y, si ningún
+ * mensaje nombra otro canal, queda `sinLlamadas` para no imprimir «Llamada de venta». «Por WhatsApp» es vender por chat.
+ */
+export function canalQueDijo(textos: readonly string[]): { canal: CanalId | null; sinLlamadas: boolean } {
+  let sinLlamadas = false;
+  for (const t of [...textos].reverse()) {
+    const n = normalizar(t ?? '');
+    if (/\b(?:sin|no hay|no hago|no tengo|nada de|ni) (?:llamadas?|videollamadas?)\b/.test(n)) sinLlamadas = true;
+    if (!sinLlamadas && /\b(?:(?:por|en|con) (?:una )?llamada|agend\w* (?:una )?llamada)\b/.test(n)) return { canal: 'llamadas', sinLlamadas };
+    if (/\b(?:por|via|en|desde) (?:whatsapp|wsp|chat|dm|mensajes? directos?|instagram|telegram)\b/.test(n)) return { canal: 'conversaciones', sinLlamadas };
+    if (/\b(?:checkout|carrito|link de pago|compran (?:directo|solos))\b/.test(n)) return { canal: 'carrito', sinLlamadas };
+    if (/\bwebinar\b/.test(n)) return { canal: 'webinar', sinLlamadas };
+    if (/\b(?:presencial|en (?:mi|el|nuestro) local|en persona)\b/.test(n)) return { canal: 'presencial', sinLlamadas };
+  }
+  return { canal: null, sinLlamadas };
 }
 
 export function porcentajeAlFirmar(valor: string | null | undefined): number | null {
@@ -2459,6 +2560,19 @@ export function conclusionParaMostrar<C extends { diagnostico: DiagnosticoOferta
   };
 }
 
+/** Lo guardado antes del 22/10/2026 puede traer «[de: chat]» copiado por el modelo: se LEE sin la marca, a fondo. */
+function sinMarcasAFondo<T>(v: T): T {
+  // Sin marcas devuelve el MISMO objeto: quien lee compara por referencia para saber si hubo algo que arreglar.
+  if (typeof v === 'string') return (/\[de:/i.test(v) ? sinMarcaDeFuente(v) : v) as T;
+  if (Array.isArray(v)) { const m = v.map(sinMarcasAFondo); return (m.every((x, i) => x === v[i]) ? v : m) as T; }
+  if (v && typeof v === 'object') {
+    let cambio = false;
+    const o = Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => { const y = sinMarcasAFondo(x); if (y !== x) cambio = true; return [k, y]; }));
+    return (cambio ? o : v) as T;
+  }
+  return v;
+}
+
 /**
  * `conclusionParaMostrar` con las cifras que dio el negocio en ESTA conversación (sus piezas, sus mensajes, sus
  * documentos). Y «Los números» de una propuesta guardada ANTES del 17/10/2026 se leen con la marca de lo que estimó MaKo
@@ -2468,7 +2582,7 @@ export function conclusionParaMostrar<C extends { diagnostico: DiagnosticoOferta
 export function conclusionVisible<C extends { diagnostico: DiagnosticoOferta; calculo: CalculoDiagnostico }>(
   c: C, f: { piezas: PiezasSabidas; mensajes: ReadonlyArray<Pick<MensajeGuardado, 'de' | 'texto'>>; documentos: ReadonlyArray<{ texto: string }> },
 ): C {
-  const vista = conclusionParaMostrar(c, () => cifrasConPorcentaje([...valoresDeLasPiezas(f.piezas), ...fuentesDelDueno(f)]));
+  const vista = conclusionParaMostrar(sinMarcasAFondo(c), () => cifrasConPorcentaje([...valoresDeLasPiezas(f.piezas), ...fuentesDelDueno(f)]));
   const pr = (vista as { propuesta?: PropuestaOferta | null }).propuesta;
   if (!pr || !Array.isArray(pr.numeros) || !pr.numeros.length) return vista;
   const permitidas = cifrasDelNegocio([...valoresDeLasPiezas(f.piezas), ...fuentesDelDueno(f), pr.inversion?.precio, pr.inversion?.contado, pr.inversion?.plan]);
@@ -2937,6 +3051,13 @@ export function entradaCompletar(etiqueta: string, valor: string): string | null
   return detalle ? `${etiqueta}: ${recortar(detalle, 140)}` : etiqueta;
 }
 
+/** El nombre de un número de «Los números»: lo que dice antes de la marca (sin «:» ni «—» al final), o «Número N». */
+export function rotuloDeNumero(n: string, i: number): string {
+  const j = (n ?? '').indexOf(MARCA_COMPLETAR);
+  const antes = (j > 0 ? n.slice(0, j) : '').replace(/[\s:—–-]+$/, '').trim();
+  return antes.length >= 2 && antes.length <= 60 ? antes : `Número ${i + 1}`;
+}
+
 /** Todo lo que quedó «[completar]», en el orden de la plantilla y con el nombre que ve el dueño. */
 export function listaCompletar(p: PropuestaOferta): string[] {
   const pares: Array<[string, string]> = [
@@ -2959,7 +3080,9 @@ export function listaCompletar(p: PropuestaOferta): string[] {
     ['Urgencia', p.urgencia],
     ['Mejor escenario', p.escenarios.mejor], ['Peor escenario', p.escenarios.peor],
     ...p.ecuacion.flatMap((f): Array<[string, string]> => [[`Ecuación de valor: ${f.variable} antes`, f.antes], [`Ecuación de valor: ${f.variable} después`, f.despues]]),
-    ...p.numeros.map((n, i): [string, string] => [`Número ${i + 1}`, n]),
+    // El rótulo de un número es lo que dice ANTES de la marca («Ventas objetivo por mes: [completar] …», «LTV:CAC
+    // [completar]»): por la posición salía «Número 2: ventas para validar» y «Número 5» solo (segunda prueba, 22/10/2026).
+    ...p.numeros.map((n, i): [string, string] => [rotuloDeNumero(n, i), n]),
     ...p.validar.map((v, i): [string, string] => [`Cómo validarla ${i + 1}`, v]),
     ['Siguiente escalón', p.siguiente],
   ];
