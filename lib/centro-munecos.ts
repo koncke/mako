@@ -119,9 +119,23 @@ export function aspectoDe(titulo: string, elegido?: Aspecto | null): Aspecto {
   const fijo = EQUIPO.find(([pre]) => t.startsWith(pre));
   const esSub = /[›>]/.test(titulo);
   if (fijo) return { forma: fijo[1], color: fijo[2], cara: esSub ? cara : fijo[3] };
+  return sorteada(h, cara);
+}
+
+/** La del sorteo: cuerpo, color y cara salen del hash (las piezas de siempre, `DE_SIEMPRE`). */
+function sorteada(h: number, cara: CaraMuneco = DE_SIEMPRE.caras[(h >>> 7) % DE_SIEMPRE.caras.length]): Aspecto {
   const { formas } = DE_SIEMPRE;
   return { forma: formas[h % formas.length], color: COLORES[Math.floor(h / formas.length) % COLORES.length], cara };
 }
+
+/**
+ * LA CRIATURA DE UN CHAT DEL CLIENTE (22/10/2026, Martín, con la captura del ws1: «todas las criaturas son el círculo... No hay
+ * randomizer»). La lista del cliente sacaba la criatura del NOMBRE con la familia del equipo (`EQUIPO`), y ahí las de Offer y el
+ * Onboarding son círculos: «Mi oferta», «Sprint de Diseño…» y «Onboarding», todos círculos de colores. Y tres «Chat de antes»
+ * con el mismo nombre eran la misma criatura. Ahora sale del MISMO sorteo que el super admin, con la clave del chat (`o13`,
+ * `a23`, `s8`): cada chat la suya, la misma al recargar y aunque se renombre. El Cerebro no pasa por acá: es la estrella.
+ */
+export const aspectoDeChat = (clave: string): Aspecto => sorteada(hash(`chat:${clave}`));
 
 /** Lo elegido para un nombre, si lo hay. */
 export const elegidoPara = (munecos: Readonly<MunecosElegidos> | null | undefined, titulo: string): Aspecto | null =>

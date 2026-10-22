@@ -59,8 +59,8 @@ import { useRouter } from '@/app/_ui/Link';
 import { Modal, Toast, useToast } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { useCentro, type Centro, type DatosCentro } from '@/app/admin/operaciones/useCentro';
-import { claveParaUrl, seguirChat } from '@/lib/centro-chats';
-import { ChatDelCentro, FilaDeChat, ListaCentro, MenusCentro, NuevoChatCentro, PieCentro, RenglonDeFila, buscarChats } from '@/app/admin/operaciones/PiezasCentro';
+import { claveParaUrl, partesDelNombre, seguirChat } from '@/lib/centro-chats';
+import { ChatDelCentro, FilaDeChat, GruposPorJefe, ListaCentro, MenusCentro, NuevoChatCentro, PieCentro, RenglonDeFila, buscarChats } from '@/app/admin/operaciones/PiezasCentro';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import { ChatNuevoCentro } from '@/app/admin/operaciones/ChatNuevo';
 import { TicketeraCentro } from '@/app/admin/operaciones/TicketeraCentro';
@@ -264,12 +264,14 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   const chatsCentro = centro?.chats;
   const delCentro = useMemo(() => (chatsCentro ? buscarChats(chatsCentro, busca) : []), [chatsCentro, busca]);
 
-  /** Una fila de la lista del cliente: la `FilaDeChat` del super admin, con su criatura y, si trabaja, «Trabajando…». */
-  const fila = (f: (typeof k.lista)[number]) => {
+  /** Una fila de la lista del cliente: la `FilaDeChat` del super admin, con SU criatura (una por chat: `aspecto`) y, si trabaja,
+   *  «Trabajando…». En su grupo (`sub`), corrida a la derecha y sólo con lo de después de «›», como un sub-chat del super admin. */
+  const fila = (f: (typeof k.lista)[number], sub = false) => {
     const actual = !mapa && esFilaDe(f, elegido);
     const vivo = actual && k.enCurso;
     return (
-      <FilaDeChat key={f.clave} titulo={f.titulo} criatura={f.criatura} animo={vivo ? 'trabajando' : 'despierto'} actual={actual}
+      <FilaDeChat key={f.clave} titulo={f.titulo} criatura={f.criatura} aspecto={f.aspecto} animo={vivo ? 'trabajando' : 'despierto'} actual={actual}
+        texto={sub ? partesDelNombre(f.titulo).sub ?? f.titulo : f.titulo} sub={sub}
         hace={edadCorta(f.actividad, k.ahora)} previa={vivo ? <RenglonDeFila vivo /> : null} onElegir={() => elegir(f.elegido)} />
     );
   };
@@ -324,12 +326,13 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
           {/* «Nuevo chat» arriba de todos, como el de ChatGPT y Claude (y el del Ops Center del super admin). */}
           <NuevoChatCentro onNuevo={() => elegir({ virtual: 'nuevo' })} actual={!mapa && elegido != null && 'virtual' in elegido && elegido.virtual === 'nuevo'} />
           {k.errorLista && <p className="co-lista__vacio">{k.errorLista}</p>}
-          {/* UNA lista (21/10/2026): el Cerebro arriba y todos los demás por actividad, sin secciones ni plegables. */}
+          {/* UNA lista (21/10/2026): el Cerebro arriba y todos los demás por actividad, sin plegables; desde el 22/10, agrupados por
+              su origen («Offer › …», «Dashboard › …») con el MISMO agrupado del super admin (`GruposPorJefe`). */}
           {k.sesiones != null && (
             <>
               <div className="co-cuenta co-cuenta--cerebro">{fila(cerebroFila)}</div>
               <div className="co-cuenta">
-                {corte.map(fila)}
+                <GruposPorJefe chats={corte} fila={fila} />
                 {!todas && !busca.trim() && restoFilas.length > corte.length && (
                   <button type="button" className="co-mas" onClick={() => setTodas(true)}>{`Mostrar ${restoFilas.length - corte.length} más`}</button>
                 )}
@@ -367,7 +370,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
         // Un chat con MaKo (o de Offer, o de antes): el panel del Ops Center (PanelChat.tsx), con SU motor.
         <PanelDeChat hilo={hilo} adjuntos={k.adjuntosCaja}
           // La criatura del chat: el Cerebro es la estrella; uno de Offer, la de Offer (la cabecera del super admin, sin chips).
-          cabecera={{ clave: JSON.stringify(elegido), titulo: k.nombre, criatura: k.nombreMuneco, animo: k.enCurso ? 'trabajando' : 'despierto', onVolver: () => setConChat(false) }}
+          cabecera={{ clave: JSON.stringify(elegido), titulo: k.nombre, criatura: k.nombreMuneco, aspecto: k.aspectoMuneco, animo: k.enCurso ? 'trabajando' : 'despierto', onVolver: () => setConChat(false) }}
           // Los fijados, arriba de la conversación (WhatsApp): tocar va al mensaje.
           arriba={<BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={k.nombre} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} />}
           despues={<>

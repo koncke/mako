@@ -247,6 +247,10 @@ export function seEscondeDeOffer(s: { id: number; updatedAt: string }, copiada: 
 }
 
 // ── La lista del Ops Center del cliente (21/10/2026) ─────────────────────────────────────────────────────────────────
+// ⚠️ 22/10/2026, CON SUS ORÍGENES (Martín, con la captura del ws1: «Los chats de los clientes en el Ops Center están muy
+// desacomodados... Deberías tener un orden como en Super Admin»): cada chat se llama «Origen › tema» («Offer › Mi oferta»,
+// «Dashboard › El CAC está a $1,098») y la pantalla los agrupa por su origen con `porJefe` (lib/centro-chats.ts), el MISMO
+// agrupado del super admin: el grupo sube con el más reciente de los suyos, y nada se pliega. Nunca «Chat de antes».
 // Martín: «Jamás debes categorizar en desplegables los chats de la sidebar, como "offer" o "antes", y mucho menos "continuar
 // en offer", las personas deberían poder continuar lo que quieran siempre desde el Ops Center». La lista es UNA, como la del
 // super admin (lib/centro-chats.ts → seccionesDeChats): el Cerebro arriba y, debajo, todos los demás —los sub-chats con MaKo,
@@ -254,10 +258,10 @@ export function seEscondeDeOffer(s: { id: number; updatedAt: string }, copiada: 
 
 /** Lo elegido en la barra: una conversación con MaKo, un chat que todavía no tiene (el jefe sin nada, o «Nuevo chat»), un
  *  chat de antes (de «Pregúntale a MaKo»), una conversación de Offer, o un chat de Claude Code (su clave del Centro). */
-export type ElegidoChat = { id: number } | { virtual: 'jefe' | 'nuevo' } | { antes: number } | { centro: string } | { offer: number };
+export type ElegidoChat = { id: number } | { virtual: 'jefe' | 'nuevo' } | { antes: number } | { centro: string } | { offer: number } | { grupo: true };
 
-/** De dónde sale un chat de la lista: a qué motor va lo que se escribe (MaKo, o el de Offer). */
-export type OrigenDeFila = 'mako' | 'offer' | 'antes';
+/** De dónde sale un chat de la lista: a qué motor va lo que se escribe (MaKo, o el de Offer). El grupo no tiene motor: se lee. */
+export type OrigenDeFila = 'mako' | 'offer' | 'antes' | 'grupo';
 
 export type FilaDelCliente = {
   /** La key de React y la búsqueda del elegido. */
@@ -271,15 +275,94 @@ export type FilaDelCliente = {
   origen: OrigenDeFila;
 };
 
-type ConTitulo = { id: number; titulo: string | null; updatedAt: string };
+/** `tema`: de qué se trata, para nombrar lo que no tiene título y distinguir dos que se llaman igual (lo pone el servidor:
+ *  lib/chat-mako-indice.ts → `conTemas`, `chatsDeOffer`). */
+type ConTitulo = { id: number; titulo: string | null; updatedAt: string; tema?: string | null };
+/** Un chat de antes o de una tab: su clave (de ahí sale de dónde viene) o su origen ya dicho por el servidor («Ficha · Ana»). */
+type DeAntes = ConTitulo & { clave?: string; origen?: string | null };
 const ms = (iso: string | null | undefined): number | null => { const t = iso ? Date.parse(iso) : NaN; return Number.isFinite(t) ? t : null; };
+/**
+ * De DÓNDE viene un chat, por su clave (22/10/2026, OC4: «cada chat dice de dónde viene»). Medido ese día en chart_sessions: 68
+ * del CRM (`mako-movil:<persona>:crm:<id>`, que el Ops Center no listaba nunca), los de los gráficos del Dashboard
+ * (`dashboard:…`, `comercial-…`, `marketing-…`), los de un anuncio o una campaña (`ad-detail-…`, `mkt-campaign-…`) y el de las
+ * secuencias de WhatsApp. null = no se sabe (se muestra sólo el título).
+ */
+export function origenDeClave(clave: string | null | undefined): string | null {
+  const k = String(clave ?? '');
+  // «Pregúntale a MaKo» (/mako, que hoy redirige al Ops Center) y /mako-doer: medido el 22/10 en el ws1, eran sus «Chat de antes».
+  if (/^mako-(general|doer)(:u\d+)?$/.test(k)) return ORIGEN_PREGUNTALE;
+  if (/^mako-movil:[^:]+:crm:\d+$/.test(k)) return 'CRM';
+  if (/^mako-movil:[^:]+:lead:\d+$/.test(k)) return 'Ficha';
+  if (/^(dashboard:|comercial-|marketing-(?!ad-))/.test(k)) return 'Dashboard';
+  if (/^(ad-detail-|mkt-campaign-|marketing-ad-)/.test(k)) return 'Ads';
+  if (/^whatsapp-/.test(k)) return 'Automations';
+  return null;
+}
+export const ORIGEN_PREGUNTALE = 'Pregúntale a MaKo';
+/** El chat «Onboarding» (lib/onboarding-arranque.ts → TITULO_HILO; acá sin imports de valores): es su propio origen. */
+export const TITULO_ONBOARDING = 'Onboarding';
+
+/**
+ * EL TEMA DE UN CHAT, de su primer mensaje (22/10/2026, Martín: «Los chats de los clientes en el Ops Center están muy
+ * desacomodados»): un renglón, sin el formato del markdown, un link dicho por su dominio, corto. '' = no dice nada.
+ */
+export function temaDe(texto: string | null | undefined): string {
+  const renglon = String(texto ?? '').split('\n').map((l) => l.trim()).find((l) => /[\p{L}\p{N}]/u.test(l)) ?? '';
+  const t = renglon
+    .replace(/https?:\/\/(?:www\.)?([^/\s]+)\S*/g, '$1')
+    .replace(/[*_`#>]+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return t.length > 48 ? `${t.slice(0, 48).trimEnd()}…` : t;
+}
+
+/** «18 oct», con el reloj de Argentina. */
+const fechaCorta = (t: number | null): string => (t == null ? ''
+  : new Date(t).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', timeZone: 'America/Argentina/Buenos_Aires' }).replace('.', ''));
+
+/**
+ * DOS QUE SE LLAMAN IGUAL SE DISTINGUEN (22/10/2026, el ws1: «Mi oferta» dos veces, «Presentación de MaKo IA» dos veces): con su
+ * tema («Mi oferta · sprint.mauriciobustos.com») o, si no lo tienen o también se repite, con su fecha; y si todavía, con un número.
+ */
+function distinguir(filas: FilaDelCliente[], temas: ReadonlyMap<string, string>): FilaDelCliente[] {
+  const repetidos = (fs: readonly FilaDelCliente[]) => {
+    const n = new Map<string, number>();
+    for (const f of fs) n.set(normal(f.titulo), (n.get(normal(f.titulo)) ?? 0) + 1);
+    return (f: FilaDelCliente) => (n.get(normal(f.titulo)) ?? 0) > 1;
+  };
+  let rep = repetidos(filas);
+  let out = filas.map((f) => {
+    const tema = temas.get(f.clave);
+    return rep(f) && tema && !normal(f.titulo).endsWith(normal(tema)) ? { ...f, titulo: `${f.titulo} · ${tema}` } : f;
+  });
+  rep = repetidos(out);
+  out = out.map((f) => {
+    const fecha = fechaCorta(f.actividad);
+    return rep(f) && fecha && !normal(f.titulo).endsWith(normal(fecha)) ? { ...f, titulo: `${f.titulo} · ${fecha}` } : f;
+  });
+  rep = repetidos(out);
+  const vistos = new Map<string, number>();
+  return out.map((f) => {
+    if (!rep(f)) return f;
+    const k = normal(f.titulo);
+    const n = (vistos.get(k) ?? 0) + 1;
+    vistos.set(k, n);
+    return n > 1 ? { ...f, titulo: `${f.titulo} (${n})` } : f;
+  });
+}
+
+/** El título de una fila con su origen adelante («CRM › Seguimiento de Ana»), con la forma «Origen › título» de la casa. */
+export const conOrigen = (origen: string | null | undefined, titulo: string): string => (origen ? `${origen} › ${titulo}` : titulo);
+
 /** La criatura de una conversación de Offer: la del área Offer (lib/centro-munecos.ts → EQUIPO), con su cara por el título. */
 export const criaturaDeOffer = (titulo: string): string => `Offer › ${titulo}`;
 
 /** La lista entera: el Cerebro primero (siempre, aunque no tenga conversación todavía) y el resto, lo más reciente arriba. La
- *  búsqueda no esconde al Cerebro (es la casa). */
+ *  búsqueda no esconde al Cerebro (es la casa). `grupo`: el grupo de WhatsApp de MaKo del negocio, de SÓLO LECTURA y sólo del
+ *  admin (22/10/2026, OC3: el lector existía y nadie lo llamaba; lib/chat-mako-indice.ts → grupoDeMaKo, que ya corta al resto). */
 export function listaDelCliente(p: {
-  sesiones: readonly SesionChat[]; offer: readonly ConTitulo[]; antes: readonly ConTitulo[]; busca: string;
+  sesiones: readonly SesionChat[]; offer: readonly ConTitulo[]; antes: readonly DeAntes[]; busca: string;
+  grupo?: { titulo: string; ultimoAt: string | null } | null;
 }): FilaDelCliente[] {
   const { jefe, subs } = arbolDelJefe(p.sesiones);
   const cerebro: FilaDelCliente = {
@@ -287,22 +370,34 @@ export function listaDelCliente(p: {
     actividad: ms(jefe?.updatedAt), origen: 'mako',
   };
   const b = normal(p.busca);
-  const resto: FilaDelCliente[] = [
+  const todas: FilaDelCliente[] = [
     ...subs.map((s): FilaDelCliente => ({ clave: `s${s.id}`, elegido: { id: s.id }, titulo: tituloDe(s), criatura: tituloDe(s), actividad: ms(s.updatedAt), origen: 'mako' })),
     ...p.offer.map((o): FilaDelCliente => {
-      const titulo = o.titulo?.trim() || SECCION_OFFER;
-      return { clave: `o${o.id}`, elegido: { offer: o.id }, titulo, criatura: criaturaDeOffer(titulo), actividad: ms(o.updatedAt), origen: 'offer' };
+      // «Offer › Mi oferta»; la del onboarding es su propio origen («Onboarding»).
+      const base = o.titulo?.trim() || SECCION_OFFER;
+      const titulo = base === TITULO_ONBOARDING || base === SECCION_OFFER ? base : conOrigen(SECCION_OFFER, base);
+      return { clave: `o${o.id}`, elegido: { offer: o.id }, titulo, criatura: criaturaDeOffer(base), actividad: ms(o.updatedAt), origen: 'offer' };
     }),
     ...p.antes.map((a): FilaDelCliente => {
-      const titulo = a.titulo?.trim() || 'Chat de antes';
-      return { clave: `a${a.id}`, elegido: { antes: a.id }, titulo, criatura: titulo, actividad: ms(a.updatedAt), origen: 'antes' };
+      // Con su origen adelante (OC4): «CRM › …», «Dashboard › …», «Ficha · Ana › …». La criatura es la de su área.
+      const origen = a.origen ?? origenDeClave(a.clave);
+      // Sin título (medido el 22/10: la mitad de los del CRM, y los análisis de los gráficos), su tema: lo primero que se dijo. Sin
+      // tema, su origen solo («CRM»); sin nada, su fecha. Nunca «Chat de antes».
+      const nombre = a.titulo?.trim() || a.tema?.trim() || null;
+      const titulo = nombre ? conOrigen(origen, nombre) : origen ?? `Chat del ${fechaCorta(ms(a.updatedAt)) || 'principio'}`;
+      return { clave: `a${a.id}`, elegido: { antes: a.id }, titulo, criatura: origen ?? titulo, actividad: ms(a.updatedAt), origen: 'antes' };
     }),
+    ...(p.grupo ? [{ clave: 'grupo', elegido: { grupo: true } as const, titulo: p.grupo.titulo, criatura: TITULO_GRUPO, actividad: ms(p.grupo.ultimoAt), origen: 'grupo' as const }] : []),
   ]
-    .filter((f) => !b || normal(f.titulo).includes(b))
     .map((f, i) => ({ f, i }))
     .sort((x, y) => (y.f.actividad ?? 0) - (x.f.actividad ?? 0) || x.i - y.i)
     .map((x) => x.f);
-  return [cerebro, ...resto];
+  // Los repetidos se distinguen sobre la lista ENTERA y en su orden (buscar no les cambia el nombre); después, se busca.
+  const temas = new Map<string, string>([
+    ...p.offer.flatMap((o) => (o.tema?.trim() ? [[`o${o.id}`, o.tema.trim()] as [string, string]] : [])),
+    ...p.antes.flatMap((a) => (a.titulo?.trim() && a.tema?.trim() ? [[`a${a.id}`, a.tema.trim()] as [string, string]] : [])),
+  ]);
+  return [cerebro, ...distinguir(todas, temas).filter((f) => !b || normal(f.titulo).includes(b))];
 }
 
 /** ¿Es la fila de lo elegido? (la de un chat nuevo no está en la lista). */

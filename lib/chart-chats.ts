@@ -7,6 +7,7 @@ import { getTenantDb } from './workspace';
 import { getSupabaseServer } from './supabase';
 import { PREFIJO_CHAT_PERSONA } from './chart-chats-reglas';
 import { esRutaDeChatDeAlguno } from './chat-mako-bloques';
+import { temaDe } from './chat-mako-reglas';
 
 export type ChartMsg = { role: 'user' | 'assistant'; content: string; created_at?: string };
 export type ChartSession = {
@@ -154,6 +155,30 @@ export async function getSessionMessages(sessionId: number): Promise<ChartMsg[]>
     .order('created_at', { ascending: true });
   if (error) throw new Error(`getSessionMessages falló: ${error.message}`);
   return (data ?? []) as ChartMsg[];
+}
+
+/**
+ * EL TEMA DE LAS SESIONES SIN TÍTULO (22/10/2026, el ws1: tres «Chat de antes»): lo primero que escribió la persona o, si no
+ * escribió (el análisis de un gráfico empieza MaKo), el primer mensaje. Una lectura para todas (los de la persona son cortos) y,
+ * para las que quedan, una por sesión con su primer mensaje, hasta 20. Lo que no se pudo leer queda sin tema: no rompe la lista.
+ */
+export async function temasDeSesiones(ids: readonly number[]): Promise<Map<number, string>> {
+  const out = new Map<number, string>();
+  const lote = [...new Set(ids)].filter((n) => Number.isInteger(n) && n > 0).slice(0, 200);
+  if (!lote.length) return out;
+  const db = await getTenantDb();
+  const { data } = await db.from('chart_chats').select('session_id, content').in('session_id', lote).eq('role', 'user')
+    .order('created_at', { ascending: true }).limit(1000);
+  for (const r of (data ?? []) as Array<{ session_id: number; content: string }>) {
+    const t = temaDe(r.content);
+    if (t && !out.has(r.session_id)) out.set(r.session_id, t);
+  }
+  await Promise.all(lote.filter((id) => !out.has(id)).slice(0, 20).map(async (id) => {
+    const { data: uno } = await db.from('chart_chats').select('content').eq('session_id', id).order('created_at', { ascending: true }).limit(1);
+    const t = temaDe((uno?.[0] as { content?: string } | undefined)?.content);
+    if (t) out.set(id, t);
+  }));
+  return out;
 }
 
 /**

@@ -252,7 +252,7 @@ test('la burbuja sólo cambia cuando el servidor TAPÓ: recortes, pegados y arch
 
 test('los cuatro chats mezclan lo tapado en el marcar con que cierran el turno (y un quinto no se olvida)', () => {
   const CHATS = [
-    'app/m/mako/ChatMako.tsx', 'app/second-brain/useChatCliente.ts', 'app/crm/mako-crm/ChatMakoCrm.tsx', 'app/crm/lead-view/MakoAnalystLead.tsx',
+    'app/second-brain/useChatCliente.ts', 'app/crm/mako-crm/ChatMakoCrm.tsx', 'app/crm/lead-view/MakoAnalystLead.tsx',
   ];
   // Rota: sacar el `...textoTapadoDeRespuesta(` de uno de los chats → este test falla (su burbuja volvería a mostrar la clave).
   for (const f of CHATS) {

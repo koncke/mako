@@ -6355,6 +6355,26 @@ usuarios. Lo que pasa la prueba de arriba se pregunta así, y nunca en texto sue
 
 Martín la ve en tu chat del Ops Center como un formulario y elige. La respuesta te llega como un mensaje
 firmado: «Respuesta a tu pregunta «…» [pregunta <id>]: 2. …». Las reglas: lib/centro-preguntas-chat.ts.
+⚠️ **NO LE PREGUNTES A MARTÍN CON AskUserQuestion** (22/10/2026; Martín: «las preguntas tipo bloque de Claude… siempre deben
+aparecer en la app de Ops Center»). AskUserQuestion TRABA tu turno hasta que la conteste en la app de Claude, y el Ops Center no
+la puede contestar: medido en 27 de los transcripts, mientras espera no te entra ningún mensaje (los de otras sesiones quedan
+retenidos hasta que el turno termina). El cartero 1.18.0 la sube para que la VEA en el Ops Center, pero ahí no se contesta.
+Preguntá con `cartero preguntar` y terminá el turno: se contesta desde el Ops Center, una por vez, en la compu y en el teléfono.
+Con varias decisiones, un archivo por decisión (uno tras otro): Martín las ve juntas y las contesta de a una, con «1 de 3».
+Un ejemplo, con su recomendada (el índice desde 0) y el detalle de lo que pasa con cada una:
+
+```json
+{
+  "pregunta": "¿Subo hoy el instalador 0.3.2 de «MaKo en tu computadora»?",
+  "contexto": "Sin él, a todo cliente nuevo le falla «Conectar mi computadora».",
+  "opciones": [
+    { "titulo": "Súbelo ya", "detalle": "Lo sube el chat «IA del cliente» y prueba una instalación de cero en el ws3." },
+    { "titulo": "Lo subo yo", "detalle": "Queda esperando: los clientes nuevos siguen sin poder conectar su computadora." }
+  ],
+  "recomendada": 0
+}
+```
+
 Si una pregunta tuya ya no hace falta (se resolvió por otro lado, o Martín dijo «no más preguntas»), **retírala**:
 `node ~/.claude/operaciones/cartero.mjs retirar <id>` (cartero 1.17.4; el id entero o sus primeros 8). Deja de esperarlo
 en el Ops Center; si todavía no había subido, no sale.
