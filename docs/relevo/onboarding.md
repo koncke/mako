@@ -1,5 +1,15 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 22/10/2026 ~00:20 AR — EL NOMBRE DEL NEGOCIO TAMBIÉN EN EL PERFIL: PUNTA PARA EL PRÓXIMO CEREBRO
+
+- Pedido de Martín (captura de /perfil?ws=21): «Ponlo dentro del perfil». Rama `onboarding-perfil-negocio` (desde
+  origin/main, con onboarding-ws21 adentro: el «Hecho» 94dcd4180). LA INTEGRA EL PRÓXIMO CEREBRO: la punta está en la
+  nota side-session-notes/local_797d5445…/onboarding-ws21-en-curso.md y en el mensaje al Cerebro.
+- La fila «Nombre del negocio» en Información básica (/perfil y la hoja de /m/cuenta), con la misma acción que «Tu
+  negocio». La ve quien lo puede cambiar (admin del negocio, o el super admin mirando), y para él «Empresa» no se ofrece
+  (el porqué, en lib/nombre-negocio.ts → `muestraEmpresa` y docs/hallazgos-ajustes.md). Test:
+  tests/nombre-negocio-perfil.test.ts (7 de 7 roturas). «Tu negocio» en Configuración queda igual.
+
 ## ESTADO AL 21/10/2026 ~20:15 AR — FLORENCIA (ws21): EL NOMBRE EDITABLE, EN PRODUCCIÓN
 
 - «Tu negocio» (/configuraciones/negocio y /m/configuraciones/negocio): el admin de cada negocio cambia su nombre. En
