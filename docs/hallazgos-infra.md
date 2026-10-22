@@ -7532,3 +7532,20 @@ vuelve a hacer fila (al final: cedió el turno), y con el turno en la mano confi
 3. *El tiempo de la fila se descontaba del tope de RAM:* tras 20 min de fila un bajón momentáneo daba 0 y se perdía toda la fila (con un mensaje que culpaba a la RAM). Ahora el tope cuenta sólo el tiempo ESPERANDO RAM, y si el turno no le toca al volver a hacer fila el mensaje dice «el turno del candado no me tocó (no es la RAM)» (`ctx.motivo`).
 Y una baja: una espera CORTA (≤ 30 s, los tipos del `--rapido`) se hace con el candado en la mano, para no perder el lugar por 20 s.
 **La regla de oficio:** una función que espera un recurso y tiene otro tomado se prueba con una RAM y una fila de MENTIRA y se mira EN QUÉ MOMENTO suelta y retoma (hay 14 pruebas, y 22 roturas dieron rojo; tres se cuelgan en vez de fallar). Y un arreglo de una espera se corre de verdad antes de darlo por bueno: el primer defecto salió del primer VERDE.
+
+## En la corrida COMPARTIDA, un test que tira al CARGAR da verde: se cuentan los de arriba y el resto no corre (22/10/2026, Automations)
+
+**Síntoma:** tests/nutricion-paso-accion.test.ts estuvo roto en main al menos desde el 21/10 sin que ningún VERDE ni
+Actions lo dijera. Corrido SOLO (`node --import tsx --test <archivo>`) da «✖ tests\nutricion-paso-accion.test.ts» y salida
+1; corrido con `--test-isolation=none` (como corren `antes-de-subir --rapido` y la fase compartida de Actions,
+`scripts/tests-afectados.mjs --compartir`) da **«ℹ tests 6 · pass 6 · fail 0» y salida 0**, sin una línea de error.
+**Causa:** el archivo arma una constante A NIVEL DE MÓDULO (`const PROC = bloque(..., 56_000)`) con un tope de largo que el
+motor ya pasaba (56.603). Esa línea tira mientras el módulo carga: los 6 `test(...)` de ARRIBA ya se registraron y pasan,
+los 10 de abajo nunca existen, y en un proceso compartido el error de carga no se cuenta como fallo. Detrás había dos
+rojos de verdad que nadie veía (una regex de `cupoLleno` que ya era `sinLugar`, y la puerta del PATCH que pasó a
+`publicarPasos`). **Lo obvio era mirar el tope; lo que muerde es el runner:** un archivo que tira al cargar se ve como un
+archivo con menos tests. **Regla:** en un test, todo lo que puede tirar va ADENTRO de un `test(...)` (o perezoso, como
+`rama()` en ese mismo archivo), nunca en una constante del módulo; y un verde que dice MENOS tests de los que el archivo
+declara es un rojo. **Medido:** de los 211 archivos que leen el motor de Automations, sólo éste (corridos aislados).
+**Sin hacer:** que `scripts/tests-afectados.mjs` compare, por archivo, los tests que el runner contó contra los `test(` del
+fuente, o que corra aislado todo archivo que en la corrida compartida contó menos de los que declara.

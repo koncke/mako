@@ -36,7 +36,7 @@ export const REGLAS_EDITAR = [
 /** Las reglas de DISCUTIR (el prompt de explicar ya sólo puede devolver "respuesta"). */
 export const REGLAS_DISCUTIR = [
   'MODO DISCUTIR — NO CAMBIES NADA:',
-  '- El dueño quiere pensar con vos: contesta, sugiere qué cambiarías y por qué, y si pegó textos, comenta cómo quedarían en el flujo.',
+  '- El dueño quiere pensar contigo: contesta, sugiere qué cambiarías y por qué, y si pegó textos, comenta cómo quedarían en el flujo.',
   '- Si quiere que lo hagas, dile que toque «Editar» y lo pida.',
 ].join('\n');
 

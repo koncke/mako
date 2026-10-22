@@ -5353,13 +5353,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // Los topes y el freno de esta corrida, POR CANAL (decisión 5). Un borrador no gasta cupo
       // (no salió), pero frena: si se aprueba ya, son dos mensajes seguidos al mismo lead.
       // (El carril no cuenta para el cupo, M3 e: `cuentaParaElCupo`.)
-      if ((estado === 'enviado' || estado === 'simulado') && cuentaParaElCupo({ carril: carril != null })) {
-        if (paso.canal === 'email') emailsEnCorrida += 1;
-        else {
-          waEnCorrida += 1;
-          // El goteo cuenta lo que SALIÓ de esta automatización, también en esta corrida (el siguiente espera sus minutos).
-          if (estado === 'enviado' && goteos.has(insc.secuencia_id)) usoGoteo.set(insc.secuencia_id, conEnvio(usoGoteo.get(insc.secuencia_id) ?? SIN_USO, Date.now()));
-        }
+      if ((estado === 'enviado' || estado === 'simulado') && cuentaParaElCupo({ carril: carril != null })) { if (paso.canal === 'email') emailsEnCorrida += 1; else waEnCorrida += 1; }
+      // El goteo cuenta el WhatsApp que SALIÓ de esta automatización, también en esta corrida (el siguiente espera sus minutos).
+      if (paso.canal === 'whatsapp' && cuentaParaElCupo({ carril: carril != null })) {
+        if (estado === 'enviado' && goteos.has(insc.secuencia_id)) usoGoteo.set(insc.secuencia_id, conEnvio(usoGoteo.get(insc.secuencia_id) ?? SIN_USO, Date.now()));
       }
       if (estado === 'enviado' || estado === 'simulado' || estado === 'borrador') anotarEnCorrida(enviadoEnCorrida, insc.lead_id, paso.canal);
       res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado, ...(nota ? { nota } : {}) });

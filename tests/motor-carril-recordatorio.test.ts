@@ -195,8 +195,10 @@ test('(d) sin ANTI-BAN y (e) sin TOPES: el «15 min antes» sale 45 minutos desp
   // El motor pregunta ANTES del freno, y el cupo de la corrida no suma lo del carril.
   // 20/10/2026: con las horas a la misma persona de CADA automatización (`conEnvioRecienteDe`, lib/config-automatizacion.ts).
   assert.match(PROC, /&& frenadoPorAntiBan\(insc\.lead_id, paso\.canal, conEnvioRecienteDe\(insc\.secuencia_id\), enviadoEnCorrida\)\s*&& pasaPorAntiBan\(\{ carril: carril != null, social: esCanalSocial\(paso\.canal\), canalApagado \}\)\) \{\s*res\.detalle\.push\(\{ lead_id: insc\.lead_id, canal: paso\.canal, estado: 'saltado', nota: 'msg <20h' \}\);/);
-  // (Desde el 22/10/2026 el WhatsApp que cuenta también suma al goteo de su automatización: tests/goteo-automatizacion.test.ts.)
-  assert.match(PROC, /&& cuentaParaElCupo\(\{ carril: carril != null \}\)\) \{\n\s+if \(paso\.canal === 'email'\) emailsEnCorrida \+= 1;\n\s+else \{\n\s+waEnCorrida \+= 1;/);
+  assert.match(PROC, /&& cuentaParaElCupo\(\{ carril: carril != null \}\)\) \{ if \(paso\.canal === 'email'\) emailsEnCorrida \+= 1; else waEnCorrida \+= 1; \}/);
+  // (Desde el 22/10/2026 el WhatsApp que cuenta también suma al goteo de su automatización, y el carril tampoco:
+  // tests/goteo-automatizacion.test.ts.)
+  assert.match(PROC, /if \(paso\.canal === 'whatsapp' && cuentaParaElCupo\(\{ carril: carril != null \}\)\) \{/);
   // Con el cupo lleno, el carril sigue (como las acciones).
   assert.match(PROC, /const sinTopeWa = \[\.\.\.new Set\(\[\.\.\.conAcciones, \.\.\.conCarril,/);
   assert.match(PROC, /\(sigueSinCupoWa\(pasos\[idx\]\) \|\| esHiloDelCarril\(pasos, idx\)\)/);
