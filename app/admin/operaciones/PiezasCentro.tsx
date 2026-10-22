@@ -55,7 +55,8 @@ const VISIBLES = 14;
 function Previa({ c, espera, sinVer }: { c: ChatCentro; espera: number; sinVer: boolean }) {
   const r = segundoRenglon(c, espera, sinVer);
   if (!r) return null;
-  return <span className={`co-fila__l2 ${r === 'vivo' ? 'co-fila__l2--vivo' : 'co-fila__l2--espera'}`}>{TEXTO_SEGUNDO_RENGLON[r]}</span>;
+  // «Completado» en verde, como «Trabajando…»: sólo una pregunta abierta va en el color que pide algo (22/10/2026).
+  return <span className={`co-fila__l2 ${r === 'vivo' ? 'co-fila__l2--vivo' : r === 'revisar' ? 'co-fila__l2--ok' : 'co-fila__l2--espera'}`}>{TEXTO_SEGUNDO_RENGLON[r]}</span>;
 }
 
 /** El sello de un «Ya está» en la lista (17/10/2026: en pantalla «Ya está» se dice «Completado»). */

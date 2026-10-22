@@ -7,6 +7,29 @@ del código.
 
 ---
 
+## «Espera tu respuesta» mentía: era el «Completado» sin ver, tapado por lo que el chat le escribió a otro (22/10/2026)
+
+Martín: «hay muchos chats que dicen "Espera tu respuesta" y cuando entro, no veo el mensaje de "Completado" o el bloque de
+preguntas». Medido ese día en la base: UNA sola sesión tenía preguntas abiertas (3 de `cartero preguntar`). Las demás filas eran
+un «Ya está» sin su ✓, que la fila dibujaba con el MISMO texto (`TEXTO_SEGUNDO_RENGLON.revisar`).
+
+- **El diagnóstico obvio era el equivocado:** no eran preguntas contadas de más. Era un «Completado» que existía, pero quedaba
+  arriba, tapado por los mensajes técnicos que el chat le escribió DESPUÉS a otro chat (la respuesta a un pedido del Cerebro).
+- **Arreglo:** la fila dice «Completado», en verde. Lo que el chat le escribe a otro chat (los turnos entre un mensaje de otro
+  chat y el próximo de Martín, menos un «Ya está») va plegado en una línea, «Avance: …» (lib/centro-chats.ts →
+  `turnosParaOtro`). Al abrir el chat, el hilo va a ese «Ya está» sin ✓ (`yaEstaSinVer`, Conversacion.tsx).
+- **Una regla vieja que no se pisó:** el «Completado» sigue hasta el ✓ aunque el chat haya escrito después (Martín, 18/10,
+  tests/centro-ya-visto.test.ts). El pedido «Completado si el último turno arrancó con Ya está» la contradecía; lo que faltaba
+  era verlo, no que se apagara.
+- **El bloque de decisiones, como lo pidió al usarlo:** la franja blanca era el fondo del panel en el pie de la caja (`.co-caja-wrap`
+  sin fondo); ahora tiene el del chat y el bloque es una tarjeta flotante. Se pliega con una flecha, y se recuerda por chat y
+  por las preguntas: una nueva lo abre. Los links se tocan, también sin https (lib/links-texto.ts → `conDominiosComoLinks`).
+  Sin pantalla de resumen: «‹ Anterior», los puntos y «Siguiente ›», y con la última salen todas.
+- **Trampa: un link adentro de un `<button>` no se abre** (HTML no lo deja). La opción del bloque es un `div` con rol de botón,
+  y tocar el link no elige la opción.
+- **SIN HACER:** el teléfono no va solo al «Ya está» al abrir el chat (la computadora sí). El plegado se recuerda en el
+  navegador de cada dispositivo.
+
 ## Una clave pegada en el Ops Center no se puede tapar después: no sale (22/10/2026)
 
 Martín contestó en el bloque de decisiones la pregunta de Apify del Cerebro con «Otra:» y su token pegado (pedido 253f6e11).

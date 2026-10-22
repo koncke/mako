@@ -148,7 +148,7 @@ const FilaChatM = memo(function FilaChatM({ c, sub, espera, aspecto, ahora, onAb
       leading={<span className={sub ? 'm-operaciones-sub' : undefined}><Muneco titulo={c.titulo} aspecto={aspecto} animo={animo} size={sub ? 32 : 40} espera={avisosDe(espera, nuevo)} /></span>}
       titulo={<span className={`m-operaciones-texto1${animo === 'dormido' ? ' m-operaciones-texto1--dormido' : ''}`}>{sub ? `↳ ${partesDelNombre(c.titulo).sub}` : c.titulo}{c.nube && <> <span className="co-chip-cuenta">Nube</span></>}</span>}
       // «Trabajando…», «Espera tu respuesta» o nada (20/10/2026): lo decide `segundoRenglon`, el mismo de la computadora.
-      segunda={renglon ? <span className={renglon === 'vivo' ? 'm-operaciones-vivo' : 'm-operaciones-espera'}>{TEXTO_SEGUNDO_RENGLON[renglon]}</span> : undefined}
+      segunda={renglon ? <span className={renglon === 'espera' ? 'm-operaciones-espera' : 'm-operaciones-vivo'}>{TEXTO_SEGUNDO_RENGLON[renglon]}</span> : undefined}
       riel={<span className="m-operaciones-riel"><span className="m-operaciones-hace">{edad(c.actividad, ahora)}</span></span>}
       onClick={() => onAbrir(c.clave)}
       chevron={false}
@@ -468,8 +468,8 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
             {/* Lo que ESTE chat le pregunta, de a una y como en Claude (22/10/2026, PreguntasDelChat.tsx): las de `cartero preguntar` y
                 los botones del cierre con wrap_up se contestan acá (quedan en el hilo como «Decisión: …»); las de AskUserQuestion se
                 ven, y se contestan en la app de Claude. */}
-            {deLaApp.length > 0 && <PreguntasDeLaApp key={`a-${elegido.clave}`} preguntas={deLaApp} />}
-            {bloque.length > 0 && <PreguntasDelChat key={`p-${elegido.clave}`} preguntas={bloque} onResponder={responderPregunta} />}
+            {deLaApp.length > 0 && <PreguntasDeLaApp key={`a-${elegido.clave}`} chat={elegido.clave} preguntas={deLaApp} />}
+            {bloque.length > 0 && <PreguntasDelChat key={`p-${elegido.clave}`} chat={elegido.clave} preguntas={bloque} onResponder={responderPregunta} />}
           </div>
         )}
       </SheetM>}
