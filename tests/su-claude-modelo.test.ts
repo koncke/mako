@@ -62,7 +62,12 @@ test('3. la puerta real: el ws3 pide Sonnet con su clave y su marca; el ws10 (el
   assert.deepEqual(r.pedidos, [{ ws: 3, model: 'claude-sonnet-5' }, { ws: 10, model: 'claude-haiku-4-5' }, { ws: 3, model: 'claude-haiku-4-5' }]);
   assert.ok(r.plan && 'texto' in r.plan, 'el Plan del ws3 corre con su clave');
   assert.equal(r.planWs10, null, 'el Plan del ws10 no paga con el crédito de Martín');
-  for (const g of r.gasto as Array<{ motivo: string }>) assert.match(g.motivo, /^⚠ clave de Anthropic del negocio/, 'lo paga el negocio: su marca primero');
+  // Lo del ws3 lo paga el negocio (su marca primero); lo del ws10 es el crédito de Martín (la marca del crédito: revisión
+  // del lote 2, que no se vea como del negocio).
+  for (const g of r.gasto as Array<{ ws: number; motivo: string }>) {
+    if (g.ws === 10) assert.match(g.motivo, /^⚠ crédito de Claude de la plataforma/, 'el gasto del crédito de Martín se anotó como del negocio');
+    else assert.match(g.motivo, /^⚠ clave de Anthropic del negocio/, 'lo paga el negocio: su marca primero');
+  }
 });
 
 // ── Lo que encontró la revisión adversarial de IA5 (22/10/2026) ───────────────────────────────────────────────────────
@@ -80,14 +85,18 @@ test('4. lo heredado no es una elección: «constructor» o «toString» guardad
 
 test('5. toda función de IA del Plan está en FEATURES_DEL_PLAN: la puerta 2 no la deja pagar con la clave del negocio', async () => {
   const { FEATURES_DEL_PLAN } = await import('../lib/veto-claude');
-  const archivos = execFileSync('git', ['ls-files', 'app/api/plan*', 'app/plan/**', 'lib/plan-*.ts', 'lib/plan/**', 'lib/cerrar-por-commits.ts', 'lib/mako-guardian.ts', 'lib/checklist-coach.ts'], { cwd: RAIZ, encoding: 'utf8' })
+  const archivos = execFileSync('git', ['ls-files', 'app/api/plan*', 'app/plan/**', 'lib/plan-*.ts', 'lib/plan/**', 'lib/cerrar-por-commits.ts', 'lib/mako-guardian.ts', 'lib/checklist-coach.ts', 'lib/importar-en-segundo-plano.ts'], { cwd: RAIZ, encoding: 'utf8' })
     .split('\n').filter((f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f));
   assert.ok(archivos.length > 10, `el barrido no encontró el Plan (${archivos.length} archivos)`);
   const usadas = new Set<string>();
   for (const f of archivos) {
-    for (const m of readFileSync(join(RAIZ, f), 'utf8').matchAll(/\bfeature:\s*'([a-z][a-z0-9-]*)'/g)) usadas.add(m[1]);
+    const src = readFileSync(join(RAIZ, f), 'utf8');
+    for (const m of src.matchAll(/\bfeature:\s*'([a-z][a-z0-9-]*)'/g)) usadas.add(m[1]);
+    // Una lectura de archivos sin `feature` en el Plan toma la del lector («Importar al plan»), que NO es del Plan: pagaba
+    // con Sonnet o con el crédito de Martín (revisión del lote 2, 22/10/2026).
+    for (const m of src.matchAll(/archivoATexto\(([^)]*)\)/g)) assert.match(m[1], /feature:/, `${f}: archivoATexto sin la feature del Plan`);
   }
-  assert.ok(usadas.has('plan-buscar') && usadas.has('cerrar-por-commits'), `el barrido no ve las dos de la revisión: ${[...usadas]}`);
+  assert.ok(usadas.has('plan-buscar') && usadas.has('cerrar-por-commits') && usadas.has('plan-importar'), `el barrido no ve las de las revisiones: ${[...usadas]}`);
   const afuera = [...usadas].filter((f) => !FEATURES_DEL_PLAN.includes(f));
   assert.deepEqual(afuera, [], `funciones del Plan que pagarían IA con la clave del negocio: ${afuera.join(', ')}`);
 });

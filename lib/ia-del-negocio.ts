@@ -115,7 +115,11 @@ export async function planConSuClave(ws: number): Promise<{ suClave: boolean; in
       if (c.es === 'ilegible' || c.clave === 'OPENAI_API_KEY') return { suClave: true };
       const suya = await valorDeSuClave(ws, c.clave);
       let credito = false;
-      for (const nombre of CLAVES_CREDITO_PLATAFORMA) if (suya && (await clavesDeLaPlataforma(nombre)).has(suya)) credito = true;
+      // La MARCA explícita primero (lib/credito-marca.ts): vale aunque la fila del crédito de la plataforma ya no exista. El
+      // valor, de respaldo.
+      const { leerMarcaDeCredito, esElCreditoMarcado } = await import('./credito-marca');
+      if (suya && esElCreditoMarcado(suya, await leerMarcaDeCredito(ws))) credito = true;
+      for (const nombre of CLAVES_CREDITO_PLATAFORMA) if (!credito && suya && (await clavesDeLaPlataforma(nombre)).has(suya)) credito = true;
       if (!credito) return { suClave: true };
     }
     return { suClave: false };

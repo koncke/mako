@@ -131,6 +131,10 @@ test('Mistral nombrada en CUALQUIER lugar: en otra línea, lejos, y dos claves c
   }
   // Sin nombrar a Mistral, un id de 32 en una frase no se toca (tapar de más también es un daño).
   assert.equal(taparClavesDelMensaje({ message: { conversation: `el pedido ${K}\ngracias` } }).tapadas, 0);
+  // Y aun nombrándola, uno pegado a un link es un parámetro, no una clave (revisión del lote 2).
+  const zoom = `Nos vemos en Av. Gabriela Mistral 1234, o por Zoom: https://zoom.us/j/123?pwd=${K}.1`;
+  assert.equal(taparClavesDelMensaje({ message: { conversation: zoom } }).tapadas, 0, 'tapó el pwd de un link de Zoom');
+  assert.equal(taparClavesDelMensaje({ message: { conversation: `mistral: https://x.com/a/${K}` } }).tapadas, 0, 'tapó un camino de un link');
 });
 
 test('un marcador adentro del contexto de otra regla no deja bytes NUL (la base rechazaba el mensaje y se perdía)', async () => {

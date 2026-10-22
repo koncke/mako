@@ -278,7 +278,9 @@ test('un negocio con SÓLO su Claude: el chat contesta con su clave, y «Conecta
   assert.match(tools, /if \(delNegocio\) permiso = delNegocio;/, 'el permiso es el de la puerta 2, no el de la plataforma');
   assert.match(tools, /const key = delNegocio \? delNegocio\.clave : await credWs\('ANTHROPIC_API_KEY'\);/, 'la clave que verificó el veto');
   assert.match(tools, /delNegocio\s*\? \{ model, max_tokens: opts\.maxTokens \?\? 4096, system, messages: msgs, tools \}/, 'el pedido que ya anda con su clave');
-  assert.match(tools, /delNegocio \? \[MOTIVO_CLAVE_DEL_NEGOCIO, /, 'lo paga el negocio: su marca primero');
+  // La marca del gasto, PRIMERO: la del negocio, o la del crédito de la plataforma si su clave es el crédito (`marcaDelGasto`,
+  // revisión del lote 2).
+  assert.match(tools, /delNegocio \? \[marcaDelGasto\(delNegocio\), /, 'lo paga el negocio: su marca primero');
   assert.match(tools, /if \(!delNegocio\) \{\s*model = opts\.fallbackModel \?\? 'claude-sonnet-5';/, 'no cae a Claude de la plataforma');
 
   // 4. El turno cuenta su Claude como IA propia, y mira SU fila (no el entorno) para elegir qué abrir.

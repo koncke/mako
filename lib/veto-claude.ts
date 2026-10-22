@@ -85,7 +85,11 @@ export type PermisoClaude = {
 };
 
 /** El permiso de la puerta 2: trae ADENTRO la clave que se verificó que es del negocio. */
-export type PermisoClaveDelNegocio = PermisoClaude & { readonly clave: string };
+export type PermisoClaveDelNegocio = PermisoClaude & {
+  readonly clave: string;
+  /** La clave es el crédito de Max de la PLATAFORMA (el ws10): su gasto se anota como del crédito, no del negocio. */
+  readonly esCredito?: true;
+};
 
 export type PermisoDeclarado = {
   feature: string;
@@ -252,6 +256,9 @@ export const FEATURES_DEL_PLAN: readonly string[] = [
   // (lib/cerrar-por-commits.ts, cron sin workspace: cae en el ws1) pasaban la puerta 2 con Sonnet. Una función del Plan con
   // nombre nuevo queda abierta por default: tests/su-claude-modelo.test.ts exige que toda feature del Plan esté acá.
   'plan-buscar', 'cerrar-por-commits',
+  // Revisión del lote 2 (22/10/2026): «importar archivos» del Plan leía fotos y PDF escaneados con la feature por default
+  // de `archivoATexto` («Importar al plan», que también usan el CRM, el chat y el Video Generator, y no es del Plan).
+  'plan-importar',
 ];
 
 /**
@@ -287,8 +294,9 @@ export function evaluarClaveDelNegocio(p: {
   let model = (p.model ?? '').trim() || modelos[0];
   if (!modelos.includes(model)) return { ok: false, razon: `con la clave del negocio sólo ${modelos.join(', ')}, no «${model}».` };
   // El crédito de Max de la PLATAFORMA puesto como clave de un negocio: sólo el barato (IA5).
-  const esCredito = p.creditosPlataforma === null
-    || (p.creditosPlataforma ?? []).some((x) => typeof x === 'string' && x.trim() !== '' && x.trim() === clave);
+  // `creditosPlataforma` trae también la propia clave del negocio cuando está MARCADA como crédito (lib/credito-marca.ts).
+  const coincide = (p.creditosPlataforma ?? []).some((x) => typeof x === 'string' && x.trim() !== '' && x.trim() === clave);
+  const esCredito = p.creditosPlataforma === null || coincide;
   // El Plan, sólo con la clave que paga el negocio (Martín, 22/10/2026: «Sí, si es su clave»), y siempre con el barato.
   if (delPlan && esCredito) {
     return { ok: false, razon: p.creditosPlataforma === null
@@ -296,7 +304,9 @@ export function evaluarClaveDelNegocio(p: {
       : `«${feature}» es del Plan, y esa clave es el crédito de Max de la PLATAFORMA: el Plan sólo paga con la clave que paga el negocio.` };
   }
   if (esCredito || delPlan) model = modelos[0];
-  return { ok: true, permiso: fabricar({ model, feature, porque: CLAUDE_CON_CLAVE_DEL_NEGOCIO.porque, clave }) };
+  // `esCredito` en el permiso sólo cuando SE SABE (coincide): su gasto es del crédito de la plataforma, no del negocio, y así
+  // se anota (lib/anthropic.ts). Sin poder leer, va con el barato pero no se afirma de quién es.
+  return { ok: true, permiso: fabricar({ model, feature, porque: CLAUDE_CON_CLAVE_DEL_NEGOCIO.porque, clave, ...(coincide ? { esCredito: true as const } : {}) }) };
 }
 
 // ── PUERTA 3: el crédito de API de los planes Max de la plataforma ───────────────

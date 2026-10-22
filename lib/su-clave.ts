@@ -75,6 +75,9 @@ async function modeloDeSuClaudeEn(ws: number): Promise<{ modelo: EleccionSuClaud
     const clave = (await credDelCliente('ANTHROPIC_API_KEY', ws))?.trim();
     const wsSA = await wsSuperAdmin();
     // Las dos fuentes, como la puerta 2: con el entorno puesto, la fila no se leía.
+    // La marca explícita (lib/credito-marca.ts) primero: vale aunque la fila del crédito de la plataforma ya no exista.
+    const { leerMarcaDeCredito, esElCreditoMarcado } = await import('./credito-marca');
+    if (clave && esElCreditoMarcado(clave, await leerMarcaDeCredito(ws))) return { modelo, soloHaiku: true };
     for (const nombre of CLAVES_CREDITO_PLATAFORMA) {
       for (const c of [process.env[nombre]?.trim(), (await credWsEstricta(nombre, wsSA, { ilegibleTira: true }))?.trim()]) {
         if (c && c === clave) return { modelo, soloHaiku: true };
