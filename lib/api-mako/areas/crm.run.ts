@@ -424,17 +424,21 @@ export const RUNNERS: Runners = {
       // falla), cae a lo de siempre (`cobradoDeLaVenta`).
       const pagina = filas.slice(0, limite);
       const deLaCasa = new Map<number, unknown>();
+      // ⚠️ Supabase no tira: devuelve `error` (tercera revisión, B4). Sin leerla, «falta» caía callado a la cuenta de todos los
+      // CRMs; ahora sale null y una nota.
+      let sinCasa = false;
       try {
-        const { data } = await (await getTenantDb()).from('leads').select('id, total_cobrado_casa_usd').in('id', pagina.map(({ l }) => l.id));
+        const { data, error } = await (await getTenantDb()).from('leads').select('id, total_cobrado_casa_usd').in('id', pagina.map(({ l }) => l.id));
+        if (error) sinCasa = true;
         for (const r of (data ?? []) as Array<{ id: number; total_cobrado_casa_usd: unknown }>) deLaCasa.set(Number(r.id), r.total_cobrado_casa_usd);
-      } catch { /* sin la 0325: lo de siempre */ }
+      } catch { sinCasa = true; }
       const leads = pagina.map(({ l, key, label, fecha }) => {
         const conCasa = { ...l, total_cobrado_casa_usd: deLaCasa.get(l.id) ?? null };
         return {
           id: l.id, nombre: l.nombre, empresa: l.empresa, etapa: key, etapa_label: label, estado: l.estado_lead,
           closer: l.closer ?? null, setter: l.setter ?? null, [campo]: fecha,
           monto_cierre_usd: l.monto_cierre_usd, total_cobrado_usd: l.total_cobrado_usd,
-          cobrado_de_la_venta_usd: cobradoDeLaVenta(conCasa), falta_cobrar_usd: faltaDeLaVenta(conCasa),
+          cobrado_de_la_venta_usd: sinCasa ? null : cobradoDeLaVenta(conCasa), falta_cobrar_usd: sinCasa ? null : faltaDeLaVenta(conCasa),
         };
       });
       return json({

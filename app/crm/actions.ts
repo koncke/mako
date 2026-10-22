@@ -170,7 +170,7 @@ async function autorActual(): Promise<string> {
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd, adIdDeLead } from '@/lib/queries';
 import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, tratosDelLead, leerMarcasDeCobranza, reponerMarcasDeCobranza, type PlanPagos, type Pago } from '@/lib/pagos';
-import { cobradoDeLaVenta, faltaDeLaVenta, type TratoCrm } from '@/lib/pagos-crm';
+import { cobradoDeLaVentaSiHay, faltaDeLaVenta, type TratoCrm } from '@/lib/pagos-crm';
 import { avisoDeConservadas, avisoPlanUniforme, pagosPrevios, planDelAsistente } from '@/lib/pagos-campo';
 import { senalesDeCobroAction } from './[id]/cobros-actions';
 import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
@@ -1715,7 +1715,7 @@ async function leadsFiltrados(f: FiltrosLeads, columnasExtra: string[]): Promise
     l['#etapa'] = meta.label ?? key;
     l['#falta'] = faltaDeLaVenta(l) ?? 0;
     // «Cobrado USD» va con su «Vendido» y su «Falta»: lo cobrado de la venta de la casa (mig 0325).
-    l['#cobrado'] = cobradoDeLaVenta(l);
+    l['#cobrado'] = cobradoDeLaVentaSiHay(l);
     l['#origen'] = origenDeFila(l);
     filas.push(l);
   }
@@ -1795,7 +1795,9 @@ function filaALeadDoc(l: FilaLead): LeadDoc {
     estado: sTxt(l.estado_lead),
     calificado: bTri(l.calificado),
     monto: l.monto_cierre_usd == null ? null : nNum(l.monto_cierre_usd),
-    cobrado: l.total_cobrado_usd == null ? null : nNum(l.total_cobrado_usd),
+    // Lo cobrado de la venta de la CASA (mig 0325), como el «Falta» del CSV del mismo export (tercera revisión, M1): con
+    // el total de todos los CRMs decía «cobrado US$1.500 (75%) · falta US$500» a quien debía 1.000 de su venta.
+    cobrado: cobradoDeLaVentaSiHay(l),
     ventaTipo: sTxt(l.venta_tipo),
     suscripcionMonto: l.suscripcion_monto_usd == null ? null : nNum(l.suscripcion_monto_usd),
     suscripcionMeses: l.suscripcion_meses == null ? null : nNum(l.suscripcion_meses),

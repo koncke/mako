@@ -113,7 +113,10 @@ export async function getPagosByLead(leadId: number, crm: Crm | 'todos' = null):
 
 /** El funnel del negocio (`es_default`): la casa de un lead con `funnel_id` NULL. null si no se pudo leer. */
 async function funnelDelNegocio(): Promise<number | null> {
-  const { data } = await (await getTenantDb()).from('funnels').select('id').eq('es_default', true).limit(1).maybeSingle();
+  // ⚠️ TIRA si no puede leer (tercera revisión, B3): con null, una fila de `lead_funnel` que repite la casa contaba como
+  // agregado, todos los pagos de la casa quedaban afuera y se ESCRIBÍA lo cobrado de la casa en 0.
+  const { data, error } = await (await getTenantDb()).from('funnels').select('id').eq('es_default', true).limit(1).maybeSingle();
+  if (error) throw new Error(`No pude leer el funnel del negocio: ${error.message}`);
   return data ? Number((data as { id: number }).id) : null;
 }
 

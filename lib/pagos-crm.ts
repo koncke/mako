@@ -136,6 +136,14 @@ export function cobradoDeLaVenta(l: { total_cobrado_casa_usd?: unknown; total_co
 }
 
 /**
+ * `cobradoDeLaVenta`, o null si el lead no tiene NINGUNA de las dos columnas (tercera revisión del 22/10/2026): donde «sin
+ * dato» se dibujaba vacío (el export, `{{lead_cobrado}}`), no se inventa un «US$ 0».
+ */
+export function cobradoDeLaVentaSiHay(l: { total_cobrado_casa_usd?: unknown; total_cobrado_usd?: unknown }): number | null {
+  return num(l.total_cobrado_casa_usd) == null && num(l.total_cobrado_usd) == null ? null : cobradoDeLaVenta(l);
+}
+
+/**
  * Lo que le falta pagar de la venta de la CASA: su monto de cierre menos lo cobrado de ESA venta, nunca negativo. null sin
  * monto (sin venta, «falta» no tiene referencia). Lo usan `{{lead_saldo}}` (mensajes al cliente), el filtro «Solo los que
  * deben», el export y `listar_leads`. ⚠️ Con lo cobrado en TODOS los CRMs, una renovación pagada restaba de la venta.

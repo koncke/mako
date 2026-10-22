@@ -906,3 +906,32 @@ tests/pagos-crm-revision.test.ts (la segunda tanda prueba el número del saldo).
 
 **Vive en:** lib/ventas-crm.ts · lib/pagos-crm.ts (`ventasDeFilas`) · app/customer-success/PagosCliente.tsx ·
 app/m/crm/datos.ts · tests/pagos-crm-co2.test.ts.
+
+### La tercera revisión: lo cobrado al lado de un saldo es de ESA venta, y la columna de la casa es un caché (22/10/2026)
+
+- **«Cerrado en cuatro lugares» no era todo.** El saldo ya miraba la venta de la casa en `{{lead_saldo}}`, el filtro, el
+  CSV y `listar_leads`, pero dos lectores le ponían AL LADO lo cobrado en todos los CRMs: el export en MD («cobrado
+  US$1.500 (75%) · falta US$500» a quien debía 1.000) y `{{lead_cobrado}}` («Pagaste 1.500 de 2.000, te falta 1.000»).
+  **La regla:** donde se muestra junto a un saldo o a la venta, lo cobrado es `cobradoDeLaVentaSiHay` (lib/pagos-crm.ts),
+  que da null sin dato en vez de inventar «US$ 0». La caja (el cash, el rendimiento de un anuncio) sigue con el total.
+- **`total_cobrado_casa_usd` depende de en qué CRMs está el lead**, no sólo de sus pagos: un pago con el funnel de un CRM
+  agregado no es de la casa. Agregar, quitar o deshacer cambia ese conjunto, y no re-sincronizaba: un lead re-agregado
+  a su CRM viejo dejaba en la columna plata que ya no era de la casa, y el saldo saltaba con el próximo pago. Ahora
+  `resincronizarCobrado` (lib/lead-funnel.ts); un lote sólo sincroniza a los que tienen pagos en ese CRM.
+- **Un error tragado ahora queda ESCRITO.** `funnelDelNegocio` devolvía null si la lectura fallaba. Antes era un número
+  mal en pantalla; con la columna de la casa, sincronizar escribía 0 y el saldo pasaba a ser la venta entera. Tira.
+  Y `listar_leads` leía la columna sin mirar `error` (Supabase no tira): caía callado a la cuenta vieja. Ahora null y nota.
+
+**Sin hacer** (decididos, con el porqué):
+- `updateLead` reescribe `total_cobrado_usd` de la foto que leyó (lib/leads.ts:1142), y no la columna de la casa: un pago
+  entre la lectura y la escritura deja las dos distintas. Es de antes para el total; el saldo sale bien. Sacar los
+  derivados del payload toca todos los caminos de `updateLead` (CRM).
+- CO2 suma las renovaciones a los cierres del conjunto «Negocio»: el CAC (gasto ÷ cierres) y la tasa de cierre
+  (cierres ÷ asistencias) mezclan ventas que no vienen de la pauta. Es una decisión de producto, para Martín.
+- `{{lead_saldo}}` y las cuotas hablan sólo de la venta de la casa: a quien la pagó entera y debe la renovación le dice
+  «US$ 0». Hoy las etapas de un CRM agregado no disparan automatizaciones; sólo pasa en un mensaje armado a mano.
+- «Firmado» por funnel reparte la venta de la casa por el último CRM agregado (`funnelDelMomento`,
+  lib/funnels-elegidos.ts): la misma regla que la 0324 sacó de los pagos. Es de antes de CO2.
+
+**Vive en:** lib/pagos-crm.ts (`cobradoDeLaVentaSiHay`) · app/crm/actions.ts (`filaALeadDoc`) · lib/variables-del-lead.ts ·
+lib/lead-funnel.ts (`resincronizarCobrado`) · tests/pagos-crm-tercera.test.ts.
