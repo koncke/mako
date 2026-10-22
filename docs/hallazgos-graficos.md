@@ -1543,9 +1543,11 @@ editor trae el suyo al abrir el panel. Los chats de cada gráfico siguen siendo 
   y los avisos en «Ojo: …», y `hiloDeFilas` los separa al volver. Un aviso guardado sin su marca vuelve como texto.
 - **Después de recargar no vuelven el «Deshacer» ni las burbujas de pedido**, a propósito: la hoja ya se guardó con el
   cambio y las burbujas navegan desde ESA sesión.
-- **Sin hacer:** la etiqueta de origen en la fila del Ops Center («Dashboard › …») es de OC4 (lib/chart-chats.ts y
-  lib/chat-mako-reglas.ts, del chat Ops Center); hoy la fila dice «Editar con MaKo · <hoja>» por el título. La caja y el
-  hilo únicos van en TB3.
+- **Medido en producción el 22/10, en el ws3:** «Agrega un número con los leads de esta semana» agregó la tarjeta, recargar
+  trajo la charla y el Ops Center la muestra como «Dashboard › Editar con MaKo · Página 1» con sus dos mensajes. Se abría
+  VACÍA hasta 9fb5bace3, por un bug del GET de /api/mako/chat que tapaba a todo chat de antes
+  (docs/hallazgos-second-brain.md).
+- **Sin hacer:** la caja y el hilo únicos (TB3).
 
 **Vive en:** app/dashboard/hilo-guardado.ts, PanelEditarMako.tsx, EditorInforme.tsx · lib/hilo-de-tab-reglas.ts ·
 tests/dashboard-hilo-guardado.test.ts, tests/hilo-de-tab.test.ts · *22/10/2026, chat «Chats de las tabs».*
