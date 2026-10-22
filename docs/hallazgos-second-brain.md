@@ -2495,3 +2495,19 @@ un runner que tarda 5,5 s (`tests/_trabajos-hijo.ts`).
   mismos nombres, y lo extendió a las propuestas de pantalla (`extra.bloque`). En el turno no se vacía al re-arrancar:
   `dibujar` no repite un bloque igual y anota qué herramienta lo dibujó (con una pregunta, 1.9, se retiran los de las que
   escriben).
+
+## Un chat «de antes» aparecía en la lista y se abría VACÍO (22/10/2026)
+
+Medido en producción (cb7b45568), en el ws3, probando TB1: la fila «Dashboard › Editar con MaKo · Página 1» estaba en la
+lista y al abrirla decía «¿En qué te ayudo?». **El diagnóstico obvio («no se guardó») era el equivocado:** `?antesId=294`
+traía los dos mensajes. El motor (useChatCliente.ts) pide el hilo con `?sessionId=N&antes=1` desde 0ab523fc1, y el GET de
+/api/mako/chat entraba antes a la rama de la LISTA (`if (sp.get('antes') || sp.has('antesId'))`), que con `antes`
+contestaba `{ ok, antes: […] }`: el hilo llegaba sin mensajes y la pantalla no avisaba. Le pasaba a todo chat de antes:
+el CRM, la ficha, los gráficos del Dashboard, Editar con MaKo y el Web Generator.
+
+- **Ahora** esa rama es la lista sólo sin `sessionId`. tests/ops-center-hilo-de-antes.test.ts toma la condición REAL de
+  la rama y la evalúa con los tres pedidos de la pantalla.
+- **Regla:** que una fila aparezca no prueba que su chat se abra: la lista y el hilo son dos pedidos distintos. Un cambio
+  en CÓMO el motor pide el hilo se prueba contra la rama del GET que lo atiende, no sólo contra la lista.
+
+**Vive en:** app/api/mako/chat/route.ts (GET) · app/second-brain/useChatCliente.ts · *22/10/2026, chat «Chats de las tabs».*

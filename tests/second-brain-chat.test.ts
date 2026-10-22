@@ -98,7 +98,7 @@ test('el índice: un chat de otro no existe, «Antes» usa la regla de /mako, y 
     assert.ok(c.includes('const sid = sesionDelCanal(ctx.canalKey);'), `${op}: la conversación sale del canal`);
   }
   const ruta = sinComentarios(leer('app/api/mako/chat/route.ts'));
-  const i = ruta.indexOf("if (sp.get('antes') || sp.has('antesId')) {");
+  const i = ruta.indexOf("if ((sp.get('antes') && !sp.has('sessionId')) || sp.has('antesId')) {");
   assert.ok(i > 0 && ruta.indexOf('await quienChateaDelRequest()', i) > i, '«Antes» pide quién chatea antes de leer');
 });
 
