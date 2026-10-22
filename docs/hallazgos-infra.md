@@ -7583,6 +7583,10 @@ fuente, o que corra aislado todo archivo que en la corrida compartida contó men
   El chequeo de tipos de todo el repo por tandas (`scripts/tipos-por-tandas.mjs`, 3 tandas, con picos de 3,8 a 4,2 GB) sí entra,
   pero el hook no lo acepta. Sin Actions, a `main` se llega sólo con un medio de pago en GitHub, o con `--no-verify` autorizado
   por Martín después de las tandas. Que el hook acepte las tandas como respaldo es trabajo de Infra, y queda Sin hacer.
+- **Cómo salió el 22/10:** `87365c830` (el arreglo de la regresión de Automations, el Ops Center del cliente, Offer y los hitos)
+  salió con `--no-verify`. Martín lo autorizó para ese lote, contestando desde el Centro la pregunta de Integración. Una
+  autorización que traía otra sesión, citada, no alcanzó: hizo falta que contestara a la pregunta del propio chat que sube.
+  La red pendiente: re-correr en Actions la corrida de `integracion` de ese sha cuando vuelvan los minutos.
 - **Regla:** un run que termina en segundos y sin pasos NO se lee como un rojo de código y no se le pasa a ningún chat. Se miran
   sus anotaciones. Y antes de culpar a un test, se mira cuánto duró el job (`started_at` / `completed_at`).
 
@@ -7593,3 +7597,19 @@ consultas por turno. `credenciales` ×36 (20 desde `provsGratisDePlataforma`, li
 `saldoOpenRouter`, lib/openrouter-saldo.ts), `app_settings` ×15-22, y la sesión se resuelve 8 veces. En una ruta, el
 `cache` de React NO deduplica (sólo dentro de un render de servidor). Con ~97 ms por ida serían 5-9 s por turno en Vercel:
 eso es una deducción del código, no se midió en Vercel. Pendiente, de ai-cheap y de la sesión, no de Offer.
+
+## Sin RAM para el tsc entero, el pre-push a main chequea por TANDAS: y dos trampas medidas armándolo (22/10/2026, INF1)
+
+- **Lo que quedó (INF1):** si `scripts/typecheck-lock.mjs` sale con 99 (no consiguió los 6,3 GB), el pre-push a `main` corre
+  `scripts/tipos-respaldo-push.mjs`: las 3 tandas de `scripts/tipos-por-tandas.mjs` con el programa entero, una por vez, con el
+  mismo lock. Pasa sólo si las TRES dan 0. Una tanda que no termina (la mató el vigía, se quedó sin heap, salió sin su bloque
+  «Total time») es un 99, nunca un OK. Medido sobre el lote 87365c830: 0, 0 y 0, con picos de 4,2, 3,8 y 3,8 GB.
+- ⚠️ **`--raices` inventa errores:** la tanda con raíces no carga los tipos globales de Next. Dio 15 errores falsos en la 2/3:
+  `next` en `RequestInit` y los `*.module.css`. Con el programa entero dio 0. El respaldo no usa `--raices`.
+- ⚠️ **K = 3, no más:** con K = 4, 5 o 6, el ciclo de imports de `lib/` (580 archivos) queda partido entre tandas, y un error
+  que el checker cachea (TS2589, TS2303) se puede perder. Con K = 3 no se parte (revisión del 21/10). Queda el caso del script
+  global sin import ni export: por eso sale «OK por tandas» y la red completa sigue siendo Actions.
+- ⚠️ **Un test lento hace «colgar» la tanda de `tests-afectados`:** `tests/tipos-por-tandas.test.ts` corre el tsc de verdad
+  varias veces. Acá tardó 754 s (32 de 32 en verde) y la tanda corta a los 600 s con «un test se colgó», 0 tests y ROJO, que
+  además impide que corran las barredoras. Entra en la lista sólo porque nombra `app/crm/actions.ts`. Antes de leerlo como un
+  cuelgue, se corre ese archivo solo. Sin hacer: que `tests-afectados` le dé más tiempo, o que ese test no nombre archivos ajenos.

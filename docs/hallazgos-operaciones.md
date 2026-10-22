@@ -2022,3 +2022,30 @@ gráfico. Ahora la regex acepta hasta 40 caracteres en el medio y «Pídeselo»,
 viejo del teléfono (app/m/mako/ChatMako.tsx con su Composer) se borró. **Una guarda por regex se prueba con el texto real de
 cada pantalla**: el inventario se armó a mano y la regex nunca se corrió contra él.
 
+## El Ops Center sólo muestra lo que es para Martín: lo que se dicen los chats no se dibuja (22/10/2026)
+
+Martín, desde el teléfono y con captura (pedido f7fb8e80): «me salen estos textos largos innecesarios en muchos chats... No
+los quiero». En su «Cerebro» se leía entero un mensaje de Integración al Cerebro («READY. 87365c830 está EN PRODUCCIÓN…»),
+dibujado como si fuera suyo y con «Cerebro › Integración» de cita. Código: lib/operaciones-reglas.ts (`esParaMartin`,
+`esResumenDeCompactacion`, `sanearTurnos`), lib/centro-chats.ts (`lineasDeConversacion`, `vistaPrevia`). Test:
+tests/ops-center-solo-para-martin.test.ts.
+
+- **De dónde salía la cita:** el cartero sube cada `<cross-session-message>` como un turno `otro` con el `name` del que lo
+  mandó (cartero.mjs → turnosDeLineas), y Hilo.tsx lo dibujaba con ese nombre arriba (`co-burbuja__cita`). Era lo diseñado
+  el 17/10, cuando había pocos chats; hoy la coordinación es la mayoría de lo que se dicen.
+- **Medido en la base ese día** (`operaciones.turnos.*` del ws de la plataforma, 71 chats, 1.937 turnos): 1.581 del chat,
+  77 de Martín y **279 de otro chat** (195 del Cerebro). Y apareció lo que nadie había pedido: **14 turnos «de Martín» eran
+  el resumen que Claude Code escribe al compactar** («This session is being continued from a previous conversation…»): la
+  línea del transcript es un `user` con `isCompactSummary`, y el cartero no la mira. Es el «texto largo» más largo de todos.
+- **Dónde se arregló:** en el SERVIDOR, no en el cartero. Lo que se dibuja pasa todo por `lineasDeConversacion` (la
+  computadora y el teléfono montan Hilo), y lo guardado pasa por `sanearTurnos` al leer: así vale también para lo de antes,
+  sin migrar nada ni esperar una versión nueva del Runner.
+- **El `otro` se sigue GUARDANDO a propósito:** un mensaje de otro chat después de una pregunta de wrap_up la deja atrás
+  (lib/centro-preguntas-chat.ts). Sólo no se dibuja, ni cuenta como «lo último» de la fila. La compactación, en cambio, no
+  sirve para nada (hasta superaba preguntas como si Martín hubiera contestado): no se guarda ni vuelve.
+- **Regla (AGENTS.md):** el Ops Center sólo muestra lo que es para Martín. Lo que tiene que leer, se lo dice el chat a él en
+  su respuesta. Algo nuevo que dibuje turnos pasa por `lineasDeConversacion`.
+
+**SIN HACER:** el cartero podría no subir la compactación (`isCompactSummary`), pero no hace falta mientras el servidor la
+saque, y cambiarlo pide reinstalar el Runner.
+

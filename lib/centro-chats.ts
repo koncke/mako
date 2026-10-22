@@ -22,7 +22,7 @@
 //
 // ⚠️ SIN `server-only`, a propósito: lo leen el servidor, las pantallas y los tests.
 
-import { CARTERO_VIVO_MS, DESTINO_NUEVO, DESTINO_RE, TOPE_TURNO, carteroVivo, rutaParaRevisar, unirTurnos, type ChatCartero, type Cierre, type EstadoPedido, type TurnoChat } from './operaciones-reglas';
+import { CARTERO_VIVO_MS, DESTINO_NUEVO, DESTINO_RE, TOPE_TURNO, carteroVivo, esParaMartin, rutaParaRevisar, unirTurnos, type ChatCartero, type Cierre, type EstadoPedido, type TurnoChat } from './operaciones-reglas';
 import { instanteHito, type AreaP, type PasoP, type PedidoP } from './progreso-reglas';
 import { destinoDeDecision } from './decisiones-aviso';
 import { textoDeRespuesta, type Decision } from '../app/admin/runway/decisiones';
@@ -501,9 +501,12 @@ export type LineaChat =
  * preguntas. Los pedidos de la bitácora y sus hitos («Corrección · 19:32 — …», «Lo pediste en …») NO: son el Plan, y
  * van a su barra (`avanceDelChat` los sigue leyendo de `historialDelChat`). Un turno que trajo un trabajo tampoco: ese
  * trabajo ya está, con sus ticks.
+ * ⚠️ NI LO QUE SE DICEN LOS CHATS ENTRE ELLOS (22/10/2026, `esParaMartin`, lib/operaciones-reglas.ts): un mensaje de otro
+ *    chat y el resumen de una compactación no se dibujan, en la computadora ni en el teléfono (los dos pasan por acá).
  */
 export const lineasDeConversacion = (lineas: readonly LineaChat[]): LineaChat[] =>
-  lineas.filter((l) => l.tipo === 'trabajo' || l.tipo === 'respuesta' || l.tipo === 'pregunta' || (l.tipo === 'turno' && !(l.turno.rol === 'yo' && l.turno.trabajo)));
+  lineas.filter((l) => l.tipo === 'trabajo' || l.tipo === 'respuesta' || l.tipo === 'pregunta'
+    || (l.tipo === 'turno' && esParaMartin(l.turno) && !(l.turno.rol === 'yo' && l.turno.trabajo)));
 
 /** Las abiertas de este chat cuya respuesta todavía no salió (la línea no tiene su trabajo), la más vieja primero. */
 const abiertasSinRespuesta = (lineas: readonly LineaChat[]): PreguntaChat[] =>
@@ -698,7 +701,8 @@ export function vistaPrevia(lineas: readonly LineaChat[]): VistaPrevia | null {
       if (l.turno.rol === 'el' && esYaEsta(l.turno.texto)) {
         const titulo = renglon(l.turno.texto).replace(/^[\s*_#>✅✔·\-–—]*ya est[áa][\s*_.:!,;\-–—]*/i, '').trim();
         ver({ texto: titulo || 'Completado', propio: false, tick: null, instante: l.instante, ya: true });
-      } else if (!(l.turno.rol === 'yo' && l.turno.trabajo)) {
+      } else if (!(l.turno.rol === 'yo' && l.turno.trabajo) && esParaMartin(l.turno)) {
+        // Lo que un chat le dijo a otro no es «lo último que pasó» para Martín (22/10/2026, `esParaMartin`).
         // Una captura sola, sin texto (20/10/2026): la fila dice «Foto» o «Archivo», como WhatsApp.
         const solo = l.turno.adjuntos?.length ? (l.turno.adjuntos.every((a) => a.mime.startsWith('image/')) ? 'Foto' : 'Archivo') : '';
         ver({ texto: renglon(l.turno.texto) || solo, propio: l.turno.rol === 'yo', tick: null, instante: l.instante });

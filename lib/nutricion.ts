@@ -43,7 +43,7 @@ import type { TurnoSim } from '@/lib/setting-simulador';
 import { conversacionAbierta, atiendeAlResponder, charlaPasaAUnaPersona, escritoParaElAviso, type InscCharla, type AudioDelLead } from '@/lib/setter-conversacion';
 import { ambitoDeSecuencia, filtroDeAmbito, agregadosQueEntran, conAgregados, type AmbitoFunnel, type FilaAgregado, type LeadDelAgregado } from '@/lib/nutricion-ambito';
 import { corteEntrada, esEntradaFresca, reservaParaEntradas, cupoDeCampana, HORAS_ENTRADA } from '@/lib/nutricion-prioridad';
-import { frenoDeGoteo, turnoDeGoteo, conEnvio, SIN_USO, type Goteo, type UsoGoteo } from '@/lib/goteo';
+import { frenoDeGoteo, turnoDeGoteo, conEnvio, cuentaParaElGoteo, ESTADOS_DEL_GOTEO, SIN_USO, type Goteo, type UsoGoteo } from '@/lib/goteo';
 import {
   secuenciasDeEntrega, secuenciasDeEtiqueta, secuenciasQueSeCierran, etapasDe, normalizarEtapas, deLaEtapaYLasDemas,
   TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA,
@@ -3744,7 +3744,8 @@ function partesConDatos(partes: readonly ParteMensaje[], vars: Record<string, st
 async function usoDelGoteo(db: Awaited<ReturnType<typeof getTenantDb>>, ids: readonly number[]): Promise<Map<number, UsoGoteo>> {
   const filas = await leerTodo<{ id: number; secuencia_id: number | string; created_at: string }>(db, 'nutricion_envios', 'id, secuencia_id, created_at', {
     orden: 'id',
-    filtros: (q) => q.in('secuencia_id', [...ids]).eq('canal', 'whatsapp').eq('estado', 'enviado').gte('created_at', haceHorasISO(24)) as ConsultaPaginada,
+    // Lo que salió Y lo que quedó para aprobar (`ESTADOS_DEL_GOTEO`, 22/10/2026): con aprobación, los borradores nacen de a uno.
+    filtros: (q) => q.in('secuencia_id', [...ids]).eq('canal', 'whatsapp').in('estado', [...ESTADOS_DEL_GOTEO]).gte('created_at', haceHorasISO(24)) as ConsultaPaginada,
   });
   const out = new Map<number, UsoGoteo>();
   for (const f of filas) {
@@ -5356,7 +5357,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       if ((estado === 'enviado' || estado === 'simulado') && cuentaParaElCupo({ carril: carril != null })) { if (paso.canal === 'email') emailsEnCorrida += 1; else waEnCorrida += 1; }
       // El goteo cuenta el WhatsApp que SALIÓ de esta automatización, también en esta corrida (el siguiente espera sus minutos).
       if (paso.canal === 'whatsapp' && cuentaParaElCupo({ carril: carril != null })) {
-        if (estado === 'enviado' && goteos.has(insc.secuencia_id)) usoGoteo.set(insc.secuencia_id, conEnvio(usoGoteo.get(insc.secuencia_id) ?? SIN_USO, Date.now()));
+        if (cuentaParaElGoteo(estado) && goteos.has(insc.secuencia_id)) usoGoteo.set(insc.secuencia_id, conEnvio(usoGoteo.get(insc.secuencia_id) ?? SIN_USO, Date.now()));
       }
       if (estado === 'enviado' || estado === 'simulado' || estado === 'borrador') anotarEnCorrida(enviadoEnCorrida, insc.lead_id, paso.canal);
       res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado, ...(nota ? { nota } : {}) });
