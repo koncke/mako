@@ -502,7 +502,8 @@ export type RespuestaTurno = {
 export const AVISO_SIN_IA = 'Para contestarte necesito una IA conectada. Conecta la tuya y mándamelo de nuevo.';
 /** El modal que abre el botón (app/m/mako/chat-ui.ts → `botonConectar`): el de las keys de IA, el mismo que manda WhatsApp
  *  (`linkKeysIA`, lib/fallo-ia-texto.ts). */
-export const SERVICIO_IA = 'gemini';
+// IA9 (22/10/2026): su Claude (antes, Gemini gratis). Desde el modal se llega también a su GPT.
+export const SERVICIO_IA = 'anthropic';
 
 /** Lo que escribe la cascada cuando no tuvo NINGUNA cuenta que probar (lib/anthropic.ts, `chatClaudeTools`). */
 const SIN_NINGUNA_CUENTA = /sin proveedor gratis disponible/i;
@@ -534,7 +535,7 @@ export function avisoSinIA(delEntorno: boolean, servicio: string = SERVICIO_IA):
  * QUÉ IA LE ABRE «Conectar tu IA»: LA QUE EL NEGOCIO YA ELIGIÓ (20/10/2026, docs/investigacion-ops-center-19-10.md: «un
  * negocio que conectó sólo su Claude igual recibe el modal de Gemini»). Si tiene alguna guardada en su fila, se le abre
  * ésa —para arreglarla, no para pedirle otra—, en este orden: su Claude y su OpenAI primero (la decisión A de Martín:
- * cada negocio conecta la suya), después las gratis. Sin ninguna, Gemini (gratis, y el mismo link que manda WhatsApp).
+ * cada negocio conecta la suya), después las gratis. Sin ninguna, su Claude (IA9; el mismo link que manda WhatsApp).
  */
 export const IA_PARA_CONECTAR = ['anthropic', 'openai', 'gemini', 'groq', 'mistral', 'openrouter'] as const;
 /** La credencial base de cada una (lib/integraciones-catalogo.ts): la que se mira en la fila del negocio. */

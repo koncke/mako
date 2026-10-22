@@ -1709,7 +1709,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
           // nuestra IA no lo cubrió: lo dice `textoSinRedPorDatos`. Con keys que fallaron, su causa sigue siendo la verdad.
           const sinRedPorSusDatos = sinRedPorDatos(errsPlat) && causa === 'sin_keys';
           respuesta = sinRedPorSusDatos
-            ? textoSinRedPorDatos(linkApp('/integraciones?abrir=gemini', wsData), eraDePlan ? 'armar el borrador' : 'contestar')
+            ? textoSinRedPorDatos(linkApp('/integraciones?abrir=anthropic', wsData), eraDePlan ? 'armar el borrador' : 'contestar')
             : causa === 'proveedor_caido'
             ? avisoNoPude(eraDePlan)
             : textoFalloIA(causa, linkKeysIA(APP_URL), eraDePlan ? 'armar el borrador' : 'contestar', nKeys);

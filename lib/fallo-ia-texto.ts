@@ -297,4 +297,4 @@ export function textoFalloIA(
 }
 
 /** El link a la pantalla donde se cargan las keys, con el modal ya abierto. */
-export const linkKeysIA = (base: string): string => `${base}/integraciones?abrir=gemini`;
+export const linkKeysIA = (base: string): string => `${base}/integraciones?abrir=anthropic`;

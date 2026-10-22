@@ -5238,3 +5238,16 @@ devuelve el modelo) · `tests/closing-su-claude.test.ts` (corre `analyzeMeeting`
 - **Sin hacer:** el ws1 (Mauricio) sigue analizando con la clave de MaKo hasta el 13/11 (es una copia: la puerta 2 la
   rechaza). Qué pasa después lo decide Martín (pedido al Cerebro). El caso de uso real (una llamada del ws3 con la clave de
   prueba) espera el deploy y la clave.
+
+## «Conecta tu Claude o tu GPT»: el pedido de «Gemini gratis» vivía en cinco lugares (IA9, 22/10/2026)
+
+- **Dónde estaba:** el mensaje sin IA (`mensajeIAFallo`, lib/ia-mensajes.ts: «con Gemini alcanza»), el botón «Conectar tu
+  IA» sin ninguna IA (`SERVICIO_IA` = gemini, lib/mako-turno-app-reglas.ts), el link de WhatsApp (`linkKeysIA`), la visión
+  («Carga una API key de Gemini (gratis)»), la cara de marca (lib/persona.ts), las URLs que MaKo repite (lib/hechos-mako.ts)
+  y las fichas de /integraciones. Cambiar UNO dejaba los otros cuatro mandando a Gemini.
+- **Regla:** el texto de «qué conectar» vive en lib/ia-mensajes.ts (`CONECTA_TU_IA`, `FALTA_TU_IA`) y el destino es su
+  Claude (`abrir=anthropic`; desde «Tus cuentas de IA» se llega a su GPT). tests/conecta-tu-ia.test.ts cuenta «con Gemini
+  alcanza» en todo app/ y lib/.
+- **Sin hacer:** app/dashboard/PanelAnalista.tsx («Una IA gratis (con Gemini alcanza)») es de TB3, que importa
+  `FALTA_TU_IA`: el test lo deja como única excepción hasta entonces. El aviso del lienzo de Automations
+  (lib/flujo-ia.ts → `falloDeIA`) es de AU3. Las fichas de Cerebras, Mistral y OpenRouter se van con IA8.

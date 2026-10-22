@@ -1062,8 +1062,8 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
   // ⛔ D6b: con su propio Claude, sólo su OpenAI mira (la red gratis no corrió): pedirle «Gemini (gratis)» sería mandarlo
   // a cargar una key que no se usaría.
   if (soloSuIA()) throw new Error(CON_SU_IA_SIN_VISION);
-  const nombres = sinKey.map((p) => (p === 'gemini' ? 'Gemini (gratis)' : 'OpenAI')).join(' o ');
-  throw new Error(`No hay ninguna IA con visión configurada. Carga una API key de ${nombres || 'Gemini u OpenAI'} en Integraciones.`);
+  // IA9: lo que se le pide es SU Claude o SU GPT (antes, «Gemini (gratis)»). Los dos miran fotos y PDF.
+  throw new Error('No hay ninguna IA que pueda mirar esto. Conecta tu Claude o tu GPT en Integraciones.');
 }
 
 /**

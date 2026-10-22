@@ -99,7 +99,7 @@ test('¿falta la IA del negocio?: el texto de la cascada, o cero cuentas propias
   assert.ok(AVISO_SIN_IA.length <= 100, AVISO_SIN_IA);
   assert.doesNotMatch(AVISO_SIN_IA, /api|key|gemini|groq|proveedor|vos|tenés|conectá/i);
   assert.match(AVISO_SIN_IA, /Conecta la tuya/);
-  assert.equal(SERVICIO_IA, 'gemini', 'el modal de las keys de IA, el mismo que manda WhatsApp (`linkKeysIA`)');
+  assert.equal(SERVICIO_IA, 'anthropic', 'el modal de su Claude, el mismo que manda WhatsApp (`linkKeysIA`; IA9: antes, Gemini)');
   assert.equal(servicioDeLink(`/integraciones?abrir=${SERVICIO_IA}`), SERVICIO_IA, 'es un modal que se abre suelto en cualquier tab');
   assert.equal(botonConectar(SERVICIO_IA), 'Conectar tu IA');
 
