@@ -2096,6 +2096,24 @@ sale «✗ no hay ninguna fila» en una corrida con los dos. Solo, pasa. La marc
 Cerebro); el botón de un negocio sin ninguna IA sigue siendo Gemini, y eso lo decide Martín; la 0316 (`archivero_files.origen`)
 sigue sin aplicar en producción, y cada pegado archivado lo avisa en el log.
 
+## El «Cerebro» de Mauricio quedó mudo: el aviso de un turno que falla no se guarda (22/10/2026, cliente roto)
+
+Martín, con captura del ws1 (/second-brain?chat=40): dos mensajes de Mauricio del 18/10 («Dame claridad de mi avatar…» y
+«¿funciona esta sección?») sin nada debajo. Medido, sólo lectura: chart_chats de la sesión 40 tiene SÓLO esos dos `user`, y
+anthropic_usage del ws1 tiene, 8 s después del primero, «anthropic vetado: mako-doer» y nada más (del segundo, ni un intento).
+El turno fue a Claude, el veto lo cortó y no cayó a nada. Hoy el ws1 no tiene IA propia: sus claves son copias de las de
+MaKo y no cuentan (`negocioConSuIA(1)` → suIA false; `provsDe` → 0 de todo). El turno con herramientas usa SÓLO las cuentas del
+negocio (`chatCheapToolsCascade` no tiene la red de la plataforma, a diferencia de `chatCheap`), así que hoy le contestaría
+«Conecta la tuya».
+
+- **El silencio era de la pantalla, no del turno:** lo que dice un turno que falla es un aviso que NO se guarda. Al recargar,
+  el hilo terminaba en la pregunta de la persona. Ahora, pasado el techo del turno (7 minutos), se dice «No te pude
+  contestar esto.» con «Reintentar» (app/m/mako/chat-ui.ts → `conSinRespuesta`; test: tests/ops-sin-silencio.test.ts).
+- **SIN DECIDIR (pregunta al Cerebro, 22/10):** darle «Gemini de base» a un negocio sin IA choca con la regla del 16/10. Los
+  datos de los clientes de un cliente no van a un proveedor que entrena (el plan gratis de Gemini), y el chat del Ops Center
+  lee leads, cobros y reuniones. Las salidas son esa Gemini igual (decisión de Martín), el crédito de Claude de la plataforma
+  (no entrena; hoy sólo para el onboarding) o que conecte su IA.
+
 ## Ops Center del cliente: «el chat de X no llegó» se mide en la base, nunca mirando la pantalla como super admin (20/10/2026)
 
 - **Síntoma:** en /second-brain?ws=21 sólo se ve el chat «Second Brain», sin la conversación de Offer de la clienta.
