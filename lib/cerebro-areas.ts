@@ -34,6 +34,20 @@ export function contarPorArea<A extends string = AreaId>(nodos: readonly NodoCer
   return c;
 }
 
+/**
+ * Las carpetas de la barra lateral del grafo, cada una con SUS áreas que tienen algún dato (22/10/2026, Martín desde el
+ * Centro, pedido 4a15e2c3: «no quiero ningún item de "falta" en la sidebar... simplemente si no lo tiene ese dato, que no
+ * lo muestre»). Un área sin datos no aparece, y una carpeta que se queda sin áreas tampoco (su título solo no dice nada).
+ * En el orden de la taxonomía.
+ */
+export function carpetasConDatos<C extends { id: string }, Ar extends { id: string; padre: string }>(
+  tax: { carpetas: readonly C[]; areas: readonly Ar[] }, porArea: Partial<Record<string, number>>,
+): Array<{ carpeta: C; suyas: Ar[] }> {
+  return tax.carpetas
+    .map((carpeta) => ({ carpeta, suyas: tax.areas.filter((a) => a.padre === carpeta.id && (porArea[a.id] ?? 0) > 0) }))
+    .filter((x) => x.suyas.length > 0);
+}
+
 /** Cuántas aristas toca cada nodo (el «más conectado» va primero en una búsqueda). */
 export function gradosDe(nodos: readonly Pick<NodoCerebro<string>, 'id'>[], aristas: readonly AristaCerebro[]): Record<string, number> {
   const g: Record<string, number> = {};

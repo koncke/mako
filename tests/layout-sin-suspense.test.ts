@@ -106,6 +106,9 @@ const LOADING_PERMITIDOS = [
   'app/m/calendario/loading.tsx',
   // Second Brain: construirCerebro hace 21 lecturas en paralelo y corre d3-force en el server.
   'app/m/second-brain/loading.tsx',
+  // El grafo a pantalla entera (22/10/2026, sin la portada «Abrir el grafo»): sin su esqueleto oscuro, mientras se arma
+  // se veía el de arriba, que es la lista clara del Ops Center.
+  'app/m/second-brain/mapa/loading.tsx',
   // Curso: la cartera de la entrega, las clases de cada curso y el progreso paginado de cada cliente ganado.
   'app/m/curso/loading.tsx',
 ];

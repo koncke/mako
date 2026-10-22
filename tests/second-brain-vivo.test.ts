@@ -173,8 +173,9 @@ test('13a · el nodo que viaja: espera sin aristas, aterriza con su pop', () => 
   assert.match(g, /key=\{saliendo\.has\(n\.id\) \? 'fuera' : esperando\.has\(n\.id\) \? 'espera' : 'dentro'\}/, 'el pop se repite al aterrizar');
   assert.match(g, /nuevosDesde\(antes, nodos, TOPE_VIAJEROS\)/, 'la regla de qué es nuevo es la compartida');
   assert.match(g, /if \(!nuevos\.length \|\| sinMovimiento\(\)\) return;/, 'con movimiento reducido no viaja nada');
+  // El teléfono: desde el 22/10/2026 su pantalla ES este grafo (SecondBrainM.tsx), así que viaja con esta misma regla.
   const m = sinComentarios(leer('app/m/second-brain/SecondBrainM.tsx'));
-  assert.match(m, /nuevosDesde\(antes, cerebro\.nodos\)/, 'el teléfono, con la misma regla');
+  assert.match(m, /<VistaCerebro\s+movil\s/, 'el teléfono, con el mismo grafo');
 });
 
 test('13a · la pantalla pide el grafo con la huella, y sólo con la pestaña a la vista', () => {

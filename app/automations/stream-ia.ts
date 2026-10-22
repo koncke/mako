@@ -31,13 +31,18 @@ export const RUTA_IA = '/api/chat-agent/secuencias/ia';
 export const TOPE_CLIENTE_MS = 310_000;
 
 export type FaseIA = 'contexto' | 'modelo' | 'respuesta' | 'revision';
-/** Lo que se dice de cada fase (corto: AGENTS.md, el texto que se dibuja). */
+/**
+ * Lo que se dice de cada fase (corto: AGENTS.md, el texto que se dibuja). UNA palabra desde el 22/10/2026: la fila de las
+ * fases del chat mide 292 px y lleva los puntos, el rótulo, «50 s · hasta 5 min» y Cancelar en UNA línea (Martín: «no me
+ * gusta que "cancelar" tenga un salto de línea»). Con «Pensando la respuesta» (174 px) la fila pedía 409 y el rótulo se
+ * cortaba en «Pensan…». En qué fase va lo dicen los puntos.
+ */
 export const TEXTO_FASE: Record<FaseIA, string> = {
-  contexto: 'Leyendo tu negocio',
-  modelo: 'Escribiendo el flujo',
+  contexto: 'Leyendo',
+  modelo: 'Escribiendo',
   // Una pregunta (lib/flujo-ia-consulta.ts): MaKo contesta y no toca el flujo.
-  respuesta: 'Pensando la respuesta',
-  revision: 'Revisando el flujo',
+  respuesta: 'Pensando',
+  revision: 'Verificando',
 };
 export const ORDEN_FASES: FaseIA[] = ['contexto', 'modelo', 'revision'];
 
