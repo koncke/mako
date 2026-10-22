@@ -1180,6 +1180,17 @@ Ocho cosas que no se ven en el código y ya mordieron:
    caía `capturar` con DOS herramientas — MaKo no podía registrar un pago, con o sin moneda
    (`tests/api-mako-pago-intencion.test.ts`, docs/hallazgos-api-mako.md → «Pendientes B1 de la API»).
 
+**Y el chat de la APP no anota ante la duda** (20/10/2026, Ops Center pieza 1.2; docs/hallazgos-ia.md → «Ops Center, pieza 1.2»):
+`clasificarIntencion` recibe `canal: 'app'` (lo pasa lib/mako-turno-app.ts) y, sin señal clara, MaKo propone con una tarjeta (D1 = A);
+WhatsApp sigue anotando como idea. Una frase nueva de la app entra a `tests/ops-center-clasificador-app.test.ts` con su operación, y
+si no llega: (1) un verbo de hacer al arranque va en `lib/mako-intencion-app.ts`; (2) si el pedido no nombra el área, una fila de
+`FAMILIAS` con las palabras del NOMBRE de la operación (verbo y sustantivo; un verbo suelto puntúa en cientos de operaciones y la saca
+del presupuesto); (3) un veredicto dudoso no suma las áreas del texto, así que el default de la app va `dudosa: false` Y lleva `adivina: true` (que le saca `proponer_tareas_plan`: una adivinanza no crea nada); una familia sola, sin verbo de hacer, también es una adivinanza. La búsqueda en todo el registro es de `lib/relevancia-app.ts`.
+
+**⚠️ Lo que le llega a un TERCERO se confirma por WhatsApp con un «sí» y nada más** (21/10/2026; docs/hallazgos-comunicacion.md): la regex `CONFIRMACION` toma como confirmación cualquier mensaje que ARRANCA con «ok», «perfecto» o «dale» («ok, esperá que lo reviso»). Una acción de chat que le manda un email, un WhatsApp, una invitación o un link a otra persona lleva `aTerceros: true` en su def (lib/api-mako/tipos.ts) y `confirmarPendiente` no la ejecuta si el mensaje no es `confirmacionPura` (lib/confirmacion-pura.ts): la pendiente sigue viva y MaKo repregunta mostrando qué va a salir. La red es esa puerta de código, no más palabras en el clasificador; `tests/confirmacion-terceros.test.ts` frena la acción nueva que dice que le llega a alguien y no está marcada.
+
+**⚠️ La red del chat de la app es la TARJETA, no una tabla de palabras** (21/10/2026, segunda revisión adversarial; docs/hallazgos-ia.md → «La red es la tarjeta, no la regla»). Dos rondas de reglas dejaron 11 errores medidos: cada regla nueva sacaba una frase legítima y metía otra irreversible. Por eso: (1) en la app NO viaja nada que cambie algo sin dejar una tarjeta (`cancelar_accion` y `confirmar_accion` no viajan: cancelar es el botón de la tarjeta; `tests/ops-center-clasificador-app.test.ts` recorre el REGISTRO ENTERO y frena un control en el chat); (2) una operación que quita, corta o cancela algo (el verbo está en su id; `reversible: false` NO es destructiva: lo llevan los envíos y las altas) entra SÓLO si el pedido pide quitar Y nombra la COSA de esa operación —el sustantivo de su id o de su título, o un sinónimo de `SINONIMOS`—, nunca por el área; si no la nombra no llega ninguna parecida y MaKo pregunta cuál; (3) las lecturas que dan el id de una acción llegan en TODO turno de la app (`herramientasDelChat`), no sólo con `buscaEnTodo`; (4) «WhatsApp no cambia» y «qué cambia en la app» se miden con `node --import tsx scripts/medir-turnos-por-sha.mts <antes> <después> --exigir-igual`: extrae cada commit con `git archive` y corre UN proceso por árbol (cargar dos árboles en un proceso comparte módulos por el alias `@/`, y un worktree vivo no es un commit).
+
 **Y al sumar operaciones a un área** (15/10/2026, 40 de una vez en `landing`;
 docs/hallazgos-api-mako.md → «El editor entero del Web Generator»):
 
