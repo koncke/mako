@@ -46,7 +46,9 @@ const INVENTARIO: Record<string, 'caja única' | `pendiente, ${string}`> = {
   // con la caja y el hilo únicos y su motor de siempre. El chat de un gráfico del Dashboard ya va a la estrella.
   'app/dashboard/PanelEditarMako.tsx': 'caja única',
   'app/web-generator/CajaPedido.tsx': 'pendiente, de Web Generator (la usan Automations, CRM y Dashboard)',
-  'app/web-generator/editor/paneles/PanelAgente.tsx': 'pendiente, de Web Generator',
+  // 22/10/2026 (TB3): el agente dibuja el hilo y la caja únicos desde ChatAgente.tsx, que carga con next/dynamic (PanelAgente.tsx
+  // lo importan tests y las piezas traen CSS); PanelAgente ya no arma ninguna caja.
+  'app/web-generator/editor/paneles/ChatAgente.tsx': 'caja única',
   // 22/10/2026 (TB3): los dos editores con su motor (editan lo abierto) y la propuesta en el hueco de la respuesta.
   'app/video-editor/_opencut/chat/PanelChat.tsx': 'caja única',
   'app/image-editor/mako/chat/PanelMakoIA.tsx': 'caja única',

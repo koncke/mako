@@ -33,6 +33,7 @@ import { useConectarIntegracion } from '@/app/_components/ConectarIntegracion';
 import { BotonMako } from '@/app/_ui/BotonMako';
 import { RADIO_CAJA } from '@/app/_ui/BotonBorrar';
 import { preguntarDelGrafico } from './pregunta-grafico';
+import { CONECTA_TU_IA, FALTA_TU_IA } from '@/lib/ia-mensajes';
 import { Dropdown } from '@/app/components/Dropdown';
 import { esGrafico, tituloDe, type Hoja, type VistaValores } from '@/lib/graficos-catalogo';
 import { fmtValor, type Resultado } from '@/lib/graficos-agregar';
@@ -138,7 +139,8 @@ export function PanelAnalista({ hoja, loQueSeVe, onCerrar, vista, onModo }: {
   // La hoja cuyo estado ya sembró la selección y el horario: se siembra UNA vez, y después manda la persona.
   const sembrada = useRef<string | null>(null);
   const ahora = useAhora(30_000);
-  // «Conectar una IA» abre el modal de Gemini AHÍ (regla del 14/10/2026: conectar una integración nunca saca de la tab).
+  // «Conecta tu Claude o tu GPT» abre el modal de su Claude AHÍ (regla del 14/10/2026: conectar una integración nunca saca de
+  // la tab). Desde el 22/10/2026 (IA9, TB3) es la IA del cliente: antes pedía «una IA gratis» y abría Gemini.
   // Conectada, el panel vuelve a ofrecer «Analizar»: el próximo pedido es el que confirma si hay IA.
   const integracion = useConectarIntegracion({ onConectado: () => setIa({ ok: true, mensaje: null }) });
 
@@ -262,7 +264,7 @@ export function PanelAnalista({ hoja, loQueSeVe, onCerrar, vista, onModo }: {
 
         {!cargando && !ia.ok && !corriendo && (
           <Mako estado="sin_conclusion" titulo="Falta conectar una IA" consecuencia={ia.mensaje ?? 'Sin IA conectada no puedo analizar la hoja.'}
-            datos={[{ k: 'Qué falta', v: 'Una IA gratis (con Gemini alcanza)' }]} accion={{ label: 'Conectar una IA', onClick: () => integracion.abrir('gemini') }} />
+            datos={[{ k: 'Qué falta', v: FALTA_TU_IA }]} accion={{ label: CONECTA_TU_IA, onClick: () => integracion.abrir('anthropic') }} />
         )}
         {integracion.modal}
 
