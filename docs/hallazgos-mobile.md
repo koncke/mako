@@ -17,13 +17,15 @@ go back.» Con «Reload» andaba. Y la entrada de MaKo (la criatura que cae y sa
   admin → Centro» con un `redirect()`. Como /m/second-brain tiene `loading.tsx`, el redirect viaja ADENTRO del stream:
   Next lo manda como `<meta http-equiv="refresh">` + redirect de cliente, y el navegador hace una navegación DURA a
   /admin/operaciones (un segundo documento, sin `_rsc`). En la apertura de las 22:37 el segundo no llegó nunca: después
-  de /second-brain y del POST de `detectarZonaAction` el teléfono no pidió nada más en 45 s. Ésa es la pantalla del reload.
+  de /second-brain y del POST de `detectarZonaAction` el teléfono no pidió nada más en 45 s: la app quedó muerta ahí
+  (la pantalla del reload; el log no la ve).
 - **La entrada se gastaba en el documento que se iba.** ShellM ponía la marca de sessionStorage al MONTAR; el primer
   documento la montaba y moría a los 1-3 s con la navegación dura; el Centro ya la encontraba marcada.
 - **La pantalla es la de Next, no la nuestra.** «This page couldn't load» con «Reload»/«Back» es
   `next/dist/client/components/builtin/global-error.js`. Next 16 anida dos boundaries en AppRouter: el de afuera con esa
   pantalla, y adentro el de app/global-error.tsx. Que se vea la de Next quiere decir que el error saltó POR ENCIMA de
-  app/global-error.tsx y app/error.tsx: una acción del router cuya promesa se rechazó (`use(state)` en el Router).
+  app/global-error.tsx y app/error.tsx. Leyendo next 16.2.6, lo que llega ahí es una acción del router cuya promesa se
+  rechazó (`use(state)` en el Router); la excepción en sí no se vio.
 - **El reportador estaba ciego en el teléfono.** `errores_app` tenía 2 filas en total, las dos de MaKo, ninguna del
   navegador: `ReportadorDeErrores` iba adentro de `<HideOnPublicLanding>`, que en un teléfono apaga TODO.
 
