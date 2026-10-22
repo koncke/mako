@@ -5575,5 +5575,11 @@ TODAS 429 (0 respuestas), OpenRouter 12 llamadas y su modelo gratis caducó tres
     `archivoATexto(` sin feature en un archivo del Plan.
 - **Mistral nombrada tapaba parámetros de links** (el `pwd=` de un Zoom junto a «Av. Gabriela Mistral»). Ahora un id pegado a
   un link no cuenta: después de `=`, `/`, `?`, `&`, `#`, o seguido de `.`.
+- **Y el arreglo de los links abrió una regresión** (tercera revisión, el mismo día). Para no tapar el  de un
+  Zoom, el token pedía que no lo siguiera un punto, y entonces «Mi clave de Mistral es <clave>.» (la clave al final de una
+  oración) pasó entera al modelo y a . Ahora sólo un punto SEGUIDO de algo más es parte de un link, y el 
+  /  del lookbehind ya protegen el link. **Regla:** al angostar una regla de tapado para no tapar de más, se prueba de
+  nuevo el caso más común (la clave al final de una frase), no sólo el que se quería dejar pasar. Además, 
+  en minúscula no lo agarraba nadie (la regla de .env es sólo de MAYÚSCULAS): ahora hay una regla para el nombre asignado.
 - **Una fila de IA ilegible en el ws9 apagaría la IA propia de todos los negocios** (por `ilegibleTira`). Se miró antes de
   subir: 22 de 22 filas legibles. El mensaje ya no dice «la base no contestó», que en ese caso era falso.
