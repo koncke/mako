@@ -104,7 +104,9 @@ export function valoresDelLead(l: Lead): Record<string, string> {
   num('lead_monto_cierre', l.monto_cierre_usd);
   // Lo pagado de ESA venta (tercera revisión, M2): al lado de un saldo de la casa, el total de todos los CRMs decía
   // «Pagaste 1.500 de 2.000, te falta 1.000». Los tres tokens suman.
-  num('lead_cobrado', cobradoDeLaVentaSiHay(fila));
+  // Sin venta en la casa no hay saldo con el que sumar: lo pagado en total (cuarta revisión, B2: decía «US$ 0» a quien
+  // pagó US$500 en otro CRM).
+  num('lead_cobrado', l.monto_cierre_usd == null ? l.total_cobrado_usd : cobradoDeLaVentaSiHay(fila));
   // El saldo se CALCULA, y sólo si hay cierre: sin monto de cierre, «falta cobrar» no
   // tiene referencia y daría el negativo de lo pagado. ⚠️ Con lo cobrado de ESA venta (mig 0325,
   // `faltaDeLaVenta`): con lo cobrado en todos los CRMs, una renovación pagada le bajaba el saldo

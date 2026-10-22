@@ -937,6 +937,19 @@ app/m/crm/datos.ts · tests/pagos-crm-co2.test.ts.
 **Vive en:** lib/pagos-crm.ts (`cobradoDeLaVentaSiHay`) · app/crm/actions.ts (`filaALeadDoc`) · lib/variables-del-lead.ts ·
 lib/lead-funnel.ts (`resincronizarCobrado`) · tests/pagos-crm-tercera.test.ts.
 
+### La cuarta revisión: arreglar la columna no arreglaba su propio caso (22/10/2026)
+
+- **Re-sincronizar al agregar adelantaba el salto del saldo.** Un lead al que se le quitó la casa A con pagos conserva
+  esos pagos con el funnel A, y hoy cuentan como de la casa nueva. Volver a agregarlo a A (lo hacen solos un optin, una
+  reserva de agenda, un formulario de Meta, «Traer») los pasaba al trato de A: con la re-sincronización, el saldo que le
+  llega al cliente pasaba en el acto de «te falta US$1.000» a «US$2.000», y quitar no lo deshacía (lo frena la plata).
+  **La regla:** agregar tiene el espejo del guard de quitar: un lead con pagos de ESE funnel sin estar en él no se agrega
+  (`pagosHuerfanosDe`, lib/lead-funnel.ts); en lote, se saltea y cuenta como fallado. Re-etiquetar los pagos a la casa no
+  sirve: choca con el índice de la 0324 si la casa nueva ya tiene su cuota 1. Medido: hoy no hay ningún lead así.
+- **Una sincronización que falla no corta a los demás**, y sin pagos no se sincroniza (escribía 0 donde había NULL).
+- `{{lead_cobrado}}` sin venta en la casa es lo pagado en total: no hay saldo con el que sumar. «Solo con dinero cobrado»
+  mira lo cobrado de la venta, como la columna «Cobrado USD» del mismo export.
+
 ## «Vincular cobro»: quien paga el producto pasa a Ganado en ESE CRM (22/10/2026, mig 0326)
 
 Punto 3 del feedback de Martín: en el ⋯ de la columna Ganado de un CRM, vincular un producto, cobrable por Stripe y Mercado
