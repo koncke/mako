@@ -111,7 +111,11 @@ export async function GET(req: NextRequest) {
       return new Response(null, { status: 302, headers: { Location: url, 'Cache-Control': 'private, max-age=240' } });
     }
     // «Antes»: lo que tenía /mako, con SU regla de quién ve qué (lib/chat-mako-indice.ts).
-    if (sp.get('antes') || sp.has('antesId')) {
+    // ⚠️ CON `sessionId` NO ES LA LISTA: `?sessionId=N&antes=1` es el hilo de un chat de antes que se sigue (abajo, con
+    //    `personaDelChat`). Hasta el 22/10/2026 esta rama lo atrapaba primero y devolvía la lista: todo chat de antes (los
+    //    del CRM, los gráficos, Editar con MaKo, el Web Generator) se abría VACÍO en el Ops Center del cliente, aunque la
+    //    fila estaba y sus mensajes también (medido en el ws3). tests/ops-center-hilo-de-antes.test.ts.
+    if ((sp.get('antes') && !sp.has('sessionId')) || sp.has('antesId')) {
       const q = await quienChateaDelRequest();
       if (!q) return json({ ok: false, error: 'Tu sesión venció.' }, 401);
       // Con los de las tabs de la persona (el CRM, la ficha de un lead), que se siguen igual (OC4, 22/10/2026).
