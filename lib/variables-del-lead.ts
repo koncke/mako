@@ -25,7 +25,7 @@ import { cuandoEs, horaDe, faltanTexto } from './curso-mensajes-texto';
 import { proximaReunion, type FilaReunion } from './nutricion-reinscripcion';
 import { renglonesDeRespuestas, cortar } from './respuestas-agenda';
 import { formatoMonto } from './pasarela-moneda';
-import { faltaDeLaVenta } from './pagos-crm';
+import { cobradoDeLaVentaSiHay, faltaDeLaVenta } from './pagos-crm';
 import { NOMBRE_PASARELA } from './cobros-tipos';
 import { sinRenglonesVacios } from './variables-aviso';
 import { aplicarVariables } from './template-vars';
@@ -102,7 +102,9 @@ export function valoresDelLead(l: Lead): Record<string, string> {
   si('lead_asistio_r2', l.asistio_j2);
 
   num('lead_monto_cierre', l.monto_cierre_usd);
-  num('lead_cobrado', l.total_cobrado_usd);
+  // Lo pagado de ESA venta (tercera revisión, M2): al lado de un saldo de la casa, el total de todos los CRMs decía
+  // «Pagaste 1.500 de 2.000, te falta 1.000». Los tres tokens suman.
+  num('lead_cobrado', cobradoDeLaVentaSiHay(fila));
   // El saldo se CALCULA, y sólo si hay cierre: sin monto de cierre, «falta cobrar» no
   // tiene referencia y daría el negativo de lo pagado. ⚠️ Con lo cobrado de ESA venta (mig 0325,
   // `faltaDeLaVenta`): con lo cobrado en todos los CRMs, una renovación pagada le bajaba el saldo

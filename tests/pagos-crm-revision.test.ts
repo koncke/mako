@@ -163,18 +163,19 @@ test('2ª · el saldo es la venta de la casa menos lo cobrado de ESA venta: debe
   // El mensaje al cliente: `{{lead_saldo}}` dice US$1.000.
   const v = valoresDelLead({ nombre: 'Juan Pérez', ...caso } as unknown as Lead);
   assert.equal(v.lead_saldo, plata(1000));
-  assert.equal(v.lead_cobrado, plata(1500), '`{{lead_cobrado}}` sigue siendo lo cobrado en total');
+  // Desde la tercera revisión (M2), `{{lead_cobrado}}` es lo cobrado de la MISMA venta: los tres tokens suman.
+  assert.equal(v.lead_cobrado, plata(1000), '`{{lead_cobrado}}` de la venta de la casa, como el saldo');
 });
 
 // Roturas: el filtro «debe» con `vendido - cobrado`: 12 / 1. `listar_leads` sin `falta_cobrar_usd`: 12 / 1.
 test('2ª · el filtro «Solo los que deben», el export y listar_leads usan lo cobrado de la venta', () => {
   const acc = sinComentarios(leer('app/crm/actions.ts'));
   assert.match(acc, /case 'debe': if \(!\(\(faltaDeLaVenta\(l\) \?\? 0\) > 0\)\) return false; break;/);
-  assert.match(acc, /l\['#falta'\] = faltaDeLaVenta\(l\) \?\? 0;\s*l\['#cobrado'\] = cobradoDeLaVenta\(l\);/);
+  assert.match(acc, /l\['#falta'\] = faltaDeLaVenta\(l\) \?\? 0;\s*l\['#cobrado'\] = cobradoDeLaVentaSiHay\(l\);/);
   assert.match(acc, /'monto_cierre_usd', 'total_cobrado_usd', 'total_cobrado_casa_usd', 'venta_tipo',/);
   assert.match(sinComentarios(leer('app/crm/leads-exportar.ts')), /\['#cobrado', 'Cobrado USD'\], \['#falta', 'Falta cobrar USD'\]/);
   const api = sinComentarios(leer('lib/api-mako/areas/crm.run.ts'));
-  assert.match(api, /cobrado_de_la_venta_usd: cobradoDeLaVenta\(conCasa\), falta_cobrar_usd: faltaDeLaVenta\(conCasa\),/);
+  assert.match(api, /cobrado_de_la_venta_usd: sinCasa \? null : cobradoDeLaVenta\(conCasa\), falta_cobrar_usd: sinCasa \? null : faltaDeLaVenta\(conCasa\),/);
 });
 
 // Roturas: `sincronizarTotalCobrado` sin `total_cobrado_casa_usd`: 12 / 1. La 0325 sin excluir los agregados: 12 / 1.

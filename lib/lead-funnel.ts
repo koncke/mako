@@ -22,6 +22,30 @@ import { productosDe, puedeQuitar, aQuienPromover, etapaDeEntrada, casaParaEscri
 import { terminalEstadoFor } from './pipeline';
 import { pasaAGanado } from './crm-curso-al-ganar-reglas';
 
+/**
+ * Lo cobrado de la casa (`total_cobrado_casa_usd`, mig 0325) depende de en qué CRMs está el lead: un pago con el funnel de
+ * un CRM agregado no es de la casa. Agregar, quitar o deshacer cambia ese conjunto, y la columna lo sigue (tercera revisión
+ * del 22/10/2026, B1: re-agregar a un CRM viejo dejaba la columna con plata que ya no era de la casa, y el saldo saltaba
+ * en el próximo pago). Con `funnelId`, sólo los leads con pagos en ese CRM (un lote de 1.000 no se sincroniza entero).
+ * Nunca tira: el movimiento ya está hecho, y el próximo pago la vuelve a sincronizar.
+ */
+async function resincronizarCobrado(leadIds: readonly number[], funnelId?: number): Promise<void> {
+  try {
+    let ids = [...new Set(leadIds)];
+    if (funnelId != null && ids.length) {
+      const { data, error } = await (await getTenantDb()).from('pagos').select('lead_id').eq('funnel_id', funnelId).in('lead_id', ids);
+      if (error) throw new Error(error.message);
+      ids = [...new Set(((data ?? []) as Array<{ lead_id: number | string }>).map((r) => Number(r.lead_id)))];
+    }
+    if (!ids.length) return;
+    // Import dinámico: lib/pagos.ts es pesado y no hace falta para mover de CRM.
+    const { sincronizarTotalCobrado } = await import('./pagos');
+    for (const id of ids) await sincronizarTotalCobrado(id);
+  } catch (e) {
+    console.error(`[lead-funnel] no pude re-sincronizar lo cobrado de ${leadIds.length} lead(s):`, e instanceof Error ? e.message : e);
+  }
+}
+
 /** Las etapas de un producto (el del negocio por su propio camino: su config vive en la fila default). */
 export async function etapasDeProducto(funnelId: number): Promise<Array<{ key: string; label: string; kind?: string | null; band?: string; dot?: string }>> {
   const def = await idDelFunnelDefault();
@@ -75,6 +99,7 @@ export async function agregarAProducto(leadId: number, funnelId: number, opts?: 
     { onConflict: 'workspace_id,lead_id,funnel_id', ignoreDuplicates: true },
   );
   if (error) throw new Error('No se pudo agregar al funnel: ' + error.message);
+  await resincronizarCobrado([leadId], funnelId);
   await logLeadEvent(leadId, 'Funnel', `Agregado a «${await nombreDeProducto(funnelId)}»`, autor);
   return { agregado: true, etapa };
 }
@@ -130,6 +155,7 @@ export async function quitarDeProducto(leadId: number, funnelId: number, opts?: 
   if (!p.esCasa) {
     const { error } = await db.from('lead_funnel').delete().eq('lead_id', leadId).eq('funnel_id', funnelId);
     if (error) throw new Error('No se pudo quitar del funnel: ' + error.message);
+    await resincronizarCobrado([leadId]);
     await logLeadEvent(leadId, 'Funnel', `Quitado de «${nombre}»`, autor);
     return { leadId, funnelId, fila: { funnel_id: funnelId, etapa: p.etapa ?? '', etapa_desde: p.desde }, casaAntes: null };
   }
@@ -162,6 +188,7 @@ export async function quitarDeProducto(leadId: number, funnelId: number, opts?: 
   }
   const { error: e2 } = await db.from('lead_funnel').delete().eq('lead_id', leadId).eq('funnel_id', nueva.funnelId);
   if (e2) console.error('[lead-funnel] la fila promovida no se borró:', e2.message);
+  await resincronizarCobrado([leadId]);
   await logLeadEvent(leadId, 'Funnel', `Quitado de «${nombre}»: ahora su funnel es «${await nombreDeProducto(nueva.funnelId)}»`, autor);
   return {
     leadId, funnelId,
@@ -187,6 +214,7 @@ export async function deshacerQuitar(d: DeshacerQuitar, opts?: { autor?: string 
     );
     if (error) throw new Error('No se pudo deshacer: ' + error.message);
   }
+  await resincronizarCobrado([d.leadId]);
   await logLeadEvent(d.leadId, 'Funnel', `Vuelve a «${await nombreDeProducto(d.funnelId)}» (se deshizo)`, autor);
 }
 
@@ -268,6 +296,7 @@ export async function agregarLoteAProducto(leadIds: number[], funnelId: number, 
     if (error) { fallaron += nuevos.length; continue; }
     const ok = ((ins ?? []) as Array<{ lead_id: number | string }>).map((r) => Number(r.lead_id));
     agregados.push(...ok);
+    await resincronizarCobrado(ok, funnelId);
     const audit = ok.map((lead_id) => ({ lead_id, campo: 'Funnel', valor_anterior: null, valor_nuevo: porQue, autor }));
     if (audit.length) {
       const { error: ea } = await db.from('lead_audit').insert(audit);

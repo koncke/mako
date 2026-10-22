@@ -118,7 +118,7 @@ test('con un deal, Pagos entra al teléfono con UNA pieza: el estado de cuenta, 
     { texto: 'Debe $500 · Cuota 2 venció el 02/10 · hace 14 días', tono: 'rojo' });
   assert.equal(saldoDelTelefono(null), null);
   // La ficha la dibuja como una fila, y el server la cuenta con la MISMA función que el escritorio.
-  assert.match(sinComentarios(leer('app/m/crm/[id]/FichaLead.tsx')), /\{p\.saldo && <FilaDatoM k="Estado de cuenta"/);
+  assert.match(sinComentarios(leer('app/m/crm/[id]/FichaLead.tsx')), /case 'saldo': \{[\s\S]{0,400}?\{p\.saldo && <FilaDatoM k="Estado de cuenta"/);
   assert.match(sinComentarios(leer('app/m/crm/datos.ts')), /saldoDelTelefono\(estadoDeCuenta\(\{ cobrado, pagos, ganado: lead\.estado_lead === 'ganado', hoy \}\)\)/);
 });
 

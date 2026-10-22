@@ -29,6 +29,7 @@ import 'server-only';
 import { getTenantDb, runWithWorkspace } from '@/lib/workspace';
 import { leerFunnels, getFunnelDefault, getFunnelDe, umbralesDe, productoDeFunnel } from '@/lib/funnels';
 import { listLeadsDeFunnel, type Lead } from '@/lib/leads';
+import { cobradoDeLaVenta } from '@/lib/pagos-crm';
 import { etapaVigenteDe } from '@/lib/funnel-etapas';
 import { sanearPlazosPorEtapa } from '@/lib/crm-auto-plan';
 import { getDiagnosticoFase } from '@/lib/fase-store';
@@ -325,7 +326,8 @@ async function leadsQueVolvieron(casa: ReadonlyMap<number, LeadDeCasa>, enRecorr
 const aLeadSug = (l: Lead, etapa: string): LeadSug => ({
   etapa, creado: l.created_at ?? null,
   r1: l.fecha_junta_1, asistioR1: l.asistio_j1, r2: l.fecha_junta_2, asistioR2: l.asistio_j2,
-  cobrado: l.total_cobrado_usd, ventaTipo: l.venta_tipo ?? null, manualVence: l.nutricion_manual_deadline ?? null,
+  // Lo cobrado de la venta de la casa (tercera revisión, B5): una renovación pagada no hace «cobrada» la venta ganada.
+  cobrado: cobradoDeLaVenta(l), ventaTipo: l.venta_tipo ?? null, manualVence: l.nutricion_manual_deadline ?? null,
 });
 
 const avisar = (que: string) => (e: unknown) => {
