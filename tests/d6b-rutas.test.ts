@@ -64,7 +64,7 @@ const RAIZ = join(__dirname, '..');
 /** La cascada barata: el contexto la corta (lib/solo-su-ia.ts). */
 const CASCADA = 'lib/ai-cheap.ts';
 /** La otra IA gratis: transcribe con Groq y Gemini y las keys del ENTORNO, sin mirar el contexto. Prender no la salva. */
-const SIN_CORTE = 'lib/transcribe.ts';
+const SIN_CORTE = 'lib/transcribe-plataforma.ts';
 const DESTINOS = [CASCADA, SIN_CORTE] as const;
 type Destino = (typeof DESTINOS)[number];
 const ES_CODIGO = /\.(?:[cm]?[jt]s|[jt]sx)$/;
@@ -76,23 +76,16 @@ const HANDLERS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTI
 
 // IA6 (22/10/2026): lo que llega SÓLO a la cascada lo decide la PUERTA de la capa de IA (lib/solo-su-ia.ts → `conD6bDelPedido`):
 // los crons, los webhooks, WhatsApp, las tabs, Offer, la API… todo lo que corre con un workspace usa SU IA si la tiene. Las
-// únicas excepciones son de Martín y viven en la puerta: las funciones del Plan (`FEATURES_DEL_PLAN`) y la plataforma. Esta
-// tabla quedó para lo que la puerta NO ve: lib/transcribe.ts, que transcribe con las keys del ENTORNO (lo arregla IA7).
-const TRANSCRIBE = 'llega a lib/transcribe.ts, que no pasa por la puerta de D6b: va directo a Groq, OpenAI y Gemini con las keys del ENTORNO (IA7: una sola puerta para el audio)';
+// únicas excepciones son de Martín y viven en la puerta: las funciones del Plan (`FEATURES_DEL_PLAN`) y la plataforma.
+// IA7 (22/10/2026): los anuncios y los creativos del negocio también pasan por la puerta (lib/transcribe.ts → la capa de IA).
+// Esta tabla quedó para lo único que la puerta NO ve: lib/transcribe-plataforma.ts, las keys del ENTORNO, de la plataforma.
 
 /**
  * Por PREFIJO de archivo. Un prefijo que ya no toca ninguna unidad sin decidir, se borra (lo pide la prueba 5). `salvo`:
  * los archivos del prefijo que van ADENTRO (y si dejan de prender, la prueba 3 los nombra: no los tapa el prefijo).
  */
 const FUERA_DE_D6B: ReadonlyArray<{ prefijo: string; porque: string; salvo?: string[] }> = [
-  {
-    prefijo: 'app/api/cron/', porque: `lo de FONDO que transcribe (cron/transcribe-ads): ${TRANSCRIBE}`,
-    // Lo programado DESDE el Ops Center corre en estos crons, en otro pedido: cada negocio adentro de «sólo su IA».
-    salvo: ['app/api/cron/dashboard-analisis/route.ts', 'app/api/cron/landing-analyst-auto/route.ts'],
-  },
-  ...['app/api/regenerate-transcript/', 'app/api/mako/knowledge/', 'app/api/mako/config-prompts/', 'app/api/ads-manager/',
-    'app/api/integraciones/', 'app/api/metodo/', 'app/api/onboarding/extraccion/', 'app/api/onboarding/route.ts',
-  ].map((prefijo) => ({ prefijo, porque: TRANSCRIBE })),
+  { prefijo: 'app/api/mako/knowledge/', porque: 'el Conocimiento de MaKo: lo carga el super admin, es de la plataforma, y transcribe sus clases con las keys del entorno (lib/transcribe-plataforma.ts)' },
 ];
 
 /**
@@ -410,7 +403,7 @@ const OPS_CENTER = new Set([...RUTAS_PROPIAS.rutas, ...PROPIO.acciones, ...ACCIO
 /** Lo que llama sólo a través de un componente de OTRA tab (el bloque que el chat embebe): la decisión es de esa tab. */
 const EMBEBIDO = new Set([...rutasNombradas(TODO.cliente).rutas, ...TODO.acciones].filter((f) => !OPS_CENTER.has(f)));
 
-/** ¿Está decidida, y cómo? null = no. Lo que llega a lib/transcribe.ts no se salva prendiendo el contexto. */
+/** ¿Está decidida, y cómo? null = no. Lo que llega a lib/transcribe-plataforma.ts (antes lib/transcribe.ts) no se salva prendiendo el contexto. */
 function decision(u: Unidad): string | null {
   const fuera = fueraDe(u.clave);
   if (sinIADe(u.clave)) return 'SIN_IA';
@@ -423,7 +416,7 @@ function decision(u: Unidad): string | null {
   return fuera ? `FUERA ${fuera.prefijo}` : null;
 }
 
-/** ¿La decide la puerta de la capa de IA? (IA6) Llega a la cascada y no a lib/transcribe.ts. */
+/** ¿La decide la puerta de la capa de IA? (IA6) Llega a la cascada y no a lib/transcribe-plataforma.ts. */
 function porLaPuerta(u: Unidad): boolean {
   return u.cascada && !u.sinCorte;
 }
@@ -438,7 +431,9 @@ test('1. el grafo ve las dos IA gratis: lo que les pide llega, y lo que no, no',
   for (const r of ['app/api/second-brain/buscar/route.ts#POST', 'app/api/onboarding/archivero/route.ts#POST', 'app/api/mako/chat/route.ts#POST', 'app/api/onboarding/avatares/route.ts#POST']) {
     assert.ok(UNIDADES.find((u) => u.clave === r)?.cascada, `${r} tendría que llegar a ${CASCADA}`);
   }
-  assert.ok(UNIDADES.find((u) => u.clave === 'app/api/regenerate-transcript/route.ts#POST')?.sinCorte, `regenerate-transcript tendría que llegar a ${SIN_CORTE}`);
+  // IA7: los anuncios del negocio pasan por la capa de IA (la puerta); lo de la plataforma (el Conocimiento) sigue sin corte.
+  assert.ok(UNIDADES.find((u) => u.clave === 'app/api/mako/knowledge/transcribe/route.ts#POST')?.sinCorte, `knowledge/transcribe tendría que llegar a ${SIN_CORTE}`);
+  assert.ok(!UNIDADES.find((u) => u.clave === 'app/api/regenerate-transcript/route.ts#POST')?.sinCorte, `regenerate-transcript ya no tendría que llegar a ${SIN_CORTE}`);
   assert.ok(!LLEGAN[CASCADA].has('app/api/auth/me/route.ts'), 'auth/me no le pide nada a una IA: si llega, el grafo está de más');
   // Las acciones de afuera de app/ también son entradas (antes sólo se miraba app/).
   assert.ok(ACCIONES.some((f) => f.startsWith('app/')), 'no encontré ninguna acción \'use server\'');

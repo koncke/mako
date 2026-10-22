@@ -12,7 +12,7 @@
 // gastaba la cuota de OpenAI de la agencia, sin dejar rastro de quién fue.
 
 import { getSesionAdmin } from '@/lib/auth';
-import { transcribeMediaBuffer } from '@/lib/transcribe';
+import { transcribeMediaBuffer } from '@/lib/transcribe-plataforma';
 
 export const dynamic = 'force-dynamic';
 

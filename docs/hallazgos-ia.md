@@ -5180,3 +5180,27 @@ pelo) · `tests/d6b-rutas.test.ts` (la tabla quedó para lib/transcribe.ts)
 - **Sin hacer:** lib/transcribe.ts sigue fuera de la puerta (IA7); el doer de WhatsApp elige proveedores a mano (WA1); los
   `model` explícitos (closing, el escalado del doer) siguen yendo al veto de la plataforma (IA5, IA12). Caso real a medir
   después del deploy: 0 filas de gemini, groq u openrouter del ws11 fuera del Plan en 48 h.
+
+## La OpenAI de MaKo no aparece en `anthropic_usage`: los anuncios se escuchaban con una IA que no se veía (IA7, 22/10/2026)
+
+**Vive en:** `lib/transcribe.ts` (los anuncios y los creativos del negocio, por la capa de IA) ·
+`lib/transcribe-plataforma.ts` (los cursos y el Conocimiento de MaKo, con las keys del entorno) ·
+`app/api/ads-manager/analyze-creatives/route.ts` · `tests/transcribe-anuncio.test.ts`
+
+- **Síntoma:** en `ad_transcripts`, 55 «vision» y 28 «whisper» con «You have no credits remaining» y 0 OK en 30 días (el
+  último, el 21/10 a las 19:33 UTC). Desde el panel de gasto no se veía nada: **la OpenAI de MaKo no aparece en
+  `anthropic_usage`**, porque lib/transcribe.ts, lib/embeddings.ts y analyze-creatives no registran uso. Que estaba muerta
+  sólo se ve en `ad_transcripts` (o en `mako_knowledge`).
+- **Causa:** lib/transcribe.ts era una SEGUNDA cascada de audio con las keys del ENTORNO (Groq → whisper-1 → Gemini, y
+  gpt-4o-mini/gpt-4o para estructurar y mirar), fuera de D6b. La usaban los anuncios de cada negocio Y los cursos de MaKo.
+- **El arreglo es partirla, no taparla:** lo del NEGOCIO (anuncios, creativos subidos, mirar creativos) pasa por la capa de
+  IA (`transcribirAudio`, `chatCheapCascade`, `leerDocumentoIA`) con SUS keys, registrando el uso y con D6b; lo de la
+  PLATAFORMA (las clases de los cursos, el Conocimiento) se mudó a lib/transcribe-plataforma.ts. Un llamador nuevo con datos
+  de un negocio va al primero. Los anuncios NO van a la red gratis de la plataforma (`pii`) hasta que Martín decida si el
+  Groq de MaKo los escucha; sin con qué, la fila dice POR QUÉ (`errorDeCascada`), no «whisper: no credits».
+- **Trampa:** `transcribirAudio` no decía quién escuchó; se le sumó `alEscuchar` para que la fila del anuncio lo guarde.
+  Y la escucha de la capa de IA no devuelve idioma ni duración (los Whisper de antes sí): esas columnas quedan vacías.
+- **Sin hacer:** el caso real (regenerar la transcripción de un anuncio del ws11 o del ws14, que tienen OpenAI) espera el
+  deploy. `scripts/backfill-transcripts.ts` y `scripts/test-one.ts` ahora necesitan el server: corren con
+  `--conditions=react-server` y adentro de `runWithWorkspace` del negocio. lib/embeddings.ts (los vectores del RAG con la
+  OpenAI muerta) sigue igual: re-embeber es una migración que decide Martín.

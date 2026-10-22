@@ -1514,7 +1514,9 @@ export type SttOpts = { language?: string; prompt?: string; feature?: string; mo
    * son el plan gratis de Gemini y Groq, y el de Gemini entrena con lo que recibe (AGENTS.md, 16/10/2026). Para escuchar
    * no hay crédito de Claude: con esto, sólo las keys del negocio.
    */
-  pii?: boolean };
+  pii?: boolean;
+  /** Quién escuchó (`groq`, `openai · cuenta 2`…), para que lo guarde quien llama (IA7: la fila de un anuncio dice con qué se transcribió). */
+  alEscuchar?: (quien: string) => void };
 
 // Gemini manda el audio DENTRO del request (inline_data), así que hay un techo de
 // tamaño. Una nota de voz de WhatsApp pesa kilobytes; un audio largo se va a Whisper.
@@ -1730,7 +1732,7 @@ export async function transcribirAudio(base64: string, mime: string, opts?: SttO
         continue;
       }
       alguienEscuchó = true;
-      if (r.texto) return corregirMarca(r.texto);
+      if (r.texto) { o.alEscuchar?.(rotulo(p)); return corregirMarca(r.texto); }
       break; // respondió vacío: no insistas con el mismo proveedor, probá el próximo
     }
   }
