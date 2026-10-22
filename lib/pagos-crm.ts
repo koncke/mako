@@ -72,6 +72,16 @@ export function esDelTrato(funnelDelPago: number | string | null | undefined, cr
 export const pagosDelTrato = <P extends { funnel_id?: number | string | null }>(pagos: readonly P[], crm: Crm, agregados: readonly number[]): P[] =>
   pagos.filter((p) => esDelTrato(p.funnel_id, crm, agregados));
 
+/**
+ * Los cobros de la pasarela (que son del LEAD) que tocan a las cuotas de un trato: el que salda una de sus cuotas
+ * (`pago_id`) o el que quedó asentado en una (`cobro_id`). Un link suelto o el de la venta de la casa no es de la renovación.
+ */
+export function cobrosDelTrato<C extends { id: number; pago_id?: number | null }>(cobros: readonly C[], pagos: readonly { id: number; cobro_id?: number | null }[]): C[] {
+  const cuotas = new Set(pagos.map((q) => Number(q.id)));
+  const asentados = new Set(pagos.map((q) => q.cobro_id).filter((x): x is number => x != null).map(Number));
+  return cobros.filter((c) => (c.pago_id != null && cuotas.has(Number(c.pago_id))) || asentados.has(Number(c.id)));
+}
+
 /** Lo del lead que la tab Pagos lee de la venta: en un CRM agregado sale de su trato. */
 type LeadDePagos = {
   estado_lead?: unknown;

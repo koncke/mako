@@ -825,6 +825,8 @@ renovaciones mostraba «cuota 1, cobrada el 01/04», que era de su primer servic
   no entra en Revenue ni en los OKRs de cierre (lib/objectives-fuentes.ts, `hechosDelPeriodo`).
 - La tab Pagos de Customer Success (DealDetailsCard) y la ficha del teléfono (app/m/crm/[id]/FichaLead.tsx) muestran la
   casa.
+- «Links de pago» lista los links del LEAD (`cobros` no tiene CRM) también mirando una renovación; «Movimientos» sí se
+  queda con los de SUS cuotas (`cobrosDelTrato`, lib/pagos-crm.ts).
 
 **Vive en:** supabase/migrations/0324_pagos_por_crm.sql · lib/pagos-crm.ts · lib/pagos.ts (`getPagosByLead`,
 `crmDelTrato`, `tratosDelLead`, `escribirVentaDeCrm`) · app/crm/lead-view/ficha/pagos/trato.ts · tests/pagos-crm.test.ts.

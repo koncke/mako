@@ -15,7 +15,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { esDelTrato, leadConTrato, pagosDelTrato, camposDeFila, faltaIndicePorCrm, type CamposTrato } from '../lib/pagos-crm';
+import { esDelTrato, leadConTrato, pagosDelTrato, camposDeFila, cobrosDelTrato, faltaIndicePorCrm, type CamposTrato } from '../lib/pagos-crm';
 import { crmEnVista, ctxDelTrato } from '../app/crm/lead-view/ficha/pagos/trato';
 import { fechaEnPalabras } from '../lib/date-utils';
 import { renglonDeCuota, estadoDeCuenta } from '../lib/pagos-vistazo';
@@ -64,6 +64,14 @@ test('mirando la renovación, la venta y el plan son los de ESE CRM, nunca los d
   const ganado = leadConTrato(lead, t);
   assert.deepEqual([ganado.monto_cierre_usd, ganado.total_cuotas, ganado.monto_cuota_usd, ganado.dia_de_pago, ganado.estado_lead], [7000, 3, 2333.33, 4, 'ganado']);
   assert.equal(leadConTrato(lead, null).monto_cierre_usd, null, 'sin trato leído, nunca la venta de la casa');
+});
+
+// Rotura: `cobrosDelTrato` que devuelve todos los cobros: 11 / 1 (con este test, la base es 12 / 0).
+test('los movimientos de una renovación sólo traen los cobros de la pasarela de SUS cuotas', () => {
+  const cobros = [{ id: 7, pago_id: 43 }, { id: 8, pago_id: 90 }, { id: 9, pago_id: null }, { id: 10, pago_id: null }];
+  const deLaRenovacion = [{ id: 90, cobro_id: null }, { id: 91, cobro_id: 10 }];
+  assert.deepEqual(cobrosDelTrato(cobros, deLaRenovacion).map((c) => c.id), [8, 10], 'el link de su cuota y el que quedó asentado en otra');
+  assert.match(sinComentarios(leer('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx')), /const deEste = ctx\.crm \? cobrosDelTrato\(cobros \?\? \[\], ctx\.data\.pagos\) : cobros \?\? \[\];/);
 });
 
 // Roturas: `ctxDelTrato` que deja `data.pagos` (las de la casa): 10 / 1. `crmEnVista` sin mirar la casa ni los tratos: 10 / 1.

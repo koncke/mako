@@ -18,6 +18,7 @@ import { useEffect, useState, useTransition, type CSSProperties } from 'react';
 import { Button, Confirm, Toast, useToast } from '@/app/_ui';
 import { cobradoDelLead, esCuotaDeBaja, esCuotaDevuelta, noEsDeuda, type CuotaParaCobrado } from '@/lib/cobrado-lead';
 import { estadoDeCuenta, movimientosDelLead, renglonDeCuota, usd } from '@/lib/pagos-vistazo';
+import { cobrosDelTrato } from '@/lib/pagos-crm';
 import { ajustarSobre, type PlanUniforme } from '@/lib/pagos-campo';
 import { planEnLead } from '@/lib/muestra-pagos';
 import { fechaEnPalabras } from '@/lib/date-utils';
@@ -413,7 +414,10 @@ export function LinksDePago({ ctx, titulo, diseno, editando }: PropsBloque) {
 export function Movimientos({ ctx, titulo, diseno }: PropsBloque) {
   const { cobros } = useCobrosDelLead(ctx.lead.id);
   const [todos, setTodos] = useState(false);
-  const { movimientos, avisos } = movimientosDelLead({ pagos: ctx.data.pagos, cobros: cobros ?? [] });
+  // Mirando un CRM agregado (./trato.ts), sólo los cobros de la pasarela de SUS cuotas: los de la venta de la casa (o un link
+  // suelto, que entra a la casa) no son movimientos de la renovación.
+  const deEste = ctx.crm ? cobrosDelTrato(cobros ?? [], ctx.data.pagos) : cobros ?? [];
+  const { movimientos, avisos } = movimientosDelLead({ pagos: ctx.data.pagos, cobros: deEste });
   const corte = diseno === 'ultimos' && !todos ? 5 : Infinity;
   return (
     <Tarjeta titulo={titulo}>
