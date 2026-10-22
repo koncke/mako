@@ -2126,6 +2126,21 @@ activas del disparador. El test ata la regla a lo que decide el motor: `disparaP
 el motor decide con varias.
 Detalle: docs/hallazgos-chatbot.md.
 
+# Una conversación que se le mostró a alguien es un HECHO: se guarda como se dibujó
+
+Lo que el server MIDE (el estado vivo) sirve para decidir qué preguntar ahora. No sirve para contar qué pasó. El
+onboarding armaba sus preguntas y respuestas al vuelo desde el estado (`mensajesDeArranque`) y no las guardaba en ningún
+lado. El 21/10/2026, el Ops Center de Florencia (ws21) empezaba en la mitad de su conversación, y el arreglo del nombre
+de su negocio iba a cambiar lo que ella «contestó».
+
+**La regla:** toda conversación que la persona vio (un chat, un onboarding, una tarjeta con su respuesta) se guarda como
+se dibujó, con su hora, la primera vez que se ve. Lo que la vuelve a mostrar (el Ops Center, una copia, MaKo) lee lo
+guardado y no la rearma del estado de hoy. Lo que se arma después, para quien pasó antes de que se guardara, se marca
+`reconstruido`, y el aviso lo ve sólo el equipo. Y no se mete en la lista de mensajes de OTRA pieza que decide con ella
+(Offer lee sus `mensajes` para saber qué ya preguntó): va aparte, atado por id, y se junta por hora al mostrar. En el
+onboarding: lib/onboarding-historial.ts, tests/onboarding-historial.test.ts y docs/hallazgos-onboarding.md («Las
+preguntas del arranque, guardadas»).
+
 # Tres topes del entorno que no dan error: te dan otra cosa
 
 Los tres se descubrieron el mismo día, los tres escribiendo código nuevo, y los tres
@@ -6606,6 +6621,12 @@ El diagnóstico obvio («alguien borró la etapa en el editor») era el equivoca
   a un onboarding terminado y mandaba al cliente de vuelta al arranque. Todo lo que lo escribe lee con
   `getEstadoOnboardingEstricto`, y `patchEstadoOnboarding` ya lo hace (16/10/2026;
   `tests/onboarding-escritura-estricta.test.ts`).
+- **Un `.catch` encima de una lectura tolerante no se dispara nunca.** `getSetting` no tira: con la base caída
+  devuelve null. Así que `getSetting(...).catch(() => { cayo = true })` es código muerto, y un guard que depende de
+  ese `cayo` no protege nada. Pasó el 21/10/2026 con el historial del onboarding: el `faseCaida` de la primera
+  versión no se activaba, y lo vio recién la revisión adversarial. Para saber si una lectura cayó, se lee con la
+  versión estricta (`getSettingEstricto`, `getDiagnosticoFaseEstricto`). Lo que decide qué se dibuja y se va a
+  GUARDAR se relee estricto y tiene que dar lo mismo (`hechosConfirmados` en lib/onboarding-arranque-server.ts).
 
 # Dos escritores con dos ritmos son dos claves
 
