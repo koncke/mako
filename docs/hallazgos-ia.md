@@ -5389,6 +5389,16 @@ TODAS 429 (0 respuestas), OpenRouter 12 llamadas y su modelo gratis caducó tres
 - Offer se lleva el 57 % de las respuestas.
 - Por eso el ws1 leyó «No tienes ninguna IA gratis conectada»: sus filas de IA son copias de la plataforma, que se
   descartan, y la red de la plataforma estaba topada. El mensaje (`falloDeIA`) no mira los errores de esa red.
+- **Las notas de voz, antes de sacar Groq.** Medido el 22/10 a las 11 h de Tijuana, con las claves de la plataforma, el
+  mismo pedido que `sttWhisper`/`sttGemini` y 3 corridas por caso. Las notas son sintéticas (la voz de Windows), en Opus
+  16 kHz como las de WhatsApp:
+  - 20 s: Groq 0,66 s; Gemini flash-lite 14 s; Gemini flash 503 «high demand» las 3 veces.
+  - 1 min: Groq 0,8 s; flash-lite 22 s; flash 59 s, y 2 de 3 fallaron.
+  - 2 min: Groq 1,2 s; flash-lite 19 s; flash 429 de tope.
+
+  Las notas ya van primero a Gemini (`CASCADA_STT`), y hoy Groq es lo que las salva cuando Gemini falla. Sin Groq, una nota
+  tarda 15-20 s o no se transcribe hasta que vuelva el tope. El Gemini PAGO no se midió (no hay clave). Se le pasó el
+  número a Martín, y Groq no sale de las notas de voz hasta su respuesta.
 
 **El Plan con la clave del negocio: lo que no se ve**
 
