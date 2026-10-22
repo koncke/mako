@@ -52,7 +52,8 @@ const INVENTARIO: Record<string, 'caja única' | `pendiente, ${string}`> = {
   'app/plan/board/MakoProyecto.tsx': 'pendiente, de Plan',
   'app/_components/MakoChat.tsx': 'caja única',
   // La encontró la guarda el 20/10 (no estaba en el inventario de docs/feedback-20-10.md): «Pregúntale a MaKo…» en el chat de WhatsApp.
-  'app/whatsapp/WhatsAppAdvisor.tsx': 'pendiente, de Chats',
+  // 22/10/2026 (TB3): con su motor y su «Usar →» en el hueco de cada respuesta (no va a la estrella: el borrador es de ESTE lead).
+  'app/whatsapp/WhatsAppAdvisor.tsx': 'caja única',
 };
 
 /** Arma su PROPIA caja: un campo de texto, la barra de WhatsApp (sola o adentro de su hilo) o el botón de mandar del chat. */
