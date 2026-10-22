@@ -17,8 +17,15 @@
 //
 // La lógica vive en `crearGrabadorVoz`, sin React, para que un test la pueda EJECUTAR con un
 // MediaRecorder falso (tests/composer-whatsapp.test.ts). El hook sólo la envuelve.
+//
+// ⚠️ MIENTRAS GRABA SE TIENE QUE VER, SIN DUDA (22/10/2026, la llamada con Mauricio, min 56: «¿está grabando? No», y
+// borró y repitió dos veces). La barra decía lo mismo grabando que sin grabar: mientras el navegador abría el micrófono,
+// un punto gris, 0:00 y la onda quieta; y ya grabando, una onda que se movía SOLA, hablara o no. Ahora: mientras abre, lo
+// DICE («Abriendo el micrófono…» y, si tarda, que lo permita); grabando, el punto rojo late y la onda sigue la VOZ (el
+// nivel del micrófono, `flujo` + `nivelDeMuestras`): si se habla y no se mueve, no está entrando. Es la barra de los
+// tres lugares (WhatsApp, Automations y Offer: todos montan `BarraGrabacion`).
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { WAVE_CSS, IconPause, IconMic, SendArrow } from './composer-icons';
 // El tacho de la casa (app/_ui/BotonBorrar.tsx, sexta tanda, general 9): rojo siempre.
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
@@ -63,6 +70,8 @@ export type GrabadorVoz = {
   resume: () => void;
   /** El componente se va: cancela lo que esté GRABANDO y suelta el micrófono. */
   soltar: () => void;
+  /** El micrófono que se está grabando (para que la onda siga la voz); `null` si no está grabando. */
+  flujo: () => MediaStream | null;
 };
 
 /**
@@ -176,6 +185,7 @@ export function crearGrabadorVoz(alEstado: (e: EstadoGrabacion) => void, entorno
       }
       stream?.getTracks().forEach((t) => t.stop());
     },
+    flujo() { return activo && rec ? stream : null; },
   };
 }
 
@@ -285,6 +295,8 @@ export type SesionVoz = {
   resume: () => void;
   /** El componente se va: cancela lo que esté grabando y suelta el micrófono y las URLs. */
   soltar: () => void;
+  /** El micrófono del tramo que se está grabando (la onda lo escucha); `null` si no hay. */
+  flujo: () => MediaStream | null;
 };
 
 export const ESTADO_VOZ_INICIAL: EstadoVoz = { fase: 'quieta', paused: false, secs: 0, revision: null, uniendo: false, pidiendoMic: false };
@@ -424,6 +436,7 @@ export function crearSesionVoz(alEstado: (e: EstadoVoz) => void, entorno: Entorn
       soltarRevision();
       tramos = []; fase = 'quieta';
     },
+    flujo: () => (fase === 'grabando' && !pidiendoMic ? grabador.flujo() : null),
   };
 }
 
@@ -480,7 +493,9 @@ const entornoVozDelNavegador: EntornoVoz = {
   soltarUrl: (u) => { try { URL.revokeObjectURL(u); } catch { /* noop */ } },
 };
 
-export type GrabacionVoz = EstadoVoz & Omit<SesionVoz, 'start' | 'revisarExistente' | 'soltar'> & {
+export type GrabacionVoz = EstadoVoz & Omit<SesionVoz, 'start' | 'revisarExistente' | 'soltar' | 'flujo'> & {
+  /** El micrófono que se graba: la onda sigue su nivel. Sin él, la onda se mueve sola (como antes del 22/10). */
+  flujo?: () => MediaStream | null;
   start: () => Promise<void>;
   revisarExistente: (base: { blob: Blob; secs: number }) => Promise<void>;
 };
@@ -500,7 +515,7 @@ export function useGrabacionVoz(onSend: (blob: Blob, secs: number) => void | Pro
     start: () => sesion.start(onSend, onError, onBorrador),
     revisarExistente: (base) => sesion.revisarExistente(base, onSend, onError, onBorrador),
     terminar: sesion.terminar, seguir: sesion.seguir, enviar: sesion.enviar, descartar: sesion.descartar,
-    pause: sesion.pause, resume: sesion.resume,
+    pause: sesion.pause, resume: sesion.resume, flujo: sesion.flujo,
   };
 }
 
@@ -508,13 +523,37 @@ export function useGrabacionVoz(onSend: (blob: Blob, secs: number) => void | Pro
 export const barrasDeOnda = (ancho: number): number => Math.max(12, Math.min(160, Math.floor(ancho / 5)));
 
 /**
+ * Cuánto suena un pedazo del micrófono, de 0 a 1 (las muestras de `getByteTimeDomainData`: 128 es silencio). La raíz del
+ * RMS, para que una voz normal (RMS ~0,05) llene media barra y el ruido de fondo (~0,003) casi no la mueva. Pura (test).
+ */
+export function nivelDeMuestras(muestras: ArrayLike<number>): number {
+  if (!muestras.length) return 0;
+  let suma = 0;
+  for (let i = 0; i < muestras.length; i++) { const v = (muestras[i] - 128) / 128; suma += v * v; }
+  return Math.min(1, Math.sqrt(Math.sqrt(suma / muestras.length)) * 1.6);
+}
+
+/** Cada cuánto entra una barra nueva por la derecha (la onda corre como la de WhatsApp). */
+const PASO_ONDA_MS = 70;
+/** La barra más baja: en silencio la onda es una línea, no nada. */
+const PISO_ONDA = 0.12;
+
+/**
  * LA ONDA A TODO EL ANCHO (WhatsApp 7: «debería ocupar mucho más espacio, hasta el final del ancho, no
  * todo amontonado a la derecha, esto en todos lados»). Cuenta las barras con el ancho que le toca
  * (`ResizeObserver`); el ancho lo da el `flex: 1` de quien la pone.
+ *
+ * Y SIGUE LA VOZ (22/10/2026): con `flujo`, escucha el micrófono (un AnalyserNode, sin sonar por el parlante) y cada
+ * `PASO_ONDA_MS` entra por la derecha una barra con lo que sonó. Las alturas se escriben en el DOM, sin pasar por React:
+ * un estado por cuadro re-dibujaría la caja entera 60 veces por segundo. Sin `flujo` o sin Web Audio, se mueve sola.
  */
-function OndaGrabando({ paused }: { paused: boolean }) {
+function OndaGrabando({ paused, flujo }: { paused: boolean; flujo?: (() => MediaStream | null) | null }) {
   const [caja, setCaja] = useState<HTMLDivElement | null>(null);
   const [n, setN] = useState(48);
+  /** null = todavía no se sabe; true = la onda sigue la voz; false = sin micrófono que escuchar (se mueve sola). */
+  const [sigueVoz, setSigueVoz] = useState<boolean | null>(flujo ? null : false);
+  const pausada = useRef(paused);
+  useEffect(() => { pausada.current = paused; }, [paused]);
   useEffect(() => {
     if (!caja) return;
     const medir = () => setN(barrasDeOnda(caja.getBoundingClientRect().width));
@@ -523,17 +562,82 @@ function OndaGrabando({ paused }: { paused: boolean }) {
     ro?.observe(caja);
     return () => ro?.disconnect();
   }, [caja]);
+  useEffect(() => {
+    if (!caja || !flujo) return;
+    const s = flujo();
+    const AC = typeof window !== 'undefined' ? (window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext) : undefined;
+    if (!s || !AC) { setSigueVoz(false); return; }
+    let ctx: AudioContext;
+    let fuente: MediaStreamAudioSourceNode;
+    let oido: AnalyserNode;
+    try {
+      ctx = new AC();
+      fuente = ctx.createMediaStreamSource(s);
+      oido = ctx.createAnalyser();
+      oido.fftSize = 512;
+      fuente.connect(oido);   // al analizador y nada más: no suena por el parlante
+      void ctx.resume().catch(() => {});
+    } catch { setSigueVoz(false); return; }
+    setSigueVoz(true);
+    const muestras = new Uint8Array(oido.fftSize);
+    let historia: number[] = [];
+    let pico = 0;
+    let ultimo = 0;
+    let cuadro = 0;
+    const dibujar = (t: number) => {
+      cuadro = requestAnimationFrame(dibujar);
+      if (pausada.current) return;
+      oido.getByteTimeDomainData(muestras);
+      pico = Math.max(pico, nivelDeMuestras(muestras));
+      if (t - ultimo < PASO_ONDA_MS) return;
+      ultimo = t;
+      const barras = caja.querySelectorAll<HTMLElement>('[data-barra]');
+      historia = [...historia, pico].slice(-barras.length);
+      pico = 0;
+      // La más nueva a la derecha: las de la izquierda que todavía no sonaron quedan en el piso.
+      const vacias = barras.length - historia.length;
+      barras.forEach((b, i) => {
+        const h = i < vacias ? 0 : historia[i - vacias];
+        b.style.transform = `scaleY(${(PISO_ONDA + (1 - PISO_ONDA) * h).toFixed(3)})`;
+      });
+    };
+    cuadro = requestAnimationFrame(dibujar);
+    return () => {
+      cancelAnimationFrame(cuadro);
+      try { fuente.disconnect(); } catch { /* noop */ }
+      void ctx.close().catch(() => {});
+    };
+  }, [caja, flujo]);
+  const sola = sigueVoz === false;
   return (
-    <div ref={setCaja} data-onda style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, height: 26, overflow: 'hidden' }}>
+    <div ref={setCaja} data-onda data-sigue-voz={sigueVoz ? '' : undefined} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, height: 26, overflow: 'hidden' }}>
       {Array.from({ length: n }).map((_, i) => (
-        <span key={i} style={{ flex: 'none', width: 3, height: 22, borderRadius: 2, background: 'var(--good)', transformOrigin: 'center', animation: 'mako-wave .7s ease-in-out infinite alternate', animationDelay: `${(i % 11) * 0.06}s`, animationPlayState: paused ? 'paused' : 'running', opacity: paused ? 0.5 : 1 }}></span>
+        <span key={i} data-barra style={sola
+          ? { flex: 'none', width: 3, height: 22, borderRadius: 2, background: 'var(--good)', transformOrigin: 'center', animation: 'mako-wave .7s ease-in-out infinite alternate', animationDelay: `${(i % 11) * 0.06}s`, animationPlayState: paused ? 'paused' : 'running', opacity: paused ? 0.5 : 1 }
+          : { flex: 'none', width: 3, height: 22, borderRadius: 2, background: 'var(--good)', transformOrigin: 'center', transform: `scaleY(${PISO_ONDA})`, transition: 'transform 60ms linear', opacity: paused ? 0.5 : 1 }}></span>
       ))}
     </div>
   );
 }
 
+/** Lo que tarda el navegador en abrir el micrófono antes de pedirle a la persona que lo permita (su cartel puede no verse). */
+const TARDA_MIC_MS = 2_500;
+
+/** Mientras el navegador abre el micrófono: dicho con palabras, no con un punto gris (que se leía «no está grabando»). */
+function AbriendoMic() {
+  const [tarda, setTarda] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setTarda(true), TARDA_MIC_MS); return () => clearTimeout(t); }, []);
+  return (
+    <span role="status" data-abriendo-mic style={{ flex: 1, minWidth: 0, fontSize: 14, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      {tarda ? 'Permite el micrófono' : 'Abriendo el micrófono…'}
+    </span>
+  );
+}
+
 const btnRedondo: CSSProperties = { flex: 'none', width: 38, height: 38, borderRadius: '50%', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 };
-const btnVerde = (apagado: boolean): CSSProperties => ({ ...btnRedondo, width: 44, height: 44, background: 'var(--good)', color: '#fff', cursor: apagado ? 'default' : 'pointer', opacity: apagado ? 0.6 : 1 });
+// `--sobre-good`: el color del ícono. Quien pinta la barra con otro `--good` (el onboarding de Offer: la tinta, que en oscuro
+// es casi blanca) dice también con qué se lee encima; si no, el ✓ blanco desaparecía sobre el botón claro.
+const btnVerde = (apagado: boolean): CSSProperties => ({ ...btnRedondo, width: 44, height: 44, background: 'var(--good)', color: 'var(--sobre-good, #fff)', cursor: apagado ? 'default' : 'pointer', opacity: apagado ? 0.6 : 1 });
 
 /**
  * LA BARRA DE LA SESIÓN: la de grabar y la de escuchar antes de mandar. La usan el composer de WhatsApp
@@ -557,12 +661,17 @@ export function BarraGrabacion({ voz, ocupado = false, rotuloEnviar = 'Enviar au
     // Con el micrófono pendiente no hay nada que pausar ni que terminar todavía; el 🗑 sí: cancela el pedido.
     const sinMic = voz.pidiendoMic;
     return (
-      <div data-barra-voz="grabando" style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', minWidth: 0 }}>
+      <div data-barra-voz="grabando" aria-label={sinMic ? 'Abriendo el micrófono' : voz.paused ? 'Grabación en pausa' : 'Grabando'} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', minWidth: 0 }}>
         <style>{WAVE_CSS}</style>
         <button type="button" onClick={voz.descartar} disabled={cerrando} title="Eliminar grabación" aria-label="Eliminar grabación" style={{ ...btnRedondo, color: 'var(--bad)' }}><IconoBorrar size={20} /></button>
-        <span style={{ flex: 'none', width: 9, height: 9, borderRadius: '50%', background: '#e53935', animation: voz.paused || sinMic ? 'none' : 'mako-blink 1s steps(1) infinite', opacity: voz.paused || sinMic ? 0.4 : 1 }}></span>
-        <span style={{ flex: 'none', fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--ink)', minWidth: 38 }}>{fmtDur(voz.secs)}</span>
-        <OndaGrabando paused={voz.paused || cerrando || sinMic} />
+        {sinMic ? <AbriendoMic /> : (
+          <>
+            {/* GRABANDO: el punto rojo LATE y la onda sigue la voz. En pausa, el punto quieto y la onda apagada. */}
+            <span data-punto-rec style={{ flex: 'none', width: 10, height: 10, borderRadius: '50%', background: '#e53935', animation: voz.paused ? 'none' : 'mako-latido 1.2s ease-out infinite', opacity: voz.paused ? 0.4 : 1 }}></span>
+            <span style={{ flex: 'none', fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--ink)', minWidth: 38 }}>{fmtDur(voz.secs)}</span>
+            <OndaGrabando paused={voz.paused || cerrando} flujo={voz.flujo} />
+          </>
+        )}
         {voz.paused ? (
           <button type="button" onClick={voz.resume} title="Seguir grabando" aria-label="Seguir grabando" style={{ ...btnRedondo, color: 'var(--ink)' }}><IconMic /></button>
         ) : (

@@ -27,6 +27,7 @@ import { GrillaTarjetas, TarjetaEntidad, TarjetaNueva, PieNumeros, PieTexto, col
 import { sinRecurrentes, soloRecurrentes } from '@/lib/plan-recurrentes';
 import { estaPendiente } from '@/lib/todo-estados';
 import { plural } from '@/lib/plural';
+import { armarCsv } from '@/lib/csv-celda';
 import { avisoCambioPlan, type ResultadoAvisoPlan } from '@/lib/plan-aviso';
 import { motivoNoEliminable } from '@/lib/borrado-workspace';
 import { BarraClientes, entraEnVentana } from '../customer-success/BarraClientes';
@@ -300,16 +301,11 @@ const ORDEN_WS: Record<string, string> = {
  * «lo que estás viendo».
  */
 function exportarWorkspaces(filas: Workspace[]) {
-  const esc = (v: unknown) => {
-    // Lo que empieza con = + - @ (o un tab) Excel lo toma como fórmula: va con una comilla adelante (sexta revisión, 21/10:
-    // la nota del PDF, el nombre y el origen son texto libre del cliente).
-    const crudo = String(v ?? '');
-    const t = /^[=+\-@\t\r]/.test(crudo) ? `'${crudo}` : crudo;
-    return /[;"\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
-  };
   const cab = ['Cliente', 'Slug', 'Plan', 'Estado', 'Miembros', 'Alta', 'Llegó por', 'Quería resolver', 'A corregir en su oferta'];
   const cuerpo = filas.map((w) => [w.nombre, w.slug ?? '', capaDef(w.capa).nombre, w.estado, w.usuarios, w.created_at.slice(0, 10), w.llegada?.origen ?? '', w.llegada?.interes ?? '', w.llegada?.pdfNota ?? '']);
-  const csv = '﻿' + [cab, ...cuerpo].map((f) => f.map(esc).join(';')).join('\r\n');
+  // ⚠️ El escape vive en lib/csv-celda.ts (la única vía: tests/csv-una-sola-via.test.ts). El nombre, el origen y lo que «quería resolver» son texto libre del
+  // cliente: un «=HYPERLINK(…)» se abría como fórmula en el Excel de la agencia.
+  const csv = armarCsv([cab, ...cuerpo], { sep: ';' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
   a.download = `clientes-${new Date().toISOString().slice(0, 10)}.csv`;
@@ -374,7 +370,7 @@ function TablaWorkspaces({ filas, onAbrir, onNuevo, opcionesDe, elegirAccion, ac
                 <td className="num">{w.usuarios}</td>
                 <td className="num" onClick={(e) => e.stopPropagation()}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                    <a href={`/general?ws=${w.id}`} title={`Entrar a ${w.nombre}`}
+                    <a href={`/inicio?ws=${w.id}`} title={`Entrar a ${w.nombre}`}
                       style={{ ...btnPrimary, display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none', padding: '6px 11px', fontSize: 12.5 }}>
                       <Icon name="eye" size={13} />Inspeccionar
                     </a>
@@ -495,8 +491,10 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
     } finally { setAccionando(false); }
   };
 
-  // Entrar a un cliente NO necesita JavaScript: es un `<a href="/general?ws=N">`
-  // (ver la fila de cada cliente, más abajo). Un ancla común ya hace exactamente
+  // Entrar a un cliente NO necesita JavaScript: es un `<a href="/inicio?ws=N">`
+  // (ver la fila de cada cliente, más abajo). Va al REPARTIDOR y no a una tab: el
+  // cliente entra a su Ops Center (o a su wizard, si no terminó el onboarding), y
+  // el super admin que inspecciona ve lo mismo (21/10/2026; hasta ese día, /general). Un ancla común ya hace exactamente
   // lo que hace falta —navegación dura en ESTA pestaña— y de paso deja intactos
   // el ctrl+click y el botón del medio, que abren el cliente en otra. Escribir un
   // handler solo servía para romper esos dos gestos.
@@ -926,7 +924,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
                           gratis y sin que la app tenga que decidir nada. Un botón
                           se come esos gestos, y son justo los que hacen falta para
                           mirar dos clientes a la vez. */}
-                      <a href={`/general?ws=${w.id}`} title={`Entrar a ${w.nombre}`}
+                      <a href={`/inicio?ws=${w.id}`} title={`Entrar a ${w.nombre}`}
                         style={{ ...btnPrimary, display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none', padding: '7px 12px', fontSize: 12.5 }}>
                         <Icon name="eye" size={13} />Inspeccionar
                       </a>

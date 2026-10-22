@@ -110,7 +110,17 @@ const RUIDO = [
   // El proveedor de IA que no contestó (MaKo no pudo responder): no es un bug de MaKo, y el Cerebro no lo arregla.
   /\b(429|503|529)\b|overloaded|high demand|quota|rate.?limit|resource.?exhausted|ETIMEDOUT|ECONNRESET|timed? ?out/i,
 ];
+/**
+ * El reporte de cuando se vio la pantalla de error PROPIA de Next («This page couldn't load»): la app entera caída,
+ * arriba de nuestros boundaries (app/_components/CentinelaArranque.tsx). Nunca es ruido, aunque adentro diga
+ * ChunkLoadError o «Failed to fetch»: lo que en una pestaña de fondo no se nota, acá le tapó la app a la persona.
+ */
+export const PANTALLA_DE_NEXT = 'PantallaDeNext';
+/** El id que esa pantalla le pone a <html> (next/dist/client/components/builtin/global-error.js). La nuestra no lo usa. */
+export const ID_PANTALLA_DE_NEXT = '__next_error__';
+
 export function esRuido(r: Pick<ReporteError, 'nombre' | 'mensaje' | 'stack'>): boolean {
+  if (r.nombre === PANTALLA_DE_NEXT) return false;
   const todo = `${r.nombre}: ${r.mensaje}\n${r.stack ?? ''}`;
   if (RUIDO.some((x) => x.test(r.mensaje) || x.test(todo))) return true;
   // Un error del navegador cuyo stack no pasa por NINGÚN archivo nuestro es de una extensión o de un script de afuera.
@@ -133,6 +143,10 @@ const CONFIGURACION = [
   /sin proveedor gratis disponible/i,     // lib/anthropic.ts, chatClaudeTools: la cascada con herramientas sin ninguna cuenta
   /sin proveedor de ia barata/i,          // lib/ai-cheap.ts, `proveedor()`: el negocio sin ninguna key barata
   /red gratis salteada:/i,                // lib/ai-cheap.ts: con datos de clientes la red de MaKo no corre (lib/fallo-ia-texto.ts)
+  // SU clave de Claude sin crédito, revocada o sin permiso (lib/anthropic.ts, «tu clave de Claude: …»): es de su cuenta, y se
+  // le dice con el botón de su Claude (revisión del Cerebro, 21/10/2026). Un 400 de NUESTRO pedido sí es un bug: no entra.
+  /tu clave de Claude: .*(credit balance|invalid x-api-key|authentication|permission|billing|\b40[13]\b)/i,
+  /MaKo lo tiene en pausa por un rato/i,  // lib/anthropic.ts → CLAUDE_EN_PAUSA: la plataforma pausó Claude a propósito
 ];
 export const esDeConfiguracion = (r: Pick<ReporteError, 'mensaje'>): boolean => CONFIGURACION.some((x) => x.test(r.mensaje));
 

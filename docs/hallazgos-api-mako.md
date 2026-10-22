@@ -1581,6 +1581,13 @@ movela al viernes a las 10», `proponer_mover_reunion` dejó de viajar en el tur
 **La regla:** antes de commitear una op, medir `JSON.stringify(aToolDef(def)).length` y correr el test del turno
 de WhatsApp. Una op grande que empata arriba se come el lugar de las chicas.
 
+**Pasó al revés el 21/10/2026 (Pagos).** Sumarle a `cobranza_lead` una frase en la descripción y el parámetro
+`comprobante` (~440 caracteres) dejó afuera a `cambiar_ficha_funnel` en el turno de «editando la ficha»
+(tests/ficha-editar-con-mako.test.ts: «cambia el nombre de esta hoja a Cierre»). Cualquiera de los dos solo ya
+pasaba el tope. Quedó sólo el parámetro, con 140 caracteres; medido, ese turno tolera entre 120 y 250 más en el área
+`crm`. **Lo que se le explica al modelo de UN parámetro va en el parámetro, no también en la descripción:** se paga dos
+veces en un presupuesto que comparten todas las del área.
+
 **Vive en:** lib/doer-herramientas.ts · lib/api-mako/registro.ts (`toolsDelRegistro`, `ordenarPorRelevancia`) ·
 lib/api-mako/areas/crm.def.ts (`cambiar_ficha_funnel`) · tests/ficha-api.test.ts ·
 *16/10/2026, chat «CRM» (claude3), corrida wf_e3cc574c-723 (`665f5bed1`).*
@@ -1859,6 +1866,29 @@ todavía fuera de main.
   `link`** al informe de quien mira (dashboard.run.ts, los `datos` de `analizar_hoja_dashboard`,
   `programar_analisis_dashboard` y la caja). Ya estaba en main. El arreglo es la regla de `aplicar`: si `quienChatea(ctx)`
   existe y su `sub` no es el del payload, no poner `link`.
+- **El «hoy» del área es el de Tijuana, no el del negocio** (`hoyEnTijuana()` en `consultar_datos_dashboard` y en el
+  corte hacia adelante de `resultadoMarkdown`). Un negocio en otra zona corta el vencimiento y el período en otro día.
+  Ya estaba en main. El arreglo es `hoyEnWorkspace` (lib/timezone.ts, async) en toda el área: pide pasar `hoy` a
+  `resultadoMarkdown` desde cada runner, en vez del valor por defecto. Para la próxima pieza del chat Dashboard.
 - **El pedazo que no cargó no se recupera sin recargar** (React.lazy guarda el rechazo). Un `import()` con reintento
   serviría si el runtime de Turbopack no guarda también el chunk fallido: no está medido.
 *21/10/2026, claude4 (chat Dashboard).*
+
+## ⚠️ La bandeja /mako/pendientes es OTRA puerta de confirmación: mostraba 240 caracteres y mandaba 2.000 (21/10/2026)
+
+- La tarjeta del chat y el teléfono pintan «lo que se va a ejecutar» con `lineasDelPayload` (lib/inbox-movil-reglas.ts):
+  el texto hasta `MAX_TEXTO` (2.000), sin ids. La bandeja del escritorio tenía su propio `valorLegible` con
+  `MAX_VALOR = 240` y mostraba las claves crudas: se confirmaba un email de 1.500 caracteres viendo el principio. Ahora
+  pinta con `lineasDelPayload` (app/mako/pendientes/BandejaPendientes.tsx).
+- **Regla: toda superficie que CONFIRMA pinta con `lineasDelPayload`**, y el tope de una operación que se aprueba
+  mirando su texto (`max` del parámetro) no pasa `MAX_TEXTO`. Una pantalla nueva de confirmación que arme su propio
+  detalle repite este error. Lo fija tests/chats-mako-envio.test.ts.
+- ⚠️ **Y la regla tapaba otra cosa (cuarta revisión):** `lineasDelPayload` pintaba una LISTA de objetos como «2
+  elementos» y un objeto suelto como su JSON en 160. Producción mostraba el JSON en 240: con la regla, 13 operaciones con
+  confirmación por chat (cambiar_textos_diseno_imagen, cerrar_tareas_plan, editar_clase_curso…) pasaron a confirmarse
+  sin ver qué entraba. Ahora una lista de objetos es UNA FILA POR ELEMENTO («Cambios 1: De: Oferta 50% OFF · A: Oferta
+  70% OFF»), hasta 20, y un objeto es «Clave: valor · …» hasta `MAX_TEXTO`. Filas y no saltos de línea: las pantallas
+  pintan cada línea como dt/dd, y un salto adentro de un valor se pierde. **Una regla de «pintá con X» sólo vale si X
+  muestra todo lo que se aprueba.**
+
+*21/10/2026, chat «CRM» (claude4), tercera revisión del Cerebro de la 2.1.*

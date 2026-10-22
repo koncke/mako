@@ -27,6 +27,11 @@ export async function getDiagnosticoFase(): Promise<Diagnostico | null> {
   return parseFase(await getSetting(FASE_KEY));
 }
 
+/** Como `getDiagnosticoFase`, pero una lectura caída TIRA (la tolerante la convierte en «no hay diagnóstico»). */
+export async function getDiagnosticoFaseEstricto(): Promise<Diagnostico | null> {
+  return parseFase(await getSettingEstricto(FASE_KEY));
+}
+
 /** Guarda las respuestas crudas y el diagnóstico derivado (recomputado acá, no
  *  confiado del cliente). El canal de venta viaja junto al diagnóstico. Devuelve
  *  el diagnóstico. */

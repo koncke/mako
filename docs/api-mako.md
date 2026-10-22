@@ -1238,23 +1238,24 @@ curl -L \
 
 ### `PUT /api/v1/plan/tareas/{id}/estado` — Mover una tarea de columna
 
-Mueve UNA tarea a otra columna del kanban: por_hacer (Por iniciar), en_curso (En proceso), en_seguimiento (Atorada) o no_cumple (No cumplen tu criterio). Atorada admite un motivo corto. No toca la prioridad. Sacarla de Completada la reabre en 0%; para completarla usa cerrar_tareas_plan.
+Mueve UNA tarea a otra columna: por_hacer (Por iniciar), en_curso (En proceso), en_seguimiento (Atorada) o no_cumple (No cumplen tu criterio). Sacarla de Completada la reabre en 0%; para completarla usa cerrar_tareas_plan.
 
 - **Ruta por operación:** `POST /api/v1/plan/mover_tarea_plan`
 - **Token detallado:** permiso `plan=write` (Lectura y escritura en «Plan»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** el estado, el lugar en la columna y el historial de la tarea (plan_tareas o experimento_tareas)
+- **Escribe:** el estado, la columna, el lugar en la columna y el historial de la tarea (plan_tareas o experimento_tareas)
 - **Reversible:** sí
 - **Costo:** gratis
 - **Requiere la tab:** todo
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `id` | string | sí | id de la tarea (de listar_tareas_plan), o «#412». |
+| `id` | string | sí | id (de listar_tareas_plan) o «#412». |
 | `estado` | string (por_hacer \\| en_curso \\| en_seguimiento \\| no_cumple) | sí | la columna destino. |
-| `motivo` | string | no | solo con en_seguimiento: por qué está atorada, en una línea. |
+| `motivo` | string | no | solo con en_seguimiento: por qué está atorada, corto. |
+| `columna` | string | no | una propia de ese estado, por su nombre. |
 
 ```bash
 curl -L \
@@ -1776,6 +1777,7 @@ El estado de cobranza de UN lead: total vendido en USD, si es suscripción (con 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `leadId` | number | sí | id del lead (de buscar_leads o listar_leads). |
+| `comprobante` | boolean | no | Chat de la app: true si el único archivo del mensaje es el comprobante de pago de ESTE lead. Si no está claro, no lo pases y pregúntale. |
 
 ```bash
 curl -L \

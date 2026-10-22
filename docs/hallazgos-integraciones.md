@@ -1055,3 +1055,44 @@ fila del ws1 (`soloLasPropias` compara contra las filas de la plataforma) y la p
 - **Síntoma:** Martín pasó «683162143 y 738834138» para analizar dos llamadas, y `scripts/fathom-a-claude.ts` daba 404 con esos números.
 - **Causa:** son el id de la URL de la grabación en Fathom (`fathom.video/calls/<id>`), no el `recording_id` de la API. El chat Debate los resolvió buscando la llamada por esa URL.
 - **Regla:** cuando Martín pasa un número de Fathom, primero hay que ver si es de la URL. 683162143 es la del 21/5 y 738834138 la del 8/7, las dos con Mauricio.
+
+## «Under review» no quiere decir que Google esté revisando: la verificación esperaba un mail nuestro (21/10/2026)
+
+- **Síntoma:** la verificación de la app de Google (proyecto `mako-500317`) se envió el 10/10 y a los 11 días seguía
+  diciendo «Your app's data access is under review». Parecía que Google tardaba.
+- **Causa real:** el 11/10 Google marcó un problema («App functionality: your demo video does not show the OAuth consent
+  flow») y mandó un mail a martinkoncke@ pidiendo un video nuevo. Nadie lo contestó. El cartel general no cambia: el
+  problema se ve sólo entrando a «View verification progress», ítem por ítem.
+- **Por qué el diagnóstico obvio era el equivocado:** «Google está lento» llevaba a esperar o a escribirle a soporte. Lo
+  que destraba es contestar ese hilo.
+- **La regla:** después de enviar una verificación a Google (o una revisión a Meta), alguien revisa cada dos días el
+  progreso ítem por ítem y el correo donde llegan los avisos. Google contesta en un hilo de
+  `api-oauth-dev-verification-reply`, y la revisión sigue recién cuando se responde ahí.
+- **El video que pide Google** se graba con una cuenta a la que se le borró el acceso a MaKo antes de grabar. Si no,
+  Google esconde los permisos detrás de «already has some access». El cómo, y los clics que el clasificador de Claude no
+  deja hacer, están en [verificacion-google.md](verificacion-google.md).
+- **Lo que quedó SIN hacer (21/10):** subir el video nuevo, crear la cuenta del revisor y contestar el hilo. Le toca a
+  Martín.
+
+**Vive en:** docs/verificacion-google.md · lib/google-calendar.ts (`GCAL_SCOPE`) · app/api/integraciones/google-calendar/route.ts
+
+## La vuelta de un OAuth pegaba `?ws=` siempre, y al super admin lo ponía en «vista de cliente» de sí mismo (21/10/2026)
+
+- **Síntoma:** Martín volvió de «Reconectar con Meta» en su propio negocio (ws9) con el cartel «Estás viendo el
+  dashboard de Martin Koncke como administrador / SALIR DE LA VISTA», y la barra decía «CLIENTE».
+- **Causa:** los callbacks de Meta y de Google Calendar vuelven con `conWs(destino, ws)`, o sea con el negocio destino
+  en `?ws=`, SIEMPRE. Para el proxy, cualquier `?ws=` de un admin de plataforma es una pestaña de cliente, aunque sea
+  la suya (`estaImpersonando` → `wsDePestana`).
+- **Lo que NO es (la sospecha era grave y no se confirma):** a un admin común no le puede pasar. `headersSeguros`
+  (proxy.ts) sólo convierte el `?ws=` en pestaña si la sesión firmada es `rol === 'admin'`; para cualquier otro usuario
+  es texto decorativo. Ningún cliente se ve «como administrador» de otro por este camino.
+- **La regla:** la vuelta lleva `?ws=` sólo si hace falta para caer en ese negocio, o sea cuando el destino NO es al
+  que cae la sesión sin pestaña (`wsDeVuelta`, lib/ws-tab.ts). Ese negocio sale de `adminDeWorkspaceActual()`, y NO de
+  `getWorkspaceActual()`: el callback no puede leer el negocio de la sesión, porque el negocio donde se ESCRIBE sale de la
+  cookie (lo fija tests/meta-login.test.ts, y el primer intento de este arreglo lo rompió). El super admin que conecta
+  parado adentro de un cliente sigue volviendo a la pestaña del cliente.
+- **Lo que quedó SIN hacer:** los pasos 1 (`app/api/integraciones/meta/route.ts` y `google-calendar/route.ts`) todavía
+  pegan el ws en sus salidas de error. Sólo pasa si falla antes de ir a Meta o Google, y en ese caso el pedido casi
+  siempre ya venía con la pestaña.
+
+**Vive en:** lib/ws-tab.ts (`wsDeVuelta`) · app/api/integraciones/meta/callback/ · app/api/integraciones/google-calendar/callback/ · tests/ws-vuelta-oauth.test.ts

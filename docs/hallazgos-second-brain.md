@@ -20,6 +20,9 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
    página scrollea al mismo tiempo. [→](#onwheel-de-react-no-puede-frenar-el-scroll)
 5. **`opacity: 0` en SVG no ahorra nada.** [→](#opacity-0-en-svg-cuesta-lo-mismo-que-dibujarlo)
 6. **`var(--mono)` no está definido** en ningún `:root`, y se usa 38 veces. [→](#varmono-no-existe-y-se-usa-38-veces)
+8. **«Se ve como el del super admin» se logra con SUS piezas, nunca copiando su JSX** (21/10/2026): el chat del cliente se había
+   separado en cabecera, hilo y caja; «cortados a la mitad» era el hilo fuera de `.co-hilo__col`, no Offer recortando.
+   [→](#el-ops-center-del-cliente-es-el-del-super-admin-las-mismas-piezas-no-un-parecido-21102026)
 7. **Un solo `<Grafo>` no es un solo cerebro.** El 17/10 había uno y se veían dos nubes; el que mide es «desde la raíz se
    llega a todo». [→](#el-código-decía-uno-y-se-veían-dos-ningún-cerebro-se-divide-en-dos-20102026)
 
@@ -2004,6 +2007,66 @@ Second Brain del teléfono (app/m/second-brain) no muestra el origen.
 **Vive en:** lib/archivero-registro.ts · lib/archivero-subida.ts · lib/archivero.ts (`insertFile`, `pubFile`)
 · app/onboarding/Archivero.tsx · supabase/migrations/0316_archivero_origen.sql · *2026-10-17*
 
+## El Ops Center del cliente es el del super admin: las MISMAS piezas, no un parecido (21/10/2026)
+
+Martín, con dos capturas lado a lado: «el ops center de los clientes se ve muy mal comparado al de SuperAdmin... Revisalo bien,
+eso debe funcionar». Código: app/second-brain/ChatSecondBrain.tsx, app/admin/operaciones/PanelChat.tsx (el panel), Hilo.tsx
+(`FilaMia`, `FilaDelChat`), PiezasCentro.tsx (`FilaDeChat`), lib/chat-mako-reglas.ts (`listaDelCliente`), app/m/mako/chat-ui.ts
+(`itemsDeOffer`, `idWA`), app/second-brain/motor-offer.ts · tests/ops-center-cliente.test.ts.
+
+- **«Los chats cortados a la mitad»: el diagnóstico obvio era el equivocado.** Parecía la proyección de Offer recortando
+  mensajes. Medido en la base: la conversación de la captura (ws1 #1) tiene 3 mensajes y se veían los 3. Era CSS: `HiloMako` iba
+  suelto en `.co-hilo` (`display: block`), y `.co-yo { align-self: flex-end }` no hace nada fuera de una columna flex. Lo de la
+  persona quedaba pegado a la izquierda, con 760 px de ancho, terminando a mitad de pantalla (medido en el DOM: x=424, w=760 de
+  un panel de 1327). La columna es `.co-hilo__col`, y la pone el panel. **El chat de MaKo del CRM tenía el mismo bug** (también
+  monta `HiloMako`): se arregló en el mismo cambio.
+- **Por qué se había separado: cada pantalla armaba su cabecera, su hilo y su caja copiados a mano.** Lo que unifica es una pieza
+  (`PanelDeChat`: cabecera, columna del hilo, soltar archivos, la caja y su línea de estado) que montan Conversacion.tsx (Claude
+  Code) y el chat del cliente. Las filas del hilo, la de la barra y «Nuevo chat» también son UNA. ⚠️ Los tests que miraban la
+  cabecera o el soltar en Conversacion.tsx ahora miran PanelChat.tsx: seis tests de otras áreas leían esas formas como texto.
+- **Una sola lista:** `listaDelCliente` mezcla los sub-chats con MaKo, las conversaciones de Offer y los chats de antes, por
+  actividad, con el Cerebro (la estrella) arriba. Sin secciones ni plegables. La de Offer lleva la criatura de Offer
+  (`Offer › <título>`), y es lo único que dice de dónde viene: la cabecera es la del super admin, sin chips ni meta.
+- **Seguir un chat de antes sin copiar nada.** El turno de MaKo (lib/mako-turno-app.ts) usa la `chart_key` de la persona SÓLO
+  para ver si la sesión es suya (`sesionDe`). La ruta le pasa la persona con la clave de ESA sesión (`personaDelChat`), después
+  de mirar la regla de /mako (`claveDeAntes`, la misma de leerlo). No hizo falta ni migrar ni adoptar el chat.
+- **Seguir una de Offer es usar SU motor, entero** (/api/offer: `abrir`, `leer-link`, `turno`, `armar`), no la proyección de
+  sólo texto: la proyección tira las opciones, los audios y los PDF. Tres cosas de la tab que hay que hacer igual:
+  - las opciones son sólo las del ÚLTIMO mensaje (las de antes ya no se contestan: dibujarlas decía «Respondiste: <todo un
+    párrafo>»);
+  - la opción de una pregunta del DIAGNÓSTICO viaja con su índice (`respuesta`); «Armar mi oferta» no es un texto, es la acción
+    `armar`, y se relee hasta que aparece la oferta;
+  - `OPCION_ARMAR` baja del servidor por props: importarlo en el navegador arrastra lib/offer-reglas.ts entero al bundle.
+- **El id de un mensaje para las reacciones no puede llevar su lugar en el hilo.** El id de la fila es `m<i>-<hora>`, y el `i`
+  cambia si el hilo se pagina. `idWA` sale de quién lo dijo y de su hora.
+- **Escribir después de una pregunta la contesta** (`conRespuestas`, también con una nota de voz): es la regla de todos los
+  chats, y la pregunta queda «Respondiste: …». Por eso Offer dibuja sólo las opciones vigentes.
+
+**Cómo se miró sin `next dev`** (la PC con 2 GB libres y cinco chats en la fila del VERDE): se dibujan las piezas reales con
+`renderToStaticMarkup` y datos de prueba, y el HTML se pega con `javascript_tool` sobre la página de PRODUCCIÓN, que ya trae el
+CSS compilado. Es el CSS de verdad, sin build y sin escribir nada. ⚠️ Trampa: con `tsx` un `import './x.css'` pasa por el
+`require` de CJS, y un hook de ESM (`module.register`) no lo ataja: hace falta `require.extensions['.css']` en un `--require`.
+
+**El teléfono, el 22/10:** el motor salió a app/second-brain/useChatCliente.ts y lo de adentro del panel (el hilo y la caja) a
+PiezasCliente.tsx; la computadora y el teléfono (app/m/second-brain/ChatClienteM.tsx) los montan. El teléfono es el del super
+admin: la lista es la pantalla y cada chat se abre en una hoja alta, con la Info de un mensaje y «Tus cuentas de IA» ADENTRO de esa
+hoja (una hoja sobre otra la cierra). Tres cosas que costaron:
+- **Un test que lee el fuente como texto no compila nada.** La tanda 2 declaró `marcar` dos veces en el mismo componente (el del
+  hilo y el de las reacciones), y los 49 tests que miran esos archivos pasaron. Lo vio `esbuild` (`node_modules/.bin/esbuild
+  <archivo> --log-level=error`, sin bundle, en un segundo y sin RAM), y un error de tipo de la tanda 1 lo vio recién el tsc
+  acotado. Antes de pasar una punta con componentes nuevos: esbuild por archivo, y el tsc acotado cuando haya RAM.
+- **Mover código de lugar rompe ~20 tests de otras áreas** que lo buscaban por archivo (ChatSecondBrain.tsx): se los apunta al motor
+  o a las piezas, nunca se los borra. d6b-rutas, además, sigue el micrófono: el teléfono dejó de dictar con el Composer de
+  app/m/mako/ y pasó al de la caja única (app/admin/operaciones/Microfono.tsx), que ese test tomaba por «otra tab».
+- `ChatMako.tsx` (el chat viejo del teléfono) quedó SIN quien lo monte: sigue en el repo porque lo leen 15 tests.
+
+**SIN HACER:**
+- **Borrar app/m/mako/ChatMako.tsx** con lo suyo de esos 15 tests (el Composer queda: lo usa app/chats/VentanaChat.tsx).
+- **Los documentos en una conversación de Offer** (el «+» en Offer dice «pega el texto o el link»): van por `subir-url` y `leer`
+  de Offer (app/offer/offer-api.ts → subirArchivo), no por /api/mako/chat.
+- **La foto en un mensaje de Offer es la de quien MIRA** (`MiFoto`, /api/perfil): para el dueño es la suya; el super admin que mira
+  un cliente ve la propia en lo que escribió el dueño. Offer no guarda quién escribió cada mensaje.
+
 ## Ops Center del cliente: «el chat de X no llegó» se mide en la base, nunca mirando la pantalla como super admin (20/10/2026)
 
 - **Síntoma:** en /second-brain?ws=21 sólo se ve el chat «Second Brain», sin la conversación de Offer de la clienta.
@@ -2073,6 +2136,41 @@ Probado en `tests/chat-bloques.test.ts`, que confirma `crear_diseno_imagen` de p
 - Las demás áreas no devuelven `bloque` todavía. Por ahora lo devuelven `crear_diseno_imagen` y `duplicar_diseno_imagen`
   (G5) y `cambiar_textos_diseno_imagen` (G4).
 - El «Abrir» lleva a la ruta de la computadora también en el teléfono: la 1.8.
+
+## Varios selectores en el hilo: a cuál contesta cada mensaje (21/10/2026, `conRespuestas`)
+
+Lo encontraron las revisiones del Web Generator (piezas 1.12 y 1.15): «armame una landing» deja en el MISMO mensaje el G2
+de diseños (lo que dibuja una lectura) y el G1 «¿Para qué producto es?» (la pregunta), porque mako-turno-app guarda
+`[...dibujos, pregunta]`. `conRespuestas` (app/m/mako/chat-ui.ts) cerraba todo selector con el primer mensaje que lo
+seguía, así que tocar «Mentoría» apagaba los diseños con «Respondiste: Mentoría». Lo usan TODAS las pantallas del chat
+(HiloMako, ChatMako del teléfono, ChatMakoCrm, MakoAnalystLead): un error acá pega en Pagos, CRM, Dashboard y el resto.
+- **La regla:** cada mensaje de la persona cierra los selectores abiertos de los que es, o sea lo que manda un toque
+  suyo. Si es de uno del turno ACTUAL (los que vinieron después del mensaje anterior de la persona), sólo ése: un
+  «Saltear» de la pregunta nueva no cierra las viejas. Si no es de ninguno, escribir contesta, como siempre, pero sólo
+  si en el turno actual hay UNO abierto; con varios, quedan abiertos (abierto de más cuesta poco). Un selector de un
+  turno anterior sigue esperando, pero sólo un toque SUYO lo cierra, comparado TAL CUAL con lo que manda su botón: los
+  del turno actual se comparan sin mayúsculas ni tildes, los viejos no. Si no, lo escrito que se parecía a una opción
+  vieja se la llevaba («curso kairos» escrito a la pregunta de Pagos cerraba el «¿Para qué producto?» de la landing, y
+  Pagos quedaba abierta).
+- **La trampa, una regresión en la vuelta del arreglo:** que el selector viejo siga esperando estaba bien, pero contarlo
+  para «hay uno solo abierto» rompió escribir. Después de tocar «Mentoría», el G2 de diseños queda abierto a propósito,
+  y desde ahí ninguna pregunta de la sesión (de ningún área) se cerraba escribiendo. La red «escribir contesta» es del
+  turno actual; la espera de un selector viejo es sólo para lo suyo.
+- **Lo que manda cada botón tiene que decir de cuál vino.** El G1 y el G2 tenían los mismos «Elige tú» y «Saltear», y el
+  del G1 cerraba el G2. Ahora el G2 manda «Diseño: saltear» (lib/editor-landing/bloques-web.ts, la misma fuente que
+  usa su botón) y el G1 los suyos de una constante del marco (`ELIGE_TU_PREGUNTA`, `SALTEAR_PREGUNTA` en
+  lib/chat-bloques.ts), la misma que reconoce el hilo.
+- **«Listo» con varias se reconoce armándolo como el botón** (títulos en el orden de las opciones, unidos con «, »), no
+  partiendo por comas: un título puede tener una («Precios, planes»).
+- **SIN hacer:** en los hilos guardados antes de que el G2 mandara «Diseño: saltear», un «Saltear» pelado tocado en el
+  G2 se lo lleva el G1 al recargar. Es sólo historia y son pocos hilos (el G2 junto al G1 existe desde el 21/10). Y lo
+  escrito IDÉNTICO a un botón viejo («Mentoría», con mayúscula y tilde) no se distingue de un toque: cierra el viejo.
+- **Cómo se midió:** la revisión comparó contra producción 9.000 hilos armados de 1 a 12 turnos (vivo y recargando): 0
+  diferencias con texto libre. Para tocar `conRespuestas`, esa comparación es la vara, no un caso suelto.
+- **Comparar «tal cual» pide que lo guardado y lo que manda el botón sean el MISMO texto.** El saneo (`texto` en
+  lib/chat-bloques.ts y en lib/editor-landing/bloques-web.ts) recortaba ANTES de cortar al tope: un título largo cortado
+  justo en un espacio quedaba terminado en uno, la pantalla mandaba el toque recortado, y el selector viejo no se
+  reconocía (en vivo y al recargar no daba lo mismo). Ahora recorta también después de cortar.
 
 ## «Abrir en la app», y lo confirmado afuera vuelve al hilo (20/10/2026, ola 1, pieza 1.8)
 
@@ -2202,3 +2300,29 @@ un runner que tarda 5,5 s (`tests/_trabajos-hijo.ts`).
 - No están conectados `flow_trabajos` (las tomas de Flow), el render de video ni el análisis del Dashboard, que tiene su
   propio `after` y su propia consulta.
 - «Créame una landing» termina con «Abrir en Web Generator»; su miniatura es de la tarjeta de la landing (1.12).
+## Una LECTURA también dibuja: «A quién cobrar» en el hilo (20/10/2026, Pagos, la 2.27, sobre el marco de la 1.7)
+
+**Vive en:** `SalidaLectura.bloque` y `Ctx.aDibujar` en `lib/api-mako/tipos.ts` · la rama de lecturas de
+`ejecutarOperacion` (`lib/api-mako/ejecutar.ts`) · `turnoApp` en `lib/mako-turno-app.ts` · `itemsDeRespuesta` en
+`app/m/mako/chat-ui.ts`. Probado en `tests/chat-bloque-cobranza.test.ts`.
+
+- **Síntoma:** la 2.27 pide que «¿quién me debe plata?» dibuje la lista. Es una LECTURA (`a_quien_cobrar`), y el marco
+  de la 1.7 sólo llevaba bloques por la tarjeta, al confirmar una acción.
+- **El contrato, el mismo camino que `aPersona` (la agenda):**
+  - la lectura devuelve `{ content, bloque }`;
+  - `ejecutarOperacion` sanea el bloque y lo pasa por `ctx.aDibujar`, que pone SÓLO el turno de la app;
+  - el modelo recibe sólo `content`, y en WhatsApp o por HTTP el bloque se descarta;
+  - el turno lo guarda con la respuesta de MaKo (`chart_chats.bloques`) y lo devuelve en `mensajes[].bloques`;
+  - la pantalla lo suma debajo con `itemsDeRespuesta`, y al recargar vuelve con `itemsDeSesion`.
+  - Si el turno se re-arranca (la cascada rota de cuenta), un bloque igual no se repite (`dibujar`, desde la ola 1).
+- **Regla:**
+  - una lectura sabe por `ctx.aDibujar` si lo que arma se va a ver, y sólo entonces lo arma y le dice al modelo que no
+    lo copie;
+  - una lista CON ACCIONES guardada en el hilo es una foto: se vuelve a leer al dibujarse y no actúa hasta tener la viva
+    (en Pagos, marcar una fila vieja reescribe la fecha de un cobro, docs/hallazgos-pagos.md);
+  - un bloque de área que trae acciones de servidor se carga con `dynamic` desde `BloqueHilo` (app/_chat/bloques/*). Si
+    se importa directo, `server-only` tira afuera de Next, y `BloqueHilo` deja de cargar en su test.
+- **Hecho con la ola 1 (21/10):** Ops Center 3 lo tomó como el camino ÚNICO de lo que dibuja una herramienta, con los
+  mismos nombres, y lo extendió a las propuestas de pantalla (`extra.bloque`). En el turno no se vacía al re-arrancar:
+  `dibujar` no repite un bloque igual y anota qué herramienta lo dibujó (con una pregunta, 1.9, se retiran los de las que
+  escriben).

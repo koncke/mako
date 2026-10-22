@@ -31,6 +31,18 @@ export const DICE_SI = [
 export const NOMBRA_LO_PREGUNTADO = ['es', 'el nombre', 'ese nombre', 'mi negocio', 'mi emprendimiento', 'mi marca', 'mi marca personal', 'es mi negocio',
   'es mi emprendimiento', 'es mi marca', 'es mi marca personal', 'es el nombre'];
 
+/**
+ * Las palabras de acuerdo que TAMBIÉN pueden ser un nombre («Simón», «Vale», «Listo», «Claro», «Tal Cual»: la quinta
+ * revisión las encontró como negocios reales). Con un nombre esperando no lo confirman ni lo reemplazan: se pregunta cuál
+ * de los dos es (séptima revisión, 21/10: con «¿Te llamo «Cómo Estás»?», escribir «Simón» guardaba «Cómo Estás»).
+ */
+export const PUEDE_SER_NOMBRE = ['claro', 'genial', 'listo', 'tal cual', 'de una', 'venga', 'simon', 'orale', 'andale', 'vale', 'sale', 'va', 'bien'];
+
+/** Un sí o un no de UNA palabra, sin ambigüedad: lo que vale escrito en el toque del PDF, además de los botones (séptima
+ *  revisión, 21/10: «Ok», «Dale», «👍» o «Nop» se anotaban y se volvía a preguntar sin fin). */
+export const SI_DE_UNA_PALABRA = ['(?:s+i+)+', 'sip', 'sep', 'ok', 'okay', 'okey', 'oki', 'dale', 'claro', '👍', '✅', '👌'];
+export const NO_DE_UNA_PALABRA = ['no+', 'nop', 'nope', 'nel', '👎'];
+
 /** Lo que dice que no. */
 export const DICE_NO = ['no+', 'nop', 'nope', 'incorrecto', 'para nada', 'no es asi', 'no es', 'no se llama asi', 'esta mal', 'negativo', 'nada que ver', '👎'];
 

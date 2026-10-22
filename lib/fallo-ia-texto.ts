@@ -162,6 +162,21 @@ export const sinRedPorDatos = (erroresRed: readonly string[]): boolean => errore
 /** Lo que se le dice al negocio entonces: la MISMA frase que lib/lead-insights.ts y lib/graficos-ia-elemento.ts. */
 export const CONECTA_TU_CLAUDE = 'Conecta tu Claude en Integraciones: lleva datos de tus clientes, y MaKo no los manda a una IA gratis que entrena con ellos';
 
+/**
+ * D6b (Martín, 21/10/2026): un negocio con su propio Claude o su GPT no usa las keys ni la red gratis (lib/solo-su-ia.ts).
+ * Lo que la cascada de texto iba a hacer, sin su clave de Claude ni su OpenAI, no tiene con qué: se dice ESTO. Ni
+ * `CONECTA_TU_CLAUDE` («Conecta tu Claude», y puede que ya lo tenga en su computadora; «lleva datos de tus clientes», y
+ * El Archivero lee los documentos del negocio) ni «conecta una IA gratis» (no se usaría). La computadora no sirve acá:
+ * contesta los turnos del chat, no los pedidos de una pantalla. La misma frase que `AVISO_SIN_ARCHIVERO` del chat
+ * (lib/mako-turno-app-reglas.ts). Lo dicen pantallas del admin (las áreas y la búsqueda del Second Brain): la clave es suya.
+ * `tema` va adentro de la frase: 'generar las razones', 'leer tus documentos'…
+ */
+export const conSuIASinClave = (tema: string): string => `Con tu propio Claude, para ${tema} necesito tu clave de Claude o de OpenAI (en Integraciones).`;
+
+/** Lo mismo para MIRAR una foto o un PDF escaneado: con su propio Claude sólo su OpenAI ve (su clave de Claude no está en
+ *  la cascada de visión). El mismo criterio que `AVISO_NO_LEI_SU_IA` del chat. */
+export const CON_SU_IA_SIN_VISION = 'Con tu propio Claude, las fotos y los PDF escaneados los leo con tu clave de OpenAI (en Integraciones).';
+
 /** Qué era lo que MaKo estaba por hacer, para que la frase no quede genérica. */
 export type QueIntentaba = 'contestar' | 'escuchar tu audio' | 'armar el borrador';
 

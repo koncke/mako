@@ -450,7 +450,7 @@ export function ChatOffer({
           : null}
       />}
       <input ref={inputFoto} type="file" multiple accept={ACCEPT_FOTO} onChange={elegidos} hidden />
-      <input ref={inputDoc} type="file" multiple accept={ACCEPT_IMPORTAR} onChange={elegidos} hidden />
+      <input ref={inputDoc} type="file" multiple accept={`${ACCEPT_IMPORTAR},.zip`} onChange={elegidos} hidden />
       {/* La vista previa, como en WhatsApp Web: tapa el área del chat (hilo + barra) con `inset: 0`. */}
       {vista && <div style={{ position: 'absolute', inset: 0, zIndex: 2, display: 'flex', flexDirection: 'column' }}>{vista}</div>}
     </div>

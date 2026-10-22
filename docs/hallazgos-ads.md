@@ -4263,3 +4263,90 @@ lib/meta-login.ts · tests/meta-permisos-conectar.test.ts.
 - **El ícono de ojo del chip «Con problemas» queda** (la regla de no usar emoji).
 - **La publicación a medias** sigue diciendo «Quedó a medias en Meta… revísalo en la tabla»: la tabla es donde se ve qué
   quedó, y la misma clave contesta igual hasta que cambie el pedido.
+
+## La revisión de la app MaKo nunca se envió, y por qué todavía no se puede (21/10/2026)
+
+- **Síntoma:** Martín creía que Meta tardaba en aprobar la app MaKo (2586146911825340). En el panel, la Revisión de la
+  app dice **«Sin enviar»**. Lo que está en la cola de Meta es otra cosa: la **verificación de acceso** (proveedor de
+  tecnología), enviada el 08/10 a las 04:23, sin pedidos de Meta y con plazo hasta el **20/12/2026** (antes decía 07/12).
+- **Qué traba el envío:** cada permiso pide una descripción, un video (7 de los 9 lo piden) y al menos una llamada exitosa
+  a la API en los últimos 30 días. El 21/10, en Revisión → Tests, `business_management`, `ads_read` y `ads_management`
+  estaban en **0 de 1**.
+- **Por qué las llamadas no salían del producto:** el token del botón «Conectar con Meta» (inicio de sesión para
+  empresas, usuario del sistema) sigue saliendo **sin** esos tres permisos. Medido de nuevo el 21/10 en el ws9 con
+  `/me/permissions`.
+- **Lo que destrabó las llamadas:** en el **Explorador de la API Graph**, con la app MaKo elegida y un token de USUARIO de
+  Martín, Meta sí concede los tres. Cinco GET de lectura (`me/adaccounts`, `act_…/campaigns`, `me/businesses`,
+  `act_…/insights`) cuentan como las llamadas de prueba. Tardan hasta 24 h en verse y valen 30 días. El diálogo de
+  Facebook que abre el Explorador es un popup fuera del grupo de pestañas de Claude: lo acepta Martín.
+- **Lo que esto dice de la hipótesis del 08/10:** la app puede dar los permisos de anuncios. Lo que no los da es el token
+  de usuario del sistema del inicio de sesión para empresas. Sigue siendo lo más probable que lo destrabe la
+  verificación de acceso, pero ya no es la única explicación posible.
+  **Medido otra vez el 21/10 a las 12:50:** reconexión nueva del ws9 con «Conectar con Meta» (portafolio MaKo, página
+  Hola MaKo, cuenta publicitaria MaKo). El token sale otra vez con páginas y leads, y sin `ads_management`, `ads_read`
+  ni `business_management`. La tarjeta dice «Conectó sin permisos de anuncios. Reconecta y acéptalos», pero reconectar
+  no lo arregla: con la verificación de acceso en revisión, Meta no los da a este tipo de token. Por eso los videos
+  de los permisos de anuncios no se pueden grabar con el producto hasta que Meta conteste.
+- **La regla:** «en revisión» se mira permiso por permiso en el panel (Revisión → Tests y Revisión de la app), no en la
+  memoria. Un borrador sin enviar se ve igual que una revisión en curso si nadie entra a mirar.
+- **Lo que quedó SIN hacer:** los videos y textos de cada permiso (los de anuncios necesitan el botón dando los
+  permisos), «Tratamiento de datos» e «Instrucciones para revisores», y el envío, que **no se edita ni se cancela**. Si
+  la verificación de acceso no se mueve, el camino es un caso en Meta Business Support con la fecha y el ID de la app.
+  Mientras tanto, cada cliente nuevo conecta con una app propia: ya son seis (ws11, 13, 14, 15, 18, 19).
+- **La revisión entra por el ws3 («Cliente de Prueba»).** El botón «Conectar con Meta» se le mostraba sólo al super
+  admin, y el revisor de Meta entra con una cuenta de prueba de MaKo: no lo habría visto. Ahora
+  `WORKSPACES_DE_REVISION = [3]` (lib/meta-login.ts) lo ofrece en ese negocio a cualquier admin del negocio. La regla
+  es pura (`botonMetaVisible`) y `conectarMetaDisponible` le pasa el negocio activo. El resto del camino no tenía otra
+  guarda de super admin: el paso 1 pide admin del negocio, el callback acepta admin del negocio
+  (`puedeEscribirAgenda`) y elegir la cuenta y guardar van por negocio.
+- **Cuando la app quede aprobada, la constante SE DEJA.** Con `META_OAUTH_ABIERTO=true` no cambia nada, y cada permiso
+  nuevo (Instagram, Messenger, `pages_manage_metadata`) es otra revisión que va a entrar por el mismo negocio. La
+  cuenta del revisor la crea Martín, adentro del ws3: sumada desde el negocio de la plataforma queda super admin, y el
+  super admin pide 2FA siempre.
+- **El negocio de revisión tiene que tener el onboarding terminado.** Con el onboarding pendiente, `/integraciones?ws=3`
+  redirigía al chat de onboarding («¿cómo te llamas?»): el revisor de Meta y el de Google entraban y no llegaban ni a
+  Integraciones ni al CRM. El 21/10 se terminó por la interfaz, como lo haría un cliente, con datos de prueba (nombre
+  y negocio «Cliente de Prueba», «Mentoría de prueba, USD 100, pago único», «Ahora no» al WhatsApp). Desde ahí
+  /integraciones y /crm abren directo. Quedó un lead de prueba (`lead.prueba@example.com`, sin teléfono) en «Agenda R1»
+  con reunión del 20/10. Si alguien resetea el ws3 («Reset» de la barra de agencia), hay que repetirlo antes de
+  cualquier revisión: el reset deja el negocio en el onboarding.
+- **Sin confirmar:** el clic exacto que abre «Reagendar» con ese lead. Sale en «¿Qué hacer ahora?» de una reunión
+  pasada (`abrirQueHacer`, app/crm/CrmBoard.tsx) y puede necesitar una agenda conectada en el ws3.
+- **Un falso positivo que no hay que repetir:** el Explorador de la Graph API puede tener cargado un token de USUARIO
+  aunque el desplegable diga «System User Token». Antes de sacar conclusiones de `/me/permissions`, mirar `/me`: un
+  token del botón responde «MaKo System User», uno de usuario responde el nombre de la persona.
+- ⚠️ **El token del botón tampoco LEE los leads, y Meta no da error: devuelve la lista vacía** (medido el 21/10 a las
+  16:57 UTC). Se armó la «primera tanda» de la revisión (páginas y leads, sin anuncios). En la página Hola MaKo se creó
+  el formulario «Formulario de prueba MaKo» (4674559882869456) y se le mandó un lead con la herramienta de prueba de
+  Meta. `leadgen_forms?fields=leads_count` dice **1**; `/{formulario}/leads` devuelve `{"data":[]}` con el token de
+  página **y** con el del usuario del sistema, y siguió vacío durante más de 5 minutos.
+  - **Lo que NO es:** el acceso a clientes potenciales de la página está en el valor predeterminado (no personalizado),
+    el usuario del sistema tiene `MANAGE_LEADS`, `ADVERTISE` y `MANAGE` sobre la página, y `/me/permissions` trae
+    `leads_retrieval`.
+  - **Lo más probable:** la documentación de Meta pone `ads_management` entre los permisos para leer leads. Si es eso,
+    es el MISMO bloqueo que los permisos de anuncios. Pendiente de confirmar: con un token de usuario que sí tenga
+    `ads_management`, ¿se lee el lead?
+  - **Qué implica:** hoy «Conectar con Meta» no trae ningún lead al CRM. El poll no avisa nada: ve el formulario y
+    0 leads, sin error. Tampoco hay webhook: suscribir la página (`subscribed_apps`) pide `pages_manage_metadata`, que
+    la configuración no pide y no está en la revisión. «La página seleccionada no tiene ninguna app asociada», en la
+    herramienta de prueba, quiere decir eso mismo.
+  - **La regla:** para saber si un token lee leads, compará `leads_count` del formulario con lo que devuelve `/leads`.
+    Una lista vacía no quiere decir «no hay leads».
+  - **Lo que quedó SIN hacer:** la primera tanda no se puede mostrar con leads entrando al CRM. El formulario de prueba
+    y su lead quedan en la página para la próxima grabación. `pages_manage_metadata` no está pedido en ningún lado.
+  - **Cómo se grabó igual el video de leads (21/10, https://youtu.be/ZUJDwSo_IWg, oculto):** con la página de Mauricio
+    (ws1, 282881742134130), que SÍ está suscripta, pero a la app VIEJA 954456647632371 «Leads - Dashboard MKT
+    (Martin)». La herramienta de prueba de Meta muestra ese id en pantalla. El lead entró en segundos por el webhook.
+    Muestra la función, pero no prueba que la app en revisión lea leads: el revisor que pruebe con la cuenta del ws3 va
+    a chocar con la lista vacía.
+- **No hay a quién reclamarle la demora de la verificación de acceso (probado el 21/10).** Meta dice que decide «en aproximadamente 5 días», y la nuestra llevaba 13. Ningún canal sirve: el reporte de errores, con la opción «El proceso de revisión o verificación de mi aplicación está tardando demasiado», contesta que no consulta casos concretos y manda al foro; el chat de soporte para empresas (IA de Meta) no deriva a una persona ni abre un caso por mail. Todo pasa por el panel de la app y el correo de contacto. No volver a buscar ese canal: se espera, y el vigía avisa (`vigia-revisiones/`, en la carpeta del proyecto).
+- **Tres trampas al grabar un video de revisión con la extensión de Chrome:**
+  - La extensión trabaja sobre pestañas en segundo plano sin traerlas al frente. Lo que graba `gdigrab` es la pestaña
+    VISIBLE: se pierde todo lo que se hizo en otra. Todo el recorrido va en UNA pestaña, navegando.
+  - El lead de la herramienta de prueba trae `test@meta.com`. Si ya hay uno con ese email, MaKo lo FUNDE en el lead
+    viejo (en el ws1, el #250 del 15/06), y la ficha dice «creado 15/06». Hay que usar un formulario que no pida email:
+    el de diciembre de 2023 de Mauricio creó el lead #2767, nuevo, en «Lead entrante».
+  - En los desplegables del diálogo de Facebook (página, píxel, cuenta) aparecen los activos de OTROS clientes. En el
+    video del 21/10 se cortaron esos 7 segundos, y la columna «Agenda R1» del CRM del ws1 va borroneada.
+
+**Vive en:** lib/meta-login.ts (`config_id`, `WORKSPACES_DE_REVISION`, `botonMetaVisible`) · lib/meta-conexion.ts · app/api/integraciones/meta/ · tests/meta-login.test.ts · panel de la app 2586146911825340

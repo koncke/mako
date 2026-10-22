@@ -687,6 +687,20 @@ textarea.mako-field {
   }
 }
 
+/* VENTANA CHICA DE ESCRITORIO (21/10/2026). Medido a 934×639 en la ficha de Meta Ads: el panel oscuro ocupaba 333 de
+   885 px (38 %) y era más alto que el modal (583 contra 538), así que se cortaba abajo. Debajo de 1200 se angosta y
+   la configuración se queda con el resto; con poco alto, el panel scrollea solo en vez de cortarse. */
+@media (max-width: 1199.98px) {
+  .mk-svc-modal { grid-template-columns: 236px minmax(0, 1fr); }
+  .mk-svc-aside { padding: 20px 18px !important; }
+}
+/* Con poco alto, el panel se topea al alto de su celda (sin esto medía 566 en una fila de 518 y se cortaba: la fila
+   no lo estiraba) y, si igual no entra, scrollea solo. No en el apilado del teléfono (≤ 820), donde su fila es auto. */
+@media (max-height: 760px) and (min-width: 820.02px) {
+  .mk-svc-aside { overflow-y: auto; max-height: 100%; }
+  .mk-svc-carrusel { min-height: 0; }
+}
+
 @media (max-width: 820px) {
   /* Apilado: el carrusel arriba al alto de su contenido y la configuración
      abajo quedándose con el resto y scrolleando. Sin redefinir las filas, la
@@ -840,6 +854,15 @@ textarea.mako-field {
 .mk-sel-tarjeta:focus-visible,
 .mk-sel-tarjeta[data-marcada='1'],
 .mk-sel-tarjeta[data-seleccionando='1'] { width: 15px; margin-right: 0; opacity: 1; }
+
+/* LA COPIA QUE VIAJA CON VARIOS TILDADOS dice cuántos van (CRM, 22/10/2026: arrastrar uno de los tildados mueve a todos).
+   La marca la pone el tablero en el origen sólo mientras se clona: la tarjeta que se queda no la lleva. */
+.mk-tarjeta-lead[data-varios]::after {
+  content: attr(data-varios);
+  position: absolute; top: -9px; right: -9px; padding: 3px 9px; border-radius: 99px;
+  background: var(--primary); color: var(--on-primary, #fff); font: 700 12px/1.2 'Geist', sans-serif;
+  box-shadow: 0 4px 12px rgba(18, 21, 27, .25); white-space: nowrap;
+}
 
 /* ⚠️ En la fila de un video los botones van AL ALTO DEL DESPLEGABLE. El botón de
    ícono mide 34 px y el `Select` mide `--touch` (40, y 44 en táctil): puestos en

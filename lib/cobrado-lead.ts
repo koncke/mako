@@ -43,6 +43,12 @@ export type CuotaParaCobrado = {
   cobro_id?: number | null;
   /** El cliente se dio de baja (mig 0307): impaga, no es deuda. `baja_vencia` es el vencimiento que tenía. */
   baja_at?: string | null;
+  /** Nació cobrada (un pago suelto, una mensualidad a mano, el cobro de un link sin cuota): no es del plan (`esCuotaDelPlan`). */
+  nacio_cobrada?: boolean | null;
+  /** La diferencia de un cobro por menos: el id de la cuota de la que salió (la escribe `cobrar_cuota_con_resto`). */
+  resto_de?: number | null;
+  /** Se registró COMO la mensualidad («Registrar el mes cobrado», mig 0323): vale un mes, sea del monto que sea. */
+  es_mensualidad?: boolean | null;
   baja_vencia?: string | null;
 };
 
@@ -103,6 +109,9 @@ export type Cobrado = {
     fuente: 'pasarela' | 'manual';
     /** Meses que ya tendrían que estar registrados y no lo están (sólo la manual). */
     sinRegistrar: number;
+    /** Los meses que cubre lo cobrado, de a una cobrada (`mesesDeUnaCobrada`): una mensualidad, uno; un adelanto, sus meses.
+     *  Es con lo que se cuenta `sinRegistrar`, y desde dónde vence el primer mes sin registrar («A quién cobrar»). */
+    mesesCubiertos: number;
   };
   /** Lo cobrado en su moneda ORIGINAL, donde no fue en dólares (`pagos.moneda` + `monto_original`). */
   monedas: Array<{ moneda: string; monto: number }>;
@@ -122,6 +131,71 @@ function diasEntre(desde: string, hasta: string): number {
   const a = Date.parse(`${desde}T12:00:00Z`);
   const b = Date.parse(`${hasta}T12:00:00Z`);
   return Math.round((b - a) / 86_400_000);
+}
+
+/**
+ * ⚠️ CUÁNTOS MESES ENTEROS SON `plata` DE UNA MENSUALIDAD (21/10/2026, quinta revisión): lo cobrado suelto en una
+ * suscripción se cuenta por plata, no por filas. Contando filas, un adelanto de 3 meses en UN pago cubría un mes (el
+ * asistente armaba cuotas por meses pagados, y la ficha decía «Falta registrar» para siempre) y una seña de US$100
+ * cubría un mes entero. Un 10% por mes de tolerancia: el tipo de cambio de un cobro en otra moneda. `enteros`: si da
+ * meses enteros; si no, `meses` son los que llega a cubrir (la seña, 0). La usan `cobradoDelLead` y el asistente de
+ * Ganado (`planDelAsistente`, lib/pagos-campo.ts), así los dos cuentan igual.
+ *
+ * ⚠️ LA TOLERANCIA ES FIJA, UN 10% DE UNA MENSUALIDAD (revisión de f2ec0c948, medio): multiplicada por los meses, las
+ * ventanas se pisaban desde 4,5 mensualidades y TODO monto daba «meses enteros». Un año prepagado a −5% de cambio
+ * (US$5.700) contaba 11 meses y la cobranza le reclamaba uno a quien pagó el año; 6 meses con 10% de descuento (US$2.700)
+ * contaban 5. Lo que no cae cerca de un número entero de mensualidades no son meses enteros: el asistente no arma y lo dice.
+ */
+export function mesesDePlata(plata: number, mensualidad: number): { meses: number; enteros: boolean } {
+  if (!(mensualidad > 0) || !(plata > 0)) return { meses: 0, enteros: !(plata > 0) };
+  const k = Math.round(plata / mensualidad);
+  const enteros = k >= 1 && Math.abs(plata - k * mensualidad) <= 0.1 * mensualidad;
+  return { meses: enteros ? k : Math.floor(plata / mensualidad), enteros };
+}
+
+/**
+ * ⚠️ ¿ES UNA CUOTA DEL PLAN? UNA sola regla (revisión de 7524ec1c9, alta) para el lugar de una cuota en el plan uniforme
+ * (`reconciliarCuotas` en 'slots', lib/pagos-campo.ts), para la plata suelta (`esPlataSuelta`: la ficha y el asistente)
+ * y para `avisoPlanUniforme`. Con tres reglas, la seña cobrada por LINK era plata suelta para el aviso y la cuota 1 para
+ * el lugar (el plan quedaba US$200 corto al cambiar la cuota), y la diferencia de un cobro por menos tomaba el lugar de
+ * la cuota siguiente (US$600 de deuda fantasma al crecer el plan). No es del plan lo que nació fuera de él, y la fila lo
+ * dice desde que se inserta:
+ * - `nacio_cobrada`: un pago suelto, una mensualidad a mano, y el cobro de un link que no saldaba ninguna cuota
+ *   (`registrarCobroDeProveedor` la marca desde el 21/10/2026; antes, 0 filas de la pasarela en producción);
+ * - `resto_de`: la diferencia de un cobro por menos (la escribe `cobrar_cuota_con_resto`).
+ * Una cuota del plan cobrada por link SIGUE siendo del plan: tiene proveedor, pero no nació cobrada. Por eso la pasarela
+ * no entra en la regla (antes `proveedor` hacía suelta cualquier cobrada por link).
+ */
+export const esCuotaDelPlan = (q: { nacio_cobrada?: boolean | null; resto_de?: number | null }): boolean =>
+  !q.nacio_cobrada && q.resto_de == null;
+
+/** Plata suelta: lo cobrado que no es una cuota del plan (`esCuotaDelPlan`). La ficha y el asistente cuentan con ésta. */
+export const esPlataSuelta = (q: { pagado?: boolean | null; nacio_cobrada?: boolean | null; resto_de?: number | null }): boolean =>
+  !!q.pagado && !esCuotaDelPlan(q);
+
+/**
+ * ⚠️ CUÁNTOS MESES CUBRE UNA COBRADA DE UNA SUSCRIPCIÓN, DE A UNA (revisión de 7524ec1c9, alta). Sumando todas las
+ * sueltas y pasando el total por `mesesDePlata`, el desvío se acumulaba: 6 × 490 daba 5 meses («Falta registrar 1 mes»
+ * y US$500 reclamados a un cliente al día) y 10 × 550 daba 11 (escondía al que debe el mes 11).
+ * ⚠️ LO QUE SE REGISTRÓ COMO LA MENSUALIDAD VALE UN MES, SIEMPRE (revisión de e19a5196f, medio). Contada por plata, una
+ * BAJA de precio escondía deuda: 6 mensualidades de 1.000 con la mensualidad ya en 500 eran 12 meses («Al día», fuera de
+ * «A quién cobrar»; producción decía «Falta registrar 5 meses»). Cómo se registró lo dice la fila (`es_mensualidad`,
+ * mig 0323), no su monto.
+ * - Una cuota del plan, o una cobrada registrada como la mensualidad: 1.
+ * - La diferencia de un cobro por menos: 0, completa el mes de su cuota.
+ * - Un pago suelto (a mano con «Registrar un pago», o el cobro de un link sin cuota): `max(1, mesesDePlata(su monto))`.
+ *   Lo que cubre varios meses cuenta por plata (un adelanto de 1.500 = 3); uno chico, un mes, como producción. La
+ *   pasarela igual que la mano: contado por plata sin el mínimo, un link de un mes al tipo de cambio del día valía 0.
+ * `enteros`: si su monto son meses enteros. El asistente no arma si alguno no lo es (ninguna seña se descuenta de un plan).
+ */
+export function mesesDeUnaCobrada(
+  q: { monto_usd?: number | string | null; nacio_cobrada?: boolean | null; resto_de?: number | null; es_mensualidad?: boolean | null },
+  mensualidad: number | null,
+): { meses: number; enteros: boolean } {
+  if (q.resto_de != null) return { meses: 0, enteros: true };
+  if (esCuotaDelPlan(q) || q.es_mensualidad || !mensualidad) return { meses: 1, enteros: true };
+  const r = mesesDePlata(num(q.monto_usd), mensualidad);
+  return { meses: Math.max(1, r.meses), enteros: r.enteros };
 }
 
 /** La fecha `meses` después de `iso`, con el día capado al último del mes (31/01 + 1 = 28/02 o 29/02). */
@@ -237,13 +311,16 @@ export function cobradoDelLead(e: EntradaCobrado): Cobrado {
       while (f < hoy && k < 1200) { k++; f = sumarMeses(ancla, k); }
       proximaRenovacion = finPlazo && f >= finPlazo ? null : f;
     }
+    // Los meses que cubre lo cobrado, DE A UNA (`mesesDeUnaCobrada`): una mensualidad, un mes; un adelanto, sus meses.
+    // La MISMA regla que el asistente de Ganado.
+    const mesesCubiertos = cobradas.reduce((s, q) => s + mesesDeUnaCobrada(q, suscripcionMonto).meses, 0);
     // Una manual se registra mes a mes: los meses que ya empezaron y no tienen su cobrada, avisan.
     let sinRegistrar = 0;
     if (fuente === 'manual' && estado === 'activa' && fechaCierre && fechaCierre <= hoy) {
       let esperadas = 1;
       while (sumarMeses(fechaCierre, esperadas) <= hoy && esperadas < 1200) esperadas++;
       if (suscripcionMeses) esperadas = Math.min(esperadas, suscripcionMeses);
-      sinRegistrar = Math.max(0, esperadas - cobradas.length);
+      sinRegistrar = Math.max(0, esperadas - mesesCubiertos);
     }
     const totalUsd = suscripcionMonto && suscripcionMeses ? redondo(suscripcionMonto * suscripcionMeses) : null;
     const pct = totalUsd ? Math.min(100, Math.round((cobradoUsd / totalUsd) * 100)) : null;
@@ -273,6 +350,7 @@ export function cobradoDelLead(e: EntradaCobrado): Cobrado {
         renovacionFallida,
         fuente,
         sinRegistrar,
+        mesesCubiertos,
       },
       cuadra: null,
     };

@@ -615,25 +615,38 @@ test('las etiquetas nuevas se cambian por el id real recién al guardar', () => 
 });
 
 // rotura 22 (editar pisa una salida ocupada): 1 fallo.
-test('editar sólo AGREGA: lo de antes queda igual y una salida ocupada no se pisa', () => {
+// 22/10/2026 (la prueba de los chats del Cerebro, esperar-2-dias 4 de 4): en la «sig» OCUPADA de una tarjeta simple el tramo va
+// EN EL MEDIO (lo que seguía, sigue después); en una salida ocupada de una condición, sigue sin pisarse.
+// roturas (la «sig» ocupada no se pisa, lo de antes; en el medio sin reconectar lo que seguía) → 1 rojo de 28 cada una (éste).
+test('editar AGREGA: lo de antes queda igual, en la «sig» ocupada va EN EL MEDIO y la salida ocupada de una condición no se pisa', () => {
   const ctx = ctxBase();
   const base = conEtiquetasReales(deIA(EJEMPLO, ctx, rndDe()).pasos, new Map([[-1, 40]]));
   const ctx2 = ctxBase({ etiquetas: [...ctxBase().etiquetas, { id: 40, nombre: 'Seguimiento' }] });
   const m1 = base[0];
+  const cond = base.find((p) => claseDe(p) === 'condicion')!;
   const r = deIAEdicion({ agregar: [
     { despues_de: 'cron', salida: 'paralelo', inicio: 'e1', tarjetas: [{ id: 'e1', tipo: 'email', asunto: 'Lo que te prometí', texto: 'Hola {{nombre}}', sigue: 'e2' }, { id: 'e2', tipo: 'etiqueta', poner: 'Seguimiento' }] },
-    { despues_de: m1.id, salida: 'sig', tarjetas: [{ id: 'x1', tipo: 'mensaje', texto: 'Esto pisaría' }] },
+    { despues_de: m1.id, salida: 'sig', tarjetas: [{ id: 'x1', tipo: 'esperar', horas: 48 }] },
+    { despues_de: cond.id, salida: 'si_no', tarjetas: [{ id: 'y1', tipo: 'mensaje', texto: 'Esto pisaría' }] },
   ] }, base, ctx2, rndDe());
   assert.deepEqual(erroresNuevos(base, r.pasos), []);
   assert.deepEqual(validarIA(r.pasos, ctx2, new Set(r.agregadas)), []);
-  for (const p of base) assert.deepEqual({ ...r.pasos.find((q) => q.id === p.id), orden: 0 }, { ...p, orden: 0 }, `cambió ${p.id}`);
-  assert.ok(r.avisos.some((a) => a.includes('no la pisé')));
+  const medio = r.pasos.find((p) => !base.some((b) => b.id === p.id) && claseDe(p) === 'esperar');
+  assert.ok(medio, 'la espera nueva está');
+  assert.equal(r.pasos.find((q) => q.id === m1.id)!.siguiente, medio!.id, 'el primer mensaje sigue en la espera nueva');
+  assert.equal(medio!.siguiente, m1.siguiente, 'y la espera, en lo que seguía: no se perdió nada');
+  for (const p of base) {
+    const ahora = r.pasos.find((q) => q.id === p.id)!;
+    assert.deepEqual({ ...ahora, orden: 0, ...(p.id === m1.id ? { siguiente: p.siguiente } : {}) }, { ...p, orden: 0 }, `cambió ${p.id}`);
+  }
+  assert.ok(r.avisos.some((a) => a.includes('no la pisé')), 'la salida «Si no» de la condición estaba ocupada');
+  assert.ok(!r.pasos.some((p) => p.cuerpo === 'Esto pisaría'));
   const ini = r.pasos.find((p) => claseDe(p) === 'inicio')!;
   assert.equal(ini.siguiente, m1.id);
   // El inicio NO cuenta como agregada: es la tarjeta del CRON (`ID_INICIO` = `ID_ENTRADA` del
   // lienzo), que ya estaba dibujada; revelarla de nuevo la haría parpadear.
   assert.deepEqual(r.agregadas.sort(), r.pasos.filter((p) => !base.some((b) => b.id === p.id) && claseDe(p) !== 'inicio').map((p) => p.id!).sort());
-  assert.equal(r.agregadas.length, 2, 'el email y la etiqueta');
+  assert.equal(r.agregadas.length, 3, 'el email, la etiqueta y la espera del medio');
   assert.deepEqual(r.etiquetasNuevas, [], 'Seguimiento ya existía');
 });
 

@@ -10,6 +10,8 @@
 
 import { useSearchParams, usePathname } from 'next/navigation';
 import { empujeDeColumna } from './arrastre-columna';
+import { anchoMinimo, columnasQueEntran, plantillaDeColumnas } from './tabla-columnas';
+import { CeldasLead, TitulosLista, estiloEncabezado, estiloFila } from './TablaListaLeads';
 import { fotoVaciaDeArrastre, useArrastreCopia } from '@/app/plan/board/arrastre-copia';
 import { useRouter, useWs } from '@/app/_ui/Link';
 import { BotonIntegracion, VueltaDeGoogle } from '@/app/_components/ConectarIntegracion';
@@ -118,6 +120,7 @@ import { Toast, useToast } from '@/app/_ui/Toast';
 import { nombreVisible } from '@/lib/lead-funnel-reglas';
 import { motivoCorto, chipsFaltantes } from './worklist-fila';
 import { Modal } from '@/app/_ui/Modal';
+import { Spinner } from '@/app/_ui/Feedback';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { NewLeadForm } from './new/NewLeadForm';
 import { BotonReuniones } from './ReunionesProximas';
@@ -273,7 +276,8 @@ export type CrmMarcar = {
  *  cada uno sale DOS veces (el `title` que se ve al pasar el cursor y el `aria-label`
  *  que se anuncia), y dos copias de un texto divergen a la primera correccion. */
 const rotQuitar = (nombre: string) => `Quitar «${nombre}» de la selección`;
-const rotPoner = (nombre: string) => `Seleccionar «${nombre}»`;
+// «No entiendo para qué es el clic de la cajita» (Mauricio, llamada del 22/10/2026, 02:13:38): el rótulo dice PARA QUÉ.
+const rotPoner = (nombre: string) => `Seleccionar «${nombre}» para moverlo o editarlo junto con otros`;
 const rotWa = (nombre: string) => `Escribirle a ${nombre} por WhatsApp`;
 const rotEliminar = (nombre: string) => `Eliminar «${nombre}»`;
 /** El telefono ya viene solo-digitos (`telefonoNorm`), que es lo que wa.me espera. */
@@ -290,47 +294,10 @@ function IconoWhatsapp() {
 /** Por que columna se ordena la tabla. */
 type OrdenTabla = 'nombre' | 'empresa' | 'origen' | 'etapa' | 'agenda' | 'monto' | 'creado';
 
-/** Las columnas de la tabla, en una sola constante: la usan el encabezado Y cada fila.
- *  Con dos listas, agregar una columna desalinea la tabla entera y no lo dice nadie. */
-const COLS_TABLA = '34px 2fr 1.4fr 1.5fr 1.25fr .95fr .95fr .8fr 64px';
+// Las columnas de la tabla salen de UNA plantilla (`plantillaDeColumnas`, app/crm/tabla-columnas.ts) que usan el
+// encabezado Y cada fila: con dos listas, agregar una columna desalinea la tabla entera y no lo dice nadie. Cuáles entran
+// lo decide el ANCHO medido del recuadro (21/10/2026: en un escritorio chico se pisaban).
 
-/**
- * Un encabezado que ORDENA. Copiado del `Th` de la tabla del plan
- * (app/plan/board/Tablas.tsx), con lo mismo que lo hace usable ahi:
- *
- *   · sin `onSort` no dibuja boton — una columna que no se puede ordenar no finge que si;
- *   · la flecha sale SOLO en la columna activa, o siete flechas grises compiten con los
- *     rotulos y ninguna dice nada;
- *   · `aria-sort` para que se anuncie, que es lo unico que le queda a quien no ve la flecha.
- */
-function ThCrm({ children, activo, dir, onSort, alinear = 'left' }: {
-  children: ReactNode;
-  activo?: boolean;
-  dir?: 'asc' | 'desc';
-  onSort?: () => void;
-  alinear?: 'left' | 'right';
-}) {
-  const base: CSSProperties = {
-    display: 'flex', alignItems: 'center', gap: 4, minWidth: 0,
-    justifyContent: alinear === 'right' ? 'flex-end' : 'flex-start',
-  };
-  if (!onSort) return <span style={base}>{children}</span>;
-  return (
-    <span style={base} aria-sort={activo ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
-      <button type="button" onClick={onSort}
-        title={`Ordenar por ${typeof children === 'string' ? children.toLowerCase() : 'esta columna'}`}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 4, padding: 0, border: 0,
-          background: 'none', cursor: 'pointer', font: 'inherit', letterSpacing: 'inherit',
-          textTransform: 'inherit', color: activo ? 'var(--ink)' : 'inherit',
-          fontWeight: activo ? 700 : 'inherit',
-        }}>
-        {children}
-        {activo && <span aria-hidden style={{ fontSize: 9, lineHeight: 1 }}>{dir === 'asc' ? '▲' : '▼'}</span>}
-      </button>
-    </span>
-  );
-}
 
 /**
  * Las tres bandas del Kanban, en el orden en que se dibujan.
@@ -990,6 +957,8 @@ export function CrmBoard({
    * igual: dibujaba un lugar que después no se respetaba. Ahora reordena (`reordenarColumna`).
    */
   const handleDrop = (stageKey: string, antesDe?: number | null) => {
+    // Un ARRASTRE de verdad (y no «Mover a…» del menú o de la ficha, que pasan por `idASoltar`).
+    const desdeArrastre = idASoltar.current == null;
     const id = idASoltar.current ?? dragId;
     idASoltar.current = null;
     setDragId(null);
@@ -998,6 +967,13 @@ export function CrmBoard({
     if (!lead) return;
     if (effStage(lead) === stageKey) {
       if (antesDe !== undefined) reordenarColumna(id, stageKey, antesDe, false);
+      return;
+    }
+    // ⚠️ ARRASTRAR UNO DE VARIOS TILDADOS MUEVE A TODOS (llamada del 22/10/2026, 02:14: «también debería funcionar si
+    // los arrastras»; Mauricio va a mover 50 por día a «Prospección activa» así). Es la MISMA pregunta que la barra de
+    // lote («Etapa»), con el número: `manijaLote` → `pedirEtapa`. Arrastrar uno NO tildado sigue moviendo sólo ése.
+    if (desdeArrastre && selLeads.has(id) && elegidos.length > 1 && manijaLote.current) {
+      manijaLote.current.moverDeEtapa(stageKey);
       return;
     }
     // El lugar donde cayó se guarda recién cuando el movimiento SE HACE: si la confirmación
@@ -1618,9 +1594,21 @@ export function CrmBoard({
     const from = lead ? effStage(lead) : undefined;
     const nota = modo === 'futura' ? mmNota.trim() : null;
     setManualMeeting(null);
+    // ⚠️ OPTIMISTA (llamada con Mauricio del 22/10/2026, min 04:32: «al mover un lead a otra etapa, no tarde tanto en
+    // cambiarse... ese ya se movió, solamente que permanece en la etapa anterior, porque todavía está cargando»). Era
+    // el ÚNICO camino del arrastre que esperaba al server para mover la tarjeta: «Agenda» con «Ya está agendada» o «Ya
+    // ocurrió». `persistStage` y `moverEnProducto` ya movían en el acto. Si la acción falla, la tarjeta vuelve.
+    const previo = localStage[leadId];
+    setLocalStage((m) => ({ ...m, [leadId]: which }));
     startTransition(async () => {
-      const r = await markMeetingManualAction(leadId, which, mmFecha, asistio, nota);
-      setUndoInfo((u) => (u && u.id === leadId ? { ...u, deshacer: r.deshacer } : u));
+      try {
+        const r = await markMeetingManualAction(leadId, which, mmFecha, asistio, nota);
+        setUndoInfo((u) => (u && u.id === leadId ? { ...u, deshacer: r.deshacer } : u));
+      } catch {
+        setLocalStage((m) => { const n = { ...m }; if (previo === undefined) delete n[leadId]; else n[leadId] = previo; return n; });
+        setUndoInfo(null);
+        mostrarAviso('No se pudo guardar la reunión', undefined, 'bad');
+      }
       router.refresh();
     });
     // Toast Deshacer también en este camino (antes solo lo tenía el drag directo).
@@ -1727,6 +1715,22 @@ export function CrmBoard({
     };
     return [...filtered].sort(cmp);
   }, [filtered, ordenTabla, dirTabla, stages]);
+
+  // LAS COLUMNAS QUE ENTRAN (21/10/2026, escritorio chico): se mide el recuadro de la tabla y entran las que se leen con
+  // su mínimo, por prioridad (app/crm/tabla-columnas.ts). Antes de medir, todas: lo de siempre en un escritorio grande.
+  const tablaRef = useRef<HTMLDivElement | null>(null);
+  const [anchoTabla, setAnchoTabla] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const el = tablaRef.current;
+    if (!el) return;
+    const medir = () => setAnchoTabla(Math.round(el.clientWidth));
+    medir();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(medir) : null;
+    ro?.observe(el);
+    return () => ro?.disconnect();
+  }, [view]);
+  const colsTabla = useMemo(() => columnasQueEntran(anchoTabla), [anchoTabla]);
+  const plantillaTabla = useMemo(() => plantillaDeColumnas(colsTabla), [colsTabla]);
 
   /** Lo tildado que TODAVIA existe. La lista se recarga sola, asi que un id que ya no
    *  esta (lo borro otra pestaña, se movio de producto) no puede seguir contando. */
@@ -2047,10 +2051,15 @@ export function CrmBoard({
    * Y `router.refresh()` al final porque las etapas las decide el SERVER: sin eso el
    * cambio se guarda y la pantalla sigue mostrando lo de antes.
    */
+  const [creandoTras, setCreandoTras] = useState<string | null>(null);
   const opEtapa = async (op: OpEtapa) => {
     setErrorEtapa(null);
+    // «Agregar etapa» del «⋯» de una columna: la columna nueva se anuncia en su lugar con un «Creando…» (llamada con
+    // Mauricio del 22/10/2026: «tarda mucho en crearse y tal vez necesita un loader»). Se va cuando llegan las columnas
+    // nuevas (el efecto de abajo) o si falla.
+    if (op.op === 'agregar') setCreandoTras(op.despuesDe ?? null);
     const r = await editarEtapaAction(op, funnelActivo ?? undefined);
-    if (!r.ok) { setErrorEtapa(r.error); return; }
+    if (!r.ok) { setCreandoTras(null); setErrorEtapa(r.error); return; }
     setRenombrando(null);
     setBorrarEtapa(null);
     // Agregar o quitar una etapa cambia la lista: el orden local recién arrastrado no sabe
@@ -2118,6 +2127,9 @@ export function CrmBoard({
       .filter((s) => activeBands.has(s.band ?? 'pipeline'))
       .sort((a, b) => (KANBAN_BANDS.indexOf(a.band ?? 'pipeline') - KANBAN_BANDS.indexOf(b.band ?? 'pipeline')) || (pos(a) - pos(b)));
   }, [stages, activeBands, ordenCols, funnelActivo]);
+
+  // El «Creando la etapa…» se va cuando el server manda las etapas nuevas (`stages` cambia con el refresh).
+  useEffect(() => { setCreandoTras(null); }, [stages]);
 
 
   /**
@@ -2809,7 +2821,13 @@ export function CrmBoard({
                   fotoVaciaDeArrastre(ev.dataTransfer);
                   const nodo = ev.currentTarget as HTMLElement;
                   const r = nodo.getBoundingClientRect();
+                  // Con varios tildados la copia que viaja dice CUÁNTOS van (22/10/2026): la marca se pone en el origen
+                  // sólo mientras se clona (`montarCopia` hace `cloneNode`) y se saca en el acto, así la ve la copia y
+                  // no la tarjeta que se queda.
+                  const varios = selLeads.has(l.id) && elegidos.length > 1;
+                  if (varios) nodo.dataset.varios = `${elegidos.length} leads`;
                   montarCopia(nodo, ev.clientX - r.left, ev.clientY - r.top);
+                  if (varios) delete nodo.dataset.varios;
                   // Los puntos medios se fotografían ACÁ, con el tablero todavía quieto.
                   medirTarjetas();
                 }}
@@ -2831,6 +2849,9 @@ export function CrmBoard({
                   <input type="checkbox" checked={selLeads.has(l.id)}
                     className="mk-sel-tarjeta"
                     data-marcada={selLeads.has(l.id) ? '1' : '0'}
+                    /* Con algo tildado se ven TODAS las casillas (como en el Plan): así se entiende que es para elegir
+                       varios, y se suma el segundo sin apuntarle a una casilla invisible (22/10/2026). */
+                    data-seleccionando={selLeads.size > 0 ? '1' : undefined}
                     onPointerDown={(ev) => ev.stopPropagation()}
                     onClick={(ev) => { ev.stopPropagation(); alternarSel(l.id); }}
                     onChange={() => { /* lo hace el onClick: ver arriba */ }}
@@ -3151,18 +3172,27 @@ export function CrmBoard({
               }}
               style={{ flex: 1, minHeight: 0, overflowX: 'auto', paddingBottom: 14 }}>
               <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', width: 'max-content' }}>
-                {columnasKanban.map((c) => renderColumn(c))}
+                {columnasKanban.map((c) => (
+                  <Fragment key={c.key}>
+                    {renderColumn(c)}
+                    {creandoTras === c.key && (
+                      <div role="status" aria-live="polite" style={{ flex: 'none', width: 304, minHeight: 'min(68vh, 520px)', background: FONDO_COLUMNA, borderRadius: 26, padding: '18px 16px', display: 'flex', alignItems: 'flex-start', gap: 10, fontFamily: SANS, fontSize: 14, color: 'var(--dim)' }}>
+                        <Spinner size={15} /> Creando la etapa…
+                      </div>
+                    )}
+                  </Fragment>
+                ))}
               </div>
             </div>
           )}
         </div>
       ) : (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
+        <div ref={tablaRef} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflowX: 'auto', overflowY: 'hidden' }}>
           {/* ⚠️ LA CASILLA DE «TODAS» MARCA LO QUE SE VE, no la tabla entera. Con un filtro
               puesto, «todas» tiene que significar las que el filtro dejo — seleccionar en
               silencio 1.100 leads que no estan en pantalla y despues ofrecer «Eliminar» es
               exactamente el boton que nadie puede auditar antes de apretarlo. */}
-          <div style={{ display: 'grid', gridTemplateColumns: COLS_TABLA, gap: 12, padding: '15px 22px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)', fontFamily: MONO, fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--dim)', alignItems: 'center' }}>
+          <div style={estiloEncabezado(plantillaTabla, anchoMinimo(colsTabla))}>
             <span>
               <input type="checkbox" checked={todosSel}
                 ref={(el) => { if (el) el.indeterminate = !todosSel && idsVisibles.some((id) => selLeads.has(id)); }}
@@ -3171,13 +3201,7 @@ export function CrmBoard({
                 aria-label={todosSel ? 'Quitar la selección' : 'Seleccionar los de esta vista'}
                 style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)' }} />
             </span>
-            <ThCrm activo={ordenTabla === 'nombre'} dir={dirTabla} onSort={() => sortearTabla('nombre')}>Nombre</ThCrm>
-            <ThCrm activo={ordenTabla === 'empresa'} dir={dirTabla} onSort={() => sortearTabla('empresa')}>Empresa</ThCrm>
-            <ThCrm activo={ordenTabla === 'origen'} dir={dirTabla} onSort={() => sortearTabla('origen')}>Origen</ThCrm>
-            <ThCrm activo={ordenTabla === 'etapa'} dir={dirTabla} onSort={() => sortearTabla('etapa')}>Etapa</ThCrm>
-            <ThCrm activo={ordenTabla === 'agenda'} dir={dirTabla} onSort={() => sortearTabla('agenda')}>¿Agendó?</ThCrm>
-            <ThCrm activo={ordenTabla === 'monto'} dir={dirTabla} onSort={() => sortearTabla('monto')}>Monto</ThCrm>
-            <ThCrm activo={ordenTabla === 'creado'} dir={dirTabla} onSort={() => sortearTabla('creado')} alinear="right">Creado</ThCrm>
+            <TitulosLista cols={colsTabla} orden={ordenTabla} dir={dirTabla} onSort={sortearTabla} />
             {/* SIN ROTULO: la columna trae dos acciones distintas y una palabra nombraria
                 mal a una de las dos. Cada boton se anuncia por su `title`/`aria-label`,
                 que es donde el texto no ocupa lugar. */}
@@ -3235,8 +3259,7 @@ export function CrmBoard({
                 }}
                 onDragEnd={() => { filaAgarrada.current = null; setFilaDestino(null); soltarCopia(); }}
                 style={{
-                  display: 'grid', gridTemplateColumns: COLS_TABLA, gap: 12, padding: '15px 22px',
-                  borderBottom: '1px solid var(--border)', alignItems: 'center', cursor: 'pointer',
+                  ...estiloFila(plantillaTabla, anchoMinimo(colsTabla)),
                   background: filaDestino === l.id ? 'var(--surface-2)' : tildado ? 'var(--surface-2)' : undefined,
                   // El destino se marca con un filete, no con un hueco: en una tabla, abrir
                   // un espacio del alto de una fila empuja todo lo de abajo y el ojo pierde
@@ -3252,16 +3275,9 @@ export function CrmBoard({
                   title={tildado ? rotQuitar(l.name) : rotPoner(l.name)}
                   aria-label={tildado ? rotQuitar(l.name) : rotPoner(l.name)}
                   style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)' }} />
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.name}</div>
-                  <div style={{ fontSize: 12.5, color: 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.email}</div>
-                </div>
-                <div style={{ fontSize: 13.5, color: 'var(--ink)', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.company}</div>
-                <div style={{ fontSize: 12.5, color: 'var(--dim)', minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.origin}</div>
-                <div style={{ minWidth: 0 }}><span style={chipStyle(m.tone)}>{m.label}</span></div>
-                <div style={{ fontSize: 13, color: 'var(--dim)' }}>{l.agenda ?? '—'}</div>
-                <div style={{ fontSize: 13.5, fontWeight: 600, color: isGanado ? 'var(--good)' : 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{isGanado ? montoDeTarjeta(l).texto : '—'}</div>
-                <div style={{ fontSize: 12.5, color: 'var(--faint)', textAlign: 'right', whiteSpace: 'nowrap' }}>{l.created}</div>
+                <CeldasLead cols={colsTabla} nombre={l.name} email={l.email} empresa={l.company} origen={l.origin}
+                  etapa={{ rotulo: m.label, estilo: chipStyle(m.tone) }} agenda={l.agenda}
+                  monto={{ texto: isGanado ? montoDeTarjeta(l).texto : '', ganado: isGanado }} creado={l.created} />
                 {/* ── LAS ACCIONES DE LA FILA. «Con acciones utiles» (05/10/2026). Son las dos
                     que hoy obligan a abrir la ficha para nada: escribirle, y sacarlo. Las dos
                     frenan la propagacion — un tacho que ademas abre la ficha deja la
@@ -3370,10 +3386,14 @@ export function CrmBoard({
               productos={funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }))}
               destino={funnelActivo}
               onAtras={() => setNuevoLead({ ...nuevoLead, traer: false })}
-              onTraidos={(movidos, fallaron) => {
+              onTraidos={(movidos, fallaron, deshacer) => {
                 setNuevoLead(null);
                 const falla = fallaron ? ` · ${fallaron} no se pudieron` : '';
-                mostrarAviso(`${movidos} ${movidos === 1 ? 'lead traído' : 'leads traídos'}${falla}`);
+                // Con su «Deshacer» (22/10/2026): el componente lo mandaba y el tablero lo tiraba. Traer 1.050 de una vez
+                // sin vuelta atrás es justo lo que no puede pasar; borra SÓLO las filas que este lote creó.
+                mostrarAviso(`${movidos} ${movidos === 1 ? 'lead traído' : 'leads traídos'}${falla}`, deshacer ? () => {
+                  void deshacer().then(() => router.refresh(), () => mostrarAviso('No se pudo deshacer', undefined, 'bad'));
+                } : undefined);
                 router.refresh();
               }}
             />

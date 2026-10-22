@@ -2650,6 +2650,206 @@ aceptaba la opción exacta: todo esto entraba nuevo.
   Excel. La exportación de clientes antepone «'» a lo que empieza con = + - @. Las otras exportaciones a CSV están en
   hallazgos-seguridad.
 
+**Y la séptima (punta 689f75560, entró sin altos ni medios): seis bajos.**
+- ⚠️ **Con un nombre esperando, una palabra que es sí y también nombre no puede confirmar.** La tercera revisión hizo un sí
+  de «Vale», «Listo», «Simón» o «Ándale»; la quinta dijo que también son nombres reales. Juntas, con «¿Te llamo «Cómo
+  Estás»?» escribir «Simón» para corregir guardaba «Cómo Estás». **Regla:** con un pendiente, lo que empieza con una
+  palabra de `PUEDE_SER_NOMBRE` es una 'duda' (`siAlPendiente`). No confirma ni reemplaza: se pregunta cuál («Escribe «Se
+  llama Listo». Si es «Vendo ropa», toca…»). El mismo nombre otra vez confirma. «Sí, …», «Ok», «Correcto» o «Está bien»
+  siguen siendo un sí. Las dos revisiones tenían razón a la vez, y la salida fue preguntar, no elegir una.
+- **Mover una regla arrastra a sus vecinas.** La sexta puso las cuotas antes que lo anual («Programa anual: 12 cuotas»),
+  pero movió también lo semanal, y «8 cuotas semanales» volvió a ser «Suscripción de 8 meses». Ahora lo semanal va antes y
+  las cuotas que dicen otra periodicidad («2 pagos anuales») no son meses.
+- **El sí o no «pelado» del toque era demasiado pelado.** Sólo valían «sí» y «no», y «Ok», «Dale», «👍» o «Nop» se anotaban
+  y se volvía a preguntar sin fin. Ahora cuentan los sí y no de una palabra (`SI_DE_UNA_PALABRA`, `NO_DE_UNA_PALABRA`, sin
+  el color de piel del emoji), y lo escrito tiene tope (`PDF_TOPE_ESCRITAS`: al pasarlo, se pide el botón).
+- **Una instrucción atada a una marca exacta no cubre lo que dice lo mismo con otras palabras.** MaKo preguntaba «qué
+  falta» sólo si la nota era `PDF_SIN_DETALLE`, y no con «No me convence». Ahora la instrucción va siempre.
+- **El mismo nombre otra vez tiene que leerse igual que la primera vez.** «Su Lin» se propuso con `nombreSinCortar`, pero
+  al escribirlo de nuevo se comparaba sólo con `extraerNombre`, que lo deja vacío.
+- **Un texto que se repite en una pregunta se corta por punto de código, no por unidad UTF-16.** `slice(0, 60)` partía un
+  emoji y dejaba medio par suelto, que se ve «�» y que Postgres rechaza al copiar la conversación al chat «Onboarding».
+  Ahora `cortar` corta por punto de código, también en `limpiarRespuesta` y en los nombres.
+
+**Y la octava (punta 108b2f270): dos regresiones contra producción, por arreglar de más.**
+- ⚠️ **La duda es de la PALABRA SUELTA, no de la frase que empieza con ella.** La séptima puso en duda todo lo que
+  EMPEZABA con «Claro», «Listo» o «Genial», y «Claro, así se llama» o «Listo, es correcto», que en producción confirmaban,
+  dejaron de hacerlo. Peor: el error mandaba escribir «Se llama Claro, así se llama», y eso proponía un nombre basura.
+  **Regla:** la duda es sólo para un texto hecho únicamente de palabras de `PUEDE_SER_NOMBRE`. Si detrás viene un sí que
+  no es nombre, es un sí. La entrada de la séptima, más arriba, decía «lo que empieza con»: era la regla mal escrita.
+- ⚠️ **Una periodicidad cuenta sólo si va pegada al pago, no a la descripción del servicio.** Para que «8 cuotas
+  semanales» no fueran meses, la séptima buscó «semanal» en todo el precio, y «3 cuotas mensuales de USD 300, con una
+  llamada semanal» pasó a «cobras por semana»: los 3 meses ya no se podían elegir. Ahora vale «N cuotas (de USD X)
+  semanales», «USD 50 por semana», «membresía anual» o «pago semanal» (`RE_CUOTAS_CON`, `RE_PEGADO`). Lo de una
+  sesión, una llamada o una clase no cuenta. Con «Programa anual USD 1.500», «anual» describe el programa y se propone
+  «Pago único».
+- **Una periodicidad sin camino propio no se propone.** Lo trimestral, semestral, bimestral o quincenal se proponía
+  como «Pago único» o «Suscripción mensual». Ahora va con su `periodo` y se pregunta, como lo anual o lo semanal.
+- **Un mensaje de error no dice «lo anoté» si no anotó nada.** Pasado el tope del PDF, lo escrito se descartaba con un
+  «Ya lo anoté». Ahora se suma a lo último hasta que no entra, y entonces sólo se pide el botón.
+- **Lo que enseña la ronda:** las dos regresiones salieron de arreglar un caso con una regla más ancha que el caso. La
+  comparación contra producción (las mismas frases en las dos puntas, con diff) las encontró. Una prueba de la punta sola
+  no las ve.
+
+**Y la novena (punta 82321e397): la cuarta vuelta de reglas sobre la periodicidad. Se cambió la red.**
+- ⚠️ **Cuatro vueltas de reglas sobre la periodicidad, y cada una movió casos de lugar.** La quinta leyó lo anual, la
+  sexta puso las cuotas antes, la séptima movió lo semanal, la octava lo pegó al pago, y en la novena «1 a 1 semanal» o
+  «3x semana» volvieron a ganar a «3 cuotas mensuales»: un número pelado parecía un monto. Cada vez, lo que se perdía era
+  la OPCIÓN correcta, no sólo la lectura, porque la lectura decidía qué opciones se mostraban. **Regla (decisión del
+  Cerebro):** las opciones del cobro son SIEMPRE todas las lecturas posibles (`opcionesDeCobro`): «Pago único»,
+  «Suscripción mensual (sin fin)» y una «Suscripción de N meses» por cada N junto a cuotas, pagos, meses o mensualidades.
+  La lectura sólo ORDENA (va primera y arma el «Entendí»), nunca saca una. Lo que el producto no sabe cobrar se dice sin
+  recomendar nada. Medido con las 204 frases de la sonda del Cerebro: la propuesta de producción está entre las opciones
+  en las 204. Es la misma salida que la del parser escrito (arriba): cuando las reglas no convergen, se cambia la red.
+- **«Suscripción mensual» se leía como «los meses de las cuotas».** Una suscripción sin meses se cobra todos los meses,
+  sin fin, y la persona la elegía para «3 cuotas mensuales». Ahora la etiqueta lo dice: «Suscripción mensual (sin fin)».
+- **Si el tope suma a lo último, la pregunta tiene que cambiar.** La pregunta del PDF repetía los primeros 60 caracteres
+  de lo último, y al sumarle algo quedaba igual: el guard de pestaña vieja no veía el cambio. Ahora repite lo último que
+  se sumó.
+
+**Y la décima (punta 5d353db16): la red estaba bien; la entrada, no.**
+- ⚠️ **Los números en letras se normalizan ANTES de leer, una vez.** La novena prometía «la opción correcta está siempre»,
+  y con «Tres cuotas mensuales de USD 300» la única suscripción ofrecida era la sin fin, propuesta primera. Es justo el
+  caso que motivó el «(sin fin)». La red juntaba sólo dígitos pegados a la palabra. Sumar «tres|seis|doce…» a cada regex
+  hubiera sido otra lista. **Regla:** se cambia la ENTRADA: `precioEnDigitos` pasa el precio a cifras una sola vez
+  (reusa `conNumerosEnLetras`, la de la facturación), y lo leen `cobroDelPrecio` y `opcionesDeCobro`. La red también
+  junta las enumeraciones («3, 6 o 12 cuotas»: las tres), «10 x USD 120», «cuotas: 3» y «en 3 partes». Las de cuotas van
+  antes que las de «meses», sin tope.
+- ⚠️ **Una lectura POR DEFECTO no es una lectura, y no se propone.** «Renovación anual de USD 1.500», «Membresía USD 29»
+  o «Suscripción de 6 meses» no tenían ninguna señal que la lectura entendiera, caían al `return unico` del final, y eso
+  se proponía como «Entendí que cobras así: Pago único», y un «Sí» lo guardaba. **Regla:** la caída sin señal se marca
+  (`porDefecto`) y se pregunta sin recomendar («No me queda claro cómo cobras»): orden fijo y un sí no elige
+  (`recomienda`). Sólo se propone lo que salió de una señal: pago único, contado, cuotas, mensual o lo periódico negado.
+  Con eso, un precio pelado («USD 997») también pregunta: un toque más, pero ninguna propuesta inventada.
+- **La guarda de pestaña vieja reconoce las confirmaciones por el TEXTO DEL BOTÓN, y el cobro perdió su «Sí, es eso».**
+  Una pantalla sin la pregunta volvía a poder guardar con un «Sí». Ahora el cobro con lectura recomendada cuenta como
+  confirmación por la etapa.
+- **El separador de lo sumado no puede ser algo que la persona escriba.** « · » partía también lo que escribió («Precio:
+  200 · Garantía: 30 días» se citaba a medias). Ahora es un salto de línea (`SUMA_PDF`), que `limpiarRespuesta` aplana en
+  lo escrito. Y la pregunta cuenta lo sumado («(y 1 cosa más)»): cambia aunque lo nuevo empiece igual que lo anterior.
+- **Un caso que está siempre por construcción no prueba nada.** 7 de los 20 precios del test de la novena tenían como
+  respuesta «Pago único» o la mensual, que siempre están. Se cambiaron por casos que pueden fallar: en letras,
+  enumeraciones, una N mayor a 12 y una segunda N con la lectura semanal. Y una medición contra la lectura vieja de
+  producción («está entre las opciones en las 204») no ve lo que producción también hacía mal: se mide contra la
+  respuesta CORRECTA.
+
+**Y la undécima (punta 1106e8c16): la red ya estaba; la lectura no leía lo que leía la red.**
+- ⚠️ **Pasar el texto a dígitos arrastra a las letras todo defecto que la lectura ya tenía con dígitos.** «2 meses
+  gratis» ya se proponía como el fin de la suscripción en producción; con `precioEnDigitos`, «dos meses gratis» también.
+  **Regla:** los meses se PROPONEN sólo pegados a un cobro («3 meses de USD 300», «USD 300 por mes durante 3 meses») o al
+  plazo del plan con lo mensual dicho («Contrato de 12 meses, USD 100 por mes», `RE_MESES_DEL_PLAN`), nunca los de
+  regalo, prueba o garantía. Los demás «N meses» sólo suman la opción.
+- ⚠️ **La lectura y la red tienen que usar el MISMO extractor de N.** Si no, la opción correcta está pero el «Sí» guarda
+  otra: «10 x USD 120 mensuales» tenía la de 10 meses entre las opciones y proponía la sin fin. Ahora `nsDelPrecio` arma
+  las N una vez, y la lectura toma la primera de las cuotas.
+- **Un número que lleva moneda nunca es una N de cobro**, y un número pelado no es un monto. «USD 47 o 2 pagos» traía «de
+  47 meses», y «1:1 semanal» o «3 x semana» pegaban una periodicidad al pago y le ganaban a las cuotas. Ahora las N miran
+  la moneda de los dos lados, y lo pegado al pago exige un monto con moneda (`MONTO_CON_MONEDA`).
+- **El borde de una palabra es cualquier cosa que no sea letra.** «(seis cuotas» no se convertía porque sólo se separaba
+  la puntuación DESPUÉS de una letra.
+- **Una señal dicha de otra forma sigue siendo una señal.** «Un pago de USD 900», «cuota única», «de por vida», «una
+  vez», «precio único» (`UNICO_DICHO`) y «no se paga en cuotas», «cuotas no» (`NEGO_LO_PERIODICO`) caían en la lectura por
+  defecto o en la sin fin.
+- **Medido contra la respuesta correcta**, con las 570 frases de la sonda del Cerebro que la traen: falta la opción
+  correcta en 0 (producción: 95), un «Sí» guarda mal en 6 (producción: 122) y bien en 431 (producción: 424). Ningún «Sí»
+  malo es nuevo. Lo que producción proponía bien y ahora pregunta son 83 precios sin señal de cobro: con etiqueta
+  («Precio:», «Valor:», «Desde»), por sesión o por hora, rangos, otras monedas o meses de acceso. Es la familia del
+  precio pelado, y es la regla de la décima.
+
+**Florencia otra vez (21/10, «cliente roto»): lo que el onboarding escribe, el cliente tiene que poder corregirlo.**
+- ⚠️ **Un dato que escribe la plataforma necesita un lugar donde el cliente lo corrija.** El nombre «mi marca personal:
+  Florencia Ayelen Carballo» lo escribió el onboarding del 18/10, y ella no tenía dónde cambiarlo: workspaces.nombre sólo
+  se editaba desde General (/configuraciones), que es del super admin. Arreglar el lector (el onboarding de hoy confirma
+  el nombre) no arregla a quien ya pasó. Ahora está «Tu negocio» (/configuraciones/negocio), primera sección para el
+  cliente, y lo cambia su admin (lib/nombre-negocio.ts, app/configuraciones/negocio-actions.ts).
+- **La reparación de un dato real no adivina.** Su precio dice «USD/mes (6 cuotas típicas)» y también «pago único» para
+  los servicios puntuales, y la lectura da pago único. El script (side-session-notes/…/feedback-20-10/reparar-ws21-v2.ts)
+  no toca el nombre (lo elige ella) y cambia el tipo de cobro sólo si quien lo corre dice cuál (`--meses=6` o
+  `--mensual`). Sin `--aplicar` sólo lee.
+- **Su chat «Onboarding» nunca se creó** (`hiloChat` vacío en su estado): terminó el 18/10, antes de que existiera, y ese
+  chat se crea cuando ella entra. Su conversación de Offer (sesión 14) sí guarda las preguntas de MaKo; las del nombre y
+  el negocio se arman al vuelo desde el estado y no se guardan en ningún lado.
+- **Medido en la base (21/10, noche): el ws21 tiene CERO chats en chart_sessions.** Lo único que su Ops Center puede
+  mostrar es la proyección de Offer (`hiloDeOffer`), y ésa tiene las 33 filas con las preguntas de MaKo. Lo que falta
+  son las preguntas Y las respuestas del arranque (nombre, negocio, fase, cómo llegó, interés, cobro). Además,
+  `mensajesDeOffer` descartaba la fila 3, el documento que ella mandó como respuesta (texto vacío y `adjuntos`), y
+  `mensajesDelHilo` lo escribe como «Adjunto: …»: eran dos mapeos del mismo dato.
+
+**Las preguntas del arranque, guardadas (21/10, noche, chat «Onboarding», claude3).**
+- **Medido en pantalla, no supuesto** (Chrome de Martín, `/api/auth/me` = super admin, `/second-brain?ws=21`): la barra
+  muestra «Second Brain» vacío (es el de Martín), «Offer › Mi oferta» y «Antes» sin nada. «Mi oferta»
+  (`/api/mako/chat?offerId=14`) trae 32 mensajes que alternan bien, con todas las preguntas de Offer. ⚠️ **El diagnóstico
+  obvio («la proyección pierde las preguntas» o «dibuja sólo `role: user`») era el equivocado.** Lo que faltaba era otra
+  cosa: el arranque entero, preguntas y respuestas, porque nunca se guardó. La conversación empezaba en «¿Tienes un
+  documento de tu oferta…?». Y el documento que ella mandó no se veía, así que quedaban dos preguntas de MaKo seguidas.
+- **Ahora se guarda como pasó**: lib/onboarding-historial.ts anota lo que MaKo dice la primera vez que la pantalla lo
+  dibuja, y lo que la persona manda, tal cual. Se anota en cada respuesta (la ruta: `anotarRespuesta` y
+  `vistaArranque({ anotar: true })`), nunca al mirar. La lectura es estricta y se escribe con compare-and-set. El Ops Center (`hiloDeOffer`) y el chat «Onboarding»
+  (`mensajesParaElHilo`) lo juntan por hora con la conversación de Offer. Regla general en AGENTS.md («Una conversación
+  que se le mostró a alguien es un HECHO»).
+- ⚠️ **No va en los `mensajes` de Offer**, aunque era lo pedido («en la sesión de Offer»). Esa lista maneja el
+  diagnóstico de Offer: el primer turno (`primero.era`), qué fase ya contestó (`estadoDiagnostico`), el último mensaje y
+  lo que lee el modelo. Y Offer la reescribe entera en cada turno. Una pregunta del arranque ahí adentro Offer la toma
+  como suya. Va en `onboarding.historial`, atada por `sesionId`.
+- ⚠️ **La «trampa» de `hechosDelArranque` era a medias.** `getCapaActual` lee la capa del WORKSPACE que está en contexto
+  (`workspaces.capa`), no la de quien mira. Y el perfil (`nombreCuenta`) no lo usa `mensajesDeArranque`, sólo
+  `leerRespuesta`. Lo que sí hay que mirar al reconstruir es que el ws esté en contexto (`runWithWorkspace`).
+- ⚠️ **Lo que tapó la revisión adversarial (21/10, noche), y cómo quedó:**
+  - **Una lectura que cae cambia lo que se dibuja, y lo dibujado quedaba para siempre.** Con el estado leído tolerante
+    caído, se anotaba «Un gusto, . ¿Cómo se llama tu negocio?». Con la capa caída a «completa», el modo plan se
+    dibujaba como oferta. Con la fase caída, salían preguntas que no se hicieron. Ahora, para anotar, el estado se lee
+    estricto, y lo que decide el dibujo (capa, diagnóstico, estado del onboarding, conversación) se relee estricto y
+    tiene que dar lo mismo (`hechosConfirmados`).
+  - ⚠️ **El primer guard (`faseCaida`) era código muerto:** `getSetting` nunca tira, así que su `.catch` no se ejecutaba.
+    La regla quedó en AGENTS.md («Una lectura que cae al DEFAULT…»).
+  - **Las respuestas a las confirmaciones se perdían.** La pantalla dibuja el dato CONFIRMADO («Acme»), no el toque
+    («Sí, se llama así»): anotar desde lo dibujado dejaba dos preguntas seguidas. Ahora, en vivo, lo de MaKo sale de lo
+    dibujado y lo de la persona sale de lo que MANDÓ (`anotarRespuesta`, con el texto de la opción que tocó). La pregunta
+    que vuelve («Ver otros tipos», «No, lo escribo de nuevo», «Cambiar número») se anota otra vez.
+  - **Con el cierre anotado, el historial se congela**: una pestaña vieja o el arreglo del nombre del ws21 no le suman
+    variantes. Pasado el tope no se anota más (antes tiraba lo más viejo: el saludo y el nombre). Y lo que no se
+    entiende entero no se pisa (`leerHistorial(…, { estricto: true })`).
+  - ⚠️ **Segunda revisión (22/10): confirmar con el `h` de ANTES de una escritura da falso justo cuando la respuesta
+    escribe lo que se compara.** La respuesta que cierra la fase guarda el diagnóstico, y `hechosConfirmados` corrido
+    después ya no coincidía con `h`: esa respuesta no se anotaba nunca, en ningún onboarding. Ahora se confirma antes de
+    escribir nada y se pasa el resultado.
+  - **El último mensaje de MaKo no siempre es una pregunta abierta.** En el cierre ya tiene su respuesta dibujada
+    («Listo, ya lo cargué.», «Ahora no»), y la regla de «la pregunta que vuelve» lo duplicaba. La pregunta abierta es el
+    último mensaje de la vista, y sólo si es de MaKo. Con el teléfono ya verificado no se manda código, pero la
+    conversación lo dibuja como cargado: se anota igual, con su respuesta.
+  - El test que cuenta es el recorrido entero como lo corre la ruta (`leerRespuesta` en cada etapa, con «Ver otros
+    tipos», «Cambiar número» y «Ahora no»), y no un salto del PDF al final: el salto pasaba con diez preguntas sin respuesta.
+- **La reconstrucción** (scripts/reconstruir-historial-onboarding.mts, en seco por defecto) alcanzó 4 negocios: ws3
+  (prueba), 20, 21 y 22, todos terminados. Lo de antes de Offer va justo antes de su primer mensaje. Lo de después va
+  antes de que se cerrara el onboarding. Todo lleva la marca `reconstruido`, que en el Ops Center ve sólo el super admin
+  («Reconstruido: …»). Los textos son los de hoy, no los del día en que pasó. Un negocio que ya tiene historial no se
+  toca, así que se puede volver a correr después del deploy. ⚠️ **Va ANTES del script que arregla el nombre del ws21**,
+  porque ése cambia `onboarding.arranque.negocio`, y armado después diría que ella contestó el nombre nuevo.
+- **«No veo el chat de ONBOARDING» (Martín, 21/10 ~23:00).** El chat «Onboarding» es de la clienta (chart_sessions con su
+  chart_key) y el super admin que mira un ws ve SUS chats, no los de ella. Por eso no aparecía aunque existiera. Ahora la
+  conversación del onboarding se lista con el título «Onboarding» para quien no tiene su copia (`chatsDeOffer`), y trae el
+  arranque entero. A Florencia, el suyo se le crea en su próxima visita al Ops Center, ya desde el historial.
+- **Los audios, medidos (ws21):** 7 de sus 16 respuestas fueron por voz, y los 7 audios están guardados (sesión 14,
+  `mensajes[].audio.path`, y los 7 archivos en archivero/21/offer/). No se perdió ninguno. En el arranque no hay audios
+  que perder: mientras pregunta el arranque el micrófono está apagado (`voz={arranque.manda ? undefined : …}` en
+  app/offer/OfferApp.tsx). Lo que faltaba era MOSTRARLOS: `mensajesDeOffer` pasaba sólo la transcripción, y la copia al
+  chat «Onboarding» guardaba sólo texto. Ahora `MensajeChat.audio = { url, secs }`, con la URL de /api/offer/audio sin el
+  `?ws=` (la pantalla le pone `conWs`). En chart_chats queda `bloques: [{ k: 'audio', sesion, mensaje, secs }]`, sin ruta
+  de Storage: la ruta de Offer la vuelve a buscar con su puerta.
+- **Sin hacer:**
+  - El reproductor en la burbuja, que lo hace el chat «Ops Center». Hasta entonces el audio llega en los datos pero no se
+    ve: `aMensaje` (app/m/mako/chat-ui.ts) no copia `audio`, y `NotaDeVoz` usa la URL sin `conWs`, así que el super admin
+    mirando recibiría 403.
+  - En modo 'plan' (sin Offer) el historial se guarda pero ningún hilo del Ops Center se lo muestra al super admin,
+    porque la proyección cuelga de la conversación de Offer. Vive en lib/chat-mako-indice.ts. Medido el 22/10: de 16
+    negocios, sólo dos están en modo plan, el ws5 (pausado) y el ws9 (el de Martín). Ningún cliente activo: no se hizo.
+  - La proyección le muestra a cualquier admin del negocio el WhatsApp de los avisos que cargó el dueño. Antes eso
+    estaba sólo en el chat «Onboarding» del dueño. Es el contacto del negocio, pero queda anotado.
+  - ~~El doble toque CRUZADO~~ (hecho el 22/10): dos POST del mismo toque que leen el estado de antes, donde el `listo`
+    del primero ya anotó la pregunta siguiente. Mirar los dos últimos anotados no alcanzaba. Ahora se busca la ÚLTIMA vez
+    que se anotó esa pregunta: si la sigue esa misma respuesta y ninguna otra, no se anota. Una pregunta que se volvió a
+    hacer tiene su última vez después de esa respuesta, así que contestarla igual sí se anota.
+
 **Sin hacer:** «Vendo 20 a 500 dólares» se sigue leyendo como un rango; la confirmación lo muestra y se corrige con un
 toque. Las etiquetas de los tramos dicen «$» sin «USD» (lib/fase-diagnostico.ts): es una decisión de copy, no de este
 chat. Vive en lib/onboarding-arranque.ts (`cifraDe`). Cobrar por año o por semana necesita un intervalo en el producto
@@ -2658,3 +2858,12 @@ trabaja la oferta: la ven el super admin y MaKo cuando la busca. Al pasar de lo 
 árbol (con voz → sin voz) y el campo se vuelve a montar: se pierde el foco y en el teléfono se cierra el teclado.
 
 *21/10/2026, chat «Onboarding» (claude4), rama onboarding-v3.*
+
+## Un documento de Offer pisaba el perfil del negocio (22/10/2026, chat «Offer»)
+
+El brief (`mako.onboarding.answers`) se escribía también desde Offer: cada archivo subido en el chat pasa por El Archivero
+y `answersConDocumento` sumaba sus claves con «el más nuevo gana». Un documento de Offer describe la oferta que se
+analiza, no el negocio: el ws1 (Mauricio) subió su Sprint, una oferta de entrada, y su perfil quedó con el Sprint como
+oferta principal y su avatar (04:08 UTC). Desde el 22/10 sólo llena lo que el perfil no tiene. La regla para quien
+escriba el brief desde otra tab: una feature que analiza UNA cosa no escribe el perfil del negocio con lo de esa cosa.
+Detalle en docs/hallazgos-offer.md → «Un archivo subido en Offer pisaba el perfil del negocio».

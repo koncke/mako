@@ -153,7 +153,8 @@ test('5. ⚠️ dos cobros A LA VEZ sobre la misma cuota: gana uno, el otro «ya
   assert.match(pagos, /siSigue\(supabase\.from\('pagos'\)\.update\(\{ pagado, fecha_pago: fecha \}\)\.eq\('id', pagoId\), pagado\)\.select\('id'\)/);
   // (21/10: el «ya estaba» cura lo de después, `yaEstabaAsi`; el test 7 lo prueba.)
   assert.match(pagos, /if \(!tocadas\?\.length\) return yaEstabaAsi\(pagoId, pago, pagado\);/);
-  assert.match(pagos, /siSigue\(db\.from\('pagos'\)\.update\(upd\)\.eq\('id', pagoId\)\.eq\('lead_id', leadId\), true\)\.select\('id'\)/);
+  // (21/10/2026, mig 0323) Y con el monto que se leyó: el test 12.
+  assert.match(pagos, /siSigue\(db\.from\('pagos'\)\.update\(upd\)\.eq\('id', pagoId\)\.eq\('lead_id', leadId\)\.eq\('monto_usd', original\), true\)\.select\('id'\)/);
   const cobrar = pagos.slice(pagos.indexOf('export async function cobrarCuota('), pagos.indexOf('export async function registrarPagoSuelto('));
   assert.doesNotMatch(cobrar, /await marcarPago\(/, 'cobrarCuota no escribe en dos pasos');
   assert.match(cobrar, /await curarDespues\(pagoId, leadId, true, fila\.cobro_id \?\? null\);/, 'y corta los recordatorios como marcarPago');
@@ -240,7 +241,8 @@ test('7. ⚠️ los bordes del cobro: una falla no lo deja a medias, el reintent
   assert.ok(cobrar.indexOf('await asegurarLeadDelNegocio(leadId)') < cobrar.indexOf('await cobrarConResto('), 'el lead es del negocio ANTES de escribir');
   const conResto = pagos.slice(pagos.indexOf('async function cobrarConResto('));
   assert.match(conResto, /db\.rpc\('cobrar_cuota_con_resto', \{ p_ws: ws, \.\.\.p \}\)/);
-  assert.match(conResto, /if \(funcionNoExiste\(error\)\) throw new Error\('Un cobro por menos todavía no se puede guardar: falta la migración 0318/);
+  // (21/10/2026, revisión de 7524ec1c9) La función de ahora es la de la 0323 (con `p_original`): sin ella, eso dice.
+  assert.match(conResto, /if \(funcionNoExiste\(error\)\) throw new Error\('Un cobro por menos todavía no se puede guardar: falta la migración 0323/);
   assert.match(conResto, /if \(error\.code !== PG_DUPLICADO\) throw/);
   const pasarela = pagos.slice(pagos.indexOf('export async function registrarCobroDeProveedor('), pagos.indexOf('export async function remarcarCobroDeProveedor('));
   assert.doesNotMatch(pasarela, /await marcarPago\(/, 'la pasarela no marca en dos pasos');
@@ -376,6 +378,120 @@ test('9. ⚠️ un pago suelto previo: nunca nace una cuota por un mes ya cobrad
   assert.equal(siguienteFechaDeCuota(['2026-10-21', '', '2026-11-21'], '2026-10-21'), '2026-12-21', 'una fila sin fecha no cuenta');
 });
 
+test('10. ⚠️ quinta revisión: lo que gana lleva su cierre, el plan uniforme no tapa cuotas con una seña, y no tomarla no es «ya estaba»', () => {
+  const s = correr() as unknown as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any -- la salida del hijo, campo por campo
+  // Una suscripción ganada desde el asistente con su plan quedaba con `fecha_cierre` NULL: no contaba en los cierres del
+  // mes, el MRR la daba activa para siempre y nunca «Terminó». Ahora, el día del NEGOCIO (las 20 h del 20/10 en México).
+  assert.equal(s.cierreNuevo, '2026-10-20');
+  assert.equal(s.cierreQueTenia, '2026-10-01', 'la que ya tenía no se toca');
+  // La seña de 100 (número 1) tapaba la cuota 1 de 1000 y la API decía «Listo» con 900 menos: ahora no se arma, y se dice.
+  assert.match(String(s.unifSena), /Ya tenía pagos cobrados: el plan no se armó/);
+  assert.equal(s.unifSenaFilas, 1, 'no se escribió nada');
+  // Con un plan y una seña en el número 2, el plan entero (1000 + 3 × 1000) queda por cobrar: la seña no tapa la cuota 2.
+  assert.equal(s.unifPlan, 4000);
+  assert.deepEqual(s.unifPlanNumeros, [0, 1, 2, 3, 4], 'ningún número repetido');
+  // La cuota se borra mientras se cobra (entera y por menos): no es «ya estaba», y no se escribe nada.
+  for (const k of ['borradaEntera', 'borradaMenos']) assert.match(String(s[k]), /La cuota cambió mientras la cobrabas/, k);
+  assert.equal(s.borradaMenosFilas, 0, 'ni una diferencia de un cobro que no se anotó');
+  // Menos de un centavo: ni el cobro entero, ni en 0.
+  assert.match(String(s.centavo), /al menos un centavo/);
+  assert.deepEqual([s.centavoCuota.pagado, s.centavoCuota.monto_usd], [false, 500]);
+
+  const pagos = sinComentarios(leer('lib/pagos.ts'));
+  const cobrar = pagos.slice(pagos.indexOf('export async function cobrarCuota('), pagos.indexOf('export async function registrarPagoSuelto('));
+  assert.doesNotMatch(cobrar, /return yaCobrada\(\);\s*\} else \{|if \(!tomada\?\.length\) return yaCobrada\(\);/, 'no tomarla pasa por `noTomada`');
+  assert.equal((cobrar.match(/return noTomada\(\);/g) ?? []).length, 2, 'la transacción y la escritura entera');
+  const modal = leer('app/crm/lead-view/ficha/pagos/piezas.tsx');
+  assert.match(modal, /const r = Number\.isFinite\(n\) && n > 0 \? Math\.round\(n \* 100\) \/ 100 : 0;\s*return r > 0 \? r : null;/, 'el modal dice «falta el monto»');
+  // MaKo no propone el plan uniforme encima de plata suelta (y `savePlanPagos` igual lo frena).
+  const run = sinComentarios(leer('lib/api-mako/areas/crm.run.ts'));
+  const gpp = run.slice(run.indexOf('  guardar_plan_pagos: {'), run.indexOf('  guardar_cuotas: {'));
+  assert.match(gpp, /const sueltos = avisoPlanUniforme\(await getPagosByLead\(lead\.id\)\);\s*if \(sueltos\) return \{ error: sueltos \};/);
+  // El tablero pide el plan con el tipo de venta que se ELIGE (pasar de suscripción a pago único lo pide).
+  const acciones = sinComentarios(leer('app/crm/actions.ts'));
+  assert.match(acciones, /tienePagos\(pagosExistentes\) \|\| \(d\.ventaTipo \?\? before\?\.venta_tipo\) === 'suscripcion'\)/);
+  const wizard = sinComentarios(leer('app/crm/StageMoveDialog.tsx'));
+  assert.match(wizard, /ventaTipo,\s*\}\)\s*\.then\(\(r\) => \{ if \(vivo\) setReqServer\(r\); \}\)/);
+  assert.match(wizard, /\}, \[lead\.id, to, move\.asistioJ1, move\.asistioJ2, yaCalificado, yaMotivo, ventaTipo\]\);/);
+});
+
+test('11. ⚠️ revisión de 7524ec1c9: «Cambiar el plan» de la ficha sobre una seña por link o sobre la diferencia de un cobro por menos', () => {
+  const s = correr() as unknown as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any -- la salida del hijo, campo por campo
+  // La seña de US$100 cobrada por un link sin cuota nace cobrada: no es una cuota del plan.
+  assert.deepEqual(s.senaLinkFila, [{ numero: 1, pagado: true, proveedor: 'stripe', nacio_cobrada: true }]);
+  // «Armar el plan» 1000 + 3 × 1000 encima: 4000. La cuota a 1200: 4600 (antes 4400: la seña tapaba la cuota 1 y la
+  // última quedaba en 1000). El día 10: una cuota por mes (antes noviembre quedaba sin cuota y enero con dos).
+  assert.equal(s.senaLinkArmado, 4000);
+  assert.equal(s.senaLink1200, 4600);
+  assert.deepEqual(s.senaLinkDia10, { deuda: 4600, vencen: ['2026-11-10', '2026-12-10', '2027-01-10'] });
+  // La cuota 1 cobrada por 600: la diferencia de 400 nace marcada con la cuota de la que sale, con su vencimiento. El plan
+  // pasa a 4 cuotas y al día 10: 1000 + 3 × 1000 + 400 = 4400 (antes 5000: la diferencia se reescribía como la cuota 4 y
+  // la nueva quedaba intacta). Con un pago suelto antes (26: la regresión) y sin él (27: venía de antes).
+  for (const lead of [26, 27]) {
+    assert.deepEqual(s[`resto${lead}Fila`], [{ monto_usd: 400, fecha_esperada: '2026-11-05', resto_de: true }], `${lead}`);
+    assert.equal(s[`resto${lead}Crecio`], 4400, `${lead}`);
+    assert.deepEqual(s[`resto${lead}Dia10`], { deuda: 4400, vencen: ['2026-12-10', '2027-01-10', '2027-02-10'] }, `${lead}`);
+  }
+  // La regla es UNA (`esCuotaDelPlan`), y la fila dice de dónde nació desde que se inserta.
+  assert.match(sinComentarios(leer('lib/cobrado-lead.ts')), /export const esPlataSuelta = [^\n]*\n\s*!!q\.pagado && !esCuotaDelPlan\(q\);/);
+  assert.match(sinComentarios(leer('lib/pagos-campo.ts')), /existentes\.filter\(\(x\) => esCuotaDelPlan\(x\) && !x\.devuelta\)/);
+  const pagos = sinComentarios(leer('lib/pagos.ts'));
+  assert.match(pagos, /nacio_cobrada: !!q\.nacio_cobrada, resto_de: q\.resto_de \?\? null,/, 'la reconciliación recibe la marca');
+  const pasarela = pagos.slice(pagos.indexOf('export async function registrarCobroDeProveedor('), pagos.indexOf('export async function remarcarCobroDeProveedor('));
+  assert.match(pasarela, /fecha_pago: p\.fechaPago,\s*nacio_cobrada: true,\s*\.\.\.marca,/, 'el cobro de un link sin cuota nace cobrado');
+  // La 0323: la columna, sin clave foránea, y la función de la 0318 con `p_original`, que la escribe.
+  const MIG = 'supabase/migrations/0323_cobrar_cuota_original_y_resto.sql';
+  const sql = leer(MIG).replace(/^\s*--.*$/gm, '');
+  assert.match(sql.trim(), /^begin;[\s\S]*\ncommit;$/, 'en una transacción: no hay un instante sin función');
+  assert.match(sql, /alter table pagos add column if not exists resto_de bigint;/);
+  // (revisión de e19a5196f) La marca de «Registrar el mes cobrado», y las de antes por su concepto (test 13).
+  assert.match(sql, /alter table pagos add column if not exists es_mensualidad boolean not null default false;/);
+  assert.match(sql, /update pagos set es_mensualidad = true\s*where nacio_cobrada and proveedor is null and not es_mensualidad and lower\(trim\(coalesce\(concepto, ''\)\)\) = 'mensualidad';/);
+  assert.doesNotMatch(sql, /resto_de bigint references/);
+  assert.match(sql, /insert into pagos \(workspace_id, lead_id, numero, monto_usd, fecha_esperada, pagado, resto_de\)\s*values \(p_ws, p_lead, v_numero, p_resto, p_vence, false, v_id\)/);
+  const sql0318 = leer('supabase/migrations/0318_cobrar_cuota_con_resto.sql').replace(/^\s*--.*$/gm, '');
+  for (const igual of ['security invoker', 'perform 1 from pagos where lead_id = p_lead and workspace_id = p_ws order by id for update;', 'where id = p_pago and lead_id = p_lead and workspace_id = p_ws and pagado is not true', "return jsonb_build_object('tomada', true, 'resto', v_resto);"]) {
+    assert.ok(sql.includes(igual) && sql0318.includes(igual), igual);
+  }
+  assert.match(sql, /set search_path = public/);
+  // La firma de 11 se borra (con las dos, PostgREST no sabe a cuál llamar), y la nueva acepta la llamada de antes.
+  const once = 'bigint, bigint, bigint, date, text, numeric, text, numeric, boolean, numeric, date';
+  assert.ok(sql.includes(`drop function if exists public.cobrar_cuota_con_resto(${once});`));
+  assert.match(sql, /p_vence date,\s*p_original numeric default null\s*\)/);
+  assert.match(sql, /where id = p_pago and lead_id = p_lead and workspace_id = p_ws and pagado is not true\s*and \(p_original is null or monto_usd = p_original\)/);
+  const firma = `public\\.cobrar_cuota_con_resto\\(${once}, numeric\\)`;
+  assert.match(sql, new RegExp(`revoke execute on function ${firma} from public, anon, authenticated;`));
+  assert.match(sql, new RegExp(`grant execute on function ${firma} to service_role;`));
+  assert.match(leer(MIG), /ORDEN DE DESPLIEGUE: ANTES del código que manda `p_original`/);
+  // La app manda el monto que leyó, en el cobro por menos y en el entero.
+  const cobrar = pagos.slice(pagos.indexOf('export async function cobrarCuota('), pagos.indexOf('export async function registrarPagoSuelto('));
+  assert.match(cobrar, /p_resto: pend, p_vence: fila\.fecha_esperada \?\? datos\.fecha,\s*p_original: original,/);
+  assert.match(cobrar, /\.update\(upd\)\.eq\('id', pagoId\)\.eq\('lead_id', leadId\)\.eq\('monto_usd', original\), true\)/);
+});
+
+test('12. ⚠️ la cuota se cobra con el monto que se LEYÓ: editada en el medio, no se toma (mig 0323, `p_original`)', () => {
+  const s = correr() as unknown as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any -- la salida del hijo, campo por campo
+  // Cobrar 300 de una cuota de 500 que alguien pasó a 400 justo antes: antes, 300 cobrados + 200 pendientes (500 de una
+  // cuota de 400). Ahora no se escribe nada y se dice.
+  assert.match(String(s.originalMenos), /La cuota cambió mientras la cobrabas/);
+  assert.deepEqual(s.originalMenosFilas, [{ pagado: false, monto_usd: 400 }], 'ni cobrada ni con una diferencia');
+  // Lo mismo con el cobro entero: no queda cobrada por los 500 de antes.
+  assert.match(String(s.originalEntero), /La cuota cambió mientras la cobrabas/);
+  assert.deepEqual(s.originalEnteroFilas, [{ pagado: false, monto_usd: 400 }]);
+  // Sin cambios en el medio, cobra como siempre (los otros tests): acá, el control.
+  assert.deepEqual(s.originalControl, [{ pagado: true, monto_usd: 300 }, { pagado: false, monto_usd: 200 }]);
+});
+
+test('13. ⚠️ «Registrar el mes cobrado» marca la fila como la mensualidad; «Registrar un pago», no (mig 0323)', () => {
+  const s = correr() as unknown as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any -- la salida del hijo, campo por campo
+  assert.deepEqual(s.mensualidadFilas, [{ monto_usd: 1000, pagado: true, es_mensualidad: true }, { monto_usd: 300, pagado: true, es_mensualidad: false }]);
+  // La pantalla lo dice según el modo, y la acción lo deja pasar.
+  assert.match(leer('app/crm/lead-view/ficha/pagos/piezas.tsx'), /concepto: concepto\.trim\(\) \|\| null, mensualidad: modo === 'mensualidad' \}\);/);
+  assert.match(leer('app/crm/[id]/deal-actions.ts'), /registrarPagoSueltoAction\(leadId: number, datos: \{ monto: number; fecha: string; hora\?: string \| null; mensualidad\?: boolean \} & DatosDeMoneda\)/);
+  // Sólo la marca, si viene: sin la migración, un pago suelto se sigue guardando.
+  assert.match(sinComentarios(leer('lib/pagos.ts')), /nacio_cobrada: true,\s*\.\.\.\(datos\.mensualidad \? \{ es_mensualidad: true \} : \{\}\),/);
+});
+
 // ROTURAS (20/10/2026). Base: 4 pases, 0 fallos (los tests 1 a 4). Rota (pases / fallos):
 //   · `marcarPago` sin la vuelta de «ya estaba»                                       → 3 / 1 (1)
 //   · `cobrarCuota` reescribe una cuota cobrada (monto y moneda)                      → 3 / 1 (1)
@@ -444,3 +560,36 @@ test('9. ⚠️ un pago suelto previo: nunca nace una cuota por un mes ya cobrad
 //   · la 0318 sin el revoke                                                         → 8 / 1 (7)
 //   · la 0318 sin el grant a service_role                                           → 8 / 1 (7)
 //   · la 0318 toma las cuotas sin orden                                             → 8 / 1 (7)
+//
+// ROTURAS de la quinta revisión (21/10/2026). Base: 10 pases, 0 fallos. Rota (pases / fallos):
+//   · lo que gana con el plan, sin fecha de cierre                                   → 9 / 1 (10)
+//   · `savePlanPagos` arma encima de una seña                                        → 9 / 1 (10)
+//   · la cuota borrada en el medio es «ya estaba» (entera)                           → 9 / 1 (10)
+//   · la cuota borrada en el medio es «ya estaba» (por menos)                        → 9 / 1 (10)
+//   · menos de un centavo se cobra                                                   → 9 / 1 (10)
+//   · MaKo propone el plan uniforme encima de una seña                               → 9 / 1 (10)
+//   · el tablero no vuelve a preguntar al cambiar el tipo                            → 9 / 1 (10)
+//   · «Plan de pagos» con el tipo guardado, no el elegido                            → 9 / 1 (10)
+//   · el modal toma 0,004 como un monto                                              → 9 / 1 (10)
+//
+// ROTURAS de la revisión de 7524ec1c9 y de la 0323 (21/10/2026). Base: 12 pases, 0 fallos. Rota (pases / fallos):
+//   · la pasarela inserta el cobro de un link sin `nacio_cobrada`                    → 11 / 1 (11)
+//   · la reconciliación no recibe `resto_de`                                         → 11 / 1 (11)
+//   · el lugar vuelve a mirar sólo `nacio_cobrada`                                   → 11 / 1 (11)
+//   · `cobrarCuota` no manda `p_original`                                            → 10 / 2 (11 y 12)
+//   · el cobro entero no mira el monto                                               → 9 / 3 (5, 11 y 12)
+//   · la 0323 no mira el monto                                                       → 11 / 1 (11)
+//   · la 0323 no borra la firma de 11 argumentos                                     → 11 / 1 (11)
+//   · la 0323 sin transacción                                                        → 11 / 1 (11)
+//   · `p_original` sin default (el código de antes del deploy no la encuentra)       → 11 / 1 (11)
+//   · el revoke sobre la firma vieja                                                 → 11 / 1 (11)
+//   · la 0323 inserta la diferencia sin `resto_de`                                   → 11 / 1 (11)
+//   · la columna con clave foránea (`on delete set null`)                            → 11 / 1 (11)
+//   · la 0323 toma las cuotas sin orden                                              → 11 / 1 (11)
+//   · el mensaje vuelve a decir «falta la migración 0318»                            → 11 / 1 (7)
+//
+// ROTURAS de la revisión de e19a5196f (21/10/2026). Base: 13 pases, 0 fallos. Rota (pases / fallos):
+//   · `registrarPagoSuelto` no escribe la marca de la mensualidad                    → 12 / 1 (13)
+//   · la pantalla no manda el modo                                                   → 12 / 1 (13)
+//   · la 0323 sin la columna `es_mensualidad`                                        → 12 / 1 (11)
+//   · la 0323 no rellena las de antes (por su concepto)                              → 12 / 1 (11)

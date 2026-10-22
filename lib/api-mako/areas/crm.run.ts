@@ -40,10 +40,11 @@ import { etapaVigenteDe } from '@/lib/funnel-etapas';
 import { calificadoSeDescarta } from '@/lib/calificado-reunion';
 import { getJuntasProximas } from '@/lib/queries';
 import { getLeadPlan, getPagosByLead, savePlanPagos, saveLeadPlanManual, marcarPago, cobrarCuota, registrarPagoSuelto, monedaDelNegocio } from '@/lib/pagos';
-import { avisoDeConservadas, avisoMonedaPorOmision, cobroManualDeEntrada, textoDelCobro } from '@/lib/pagos-campo';
+import { avisoDeConservadas, avisoMonedaPorOmision, avisoPlanUniforme, cobroManualDeEntrada, textoDelCobro } from '@/lib/pagos-campo';
 // Sólo para la lectura cobranza_lead (14/10/2026): lo cobrado con la misma cuenta que la ficha.
 import { cobradoDelLead, noEsDeuda } from '@/lib/cobrado-lead';
 import { estadoDeCuenta, movimientosDelLead } from '@/lib/pagos-vistazo';
+import { bloqueEstadoDeCuenta, comprobanteDelPedido, notaEnPantalla } from '@/lib/pagos-bloque';
 import { listarCobros } from '@/lib/cobros';
 import { NOMBRE_PASARELA, type Pasarela } from '@/lib/cobros-tipos';
 import { centavos, diferenciaPendiente, type RestoDeCobro } from '@/lib/pagos-diferencia';
@@ -545,7 +546,18 @@ export const RUNNERS: Runners = {
         suscripcionCanceladaAt: (lead as unknown as { suscripcion_cancelada_at?: string | null }).suscripcion_cancelada_at ?? null,
         pagos: plan.pagos, cobros, hoy,
       });
-      return json({
+      // ⚠️ EL ESTADO DE CUENTA Y LOS MOVIMIENTOS SON LOS DE LA TAB PAGOS (16/10/2026, lib/pagos-vistazo.ts): qué debe,
+      // qué hacer ahora y lo que ya pasó con la plata. MaKo contesta con lo MISMO que ve la persona en la ficha.
+      const e = estadoDeCuenta({ cobrado: cob, pagos: plan.pagos, ganado: lead.estado_lead === 'ganado', hoy });
+      // Sin los cobros no se sabe si la suscripción la cobra la pasarela: registrar el mes a mano podría duplicarlo.
+      const accion = e?.accion && !(cobrosSinLeer && e.accion.tipo === 'registrar-mes') ? e.accion : null;
+      const dibuja = !!ctx.aDibujar;
+      // El archivo del mensaje es el comprobante de ESTE lead sólo si el modelo lo dice, si toca cobrar una cuota (va
+      // atado a ésa) y si otro lead del mismo mensaje no lo tomó (lib/pagos-bloque.ts, `comprobanteDelPedido`).
+      const delPedido = dibuja
+        ? comprobanteDelPedido({ adjuntos: ctx.adjuntos, lead, esSuyo: input.comprobante === true, accion: accion?.tipo === 'cobrar-cuota' ? { tipo: accion.tipo, pagoId: accion.pagoId } : accion })
+        : { comprobante: null, sin: null };
+      const contenido = json({
         lead_id: lead.id, nombre: lead.nombre, estado: lead.estado_lead,
         venta_tipo: lead.venta_tipo ?? 'unico',
         total_vendido_usd: plan.total_usd,
@@ -566,12 +578,7 @@ export const RUNNERS: Runners = {
           ...(cob.cuadra && !cob.cuadra.cuadra && !cob.baja ? { no_cuadra: `El plan suma USD ${cob.cuadra.diferenciaUsd > 0 ? 'más' : 'menos'} que el cierre (diferencia ${cob.cuadra.diferenciaUsd}).` } : {}),
           ...(cob.seDibuja ? {} : { nota: cob.tipo === 'sin_cobro' ? 'Becado: no tiene cobrado.' : 'Sin venta ni cuotas cargadas.' }),
         },
-        // ⚠️ EL ESTADO DE CUENTA Y LOS MOVIMIENTOS SON LOS DE LA TAB PAGOS (16/10/2026, lib/pagos-vistazo.ts): qué debe,
-        // qué hacer ahora y lo que ya pasó con la plata. MaKo contesta con lo MISMO que ve la persona en la ficha.
         estado_de_cuenta: (() => {
-          const e = estadoDeCuenta({ cobrado: cob, pagos: plan.pagos, ganado: lead.estado_lead === 'ganado', hoy });
-          // Sin los cobros no se sabe si la suscripción la cobra la pasarela: registrar el mes a mano podría duplicarlo.
-          const accion = e?.accion && !(cobrosSinLeer && e.accion.tipo === 'registrar-mes') ? e.accion : null;
           return e ? {
             titular: e.titular, detalle: e.detalle, tono: e.tono, falta_usd: e.faltaUsd,
             que_hacer: accion ? { accion: accion.tipo, boton: accion.boton, ...(accion.tipo === 'cobrar-cuota' ? { pago_id: accion.pagoId } : {}) } : null,
@@ -588,6 +595,10 @@ export const RUNNERS: Runners = {
         cuotas,
         ...(cuotas.length ? {} : { nota_cuotas: 'Sin cuotas cargadas: no hay plan de pagos, no significa que no deba nada.' }),
       });
+      // En el chat de la app el estado de cuenta se DIBUJA con la pieza de la tab Pagos (la 2.28, lib/pagos-bloque.ts).
+      // Lo que le dice al modelo del bloque (y del comprobante) va por `siSeDibuja`: SÓLO si el bloque entró en el mensaje
+      // (`ejecutarOperacion`). Con el tope de bloques lleno, decía «revisa y guarda el cobro ahí» y ahí no había nada.
+      return dibuja ? { content: contenido, bloque: bloqueEstadoDeCuenta(lead, delPedido.comprobante), siSeDibuja: notaEnPantalla(delPedido) } : contenido;
     }),
   },
   insight_lead: {
@@ -2031,6 +2042,9 @@ export const RUNNERS: Runners = {
       const plan = { cobro_inicial_usd: n(input.cobro_inicial_usd) ?? null, monto_cuota_usd: n(input.monto_cuota_usd) ?? null, total_cuotas: n(input.total_cuotas) ?? null, dia_de_pago: n(input.dia_de_pago) ?? null };
       if (plan.cobro_inicial_usd == null && plan.monto_cuota_usd == null) return { error: 'Pasa al menos el cobro inicial o el monto de la cuota (en USD).', faltan: ['cobro_inicial_usd', 'monto_cuota_usd'] };
       if (plan.monto_cuota_usd != null && plan.total_cuotas == null) return { error: 'Con monto de cuota hace falta la cantidad de cuotas (1 a 6).', faltan: ['total_cuotas'] };
+      // Con plata suelta y sin plan, no se propone (21/10/2026): la seña tapaba la cuota 1 (`savePlanPagos` igual lo frena).
+      const sueltos = avisoPlanUniforme(await getPagosByLead(lead.id));
+      if (sueltos) return { error: sueltos };
       const partes = [plan.cobro_inicial_usd != null ? `inicial ${plan.cobro_inicial_usd} USD` : '', plan.monto_cuota_usd != null ? `${plan.total_cuotas} cuota(s) de ${plan.monto_cuota_usd} USD` : '', plan.dia_de_pago != null ? `día ${plan.dia_de_pago}` : ''].filter(Boolean);
       return { payload: { leadId: lead.id, ...plan }, resumen: `Plan de pagos de ${lead.nombre}: ${partes.join(', ')}. Reemplaza las cuotas no pagadas.` };
     },

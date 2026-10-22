@@ -71,7 +71,8 @@ test('la ruta del chat: la persona adentro de cada handler, el plazo de un turno
 });
 
 test('la pantalla corta después del techo de la ruta, y manda por la ruta del chat', () => {
-  const src = leer('app/second-brain/ChatSecondBrain.tsx');
+  // El motor del chat del cliente (22/10/2026): la computadora y el teléfono mandan por la MISMA ruta.
+  const src = leer('app/second-brain/useChatCliente.ts');
   assert.match(src, /const RUTA = '\/api\/mako\/chat';/);
   assert.match(src, /const TOPE_MS = 425_000;/);
   assert.ok(!src.includes('/api/m/mako'), 'una sola ruta para la pieza de escritorio');
@@ -84,8 +85,11 @@ test('el índice: un chat de otro no existe, «Antes» usa la regla de /mako, y 
   const src = sinComentarios(crudo);
   const hilo = src.slice(src.indexOf('export async function hiloDelSecondBrain('));
   assert.ok(hilo.includes('if (!s || s.chart_key !== t.base) return null;'), 'el chat pedido es de la MISMA persona');
-  const antes = crudo.slice(crudo.indexOf('export async function hiloDeAntes('), crudo.indexOf('// ── Para la API'));
+  // La regla vive en `sesionDeAntes`, y la usan leerlo (`hiloDeAntes`) y seguirlo (`claveDeAntes`, 21/10/2026).
+  const antes = crudo.slice(crudo.indexOf('async function sesionDeAntes('), crudo.indexOf('// ── Para la API'));
   assert.ok(antes.includes('esChatDelTelefono(s.chart_key)') && antes.includes('puedeUsarSesion(s.chart_key, q)'), '«Antes»: la regla de /mako');
+  assert.match(antes, /export async function hiloDeAntes\([\s\S]*?\n  const s = await sesionDeAntes\(q, id\);/, 'leerlo, con la regla');
+  assert.match(antes, /export async function claveDeAntes\([^)]*\)[^{]*\{\s*return \(await sesionDeAntes\(q, id\)\)\?\.chart_key \?\? null;/, 'seguirlo, con la regla');
   const run = sinComentarios(leer('lib/api-mako/areas/mako.run.ts'));
   for (const op of ['listar_chats_mako', 'hilo_chat_mako']) {
     const ini = run.indexOf(`  ${op}: {`);
@@ -122,11 +126,13 @@ test('los adjuntos: se abren por su mensaje mirando de quién es, no quedan suel
   assert.equal((ruta.match(/guardarAdjuntos: true/g) ?? []).length, 1, 'el Second Brain lo pide (sólo en el envío con archivos)');
   assert.match(sinComentarios(leer('app/api/m/mako/route.ts')), /guardarAdjuntos: true/, 'el teléfono lo pide');
   assert.ok(!/guardarAdjuntos/.test(sinComentarios(leer('lib/mako-analyst-lead.ts'))), 'el Analyst del lead no');
-  assert.match(turno, /archivarPdfsDelChat\(ws, msg\.id, inicio, pdfs\)/, 'el plazo de El Archivero corre desde que empezó el turno');
+  // `msgId` es `msg.id` (21/10/2026: El Archivero se decide antes, con D6b; tests/solo-su-ia.test.ts).
+  assert.match(turno, /archivarPdfsDelChat\(ws, msgId, inicio, pdfs\)/, 'el plazo de El Archivero corre desde que empezó el turno');
   const archivar = turno.indexOf('archivarPdfsDelChat(ws');
   assert.ok(archivar > 0, 'el turno pasa los PDF a El Archivero');
   const antes = turno.slice(0, archivar);
-  assert.ok(antes.slice(antes.lastIndexOf('if (')).startsWith("if (persona.rol === 'admin'"), 'sólo los del admin (El Archivero alimenta el perfil del negocio)');
+  // Desde el 21/10/2026 el «sólo el admin» está en la lista de los PDF (antes de decidir El Archivero con D6b).
+  assert.ok(antes.lastIndexOf("const pdfs = persona.rol === 'admin' && msg.conBloques && msgId != null ?") > 0, 'sólo los del admin (El Archivero alimenta el perfil del negocio)');
 
   const cc = sinComentarios(leer('lib/chart-chats.ts'));
   const del = cc.slice(cc.indexOf('export async function deleteSession('));

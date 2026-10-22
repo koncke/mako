@@ -332,7 +332,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'configurar_automatizacion', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Configurar una automatización',
-    descripcion: 'PROPONE el horario de oficina o las horas entre dos mensajes a la misma persona de UNA automatización (lo mismo que su tuerca en Automations). Sin nada propio, usa los del negocio. Pide antes el secuenciaId con listar_secuencias_nutricion.',
+    descripcion: 'PROPONE el horario de oficina, las horas entre dos mensajes a la misma persona o el GOTEO de sus WhatsApp (uno cada N minutos y hasta M por día, adentro del tope de la línea) de UNA automatización (lo mismo que su tuerca en Automations). Sin nada propio, usa los del negocio. Pide antes el secuenciaId con listar_secuencias_nutricion.',
     parametros: [
       pSecuenciaId,
       { nombre: 'horario', tipo: 'string', enum: ['propio', 'negocio', 'sin_horario'], descripcion: 'opcional: «propio» (con desde, hasta y dias), «negocio» para volver al del negocio, o «sin_horario» para que mande a cualquier hora.' },
@@ -342,8 +342,11 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'horasWhatsapp', tipo: 'number', entero: true, minimo: 3, maximo: 72, descripcion: 'opcional: horas entre dos WhatsApp a la misma persona en esta automatización.' },
       { nombre: 'horasEmail', tipo: 'number', entero: true, minimo: 1, maximo: 168, descripcion: 'opcional: horas entre dos emails a la misma persona en esta automatización.' },
       { nombre: 'personaNegocio', tipo: 'boolean', descripcion: 'opcional: true para volver a las horas del negocio.' },
+      { nombre: 'goteoMinutos', tipo: 'number', entero: true, minimo: 1, maximo: 240, descripcion: 'opcional: el goteo, minutos entre dos WhatsApp de esta automatización (uno cada N minutos).' },
+      { nombre: 'goteoPorDia', tipo: 'number', entero: true, minimo: 1, maximo: 150, descripcion: 'opcional: el goteo, cuántos WhatsApp de esta automatización como mucho en 24 h (adentro del tope de la línea).' },
+      { nombre: 'sinGoteo', tipo: 'boolean', descripcion: 'opcional: true para sacarle el goteo.' },
     ],
-    reversible: true, escribe: 'guarda automatizacion.config:<id> en app_settings (el horario y las horas a la misma persona de esa automatización)',
+    reversible: true, escribe: 'guarda automatizacion.config:<id> en app_settings (el horario, las horas a la misma persona y el goteo de esa automatización)',
     canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   {

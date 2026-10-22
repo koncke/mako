@@ -9990,3 +9990,142 @@ que su hoja no puso aparte (`partesDeReunion1`, `partesDeVisitas`). Nada guardad
 no se migra la configuración guardada.
 **Vive en:** app/crm/lead-view/ficha/reglas-reuniones.ts · reglas-tracking.ts · Armador.tsx · ReunionesCard.tsx ·
 ComportamientoCard.tsx. Test: tests/crm-ficha-bloques-partidos.test.ts. *20/10/2026, chat «CRM» (claude4).*
+
+## Las sugerencias que faltaban: lo que la base NO sabe y casi se cuenta igual (20/10/2026, noche)
+
+- **WhatsApp no sabe quién mandó un saliente.** `wa_mensajes` no tiene autor y las automatizaciones mandan por la MISMA
+  función que Chats (`enviarYEspejar`). «El mismo mensaje a 3 leads» contado ahí habría dicho «mandaste el mismo
+  mensaje a 30 leads» por una secuencia. Se cuentan Instagram/Messenger (`ig_mensajes` saliente: sólo lo escribe el
+  envío manual) y email (`email_mensajes` con `autor`). Para sumar WhatsApp hace falta marcar el autor al enviar (una
+  columna en `wa_mensajes`: migración que numera el Cerebro).
+- **«Sin CRM» no existe en la base.** Un lead de una landing o una campaña sin asignar cae al CRM principal
+  (`funnel_id` null), igual que uno asignado a propósito. Se vuelve a mirar la asignación de HOY (`landing.config`,
+  `meta.campanas`), y con un solo CRM no se sugiere nada (no hay a dónde conectarla). El formulario de Meta no se
+  asigna por formulario sino por campaña: el aviso dice «la campaña».
+- **Esas dos lecturas van ESTRICTAS** (`getSettingEstricto`, `leerCampanasAsignadasEstricto`): `getSetting` devuelve
+  null si falla, `parsearConfig(null)` es `[]` y TODA landing parecería suelta. El test rompe eso a propósito.
+- **«Volvió» es un día DESPUÉS del que entró.** `landing_visits` y `vsl_events` no tienen `lead_id` (se cruzan por
+  `leads.visitor_id`) ni filtran por fecha en los helpers de `lib/leads.ts`; la visita del día del alta no es volver,
+  y el autoplay (`auto = true`) no es mirar el VSL.
+- **La ficha de un lead vive en `/crm/<id>`; `/crm?lead=<id>` no abre nada** (la página sólo lee `funnel` y
+  `embudo`). La primera versión del aviso lo usaba. `lib/cerebro-vivo.ts:229` todavía arma ese link.
+
+**Sin hacer:** WhatsApp en «el mismo mensaje» (falta el autor en `wa_mensajes`); el link de `lib/cerebro-vivo.ts`.
+**Vive en:** lib/sugerencias-crm.ts y lib/sugerencias-crm-server.ts · test tests/sugerencias-crm-gestos.test.ts ·
+*20/10/2026 noche, chat «CRM» (claude4).*
+
+## Lo que encontró la revisión de las sugerencias (21/10/2026)
+
+- **El id de una sugerencia tiene que sobrevivir a TRES lugares**: lo arma el motor, lo valida la ruta y lo relee
+  «Ahora no» (`parsearCalladas`). Un id con «.», «/», «>» o «ñ» (una URL, el nombre de una campaña, «lead>agenda»)
+  la ruta lo rechazaba con 400 y la sugerencia volvía en cada carga sin poder callarse. Ahora hay una sola regla
+  (`ID_SUGERENCIA`) y lo que viene de afuera va como un hash corto (`idGestoMover`, `idSinCrm`). El test hace la ida y
+  vuelta de «Ahora no» con CADA familia de id.
+- **Un clic en el VSL pueden ser dos plays**: el snippet v16/v17 con Wistia manda dos filas a milisegundos
+  (lib/video-id.ts), y una página con dos videos o una recarga también. «Volvió a mirar el VSL» cuenta DÍAS y sólo los
+  plays POSTERIORES al alta, por hora: un play un día después del alta (la regla de las visitas). ⚠️ La primera versión
+  del arreglo comparaba por día y un VSL mirado el 14 y el 15 a la mañana, antes del formulario del 15 a la tarde, se
+  leía «volvió» (segunda revisión del 21/10). Sin el alta, plays en dos días distintos.
+- **Las pruebas no son del negocio**: las visitas con `prueba` (`?mko_test`), la vista previa del editor y el lead
+  PRUEBA de la prueba del Pixel (`origen_lead = 'prueba'`) ya no cuentan como «volvió». Es la misma regla que los
+  gráficos (`noEsDelNegocio`).
+
+**Sin hacer (bajo):** «Hacerlo» por el chat no calla la sugerencia en el server; puede volver en la próxima carga.
+**Vive en:** lib/sugerencias-crm.ts y sugerencias-crm-server.ts · app/api/crm/mako/route.ts ·
+tests/sugerencias-crm-gestos.test.ts · *21/10/2026, chat «CRM» (claude4), revisión del Cerebro.*
+
+## /crm en lista en un escritorio chico: columnas con prioridad, y una celda que no recorta se monta sobre la de al lado (21/10/2026)
+
+- **Síntoma (Martín, ~934×639 px de CSS: Chrome al 60 % de 1920×1080 con escala 125 %):** los encabezados se pisaban
+  («¿AGENDÓMONTCREADO»), la etapa «Nutrición – Reactivación» se montaba sobre la fecha y el nombre se cortaba a 8 letras.
+- **Causa:** siete columnas en fracciones fijas (`34px 2fr 1.4fr … 64px`). Con la barra lateral abierta a la tabla le
+  quedan ~600 px y 1fr eran 41 px: el nombre, 82. Y dos celdas NO recortaban: el botón de ordenar del encabezado (no se
+  achica sin `minWidth: 0`) y el chip de la etapa (`nowrap` sin `maxWidth`). En una grilla, lo que no recorta no empuja
+  la columna: se dibuja ENCIMA de la de al lado, sin error.
+- **La regla (app/crm/tabla-columnas.ts):** cada columna tiene un mínimo con que se LEE y una prioridad (nombre, etapa,
+  ¿Agendó?, Creado, Empresa, Monto, Origen); entran por prioridad mientras quepan con su mínimo y la primera que no
+  entra CORTA (si no, a 1024 entraba Monto y no Creado). El nombre y la etapa siempre. La Empresa que no entra va
+  debajo del nombre, con el email. CrmBoard mide el recuadro con `ResizeObserver` (la barra se pliega, el panel de MaKo
+  se abre) y usa la MISMA plantilla en el encabezado y en cada fila.
+- **Medido en un navegador con los componentes reales** (tests/_crm-lista-arnes.tsx, la barra abierta): antes, a
+  934×639, 5 textos fuera de su celda y el nombre en 82 px (11 letras); a 1024×768, 4 y 102 px. Ahora, 0 y 0; el
+  nombre en 178 px a 934 (24 de 26 letras del más largo) y entero a 1024. Con la barra plegada entran Creado y Empresa.
+  **Cómo se cuenta «se pisa»:** el texto VISIBLE (recortado por sus ancestros con `overflow`) que cae fuera de la caja
+  de su celda; una foto no lo cuenta.
+
+**Sin hacer:** verlo en la app real (el arnés dibuja los componentes de la tabla, no la página entera); la vista
+Kanban no se tocó.
+**Vive en:** app/crm/tabla-columnas.ts · app/crm/TablaListaLeads.tsx · app/crm/CrmBoard.tsx ·
+tests/crm-lista-escritorio-chico.test.ts y tests/_crm-lista-arnes.tsx · *21/10/2026, chat «CRM» (claude4).*
+
+## La etiqueta en lote corta en 200 y el aviso se pierde; «Agregar a un funnel» acepta 2.000 (21/10/2026)
+
+Armando la prueba de la prospección del Sprint en el ws3: con 301 leads tildados, «Funnel › Sprint de Diseño» los
+sumó a los 301 («301 a Sprint de Diseño», con Deshacer), pero «Etiqueta › Sprint · texto» no le puso la etiqueta a
+NINGUNO. El server rechaza más de 200 por vez (`TOPE_LOTE`, app/api/crm/etiquetas/route.ts: «Hasta 200 leads por
+vez.») y la barra limpia la selección; el aviso dura poco y no se vio. Para la base de Mauricio (1.094) son 6 tandas
+de etiqueta contra 1 de funnel. **Regla:** dos acciones de la misma barra con topes distintos, el tope se dice ANTES
+(en el botón, con cuántos hay tildados), no en un toast después. **Sin hacer.** Desde el 21/10 la cohorte de una
+automatización ve a los agregados a su CRM (hallazgos-chatbot, «La prospección del Sprint»): para una campaña ya no
+hace falta etiquetar a todos, sólo para partir audio y texto.
+
+## Traer a 1.050 de otro funnel y arrastrar a 50 tildados: los P0 de la llamada con Mauricio (22/10/2026)
+
+Mauricio arranca el sábado 24/10 a mover 50 leads por día del CRM principal al del Sprint («Prospección activa»).
+Medido en el ws1 (sólo lectura): 1.050 en `reactivacion` del CRM principal, 300 ya agregados a «Sprint 3 días».
+
+- **«300 de 1050» no era un tope de la consulta, era de la PANTALLA**: `leadsDeProductoAction` ya trae a todos; lo que
+  cortaba era `slice(0, 300)` y que «tildar todos» mirara sólo esos 300. Ahora «todos» son todos los que cumplen el
+  filtro (app/crm/traer-seleccion.ts → `filasParaTraer`). Lo que el filtro deja afuera sigue sin tildarse.
+- **Los que ya estaban ocupaban los 300 lugares**: salían en gris y sin casilla, y como la lista los traía primero, la
+  pantalla mostraba siempre a los mismos 300 ya traídos y nunca a los siguientes. No se listan: se cuentan en una línea.
+- **El server corta en 2.000 sin decirlo** (`agregarLoteAProductoAction`: `slice(0, 2000)`): la pantalla agrega de a
+  1.000 (`TANDA_AGREGAR`) y suma lo que entró y lo que falló de cada tanda; el deshacer, igual.
+- **El tablero tiraba el «Deshacer» del traer**: `TraerDeOtroProducto` lo mandaba como tercer argumento de `onTraidos` y
+  CrmBoard sólo leía dos. Traer 750 sin vuelta atrás era justo lo que no podía pasar.
+- **El botón de agregar no se veía** porque el que scrollea es el cuerpo del Modal (`.mk-modal__cuerpo`), no la tabla:
+  el pie va `position: sticky; bottom: 0` adentro del cuerpo.
+- **Arrastrar uno de varios tildados movía sólo ése.** Ahora `handleDrop`, si el arrastre es de verdad (no `idASoltar`,
+  que usan «Mover a…» del menú y la ficha), el lead está tildado y hay más de uno, llama a la barra de lote
+  (`manijaLote.moverDeEtapa`): la MISMA pregunta con el número que su desplegable «Etapa». Soltar el grupo en su propia
+  columna sigue reordenando a ése. La copia que viaja dice «50 leads»: la marca `data-varios` se pone en el origen sólo
+  mientras `montarCopia` lo clona.
+- **«No entiendo para qué es la cajita»**: el rótulo dice para qué («…para moverlo o editarlo junto con otros») y, con
+  algo tildado, se ven todas las casillas (`data-seleccionando`, la regla que el Plan ya usaba).
+
+**Vive en:** app/crm/TraerDeOtroProducto.tsx, traer-seleccion.ts, CrmBoard.tsx (`handleDrop`) · app/globals.css ·
+tests/crm-traer-todos.test.ts
+*22/10/2026, chat «CRM» (claude3).*
+
+## Los P1 de la llamada con Mauricio (22/10/2026): lo que «tarda» y lo que tapaba
+
+- **«Mover tarda» no era el arrastre de siempre**: `persistStage` y `moverEnProducto` ya movían en el acto. El que
+  esperaba al server era «Agenda» → «Ya está agendada» / «Ya ocurrió» (`confirmManualMeeting`), justo lo que Mauricio
+  hizo en el minuto 4. Ahora mueve antes y vuelve si la acción tira (`markMeetingManualAction` no devuelve `ok`: tira).
+- **Crear una etapa es guardar el funnel, releerlo y refrescar el tablero**: segundos sin señal. «Creando…» en su lugar,
+  en el pop-up (`FilaCreando`) y en el tablero (`creandoTras`, que se va cuando llegan las `stages` nuevas o si falla).
+- **El menú de CRMs flotando encima del pop-up**: el desplegable vive en un portal con su z-index; la marca `cierra` de
+  `DropdownAccion` existía desde el 05/10 (Customer Success) y el lápiz del CRM no la usaba.
+- **C7 contradecía una decisión de Martín** (16/10: las hojas en el desplegable del título, como el Dashboard). En la
+  llamada él mismo dijo «voy a hacer de que esté un poco más visible», no «volvé a las pestañas»: el desplegable queda
+  (es donde se crea y se ordena una hoja) y las otras hojas van como atajos al lado del título; en el teléfono, no.
+- **C6 («los tres puntos de "Lead entrante" lo mandaron a otro lado») no se reproduce leyendo el código**: ninguna opción
+  del «⋯» de una columna de entrada navega. La que SÍ navega está en el «⋯» de la BARRA: «Buscar prospectos»
+  (`href="/crm/prospectos"`), la única de ese menú que no abre un pop-up. Sin confirmar en un navegador.
+
+**Vive en:** app/crm/CrmBoard.tsx (`confirmManualMeeting`, `opEtapa`), EtapasModal.tsx, CrmToolbar.tsx,
+lead-view/LeadTabs.tsx · tests/crm-llamada-22-10-p1.test.ts
+*22/10/2026, chat «CRM» (claude3).*
+
+## C8: «de dónde vino» un lead que pasa del Sprint a la R1 del CRM principal (22/10/2026)
+
+- **No hacía falta un dato nuevo**: un lead del Sprint que llega a la R1 está en los DOS CRMs (su casa, el principal, y
+  una fila en `lead_funnel` del Sprint, mig 0207). El desplegable de funnel de la ficha ya lo sabía (`funnelsDelArbol`),
+  pero sólo dibujaba el que se mira: para enterarse había que abrirlo. Ahora, al lado, «También en: <CRM> › <etapa>».
+- El anuncio por el que entró ya lo decía el bloque «Origen» (`origenDelLead`); la atribución por funnel de un lead que
+  está en varios sigue pendiente (F1 de docs/pedidos-crm.md: lib/lead-funnel.ts, una migración).
+
+**Vive en:** app/crm/lead-view/arbol-funnels.ts (`otrosFunnelsDelLead`), ProductoDelLead.tsx (`FunnelYEtapa`) ·
+tests/crm-ficha-de-donde-vino.test.ts
+*22/10/2026, chat «CRM» (claude3).*
+

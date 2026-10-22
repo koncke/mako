@@ -13,6 +13,7 @@
 // (una extensión, la red, un deploy nuevo) lo descarta el servidor (lib/errores-app-reglas.ts, `esRuido`).
 
 import { useEffect } from 'react';
+import { ID_PANTALLA_DE_NEXT } from '@/lib/errores-app-reglas';
 
 const TOPE_POR_PAGINA = 5;
 
@@ -23,16 +24,21 @@ export function ReportadorDeErrores() {
       const clave = `${nombre}|${mensaje}`.slice(0, 300);
       if (!mensaje || vistos.has(clave) || vistos.size >= TOPE_POR_PAGINA) return;
       vistos.add(clave);
-      try {
-        void fetch('/api/errores', {
-          method: 'POST', keepalive: true, headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            nombre, mensaje: mensaje.slice(0, 500), stack: stack.slice(0, 4000),
-            ruta: `${window.location.pathname}${window.location.search}`, navegador: navigator.userAgent,
-            pantalla: `${window.innerWidth}x${window.innerHeight}`,
-          }),
-        }).catch(() => {});
-      } catch { /* reportar un error nunca puede romper nada */ }
+      // Un turno después: si el error tumbó la app entera (la pantalla de Next), lo avisa CentinelaArranque con su nombre
+      // propio y éste se calla — si no, el mismo choque abría dos tickets.
+      setTimeout(() => {
+        if (document.documentElement.id === ID_PANTALLA_DE_NEXT) return;
+        try {
+          void fetch('/api/errores', {
+            method: 'POST', keepalive: true, headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              nombre, mensaje: mensaje.slice(0, 500), stack: stack.slice(0, 4000),
+              ruta: `${window.location.pathname}${window.location.search}`, navegador: navigator.userAgent,
+              pantalla: `${window.innerWidth}x${window.innerHeight}`,
+            }),
+          }).catch(() => {});
+        } catch { /* reportar un error nunca puede romper nada */ }
+      }, 0);
     };
     const alError = (e: ErrorEvent) => {
       const err = e.error as Error | undefined;

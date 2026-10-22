@@ -156,20 +156,25 @@ test('el Kanban suelta con `mover` y NO abre el pop-up de prioridad', () => {
     assert.doesNotMatch(src, /setSoltada|prioridadManual|sugerirNumero|scoreEntre\(|onSoltar/, `${nombre} volvió a preguntar la prioridad`);
   }
   assert.match(KANBAN, /const columnas = columnasPorEstado\(tasks, tablero, /);
-  assert.match(KANBAN, /void board\.mover\(id, destino, ordenNuevo\);/);
-  assert.match(KANBAN, /useArrastreTactil<EstadoTarea>\(\(id, destino\) => soltarEn\(id, destino\), colDe, puedeMover\)/);
+  // (20/10/2026) Con las columnas PROPIAS del negocio (lib/plan-columnas.ts) la columna de una tarjeta es su CLAVE
+  // (el estado, o el id de una propia), no su estado: tests/plan-columnas-propias.test.ts.
+  // (21/10, la revisión) Un tablero que no conoce las columnas (embebido) no le borra la propia a nadie: manda undefined.
+  assert.match(KANBAN, /void board\.mover\(id, d\.estado, ordenNuevo, undefined, board\.columnas \? d\.columna : undefined\);/);
+  assert.match(KANBAN, /useArrastreTactil<string>\(\(id, destino\) => soltarEn\(id, destino\), colDe, puedeMover\)/);
   assert.match(COLUMNA, /soltarEn\(id, e, ordenAlSoltar\(otros, idx\)\);/);
   // El montaje no le pasa al Kanban ningún camino al pop-up.
   const montaje = bloque(SHELL, '<Kanban tasks={visibles}', '/>');
   assert.match(montaje, /tablero=\{conFin\}/);
   assert.doesNotMatch(montaje, /onSoltar|setSoltada/);
   // Y el campo del motivo sale al caer en «Atorada».
-  assert.match(KANBAN, /if \(destino === 'en_seguimiento' && estadoDe\(t\) !== 'en_seguimiento'\) setMotivoDe\(id\);/);
+  assert.match(KANBAN, /if \(d\.estado === 'en_seguimiento' && estadoDe\(t\) !== 'en_seguimiento'\) setMotivoDe\(id\);/);
 });
 
 test('el «＋» de cada columna crea la tarea con ESE estado', () => {
-  assert.match(COLUMNA, /onClick=\{\(\) => onNew\(e\)\}/);
-  assert.match(bloque(SHELL, '<Kanban tasks={visibles}', '/>'), /onNew=\{\(e\) => \{ setNuevaTareaEstado\(e \?\? null\); setNuevaTarea\(true\); \}\}/);
+  // (20/10/2026) Con las columnas PROPIAS del negocio (lib/plan-columnas.ts) la columna de una tarjeta es su CLAVE
+  // (el estado, o el id de una propia), no su estado: tests/plan-columnas-propias.test.ts.
+  assert.match(COLUMNA, /onClick=\{\(\) => onNew\(estadoCol, propia \? e : null\)\}/);
+  assert.match(bloque(SHELL, '<Kanban tasks={visibles}', '/>'), /onNew=\{\(e, col\) => \{ setNuevaTareaEstado\(e \?\? null\); setNuevaTareaColumna\(col \?\? null\); setNuevaTarea\(true\); \}\}/);
   assert.match(SHELL, /<CrearTareaModal proyectoInicial=\{nuevaTareaProj\} estadoInicial=\{nuevaTareaEstado\}/);
   const MODAL = sinComentarios(leer('app', 'plan', 'board', 'CrearTareaModal.tsx'));
   assert.match(MODAL, /\.\.\.\(estadoInicial \? \{ estado: estadoInicial \} : \{\}\)/);
@@ -205,7 +210,9 @@ test('sin re-puntuación oculta: el navegador no llama al Perro por su cuenta', 
 test('useBoard: mover escribe por `repo.mover` (no por el guardado) y el avance mueve la columna', () => {
   const B = sinComentarios(leer('app', 'plan', 'board', 'useBoard.ts'));
   const mover = bloque(B, 'const mover = async ', '\n  const deshacerMover = ');
-  assert.match(mover, /const canon = await repo\.mover\(id, estado, lugar, \{ motivo, historial \}\);/);
+  // (20/10/2026) Con las columnas PROPIAS del negocio (lib/plan-columnas.ts) la columna de una tarjeta es su CLAVE
+  // (el estado, o el id de una propia), no su estado: tests/plan-columnas-propias.test.ts.
+  assert.match(mover, /const canon = await repo\.mover\(id, estado, lugar, \{ motivo, historial, columna: colNueva \}\);/);
   assert.doesNotMatch(mover, /markDirty\(/, 'el estado no viaja en el upsert de la fila entera');
   assert.match(mover, /motivoParaNoMover\(t, estado\)/);
   // El choke point del avance pasa por `conAvance` (completar, reabrir, deshacer un avance).

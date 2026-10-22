@@ -1,0 +1,56 @@
+# =============================================================================
+# medir tipos — UNA medición en Actions de cómo se reparte la memoria del chequeo de tipos
+# =============================================================================
+# Por qué (21/10/2026): el paso «Tipos» de integracion.yml pasó de ~2 GB a 5,06 GB de memoria viva en ocho días (run 203: vivo_mb=5062 de un tope de 6.144, 7.723 archivos). El runner tiene 7,9 GB y el
+# programa crece ~1 GB por semana: subir el tope otra vez es esperar al próximo OOM. El arreglo de fondo se elige con UN número que sólo se puede medir acá (hacen falta ≥ 7 GB libres): cuánto baja el pico
+# por proceso si el chequeo se reparte en 2, 3 o 4 tandas, si partir tests/ del resto alcanza, y qué archivos son los más lentos de chequear. scripts/medir-tipos.mjs lo mide y lo deja en el log y en el
+# resumen del run (líneas `MEDIDA-TIPOS …` y una tabla).
+#
+# Cómo se usa: se pushea la rama `medir-tipos` (o se dispara a mano con «Run workflow»). NO corre en `integracion` ni en `main`, NO escribe nada en el repo (permisos de sólo lectura) y no avanza nada.
+# Cuesta ~15-20 minutos de runner UNA vez (de los 2.000 del mes). Después de leer los números, esta rama se borra.
+#
+# SEGUNDA MEDICIÓN (21/10/2026 noche). La primera (run 39603272529) dio: el tsc entero 5.065 MB; 2 tandas 4.102 · 3 tandas 3.685 · 4 tandas 3.535; partir tests/ del resto NO alcanza; y el PISO (el programa atado,
+# 2.406 MB = 47 % del pico) no baja con más tandas y crece con el repo. Ésta mide lo que podría bajar el piso, SIN partir el programa en proyectos: `types: ['node']` (types-node), los literales grandes de datos
+# (sin-literales: modifica archivos del checkout de ESTE runner, que se descarta), el programa de cada tanda con sólo sus raíces (*-raices) y el reparto por costo medido (*-balanceadas), contra `tandas-4`
+# de la misma corrida. ~30 minutos: ocho experimentos de a uno (tandas-1 va primero: escribe el costo por archivo que leen los balanceados).
+#
+# TERCERA MEDICIÓN (21/10/2026 tarde, ~10 minutos). La segunda (run 39616608454) dio que `--raices` con 4 tandas baja el pico a 2.595 MB (42 %) contra 3.537 de `tandas-4`, pero el medidor marcó COBERTURA DISTINTA:
+# 27 archivos que el programa trae por import y ninguna tanda tomaba como raíz (16 .mjs, 10 .json, 1 .ts de node_modules). Las tandas ahora los chequean (los «extras»). Esta corrida sólo confirma, en el repo
+# de verdad, que `tandas-4-raices` da cobertura ✔ (los mismos archivos que el chequeo entero) y deja `tandas-4` al lado para comparar el pico en el mismo runner.
+# =============================================================================
+name: medir tipos
+
+on:
+  push:
+    branches: [medir-tipos]
+  workflow_dispatch:
+
+concurrency:
+  group: medir-tipos
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  medir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      # Igual que integracion.yml: tsc ve los tipos de las rutas que deja `.next/` y el next-env.d.ts, que están en .gitignore.
+      - name: Tipos de las rutas
+        run: npx next typegen
+
+      - name: Medir
+        run: |
+          echo "runner: $(nproc) CPU, $(free -m | awk '/Mem:/ {print $2}') MB de RAM"
+          node scripts/medir-tipos.mjs --solo tandas-1,tandas-4,tandas-4-raices

@@ -281,6 +281,96 @@ el MRR un 85% (hallazgos-crm.md).
 - **Una fila sin cuota no ofrece «Cobrada»:** abre la ficha, donde se registra el mes. General y el teléfono descartaban
   toda fila sin cuota; ahora las dos usan `cobroDeFila` (app/m/dashboard/modelo.ts). tests/suscripciones-por-cobrar.test.ts.
 
+### «A quién cobrar» y el estado de cuenta, dibujados en el chat con MaKo (20/10/2026, la 2.27 y la 2.28)
+
+**Vive en:** lib/pagos-bloque.ts (arma los dos bloques, puro) · app/_chat/bloques/CobranzaHilo.tsx y cobranza-actions.ts
+(«A quién cobrar») · app/_chat/bloques/EstadoCuentaHilo.tsx y app/crm/lead-view/ficha/pagos/comprobante-del-chat.ts (el
+estado de cuenta y el comprobante). Tests: tests/chat-bloque-cobranza.test.ts y tests/chat-bloque-estado-cuenta.test.ts.
+
+- **⚠️ Marcar una cuota que YA está cobrada le reescribe la fecha.** `marcarPago(id, true, fecha)` no mira si ya estaba
+  pagada: pisa `fecha_pago` y el cobro salta de mes. Una lista guardada en el hilo es una foto. Su «Cobrada», tocado
+  días después, haría eso. Por eso la lista se vuelve a leer al dibujarse, y hasta que llega se ve sin acciones. Pasa
+  igual con General abierta en dos pestañas, pero ahí la foto dura minutos, no días.
+- **El estado de cuenta del chat ES la pieza de la tab**, el bloque `cobrado` montado como en Clients
+  (`BloquesDePagos`, `getLeadFullAction`). No tiene una cuenta propia, así que muestra lo mismo que la ficha. Lo que lee
+  MaKo para contestar (`cobranza_lead`) usa las mismas dos funciones: `cobradoDelLead` y `estadoDeCuenta`.
+- **El comprobante adjunto va al modal de la ficha**, no a la tarjeta de la acción. «Marcar pagada» lo lee solo, con el
+  mismo `subir` que «Subir el comprobante» (/api/extract-receipt): lo guarda en la cuota y llena monto, fecha y hora para
+  revisar. La tarjeta G3 todavía no tiene campos editables (eso es la 1.10), y por ella el archivo no se guardaba en la
+  cuota. ~~Se usa UNA vez: leído, el bloque deja de pasarlo~~ (la marca vivía en memoria y no sobrevivía una recarga:
+  ver «La revisión de los bloques» abajo). Con dos archivos en el mensaje no se adivina cuál es.
+- **⚠️ La ficha cuenta «hoy» en UTC.** FichaPorBloques y PagosCliente usan `new Date().toISOString().slice(0, 10)`, y
+  General y la API usan el día del negocio. En México, de 18 a 24 h, la ficha ya está en mañana: una cuota que vence hoy
+  sale vencida en la ficha y no en General. Si eso pasa, el texto de MaKo (`cobranza_lead`, con el día del negocio) y el
+  bloque (la ficha) pueden decir distinto. **Sin hacer.**
+- **«¿quién me debe plata?» todavía no hace viajar `a_quien_cobrar`**: la batería guardián tiene `llegaHoy: false`. Es la
+  1.2, el clasificador. Hoy llega con «mostrame el dashboard de cobranza: a quién le falta pagar».
+
+#### La revisión de los bloques: el comprobante iba a cualquier lado (21/10/2026)
+
+- **⚠️ Una marca de «ya usado» en memoria no protege un bloque que vuelve del historial.** El bloque del estado de cuenta
+  se guarda con el mensaje; al recargar (o al abrir el chat desde el teléfono) se monta de nuevo con la marca en cero, y
+  «Cobrar la cuota» subía el recibo de la cuota 1 a la cuota 2, con la fecha vieja en el formulario. Y /api/extract-receipt
+  escribe `comprobante_path` al LEER, antes de que nadie guarde: aunque se cancele, la cuota queda apuntando al recibo
+  viejo. **Regla:** el comprobante del chat va atado a SU cuota (`pagoId`, la que tocaba cobrar al dibujarse) y se
+  ofrece sólo mientras esa cuota siga impaga (`comprobanteParaCuota`, app/crm/lead-view/ficha/pagos/comprobante-del-chat.ts).
+  Lo que se guarda tiene que decir a qué va; lo que vive en memoria no cuenta como «ya se usó».
+- **El único archivo del mensaje se pegaba a TODO estado de cuenta del turno.** «Juan pagó, acá el comprobante. ¿Y cómo
+  está Pedro?» dejaba el recibo de Juan listo para la cuota de Pedro; «acá el contrato de Juan» lo trataba como
+  comprobante. El diagnóstico obvio («tomar sólo el primer `cobranza_lead`») era el equivocado: el modelo puede pedir
+  primero a Pedro. **Regla:** decide `comprobanteDelPedido` (lib/pagos-bloque.ts). Un archivo, que el MODELO dice que
+  es de este lead (el parámetro `comprobante` de `cobranza_lead`; si no está claro, pregunta), cuando lo que toca es
+  cobrar una cuota, y de un solo lead por mensaje: el primero que lo toma es su dueño (la lista de archivos del turno es
+  una sola, y un turno re-arrancado lo vuelve a tomar para el mismo lead). Con cualquier otra cosa, el modelo sigue el
+  camino de siempre y no promete leerlo.
+- **⚠️ La ruta decía `monto_usd` y la pantalla leía `monto`** (desde el 16/10, 8390f47ad): el monto del comprobante no
+  llegaba nunca, y un pago de menos saldaba la cuota entera sin «Faltan US$200». El test miraba el `fetch` en el fuente,
+  no lo que devuelve la ruta. **Regla:** cuando dos lados se pasan un JSON, el test pasa por la ruta REAL y por la lectura
+  de la pantalla (tests/pagos-recibo-leido.test.ts, con `reciboLeido`), no por un mock con el nombre que espera uno de
+  los dos. ~~El monto viene en dólares (la IA convierte y dice el tipo de cambio en `nota`, que ahora se muestra).~~
+  Ver el punto siguiente: ese monto en dólares era el problema de fondo.
+- **⚠️ Arreglar el nombre destapó una tasa INVENTADA** (segunda revisión, medio de plata). El prompt pedía `monto_usd`
+  convertido «con un tipo de cambio aproximado actual»: un pago entero de MX$5.000 (una cuota de US$289,02 a 17,30)
+  llenaba «Faltan US$11,24» con ~18 (al guardar, la 0318 creaba esa cuota que el cliente no debe) o un cobro de más con
+  ~17. Mientras el monto no llegaba, el campo quedaba en el de la cuota, que era lo correcto para un pago entero: el
+  arreglo del nombre lo volvió una regresión. **Regla:** la IA lee el monto y la MONEDA tal como figuran, sin convertir;
+  la pantalla (`plataDeRecibo`) llena dólares si son dólares, la moneda del negocio con el valor en dólares vacío (vale
+  el de la cuota, como `pagoEnMoneda`) si es ésa, y nada si es otra (y lo dice). ~~Un prompt viejo guardado en
+  Configuraciones que todavía convierte: su monto no se usa.~~ Nunca una tasa de la IA (AGENTS.md).
+- **⚠️ La etiqueta de moneda de la IA no es una declaración** (tercera revisión). «$5,000.00», lo normal en un recibo de
+  México, Argentina o Colombia, etiquetado USD por la IA llenaba US$5.000 en una cuota de US$289, sin aviso (producción
+  nunca llenaba el monto: era exposición nueva). Ahora el prompt dice que «$», «MX$» o «pesos» sin código no son
+  dólares; lo leído en dólares en un negocio que no es en dólares se llena PIDIENDO confirmación, y se avisa siempre un
+  monto de más del doble de la cuota. Y el `monto_usd` de un prompt viejo guardado en Configuraciones NUNCA se usa (la
+  única señal de que convirtió era la nota, que la IA puede omitir): la ruta marca `monto_no_usado` y la pantalla dice
+  «el monto no salió del comprobante». Un pago DE MENOS en pesos se guarda entero si no se declara el valor en dólares:
+  es el diseño de siempre (sin tasa no hay cómo saberlo; vacío = el de la cuota).
+- **Una forma no es una zona.** El saneo del bloque pedía una barra (`America/…`): un negocio en 'UTC', 'CET' o
+  'EST5EDT', que `zonaCanonica` acepta, perdía la lista, y MaKo igual decía «la lista está abajo» porque la nota se
+  agregaba antes de sanear. Ahora la zona la valida `Intl` (la misma vara que `hoyEnTz`) y la nota va sólo si el bloque
+  sobrevive.
+- **La foto guardada de «A quién cobrar» guarda 30 filas y el total.** La cabecera contaba las filas: «30 por cobrar»
+  cuando MaKo, en el mismo mensaje, decía 35. `Cobranza` recibe `total` mientras se ve la foto («Ver 30 de 35»).
+- **«Ya se dibuja» sólo si se dibujó.** El tope de bloques del mensaje (4, o 3 con una pregunta) descartaba el estado de
+  cuenta en silencio y MaKo decía «revisa y guarda el cobro ahí». Lo que le dicen al modelo `cobranza_lead` y
+  `a_quien_cobrar` del bloque va ahora por `siSeDibuja`, que `ejecutarOperacion` agrega sólo si `aDibujar` lo dibujó.
+- **«Pregúntale» no tenía salida.** La respuesta a «¿es su comprobante?» llega en un mensaje SIN el archivo, y el archivo
+  sólo sirve en el mensaje que lo trae. Ahora, pedido para este lead sin archivo en el mensaje, el modelo lo sabe y pide
+  que lo vuelva a adjuntar (y al preguntar ya lo pide).
+- **Una cuota ya cobrada no cambia de comprobante desde «Marcar pagada».** Con una vista vieja (otra pestaña, un link que
+  se pagó mientras tanto), leer el comprobante le pisaba el del banco o el de Stripe; ahora la ruta contesta que ya está
+  cobrada, y la escritura es condicional (`pagado = false`).
+- **⚠️ Un valor que llega tarde no puede empezar con un default que parece real** (revisión de 1b6fc9ad8, baja).
+  `useMonedaDelNegocio` empezaba en 'USD' hasta que contestaba el server, y el comprobante del chat se lee SOLO al abrir
+  «Marcar pagada»: se leía con 'USD', y unos pesos con «$» se tomaban por dólares en un negocio en MXN. **Regla:** lo
+  que se está cargando es null, y quien lee algo con ello espera (el efecto depende de la moneda, y «Subir el
+  comprobante» queda en «cargando» hasta saberla). Si el server no contesta, la de siempre (USD).
+- **Sin hacer:**
+  - /api/extract-receipt sigue escribiendo `comprobante_path` al leer una cuota IMPAGA: cancelar no lo deshace. Lo
+    limpio es guardarlo al «Guardar el pago». Vive en app/api/extract-receipt/route.ts y piezas.tsx (`subir`).
+  - El extractor del CONTRATO (`CONTRACT_EXTRACT_DEFAULT`, lib/prompt-defaults.ts) sigue pidiendo los montos en USD
+    convertidos «con un tipo de cambio aproximado actual»: la misma tasa inventada, en el plan de cuotas que arma.
+
 ### Cliente de agencia (#866 y #867)
 
 No es de esta tab: es la pasarela y la cuenta de la agencia. Está en
@@ -297,6 +387,8 @@ No es de esta tab: es la pasarela y la cuenta de la agencia. Está en
 | Diseños que no se dibujan: `cobrado` anillo, `cuotas` lista y calendario, `suscripcion` tarjeta y meses, y los de `oferta` (OfertaDelLead es sólo el desplegable) | registro-pagos.tsx | No se ofrecen: el menú «Diseño» sólo muestra los que están en `disenos` |
 | **No se vio en el navegador**, ni en escritorio ni en el teléfono | — | No hubo RAM para `next dev`. Hay que mirarlo en producción con un ganado con cuotas, una suscripción y un lead abierto |
 | El teléfono muestra el saldo pero no cobra: no hay «Mandar link» | app/m/crm/[id]/FichaLead.tsx | El teléfono destila. El cobro con link en el teléfono es otra pieza |
+| La ficha cuenta «hoy» en UTC: de 18 a 24 h (México) una cuota que vence hoy sale vencida en la ficha y no en General ni en lo que dice MaKo | app/crm/lead-view/ficha/FichaPorBloques.tsx:135, app/customer-success/PagosCliente.tsx (`hoy:`) | `LeadFullData` no trae la zona del negocio: hay que sumarla en `getLeadFullAction` y usar `hoyEnTz` en las dos (20/10/2026) |
+| Los bloques de Pagos del chat (la 2.27 y la 2.28) no se vieron en el navegador | app/_chat/bloques/* | Sin Chrome conectado ni RAM para `next dev`. Mirarlo en el ws3 con «mostrame el dashboard de cobranza: a quién le falta pagar» y con un recibo adjunto + «¿cuánto me debe Francisco?» |
 | ~~Marcar a mano una cuota cuyo link ya se pagó pero no se asentó: después el cron la asienta como otra cuota y lo cobrado se cuenta dos veces~~ **Hecho el 17/10/2026 (B4), ver §5** | lib/pagos.ts, `cobrarCuota` | Frenarlo puede trabar una cuota para siempre si el pago entró por otro monto. Se ve el link pagado en «Links de pago» |
 | ~~`epico` llega en PropsBloque en la próxima tanda del CRM. Hasta entonces se lee con un cast~~ Hecho el 17/10/2026: se lee `props.epico`, y un test barre la ficha por casts así | pagos/bloques-cobro.tsx | `e92688cd2` |
 | ~~`PlantillaTab` está declarado localmente~~ Ya se importa de lib/ficha/plantillas-tab.ts (visto el 17/10/2026) | lib/ficha/plantillas-pagos.ts | Hecho |
@@ -513,7 +605,7 @@ de México.
   ficha el mismo lead no recibía plan (ahí `tienePlan = pagos.length > 0`): el resultado dependía de por dónde se
   abría. **Regla:** decide UNA función, `planDelAsistente` (lib/pagos-campo.ts), en el server. Con un plan (una cuota
   que no nació cobrada, o una impaga) no se toca. En una suscripción, los meses cobrados sueltos SON las primeras
-  cuotas (uno por cobrada, como cuenta `cobradoDelLead`) y se arman sólo los que faltan. Un pago único con un pago
+  cuotas ~~(uno por cobrada, como cuenta `cobradoDelLead`)~~ (por PLATA: ver la quinta revisión) y se arman sólo los que faltan. Un pago único con un pago
   previo no se arma: sus cuotas las escribió la persona y no se puede saber si ya descontó lo cobrado. Nunca nace una
   cuota por un mes ya cobrado.
 - **Lo que el asistente no hacía, lo callaba.** El server descartaba el plan con un `console.log` y la pantalla decía
@@ -537,3 +629,141 @@ de México.
   (el default de la 0280 y la 0310) es de Infra.
 - **El `for update` de la 0318 va `order by id`**, el orden en que toma las filas el delete de la reconciliación: en otro
   orden, los dos podían esperarse y Postgres abortaba a uno (40P01).
+
+### La quinta revisión: lo cobrado suelto se cuenta por plata, y lo que gana lleva su fecha de cierre (21/10/2026)
+
+- **⚠️ Contar FILAS no es contar MESES.** «Un suelto = una mensualidad» se cumplía con el mes a mes y con nada más: un
+  adelanto de US$1.500 en una suscripción de US$500 cubría UN mes (se armaban 11 cuotas, dos por meses pagados; la
+  ficha sumaba US$7.000 sobre 6.000 y la cobranza le reclamaba a quien pagó), y una seña de US$100 cubría un mes ENTERO
+  (los 400 que faltaban no se cobraban nunca, en verde). **Regla:** lo cobrado suelto se cuenta por plata con
+  `mesesDePlata` (lib/cobrado-lead.ts): meses enteros de la mensualidad, con ~~un 10% por mes~~ un 10% de UNA
+  mensualidad de tolerancia (el tipo de cambio; ver la revisión de abajo). Lo usan los DOS que cuentan: el asistente (`planDelAsistente`: con meses partidos, o pagos de más de un mes
+  antes del cierre, no arma y lo dice; cuando descuenta, dice cuántas armó) y la ficha (`cobradoDelLead`, el
+  «Falta registrar»). Con uno solo cambiado, el cliente que adelantó tres meses quedaba para siempre en «Falta registrar».
+- **Qué es un plan lo decide UNA función, `pagosPrevios`** (lib/pagos-campo.ts). Una cuota devuelta o de baja
+  (`noEsDeuda`) no es un plan: antes hacía decir «Ya tenía un plan» de uno que no existía, y nadie lo armaba. El cobro de
+  un link que no saldaba ninguna cuota es plata suelta (~~la pasarela inserta esa fila sin `nacio_cobrada`~~: desde la
+  revisión de 7524ec1c9 la inserta CON la marca, ver abajo).
+- **El plan uniforme (`savePlanPagos`, la API `guardar_plan_pagos`) tapaba una cuota con una seña.** En el modo 'slots'
+  «una pagada cubre su número», y la seña de US$100 con el número 1 tapaba la cuota 1 de US$1.000: la API contestaba
+  «Listo» con US$900 menos. ~~Ahora un pago que nació cobrado no cubre un número~~ (era el diagnóstico equivocado: ver
+  la revisión de abajo), y sin plan no se arma encima de plata suelta (`avisoPlanUniforme`): MaKo no lo propone y
+  `savePlanPagos` lo frena.
+- **⚠️ Lo que gana sin `updateLead` tiene que escribir su fecha de cierre.** `saveLeadPlanManual` gana el lead (estado y
+  `cerro`) pero no ponía `fecha_cierre`; después `setPipelineStage` lo veía ya ganado y no tocaba la venta. Una
+  suscripción ganada desde el asistente con su plan quedaba sin cierre: fuera de los cierres del mes (el CAC), activa
+  para siempre en el MRR y sin «Terminó». Ahora, sin una que venga ni una que tenga, el día del negocio. Medido en
+  producción el 21/10 en sólo lectura: 0 leads así (el camino nació el mismo día).
+- **La revisión de f2ec0c948 (21/10/2026): el arreglo de la seña era una regresión, y dos medios.**
+  - **⚠️ En 'slots' el «número» es el LUGAR en el plan, no el de la fila.** Sacar la seña de las pagadas que cubren un
+    número parecía el arreglo, y era el diagnóstico equivocado: el plan armado DESPUÉS de una seña vive en números
+    corridos (la seña es la #1 y las cuotas, #0, #2, #3, #4), así que cada «Cambiar el plan» de la ficha insertaba una
+    cuota de más (el número 1 ya no tenía a nadie) y dejaba la última sin tocar: US$1.000 de deuda fantasma por cambio,
+    acumulable, con «Plan guardado» en pantalla. Y el total «bien» de main era un error que se compensaba (con la cuota
+    a 1.200 daba 4.400 en vez de 4.600). **Regla:** `reconciliarCuotas` en 'slots' casa la cuota N con la N-ésima del
+    plan (sin las que no son del plan, `esCuotaDelPlan`, ni las devueltas; el inicial es el lugar 0).
+  - **La tolerancia de `mesesDePlata` es fija (10% de UNA mensualidad).** Multiplicada por los meses, las ventanas se
+    pisaban desde 4,5 mensualidades y todo monto daba «meses enteros»: un año prepagado a −5% contaba 11 meses.
+  - **Qué es plata suelta lo dice UNA función, `esPlataSuelta`** (lib/cobrado-lead.ts), para la ficha y el asistente: el
+    cobro de un link de US$1.500 contaba 3 meses en el asistente y 1 en la ficha, que pedía «Registrar el mes cobrado».
+    `cobradoDelLead` devuelve `mesesCubiertos`, y «A quién cobrar» vence desde ahí (no desde las filas: con un adelanto
+    en un pago, el cliente desaparecía de la lista del mes).
+- **La revisión de 7524ec1c9 (21/10/2026): dos altas.**
+  - **⚠️ Una mensualidad registrada vale UN mes; la plata cuenta sólo para un pago que cubre VARIOS.** Contar «por plata»
+    sumando TODAS las sueltas y pasando el total por `mesesDePlata` acumulaba el desvío de cada mes (el tipo de cambio,
+    un descuento, el precio de antes): 6 × 490 eran 5 meses («Falta registrar 1 mes» y US$500 en «A quién cobrar» a un
+    cliente al día) y 10 × 550 eran 11 (escondía al que debe el mes 11). Era una regresión contra producción, que cuenta
+    filas. **Regla:** de a una cobrada, `mesesDeUnaCobrada` (lib/cobrado-lead.ts): una cuota del plan, 1; la diferencia
+    de un cobro por menos, 0 (completa el mes de su cuota); una suelta registrada a mano, `max(1, mesesDePlata(su
+    monto))`; una de la PASARELA (el cobro de un link sin cuota), `mesesDePlata(su monto)` sin el mínimo: nadie la
+    registró como un mes, y una seña de 100 por link no cubre ninguno (con el mínimo valía un mes: lo preguntó el Cerebro
+    y era así). Nunca la suma. El asistente cuenta igual, y no arma si alguna no son meses enteros. Lo aceptado: la ficha
+    cuenta como un mes una seña de 100 registrada A MANO, como producción (no se distingue de una mensualidad con
+    descuento); el asistente no la descuenta.
+  - **⚠️ «Es cuota del plan» es UNA regla, y la fila dice de dónde nació desde que se inserta.** Había tres: el aviso
+    tomaba como plata suelta la seña cobrada por LINK y el lugar del plan la tomaba como la cuota 1 (la cuota a 1.200
+    daba 4.400 en vez de 4.600, y cambiar el día dejaba noviembre sin cuota y dos en enero); la diferencia de un cobro
+    por menos ocupaba el lugar de la cuota siguiente (crecer el plan y cambiar el día la reescribía como la cuota 4:
+    US$600 de deuda fantasma que la cobranza reclamaba). Excluir por `nacio_cobrada` tapaba una puerta sola, y excluir
+    por `proveedor` era el diagnóstico equivocado: una cuota del plan cobrada por link también lo tiene. **Regla:**
+    `esCuotaDelPlan` (lib/cobrado-lead.ts) = sin `nacio_cobrada` y sin `resto_de`; la usan el lugar de 'slots',
+    `esPlataSuelta` y `avisoPlanUniforme`. `registrarCobroDeProveedor` inserta el cobro de un link sin cuota con
+    `nacio_cobrada` (deshacerlo no lo quita: `quitarSiNacioCobrada` no toca lo de la pasarela), y la diferencia la
+    marca `cobrar_cuota_con_resto` (mig 0323, `pagos.resto_de`: la cuota de la que salió). SIN clave foránea: con
+    `on delete set null`, el Deshacer de un movimiento del tablero (borra y reinserta cuotas con su id) le sacaba la
+    marca para siempre y la deuda fantasma volvía. Medido en producción el 21/10, sólo lectura: 0 filas de la pasarela y
+    0 diferencias, nada que rellenar.
+  - **La toma exige el monto que se LEYÓ** (mig 0323, `p_original`; el «Sin hacer» de la quinta revisión). Editada de
+    500 a 400 entre la lectura y el rpc, un cobro de 300 dejaba 300 cobrados + 200 pendientes de una cuota de 400. Ahora
+    no se toma y se dice; el cobro ENTERO, igual (`.eq('monto_usd', original)`): es la misma carrera por la otra puerta.
+    `p_original` tiene default null para que el código de antes del deploy siga llamando con 11 argumentos, y la firma
+    vieja se borra en la misma transacción (con las dos, PostgREST no sabría a cuál llamar).
+  - **⚠️ Lo que se registró COMO la mensualidad vale un mes, siempre** (revisión de e19a5196f, medio: regresión). Contar
+    por plata lo de a mano, con el mínimo de un mes, sólo andaba si el precio SUBÍA: con una BAJA (6 mensualidades de
+    1.000 y la mensualidad ya en 500) eran 12 meses, «Al día» y fuera de «A quién cobrar», donde producción decía
+    «Falta registrar 5 meses». El monto no dice cómo se registró; la fila sí: `pagos.es_mensualidad` (mig 0323), que
+    pone «Registrar el mes cobrado» (las de antes, por su concepto «Mensualidad»: 1 fila en producción, ws 11). La plata
+    cuenta sólo para «Registrar un pago» y la pasarela, con el mínimo de un mes (sin el mínimo, un link de un mes al tipo
+    de cambio del día valía 0 y a mano 1).
+  - **Trampa de los tests:** el PostgREST de mentira insertaba sin los defaults de la base (`pagado` quedaba en null) y
+    las escrituras condicionales (`.eq('pagado', false)`) no encontraban las cuotas: «Cambiar el plan» no cambiaba nada
+    y parecía que el arreglo no andaba. Los defaults del hijo (tests/_cobro-idempotente-hijo.ts) son los de la base.
+  - **Sin hacer:** los modos 'lista' (el wizard) y 'porId' (Editar deal) no miran `resto_de`: casar por orden puede
+    reusar una diferencia como cuota del plan y la marca le queda. Vive en `reconciliarCuotas` (lib/pagos-campo.ts).
+    Y «A quién cobrar» lee los pagos de hasta 500 suscripciones de una vez, sin paginar: pasadas las 1.000 filas,
+    PostgREST corta y la lista no da el número de la ficha (viene de producción). Vive en `getSuscripcionesPorCobrar`
+    (lib/pagos.ts).
+- **No tomar la cuota no siempre es «ya estaba».** Si la reconciliación de un plan la BORRABA entre la lectura y el cobro,
+  `cobrarCuota` contestaba «ya estaba cobrada» y el cobro que sí entró no quedaba anotado. Ahora mira cómo quedó:
+  cobrada, «ya estaba»; si no, «La cuota cambió mientras la cobrabas» y no se escribe nada.
+- **Menos de un centavo no es «sin monto»**: 0,004 caía como el cobro entero (o en 0, y la deuda desaparecía).
+- **El tablero pide «Plan de pagos» con el tipo de venta que se ELIGE**, no el guardado: un lead guardado como
+  suscripción al que se le eligió «Pago único» se ganaba sin cuotas.
+- **Sin hacer:**
+  - ~~La 0318 toma la cuota sin ver si su MONTO cambió entre la lectura y el rpc.~~ Hecho en la 0323 (revisión de
+    7524ec1c9, arriba), con la marca de la diferencia en la misma migración.
+  - Medido en producción el 21/10, sólo lectura: un plan del asistente viejo corrido un mes (la primera cuota un mes
+    después del cierre): ws 11, lead 2605, 12 cuotas desde el 08/11 con el cierre el 08/10, nada cobrado. Decide Martín
+    con el cliente si octubre se cobró; no se toca sin su OK. Ninguno con cuotas armadas encima de meses cobrados.
+
+## El lector de contratos también convertía con una tasa inventada (21/10/2026)
+
+- **⚠️ El plan de una suscripción salió de una tasa que inventó la IA.** El extractor del contrato
+  (`CONTRACT_EXTRACT_DEFAULT`, app/api/extract-contract) pedía «todos los montos en USD», convertidos «con un tipo de
+  cambio aproximado actual»: 72.000 MXN / 17 = 4.235,29, la mensualidad que quedó en una suscripción del ws11 (lead 2605).
+  Es la misma trampa que el lector de comprobantes (ver «La revisión de los bloques», rama pagos-bloques). **Regla:** la
+  IA devuelve el total y las cuotas TAL COMO FIGURAN, con su `moneda` (un «$» solo no es USD), y `montosDelContrato`
+  (lib/contrato-montos.ts) decide: en dólares van los montos; en otra moneda, el total ORIGINAL y las fechas, y el
+  asistente de Ganado dice «el contrato dice MX$72.000: carga cuánto es en dólares» sin dar el plan por resuelto. Un
+  prompt viejo guardado en Configuraciones (devuelve `total_usd`, sin `moneda`) puede haber convertido: sus montos no se
+  usan y se dice. Test por la ruta REAL: tests/pagos-contrato-moneda.test.ts.
+- **La moneda que dice la IA vale para el total, no para las cuotas** (revisión de bc5fb022d, medio). Un contrato
+  mexicano dice «US$4,000 total, 12 mensualidades de $6,000 M.N.», la IA dice USD, y las 12 cuotas de 6.000 entraban
+  como dólares (72.000 sobre un cierre de 4.000) con el plan dado por resuelto: el asistente se salteaba el único paso
+  que mira la suma (`cuotasCuadran`). **Regla:** con el total en dólares, las cuotas traen monto sólo si SUMAN el total,
+  con la misma tolerancia del asistente (`toleranciaCuotas`, una sola función para los dos); si no, van sin monto, el
+  paso del plan se muestra y se dice que no suman. El copy de /vsl ya no promete la conversión.
+- **Cuadrar con el total del CONTRATO no es cuadrar con el CIERRE** (revisión de b23ce2a9c, baja). El plan se guarda
+  contra el monto de cierre: con un cierre de 5.000 ya cargado, un contrato de 4 × 1.000 quedaba «resuelto» y el paso
+  del plan no se veía (producción hacía lo mismo). **Regla:** lo decide `planDelContrato` (lib/contrato-montos.ts), con
+  el monto que va a QUEDAR (el que hay, o el total recién precargado) y la misma tolerancia. Y cada aviso dice lo que
+  pasó: «no suman su total» sólo con un total y todas las cuotas con monto; sin total, «el contrato no dice su total»;
+  una cuota de 0 se saca en vez de dejar el plan entero sin monto.
+- **Sin hacer:** los planes YA armados con montos convertidos así no se corrigen solos. El que se midió (ws11, lead 2605)
+  lo decide Martín con el cliente.
+
+## El pago por un link de Stripe PROPIO no entra a MaKo, aunque Stripe esté conectado (21/10/2026)
+
+La campaña del «Sprint de Diseño» de Mauricio (USD 270) cobra en su propio link (sprint.mauriciobustos.com). Lo obvio
+sería «conectamos Stripe y MaKo marca Pagó». No: el webhook de Stripe sólo aplica pagos de cobros CREADOS POR MaKo
+—los busca por el token del cobro en la metadata, la referencia, la suscripción o el id de pago— y todo lo demás lo
+ignora con «no es un cobro de MaKo» (`cobroDelAviso`, lib/cobros.ts; lib/cobros-webhook.ts). No hay match por email
+ni por teléfono. Medido el 21/10: el ws1 no tiene claves de Stripe ni de Mercado Pago, `cobros` vacía, 33 pagos
+cargados a mano.
+**Consecuencia:** quien paga por el link propio sigue «abierto» para MaKo: ni pasa a «Pagó» en el CRM de la campaña,
+ni corta una automatización que le siga escribiendo, ni aparece en Pagos.
+**Los caminos que sí entran:** «Cobrar con link» desde la ficha (un link de Stripe de MaKo para ESE lead) o el botón
+de pago de una landing del Web Generator (`cobrar_producto_landing`, busca el lead por email). Con los dos, el pago
+gana al lead en su CRM de ORIGEN (`ganarLead` en la casa): la tarjeta del CRM de la campaña (agregado) no se mueve.
+**Sin hacer:** match de un pago externo por email/teléfono; mover a «Pagó» del CRM agregado al ganar.
+**Vive en:** lib/cobros-webhook.ts · lib/cobros.ts (`cobroDelAviso`, `ganarLead`) · app/crm/[id]/CobrarConLink.tsx.

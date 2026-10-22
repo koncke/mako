@@ -53,7 +53,9 @@ export type CrearData = {
   estado?: EstadoTarea;
 };
 
-export function CrearTareaModal({ proyectoInicial, estadoInicial, onCrear, onDone, onClose }: {
+export function CrearTareaModal({ proyectoInicial, estadoInicial, etiqueta = etiquetaEstado, onCrear, onDone, onClose }: {
+  /** El nombre de la columna como lo dibuja el tablero (los del negocio, lib/plan-columnas.ts). */
+  etiqueta?: (e: EstadoTarea) => string;
   proyectoInicial: string | null;
   /**
    * LA COLUMNA DESDE LA QUE SE ABRIÓ (el «＋» de una columna del kanban): la tarea nace con ESE
@@ -158,7 +160,7 @@ export function CrearTareaModal({ proyectoInicial, estadoInicial, onCrear, onDon
           {/* LO QUE PASA AL CREAR, dicho como es desde el 16/10/2026: nace en la columna del «＋»
               y SIN prioridad. Hasta ese día decía «MaKo le pone el proyecto, la prioridad y el
               detalle», que dejó de ser cierto cuando el alta dejó de llamar al Perro. */}
-          <span style={{ fontSize: 12, color: 'var(--faint)' }}>{estadoInicial ? `En «${etiquetaEstado(estadoInicial)}», sin prioridad.` : 'Nace sin prioridad.'}</span>
+          <span style={{ fontSize: 12, color: 'var(--faint)' }}>{estadoInicial ? `En «${etiqueta(estadoInicial)}», sin prioridad.` : 'Nace sin prioridad.'}</span>
           <div style={{ display: 'flex', gap: 9 }}>
             <button type="button" onClick={onClose} style={ghostBtn}>Cancelar</button>
             <button type="button" onClick={() => void crear()} disabled={!puedeCrear || creando} style={{ ...primaryBtn, opacity: !puedeCrear || creando ? 0.55 : 1, cursor: !puedeCrear || creando ? 'default' : 'pointer' }}>

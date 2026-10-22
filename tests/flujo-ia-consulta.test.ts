@@ -127,7 +127,9 @@ test('la respuesta: texto con tope, y sin ella la cascada prueba otro proveedor'
 // rotura 6 (la ruta sin la rama de la consulta): 7 pass / 1 fail, cae éste.
 test('la ruta: la consulta va ANTES de editar y devuelve el borrador tal cual', () => {
   const ruta = leer('app/api/chat-agent/secuencias/ia/route.ts');
-  const consulta = ruta.indexOf('if (!respuestas.length && esConsulta(pedido))');
+  // Desde el 22/10/2026 la decide `vaAExplicar` con la intención (Discutir / Editar, lib/flujo-ia-intencion.ts): sin
+  // elegir, sigue siendo `esConsulta` y sólo sin respuestas (tests/chat-mako-discutir-editar.test.ts).
+  const consulta = ruta.indexOf('if (vaAExplicar(intencion, respuestas.length > 0, esConsulta(pedido), esPreguntaDirecta(pedido)))');
   const editar = ruta.indexOf("getPromptText('chatbot.editar-ia.system'");
   assert.ok(consulta > 0 && editar > consulta, 'la consulta se decide antes del prompt de editar');
   assert.match(ruta.slice(consulta, editar), /getPromptText\('chatbot\.explicar-ia\.system', EXPLICAR_IA_SYSTEM_TEMPLATE\)/);

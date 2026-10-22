@@ -20,6 +20,7 @@ import { openrouterConCredito } from './openrouter-saldo';
 import { credWs } from '@/lib/credenciales';
 import { clavesDe, slotDe } from '@/lib/ia-keys';
 import { clavesCargadas } from '@/lib/ia-keys-ws';
+import { PROVS_SU_IA, soloSuIA } from '@/lib/solo-su-ia';
 import { getWorkspaceActual, WS_NINGUNO } from '@/lib/workspace';
 import {
   GEMINI_PAGO,
@@ -230,6 +231,10 @@ export async function cuotasProveedores(uso?: Record<string, UsoProv>): Promise<
  *  cuota. Resultado: esta función era la identidad y la rotación proactiva entre
  *  proveedores no existía; se pagaba el peaje del 429 en cada llamada. */
 export async function ordenarPorCuota(orden: string[]): Promise<string[]> {
+  // ⛔ D6b (lib/solo-su-ia.ts): con su Claude o su GPT, de la lista quedan sólo las suyas, sin mirar la cuota de las demás.
+  // Ordenar leía las keys de cada gratis y le consultaba el saldo a OpenRouter ANTES de que `provDe` cortara (medido con
+  // tests/_solo-su-ia-hijo.ts, 21/10/2026): el corte de abajo no alcanza si el orden sale a la red primero.
+  if (soloSuIA()) return orden.filter((p) => PROVS_SU_IA.includes(p));
   const [uso, limites] = await Promise.all([
     usoHoyPorCuenta().catch(() => ({} as Record<string, UsoProv>)),
     limitesEfectivos().catch(() => LIMITES_PROVEEDOR),

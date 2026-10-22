@@ -27,7 +27,7 @@
 
 import Link from '@/app/_ui/Link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { FAMILIAS, arribaDe, USER_NAV, SUPERADMIN_MENU, PRONTO, ADMIN_FAMILIAS, itemsDe, fuenteContador, sumaDeContadores, type FuenteContador, type NavItem, type NavGrupo } from './nav';
 import { familiasDev } from '@/app/admin/dev/nav-dev';
@@ -113,6 +113,24 @@ function leerFija(): boolean {
 export const RUTAS_QUE_PLIEGAN: readonly string[] = ['/second-brain', '/admin/operaciones'];
 export function pliegaLaBarra(pathname: string): boolean {
   return RUTAS_QUE_PLIEGAN.some((r) => pathname === r || pathname.startsWith(r + '/'));
+}
+/**
+ * LA VENTANA CHICA (21/10/2026). Martín: MaKo se rompía apenas la ventana era un poco más angosta que la pantalla
+ * completa (su caso: 60 % de 1920×1080 con escala 125 %, 934×639 de CSS). La barra fija se comía 244 px y todo lo
+ * de la derecha quedaba apretado. Medido en producción, contando textos fuera de la ventana, pisados y cortados: a 934
+ * /integraciones scrolleaba 38 px de costado con 5 textos afuera (0 con la barra plegada), y a 1027 el Dashboard pisaba
+ * un título y el CRM scrolleaba 1 px (0 y 0 plegada). A 1283, con la barra abierta, ya no hacía falta.
+ * Por debajo de este ancho la barra ARRANCA plegada a íconos (y se abre encima al pasar el cursor, como siempre); la
+ * flecha la fija abierta ahí, sin tocar lo que la persona eligió para una ventana grande. La barra no scrollea nunca.
+ */
+export const ANCHO_BARRA_PLEGADA = 1200;
+const MQ_ANGOSTA = `(max-width: ${ANCHO_BARRA_PLEGADA - 0.02}px)`;
+function useVentanaAngosta(): boolean {
+  return useSyncExternalStore(
+    (avisar) => { const mq = window.matchMedia(MQ_ANGOSTA); mq.addEventListener('change', avisar); return () => mq.removeEventListener('change', avisar); },
+    () => window.matchMedia(MQ_ANGOSTA).matches,
+    () => false,
+  );
 }
 function guardarFija(v: boolean) {
   try { window.localStorage.setItem(FIJA, v ? 'si' : 'no'); } catch { /* sin almacenamiento */ }
@@ -439,11 +457,14 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
    * para el resto de las tabs, y al salir vuelve lo suyo.
    */
   const enOpsCenter = pliegaLaBarra(pathname);
+  // Y en una ventana chica (21/10/2026, `ANCHO_BARRA_PLEGADA`): la misma regla, plegada por defecto y la flecha la abre.
+  const angosta = useVentanaAngosta();
+  const plegadaAca = enOpsCenter || angosta;
   const [abiertaAca, setAbiertaAca] = useState(false);
-  useEffect(() => { setAbiertaAca(false); }, [enOpsCenter]);
-  const fija = fijaGuardada && (!enOpsCenter || abiertaAca);
+  useEffect(() => { setAbiertaAca(false); }, [plegadaAca]);
+  const fija = fijaGuardada && (!plegadaAca || abiertaAca);
   const setFija = (v: boolean) => {
-    if (enOpsCenter) { setAbiertaAca(v); if (!v) setExpanded(false); return; }
+    if (plegadaAca) { setAbiertaAca(v); if (!v) setExpanded(false); return; }
     setFijaEstado(v); guardarFija(v); if (!v) setExpanded(false);
   };
   const open = fija || expanded || userOpen || !!flyout;

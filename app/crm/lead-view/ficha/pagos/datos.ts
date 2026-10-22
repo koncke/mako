@@ -75,12 +75,17 @@ export function useCobrosDelLead(leadId: number): FotoCobros {
   return useSyncExternalStore(sub, foto, () => VACIA);
 }
 
-/** La moneda en que el negocio carga lo que cobra a mano (decisión 7): el valor inicial de los montos a mano. */
-export function useMonedaDelNegocio(): string {
-  const [moneda, setMoneda] = useState('USD');
+/**
+ * La moneda en que el negocio carga lo que cobra a mano (decisión 7): el valor inicial de los montos a mano.
+ * ⚠️ null MIENTRAS NO SE SABE (revisión de pagos-bloques 1b6fc9ad8, baja): empezaba en 'USD', y el comprobante del chat,
+ * que se lee solo al abrir «Marcar pagada», se leía con ESA: unos pesos con «$» se tomaban por dólares en un negocio en
+ * MXN. Quien lee algo con la moneda espera a que llegue. Si no se puede leer, la de siempre (USD).
+ */
+export function useMonedaDelNegocio(): string | null {
+  const [moneda, setMoneda] = useState<string | null>(null);
   useEffect(() => {
     let vivo = true;
-    monedaDelNegocioAction().then((r) => { if (vivo) setMoneda(r.moneda || 'USD'); }).catch(() => {});
+    monedaDelNegocioAction().then((r) => { if (vivo) setMoneda(r.moneda || 'USD'); }).catch(() => { if (vivo) setMoneda('USD'); });
     return () => { vivo = false; };
   }, []);
   return moneda;

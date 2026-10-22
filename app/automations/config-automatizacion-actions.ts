@@ -28,6 +28,8 @@ export async function getConfigAutomatizacionAction(secuenciaId: number): Promis
   horarioNegocio: HorarioEnvio | null;
   /** Las horas entre dos mensajes a la misma persona del negocio, por canal. */
   personaNegocio: { whatsapp: number; email: number };
+  /** Los topes de WhatsApp de la LÍNEA (el techo del goteo, lib/goteo.ts). */
+  lineaWa: { dia: number; hora: number };
   zona: string;
   puedeEditar: boolean;
 }> {
@@ -44,11 +46,15 @@ export async function getConfigAutomatizacionAction(secuenciaId: number): Promis
   return {
     config, horarioNegocio: horarioVigente(rawHorario),
     personaNegocio: { whatsapp: limites.wa.personaHoras, email: limites.email.personaHoras },
+    lineaWa: { dia: limites.wa.dia, hora: limites.wa.hora },
     zona, puedeEditar: rol === 'admin',
   };
 }
 
-/** Un cambio: `{ horario }` (`null` = el del negocio) y/o `{ personaHoras: { whatsapp?, email? } }` (`null` = los del negocio). */
+/**
+ * Un cambio: `{ horario }` (`null` = el del negocio), `{ personaHoras: { whatsapp?, email? } }` (`null` = los del negocio)
+ * y/o `{ goteo: { minutos?, dia? } }` (`null` = sin goteo).
+ */
 export async function saveConfigAutomatizacionAction(secuenciaId: number, cambio: unknown): Promise<{ ok: boolean; error?: string; config?: ConfigAutomatizacion }> {
   const rol = await requireSesion();
   if (rol !== 'admin') return { ok: false, error: 'Solo un admin puede cambiar la configuración.' };

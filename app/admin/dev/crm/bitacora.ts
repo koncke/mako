@@ -2643,4 +2643,204 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '20 oct', hora: '22:16', chat: 'CRM', sesion: 'local_64949e84-3d68-4c31-bf78-5caa382ebc37', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La tarjeta de un lead con tres diseños, datos que se arrastran y la vista en vivo',
+    puntos: [
+      'En producción desde el run 175. Es la otra mitad del pedido de las cards del 20/10 («por si el usuario quiere más o menos info»).',
+      'En «⋯» › «Personalizar tarjetas» se elige el diseño: Completa, Compacta o Avance (la barra de su recorrido).',
+      'Los datos se ordenan arrastrándolos (o con las flechas), y la tarjeta de arriba muestra en vivo cómo va a quedar con un lead de verdad.',
+      '«Volver a lo de siempre» deja la tarjeta como venía. La elección es de cada persona y vale en todos sus funnels.',
+      'No se vio en pantalla: se revisa en /crm › ⋯ › Personalizar tarjetas.',
+    ],
+    commits: [
+      { sha: '99bc8b095', msg: 'CRM: la tarjeta con diseños, datos que se arrastran para acomodarlos y la vista en vivo', lineas: 504, archivos: 12 },
+    ],
+    archivos: [
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '20 oct', hora: '22:56', chat: 'CRM', sesion: 'local_64949e84-3d68-4c31-bf78-5caa382ebc37', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La ficha: Reuniones y Tracking bloque por bloque, y el clic derecho adentro',
+    puntos: [
+      'En producción desde el run 178. Son los pedidos del 14/10: Reuniones y Tracking «personalizables» como el Dashboard, y el clic derecho en todo el CRM.',
+      'Reuniones: la R2, «Agendar» y lo que salió de la llamada son bloques propios. Tracking: el video visto, la actividad en la página y la grabación de la visita.',
+      'Las fichas ya guardadas se ven igual: el bloque viejo dibuja lo que su hoja no puso aparte.',
+      'Clic derecho en la ficha: las opciones del «⋯», WhatsApp y copiar el teléfono o el email. Sobre un campo, un link o texto seleccionado queda el menú del navegador.',
+      'No se vio en pantalla: se revisa en /crm, abriendo un lead.',
+    ],
+    commits: [
+      { sha: '42ae2d6cb', msg: 'Ficha: Reuniones y Tracking partidos en bloques, sin tocar las fichas guardadas', lineas: 309, archivos: 13 },
+      { sha: 'c19122948', msg: 'CRM: el clic derecho también dentro de la ficha del lead', lineas: 219, archivos: 4 },
+    ],
+    archivos: [
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '21 oct', hora: '15:40', chat: 'CRM', sesion: 'local_64949e84-3d68-4c31-bf78-5caa382ebc37', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'MaKo contesta desde Chats con la tarjeta, el Plan con columnas propias y un bloqueado no recibe nada',
+    puntos: [
+      'En producción desde el run 213 (a167f266a), con la migración 0317 aplicada antes.',
+      'Desde el chat de MaKo en la app: mandar el borrador de WhatsApp, contestar un DM o un email, agregar un contacto al CRM y marcar leído. Lo que le llega a un lead sale sólo al tocar «Enviar» en la tarjeta, y la tarjeta muestra el texto entero y el número al que sale. Por el grupo de WhatsApp no se manda nada al lead.',
+      'Un contacto bloqueado no recibe nada en ninguna forma de su número (con o sin código de país): ni la secuencia, ni el AI Step, ni los recordatorios. Medido el 21/10: 0 bloqueos en producción, nadie afectado.',
+      'El Plan tiene columnas propias, como las etapas del CRM: agregar, quitar, renombrar y mover una tarea a una; MaKo la mueve por el nombre.',
+      'Clients: «Pago rechazado» y «Cuota vencida» en la tarjeta, y la cara del cliente en el teléfono. MaKo sugiere cuando se repite un gesto en el CRM (el mismo mensaje a tres leads, la landing sin CRM, el lead que vuelve).',
+      'La bandeja /mako/pendientes muestra entero lo que se confirma (era 240 caracteres y «2 elementos»).',
+      'No se vio en pantalla: se revisa en /chats, pidiéndole a MaKo «contéstale a <alguien> por WhatsApp: …».',
+    ],
+    commits: [
+      { sha: '3fa5fd6ee', msg: 'Ops Center 2.1: lo que le faltaba a Chats — mandar, contestar, agregar al CRM y marcar leído, con la tarjeta', lineas: 542, archivos: 10 },
+      { sha: 'e693e629f', msg: '2.1 rehecha tras la revisión: los envíos al lead sólo con el toque, y lo que sale es lo que se ve', lineas: 444, archivos: 22 },
+      { sha: 'bbbf8e6bc', msg: 'CRM 2.1 · tercera revisión: lo que sale es lo que se aprobó, en todas las puertas', lineas: 464, archivos: 14 },
+      { sha: 'f220b614d', msg: 'CRM 2.1 · cuarta revisión: la identidad de un bloqueo es UNA regla', lineas: 709, archivos: 23 },
+      { sha: '60e0a6a29', msg: 'Plan: columnas propias — agregar, quitar y mover a una, como las etapas del CRM (B1, segunda parte)', lineas: 1183, archivos: 35 },
+      { sha: '951a2d0b6', msg: 'Plan: las columnas se renombran, como las etapas del CRM (B1, primera parte)', lineas: 502, archivos: 21 },
+      { sha: '15cde6f4d', msg: 'Clients: «Pago rechazado» y «Cuota vencida» en la tarjeta, y la cara del cliente en el teléfono (B2)', lineas: 299, archivos: 13 },
+      { sha: 'a53024050', msg: 'CRM: las sugerencias de MaKo que faltaban — el mismo mensaje a 3 leads, la landing sin CRM y el lead que vuelve (D4)', lineas: 385, archivos: 8 },
+    ],
+    archivos: [
+    ],
+    revisar: '/chats',
+  },
+  {
+    fecha: '21 oct', hora: '17:10', chat: 'CRM', sesion: 'local_64949e84-3d68-4c31-bf78-5caa382ebc37', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La lista de /crm se lee bien en una pantalla chica',
+    puntos: [
+      'En producción desde el run 214 (01554d7b6). Lo pidió Martín el 21/10, con su Chrome al 60 % (~934×639).',
+      'Los encabezados ya no se pisan y la etapa no se monta sobre la fecha. Las columnas que no entran se ocultan por prioridad (nombre, etapa, ¿Agendó?, Creado, Empresa, Monto, Origen); el nombre y la etapa están siempre.',
+      'La Empresa que no entra como columna aparece debajo del nombre, con el email.',
+      'Medido con la tabla dibujada a 934×639 y 1024×768: 0 textos fuera de su celda (antes 5 y 4), y el nombre de 82 px a 178 px y entero a 1024.',
+      'No se vio en la app real: se revisa en /crm, vista Lista, con el navegador al 60 %.',
+    ],
+    commits: [
+      { sha: 'fc42c3f5a', msg: 'CRM · la vista lista aguanta un escritorio chico (934×639, 1024×768)', lineas: 528, archivos: 9 },
+      { sha: 'b679d9e82', msg: 'CRM lista: el test pasa el rótulo de ThCrm como children (lo vio el tsc acotado)', lineas: 2, archivos: 1 },
+    ],
+    archivos: [
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '22 oct', hora: '06:02', chat: 'CRM', sesion: 'local_428051c1-0369-4df2-ae6b-bcb42f63b64b', cuenta: 'claude3',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Llamada con Mauricio: traer a todos de otro funnel, y arrastrar a varios tildados',
+    pedido: '(26:23) «yo vi que eran como mil y tantos, se muestran 300 de 1050, busca o filtra para ver el resto... primero que el botón no se tenga que desplazar». (28:00) «están dentro de este funnel, no sé, ya no deberían saltar ahí, ni siquiera en gris, o debería directamente no verse... porque luego ya no me deja los siguientes 300». (02:14:00) «Ahí se cambiaría de etapa, pero también debería funcionar si los arrastras». (02:13:38, Mauricio) «No entiendo para qué es el clic de la cajita todavía».',
+    puntos: [
+      'Llamada de Martín con Mauricio del 22/10 (fathom.video/calls/871165870); llegó por el Cerebro como C1 y C2, los dos P0 del CRM.',
+      'Mauricio arranca el sábado 24/10 a mover 50 leads por día a «Prospección activa».',
+    ],
+  },
+  {
+    fecha: '22 oct', hora: '03:45', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Traer a todos de otro funnel y arrastrar a varios tildados',
+    puntos: [
+      'Es lo que pidió Martín en la llamada con Mauricio del 22/10 (el hito de arriba, literal).',
+      '«Traer de otro funnel»: la casilla de arriba tilda a TODOS los del filtro (en el ws1, los 750 de Reactivación que faltan), no sólo los 300 que se ven.',
+      'Los que ya están en el CRM no aparecen: se dice cuántos son.',
+      'El botón de agregar queda siempre a la vista, y el aviso tiene «Deshacer».',
+      'Arrastrar uno de varios tildados mueve a todos (pregunta antes, con el número). La tarjeta que viaja dice cuántos van.',
+      'La cajita junto a la foto dice para qué es, y con uno tildado se ven todas.',
+    ],
+    commits: [
+      { sha: '3c43c005c', msg: 'CRM (P0 de la llamada con Mauricio, 22/10): traer a TODOS de otro funnel y arrastrar a varios tildados', lineas: 325, archivos: 6 },
+    ],
+    archivos: [
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '22 oct', hora: '04:15', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Mover sin esperar, «Creando…» al crear una etapa, el menú que tapaba y las hojas de la ficha a la vista',
+    puntos: [
+      'Son los P1 del CRM de la llamada con Mauricio del 22/10.',
+      'Mover un lead a «Agenda» con «Ya está agendada» lo mueve en el acto (antes esperaba a que cargara).',
+      'Crear una etapa muestra «Creando…» en su lugar, en «Editar etapas» y en el tablero.',
+      'El lápiz «Editar» de la lista de CRMs cierra la lista: ya no queda encima del pop-up.',
+      'En la ficha de un lead, las otras hojas («Pagos», «Reuniones»…) se ven al lado del título; el desplegable sigue.',
+      'Lo de los tres puntos de «Lead entrante» que llevó a otra pantalla no se pudo reproducir: falta mirarlo en el navegador.',
+    ],
+    commits: [
+      { sha: '50fbb71df', msg: 'CRM (P1 de la llamada con Mauricio, 22/10): mover sin esperar, «Creando…» al crear una etapa, el menú que tapaba el pop-up y las hojas de la ficha a la vista', lineas: 169, archivos: 6 },
+    ],
+    archivos: [
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '22 oct', hora: '04:40', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: traer a todos de otro funnel y arrastrar a varios tildados, ya en producción',
+    revisar: '/crm',
+    puntos: [
+      'En producción desde el run 230 (b9dd7ce1e). Es lo que pidió Martín en la llamada con Mauricio del 22/10 (C1 y C2).',
+      'Cómo lo prueba Mauricio (ws1): en el CRM «Sprint 3 días», «+ Nuevo lead» › «Traer de otro funnel», de «Negocio que ESCALA», etapa Reactivación. Los 300 que ya trajo no aparecen; la casilla de arriba tilda a los 750 que faltan y «Agregar» está siempre a la vista.',
+      'Tildar varias tarjetas y arrastrar una de las tildadas a «Prospección activa»: pregunta y mueve a todas.',
+      'Avisado en el grupo de MaKo del ws1 como «Desarrollador de MaKo».',
+    ],
+    commits: [
+      { sha: '3c43c005c', msg: 'CRM (P0 de la llamada con Mauricio, 22/10): traer a TODOS de otro funnel y arrastrar a varios tildados', lineas: 325, archivos: 6 },
+    ],
+    archivos: [
+    ],
+  },
+  {
+    fecha: '22 oct', hora: '05:05', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: mover sin esperar, «Creando…» al crear una etapa, el menú que tapaba y las hojas de la ficha a la vista, ya en producción',
+    revisar: '/crm',
+    puntos: [
+      'En producción desde el run 231 (be4b9189a). Son los P1 del CRM de la llamada con Mauricio del 22/10 (C3, C4, C5 y C7).',
+      'Mover un lead a «Agenda» con «Ya está agendada»: la tarjeta pasa en el acto.',
+      '«Editar etapas» › «+»: la etapa nueva aparece con «Creando…» hasta que se guarda; lo mismo con «Agregar etapa» del «⋯» de una columna.',
+      'La lista de CRMs › lápiz «Editar»: la lista se cierra y no queda encima del pop-up.',
+      'En la ficha de un lead, «Pagos», «Reuniones» y las demás hojas se ven al lado del título.',
+      'Avisado en el grupo de MaKo del ws1 como «Desarrollador de MaKo». Falta C6: no se pudo reproducir sin el Chrome de Martín.',
+    ],
+    commits: [
+      { sha: '50fbb71df', msg: 'CRM (P1 de la llamada con Mauricio, 22/10): mover sin esperar, «Creando…» al crear una etapa, el menú que tapaba el pop-up y las hojas de la ficha a la vista', lineas: 169, archivos: 6 },
+    ],
+    archivos: [
+    ],
+  },
+  {
+    fecha: '22 oct', hora: '05:30', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La ficha dice en qué otros CRMs está el lead: «También en: Sprint 3 días › Prospección activa»',
+    revisar: '/crm',
+    puntos: [
+      'Es el C8 de la llamada con Mauricio del 22/10: «en la R1 de allá, de alguna manera, marque que el lead vino del webinar».',
+      'Al lado del funnel de la ficha, los otros CRMs donde está el lead, con su etapa; tocarlo muestra su etapa ahí.',
+      'De qué anuncio vino ya lo dice el bloque «Origen».',
+    ],
+    commits: [
+      { sha: '8d1c1cb51', msg: 'CRM (C8 de la llamada con Mauricio, 22/10): la ficha dice en qué otros CRMs está el lead', lineas: 86, archivos: 3 },
+    ],
+    archivos: [
+    ],
+  },
+  {
+    fecha: '22 oct', hora: '04:35', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: la ficha de un lead dice en qué otros CRMs está («También en»), ya en producción',
+    revisar: '/crm',
+    puntos: [
+      'En producción desde el deploy de 59a841e49. Es el C8 de la llamada con Mauricio del 22/10 («de dónde vino» el lead en la R1).',
+      'Abrir un lead que esté en el CRM principal y en el Sprint: al lado del CRM y la etapa dice «También en: Sprint 3 días › Prospección activa».',
+      'Un toque en «Sprint 3 días» cambia la ficha a ese CRM. Un lead que está en un solo CRM no muestra nada.',
+      'El aviso al grupo de MaKo del ws1 NO salió: ya iban 3 avisos de arreglo en 24 h (el tope). Sale junto con el próximo.',
+    ],
+    commits: [
+      { sha: '8d1c1cb51', msg: 'CRM (C8 de la llamada con Mauricio, 22/10): la ficha dice en qué otros CRMs está el lead — «También en: Sprint 3 días › Prospección activa»', lineas: 86, archivos: 3 },
+    ],
+    archivos: [
+    ],
+  },
 ];

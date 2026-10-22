@@ -63,7 +63,8 @@ test('cómo cobra sale de lo que dijo del precio', () => {
     assert.deepEqual(cobroDelPrecio(p), { tipo: 'unico', meses: null }, p);
   }
   assert.deepEqual(cobroDelPrecio('4 mensualidades'), { tipo: 'suscripcion', meses: 4 }, 'sin tarjeta, las mensualidades son suscripción');
-  assert.deepEqual(cobroDelPrecio('Programa de 12 meses, 3.000 USD'), { tipo: 'unico', meses: null }, 'la duración no es el cobro');
+  // La duración no es el cobro, y sin una señal la lectura es por defecto: no se propone (décima revisión, 21/10).
+  assert.deepEqual(cobroDelPrecio('Programa de 12 meses, 3.000 USD'), { tipo: 'unico', meses: null, porDefecto: true }, 'la duración no es el cobro');
   assert.deepEqual(cobroDelPrecio(''), { tipo: 'unico', meses: null });
 });
 
@@ -71,6 +72,7 @@ test('el producto del onboarding toma el tipo de cómo cobra', () => {
   const srv = readFileSync(join(__dirname, '..', 'lib/onboarding-arranque-server.ts'), 'utf8').replace(/\r\n/g, '\n');
   // Sólo el cobro CONFIRMADO con un toque (cuarta revisión, 21/10); lo leído del precio se propone en la etapa 'cobro'.
   assert.match(srv, /const cobro = e\.cobro \?\? \{ tipo: 'unico' as const, meses: null \};/);
-  assert.match(srv, /cobroLeido: sesion && sinMarca\(sesion\.piezas\?\.precio\?\.valor\) \? cobroDelPrecio\(sinMarca\(sesion\.piezas\?\.precio\?\.valor\)\) : null,/);
+  assert.match(srv, /const precioDicho = sesion \? sinMarca\(sesion\.piezas\?\.precio\?\.valor\) : '';/);
+  assert.match(srv, /cobroLeido: precioDicho \? cobroDelPrecio\(precioDicho\) : null,\n\s*cobroOpciones: precioDicho \? opcionesDeCobro\(precioDicho\) : null,/);
   assert.match(srv, /tipo: cobro\.tipo,\n\s*monto_usd: null,\n\s*suscripcion_meses: cobro\.meses,/);
 });

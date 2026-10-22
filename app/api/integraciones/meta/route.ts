@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
 
   const ws = await adminDeWorkspaceActual();
   if (ws == null) return fail('no-permitido');
-  if (!(await conectarMetaDisponible())) return fail('no-disponible', ws);
+  if (!(await conectarMetaDisponible(ws))) return fail('no-disponible', ws);
 
   const version = process.env.META_API_VERSION || 'v24.0';
   const state = crypto.randomBytes(16).toString('hex');

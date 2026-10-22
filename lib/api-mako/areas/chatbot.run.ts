@@ -15,7 +15,7 @@ import 'server-only';
 import type { Ctx, Runners, SalidaLectura } from '../tipos';
 import { crearRunnerAcciones, ejecutarAccion } from '@/lib/mako-doer-acciones';
 import { getSecuenciasConStats, setSecuenciaPasos, publicarPasos, duplicadaDeLaActivacion, DuplicadaError, planificarInscripciones, planificarEnvios, inscribirEnSecuencia, PasosInvalidosError, type PasoSecuencia, type InscripcionManual } from '@/lib/nutricion';
-import { avisoDuplicada } from '@/lib/automatizacion-duplicada';
+import { avisoDuplicada, primerMensajeDe } from '@/lib/automatizacion-duplicada';
 import { motivoNoInscribe, motivoNoSale, SALIDAS_QUE_YA_ESTABAN } from '@/lib/nutricion-inscripcion-manual';
 import { sacarDeSecuencia, type SalidaManual } from '@/lib/nutricion-salida-manual';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
@@ -26,10 +26,11 @@ import { esLineal, esNodoDeControl, relinear, tieneTarjetasDeControl, agregarCas
 import { getAdjunto } from '@/lib/setting-adjuntos';
 import { emitirAviso } from '@/lib/avisos';
 import { linkApp } from '@/lib/app-url';
+import { rutaChatsDeLead } from '@/lib/chats-links';
 import { valoresVariablesLead } from '@/lib/template-vars';
 import { valoresDeVariables } from '@/lib/variables-resolver';
 import { textoConDatos } from '@/lib/variables-del-lead';
-import { prepararDisparadores, guardarDisparadores } from '@/lib/disparadores-guardar';
+import { prepararDisparadores, guardarDisparadores, publicarCrons } from '@/lib/disparadores-guardar';
 import { firmaLista, eventosDe, esClaseDeEventos, claseDeDisparador, TRIGGER_SOLO_GRUPO, type Disparador } from '@/lib/disparadores';
 import { textoCron } from '@/lib/cron-aviso';
 import { TRIGGERS } from '@/lib/email-marketing';
@@ -55,6 +56,7 @@ import { conConteos } from '@/lib/flujo-ia-crear-core';
 import { KEY_HORARIO_ENVIO, horarioVigente, type DiaSemana } from '@/lib/horario-envio';
 import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes } from '@/lib/limites-envio';
 import { horarioDeLaAutomatizacion, personaHorasDeLaAutomatizacion, textoDeHorario, configParaGuardar } from '@/lib/config-automatizacion';
+import { textoDeGoteo } from '@/lib/goteo';
 import { leerConfigAutomatizacion, guardarConfigAutomatizacion, copiarConfigAutomatizacion } from '@/lib/config-automatizacion-db';
 import { preguntaAntes, preguntaParaWhatsApp, respuestaDeTexto, sanearRespuestas } from '@/lib/flujo-ia-preguntas';
 import { TOPE_RONDAS, type RespuestaMako } from '@/lib/automatizacion-chat';
@@ -139,13 +141,34 @@ function cambioDeConfigDelInput(input: Record<string, unknown>): { cambio: Recor
     if (input.horasEmail != null) { ph.email = num(input, 'horasEmail'); partes.push(`${ph.email} h entre dos emails a la misma persona`); }
     if (Object.keys(ph).length) cambio.personaHoras = ph;
   }
-  if (!partes.length) return { error: 'No dice qué cambiar: el horario (horario) o las horas a la misma persona (horasWhatsapp, horasEmail).' };
+  // EL GOTEO (22/10/2026, lib/goteo.ts): uno cada N minutos y hasta M por día, adentro del tope de la línea.
+  if (input.sinGoteo === true) { cambio.goteo = null; partes.push('sin goteo'); }
+  else {
+    const g: Record<string, number> = {};
+    if (input.goteoMinutos != null) { g.minutos = num(input, 'goteoMinutos'); partes.push(`uno cada ${g.minutos} min`); }
+    if (input.goteoPorDia != null) { g.dia = num(input, 'goteoPorDia'); partes.push(`hasta ${g.dia} WhatsApp por día`); }
+    if (Object.keys(g).length) cambio.goteo = g;
+  }
+  if (!partes.length) return { error: 'No dice qué cambiar: el horario (horario), las horas a la misma persona (horasWhatsapp, horasEmail) o el goteo (goteoMinutos, goteoPorDia).' };
   const prueba = configParaGuardar({}, cambio);
   if (!prueba.ok) return { error: prueba.error };
   return { cambio, resumen: partes.join(' · ') };
 }
 
 const noExiste = (id: number) => `No existe la secuencia #${id} vigente en este negocio (puede estar archivada). Pide el id con listar_secuencias_nutricion.`;
+
+/** Los pasos con el audio puesto (o sacado) en el paso `orden`: lo mismo en la propuesta y en el «sí». */
+function conAudio(pasos: readonly PasoSecuencia[], orden: number, audioId: number | null): PasoSecuencia[] {
+  return pasos.map((p) => {
+    if (p.orden !== orden) return p;
+    return audioId != null
+      ? { ...p, tipo: 'audio', audio_id: audioId, canal: 'whatsapp', proveedor: 'no_oficial' }
+      : { ...p, tipo: 'texto', audio_id: null };
+  });
+}
+/** ¿El primer mensaje pasa a salir por otro canal? Entonces le escribe a la gente por donde quizás ya le escribe otra. */
+const canalCambia = (antes: readonly PasoSecuencia[], despues: readonly PasoSecuencia[]): boolean =>
+  (primerMensajeDe(antes as unknown as PasoGrafo[])?.canal ?? null) !== (primerMensajeDe(despues as unknown as PasoGrafo[])?.canal ?? null);
 
 const historialDe = (input: Record<string, unknown>): TurnoSim[] =>
   (Array.isArray(input.historial) ? (input.historial as Array<Record<string, unknown>>) : [])
@@ -766,10 +789,16 @@ export const RUNNERS: Runners = {
       if (!s.pasos.some((p) => p.orden === orden)) return { error: `La secuencia «${s.nombre}» no tiene paso ${orden}.` };
       if (esPasoAccion(s.pasos.find((p) => p.orden === orden))) return { error: `El paso ${orden} de «${s.nombre}» es una acción de MaKo, no un mensaje: no lleva audio.` };
       if (esNodoDeControl(s.pasos.find((p) => p.orden === orden))) return { error: `El paso ${orden} de «${s.nombre}» es una tarjeta de control, no un mensaje: no lleva audio.` };
-      if (audioId == null) return { payload: { secuenciaId: id, orden }, resumen: `Quitar el audio del paso ${orden} de «${s.nombre}» (vuelve a ser texto)` };
-      const a = await getAudio(audioId);
-      if (!a) return { error: `No existe el audio #${audioId} en este negocio. Pide el id con listar_audios.` };
-      return { payload: { secuenciaId: id, orden, audioId }, resumen: `Paso ${orden} de «${s.nombre}» → nota de voz «${a.titulo}» (va por WhatsApp no oficial; a leads que todavía no son clientes queda como borrador para que alguien lo mande)` };
+      const a = audioId == null ? null : await getAudio(audioId);
+      if (audioId != null && !a) return { error: `No existe el audio #${audioId} en este negocio. Pide el id con listar_audios.` };
+      // ⚠️ UN AUDIO EN EL PRIMER MENSAJE DE UN EMAIL LO PASA A WHATSAPP (revisión del 21/10/2026): con otro canal, una ACTIVA
+      // le escribe por donde ya le escribe otra. Es como activarla de nuevo para esa gente: la PROPUESTA lo dice.
+      const nuevos = conAudio(s.pasos, orden, audioId);
+      const otra = canalCambia(s.pasos, nuevos) ? await duplicadaDeLaActivacion(id, { pasos: nuevos as unknown as PasoGrafo[], soloSiActiva: true }) : null;
+      const ojo = otra ? `. Ojo: ${avisoDuplicada(otra)}` : '';
+      const payload = { secuenciaId: id, orden, ...(audioId != null ? { audioId } : {}), ...(otra ? { aunqueDuplique: true } : {}) };
+      if (audioId == null) return { payload, resumen: `Quitar el audio del paso ${orden} de «${s.nombre}» (vuelve a ser texto)${ojo}` };
+      return { payload, resumen: `Paso ${orden} de «${s.nombre}» → nota de voz «${a!.titulo}» (va por WhatsApp no oficial; a leads que todavía no son clientes queda como borrador para que alguien lo mande)${ojo}` };
     },
     ejecutar: async (payload) => {
       const id = Number(payload.secuenciaId); const orden = Number(payload.orden);
@@ -777,13 +806,15 @@ export const RUNNERS: Runners = {
       const s = await secuenciaVigente(id);
       if (!s || !s.pasos.some((p) => p.orden === orden)) return { ok: false, resumen: 'La secuencia o el paso ya no existen.' };
       if (audioId != null && !(await getAudio(audioId))) return { ok: false, resumen: `El audio #${audioId} ya no existe.` };
-      const pasos: PasoSecuencia[] = s.pasos.map((p) => {
-        if (p.orden !== orden) return p;
-        return audioId != null
-          ? { ...p, tipo: 'audio', audio_id: audioId, canal: 'whatsapp', proveedor: 'no_oficial' }
-          : { ...p, tipo: 'texto', audio_id: null };
-      });
-      await setSecuenciaPasos(id, pasos);
+      const pasos = conAudio(s.pasos, orden, audioId);
+      try {
+        // Con otro canal en el primer mensaje, por la puerta que pregunta (`publicarPasos`); si no, el texto ni a quién cambian.
+        if (canalCambia(s.pasos, pasos)) await publicarPasos(id, pasos, { aunqueDuplique: payload.aunqueDuplique === true });
+        else await setSecuenciaPasos(id, pasos);
+      } catch (e) {
+        if (e instanceof DuplicadaError) return { ok: false, resumen: `No cambié el paso ${orden} de «${s.nombre}»: ${e.message}. Si es a propósito, pídemelo otra vez.` };
+        throw e;
+      }
       return { ok: true, resumen: audioId != null ? `El paso ${orden} de «${s.nombre}» ahora es una nota de voz.` : `El paso ${orden} de «${s.nombre}» volvió a ser texto.` };
     },
   },
@@ -828,7 +859,9 @@ export const RUNNERS: Runners = {
           whatsapp: { horas: persona.whatsapp, de: config.personaHoras?.whatsapp === undefined ? 'negocio' : 'propio' },
           email: { horas: persona.email, de: config.personaHoras?.email === undefined ? 'negocio' : 'propio' },
         },
-        nota: 'Los topes por día y por hora son de la LÍNEA, para todas las automatizaciones: no se configuran por automatización.',
+        goteo: { vale: textoDeGoteo(config.goteo), minutos: config.goteo?.minutos ?? null, por_dia: config.goteo?.dia ?? null },
+        linea: { por_dia: lim.wa.dia, por_hora: lim.wa.hora },
+        nota: 'Los topes por día y por hora de la LÍNEA son de todas las automatizaciones; el goteo es un sub-tope adentro de esos, de ésta sola.',
       });
     },
   },
@@ -1059,6 +1092,8 @@ export const RUNNERS: Runners = {
         // El link que viaja en el WhatsApp va por `linkApp` (lleva el `?ws=`): abierto desde el
         // teléfono, sin él abre la ficha en el negocio que esté mirando la pestaña.
         linkLead: lead ? linkApp(`/crm/${lead.id}`, ctx.ws) : null,
+        // Y la CHARLA en Chats (21/10/2026): quien sigue a mano llega en un toque, sin pasar por la ficha.
+        linkChat: lead ? linkApp(rutaChatsDeLead(lead.id), ctx.ws) : null,
         textos: { titulo, mensaje: partes ? textoDePreparadas(partes) : mensaje, ...(porEmail ? { asunto } : {}) },
         partes,
       });
@@ -1282,9 +1317,13 @@ export const RUNNERS: Runners = {
         if (firmaLista(lista) === firmaLista(previos)) return { error: `«${s.nombre}» ya arranca por esos CRON.`, yaEstaba: true };
         // Sin leer la zona del negocio: `tzDeWorkspace` la ESCRIBE si falta, y preparar() no escribe.
         const textos = lista.map(textoDeUnCron);
+        // ⚠️ CAMBIAR A QUIÉN LE ESCRIBE UNA ACTIVA ES PRENDERLA PARA ESA GENTE (revisión del 21/10/2026): si con los CRON nuevos
+        // otra activa ya le escribe, la PROPUESTA lo dice, y sólo entonces el «sí» lleva `aunqueDuplique` (`publicarCrons`).
+        const otra = s.activa ? await duplicadaDeLaActivacion(id, { crons: lista, soloSiActiva: true }) : null;
         return {
-          payload: { secuenciaId: id, crons: lista },
-          resumen: `Cambiar los CRON de «${s.nombre}» (${previos.length} → ${lista.length}): ${textos.join(' · ')}.${s.activa ? ' Está ACTIVA: la próxima corrida inscribe con los CRON nuevos.' : ''}`,
+          payload: { secuenciaId: id, crons: lista, ...(otra ? { aunqueDuplique: true } : {}) },
+          resumen: `Cambiar los CRON de «${s.nombre}» (${previos.length} → ${lista.length}): ${textos.join(' · ')}.${s.activa ? ' Está ACTIVA: la próxima corrida inscribe con los CRON nuevos.' : ''}`
+            + `${otra ? ` Ojo: ${avisoDuplicada(otra)}.` : ''}`,
         };
       } catch (e) {
         if (e instanceof TriggerInvalidoError) return { error: e.message };
@@ -1295,10 +1334,12 @@ export const RUNNERS: Runners = {
       const id = Number(payload.secuenciaId);
       if (!(await secuenciaVigente(id))) return { ok: false, resumen: 'La automatización ya no existe o se archivó.' };
       try {
-        const quedo = await guardarDisparadores(id, payload.crons);
+        const quedo = await publicarCrons(id, payload.crons, { aunqueDuplique: payload.aunqueDuplique === true });
         return { ok: true, resumen: `Listo: la automatización #${id} arranca por ${quedo.length} CRON.`, datos: { disparadores: quedo } };
       } catch (e) {
         if (e instanceof TriggerInvalidoError) return { ok: false, resumen: e.message };
+        // La gemela apareció entre la propuesta y el «sí»: no se escribió nada.
+        if (e instanceof DuplicadaError) return { ok: false, resumen: `No cambié los CRON de la automatización #${id}: ${e.message}. Si es a propósito, pídemelo otra vez.` };
         throw e;
       }
     },

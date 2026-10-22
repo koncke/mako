@@ -855,9 +855,10 @@ sigue salteando al contacto.
 TODAS las comparaciones —guardar, preguntar, borrar— y como sufijo (`LIKE '%<10>'`), nunca
 como subcadena ni como igualdad.
 
-**Deuda:** que `estaBloqueado`, `telefonosBloqueados`, `telefonosOcultos`,
-`desbloquearContacto` y `mostrarContacto` comparen por sufijo de 10
-(lib/evolution-block.ts:22-62), y que `borrarChat` y `getMensajesDeChat` usen sufijo. No se
+**Deuda:** ~~que `estaBloqueado`, `telefonosBloqueados`, `telefonosOcultos`,
+`desbloquearContacto` y `mostrarContacto` comparen por sufijo de 10~~ PAGADA el 21/10/2026 con una regla un poco más
+fina (ver «La identidad de un bloqueo es UNA regla»): mientras fue deuda, un bloqueado le llegaba a la secuencia. Sigue
+pendiente que `borrarChat` y `getMensajesDeChat` usen sufijo. No se
 hizo porque la corrida no podía tocar libs compartidas: el parche vive en
 `lib/api-mako/areas/whatsapp.helpers.ts` (`registrosPorUltimos10`, `leadsPorUltimos10`,
 `chatEmpresaPorUltimos10`, `contarParaBorrar`) y se borra el día que la lib lo haga.
@@ -10486,6 +10487,155 @@ bandeja (sólo a una conversación: `?c=`, `?lead=`, `?chat=`).
 
 **Vive en:** lib/chats-links.ts (`rutaChatsDeVista`, `vistaDeLink`) · app/chats/ChatsApp.tsx · test:
 tests/recurrente-no-salio.test.ts · *20/10/2026, claude4.*
+
+## MaKo manda desde Chats con la tarjeta: lo que no se ve en el código (21/10/2026, Ops Center 2.1)
+
+Cinco operaciones nuevas en el área `chats` (lib/api-mako/areas/chats.*): `enviar_borrador_whatsapp`, `contestar_dm`,
+`contestar_email_chat`, `agregar_contacto_al_crm` y `marcar_leido_chat`. Con la D3a (Martín, 21/10): el toque en
+«Enviar» de la tarjeta ES la aprobación del mensaje al lead.
+
+- **El botón de la tarjeta es el `titulo` de la operación** (`rotuloPrimario`, app/m/mako/chat-ui.ts). Por eso los
+  títulos son «Enviar el WhatsApp», «Enviar el mensaje directo» y «Enviar el email»: tocar el botón ES «Enviar».
+- **El borrador de WhatsApp no se saltea.** Un texto nuevo entra a la cola (`crearBorrador`, origen mako) y sale por
+  `enviarBorradorPorSuCanal`, la única puerta (vuelve a mirar la línea). `crearBorrador` no devuelve el id: se relee
+  con `borradorTextoIgual` (sólo uno de TEXTO y de la MISMA línea: ver la tercera revisión), que además hace que un
+  reintento no apile dos.
+- **«Sí, dale» no es el mensaje** (`textoDeEnvio`, lib/chats-envio-reglas.ts): una frase sólo de aceptación, o la
+  misma con que la persona aceptó, no se manda; MaKo pregunta qué decir.
+- **El «leído» es de cada persona** (`chat_leidos`): sólo por la app, y se marca para quien CONFIRMA (la sesión del
+  toque). El hilo de una conversación no sabe el no leído de quien pide (`sinLeer` no es por persona): decir «ya está
+  leída» desde ahí sería adivinar.
+- **La red gratis no las recibe sin hacer nada**: el área `chats` es de datos de clientes (`DATOS_DE_CLIENTES_POR_AREA`).
+- ⚠️ **En main, el turno de la app no llega a NINGUNA acción de Chats**, ni a la de siempre: «cierra el chat de Ana»
+  sale `capturar` del clasificador de WhatsApp. Lo arregla la 1.2 (un verbo de hacer al principio → `actuar`,
+  lib/mako-intencion-app.ts, rama `mako-wa`, sin main el 21/10). ⚠️ **Pero la 2.1 SÍ llega hoy a la app, por el
+  «sí»** («sin la 1.2 no llega» era falso: tercera revisión). Ver «Tercera revisión de la 2.1».
+
+**Sin hacer:** verlo en el navegador (el mensaje en el hilo de /chats, ws 3). El test del turno con el clasificador de
+la 1.2. Adjuntos en el email y en el DM (el compositor los tiene; MaKo todavía no).
+**Vive en:** lib/api-mako/areas/chats.def.ts y chats.run.ts · lib/chats-envio-reglas.ts · lib/mako-intencion.ts (la
+rueda) · tests/chats-mako-envio.test.ts y tests/chats-registro.test.ts · *21/10/2026, chat «CRM» (claude4).*
+
+## Un envío al lead se aprueba con un TOQUE; el «sí» escrito de WhatsApp no alcanza (21/10/2026, revisión de la 2.1)
+
+- **La regla.** Los tres envíos al lead (`enviar_borrador_whatsapp`, `contestar_dm`, `contestar_email_chat`) van SÓLO por
+  la app, con el toque en «Enviar» de la tarjeta. En el grupo de WhatsApp no hay toque sino un «sí» escrito, y la regla
+  de confirmación toma «ok, espera que lo reviso» como un sí. Mandarle algo a un lead es irreversible: un toque. Con la
+  primera versión, 3.396 turnos de WhatsApp ganaban una herramienta para mandarle al lead (en main, 0). Un test recorre
+  el registro: ninguna acción de `chats` que no se deshace viaja por WhatsApp.
+- **Lo que sale es exactamente lo que se ve.** La tarjeta muestra el detalle hasta `MAX_TEXTO` (2.000,
+  lib/inbox-movil-reglas.ts): el envío no acepta más que eso (se aceptaban 4.000 y 20.000). El borrador por id ahora lleva
+  a la tarjeta el texto ENTERO, si es nota de voz o archivo, el número y la línea; vacío no se propone (decía «null»).
+- **El canal lo decide la cosa nombrada**: «respóndele el mail a Pedro» llegaba a la de WhatsApp. Si el pedido nombra UN
+  canal y no es el de la operación, no se propone y se dice cuál es (`canalNombradoNoCoincide`).
+- ⚠️ **Un test que inventa la entrada prueba lo que inventó.** El test del turno armaba a mano un veredicto «igual al de
+  la 1.2» y no lo era: daba 7 de 7 en verde, y con el clasificador real eran 0 en main y 5 en la 1.2. Ahora corre con el
+  clasificador real y queda `todo` hasta que la 1.2 esté en main.
+- **La rueda de áreas es COMPARTIDA** (el grupo de WhatsApp y el ruteo de pedidos, lib/mako-pedidos.ts): sumarle palabras
+  para la app movía 5.108 turnos de WhatsApp y 98 links del Ops Center. Las palabras de mandar son de la app (la 1.2).
+- **El bloqueo, en la única puerta**: `enviarBorradorPorSuCanal` mira el bloqueo (por los últimos 10 dígitos desde la
+  tercera revisión). /chats deshabilitaba «Enviar», pero /whatsapp y MaKo mandaban el borrador de un bloqueado.
+- **Respuestas cortas**: «contéstale que sí» manda «Sí»; un «sí, dale» que sólo aceptaba no es el mensaje.
+- **«No salió» sólo si no salió**: un email que salió y no quedó en el hilo, o un borrador que ya salió por otro lado,
+  decían «no salió», y quien lo lee lo vuelve a pedir.
+
+**Vive en:** lib/api-mako/areas/chats.* · lib/chats-envio-reglas.ts · lib/borrador-camino.ts ·
+tests/chats-mako-envio.test.ts · *21/10/2026, chat «CRM» (claude4), segunda revisión del Cerebro.*
+
+## Tercera revisión de la 2.1: cada puerta tiene que mandar lo que se aprobó (21/10/2026)
+
+- ⚠️ **«Sin la 1.2, la 2.1 no llega en la app» era el diagnóstico equivocado.** Un pedido directo no llega (el
+  clasificador de main lo da `capturar`), pero el «sí» a un ofrecimiento SÍ: `sigueOfrecimiento` elige las herramientas
+  por lo que MaKo OFRECIÓ (`contextoDelSi`, lib/doer-herramientas.ts), y «¿Quieres que le conteste por DM…?» + «sí, dale»
+  trae los tres envíos. Medido con el clasificador real: con un ofrecimiento de Instagram/DM, sí; de WhatsApp, email o
+  «un borrador en la cola», no. Lo fija un test. Al decir «una pieza no llega», medí TODOS los caminos que eligen
+  herramientas, no sólo el pedido directo.
+- **Reusar un borrador «igual» mandaba OTRA cosa.** El texto nuevo se reusaba si había un pendiente con el mismo texto y
+  teléfono (`borradorPendienteIgual`, lib/api-mako/areas/whatsapp.helpers.ts): un paso de secuencia con nota de voz y el
+  mismo pie era «igual» y salía el audio; uno de otra línea salía por esa línea. La tarjeta decía «texto, por Ventas».
+  Ahora `borradorTextoIgual` (chats.run.ts): sin `audio_id` ni `adjunto_id`, con la misma `instance_name` (o null).
+  **Regla: reusar sólo con los MISMOS campos que la tarjeta muestra.**
+- **El bloqueo comparaba dígitos EXACTOS.** `wa_bloqueados` guarda el número como se bloqueó (542233550684), y los
+  borradores de secuencia vienen con 10 dígitos (27 de 32 pendientes en el ws 11): `estaBloqueado` no los frenaba.
+  `estaBloqueadoPorUltimos10` (lib/evolution-block.ts) compara por los últimos 10, como `por10` de /chats; con menos de
+  10, exacto. Lo usan la puerta única y la tarjeta. ⚠️ Arreglar SÓLO la puerta era el diagnóstico incompleto: los caminos
+  automáticos no pasan por ella. La cuarta revisión lo llevó a `estaBloqueado` (ver «La identidad de un bloqueo»).
+- **La tarjeta mostraba los dígitos guardados (+2233550684) y el envío salía a +542233550684**: `numeroParaWhatsApp`
+  completa el país de la línea recién al mandar. La tarjeta lo calcula con la MISMA elección de línea (`elegirLinea`,
+  `numeroDeSalida`), en el borrador por id y en el texto nuevo; si no se puede, no se propone.
+- **El canal se leía del texto DICTADO**: «contéstale a Pedro: te mandé el link por mail» frenaba el WhatsApp. Ahora
+  `canalNombradoNoCoincide` mira sólo el pedido: saca lo dictado, lo de después del «:» y lo de entre comillas. IG y
+  Facebook cuentan como DM.
+- **«sí, mándale» / «dale, contéstale» sólo aceptan** (`PALABRA_QUE_ACEPTA`): su «Sí, dale» no se manda.
+  «contéstale que sí» sigue dictando «Sí».
+- **Un corte por tiempo no es «no salió»** (`esCortePorTiempo`): «No sé si salió… mira el hilo antes de mandarlo otra
+  vez». Evolution corta a los 30 s y el mensaje pudo haber salido.
+- **La bandeja /mako/pendientes es otra puerta de confirmación de estos envíos** y cortaba en 240 (hallazgos-api-mako).
+
+**Sin hacer:** tras un corte por tiempo, `enviarBorrador` (lib/evolution-envio.ts) devuelve el borrador a «pendiente»:
+el próximo «Enviar» puede duplicarlo. Habría que marcarlo «incierto», como `contestar_dm`. Los otros usos de
+`estaBloqueado` exacto (fuera de la puerta) no se revisaron.
+**Vive en:** lib/api-mako/areas/chats.run.ts · lib/chats-envio-reglas.ts · lib/evolution-block.ts · lib/borrador-camino.ts ·
+tests/chats-mako-envio.test.ts y tests/_chats-envio-hijo.ts · *21/10/2026, chat «CRM» (claude4), tercera revisión del
+Cerebro.*
+
+## La identidad de un bloqueo es UNA regla, y un arreglo de envío destapó la fuga (21/10/2026, cuarta revisión de la 2.1)
+
+- **Síntoma (ws11, en producción desde el 20/10; medido el 21/10: 0 bloqueos en producción, nadie afectado):** un contacto bloqueado desde /chats sigue recibiendo la secuencia, el
+  AI Step, la rama y los recordatorios de reunión.
+- **Causa:** /chats guarda el número del espejo (542233550684); el CRM y los borradores tienen 2233550684 (53 de 70 leads
+  del ws11). `estaBloqueado` comparaba EXACTO y daba «no». ⚠️ **Lo que lo destapó fue un arreglo:** hasta el 20/10 un
+  número de 10 dígitos fallaba en Evolution, así que el mensaje al bloqueado tampoco salía. Desde que `numeroParaWhatsApp`
+  completa el país, sale. **Regla: cuando un arreglo hace que algo que fallaba empiece a salir, revisá qué guardas se
+  apoyaban en que fallara.**
+- ⚠️ **El diagnóstico obvio era el incompleto:** la tercera vuelta arregló la puerta de los borradores (por los últimos
+  10), pero la secuencia, el AI Step, la rama y los recordatorios no pasan por ella. La regla tiene que vivir donde
+  preguntan TODOS: `estaBloqueado` (lib/evolution-block.ts), y así la heredan sin tocar cada llamada.
+- **La regla** (`TelefonosDe` / `mismoContacto`, lib/numero-whatsapp.ts, pura): con 10 dígitos o más, los últimos 10
+  (2233550684, 542233550684 y 5492233550684 son uno). Con 9 (el largo local de España, Chile y Perú), el mismo número o
+  ese número con el código de un país de 9 adelante: es lo que el envío haría al completarlo. Con menos, igual.
+  **Por qué no el número entero:** el 9 de Argentina y el 1 de México son la misma persona con otro prefijo. **Por qué no
+  «los últimos 9»:** un 10 de México que termine igual es otro. Dos países con los mismos 10 dígitos se bloquean entre sí:
+  falla cerrado, y /chats ya los junta.
+- **Desbloquear borraba una sola forma:** bloqueado con dos (MaKo guarda la del CRM y la del espejo) y desbloqueado desde
+  /whatsapp o /chats, quedaba la otra: la pantalla decía «desbloqueado» y la puerta seguía frenando, sin forma de
+  destrabarlo desde la pantalla. Ahora `desbloquearContacto` y `mostrarContacto` borran todas las formas.
+- **Las listas marcan con la misma regla:** `telefonosBloqueados()` y `telefonosOcultos()` devuelven un `TelefonosDe`
+  (/whatsapp, /chats y la cohorte del residuo de nutrición). /chats tenía su propia regla (`por10`), que no veía los 9.
+- **`estaBloqueado` NO tira** (como siempre): los caminos automáticos corren en un bucle sin `try` por contacto, y un
+  error cortaría la vuelta de todos; si no puede leer, lo dice en el log y contesta «no». Lo que aprueba una persona
+  (la puerta de los borradores, la tarjeta de MaKo) usa `estaBloqueadoEstricto`, que tira y no deja salir.
+
+**Sin hacer:** el área whatsapp de MaKo (`registrosPorUltimos10`, lib/api-mako/areas/whatsapp.helpers.ts) sigue por los
+últimos 10 y pide 10 dígitos mínimo: un bloqueo guardado con 9 no lo ve. `borrarChat` y `getMensajesDeChat` siguen por
+subcadena (la entrada de «tres reglas»).
+**Vive en:** lib/numero-whatsapp.ts · lib/evolution-block.ts · lib/chats.ts · lib/nutricion-residuo-cohorte.ts ·
+tests/bloqueo-identidad.test.ts y tests/_bloqueo-hijo.ts · *21/10/2026, chat «CRM» (claude4), cuarta revisión del Cerebro.*
+
+## Cuarta revisión de la 2.1: lo que se pide y lo que se confirma (21/10/2026)
+
+- **«respóndele sí» no mandaba nada**: la orden con «-le» contaba como aceptación. Ahora la orden que ABRE el pedido
+  dicta lo que sigue («respóndele sí» → «Sí», «contéstale ok», «dile dale»); sólo acepta detrás de otra aceptación («sí,
+  dale, mándale») o sola. «mándale ya» dice cuándo, no qué.
+- **El canal se buscaba sólo antes del primer «:»**: el de una hora (9:30) o de un link (https://) apagaba la guarda.
+  Ahora corta en «: » (con espacio). Y una red es canal cuando es el MEDIO («por Instagram», «en IG»): «el link de nuestra
+  página de Facebook» frenaba el WhatsApp.
+- **«fetch failed» decía «No salió»** y el borrador quedaba pendiente: el reintento lo duplicaba. `esEnvioIncierto`
+  suma la conexión que se cae después de conectar (fetch failed, ECONNRESET, socket hang up); lo que falla antes de
+  conectar (ECONNREFUSED, ENOTFOUND) sí es «no salió».
+- **Reusar un borrador de OTRO país con los mismos 10 dígitos**: +1 551 234 5678 y +52 1 55 1234 5678. Con los dos con
+  país se compara el número entero sin el 9 de Argentina ni el 1 de México (`mismoDestino`).
+- **`agregar_contacto_al_crm` sólo por la app**: por WhatsApp viajaba en el «sí» a cualquier ofrecimiento de Chats y,
+  con sus 1.098 caracteres, sacaba lecturas que producción daba (hilo_chat, posponer_chat). ⚠️ **Medir el «sí» aparte:**
+  la medición del commit armaba los turnos sin `contextoDelSi` y decía «WhatsApp no cambia»; con el «sí» a un
+  ofrecimiento de Chats cambiaban 71 de 105. Es el único camino donde la rueda de áreas suma Chats y WhatsApp juntos.
+
+**Sin hacer (opcionales de la revisión):** el «sí» a «¿le contesto por WhatsApp?» no trae el WhatsApp y puede traer el
+DM o el email; la guarda del canal lee sólo el «sí», no lo ofrecido (el turno no le pasa la oferta al runner,
+lib/mako-turno-app.ts). Un borrador incierto vuelve a «pendiente» (lib/evolution-envio.ts): habría que dejarlo en un
+estado que /chats y MaKo no ofrezcan reenviar.
+**Vive en:** lib/chats-envio-reglas.ts · lib/api-mako/areas/chats.run.ts y chats.def.ts · tests/chats-mako-envio.test.ts ·
+*21/10/2026, chat «CRM» (claude4).*
 
 ## Lo que le llega a un TERCERO se confirma por WhatsApp con un «sí» y nada más (21/10/2026)
 

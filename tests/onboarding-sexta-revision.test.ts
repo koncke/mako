@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  NOMBRE_CONFIRMAR, PDF_BIEN, PDF_FALTA, PDF_SIN_DETALLE, SI_ES_ESO, cobroDelPrecio, etapaDeArranque, etiquetaCobro, leerRespuesta,
+  NOMBRE_CONFIRMAR, PDF_BIEN, PDF_FALTA, PDF_SIN_DETALLE, cobroDelPrecio, etapaDeArranque, etiquetaCobro, leerRespuesta,
   mensajesDeArranque, notaDelPdf, pdfConfirmarPregunta, type EstadoArranque, type HechosArranque, type Respuesta,
 } from '../lib/onboarding-arranque';
 import { preguntaQueContesta } from '../app/onboarding/arranque-ui';
@@ -40,7 +40,7 @@ test('1. el toque del PDF tiene la misma polaridad que «¿está correcto?», re
   assert.match(m?.texto ?? '', /^Escribiste «Todo perfecto»\. ¿Lo tomo como que está todo bien\?$/);
   assert.deepEqual(m?.opciones, [PDF_BIEN, PDF_FALTA], 'el sí primero, como en «¿está correcto?»');
   // Antes: las 20 daban pdfOk 'no' con la nota «Todo perfecto». Ahora ninguna decide: se suman y se vuelve a preguntar.
-  for (const t of ['Está perfecto', 'Así está bien', 'Está bien así', 'Muy bien', 'Mejor así', 'Genial', 'Listo', 'Gracias', '👍', 'Ok', 'Sí, falta la garantía']) {
+  for (const t of ['Está perfecto', 'Así está bien', 'Está bien así', 'Muy bien', 'Mejor así', 'Genial', 'Listo', 'Gracias', 'Sí, falta la garantía']) {
     const r = responder(P, { texto: t });
     assert.deepEqual(r, { ok: true, patch: { pdfEscritas: ['Todo perfecto', t] } }, `«${t}»`);
   }
@@ -81,7 +81,7 @@ test('4. un «no» al PDF siempre deja marca: sin nada escrito, «sin detalle»,
   }
   assert.match(leer('lib/onboarding-arranque-server.ts'), /const pdfNota = notaDelPdf\(e\);/);
   const api = sinComentarios(leer('lib/api-mako/areas/negocio.run.ts'));
-  assert.match(api, /encuesta\?\.pdfNota === PDF_SIN_DETALLE \? 'No dijo qué: pregúntale qué falta o qué está mal/);
+  assert.match(api, /Si la nota no dice QUÉ falta o qué está mal \(«sin detalle», «No me convence», «Falta algo»\), pregúntale antes de corregir nada\./);
 });
 
 test('5. el cobro: las cuotas se leen antes que lo anual', () => {
@@ -93,8 +93,8 @@ test('5. el cobro: las cuotas se leen antes que lo anual', () => {
   const e: EstadoArranque = { ...E, pdfOk: 'si' };
   const m = mensajesDeArranque(e, h).despues.at(-1);
   assert.match(m?.texto ?? '', new RegExp(`«${etiquetaCobro({ tipo: 'suscripcion', meses: 12 })}»`));
-  assert.equal(m?.opciones?.[0], SI_ES_ESO);
-  assert.deepEqual(responder(e, { opcion: 0, opcionTexto: SI_ES_ESO }, h), { ok: true, patch: { cobro: { tipo: 'suscripcion', meses: 12 } } });
+  assert.equal(m?.opciones?.[0], 'Suscripción de 12 meses', 'la leída va primera (novena revisión)');
+  assert.deepEqual(responder(e, { opcion: 0, opcionTexto: 'Suscripción de 12 meses' }, h), { ok: true, patch: { cobro: { tipo: 'suscripcion', meses: 12 } } });
   // Lo anual puro sigue sin proponerse.
   assert.equal(cobroDelPrecio('Membresía anual USD 400').periodo, 'anual');
 });
@@ -144,7 +144,9 @@ test('10. la caja: sin nada que ofrecer el «+» queda apagado, y lo pegado cuan
 
 test('11. el CSV de clientes no deja entrar una fórmula', () => {
   const admin = sinComentarios(leer('app/admin/AdminView.tsx'));
-  assert.match(admin, /const t = \/\^\[=\+\\-@\\t\\r\]\/\.test\(crudo\) \? `'\$\{crudo\}` : crudo;/);
+  // El escape vive en el helper único de Infra (lib/csv-celda.ts; la guarda es tests/csv-una-sola-via.test.ts): el CSV de clientes lo usa.
+  assert.ok(admin.includes("import { armarCsv } from '@/lib/csv-celda';"), 'AdminView importa el helper único de CSV');
+  assert.ok(admin.includes("const csv = armarCsv([cab, ...cuerpo], { sep: ';' });"), 'el CSV de clientes se arma con el helper');
 });
 
 // ROTURAS (21/10/2026, romper.js + roturas-sexta.json del scratchpad; con quinta-revision, pdf-confirmar,

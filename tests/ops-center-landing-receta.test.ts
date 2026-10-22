@@ -38,6 +38,10 @@
 //   N4  una referencia con el nombre del catálogo es nueva · N5 nombrarlo y decir qué es pregunta (el bucle)
 //   N6  «C#» es vago · N7 con el catálogo ilegible se tira el producto · N8 el preparar no frena al reintentar
 //   N9  «sea», «después», «parecido» con contenido · N10 «para qué producto» viaja con las cinco herramientas
+//   (6ª revisión, sobre 7 / 0; las 3 en rojo y restauradas)
+//   E1  dos con la misma clave y el exacto vuelve a preguntar · E2 todos iguales vuelve a preguntar
+//   E3  la línea del producto no dice a qué camino aplica (en un turno viajan juntas)
+//   F5  «todos iguales» mirando mayúsculas (7ª revisión; la pregunta tendría dos opciones que el marco ve iguales)
 //
 // Correr: node --import tsx --test tests/ops-center-landing-receta.test.ts
 // =============================================================================
@@ -290,7 +294,14 @@ const DICHO: [string, string | null, string | null, string[] | null, Espera][] =
   ['cc5', 'Plan 🥈', null, ['Plan 🥇'], 'pregunta'], ['cc6', 'Descuento 50', null, ['Descuento 50%'], 'pregunta'],
   ['cc7', '?', null, ['🚀'], 'pregunta'], ['cc8', 'Курс', null, ['课程'], 'pregunta'], ['cc9', null, '...', ['🚀'], 'pregunta'],
   ['cc10', 'Mentoría 1-a-1', null, M11, { catalogo: 'Mentoría 1 a 1' }], ['cc11', '«Kairos».', null, ['Kairos'], { catalogo: 'Kairos' }],
-  ['cc12', 'Curso de C', null, ['Curso de C', 'Curso de C'], 'pregunta'], ['cc14', '?', null, ['--'], 'pregunta'], ['cc13', null, 'curso de c++', ['Curso de C++', 'Curso de C'], { catalogo: 'Curso de C++' }],
+  // Dos con la misma clave: el que coincide exacto; todos iguales, el primero; si no, se pregunta (6ª revisión, #4).
+  ['cc12', 'Curso de C', null, ['Curso de C', 'Curso de C'], { catalogo: 'Curso de C' }],
+  ['dt1', 'Mentoria', null, ['Mentoría', 'Mentoria'], { catalogo: 'Mentoria' }], ['dt2', 'Mentoría', null, ['Mentoría', 'Mentoria'], { catalogo: 'Mentoría' }],
+  ['dt3', 'MENTORIA', null, ['Mentoría', 'Mentoria'], 'pregunta'], ['dt4', null, 'Mentoria', ['Mentoría', 'Mentoria'], { catalogo: 'Mentoria' }],
+  ['dt5', 'curso de c', null, ['Curso de C', 'Curso de C'], { catalogo: 'Curso de C' }],
+  // Que sólo difieren en mayúsculas: el primero (la pregunta tendría dos opciones que el marco ve iguales).
+  ['dt6', 'mentoría', null, ['Mentoría', 'MENTORÍA'], { catalogo: 'Mentoría' }],
+  ['dt7', 'CURSO DE C', null, ['Curso de C', 'Curso de C', 'curso de c'], { catalogo: 'Curso de C' }], ['cc14', '?', null, ['--'], 'pregunta'], ['cc13', null, 'curso de c++', ['Curso de C++', 'Curso de C'], { catalogo: 'Curso de C++' }],
   // Una referencia que NOMBRA uno del catálogo y no dice cuál es el nuevo (5ª revisión, #2): pregunta.
   ...['no es Kairos', 'otro que no sea Kairos', 'distinto de Kairos', 'el otro, no Kairos', 'uno diferente a Kairos', 'el que no es Kairos',
     'otro producto que no es Kairos', 'otro (no Kairos)', 'el de después de Kairos'].map((r, i): [string, string | null, string | null, string[] | null, Espera] => [`kr${i}`, null, r, ['Kairos'], 'pregunta']),
@@ -334,12 +345,17 @@ test('la pregunta trae las opciones: los productos, uno nuevo y el negocio en ge
   assert.match(malo.que === 'preguntar' ? malo.mensaje : '', /^«Mentoría grupal» no es un producto del catálogo\./);
   const vago = productoDeLanding({ nuevo: 'mi otro' }, P(...M));
   assert.match(vago.que === 'preguntar' ? vago.mensaje : '', /^«mi otro» no dice cuál es el producto nuevo\./);
-  // Dos del catálogo que se llaman igual: se pregunta con ésos, no se toma el primero.
-  const dos = productoDeLanding({ producto: 'Curso de C' }, P('Curso de C', 'Taller', 'Curso de C'));
-  assert.ok(dos.que === 'preguntar' && /^En el catálogo hay más de uno que se llama como «Curso de C»: «Curso de C», «Curso de C»\./.test(dos.mensaje), JSON.stringify(dos));
-  assert.deepEqual(dos.que === 'preguntar' ? dos.opciones : null, ['Curso de C', 'Curso de C', OPCION_NUEVO, OPCION_NEGOCIO]);
-  const dosNuevo = productoDeLanding({ nuevo: 'Curso de C' }, P('Curso de C', 'Curso de C'));
-  assert.match(dosNuevo.que === 'preguntar' ? dosNuevo.mensaje : '', /^En el catálogo hay más de uno que se llama como «Curso de C»/, 'también por `producto_nuevo`');
+  // Dos del catálogo con la misma clave y lo mandado no coincide exacto con ninguno: se pregunta con ésos, y cada
+  // opción lleva el nombre EXACTO, que al volver elige ése (no vuelve a preguntar).
+  const dos = productoDeLanding({ producto: 'MENTORIA' }, P('Mentoría', 'Taller', 'Mentoria'));
+  assert.ok(dos.que === 'preguntar' && /^En el catálogo hay más de uno que se llama como «MENTORIA»: «Mentoría», «Mentoria»\./.test(dos.mensaje), JSON.stringify(dos));
+  assert.deepEqual(dos.que === 'preguntar' ? dos.opciones : null, ['Mentoría', 'Mentoria', OPCION_NUEVO, OPCION_NEGOCIO]);
+  for (const o of dos.que === 'preguntar' ? dos.opciones.slice(0, 2) : []) {
+    const vuelta = productoDeLanding({ producto: o }, P('Mentoría', 'Taller', 'Mentoria'));
+    assert.ok(vuelta.que === 'sigue' && vuelta.producto === o, `la opción «${o}» volvió a preguntar`);
+  }
+  const dosNuevo = productoDeLanding({ nuevo: 'MENTORIA' }, P('Mentoría', 'Mentoria'));
+  assert.match(dosNuevo.que === 'preguntar' ? dosNuevo.mensaje : '', /^En el catálogo hay más de uno que se llama como «MENTORIA»/, 'también por `producto_nuevo`');
   const ref = productoDeLanding({ nuevo: 'otro que no sea Kairos' }, P('Kairos'));
   assert.match(ref.que === 'preguntar' ? ref.mensaje : '', /^«otro que no sea Kairos» nombra «Kairos» pero no dice cuál es el producto nuevo\./);
   for (const cat of [P(...M), [], null]) {
@@ -490,6 +506,9 @@ test('la receta de landing viaja con las herramientas que crean una landing, y c
   for (const h of ['crear_landing_desde_diseno', 'crear_landing_en_blanco', 'crear_presentacion_desde_plantilla', 'replicar_landing']) {
     assert.doesNotMatch(recetasDelTurno(new Set([h]), false), /PARA QUÉ PRODUCTO/, h);
   }
+  // En un turno de crear viajan JUNTAS (6ª revisión, #3): la línea dice a qué camino aplica.
+  const crear = recetasDelTurno(new Set(['generar_landing_con_ia', 'crear_landing_desde_diseno', 'crear_landing_en_blanco', 'crear_presentacion_desde_plantilla']), false);
+  assert.match(crear, /PARA QUÉ PRODUCTO, si la creas con IA desde una idea o un texto \(desde un diseño, en blanco o con una plantilla no se usa: no lo preguntes\)/);
   const r = recetasDelTurno(new Set(['generar_landing_con_ia']), false);
   assert.match(r, /si te la piden PARA uno del catálogo, pasa su nombre exacto \(no si lo nombran para excluirlo, compararlo o de modelo\)/);
   assert.match(r, /NO lo adivines: antes de proponer, pregunta con opciones \(los productos del catálogo, «Un producto nuevo» y «El negocio en general»\)/);

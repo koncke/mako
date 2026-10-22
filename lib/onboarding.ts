@@ -9,6 +9,8 @@ import 'server-only';
 import { getSetting, setSetting } from './settings';
 import { renderPrompt } from './prompt-render';
 import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, motivoDeErroresCascada, type ProvName } from './ai-cheap';
+import { soloSuIA } from './solo-su-ia';
+import { conSuIASinClave } from './fallo-ia-texto';
 // ⚠️ `lib/ofertas.ts` NO importa este módulo, a propósito: las answers le entran
 // por parámetro para que no se cierre un ciclo entre los dos.
 import { ofertaPrincipal } from './ofertas';
@@ -146,7 +148,9 @@ export async function extraerDeArchivo(texto: string, fields: Array<{ key: strin
   // una API), así que el route distingue los dos casos al armar el aviso (`mensajeSinIA`).
   // motivoDeErroresCascada interpreta los errores crudos para decir POR QUÉ, en vez del
   // "reintentá en un momento" genérico que antes tapaba una cuota agotada (reporte de Martín).
-  if (!out) return { campos: {}, razonamiento: '', sinIA: true, motivoSinIA: motivoDeErroresCascada(errores) ?? undefined };
+  // ⛔ D6b: con su propio Claude y sin ningún error suyo, no tenía con qué (ni su clave de Claude ni su OpenAI; la red
+  // gratis no corre): eso se dice, no «prueba de nuevo en un momento», que va a volver a fallar igual.
+  if (!out) return { campos: {}, razonamiento: '', sinIA: true, motivoSinIA: motivoDeErroresCascada(errores) ?? (soloSuIA() && !errores.length ? conSuIASinClave('leer tus documentos') : undefined) };
   const parsed = parseJsonLoose(out);
   const raw = (parsed.campos && typeof parsed.campos === 'object' ? parsed.campos : {}) as Record<string, unknown>;
   const campos: Record<string, string> = {};

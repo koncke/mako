@@ -176,6 +176,15 @@ vigía MATÓ a mitad. Un pico de un proceso que no terminó no mide lo que neces
 CON EL REPO:** el 14/10/2026 ya no entraba en 3072 (murió corriendo, con RAM libre), esa tarde tampoco en
 4096 (el Image Editor portado), y va en 5120, con el piso de RAM en ≈ 6,3 GB. Un «se quedó sin heap» con RAM libre se arregla subiendo
 `CAP_HEAP_MB` (el piso sube solo), nunca con un `tsc` suelto ni salteando el hook.
+⚠️ **Y 5120 TAMPOCO** (21/10/2026, run 200 de Actions: exit 134 con 5.082 MB): lo que pide el tsc pasó de >4.083 MB a >5.082 MB en una semana. En Actions el paso «Tipos» corre
+`scripts/tipos-ci.mjs`: el tope se deriva de la RAM del runner (6.144 en el de 7,9 GB), **un OOM sale como `SIN MEMORIA` (exit 98), nunca como errores de tipos**, y cada run deja la
+línea `TIPOS-MEDIDA` con la memoria viva real (`vivo_pct`; un warning desde el 80 %). **Subir el tope otra vez no es el arreglo:** con esos números se decide partir el programa, buscar
+qué infla los tipos o pedir un runner mayor (docs/hallazgos-infra.md → «El paso "Tipos" de Actions se quedó sin memoria»). **El arreglo de fondo en marcha (21/10):** el chequeo repartido en TANDAS
+(`scripts/tipos-por-tandas.mjs`: cada proceso ata el programa entero y chequea un pedazo; `TIPOS_TANDAS=K` en el paso «Tipos»; probado contra el tsc como oráculo, **pero NO es «lo mismo que el tsc» en todos los casos**: el checker cachea algunos errores —TS2589 una instanciación profunda, TS2303 un alias circular— y los atribuye al primer archivo que los dispara; si ese es de OTRA tanda el error se pierde y el paso decía «OK» donde el tsc da exit 2 (repartiendo por nombre; ahora se reparte en el orden del programa y esas dos repros dan error, pero con un ciclo de imports que cruce tandas puede volver a pasar: es «igual salvo ciclos raros», y sólo el tsc entero lo garantiza) y la medición que elige K, UNA vez en Actions
+(`.github/workflows/medir-tipos.yml`, rama `medir-tipos`, `scripts/medir-tipos.mjs`). **Medido (run 39603272529): `TIPOS_TANDAS=4` en el paso «Tipos» de `integracion.yml`** — pico por proceso 3.535 MB (58 % del tope) contra 5.065 del tsc entero, a cambio de ~68 s por run.
+No se sube el tope. ⚠️ Es una prórroga de **semanas**: el piso (el programa atado, 2.406 MB = 47 % del pico) crece con el repo y no se reparte; lo que dura es bajarlo (project references). Cuando el warning del 80 % salte, no se sube K a ciegas: de 3 a 4 tandas el pico bajó sólo 150 MB.
+**DESDE EL 21/10 NOCHE «Tipos» ES SIEMPRE EL TSC ENTERO** (criterio del Cerebro: el paso que frena el push no da un OK falso): `TIPOS_TANDAS=4` es sólo el RESPALDO si el entero muere por memoria, y su OK sale **«OK PARCIAL»** (`parcial=1`, aviso, resumen), nunca limpio; las tandas pierden errores cacheados (en este repo lib/ es un ciclo de 580 archivos partido entre ellas). `TIPOS_SOLO_TANDAS=1` salta el intento del entero (siempre parcial).
+**El respaldo del tsc entero:** `.github/workflows/tipos-respaldo.yml` corre el tsc SIN tandas (con 10 GB de swap) una vez por semana; si da errores de tipos y `integracion` dio verde (o dio «OK PARCIAL»), las tandas perdieron un error: se corrige el código Y se avisa al chat Infra (docs/hallazgos-infra.md → «El checker cachea un error…»).
 El detalle, en [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «El typecheck que
 "salía con 1 sin errores"».
 
@@ -362,10 +371,10 @@ pushear.** No se suma al hook a propósito: son ~9 segundos más en cada push y 
 de los cambios no los necesita — pero los renombres, sí. (17/10/2026: «acordarse a mano» costó 16
 runs rojos de 90; ahora hay una herramienta que elige los tests sola — ver la sección de abajo.)
 
-# Antes de pasarle una punta al Cerebro: `antes-de-subir` en VERDE, sobre tu rama con `origin/main` mergeado
+# Antes de pasarle una punta a «Cerebro › Integración»: `antes-de-subir` en VERDE, sobre tu rama con `origin/main` mergeado
 
 **La regla** (17/10/2026; Martín: «asegúrate por todos los medios de que no vuelva a ocurrir nunca más»). Un chat **no le
-pasa una punta al Cerebro** sin haber corrido esto, con el árbol commiteado y `origin/main` mergeado en la rama:
+pasa una punta a «Cerebro › Integración»** (el que integra y sube) sin haber corrido esto, con el árbol commiteado y `origin/main` mergeado en la rama:
 
 ```sh
 node scripts/antes-de-subir.mjs --rapido
@@ -377,10 +386,10 @@ tests que **nombran o importan DIRECTO** un archivo cambiado, **todas las barred
 sin esperar** (20 s; si no, lo dice en la línea y los decide Actions; `--sin-tipos` los apaga); le deja a Actions los importadores a dos
 saltos o más (el replay: 19 de los 20 rojos de «Tests» y los 5 de «Tipos»). Los tipos van por defecto porque 3 de los 25 rojos de Actions
 fueron errores de tipos de archivos cambiados. Sin `--rapido` es el chequeo COMPLETO (todos los saltos
-y los tipos de lo cambiado: ~6-7 min, estimado: 4 min 21 s medidos para los tests más las guardas y los tipos); el Cerebro lo usa para
+y los tipos de lo cambiado: ~6-7 min, estimado: 4 min 21 s medidos para los tests más las guardas y los tipos); «Cerebro › Integración» lo usa para
 el push a `integracion`, y un jefe con tiempo puede correrlo también.
 
-El jefe le pasa al Cerebro **la última línea**, `VERDE <sha> (rápido: …)`, junto con la punta. El Cerebro compara ese sha con el de la
+El jefe le pasa a «Cerebro › Integración» **la última línea**, `VERDE <sha> (rápido: …)`, junto con la punta. Integración compara ese sha con el de la
 punta: **sin la línea, no integra.**
 Un `ROJO: …` se arregla ANTES de pasarla, no después de que falle Actions (cada rojo allá costó ~15 min y minutos del
 mes: 140 de los 2.000 gratis en dos días). Un exit **99** es «no corrió por falta de RAM», no un rojo del código: cerrá chats
@@ -451,6 +460,9 @@ compartido se repite aislado antes de contarlo** (puede ser interferencia: `edit
 dejó algo en el entorno). Un test que toca `process.env`, un global, `Module._load` o el directorio de trabajo NUNCA se comparte
 (regex `PELIGRO_COMPARTIR` en `tests-afectados.mjs`): **si escribís un test que hace eso, va en su proceso solo, sin tocar nada.** El
 riesgo que queda es un FALSO verde por contagio, y por eso Actions sigue corriendo cada test en su proceso.
+⚠️ **Y un archivo que tira AL CARGAR da verde compartido** (22/10/2026, docs/hallazgos-infra.md): se cuentan los `test(...)` de
+arriba de la línea que tira y los demás no corren, con salida 0. **En un test, lo que puede tirar (un `assert` sobre el fuente, un
+recorte con tope) va ADENTRO de un `test(...)` o en una función perezosa, nunca en una constante del módulo.**
 
 **Actions hace lo mismo, primero** (`.github/workflows/integracion.yml`): guardas → tests afectados contra `origin/main`
 → tipos → los demás tests. La suma de las dos fases es la suite entera y ninguno corre dos veces; si el script no puede
@@ -787,6 +799,11 @@ fuera un hecho. Va en las DOS direcciones, y la segunda es la que no se nota:
   ⚠️ **Y hay números RESERVADOS que no están en ningún árbol.** El 16/10/2026 la 0303 estaba libre en todas las ramas y
   todos los worktrees, y era del Image Editor (0303-0304, reservadas por el coordinador). Con un coordinador
   («Cerebro»), el número se le pide a él antes de nombrar el archivo; el barrido sólo confirma.
+  ⚠️ **Y una migración se aplica en producción RECIÉN DESPUÉS de la revisión del Cerebro** (el Cerebro, 21/10/2026).
+  Ese día la Ticketera escribió `0318_ia_pc` y `0319_ia_pc_consentimiento` mirando sólo main y su rama, sin pedir el
+  número, y las aplicó para probar de punta a punta: la 0318 era de Pagos y la 0319 de Infra, reservadas y por entrar
+  antes. Se renumeraron (0320 y 0321), quedaron idempotentes y con «Aplicada a mano en producción el …» en la cabecera.
+  Si una prueba necesita la tabla antes de la revisión, se pide el número Y el permiso de aplicarla, las dos cosas.
 - ⚠️ **`git add <ruta>` NO acota el commit: se commitea TODO el índice.** Si otra sesión ya
   stageó algo, `git add mi-archivo && git commit` se lo lleva adentro de tu commit, con tu
   mensaje y tu trailer. Pasó el 05/10/2026: un commit de docs salió con una baja ajena de 430
@@ -1060,6 +1077,13 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
   confirma una PERSONA (un «sí» en WhatsApp o la bandeja `/mako/pendientes`); `pantalla`
   deja una propuesta con link a una pantalla editable. **Lo que cuesta plata es `pantalla`
   y `rolMinimo: 'admin'`, sin excepción** (el test lo exige).
+  Toda superficie que muestra una pendiente para CONFIRMARLA (la tarjeta del chat, el teléfono, la bandeja
+  `/mako/pendientes`) pinta con `lineasDelPayload`: lo que se aprueba se ve ENTERO, hasta `MAX_TEXTO`, y el `max` de un
+  parámetro que se aprueba mirándolo no lo pasa (21/10/2026: la bandeja cortaba en 240 y el email salía con 2.000).
+  Una lista de objetos se pinta elemento por elemento, nunca como «N elementos».
+- **Un teléfono de WhatsApp se compara con `mismoContacto` / `TelefonosDe`** (lib/numero-whatsapp.ts), nunca con `===`
+  ni con un `Set` de strings: bloquear, desbloquear, ocultar y marcar una lista. El mismo contacto llega con y sin país,
+  con el 9 de Argentina o el 1 de México (21/10/2026: un bloqueado seguía recibiendo la secuencia).
 - **`gating.soloPlataforma`** en lo que la PLATAFORMA decide sobre los negocios y un negocio no puede deshacer en el
   suyo (exigir el 2FA): se resuelve por la capa en `vistaDe`, y el runner lo vuelve a preguntar. Un `gating.tab` no
   sirve para esto: las capas `completo` y `agencia` ven todas las tabs.
@@ -1635,6 +1659,31 @@ código nuevo:
     `ComposerWhatsApp` o `ChatHilo`, ni su botón de mandar para hablar con MaKo: usa la pieza y le pasa su motor por props.
     Si falta algo, se le suma a la pieza (y lo tienen todas), nunca a una copia. tests/chat-unico.test.ts lleva la lista de
     las que faltan, cada una con su chat, y falla si aparece una nueva.
+  - **Y UN SOLO PANEL: el Ops Center del cliente ES el del super admin** (21/10/2026; Martín: «el ops center de los clientes se
+    ve muy mal comparado al de SuperAdmin»). La conversación de un chat del Ops Center —de Claude Code o con MaKo— se monta con
+    `PanelDeChat` (app/admin/operaciones/PanelChat.tsx), sus mensajes con `FilaMia` y `FilaDelChat` (Hilo.tsx, la foto incluida)
+    y la fila de la barra con `FilaDeChat` (PiezasCentro.tsx). Nunca una cabecera, una columna de hilo o una fila propias: lo
+    nuevo va en la pieza y lo tienen los dos. La lista del cliente es UNA, sin secciones plegables, y un chat de otra tab se SIGUE
+    ahí con su motor (Offer por /api/offer), nunca «sigue en <tab>». tests/ops-center-cliente.test.ts.
+  - **MaKo EN CADA TAB: la estrella abajo a la izquierda y el panel a la IZQUIERDA, con el Cerebro** (21/10/2026; Martín: «el
+    chat de MaKo en las otras tabs se debe abrir siempre a la izquierda» y «los iconos de las criaturas siempre debe ser el
+    icono de MaKo, se envía lo que sea que envíen al cerebro y ya el cerebro se encarga de repartir»). Reemplaza el «chat fijo
+    a la derecha» del 18/10. La pieza es `<MakoEnLaTab tab="…" />` (app/_chat/MakoEnLaTab.tsx): lo que se escribe va al chat
+    «Cerebro» de la persona, el del Ops Center, con su motor y sus piezas. Ninguna tab abre un chat de MaKo suelto a la derecha.
+    Lo propio de la tab entra por la pieza (`arriba`, `aviso`) y el lugar se lo deja con `var(--ancho-panel-mako, 0px)`.
+  - **LAS CRIATURAS, SIEMPRE VIVAS** (21/10/2026; Martín: «siempre, donde sea que estén deben tener su animación de movimiento,
+    y parpadeo»): Muneco.tsx flota y parpadea en cualquier ánimo (dormida, respira), cada una con su desfase (`--mun-desfase`),
+    con una animación CSS y nunca un timer; con `prefers-reduced-motion`, quietas. Una criatura nueva usa Muneco o Criatura.
+  - **LO QUE EL CHAT DIBUJA SALE DE UN CAMPO, Y UNA LECTURA TAMBIÉN DIBUJA** (20/10/2026, lib/chat-bloques.ts). Una acción
+    lo devuelve en `datos.bloque`; una LECTURA, en el `bloque` de su salida (`{ content, bloque }`), y sólo cuando el turno
+    de la app pone `ctx.aDibujar`. Así el modelo no lo ve y WhatsApp no lo recibe. Un bloque de área se dibuja con la
+    pieza de su tab (app/_chat/bloques/*, cargado con `dynamic` desde `BloqueHilo`), nunca con una copia. **Una lista con
+    acciones guardada en el hilo es una FOTO:** se vuelve a leer al dibujarse y no actúa hasta tener la viva.
+    docs/hallazgos-second-brain.md, «Una LECTURA también dibuja». **Un archivo del mensaje que usa un bloque va atado,
+    EN LO QUE SE GUARDA, a qué va** (el lead que dijo el modelo y la fila: el comprobante lleva su `pagoId`, 21/10/2026):
+    el bloque vuelve del historial, y una marca de «ya usado» en memoria no sobrevive la recarga. Y cuando dos lados se
+    pasan un JSON (una ruta y su pantalla), el test pasa por los dos reales, no por un mock con el nombre que espera uno:
+    `monto_usd` contra `monto` vivió cinco días así. docs/hallazgos-pagos.md, «La revisión de los bloques».
   - **TODO LO QUE SE TERMINA LLEVA SU `revisar`** (17/10/2026; Martín: «se terminaron y pushearon cosas y no las puedo ver
     en Review»). El hito de la bitácora o el cierre (`cartero.mjs cierre … --revisar`) trae la ruta INTERNA donde Martín
     lo prueba (`/crm?lead=…`, `/general`, `/automations/…`). Sin eso, su «Ya está» sólo lleva a la tab del área.
@@ -1644,9 +1693,14 @@ código nuevo:
     no las veía. Se pasaron acá el 19/10.
     - **El orden lo decide el chat, sin preguntar:** cliente roto > plata y riesgo > lo que traba a Martín > lo que traba
       a otro chat > feature > pulido (el mismo orden de docs/pendientes.md).
+    - **EL CEREBRO SON DOS CHATS** (21/10/2026 noche, pedido de Martín). **«Cerebro»** reparte y habla con Martín: abre los
+      jefes (o le da el visto bueno a Integración para abrirlos) y le pasa a Martín los bullets de lo que llegó a producción.
+      **«Cerebro › Integración»** es el ÚNICO que integra y sube (`integracion` → `main`), en `C:/dev/wt-push-q`, y le
+      reporta al Cerebro, no a Martín. Las puntas («VERDE sin pushear») van a Integración. Donde este documento dice que
+      «el Cerebro» integra, sube o recibe una punta, se lee «Cerebro › Integración».
     - **El Cerebro DELEGA** (Martín, 17/10 ~23:30: «¿por qué no delegás?»). Lo de un área lo hace el jefe que la conoce.
-      El Cerebro reparte de a uno, según la RAM libre (la guardia frena con menos de 2,5 GB) y la cuota, junta las puntas
-      y sube.
+      Se reparte de a uno, según la RAM libre (la guardia frena con menos de 2,5 GB) y la cuota; Integración junta las
+      puntas y sube.
     - **«En producción» es sólo lo desplegado.** Un commit en `integracion`, o con el run verde y el deploy sin «Ready»,
       todavía no lo está. Ni el «Ya está» ni un cierre del Plan salen antes.
     - **Lo que toca plata, seguridad o envíos a clientes pasa una revisión adversarial antes de subir.** La punta llega
@@ -1677,10 +1731,26 @@ código nuevo:
     - **Un jefe se abre con un mensaje de Martín en el chat del Cerebro, en la app.** `start_session` sólo corre en un
       turno que empieza con palabras de Martín: con un pedido que llega por el Ops Center contesta «Start sessions only on
       the user's own words» (docs/hallazgos-operaciones.md, «Los dos topes»). Una sesión de la nube no abre chats de la PC:
-      uno que se crea en la nube sale en el Ops Center con la marca «Nube» y sin caja.
+      uno que se crea en la nube sale en el Ops Center con la marca «Nube» y sin caja. Medido el 21/10 con un Cerebro que
+      abrió otro chat: en un turno que no empezó Martín, el jefe sale como TARJETA que él toca, y uno en la nube con
+      repositorio ni siquiera se puede proponer (se le pide el OK con un botón). Una rama local que necesita un chat de la
+      nube se sube antes a origin: la nube no ve los worktrees de la PC.
+    - **AL INICIAR UNA CUENTA NUEVA, PRIMERO ESTO, EN ORDEN** (21/10/2026; Martín: «eso siempre primero al iniciar una nueva
+      cuenta»): medir la cuenta (`get_usage`); abrir el Runner, para que el uso salga en el Ops Center y los mensajes
+      lleguen; archivar los chats viejos de esa cuenta; abrir el Cerebro y «Cerebro › Integración» frescos desde
+      `docs/relevo/cerebro.md` («LEER PRIMERO»); y los jefes de a uno, cuando tienen trabajo. Recién después, lo demás.
+    - **A LOS DOS CEREBROS SE LES ESCRIBE POR NOMBRE** («Cerebro» para un pedido o una pregunta, «Cerebro › Integración»
+      para una punta, con ListAgents), no por id (21/10/2026): cada cuenta los abre de nuevo y el id del anterior da «not found». Si un mensaje no se entrega, la punta queda igual arriba de `docs/relevo/<área>.md`
+      y en la nota del chat: el Cerebro la lee de ahí, no espera.
+    - **A LO SUMO ~8 CHATS ABIERTOS** (21/10/2026; la PC tiene 16 GB). Un jefe con su punta en producción y su relevo
+      commiteado se archiva, y se reabre desde `docs/relevo/<área>.md` cuando vuelve a tener trabajo. Lo que es sólo código
+      (no lee la base ni usa el Chrome de Martín) va a la nube: deja su rama en origin y su punta arriba de su relevo.
+    - **NADA TERMINADO QUEDA SIN NOMBRAR EN «PENDIENTE DE INTEGRAR»** (21/10/2026): el relevamiento del cambio de cuenta
+      encontró dos ramas terminadas (`mako-wa`, 15 commits; `infra-tests-afectados`) que ningún relevo nombraba. Una rama
+      con su VERDE va al relevo del Cerebro el mismo día, aunque se integre después.
   - **EL «YA ESTÁ» LO DICE CADA CHAT EN EL OPS CENTER, NO EL CEREBRO** (17/10/2026; Martín: «Todos los mensajes de "Ya
     está x cosa" quiero que me los manden los chats del Center... No por aquí... Así puedo verlos y darles feedback...
-    además de ponerlo en Review»). Cuando el Cerebro le avisa a un jefe que su punta llegó a producción, el jefe:
+    además de ponerlo en Review»). Cuando «Cerebro › Integración» le avisa a un jefe que su punta llegó a producción, el jefe:
     - escribe el «Ya está» en SU chat, en palabras de producto y con la ruta donde se prueba: el primer renglón
       («Ya está: …») es el título de la tarjeta y lo demás su detalle. Desde el 17/10/2026 (la C) Review se fue: el
       «Ya está» se dibuja como una tarjeta en la conversación, con «Revisar» en esa ruta (o en la tab de su área),
@@ -1693,12 +1763,12 @@ código nuevo:
     nada escrito... Siempre debe enviar un mensaje tipo "Voy a trabajar en..."»). Lo primero que escribe un chat al
     tomar un pedido es una línea, en palabras de producto, con qué va a hacer y para qué. Recién después arrancan las
     herramientas.
-    **Y ninguna punta llega al Cerebro sin `antes-de-subir` en VERDE** (17/10/2026; Martín: «asegúrate por todos los medios
+    **Y ninguna punta llega a «Cerebro › Integración» sin `antes-de-subir` en VERDE** (17/10/2026; Martín: «asegúrate por todos los medios
     de que no vuelva a ocurrir nunca más»). Antes de pasarle una punta, el jefe corre `node scripts/antes-de-subir.mjs --rapido`
     (~3-4 min: es el mínimo obligatorio) sobre su rama con `origin/main` mergeado y el árbol commiteado, y le pasa la última línea
     (`VERDE <sha> (rápido: …)`) junto con la punta:
-    el Cerebro no integra una punta que no la trae. Qué corre y por qué «los tests de tu área» no alcanzaba: la sección
-    «Antes de pasarle una punta al Cerebro» (más arriba, junto al pre-push).
+    Integración no integra una punta que no la trae. Qué corre y por qué «los tests de tu área» no alcanzaba: la sección
+    «Antes de pasarle una punta a «Cerebro › Integración»» (más arriba, junto al pre-push).
   - **Cada jefe ES un proyecto del Plan** (16/10/2026; los dos se llaman como la tab). El Centro lee y escribe el Plan
     SÓLO con las operaciones de la API de MaKo (`listar_tareas_plan`, `proponer_tareas_plan`, `proponer_cierre_tareas`)
     aplicadas en el acto con `ctxDelCentro` (lib/centro-plan.ts), por la ruta `/api/centro/plan` y NO por una server
@@ -1861,6 +1931,17 @@ horario. El detalle, en `docs/hallazgos-infra.md` → «Una zona, un default, un
   con un plan no se toca; en una suscripción, los meses ya cobrados sueltos son las primeras cuotas y las fechas van
   desde el cierre (como cuenta `cobradoDelLead`); un pago único con un pago previo no se arma. Nunca nace una cuota por
   un mes ya cobrado, y lo que no se hizo vuelve en `sinTocar` y el asistente lo MUESTRA: nada se descarta en silencio.
+- **Lo cobrado de una suscripción se cuenta DE A UNA cobrada, con `mesesDeUnaCobrada`** (lib/cobrado-lead.ts,
+  21/10/2026): lo que se registró COMO la mensualidad (`es_mensualidad`) vale un mes, sea del monto que sea; la plata
+  cuenta sólo para un pago suelto o la pasarela, con el mínimo de un mes; nunca la suma de todas (el desvío se
+  acumula). Cómo se registró lo dice la fila, no su monto. Qué es plata suelta, `esPlataSuelta`; en 'slots' la
+  cuota N es la N-ésima del plan, no la fila con el número N; y qué es un plan lo dice `pagosPrevios`
+  (lib/pagos-campo.ts): ninguna lectura nueva cuenta filas como meses ni arma su propia regla.
+- **Toda fila de `pagos` que no es una cuota del plan NACE MARCADA, y qué es del plan lo dice `esCuotaDelPlan`**
+  (lib/cobrado-lead.ts, 21/10/2026): un pago suelto, una mensualidad a mano y el cobro de un link sin cuota llevan
+  `nacio_cobrada`; la diferencia de un cobro por menos, `resto_de`. Un escritor nuevo de `pagos` marca su fila al
+  insertarla; nunca se adivina por `proveedor` (una cuota del plan cobrada por link también lo tiene), por número ni
+  por fecha. Lo que gana un lead sin pasar por `updateLead` escribe también su `fecha_cierre`.
 - **Los meses se suman con `sumarMeses` (lib/cobrado-lead.ts)**, que topa al último día del mes: `new Date(y, m + n, d)`
   desborda un 29, 30 o 31 (31/10 + 1 mes = 01/12) y un plan de cuotas queda con meses sin cuota y meses con dos.
 
@@ -2031,6 +2112,31 @@ pregunta del toque repite lo que confirma (así el guard de pestaña vieja la di
 sí o un no pelados, y lo demás escrito se SUMA a lo anterior, no lo pisa. Y al exportar a CSV texto que escribió otro, lo
 que empieza con = + - @ va con una comilla simple adelante (docs/hallazgos-seguridad.md).
 
+**Con un nombre esperando, una palabra que es sí y también nombre no confirma (séptima revisión, 21/10/2026).** «Simón»,
+«Vale», «Listo» son un sí y son nombres reales: con un pendiente, se pregunta cuál de los dos es (`siAlPendiente`). La duda
+es de la palabra SUELTA: «Claro, así se llama» es un sí (octava revisión). Y un texto del usuario que se recorta se corta
+por punto de código (`cortar`), nunca con `slice`: un emoji partido no se puede guardar en Postgres.
+
+**Un arreglo no puede ser más ancho que el caso (octava revisión, 21/10/2026).** Las dos regresiones de esa ronda salieron
+de cerrar un caso con una regla que alcanzaba a más («semanal» en cualquier parte del precio, la duda para toda frase que
+empieza con «Claro»). Antes de pasar la punta, las frases de la revisión anterior se corren en la punta y en producción, y
+se mira el diff.
+
+**Las opciones del toque son todas las lecturas; la lectura sólo ordena (novena revisión, 21/10/2026).** Si una lectura con
+reglas decide QUÉ opciones se muestran, cada error de lectura deja a la persona sin la respuesta correcta, y cada regla
+nueva mueve casos de lugar (el cobro tuvo cuatro vueltas). Las opciones se arman con todo lo que el texto PERMITE
+(`opcionesDeCobro`), y la lectura sólo elige cuál va primera.
+
+**Una lectura por defecto no se propone, y la entrada se normaliza antes de leer (décima revisión, 21/10/2026).** La caída
+de una lectura sin ninguna señal (el `return` del final) se marca y se pregunta sin recomendar: si no, «Entendí que…»
+afirma algo que el texto no dijo, y un «Sí» lo guarda. Y lo que varía en la forma y no en el fondo (números en letras,
+«x», enumeraciones) se normaliza UNA vez al entrar (`precioEnDigitos`), no con más alternativas en cada regex.
+
+**La lectura y la red usan el mismo extractor (undécima revisión, 21/10/2026).** Si la lectura tiene su propio parser, la
+opción correcta está pero el «Sí» guarda otra; la lectura toma la primera de lo que extrae la red (`nsDelPrecio`). Y
+normalizar la entrada arrastra a la forma nueva todo defecto que la lectura ya tenía: después de normalizar, se mide
+contra la respuesta correcta otra vez.
+
 **El corolario para lo que DICE MaKo (21/10/2026, el guardia de promesas 1.5):** un filtro sobre el texto del modelo
 NUNCA borra una oración. El guardia por raíces de palabras borraba 8 de 14 respuestas verdaderas («Sí, ya te la
 agendé» después de confirmar la tarjeta pasaba a «En este mensaje no hice nada») y atajaba 3 de 18 falsas, medido con
@@ -2042,7 +2148,27 @@ y la tarjeta confirmada, que ya se ven en el hilo. Los tests usan el resumen REA
 parecido de un texto. Tres rondas de reglas sobre el parecido de dos mensajes (un umbral, una firma calculada, una firma
 fija) dejaban pasar duplicados de verdad y avisaban de más. Ahora se avisa siempre que el hecho se da (otra activa le
 escribe a la misma gente, por el mismo canal, con horarios que se pisan) y el aviso MUESTRA los dos textos para que la
-persona compare. Un parecido de texto sólo puede ordenar o resaltar. Detalle: docs/hallazgos-chatbot.md.
+persona compare. Un parecido de texto sólo puede ordenar o resaltar. Y el hecho se saca del MOTOR, no de lo que se
+supone: «un evento no tiene cohorte que se pise» era falso, porque `enrolarPorEvento` inscribe al lead en TODAS las
+activas del disparador. El test ata la regla a lo que decide el motor: `disparaPorEvento` y la tabla de eventos
+(`TRIGGERS_POR_EVENTO`, lib/nutricion-eventos.ts), que es UNA y la leen los dos. Atarla a una sola función no alcanzó:
+el motor decide con varias.
+Detalle: docs/hallazgos-chatbot.md.
+
+# Una conversación que se le mostró a alguien es un HECHO: se guarda como se dibujó
+
+Lo que el server MIDE (el estado vivo) sirve para decidir qué preguntar ahora. No sirve para contar qué pasó. El
+onboarding armaba sus preguntas y respuestas al vuelo desde el estado (`mensajesDeArranque`) y no las guardaba en ningún
+lado. El 21/10/2026, el Ops Center de Florencia (ws21) empezaba en la mitad de su conversación, y el arreglo del nombre
+de su negocio iba a cambiar lo que ella «contestó».
+
+**La regla:** toda conversación que la persona vio (un chat, un onboarding, una tarjeta con su respuesta) se guarda como
+se dibujó, con su hora, la primera vez que se ve. Lo que la vuelve a mostrar (el Ops Center, una copia, MaKo) lee lo
+guardado y no la rearma del estado de hoy. Lo que se arma después, para quien pasó antes de que se guardara, se marca
+`reconstruido`, y el aviso lo ve sólo el equipo. Y no se mete en la lista de mensajes de OTRA pieza que decide con ella
+(Offer lee sus `mensajes` para saber qué ya preguntó): va aparte, atado por id, y se junta por hora al mostrar. En el
+onboarding: lib/onboarding-historial.ts, tests/onboarding-historial.test.ts y docs/hallazgos-onboarding.md («Las
+preguntas del arranque, guardadas»).
 
 # Tres topes del entorno que no dan error: te dan otra cosa
 
@@ -3274,7 +3400,9 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
 - **El alta automática de MaKo se pregunta por el WORKSPACE, en positivo** (`ws === await wsSuperAdmin()`): un
   cliente que vende con su Stripe no crea inquilinos.
 - **La moneda la decide la pasarela, y en un formulario que cobra la pasarela se pregunta ANTES del monto.** El
-  valor en USD de un cobro es el que alguien declaró; nunca una tasa inventada.
+  valor en USD de un cobro es el que alguien declaró; nunca una tasa inventada. Tampoco la de una IA que lee un
+  documento (21/10/2026): se le pide el monto y la moneda TAL COMO FIGURAN, sin convertir, y la pantalla decide
+  (`plataDeRecibo`, app/crm/lead-view/ficha/pagos/recibo-leido.ts).
 - **Lo que un lead pagó y debe se cuenta con `cobradoDelLead` (lib/cobrado-lead.ts), y lo que se DICE de eso con
   lib/pagos-vistazo.ts** («Debe $500», «Al día», qué hacer ahora, los movimientos). Lo usan la tab Pagos, el teléfono
   y la API de MaKo (`cobranza_lead`). Una pantalla nueva que muestre plata de un lead no suma cuotas por su cuenta.
@@ -4267,8 +4395,23 @@ asistencias del PERÍODO, y 4 de esas ventas nunca habían pasado por una llamad
 - **Ni una hora ni una fecha es una cifra del negocio.** Una transcripción («0:04:43 Cristian: …») vuelve «dicho por el
   dueño» a todo número del 0 al 59 si se cuentan (`cifrasDelNegocio` ya no las lee).
 - **Un conteo no le da fuente a un porcentaje**: «43 llamadas» y «43%» son claves distintas (`claveConFuente`).
+- **Un número sobre UNA cosa (una oferta, un funnel, una campaña) se lee de ESA cosa**, nunca del negocio entero en su
+  lugar; si esa cosa no tiene datos, se dice («es una oferta sin datos de venta»), no se cae a otro conteo. El 22/10 el
+  diagnóstico del Sprint de Mauricio, nacido ese día, dijo «2 ventas de 24 asistentes»: eran las del CRM entero. El
+  funnel default son los leads con `funnel_id` NULL (`embudoDeFunnel`, lib/analisis-negocio.ts).
+- **Lo que la IA sugirió no es un dato del usuario.** Una opción que MaKo propuso («por Zoom») y el dueño no eligió no se
+  anota como dicha por él: las herramientas que el negocio no nombró salen al leer (lib/offer-hechos.ts).
 
-Detalle en docs/hallazgos-offer.md → «El “43” de Código Inmobiliario».
+Detalle en docs/hallazgos-offer.md → «El “43” de Código Inmobiliario» y «El Sprint de Mauricio».
+
+# Un documento nuevo nunca pisa un dato que ya tenía el negocio
+
+El 22/10/2026 Mauricio (ws1) subió en Offer el guion de su Sprint, una oferta de entrada, y su perfil del negocio
+(`mako.onboarding.answers`) quedó con el Sprint como oferta principal, su promesa y su avatar: el registro en El Archivero
+sumaba las claves de cada documento «pisando», como un recálculo. Lo leen ~20 features (las automatizaciones, los
+mensajes). Un documento que entra por una feature describe lo que ESA feature analiza: al perfil sólo puede LLENAR lo
+que falta (`answersConDocumento`, lib/archivero-registro.ts), y lo que guarde en su fila del Archivero no puede imponerse
+en un recálculo. Detalle en docs/hallazgos-offer.md → «Un archivo subido en Offer pisaba el perfil del negocio».
 
 # Dos números que se comparan salen de UN juicio — no de una fórmula sobre el otro
 
@@ -4657,6 +4800,24 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   bien: si una feature mezcla pedidos con y sin datos de clientes, la marca del catálogo queda como
   default cerrado y quien llama la afina con `pii`, EN POSITIVO (lo que no está revisado la lleva;
   molde: `CAJAS_SIN_DATOS_DE_CLIENTES`, lib/graficos-ia-elemento.ts).
+- ⛔ **D6b: UN NEGOCIO CON SU CLAUDE O SU GPT NO MANDA NADA A GEMINI NI A UNA IA O RED GRATIS** (Martín, 21/10/2026). Un
+  camino del Ops Center que llama a una IA corre adentro de `conSoloSuIA(negocio.suIA, …)` (lib/solo-su-ia.ts; el turno,
+  con `entrarSoloSuIA` después de su primer `await`), con `negocioConSuIA` (lib/ia-del-negocio.ts): por NEGOCIO y
+  fallando cerrado. El corte vive en lib/ai-cheap.ts (`provDe`,
+  `provsGratisDePlataforma`) y en `ordenarPorCuota`: **una lectura nueva de una key barata, o una consulta nueva a un
+  proveedor, pasa por ahí o suma su corte**, y tests/solo-su-ia.test.ts la tiene que ver (corre las entradas REALES de la
+  cascada contra una base de mentira y cuenta a qué hosts sale). El 21/10 el corte obvio (`provDe`) no alcanzó: el orden
+  por cuota ya había leído las keys y le había consultado el saldo a OpenRouter.
+  ⚠️ **Toda ENTRADA que ejecuta trabajo con IA de un negocio prende el contexto ella misma; no lo hereda del turno**
+  (segunda revisión del Cerebro, 21/10/2026): lo que corre al CONFIRMAR una tarjeta va en otro pedido
+  (`confirmarDesdeTarjeta`, la bandeja, /mako/revisar) y los números del negocio iban a Gemini. Una ruta, una server
+  action o un confirmar nuevo envuelve su trabajo en `conSuIADelNegocio(ws, fn)` (lib/ia-del-negocio.ts) o llama a
+  `entrarSoloSuIA` tras leer el negocio; tests/d6b-confirmar.test.ts corre los caminos de confirmar. **Cada handler o
+  acción nueva (también un `'use server'` en lib/, también un cron que corre lo pedido desde el Ops Center) que llega a
+  lib/ai-cheap.ts se decide en tests/d6b-rutas.test.ts**: adentro (con `conSuIADelNegocio`), en `SIN_IA` si no pide IA, o
+  en `FUERA_DE_D6B` con su porqué; lo que alcanzan las pantallas del Ops Center no puede ir afuera. La guarda decide por
+  HANDLER: que el POST de al lado prenda no salva al PATCH nuevo. Y lib/transcribe.ts es otra cascada SIN el corte:
+  envolver la ruta no la protege, así que lo que la alcanza va afuera o en `SIN_IA`, nunca «adentro».
   ⚠️ **Y una key de la plataforma COPIADA en la fila de un negocio no es del negocio** (16/10/2026: la Gemini del ws1
   lo era, y todos sus pedidos con datos de clientes iban a la key gratis de la agencia sin pasar por el corte).
   `provsDe` (lib/ai-cheap.ts) saca de las «propias» toda copia de una key de la plataforma, y las cascadas toman las
@@ -5142,6 +5303,12 @@ la ruta lo que su pantalla le esconde. El detalle, en [docs/hallazgos-seguridad.
   se revoca con `on procedure` (o `on routine`, que sirve para todo). El default global de la 0319 también le da EXECUTE a service_role a
   lo que postgres cree en CUALQUIER esquema; una extensión que haga pedidos de red (http, pg_net, dblink) NO debe vivir en `public` (la
   clave anon la llamaría por /rest/v1/rpc: SSRF). Detalle: docs/hallazgos-seguridad.md («El EXECUTE de PUBLIC es un default GLOBAL»).
+- **Un CSV se arma SIEMPRE con `lib/csv-celda.ts`** (`celdaCsv`, `filaCsv`, `armarCsv`), nunca con un `replace(/"/g, '""')` propio: todo texto que
+  viene de afuera (un formulario público, una campaña de Meta, el título de una tarea) arranca a veces con `=`, `+`, `-` o `@`, y en Excel o Sheets
+  eso es una FÓRMULA (`=HYPERLINK(…)`, `=cmd|…`). El helper le antepone un apóstrofo; un número tipado no se toca; las opciones (`sep`,
+  `siempreComillas`, `telefonosComoTexto`…) dan lo que cada pantalla ya hacía. `tests/csv-una-sola-via.test.ts` rompe Actions si una exportación
+  escribe su escape, o baja un `text/csv` sin importar el helper (si lo arma otro módulo, va a `CONSUME_CSV_DE_OTRO` con su porqué). Un
+  importador de un archivo que la app exportó llama a `desescaparCeldaCsv`. Detalle: docs/hallazgos-seguridad.md («Inyección de fórmulas en los CSV»).
 
 # Un canal PROPONE; una persona confirma. Nada escribe directo
 
@@ -5290,6 +5457,11 @@ Martín, a un cliente: «si tienes varios CRM que sea una selección múltiple y
   5 agregados (`lead_funnel`): filtrar por `leads.funnel_id` da cero para todo funnel de agregados, en silencio. Se
   reparte con `funnelDelMomento` sobre `ubicarLeads` (lib/funnels-elegidos-server.ts): el funnel donde estaba el lead
   ESE día. El número y su desglose usan la misma, o no cuadran.
+- ⚠️ **Y A QUIÉN LE ESCRIBE UNA AUTOMATIZACIÓN, tampoco** (21/10/2026, la prospección del Sprint): un CRM nuevo con sus
+  leads agregados inscribía a CERO. Una cohorte de un CRM DECLARADO mira la casa Y `lead_funnel` (`agregadosQueEntran`,
+  `conAgregados`, lib/nutricion-ambito.ts), con la etapa de ESE CRM y sin la fila que nace con el lead (la casa ya lo
+  saludó). Un paso que actúa sobre un CRM decide POR LEAD dónde está —casa, agregado o fuera— (`dondeMoverEtapa`): nunca
+  escribe la key de la etapa de un CRM en la etapa principal. Detalle: docs/hallazgos-chatbot.md («La prospección del Sprint»).
 - **Lo que es UNO por naturaleza sigue siendo uno**: las etapas de un kanban, dónde nace un lead, a qué etapa mueve un
   evento o una etiqueta. La pregunta es si se SUMA (varios) o si se UBICA (uno).
 - **Un funnel se dibuja con el CUBO, y sólo con ése** (`IconoFunnel` / `ICONO_FUNNEL`, app/_ui/icono-funnel.ts): en el
@@ -5723,6 +5895,11 @@ El servidor no cambia: lee con `service_role`, que tiene `BYPASSRLS`. Lo fija
 `revoke` en la migración de su **ÚLTIMA creación o en una posterior**: una vista re-creada (`drop` +
 `create`) nace sin lo que se le hizo antes, así que un revoke viejo no la cubre. Desde el 09/10/2026
 no hay lista de excusas (eran las dos de cohortes, y se cerraron).
+
+⚠️ **Y UNA MIGRACIÓN SIN APLICAR NO SE VE si el código la tolera** (21/10/2026, la 0283: `workspaces.mfa_obligatorio_desde`, el 2FA obligatorio, nunca se aplicó y nada se rompió; sólo NO REGÍA).
+`scripts/apply-migration.mjs` ejecuta el archivo y **no deja registro**: no hay tabla de migraciones, así que «¿se aplicó?» se contesta del catálogo, no de la memoria. `scripts/verificar-migraciones-aplicadas.mjs` (sólo lectura;
+correrlo en producción necesita el permiso de Martín) lee las migraciones en orden y lista, por migración, aplicada / a medias / AUSENTE. Una lectura tolerante («si la columna falta, no exige») es una decisión de orden de despliegue,
+no una garantía de que la migración llegó: toda migración que el código lee con esa tolerancia se verifica después de aplicarla. Detalle: docs/hallazgos-infra.md → «Una migración sin aplicar no rompe nada si el código la tolera».
 
 # Lo que está OCULTO se deriva de lo que se DIBUJA, nunca se enumera al lado
 
@@ -6488,6 +6665,12 @@ El diagnóstico obvio («alguien borró la etapa en el editor») era el equivoca
   a un onboarding terminado y mandaba al cliente de vuelta al arranque. Todo lo que lo escribe lee con
   `getEstadoOnboardingEstricto`, y `patchEstadoOnboarding` ya lo hace (16/10/2026;
   `tests/onboarding-escritura-estricta.test.ts`).
+- **Un `.catch` encima de una lectura tolerante no se dispara nunca.** `getSetting` no tira: con la base caída
+  devuelve null. Así que `getSetting(...).catch(() => { cayo = true })` es código muerto, y un guard que depende de
+  ese `cayo` no protege nada. Pasó el 21/10/2026 con el historial del onboarding: el `faseCaida` de la primera
+  versión no se activaba, y lo vio recién la revisión adversarial. Para saber si una lectura cayó, se lee con la
+  versión estricta (`getSettingEstricto`, `getDiagnosticoFaseEstricto`). Lo que decide qué se dibuja y se va a
+  GUARDAR se relee estricto y tiene que dar lo mismo (`hechosConfirmados` en lib/onboarding-arranque-server.ts).
 
 # Dos escritores con dos ritmos son dos claves
 
@@ -9381,6 +9564,18 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
   /customer-success → /m/cs → /inicio), **lo público no se tapa nunca** (`esPublica`), y la página de una sección
   mapeada sale en el MISMO deploy que el mapa: los Web Push ya abren esa ruta.
 
+# La pantalla de entrada se decide en /inicio: un camino nuevo de «entrar» lleva ahí, nunca a una tab
+
+En la computadora se entra al Ops Center (21/10/2026, Martín: «dijimos que debería ir a Ops Center siempre»): el super
+admin al suyo (`/admin/operaciones`) y los demás al de su negocio (`/second-brain`), con el onboarding pendiente antes. Lo
+decide `casaEnLaComputadora` (lib/ops-center-ruta.ts) y lo aplica el repartidor (app/inicio/page.tsx); el teléfono, el
+desvío (`ENTRADA_MOVIL`).
+- **Un link o redirect que «entra» (login, 2FA, «Inspeccionar», «Entrar» de Partners, «Ir al inicio») va a `/inicio`**,
+  con su `?ws=N` si es la cuenta de otro (`rutaConWs`/`conWs`), nunca a `/general` ni a otra tab: así sigue a la casa el
+  día que cambie. Hasta el 21/10 «Inspeccionar» y Partners iban derecho a `/general?ws=N`, por afuera del repartidor.
+- **«Sin impersonar» no es «sin workspace».** El super admin TIENE workspace (Martín, ws 9): `getWorkspaceActual() == null`
+  no lo detecta. La pregunta es `quienOpera()` o `estaImpersonando()` (docs/hallazgos-operaciones.md).
+
 # Un modelo «latest» es un nombre que PROMETE moverse: lo que le mandamos puede dejar de valer solo
 
 `gemini-flash-latest`, `*-latest`, `:free`: el proveedor cambia el modelo de abajo sin avisar y sin que cambie una línea
@@ -9565,3 +9760,11 @@ pasos de una ACTIVA también es prender: un camino de una PERSONA escribe por `p
 `setSecuenciaPasos` directo (ése es del sistema, que no tiene a quién preguntarle). Y un panel del NEGOCIO reusado adentro de algo de UNA automatización revisa cada
 cosa que guarda: el huso de la tuerca guardaba `mako.timezone` de todo el negocio. Detalle: docs/hallazgos-chatbot.md
 («La revisión adversarial lo frenó»).
+
+## Una tabla en grilla aguanta un escritorio chico (21/10/2026)
+
+En una grilla CSS lo que no recorta no empuja la columna: se dibuja encima de la de al lado, sin error. Cada celda lleva
+`minWidth: 0` y recorta con «…», y un botón o un chip adentro de una celda también (`minWidth: 0`, `maxWidth: '100%'`).
+Si la tabla tiene más de cuatro columnas, salen de un ancho MEDIDO con mínimo y prioridad (el molde:
+app/crm/tabla-columnas.ts), no de fracciones fijas, y se mide a 934×639 y 1024×768 contando el texto fuera de su celda
+(tests/_crm-lista-arnes.tsx). Detalle: docs/hallazgos-crm.md.

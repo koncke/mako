@@ -1922,3 +1922,68 @@ tests/centro-preguntas-retirar.test.ts. La regla para los chats, en AGENTS.md.
 **Sin hacer:** otros tests que importan cartero.mjs sin `CARTERO_DIR` (centro-abrir-pantalla, centro-largos,
 centro-textos, tickets-cartero…) no escriben el log hoy porque no llaman a lo que loguea; no hay una guarda que lo
 impida.
+
+## El panel de un chat es UNO para todos los Ops Center (21/10/2026)
+
+- **Síntoma:** el Ops Center de un cliente se veía como otra app al lado del de Martín (capturas del 21/10). Lo que pasó, con la
+  medición, en [hallazgos-second-brain.md](hallazgos-second-brain.md#el-ops-center-del-cliente-es-el-del-super-admin-las-mismas-piezas-no-un-parecido-21102026).
+- **Lo que cambió en el Centro:** la cabecera, la columna del hilo, el soltar archivos y la caja de Conversacion.tsx salieron a
+  app/admin/operaciones/PanelChat.tsx (`PanelDeChat`, `CabeceraDeChat`), y la fila de la barra a `FilaDeChat` (PiezasCentro.tsx).
+  Las filas de un mensaje (`FilaMia`, `FilaDelChat`) se exportan de Hilo.tsx. `FilaCentro` y Conversacion las montan sin cambiar
+  lo que dibujan.
+- **Regla:** algo nuevo de la conversación del Ops Center va en el panel o en las filas, y le llega al cliente solo. Un cambio de
+  la cabecera en Conversacion.tsx ya no existe: está en PanelChat.tsx.
+- **MensajeWA.tsx** suma `sin` (las opciones que un chat no tiene: el cliente no reenvía) y `mensajes` en `BarraFijados` (un hilo
+  que no es de líneas del Centro).
+
+## MaKo en cada tab a la izquierda, y las criaturas siempre vivas (21/10/2026, noche)
+
+Martín (~23:10): «el chat de MaKo en las otras tabs se debe abrir siempre a la izquierda», «los iconos de las criaturas siempre debe
+ser el icono de MaKo, se envía lo que sea que envíen al cerebro» y «las criaturas, siempre, donde sea que estén deben tener su
+animación de movimiento, y parpadeo». Código: app/_chat/MakoEnLaTab.tsx, Muneco.tsx, centro.css, criatura.css.
+
+- **La pieza de las tabs no es otro chat:** es la conversación «Cerebro» del Ops Center del cliente (useChatCliente.ts), con su
+  panel, su hilo y su caja. Cada tab la monta con `<MakoEnLaTab tab="…" />`; la migración de cada tab es de su chat (el CRM la
+  pidió primero).
+- **El panel se pega a la barra de la app, no al borde de la pantalla:** la barra mide 68 o 244 px según esté fija, y cambia sin
+  un `resize`. Se mide con un ResizeObserver sobre `[data-sidebar]`.
+- **El motor se monta con el panel abierto:** una tab que nunca abre a MaKo no pide nada.
+- **Lo de cada tab entra por la pieza, no al lado (22/10, pedido del CRM):** `arriba` (las sugerencias, sobre el hilo), `aviso` (el
+  globito de la estrella plegada) y, abierto, `--ancho-panel-mako` en <html> (440 px; 0 cerrado) para que la tab le deje el margen
+  con `padding-left: var(--ancho-panel-mako, 0px)`. Una tab que mide el panel por su cuenta se desfasa cuando la barra se fija.
+- **El desfase de cada criatura sale de su ASPECTO, no de su nombre.** Con el nombre, la estrella del «Ops Center» de la barra y la
+  del «Cerebro» dejaban de ser la misma criatura (tests/centro-ops7.test.ts lo fija comparando el HTML). Sin desfase, todas
+  parpadeaban a la vez, como un tablero.
+
+## En la computadora se entra al Ops Center: el super admin TIENE workspace (21/10/2026)
+
+**Vive en:** `casaEnLaComputadora` (lib/ops-center-ruta.ts) · el repartidor app/inicio/page.tsx · fijado en
+tests/inicio-ops-center.test.ts. La regla para código nuevo, en AGENTS.md («La pantalla de entrada se decide en /inicio»).
+
+- **Síntoma:** Martín, 21/10 22:54: «en desktop siempre al iniciar me lleva a dashboard, cuando dijimos que debería ir a Ops
+  Center siempre». El teléfono ya entraba al Ops Center desde el 20/10 (`ENTRADA_MOVIL`); la computadora no.
+- **Lo obvio era el error: «el super admin va a /clients».** Lo decía el comentario del repartidor («un admin sin impersonar
+  arranca en su panel de gestión») y la rama existía: `if (ws == null) redirect(… '/clients')`. Pero **nunca corría para
+  Martín**: medido en producción ese día, su usuario (id 1) es `rol=admin` con `workspace_id=9` (la plataforma, capa
+  `superadmin`), y `resolverDesdeCookies` le devuelve `imp ?? sesion.ws` = 9. Pasaba de largo, caía en el `redirect('/general')`
+  del final, y /general redirige al Dashboard. **Regla:** «sin impersonar» no es «sin workspace»; lo que distingue al super
+  admin en su casa de él mirando a un cliente es `quienOpera()` / `estaImpersonando()`, nunca `getWorkspaceActual() == null`.
+- **La casa es la fila «Ops Center» de la barra de quien entra:** `/admin/operaciones` para el que opera (`quienOpera`, la
+  guarda del Centro: con 2FA y su workspace de plataforma) y `/second-brain` para el cliente, su closer y su setter, y el super
+  admin con `?ws=N`. El test compara las dos rutas con los `href` de nav.ts. El que opera no pasa por el onboarding (el wizard
+  es de un negocio); el resto sí, antes. Un admin sin workspace sigue en /clients: no tiene Ops Center que abrir.
+- **Los caminos de entrada que esquivaban al repartidor:** «Inspeccionar» del super admin (AdminView, FichaWorkspace) y
+  «Entrar» de MaKo Partners iban derecho a `/general?ws=N`; el «Ir al inicio» del cartel «No está en tu plan» iba a la casa
+  del plan (/crm o /plan); la vuelta de Google sin su cookie caía a `'/'`, que es la LANDING pública; el rebote de
+  /admin/agente, también a `'/'`. Ahora todos van a `/inicio` (con su `?ws=`). El login con contraseña, el 2FA, «Ya estás
+  adentro» y el `start_url` de la PWA ya iban a /inicio.
+- **Trampa: el logo de la barra NO es un link** desde el 14/10 (Martín: «si clickeo MaKo no pase nada», Sidebar.tsx → `Marca`).
+  No es un camino de entrada y no se tocó.
+
+**Sin hacer:**
+- `app/error.tsx`: «Ir al inicio» sigue yendo a `'/'` (la landing). Ese boundary también cubre la landing pública, donde
+  `/inicio` mandaría al visitante a /login, y no importa nada de la app a propósito; falta una forma de distinguir sin imports.
+- Ctrl K: «home» e «inicio» siguen llevando al Dashboard (lib/buscador-nav.ts → `ALIAS`, con su test en sidebar-nueva).
+- El teléfono, sin tocar (lo lleva otro chat): «Entrar» de Partners en app/m/partners/PartnersM.tsx sigue yendo a `/general`.
+- `homeDeCapa` (lib/tab-access.ts), el rebote de una tab que el rol no ve, sigue en /crm o /plan: no es la entrada.
+- Nada de esto se miró en un navegador: es un redirect del servidor que pide la sesión de Martín con 2FA.

@@ -11,13 +11,15 @@
 // ⚠️ SIN CSS PROPIO: las clases (`ch-bloque…`) viven en app/_chat/chat.css, que el teléfono carga con PegadoHilo.tsx.
 //    Así la pieza se dibuja en un test (tests/chat-bloques.test.ts) sin navegador.
 // ⚠️ LOS LINKS VAN POR `Link` (app/_ui/Link.tsx), que le suma el `?ws=` de quien mira: el bloque guarda la ruta sola.
+// ⚠️ LOS BLOQUES DE CADA ÁREA SE CARGAN APARTE (`dynamic`, ./bloques/*): se dibujan con la pieza de su tab, que trae sus
+//    acciones de servidor (`server-only` adentro). Importados acá, esta pieza no cargaría fuera de Next, ni en el test.
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import dynamic from 'next/dynamic';
 import Link, { useWs } from '@/app/_ui/Link';
 import { RedDeBloque } from '@/app/dashboard/RedDeBloque';
 import { conWs } from '@/lib/ws-tab';
-import { MAX_CONSULTAS, ROTULO_PASO, leerConsulta, proporcion, razon, type Bloque, type BloqueCreado } from '@/lib/chat-bloques';
+import { ELIGE_TU_PREGUNTA, MAX_CONSULTAS, ROTULO_PASO, SALTEAR_PREGUNTA, leerConsulta, proporcion, razon, type Bloque, type BloqueCreado } from '@/lib/chat-bloques';
 import { esBloqueWeb } from '@/lib/editor-landing/bloques-web';
 
 /** Los bloques del Web Generator (la tarjeta de una landing, elegir entre 3, lo publicado, el dominio), aparte: traen la
@@ -27,6 +29,10 @@ const BloqueWeb = dynamic(() => import('@/app/web-generator/BloqueWeb').then((m)
 type Pregunta = Extract<Bloque, { t: 'pregunta' }>;
 type Trabajo = Extract<Bloque, { t: 'trabajo' }>;
 
+/** «A quién cobrar» (Pagos, la 2.27): la lista de General, viva. Sin SSR: se vuelve a leer al montarse. */
+const CobranzaHilo = dynamic(() => import('./bloques/CobranzaHilo'), { ssr: false });
+/** El estado de cuenta de un lead (Pagos, la 2.28): la pieza de la tab Pagos, que se lee al dibujarse. */
+const EstadoCuentaHilo = dynamic(() => import('./bloques/EstadoCuentaHilo'), { ssr: false });
 /** G16 (el Dashboard, 2.7): con la pieza del Dashboard, que arrastra recharts. Por `next/dynamic`: entra cuando hay uno. */
 const GraficoHilo = dynamic(() => import('./bloques/GraficoHilo'), {
   ssr: false,
@@ -51,6 +57,8 @@ export function BloqueHilo({ b, onResponder, respondida, onTermina, ocupado }: {
 }) {
   if (esBloqueWeb(b)) return <BloqueWeb b={b} onResponder={onResponder} respondida={respondida} ocupado={ocupado} />;
   if (b.t === 'creado') return <Creado b={b} />;
+  if (b.t === 'cobranza') return <CobranzaHilo b={b} />;
+  if (b.t === 'estado_cuenta') return <EstadoCuentaHilo b={b} />;
   if (b.t === 'antes_despues') {
     return (
       <div className="ch-bloque" data-bloque="antes_despues">
@@ -191,7 +199,7 @@ function PreguntaHilo({ b, onResponder, respondida, ocupado }: { b: Pregunta; on
   };
   return (
     <div className="ch-bloque" data-bloque="pregunta">
-      <p className="ch-bloque__titulo">{b.pregunta}</p>
+      {!b.rapida && <p className="ch-bloque__titulo">{b.pregunta}</p>}
       <div className="ch-opciones" role="group" aria-label={b.pregunta}>
         {b.opciones.map((o, i) => (
           <button key={i} type="button" className="ch-opcion" disabled={quieta}
@@ -211,8 +219,9 @@ function PreguntaHilo({ b, onResponder, respondida, ocupado }: { b: Pregunta; on
             <button type="button" className="ch-abrir" disabled={quieta || !marcadas.length}
               onClick={() => responder(marcadas.slice().sort((x, y) => x - y).map((i) => b.opciones[i].titulo).join(', '))}>Listo</button>
           )}
-          <button type="button" className="ch-enlace" disabled={quieta} onClick={() => responder('Elige tú')}>Elige tú</button>
-          <button type="button" className="ch-enlace" disabled={quieta} onClick={() => responder('Saltear')}>Saltear</button>
+          {/* Las respuestas rápidas de Offer (`rapida`) no los llevan: se contesta tocando o escribiendo, como en la tab. */}
+          {!b.rapida && <button type="button" className="ch-enlace" disabled={quieta} onClick={() => responder(ELIGE_TU_PREGUNTA)}>{ELIGE_TU_PREGUNTA}</button>}
+          {!b.rapida && <button type="button" className="ch-enlace" disabled={quieta} onClick={() => responder(SALTEAR_PREGUNTA)}>{SALTEAR_PREGUNTA}</button>}
         </div>
       ) : <p className="ch-tarjeta__nota">{`Respondiste: ${dicha}`}</p>}
     </div>

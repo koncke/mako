@@ -1678,6 +1678,17 @@ export function revisarHeredado(pasos: readonly PasoGrafo[], id: string, envioAu
 }
 
 /**
+ * ¿ESTE MENSAJE SALE SOLO? Lo que pinta la casilla «Sale sola» del editor (21/10/2026): el `revisar` propio si lo
+ * tiene, y si no, lo que el motor hace con él (`revisarHeredado`). Un `revisar` que no es booleano no cuenta: el motor
+ * sólo lee `true` y `false` (`saleSolo`, lib/nutricion-grafo-motor.ts).
+ */
+export function saleSolaDelPaso(paso: { revisar?: unknown }, pasos: readonly PasoGrafo[], id: string, envioAutoSecuencia: boolean): boolean {
+  if (paso.revisar === true) return false;
+  if (paso.revisar === false) return true;
+  return !revisarHeredado(pasos, id, envioAutoSecuencia);
+}
+
+/**
  * ¿ESTE CAMBIO DEL EDITOR DEL MENSAJE ENTRA A LA PILA DE DESHACER? Tipear no entra (el Ctrl+Z
  * del texto es del navegador, y una foto por tecla vacía la pila); cambiar de audio, de
  * archivo, de tipo o de «Revisar», sí.

@@ -192,8 +192,10 @@ test('punto 7: el pedido con un archivo entra en el tope de MaKo, con lo escrito
   // Lo escrito no se come el tope entero: el archivo siempre tiene lugar.
   const mucho = pedidoConArchivo('y'.repeat(3_000), { nombre: 'a.txt', texto: 'dato' });
   assert.ok(mucho.includes('dato'), 'lo escrito se comió el archivo');
-  // El tope es el de la ruta.
-  assert.match(fuente('app/api/chat-agent/secuencias/ia/route.ts'), /body\.pedido\.trim\(\)\.slice\(0, 2000\)/);
+  // El tope es el de la ruta. Desde el 22/10/2026 la ruta no lo corta en silencio: lo que se pasa se rechaza diciendo cuánto entra.
+  const ruta = fuente('app/api/chat-agent/secuencias/ia/route.ts');
+  assert.match(ruta, /const TOPE_PEDIDO = 2000;/);
+  assert.match(ruta, /if \(crudo\.length > TOPE_PEDIDO\) \{\s*return Response\.json\(\{ ok: false, error: `Tu mensaje tiene/);
   assert.equal(TOPE_PEDIDO_MAKO, 2_000);
 });
 

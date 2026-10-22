@@ -60,6 +60,6 @@ const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8');
 test('la computadora y el teléfono siguen al chat con seguirChat, y la URL lleva la sesión', () => {
   const pc = leer('app/second-brain/ChatSecondBrain.tsx');
   assert.match(pc, /const chatCentro = [^;]*seguirChat\(/, 'la computadora sigue al chat abierto');
-  assert.match(pc, /anotarEnUrl\(idElegido, urlCentro\)/, 'la computadora anota la sesión en la URL');
+  assert.match(pc, /anotarEnUrl\(elegido, urlCentro\)/, 'la computadora anota la sesión en la URL');
   assert.match(leer('app/m/operaciones/ChatsMovil.tsx'), /const elegido = seguirChat\(/, 'el teléfono sigue al chat abierto');
 });

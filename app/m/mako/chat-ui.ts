@@ -17,7 +17,7 @@
 //
 // Lo importan componentes 'use client': SÓLO TIPOS de lib/mako-turno-app-reglas.ts (ese
 // módulo arrastra el registro de la API de MaKo, ~400 descripciones) y VALORES sólo de
-// lib/mako-adjuntos.ts, que está escrito para el navegador.
+// lib/mako-adjuntos.ts y lib/claves-en-el-chat.ts (una constante), que son puros y sin server.
 // =============================================================================
 
 import type {
@@ -25,9 +25,12 @@ import type {
 } from '@/lib/mako-turno-app-reglas';
 import { ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, type TipoAdjunto } from '@/lib/mako-adjuntos';
 import type { EstadoArchivero } from '@/lib/chat-mako-bloques';
-import type { Abrir, Bloque } from '@/lib/chat-bloques';
+import { ELIGE_TU_PREGUNTA, SALTEAR_PREGUNTA, type Abrir, type Bloque } from '@/lib/chat-bloques';
 import { respuestasDeElegir } from '@/lib/editor-landing/bloques-web';
 import { GRAMATICA } from '@/lib/mako-gramatica';
+import { CLAVE_TAPADA } from '@/lib/claves-en-el-chat';
+import type { OfferMensaje } from '@/lib/offer-marco';
+import type { IdMensaje, MensajeWA } from '@/lib/centro-mensajes';
 
 // ── El hilo ──────────────────────────────────────────────────────────────────
 
@@ -73,16 +76,24 @@ export type ItemHilo =
   /** `deTarjeta`: el G6 de un trabajo largo que lanzó esa tarjeta (1.11). */
   | { k: 'bloque'; id: string; b: Bloque; respondida?: string; deTarjeta?: number };
 
-/** Lo que dice el botón de un aviso con `conectar`. La IA se nombra como la persona la piensa, no por el proveedor. */
-export const botonConectar = (servicio: string): string => (servicio === 'gemini' ? 'Conectar tu IA' : 'Conectar');
+/** Lo que dice el botón de un aviso con `conectar`. La IA se nombra como la persona la piensa, no por el proveedor: el
+ *  modal que abre es el de la que el negocio ya eligió (`iaParaConectar`, lib/mako-turno-app-reglas.ts). */
+const SERVICIOS_DE_IA: ReadonlySet<string> = new Set(['anthropic', 'openai', 'gemini', 'groq', 'mistral', 'openrouter', 'cerebras']);
+export const botonConectar = (servicio: string): string => (SERVICIOS_DE_IA.has(servicio) ? 'Conectar tu IA' : 'Conectar');
 
 let secuencia = 0;
 /** Un id local para la `key` de React (los mensajes guardados no traen id). */
 export const idLocal = (pre: string): string => `${pre}-${Date.now().toString(36)}-${(++secuencia).toString(36)}`;
 
-const aMensaje = (m: MensajeChat, i: number): ItemHilo => ({
+/** `conWs` le pega a la URL de una nota de voz el `?ws=` de la pestaña: un `<audio src>` no pasa por el `fetch` de la casa, y
+ *  sin él el super admin que mira un cliente recibe 403 (/api/offer/audio). */
+type ConWs = (url: string) => string;
+const sinWs: ConWs = (u) => u;
+const aMensaje = (m: MensajeChat, i: number, conWs: ConWs = sinWs): ItemHilo => ({
   k: 'msg', id: `m${i}-${m.created_at ?? ''}`, role: m.role, texto: m.content, at: m.created_at ?? null,
   ...(m.adjuntos?.length ? { archivos: m.adjuntos } : {}),
+  // La nota de voz (Offer y el onboarding, 22/10/2026): se escucha, y el texto es la transcripción (lib/mako-turno-app-reglas.ts).
+  ...(m.audio?.url ? { voz: { url: conWs(m.audio.url), secs: m.audio.secs } } : {}),
 });
 
 /** Los archivos guardados del mensaje de la persona que devolvió un turno (para cambiar la vista previa por ellos). */
@@ -96,45 +107,131 @@ export const textoConArchivos = (texto: string): string =>
   // El cierre se busca hasta « — » o el final: un nombre con paréntesis («plano (v2).jpg») no corta antes.
   texto.replace(/^\(envió (?:una imagen|un PDF|\d+ archivos)(?:: .*?)?\)(?: — |$)/, '');
 
+/**
+ * NUNCA UNA KEY EN EL CHAT (pieza 1.6), la mitad de la PANTALLA. La burbuja de la persona se dibuja optimista, con lo que
+ * escribió, y el turno la guarda TAPADA (lib/claves-en-el-chat.ts): sin esto la clave seguía a la vista, debajo del aviso
+ * «Tapé tu clave: no quedó en el chat», hasta recargar. `itemsDeRespuesta` no la arregla (sólo SUMA lo de MaKo), así que
+ * cada chat la mezcla en el `marcar(idU, …)` con que cierra el turno: `{ texto }` con lo guardado, o `{}` si no hay nada
+ * que cambiar.
+ *
+ * ⚠️ Sólo cuando el servidor TAPÓ (lo guardado trae `[clave tapada]` y lo enviado no). «Si difieren» a secas no sirve: el
+ * turno también recorta, parte los pegados y antepone el «(envió una imagen: x)» de la memoria del modelo, y la burbuja
+ * no tiene que cambiar por eso. De ese placeholder se limpia lo guardado, igual que al dibujar (`textoConArchivos`).
+ */
+export function textoTapadoDeRespuesta(r: Pick<RespuestaTurno, 'mensajes'>, enviado: string): { texto?: string } {
+  const guardado = (r.mensajes ?? []).find((m) => m.role === 'user')?.content;
+  if (typeof guardado !== 'string' || !guardado.includes(CLAVE_TAPADA) || enviado.includes(CLAVE_TAPADA)) return {};
+  return { texto: /^\(envió /.test(enviado) ? guardado : textoConArchivos(guardado) };
+}
+
 /** El link de un archivo guardado (sin el `?ws=`: en un `<img src>` lo pone quien lo dibuja, con `conWs`). */
 export const rutaDeArchivo = (ref: string): string => `/api/mako/chat?adjunto=${encodeURIComponent(ref)}`;
 
 const aPropuesta = (t: TarjetaPendiente): ItemHilo => ({ k: 'propuesta', id: `p${t.pendienteId}`, t, estado: 'pendiente' });
 
 /** Un mensaje guardado y, debajo, lo que dibuja (lo creado de un «Hecho: …» vuelve con su miniatura al recargar). */
-const conSusBloques = (m: MensajeChat, i: number): ItemHilo[] => {
+const conSusBloques = (m: MensajeChat, i: number, conWs: ConWs = sinWs): ItemHilo[] => {
   // El «En curso: …» de un trabajo largo que sigue: su G6 consulta y dice cómo termina; la burbuja quedaba diciendo «En
   // curso» al lado de un G6 terminado (la segunda revisión de la ola 1).
   const sigue = (m.bloques ?? []).some((b) => b.t === 'trabajo' && !!b.consulta && b.pasos.some((p) => p.estado === 'en_curso'));
   return [
-    ...(sigue ? [] : [aMensaje(m, i)]), ...(m.bloques ?? []).map((b, j): ItemHilo => ({ k: 'bloque', id: `b${i}-${j}-${m.created_at ?? ''}`, b })),
+    ...(sigue ? [] : [aMensaje(m, i, conWs)]), ...(m.bloques ?? []).map((b, j): ItemHilo => ({ k: 'bloque', id: `b${i}-${j}-${m.created_at ?? ''}`, b })),
   ];
 };
 
 /** El hilo de una sesión recién abierta: los mensajes guardados y, al final, lo que espera (las tarjetas y, desde la
  *  1.10, las propuestas de pantalla pendientes de este chat, con su formulario). */
-export function itemsDeSesion(mensajes: readonly MensajeChat[], propuestas: readonly TarjetaPendiente[], pantallas: readonly PropuestaPantalla[] = []): ItemHilo[] {
+export function itemsDeSesion(mensajes: readonly MensajeChat[], propuestas: readonly TarjetaPendiente[], pantallas: readonly PropuestaPantalla[] = [], conWs: ConWs = sinWs): ItemHilo[] {
   return conRespuestas([
-    ...mensajes.flatMap(conSusBloques), ...propuestas.map(aPropuesta),
+    ...mensajes.flatMap((m, i) => conSusBloques(m, i, conWs)), ...propuestas.map(aPropuesta),
     ...pantallas.map((p): ItemHilo => ({ k: 'pantalla', id: `s-${p.escritorio}`, p })),
   ]);
 }
 
-type ItemBloque = Extract<ItemHilo, { k: 'bloque' }>;
+// ── Una conversación de Offer en el Ops Center (21/10/2026) ─────────────────────────────────────────────────────────
+// Martín: «las personas deberían poder continuar lo que quieran siempre desde el Ops Center». Una conversación de Offer se
+// LEE y se SIGUE en el Ops Center con el motor de Offer (/api/offer: 'abrir' y 'turno', app/second-brain/motor-offer.ts),
+// dibujada con el MISMO hilo: lo del dueño a la derecha (su nota de voz como audio, con la transcripción debajo), lo de
+// MaKo a la izquierda y sus opciones como una pregunta que se toca (G1 «rápida»: sin «Elige tú» ni «Saltear»). Como en la
+// tab (app/offer/ChatOffer.tsx), las opciones son sólo las del ÚLTIMO mensaje: las de antes ya no se contestan.
+
+/** El hilo de una conversación de Offer. `conWs` le pega a una URL de audio el `?ws=` de la pestaña (un `<audio src>` no
+ *  pasa por el `fetch` de la casa: lib/offer-marco.ts → `audio`). */
+export function itemsDeOffer(mensajes: readonly OfferMensaje[], conWs: (url: string) => string = (u) => u): ItemHilo[] {
+  const ultimo = mensajes.length - 1;
+  return conRespuestas(mensajes.flatMap((m, i): ItemHilo[] => {
+    if (m.de === 'yo') {
+      return [{
+        k: 'msg', id: `of-${m.id}`, role: 'user', texto: m.texto, at: m.at || null,
+        ...(m.audio?.url ? { voz: { url: conWs(m.audio.url), secs: m.audio.secs } } : {}),
+        ...(m.adjuntos?.length ? { archivos: m.adjuntos.map((a): ArchivoHilo => ({ nombre: a.nombre, tipo: 'document' })) } : {}),
+      }];
+    }
+    const out: ItemHilo[] = [{ k: 'msg', id: `of-${m.id}`, role: 'assistant', texto: m.texto, at: m.at || null }];
+    const op = i === ultimo ? opcionesDeOffer(mensajes) : null;
+    return op ? [...out, op] : out;
+  }));
+}
+
+/** Las opciones VIGENTES de una conversación de Offer: las del último mensaje, si es de MaKo y trae (las de antes ya no se
+ *  contestan). Van al final del hilo, sea el de Offer o el de la proyección con el arranque (lib/chat-mako-indice.ts →
+ *  hiloDeOffer, que no las trae). */
+export function opcionesDeOffer(mensajes: readonly OfferMensaje[]): ItemHilo | null {
+  const m = mensajes[mensajes.length - 1];
+  if (!m || m.de !== 'mako' || !m.opciones?.length) return null;
+  return { k: 'bloque', id: `of-${m.id}-op`, b: { t: 'pregunta', pregunta: '', opciones: m.opciones.map((titulo) => ({ titulo })), varias: !!m.varias, rapida: true } };
+}
+
+/** Lo que se manda a Offer al tocar una opción: si es la de una pregunta del DIAGNÓSTICO (el último mensaje de MaKo), su
+ *  índice (`respuesta`), como la tab (app/offer/OfferApp.tsx); si no, el texto y nada más. */
+export function respuestaDeOffer(mensajes: readonly OfferMensaje[], texto: string): { preguntaId: string; idx: number } | null {
+  const ultimo = [...mensajes].reverse().find((m) => m.de === 'mako');
+  if (!ultimo?.pregunta || !ultimo.opciones?.length) return null;
+  const idx = ultimo.opciones.findIndex((o) => igual(o) === igual(texto));
+  return idx >= 0 ? { preguntaId: ultimo.pregunta.id, idx } : null;
+}
+
+// ── Lo de WhatsApp en el chat con MaKo (21/10/2026, el del super admin: app/admin/operaciones/MensajeWA.tsx) ─────────────
+
 type ItemMsg = Extract<ItemHilo, { k: 'msg' }>;
+/** El id de un mensaje para lo de WhatsApp (lib/centro-mensajes.ts → IdMensaje: `t:` y hasta 64 letras, números o guiones). Sale
+ *  de quién lo dijo y de su hora, que no cambian al recargar (el id de la fila sí: lleva su lugar en el hilo). Lo que todavía no
+ *  tiene hora, de su id. */
+export const idWA = (x: Pick<ItemMsg, 'id' | 'role' | 'at'>): IdMensaje =>
+  `t:${x.at ? `${x.role === 'user' ? 'u' : 'm'}${x.at.replace(/\D/g, '')}` : x.id.replace(/[^\w-]/g, '-').slice(-60)}`;
+/** El mensaje, para el menú del clic derecho, la cita y los fijados (sin el contexto de WhatsApp, no hace nada). */
+export const mensajeWADe = (x: ItemMsg, nombre: string): MensajeWA => ({
+  id: idWA(x), texto: x.texto, de: x.role === 'user' ? 'Tú' : nombre, propio: x.role === 'user',
+  instante: x.at ? Date.parse(x.at) || 0 : 0, trabajo: null,
+});
+
+type ItemBloque = Extract<ItemHilo, { k: 'bloque' }>;
 const esSelector = (x: ItemHilo): x is ItemBloque => x.k === 'bloque' && (x.b.t === 'pregunta' || x.b.t === 'elegir');
 const esDeLaPersona = (x: ItemHilo): x is ItemMsg => x.k === 'msg' && x.role === 'user';
 const igual = (s: string): string => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
 
-/** ¿`dicho` es lo que manda un toque en ESTE selector? Una opción del G1 (o varias, «A, B», con «Listo»), o lo que manda
- *  el «elegir» del Web Generator («Diseño: Minimal», «Elige tú», «Saltear»). */
-function esRespuestaDe(b: Bloque, dicho: string): boolean {
-  const d = igual(dicho);
-  if (b.t === 'elegir') return respuestasDeElegir(b).some((r) => igual(r) === d);
-  if (b.t !== 'pregunta') return false;
-  const titulos = new Set(b.opciones.map((o) => igual(o.titulo)));
-  return titulos.has(d) || (!!b.varias && d.split(/,\s*/).every((p) => titulos.has(p)));
+/** ¿`d` es lo que arma «Listo» en una pregunta de varias: algunos títulos, en el orden de las opciones, unidos con «, »?
+ *  Se arma como el botón, sin partir por comas: un título puede tener una («Precios, planes»). */
+function esVariasDe(d: string, titulos: readonly string[], desde = 0): boolean {
+  for (let k = desde; k < titulos.length; k++) {
+    const t = titulos[k];
+    if (d === t || (d.startsWith(`${t}, `) && esVariasDe(d.slice(t.length + 2), titulos, k + 1))) return true;
+  }
+  return false;
 }
+
+/** ¿`dicho` es lo que manda un toque en ESTE selector? Una opción del G1 (o varias con «Listo»), sus «Elige tú» y
+ *  «Saltear», o lo que manda el «elegir» del Web Generator («Diseño: Minimal», «Diseño: saltear»). `norma` dice cuánto
+ *  se parece: `igual` (sin mayúsculas ni tildes) para lo del turno actual, `tal` (lo que manda el botón, TAL CUAL) para
+ *  un selector de un turno anterior. */
+function esRespuestaDe(b: Bloque, dicho: string, norma: (s: string) => string): boolean {
+  const d = norma(dicho);
+  if (b.t === 'elegir') return respuestasDeElegir(b).some((r) => norma(r) === d);
+  if (b.t !== 'pregunta') return false;
+  const titulos = b.opciones.map((o) => norma(o.titulo));
+  return titulos.includes(d) || d === norma(ELIGE_TU_PREGUNTA) || d === norma(SALTEAR_PREGUNTA) || (!!b.varias && esVariasDe(d, titulos));
+}
+const tal = (s: string): string => s;
 
 /**
  * Un selector (la pregunta G1, o el «elegir» G2 del Web Generator) seguido de un mensaje de la persona ya está
@@ -142,22 +239,32 @@ function esRespuestaDe(b: Bloque, dicho: string): boolean {
  * apaga las opciones en el acto, no al recargar.
  * ⚠️ UNA respuesta no cierra DOS selectores (revisión del 21/10/2026): MaKo guarda en el mismo mensaje lo que dibujan
  *    las lecturas y su pregunta (el G2 de diseños y el G1 del producto), y tocar «Mentoría» apagaba también los diseños
- *    con «Respondiste: Mentoría». Con varios selectores esperando el mismo mensaje, cada uno se cierra sólo con lo que
- *    manda un toque suyo; lo escrito que no es de ninguno los deja abiertos (abierto de más cuesta poco). Con uno solo,
- *    escribir lo contesta, como siempre.
+ *    con «Respondiste: Mentoría». Cada mensaje de la persona cierra los selectores abiertos de los que es (lo que manda un
+ *    toque suyo); si es de uno del turno ACTUAL (los que vinieron después del mensaje anterior de la persona), sólo ése:
+ *    un «Saltear» de la pregunta nueva no cierra las viejas. Si no es de ninguno, escribir contesta, como siempre, pero
+ *    sólo si en el turno actual hay UNO abierto; con varios, quedan abiertos (abierto de más cuesta poco).
+ *    Un selector de un turno anterior que quedó abierto sigue esperando, pero sólo un toque SUYO lo cierra, con el texto
+ *    que manda el botón TAL CUAL: tocado más tarde se cierra él y no la pregunta nueva, y lo escrito turnos después no lo
+ *    contesta, aunque se parezca a una opción suya («curso kairos» escrito a la pregunta de Pagos cerraba el «¿Para qué
+ *    producto?» viejo). Revisiones del 21/10/2026: contarlo para «uno solo abierto» dejaba sin cerrar, escribiendo,
+ *    todas las preguntas siguientes de la sesión.
  */
 export function conRespuestas(xs: readonly ItemHilo[]): ItemHilo[] {
-  return xs.map((x, i) => {
-    if (!esSelector(x)) return x;
-    let j = i + 1;
-    while (j < xs.length && !esDeLaPersona(xs[j])) j++;
-    if (j >= xs.length) return x;
-    let desde = i - 1;
-    while (desde >= 0 && !esDeLaPersona(xs[desde])) desde--;
-    const dicho = (xs[j] as ItemMsg).texto;
-    const esperan = xs.slice(desde + 1, j).filter(esSelector).length;
-    return esperan === 1 || esRespuestaDe(x.b, dicho) ? { ...x, respondida: dicho } : x;
+  const respondidas = new Map<number, string>();
+  let abiertos: number[] = [];
+  let delTurno: number[] = [];
+  xs.forEach((x, i) => {
+    if (esSelector(x)) { abiertos.push(i); delTurno.push(i); return; }
+    if (!esDeLaPersona(x)) return;
+    const suyos = abiertos.filter((k) => esRespuestaDe((xs[k] as ItemBloque).b, x.texto, delTurno.includes(k) ? igual : tal));
+    const suyosDelTurno = suyos.filter((k) => delTurno.includes(k));
+    const abiertosDelTurno = delTurno.filter((k) => abiertos.includes(k));
+    const cierra = suyosDelTurno.length ? suyosDelTurno : suyos.length ? suyos : abiertosDelTurno.length === 1 ? abiertosDelTurno : [];
+    for (const k of cierra) respondidas.set(k, x.texto);
+    abiertos = abiertos.filter((k) => !cierra.includes(k));
+    delTurno = [];
   });
+  return xs.map((x, i) => (esSelector(x) && respondidas.has(i) ? { ...x, respondida: respondidas.get(i)! } : x));
 }
 
 /**

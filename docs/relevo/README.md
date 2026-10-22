@@ -30,7 +30,7 @@ hablan entre sí por `SendMessage` (no cruza carpetas de config) — pasan por e
 
 | Chat | Pegar |
 |---|---|
-| **Cerebro** (el orquestador; antes «Estrategia 3 cuentas») | `Leé docs/relevo/cerebro.md y decime cómo seguimos.` |
+| **Cerebro** (el orquestador; antes «Estrategia 3 cuentas») | `Leé docs/relevo/cerebro.md («LEER PRIMERO») y decime cómo seguimos.` Lo viejo: `cerebro-historia.md`. |
 | **Sesión en la NUBE** (o una cuenta nueva) | `Lee docs/relevo/nube.md y seguimos desde ahí.` |
 | Ops Center (ex Centro de Operaciones) y el **Runner** | `Leé docs/relevo/centro-operaciones.md y seguimos desde ahí.` |
 | Ticketera (los tickets de los usuarios) | `Leé docs/hallazgos-ticketera.md y docs/diseno-ticketera-usuarios.md y seguimos desde ahí.` |
@@ -38,7 +38,7 @@ hablan entre sí por `SendMessage` (no cruza carpetas de config) — pasan por e
 | Sidebar | `Leé docs/diseno-sidebar.md y seguimos desde ahí.` |
 | MaKo Mobile | `Leé docs/relevo/mako-mobile.md y seguimos desde ahí.` |
 | CRM | `Leé docs/relevo/crm.md y seguimos desde ahí.` |
-| Automations (ex Chatbot) | `Leé docs/relevo/chatbot.md y seguimos desde ahí.` |
+| Automations (ex Chatbot) | `Leé docs/relevo/automations.md y docs/relevo/chatbot.md y seguimos desde ahí.` (automations.md: la prospección del Sprint, 21/10) |
 | Dashboard | `Leé docs/relevo/dashboard.md y seguimos desde ahí.` |
 | General (vistas personalizables, pagos de Mauricio y el Calendario) | `Leé docs/relevo/general-y-calendario.md y seguimos desde ahí.` |
 | Offer | `Leé docs/relevo/offer.md y seguimos desde ahí.` |

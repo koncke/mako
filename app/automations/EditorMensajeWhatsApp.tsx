@@ -11,6 +11,8 @@
 // Tercera tanda (09/10/2026, decisiones 1 y 2): UNA columna siempre (la `fila` se leía rota: la prop
 // `disposicion` queda en el tipo SIN EFECTO) y sin «Revisar antes de enviar» (el dato `revisar` lo
 // sigue leyendo el motor; `mostrarRevisar` y `revisarHeredado` quedan en el tipo sin efecto).
+// ⚠️ Volvió el 21/10/2026 como «Sale sola», FUERA del teléfono y a la vista (FlujoLienzo, `data-sale-sola`, con lo que
+// pasa en cada caso): este editor sigue sin leer ni escribir `revisar`.
 //
 // ── CUARTA TANDA, PUNTO 15: VARIOS MENSAJES POR TARJETA ─────────────────────────────────────────
 //   · ES UN CHAT DE WHATSAPP DE VERDAD: la barra es un BORRADOR (modo `enviar` del composer: Enter y

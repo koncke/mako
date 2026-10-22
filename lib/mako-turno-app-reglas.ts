@@ -400,6 +400,10 @@ export type MensajeChat = {
   adjuntos?: AdjuntoVisible[];
   /** Lo que el chat dibuja con el mensaje (lo creado, el antes y el después: lib/chat-bloques.ts); no va al modelo. */
   bloques?: Bloque[];
+  /** La nota de voz con la que la persona contestó (21/10/2026, Florencia, ws21: el Ops Center mostraba sólo la
+   *  transcripción). `url` es relativa y SIN el `?ws=`: un `<audio src>` no pasa por WsFetch, la pantalla le pone
+   *  `conWs(url, useWs())`. `content` sigue siendo la transcripción (el texto secundario). No va al modelo. */
+  audio?: { url: string; secs: number };
 };
 
 /** Los últimos `max` mensajes, arrancando en `user` y sin dos seguidos del mismo rol (un
@@ -536,9 +540,45 @@ export function faltaIADelNegocio(fallo: string | null, iaPropia: number | null)
 export const AVISO_SIN_IA_EQUIPO = 'Para contestarte necesito una IA conectada. Ya lo está resolviendo el equipo de MaKo.';
 
 /** Lo que dice MaKo sin IA, y si lleva el botón para conectarla. `delEntorno` = `esNegocioDelEntorno(ws)`. */
-export function avisoSinIA(delEntorno: boolean): { aviso: string; conectar: string | null } {
-  return delEntorno ? { aviso: AVISO_SIN_IA_EQUIPO, conectar: null } : { aviso: AVISO_SIN_IA, conectar: SERVICIO_IA };
+export function avisoSinIA(delEntorno: boolean, servicio: string = SERVICIO_IA): { aviso: string; conectar: string | null } {
+  return delEntorno ? { aviso: AVISO_SIN_IA_EQUIPO, conectar: null } : { aviso: AVISO_SIN_IA, conectar: servicio };
 }
+
+/**
+ * QUÉ IA LE ABRE «Conectar tu IA»: LA QUE EL NEGOCIO YA ELIGIÓ (20/10/2026, docs/investigacion-ops-center-19-10.md: «un
+ * negocio que conectó sólo su Claude igual recibe el modal de Gemini»). Si tiene alguna guardada en su fila, se le abre
+ * ésa —para arreglarla, no para pedirle otra—, en este orden: su Claude y su OpenAI primero (la decisión A de Martín:
+ * cada negocio conecta la suya), después las gratis. Sin ninguna, Gemini (gratis, y el mismo link que manda WhatsApp).
+ */
+export const IA_PARA_CONECTAR = ['anthropic', 'openai', 'gemini', 'groq', 'mistral', 'openrouter'] as const;
+/** La credencial base de cada una (lib/integraciones-catalogo.ts): la que se mira en la fila del negocio. */
+export const ENV_DE_IA: Record<(typeof IA_PARA_CONECTAR)[number], string> = {
+  anthropic: 'ANTHROPIC_API_KEY', openai: 'OPENAI_API_KEY', gemini: 'GEMINI_API_KEY',
+  groq: 'GROQ_API_KEY', mistral: 'MISTRAL_API_KEY', openrouter: 'OPENROUTER_API_KEY',
+};
+export function iaParaConectar(conFila: readonly string[], soloSuya = false): string {
+  // D6b (lib/solo-su-ia.ts): un negocio con su Claude o su GPT no usa las gratis, así que no se le ofrece Gemini aunque
+  // tenga una de antes en su fila (revisión del Cerebro, 21/10/2026): su Claude, o su OpenAI si es la que tiene.
+  if (soloSuya) return conFila.includes('anthropic') || !conFila.includes('openai') ? 'anthropic' : 'openai';
+  return IA_PARA_CONECTAR.find((s) => conFila.includes(s)) ?? SERVICIO_IA;
+}
+
+/**
+ * Lo que falló en SU clave de Claude (sin crédito, revocada, sin permiso): es de su cuenta, no un bug de MaKo, y se le
+ * dice con el botón de su Claude. Antes abría un ticket para el Cerebro y la persona leía «No pude contestar» (revisión del
+ * 21/10/2026). El mismo criterio que lib/errores-app-reglas.ts → CONFIGURACION. Un 400 de NUESTRO pedido sí es un bug.
+ */
+export const falloDeSuClave = (fallo: string | null): boolean =>
+  !!fallo && /tu clave de Claude: .*(credit balance|invalid x-api-key|authentication|permission|billing|\b40[13]\b)/i.test(fallo);
+export const AVISO_SU_CLAVE = 'Tu clave de Claude no funcionó (sin crédito o desconectada): revísala y mándamelo de nuevo.';
+/** A quien no conectó su computadora, en un negocio que corre con su propio Claude (D6b): dónde conectar la suya. */
+export const AVISO_CONECTA_TU_PC = 'Tu negocio contesta con su propio Claude. Para que te conteste a ti, conecta tu computadora en Tu cuenta → Tus cuentas de IA.';
+/** Con su propio Claude, una foto o un PDF escaneado se leen con SU OpenAI (D6b): nunca con Gemini. */
+export const AVISO_NO_LEI_SU_IA = (nombre: string) => `No pude leer «${nombre}»: con tu propio Claude, las fotos y los PDF escaneados los leo con tu clave de OpenAI. Escríbeme lo que dice.`;
+/** Con su propio Claude y sin una clave que lea (su Claude por clave o su OpenAI), El Archivero no corre: se dice. */
+export const AVISO_SIN_ARCHIVERO = 'Lo dejé en el chat, pero no en El Archivero: con tu propio Claude, para archivarlo necesito tu clave de Claude o de OpenAI.';
+/** Tiene su clave de Claude, pero la plataforma la pausó por un rato: no se le pide «tu clave», que ya la tiene. */
+export const AVISO_ARCHIVERO_EN_PAUSA = 'Lo dejé en el chat, pero no en El Archivero: tu Claude está en pausa por un rato en MaKo. Mándamelo de nuevo más tarde.';
 
 /**
  * Los rechazos de `confirmarPendiente` / `cancelarPendiente` (lib/api-mako/acciones.ts)

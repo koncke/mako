@@ -21,7 +21,8 @@ const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').r
 test('cada paso del tutorial apunta a una marca que está en la pantalla', () => {
   assert.ok(idRecorridoValido(RECORRIDO_INICIO), `«${RECORRIDO_INICIO}» no es un id de recorrido válido`);
   assert.ok(PASOS_INICIO.length >= 2);
-  const chat = leer('app/second-brain/ChatSecondBrain.tsx');
+  // La conversación y la caja son el panel del Ops Center (app/admin/operaciones/PanelChat.tsx, 21/10/2026): sus marcas viven ahí.
+  const chat = leer('app/second-brain/ChatSecondBrain.tsx') + leer('app/admin/operaciones/PanelChat.tsx');
   for (const p of PASOS_INICIO) {
     assert.ok(chat.includes(`data-recorrido="${p.objetivo}"`), `el paso «${p.titulo}» apunta a «${p.objetivo}», que no está en la pantalla`);
     assert.ok(p.texto.length <= 140, `«${p.titulo}»: el texto de un paso es corto`);

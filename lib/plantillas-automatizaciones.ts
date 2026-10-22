@@ -256,6 +256,7 @@ function inicio(principal: string, paralelos: readonly string[]): PasoDePlantill
 // dato del negocio (ni una etiqueta ni una etapa).
 const NO_AGENDO: FilaCondicion = { campo: 'agendo', no: true };
 const YA_LE_ESCRIBISTE: FilaCondicion = { campo: 'ya_contactado' };
+const NUNCA_LE_ESCRIBISTE: FilaCondicion = { campo: 'ya_contactado', no: true };
 const NO_PAGO: FilaCondicion = { campo: 'pago', no: true };
 /**
  * «No contestó desde que entró» (`contesto` negada, 14/10/2026). Que el lead conteste ya no corta nada por detrás: va
@@ -317,6 +318,25 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
       email('le_m2', '¿Lo vemos juntos?', 'Una llamada corta y lo vemos.',
         'Hola {{nombre}}:\n\n¿Pudiste ver mi correo? Si todavía te interesa, responde este correo y buscamos un horario para hablar.', null, { revisar: false }),
       aiStep('le_ia', { objetivo: 'Que agende una llamada', casos: [['quiere-agendar', 'le_c_agendar'], ['precio-llamada', 'le_c_precio'], ['no-le-interesa', 'le_c_no']] }),
+    ],
+  },
+  {
+    // (1b) PROSPECCIÓN: APERTURA A LOS QUE MUEVO A UNA ETAPA (22/10/2026, A4 de la llamada con Mauricio: buscó en la galería
+    // «una plantilla para hacer la automatización de mensajes» a su base y no había ninguna). El CRON es la etapa a la que
+    // se MUEVE a quien se quiere contactar (no la de entrada: así sale sólo a los que se eligen, de a tantos por día). Una
+    // sola apertura, sólo a quien nunca le escribiste; la apertura nace PARA APROBAR (en frío, lo decide la persona con
+    // «Sale sola», a la vista) y el goteo de la automatización la reparte. MaKo NO contesta: sin AI Step (el aviso de quien
+    // responde, si se quiere, es «Si responde» → «MaKo en WhatsApp», que lleva el link a la charla).
+    id: 'prospeccion-apertura',
+    nombre: 'Prospección: apertura',
+    emoji: '🎯',
+    linea: 'Le escribe una vez a quien mueves a una etapa. Lo que contesten lo sigues tú desde Chats.',
+    origen: 'llamada con Mauricio del 22/10/2026 (A4): la campaña del Sprint',
+    objetivo: 'captar',
+    cron: { pide: 'etapa_venta', ayuda: 'La etapa a la que mueves a quien quieres contactar (no la de entrada).' },
+    pasos: [
+      condicion('pa_entrada', [[[NUNCA_LE_ESCRIBISTE, TIENE_WHATSAPP], 'pa_w1']], null),
+      whatsapp('pa_w1', 'Hola {{nombre}}, ¿sigues al frente de tu empresa?', null, { revisar: true }),
     ],
   },
   {
@@ -540,7 +560,7 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     origen: 'el aviso «Mensaje de WhatsApp entrante» (wa-mensaje-entrante), con lo que escribió',
     objetivo: 'vender',
     cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'lead_contesta' },
-    pasos: [mako('mc_aviso', '💬 {{nombre_completo}} te escribió y no le contesté.\n«{{lead_escribio}}»\n👉 {{link_lead}}', null)],
+    pasos: [mako('mc_aviso', '💬 {{nombre_completo}} te escribió y no le contesté.\n«{{lead_escribio}}»\n👉 {{link_lead}}\n💬 Contéstale aquí: {{link_chat_lead}}', null)],
   },
   // Instagram y Messenger: salen por Zernio, dentro de la ventana de 24 h o como la respuesta privada a un comentario.
   // SIN AI Step (ver la cabecera: hoy contestaría por WhatsApp). Los eventos apagados («Todavía no») no van.

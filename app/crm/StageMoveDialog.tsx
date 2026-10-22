@@ -21,6 +21,8 @@ import type { FathomLink } from '@/lib/leads';
 import { completeStageMoveAction, requisitosDeEtapaAction, type StageMoveCuota, type StageMoveResultado } from './actions';
 import { hoyEnTz } from '@/lib/date-utils';
 import { sumarMeses, siguienteFechaDeCuota } from '@/lib/cobrado-lead';
+import { formatoMonto } from '@/lib/pasarela-moneda';
+import { planDelContrato, toleranciaCuotas } from '@/lib/contrato-montos';
 import { useTzWorkspace } from './lead-view/useTzWorkspace';
 import { autoReunionesAction } from './auto-actions';
 import type { CrmLead } from './CrmBoard';
@@ -398,13 +400,15 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       ...(move.asistioJ2 != null ? { asistioJ2: move.asistioJ2 } : {}),
       ...(yaCalificado != null ? { calificado: yaCalificado } : {}),
       ...(yaMotivo?.trim() ? { motivo: yaMotivo } : {}),
+      // El tipo de venta que se ELIGE acá (21/10/2026): pasar de suscripción a pago único pide «Plan de pagos».
+      ventaTipo,
     })
       .then((r) => { if (vivo) setReqServer(r); })
       // Si la consulta falla seguimos con lo local: es preferible un wizard que
       // pregunte de menos a un pop-up que no abre.
       .catch(() => { if (vivo) setReqServer([]); });
     return () => { vivo = false; };
-  }, [lead.id, to, move.asistioJ1, move.asistioJ2, yaCalificado, yaMotivo]);
+  }, [lead.id, to, move.asistioJ1, move.asistioJ2, yaCalificado, yaMotivo, ventaTipo]);
 
   const cargandoReq = reqServer === null;
   // `placeholder` entra también en la unión final: cuando el caller no pasó
@@ -543,7 +547,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   // el deal se pacta en USD y los cobros suelen ser en MXN, así que al convertir
   // cada cuota quedan diferencias de redondeo (centavos a unos pocos dólares).
   // Una SUSCRIPCIÓN no tiene total fijo (es mensual) → no se exige que cuadren.
-  const tolCuotas = Math.max(1, totalMonto * 0.005);
+  const tolCuotas = toleranciaCuotas(totalMonto);
   const cuotasCuadran = esSuscripcion ? true : (requeridos.has('plan') ? Math.abs(sumaCuotas - totalMonto) <= tolCuotas && sumaCuotas > 0 : true);
 
   const respondido = (() => {
@@ -773,14 +777,28 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
         if (!monto.trim() && ventaTipo !== 'suscripcion') setMonto(String(total));
         if (!monto.trim()) aRevisar.push(`A revisar: monto (US$${total.toLocaleString('en-US')} en total)`);
       }
-      // Las cuotas SÍ se dan por resueltas (`ok.add('plan')`), y a propósito: el paso del
-      // plan exige que cuadren con el monto (`cuotasCuadran`, tolerancia del 0,5%) y las que
-      // convierte la IA una por una pueden no sumar su propio total — mostrarlo trababa
-      // «Siguiente». También sólo si el plan se pide: si no, las cuotas no viajan
-      // (`cuotasPayload`) y el reporte decía «Se completó» de algo que no se guardaba.
+      // ⚠️ UN CONTRATO EN OTRA MONEDA NO TRAE DÓLARES (21/10/2026): la IA los convertía con una tasa inventada (72.000 MXN
+      // / 17 = 4.235,29). Ahora viene el total en SU moneda (`total_original`) y los dólares los carga la persona; un lector
+      // viejo guardado en Configuraciones que pudo convertir no deja sus montos (`montos_no_usados`). Lo dice el reporte.
+      if (pideMonto && j.total_usd == null && Number(j.total_original) > 0) {
+        const dice = typeof j.moneda === 'string' ? formatoMonto(Number(j.total_original), j.moneda) : `${Number(j.total_original).toLocaleString('es-AR')} (no dice en qué moneda)`;
+        aRevisar.push(`A revisar: monto (el contrato dice ${dice}: carga cuánto es en dólares)`);
+      }
+      if (j.montos_no_usados) aRevisar.push('A revisar: los montos del contrato no se usaron (el lector guardado en Configuraciones es viejo y pudo convertirlos): cárgalos a mano');
+      // Las cuotas con monto vienen CUADRADAS con el total del contrato (`montosDelContrato`, lib/contrato-montos.ts), y se
+      // dan por resueltas (`ok.add('plan')`) sólo si cuadran también con el monto de cierre que va a QUEDAR
+      // (`planDelContrato`): un cierre de 5.000 ya cargado con un contrato de 4 × 1.000 no pasaba por `cuotasCuadran`
+      // (revisión de b23ce2a9c). ⚠️ Antes se daban por resueltas sin mirar la suma: un contrato con el total en dólares y
+      // las cuotas en pesos daba un plan de 72.000 «resuelto» sobre un cierre de 4.000. Si no, el paso se muestra y el
+      // reporte dice por qué. También sólo si el plan se pide: si no, las cuotas no viajan (`cuotasPayload`) y el
+      // reporte decía «Se completó» de algo que no se guardaba.
       if (requeridos.has('plan') && Array.isArray(j.cuotas) && j.cuotas.length && cuotas.every((c) => !c.monto.trim())) {
         setCuotas(j.cuotas.map((c: { monto?: number | string | null; fecha?: string | null }) => ({ monto: c.monto != null ? String(c.monto) : '', fecha: dmyaIso(c.fecha ?? '') })));
-        ok.add('plan'); rell.push('plan de cuotas');
+        // Sin los montos (un contrato en otra moneda), el plan NO queda resuelto: se ven las fechas y se cargan los dólares.
+        const montoQueQueda = monto.trim() ? (parseFloat(monto) || 0) : pideMonto && ventaTipo !== 'suscripcion' && total > 0 ? total : 0;
+        const delPlan = planDelContrato(j, { montoQueQueda, suscripcion: ventaTipo === 'suscripcion' });
+        if (delPlan.resuelto) { ok.add('plan'); rell.push('plan de cuotas'); }
+        else if (delPlan.aviso) aRevisar.push(delPlan.aviso);
       }
       setResueltos(ok);
       const reporte = [...rell.map((x) => `Se completó: ${x}`), ...aRevisar];

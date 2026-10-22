@@ -100,7 +100,8 @@ function porFuente(): Record<FuenteDato, Set<string>> {
     links: new Set(Object.keys(RUTA_DE_LINK)),
     // «Lo que arma MaKo» (11/10/2026) lo pone el emisor de un evento de MaKo (`ejecutarPaso`, lib/flujos.ts),
     // como la cuota la pone el cron de cobranza: lo fija tests/aviso-evento.test.ts leyendo ese fuente.
-    evento: new Set(['link_lead', CLAVE_MENSAJE_MAKO]),
+    // `link_chat_lead` (21/10/2026), al lado de `link_lead`: el resolvedor (lib/variables-resolver.ts) con el lead del evento.
+    evento: new Set(['link_lead', 'link_chat_lead', CLAVE_MENSAJE_MAKO]),
     cuota: new Set(CLAVES_DE_CUOTA),
     // El link para pagar (11/10/2026): su cobro pendiente más nuevo, de la tabla `cobros`.
     cobro: set(valoresDelCobro('https://x/pagar/abc')),

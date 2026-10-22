@@ -101,7 +101,9 @@ const fuente = (...p: string[]) => readFileSync(resolve(RAIZ, ...p), 'utf8').rep
 
 test('el teléfono MUEVE de columna (con su guard) y lo completado no se queda escondido', () => {
   const L = fuente('app', 'm', 'plan', 'ListaPlan.tsx');
-  assert.match(L, /col: marcas\.has\(it\.id\) \? 'hecho' : it\.estado,/);
+  // (20/10/2026) Con las columnas PROPIAS del negocio (lib/plan-columnas.ts) la columna de una tarjeta es su CLAVE
+  // (el estado, o el id de una propia), no su estado: tests/plan-columnas-propias.test.ts.
+  assert.match(L, /col: marcas\.has\(it\.id\) \? 'hecho' : it\.col,/);
   // La marca de «se fue» se suelta cuando el kanban ya la trae en Completada.
   assert.match(L, /for \(const it of listas\.tareas\) if \(it\.estado !== 'hecho'\) ids\.add\(it\.id\);/);
   assert.doesNotMatch(L, /for \(const l of Object\.values\(listas\)\)/);

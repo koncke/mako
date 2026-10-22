@@ -9,7 +9,8 @@
 //   · las secciones de «Tu cuenta» de la computadora, como filas con su ícono, en el MISMO orden y con
 //     los MISMOS rótulos (lib/ajustes-secciones.ts): Información personal (una hoja con la misma
 //     pantalla de la computadora) · Seguridad (/m/cuenta/seguridad) · Notificaciones (una hoja con los
-//     avisos de ESTE teléfono) · Instalar la app (los pasos, o el aviso de Chrome);
+//     avisos de ESTE teléfono) · Instalar la app (los pasos, o el aviso de Chrome) · Tus cuentas de IA
+//     (/m/cuenta/ia, 21/10/2026: el estado de sus computadoras y «Desconectar»; conectar una, en la computadora);
 //   · Modo oscuro (la misma preferencia que el botón de la barra de escritorio);
 //   · «Configuración del negocio», sólo para quien lo administra (su pantalla, /m/configuraciones, desde el 17/10/2026);
 //   · Cerrar sesión.
@@ -53,7 +54,7 @@ import {
 } from '../_ui';
 import type { Perfil, VistaPerfil } from '@/lib/perfil';
 import { SECCIONES_CUENTA } from '@/lib/ajustes-secciones';
-import { InformacionPersonal } from '@/app/perfil/InformacionPersonal';
+import { InformacionPersonal, type NegocioDelPerfil } from '@/app/perfil/InformacionPersonal';
 import {
   comoDesbloquear, filaInstalar, resumenAvisos, rielNotificaciones, segundaAvisos, tiposParaRol, toastDeActivar,
   toastDePrueba, vistaAvisos, type VistaAvisos,
@@ -77,9 +78,11 @@ export type DatosCuenta = {
   esAdmin: boolean;
   /** «Información personal» (la misma de la computadora, en una hoja). null = no se pudo leer. */
   perfil: { perfil: Perfil; vista: VistaPerfil } | null;
+  /** El nombre del negocio para la hoja de Información personal (`nombreDelNegocioAction`). null = no se leyó. */
+  nombreNegocio: NegocioDelPerfil | null;
 };
 
-type ClaveCuenta = 'info' | 'seguridad' | 'notificaciones' | 'instalar';
+type ClaveCuenta = 'info' | 'seguridad' | 'notificaciones' | 'instalar' | 'ia';
 
 /** Los rótulos y los íconos de «Tu cuenta», los MISMOS de la computadora (lib/ajustes-secciones.ts). */
 const ROTULO = Object.fromEntries(SECCIONES_CUENTA.map((s) => [s.key, s.label])) as Record<ClaveCuenta, string>;
@@ -146,6 +149,9 @@ export function CuentaM({ datos }: { datos: DatosCuenta }) {
               : <FilaM navegacion leading={<IconoSeccion k="instalar" />} titulo={ROTULO.instalar}
                   riel={fila === 'instalada' ? 'Instalada' : undefined} />
         )}
+        {ve('ia') && (
+          <FilaM navegacion leading={<IconoSeccion k="ia" />} titulo={ROTULO.ia} href="/m/cuenta/ia" />
+        )}
       </ListaM>
 
       <ListaM>
@@ -171,7 +177,7 @@ export function CuentaM({ datos }: { datos: DatosCuenta }) {
           // lo pisaría la restauración de esa entrada del historial.
           onCerrar={() => { setHoja(null); window.setTimeout(() => router.refresh(), 400); }}>
           <div className="m-cuenta-ajustes">
-            <InformacionPersonal inicial={datos.perfil.perfil} vista={datos.perfil.vista} sinTitulo />
+            <InformacionPersonal inicial={datos.perfil.perfil} vista={datos.perfil.vista} negocio={datos.nombreNegocio} sinTitulo />
           </div>
         </SheetM>
       )}

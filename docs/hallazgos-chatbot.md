@@ -42,6 +42,8 @@ la revisión.*
   y el motor dejaba un borrador → [El lienzo](#el-lienzo).
 - **«A mi WhatsApp» le escribía al cliente**, y el arreglo obvio (`getPerfil`) devuelve al admin del
   cliente → [«Probar» y la página](#probar-y-la-página).
+- **Un CRM nuevo con sus leads AGREGADOS inscribía a CERO, sin un error** (21/10/2026): la cohorte miraba sólo la casa
+  (`leads.funnel_id`); ahora mira también `lead_funnel` → [La prospección del Sprint](#la-prospección-del-sprint-de-mauricio-el-crm-nuevo-no-inscribía-a-nadie-y-el-cupo-era-de-la-campaña-21102026).
 - **Un escritor que no sabe de ramas aplana un flujo SIN ERROR**: una lista es un flujo válido.
   `armarSecuenciasDeAudios` (onboarding) lo hacía en cada carga sobre #198/#212/#213 →
   [Escritores que no saben de ramas](#escritores-que-no-saben-de-ramas-aplanaban-un-flujo-sin-error-cosecha).
@@ -1598,6 +1600,7 @@ leads con principales distintos, así que con las dos en el menú la equivocada 
 al dueño. Se dejó afuera, con su porqué en `ACCIONES_DEL_FLUJO`. Lo que falta es UNA «Mover de etapa» que, por
 lead, corra una u otra según el producto elegido sea su principal o uno agregado (en el ejecutor, o una acción
 nueva del registro).
+**Hecho el 21/10/2026, en el ejecutor** (`moverEnElCrmDelPaso`, lib/api-mako/flujo.ts): ver «La prospección del Sprint».
 
 **Vive en:** `lib/editor-acciones.ts` (`ACCIONES_DEL_FLUJO`) · `lib/api-mako/areas/crm.run.ts` · `app/_components/CamposAccion.tsx` (`SelectorEtapa`)
 
@@ -5490,6 +5493,41 @@ tests/crear-ia-recurrente.test.ts · *20/10/2026, claude4.*
   recibe hoy el aviso; si se prendiera todo lo pausado, el peor grupo es el de ws11 (#282, #284 y una más, 3 a la misma
   etapa). No hay etapas con 5 automatizaciones legítimas: no hace falta volver a una regla de texto. Regla que queda
   (AGENTS.md): una heurística sobre texto libre PROPONE u ORDENA; lo que decide es un hecho, y la persona compara.
+- **⚠️ «UN EVENTO NO TIENE COHORTE QUE SE PISE» ERA FALSO** (revisión del Cerebro de cc8a82e6d, 21/10). La regla por
+  hechos comparaba sólo la etapa, la entrega y la etiqueta, y daba por sentado que dos CRON por evento (un DM, un pago,
+  «Se agrega etiqueta», «Agendó sin confirmar») no alcanzan a la misma gente. Pero `enrolarPorEvento` (lib/nutricion.ts)
+  inscribe al lead en TODAS las activas del disparador: el unique es (lead, automatización), y `unaPorSecuencia` deduplica
+  dentro de una, no entre dos. Lo más común: «Duplicar» una de DM o de pago (la copia nace pausada con el mismo CRON) y
+  prender la copia; por Instagram y Messenger los dos mensajes salen al instante. Ahora el mismo disparador con el mismo
+  evento (`subtipo`) es la misma gente, y «Se agrega etiqueta» (cualquiera) cruza con «Se le puso la N» si no ignora la
+  N. «A mano» no. El test lo ata al motor: si `disparaPorEvento` dispara dos CRON con el MISMO evento, `mismaCohorte` las
+  ve juntas. Medido en la base (sólo lectura, 21/10): hoy no hay dos activas del mismo evento en ningún negocio.
+  ⚠️ **Y «el mismo disparador» tampoco alcanzaba** (revisión de 10b52bcc3). El motor junta disparadores DISTINTOS bajo un
+  mismo evento (`TRIGGERS_POR_EVENTO`) y les suma la etapa en la que cae el lead (`conSuEtapa`): un lead nuevo de Meta
+  entra a «Dejó el formulario sin agendar» y a «Un Lead Entró» (la etapa «lead») y recibe las dos bienvenidas; una
+  reserva entra a «Agendó pero no confirmó» y a «Un Lead Agendó Llamada» (la etapa «agenda»). Es el caso más probable de
+  migración: la galería ofrece «Un Lead Entró» como reemplazo de la bienvenida vieja. El test anterior ataba el aviso
+  sólo a `disparaPorEvento`, que para esos eventos siempre dice que no: atar la regla a UNA función del motor no alcanza
+  si el motor decide con varias. Ahora la tabla vive en un módulo puro (lib/nutricion-eventos.ts, con
+  `ETAPA_DEL_EVENTO`) que leen el motor y el aviso. Dos que entran con el mismo evento son la misma gente, salvo las dos
+  mitades de la post-agenda, que el motor separa. El test recorre la tabla. Verificado por el Cerebro (21/10): el motor
+  inscribe igual que antes de la mudanza (el `enrolarPorEvento` real de los dos árboles, 660 escenarios, 0 diferencias),
+  y de los pares que el motor inscribe juntos, en producción quedaban 46 sin aviso; ahora ninguno.
+- **Cambiar a quién le escribe una ACTIVA, o por dónde, es activarla de nuevo para esa gente.** Por la API de MaKo,
+  `cambiar_crons_secuencia` pasaba una activa a la etapa de otra sin preguntar, y `asignar_audio_paso` pasaba a WhatsApp
+  el primer mensaje (de email) de una activa, al lado de una gemela de WhatsApp. La regla por hechos hizo esto último
+  NUEVO: antes del canal, un email y un WhatsApp no se distinguían. Ahora los CRON de una persona por la API van por
+  `publicarCrons` (lib/disparadores-guardar.ts, la misma pregunta que `publicarPasos`), y el audio que cambia el canal
+  del primer mensaje va por `publicarPasos`; la propuesta lo dice y el «sí» lleva `aunqueDuplique`. El lienzo sigue
+  guardando el CRON en vivo y lo DICE al lado de «Activar» (`dupActiva`). Un test barre quién llama a
+  `guardarDisparadores`: uno nuevo tiene que preguntar o estar en la lista con su motivo.
+- **Bajos de la misma revisión.** El arranque cortaba con `slice` por unidades UTF-16: partía un emoji y dejaba medio par
+  suelto, «�» en pantalla, y la pendiente del Doer o de la API (que lleva el aviso) no se podía guardar en
+  `mako_acciones_pendientes`. Ahora corta por grafemas (`Intl.Segmenter`), así que una familia 👨‍👩‍👧 queda entera. Los
+  días de dos Recurrentes se comparan sólo en la MISMA zona: «lunes 23:30» de Tijuana y «martes 00:30» de Ciudad de
+  México salen en el mismo instante. Además, a menos de 12 horas se pisan aunque sean días distintos (las 23:30 y las
+  00:30), también con la vuelta del mes (el 28 a las 23 y el 1 a la 1; el día va hasta el 28, `DIA_MES_MAX`). Y una PAUSADA que se publica ya no lee todas las automatizaciones con sus
+  pasos: primero mira si está activa, y después lee sólo las activas.
 - **Un aviso que se calcula no se borra.** El del CRON nuevo en una activa colgaba del guardado (se lo comía el
   `onError(null)` del guardado siguiente, y se perdía si se cambiaba de automatización antes de que volviera). Ahora se
   CALCULA de lo que hay (sus CRON de ahora y lo publicado, `dupActiva`) y se dice al lado de «Activar» mientras sea así.
@@ -5500,9 +5538,17 @@ tests/crear-ia-recurrente.test.ts · *20/10/2026, claude4.*
 **Lo que quedó SIN hacer:** los 31 borradores de #282 y el de #284 siguen pendientes (aprobar o descartar lo decide
 Martín) · el aviso de duplicada no mira la hora del día ni la reentrada (dos Recurrentes el MISMO día a horas
 distintas avisan: el lead recibe los dos; un `ordinal` mensual, «el primer lunes», se toma como que se pisa) ni el
-horario de envío propio de cada una · cambiarle los CRON a una activa por la API de MaKo no pregunta (la pantalla lo dice al abrirla) ·
-cambiar el audio, la espera o la vista previa de un paso por la API no pregunta (no cambian el texto) · el conteo está en la
-automatización abierta, no en la fila de la lista · nada se vio con clics en un navegador.
+horario de envío propio de cada una · dos eventos «de antes» del mismo tipo en funnels distintos avisan igual (el
+motor barre por el funnel de la FILA y el CRON no lo lleva: `higiene`, lib/disparadores.ts) · dos CRON de cohortes
+distintas con «también al grupo de MaKo» le escriben los dos al grupo y no avisan · en el lienzo, guardar un CRON en
+una activa no pregunta (por diseño: se guarda en vivo y el aviso queda al lado de «Activar») · la espera o la vista
+previa de un paso por la API no preguntan (no cambian ni a quién ni por dónde) · `ETAPA_DEL_EVENTO`
+(lib/nutricion-eventos.ts) es una aproximación: una reserva de una etapa de reunión que no se llama «agenda» («webinar» en
+embudos viejos, una «stN» marcada Reunión) inscribe en «Agendó…» y en esa etapa sin aviso; el motor lee la etapa real
+(`etapaDeLaReserva`), el aviso no la sabe · un mismo hecho que dispara DOS eventos (un pago aprobado que además pasa el
+lead a Ganado, lib/cobros.ts `alCron`; una etiqueta vinculada a una etapa) inscribe en dos disparadores distintos y no
+avisa (ya estaba antes) · el conteo está en la automatización abierta, no en la fila de la lista · nada se vio con
+clics en un navegador.
 
 **Vive en:** lib/mensajes-por-aprobar.ts · lib/setting-secuencias.ts (`leerPorAprobar`) · app/automations/SecuenciaPerfil.tsx
 (la línea, `notaChat`, `conAvisoDuplicada`) · app/automations/ChatMako.tsx (`nota`) · lib/automatizacion-duplicada.ts ·
@@ -5637,3 +5683,237 @@ ocurrencia perdida del Recurrente.
 **Lo que quedó SIN hacer** (pedido a Automations como punta de seguimiento): los tres de arriba · el aviso al Activar
 compara el borrador del lienzo y no lo publicado (SecuenciaPerfil.tsx:1062) · el paso `au-chat` del recorrido no
 aparece nunca para quien ya tiene automatizaciones (arranca en la lista). *20/10/2026, Cerebro, claude4.*
+
+## El motor no le escribe a un bloqueado en NINGUNA forma del número (21/10/2026)
+
+La secuencia, el AI Step que contesta solo, la rama y los recordatorios de reunión preguntan `estaBloqueado(lead.telefono)`
+(lib/nutricion.ts, lib/reunion-recordatorio.ts). Comparaba exacto: un bloqueado desde /chats (542233550684) con
+2233550684 en el CRM seguía recibiendo, y desde el 20/10 le llega. La regla ahora vive en `estaBloqueado` y el motor la
+hereda sin cambios; el residuo de nutrición inscribe con la misma (`TelefonosDe`). Detalle y porqué en
+hallazgos-comunicacion («La identidad de un bloqueo es UNA regla»). *21/10/2026, chat «CRM» (claude4).*
+
+## La prospección del Sprint de Mauricio: el CRM nuevo no inscribía a nadie, y el cupo era de la campaña (21/10/2026)
+
+Martín, 21/10: «que pruebes y valides que todo funcione bien en Automations de punta a punta para que con Mauricio
+podamos hacer esta estrategia de prospección con todos los contactos que tiene en su CRM que nunca fueron contactados».
+El plan obvio: un CRM nuevo de Prospección, sumarle los 1.094 nunca contactados y colgarle una automatización. El
+relevamiento previo (C:/dev/cerebro-herramientas/automations-mauricio-21-10.md) midió por qué no andaba; esto es lo
+que quedó de arreglarlo.
+
+### Un CRM nuevo con sus leads AGREGADOS inscribía a CERO, sin un error
+
+**Síntoma:** CRON «Sprint de Diseño › Por contactar» con 301 leads agregados en esa columna → «inscribiría: 0».
+**Causa:** la cohorte de un CRON por etapa (`cohorteDeTrigger`, `etapa_actual`) filtraba por la CASA del lead
+(`leads.funnel_id`) y su etapa (`pipelineStageOf`). Sumar a otro CRM («se AGREGA, nunca se mueve», Martín 06/10)
+escribe sólo una fila de `lead_funnel`, que ninguna cohorte leía. Los 1.169 leads del ws1 tienen casa NULL (el CRM
+principal): toda automatización colgada de otro CRM era sorda a ellos. Y el CRON «Tienen la etiqueta» de esa misma
+automatización hereda su CRM, así que el camino «alternativo» (etiqueta + Recurrente) también daba cero si la
+automatización declaraba el CRM.
+**Regla:** una automatización que DECLARA un CRM ve a la casa y a los agregados a ese CRM (`agregadosQueEntran` y
+`conAgregados`, lib/nutricion-ambito.ts): la etapa es la de ESE CRM, sólo `abierto` (el estado es de la persona), y la
+ventana de 90 días mira cuándo se lo sumó o se lo movió ahí. Sin CRM declarado (las de antes del ámbito) no cambia
+nada: aplican a todos los productos, y sumarles las filas escribiría dos veces a la misma persona.
+**Medido:** ws3 con 301 agregados: origin/main 0, con el arreglo 288 (los 13 cerrados quedan afuera). Producción, las
+20 cohortes activas de los 7 negocios con automatizaciones: iguales antes y después (scratchpad de la sesión,
+`cohortes-todos.mts`; sólo lectura).
+**La trampa que encontró la revisión adversarial:** una fila que NACE con el lead (Meta con varios CRM en la campaña,
+una landing con varios) no puede entrar: la casa ya lo saluda por el evento del alta y el «Un Lead Entró» del otro CRM
+le mandaba una SEGUNDA bienvenida en el barrido de la hora. `filaNacidaConElLead` (10 min, y sin movimiento después).
+**Vive en:** `lib/nutricion.ts` (`cohorteDeTrigger`, `agregadosEnEtapa`, `leadsConEtiqueta`) · `lib/nutricion-ambito.ts`
+· test: tests/cohorte-crm-agregados.test.ts.
+
+### «Mover de etapa» escribía la etapa del OTRO CRM en la principal del lead
+
+**Síntoma (por leer el código, nadie lo vio pasar todavía):** «Mover a Contactado» del CRM de prospección, corrido
+sobre un lead agregado, llamaba `setPipelineStage(lead, 'st1')` en su CASA. `setPipelineStage` no valida que la key
+exista en el CRM del lead: la etapa principal de Mauricio quedaba en una key que su CRM no tiene (el tablero la dibuja
+en la primera columna, como los 1.050 'reactivacion' de hoy) y la tarjeta del Sprint no se movía.
+**Causa:** el control de etapa guarda `embudoId`, pero `proponer_cambio_etapa` no lo declara y `paramsDelPaso` lo saca.
+**Regla:** el flujo decide por lead (`moverEnElCrmDelPaso`, lib/api-mako/flujo.ts; `dondeMoverEtapa`,
+lib/editor-acciones.ts): en su casa, la casa; agregado, `mover_lead_en_producto`; donde no está, no mueve y lo dice.
+Salvo lo de antes (revisión adversarial): si la etapa existe en su casa, o su casa no se pudo resolver, se mueve la
+casa como siempre — las 62 automatizaciones sin CRM guardan igual el `embudoId` del principal.
+**Sin hacer:** en un CRM agregado, «Ganado» no registra la venta ni cambia el estado (es el modelo de
+`mover_lead_en_producto`) y el paso no lo dice. `setPipelineStage` sigue aceptando una key que el CRM del lead no tiene.
+
+### «Simulado» cuenta como «ya le escribiste» pero NO gasta el tope
+
+`?commit=1` del cron marca 'simulado' los pasos de un canal apagado. `leadsYaContactados` incluye 'simulado' (la
+condición «Nunca le escribiste» lo da por contactado), pero `enviosUltimas24h` / `enviosEnLaHora` cuentan sólo
+'enviado'. Así que un commit forzado no reproduce el reparto de una campaña (el cupo nunca se llena) y además
+«quema» a esos leads para una campaña de verdad. **Regla:** el reparto se prueba con el envío real y topes bajos
+(Configuraciones › Límites en 1-2 por día), nunca con `commit=1`, y nunca en el ws1.
+**Vive en:** `lib/nutricion.ts` (`leadsYaContactados`, `enviosUltimas24h`) · app/api/cron/nutricion/route.ts.
+
+### El cupo de WhatsApp es UNO por negocio: una campaña le comía el día a la bienvenida
+
+**Síntoma (medido en la cola, no en un envío):** la cola era FIFO por `proximo_envio_at`. Una campaña de 1.000
+inscripta a las 10:00 se ponía delante del audio de «Un Lead Entró» de un lead de anuncios de las 10:05, y hacia la
+tarde se llevaba las 40 del día: la bienvenida salía mañana. Ordenar no alcanza: el día se gasta de a poco.
+**Regla, a la vista en Configuraciones › Límites (`textoPrioridad`):** primero lo que ENTRA — un lead que llegó por un
+canal (`origen_lead`: formulario, landing, agenda) o agendó en 24 h va primero en la cola (una vuelta) — y un
+WhatsApp a cualquier otro usa el cupo menos una reserva (`reservaParaEntradas`: una hora del cupo por día, con techo
+10, y 1 por hora). **La trampa de la revisión:** sin el `origen_lead`, una base fría IMPORTADA a la mañana y lanzada a
+la tarde contaba como «fresca» y se llevaba el cupo entero. Y «Datos de Mau» copia los leads al ws3 con su
+`origen_lead` y su alta: los que Mauricio recibió en las últimas 24 h cuentan como entrada en la prueba (6 de 300 el 21/10).
+**Vive en:** `lib/nutricion-prioridad.ts` · `lib/nutricion.ts` (`procesarEnvios`, `entradasFrescas`, `sinLugar`) ·
+`app/automations/LimitesEnvioPanel.tsx` · test: tests/primero-lo-que-entra.test.ts.
+
+### «Sale sola» volvió, a la vista, en cada tarjeta
+
+Salió del editor el 09/10 («¿Qué es "Revisar antes de enviar"?... Quitalo») y el motor lo siguió leyendo: a un lead
+sin pago, una tarjeta nueva quedaba como borrador en Chats sin que nada lo dijera (los 31 de Leila del 20/10; la
+campaña serían 1.000). Ahora es un interruptor debajo del teléfono, con lo que pasa en cada caso y la regla de quien
+ya pagó. **Regla:** lo que la casilla pinta sale de la regla del motor (`saleSolaDelPaso` → `revisarHeredado` /
+`saleSolo`), probado para cada combinación. **Vive en:** `app/automations/FlujoLienzo.tsx` (`data-sale-sola`) ·
+`lib/flujo-conversacion.ts` · test: tests/sale-sola-por-tarjeta.test.ts.
+
+### El aviso de «Si responde» lleva a la CHARLA, y en «Si responde» la tarjeta deja de ser «tal cual»
+
+`{{link_chat_lead}}` («Link a su conversación», /chats?lead=<id>) está en el «{ }» y el aviso armado suma «💬 <link>»
+debajo de la ficha. **Lo que no se ve:** en «Si responde» el motor le pasa a la tarjeta lo que escribió el lead
+(`LLENA_EL_FLUJO`) y, con eso, `armarAvisoDeTarjeta` arma el formato de siempre (🟡 título, la cita, nombre ·
+teléfono, ficha y charla) aunque la tarjeta sea «tal cual». Y Publicar rechaza `{{lead_escribio}}` en esa tarjeta
+(«No existe»: `contextoDeTarjeta` no le da `conEscrito`), aunque el motor la cita igual. **Sin hacer:** decir en la
+tarjeta que en «Si responde» sale con la cita, o darle `conEscrito` y dejarla tal cual.
+
+### En un negocio sin línea, ni Publicar ni «Probar» abren: piden conectar el WhatsApp
+
+En el ws3 (sin línea), con tarjetas de WhatsApp, Publicar y «Probar» abren «Vincular número» (y eso crea la fila
+`mako_ws3` en «conectando», sin escanear). O sea: el simulador, que no manda nada, también necesita el chip. La cohorte
+se midió por script (`leadsDeCohorte` con cada árbol, sólo lectura) en vez del dry-run de una automatización activa.
+
+## La llamada con Mauricio del 22/10/2026: el goteo, «Discutir / Editar» y la etapa que «no existía»
+
+Lo que salió de probar la campaña del Sprint en vivo con Mauricio (Fathom 195129619, 01:51-02:16; la lista en
+C:/dev/cerebro-herramientas/feedback-llamada-mau-22-10.md, A1-A7). El plan cambió: el CRM «Sprint 3 días» (#44 en el
+ws1), los ~1.050 en «Lead entrante», y cada día Mauricio mueve A MANO 50 a «Prospección activa», que dispara la apertura.
+
+### El goteo: lo que frena el goteo tiene que pasar a SU TURNO, o sale de a uno por HORA
+
+**Pedido:** «al pasar 50 a Prospección activa, que no salgan juntos: uno, esperar 4-5 min, el siguiente», configurable
+por automatización (minutos, tope por día, días). **Regla:** un SUB-tope adentro del de la línea (lib/goteo.ts; la
+línea sigue siendo el techo anti-ban del negocio), con los días del horario propio. **La trampa:** el tick de cada
+minuto mira sólo lo que venció hace ≤10 min (`VENTANA_FRESCA_MIN`). Una fila frenada que se deja «vencida» con su hora
+vieja la ve recién la corrida de cada HORA: con 50 inscriptos de una, el goteo de 5 minutos habría mandado uno por hora.
+Lo frenado SÓLO por el goteo pasa a su turno escalonado (`turnoDeGoteo`: el lugar libre más `minutos` por cada una que
+ya está delante); lo frenado por la línea, como siempre. **Vive en:** lib/goteo.ts · lib/nutricion.ts (`usoDelGoteo`,
+`sinLugar`, `quedaFrenada`) · Configuraciones › Límites de cada automatización · test: tests/goteo-automatizacion.test.ts.
+**Para que la línea deje pasar 50 a la campaña:** la campaña usa el día de la línea menos la reserva para lo que entra
+(hasta 10 por día y 1 por hora: tests/primero-lo-que-entra.test.ts) y menos lo que ya mandaron las bienvenidas. Con el
+goteo de 5 min son 12 por hora: la línea pide ≥13 por hora y ~65 por día.
+
+### El chat no obedecía porque no veía la charla (y no porque «no quisiera»)
+
+**Síntoma (el chat guardado de #289):** a «quiero que estos sean los mensajes: …» MaKo contestó «habría que editarlos o
+añadir nuevas tarjetas»; a «hazlo como te lo indiqué», «indícame qué cambios…»; al tercero armó 2 de 4 y borró una
+variable. **Lo obvio era tocar el prompt de editar; lo de verdad:** (1) la primera frase la ruta la mandó a EXPLICAR o el
+modelo contestó en vez de cambiar, y no había forma de pedir «hacelo»; (2) el prompt de editar recibía SÓLO el último
+mensaje: «como te lo indiqué» no tenía a qué referirse, aunque el cliente ya mandaba el `historial`. **Regla:** la
+persona elige Discutir (sólo contesta) o Editar (nunca explica; contestar sin cambiar es un error que el reintento
+corrige; los textos pegados van tal cual); y la charla viaja SIEMPRE (`bloqueDeLaCharla`). Medido en seco con el flujo
+de #289: «hazlo como te lo indique» cambió 1 tarjeta y agregó la otra con el texto tal cual. **Vive en:**
+lib/flujo-ia-intencion.ts · app/api/chat-agent/secuencias/ia/route.ts · app/automations/ChatMako.tsx · test:
+tests/chat-mako-discutir-editar.test.ts. **Sin hacer:** al CREAR, el modelo sigue inventando el texto de una tarjeta de
+audio que la persona dijo que graba ella (el pedido de #289); crear no tiene modo Editar.
+
+### «Esta etapa no existe» no era un cache, y TAMPOCO era la etapa: era el CRM
+
+Mauricio creó «Prospección activa» y MaKo dijo «esa etapa no existe»: parecía que el chat veía las etapas viejas. El
+chat guardado lo desmiente: la pregunta del CRON ya ofrecía «Prospección activa» (`venta:44:st0`). **El primer
+diagnóstico (A5, 661146056) también estaba mal:** «era «Contactado», que el CRM «Sprint 3 días» no tiene». La prueba de los
+chats del Cerebro lo midió con una etapa que SÍ existía («movelo a Respondió», 3 de 3) y salía igual: «Mover de etapa»
+(`proponer_cambio_etapa`) no pide CRM, y `resolverAccion` buscaba la etapa SIEMPRE en el CRM principal
+(`resolverProducto(null)`). **Regla:** la etapa de «Mover de etapa» se busca primero en el CRM del CRON, después en el
+principal, después en cualquiera (`crmDeLaEtapa`), y el paso guarda ese CRM en `embudoId`, como el control de etapa del
+lienzo, para que el motor mueva la tarjeta de ESE CRM (`moverEnElCrmDelPaso`). Y un aviso de algo que no existe dice CUÁL
+y DÓNDE. **Lo que enseña:** «una etapa que no existe» se mide con una que SÍ existe antes de culpar al pedido. **Vive en:**
+lib/flujo-ia.ts · test: tests/chat-mako-prueba-de-chats.test.ts.
+
+### La plantilla de prospección
+
+No había ninguna para «apertura a los que muevo a una etapa». «Prospección: apertura» (lib/plantillas-automatizaciones.ts):
+CRON en la etapa a la que se MUEVE (no la de entrada), «Nunca le escribiste» + «Tiene WhatsApp», una apertura que nace
+para aprobar. Sin AI Step: el test de la galería exige 2+ escenarios a todo AI Step, y el «sólo avisa» sin escenarios no
+pasa; el aviso de quien responde se arma con «Si responde» → «MaKo en WhatsApp».
+
+## La barra de grabar decía lo mismo grabando que sin grabar (22/10/2026, la llamada con Mauricio)
+
+Mauricio grabó una nota de voz en Offer (min 56:01-56:27): «¿está grabando? No», y borró y repitió dos veces. La barra es UNA
+(app/whatsapp/_shared/VoiceRecorder.tsx → `BarraGrabacion`) y la montan WhatsApp (el composer), Automations (el lienzo y los
+pasos de audio) y Offer (la tab con el composer, el onboarding con la caja única). Test: tests/mic-grabando.test.ts.
+
+- **El diagnóstico obvio («le falta el punto rojo, el tiempo o la onda») era el equivocado: los tres estaban.** Lo ambiguo eran
+  dos momentos. Mientras el navegador abre el micrófono (su cartel de permiso, o un auricular que tarda), la barra ya estaba
+  pero con el punto gris, 0:00 y la onda quieta: se lee «no graba». Y grabando, la onda era una animación que se movía SOLA:
+  hablaras o no, con el micrófono equivocado o mudo, igual. Nada en pantalla respondía a la voz.
+- **Ahora:** mientras abre, lo dice con palabras («Abriendo el micrófono…» y, a los 2,5 s, «Permite el micrófono»); grabando,
+  el punto rojo LATE (`mako-latido`) y la onda sigue el nivel real del micrófono (la sesión entrega su `flujo`, un
+  AnalyserNode lo escucha sin sonar por el parlante, `nivelDeMuestras` lo pasa a 0-1). Si se habla y no se mueve, no entra.
+- **Las alturas se escriben en el DOM, no en un estado de React:** un estado por cuadro re-dibujaría la caja entera 60 veces
+  por segundo. Una barra armada a mano sin `flujo` (o sin Web Audio) se mueve sola, como antes.
+- **El ✓ del onboarding de Offer no se veía en oscuro:** Offer pinta la barra con `--good: var(--ink)` (SIN_VERDE) y el ícono
+  iba fijo en blanco; la tinta del modo oscuro es casi blanca. El ícono va en `--sobre-good`, que quien cambia `--good` también
+  define.
+- **Cómo se miró sin levantar la app:** la barra real compilada con esbuild en una página suelta, con `getUserMedia`
+  reemplazado por un oscilador cuyo volumen sube y baja como una voz (frases con silencios) y que tarda en «abrir»; servida
+  con `python -m http.server` y recorrida en el navegador (el panel de vista previa no ejecuta archivos locales).
+
+**SIN HACER:** mirarlo en producción en los tres lugares, con un micrófono de verdad (en un teléfono Android, el permiso del
+sistema además del del navegador).
+
+## La prueba de los chats del Cerebro (22/10/2026): 36 casos sin pantalla, y lo que se arregló con ellos
+
+El arnés del Cerebro (rama `probar-chats-automations`, `scripts/probar-chats/automations.mts`, con lo GUARDADO como juez)
+corrió 36 casos contra be4b9189a (18 fallas, causa por causa en `verificacion-automations-be4b9189a.json`). Se volvió a
+correr acá tres veces, con la pantalla de hoy (que manda «Editar» por defecto): **producción 4de3fe769: 12 pasan · con los
+arreglos de editar: 21 · con todos: 20, pero 12 casos cortados por «No tienes ninguna IA gratis conectada»** (Gemini sin
+cuota todo el día y la red de la plataforma agotada al final: ese número no mide el código).
+
+### Editar, prendido por defecto, rechazaba toda respuesta (la regresión la metió 4de3fe769)
+
+**Síntoma:** «¿Qué hace esta automatización?», «que no salgan todos juntos» o «cambiá el mensaje» terminaban en «MaKo armó el
+flujo pero quedó mal: No cambió nada». **Causa:** en Editar, `ERROR_EDITAR_SIN_CAMBIOS` rechazaba CUALQUIER "respuesta", y
+la pantalla arranca en Editar. **Y el arreglo obvio tenía su trampa:** con el bloque de Configuraciones en el prompt, el
+modelo contestó «Configuraciones › Acciones» (no existe) a «que lo llame por teléfono» y «Se configura en Configuraciones ›
+Límites» a «¿A cuántos les va a llegar?». **Regla:** en Editar, una pregunta DIRECTA (`esPreguntaDirecta`: empieza con «¿» o
+termina en «?», sin textos pegados) va al prompt de explicar; y una respuesta vale (`errorDeRespuestaEnEditar`) si no hay
+textos pegados y nombra un lugar REAL (Horario o Límites), dice que no se puede sin delegar («pídemelo», «habría que»), o
+pregunta para aclarar sin que los textos ya estén en la charla. Un lugar que no existe vuelve al modelo con el error que lo
+nombra. **Vive en:** lib/flujo-ia-intencion.ts · app/api/chat-agent/secuencias/ia/route.ts · test:
+tests/chat-mako-discutir-editar.test.ts.
+
+### Lo que era código y no modelo
+
+- **«Cambié» sin ningún cambio:** lo guardado trae `preheader: null` y el parche de un WhatsApp lo borra; `contenido()`
+  comparaba el JSON crudo. Ahora compara la forma estable (sin vacíos, claves ordenadas: `estable`).
+- **«arranque» (el verbo) pisaba el CRON** con la etapa de entrega «Arranque»: si la etapa de venta que eligió el modelo está
+  escrita en el pedido, se respeta, salvo que hable de un cliente («no es lead entrante, es un cliente entrante»).
+- **El link que escribió el dueño se borraba** («que les mande el link https://sprint.mauriciobustos.com/»): se queda si
+  está tal cual en el pedido (`linksDelPedido`); el que inventa el modelo se sigue borrando, y otra ruta del mismo sitio también.
+- **`{{empresa_del_lead}}` se borraba y dejaba «¿Sigues al frente de?» al lead:** una llave que nombra un dato que existe
+  pasa a la del catálogo (`aliasDeVariable`: empresa, apellido, nombre_completo, nombre), con aviso.
+- **Un pedido de 8.304 caracteres se cortaba a 2.000 en silencio** y MaKo armaba otra cosa: ahora la ruta lo rechaza
+  diciendo cuántos tiene y cuántos lee (`TOPE_PEDIDO`).
+- **«Entre el primero y el segundo esperá 2 días» no hacía nada:** un tramo sólo iba a una salida vacía. En la «sig»
+  ocupada de una tarjeta simple, va EN EL MEDIO si termina en una sola punta (como el ＋ en medio de una flecha).
+- **Una espera de 5 minutos entre dos WhatsApp** la retiene «Misma persona» (20 h de fábrica): lo avisa el código
+  (`AVISO_MISMA_PERSONA`), porque el modelo la ponía sin decirlo o culpaba a Meta.
+- **«Avisame por WhatsApp» armaba un WhatsApp al lead:** es «avisar_al_equipo» (regla en `REGLAS_EDITAR`).
+- **Al CREAR con textos pegados** (lo de Mauricio: lienzo vacío y la secuencia con «(esperar 1 día)»), van tal cual, con las
+  esperas que escribió y sin las 20 h de la regla 3 (`REGLAS_PEGADO`, en el `user` de crear sólo si pegó textos).
+- Y el prompt no sabía de Configuraciones (horario, goteo, topes, «Misma persona», el ↶): `LO_QUE_NO_ES_TARJETA`.
+
+**Vive en:** lib/flujo-ia.ts · lib/flujo-ia-intencion.ts · lib/flujo-ia-crear-core.ts · tests:
+tests/chat-mako-prueba-de-chats.test.ts, tests/flujo-ia.test.ts («en el medio»), tests/flujo-ia-arreglos.test.ts (alias).
+
+### Sin hacer
+
+- **«No tienes ninguna IA gratis conectada» miente** cuando las IA gratis están SIN CUOTA (Gemini 429 todo el día, Groq
+  agotado): en la tercera corrida cortó 12 de 36 casos con ese texto. Es del área IA (lib/ai-cheap.ts y su mensaje).
+- **Reordenar** («poné el tercero primero») no es una operación de editar: el modelo devuelve nada y sale «No cambió nada».
+- **«Deshacé eso»** no tiene lo que se borró: el modelo inventa otro texto. Lo honesto hoy es el ↶ (ya está en el prompt);
+  lo de verdad sería pasarle al modelo las tarjetas publicadas que el borrador ya no tiene.
+- **«Cuando entra a la etapa X» con una X que no existe:** el modelo no devuelve ni cambio ni respuesta.
+- **Los turnos tardan 16-76 s** (la regla de Martín es 20 s).
+- **Medir con Gemini:** las tres corridas de hoy contestó Groq. El arnés hay que correrlo otra vez cuando vuelva la cuota.

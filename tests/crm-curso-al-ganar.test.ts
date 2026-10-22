@@ -87,7 +87,8 @@ test('los TRES caminos a Ganado llaman al enganche, y sólo en la transición', 
 
   const plan = sinComentarios(cuerpoDe(leer('lib/pagos.ts'), 'export async function saveLeadPlanManual('));
   // El estado de ANTES se lee antes del update que gana.
-  const iLee = plan.indexOf(".select('estado_lead, funnel_id')");
+  // (21/10/2026, Pagos: la misma lectura trae también `fecha_cierre`, que lo que gana acá escribe si falta.)
+  const iLee = plan.indexOf(".select('estado_lead, funnel_id, fecha_cierre')");
   const iEscribe = plan.indexOf(".update(leadUpdate)");
   assert.ok(iLee > 0 && iEscribe > iLee, 'el estado previo se lee antes de escribir Ganado');
   assert.match(plan, /if \(previo && pasaAGanado\(previo\.estado_lead, 'ganado'\)\) \{[\s\S]{0,200}alGanarInvitarAlCurso\(/);

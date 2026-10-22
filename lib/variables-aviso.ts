@@ -311,6 +311,9 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   { key: 'lead_calificado', label: '¿Está calificado?', ejemplo: 'sí', alcance: 'lead', grupo: 'crm', fuente: 'ficha', formato: 'si_no', soloPara: 'equipo' },
   { key: 'lead_motivo_perdida', label: 'Motivo de la pérdida', ejemplo: 'sin presupuesto', alcance: 'lead', grupo: 'crm', fuente: 'ficha', soloPara: 'equipo' },
   { key: 'link_lead', label: 'Link a su ficha', ejemplo: '/crm/2498/resumen', alcance: 'lead', grupo: 'crm', fuente: 'evento', soloPara: 'equipo' },
+  // LA CHARLA CON ÉL EN CHATS (21/10/2026, la prospección del Sprint: «MaKo le avisa a Mauricio y él sigue A MANO desde
+  // Chats»). `/chats?lead=` abre SU conversación (lib/chats-links.ts); `link_chat` es la bandeja entera.
+  { key: 'link_chat_lead', label: 'Link a su conversación', ejemplo: '/chats?lead=2498', alcance: 'lead', grupo: 'crm', fuente: 'evento', soloPara: 'equipo' },
 
   // ── Reuniones.
   //    «PRÓXIMA REUNIÓN» (undécima tanda, 11/10/2026, puntos 4, 6 y 8): la que viene, sea la 1ª o la 2ª. Es lo que
@@ -599,7 +602,7 @@ export const datoDe = (key: string): VariableAviso | undefined => POR_CLAVE.get(
  * Se DERIVA del catálogo: una lista escrita al lado se queda vieja al próximo token, y el modo de
  * falla sería un token que sale crudo sin que nadie entienda por qué.
  *
- * El nombre (`fuente: 'nombre'`) y `link_lead` quedan afuera a propósito: se resuelven con lo que
+ * El nombre (`fuente: 'nombre'`), `link_lead` y `link_chat_lead` quedan afuera a propósito: se resuelven con lo que
  * el evento ya trae (`leadNombre` y `leadId`), así que pedir la fila por ellos sería una lectura
  * por un dato que estaba en la mano.
  */

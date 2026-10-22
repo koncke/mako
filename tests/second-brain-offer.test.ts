@@ -9,8 +9,8 @@
 //   2. la proyección se declara con su origen y su alcance, corre DENTRO del workspace y con la puerta de la tab (un closer
 //      o un setter sin Offer no la ve), y lee la conversación SIN documentos;
 //   3. la API: `?offer=1` y `?offerId=N`, detrás de la puerta de MaKo; una que no es de este negocio, 404;
-//   4. la pantalla: una sección «Offer» con una fila por conversación; se lee y se sigue en Offer, en ESA conversación
-//      (`?sesion=`), con el ?ws= del cliente; el jefe «Second Brain» sigue mirando sólo la clave exacta;
+//   4. la pantalla: una fila por conversación en LA lista, que se sigue en el Ops Center con el motor de Offer (21/10/2026;
+//      hasta ese día era una sección «Offer» con «Seguir en Offer»); el jefe sigue mirando sólo la clave exacta;
 //   5. en el teléfono, las mismas conversaciones en «Tus chats», que llevan a Offer.
 //
 // Probado rompiéndolo (20/10/2026, con la base en 0 fallos):
@@ -49,7 +49,7 @@ test('2. la proyección dice su origen y su alcance, corre en el workspace y con
   assert.match(ind, /export const PROYECCIONES = \[\{ origen: 'offer', alcance: 'workspace', tab: 'offer' \}\] as const;/);
   assert.match(ind, /return rolWs && ws != null && puedeVerKey\('offer', rolWs, capa\) \? ws : null;/, 'la MISMA puerta que la tab');
   assert.match(ind, /runWithWorkspace\(ws, \(\) => Promise\.all\(\[listarSesionesOffer\(\)/, 'la lista, dentro del workspace');
-  assert.match(ind, /runWithWorkspace\(ws, \(\) => leerConversacionOffer\(id\)\)/, 'el hilo, dentro del workspace');
+  assert.match(ind, /runWithWorkspace\(ws, \(\) => Promise\.all\(\[\n    leerConversacionOffer\(id\),/, 'el hilo, dentro del workspace');
   // Lo que la puerta deja ver, medido: Offer es de admin; un closer o un setter no la ven.
   assert.equal(puedeVerKey('offer', 'admin', null), true);
   assert.equal(puedeVerKey('offer', 'closer', null), false);
@@ -68,12 +68,20 @@ test('3. la API: ?offer=1 y ?offerId=N, detrás de la puerta de MaKo; uno de otr
   assert.match(get, /if \(!hilo\) return json\(\{ ok: false, error: 'No encuentro esa conversación\.' \}, 404\);/);
 });
 
-test('4. la pantalla: «Offer» con una fila por conversación, que se lee y se sigue en Offer', () => {
-  const sb = leer('app/second-brain/ChatSecondBrain.tsx');
-  assert.match(sb, /fila\(`o\$\{o\.id\}`, \{ offer: o\.id \}, o\.titulo, SECCION_OFFER, o\.updatedAt, true\)/, 'una fila por conversación');
-  assert.match(sb, /pedir<\{ mensajes: MensajeChat\[\] \}>\(`\$\{RUTA\}\?offerId=\$\{idOffer\}`\)/, 'el hilo, leído');
-  assert.match(sb, /<Link className="co-chip" href=\{`\/offer\?sesion=\$\{idOffer\}`\}>Seguir en Offer<\/Link>/, 'se sigue en Offer, con el ?ws=');
-  assert.match(sb, /import Link, \{ useRouter \} from '@\/app\/_ui\/Link';/, 'el Link que lleva el ?ws= del cliente');
+// 21/10/2026, Martín: «Jamás debes categorizar en desplegables los chats de la sidebar, como "offer" o "antes", y mucho menos
+// "continuar en offer", las personas deberían poder continuar lo que quieran siempre desde el Ops Center». La sección «Offer»
+// y su «Seguir en Offer» se fueron: cada conversación de Offer es una fila más de la lista (lib/chat-mako-reglas.ts →
+// listaDelCliente, con su test en tests/ops-center-cliente.test.ts) y se SIGUE ahí, con el motor de Offer.
+test('4. la pantalla: cada conversación de Offer es una fila de la lista, y se sigue en el Ops Center con el motor de Offer', () => {
+  const sb = leer('app/second-brain/useChatCliente.ts');
+  assert.match(sb, /listaDelCliente\(\{ sesiones: sesiones \?\? \[\], offer: offer \?\? \[\], antes: antes \?\? \[\], busca \}\)/, 'una fila por conversación, en LA lista');
+  assert.match(sb, /void abrirOffer\(idOffer\)\.then\(/, 'se abre con el motor de Offer');
+  assert.match(sb, /const r = await turnoOffer\(s\.id, mensaje, s\.mensajes, respuestaDeOffer\(s\.mensajes, mensaje\)\);/, 'lo escrito va a Offer');
+  assert.doesNotMatch(sb, /Seguir en Offer|AVISO_OFFER|\/offer\?sesion=/, 'nunca «Seguir en Offer»');
+  const motor = leer('app/second-brain/motor-offer.ts');
+  assert.match(motor, /llamarOffer<\{ sesion: OfferSesionVista \}>\(\s*\{ action: 'turno', sesionId: id, texto, docIds,/, 'el turno de la tab');
+  assert.match(motor, /\{ action: 'leer-link', sesionId: id, url \}/, 'los links, leídos antes, como en la tab');
+  assert.match(motor, /quedoGuardado\(leida\.sesion\.mensajes, antes\.length, \{ texto, audio: false \}\)/, 'un corte no lo manda dos veces');
   assert.doesNotMatch(leer('lib/chat-mako-reglas.ts').slice(leer('lib/chat-mako-reglas.ts').indexOf('export function arbolDelJefe')).split('\n}')[0], /offer/i, 'el jefe sigue mirando sólo la clave exacta');
   // Offer abre ESA conversación con ?sesion=, si es de este negocio (en la computadora y en el teléfono).
   for (const p of ['app/offer/page.tsx', 'app/m/offer/page.tsx']) {
@@ -106,6 +114,6 @@ test('6. la conversación del onboarding no sale dos veces (acordado con el chat
   assert.equal(seEscondeDeOffer({ id: 15, updatedAt: '2026-10-21T02:00:00.000Z' }, c), false, 'otra conversación');
   assert.equal(seEscondeDeOffer({ id: 14, updatedAt: '2026-10-21T04:10:00.000Z' }, { id: 14, at: null }), true, 'una copia sin hora, como antes');
   const ind = leer('lib/chat-mako-indice.ts');
-  assert.match(ind, /const copiada = offerDelOnboardingCopiada\(arranque, sesion \? chartKeyDePersona\(sesion\) : null\);\n  return lista\.filter\(\(s\) => s\.id > 0 && !seEscondeDeOffer\(s, copiada\)\)/);
+  assert.match(ind, /const copiada = offerDelOnboardingCopiada\(arranque, sesion \? chartKeyDePersona\(sesion\) : null\);\n[\s\S]{0,400}?return lista\.filter\(\(s\) => s\.id > 0 && !seEscondeDeOffer\(s, copiada\)\)/);
   assert.match(leer('lib/onboarding-arranque-server.ts'), /hiloChat: hilo\.id, hiloDe: chartKey, hiloAt: new Date\(\)\.toISOString\(\),/);
 });

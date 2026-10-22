@@ -1,5 +1,137 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 22/10/2026 ~03:45 AR — LAS PREGUNTAS DEL ARRANQUE, EN PRODUCCIÓN (99453fec5, run 230)
+
+- El aviso al grupo del ws21 salió (mensaje 3EB019AA269EBCEDA7F945, clave onboarding:historial-ws21). La prueba del script
+  dio deploy Ready, con main b9dd7ce1e conteniendo 99453fec5. A Florencia el chat «Onboarding» se le crea en su próxima
+  visita: el ws21 tiene un admin, así que la decisión es «crear».
+- La reconstrucción en seco después del deploy no encontró a nadie nuevo: los cuatro (ws3, 20, 21 y 22) ya tienen
+  historial.
+- NO se miró en pantalla en producción: la extensión de Chrome no conectaba (Chrome abierto, ninguna extensión
+  conectada). Lo que sí se midió: el mismo código contra la base real arma el hilo del ws21 con 68 mensajes (antes 32),
+  7 con audio, y empieza en el saludo. El primero que abra /second-brain?ws=21 como super admin lo confirma.
+- Encima, en la rama: db56e55cc (el doble toque cruzado) y el «Hecho» en la bitácora. Van con la próxima punta.
+
+## ESTADO AL 22/10/2026 — LAS PREGUNTAS DEL ARRANQUE, GUARDADAS (rama onboarding-arranque-historial, C:/dev/wt-onboarding-arranque)
+
+- Chat «Onboarding», claude3. Lo pidió el Cerebro como cliente roto: en el Ops Center del ws21 (Florencia) faltaban las
+  preguntas. Medido en pantalla: faltaba el arranque entero (nunca se guardó); la conversación de Offer sí estaba.
+- Ahora el arranque se anota como se dibujó en `onboarding.historial` (lib/onboarding-historial.ts), y el Ops Center y
+  el chat «Onboarding» lo juntan por hora con Offer. Detalle y trampas: docs/hallazgos-onboarding.md («Las preguntas del
+  arranque, guardadas»). Test: tests/onboarding-historial.test.ts.
+- Pedido de Martín sumado (21/10 ~23:00): el super admin ve la conversación del onboarding como «Onboarding», y las
+  respuestas por voz viajan con su audio (`MensajeChat.audio`). El reproductor en la burbuja lo hace el chat «Ops Center»
+  (local_dd16f102…): sin eso, el audio llega pero todavía no se ve.
+- Tres revisiones adversariales: 14 hallazgos, después 6 y al final ninguno alto ni medio. Lo que tapaban (lecturas
+  caídas que quedaban guardadas, las respuestas a las confirmaciones, la fase sin respuesta, el cierre duplicado) está en
+  el hallazgo.
+- **Reconstrucción APLICADA el 22/10** (scripts/reconstruir-historial-onboarding.mts --aplicar): ws3 (31), ws20 (35),
+  ws21 (33) y ws22 (36), todo marcado `reconstruido`. Una segunda corrida dice «ya tiene historial» en los cuatro. Quedó
+  ANTES del script que arregla el nombre del ws21, así que ese script ya no cambia lo que ella contestó. Después del
+  deploy se vuelve a correr EN SECO: sólo toca negocios sin historial, para cubrir a quien terminó en el medio.
+- **Punta para integrar:** el commit que trae este relevo, rama onboarding-arranque-historial. El código llega hasta
+  c07334eff, encima de 318b32714, 55231b7e6 y b87e59c46, desde origin/main 2d1d099e0. El VERDE rápido es sin tipos.
+- Al estar en producción (deploy Ready, no el push): se manda el aviso al grupo del ws21 desde este worktree, como
+  «Desarrollador de MaKo» (docs/relevo/mako-en-whatsapp.md). Sin `--enviar` sólo muestra el texto:
+  `NODE_OPTIONS=--conditions=react-server npx tsx scripts/avisar-arreglo-al-grupo.mts --ws 21 --clave onboarding:historial-ws21 --commit c07334eff --origen "Onboarding" --texto "Ya quedó arreglado: en tu Ops Center, el chat «Onboarding» muestra tu onboarding completo, con cada pregunta de MaKo y tu respuesta." --enviar`
+  Después se anota el «Hecho» en app/admin/dev/onboarding/bitacora.ts.
+- El reproductor del audio lo hizo el chat «Ops Center» en su rama (ops-center-cliente-t2, con 318b32714 adentro). El
+  doble toque cruzado se arregló después, en una punta aparte encima de 99453fec5.
+- Sigue abierto (detalle en el hallazgo, «Sin hacer»): el modo 'plan' en el Ops Center del super admin (hoy no lo usa
+  ningún cliente activo: ws5 pausado y ws9 de Martín); «Empresa» y el script del ws21 (el sí de Martín), como abajo.
+
+## ESTADO AL 22/10/2026 ~00:45 AR — EL NOMBRE EN EL PERFIL, EN PRODUCCIÓN (1166cbdca, run 223)
+
+- El «Hecho» está en la bitácora del Onboarding. La rama onboarding-perfil-negocio se cierra para esta ronda.
+- Para la próxima cuenta: «Empresa» al lado del nombre del negocio (docs/hallazgos-ajustes.md), las preguntas del
+  arranque guardadas de raíz y el script del ws21 (abajo, y en docs/hallazgos-onboarding.md, «Florencia otra vez»).
+
+## ESTADO AL 22/10/2026 ~00:20 AR — EL NOMBRE DEL NEGOCIO TAMBIÉN EN EL PERFIL: PUNTA PARA EL PRÓXIMO CEREBRO
+
+- Pedido de Martín (captura de /perfil?ws=21): «Ponlo dentro del perfil». Rama `onboarding-perfil-negocio` (desde
+  origin/main, con onboarding-ws21 adentro: el «Hecho» 94dcd4180). LA INTEGRA EL PRÓXIMO CEREBRO: la punta está en la
+  nota side-session-notes/local_797d5445…/onboarding-ws21-en-curso.md y en el mensaje al Cerebro.
+- La fila «Nombre del negocio» en Información básica (/perfil y la hoja de /m/cuenta), con la misma acción que «Tu
+  negocio». La ve quien lo puede cambiar (admin del negocio, o el super admin mirando). «Empresa» queda como está:
+  PENDIENTE (docs/hallazgos-ajustes.md). Test: tests/nombre-negocio-perfil.test.ts (6 de 6 roturas). «Tu negocio» en
+  Configuración queda igual.
+
+## ESTADO AL 21/10/2026 ~20:15 AR — FLORENCIA (ws21): EL NOMBRE EDITABLE, EN PRODUCCIÓN
+
+- «Tu negocio» (/configuraciones/negocio y /m/configuraciones/negocio): el admin de cada negocio cambia su nombre. En
+  producción con a6d65929f (run 221). El «Hecho» está en la bitácora del Onboarding. La rama onboarding-ws21 se cierra.
+- Para el próximo chat: (1) las preguntas del arranque se guardan en el historial con su respuesta, en la sesión de
+  Offer, y se ven en el Ops Center (el del super admin incluido); lo de Florencia se reconstruye del estado, marcado
+  «reconstruido». Ojo: `hechosDelArranque` lee la capa y el perfil de QUIEN MIRA. (2) El script de reparación del ws21
+  (side-session-notes/local_797d5445…/feedback-20-10/reparar-ws21-v2.ts) espera el sí de Martín y `--meses=6` o
+  `--mensual`. Los dos, en docs/hallazgos-onboarding.md, «Florencia otra vez».
+
+## ESTADO AL 21/10/2026 ~14:45 AR — EN PRODUCCIÓN; LA RAMA onboarding-v3 SE CIERRA PARA ESTA RONDA
+
+- De la primera a la sexta revisión, con 689f75560 (run 199). De la séptima a la undécima, con cbafd6eae (aa3ff1c0e,
+  run 212: 3.882 tests y tipos limpios). El «Hecho» está en la bitácora del Onboarding (app/admin/dev/onboarding).
+- Lo que sigue abierto, y dónde: reparar el ws21 de Florencia (el script, sólo con el sí de Martín y el nombre que él
+  elija); las otras exportaciones a CSV sin escape de fórmulas (docs/hallazgos-seguridad.md, no es de esta área); los
+  «Sin hacer» de docs/hallazgos-onboarding.md (cobrar por año o por semana, la nota del PDF en Offer, el campo de la caja
+  que se vuelve a montar, «mínimo 3 meses» o «Hasta 6 cuotas con Mercado Pago» que todavía proponen la N).
+- Una ronda nueva arranca de origin/main en una rama nueva, no sobre onboarding-v3.
+
+## ESTADO AL 21/10/2026 — UNDÉCIMA REVISIÓN (de 1106e8c16): LA LECTURA CON EL MISMO EXTRACTOR QUE LA RED
+
+<sub>Chat «Onboarding», claude4, rama onboarding-v3. En producción está 689f75560
+(side-session-notes/local_797d5445…/revision-onboarding-undecima-21-10.md).</sub>
+
+- Un extractor de N (`nsDelPrecio`) para la lectura y las opciones; una N con moneda no es N, y un número pelado no es un
+  monto (`MONTO_CON_MONEDA`). Los meses se proponen sólo pegados a un cobro o al plazo del plan (`RE_MESES_DEL_PLAN`).
+  Señales de pago único dichas de otra forma (`UNICO_DICHO`) y negaciones más amplias (`NEGO_LO_PERIODICO`).
+- Medido con las 570 frases del Cerebro: faltan 0, el «Sí» guarda mal 6 (producción 122). Pregunta sin proponer en 83
+  precios sin señal que producción proponía como pago único (la familia del precio pelado). Tests:
+  tests/onboarding-undecima-revision.test.ts. Sondas: medir-criterio.mts del scratchpad del chat «Onboarding».
+
+## ESTADO AL 21/10/2026 — DÉCIMA REVISIÓN (de 5d353db16): LA ENTRADA EN DÍGITOS Y SIN LECTURAS POR DEFECTO
+
+<sub>Chat «Onboarding», claude4, rama onboarding-v3. En producción está 689f75560
+(side-session-notes/local_797d5445…/revision-onboarding-decima-21-10.md).</sub>
+
+- El precio se pasa a dígitos una vez (`precioEnDigitos`): «tres cuotas» trae la de 3 meses. La red junta enumeraciones,
+  «x N», «cuotas: N» y «partes»; las N de cuotas van antes que las de meses, sin tope (hasta 60).
+- Una lectura sin señal (`porDefecto`) no se propone: «No me queda claro cómo cobras: ¿cuál uso?», orden fijo, un sí no
+  elige. Incluye el precio pelado («USD 997»). La guarda de pestaña vieja ve el cobro con lectura recomendada.
+- PDF: lo sumado va con `SUMA_PDF` (un salto de línea) y la pregunta cuenta lo sumado. Tests:
+  tests/onboarding-decima-revision.test.ts.
+
+## ESTADO AL 21/10/2026 — NOVENA REVISIÓN (de 82321e397): EL COBRO CAMBIA DE RED
+
+<sub>Chat «Onboarding», claude4, rama onboarding-v3. En producción está 689f75560
+(side-session-notes/local_797d5445…/revision-onboarding-novena-21-10.md).</sub>
+
+- **El cobro:** no hay más reglas de periodicidad. Las opciones son todas las lecturas (`opcionesDeCobro`: «Pago único»,
+  «Suscripción mensual (sin fin)», «Suscripción de N meses» por cada N del texto); la lectura (`cobroDelPrecio`) sólo
+  ordena y arma el «Entendí». Si alguien encuentra otro precio mal leído, NO se arregla la lectura: se mira que la
+  opción correcta esté (tests/onboarding-novena-revision.test.ts).
+- La pregunta del PDF repite lo último sumado, así cambia al sumar pasado el tope.
+
+## ESTADO AL 21/10/2026 — OCTAVA REVISIÓN (de 108b2f270): DOS REGRESIONES CONTRA PRODUCCIÓN, CERRADAS
+
+<sub>Chat «Onboarding», claude4, rama onboarding-v3. En producción está 689f75560 (run 199)
+(side-session-notes/local_797d5445…/revision-onboarding-octava-21-10.md).</sub>
+
+- La duda con un nombre esperando es sólo de la palabra suelta: «Claro, así se llama» confirma, «Claro» pregunta.
+- El cobro lee la periodicidad pegada al pago (`RE_CUOTAS_CON`, `RE_PEGADO`): «con una llamada semanal» no es un cobro
+  semanal. Lo trimestral, semestral, bimestral y quincenal se pregunta sin proponer. Pasado el tope del PDF, lo nuevo se
+  suma a lo último. Tests: tests/onboarding-octava-revision.test.ts.
+
+## ESTADO AL 21/10/2026 — SÉPTIMA REVISIÓN (de 689f75560): ENTRÓ; LOS SEIS BAJOS
+
+<sub>Chat «Onboarding», claude4, rama onboarding-v3. El Cerebro: «689f75560 ENTRA, sin altos ni medios»
+(side-session-notes/local_797d5445…/revision-onboarding-septima-21-10.md).</sub>
+
+- Con un nombre esperando, «Simón», «Vale», «Listo» o «Tal Cual» ni confirman ni reemplazan: se pregunta cuál
+  (`siAlPendiente`, `PUEDE_SER_NOMBRE` en lib/onboarding-frases.ts). El mismo nombre otra vez confirma, también «Su Lin».
+- Cobro: lo semanal va antes que las cuotas, y las cuotas «anuales» no son meses. Toque del PDF: valen los sí y no de una
+  palabra («Ok», «Dale», «👍», «Nop», «👎»), con tope de `PDF_TOPE_ESCRITAS`. MaKo pregunta qué falta siempre que la nota
+  no lo dice. Los recortes van por punto de código (`cortar`). Tests: tests/onboarding-septima-revision.test.ts.
+
 ## ESTADO AL 21/10/2026 — SEXTA REVISIÓN (de a0cdcfcc6): EL TOQUE DEL PDF CON LA POLARIDAD DE LA PREGUNTA
 
 <sub>Chat «Onboarding», claude4, rama onboarding-v3

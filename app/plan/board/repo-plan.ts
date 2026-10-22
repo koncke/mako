@@ -68,7 +68,7 @@ export function repoPlan(): Repo {
     // NO viajan en el guardado de la fila entera (`guardarPlanTarea` los saca del payload, para
     // que una pestaña vieja no devuelva de columna lo que se movió desde otra).
     mover: async (id, estado, orden, opts) => {
-      const j = await apiPlan({ action: 'mover-tarea', id, estado, orden, motivo: opts?.motivo, historial: opts?.historial, progreso: opts?.progreso });
+      const j = await apiPlan({ action: 'mover-tarea', id, estado, orden, motivo: opts?.motivo, historial: opts?.historial, progreso: opts?.progreso, columna: opts?.columna ?? null });
       if (!j.ok || !j.tarea) throw new Error(j.error || 'No se pudo mover.');
       return j.tarea;
     },

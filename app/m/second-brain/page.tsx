@@ -2,7 +2,7 @@
 // /m/second-brain — «Second Brain» en el teléfono: el chat con MaKo
 // =============================================================================
 // Etapa 2 de docs/diseno-mako-ai-native.md, tanda 3 (16/10/2026): como en escritorio, el Second Brain es el CHAT con
-// MaKo (el de siempre del teléfono, app/m/mako/ChatMako.tsx, con su micrófono y sus adjuntos), y lo que era esta
+// MaKo (desde el 22/10/2026, el Ops Center del cliente: ChatClienteM.tsx, la lista y cada chat en su hoja), y lo que era esta
 // pantalla —el buscador, el mapa en chico, las carpetas y el Archivero— es el «Mapa» (/m/second-brain/mapa), que el
 // admin abre desde la hoja «Tus chats». Una sola entrada «Second Brain» por persona, como la barra de escritorio.
 //
@@ -20,10 +20,11 @@ import { requireMovil } from '@/lib/movil-guard';
 import { esAdminDeTab } from '@/lib/puerta-admin-tab';
 import { rutaConWs } from '@/lib/workspace';
 import { RUTA_CENTRO_M } from '@/lib/movil-rutas';
-import { personaDelRequest, listarSesiones, abrirSesion } from '@/lib/mako-turno-app';
-import { ErrorM } from '@/app/m/_ui';
-import { ChatMako } from '../mako/ChatMako';
+import { personaDelRequest, listarSesiones } from '@/lib/mako-turno-app';
+import { CabeceraM, ErrorM, PantallaM } from '@/app/m/_ui';
+import { ChatClienteM } from './ChatClienteM';
 import { SecondBrainCentroM } from './SecondBrainCentroM';
+import { OPCION_ARMAR } from '@/lib/offer-reglas';
 import { datosDelCentroSiOpera } from '@/app/admin/operaciones/datos';
 import { hiloParaQuienYaTermino } from '@/lib/onboarding-arranque-server';
 import '../mako/mako.css';
@@ -36,7 +37,7 @@ export const maxDuration = 420;
 const uno = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 export default async function SecondBrainPagina({ searchParams }: {
-  searchParams: Promise<{ area?: string | string[]; vista?: string | string[]; panel?: string | string[] }>;
+  searchParams: Promise<{ area?: string | string[]; vista?: string | string[]; panel?: string | string[]; chat?: string | string[]; offer?: string | string[] }>;
 }) {
   const ctx = await requireMovil({ navKey: 'mako' });
   const veMapa = await esAdminDeTab('second-brain');
@@ -62,15 +63,24 @@ export default async function SecondBrainPagina({ searchParams }: {
   await hiloParaQuienYaTermino().catch(() => null);
 
   const persona = await personaDelRequest();
-  if ('error' in persona) return <ErrorM frase={persona.error} />;
+  if ('error' in persona) return <PantallaM><ErrorM frase={persona.error} /></PantallaM>;
+  // El Ops Center del cliente es el del super admin (22/10/2026, ChatClienteM.tsx): la pantalla es la LISTA (el Cerebro y todos
+  // sus chats) y cada conversación se abre en su hoja. `?chat=` y `?offer=` la abren al entrar.
+  const entero = (v: string | string[] | undefined) => { const n = Number(uno(v)); return Number.isInteger(n) && n > 0 ? n : null; };
   try {
-    const sesiones = await listarSesiones(persona);
-    const ultima = sesiones[0] ?? null;
-    const [inicial, centro] = await Promise.all([ultima ? abrirSesion(persona, ultima.id) : null, datosDelCentroSiOpera().catch(() => null)]);
-    const chat = { sesionesIniciales: sesiones, inicial, hrefMapa: veMapa ? '/m/second-brain/mapa' : null };
-    return centro ? <SecondBrainCentroM centro={centro} chat={chat} /> : <ChatMako {...chat} />;
+    const [sesiones, centro] = await Promise.all([listarSesiones(persona), datosDelCentroSiOpera().catch(() => null)]);
+    const chat = {
+      sesionesIniciales: sesiones, hrefMapa: veMapa ? '/m/second-brain/mapa' : null, opcionArmar: OPCION_ARMAR,
+      chatInicial: entero(sp.chat), offerInicial: entero(sp.offer),
+    };
+    return (
+      <PantallaM>
+        <CabeceraM titulo="Ops Center" padre={null} />
+        {centro ? <SecondBrainCentroM centro={centro} chat={chat} /> : <ChatClienteM {...chat} />}
+      </PantallaM>
+    );
   } catch (e) {
     console.error('[m/second-brain] abrir:', e instanceof Error ? e.message : e);
-    return <ErrorM frase="No pude cargar el chat." />;
+    return <PantallaM><ErrorM frase="No pude cargar el chat." /></PantallaM>;
   }
 }

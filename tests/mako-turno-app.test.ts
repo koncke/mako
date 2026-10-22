@@ -312,7 +312,8 @@ test('cada corrida del turno abre un intento nuevo del memo', () => {
   const corridas = [...TURNO.matchAll(/chatClaudeTools\(system, msgs, tools, ([^,]+),/g)].map((m) => m[1].trim());
   assert.ok(corridas.length >= 1, 'no encontré la corrida: cambió la forma y este test ya no mira nada');
   assert.deepEqual(corridas.filter((c) => c !== 'nuevoIntento()'), []);
-  assert.match(TURNO, /const nuevoIntento = \(\) => \{ memo\.nuevoIntento\(\); return runTool; \};/);
+  // Desde el 20/10/2026 también vacía lo que dibujaron las lecturas del intento anterior (la 2.27, tests/chat-bloque-cobranza.test.ts).
+  assert.match(TURNO, /const nuevoIntento = \(\) => \{ memo\.nuevoIntento\(\); (dibujos\.length = 0; )?return runTool; \};/);
   assert.match(TURNO, /feature: FEATURE,/);
   assert.match(TURNO, /const FEATURE = 'mako-doer';/);
 });

@@ -312,7 +312,9 @@ test('6. avisar_al_equipo de verdad: WhatsApp que no salió = ok:false; tal cual
   assert.equal(o.vieja.x.ok, false, '«Le avisé al equipo» con el WhatsApp sin salir');
   assert.match(o.vieja.x.resumen, /no tiene grupo de MaKo/);
   const v = o.vieja.emitidos[0];
-  assert.equal(v.texto, ['🟡 *no confirmó la reunión*', '', 'Agendó y no confirmó.', '', 'Ana López · +52 664 000 0000', `👉 ${v.texto.split('👉 ')[1].split('\n')[0]}`, '', '— MaKo'].join('\n'));
+  // Con la CHARLA en Chats debajo de la ficha (21/10/2026, tests/aviso-lleva-a-la-charla.test.ts).
+  assert.equal(v.texto, ['🟡 *no confirmó la reunión*', '', 'Agendó y no confirmó.', '', 'Ana López · +52 664 000 0000', `👉 ${v.texto.split('👉 ')[1].split('\n')[0]}`, `💬 ${v.texto.split('💬 ')[1]?.split('\n')[0]}`, '', '— MaKo'].join('\n'));
+  assert.match(v.texto, /💬 https?:\/\/[^\n]*\/chats\?lead=5&ws=14\n/, 'el link de la charla con el ?ws=');
   assert.match(v.texto, /👉 https?:\/\/[^\n]*\/crm\/5\?ws=14\n/, 'el link de la ficha con el ?ws=');
   assert.deepEqual({ ws: v.ws, dedupKey: v.dedupKey, dedupTtlMin: v.dedupTtlMin, rotulo: v.rotulo, partes: v.partes }, { ws: 14, dedupKey: 'lead:5', dedupTtlMin: 720, rotulo: undefined, partes: undefined });
   // La tarjeta tal cual: sin dedup, sin rótulo, con el estado fijo y las partes con los datos resueltos y el audio bajado.

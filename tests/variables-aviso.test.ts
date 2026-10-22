@@ -116,8 +116,9 @@ test('Cada link del catálogo tiene su ruta, y cada ruta su link', () => {
   // Un link ofrecido sin ruta sale como `{{link_x}}` crudo al WhatsApp del cliente; una
   // ruta sin link es código que no ofrece nadie. Se cruzan en las dos direcciones.
   // `link_lead` (lleva el id del evento), `link_pago` (el /pagar/<token> de su cobro, 11/10/2026) y `link_restablecer`
-  // (el de un uso que arma Seguridad, 15/10/2026) no son una pantalla de MaKo: no tienen ruta fija.
-  const sinRuta = new Set(['link_lead', 'link_pago', 'link_restablecer']);
+  // (el de un uso que arma Seguridad, 15/10/2026) no son una pantalla de MaKo: no tienen ruta fija. `link_chat_lead`
+  // (su conversación en Chats, 21/10/2026) tampoco: lleva el id del lead, como `link_lead`.
+  const sinRuta = new Set(['link_lead', 'link_chat_lead', 'link_pago', 'link_restablecer']);
   const delCatalogo = VARIABLES_AVISO.filter((v) => v.key.startsWith('link_') && !sinRuta.has(v.key)).map((v) => v.key).sort();
   assert.deepEqual(delCatalogo, Object.keys(RUTA_DE_LINK).sort());
   for (const r of Object.values(RUTA_DE_LINK)) assert.match(r, /^\/[a-z-]+$/, `ruta rara: ${r}`);

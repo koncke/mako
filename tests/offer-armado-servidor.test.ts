@@ -134,7 +134,8 @@ test('la pantalla: pide el armado, lo que ve sale de lo guardado y relee mientra
   const armar = APP.slice(i, APP.indexOf('const elegirOpcion', i));
   assert.match(armar, /action: 'armar', sesionId: id, origen: arranque \? 'arranque' : 'tab'/);
   assert.match(armar, /useEffect\(\(\) => \{\n\s*if \(armadoPaso\) \{ setGen\(\{ paso: armadoPaso, corriendo: armadoCorre, error: armadoError \}\); return; \}/);
-  assert.match(armar, /const idSesionArmando = armadoCorre \? \(sesion\?\.id \?\? null\) : null;/);
+  // También mientras el servidor lee un lote de documentos (O9, 22/10/2026, tests/offer-lote-documentos.test.ts).
+  assert.match(armar, /const idSesionArmando = armadoCorre \|\| leyendoDocs \? \(sesion\?\.id \?\? null\) : null;/);
   assert.match(armar, /const t = setInterval\(\(\) => \{ void releer\(\); \}, RELEER_ARMADO_MS\);/);
   assert.match(armar, /return \(\) => \{ clearInterval\(t\); document\.removeEventListener\('visibilitychange', alVolver\); \};/);
   // El onboarding ya NO arma la oferta (17/10/2026, Martín: el análisis va en la tab Offer; el onboarding sólo

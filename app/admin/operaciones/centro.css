@@ -657,11 +657,17 @@
 .co-runner__miga > span { color: var(--faint); font-weight: 400; }
 
 /* El muñeco (Muneco.tsx): dormido se apaga; trabajando flota apenas y parpadea. Con movimiento reducido, quieto. */
-.mun--dormido .mun-cuerpo { opacity: .55; filter: saturate(.35); }
-.mun--trabajando .mun-cuerpo { animation: mun-flota 2.8s ease-in-out infinite; }
-.mun-ojos--parpadeo { animation: mun-parpadeo 3.6s infinite; }
+/* LAS CRIATURAS, SIEMPRE VIVAS (21/10/2026, Martín: «siempre, donde sea que estén deben tener su animación de movimiento, y
+   parpadeo»): toda criatura flota y parpadea, cada una con su desfase (`--mun-desfase`, que sale de su nombre: Muneco.tsx). Una
+   animación CSS por pieza, sin timers. Trabajando, más rápido; dormida, respira despacio y con los ojos cerrados. */
+.mun--dormido .mun-cuerpo { opacity: .55; filter: saturate(.35); animation: mun-respira 5.2s ease-in-out var(--mun-desfase, 0s) infinite; }
+.mun-cuerpo { animation: mun-flota 3.8s ease-in-out var(--mun-desfase, 0s) infinite; }
+.mun--trabajando .mun-cuerpo { animation-duration: 2.8s; }
+.mun-ojos--parpadeo { animation: mun-parpadeo 4.2s var(--mun-desfase, 0s) infinite; }
+.mun--trabajando .mun-ojos--parpadeo { animation-duration: 3.6s; }
 @keyframes mun-parpadeo { 0%, 90%, 100% { transform: scaleY(1); } 94% { transform: scaleY(.12); } }
 @keyframes mun-flota { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.4px); } }
+@keyframes mun-respira { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025); } }
 @media (prefers-reduced-motion: reduce) { .mun-cuerpo, .mun-ojos--parpadeo { animation: none !important; } }
 
 /* Lo que el empleado espera de Martín (la Ticketera): una línea arriba de la caja y su palabra en la fila. */

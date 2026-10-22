@@ -250,4 +250,17 @@ export const BITACORA: Hito[] = [
     archivos: ['app/_components/Sidebar.tsx', 'app/_components/nav.ts', 'app/_ui/ui.css', 'app/admin/operaciones/Muneco.tsx', 'lib/movil-rutas.ts', 'tests/sidebar-nueva.test.ts'],
     revisar: '/crm',
   },
+  {
+    fecha: '21 oct', hora: '17:10', chat: 'Sidebar', sesion: "local_789aebfb-8196-468e-96d2-1f4964c12a1c", cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: MaKo en una ventana chica de escritorio',
+    pedido: 'MaKo se rompe apenas la ventana es un poco más angosta que la pantalla completa',
+    puntos: [
+      'Por debajo de 1200 px de ancho la barra arranca plegada a íconos; la flecha la deja abierta.',
+      '/integraciones sin scroll de costado, con los nombres y los motivos enteros; Configuración del negocio deja más lugar al contenido.',
+      'La ficha de un servicio: el panel oscuro se angosta y ya no se corta abajo.',
+      'Medido contando a 934, 1027 y 1283 de ancho. Sin mirar: 768 de alto ni tableta.',
+    ],
+    archivos: ['app/_components/Sidebar.tsx', 'app/_ui/ajustes.css', 'app/globals.css', 'app/integraciones/IntegracionesBoard.tsx', 'tests/ventana-chica.test.ts'],
+    revisar: '/integraciones',
+  },
 ];
