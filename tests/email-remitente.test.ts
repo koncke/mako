@@ -7,7 +7,7 @@
 //
 // Lo que fija:
 //   · el pie de un email de un CLIENTE firma con el nombre de SU NEGOCIO, nunca con el nombre visible
-//     del remitente (en el ws1 ese nombre es «MaKo»; desde el sandbox, «Mauricio Bustos» para todos);
+//     del remitente (en el ws1 ese nombre es «MaKo»; desde el sandbox, «Mauricio Ejemplo» para todos);
 //     el link de baja se queda; los mails de la PLATAFORMA siguen firmando «MaKo»; y lo mismo en los
 //     broadcasts de /email y en la prueba de verdad de «Probar» (un barrido sobre app/ y lib/);
 //   · el remitente de un paso sólo se usa si es del MISMO DOMINIO que el del workspace (la cuenta de
@@ -34,16 +34,16 @@ const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').repl
 
 // ── El pie ───────────────────────────────────────────────────────────────────────────────────
 
-test('el pie del ws1 firma «Mauricio Bustos» (su negocio) y no «MaKo» (su remitente), con el link de baja', () => {
+test('el pie del ws1 firma «Mauricio Ejemplo» (su negocio) y no «MaKo» (su remitente), con el link de baja', () => {
   // El caso de la captura: el remitente del ws1 es «MaKo <equipo@hola-mako.com>» (medido en la base).
-  const html = renderEmailHtml(paramsDeVista({ asunto: 'Tu llamada', preheader: '', cuerpo: 'Hola', negocio: 'Mauricio Bustos', remitente: 'MaKo <equipo@hola-mako.com>' }));
+  const html = renderEmailHtml(paramsDeVista({ asunto: 'Tu llamada', preheader: '', cuerpo: 'Hola', negocio: 'Mauricio Ejemplo', remitente: 'MaKo <equipo@hola-mako.com>' }));
   const pie = html.slice(html.lastIndexOf('border-top:1px solid'));
-  assert.match(pie, />Mauricio Bustos</, 'el pie no firma con el negocio');
+  assert.match(pie, />Mauricio Ejemplo</, 'el pie no firma con el negocio');
   assert.doesNotMatch(pie, />MaKo</, 'el pie volvió a firmar con el nombre del remitente');
   assert.match(pie, /darme de baja<\/a>/, 'el link de baja se queda: es lo que separa un mail de un spam');
   // Y desde el sandbox, el nombre de OTRO cliente no firma nada.
-  const sand = renderEmailHtml(paramsDeVista({ asunto: 'a', preheader: '', cuerpo: 'x', negocio: 'Codigo Inmobiliario', remitente: 'Mauricio Bustos <onboarding@resend.dev>' }));
-  assert.doesNotMatch(sand.slice(sand.lastIndexOf('border-top:1px solid')), /Mauricio Bustos/);
+  const sand = renderEmailHtml(paramsDeVista({ asunto: 'a', preheader: '', cuerpo: 'x', negocio: 'Codigo Inmobiliario', remitente: 'Mauricio Ejemplo <onboarding@resend.dev>' }));
+  assert.doesNotMatch(sand.slice(sand.lastIndexOf('border-top:1px solid')), /Mauricio Ejemplo/);
 });
 
 test('firmaDelPie: el nombre del negocio, sin espacios de más; sin negocio, sin firma', () => {
@@ -121,8 +121,8 @@ test('sanearRemitente: las dos formas, en minúsculas y sin lo que inyecta un en
 });
 
 test('el sandbox no lleva el nombre de un CLIENTE: sin nombre visible, «Probar» dice el del negocio', () => {
-  // Decía «Mauricio Bustos <onboarding@resend.dev>»: el remitente de todo workspace sin dominio, así que
-  // la bandeja de «Probar» de OTRO negocio decía «De: Mauricio Bustos».
+  // Decía «Mauricio Ejemplo <onboarding@resend.dev>»: el remitente de todo workspace sin dominio, así que
+  // la bandeja de «Probar» de OTRO negocio decía «De: Mauricio Ejemplo».
   assert.match(sinComentarios(leer('lib/resend.ts')), /const SANDBOX_FROM = 'onboarding@resend\.dev';/, 'el sandbox volvió a tener un nombre');
   assert.equal(esRemitenteSandbox('onboarding@resend.dev'), true);
   assert.equal(nombreDelRemitente('onboarding@resend.dev'), '');
@@ -130,7 +130,7 @@ test('el sandbox no lleva el nombre de un CLIENTE: sin nombre visible, «Probar�
 });
 
 test('el sandbox se reconoce con la MISMA regla que lib/resend.ts', () => {
-  assert.equal(esRemitenteSandbox('Mauricio Bustos <onboarding@resend.dev>'), true);
+  assert.equal(esRemitenteSandbox('Mauricio Ejemplo <onboarding@resend.dev>'), true);
   assert.equal(esRemitenteSandbox('onboarding@resend.dev'), true);
   assert.equal(esRemitenteSandbox('MaKo <equipo@hola-mako.com>'), false);
   // lib/resend.ts no se puede importar acá (server-only): se compara la REGEX escrita en los dos.
@@ -149,9 +149,9 @@ test('remitenteDelPaso: del mismo dominio sí; de otro dominio, del sandbox o il
   // ⚠️ El caso que importa: la cuenta de Resend es una para todos, así que otro dominio verificado ahí
   // saldría igual. Un paso de un cliente no puede mandar como MaKo ni como otro cliente.
   assert.equal(remitenteDelPaso('MaKo <equipo@hola-mako.com>', ws), null, 'un paso mandaría en nombre de MaKo');
-  assert.equal(remitenteDelPaso('Leila <hola@leilafittipaldi.com>', ws), null, 'un paso mandaría en nombre de otro cliente');
+  assert.equal(remitenteDelPaso('Leila <hola@marca-ejemplo.com>', ws), null, 'un paso mandaría en nombre de otro cliente');
   assert.equal(remitenteDelPaso('ventas@mail.valle.mx', ws), null, 'un subdominio no es el dominio');
-  assert.equal(remitenteDelPaso('Ventas <ventas@valle.mx>', 'Mauricio Bustos <onboarding@resend.dev>'), null, 'con el sandbox no sale nada');
+  assert.equal(remitenteDelPaso('Ventas <ventas@valle.mx>', 'Mauricio Ejemplo <onboarding@resend.dev>'), null, 'con el sandbox no sale nada');
   assert.equal(remitenteDelPaso('onboarding@resend.dev', 'onboarding@resend.dev'), null);
   assert.equal(remitenteDelPaso('Ventas <ventas@valle.mx>', ''), null);
   assert.equal(remitenteDelPaso('Ventas <ventas@valle.mx>', null), null);
@@ -166,8 +166,8 @@ test('los vinculados: el del workspace primero, sin repetidos, sólo de su domin
     remitente: 'Inmobiliaria <hola@valle.mx>', sandbox: false,
     remitentes: ['Ventas <ventas@valle.mx>', 'Inmobiliaria <HOLA@valle.mx>', 'MaKo <equipo@hola-mako.com>', 'basura', 'Ventas <ventas@valle.mx>'],
   }), ['Inmobiliaria <hola@valle.mx>', 'Ventas <ventas@valle.mx>']);
-  assert.deepEqual(remitentesVinculados({ remitente: 'Mauricio Bustos <onboarding@resend.dev>', sandbox: true }), []);
-  assert.deepEqual(remitentesVinculados({ remitente: 'Mauricio Bustos <onboarding@resend.dev>' }), [], 'el sandbox se reconoce aunque la ruta no lo diga');
+  assert.deepEqual(remitentesVinculados({ remitente: 'Mauricio Ejemplo <onboarding@resend.dev>', sandbox: true }), []);
+  assert.deepEqual(remitentesVinculados({ remitente: 'Mauricio Ejemplo <onboarding@resend.dev>' }), [], 'el sandbox se reconoce aunque la ruta no lo diga');
   assert.deepEqual(remitentesVinculados(null), []);
   assert.deepEqual(remitentesVinculados({ remitente: '' }), []);
 });
@@ -176,8 +176,8 @@ test('las opciones del De suman el del paso si todavía se puede usar; si no, no
   const ws = 'Inmobiliaria <hola@valle.mx>';
   assert.deepEqual(opcionesDeRemitente([ws], 'Ventas <ventas@valle.mx>', ws), [ws, 'Ventas <ventas@valle.mx>']);
   assert.deepEqual(opcionesDeRemitente([ws], ws, ws), [ws], 'el del workspace no se repite');
-  assert.deepEqual(opcionesDeRemitente([ws], 'Leila <hola@leilafittipaldi.com>', ws), [ws], 'uno de otro dominio no se ofrece');
-  assert.deepEqual(opcionesDeRemitente([], 'x@valle.mx', 'Mauricio Bustos <onboarding@resend.dev>'), []);
+  assert.deepEqual(opcionesDeRemitente([ws], 'Leila <hola@marca-ejemplo.com>', ws), [ws], 'uno de otro dominio no se ofrece');
+  assert.deepEqual(opcionesDeRemitente([], 'x@valle.mx', 'Mauricio Ejemplo <onboarding@resend.dev>'), []);
 });
 
 test('remitenteAGuardar: el escritor que no lo manda lo conserva; null o vacío lo sacan', () => {
@@ -234,8 +234,8 @@ test('remitenteDelNegocio: los workspaces medidos, hoy y después del script', (
   assert.deepEqual(remitenteDelNegocio(con({ credFrom: 'leandro@contacto.leandrotejado.com', keyPropia: true })),
     { puede: true, from: 'leandro@contacto.leandrotejado.com', via: 'cuenta-propia' });
   // ws11: su cuenta, y además un `resend_domain` sin `resend_from` (no estorba).
-  assert.deepEqual(remitenteDelNegocio(con({ resendDominio: 'leilafittipaldi.com', credFrom: 'hola@leilafittipaldi.com', keyPropia: true })),
-    { puede: true, from: 'hola@leilafittipaldi.com', via: 'cuenta-propia' });
+  assert.deepEqual(remitenteDelNegocio(con({ resendDominio: 'marca-ejemplo.com', credFrom: 'hola@marca-ejemplo.com', keyPropia: true })),
+    { puede: true, from: 'hola@marca-ejemplo.com', via: 'cuenta-propia' });
   // Estilo ws4: la key de la PLATAFORMA (copiada) con un FROM ajeno no es una cuenta propia.
   assert.deepEqual(remitenteDelNegocio(con({ credFrom: 'Ventas <ventas@valle.mx>', keyPropia: false })), { puede: false, motivo: 'sin-cuenta-propia' });
 });
@@ -317,4 +317,4 @@ test('los textos: cortos, en tú, y el del envío es el mismo que el del medio',
 //   R16. la firma de los broadcasts es «MaKo» y no el negocio        → 1 (el barrido)
 //   R17. la prueba de «Probar» sin `fromName`                        → 1 (el barrido)
 //   R21. invitaciones deja de firmar con su remitente (permiso colgado) → 1 (el barrido)
-//   R22. el sandbox vuelve a «Mauricio Bustos <onboarding@resend.dev>» → 1 (el sandbox sin nombre)
+//   R22. el sandbox vuelve a «Mauricio Ejemplo <onboarding@resend.dev>» → 1 (el sandbox sin nombre)

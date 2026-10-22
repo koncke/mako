@@ -3,7 +3,7 @@
 // =============================================================================
 // Lo que se vio en las llamadas del 16/10/2026:
 //   · tablero del DUEÑO (ws9): las 26 tarjetas de la revisión con Código Inmobiliario cayeron en
-//     «Cliente: Código Inmobiliario», y las 11 de «Mau <> Martin» en «Cliente: Mauricio Bustos», un
+//     «Cliente: Código Inmobiliario», y las 11 de «Mau <> Martin» en «Cliente: Mauricio Ejemplo», un
 //     proyecto que la importación CREÓ al lado de «Cliente: Mauricio». Eran bugs y features de MaKo.
 //   · tablero de MAURICIO (ws1): «Junta Monserrat HMO» no se reconoció como de Congelados HMO (Fathom
 //     devolvió sólo al que grabó y el título no dice la empresa entera) y 7 de sus 15 tareas cayeron
@@ -60,7 +60,7 @@ test('un cliente, un proyecto: primero por el lead, después por el nombre en cu
   // «Teriyaki baja» en el CRM, «Cliente Baja Teriyaki» en el tablero.
   assert.equal(proyectoDelCliente([{ id: 9, nombre: 'Cliente Baja Teriyaki' }], { leadId: 0, empresa: 'Teriyaki baja', nombre: 'Rosina' })?.id, 9);
   // Una categoría atada a OTRO lead nunca es de este cliente, por más que el nombre coincida.
-  assert.equal(proyectoDelCliente([{ id: 5, nombre: 'Cliente: Remax', cliente_lead_id: 2451 }], { leadId: 2462, empresa: 'Remax', nombre: 'Sergio Arratia' }), undefined);
+  assert.equal(proyectoDelCliente([{ id: 5, nombre: 'Cliente: Remax', cliente_lead_id: 2451 }], { leadId: 2462, empresa: 'Remax', nombre: 'Sergio Ejemplo' }), undefined);
   // Un nombre de pila solo no alcanza: «Cliente: Mauricio» no es de cualquier Mauricio.
   assert.equal(proyectoDelCliente([{ id: 6, nombre: 'Cliente: Mauricio' }], { leadId: 0, empresa: null, nombre: 'Mauricio Pérez Soto' }), undefined);
 });
@@ -95,7 +95,7 @@ const r = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO
 
 test('tablero del dueño: la reunión no manda y su «Cliente: X» no se abre', () => {
   assert.equal(r.dueno870.manda, '', 'proyectoQueManda devuelve vacío en el tablero del dueño');
-  assert.ok(!r.dueno870.proyectos.includes('Cliente: Mauricio Bustos'), `no nace el gemelo: ${r.dueno870.proyectos.join(', ')}`);
+  assert.ok(!r.dueno870.proyectos.includes('Cliente: Mauricio Ejemplo'), `no nace el gemelo: ${r.dueno870.proyectos.join(', ')}`);
   const crm = r.dueno870.creadas.find((t) => t.titulo.startsWith('Arreglar el guardado'));
   assert.deepEqual(crm?.proyectos, ['Feature: CRM'], 'lo que eligió la extracción se respeta');
 });

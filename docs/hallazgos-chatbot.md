@@ -2187,7 +2187,7 @@ Medido el 09/10/2026 (doc oficial y la cuenta, sólo lectura):
   (a /api/webhooks/resend) YA está suscripto a `email.received`** y lo tira al `default`. O sea: el día
   que alguien prenda la recepción, los mails llegan a esa ruta y se pierden sin un error.
 - ⚠️ **«Opción A: una cuenta de Resend para todos» no es del todo cierto**: los ws 1, 4, 10 y 11 tienen
-  su propia `RESEND_API_KEY`, y el único `resend_domain` cargado (ws11, leilafittipaldi.com) NO está en
+  su propia `RESEND_API_KEY`, y el único `resend_domain` cargado (ws11, marca-ejemplo.com) NO está en
   la cuenta de MaKo. Un cliente con cuenta propia recibe en SU cuenta: haría falta un webhook allá con su
   secreto.
 - **Se rutea por `resend_domain` (se reclama con titularidad), NUNCA por `resend_from`**: el del ws1 es

@@ -573,7 +573,7 @@ nada de configuración manual en ninguna feature (30/06).
 ### 🔴 El CRM de una clienta abría la agenda de Calendly de OTRO cliente
 
 **Síntoma (13/08/2026, visto en producción por el dueño):** en el CRM del workspace 11
-(Leila), el botón «Agendarla por Calendly» abría el embed de **Mauricio Bustos** —su firma,
+(Leila), el botón «Agendarla por Calendly» abría el embed de **Mauricio** —su firma,
 su foto y su oferta «Calificación para Programa Directivo»— dentro de la app de ella.
 
 **Causa.** `app/crm/calendly-widget.ts` es un módulo `'use client'` y tenía adentro:
@@ -616,9 +616,9 @@ vive adentro del workspace de nadie.
 
 **Lo que quedó SIN hacer, del mismo barrido:** `lib/closing.ts:117-121` tiene la identidad
 del dueño hardcodeada para TODOS los workspaces —
-`INTERNAL_EMAILS = {martinkoncke@…, tejadomartin@…}` y `INTERNAL_DOMAINS = {elevate.com.mx}`.
+`INTERNAL_EMAILS = {martinkoncke@…, tejadomartin@…}` y `INTERNAL_DOMAINS = {negocio-uno.com}`.
 No filtra datos, pero clasifica mal: a otro cliente, una llamada con alguien de
-`elevate.com.mx` se le descarta como «interna», y su propio dominio NO se excluye nunca —
+`negocio-uno.com` se le descarta como «interna», y su propio dominio NO se excluye nunca —
 así que sus reuniones de equipo entran como candidatas a venta y se pagan a Claude. El
 arreglo real es que «mi equipo» sea un dato del workspace, y eso es materia del onboarding.
 
@@ -1576,7 +1576,7 @@ real de esa llamada:
 ```
 invitee externo: name = "contacto@prosesamed.com"  (el name ES el email: un buzón genérico)
 transcript (540 turnos):
-  Mauricio Bustos Eguia :: mbustos@elevate.com.mx → 322
+  Mauricio :: dueno@negocio-uno.com → 322
   Fernando              :: NULL                   → 218   ← habló 218 veces
 ```
 
@@ -7194,7 +7194,7 @@ en Customer Success, no aquí.»
   **cierre**: medido contra la categoría del Closing Analyst, 28 de 28 entregas y 19 de 19 ventas
   bien. Y la comparación es **estricta**: con `>=` hay 3 falsos positivos (R2 que se cierran en la
   misma llamada).
-- **El título no sirve** para separar: «Junta X y Y» y «X y Mauricio Bustos» se solapan (el
+- **El título no sirve** para separar: «Junta X y Y» y «X y Mauricio» se solapan (el
   detector `RE_SERVICIO_EXPLICITO` caza 0 de 28 entregas). **La categoría del Closing Analyst es
   la más precisa, pero llega DESPUÉS del webhook** (el análisis corre en el `after()`): al escribir
   sólo hay fecha y lead.

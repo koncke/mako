@@ -45,7 +45,7 @@ test('la marca es del paso, sólo de un WhatsApp no oficial, y sobrevive a un es
 
 test('la opción aparece sólo con un link en un texto: escrito o un dato que es un link', () => {
   assert.equal(tieneLink({ ...WA, cuerpo: 'Mira esto: https://hola-mako.com/x' }), true);
-  assert.equal(tieneLink({ ...WA, cuerpo: 'Entra a www.elevate.com.mx' }), true);
+  assert.equal(tieneLink({ ...WA, cuerpo: 'Entra a www.negocio-uno.com' }), true);
   assert.equal(tieneLink({ ...WA, cuerpo: 'Tu llamada: {{reunion_link}}' }), true);
   assert.equal(tieneLink({ ...WA, cuerpo: 'Hola {{nombre}}, ¿cómo vas?' }), false);
   assert.equal(tieneLink({ ...WA, cuerpo: 'Hola', partes: [{ tipo: 'texto', cuerpo: 'Hola' }, { tipo: 'texto', cuerpo: 'El curso: https://x.com' }] }), true);

@@ -38,7 +38,7 @@ const reunion = (invitado: string): FathomMeeting => ({
 // El CRM del dueño: las dos clientas siguen como prospecto, igual que el 20/10.
 const LEADS = new Map<string, LeadDeReunion>([
   ['flor.personal@mail.test', { estado_lead: 'abierto', nombre: 'Florencia Ayelen Carballo', cliente_ws: null }],
-  ['hola@leila.test', { estado_lead: 'abierto', nombre: 'Leila Fittipaldi', cliente_ws: 11 }],
+  ['hola@leila.test', { estado_lead: 'abierto', nombre: 'Leila Ejemplo', cliente_ws: 11 }],
   ['prospecto@mail.test', { estado_lead: 'abierto', nombre: 'Juan Pérez', cliente_ws: null }],
   ['solo.nombre@mail.test', { estado_lead: 'abierto', nombre: 'Florencia', cliente_ws: null }],
 ]);
@@ -46,7 +46,7 @@ const EQUIPO = new Set(['dueno@mako.test']);
 // Quién tiene cuenta: los usuarios y los nombres de los OTROS workspaces (como los arma `clientesMako`).
 const CLIENTES: ClientesMako = {
   emails: new Set(['hola@leila.test', 'cuenta.consultesis@mail.test']),
-  nombres: ['mi marca personal florencia ayelen carballo', 'leila fittipaldi'],
+  nombres: ['mi marca personal florencia ayelen carballo', 'Leila Ejemplo'],
 };
 
 test('la clienta con cuenta abierta con OTRO correo: su llamada es de entrega, por el nombre completo', () => {

@@ -1,4 +1,4 @@
-# Sprint de Servicio · Mauricio Bustos (Customer Success)
+# Sprint de Servicio · Mauricio (Customer Success)
 
 **Qué es este documento.** El mapa de lo que Mauricio compró de verdad, contra lo que MaKo
 tiene hoy, y el plan de las semanas que quedan. No es un changelog: es lo que hay que saber
@@ -42,7 +42,7 @@ Hay **dos cuentas de Fathom** y el repo ya lo tenía escrito en
 | **Mauricio** | `FATHOM_API_KEY` (catálogo, `lib/metodo-catalogo.ts`) | Lo que consume el PRODUCTO: Closing Analyst, reuniones R1/R2, el webhook |
 | **Martín** | `FATHOM_API_KEY_MARTIN` (`.env.local`, **fuera** de `ENVS_METODO` a propósito) | **Las reuniones «Mau ↔ Martín»** y las de Leila |
 
-⚠️ **El conector MCP de Fathom apunta a una tercera cuenta** (`tejadomartin@gmail.com`, 188
+⚠️ **El conector MCP de Fathom apunta a una tercera cuenta** (`ejemplo.colaborador.mako@gmail.com`, 188
 reuniones): ahí las weeklies con Mauricio **no existen**, y `find_person "Mauricio"` devuelve
 «no encontrado». El síntoma —«no tengo esas reuniones»— apunta al lugar equivocado. La
 respuesta correcta es la key del `.env.local`.
@@ -327,7 +327,7 @@ El material más valioso. No es lo que creemos que necesita: es lo que dijo.
 **El pedido de producto más fuerte de las 7 reuniones** (31/7), y es la bajada literal de
 «doer»:
 
-> `[02:09:00]` *«no solamente es la parte del resultado, sino que **si Mauricio Bustos no
+> `[02:09:00]` *«no solamente es la parte del resultado, sino que **si Mauricio no
 > subió con evidencia los siete videos a la semana, no va a ocurrir**. Si se atora su tarjeta
 > y no paga los cincuenta y cinco dólares diarios, no va a ocurrir.»*
 > `[02:12:04]` *«¿qué es lo que me va a dar el valor de que la herramienta sea mi brújula y mi

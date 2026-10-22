@@ -2229,13 +2229,13 @@ proyectos**. Hay **10 proyectos Supabase repartidos en 4 organizaciones**, y **s
 
 | Organización | Plan | Qué paga |
 |---|---|---|
-| **Mauricio Bustos Business** (7 proyectos) | **Pro** | US$25 + 5 computes Micro (US$49,06) − US$10 de crédito = **US$64,06** |
+| **Mauricio Business** (7 proyectos) | **Pro** | US$25 + 5 computes Micro (US$49,06) − US$10 de crédito = **US$64,06** |
 | CRM-LEADS · VIRAL-RADAR · GB-LOGISTICS (1 c/u) | Free | US$0 |
 
 Los 5 computes pagos, con su actividad real de 7 días: **MaKo 1.134.762** requests REST ·
 esquer-accountability 30.211 · baja-teriyaki 28.798 · texx-accountability 19.902 ·
 **aspro-tableros 957** (137/día, el único candidato a pausar). Dos proyectos más de esa org no
-pagan compute (`dental-ramos-crm` con 4.676 requests y `mbustos@elevate.com.mx's Project` con
+pagan compute (`dental-ramos-crm` con 4.676 requests y `dueno@negocio-uno.com's Project` con
 **0**, vacío).
 
 **O sea: de los US$64, US$9,81 son MaKo y US$39 son tableros de clientes.** Eso no es desperdicio
@@ -2300,7 +2300,7 @@ la doc.
 **Y el orden importa:** un Viewer tampoco puede **escribir por API**, así que si el token que usás
 es del usuario que vas a degradar, te quedás sin poder administrar ni revertir. Se reemplaza el
 token PRIMERO (por uno de un OWNER que siga siéndolo) y se degrada DESPUÉS. Hoy `VERCEL_API_TOKEN`
-en `.env.local` es de **mbustos@elevate.com.mx**, no de koncke, justamente por esto — y fue lo
+en `.env.local` es de **dueno@negocio-uno.com**, no de koncke, justamente por esto — y fue lo
 único que permitió deshacer el cambio.
 
 **La regla:** después de tocar roles, permisos o integraciones, **el push de prueba no alcanza:
@@ -6209,7 +6209,7 @@ solo template.
 Síntoma (reunión del 13/10, Mauricio): «los temporizadores no coinciden con los textos» de los recordatorios por WhatsApp.
 El diagnóstico obvio era la plantilla o el cálculo de `{{reunion_faltan}}` (los dos estaban bien, medido). Lo que estaba mal
 era el DATO: `mako.timezone` del ws1 (Mauricio, Mexicali) era `America/Argentina/Buenos_Aires`, con origen «navegador» y
-`por: mbustos@elevate.com.mx`, escrito el 12/10 02:00 UTC por `detectarZonaAction`. La regla de quién cuenta como «el
+`por: dueno@negocio-uno.com`, escrito el 12/10 02:00 UTC por `detectarZonaAction`. La regla de quién cuenta como «el
 usuario» se cumplió (era la sesión de un admin propio): alguien entró con la cuenta de Mauricio desde Argentina, o su
 máquina tiene mal la zona. Medido en un envío real: la reunión de Guillermo (lead 2593) era a las 10:00 de Tijuana y los
 recordatorios dijeron «mañana a las 2:00 p. m.» y «empieza en 59 minutos, a las 2:00 p. m.». También corría con esa zona
@@ -6477,7 +6477,7 @@ contando `ahead` muestra como trabajo pendiente lo que ya está hecho.
 ## Una pasada en producción con el Chrome de Martín: la sesión puede ser la de un CLIENTE, y `?ws=3` no avisa (15/10/2026)
 
 El 15/10 la pasada «en ws3» de Automations se hizo en realidad sobre el **ws1 de Mauricio**: el Chrome de Martín tenía
-abierta la sesión de Mauricio Bustos (rol `usuario`, `ws: 1`), no la de super admin. Para alguien que no es admin de
+abierta la sesión de Mauricio (rol `usuario`, `ws: 1`), no la de super admin. Para alguien que no es admin de
 agencia, `proxy.ts` no pone el header del `?ws=` (`lib/ws-tab.ts`) y la página muestra SU negocio sin decir nada. La
 lista se veía normal y con nombres plausibles («Un Lead Entró», «Un Lead Agendó Llamada»), que también existen en otros
 negocios.

@@ -57,8 +57,8 @@ líneas; lo de esta ventana está de la línea ~3.190 al final) y `AGENTS.md`.
 |---|---|---|---|---|
 | **1** (Mauricio) | 22 | `multiplicatusresultados.com` | `var SV = 22` (leído con curl) | **al día** |
 | **4** | 21 | ninguna | — | viejo (decide la del negocio) |
-| **11** (Leila) | 18 | 3 | `leilafittipaldi.com/lidermente` sirve `var SV = 18` | **viejo** |
-| **13** (Código Inmob.) | 18 | 2 | `v0-joandowd.vercel.app` **no trae nuestro endpoint en el HTML** → manda la visita (18) | **viejo** |
+| **11** (Leila) | 18 | 3 | `marca-ejemplo.com/lidermente` sirve `var SV = 18` | **viejo** |
+| **13** (Código Inmob.) | 18 | 2 | `landing-ws13.vercel.app` **no trae nuestro endpoint en el HTML** → manda la visita (18) | **viejo** |
 | **14** (P2P) | 15 | 1 | última visita 01/10 22:57 → sin tracking hace días | **viejo** |
 | **9, 10, 15, 17** | — | — | — | **nunca pegaron el Pixel** (token acuñado, cero filas de versión): no les sale ningún aviso, a propósito |
 
@@ -83,7 +83,7 @@ producto se medía con un código de hace meses. El ws1 repegó; **los tres clie
 - ⚠️ **La landing principal del ws1 está en `error` en Landing Analyst desde el 20/09 y el
   análisis automático NUNCA la va a reintentar.** `faltanAnalizar` (`lib/landing-url.ts:57`) toma
   las declaradas **sin fila**, y una fila en error es una fila. Lo mismo le pasó a
-  `http://leilafittipaldi.com` del ws11, que pasó a `error` el 06/10 a las 16:20 UTC en la
+  `http://marca-ejemplo.com` del ws11, que pasó a `error` el 06/10 a las 16:20 UTC en la
   primera corrida automática. Las otras cinco declaradas sí quedaron analizadas.
 
 **Lo demás, con su archivo:**
@@ -128,7 +128,7 @@ producto se medía con un código de hace meses. El ws1 repegó; **los tres clie
    `snippetDesactualizado()` cuenta como **v1** a quien no tiene versión anotada: les diría
    «actualizá» sobre algo que nunca instalaron. El aviso fijo pregunta por la **FILA** de versión.
 5. **Si el HTML no trae nuestro endpoint, no se concluye NADA.** Medido hoy: el HTML de
-   `v0-joandowd.vercel.app` (ws13) no lo trae —puede ser render en el cliente, o un administrador
+   `landing-ws13.vercel.app` (ws13) no lo trae —puede ser render en el cliente, o un administrador
    de etiquetas— así que `versionEnHtml` devuelve `null` y manda la visita. Y **si hay dos copias
    del código pegadas, gana la MÁS VIEJA**: pegar el nuevo sin sacar el viejo no es «al día».
 6. **Una grabación sin sellar NO es un sellado roto.** Casi se reporta la cadena cortada mirando

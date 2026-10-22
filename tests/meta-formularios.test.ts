@@ -16,8 +16,8 @@ const BASE: FormularioNuevo = {
   estandar: ['FULL_NAME', 'EMAIL', 'PHONE'],
   propias: ['¿Qué tipo de propiedad buscas vender?', '  '],
   mayorIntencion: true,
-  privacidadUrl: 'https://v0-joandowd.vercel.app/privacidad',
-  sitioUrl: 'https://v0-joandowd.vercel.app',
+  privacidadUrl: 'https://landing-ws13.vercel.app/privacidad',
+  sitioUrl: 'https://landing-ws13.vercel.app',
 };
 
 test('el pedido tiene la forma de los formularios que Meta ya devuelve', () => {
@@ -29,12 +29,12 @@ test('el pedido tiene la forma de los formularios que Meta ya devuelve', () => {
     // La vacía se descarta: una pregunta sin texto es un rechazo de Meta.
     { type: 'CUSTOM', key: 'pregunta_1', label: '¿Qué tipo de propiedad buscas vender?' },
   ]);
-  assert.deepEqual(JSON.parse(p.privacy_policy), { url: 'https://v0-joandowd.vercel.app/privacidad', link_text: 'Política de privacidad' });
+  assert.deepEqual(JSON.parse(p.privacy_policy), { url: 'https://landing-ws13.vercel.app/privacidad', link_text: 'Política de privacidad' });
   assert.equal(p.is_optimized_for_quality, 'true');
-  assert.equal(p.follow_up_action_url, 'https://v0-joandowd.vercel.app');
+  assert.equal(p.follow_up_action_url, 'https://landing-ws13.vercel.app');
   const gracias = JSON.parse(p.thank_you_page);
   assert.equal(gracias.button_type, 'VIEW_WEBSITE');
-  assert.equal(gracias.website_url, 'https://v0-joandowd.vercel.app');
+  assert.equal(gracias.website_url, 'https://landing-ws13.vercel.app');
   // El orden de las estándar es el de Meta, no el del click.
   assert.deepEqual(JSON.parse(paramsFormulario({ ...BASE, estandar: ['PHONE', 'FULL_NAME'], propias: [] }).questions), [{ type: 'FULL_NAME' }, { type: 'PHONE' }]);
 });
@@ -55,8 +55,8 @@ test('urls: dirección real sí, texto suelto no; el sitio de la página sale si
   assert.equal(urlValida('https://localhost'), false);
   // El `website` real de la página de ws13, tal como lo devuelve Meta.
   assert.equal(
-    sitioLimpio('https://joandowdcodigoinmobiliario.vercel.app/?utm_source=ig&utm_medium=social&fbclid=IwY2xj'),
-    'https://joandowdcodigoinmobiliario.vercel.app/',
+    sitioLimpio('https://landing-ws13-b.vercel.app/?utm_source=ig&utm_medium=social&fbclid=IwY2xj'),
+    'https://landing-ws13-b.vercel.app/',
   );
   assert.equal(sitioLimpio('no es un sitio'), null);
 });
