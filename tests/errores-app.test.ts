@@ -132,7 +132,8 @@ test('las tres puertas: el navegador con sesión y del mismo origen, el servidor
     assert.match(s, /Server Components render\|omitted in production/, `${f}: el error del servidor lo reporta el servidor`);
   }
   assert.match(sinComentarios(leer('app/error.tsx')), /avisado \? 'Ya le avisamos al equipo de MaKo/, 'dice «ya le avisamos» SÓLO si entró');
-  assert.match(sinComentarios(leer('app/layout.tsx')), /\{sesion && <HideOnPublicLanding><ReportadorDeErrores \/><\/HideOnPublicLanding>\}/);
+  // Fuera de lo público, y también en el teléfono (21/10/2026: adentro de HideOnPublicLanding no corría nunca ahí).
+  assert.match(sinComentarios(leer('app/layout.tsx')), /\{sesion && <FueraDeLoPublico><ReportadorDeErrores \/><\/FueraDeLoPublico>\}/);
   const inst = sinComentarios(leer('instrumentation.ts'));
   assert.match(inst, /export async function onRequestError\(/);
   assert.match(inst, /registrarError\(\{\s*origen: 'servidor'/);

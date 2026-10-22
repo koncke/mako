@@ -143,16 +143,22 @@ export function ShellM({
   // mobile». La MISMA de app/onboarding/EntradaMako.tsx (cae, rebota, saluda y espera el toque), una vez por APERTURA
   // (sessionStorage: volver del fondo no la repite) y, al tocarla, vuela al Ops Center de la barra. No sale en el
   // onboarding pendiente (/m/configurar tiene la suya) ni mirando la cuenta de un cliente.
+  // ⚠️ La marca se pone cuando la entrada TERMINÓ (`finEntrada`), no al montarla (21/10/2026, 22:54, Martín: «Aún no
+  // veo la animación»). Puesta al montar, la gastaba un documento que se iba enseguida: la app abría /second-brain, que
+  // redirigía al Centro con una navegación dura, y el Centro ya la encontraba marcada (lib/movil-desvio.ts → `entradaMovil`).
   const [entrada, setEntrada] = useState(false);
   useEffect(() => {
     if (cliente || limpia(pathname) === RUTA_CONFIGURAR) return;
     try {
       if (sessionStorage.getItem(LS_ENTRADA)) return;
-      sessionStorage.setItem(LS_ENTRADA, '1');
     } catch { return; /* sin almacenamiento no se sabe si ya salió: mejor no repetirla en cada pantalla */ }
     setEntrada(true);
     // Sólo al montar el shell: navegar no la vuelve a pedir.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const finEntrada = useCallback(() => {
+    try { sessionStorage.setItem(LS_ENTRADA, '1'); } catch { /* sin almacenamiento: no se repite en esta pantalla igual */ }
+    setEntrada(false);
   }, []);
 
   // ── Toasts ───────────────────────────────────────────────────────────────
@@ -408,7 +414,7 @@ export function ShellM({
             mueve al navegar y al tirar para refrescar. */}
         <div id="m-capas" />
 
-        {entrada && <EntradaMako destino={`[${DESTINO_ENTRADA}]`} onFin={() => setEntrada(false)} />}
+        {entrada && <EntradaMako destino={`[${DESTINO_ENTRADA}]`} onFin={finEntrada} />}
 
         <div className="m-toast-capa" aria-live="polite">
           {toast && (

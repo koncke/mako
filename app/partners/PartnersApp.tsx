@@ -118,14 +118,15 @@ export function PartnersApp({ cartera, vistaInicial, cuentaInicial, leadNuevo, p
   const cerrarPago = useCallback(() => setPago(null), []);
 
   const entrar = async (ws: number) => {
-    if (superAdmin) { window.location.href = `/general?ws=${ws}`; return; }
+    // Al repartidor (/inicio), como el login: entra al Ops Center del negocio, o a su wizard si no terminó (21/10/2026).
+    if (superAdmin) { window.location.href = `/inicio?ws=${ws}`; return; }
     try {
       const j = await (await fetch('/api/agencia/entrar', {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ws }),
       })).json();
       if (!j?.ok) { show(j?.error ?? 'No se pudo entrar.', undefined, 'bad'); return; }
       // Recarga dura: el contexto lo resuelve el server desde la cookie que acaba de quedar (CuentaDeMaKo, 27/09).
-      window.location.href = '/general';
+      window.location.href = '/inicio';
     } catch { show('No se pudo entrar.', undefined, 'bad'); }
   };
 
