@@ -24,7 +24,7 @@ import { TOPES_CHAT_IMAGEN, catalogoParaPrompt, OPERACIONES_CHAT_IMAGEN, validar
 import { aplicarOperaciones, conCaso, resumenDeCambios } from '../lib/image-editor/chat/aplicar';
 import { AVISO_CORTADA, hiloAlAbrir, hiloParaGuardar, type MensajeGuardado } from '../lib/image-editor/chat/hilo';
 import { CHAT_IMAGEN_SYSTEM_TEMPLATE, CHAT_IMAGEN_USER_TEMPLATE, PROMPTS_CHAT_IMAGEN } from '../lib/image-editor/chat/prompts';
-import { cambiarHilo, conId, leerHilo, type MensajeMako } from '../app/image-editor/mako/chat/hilo';
+import { cambiarHilo, cargarHilo, conId, leerHilo, type MensajeMako } from '../app/image-editor/mako/chat/hilo';
 import { aceptarPropuesta, pedirEdicion, restaurarPropuesta } from '../app/image-editor/mako/chat/acciones';
 import { TABLAS_DE_INQUILINO } from '../lib/tablas-de-inquilino';
 
@@ -465,3 +465,20 @@ test('24: el botón redondo del riel abre el chat (ya no es «Próximamente»), 
 //   cazada después de agregar su línea: la primera versión del test sólo miraba que `PANEL_IA` se nombrara), el chat
 //   también en sólo lectura (24).
 // ─────────────────────────────────────────────────────────────────────────────
+
+test('41: abrir el chat NO vuelve a guardar lo que ya está en la base (22/10/2026, medido en el ws3)', async () => {
+  // Cada apertura subía la versión y el `updated_at` con los mismos mensajes. Verificado quitando el arreglo: 1 fallo.
+  const metodos: string[] = [];
+  const guardados: MensajeGuardado[] = [
+    { id: 'a', c: 1, t: 1, de: 'yo', texto: 'Agrega un título', alcance: null },
+    { id: 'b', c: 2, t: 2, de: 'mako', texto: 'Listo.' },
+  ] as MensajeGuardado[];
+  globalThis.fetch = (async (_url: string, init?: { method?: string }) => {
+    metodos.push(init?.method ?? 'GET');
+    return { json: async () => (init?.method === 'PUT' ? { ok: true, version: 3 } : { ok: true, hilo: { version: 2, mensajes: guardados } }) };
+  }) as unknown as typeof fetch;
+  await cargarHilo('d-abrir-41', 'Diseño');
+  assert.equal(leerHilo('d-abrir-41').mensajes.length, 2, 'lo guardado se ve');
+  await new Promise((r) => setTimeout(r, 800));
+  assert.deepEqual(metodos, ['GET'], 'abrir no es un cambio');
+});

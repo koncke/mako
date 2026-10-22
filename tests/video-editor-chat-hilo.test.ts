@@ -218,6 +218,25 @@ test('12: el panel carga el hilo al abrir y «Restaurar» sólo aparece si hay c
   assert.doesNotMatch(p, /const hilos = new Map/, 'el hilo vive en chat/hilo.ts, no en el panel');
 });
 
+test('13: abrir el chat NO vuelve a guardar lo que ya está en la base; con algo nuevo de la pestaña, sí', async () => {
+  // 22/10/2026, medido en el ws3: cada apertura subía la versión (2 → 3) y el `updated_at` con los mismos 2 mensajes.
+  // Verificado quitando el arreglo (`guardar: false`): 1 fallo; sin mirar `sucio` al cargar: 2 fallos (el 7 y éste).
+  const P = 'proy-13';
+  const { f, llamadas } = fetchFalso([() => ({ ok: true, hilo: { version: 2, mensajes: [yo('a', 1, 'del server'), mako('b', 2)] } })]);
+  globalThis.fetch = f as never;
+  await cargarHilo(P, 'Mi proyecto');
+  assert.equal(leerHilo(P).mensajes.length, 2, 'lo guardado se ve');
+  await esperar(800);
+  assert.equal(llamadas.filter((l) => l.metodo === 'PUT').length, 0, 'abrir no es un cambio');
+  const Q = 'proy-13b';
+  cambiarHilo(Q, (h) => ({ ...h, mensajes: [conId({ de: 'yo', texto: 'escrito antes de que llegara', alcance: null })] }));
+  const otro = fetchFalso([() => ({ ok: true, hilo: { version: 2, mensajes: [yo('a', 1, 'del server')] } }), () => ({ ok: true, version: 3 })]);
+  globalThis.fetch = otro.f as never;
+  await cargarHilo(Q, null);
+  await esperar(800);
+  assert.equal(otro.llamadas.filter((l) => l.metodo === 'PUT').length, 1, 'lo de la pestaña sí se guarda');
+});
+
 // Probado rompiéndolo (16/10/2026), cada rotura restaurada (base 12/0):
 //   · de dos copias del mismo mensaje gana la primera                  -> 10/2
 //   · sin el tope de mensajes / sin el tope total                      -> 11/1 cada una (la del total sobrevivió
