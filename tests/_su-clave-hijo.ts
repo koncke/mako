@@ -23,8 +23,13 @@ const pg = crearPostgrest({
   defaults: (tabla, f) => (tabla === 'anthropic_usage' ? { id: ++n, created_at: new Date(Date.now() + n).toISOString(), ...f } : f),
 });
 const red: string[] = [];
+/** La base rechaza los inserts de `anthropic_usage` (un 500 de PostgREST). */
+let insertFalla = false;
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
   const u = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url);
+  if (u.host === 'supa.test' && insertFalla && init.method === 'POST' && u.pathname.endsWith('/anthropic_usage')) {
+    return new Response(JSON.stringify({ code: '57014', message: 'canceling statement due to statement timeout', details: null, hint: null }), { status: 500, headers: { 'content-type': 'application/json' } });
+  }
   if (u.host === 'supa.test') return pg.responder(u, init);
   red.push(`${u.host}${u.pathname}`);
   const r = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -77,6 +82,16 @@ async function main() {
   const redAntes = red.length;
   out.probarCopia = await probarSuClave(WS, 'openai');
   out.redCopia = red.length - redAntes;
+  // 7) La fila del fallo que la base RECHAZA no frena la siguiente (segunda revisión del lote 1): la marca de los 5 min se
+  //    saca si la fila no quedó, y el próximo fallo la vuelve a escribir.
+  const { anotarFalloDeSuClave } = await import('../lib/su-clave');
+  const conDeTope = () => pg.db.anthropic_usage.filter((f) => f.workspace_id === WS && String(f.motivo ?? '').includes('tope por minuto')).length;
+  insertFalla = true;
+  await runWithWorkspace(WS, () => anotarFalloDeSuClave({ proveedor: 'openai', error: 'HTTP 429 Rate limit reached for requests', feature: 'landing-analyst', modelo: 'gpt-4o-mini' }));
+  out.filasConLaBaseCaida = conDeTope();
+  insertFalla = false;
+  await runWithWorkspace(WS, () => anotarFalloDeSuClave({ proveedor: 'openai', error: 'HTTP 429 Rate limit reached for requests', feature: 'landing-analyst', modelo: 'gpt-4o-mini' }));
+  out.filasDespues = conDeTope();
   out.todas = pg.db.anthropic_usage.map((f) => ({ ws: f.workspace_id, provider: f.provider, model: f.model, motivo: f.motivo, cost: f.cost_usd }));
   out.red = red;
   process.stdout.write(`@@RESULTADO@@${JSON.stringify(out)}`);

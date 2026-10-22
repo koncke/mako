@@ -5361,7 +5361,23 @@ TODAS 429 (0 respuestas), OpenRouter 12 llamadas y su modelo gratis caducó tres
   un `(?<=^\s*)` cuadrático con una tirada de espacios. **Regla para un regex de tapado:** que arranque por algo raro (la
   palabra, el principio del texto con `^` sin `m`, el borde exacto de la clave) y capture el contexto en vez de mirarlo
   hacia atrás. Medido: con la línea gigante peor, de 1489 ms a 120 ms (la base sin las reglas nuevas, 87 ms).
-- **Sin hacer:** Fathom, Panda y Zernio no tienen regla, y su formato no se verificó.
+- **La segunda revisión (Integración, el mismo día) encontró que la cercanía no alcanzaba.** Pedir «mistral» a menos de 40
+  caracteres en la misma línea dejaba pasar justo cómo se pega una clave en WhatsApp: «Clave de Mistral 👇» y la clave en la
+  línea de abajo. Tampoco tapaba dos claves con un solo rótulo. Ahora, si el texto NOMBRA a Mistral en cualquier lugar, se
+  tapa TODA clave de su forma (`MISTRAL_NOMBRADA`, sumada sólo a ese texto). Sigue siendo lineal: la línea gigante peor,
+  con 30 mil claves y la palabra al final, entra en el tope.
+- **Un `$1` que se traga el marcador de otra regla deja bytes NUL.** `redactarCon` (lib/agente-redaccion.ts) cambia cada
+  secreto por un marcador `\u0000N\u0000` y al final los expande, pero el texto de un reemplazo no se vuelve a expandir. Con
+  otra clave entre «mistral» y la de Mistral, el contexto capturado traía un marcador crudo. Postgres rechaza un NUL en
+  `text` y en `jsonb`: el mensaje del grupo no se encolaba, `encolar` lo tomaba como una re-entrega, y MaKo lo perdía sin
+  avisar (y lo mismo en el chat de la app). **Regla:** lo que vuelve en un grupo de captura se expande ANTES de guardar el
+  reemplazo, y no se descuenta de lo tapado.
+- **`insertUsage` no avisaba si la base rechazaba la fila.** supabase-js no tira: devuelve `{ error }`, y nadie lo miraba.
+  Una fila de `anthropic_usage` rechazada se perdía en silencio, y el freno de 5 min de su-clave la daba por escrita.
+  Ahora `insertUsage` devuelve si escribió, `recordUsage` lo pasa en `escrita`, y su-clave marca antes de escribir y
+  desmarca si no quedó.
+- **Sin hacer:** Fathom, Panda y Zernio no tienen regla, y su formato no se verificó. Una clave de Mistral pegada con otro
+  texto y sin nombrar a Mistral («<clave>\ngracias!») sigue pasando: sin el nombre ni el texto solo, es la forma de un id.
 
 ## Las decisiones de Martín del 22/10/2026 sobre la IA de MaKo, y el Plan con la clave del negocio
 

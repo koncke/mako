@@ -202,6 +202,8 @@ test('una línea gigante no cuelga el tapado (las reglas son lineales)', () => {
       'sk-' + 'A1'.repeat(500000), 'TEST-1111111111-'.repeat(60000),
       // Las de la revisión del lote 1 (Mistral sin prefijo): espacios, «mistral» repetido y tiradas de 32.
       ' '.repeat(1000000), 'mistral '.repeat(120000), ('aB3dE5fG7hJ9kL1mN2pQ4rS6tU8vW0xY ').repeat(30000), 'apify_api_'.repeat(100000),
+      // Nombrando a Mistral, se tapa toda clave de su forma: con 30 mil claves y la palabra al final.
+      ('aB3dE5fG7hJ9kL1mN2pQ4rS6tU8vW0xY ').repeat(30000) + 'mistral', 'xai-'.repeat(200000), 'hf_'.repeat(300000),
     ];
     for (const t of lineas) {
       const desde = Date.now();

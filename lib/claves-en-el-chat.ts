@@ -94,16 +94,19 @@ const PROPIAS_DESPUES: ReglaDeClave[] = [
   //   · Apify: `apify_api_` + 30+ alfanuméricos (el producto se la pide al cliente para buscar prospectos);
   //   · DeepSeek: `sk-` + 32 hex en MINÚSCULA. No la cumple la de OpenAI (pide una mayúscula y 40+), ni un slug (lleva guiones);
   //   · Mistral: 32 alfanuméricos SIN prefijo, con mayúscula, minúscula y dígito. Sin prefijo, la forma sola es la de
-  //     cualquier id: se tapa sólo si «mistral» está a menos de 40 caracteres (antes o después, en la misma línea) o si el
-  //     texto es SÓLO eso (lo que se pega cuando se pega una clave).
+  //     cualquier id: se tapa si el texto es SÓLO eso (lo que se pega cuando se pega una clave) o si el texto NOMBRA a
+  //     Mistral en cualquier lugar (`taparClaves` suma `MISTRAL_NOMBRADA`). La primera versión pedía «mistral» a menos de
+  //     40 caracteres en la misma línea, y «Clave de Mistral 👇» con la clave abajo —como se pega en WhatsApp— pasaba
+  //     entera (segunda revisión del lote 1).
+  //   · xAI (`xai-`), Perplexity (`pplx-`), Hugging Face (`hf_`) y Together (`tgp_v1_`), con su prefijo y un largo de clave.
   { nombre: 'apify', re: /\bapify_api_[A-Za-z0-9]{30,}/g, con: CLAVE_TAPADA, servicio: 'apify' },
   { nombre: 'deepseek', re: /\bsk-[a-f0-9]{32}\b/g, con: CLAVE_TAPADA, servicio: null },
-  // Cada una ARRANCA por algo raro (el principio del texto, la palabra, el borde de la clave), no con un lookbehind en cada
-  // posición: un `(?<=mistral[^\n]{0,40})` probado en cada carácter hacía el tapado 20 veces más lento con una línea gigante,
-  // y un `(?<=^\s*)` era cuadrático con una tirada de espacios.
+  { nombre: 'xai', re: /\bxai-[A-Za-z0-9]{40,}/g, con: CLAVE_TAPADA, servicio: null },
+  { nombre: 'perplexity', re: /\bpplx-[A-Za-z0-9]{40,}/g, con: CLAVE_TAPADA, servicio: null },
+  { nombre: 'huggingface', re: /\bhf_[A-Za-z]{30,}\b/g, con: CLAVE_TAPADA, servicio: null },
+  { nombre: 'together', re: /\btgp_v1_[A-Za-z0-9_-]{30,}/g, con: CLAVE_TAPADA, servicio: null },
+  // Anclada al principio (`^`, sin `m`: una vez por texto). Un `(?<=^\s*)` en cada posición era cuadrático con espacios.
   { nombre: 'mistral-sola', re: new RegExp(`^(\\s*)${TOKEN_MISTRAL}(?=\\s*$)`, 'g'), con: `$1${CLAVE_TAPADA}`, servicio: null },
-  { nombre: 'mistral-antes', re: new RegExp(`(${MISTRAL}[^\\n]{0,40}?)${TOKEN_MISTRAL}`, 'g'), con: `$1${CLAVE_TAPADA}`, servicio: null },
-  { nombre: 'mistral-despues', re: new RegExp(`${TOKEN_MISTRAL}([^\\n]{0,40}?${MISTRAL})`, 'g'), con: `${CLAVE_TAPADA}$1`, servicio: null },
   // Una línea de .env: SÓLO al principio de la línea (con su `export` y su sangría) y con el nombre en MAYÚSCULAS, como se
   // pega. El NOMBRE tiene que TERMINAR en KEY, TOKEN, SECRET, PASSWORD, PASS o CREDENTIAL(S), con un sufijo numérico
   // opcional (`GEMINI_API_KEY_2`, que existe): «contiene KEY» se comía `KEYWORDS: zapatillas-running-mujer-ofertas`.
@@ -127,6 +130,19 @@ const REGLAS_DE_SECRETOS: ReglaDeClave[] = [
   ...PROPIAS_DESPUES,
 ];
 
+/**
+ * Con el texto que NOMBRA a Mistral (en cualquier lugar, cualquier línea): toda clave de su forma, todas las veces. Va
+ * después de la de «sola» y antes de la de .env (`MISTRAL_API_KEY=…` dice el nombre: la tapa ésta, y .env conserva el
+ * nombre). Sin captura del contexto: un `$1` que se tragaba el marcador de OTRA clave dejaba bytes NUL en el texto, la
+ * base lo rechazaba y el mensaje se perdía (segunda revisión del lote 1; ver también `redactarCon`).
+ */
+const MISTRAL_NOMBRADA: ReglaDeClave = { nombre: 'mistral-nombrada', re: new RegExp(TOKEN_MISTRAL, 'g'), con: CLAVE_TAPADA, servicio: null };
+const REGLAS_CON_MISTRAL: ReglaDeClave[] = (() => {
+  const i = REGLAS_DE_SECRETOS.findIndex((r) => r.nombre === 'mistral-sola');
+  return [...REGLAS_DE_SECRETOS.slice(0, i + 1), MISTRAL_NOMBRADA, ...REGLAS_DE_SECRETOS.slice(i + 1)];
+})();
+const NOMBRA_A_MISTRAL = new RegExp(MISTRAL);
+
 export type Tapado = {
   /** El texto con cada clave cambiada por `CLAVE_TAPADA`. */
   texto: string;
@@ -139,14 +155,15 @@ export type Tapado = {
 /** Tapa las claves de un mensaje del chat. Nunca tira. */
 export function taparClaves(entrada: string): Tapado {
   const texto = typeof entrada === 'string' ? entrada : '';
+  const reglas = NOMBRA_A_MISTRAL.test(texto) ? REGLAS_CON_MISTRAL : REGLAS_DE_SECRETOS;
   let servicio: string | null = null;
-  for (const r of REGLAS_DE_SECRETOS) {
+  for (const r of reglas) {
     if (servicio) break;
     r.re.lastIndex = 0;
     if (r.re.test(texto)) servicio = r.servicio;
     r.re.lastIndex = 0;
   }
-  const r = redactarCon(texto, REGLAS_DE_SECRETOS);
+  const r = redactarCon(texto, reglas);
   return { texto: r.texto, tapadas: r.tapadas, servicio: r.tapadas ? servicio : null };
 }
 

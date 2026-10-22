@@ -68,6 +68,9 @@ test('el aviso: no promete que no quedó (sigue en el grupo), pide borrarla y tr
   assert.match(a, /Bórrala del grupo/);
   assert.match(a, /https:\/\/hola-mako\.com\/integraciones\?abrir=anthropic/);
   assert.doesNotMatch(a, /no quedó en el chat/);
+  // Ni «no la guardé»: el servidor de WhatsApp de MaKo (Evolution) guarda los mensajes por default. Lo cierto: la IA no la vio.
+  assert.doesNotMatch(a, /no la guard/);
+  assert.match(a, /la IA no la vio/);
   assert.equal(soloLaClave(`  ${CLAVE_TAPADA} `), true);
   assert.equal(soloLaClave(`mi clave ${CLAVE_TAPADA}`), false);
 });
@@ -115,6 +118,54 @@ test('la cita en el NIVEL DE ARRIBA (Evolution v2) también se tapa: todo el men
   assert.equal(h.avisosEnReentregas, 0, 'una re-entrega repitió el aviso');
   assert.equal(h.avisosApagado, 0, 'MaKo habló en un grupo donde está apagado');
   assert.equal(h.apagado.engaged, false);
+});
+
+// ── La segunda revisión del lote 1 (Integración, 22/10/2026) ──────────────────────────────────────────────────────────
+test('Mistral nombrada en CUALQUIER lugar: en otra línea, lejos, y dos claves con un solo rótulo', () => {
+  const K = 'aB3dE5fG7hJ9kL1mN2pQ4rS6tU8vW0xY';
+  const K2 = 'Zz9Yy8Xx7Ww6Vv5Uu4Tt3Ss2Rr1Qq0Pp';
+  for (const t of [`Clave de Mistral 👇\n${K}`, `Mistral:\n\n${K}`, `Te paso la clave de Mistral que me pediste ayer para el proyecto nuevo: ${K}`, `mis dos claves de mistral: ${K} ${K2}`, `${K} ${K2} son de mistral`]) {
+    const r = taparClavesDelMensaje({ message: { conversation: t } });
+    const json = JSON.stringify(r.mensaje);
+    assert.ok(!json.includes(K) && !json.includes(K2), `quedó una clave de Mistral en: ${JSON.stringify(t)}`);
+  }
+  // Sin nombrar a Mistral, un id de 32 en una frase no se toca (tapar de más también es un daño).
+  assert.equal(taparClavesDelMensaje({ message: { conversation: `el pedido ${K}\ngracias` } }).tapadas, 0);
+});
+
+test('un marcador adentro del contexto de otra regla no deja bytes NUL (la base rechazaba el mensaje y se perdía)', async () => {
+  const K = 'aB3dE5fG7hJ9kL1mN2pQ4rS6tU8vW0xY';
+  const CL = `sk-ant-api03-${'A1b2C3d4'.repeat(11)}AA`;
+  for (const t of [`${K} y ${CL} de Mistral`, `mistral: ${CL} y ${K}`, `MISTRAL_API_KEY=${K} ${CL}`]) {
+    const r = taparClavesDelMensaje({ message: { conversation: t } });
+    const json = JSON.stringify(r.mensaje);
+    assert.ok(!json.includes('\\u0000'), `quedó un NUL en: ${json}`);
+    assert.ok(!json.includes(K) && !json.includes(CL), `quedó una clave en: ${json}`);
+  }
+  // Y en el algoritmo mismo, con dos reglas de juguete: la segunda captura en `$1` el marcador de la primera.
+  const { redactarCon } = await import('../lib/agente-redaccion');
+  const r = redactarCon('hola SECRETO1 chau XYZ', [
+    { nombre: 'a', re: /SECRETO1/g, con: '[a]' },
+    { nombre: 'b', re: /(hola[^\n]*?)XYZ/g, con: '$1[b]' },
+  ] as never);
+  assert.equal(r.texto, 'hola [a] chau [b]');
+  assert.equal(r.tapadas, 2, 'el que vuelve adentro del grupo no se descuenta');
+});
+
+test('xAI, Perplexity, Hugging Face y Together también se tapan', () => {
+  for (const t of [`xai-${'Ab1'.repeat(27)}`, `pplx-${'ab12'.repeat(12)}`, `hf_${'AbCdEfGh'.repeat(5)}`, `tgp_v1_${'Ab1_-'.repeat(9)}`]) {
+    assert.ok(taparClavesDelMensaje({ message: { conversation: `mi clave ${t}` } }).tapadas > 0, `no tapó: ${t}`);
+  }
+});
+
+test('quien CITA el mensaje con la clave no recibe el aviso: lo de la cita se tapa en silencio', () => {
+  const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_doer-claves-hijo.ts')], {
+    cwd: RAIZ, encoding: 'utf8', timeout: 90_000, stdio: ['ignore', 'pipe', 'ignore'],
+  });
+  const h = JSON.parse(salida.split('@@RESULTADO@@').pop() ?? '{}');
+  assert.equal(h.error, undefined, h.error);
+  assert.equal(h.avisosPorLaCita, 0, 'MaKo le habló a quien citó la clave como si la hubiera pegado');
+  assert.ok(!h.colaCitaArriba[0].includes(h.claves.CLAUDE), 'y la cita igual queda tapada');
 });
 
 test('las claves que pasaban enteras: Mistral (32 sin prefijo, con contexto), Apify y DeepSeek', () => {

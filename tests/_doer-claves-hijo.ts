@@ -76,7 +76,8 @@ async function main() {
     pushName: 'Prueba',
   } as never);
   out.colaCitaArriba = pg.db.mako_doer_buffer.map((f) => JSON.stringify(f.payload)).filter((p) => p.includes('m3'));
-  red.splice(0);
+  // Quien CITA el mensaje con la clave no la pegó: se tapa en silencio, sin el aviso (segunda revisión del lote 1).
+  out.avisosPorLaCita = red.splice(0).filter((x) => x.camino.includes('/message/sendText/') && x.cuerpo.includes('Tapé tu clave')).length;
   // 4) Las re-entregas (el mismo id otra vez) no repiten el aviso: ni la de sólo la clave, ni la del mensaje con texto.
   await manejarEntranteDoer('mako-voz', { key: { remoteJid: JID, id: 'm1', participant: '5491100000000@s.whatsapp.net' }, message: { conversation: CLAUDE }, pushName: 'Prueba' });
   await manejarEntranteDoer('mako-voz', { key: { remoteJid: JID, id: 'm2', participant: '5491100000000@s.whatsapp.net' }, message: { extendedTextMessage: { text: `Hola MaKo, esta es mi clave de OpenAI ${OPENAI} ¿la cargás?` } }, pushName: 'Prueba' });

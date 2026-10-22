@@ -57,6 +57,21 @@ export function taparClavesDelMensaje<T extends object>(m: T): { mensaje: T; tap
   return cuenta.tapadas ? { mensaje: out as T, ...cuenta } : { mensaje: m, tapadas: 0, servicio: null };
 }
 
+/**
+ * ¿La clave tapada estaba en lo que escribió ESTA persona —su texto, o el caption de lo que mandó— y no sólo en una cita?
+ * Con la cita sola se tapa en silencio: el aviso le hablaba a quien citó («¡no pegues claves acá!») como si la hubiera
+ * pegado él (segunda revisión del lote 1). Recibe el mensaje YA tapado.
+ */
+export function escribioUnaClave(m: { message?: Record<string, unknown> | null } | null | undefined): boolean {
+  const msg = m?.message;
+  if (!msg || typeof msg !== 'object') return false;
+  const propios: unknown[] = [msg.conversation];
+  for (const v of Object.values(msg)) {
+    if (v && typeof v === 'object' && !Array.isArray(v)) propios.push((v as Record<string, unknown>).text, (v as Record<string, unknown>).caption);
+  }
+  return propios.some((x) => typeof x === 'string' && x.includes(CLAVE_TAPADA));
+}
+
 /** ¿Después de tapar no queda nada que contestar? (el mensaje era sólo la clave). */
 export const soloLaClave = (texto: string): boolean => !texto.split(CLAVE_TAPADA).join('').trim();
 
@@ -65,5 +80,7 @@ export const soloLaClave = (texto: string): boolean => !texto.split(CLAVE_TAPADA
  * otro): por eso no dice «no quedó en el chat», como la app, sino que se la borre. Y el link a su conexión.
  */
 export function avisoClaveTapadaEnElGrupo(link: string): string {
-  return `🔒 Tapé tu clave: no la guardé ni se la pasé a la IA. Bórrala del grupo y pégala aquí: ${link}`;
+  // Sin «no la guardé»: el servidor de WhatsApp de MaKo (Evolution) guarda los mensajes por default, y el mensaje con la
+  // clave sigue en el grupo. Lo cierto es que la IA no la vio (segunda revisión del lote 1).
+  return `🔒 Tapé tu clave: la IA no la vio. Bórrala del grupo y pégala aquí: ${link}`;
 }

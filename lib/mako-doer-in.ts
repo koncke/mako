@@ -66,7 +66,7 @@ import { ordenarPorCuota, anotarRebote429 } from '@/lib/ia-cuotas';
 import { recordUsage } from '@/lib/anthropic-usage';
 import { rutearDoer } from '@/lib/mako-router';
 import { negocioConSuIA } from '@/lib/ia-del-negocio';
-import { avisoClaveTapadaEnElGrupo, soloLaClave, taparClavesDelMensaje } from '@/lib/doer-claves';
+import { avisoClaveTapadaEnElGrupo, escribioUnaClave, soloLaClave, taparClavesDelMensaje } from '@/lib/doer-claves';
 import { taparClaves } from '@/lib/claves-en-el-chat';
 import { overrideDeFeature } from '@/lib/model-registry';
 import { encolar, reclamar, soltar, pendientes, esperarSilencio, marcarProcesados, unirMensajes, huerfanosGlobal, VENTANA_MS, VENTANA_AUDIO_MS } from '@/lib/mako-doer-buffer';
@@ -477,8 +477,10 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
     return { engaged: false, skip: 'eco de mi propia respuesta' };
   }
 
-  // Si el mensaje era SÓLO la clave, no queda nada que contestar: no se encola.
-  const soloClave = !!tapado?.tapadas && soloLaClave(texto) && !audio && !adjunto;
+  // Si el mensaje era SÓLO la clave, no queda nada que contestar: no se encola. Y el aviso, sólo si la clave estaba en lo
+  // que escribió ESTA persona: la de una cita se tapa en silencio (segunda revisión del lote 1).
+  const suyaTapada = !!tapado?.tapadas && escribioUnaClave(data);
+  const soloClave = suyaTapada && soloLaClave(texto) && !audio && !adjunto;
   if (!soloClave) {
     const nuevo = await encolar(jid, { waId: msgId, texto, tieneMedia: !!adjunto, tieneAudio: !!audio, payload: data as unknown });
     if (!nuevo && msgId) return { engaged: false, skip: 'ya estaba en la cola (re-entrega)' };
@@ -489,7 +491,7 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
   // (revisión del lote 1): antes, una re-entrega repetía el aviso, y MaKo hablaba en un grupo donde está apagado. El que
   // era sólo la clave no pasa por la cola: lo deduplica `avisoYaDado` (por proceso; una re-entrega a otra instancia lo
   // repite, y es un aviso, no una escritura).
-  if (tapado?.tapadas && (await doerActivo(OWNER_WS)) && (!soloClave || !avisoYaDado(msgId))) {
+  if (suyaTapada && (await doerActivo(OWNER_WS)) && (!soloClave || !avisoYaDado(msgId))) {
     const aviso = avisoClaveTapadaEnElGrupo(linkApp(`/integraciones${tapado.servicio ? `?abrir=${tapado.servicio}` : ''}`, wsData));
     const env = await enviarAGrupoJid(jid, aviso, 0);
     if (env.ok && env.id) await registrarEnviado(OWNER_WS, jid, env.id);

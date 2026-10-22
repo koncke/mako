@@ -10675,6 +10675,11 @@ estado que /chats y MaKo no ofrezcan reenviar.
   (supabase/migrations/0113), una re-entrega se encolaba dos veces en el test, y el arreglo del dedup no se podía ver. El
   hijo ahora declara el índice con `unicos`, igual que la migración. Si un test usa `_postgrest-de-mentira` sobre una tabla
   cuyo dedup hace el motor, tiene que declarar el índice; si no, el dedup no existe en el test.
+- **La segunda revisión (el mismo día):** el aviso le hablaba a quien CITABA la clave («¡no pegues claves acá!») como si la
+  hubiera pegado él, porque contaba lo tapado en la cita. Ahora el aviso sale sólo si la clave estaba en lo que escribió esa
+  persona (`escribioUnaClave`, su texto o el caption); lo de la cita se tapa en silencio. Y el aviso ya no dice «no la
+  guardé»: Evolution guarda los mensajes en su base por default, y el mensaje sigue en el grupo. Lo cierto es «la IA no la
+  vio».
 - **El acuse del webhook logueaba el texto crudo de hasta 40 caracteres**, y una clave `AIza…` suelta tiene 39. Ahora se
   tapa antes del log (app/api/webhooks/evolution/route.ts).
 
