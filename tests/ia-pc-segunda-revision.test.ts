@@ -335,5 +335,5 @@ test('El Archivero con su Claude en pausa dice la pausa, no Â«necesito tu claveÂ
   const t = sinComentarios(leer('lib/mako-turno-app.ts'));
   assert.match(t, /async function puedeArchivarConSuIA\(\): Promise<'si' \| 'no' \| 'pausa'>/);
   assert.match(t, /return claude && 'pausa' in claude \? 'pausa' : 'no';/);
-  assert.match(t, /avisos\.push\(archiva === 'pausa' \? AVISO_ARCHIVERO_EN_PAUSA : AVISO_SIN_ARCHIVERO\)/);
+  assert.match(t, /avisos\.push\(puede === 'pausa' \? AVISO_ARCHIVERO_EN_PAUSA : AVISO_SIN_ARCHIVERO\)/);
 });

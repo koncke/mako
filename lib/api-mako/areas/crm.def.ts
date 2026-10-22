@@ -1120,30 +1120,14 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: false, escribe: 'deja una propuesta de alta en propuestas; al confirmarla en /crm/revisar se crean los leads',
   },
 
-  // ── «¿Qué vas a crear hoy?» de una tab de la ficha (16/10/2026) ──────────────────
-  // ⚠️ AL FINAL DE LA LISTA A PROPÓSITO: con un mensaje que no la nombra, el presupuesto del turno de WhatsApp
-  //    (12.000 caracteres, lib/doer-herramientas.ts) corta por orden de declaración, y declarada antes dejaba
-  //    afuera a las heredadas. Es lo mismo que hace la pantalla (app/api/crm/ficha/armar): MaKo arma la tab ANTES
-  //    de proponerla, con la red barata de la casa (lib/ficha/ia-generar.ts), y lo que se confirma es lo que se guarda.
-  {
-    id: 'armar_tab_ficha', area: 'crm', tipo: 'accion', confirmacion: 'chat',
-    titulo: 'Armar una tab de la ficha',
-    descripcion: 'PROPONE armar UNA tab de la ficha del lead de un CRM (Resumen, Reuniones, Pagos o Tracking) con lo que se pide en palabras («lo que tengo que hacer y su contacto, en grande»): MaKo elige los bloques ANTES de proponerla y el resumen dice cuáles. Cambia la tab para todos los leads de ese CRM. Solo el administrador. Sin embudoId, el CRM principal.',
-    parametros: [
-      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM (de productos_del_lead). Sin él, el principal.' },
-      { nombre: 'tab', tipo: 'string', obligatorio: true, enum: [...TABS_FICHA], descripcion: 'la tab que se arma.' },
-      { nombre: 'pedido', tipo: 'string', obligatorio: true, max: 600, descripcion: 'qué quiere ver en esa tab, en palabras.' },
-    ],
-    canales: TODOS, costo: 'ia', lenta: true, gating: TAB_ADMIN,
-    reversible: true, escribe: 'guarda la tab armada en la ficha del CRM (funnels.data.ficha); cambia lo que ven todos sus leads',
-  },
-  // ── Lo del feedback de Martín del 21/10: AL FINAL DEL ÁREA A PROPÓSITO (22/10/2026) ────────────────────────
+  // ── Lo del feedback de Martín del 21/10: AL FINAL DEL ÁREA A PROPÓSITO, ANTES DE armar_tab_ficha (22/10/2026) ────────────────────────
   // ⚠️ En un empate de relevancia (`ordenarPorRelevancia`, lib/api-mako/registro.ts) gana la operación declarada ANTES,
   //    y el presupuesto del turno corta a las que vienen después. Declarada arriba, `cambiar_tipo_etapa` («cambiar» y
   //    «etapa» en el id, que es lo que suma la relevancia genérica de un pedido sobre un lead) dejó sin
   //    `editar_contacto_lead` a «cambia el teléfono del lead Juan…» en la app y en WhatsApp
   //    (tests/ops-center-bateria.test.ts), y sin `cambiar_ficha_funnel` a la edición de la ficha. Una operación nueva va
-  //    al FINAL de su área: en un empate pierde con las que el piso ya mide.
+  //    al FINAL de su área: en un empate pierde con las que el piso ya mide. Justo ANTES de `armar_tab_ficha`, que sigue
+  //    última por la misma regla desde el 16/10 (lenta y con IA; tests/ficha-tabs.test.ts).
   // 21/10/2026, Martín, sobre «Asignar evento»: «me gustaría que se pueda editar o crear eventos desde allí también».
   // Las mismas funciones que la pantalla (lib/agenda-evento-etapa-server.ts): el nombre y la duración, nada más.
   {
@@ -1199,5 +1183,22 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
     reversible: true, escribe: 'el tipo de la etapa en el pipeline del funnel (y su banda: Nutrición o el recorrido)',
+  },
+  // ── «¿Qué vas a crear hoy?» de una tab de la ficha (16/10/2026) ──────────────────
+  // ⚠️ AL FINAL DE LA LISTA A PROPÓSITO: con un mensaje que no la nombra, el presupuesto del turno de WhatsApp
+  //    (12.000 caracteres, lib/doer-herramientas.ts) corta por orden de declaración, y declarada antes dejaba
+  //    afuera a las heredadas. Es lo mismo que hace la pantalla (app/api/crm/ficha/armar): MaKo arma la tab ANTES
+  //    de proponerla, con la red barata de la casa (lib/ficha/ia-generar.ts), y lo que se confirma es lo que se guarda.
+  {
+    id: 'armar_tab_ficha', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Armar una tab de la ficha',
+    descripcion: 'PROPONE armar UNA tab de la ficha del lead de un CRM (Resumen, Reuniones, Pagos o Tracking) con lo que se pide en palabras («lo que tengo que hacer y su contacto, en grande»): MaKo elige los bloques ANTES de proponerla y el resumen dice cuáles. Cambia la tab para todos los leads de ese CRM. Solo el administrador. Sin embudoId, el CRM principal.',
+    parametros: [
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM (de productos_del_lead). Sin él, el principal.' },
+      { nombre: 'tab', tipo: 'string', obligatorio: true, enum: [...TABS_FICHA], descripcion: 'la tab que se arma.' },
+      { nombre: 'pedido', tipo: 'string', obligatorio: true, max: 600, descripcion: 'qué quiere ver en esa tab, en palabras.' },
+    ],
+    canales: TODOS, costo: 'ia', lenta: true, gating: TAB_ADMIN,
+    reversible: true, escribe: 'guarda la tab armada en la ficha del CRM (funnels.data.ficha); cambia lo que ven todos sus leads',
   },
 ];

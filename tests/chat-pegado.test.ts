@@ -24,8 +24,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  AVISO_CORTE_PEGADO, TOPE_PEGADO, caracteres, conPegados, esBurbujaLarga, esPegadoLargo, nombrePegado, partirPegados,
-  recortarMensaje, textoParaTitulo,
+  AVISO_CORTE_PEGADO, AVISO_CORTE_SIN_ARCHIVO, TOPE_PEGADO, caracteres, conPegados, esBurbujaLarga, esPegadoLargo, nombrePegado,
+  partirPegados, recortarMensaje, textoParaTitulo, textosParaArchivar,
 } from '../lib/chat-pegado';
 
 const RAIZ = join(__dirname, '..');
@@ -55,10 +55,22 @@ test('el corte del turno respeta las marcas y dice lo que cortó', () => {
   const m = conPegados('x'.repeat(50), ['p'.repeat(30), 'q'.repeat(30)]);
   const r = recortarMensaje(m, 10, 40);
   const { texto, pegados } = partirPegados(r);
-  assert.equal(texto, 'x'.repeat(10), 'lo escrito, hasta su tope');
+  // 22/10/2026 (la prueba de los chats): lo escrito se cortaba CALLADO; ahora también lo dice.
+  assert.equal(texto, `${'x'.repeat(10)}\n${AVISO_CORTE_PEGADO}`, 'lo escrito, hasta su tope, y lo dice');
   assert.equal(pegados.length, 2, 'las marcas siguen cerradas');
   assert.equal(pegados[0], 'p'.repeat(30));
   assert.equal(pegados[1], `${'q'.repeat(10)}\n${AVISO_CORTE_PEGADO}`, 'el segundo comparte lo que queda y lo dice');
+  // Lo que entra, entero y sin aviso.
+  assert.equal(recortarMensaje('hola', 10, 40), 'hola');
+  // Si no va a El Archivero, no lo promete: sólo que se cortó.
+  const sin = partirPegados(recortarMensaje(m, 10, 40, false));
+  assert.equal(sin.texto, `${'x'.repeat(10)}\n${AVISO_CORTE_SIN_ARCHIVO}`);
+  assert.equal(sin.pegados[1], `${'q'.repeat(10)}\n${AVISO_CORTE_SIN_ARCHIVO}`);
+  assert.ok(!AVISO_CORTE_SIN_ARCHIVO.includes('Archivero'));
+  // Lo que va ENTERO a El Archivero: los pegados, y lo escrito sólo si no entró.
+  assert.deepEqual(textosParaArchivar(m, 10), ['x'.repeat(50), 'p'.repeat(30), 'q'.repeat(30)]);
+  assert.deepEqual(textosParaArchivar(m, 50), ['p'.repeat(30), 'q'.repeat(30)]);
+  assert.deepEqual(textosParaArchivar('corto', 10), []);
 });
 
 test('#848: el hilo de escritorio y el del teléfono parten el mensaje y pliegan lo largo', () => {
@@ -88,11 +100,12 @@ test('#864: pegar más de 1.000 caracteres deja una ficha, en la computadora y e
 test('#884: lo pegado se guarda solo en El Archivero, entero, del admin y con guardarAdjuntos', () => {
   const t = sinComentarios(leer('lib/mako-turno-app.ts'));
   // `mensaje` es la entrada ENTERA con las claves tapadas (pieza 1.6, lib/claves-en-el-chat.ts): el crudo no se vuelve a leer.
-  assert.match(t, /const mensaje = tapado\.texto;\s*const textoPersona = recortarMensaje\(mensaje\.trim\(\), TOPE_MENSAJE\);/, 'el corte respeta las marcas');
-  assert.match(t, /const pegados = persona\.rol === 'admin' && entrada\.guardarAdjuntos \? partirPegados\(mensaje\)\.pegados : \[\];/,
+  assert.match(t, /const mensaje = tapado\.texto;[\s\S]{0,900}const textoPersona = recortarMensaje\(mensaje\.trim\(\), TOPE_MENSAJE, undefined, archiva === 'si'\);/, 'el corte respeta las marcas');
+  // 22/10/2026: lo pegado Y lo escrito que no entra en el tope (`textosParaArchivar`).
+  assert.match(t, /const paraArchivar = persona\.rol === 'admin' && entrada\.guardarAdjuntos \? textosParaArchivar\(mensaje\.trim\(\), TOPE_MENSAJE\) : \[\];/,
     'ENTERO (el mensaje de entrada, no el cortado), sólo del admin y sólo con guardarAdjuntos');
   // Con su propio Claude (D6b), El Archivero sólo con su clave: si no, no corre y se dice (tests/solo-su-ia.test.ts).
-  assert.match(t, /if \(pegados\.length\) await archivarPegadosDelChat\(ws, inicio, pegados\);/);
+  assert.match(t, /if \(paraArchivar\.length\) await archivarPegadosDelChat\(ws, inicio, paraArchivar\);/);
   const a = sinComentarios(leer('lib/chat-mako-adjuntos.ts'));
   const bloque = a.slice(a.indexOf('export async function archivarPegadosDelChat('), a.indexOf('export async function archivarPdfsDelChat('));
   assert.match(bloque, /registrarDocumentoSinPisar\(ws, \{\s*origen, contenido, nombre, mime: 'text\/plain', texto,/);

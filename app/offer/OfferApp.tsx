@@ -1110,6 +1110,8 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
             conclusion={conclusion}
             onSeguir={() => setVerConclusion(false)}
             onGuardar={guardarOferta}
+            // Rehacer es armar otra versión: la ventana se cierra y el armado se ve en el chat, como «Armar mi oferta».
+            onRehacer={puedeConcluir ? () => { setVerConclusion(false); void armar(); } : undefined}
             funnels={funnelsElegibles}
             conProbar={!arranque}
           />
