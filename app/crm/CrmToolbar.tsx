@@ -211,6 +211,9 @@ function MenuItem({ icon, label, onClick, href }: {
     <>
       <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, flex: 'none', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', color: hover ? 'var(--primary)' : 'var(--dim)' }}>{icon}</span>
       <span style={{ minWidth: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{label}</span>
+      {/* EL RENGLÓN QUE NAVEGA LO DICE (C6 de la llamada con Mauricio, 22/10/2026): «los tres puntos me mandaron a otro
+          lado» era «Buscar prospectos», el único del «⋯» que abre OTRA pantalla en vez de un pop-up. La flecha lo avisa. */}
+      {href && <span aria-hidden style={{ marginLeft: 'auto', fontSize: 13, color: 'var(--faint)' }}>→</span>}
     </>
   );
   return href
@@ -218,7 +221,9 @@ function MenuItem({ icon, label, onClick, href }: {
     : <button type="button" onClick={onClick} style={style} {...handlers}>{inner}</button>;
 }
 
-export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas, onPersonalizarTarjetas }: {
+export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas, onPersonalizarTarjetas, funnelActivo = null }: {
+  /** El CRM que se está mirando: «Buscar prospectos» lo lleva, y «Volver» de allá vuelve a ÉL (C6, 22/10/2026). */
+  funnelActivo?: number | null;
   onImportar: () => void;
   onExportar: () => void;
   onNuevo: () => void;
@@ -268,7 +273,7 @@ export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas
               onClick={() => { setOpen(false); onExportar(); }} />
             {/* El Leads Scraper (15/10/2026, docs/diseno-leads-scraper.md): la lista aparte de la
                 prospección en frío. Navega: es una pantalla, no un pop-up, porque la lista vive sola. */}
-            <MenuItem icon={<IconoMenu nombre="buscar" size={15} />} label="Buscar prospectos" href="/crm/prospectos"
+            <MenuItem icon={<IconoMenu nombre="buscar" size={15} />} label="Buscar prospectos" href={funnelActivo != null ? `/crm/prospectos?funnel=${funnelActivo}` : '/crm/prospectos'}
               onClick={() => setOpen(false)} />
             <span style={{ height: 1, background: 'var(--border)', margin: '5px 6px' }} />
             {/* ⚠️ ABRE UN POP-UP, NO UNA PANTALLA. «Quiero eliminar la ruta de funnel, que
