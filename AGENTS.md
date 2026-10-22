@@ -3464,6 +3464,16 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   devuelta y la de un cliente que se dio de baja (#871) quedan las dos impagas y SIN vencimiento. Toda lectura que decide
   «vencida» por la fecha ya las deja afuera; la que suma lo impago sin fecha tiene que preguntarlo, y leer con `*` (no una
   lista con `baja_at`, que rompe sin la mig 0307). tests/pagos-baja.test.ts barre `!esCuotaDevuelta(` en app/ y lib/.
+- **Un pago es de un TRATO: el lead EN UN CRM** (22/10/2026, mig 0324, lib/pagos-crm.ts). La casa es `leads` + los pagos
+  que no son de un CRM agregado; un CRM agregado (una renovación) es su fila de `lead_funnel` + los pagos con su
+  `funnel_id`. `getPagosByLead(lead)` es la CASA; para un CRM, `getPagosByLead(lead, crm)`; para buscar una cuota por id,
+  `'todos'`. Lo que escribe una pantalla que mira un CRM agregado lleva su CRM, validado con `crmDelTrato`; lo que nace
+  sin CRM va a la casa (el trigger NO adivina). Sumar los pagos de un lead sin decir el trato mezcla la venta con la
+  renovación: así la renovación mostraba «cuota 1, cobrada el 01/04» del primer servicio ([docs/hallazgos-pagos.md](docs/hallazgos-pagos.md)).
+  Lo que toca una cuota que YA existe saca el trato de la cuota (`tratoDelPago`), no lo supone; y una pantalla que dice un
+  CRM nunca cae a la casa porque le falte el trato (la revisión del 22/10 encontró las dos). Y un SALDO compara una venta
+  con lo cobrado de ESA venta: `faltaDeLaVenta` (venta de la casa − `total_cobrado_casa_usd`, mig 0325), nunca con
+  `total_cobrado_usd`, que es lo cobrado en todos los CRMs (la caja).
 
 # Un flag de visibilidad protege la PANTALLA; la API hay que cerrarla aparte
 

@@ -314,7 +314,8 @@ export function CuerpoElemento({ e, colores, editando, onCambiar, ctx }: {
     );
   }
   if (e.tipo === 'accion') return <ElementoAccion e={e} contexto={ctx?.abierto ?? null} editando={editando} soloLectura={!!ctx?.compartido} onCambio={ctx?.onCambio} />;
-  if (e.tipo === 'general') return <ElementoGeneral e={e} />;
+  // Con la hoja y lo elegido mirando: el «Funnel» de arriba de la hoja llega a «A quién cobrarle» (22/10/2026).
+  if (e.tipo === 'general') return <ElementoGeneral e={e} hoja={ctx?.hoja ?? null} vista={ctx?.vista ?? null} />;
   // 17/10/2026: un experimento («probemos X» en «Editar con MaKo»): su propuesta, su medición y su veredicto.
   if (e.tipo === 'experimento') return <ElementoExperimento e={e} editando={editando} compartido={!!ctx?.compartido} />;
   if (e.tipo === 'entidad') return <PiezaEntidad e={e} contexto={ctx?.abierto ?? null} periodo={ctx?.periodo ?? null} soloLectura={!!ctx?.compartido} onCambio={ctx?.onCambio} />;

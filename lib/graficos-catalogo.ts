@@ -754,7 +754,7 @@ export const COMPARTIDOS_DECLARADOS: readonly Campo[] = [
   { id: 'conjunto', nombre: 'Conjunto', en: { meta: 'conjunto', presupuesto: 'conjunto', guiones: 'conjunto' } },
   { id: 'anuncio', nombre: 'Anuncio', en: { meta: 'anuncio', leads: 'anuncio' } },
   { id: 'pagina', nombre: 'Página', en: { visitas: 'pagina', vsl: 'pagina', replays: 'pagina', clics: 'pagina', scroll: 'pagina', toques: 'pagina', retencion_vsl: 'pagina', landing_analisis: 'pagina', ubicacion: 'pagina' } },
-  { id: 'producto', nombre: 'Funnel', en: { leads: 'producto', entrega: 'producto', cartera: 'producto', pagos: 'producto' } },
+  { id: 'producto', nombre: 'Funnel', en: { leads: 'producto', entrega: 'producto', cartera: 'producto', pagos: 'producto', cobranza: 'producto' } },
   { id: 'closer', nombre: 'Closer', en: { leads: 'closer', llamadas: 'closer', llamadas_venta: 'closer', llamadas_dimensiones: 'closer' } },
   { id: 'automatizacion', nombre: 'Automatización', en: { inscripciones: 'automatizacion', envios: 'automatizacion' } },
   // v5 (contrato, «Campos COMPARTIDOS nuevos»): el video del VSL y su curva, la línea de WhatsApp, el setter y
@@ -1814,13 +1814,32 @@ export function sanearHoja(raw: unknown, i: number): Hoja | null {
   const nombre = typeof o.nombre === 'string' && o.nombre.trim() ? o.nombre.trim().slice(0, 40) : `Página ${i + 1}`;
   const plantilla = idValido(o.plantilla);
   const conectores = sanearConectores(o.conectores, new Set(componentes.map((c) => c.id)));
+  const id = idValido(o.id) ?? nuevoId();
   return {
-    id: idValido(o.id) ?? nuevoId(), nombre,
+    id, nombre,
     emoji: emojiValido(o.emoji), subtitulo: texto(o.subtitulo, 140),
-    tema: sanearTema(o.tema), controles, componentes,
+    tema: sanearTema(o.tema), controles: conFunnelDeCobros(controles, plantilla, id), componentes,
     ...(plantilla ? { plantilla } : {}),
     ...(conectores.length ? { conectores } : {}),
   };
+}
+
+/** Las plantillas de COBROS: la «Cobros» de General y la «Cobranza» del Dashboard. Ver `conFunnelDeCobros`. */
+export const PLANTILLAS_DE_COBROS: readonly string[] = ['cobros', 'cobranza'];
+
+/**
+ * Una hoja de COBROS sin el «Funnel» lo recibe al leerse (22/10/2026, CO1 del plan del Cerebro; llamada con un cliente:
+ * «que tú le puedas seleccionar de qué CRM quieres ver ese dashboard»). Desde ese día la plantilla nace con él, pero las
+ * hojas ya guardadas no lo tenían, y escribirlas una por una en producción no alcanza a las de los demás negocios. Así,
+ * cualquier hoja que salió de una plantilla de cobros lo trae, en «Todos» (no filtra nada hasta que se elija), con un id
+ * que sale del de la hoja: lo elegido mirando sobrevive a recargar, y guardar la hoja lo deja escrito.
+ * ⚠️ Si alguien lo quita, vuelve al leerla: en una hoja de cobros, elegir el CRM es lo que la hace útil con varios.
+ */
+function conFunnelDeCobros(controles: ControlVista[], plantilla: string | null, hojaId: string): ControlVista[] {
+  if (!plantilla || !PLANTILLAS_DE_COBROS.includes(plantilla)) return controles;
+  if (controles.some((c) => c.campo === 'producto') || controles.length >= MAX_CONTROLES) return controles;
+  const c = sanearControlVista({ id: `${hojaId.slice(0, 33)}-funnel`, tipo: 'lista', campo: 'producto' });
+  return c ? [...controles, c] : controles;
 }
 
 /** Una hoja vacía, con todo lo que una hoja tiene (nada armado a mano: así no se pierde un campo). */

@@ -13,6 +13,7 @@ import { RECON_LEADS_VALIDACION, RECON_SPEND_SIN_LEADS_USD, VSL_PRUEBA_VIDEO_ID 
 import { bajadaCrmPorAnuncio, type FilaLeadCrm } from './ads-rendimiento';
 import { conversorGastoMeta } from './moneda-meta';
 import { getCashCollectedPeriodo, getOutstandingPeriodo, getCuotasPendientes } from './pagos';
+import { firmadoEnCrms, ventasDeCrms } from './ventas-crm';
 import { listReviewPendientes } from './review-queue';
 import { getSettingNum, getSetting } from './settings';
 import { lunesDeFecha, diasAntes, ayerEnTijuana } from './date-utils';
@@ -862,7 +863,7 @@ async function _getRevenuePeriod(
   //             incluye cuotas de clientes cerrados en meses previos).
   //   outstanding = Σ pagos no pagados (receivables totales, NO acotado al
   //             período) — es lo que falta cobrar en todo el pipeline.
-  const [soldRes, cash_collected_usd, outstanding_usd, spendRes, primerosPagosCountRes] =
+  const [soldRes, cash_collected_usd, outstanding_usd, spendRes, primerosPagosCountRes, enCrms] =
     await Promise.all([
       // Sold: cerros del período. Sin los «sin cobro» (#747): un becado sería un cierre
       // de US$0 en «N cierres». `venta_tipo` es NOT NULL (mig 0116): el neq no come nulls.
@@ -889,6 +890,8 @@ async function _getRevenuePeriod(
         .select('id', { count: 'exact', head: true })
         .gte('fecha_primer_pago', start)
         .lte('fecha_primer_pago', end),
+      // Las ventas de los CRMs agregados (una renovación, mig 0324, CO2): también son lo firmado y un cierre.
+      firmadoEnCrms(start, end),
     ]);
 
   if (soldRes.error) throw new Error(`Sold falló: ${soldRes.error.message}`);
@@ -899,7 +902,7 @@ async function _getRevenuePeriod(
   const sold_revenue_usd = (soldRes.data ?? []).reduce(
     (acc, r) => acc + Number(r.monto_cierre_usd ?? 0),
     0,
-  );
+  ) + enCrms.usd;
   // outstanding_usd ya viene de getOutstandingTotal() arriba (Σ cuotas no pagadas)
 
   const meta_spend_cuenta = spendRes.reduce(
@@ -910,7 +913,7 @@ async function _getRevenuePeriod(
   // la cuenta (lib/moneda-meta.ts): no siempre es MXN.
   const meta_spend_usd = (await conversorGastoMeta()).aUsdNum(meta_spend_cuenta);
 
-  const cierres_en_periodo = (soldRes.data ?? []).length;
+  const cierres_en_periodo = (soldRes.data ?? []).length + enCrms.cierres;
   const primeros_pagos_en_periodo = primerosPagosCountRes.count ?? 0;
 
   const cac_usd =
@@ -1172,7 +1175,7 @@ async function _getRevenueMensual(hasta: string, mesesMax = 18): Promise<Revenue
   // de la tabla (1.614 filas medidas): paginado. Sin él, este gráfico venía
   // pintando el spend de los meses que entraran en las primeras 1.000 filas — y
   // sin ORDER BY, cuáles entraban no estaba ni definido.
-  const [soldRes, cashRes, spendRows, agendaRes] = await Promise.all([
+  const [soldRes, cashRes, spendRows, agendaRes, enCrms] = await Promise.all([
     // Sin los «sin cobro» (#747): igual que el Sold del período (getRevenuePeriod).
     supabase.from('leads').select('fecha_cierre, monto_cierre_usd').eq('cerro', true).neq('venta_tipo', VENTA_SIN_COBRO).gte('fecha_cierre', start),
     supabase.from('pagos').select('fecha_pago, monto_usd').eq('pagado', true).gte('fecha_pago', start),
@@ -1181,6 +1184,8 @@ async function _getRevenueMensual(hasta: string, mesesMax = 18): Promise<Revenue
       { orden: ORDEN_METRICAS, eq: { plataforma: 'meta' }, filtros: (q) => q.gte('fecha', start) },
     ),
     supabase.from('leads').select('fecha_junta_1').not('fecha_junta_1', 'is', null).gte('fecha_junta_1', start),
+    // Las ventas de los CRMs agregados (CO2): suman en el mes de su cierre, como las de la casa.
+    ventasDeCrms(start, null),
   ]);
   if (soldRes.error) throw new Error(`Revenue mensual (sold): ${soldRes.error.message}`);
   if (cashRes.error) throw new Error(`Revenue mensual (cash): ${cashRes.error.message}`);
@@ -1195,6 +1200,11 @@ async function _getRevenueMensual(hasta: string, mesesMax = 18): Promise<Revenue
     if (!r.fecha_cierre) continue;
     const ym = r.fecha_cierre.slice(0, 7);
     sold.set(ym, (sold.get(ym) ?? 0) + Number(r.monto_cierre_usd ?? 0));
+    cierres.set(ym, (cierres.get(ym) ?? 0) + 1);
+  }
+  for (const v of enCrms) {
+    const ym = v.fecha.slice(0, 7);
+    sold.set(ym, (sold.get(ym) ?? 0) + v.monto);
     cierres.set(ym, (cierres.get(ym) ?? 0) + 1);
   }
   for (const r of (cashRes.data ?? []) as Array<{ fecha_pago: string | null; monto_usd: number | null }>) {
@@ -2959,9 +2969,11 @@ async function _getObjetivoProgreso(
   if (gErr) throw new Error(`Query objetivo cierres falló: ${gErr.message}`);
   const ganadosRows = (ganados ?? []) as Array<{ fecha_cierre: string | null; monto_cierre_usd: number | null }>;
   const cuentan = ganadosRows.filter((g) => g.fecha_cierre === null || g.fecha_cierre >= desde);
-  const cierres_actual = cuentan.length;
+  // Y las ventas cerradas en un CRM agregado desde `desde` (una renovación, CO2).
+  const enCrms = await firmadoEnCrms(desde, null);
+  const cierres_actual = cuentan.length + enCrms.cierres;
   // Sold = total firmado de esos cierres (lo vendido, no lo cobrado).
-  const sold_actual = cuentan.reduce((s, g) => s + Number(g.monto_cierre_usd ?? 0), 0);
+  const sold_actual = cuentan.reduce((s, g) => s + Number(g.monto_cierre_usd ?? 0), 0) + enCrms.usd;
 
   // Cash: Σ pagos pagado=true con fecha_pago en [desde, hoy].
   const cash_actual = await getCashCollectedPeriodo(desde, hoy);

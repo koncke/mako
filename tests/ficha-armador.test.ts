@@ -262,7 +262,7 @@ test('los registros: cada bloque en el archivo de su tab, una vez, con las misma
     const src = sinComentarios(leer(`app/crm/lead-view/ficha/registro-${archivo}.tsx`));
     const ini = src.indexOf(`export const REGISTRO_${archivo.toUpperCase()}`);
     assert.ok(ini > 0, `registro-${archivo}.tsx no exporta REGISTRO_${archivo.toUpperCase()}`);
-    const enRegistro = [...src.slice(ini).matchAll(/^\s*'?([a-z0-9-]+)'?: \{ Componente:/gm)].map((m) => m[1]).sort();
+    const enRegistro = [...src.slice(ini).matchAll(/^\s*'?([a-z0-9-]+)'?: (?:\{ Componente:|delTrato\()/gm)].map((m) => m[1]).sort();
     assert.deepEqual(enRegistro, [...claves].sort(), `registro-${archivo}.tsx y reglas-${archivo}.ts no registran lo mismo`);
   }
 });

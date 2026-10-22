@@ -44,7 +44,7 @@ test('⚠️ «Quitar»: la confirmación se cierra y el renglón dice «Quitand
   const cerrar = q.indexOf('setAQuitar(null);');
   const marca = q.indexOf('setQuitando((s) => conId(s, q.id, true));');
   const transicion = q.indexOf('start(async () => {');
-  const accion = q.indexOf('await quitarCuotaAction(lead.id, q.id);');
+  const accion = q.indexOf('await quitarCuotaAction(lead.id, q.id, crm);');
   assert.ok(cerrar >= 0 && marca >= 0 && transicion >= 0 && accion >= 0, 'faltan las piezas de «Quitar»');
   assert.ok(cerrar < transicion && marca < transicion, 'cerrar y marcar van ANTES de la transición');
   assert.ok(transicion < accion);

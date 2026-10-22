@@ -410,6 +410,8 @@ avance de un OKR (lib/objectives-fuentes.ts), los gráficos de pagos (lib/grafic
   el plan de cuotas; uno solo, y sólo llena lo que viene vacío.
 - **Lo que no resuelve:** un pago suelto de la venta VIEJA registrado a mano después de agregar al lead a otro funnel se
   guarda en el nuevo (el día de su creación ya estaba ahí). Si pasa, se corrige el `funnel_id` de esa fila.
+- ⚠️ **Desde la 0324 (22/10/2026) el trigger ya no adivina**: lo que nace sin CRM va a la casa, y lo de un CRM agregado lo
+  escribe su tab Pagos diciendo el CRM (abajo, «Los pagos son de un CRM»).
 - **«Firmado» de una renovación: DESCARTADO por ahora (la otra mitad de la tarjeta).** La revisión del 17/10 lo marcó
   como a medias, y es cierto: «Firmado» (`sold_usd`) suma `leads.monto_cierre_usd` en `fecha_cierre`, y un lead tiene
   UN solo trato. Ganar en el tablero de un funnel agregado sólo mueve `lead_funnel.etapa` (`moverEtapaEnProducto`,
@@ -767,3 +769,169 @@ de pago de una landing del Web Generator (`cobrar_producto_landing`, busca el le
 gana al lead en su CRM de ORIGEN (`ganarLead` en la casa): la tarjeta del CRM de la campaña (agregado) no se mueve.
 **Sin hacer:** match de un pago externo por email/teléfono; mover a «Pagó» del CRM agregado al ganar.
 **Vive en:** lib/cobros-webhook.ts · lib/cobros.ts (`cobroDelAviso`, `ganarLead`) · app/crm/[id]/CobrarConLink.tsx.
+
+## Los pagos son de un CRM: el plan de una renovación arranca de cero (22/10/2026, mig 0324)
+
+Llamada con un cliente del 22/10 (Fathom 195129619, 05:00-12:39). Vio dos cosas: el dashboard de Cobros «sólo lee el
+funnel original» y no muestra a los clientes de renovación que ya pagaron; y la tab Pagos de un cliente en el CRM de
+renovaciones mostraba «cuota 1, cobrada el 01/04», que era de su primer servicio.
+
+- **El diagnóstico obvio del dashboard era el equivocado.** «Cobros sólo lee el funnel original» NO: la hoja «Cobros»
+  del ws1 (`general.informe.2`) no tiene NINGÚN filtro de funnel y lee todos los pagos. Medido (sólo lectura): los 34
+  pagos del ws1 son del funnel de la casa, y de «Renovación» (5 leads, 2 ganados: los leads 21 y 28) hay **cero**. Las
+  renovaciones no aparecían porque **nunca se registraron**: la tab Pagos en el CRM de renovaciones mostraba el plan del
+  primer servicio, así que no había dónde cargar el de la renovación. P1 era la consecuencia de P2.
+- **La causa real:** el plan colgaba del LEAD, no del par (lead, CRM). La venta y el plan (`monto_cierre_usd`,
+  `total_cuotas`, `monto_cuota_usd`, `dia_de_pago`…) están en `leads`, y la tab leía todas las filas de `pagos` del lead.
+- **El modelo que queda** (lib/pagos-crm.ts): cada CRM del lead es un TRATO. El de la casa, como siempre (`leads` +
+  los pagos que no son de un CRM agregado). El de un CRM agregado: su fila de `lead_funnel` (columnas nuevas de la 0324)
+  + los pagos con ese `funnel_id`. `getPagosByLead(lead)` devuelve la CASA (lo que leen la API de MaKo, el asistente de
+  Ganado, Customer Success, lo cobrado del lead); `getPagosByLead(lead, crm)`, un CRM; `'todos'` para buscar por id.
+  La ficha sabe qué CRM mira por el desplegable de la cabecera (`crmEnVista`) y los bloques de PLATA de Pagos pasan
+  por `ctxDelTrato` (app/crm/lead-view/ficha/pagos/trato.ts): lo que se ve y lo que se escribe es de ese trato. Cada
+  acción valida el CRM contra el lead (`crmDelTrato`).
+- **Trampa 1 · el índice único de las cuotas era por LEAD** (`idx_pagos_lead_numero (lead_id, numero)`, mig 0014): la
+  cuota 1 de la renovación no podía convivir con la cuota 1 de la venta. La 0324 lo cambia a `(lead_id, funnel_id,
+  numero)`, y por eso **se aplica ANTES del deploy**: sin ella, el plan de un CRM agregado no se guarda y lo dice
+  (`faltaIndicePorCrm` → «falta la migración 0324»), en vez de un «duplicate key».
+- **Trampa 2 · el trigger de la 0310 adivinaba el CRM por «el último al que se agregó al lead».** Con un CRM de
+  prospección masiva (300 agregados al «Sprint 3 días» del ws1 el 22/10, 1.050 en camino), una cuota de la venta de
+  siempre cargada por la API o la pasarela habría ido al Sprint y desaparecido de la tab Pagos de la casa. **Regla:** lo
+  que nace sin decir su CRM va a la CASA; lo de un CRM agregado lo escribe su tab Pagos, diciendo el CRM. La diferencia
+  de un cobro por menos (`resto_de`) va al CRM de su cuota.
+- **Lo que no se perdió:** ningún pago cambió de CRM (la 0324 no tiene un `update pagos`). El único pago que ya estaba
+  en un CRM agregado (ws11, lead 2632, US$40 cobrado, creado el día que se lo agregó a «Funnel principal») pasa a verse
+  en la tab Pagos de ESE CRM. `total_cobrado_usd` sigue siendo lo cobrado del lead en TODOS sus CRMs (lo leen el
+  rendimiento de un anuncio, la columna «cobrado» y el export).
+- **P1, el selector:** la hoja ya tenía el control «Funnel» (campo `producto`), pero (a) «A quién cobrarle» es un bloque
+  de General y `efectivoDe` no lo alcanza: ahora el control de la hoja le llega por `funnelsDeLaHoja`
+  (lib/graficos-controles-texto.ts) si el bloque no eligió los suyos; (b) la lista era por LEAD y filtraba por
+  pertenencia: ahora es una fila por trato (`OutstandingLead.crm/funnel_id`) y el bloque filtra por el CRM de la fila;
+  (c) el desplegable sólo ofrecía funnels con filas en el período: un CRM sin cobros todavía no se podía elegir. Ofrece
+  todos (`valoresDeCampo`). La plantilla «Cobros» nace con el control.
+- **P3:** «01/04» no se sabía si era día/mes: `fechaEnPalabras` (lib/date-utils.ts) en la tab Pagos y en sus textos
+  (`ddmm`, lib/cobrado-lead.ts): «1 de abril», con el año sólo si no es el de hoy.
+
+**Sin hacer** (con dónde vive):
+- ~~La hoja «Cobros» YA GUARDADA del ws1 no tiene el control~~ (CO1, 22/10/2026): toda hoja que salió de una plantilla de
+  cobros (`plantilla` «cobros» o «cobranza») lo recibe al LEERSE (`conFunnelDeCobros`, lib/graficos-catalogo.ts), en todos
+  los negocios, sin escribir nada en producción. **La regla:** lo que una plantilla gana después se le da a las hojas viejas
+  en el saneo, no escribiéndolas a mano una por una (eso sólo alcanza a la que se mira).
+- Los bloques del DEAL (contrato, datos fiscales, servicio, promesa, obligaciones) siguen siendo del lead en cualquier
+  CRM: app/crm/lead-view/ficha/pagos/bloques-deal.tsx.
+- Un CRM agregado no tiene suscripción (`lead_funnel_venta_tipo_check`): una mensualidad es de la casa.
+- Lo que entra SIN CRM va a la casa: el link de pago libre de la pasarela (`registrarCobroDeProveedor`, salda primero
+  una deuda de cualquier CRM por monto), la API de MaKo (`guardar_plan_pagos`, `registrar_pago`) y el asistente de Ganado
+  (que es el de la casa). La API no sabe elegir CRM: lib/api-mako/areas/cobros.run.ts.
+- ~~«Firmado» sólo sumaba la venta de la casa~~; ~~el teléfono y Customer Success mostraban la casa~~ (CO2, 22/10/2026):
+  ver «Una renovación también es una venta», abajo.
+- «Links de pago» lista los links del LEAD (`cobros` no tiene CRM) también mirando una renovación; «Movimientos» sí se
+  queda con los de SUS cuotas (`cobrosDelTrato`, lib/pagos-crm.ts).
+
+**Vive en:** supabase/migrations/0324_pagos_por_crm.sql · lib/pagos-crm.ts · lib/pagos.ts (`getPagosByLead`,
+`crmDelTrato`, `tratosDelLead`, `escribirVentaDeCrm`) · app/crm/lead-view/ficha/pagos/trato.ts · tests/pagos-crm.test.ts.
+*22/10/2026, chat «Cobros» (claude3).*
+
+### La revisión adversarial de los pagos por CRM: lo que el primer arreglo tenía mal (22/10/2026)
+
+Cerebro › Integración revisó la punta 05fc52b09 antes de integrarla (2 altos, 6 medios). El patrón de casi todos: **el
+primer arreglo partió los pagos en tratos, pero varias puertas seguían suponiendo «sin CRM = la casa»** sin mirar de qué
+trato era la cuota que tocaban. Las reglas que quedan:
+- **Lo que toca una cuota que YA existe saca el trato de la cuota, no de la pantalla** (`tratoDelPago`). Deshacer un pago
+  suelto de una renovación reconciliaba contra la casa, no lo encontraba y lo dejaba como deuda vencida inventada (A1).
+  El pago repetido de un link de la cuota de una renovación entra con el `funnel_id` de esa cuota (M6).
+- **La pantalla nunca cae a la casa porque le falte el trato** (A2). Después de «Agregar a Renovación» el pop-up sólo
+  refrescaba la ruta: seguía con los tratos de antes, mostraba la casa y «Armar el plan» ESCRIBÍA el de la casa. Ahora
+  relee al agregar, quitar o mover en un CRM (`onProductosCambiados`), `crmEnVista` sale del CRM que dice la cabecera aunque
+  el trato no se haya leído (la tab lo muestra vacío y avisa), y el server valida el CRM.
+- **Buscar una cuota por su id es `'todos'`** (M1): MaKo no podía marcar cobrada la de una renovación. Y el estado de
+  cuenta de MaKo (`cobranza_lead`) nombra lo que se debe en los otros CRMs: decía «Pagó todo» de quien debía la renovación.
+- **La casa es todo lo que no es un CRM agregado, y la casa nunca es un agregado** (M2, M3). Filtrar «la casa» por
+  `funnel_id == leads.funnel_id` perdía los meses cobrados en una casa anterior. Y una fila de `lead_funnel` que repite la
+  casa (un borrado que falló) la dejaba vacía: `crmsAgregadosDelLead` saca la casa real (`casaDelLead`).
+- **Un CRM con plata no se quita ni se borra para siempre** (M4): su venta vive en su fila de `lead_funnel` y sus pagos
+  llevan su `funnel_id`. Quitarlo (o quitar la casa, que borra la fila que se promueve) perdía la venta y mezclaba los pagos
+  con la casa; borrar el funnel dejaba los pagos en NULL. `tratoConPlata` lo frena con el porqué.
+- **Un pago sin cuota de la pasarela casa por monto sólo en la casa** (M5): la mensualidad de Stripe saldaba la cuota de
+  una renovación del mismo monto. La cuota de un CRM agregado se cobra con SU link.
+- **Bajos que se arreglaron:** «Movimientos» de la casa sin los cobros de sus renovaciones; el semáforo de la suscripción
+  con el año cuando no es el de hoy; el nombre en «A quién cobrarle» abre la ficha en el CRM de esa deuda (`?funnel=`);
+  `total_cobrado_usd` volvió a contar todos los CRMs.
+- **Bajos que quedan (sin hacer):** el «Funnel» de la hoja no llega a «A quién cobrarle» de General si el CRM elegido no
+  está entre los primeros 8 (`TOPE_FUNNELS`, app/general/datos.ts); `baja_at` y `pagado_at` toman el día UTC (de antes);
+  las variables de pagos de una automatización (`{{lead_proxima_cuota}}`) leen la casa porque el mensaje no sabe su CRM
+  (lib/variables-resolver.ts).
+
+**Vive en:** lib/pagos.ts (`casaDelLead`, `tratoDelPago`, `tratoConPlata`) · lib/lead-funnel.ts (`quitarDeProducto`) ·
+lib/funnels.ts (`eliminarFunnelDefinitivo`) · lib/api-mako/areas/crm.run.ts · tests/pagos-crm-revision.test.ts.
+
+### La segunda revisión: lo que el lead debe es la venta de la casa menos lo cobrado de ESA venta (22/10/2026, mig 0325)
+
+- **El síntoma:** la primera revisión pidió que `total_cobrado_usd` volviera a contar todos los CRMs (es la caja de esa
+  persona: el rendimiento de un anuncio la lee). Bien para la caja, pero dio vuelta el error en todo lo que calcula «lo
+  que falta», que restaba esa suma de la venta de la CASA (`monto_cierre_usd`): `{{lead_saldo}}` en los MENSAJES AL
+  CLIENTE, «Falta cobrar USD» del export, el filtro «Solo los que deben» y `listar_leads`. Venta de US$2.000, 1.000
+  pagados y 500 cobrados en una renovación: «te falta pagar US$500» en vez de 1.000.
+- **La regla:** cada saldo compara una venta con lo cobrado de ESA venta. La fila del lead guarda las dos sumas:
+  `total_cobrado_usd` (todos los CRMs, la caja) y `total_cobrado_casa_usd` (mig 0325, la venta de la casa), las dos
+  escritas por `sincronizarTotalCobrado`. El saldo sale de `faltaDeLaVenta` (lib/pagos-crm.ts), y sin la columna cae a lo
+  de antes. El export dice «Cobrado USD» de esa venta, al lado de su «Vendido» y su «Falta».
+- **Lo del diagnóstico obvio:** «total cobrado» parece UN número, y son dos. Arreglar uno (la caja) rompía el otro (el
+  saldo), y viceversa. Antes de cambiar qué suma una columna, hay que listar QUIÉN la resta de qué.
+- **Los bajos de la segunda revisión, hechos:**
+  - Las guardas de M4 tienen un texto por caso: quitar un CRM agregado, o quitar la casa cuando el CRM que la reemplaza
+    tiene su propia venta. Ninguno sugiere borrar pagos.
+  - El borrado definitivo frena sólo la plata de los AGREGADOS de ese CRM y la del funnel del negocio que borraría el
+    rescate. La venta de quienes lo tienen de casa se va con ellos, como siempre.
+  - El borrado en lote (`quitarLoteDeProducto`, el Deshacer de «Agregar») saltea a quien tiene plata en ese CRM.
+  - Con el trato sin leer, la tab avisa y no escribe (`sinTratoLeido`).
+
+**Vive en:** supabase/migrations/0325_cobrado_de_la_casa.sql · lib/pagos-crm.ts (`cobradoDeLaVenta`, `faltaDeLaVenta`) ·
+lib/pagos.ts (`sincronizarTotalCobrado`, `leadsConPlataEn`) · lib/variables-del-lead.ts · app/crm/actions.ts ·
+tests/pagos-crm-revision.test.ts (la segunda tanda prueba el número del saldo).
+
+### Una renovación también es una venta: «Firmado», el teléfono y Customer Success (22/10/2026, CO2)
+
+- **Lo que faltaba:** desde la 0324 la renovación tiene su venta (monto, fecha y tipo en su fila de `lead_funnel`), pero
+  «Firmado» y los cierres sumaban sólo `leads.monto_cierre_usd`. Una renovación ganada no contaba en ningún número.
+- **Los lectores son SEIS, no uno:** el Revenue del período (lib/queries.ts), su serie por mes, el objetivo, el desglose
+  del Revenue (lib/pagos.ts), los OKR y KPIs «Firmado» y «Cierres» (lib/objectives-fuentes.ts, por funnel con SU funnel), y
+  los conjuntos «Negocio» y «Revenue» del Dashboard. Todos leen `ventasDeCrms` (lib/ventas-crm.ts), y la regla de qué es
+  una venta es pura (`ventasDeFilas`): ganada en ese CRM, con monto y fecha, no «sin cobro», y nunca la fila que repite la
+  casa (sumaría dos veces). Antes de cambiar qué es «lo vendido», hay que enumerar dónde se suma: no hay un solo lugar.
+- **El teléfono y CS:** el teléfono suma una fila «Estado de cuenta · <CRM>» por cada CRM con plata; CS, una sección por
+  CRM con los bloques de PLATA en el trato de ese CRM (los del deal son del lead).
+- **Sin hacer:** el conjunto «Leads» del Dashboard (`filasLeads`) cuenta la venta por lead desde su casa; la renovación no
+  tiene fila propia ahí. La ficha del teléfono no cobra en ningún CRM (de antes).
+
+**Vive en:** lib/ventas-crm.ts · lib/pagos-crm.ts (`ventasDeFilas`) · app/customer-success/PagosCliente.tsx ·
+app/m/crm/datos.ts · tests/pagos-crm-co2.test.ts.
+
+### La tercera revisión: lo cobrado al lado de un saldo es de ESA venta, y la columna de la casa es un caché (22/10/2026)
+
+- **«Cerrado en cuatro lugares» no era todo.** El saldo ya miraba la venta de la casa en `{{lead_saldo}}`, el filtro, el
+  CSV y `listar_leads`, pero dos lectores le ponían AL LADO lo cobrado en todos los CRMs: el export en MD («cobrado
+  US$1.500 (75%) · falta US$500» a quien debía 1.000) y `{{lead_cobrado}}` («Pagaste 1.500 de 2.000, te falta 1.000»).
+  **La regla:** donde se muestra junto a un saldo o a la venta, lo cobrado es `cobradoDeLaVentaSiHay` (lib/pagos-crm.ts),
+  que da null sin dato en vez de inventar «US$ 0». La caja (el cash, el rendimiento de un anuncio) sigue con el total.
+- **`total_cobrado_casa_usd` depende de en qué CRMs está el lead**, no sólo de sus pagos: un pago con el funnel de un CRM
+  agregado no es de la casa. Agregar, quitar o deshacer cambia ese conjunto, y no re-sincronizaba: un lead re-agregado
+  a su CRM viejo dejaba en la columna plata que ya no era de la casa, y el saldo saltaba con el próximo pago. Ahora
+  `resincronizarCobrado` (lib/lead-funnel.ts); un lote sólo sincroniza a los que tienen pagos en ese CRM.
+- **Un error tragado ahora queda ESCRITO.** `funnelDelNegocio` devolvía null si la lectura fallaba. Antes era un número
+  mal en pantalla; con la columna de la casa, sincronizar escribía 0 y el saldo pasaba a ser la venta entera. Tira.
+  Y `listar_leads` leía la columna sin mirar `error` (Supabase no tira): caía callado a la cuenta vieja. Ahora null y nota.
+
+**Sin hacer** (decididos, con el porqué):
+- `updateLead` reescribe `total_cobrado_usd` de la foto que leyó (lib/leads.ts:1142), y no la columna de la casa: un pago
+  entre la lectura y la escritura deja las dos distintas. Es de antes para el total; el saldo sale bien. Sacar los
+  derivados del payload toca todos los caminos de `updateLead` (CRM).
+- CO2 suma las renovaciones a los cierres del conjunto «Negocio»: el CAC (gasto ÷ cierres) y la tasa de cierre
+  (cierres ÷ asistencias) mezclan ventas que no vienen de la pauta. Es una decisión de producto, para Martín.
+- `{{lead_saldo}}` y las cuotas hablan sólo de la venta de la casa: a quien la pagó entera y debe la renovación le dice
+  «US$ 0». Hoy las etapas de un CRM agregado no disparan automatizaciones; sólo pasa en un mensaje armado a mano.
+- «Firmado» por funnel reparte la venta de la casa por el último CRM agregado (`funnelDelMomento`,
+  lib/funnels-elegidos.ts): la misma regla que la 0324 sacó de los pagos. Es de antes de CO2.
+
+**Vive en:** lib/pagos-crm.ts (`cobradoDeLaVentaSiHay`) · app/crm/actions.ts (`filaALeadDoc`) · lib/variables-del-lead.ts ·
+lib/lead-funnel.ts (`resincronizarCobrado`) · tests/pagos-crm-tercera.test.ts.

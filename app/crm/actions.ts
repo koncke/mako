@@ -169,7 +169,8 @@ async function autorActual(): Promise<string> {
 }
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd, adIdDeLead } from '@/lib/queries';
-import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, leerMarcasDeCobranza, reponerMarcasDeCobranza, type PlanPagos, type Pago } from '@/lib/pagos';
+import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, tratosDelLead, leerMarcasDeCobranza, reponerMarcasDeCobranza, type PlanPagos, type Pago } from '@/lib/pagos';
+import { cobradoDeLaVentaSiHay, faltaDeLaVenta, type TratoCrm } from '@/lib/pagos-crm';
 import { avisoDeConservadas, avisoPlanUniforme, pagosPrevios, planDelAsistente } from '@/lib/pagos-campo';
 import { senalesDeCobroAction } from './[id]/cobros-actions';
 import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
@@ -219,7 +220,14 @@ export async function getLeadInsights(leadId: number): Promise<LeadInsightRow[]>
 export type LeadFullData = {
   lead: Lead;
   stages: Stage[];
+  /** Los pagos del trato de la CASA (mig 0324): los de un CRM agregado van en `tratos`. */
   pagos: Pago[];
+  /**
+   * El trato del lead en cada CRM al que se lo agregó (una renovación, mig 0324, lib/pagos-crm.ts): su venta, su plan y sus
+   * pagos. La tab Pagos mirando ese CRM muestra éste, no el de la casa. Vacío si no está en otro CRM; `undefined` si no se
+   * pudo leer (la tab lo dice: no es «sin plan»).
+   */
+  tratos?: TratoCrm<Pago>[];
   vslEng: VslEngagement;
   /** El catálogo `landing.videos`: cómo llama el negocio a cada video. */
   videos: VideoLanding[];
@@ -323,6 +331,8 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const equipoP = temprano(getEquipoAction());
   const funnelsP = listarFunnels().catch(() => []);
   const cobroP = temprano(senalesDeCobroAction(id));
+  // Los tratos de sus CRMs agregados (mig 0324): si no se pueden leer, la tab Pagos de un CRM agregado sale vacía, no la ficha.
+  const tratosP = tratosDelLead(id).catch((e: unknown) => { console.error(`[crm] tratos del lead ${id}:`, e instanceof Error ? e.message : e); return undefined; });
   const resumenP = temprano(resumenDelNegocio());
   // ⚠️ LOS INSUMOS DE «N SIN MARCAR» (el plan, las etapas DEL LEAD, las respuestas de la R2 y si el encuentro
   // se graba) salen de `leerInsumosDatosLead` (lib/datos-del-lead.ts), la MISMA lectura que la ficha del
@@ -376,7 +386,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const [ficha, rolWs, partners] = await Promise.all([fichaP, rolP, ofrecePartners()]);
   const rol = rolDeFicha(rolWs);
   return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), respuestasLanding: respuestasGuardadas(lead.optin_respuestas), resumen: await resumenP, cohorte: cohorteDeLead(lead), insightGen, faltantesInsight, faltantes, datos, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP,
-    ficha, rol, verPrivado: vePrivado(rol, lead.closer, sesion), puedeEditarFicha: rol === 'admin', partners };
+    ficha, rol, verPrivado: vePrivado(rol, lead.closer, sesion), puedeEditarFicha: rol === 'admin', partners, tratos: await tratosP };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */
@@ -1543,7 +1553,7 @@ const COLS_FILTRO: string[] = [
   'estado_lead', 'pipeline_stage', 'asistio_j1', 'asistio_j2',
   'fecha_agenda', 'fecha_junta_1', 'fecha_junta_2', 'nutricion_realizada',
   'created_at', 'fecha_cierre', 'fecha_primer_pago',
-  'monto_cierre_usd', 'total_cobrado_usd', 'venta_tipo',
+  'monto_cierre_usd', 'total_cobrado_usd', 'total_cobrado_casa_usd', 'venta_tipo',
   'closer', 'setter',
   'meta_campaign_name', 'utm_campaign', 'origen_lead',
 ];
@@ -1631,7 +1641,8 @@ function pasaFiltros(
     switch (f.dinero) {
       case 'con-monto': if (!(vendido > 0)) return false; break;
       case 'con-cobro': if (!(cobrado > 0)) return false; break;
-      case 'debe': if (!(vendido - cobrado > 0)) return false; break;
+      // Lo que falta de la venta de la CASA (mig 0325): una renovación cobrada no resta de esa venta.
+      case 'debe': if (!((faltaDeLaVenta(l) ?? 0) > 0)) return false; break;
       case 'suscripcion': if (sTxt(l.venta_tipo) !== 'suscripcion') return false; break;
       case 'ganado-sin-monto': if (sTxt(l.estado_lead) !== 'ganado' || vendido > 0) return false; break;
     }
@@ -1648,7 +1659,11 @@ async function traerLeads(columnas: string[]): Promise<FilaLead[]> {
   // Ordenado por id y no por created_at: con empates de timestamp el .range()
   // repite o saltea filas entre páginas (el orden deja de ser estable).
   for (let desde = 0; desde < 200_000; desde += PAGE) {
-    const { data, error } = await db.from('leads').select(sel).order('id', { ascending: true }).range(desde, desde + PAGE - 1);
+    let { data, error } = await db.from('leads').select(sel).order('id', { ascending: true }).range(desde, desde + PAGE - 1);
+    // Sin la 0325 la columna no está: se lee sin ella (lo cobrado de la venta cae a `total_cobrado_usd`, `cobradoDeLaVenta`).
+    if (error && /total_cobrado_casa_usd/.test(error.message)) {
+      ({ data, error } = await db.from('leads').select(sel.split(', ').filter((c) => c !== 'total_cobrado_casa_usd').join(', ')).order('id', { ascending: true }).range(desde, desde + PAGE - 1));
+    }
     if (error) throw new Error(`No se pudieron leer los leads: ${error.message}`);
     const chunk = (data ?? []) as unknown as FilaLead[];
     filas.push(...chunk);
@@ -1698,7 +1713,9 @@ async function leadsFiltrados(f: FiltrosLeads, columnasExtra: string[]): Promise
     if (!pasaFiltros(l, f, key, banda, rango)) continue;
     l['#etapaKey'] = key;
     l['#etapa'] = meta.label ?? key;
-    l['#falta'] = Math.max(0, nNum(l.monto_cierre_usd) - nNum(l.total_cobrado_usd));
+    l['#falta'] = faltaDeLaVenta(l) ?? 0;
+    // «Cobrado USD» va con su «Vendido» y su «Falta»: lo cobrado de la venta de la casa (mig 0325).
+    l['#cobrado'] = cobradoDeLaVentaSiHay(l);
     l['#origen'] = origenDeFila(l);
     filas.push(l);
   }
@@ -1778,7 +1795,9 @@ function filaALeadDoc(l: FilaLead): LeadDoc {
     estado: sTxt(l.estado_lead),
     calificado: bTri(l.calificado),
     monto: l.monto_cierre_usd == null ? null : nNum(l.monto_cierre_usd),
-    cobrado: l.total_cobrado_usd == null ? null : nNum(l.total_cobrado_usd),
+    // Lo cobrado de la venta de la CASA (mig 0325), como el «Falta» del CSV del mismo export (tercera revisión, M1): con
+    // el total de todos los CRMs decía «cobrado US$1.500 (75%) · falta US$500» a quien debía 1.000 de su venta.
+    cobrado: cobradoDeLaVentaSiHay(l),
     ventaTipo: sTxt(l.venta_tipo),
     suscripcionMonto: l.suscripcion_monto_usd == null ? null : nNum(l.suscripcion_monto_usd),
     suscripcionMeses: l.suscripcion_meses == null ? null : nNum(l.suscripcion_meses),

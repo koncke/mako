@@ -450,7 +450,8 @@ export const RUNNERS: Runners = {
     preparar: async (input) => {
       const lead = await getLead(Number(input.leadId)).catch(() => null);
       if (!lead) return { error: noExisteLead(input.leadId) };
-      const pagos = await getPagosByLead(lead.id).catch(() => null);
+      // De CUALQUIER CRM (mig 0324): una cuota de una renovación también se cobra por su id.
+      const pagos = await getPagosByLead(lead.id, 'todos').catch(() => null);
       if (!pagos) return { error: 'No pude leer las cuotas. Prueba de nuevo en un rato.' };
       const q = pagos.find((p) => p.id === Number(input.cuotaId));
       if (!q) return { error: `La cuota #${String(input.cuotaId)} no es de ${lead.nombre}. Pide cobranza_lead para ver sus cuotas.`, disponibles: pagos.map((p) => ({ cuotaId: p.id, numero: p.numero, monto_usd: p.monto_usd, pagada: p.pagado })) };
@@ -490,7 +491,8 @@ export const RUNNERS: Runners = {
     preparar: async (input, ctx) => {
       const lead = await getLead(Number(input.leadId)).catch(() => null);
       if (!lead) return { error: noExisteLead(input.leadId) };
-      const pagos = await getPagosByLead(lead.id).catch(() => null);
+      // De CUALQUIER CRM (mig 0324): una cuota de una renovación también se cobra por su id.
+      const pagos = await getPagosByLead(lead.id, 'todos').catch(() => null);
       if (!pagos) return { error: 'No pude leer las cuotas. Prueba de nuevo en un rato.' };
       const q = pagos.find((p) => p.id === Number(input.cuotaId));
       if (!q) return { error: `La cuota #${String(input.cuotaId)} no es de ${lead.nombre}. Pide cobranza_lead para ver sus cuotas.` };
@@ -532,7 +534,7 @@ export const RUNNERS: Runners = {
     preparar: async (input) => {
       const lead = await getLead(Number(input.leadId)).catch(() => null);
       if (!lead) return { error: noExisteLead(input.leadId) };
-      const q = (await getPagosByLead(lead.id).catch(() => [])).find((p) => p.id === Number(input.cuotaId));
+      const q = (await getPagosByLead(lead.id, 'todos').catch(() => [])).find((p) => p.id === Number(input.cuotaId));
       if (!q) return { error: `La cuota #${String(input.cuotaId)} no es de ${lead.nombre}. Pide cobranza_lead para ver sus cuotas.` };
       const prot = await proteccionesDeCuotas(lead.id, [q.id]).catch(() => null);
       if (!prot) return { error: 'No pude revisar los recordatorios de la cuota. Prueba de nuevo en un rato.' };

@@ -21,7 +21,7 @@
 import { revalidatePath, updateTag } from 'next/cache';
 import { TAG } from '@/lib/cache';
 import { getUsuarioActual } from '@/lib/auth';
-import { anotarEnHistorial, asegurarLeadDelNegocio, getPagosByLead, guardarCuotasPorId, proteccionesDeCuotas } from '@/lib/pagos';
+import { anotarEnHistorial, asegurarLeadDelNegocio, crmDelTrato, getPagosByLead, guardarCuotasPorId, proteccionesDeCuotas } from '@/lib/pagos';
 import { noEsDeuda } from '@/lib/cobrado-lead';
 import { avisoDeConservadas, lineasDeCuotas, type Proteccion } from '@/lib/pagos-campo';
 import { darDeBajaCliente, deshacerBajaCliente } from '@/lib/pagos-baja';
@@ -49,7 +49,8 @@ export async function proteccionesDeCuotasAction(leadId: number): Promise<Record
     if (!(await haySesion())) return {};
     if (!Number.isInteger(leadId) || leadId <= 0) return {};
     await asegurarLeadDelNegocio(leadId);
-    const impagas = (await getPagosByLead(leadId)).filter((q) => !q.pagado && !noEsDeuda(q)).map((q) => q.id);
+    // De cualquier CRM (mig 0324): la protección es por cuota, y la pantalla busca la suya por id.
+    const impagas = (await getPagosByLead(leadId, 'todos')).filter((q) => !q.pagado && !noEsDeuda(q)).map((q) => q.id);
     return Object.fromEntries(await proteccionesDeCuotas(leadId, impagas));
   } catch (e) {
     console.error(`[pagos] protecciones de las cuotas del lead ${leadId}: ${e instanceof Error ? e.message : String(e)}`);
@@ -59,14 +60,14 @@ export async function proteccionesDeCuotasAction(leadId: number): Promise<Record
 
 /**
  * Quita UNA cuota impaga. Si tiene un link sin pagar o un recordatorio corriendo, no se quita y se dice por qué
- * (`motivo`). Las demás cuotas no se tocan.
+ * (`motivo`). Las demás cuotas no se tocan. `crm`: el CRM agregado que mira la tab (mig 0324); sin él, la casa.
  */
-export async function quitarCuotaAction(leadId: number, pagoId: number): Promise<{ ok: true; quitada: boolean; motivo: string | null } | { ok: false; error: string }> {
+export async function quitarCuotaAction(leadId: number, pagoId: number, crm: number | null = null): Promise<{ ok: true; quitada: boolean; motivo: string | null } | { ok: false; error: string }> {
   try {
     if (!(await haySesion())) return { ok: false, error: SIN_SESION };
     if (!idValido(leadId) || !idValido(pagoId)) return { ok: false, error: 'Cuota inválida.' };
     await asegurarLeadDelNegocio(leadId);
-    const cambios = await guardarCuotasPorId(leadId, [], { vistos: new Set([pagoId]) });
+    const cambios = await guardarCuotasPorId(leadId, [], { vistos: new Set([pagoId]), crm: await crmDelTrato(leadId, crm) });
     const quitada = cambios.borrar.some((b) => b.id === pagoId);
     const conservada = cambios.conservar.filter((c) => c.id === pagoId);
     await anotarEnHistorial(leadId, lineasDeCuotas(cambios), await autor());
@@ -81,11 +82,12 @@ export async function quitarCuotaAction(leadId: number, pagoId: number): Promise
  * «Baja del cliente» (#871): lo que no pagó deja de ser deuda y lo cobrado queda (lib/pagos-baja.ts). `deshacer` lo
  * devuelve, con su vencimiento.
  */
-export async function bajaDelClienteAction(leadId: number, deshacer = false): Promise<{ ok: true; resumen: string } | { ok: false; error: string }> {
+export async function bajaDelClienteAction(leadId: number, deshacer = false, crm: number | null = null): Promise<{ ok: true; resumen: string } | { ok: false; error: string }> {
   try {
     if (!(await haySesion())) return { ok: false, error: SIN_SESION };
     if (!idValido(leadId)) return { ok: false, error: 'Lead inválido.' };
-    const r = deshacer ? await deshacerBajaCliente(leadId, await autor()) : await darDeBajaCliente(leadId, await autor());
+    const t = await crmDelTrato(leadId, crm);
+    const r = deshacer ? await deshacerBajaCliente(leadId, await autor(), t) : await darDeBajaCliente(leadId, await autor(), t);
     if (!r.ok) return r;
     revalidar(leadId);
     return { ok: true, resumen: r.resumen };
@@ -94,8 +96,8 @@ export async function bajaDelClienteAction(leadId: number, deshacer = false): Pr
   }
 }
 
-/** Agrega UNA cuota futura (monto en dólares y vencimiento). Las demás cuotas no se tocan. */
-export async function agregarCuotaAction(leadId: number, cuota: { monto: number; fecha: string }): Promise<{ ok: true; numero: number | null } | { ok: false; error: string }> {
+/** Agrega UNA cuota futura (monto en dólares y vencimiento) al plan del CRM que mira la tab. Las demás no se tocan. */
+export async function agregarCuotaAction(leadId: number, cuota: { monto: number; fecha: string }, crm: number | null = null): Promise<{ ok: true; numero: number | null } | { ok: false; error: string }> {
   try {
     if (!(await haySesion())) return { ok: false, error: SIN_SESION };
     if (!idValido(leadId)) return { ok: false, error: 'Lead inválido.' };
@@ -103,7 +105,7 @@ export async function agregarCuotaAction(leadId: number, cuota: { monto: number;
     if (!Number.isFinite(monto) || monto <= 0 || monto > 100_000_000) return { ok: false, error: 'El monto tiene que ser mayor a cero.' };
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(cuota?.fecha ?? ''))) return { ok: false, error: 'La fecha tiene que ser AAAA-MM-DD.' };
     await asegurarLeadDelNegocio(leadId);
-    const cambios = await guardarCuotasPorId(leadId, [{ id: null, monto_usd: monto, fecha_esperada: cuota.fecha }], { vistos: new Set() });
+    const cambios = await guardarCuotasPorId(leadId, [{ id: null, monto_usd: monto, fecha_esperada: cuota.fecha }], { vistos: new Set(), crm: await crmDelTrato(leadId, crm) });
     await anotarEnHistorial(leadId, lineasDeCuotas(cambios), await autor());
     revalidar(leadId);
     return { ok: true, numero: cambios.insertar[0]?.numero ?? null };
