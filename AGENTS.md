@@ -3392,6 +3392,8 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   `'todos'`. Lo que escribe una pantalla que mira un CRM agregado lleva su CRM, validado con `crmDelTrato`; lo que nace
   sin CRM va a la casa (el trigger NO adivina). Sumar los pagos de un lead sin decir el trato mezcla la venta con la
   renovación: así la renovación mostraba «cuota 1, cobrada el 01/04» del primer servicio ([docs/hallazgos-pagos.md](docs/hallazgos-pagos.md)).
+  Lo que toca una cuota que YA existe saca el trato de la cuota (`tratoDelPago`), no lo supone; y una pantalla que dice un
+  CRM nunca cae a la casa porque le falte el trato (la revisión del 22/10 encontró las dos).
 
 # Un flag de visibilidad protege la PANTALLA; la API hay que cerrarla aparte
 

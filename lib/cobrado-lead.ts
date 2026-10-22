@@ -333,10 +333,10 @@ export function cobradoDelLead(e: EntradaCobrado): Cobrado {
       estado === 'cancelada' ? { tono: 'gris', texto: 'Cancelada' }
       : renovacionFallida ? { tono: 'rojo', texto: 'Falló la renovación' }
       : vencidas.length ? { tono: 'rojo', texto: 'Cuota vencida' }
-      : estado === 'terminada' ? { tono: 'gris', texto: `Terminó el ${ddmm(finPlazo as string)}` }
+      : estado === 'terminada' ? { tono: 'gris', texto: `Terminó el ${ddmm(finPlazo as string, hoy)}` }
       : cobradas.length === 0 && impagas.length === 0 ? { tono: 'gris', texto: 'Sin cobros registrados' }
       : sinRegistrar > 0 ? { tono: 'ambar', texto: sinRegistrar === 1 ? 'Falta registrar 1 mes' : `Falta registrar ${sinRegistrar} meses` }
-      : { tono: 'verde', texto: cuando ? `Al día · próxima el ${ddmm(cuando)}` : 'Al día' };
+      : { tono: 'verde', texto: cuando ? `Al día · próxima el ${ddmm(cuando, hoy)}` : 'Al día' };
     return {
       ...base,
       seDibuja: true,

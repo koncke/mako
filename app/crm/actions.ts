@@ -224,7 +224,8 @@ export type LeadFullData = {
   pagos: Pago[];
   /**
    * El trato del lead en cada CRM al que se lo agregó (una renovación, mig 0324, lib/pagos-crm.ts): su venta, su plan y sus
-   * pagos. La tab Pagos mirando ese CRM muestra éste, no el de la casa. Vacío si no está en otro CRM (o no se pudo leer).
+   * pagos. La tab Pagos mirando ese CRM muestra éste, no el de la casa. Vacío si no está en otro CRM; `undefined` si no se
+   * pudo leer (la tab lo dice: no es «sin plan»).
    */
   tratos?: TratoCrm<Pago>[];
   vslEng: VslEngagement;
@@ -331,7 +332,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const funnelsP = listarFunnels().catch(() => []);
   const cobroP = temprano(senalesDeCobroAction(id));
   // Los tratos de sus CRMs agregados (mig 0324): si no se pueden leer, la tab Pagos de un CRM agregado sale vacía, no la ficha.
-  const tratosP = tratosDelLead(id).catch((e: unknown) => { console.error(`[crm] tratos del lead ${id}:`, e instanceof Error ? e.message : e); return [] as TratoCrm<Pago>[]; });
+  const tratosP = tratosDelLead(id).catch((e: unknown) => { console.error(`[crm] tratos del lead ${id}:`, e instanceof Error ? e.message : e); return undefined; });
   const resumenP = temprano(resumenDelNegocio());
   // ⚠️ LOS INSUMOS DE «N SIN MARCAR» (el plan, las etapas DEL LEAD, las respuestas de la R2 y si el encuentro
   // se graba) salen de `leerInsumosDatosLead` (lib/datos-del-lead.ts), la MISMA lectura que la ficha del

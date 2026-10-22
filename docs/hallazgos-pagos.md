@@ -801,8 +801,8 @@ renovaciones mostraba «cuota 1, cobrada el 01/04», que era de su primer servic
   de un cobro por menos (`resto_de`) va al CRM de su cuota.
 - **Lo que no se perdió:** ningún pago cambió de CRM (la 0324 no tiene un `update pagos`). El único pago que ya estaba
   en un CRM agregado (ws11, lead 2632, US$40 cobrado, creado el día que se lo agregó a «Funnel principal») pasa a verse
-  en la tab Pagos de ESE CRM y deja de contar en `total_cobrado_usd` de la casa (que ahora es lo cobrado de la venta de
-  la casa; `fecha_primer_pago` sigue mirando todo: quien pagó una renovación sigue siendo cliente).
+  en la tab Pagos de ESE CRM. `total_cobrado_usd` sigue siendo lo cobrado del lead en TODOS sus CRMs (lo leen el
+  rendimiento de un anuncio, la columna «cobrado» y el export).
 - **P1, el selector:** la hoja ya tenía el control «Funnel» (campo `producto`), pero (a) «A quién cobrarle» es un bloque
   de General y `efectivoDe` no lo alcanza: ahora el control de la hoja le llega por `funnelsDeLaHoja`
   (lib/graficos-controles-texto.ts) si el bloque no eligió los suyos; (b) la lista era por LEAD y filtraba por
@@ -831,3 +831,36 @@ renovaciones mostraba «cuota 1, cobrada el 01/04», que era de su primer servic
 **Vive en:** supabase/migrations/0324_pagos_por_crm.sql · lib/pagos-crm.ts · lib/pagos.ts (`getPagosByLead`,
 `crmDelTrato`, `tratosDelLead`, `escribirVentaDeCrm`) · app/crm/lead-view/ficha/pagos/trato.ts · tests/pagos-crm.test.ts.
 *22/10/2026, chat «Cobros» (claude3).*
+
+### La revisión adversarial de los pagos por CRM: lo que el primer arreglo tenía mal (22/10/2026)
+
+Cerebro › Integración revisó la punta 05fc52b09 antes de integrarla (2 altos, 6 medios). El patrón de casi todos: **el
+primer arreglo partió los pagos en tratos, pero varias puertas seguían suponiendo «sin CRM = la casa»** sin mirar de qué
+trato era la cuota que tocaban. Las reglas que quedan:
+- **Lo que toca una cuota que YA existe saca el trato de la cuota, no de la pantalla** (`tratoDelPago`). Deshacer un pago
+  suelto de una renovación reconciliaba contra la casa, no lo encontraba y lo dejaba como deuda vencida inventada (A1).
+  El pago repetido de un link de la cuota de una renovación entra con el `funnel_id` de esa cuota (M6).
+- **La pantalla nunca cae a la casa porque le falte el trato** (A2). Después de «Agregar a Renovación» el pop-up sólo
+  refrescaba la ruta: seguía con los tratos de antes, mostraba la casa y «Armar el plan» ESCRIBÍA el de la casa. Ahora
+  relee al agregar, quitar o mover en un CRM (`onProductosCambiados`), `crmEnVista` sale del CRM que dice la cabecera aunque
+  el trato no se haya leído (la tab lo muestra vacío y avisa), y el server valida el CRM.
+- **Buscar una cuota por su id es `'todos'`** (M1): MaKo no podía marcar cobrada la de una renovación. Y el estado de
+  cuenta de MaKo (`cobranza_lead`) nombra lo que se debe en los otros CRMs: decía «Pagó todo» de quien debía la renovación.
+- **La casa es todo lo que no es un CRM agregado, y la casa nunca es un agregado** (M2, M3). Filtrar «la casa» por
+  `funnel_id == leads.funnel_id` perdía los meses cobrados en una casa anterior. Y una fila de `lead_funnel` que repite la
+  casa (un borrado que falló) la dejaba vacía: `crmsAgregadosDelLead` saca la casa real (`casaDelLead`).
+- **Un CRM con plata no se quita ni se borra para siempre** (M4): su venta vive en su fila de `lead_funnel` y sus pagos
+  llevan su `funnel_id`. Quitarlo (o quitar la casa, que borra la fila que se promueve) perdía la venta y mezclaba los pagos
+  con la casa; borrar el funnel dejaba los pagos en NULL. `tratoConPlata` lo frena con el porqué.
+- **Un pago sin cuota de la pasarela casa por monto sólo en la casa** (M5): la mensualidad de Stripe saldaba la cuota de
+  una renovación del mismo monto. La cuota de un CRM agregado se cobra con SU link.
+- **Bajos que se arreglaron:** «Movimientos» de la casa sin los cobros de sus renovaciones; el semáforo de la suscripción
+  con el año cuando no es el de hoy; el nombre en «A quién cobrarle» abre la ficha en el CRM de esa deuda (`?funnel=`);
+  `total_cobrado_usd` volvió a contar todos los CRMs.
+- **Bajos que quedan (sin hacer):** el «Funnel» de la hoja no llega a «A quién cobrarle» de General si el CRM elegido no
+  está entre los primeros 8 (`TOPE_FUNNELS`, app/general/datos.ts); `baja_at` y `pagado_at` toman el día UTC (de antes);
+  las variables de pagos de una automatización (`{{lead_proxima_cuota}}`) leen la casa porque el mensaje no sabe su CRM
+  (lib/variables-resolver.ts).
+
+**Vive en:** lib/pagos.ts (`casaDelLead`, `tratoDelPago`, `tratoConPlata`) · lib/lead-funnel.ts (`quitarDeProducto`) ·
+lib/funnels.ts (`eliminarFunnelDefinitivo`) · lib/api-mako/areas/crm.run.ts · tests/pagos-crm-revision.test.ts.

@@ -111,11 +111,61 @@ export async function getPagosByLead(leadId: number, crm: Crm | 'todos' = null):
   return (data ?? []) as Pago[];
 }
 
-/** Los CRMs a los que se agregó al lead (`lead_funnel`): cada uno es un trato aparte. Tira si no puede leer. */
+/** El funnel del negocio (`es_default`): la casa de un lead con `funnel_id` NULL. null si no se pudo leer. */
+async function funnelDelNegocio(): Promise<number | null> {
+  const { data } = await (await getTenantDb()).from('funnels').select('id').eq('es_default', true).limit(1).maybeSingle();
+  return data ? Number((data as { id: number }).id) : null;
+}
+
+/** La casa del lead ya resuelta (su `funnel_id`, o el del negocio si es NULL). Tira si el lead no es de este negocio. */
+export async function casaDelLead(leadId: number): Promise<number | null> {
+  const { data, error } = await (await getTenantDb()).from('leads').select('funnel_id').eq('id', leadId).maybeSingle();
+  if (error) throw new Error(`No pude leer el lead ${leadId}: ${error.message}`);
+  if (!data) throw new Error('No encontré ese lead en este negocio.');
+  const f = (data as { funnel_id: number | string | null }).funnel_id;
+  return f != null ? Number(f) : funnelDelNegocio();
+}
+
+/**
+ * Los CRMs a los que se agregó al lead (`lead_funnel`): cada uno es un trato aparte. Tira si no puede leer.
+ * ⚠️ SIN LA CASA (revisión del 22/10/2026, M3): una fila de `lead_funnel` que repite la casa puede quedar si falla un
+ * borrado (`quitarDeProducto`, `eliminarFunnelDefinitivo`). Contada como agregado, la casa quedaba vacía, lo cobrado en
+ * null, armar el plan chocaba con el índice y `crmDelTrato(casa)` devolvía un CRM. La casa es siempre la casa.
+ */
 export async function crmsAgregadosDelLead(leadId: number): Promise<number[]> {
   const { data, error } = await (await getTenantDb()).from('lead_funnel').select('funnel_id').eq('lead_id', leadId);
   if (error) throw new Error(`No pude leer los CRMs del lead ${leadId}: ${error.message}`);
-  return [...new Set(((data ?? []) as Array<{ funnel_id: number | string }>).map((r) => Number(r.funnel_id)).filter(Number.isFinite))];
+  const ids = [...new Set(((data ?? []) as Array<{ funnel_id: number | string }>).map((r) => Number(r.funnel_id)).filter(Number.isFinite))];
+  if (!ids.length) return ids;
+  const casa = await casaDelLead(leadId);
+  return ids.filter((x) => x !== casa);
+}
+
+/**
+ * El trato de un pago que ya existe, por su `funnel_id` (la regla de `esDelTrato`): el CRM agregado si es uno del lead; si
+ * no, la casa. Lo usa lo que toca una cuota sin que la pantalla diga el CRM (deshacer un pago suelto, la pasarela).
+ */
+export async function tratoDelPago(leadId: number, funnelDelPago: number | string | null | undefined): Promise<Crm> {
+  if (funnelDelPago == null || funnelDelPago === '') return null;
+  const f = Number(funnelDelPago);
+  return (await crmsAgregadosDelLead(leadId)).includes(f) ? f : null;
+}
+
+/**
+ * ¿El lead tiene PLATA en el trato de ese CRM agregado? Una venta o un plan cargados en su fila de `lead_funnel`, o algún
+ * pago con ese `funnel_id`. Quitarlo de ese CRM (o promoverlo a casa) mezclaría esa plata con la de otro trato: lo frenan
+ * `quitarDeProducto` (lib/lead-funnel.ts) y el borrado definitivo de un funnel (revisión del 22/10/2026, M4).
+ */
+export async function tratoConPlata(leadId: number, crm: number): Promise<boolean> {
+  const db = await getTenantDb();
+  const [t, pg] = await Promise.all([
+    db.from('lead_funnel').select('*').eq('lead_id', leadId).eq('funnel_id', crm).maybeSingle(),
+    db.from('pagos').select('id').eq('lead_id', leadId).eq('funnel_id', crm).limit(1),
+  ]);
+  if (t.error) throw new Error(`No pude leer el plan de ese CRM: ${t.error.message}`);
+  if (pg.error) throw new Error(`No pude leer los pagos de ese CRM: ${pg.error.message}`);
+  const c = camposDeFila(t.data as Record<string, unknown> | null);
+  return (pg.data ?? []).length > 0 || c.monto_cierre_usd != null || c.venta_tipo === 'sin_cobro' || c.cobro_inicial_usd != null || c.monto_cuota_usd != null || c.total_cuotas != null;
 }
 
 /**
@@ -128,15 +178,7 @@ export async function crmDelTrato(leadId: number, crm: unknown): Promise<Crm> {
   const n = Number(crm);
   if (!Number.isSafeInteger(n) || n <= 0) throw new Error('Ese CRM no existe.');
   if ((await crmsAgregadosDelLead(leadId)).includes(n)) return n;
-  const { data, error } = await (await getTenantDb()).from('leads').select('funnel_id').eq('id', leadId).maybeSingle();
-  if (error) throw new Error(`No pude leer el lead ${leadId}: ${error.message}`);
-  if (!data) throw new Error('No encontré ese lead en este negocio.');
-  const casa = (data as { funnel_id: number | null }).funnel_id;
-  if (casa != null && Number(casa) === n) return null;
-  if (casa == null) {
-    const { data: f } = await (await getTenantDb()).from('funnels').select('id').eq('es_default', true).limit(1).maybeSingle();
-    if (f && Number((f as { id: number }).id) === n) return null;
-  }
+  if ((await casaDelLead(leadId)) === n) return null;
   throw new Error('Ese CRM no es de este lead.');
 }
 
@@ -157,7 +199,9 @@ export async function tratosDelLead(leadId: number): Promise<Array<CamposTrato &
   const db = await getTenantDb();
   const { data, error } = await db.from('lead_funnel').select('*').eq('lead_id', leadId);
   if (error) throw new Error(`No pude leer los CRMs del lead ${leadId}: ${error.message}`);
-  const filas = (data ?? []) as Array<Record<string, unknown>>;
+  // Sin la fila que repite la casa (M3): la casa no es un CRM agregado.
+  const casa = (data ?? []).length ? await casaDelLead(leadId) : null;
+  const filas = ((data ?? []) as Array<Record<string, unknown>>).filter((f) => Number(f.funnel_id) !== casa);
   if (!filas.length) return [];
   const ids = filas.map((f) => Number(f.funnel_id));
   const { data: pg, error: e2 } = await db.from('pagos').select('*').eq('lead_id', leadId).in('funnel_id', ids).order('numero', { ascending: true });
@@ -626,9 +670,12 @@ async function anularLinksAlCobrar(pagoId: number, cobroId: number | null): Prom
  * protege (un link sin pagar, un recordatorio corriendo), queda impaga como antes y se devuelve false.
  * `marcarPago` lee la cuota con `*`: sin la mig 0295 la columna no existe, y pedirla por nombre rompía todo marcar.
  */
-async function quitarSiNacioCobrada(pagoId: number, fila: { lead_id: number; cobro_id?: number | null; proveedor?: string | null; nacio_cobrada?: boolean | null }): Promise<boolean> {
+async function quitarSiNacioCobrada(pagoId: number, fila: { lead_id: number; cobro_id?: number | null; proveedor?: string | null; nacio_cobrada?: boolean | null; funnel_id?: number | null }): Promise<boolean> {
   if (fila.nacio_cobrada !== true || fila.proveedor || fila.cobro_id != null) return false;
-  const cambios = await guardarCuotasPorId(fila.lead_id, [], { vistos: new Set([pagoId]) });
+  // ⚠️ EN SU TRATO (revisión del 22/10/2026, A1): reconciliado contra la casa, el pago suelto de una renovación no se
+  // encontraba, quedaba impago y vencido el día que se cobró, y aparecía como deuda en «A quién cobrarle» y en la cobranza.
+  const crm = await tratoDelPago(fila.lead_id, fila.funnel_id);
+  const cambios = await guardarCuotasPorId(fila.lead_id, [], { vistos: new Set([pagoId]), crm });
   return cambios.borrar.some((b) => b.id === pagoId);
 }
 
@@ -1066,18 +1113,17 @@ export async function cambiarEstadoSuscripcionManual(
 /**
  * Recalcula total_cobrado_usd y fecha_primer_pago del lead a partir de sus
  * pagos pagados. Mantiene coherentes los consumidores que leen total_cobrado.
- * ⚠️ DESDE LA 0324 (22/10/2026): `total_cobrado_usd` es lo cobrado de la CASA, que es la venta de `monto_cierre_usd` (lo
- * de una renovación es de su CRM, lib/pagos-crm.ts); `fecha_primer_pago` es la de cualquier trato: de ella cuelga si la
- * persona ya es cliente (`esLeadCliente`, la condición «Pagó»), y lo es aunque lo primero que pagó sea una renovación.
+ * Desde la 0324 (22/10/2026) es lo cobrado en TODOS sus CRMs, como antes: lo leen el rendimiento de un anuncio, la
+ * columna «cobrado» de los leads y el export, y una renovación también es plata que trajo esa persona (la revisión del
+ * 22/10 lo frenó: contar sólo la casa los bajaba sin decir nada).
  */
 export async function sincronizarTotalCobrado(leadId: number): Promise<void> {
   const supabase = (await getTenantDb());
-  const [todos, agregados] = await Promise.all([getPagosByLead(leadId, 'todos'), crmsAgregadosDelLead(leadId)]);
-  const pagados = todos.filter((p) => p.pagado && esDelTrato(p.funnel_id, null, agregados));
+  const pagados = (await getPagosByLead(leadId, 'todos')).filter((p) => p.pagado);
 
   const total = pagados.reduce((s, p) => s + Number(p.monto_usd), 0);
   // Primer pago = la fecha_pago más temprana entre los pagados (de cualquier CRM)
-  const fechas = todos.filter((p) => p.pagado)
+  const fechas = pagados
     .map((p) => p.fecha_pago)
     .filter((f): f is string => !!f)
     .sort();
@@ -1153,10 +1199,13 @@ export async function registrarCobroDeProveedor(p: {
   // La cuota que saldaba el link, si sigue existiendo y sigue sin pagar. Si ya la marcó alguien a
   // mano, el pago de la pasarela NO la pisa: entra como cuota nueva (la plata entró dos veces y
   // eso lo tiene que ver una persona, no esconderse).
+  let crmDeLaCuota: number | null = null;
   if (p.pagoId) {
     // De ESTE lead: un pagoId que viniera de otro lado no puede saldar la cuota de otra persona.
-    const cuota = await db.from('pagos').select('id, pagado, proveedor_pago_id, monto_usd').eq('id', p.pagoId).eq('lead_id', p.leadId).maybeSingle();
+    const cuota = await db.from('pagos').select('*').eq('id', p.pagoId).eq('lead_id', p.leadId).maybeSingle();
     if (cuota.error) throw new Error(`Error leyendo la cuota ${p.pagoId}: ${cuota.error.message}`);
+    // El CRM de la cuota que saldaba el link (M6): si este pago entra como uno nuevo, entra en ESE trato, no en la casa.
+    crmDeLaCuota = cuota.data?.funnel_id != null ? Number(cuota.data.funnel_id) : null;
     // ⚠️ Y POR LO MISMO QUE COBRA (14/10/2026, el link por cuota): saldarla la marca pagada por SU monto, no por el del
     // link. Si alguien la cambió después de crear el link, marcarla mentiría en el cash: entra como una cuota nueva
     // y la persona ve las dos. NO salda otra del mismo monto: el casamiento por monto de abajo es sólo para los links
@@ -1183,8 +1232,10 @@ export async function registrarCobroDeProveedor(p: {
   // todavía impaga: Outstanding de más, recordatorios de cobranza a quien ya pagó y, cuando el closer la
   // marcaba a mano, el doble de cash. Se casa por monto en USD, la más vieja primero, sólo una sin pasarela.
   if (!p.pagoId) {
-    // De CUALQUIER CRM (0324): un link pagado salda la deuda que sea, la de la casa o la de una renovación.
-    const impagas = (await getPagosByLead(p.leadId, 'todos'))
+    // ⚠️ SÓLO EN LA CASA (revisión del 22/10/2026, M5): un pago sin cuota (un link suelto, la renovación mensual de una
+    // suscripción) es de la casa, que es donde nace (el trigger). Contra todos los CRMs, la mensualidad de Stripe saldaba
+    // por monto la cuota de una renovación. La cuota de un CRM agregado se cobra con SU link (`pagoId`), arriba.
+    const impagas = (await getPagosByLead(p.leadId))
       .filter((q) => !q.pagado && !q.proveedor_pago_id && q.fecha_esperada && Math.abs(Number(q.monto_usd) - p.montoUsd) < 0.01)
       .sort((a, b) => String(a.fecha_esperada).localeCompare(String(b.fecha_esperada)) || a.numero - b.numero);
     // ⚠️ DE A UNA, EN ORDEN (21/10/2026, segunda revisión adversarial): con la misma condición, si la elegida la cobró
@@ -1221,6 +1272,7 @@ export async function registrarCobroDeProveedor(p: {
         // Deshacerla no la quita (`quitarSiNacioCobrada` no toca lo de la pasarela).
         nacio_cobrada: true,
         ...marca,
+        ...(crmDeLaCuota != null ? { funnel_id: crmDeLaCuota } : {}),
       })
       .select('id')
       .single();
@@ -1479,7 +1531,10 @@ async function _getOutstandingDetalle(
   // Por lead Y POR TRATO (0324): la clave es `lead|crm` (crm vacío = la casa).
   const porTrato = new Map<string, { leadId: number; crm: number | null; rows: Row[] }>();
   for (const row of (data ?? []) as Row[]) {
-    const agregados = [...(tratos.get(Number(row.lead_id))?.keys() ?? [])];
+    // Sin la casa del lead (M3): una fila de `lead_funnel` que la repite no la parte en dos renglones.
+    const relDe = Array.isArray(row.leads) ? row.leads[0] : row.leads;
+    const casa = relDe?.funnel_id != null ? Number(relDe.funnel_id) : casaDelNegocio;
+    const agregados = [...(tratos.get(Number(row.lead_id))?.keys() ?? [])].filter((k) => k !== casa);
     const f = row.funnel_id == null ? null : Number(row.funnel_id);
     const crm = f != null && !esDelTrato(f, null, agregados) ? f : null;
     const clave = `${row.lead_id}|${crm ?? ''}`;
@@ -1561,13 +1616,17 @@ export async function getSuscripcionesPorCobrar(hoy: string, desde: string | nul
     const filas = (leads ?? []) as Array<LeadSuscripcion & { funnel_id?: number | null }>;
     if (!filas.length) return [];
     const ids = filas.map((l) => Number(l.id));
-    const [pg, cb, fd] = await Promise.all([
+    const [pg, cb, fd, lf] = await Promise.all([
       db.from('pagos').select('*').in('lead_id', ids),
       db.from('cobros').select('lead_id, tipo, estado, suscripcion_estado, motivo').in('lead_id', ids).eq('tipo', 'suscripcion'),
       db.from('funnels').select('id').eq('es_default', true).limit(1).maybeSingle(),
+      db.from('lead_funnel').select('lead_id, funnel_id').in('lead_id', ids),
     ]);
+    if (lf.error) throw new Error(lf.error.message);
     // La suscripción es de la CASA (0324): su CRM es el del lead, o el del negocio.
     const casaDelNegocio = fd.data ? Number((fd.data as { id: number }).id) : null;
+    const agregadosDe = new Map<number, number[]>();
+    for (const r of (lf.data ?? []) as Array<{ lead_id: number; funnel_id: number }>) agregadosDe.set(Number(r.lead_id), [...(agregadosDe.get(Number(r.lead_id)) ?? []), Number(r.funnel_id)]);
     if (pg.error) throw new Error(pg.error.message);
     if (cb.error) throw new Error(cb.error.message);
     const pagosDe = new Map<number, Pago[]>();
@@ -1575,8 +1634,11 @@ export async function getSuscripcionesPorCobrar(hoy: string, desde: string | nul
     const cobrosDe = new Map<number, CobroParaCobrado[]>();
     for (const c of (cb.data ?? []) as Array<CobroParaCobrado & { lead_id: number }>) cobrosDe.set(Number(c.lead_id), [...(cobrosDe.get(Number(c.lead_id)) ?? []), c]);
     return filas.flatMap((l): ItemPorCobrar[] => {
-      // Los pagos de la CASA: lo de una renovación no es un mes de esta suscripción.
-      const it = itemDeSuscripcion({ lead: l, pagos: (pagosDe.get(Number(l.id)) ?? []).filter((p) => p.funnel_id == null || Number(p.funnel_id) === Number(l.funnel_id ?? casaDelNegocio)), cobros: cobrosDe.get(Number(l.id)) ?? [], hoy, ventana: { desde, hasta } });
+      // Los pagos de la CASA, con la regla de `esDelTrato` (M2): lo de una renovación no es un mes de esta suscripción, y un
+      // mes cobrado en una casa anterior (la que se quitó) sigue siendo de la casa.
+      const casa = l.funnel_id != null ? Number(l.funnel_id) : casaDelNegocio;
+      const agregados = (agregadosDe.get(Number(l.id)) ?? []).filter((f) => f !== casa);
+      const it = itemDeSuscripcion({ lead: l, pagos: (pagosDe.get(Number(l.id)) ?? []).filter((p) => esDelTrato(p.funnel_id, null, agregados)), cobros: cobrosDe.get(Number(l.id)) ?? [], hoy, ventana: { desde, hasta } });
       return it ? [{ ...it, crm: null, funnel_id: l.funnel_id != null ? Number(l.funnel_id) : casaDelNegocio }] : [];
     });
   } catch (e) {

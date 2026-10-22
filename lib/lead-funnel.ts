@@ -111,6 +111,17 @@ export async function quitarDeProducto(leadId: number, funnelId: number, opts?: 
   const autor = await autorDelMovimiento(opts?.autor);
   const db = await getTenantDb();
   const nombre = await nombreDeProducto(funnelId);
+  // ⚠️ UN CRM AGREGADO CON PLATA NO SE QUITA (revisión del 22/10/2026, M4, mig 0324): su venta y su plan viven en ESTA
+  // fila de `lead_funnel`, y sus pagos llevan su `funnel_id`. Borrarla perdía la venta (el Deshacer recrea la fila vacía) y
+  // los pagos caían en la casa, mezclados con los de la venta de siempre (dos «cuota 1»). Lo mismo al quitar la CASA: la
+  // fila que se promueve a casa se borra. Se dice por qué y qué hacer; nada se pierde de un clic.
+  const conPlata = !p.esCasa ? funnelId : aQuienPromover(productos)?.funnelId ?? null;
+  if (conPlata != null) {
+    const { tratoConPlata } = await import('./pagos');
+    if (await tratoConPlata(leadId, conPlata)) {
+      throw new Error(`Tiene una venta o pagos en «${await nombreDeProducto(conPlata)}»: si lo quitas, se mezclan con los de otro CRM. Márcalo como perdido ahí, o quita esos pagos primero.`);
+    }
+  }
 
   if (!p.esCasa) {
     const { error } = await db.from('lead_funnel').delete().eq('lead_id', leadId).eq('funnel_id', funnelId);

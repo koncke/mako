@@ -70,6 +70,8 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDat
   const fichaProd = useProductosDeLaFicha({
     leadId: lead.id, casa: lead.funnel_id, foto: productos,
     onCasaCambiada: releer,
+    // Agregar o quitar un CRM cambia los tratos de la tab Pagos (mig 0324): se releen.
+    onProductosCambiados: releer,
   });
 
   const panelRef = useRef<HTMLDivElement | null>(null);

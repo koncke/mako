@@ -20,13 +20,19 @@ import type { CtxFicha } from '../tipos';
 
 /**
  * El CRM agregado que mira la ficha, para `FichaPorBloques` (las dos puertas): el del desplegable de la cabecera
- * (`useProductosDeLaFicha`: el `?funnel=` del tablero o el que se eligió). Sólo si el lead TIENE un trato ahí
- * (`data.tratos`): la casa, o un CRM donde no está, es null. No espera a la lista de productos del server: los tratos ya
- * vinieron con la ficha, así la tab no muestra un instante el plan de la casa.
+ * (`useProductosDeLaFicha`). Con la lista del server, el que se mira (`vista`) si es uno agregado donde está; antes de
+ * que llegue, el `?funnel=` del tablero si no es la casa.
+ * ⚠️ NUNCA CAE A LA CASA porque falte el trato (revisión del 22/10/2026, A2): si la cabecera dice «Renovación» y los tratos
+ * no llegaron (recién agregado, o la lectura falló), la tab muestra la renovación VACÍA y lo que se escriba va a la
+ * renovación (el server valida el CRM: uno donde no está se rechaza). Antes mostraba y ESCRIBÍA el plan de la casa.
  */
-export function crmEnVista(prod: { idEnVista: number | null; casaId: number | null; foto: readonly { id: number; nombre: string }[] }, data: Pick<LeadFullData, 'tratos'>): { id: number; nombre: string } | null {
+export function crmEnVista(
+  prod: { vista: { id: number; nombre: string; esCasa: boolean; esta: boolean } | null; idEnVista: number | null; casaId: number | null; foto: readonly { id: number; nombre: string }[] },
+  _data?: Pick<LeadFullData, 'tratos'>,
+): { id: number; nombre: string } | null {
+  if (prod.vista) return !prod.vista.esCasa && prod.vista.esta ? { id: prod.vista.id, nombre: prod.vista.nombre } : null;
   const id = prod.idEnVista;
-  if (id == null || id === prod.casaId || !data.tratos?.some((t) => t.funnelId === id)) return null;
+  if (id == null || id === prod.casaId) return null;
   return { id, nombre: prod.foto.find((p) => p.id === id)?.nombre ?? '' };
 }
 

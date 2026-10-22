@@ -71,7 +71,7 @@ test('los movimientos de una renovación sólo traen los cobros de la pasarela d
   const cobros = [{ id: 7, pago_id: 43 }, { id: 8, pago_id: 90 }, { id: 9, pago_id: null }, { id: 10, pago_id: null }];
   const deLaRenovacion = [{ id: 90, cobro_id: null }, { id: 91, cobro_id: 10 }];
   assert.deepEqual(cobrosDelTrato(cobros, deLaRenovacion).map((c) => c.id), [8, 10], 'el link de su cuota y el que quedó asentado en otra');
-  assert.match(sinComentarios(leer('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx')), /const deEste = ctx\.crm \? cobrosDelTrato\(cobros \?\? \[\], ctx\.data\.pagos\) : cobros \?\? \[\];/);
+  assert.match(sinComentarios(leer('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx')), /const deEste = ctx\.crm \? cobrosDelTrato\(cobros \?\? \[\], ctx\.data\.pagos\) : cobrosSinLosDe\(cobros \?\? \[\], \(ctx\.data\.tratos \?\? \[\]\)\.flatMap\(\(t\) => t\.pagos\)\);/);
 });
 
 // Roturas: `ctxDelTrato` que deja `data.pagos` (las de la casa): 10 / 1. `crmEnVista` sin mirar la casa ni los tratos: 10 / 1.
@@ -92,10 +92,11 @@ test('la ficha mirando la renovación: sus pagos, su etapa, y releer en vez de p
   assert.deepEqual(releidas, ['releer'], 'un parche iría a la fila del lead: se relee');
 
   const foto = [{ id: CASA, nombre: 'Negocio que ESCALA' }, { id: RENOVACION, nombre: 'Renovación' }, { id: 44, nombre: 'Sprint 3 días' }];
-  assert.deepEqual(crmEnVista({ idEnVista: RENOVACION, casaId: CASA, foto }, base.data), { id: RENOVACION, nombre: 'Renovación' });
-  assert.equal(crmEnVista({ idEnVista: CASA, casaId: CASA, foto }, base.data), null, 'la casa');
-  assert.equal(crmEnVista({ idEnVista: 44, casaId: CASA, foto }, base.data), null, 'un CRM donde no está');
-  assert.equal(crmEnVista({ idEnVista: null, casaId: CASA, foto }, base.data), null);
+  const vista = (id: number, esCasa: boolean, esta: boolean) => ({ id, nombre: foto.find((f) => f.id === id)!.nombre, esCasa, esta });
+  assert.deepEqual(crmEnVista({ vista: vista(RENOVACION, false, true), idEnVista: RENOVACION, casaId: CASA, foto }, base.data), { id: RENOVACION, nombre: 'Renovación' });
+  assert.equal(crmEnVista({ vista: vista(CASA, true, true), idEnVista: CASA, casaId: CASA, foto }, base.data), null, 'la casa');
+  assert.equal(crmEnVista({ vista: vista(44, false, false), idEnVista: 44, casaId: CASA, foto }, base.data), null, 'un CRM donde no está');
+  assert.equal(crmEnVista({ vista: null, idEnVista: null, casaId: CASA, foto }, base.data), null);
 });
 
 // Roturas: `fechaEnPalabras` con el mes base 0 (`MESES_LARGOS[Number(m[2])]`): 10 / 1. `ddmm` de vuelta a «01/04»: 10 / 1.
@@ -159,9 +160,8 @@ test('el server lee y escribe POR CRM: la casa sin los agregados, y lo nuevo de 
   assert.match(pagos, /lead_id: leadId, numero: base \+ 1, \.\.\.\(crm != null \? \{ funnel_id: crm \} : \{\}\),/);
   // El plan de un CRM agregado va a su fila de lead_funnel, no a `leads`.
   assert.match(pagos, /from\('lead_funnel'\)\.update\(\{ \.\.\.columnas, updated_at: new Date\(\)\.toISOString\(\) \}\)\.eq\('id', t\.id\)/);
-  // Un link pagado salda la deuda de cualquier CRM; lo cobrado del lead (`total_cobrado_usd`) es el de la casa.
-  assert.match(pagos, /const impagas = \(await getPagosByLead\(p\.leadId, 'todos'\)\)/);
-  assert.match(pagos, /const pagados = todos\.filter\(\(p\) => p\.pagado && esDelTrato\(p\.funnel_id, null, agregados\)\);/);
+  // Lo cobrado del lead (`total_cobrado_usd`) es lo de TODOS sus CRMs, como antes (revisión del 22/10/2026).
+  assert.match(pagos, /const pagados = \(await getPagosByLead\(leadId, 'todos'\)\)\.filter\(\(p\) => p\.pagado\);/);
 });
 
 // Rotura: `agregarCuotaAction` con el `crm` del navegador sin `crmDelTrato`: 10 / 1.

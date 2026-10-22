@@ -591,6 +591,12 @@ export async function eliminarFunnelDefinitivo(funnelId: number): Promise<{ resc
   // ⚠️ SÓLO SE BORRA LO QUE YA ESTÁ ARCHIVADO. Es el guard en positivo que hace que
   // eliminar de verdad exija DOS decisiones en dos momentos: nada se pierde de un clic.
   if (fila.activo) throw new Error('Primero hay que eliminarlo del tablero; recién después se puede borrar para siempre.');
+  // ⚠️ CON PAGOS NO SE BORRA PARA SIEMPRE (revisión del 22/10/2026, M4, mig 0324): cada pago guarda su CRM, y borrarlo los
+  // dejaba sin él (el FK los pasa a NULL): caían en la casa de cada lead, mezclados con su venta, y dos cuotas del mismo
+  // número chocaban con el índice de la 0324. Archivado, el CRM y su plata siguen ahí.
+  const { data: conPagos, error: ePag } = await supabase.from('pagos').select('id').eq('funnel_id', funnelId).limit(1);
+  if (ePag) throw new Error(`No se pudo revisar si tiene pagos: ${ePag.message}`);
+  if ((conPagos ?? []).length) throw new Error('Tiene pagos registrados: borrarlo para siempre los dejaría sin su CRM. Queda archivado.');
 
   // El embudo del negocio, que es a donde vuelve su gente. Su id hace falta para las filas
   // de `lead_funnel`; en `leads.funnel_id` se escribe NULL (`casaParaEscribir` del default

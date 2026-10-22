@@ -82,6 +82,12 @@ export function cobrosDelTrato<C extends { id: number; pago_id?: number | null }
   return cobros.filter((c) => (c.pago_id != null && cuotas.has(Number(c.pago_id))) || asentados.has(Number(c.id)));
 }
 
+/** Lo contrario de `cobrosDelTrato`: los cobros que NO tocan a estas cuotas (la casa, sin los de sus renovaciones). */
+export function cobrosSinLosDe<C extends { id: number; pago_id?: number | null }>(cobros: readonly C[], pagosAjenos: readonly { id: number; cobro_id?: number | null }[]): C[] {
+  const ajenos = new Set(cobrosDelTrato(cobros, pagosAjenos).map((c) => c.id));
+  return cobros.filter((c) => !ajenos.has(c.id));
+}
+
 /** Lo del lead que la tab Pagos lee de la venta: en un CRM agregado sale de su trato. */
 type LeadDePagos = {
   estado_lead?: unknown;
