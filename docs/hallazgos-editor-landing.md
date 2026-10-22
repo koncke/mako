@@ -2258,8 +2258,11 @@ la clave `landing:<id>`, por `/api/hilo-de-tab` (lib/hilo-de-tab-reglas.ts). Cad
   (`PREFIJOS_HILO_DE_TAB`) cualquiera escribía en `mako-movil:<persona>`, el chat del Ops Center de OTRA persona. Y dos
   guardados a la vez sobre una entidad sin charla crean DOS sesiones (los dos ven «no hay»): el cliente los encola por
   clave (lib/hilo-de-tab-cliente.ts).
-- **Sin hacer:** la etiqueta «Web Generator › …» en la fila del Ops Center es de OC4; el diagnóstico (`landing-diagnostico:*`)
-  ya guardaba por /api/chart-insights; la caja y el hilo únicos, TB3.
+- **Medido en producción el 22/10, en el ws3** (landing 31): el turno quedó guardado aunque el ws3 no tiene IA para editar
+  (el aviso vuelve en rojo, por la marca «⚠️ »), recargar trajo la charla y el Ops Center la abre con sus dos mensajes.
+- **Sin hacer:** en el Ops Center la fila sale suelta, sin el grupo «Web Generator»: el prefijo `landing:` no tiene
+  etiqueta de origen (la de `dashboard:` sí; es de OC4, del chat Ops Center). El diagnóstico (`landing-diagnostico:*`) ya
+  guardaba por /api/chart-insights. La caja y el hilo únicos, TB3.
 
 **Vive en:** app/web-generator/editor/hilo-agente.ts, paneles/PanelAgente.tsx · app/api/hilo-de-tab/route.ts ·
 tests/hilo-de-tab.test.ts · *22/10/2026, chat «Chats de las tabs».*

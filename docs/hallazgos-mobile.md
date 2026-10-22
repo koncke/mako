@@ -1807,8 +1807,10 @@ SIN sesión. El matcher de proxy.ts no los eximía y la lista de extensiones no 
   declara hola-mako.com.
 - **Sin hacer:** las huellas reales. Van DOS en `assetlinks.json` (la de subida de Bubblewrap y la de Play App Signing),
   y la segunda existe recién después del primer AAB: este archivo se toca dos veces. El de Apple lleva el Team ID y el
-  bundle id cuando exista la cuenta. Y medir en producción, ya desplegado: `curl -sI https://hola-mako.com/.well-known/assetlinks.json`
-  tiene que dar 200 `application/json` sin `Location`.
+  bundle id cuando exista la cuenta.
+- **Medido en producción el 22/10 (tren 3, b6192722b):** los dos dan 200 sin `Location` (assetlinks.json como
+  `application/json; charset=utf-8`, el de Apple como `application/json`), y `/xwell-known/gracias` sigue pasando por el
+  proxy (307 a /login en hola-mako.com).
 
 **Vive en:** proxy.ts (`config.matcher`) · lib/rutas-publicas.ts (`PUBLICOS`) · next.config.ts · public/.well-known/ ·
 tests/well-known-publico.test.ts · *22/10/2026, chat «Chats de las tabs», por pedido del Cerebro.*
