@@ -2322,4 +2322,26 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "22 oct", hora: "12:50", chat: "Automations", cuenta: "claude3",
+    sesion: "local_5acdaea2-2605-48fb-b890-f79e8476faa3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Hecho: en el chat de MaKo lo que mandas se ve al instante, el desenfoque tapa toda la pantalla y Cancelar queda en la misma línea",
+    puntos: [
+      "Discutir / Editar va solo, sin las frases al lado. Lo que hace cada uno se ve al pasar el cursor.",
+      "Lo que mandas entra al hilo apenas lo mandas, antes de los tres puntos. Si no sale, queda en el hilo con «No se envió · Reintentar».",
+      "Mientras MaKo piensa, el desenfoque tapa toda la pantalla, también la barra de la app, y el chat queda encima.",
+      "«Pensando 50 s · hasta 5 min» y Cancelar van en una línea. Visto en producción en el ws de prueba: el rótulo largo se cortaba («Pensan…»), así que los rótulos pasan a ser de una palabra.",
+      "En producción: deploy de ad4d3e1d2 (lo verificó Integración).",
+    ],
+    commits: [
+      { sha: "ca589af28", msg: "Automations · el chat de MaKo: lo que mandas se ve al instante (y si falla, «Reintentar»), sin leyendas al lado de Discutir/Editar, Cancelar en la misma línea y la capa tapa toda la pantalla", lineas: 243, archivos: 9 },
+    ],
+    archivos: [
+      "app/automations/ChatMako.tsx — el mensaje al instante, «Reintentar», las fases en una línea",
+      "app/automations/SecuenciaPerfil.tsx — la capa sobre toda la pantalla",
+      "tests/chat-mako-envio-a-la-vista.test.ts — los cuatro puntos, con la medida de producción",
+    ],
+    revisar: "/automations",
+  },
 ];
