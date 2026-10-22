@@ -135,7 +135,7 @@ export function taparClaves(entrada: string): Tapado {
  * (app/admin/operaciones/mandar.ts) y se guarda tal cual en el pedido, en la respuesta de una pregunta y en el turno que sube el
  * cartero. No se tapa después: NO SALE. La caja y el «Otra» lo dicen apenas aparece, con el botón a /integraciones.
  */
-export const AVISO_CLAVE_EN_EL_CENTRO = 'Eso parece una clave: pégala en /integraciones, no acá.';
+export const AVISO_CLAVE_EN_EL_CENTRO = 'Eso parece una clave: pégala en /integraciones, no aquí.';
 export const RUTA_INTEGRACIONES = '/integraciones';
 /** ¿El texto trae una clave? (las mismas reglas que la tapan). */
 export const hayClave = (texto: string): boolean => taparClaves(texto).tapadas > 0;
