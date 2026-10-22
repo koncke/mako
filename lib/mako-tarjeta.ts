@@ -462,6 +462,8 @@ export function armarAvisoDeTarjeta(
     respuesta: string;
     lead: LeadDelAvisoMako | null;
     linkLead: string | null;
+    /** Su conversación en Chats (21/10/2026): con el link de la ficha, el aviso lleva también a la CHARLA. */
+    linkChat?: string | null;
     /** `asunto`: el de una tarjeta por email, ya resuelto con sus datos. */
     textos: { titulo: string; mensaje: string; asunto?: string };
     partes: readonly PartePreparada[] | null;
@@ -489,7 +491,7 @@ export function armarAvisoDeTarjeta(
     '',
     o.textos.mensaje,
     ...(respuesta ? ['', `_"${respuesta.slice(0, 400)}"_`] : []),
-    ...(lead ? ['', `${lead.nombre}${lead.telefono ? ` · ${lead.telefono}` : ''}`, `👉 ${o.linkLead ?? `/crm/${lead.id}`}`] : []),
+    ...(lead ? ['', `${lead.nombre}${lead.telefono ? ` · ${lead.telefono}` : ''}`, `👉 ${o.linkLead ?? `/crm/${lead.id}`}`, ...(o.linkChat ? [`💬 ${o.linkChat}`] : [])] : []),
     '',
     '— MaKo',
   ].join('\n');

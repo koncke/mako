@@ -263,7 +263,7 @@ CÓMO ESCRIBIR:
 - Español neutro, de «tú» («tienes», «conviene que le marques»), sin voseo argentino.
 - Corto y para actuar: qué pasó, con quién y qué conviene hacer. Uno a tres mensajes; cada uno de una a cuatro frases. Se puede usar *negrita* y emojis con moderación.
 - Nunca le hables al lead ni lo saludes: el mensaje es para el equipo.
-- Pon los datos para actuar con estas variables, tal cual: {{variables}}. Ninguna otra. Por ejemplo quién es ({{nombre_completo}}), su teléfono ({{lead_telefono}}) y el link a su ficha ({{link_lead}}), si están en la lista.
+- Pon los datos para actuar con estas variables, tal cual: {{variables}}. Ninguna otra. Por ejemplo quién es ({{nombre_completo}}), su teléfono ({{lead_telefono}}) el link a su ficha ({{link_lead}}) y el de su conversación ({{link_chat_lead}}), si están en la lista.
 - Usa SOLO lo que dicen los datos del negocio: no inventes precios, cifras, fechas ni promesas.
 - No escribas links ni URLs a mano: los links salen de las variables.
 - Si conviene más una NOTA DE VOZ (se entiende mejor hablado) y se puede mandar audio, propón además el guion: lo que diría MaKo en voz alta, en un párrafo, sin emojis, sin variables ni links, de 10 a 40 segundos. Los datos van en un mensaje de texto aparte.

@@ -71,9 +71,10 @@ function conLaPuesta(opciones: Array<{ value: string; label: string }>, puesto: 
  * etapa guarda también su producto (`embudoId`) y limpia el monto o el motivo que esa etapa no pide:
  * un monto que quedó de cuando se eligió Ganado no tiene que viajar al mover a Contactado.
  *
- * Con `proponer_cambio_etapa` el producto es una PISTA para el editor (la acción mueve en el producto
- * principal del lead y su validador no lee `embudoId`); con una acción que declara `embudoId`
- * (`mover_lead_en_producto`) es el parámetro de verdad.
+ * Con `proponer_cambio_etapa` el producto DECIDE dónde se mueve desde el 21/10/2026 (`dondeMoverEtapa`,
+ * lib/editor-acciones.ts): en su CRM principal, la casa; en uno AGREGADO, su tarjeta de ese CRM; si no está, no se
+ * mueve. La def no lo declara: lo lee el flujo de lo guardado (lib/api-mako/flujo.ts). Con una acción que declara
+ * `embudoId` (`mover_lead_en_producto`) es el parámetro de siempre.
  */
 export function SelectorEtapa({ label, required, disabled, params, opciones, cambiar }: Comun & {
   params: Record<string, unknown>; opciones: OpcionesAccion | undefined; cambiar: Cambiar;

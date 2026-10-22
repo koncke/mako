@@ -26,6 +26,7 @@ import { esLineal, esNodoDeControl, relinear, tieneTarjetasDeControl, agregarCas
 import { getAdjunto } from '@/lib/setting-adjuntos';
 import { emitirAviso } from '@/lib/avisos';
 import { linkApp } from '@/lib/app-url';
+import { rutaChatsDeLead } from '@/lib/chats-links';
 import { valoresVariablesLead } from '@/lib/template-vars';
 import { valoresDeVariables } from '@/lib/variables-resolver';
 import { textoConDatos } from '@/lib/variables-del-lead';
@@ -1080,6 +1081,8 @@ export const RUNNERS: Runners = {
         // El link que viaja en el WhatsApp va por `linkApp` (lleva el `?ws=`): abierto desde el
         // teléfono, sin él abre la ficha en el negocio que esté mirando la pestaña.
         linkLead: lead ? linkApp(`/crm/${lead.id}`, ctx.ws) : null,
+        // Y la CHARLA en Chats (21/10/2026): quien sigue a mano llega en un toque, sin pasar por la ficha.
+        linkChat: lead ? linkApp(rutaChatsDeLead(lead.id), ctx.ws) : null,
         textos: { titulo, mensaje: partes ? textoDePreparadas(partes) : mensaje, ...(porEmail ? { asunto } : {}) },
         partes,
       });

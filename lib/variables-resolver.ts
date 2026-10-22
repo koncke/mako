@@ -27,6 +27,7 @@
 import 'server-only';
 
 import { linkApp } from './app-url';
+import { rutaChatsDeLead } from './chats-links';
 import { RUTA_DE_LINK, RE_VARIABLE, fuentesQueNombra, type DestinoMensaje, type FuenteDato } from './variables-aviso';
 import { zonaDelNegocio } from './timezone';
 import { getWorkspace, runWithWorkspace, getTenantDb } from './workspace';
@@ -155,6 +156,8 @@ export async function valoresDeVariables(ctx: CtxVariables, texto?: string, dato
   if (destino === 'equipo') {
     for (const [k, ruta] of Object.entries(RUTA_DE_LINK)) out[k] = linkApp(ruta, ctx.ws);
     if (ctx.leadId) out.link_lead = linkApp(`/crm/${ctx.leadId}/resumen`, ctx.ws);
+    // Su conversación en Chats (21/10/2026): para seguir A MANO en un toque desde el aviso.
+    if (ctx.leadId) out.link_chat_lead = linkApp(rutaChatsDeLead(ctx.leadId), ctx.ws);
   }
   // La zona la piden la fecha/hora de ahora, la hora de sus reuniones y la PRÓXIMA reunión (cuándo es, a qué hora).
   const zona = pide('momento') || pide('zona') || pide('proxima') ? await zonaPara(ctx.ws).catch(() => null) : null;
