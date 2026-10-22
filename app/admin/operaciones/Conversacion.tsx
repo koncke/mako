@@ -20,7 +20,7 @@ import { Icon } from '@/app/_components/icons';
 import { PanelDeChat } from './PanelChat';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
 import { preguntasDeLaApp, preguntasParaElBloque } from '@/lib/centro-chats';
-import { historialDelChat, nombreCuenta, textoDeEnvio, trabajaSinEscribir, type CarteroP, type ChatCentro, type Envio, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
+import { historialDelChat, yaEstaSinVer, nombreCuenta, textoDeEnvio, trabajaSinEscribir, type CarteroP, type ChatCentro, type Envio, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
 import { Modal } from '@/app/_ui';
 import { SIN_MARCAS, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
 import { BarraFijados, CitaCaja, ContextoWA, InfoMensaje, MenuMensajeWA, ReenviarA, type AccionesWA, type MenuAbiertoWA, type MensajeWA } from './MensajeWA';
@@ -158,6 +158,16 @@ export function Conversacion({
   const [cuantos, setCuantos] = useState(TANDA_HILO);
   useEffect(() => { setCuantos(TANDA_HILO); }, [chat.clave]);
   const verTodo = useCallback(() => setCuantos(Number.MAX_SAFE_INTEGER), []);
+  // AL ABRIR UN CHAT CON UN «COMPLETADO» SIN SU ✓, EL HILO VA A ESE «YA ESTÁ» (22/10/2026, Martín: «cuando entro, no veo el mensaje
+  // de "Completado"»): puede estar arriba de lo que el chat escribió después. Una vez por chat abierto.
+  const sinVer = useMemo(() => yaEstaSinVer(lineas, yaVisto), [lineas, yaVisto]);
+  const fueAlYaEsta = useRef<string | null>(null);
+  useEffect(() => {
+    if (!sinVer || fueAlYaEsta.current === chat.clave) return;
+    fueAlYaEsta.current = chat.clave;
+    verTodo();
+    window.setTimeout(() => irAlTurno(sinVer), 120);
+  }, [chat.clave, sinVer, verTodo]);
   const [menuWA, setMenuWA] = useState<MenuAbiertoWA | null>(null);
   const [panelWA, setPanelWA] = useState<{ tipo: 'info' | 'reenviar'; m: MensajeWA } | null>(null);
   const [reenviando, setReenviando] = useState(false);
@@ -211,8 +221,8 @@ export function Conversacion({
         {/* Lo que ESTE chat le pregunta, de a una y como en Claude (22/10/2026, PreguntasDelChat.tsx): las de `cartero preguntar` y
             los botones del cierre con wrap_up se contestan acá (quedan en el hilo como «Decisión: …»); las de AskUserQuestion se
             ven, y se contestan en la app de Claude. */}
-        {deLaApp.length > 0 && <PreguntasDeLaApp key={`a-${chat.clave}`} preguntas={deLaApp} />}
-        {onResponder && bloque.length > 0 && <PreguntasDelChat key={`p-${chat.clave}`} preguntas={bloque} onResponder={responderPregunta} />}
+        {deLaApp.length > 0 && <PreguntasDeLaApp key={`a-${chat.clave}`} chat={chat.clave} preguntas={deLaApp} />}
+        {onResponder && bloque.length > 0 && <PreguntasDelChat key={`p-${chat.clave}`} chat={chat.clave} preguntas={bloque} onResponder={responderPregunta} />}
         {/* Una clave pegada no sale (mandar.ts): se dice apenas aparece, con el botón a /integraciones. */}
         {envio.puede && hayClave(texto) && <AvisoClave />}
         {envio.puede ? (

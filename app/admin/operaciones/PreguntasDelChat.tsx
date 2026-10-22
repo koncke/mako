@@ -7,39 +7,103 @@
 // opciones, y tipo form de 1 pregunta, respondo 1 y va a la siguiente...». Hasta ese día cada pregunta de un chat (la de
 // `cartero preguntar` y la de botones del cierre con wrap_up) era una tarjeta DENTRO del hilo (PreguntaChat.tsx), y la que
 // el chat dejaba atrás quedaba ahí con «Ya no espera tu respuesta».
-//   · un bloque fijo arriba de la caja (no en el hilo) mientras el chat espera respuestas: la pregunta, sus opciones
+//   · una tarjeta FLOTANTE arriba de la caja (no en el hilo) mientras el chat espera respuestas: la pregunta, sus opciones
 //     numeradas (la recomendada primera y marcada) y el renglón libre «Escribe otra cosa»;
-//   · con varias, una por vez: «2 de 3», «Atrás» para volver, y al final el repaso con todo lo elegido y «Enviar»;
-//     con una sola, tocar una opción la manda (como Claude);
+//   · con varias, una por vez: «2 de 3», «‹ Anterior», «Siguiente ›» y los puntos para ir a cualquiera; se mandan TODAS al
+//     contestar la última (sin pantalla de resumen); con una sola, tocar una opción la manda (como Claude);
 //   · al mandar, cada respuesta sale FIRMADA por el camino de siempre (useCentro.ts → contestarPregunta, una por pregunta, en
 //     orden) y en el hilo queda como un mensaje de Martín: «Decisión: …» con la pregunta citada (Hilo.tsx).
+// AJUSTES DE MARTÍN (22/10/2026, ya usándolo, con captura): «Que no se ponga con el fondo blanco, que sea un bloque flotante»
+// (centro.css: el pie de la caja tiene el fondo del chat), «Falta un desplegable, una flecha o algo para ocultarlo» (la flecha
+// lo pliega a una tira; se recuerda por chat y por las preguntas que espera: una pregunta nueva lo abre), «Tienes que ser capaz
+// de poner links» (también sin https: lib/links-texto.ts → conDominiosComoLinks) y «al final salió como un resumen de todo.
+// No debería, pero sí debería poder ver unos botones o algo para volver a la pregunta anterior».
 // En la computadora y en el teléfono (Conversacion.tsx y ChatsMovil.tsx lo montan igual); en el teléfono los renglones tienen
 // el alto de un dedo (centro.css, `pointer: coarse`).
 //
 // ⚠️ LA PREGUNTA SE SIGUE POR SU ID: el refresco puede sacar una (contestada en otro lado) o sumar otra mientras se responde.
 // ⚠️ ESTO NO ESCRIBE EN LA BASE: dice qué se eligió; firmar y marcar es del motor (useCentro.ts).
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { conFormato } from '@/app/_components/Markdown';
-import { eleccionValida, opcionesEnOrden, resumenDeRespuesta, type PreguntaChat } from '@/lib/centro-preguntas-chat';
+import { eleccionValida, opcionesEnOrden, type PreguntaChat } from '@/lib/centro-preguntas-chat';
+import { conDominiosComoLinks } from '@/lib/links-texto';
 import type { Responder } from './PreguntaChat';
 import { AvisoClave } from '@/app/_chat/AvisoClave';
 import { AVISO_CLAVE_EN_EL_CENTRO, hayClave } from '@/lib/claves-en-el-chat';
 
 type Elegido = { elegidas: number[]; otra: string };
 
-export function PreguntasDelChat({ preguntas, onResponder }: {
+/** Un texto del bloque con su formato y sus links clickeables, también los que vienen sin https («aistudio.google.com/apikey»). */
+const conLinks = (texto: string, k: string): ReactNode => conFormato(conDominiosComoLinks(texto), k);
+
+/** Plegado, por chat y por las preguntas que espera: si llega una nueva, se abre solo. En el navegador: si no hay, abierto. */
+const CLAVE_PLEGADO = 'ops.preguntas.plegado.';
+const firmaDe = (preguntas: readonly PreguntaChat[]) => preguntas.map((p) => p.id).join(',');
+function usePlegado(chat: string, preguntas: readonly PreguntaChat[]): [boolean, (v: boolean) => void] {
+  const firma = firmaDe(preguntas);
+  const [plegado, setPlegado] = useState(false);
+  useEffect(() => {
+    try { setPlegado(window.localStorage.getItem(CLAVE_PLEGADO + chat) === firma); } catch { setPlegado(false); }
+  }, [chat, firma]);
+  const poner = (v: boolean) => {
+    setPlegado(v);
+    try { if (v) window.localStorage.setItem(CLAVE_PLEGADO + chat, firma); else window.localStorage.removeItem(CLAVE_PLEGADO + chat); } catch { /* sin almacenamiento, sólo en esta pestaña */ }
+  };
+  return [plegado, poner];
+}
+const esperando = (n: number) => (n === 1 ? '1 pregunta esperando' : `${n} preguntas esperando`);
+
+/** La tira plegada: cuántas esperan, y la flecha para abrir. */
+function Plegada({ n, onAbrir, app = false }: { n: number; onAbrir: () => void; app?: boolean }) {
+  return (
+    <button type="button" className={`co-preg co-preg--arriba co-preg--plegada${app ? ' co-preg--app' : ''}`} onClick={onAbrir} aria-expanded={false}>
+      <span>{esperando(n)}</span><span className="co-preg__flecha" aria-hidden>▴</span>
+    </button>
+  );
+}
+
+/** La flecha para plegar, arriba a la derecha de la tarjeta. */
+const Plegar = ({ onPlegar }: { onPlegar: () => void }) => (
+  <button type="button" className="co-preg__plegar" onClick={onPlegar} aria-expanded aria-label="Ocultar las preguntas" title="Ocultar">
+    <span aria-hidden>▾</span>
+  </button>
+);
+
+/** «‹ Anterior», los puntos (uno por pregunta: se toca para ir) y «Siguiente ›». */
+function Pasos({ preguntas, pos, ir, contestada, enviando }: {
+  preguntas: readonly PreguntaChat[]; pos: number; ir: (i: number) => void; contestada: (id: string) => boolean; enviando?: boolean;
+}) {
+  return (
+    <div className="co-preg__pasos">
+      <button type="button" className="co-chip" disabled={enviando || pos === 0} onClick={() => ir(pos - 1)}>‹ Anterior</button>
+      <span className="co-preg__puntos" role="group" aria-label={`${pos + 1} de ${preguntas.length}`}>
+        {preguntas.map((q, i) => (
+          <button key={q.id} type="button" className="co-preg__punto" disabled={enviando} onClick={() => ir(i)}
+            aria-label={`Pregunta ${i + 1}${contestada(q.id) ? ' (contestada)' : ''}`} aria-current={i === pos ? 'step' : undefined}
+            data-contestada={contestada(q.id) ? 'true' : undefined} />
+        ))}
+      </span>
+      <span className="co-preg__paso">{`${pos + 1} de ${preguntas.length}`}</span>
+      <button type="button" className="co-chip" disabled={enviando || pos + 1 >= preguntas.length} onClick={() => ir(pos + 1)}>Siguiente ›</button>
+    </div>
+  );
+}
+
+export function PreguntasDelChat({ chat, preguntas, onResponder }: {
+  /** El chat (su clave en el Ops Center): para recordar si el bloque está plegado. */
+  chat: string;
   /** Las que este chat espera (abiertas y sin una respuesta en camino), la más vieja primero: `preguntasParaElBloque`. */
   preguntas: readonly PreguntaChat[];
   onResponder: Responder;
 }) {
   const [idActual, setIdActual] = useState<string | null>(null);
-  const [repaso, setRepaso] = useState(false);
   const [elegidos, setElegidos] = useState<Record<string, Elegido>>({});
   const [marcadas, setMarcadas] = useState<number[]>([]);
   const [otra, setOtra] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [plegado, setPlegado] = usePlegado(chat, preguntas);
   const campo = useRef<HTMLInputElement>(null);
 
   const pos = Math.max(0, preguntas.findIndex((p) => p.id === idActual));
@@ -47,7 +111,7 @@ export function PreguntasDelChat({ preguntas, onResponder }: {
   const varias = preguntas.length > 1;
   const ops = useMemo(() => (p ? opcionesEnOrden(p) : []), [p]);
 
-  // Al llegar a una pregunta, lo que ya se había elegido en ella (al volver con «Atrás») o nada.
+  // Al llegar a una pregunta, lo que ya se había elegido en ella (al volver con «‹ Anterior» o un punto) o nada.
   useEffect(() => {
     if (!p) return;
     const ya = elegidos[p.id];
@@ -57,8 +121,10 @@ export function PreguntasDelChat({ preguntas, onResponder }: {
   }, [p?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!p) return null;
+  if (plegado) return <Plegada n={preguntas.length} onAbrir={() => setPlegado(false)} />;
 
-  const ir = (i: number) => { setRepaso(false); setIdActual(preguntas[Math.min(preguntas.length - 1, Math.max(0, i))]?.id ?? null); };
+  const ir = (i: number) => setIdActual(preguntas[Math.min(preguntas.length - 1, Math.max(0, i))]?.id ?? null);
+  const contestada = (id: string) => !!elegidos[id];
 
   async function enviar(todo: Record<string, Elegido>) {
     if (enviando) return;
@@ -73,11 +139,11 @@ export function PreguntasDelChat({ preguntas, onResponder }: {
     }
     setEnviando(false);
     setElegidos({});
-    setRepaso(false);
     setIdActual(null);
   }
 
-  /** Lo elegido en ESTA pregunta: con una sola pregunta sale ya; con varias, pasa a la siguiente o al repaso. */
+  /** Lo elegido en ESTA pregunta: con una sola sale ya; con varias, pasa a la siguiente y, en la última, salen TODAS (si falta
+   *  alguna de antes, va a ésa). Nunca hay una pantalla de resumen. */
   function guardar(elegidas: number[], texto: string) {
     if (!p) return;
     const v = eleccionValida(p, elegidas, texto);
@@ -87,7 +153,9 @@ export function PreguntasDelChat({ preguntas, onResponder }: {
     const todo = { ...elegidos, [p.id]: { elegidas: v.elegidas, otra: v.otra ?? '' } };
     setElegidos(todo);
     if (!varias) { void enviar(todo); return; }
-    if (pos + 1 < preguntas.length) ir(pos + 1); else setRepaso(true);
+    if (pos + 1 < preguntas.length) { ir(pos + 1); return; }
+    const falta = preguntas.findIndex((q) => !todo[q.id]);
+    if (falta >= 0) ir(falta); else void enviar(todo);
   }
   const tocar = (i: number) => {
     if (enviando) return;
@@ -96,74 +164,39 @@ export function PreguntasDelChat({ preguntas, onResponder }: {
     setError(null);
   };
   function tecla(e: KeyboardEvent<HTMLDivElement>) {
-    if (repaso || enviando || e.target === campo.current) return;
+    if (enviando || e.target === campo.current) return;
     if (/^[1-9]$/.test(e.key)) {
       const o = ops[Number(e.key) - 1];
       if (o) { e.preventDefault(); tocar(o.i); } else if (Number(e.key) === ops.length + 1) { e.preventDefault(); campo.current?.focus(); }
     }
   }
 
-  // ── El repaso: todo lo elegido, para cambiar algo o mandarlo ──
-  if (repaso) {
-    return (
-      <div className="co-preg co-preg--arriba" role="group" aria-label="Tus respuestas">
-        <div className="co-preg__cab">
-          <span className="co-preg__texto">Tus respuestas</span>
-          <span className="co-preg__paso">{`${preguntas.length} de ${preguntas.length}`}</span>
-        </div>
-        <ol className="co-preg__ops">
-          {preguntas.map((q, i) => {
-            const e = elegidos[q.id];
-            return (
-              <li key={q.id}>
-                <button type="button" className="co-preg__op" disabled={enviando} onClick={() => ir(i)} aria-label={`Cambiar: ${q.pregunta}`}>
-                  <span className="co-preg__num" aria-hidden>{i + 1}</span>
-                  <span className="co-preg__op-txt">
-                    <span className="co-preg__detalle">{q.pregunta}</span>
-                    <span className="co-preg__titulo">{e ? resumenDeRespuesta(q, { elegidas: e.elegidas, otra: e.otra || null }) : 'Sin responder'}</span>
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ol>
-        <div className="co-preg__pie co-preg__pie--chat">
-          {error ? <span className="co-preg__error" role="alert">{error}</span> : <span className="co-preg__ayuda">Toca una para cambiarla</span>}
-          <span className="co-preg__acciones">
-            <button type="button" className="co-chip" disabled={enviando} onClick={() => ir(preguntas.length - 1)}>Atrás</button>
-            <button type="button" className="co-chip co-chip--primario" disabled={enviando || preguntas.some((q) => !elegidos[q.id])}
-              onClick={() => void enviar(elegidos)}>
-              {enviando ? 'Enviando…' : 'Enviar'}
-            </button>
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Una pregunta ──
   const elegida = (i: number) => marcadas.includes(i);
+  const ultima = pos + 1 >= preguntas.length;
   return (
     <div className="co-preg co-preg--arriba" role="group" aria-label={`Pregunta: ${p.pregunta}`} onKeyDown={tecla}>
-      {varias && (
-        <div className="co-preg__cab">
-          {pos > 0 && <button type="button" className="co-chip" disabled={enviando} onClick={() => ir(pos - 1)}>Atrás</button>}
-          <span className="co-preg__paso">{`${pos + 1} de ${preguntas.length}`}</span>
-        </div>
-      )}
-      <p className="co-preg__texto">{conFormato(p.pregunta, 'pq')}</p>
-      {p.contexto && <p className="co-preg__contexto">{conFormato(p.contexto, 'pc')}</p>}
+      <div className="co-preg__cab">
+        {varias ? <Pasos preguntas={preguntas} pos={pos} ir={ir} contestada={contestada} enviando={enviando} />
+          : <span className="co-preg__paso">{esperando(1)}</span>}
+        <Plegar onPlegar={() => setPlegado(true)} />
+      </div>
+      <p className="co-preg__texto">{conLinks(p.pregunta, 'pq')}</p>
+      {p.contexto && <p className="co-preg__contexto">{conLinks(p.contexto, 'pc')}</p>}
       <ol className="co-preg__ops">
         {ops.map((o, n) => (
           <li key={o.i}>
-            <button type="button" className="co-preg__op" disabled={enviando} data-elegida={elegida(o.i) ? 'true' : undefined}
-              aria-pressed={p.varias ? elegida(o.i) : undefined} onClick={() => tocar(o.i)}>
+            {/* Un `div` con rol de botón y no un <button>: el detalle puede traer un link, y un link adentro de un botón no se
+                abre (HTML no lo deja). Tocar el link lo abre SIN elegir la opción; Enter o espacio la eligen. */}
+            <div role="button" tabIndex={enviando ? -1 : 0} aria-disabled={enviando || undefined} className="co-preg__op"
+              data-elegida={elegida(o.i) ? 'true' : undefined} aria-pressed={p.varias ? elegida(o.i) : undefined}
+              onClick={(e) => { if (!enviando && !(e.target as HTMLElement).closest('a')) tocar(o.i); }}
+              onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && !enviando) { e.preventDefault(); tocar(o.i); } }}>
               <span className={`co-preg__num${p.varias ? ' co-preg__num--caja' : ''}`} aria-hidden>{n + 1}</span>
               <span className="co-preg__op-txt">
                 <span className="co-preg__titulo">{o.titulo}{o.recomendada && <span className="co-preg__rec"> (Recomendada)</span>}</span>
-                {o.detalle && <span className="co-preg__detalle">{conFormato(o.detalle, `pd${n}`)}</span>}
+                {o.detalle && <span className="co-preg__detalle">{conLinks(o.detalle, `pd${n}`)}</span>}
               </span>
-            </button>
+            </div>
           </li>
         ))}
         <li>
@@ -179,11 +212,11 @@ export function PreguntasDelChat({ preguntas, onResponder }: {
       </ol>
       <div className="co-preg__pie co-preg__pie--chat">
         {error ? <span className="co-preg__error" role="alert">{error}</span>
-          : <span className="co-preg__ayuda">{p.varias ? 'Elige una o varias' : `Elige con 1 a ${ops.length + 1}`}</span>}
+          : <span className="co-preg__ayuda">{p.varias ? 'Elige una o varias' : `Elige con 1 a ${ops.length + 1}`}{varias && ultima ? ' · con ésta salen todas' : ''}</span>}
         {(p.varias || otra.trim()) && (
           <button type="button" className="co-chip co-chip--primario" disabled={enviando || (!marcadas.length && !otra.trim())}
             onClick={() => guardar(p.varias ? marcadas : [], otra)}>
-            {enviando ? 'Enviando…' : varias ? (pos + 1 < preguntas.length ? 'Siguiente' : 'Repasar') : 'Responder'}
+            {enviando ? 'Enviando…' : varias && !ultima ? 'Siguiente' : varias ? 'Enviar' : 'Responder'}
           </button>
         )}
       </div>
@@ -197,22 +230,22 @@ export function PreguntasDelChat({ preguntas, onResponder }: {
  * así que una respuesta firmada desde acá no lo destraba (lib/centro-preguntas-chat.ts → seContestaEnLaApp). La regla para los
  * chats es preguntar con `cartero preguntar` (AGENTS.md).
  */
-export function PreguntasDeLaApp({ preguntas }: { preguntas: readonly PreguntaChat[] }) {
+export function PreguntasDeLaApp({ chat, preguntas }: { chat: string; preguntas: readonly PreguntaChat[] }) {
   const [pos, setPos] = useState(0);
+  const [plegado, setPlegado] = usePlegado(`app.${chat}`, preguntas);
   const p = preguntas[Math.min(pos, preguntas.length - 1)] ?? null;
   if (!p) return null;
+  if (plegado) return <Plegada n={preguntas.length} onAbrir={() => setPlegado(false)} app />;
   const i = preguntas.indexOf(p);
   return (
     <div className="co-preg co-preg--arriba co-preg--app" role="group" aria-label={`Pregunta en la app de Claude: ${p.pregunta}`}>
-      {preguntas.length > 1 && (
-        <div className="co-preg__cab">
-          {i > 0 && <button type="button" className="co-chip" onClick={() => setPos(i - 1)}>Atrás</button>}
-          <span className="co-preg__paso">{`${i + 1} de ${preguntas.length}`}</span>
-          {i + 1 < preguntas.length && <button type="button" className="co-chip" onClick={() => setPos(i + 1)}>Siguiente</button>}
-        </div>
-      )}
-      <p className="co-preg__texto">{conFormato(p.pregunta, 'pq')}</p>
-      {p.contexto && <p className="co-preg__contexto">{conFormato(p.contexto, 'pc')}</p>}
+      <div className="co-preg__cab">
+        {preguntas.length > 1 ? <Pasos preguntas={preguntas} pos={i} ir={(n) => setPos(Math.min(preguntas.length - 1, Math.max(0, n)))} contestada={() => false} />
+          : <span className="co-preg__paso">{esperando(1)}</span>}
+        <Plegar onPlegar={() => setPlegado(true)} />
+      </div>
+      <p className="co-preg__texto">{conLinks(p.pregunta, 'pq')}</p>
+      {p.contexto && <p className="co-preg__contexto">{conLinks(p.contexto, 'pc')}</p>}
       <ol className="co-preg__ops">
         {opcionesEnOrden(p).map((o, n) => (
           <li key={o.i}>
@@ -220,7 +253,7 @@ export function PreguntasDeLaApp({ preguntas }: { preguntas: readonly PreguntaCh
               <span className={`co-preg__num${p.varias ? ' co-preg__num--caja' : ''}`} aria-hidden>{n + 1}</span>
               <span className="co-preg__op-txt">
                 <span className="co-preg__titulo">{o.titulo}{o.recomendada && <span className="co-preg__rec"> (Recomendada)</span>}</span>
-                {o.detalle && <span className="co-preg__detalle">{conFormato(o.detalle, `pd${n}`)}</span>}
+                {o.detalle && <span className="co-preg__detalle">{conLinks(o.detalle, `pd${n}`)}</span>}
               </span>
             </p>
           </li>

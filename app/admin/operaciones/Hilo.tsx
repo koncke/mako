@@ -22,7 +22,7 @@
 
 import { Icon } from '@/app/_components/icons';
 import { ROTULO, type EstadoPedido } from '@/lib/operaciones-reglas';
-import { chatTrabajando, esYaEsta, estadoDelEnvio, lineasDeConversacion, type CarteroP, type ChatCentro, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
+import { chatTrabajando, esYaEsta, estadoDelEnvio, lineasDeConversacion, primeraOracion, type CarteroP, type ChatCentro, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
 import { YaEstaMensaje } from './Avance';
 import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
@@ -37,7 +37,7 @@ import { TEXTO_SOLO_ADJUNTOS, bloquesDeMensaje } from '@/lib/centro-caja';
 import { AdjuntosDeLaApp, AdjuntosEnBurbuja } from './FotosEnviadas';
 import { MiFoto } from './MiFoto';
 import { ConLinks } from './ConLinks';
-import { memo, type ReactNode } from 'react';
+import { memo, useState, type ReactNode } from 'react';
 import { idDeLinea, leerCita, leerReenvio, mensajeDeLinea, sinOcultos, type MarcasChat, type MensajeWA } from '@/lib/centro-mensajes';
 import { CitaEnBurbuja, Deslizable, MarcasEnHora, ReaccionWA } from './MensajeWA';
 import type { PasoDelTurno } from '@/lib/centro-pasos';
@@ -221,6 +221,14 @@ function Turno({ l, t, quien, vivo, extras, wa }: { l: LineaChat; t: TurnoChat; 
       </FilaDelChat>
     );
   }
+  // Lo que le escribió a OTRO chat (22/10/2026, `turnosParaOtro`): una línea, «Avance: …», que se abre al tocarla.
+  if (t.rol === 'el' && l.tipo === 'turno' && l.plegado) {
+    return (
+      <FilaDelChat m={m} quien={quien} marcas={wa.marcas} hora={hora} idTurno={`co-turno-${t.uuid}`}>
+        <Avance texto={t.texto} />
+      </FilaDelChat>
+    );
+  }
   if (t.rol === 'el') {
     return (
       <FilaDelChat m={m} quien={quien} marcas={wa.marcas} hora={hora} idTurno={`co-turno-${t.uuid}`}>
@@ -240,6 +248,19 @@ function Turno({ l, t, quien, vivo, extras, wa }: { l: LineaChat; t: TurnoChat; 
         <span className="co-burbuja__pie"><MarcasEnHora id={id} marcas={wa.marcas} />{t.rol === 'yo' && !t.trabajo && <span className="co-burbuja__desde" title="Lo escribiste directo en la app de Claude">En la app de Claude</span>}{hora}</span>
       </div>
     </FilaMia>
+  );
+}
+
+/** Un turno que el chat le escribió a otro chat: plegado en su primera oración; tocarlo lo abre entero, y otra vez lo cierra. */
+function Avance({ texto }: { texto: string }) {
+  const [abierto, setAbierto] = useState(false);
+  return (
+    <div className="co-el__texto">
+      <button type="button" className="co-avance" aria-expanded={abierto} onClick={() => setAbierto((v) => !v)} title={abierto ? 'Plegar' : 'Ver todo'}>
+        {`Avance: ${primeraOracion(texto)}`}
+      </button>
+      {abierto && <div className="co-avance__abierto co-el__md"><MarkdownDeTurno texto={texto} /></div>}
+    </div>
   );
 }
 

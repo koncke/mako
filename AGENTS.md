@@ -1720,6 +1720,8 @@ código nuevo:
     que el chat le contesta («Voy a trabajar en…», «Ya está», sus preguntas). Un mensaje de otro chat (`otro`) y el resumen de
     una compactación no, ni lo nuevo ni lo guardado: la regla es `esParaMartin` (lib/operaciones-reglas.ts) y la aplica
     `lineasDeConversacion`. Algo nuevo que dibuje turnos pasa por ahí. Lo que tiene que leer Martín se lo dice el chat a él.
+    Lo que el chat le CONTESTA a otro chat va plegado en una línea, «Avance: …» (`turnosParaOtro`), menos un «Ya está»; y la fila
+    dice «Espera tu respuesta» SÓLO con una pregunta abierta: un «Ya está» sin su ✓ dice «Completado» (22/10/2026).
   - **UNA CLAVE PEGADA EN EL OPS CENTER NO SALE** (22/10/2026, la de Apify que quedó en un pedido firmado). Lo que escribe Martín
     en el Ops Center del super admin sale FIRMADO desde el navegador y no se puede tapar después: `mandar` (app/admin/operaciones/
     mandar.ts) lo frena si `hayClave` (lib/claves-en-el-chat.ts), y `encolarPedido` no lo guarda. Un texto nuevo que salga de ahí

@@ -14,6 +14,22 @@ export type TrozoConLink = { tipo: 'texto'; t: string } | { tipo: 'link'; t: str
 
 const LINK_RE = /\[([^\]\n]{1,200})\]\((https?:\/\/[^\s)]{1,2000})\)|(https?:\/\/[^\s<>"'«»]{1,2000})/gi;
 
+// ── Un dominio sin https también es un link, en las preguntas de un chat (22/10/2026) ──────────────────────────────────
+// Martín, usando el bloque de decisiones: «me escribió el link de google ai, pero no es clickeable» («aistudio.google.com/apikey»).
+// Sólo con una terminación de las de siempre (`.com`, `.ai`, `.app`, `.ar`…): «Next.js», «hilo.ts» o «v1.2» no son links. Ni
+// dentro de un link que ya está (`https://…`, `[texto](…)`) ni en un email. Lo usa el bloque de preguntas (PreguntasDelChat.tsx),
+// no el resto de los chats: ahí una palabra con punto es más seguido código que una página.
+const DOMINIO_SUELTO = /(?<![\w@./:\-[(])((?:[a-z0-9-]+\.)+(?:com|net|org|io|ai|app|dev|co|me|so|gg|tv|xyz|info|biz|site|online|store|tech|cloud|link|page|digital|studio|ar|mx|es|cl|uy|pe|br|us|uk|de|fr|it)(?![\w-])(?:\/[^\s<>()[\]«»"']*)?)/gi;
+/** El texto con cada dominio suelto como un link de Markdown a su https («aistudio.google.com/apikey» → `[…](https://…)`). */
+export function conDominiosComoLinks(texto: string): string {
+  return texto.replace(DOMINIO_SUELTO, (crudo: string) => {
+    let d = crudo;
+    while (/[.,;:!?]$/.test(d)) d = d.slice(0, -1);
+    const resto = crudo.slice(d.length);
+    return `[${d}](https://${d})${resto}`;
+  });
+}
+
 /** El texto partido en lo que es link y lo que no, para dibujarlo. */
 export function trozosConLinks(texto: string): TrozoConLink[] {
   const out: TrozoConLink[] = [];
