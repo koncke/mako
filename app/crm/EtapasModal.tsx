@@ -55,6 +55,7 @@ import { useCallback, useEffect, useRef, useState, useTransition, type CSSProper
 import { useRouter, useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
 import { Modal } from '@/app/_ui/Modal';
+import { Spinner } from '@/app/_ui';
 import { Confirm } from '@/app/_ui/Confirm';
 import { Toast, useToast } from '@/app/_ui/Toast';
 import { Dropdown } from '@/app/components/Dropdown';
@@ -255,6 +256,13 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar, onRenombrado 
   /** El orden de las nutriciones que se está arrastrando (optimista, como `ordenLocal`). */
   const [nutriLocal, setNutriLocal] = useState<EtapaDelFunnel[] | null>(null);
   const [trabajando, startTrabajo] = useTransition();
+  /**
+   * LA ETAPA QUE SE ESTÁ CREANDO, dibujada en su lugar con un «Creando…» mientras el server la guarda y la lista se
+   * relee (llamada con Mauricio del 22/10/2026, min 19:30: «tarda mucho en crearse y tal vez necesita un loader»). Crear
+   * es guardar el funnel, releerlo y refrescar el tablero de atrás: segundos en los que el «+» sólo quedaba apagado.
+   * `despuesDe` es la etapa tras la que va a caer (la misma que viaja en la op); `null` = al final de la banda Nutrición.
+   */
+  const [creando, setCreando] = useState<{ label: string; despuesDe: string | null } | null>(null);
 
   const cargar = useCallback(async () => {
     const r = await embudoEnDetalleAction(funnelId ?? undefined);
@@ -310,10 +318,11 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar, onRenombrado 
   const aplicar = (op: OpEtapa, onListo?: (d?: DeshacerEtapa) => void) => {
     startTrabajo(async () => {
       const r = await editarEtapaAction(op, funnelId ?? undefined);
-      if (!r.ok) { setError(r.error); setOrdenLocal(null); setNutriLocal(null); return; }
+      if (!r.ok) { setError(r.error); setOrdenLocal(null); setNutriLocal(null); setCreando(null); return; }
       setError(null);
       setRenombrando(null);
       await cargar();
+      setCreando(null);
       void extrasDelEmbudoAction(funnelId ?? undefined).then(setExtras).catch(() => {});
       // El tablero de atrás se refresca en CADA cambio: sus columnas se leen en el server,
       // y sin esto quien renombra una etapa y mira detrás del pop-up ve el nombre viejo.
@@ -921,7 +930,7 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar, onRenombrado 
                   La etapa nueva entra justo DESPUÉS de la entrada (`despuesDe`), que es lo más cerca del
                   botón que puede ir: nada va antes de la entrada. */}
               <NuevaEtapa disabled={trabajando}
-                onCrear={(label) => aplicar({ op: 'agregar', label, ...(etapas[iEntrada] ? { despuesDe: etapas[iEntrada].key } : null) })} />
+                onCrear={(label) => { setCreando({ label, despuesDe: etapas[iEntrada]?.key ?? null }); aplicar({ op: 'agregar', label, ...(etapas[iEntrada] ? { despuesDe: etapas[iEntrada].key } : null) }); }} />
 
               {etapas.map((e, i) => (
               <div key={e.key} style={{ position: 'relative' }}>
@@ -930,7 +939,7 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar, onRenombrado 
                     medio»). Encima de la entrada no: nada va antes de ella, y arriba ya está «+ Agregar». */}
                 {i > 0 && (
                   <HuecoAgregar disabled={trabajando} oculto={arrastrando != null}
-                    onCrear={(label) => aplicar({ op: 'agregar', label, despuesDe: etapas[i - 1].key })} />
+                    onCrear={(label) => { setCreando({ label, despuesDe: etapas[i - 1].key }); aplicar({ op: 'agregar', label, despuesDe: etapas[i - 1].key }); }} />
                 )}
                 {/* ⚠️ EL RADIO, EL FONDO, LA MARCA DEL ARRASTRE Y EL BORDE DEL NODO AGARRADO VIVEN
                     ACÁ, en el envoltorio. Y `data-etapa` / `draggable` se quedan ADENTRO, en la fila:
@@ -967,6 +976,7 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar, onRenombrado 
                     </>)}
                   </div>
                 </div>
+                {creando?.despuesDe === e.key && <FilaCreando label={creando.label} caja={caja} />}
               </div>
               ))}
 
@@ -1299,3 +1309,17 @@ function HuecoAgregar({ disabled, oculto, onCrear }: { disabled?: boolean; ocult
     </div>
   );
 }
+
+/** La etapa que se está creando, en su lugar, con un spinner (22/10/2026: «necesita un loader»). Sin arrastre ni menú. */
+function FilaCreando({ label, caja }: { label: string; caja: CSSProperties }) {
+  return (
+    <div role="status" aria-live="polite" style={{ ...caja, marginTop: 8, opacity: 0.85 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', fontFamily: SANS, fontSize: 14 }}>
+        <Spinner size={14} />
+        <span style={{ fontWeight: 600, color: 'var(--ink)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+        <span style={{ color: 'var(--faint)', fontSize: 12.5 }}>Creando…</span>
+      </div>
+    </div>
+  );
+}
+
