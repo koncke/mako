@@ -74,9 +74,15 @@ recargar) y la lista perdía sus «Completado» y se reordenaba.
   (useCentro.ts) no la atajaba. Ahora queda lo último que se vio y el intervalo de 8 s reintenta.
 - **Trampa: una lectura colgada trababa la Ticketera para siempre.** `lectorDeBandeja` (mazo-reglas.ts) no soltaba `leyendo` si la
   acción no volvía. Ahora tiene tope (15 s). Con tickets a la vista, un tropiezo suelto no se dice: sólo 3 seguidos.
-- **SIN HACER:** qué es ese 503 (no sale de proxy.ts, cuyo 503 es sólo local): capturar `x-vercel-error` en el próximo deploy. Y
-  la página del teléfono (app/m/operaciones/page.tsx) redirige a /inicio si una vuelta del servidor no puede leer la sesión: eso
-  no se tocó.
+- **Medido en el deploy del tren 7** (dpl_4ssL45J1ND, Ready 20:14:48; el Cerebro, desde el Chrome de Martín): de 20:14:58 a 20:22,
+  294 pedidos a /admin/operaciones, /crm y /api/auth/me (RSC), y ninguna respuesta que no fuera 200. La ráfaga de 503 del tren 5 no
+  se repitió, así que no quedó `x-vercel-error` para leer. Lo que hay que cuidar es lo de arriba: una vuelta sin sesión que trae
+  `centro` null.
+- **Trampa: un tiempo medido en el Chrome de esta PC con poca RAM mide la PC, no producción.** Con 1 GB libre, cada pedido desde el
+  Chrome tardaba entre 13 y 16 s; el mismo pedido desde curl, 0,3 s. Antes de decir que producción está lenta, se mide con curl.
+- **SIN HACER:** si la ráfaga vuelve, capturar `x-vercel-error` en ese deploy (no sale de proxy.ts, cuyo 503 es sólo local). Y la
+  página del teléfono (app/m/operaciones/page.tsx) redirige a /inicio si una vuelta del servidor no puede leer la sesión: eso no se
+  tocó.
 - **Y la criatura de la cabecera contaba con OTRO número que la fila** (Martín, 22/10, 18:45: la fila del «Cerebro» avisaba y la
   criatura de arriba dormía, «No se entiende»). La fila usa `k.avisos(c)` (useCentro.ts: las esperas con el vigía y el
   «Completado» sin ✓). La cabecera recibía `esperaDe(chat, k.esperas)`, sin el «Completado», y lo mismo pasaba con las dos del
