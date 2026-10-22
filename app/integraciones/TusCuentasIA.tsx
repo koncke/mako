@@ -15,12 +15,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { LogoClaude } from '@/app/admin/operaciones/Uso';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
+import { BrandDefs, SvcIcon } from '@/app/_components/ServicioVisual';
 import { hace } from '@/lib/progreso-reglas';
 import { TEXTO_CONSENTIMIENTO, VERSION_CONSENTIMIENTO, estadoDeLaPc, lineaDeInstalacion, yaPaso, type CuentaPc, type SistemaPc } from '@/lib/ia-pc-reglas';
+import { nombreDeSuClave, queHacer, textoDeSuClave, type EstadoSuClave, type ProvSuClave } from '@/lib/su-clave-reglas';
 import './tus-cuentas-ia.css';
 
 type Pc = { id: number; nombre: string; esMia: boolean; de?: string; enLinea: boolean; ultimoLatido: string | null; version: string | null; cuentas: CuentaPc[]; sinClaude?: boolean };
-type Estado = { ok: boolean; esAdmin: boolean; modelo: string; pcs: Pc[] };
+type SuClave = EstadoSuClave & { es: 'propia' | 'copia' | 'ilegible' };
+/** `claves`: sólo para el admin. `null` = no se pudo leer (no se inventa «Todavía no se usó»). */
+type Estado = { ok: boolean; esAdmin: boolean; modelo: string; pcs: Pc[]; claves?: SuClave[] | null };
 
 const MODELOS: Array<{ v: string; t: string }> = [{ v: 'sonnet', t: 'Sonnet (recomendado)' }, { v: 'opus', t: 'Opus' }, { v: 'haiku', t: 'Haiku' }];
 const COMANDO_CLAUDE: Record<SistemaPc, string> = {
@@ -215,6 +219,53 @@ function Tutorial({ onCerrar, pcsAntes, recargar }: { onCerrar: () => void; pcsA
   );
 }
 
+/**
+ * Las claves de API del negocio y si anduvieron o fallaron (IA3, 22/10/2026). Antes una clave sin crédito se veía igual que
+ * «nunca se usó»: cada fallo ahora deja su fila (lib/su-clave.ts) y acá se lee la más reciente. «Probar mi clave» hace un
+ * pedido que no cobra: dice si la clave es válida, no si tiene crédito (eso lo dice la próxima respuesta).
+ */
+function SusClaves({ claves, ahora, recargar }: { claves: SuClave[] | null; ahora: number; recargar: () => Promise<Estado | null> }) {
+  const [probando, setProbando] = useState<ProvSuClave | null>(null);
+  const [prueba, setPrueba] = useState<Partial<Record<ProvSuClave, { anda: boolean; texto: string }>>>({});
+  const probar = async (p: ProvSuClave) => {
+    setProbando(p);
+    const r = await fetch('/api/ia-del-negocio/probar-clave', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ proveedor: p }),
+    }).then((x) => x.json()).catch(() => null);
+    setPrueba((s) => ({ ...s, [p]: r?.ok ? { anda: !!r.anda, texto: String(r.texto) } : { anda: false, texto: r?.error ?? 'No pude probarla. Intenta de nuevo.' } }));
+    setProbando(null);
+    void recargar();
+  };
+  if (claves === null) return <p className="tci-nota">No pude ver tus claves de API. Intenta de nuevo en un rato.</p>;
+  return (
+    <div className="tci-claves">
+      <BrandDefs />
+      {claves.map((c) => {
+        const linea = c.es === 'propia' ? textoDeSuClave(c, ahora, hace) : null;
+        const hacer = linea?.tono === 'mal' && c.fallo ? queHacer(c.fallo.motivo) : null;
+        const r = prueba[c.proveedor];
+        return (
+          <div key={c.proveedor} className="tci-clave">
+            <div className="tci-fila">
+              <span className="tci-quien"><SvcIcon k={c.proveedor} size={14} box={24} radius={6} />{`Tu clave de ${nombreDeSuClave(c.proveedor)}`}</span>
+              {c.es === 'propia' && (
+                <button type="button" className="tci-boton tci-boton--suave tci-boton--chico" disabled={probando != null} onClick={() => void probar(c.proveedor)}>
+                  {probando === c.proveedor ? 'Probando…' : 'Probar mi clave'}
+                </button>
+              )}
+            </div>
+            {linea && <p className={`tci-nota tci-clave__estado tci-clave__estado--${linea.tono}`}>{linea.texto}</p>}
+            {hacer && <p className="tci-nota">{hacer}</p>}
+            {c.es === 'copia' && <p className="tci-nota">Es la clave de MaKo, no la tuya. <BotonIntegracion servicio={c.proveedor} style={{ color: 'var(--primary)', fontWeight: 600 }}>Pegar la tuya</BotonIntegracion></p>}
+            {c.es === 'ilegible' && <p className="tci-nota">No puedo leerla. <BotonIntegracion servicio={c.proveedor} style={{ color: 'var(--primary)', fontWeight: 600 }}>Pegarla de nuevo</BotonIntegracion></p>}
+            {r && <p className={`tci-nota tci-clave__estado tci-clave__estado--${r.anda ? 'bien' : 'mal'}`} role="status">{r.texto}</p>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /** `sinCabecera`: donde la página ya pone el título (/perfil/ia), sólo el botón; si no, el título salía dos veces. */
 export function TusCuentasIA({ sinCabecera = false }: { sinCabecera?: boolean } = {}) {
   const [estado, setEstado] = useState<Estado | null>(null);
@@ -303,6 +354,10 @@ export function TusCuentasIA({ sinCabecera = false }: { sinCabecera?: boolean } 
           </div>
           <p className="tci-nota">Opus piensa más y gasta tu cupo de 5 horas más rápido.</p>
         </div>
+      )}
+
+      {estado?.esAdmin && (estado.claves === null || !!estado.claves?.length) && (
+        <SusClaves claves={estado.claves ?? null} ahora={ahora} recargar={recargar} />
       )}
 
       {/* La clave de API es del NEGOCIO (la guarda el admin): a un closer no se le ofrece. */}

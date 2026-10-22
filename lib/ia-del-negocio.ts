@@ -53,19 +53,33 @@ async function clavesDeLaPlataforma(clave: string): Promise<Set<string>> {
   return out;
 }
 
-/** ¿El negocio tiene una clave de IA PROPIA? Copia de la plataforma: no. Guardada e ilegible: sí. Tira si no pudo leer. */
-async function claveDeIAPropia(ws: number): Promise<boolean> {
+/** Cómo está cada clave de IA guardada en la fila del negocio. Sin fila (o un valor vacío o PENDING), no aparece. */
+export type SuClaveGuardada = { clave: (typeof CLAVES_SU_IA)[number]; es: 'propia' | 'copia' | 'ilegible' };
+
+/** Las claves de IA del negocio, cada una con lo que es. Tira si no pudo leer (la falla cerrada la decide quien llama). */
+export async function susClaves(ws: number): Promise<SuClaveGuardada[]> {
   const { data, error } = await getSupabaseServer().from('credenciales').select('clave, valor_enc').eq('workspace_id', ws).in('clave', [...CLAVES_SU_IA]);
   if (error) throw new Error(`credenciales: ${error.message}`);
+  const out: SuClaveGuardada[] = [];
   for (const f of data ?? []) {
-    const valor = descifrarSecreto(String(f.valor_enc ?? ''), ws, String(f.clave));
-    if (valor == null) {
-      console.error(`[ia-del-negocio] ws=${ws}: ${String(f.clave)} está guardada pero no se puede leer: cuenta como suya`);
+    const clave = String(f.clave) as SuClaveGuardada['clave'];
+    const valor = descifrarSecreto(String(f.valor_enc ?? ''), ws, clave);
+    if (valor == null) { out.push({ clave, es: 'ilegible' }); continue; }
+    if (!esReal(valor)) continue;
+    out.push({ clave, es: (await clavesDeLaPlataforma(clave)).has(valor.trim()) ? 'copia' : 'propia' });
+  }
+  return out;
+}
+
+/** ¿El negocio tiene una clave de IA PROPIA? Copia de la plataforma: no. Guardada e ilegible: sí. Tira si no pudo leer. */
+async function claveDeIAPropia(ws: number): Promise<boolean> {
+  for (const c of await susClaves(ws)) {
+    if (c.es === 'ilegible') {
+      console.error(`[ia-del-negocio] ws=${ws}: ${c.clave} está guardada pero no se puede leer: cuenta como suya`);
       return true;
     }
-    if (!esReal(valor)) continue;
-    if ((await clavesDeLaPlataforma(String(f.clave))).has(valor.trim())) {
-      console.warn(`[ia-del-negocio] ws=${ws}: ${String(f.clave)} es una copia de la de la plataforma: no es su IA`);
+    if (c.es === 'copia') {
+      console.warn(`[ia-del-negocio] ws=${ws}: ${c.clave} es una copia de la de la plataforma: no es su IA`);
       continue;
     }
     return true;

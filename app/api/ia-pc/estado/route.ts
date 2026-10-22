@@ -12,6 +12,7 @@ import { personaDelRequest } from '@/lib/mako-turno-app';
 import { listarDispositivos } from '@/lib/ia-pc';
 import { CLAVE_MODELO_PC, modeloPc } from '@/lib/ia-pc-reglas';
 import { getSetting } from '@/lib/settings';
+import { estadoDeSusClaves } from '@/lib/su-clave';
 import { runWithWorkspace } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
@@ -27,8 +28,11 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: 'No pude leer tus computadoras. Intenta de nuevo.' }, { status: 503 });
   }
   const modelo = await runWithWorkspace(persona.ws, () => getSetting(CLAVE_MODELO_PC)).catch(() => null);
+  // Las claves de API del negocio y si anduvieron o fallaron (IA3): sólo al admin, que es quien las guarda y las prueba.
+  // `null` = no se pudo leer (la tarjeta no inventa «Todavía no se usó»).
+  const claves = esAdmin ? await estadoDeSusClaves(persona.ws) : undefined;
   return NextResponse.json({
-    ok: true, esAdmin, modelo: modeloPc(modelo),
+    ok: true, esAdmin, modelo: modeloPc(modelo), ...(esAdmin ? { claves } : {}),
     pcs: pcs.map((d) => ({
       id: d.id, nombre: d.nombre, esMia: d.esMia, ...(esAdmin && !d.esMia ? { de: d.persona } : {}),
       enLinea: d.enLinea, ultimoLatido: d.ultimoLatido, version: d.version, cuentas: d.cuentas,

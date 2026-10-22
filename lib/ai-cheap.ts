@@ -394,6 +394,15 @@ function modelosAProbar(prov: ProvName, pedido?: string, conRespaldo = true): Ar
 const MIN_INTENTO_MS = 15_000;
 
 /**
+ * IA3 (22/10/2026): el fallo de SU OpenAI (su GPT por clave) queda escrito, como el de su Claude, y la tarjeta de «Tus
+ * cuentas de IA» lo muestra. Las demás de la cascada no son «su clave». Si la clave es del negocio (y no de la
+ * plataforma) lo decide lib/su-clave.ts. Sin `await`: corre en el camino del error y no puede costar el respaldo.
+ */
+const anotarSuOpenAI = (prov: string, error: string, feature?: string, modelo?: string | null): void => {
+  if (prov === 'openai') void import('./su-clave').then((m) => m.anotarFalloDeSuClave({ proveedor: 'openai', error, feature, modelo })).catch(() => {});
+};
+
+/**
  * El modelo que lee DOCUMENTOS en cada proveedor.
  *
  * ⚠️ ESTOS ID CADUCAN Y SE ROMPEN EN SILENCIO. Medido el 16/08 contra la key de un
@@ -748,6 +757,7 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
           // barra en cero. Best-effort y sin await bloqueante del camino feliz: esto
           // corre en el camino de error y un fallo acá no puede costar el fallback.
           if (esCuota) void anotarRebote429(prov, nroCuenta(inst), model ?? '', m);
+          anotarSuOpenAI(prov, m, opts.feature, model ?? inst.chatModel);
           const transitorio = /\b(429|5\d\d)\b|timeout|abort|ETIMEDOUT|fetch failed|ECONNRESET|unavailable|overloaded|high demand/i.test(m);
           // Un modelo RETIRADO (404) no se reintenta ni un segundo: no va a volver. Se
           // pasa derecho al modelo siguiente, que es justo para lo que existe la lista.
@@ -963,6 +973,7 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
           errs.push(`${rotulo(inst)}: respuesta vacía`);
         } catch (e) {
           errs.push(`${rotulo(inst)}: ${e instanceof Error ? e.message : String(e)}`);
+          anotarSuOpenAI(prov, e instanceof Error ? e.message : String(e), o.feature, model);
         }
         // OpenAI no tiene lista de respaldo: no tiene sentido repetir con el mismo modelo.
         if (prov !== 'gemini') break;
@@ -1433,6 +1444,7 @@ export async function chatCheapToolsCascade(
         const m = e instanceof Error ? e.message : String(e);
         opts.erroresOut?.push(`${rotulo(inst)}: ${m}`);
         console.warn(`[ai-cheap] tools ${rotulo(inst)} falló: ${m}`);
+        anotarSuOpenAI(prov, m, opts.feature, opts.modelos?.[prov] ?? inst.chatModel);
         if (ejecutó) throw e; // ya tocó datos: no se reintenta con otro (ver arriba)
       }
     }
@@ -1609,6 +1621,7 @@ async function escucharCon(
       const msg = e instanceof Error ? e.message : String(e);
       errores.push(`${rotulo(p)}: ${msg}`);
       console.error(`[stt] ${rotulo(p)} falló: ${msg}`);
+      anotarSuOpenAI(p.nombre, msg, o.feature, p.sttModel);
       if (intento === 0 && esTransitorio(msg)) { await esperar(1500); continue; }
       return null;
     }

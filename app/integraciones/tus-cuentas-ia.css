@@ -57,3 +57,9 @@
   .tci-fila { flex-wrap: wrap; }
 }
 .tci-acepto { padding: 10px 12px; border-radius: var(--r-md); background: var(--primary-bg); color: var(--text); }
+/* Las claves de API del negocio y si anduvieron o fallaron (IA3, 22/10/2026). */
+.tci-claves { display: flex; flex-direction: column; gap: 8px; }
+.tci-clave { display: flex; flex-direction: column; gap: 4px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-2); }
+.tci-clave .tci-quien { font-size: var(--fs-sm); font-weight: 600; }
+.tci-clave__estado--bien { color: var(--good); }
+.tci-clave__estado--mal { color: var(--bad); }

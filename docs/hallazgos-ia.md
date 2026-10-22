@@ -5100,3 +5100,31 @@ autor, que daba «0 de 16.968», no lo probaba**, aunque esta vez no escondía n
 comparar TODO lo que decide la salida, byte a byte. Y probar que la comparación detecta un cambio conocido: si con
 `canal: 'app'` también da 0, el arnés está ciego. Los scripts del revisor están en el scratchpad del Cerebro
 (rev-wa-f226/s/volcar.mts). *Cerebro, claude4.*
+
+## «Tiene su IA» no es «su IA contestó»: el fallo de la clave del negocio no dejaba rastro (IA3, 22/10/2026)
+
+**Vive en:** `lib/su-clave-reglas.ts` (el motivo corto y la línea de la tarjeta) · `lib/su-clave.ts` (anotar, leer, probar)
+· `lib/anthropic.ts` (`conClaveDelNegocio` y `chatClaudeTools` con su clave) · `lib/ai-cheap.ts` (`anotarSuOpenAI` en la
+cascada de texto, la de herramientas, la visión y el audio) · `app/integraciones/TusCuentasIA.tsx` · `tests/su-clave.test.ts`
+
+- **Síntoma:** en toda la historia de `anthropic_usage` hay 0 filas con la marca «⚠ clave de Anthropic del negocio», aunque
+  el ws10 y el ws11 la tienen cargada y `negocioConSuIA` dice que sí. Entre el 17 y el 20/10 el ws11 corrió landing-analyst,
+  carousels-writer y chatbot-crear-ia por Gemini sin una sola fila de su Claude. Desde el panel, una clave rota (inválida,
+  sin crédito) y una que nunca se probó se veían igual.
+- **Causa:** `conClaveDelNegocio` devolvía `{ error }` a `erroresOut` sin anotarlo, y la cascada seguía con lo de abajo.
+  Lo de OpenAI, igual: su fallo sólo dejaba un `console.warn` (y una fila `rebote429:` si era cuota, sin decir de quién).
+- **Regla que queda:** cada fallo de la clave del negocio deja una fila (0 tokens, US$0, el molde de `vetado:` y
+  `rebote429:`): `model = fallo:<modelo>` y el motivo con la marca del negocio PRIMERO (`insertUsage` corta a 200) y el
+  porqué CORTO (`motivoCorto`: sin crédito, clave inválida, sin permiso, tope por minuto, no contestó). La tarjeta lee la más
+  reciente entre «anduvo» y «falló». Una fila por negocio, proveedor y motivo cada 5 minutos (la cascada le vuelve a pegar a
+  la misma clave hasta 4 veces). En el workspace de la plataforma no se anota: su clave es la de MaKo.
+- **Trampa medida:** el 401 de OpenAI trae la clave ENMASCARADA en el texto («Incorrect API key provided:
+  sk-proj-****abcd», curl del 22/10). Ese texto ya viaja a `erroresOut` y a los logs; a una fila que lee un panel no va
+  nunca: el motivo es una categoría, no el mensaje. Y el «sin crédito» de OpenAI es un **429** (`insufficient_quota`):
+  mirado después del tope por minuto, una cuenta sin plata se leía como «esperá un minuto».
+- **«Probar mi clave» no prueba el crédito.** Usa pedidos que no cobran (`/v1/messages/count_tokens` de Anthropic, la lista
+  de modelos de OpenAI): dicen si la clave es válida, no si tiene saldo. El saldo lo dice la próxima respuesta, que deja su
+  fila. Por eso la pantalla dice «es válida», nunca «anda».
+- **Sin hacer:** la prueba en el ws3 con una clave inválida pegada por Martín (necesita el deploy, y poner una clave en el
+  ws3 lo pasa a «sólo su IA» mientras dure: los arneses de otros chats que prueban en el ws3 cambiarían de camino). El ws11
+  real: la próxima vez que use IA, su fila dice por qué falla, sin que nosotros usemos su clave.

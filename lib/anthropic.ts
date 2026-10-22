@@ -124,7 +124,14 @@ export async function conClaveDelNegocio(p: {
       signal: AbortSignal.timeout(Math.max(1_000, p.timeoutMs)),
     });
     const body = await res.json().catch(() => ({}));
-    if (!res.ok || body?.error) return { error: String(body?.error?.message ?? `Anthropic ${res.status}`) };
+    if (!res.ok || body?.error) {
+      const error = String(body?.error?.message ?? `Anthropic ${res.status}`);
+      // ⚠️ EL FALLO DE SU CLAVE QUEDA ESCRITO (IA3, 22/10/2026). Antes se devolvía sin anotar y la cascada seguía con
+      // Gemini: en toda la historia hubo 0 filas con la marca del negocio, y una clave sin crédito se veía igual que «nunca
+      // se usó». El status va adelante: el motivo corto lo lee de ahí (lib/su-clave-reglas.ts).
+      await (await import('./su-clave')).anotarFalloDeSuClave({ proveedor: 'anthropic', error: `HTTP ${res.status} ${body?.error?.type ?? ''} ${error}`, feature: permiso.feature, modelo: permiso.model });
+      return { error };
+    }
     // Lo paga el negocio: la marca va PRIMERO en el motivo, y lib/costos-ia.ts la saca del gasto de MaKo.
     await recordUsage(permiso.feature, permiso.model, body.usage, [MOTIVO_CLAVE_DEL_NEGOCIO, (p.motivo ?? '').trim()].filter(Boolean).join(' · ')).catch(() => {});
     const texto = (body.content ?? [])
@@ -134,7 +141,9 @@ export async function conClaveDelNegocio(p: {
       .trim();
     return texto ? { texto } : { error: 'Claude contestó vacío' };
   } catch (e) {
-    return { error: e instanceof Error ? e.message : String(e) };
+    const error = e instanceof Error ? e.message : String(e);
+    await (await import('./su-clave')).anotarFalloDeSuClave({ proveedor: 'anthropic', error, feature: permiso.feature, modelo: permiso.model });
+    return { error };
   }
 }
 
@@ -615,6 +624,8 @@ export async function chatClaudeTools(
     const body = await res.json();
     if (!res.ok || body.error) {
       const m = body?.error?.message ?? `Anthropic ${res.status}`;
+      // Con su clave, el fallo queda escrito (IA3): es lo que la tarjeta de «Tus cuentas de IA» le muestra al negocio.
+      if (delNegocio) await (await import('./su-clave')).anotarFalloDeSuClave({ proveedor: 'anthropic', error: `HTTP ${res.status} ${body?.error?.type ?? ''} ${m}`, feature: permiso.feature, modelo: String(model) });
       throw new Error(delNegocio ? `falló la IA (tu clave de Claude: ${m})` : m);
     }
 
