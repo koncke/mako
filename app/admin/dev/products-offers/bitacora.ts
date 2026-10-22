@@ -516,6 +516,24 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/offer',
   },
+  {
+    fecha: '22 oct', hora: '11:50', chat: 'Offer', sesion: 'local_4b2d1f57-62a3-4ace-81ec-c5013086bbb8', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: MaKo deja de usar el diagnóstico viejo del Sprint, y el lector de afuera no recibe accesos, ya en producción',
+    puntos: [
+      'En producción desde f6bd295e7 (deploy Ready).',
+      'La primera versión del Sprint de Mauricio había quedado guardada con «2 ventas de 24 asistentes» y «6 ofertas activas», que eran de otro funnel. MaKo ya no la usa al prospectar, y la pantalla avisa «Este diagnóstico usó datos de otro funnel» con «Rehacer el diagnóstico». No se reescribió nada: se rehace cuando el dueño lo toca.',
+      'Un link con un acceso (un token, una firma, un link para compartir de Drive o Dropbox) ya no se manda a un lector de afuera: MaKo pide el .zip o el texto.',
+      'Para verlo: Offer › «Sprint 3 días» › «Ver mi oferta»: arriba, el aviso y «Rehacer el diagnóstico».',
+    ],
+    archivos: [
+      'lib/offer-reglas.ts — `armadaConElEmbudoViejo`, `credencialEnLaUrl`',
+      'lib/analisis-negocio.ts — `hayLeadsFueraDelFunnel`',
+      'lib/api-mako/areas/negocio.run.ts — la API de MaKo no entrega el diagnóstico viejo',
+      'app/offer/Conclusion.tsx y app/m/offer/HojasOfferM.tsx — el aviso y «Rehacer el diagnóstico»',
+      'tests/offer-diagnostico-viejo.test.ts y offer-lector-credenciales.test.ts — 21 roturas, todas caen',
+    ],
+    revisar: '/offer',
+  },
 ];
 
 export const PARTES: Parte[] = [
