@@ -1034,6 +1034,10 @@ Misma llamada (Fathom 195129619) y misma conversación medida (ws1, id 18), más
   (el O8 sin esto no andaba).
 
 **Lo que quedó SIN hacer:**
+- **El lector de afuera recibe la URL entera (revisión del Cerebro, 22/10):** si alguien pega un link privado con un token
+  en la URL (un Drive compartido, una página con `?token=` o `?key=`), ese token le llega a r.jina.ai. El arreglo pendiente
+  es no mandarle al lector externo una URL con parámetros que parezcan credenciales (`lib/offer-lector-externo.ts`,
+  `leerConLectorExterno`): sin el lector, queda el mensaje de siempre («copia su texto y pégalo aquí»).
 - **El aviso de O9 por el WhatsApp del grupo:** no había camino. Pide un evento de la plataforma nuevo (como
   `oferta_lista`: el catálogo de avisos, lib/disparadores.ts, sus variables) y su fila en el ws 9 con la mudanza. Hoy
   avisa sólo la campanita.
