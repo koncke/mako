@@ -7,6 +7,59 @@ Corridas del 11/10/2026: la v1 (relevo de 7 agentes + 11 de implementación + 1 
 el diseño v2 a la tarde, y a la noche la implementación v2 (12 agentes + la integración) con el desvío
 de teléfonos PRENDIDO. Lo de la v2 está en su propia sección, más abajo.
 
+## «Siempre que entro me sale el reload» y la entrada de MaKo que nunca se veía (21/10/2026, 22:54, Android de Martín)
+
+**Síntoma:** al abrir la app instalada, el splash y después, en negro, «This page couldn't load. Reload to try again, or
+go back.» Con «Reload» andaba. Y la entrada de MaKo (la criatura que cae y saluda) no aparecía nunca.
+
+**Lo que se midió** (logs de Vercel de sus aperturas, `GET https://api.vercel.com/logs/request-logs`, filtrando su UA):
+- **Cada apertura eran DOS documentos.** `/inicio` → 307 → `/second-brain` (200) → y recién ahí la página decide «super
+  admin → Centro» con un `redirect()`. Como /m/second-brain tiene `loading.tsx`, el redirect viaja ADENTRO del stream:
+  Next lo manda como `<meta http-equiv="refresh">` + redirect de cliente, y el navegador hace una navegación DURA a
+  /admin/operaciones (un segundo documento, sin `_rsc`). En la apertura de las 22:37 el segundo no llegó nunca: después
+  de /second-brain y del POST de `detectarZonaAction` el teléfono no pidió nada más en 45 s. Ésa es la pantalla del reload.
+- **La entrada se gastaba en el documento que se iba.** ShellM ponía la marca de sessionStorage al MONTAR; el primer
+  documento la montaba y moría a los 1-3 s con la navegación dura; el Centro ya la encontraba marcada.
+- **La pantalla es la de Next, no la nuestra.** «This page couldn't load» con «Reload»/«Back» es
+  `next/dist/client/components/builtin/global-error.js`. Next 16 anida dos boundaries en AppRouter: el de afuera con esa
+  pantalla, y adentro el de app/global-error.tsx. Que se vea la de Next quiere decir que el error saltó POR ENCIMA de
+  app/global-error.tsx y app/error.tsx: una acción del router cuya promesa se rechazó (`use(state)` en el Router).
+- **El reportador estaba ciego en el teléfono.** `errores_app` tenía 2 filas en total, las dos de MaKo, ninguna del
+  navegador: `ReportadorDeErrores` iba adentro de `<HideOnPublicLanding>`, que en un teléfono apaga TODO.
+
+**Lo obvio era lo equivocado:** (a) el service worker sirviendo chunks viejos — public/sw.js no tuvo nunca un handler
+`fetch` (toda su historia), cada apertura pidió HTML nuevo del deploy vigente, el HTML sale `no-store` y los chunks
+con `?dpl=` (skew protection prendido); (b) y (c) una excepción de /m o de la animación al montar — habrían caído en
+NUESTRA pantalla («Esta pantalla se rompió al dibujarse»), no en la de Next.
+
+**Lo que se hizo:**
+- El super admin entra al Centro desde el BORDE (`entradaMovil`, lib/movil-desvio.ts): `/inicio` y `/second-brain` pelado,
+  sin `?ws=`, son un 307 directo a /admin/operaciones. Un documento; la entrada sale ahí.
+- La marca de la entrada se pone al TERMINAR (`finEntrada` en ShellM).
+- `CentinelaArranque` (app/_components): un `<script>` sin React en el layout. Si `<html>` pasa a `id="__next_error__"`
+  (sólo la pantalla de Next lo pone), manda el último error de la ventana a /api/errores como `PantallaDeNext` (que nunca
+  es ruido) y recarga UNA vez; otro choque dentro de 60 s deja la pantalla. El reportador ahora corre también en el
+  teléfono (`FueraDeLoPublico`) y se calla ante la pantalla de Next (un choque, un ticket).
+
+**Reglas:**
+- Lo que REDIRIGE sin dibujar va en el proxy. Un `redirect()` de una página con `loading.tsx` encima es una navegación
+  dura de cliente: dos documentos, y todo lo que «pasa una vez por apertura» se gasta en el primero.
+- Lo que «pasa una vez» se marca cuando PASÓ, no cuando se montó.
+- La pantalla de Next («This page couldn't load») no la ven nuestros boundaries: la mira el centinela.
+- `<HideOnPublicLanding>` es para el CROMO. Lo que es de la persona logueada va con `FueraDeLoPublico`.
+
+**Sin medir:** la excepción exacta que tumbó la apertura de las 22:37 (no hay forma de verla sin el teléfono). La próxima
+vez llega a la Ticketera como «PantallaDeNext» con su mensaje. Si con un solo documento sigue cayendo, ése es el dato.
+**Sin hacer:** /m/second-brain sigue redirigiendo adentro del stream para quien entra con `?ws=` de su propio negocio
+(app/m/second-brain/page.tsx); y su `loading.tsx` dice «mientras se arma el mapa», pero esa página ya es el chat.
+
+**Vive en:** `lib/movil-desvio.ts` (`entradaMovil`, `CENTRO_MOVIL`) · `proxy.ts` (`seguirOMovil`, `operador`) ·
+`app/m/_ui/ShellM.tsx` · `app/_components/CentinelaArranque.tsx` · `app/_components/ReportarErrores.tsx` ·
+`app/_components/PublicRouteGate.tsx` (`FueraDeLoPublico`) · `lib/errores-app-reglas.ts` (`PANTALLA_DE_NEXT`) ·
+test: `tests/movil-carga-sin-error.test.ts`
+
+*21/10/2026, pedido de Martín desde el Ops Center (claude3).*
+
 ## El Ops Center al medio de la barra y como portada (20/10/2026, pedido del Ops Center bb885d5f)
 
 Martín: «Que en Mobile, el Ops Center esté donde está el Dashboard, que sea la tab principal». La barra es CRM · Chats ·
