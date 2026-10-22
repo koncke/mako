@@ -10200,6 +10200,15 @@ tests/crm-traer-todos.test.ts
   - Con la ventana minimizada (`innerWidth` e `innerHeight` en 0) no se mide nada: no hay cuadros, y React 19 revela
     lo que llegó por streaming con `requestAnimationFrame` (`$RV`). La copia queda escondida en `div#S:2`, con un
     segundo `<main>` y el doble de tarjetas en el DOM.
+    **El 0×0 es la ventana del GRUPO de la extensión, minimizada**, no la de Martín. La salida: cerrar las pestañas del
+    grupo (al quedar vacío se borra solo) y pedir otro con `tabs_context_mcp` y `createIfEmpty`, que abre una ventana NUEVA,
+    a la vista (el 22/10 midió 1707×748).
+- **Medido en producción con la ventana a la vista (22/10/2026, 20:40, tren 5 con las tandas de 30):**
+  - ws1 principal (1.169 leads): primer pintado 0,70 s (el esqueleto) y el tablero a los 2,64 s. Cuatro cuadros largos
+    suman 2,15 s (el peor, 1,0 s) y 0,47 s de bloqueo. Quedan 126 tarjetas y 2.582 nodos. Antes: la carga tardaba 92 s,
+    sumaba 114 s de tareas largas y la pestaña seguía trabada una hora después.
+  - «Sprint 3 días» (300 en «Lead entrante»): primer pintado 1,67 s y el tablero a los 2,4 s. Un cuadro largo de 0,5 s,
+    sin bloqueo. Quedan 30 tarjetas y 949 nodos. Al bajar por la columna llegan 30 más («Ver 30 más · quedan 240»).
 - **Trampas del arnés** (para el próximo que mida una pantalla así):
   - Una acción `'use server'` se cambia por funciones vacías. Lo que sólo existe en el server (módulos de Node, SDKs,
     `next/server`) va como ESM con los nombres que pide quien lo importa. Un CommonJS no sirve: esbuild copia sólo las
