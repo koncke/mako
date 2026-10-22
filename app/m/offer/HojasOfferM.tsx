@@ -19,7 +19,7 @@
 import { useState, type ReactNode } from 'react';
 import { Icon } from '@/app/_components/icons';
 import { Button } from '@/app/_ui/Button';
-import type { ArbolOffer, ConclusionOferta, OfferSesionVista, PiezasSabidas } from '@/lib/offer-marco';
+import { AVISO_DIAGNOSTICO_VIEJO, REHACER_DIAGNOSTICO, type ArbolOffer, type ConclusionOferta, type OfferSesionVista, type PiezasSabidas } from '@/lib/offer-marco';
 import { esSeccionProvisional, guardadaVisible, partirCompletar, propuestoPorMakoDe, provisionalDe, tonoDeNota, type AvisoGuardado } from '@/app/offer/ayudas';
 import { descargarPdf, mensajeDeError } from '@/app/offer/offer-api';
 import { FilaM, ListaM, PieM, PildoraM, SegmentadoM, SheetM, VacioM } from '@/app/m/_ui';
@@ -186,7 +186,7 @@ function MarcaPaso({ estado }: { estado: EstadoPaso }) {
   );
 }
 
-export function HojaOferta({ abierto, onCerrar, vista, gen, sesion, conclusion, onReintentar, onGuardar }: {
+export function HojaOferta({ abierto, onCerrar, vista, gen, sesion, conclusion, onReintentar, onGuardar, onRehacer }: {
   abierto: boolean;
   /** La ✕ y «atrás»: «Seguir afinando» (vuelve al chat; lo que se está armando sigue). */
   onCerrar: () => void;
@@ -197,6 +197,8 @@ export function HojaOferta({ abierto, onCerrar, vista, gen, sesion, conclusion, 
   /** Reintenta DESDE el paso que falló (un diagnóstico que ya salió no se vuelve a pagar). */
   onReintentar: () => void;
   onGuardar: () => Promise<AvisoGuardado | null>;
+  /** Arma otra versión: lo ofrece el aviso de un diagnóstico armado con el embudo de otro funnel (OF1). */
+  onRehacer?: () => void;
 }) {
   // Armada = hay una conclusión y no se está armando otra (al actualizar el PDF se ve el progreso, no la vieja).
   const armada = vista === 'conclusion' ? conclusion : null;
@@ -213,7 +215,18 @@ export function HojaOferta({ abierto, onCerrar, vista, gen, sesion, conclusion, 
           </PieM>
         ) : undefined)
         : sesion && <PieConclusion key={`${sesion.id}-${armada.version}`} sesion={sesion} onGuardar={onGuardar} />}>
-      {armada ? <ConclusionM key={`${sesion?.id}-${armada.version}`} conclusion={armada} /> : <GenerandoM gen={gen} />}
+      {armada ? (
+        <>
+          {/* Arriba de todo, como en la computadora (OF1, 22/10/2026). */}
+          {sesion?.diagnosticoViejo && (
+            <div className="m-offer-viejo">
+              <p className="m-offer-linea m-offer-linea--warn" role="status">{AVISO_DIAGNOSTICO_VIEJO}</p>
+              {onRehacer && <Button variant="secondary" size="md" onClick={onRehacer}>{REHACER_DIAGNOSTICO}</Button>}
+            </div>
+          )}
+          <ConclusionM key={`${sesion?.id}-${armada.version}`} conclusion={armada} />
+        </>
+      ) : <GenerandoM gen={gen} />}
     </SheetM>
   );
 }

@@ -81,9 +81,9 @@ const escribio = (ops: string[]) => ops.filter((x) => ESCRITURAS.has(x));
 
 // Rotura sugerida por el diseño (§7): insertar ANTES de generar.
 test('si la IA falla, no se escribe NADA: ni etiquetas, ni la fila, ni los pasos (y el error sube con su link)', async () => {
-  const { d, ops } = deps({ falla: { error: 'No tienes ninguna IA gratis conectada.', link: '/integraciones?abrir=gemini' } });
+  const { d, ops } = deps({ falla: { error: 'No tienes una IA conectada: conecta tu Claude.', link: '/integraciones?abrir=anthropic' } });
   const r = await crearConIA({ ws: 3, pedido: 'Dar la bienvenida' }, d);
-  assert.deepEqual(r, { ok: false, error: 'No tienes ninguna IA gratis conectada.', link: '/integraciones?abrir=gemini' });
+  assert.deepEqual(r, { ok: false, error: 'No tienes una IA conectada: conecta tu Claude.', link: '/integraciones?abrir=anthropic' });
   assert.deepEqual(escribio(ops()), [], `escribió: ${ops().join(', ')}`);
 });
 

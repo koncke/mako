@@ -55,22 +55,35 @@ export function partirPegados(mensaje: string): { texto: string; pegados: string
  *  (#884): mandarlo completo en cada turno —el historial viaja con los últimos 12 mensajes— sería pagarlo doce veces. */
 export const TOPE_PEGADOS_MENSAJE = 12_000;
 export const AVISO_CORTE_PEGADO = '[…se cortó aquí por largo: el texto entero quedó en El Archivero]';
+/** El corte cuando el texto NO va a El Archivero (otra persona que el admin, el MaKo Analyst de un lead, o un negocio con
+ *  su IA sin con qué archivar): se dice que se cortó, sin prometer lo que no pasa. */
+export const AVISO_CORTE_SIN_ARCHIVO = '[…se cortó aquí por largo]';
 
 /**
  * El corte del mensaje del turno, SIN romper las marcas. El turno cortaba el mensaje entero en 8.000 caracteres: con un
  * pegado largo se perdía la marca de cierre y el hilo mostraba el pegado crudo. Ahora lo escrito se corta en
  * `topeTexto` y los pegados comparten `topePegados`; el que se corta lo dice.
+ * ⚠️ LO ESCRITO TAMBIÉN LO DICE (22/10/2026, la prueba de los chats): un mensaje tipeado o dictado de más del tope se
+ *    cortaba CALLADO (`texto.slice`), y MaKo contestaba sin el final sin saber que faltaba. `archivado`: si lo que no
+ *    entra queda entero en El Archivero (`textosParaArchivar`), el aviso lo dice; si no, sólo que se cortó.
  */
-export function recortarMensaje(mensaje: string, topeTexto: number, topePegados = TOPE_PEGADOS_MENSAJE): string {
+export function recortarMensaje(mensaje: string, topeTexto: number, topePegados = TOPE_PEGADOS_MENSAJE, archivado = true): string {
   const { texto, pegados } = partirPegados(mensaje);
+  const aviso = archivado ? AVISO_CORTE_PEGADO : AVISO_CORTE_SIN_ARCHIVO;
   let queda = topePegados;
   const cortados = pegados.map((p) => {
     if (queda <= 0) return '';
-    const parte = p.length <= queda ? p : `${p.slice(0, queda).trimEnd()}\n${AVISO_CORTE_PEGADO}`;
+    const parte = p.length <= queda ? p : `${p.slice(0, queda).trimEnd()}\n${aviso}`;
     queda -= p.length;
     return parte;
   }).filter(Boolean);
-  return conPegados(texto.slice(0, topeTexto), cortados);
+  return conPegados(texto.length <= topeTexto ? texto : `${texto.slice(0, topeTexto).trimEnd()}\n${aviso}`, cortados);
+}
+
+/** Lo que va ENTERO a El Archivero de un mensaje (#884): cada pegado y, si lo escrito no entra en `topeTexto`, lo escrito. */
+export function textosParaArchivar(mensaje: string, topeTexto: number): string[] {
+  const { texto, pegados } = partirPegados(mensaje);
+  return texto.length > topeTexto ? [texto, ...pegados] : pegados;
 }
 
 /** «Texto pegado — Bueno entonces lo que vamos…»: el nombre del documento (en el hilo y en El Archivero). */
