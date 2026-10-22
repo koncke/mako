@@ -751,3 +751,19 @@ de México.
   una cuota de 0 se saca en vez de dejar el plan entero sin monto.
 - **Sin hacer:** los planes YA armados con montos convertidos así no se corrigen solos. El que se midió (ws11, lead 2605)
   lo decide Martín con el cliente.
+
+## El pago por un link de Stripe PROPIO no entra a MaKo, aunque Stripe esté conectado (21/10/2026)
+
+La campaña del «Sprint de Diseño» de Mauricio (USD 270) cobra en su propio link (sprint.mauriciobustos.com). Lo obvio
+sería «conectamos Stripe y MaKo marca Pagó». No: el webhook de Stripe sólo aplica pagos de cobros CREADOS POR MaKo
+—los busca por el token del cobro en la metadata, la referencia, la suscripción o el id de pago— y todo lo demás lo
+ignora con «no es un cobro de MaKo» (`cobroDelAviso`, lib/cobros.ts; lib/cobros-webhook.ts). No hay match por email
+ni por teléfono. Medido el 21/10: el ws1 no tiene claves de Stripe ni de Mercado Pago, `cobros` vacía, 33 pagos
+cargados a mano.
+**Consecuencia:** quien paga por el link propio sigue «abierto» para MaKo: ni pasa a «Pagó» en el CRM de la campaña,
+ni corta una automatización que le siga escribiendo, ni aparece en Pagos.
+**Los caminos que sí entran:** «Cobrar con link» desde la ficha (un link de Stripe de MaKo para ESE lead) o el botón
+de pago de una landing del Web Generator (`cobrar_producto_landing`, busca el lead por email). Con los dos, el pago
+gana al lead en su CRM de ORIGEN (`ganarLead` en la casa): la tarjeta del CRM de la campaña (agregado) no se mueve.
+**Sin hacer:** match de un pago externo por email/teléfono; mover a «Pagó» del CRM agregado al ganar.
+**Vive en:** lib/cobros-webhook.ts · lib/cobros.ts (`cobroDelAviso`, `ganarLead`) · app/crm/[id]/CobrarConLink.tsx.

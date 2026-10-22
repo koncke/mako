@@ -10057,3 +10057,14 @@ tests/sugerencias-crm-gestos.test.ts · *21/10/2026, chat «CRM» (claude4), rev
 Kanban no se tocó.
 **Vive en:** app/crm/tabla-columnas.ts · app/crm/TablaListaLeads.tsx · app/crm/CrmBoard.tsx ·
 tests/crm-lista-escritorio-chico.test.ts y tests/_crm-lista-arnes.tsx · *21/10/2026, chat «CRM» (claude4).*
+
+## La etiqueta en lote corta en 200 y el aviso se pierde; «Agregar a un funnel» acepta 2.000 (21/10/2026)
+
+Armando la prueba de la prospección del Sprint en el ws3: con 301 leads tildados, «Funnel › Sprint de Diseño» los
+sumó a los 301 («301 a Sprint de Diseño», con Deshacer), pero «Etiqueta › Sprint · texto» no le puso la etiqueta a
+NINGUNO. El server rechaza más de 200 por vez (`TOPE_LOTE`, app/api/crm/etiquetas/route.ts: «Hasta 200 leads por
+vez.») y la barra limpia la selección; el aviso dura poco y no se vio. Para la base de Mauricio (1.094) son 6 tandas
+de etiqueta contra 1 de funnel. **Regla:** dos acciones de la misma barra con topes distintos, el tope se dice ANTES
+(en el botón, con cuántos hay tildados), no en un toast después. **Sin hacer.** Desde el 21/10 la cohorte de una
+automatización ve a los agregados a su CRM (hallazgos-chatbot, «La prospección del Sprint»): para una campaña ya no
+hace falta etiquetar a todos, sólo para partir audio y texto.
