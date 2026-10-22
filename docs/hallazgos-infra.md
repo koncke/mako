@@ -7625,9 +7625,15 @@ eso es una deducción del código, no se midió en Vercel. Pendiente, de ai-chea
   Integración corre UN chequeo por tren sobre el lote mergeado (tipos, tests afectados, `guardas-push.sh`), devuelve sólo la punta que dé rojo y el tren sale cada 30 min.
 - ⚠️ **Con ~2 GB libres, el `tsc` acotado sólo entra de a UN archivo.** Con dos o tres sale 99 («NO SE PUDO CHEQUEAR, 0 bytes»,
   el vigía de RAM), y también de a uno mientras corre un subagente. Un 99 no es un verde ni un rojo: se reintenta solo.
-- ⚠️ **UN solo `tsc` en la máquina, el del tren.** Con el del tren, el `tsc` acotado de un chat (1,2 GB) y un
-  `tipos-por-tandas` de un workflow (heap de 8 GB) a la vez, el vigía (mata `tsc` por debajo de 0,9 GB libres) los mataba a
-  todos: un `.tsx` estuvo 7 min saliendo 99. Los chats ya no corren `tsc`; con el tren armado, dejan lo pesado 15 min y el
-  tren corre las 3 tandas del programa entero (INF1, ~4,2 GB, todo el repo).
+- ⚠️ **Con 8 chats, esta PC no tipa: los tipos pasan a ser red, no condición del tren.** Primero se probó «un solo `tsc`
+  en la máquina»: con el del tren, el `tsc` acotado de un chat (1,2 GB) y un `tipos-por-tandas` de un workflow (heap de 8 GB) a
+  la vez, el vigía (mata `tsc` por debajo de 0,9 GB libres) los mataba a todos, y un `.tsx` estuvo 7 min saliendo 99. Después,
+  con una ventana de 15 min sin nada pesado, quedaron igual **1,6 GB libres de 15,7**: el grueso no son los tests sino 25
+  procesos claude (4,0 GB), ~20 node auxiliares de las sesiones (~250 MB cada uno, 3,7 GB) y Chrome (1,3 GB). Las 3 tandas de
+  INF1 piden 5,3 GB. **El diagnóstico obvio, «los tests de los chats comen la RAM», era el equivocado.** Ahora el tren sale con
+  tests y guardas, y los tipos se corren después del push, de a un archivo, cuando hay RAM (AGENTS.md, «Cómo se sube»).
+- ⚠️ **`TaskStop` no mata a los nietos en Git Bash.** Frenado el loop de `tsc` en segundo plano, su `sh.exe` siguió vivo y
+  lanzando `tsc` (dos loops, ~1 GB) que competían con el chequeo siguiente. Después de frenar un loop: buscar por línea de
+  comando los `sh.exe`/`timeout.exe`/`node.exe` que quedaron y matarlos.
 - ⚠️ **Un test suelto se corre con `node --import tsx --test`**, como el `npm test`. Con `--experimental-strip-types` todos
   fallan con `ERR_MODULE_NOT_FOUND` (los imports del repo van sin extensión) y parece un rojo del código.

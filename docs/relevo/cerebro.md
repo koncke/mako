@@ -35,9 +35,11 @@ trae un cliente roto). Una punta en rojo se devuelve sola y el tren sale sin ell
 1. `git merge --no-edit <sha>` por cada punta, nunca rebase. Un choque en `docs/hallazgos.md` se resuelve con
    `node C:/dev/cerebro-herramientas/unir-filas.cjs` y se verifica que no se perdió ningún título del índice.
 2. Tests del tren: `MAKO_TESTS_SIN_ESPERA=1 node scripts/tests-afectados.mjs --base origin/main --cortar --concurrencia 2 --tanda 100 --compartir`.
-3. Tipos: UN solo tsc en la máquina, el del tren (los chats pasan «sin tipos»). Con el tren armado, avisarle al Cerebro: los
-   chats dejan lo pesado 15 min y corren las 3 tandas (`node scripts/tipos-respaldo-push.mjs`, ~4,2 GB, todo el repo). Sin
-   ventana, `node scripts/tsc-acotado.mjs <archivo>` de a uno, reintentando el 99. Guardas: `sh scripts/guardas-push.sh origin`.
+3. Guardas: `sh scripts/guardas-push.sh origin`. Tests y guardas en verde son la condición del tren. Los TIPOS son red, no
+   traba (22/10: con 8 chats quedan 1,6 GB libres y las 3 tandas piden 5,3). Después de cada push, en segundo plano,
+   `node scripts/tsc-acotado.mjs <archivo>` de lo que entró, de a uno, cuando haya RAM. Un error vuelve al chat dueño para el
+   tren siguiente. Las 3 tandas (`node scripts/tipos-respaldo-push.mjs`) a la noche con pocos chats o cuando vuelva Actions.
+   ⚠️ TaskStop no mata a los nietos en Git Bash: después de frenar un loop de `tsc`, buscar y matar su `sh.exe` y sus `tsc`.
 4. Sin minutos de Actions: el sha al Cerebro, que sube `main` e `integracion` con `--no-verify`; después,
    `npx vercel ls -m githubCommitSha=<sha>` desde el clon principal hasta el Ready. Con minutos:
    `MAKO_SIN_ANTES_DE_SUBIR=1 git push origin HEAD:refs/heads/integracion`, y `esperar-deploy.sh` en segundo plano.

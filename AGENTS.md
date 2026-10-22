@@ -384,11 +384,17 @@ afectados: dos chequeos de lo mismo. El primero, con 8 chats y 1-2 GB libres, ta
    commiteado y `origin/main` mergeado, y le pasa el sha a Integración EN EL ACTO, **«sin tipos»**. No corre `antes-de-subir`,
    ni hace la fila, ni corre `tsc`: **en la máquina hay UN solo `tsc`, el del tren** (22/10, medido: con el `tsc` del tren, el
    de un chat y el de un workflow a la vez, el vigía mataba los tres por debajo de 0,9 GB y cada `.tsx` salía 99).
-2. **Integración corre UN chequeo por TREN**, sobre el lote ya mergeado: los tipos, los tests afectados del lote
+2. **Integración corre UN chequeo por TREN**, sobre el lote ya mergeado: los tests afectados del lote
    (`scripts/tests-afectados.mjs --base origin/main`) y las guardas (`sh scripts/guardas-push.sh origin`, que es la etapa de
-   guardas de `antes-de-subir`). Los tipos van con las 3 tandas del programa entero (`node scripts/tipos-respaldo-push.mjs`, INF1:
-   ~4,2 GB, cubre TODO el repo): con el tren armado, Integración avisa al Cerebro y los chats dejan lo pesado 15 min. Sin esa
-   ventana, `tsc-acotado` de lo tocado, de a un archivo. Si algo da rojo, devuelve SÓLO esa punta y el tren sale sin ella.
+   guardas de `antes-de-subir`). **Tests y guardas en verde es la condición del tren.** Si algo da rojo, devuelve SÓLO esa punta
+   y el tren sale sin ella.
+   **Los tipos son RED, no traba** (22/10, decisión del Cerebro sobre el «que avance siempre, no quiero limitaciones» de Martín).
+   Medido: con 8 chats abiertos quedan 1,6 GB libres de 15,7 aun con todo lo pesado frenado (las sesiones de Claude y sus node
+   suman ~8 GB), y las 3 tandas de INF1 piden 5,3; esta PC no tipa nunca. Un error de tipos no rompe la ejecución (Next
+   transpila sin tipos y el build no los mira) y lo que sí rompe lo cazan los tests. Después de cada push, Integración corre en
+   segundo plano el `tsc` acotado de lo que entró, de a un archivo, cuando haya RAM. Lo que dé error vuelve como arreglo al
+   chat dueño y sale en el tren siguiente. La red completa vuelve con GitHub Actions o, a la noche con pocos chats, con las 3
+   tandas (`node scripts/tipos-respaldo-push.mjs`).
 3. **El tren sale cada 30 min** con todo lo que llegó, o antes si trae un cliente roto. No se espera a juntar más.
 4. Integración le pasa el sha al Cerebro y el Cerebro sube en el acto (sin minutos de Actions, con `--no-verify`: ver
    «Sin minutos de Actions» en docs/hallazgos-infra.md).
