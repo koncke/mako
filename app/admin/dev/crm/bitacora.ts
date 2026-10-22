@@ -2791,4 +2791,23 @@ export const BITACORA: Hito[] = [
     archivos: [
     ],
   },
+  {
+    fecha: '22 oct', hora: '05:05', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: mover sin esperar, «Creando…» al crear una etapa, el menú que tapaba y las hojas de la ficha a la vista, ya en producción',
+    revisar: '/crm',
+    puntos: [
+      'En producción desde el run 231 (be4b9189a). Son los P1 del CRM de la llamada con Mauricio del 22/10 (C3, C4, C5 y C7).',
+      'Mover un lead a «Agenda» con «Ya está agendada»: la tarjeta pasa en el acto.',
+      '«Editar etapas» › «+»: la etapa nueva aparece con «Creando…» hasta que se guarda; lo mismo con «Agregar etapa» del «⋯» de una columna.',
+      'La lista de CRMs › lápiz «Editar»: la lista se cierra y no queda encima del pop-up.',
+      'En la ficha de un lead, «Pagos», «Reuniones» y las demás hojas se ven al lado del título.',
+      'Avisado en el grupo de MaKo del ws1 como «Desarrollador de MaKo». Falta C6: no se pudo reproducir sin el Chrome de Martín.',
+    ],
+    commits: [
+      { sha: '50fbb71df', msg: 'CRM (P1 de la llamada con Mauricio, 22/10): mover sin esperar, «Creando…» al crear una etapa, el menú que tapaba el pop-up y las hojas de la ficha a la vista', lineas: 169, archivos: 6 },
+    ],
+    archivos: [
+    ],
+  },
 ];
