@@ -24,14 +24,9 @@ export type NegocioDelPerfil = { nombre: string | null; puedeEditar: boolean };
 /**
  * ¿La fila «Nombre del negocio» va en el perfil? (21/10/2026, Martín buscó el nombre de Florencia en su perfil y no
  * estaba: vivía sólo en Configuración › Tu negocio). Sólo para quien lo puede cambiar, el admin del negocio, o el super
- * admin mirando el cliente; con ella, «Empresa» no se muestra: ver `muestraEmpresa`.
+ * admin mirando el cliente.
+ * PENDIENTE (Cerebro, 22/10): «Empresa» (`perfil.empresa`, un dato personal) queda al lado y confunde; la propuesta del
+ * chat Onboarding es que para quien ve esta fila no se ofrezca (docs/hallazgos-ajustes.md).
  */
 export const muestraNegocio = (n: NegocioDelPerfil | null | undefined): n is NegocioDelPerfil => !!n?.puedeEditar;
 
-/**
- * ¿«Empresa» va en el perfil? Para el admin del negocio, NO (21/10/2026, decisión del chat Onboarding): su empresa ES el
- * negocio, y dos filas casi iguales, una que cambia el nombre en toda la app y otra que no cambia nada visible, son la
- * confusión que tuvo Martín. «Empresa» sigue para el resto del equipo (un closer de una agencia, un socio con su propia
- * empresa): es un dato personal suyo. Lo guardado en `perfil.empresa` no se borra: sólo no se ofrece.
- */
-export const muestraEmpresa = (n: NegocioDelPerfil | null | undefined): boolean => !muestraNegocio(n);

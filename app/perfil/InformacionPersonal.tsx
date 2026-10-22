@@ -21,7 +21,7 @@ import { TelefonoConPais } from '../_components/TelefonoConPais';
 import { CuerpoGrupo, FilaAjustes, GrupoAjustes, TituloAjustes } from '../_ui/Ajustes';
 import { useRouter } from '@/app/_ui/Link';
 import { guardarNombreNegocioAction } from '@/app/configuraciones/negocio-actions';
-import { NOMBRE_NEGOCIO_MAX, muestraEmpresa, muestraNegocio, type NegocioDelPerfil } from '@/lib/nombre-negocio';
+import { NOMBRE_NEGOCIO_MAX, muestraNegocio, type NegocioDelPerfil } from '@/lib/nombre-negocio';
 export type { NegocioDelPerfil };
 
 const TZ_OPTS = [
@@ -194,9 +194,9 @@ export function InformacionPersonal({ inicial, vista, sinTitulo = false, negocio
         />
         {fila('nombre', perfil.nombre)}
         {fila('cargo', perfil.cargo)}
-        {/* Para el admin del negocio, el nombre del NEGOCIO en el lugar de «Empresa» (`muestraEmpresa`). */}
+        {/* El nombre del NEGOCIO, para quien lo puede cambiar. «Empresa» queda como está (pendiente: lib/nombre-negocio.ts). */}
         {muestraNegocio(negocio) && fila('negocio', nombreNegocio)}
-        {muestraEmpresa(negocio) && fila('empresa', perfil.empresa)}
+        {fila('empresa', perfil.empresa)}
         {fila('web', perfil.web)}
         {fila('bio', perfil.bio)}
         {perfil.avatarUrl && editando === null && !subiendo && (
