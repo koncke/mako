@@ -2012,3 +2012,13 @@ deben aparecer en la app de Ops Center». Código: app/admin/operaciones/Pregunt
 - **El cartero nuevo hay que instalarlo:** `node scripts/operaciones/cartero.mjs instalar`, con el Runner quieto. Sin eso,
   la PC sigue con la 1.17.4 y las de AskUserQuestion no suben.
 
+## La guarda del chat único no veía «Pídele un cambio a MaKo» (22/10/2026, OC2)
+
+tests/chat-unico.test.ts reconoce una pantalla de MaKo por su hilo, su API o una caja que le escribe «a MaKo». La regex pedía el
+verbo PEGADO a «a MaKo» («Pídele a MaKo»), así que el panel del Dashboard («Pídele un cambio a MaKo», PanelEditarMako.tsx) y
+la caja de «Pídeselo a MaKo» (app/web-generator/CajaPedido.tsx, la usan Automations, CRM y Dashboard) no estaban en la lista.
+En cambio sí estaba app/dashboard/EditorMako.tsx, que no es un chat: edita el pedido y las sugerencias del botón de un
+gráfico. Ahora la regex acepta hasta 40 caracteres en el medio y «Pídeselo», la lista tiene las pantallas reales, y el chat
+viejo del teléfono (app/m/mako/ChatMako.tsx con su Composer) se borró. **Una guarda por regex se prueba con el texto real de
+cada pantalla**: el inventario se armó a mano y la regex nunca se corrió contra él.
+

@@ -24,7 +24,7 @@ un panel a la izquierda) y las criaturas siempre vivas. Falta que cada tab la mo
 demás, cada una su chat (el INVENTARIO de tests/chat-unico.test.ts).
 
 **SIN HACER, en este orden:**
-1. **Borrar app/m/mako/ChatMako.tsx**, que quedó sin quien lo monte, con sus 15 tests (ver el hallazgo).
+1. ~~Borrar app/m/mako/ChatMako.tsx~~ HECHO el 22/10 (OC2), con su Composer y lo suyo de los 15 tests.
 2. **Los documentos en una conversación de Offer**: hoy el «+» dice que se pegue el texto o el link. Van por `subir-url` + `leer`
    de Offer (app/offer/offer-api.ts → `subirArchivo`) y viajan como `docIds` en el turno.
 3. **Mirarlo en producción** con Martín: el ws3 como super admin y el ws21 (Florencia), al lado de /admin/operaciones, a 390 px y en

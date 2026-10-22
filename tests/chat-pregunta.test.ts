@@ -120,7 +120,6 @@ test('4. el hilo la dibuja, contestada si ya hubo respuesta, y lo que se toca sa
   assert.match(sinComentarios(leer('app/second-brain/PiezasCliente.tsx')), /onResponder=\{\(t\) => k\.enviar\(t\)\}/, 'el Ops Center');
   assert.match(sinComentarios(leer('app/crm/mako-crm/ChatMakoCrm.tsx')), /onResponder=\{\(t\) => \{ if \(ocupadoRef\.current\) return false; enviar\(\{ texto: t \}\); return true; \}\}/, 'el chat del CRM');
   assert.match(sinComentarios(leer('app/crm/lead-view/MakoAnalystLead.tsx')), /onResponder=\{\(t\) => \{ if \(ocupadoRef\.current\) return false; enviar\(\{ texto: t, adjuntos: \[\] \}\); return true; \}\}/, 'el de la ficha');
-  assert.match(sinComentarios(leer('app/m/mako/ChatMako.tsx')), /onResponder=\{\(t\) => \{ if \(trabajo\) return false; void enviar\(\{ texto: t, adjuntos: \[\] \}\); return true; \}\}/, 'el teléfono');
 });
 
 test('5. lo propuesto en una pantalla se retira en la base, cada uno con su descarte, y el mensaje no lo ofrece', () => {
@@ -168,6 +167,5 @@ test('6. una opción tocada mientras MaKo trabaja no dice «Respondiste» si no 
   ]);
   assert.equal(hilo[0].k === 'bloque' ? hilo[0].respondida : null, 'mejor los nuevos');
   assert.match(sinComentarios(leer('app/_chat/HiloMako.tsx')), /conRespuestas\(items\)\.forEach\(/, 'la computadora');
-  assert.match(sinComentarios(leer('app/m/mako/ChatMako.tsx')), /\{conRespuestas\(items\)\.map\(\(x\) => \(/, 'el teléfono');
   assert.match(sinComentarios(leer('app/crm/lead-view/MakoAnalystLead.tsx')), /new Map\(conRespuestas\(items\)\.map/, 'la ficha');
 });
