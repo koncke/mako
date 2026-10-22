@@ -1008,11 +1008,17 @@ function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando, sinPubli
 }) {
   // El emoji con el punto de estado: el MISMO en la fila y mientras se renombra.
   // El punto dice el estado sin una palabra: en una fila de 320 px, «pausada» se come el nombre. El rótulo
-  // entero está en el lienzo.
+  // entero está en el lienzo (`EstadoDeLaAutomatizacion`, SecuenciaPerfil.tsx). 22/10/2026 (Martín: «se puede pausar el envío
+  // desde Automations»): la pausada lleva ⏸ en vez de un punto gris, que sólo decía «Pausada» al pasar el cursor.
   const circulo = (
     <span style={{ position: 'relative', width: 36, height: 36, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
       {creando ? <span className="mk-spin" style={{ width: 14, height: 14 }} aria-hidden /> : emoji}
-      <span title={activa ? 'Activa' : 'Pausada'} style={{ position: 'absolute', right: -1, bottom: -1, width: 10, height: 10, borderRadius: '50%', background: activa ? 'var(--good)' : 'var(--border-strong)', boxShadow: `0 0 0 2px ${on ? 'var(--surface-2)' : 'var(--surface)'}` }} />
+      {activa ? (
+        <span title="Activa" style={{ position: 'absolute', right: -1, bottom: -1, width: 10, height: 10, borderRadius: '50%', background: 'var(--good)', boxShadow: `0 0 0 2px ${on ? 'var(--surface-2)' : 'var(--surface)'}` }} />
+      ) : (
+        <span data-pausada role="img" aria-label="Pausada" title="Pausada: no sale nada"
+          style={{ position: 'absolute', right: -4, bottom: -4, width: 16, height: 16, borderRadius: '50%', background: 'var(--surface)', border: '1px solid var(--border-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, lineHeight: 1, color: 'var(--dim)' }}>⏸</span>
+      )}
     </span>
   );
   return (
