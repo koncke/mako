@@ -7,8 +7,11 @@
 // llegaba a las 10:05, y a la tarde ya se había comido las 40 del día — la bienvenida salía mañana.
 //
 // Dos reglas, las dos a la vista en Configuraciones › Límites (`textoPrioridad`):
-//   1. PRIMERO LO QUE ENTRA. En cada corrida, antes que el resto, las inscripciones de un lead que ENTRÓ o AGENDÓ en
-//      las últimas `HORAS_ENTRADA` horas (`esEntradaFresca`). Es del LEAD y no de la automatización a propósito: la
+//   1. PRIMERO LO QUE ENTRA. En cada corrida, antes que el resto, las inscripciones de un lead que ENTRÓ (por un canal:
+//      un formulario, una landing, una agenda — `origen_lead`) o AGENDÓ en las últimas `HORAS_ENTRADA` horas
+//      (`esEntradaFresca`). Un lead IMPORTADO o cargado a mano no es una entrada: sin el origen, una base fría importada
+//      a la mañana y lanzada en campaña a la tarde contaba como «fresca» y se llevaba el cupo entero (revisión adversarial
+//      del 21/10/2026). Es del LEAD y no de la automatización a propósito: la
 //      campaña de un CRM de prospección cuelga de una etapa igual que «Un Lead Entró», y lo que las separa es que a
 //      una la dispara alguien que acaba de llegar y a la otra, una lista de leads de hace meses.
 //   2. LA CAMPAÑA DEJA LUGAR. Un WhatsApp a un lead que NO es entrada fresca usa el cupo menos una reserva
@@ -23,8 +26,8 @@ export const HORAS_ENTRADA = 24;
 /** El techo de la reserva diaria: con los topes altos (150/30), una hora entera serían 30 por día sin usar. */
 export const TOPE_RESERVA_DIA = 10;
 
-/** Lo que se lee del lead. `fecha_agenda` es una fecha (YYYY-MM-DD, el día que agendó). */
-export type LeadParaPrioridad = { created_at?: string | null; fecha_agenda?: string | null };
+/** Lo que se lee del lead. `fecha_agenda` es una fecha (YYYY-MM-DD, el día que agendó); `origen_lead`, por dónde entró. */
+export type LeadParaPrioridad = { created_at?: string | null; fecha_agenda?: string | null; origen_lead?: string | null };
 
 /** El corte de la entrada fresca, en ms, y su fecha (para `fecha_agenda`, que no tiene hora). */
 export function corteEntrada(ahoraMs: number): { ms: number; fecha: string } {
@@ -32,12 +35,13 @@ export function corteEntrada(ahoraMs: number): { ms: number; fecha: string } {
   return { ms, fecha: new Date(ms).toISOString().slice(0, 10) };
 }
 
-/** ¿Este lead entró o agendó hace menos de `HORAS_ENTRADA` horas? */
+/** ¿Este lead entró por un canal, o agendó, hace menos de `HORAS_ENTRADA` horas? */
 export function esEntradaFresca(lead: LeadParaPrioridad | null | undefined, ahoraMs: number): boolean {
   if (!lead) return false;
   const c = corteEntrada(ahoraMs);
   const alta = lead.created_at ? Date.parse(lead.created_at) : NaN;
-  if (Number.isFinite(alta) && alta >= c.ms) return true;
+  const porUnCanal = typeof lead.origen_lead === 'string' && lead.origen_lead.trim() !== '';
+  if (porUnCanal && Number.isFinite(alta) && alta >= c.ms) return true;
   const agenda = typeof lead.fecha_agenda === 'string' ? lead.fecha_agenda.slice(0, 10) : '';
   return /^\d{4}-\d{2}-\d{2}$/.test(agenda) && agenda >= c.fecha;
 }
@@ -64,6 +68,6 @@ export function cupoDeCampana(o: { cupo: number; presupuesto: number; horaTope: 
 export function textoPrioridad(wa: { dia: number; hora: number }): string {
   const r = reservaParaEntradas(wa);
   const deja = [r.dia ? `${r.dia} por día` : '', r.hora ? `${r.hora} por hora` : ''].filter(Boolean).join(' y ');
-  return `Primero lo que entra: a un lead que entró o agendó en las últimas ${HORAS_ENTRADA} h le sale antes que a una campaña.`
+  return `Primero lo que entra: a un lead que llegó por un formulario, una landing o una agenda, o que agendó, en las últimas ${HORAS_ENTRADA} h le sale antes que a una campaña.`
     + (deja ? ` La campaña le deja ${deja}.` : '');
 }

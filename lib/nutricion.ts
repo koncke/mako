@@ -1364,7 +1364,7 @@ async function agregadosEnEtapa(
     const ids = [...new Set(filas.map((f) => Number(f.lead_id)).filter((n) => Number.isFinite(n) && n > 0))];
     const leads: LeadDelAgregado[] = [];
     for (const tanda of enTandas(ids, 200)) {
-      leads.push(...await leerTodo<LeadDelAgregado>(db, 'leads', 'id, funnel_id, estado_lead', {
+      leads.push(...await leerTodo<LeadDelAgregado>(db, 'leads', 'id, funnel_id, estado_lead, created_at', {
         orden: 'id', filtros: (q) => q.in('id', tanda).eq('estado_lead', 'abierto') as ConsultaPaginada,
       }));
     }
@@ -3731,10 +3731,11 @@ const TOPE_FRESCOS_EN_CONSULTA = 300;
 async function entradasFrescas(db: Awaited<ReturnType<typeof getTenantDb>>, soloLeadId: number | null): Promise<Set<number>> {
   const c = corteEntrada(Date.now());
   try {
-    const filas = await leerTodo<{ id: number; created_at: string | null; fecha_agenda: string | null }>(db, 'leads', 'id, created_at, fecha_agenda', {
+    const filas = await leerTodo<{ id: number; created_at: string | null; fecha_agenda: string | null; origen_lead: string | null }>(db, 'leads', 'id, created_at, fecha_agenda, origen_lead', {
       orden: 'id',
       filtros: (q) => {
-        const base = q.or(`created_at.gte.${new Date(c.ms).toISOString()},fecha_agenda.gte.${c.fecha}`);
+        // Entró por un canal (con `origen_lead`) hace menos de 24 h, o agendó: lo importado no es una entrada.
+        const base = q.or(`and(created_at.gte.${new Date(c.ms).toISOString()},origen_lead.not.is.null),fecha_agenda.gte.${c.fecha}`);
         return (soloLeadId != null ? base.eq('id', soloLeadId) : base) as ConsultaPaginada;
       },
     });
@@ -4211,12 +4212,9 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     const fetched = (dueRaw ?? []) as FilaCola[];
     const due = fetched.filter((d) => !vistos.has(d.id));
     // Nada vencido: si hay una espera corta por cumplir, se duerme y se vuelve a mirar.
-    if (due.length === 0) {
-      // Ya no queda nada de lo que entró: la misma vuelta, con todo lo demás.
-      if (primeroEntradas) { primeroEntradas = false; rondas -= 1; continue; }
-      if (await dormirEsperaCorta()) continue;
-      break;
-    }
+    // Ya no queda nada de lo que entró: la misma vuelta, con todo lo demás.
+    if (due.length === 0 && primeroEntradas) { primeroEntradas = false; rondas -= 1; continue; }
+    if (due.length === 0) { if (await dormirEsperaCorta()) continue; break; }
     for (const d of due) vistos.add(d.id);
 
     // LOS HECHOS DEL LEAD, sólo si alguien del lote está por pasar por una condición, y en UNA
@@ -5298,8 +5296,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
     }
 
     // Cola drenada, salvo una espera corta de esta corrida por cumplir: se duerme y otra vuelta.
-    // Lo que entró ya se miró entero: la vuelta siguiente, con todo lo demás.
-    if (primeroEntradas && fetched.length < LOTE && !otraVuelta) { primeroEntradas = false; continue; }
+    // UNA vuelta para lo que entró, y la siguiente con todo lo demás (devolviendo la vuelta: la cola general sigue con sus
+    // 6). Una sola a propósito (revisión del 21/10/2026): con filas frescas frenadas por el anti-ban (las «msg <20h» no se
+    // reprograman), seguir mirándolas vuelta tras vuelta dejaba a la cola general sin turno. Un lote es el cupo × 3.
+    if (primeroEntradas) { primeroEntradas = false; rondas -= 1; continue; }
     if (fetched.length < LOTE && !otraVuelta && (await dormirEsperaCorta())) continue;
     if (fetched.length < LOTE && !otraVuelta) break; // cola drenada: no quedan más vencidas
   }

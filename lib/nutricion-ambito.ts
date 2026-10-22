@@ -135,11 +135,31 @@ export function leadEnAmbito(ambito: AmbitoFunnel, leadFunnelId: number | string
 // sumarles las filas le escribiría dos veces a la misma persona (lib/lead-funnel.ts).
 // Una fila que nombra la CASA del lead se ignora (no debería existir: «nunca hay fila para la casa», `productosDe`):
 // ahí manda la etapa de la casa, que ya entra por el otro camino.
+//
+// ⚠️ Y UNA FILA QUE NACIÓ CON EL LEAD TAMPOCO ENTRA (revisión adversarial del 21/10/2026). Un lead nuevo de una campaña
+// de Meta con varios CRM (o de una landing con varios) nace en su casa y, en el mismo alta, con una fila en cada otro
+// (lib/leads.ts, «los otros funnels de la campaña»). La casa lo saluda por el EVENTO del lead nuevo; si la fila también
+// entrara, el «Un Lead Entró» del otro CRM le mandaba una SEGUNDA bienvenida en el barrido de la hora. Una fila que se
+// creó a `NACIDA_CON_EL_LEAD_MS` del alta del lead, y que no se movió después, es parte del alta: la saluda la casa,
+// como hasta hoy. Sumarlo DESPUÉS (la campaña del Sprint, a mano o en lote) o moverlo en ese CRM sí entra.
 
 /** Una fila de `lead_funnel` como la lee la cohorte. */
 export type FilaAgregado = { lead_id: number | string; funnel_id: number | string; etapa: string | null; created_at?: string | null; etapa_desde?: string | null };
 /** Lo que la cohorte necesita del lead de esa fila. */
-export type LeadDelAgregado = { id: number | string; funnel_id: number | string | null; estado_lead: string | null };
+export type LeadDelAgregado = { id: number | string; funnel_id: number | string | null; estado_lead: string | null; created_at?: string | null };
+
+/** Cuánto después del alta del lead una fila se considera parte del alta (ver arriba). */
+export const NACIDA_CON_EL_LEAD_MS = 10 * 60_000;
+
+/** ¿La fila nació en el mismo alta que el lead y nadie la movió después? */
+export function filaNacidaConElLead(f: Pick<FilaAgregado, 'created_at' | 'etapa_desde'>, leadCreatedAt: string | null | undefined): boolean {
+  const fila = f.created_at ? Date.parse(f.created_at) : NaN;
+  const lead = leadCreatedAt ? Date.parse(leadCreatedAt) : NaN;
+  if (!Number.isFinite(fila) || !Number.isFinite(lead)) return false;
+  if (Math.abs(fila - lead) > NACIDA_CON_EL_LEAD_MS) return false;
+  const movida = f.etapa_desde ? Date.parse(f.etapa_desde) : NaN;
+  return !Number.isFinite(movida) || movida - fila <= NACIDA_CON_EL_LEAD_MS;
+}
 
 /**
  * Los leads AGREGADOS a este CRM que entran a la cohorte de un CRON por etapa. `corteMs`: el borde de la ventana de
@@ -163,6 +183,8 @@ export function agregadosQueEntran(
     if (!lead || lead.estado_lead !== 'abierto') continue;
     // Su casa ES este CRM: decide la etapa de la casa (el otro camino), no esta fila.
     if (leadEnAmbito(ambito, lead.funnel_id)) continue;
+    // Nació con el lead: lo saluda la casa por el evento del alta (ver arriba).
+    if (filaNacidaConElLead(f, lead.created_at)) continue;
     const hito = Math.max(
       ...[f.created_at, f.etapa_desde].filter((x): x is string => Boolean(x)).map((x) => Date.parse(x)).filter((ms) => Number.isFinite(ms)),
       0,

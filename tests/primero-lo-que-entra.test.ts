@@ -14,10 +14,14 @@ const H = 3_600_000;
 const AHORA = Date.parse('2026-10-21T18:00:00Z');
 const hace = (horas: number) => new Date(AHORA - horas * H).toISOString();
 
-test('entrada fresca: entró o agendó en las últimas 24 h', () => {
+test('entrada fresca: entró POR UN CANAL o agendó en las últimas 24 h', () => {
   assert.equal(HORAS_ENTRADA, 24);
-  assert.equal(esEntradaFresca({ created_at: hace(2) }, AHORA), true);
-  assert.equal(esEntradaFresca({ created_at: hace(30) }, AHORA), false);
+  assert.equal(esEntradaFresca({ created_at: hace(2), origen_lead: 'instant_form' }, AHORA), true);
+  assert.equal(esEntradaFresca({ created_at: hace(30), origen_lead: 'instant_form' }, AHORA), false);
+  // Importado o cargado a mano hoy (sin origen): NO es una entrada — una base fría importada a la mañana se llevaba el
+  // cupo entero a la tarde (revisión adversarial del 21/10/2026).
+  assert.equal(esEntradaFresca({ created_at: hace(2) }, AHORA), false);
+  assert.equal(esEntradaFresca({ created_at: hace(2), origen_lead: '  ' }, AHORA), false);
   assert.equal(esEntradaFresca({ created_at: hace(300 * 24), fecha_agenda: '2026-10-21' }, AHORA), true, 'un lead viejo que agendó hoy');
   assert.equal(esEntradaFresca({ created_at: hace(300 * 24), fecha_agenda: '2026-10-18' }, AHORA), false);
   for (const nada of [null, undefined, {}, { created_at: 'x', fecha_agenda: 'ayer' }]) assert.equal(esEntradaFresca(nada, AHORA), false);
@@ -74,7 +78,7 @@ test('un día: con la regla la bienvenida de las 17 sale a las 17; sin ella, no 
 
 test('la regla está dicha en Configuraciones › Límites, con los números del negocio', () => {
   assert.equal(textoPrioridad({ dia: 40, hora: 6 }),
-    'Primero lo que entra: a un lead que entró o agendó en las últimas 24 h le sale antes que a una campaña. La campaña le deja 6 por día y 1 por hora.');
+    'Primero lo que entra: a un lead que llegó por un formulario, una landing o una agenda, o que agendó, en las últimas 24 h le sale antes que a una campaña. La campaña le deja 6 por día y 1 por hora.');
   assert.ok(!textoPrioridad({ dia: 1, hora: 1 }).includes('le deja'), 'sin reserva no promete una');
   const panel = readFileSync(join(__dirname, '..', 'app/automations/LimitesEnvioPanel.tsx'), 'utf8');
   assert.match(panel, /b\.titulo === 'WhatsApp' && <span data-prioridad[^>]*>\{textoPrioridad\(l\.wa\)\}<\/span>/);
@@ -92,6 +96,9 @@ test('procesarEnvios: los mensajes chequean `sinLugar` (no el cupo a secas) y lo
   assert.match(proc, /if \(primeroEntradas\) q = q\.in\('lead_id', \[\.\.\.frescos\]\);/);
   assert.match(proc, /const frescos = await entradasFrescas\(supabase, opts\?\.soloLeadId \?\? null\);/);
   assert.match(proc, /reserva: reservaParaEntradas\(limites\.wa\), porHora: !!opts\?\.cupoPorHora/);
+  // UNA vuelta para lo que entró, devolviéndola: la cola general no se queda sin turno. Son DOS salidas de la fase (no
+  // quedó nada fresco / ya se miró la vuelta) y las dos la devuelven.
+  assert.equal((proc.match(/primeroEntradas\) \{ primeroEntradas = false; rondas -= 1; continue; \}/g) ?? []).length, 2);
 });
 
 test('quién entró se lee sin tirar: si falla, nadie va primero (se manda menos, no más)', () => {
@@ -99,6 +106,7 @@ test('quién entró se lee sin tirar: si falla, nadie va primero (se manda menos
   const cuerpo = motor.slice(ini, motor.indexOf('\n}\n', ini));
   assert.match(cuerpo, /catch \(e\) \{[\s\S]*return new Set\(\);/);
   assert.match(cuerpo, /esEntradaFresca\(l, Date\.now\(\)\)/, 'la misma regla que el módulo');
+  assert.match(cuerpo, /and\(created_at\.gte\.\$\{[^}]+\},origen_lead\.not\.is\.null\)/, 'la consulta pide el canal, como la regla');
 });
 
 // ── Las roturas (7 tests; sin romper nada: 7 pases, 0 fallos) ──────────────────────────────────────────────────────
@@ -108,3 +116,5 @@ test('quién entró se lee sin tirar: si falla, nadie va primero (se manda menos
 // 4. El motor con `cupoLleno()` en el mensaje (lo de antes): 1 fallo / 6 pases.
 // 5. Sin la vuelta de «primero lo que entra»: 1 fallo / 6 pases.
 // 6. El panel sin la línea: 1 fallo / 6 pases.
+// 7. `esEntradaFresca` sin mirar el canal (lo importado como fresco, revisión adversarial): 1 fallo / 6 pases.
+// 8. La fase de lo que entra sin devolver la vuelta (o mirando más de una vuelta): 1 fallo / 6 pases.

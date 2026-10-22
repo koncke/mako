@@ -518,6 +518,11 @@ export function productoDeLaEtapa(productos: readonly ProductoDeAccion[], embudo
  *   · `casa`     → su CRM principal: `proponer_cambio_etapa`, como siempre (requisitos, estado, Meta);
  *   · `agregado` → la fila de ese CRM: `mover_lead_en_producto`;
  *   · `fuera`    → no está en ese CRM: no se mueve nada, y el paso lo dice.
+ * ⚠️ SALVO LO DE ANTES (revisión adversarial del 21/10/2026). El control guarda SIEMPRE el producto, casi siempre el
+ * principal, también en las automatizaciones sin CRM (las 62 de antes): «Mover a Ganado» guardado con el principal,
+ * corrido sobre un lead cuya casa es OTRO CRM con la misma etapa, movía su casa. Para no romperlo: si la etapa existe
+ * en el kanban de su casa (`etapaEnLaCasa`), se mueve la casa como siempre; y si su casa no se pudo resolver (el CRM
+ * del negocio ilegible), también lo de siempre — un error de lectura no puede apagar el paso para todos.
  * Sin CRM elegido (`crmDelPaso` = null: un paso de antes, uno de la API): lo de siempre, la casa.
  */
 export type DondeMover = 'casa' | 'agregado' | 'fuera';
@@ -526,10 +531,11 @@ export function crmDelPaso(embudoId: unknown): number | null {
   const id = typeof embudoId === 'number' ? embudoId : typeof embudoId === 'string' && embudoId.trim() ? Number(embudoId) : NaN;
   return Number.isInteger(id) && id > 0 ? id : null;
 }
-export function dondeMoverEtapa(crm: number, productos: readonly { funnelId: number; esCasa: boolean }[]): DondeMover {
+export function dondeMoverEtapa(crm: number, productos: readonly { funnelId: number; esCasa: boolean }[], etapaEnLaCasa: boolean | null): DondeMover {
   const p = productos.find((x) => x.funnelId === crm);
-  if (!p) return 'fuera';
-  return p.esCasa ? 'casa' : 'agregado';
+  if (p) return p.esCasa ? 'casa' : 'agregado';
+  if (!productos.some((x) => x.esCasa)) return 'casa';
+  return etapaEnLaCasa === true ? 'casa' : 'fuera';
 }
 
 /** La etapa elegida en un paso, con lo que pide; null si no hay o no se pudo leer. */

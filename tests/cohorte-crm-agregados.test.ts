@@ -12,7 +12,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { agregadosQueEntran, ambitoDeSecuencia, type FilaAgregado, type LeadDelAgregado } from '../lib/nutricion-ambito';
+import { agregadosQueEntran, ambitoDeSecuencia, filaNacidaConElLead, type FilaAgregado, type LeadDelAgregado } from '../lib/nutricion-ambito';
 
 const NEGOCIO = 1;
 const SPRINT = 40;
@@ -76,6 +76,20 @@ test('una secuencia SIN CRM declarado (las de antes del ámbito) no suma agregad
   assert.deepEqual(agregadosQueEntran(ambitoDeSecuencia(null, null), ['por_contactar'], CORTE, [fila(11, SPRINT, 'por_contactar', 1)], LEADS), []);
 });
 
+test('una fila que NACIÓ con el lead (la campaña de Meta con varios CRM) no entra: lo saluda la casa por el alta', () => {
+  const nuevo: LeadDelAgregado = { id: 21, funnel_id: null, estado_lead: 'abierto', created_at: hace(1) };
+  const conElAlta: FilaAgregado = { lead_id: 21, funnel_id: SPRINT, etapa: 'por_contactar', created_at: hace(0.9999), etapa_desde: hace(0.9999) };
+  assert.equal(filaNacidaConElLead(conElAlta, nuevo.created_at), true);
+  assert.deepEqual(agregadosQueEntran(sprint, ['por_contactar'], CORTE, [conElAlta], [...LEADS, nuevo]), [], 'segunda bienvenida');
+  // Sumado DESPUÉS (la campaña del Sprint) sí entra; y movido después en ese CRM, también.
+  const despues: FilaAgregado = { ...conElAlta, created_at: hace(0.5), etapa_desde: hace(0.5) };
+  assert.deepEqual(agregadosQueEntran(sprint, ['por_contactar'], CORTE, [despues], [...LEADS, nuevo]), [21]);
+  const movida: FilaAgregado = { ...conElAlta, etapa_desde: hace(0.2) };
+  assert.deepEqual(agregadosQueEntran(sprint, ['por_contactar'], CORTE, [movida], [...LEADS, nuevo]), [21]);
+  // Sin fechas no se adivina: no es «nacida con el lead».
+  assert.equal(filaNacidaConElLead({ created_at: null }, nuevo.created_at), false);
+});
+
 test('sin etapas pedidas, nadie; y nadie dos veces', () => {
   assert.deepEqual(agregadosQueEntran(sprint, [], CORTE, [fila(11, SPRINT, 'por_contactar', 1)], LEADS), []);
   const dos = [fila(11, SPRINT, 'por_contactar', 1), fila(11, SPRINT, 'por_contactar', 2), fila(15, SPRINT, 'por_contactar', 3)];
@@ -105,11 +119,13 @@ test('la lectura de los agregados pide las filas de ESE CRM y sólo leads abiert
   assert.match(cuerpo, /'lead_funnel'/);
   assert.match(cuerpo, /\.eq\('funnel_id', ambito\.id\)/);
   assert.match(cuerpo, /\.eq\('estado_lead', 'abierto'\)/);
+  assert.match(cuerpo, /'id, funnel_id, estado_lead, created_at'/, 'sin el alta del lead no se sabe si la fila nació con él');
   assert.match(cuerpo, /return agregadosQueEntran\(ambito, keys, corteMs, filas, leads\)/);
   assert.match(cuerpo, /throw new Error/, 'una lectura que falla corta la corrida (no sigue con una cohorte a medias)');
 });
 
-// ── Las roturas, con su conteo (10 tests; sin romper nada: 10 pases, 0 fallos) ───────────────────────────────────────
+// ── Las roturas, con su conteo (11 tests; sin romper nada: 11 pases, 0 fallos) ───────────────────────────────────────
+// (Medidas con 10 tests; la 7, con 11. Con 11 cada una de la 1 a la 6 da 1 fallo / 10 pases.)
 // Cada una con un script de node que reemplaza el texto y vuelve a correr este archivo (no `sed -i`: ver
 // tests/nutricion-ambito-embudo.test.ts, en este entorno no avisó que no aplicaba).
 // 1. Sin el `if (leadEnAmbito(...)) continue` (la casa también por la fila): 1 fallo / 9 pases.
@@ -119,3 +135,4 @@ test('la lectura de los agregados pide las filas de ESE CRM y sólo leads abiert
 //    coincide y sale vacío igual. Queda por claridad; el test de `todos` lo cubre por cualquiera de los dos lados.
 // 5. La rama del motor devolviendo `deLaCasa` siempre (lo de antes): 1 fallo / 9 pases.
 // 6. La lectura sin `.eq('estado_lead', 'abierto')`: 1 fallo / 9 pases.
+// 7. Sin el `filaNacidaConElLead` (la segunda bienvenida de la revisión adversarial): 1 fallo / 10 pases.

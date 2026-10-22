@@ -40,7 +40,7 @@ import { LeadDuplicadoError } from '@/lib/leads-duplicados';
 import { enviarBorrador } from '@/lib/evolution-envio';
 import { runWithWorkspace } from '@/lib/workspace';
 import { ACCIONES_DEL_FLUJO, accionDelFlujo, unaPorEtiqueta, juntarPorEtiqueta, crmDelPaso, dondeMoverEtapa, type DondeMover, type GrupoAccion } from '@/lib/editor-acciones';
-import { productosDelLead } from '@/lib/lead-funnel';
+import { productosDelLead, etapasDeProducto } from '@/lib/lead-funnel';
 import { OP_MOVER_ETAPA } from '@/lib/flujo-legado';
 
 /** La acción que mueve la tarjeta de un CRM AGREGADO (lib/api-mako/areas/crm.run.ts). */
@@ -86,6 +86,39 @@ export const enElEditorDeVideo = (d: AccionDef): boolean => d.pantalla === '/vid
 const DEL_PLAN = new Set(['proponer_tareas_plan', 'proponer_cierre_tareas', 'proponer_ampliar_tareas', 'proponer_tareas_proyecto_vacio']);
 
 /**
+ * «MOVER DE ETAPA» CORRE EN EL CRM QUE ELIGIÓ EL PASO (21/10/2026, `dondeMoverEtapa`, lib/editor-acciones.ts): en un CRM
+ * AGREGADO mueve su fila (`mover_lead_en_producto`); en uno donde el lead no está, no mueve nada. Sin esto, la key de la
+ * etapa del otro CRM se escribía en la etapa PRINCIPAL del lead. El `embudoId` se lee de lo GUARDADO: la def no lo
+ * declara y `paramsDelPaso` lo saca. Devuelve `null` cuando toca lo de siempre (la casa, o un paso sin CRM).
+ */
+async function moverEnElCrmDelPaso(
+  guardado: Record<string, unknown> | null | undefined, input: Record<string, unknown>, ctx: Ctx,
+  opts: { ws: number; origen: string },
+): Promise<ResultadoFlujo | null> {
+  const crm = crmDelPaso((guardado ?? {})?.embudoId);
+  const leadId = typeof input.leadId === 'number' ? input.leadId : null;
+  if (leadId == null || crm == null) return null;
+  let donde: DondeMover;
+  try {
+    const { productos } = await runWithWorkspace(opts.ws, () => productosDelLead(leadId));
+    // ¿La etapa existe en su casa? Sólo si no está en el CRM del paso (lo de antes, ver `dondeMoverEtapa`).
+    const casa = productos.find((p) => p.esCasa);
+    const etapaEnLaCasa = casa && !productos.some((p) => p.funnelId === crm)
+      ? (await runWithWorkspace(opts.ws, () => etapasDeProducto(casa.funnelId))).some((e) => e.key === input.etapa)
+      : null;
+    donde = dondeMoverEtapa(crm, productos, etapaEnLaCasa);
+  } catch (e) {
+    return { ok: false, resumen: `No moví de etapa: no pude leer los CRM del lead (${e instanceof Error ? e.message : String(e)}).`, via: 'ninguna' };
+  }
+  if (donde === 'fuera') return { ok: false, resumen: 'No moví de etapa: no está en ese CRM (súmalo antes con «Agregar a un funnel»).', via: 'ninguna' };
+  if (donde !== 'agregado') return null;
+  const enProducto = porId(OP_MOVER_EN_PRODUCTO);
+  if (!enProducto || !esAccion(enProducto)) return { ok: false, resumen: `«${OP_MOVER_EN_PRODUCTO}» no es una acción de MaKo.`, via: 'ninguna' };
+  const mover = { leadId, embudoId: crm, etapa: input.etapa };
+  return runWithWorkspace(opts.ws, () => aplicarEnElActo(enProducto, mover, ctx, opts));
+}
+
+/**
  * Corre una acción de MaKo desde un paso de un flujo. Nunca lanza: un flujo es
  * best-effort y un paso que falla no corta el webhook que lo disparó.
  */
@@ -111,27 +144,10 @@ export async function ejecutarDesdeFlujo(
   const ctx = ctxDeFlujo(opts.ws, opts.origen, opts.nombre);
   // La tanda única (con una etiqueta en la lista, ésa queda en `etiquetaId`); para todo lo demás, `params`.
   const input = paramsDelPaso(def.parametros, tandas[0], { leadId: opts.leadId ?? null });
-  // «MOVER DE ETAPA» CORRE EN EL CRM QUE ELIGIÓ EL PASO (21/10/2026, `dondeMoverEtapa`): en un CRM AGREGADO mueve su
-  // fila; en uno donde el lead no está, no mueve nada. Sin esto, la key de la etapa del otro CRM se escribía en la
-  // etapa PRINCIPAL del lead. El `embudoId` se lee de lo guardado: la def no lo declara y `paramsDelPaso` lo saca.
+  // «Mover de etapa» corre en el CRM que eligió el paso (`moverEnElCrmDelPaso`, abajo).
   if (def.id === OP_MOVER_ETAPA) {
-    const crm = crmDelPaso((tandas[0] ?? {})?.embudoId);
-    const leadId = typeof input.leadId === 'number' ? input.leadId : null;
-    if (leadId != null && crm != null) {
-      let donde: DondeMover;
-      try {
-        donde = dondeMoverEtapa(crm, (await runWithWorkspace(opts.ws, () => productosDelLead(leadId))).productos);
-      } catch (e) {
-        return { ok: false, resumen: `No moví de etapa: no pude leer los CRM del lead (${e instanceof Error ? e.message : String(e)}).`, via: 'ninguna' };
-      }
-      if (donde === 'fuera') return { ok: false, resumen: 'No moví de etapa: no está en ese CRM (súmalo antes con «Agregar a un funnel»).', via: 'ninguna' };
-      if (donde === 'agregado') {
-        const enProducto = porId(OP_MOVER_EN_PRODUCTO);
-        if (!enProducto || !esAccion(enProducto)) return { ok: false, resumen: `«${OP_MOVER_EN_PRODUCTO}» no es una acción de MaKo.`, via: 'ninguna' };
-        const mover = { leadId, embudoId: crm, etapa: input.etapa };
-        return runWithWorkspace(opts.ws, () => aplicarEnElActo(enProducto, mover, ctx, opts));
-      }
-    }
+    const r = await moverEnElCrmDelPaso(tandas[0], input, ctx, opts);
+    if (r) return r;
   }
   // ⚠️ EL WORKSPACE LO FIJA EL EJECUTOR, no quien lo llama. `ejecutarOperacion` lo fija para
   // proponer, pero confirmar (`confirmarPendiente`) corre el `ejecutar()` de la acción tal
