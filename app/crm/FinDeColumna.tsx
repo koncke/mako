@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// La columna del Kanban por TANDAS: se dibujan 60 tarjetas y, al llegar al fondo, 60 más (22/10/2026)
+// La columna del Kanban por TANDAS: se dibujan 30 tarjetas y, al llegar al fondo, 30 más (22/10/2026; eran 60)
 // =============================================================================
 // El sábado Mauricio abre «Sprint 3 días» con 1.050 leads en «Lead entrante» para mover 50 por día. El tablero dibujaba
 // TODAS las tarjetas de una vez: medido con el arnés (tests/_crm-tablero-medir.mjs), 1.050 con foto y «Datos pendientes»

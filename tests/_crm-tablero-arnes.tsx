@@ -17,7 +17,7 @@ import { etapasDelTablero, mapToCrmLead } from '../app/crm/crm-map';
 import { DEFAULT_PIPELINE, generateFunnel } from '../lib/pipeline';
 import type { FunnelResumen } from '../lib/funnel-fila';
 
-type Medida = { n: number; tarjetasEnDom: number; altoMain: number; altoVentana: number; render: number; clic: number; tildar: number; largas: number; msLargas: number };
+type Medida = { n: number; tarjetasEnDom: number; altoMain: number; altoVentana: number; render: number; clic: number; tildar: number; largas: number; msLargas: number; quieto: { largas: number; ms: number; cambios: number }; estiloTodo: number; nodos: number };
 declare global { interface Window { __medida: Medida | { error: string } | null; __largas: number[] } }
 
 const q = new URLSearchParams(location.search);
@@ -25,12 +25,16 @@ const N = Number(q.get('n') ?? 300);
 const { stages, transitions } = generateFunnel(DEFAULT_PIPELINE);
 const entrada = stages[0].key;
 const tablero = etapasDelTablero(stages);
+// ?cols=<k>: los N repartidos en las primeras k columnas (el CRM principal del ws1: 1.169 en varias etapas). Sin él, todos
+// en la de entrada (el «Sprint 3 días» del sábado: 1.050 en «Lead entrante»).
+const COLS = Number(q.get('cols') ?? 1);
+const CLAVES = [...tablero];
 
 // Leads con la forma de una fila de la base (mapToCrmLead es el mismo mapper de la página).
 const leads = Array.from({ length: N }, (_, i) => mapToCrmLead({
   id: i + 1, nombre: `Lead de prueba ${i + 1}`, email: `lead${i + 1}@ejemplo.com`, empresa: i % 3 ? `Empresa ${i % 40}` : null,
   telefono: `+52 55 ${String(10000000 + i)}`, telefono_normalizado: `5255${String(10000000 + i)}`,
-  created_at: '2026-10-20T10:00:00Z', estado_lead: 'abierto', pipeline_stage: entrada,
+  created_at: '2026-10-20T10:00:00Z', estado_lead: 'abierto', pipeline_stage: COLS > 1 ? CLAVES[i % COLS] ?? entrada : entrada,
   origen_lead: 'meta', meta_ad_name: 'Anuncio VSL', meta_campaign_name: 'Sprint 3 días',
 } as unknown as Parameters<typeof mapToCrmLead>[0], {}, tablero));
 
@@ -82,8 +86,30 @@ async function medir() {
 
   const largas = window.__largas.length;
   const msLargas = Math.round(window.__largas.reduce((a, b) => a + b, 0));
+
+  // QUIETO: el tablero sin tocar, 8 s. En producción la pestaña seguía trabada una hora después de abrir: algo corre en
+  // bucle (un observador que se re-dispara, un efecto que vuelve a pedir datos). Cuenta las tareas largas y los cambios
+  // del DOM de esa ventana; un tablero sano da cero y cero.
+  const desde = window.__largas.length;
+  let cambios = 0;
+  const mo = new MutationObserver((rs) => { cambios += rs.length; });
+  mo.observe(document.body, { childList: true, subtree: true, attributes: true, characterData: true });
+  await new Promise((r) => setTimeout(r, Number(q.get('quieto') ?? 8000)));
+  mo.disconnect();
+  const quieto = { largas: window.__largas.length - desde, ms: Math.round(window.__largas.slice(desde).reduce((a, b) => a + b, 0)), cambios };
+  // ESTILO DE TODO: un cambio en <html> (una variable CSS, como `--ancho-panel-mako` al abrir el panel de MaKo) recalcula
+  // el estilo de cada nodo. La mediana de 5, en ms: con el tablero entero dibujado es lo que paga cada cambio así.
+  const tiempos: number[] = [];
+  for (let i = 0; i < 5; i++) {
+    const t = performance.now();
+    document.documentElement.style.setProperty('--arnes', String(Math.random()));
+    void getComputedStyle(document.body).color;
+    tiempos.push(performance.now() - t);
+  }
+  const estiloTodo = Math.round(tiempos.sort((x, y) => x - y)[2]);
+  const nodos = document.getElementsByTagName('*').length;
   const main = document.querySelector('main');
-  window.__medida = { n: N, tarjetasEnDom: document.querySelectorAll('[data-leadcard]').length, altoMain: Math.round(main?.getBoundingClientRect().height ?? 0), altoVentana: innerHeight, render: Math.round(render), clic: Math.round(clic), tildar: Math.round(tildar), largas, msLargas,
+  window.__medida = { n: N, tarjetasEnDom: document.querySelectorAll('[data-leadcard]').length, altoMain: Math.round(main?.getBoundingClientRect().height ?? 0), altoVentana: innerHeight, render: Math.round(render), clic: Math.round(clic), tildar: Math.round(tildar), largas, msLargas, quieto, estiloTodo, nodos,
     ...(errorRender ? { errorRender } : {}), ...(q.get('debug') ? { columnas: [...document.querySelectorAll<HTMLElement>('[data-colkey]')].map((c) => c.dataset.colkey), etapaLead: leads[0]?.stage, derivada: leads[0]?.derivedStage, entrada, texto: document.body.innerText.slice(0, 400) } : {}) } as Medida;
 }
 

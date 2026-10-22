@@ -91,7 +91,10 @@ for (let vuelta = 0; ; vuelta++) {
 }
 // El envoltorio, como el de la app: el <main> es hijo de un flex en COLUMNA. Con una fila, `flex: 1` no le gana a
 // `height` y el arnés no veía que en producción el tablero medía 21.285 px (22/10/2026).
-writeFileSync(join(SALIDA, 'arnes.html'), `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>tablero</title>
+// ARNES_CSS=<archivo>: la hoja de estilos de la app (la de producción: /_next/static/chunks/*.css). Sin ella el arnés no ve
+// lo que cuesta recalcular estilos (las reglas globales, los `:has()`) con miles de tarjetas.
+const CSS_APP = process.env.ARNES_CSS ? `<link rel="stylesheet" href="${pathToFileURL(process.env.ARNES_CSS).href}">` : '';
+writeFileSync(join(SALIDA, 'arnes.html'), `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>tablero</title>${CSS_APP}
 <style>*{box-sizing:border-box}html,body{margin:0;height:100%}body{background:#f6f7f9;color:#12151b;font-family:system-ui}</style></head>
 <body><div style="display:flex;min-height:100vh"><aside data-sidebar style="width:68px;flex:none;background:#1e2230"></aside><div id="raiz" style="flex:1;min-width:0;display:flex;flex-direction:column"></div></div>
 <script src="arnes.js"></script></body></html>`);
@@ -101,7 +104,10 @@ if (!CHROME) { console.error('no encontré chrome.exe'); process.exit(1); }
 const PUERTO = 9344;
 const perfil = mkdtempSync(join(tmpdir(), 'crm-tablero-cdp-'));
 const chrome = spawn(CHROME, [`--remote-debugging-port=${PUERTO}`, `--user-data-dir=${perfil}`, '--headless=new', '--mute-audio',
-  '--no-first-run', '--no-default-browser-check', '--window-size=1568,900', '--allow-file-access-from-files', 'about:blank'], { stdio: 'ignore' });
+  '--no-first-run', '--no-default-browser-check', '--window-size=1568,900', '--allow-file-access-from-files',
+  // ARNES_A11Y=1: con el árbol de accesibilidad prendido, como lo tiene un Chrome con un lector de pantalla, un gestor de
+  // contraseñas o la extensión de Claude mirando la pestaña. Cada cambio del DOM lo actualiza: con miles de tarjetas pesa.
+  ...(process.env.ARNES_A11Y === '1' ? ['--force-renderer-accessibility'] : []), 'about:blank'], { stdio: 'ignore' });
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 
 try {
@@ -123,6 +129,8 @@ try {
   };
   const cdp = (method, params = {}) => new Promise((res, rej) => { const n = ++id; pend.set(n, (d) => (d.error ? rej(new Error(d.error.message)) : res(d.result))); ws.send(JSON.stringify({ id: n, method, params })); });
   await cdp('Page.enable'); await cdp('Runtime.enable');
+  // ARNES_CDP=1: además, los dominios que prende quien inspecciona la pestaña por CDP (DOM y accesibilidad).
+  if (process.env.ARNES_CDP === '1') { await cdp('DOM.enable'); await cdp('Accessibility.enable'); }
   await cdp('Emulation.setDeviceMetricsOverride', { width: 1568, height: 900, deviceScaleFactor: 1, mobile: false });
   for (const n of NS) {
     const extra = process.env.ARNES_QS ? `&${process.env.ARNES_QS}` : '';
