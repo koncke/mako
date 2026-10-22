@@ -102,7 +102,8 @@ test('el tablero arma la tarjeta con UNA función, que también arma la vista pr
   assert.match(f, /compacta: dis === 'compacta'/);
   assert.match(f, /avance: dis === 'avance' && iPaso >= 0/, 'el diseño «Con avance» lleva la barra del paso');
   assert.match(f, /subtitulo: subtituloEnOrden\(csChicos,/, 'la plata y el canal en el orden de la persona (menos lo que va grande)');
-  assert.match(f, /chips: <>\{csChicos\.map\(\(c\) => <Fragment key=\{c\}>\{chip\(c\)\}<\/Fragment>\)\}<\/>/, 'los chips en el orden de la persona');
+  // Después de los elegidos, el de la automatización (22/10/2026): es un estado y va siempre (tests/crm-automatizacion-lead.test.ts).
+  assert.match(f, /chips: <>\{csChicos\.map\(\(c\) => <Fragment key=\{c\}>\{chip\(c\)\}<\/Fragment>\)\}\{aut && <span [^>]*>\{aut\.texto\}<\/span>\}<\/>/, 'los chips en el orden de la persona');
   // Las formas del 21/10: lo que va GRANDE sale del subtítulo y de los chips (no se dice dos veces).
   assert.match(f, /const enGrande: CampoTarjetaLead \| null = dis === 'monto' \? 'plata' : dis === 'evento' \? 'agenda' : null;/);
   assert.match(f, /portada: dis === 'portada' \? colorDeNombre\(l\.name\) : null,/);
