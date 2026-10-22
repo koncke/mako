@@ -7338,3 +7338,24 @@ en el onboarding usa la red de la plataforma). **Sin hacer:** que el respaldo de
 diga por qué no puede, en el Plan, el Ops Center y el chat del teléfono.
 
 *20/10/2026, chat «Onboarding» (claude4); el código es del Plan.*
+
+## Las plantillas de la tarjeta de una tarea, y «Nueva tarea» al «⋯» de la columna (21/10/2026)
+
+Martín, 21/10: las plantillas de tarjeta «en clientes, plan, etc.» y «Nuevo lead» de la columna a sus 3 puntos (vale en
+todos los tableros).
+
+- **`CardTile` toma la elección por CONTEXTO**, no por props: así el Kanban, Recurrentes y «Lo que cargó MaKo» dibujan la
+  MISMA tarjeta sin pasar la elección por cada llamada. Llega desde el server (`perfil.planTarjeta`, leído en /plan y
+  /plan/agencia junto a las columnas) por `useBoard` (`tarjeta`, `setTarjeta`): sin un segundo fetch que haga parpadear.
+- **El check gris de completar y el tacho NO son datos**: quedan en toda plantilla («Sólo el título» incluida).
+- **El «⋯» de la columna ahora se dibuja también para quien no es admin**, con sólo «Nueva tarea»: antes existía sólo
+  si había renombrar, agregar o quitar.
+- **`BarraAcciones` con `compacto={false}` dibuja sólo `nodo`, no el menú** (app/_components/BarraAcciones.tsx): una
+  acción con `nodo: null` desaparece sin aviso. Hoy anda porque el Plan y Clientes fijan `compacto`; la del Plan lleva
+  un `nodo` igual.
+
+Sin hacer: el teléfono no lee la elección (app/m/plan/ListaPlan.tsx).
+
+**Vive en:** lib/tarjeta-plan.ts · app/plan/board/BoardShell.tsx (`CardTile`, `ColHeader`), useBoard.ts, tarjeta-actions.ts
+· tests/plan-tarjeta-plantillas.test.ts
+*21/10/2026, chat «CRM» (claude3), con un agente.*

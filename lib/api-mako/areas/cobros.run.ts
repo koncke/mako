@@ -25,6 +25,7 @@ import 'server-only';
 import type { Ctx, Ejecutado, Runners, SalidaLectura } from '../tipos';
 import { getLead, logLeadEvent } from '@/lib/leads';
 import { listProductos } from '@/lib/productos';
+import { cobroDelProducto } from '@/lib/cobro-etapa-server';
 import {
   anularCobro, cancelarSuscripcionCobro, crearCobro, getCobro, linkDelCobro, listarCobros, pasarelasConectadas, reembolsarCobro,
 } from '@/lib/cobros';
@@ -190,7 +191,9 @@ export const RUNNERS: Runners = {
         return { error: 'Mercado Pago cobra en la moneda de tu cuenta y el precio del catálogo está en dólares: ese link se crea desde la ficha del lead, con el monto en tu moneda.', faltan: ['monto'] };
       }
       const tipo = prod.tipo === 'suscripcion' ? 'suscripcion' : 'unico';
-      const d = decidirCobro({ pasarela, conectadas, productoMontoUsd: prod.monto_usd, tipo, email: lead.email ?? null });
+      // Un producto en cuotas (mig 0326) cobra su PRIMER pago, como `crearCobro`: lo que se aprueba es lo que se cobra.
+      const enCuotas = tipo === 'unico' ? await cobroDelProducto(prod.id).catch(() => null) : null;
+      const d = decidirCobro({ pasarela, conectadas, productoMontoUsd: enCuotas?.primerPagoUsd ?? prod.monto_usd, tipo, email: lead.email ?? null });
       if (!d.ok) return { error: d.error, faltan: d.faltan };
 
       // Un link pendiente del MISMO producto por la MISMA pasarela ya es lo pedido: no se crea otro
@@ -207,7 +210,7 @@ export const RUNNERS: Runners = {
       }
       return {
         payload: { leadId: lead.id, productoId: prod.id, pasarela },
-        resumen: `Crear un link de pago de ${NOMBRE_PASARELA[pasarela]} para ${lead.nombre}: ${prod.nombre}, ${formatoMonto(d.monto, d.moneda)}${tipo === 'suscripcion' ? ' por mes' : ''}.`,
+        resumen: `Crear un link de pago de ${NOMBRE_PASARELA[pasarela]} para ${lead.nombre}: ${prod.nombre}, ${formatoMonto(d.monto, d.moneda)}${tipo === 'suscripcion' ? ' por mes' : enCuotas?.cuotas ? ` (el primero de ${enCuotas.cuotas} pagos)` : ''}.`,
       };
     },
     ejecutar: (payload, ctx) => seguro('crear el link de pago', async () => {

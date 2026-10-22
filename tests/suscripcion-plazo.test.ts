@@ -103,7 +103,7 @@ test('el cableado: Stripe sólo en el PRIMER pago y sin tumbarlo, y el lead que 
   const a = cuerpo(c, 'aplicarPagoAprobado');
   assert.match(a, /const plazo = actual\.tipo === 'suscripcion' && nuevo && !renovacion\s*\?/, 'una renovación o una reentrega no reprograma nada');
   assert.match(a, /if \(plazo && actual\.proveedor === 'stripe' && actual\.proveedor_suscripcion_id\) actual = await programarPlazoStripe\(actual, plazo\);/);
-  assert.match(a, /await ganarLead\(actual, autor, plazo\)/);
+  assert.match(a, /await ganarLead\(actual, autor, plazo, trato\?\.montoVenta \?\? null\)/);
   assert.match(cuerpo(c, 'ganarLead'), /suscripcion_meses: plazo \}/, 'sin el plazo en el lead, el MRR la cuenta para siempre');
   const prog = cuerpo(c, 'programarPlazoStripe');
   assert.match(prog, /\} catch \(e\) \{\s*console\.error/, 'la plata ya entró: programar el fin nunca tumba el pago');

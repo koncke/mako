@@ -28,9 +28,10 @@ import { getTenantDb, getWorkspaceActual } from './workspace';
 import { getSupabaseServer } from './supabase';
 import { credWs, credWsEstricta } from './credenciales';
 import { upsertRouting, soltarIdentificador } from './webhook-routing';
-import { listarEventTypes } from './calendly-agenda';
-import { listarEventTypesCalcom } from './calcom';
+import { listarEventTypes, crearEventTypeCalendly, editarEventTypeCalendly } from './calendly-agenda';
+import { listarEventTypesCalcom, crearEventTypeCalcom, editarEventTypeCalcom } from './calcom';
 import { listarFunnels } from './funnels';
+import { googleCalendarConectado } from './google-calendar';
 import { filaAFunnel, COLS, type FilaFunnel } from './funnel-fila';
 import { casaParaEscribir, casaReal, nombreVisible } from './lead-funnel-reglas';
 import { etapaVigenteDe } from './funnel-etapas';
@@ -38,7 +39,7 @@ import { productosDelLead, agregarAProducto, moverEtapaEnProducto, etapasDeProdu
 import { getLead, setPipelineStage, type Lead } from './leads';
 import {
   CREDS_DE_REUNION, NOMBRE_PROVEEDOR, PROVEEDORES_AGENDA, SERVICIO_DE_RUTEO, MAX_IDENTIFICADOR,
-  esProveedorAgenda, faltaLaTabla, identificadoresNecesarios, mismoIdentificador, moverAlReservar,
+  datosDeEvento, esProveedorAgenda, faltaLaTabla, identificadoresNecesarios, mismoIdentificador, moverAlReservar,
   problemaDeVinculo, reunionDeEtapa, rutaDeEvento,
   type FunnelDelNegocio, type ProveedorAgenda, type RutaDeReserva, type VinculoEvento,
 } from './agenda-evento-etapa';
@@ -185,6 +186,12 @@ export type AgendaDelNegocio = {
   etapas: EtapaVinculable[];
   /** false mientras falte la migración 0293: se lista, pero no se puede vincular. */
   sePuedeVincular: boolean;
+  /**
+   * Google Calendar (21/10/2026, Martín: «puedo tener eventos en Calendly, Cal o Google Calendar»): si está conectado.
+   * Sus páginas de reserva no se listan (Google no las expone en su API); se conecta desde el pop-up y se dice.
+   * ⚠️ Sólo el SÍ/NO: nada de la agenda de Google pasa por acá (la regla de la agenda sin IA: lib/agenda-sin-ia.ts).
+   */
+  google: { conectado: boolean };
 };
 
 /** Un evento de la cuenta con los otros nombres con los que alguien lo puede pegar o nombrar. */
@@ -278,7 +285,57 @@ export async function listarEventosDeAgenda(): Promise<AgendaDelNegocio> {
       eventos.push({ proveedor, identificador: v.identificador, nombre: v.nombre || v.identificador, duracionMin: null, credencial: null, enLaCuenta: false, vinculo: vinculoVisible(v) });
     }
   }
-  return { eventos, proveedores, etapas: etapasVinculables(funnels, nombres), sePuedeVincular: tabla };
+  const google = { conectado: await googleCalendarConectado().catch(() => false) };
+  return { eventos, proveedores, etapas: etapasVinculables(funnels, nombres), sePuedeVincular: tabla, google };
+}
+
+// ── CREAR Y EDITAR un evento (21/10/2026) ──────────────────────────────────────────────────────────
+// «me gustaría que se pueda editar o crear eventos desde allí también» (Martín, sobre «Asignar evento»). Escribe en la
+// cuenta de Calendly o Cal.com del NEGOCIO (su token o su API key), nunca en otra. Nunca tira: el error va para la persona.
+
+export type EventoEscrito = { proveedor: ProveedorAgenda; identificador: string; nombre: string; duracionMin: number | null };
+export type ResultadoEventoEscrito = { ok: true; evento: EventoEscrito } | { ok: false; error: string };
+
+export async function crearEventoDeAgenda(input: { proveedor: unknown; nombre?: unknown; duracionMin?: unknown }): Promise<ResultadoEventoEscrito> {
+  if (!esProveedorAgenda(input.proveedor)) return { ok: false, error: 'La agenda es Calendly o Cal.com.' };
+  const d = datosDeEvento(input);
+  if (!d.ok) return d;
+  const proveedor = input.proveedor;
+  try {
+    if (proveedor === 'calendly') {
+      if (!(await credWs('CALENDLY_API_TOKEN'))) return { ok: false, error: 'Conecta Calendly para crear eventos.' };
+      const e = await crearEventTypeCalendly({ nombre: d.nombre!, duracionMin: d.duracionMin! });
+      return { ok: true, evento: { proveedor, identificador: e.uri, nombre: e.nombre || d.nombre!, duracionMin: e.duracionMin || d.duracionMin! } };
+    }
+    const key = await credWs('CALCOM_API_KEY');
+    if (!key) return { ok: false, error: 'Conecta Cal.com con su API key para crear eventos.' };
+    const e = await crearEventTypeCalcom(key, { nombre: d.nombre!, duracionMin: d.duracionMin! });
+    return { ok: true, evento: { proveedor, identificador: e.id, nombre: e.nombre, duracionMin: e.duracionMin } };
+  } catch (e) {
+    return { ok: false, error: `${NOMBRE_PROVEEDOR[proveedor]} no lo creó: ${msg(e).slice(0, 200)}` };
+  }
+}
+
+export async function editarEventoDeAgenda(input: { proveedor: unknown; identificador: unknown; nombre?: unknown; duracionMin?: unknown }): Promise<ResultadoEventoEscrito> {
+  if (!esProveedorAgenda(input.proveedor)) return { ok: false, error: 'La agenda es Calendly o Cal.com.' };
+  const identificador = String(input.identificador ?? '').trim();
+  if (!identificador || identificador.length > MAX_IDENTIFICADOR) return { ok: false, error: 'Falta el evento.' };
+  const d = datosDeEvento(input, true);
+  if (!d.ok) return d;
+  const proveedor = input.proveedor;
+  try {
+    if (proveedor === 'calendly') {
+      if (!(await credWs('CALENDLY_API_TOKEN'))) return { ok: false, error: 'Conecta Calendly para editar sus eventos.' };
+      const e = await editarEventTypeCalendly(identificador, { nombre: d.nombre, duracionMin: d.duracionMin });
+      return { ok: true, evento: { proveedor, identificador: e.uri, nombre: e.nombre, duracionMin: e.duracionMin } };
+    }
+    const key = await credWs('CALCOM_API_KEY');
+    if (!key) return { ok: false, error: 'Conecta Cal.com con su API key para editar sus eventos.' };
+    const e = await editarEventTypeCalcom(key, identificador, { nombre: d.nombre, duracionMin: d.duracionMin });
+    return { ok: true, evento: { proveedor, identificador: e.id, nombre: e.nombre, duracionMin: e.duracionMin } };
+  } catch (e) {
+    return { ok: false, error: `${NOMBRE_PROVEEDOR[proveedor]} no lo cambió: ${msg(e).slice(0, 200)}` };
+  }
 }
 
 // ── VINCULAR Y DESVINCULAR ─────────────────────────────────────────────────────

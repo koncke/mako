@@ -53,6 +53,7 @@
 // =============================================================================
 
 import type { OperacionDef, Parametro } from '../tipos';
+import { CAMPOS_TARJETA_CLIENTE, FORMAS_TARJETA_CLIENTE } from '@/lib/tarjeta-clientes';
 
 const SIN_HTTP = ['whatsapp', 'app'] as const;
 const CS = { tab: 'customer-success' } as const;
@@ -151,5 +152,30 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'email', tipo: 'string', max: 200, descripcion: 'el email de quien va a usar la cuenta. Sin esto, el del CRM.' },
     ],
     canales: SIN_HTTP, costo: 'gratis', gating: { tab: 'customer-success', rolMinimo: 'admin' },
+  },
+  {
+    // LA TARJETA DE UN CLIENTE, PERSONALIZADA (21/10/2026, Martín: «la personalización de las tarjetas en clientes, plan,
+    // etc.»). Es DE UNA PERSONA (usuarios.perfil), así que sale sólo por la app, como la del CRM (crm.def.ts,
+    // `ver_campos_tarjeta_crm`): por WhatsApp o HTTP no hay sesión que diga quién es. Se cambia en Clientes, «⋯» ›
+    // «Personalizar tarjetas».
+    id: 'ver_tarjeta_clientes', area: 'cs', tipo: 'lectura',
+    titulo: 'Cómo se ve la tarjeta de un cliente',
+    descripcion: 'Cómo ve la persona cada tarjeta del kanban de Clientes: con qué forma (Completa, Compacta o Con portada), qué datos lleva (foto, empresa, la etapa y su aviso, proyectos · tareas · recurrentes), qué plantilla tiene puesta, las plantillas de fábrica y las propias, y el catálogo completo. Se elige en Clientes, «⋯» › «Personalizar tarjetas» (o clic derecho en una tarjeta), y es de cada persona.',
+    parametros: [],
+    salida: 'json', canales: ['app'], costo: 'gratis', gating: CS,
+  },
+  {
+    // Sólo por la app, como su lectura: es de UNA persona.
+    id: 'personalizar_tarjetas_clientes', area: 'cs', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Personalizar la tarjeta de los clientes',
+    descripcion: 'PROPONE cómo se ve la tarjeta de un cliente en el kanban de Clientes para la persona que lo pide (queda pendiente hasta el «sí»): poner una plantilla por su nombre (de fábrica o propia, de ver_tarjeta_clientes), o elegir la forma y los datos. Con guardarComo, además la guarda como plantilla propia con ese nombre (con el mismo nombre, la reemplaza). Es de cada persona: no cambia la tarjeta del resto del equipo.',
+    parametros: [
+      { nombre: 'plantilla', tipo: 'string', max: 40, descripcion: 'el nombre de una plantilla (Completa, Compacta, Sin foto, Con portada, Sin avance, Sólo la etapa, Sólo el nombre, o una propia).' },
+      { nombre: 'forma', tipo: 'string', enum: [...FORMAS_TARJETA_CLIENTE], descripcion: 'la forma, si no se pasa una plantilla.' },
+      { nombre: 'campos', tipo: 'string[]', max: CAMPOS_TARJETA_CLIENTE.length, vaciaEsValor: true, descripcion: 'los datos, si no se pasa una plantilla ([] = sólo el nombre). Cada uno va en su lugar de la tarjeta: el orden no cambia nada.' },
+      { nombre: 'guardarComo', tipo: 'string', max: 32, descripcion: 'guardar lo elegido como plantilla propia con este nombre.' },
+    ],
+    canales: ['app'], costo: 'gratis', gating: CS,
+    reversible: true, escribe: 'la tarjeta de los clientes de esa persona (usuarios.perfil.clientesTarjeta)',
   },
 ];

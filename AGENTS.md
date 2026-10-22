@@ -1232,6 +1232,18 @@ docs/hallazgos-api-mako.md → «El editor entero del Web Generator»):
   dejaron a `proponer_mover_reunion` fuera de WhatsApp sin cambiar ningún puntaje). La lista de bloques,
   avisos o íconos se valida en la traducción y devuelve `disponibles`. Se mide
   `JSON.stringify(aToolDef(def)).length` y, si la op importa, un test le pone tope.
+- **Una operación nueva se declara AL FINAL de su área (en el CRM, justo antes de `armar_tab_ficha`, que va última
+  desde el 16/10: tests/ficha-tabs.test.ts), y antes de commitear corre `tests/ops-center-bateria.test.ts`** (22/10/2026, docs/hallazgos-api-mako.md → «Una operación nueva deja AFUERA a
+  otra»). En un empate de relevancia gana la declarada ANTES, y la relevancia genérica de un pedido sobre un lead
+  («cambio etapa mover lead producto») le regala 4 puntos a cualquier id con «cambiar» y «etapa». Declarada a mitad
+  del área, `cambiar_tipo_etapa` dejó sin `editar_contacto_lead` a «cambia el teléfono del lead Juan…» en la app y en
+  WhatsApp. Su descripción tampoco nombra «leads» si la operación no es sobre un lead.
+- **El id y el título de una operación nueva no llevan las palabras que el clasificador suma a todo un tipo de pedido**
+  (`RELEVANCIA_AGENDA`, `RELEVANCIA_CRM` en lib/mako-intencion.ts: «agenda», «evento», «mover», «cambiar», «lead»…).
+  En el id pesan doble, y una operación rara gana el presupuesto de los pedidos comunes. El 22/10/2026,
+  `crear_evento_agenda` dejó sin herramienta a «agenda un reel para el jueves a las 10» y a «crea una etiqueta
+  llamada Caliente» con el piso nuevo de Ops Center. Se llama por lo que de verdad crea (`crear_pagina_reserva`), y la
+  palabra común va en la descripción, donde pesa 1.
 
 `/api/v1` es la única carpeta que entra a `PUBLICOS` como PREFIJO: toda ella es bearer por
 construcción, y `tests/api-mako-registro.test.ts` enumera en positivo los `route.ts` que puede
@@ -3490,6 +3502,13 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   CRM nunca cae a la casa porque le falte el trato (la revisión del 22/10 encontró las dos). Y un SALDO compara una venta
   con lo cobrado de ESA venta: `faltaDeLaVenta` (venta de la casa − `total_cobrado_casa_usd`, mig 0325), nunca con
   `total_cobrado_usd`, que es lo cobrado en todos los CRMs (la caja).
+- **Un pago de la pasarela decide su trato ANTES de asentarse** (22/10/2026, mig 0326, «Vincular cobro»):
+  `prepararTratoDelPago` (lib/cobro-etapa-server.ts) dice en qué CRM entra y dónde se gana, y `aplicarPagoAprobado` asienta
+  ahí (`registrarCobroDeProveedor` con `crm`). Asentarlo en la casa y moverlo después deja una ventana con la plata en el
+  trato equivocado y un reintento que la duplica. Lo que se escribe al preparar se puede repetir: la venta con una
+  condición, el plan sólo si la venta es la de ese pago, y la cuota 0 se busca por número y monto. El trato se RECLAMA en
+  el cobro antes de armarse (`trato_estado`): dos avisos a la vez no arman dos. Y lo que se asienta sale de lo que COBRÓ
+  el link (`cobros.plan_producto`, congelado al crearlo), nunca del producto de hoy: se puede haber editado en el medio.
 
 # Un flag de visibilidad protege la PANTALLA; la API hay que cerrarla aparte
 

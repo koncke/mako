@@ -238,8 +238,14 @@ export function contextoDelLead(p: { leadId: number; nombre: string; lecturas: r
  * modelo ni se guarda. Medido el 17/10/2026 con el selector de herramientas del chat: «hazla épica», «saca el bloque de
  * notas», «cambia el nombre de esta hoja a Cierre» SOLOS no traen `cambiar_ficha_funnel` (se clasifican «capturar», o
  * entra y se queda afuera del presupuesto de 12.000); como sufijo la traían 5 de 6; con ESTO adelante, los 6.
+ *
+ * ⚠️ LA PISTA TAMBIÉN ORDENA, NO SÓLO CLASIFICA (22/10/2026). Con la pista corta («Cambia la ficha del CRM: ») el pedido
+ * sale «sobre un lead (etapa)», y la relevancia que suma el clasificador es la de MOVER un lead: `cambiar_ficha_funnel`
+ * entraba ÚLTIMA al presupuesto. Bastó una operación más del CRM que nombra «etapa» y «cambiar» (`cambiar_tipo_etapa`,
+ * feedback del 21/10) para dejarla afuera en «cambia el nombre de esta hoja a Cierre». Las palabras de la ficha
+ * (bloques, hojas, estilo) la ponen primera o segunda en los seis pedidos.
  */
-export const PISTA_EDICION_FICHA = 'Cambia la ficha del CRM: ';
+export const PISTA_EDICION_FICHA = 'Cambia la ficha del CRM (sus bloques, hojas y estilo): ';
 
 /** Dónde está la persona mientras edita: la hoja abierta (su clave de la API y su nombre) y el CRM de la ficha. */
 export type EdicionDeLaFicha = { tab: string; nombre: string; embudoId: number | null };

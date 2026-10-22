@@ -75,7 +75,7 @@ export async function reunionesDeHoy(hoy: string, tz: string): Promise<ReunionM[
 /** Busca en el SERVER y devuelve ~20 filas compactas. La cartera nunca viaja al teléfono. */
 export async function buscarLeads(q: string): Promise<{ filas: FilaLeadM[]; hayMas: boolean }> {
   const leads = await listLeads();
-  return buscarEnCartera(leads.map((l) => ({ id: l.id, nombre: l.nombre, empresa: l.empresa, email: l.email, telefono: l.telefono })), q);
+  return buscarEnCartera(leads.map((l) => ({ id: l.id, nombre: l.nombre, empresa: l.empresa, email: l.email, telefono: l.telefono, instagram: l.instagram })), q);
 }
 
 // ── Ficha ─────────────────────────────────────────────────────────────────────

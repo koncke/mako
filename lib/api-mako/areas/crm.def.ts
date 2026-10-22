@@ -37,6 +37,9 @@ import { TABS_FICHA, DENSIDADES } from '@/lib/ficha/catalogo';
 import { PLANTILLAS_TEMA, TIPOGRAFIAS } from '@/lib/graficos-temas';
 // Puro: los métodos de pago son los de la ficha (copiarlos a mano sería otro catálogo).
 import { METODOS_PAGO } from '@/lib/pagos-campo';
+import { CAMPOS_TARJETA_LEAD, DISENOS_TARJETA } from '@/lib/tarjeta-kanban';
+import { TIPOS_ETAPA } from '@/lib/etapa-reunion';
+import { MAX_NOMBRE_EVENTO } from '@/lib/agenda-evento-etapa';
 
 const TAB = { tab: 'crm' } as const;
 const TAB_ADMIN = { tab: 'crm', rolMinimo: 'admin' } as const;
@@ -535,7 +538,7 @@ export const DEFS: readonly OperacionDef[] = [
     // WhatsApp y HTTP no hay sesión que diga quién es. Se cambia en el CRM, «⋯» › «Personalizar tarjetas».
     id: 'ver_campos_tarjeta_crm', area: 'crm', tipo: 'lectura',
     titulo: 'Qué muestra la tarjeta de un lead',
-    descripcion: 'Qué datos ve la persona en cada tarjeta del tablero del CRM, en su orden (foto, plata, por dónde llegó, vencimientos, datos pendientes, reunión, fuera del funnel, empresa, teléfono, campaña, fecha de alta), con qué diseño (Completa, Compacta o Con avance) y el catálogo completo. Se elige en el CRM, «⋯» › «Personalizar tarjetas», y es de cada persona: vale en todos sus funnels.',
+    descripcion: 'Qué datos ve la persona en cada tarjeta del tablero del CRM, en su orden (foto, plata, por dónde llegó, vencimientos, datos pendientes, reunión, fuera del funnel, empresa, teléfono, campaña, fecha de alta), con qué forma (Completa, Compacta, Con avance, Monto grande, Próxima reunión o Con portada), qué plantilla tiene puesta, las plantillas de fábrica y las propias, y el catálogo completo. Se elige en el CRM, «⋯» › «Personalizar tarjetas» (o clic derecho en una tarjeta), y es de cada persona: vale en todos sus funnels.',
     parametros: [],
     salida: 'json', canales: ['app'], costo: 'gratis', gating: TAB,
   },
@@ -1117,6 +1120,75 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: false, escribe: 'deja una propuesta de alta en propuestas; al confirmarla en /crm/revisar se crean los leads',
   },
 
+  // ── Lo del feedback de Martín del 21/10: AL FINAL DEL ÁREA A PROPÓSITO, ANTES DE armar_tab_ficha (22/10/2026) ────────────────────────
+  // ⚠️ En un empate de relevancia (`ordenarPorRelevancia`, lib/api-mako/registro.ts) gana la operación declarada ANTES,
+  //    y el presupuesto del turno corta a las que vienen después. Declarada arriba, `cambiar_tipo_etapa` («cambiar» y
+  //    «etapa» en el id, que es lo que suma la relevancia genérica de un pedido sobre un lead) dejó sin
+  //    `editar_contacto_lead` a «cambia el teléfono del lead Juan…» en la app y en WhatsApp
+  //    (tests/ops-center-bateria.test.ts), y sin `cambiar_ficha_funnel` a la edición de la ficha. Una operación nueva va
+  //    al FINAL de su área: en un empate pierde con las que el piso ya mide. Justo ANTES de `armar_tab_ficha`, que sigue
+  //    última por la misma regla desde el 16/10 (lenta y con IA; tests/ficha-tabs.test.ts).
+  // 21/10/2026, Martín, sobre «Asignar evento»: «me gustaría que se pueda editar o crear eventos desde allí también».
+  // Las mismas funciones que la pantalla (lib/agenda-evento-etapa-server.ts): el nombre y la duración, nada más.
+  // ⚠️ «PÁGINA DE RESERVA» Y NO «EVENTO DE AGENDA» EN EL ID Y EL TÍTULO (22/10/2026): «agenda» y «evento» son lo que el
+  //    clasificador suma a CUALQUIER pedido de agenda (`RELEVANCIA_AGENDA`), y en el id pesan doble. Llamadas
+  //    `crear_evento_agenda` y `editar_evento_agenda` le ganaban el presupuesto a `crear_evento_calendario`,
+  //    `proponer_cambiar_reunion` y `crear_etiqueta` (tests/ops-center-bateria.test.ts, el piso de Ops Center del 22/10).
+  //    Es lo que de verdad crean: lo que Calendly y Cal.com llaman «event type», la página donde se reserva.
+  {
+    id: 'crear_pagina_reserva', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Crear una página de reserva (Calendly o Cal.com)',
+    descripcion: 'PROPONE crear una página de reserva (lo que Calendly y Cal.com llaman tipo de evento) en la cuenta del negocio (queda pendiente hasta el «sí»): uno a uno, con su nombre y su duración; la disponibilidad y la ubicación son las de la cuenta. Nace activa. Para que sus reservas caigan en una etapa, después vincular_evento_etapa. Google Calendar no: no expone sus páginas de reserva. Solo el administrador.',
+    parametros: [
+      { nombre: 'proveedor', tipo: 'string', obligatorio: true, enum: ['calendly', 'calcom'], descripcion: 'la agenda: calendly o calcom.' },
+      { nombre: 'nombre', tipo: 'string', obligatorio: true, max: MAX_NOMBRE_EVENTO, descripcion: 'el nombre del evento («Llamada de diagnóstico»).' },
+      { nombre: 'duracionMin', tipo: 'number', obligatorio: true, entero: true, minimo: 5, maximo: 720, descripcion: 'cuánto dura, en minutos.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: false, escribe: 'crea el tipo de evento en la cuenta de Calendly o Cal.com del negocio (se borra desde esa cuenta)',
+  },
+  {
+    id: 'editar_pagina_reserva', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Editar una página de reserva (Calendly o Cal.com)',
+    descripcion: 'PROPONE cambiar el nombre o la duración de una página de reserva de Calendly o Cal.com del negocio (queda pendiente hasta el «sí»). Lo que no se pasa queda como está. Su identificador sale de listar_eventos_agenda. Solo el administrador.',
+    parametros: [
+      { nombre: 'proveedor', tipo: 'string', obligatorio: true, enum: ['calendly', 'calcom'], descripcion: 'la agenda: calendly o calcom.' },
+      { nombre: 'evento', tipo: 'string', obligatorio: true, max: 300, descripcion: 'el identificador del evento (de listar_eventos_agenda), o su nombre.' },
+      { nombre: 'nombre', tipo: 'string', max: MAX_NOMBRE_EVENTO, descripcion: 'el nombre nuevo.' },
+      { nombre: 'duracionMin', tipo: 'number', entero: true, minimo: 5, maximo: 720, descripcion: 'la duración nueva, en minutos.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'cambia el nombre o la duración del tipo de evento en la cuenta de Calendly o Cal.com del negocio',
+  },
+  {
+    // 21/10/2026: las plantillas de la tarjeta (Martín: «poder ver TEMPLATES de estilos de tarjeta… y puedes crear otras
+    // más»). Sólo por la app, como su lectura: es de UNA persona, y por WhatsApp o HTTP no hay sesión que diga quién es.
+    id: 'personalizar_tarjetas_crm', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Personalizar la tarjeta de los leads',
+    descripcion: 'PROPONE cómo se ve la tarjeta de un lead en el tablero del CRM para la persona que lo pide (queda pendiente hasta el «sí»): poner una plantilla por su nombre (de fábrica o propia, de ver_campos_tarjeta_crm), o elegir la forma y los datos en su orden. Con guardarComo, además la guarda como plantilla propia con ese nombre (con el mismo nombre, la reemplaza). Es de cada persona: no cambia la tarjeta del resto del equipo.',
+    parametros: [
+      { nombre: 'plantilla', tipo: 'string', max: 40, descripcion: 'el nombre de una plantilla (Completa, Compacta, Sin foto, Monto grande, Próxima reunión, Con avance, Con portada, Sólo el nombre, o una propia).' },
+      { nombre: 'forma', tipo: 'string', enum: [...DISENOS_TARJETA], descripcion: 'la forma, si no se pasa una plantilla.' },
+      { nombre: 'campos', tipo: 'string[]', max: CAMPOS_TARJETA_LEAD.length, vaciaEsValor: true, descripcion: 'los datos en su orden, si no se pasa una plantilla ([] = sólo el nombre).' },
+      { nombre: 'guardarComo', tipo: 'string', max: 32, descripcion: 'guardar lo elegido como plantilla propia con este nombre.' },
+    ],
+    canales: ['app'], costo: 'gratis', gating: TAB,
+    reversible: true, escribe: 'la tarjeta de los leads de esa persona (usuarios.perfil.crmTarjeta)',
+  },
+  {
+    // 21/10/2026, Martín: «En cada columna… debes poner en los 3 puntos una opción de "Tipo de etapa" para poder decidir si
+    // es una etapa de reunión, o las otras que tenemos». La misma regla que la pantalla (lib/etapa-tipo-server.ts).
+    id: 'cambiar_tipo_etapa', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Cambiar el tipo de una etapa',
+    descripcion: 'PROPONE cambiar el tipo de una etapa del CRM (queda pendiente hasta el «sí»): etapa, reunion o nutricion, lo mismo que «⋯» › «Tipo de etapa» de la columna. Reunión: quien pase por ahí lleva la fecha y la asistencia, y se le puede vincular un evento (vincular_evento_etapa); nutricion la pasa a la banda Nutrición. Quienes ya están en la etapa no se mueven. La entrada, el cierre y las terminales no cambian de tipo. La etapa por su key (de ver_funnel) o su nombre; con embudoId, la de otro CRM. Solo el administrador.',
+    parametros: [
+      { nombre: 'etapa', tipo: 'string', obligatorio: true, max: 80, descripcion: 'la key de la etapa (de ver_funnel) o su nombre.' },
+      { nombre: 'tipo', tipo: 'string', obligatorio: true, enum: [...TIPOS_ETAPA], descripcion: 'etapa, reunion o nutricion.' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo. Sin él, el CRM principal.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'el tipo de la etapa en el pipeline del funnel (y su banda: Nutrición o el recorrido)',
+  },
   // ── «¿Qué vas a crear hoy?» de una tab de la ficha (16/10/2026) ──────────────────
   // ⚠️ AL FINAL DE LA LISTA A PROPÓSITO: con un mensaje que no la nombra, el presupuesto del turno de WhatsApp
   //    (12.000 caracteres, lib/doer-herramientas.ts) corta por orden de declaración, y declarada antes dejaba

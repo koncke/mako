@@ -454,7 +454,7 @@ export async function ejecutarPago(p: { productoId: number; email: string; slug:
       // la clave se pregunta sólo si hay pendientes (con Mercado Pago es una consulta a su API).
       const pendientes = await dep.pendientes(leadId);
       const modo = pendientes.length ? await dep.modo(pasarela).catch(() => null) : null;
-      const buscado: CobroBuscado = { productoId: p.productoId, pasarela, monto: producto!.montoUsd!, moneda: 'USD', tipo: producto!.tipo, email: p.email, slug: p.slug, modo };
+      const buscado: CobroBuscado = { productoId: p.productoId, pasarela, monto: producto!.primerPagoUsd ?? producto!.montoUsd!, moneda: 'USD', tipo: producto!.tipo, email: p.email, slug: p.slug, modo };
       const ya = cobroPendienteReusable(pendientes, buscado);
       if (ya) return { tipo: 'redirigir', url: dep.linkDe(ya.token), reusado: true };
       // Sin `monto`, `moneda`, `montoUsd` ni `altaCapa`: el precio lo pone el catálogo y una landing no da
