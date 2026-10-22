@@ -35,11 +35,12 @@ const tarjeta = (id: number): TarjetaPendiente => ({
 
 test('leerRespuesta: el 413 de Vercel (texto plano) se dice como «pesa demasiado»', () => {
   const l = leerRespuesta(413, 'Request Entity Too Large');
-  assert.deepEqual(l, { ok: false, error: ERROR_ADJUNTO.pesado, reintentable: true });
+  // Con su status (OC7, 22/10/2026): una nota de voz muy pesada se tira en vez de volver a la barra.
+  assert.deepEqual(l, { ok: false, error: ERROR_ADJUNTO.pesado, reintentable: true, status: 413 });
 });
 
 test('leerRespuesta: un 4xx con su error se puede reintentar; un 500, la red caída o un cuerpo raro, NO', () => {
-  assert.deepEqual(leerRespuesta(400, '{"ok":false,"error":"Escribe algo."}'), { ok: false, error: 'Escribe algo.', reintentable: true });
+  assert.deepEqual(leerRespuesta(400, '{"ok":false,"error":"Escribe algo."}'), { ok: false, error: 'Escribe algo.', reintentable: true, status: 400 });
   const cinco = leerRespuesta(500, '{"ok":false,"error":"Algo falló de nuestro lado."}');
   assert.equal(cinco.ok, false);
   assert.equal(!cinco.ok && cinco.reintentable, false);

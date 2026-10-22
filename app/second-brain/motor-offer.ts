@@ -20,6 +20,7 @@
 import { ErrorOfferApi, TOPE, esRechazoDefinitivo, llamarOffer, mensajeDeError, subirArchivo } from '@/app/offer/offer-api';
 import { quedoGuardado } from '@/app/offer/ayudas';
 import { linksDe } from '@/lib/links-texto';
+import { AudioInservible, notaEnMp3 } from './nota-de-voz';
 import type { AdjuntoVista, OfferMensaje, OfferSesionVista } from '@/lib/offer-marco';
 
 export type LeidoOffer = { ok: true; sesion: OfferSesionVista } | { ok: false; error: string; sesion?: OfferSesionVista };
@@ -99,20 +100,12 @@ const subidas = new WeakMap<Blob, string>();
 export async function subirNotaDeVoz(a: NotaDeVoz, subir: ParaLeer['subir'] = subirArchivo): Promise<{ path: string; mime: string; secs: number }> {
   let path = subidas.get(a.blob);
   if (!path) {
-    let mp3: Blob;
-    try {
-      // Perezoso, como la tab: el codificador (lamejs) sólo se baja al mandar una nota de voz.
-      mp3 = a.blob.type === 'audio/mpeg' ? a.blob : await (await import('@/app/whatsapp/audio')).blobToMp3(a.blob);
-    } catch {
-      throw new AudioInservible('No se pudo procesar el audio. Grábalo de nuevo.');
-    }
+    const mp3 = await notaEnMp3(a.blob);
     path = await subir(new File([mp3], 'nota-de-voz.mp3', { type: 'audio/mpeg' }), 'audio/mpeg');
     subidas.set(a.blob, path);
   }
   return { path, mime: 'audio/mpeg', secs: Math.max(1, Math.round(a.secs)) };
 }
-/** Un audio que no se puede convertir: grabarlo de nuevo, no reintentar. */
-export class AudioInservible extends Error {}
 
 /**
  * Un mensaje de la persona a una conversación de Offer, y lo que contestó MaKo. `respuesta`: la opción tocada de una pregunta

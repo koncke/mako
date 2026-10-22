@@ -1728,6 +1728,8 @@ código nuevo:
     **Lo que se sigue con su motor se prueba también desde la CAJA** (22/10/2026, OC7): la lectura de los documentos de Offer
     existía y el «+» seguía apagado en Offer (`adjuntosCaja.puede`); el test miraba el motor y nadie podía usarla. Una función
     nueva del chat lleva su aserción en la puerta que toca la persona (tests/ops-center-offer-voz.test.ts).
+    Y en /api/mako/chat, un rechazo ANTES de guardar nada es un 4xx (la IA que no pudo escuchar una nota: 424), nunca un 5xx:
+    la pantalla toma un 5xx por «no sé si llegó» (app/m/mako/chat-ui.ts → leerRespuesta) y no devuelve lo mandado.
   - **MaKo EN CADA TAB: la estrella abajo a la izquierda y el panel a la IZQUIERDA, con el Cerebro** (21/10/2026; Martín: «el
     chat de MaKo en las otras tabs se debe abrir siempre a la izquierda» y «los iconos de las criaturas siempre debe ser el
     icono de MaKo, se envía lo que sea que envíen al cerebro y ya el cerebro se encarga de repartir»). Reemplaza el «chat fijo
@@ -4934,7 +4936,9 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   área marcada sin datos de clientes lleva `datosDeClientes: true`. Una regla que corta de más tampoco está
   bien: si una feature mezcla pedidos con y sin datos de clientes, la marca del catálogo queda como
   default cerrado y quien llama la afina con `pii`, EN POSITIVO (lo que no está revisado la lleva;
-  molde: `CAJAS_SIN_DATOS_DE_CLIENTES`, lib/graficos-ia-elemento.ts).
+  molde: `CAJAS_SIN_DATOS_DE_CLIENTES`, lib/graficos-ia-elemento.ts). **Y el audio:** `transcribirAudio` (lib/ai-cheap.ts)
+  tiene `pii` en false por defecto, así que toda nota de voz de una persona del negocio o de un lead la lleva en `true`
+  (22/10/2026: la del chat del Ops Center salió sin él; docs/hallazgos-ia.md, la entrada de IA7).
 - ⛔ **D6b: UN NEGOCIO CON SU CLAUDE O SU GPT NO MANDA NADA A GEMINI NI A UNA IA O RED GRATIS** (Martín, 21/10/2026). Un
   camino del Ops Center que llama a una IA corre adentro de `conSoloSuIA(negocio.suIA, …)` (lib/solo-su-ia.ts; el turno,
   con `entrarSoloSuIA` después de su primer `await`), con `negocioConSuIA` (lib/ia-del-negocio.ts): por NEGOCIO y

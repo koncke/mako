@@ -106,7 +106,7 @@ test('el índice: un chat de otro no existe, «Antes» usa la regla de /mako, y 
 // cableado que las hace valer en el servidor.
 test('los adjuntos: se abren por su mensaje mirando de quién es, no quedan sueltos, y sólo el PDF del admin va a El Archivero', () => {
   const ruta = sinComentarios(leer('app/api/mako/chat/route.ts'));
-  assert.match(ruta, /urlDeAdjunto\(persona, sp\.get\('adjunto'\)\)/, 'el adjunto sale de su mensaje, nunca de un path del navegador');
+  assert.match(ruta, /urlDeAdjunto\(persona, sp\.get\('adjunto'\), deOtroChat\)/, 'el adjunto sale de su mensaje, nunca de un path del navegador');
   assert.ok(!/createSignedUrl|storage\.from/.test(ruta), 'la ruta no firma por su cuenta');
   const multi = ruta.slice(ruta.indexOf("startsWith('multipart/form-data')"));
   const largo = multi.indexOf('TOPE_TOTAL_BYTES + MARGEN_MULTIPART_BYTES');
@@ -115,11 +115,14 @@ test('los adjuntos: se abren por su mensaje mirando de quién es, no quedan suel
   const turno = sinComentarios(leer('lib/mako-turno-app.ts'));
   const url = turno.slice(turno.indexOf('export async function urlDeAdjunto('));
   const cuerpoUrl = url.slice(0, url.indexOf('\n}\n'));
-  const deQuien = cuerpoUrl.indexOf('sesionDe(persona, m.session_id)');
+  // De quién es: su chat, o uno que se sigue con `antes` con la regla que deja seguirlo (`quienAbre`, 22/10/2026;
+  // tests/ops-center-voz-chat.test.ts, 5).
+  const deQuien = cuerpoUrl.indexOf('quienAbre(persona, m.session_id, deOtroChat)');
   assert.ok(deQuien > 0 && deQuien < cuerpoUrl.indexOf('urlFirmadaDeAdjunto('), 'de quién es la conversación, ANTES de firmar');
   assert.match(cuerpoUrl, /sanearBloques\(persona\.ws, m\.bloques\)/, 'el path se sanea con el workspace de la persona');
   assert.match(turno, /mensajes: mensajes\.map\(\(m\) => aMensajeChat\(persona\.ws, m\)\)/, 'abrir no devuelve las filas crudas (con el path)');
-  assert.match(turno, /if \(bloques\.length && !msg\.conBloques\) await borrarAdjuntos\(/, 'un mensaje que quedó sin sus bloques suelta los binarios');
+  // Con la nota de voz (OC7), lo que se guarda es `aGuardar`: los adjuntos y, al final, la nota.
+  assert.match(turno, /if \(aGuardar\.length && !msg\.conBloques\) await borrarAdjuntos\(/, 'un mensaje que quedó sin sus bloques suelta los binarios');
   // Revisión del 16/10/2026: el MaKo Analyst de un lead usa este mismo turno, y su PDF es del lead. Guardar (y El
   // Archivero) es SÓLO de quien lo pide: el Second Brain y el teléfono.
   assert.match(turno, /adjuntos\.length && entrada\.guardarAdjuntos \? await subirAdjuntos\(/, 'subir sólo si quien llama lo pide');
