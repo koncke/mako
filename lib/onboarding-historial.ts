@@ -32,14 +32,21 @@ export type MensajeHistorial = {
 };
 
 const TOPE_TEXTO = 4_000;
-const TOPE_MENSAJES = 400;
+/** Pasado esto no se anota más (no se descarta lo viejo: lo más valioso es el principio). */
+export const TOPE_MENSAJES = 400;
+/** El último mensaje del arranque (`cierre` en lib/onboarding-arranque.ts): con él anotado, el historial queda cerrado. */
+export const ID_CIERRE = 'arr-listo';
 
-/** El historial guardado. [] = no hay; null = hay algo que no se puede leer (y entonces no se escribe encima). */
-export function leerHistorial(raw: string | null | undefined): MensajeHistorial[] | null {
+/**
+ * El historial guardado. [] = no hay; null = hay algo que no se puede leer (y entonces no se escribe encima). Para DIBUJAR,
+ * una entrada que no se entiende se saltea; con `estricto` (para ESCRIBIR) da null: escribir sólo lo entendido borraría en
+ * silencio lo que una versión más nueva haya guardado.
+ */
+export function leerHistorial(raw: string | null | undefined, o: { estricto?: boolean } = {}): MensajeHistorial[] | null {
   if (raw == null || raw === '') return [];
-  let o: unknown;
-  try { o = JSON.parse(raw); } catch { return null; }
-  const lista = o && typeof o === 'object' && !Array.isArray(o) ? (o as { mensajes?: unknown }).mensajes : undefined;
+  let v: unknown;
+  try { v = JSON.parse(raw); } catch { return null; }
+  const lista = v && typeof v === 'object' && !Array.isArray(v) ? (v as { mensajes?: unknown }).mensajes : undefined;
   if (!Array.isArray(lista)) return null;
   const out: MensajeHistorial[] = [];
   for (const m of lista) {
@@ -49,7 +56,18 @@ export function leerHistorial(raw: string | null | undefined): MensajeHistorial[
     if (!Number.isFinite(Date.parse(at))) continue;
     out.push({ id, de, texto, at, ...(reconstruido === true ? { reconstruido: true as const } : {}) });
   }
-  return out;
+  return o.estricto && out.length !== lista.length ? null : out;
+}
+
+/** Lo que la persona contestó, como lo ve: el texto de la opción que tocó (de la pregunta abierta), o lo que escribió. */
+export function loQueContesto(
+  vista: { antes: readonly MensajeArranque[]; despues: readonly MensajeArranque[] }, r: { texto?: string; opcion?: number },
+): string | null {
+  if (r.opcion !== undefined) {
+    const abierta = [...vista.antes, ...vista.despues].filter((m) => m.de === 'mako').pop();
+    return (Number.isInteger(r.opcion) && abierta?.opciones?.[r.opcion]) || null;
+  }
+  return r.texto?.trim() ? r.texto.trim() : null;
 }
 
 /** La conversación de Offer del onboarding (`sesionId` del setting crudo 'onboarding.arranque'), o null. */
@@ -62,23 +80,46 @@ export function sesionDelArranque(raw: unknown): number | null {
 
 const claveDe = (m: { id: string; texto: string }) => `${m.id}\u0000${m.texto}`;
 
+const limpio = (s: string) => (s ?? '').trim().slice(0, TOPE_TEXTO);
+
 /**
- * El historial con lo que la pantalla dibuja ahora y todavía no estaba (por id Y texto: si MaKo vuelve a decir otra cosa
- * con el mismo id, como el código a otro número, es otro mensaje). null = no hay nada nuevo.
- * La hora: la de ahora, siempre después de lo ya anotado. Lo de ANTES de la conversación de Offer que se anota cuando la
- * conversación ya empezó (quien estaba a mitad del onboarding el día que esto salió, o una reconstrucción) va justo antes
- * de su primer mensaje (`primeroDeOffer`): si no, el nombre y el negocio quedarían debajo de toda la oferta.
+ * El historial con lo nuevo. null = no hay nada nuevo.
+ * - Lo que dice MaKo se anota la primera vez que se ve, por id Y texto (si vuelve a decir otra cosa con el mismo id, como
+ *   el código a otro número, es otro mensaje). La pregunta ABIERTA (el último mensaje de MaKo de la vista) que vuelve
+ *   después de una respuesta («Ver otros tipos», «No, lo escribo de nuevo», «Cambiar número») se anota otra vez.
+ * - `vivo` (la ruta, mientras pasa): las respuestas NO salen de lo dibujado sino de lo que la persona mandó (`respuesta`), y
+ *   van después de las preguntas nuevas. Lo dibujado muestra el dato confirmado («Ana») y no lo que contestó («Sí, me
+ *   llamo así»): de ahí se perdía el toque de cada confirmación (revisión adversarial, 21/10). Si no había nada anotado y
+ *   la vista ya trae respuestas (quien estaba a mitad del onboarding el día que esto salió, o quien terminó antes), lo
+ *   dibujado se anota entero, marcado `reconstruido`.
+ * - Sin `vivo` (el script de reconstrucción): preguntas y respuestas, de lo dibujado.
+ * - La hora: la de ahora, siempre después de lo ya anotado. Lo de ANTES de la conversación de Offer que se anota cuando la
+ *   conversación ya empezó va justo antes de su primer mensaje (`primeroDeOffer`): si no, el nombre y el negocio quedarían
+ *   debajo de toda la oferta.
+ * - Con el cierre anotado (`ID_CIERRE`) no se anota más: una pestaña vieja o un dato arreglado después (el nombre del
+ *   negocio del ws21) no reescriben lo que pasó. Pasado `TOPE_MENSAJES`, tampoco.
  */
 export function conLoNuevo(
   previo: readonly MensajeHistorial[],
   vista: { antes: readonly MensajeArranque[]; despues: readonly MensajeArranque[] },
-  o: { ahora: number; primeroDeOffer?: number | null; reconstruido?: boolean },
+  o: { ahora: number; primeroDeOffer?: number | null; reconstruido?: boolean; vivo?: boolean; respuesta?: string | null },
 ): MensajeHistorial[] | null {
-  const vistos = new Set(previo.map(claveDe));
+  if (previo.some((m) => m.id === ID_CIERRE) || previo.length >= TOPE_MENSAJES) return null;
+  const todo = [...vista.antes, ...vista.despues];
+  const completo = !o.vivo || (previo.length === 0 && todo.some((m) => m.de === 'yo' && limpio(m.texto)));
+  const reconstruido = !!o.reconstruido || (!!o.vivo && completo);
+  const claves = previo.map(claveDe);
+  const vistos = new Set(claves);
+  const abierta = todo.filter((m) => m.de === 'mako').pop();
+  if (abierta) {
+    const k = claveDe({ id: abierta.id, texto: limpio(abierta.texto) });
+    if (claves.lastIndexOf(k) >= 0 && claves.lastIndexOf(k) < previo.map((m) => m.de).lastIndexOf('yo')) vistos.delete(k);
+  }
   const nuevos = (lista: readonly MensajeArranque[]) => {
     const out: MensajeArranque[] = [];
     for (const m of lista) {
-      const texto = (m.texto ?? '').trim().slice(0, TOPE_TEXTO);
+      if (!completo && m.de === 'yo') continue;
+      const texto = limpio(m.texto);
       const k = claveDe({ id: m.id, texto });
       if (!texto || vistos.has(k)) continue;
       vistos.add(k);
@@ -88,10 +129,11 @@ export function conLoNuevo(
   };
   const antes = nuevos(vista.antes);
   const despues = nuevos(vista.despues);
-  if (!antes.length && !despues.length) return null;
+  const respuesta = o.respuesta ? limpio(o.respuesta) : '';
+  if (!antes.length && !despues.length && !respuesta) return null;
   const ultimo = previo.reduce((t, m) => Math.max(t, Date.parse(m.at) || 0), 0);
   let t = Math.max(o.ahora, ultimo + 1);
-  const marca = o.reconstruido ? { reconstruido: true as const } : {};
+  const marca = reconstruido ? { reconstruido: true as const } : {};
   const aHistorial = (m: MensajeArranque, at: number): MensajeHistorial => ({ id: m.id, de: m.de, texto: m.texto, at: new Date(at).toISOString(), ...marca });
   const p = o.primeroDeOffer;
   const antesDeOffer = p != null && Number.isFinite(p) && p <= t;
@@ -100,7 +142,30 @@ export function conLoNuevo(
     ...antes.map((m, i) => aHistorial(m, antesDeOffer ? p - antes.length + i : t++)),
     ...despues.map((m) => aHistorial(m, t++)),
   ];
-  return out.slice(-TOPE_MENSAJES);
+  // Lo que mandó, tal cual y en vivo (nunca reconstruido): su id no se deduplica, un «Sí» puede contestar dos preguntas.
+  if (respuesta) out.push({ id: `yo-${out.length}`, de: 'yo', texto: respuesta, at: new Date(t++).toISOString() });
+  return out.slice(0, TOPE_MENSAJES);
+}
+
+/**
+ * Anotar con compare-and-set sobre el setting (lo que hace `anotarHistorial` en el server, acá para probarlo sin base):
+ * se lee, se calcula y se escribe sólo si nadie escribió en el medio; si alguien escribió, se vuelve a leer. Lo que no se
+ * puede leer (o trae algo que no se entiende) no se pisa: tira. Devuelve cuántos anotó.
+ */
+export async function anotarCon(
+  io: { leer: () => Promise<string | null>; cambiar: (esperado: string | null, nuevo: string) => Promise<boolean> },
+  calcular: (previo: MensajeHistorial[]) => MensajeHistorial[] | null,
+  intentos = 3,
+): Promise<number> {
+  for (let i = 0; i < intentos; i++) {
+    const raw = await io.leer();
+    const previo = leerHistorial(raw, { estricto: true });
+    if (!previo) throw new Error(`El setting ${CLAVE_HISTORIAL} no se puede leer entero: no lo piso.`);
+    const nuevo = calcular(previo);
+    if (!nuevo) return 0;
+    if (await io.cambiar(raw, JSON.stringify({ mensajes: nuevo }))) return nuevo.length - previo.length;
+  }
+  throw new Error(`El setting ${CLAVE_HISTORIAL} cambió ${intentos} veces mientras lo anotaba.`);
 }
 
 /** Un mensaje de la conversación de Offer, lo que hace falta para mostrarlo. */

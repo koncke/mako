@@ -22,7 +22,7 @@ const SOLO = Number(process.argv.find((a) => a.startsWith('--ws='))?.slice(5)) |
 const { getSupabaseServer } = await import('../lib/supabase');
 const { runWithWorkspace } = await import('../lib/workspace');
 const { getSettingEstricto, cambiarSettingSi } = await import('../lib/settings');
-const { hechosDelArranque } = await import('../lib/onboarding-arranque-server');
+const { hechosConfirmados, hechosDelArranque } = await import('../lib/onboarding-arranque-server');
 const { mensajesDeArranque } = await import('../lib/onboarding-arranque');
 const { CLAVE_HISTORIAL, conLoNuevo, leerHistorial } = await import('../lib/onboarding-historial');
 
@@ -39,11 +39,11 @@ for (const ws of wss) {
     const e = rawE ? JSON.parse(rawE) : {};
     if (!e.nombre && !e.sesionId) return fila('sin respuestas: nada que reconstruir');
     const raw = await getSettingEstricto(CLAVE_HISTORIAL);
-    const previo = leerHistorial(raw);
+    const previo = leerHistorial(raw, { estricto: true });
     if (!previo) return fila(`⚠️ ${CLAVE_HISTORIAL} ilegible: no lo toco`);
     if (previo.length) return fila(`ya tiene historial (${previo.length}): no lo toco`);
     const h = await hechosDelArranque(e);
-    if (h.sesionCaida || h.faseCaida) return fila('⚠️ no pude leer su conversación o su diagnóstico: no reconstruyo');
+    if (!(await hechosConfirmados(h))) return fila('⚠️ no pude leer entero lo que decide el onboarding: no reconstruyo');
     const vista = mensajesDeArranque(e, h);
     const primero = Date.parse(h.sesion?.mensajes[0]?.at ?? '');
     // Lo de después de la conversación de Offer, justo antes de que se cerrara el onboarding (si terminó); si no, ahora.

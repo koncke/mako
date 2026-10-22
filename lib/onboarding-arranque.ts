@@ -41,6 +41,7 @@ import { TIPOS_CRM, type TipoCrm, type TipoCrmId } from './pipeline';
 import type { PiezasSabidas, PropuestaOferta } from './offer-marco';
 import type { PropuestaCrm } from './onboarding-crm';
 import { RUTA_AUTOMATIONS } from './ruta-automations';
+import { NOTA_DE_VOZ } from './chat-mako-reglas';
 import {
   DICE_NO, DICE_SI, MONEDA_DOLAR, MONEDA_LOCAL, NO_DE_UNA_PALABRA, NOMBRA_LO_PREGUNTADO, PUEDE_SER_NOMBRE, SI_DE_UNA_PALABRA, TRAS_EL_NO,
 } from './onboarding-frases';
@@ -167,6 +168,8 @@ export type MensajeArranque = {
 // ── Textos ──────────────────────────────────────────────────────────────────
 export const OBJETIVOS_SUGERIDOS = ['Conseguir mis primeros clientes', 'Vender más cada mes', 'Escalar sin depender de mí'] as const;
 export const AHORA_NO = 'Ahora no';
+/** La respuesta que se dibuja (y se anota) al cargar el código del WhatsApp: el código no se guarda. */
+export const CODIGO_CARGADO = 'Listo, ya lo cargué.';
 export const CAMBIAR_NUMERO = 'Cambiar número';
 export const VER_OTROS_TIPOS = 'Ver otros tipos';
 /** La primera respuesta del CRM (18/10/2026, Martín, punto 10: «las respuestas rápidas tiene que ser ‹Sí, es correcto› u
@@ -334,9 +337,6 @@ export function mensajesDelHilo(
   }).filter((m) => m.content);
   return [...out, { role: 'assistant', content: salidaDelOnboarding(interes) }];
 }
-
-/** El texto de una nota de voz que no trae transcripción. */
-export const NOTA_DE_VOZ = 'Nota de voz';
 
 export function rutaDeEntrada(interes: InteresId | undefined): string {
   return INTERESES.find((i) => i.id === interes)?.ruta ?? '/general';
@@ -1114,7 +1114,7 @@ function cierre(e: EstadoArranque, h: HechosArranque, etapa: EtapaArranque, nomb
     if (e.telefono === 'codigo' || e.telefono === 'verificado') {
       out.push({ id: 'arr-codigo', de: 'mako', texto: `Te mandé un código de 6 dígitos por WhatsApp${e.telefonoNumero ? ` al ${e.telefonoNumero}` : ''}. Escríbelo aquí.`, ...(etapa === 'codigo' ? { opciones: [CAMBIAR_NUMERO, AHORA_NO] } : {}) });
       if (etapa === 'codigo') return out;
-      if (e.telefono === 'verificado') out.push({ id: 'arr-codigo-r', de: 'yo', texto: 'Listo, ya lo cargué.' });
+      if (e.telefono === 'verificado') out.push({ id: 'arr-codigo-r', de: 'yo', texto: CODIGO_CARGADO });
     }
   }
   if (etapa === 'listo') {

@@ -183,6 +183,9 @@ export function estadoDeLoHecho(estado: string, venceAt: string | null, ahora: n
   return 'fallo';
 }
 
+/** El texto de una nota de voz que no trae transcripción (sin él, la burbuja quedaba vacía). */
+export const NOTA_DE_VOZ = 'Nota de voz';
+
 /** Lo que lee el super admin antes de las preguntas del onboarding que se armaron después (lib/onboarding-historial.ts). */
 export const AVISO_RECONSTRUIDO = 'Reconstruido: estas preguntas del onboarding se armaron después, con las respuestas que quedaron guardadas.';
 
@@ -203,9 +206,9 @@ export function mensajesDeOffer(
   let enTramo = false;
   for (const m of ms) {
     const texto = typeof m.texto === 'string' && m.texto.trim() ? m.texto : '';
-    const content = texto || (m.adjuntos ?? []).map((a) => `Adjunto: ${a.nombre}`).join('\n');
     const audio = m.audio && typeof m.audio.url === 'string' && m.audio.url ? { audio: { url: m.audio.url, secs: m.audio.secs } } : {};
-    if (!content.trim() && !('audio' in audio)) continue;
+    const content = texto || (m.adjuntos ?? []).map((a) => `Adjunto: ${a.nombre}`).join('\n') || ('audio' in audio ? NOTA_DE_VOZ : '');
+    if (!content.trim()) continue;
     const at = m.at ? { created_at: m.at } : {};
     if (o.avisoReconstruido && m.reconstruido && !enTramo) out.push({ role: 'assistant', content: AVISO_RECONSTRUIDO, ...at });
     enTramo = !!m.reconstruido;

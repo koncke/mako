@@ -6616,6 +6616,12 @@ El diagnóstico obvio («alguien borró la etapa en el editor») era el equivoca
   a un onboarding terminado y mandaba al cliente de vuelta al arranque. Todo lo que lo escribe lee con
   `getEstadoOnboardingEstricto`, y `patchEstadoOnboarding` ya lo hace (16/10/2026;
   `tests/onboarding-escritura-estricta.test.ts`).
+- **Un `.catch` encima de una lectura tolerante no se dispara nunca.** `getSetting` no tira: con la base caída
+  devuelve null. Así que `getSetting(...).catch(() => { cayo = true })` es código muerto, y un guard que depende de
+  ese `cayo` no protege nada. Pasó el 21/10/2026 con el historial del onboarding: el `faseCaida` de la primera
+  versión no se activaba, y lo vio recién la revisión adversarial. Para saber si una lectura cayó, se lee con la
+  versión estricta (`getSettingEstricto`, `getDiagnosticoFaseEstricto`). Lo que decide qué se dibuja y se va a
+  GUARDAR se relee estricto y tiene que dar lo mismo (`hechosConfirmados` en lib/onboarding-arranque-server.ts).
 
 # Dos escritores con dos ritmos son dos claves
 

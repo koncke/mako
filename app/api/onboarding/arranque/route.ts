@@ -26,9 +26,10 @@ import { idDelFunnelDefault } from '@/lib/funnels';
 import { estaImpersonando } from '@/lib/workspace';
 import { getEstadoOnboarding } from '@/lib/onboarding-state';
 import { chartKeyDePersona } from '@/lib/mako-turno-app-reglas';
-import { etapaDeArranque, leerRespuesta, pisaElNombreDelPerfil, type EstadoArranque } from '@/lib/onboarding-arranque';
+import { CODIGO_CARGADO, etapaDeArranque, leerRespuesta, mensajesDeArranque, pisaElNombreDelPerfil, type EstadoArranque } from '@/lib/onboarding-arranque';
+import { loQueContesto } from '@/lib/onboarding-historial';
 import {
-  FaltaParaCerrar, asegurarFunnelPrincipal, cerrarArranque, hiloDelOnboarding, guardarEstadoArranque, guardarNombre, guardarNombreNegocio,
+  FaltaParaCerrar, anotarRespuesta, asegurarFunnelPrincipal, cerrarArranque, hiloDelOnboarding, guardarEstadoArranque, guardarNombre, guardarNombreNegocio,
   hechosDelArranque, propuestaDeCrm, sembrarCrmPrincipal, vistaArranque,
 } from '@/lib/onboarding-arranque-server';
 
@@ -94,6 +95,8 @@ export async function POST(req: NextRequest) {
           const r = await verificarCodigoContacto(g.ws, texto.replace(/\D/g, ''));
           if (!r.ok) return no(422, r.error);
           await guardarEstadoArranque({ telefono: 'verificado' });
+          // El código no se guarda: queda lo que dibuja la conversación.
+          await anotarRespuesta(e, h, CODIGO_CARGADO);
           return listo();
         }
 
@@ -118,6 +121,9 @@ export async function POST(req: NextRequest) {
         if (patch.nombre) await guardarNombre(patch.nombre);
         if (patch.negocio) await guardarNombreNegocio(patch.negocio);
         const nuevo = await guardarEstadoArranque(patch);
+        // Lo que contestó, TAL CUAL, en el historial del onboarding (lib/onboarding-historial.ts): con lo dibujado se perdía
+        // el toque de cada confirmación («Sí, se llama así»), porque la pantalla muestra el dato confirmado.
+        await anotarRespuesta(e, h, loQueContesto(mensajesDeArranque(e, h), { texto, opcion }));
         // Al entrar a la oferta, la conversación nace en el funnel principal: que exista.
         if (h.modo === 'oferta' && etapaDeArranque(nuevo, h) === 'oferta') await asegurarFunnelPrincipal().catch(() => {});
         // El CRM a medida (20/10/2026, pedido del 18/10, punto 10): al pasar del PDF o de la fase a la pregunta del CRM, MaKo lo
@@ -165,6 +171,7 @@ export async function POST(req: NextRequest) {
         const r = await enviarCodigoVerificacion(g.ws, digitos, e.negocio || 'tu negocio');
         if (!r.ok) return no(422, r.error);
         await guardarEstadoArranque({ telefono: r.yaVerificado ? 'verificado' : 'codigo', telefonoNumero: `+${digitos}` });
+        await anotarRespuesta(e, h, `+${digitos}`);
         return listo();
       }
 
