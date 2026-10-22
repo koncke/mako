@@ -39,14 +39,14 @@ export function HiloDelCliente({ k }: { k: ChatCliente }) {
         </div>
       ) : !k.items.length && !k.trabajo ? (
         <div className="co-portada">
-          <Muneco titulo={k.nombreMuneco} animo="despierto" size={76} />
+          <Muneco titulo={k.nombreMuneco} aspecto={k.aspectoMuneco} animo="despierto" size={76} />
           <p className="co-portada__nombre">{k.esGrupo ? 'Todavía no hay mensajes en el grupo.' : '¿En qué te ayudo?'}</p>
           {(k.esJefe || k.idTurno == null) && k.idOffer == null && !k.esGrupo && <div className="ch-arranques">
             {ARRANQUES_SECOND_BRAIN.map((a) => <button key={a} type="button" className="co-chip" onClick={() => k.enviar(a)}>{a}</button>)}
           </div>}
         </div>
       ) : (
-        <HiloMako items={k.items} quien={{ nombre: k.nombreMuneco }} ahora={k.ahora} escribiendo={k.enCurso ? { segs: k.segs } : null}
+        <HiloMako items={k.items} quien={{ nombre: k.nombreMuneco, aspecto: k.aspectoMuneco }} ahora={k.ahora} escribiendo={k.enCurso ? { segs: k.segs } : null}
           tarjeta={k.tarjeta} onTarjeta={(x, a) => void k.correrTarjeta(x, a)} onReintentar={k.reintentar} onRecargar={k.recargar}
           onResponder={(t) => k.enviar(t)} onTrabajo={k.alTerminarTrabajo} marcas={k.marcas} />
       )}

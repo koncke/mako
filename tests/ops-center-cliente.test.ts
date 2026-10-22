@@ -60,7 +60,7 @@ test('1. el jefe es «Cerebro», con la estrella de MaKo, y la lista es UNA: lo 
     assert.doesNotMatch(sinComentarios(leer(f)), /co-cuenta__cab|aria-expanded|SECCION_ANTES|AVISO_OFFER|AVISO_ANTES|Seguir en Offer|Seguir en uno nuevo|\/offer\?sesion=|\/m\/offer\?sesion=/, f);
   }
   assert.match(sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx')), /<FilaDeChat key=\{f\.clave\} titulo=\{f\.titulo\} criatura=\{f\.criatura\}/, 'la fila del super admin');
-  assert.match(sinComentarios(leer('app/m/second-brain/ChatClienteM.tsx')), /leading=\{<Muneco titulo=\{f\.criatura\}/, 'en el teléfono, cada fila con su criatura');
+  assert.match(sinComentarios(leer('app/m/second-brain/ChatClienteM.tsx')), /<Muneco titulo=\{f\.criatura\} aspecto=\{f\.aspecto\}/, 'en el teléfono, cada fila con su criatura');
 });
 
 test('2. una conversación de Offer se dibuja con el MISMO hilo: la voz se escucha y las opciones se tocan', () => {
@@ -208,7 +208,8 @@ test('8. el teléfono: la lista es la pantalla y cada chat se abre en su hoja, c
   const m = sinComentarios(leer('app/m/second-brain/ChatClienteM.tsx'));
   assert.match(m, /<SheetM abierto=\{abierta && elegido != null\} onCerrar=\{cerrar\} snap="alto"/, 'la conversación, en una hoja alta');
   assert.match(m, /<FilaM leading=\{<CirculoNuevo size=\{40\} \/>\} titulo="Nuevo chat"/, '«Nuevo chat» arriba, con su círculo');
-  assert.match(m, /\{cerebro && fila\(cerebro\)\}\s*\{corte\.map\(fila\)\}/, 'el Cerebro y después todos, en la MISMA lista');
+  // Desde el 22/10, agrupados por su origen con `porJefe` (tests/ops-center-lista-cliente.test.ts), en la misma lista.
+  assert.match(m, /\{cerebro && fila\(cerebro\)\}\s*(?:\{\}\s*)?\{porJefe\(corte\)\.flatMap\(/, 'el Cerebro y después todos, en la MISMA lista');
 });
 
 // 21/10/2026 (~23:10), tres reglas de Martín para toda la app: el chat de MaKo de cada tab a la IZQUIERDA, con la estrella y al

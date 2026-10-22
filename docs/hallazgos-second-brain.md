@@ -2165,6 +2165,27 @@ sale «✗ no hay ninguna fila» en una corrida con los dos. Solo, pasa. La marc
 Cerebro); el botón de un negocio sin ninguna IA sigue siendo Gemini, y eso lo decide Martín; la 0316 (`archivero_files.origen`)
 sigue sin aplicar en producción, y cada pegado archivado lo avisa en el log.
 
+## La lista del cliente: «no hay randomizer» era falso, y «Chat de antes» era un chat sin título (22/10/2026)
+
+Martín, con la captura del ws1: todas las criaturas eran círculos, tres «Chat de antes», dos «Mi oferta», y sin orden.
+
+- **El diagnóstico obvio era el equivocado:** el sorteo existía (`aspectoDe`, lib/centro-munecos.ts). Lo anulaban dos cosas:
+  la familia del equipo (`EQUIPO`), que le da a todo lo que empieza con «Offer» u «Onboarding» un círculo, y que la criatura
+  salía del NOMBRE, así que tres chats con el mismo nombre eran la misma criatura. Ahora la del cliente sale del mismo sorteo
+  con la CLAVE del chat (`aspectoDeChat('o13')`). Se mantiene al recargar y al renombrar, y el Cerebro sigue siendo la estrella.
+- **«Chat de antes» = una sesión sin título.** Medido: los análisis de un gráfico (`dashboard:…`) arrancan con un mensaje
+  de MaKo y no tienen ninguno de la persona; y `mako-general`/`mako-doer` («Pregúntale a MaKo») no tenían origen. El tema
+  sale del primer mensaje de la persona o, si no hay, del primero que haya (`temasDeSesiones`, lib/chart-chats.ts).
+- **Trampa: chart_sessions y chart_chats no tienen FK.** PostgREST no puede embeber el primer mensaje de cada sesión
+  (PGRST200). Se usa una lectura de los de la persona para todas, y una por sesión sólo para las que quedan, hasta 20.
+- **Las dos «Mi oferta» del ws1 son del MISMO funnel y la misma base** (funnel 1, base 1). El funnel no las distingue; lo
+  primero que dijo la persona sí («sprint.mauriciobustos.com»). Sin tema, se usa la fecha, y si también coincide, un número.
+- **Regla:** la lista del cliente se agrupa con `porJefe` y `GruposPorJefe` (app/admin/operaciones/PiezasCentro.tsx), los
+  mismos del super admin. Un título nuevo va «Origen › tema»; nunca un nombre fijo que se repite.
+- **SIN HACER:** el teléfono del super admin (app/m/operaciones/ChatsMovil.tsx) no dibuja el nombre de un grupo sin jefe, y el
+  del cliente tampoco (sus chats van juntos, con el nombre entero). El estado de la fila del cliente es sólo «Trabajando…»: no
+  tiene «Espera tu respuesta» porque la lista no sabe de las tarjetas que esperan.
+
 ## El «Cerebro» de Mauricio quedó mudo: el aviso de un turno que falla no se guarda (22/10/2026, cliente roto)
 
 Martín, con captura del ws1 (/second-brain?chat=40): dos mensajes de Mauricio del 18/10 («Dame claridad de mi avatar…» y
@@ -2178,10 +2199,12 @@ negocio (`chatCheapToolsCascade` no tiene la red de la plataforma, a diferencia 
 - **El silencio era de la pantalla, no del turno:** lo que dice un turno que falla es un aviso que NO se guarda. Al recargar,
   el hilo terminaba en la pregunta de la persona. Ahora, pasado el techo del turno (7 minutos), se dice «No te pude
   contestar esto.» con «Reintentar» (app/m/mako/chat-ui.ts → `conSinRespuesta`; test: tests/ops-sin-silencio.test.ts).
-- **SIN DECIDIR (pregunta al Cerebro, 22/10):** darle «Gemini de base» a un negocio sin IA choca con la regla del 16/10. Los
-  datos de los clientes de un cliente no van a un proveedor que entrena (el plan gratis de Gemini), y el chat del Ops Center
-  lee leads, cobros y reuniones. Las salidas son esa Gemini igual (decisión de Martín), el crédito de Claude de la plataforma
-  (no entrena; hoy sólo para el onboarding) o que conecte su IA.
+- **DECIDIDO (el Cerebro, 22/10):** «Gemini de base» (Martín: «No quiero que se corte Gemini») y la regla del 16/10 (los
+  datos de los clientes de un cliente no van a un proveedor que entrena) se cumplen juntas sólo con Gemini PAGO. Hasta que
+  Martín active el pago por uso (pregunta f50d3545), el chat de un negocio sin IA contesta «Conecta la tuya» con el botón,
+  sin Gemini gratis y sin el crédito de Claude de la plataforma (sigue sólo para el onboarding). Medido: eso ya lo hacía el
+  turno (`soloSuIA` en chatClaudeTools, lib/mako-turno-app.ts → `AVISO_SIN_IA`). El cambio a Gemini pago es una marca de la
+  cascada de lib/ai-cheap.ts, del chat «IA del cliente».
 
 ## Ops Center del cliente: «el chat de X no llegó» se mide en la base, nunca mirando la pantalla como super admin (20/10/2026)
 

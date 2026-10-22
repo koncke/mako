@@ -43,7 +43,7 @@ import { validarAdjuntos, ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, MARGEN
 import { CONTEXTO_SECOND_BRAIN, antesValido } from '@/lib/chat-mako-reglas';
 import { estadoDeTrabajo } from '@/lib/chat-trabajos';
 import { runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
-import { chatsDeAntes, chatsDeLasTabs, chatsDeOffer, claveDeAntes, claveDeTab, grupoDeMaKo, hiloDeAntes, hiloDeOffer, hiloDelGrupoMaKo, quienChateaDelRequest } from '@/lib/chat-mako-indice';
+import { chatsDeAntes, chatsDeLasTabs, chatsDeOffer, claveDeAntes, conTemas, claveDeTab, grupoDeMaKo, hiloDeAntes, hiloDeOffer, hiloDelGrupoMaKo, quienChateaDelRequest } from '@/lib/chat-mako-indice';
 import type { PersonaChat } from '@/lib/mako-turno-app';
 import { esChatDeMarcas, leerMarcasDelChat, marcarEnElChat } from '@/lib/chat-mako-marcas-db';
 import { sanearCambio } from '@/lib/centro-mensajes';
@@ -117,7 +117,9 @@ export async function GET(req: NextRequest) {
       // Con los de las tabs de la persona (el CRM, la ficha de un lead), que se siguen igual (OC4, 22/10/2026).
       if (sp.get('antes')) {
         const [deAntes, deTabs] = await Promise.all([chatsDeAntes(q), chatsDeLasTabs(persona)]);
-        return json({ ok: true, antes: [...deAntes, ...deTabs].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)) });
+        // Con su tema: lo que no tiene título se nombra por lo que se dijo (22/10/2026, nunca «Chat de antes»).
+        const todos = await conTemas([...deAntes, ...deTabs]);
+        return json({ ok: true, antes: todos.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)) });
       }
       const id = enteroDe(sp.get('antesId'));
       const hilo = id == null ? null : await hiloDeAntes(q, id);

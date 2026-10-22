@@ -39,6 +39,7 @@ import {
   SECCION_OFFER, SIN_TITULO, TITULO_GRUPO, colgarIrA, criaturaDeOffer, esFilaDe, linksDePedidos, listaDelCliente, type ElegidoChat, type IrA,
 } from '@/lib/chat-mako-reglas';
 import type { ChatDeAntes, ChatDeOffer, GrupoDeMaKo } from '@/lib/chat-mako-indice';
+import { aspectoDeChat } from '@/lib/centro-munecos';
 import type { MensajeChat, PropuestaPantalla, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 import type { OfferSesionVista } from '@/lib/offer-marco';
 
@@ -530,21 +531,25 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   const alTerminarTrabajo = (pendienteId: number, ok: boolean | null) => setItems((xs) => trasTrabajo(xs, pendienteId, ok));
 
   // ── Lo que se dibuja ──
-  const lista = useMemo(() => listaDelCliente({ sesiones: sesiones ?? [], offer: offer ?? [], antes: antes ?? [], grupo, busca }), [sesiones, offer, antes, grupo, busca]);
+  // Cada fila con SU criatura (lib/centro-munecos.ts → aspectoDeChat): el Cerebro, la estrella (sale de su nombre).
+  const lista = useMemo(() => listaDelCliente({ sesiones: sesiones ?? [], offer: offer ?? [], antes: antes ?? [], grupo, busca })
+    .map((f) => ({ ...f, aspecto: f.clave === 'jefe' ? null : aspectoDeChat(f.clave) })), [sesiones, offer, antes, grupo, busca]);
   /** La fila de lo abierto (un chat nuevo no tiene). */
   const filaAbierta = elegido ? lista.find((f) => esFilaDe(f, elegido)) ?? null : null;
   const esJefe = filaAbierta?.clave === 'jefe';
   const deOffer = idOffer != null ? (offer ?? []).find((o) => o.id === idOffer) ?? null : null;
   const deAntes = idAntes != null ? (antes ?? []).find((a) => a.id === idAntes) ?? null : null;
   const nombre = filaAbierta?.titulo
-    ?? (idOffer != null ? deOfferAbierta?.titulo || deOffer?.titulo || SECCION_OFFER : idAntes != null ? deAntes?.titulo?.trim() || 'Chat de antes' : esGrupo ? TITULO_GRUPO : SIN_TITULO);
+    ?? (idOffer != null ? deOfferAbierta?.titulo || deOffer?.titulo || SECCION_OFFER : idAntes != null ? deAntes?.titulo?.trim() || deAntes?.tema?.trim() || SIN_TITULO : esGrupo ? TITULO_GRUPO : SIN_TITULO);
   const nombreMuneco = filaAbierta?.criatura ?? (idOffer != null ? criaturaDeOffer(nombre) : nombre);
+  /** La criatura del chat abierto: la de su fila (la cabecera, la portada y el hilo, la misma que en la lista). */
+  const aspectoMuneco = filaAbierta?.aspecto ?? null;
   const enCurso = !!trabajo || armandoOffer;
   /** Los mensajes del hilo, para la barra de los fijados. */
   const mensajesWA = useMemo(() => items.flatMap((x) => (x.k === 'msg' ? [mensajeWADe(x, nombreMuneco)] : [])), [items, nombreMuneco]);
 
   return {
-    sesiones, errorLista, lista, elegido, elegir, filaAbierta, esJefe, nombre, nombreMuneco, idOffer, idAntes, idTurno,
+    sesiones, errorLista, lista, elegido, elegir, filaAbierta, esJefe, nombre, nombreMuneco, aspectoMuneco, idOffer, idAntes, idTurno,
     esGrupo, hayMasDelGrupo: delGrupo.hayMas, trayendoAnteriores: delGrupo.trayendo, verAnteriores,
     items, cargado, errorCarga, recargar, ahora, trabajo, segs, enCurso, armandoOffer, tarjeta, correrTarjeta, alTerminarTrabajo, reintentar,
     texto, setTexto, faltaMic, setFaltaMic, enviar, enviarCaja, adjuntosCaja, pegados, quitarPegado, pegarLargo, cita, setCita,

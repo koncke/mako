@@ -117,6 +117,7 @@ test('6. la conversación del onboarding no sale dos veces (acordado con el chat
   assert.equal(seEscondeDeOffer({ id: 15, updatedAt: '2026-10-21T02:00:00.000Z' }, c), false, 'otra conversación');
   assert.equal(seEscondeDeOffer({ id: 14, updatedAt: '2026-10-21T04:10:00.000Z' }, { id: 14, at: null }), true, 'una copia sin hora, como antes');
   const ind = leer('lib/chat-mako-indice.ts');
-  assert.match(ind, /const copiada = offerDelOnboardingCopiada\(arranque, sesion \? chartKeyDePersona\(sesion\) : null\);\n[\s\S]{0,400}?return lista\.filter\(\(s\) => s\.id > 0 && !seEscondeDeOffer\(s, copiada\)\)/);
+  // Desde el 22/10 la lista filtrada se guarda (`filas`) para ponerle el tema a las que se llaman igual, y se devuelve ésa.
+  assert.match(ind, /const copiada = offerDelOnboardingCopiada\(arranque, sesion \? chartKeyDePersona\(sesion\) : null\);\n[\s\S]{0,400}?const filas = lista\.filter\(\(s\) => s\.id > 0 && !seEscondeDeOffer\(s, copiada\)\)[\s\S]{0,900}?return filas\.map\(/);
   assert.match(leer('lib/onboarding-arranque-server.ts'), /hiloChat: hilo\.id, hiloDe: chartKey, hiloAt: new Date\(\)\.toISOString\(\),/);
 });

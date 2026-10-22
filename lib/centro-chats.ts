@@ -461,14 +461,14 @@ export function partesDelNombre(titulo: string): { jefe: string; sub: string | n
   return { jefe: (jefe ?? '').trim() || titulo.trim(), sub: sub || null };
 }
 
-export type GrupoJefe = { clave: string; jefe: string; chat: ChatCentro | null; subs: ChatCentro[] };
+export type GrupoJefe<T extends { titulo: string } = ChatCentro> = { clave: string; jefe: string; chat: T | null; subs: T[] };
 
 /**
  * La lista agrupada por jefe, en el orden en que llega (lo que trabaja arriba): el grupo va donde aparece el primero
  * de los suyos. Un sub-chat cuyo jefe no está en la lista igual se agrupa bajo su nombre (`chat: null`).
  */
-export function porJefe(chats: readonly ChatCentro[]): GrupoJefe[] {
-  const grupos = new Map<string, GrupoJefe>();
+export function porJefe<T extends { titulo: string } = ChatCentro>(chats: readonly T[]): GrupoJefe<T>[] {
+  const grupos = new Map<string, GrupoJefe<T>>();
   for (const c of chats) {
     const { jefe, sub } = partesDelNombre(c.titulo);
     const k = normal(jefe);

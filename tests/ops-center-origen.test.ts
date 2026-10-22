@@ -27,7 +27,7 @@ test('1. el origen sale de la clave (las formas medidas el 22/10) y va adelante 
     ['mako-movil:ana@x.com:crm:12', 'CRM'], ['mako-movil:ana@x.com:lead:7', 'Ficha'],
     ['dashboard:hoja1:mk-cac', 'Dashboard'], ['comercial-revenue-mensual', 'Dashboard'], ['marketing-funnel', 'Dashboard'],
     ['ad-detail-120237960510320570', 'Ads'], ['mkt-campaign-120237959905760570', 'Ads'], ['marketing-ad-120244631031330570', 'Ads'],
-    ['whatsapp-secuencias', 'Automations'], ['mako-general', null], ['mako-movil:ana@x.com', null], ['', null],
+    ['whatsapp-secuencias', 'Automations'], ['mako-general', 'Pregúntale a MaKo'], ['mako-movil:ana@x.com', null], ['', null],
   ];
   for (const [k, o] of casos) assert.equal(origenDeClave(k), o, k);
   assert.equal(conOrigen('CRM', 'Seguimiento'), 'CRM › Seguimiento');
@@ -43,7 +43,8 @@ test('1. el origen sale de la clave (las formas medidas el 22/10) y va adelante 
       { id: 6, titulo: null, clave: 'mako-general', updatedAt: '2026-10-22T05:00:00Z' },
     ],
   });
-  assert.deepEqual(lista.slice(1).map((f) => f.titulo), ['CRM › Seguimiento de Ana', 'Dashboard › ¿Cómo vamos?', 'Ficha · Ana › Lo que dijo', 'Viejo', 'CRM', 'Chat de antes'],
+  // Desde el 22/10 (tests/ops-center-lista-cliente.test.ts), los de «Pregúntale a MaKo» con su origen, y nunca «Chat de antes».
+  assert.deepEqual(lista.slice(1).map((f) => f.titulo), ['CRM › Seguimiento de Ana', 'Dashboard › ¿Cómo vamos?', 'Ficha · Ana › Lo que dijo', 'Pregúntale a MaKo › Viejo', 'CRM', 'Pregúntale a MaKo'],
     'sin título, su origen solo');
   assert.equal(lista[1].criatura, 'CRM', 'la criatura de su área');
 });
