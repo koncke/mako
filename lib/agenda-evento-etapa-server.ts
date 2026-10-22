@@ -35,8 +35,8 @@ import { googleCalendarConectado } from './google-calendar';
 import { filaAFunnel, COLS, type FilaFunnel } from './funnel-fila';
 import { casaParaEscribir, casaReal, nombreVisible } from './lead-funnel-reglas';
 import { etapaVigenteDe } from './funnel-etapas';
-import { productosDelLead, agregarAProducto, moverEtapaEnProducto, etapasDeProducto } from './lead-funnel';
-import { getLead, setPipelineStage, type Lead } from './leads';
+import { productosDelLead, agregarAProducto, moverEtapaEnProducto, etapasDeProducto, TienePagosDeEseCrmError } from './lead-funnel';
+import { getLead, logLeadEvent, setPipelineStage, type Lead } from './leads';
 import {
   CREDS_DE_REUNION, NOMBRE_PROVEEDOR, PROVEEDORES_AGENDA, SERVICIO_DE_RUTEO, MAX_IDENTIFICADOR,
   datosDeEvento, esProveedorAgenda, faltaLaTabla, identificadoresNecesarios, mismoIdentificador, moverAlReservar,
@@ -156,7 +156,17 @@ export async function ubicarReservaVinculada(lead: Lead, reserva: ReservaVincula
     await moverEtapaEnProducto(lead.id, ruta.funnelId, ruta.etapa, { autor: canal });
     return `agregado: ${enEse.etapa} → ${ruta.etapa}`;
   }
-  await agregarAProducto(lead.id, ruta.funnelId, { autor: canal, etapa: ruta.etapa });
+  try {
+    await agregarAProducto(lead.id, ruta.funnelId, { autor: canal, etapa: ruta.etapa });
+  } catch (e) {
+    // ⚠️ EL GUARD DE AGREGAR (cuarta revisión de Cobros, lib/lead-funnel.ts): un lead con pagos de su venta principal
+    // hechos cuando su casa era ESTE embudo no se vuelve a agregar acá. La reserva no se cae por eso (revisión del
+    // 22/10/2026): el aviso de «agendó», sus automatizaciones de reunión y el evento de Meta siguen, y Cal.com no recibe
+    // un 500 en cada reintento. Queda dicho en el historial.
+    if (!(e instanceof TienePagosDeEseCrmError)) throw e;
+    await logLeadEvent(lead.id, 'Funnel', `Reservó en ${canal}, pero no lo agregué a ese CRM: ${e.message}`.slice(0, 500), canal);
+    return `no se agregó al funnel ${ruta.funnelId}: tiene pagos de su casa vieja ahí`;
+  }
   return `agregado al funnel ${ruta.funnelId} en ${ruta.etapa}`;
 }
 

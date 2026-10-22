@@ -36,6 +36,7 @@ import { laCobraLaPasarela } from './cobros-reglas';
 import type { Pasarela } from './cobros-tipos';
 import type { CobroParaCobrado } from './cobrado-lead';
 import { itemDeSuscripcion, type ItemPorCobrar, type LeadSuscripcion } from './suscripciones-por-cobrar';
+import { mismoCentavo } from './cobro-etapa';
 import { FALTA_0324, camposDeFila, esDelTrato, faltaIndicePorCrm, type CamposTrato, type Crm } from './pagos-crm';
 
 export type Pago = {
@@ -1249,7 +1250,7 @@ export async function registrarCobroDeProveedor(p: {
     // link. Si alguien la cambió después de crear el link, marcarla mentiría en el cash: entra como una cuota nueva
     // y la persona ve las dos. NO salda otra del mismo monto: el casamiento por monto de abajo es sólo para los links
     // SIN cuota (`!p.pagoId`); un link de la cuota 2 pagado de nuevo es plata que entró dos veces, no la cuota 3.
-    const mismoMonto = !!cuota.data && Math.abs(Number(cuota.data.monto_usd) - p.montoUsd) < 0.01;
+    const mismoMonto = !!cuota.data && mismoCentavo(cuota.data.monto_usd, p.montoUsd);
     if (cuota.data && !cuota.data.pagado && !cuota.data.proveedor_pago_id && mismoMonto) {
       // ⚠️ LA MARCA Y EL COBRO EN UNA ESCRITURA CONDICIONAL (21/10/2026, revisión adversarial): un cobro a mano entre la
       // lectura y esta escritura quedaba PISADO por la pasarela (dos pagos se veían como uno). Si ya no está impaga, este
@@ -1275,7 +1276,7 @@ export async function registrarCobroDeProveedor(p: {
     // suscripción) es de la casa, que es donde nace (el trigger). Contra todos los CRMs, la mensualidad de Stripe saldaba
     // por monto la cuota de una renovación. La cuota de un CRM agregado se cobra con SU link (`pagoId`), arriba.
     const impagas = (await getPagosByLead(p.leadId))
-      .filter((q) => !q.pagado && !q.proveedor_pago_id && q.fecha_esperada && Math.abs(Number(q.monto_usd) - p.montoUsd) < 0.01)
+      .filter((q) => !q.pagado && !q.proveedor_pago_id && q.fecha_esperada && mismoCentavo(q.monto_usd, p.montoUsd))
       .sort((a, b) => String(a.fecha_esperada).localeCompare(String(b.fecha_esperada)) || a.numero - b.numero);
     // ⚠️ DE A UNA, EN ORDEN (21/10/2026, segunda revisión adversarial): con la misma condición, si la elegida la cobró
     // alguien a mano en el medio, este pago no la pisa y prueba la SIGUIENTE del mismo monto. Antes entraba como cuota

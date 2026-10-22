@@ -30,6 +30,12 @@ test('M1: no se vuelve a agregar a un lead al CRM que fue su casa con pagos (uno
   assert.match(F(), /\.from\('pagos'\)\.select\('lead_id'\)\.eq\('funnel_id', funnelId\)\.in\('lead_id', \[\.\.\.leadIds\]\);\s*if \(error\) throw/, 'si no puede revisar, no agrega');
 });
 
+// Revisión del 22/10/2026 · Rotura: la reserva de agenda sin atrapar el guard (vuelve a tirar): 1 fallo.
+test('una reserva de agenda que el guard frena no se cae: el aviso y las automatizaciones siguen, y queda dicho', () => {
+  const a = sinComentarios(leer('lib/agenda-evento-etapa-server.ts'));
+  assert.match(a, /try \{\s*await agregarAProducto\(lead\.id, ruta\.funnelId, \{ autor: canal, etapa: ruta\.etapa \}\);\s*\} catch \(e\) \{\s*if \(!\(e instanceof TienePagosDeEseCrmError\)\) throw e;\s*await logLeadEvent\(/);
+});
+
 // B1 y B4 · Roturas: un solo try para toda la tanda: 1 fallo. Sincronizar sin mirar si tiene pagos: 1 fallo.
 test('B1 y B4: la re-sincronización es de a uno, y sólo a los que tienen pagos', () => {
   const r = cuerpo(F(), 'async function resincronizarCobrado(');
