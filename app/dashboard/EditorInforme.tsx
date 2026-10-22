@@ -96,6 +96,7 @@ import { EmojiPicker } from '@/app/whatsapp/EmojiPicker';
 import { useHojasDeFuentes } from '@/app/_cursos/SelectorFuente';
 import { useFocoInicial } from '@/app/customer-success/curso/dialogo-foco';
 import { conWs } from '@/lib/ws-tab';
+import { esHojaClosing, LINK_CONECTAR_CLAUDE } from './aviso-closing';
 import {
   AREAS, COLS, FUENTES, MAX_ARCHIVADAS, MAX_COMPONENTES, MAX_CONECTORES, MAX_CONTROLES, MAX_HOJAS, MAX_IA_POR_HOJA, MAX_POPUP, TIPOS_ELEMENTO,
   abajoDeTodo, campoDe, efectivoDe, esElemento, esGrafico, hojaVacia, minimoDeComponente, nuevoControlVista, nuevoElemento, nuevoGrafico, nuevoId,
@@ -298,7 +299,7 @@ function nuevoElementoEn(t: TipoElemento, componentes: Componente[], dueno: Graf
 export function EditorInforme({
   inicial, datosIniciales, lecturaFallo, hoy, hojaInicial, versionInicial = null,
   hojaAgregada = null, aviso = null, soloLectura = false, llamadaInicial = null, compartido = null, sinPaginas = false, informe = 'dashboard', probarInicial = null,
-  senales = null, unido = null, plantillasInicial = false,
+  senales = null, unido = null, plantillasInicial = false, avisoClosing = null,
 }: {
   inicial: Tablero;
   datosIniciales: Record<string, DatosGrafico>;
@@ -311,6 +312,8 @@ export function EditorInforme({
   hojaAgregada?: Hoja | null;
   /** Un aviso para mostrar al abrir (el link pidió una hoja y el informe ya no tiene lugar). */
   aviso?: string | null;
+  /** «Conecta tu Claude»: el Closing Analyst no tiene con qué analizar (./aviso-closing.ts). Fijo arriba de la hoja Closing. */
+  avisoClosing?: string | null;
   /** El closer: mira la hoja Closing, exporta, y nada más. */
   soloLectura?: boolean;
   /** `?llamada=`: el recording_id de la llamada cuya ficha se abre al entrar. */
@@ -1444,6 +1447,14 @@ export function EditorInforme({
                 <span className="lk-miga-actual">Pop-up · {dueno.popup?.titulo || tituloDe(dueno)}</span>
                 {muestra?.etiqueta && <span className="lk-miga-muestra">Muestra: {muestra.etiqueta}</span>}
               </nav>
+            )}
+            {/* La hoja Closing sin con qué analizar las llamadas (IA12, ./aviso-closing.ts): fijo, no un toast que se va. El
+                link sólo para quien puede abrir Integraciones (el closer mira su hoja en sólo lectura). */}
+            {avisoClosing && esHojaClosing(hoja) && !dueno && !enBlanco && !compartido && (
+              <div className="lk-aviso-hoja lk-no-arrastrar lk-sin-imprimir" role="status" onClick={(e) => e.stopPropagation()}>
+                <span>{avisoClosing}</span>
+                {!soloLectura && <a href={conWs(LINK_CONECTAR_CLAUDE, ws)}>Conectar Claude</a>}
+              </div>
             )}
             {enBlanco ? (
               // 14/10/2026 — Martín (para General y para el Dashboard): «en lugar del botón de "nuevo dashboard" te pido que
