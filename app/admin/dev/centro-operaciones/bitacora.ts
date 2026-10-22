@@ -1252,4 +1252,38 @@ export const BITACORA: Hito[] = [
       'tests/ops-center-offer-documentos.test.ts',
     ],
   },
+  {
+    fecha: '22 oct', hora: '18:10', chat: 'Ops Center', sesion: 'local_dd16f102-c670-41ff-9bfc-2780dca3fc05', cuenta: 'claude3',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Hecho: si pegas una clave en el Ops Center, no sale ni se guarda',
+    pedido: 'la clave de Apify pegada en el «Otra» de una pregunta del Cerebro (pedido 253f6e11)',
+    revisar: '/admin/operaciones',
+    puntos: [
+      'Si en la caja o en el «Otra» de una pregunta aparece una clave (Apify, Claude, OpenAI y otras), el Ops Center te avisa en el momento, con un botón para pegarla en Integraciones, y el mensaje no sale.',
+      'Lo que escribes en la app de Claude y llega al Ops Center se guarda con la clave tapada.',
+      'La clave de Apify que ya estaba guardada se tapó. Genera una nueva en apify.com y pégala en /integraciones.',
+      '**Cómo se prueba:** en un chat de /admin/operaciones empieza a escribir «apify_api_» seguido de una tira larga: aparece el aviso con «Abrir Integraciones», y Enter no lo manda. Bórralo antes de salir. En producción desde b6192722b.',
+    ],
+    archivos: [
+      'app/admin/operaciones/mandar.ts — no sale lo que trae una clave; lib/operaciones.ts — tampoco se guarda',
+      'lib/claves-en-el-chat.ts (hayClave, la regla de Apify), app/_chat/AvisoClave.tsx — el aviso con su botón',
+      'tests/ops-center-clave-pegada.test.ts',
+    ],
+  },
+  {
+    fecha: '22 oct', hora: '18:12', chat: 'Ops Center', sesion: 'local_dd16f102-c670-41ff-9bfc-2780dca3fc05', cuenta: 'claude3',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Hecho: «devolvele el pago a Carlos» vuelve a ofrecer el reembolso en el chat',
+    pedido: 'el rojo de la batería del chat tras el tren 1 (Integración)',
+    revisar: '/second-brain?ws=3',
+    puntos: [
+      'Pedir que se devuelva un pago, la plata o un cobro vuelve a llegar a la herramienta del reembolso, que sigue pidiendo tu «sí» antes de hacerse.',
+      '«Devolvele la llamada» o «me cobraron dos veces» no la abren.',
+      '**Cómo se prueba:** en /second-brain?ws=3 pide «devolvele el pago a» un lead con un cobro: sale la tarjeta del reembolso. En producción desde b6192722b.',
+    ],
+    archivos: [
+      'lib/mako-intencion-app.ts (pideQuitar, OBJETO_REEMBOLSO)',
+      'tests/ops-center-reembolso-app.test.ts, tests/ops-center-bateria.test.ts (sola)',
+    ],
+  },
 ];
