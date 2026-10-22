@@ -196,6 +196,9 @@ test('(d) sin ANTI-BAN y (e) sin TOPES: el «15 min antes» sale 45 minutos desp
   // 20/10/2026: con las horas a la misma persona de CADA automatización (`conEnvioRecienteDe`, lib/config-automatizacion.ts).
   assert.match(PROC, /&& frenadoPorAntiBan\(insc\.lead_id, paso\.canal, conEnvioRecienteDe\(insc\.secuencia_id\), enviadoEnCorrida\)\s*&& pasaPorAntiBan\(\{ carril: carril != null, social: esCanalSocial\(paso\.canal\), canalApagado \}\)\) \{\s*res\.detalle\.push\(\{ lead_id: insc\.lead_id, canal: paso\.canal, estado: 'saltado', nota: 'msg <20h' \}\);/);
   assert.match(PROC, /&& cuentaParaElCupo\(\{ carril: carril != null \}\)\) \{ if \(paso\.canal === 'email'\) emailsEnCorrida \+= 1; else waEnCorrida \+= 1; \}/);
+  // (Desde el 22/10/2026 el WhatsApp que cuenta también suma al goteo de su automatización, y el carril tampoco:
+  // tests/goteo-automatizacion.test.ts.)
+  assert.match(PROC, /if \(paso\.canal === 'whatsapp' && cuentaParaElCupo\(\{ carril: carril != null \}\)\) \{/);
   // Con el cupo lleno, el carril sigue (como las acciones).
   assert.match(PROC, /const sinTopeWa = \[\.\.\.new Set\(\[\.\.\.conAcciones, \.\.\.conCarril,/);
   assert.match(PROC, /\(sigueSinCupoWa\(pasos\[idx\]\) \|\| esHiloDelCarril\(pasos, idx\)\)/);
@@ -236,8 +239,10 @@ test('un hilo FRENADO no tapa al carril: se aplaza, y el tick ve el recordatorio
   assert.match(PROC, /if \(libres\.includes\(x\) \|\| !aplazaParaNoTapar\(sec\.pasos, sanearHilos\(insc\.hilos\), x\.h\)\) continue;/);
   // El freno del cupo es `sinLugar` desde el 21/10/2026 (el cupo entero o, si no es una entrada fresca, el de campaña:
   // tests/primero-lo-que-entra.test.ts); el aplazo del carril es el mismo.
-  assert.match(PROC, /if \(sinLugar\(insc\.lead_id\) && !\(pasoLeido && sec && sigueSinCupo\(sec\.pasos, idxLeido\)\)\) \{ if \(sec\) await aplazarSiTapa\(insc, sec\); continue; \}/);
-  assert.match(PROC, /if \(sinLugar\(insc\.lead_id\) && !sigueSinCupo\(sec\.pasos, r\.idx\)\) \{ await aplazarSiTapa\(insc, sec\); continue; \}/);
+  // Y desde el 22/10/2026 lo frenado pasa por `quedaFrenada`: si lo frena el GOTEO, a su turno; si no, `aplazarSiTapa`.
+  assert.match(PROC, /if \(sinLugar\(insc\) && !\(pasoLeido && sec && sigueSinCupo\(sec\.pasos, idxLeido\)\)\) \{ await quedaFrenada\(insc, sec\); continue; \}/);
+  assert.match(PROC, /if \(sinLugar\(insc\) && !sigueSinCupo\(sec\.pasos, r\.idx\)\) \{ await quedaFrenada\(insc, sec\); continue; \}/);
+  assert.match(PROC, /if \(sec\) await aplazarSiTapa\(insc, sec\);\n  \};/, 'la línea llena sigue aplazando lo del carril');
   assert.match(PROC, /nota: 'msg <20h' \}\);\s*await aplazarSiTapa\(insc, sec\);\s*continue;/);
 });
 

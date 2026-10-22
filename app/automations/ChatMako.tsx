@@ -62,6 +62,7 @@ import { CajaPedido, ChipCaja, CSS_CAJA_PEDIDO, CSS_TOKENS_CASA, TITULO_CAJA } f
 import { Ico } from '@/app/web-generator/Ico';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 import { sanearChat, type MensajeChatMako, type PreguntaMako, type RespuestaMako } from '@/lib/automatizacion-chat';
+import type { IntencionChat } from '@/lib/flujo-ia-intencion';
 import { ordenarAvisos, rondaAbierta, respuestaMako, textoDeCreada, ELIGE_TU, OTRA_COSA, type EleccionMako, type RondaMako } from '@/lib/flujo-ia-cliente';
 import type { PasoGrafo } from '@/lib/flujo-grafo';
 import { useStreamIA, RUTA_IA, TOPE_CLIENTE_MS, TEXTO_FASE, ORDEN_FASES, type EstadoIA, type ListoStreamIA } from './stream-ia';
@@ -208,6 +209,16 @@ export function ChatMako(p: ChatMakoProps) {
   /** La ronda que espera respuesta (la pregunta de ahora, el pedido original y lo ya contestado). */
   const [ronda, setRonda] = useState<RondaMako | null>(() => rondaAbierta(p.inicial ?? []));
   const [error, setError] = useState<{ texto: string; link?: string } | null>(null);
+  /**
+   * «DISCUTIR» O «EDITAR» (22/10/2026, la llamada con Mauricio: «como Lovable: un botón de discutir y otro de editar»).
+   * Editar hace lo pedido al pie de la letra; Discutir contesta y sugiere sin tocar el lienzo. La regla vive en
+   * lib/flujo-ia-intencion.ts. Arranca en Editar (Mauricio: «que obedezca»), y se recuerda por persona en el navegador.
+   */
+  const [intencion, setIntencion] = useState<IntencionChat>('editar');
+  // Lo guardado se lee DESPUÉS de montar: leído en el primer render, el server (sin `localStorage`) y el navegador
+  // dibujarían distinto.
+  useEffect(() => { setIntencion(leerIntencion()); }, []);
+  const elegirIntencion = (i: IntencionChat) => { setIntencion(i); guardarIntencion(i); };
   /** Lo que vuelve a la barra cuando un pedido que no nació en ella no salió (`ChatHilo.ponerBorrador`). */
   const [devolver, setDevolver] = useState<{ texto: string; vez: number } | null>(null);
   const { estado, trabajando, enviar, cancelar } = useStreamIA();
@@ -336,6 +347,8 @@ export function ChatMako(p: ChatMakoProps) {
       // El hilo de ANTES del turno. La ruta guarda el turno y busca ahí la pregunta que se contesta: el rótulo del «yo» y
       // el «Elige tú» del CRON (`respuestaDelCron`). Con el turno al final, `turnoDelUsuario` creía que ya estaba.
       historial: mensajes,
+      // Discutir / Editar sólo cuando hay tarjetas: con el lienzo vacío MaKo CREA.
+      ...(modo === 'editar' ? { intencion } : {}),
     });
     if (!vivo.current) return true;
     const deshacer = (e: { texto: string; link?: string } | null): true | { error: string | null } => {
@@ -524,9 +537,11 @@ export function ChatMako(p: ChatMakoProps) {
     </div>
   );
 
+  const errorMako = error ? <p data-error-mako="" style={S.error} role="alert"><TextoConLink texto={error.texto} link={error.link} /></p> : null;
   const encima = estado.t === 'trabajando'
     ? <FasesIA estado={estado} segundos={segundos} onCancelar={cancelar} />
-    : error ? <p data-error-mako="" style={S.error} role="alert"><TextoConLink texto={error.texto} link={error.link} /></p> : null;
+    : crea ? errorMako
+      : <>{errorMako}<SelectorIntencion valor={intencion} onCambio={elegirIntencion} deshabilitado={!!p.deshabilitado} /></>;
 
   return (
     <div ref={raizRef} data-chat-mako="editar" style={S.raiz}>
@@ -891,3 +906,43 @@ const S: Record<string, CSSProperties> = {
   error: { margin: '0 0 8px', fontSize: 13, lineHeight: 1.4, color: 'var(--bad)' },
   link: { color: 'var(--primary)', fontWeight: 600, textDecoration: 'underline' },
 };
+
+// ── «Discutir» / «Editar» (22/10/2026, lib/flujo-ia-intencion.ts) ───────────────────────────────────────────────
+
+const CLAVE_INTENCION = 'mako-chat-intencion';
+/** Lo que eligió esta persona la última vez (en ESTE navegador). Sin poder leer, Editar. */
+function leerIntencion(): IntencionChat {
+  try { return localStorage.getItem(CLAVE_INTENCION) === 'discutir' ? 'discutir' : 'editar'; } catch { return 'editar'; }
+}
+function guardarIntencion(i: IntencionChat): void {
+  try { localStorage.setItem(CLAVE_INTENCION, i); } catch { /* sin almacenamiento: vale para esta pantalla */ }
+}
+
+/** Lo que se dice debajo de cada opción (corto: AGENTS.md, el texto dibujado). */
+export const AYUDA_INTENCION: Readonly<Record<IntencionChat, string>> = {
+  editar: 'Hace lo que pides, tal cual.',
+  discutir: 'Te contesta y sugiere, sin tocar el lienzo.',
+};
+
+/** Las dos opciones, como un interruptor de dos lados, encima de la barra. */
+function SelectorIntencion({ valor, onCambio, deshabilitado }: { valor: IntencionChat; onCambio: (i: IntencionChat) => void; deshabilitado: boolean }) {
+  const opciones: Array<{ id: IntencionChat; rotulo: string }> = [{ id: 'discutir', rotulo: 'Discutir' }, { id: 'editar', rotulo: 'Editar' }];
+  return (
+    <div data-intencion={valor} style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 8, flexWrap: 'wrap' }}>
+      <div role="radiogroup" aria-label="Qué hace MaKo con lo que escribes" style={{ display: 'inline-flex', padding: 2, borderRadius: 999, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+        {opciones.map((o) => (
+          <button key={o.id} type="button" role="radio" aria-checked={valor === o.id} disabled={deshabilitado}
+            onClick={() => onCambio(o.id)}
+            style={{
+              border: 'none', borderRadius: 999, padding: '4px 12px', fontSize: 12.5, fontWeight: 600, cursor: deshabilitado ? 'default' : 'pointer',
+              background: valor === o.id ? 'var(--surface)' : 'transparent', color: valor === o.id ? 'var(--ink)' : 'var(--dim)',
+              boxShadow: valor === o.id ? '0 1px 2px rgba(18,21,27,.10)' : 'none',
+            }}>
+            {o.rotulo}
+          </button>
+        ))}
+      </div>
+      <span style={{ fontSize: 12, color: 'var(--faint)', minWidth: 0 }}>{AYUDA_INTENCION[valor]}</span>
+    </div>
+  );
+}
