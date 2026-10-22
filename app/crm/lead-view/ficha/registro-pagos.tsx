@@ -13,11 +13,23 @@
 //   · los del deal, en ./pagos/bloques-deal.tsx: contrato, datos fiscales, servicio, promesa y obligaciones.
 // =============================================================================
 
+import type { ComponentType } from 'react';
 import { OfertaDelLead } from '../OfertaDelLead';
 import { REGLAS_PAGOS } from './reglas-pagos';
 import { Cuotas, EstadoDeCuenta, LinksDePago, Movimientos, Suscripcion, Venta } from './pagos/bloques-cobro';
 import { Contrato, DatosFiscales, Obligaciones, PromesaYGarantia, ServicioVendido } from './pagos/bloques-deal';
-import type { EntradaRegistro, PropsBloque } from './tipos';
+import { ctxDelTrato } from './pagos/trato';
+import type { CtxFicha, EntradaRegistro, PropsBloque, ReglasBloque } from './tipos';
+
+/**
+ * Un bloque de PLATA que, mirando un CRM agregado (una renovación), dibuja y escribe el trato de ESE CRM (22/10/2026,
+ * ./pagos/trato.ts): el componente y su `estaVacio` leen el mismo ctx. Mirando la casa, es el bloque de siempre.
+ */
+function delTrato(C: ComponentType<PropsBloque>, r: ReglasBloque): EntradaRegistro {
+  function ConTrato(props: PropsBloque) { return <C {...props} ctx={ctxDelTrato(props.ctx)} />; }
+  const vacio = r.estaVacio;
+  return { Componente: ConTrato, ...r, ...(vacio ? { estaVacio: (ctx: CtxFicha, p: Parameters<typeof vacio>[1]) => vacio(ctxDelTrato(ctx), p) } : {}) };
+}
 
 /** La oferta del lead, primero (13/10/2026, Pagos punto 1): a qué oferta entró, y una nueva desde acá. */
 function Oferta({ ctx }: PropsBloque) {
@@ -27,11 +39,11 @@ function Oferta({ ctx }: PropsBloque) {
 export const REGISTRO_PAGOS: { [K in keyof typeof REGLAS_PAGOS]: EntradaRegistro } = {
   oferta: { Componente: Oferta, ...REGLAS_PAGOS.oferta },
   'links-de-pago': { Componente: LinksDePago, ...REGLAS_PAGOS['links-de-pago'] },
-  venta: { Componente: Venta, ...REGLAS_PAGOS.venta },
-  cobrado: { Componente: EstadoDeCuenta, ...REGLAS_PAGOS.cobrado },
-  cuotas: { Componente: Cuotas, ...REGLAS_PAGOS.cuotas },
-  movimientos: { Componente: Movimientos, ...REGLAS_PAGOS.movimientos },
-  suscripcion: { Componente: Suscripcion, ...REGLAS_PAGOS.suscripcion },
+  venta: delTrato(Venta, REGLAS_PAGOS.venta),
+  cobrado: delTrato(EstadoDeCuenta, REGLAS_PAGOS.cobrado),
+  cuotas: delTrato(Cuotas, REGLAS_PAGOS.cuotas),
+  movimientos: delTrato(Movimientos, REGLAS_PAGOS.movimientos),
+  suscripcion: delTrato(Suscripcion, REGLAS_PAGOS.suscripcion),
   contrato: { Componente: Contrato, ...REGLAS_PAGOS.contrato },
   'datos-fiscales': { Componente: DatosFiscales, ...REGLAS_PAGOS['datos-fiscales'] },
   'servicio-vendido': { Componente: ServicioVendido, ...REGLAS_PAGOS['servicio-vendido'] },

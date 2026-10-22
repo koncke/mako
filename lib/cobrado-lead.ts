@@ -18,6 +18,7 @@
 // Sin `server-only`: lo importan los bloques (navegador), la API de MaKo y los tests, que la EJECUTAN.
 // =============================================================================
 
+import { fechaEnPalabras } from './date-utils';
 import { montoDeTarjeta, suscripcionDeFila, ventaTipoDe, VENTA_SIN_COBRO, type VentaTipo } from './venta-tipo';
 import type { EstadoCobro, TipoCobro } from './cobros-tipos';
 
@@ -124,8 +125,11 @@ export type Cobrado = {
 const redondo = (n: number) => Math.round(n * 100) / 100;
 const num = (v: unknown): number => (Number.isFinite(Number(v)) ? Number(v) : 0);
 const usd = (n: number): string => '$' + redondo(n).toLocaleString('en-US', { maximumFractionDigits: 2 });
-/** «14/11» de «2026-11-14». */
-export const ddmm = (iso: string): string => { const [, m, d] = iso.split('-'); return `${d}/${m}`; };
+/**
+ * «14 de noviembre» de «2026-11-14» (22/10/2026: era «14/11», y un cliente no sabía si «01/04» era el 1 de abril o el 4
+ * de enero). Con `hoy` de otro año lleva el año; sin `hoy`, se da por el año en curso (como el «14/11» de antes).
+ */
+export const ddmm = (iso: string, hoy?: string | null): string => fechaEnPalabras(iso, hoy ?? iso);
 
 function diasEntre(desde: string, hasta: string): number {
   const a = Date.parse(`${desde}T12:00:00Z`);

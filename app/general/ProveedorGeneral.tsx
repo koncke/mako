@@ -23,7 +23,12 @@ import { BloqueMiDia, BloqueLlamadas, BloquePublicaciones, MuestraMiDia, Muestra
 import { BloquePendientes, BloqueFunnel, BloqueCobranza, BloqueMes, MuestraFunnel, MuestraCobranza, MuestraMes } from './bloques/Negocio';
 
 /** Un bloque con sus datos y sus opciones. */
-export function dibujarBloque(e: Elemento, d: DatosGeneral): ReactNode {
+/**
+ * `hoja`: lo que la HOJA filtra y el bloque puede tomar (22/10/2026): los funnels elegidos en su «Filtro» (el control
+ * «Funnel» de arriba, por nombre). «A quién cobrarle» sin funnels propios lee esos, así la hoja «Cobros» entera mira el
+ * mismo CRM o CRMs. Los propios del bloque (su panel) mandan.
+ */
+export function dibujarBloque(e: Elemento, d: DatosGeneral, hoja?: { funnels: readonly string[] | null }): ReactNode {
   const g = e.general;
   if (!g) return null;
   const op = g.opciones;
@@ -42,7 +47,12 @@ export function dibujarBloque(e: Elemento, d: DatosGeneral): ReactNode {
     case 'llamadas': return <BloqueLlamadas d={d.calendario} op={op} />;
     case 'pendientes': return <BloquePendientes d={d.pendientes} />;
     case 'funnel': return <BloqueFunnel d={d.funnels} funnel={funnel} op={op} />;
-    case 'cobranza': return <BloqueCobranza d={d.cobranza} elegidos={funnelsDeBloque(g)} funnels={d.funnels} op={op} />;
+    case 'cobranza': {
+      const propios = funnelsDeBloque(g);
+      const deLaHoja = !propios.length && hoja?.funnels?.length && d.funnels.ok
+        ? d.funnels.d.filter((f) => hoja.funnels?.includes(f.nombre)).map((f) => f.id) : [];
+      return <BloqueCobranza d={d.cobranza} elegidos={propios.length ? propios : deLaHoja} funnels={d.funnels} op={op} />;
+    }
     case 'mes': return <BloqueMes d={d.mes} op={op} />;
     case 'publicaciones': return <BloquePublicaciones d={d.calendario} op={op} />;
   }
@@ -107,7 +117,7 @@ export function configurarBloque(e: Elemento, d: DatosGeneral): ReactNode {
 
 export function ProveedorGeneral({ datos, variables, children }: { datos: DatosGeneral; variables: ValoresVariables; children: ReactNode }) {
   const valor = useMemo<ContextoDeGeneral>(() => ({
-    dibujar: (e) => dibujarBloque(e, datos),
+    dibujar: (e, hoja) => dibujarBloque(e, datos, hoja),
     configurar: (e) => configurarBloque(e, datos),
     muestra: (p, op) => muestraDeBloque(p, datos, op),
     variables,

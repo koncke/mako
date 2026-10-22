@@ -754,7 +754,7 @@ export const COMPARTIDOS_DECLARADOS: readonly Campo[] = [
   { id: 'conjunto', nombre: 'Conjunto', en: { meta: 'conjunto', presupuesto: 'conjunto', guiones: 'conjunto' } },
   { id: 'anuncio', nombre: 'Anuncio', en: { meta: 'anuncio', leads: 'anuncio' } },
   { id: 'pagina', nombre: 'Página', en: { visitas: 'pagina', vsl: 'pagina', replays: 'pagina', clics: 'pagina', scroll: 'pagina', toques: 'pagina', retencion_vsl: 'pagina', landing_analisis: 'pagina', ubicacion: 'pagina' } },
-  { id: 'producto', nombre: 'Funnel', en: { leads: 'producto', entrega: 'producto', cartera: 'producto', pagos: 'producto' } },
+  { id: 'producto', nombre: 'Funnel', en: { leads: 'producto', entrega: 'producto', cartera: 'producto', pagos: 'producto', cobranza: 'producto' } },
   { id: 'closer', nombre: 'Closer', en: { leads: 'closer', llamadas: 'closer', llamadas_venta: 'closer', llamadas_dimensiones: 'closer' } },
   { id: 'automatizacion', nombre: 'Automatización', en: { inscripciones: 'automatizacion', envios: 'automatizacion' } },
   // v5 (contrato, «Campos COMPARTIDOS nuevos»): el video del VSL y su curva, la línea de WhatsApp, el setter y

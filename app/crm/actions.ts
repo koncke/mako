@@ -169,7 +169,8 @@ async function autorActual(): Promise<string> {
 }
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd, adIdDeLead } from '@/lib/queries';
-import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, leerMarcasDeCobranza, reponerMarcasDeCobranza, type PlanPagos, type Pago } from '@/lib/pagos';
+import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, tratosDelLead, leerMarcasDeCobranza, reponerMarcasDeCobranza, type PlanPagos, type Pago } from '@/lib/pagos';
+import type { TratoCrm } from '@/lib/pagos-crm';
 import { avisoDeConservadas, avisoPlanUniforme, pagosPrevios, planDelAsistente } from '@/lib/pagos-campo';
 import { senalesDeCobroAction } from './[id]/cobros-actions';
 import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
@@ -219,7 +220,13 @@ export async function getLeadInsights(leadId: number): Promise<LeadInsightRow[]>
 export type LeadFullData = {
   lead: Lead;
   stages: Stage[];
+  /** Los pagos del trato de la CASA (mig 0324): los de un CRM agregado van en `tratos`. */
   pagos: Pago[];
+  /**
+   * El trato del lead en cada CRM al que se lo agregó (una renovación, mig 0324, lib/pagos-crm.ts): su venta, su plan y sus
+   * pagos. La tab Pagos mirando ese CRM muestra éste, no el de la casa. Vacío si no está en otro CRM (o no se pudo leer).
+   */
+  tratos?: TratoCrm<Pago>[];
   vslEng: VslEngagement;
   /** El catálogo `landing.videos`: cómo llama el negocio a cada video. */
   videos: VideoLanding[];
@@ -323,6 +330,8 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const equipoP = temprano(getEquipoAction());
   const funnelsP = listarFunnels().catch(() => []);
   const cobroP = temprano(senalesDeCobroAction(id));
+  // Los tratos de sus CRMs agregados (mig 0324): si no se pueden leer, la tab Pagos de un CRM agregado sale vacía, no la ficha.
+  const tratosP = tratosDelLead(id).catch((e: unknown) => { console.error(`[crm] tratos del lead ${id}:`, e instanceof Error ? e.message : e); return [] as TratoCrm<Pago>[]; });
   const resumenP = temprano(resumenDelNegocio());
   // ⚠️ LOS INSUMOS DE «N SIN MARCAR» (el plan, las etapas DEL LEAD, las respuestas de la R2 y si el encuentro
   // se graba) salen de `leerInsumosDatosLead` (lib/datos-del-lead.ts), la MISMA lectura que la ficha del
@@ -376,7 +385,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const [ficha, rolWs, partners] = await Promise.all([fichaP, rolP, ofrecePartners()]);
   const rol = rolDeFicha(rolWs);
   return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), respuestasLanding: respuestasGuardadas(lead.optin_respuestas), resumen: await resumenP, cohorte: cohorteDeLead(lead), insightGen, faltantesInsight, faltantes, datos, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP,
-    ficha, rol, verPrivado: vePrivado(rol, lead.closer, sesion), puedeEditarFicha: rol === 'admin', partners };
+    ficha, rol, verPrivado: vePrivado(rol, lead.closer, sesion), puedeEditarFicha: rol === 'admin', partners, tratos: await tratosP };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */

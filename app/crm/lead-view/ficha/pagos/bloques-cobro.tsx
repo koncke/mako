@@ -20,7 +20,7 @@ import { cobradoDelLead, esCuotaDeBaja, esCuotaDevuelta, noEsDeuda, type CuotaPa
 import { estadoDeCuenta, movimientosDelLead, renglonDeCuota, usd } from '@/lib/pagos-vistazo';
 import { ajustarSobre, type PlanUniforme } from '@/lib/pagos-campo';
 import { planEnLead } from '@/lib/muestra-pagos';
-import { fmtDDMMYYYY } from '@/lib/date-utils';
+import { fechaEnPalabras } from '@/lib/date-utils';
 import { marcaDato } from '@/lib/datos-aviso';
 import type { VentaTipo } from '@/lib/venta-tipo';
 import type { Pago } from '@/lib/pagos';
@@ -61,10 +61,10 @@ function useCobrado(ctx: CtxFicha) {
  * tipo en los segundos del aviso, no se escribe una mensualidad vieja como monto de un pago único (revisión del
  * 16/10/2026). Cada paso sabe el tipo que dejó el anterior.
  */
-async function deshacerVenta(leadId: number, pasos: Parameters<typeof guardarVentaAction>[1][], tipo: VentaTipo) {
+async function deshacerVenta(leadId: number, pasos: Parameters<typeof guardarVentaAction>[1][], tipo: VentaTipo, crm: number | null = null) {
   let visto: VentaTipo = tipo;
   for (const d of pasos) {
-    const r = await guardarVentaAction(leadId, d, { tipoVisto: visto });
+    const r = await guardarVentaAction(leadId, d, { tipoVisto: visto, crm });
     if (!r.ok) return;
     visto = r.ventaTipo;
   }
@@ -140,6 +140,8 @@ const BORDE: Record<string, string> = { cobrada: 'var(--good)', vencida: 'var(--
 export function Cuotas(props: PropsBloque) {
   const { ctx, diseno, titulo, editando } = props;
   const { lead, data } = ctx;
+  // Mirando un CRM agregado (una renovación, ./trato.ts): estas son SUS cuotas, y lo que se escribe es de su trato.
+  const crm = ctx.crm?.id ?? null;
   const cobrar = useCobrar(ctx);
   const { toast, show, clear } = useToast();
   const [, start] = useTransition();
@@ -195,7 +197,7 @@ export function Cuotas(props: PropsBloque) {
     setAQuitar(null);
     setQuitando((s) => conId(s, q.id, true));
     start(async () => {
-      const r = await quitarCuotaAction(lead.id, q.id);
+      const r = await quitarCuotaAction(lead.id, q.id, crm);
       setQuitando((s) => conId(s, q.id, false));
       if (!r.ok) { show(r.error, undefined, 'bad'); return; }
       if (r.quitada) setQuitadas((s) => conId(s, q.id, true));
@@ -217,7 +219,7 @@ export function Cuotas(props: PropsBloque) {
     start(() => bajaEnCurso(deshacer));
   };
   const bajaEnCurso = async (deshacer: boolean) => {
-    const r = await bajaDelClienteAction(lead.id, deshacer);
+    const r = await bajaDelClienteAction(lead.id, deshacer, crm);
     setEnBaja(false);
     setPreguntarBaja(false);
     if (!r.ok) { show(r.error, undefined, 'bad'); return; }
@@ -239,7 +241,7 @@ export function Cuotas(props: PropsBloque) {
         </div>
       )}>
       {lista.length === 0 && !armando && (
-        <p style={nada}>{vivas.length ? 'No queda nada por cobrar.' : 'Sin cuotas. Arma el plan o registra lo que pagó.'}</p>
+        <p style={nada}>{vivas.length ? 'No queda nada por cobrar.' : ctx.crm ? `Sin cuotas en ${ctx.crm.nombre || 'este CRM'}: el plan arranca de cero. Arma el plan o registra lo que pagó.` : 'Sin cuotas. Arma el plan o registra lo que pagó.'}</p>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} data-recorrido={marcaDato('comprobante')}>
         {lista.map((q) => {
@@ -288,7 +290,7 @@ export function Cuotas(props: PropsBloque) {
       {deBaja.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 13, color: 'var(--dim)' }}>
-            Se dio de baja{deBaja[0].baja_at ? ` el ${fmtDDMMYYYY(deBaja[0].baja_at.slice(0, 10))}` : ''} · quedó sin cobrar {usd(deBaja.reduce((s, q) => s + Number(q.monto_usd), 0))}
+            Se dio de baja{deBaja[0].baja_at ? ` el ${fechaEnPalabras(deBaja[0].baja_at.slice(0, 10), ctx.hoy)}` : ''} · quedó sin cobrar {usd(deBaja.reduce((s, q) => s + Number(q.monto_usd), 0))}
           </span>
           {!editando && <Button variant="tertiary" size="sm" loading={enBaja} onClick={() => baja(true)}>Deshacer la baja</Button>}
         </div>
@@ -303,7 +305,7 @@ export function Cuotas(props: PropsBloque) {
       {aQuitar && (
         <div onClick={(e) => e.stopPropagation()}>
           <Confirm title={`¿Quitar ${renglonDeCuota(aQuitar, ctx.hoy).nombre.toLowerCase()}?`} confirmLabel="Quitarla" cancelLabel="No"
-            message={`${usd(Number(aQuitar.monto_usd))}${aQuitar.fecha_esperada ? ` · vence el ${fmtDDMMYYYY(aQuitar.fecha_esperada)}` : ''}. Deja de contarse como deuda.`}
+            message={`${usd(Number(aQuitar.monto_usd))}${aQuitar.fecha_esperada ? ` · vence el ${fechaEnPalabras(aQuitar.fecha_esperada, ctx.hoy)}` : ''}. Deja de contarse como deuda.`}
             onCancel={() => setAQuitar(null)} onConfirm={() => quitar(aQuitar)} />
         </div>
       )}
@@ -348,13 +350,13 @@ function ArmarPlan({ ctx, onListo }: { ctx: CtxFicha; onListo: (m: { texto: stri
     if (!v.ok) { setErr(v.error); return; }
     if (!Object.keys(cambiado).length) { onListo(null); return; }
     start(async () => {
-      const r = await ajustarPlanAction(l.id, cambiado);
+      const r = await ajustarPlanAction(l.id, cambiado, ctx.crm?.id ?? null);
       if (!r.ok) { setErr(r.error); return; }
       ctx.releer();
       const d = r.deshacer;
       onListo({
         texto: r.sinTocar ? `Plan guardado · no se tocó: ${r.sinTocar}` : 'Plan guardado',
-        deshacer: () => { void guardarCuotasAction(l.id, d.cuotas, d.plan, d.vistos).then(() => ctx.releer()); },
+        deshacer: () => { void guardarCuotasAction(l.id, d.cuotas, d.plan, d.vistos, ctx.crm?.id ?? null).then(() => ctx.releer()); },
       });
     });
   };
@@ -422,7 +424,7 @@ export function Movimientos({ ctx, titulo, diseno }: PropsBloque) {
           <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column' }}>
             {movimientos.slice(0, corte).map((m) => (
               <li key={m.clave} style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto', alignItems: 'baseline', gap: 12, padding: '9px 0', borderBottom: '1px solid var(--border)' }}>
-                <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)' }}>{fmtDDMMYYYY(m.fecha)}</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)' }}>{fechaEnPalabras(m.fecha, ctx.hoy)}</span>
                 <span style={{ minWidth: 0 }}>
                   <span style={{ fontSize: 14, fontWeight: 600, color: m.tipo === 'rechazo' ? 'var(--bad)' : m.tipo === 'devolucion' ? 'var(--warn)' : 'var(--ink)' }}>{m.titulo}</span>
                   <span style={{ fontSize: 13, color: 'var(--dim)' }}> · {m.via}</span>
@@ -501,9 +503,9 @@ export function Suscripcion(props: PropsBloque) {
               bloqueado={editando || s.estado === 'cancelada'} estilo={{ fontSize: 13.5, color: 'var(--ink)' }}
               onGuardar={(v) => venta({ campo: 'plazo', valor: v ? Math.round(Number(v)) : null }, { suscripcion_meses: v ? Math.round(Number(v)) : null })} />
           </span>
-          {s.meses ? <span>meses{s.finPlazo ? ` · termina el ${fmtDDMMYYYY(s.finPlazo)}` : ''}</span> : null}
+          {s.meses ? <span>meses{s.finPlazo ? ` · termina el ${fechaEnPalabras(s.finPlazo, ctx.hoy)}` : ''}</span> : null}
         </span>
-        {s.proximaRenovacion && s.estado === 'activa' && <span>Próxima el {fmtDDMMYYYY(s.proximaRenovacion)} · {cobrado.cuotas.cobradas} cobrada(s){s.fuente === 'pasarela' ? ' · la cobra la pasarela' : ''}</span>}
+        {s.proximaRenovacion && s.estado === 'activa' && <span>Próxima el {fechaEnPalabras(s.proximaRenovacion, ctx.hoy)} · {cobrado.cuotas.cobradas} cobrada(s){s.fuente === 'pasarela' ? ' · la cobra la pasarela' : ''}</span>}
       </div>
       {s.renovacionFallida && <Aviso tono="rojo">{s.renovacionFallida}</Aviso>}
       {sinLeer && <Aviso tono="ambar">No pude leer los cobros de la pasarela: no se sabe si la cobra ella.</Aviso>}
@@ -543,19 +545,23 @@ export function Venta({ ctx, titulo, diseno, editando }: PropsBloque) {
   const [pending, start] = useTransition();
   const tipo: VentaTipo = (lead.venta_tipo as VentaTipo | null) ?? 'unico';
   const esSus = tipo === 'suscripcion';
+  // Mirando un CRM agregado (./trato.ts): la venta es la de ESE CRM, y sin suscripción (una mensualidad es de la casa).
+  const crm = ctx.crm?.id ?? null;
+  const tipos = crm != null ? TIPOS.filter((t) => t.id !== 'suscripcion') : TIPOS;
 
   const guardar = (c: Parameters<typeof guardarVentaAction>[1], patch: Record<string, unknown>) =>
-    guardarVentaAction(lead.id, c, { tipoVisto: tipo }).then((r) => {
+    guardarVentaAction(lead.id, c, { tipoVisto: tipo, crm }).then((r) => {
       if (!r.ok) return r.error;
       ctx.parchear({ ...patch, venta_tipo: r.ventaTipo });
       const atras = r.deshacer;
-      if (r.cambio) show('Guardado', () => { void deshacerVenta(lead.id, atras, r.ventaTipo).then(() => ctx.releer()); });
+      if (r.cambio) show('Guardado', () => { void deshacerVenta(lead.id, atras, r.ventaTipo, crm).then(() => ctx.releer()); });
       return null;
     });
   /** Cambiar el tipo. DESDE «Sin cobro» se sale por su propia acción (compare-and-set), y después al tipo elegido. */
   const cambiarTipo = (nuevo: VentaTipo) => start(async () => {
     if (nuevo === tipo) return;
-    if (tipo === 'sin_cobro') {
+    // En un CRM agregado, salir de «Sin cobro» también es la venta de ese CRM: el server lo hace con su compare-and-set.
+    if (tipo === 'sin_cobro' && crm == null) {
       const r = await quitarSinCobroAction(lead.id).catch((e: unknown) => ({ error: String(e) }) as const);
       if ('error' in r) { show(r.error, undefined, 'bad'); return; }
       if (!r.cambio) show('Ya no era «Sin cobro».');
@@ -579,9 +585,9 @@ export function Venta({ ctx, titulo, diseno, editando }: PropsBloque) {
         onGuardar={(v) => guardar({ campo: 'monto', valor: v ? Number(v) : null }, esSus ? { suscripcion_monto_usd: v ? Number(v) : null } : { monto_cierre_usd: v ? Number(v) : null })} />;
   const fecha = <EnLinea valor={lead.fecha_cierre ?? ''} tipo="fecha" vacio="sin fecha" titulo="Edita la fecha de cierre" bloqueado={editando}
     estilo={{ fontSize: 14.5 }} onGuardar={(v) => guardar({ campo: 'fecha', valor: v || null }, { fecha_cierre: v || null })} />;
-  const tipos = (
+  const botonesTipo = (
     <div role="group" aria-label="Tipo de venta" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-      {TIPOS.map((t) => (
+      {tipos.map((t) => (
         <Button key={t.id} size="sm" variant={tipo === t.id ? 'primary' : 'secondary'} disabled={editando || pending} onClick={() => cambiarTipo(t.id)}>{t.nombre}</Button>
       ))}
     </div>
@@ -601,7 +607,7 @@ export function Venta({ ctx, titulo, diseno, editando }: PropsBloque) {
           <div style={caja}><span style={etiqueta}>Fecha de cierre</span>{fecha}</div>
         </div>
       )}
-      {tipos}
+      {botonesTipo}
       <Toast state={toast} onClose={clear} />
     </Tarjeta>
   );

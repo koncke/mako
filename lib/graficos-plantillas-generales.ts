@@ -42,6 +42,8 @@ export type DefinicionGeneral = {
   piezas: PiezaPlantilla[];
   /** El tema de la hoja (la plantilla de lib/graficos-temas.ts). Ausente = el de MaKo. Lo usan las de General. */
   tema?: string;
+  /** Los controles de la HOJA además del período (22/10/2026: el «Funnel» de «Cobros», para elegir qué CRM o CRMs mira). */
+  controles?: Array<Record<string, unknown>>;
 };
 
 /** Una pieza (en la forma de la IA) → el componente crudo que entiende el catálogo, con su id. */
@@ -67,7 +69,7 @@ export function plantilla(d: DefinicionGeneral): PlantillaHoja {
         .filter((c): c is Componente => c != null);
       return {
         id: id(d.id), nombre: d.nombre, emoji: d.emoji, subtitulo: d.subtitulo,
-        controles: [{ id: id(`${d.id}-periodo`), tipo: 'periodo', preset: d.periodo }],
+        controles: [{ id: id(`${d.id}-periodo`), tipo: 'periodo', preset: d.periodo }, ...(d.controles ?? []).map((c, i) => ({ ...c, id: id(`${d.id}-c${i}`) }))],
         componentes: acomodar(componentes),
         ...(d.tema ? { tema: { plantilla: d.tema, acento: null, fuente: null } } : {}),
       };

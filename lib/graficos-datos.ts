@@ -25,6 +25,7 @@ import 'server-only';
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { getSupabaseServer } from './supabase';
 import { enRango, queTableroLeer, fechaTj, funnelsAgregados, host, leer, leerPorIds, lindo, nombres, num, rotulosDelCrm, ruta, txt, type Rango } from './graficos-lectura';
+import { productosCrm } from './api-mako/areas/crm.helpers';
 import { LECTORES_EXTRA, noEsDelNegocio } from './graficos-datos-extra';
 export type { Rango };
 import { conversorGastoMeta } from './moneda-meta';
@@ -805,5 +806,12 @@ export async function valoresDeCampo(campoId: string, desde: string, hasta: stri
       console.error(`[graficos] valores ${campoId}/${fid}: ${e instanceof Error ? e.message : String(e)}`);
     }
   }));
+  // EL «FUNNEL» OFRECE TODOS LOS CRMs del negocio (22/10/2026, llamada con un cliente: «que tú le puedas seleccionar de qué
+  // CRM quieres ver ese dashboard»), también los que todavía no tienen filas en el período: la hoja «Cobros» se arma para
+  // mirar las renovaciones antes de que se cobre la primera. Sin filas van al final (0).
+  if (campo.id === 'producto') {
+    const prods = await productosCrm().catch(() => null);
+    for (const p of prods ?? []) if (p.nombre && !cuenta.has(p.nombre)) cuenta.set(p.nombre, 0);
+  }
   return [...cuenta.entries()].map(([valor, filas]) => ({ valor, filas })).sort((a, b) => b.filas - a.filas || a.valor.localeCompare(b.valor)).slice(0, 300);
 }

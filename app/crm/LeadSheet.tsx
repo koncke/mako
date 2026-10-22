@@ -22,6 +22,7 @@ import type { FathomLink } from '@/lib/leads';
 import { suscripcionDeFila } from '@/lib/venta-tipo';
 import { CabeceraLead, SANGRIA_NOMBRE_LEAD } from './lead-view/CabeceraLead';
 import { FunnelYEtapa, useProductosDeLaFicha } from './lead-view/ProductoDelLead';
+import { crmEnVista } from './lead-view/ficha/pagos/trato';
 import { ANCHO_FICHA_LEAD, ALTO_CHAT_EN_EL_POPUP, ALTO_FICHA_LEAD, MARGEN_FICHA_LEAD } from './lead-view/ficha-medidas';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 // ⚠️ LAS TABS Y SUS BLOQUES SON UNA SOLA PIEZA PARA LAS DOS PUERTAS (14/10/2026): esta y la ruta /crm/[id]
@@ -243,6 +244,8 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDat
             // lo alcanza: se aplica lo que la action devolvió —el asistente de «Completar datos» se arma
             // con ESTE lead— y se relee el resto (sin «Sin cobro» vuelve a faltar el monto).
             parchear={(patch) => { setFresca({ ...vigente, lead: { ...vigente.lead, ...patch } }); releer(); }}
+            // El CRM que se mira en la cabecera: mirando una renovación, Pagos es el plan de ESA renovación (mig 0324).
+            crm={crmEnVista(fichaProd, vigente)}
           />
         </div>
 

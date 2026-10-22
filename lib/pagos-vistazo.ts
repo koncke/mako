@@ -100,14 +100,14 @@ export function estadoDeCuenta(e: { cobrado: Cobrado; pagos: readonly CuotaDelLe
       titular: `Debe ${usd(c.vencidoUsd)}`,
       tono: 'rojo',
       detalle: vencidas.length === 1
-        ? `${nombreCuota(primera.numero)} venció el ${ddmm(primera.fecha_esperada as string)} · hace ${dias(hace)}`
+        ? `${nombreCuota(primera.numero)} venció el ${ddmm(primera.fecha_esperada as string, hoy)} · hace ${dias(hace)}`
         : `${vencidas.length} cuotas vencidas · la primera, hace ${dias(hace)}`,
       accion: cobrarCuota(primera, true),
     };
   };
   const proximaFrase = (q: CuotaDelLead): string => {
     const en = diasEntre(hoy, q.fecha_esperada as string);
-    return `Próxima: ${usd(num(q.monto_usd))} el ${ddmm(q.fecha_esperada as string)}${en === 0 ? ' · hoy' : en <= 14 ? ` · en ${dias(en)}` : ''}`;
+    return `Próxima: ${usd(num(q.monto_usd))} el ${ddmm(q.fecha_esperada as string, hoy)}${en === 0 ? ' · hoy' : en <= 14 ? ` · en ${dias(en)}` : ''}`;
   };
   /** La próxima, con su botón sólo si vence en 14 días o menos: más lejos no es «ahora». */
   const accionDeProxima = (q: CuotaDelLead | null): AccionDeCobro | null =>
@@ -119,7 +119,7 @@ export function estadoDeCuenta(e: { cobrado: Cobrado; pagos: readonly CuotaDelLe
     if (s.estado === 'cancelada') return { ...base, titular: 'Cancelada', tono: 'gris', detalle: `Era de ${s.mensualidadTexto}`, accion: null };
     if (s.renovacionFallida) return { ...base, titular: 'Falló la renovación', tono: 'rojo', detalle: s.renovacionFallida, accion: null };
     if (vencidas.length) return deudaVencida();
-    if (s.estado === 'terminada') return { ...base, titular: 'Terminó', tono: 'gris', detalle: s.finPlazo ? `El plazo terminó el ${ddmm(s.finPlazo)}` : null, accion: null };
+    if (s.estado === 'terminada') return { ...base, titular: 'Terminó', tono: 'gris', detalle: s.finPlazo ? `El plazo terminó el ${ddmm(s.finPlazo, hoy)}` : null, accion: null };
     if (s.fuente === 'manual' && c.cuotas.cobradas === 0 && impagas.length === 0) {
       return { ...base, titular: 'Sin cobros registrados', tono: 'gris', detalle: s.mensualidadTexto, accion: { tipo: 'registrar-mes', boton: 'Registrar el primer mes' } };
     }
@@ -133,7 +133,7 @@ export function estadoDeCuenta(e: { cobrado: Cobrado; pagos: readonly CuotaDelLe
       };
     }
     const cuando = proxima?.fecha_esperada ?? s.proximaRenovacion;
-    return { ...base, titular: 'Al día', tono: 'verde', detalle: `${s.mensualidadTexto}${cuando ? ` · próxima el ${ddmm(cuando)}` : ''}`, accion: accionDeProxima(proxima) };
+    return { ...base, titular: 'Al día', tono: 'verde', detalle: `${s.mensualidadTexto}${cuando ? ` · próxima el ${ddmm(cuando, hoy)}` : ''}`, accion: accionDeProxima(proxima) };
   }
 
   // ── Becado, o nada vendido ──
@@ -148,7 +148,7 @@ export function estadoDeCuenta(e: { cobrado: Cobrado; pagos: readonly CuotaDelLe
   // 16/10 (pagó US$4.000 de US$6.000 y se fue) decía «Debe $1,800» a 80 días, para siempre. Si después se le cargó una
   // cuota nueva, manda esa (sigue abajo).
   if (c.baja && c.pendienteUsd <= 0) {
-    return { ...base, faltaUsd: 0, titular: 'Se dio de baja', tono: 'gris', detalle: `Quedó sin cobrar ${usd(c.baja.usd)}${c.baja.at ? ` · se fue el ${ddmm(c.baja.at.slice(0, 10))}` : ''}`, accion: null };
+    return { ...base, faltaUsd: 0, titular: 'Se dio de baja', tono: 'gris', detalle: `Quedó sin cobrar ${usd(c.baja.usd)}${c.baja.at ? ` · se fue el ${ddmm(c.baja.at.slice(0, 10), hoy)}` : ''}`, accion: null };
   }
   const devuelto = redondo(e.pagos.filter((q) => esCuotaDevuelta(q)).reduce((s, q) => s + num(q.monto_usd), 0));
   if (c.cuotas.total === 0) {
@@ -164,7 +164,7 @@ export function estadoDeCuenta(e: { cobrado: Cobrado; pagos: readonly CuotaDelLe
   }
   if (c.pendienteUsd <= 0) {
     const ultima = e.pagos.filter((q) => q.pagado && q.fecha_pago).map((q) => q.fecha_pago as string).sort().pop();
-    return { ...base, titular: 'Pagó todo', tono: 'verde', detalle: ultima ? `Último pago el ${ddmm(ultima.slice(0, 10))}` : null, accion: null };
+    return { ...base, titular: 'Pagó todo', tono: 'verde', detalle: ultima ? `Último pago el ${ddmm(ultima.slice(0, 10), hoy)}` : null, accion: null };
   }
   const porVencer = proxima != null && diasEntre(hoy, proxima.fecha_esperada as string) <= 14;
   return {
@@ -187,7 +187,7 @@ export type RenglonCuota = {
   estado: EstadoCuota;
   /** «$500» o «ARS 50.000 · $50». */
   montoTexto: string;
-  /** «cobrada el 02/10 · por Stripe» · «venció el 02/10 · hace 14 días» · «vence el 14/11 · en 3 días». */
+  /** «cobrada el 2 de octubre · por Stripe» · «venció el 2 de octubre · hace 14 días» · «vence el 14 de noviembre · en 3 días». */
   cuando: string;
   tono: Tono;
   /**
@@ -211,18 +211,18 @@ export function renglonDeCuota(q: CuotaDelLead & { concepto?: string | null; met
   }
   // La de un cliente que se fue (#871): se ve, sin botón. Para cobrarla, se deshace la baja.
   if (esCuotaDeBaja(q)) {
-    return { nombre, estado: 'baja', montoTexto, cuando: `baja del cliente${q.baja_vencia ? ` · vencía el ${ddmm(q.baja_vencia.slice(0, 10))}` : ''}`, tono: 'gris', accion: 'ninguna', editable: false };
+    return { nombre, estado: 'baja', montoTexto, cuando: `baja del cliente${q.baja_vencia ? ` · vencía el ${ddmm(q.baja_vencia.slice(0, 10), hoy)}` : ''}`, tono: 'gris', accion: 'ninguna', editable: false };
   }
   if (q.pagado) {
     const via = pasarela ? `por ${NOMBRE_PASARELA[pasarela]}` : esMetodoPago(q.metodo) ? ROTULO_METODO[q.metodo].toLowerCase() : null;
-    const cuando = `cobrada${q.fecha_pago ? ` el ${ddmm(q.fecha_pago.slice(0, 10))}` : ''}${via ? ` · ${via}` : ''}`;
+    const cuando = `cobrada${q.fecha_pago ? ` el ${ddmm(q.fecha_pago.slice(0, 10), hoy)}` : ''}${via ? ` · ${via}` : ''}`;
     return { nombre, estado: 'cobrada', montoTexto, cuando, tono: 'verde', accion: pasarela ? 'ninguna' : 'deshacer', editable: false };
   }
   if (!q.fecha_esperada) return { nombre, estado: 'sin-fecha', montoTexto, cuando: 'sin fecha', tono: 'gris', accion: 'marcar', editable: true };
   const en = diasEntre(hoy, q.fecha_esperada);
-  if (en < 0) return { nombre, estado: 'vencida', montoTexto, cuando: `venció el ${ddmm(q.fecha_esperada)} · hace ${dias(-en)}`, tono: 'rojo', accion: 'marcar', editable: true };
-  if (en <= 14) return { nombre, estado: 'por-vencer', montoTexto, cuando: `vence el ${ddmm(q.fecha_esperada)} · ${en === 0 ? 'hoy' : `en ${dias(en)}`}`, tono: 'ambar', accion: 'marcar', editable: true };
-  return { nombre, estado: 'futura', montoTexto, cuando: `vence el ${ddmm(q.fecha_esperada)}`, tono: 'gris', accion: 'marcar', editable: true };
+  if (en < 0) return { nombre, estado: 'vencida', montoTexto, cuando: `venció el ${ddmm(q.fecha_esperada, hoy)} · hace ${dias(-en)}`, tono: 'rojo', accion: 'marcar', editable: true };
+  if (en <= 14) return { nombre, estado: 'por-vencer', montoTexto, cuando: `vence el ${ddmm(q.fecha_esperada, hoy)} · ${en === 0 ? 'hoy' : `en ${dias(en)}`}`, tono: 'ambar', accion: 'marcar', editable: true };
+  return { nombre, estado: 'futura', montoTexto, cuando: `vence el ${ddmm(q.fecha_esperada, hoy)}`, tono: 'gris', accion: 'marcar', editable: true };
 }
 
 function montoDeCuota(q: Pick<CuotaParaCobrado, 'monto_usd' | 'moneda' | 'monto_original'>): string {

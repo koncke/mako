@@ -36,6 +36,7 @@ import { laCobraLaPasarela } from './cobros-reglas';
 import type { Pasarela } from './cobros-tipos';
 import type { CobroParaCobrado } from './cobrado-lead';
 import { itemDeSuscripcion, type ItemPorCobrar, type LeadSuscripcion } from './suscripciones-por-cobrar';
+import { FALTA_0324, camposDeFila, esDelTrato, faltaIndicePorCrm, type CamposTrato, type Crm } from './pagos-crm';
 
 export type Pago = {
   id: number;
@@ -68,6 +69,8 @@ export type Pago = {
   /** El cliente se dio de baja (mig 0307, lib/pagos-baja.ts): impaga y sin vencimiento; el que tenía, en `baja_vencia`. */
   baja_at?: string | null;
   baja_vencia?: string | null;
+  /** El CRM del pago (mig 0310, el de cuando se creó): el trato al que pertenece (mig 0324, lib/pagos-crm.ts). */
+  funnel_id?: number | null;
   created_at: string;
 };
 
@@ -82,16 +85,88 @@ export type PlanPagos = {
 // Queries
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Pagos de un lead, ordenados por numero (inicial primero). */
-export async function getPagosByLead(leadId: number): Promise<Pago[]> {
+/**
+ * Pagos de un lead, ordenados por numero (inicial primero), de UN trato (22/10/2026, mig 0324, lib/pagos-crm.ts):
+ *   · sin `crm` (o null): los de la CASA, que es lo que leen todos los que hablan de «la venta del lead» (la API de
+ *     MaKo, el asistente de Ganado, Customer Success, lo cobrado del lead): su monto y su plan están en `leads`;
+ *   · un número: los de ESE CRM agregado (la tab Pagos mirando una renovación);
+ *   · 'todos': todos, para buscar una cuota por su id o saldar una deuda de cualquier trato.
+ * ⚠️ Antes del 22/10 devolvía SIEMPRE todos: la renovación mostraba el plan del primer servicio.
+ */
+export async function getPagosByLead(leadId: number, crm: Crm | 'todos' = null): Promise<Pago[]> {
   const supabase = (await getTenantDb());
-  const { data, error } = await supabase
+  let q = supabase
     .from('pagos')
     .select('*')
-    .eq('lead_id', leadId)
-    .order('numero', { ascending: true });
+    .eq('lead_id', leadId);
+  if (crm === 'todos') { /* todos */ }
+  else if (crm != null) q = q.eq('funnel_id', crm);
+  else {
+    // La casa es todo lo que NO es de un CRM agregado (`esDelTrato`): lo de un CRM del que ya se quitó al lead vuelve acá.
+    const agregados = await crmsAgregadosDelLead(leadId);
+    if (agregados.length) q = q.or(`funnel_id.is.null,funnel_id.not.in.(${agregados.join(',')})`);
+  }
+  const { data, error } = await q.order('numero', { ascending: true });
   if (error) throw new Error(`Error listando pagos del lead ${leadId}: ${error.message}`);
   return (data ?? []) as Pago[];
+}
+
+/** Los CRMs a los que se agregó al lead (`lead_funnel`): cada uno es un trato aparte. Tira si no puede leer. */
+export async function crmsAgregadosDelLead(leadId: number): Promise<number[]> {
+  const { data, error } = await (await getTenantDb()).from('lead_funnel').select('funnel_id').eq('lead_id', leadId);
+  if (error) throw new Error(`No pude leer los CRMs del lead ${leadId}: ${error.message}`);
+  return [...new Set(((data ?? []) as Array<{ funnel_id: number | string }>).map((r) => Number(r.funnel_id)).filter(Number.isFinite))];
+}
+
+/**
+ * El CRM del trato que pide una pantalla, VALIDADO: null (la casa) o un CRM agregado de ESTE lead en ESTE negocio. El id
+ * de la casa (o del funnel del negocio para un lead sin casa) también es la casa. Un id que no es un CRM del lead TIRA:
+ * escribir el plan de un CRM donde el lead no está dejaría plata en una pantalla que nadie abre.
+ */
+export async function crmDelTrato(leadId: number, crm: unknown): Promise<Crm> {
+  if (crm == null || crm === '') return null;
+  const n = Number(crm);
+  if (!Number.isSafeInteger(n) || n <= 0) throw new Error('Ese CRM no existe.');
+  if ((await crmsAgregadosDelLead(leadId)).includes(n)) return n;
+  const { data, error } = await (await getTenantDb()).from('leads').select('funnel_id').eq('id', leadId).maybeSingle();
+  if (error) throw new Error(`No pude leer el lead ${leadId}: ${error.message}`);
+  if (!data) throw new Error('No encontré ese lead en este negocio.');
+  const casa = (data as { funnel_id: number | null }).funnel_id;
+  if (casa != null && Number(casa) === n) return null;
+  if (casa == null) {
+    const { data: f } = await (await getTenantDb()).from('funnels').select('id').eq('es_default', true).limit(1).maybeSingle();
+    if (f && Number((f as { id: number }).id) === n) return null;
+  }
+  throw new Error('Ese CRM no es de este lead.');
+}
+
+/** La fila del trato de un CRM agregado (`lead_funnel`, mig 0324), o null si el lead no está en ese CRM. */
+export async function filaDelTrato(leadId: number, crm: number): Promise<(CamposTrato & { etapa: string | null; id: number }) | null> {
+  const { data, error } = await (await getTenantDb()).from('lead_funnel').select('*').eq('lead_id', leadId).eq('funnel_id', crm).maybeSingle();
+  if (error) throw new Error(`No pude leer el plan de este CRM: ${error.message}`);
+  if (!data) return null;
+  const f = data as Record<string, unknown>;
+  return { ...camposDeFila(f), etapa: typeof f.etapa === 'string' ? f.etapa : null, id: Number(f.id) };
+}
+
+/**
+ * Los tratos de los CRMs agregados del lead, con sus pagos: lo que la ficha muestra en la tab Pagos al mirar uno.
+ * `select('*')` de `lead_funnel`: sin la 0324 no tiene las columnas, y cada trato sale vacío (no se cae la ficha).
+ */
+export async function tratosDelLead(leadId: number): Promise<Array<CamposTrato & { funnelId: number; etapa: string | null; pagos: Pago[] }>> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('lead_funnel').select('*').eq('lead_id', leadId);
+  if (error) throw new Error(`No pude leer los CRMs del lead ${leadId}: ${error.message}`);
+  const filas = (data ?? []) as Array<Record<string, unknown>>;
+  if (!filas.length) return [];
+  const ids = filas.map((f) => Number(f.funnel_id));
+  const { data: pg, error: e2 } = await db.from('pagos').select('*').eq('lead_id', leadId).in('funnel_id', ids).order('numero', { ascending: true });
+  if (e2) throw new Error(`No pude leer los pagos de los CRMs del lead ${leadId}: ${e2.message}`);
+  const pagos = (pg ?? []) as Pago[];
+  return filas.map((f) => {
+    const funnelId = Number(f.funnel_id);
+    return { ...camposDeFila(f), funnelId, etapa: typeof f.etapa === 'string' ? f.etapa : null, pagos: pagos.filter((p) => esDelTrato((p as { funnel_id?: number | null }).funnel_id, funnelId, ids)) };
+  });
 }
 
 export type LeadPlan = {
@@ -191,9 +266,9 @@ export async function proteccionesDeCuotas(leadId: number, ids: readonly number[
   return out;
 }
 
-/** Las cuotas del lead como las lee `reconciliarCuotas`, con lo que protege a cada impaga. */
-async function cuotasParaReconciliar(leadId: number): Promise<CuotaExistente[]> {
-  const pagos = await getPagosByLead(leadId);
+/** Las cuotas del trato (la casa o un CRM agregado) como las lee `reconciliarCuotas`, con lo que protege a cada impaga. */
+async function cuotasParaReconciliar(leadId: number, crm: Crm): Promise<CuotaExistente[]> {
+  const pagos = await getPagosByLead(leadId, crm);
   const prot = await proteccionesDeCuotas(leadId, pagos.filter((q) => !q.pagado).map((q) => q.id));
   return pagos.map((q) => ({
     id: q.id, numero: q.numero, monto_usd: Number(q.monto_usd), fecha_esperada: q.fecha_esperada, pagado: q.pagado,
@@ -207,7 +282,7 @@ async function cuotasParaReconciliar(leadId: number): Promise<CuotaExistente[]> 
  * falla a mitad de camino, quedan cuotas de más (se ven y se quitan), nunca de menos (una deuda que desaparece).
  * Cada escritura lleva `lead_id` y `pagado = false`: una cuota que se cobró mientras tanto no se pisa ni se borra.
  */
-async function escribirReconciliacion(leadId: number, plan: PlanDeCuotas): Promise<void> {
+async function escribirReconciliacion(leadId: number, plan: PlanDeCuotas, crm: Crm): Promise<void> {
   const db = await getTenantDb();
   for (const u of plan.actualizar) {
     const { error } = await db.from('pagos').update({ monto_usd: u.monto_usd, fecha_esperada: u.fecha_esperada })
@@ -215,9 +290,10 @@ async function escribirReconciliacion(leadId: number, plan: PlanDeCuotas): Promi
     if (error) throw new Error(`Error actualizando la cuota ${u.id}: ${error.message}`);
   }
   if (plan.insertar.length) {
-    const rows = plan.insertar.map((i) => ({ lead_id: leadId, numero: i.numero, monto_usd: i.monto_usd, fecha_esperada: i.fecha_esperada }));
+    // La de un CRM agregado lleva su CRM (mig 0324); la de la casa la completa el trigger `pagos_funnel`.
+    const rows = plan.insertar.map((i) => ({ lead_id: leadId, numero: i.numero, monto_usd: i.monto_usd, fecha_esperada: i.fecha_esperada, ...(crm != null ? { funnel_id: crm } : {}) }));
     const { error } = await db.from('pagos').insert(rows);
-    if (error) throw new Error(`Error guardando cuotas del lead ${leadId}: ${error.message}`);
+    if (error) throw new Error(crm != null && faltaIndicePorCrm(error) ? FALTA_0324 : `Error guardando cuotas del lead ${leadId}: ${error.message}`);
   }
   if (plan.borrar.length) {
     const { error } = await db.from('pagos').delete().in('id', plan.borrar.map((b) => b.id)).eq('lead_id', leadId).eq('pagado', false);
@@ -296,13 +372,17 @@ export async function reponerMarcasDeCobranza(antes: MarcasDeCobranza, pagoIds: 
   }
 }
 
-/** Reconcilia una lista de cuotas impagas y sincroniza lo cobrado. Devuelve lo que hizo (y lo que NO tocó). */
+/**
+ * Reconcilia una lista de cuotas impagas de UN trato y sincroniza lo cobrado. Devuelve lo que hizo (y lo que NO tocó).
+ * `crm`: el CRM agregado cuyo plan se toca (mig 0324); sin él, el de la casa. Los números son los de ESE trato.
+ */
 export async function reconciliarYGuardar(
-  leadId: number, deseadas: readonly CuotaDeseada[], modo: ModoReconciliar, opts: { soloNumeros?: ReadonlySet<number>; vistos?: ReadonlySet<number> } = {},
+  leadId: number, deseadas: readonly CuotaDeseada[], modo: ModoReconciliar, opts: { soloNumeros?: ReadonlySet<number>; vistos?: ReadonlySet<number>; crm?: Crm } = {},
 ): Promise<PlanDeCuotas> {
   await asegurarLeadDelNegocio(leadId);
-  const plan = reconciliarCuotas(await cuotasParaReconciliar(leadId), deseadas, modo, opts);
-  await escribirReconciliacion(leadId, plan);
+  const crm = opts.crm ?? null;
+  const plan = reconciliarCuotas(await cuotasParaReconciliar(leadId, crm), deseadas, modo, opts);
+  await escribirReconciliacion(leadId, plan, crm);
   await sincronizarTotalCobrado(leadId);
   return plan;
 }
@@ -316,7 +396,7 @@ export async function reconciliarYGuardar(
 export async function guardarCuotasPorId(
   leadId: number,
   cuotas: ReadonlyArray<{ id?: number | null; numero?: number | null; monto_usd: number; fecha_esperada: string | null }>,
-  opts: { vistos?: ReadonlySet<number> } = {},
+  opts: { vistos?: ReadonlySet<number>; crm?: Crm } = {},
 ): Promise<PlanDeCuotas> {
   return reconciliarYGuardar(leadId, cuotas, 'porId', opts);
 }
@@ -335,7 +415,7 @@ export type ResultadoPlan = { pagos: Pago[]; cambios: PlanDeCuotas };
  * no se pisa una cuota movida a mano ni se borra una que no es del plan. Sin él (el wizard de Ganado, la API
  * `guardar_plan_pagos`), el plan se reimpone entero, como siempre.
  */
-export async function ajustarPlanPagos(leadId: number, plan: PlanUniforme, hoy: string, opts: { antes?: PlanUniforme } = {}): Promise<ResultadoPlan> {
+export async function ajustarPlanPagos(leadId: number, plan: PlanUniforme, hoy: string, opts: { antes?: PlanUniforme; crm?: Crm } = {}): Promise<ResultadoPlan> {
   // ⚠️ EL LEAD TIENE QUE SER DE ESTE NEGOCIO antes de escribirle una cuota (auditoría del 14/10/2026).
   // Va acá y no en savePlanPagos porque éste es el choke point: por acá escriben savePlanPagos y la
   // server action de pagos campo por campo, que recibe el leadId del navegador. El `.single()` de abajo
@@ -343,26 +423,32 @@ export async function ajustarPlanPagos(leadId: number, plan: PlanUniforme, hoy: 
   // que nada falle. Al integrar la rama de Pagos (anterior a la auditoría) esta llamada se habría perdido.
   await asegurarLeadDelNegocio(leadId);
   const supabase = (await getTenantDb());
-  const { data: leadRow, error: leadErr } = await supabase.from('leads').select('fecha_cierre').eq('id', leadId).single();
-  if (leadErr) throw new Error(`Error leyendo lead ${leadId}: ${leadErr.message}`);
-  const base = (leadRow?.fecha_cierre as string | null) ?? hoy;
-
-  const { error: planErr } = await supabase.from('leads').update({
-    cobro_inicial_usd: plan.cobro_inicial_usd,
-    monto_cuota_usd: plan.monto_cuota_usd,
-    total_cuotas: plan.total_cuotas,
-    dia_de_pago: plan.dia_de_pago,
-  }).eq('id', leadId);
-  if (planErr) throw new Error(`Error guardando plan del lead ${leadId}: ${planErr.message}`);
+  const crm = opts.crm ?? null;
+  const columnas = { cobro_inicial_usd: plan.cobro_inicial_usd, monto_cuota_usd: plan.monto_cuota_usd, total_cuotas: plan.total_cuotas, dia_de_pago: plan.dia_de_pago };
+  let base: string;
+  if (crm != null) {
+    // EL PLAN DE UN CRM AGREGADO (mig 0324): su fecha de cierre y sus columnas son las de su fila de `lead_funnel`.
+    const t = await filaDelTrato(leadId, crm);
+    if (!t) throw new Error('Este lead ya no está en ese CRM. Recarga la ficha.');
+    base = t.fecha_cierre ?? hoy;
+    const { error } = await supabase.from('lead_funnel').update({ ...columnas, updated_at: new Date().toISOString() }).eq('id', t.id);
+    if (error) throw new Error(/column|columna/i.test(error.message) ? FALTA_0324 : `Error guardando el plan de este CRM: ${error.message}`);
+  } else {
+    const { data: leadRow, error: leadErr } = await supabase.from('leads').select('fecha_cierre').eq('id', leadId).single();
+    if (leadErr) throw new Error(`Error leyendo lead ${leadId}: ${leadErr.message}`);
+    base = (leadRow?.fecha_cierre as string | null) ?? hoy;
+    const { error: planErr } = await supabase.from('leads').update(columnas).eq('id', leadId);
+    if (planErr) throw new Error(`Error guardando plan del lead ${leadId}: ${planErr.message}`);
+  }
 
   let cambios: PlanDeCuotas;
   if (opts.antes) {
     const { deseadas, tocar } = diferenciaDePlan(opts.antes, plan, base);
-    cambios = await reconciliarYGuardar(leadId, deseadas, 'slots', { soloNumeros: tocar });
+    cambios = await reconciliarYGuardar(leadId, deseadas, 'slots', { soloNumeros: tocar, crm });
   } else {
-    cambios = await reconciliarYGuardar(leadId, cuotasDelPlan(plan, base), 'slots');
+    cambios = await reconciliarYGuardar(leadId, cuotasDelPlan(plan, base), 'slots', { crm });
   }
-  return { pagos: await getPagosByLead(leadId), cambios };
+  return { pagos: await getPagosByLead(leadId, crm), cambios };
 }
 
 /**
@@ -814,7 +900,8 @@ async function cobrarConResto(
  */
 export async function registrarPagoSuelto(
   leadId: number,
-  datos: { monto: number; fecha: string; hora?: string | null; mensualidad?: boolean } & DatosDeMoneda,
+  /** `crm`: el CRM agregado del pago (la tab Pagos mirando una renovación, mig 0324); sin él, la casa. */
+  datos: { monto: number; fecha: string; hora?: string | null; mensualidad?: boolean; crm?: Crm } & DatosDeMoneda,
 ): Promise<{ pagoId: number; monto: number; moneda: string | null; montoOriginal: number | null }> {
   const monto = Number(datos.monto);
   if (!Number.isFinite(monto) || monto <= 0) throw new Error('El monto tiene que ser mayor a cero.');
@@ -825,12 +912,13 @@ export async function registrarPagoSuelto(
   const enMoneda = enMonedaR && enMonedaR.ok ? enMonedaR : null;
   await asegurarLeadDelNegocio(leadId);
   const db = await getTenantDb();
-  const existentes = await getPagosByLead(leadId);
+  const crm = datos.crm ?? null;
+  const existentes = await getPagosByLead(leadId, crm);
   const base = existentes.length > 0 ? Math.max(...existentes.map((q) => q.numero)) : 0;
   const redondo = centavos(monto);
   const { data, error } = await db.from('pagos')
     .insert({
-      lead_id: leadId, numero: base + 1, monto_usd: redondo, fecha_esperada: datos.fecha, pagado: false, pago_hora: datos.hora?.trim() || null,
+      lead_id: leadId, numero: base + 1, ...(crm != null ? { funnel_id: crm } : {}), monto_usd: redondo, fecha_esperada: datos.fecha, pagado: false, pago_hora: datos.hora?.trim() || null,
       // Nace cobrada (mig 0295): deshacerla la quita, no la deja como deuda vencida.
       nacio_cobrada: true,
       // Registrada COMO la mensualidad (mig 0323): vale un mes, sea del monto que sea (`mesesDeUnaCobrada`).
@@ -838,7 +926,7 @@ export async function registrarPagoSuelto(
       ...(enMoneda ? { moneda: enMoneda.moneda, monto_original: enMoneda.montoOriginal } : {}),
     })
     .select('id').single();
-  if (error || !data) throw new Error(`No pude registrar el pago: ${error?.message ?? 'sin fila'}`);
+  if (error || !data) throw new Error(crm != null && faltaIndicePorCrm(error) ? FALTA_0324 : `No pude registrar el pago: ${error?.message ?? 'sin fila'}`);
   const pagoId = Number((data as { id: number }).id);
   await etiquetarPago(pagoId, datos);
   await marcarPago(pagoId, true, datos.fecha);
@@ -978,15 +1066,18 @@ export async function cambiarEstadoSuscripcionManual(
 /**
  * Recalcula total_cobrado_usd y fecha_primer_pago del lead a partir de sus
  * pagos pagados. Mantiene coherentes los consumidores que leen total_cobrado.
+ * ⚠️ DESDE LA 0324 (22/10/2026): `total_cobrado_usd` es lo cobrado de la CASA, que es la venta de `monto_cierre_usd` (lo
+ * de una renovación es de su CRM, lib/pagos-crm.ts); `fecha_primer_pago` es la de cualquier trato: de ella cuelga si la
+ * persona ya es cliente (`esLeadCliente`, la condición «Pagó»), y lo es aunque lo primero que pagó sea una renovación.
  */
 export async function sincronizarTotalCobrado(leadId: number): Promise<void> {
   const supabase = (await getTenantDb());
-  const pagos = await getPagosByLead(leadId);
-  const pagados = pagos.filter((p) => p.pagado);
+  const [todos, agregados] = await Promise.all([getPagosByLead(leadId, 'todos'), crmsAgregadosDelLead(leadId)]);
+  const pagados = todos.filter((p) => p.pagado && esDelTrato(p.funnel_id, null, agregados));
 
   const total = pagados.reduce((s, p) => s + Number(p.monto_usd), 0);
-  // Primer pago = la fecha_pago más temprana entre los pagados
-  const fechas = pagados
+  // Primer pago = la fecha_pago más temprana entre los pagados (de cualquier CRM)
+  const fechas = todos.filter((p) => p.pagado)
     .map((p) => p.fecha_pago)
     .filter((f): f is string => !!f)
     .sort();
@@ -1092,7 +1183,8 @@ export async function registrarCobroDeProveedor(p: {
   // todavía impaga: Outstanding de más, recordatorios de cobranza a quien ya pagó y, cuando el closer la
   // marcaba a mano, el doble de cash. Se casa por monto en USD, la más vieja primero, sólo una sin pasarela.
   if (!p.pagoId) {
-    const impagas = (await getPagosByLead(p.leadId))
+    // De CUALQUIER CRM (0324): un link pagado salda la deuda que sea, la de la casa o la de una renovación.
+    const impagas = (await getPagosByLead(p.leadId, 'todos'))
       .filter((q) => !q.pagado && !q.proveedor_pago_id && q.fecha_esperada && Math.abs(Number(q.monto_usd) - p.montoUsd) < 0.01)
       .sort((a, b) => String(a.fecha_esperada).localeCompare(String(b.fecha_esperada)) || a.numero - b.numero);
     // ⚠️ DE A UNA, EN ORDEN (21/10/2026, segunda revisión adversarial): con la misma condición, si la elegida la cobró
@@ -1112,7 +1204,8 @@ export async function registrarCobroDeProveedor(p: {
   }
 
   for (let intento = 0; intento < 2; intento++) {
-    const existentes = await getPagosByLead(p.leadId);
+    // El número después del más alto de TODOS los CRMs: nace en la casa (el trigger) y no choca con nada.
+    const existentes = await getPagosByLead(p.leadId, 'todos');
     const base = existentes.length > 0 ? Math.max(...existentes.map((q) => q.numero)) : 0;
     const { data, error } = await db
       .from('pagos')
@@ -1208,7 +1301,8 @@ export async function desmarcarCobroDeProveedor(p: {
     await sincronizarTotalCobrado(p.leadId);
     desmarcado = true;
   }
-  const quedanPagadas = (await getPagosByLead(p.leadId)).filter((q) => q.pagado).length;
+  // De cualquier CRM (0324): el que pagó una renovación sigue siendo cliente aunque le devuelvan la venta de la casa.
+  const quedanPagadas = (await getPagosByLead(p.leadId, 'todos')).filter((q) => q.pagado).length;
   if (quedanPagadas === 0) {
     const { error: e2 } = await db.from('leads').update({ fecha_primer_pago: null }).eq('id', p.leadId);
     if (e2) throw new Error(`Error limpiando el primer pago del lead ${p.leadId}: ${e2.message}`);
@@ -1313,10 +1407,17 @@ export type OutstandingLead = {
   proxima_cuota: { pago_id: number; numero: number; monto_usd: number; fecha_esperada: string | null } | null;
   dias_desde_cierre: number | null;
   fecha_cierre: string | null;
+  /**
+   * De qué trato es el renglón (mig 0324, lib/pagos-crm.ts): `crm` es el CRM agregado (una renovación) o null para la
+   * casa, y `funnel_id` el CRM de verdad (la casa ya resuelta: su funnel, o el del negocio). Un cliente que debe en la casa
+   * Y en una renovación tiene DOS renglones: cada uno con su vendido, su cobrado y su próxima cuota.
+   */
+  crm?: number | null;
+  funnel_id?: number | null;
 };
 
 /**
- * Detalle nominal del outstanding (Fase 13): un renglón por lead con cuotas
+ * Detalle nominal del outstanding (Fase 13): un renglón por lead Y POR CRM (0324) con cuotas
  * pendientes. La suma de pendiente_usd iguala getOutstandingTotal().
  *
  * Devuelve además `cuotas`: un renglón POR CUOTA sin pagar dentro de la ventana
@@ -1337,8 +1438,28 @@ async function _getOutstandingDetalle(
   const supabase = (await getTenantDb());
   // `*`: la regla (`noEsDeuda`) mira proveedor, cobro_id y `baja_at` (mig 0307), y con `*` una base sin la migración no rompe.
   // PAGINADO: «A quién cobrarle» y el Outstanding salen de acá; sin paginar, pasadas las 1.000 cuotas daban de menos.
-  const data = await leerTodo<Record<string, unknown>>(supabase, 'pagos', '*, leads(nombre, monto_cierre_usd, fecha_cierre)')
+  const data = await leerTodo<Record<string, unknown>>(supabase, 'pagos', '*, leads(nombre, monto_cierre_usd, fecha_cierre, funnel_id)')
     .catch((e: unknown) => { throw new Error(`Error leyendo detalle de outstanding: ${e instanceof Error ? e.message : String(e)}`); });
+  // LOS CRMs AGREGADOS de estos leads, con su venta (mig 0324): cada pago va al renglón de su trato (`esDelTrato`). `*`: sin
+  // la 0324 no hay columnas de venta, y el renglón de una renovación sale sin «vendido». Si no se pueden leer, todo va a la
+  // casa, como antes de la 0324: lo dice el log y la lista sigue.
+  const conLead = [...new Set((data ?? []).map((r) => Number(r.lead_id)).filter(Number.isFinite))];
+  const tratos = new Map<number, Map<number, CamposTrato>>();
+  let casaDelNegocio: number | null = null;
+  try {
+    const lf = conLead.length ? await leerTodo<Record<string, unknown>>(supabase, 'lead_funnel', '*') : [];
+    for (const f of lf) {
+      const lead = Number(f.lead_id);
+      if (!conLead.includes(lead)) continue;
+      const m = tratos.get(lead) ?? new Map<number, CamposTrato>();
+      m.set(Number(f.funnel_id), camposDeFila(f));
+      tratos.set(lead, m);
+    }
+    const { data: fd } = await supabase.from('funnels').select('id').eq('es_default', true).limit(1).maybeSingle();
+    casaDelNegocio = fd ? Number((fd as { id: number }).id) : null;
+  } catch (e) {
+    console.error('[pagos] «a quién cobrar» sin los CRMs agregados:', e instanceof Error ? e.message : String(e));
+  }
 
   type Row = {
     id: number;
@@ -1350,14 +1471,21 @@ async function _getOutstandingDetalle(
     proveedor: string | null;
     cobro_id: number | null;
     baja_at?: string | null;
-    leads: { nombre: string; monto_cierre_usd: number | null; fecha_cierre: string | null } | { nombre: string; monto_cierre_usd: number | null; fecha_cierre: string | null }[] | null;
+    funnel_id?: number | null;
+    leads: RelLead | RelLead[] | null;
   };
+  type RelLead = { nombre: string; monto_cierre_usd: number | null; fecha_cierre: string | null; funnel_id?: number | null };
 
-  const porLead = new Map<number, Row[]>();
+  // Por lead Y POR TRATO (0324): la clave es `lead|crm` (crm vacío = la casa).
+  const porTrato = new Map<string, { leadId: number; crm: number | null; rows: Row[] }>();
   for (const row of (data ?? []) as Row[]) {
-    const arr = porLead.get(row.lead_id) ?? [];
-    arr.push(row);
-    porLead.set(row.lead_id, arr);
+    const agregados = [...(tratos.get(Number(row.lead_id))?.keys() ?? [])];
+    const f = row.funnel_id == null ? null : Number(row.funnel_id);
+    const crm = f != null && !esDelTrato(f, null, agregados) ? f : null;
+    const clave = `${row.lead_id}|${crm ?? ''}`;
+    const g = porTrato.get(clave) ?? { leadId: Number(row.lead_id), crm, rows: [] };
+    g.rows.push(row);
+    porTrato.set(clave, g);
   }
 
   const [hy, hm, hd] = hoy.split('-').map(Number);
@@ -1366,7 +1494,7 @@ async function _getOutstandingDetalle(
   const cuotas: RevItem[] = [];
   const cuotaLabel = (n: number) => (n === 0 ? 'cobro inicial' : `cuota ${n}`);
 
-  for (const [leadId, rows] of porLead) {
+  for (const { leadId, crm, rows } of porTrato.values()) {
     // ⚠️ Sin las DEVUELTAS por un reembolso (15/10/2026): sin ventana, una cuota devuelta (impaga y sin vencimiento)
     // sumaba como deuda en el Outstanding y en «A quién cobrarle». Con ventana ya quedaba afuera (no tiene vencimiento).
     // Y sin las de un cliente que se dio de baja (#871): «A quién cobrarle» no le cobra a quien se fue.
@@ -1382,7 +1510,9 @@ async function _getOutstandingDetalle(
     const cobrado = rows.filter((r) => r.pagado).reduce((s, r) => s + Number(r.monto_usd), 0);
     const rel = Array.isArray(rows[0].leads) ? rows[0].leads[0] : rows[0].leads;
     const nombre = rel?.nombre ?? `Lead #${leadId}`;
-    const fechaCierre = rel?.fecha_cierre ?? null;
+    // La venta del renglón es la de SU trato: la de la casa en `leads`, la de una renovación en su `lead_funnel`.
+    const trato = crm != null ? tratos.get(leadId)?.get(crm) ?? null : null;
+    const fechaCierre = crm != null ? trato?.fecha_cierre ?? null : rel?.fecha_cierre ?? null;
     const conFecha = noPagados.filter((r) => r.fecha_esperada).sort((a, b) => (a.fecha_esperada! < b.fecha_esperada! ? -1 : 1));
     const prox = conFecha[0] ?? noPagados[0];
     let dias: number | null = null;
@@ -1393,12 +1523,14 @@ async function _getOutstandingDetalle(
     items.push({
       lead_id: leadId,
       lead_nombre: nombre,
-      vendido_usd: rel?.monto_cierre_usd ?? null,
+      vendido_usd: crm != null ? trato?.monto_cierre_usd ?? null : rel?.monto_cierre_usd ?? null,
       cobrado_usd: cobrado,
       pendiente_usd: pendiente,
       proxima_cuota: prox ? { pago_id: prox.id, numero: prox.numero, monto_usd: Number(prox.monto_usd), fecha_esperada: prox.fecha_esperada } : null,
       dias_desde_cierre: dias,
       fecha_cierre: fechaCierre,
+      crm,
+      funnel_id: crm ?? (rel?.funnel_id != null ? Number(rel.funnel_id) : casaDelNegocio),
     });
     for (const r of noPagados) {
       cuotas.push({ nombre, monto: Number(r.monto_usd), fecha: r.fecha_esperada, detalle: cuotaLabel(r.numero), leadId });
@@ -1423,25 +1555,30 @@ export async function getSuscripcionesPorCobrar(hoy: string, desde: string | nul
   try {
     const db = await getTenantDb();
     const { data: leads, error } = await db.from('leads')
-      .select('id, nombre, fecha_cierre, suscripcion_monto_usd, suscripcion_meses, suscripcion_cancelada_at')
+      .select('id, nombre, fecha_cierre, suscripcion_monto_usd, suscripcion_meses, suscripcion_cancelada_at, funnel_id')
       .eq('venta_tipo', 'suscripcion').eq('estado_lead', 'ganado').is('suscripcion_cancelada_at', null).limit(500);
     if (error) throw new Error(error.message);
-    const filas = (leads ?? []) as LeadSuscripcion[];
+    const filas = (leads ?? []) as Array<LeadSuscripcion & { funnel_id?: number | null }>;
     if (!filas.length) return [];
     const ids = filas.map((l) => Number(l.id));
-    const [pg, cb] = await Promise.all([
+    const [pg, cb, fd] = await Promise.all([
       db.from('pagos').select('*').in('lead_id', ids),
       db.from('cobros').select('lead_id, tipo, estado, suscripcion_estado, motivo').in('lead_id', ids).eq('tipo', 'suscripcion'),
+      db.from('funnels').select('id').eq('es_default', true).limit(1).maybeSingle(),
     ]);
+    // La suscripción es de la CASA (0324): su CRM es el del lead, o el del negocio.
+    const casaDelNegocio = fd.data ? Number((fd.data as { id: number }).id) : null;
     if (pg.error) throw new Error(pg.error.message);
     if (cb.error) throw new Error(cb.error.message);
     const pagosDe = new Map<number, Pago[]>();
     for (const p of (pg.data ?? []) as Pago[]) pagosDe.set(Number(p.lead_id), [...(pagosDe.get(Number(p.lead_id)) ?? []), p]);
     const cobrosDe = new Map<number, CobroParaCobrado[]>();
     for (const c of (cb.data ?? []) as Array<CobroParaCobrado & { lead_id: number }>) cobrosDe.set(Number(c.lead_id), [...(cobrosDe.get(Number(c.lead_id)) ?? []), c]);
-    return filas
-      .map((l) => itemDeSuscripcion({ lead: l, pagos: pagosDe.get(Number(l.id)) ?? [], cobros: cobrosDe.get(Number(l.id)) ?? [], hoy, ventana: { desde, hasta } }))
-      .filter((x): x is ItemPorCobrar => x != null);
+    return filas.flatMap((l): ItemPorCobrar[] => {
+      // Los pagos de la CASA: lo de una renovación no es un mes de esta suscripción.
+      const it = itemDeSuscripcion({ lead: l, pagos: (pagosDe.get(Number(l.id)) ?? []).filter((p) => p.funnel_id == null || Number(p.funnel_id) === Number(l.funnel_id ?? casaDelNegocio)), cobros: cobrosDe.get(Number(l.id)) ?? [], hoy, ventana: { desde, hasta } });
+      return it ? [{ ...it, crm: null, funnel_id: l.funnel_id != null ? Number(l.funnel_id) : casaDelNegocio }] : [];
+    });
   } catch (e) {
     console.error('[pagos] suscripciones por cobrar:', e instanceof Error ? e.message : String(e));
     return [];
@@ -1455,7 +1592,8 @@ export async function getSuscripcionesPorCobrar(hoy: string, desde: string | nul
  */
 export async function getPorCobrar(hoy: string, desde: string | null, hasta: string | null): Promise<{ detalle: Awaited<ReturnType<typeof getOutstandingDetalle>>; items: ItemPorCobrar[] }> {
   const [detalle, subs] = await Promise.all([getOutstandingDetalle(hoy, desde, hasta), getSuscripcionesPorCobrar(hoy, desde, hasta)]);
-  const conCuota = new Set(detalle.items.map((i) => Number(i.lead_id)));
+  // Una suscripción es de la casa (0324): la tapa un renglón de cuotas de la CASA, no el de una renovación.
+  const conCuota = new Set(detalle.items.filter((i) => i.crm == null).map((i) => Number(i.lead_id)));
   return { detalle, items: [...detalle.items, ...subs.filter((s) => !conCuota.has(Number(s.lead_id)))] };
 }
 
@@ -1644,7 +1782,8 @@ const ROTULO_TIPO: Readonly<Record<VentaTipo, string>> = { unico: 'Pago único',
  * La plata deja su diff con `logLeadChanges` (AUDIT_FIELDS: «Monto de cierre», «Suscripción (USD/mes)», «Plazo de
  * la suscripción»), que la ficha sabe REVERTIR; la fecha y el tipo dejan su línea con el antes y el después.
  */
-export async function escribirVenta(leadId: number, cambio: CambioVenta, opts: { autor: string; tipoVisto?: VentaTipo | null }): Promise<{ ok: true; cambio: boolean; ventaTipo: VentaTipo; deshacer: CambioVenta[] } | Fallo> {
+export async function escribirVenta(leadId: number, cambio: CambioVenta, opts: { autor: string; tipoVisto?: VentaTipo | null; crm?: Crm }): Promise<{ ok: true; cambio: boolean; ventaTipo: VentaTipo; deshacer: CambioVenta[] } | Fallo> {
+  if (opts.crm != null) return escribirVentaDeCrm(leadId, opts.crm, cambio, opts);
   const fila = await filaDelLead(leadId, 'venta_tipo, monto_cierre_usd, suscripcion_monto_usd, suscripcion_meses, fecha_cierre');
   if (!fila) return { ok: false, error: 'No encontré ese lead en este negocio.' };
   const tipo = ventaTipoDe(fila.venta_tipo as string | null);
@@ -1687,6 +1826,58 @@ export async function escribirVenta(leadId: number, cambio: CambioVenta, opts: {
   if (cambio.campo === 'fecha') lineas.push({ campo: 'Fecha de cierre', valor_anterior: (fila.fecha_cierre as string | null) ?? null, valor_nuevo: cambio.valor ?? null });
   const nuevoTipo = cambio.campo === 'tipo' ? ventaTipoDe(cambio.valor) : tipo;
   if (nuevoTipo !== tipo) lineas.push({ campo: 'Tipo de venta', valor_anterior: ROTULO_TIPO[tipo], valor_nuevo: ROTULO_TIPO[nuevoTipo] });
+  await anotarEnHistorial(leadId, lineas, opts.autor);
+  return { ok: true, cambio: true, ventaTipo: nuevoTipo, deshacer: p.deshacer };
+}
+
+/** El nombre de un CRM para el historial («Monto · Renovación»). Si no se puede leer, «otro CRM». */
+async function nombreDelCrm(crm: number): Promise<string> {
+  const { data } = await (await getTenantDb()).from('funnels').select('nombre').eq('id', crm).maybeSingle();
+  return ((data as { nombre?: string } | null)?.nombre ?? '').trim() || 'otro CRM';
+}
+
+/**
+ * La venta de un CRM AGREGADO (mig 0324): monto, fecha de cierre o tipo (pago único o «sin cobro»; la suscripción es de la
+ * casa), en su fila de `lead_funnel`, con el MISMO `patchDeVenta` y el mismo compare-and-set sobre el tipo que la casa.
+ * La salida de «Sin cobro» va acá mismo (la de la casa es `quitarSinCobro`, sobre `leads`). Deja su línea en el historial
+ * del lead con el nombre del CRM.
+ */
+async function escribirVentaDeCrm(leadId: number, crm: number, cambio: CambioVenta, opts: { autor: string; tipoVisto?: VentaTipo | null }): Promise<{ ok: true; cambio: boolean; ventaTipo: VentaTipo; deshacer: CambioVenta[] } | Fallo> {
+  const t = await filaDelTrato(leadId, crm);
+  if (!t) return { ok: false, error: 'Este lead ya no está en ese CRM. Recarga la ficha.' };
+  const tipo = ventaTipoDe(t.venta_tipo);
+  if (opts.tipoVisto && opts.tipoVisto !== tipo) return { ok: false, error: 'El tipo de venta cambió en otra pantalla. Recarga la ficha.' };
+  if (cambio.campo === 'tipo' && cambio.valor === 'suscripcion') return { ok: false, error: 'Una suscripción va en el CRM de la casa del lead: acá la venta es de un pago o en cuotas.' };
+  const db = await getTenantDb();
+  const ahora = new Date().toISOString();
+  const nombre = await nombreDelCrm(crm);
+  const cuotas = await getPagosByLead(leadId, crm);
+  const p = patchDeVenta(t, cambio, { hayCobradas: cuotas.some((q) => q.pagado), impagas: cuotas.filter((q) => !q.pagado && !noEsDeuda(q)).length });
+  if (!p.ok) {
+    if ('usarQuitarSinCobro' in p && p.usarQuitarSinCobro) {
+      const { data, error } = await db.from('lead_funnel').update({ venta_tipo: 'unico', updated_at: ahora }).eq('id', t.id).eq('venta_tipo', VENTA_SIN_COBRO).select('id');
+      if (error) return { ok: false, error: `No pude guardar la venta: ${error.message}` };
+      if (!data?.length) return { ok: false, error: 'El tipo de venta cambió en otra pantalla. Recarga la ficha.' };
+      await anotarEnHistorial(leadId, [{ campo: `Tipo de venta · ${nombre}`, valor_anterior: ROTULO_TIPO.sin_cobro, valor_nuevo: ROTULO_TIPO.unico }], opts.autor);
+      return { ok: true, cambio: true, ventaTipo: 'unico', deshacer: [{ campo: 'tipo', valor: VENTA_SIN_COBRO }] };
+    }
+    return p;
+  }
+  if (p.nada) return { ok: true, cambio: false, ventaTipo: tipo, deshacer: [] };
+  // Sólo lo que un CRM agregado guarda: la mensualidad y el plazo de `patchDeVenta` son de una suscripción, que acá no hay.
+  const patch = Object.fromEntries(Object.entries(p.patch).filter(([k]) => k === 'venta_tipo' || k === 'monto_cierre_usd' || k === 'fecha_cierre'));
+  let q = db.from('lead_funnel').update({ ...patch, updated_at: ahora }).eq('id', t.id);
+  // El compare-and-set del tipo: NULL es «pago único» sin elegir todavía.
+  if (p.tipoEsperado) q = t.venta_tipo == null ? q.is('venta_tipo', null) : q.eq('venta_tipo', t.venta_tipo);
+  const { data, error } = await q.select('id');
+  if (error) return { ok: false, error: /column|columna/i.test(error.message) ? FALTA_0324 : `No pude guardar la venta: ${error.message}` };
+  if (!data?.length) return { ok: false, error: 'El tipo de venta cambió en otra pantalla. Recarga la ficha.' };
+  const nuevoTipo = cambio.campo === 'tipo' ? ventaTipoDe(cambio.valor) : tipo;
+  const txt = (v: unknown) => (v == null ? null : String(v));
+  const lineas: Array<{ campo: string; valor_anterior: string | null; valor_nuevo: string | null }> = [];
+  if ('monto_cierre_usd' in patch && txt(patch.monto_cierre_usd) !== txt(t.monto_cierre_usd)) lineas.push({ campo: `Monto de cierre · ${nombre}`, valor_anterior: txt(t.monto_cierre_usd), valor_nuevo: txt(patch.monto_cierre_usd) });
+  if (cambio.campo === 'fecha') lineas.push({ campo: `Fecha de cierre · ${nombre}`, valor_anterior: t.fecha_cierre, valor_nuevo: cambio.valor ?? null });
+  if (nuevoTipo !== tipo) lineas.push({ campo: `Tipo de venta · ${nombre}`, valor_anterior: ROTULO_TIPO[tipo], valor_nuevo: ROTULO_TIPO[nuevoTipo] });
   await anotarEnHistorial(leadId, lineas, opts.autor);
   return { ok: true, cambio: true, ventaTipo: nuevoTipo, deshacer: p.deshacer };
 }

@@ -410,6 +410,8 @@ avance de un OKR (lib/objectives-fuentes.ts), los gráficos de pagos (lib/grafic
   el plan de cuotas; uno solo, y sólo llena lo que viene vacío.
 - **Lo que no resuelve:** un pago suelto de la venta VIEJA registrado a mano después de agregar al lead a otro funnel se
   guarda en el nuevo (el día de su creación ya estaba ahí). Si pasa, se corrige el `funnel_id` de esa fila.
+- ⚠️ **Desde la 0324 (22/10/2026) el trigger ya no adivina**: lo que nace sin CRM va a la casa, y lo de un CRM agregado lo
+  escribe su tab Pagos diciendo el CRM (abajo, «Los pagos son de un CRM»).
 - **«Firmado» de una renovación: DESCARTADO por ahora (la otra mitad de la tarjeta).** La revisión del 17/10 lo marcó
   como a medias, y es cierto: «Firmado» (`sold_usd`) suma `leads.monto_cierre_usd` en `fecha_cierre`, y un lead tiene
   UN solo trato. Ganar en el tablero de un funnel agregado sólo mueve `lead_funnel.etapa` (`moverEtapaEnProducto`,
@@ -767,3 +769,63 @@ de pago de una landing del Web Generator (`cobrar_producto_landing`, busca el le
 gana al lead en su CRM de ORIGEN (`ganarLead` en la casa): la tarjeta del CRM de la campaña (agregado) no se mueve.
 **Sin hacer:** match de un pago externo por email/teléfono; mover a «Pagó» del CRM agregado al ganar.
 **Vive en:** lib/cobros-webhook.ts · lib/cobros.ts (`cobroDelAviso`, `ganarLead`) · app/crm/[id]/CobrarConLink.tsx.
+
+## Los pagos son de un CRM: el plan de una renovación arranca de cero (22/10/2026, mig 0324)
+
+Llamada con un cliente del 22/10 (Fathom 195129619, 05:00-12:39). Vio dos cosas: el dashboard de Cobros «sólo lee el
+funnel original» y no muestra a los clientes de renovación que ya pagaron; y la tab Pagos de un cliente en el CRM de
+renovaciones mostraba «cuota 1, cobrada el 01/04», que era de su primer servicio.
+
+- **El diagnóstico obvio del dashboard era el equivocado.** «Cobros sólo lee el funnel original» NO: la hoja «Cobros»
+  del ws1 (`general.informe.2`) no tiene NINGÚN filtro de funnel y lee todos los pagos. Medido (sólo lectura): los 34
+  pagos del ws1 son del funnel de la casa, y de «Renovación» (5 leads, 2 ganados: los leads 21 y 28) hay **cero**. Las
+  renovaciones no aparecían porque **nunca se registraron**: la tab Pagos en el CRM de renovaciones mostraba el plan del
+  primer servicio, así que no había dónde cargar el de la renovación. P1 era la consecuencia de P2.
+- **La causa real:** el plan colgaba del LEAD, no del par (lead, CRM). La venta y el plan (`monto_cierre_usd`,
+  `total_cuotas`, `monto_cuota_usd`, `dia_de_pago`…) están en `leads`, y la tab leía todas las filas de `pagos` del lead.
+- **El modelo que queda** (lib/pagos-crm.ts): cada CRM del lead es un TRATO. El de la casa, como siempre (`leads` +
+  los pagos que no son de un CRM agregado). El de un CRM agregado: su fila de `lead_funnel` (columnas nuevas de la 0324)
+  + los pagos con ese `funnel_id`. `getPagosByLead(lead)` devuelve la CASA (lo que leen la API de MaKo, el asistente de
+  Ganado, Customer Success, lo cobrado del lead); `getPagosByLead(lead, crm)`, un CRM; `'todos'` para buscar por id.
+  La ficha sabe qué CRM mira por el desplegable de la cabecera (`crmEnVista`) y los bloques de PLATA de Pagos pasan
+  por `ctxDelTrato` (app/crm/lead-view/ficha/pagos/trato.ts): lo que se ve y lo que se escribe es de ese trato. Cada
+  acción valida el CRM contra el lead (`crmDelTrato`).
+- **Trampa 1 · el índice único de las cuotas era por LEAD** (`idx_pagos_lead_numero (lead_id, numero)`, mig 0014): la
+  cuota 1 de la renovación no podía convivir con la cuota 1 de la venta. La 0324 lo cambia a `(lead_id, funnel_id,
+  numero)`, y por eso **se aplica ANTES del deploy**: sin ella, el plan de un CRM agregado no se guarda y lo dice
+  (`faltaIndicePorCrm` → «falta la migración 0324»), en vez de un «duplicate key».
+- **Trampa 2 · el trigger de la 0310 adivinaba el CRM por «el último al que se agregó al lead».** Con un CRM de
+  prospección masiva (300 agregados al «Sprint 3 días» del ws1 el 22/10, 1.050 en camino), una cuota de la venta de
+  siempre cargada por la API o la pasarela habría ido al Sprint y desaparecido de la tab Pagos de la casa. **Regla:** lo
+  que nace sin decir su CRM va a la CASA; lo de un CRM agregado lo escribe su tab Pagos, diciendo el CRM. La diferencia
+  de un cobro por menos (`resto_de`) va al CRM de su cuota.
+- **Lo que no se perdió:** ningún pago cambió de CRM (la 0324 no tiene un `update pagos`). El único pago que ya estaba
+  en un CRM agregado (ws11, lead 2632, US$40 cobrado, creado el día que se lo agregó a «Funnel principal») pasa a verse
+  en la tab Pagos de ESE CRM y deja de contar en `total_cobrado_usd` de la casa (que ahora es lo cobrado de la venta de
+  la casa; `fecha_primer_pago` sigue mirando todo: quien pagó una renovación sigue siendo cliente).
+- **P1, el selector:** la hoja ya tenía el control «Funnel» (campo `producto`), pero (a) «A quién cobrarle» es un bloque
+  de General y `efectivoDe` no lo alcanza: ahora el control de la hoja le llega por `funnelsDeLaHoja`
+  (lib/graficos-controles-texto.ts) si el bloque no eligió los suyos; (b) la lista era por LEAD y filtraba por
+  pertenencia: ahora es una fila por trato (`OutstandingLead.crm/funnel_id`) y el bloque filtra por el CRM de la fila;
+  (c) el desplegable sólo ofrecía funnels con filas en el período: un CRM sin cobros todavía no se podía elegir. Ofrece
+  todos (`valoresDeCampo`). La plantilla «Cobros» nace con el control.
+- **P3:** «01/04» no se sabía si era día/mes: `fechaEnPalabras` (lib/date-utils.ts) en la tab Pagos y en sus textos
+  (`ddmm`, lib/cobrado-lead.ts): «1 de abril», con el año sólo si no es el de hoy.
+
+**Sin hacer** (con dónde vive):
+- La hoja «Cobros» YA GUARDADA del ws1 no tiene el control: se agrega desde el editor («Filtro» → «Agregar filtro» →
+  «Funnel») o con una escritura en `app_settings` (`general.informe.2`) que pide el OK de Martín.
+- Los bloques del DEAL (contrato, datos fiscales, servicio, promesa, obligaciones) siguen siendo del lead en cualquier
+  CRM: app/crm/lead-view/ficha/pagos/bloques-deal.tsx.
+- Un CRM agregado no tiene suscripción (`lead_funnel_venta_tipo_check`): una mensualidad es de la casa.
+- Lo que entra SIN CRM va a la casa: el link de pago libre de la pasarela (`registrarCobroDeProveedor`, salda primero
+  una deuda de cualquier CRM por monto), la API de MaKo (`guardar_plan_pagos`, `registrar_pago`) y el asistente de Ganado
+  (que es el de la casa). La API no sabe elegir CRM: lib/api-mako/areas/cobros.run.ts.
+- «Firmado» (`sold_usd`) sigue sumando la venta de la casa: el monto de una renovación (`lead_funnel.monto_cierre_usd`)
+  no entra en Revenue ni en los OKRs de cierre (lib/objectives-fuentes.ts, `hechosDelPeriodo`).
+- La tab Pagos de Customer Success (DealDetailsCard) y la ficha del teléfono (app/m/crm/[id]/FichaLead.tsx) muestran la
+  casa.
+
+**Vive en:** supabase/migrations/0324_pagos_por_crm.sql · lib/pagos-crm.ts · lib/pagos.ts (`getPagosByLead`,
+`crmDelTrato`, `tratosDelLead`, `escribirVentaDeCrm`) · app/crm/lead-view/ficha/pagos/trato.ts · tests/pagos-crm.test.ts.
+*22/10/2026, chat «Cobros» (claude3).*

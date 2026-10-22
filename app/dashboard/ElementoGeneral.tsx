@@ -22,7 +22,8 @@
 //    `:has` (app/dashboard/editor-css.ts). Un bloque que usa los tokens de la casa se da vuelta solo.
 
 import { createContext, useContext, type ReactNode } from 'react';
-import type { Elemento } from '@/lib/graficos-catalogo';
+import type { Elemento, Hoja, VistaValores } from '@/lib/graficos-catalogo';
+import { funnelsDeLaHoja } from '@/lib/graficos-controles-texto';
 import { conVariables, opcionDe, piezaGeneral, type OpcionesElegidas, type PiezaGeneral, type ValoresVariables } from '@/lib/general-piezas';
 
 export type { FunnelElegible } from '../components/ElegirFunnels';
@@ -31,8 +32,11 @@ import { RedDeBloque } from './RedDeBloque';
 
 /** Lo que General le presta al editor (lo monta app/general/ProveedorGeneral.tsx). */
 export type ContextoDeGeneral = {
-  /** El bloque dibujado con sus opciones, o null si no hay con qué. */
-  dibujar: (e: Elemento) => ReactNode;
+  /**
+   * El bloque dibujado con sus opciones, o null si no hay con qué. `hoja`: lo que filtra la hoja y un bloque puede tomar
+   * (los funnels del control «Funnel» de arriba, por nombre; `funnelsDeLaHoja`).
+   */
+  dibujar: (e: Elemento, hoja?: { funnels: readonly string[] | null }) => ReactNode;
   /** Lo que el bloque define en el panel (null = nada propio). */
   configurar: (e: Elemento) => ReactNode;
   /** El bloque con datos de ejemplo (y sus opciones, si se dan): el menú y las miniaturas de las plantillas. */
@@ -70,8 +74,9 @@ const CSS = `
 .gen-pieza-vacia{flex:1;display:grid;place-items:center;text-align:center;padding:16px;font-size:14px;color:var(--dim);border:1px dashed var(--border-strong);border-radius:12px}
 `;
 
-export function ElementoGeneral({ e }: { e: Elemento }) {
+export function ElementoGeneral({ e, hoja, vista }: { e: Elemento; hoja?: Hoja | null; vista?: VistaValores | null }) {
   const g = useContext(Contexto);
+  const funnels = funnelsDeLaHoja(hoja, vista);
   const pieza = e.general?.pieza;
   if (!pieza) return null;
   const info = piezaGeneral(pieza);
@@ -86,7 +91,7 @@ export function ElementoGeneral({ e }: { e: Elemento }) {
       <style>{CSS}</style>
       <TituloPropio.Provider value={titulo || null}>
         <RedDeBloque key={JSON.stringify(e.general)} nombre={info.nombre}>
-          <DibujoDeBloque e={e} nombre={info.nombre} enGeneral={!!g} />
+          <DibujoDeBloque e={e} nombre={info.nombre} enGeneral={!!g} funnels={funnels} />
         </RedDeBloque>
       </TituloPropio.Provider>
     </div>
@@ -94,9 +99,9 @@ export function ElementoGeneral({ e }: { e: Elemento }) {
 }
 
 /** El dibujo del bloque, adentro de la red (ver arriba). */
-function DibujoDeBloque({ e, nombre, enGeneral }: { e: Elemento; nombre: string; enGeneral: boolean }) {
+function DibujoDeBloque({ e, nombre, enGeneral, funnels }: { e: Elemento; nombre: string; enGeneral: boolean; funnels: readonly string[] | null }) {
   const g = useContext(Contexto);
-  const nodo = g?.dibujar(e) ?? null;
+  const nodo = g?.dibujar(e, { funnels }) ?? null;
   return nodo ?? (
     <div className="gen-pieza-vacia">
       {!enGeneral ? `«${nombre}» se ve en la tab General.` : `No pude armar «${nombre}».`}

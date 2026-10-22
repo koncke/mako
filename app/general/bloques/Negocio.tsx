@@ -183,7 +183,9 @@ export function MuestraFunnel({ op }: { op?: OpcionesElegidas }) {
 
 /**
  * `elegidos`: los funnels del bloque (desde el 17/10/2026, uno O VARIOS: la cobranza de «VSL + Renovación» es la unión de
- * sus clientes). Vacío = todo el negocio. Un cliente es de un funnel por su casa o por estar agregado (`deQuien`).
+ * sus clientes). Vacío = todo el negocio. Desde el 22/10/2026 (mig 0324) cada fila es lo que se le cobra en UN CRM
+ * (`funnelId`): «Renovación» trae lo que se debe de las renovaciones, no a todo cliente que esté en ese CRM. Una fila sin
+ * CRM (no se supo) cae a la regla de antes: el cliente es del funnel por su casa o por estar agregado (`deQuien`).
  */
 export function BloqueCobranza({ d, elegidos, funnels, op }: { d: DatosGeneral['cobranza']; elegidos: readonly number[]; funnels: DatosGeneral['funnels']; op?: OpcionesElegidas }) {
   const limite = numeroDe(opcionDe('cobranza', op, 'limite'));
@@ -196,9 +198,10 @@ export function BloqueCobranza({ d, elegidos, funnels, op }: { d: DatosGeneral['
   );
   if (!d.ok) return <Cobranza filas={[]} tz="" error={d.error} alcance={nombreFunnel} />;
   // Un filtro que no se pudo armar no es «nadie debe»: la cobranza de un funnel sin saber de quién es cada cliente lo dice.
-  if (filtra && d.d.deQuien == null) return <Cobranza filas={[]} tz={d.d.tz} error="No pude leer de qué funnel es cada cliente." alcance={nombreFunnel} />;
+  const sinCrm = d.d.cobros.some((c) => c.funnelId == null);
+  if (filtra && sinCrm && d.d.deQuien == null) return <Cobranza filas={[]} tz={d.d.tz} error="No pude leer de qué funnel es cada cliente." alcance={nombreFunnel} />;
   let filas: CobroM[] = d.d.cobros;
-  if (filtra && d.d.deQuien) filas = filas.filter((c) => d.d.deQuien?.[c.leadId]?.some((f) => elegidos.includes(f)));
+  if (filtra) filas = filas.filter((c) => (c.funnelId != null ? elegidos.includes(c.funnelId) : !!d.d.deQuien?.[c.leadId]?.some((f) => elegidos.includes(f))));
   if (soloVencidas) filas = filas.filter((c) => c.urgencia === 'vencida');
   return <Cobranza filas={filas} tz={d.d.tz} error={null} alcance={nombreFunnel} limite={limite} vacio={vacio} />;
 }

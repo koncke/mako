@@ -671,11 +671,12 @@ async function filasCobranza(rg: Rango): Promise<Fila[]> {
   const hoy = await hoyEnWorkspace().catch(() => hoyEnTijuana());
   const todo = rg.desde <= DESDE_TODO;
   // Las cuotas Y las suscripciones por cobrar (20/10/2026, `getPorCobrar`): una suscripción no genera cuotas y no aparecía.
-  const { items } = await getPorCobrar(hoy, todo ? null : rg.desde, todo ? null : rg.hasta);
+  const [{ items }, rot] = await Promise.all([getPorCobrar(hoy, todo ? null : rg.desde, todo ? null : rg.hasta), rotulosDelCrm()]);
   return armarCobranza(items, hoy).filas.map((c) => ({
     f: c.cuota?.vence ?? c.suscripcion?.vence ?? null,
     // El cliente es una PERSONA (fuera de DIMENSIONES_PUBLICAS). Una suscripción dice «Mensualidad» (no tiene cuota).
-    d: { cliente: c.nombre, urgencia: rotuloUrgencia(c.urgencia, c.cuota?.vence ?? c.suscripcion?.vence), proxima: c.cuota ? nombreCuota(c.cuota.numero) : c.suscripcion ? 'Mensualidad' : null },
+    // `producto`: el CRM de lo que se le cobra (mig 0324): la casa, o el de una renovación (una fila por trato).
+    d: { cliente: c.nombre, urgencia: rotuloUrgencia(c.urgencia, c.cuota?.vence ?? c.suscripcion?.vence), proxima: c.cuota ? nombreCuota(c.cuota.numero) : c.suscripcion ? 'Mensualidad' : null, producto: c.funnelId != null ? rot.producto(c.funnelId) : null },
     v: {
       vendido: num(c.vendido), cobrado_total: c.cobrado, pendiente: c.pendiente, proxima_monto: c.cuota?.monto ?? (c.suscripcion ? c.pendiente / Math.max(1, c.suscripcion.meses) : 0),
       ...(c.dias != null ? { dias: c.dias } : {}),
