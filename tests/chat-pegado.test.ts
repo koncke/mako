@@ -63,9 +63,10 @@ test('el corte del turno respeta las marcas y dice lo que cortó', () => {
 
 test('#848: el hilo de escritorio y el del teléfono parten el mensaje y pliegan lo largo', () => {
   const hilo = sinComentarios(leer('app/_chat/HiloMako.tsx'));
-  assert.match(hilo, /const \{ texto, pegados \} = partirPegados\(/);
+  // Desde el 21/10/2026 lo partido puede traer la cita del mensaje que responde (lo de WhatsApp): va arriba, en el globo.
+  assert.match(hilo, /const \{ texto: conTodo, pegados \} = partirPegados\(/);
   assert.match(hilo, /<PegadosHilo pegados=\{pegados\} \/>/);
-  assert.match(hilo, /<TextoPlegable texto=\{texto\} className="co-burbuja" pie=\{pie\} \/>/);
+  assert.match(hilo, /<TextoPlegable texto=\{texto\} className="co-burbuja" pie=\{pie\} arriba=\{cita\} \/>/);
   const tel = sinComentarios(leer('app/m/mako/ChatMako.tsx'));
   assert.match(tel, /const \{ texto: t, pegados \} = partirPegados\(/);
   assert.match(tel, /<PegadosHilo pegados=\{pegados\} \/>/);

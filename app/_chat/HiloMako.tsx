@@ -26,8 +26,10 @@ import type { Muneco } from '@/app/admin/operaciones/Muneco';
 import { FilaDelChat, FilaMia } from '@/app/admin/operaciones/Hilo';
 import { Trabajando } from '@/app/admin/operaciones/Trabajando';
 import { AudioPlay } from '@/app/whatsapp/_shared/AudioPlay';
-import type { MarcasChat, MensajeWA } from '@/lib/centro-mensajes';
-import { ERROR_INCIERTO, conRespuestas, textoConArchivos, type ItemHilo } from '@/app/m/mako/chat-ui';
+import { leerCita, renglonDeCita, type IdMensaje, type MarcasChat, type MensajeWA } from '@/lib/centro-mensajes';
+export { idWA, mensajeWADe } from '@/app/m/mako/chat-ui';
+import { CitaEnBurbuja, MarcasEnHora } from '@/app/admin/operaciones/MensajeWA';
+import { ERROR_INCIERTO, conRespuestas, idWA, mensajeWADe, textoConArchivos, type ItemHilo } from '@/app/m/mako/chat-ui';
 import { TarjetaAccion, type ItemPropuesta } from './TarjetaAccion';
 import { ArchivosHilo } from './ArchivosHilo';
 import { ConectarDelAviso } from './ConectarDelAviso';
@@ -54,8 +56,17 @@ function rotuloDia(iso: string, ahora: number): string {
 
 export type Quien = { nombre: string; aspecto?: Parameters<typeof Muneco>[0]['aspecto'] };
 
-/** El id de un mensaje para lo de WhatsApp (lib/centro-mensajes.ts → IdMensaje: `t:` y hasta 64 letras, números o guiones). */
-const idWA = (id: string): string => `t:${id.replace(/[^\w-]/g, '-').slice(-64)}`;
+type ItemMsg = Extract<ItemHilo, { k: 'msg' }>;
+/** El mensaje que una cita respondió: el último que empieza con el renglón citado (como `buscarCitado` del Centro). */
+function citadoEn(items: readonly ItemHilo[], texto: string): IdMensaje | null {
+  const buscado = texto.replace(/…$/, '').trim();
+  if (!buscado) return null;
+  for (let i = items.length - 1; i >= 0; i--) {
+    const x = items[i];
+    if (x.k === 'msg' && renglonDeCita(x.texto, 100_000).startsWith(buscado)) return idWA(x);
+  }
+  return null;
+}
 
 /** Lo de MaKo: su criatura y lo que dijo en su globo, a la izquierda (`ancho`: una tarjeta, sin globo). La fila del Ops Center. */
 function DeMako({ quien, children, hora = null, ancho = false, m = null, marcas }: {
@@ -85,14 +96,12 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
   /** Las marcas de WhatsApp de este chat (reacciones, destacados): con el menú del clic derecho de quien lo monta. */
   marcas?: MarcasChat | null;
 }) {
-  /** El mensaje, para el menú del clic derecho y el deslizar para responder (sin el contexto de WhatsApp, no hace nada). */
-  const wa = (x: Extract<ItemHilo, { k: 'msg' }>): MensajeWA => ({
-    id: idWA(x.id), texto: x.texto, de: x.role === 'user' ? 'Tú' : quien.nombre, propio: x.role === 'user',
-    instante: x.at ? Date.parse(x.at) || 0 : 0, trabajo: null,
-  });
+  const wa = (x: ItemMsg) => mensajeWADe(x, quien.nombre);
   const filas: ReactNode[] = [];
   let ultimoDia: string | null = null;
   conRespuestas(items).forEach((x) => {
+    // Lo que la persona eliminó para ella no se dibuja (WhatsApp: «Eliminar para mí»).
+    if (x.k === 'msg' && marcas?.ocultos.includes(idWA(x))) return;
     if (x.k === 'msg' && x.at) {
       const d = diaDe(x.at);
       if (d && d !== ultimoDia) { filas.push(<span key={`d-${x.id}`} className="co-dia">{rotuloDia(x.at, ahora)}</span>); ultimoDia = d; }
@@ -101,8 +110,12 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
       const archivos = x.archivos ?? [];
       // Lo pegado de más de 1.000 caracteres viaja marcado y se dibuja como documento; lo escrito largo se pliega
       // (#848 y #864, lib/chat-pegado.ts): una transcripción ya no hace una burbuja de 24.000 px.
-      const { texto, pegados } = partirPegados(archivos.length ? textoConArchivos(x.texto) : x.texto);
-      const pie = <span className="co-burbuja__pie">{x.estado === 'enviando' ? 'Enviando…' : hora(x.at)}</span>;
+      const { texto: conTodo, pegados } = partirPegados(archivos.length ? textoConArchivos(x.texto) : x.texto);
+      // Si respondió a un mensaje, la cita va arriba, en su globo, y se toca para ir a él (lo de WhatsApp del Centro).
+      const conCita = leerCita(conTodo);
+      const texto = conCita?.resto ?? conTodo;
+      const cita = conCita ? <CitaEnBurbuja de={conCita.cita.de} texto={conCita.cita.texto} lineas={[]} citado={citadoEn(items, conCita.cita.texto)} /> : null;
+      const pie = <span className="co-burbuja__pie"><MarcasEnHora id={idWA(x)} marcas={marcas} />{x.estado === 'enviando' ? 'Enviando…' : hora(x.at)}</span>;
       filas.push(
         <FilaMia key={x.id} m={wa(x)} marcas={marcas} despues={<>
           {x.estado === 'error' && (
@@ -124,7 +137,7 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
               {texto && <span className="ch-voz__texto">{texto}</span>}
               {pie}
             </div>
-          ) : texto ? <TextoPlegable texto={texto} className="co-burbuja" pie={pie} /> : <p className="ch-pie-suelto">{pie}</p>}
+          ) : texto ? <TextoPlegable texto={texto} className="co-burbuja" pie={pie} arriba={cita} /> : <p className="ch-pie-suelto">{pie}</p>}
         </FilaMia>,
       );
       return;

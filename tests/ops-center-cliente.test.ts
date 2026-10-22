@@ -121,3 +121,48 @@ test('5. un chat de antes se sigue con la regla de quién lo ve, y el turno corr
   assert.match(post, /confirmarDesdeTarjeta\(quien, sessionId, pendienteId\)/);
   assert.doesNotMatch(post, /turnoApp\(persona,/, 'ningún turno salta la regla');
 });
+
+// 21/10/2026, Martín: «no se puede dar click derecho como en SuperAdmin, muchas cosas faltan». Lo de WhatsApp de cada mensaje
+// es el del super admin (MensajeWA.tsx): el menú, la cita en la caja y en el globo, y las marcas, guardadas por persona.
+// PROBADO ROMPIÉNDOLO (base 7/0): el id de un mensaje con su lugar en el hilo (cambia al recargar) → 6/1 (6) · la ruta de las
+// marcas sin sanear el cambio → 6/1 (6) · la caja sin la cita al mandar → 6/1 (6) · «Conectar tu Claude» aunque la persona tenga
+// su computadora → 6/1 (7) · la caja sin `alFinal` → 6/1 (7).
+test('6. el clic derecho, la cita y las marcas del super admin, en cada mensaje del chat con MaKo', async () => {
+  const { idWA, mensajeWADe } = await import('../app/m/mako/chat-ui');
+  const { esIdMensaje } = await import('../lib/centro-mensajes');
+  const a = idWA({ id: 'm3-2026-10-18T04:19:00.000Z', role: 'assistant', at: '2026-10-18T04:19:00.000Z' });
+  assert.equal(a, idWA({ id: 'm9-2026-10-18T04:19:00.000Z', role: 'assistant', at: '2026-10-18T04:19:00.000Z' }), 'recargar no le cambia el id');
+  assert.notEqual(a, idWA({ id: 'x', role: 'user', at: '2026-10-18T04:19:00.000Z' }), 'lo de la persona y lo de MaKo a la misma hora');
+  assert.ok(esIdMensaje(a) && esIdMensaje(idWA({ id: 'u-lnx2-a', role: 'user', at: null })), 'un id que la ruta acepta');
+  const m = mensajeWADe({ k: 'msg', id: 'u1', role: 'user', texto: 'hola', at: '2026-10-18T04:19:00.000Z' }, 'Cerebro');
+  assert.deepEqual([m.de, m.propio, m.texto], ['Tú', true, 'hola']);
+  const sb = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
+  assert.match(sb, /<ContextoWA\.Provider value=\{accionesWA\}>/, 'el hilo con lo de WhatsApp');
+  assert.match(sb, /<MenuMensajeWA abierto=\{menuWA\} marcas=\{marcas\} onCerrar=\{\(\) => setMenuWA\(null\)\} onElegir=\{elegirEnMenu\} sin=\{\['reenviar'\]\} \/>/);
+  assert.match(sb, /const t = armarConCita\(cita, texto\.trim\(\)\);/, 'la cita sale con el mensaje');
+  assert.match(sb, /\{cita && <CitaCaja cita=\{cita\} onQuitar=\{\(\) => setCita\(null\)\} \/>\}/, 'la cita arriba de la caja');
+  const hm = sinComentarios(leer('app/_chat/HiloMako.tsx'));
+  assert.match(hm, /if \(x\.k === 'msg' && marcas\?\.ocultos\.includes\(idWA\(x\)\)\) return;/, 'eliminar para mí');
+  assert.match(hm, /<TextoPlegable texto=\{texto\} className="co-burbuja" pie=\{pie\} arriba=\{cita\} \/>/, 'la cita en el globo');
+  // La ruta: las marcas de la persona de la sesión, saneadas, en su negocio.
+  const r = sinComentarios(leer('app/api/mako/chat/route.ts'));
+  assert.match(r, /if \(body\.action === 'marcar'\) \{\s*const cambio = sanearCambio\(body\.cambio\);\s*if \(!esChatDeMarcas\(body\.chat\) \|\| !cambio\)/);
+  assert.match(r, /marcarEnElChat\(persona, body\.chat, cambio\)/);
+  const db = sinComentarios(leer('lib/chat-mako-marcas-db.ts'));
+  assert.match(db, /return runWithWorkspace\(p\.ws, async \(\) => \{\s*const nuevas = aplicarMarca\(parsear\(await getSettingEstricto\(clave\)\), cambio\);/, 'lee estricto antes de escribir, en su negocio');
+  assert.match(db, /createHash\('sha256'\)\.update\(chartKey\)/, 'por persona, sin el email en la clave');
+});
+
+test('7. «Conectar tu Claude» al final de la caja, sólo si la persona todavía no conectó su IA, y se abre ahí mismo', () => {
+  const r = sinComentarios(leer('app/api/mako/chat/route.ts'));
+  const f = r.slice(r.indexOf('async function conSuIA('), r.indexOf('async function personaDelChat('));
+  assert.match(f, /if \(persona\.ws === \(await wsSuperAdmin\(\)\)\) return true;/, 'el workspace de la plataforma contesta con la suya');
+  assert.match(f, /if \(negocio\.suIA && !negocio\.conPc\) return true;/, 'la clave del negocio');
+  assert.match(f, /return \(await pcDe\(persona\.ws, persona\.actor\)\) != null;/, 'o SU computadora');
+  assert.match(f, /\} catch \{\s*return true;/, 'sin saberlo, no se le pide');
+  const caja = sinComentarios(leer('app/_chat/CajaChat.tsx'));
+  assert.ok(caja.indexOf('{p.alFinal}') > caja.indexOf('<textarea') && caja.indexOf('{p.alFinal}') < caja.indexOf('<BotonMandar'), 'al final, antes del botón');
+  const sb = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
+  assert.match(sb, /alFinal=\{iaConectada === false && !ops \? \(\s*<button type="button" className="co-chip co-conectar-ia" onClick=\{\(\) => setConectando\(true\)\}>Conectar tu Claude<\/button>/);
+  assert.match(sb, /<Modal titulo="Tus cuentas de IA" onCerrar=\{\(\) => \{ setConectando\(false\); mirarSuIA\(\); \}\} ancho=\{640\}>\s*<TusCuentasIA sinCabecera \/>/, 'sin salir de la tab');
+});

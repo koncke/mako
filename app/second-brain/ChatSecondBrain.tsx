@@ -42,12 +42,17 @@
 //   · el panel es `PanelDeChat` (PanelChat.tsx), el de Conversacion.tsx: la misma cabecera, el hilo en su columna, arrastrar
 //     y soltar, y la caja ÚNICA (app/_chat/CajaChat.tsx). Las filas del hilo son las de Hilo.tsx (`FilaMia`, con la foto);
 //   · un chat de Offer o uno de antes se SIGUE ahí mismo, con su motor: lo de Offer va a /api/offer (motor-offer.ts), lo de
-//     antes al turno de MaKo sobre esa sesión (`antes` en /api/mako/chat). Nunca «Esta conversación sigue en Offer».
+//     antes al turno de MaKo sobre esa sesión (`antes` en /api/mako/chat). Nunca «Esta conversación sigue en Offer»;
+//   · cada mensaje tiene lo de WhatsApp del super admin (MensajeWA.tsx): el clic derecho, mantener apretado y deslizar para
+//     responder, con las reacciones, destacar, fijar y eliminar para ella (guardadas en su negocio, por persona:
+//     lib/chat-mako-marcas-db.ts) y la cita arriba de la caja. Sin «Reenviar»: no hay otro chat al que mandárselo firmado;
+//   · si la persona todavía no conectó SU Claude o GPT, al final de la caja va «Conectar tu Claude», que abre «Tus cuentas de
+//     IA» ahí mismo (el modal de /perfil/ia; para una integración jamás se sale de la tab).
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type ReactNode } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useRouter, useWs } from '@/app/_ui/Link';
-import { Toast, useToast } from '@/app/_ui';
+import { Modal, Toast, useToast } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { conWs } from '@/lib/ws-tab';
 import { useCentro, type Centro, type DatosCentro } from '@/app/admin/operaciones/useCentro';
@@ -62,7 +67,11 @@ import { useTicketsPorDecidir } from '@/app/tickets/bandeja/usarContador';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
-import { HiloMako } from '@/app/_chat/HiloMako';
+import { HiloMako, mensajeWADe } from '@/app/_chat/HiloMako';
+import { BarraFijados, CitaCaja, ContextoWA, InfoMensaje, MenuMensajeWA, type AccionesWA, type MenuAbiertoWA, type MensajeWA } from '@/app/admin/operaciones/MensajeWA';
+import { copiar } from '@/app/admin/operaciones/mandar';
+import { SIN_MARCAS, aplicarMarca, armarConCita, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
+import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 import type { ItemPropuesta } from '@/app/_chat/TarjetaAccion';
 import {
   archivosDeRespuesta, idLocal, itemsDeOffer, itemsDeRespuesta, itemsDeSesion, conTarjeta, leerRespuesta, respuestaDeOffer, textoTapadoDeRespuesta,
@@ -274,6 +283,14 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   const [pegados, setPegados] = useState<Array<{ id: string; texto: string }>>([]);
   const pegadosRef = useRef<Array<{ id: string; texto: string }>>([]);
   const ponerPegados = (xs: Array<{ id: string; texto: string }>) => { pegadosRef.current = xs; setPegados(xs); };
+  /** Lo de WhatsApp del chat abierto: las marcas de la persona, la cita de la caja, el menú de un mensaje y su «Info». */
+  const [marcas, setMarcas] = useState<MarcasChat>(SIN_MARCAS);
+  const [cita, setCita] = useState<Cita | null>(null);
+  const [menuWA, setMenuWA] = useState<MenuAbiertoWA | null>(null);
+  const [infoWA, setInfoWA] = useState<MensajeWA | null>(null);
+  /** ¿Ya conectó su Claude o su GPT? null = todavía no se sabe (el botón no aparece hasta saberlo). */
+  const [iaConectada, setIaConectada] = useState<boolean | null>(null);
+  const [conectando, setConectando] = useState(false);
 
   useEffect(() => { const t = window.setInterval(() => setAhora(Date.now()), 60_000); return () => window.clearInterval(t); }, []);
 
@@ -305,6 +322,10 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
     void pedir<{ antes: ChatDeAntes[] }>(`${RUTA}?antes=1`).then((l) => setAntes(l.ok ? l.datos.antes ?? [] : []));
   }, []);
   useEffect(() => { if (!ops) cargarOtros(); }, [ops, cargarOtros]);
+  const mirarSuIA = useCallback(() => {
+    void pedir<{ conectada: boolean }>(`${RUTA}?suIA=1`).then((l) => setIaConectada(l.ok ? l.datos.conectada !== false : true));
+  }, []);
+  useEffect(() => { if (!ops) mirarSuIA(); }, [ops, mirarSuIA]);
 
   // ── El hilo de lo elegido ──
   const idElegido = elegido && 'id' in elegido ? elegido.id : null;
@@ -312,6 +333,25 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   const idOffer = elegido && 'offer' in elegido ? elegido.offer : null;
   /** La sesión de chart_sessions a la que va el turno: la conversación con MaKo, o el chat de antes que se sigue. */
   const idTurno = idElegido ?? idAntes;
+  /** El chat de las marcas (lib/chat-mako-marcas-db.ts): el de la lista. Uno nuevo, todavía ninguno. */
+  const chatDeMarcas = idOffer != null ? `o${idOffer}` : idAntes != null ? `a${idAntes}` : idElegido != null ? `s${idElegido}` : null;
+  useEffect(() => {
+    setMarcas(SIN_MARCAS); setCita(null); setMenuWA(null); setInfoWA(null);
+    if (!chatDeMarcas) return;
+    let vivo = true;
+    void pedir<{ marcas: MarcasChat }>(`${RUTA}?marcas=${chatDeMarcas}`).then((l) => { if (vivo && l.ok) setMarcas(l.datos.marcas ?? SIN_MARCAS); });
+    return () => { vivo = false; };
+  }, [chatDeMarcas]);
+  /** Una marca se ve en el acto y se guarda; si no se pudo guardar, vuelve a como estaba. */
+  const marcar = async (c: CambioMarca) => {
+    if (!chatDeMarcas) return;
+    const antesDeMarcar = marcas;
+    setMarcas(aplicarMarca(antesDeMarcar, c));
+    const l = await postJson<{ marcas: MarcasChat }>({ action: 'marcar', chat: chatDeMarcas, cambio: c });
+    if (l.ok) setMarcas(l.datos.marcas); else { setMarcas(antesDeMarcar); setFaltaMic(l.error); }
+  };
+  const marcarRef = useRef(marcar);
+  useLayoutEffect(() => { marcarRef.current = marcar; });
   const cargarHilo = useCallback(async (id: number, deAntes: boolean, vigente: () => boolean = () => true) => {
     setCargado(false); setErrorCarga(null);
     const l = await pedir<Abierta>(`${RUTA}?sessionId=${id}${deAntes ? '&antes=1' : ''}`);
@@ -412,6 +452,23 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
     if (ocupadoRef.current) return;
     if (idOffer != null) { void abrirOffer(idOffer).then((l) => { if (l.ok) ponerOffer(l.sesion); }); return; }
     if (idTurno != null) void cargarHilo(idTurno, idAntes != null);
+  };
+
+  // ── Lo de WhatsApp en cada mensaje (MensajeWA.tsx, el del super admin) ──
+  const accionesWA = useMemo<AccionesWA>(() => ({
+    abrirMenu: (m, x, y, tactil) => setMenuWA({ m, x, y, tactil }),
+    responder: (m) => { setCita({ de: m.de, texto: m.texto, id: m.id }); window.setTimeout(() => caja.current?.focus(), 0); },
+    reaccionar: (id, emoji) => void marcarRef.current({ tipo: 'reaccion', id, emoji }),
+  }), []);
+  const elegirEnMenu = (m: MensajeWA, id: string) => {
+    setMenuWA(null);
+    if (id.startsWith('reaccion:')) { const e = id.slice('reaccion:'.length); void marcar({ tipo: 'reaccion', id: m.id, emoji: marcas.reacciones[m.id] === e ? null : e }); return; }
+    if (id === 'responder') { accionesWA.responder(m); return; }
+    if (id === 'copiar') { void copiar(m.texto).then((ok) => setFaltaMic(ok ? 'Copiado' : 'No pude copiar')); return; }
+    if (id === 'info') { setInfoWA(m); return; }
+    if (id === 'destacar') { void marcar({ tipo: 'destacar', id: m.id, si: !marcas.destacados.includes(m.id) }); return; }
+    if (id === 'fijar') { void marcar({ tipo: 'fijar', id: m.id, si: !marcas.fijados.includes(m.id) }); return; }
+    if (id === 'eliminar') { void marcar({ tipo: 'ocultar', id: m.id }); if (cita?.id === m.id) setCita(null); }
   };
 
   // ── Elegir en la barra ──
@@ -516,12 +573,13 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   };
 
   const enviarCaja = () => {
-    const t = texto.trim();
+    // Con la cita del mensaje que se responde arriba (WhatsApp; lib/centro-mensajes.ts → armarConCita, la del super admin).
+    const t = armarConCita(cita, texto.trim());
     const pg = pegadosRef.current.map((p) => p.texto);
     if ((!t && !elegidosRef.current.length && !pg.length) || ocupadoRef.current) return;
     // La vista previa NO se suelta acá: la burbuja que sale la sigue mostrando hasta que vuelve guardada. Los pegados
     // salen DENTRO del mensaje, entre sus marcas: el hilo los dibuja como documento y el turno los archiva (#884).
-    if (enviar(conPegados(t, pg), elegidosRef.current)) { setTexto(''); ponerElegidos([]); ponerPegados([]); }
+    if (enviar(conPegados(t, pg), elegidosRef.current)) { setTexto(''); ponerElegidos([]); ponerPegados([]); setCita(null); }
   };
 
   // ── Los archivos de la caja: el «+», pegar y arrastrar. Los mismos topes que la ruta (4 archivos, 4 MB). ──
@@ -608,6 +666,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
     ?? (idOffer != null ? deOfferAbierta?.titulo || deOffer?.titulo || SECCION_OFFER : idAntes != null ? deAntes?.titulo?.trim() || 'Chat de antes' : SIN_TITULO);
   const nombreMuneco = filaAbierta?.criatura ?? (idOffer != null ? criaturaDeOffer(nombre) : nombre);
   const animo = trabajo || armandoOffer ? 'trabajando' : 'despierto';
+  /** Los mensajes del hilo, para la barra de los fijados. */
+  const mensajesWA = useMemo(() => items.flatMap((x) => (x.k === 'msg' ? [mensajeWADe(x, nombreMuneco)] : [])), [items, nombreMuneco]);
   // El grafo se abre sin soltar el chat que estaba abierto: vuelve a él (17/10/2026: «nunca cambia de chat»).
   const hrefMapa = `${base}?panel=mapa${idElegido ? `&chat=${idElegido}` : urlCentro ? `&centro=${encodeURIComponent(urlCentro)}` : ''}`;
   /** Volver del Mapa a lo que estaba elegido (lo vuelve a armar el servidor). */
@@ -655,7 +715,13 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
         ocupado={!!trabajo || armandoOffer} apagado={!cargado || !!errorCarga} placeholder={`Escribe a ${nombre}`} tituloMandar="Mandar (Enter)"
         enterManda campo={caja} seguir={seguirHilo} onErrorMic={setFaltaMic} adjuntos={adjuntosCaja}
         hayAlgoMas={pegados.length > 0} onPegar={pegarLargo}
-        arriba={pegados.length > 0 ? (
+        // Sin su Claude o su GPT, el botón para conectarlo, al final de la caja (se abre acá mismo: «Tus cuentas de IA»).
+        alFinal={iaConectada === false && !ops ? (
+          <button type="button" className="co-chip co-conectar-ia" onClick={() => setConectando(true)}>Conectar tu Claude</button>
+        ) : null}
+        arriba={<>
+        {cita && <CitaCaja cita={cita} onQuitar={() => setCita(null)} />}
+        {pegados.length > 0 && (
         <ul className="ch-elegidos" aria-label="Textos pegados">
           {pegados.map((p) => (
             <li key={p.id} className="ch-elegido ch-elegido--pegado">
@@ -667,7 +733,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
             </li>
           ))}
         </ul>
-        ) : null} />
+        )}
+        </>} />
     </div>
   );
 
@@ -765,8 +832,15 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
         <PanelDeChat hilo={hilo} adjuntos={adjuntosCaja}
           // La criatura del chat: el Cerebro es la estrella; uno de Offer, la de Offer (la cabecera del super admin, sin chips).
           cabecera={{ clave: JSON.stringify(elegido), titulo: nombre, criatura: nombreMuneco, animo, onVolver: () => setConChat(false) }}
+          // Los fijados, arriba de la conversación (WhatsApp): tocar va al mensaje.
+          arriba={<BarraFijados marcas={marcas} lineas={[]} mensajes={mensajesWA} titulo={nombre} onSoltar={(id) => void marcar({ tipo: 'fijar', id, si: false })} />}
+          despues={<>
+            <MenuMensajeWA abierto={menuWA} marcas={marcas} onCerrar={() => setMenuWA(null)} onElegir={elegirEnMenu} sin={['reenviar']} />
+            {infoWA && <Modal titulo="Info del mensaje" onCerrar={() => setInfoWA(null)} ancho={460}><InfoMensaje m={infoWA} /></Modal>}
+          </>}
           caja={caja_}
           estado={faltaMic ?? (armandoOffer ? 'MaKo está armando tu oferta. Puede tardar unos minutos.' : '')}>
+          <ContextoWA.Provider value={accionesWA}>
           {!cargado ? null : errorCarga ? (
             <div className="co-portada">
               <p className="co-portada__dato">{errorCarga}</p>
@@ -783,11 +857,18 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
           ) : (
             <HiloMako items={items} quien={{ nombre: nombreMuneco }} ahora={ahora} escribiendo={trabajo || armandoOffer ? { segs } : null}
               tarjeta={tarjeta} onTarjeta={(x, a) => void correrTarjeta(x, a)} onReintentar={reintentar} onRecargar={recargar}
-              onResponder={(t) => enviar(t)} onTrabajo={(id, ok) => setItems((xs) => trasTrabajo(xs, id, ok))} />
+              onResponder={(t) => enviar(t)} onTrabajo={(id, ok) => setItems((xs) => trasTrabajo(xs, id, ok))} marcas={marcas} />
           )}
+          </ContextoWA.Provider>
         </PanelDeChat>
       )}
       {centro && <MenusCentro centro={centro} />}
+      {/* «Tus cuentas de IA» ahí mismo (/perfil/ia): conectar su computadora con su Claude o, si es admin, la clave. */}
+      {conectando && (
+        <Modal titulo="Tus cuentas de IA" onCerrar={() => { setConectando(false); mirarSuIA(); }} ancho={640}>
+          <TusCuentasIA sinCabecera />
+        </Modal>
+      )}
     </div>
   );
 }

@@ -30,6 +30,7 @@ import { respuestasDeElegir } from '@/lib/editor-landing/bloques-web';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 import { CLAVE_TAPADA } from '@/lib/claves-en-el-chat';
 import type { OfferMensaje } from '@/lib/offer-marco';
+import type { IdMensaje, MensajeWA } from '@/lib/centro-mensajes';
 
 // ── El hilo ──────────────────────────────────────────────────────────────────
 
@@ -177,8 +178,21 @@ export function respuestaDeOffer(mensajes: readonly OfferMensaje[], texto: strin
   return idx >= 0 ? { preguntaId: ultimo.pregunta.id, idx } : null;
 }
 
-type ItemBloque = Extract<ItemHilo, { k: 'bloque' }>;
+// ── Lo de WhatsApp en el chat con MaKo (21/10/2026, el del super admin: app/admin/operaciones/MensajeWA.tsx) ─────────────
+
 type ItemMsg = Extract<ItemHilo, { k: 'msg' }>;
+/** El id de un mensaje para lo de WhatsApp (lib/centro-mensajes.ts → IdMensaje: `t:` y hasta 64 letras, números o guiones). Sale
+ *  de quién lo dijo y de su hora, que no cambian al recargar (el id de la fila sí: lleva su lugar en el hilo). Lo que todavía no
+ *  tiene hora, de su id. */
+export const idWA = (x: Pick<ItemMsg, 'id' | 'role' | 'at'>): IdMensaje =>
+  `t:${x.at ? `${x.role === 'user' ? 'u' : 'm'}${x.at.replace(/\D/g, '')}` : x.id.replace(/[^\w-]/g, '-').slice(-60)}`;
+/** El mensaje, para el menú del clic derecho, la cita y los fijados (sin el contexto de WhatsApp, no hace nada). */
+export const mensajeWADe = (x: ItemMsg, nombre: string): MensajeWA => ({
+  id: idWA(x), texto: x.texto, de: x.role === 'user' ? 'Tú' : nombre, propio: x.role === 'user',
+  instante: x.at ? Date.parse(x.at) || 0 : 0, trabajo: null,
+});
+
+type ItemBloque = Extract<ItemHilo, { k: 'bloque' }>;
 const esSelector = (x: ItemHilo): x is ItemBloque => x.k === 'bloque' && (x.b.t === 'pregunta' || x.b.t === 'elegir');
 const esDeLaPersona = (x: ItemHilo): x is ItemMsg => x.k === 'msg' && x.role === 'user';
 const igual = (s: string): string => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();

@@ -12,6 +12,11 @@
 // GET  ?adjunto=<id del mensaje>:<n>                 → 302 al archivo (link firmado, 300 s)
 // GET  ?offer=1                                      → { ok, offer }    las conversaciones de Offer del negocio (20/10/2026)
 // GET  ?offerId=N                                    → { ok, sesion, mensajes }      una, de sólo lectura; de otro ws, 404
+// GET  ?marcas=<chat>                                → { ok, marcas }   las de la persona en ESE chat (21/10/2026: el menú
+//                                                      del clic derecho, como el del super admin; lib/chat-mako-marcas-db.ts)
+// GET  ?suIA=1                                       → { ok, conectada }  ¿la persona ya tiene SU Claude o GPT? Sin, la caja
+//                                                      ofrece «Conectar tu Claude» (21/10/2026)
+// POST { action:'marcar', chat, cambio }             → { ok, marcas }
 // POST { action:'new' }                              → { ok, sesion }               sin saludo del modelo
 // POST { action:'send', sessionId, mensaje }         → RespuestaTurno
 // POST multipart: mensaje, sessionId, adjuntos[]     → RespuestaTurno               (fotos y PDF, como el teléfono)
@@ -37,9 +42,13 @@ import {
 import { validarAdjuntos, ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, MARGEN_MULTIPART_BYTES } from '@/lib/mako-adjuntos';
 import { CONTEXTO_SECOND_BRAIN } from '@/lib/chat-mako-reglas';
 import { estadoDeTrabajo } from '@/lib/chat-trabajos';
-import { runWithWorkspace } from '@/lib/workspace';
+import { runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
 import { chatsDeAntes, chatsDeOffer, claveDeAntes, hiloDeAntes, hiloDeOffer, quienChateaDelRequest } from '@/lib/chat-mako-indice';
 import type { PersonaChat } from '@/lib/mako-turno-app';
+import { esChatDeMarcas, leerMarcasDelChat, marcarEnElChat } from '@/lib/chat-mako-marcas-db';
+import { sanearCambio } from '@/lib/centro-mensajes';
+import { negocioConSuIA } from '@/lib/ia-del-negocio';
+import { pcDe } from '@/lib/ia-pc';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 420;
@@ -56,6 +65,24 @@ const enteroDe = (v: unknown): number | null => {
  * de ESA sesión si la regla de antes la deja (lib/chat-mako-indice.ts → claveDeAntes). Sin `antes`, la persona tal cual. null
  * = no es suyo (404, como cualquier chat que no existe).
  */
+/**
+ * ¿La persona ya tiene SU IA? (21/10/2026, Martín: «Si el usuario aún no conectó su Claude o GPT, debería aparecer en la barra
+ * de chat... el botón de conectar»). La misma cuenta que hace el turno (lib/mako-turno-app.ts → `sinIAEs`): con la clave de
+ * Claude u OpenAI del NEGOCIO, sí; en un negocio que corre con computadoras, sólo si ESTA persona conectó la suya; en el
+ * workspace de la plataforma, sí (contesta la de la plataforma). Si no se pudo saber, sí: un bache de la base no le pide que
+ * conecte algo que ya está.
+ */
+async function conSuIA(persona: PersonaChat): Promise<boolean> {
+  try {
+    if (persona.ws === (await wsSuperAdmin())) return true;
+    const negocio = await negocioConSuIA(persona.ws);
+    if (negocio.suIA && !negocio.conPc) return true;
+    return (await pcDe(persona.ws, persona.actor)) != null;
+  } catch {
+    return true;
+  }
+}
+
 async function personaDelChat(persona: PersonaChat, sessionId: number, antes: unknown): Promise<PersonaChat | null> {
   if (antes !== true && antes !== '1' && antes !== 1) return persona;
   const q = await quienChateaDelRequest();
@@ -69,6 +96,12 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   try {
     if (sp.get('sesiones')) return json({ ok: true, sesiones: await listarSesiones(persona) });
+    if (sp.get('suIA')) return json({ ok: true, conectada: await conSuIA(persona) });
+    if (sp.has('marcas')) {
+      const chat = sp.get('marcas');
+      if (!esChatDeMarcas(chat)) return json({ ok: false, error: 'Falta el chat.' }, 400);
+      return json({ ok: true, marcas: await leerMarcasDelChat(persona, chat) });
+    }
     if (sp.has('adjunto')) {
       const url = await urlDeAdjunto(persona, sp.get('adjunto'));
       // Se abre en otra pestaña o en un <img>: texto, no JSON.
@@ -144,10 +177,16 @@ export async function POST(req: NextRequest) {
       return json({ ok: false, error: 'Algo falló de nuestro lado. Intenta de nuevo.' }, 500);
     }
   }
-  let body: { action?: unknown; sessionId?: unknown; mensaje?: unknown; pendienteId?: unknown; antes?: unknown };
+  let body: { action?: unknown; sessionId?: unknown; mensaje?: unknown; pendienteId?: unknown; antes?: unknown; chat?: unknown; cambio?: unknown };
   try { body = await req.json(); } catch { return json({ ok: false, error: 'Pedido inválido.' }, 400); }
   try {
     if (body.action === 'new') return json({ ok: true, sesion: await nuevaSesion(persona) });
+    // Las marcas de la persona en un mensaje (el menú del clic derecho): suyas, en su negocio (lib/chat-mako-marcas-db.ts).
+    if (body.action === 'marcar') {
+      const cambio = sanearCambio(body.cambio);
+      if (!esChatDeMarcas(body.chat) || !cambio) return json({ ok: false, error: 'Elige el mensaje otra vez.' }, 400);
+      return json({ ok: true, marcas: await marcarEnElChat(persona, body.chat, cambio) });
+    }
 
     const sessionId = enteroDe(body.sessionId);
     if (sessionId == null) return json({ ok: false, error: 'Falta el chat.' }, 400);
