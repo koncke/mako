@@ -9,6 +9,8 @@
 
 import { familiaDeArchivo } from '@/lib/formatos-archivo';
 import { rotuloDeFunnels } from '@/lib/funnels-elegidos';
+import { usuarioDeUrlInstagram } from '@/lib/instagram-buscar';
+import { instagramsDelTexto } from '@/lib/instagram-perfil';
 import {
   MARCA_COMPLETAR, PIEZAS, PUNTOS_CONTROL,
   type AdjuntoVista, type FuentePieza, type PuntoControl, type OfferMensaje, type OfferSesionResumen, type OfferSesionVista, type PiezaKey, type PiezasSabidas, type VariableValor,
@@ -282,6 +284,8 @@ export const TOPE_MENSAJE = 12_000;
  * fácil», y en WhatsApp un link se pega en el mensaje, no en un botón aparte. Acepta `https://…`,
  * `http://…` y `www.…` (a éste le agrega https), sin la puntuación que cierra la frase, sin
  * repetidos y hasta 3: más que eso en un mensaje no es «mi web», es una lista que no se va a leer.
+ * Y un @ de Instagram («mi ig es @flor.tesis») es el link a su perfil (22/10/2026, Martín: «no estaba buscando bien a
+ * los @»): se lee como cualquier link, y la ruta lo pide por Business Discovery (lib/instagram-perfil.ts).
  */
 export function linksDe(texto: string, max = 3): string[] {
   const out: string[] = [];
@@ -291,6 +295,10 @@ export function linksDe(texto: string, max = 3): string[] {
     if (!/^https?:\/\/[^/\s.]+\.[^/\s]+/i.test(u)) continue;
     if (!out.includes(u)) out.push(u);
     if (out.length >= max) break;
+  }
+  for (const ig of instagramsDelTexto(texto)) {
+    if (out.length >= max) break;
+    if (!out.some((u) => usuarioDeUrlInstagram(u) === usuarioDeUrlInstagram(ig))) out.push(ig);
   }
   return out;
 }

@@ -72,7 +72,7 @@ test('O4 · con «Pago único de $270 USD vía Stripe», el cobro al firmar ya s
   assert.equal(conCobroDelPrecio(ya, AT), ya);
   assert.equal(conCobroDelPrecio({ precio: chat('2.000 USD en 3 cuotas') }, AT).cobro, undefined);
   // Desde la prueba de los chats (22/10/2026) las piezas del turno se funden con `fundirPiezasDelTurno` (cada una con su fuente).
-  assert.match(funcion(leer('app/api/offer/route.ts'), 'responder'), /const fundidas = conCobroDelPrecio\(turnoIA \? fundirPiezasDelTurno\(/);
+  assert.match(funcion(leer('app/api/offer/route.ts'), 'responder'), /const fundidas = conCobroDelPrecio\(conLoQueDijoElDueno\(\s*turnoIA \? fundirPiezasDelTurno\(/);
 });
 
 // rotura (el aviso del % al firmar también con pago único): 1 fallo.
