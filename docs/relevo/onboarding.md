@@ -1,5 +1,17 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 22/10/2026 ~03:45 AR — LAS PREGUNTAS DEL ARRANQUE, EN PRODUCCIÓN (99453fec5, run 230)
+
+- El aviso al grupo del ws21 salió (mensaje 3EB019AA269EBCEDA7F945, clave onboarding:historial-ws21). La prueba del script
+  dio deploy Ready, con main b9dd7ce1e conteniendo 99453fec5. A Florencia el chat «Onboarding» se le crea en su próxima
+  visita: el ws21 tiene un admin, así que la decisión es «crear».
+- La reconstrucción en seco después del deploy no encontró a nadie nuevo: los cuatro (ws3, 20, 21 y 22) ya tienen
+  historial.
+- NO se miró en pantalla en producción: la extensión de Chrome no conectaba (Chrome abierto, ninguna extensión
+  conectada). Lo que sí se midió: el mismo código contra la base real arma el hilo del ws21 con 68 mensajes (antes 32),
+  7 con audio, y empieza en el saludo. El primero que abra /second-brain?ws=21 como super admin lo confirma.
+- Encima, en la rama: db56e55cc (el doble toque cruzado) y el «Hecho» en la bitácora. Van con la próxima punta.
+
 ## ESTADO AL 22/10/2026 — LAS PREGUNTAS DEL ARRANQUE, GUARDADAS (rama onboarding-arranque-historial, C:/dev/wt-onboarding-arranque)
 
 - Chat «Onboarding», claude3. Lo pidió el Cerebro como cliente roto: en el Ops Center del ws21 (Florencia) faltaban las

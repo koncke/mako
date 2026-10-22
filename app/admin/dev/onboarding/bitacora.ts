@@ -802,4 +802,31 @@ export const BITACORA: Hito[] = [
       "tests/nombre-negocio-perfil.test.ts — probado rompiéndolo (6 de 6)",
     ],
   },
+  {
+    fecha: "22 oct", hora: "03:45", chat: "Onboarding", sesion: "local_05493d58-73bd-4486-8499-efad0fe8d3df", cuenta: "claude3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Hecho: las preguntas del onboarding quedan guardadas con su respuesta, y el super admin ve el «Onboarding» del cliente",
+    puntos: [
+      "Martín, en el Ops Center de Florencia (ws21): se veían sus respuestas y no las preguntas de MaKo. Medido en su Chrome, el diagnóstico obvio era el equivocado: la conversación de Offer SÍ traía sus preguntas. Lo que faltaba era el arranque entero (nombre, negocio, PDF, fase, CRM, cómo llegó, interés, teléfono), que nunca se guardó. Y el chat «Onboarding» es de la clienta: el super admin ve los suyos.",
+      "Ahora el onboarding se guarda como pasó: cada pregunta de MaKo y lo que la persona mandó, tal cual (también el toque de cada confirmación). El super admin, mirando un cliente, ve esa conversación como «Onboarding», con el arranque y Offer en orden. Las respuestas por voz viajan con su audio; el reproductor lo hizo el chat «Ops Center».",
+      "Para quien terminó antes (ws3, 20, 21 y 22) se reconstruyó y se guardó, marcado «Reconstruido» (lo ve sólo el super admin), ANTES del script que arregla el nombre del negocio del ws21. Los 7 audios de Florencia estaban guardados: faltaba mostrarlos. En producción con 99453fec5 (run 230); aviso al grupo del ws21 enviado.",
+      "Tres revisiones adversariales: lecturas caídas que quedaban guardadas para siempre, el `.catch` de un `getSetting` que nunca se dispara, las respuestas a las confirmaciones y la que cierra la fase que se perdían, el cierre duplicado. Todo en docs/hallazgos-onboarding.md («Las preguntas del arranque, guardadas»).",
+      "DÓNDE SE PRUEBA: como super admin, /second-brain?ws=21 → «Onboarding»: empieza en «¡Hola! Soy MaKo…», con un aviso «Reconstruido». En un negocio de prueba nuevo, hacer el onboarding entero (con «Ver otros tipos» y «Cambiar número») y mirar que cada pregunta tenga su respuesta debajo.",
+    ],
+    revisar: "/second-brain?ws=21",
+    commits: [
+      { sha: "b87e59c", msg: "Onboarding: las preguntas del arranque se guardan con su respuesta y se ven en el Ops Center (Florencia, ws21)", lineas: 513, archivos: 8 },
+      { sha: "55231b7", msg: "Onboarding: el super admin ve «Onboarding» y las respuestas por voz viajan con su audio (pedido de Martín, ws21)", lineas: 239, archivos: 14 },
+      { sha: "318b327", msg: "Onboarding, historial: lo que tapó la revisión adversarial (lecturas confirmadas, la respuesta tal cual, el cierre congela)", lineas: 652, archivos: 12 },
+      { sha: "c07334e", msg: "Onboarding, historial: segunda revisión (la respuesta que cierra la fase, el cierre sin duplicar, el mismo toque dos veces)", lineas: 312, archivos: 5 },
+      { sha: "db56e55", msg: "Onboarding, historial: el doble toque cruzado no duplica (la última vez de la pregunta, no los dos últimos)", lineas: 44, archivos: 4 },
+    ],
+    archivos: [
+      "lib/onboarding-historial.ts — anotar (lo de MaKo al verse, lo de la persona tal cual), juntar con Offer por hora, el compare-and-set",
+      "lib/onboarding-arranque-server.ts — `anotarHistorial`, `anotarRespuesta`, `hechosConfirmados` (lo que decide el dibujo, releído estricto)",
+      "lib/chat-mako-indice.ts — `hiloDeOffer` con el historial y el audio; `chatsDeOffer`, el título «Onboarding»",
+      "scripts/reconstruir-historial-onboarding.mts — la reconstrucción, en seco por defecto",
+      "tests/onboarding-historial.test.ts — el onboarding entero como lo corre la ruta; probado rompiéndolo (38 roturas)",
+    ],
+  },
 ];
