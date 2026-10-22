@@ -77,7 +77,7 @@ export function CajaDelCliente({ k, campo, seguir, movil = false }: {
   return (
     <CajaChat texto={k.texto} onTexto={(v) => { k.setFaltaMic(null); k.setTexto(v); }} onMandar={k.enviarCaja}
       ocupado={k.enCurso} apagado={!k.cargado || !!k.errorCarga} placeholder={`Escribe a ${k.nombre}`} tituloMandar={movil ? undefined : 'Mandar (Enter)'}
-      enterManda={!movil} campo={campo} seguir={seguir} onErrorMic={k.setFaltaMic} adjuntos={k.adjuntosCaja}
+      enterManda={!movil} campo={campo} seguir={seguir} onErrorMic={k.setFaltaMic} adjuntos={k.adjuntosCaja} voz={k.vozCaja}
       {...(movil ? { altoMax: null, fila: 'm-operaciones-caja__fila' } : {})}
       hayAlgoMas={k.pegados.length > 0} onPegar={k.pegarLargo}
       // Sin su Claude o su GPT, el botón para conectarlo, al final de la caja (se abre acá mismo: «Tus cuentas de IA»).
