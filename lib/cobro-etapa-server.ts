@@ -275,9 +275,13 @@ export async function planesDevueltosDelLead(leadId: number): Promise<Array<{ co
  * «al revés»: el negocio devuelve el que armó el plan y deja el repetido, que entró suelto y no es una cuota del plan; sin
  * esto se borraban US$666,66 de deuda a quien pagó el producto una vez). Tira si no puede leer.
  */
-export async function otroCobroPagadoDelProducto(leadId: number, productoId: number, menosCobro: number): Promise<boolean> {
-  const { data, error } = await (await getTenantDb()).from('cobros').select('id').eq('lead_id', leadId).eq('producto_id', productoId)
-    .eq('estado', 'pagado').neq('id', menosCobro).limit(1);
+export async function otroCobroPagadoDelProducto(leadId: number, productoId: number, menosCobro: number, opts: { antesDe?: string | null } = {}): Promise<boolean> {
+  let q = (await getTenantDb()).from('cobros').select('id').eq('lead_id', leadId).eq('producto_id', productoId)
+    .eq('estado', 'pagado').neq('id', menosCobro);
+  // `antesDe` (el deshacer de una baja): sólo lo pagado ANTES de la baja. Una recompra posterior es otra compra y no revive
+  // las cuotas de la devuelta (quinta revisión de plata: quedaba deuda doble).
+  if (opts.antesDe) q = q.lt('pagado_at', opts.antesDe);
+  const { data, error } = await q.limit(1);
   if (error) throw new Error(`No pude ver si el producto ${productoId} tiene otro pago: ${error.message}`);
   return (data ?? []).length > 0;
 }
@@ -288,7 +292,7 @@ export async function otroCobroPagadoDelProducto(leadId: number, productoId: num
  * fallaba la devolución del primer pago y la baja la había disparado la de la cuota 1). `bajaIds`: lo que dio de baja ESE
  * reembolso; vacío en un trato que no lo guardó.
  */
-export async function planesDadosDeBajaDelLead(leadId: number): Promise<Array<{ cobroId: number; productoId: number | null; pagoEn: number | null; cuotasPlan: number[]; bajaIds: number[] }>> {
+export async function planesDadosDeBajaDelLead(leadId: number): Promise<Array<{ cobroId: number; productoId: number | null; pagoEn: number | null; cuotasPlan: number[]; bajaIds: number[]; bajaAt: string | null }>> {
   const { data, error } = await (await getTenantDb()).from('cobros').select('id, producto_id, trato').eq('lead_id', leadId).eq('trato_estado', 'listo');
   if (error) {
     if (falta0326(error.message) || /trato/.test(error.message)) return [];
@@ -299,7 +303,8 @@ export async function planesDadosDeBajaDelLead(leadId: number): Promise<Array<{ 
     .map((f) => {
       const t = tratoGuardado(f.trato!);
       const bajaIds = Array.isArray(f.trato!.bajaIds) ? (f.trato!.bajaIds as unknown[]).map(Number).filter(Number.isFinite) : [];
-      return { cobroId: Number(f.id), productoId: f.producto_id == null ? null : Number(f.producto_id), pagoEn: t.pagoEn, cuotasPlan: t.cuotasPlan, bajaIds };
+      const bajaAt = typeof f.trato!.bajaAt === 'string' ? f.trato!.bajaAt : null;
+      return { cobroId: Number(f.id), productoId: f.producto_id == null ? null : Number(f.producto_id), pagoEn: t.pagoEn, cuotasPlan: t.cuotasPlan, bajaIds, bajaAt };
     });
 }
 
@@ -307,10 +312,12 @@ export async function planesDadosDeBajaDelLead(leadId: number): Promise<Array<{ 
  * Anota en el trato del cobro si su plan quedó cerrado por un reembolso (`bajaPorReembolso`) y QUIÉN lo dio de baja
  * (`bajaPor`, el cobro reembolsado; null = no había nada que dar de baja). Tira si no puede.
  */
-export async function marcarBajaPorReembolso(cobroId: number, valor: boolean, bajaPor: number | null = null, bajaIds: readonly number[] = []): Promise<void> {
+export async function marcarBajaPorReembolso(cobroId: number, valor: boolean, bajaPor: number | null = null, bajaIds: readonly number[] = [], bajaAt: string | null = null): Promise<void> {
   const m = await marcaDelCobro(cobroId);
   if (m === 'sin-0326' || !m.trato) return;
-  const trato = { ...m.trato, bajaPorReembolso: valor, bajaPor: valor ? bajaPor : null, bajaIds: valor ? [...bajaIds] : null };
+  // `bajaAt`: el instante de la baja (el `baja_at` de sus cuotas). El deshacer cuenta sólo lo pagado antes y reabre sólo lo
+  // que tiene ese instante (quinta revisión de plata).
+  const trato = { ...m.trato, bajaPorReembolso: valor, bajaPor: valor ? bajaPor : null, bajaIds: valor ? [...bajaIds] : null, bajaAt: valor ? bajaAt : null };
   const { error } = await (await getTenantDb()).from('cobros').update({ trato }).eq('id', cobroId);
   if (error) throw new Error(`No pude anotar la baja del plan del cobro ${cobroId}: ${error.message}`);
 }

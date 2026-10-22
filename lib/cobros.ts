@@ -952,7 +952,7 @@ export async function aplicarReembolso(c: Cobro, p: { proveedorPagoId: string | 
           if (d.accion === 'cerrar') { await marcarBajaPorReembolso(plan.cobroId, true, null); continue; }
           const { darDeBajaCliente } = await import('./pagos-baja');
           const r = await darDeBajaCliente(c.lead_id, NOMBRE_PASARELA[c.proveedor], plan.pagoEn, { soloIds: d.ids });
-          if (r.ok) await marcarBajaPorReembolso(plan.cobroId, true, c.id, r.ids ?? d.ids);
+          if (r.ok) await marcarBajaPorReembolso(plan.cobroId, true, c.id, r.ids ?? d.ids, r.bajaAt ?? null);
         }
       } catch (e) {
         console.error(`[cobros] no pude revisar los planes devueltos del lead ${c.lead_id}:`, e instanceof Error ? e.message : String(e));
@@ -993,11 +993,12 @@ export async function aplicarReembolsoFallido(c: Cobro, p: { proveedorPagoId: st
       if (c.lead_id) {
         try {
           for (const plan of await planesDadosDeBajaDelLead(c.lead_id)) {
-            const otroPago = plan.productoId != null && await otroCobroPagadoDelProducto(c.lead_id, plan.productoId, plan.cobroId);
+            // Sólo lo pagado ANTES de la baja: una recompra posterior es otra compra (quinta revisión de plata).
+            const otroPago = plan.productoId != null && await otroCobroPagadoDelProducto(c.lead_id, plan.productoId, plan.cobroId, { antesDe: plan.bajaAt });
             const d = decidirBajaDelPlan({ cuotasPlan: plan.cuotasPlan, cuotasDelTrato: await getPagosByLead(c.lead_id, plan.pagoEn), otroPagoDelProducto: otroPago });
             if (d.accion !== 'sostiene') continue;
             const { deshacerBajaCliente } = await import('./pagos-baja');
-            const r = await deshacerBajaCliente(c.lead_id, NOMBRE_PASARELA[c.proveedor], plan.pagoEn, { soloIds: plan.bajaIds.length ? plan.bajaIds : plan.cuotasPlan });
+            const r = await deshacerBajaCliente(c.lead_id, NOMBRE_PASARELA[c.proveedor], plan.pagoEn, { soloIds: plan.bajaIds.length ? plan.bajaIds : plan.cuotasPlan, bajaAt: plan.bajaAt ?? undefined });
             if (r.ok) await marcarBajaPorReembolso(plan.cobroId, false);
           }
         } catch (e) {
