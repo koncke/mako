@@ -55,6 +55,12 @@ import { emailNormalizado, emailUtilizable } from '@/lib/agencia-altas';
 import { listProductos } from '@/lib/productos';
 import { productosDelCliente } from '@/app/customer-success/entrega';
 import { POR_MAKO } from '@/lib/cs-mover-etapa';
+import { getTarjetaClientes, setTarjetaClientes } from '@/lib/perfil';
+import {
+  CAMPOS_TARJETA_CLIENTE, CAMPOS_TARJETA_CLIENTE_DEFAULT, DETALLE_FORMA_TARJETA_CLIENTE, FORMAS_TARJETA_CLIENTE, NOMBRE_CAMPO_TARJETA_CLIENTE,
+  NOMBRE_FORMA_TARJETA_CLIENTE, PLANTILLAS_TARJETA_CLIENTE, camposTarjetaClienteDe, type CampoTarjetaCliente, type FormaTarjetaCliente,
+} from '@/lib/tarjeta-clientes';
+import { idPlantillaNueva, pedidoDeTarjeta, plantillaPuesta } from '@/lib/plantillas-tarjeta';
 
 // ── utilidades ───────────────────────────────────────────────────────────────
 
@@ -468,6 +474,61 @@ export const RUNNERS: Runners = {
         resumen: `Invitación enviada a ${r.email}.${r.anotado ? '' : ' ⚠️ Salió, pero no quedó anotada: no la reenvíes por eso.'}${wa}`,
         datos: { leadId: Number(p.leadId), email: r.email, anotada: r.anotado, whatsapp: r.whatsapp ?? null },
       };
+    }),
+  },
+
+  // ── La tarjeta de un cliente, de cada persona (21/10/2026) ──────────────────────────────────────
+  // El molde es `ver_campos_tarjeta_crm` / `personalizar_tarjetas_crm` (crm.run.ts). La cuenta de QUÉ se pidió (una
+  // plantilla por su nombre, o la forma y los datos, y guardarla) vive una vez en `pedidoDeTarjeta`
+  // (lib/plantillas-tarjeta.ts), para Clientes y el Plan.
+  ver_tarjeta_clientes: {
+    leer: async () => {
+      const { forma, campos, plantillas, guardable } = await getTarjetaClientes();
+      const plantilla = (p: { nombre: string; forma: FormaTarjetaCliente; campos: readonly CampoTarjetaCliente[] }) =>
+        ({ nombre: p.nombre, forma: p.forma, campos: [...p.campos] });
+      return json({
+        forma: { forma, nombre: NOMBRE_FORMA_TARJETA_CLIENTE[forma] },
+        formas: FORMAS_TARJETA_CLIENTE.map((f) => ({ forma: f, nombre: NOMBRE_FORMA_TARJETA_CLIENTE[f], detalle: DETALLE_FORMA_TARJETA_CLIENTE[f] })),
+        campos: campos.map((c) => ({ campo: c, nombre: NOMBRE_CAMPO_TARJETA_CLIENTE[c] })),
+        plantillaPuesta: plantillaPuesta([...PLANTILLAS_TARJETA_CLIENTE, ...plantillas], forma, campos)?.nombre ?? 'Personalizada',
+        plantillasDeFabrica: PLANTILLAS_TARJETA_CLIENTE.map(plantilla),
+        plantillasPropias: plantillas.map(plantilla),
+        catalogo: CAMPOS_TARJETA_CLIENTE.map((c) => ({ campo: c, nombre: NOMBRE_CAMPO_TARJETA_CLIENTE[c], deSiempre: CAMPOS_TARJETA_CLIENTE_DEFAULT.includes(c) })),
+        guardable,
+        dondeSeCambia: 'En Clientes (vista kanban), «⋯» › «Personalizar tarjetas», o clic derecho en una tarjeta › «Personalizar tarjeta».',
+      });
+    },
+  },
+  // La tarjeta es de UNA persona (usuarios.perfil): la pendiente lleva su email y sólo la confirma ella. Desde la bandeja,
+  // otro del equipo le estaría cambiando la tarjeta a alguien que no la pidió (y la escritura cae en la fila de quien
+  // confirma, no de quien pidió: `setTarjetaClientes` lee la sesión).
+  personalizar_tarjetas_clientes: {
+    faltaParaConfirmar: async (payload, ctx) => {
+      const de = String(payload.email ?? '').toLowerCase();
+      const quien = String(ctx.quien?.email ?? ctx.actor ?? '').toLowerCase();
+      return de && quien && de !== quien ? `Esta tarjeta es la de ${payload.email}: la confirma esa persona desde su chat.` : null;
+    },
+    preparar: revisando(async (input, ctx) => {
+      const email = ctx.quien?.email ?? ctx.actor ?? '';
+      if (!email) return { error: 'La tarjeta es de cada persona y este pedido no dice de quién: se cambia desde el chat de la app o en Clientes.' };
+      const actual = await getTarjetaClientes();
+      if (!actual.guardable) return { error: 'Tu sesión no tiene un usuario propio: la tarjeta se cambia en Clientes, «⋯» › «Personalizar tarjetas».' };
+      const r = pedidoDeTarjeta(input, actual, {
+        fabrica: PLANTILLAS_TARJETA_CLIENTE, formas: FORMAS_TARJETA_CLIENTE, campos: CAMPOS_TARJETA_CLIENTE,
+        limpiarCampos: camposTarjetaClienteDe, nombreCampo: NOMBRE_CAMPO_TARJETA_CLIENTE, donde: 'Clientes',
+      }, idPlantillaNueva());
+      if (!r.ok) return { error: r.error, ...(r.disponibles !== undefined ? { disponibles: r.disponibles } : {}), ...(r.yaEstaba ? { yaEstaba: true } : {}) };
+      const datos = r.campos.length ? r.campos.map((c) => NOMBRE_CAMPO_TARJETA_CLIENTE[c]).join(', ') : 'sólo el nombre';
+      return {
+        payload: { email, forma: r.forma, campos: r.campos, ...(r.propias ? { plantillas: r.propias } : {}) },
+        resumen: `Tu tarjeta de clientes ${r.plantilla ? `como «${r.plantilla}»` : `en forma ${NOMBRE_FORMA_TARJETA_CLIENTE[r.forma]}`} (${datos})`
+          + (input.guardarComo ? `, guardada como plantilla «${String(input.guardarComo).trim()}»` : '') + '. Sólo la tuya: el resto del equipo sigue viendo la suya.',
+      };
+    }),
+    ejecutar: sinLanzar('personalizar la tarjeta', async (payload) => {
+      const r = await setTarjetaClientes(payload.campos, payload.forma, payload.plantillas);
+      if (!r.guardado) return { ok: false, resumen: 'No pude guardarla: tu sesión no tiene un usuario propio. Se cambia en Clientes, «⋯» › «Personalizar tarjetas».' };
+      return { ok: true, resumen: `Listo: tu tarjeta de clientes quedó en forma ${NOMBRE_FORMA_TARJETA_CLIENTE[r.forma]}. Se ve al volver a Clientes.` };
     }),
   },
 };

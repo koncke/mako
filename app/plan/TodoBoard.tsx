@@ -11,7 +11,7 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { BoardShell } from './board/BoardShell';
 import { hacerLugar, type Corrimiento } from './board/lugar-al-soltar';
 import { esRecurrente } from '@/lib/plan-recurrentes';
-import { useBoard, type ColumnasDelBoard } from './board/useBoard';
+import { useBoard, type ColumnasDelBoard, type TarjetaDelBoard } from './board/useBoard';
 import { type BoardTask, type Label, type Repo, type BoardUser, type GuardPatch, type Prio, prioFromScore } from './board/types';
 // Los dos mappers de ENTRADA viven en un `.ts` para que también los pueda importar el
 // SERVER (/productivity-analyst). Ver el encabezado de ese archivo.
@@ -76,9 +76,11 @@ const catsNum = (labels: string[], titulo: string): number[] => {
   return ok;
 };
 
-export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, clientes = [], clienteFijo, embebido = false, vistaExtra, onRecargar, soloVista, clienteInicial, accionEnLugarDelMenu, columnas = null }: { tareas: Tarea[]; categorias: Categoria[]; demo: boolean; user: BoardUser; wsId?: number | null; vistaInicial?: string;
+export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, clientes = [], clienteFijo, embebido = false, vistaExtra, onRecargar, soloVista, clienteInicial, accionEnLugarDelMenu, columnas = null, tarjeta = null }: { tareas: Tarea[]; categorias: Categoria[]; demo: boolean; user: BoardUser; wsId?: number | null; vistaInicial?: string;
   /** Los nombres de las columnas del negocio y si se pueden cambiar (./board/useBoard.ts). Sólo la página del Plan. */
   columnas?: ColumnasDelBoard;
+  /** La tarjeta de quien mira («Personalizar tarjetas», ./board/useBoard.ts). Sólo la página del Plan. */
+  tarjeta?: TarjetaDelBoard;
   /** Sólo esa vista y sin el selector de vistas. Ver `soloVista` en `BoardShell`. */
   soloVista?: 'prioridades';
   /** Va en el lugar del «⋮» con `soloVista`. Ver `accionEnLugarDelMenu` en `BoardShell`. */
@@ -296,7 +298,7 @@ export function TodoBoard({ tareas, categorias, demo, user, wsId, vistaInicial, 
       return { tareas, proyectos: 0, patches, proyectosPatch: [] };
     },
   };
-  const board = useBoard(tareas.map(toBoard), categorias.map(toLabel), user, repo, [], columnas);
+  const board = useBoard(tareas.map(toBoard), categorias.map(toLabel), user, repo, [], columnas, tarjeta);
   useEffect(() => { tareasVivas.current = board.tasks; });
   // Scope del auto-load POR workspace: la preferencia del cliente X no se comparte con
   // el board de la agencia ni con otro workspace en la misma impersonación/origin.

@@ -95,3 +95,57 @@ export function guardarPlantillaPropia<F extends string, C extends string>(
 export function idPlantillaNueva(ahora = Date.now(), azar = Math.random()): string {
   return `propia:${ahora.toString(36)}-${Math.floor(azar * 1296).toString(36)}`;
 }
+
+const claveNombre = (x: unknown) => String(x ?? '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+export type PedidoTarjeta<F extends string, C extends string> =
+  | { ok: true; forma: F; campos: C[]; propias?: PlantillaTarjeta<F, C>[]; plantilla: string | null }
+  | { ok: false; error: string; disponibles?: unknown; yaEstaba?: true };
+
+/**
+ * LO QUE PIDE MaKo POR LA API (`personalizar_tarjetas_clientes` y `_plan`, 21/10/2026), resuelto contra lo que la
+ * persona tiene: una plantilla por su nombre (de fábrica o propia, sin mayúsculas ni acentos), o la forma y los datos;
+ * con `guardarComo`, además la guarda como propia (con el mismo nombre, la reemplaza). Es la cuenta de
+ * `personalizar_tarjetas_crm` (lib/api-mako/areas/crm.run.ts), sacada a un lugar para que Clientes y el Plan no la
+ * escriban otra vez. `donde` es dónde se borra una propia cuando no hay lugar («Clientes», «el Plan»).
+ * ⚠️ Los datos se limpian con el `limpiarCampos` del tablero: el de Clientes los pone en el orden del catálogo (cada dato
+ *    tiene su lugar en la tarjeta) y el del Plan conserva el pedido.
+ */
+export function pedidoDeTarjeta<F extends string, C extends string>(
+  input: { plantilla?: unknown; forma?: unknown; campos?: unknown; guardarComo?: unknown },
+  actual: { forma: F; campos: readonly C[]; plantillas: readonly PlantillaTarjeta<F, C>[] },
+  tablero: {
+    fabrica: readonly PlantillaTarjeta<F, C>[]; formas: readonly F[]; campos: readonly C[];
+    limpiarCampos: (raw: unknown) => C[]; nombreCampo: Readonly<Record<C, string>>; donde: string;
+  },
+  idNuevo: string,
+): PedidoTarjeta<F, C> {
+  const todas = [...tablero.fabrica, ...actual.plantillas];
+  let forma: F;
+  let campos: C[];
+  if (input.plantilla !== undefined && String(input.plantilla).trim()) {
+    const p = todas.find((x) => claveNombre(x.nombre) === claveNombre(input.plantilla));
+    if (!p) return { ok: false, error: `No hay una plantilla «${String(input.plantilla).trim()}».`, disponibles: todas.map((x) => x.nombre) };
+    forma = p.forma;
+    campos = [...p.campos];
+  } else if (input.forma !== undefined || input.campos !== undefined) {
+    forma = (tablero.formas as readonly unknown[]).includes(input.forma) ? input.forma as F : actual.forma;
+    if (input.campos !== undefined) {
+      const pedidos = Array.isArray(input.campos) ? input.campos.map(String) : [];
+      const raros = pedidos.filter((c) => !(tablero.campos as readonly string[]).includes(c));
+      if (raros.length) return { ok: false, error: `No conozco ${raros.map((r) => `«${r}»`).join(', ')}.`, disponibles: tablero.campos.map((c) => ({ campo: c, nombre: tablero.nombreCampo[c] })) };
+      campos = tablero.limpiarCampos(pedidos);
+    } else campos = [...actual.campos];
+  } else {
+    return { ok: false, error: 'Pasa una plantilla por su nombre, o la forma y los datos.', disponibles: todas.map((x) => x.nombre) };
+  }
+  let propias: PlantillaTarjeta<F, C>[] | undefined;
+  if (input.guardarComo !== undefined && String(input.guardarComo).trim()) {
+    const g = guardarPlantillaPropia(actual.plantillas, input.guardarComo, forma, campos, idNuevo);
+    if (!g.ok) return { ok: false, error: g.error === 'lleno' ? `Ya tiene ${MAX_PLANTILLAS_PROPIAS} plantillas propias: hay que borrar una en ${tablero.donde}.` : 'Falta el nombre de la plantilla.' };
+    propias = g.propias;
+  }
+  const igual = forma === actual.forma && campos.length === actual.campos.length && campos.every((c, i) => c === actual.campos[i]);
+  if (igual && !propias) return { ok: false, error: 'La tarjeta ya está así.', yaEstaba: true };
+  return { ok: true, forma, campos, ...(propias ? { propias } : {}), plantilla: plantillaPuesta(todas, forma, campos)?.nombre ?? null };
+}

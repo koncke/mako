@@ -22,7 +22,7 @@ import { redirect } from 'next/navigation';
 import { getUsuarioActual } from '@/lib/auth';
 import { estaImpersonando, rutaConWs, getRolWsEfectivo } from '@/lib/workspace';
 import { leerColumnasPlan } from '@/lib/plan-columnas-server';
-import { getPerfil } from '@/lib/perfil';
+import { getPerfil, getTarjetaPlan } from '@/lib/perfil';
 import { listPlanBoard } from '@/lib/plan-board';
 import { clientesGanadosOVacio } from '@/lib/clientes-ganados';
 import type { BoardTask, Label } from '../board/types';
@@ -76,8 +76,9 @@ export default async function PlanAgenciaPage({ searchParams }: { searchParams: 
   // tablero entero es el peor intercambio posible.
   const clientes = await clientesGanadosOVacio();
   // Los nombres de las columnas del negocio y si se pueden cambiar (lib/plan-columnas.ts): lo mismo que /plan.
-  const [configColumnas, rol] = await Promise.all([leerColumnasPlan(), getRolWsEfectivo().catch(() => null)]);
+  // La tarjeta de quien mira («Personalizar tarjetas», 21/10/2026), como en /plan.
+  const [configColumnas, rol, tarjeta] = await Promise.all([leerColumnasPlan(), getRolWsEfectivo().catch(() => null), getTarjetaPlan()]);
 
   return <PlanBoard user={user} tareas={tareas} proyectos={proyectos} deps={deps} vacio={vacio} vistaInicial={vista} clientes={clientes} clienteInicial={leerClienteDeUrl(params.cliente)}
-    columnas={{ config: configColumnas, editables: rol === 'admin' }} />;
+    columnas={{ config: configColumnas, editables: rol === 'admin' }} tarjeta={tarjeta} />;
 }
