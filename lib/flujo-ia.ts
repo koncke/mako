@@ -3397,12 +3397,13 @@ export function falloDeIA(errores: readonly string[], hayIA: boolean, red: reado
 export const LINK_CONECTA_CLAUDE = '/integraciones?abrir=anthropic';
 
 /**
- * QUÉ IA PROPIA ARMA FLUJOS: su Claude (la puerta 2, primera en la cascada) o su GPT. Desde IA6 (lote 2 de IA, 22/10/2026)
- * un negocio con su IA corre la cascada con SU OpenAI (`PROVS_SU_IA`, lib/solo-su-ia.ts) aunque `PROVS_CREAR_IA` no la
- * nombre. tests/ia-aviso-sin-ia-propia.test.ts lo ata: si la cascada deja de usarla, el texto vuelve a «tu Claude».
+ * QUÉ IA PROPIA ARMA FLUJOS: su Claude (la puerta 2, primera en la cascada), su GPT o su Gemini. Desde IA6 (lote 2 de IA,
+ * 22/10/2026) un negocio con su IA corre la cascada con SU OpenAI y, desde IA16, también con SU Gemini (`PROVS_SU_IA`,
+ * lib/solo-su-ia.ts; Martín: «Cada usuario debe poder pagar su token, su propia IA de gemini»). Lo cambió el chat de IA en
+ * IA16, de acuerdo con Automations. tests/ia-aviso-sin-ia-propia.test.ts lo ata a `PROVS_SU_IA`.
  */
-export const SU_IA = 'tu Claude o tu GPT';
-export const SU_CLAVE = 'tu clave de Claude o de OpenAI';
+export const SU_IA = 'tu Claude, tu GPT o tu Gemini';
+export const SU_CLAVE = 'tu clave de Claude, de OpenAI o de Gemini';
 
 /** Un tope POR DÍA (Gemini «…PerDay…», Groq «tokens per day (TPD)»): «prueba en un rato» sería mentira hasta mañana. */
 const TOPE_DEL_DIA = /per ?day|\bTPD\b|\bRPD\b|daily/i;

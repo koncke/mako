@@ -5714,11 +5714,14 @@ revisión: su Gemini antes que su GPT, `ordenarPorCuota` con el orden de la list
 re-embeber lo que ya estaba, El Archivero sólo con su OpenAI. La regla de Google sin `AQ.` pone en rojo sus dos tests.
 
 **SIN hacer:**
-- **Subir.** Apaga la IA de los negocios de la tabla hasta que conecten la suya. El paso de Mauricio (ws1): «conectá tu
+- **Subir.** Apaga la IA de los negocios de la tabla hasta que conecten la suya. **Retenida** (el Cerebro, 22/10): no entra
+  a main hasta que el ws1 conecte su IA o hasta el lunes 26/10, lo que llegue primero (el sábado 24 arranca la campaña de
+  Mauricio y no puede quedarse sin el chat de MaKo). El paso de Mauricio (ws1): «conectá tu
   Claude, tu GPT o tu Gemini»; con Gemini empieza gratis.
 - **Re-embeber el conocimiento** (`scripts/reembeber-conocimiento.mts --aplicar`): toca los negocios con su Gemini, el
   ws9 y el método de MaKo del ws1. Las filas de los demás se embeben solas cuando conecten el suyo.
-- **Automations:** `SU_IA` y `SU_CLAVE` (lib/flujo-ia.ts) siguen diciendo «tu Claude o tu GPT». Son de ese chat.
+- **Automations:** `SU_IA` y `SU_CLAVE` (lib/flujo-ia.ts) los cambió IA16, de acuerdo con ese chat. Cuando IA16 esté en main,
+  Automations saca de `sinIAPropia` los textos de «la IA gratis de MaKo» (fuera del ws9 ya no se ven).
 - **Su Groq, con su IA:** D6b no deja a un negocio con su IA usar su propio Groq para las notas de voz (es así desde el
   21/10). El ws10 y el ws11 (los dos con su Claude) tienen una fila de Groq que por eso no escucha (medido el 22/10;
   no se miró si es una copia de la plataforma). Si se quiere, es una línea (`proveedorPermitido` y `ordenarPorCuota`).
