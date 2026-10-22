@@ -2774,4 +2774,21 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '22 oct', hora: '04:40', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: traer a todos de otro funnel y arrastrar a varios tildados, ya en producción',
+    revisar: '/crm',
+    puntos: [
+      'En producción desde el run 230 (b9dd7ce1e). Es lo que pidió Martín en la llamada con Mauricio del 22/10 (C1 y C2).',
+      'Cómo lo prueba Mauricio (ws1): en el CRM «Sprint 3 días», «+ Nuevo lead» › «Traer de otro funnel», de «Negocio que ESCALA», etapa Reactivación. Los 300 que ya trajo no aparecen; la casilla de arriba tilda a los 750 que faltan y «Agregar» está siempre a la vista.',
+      'Tildar varias tarjetas y arrastrar una de las tildadas a «Prospección activa»: pregunta y mueve a todas.',
+      'Avisado en el grupo de MaKo del ws1 como «Desarrollador de MaKo».',
+    ],
+    commits: [
+      { sha: '3c43c005c', msg: 'CRM (P0 de la llamada con Mauricio, 22/10): traer a TODOS de otro funnel y arrastrar a varios tildados', lineas: 325, archivos: 6 },
+    ],
+    archivos: [
+    ],
+  },
 ];
