@@ -234,8 +234,10 @@ test('un hilo FRENADO no tapa al carril: se aplaza, y el tick ve el recordatorio
   assert.ok(APLAZO_SIN_TAPAR_MS > 10 * MIN, 'más que la ventana del tick: si no, el motor corre cada minuto por una fila frenada');
   // Los tres lugares que dejan un hilo sin mover: fuera del horario, el cupo (dos) y el anti-ban.
   assert.match(PROC, /if \(libres\.includes\(x\) \|\| !aplazaParaNoTapar\(sec\.pasos, sanearHilos\(insc\.hilos\), x\.h\)\) continue;/);
-  assert.match(PROC, /if \(cupoLleno\(\) && !\(pasoLeido && sec && sigueSinCupo\(sec\.pasos, idxLeido\)\)\) \{ if \(sec\) await aplazarSiTapa\(insc, sec\); continue; \}/);
-  assert.match(PROC, /if \(cupoLleno\(\) && !sigueSinCupo\(sec\.pasos, r\.idx\)\) \{ await aplazarSiTapa\(insc, sec\); continue; \}/);
+  // El freno del cupo es `sinLugar` desde el 21/10/2026 (el cupo entero o, si no es una entrada fresca, el de campaña:
+  // tests/primero-lo-que-entra.test.ts); el aplazo del carril es el mismo.
+  assert.match(PROC, /if \(sinLugar\(insc\.lead_id\) && !\(pasoLeido && sec && sigueSinCupo\(sec\.pasos, idxLeido\)\)\) \{ if \(sec\) await aplazarSiTapa\(insc, sec\); continue; \}/);
+  assert.match(PROC, /if \(sinLugar\(insc\.lead_id\) && !sigueSinCupo\(sec\.pasos, r\.idx\)\) \{ await aplazarSiTapa\(insc, sec\); continue; \}/);
   assert.match(PROC, /nota: 'msg <20h' \}\);\s*await aplazarSiTapa\(insc, sec\);\s*continue;/);
 });
 

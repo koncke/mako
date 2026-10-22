@@ -5398,6 +5398,11 @@ Martín, a un cliente: «si tienes varios CRM que sea una selección múltiple y
   5 agregados (`lead_funnel`): filtrar por `leads.funnel_id` da cero para todo funnel de agregados, en silencio. Se
   reparte con `funnelDelMomento` sobre `ubicarLeads` (lib/funnels-elegidos-server.ts): el funnel donde estaba el lead
   ESE día. El número y su desglose usan la misma, o no cuadran.
+- ⚠️ **Y A QUIÉN LE ESCRIBE UNA AUTOMATIZACIÓN, tampoco** (21/10/2026, la prospección del Sprint): un CRM nuevo con sus
+  leads agregados inscribía a CERO. Una cohorte de un CRM DECLARADO mira la casa Y `lead_funnel` (`agregadosQueEntran`,
+  `conAgregados`, lib/nutricion-ambito.ts), con la etapa de ESE CRM y sin la fila que nace con el lead (la casa ya lo
+  saludó). Un paso que actúa sobre un CRM decide POR LEAD dónde está —casa, agregado o fuera— (`dondeMoverEtapa`): nunca
+  escribe la key de la etapa de un CRM en la etapa principal. Detalle: docs/hallazgos-chatbot.md («La prospección del Sprint»).
 - **Lo que es UNO por naturaleza sigue siendo uno**: las etapas de un kanban, dónde nace un lead, a qué etapa mueve un
   evento o una etiqueta. La pregunta es si se SUMA (varios) o si se UBICA (uno).
 - **Un funnel se dibuja con el CUBO, y sólo con ése** (`IconoFunnel` / `ICONO_FUNNEL`, app/_ui/icono-funnel.ts): en el

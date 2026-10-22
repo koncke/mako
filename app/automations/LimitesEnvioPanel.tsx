@@ -23,6 +23,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '@/app/_components/icons';
 import { Spinner } from '@/app/_ui';
 import { getLimitesEnvioAction, saveLimitesEnvioAction } from '@/app/configuraciones/limites-actions';
+import { textoPrioridad } from '@/lib/nutricion-prioridad';
 import { BLOQUES_LIMITES, conLimite, difiereDeFabrica, leerLimite, leerNumero, lineaDeUso, rangoDe, type LimitesEnvio, type UsoDelCupo } from '@/lib/limites-envio';
 
 const SANS = "'Geist', sans-serif";
@@ -159,6 +160,8 @@ export function LimitesEnvioPanel({ onSucio, personaPorDefecto = false }: { onSu
                 </div>
               );
             })}
+            {/* PRIMERO LO QUE ENTRA (21/10/2026): la regla de la cola, dicha con los números de este negocio. */}
+            {b.titulo === 'WhatsApp' && <span data-prioridad style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.45 }}>{textoPrioridad(l.wa)}</span>}
           </section>
         );
       })}
