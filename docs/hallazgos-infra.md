@@ -7565,7 +7565,13 @@ fuente, o que corra aislado todo archivo que en la corrida compartida contó men
   Parecía un rojo de tests o de tipos: no lo era.
 - **La causa** está sólo en las anotaciones del check-run (`/repos/<repo>/check-runs/<job id>/annotations`): «The job was not
   started because recent account payments have failed or your spending limit needs to be increased». El plan es Free (2.000
-  minutos por mes, sin tarjeta) y se acabaron el 22/10 a la mañana, después de 9 runs verdes de la noche.
+  minutos por mes, sin tarjeta) y se acabaron el **22/10/2026 a las 07:17 UTC**: el run 233, que arrancó a esa hora, fue el
+  último que corrió, después de 9 runs verdes de la noche. Se reinicia el 1º de noviembre.
+- **Lo que se hizo mientras tanto (decisión del Cerebro, 22/10):** push directo a `main` con el chequeo local completo en verde
+  (tests afectados, tsc acotado, guardas y la prueba de rotura de lo nuevo), juntando puntas porque cada push es un build de
+  Vercel, con fetch y merge de origin/main antes y el deploy Ready verificado después. `integracion` se empuja al mismo sha
+  para que el fast-forward siga andando. Cuando vuelvan los minutos, se re-corre la última corrida de `integracion`, que es la
+  red de todo lo que subió así.
 - **Lo que deja:** `main` no avanza por `integracion` hasta que haya medio de pago o tope de gasto, o hasta el 1º del mes.
   Vercel despliega `main` igual, porque no depende de Actions.
 - **Regla:** un run que termina en segundos y sin pasos NO se lee como un rojo de código y no se le pasa a ningún chat. Se miran
