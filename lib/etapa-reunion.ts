@@ -258,7 +258,7 @@ export function avisoCambioDeTipo(i: {
   if (desde === i.tipo) return [];
   const out: string[] = [];
   const n = i.leads ?? 0;
-  if (n > 0) out.push(n === 1 ? 'El lead que está acá se queda en esta etapa.' : `Los ${n} leads que están acá se quedan en esta etapa.`);
+  if (n > 0) out.push(n === 1 ? 'El lead que está aquí se queda en esta etapa.' : `Los ${n} leads que están aquí se quedan en esta etapa.`);
   const sube = i.tipo === 'reunion';
   const baja = desde === 'reunion';
   // Las reuniones se cuentan sobre el recorrido COMO QUEDARÍA: una que viene de Nutrición entra antes del cierre.
@@ -271,14 +271,14 @@ export function avisoCambioDeTipo(i: {
   ];
   const c = sube || baja ? cambioDeReuniones(lista, i.columna.key, sube) : { corridas: [], sinLugar: [] };
   if (sube) {
-    out.push('Cada lead que pase por acá lleva la fecha y la asistencia de la reunión.');
+    out.push('Cada lead que pase por aquí lleva la fecha y la asistencia de la reunión.');
     out.push(c.sinLugar.includes(i.columna.key)
       ? 'Sería la tercera reunión del funnel: no tiene dónde guardar la fecha.'
       : 'Le puedes asignar un evento de Calendly o Cal.com.');
   }
   if (baja) {
     out.push('Deja de llevar la fecha y la asistencia de la reunión.');
-    if (i.evento) out.push(`Las reservas de «${i.evento}» dejan de caer acá: vuelven al CRM principal.`);
+    if (i.evento) out.push(`Las reservas de «${i.evento}» dejan de caer aquí: vuelven al CRM principal.`);
   }
   for (const r of c.corridas) out.push(`«${r.label}» pasa a ser la reunión ${r.a}.`);
   if (c.corridas.length) out.push('Las fechas ya cargadas van por número: pueden verse en otra etapa.');

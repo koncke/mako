@@ -62,20 +62,20 @@ test('lo que se dice antes de cambiarlo: los leads se quedan, las reuniones que 
   assert.deepEqual(avisoCambioDeTipo({ recorrido: RECORRIDO, columna: col('st0'), tipo: 'etapa', leads: 9 }), [], 'el mismo tipo: nada que decir');
   // Calificado → Reunión: va ANTES de la R1, así que la corre al segundo lugar y la R2 queda tercera, sin lugar.
   const aR = avisoCambioDeTipo({ recorrido: RECORRIDO, columna: col('st0'), tipo: 'reunion', leads: 12 });
-  assert.equal(aR[0], 'Los 12 leads que están acá se quedan en esta etapa.');
-  assert.ok(aR.includes('Cada lead que pase por acá lleva la fecha y la asistencia de la reunión.'));
+  assert.equal(aR[0], 'Los 12 leads que están aquí se quedan en esta etapa.');
+  assert.ok(aR.includes('Cada lead que pase por aquí lleva la fecha y la asistencia de la reunión.'));
   assert.ok(aR.includes('«Agenda R1» pasa a ser la reunión 2.'));
   assert.ok(aR.includes('Las fechas ya cargadas van por número: pueden verse en otra etapa.'));
   // Propuesta → Reunión: sería la tercera.
   const tercera = avisoCambioDeTipo({ recorrido: RECORRIDO, columna: col('st1'), tipo: 'reunion', leads: 1 });
-  assert.equal(tercera[0], 'El lead que está acá se queda en esta etapa.');
+  assert.equal(tercera[0], 'El lead que está aquí se queda en esta etapa.');
   assert.ok(tercera.includes('Sería la tercera reunión del funnel: no tiene dónde guardar la fecha.'));
   assert.ok(!tercera.some((l) => l.includes('Calendly')), 'sin lugar no se le puede asignar un evento');
   // Agenda R1 → Etapa, con un evento vinculado: deja de llevar la reunión, el evento deja de caer y la R2 pasa a ser la 1.
   const baja = avisoCambioDeTipo({ recorrido: RECORRIDO, columna: col('agenda'), tipo: 'etapa', leads: 0, evento: 'Llamada de 30' });
   assert.ok(!baja.some((l) => l.includes('se queda')), 'sin leads no hay nada que decir de ellos');
   assert.ok(baja.includes('Deja de llevar la fecha y la asistencia de la reunión.'));
-  assert.ok(baja.includes('Las reservas de «Llamada de 30» dejan de caer acá: vuelven al CRM principal.'));
+  assert.ok(baja.includes('Las reservas de «Llamada de 30» dejan de caer aquí: vuelven al CRM principal.'));
   assert.ok(baja.includes('«Agenda R2» pasa a ser la reunión 1.'));
   // A Nutrición y de vuelta.
   assert.ok(avisoCambioDeTipo({ recorrido: RECORRIDO, columna: col('st1'), tipo: 'nutricion', leads: 3 }).includes('La columna pasa a la banda Nutrición.'));

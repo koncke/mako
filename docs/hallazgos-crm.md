@@ -10096,6 +10096,14 @@ Pedido literal en la bitácora del CRM (hito `actor: 'martin'` de las 23:10). Lo
   sigue se trabaja en OTRO worktree (acá: `wt-crm-2110b` y `wt-crm-2110c`) y se corre un VERDE sobre la rama juntada.
   Y uno de esos VERDE habría salido rojo: tests/crm-asignar-evento.test.ts fijaba el logo de Meet que la tanda 1 sacó.
 
+- **El VERDE de esta tanda salió ROJO por cuatro barredoras que no nombran ningún archivo del CRM**, y las cuatro
+  tenían razón: (1) una operación nueva por HTTP necesita su fila en `RUTAS_REST` (lib/api-mako/rest.ts) — el
+  generador de la doc no la crea y el snapshot dice «al día»; (2) toda unidad de `app/plan/**` cuenta como del Ops
+  Center para D6b: una server action nueva sin IA va a `SIN_IA` de tests/d6b-rutas.test.ts con lo que usa; (3) la guarda
+  de `.campos` del curso mira CUALQUIER archivo que importe lib/curso, y lib/api-mako/areas/cs.run.ts lo importa: los
+  `campos` de una tarjeta van a sus EXCEPCIONES con motivo; (4) «acá» en un texto que se dibuja es rioplatense: «aquí».
+  Ninguna de las cuatro salía corriendo los tests que nombran lo cambiado: sólo el VERDE las ve.
+
 Sin hacer, con el archivo: el teléfono sigue los DATOS de la tarjeta pero no la forma (app/m/crm/TableroCrm.tsx dibuja
 filas, no tarjetas); Google Calendar en «Asignar evento» (app/crm/EventosDeEtapaModal.tsx, decisión de Martín).
 

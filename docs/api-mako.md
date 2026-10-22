@@ -2290,10 +2290,11 @@ curl -L \
   -d '{"proveedor":"calendly","evento":"EVENTO"}'
 ```
 
-### `POST /api/v1/crm/crear_evento_agenda` — Crear un evento de agenda
+### `POST /api/v1/crm/eventos-agenda` — Crear un evento de agenda
 
 PROPONE crear un tipo de evento en el Calendly o el Cal.com del negocio (queda pendiente hasta el «sí»): un evento uno a uno con su nombre y su duración; la disponibilidad y la ubicación son las de la cuenta. Nace activo. Para que sus reservas caigan en una etapa, después vincular_evento_etapa. Google Calendar no: no expone sus páginas de reserva. Solo el administrador.
 
+- **Ruta por operación:** `POST /api/v1/crm/crear_evento_agenda`
 - **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
@@ -2311,13 +2312,21 @@ PROPONE crear un tipo de evento en el Calendly o el Cal.com del negocio (queda p
 | `duracionMin` | number | sí | cuánto dura, en minutos. |
 
 ```bash
-
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/crm/eventos-agenda" \
+  -d '{"proveedor":"calendly","nombre":"NOMBRE","duracionMin":5}'
 ```
 
-### `POST /api/v1/crm/editar_evento_agenda` — Editar un evento de agenda
+### `PATCH /api/v1/crm/eventos-agenda/evento` — Editar un evento de agenda
 
 PROPONE cambiar el nombre o la duración de un tipo de evento de Calendly o Cal.com del negocio (queda pendiente hasta el «sí»). Lo que no se pasa queda como está. El evento sale de listar_eventos_agenda. Solo el administrador.
 
+- **Ruta por operación:** `POST /api/v1/crm/editar_evento_agenda`
 - **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
@@ -2336,7 +2345,14 @@ PROPONE cambiar el nombre o la duración de un tipo de evento de Calendly o Cal.
 | `duracionMin` | number | no | la duración nueva, en minutos. |
 
 ```bash
-
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/crm/eventos-agenda/evento" \
+  -d '{"proveedor":"calendly","evento":"EVENTO"}'
 ```
 
 ### `GET /api/v1/crm/campanas` — Campañas de Meta y sus funnels
@@ -2360,10 +2376,11 @@ curl -L \
   "https://hola-mako.com/api/v1/crm/campanas"
 ```
 
-### `POST /api/v1/crm/cambiar_tipo_etapa` — Cambiar el tipo de una etapa
+### `PUT /api/v1/crm/etapas/{etapa}/tipo` — Cambiar el tipo de una etapa
 
 PROPONE cambiar el tipo de una etapa del CRM (queda pendiente hasta el «sí»): etapa, reunion o nutricion, lo mismo que «⋯» › «Tipo de etapa» de la columna. Reunión: cada lead que pase por ahí lleva la fecha y la asistencia, y se le puede vincular un evento (vincular_evento_etapa); nutricion la pasa a la banda Nutrición. Los leads que ya están en la etapa no se mueven. La entrada, el cierre y las terminales no cambian de tipo. La etapa por su key (de ver_funnel) o su nombre; con embudoId, la de otro CRM. Solo el administrador.
 
+- **Ruta por operación:** `POST /api/v1/crm/cambiar_tipo_etapa`
 - **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
@@ -2381,7 +2398,14 @@ PROPONE cambiar el tipo de una etapa del CRM (queda pendiente hasta el «sí»):
 | `embudoId` | number | no | el CRM, por el id de su embudo. Sin él, el CRM principal. |
 
 ```bash
-
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/crm/etapas/ETAPA/tipo" \
+  -d '{"tipo":"etapa"}'
 ```
 
 ### `PUT /api/v1/crm/campanas/funnels` — Asignar una campaña a funnels

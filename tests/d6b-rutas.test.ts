@@ -154,6 +154,8 @@ const FUERA_DE_D6B: ReadonlyArray<{ prefijo: string; porque: string; salvo?: str
  * se vuelve a mirar: si ahora le pide algo a una IA, va adentro de `conSuIADelNegocio`.
  */
 const SIN_IA: ReadonlyArray<{ unidad: string; usa: string[]; porque: string }> = [
+  // Cómo se ve la tarjeta de una tarea (21/10/2026, las plantillas de tarjeta): de quien mira, en `usuarios.perfil`.
+  { unidad: 'app/plan/board/tarjeta-actions.ts#guardarTarjetaPlanAction', usa: ['exigirSesion', 'getRolWsEfectivo', 'setTarjetaPlan'], porque: 'guarda cómo se ve la tarjeta de quien mira (usuarios.perfil): no le pide nada a una IA' },
   // El chat: abrir y listar las conversaciones (el turno, el POST, prende).
   { unidad: 'app/api/mako/chat/route.ts#GET', usa: ['abrirSesion', 'chatsDeAntes', 'chatsDeOffer', 'estadoDeTrabajo', 'hiloDeAntes', 'hiloDeOffer', 'listarSesiones', 'personaDelRequest', 'quienChateaDelRequest', 'runWithWorkspace', 'urlDeAdjunto'], porque: 'lee las conversaciones y el avance de un trabajo' },
   { unidad: 'app/api/m/mako/route.ts#GET', usa: ['abrirSesion', 'listarSesiones', 'personaDelRequest'], porque: 'lee las conversaciones del teléfono' },
