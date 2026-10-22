@@ -1,10 +1,12 @@
 import { redirect } from 'next/navigation';
 import { getUsuarioActual } from '@/lib/auth';
-import { getWorkspaceActual, getRolWsEfectivo, rutaConWs } from '@/lib/workspace';
+import { getCapaActual, getWorkspaceActual, rutaConWs } from '@/lib/workspace';
 import { onboardingPendiente } from '@/lib/onboarding-state';
 import { prefiereMovil } from '@/lib/movil-guard';
 import { MOVIL_ACTIVO } from '@/lib/movil-desvio';
 import { ENTRADA_MOVIL } from '@/lib/movil-rutas';
+import { quienOpera } from '@/lib/second-brain-opera';
+import { casaEnLaComputadora } from '@/lib/ops-center-ruta';
 
 /** Si un teléfono que entra por /inicio va solo a MaKo Mobile (/m). Ver la nota de abajo. */
 const MOBILE_AL_ENTRAR = MOVIL_ACTIVO;
@@ -19,9 +21,11 @@ export const dynamic = 'force-dynamic';
 // pantalla que rebota a alguien "a su casa". No es pública, así que a quien no tiene
 // sesión el gate lo manda a /login?next=/inicio y vuelve solo.
 //
-// Un admin sin impersonar arranca en su panel de gestión; un closer/setter en su CRM
-// (no ven General); un admin-cliente con onboarding pendiente cae al wizard; el resto
-// (admin-cliente, dueño, admin impersonando) va a la Vista General de su workspace.
+// En la COMPUTADORA todos entran al Ops Center desde el 21/10/2026 (`casaEnLaComputadora`, lib/ops-center-ruta.ts): el
+// super admin al suyo (/admin/operaciones) y los demás —el cliente, su closer y su setter, el super admin mirando a un
+// cliente— al de su negocio (/second-brain). Un admin-cliente con onboarding pendiente cae antes al wizard. Hasta ese
+// día el super admin con workspace propio (Martín, ws 9) y el cliente iban a /general, que redirige al Dashboard, y el
+// closer/setter a su CRM. Un admin SIN workspace sigue en su panel de clientes: no tiene Ops Center que abrir.
 export default async function Inicio() {
   const sesion = await getUsuarioActual();
   // MaKo Mobile: un TELÉFONO va a /m (lib/movil-dispositivo.ts), salvo que haya pedido
@@ -44,8 +48,11 @@ export default async function Inicio() {
   // si pierde la pestaña, el admin que abre un cliente termina mirando otra cuenta con
   // el chrome de admin puesto — se lee como «la app se rompió», no como «me cambió de
   // cliente». Para un usuario sin `?ws=` devuelve el mismo string de siempre.
-  const rolWs = await getRolWsEfectivo();
-  if (rolWs === 'closer' || rolWs === 'setter') redirect(await rutaConWs('/crm'));
-  if (await onboardingPendiente()) redirect(await rutaConWs('/onboarding'));
-  redirect(await rutaConWs('/general'));
+  // ⚠️ LA COMPUTADORA, DESDE ACÁ. `quienOpera` es la guarda del Centro (rol admin, SU workspace de plataforma, 2FA) y da
+  // false mirando a un cliente: así el super admin que abre `/inicio?ws=N` entra al Ops Center de ESE negocio y nunca al
+  // suyo con la cuenta del cliente puesta. El que opera no pasa por el onboarding: el wizard es de un negocio, y el suyo
+  // es la plataforma. El orden lo fija tests/inicio-ops-center.test.ts.
+  const opera = await quienOpera();
+  if (!opera && (await onboardingPendiente())) redirect(await rutaConWs('/onboarding'));
+  redirect(await rutaConWs(casaEnLaComputadora({ opera, capa: opera ? null : await getCapaActual() })));
 }

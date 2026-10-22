@@ -1922,3 +1922,36 @@ tests/centro-preguntas-retirar.test.ts. La regla para los chats, en AGENTS.md.
 **Sin hacer:** otros tests que importan cartero.mjs sin `CARTERO_DIR` (centro-abrir-pantalla, centro-largos,
 centro-textos, tickets-cartero…) no escriben el log hoy porque no llaman a lo que loguea; no hay una guarda que lo
 impida.
+
+## En la computadora se entra al Ops Center: el super admin TIENE workspace (21/10/2026)
+
+**Vive en:** `casaEnLaComputadora` (lib/ops-center-ruta.ts) · el repartidor app/inicio/page.tsx · fijado en
+tests/inicio-ops-center.test.ts. La regla para código nuevo, en AGENTS.md («La pantalla de entrada se decide en /inicio»).
+
+- **Síntoma:** Martín, 21/10 22:54: «en desktop siempre al iniciar me lleva a dashboard, cuando dijimos que debería ir a Ops
+  Center siempre». El teléfono ya entraba al Ops Center desde el 20/10 (`ENTRADA_MOVIL`); la computadora no.
+- **Lo obvio era el error: «el super admin va a /clients».** Lo decía el comentario del repartidor («un admin sin impersonar
+  arranca en su panel de gestión») y la rama existía: `if (ws == null) redirect(… '/clients')`. Pero **nunca corría para
+  Martín**: medido en producción ese día, su usuario (id 1) es `rol=admin` con `workspace_id=9` (la plataforma, capa
+  `superadmin`), y `resolverDesdeCookies` le devuelve `imp ?? sesion.ws` = 9. Pasaba de largo, caía en el `redirect('/general')`
+  del final, y /general redirige al Dashboard. **Regla:** «sin impersonar» no es «sin workspace»; lo que distingue al super
+  admin en su casa de él mirando a un cliente es `quienOpera()` / `estaImpersonando()`, nunca `getWorkspaceActual() == null`.
+- **La casa es la fila «Ops Center» de la barra de quien entra:** `/admin/operaciones` para el que opera (`quienOpera`, la
+  guarda del Centro: con 2FA y su workspace de plataforma) y `/second-brain` para el cliente, su closer y su setter, y el super
+  admin con `?ws=N`. El test compara las dos rutas con los `href` de nav.ts. El que opera no pasa por el onboarding (el wizard
+  es de un negocio); el resto sí, antes. Un admin sin workspace sigue en /clients: no tiene Ops Center que abrir.
+- **Los caminos de entrada que esquivaban al repartidor:** «Inspeccionar» del super admin (AdminView, FichaWorkspace) y
+  «Entrar» de MaKo Partners iban derecho a `/general?ws=N`; el «Ir al inicio» del cartel «No está en tu plan» iba a la casa
+  del plan (/crm o /plan); la vuelta de Google sin su cookie caía a `'/'`, que es la LANDING pública; el rebote de
+  /admin/agente, también a `'/'`. Ahora todos van a `/inicio` (con su `?ws=`). El login con contraseña, el 2FA, «Ya estás
+  adentro» y el `start_url` de la PWA ya iban a /inicio.
+- **Trampa: el logo de la barra NO es un link** desde el 14/10 (Martín: «si clickeo MaKo no pase nada», Sidebar.tsx → `Marca`).
+  No es un camino de entrada y no se tocó.
+
+**Sin hacer:**
+- `app/error.tsx`: «Ir al inicio» sigue yendo a `'/'` (la landing). Ese boundary también cubre la landing pública, donde
+  `/inicio` mandaría al visitante a /login, y no importa nada de la app a propósito; falta una forma de distinguir sin imports.
+- Ctrl K: «home» e «inicio» siguen llevando al Dashboard (lib/buscador-nav.ts → `ALIAS`, con su test en sidebar-nueva).
+- El teléfono, sin tocar (lo lleva otro chat): «Entrar» de Partners en app/m/partners/PartnersM.tsx sigue yendo a `/general`.
+- `homeDeCapa` (lib/tab-access.ts), el rebote de una tab que el rol no ve, sigue en /crm o /plan: no es la entrada.
+- Nada de esto se miró en un navegador: es un redirect del servidor que pide la sesión de Martín con 2FA.

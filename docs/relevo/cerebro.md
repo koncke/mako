@@ -41,9 +41,10 @@ Lo visual entra sin revisión adversarial; plata, privacidad, sesión y herramie
 **Migraciones del 21/10:** 0317, 0322 (APLICADA; NO se vuelve a correr — desde 60f2aba52 su backfill ya no confirma
 pendientes, pero igual no), 0323 (idempotente).
 
-**Estado al escribir:** `integracion` = `382a9cdb1` (las puntas de Infra: el candado que no se retiene esperando RAM y
-«Tipos» = tsc entero con tandas de respaldo «OK PARCIAL»), run corriendo. En wt-push-q, encima, para el próximo lote:
-`60f2aba52` (la 0322 segura) y este relevo.
+**Estado al escribir (22/10):** en producción hasta el run 228 (`43b0c2625`, Automations: la prospección del Sprint;
+226 y 227 fueron Infra, la 0322 segura y este método). Subiendo: el Ops Center en la computadora, el teléfono sin
+«Reload», el hito de Automations y `docs/feedback-22-10.md`. El 22/10 se quitaron 51 worktrees integrados (el disco
+estaba en 1,3 GB; quedó en 26): `docs/hallazgos-infra.md`, «Limpiar worktrees».
 
 **En curso / por abrir:**
 - **Onboarding, Florencia ws21, punto 1 (cliente roto):** tarjeta `task_8d15785e`, espera el clic de Martín. Rama
@@ -62,6 +63,8 @@ pendientes, pero igual no), 0323 (idempotente).
 **DECISIÓN DE MARTÍN (21/10, 21:45): modularizar el chequeo de GitHub.** Un cambio chico tardó 10-15 min en salir
 («antes salían antes»). Vía rápida para lo chico o urgente; el resto, sólo los tests y tipos de lo afectado; lo que va a
 `main` no puede dar un OK falso, y un chequeo completo nocturno queda de red. Es de Infra.
+
+**La llamada del 22/10 con Mauricio:** `docs/feedback-22-10.md` (lo P0 va antes que todo: reunión de validación HOY; los mensajes salen desde el sáb 24/10).
 
 **Espera a Martín:** `resumen-cerebro-21-10.md` en la carpeta del proyecto en OneDrive (2FA, ejecutables 0.3.2, pedido
 9a143455, el script del ws21 con `--meses=6` o `--mensual`, las claves del ws1, Leila ws11, lectura de producción para Infra).
