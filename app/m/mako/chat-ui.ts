@@ -145,6 +145,9 @@ const aPropuesta = (t: TarjetaPendiente): ItemHilo => ({ k: 'propuesta', id: `p$
 
 /** Un mensaje guardado y, debajo, lo que dibuja (lo creado de un «Hecho: …» vuelve con su miniatura al recargar). */
 const conSusBloques = (m: MensajeChat, i: number, conWs: ConWs = sinWs): ItemHilo[] => {
+  // El porqué de un turno sin respuesta (la marca `porque`): no es un turno de MaKo, es su aviso, con el botón de conectar.
+  const porque = (m.bloques ?? []).find((b): b is Extract<Bloque, { t: 'porque' }> => b.t === 'porque');
+  if (porque) return [{ k: 'aviso', id: `porque-${i}-${m.created_at ?? ''}`, texto: m.content, tono: 'mako', ...(porque.conectar ? { conectar: porque.conectar } : {}) }];
   // El «En curso: …» de un trabajo largo que sigue: su G6 consulta y dice cómo termina; la burbuja quedaba diciendo «En
   // curso» al lado de un G6 terminado (la segunda revisión de la ola 1).
   const sigue = (m.bloques ?? []).some((b) => b.t === 'trabajo' && !!b.consulta && b.pasos.some((p) => p.estado === 'en_curso'));

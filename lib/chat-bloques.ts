@@ -67,6 +67,11 @@ export type Bloque =
    *  llave con que la pantalla pregunta cómo va (lib/chat-trabajos.ts, la 1.11). `hasta`: hasta cuándo puede seguir
    *  (ms desde 1970); pasado eso, la invocación que lo corría ya no existe y se da por cortado. */
   | { t: 'trabajo'; titulo: string; pasos: { texto: string; estado: EstadoPaso }[]; listo?: BloqueCreado; abrir?: Abrir; consulta?: string; hasta?: number }
+  /** EL PORQUÉ DE UN TURNO SIN RESPUESTA (22/10/2026, lib/mako-turno-app-reglas.ts → `porQueSinRespuesta`): una MARCA, no un
+   *  dibujo. El mensaje que la lleva es un cartel de la plataforma guardado en el hilo: la pantalla lo dibuja como aviso de
+   *  MaKo, con el botón de `conectar` (app/m/mako/chat-ui.ts → `conSusBloques`), y el modelo NO lo lee como algo que dijo
+   *  (`esPorQueGuardado`; AGENTS.md, «Un cartel de la PLATAFORMA no es un turno de la conversación»). */
+  | { t: 'porque'; conectar?: string }
   /** G1: una pregunta con opciones; `varias` = se puede marcar más de una. */
   | { t: 'pregunta'; pregunta: string; opciones: { titulo: string; detalle?: string }[]; recomendada?: number; varias?: boolean;
       /** Las respuestas rápidas de una conversación de Offer en el Ops Center (app/m/mako/chat-ui.ts → itemsDeOffer): sin
@@ -213,6 +218,11 @@ export function sanearBloque(crudo: unknown): Bloque | null {
       const hasta = typeof o.hasta === 'number' && Number.isFinite(o.hasta) && o.hasta > 0 ? Math.round(o.hasta) : null;
       return { t: 'trabajo', titulo, pasos, ...(listo ? { listo } : {}), ...(abrir ? { abrir } : {}), ...(consulta ? { consulta } : {}), ...(hasta ? { hasta } : {}) };
     }
+    case 'porque': {
+      // `conectar` es la clave de una integración (anthropic, openai, gemini…): nada más entra.
+      const conectar = typeof o.conectar === 'string' && /^[a-z][a-z0-9_-]{1,30}$/.test(o.conectar) ? o.conectar : null;
+      return { t: 'porque', ...(conectar ? { conectar } : {}) };
+    }
     case 'pregunta': {
       const pregunta = texto(o.pregunta, 300);
       const opciones = (Array.isArray(o.opciones) ? o.opciones : []).slice(0, 4).flatMap((x) => {
@@ -291,6 +301,11 @@ export function bloquesGuardados(crudo: unknown): Bloque[] {
     if (b) out.push(b);
   }
   return out;
+}
+
+/** ¿Es el porqué de un turno sin respuesta (la marca `porque`), y no algo que dijo MaKo? Con los `bloques` CRUDOS de la fila. */
+export function esPorQueGuardado(crudo: unknown): boolean {
+  return bloquesGuardados(crudo).some((b) => b.t === 'porque');
 }
 
 /** La forma del marco de la miniatura (`aspect-ratio`): la del diseño, entre 9:16 y 16:9 para que no ocupe toda la pantalla. */

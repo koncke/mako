@@ -61,12 +61,12 @@ import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { runWithWorkspace, getWorkspaceActual, getRolWsEfectivo, getCapaActual } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
 import {
-  createSession, getSession, listSessions, getSessionMessages, getSessionMessagesConBloques, getMensajeConBloques, appendMessage,
+  createSession, getSession, listSessions, getSessionMessagesConBloques, getMensajeConBloques, appendMessage,
   renameSession, tituloDesde, type ChartSession, type ChartMsgConBloques,
 } from '@/lib/chart-chats';
 import { adjuntosVisibles, audioDeBloques, leerRef, rutaDeVozDelChat, sanearBloques, vozDeBloques } from '@/lib/chat-mako-bloques';
 import { urlAudio } from '@/lib/offer-reglas';
-import { MAX_BLOQUES_MENSAJE, aGuardar, bloqueDeResultado, bloquesGuardados, type Bloque } from '@/lib/chat-bloques';
+import { MAX_BLOQUES_MENSAJE, aGuardar, bloqueDeResultado, bloquesGuardados, esPorQueGuardado, type Bloque } from '@/lib/chat-bloques';
 import { archivarPdfsDelChat, archivarPegadosDelChat, borrarAdjuntos, subirAdjuntos, subirNotaDeVozDelChat, urlFirmadaDeAdjunto } from '@/lib/chat-mako-adjuntos';
 import { recortarMensaje, textoParaTitulo, textosParaArchivar } from '@/lib/chat-pegado';
 import { archivoATexto } from '@/lib/archivo-a-texto';
@@ -85,7 +85,7 @@ import {
   chartKeyDePersona, canalKeyDeSesion, herramientasDelChat, tarjetaDePendiente, linksDeUnaAccion, abrirDeResultado, idDePropuesta, aRetirar,
   type FormularioPropuesta, type PropuestaPantalla,
   propuestaDePantalla, sinLinksDeRevision, MENSAJE_BORRADOR_APP, mensajeLeadApp, TEXTO_SOLO_TARJETA, TEXTO_SOLO_BLOQUE,
-  historialParaModelo, bloquesDelMensaje, entraOtroDibujo, confirmadoTrasElUltimoPedido, esPedido, salioBien, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA,
+  historialParaModelo, bloquesDelMensaje, entraOtroDibujo, confirmadoTrasElUltimoPedido, esPedido, salioBien, hoyLegible, errorCortoDeTarjeta, conInstruccionDeTarjeta, faltaIADelNegocio, avisoSinIA, porQueSinRespuesta,
   iaParaConectar, IA_PARA_CONECTAR, ENV_DE_IA, falloDeSuClave, AVISO_SU_CLAVE, AVISO_CONECTA_TU_PC, AVISO_NO_LEI_SU_IA, AVISO_SIN_ARCHIVERO, AVISO_ARCHIVERO_EN_PAUSA,
   type LinkCapturado, type MensajeChat, type RespuestaTurno, type ResultadoTarjeta, type SesionChat, type TarjetaPendiente,
 } from '@/lib/mako-turno-app-reglas';
@@ -495,7 +495,9 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     if (!textoMemoria) throw new Error('turnoApp: mensaje vacío');
 
     // El historial de ANTES de este mensaje: se lee antes de guardarlo.
-    const previos = await getSessionMessages(s.id);
+    // Sin el porqué de un turno sin respuesta (la marca `porque`): es un cartel de la plataforma guardado en el hilo, no algo
+    // que dijo MaKo, y el modelo no lo tiene que continuar (AGENTS.md, «Un cartel de la PLATAFORMA no es un turno»).
+    const previos = (await getSessionMessagesConBloques(s.id)).filter((m) => !(m.role === 'assistant' && esPorQueGuardado(m.bloques)));
 
     // LO QUE ESCRIBIÓ LA PERSONA SE GUARDA SIEMPRE, antes del modelo.
     // Los archivos se guardan (mig 0305): el binario ANTES, y su referencia en el mismo insert del mensaje
@@ -866,7 +868,14 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     if (!respuesta) {
       const tzAviso = falloDeLaPc === 'tope' ? await tzDeWorkspace(ws).catch(() => TZ_DEFAULT) : TZ_DEFAULT;
       const delaPc = avisoDeLaPc(falloDeLaPc, false, { repone: reponeDeLaPc, tz: tzAviso });
-      aviso = [aviso, delaPc ?? deSuClave?.aviso ?? sinIAEs?.aviso ?? (pcIlegible && negocio.suIA ? AVISO_PC_ILEGIBLE : null) ?? AVISO_NO_PUDE].filter(Boolean).join(' ');
+      // Con un porqué conocido, MaKo lo dice EN EL HILO (`porQueSinRespuesta`): al volver a entrar está ahí, y no «No te pude
+      // contestar esto». En la respuesta sigue yendo como aviso, con su botón (no en `guardados`: saldría dos veces).
+      const porQue = porQueSinRespuesta({ delaPc, deSuClave: deSuClave?.aviso, sinIA: sinIAEs?.aviso, pcIlegible: pcIlegible && negocio.suIA ? AVISO_PC_ILEGIBLE : null });
+      if (porQue) {
+        const boton = sinIAEs?.conectar ?? deSuClave?.conectar ?? null;
+        await anotarEnHilo(s.id, porQue, [{ t: 'porque', ...(boton ? { conectar: boton } : {}) }]);
+      }
+      aviso = [aviso, porQue ?? AVISO_NO_PUDE].filter(Boolean).join(' ');
     }
     let conectar = sinIAEs?.conectar ?? (respuesta ? null : deSuClave?.conectar ?? null);
     // La clave tapada se le dice, con el botón del servicio que se reconoció. ⚠️ ESE BOTÓN GANA (22/10/2026, la prueba de

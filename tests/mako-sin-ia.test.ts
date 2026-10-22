@@ -97,8 +97,9 @@ test('¿falta la IA del negocio?: el texto de la cascada, o cero cuentas propias
   assert.equal(faltaIADelNegocio('falló la IA (gemini: HTTP 500)', null), false, 'no se pudo leer: no se le pide conectar algo que quizá ya está');
   // Corto y en sus palabras: sin «API key», sin el proveedor, y diciendo qué hacer.
   assert.ok(AVISO_SIN_IA.length <= 100, AVISO_SIN_IA);
-  assert.doesNotMatch(AVISO_SIN_IA, /api|key|gemini|groq|proveedor|vos|tenés|conectá/i);
-  assert.match(AVISO_SIN_IA, /Conecta la tuya/);
+  // Nombra las IA que puede conectar (su Claude, su GPT, su Gemini: el Cerebro, 22/10/2026), nunca «la gratis».
+  assert.doesNotMatch(AVISO_SIN_IA, /api|key|gratis|groq|proveedor|vos|tenés|conectá/i);
+  assert.match(AVISO_SIN_IA, /conecta tu Claude, tu GPT o tu Gemini/);
   assert.equal(SERVICIO_IA, 'anthropic', 'el modal de su Claude, el mismo que manda WhatsApp (`linkKeysIA`; IA9: antes, Gemini)');
   assert.equal(servicioDeLink(`/integraciones?abrir=${SERVICIO_IA}`), SERVICIO_IA, 'es un modal que se abre suelto en cualquier tab');
   assert.equal(botonConectar(SERVICIO_IA), 'Conectar tu IA');
@@ -115,7 +116,9 @@ test('¿falta la IA del negocio?: el texto de la cascada, o cero cuentas propias
   // en un negocio con su propio Claude (D6b), lo que se le ofrece es SU IA, nunca Gemini (`iaParaConectar(…, negocio.suIA)`).
   // Antes van «no pude ver tu computadora» y «conecta tu computadora» (tests/ia-pc-segunda-revision.test.ts).
   assert.match(turno, /const sinIAEs = !respuesta && sinIA(?: && !pc)?\s*\?[\s\S]{0,280}avisoSinIA\(await esNegocioDelEntorno\(ws\)\.catch\(\(\) => false\), iaParaConectar\(await iaConFila\(\)(?:, negocio\.suIA)?\)\)\s*: null;/);
-  assert.match(turno, /aviso = \[aviso, (?:delaPc \?\? )?(?:deSuClave\?\.aviso \?\? )?sinIAEs\?\.aviso \?\? (?:\(pcIlegible && negocio\.suIA \? AVISO_PC_ILEGIBLE : null\) \?\? )?AVISO_NO_PUDE\]/);
+  // El porqué conocido (la PC, su clave, sin IA, la PC ilegible) y, sin porqué, AVISO_NO_PUDE (tests/ops-sin-silencio.test.ts).
+  assert.match(turno, /const porQue = porQueSinRespuesta\(\{ delaPc, deSuClave: deSuClave\?\.aviso, sinIA: sinIAEs\?\.aviso, pcIlegible: pcIlegible && negocio\.suIA \? AVISO_PC_ILEGIBLE : null \}\);/);
+  assert.match(turno, /aviso = \[aviso, porQue \?\? AVISO_NO_PUDE\]/);
   assert.match(turno, /pantallas, conectar \}/);
 });
 
