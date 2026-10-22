@@ -236,11 +236,15 @@ export const esDeLaClaveDelNegocio = (motivo: string | null | undefined): boolea
   typeof motivo === 'string' && motivo.trimStart().startsWith(MOTIVO_CLAVE_DEL_NEGOCIO);
 
 /**
- * Las funciones del PLAN no pasan por la puerta 2, aunque la clave sea del negocio. Martín,
- * 30/09/2026, textual: «NO, JAMÁS algo pago para el plan» y «nunca sonnet ni nada pago para
- * el plan. JAMÁS». El Plan es lo que más se usa: con la clave del negocio, el Perro y la
- * lectura de reuniones se comerían su crédito de Max en silencio. Sacar una de acá es una
- * decisión suya, no un arreglo.
+ * Las funciones del PLAN. Martín, 30/09/2026, textual: «NO, JAMÁS algo pago para el plan» y «nunca sonnet ni nada pago
+ * para el plan. JAMÁS». La EXCEPCIÓN, Martín, 22/10/2026, textual: «Sí, si es su clave» — si el negocio conectó y paga su
+ * propia clave, su Plan la usa; si no, sigue como siempre. Así que en la puerta 2 una función del Plan pasa SÓLO:
+ *   · con la clave que paga el negocio, nunca con el crédito de Max de la plataforma (el ws10: lo pagaría Martín), y sin
+ *     poder comparar con el crédito, tampoco;
+ *   · con el modelo barato, elija lo que elija: el Plan es lo que más se usa (el Perro, las reuniones), y con Sonnet se
+ *     comería su crédito en silencio.
+ * La plataforma no paga el Plan por ninguna puerta (la 1 no lo tiene, la 3 lo rechaza). Sacar una de acá es una decisión
+ * de Martín, no un arreglo.
  */
 export const FEATURES_DEL_PLAN: readonly string[] = [
   'mako-guardian', 'checklist-coach', 'plan-seed-ia', 'plan-fathom', 'plan-criterio',
@@ -271,7 +275,7 @@ export function evaluarClaveDelNegocio(p: {
   if (p.pausa) return { ok: false, razon: 'Claude está PAUSADO a mano (`mako.claude.pausa`): apaga también la clave del negocio.' };
   const feature = (p.feature ?? '').trim();
   if (!feature) return { ok: false, razon: 'sin `feature` no se sabe qué se compra, ni con la plata del negocio.' };
-  if (FEATURES_DEL_PLAN.includes(feature)) return { ok: false, razon: `«${feature}» es del Plan, y el Plan nunca paga IA (Martín, 30/09/2026).` };
+  const delPlan = FEATURES_DEL_PLAN.includes(feature);
   const clave = typeof p.clave === 'string' ? p.clave.trim() : '';
   if (!clave || clave.startsWith('PENDING')) return { ok: false, razon: 'el negocio no tiene su clave de Anthropic cargada.' };
   // LA FRONTERA. Comparada sin espacios: una copia pegada con un espacio de más sigue siendo
@@ -285,7 +289,13 @@ export function evaluarClaveDelNegocio(p: {
   // El crédito de Max de la PLATAFORMA puesto como clave de un negocio: sólo el barato (IA5).
   const esCredito = p.creditosPlataforma === null
     || (p.creditosPlataforma ?? []).some((x) => typeof x === 'string' && x.trim() !== '' && x.trim() === clave);
-  if (esCredito) model = modelos[0];
+  // El Plan, sólo con la clave que paga el negocio (Martín, 22/10/2026: «Sí, si es su clave»), y siempre con el barato.
+  if (delPlan && esCredito) {
+    return { ok: false, razon: p.creditosPlataforma === null
+      ? `«${feature}» es del Plan: sin poder leer el crédito de Max de la plataforma, no se sabe si esta clave la paga el negocio.`
+      : `«${feature}» es del Plan, y esa clave es el crédito de Max de la PLATAFORMA: el Plan sólo paga con la clave que paga el negocio.` };
+  }
+  if (esCredito || delPlan) model = modelos[0];
   return { ok: true, permiso: fabricar({ model, feature, porque: CLAUDE_CON_CLAVE_DEL_NEGOCIO.porque, clave }) };
 }
 

@@ -51,7 +51,10 @@ async function main() {
   };
   out.ws3 = await correr(3, 'landing-analyst');
   out.ws10 = await correr(10, 'landing-analyst');
+  // El Plan (Martín, 22/10/2026: «Sí, si es su clave»): el ws3 con SU clave, con Haiku aunque eligió Sonnet; el ws10, con el
+  // crédito de Martín, no.
   out.plan = await correr(3, 'plan-fathom');
+  out.planWs10 = await correr(10, 'plan-fathom');
   out.pedidos = pedidos;
   out.gasto = pg.db.anthropic_usage.map((f) => ({ ws: f.workspace_id, model: f.model, motivo: f.motivo }));
   process.stdout.write(`@@RESULTADO@@${JSON.stringify(out)}`);

@@ -37,7 +37,10 @@ test('1. el veto: el modelo elegido, Haiku por default, nada fuera de la lista, 
   assert.ok(sinElegir.ok && sinElegir.permiso.model === 'claude-haiku-4-5');
   assert.equal(evaluarClaveDelNegocio({ feature: 'closing', clave: NEGOCIO, clavesPlataforma: PLATAFORMA, model: 'claude-opus-5-5', creditosPlataforma: [] }).ok, false);
   assert.equal(evaluarClaveDelNegocio({ feature: 'closing', clave: PLATAFORMA[0], clavesPlataforma: PLATAFORMA, model: MODELO_SU_CLAUDE.sonnet, creditosPlataforma: [] }).ok, false, 'una copia de la de MaKo sigue rechazada');
-  assert.equal(evaluarClaveDelNegocio({ feature: 'plan-fathom', clave: NEGOCIO, clavesPlataforma: PLATAFORMA, model: MODELO_SU_CLAUDE.sonnet, creditosPlataforma: [] }).ok, false, 'el Plan nunca paga IA');
+  // El Plan, con SU clave (Martín, 22/10/2026: «Sí, si es su clave»), siempre con el barato; con el crédito de Martín, no.
+  const plan = evaluarClaveDelNegocio({ feature: 'plan-fathom', clave: NEGOCIO, clavesPlataforma: PLATAFORMA, model: MODELO_SU_CLAUDE.sonnet, creditosPlataforma: [] });
+  assert.ok(plan.ok && plan.permiso.model === 'claude-haiku-4-5', 'el Plan con su clave, con el barato aunque elija Sonnet');
+  assert.equal(evaluarClaveDelNegocio({ feature: 'plan-fathom', clave: CREDITO, clavesPlataforma: PLATAFORMA, model: MODELO_SU_CLAUDE.sonnet, creditosPlataforma: [CREDITO] }).ok, false, 'el Plan nunca con el crédito de Martín');
   assert.equal(modeloDeSuClaude('sonnet'), 'claude-sonnet-5');
   assert.equal(modeloDeSuClaude('opus'), 'claude-haiku-4-5', 'lo guardado que no está en la lista es el barato');
   assert.equal(modeloDeSuClaude(null), 'claude-haiku-4-5');
@@ -50,14 +53,15 @@ test('2. el crédito de Max de la plataforma como clave de un negocio va con Hai
   assert.ok(sinLeer.ok && sinLeer.permiso.model === 'claude-haiku-4-5', '«no pude leer» nunca habilita gastar más');
 });
 
-test('3. la puerta real: el ws3 pide Sonnet con su clave y su marca; el ws10 (el crédito), Haiku; el Plan, nada', () => {
+test('3. la puerta real: el ws3 pide Sonnet con su clave y su marca; el ws10 (el crédito), Haiku; el Plan, con su clave y Haiku', () => {
   const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_su-claude-modelo-hijo.ts')], {
     cwd: RAIZ, encoding: 'utf8', timeout: 90_000, stdio: ['ignore', 'pipe', 'ignore'],
   });
   const r = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO@@'.length));
   assert.equal(r.error, undefined, r.error);
-  assert.deepEqual(r.pedidos, [{ ws: 3, model: 'claude-sonnet-5' }, { ws: 10, model: 'claude-haiku-4-5' }]);
-  assert.equal(r.plan, null);
+  assert.deepEqual(r.pedidos, [{ ws: 3, model: 'claude-sonnet-5' }, { ws: 10, model: 'claude-haiku-4-5' }, { ws: 3, model: 'claude-haiku-4-5' }]);
+  assert.ok(r.plan && 'texto' in r.plan, 'el Plan del ws3 corre con su clave');
+  assert.equal(r.planWs10, null, 'el Plan del ws10 no paga con el crédito de Martín');
   for (const g of r.gasto as Array<{ motivo: string }>) assert.match(g.motivo, /^⚠ clave de Anthropic del negocio/, 'lo paga el negocio: su marca primero');
 });
 

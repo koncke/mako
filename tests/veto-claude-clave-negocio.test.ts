@@ -74,10 +74,17 @@ test('el interruptor de pánico y la falta de feature también cierran la puerta
   assert.equal(evaluarClaveDelNegocio({ feature: '', clave: NEGOCIO, clavesPlataforma: PLAT }).ok, false);
 });
 
-test('el Plan nunca paga IA, ni con la clave del negocio', () => {
+// Hasta el 22/10/2026: «el Plan nunca paga IA, ni con la clave del negocio». Desde ahí, la excepción de Martín, textual:
+// «Sí, si es su clave». MaKo sigue sin pagar el Plan; el negocio, con SU clave, sí, y con el barato.
+test('el Plan paga sólo con la clave que paga el negocio, y con el barato; nunca con el crédito de la plataforma', () => {
   assert.ok(FEATURES_DEL_PLAN.length >= 5);
+  const CREDITO = 'sk-ant-api03-credito-de-max-zzzzzzzzzzzzzzzzzzzzzzzzz';
   for (const f of FEATURES_DEL_PLAN) {
-    assert.equal(evaluarClaveDelNegocio({ feature: f, clave: NEGOCIO, clavesPlataforma: PLAT }).ok, false, `${f} usaría el crédito del negocio`);
+    const v = evaluarClaveDelNegocio({ feature: f, clave: NEGOCIO, clavesPlataforma: PLAT, model: 'claude-sonnet-5', creditosPlataforma: [CREDITO] });
+    assert.ok(v.ok && v.permiso.model === 'claude-haiku-4-5', `${f}: con su clave, sí, y con el barato aunque elija Sonnet`);
+    assert.equal(evaluarClaveDelNegocio({ feature: f, clave: CREDITO, clavesPlataforma: PLAT, creditosPlataforma: [CREDITO] }).ok, false, `${f} pagaría con el crédito de Martín`);
+    assert.equal(evaluarClaveDelNegocio({ feature: f, clave: NEGOCIO, clavesPlataforma: PLAT, creditosPlataforma: null }).ok, false, `${f}: sin poder comparar con el crédito, no`);
+    assert.equal(evaluarClaveDelNegocio({ feature: f, clave: PLAT[0], clavesPlataforma: PLAT, creditosPlataforma: [] }).ok, false, `${f}: con una copia de la de MaKo, no`);
   }
 });
 

@@ -31,12 +31,20 @@ import { FEATURES_DEL_PLAN } from './veto-claude';
 export const PROVS_SU_IA: readonly string[] = ['openai'];
 
 /** La decisión de ESTE pedido: con su IA (`true`) o como siempre (`false`). Sin store = nadie decidió todavía. */
-const almacen = new AsyncLocalStorage<{ soloSuIA: boolean }>();
+const almacen = new AsyncLocalStorage<{ soloSuIA: boolean; delPlan?: true }>();
 
 /** Corre `fn` con la decisión tomada: «sólo su IA» si `prender`, como siempre si no. Ya decidido, la puerta no re-decide. */
 export function conSoloSuIA<T>(prender: boolean, fn: () => Promise<T>): Promise<T> {
   return almacen.run({ soloSuIA: prender }, fn);
 }
+
+/** La decisión del PLAN (`planConSuClave`), marcada: adentro, otra función del Plan no vuelve a la puerta. */
+function conDecisionDelPlan<T>(prender: boolean, fn: () => Promise<T>): Promise<T> {
+  return almacen.run({ soloSuIA: prender, delPlan: true }, fn);
+}
+
+/** ¿Lo que corre ya tiene la decisión del Plan? */
+const planDecidido = (): boolean => almacen.getStore()?.delPlan === true;
 
 /**
  * Lo mismo, para el resto de una función async que ya está corriendo (el turno: envolver sus 300 líneas en un callback
@@ -60,51 +68,59 @@ export function proveedorPermitido(nombre: string, deLaPlataforma: boolean): boo
   return !deLaPlataforma && PROVS_SU_IA.includes(nombre);
 }
 
-/** ¿Esta función queda afuera de D6b por regla de Martín? Hoy, sólo las del Plan. */
-export const esFueraDeD6b = (feature?: string | null): boolean => FEATURES_DEL_PLAN.includes((feature ?? '').trim());
+/**
+ * ¿Es una función del Plan? Su D6b se decide APARTE (`planConSuClave`, lib/ia-del-negocio.ts): hasta el 22/10/2026 el Plan
+ * quedaba siempre afuera («el Plan nunca paga IA»); desde ahí, Martín: «Sí, si es su clave». Con una clave de API propia que
+ * paga el negocio, su Plan usa SÓLO esa (D6b); sin ninguna —o con su PC sola, o con el crédito de Martín—, como siempre.
+ */
+export const esDelPlan = (feature?: string | null): boolean => FEATURES_DEL_PLAN.includes((feature ?? '').trim());
 
 /**
  * La decisión por negocio, con una memoria corta: la puerta la pide en cada llamada a un modelo, y `negocioConSuIA` lee
  * tres tablas. 60 s: conectar o sacar su IA se nota al minuto. En `globalThis`, como las otras memorias del repo.
  */
 const MEMORIA_MS = 60_000;
-const g = globalThis as unknown as { __d6bPorNegocio?: Map<number, { hasta: number; suIA: boolean }> };
-const memoria = (g.__d6bPorNegocio ??= new Map());
+const g = globalThis as unknown as { __d6bPorNegocioYPlan?: Map<string, { hasta: number; suIA: boolean }> };
+/** Por negocio (`"3"`) y, aparte, la del Plan de ese negocio (`"plan:3"`). */
+const memoria = (g.__d6bPorNegocioYPlan ??= new Map());
 
 /** Para los tests: olvidar lo decidido. */
 export const olvidarD6b = (): void => memoria.clear();
 
 /**
  * La decisión de D6b para el pedido en curso, sin correr nada: la de alguien de afuera si ya decidió; si no, por el
- * workspace. Afuera: las funciones del Plan (SIEMPRE, también adentro de otro pedido que decidió «adentro»), sin workspace,
- * y la plataforma. Falla CERRADA: si no se puede saber, `negocioConSuIA` dice que sí — y ESA respuesta no se recuerda.
+ * workspace. Las funciones del Plan, SIEMPRE con la suya (`planConSuClave`: su clave paga, sí; su PC o el crédito de
+ * Martín, no), también adentro de otro pedido que ya decidió. Afuera: sin workspace y la plataforma. Falla CERRADA: si no
+ * se puede saber, se dice que sí — y ESA respuesta no se recuerda.
  *
  * Revisión adversarial de IA6 (22/10/2026), lo que la primera versión hacía mal:
  *   · sin workspace devolvía `fn()` SIN guardar la decisión, y `fn` es la misma función pública, que volvía a entrar a la
  *     puerta: un bucle de microtareas que CONGELABA el proceso entero (ni un `setTimeout` corría);
- *   · el Plan se miraba DESPUÉS de «ya decidido»: un `plan-fathom` adentro de una herramienta del doer usaba la OpenAI del
- *     negocio (el Plan nunca paga IA) o se quedaba sin nada;
+ *   · el Plan se miraba DESPUÉS de «ya decidido»: un `plan-fathom` adentro de una herramienta del doer seguía la decisión
+ *     del doer y no la del Plan;
  *   · «no pude saber» quedaba 60 s en la memoria: un bache de la base dejaba a un negocio sin su Gemini un minuto entero.
  */
 export async function decidirD6b(feature?: string | null): Promise<boolean> {
-  if (esFueraDeD6b(feature)) return false;
-  if (d6bDecidida()) return soloSuIA();
+  // El Plan se decide SIEMPRE aparte, también adentro de otro pedido que ya decidió (su regla no es la del pedido).
+  const plan = esDelPlan(feature);
+  if ((!plan || planDecidido()) && d6bDecidida()) return soloSuIA();
   const { getWorkspaceActual, wsSuperAdmin } = await import('./workspace');
   const ws = await getWorkspaceActual().catch(() => null);
   // Sin workspace no hay negocio: lo interno de la plataforma (y los crons antes de elegir a quién atienden).
   if (ws == null) return false;
-  const m = memoria.get(ws);
+  const k = plan ? `plan:${ws}` : String(ws);
+  const m = memoria.get(k);
   if (m && m.hasta > Date.now()) return m.suIA;
   let plataforma: number | null = null;
   try { plataforma = await wsSuperAdmin(); } catch { plataforma = null; }
   if (ws === plataforma) {
-    memoria.set(ws, { hasta: Date.now() + MEMORIA_MS, suIA: false });
+    memoria.set(k, { hasta: Date.now() + MEMORIA_MS, suIA: false });
     return false;
   }
-  const { negocioConSuIA } = await import('./ia-del-negocio');
-  const negocio = await negocioConSuIA(ws);
-  if (!negocio.incierto) memoria.set(ws, { hasta: Date.now() + MEMORIA_MS, suIA: negocio.suIA });
-  return negocio.suIA;
+  const { negocioConSuIA, planConSuClave } = await import('./ia-del-negocio');
+  const r = plan ? await planConSuClave(ws).then((x) => ({ suIA: x.suClave, incierto: x.incierto })) : await negocioConSuIA(ws);
+  if (!r.incierto) memoria.set(k, { hasta: Date.now() + MEMORIA_MS, suIA: r.suIA });
+  return r.suIA;
 }
 
 /**
@@ -112,15 +128,16 @@ export async function decidirD6b(feature?: string | null): Promise<boolean> {
  * todo lo que `fn` llame: la próxima función de la capa de IA ya no vuelve a entrar.
  */
 export async function conD6bDelPedido<T>(feature: string | null | undefined, fn: () => Promise<T>): Promise<T> {
-  // El Plan siempre afuera, aunque alguien haya decidido «adentro» antes (la regla de Martín).
-  if (esFueraDeD6b(feature)) return conSoloSuIA(false, fn);
+  // El Plan, con SU decisión (`planConSuClave`), aunque alguien haya decidido antes otra cosa para el pedido.
+  if (esDelPlan(feature)) return planDecidido() ? fn() : conDecisionDelPlan(await decidirD6b(feature), fn);
   if (d6bDecidida()) return fn();
   return conSoloSuIA(await decidirD6b(feature), fn);
 }
 
 /**
- * ¿Esta llamada tiene que pasar por la puerta? Sí si nadie decidió todavía, y también si alguien decidió «adentro» y la
- * función es del Plan (revisión de IA6: con sólo `!d6bDecidida()`, un `plan-fathom` adentro de una herramienta del doer
- * nunca llegaba a su excepción y usaba la OpenAI del negocio).
+ * ¿Esta llamada tiene que pasar por la puerta? Sí si nadie decidió todavía, y también si la función es del Plan, que se
+ * decide aparte (revisión de IA6: con sólo `!d6bDecidida()`, un `plan-fathom` adentro de una herramienta del doer nunca
+ * llegaba a su regla). Para que no re-entre sin fin, la puerta del Plan guarda su decisión y re-entra con ella: la segunda
+ * vez `d6bDecidida()` y `planDecidido()` ya son ciertos.
  */
-export const pasaPorLaPuerta = (feature?: string | null): boolean => !d6bDecidida() || (soloSuIA() && esFueraDeD6b(feature));
+export const pasaPorLaPuerta = (feature?: string | null): boolean => !d6bDecidida() || (esDelPlan(feature) && !planDecidido());

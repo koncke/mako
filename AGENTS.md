@@ -4647,8 +4647,11 @@ permitido hacer las cosas MÁS restrictivas.
 **Y desde el 16/10/2026 hay una SEGUNDA puerta, y no se deriva de la primera: la clave de Anthropic DEL
 NEGOCIO.** Martín eligió que el crédito de API de Claude Max de un cliente entre por su clave propia (Ticketera
 `clientes-usan-su-claude`), y esa plata es del negocio, no de MaKo. La cascada de texto (`chatCheapCascade`) la prueba
-primero, por `conClaveDelNegocio` (lib/anthropic.ts), con un solo modelo barato y nunca en las funciones del Plan
-(`FEATURES_DEL_PLAN`). Lo que gobierna código nuevo:
+primero, por `conClaveDelNegocio` (lib/anthropic.ts), con el modelo que eligió el negocio (Haiku por default, IA5). Las
+funciones del Plan (`FEATURES_DEL_PLAN`) pasan desde el 22/10/2026 por la EXCEPCIÓN de Martín («Sí, si es su clave»): sólo
+con la clave que paga el negocio (nunca el crédito de Max de la plataforma), siempre con el barato, y su D6b se decide aparte
+(`planConSuClave`, lib/ia-del-negocio.ts). El Plan sigue sin pagar IA de MaKo por ninguna puerta. Lo que gobierna código
+nuevo:
 
 - **La clave del negocio se lee con `credDelCliente`, nunca con `credWs`**: `credWs` cae al env de la plataforma
   cuando el workspace es el del dueño, y esa clave pasaría como del negocio.

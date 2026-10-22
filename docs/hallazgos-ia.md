@@ -5362,3 +5362,49 @@ TODAS 429 (0 respuestas), OpenRouter 12 llamadas y su modelo gratis caducó tres
   palabra, el principio del texto con `^` sin `m`, el borde exacto de la clave) y capture el contexto en vez de mirarlo
   hacia atrás. Medido: con la línea gigante peor, de 1489 ms a 120 ms (la base sin las reglas nuevas, 87 ms).
 - **Sin hacer:** Fathom, Panda y Zernio no tienen regla, y su formato no se verificó.
+
+## Las decisiones de Martín del 22/10/2026 sobre la IA de MaKo, y el Plan con la clave del negocio
+
+**Las decisiones, textuales** (las tomó en el formulario del Cerebro el 22/10/2026):
+
+1. **El instalador 0.3.2:** «Subilo ya». Ya está subido: el bucket quedó completo y la instalación de cero en el ws3 anduvo.
+2. **La OpenAI de MaKo sin crédito:** «Tenemos Gemini que hace todo eso, gratis o más barato». No se le carga crédito. La
+   transcripción de anuncios, la lectura de creativos y el buscador de conocimiento pasan a Gemini. Antes de re-embeber el
+   conocimiento con el embedding de Gemini, hay que medir cuánto cuesta y cuánto tarda.
+3. **El corte:** «No quiero que se corte Gemini, pero sí todas las otras».
+   - **IA10 queda CANCELADO.** Gemini sigue como la base de quien no conectó su IA.
+   - Se van Cerebras, Mistral y OpenRouter (IA8) y también Groq. El audio de quien no tiene OpenAI pasa a Gemini.
+   - Antes de sacar Groq de las notas de voz de WhatsApp, hay que medir la demora.
+   - **La precisión del Cerebro, del mismo día:** los datos de los clientes nunca van a un proveedor que entrena (la regla
+     del 16/10). Entonces Gemini sirve de base sólo en el plan PAGO. Hasta que Martín active el pago por uso (el tope
+     sugerido es US$20/mes), quien no tiene su IA no va a Gemini gratis con datos de clientes: se le pide «Conecta tu Claude
+     o tu GPT». Ese cambio en la cascada espera su sí, coordinado con el Ops Center.
+4. **El Plan:** «Sí, si es su clave». Es una EXCEPCIÓN a «NO, JAMÁS algo pago para el plan» (30/09/2026). Está abajo.
+5. **El Closing Analyst del ws1 después del 13/11:** «Con su clave de Claude». Sin clave, el Analyst le pide que la conecte.
+
+**Lo medido el mismo día** (anthropic_usage, sólo lectura): el tope gratis de Gemini se agota TODOS los días.
+- El 22/10 se agotaron las 4 cuentas entre las 05 y las 08 h de Tijuana, después de unas 190 respuestas.
+- Desde el 15/10, cada 429 de Gemini es el tope POR DÍA (`GenerateRequestsPerDayPerProjectPerModel-FreeTier`). Fueron 3069
+  rebotes en 14 días.
+- Offer se lleva el 57 % de las respuestas.
+- Por eso el ws1 leyó «No tienes ninguna IA gratis conectada»: sus filas de IA son copias de la plataforma, que se
+  descartan, y la red de la plataforma estaba topada. El mensaje (`falloDeIA`) no mira los errores de esa red.
+
+**El Plan con la clave del negocio: lo que no se ve**
+
+- **«Su clave» no es «su IA».** Por eso `planConSuClave` (lib/ia-del-negocio.ts) es una pregunta distinta de
+  `negocioConSuIA`:
+  - la PC no cuenta: el Plan corre de fondo, y la suscripción no se puede usar de fondo (D6a);
+  - el crédito de Max de Martín (el ws10) no lo paga el negocio.
+  Con su OpenAI o su Claude pagos, el Plan usa SÓLO esa IA (D6b). Con nada de eso, el Plan sigue como siempre.
+- **El D6b del Plan se decide aparte, también adentro de otro pedido.** Por ejemplo, un `plan-fathom` adentro de una
+  herramienta del doer. Antes de este cambio, el Plan se decidía siempre «afuera».
+- **La puerta volvía a entrar sin fin.** Con el Plan decidido «adentro», `pasaPorLaPuerta` volvía a dar cierto, y la puerta
+  entraba otra vez. Ahora el contexto lleva la marca `delPlan`. **Regla:** una puerta que decide distinto según la función
+  necesita la marca «ya decidido PARA ESTA función», no sólo «ya decidido».
+- **En la puerta 2 (lib/veto-claude.ts), el Plan va SIEMPRE con Haiku**, aunque el negocio haya elegido Sonnet: es lo que
+  más se usa (el Perro, las reuniones). Lo decidió este chat; si Martín quiere otra cosa, es una línea.
+- **Nunca con el crédito de Martín, y sin poder compararlo con el crédito, tampoco.** La plataforma sigue sin pagar el Plan
+  por ninguna puerta.
+- **Sin hacer:** el Plan de un negocio que tiene sólo su PC sigue con Gemini. Con datos de clientes, ahí aplica la
+  precisión del Cerebro de arriba (el plan pago).

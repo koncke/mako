@@ -11,7 +11,8 @@
 //   1. un negocio con su OpenAI (ws3) o con su Claude (ws11): ninguna entrada sale a Gemini, Groq, Mistral, OpenRouter ni
 //      Cerebras — texto, texto atado a Gemini, herramientas, una foto, un audio, chatClaude — y ni sus keys de Gemini ni la
 //      red de la plataforma se entregan; con su Claude, la foto la mira su Claude;
-//   2. el Plan queda afuera (FEATURES_DEL_PLAN): pedido a Gemini, a Gemini va;
+//   2. el Plan (FEATURES_DEL_PLAN) se decide APARTE (Martín, 22/10/2026: «Sí, si es su clave»): con su clave que paga el
+//      negocio, SÓLO su IA; sin clave, con su PC sola o con el crédito de Martín (ws10), como siempre;
 //   3. el control: un negocio sin su IA (ws13) y la plataforma (ws9) siguen como siempre (si no salieran, la prueba no vería
 //      nada).
 //
@@ -19,7 +20,9 @@
 //   · la puerta de `chatCheapCascade` sacada → 1 en rojo; la de `chatCheapToolsCascade` → 1. (La de `leerDocumentoIA` sacada
 //     sigue en verde, y está bien: adentro usa `provsDe` y la red de la plataforma, que tienen su propia puerta.)
 //   · la puerta decidiendo «afuera» siempre → 1 en rojo; decidiendo «adentro» siempre → 2 y 3 en rojo;
-//   · el Plan sin su excepción → 2 en rojo;
+//   · el Plan sin su excepción → 2 en rojo. Con la regla del 22/10 (roturas del mismo día): el Plan siempre afuera → 2; el
+//     Plan siguiendo la decisión del pedido de afuera → 4; la puerta sin volver a entrar por el Plan → 4; el crédito de
+//     Martín contado como su clave → 4;
 //   · la cascada con su IA respetando la lista del que llama (sin `PROVS_SU_IA`) → 1 en rojo (el texto atado a Gemini no
 //     corría con nada);
 //   · la foto sin su Claude primero → 1 en rojo.
@@ -54,8 +57,13 @@ test('1. con su OpenAI o su Claude, NINGUNA entrada a pelo sale a una IA gratis 
   for (const e of ['texto', 'textoAtadoAGemini', 'foto']) assert.ok(R.ws11[e].red.includes('api.anthropic.com'), `ws11 · ${e} no usó su Claude`);
 });
 
-test('2. el Plan queda afuera (regla de Martín): pedido a Gemini, a Gemini va aunque el negocio tenga su IA', () => {
-  assert.ok(R.ws3.plan.red.some((h) => /generativelanguage/.test(h)), `ws3 · plan: ${R.ws3.plan.red.join(', ')}`);
+// Martín, 22/10/2026, textual: «Sí, si es su clave». Hasta ese día el Plan quedaba siempre afuera (a Gemini).
+test('2. el Plan con su clave usa SÓLO su IA (su OpenAI, su Claude); sin clave, como siempre', () => {
+  assert.deepEqual(R.ws3.plan.red.filter((h) => GRATIS.test(h)), [], `ws3 · plan salió a una IA gratis: ${R.ws3.plan.red.join(', ')}`);
+  assert.ok(R.ws3.plan.red.includes('api.openai.com'), `ws3 · plan no usó su OpenAI: ${R.ws3.plan.red.join(', ')}`);
+  assert.deepEqual(R.ws11.plan.red.filter((h) => GRATIS.test(h)), [], `ws11 · plan salió a una IA gratis: ${R.ws11.plan.red.join(', ')}`);
+  assert.ok(R.ws11.plan.red.includes('api.anthropic.com'), `ws11 · plan no usó su Claude: ${R.ws11.plan.red.join(', ')}`);
+  for (const ws of ['ws13', 'ws9']) assert.ok(R[ws].plan.red.some((h) => /generativelanguage/.test(h)), `${ws} · plan dejó de ir a Gemini: ${R[ws].plan.red.join(', ')}`);
 });
 
 test('3. el control: sin su IA (ws13) y la plataforma (ws9) siguen como siempre', () => {
@@ -71,11 +79,17 @@ test('3. el control: sin su IA (ws13) y la plataforma (ws9) siguen como siempre'
 // el Plan mirado después de «ya decidido» → 4 en rojo; «no pude saber» recordado → 4 en rojo; una función exportada nueva de
 // la capa de IA sin su puerta → 5 en rojo.
 
-test('4. revisión: sin workspace vuelve; el Plan adentro de otro pedido sigue afuera; «no pude saber» no se recuerda', () => {
-  const x = (R as unknown as { extra: { sinWorkspace: string; planAdentro: string[]; conBacheDeLaBase: string[]; despuesDelBache: string[] } }).extra;
+test('4. revisión: sin workspace vuelve; el Plan adentro de otro pedido sigue SU regla; «no pude saber» no se recuerda', () => {
+  const x = (R as unknown as { extra: Record<string, string[]> & { sinWorkspace: string } }).extra;
   assert.equal(x.sinWorkspace, 'volvió', 'sin workspace, la puerta se llamaba a sí misma y congelaba el proceso');
-  assert.ok(x.planAdentro.some((h) => /generativelanguage/.test(h)), `el Plan adentro de otro pedido «adentro» tiene que seguir afuera: ${x.planAdentro.join(', ')}`);
-  assert.ok(!x.planAdentro.includes('api.openai.com'), 'la OpenAI del negocio pagó el Plan');
+  assert.ok(x.planWs3AdentroDeAfuera.includes('api.openai.com'), `el Plan del ws3 adentro de un pedido «afuera» tiene que usar su OpenAI: ${x.planWs3AdentroDeAfuera.join(', ')}`);
+  assert.deepEqual(x.planWs3AdentroDeAfuera.filter((h) => GRATIS.test(h)), [], 'el Plan del ws3 salió a una IA gratis');
+  assert.ok(x.planWs13AdentroDeAdentro.some((h) => /generativelanguage/.test(h)), `el Plan del ws13 (sin clave) adentro de un pedido «adentro» tiene que ir a su Gemini: ${x.planWs13AdentroDeAdentro.join(', ')}`);
+  // El ws10: su clave de Claude es el crédito de Martín. Su Plan NO la usa (no la paga el negocio) y sigue como siempre;
+  // lo que no es del Plan sí corre con «su» Claude (IA5: Haiku), sin Gemini.
+  assert.ok(!x.planWs10Credito.includes('api.anthropic.com'), 'el Plan del ws10 pagó con el crédito de Martín');
+  assert.ok(x.planWs10Credito.some((h) => /generativelanguage/.test(h)), `el Plan del ws10 tiene que seguir como siempre: ${x.planWs10Credito.join(', ')}`);
+  assert.ok(x.noPlanWs10Credito.includes('api.anthropic.com') && !x.noPlanWs10Credito.some((h) => GRATIS.test(h)), `lo del ws10 que no es del Plan, con su Claude: ${x.noPlanWs10Credito.join(', ')}`);
   assert.deepEqual(x.conBacheDeLaBase.filter((h) => GRATIS.test(h)), [], 'con la base caída, falla cerrada en ESE pedido');
   assert.ok(x.despuesDelBache.some((h) => /generativelanguage/.test(h)), 'con la base sana, el negocio sin su IA vuelve a su Gemini (no se recordó el «no pude saber»)');
 });

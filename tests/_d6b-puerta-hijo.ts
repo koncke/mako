@@ -43,12 +43,16 @@ async function main() {
   const { runWithWorkspace } = await import('../lib/workspace');
   const ai = await import('../lib/ai-cheap');
   const { chatClaude } = await import('../lib/anthropic');
-  pg.db.workspaces.push({ id: PLATAFORMA, capa: 'superadmin', nombre: 'MaKo' }, ...[3, 11, 13].map((id) => ({ id, capa: 'cliente', nombre: `ws${id}` })));
-  const poner = (ws: number, clave: string) => pg.db.credenciales.push({ workspace_id: ws, clave, valor_enc: cifrarSecreto(`${ws}-${clave}-${'k'.repeat(40)}`, ws, clave), servicio: clave.split('_')[0].toLowerCase() });
+  pg.db.workspaces.push({ id: PLATAFORMA, capa: 'superadmin', nombre: 'MaKo' }, ...[3, 10, 11, 13].map((id) => ({ id, capa: 'cliente', nombre: `ws${id}` })));
+  const poner = (ws: number, clave: string, valor = `${ws}-${clave}-${'k'.repeat(40)}`) => pg.db.credenciales.push({ workspace_id: ws, clave, valor_enc: cifrarSecreto(valor, ws, clave), servicio: clave.split('_')[0].toLowerCase() });
   poner(3, 'OPENAI_API_KEY'); poner(3, 'GEMINI_API_KEY');
   poner(11, 'ANTHROPIC_API_KEY');
   poner(13, 'GEMINI_API_KEY');
   poner(PLATAFORMA, 'GEMINI_API_KEY'); poner(PLATAFORMA, 'GROQ_API_KEY');
+  // El ws10: su «clave de Claude» es el crédito de Max de Martín (la cuenta 2 de la plataforma), y tiene su Gemini.
+  const CREDITO = `sk-ant-api03-CREDITO-cuenta2-${'c'.repeat(40)}`;
+  poner(PLATAFORMA, 'ANTHROPIC_CREDITO_CUENTA2', CREDITO);
+  poner(10, 'ANTHROPIC_API_KEY', CREDITO); poner(10, 'GEMINI_API_KEY');
   const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
   const tool = [{ name: 'contar_leads', description: 'Cuenta', input_schema: { type: 'object', properties: {} } }];
   const entradas: Record<string, (ws: number) => Promise<unknown>> = {
@@ -84,10 +88,21 @@ async function main() {
     for (const f of [() => ai.provsDe('gemini'), () => ai.chatCheap({ system: 's', user: 'x', feature: 'landing-analyst' }).catch(() => 'tiró'), () => chatClaude('s', [{ role: 'user', content: 'x' }], { feature: 'landing-analyst' }).catch(() => 'tiró')]) r.push(await f());
     return 'volvió';
   }), 20_000);
-  // (b) EL PLAN ADENTRO DE OTRO PEDIDO que decidió «adentro» (una herramienta del doer): sigue afuera (a Gemini, no a su OpenAI).
+  // (b) EL PLAN SE DECIDE APARTE (Martín, 22/10/2026: «Sí, si es su clave»), también adentro de otro pedido que ya decidió:
+  //     el ws3 (su OpenAI) usa la suya aunque el de afuera haya dicho «afuera»; el ws13 (sin clave) va a su Gemini aunque el
+  //     de afuera haya dicho «adentro»; y el ws10, cuya clave de Claude es el crédito de Martín, sigue como siempre (Gemini).
   red = [];
-  await runWithWorkspace(3, () => conSoloSuIA(true, () => ai.chatCheapCascade({ system: 's', user: 'x', feature: 'plan-fathom', provs: ['gemini'] }).catch(() => '')));
-  extra.planAdentro = [...new Set(red)];
+  await runWithWorkspace(3, () => conSoloSuIA(false, () => ai.chatCheapCascade({ system: 's', user: 'x', feature: 'plan-fathom', provs: ['gemini'] }).catch(() => '')));
+  extra.planWs3AdentroDeAfuera = [...new Set(red)];
+  red = [];
+  await runWithWorkspace(13, () => conSoloSuIA(true, () => ai.chatCheapCascade({ system: 's', user: 'x', feature: 'plan-fathom', provs: ['gemini'] }).catch(() => '')));
+  extra.planWs13AdentroDeAdentro = [...new Set(red)];
+  red = [];
+  await runWithWorkspace(10, () => ai.chatCheapCascade({ system: 's', user: 'la reunión con Juan', feature: 'plan-fathom', provs: ['gemini'] }).catch(() => ''));
+  extra.planWs10Credito = [...new Set(red)];
+  red = [];
+  await runWithWorkspace(10, () => ai.chatCheapCascade({ system: 's', user: 'Juan quiere otra landing', feature: 'landing-analyst', provs: ['gemini'] }).catch(() => ''));
+  extra.noPlanWs10Credito = [...new Set(red)];
   // (c) «NO PUDE SABER» NO SE RECUERDA: con la tabla de las PC caída, el ws13 (sólo Gemini) falla cerrado ESE pedido; con la
   // base sana, el siguiente vuelve a su Gemini (antes quedaba 60 s sin IA).
   olvidarD6b();

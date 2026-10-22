@@ -24,6 +24,7 @@ import 'server-only';
 import { descifrarSecreto, wsDelEntorno } from './credenciales';
 import { negocioConPc } from './ia-pc';
 import { MAX_KEYS } from './ia-keys';
+import { CLAVES_CREDITO_PLATAFORMA } from './veto-claude';
 import { conSoloSuIA } from './solo-su-ia';
 import { getSupabaseServer } from './supabase';
 import { wsSuperAdmin } from './workspace';
@@ -85,6 +86,43 @@ async function claveDeIAPropia(ws: number): Promise<boolean> {
     return true;
   }
   return false;
+}
+
+/** El valor de una clave de la fila del negocio, o null. Tira si no pudo leer. */
+async function valorDeSuClave(ws: number, clave: string): Promise<string | null> {
+  const { data, error } = await getSupabaseServer().from('credenciales').select('valor_enc').eq('workspace_id', ws).eq('clave', clave).maybeSingle();
+  if (error) throw new Error(`credenciales: ${error.message}`);
+  if (!data) return null;
+  const v = descifrarSecreto(String(data.valor_enc ?? ''), ws, clave);
+  if (v == null) throw new Error(`la clave ${clave} del negocio no se puede leer`);
+  return esReal(v) ? v.trim() : null;
+}
+
+/**
+ * ¿El PLAN de este negocio usa SU IA? Martín, 22/10/2026, textual: «Sí, si es su clave». Es una EXCEPCIÓN a «NO, JAMÁS
+ * algo pago para el plan» (30/09/2026): el Plan no paga IA de MaKo, pero si el negocio conectó y paga su propia clave, su
+ * Plan la usa; si no, sigue como siempre.
+ *   · Cuenta su OpenAI, o su Claude si NO es el crédito de Max de la plataforma (el ws10: esa clave la paga Martín).
+ *   · La PC no cuenta: el Plan corre de fondo (el Perro, las reuniones), y la suscripción no se puede usar de fondo (D6a).
+ *   · Falla CERRADA, como `negocioConSuIA`: sin poder leer, sí (no se arriesgan datos de clientes en Gemini; la puerta 2
+ *     igual no paga con una clave que no pudo comparar con el crédito).
+ */
+export async function planConSuClave(ws: number): Promise<{ suClave: boolean; incierto?: true }> {
+  try {
+    if (ws === (await wsSuperAdmin())) return { suClave: false };
+    for (const c of await susClaves(ws)) {
+      if (c.es === 'copia') continue;
+      if (c.es === 'ilegible' || c.clave === 'OPENAI_API_KEY') return { suClave: true };
+      const suya = await valorDeSuClave(ws, c.clave);
+      let credito = false;
+      for (const nombre of CLAVES_CREDITO_PLATAFORMA) if (suya && (await clavesDeLaPlataforma(nombre)).has(suya)) credito = true;
+      if (!credito) return { suClave: true };
+    }
+    return { suClave: false };
+  } catch (e) {
+    console.error(`[ia-del-negocio] ws=${ws}: no pude saber si su Plan tiene su clave, así que va como si la tuviera: ${e instanceof Error ? e.message : String(e)}`);
+    return { suClave: true, incierto: true };
+  }
 }
 
 export type IaDelNegocio = {
