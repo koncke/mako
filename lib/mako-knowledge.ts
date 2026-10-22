@@ -18,8 +18,8 @@
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { getTenantDb, getWorkspaceActual, OWNER_WS, WS_NINGUNO, wsSuperAdmin } from './workspace';
-import { sinLoAjeno } from './rag-prestamo';
-import { embed, cosine, hashText } from './embeddings';
+import { sePresta, sinLoAjeno } from './rag-prestamo';
+import { embed, cosine, hashText, DIMENSIONES } from './embeddings';
 
 export type EstadoIndex = 'indexado' | 'pendiente' | 'error';
 export type KnowledgeArea = 'mensajes' | 'ads' | 'general';
@@ -68,11 +68,12 @@ async function getById(id: number): Promise<KnowledgeEntry | null> {
   return (data as KnowledgeEntry) ?? null;
 }
 
-/** Embebe el cuerpo y marca estado indexado/error. No lanza. Scopeado al workspace. */
-async function embedRow(id: number, cuerpo: string): Promise<void> {
+/** Embebe el cuerpo y marca estado indexado/error. No lanza. Scopeado al workspace. El método de MaKo (`fuente` que se
+ *  presta), con la de la plataforma; lo del negocio, con su Gemini (lib/embeddings.ts). */
+async function embedRow(id: number, cuerpo: string, fuente: string | null | undefined): Promise<void> {
   const sb = await getTenantDb();
   try {
-    const v = await embed(cuerpo);
+    const v = await embed(cuerpo, 'documento', { deMako: sePresta(fuente) });
     await sb.from('mako_knowledge').update({ embedding: v, content_hash: hashText(cuerpo), estado: 'indexado', error: null, updated_at: new Date().toISOString() }).eq('id', id);
   } catch (e) {
     await sb.from('mako_knowledge').update({ estado: 'error', error: e instanceof Error ? e.message : String(e), updated_at: new Date().toISOString() }).eq('id', id);
@@ -128,7 +129,7 @@ export async function createKnowledge(input: NewKnowledge): Promise<KnowledgeEnt
     .select(COLS).single();
   if (error) throw new Error(`createKnowledge: ${error.message}`);
   const row = data as KnowledgeEntry;
-  if (row.cuerpo.trim()) await embedRow(row.id, row.cuerpo);
+  if (row.cuerpo.trim()) await embedRow(row.id, row.cuerpo, row.fuente);
   return getById(row.id);
 }
 
@@ -151,7 +152,7 @@ export async function updateKnowledge(id: number, fields: PatchKnowledge): Promi
   const { error } = await (await getTenantDb()).from('mako_knowledge').update(patch).eq('id', id);
   if (error) throw new Error(`updateKnowledge: ${error.message}`);
   // Re-embeber SOLO si cambió el cuerpo.
-  if (cuerpoCambia && (fields.cuerpo ?? '').trim()) await embedRow(id, fields.cuerpo!);
+  if (cuerpoCambia && (fields.cuerpo ?? '').trim()) await embedRow(id, fields.cuerpo!, fields.fuente ?? current.fuente);
   return getById(id);
 }
 
@@ -163,8 +164,26 @@ export async function deleteKnowledge(id: number): Promise<void> {
 export async function reindexKnowledge(id: number): Promise<KnowledgeEntry | null> {
   const row = await getById(id);
   if (!row) return null;
-  if (row.cuerpo.trim()) await embedRow(id, row.cuerpo);
+  if (row.cuerpo.trim()) await embedRow(id, row.cuerpo, row.fuente);
   return getById(id);
+}
+
+/**
+ * IA16 (22/10/2026): cuando el negocio conecta su Gemini, lo que guardó sin buscador —sin vector, con el viejo de OpenAI o en
+ * `error` por no tener su Gemini— se embebe con su cuenta. Lo llama /integraciones al guardar la clave, en segundo plano.
+ * Devuelve cuántas embebió. No lanza (cada fila queda con su estado).
+ */
+export async function reembeberLoQueFalta(): Promise<number> {
+  const { data, error } = await (await getTenantDb()).from('mako_knowledge').select('id, cuerpo, fuente, embedding').order('id');
+  if (error) throw new Error(`reembeberLoQueFalta: ${error.message}`);
+  let n = 0;
+  for (const f of (data ?? []) as Array<{ id: number; cuerpo: string | null; fuente: string | null; embedding: unknown }>) {
+    if (!(f.cuerpo ?? '').trim()) continue;
+    if (Array.isArray(f.embedding) && f.embedding.length === DIMENSIONES) continue;
+    await embedRow(f.id, f.cuerpo!, f.fuente);
+    n++;
+  }
+  return n;
 }
 
 /** Activar/desactivar todas las entradas de un curso de un tirón (del workspace). */

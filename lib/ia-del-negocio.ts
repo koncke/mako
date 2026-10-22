@@ -29,8 +29,11 @@ import { conSoloSuIA } from './solo-su-ia';
 import { getSupabaseServer } from './supabase';
 import { wsSuperAdmin } from './workspace';
 
-/** Las claves que son «su IA» (no la cascada barata). */
-export const CLAVES_SU_IA = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY'] as const;
+/**
+ * Las claves que son «su IA». Desde el 22/10/2026 también su Gemini (clave de AI Studio): Martín, textual, «Cada usuario debe
+ * poder pagar su token, su propia IA de gemini». Una COPIA de la de la plataforma (el ws1) no cuenta, como con las otras.
+ */
+export const CLAVES_SU_IA = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY'] as const;
 
 const esReal = (v: string | null | undefined): v is string => !!v && !!v.trim() && !v.trim().startsWith('PENDING');
 
@@ -102,7 +105,7 @@ async function valorDeSuClave(ws: number, clave: string): Promise<string | null>
  * ¿El PLAN de este negocio usa SU IA? Martín, 22/10/2026, textual: «Sí, si es su clave». Es una EXCEPCIÓN a «NO, JAMÁS
  * algo pago para el plan» (30/09/2026): el Plan no paga IA de MaKo, pero si el negocio conectó y paga su propia clave, su
  * Plan la usa; si no, sigue como siempre.
- *   · Cuenta su OpenAI, o su Claude si NO es el crédito de Max de la plataforma (el ws10: esa clave la paga Martín).
+ *   · Cuenta su OpenAI, su Gemini, o su Claude si NO es el crédito de Max de la plataforma (el ws10: esa clave la paga Martín).
  *   · La PC no cuenta: el Plan corre de fondo (el Perro, las reuniones), y la suscripción no se puede usar de fondo (D6a).
  *   · Falla CERRADA, como `negocioConSuIA`: sin poder leer, sí (no se arriesgan datos de clientes en Gemini; la puerta 2
  *     igual no paga con una clave que no pudo comparar con el crédito).
@@ -112,7 +115,7 @@ export async function planConSuClave(ws: number): Promise<{ suClave: boolean; in
     if (ws === (await wsSuperAdmin())) return { suClave: false };
     for (const c of await susClaves(ws)) {
       if (c.es === 'copia') continue;
-      if (c.es === 'ilegible' || c.clave === 'OPENAI_API_KEY') return { suClave: true };
+      if (c.es === 'ilegible' || c.clave === 'OPENAI_API_KEY' || c.clave === 'GEMINI_API_KEY') return { suClave: true };
       const suya = await valorDeSuClave(ws, c.clave);
       let credito = false;
       // La MARCA explícita primero (lib/credito-marca.ts): vale aunque la fila del crédito de la plataforma ya no exista. El

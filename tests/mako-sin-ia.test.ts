@@ -152,7 +152,8 @@ test('la grilla: «Conectada» sólo si MaKo la puede usar como del negocio; una
   // Rota: sacar la rama de `iaDelNegocio` de `integracionDeDef` → este test falla.
   const i = src.indexOf('const ia = await iaDelNegocio(d.key, d.envs[0])');
   assert.ok(i > 0 && i < src.lastIndexOf("'Conectada y operativa.'"), 'la pregunta de la IA va antes del «Conectada» de siempre');
-  assert.match(src, /\(await provsDe\(key as ProvName\)\)\.length > 0/, 'las baratas: la lectura de la cascada');
+  // IA16: fuera de D6b (con su Gemini y su Groq, D6b no le da Groq a `provsDe`, y la tarjeta decía «la de MaKo»).
+  assert.match(src, /\(await conSoloSuIA\(false, \(\) => provsDe\(key as ProvName\)\)\)\.length > 0/, 'las baratas: la lectura de la cascada');
   assert.match(src, /credDelCliente\(envBase, ws\)/, 'la fila del negocio, sin el entorno que `credWs` le presta al ws1');
   assert.match(src, /credWsEstricta\(envBase, await wsDelEntorno\(envBase\)\), await credWsEstricta\(envBase, wsSA\)/, 'la de Anthropic: la frontera de conClaveDelNegocio');
   assert.match(src, /ws === wsSA\) return null/, 'la plataforma usa las suyas');

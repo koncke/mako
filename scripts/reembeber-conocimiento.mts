@@ -6,11 +6,13 @@
 //   npx tsx --conditions=react-server scripts/reembeber-conocimiento.mts --env <.env.local> --aplicar   ← escribe
 //
 // ⚠️ ESCRIBE EN LA BASE de .env.local (PRODUCCIÓN) sólo con --aplicar: el `embedding` de cada fila de `mako_knowledge`.
-// ⚠️ SE NIEGA sin la marca del Gemini PAGO de la plataforma (lib/gemini-pago.ts): con el plan gratis, el conocimiento de
-//    los negocios iría a entrenar, y cada fila quedaría marcada `error`.
+// ⚠️ CADA NEGOCIO CON SU GEMINI (lib/embeddings.ts): las filas de un workspace sin su Gemini conectado NO se tocan (se
+//    quedarían marcadas `error`). Se re-embeben solas cuando lo conecte (/integraciones). Las del ws9 y el MÉTODO DE MAKO
+//    (`fuente` que se presta, que vive en el ws1) van con la de la plataforma: es contenido de MaKo.
 //
-// En seco dice cuántas filas hay, cuántas ya están en Gemini (768) y cuántas en OpenAI (1536), y cuánto texto se manda.
-// Con --aplicar re-embebe una por una (por su workspace, con `reindexKnowledge`) y mide el tiempo; al final relee.
+// En seco dice, por workspace, cuántas filas hay, cuántas ya están en Gemini (768) y cuántas con el vector viejo, si tiene
+// su Gemini y cuánto texto se le manda. Con --aplicar re-embebe una por una (en su workspace, con `reindexKnowledge`) las de
+// los que lo tienen; al final relee.
 // =============================================================================
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -26,15 +28,16 @@ const APLICAR = process.argv.includes('--aplicar');
 const imp = (rel: string) => import(pathToFileURL(path.join(REPO, rel)).href);
 const { getSupabaseServer } = await imp('lib/supabase.ts');
 const { runWithWorkspace } = await imp('lib/workspace.ts');
-const { geminiDeLaPlataformaPaga } = await imp('lib/gemini-pago.ts');
+const { clavesDeSuGemini } = await imp('lib/ai-cheap.ts');
+const { sePresta } = await imp('lib/rag-prestamo.ts');
 const { DIMENSIONES } = await imp('lib/embeddings.ts');
 const { reindexKnowledge } = await imp('lib/mako-knowledge.ts');
 
-type Fila = { id: number; workspace_id: number; titulo: string; cuerpo: string; embedding: unknown; estado: string };
+type Fila = { id: number; workspace_id: number; titulo: string; cuerpo: string; fuente: string | null; embedding: unknown; estado: string };
 async function leer(): Promise<Fila[]> {
   const out: Fila[] = [];
   for (let de = 0; ; de += 500) {
-    const { data, error } = await getSupabaseServer().from('mako_knowledge').select('id, workspace_id, titulo, cuerpo, embedding, estado').order('id').range(de, de + 499);
+    const { data, error } = await getSupabaseServer().from('mako_knowledge').select('id, workspace_id, titulo, cuerpo, fuente, embedding, estado').order('id').range(de, de + 499);
     if (error) throw new Error(error.message);
     out.push(...(data as Fila[]));
     if ((data ?? []).length < 500) break;
@@ -49,15 +52,24 @@ const resumen = (fs: Fila[]) => {
 };
 
 const filas = await leer();
-const conCuerpo = filas.filter((f) => (f.cuerpo ?? '').trim());
-const caracteres = conCuerpo.reduce((a, f) => a + Math.min(8000, f.cuerpo.trim().length), 0);
 console.log(`Hoy: ${resumen(filas)}`);
-console.log(`A embeber: ${conCuerpo.length} filas · ${caracteres} caracteres (≈ ${Math.round(caracteres / 4)} tokens)`);
+// Por workspace: ¿tiene su Gemini? (lee sus filas de credenciales; no llama a Google).
+const conCuerpo: Fila[] = [];
+for (const ws of [...new Set(filas.map((f) => f.workspace_id))].sort((a, b) => a - b)) {
+  const suyas = filas.filter((f) => f.workspace_id === ws);
+  const conTexto = suyas.filter((f) => (f.cuerpo ?? '').trim());
+  const cuentas = (await runWithWorkspace(ws, () => clavesDeSuGemini()).catch(() => [])).length;
+  // El método de MaKo se embebe con la de la plataforma aunque el negocio no tenga su Gemini.
+  const van = conTexto.filter((f) => cuentas || sePresta(f.fuente));
+  const caracteres = van.reduce((a, f) => a + Math.min(8000, f.cuerpo.trim().length), 0);
+  const deMako = van.filter((f) => sePresta(f.fuente)).length;
+  console.log(`  ws${ws}: ${resumen(suyas)} · ${cuentas ? `su Gemini (${cuentas} cuenta${cuentas > 1 ? 's' : ''})` : 'SIN su Gemini'} · van ${van.length}${deMako ? ` (${deMako} del método de MaKo)` : ''} · ${caracteres} caracteres (≈ ${Math.round(caracteres / 4)} tokens)`);
+  conCuerpo.push(...van);
+}
+console.log(`A embeber: ${conCuerpo.length} filas`);
 
-const paga = await geminiDeLaPlataformaPaga();
-if (!paga) {
-  console.log('⛔ El Gemini de la plataforma NO está marcado como pago (ia.gemini.plataforma_paga): no se embebe nada.');
-  process.exitCode = APLICAR ? 2 : 0;
+if (!conCuerpo.length) {
+  console.log('Nada para embeber: ningún workspace con filas tiene su Gemini.');
 } else if (!APLICAR) {
   console.log('En seco: no se escribió nada. Con --aplicar, se re-embebe.');
 } else {

@@ -14,19 +14,21 @@
 
 import { MOTIVO_CLAVE_DEL_NEGOCIO, MOTIVO_CREDITO_SU_CLAVE } from './veto-claude';
 
-export type ProvSuClave = 'anthropic' | 'openai';
-export const PROVS_SU_CLAVE: readonly ProvSuClave[] = ['anthropic', 'openai'];
+export type ProvSuClave = 'anthropic' | 'openai' | 'gemini';
+/** IA16 (22/10/2026): su Gemini es su IA, así que su tarjeta también lo muestra. */
+export const PROVS_SU_CLAVE: readonly ProvSuClave[] = ['anthropic', 'openai', 'gemini'];
 
 /** La marca de lo que paga (o intentó pagar) la clave del negocio. La de Claude es la del veto: la lee lib/costos-ia.ts. */
 export const MARCA_SU_CLAVE: Record<ProvSuClave, string> = {
   anthropic: MOTIVO_CLAVE_DEL_NEGOCIO,
   openai: '⚠ clave de OpenAI del negocio',
+  gemini: '⚠ clave de Gemini del negocio',
 };
 
 /** El `model` de una fila de fallo: `fallo:<modelo>`. Como `vetado:` y `rebote429:`, no es una llamada que contestó. */
 export const PREFIJO_FALLO = 'fallo:';
 
-const NOMBRE: Record<ProvSuClave, string> = { anthropic: 'Claude', openai: 'OpenAI' };
+const NOMBRE: Record<ProvSuClave, string> = { anthropic: 'Claude', openai: 'OpenAI', gemini: 'Gemini' };
 export const nombreDeSuClave = (p: ProvSuClave): string => NOMBRE[p];
 
 /** El porqué en dos o tres palabras, para la tarjeta. Se lee del error del proveedor y NUNCA se copia ese texto. */
@@ -39,7 +41,8 @@ export type MotivoCorto = 'sin crédito' | 'clave inválida' | 'sin permiso' | '
 export function motivoCorto(error: string): MotivoCorto {
   const e = error.toLowerCase();
   if (/credit balance|insufficient_quota|exceeded your current quota|billing|no credits|payment required|\b402\b/.test(e)) return 'sin crédito';
-  if (/\b401\b|invalid x-api-key|invalid api key|incorrect api key|invalid_api_key|authentication_error|unauthorized/.test(e)) return 'clave inválida';
+  // Gemini dice «API key not valid» (un 400 INVALID_ARGUMENT, no un 401).
+  if (/\b401\b|invalid x-api-key|invalid api key|incorrect api key|invalid_api_key|authentication_error|unauthorized|api key not valid|api_key_invalid/.test(e)) return 'clave inválida';
   if (/\b403\b|permission_error|forbidden|has been disabled|not allowed/.test(e)) return 'sin permiso';
   if (/\b404\b|not_found_error|model_not_found|does not exist|no longer available/.test(e)) return 'modelo no disponible';
   if (/\b429\b|rate.?limit|too many requests/.test(e)) return 'tope por minuto';
@@ -69,8 +72,8 @@ const esLlamadaQueContesto = (f: FilaUsoClave): boolean => !MARCAS_NO_CONTESTO.s
 /**
  * ¿Esta fila es de la clave del negocio de ese proveedor?
  * · Claude: lleva la marca del negocio al principio (la puerta 2 del veto la pone siempre; sin ella es el Claude de MaKo).
- * · OpenAI: en el workspace de un cliente, la key de OpenAI es la suya (`provsDe` saca las copias de la plataforma, y la red
- *   gratis de la plataforma nunca usa OpenAI); se descarta igual lo que diga «red de plataforma», por las dudas.
+ * · OpenAI y Gemini: en el workspace de un cliente, la key es la suya (`provsDe` saca las copias de la plataforma, y desde
+ *   IA16 la red de la plataforma no corre para un negocio); se descarta igual lo que diga «red de plataforma», por las dudas.
  */
 function esDeSuClave(p: ProvSuClave, f: FilaUsoClave): boolean {
   if ((f.provider ?? 'anthropic') !== p) return false;

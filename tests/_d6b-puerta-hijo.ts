@@ -4,9 +4,10 @@
 // IA6 (22/10/2026): «con su IA conectada, TODO el negocio usa la suya». Corre las entradas REALES de la capa de IA
 // (lib/ai-cheap.ts y lib/anthropic.ts) A PELO —sin que ninguna ruta ni turno decida D6b, como un cron, un webhook o una tab—
 // contra un PostgREST de mentira, y anota a qué hosts sale cada una. Los negocios:
-//   · ws3: su OpenAI y una Gemini vieja del onboarding (tiene su IA);
+//   · ws3: su OpenAI y su Gemini (tiene su IA: las dos);
 //   · ws11: su clave de Claude sola (tiene su IA; las fotos van a su Claude);
-//   · ws13: sólo Gemini (no tiene su IA: sigue como siempre);
+//   · ws13: sólo su Gemini (IA16, 22/10/2026: tiene su IA);
+//   · ws14: sólo Groq (no tiene su IA: sus notas de voz, como siempre; y la plataforma no le presta nada);
 //   · ws9: la plataforma (lo interno sigue como estaba).
 // Todo lo que no es la base contesta un error, así la cascada recorre todo lo que tiene permitido.
 // =============================================================================
@@ -43,11 +44,12 @@ async function main() {
   const { runWithWorkspace } = await import('../lib/workspace');
   const ai = await import('../lib/ai-cheap');
   const { chatClaude } = await import('../lib/anthropic');
-  pg.db.workspaces.push({ id: PLATAFORMA, capa: 'superadmin', nombre: 'MaKo' }, ...[3, 10, 11, 13].map((id) => ({ id, capa: 'cliente', nombre: `ws${id}` })));
+  pg.db.workspaces.push({ id: PLATAFORMA, capa: 'superadmin', nombre: 'MaKo' }, ...[3, 10, 11, 13, 14].map((id) => ({ id, capa: 'cliente', nombre: `ws${id}` })));
   const poner = (ws: number, clave: string, valor = `${ws}-${clave}-${'k'.repeat(40)}`) => pg.db.credenciales.push({ workspace_id: ws, clave, valor_enc: cifrarSecreto(valor, ws, clave), servicio: clave.split('_')[0].toLowerCase() });
   poner(3, 'OPENAI_API_KEY'); poner(3, 'GEMINI_API_KEY');
   poner(11, 'ANTHROPIC_API_KEY');
   poner(13, 'GEMINI_API_KEY');
+  poner(14, 'GROQ_API_KEY');
   poner(PLATAFORMA, 'GEMINI_API_KEY'); poner(PLATAFORMA, 'GROQ_API_KEY');
   // El ws10: su «clave de Claude» es el crédito de Max de Martín (la cuenta 2 de la plataforma), y tiene su Gemini.
   const CREDITO = `sk-ant-api03-CREDITO-cuenta2-${'c'.repeat(40)}`;
@@ -68,7 +70,7 @@ async function main() {
     chatClaude: () => chatClaude('s', [{ role: 'user', content: 'hola' }], { feature: 'landing-analyst' }),
   };
   const out: Record<string, Record<string, { red: string[]; valor?: unknown }>> = {};
-  for (const ws of [3, 11, 13, PLATAFORMA]) {
+  for (const ws of [3, 11, 13, 14, PLATAFORMA]) {
     out[`ws${ws}`] = {};
     for (const [nombre, f] of Object.entries(entradas)) {
       red = [];
@@ -89,8 +91,8 @@ async function main() {
     return 'volvió';
   }), 20_000);
   // (b) EL PLAN SE DECIDE APARTE (Martín, 22/10/2026: «Sí, si es su clave»), también adentro de otro pedido que ya decidió:
-  //     el ws3 (su OpenAI) usa la suya aunque el de afuera haya dicho «afuera»; el ws13 (sin clave) va a su Gemini aunque el
-  //     de afuera haya dicho «adentro»; y el ws10, cuya clave de Claude es el crédito de Martín, sigue como siempre (Gemini).
+  //     el ws3 (su OpenAI) usa la suya aunque el de afuera haya dicho «afuera»; el ws13 (su Gemini) va a su Gemini aunque
+  //     el de afuera haya dicho «adentro»; y el ws10, cuya clave de Claude es el crédito de Martín, no la usa: va a su Gemini.
   red = [];
   await runWithWorkspace(3, () => conSoloSuIA(false, () => ai.chatCheapCascade({ system: 's', user: 'x', feature: 'plan-fathom', provs: ['gemini'] }).catch(() => '')));
   extra.planWs3AdentroDeAfuera = [...new Set(red)];
@@ -103,16 +105,17 @@ async function main() {
   red = [];
   await runWithWorkspace(10, () => ai.chatCheapCascade({ system: 's', user: 'Juan quiere otra landing', feature: 'landing-analyst', provs: ['gemini'] }).catch(() => ''));
   extra.noPlanWs10Credito = [...new Set(red)];
-  // (c) «NO PUDE SABER» NO SE RECUERDA: con la tabla de las PC caída, el ws13 (sólo Gemini) falla cerrado ESE pedido; con la
-  // base sana, el siguiente vuelve a su Gemini (antes quedaba 60 s sin IA).
+  // (c) «NO PUDE SABER» NO SE RECUERDA: con la tabla de las PC caída, el ws14 (sólo Groq) falla cerrado ESE pedido (su nota de
+  // voz no va a Groq); con la base sana, la siguiente vuelve a su Groq (antes quedaba 60 s sin IA).
+  const nota = () => ai.transcribirAudio(Buffer.from('audio').toString('base64'), 'audio/webm', { feature: 'nota de voz', pii: true } as never).catch(() => '');
   olvidarD6b();
   tablaQueFalla = 'ia_pc_dispositivos';
   red = [];
-  await runWithWorkspace(13, () => ai.chatCheapCascade({ system: 's', user: 'x', feature: 'landing-analyst', provs: ['gemini'] }).catch(() => ''));
+  await runWithWorkspace(14, nota);
   extra.conBacheDeLaBase = [...new Set(red)];
   tablaQueFalla = null;
   red = [];
-  await runWithWorkspace(13, () => ai.chatCheapCascade({ system: 's', user: 'x', feature: 'landing-analyst', provs: ['gemini'] }).catch(() => ''));
+  await runWithWorkspace(14, nota);
   extra.despuesDelBache = [...new Set(red)];
   process.stdout.write(`@@RESULTADO@@${JSON.stringify({ ...out, extra })}`);
 }

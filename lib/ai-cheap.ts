@@ -25,7 +25,6 @@
 import 'server-only';
 import { recordUsage, recordSttUsage } from '@/lib/anthropic-usage';
 import { conTechoDeSalida } from '@/lib/ai-cheap-techo';
-import { geminiDeLaPlataformaPaga } from '@/lib/gemini-pago';
 import type { ToolDef, ToolRunner, RichMsg, ToolsResult } from '@/lib/anthropic';
 import { createHash } from 'node:crypto';
 import { credDelCliente, credWs, credWsEstricta } from '@/lib/credenciales';
@@ -205,6 +204,17 @@ async function soloLasPropias(nombre: ProvName, provs: Prov[]): Promise<Prov[]> 
 }
 
 /**
+ * Las claves de Gemini del NEGOCIO en curso, en el orden de la cascada (IA16, 22/10/2026): las del buscador de conocimiento
+ * (lib/embeddings.ts). Salen de `provsDe`, así que valen las mismas reglas: sus filas, nunca el entorno, sin las copias de
+ * una clave de la plataforma, y D6b. En el ws9 son las de la plataforma, que es lo interno de MaKo.
+ */
+export async function clavesDeSuGemini(): Promise<string[]> {
+  // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
+  if (!d6bDecidida()) return conD6bDelPedido(null, () => clavesDeSuGemini());
+  return (await provsDe('gemini')).map((p) => p.key);
+}
+
+/**
  * TODAS las cuentas cargadas de un proveedor, en orden (la de siempre primero).
  * Vacío si no hay ninguna. Es el eje de rotación que faltaba: el free tier se agota
  * por CUENTA, así que quien cargó tres keys de Gemini tiene tres veces la cuota —
@@ -325,9 +335,14 @@ export async function provsGratisDePlataforma(
   if (!d6bDecidida()) return conD6bDelPedido(null, () => provsGratisDePlataforma(uso));
   // ⛔ D6b: un negocio con su IA no usa la red de la plataforma (lib/solo-su-ia.ts).
   if (soloSuIA()) return [];
-  const { wsSuperAdmin } = await import('./workspace');
+  const { wsSuperAdmin, getWorkspaceActual } = await import('./workspace');
   const ws = await wsSuperAdmin().catch(() => null);
   if (ws == null) return [];
+  // ⛔ LA RED NO CORRE PARA NINGÚN NEGOCIO (22/10/2026). Martín, textual: «Cada usuario debe poder pagar su token, su propia IA
+  // de gemini». MaKo no paga ni presta IA a los clientes: sin su IA (su Claude, su GPT o su Gemini), «Conecta tu IA». Las
+  // claves de la plataforma son sólo para lo INTERNO de MaKo (el ws9), sin datos de clientes. Lo único que la plataforma pone
+  // para un cliente es el crédito de Claude del onboarding (lib/anthropic.ts → `conCreditoDeLaPlataforma`), que no pasa por acá.
+  if ((await getWorkspaceActual().catch(() => null)) !== ws) return [];
   const out: Array<{ provider: ProvName; clave: string }> = [];
   // ⚠️ MISTRAL NO ESTÁ, Y ES EL MISMO MOTIVO QUE EN LA CASCADA DEL DOER: rebota SIEMPRE.
   //
@@ -422,11 +437,12 @@ const MIN_INTENTO_MS = 15_000;
 
 /**
  * IA3 (22/10/2026): el fallo de SU OpenAI (su GPT por clave) queda escrito, como el de su Claude, y la tarjeta de «Tus
- * cuentas de IA» lo muestra. Las demás de la cascada no son «su clave». Si la clave es del negocio (y no de la
- * plataforma) lo decide lib/su-clave.ts. Sin `await`: corre en el camino del error y no puede costar el respaldo.
+ * cuentas de IA» lo muestra. IA16: y el de su Gemini, que también es su IA (en un negocio la red de la plataforma ya no
+ * corre, así que una Gemini que falla en su workspace es la suya). Groq no es «su clave». lib/su-clave.ts saltea el ws9.
+ * Sin `await`: corre en el camino del error y no puede costar el respaldo.
  */
 const anotarSuOpenAI = (prov: string, error: string, feature?: string, modelo?: string | null): void => {
-  if (prov === 'openai') void import('./su-clave').then((m) => m.anotarFalloDeSuClave({ proveedor: 'openai', error, feature, modelo })).catch(() => {});
+  if (prov === 'openai' || prov === 'gemini') void import('./su-clave').then((m) => m.anotarFalloDeSuClave({ proveedor: prov, error, feature, modelo })).catch(() => {});
 };
 
 /**
@@ -866,9 +882,7 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
         return '';
       }
       const conPII = opts.pii ?? CATALOGO_MODELOS.some((f) => f.feature === opts.feature && f.pii === true);
-      // IA16 (22/10/2026): con el Gemini de la plataforma en el plan PAGO —que no entrena—, los datos de clientes SÍ van a
-      // la red (que para texto es sólo ese Gemini). Sin la marca (lib/gemini-pago.ts), como antes.
-      if (conPII && !(await geminiDeLaPlataformaPaga())) {
+      if (conPII) {
         opts.erroresPlataformaOut?.push('red gratis salteada: el pedido lleva datos de clientes y el plan gratis entrena con lo que recibe');
         return '';
       }
@@ -1066,11 +1080,7 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
       // Los errores de NUESTRAS keys van aparte: `errores` es lo que termina en el
       // mensaje del cliente, y con los nuestros adentro le echa la culpa a los suyos.
       const erroresPlataforma: string[] = [];
-      // IA16: un documento con datos de clientes (la marca `pii` del catálogo) va a la red sólo con el Gemini de la
-      // plataforma en el plan pago, como el texto. Antes iba al plan gratis, que entrena.
-      const conPII = CATALOGO_MODELOS.some((f) => f.feature === opts.feature && f.pii === true);
-      const red = conPII && !(await geminiDeLaPlataformaPaga()) ? [] : await provsGratisDePlataforma().catch(() => []);
-      if (conPII && !red.length) erroresPlataforma.push('red gratis salteada: el documento lleva datos de clientes y el plan gratis entrena con lo que recibe');
+      const red = await provsGratisDePlataforma().catch(() => []);
       // Sólo los que MIRAN (Gemini).
       for (const r of red.filter((x) => VISION_CASCADE.includes(x.provider))) {
         const p = await provDe(r.provider, r.clave, wsSA).catch(() => null);
@@ -1090,11 +1100,10 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
     }
   }
   if (errores.length) throw new Error(`No se pudo leer el documento con ninguna IA. ${errores.join(' · ')}`);
-  // ⛔ D6b: con su propio Claude, sólo su OpenAI mira (la red gratis no corrió): pedirle «Gemini (gratis)» sería mandarlo
-  // a cargar una key que no se usaría.
+  // ⛔ D6b: con su IA, sólo su Gemini y su OpenAI miran (la red de la plataforma no corre para un negocio).
   if (soloSuIA()) throw new Error(CON_SU_IA_SIN_VISION);
-  // IA9: lo que se le pide es SU Claude o SU GPT (antes, «Gemini (gratis)»). Los dos miran fotos y PDF.
-  throw new Error('No hay ninguna IA que pueda mirar esto. Conecta tu Claude o tu GPT en Integraciones.');
+  // IA9: lo que se le pide es SU IA (IA16: también su Gemini). Las tres miran fotos y PDF.
+  throw new Error('No hay ninguna IA que pueda mirar esto. Conecta tu Claude, tu GPT o tu Gemini en Integraciones.');
 }
 
 /**
@@ -1778,16 +1787,15 @@ export async function transcribirAudio(base64: string, mime: string, opts?: SttO
   const { wsSuperAdmin, getWorkspaceActual } = await import('./workspace');
   const wsSA = await wsSuperAdmin().catch(() => null);
   const wsActual = await getWorkspaceActual().catch(() => null);
-  // ⛔ CON DATOS DE CLIENTES (`o.pii`, 16/10/2026: la nota de voz de un lead), la red escucha SÓLO con lo que no entrena con
-  // lo que recibe (mandar algo a entrenar no se deshace, AGENTS.md). IA16 (22/10/2026): eso es Groq —que no entrena, y es
-  // lo único para lo que queda: «Groq sólo para las notas de voz»— y el Gemini de la plataforma si está en el plan PAGO
-  // (lib/gemini-pago.ts). Antes, con datos de clientes la red no corría nunca: sin las keys del negocio, no se escuchaba.
-  // Lo que no es una nota de voz (`sinGroq`: el audio de un anuncio) no va a Groq.
-  const paga = o.pii ? await geminiDeLaPlataformaPaga() : true;
+  // ⛔ CON DATOS DE CLIENTES (`o.pii`, 16/10/2026: la nota de voz de un lead), la red NO: las keys gratis de la agencia
+  // son el plan gratis de Gemini y Groq, y el de Gemini entrena con lo que recibe. Mandar algo a entrenar no se deshace
+  // (AGENTS.md). Y desde el 22/10/2026 la red no corre para ningún negocio (`provsGratisDePlataforma`): cada uno escucha con
+  // su IA. Lo que no es una nota de voz (`sinGroq`: el audio de un anuncio) no va a Groq.
+  if (o.pii) {
+    erroresPlataforma.push('red gratis salteada: el audio es de un cliente del negocio y el plan gratis entrena con lo que recibe');
   // El super admin ya probó SUS keys en el paso 1: repetirlas es gastar tiempo en lo que ya falló.
-  if (wsSA != null && wsActual !== wsSA) {
-    const red = (await provsGratisDePlataforma('audio').catch(() => [])).filter((r) => (r.provider === 'groq' ? !o.sinGroq : paga));
-    if (o.pii && !red.length) erroresPlataforma.push('red gratis salteada: el audio es de un cliente del negocio y el plan gratis entrena con lo que recibe');
+  } else if (wsSA != null && wsActual !== wsSA) {
+    const red = (await provsGratisDePlataforma('audio').catch(() => [])).filter((r) => r.provider !== 'groq' || !o.sinGroq);
     const groqPrimero = [...red.filter((r) => r.provider !== 'gemini'), ...red.filter((r) => r.provider === 'gemini')];
     for (const r of groqPrimero) {
       const p = await provDe(r.provider, r.clave, wsSA).catch(() => null);

@@ -42,7 +42,10 @@ export const REGLAS: Regla[] = [
   // Sin `\b` al final y con {30,}: una clave de Google real son 39 caracteres, pero
   // atarse al largo exacto hace que una variante de 37 se escape ENTERA — el `\b`
   // falla si el carácter siguiente también es de palabra. Ante la duda, tapar de más.
-  { nombre: 'google', re: /\bAIza[0-9A-Za-z_-]{30,}/g, con: '«clave de Google tapada»' },
+  // ⚠️ Y LA DE HOY NO EMPIEZA CON AIza (22/10/2026). Las claves de AI Studio nacen «auth»: `AQ.` + 50 de base64url, 53 en
+  // total (las 9 cargadas en agosto y la de esta PC, medido sin leerlas: largo, prefijo y alfabeto). Con sólo `AIza`, una
+  // clave de Gemini de verdad pegada en el chat pasaba entera al modelo, justo cuando se le pide a cada negocio la suya.
+  { nombre: 'google', re: /\b(?:AIza[0-9A-Za-z_-]{30,}|AQ\.[0-9A-Za-z_-]{40,})/g, con: '«clave de Google tapada»' },
   { nombre: 'groq', re: /\bgsk_[A-Za-z0-9]{20,}/g, con: '«clave de Groq tapada»' },
   { nombre: 'github', re: /\bgh[pousr]_[A-Za-z0-9]{20,}/g, con: '«token de GitHub tapado»' },
   { nombre: 'slack', re: /\bxox[baprs]-[A-Za-z0-9-]{10,}/g, con: '«token de Slack tapado»' },

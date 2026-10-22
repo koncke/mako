@@ -5481,10 +5481,8 @@ TODAS 429 (0 respuestas), OpenRouter 12 llamadas y su modelo gratis caducó tres
    - **IA10 queda CANCELADO.** Gemini sigue como la base de quien no conectó su IA.
    - Se van Cerebras, Mistral y OpenRouter (IA8) y también Groq. El audio de quien no tiene OpenAI pasa a Gemini.
    - Antes de sacar Groq de las notas de voz de WhatsApp, hay que medir la demora.
-   - **La precisión del Cerebro, del mismo día:** los datos de los clientes nunca van a un proveedor que entrena (la regla
-     del 16/10). Entonces Gemini sirve de base sólo en el plan PAGO. Hasta que Martín active el pago por uso (el tope
-     sugerido es US$20/mes), quien no tiene su IA no va a Gemini gratis con datos de clientes: se le pide «Conecta tu Claude
-     o tu GPT». Ese cambio en la cascada espera su sí, coordinado con el Ops Center.
+   - **Esto lo dio vuelta Martín a las 17:20:** «Cada usuario debe poder pagar su token, su propia IA de gemini». Gemini
+     ya no es la base de quien no conectó su IA: sin su IA no hay IA de la plataforma, y su Gemini es su IA (IA16, abajo).
 4. **El Plan:** «Sí, si es su clave». Es una EXCEPCIÓN a «NO, JAMÁS algo pago para el plan» (30/09/2026). Está abajo.
 5. **El Closing Analyst del ws1 después del 13/11:** «Con su clave de Claude». Sin clave, el Analyst le pide que la conecte.
 
@@ -5522,8 +5520,8 @@ TODAS 429 (0 respuestas), OpenRouter 12 llamadas y su modelo gratis caducó tres
   más se usa (el Perro, las reuniones). Lo decidió este chat; si Martín quiere otra cosa, es una línea.
 - **Nunca con el crédito de Martín, y sin poder compararlo con el crédito, tampoco.** La plataforma sigue sin pagar el Plan
   por ninguna puerta.
-- **Sin hacer:** el Plan de un negocio que tiene sólo su PC sigue con Gemini. Con datos de clientes, ahí aplica la
-  precisión del Cerebro de arriba (el plan pago).
+- **Sin hacer:** el Plan de un negocio que tiene sólo su PC no tiene IA (la PC no corre de fondo, y desde IA16 la red de
+  la plataforma no corre para ningún negocio): necesita su clave de Claude, de OpenAI o de Gemini.
 
 ### Lo que encontró la revisión adversarial de IA15 (22/10/2026), y cómo quedó
 
@@ -5586,49 +5584,113 @@ TODAS 429 (0 respuestas), OpenRouter 12 llamadas y su modelo gratis caducó tres
     final de una frase), no sólo el que se quería dejar pasar.
 - **Una fila de IA ilegible en el ws9 apagaría la IA propia de todos los negocios** (por `ilegibleTira`). Se miró antes de
   subir: 22 de 22 filas legibles. El mensaje ya no dice «la base no contestó», que en ese caso era falso.
-## Groq sólo escucha, y el Gemini PAGO de la plataforma como base (IA16, 22/10/2026)
+## Cada negocio paga su IA —también su Gemini—, y Groq sólo escucha (IA16, 22/10/2026)
 
-**Las decisiones, textuales** (Martín en el Ops Center, 22/10 16:24):
-- «¿Activo el pago por uso de Gemini?» → «Sí, sin tope».
-- «¿Dejamos Groq sólo para transcribir las notas de voz?» → «Groq sólo para las notas de voz».
+**Las decisiones, textuales:**
+- «¿Dejamos Groq sólo para transcribir las notas de voz?» → «Groq sólo para las notas de voz» (Ops Center, 16:24).
+- Del pago de Gemini primero dijo «Sí, sin tope» (16:24), y **después lo dio vuelta** (17:20): «Cada usuario debe poder
+  pagar su token, su propia IA de gemini». **Quién paga la IA de un cliente: el cliente.** La plataforma no paga ni presta
+  IA a ningún negocio; lo único que pone es el crédito de Claude del onboarding, que no cambia.
+
+**Cómo quedó (las reglas del Cerebro, del mismo día):**
+1. «Conectar tu IA» suma **Gemini por clave de AI Studio**, al lado de Claude y GPT, con el link y una línea de cómo.
+2. Un negocio con su Gemini lo usa para TODO (D6b, sólo la suya): texto, documentos, audio y el buscador de conocimiento.
+3. Sin su IA, **no hay red de la plataforma**, con o sin datos de clientes: «Conecta tu Claude, tu GPT o tu Gemini».
+4. Las claves de Gemini de la plataforma quedan para lo interno de MaKo (el ws9). Las 3 de más se quedan.
+5. Se fue la marca `ia.gemini.plataforma_paga` (lib/gemini-pago.ts y su script).
 
 **Vive en:**
-- `lib/gemini-pago.ts`: la marca `ia.gemini.plataforma_paga`.
-- `lib/ai-cheap.ts`: `PROVS_SOLO_AUDIO`, `proveedor`, `deTexto`, `provsGratisDePlataforma(uso)`, los cortes por PII y `sinGroq`.
-- `lib/embeddings.ts`.
-- `scripts/gemini-pago.mts`: mide y prende la marca.
-- `scripts/reembeber-conocimiento.mts`.
-- `tests/ia16-gemini-pago.test.ts`.
+- `lib/ai-cheap.ts`: `provsGratisDePlataforma` devuelve `[]` fuera del ws9; `clavesDeSuGemini`; `PROVS_SOLO_AUDIO`, `deTexto` y `sinGroq`.
+- `lib/solo-su-ia.ts` (`PROVS_SU_IA = ['gemini', 'openai']`) y `lib/ia-del-negocio.ts` (`CLAVES_SU_IA` con Gemini).
+- `lib/embeddings.ts`, `scripts/reembeber-conocimiento.mts` (por workspace).
+- `lib/conectar-ia-reglas.ts` y `app/integraciones/TusCuentasIA.tsx`.
+- `lib/reembeber-al-conectar.ts` (al guardar su Gemini) y `reembeberLoQueFalta` (lib/mako-knowledge.ts).
+- «Tus cuentas de IA» con su Gemini: `lib/su-clave-reglas.ts`, `lib/su-clave.ts`.
+- `tests/ia16-cada-uno-su-ia.test.ts` (con `tests/_ia16-hijo.ts`).
 
-- **«Groq sólo escucha» es UN corte con tres capas, y el test mira cada una por separado.** Las capas:
-  1. `proveedor` no da Groq para texto, aunque lo pida un pin de /modelos-ia.
-  2. Las cascadas de texto lo sacan aunque una lista lo nombre (`deTexto`).
-  3. La red de la plataforma lo trae sólo para audio.
+**Lo que no se ve:**
+- **Google no dice el plan de una clave sin gastarla.** Medido el 22/10: la lista de modelos, el GET del modelo y
+  `countTokens` contestan los mismos headers y el mismo cuerpo en el plan gratis y en el pago. Por eso el aviso del plan
+  gratis («Con la gratis, Google puede usar tus datos…») va SIEMPRE, no sólo a quien está en el gratis.
+- **Las claves de Gemini de hoy NO empiezan con `AIza`.** Nacen «auth»: `AQ.` + 50 de base64url, 53 en total (medido sin
+  leerlas: largo, prefijo y alfabeto). La regla que tapa claves en el chat (`google`, lib/agente-redaccion.ts) conocía sólo
+  `AIza`: **una clave de Gemini de verdad pegada en el chat pasaba entera al modelo.** Y la pantalla de la clave decía
+  «Empieza con AIza». Las dos se arreglaron con este cambio, que es justo el que le pide a cada negocio la suya.
+  **Regla:** el formato de una clave se mide contra una real, no contra la documentación vieja.
+- **El vector sale del modelo, no de la cuenta.** La consulta de un negocio, embebida con SU Gemini, encuentra el método de
+  la plataforma (embebido con la del ws9): el mismo `gemini-embedding-001` a 768. Lo que no se compara es otro modelo
+  (los 1536 de OpenAI): `searchKnowledge` compara sólo los del mismo largo.
+- **Sin su Gemini no hay buscador.** Su Claude o su GPT no sirven: los vectores de OpenAI son de otro espacio, y la
+  consulta lleva la charla con sus clientes, que no puede ir a la cuenta de MaKo. `embed` tira «Conecta tu Gemini…»
+  (`SIN_SU_GEMINI`), que queda en `falloDelRag` y en el `error` de la fila.
+- **Lo que daba por hecho que «su IA» era sólo su OpenAI.** Además de la cascada, dos listas fijas `['openai']`: la de
+  `chatClaudeTools` (lib/anthropic.ts) y los candidatos del doer de WhatsApp (lib/mako-doer-in.ts). Con sólo su Gemini,
+  ninguna de las dos lo probaba. Ahora las dos son `PROVS_SU_IA`.
+- **«Groq sólo escucha» es UN corte con tres capas, y el test mira cada una:** `proveedor` no da Groq para texto aunque
+  lo pida un pin; las cascadas lo sacan aunque una lista lo nombre (`deTexto`); la red lo trae sólo para audio. La
+  primera tapaba a las otras dos, y dos roturas quedaron en verde. Se separaron mirando los errores de la cascada.
+- **Cinco tests de D6b tenían de CONTROL «un negocio con sólo Gemini, sin su IA».** Con su Gemini como su IA, el control
+  quedó adentro de D6b y los tests decían «fuga». No se aflojaron: se cambió el negocio de cada uno. Lo que no es su IA ahora
+  es Groq (escucha con la suya, y es el control de la nota de voz); y «sin su IA» ya no sale a ningún lado. Los vio correr los
+  tests que LEEN los módulos tocados, no sólo los míos: 13 rojos en 5 archivos (solo-su-ia, d6b-puerta, d6b-rutas, ia-pc,
+  ai-step-conecta-claude). **Regla:** cuando cambia qué cuenta como «su IA», se buscan los tests cuyo control lo daba por hecho.
+- **La clave del entorno nunca es la del negocio.** El `.env.local` de esta PC trae la …YTBA (una de la plataforma). Los
+  embeddings leen las filas del negocio (`provsDe` → `credDelCliente`), así que un script local no la usa.
 
-  La primera tapaba a las otras dos, y dos roturas quedaron en verde. Se separaron mirando que los errores de la cascada
-  no nombren a Groq y qué proveedores trae la red. Groq sigue en `CASCADA_STT` y en la red de audio. El audio de un
-  anuncio (`sinGroq`) no va a Groq, porque «la transcripción de anuncios pasa a Gemini».
-- **Con datos de clientes, la red de la plataforma corre sólo con lo que no entrena.** El texto va sólo al Gemini pago,
-  y la nota de voz a Groq (que no entrena) y al Gemini pago. Antes, con datos de clientes la nota de voz no escuchaba
-  nunca por la red. La red de DOCUMENTOS no tenía ningún corte por datos de clientes: los documentos de un negocio iban al
-  Gemini gratis de la plataforma. Ahora tiene el mismo corte.
-- **La marca se prende después de medir, y sólo si TODAS las claves pasan.** La prueba es una ráfaga de 20 pedidos más
-  rápida que el tope por minuto del plan gratis: un 429 «…FreeTier» es gratis, y un 503 («high demand») no dice nada del
-  plan. Medido el 22/10, antes del pago: las 4 claves de la plataforma dieron GRATIS (18-20 de 20 con el tope). La marca
-  exige que pasen todas, porque la red rota entre todas sus claves y una sola gratis mandaría datos de clientes a entrenar.
-- **Trampa: la clave del entorno no es la facturada.** El `.env.local` de esta PC traía la …YTBA, una gratis y la copia del
-  ws1, mientras que la del ws9 es la …hY2w. En producción no importa, porque la hidratación pisa el entorno con la fila
-  del ws9. Pero un script local que lee `envCred` (el de re-embeber) habría mandado el conocimiento de los negocios al
-  plan gratis. **Regla:** lo que tiene que ir por la clave paga lee la fila del ws9 (`credWsEstricta(…, { ilegibleTira })`),
-  no el entorno.
-- **Un vector de otro modelo se descarta por su largo.** Gemini va a 768 y los de OpenAI eran de 1536. `searchKnowledge`
-  compara sólo los del mismo largo: mientras no se re-embebe, una fila vieja no aparece, en vez de aparecer mal. Los
-  vectores son `jsonb`, así que no hace falta migración. El costo medido son 119 filas y unos 15 mil tokens.
-- **A vigilar:** los Pedidos de los chats eran Groq primero porque es más rápido (1,4 s medido, contra 6-11 s de Gemini),
-  con un plazo de 7 s. Con Gemini, más pedidos van a llegar tarde y van a seguir por las reglas.
-- **SIN hacer hasta que Martín avise que pagó:**
-  1. `scripts/gemini-pago.mts` sin --marcar (tiene que dar PAGA);
-  2. sacar de la plataforma las claves gratis (_2, _3, _4), con backup;
-  3. volver a medir y prender la marca con --marcar;
-  4. `scripts/reembeber-conocimiento.mts --aplicar`;
-  5. recién ahí sube IA16. Si sube antes, Groq sale del texto sin que el Gemini pago lo reemplace.
+**Medido el 22/10 (sólo lectura), quién queda SIN IA cuando suba:**
+
+| Negocio | Su IA | IA en 7 días (por la red) |
+|---|---|---|
+| ws1 Mauricio | ninguna (copias de Claude, Gemini y OpenAI) | 327 (70) |
+| ws3 Cliente de Prueba | ninguna (5 PC) | 536 (455) |
+| ws21 Florencia | ninguna | 28 (8) |
+| ws22 Patricia | ninguna | 8 (3) |
+| ws4 Cliente de Diseño | ninguna (copias) | 3 (0) |
+
+Con su Gemini siguen: ws13, ws15, ws17, ws18, ws19, ws20; ws14 (Gemini y OpenAI); ws11 (Claude, GPT y Gemini); ws10
+(Claude; su Gemini es una copia).
+
+**Lo que encontró la revisión adversarial (22/10), y cómo quedó.** No encontró fugas nuevas. Sí esto:
+- **ALTA — El Archivero y el dictado del Plan daban «no» con sólo su Gemini.** Los dos preguntaban por su OpenAI
+  (`puedeArchivarConSuIA` en lib/mako-turno-app.ts, y app/api/plan-dictado/route.ts). Ahora preguntan por `PROVS_SU_IA`.
+- **ALTA — El método de MaKo desaparecía del buscador de TODOS.** Vive en el ws1 (las filas `fuente: 'mako'`), y el ws1
+  sólo tiene copias de la plataforma: «cada uno con la suya» no lo dejaba embeber. Es contenido de MaKo, no del negocio:
+  se embebe con la de la plataforma (`embed(…, { deMako })`, sólo para la `fuente` que se presta). El test del buscador lo
+  escondía: ponía el método en el ws9, no donde vive.
+- **Gemini primero cambiaba a quien ya tenía su GPT.** Muchos negocios cargaron una Gemini gratis en el onboarding, cuando
+  MaKo se la pedía (el ws11 tiene las tres). Con D6b sus datos iban sólo a su GPT. **Ahora su GPT va primero y su Gemini es
+  el respaldo** (`PROVS_SU_IA = ['openai', 'gemini']`). Y `ordenarPorCuota` respeta ESE orden: la lista del audio es Gemini
+  primero, y sólo filtrar la dejaba así. Con sólo su Claude y su Gemini, en `chatClaudeTools` y en el doer su Gemini va
+  antes que su Claude (hoy no hay ningún negocio así: el del ws10 es una copia).
+- **Nada re-embebía al conectar su Gemini.** Ahora /integraciones lo hace en segundo plano al guardarla.
+- **Detalles:** su Gemini en «Tus cuentas de IA» (tarjeta, «Probar mi clave» con la lista de modelos, y sus fallos
+  anotados); la tarjeta de Groq decía «la de MaKo» con D6b (`provsDe` corre fuera de D6b para esa pregunta); el ejemplo de
+  la clave 2 decía `AIza…`; un `groq` de más en `ENV_DE_IA` (de IA16 v1) era un error de tipos.
+
+**Probado rompiéndolo** (22/10, una rotura por vez, restaurada; las 14 en rojo): la red para cualquier negocio, el
+embedding con la clave del entorno, sin probar la otra cuenta, `PROVS_SU_IA` sin Gemini, `CLAVES_SU_IA` sin Gemini, el
+buscador sin el filtro de largo, el anuncio a Groq, una copia de la plataforma contada como propia; y después de la
+revisión: su Gemini antes que su GPT, `ordenarPorCuota` con el orden de la lista, el método sin `deMako`, `deMako` para todo,
+re-embeber lo que ya estaba, El Archivero sólo con su OpenAI. La regla de Google sin `AQ.` pone en rojo sus dos tests.
+
+**SIN hacer:**
+- **Subir.** Apaga la IA de los negocios de la tabla hasta que conecten la suya. El paso de Mauricio (ws1): «conectá tu
+  Claude, tu GPT o tu Gemini»; con Gemini empieza gratis.
+- **Re-embeber el conocimiento** (`scripts/reembeber-conocimiento.mts --aplicar`): toca los negocios con su Gemini, el
+  ws9 y el método de MaKo del ws1. Las filas de los demás se embeben solas cuando conecten el suyo.
+- **Automations:** `SU_IA` y `SU_CLAVE` (lib/flujo-ia.ts) siguen diciendo «tu Claude o tu GPT». Son de ese chat.
+- **Su Groq, con su IA:** D6b no deja a un negocio con su IA usar su propio Groq para las notas de voz (es así desde el
+  21/10). El ws10 y el ws11 (los dos con su Claude) tienen una fila de Groq que por eso no escucha (medido el 22/10;
+  no se miró si es una copia de la plataforma). Si se quiere, es una línea (`proveedorPermitido` y `ordenarPorCuota`).
+- **A vigilar:** los Pedidos de los chats eran Groq primero porque es más rápido (1,4 s medido, contra 6-11 s de Gemini).
+  Con su Gemini, más pedidos van a llegar tarde y van a seguir por las reglas.
+- **Fuera de IA16, de la revisión** (ya estaban antes, chocan con «sin su IA no hay IA de la plataforma»):
+  - el montaje de video escucha los anuncios de cada negocio con el Groq de la plataforma (`envCred`, app/api/cron/montaje
+    y lib/montaje/pipeline.ts), y le pasa a los scripts hijos todo `process.env`;
+  - el Closing Analyst del ws1 usa el Claude de la plataforma hasta el 13/11 (la lista blanca `closing`, lib/veto-claude.ts):
+    es la decisión del 13/8, ¿es la segunda excepción?;
+  - la visión del onboarding (la foto de la cara de marca, un PDF escaneado) no tiene el crédito de Claude: sin su IA, falla.
+- **Los ganchos de tapado ya instalados en las PC** siguen con la regla vieja de Google (sin `AQ.`) hasta que se bajen de
+  nuevo.
+- **Sólo cuenta `GEMINI_API_KEY`:** un negocio con sólo `GEMINI_API_KEY_2` no es «con su IA» (no hay fuga: la red está
+  apagada).

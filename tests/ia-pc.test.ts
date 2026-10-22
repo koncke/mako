@@ -182,5 +182,5 @@ test('el turno: la PC de QUIEN escribe, sólo en línea Y con sesión, con su ru
   assert.match(t, /const delaPc = avisoDeLaPc\(falloDeLaPc, false, \{ repone: reponeDeLaPc, tz: tzAviso \}\);/);
   const a = sinComentarios(leer('lib/anthropic.ts'));
   // Desde IA6 (22/10/2026) también cuando lo decidió la puerta de la capa de IA (`soloSuIA()`), no sólo el turno.
-  assert.match(a, /const provs: ProvName\[\] = opts\.soloSuIA \|\| soloSuIA\(\) \? \['openai'\] : /, 'sólo su GPT, después su Claude');
+  assert.match(a, /const provs: ProvName\[\] = opts\.soloSuIA \|\| soloSuIA\(\) \? \[\.\.\.PROVS_SU_IA\] as ProvName\[\] : /, 'sólo su IA (su Gemini y su GPT, IA16), después su Claude');
 });

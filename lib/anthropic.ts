@@ -13,7 +13,7 @@ import {
   type PermisoClaveDelNegocio, CLAVE_MODELO_SU_CLAUDE, modeloDeSuClaude,
 } from './veto-claude';
 import type { ProvName } from './ai-cheap';
-import { conD6bDelPedido, pasaPorLaPuerta, planPuedePagarConSuClave, soloSuIA } from './solo-su-ia';
+import { PROVS_SU_IA, conD6bDelPedido, pasaPorLaPuerta, planPuedePagarConSuClave, soloSuIA } from './solo-su-ia';
 
 // ⛔ ACÁ NO HAY NI `MODEL` NI `ENDPOINT`, y ese es el punto entero del veto.
 //
@@ -586,8 +586,8 @@ export async function chatClaudeTools(
   opts: {
     model?: string;
     fallbackModel?: string;         // si el override a IA barata (Gemini/Groq) falla, caé A ESTE (no a Opus).
-    /** D6b (21/10/2026): el negocio tiene SU Claude o SU GPT. La cascada sólo prueba su OpenAI y después su Claude: ni
-     *  Gemini, ni Groq, ni Mistral, ni OpenRouter (docs/ia-del-cliente.md §12.7). */
+    /** D6b (21/10/2026): el negocio tiene SU IA. La cascada sólo prueba su Gemini y su OpenAI (`PROVS_SU_IA`, IA16) y
+     *  después su Claude: ni el Gemini de la plataforma, ni Groq, ni Mistral, ni OpenRouter (docs/ia-del-cliente.md §12.7). */
     soloSuIA?: boolean;
     /** WA1 (22/10/2026): DIRECTO a la clave de Claude del negocio (la puerta 2 del veto), sin la cascada: el que llama ya
      *  probó su OpenAI (el doer de WhatsApp). Sin su clave, tira «falló la IA (…)». Nunca el Claude de MaKo. */
@@ -645,8 +645,8 @@ export async function chatClaudeTools(
       const errores: string[] = [];
       try {
         const { chatCheapToolsCascade, CASCADA_TOOLS } = await import('@/lib/ai-cheap');
-        // Con su Claude o su GPT (`soloSuIA`), sólo su OpenAI: la cascada barata no participa en sus turnos (D6b).
-        const provs: ProvName[] = opts.soloSuIA || soloSuIA() ? ['openai'] : [ref.provider as ProvName, ...CASCADA_TOOLS.filter((p) => p !== ref.provider)];
+        // Con su IA (`soloSuIA`), sólo su Gemini y su OpenAI (`PROVS_SU_IA`): la cascada barata no participa en sus turnos (D6b).
+        const provs: ProvName[] = opts.soloSuIA || soloSuIA() ? [...PROVS_SU_IA] as ProvName[] : [ref.provider as ProvName, ...CASCADA_TOOLS.filter((p) => p !== ref.provider)];
         const r = await chatCheapToolsCascade(system, messages, tools, runTool, {
           maxSteps: opts.maxSteps, maxTokens: opts.maxTokens, feature: opts.feature, motivo: opts.motivo,
           provs, modelos: { [ref.provider as ProvName]: ref.model }, erroresOut: errores,

@@ -275,5 +275,8 @@ async function iaDelNegocio(key: string, envBase: string | undefined): Promise<{
     return { fila: true, propia: !plataforma.some((x) => typeof x === 'string' && x.trim() === fila) };
   }
   const { provsDe } = await import('./ai-cheap');
-  return { fila: !!fila, propia: (await provsDe(key as ProvName)).length > 0 };
+  // Fuera de D6b: «¿es suya?» no es «¿la usa con su IA?». Con su Gemini y su Groq, D6b no le da Groq a `provsDe`, y la
+  // tarjeta decía «Esa key es la de MaKo» (la revisión de IA16). Lee sus filas; no sale a ningún proveedor.
+  const { conSoloSuIA } = await import('./solo-su-ia');
+  return { fila: !!fila, propia: (await conSoloSuIA(false, () => provsDe(key as ProvName))).length > 0 };
 }

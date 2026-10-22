@@ -20,7 +20,7 @@ export default async function TusCuentasIAPage() {
   const deOtro = await leerPerfil().then((p) => p.vista.deOtro, () => false);
   return (
     <AjustesPagina lugar={TITULO_CUENTA} secciones={seccionesCuenta(deOtro, 'ia')} activa="ia">
-      <TituloAjustes titulo="Tus cuentas de IA" bajada="Tu Ops Center contesta con tu Claude o tu GPT." />
+      <TituloAjustes titulo="Tus cuentas de IA" bajada="Tu Ops Center contesta con tu Claude, tu GPT o tu Gemini." />
       <TusCuentasIA sinCabecera />
     </AjustesPagina>
   );

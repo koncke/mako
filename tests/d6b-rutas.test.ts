@@ -525,11 +525,11 @@ const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO
 };
 const GRATIS = /generativelanguage\.googleapis\.com|api\.groq\.com|api\.mistral\.ai|openrouter\.ai|api\.cerebras\.ai/;
 
-test('6. el control: sin su IA, «Buscar con MaKo», El Archivero (foto y texto) y el AI Analyst programado SÍ salen a la Gemini gratis', () => {
+test('6. el control: con su Gemini y sin su PC, «Buscar con MaKo», El Archivero (foto y texto) y el AI Analyst programado SÍ salen a su Gemini', () => {
   assert.equal(R.error, undefined, R.error);
   assert.deepEqual(Object.keys(R.sinSuIA).sort(), ['archiveroFoto', 'archiveroTexto', 'buscar', 'cronAnalista']);
   for (const [caso, c] of Object.entries(R.sinSuIA)) {
-    assert.ok(c.red.some((h) => GRATIS.test(h)), `${caso}: el control no salió a la red gratis (${c.red.join(', ') || 'nada'}): la prueba no vería una fuga`);
+    assert.ok(c.red.some((h) => GRATIS.test(h)), `${caso}: el control no salió a su Gemini (${c.red.join(', ') || 'nada'}): la prueba no vería una fuga`);
   }
 });
 
@@ -543,13 +543,15 @@ test('7. con sólo su PC (su Claude), las rutas de verdad no mandan NADA a una I
   const b = R.conSuPc.buscar.cuerpo;
   assert.equal(b.porTexto, true);
   assert.equal(b.ids, null);
-  assert.match(String(b.explico), /^Con tu propio Claude, para buscar con MaKo necesito tu clave de Claude o de OpenAI.* por texto\.$/);
-  // El Archivero: la foto pide su OpenAI (sólo su OpenAI mira); el texto, su clave de Claude o de OpenAI. Nunca «Gemini».
-  assert.match(String(R.conSuPc.archiveroFoto.cuerpo.warnings?.[0]), /las fotos y los PDF escaneados los leo con tu clave de Claude o de OpenAI/);
-  assert.match(String(R.conSuPc.archiveroTexto.cuerpo.warnings?.[0]), /para leer tus documentos necesito tu clave de Claude o de OpenAI/);
-  for (const c of Object.values(R.conSuPc)) assert.doesNotMatch(JSON.stringify(c.cuerpo), /Gemini|IA gratis/, 'con su propio Claude no se le ofrece Gemini');
+  assert.match(String(b.explico), /^Con tu propio Claude, para buscar con MaKo necesito tu clave de Claude, de OpenAI o de Gemini.* por texto\.$/);
+  // El Archivero: la foto y el texto piden su clave (de Claude, de OpenAI o de Gemini: IA16, su Gemini es su IA). Nunca la
+  // IA de la plataforma.
+  assert.match(String(R.conSuPc.archiveroFoto.cuerpo.warnings?.[0]), /las fotos y los PDF escaneados los leo con tu clave de Claude, de OpenAI o de Gemini/);
+  assert.match(String(R.conSuPc.archiveroTexto.cuerpo.warnings?.[0]), /para leer tus documentos necesito tu clave de Claude, de OpenAI o de Gemini/);
+  // «tu clave … de Gemini» sí (es SU Gemini, IA16); la Gemini gratis de la plataforma, no.
+  for (const c of Object.values(R.conSuPc)) assert.doesNotMatch(JSON.stringify(c.cuerpo), /IA gratis|Gemini \(gratis\)|Gemini gratis/, 'con su propio Claude no se le ofrece la Gemini gratis');
   // Un área (lib/ai-cheap.ts, `errorDeCascada`): sin nada suyo, lo de D6b; con un error suyo, tiene IA (nunca «no hay ninguna IA»).
-  assert.equal(R.errorAdentro, 'Con tu propio Claude, para armar los productos necesito tu clave de Claude o de OpenAI (en Integraciones).');
+  assert.equal(R.errorAdentro, 'Con tu propio Claude, para armar los productos necesito tu clave de Claude, de OpenAI o de Gemini (en Integraciones).');
   assert.doesNotMatch(R.errorAdentroConSuyo, /No hay ninguna IA|Gemini/);
 });
 
@@ -559,7 +561,7 @@ test('8. el AI Analyst PROGRAMADO falla CERRADO con su PC: la fila queda en erro
   assert.equal(c.cuerpo.fallidos, 1, `el análisis vencido tenía que correr y fallar (${JSON.stringify(c.cuerpo)})`);
   // Rota: sacar `conSuIADelNegocio` del cron → sale a Gemini (prueba 7) y el error es el de la cascada, no éste.
   assert.equal(c.fila?.estado, 'error');
-  assert.equal(c.fila?.error, 'Con tu propio Claude, para analizar tus gráficos necesito tu clave de Claude o de OpenAI (en Integraciones).');
+  assert.equal(c.fila?.error, 'Con tu propio Claude, para analizar tus gráficos necesito tu clave de Claude, de OpenAI o de Gemini (en Integraciones).');
   // Y el control llegó a la IA (corrió el análisis de verdad, no se cortó antes por no poder leer la hoja).
   assert.equal(R.sinSuIA.cronAnalista.fila?.estado, 'error');
   assert.doesNotMatch(String(R.sinSuIA.cronAnalista.fila?.error), /Con tu propio Claude/);
