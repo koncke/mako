@@ -301,6 +301,12 @@ export type AccionDef = Base & {
    * tests/confirmacion-terceros.test.ts frena la que lo dice en su descripción y no lo marca.
    */
   aTerceros?: boolean;
+  /**
+   * true si, al ejecutarla, MUEVE PLATA (D2: activar una campaña de Meta enciende el gasto, un monto de una venta o de una cuota):
+   * por WhatsApp se confirma con la MISMA puerta que lo que le llega a un tercero, un «sí» sin nada más (22/10/2026, la revisión
+   * adversarial de Ops Center 1.2: «perfecto, después lo veo» activaba la campaña si el modelo lo decidía).
+   */
+  plata?: boolean;
 };
 
 /**

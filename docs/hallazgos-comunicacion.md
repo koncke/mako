@@ -10660,3 +10660,29 @@ estado que /chats y MaKo no ofrezcan reenviar.
 **Límites que quedan.** Una acción con efecto indirecto (poner una etiqueta o mover una etapa dispara automatizaciones que después le escriben al lead) no se marca: el mensaje sale por la automatización, no al confirmar. Las acciones nuevas de CRM 2.1 (`enviar_borrador_whatsapp`, `contestar_dm`, `contestar_email_chat`) tienen que llevar `aTerceros: true` cuando entren a main; el test las frena si lo dicen en su descripción y no lo marcan. «ok» solo no confirma una de éstas: cuesta una repregunta («¿Lo mando? Contestá sí»).
 
 **Vive en:** lib/confirmacion-pura.ts · lib/api-mako/acciones.ts (`confirmarPendiente`) · lib/mako-doer-acciones.ts (`confirmar_accion`, camino viejo) · lib/api-mako/tipos.ts (`aTerceros`) · lib/api-mako/areas/{crm,cs,equipo,cobros}.def.ts · tests/confirmacion-terceros.test.ts (8 tests, 10 roturas con su fallo). *21/10/2026, claude4.*
+
+## La revisión adversarial de Ops Center 1.2: lo que le escribe a un lead POR OTRO CAMINO también es «a terceros», y la plata pasa por la misma puerta (22/10/2026)
+
+Al llevar `mako-wa` (Ops Center 1.2) a main, una revisión adversarial buscó qué se ejecuta por WhatsApp con un «sí» ambiguo.
+Código: lib/confirmacion-pura.ts, lib/api-mako/tipos.ts (`aTerceros`, `plata`), los `*.def.ts`. Test:
+tests/confirmacion-terceros.test.ts.
+
+- **El diagnóstico obvio («las que mandan un mensaje están marcadas») era el incompleto:** cuatro acciones le escriben a un
+  lead SIN mandar nada ellas mismas, y no estaban marcadas. `proponer_toggle_nutricion` (la secuencia empieza a mandar pasos a
+  su público), `inscribir_lead_secuencia` (le dispara el primer envío, o le repite los mensajes), `proponer_cambio_etapa` (lo
+  inscribe en la automatización de la etapa, y Ganado lo invita al curso) y `poner_etiqueta_lead` / `sacar_etiqueta_lead`
+  (disparan las automatizaciones de la etiqueta). Con «ok, después lo veo» se ejecutaban. La regex del test (`LE_LLEGA`) no
+  veía «dispara el primer envío» ni «dispara las automatizaciones»: ahora sí, y encontró sola a `sacar_etiqueta_lead`.
+- **La plata (D2) no tenía puerta de código:** activar una campaña, un conjunto o un anuncio de Meta enciende el gasto, y los
+  montos de una venta o de una cuota se cambiaban con el mismo «sí» ambiguo. Ahora llevan `plata: true` y pasan por la MISMA
+  puerta que lo que le llega a un tercero, con su propio texto de rechazo.
+- **Un número es una palabra de más:** `confirmacionPura` partía por `/[^a-z]+/` y «sí 17», «dale 18/11» o «dale, $500» eran
+  confirmaciones puras. Contestan OTRA hora, OTRO día u otro monto.
+
+**SIN HACER (de esa revisión):**
+- D2 completa: la tarjeta de la plata con el monto antes → después y DOS confirmaciones (en la app hoy es un toque).
+  `formularioDe` (lib/mako-turno-app.ts) deja afuera del chat sólo `costo === 'dinero'`. `guardar_producto` cambia un precio
+  con costo «gratis».
+- Plausible, no medido: con una pendiente viva, un «sí» suelto que contesta OTRA pregunta de MaKo puede confirmarla, y con dos
+  pendientes vivas un solo «sí» pasa la puerta para las dos (mako-intencion.ts, `CONFIRMACION`).
+

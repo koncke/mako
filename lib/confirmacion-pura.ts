@@ -36,7 +36,8 @@ export function confirmacionPura(mensaje: string | null | undefined): boolean {
   // Un lote de mensajes seguidos lleva un encabezado nuestro y la numeración «(1) », «(2) » (lib/mako-doer-buffer.ts): no son palabras de la persona.
   let t = String(mensaje ?? '');
   if (/^\[Te mandó \d+ mensajes seguidos\./.test(t)) t = t.replace(/^\[[^\]]*\]\s*/, '').replace(/(^|\n)\(\d+\) /g, '$1');
-  const palabras = norm(t).replace(/\bde una\b/g, 'deuna').split(/[^a-z]+/).filter(Boolean);
+  // Un NÚMERO es una palabra de más (22/10/2026, la revisión adversarial): «sí 17» contesta otra hora, «dale, $500» otro monto.
+  const palabras = norm(t).replace(/\bde una\b/g, 'deuna').split(/[^a-z0-9]+/).filter(Boolean);
   if (!palabras.length || palabras.length > MAX_PALABRAS) return false;
   if (!palabras.every((w) => FUERTES.has(w) || RELLENO.has(w))) return false;
   return palabras.some((w) => FUERTES.has(w));
@@ -48,8 +49,11 @@ export function confirmacionPura(mensaje: string | null | undefined): boolean {
  */
 export function rechazoSiNoEsConfirmacionPura(p: {
   canal: string; aTerceros: boolean | undefined; mensaje: string | null | undefined; titulo: string; resumen: string;
+  /** Mueve plata (D2, `plata` del registro): la misma puerta, con su razón. */
+  plata?: boolean | undefined;
 }): string | null {
-  if (p.canal !== 'whatsapp' || !p.aTerceros) return null;
+  if (p.canal !== 'whatsapp' || !(p.aTerceros || p.plata)) return null;
   if (confirmacionPura(p.mensaje)) return null;
+  if (!p.aTerceros) return `«${p.titulo}» mueve plata (un gasto, un monto) y no se toma a la ligera: sólo se confirma con un «sí» o un «dale» SOLO, sin nada más. El último mensaje trae algo más (o no es un sí claro), así que NO la confirmes: repregúntale al dueño mostrando de nuevo qué va a pasar —«${p.resumen}»— y que conteste «sí» si está bien. La pendiente sigue viva.`;
   return `«${p.titulo}» le llega a otra persona (un email, un WhatsApp o una invitación) y no se deshace: sólo se confirma con un «sí» o un «dale» SOLO, sin nada más. El último mensaje trae algo más (o no es un sí claro), así que NO la confirmes: repregúntale al dueño mostrando de nuevo qué va a salir —«${p.resumen}»— y que conteste «sí» si está bien. La pendiente sigue viva.`;
 }

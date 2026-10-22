@@ -47,6 +47,8 @@ test('con un «pero», un «esperá», un cambio, un dato o una pregunta NO es u
     'así es pero su cuota en comercial sigue vigente como vencida', 'Si está vinculado, pero no aparece', 'no', 'No tengo closer',
     // cambios, preguntas y dudas
     'sí, pero a las 5', 'dale, mejor mañana', 'sí ¿a qué hora?', 'esperá', 'sí, la 2', 'sí mandalo a Juan', 'sí, cambiale el título', 'dale dale dale dale dale dale dale',
+    // un NÚMERO es un dato de más (22/10/2026, la revisión adversarial de Ops Center 1.2): otra hora, otro día, otro monto
+    'sí 17', 'dale 18/11', 'sí 2', 'sí 1000', 'dale, $500',
     '', '   ', '👍',
   ]) assert.equal(confirmacionPura(m), false, `«${m}» se tomó como una confirmación`);
 });
@@ -85,7 +87,34 @@ const A_TERCEROS = [
   'invitar_cliente_curso_cs', 'reenviar_invitacion', 'crear_link_pago', 'crear_link_cuota', 'llevar_a_partners', 'mover_lead_en_producto',
   // Los tres envíos de Chats 2.1 (22/10/2026, al traer main): sólo por la app hoy, pero le llegan al contacto.
   'enviar_borrador_whatsapp', 'contestar_dm', 'contestar_email_chat',
+  // La revisión adversarial (22/10/2026): activar una secuencia manda pasos a todo su público; inscribir a un lead le dispara el
+  // primer envío; cambiar de etapa lo mete en la automatización de esa etapa (y Ganado lo invita al curso); una etiqueta dispara
+  // las automatizaciones que arrancan con ella.
+  'proponer_toggle_nutricion', 'inscribir_lead_secuencia', 'proponer_cambio_etapa', 'poner_etiqueta_lead',
+  // Y sacarla: dispara las de «Se elimina etiqueta a un lead» (la regex ampliada la encontró).
+  'sacar_etiqueta_lead',
 ];
+
+/** Las que MUEVEN PLATA (D2): activar en Meta enciende el gasto, y los montos de una venta o de una cuota. */
+const A_PLATA = ['proponer_estado_campana', 'proponer_estado_conjunto', 'proponer_estado_anuncio', 'editar_cuota', 'editar_venta_lead'];
+
+test('lo que mueve plata está marcado `plata` y, por WhatsApp, pasa por la misma puerta: un «sí» y nada más', () => {
+  for (const id of A_PLATA) {
+    const d = porId(id);
+    assert.ok(d && esAccion(d), `«${id}» no existe o no es una acción`);
+    assert.equal(d.plata, true, `«${id}» mueve plata y no está marcada`);
+    assert.equal(d.confirmacion, 'chat', `«${id}» está marcada plata y no se confirma por chat: la marca no hace nada`);
+  }
+  const base = { aTerceros: undefined, plata: true, titulo: 'Prender la campaña', resumen: 'Activar «Black Friday» (USD 50 por día)' };
+  assert.equal(rechazoSiNoEsConfirmacionPura({ ...base, canal: 'whatsapp', mensaje: 'sí' }), null);
+  for (const m of ['perfecto, después lo veo', 'ok, esperá que lo reviso', 'sí 30']) {
+    const r = rechazoSiNoEsConfirmacionPura({ ...base, canal: 'whatsapp', mensaje: m });
+    assert.ok(r, `«${m}» prendió el gasto`);
+    assert.match(r!, /mueve plata/);
+    assert.match(r!, /Activar «Black Friday»/, 'el rechazo no trae lo que va a pasar');
+  }
+  assert.equal(rechazoSiNoEsConfirmacionPura({ ...base, canal: 'app', mensaje: 'ok' }), null, 'en la app es la tarjeta');
+});
 
 test('las acciones que le mandan algo a otra persona están marcadas `aTerceros`, y la marca sólo tiene sentido en una acción de chat', () => {
   for (const id of A_TERCEROS) {
@@ -98,7 +127,9 @@ test('las acciones que le mandan algo a otra persona están marcadas `aTerceros`
 });
 
 /** Lo que una descripción dice cuando la acción le escribe o le manda algo a alguien. */
-const LE_LLEGA = /\b(?:le|les)\s+(?:llega|llegan|manda|mandan|avisa|avisan|escribe|escriben|envía|envia|envían)\b|\binvit(?:a|aci|ad|ar)|\bmanda(?:r)?\s+(?:un|una|el|la|los|las)\s+(?:email|correo|mail|whatsapp|mensaje|aviso|recordatorio|invitaci)|\benv[ií]a(?:r)?\s+(?:un|una|el|la|los|las)\s+(?:email|correo|mail|whatsapp|mensaje|aviso)|google le manda|aviso al lead/i;
+// + «dispara el primer envío», «le repite los mensajes», «mandar pasos», «dispara las automatizaciones» e «invita al curso»
+// (22/10/2026, la revisión adversarial: cuatro acciones que le escriben a leads lo decían así y la regex no las veía).
+const LE_LLEGA = /\bdispara(?:r)?\s+(?:el\s+primer\s+env[ií]o|las\s+automatizaciones)|\brepite\s+los\s+mensajes|\bmandar\s+pasos|\binvita(?:r)?\s+al\s+curso|\b(?:le|les)\s+(?:llega|llegan|manda|mandan|avisa|avisan|escribe|escriben|envía|envia|envían)\b|\binvit(?:a|aci|ad|ar)|\bmanda(?:r)?\s+(?:un|una|el|la|los|las)\s+(?:email|correo|mail|whatsapp|mensaje|aviso|recordatorio|invitaci)|\benv[ií]a(?:r)?\s+(?:un|una|el|la|los|las)\s+(?:email|correo|mail|whatsapp|mensaje|aviso)|google le manda|aviso al lead/i;
 /** Las que lo dicen y NO le llegan a nadie al confirmarse, con la razón. Una acción nueva que lo diga y no esté marcada frena el push. */
 const NO_LLEGAN: Record<string, string> = {
   cerrar_chat: '«No le manda nada al contacto»', reabrir_chat: '«No le manda nada al contacto»', posponer_chat: '«No le manda nada al contacto»',
@@ -150,3 +181,7 @@ test('el doer de WhatsApp le pasa al contexto el mensaje de la persona (sin él 
 //   · sacar `aTerceros` de una de las doce (invitar_cliente_curso_cs) · la puerta que ignora el canal (rechaza también la app) ·
 //     la puerta que no mira `aTerceros` (rechaza lo interno) · FUERTES con «ok» (un acuse confirma) · el tope de palabras · la puerta
 //     después de reclamar · sacar la llamada de confirmarPendiente · sacarla del camino viejo · sacar el mensaje del contexto de WhatsApp.
+
+// PROBADO ROMPIÉNDOLO, la revisión adversarial de Ops Center 1.2 (22/10/2026, base 9/0): un número sin contar como palabra → 7/2
+// (2 y 5) · la puerta sin mirar `plata` → 8/1 (5) · `proponer_cambio_etapa` sin `aTerceros` → 8/1 (6) · `proponer_estado_campana`
+// sin `plata` → 8/1 (5). La regex ampliada encontró sola a `sacar_etiqueta_lead`.

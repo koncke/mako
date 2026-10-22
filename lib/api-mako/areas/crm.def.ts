@@ -556,7 +556,7 @@ export const DEFS: readonly OperacionDef[] = [
 
   // ── Acciones heredadas ─────────────────────────────────────────────────────────
   {
-    id: 'proponer_cambio_etapa', area: 'crm', tipo: 'accion', confirmacion: 'chat', tipoPendiente: 'lead_etapa',
+    id: 'proponer_cambio_etapa', aTerceros: true, area: 'crm', tipo: 'accion', confirmacion: 'chat', tipoPendiente: 'lead_etapa',
     titulo: 'Mover un lead de etapa',
     descripcion: 'PROPONE mover un lead a otra etapa del funnel (queda pendiente hasta el «sí»; no lo ejecuta). Cubre cerrar como ganado (pasa el monto en USD), marcar perdido o descalificado (pasa el motivo), mandar a nutrición o reactivar. Consigue el leadId con buscar_leads y la key con ver_funnel. Si falta el monto o el motivo lo pide; lo que este canal no puede cargar (fecha de reunión, asistencia, Fathom) no bloquea y queda declarado en el historial.',
     parametros: [
@@ -900,7 +900,7 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: true, escribe: 'archivada_at de la etiqueta en crm_etiquetas (no borra nada)',
   },
   {
-    id: 'poner_etiqueta_lead', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    id: 'poner_etiqueta_lead', aTerceros: true, area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Agregarle una etiqueta a un lead',
     descripcion: 'PROPONE agregarle una etiqueta del CRM a un lead (queda pendiente hasta el «sí»). Si la etiqueta está vinculada a una etapa, lo pasa a esa etapa (salvo un cierre, que se mueve a mano). Dispara las automatizaciones que arrancan con esa etiqueta (y las de «Se agrega etiqueta a un lead») y la agrega también en su chat de WhatsApp y en Chatwoot si están conectados. Si ya la tiene, lo dice y no hace nada. Pide el leadId (buscar_leads) y el etiquetaId (listar_etiquetas).',
     parametros: [leadId(), etiquetaId()],
@@ -908,7 +908,7 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: true, escribe: 'una fila en crm_lead_etiquetas y una línea en el historial del lead; puede mover al lead a la etapa vinculada, inscribirlo en las automatizaciones de esa etiqueta y agregarla en WhatsApp y Chatwoot',
   },
   {
-    id: 'sacar_etiqueta_lead', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    id: 'sacar_etiqueta_lead', aTerceros: true, area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Eliminarle una etiqueta a un lead',
     descripcion: 'PROPONE eliminarle una etiqueta del CRM a un lead (queda pendiente hasta el «sí»). No lo mueve de etapa; dispara las automatizaciones de «Se elimina etiqueta a un lead», y la elimina también de su chat de WhatsApp y de Chatwoot si estaba ahí. Si no la tiene, lo dice y no hace nada. Pide el leadId (buscar_leads) y el etiquetaId (etiquetas_lead).',
     parametros: [leadId(), etiquetaId()],

@@ -930,7 +930,7 @@ instruccion: `Armaste un BORRADOR con ${tareas.length} tarea${tareas.length === 
         }
         // Misma puerta que lib/api-mako/acciones.ts: lo que le llega a un tercero se confirma con un «sí» y nada más.
         const rechazoATercero = rechazoSiNoEsConfirmacionPura({
-          canal: 'whatsapp', aTerceros: defReg && esAccion(defReg) ? defReg.aTerceros : undefined, mensaje: mensajeUsuario, titulo: defReg?.titulo ?? target.tipo, resumen: target.resumen,
+          canal: 'whatsapp', aTerceros: defReg && esAccion(defReg) ? defReg.aTerceros : undefined, plata: defReg && esAccion(defReg) ? defReg.plata : undefined, mensaje: mensajeUsuario, titulo: defReg?.titulo ?? target.tipo, resumen: target.resumen,
         });
         if (rechazoATercero) return rechazoATercero;
         if (!(await reclamarPendiente(ws, target.id))) {
