@@ -7532,3 +7532,13 @@ vuelve a hacer fila (al final: cedió el turno), y con el turno en la mano confi
 3. *El tiempo de la fila se descontaba del tope de RAM:* tras 20 min de fila un bajón momentáneo daba 0 y se perdía toda la fila (con un mensaje que culpaba a la RAM). Ahora el tope cuenta sólo el tiempo ESPERANDO RAM, y si el turno no le toca al volver a hacer fila el mensaje dice «el turno del candado no me tocó (no es la RAM)» (`ctx.motivo`).
 Y una baja: una espera CORTA (≤ 30 s, los tipos del `--rapido`) se hace con el candado en la mano, para no perder el lugar por 20 s.
 **La regla de oficio:** una función que espera un recurso y tiene otro tomado se prueba con una RAM y una fila de MENTIRA y se mira EN QUÉ MOMENTO suelta y retoma (hay 14 pruebas, y 22 roturas dieron rojo; tres se cuelgan en vez de fallar). Y un arreglo de una espera se corre de verdad antes de darlo por bueno: el primer defecto salió del primer VERDE.
+
+## El tsc «acotado» no es acotado si lo cambiado arrastra al Plan (21/10/2026)
+
+Al validar las plantillas de tarjeta en Clientes y el Plan: `BoardShell.tsx`, `ClientesApp.tsx` y
+app/customer-success/pantalla.tsx arrastran ~1.400 archivos del proyecto (FichaCliente → PlanBoard → BoardShell). Con
+`BoardShell` en `files`, tsc se quedó sin memoria a 1,9 y 2,2 GB (salida 134) y a 2,3–2,5 GB lo mató el vigía (salida 1
+sin texto). Lo que sí sirvió: grupos chicos sin esos archivos, y para ellos un tsc con `noResolve` (sólo sintaxis y
+nombres; los errores de import que da son ruido). El tipo de verdad queda para `antes-de-subir` o Actions.
+Y `next-env.d.ts` no existe en un worktree recién creado: ponerlo en `files` corta con TS6053 antes de chequear nada.
+*21/10/2026, chat «CRM» (claude3).*

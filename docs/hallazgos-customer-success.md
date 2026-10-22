@@ -5739,3 +5739,26 @@ tests/cs-tarjeta-cobro.test.ts · *20/10/2026 noche, chat «CRM» (claude4).*
 
 **Vive en:** app/customer-success/aviso-tarjeta.ts y cobro-tarjeta.ts · tests/cs-tarjeta-cobro.test.ts ·
 *21/10/2026, chat «CRM» (claude4), revisión del Cerebro.*
+
+## Las plantillas de la tarjeta de un cliente: copiar el CRM tal cual era lo equivocado (21/10/2026)
+
+Martín, 21/10: las plantillas de tarjeta «en clientes, plan, etc.». Molde del CRM (lib/plantillas-tarjeta.ts y el pop-up
+app/_ui/PersonalizarTarjetas.tsx), pero con una diferencia que no se ve leyendo el CRM:
+
+- **En Clientes el orden de los datos no cambia nada**: la cara va a la izquierda, la empresa debajo del nombre, la
+  barra y el chip en su lugar. Guardar el orden de la persona (como el CRM) sólo hacía que, después de arrastrar,
+  `plantillaPuesta` dejara de reconocer «Completa» con la misma tarjeta. Los datos van en el orden del catálogo
+  (`camposTarjetaClienteDe`) y el pop-up se abre con `ordenFijo` (sin arrastre ni ↑ ↓).
+- **«Sin avance» también esconde los avisos rojos** («Pago rechazado», «Sin entrar al curso»): viven DENTRO de la barra
+  (`avanceDeCliente`, ./aviso-tarjeta.ts). Vuelve el chip de «hace N días», pero el aviso de pago se pierde. **Decisión
+  de producto abierta** (¿el aviso sale de la barra a un chip propio?).
+- **tests/cs-kanban-fases.test.ts le pone un techo de 30.000 caracteres al render de `KanbanEntrega`**: quedó en 29.788
+  (se acortaron comentarios). El próximo cambio ahí lo rompe: medirlo antes.
+- **tests/cs-kanban-ficha-ui.test.ts fija dos cosas de `ClientesApp`**: que la desestructuración de props termine en
+  `clienteInicial = null }` (lo nuevo va antes) y que TODA llamada `xxxAction(` pase por `atajar(`, también la del pop-up.
+- «Nuevo cliente» salió del carril de cada columna al «⋯» de su cabecera (la regla de Martín: lo que se pide en el CRM
+  vale en todos lados). /admin y la ficha de un cliente (FichaCliente) siguen con la tarjeta de siempre.
+
+**Vive en:** lib/tarjeta-clientes.ts · app/customer-success/ClienteCard.tsx, KanbanEntrega.tsx, ClientesApp.tsx,
+tarjeta-actions.ts · tests/clientes-tarjeta-plantillas.test.ts
+*21/10/2026, chat «CRM» (claude3), con un agente.*
