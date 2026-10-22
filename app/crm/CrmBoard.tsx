@@ -133,6 +133,8 @@ import { AccionesLoteLeads, destinosDeLote, type ManijaLote } from './AccionesLo
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { FUNNEL_DEL_NEGOCIO, esLote, itemsCrm, opcionesCrm, tituloCrm, type ContextoCrm, type IdOpcionCrm } from './menu-contextual-crm';
 import { alternarColumna, estadoDeColumna, rotuloDeColumna } from './seleccion-columna';
+import { cuantasDibujar, TANDA_COLUMNA } from './columna-por-tandas';
+import { FinDeColumna } from './FinDeColumna';
 import { chipDeAutomatizacion, enTandasDe, lineaDeAutomatizacion, preguntaDeFrenar } from './automatizacion-lead';
 import { enAutomatizacionesAction, frenarLeadsEnAutomatizacionesAction } from '@/app/automations/automatizaciones-del-lead-actions';
 import type { EnAutomatizacion } from '@/lib/automatizaciones-del-lead-reglas';
@@ -2066,6 +2068,12 @@ export function CrmBoard({
   // La hoja con la que abre la ficha: «Ver detalle» de una reunión la abre en «Reuniones» (22/10/2026).
   const [focoFicha, setFocoFicha] = useState<string | undefined>(undefined);
 
+  // ── LA COLUMNA POR TANDAS (22/10/2026, app/crm/FinDeColumna.tsx) ──────────────────────────────────────────────────
+  // Cuántas tandas pidió cada columna (por su key). Otro CRM empieza de nuevo: sus columnas son otras.
+  const [tandas, setTandas] = useState<Record<string, number>>({});
+  useEffect(() => { setTandas({}); }, [funnelActivo]);
+  const verMasDe = useCallback((k: string) => setTandas((m) => ({ ...m, [k]: (m[k] ?? TANDA_COLUMNA) + TANDA_COLUMNA })), []);
+
   // ── EL LEAD EN UNA AUTOMATIZACIÓN (22/10/2026, app/crm/automatizacion-lead.ts) ──────────────────────────────────────
   // Una lectura por tablero, en tandas de 500 (el tope de Automations), y sólo vienen los que están en alguna. Una tanda
   // que vuelve `null` (sin sesión, o no se pudo leer) deja lo que había: no es «ninguno». Después de «Frenar» se vuelve
@@ -2620,6 +2628,9 @@ export function CrmBoard({
 
   const renderColumn = (c: Stage) => {
     const cards = enOrden(filtered.filter((l) => effStage(l) === c.key));
+    // Las que se DIBUJAN (una tanda, y más al llegar al fondo). El conteo, la casilla de la columna, el lote y el orden al
+    // soltar siguen mirando `cards`, la columna entera.
+    const dibujadas = cards.slice(0, cuantasDibujar(cards.length, tandas[c.key]));
     // Lo que tilda la casilla del encabezado: lo que se VE en esta columna (con el filtro puesto, lo que el filtro dejó).
     const idsCol = cards.map((x) => x.id);
     const colSel = estadoDeColumna(idsCol, selLeads);
@@ -2895,7 +2906,7 @@ export function CrmBoard({
               acá (`handleDrop`): el alta no acepta una etapa a propósito (sería un segundo escritor que saltea la
               auditoría de `setPipelineStage`), y cada columna abre lo que abre al soltar (el plazo de «Nutrición -
               Manual», la agenda de las de reunión, el monto de Ganado, el motivo de Perdido). */}
-          {cards.map((l, iCard) => {
+          {dibujadas.map((l, iCard) => {
             const hueco = insTarjeta?.col === c.key && insTarjeta.idx === iCard;
             return (
               <Fragment key={l.id}>
@@ -2973,8 +2984,13 @@ export function CrmBoard({
               que no tiene una tarjeta delante, así que sin esto la columna no puede
               decir «va al fondo» — y el fondo es donde cae casi todo lo que se mueve a
               una columna vacía. */}
-          {insTarjeta?.col === c.key && insTarjeta.idx >= cards.length && (
+          {insTarjeta?.col === c.key && insTarjeta.idx >= dibujadas.length && (
             <div aria-hidden style={{ flex: 'none', height: 72, borderRadius: 22, border: '2px dashed ' + bandC, background: 'var(--surface-2)' }} />
+          )}
+          {/* LA TANDA SIGUIENTE: sola al asomar el final, o con el toque. Soltar debajo de la última dibujada la deja
+              ahí (antes de la primera sin dibujar), que es lo que se ve. */}
+          {cards.length > dibujadas.length && (
+            <FinDeColumna quedan={cards.length - dibujadas.length} onVerMas={() => verMasDe(c.key)} />
           )}
         </div>
       </div>
