@@ -43,7 +43,7 @@ const menuColumna = () => {
 
 test('«Nuevo lead» sale del carril y va al «⋯» de cada columna, por el mismo camino que antes', () => {
   const ini = BOARD.indexOf('<div data-carril');
-  const carril = BOARD.slice(ini, BOARD.indexOf('{cards.map(', ini));
+  const carril = BOARD.slice(ini, BOARD.indexOf('{dibujadas.map(', ini));
   assert.ok(ini > 0, 'no encontré el carril');
   assert.doesNotMatch(carril, /Nuevo lead|<button/, 'el placeholder volvió al carril');
   const menu = menuColumna();
