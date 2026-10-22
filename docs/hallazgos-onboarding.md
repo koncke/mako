@@ -2844,6 +2844,11 @@ aceptaba la opción exacta: todo esto entraba nuevo.
     porque la proyección cuelga de la conversación de Offer. Vive en lib/chat-mako-indice.ts.
   - La proyección le muestra a cualquier admin del negocio el WhatsApp de los avisos que cargó el dueño. Antes eso
     estaba sólo en el chat «Onboarding» del dueño. Es el contacto del negocio, pero queda anotado.
+  - El doble toque CRUZADO: dos POST del mismo toque que leen el estado de antes, donde el `listo` del primero anota la
+    pregunta siguiente antes de que llegue la respuesta del segundo. El chequeo de `conLoNuevo` mira sólo los dos
+    últimos anotados, así que ahí la pregunta y la respuesta quedan dos veces. Es raro, porque las dos pestañas tienen
+    que leer antes de que la primera guarde. El arreglo: buscar la última aparición de esa pregunta y no anotar si la
+    sigue la misma respuesta sin otra en el medio.
 
 **Sin hacer:** «Vendo 20 a 500 dólares» se sigue leyendo como un rango; la confirmación lo muestra y se corrige con un
 toque. Las etiquetas de los tramos dicen «$» sin «USD» (lib/fase-diagnostico.ts): es una decisión de copy, no de este
