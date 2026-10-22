@@ -2739,6 +2739,7 @@ con el mismo nombre compilan para siempre.
 | **`node --test` corre cada archivo en su propio proceso** | ídem | Se aprovecha a favor: para un ciclo de imports, un test importa A primero y otro importa B primero, y así quedan cubiertos los dos órdenes de carga |
 | **tsx NO resuelve el alias `@/`** | ídem | Los tests usan imports relativos |
 | **El typecheck no corre en el build** | `.git/hooks/pre-push` | Ver [Build, deploy y entrega](#build-deploy-y-entrega) |
+| **Un componente que importa `.css` no carga en node** (la caja única, el hilo del Ops Center), y la regla era sacar lo que un test dibuja a otro archivo | `tests/offer-hilo-unico.test.ts` (22/10/2026) | `registerHooks({ load })` de `node:module` (Node 22.15+, sincrónico: también para el `require` de tsx) que devuelve `{ format: 'commonjs', source: '', shortCircuit: true }` para todo `.css`, ANTES del `import()` dinámico. Devolver un `data:` desde `resolve` no anda: el cargador CJS lo busca como archivo (ENOENT). Con eso el test mira el HTML que sale, no el código fuente |
 
 ⚠️ **La fila de los guards de texto se pagó otra vez el 06/10/2026, y la pagaron SEIS agentes por
 separado.** Cada uno trabajó en su worktree y los seis devolvieron el mismo hallazgo: 7 rojos en

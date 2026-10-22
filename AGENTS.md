@@ -1709,7 +1709,11 @@ código nuevo:
     del Ops Center en todos lados, su diseño y funcionalidades»). Ninguna pantalla nueva arma su <textarea>, usa
     `ComposerWhatsApp` o `ChatHilo`, ni su botón de mandar para hablar con MaKo: usa la pieza y le pasa su motor por props.
     Si falta algo, se le suma a la pieza (y lo tienen todas), nunca a una copia. tests/chat-unico.test.ts lleva la lista de
-    las que faltan, cada una con su chat, y falla si aparece una nueva.
+    las que faltan, cada una con su chat, y falla si aparece una nueva. **Y el hilo, `app/_chat/HiloMako.tsx`** (22/10/2026,
+    OF4): lo propio de una pantalla adentro de un mensaje de MaKo (el PDF de Offer, una tarjeta del onboarding) va por su
+    hueco `enMensaje` (`arriba` o `abajo` del texto), nunca en un hilo propio. Un archivo que el chat no puede abrir (Offer
+    guarda lo leído, no el archivo) va con `sinAbrir`: sin eso la ficha dice «No pude abrir el archivo.». Para dibujar en un
+    test una pantalla que monta la caja (trae .css), el gancho de carga de tests/offer-hilo-unico.test.ts.
   - **Y UN SOLO ALMACÉN: lo que se habla con MaKo en una tab queda en la base, nunca en el navegador ni en la memoria de la
     pestaña** (22/10/2026; Martín: «¿Todos esos chats regresan y se quedan registrados en Ops Center?»). Un chat de tab sin
     tabla propia guarda en `chart_sessions` con la clave `<tab>:<entidad>` por `/api/hilo-de-tab` (lib/hilo-de-tab-cliente.ts),

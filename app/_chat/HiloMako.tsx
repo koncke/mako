@@ -75,7 +75,10 @@ function DeMako({ quien, children, hora = null, ancho = false, m = null, marcas 
   return <FilaDelChat m={m} quien={{ titulo: quien.nombre, aspecto: quien.aspecto }} marcas={marcas} hora={hora} ancho={ancho}>{children}</FilaDelChat>;
 }
 
-export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onReintentar, onRecargar, onResponder, onTrabajo, marcas }: {
+/** Lo de una pantalla adentro de un mensaje de MaKo (22/10/2026, OF4: Offer y el onboarding con el hilo del Ops Center). */
+export type EnMensaje = { arriba?: ReactNode; abajo?: ReactNode };
+
+export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onReintentar, onRecargar, onResponder, onTrabajo, marcas, enMensaje }: {
   items: readonly ItemHilo[];
   /** El chat: su muñeco va al lado de lo que dice MaKo. */
   quien: Quien;
@@ -95,6 +98,9 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
   onTrabajo?: (pendienteId: number, ok: boolean | null) => void;
   /** Las marcas de WhatsApp de este chat (reacciones, destacados): con el menú del clic derecho de quien lo monta. */
   marcas?: MarcasChat | null;
+  /** Lo que la pantalla suma adentro de un mensaje de MaKo: arriba del texto (el PDF de una versión de la oferta, su nota de
+   *  voz) y debajo (los documentos que leyó, las tarjetas del onboarding). null = nada. */
+  enMensaje?: (x: ItemMsg) => EnMensaje | null;
 }) {
   const wa = (x: ItemMsg) => mensajeWADe(x, quien.nombre);
   const filas: ReactNode[] = [];
@@ -145,13 +151,16 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
       return;
     }
     if (x.k === 'msg') {
+      const suyo = enMensaje?.(x) ?? null;
       filas.push(
         <DeMako key={x.id} quien={quien} hora={hora(x.at) || null} m={wa(x)} marcas={marcas}>
-          <div className="ch-md"><Markdown text={x.texto} /></div>
+          {suyo?.arriba}
+          {x.texto.trim() && <div className="ch-md"><Markdown text={x.texto} /></div>}
           {/* Lo pedido que se hace en otra pantalla: el link para ir, como el «Ir a …» de los otros chats (tanda 10). */}
           {!!x.irA?.length && (
             <div className="ch-ira">{x.irA.map((l) => <Link key={l.link} className="co-chip" href={l.link}>{`Ir a ${l.titulo}`}</Link>)}</div>
           )}
+          {suyo?.abajo}
         </DeMako>,
       );
       return;

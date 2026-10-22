@@ -926,9 +926,10 @@ guarda siempre en el funnel de la conversación (`app/m/offer/OfferM.tsx`, no ma
 - **Un texto escrito más largo que el chat ya no rebota:** va a documento («Tu mensaje largo») por el camino del audio, y
   la pantalla (OfferApp y OfferM) dejó de cortarlo antes de mandarlo. Ojo: el corte estaba en los DOS lados; arreglar sólo
   la ruta no alcanzaba.
-- **ChatOffer no puede importar nada con .css.** tests/offer-pulir-pdf.test.ts importa `DocumentoPdf` de
-  app/offer/ChatOffer.tsx en node, que no lee `.css`: la caja del Ops Center (app/offer/CajaDelCentro.tsx, que trae
-  chat.css y centro.css) la arma OfferApp y entra por la prop `caja`. Lo fija tests/onboarding-caja-centro.test.ts.
+- **ChatOffer no podía importar nada con .css** (hasta el 22/10/2026). tests/offer-pulir-pdf.test.ts importaba `DocumentoPdf`
+  de app/offer/ChatOffer.tsx en node, que no lee `.css`: la caja del Ops Center la armaba OfferApp y entraba por la prop
+  `caja`. **Desde OF4 ChatOffer monta la caja**: el PDF se mudó a app/offer/DocumentoPdf.tsx, y un test que necesita dibujar
+  el chat entero vacía el `.css` con un gancho de carga (abajo, «Offer y el onboarding con el hilo y la caja del Ops Center»).
 
 *20/10/2026, chat «Onboarding» (claude4).*
 
@@ -1355,5 +1356,48 @@ mail del dueño de un negocio, todos en tests. El Cerebro pidió reemplazarlos y
   huella.
 
 **Vive en:** `tests/sin-mails-reales.test.ts` · AGENTS.md («Nada de datos reales de clientes…»)
+
+*22/10/2026, chat «Offer» (claude3).*
+
+## Offer y el onboarding con el hilo y la caja del Ops Center (22/10/2026, OF4)
+
+La tab Offer (y el onboarding, que es el mismo chat) dibujaba el hilo y la barra de WhatsApp de la casa; el teléfono, una
+caja propia. Ahora los dos usan la caja única (CajaChat, con la nota de voz), y la computadora también el hilo del Ops Center
+(HiloMako, con la proyección `itemsDeOffer` con que el Ops Center ya leía estas conversaciones).
+
+- **El hilo único no sabía dibujar lo de Offer, y el Ops Center ya mostraba las conversaciones de Offer sin eso.** `itemsDeOffer`
+  (app/m/mako/chat-ui.ts) tira el PDF de cada versión con su «Ver mi oferta», la nota de voz de MaKo y los documentos que
+  MaKo adjunta. Para la tab, HiloMako tiene un hueco `enMensaje` (`arriba` del texto, `abajo`): ahí van el PDF, la nota de
+  voz, lo leído y las tarjetas del onboarding. **El Ops Center sigue sin el PDF** (Sin hacer, abajo).
+- **«No pude abrir el archivo.» debajo de CADA documento de Offer, también en el Ops Center.** El diagnóstico obvio («no se
+  subió») era el equivocado: la ficha del hilo (app/_chat/ArchivosHilo.tsx) dice eso cuando no tiene link, y un documento de
+  Offer nunca lo tiene, porque Offer guarda lo que LEYÓ y no el archivo. `ArchivoHilo.sinAbrir` lo marca, y `nota` lleva lo que
+  Offer dijo al leerlo («Leí 3 de 4 archivos»). Se arregla también en el Ops Center (usa la misma proyección).
+- **El teléfono no dejaba elegir el .zip.** El «Documento» de /m/offer tenía `ACCEPT_IMPORTAR` sin `.zip` (la computadora lo
+  sumó el 22/10 para la carpeta de una landing). Con la caja única toma lo mismo que la computadora.
+- **Las respuestas rápidas, una sola vez.** El Ops Center dibuja las opciones de Offer como una pregunta del hilo (el bloque
+  que arma `itemsDeOffer`). La tab filtra ese bloque y deja sus pastillas («Armar mi oferta» en dorado, marcar varias con
+  «Enviar (N)»): sin el filtro salían dos veces.
+- **La espera NO es el «Trabajando…» del hilo, a propósito.** Es texto, y Martín pidió el 18/10 sólo los tres puntitos
+  («En lugar de "Revisando tu respuesta", sólo debería aparecer la animación de los ...»). Van en la fila de MaKo del Ops
+  Center (`FilaDelChat`), y «Analizando tu link…» mientras lee.
+- **Un componente con la caja se puede dibujar en node**: el gancho de carga de `tests/offer-hilo-unico.test.ts` vacía cada
+  `.css` (hallazgos-infra.md, «Dibujar en node un componente que importa .css»). Por eso el test mira el HTML de verdad (el
+  PDF arriba del texto, la nota de un documento, el micrófono que graba), no el código fuente.
+
+**Sin hacer:**
+- **El hilo del teléfono** (app/m/offer/HiloOfferM.tsx) sigue siendo propio: la caja es la única, el hilo no.
+- **El Ops Center no muestra el PDF ni la nota de voz de MaKo** de una conversación de Offer: `itemsDeOffer` no los trae y
+  app/second-brain/PiezasCliente.tsx no pasa `enMensaje`.
+- **La «Transcripción del audio» en el globo del dueño** va con el ícono de documento: ArchivosHilo dibuja todos igual (en
+  el chip de Offer tenía el del audio).
+- **El teléfono ya no vibra** al empezar y terminar de grabar: la grabación de la caja única no llama a `haptico`.
+- **Clases que quedaron sin uso** en app/m/offer/offer.css (las de la caja propia: `m-offer-circulo`, `m-offer-grabando`,
+  `m-offer-campo`, `m-offer-mic`).
+
+**Vive en:** `app/offer/ChatOffer.tsx` (el hilo y la caja de la tab y el onboarding) · `app/offer/OfferApp.tsx` (`caja`, una para
+los dos) · `app/offer/DocumentoPdf.tsx` · `app/m/offer/ComposerOfferM.tsx` · `app/_chat/HiloMako.tsx` (`enMensaje`) ·
+`app/_chat/ArchivosHilo.tsx` y `app/m/mako/chat-ui.ts` (`sinAbrir`, `nota`) · `tests/offer-hilo-unico.test.ts` (13 roturas, las
+13 cazadas)
 
 *22/10/2026, chat «Offer» (claude3).*

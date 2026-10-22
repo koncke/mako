@@ -44,7 +44,7 @@ import {
   ACTUALIZAR_PDF, controlFinalDe, esSeccionProvisional, etiquetaArmar, nombrePdfVersion, pdfDeMensaje, propuestoPorMakoDe, provisionalDe, textoDeEstado, urlPdf,
 } from '../app/offer/ayudas';
 import { descargarPdf } from '../app/offer/offer-api';
-import { DocumentoPdf } from '../app/offer/ChatOffer';
+import { DocumentoPdf } from '../app/offer/DocumentoPdf';
 import { Conclusion, VistaOferta } from '../app/offer/Conclusion';
 import { RielPiezas } from '../app/offer/PiezasRail';
 import { PIEZAS, type ConclusionOferta, type OfferSesionVista, type PropuestaOferta } from '../lib/offer-marco';
@@ -99,16 +99,20 @@ test('el documento del chat: como un archivo de WhatsApp (PDF, nombre) y baja co
   assert.match(html, /<button[^>]*aria-label="Descargar el PDF de tu oferta, versión 2"/);
   assert.match(html, />PDF</);
   assert.match(html, /Tu oferta · versión 2/);
-  // Y el chat lo pone ARRIBA del texto, en los mensajes de MaKo que traen `pdf`.
+  // Y el chat lo pone ARRIBA del texto, en los mensajes de MaKo que traen `pdf`: desde el 22/10/2026 (OF4) en el hueco
+  // `enMensaje` del hilo del Ops Center, que dibuja `arriba` antes del Markdown del mensaje.
   const chat = sinComentarios(leer('app/offer/ChatOffer.tsx'));
-  const mako = bloque(chat, "if (m.de === 'mako') {", 'if (!m.adjuntos?.length) return null;');
+  const mako = bloque(chat, 'const enMensaje = (x: ItemMsg): EnMensaje | null => {', '\n  };');
   assert.match(mako, /const pdf = pdfDeMensaje\(m\);/);
   // (Desde el 16/10/2026 con `onVer`: «Ver mi oferta» la abre en una ventana encima del chat.)
-  const iDoc = mako.indexOf('{pdf && <DocumentoPdf sesionId={sesion.id} version={pdf.version} onError={onError} onVer={onVerOferta} />}');
-  assert.ok(iDoc > 0, 'el documento no se dibuja');
-  assert.ok(iDoc < mako.indexOf('<Markdown text={m.texto} />'), 'el documento va arriba y el texto como su pie');
+  const arriba = bloque(mako, 'arriba: pdf || audio ? (', 'abajo:');
+  assert.ok(arriba.includes('{pdf && <DocumentoPdf sesionId={sesion.id} version={pdf.version} onError={onError} onVer={onVerOferta} />}'), 'el documento no se dibuja');
+  const hilo = sinComentarios(leer('app/_chat/HiloMako.tsx'));
+  const iArriba = hilo.indexOf('{suyo?.arriba}');
+  assert.ok(iArriba > 0 && iArriba < hilo.indexOf('<Markdown text={x.texto} />', iArriba), 'el documento va arriba y el texto como su pie');
+  assert.match(chat, /<HiloMako [^>]*enMensaje=\{enMensaje\}/);
   // El documento baja por descargarPdf con SU versión.
-  assert.match(bloque(chat, 'export function DocumentoPdf', 'function FilaMako'), /await descargarPdf\(sesionId, version\)/);
+  assert.match(sinComentarios(leer('app/offer/DocumentoPdf.tsx')), /await descargarPdf\(sesionId, version\)/);
 });
 
 // ── Lo nuevo de la conclusión, leído a la defensiva ──────────────────────────
