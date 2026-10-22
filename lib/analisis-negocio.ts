@@ -286,6 +286,68 @@ async function leerCalificacion(desde: string, hasta: string): Promise<Calificac
 }
 
 /**
+ * El embudo de UN funnel del CRM: agendas, primeras llamadas y quiénes compraron, contados sobre los leads de ESE
+ * funnel (22/10/2026). La forma es la que lee lib/offer-reglas.ts → `embudoDeAnalisis`.
+ *
+ * Existe por la llamada con Mauricio del 22/10 (Fathom 195129619, 01:42:50): el diagnóstico de su oferta nueva, el
+ * Sprint, decía «solo 2 ventas de 24 asistentes» y el Sprint no tenía ninguna. Esos números eran del CRM ENTERO
+ * (`analisisNegocio` no conoce funnels). Una oferta se juzga con los datos de su funnel; si su funnel no tiene datos,
+ * no tiene, y eso se dice.
+ *
+ * ⚠️ El funnel DEFAULT guarda sus leads con `funnel_id` NULL (lib/campana-funnel.ts, regla 2): `funnelId` null es
+ *    ése. Se cuentan también los que quedaron con el id del default escrito (`idDefault`): son suyos.
+ * ⚠️ Sin la inversión de Meta: los anuncios no saben de funnels, y Offer no la usa.
+ */
+export async function embudoDeFunnel(opts: {
+  funnelId: number | null; idDefault?: number | null; desde?: string | null; hasta?: string | null;
+}): Promise<{
+  periodo: { desde: string; hasta: string };
+  serie: Array<{ agendas_creadas: number; j1_noshow: number; j1_sin_marcar: number }>;
+  calificacion: { asistieron: number; calificados: number; sin_marcar: number; compraron: number; compraron_calificados: number };
+}> {
+  const { desde, hasta } = await resolverRango(opts.desde, opts.hasta);
+  const db = await getTenantDb();
+  type Fila = {
+    fecha_agenda: string | null; fecha_junta_1: string | null; asistio_j1: boolean | null;
+    calificado: boolean | null; cerro: boolean | null; venta_tipo: string | null;
+  };
+  const enRango = (f: string | null): boolean => !!f && f.slice(0, 10) >= desde && f.slice(0, 10) <= hasta;
+  let agendas = 0, noshow = 0, sinMarcar = 0, asistieron = 0, calificados = 0, sinCalificar = 0, compraron = 0, compraronCalificados = 0;
+  const idDefault = opts.idDefault ?? null;
+  await leerPorPaginas<Fila>(
+    db, 'leads',
+    'id, fecha_agenda, fecha_junta_1, asistio_j1, calificado, cerro, venta_tipo',
+    (page) => {
+      for (const f of page) {
+        if (enRango(f.fecha_agenda)) agendas++;
+        if (!enRango(f.fecha_junta_1)) continue;
+        if (f.asistio_j1 === false) { noshow++; continue; }
+        if (f.asistio_j1 !== true) { sinMarcar++; continue; }
+        asistieron++;
+        if (f.calificado === true) calificados++;
+        else if (f.calificado == null) sinCalificar++;
+        // La misma definición de venta que `leerCalificacion`, sobre la misma gente.
+        if (f.cerro === true && cuentaComoVenta(f)) {
+          compraron++;
+          if (f.calificado === true) compraronCalificados++;
+        }
+      }
+    },
+    {
+      orden: 'id',
+      filtros: (q) => (opts.funnelId == null
+        ? (idDefault != null ? q.or(`funnel_id.is.null,funnel_id.eq.${idDefault}`) : q.is('funnel_id', null))
+        : q.eq('funnel_id', opts.funnelId)),
+    },
+  );
+  return {
+    periodo: { desde, hasta },
+    serie: [{ agendas_creadas: agendas, j1_noshow: noshow, j1_sin_marcar: sinMarcar }],
+    calificacion: { asistieron, calificados, sin_marcar: sinCalificar, compraron, compraron_calificados: compraronCalificados },
+  };
+}
+
+/**
  * El ranking de creativos, desde `marketing_metrics_daily`.
  *
  * ⚠️ POR QUÉ NO SALE DE `leads`: el ranking necesita saber qué anuncio trajo qué

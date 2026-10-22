@@ -20,6 +20,9 @@ hay), `lib/cerebro-layout.ts` (dónde va cada uno), `lib/cerebro-modelo.ts` (la 
    página scrollea al mismo tiempo. [→](#onwheel-de-react-no-puede-frenar-el-scroll)
 5. **`opacity: 0` en SVG no ahorra nada.** [→](#opacity-0-en-svg-cuesta-lo-mismo-que-dibujarlo)
 6. **`var(--mono)` no está definido** en ningún `:root`, y se usa 38 veces. [→](#varmono-no-existe-y-se-usa-38-veces)
+8. **«Se ve como el del super admin» se logra con SUS piezas, nunca copiando su JSX** (21/10/2026): el chat del cliente se había
+   separado en cabecera, hilo y caja; «cortados a la mitad» era el hilo fuera de `.co-hilo__col`, no Offer recortando.
+   [→](#el-ops-center-del-cliente-es-el-del-super-admin-las-mismas-piezas-no-un-parecido-21102026)
 7. **Un solo `<Grafo>` no es un solo cerebro.** El 17/10 había uno y se veían dos nubes; el que mide es «desde la raíz se
    llega a todo». [→](#el-código-decía-uno-y-se-veían-dos-ningún-cerebro-se-divide-en-dos-20102026)
 
@@ -2003,6 +2006,66 @@ Second Brain del teléfono (app/m/second-brain) no muestra el origen.
 
 **Vive en:** lib/archivero-registro.ts · lib/archivero-subida.ts · lib/archivero.ts (`insertFile`, `pubFile`)
 · app/onboarding/Archivero.tsx · supabase/migrations/0316_archivero_origen.sql · *2026-10-17*
+
+## El Ops Center del cliente es el del super admin: las MISMAS piezas, no un parecido (21/10/2026)
+
+Martín, con dos capturas lado a lado: «el ops center de los clientes se ve muy mal comparado al de SuperAdmin... Revisalo bien,
+eso debe funcionar». Código: app/second-brain/ChatSecondBrain.tsx, app/admin/operaciones/PanelChat.tsx (el panel), Hilo.tsx
+(`FilaMia`, `FilaDelChat`), PiezasCentro.tsx (`FilaDeChat`), lib/chat-mako-reglas.ts (`listaDelCliente`), app/m/mako/chat-ui.ts
+(`itemsDeOffer`, `idWA`), app/second-brain/motor-offer.ts · tests/ops-center-cliente.test.ts.
+
+- **«Los chats cortados a la mitad»: el diagnóstico obvio era el equivocado.** Parecía la proyección de Offer recortando
+  mensajes. Medido en la base: la conversación de la captura (ws1 #1) tiene 3 mensajes y se veían los 3. Era CSS: `HiloMako` iba
+  suelto en `.co-hilo` (`display: block`), y `.co-yo { align-self: flex-end }` no hace nada fuera de una columna flex. Lo de la
+  persona quedaba pegado a la izquierda, con 760 px de ancho, terminando a mitad de pantalla (medido en el DOM: x=424, w=760 de
+  un panel de 1327). La columna es `.co-hilo__col`, y la pone el panel. **El chat de MaKo del CRM tenía el mismo bug** (también
+  monta `HiloMako`): se arregló en el mismo cambio.
+- **Por qué se había separado: cada pantalla armaba su cabecera, su hilo y su caja copiados a mano.** Lo que unifica es una pieza
+  (`PanelDeChat`: cabecera, columna del hilo, soltar archivos, la caja y su línea de estado) que montan Conversacion.tsx (Claude
+  Code) y el chat del cliente. Las filas del hilo, la de la barra y «Nuevo chat» también son UNA. ⚠️ Los tests que miraban la
+  cabecera o el soltar en Conversacion.tsx ahora miran PanelChat.tsx: seis tests de otras áreas leían esas formas como texto.
+- **Una sola lista:** `listaDelCliente` mezcla los sub-chats con MaKo, las conversaciones de Offer y los chats de antes, por
+  actividad, con el Cerebro (la estrella) arriba. Sin secciones ni plegables. La de Offer lleva la criatura de Offer
+  (`Offer › <título>`), y es lo único que dice de dónde viene: la cabecera es la del super admin, sin chips ni meta.
+- **Seguir un chat de antes sin copiar nada.** El turno de MaKo (lib/mako-turno-app.ts) usa la `chart_key` de la persona SÓLO
+  para ver si la sesión es suya (`sesionDe`). La ruta le pasa la persona con la clave de ESA sesión (`personaDelChat`), después
+  de mirar la regla de /mako (`claveDeAntes`, la misma de leerlo). No hizo falta ni migrar ni adoptar el chat.
+- **Seguir una de Offer es usar SU motor, entero** (/api/offer: `abrir`, `leer-link`, `turno`, `armar`), no la proyección de
+  sólo texto: la proyección tira las opciones, los audios y los PDF. Tres cosas de la tab que hay que hacer igual:
+  - las opciones son sólo las del ÚLTIMO mensaje (las de antes ya no se contestan: dibujarlas decía «Respondiste: <todo un
+    párrafo>»);
+  - la opción de una pregunta del DIAGNÓSTICO viaja con su índice (`respuesta`); «Armar mi oferta» no es un texto, es la acción
+    `armar`, y se relee hasta que aparece la oferta;
+  - `OPCION_ARMAR` baja del servidor por props: importarlo en el navegador arrastra lib/offer-reglas.ts entero al bundle.
+- **El id de un mensaje para las reacciones no puede llevar su lugar en el hilo.** El id de la fila es `m<i>-<hora>`, y el `i`
+  cambia si el hilo se pagina. `idWA` sale de quién lo dijo y de su hora.
+- **Escribir después de una pregunta la contesta** (`conRespuestas`, también con una nota de voz): es la regla de todos los
+  chats, y la pregunta queda «Respondiste: …». Por eso Offer dibuja sólo las opciones vigentes.
+
+**Cómo se miró sin `next dev`** (la PC con 2 GB libres y cinco chats en la fila del VERDE): se dibujan las piezas reales con
+`renderToStaticMarkup` y datos de prueba, y el HTML se pega con `javascript_tool` sobre la página de PRODUCCIÓN, que ya trae el
+CSS compilado. Es el CSS de verdad, sin build y sin escribir nada. ⚠️ Trampa: con `tsx` un `import './x.css'` pasa por el
+`require` de CJS, y un hook de ESM (`module.register`) no lo ataja: hace falta `require.extensions['.css']` en un `--require`.
+
+**El teléfono, el 22/10:** el motor salió a app/second-brain/useChatCliente.ts y lo de adentro del panel (el hilo y la caja) a
+PiezasCliente.tsx; la computadora y el teléfono (app/m/second-brain/ChatClienteM.tsx) los montan. El teléfono es el del super
+admin: la lista es la pantalla y cada chat se abre en una hoja alta, con la Info de un mensaje y «Tus cuentas de IA» ADENTRO de esa
+hoja (una hoja sobre otra la cierra). Tres cosas que costaron:
+- **Un test que lee el fuente como texto no compila nada.** La tanda 2 declaró `marcar` dos veces en el mismo componente (el del
+  hilo y el de las reacciones), y los 49 tests que miran esos archivos pasaron. Lo vio `esbuild` (`node_modules/.bin/esbuild
+  <archivo> --log-level=error`, sin bundle, en un segundo y sin RAM), y un error de tipo de la tanda 1 lo vio recién el tsc
+  acotado. Antes de pasar una punta con componentes nuevos: esbuild por archivo, y el tsc acotado cuando haya RAM.
+- **Mover código de lugar rompe ~20 tests de otras áreas** que lo buscaban por archivo (ChatSecondBrain.tsx): se los apunta al motor
+  o a las piezas, nunca se los borra. d6b-rutas, además, sigue el micrófono: el teléfono dejó de dictar con el Composer de
+  app/m/mako/ y pasó al de la caja única (app/admin/operaciones/Microfono.tsx), que ese test tomaba por «otra tab».
+- `ChatMako.tsx` (el chat viejo del teléfono) quedó SIN quien lo monte: sigue en el repo porque lo leen 15 tests.
+
+**SIN HACER:**
+- **Borrar app/m/mako/ChatMako.tsx** con lo suyo de esos 15 tests (el Composer queda: lo usa app/chats/VentanaChat.tsx).
+- **Los documentos en una conversación de Offer** (el «+» en Offer dice «pega el texto o el link»): van por `subir-url` y `leer`
+  de Offer (app/offer/offer-api.ts → subirArchivo), no por /api/mako/chat.
+- **La foto en un mensaje de Offer es la de quien MIRA** (`MiFoto`, /api/perfil): para el dueño es la suya; el super admin que mira
+  un cliente ve la propia en lo que escribió el dueño. Offer no guarda quién escribió cada mensaje.
 
 ## Ops Center del cliente: «el chat de X no llegó» se mide en la base, nunca mirando la pantalla como super admin (20/10/2026)
 

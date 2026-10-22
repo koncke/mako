@@ -39,12 +39,12 @@ export function PegadosHilo({ pegados }: { pegados: readonly string[] }) {
 }
 
 /** Lo escrito: entero si es corto; si no, plegado con «Ver todo». `className` es la clase de cada hilo. */
-export function TextoPlegable({ texto, className, pie }: { texto: string; className: string; pie?: ReactNode }) {
+export function TextoPlegable({ texto, className, pie, arriba }: { texto: string; className: string; pie?: ReactNode; arriba?: ReactNode }) {
   const [entero, setEntero] = useState(false);
   const largo = esBurbujaLarga(texto);
   return (
     <div className="ch-plegable" data-plegado={largo && !entero ? '1' : undefined}>
-      <p className={className}>{texto}{pie}</p>
+      <p className={className}>{arriba}{texto}{pie}</p>
       {largo && (
         <button type="button" className="ch-plegable__ver" onClick={() => setEntero((v) => !v)}>{entero ? 'Ver menos' : 'Ver todo'}</button>
       )}

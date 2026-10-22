@@ -145,7 +145,7 @@ export function FichaWorkspace({
                   pestaña —que es lo pedido— y ctrl+click abre el cliente en otra,
                   gratis. Un botón se come esos gestos, y son justo los que hacen
                   falta para mirar dos clientes a la vez. */}
-              <a href={`/general?ws=${w.id}`} title={`Entrar a ${w.nombre}`} className="fw-entrar">
+              <a href={`/inicio?ws=${w.id}`} title={`Entrar a ${w.nombre}`} className="fw-entrar">
                 <Icon name="eye" size={13} />Inspeccionar
               </a>
               <Dropdown

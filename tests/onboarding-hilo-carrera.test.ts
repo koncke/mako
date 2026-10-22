@@ -14,6 +14,8 @@
 // ROTURAS (20/10/2026, arnés romper.js + roturas-carrera.json del scratchpad; base 2/0): sin la reserva → 1/1 · la copia
 // que falla queda suelta → 1/1 · lecturas tolerantes (sin tirar) → 1/1 · sin el dueño → 0/2 · por título y no por la
 // marca → 1/1 · sin la regla del modo → 1/1.
+// Y el historial (22/10/2026, base 2/0): la copia sin el historial (sólo Offer) → 1/1 · lo anotado sin la marca
+// `reconstruido` → 1/1.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
@@ -63,8 +65,12 @@ mock.module(${url('lib/auth.ts')}, { namedExports: { getSesionAdmin: async () =>
 mock.module(${url('lib/onboarding-guard.ts')}, { namedExports: { wsDelOnboarding: async () => ({ ws: 21 }) } });
 mock.module(${url('lib/usuarios.ts')}, { namedExports: { contarAdminsClienteActivos: async () => db.admins } });
 mock.module(${url('lib/perfil.ts')}, { namedExports: { getPerfil: async () => ({ nombre: 'Florencia' }), setPerfil: async () => {}, getContactoReportes: async () => null } });
-mock.module(${url('lib/fase-store.ts')}, { namedExports: { getDiagnosticoFase: async () => ({ canal: 'llamadas', respuestas: [0, 0, 0, 0, 0, 0] }) } });
-mock.module(${url('lib/onboarding-state.ts')}, { namedExports: { getEstadoOnboarding: async () => ({ version: 1, status: 'done', step: 'listo', steps: {} }), cerrarPasosOnboarding: async () => ({}) } });
+const DIAG = { canal: 'llamadas', respuestas: [0, 0, 0, 0, 0, 0] };
+const ONB = { version: 1, status: 'done', step: 'listo', steps: {} };
+mock.module(${url('lib/fase-store.ts')}, { namedExports: { getDiagnosticoFase: async () => DIAG, getDiagnosticoFaseEstricto: async () => DIAG } });
+mock.module(${url('lib/onboarding-state.ts')}, { namedExports: { getEstadoOnboarding: async () => ONB, getEstadoOnboardingEstricto: async () => ONB, cerrarPasosOnboarding: async () => ({}) } });
+// La capa, releída estricta para anotar el historial (hechosConfirmados): la misma que la de la sesión.
+mock.module(${url('lib/supabase.ts')}, { namedExports: { getSupabaseServer: () => ({ from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { capa: db.capa }, error: null }) }) }) }) }) } });
 mock.module(${url('lib/mako-grupo.ts')}, { namedExports: { getEstadoVerificacionContacto: async () => null } });
 mock.module(${url('lib/credenciales.ts')}, { namedExports: { integracionConectada: async () => false } });
 mock.module(${url('lib/offer-sesiones.ts')}, { namedExports: {
@@ -100,7 +106,14 @@ const estado = () => JSON.parse(db.settings.get('onboarding.arranque') ?? '{}');
 const r = {};
 
 reset();
-r.control = await (async () => { const id = await srv.hiloDelOnboarding(); return { onb: onb().length, n: n(id), hiloChat: estado().hiloChat === id, hiloDe: estado().hiloDe, vacios: vacios() }; })();
+r.control = await (async () => {
+  const id = await srv.hiloDelOnboarding();
+  const historial = JSON.parse(db.settings.get('onboarding.historial') ?? '{"mensajes":[]}').mensajes;
+  const primero = db.chats.find((c) => c.session_id === id)?.content ?? '';
+  return { onb: onb().length, n: n(id), hiloChat: estado().hiloChat === id, hiloDe: estado().hiloDe, vacios: vacios(),
+    historial: historial.some((m) => m.de === 'yo' && m.texto === 'Florencia Carballo'), reconstruido: historial.length > 0 && historial.every((m) => m.reconstruido === true),
+    primero: primero.slice(0, 16) };
+})();
 
 reset();
 r.carrera = await (async () => { const [a, b] = await Promise.all([srv.hiloDelOnboarding(), srv.hiloParaQuienYaTermino()]); return { onb: onb().length, vacios: vacios(), ids: [a, b] }; })();
@@ -169,6 +182,11 @@ test('con la base de mentira: un solo chat, nunca a medias, y para su dueño', (
   assert.ok((r.control.n as number) > 30, `copió ${r.control.n} mensajes`);
   assert.equal(r.control.hiloChat, true);
   assert.equal(r.control.hiloDe, 'mako-movil:u7');
+  // Sale del historial (21/10/2026, lib/onboarding-historial.ts): quien terminó sin historial lo recibe reconstruido y marcado,
+  // y la conversación empieza por el saludo del arranque, no por la oferta.
+  assert.equal(r.control.historial, true, 'la respuesta del negocio, en el historial');
+  assert.equal(r.control.reconstruido, true);
+  assert.equal(r.control.primero, '¡Hola! Soy MaKo.');
   // El POST y el Ops Center a la vez: uno solo, y un solo principal vacío.
   assert.equal(r.carrera.onb, 1, `quedaron ${r.carrera.onb} «Onboarding»`);
   assert.ok((r.carrera.vacios as number) <= 1, `quedaron ${r.carrera.vacios} principales vacíos`);

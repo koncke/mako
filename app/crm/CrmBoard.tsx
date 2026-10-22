@@ -120,6 +120,7 @@ import { Toast, useToast } from '@/app/_ui/Toast';
 import { nombreVisible } from '@/lib/lead-funnel-reglas';
 import { motivoCorto, chipsFaltantes } from './worklist-fila';
 import { Modal } from '@/app/_ui/Modal';
+import { Spinner } from '@/app/_ui/Feedback';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { NewLeadForm } from './new/NewLeadForm';
 import { BotonReuniones } from './ReunionesProximas';
@@ -275,7 +276,8 @@ export type CrmMarcar = {
  *  cada uno sale DOS veces (el `title` que se ve al pasar el cursor y el `aria-label`
  *  que se anuncia), y dos copias de un texto divergen a la primera correccion. */
 const rotQuitar = (nombre: string) => `Quitar «${nombre}» de la selección`;
-const rotPoner = (nombre: string) => `Seleccionar «${nombre}»`;
+// «No entiendo para qué es el clic de la cajita» (Mauricio, llamada del 22/10/2026, 02:13:38): el rótulo dice PARA QUÉ.
+const rotPoner = (nombre: string) => `Seleccionar «${nombre}» para moverlo o editarlo junto con otros`;
 const rotWa = (nombre: string) => `Escribirle a ${nombre} por WhatsApp`;
 const rotEliminar = (nombre: string) => `Eliminar «${nombre}»`;
 /** El telefono ya viene solo-digitos (`telefonoNorm`), que es lo que wa.me espera. */
@@ -955,6 +957,8 @@ export function CrmBoard({
    * igual: dibujaba un lugar que después no se respetaba. Ahora reordena (`reordenarColumna`).
    */
   const handleDrop = (stageKey: string, antesDe?: number | null) => {
+    // Un ARRASTRE de verdad (y no «Mover a…» del menú o de la ficha, que pasan por `idASoltar`).
+    const desdeArrastre = idASoltar.current == null;
     const id = idASoltar.current ?? dragId;
     idASoltar.current = null;
     setDragId(null);
@@ -963,6 +967,13 @@ export function CrmBoard({
     if (!lead) return;
     if (effStage(lead) === stageKey) {
       if (antesDe !== undefined) reordenarColumna(id, stageKey, antesDe, false);
+      return;
+    }
+    // ⚠️ ARRASTRAR UNO DE VARIOS TILDADOS MUEVE A TODOS (llamada del 22/10/2026, 02:14: «también debería funcionar si
+    // los arrastras»; Mauricio va a mover 50 por día a «Prospección activa» así). Es la MISMA pregunta que la barra de
+    // lote («Etapa»), con el número: `manijaLote` → `pedirEtapa`. Arrastrar uno NO tildado sigue moviendo sólo ése.
+    if (desdeArrastre && selLeads.has(id) && elegidos.length > 1 && manijaLote.current) {
+      manijaLote.current.moverDeEtapa(stageKey);
       return;
     }
     // El lugar donde cayó se guarda recién cuando el movimiento SE HACE: si la confirmación
@@ -1583,9 +1594,21 @@ export function CrmBoard({
     const from = lead ? effStage(lead) : undefined;
     const nota = modo === 'futura' ? mmNota.trim() : null;
     setManualMeeting(null);
+    // ⚠️ OPTIMISTA (llamada con Mauricio del 22/10/2026, min 04:32: «al mover un lead a otra etapa, no tarde tanto en
+    // cambiarse... ese ya se movió, solamente que permanece en la etapa anterior, porque todavía está cargando»). Era
+    // el ÚNICO camino del arrastre que esperaba al server para mover la tarjeta: «Agenda» con «Ya está agendada» o «Ya
+    // ocurrió». `persistStage` y `moverEnProducto` ya movían en el acto. Si la acción falla, la tarjeta vuelve.
+    const previo = localStage[leadId];
+    setLocalStage((m) => ({ ...m, [leadId]: which }));
     startTransition(async () => {
-      const r = await markMeetingManualAction(leadId, which, mmFecha, asistio, nota);
-      setUndoInfo((u) => (u && u.id === leadId ? { ...u, deshacer: r.deshacer } : u));
+      try {
+        const r = await markMeetingManualAction(leadId, which, mmFecha, asistio, nota);
+        setUndoInfo((u) => (u && u.id === leadId ? { ...u, deshacer: r.deshacer } : u));
+      } catch {
+        setLocalStage((m) => { const n = { ...m }; if (previo === undefined) delete n[leadId]; else n[leadId] = previo; return n; });
+        setUndoInfo(null);
+        mostrarAviso('No se pudo guardar la reunión', undefined, 'bad');
+      }
       router.refresh();
     });
     // Toast Deshacer también en este camino (antes solo lo tenía el drag directo).
@@ -2028,10 +2051,15 @@ export function CrmBoard({
    * Y `router.refresh()` al final porque las etapas las decide el SERVER: sin eso el
    * cambio se guarda y la pantalla sigue mostrando lo de antes.
    */
+  const [creandoTras, setCreandoTras] = useState<string | null>(null);
   const opEtapa = async (op: OpEtapa) => {
     setErrorEtapa(null);
+    // «Agregar etapa» del «⋯» de una columna: la columna nueva se anuncia en su lugar con un «Creando…» (llamada con
+    // Mauricio del 22/10/2026: «tarda mucho en crearse y tal vez necesita un loader»). Se va cuando llegan las columnas
+    // nuevas (el efecto de abajo) o si falla.
+    if (op.op === 'agregar') setCreandoTras(op.despuesDe ?? null);
     const r = await editarEtapaAction(op, funnelActivo ?? undefined);
-    if (!r.ok) { setErrorEtapa(r.error); return; }
+    if (!r.ok) { setCreandoTras(null); setErrorEtapa(r.error); return; }
     setRenombrando(null);
     setBorrarEtapa(null);
     // Agregar o quitar una etapa cambia la lista: el orden local recién arrastrado no sabe
@@ -2099,6 +2127,9 @@ export function CrmBoard({
       .filter((s) => activeBands.has(s.band ?? 'pipeline'))
       .sort((a, b) => (KANBAN_BANDS.indexOf(a.band ?? 'pipeline') - KANBAN_BANDS.indexOf(b.band ?? 'pipeline')) || (pos(a) - pos(b)));
   }, [stages, activeBands, ordenCols, funnelActivo]);
+
+  // El «Creando la etapa…» se va cuando el server manda las etapas nuevas (`stages` cambia con el refresh).
+  useEffect(() => { setCreandoTras(null); }, [stages]);
 
 
   /**
@@ -2790,7 +2821,13 @@ export function CrmBoard({
                   fotoVaciaDeArrastre(ev.dataTransfer);
                   const nodo = ev.currentTarget as HTMLElement;
                   const r = nodo.getBoundingClientRect();
+                  // Con varios tildados la copia que viaja dice CUÁNTOS van (22/10/2026): la marca se pone en el origen
+                  // sólo mientras se clona (`montarCopia` hace `cloneNode`) y se saca en el acto, así la ve la copia y
+                  // no la tarjeta que se queda.
+                  const varios = selLeads.has(l.id) && elegidos.length > 1;
+                  if (varios) nodo.dataset.varios = `${elegidos.length} leads`;
                   montarCopia(nodo, ev.clientX - r.left, ev.clientY - r.top);
+                  if (varios) delete nodo.dataset.varios;
                   // Los puntos medios se fotografían ACÁ, con el tablero todavía quieto.
                   medirTarjetas();
                 }}
@@ -2812,6 +2849,9 @@ export function CrmBoard({
                   <input type="checkbox" checked={selLeads.has(l.id)}
                     className="mk-sel-tarjeta"
                     data-marcada={selLeads.has(l.id) ? '1' : '0'}
+                    /* Con algo tildado se ven TODAS las casillas (como en el Plan): así se entiende que es para elegir
+                       varios, y se suma el segundo sin apuntarle a una casilla invisible (22/10/2026). */
+                    data-seleccionando={selLeads.size > 0 ? '1' : undefined}
                     onPointerDown={(ev) => ev.stopPropagation()}
                     onClick={(ev) => { ev.stopPropagation(); alternarSel(l.id); }}
                     onChange={() => { /* lo hace el onClick: ver arriba */ }}
@@ -3132,7 +3172,16 @@ export function CrmBoard({
               }}
               style={{ flex: 1, minHeight: 0, overflowX: 'auto', paddingBottom: 14 }}>
               <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', width: 'max-content' }}>
-                {columnasKanban.map((c) => renderColumn(c))}
+                {columnasKanban.map((c) => (
+                  <Fragment key={c.key}>
+                    {renderColumn(c)}
+                    {creandoTras === c.key && (
+                      <div role="status" aria-live="polite" style={{ flex: 'none', width: 304, minHeight: 'min(68vh, 520px)', background: FONDO_COLUMNA, borderRadius: 26, padding: '18px 16px', display: 'flex', alignItems: 'flex-start', gap: 10, fontFamily: SANS, fontSize: 14, color: 'var(--dim)' }}>
+                        <Spinner size={15} /> Creando la etapa…
+                      </div>
+                    )}
+                  </Fragment>
+                ))}
               </div>
             </div>
           )}
@@ -3337,10 +3386,14 @@ export function CrmBoard({
               productos={funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }))}
               destino={funnelActivo}
               onAtras={() => setNuevoLead({ ...nuevoLead, traer: false })}
-              onTraidos={(movidos, fallaron) => {
+              onTraidos={(movidos, fallaron, deshacer) => {
                 setNuevoLead(null);
                 const falla = fallaron ? ` · ${fallaron} no se pudieron` : '';
-                mostrarAviso(`${movidos} ${movidos === 1 ? 'lead traído' : 'leads traídos'}${falla}`);
+                // Con su «Deshacer» (22/10/2026): el componente lo mandaba y el tablero lo tiraba. Traer 1.050 de una vez
+                // sin vuelta atrás es justo lo que no puede pasar; borra SÓLO las filas que este lote creó.
+                mostrarAviso(`${movidos} ${movidos === 1 ? 'lead traído' : 'leads traídos'}${falla}`, deshacer ? () => {
+                  void deshacer().then(() => router.refresh(), () => mostrarAviso('No se pudo deshacer', undefined, 'bad'));
+                } : undefined);
                 router.refresh();
               }}
             />

@@ -5837,6 +5837,31 @@ CRON en la etapa a la que se MUEVE (no la de entrada), «Nunca le escribiste» +
 para aprobar. Sin AI Step: el test de la galería exige 2+ escenarios a todo AI Step, y el «sólo avisa» sin escenarios no
 pasa; el aviso de quien responde se arma con «Si responde» → «MaKo en WhatsApp».
 
+## La barra de grabar decía lo mismo grabando que sin grabar (22/10/2026, la llamada con Mauricio)
+
+Mauricio grabó una nota de voz en Offer (min 56:01-56:27): «¿está grabando? No», y borró y repitió dos veces. La barra es UNA
+(app/whatsapp/_shared/VoiceRecorder.tsx → `BarraGrabacion`) y la montan WhatsApp (el composer), Automations (el lienzo y los
+pasos de audio) y Offer (la tab con el composer, el onboarding con la caja única). Test: tests/mic-grabando.test.ts.
+
+- **El diagnóstico obvio («le falta el punto rojo, el tiempo o la onda») era el equivocado: los tres estaban.** Lo ambiguo eran
+  dos momentos. Mientras el navegador abre el micrófono (su cartel de permiso, o un auricular que tarda), la barra ya estaba
+  pero con el punto gris, 0:00 y la onda quieta: se lee «no graba». Y grabando, la onda era una animación que se movía SOLA:
+  hablaras o no, con el micrófono equivocado o mudo, igual. Nada en pantalla respondía a la voz.
+- **Ahora:** mientras abre, lo dice con palabras («Abriendo el micrófono…» y, a los 2,5 s, «Permite el micrófono»); grabando,
+  el punto rojo LATE (`mako-latido`) y la onda sigue el nivel real del micrófono (la sesión entrega su `flujo`, un
+  AnalyserNode lo escucha sin sonar por el parlante, `nivelDeMuestras` lo pasa a 0-1). Si se habla y no se mueve, no entra.
+- **Las alturas se escriben en el DOM, no en un estado de React:** un estado por cuadro re-dibujaría la caja entera 60 veces
+  por segundo. Una barra armada a mano sin `flujo` (o sin Web Audio) se mueve sola, como antes.
+- **El ✓ del onboarding de Offer no se veía en oscuro:** Offer pinta la barra con `--good: var(--ink)` (SIN_VERDE) y el ícono
+  iba fijo en blanco; la tinta del modo oscuro es casi blanca. El ícono va en `--sobre-good`, que quien cambia `--good` también
+  define.
+- **Cómo se miró sin levantar la app:** la barra real compilada con esbuild en una página suelta, con `getUserMedia`
+  reemplazado por un oscilador cuyo volumen sube y baja como una voz (frases con silencios) y que tarda en «abrir»; servida
+  con `python -m http.server` y recorrida en el navegador (el panel de vista previa no ejecuta archivos locales).
+
+**SIN HACER:** mirarlo en producción en los tres lugares, con un micrófono de verdad (en un teléfono Android, el permiso del
+sistema además del del navegador).
+
 ## La prueba de los chats del Cerebro (22/10/2026): 36 casos sin pantalla, y lo que se arregló con ellos
 
 El arnés del Cerebro (rama `probar-chats-automations`, `scripts/probar-chats/automations.mts`, con lo GUARDADO como juez)

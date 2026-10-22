@@ -1648,6 +1648,21 @@ código nuevo:
     `ComposerWhatsApp` o `ChatHilo`, ni su botón de mandar para hablar con MaKo: usa la pieza y le pasa su motor por props.
     Si falta algo, se le suma a la pieza (y lo tienen todas), nunca a una copia. tests/chat-unico.test.ts lleva la lista de
     las que faltan, cada una con su chat, y falla si aparece una nueva.
+  - **Y UN SOLO PANEL: el Ops Center del cliente ES el del super admin** (21/10/2026; Martín: «el ops center de los clientes se
+    ve muy mal comparado al de SuperAdmin»). La conversación de un chat del Ops Center —de Claude Code o con MaKo— se monta con
+    `PanelDeChat` (app/admin/operaciones/PanelChat.tsx), sus mensajes con `FilaMia` y `FilaDelChat` (Hilo.tsx, la foto incluida)
+    y la fila de la barra con `FilaDeChat` (PiezasCentro.tsx). Nunca una cabecera, una columna de hilo o una fila propias: lo
+    nuevo va en la pieza y lo tienen los dos. La lista del cliente es UNA, sin secciones plegables, y un chat de otra tab se SIGUE
+    ahí con su motor (Offer por /api/offer), nunca «sigue en <tab>». tests/ops-center-cliente.test.ts.
+  - **MaKo EN CADA TAB: la estrella abajo a la izquierda y el panel a la IZQUIERDA, con el Cerebro** (21/10/2026; Martín: «el
+    chat de MaKo en las otras tabs se debe abrir siempre a la izquierda» y «los iconos de las criaturas siempre debe ser el
+    icono de MaKo, se envía lo que sea que envíen al cerebro y ya el cerebro se encarga de repartir»). Reemplaza el «chat fijo
+    a la derecha» del 18/10. La pieza es `<MakoEnLaTab tab="…" />` (app/_chat/MakoEnLaTab.tsx): lo que se escribe va al chat
+    «Cerebro» de la persona, el del Ops Center, con su motor y sus piezas. Ninguna tab abre un chat de MaKo suelto a la derecha.
+    Lo propio de la tab entra por la pieza (`arriba`, `aviso`) y el lugar se lo deja con `var(--ancho-panel-mako, 0px)`.
+  - **LAS CRIATURAS, SIEMPRE VIVAS** (21/10/2026; Martín: «siempre, donde sea que estén deben tener su animación de movimiento,
+    y parpadeo»): Muneco.tsx flota y parpadea en cualquier ánimo (dormida, respira), cada una con su desfase (`--mun-desfase`),
+    con una animación CSS y nunca un timer; con `prefers-reduced-motion`, quietas. Una criatura nueva usa Muneco o Criatura.
   - **LO QUE EL CHAT DIBUJA SALE DE UN CAMPO, Y UNA LECTURA TAMBIÉN DIBUJA** (20/10/2026, lib/chat-bloques.ts). Una acción
     lo devuelve en `datos.bloque`; una LECTURA, en el `bloque` de su salida (`{ content, bloque }`), y sólo cuando el turno
     de la app pone `ctx.aDibujar`. Así el modelo no lo ve y WhatsApp no lo recibe. Un bloque de área se dibuja con la
@@ -2144,6 +2159,21 @@ activas del disparador. El test ata la regla a lo que decide el motor: `disparaP
 (`TRIGGERS_POR_EVENTO`, lib/nutricion-eventos.ts), que es UNA y la leen los dos. Atarla a una sola función no alcanzó:
 el motor decide con varias.
 Detalle: docs/hallazgos-chatbot.md.
+
+# Una conversación que se le mostró a alguien es un HECHO: se guarda como se dibujó
+
+Lo que el server MIDE (el estado vivo) sirve para decidir qué preguntar ahora. No sirve para contar qué pasó. El
+onboarding armaba sus preguntas y respuestas al vuelo desde el estado (`mensajesDeArranque`) y no las guardaba en ningún
+lado. El 21/10/2026, el Ops Center de Florencia (ws21) empezaba en la mitad de su conversación, y el arreglo del nombre
+de su negocio iba a cambiar lo que ella «contestó».
+
+**La regla:** toda conversación que la persona vio (un chat, un onboarding, una tarjeta con su respuesta) se guarda como
+se dibujó, con su hora, la primera vez que se ve. Lo que la vuelve a mostrar (el Ops Center, una copia, MaKo) lee lo
+guardado y no la rearma del estado de hoy. Lo que se arma después, para quien pasó antes de que se guardara, se marca
+`reconstruido`, y el aviso lo ve sólo el equipo. Y no se mete en la lista de mensajes de OTRA pieza que decide con ella
+(Offer lee sus `mensajes` para saber qué ya preguntó): va aparte, atado por id, y se junta por hora al mostrar. En el
+onboarding: lib/onboarding-historial.ts, tests/onboarding-historial.test.ts y docs/hallazgos-onboarding.md («Las
+preguntas del arranque, guardadas»).
 
 # Tres topes del entorno que no dan error: te dan otra cosa
 
@@ -4370,8 +4400,23 @@ asistencias del PERÍODO, y 4 de esas ventas nunca habían pasado por una llamad
 - **Ni una hora ni una fecha es una cifra del negocio.** Una transcripción («0:04:43 Cristian: …») vuelve «dicho por el
   dueño» a todo número del 0 al 59 si se cuentan (`cifrasDelNegocio` ya no las lee).
 - **Un conteo no le da fuente a un porcentaje**: «43 llamadas» y «43%» son claves distintas (`claveConFuente`).
+- **Un número sobre UNA cosa (una oferta, un funnel, una campaña) se lee de ESA cosa**, nunca del negocio entero en su
+  lugar; si esa cosa no tiene datos, se dice («es una oferta sin datos de venta»), no se cae a otro conteo. El 22/10 el
+  diagnóstico del Sprint de Mauricio, nacido ese día, dijo «2 ventas de 24 asistentes»: eran las del CRM entero. El
+  funnel default son los leads con `funnel_id` NULL (`embudoDeFunnel`, lib/analisis-negocio.ts).
+- **Lo que la IA sugirió no es un dato del usuario.** Una opción que MaKo propuso («por Zoom») y el dueño no eligió no se
+  anota como dicha por él: las herramientas que el negocio no nombró salen al leer (lib/offer-hechos.ts).
 
-Detalle en docs/hallazgos-offer.md → «El “43” de Código Inmobiliario».
+Detalle en docs/hallazgos-offer.md → «El “43” de Código Inmobiliario» y «El Sprint de Mauricio».
+
+# Un documento nuevo nunca pisa un dato que ya tenía el negocio
+
+El 22/10/2026 Mauricio (ws1) subió en Offer el guion de su Sprint, una oferta de entrada, y su perfil del negocio
+(`mako.onboarding.answers`) quedó con el Sprint como oferta principal, su promesa y su avatar: el registro en El Archivero
+sumaba las claves de cada documento «pisando», como un recálculo. Lo leen ~20 features (las automatizaciones, los
+mensajes). Un documento que entra por una feature describe lo que ESA feature analiza: al perfil sólo puede LLENAR lo
+que falta (`answersConDocumento`, lib/archivero-registro.ts), y lo que guarde en su fila del Archivero no puede imponerse
+en un recálculo. Detalle en docs/hallazgos-offer.md → «Un archivo subido en Offer pisaba el perfil del negocio».
 
 # Dos números que se comparan salen de UN juicio — no de una fórmula sobre el otro
 
@@ -6625,6 +6670,12 @@ El diagnóstico obvio («alguien borró la etapa en el editor») era el equivoca
   a un onboarding terminado y mandaba al cliente de vuelta al arranque. Todo lo que lo escribe lee con
   `getEstadoOnboardingEstricto`, y `patchEstadoOnboarding` ya lo hace (16/10/2026;
   `tests/onboarding-escritura-estricta.test.ts`).
+- **Un `.catch` encima de una lectura tolerante no se dispara nunca.** `getSetting` no tira: con la base caída
+  devuelve null. Así que `getSetting(...).catch(() => { cayo = true })` es código muerto, y un guard que depende de
+  ese `cayo` no protege nada. Pasó el 21/10/2026 con el historial del onboarding: el `faseCaida` de la primera
+  versión no se activaba, y lo vio recién la revisión adversarial. Para saber si una lectura cayó, se lee con la
+  versión estricta (`getSettingEstricto`, `getDiagnosticoFaseEstricto`). Lo que decide qué se dibuja y se va a
+  GUARDAR se relee estricto y tiene que dar lo mismo (`hechosConfirmados` en lib/onboarding-arranque-server.ts).
 
 # Dos escritores con dos ritmos son dos claves
 
@@ -9517,6 +9568,18 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
   `rutaMovil` se mira contra los redirects de `requireMovil`** (el admin sin cliente armaba un bucle
   /customer-success → /m/cs → /inicio), **lo público no se tapa nunca** (`esPublica`), y la página de una sección
   mapeada sale en el MISMO deploy que el mapa: los Web Push ya abren esa ruta.
+
+# La pantalla de entrada se decide en /inicio: un camino nuevo de «entrar» lleva ahí, nunca a una tab
+
+En la computadora se entra al Ops Center (21/10/2026, Martín: «dijimos que debería ir a Ops Center siempre»): el super
+admin al suyo (`/admin/operaciones`) y los demás al de su negocio (`/second-brain`), con el onboarding pendiente antes. Lo
+decide `casaEnLaComputadora` (lib/ops-center-ruta.ts) y lo aplica el repartidor (app/inicio/page.tsx); el teléfono, el
+desvío (`ENTRADA_MOVIL`).
+- **Un link o redirect que «entra» (login, 2FA, «Inspeccionar», «Entrar» de Partners, «Ir al inicio») va a `/inicio`**,
+  con su `?ws=N` si es la cuenta de otro (`rutaConWs`/`conWs`), nunca a `/general` ni a otra tab: así sigue a la casa el
+  día que cambie. Hasta el 21/10 «Inspeccionar» y Partners iban derecho a `/general?ws=N`, por afuera del repartidor.
+- **«Sin impersonar» no es «sin workspace».** El super admin TIENE workspace (Martín, ws 9): `getWorkspaceActual() == null`
+  no lo detecta. La pregunta es `quienOpera()` o `estaImpersonando()` (docs/hallazgos-operaciones.md).
 
 # Un modelo «latest» es un nombre que PROMETE moverse: lo que le mandamos puede dejar de valer solo
 

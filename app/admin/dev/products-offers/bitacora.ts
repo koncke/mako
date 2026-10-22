@@ -474,6 +474,26 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/offer',
   },
+  {
+    fecha: '22 oct', hora: '04:33', chat: 'Offer', sesion: 'local_4b2d1f57-62a3-4ace-81ec-c5013086bbb8', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: el análisis de una oferta usa los números de SU funnel, cuenta bien lo que vendes y no inventa herramientas, ya en producción',
+    puntos: [
+      'En producción desde el run 233 (4ddff71d1). Son los P0 de Offer de la llamada con Mauricio del 22/10 (O1, O2 y O3).',
+      'El diagnóstico del Sprint decía «solo 2 ventas de 24 asistentes»: eran los números de todo el CRM. Ahora salen sólo del funnel de esa oferta, y una oferta sin ventas lo dice: «todavía no tiene agendas, llamadas ni ventas… es una oferta sin datos de venta».',
+      '«Tienes 6 ofertas activas» contaba ofertas de prueba: ahora cuenta los funnels activos y los nombra («Negocio que Escala», «Renovación» y «Sprint 3 días»).',
+      '«Por Zoom» lo había sugerido MaKo en una opción que Mauricio no eligió: las herramientas que el negocio no nombró ya no aparecen, tampoco en lo guardado.',
+      'Y el «margen 0%» venía de leer el presupuesto de anuncios como costo por cliente.',
+      'Para verlo: Offer › «Sprint 3 días» › corregir las fechas a 24-26/11 y «Armar mi oferta» otra vez (la versión 1 conserva sus números). El aviso al grupo del ws1 va en el combinado de Automations.',
+    ],
+    archivos: [
+      'lib/analisis-negocio.ts — `embudoDeFunnel`: el embudo de los leads de UN funnel',
+      'lib/offer-contexto.ts — el embudo del funnel de la conversación y lo que vende',
+      'lib/offer-reglas.ts — `alertaSinDatos`, `loQueVendeEnMako`, el foco con nombres, `costoDe`',
+      'lib/offer-hechos.ts — las herramientas que el negocio no nombró, fuera',
+      'tests/offer-sprint-mauricio.test.ts — 25 roturas, todas caen',
+    ],
+    revisar: '/offer',
+  },
 ];
 
 export const PARTES: Parte[] = [

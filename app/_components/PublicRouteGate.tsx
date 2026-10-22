@@ -94,3 +94,14 @@ export function HideOnPublicLanding({ children }: { children: ReactNode }) {
   if (movil || telefono || esVistaSinChrome(pathname)) return null;
   return <>{children}</>;
 }
+
+/**
+ * Lo que no es CROMO sino de la persona logueada, en el teléfono también: se apaga sólo en lo que puede ver alguien de
+ * afuera (`isPublicLandingPath`). <HideOnPublicLanding> no sirve para esto: apaga todo en un teléfono, y así el
+ * reportador de errores de la ventana no corrió nunca en MaKo Mobile (21/10/2026).
+ */
+export function FueraDeLoPublico({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  if (isPublicLandingPath(pathname)) return null;
+  return <>{children}</>;
+}

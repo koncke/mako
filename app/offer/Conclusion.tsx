@@ -31,7 +31,7 @@ import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { Icon } from '@/app/_components/icons';
 import { MakoStar } from '@/app/_components/MakoBrand';
 import {
-  DIMENSIONES, FUENTE_PUNTAJE, avisosAfirmables, dimensionLabel,
+  DIMENSIONES, FUENTE_PUNTAJE, avisosAfirmables, dimensionLabel, sinNumeroDelante,
   type CalculoDiagnostico, type ConclusionOferta, type DiagnosticoOferta, type NotaDimension, type OfferSesionVista, type PropuestaOferta,
 } from '@/lib/offer-marco';
 import {
@@ -477,7 +477,7 @@ function seccionesDe(p: PropuestaOferta): Seccion[] {
               </div>
             </div>
           )}
-          <Lista etiqueta="Pasos" items={lista(p.mecanismo?.pasos)} numerada />
+          <Lista etiqueta="Pasos" items={lista(p.mecanismo?.pasos).map(sinNumeroDelante)} numerada />
           <Campo etiqueta="Por qué es distinto" v={p.mecanismo?.distinto} />
         </>
       ),

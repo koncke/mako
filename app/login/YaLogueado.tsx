@@ -7,8 +7,8 @@
 // YA estaba adentro: parecía que se había deslogueado. Ahora se le avisa quién es
 // y se lo lleva solo.
 //
-// El destino es /inicio, el repartidor por rol (admin sin impersonar → /admin;
-// closer/setter → /crm; onboarding pendiente → /onboarding; el resto → /general).
+// El destino es /inicio, el repartidor (onboarding pendiente → /onboarding; en la
+// computadora, el resto al Ops Center desde el 21/10/2026: lib/ops-center-ruta.ts).
 // No se duplica esa lógica acá: si mañana cambia, cambia en un solo lugar.
 
 import { useEffect, useState } from 'react';

@@ -370,7 +370,7 @@ function TablaWorkspaces({ filas, onAbrir, onNuevo, opcionesDe, elegirAccion, ac
                 <td className="num">{w.usuarios}</td>
                 <td className="num" onClick={(e) => e.stopPropagation()}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                    <a href={`/general?ws=${w.id}`} title={`Entrar a ${w.nombre}`}
+                    <a href={`/inicio?ws=${w.id}`} title={`Entrar a ${w.nombre}`}
                       style={{ ...btnPrimary, display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none', padding: '6px 11px', fontSize: 12.5 }}>
                       <Icon name="eye" size={13} />Inspeccionar
                     </a>
@@ -491,8 +491,10 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
     } finally { setAccionando(false); }
   };
 
-  // Entrar a un cliente NO necesita JavaScript: es un `<a href="/general?ws=N">`
-  // (ver la fila de cada cliente, más abajo). Un ancla común ya hace exactamente
+  // Entrar a un cliente NO necesita JavaScript: es un `<a href="/inicio?ws=N">`
+  // (ver la fila de cada cliente, más abajo). Va al REPARTIDOR y no a una tab: el
+  // cliente entra a su Ops Center (o a su wizard, si no terminó el onboarding), y
+  // el super admin que inspecciona ve lo mismo (21/10/2026; hasta ese día, /general). Un ancla común ya hace exactamente
   // lo que hace falta —navegación dura en ESTA pestaña— y de paso deja intactos
   // el ctrl+click y el botón del medio, que abren el cliente en otra. Escribir un
   // handler solo servía para romper esos dos gestos.
@@ -922,7 +924,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
                           gratis y sin que la app tenga que decidir nada. Un botón
                           se come esos gestos, y son justo los que hacen falta para
                           mirar dos clientes a la vez. */}
-                      <a href={`/general?ws=${w.id}`} title={`Entrar a ${w.nombre}`}
+                      <a href={`/inicio?ws=${w.id}`} title={`Entrar a ${w.nombre}`}
                         style={{ ...btnPrimary, display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none', padding: '7px 12px', fontSize: 12.5 }}>
                         <Icon name="eye" size={13} />Inspeccionar
                       </a>

@@ -2726,4 +2726,121 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '22 oct', hora: '06:02', chat: 'CRM', sesion: 'local_428051c1-0369-4df2-ae6b-bcb42f63b64b', cuenta: 'claude3',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Llamada con Mauricio: traer a todos de otro funnel, y arrastrar a varios tildados',
+    pedido: '(26:23) «yo vi que eran como mil y tantos, se muestran 300 de 1050, busca o filtra para ver el resto... primero que el botón no se tenga que desplazar». (28:00) «están dentro de este funnel, no sé, ya no deberían saltar ahí, ni siquiera en gris, o debería directamente no verse... porque luego ya no me deja los siguientes 300». (02:14:00) «Ahí se cambiaría de etapa, pero también debería funcionar si los arrastras». (02:13:38, Mauricio) «No entiendo para qué es el clic de la cajita todavía».',
+    puntos: [
+      'Llamada de Martín con Mauricio del 22/10 (fathom.video/calls/871165870); llegó por el Cerebro como C1 y C2, los dos P0 del CRM.',
+      'Mauricio arranca el sábado 24/10 a mover 50 leads por día a «Prospección activa».',
+    ],
+  },
+  {
+    fecha: '22 oct', hora: '03:45', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Traer a todos de otro funnel y arrastrar a varios tildados',
+    puntos: [
+      'Es lo que pidió Martín en la llamada con Mauricio del 22/10 (el hito de arriba, literal).',
+      '«Traer de otro funnel»: la casilla de arriba tilda a TODOS los del filtro (en el ws1, los 750 de Reactivación que faltan), no sólo los 300 que se ven.',
+      'Los que ya están en el CRM no aparecen: se dice cuántos son.',
+      'El botón de agregar queda siempre a la vista, y el aviso tiene «Deshacer».',
+      'Arrastrar uno de varios tildados mueve a todos (pregunta antes, con el número). La tarjeta que viaja dice cuántos van.',
+      'La cajita junto a la foto dice para qué es, y con uno tildado se ven todas.',
+    ],
+    commits: [
+      { sha: '3c43c005c', msg: 'CRM (P0 de la llamada con Mauricio, 22/10): traer a TODOS de otro funnel y arrastrar a varios tildados', lineas: 325, archivos: 6 },
+    ],
+    archivos: [
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '22 oct', hora: '04:15', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Mover sin esperar, «Creando…» al crear una etapa, el menú que tapaba y las hojas de la ficha a la vista',
+    puntos: [
+      'Son los P1 del CRM de la llamada con Mauricio del 22/10.',
+      'Mover un lead a «Agenda» con «Ya está agendada» lo mueve en el acto (antes esperaba a que cargara).',
+      'Crear una etapa muestra «Creando…» en su lugar, en «Editar etapas» y en el tablero.',
+      'El lápiz «Editar» de la lista de CRMs cierra la lista: ya no queda encima del pop-up.',
+      'En la ficha de un lead, las otras hojas («Pagos», «Reuniones»…) se ven al lado del título; el desplegable sigue.',
+      'Lo de los tres puntos de «Lead entrante» que llevó a otra pantalla no se pudo reproducir: falta mirarlo en el navegador.',
+    ],
+    commits: [
+      { sha: '50fbb71df', msg: 'CRM (P1 de la llamada con Mauricio, 22/10): mover sin esperar, «Creando…» al crear una etapa, el menú que tapaba el pop-up y las hojas de la ficha a la vista', lineas: 169, archivos: 6 },
+    ],
+    archivos: [
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '22 oct', hora: '04:40', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: traer a todos de otro funnel y arrastrar a varios tildados, ya en producción',
+    revisar: '/crm',
+    puntos: [
+      'En producción desde el run 230 (b9dd7ce1e). Es lo que pidió Martín en la llamada con Mauricio del 22/10 (C1 y C2).',
+      'Cómo lo prueba Mauricio (ws1): en el CRM «Sprint 3 días», «+ Nuevo lead» › «Traer de otro funnel», de «Negocio que ESCALA», etapa Reactivación. Los 300 que ya trajo no aparecen; la casilla de arriba tilda a los 750 que faltan y «Agregar» está siempre a la vista.',
+      'Tildar varias tarjetas y arrastrar una de las tildadas a «Prospección activa»: pregunta y mueve a todas.',
+      'Avisado en el grupo de MaKo del ws1 como «Desarrollador de MaKo».',
+    ],
+    commits: [
+      { sha: '3c43c005c', msg: 'CRM (P0 de la llamada con Mauricio, 22/10): traer a TODOS de otro funnel y arrastrar a varios tildados', lineas: 325, archivos: 6 },
+    ],
+    archivos: [
+    ],
+  },
+  {
+    fecha: '22 oct', hora: '05:05', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: mover sin esperar, «Creando…» al crear una etapa, el menú que tapaba y las hojas de la ficha a la vista, ya en producción',
+    revisar: '/crm',
+    puntos: [
+      'En producción desde el run 231 (be4b9189a). Son los P1 del CRM de la llamada con Mauricio del 22/10 (C3, C4, C5 y C7).',
+      'Mover un lead a «Agenda» con «Ya está agendada»: la tarjeta pasa en el acto.',
+      '«Editar etapas» › «+»: la etapa nueva aparece con «Creando…» hasta que se guarda; lo mismo con «Agregar etapa» del «⋯» de una columna.',
+      'La lista de CRMs › lápiz «Editar»: la lista se cierra y no queda encima del pop-up.',
+      'En la ficha de un lead, «Pagos», «Reuniones» y las demás hojas se ven al lado del título.',
+      'Avisado en el grupo de MaKo del ws1 como «Desarrollador de MaKo». Falta C6: no se pudo reproducir sin el Chrome de Martín.',
+    ],
+    commits: [
+      { sha: '50fbb71df', msg: 'CRM (P1 de la llamada con Mauricio, 22/10): mover sin esperar, «Creando…» al crear una etapa, el menú que tapaba el pop-up y las hojas de la ficha a la vista', lineas: 169, archivos: 6 },
+    ],
+    archivos: [
+    ],
+  },
+  {
+    fecha: '22 oct', hora: '05:30', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La ficha dice en qué otros CRMs está el lead: «También en: Sprint 3 días › Prospección activa»',
+    revisar: '/crm',
+    puntos: [
+      'Es el C8 de la llamada con Mauricio del 22/10: «en la R1 de allá, de alguna manera, marque que el lead vino del webinar».',
+      'Al lado del funnel de la ficha, los otros CRMs donde está el lead, con su etapa; tocarlo muestra su etapa ahí.',
+      'De qué anuncio vino ya lo dice el bloque «Origen».',
+    ],
+    commits: [
+      { sha: '8d1c1cb51', msg: 'CRM (C8 de la llamada con Mauricio, 22/10): la ficha dice en qué otros CRMs está el lead', lineas: 86, archivos: 3 },
+    ],
+    archivos: [
+    ],
+  },
+  {
+    fecha: '22 oct', hora: '04:35', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: la ficha de un lead dice en qué otros CRMs está («También en»), ya en producción',
+    revisar: '/crm',
+    puntos: [
+      'En producción desde el deploy de 59a841e49. Es el C8 de la llamada con Mauricio del 22/10 («de dónde vino» el lead en la R1).',
+      'Abrir un lead que esté en el CRM principal y en el Sprint: al lado del CRM y la etapa dice «También en: Sprint 3 días › Prospección activa».',
+      'Un toque en «Sprint 3 días» cambia la ficha a ese CRM. Un lead que está en un solo CRM no muestra nada.',
+      'El aviso al grupo de MaKo del ws1 NO salió: ya iban 3 avisos de arreglo en 24 h (el tope). Sale junto con el próximo.',
+    ],
+    commits: [
+      { sha: '8d1c1cb51', msg: 'CRM (C8 de la llamada con Mauricio, 22/10): la ficha dice en qué otros CRMs está el lead — «También en: Sprint 3 días › Prospección activa»', lineas: 86, archivos: 3 },
+    ],
+    archivos: [
+    ],
+  },
 ];

@@ -68,7 +68,10 @@ export type Bloque =
    *  (ms desde 1970); pasado eso, la invocación que lo corría ya no existe y se da por cortado. */
   | { t: 'trabajo'; titulo: string; pasos: { texto: string; estado: EstadoPaso }[]; listo?: BloqueCreado; abrir?: Abrir; consulta?: string; hasta?: number }
   /** G1: una pregunta con opciones; `varias` = se puede marcar más de una. */
-  | { t: 'pregunta'; pregunta: string; opciones: { titulo: string; detalle?: string }[]; recomendada?: number; varias?: boolean }
+  | { t: 'pregunta'; pregunta: string; opciones: { titulo: string; detalle?: string }[]; recomendada?: number; varias?: boolean;
+      /** Las respuestas rápidas de una conversación de Offer en el Ops Center (app/m/mako/chat-ui.ts → itemsDeOffer): sin
+       *  título (la pregunta es el mensaje de arriba) y sin «Elige tú» ni «Saltear». Sólo la arma la pantalla: no viaja. */
+      rapida?: boolean }
   | BloqueCobranza
   | BloqueEstadoCuenta
   /** Los del Web Generator (1.12 y 1.13): la tarjeta de una landing, elegir entre 3, lo publicado y el dominio. Sus tipos

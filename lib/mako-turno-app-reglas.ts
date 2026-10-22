@@ -386,6 +386,10 @@ export type MensajeChat = {
   adjuntos?: AdjuntoVisible[];
   /** Lo que el chat dibuja con el mensaje (lo creado, el antes y el después: lib/chat-bloques.ts); no va al modelo. */
   bloques?: Bloque[];
+  /** La nota de voz con la que la persona contestó (21/10/2026, Florencia, ws21: el Ops Center mostraba sólo la
+   *  transcripción). `url` es relativa y SIN el `?ws=`: un `<audio src>` no pasa por WsFetch, la pantalla le pone
+   *  `conWs(url, useWs())`. `content` sigue siendo la transcripción (el texto secundario). No va al modelo. */
+  audio?: { url: string; secs: number };
 };
 
 /** Los últimos `max` mensajes, arrancando en `user` y sin dos seguidos del mismo rol (un

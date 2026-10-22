@@ -14,8 +14,10 @@
 
 import type { SesionChat } from './mako-turno-app-reglas';
 
-/** El nombre del jefe del chat con MaKo (y de la tab). */
-export const JEFE_SECOND_BRAIN = 'Second Brain';
+/** El nombre del jefe del chat con MaKo: «Cerebro», con la estrella de MaKo (lib/centro-munecos.ts → esCriaturaDeMako), como el
+ *  del Ops Center del super admin (21/10/2026, Martín: «El chat principal, al igual que SuperAdmin, debe ser "Cerebro" y tener la
+ *  criatura de MaKo»). Hasta ese día era «Second Brain», con la gota. El nombre de la constante quedó de antes. */
+export const JEFE_SECOND_BRAIN = 'Cerebro';
 /** El título de una conversación que todavía no tiene: el modelo se lo pone después del primer turno. */
 export const SIN_TITULO = 'Chat nuevo';
 
@@ -35,10 +37,10 @@ export function arbolDelJefe(sesiones: readonly SesionChat[]): ArbolDelJefe {
   return { jefe, subs };
 }
 
-/** El título que se dibuja de un sub-chat (el del jefe es siempre «Second Brain»). */
+/** El título que se dibuja de un sub-chat (el del jefe es siempre «Cerebro»). */
 export const tituloDe = (s: Pick<SesionChat, 'titulo'>): string => s.titulo?.trim() || SIN_TITULO;
 
-/** El nombre completo de un sub-chat, con la convención del jefe («Second Brain › Precios»): de él sale su muñeco. */
+/** El nombre completo de un sub-chat, con la convención del jefe («Cerebro › Precios»). */
 export const nombreDeSub = (s: Pick<SesionChat, 'titulo'>): string => `${JEFE_SECOND_BRAIN} › ${tituloDe(s)}`;
 
 /** La búsqueda de la barra: sin mayúsculas ni tildes. El jefe se ve siempre (es la casa). */
@@ -183,11 +185,38 @@ export function estadoDeLoHecho(estado: string, venceAt: string | null, ahora: n
   return 'fallo';
 }
 
+/** El texto de una nota de voz que no trae transcripción (sin él, la burbuja quedaba vacía). */
+export const NOTA_DE_VOZ = 'Nota de voz';
+
+/** Lo que lee el super admin antes de las preguntas del onboarding que se armaron después (lib/onboarding-historial.ts). */
+export const AVISO_RECONSTRUIDO = 'Reconstruido: estas preguntas del onboarding se armaron después, con las respuestas que quedaron guardadas.';
+
 /** Un mensaje de Offer como uno del chat (20/10/2026, lib/chat-mako-indice.ts → hiloDeOffer): 'yo' es la persona, 'mako' es
- *  MaKo; lo vacío no se dibuja. */
-export function mensajesDeOffer(ms: ReadonlyArray<{ de: 'mako' | 'yo'; texto: string; at: string }>): Array<{ role: 'user' | 'assistant'; content: string; created_at?: string }> {
-  return ms.filter((m) => typeof m.texto === 'string' && m.texto.trim())
-    .map((m) => ({ role: m.de === 'yo' ? 'user' : 'assistant', content: m.texto, ...(m.at ? { created_at: m.at } : {}) }));
+ *  MaKo; lo vacío no se dibuja. Un adjunto sin texto dice su nombre, como en el chat «Onboarding» (`mensajesDelHilo`): sin
+ *  esto, el documento que Florencia mandó como respuesta (ws21) no se veía y quedaban dos preguntas de MaKo seguidas.
+ *  Con `avisoReconstruido` (sólo el super admin), cada tramo armado después lleva `AVISO_RECONSTRUIDO` adelante.
+ *  Una nota de voz viaja como `audio` (la URL ya armada por quien llama, lib/chat-mako-indice.ts), con la transcripción
+ *  como texto: el Ops Center mostraba sólo la transcripción. Nada más del audio sale de acá (ni su ruta de Storage). */
+export function mensajesDeOffer(
+  ms: ReadonlyArray<{
+    de: 'mako' | 'yo'; texto: string; at?: string; adjuntos?: ReadonlyArray<{ nombre: string }>; reconstruido?: boolean;
+    audio?: { url: string; secs: number };
+  }>,
+  o: { avisoReconstruido?: boolean } = {},
+): Array<{ role: 'user' | 'assistant'; content: string; created_at?: string; audio?: { url: string; secs: number } }> {
+  const out: Array<{ role: 'user' | 'assistant'; content: string; created_at?: string; audio?: { url: string; secs: number } }> = [];
+  let enTramo = false;
+  for (const m of ms) {
+    const texto = typeof m.texto === 'string' && m.texto.trim() ? m.texto : '';
+    const audio = m.audio && typeof m.audio.url === 'string' && m.audio.url ? { audio: { url: m.audio.url, secs: m.audio.secs } } : {};
+    const content = texto || (m.adjuntos ?? []).map((a) => `Adjunto: ${a.nombre}`).join('\n') || ('audio' in audio ? NOTA_DE_VOZ : '');
+    if (!content.trim()) continue;
+    const at = m.at ? { created_at: m.at } : {};
+    if (o.avisoReconstruido && m.reconstruido && !enTramo) out.push({ role: 'assistant', content: AVISO_RECONSTRUIDO, ...at });
+    enTramo = !!m.reconstruido;
+    out.push({ role: m.de === 'yo' ? 'user' : 'assistant', content, ...at, ...audio });
+  }
+  return out;
 }
 
 /**
@@ -216,3 +245,65 @@ export function seEscondeDeOffer(s: { id: number; updatedAt: string }, copiada: 
   if (!copiada || s.id !== copiada.id) return false;
   return !copiada.at || !(Date.parse(s.updatedAt) > Date.parse(copiada.at));
 }
+
+// ── La lista del Ops Center del cliente (21/10/2026) ─────────────────────────────────────────────────────────────────
+// Martín: «Jamás debes categorizar en desplegables los chats de la sidebar, como "offer" o "antes", y mucho menos "continuar
+// en offer", las personas deberían poder continuar lo que quieran siempre desde el Ops Center». La lista es UNA, como la del
+// super admin (lib/centro-chats.ts → seccionesDeChats): el Cerebro arriba y, debajo, todos los demás —los sub-chats con MaKo,
+// las conversaciones de Offer y los chats de antes— por actividad, cada uno con su criatura. Sin secciones ni plegables.
+
+/** Lo elegido en la barra: una conversación con MaKo, un chat que todavía no tiene (el jefe sin nada, o «Nuevo chat»), un
+ *  chat de antes (de «Pregúntale a MaKo»), una conversación de Offer, o un chat de Claude Code (su clave del Centro). */
+export type ElegidoChat = { id: number } | { virtual: 'jefe' | 'nuevo' } | { antes: number } | { centro: string } | { offer: number };
+
+/** De dónde sale un chat de la lista: a qué motor va lo que se escribe (MaKo, o el de Offer). */
+export type OrigenDeFila = 'mako' | 'offer' | 'antes';
+
+export type FilaDelCliente = {
+  /** La key de React y la búsqueda del elegido. */
+  clave: string;
+  elegido: ElegidoChat;
+  titulo: string;
+  /** El nombre del que sale su criatura: el del Cerebro es la estrella; los de Offer, la familia de Offer. */
+  criatura: string;
+  /** Lo último que pasó (ms), para el orden y la hora de la fila. */
+  actividad: number | null;
+  origen: OrigenDeFila;
+};
+
+type ConTitulo = { id: number; titulo: string | null; updatedAt: string };
+const ms = (iso: string | null | undefined): number | null => { const t = iso ? Date.parse(iso) : NaN; return Number.isFinite(t) ? t : null; };
+/** La criatura de una conversación de Offer: la del área Offer (lib/centro-munecos.ts → EQUIPO), con su cara por el título. */
+export const criaturaDeOffer = (titulo: string): string => `Offer › ${titulo}`;
+
+/** La lista entera: el Cerebro primero (siempre, aunque no tenga conversación todavía) y el resto, lo más reciente arriba. La
+ *  búsqueda no esconde al Cerebro (es la casa). */
+export function listaDelCliente(p: {
+  sesiones: readonly SesionChat[]; offer: readonly ConTitulo[]; antes: readonly ConTitulo[]; busca: string;
+}): FilaDelCliente[] {
+  const { jefe, subs } = arbolDelJefe(p.sesiones);
+  const cerebro: FilaDelCliente = {
+    clave: 'jefe', elegido: jefe ? { id: jefe.id } : { virtual: 'jefe' }, titulo: JEFE_SECOND_BRAIN, criatura: JEFE_SECOND_BRAIN,
+    actividad: ms(jefe?.updatedAt), origen: 'mako',
+  };
+  const b = normal(p.busca);
+  const resto: FilaDelCliente[] = [
+    ...subs.map((s): FilaDelCliente => ({ clave: `s${s.id}`, elegido: { id: s.id }, titulo: tituloDe(s), criatura: tituloDe(s), actividad: ms(s.updatedAt), origen: 'mako' })),
+    ...p.offer.map((o): FilaDelCliente => {
+      const titulo = o.titulo?.trim() || SECCION_OFFER;
+      return { clave: `o${o.id}`, elegido: { offer: o.id }, titulo, criatura: criaturaDeOffer(titulo), actividad: ms(o.updatedAt), origen: 'offer' };
+    }),
+    ...p.antes.map((a): FilaDelCliente => {
+      const titulo = a.titulo?.trim() || 'Chat de antes';
+      return { clave: `a${a.id}`, elegido: { antes: a.id }, titulo, criatura: titulo, actividad: ms(a.updatedAt), origen: 'antes' };
+    }),
+  ]
+    .filter((f) => !b || normal(f.titulo).includes(b))
+    .map((f, i) => ({ f, i }))
+    .sort((x, y) => (y.f.actividad ?? 0) - (x.f.actividad ?? 0) || x.i - y.i)
+    .map((x) => x.f);
+  return [cerebro, ...resto];
+}
+
+/** ¿Es la fila de lo elegido? (la de un chat nuevo no está en la lista). */
+export const esFilaDe = (f: Pick<FilaDelCliente, 'elegido'>, e: ElegidoChat | null): boolean => e != null && JSON.stringify(f.elegido) === JSON.stringify(e);

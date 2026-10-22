@@ -218,9 +218,9 @@ export function PanelAgencia({ cliente, onCambio }: {
         body: JSON.stringify({ action: 'todo' }),
       })).json();
       if (!j.ok) { setAviso({ texto: j.error || 'No se pudo completar.', tono: 'error' }); return; }
-      setAviso({ texto: `Cliente listo: ${j.copiado ?? 0} elementos. Entrando al dashboard…`, tono: 'info' });
+      setAviso({ texto: `Cliente listo: ${j.copiado ?? 0} elementos. Entrando al Ops Center…`, tono: 'info' });
       // Recarga dura y no router.refresh(): el onboarding pasó a 'done' y hay
-      // que volver a pedir la ruta para que el guard sirva el dashboard.
+      // que volver a pedir la ruta para que el repartidor sirva el Ops Center.
       //
       // ⚠️ CON `conWs`. Este panel SOLO existe mientras mirás a OTRO, así que una
       // navegación dura sin el `?ws=` acá no es un detalle: te devuelve a tu propia

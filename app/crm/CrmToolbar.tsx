@@ -752,6 +752,10 @@ export function SelectorFunnel({ funnels, activo, puedeCrear, onEditarEtapas }: 
       icono: <LapizIcon />,
       title: `Editar las etapas de ${comoSeLlama(f)}`,
       onClick: () => onEditarEtapas(f.id, comoSeLlama(f)),
+      // ⚠️ ABRE UN POP-UP: el menú se cierra (llamada con Mauricio del 22/10/2026, min 16:15: «cuando le das al botón de
+      // editar, se queda el desplegable del CRM por encima del pop-up que salta»). El menú vive en un portal con su
+      // propio z-index; sin `cierra` queda flotando ENCIMA del modal. La marca existía desde el 05/10 (Customer Success).
+      cierra: true,
     }],
   }));
   // ⚠️ `crear`, NO `color`. El intento anterior fue `color: 'var(--faint)'` creyendo que

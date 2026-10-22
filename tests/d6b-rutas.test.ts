@@ -155,7 +155,9 @@ const FUERA_DE_D6B: ReadonlyArray<{ prefijo: string; porque: string; salvo?: str
  */
 const SIN_IA: ReadonlyArray<{ unidad: string; usa: string[]; porque: string }> = [
   // El chat: abrir y listar las conversaciones (el turno, el POST, prende).
-  { unidad: 'app/api/mako/chat/route.ts#GET', usa: ['abrirSesion', 'chatsDeAntes', 'chatsDeOffer', 'estadoDeTrabajo', 'hiloDeAntes', 'hiloDeOffer', 'listarSesiones', 'personaDelRequest', 'quienChateaDelRequest', 'runWithWorkspace', 'urlDeAdjunto'], porque: 'lee las conversaciones y el avance de un trabajo' },
+  // `claveDeAntes` (21/10/2026): de quién es un chat de antes que se sigue en el Ops Center; lee chart_sessions, ninguna IA. Las
+  // marcas (lib/chat-mako-marcas-db.ts) y si ya tiene su IA (`negocioConSuIA`, `pcDe`: leen la base, no llaman a ninguna).
+  { unidad: 'app/api/mako/chat/route.ts#GET', usa: ['abrirSesion', 'chatsDeAntes', 'chatsDeOffer', 'claveDeAntes', 'esChatDeMarcas', 'estadoDeTrabajo', 'hiloDeAntes', 'hiloDeOffer', 'leerMarcasDelChat', 'listarSesiones', 'negocioConSuIA', 'pcDe', 'personaDelRequest', 'quienChateaDelRequest', 'runWithWorkspace', 'urlDeAdjunto', 'wsSuperAdmin'], porque: 'lee las conversaciones, el avance de un trabajo, las marcas de la persona y si ya tiene su IA' },
   { unidad: 'app/api/m/mako/route.ts#GET', usa: ['abrirSesion', 'listarSesiones', 'personaDelRequest'], porque: 'lee las conversaciones del teléfono' },
   // Cancelar o descartar una tarjeta: no ejecuta nada (confirmarla sí, y prende).
   { unidad: 'app/m/mako/acciones.ts#cancelarEnChatAction', usa: ['cancelarDesdeTarjeta', 'personaDelRequest'], porque: 'cancela una tarjeta: no la ejecuta' },
@@ -392,6 +394,10 @@ const ALCANZAN = UNIDADES.filter((u) => u.cascada || u.sinCorte);
 
 /** La carpeta de OTRA tab de un archivo de app/ (`app/crm/`, `app/m/crm/`), o null si es del Ops Center o compartido. */
 function carpetaDeOtraTab(f: string): string | null {
+  // El micrófono de la caja única vive con las piezas del super admin, y desde el 22/10/2026 el teléfono del cliente dicta con
+  // él (app/m/second-brain/ChatClienteM.tsx; antes, con el Composer de app/m/mako/): lo que llama (/api/plan-dictado) lo llama el
+  // Ops Center. El resto de app/admin/operaciones/ (las acciones del super admin, con `puedeOperar`) sigue siendo otra tab.
+  if (f === 'app/admin/operaciones/Microfono.tsx') return null;
   const m = f.match(/^app\/(m\/)?([^/]+)\//);
   if (!m) return null;
   if (m[2] === 'api' || m[2].startsWith('_') || (m[1] == null && m[2] === 'm')) return null;

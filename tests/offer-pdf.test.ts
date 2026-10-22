@@ -296,11 +296,11 @@ test('dos partes: «Tu oferta hoy» (lo que me gustó, lo que cambiaría y cómo
 
 test('lo que me gustó y lo que sube cada parte salen de lo que ya dejó el diagnóstico (sin IA nueva)', () => {
   const c = ejemplo();
-  // Una conclusión de antes (sin `fuertes`) usa `fuerte`; las notas altas suman su porqué; sin repetidas.
+  // Una conclusión de antes (sin `fuertes`) usa `fuerte`; sin repetidas. Las notas altas NO (22/10/2026): el PDF las lista
+  // con su porqué justo arriba, y la misma frase salía dos veces.
   const gusto = loQueMeGusto(c);
   assert.equal(gusto[0], 'Ya hay 12 clientes que pagaron la misma oferta (validación real).');
-  assert.ok(gusto.includes('Cliente ideal: Coaches de nutrición que ya facturan.'), JSON.stringify(gusto));
-  assert.ok(!gusto.some((g) => g.startsWith('Promesa')), 'una nota de 6 no es algo que ya hace bien');
+  assert.ok(!gusto.some((g) => g.startsWith('Cliente ideal:') || g.startsWith('Promesa')), JSON.stringify(gusto));
   c.diagnostico.fuertes = ['A', 'A', 'B'];
   assert.deepEqual(loQueMeGusto({ ...c, diagnostico: { ...c.diagnostico, dimensiones: [] } }), ['A', 'B']);
   // Lo que sube: sólo las de 5 o menos, de la más baja a la más alta, con su mejora.

@@ -111,7 +111,8 @@ test('la pantalla: el arrastre cambia de lista y de tipo, el «+» entre etapas,
   assert.match(md, /else if \(m\.limite != null && e\.clientY >= m\.limite\) \{\s*g = 'nutricion';/, 'el destino no puede ser la banda');
   assert.match(md, /data-limite=\{e\.key === 'ganado' \? '' : undefined\}/, 'Ganado dejó de marcar la frontera');
   // El «+» entre dos etapas, antes de Ganado y entre las nutriciones.
-  assert.match(md, /onCrear=\{\(label\) => aplicar\(\{ op: 'agregar', label, despuesDe: etapas\[i - 1\]\.key \}\)\}/);
+  // Desde el 22/10/2026 el «+» marca además la etapa que se está creando («Creando…» en su lugar: tests/crm-llamada-22-10-p1.test.ts).
+  assert.match(md, /onCrear=\{\(label\) => \{ setCreando\(\{ label, despuesDe: etapas\[i - 1\]\.key \}\); aplicar\(\{ op: 'agregar', label, despuesDe: etapas\[i - 1\]\.key \}\); \}\}/);
   assert.match(md, /onCrear=\{\(label\) => aplicar\(\{ op: 'agregar', label, nutricionEn: i \}\)\}/);
   // La nutrición propia se quita como una etapa; la derivada, apagando lo que llega a ella.
   assert.match(md, /tacho\(e, \(\) => \(e\.marcadaComo === 'nutricion' \? quitarEtapa\(e\) : quitarNutricion\(e\)\)\)/);

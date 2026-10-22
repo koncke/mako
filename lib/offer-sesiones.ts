@@ -33,11 +33,12 @@ import {
 } from './offer-marco';
 import {
   INTENTOS_CAS, adjuntoDe, conclusionVisible, construirArbol, destinoDeLaOferta, esperaCAS, juntarLigas, ligadaParaVista, mensajeParaVista, ofertaDesdePropuesta, ofertaYaAnotada, primerMensaje,
-  sanearArmado, armadoParaVista, sanearDocumentos, sanearMensajes, sanearPiezas,
+  sanearArmado, armadoParaVista, sanearDocumentos, sanearMensajes, sanearPiezas, leyendoParaVista, TEXTO_LECTURA_CORTADA,
   type ArmadoOffer,
   type DocumentoGuardado, type MensajeGuardado, type SesionParaArbol,
 } from './offer-reglas';
 import { contextoOffer } from './offer-contexto';
+import { conversacionSinHerramientasAjenas } from './offer-hechos';
 
 const TABLA = 'offer_sesiones';
 const COLS = 'id, titulo, estado, mensajes, piezas, documentos, borrador, conclusiones, oferta_id, oferta_version, funnel_id, oferta_base_id, armado, updated_at';
@@ -107,7 +108,9 @@ function sanearBorrador(raw: unknown): BorradorOffer | null {
 }
 
 function aFila(r: Record<string, unknown>): FilaOffer {
-  return {
+  // Lo que anotó o escribió la IA, sin las herramientas que el negocio no nombró («por Zoom», 22/10/2026,
+  // lib/offer-hechos.ts): ésta es la única entrada de la fila, así que lo limpio llega a todos los que la leen.
+  return conversacionSinHerramientasAjenas({
     id: num(r.id) ?? 0,
     titulo: typeof r.titulo === 'string' && r.titulo.trim() ? r.titulo : TITULO_DEFAULT,
     estado: r.estado === 'concluida' ? 'concluida' : 'conversando',
@@ -122,7 +125,7 @@ function aFila(r: Record<string, unknown>): FilaOffer {
     ofertaBaseId: num(r.oferta_base_id),
     armado: sanearArmado(r.armado),
     updatedAt: typeof r.updated_at === 'string' ? r.updated_at : '',
-  };
+  });
 }
 
 /**
@@ -141,7 +144,9 @@ export function vistaDe(f: FilaOffer, nombres: NombresSesion = {}): OfferSesionV
     id: f.id,
     titulo: f.titulo,
     estado: f.estado,
-    mensajes: f.mensajes.map((m) => mensajeParaVista(f.id, m)),
+    // Un «estoy leyendo» que se cortó deja de prometer el aviso (O9, 22/10/2026).
+    mensajes: f.mensajes.map((m) => mensajeParaVista(f.id, m.leyendo && leyendoParaVista([m], Date.now())?.vencido
+      ? (({ leyendo: _l, ...resto }) => ({ ...resto, texto: TEXTO_LECTURA_CORTADA }))(m) : m)),
     piezas: f.piezas,
     docs: f.documentos.map(adjuntoDe),
     // Lo guardado antes del 17/10/2026 sin los avisos del embudo de entonces (el «43%» sin fuente, tarjeta #888).
@@ -161,6 +166,7 @@ export function vistaDe(f: FilaOffer, nombres: NombresSesion = {}): OfferSesionV
     ligada: ligadaParaVista(f, nombres.ligada),
     guardadaEn: nombres.guardadaEn ?? [],
     armando: armadoParaVista(f.armado, Date.now()),
+    leyendo: leyendoParaVista(f.mensajes, Date.now()),
   };
 }
 
