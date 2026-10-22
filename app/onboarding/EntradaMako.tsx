@@ -16,9 +16,9 @@
 // Con movimiento reducido: MaKo quieta, el saludo y el botón; al tocarla, el chat.
 // ⚠️ La capa empieza DEBAJO de la barra de «Inspeccionar» (`--barra-agencia`), como el chat.
 //
-// Y AL ABRIR LA APP EN EL TELÉFONO (21/10/2026, Martín: «tampoco veo me haya salido la animación de la criatura, la misma
-// del onboarding. Al iniciar la app en mobile»): la MISMA entrada, montada por app/m/_ui/ShellM.tsx una vez por apertura,
-// que al tocarla vuela a su lugar en la barra de abajo (`destino`: el Ops Center). Lo de abajo no cambia para el onboarding.
+// Al abrir la app en el teléfono la montó ShellM del 21/10 al 22/10/2026; desde el 22/10 esa entrada es otra pieza
+// (app/m/_ui/EntradaApp.tsx): tiene que estar en el primer HTML y empezar igual al splash del sistema, y ésta se cargaba
+// después de hidratar. `destino` (adónde vuela) queda para quien la monte fuera del onboarding.
 // =============================================================================
 
 import { useCallback, useEffect, useRef, useState } from 'react';

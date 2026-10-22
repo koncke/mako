@@ -26,6 +26,7 @@ import { contextoMovil } from '@/lib/movil-guard';
 import { barraMovil } from '@/lib/movil-rutas';
 import { CAPTURA_TEMPRANA } from '@/lib/movil-instalar';
 import { TEMA_ANTES_DE_PINTAR } from './_ui/tema';
+import { ARRANQUE_ANTES_DE_PINTAR } from './_ui/entrada';
 import { inicialesM } from './_ui/formato';
 import { leerPerfil } from '@/lib/perfil';
 
@@ -70,6 +71,9 @@ export default async function LayoutMovil({ children }: { children: ReactNode })
           tienen que existir antes del primer pintado y antes de que hidrate React. */}
       <script dangerouslySetInnerHTML={{ __html: TEMA_ANTES_DE_PINTAR }} />
       <script dangerouslySetInnerHTML={{ __html: CAPTURA_TEMPRANA }} />
+      {/* La entrada de MaKo (ShellM → EntradaApp) viene en este mismo HTML: si ya salió en esta apertura, este script la
+          apaga antes del primer cuadro, y la centra como el splash del sistema (app/m/_ui/entrada.ts). */}
+      <script dangerouslySetInnerHTML={{ __html: ARRANQUE_ANTES_DE_PINTAR }} />
       <ShellM
         barra={barra}
         badges={badges}
