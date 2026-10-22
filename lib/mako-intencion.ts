@@ -449,8 +449,8 @@ export function esPedidoSobreLead(texto: string): PedidoSobreLead | null {
 /** El objeto «link de pago»: un link, un checkout, cobrar por una pasarela. */
 const OBJETO_LINK_PAGO = /\blinks? (?:de|para) (?:pago|cobro|pagar)\b|\bcheckout\b|\blinks? de (?:stripe|mercado ?pago)\b/;
 const NOMBRA_PASARELA = /\b(?:stripe|mercado ?pago)\b/;
-/** Devolver plata: «reembolsale», «el reembolso», «devolvele la plata», «hacele la devolución». */
-const OBJETO_REEMBOLSO = /\breembols\w*|\bdevolucion(?:es)?\b|\b(?:devolve|devuelve)\w* (?:el|la|su|los|sus) (?:pagos?|cobros?|plata|dinero)\b/;
+/** Devolver plata: «reembolsale», «el reembolso», «devolvele la plata», «hacele la devolución». Vive en lib/mako-intencion-app.ts
+ *  (`OBJETO_REEMBOLSO`): la puerta de las destructivas de la app también lo mira (`pideQuitar`), y este módulo ya importa de ése. */
 const OBJETO_SUSCRIPCION = /\bsuscripci(?:on|ones)\b/;
 /** Dar de baja: «cancelá», «dale de baja», «cortale», «anulá». */
 const VERBO_BAJA = /\b(?:cancel\w*|de baja|cort\w*|anul\w*|deten\w*|fren\w*)\b/;
@@ -1342,7 +1342,7 @@ export function avisoDeDuda(v: VeredictoIntencion): string {
 // `toolsParaIntencion` aplica a la duda).
 
 import type { Area } from './api-mako/tipos';
-import { pideHacerAlApp, familiasDe } from './mako-intencion-app';
+import { OBJETO_REEMBOLSO, pideHacerAlApp, familiasDe } from './mako-intencion-app';
 
 export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   general: /\b(objetivos?|metas? del (mes|trimestre)|kpis?|sem[aá]foro|c[oó]mo (voy|vamos|va el negocio)|trimestre)/i,
