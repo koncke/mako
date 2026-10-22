@@ -152,7 +152,9 @@ test('la marca del gasto del negocio se reconoce, y una fila de MaKo no', () => 
 
 test('la llamada con la clave del negocio se registra con la marca PRIMERO', () => {
   const b = cuerpoDelIntento();
-  assert.match(b, /recordUsage\([^)]*\[MOTIVO_CLAVE_DEL_NEGOCIO, /, 'la marca tiene que ir al principio del motivo');
+  assert.match(b, /recordUsage\([^)]*\[marcaDelGasto\(permiso\), /, 'la marca tiene que ir al principio del motivo');
+  // Y la marca es la del negocio, salvo que su clave sea el crédito de Max de la plataforma (revisión del lote 2).
+  assert.match(sinComentarios(leer('lib/anthropic.ts')), /const marcaDelGasto = \(permiso: PermisoClaveDelNegocio\): string =>\s*permiso\.esCredito \? `\$\{MOTIVO_CREDITO_PLATAFORMA\} \(su clave es el crédito\)` : MOTIVO_CLAVE_DEL_NEGOCIO;/);
 });
 
 test('el gasto de MaKo (lib/costos-ia.ts) no suma lo que pagó un negocio con su clave', () => {

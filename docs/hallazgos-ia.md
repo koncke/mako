@@ -5552,3 +5552,28 @@ TODAS 429 (0 respuestas), OpenRouter 12 llamadas y su modelo gratis caducó tres
   fila del crédito en la plataforma, o se rota dejando viva la vieja que tiene el ws10, el Plan del ws10 vuelve a pagar con
   él. Hace falta una marca que no se borre, por ejemplo las huellas de las claves del crédito guardadas aparte, o una marca
   «la paga la plataforma» en la fila del ws10.
+
+### La revisión del lote 2 (Integración, 22/10/2026), y cómo quedó
+
+- **El crédito de Martín ya no se reconoce sólo por su valor.** La decisión fue del Cerebro, textual: «que no dependa del
+  valor. Marcá la credencial del ws10 con una marca explícita… que se lee aunque la fila de la plataforma no exista».
+  - **El problema:** borrada o rotada la fila `ANTHROPIC_CREDITO_CUENTA2` del ws9, el ws10 volvía a elegir Sonnet sobre el
+    crédito, a pagar su Plan con él, y ese gasto se anotaba «del negocio», fuera del costo de MaKo y sin verse.
+  - **La marca** (lib/credito-marca.ts) vive en los ajustes del negocio (`ia.su_claude.credito_de`): la HUELLA de su clave
+    y de qué cuenta es.
+  - **Quién la lee:** la puerta 2, `planConSuClave` y la tarjeta. Cuando la puerta 2 reconoce el crédito por su valor y
+    falta la marca, la escribe.
+  - **El gasto** de esa clave se anota como del crédito de la plataforma (`marcaDelGasto`), así que se ve aparte.
+  - **El 22/10 se escribió la del ws10** (…CUENTA2), el único negocio con una clave del crédito. El test
+    (tests/credito-marca.test.ts) borra la fila de la plataforma y exige que el ws10 haga exactamente lo mismo.
+  - **Regla:** algo que decide plata no se reconoce sólo comparando contra una fila que alguien puede borrar.
+- **«Importar al plan» pagaba fuera del Plan.**
+  - **La causa:** `importar-en-segundo-plano` leía las fotos y los PDF escaneados con la feature por default de
+    `archivoATexto` («Importar al plan»). Esa feature no es del Plan, porque también la usan el CRM, el chat y el Video
+    Generator.
+  - **El arreglo:** el Plan pasa `plan-importar`, que va en `FEATURES_DEL_PLAN`. El barrido del test ahora falla con un
+    `archivoATexto(` sin feature en un archivo del Plan.
+- **Mistral nombrada tapaba parámetros de links** (el `pwd=` de un Zoom junto a «Av. Gabriela Mistral»). Ahora un id pegado a
+  un link no cuenta: después de `=`, `/`, `?`, `&`, `#`, o seguido de `.`.
+- **Una fila de IA ilegible en el ws9 apagaría la IA propia de todos los negocios** (por `ilegibleTira`). Se miró antes de
+  subir: 22 de 22 filas legibles. El mensaje ya no dice «la base no contestó», que en ese caso era falso.

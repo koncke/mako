@@ -62,7 +62,9 @@ const PROPIAS_ANTES: ReglaDeClave[] = [
  * Una clave de Mistral: 32 alfanuméricos con mayúscula, minúscula y dígito, sin nada pegado (ni `_`) a los lados. El borde y
  * el largo exacto se miran PRIMERO (baratos, y fallan enseguida adentro de una tirada larga); las tres clases, después.
  */
-const TOKEN_MISTRAL = '(?<![A-Za-z0-9_])(?=[A-Za-z0-9]{32}(?![A-Za-z0-9_]))(?=[A-Za-z0-9]{0,31}[a-z])(?=[A-Za-z0-9]{0,31}[A-Z])(?=[A-Za-z0-9]{0,31}[0-9])[A-Za-z0-9]{32}';
+// Ni pegado a un link: después de `=`, `/`, `?`, `&` o `#`, o seguido de `.`, es un parámetro o un camino, no una clave
+// pegada («…zoom.us/j/1?pwd=<32>.1» junto a «Av. Gabriela Mistral», revisión del lote 2).
+const TOKEN_MISTRAL = '(?<![A-Za-z0-9_=/?&#])(?=[A-Za-z0-9]{32}(?![A-Za-z0-9_.]))(?=[A-Za-z0-9]{0,31}[a-z])(?=[A-Za-z0-9]{0,31}[A-Z])(?=[A-Za-z0-9]{0,31}[0-9])[A-Za-z0-9]{32}';
 const MISTRAL = '[Mm][Ii][Ss][Tt][Rr][Aa][Ll]';
 
 /**
