@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  congelarPlan, cuentaDelCobro, cuentasDePasarelas, cuentasValidas, mismoCentavo, patchDeEdicion, pendienteDelPlan, planCongeladoDe, planDelCobro, planDelProducto, productoDeFila,
+  congelarPlan, cuentaDelCobro, cuentasDePasarelas, cuentasValidas, decidirBajaDelPlan, mismoCentavo, patchDeEdicion, pendienteDelPlan, planCongeladoDe, planDelCobro, planDelProducto, productoDeFila,
   productoValido, proveedorDeCuenta, vinculoDelPago,
   type PlanCongelado, type VinculoCobro,
 } from '../lib/cobro-etapa';
@@ -161,7 +161,8 @@ test('medias 3 y 4: el trato se reclama antes de armarse; el que pierde relee o 
 // Media 5 · Rotura: el reembolso sin dar de baja el plan que armó: 1 fallo.
 test('media 5: devuelto el primer pago, las cuotas del plan que armó dejan de ser deuda', () => {
   const c = sinComentarios(leer('lib/cobros.ts'));
-  assert.match(c, /const \{ darDeBajaCliente \} = await import\('\.\/pagos-baja'\);\s*const r = await darDeBajaCliente\(c\.lead_id, NOMBRE_PASARELA\[c\.proveedor\], plan\.pagoEn\);\s*if \(r\.ok\) await marcarBajaPorReembolso\(plan\.cobroId, true\);/);
+  // Desde la tercera revisión: la baja es SÓLO de las cuotas del plan (`soloIds`), y queda anotado quién la disparó.
+  assert.match(c, /const \{ darDeBajaCliente \} = await import\('\.\/pagos-baja'\);\s*const r = await darDeBajaCliente\(c\.lead_id, NOMBRE_PASARELA\[c\.proveedor\], plan\.pagoEn, \{ soloIds: d\.ids \}\);\s*if \(r\.ok\) await marcarBajaPorReembolso\(plan\.cobroId, true, c\.id\);/);
 });
 
 // Media 6 · Rotura: editar con la fila entera de `productoValido` (sin `patchDeEdicion`): 1 fallo. Pisar el plazo sin que venga: 1 fallo.
@@ -223,18 +224,19 @@ test('media 1: el plazo de la suscripción y su reapertura van ANTES del trato (
   assert.ok(c.indexOf('await reabrirSuscripcionDelLead(actual, autor);') < trato, 'la reapertura');
 });
 
-// Media 2 · Rotura: dar de baja sin mirar si quedan pagos cobrados en el trato: 1 fallo.
-test('media 2: devolver el primer pago no borra la deuda si otro pago sostiene la compra', () => {
+// Media 2 · La decisión es `decidirBajaDelPlan` (con test de comportamiento, abajo: los casos de la tercera revisión). Rotura:
+// el reembolso sin pedir otro pago del producto: 1 fallo.
+test('media 2: devolver el primer pago no borra la deuda si algo sigue pagando esa compra', () => {
   const c = sinComentarios(leer('lib/cobros.ts'));
-  // Desde la segunda revisión, sólo las cuotas de ESE plan (sus ids) sostienen la compra.
-  assert.match(c, /const sostienen = delTrato\.filter\(\(q\) => q\.pagado && \(!plan\.cuotasPlan\.length \|\| plan\.cuotasPlan\.includes\(Number\(q\.id\)\)\)\);\s*if \(sostienen\.length\) \{/);
+  assert.match(c, /const otroPago = plan\.productoId != null && await otroCobroPagadoDelProducto\(c\.lead_id, plan\.productoId, plan\.cobroId\);\s*const d = decidirBajaDelPlan\(\{ cuotasPlan: plan\.cuotasPlan, cuotasDelTrato: await getPagosByLead\(c\.lead_id, plan\.pagoEn\), otroPagoDelProducto: otroPago \}\);/);
 });
 
 // Media 3 · Roturas: la casa sin el pendiente: 1 fallo. El cobro sin el pendiente en su motivo: 1 fallo.
 test('media 3: el plan que no se arma se dice en el historial y en el cobro, con cuántas cuotas faltan', () => {
   const s = sinComentarios(leer('lib/cobro-etapa-server.ts'));
-  assert.match(s, /\} else \{\s*base\.pendiente = pendienteDelPlan\(plan, cuotas, lead\?\.estado_lead === 'ganado'/, 'la casa');
-  assert.match(s, /if \(plan && !armoPlan\) base\.pendiente = pendienteDelPlan\(plan, await getPagosByLead\(leadId, crm\),/, 'un CRM agregado');
+  assert.match(s, /pendienteCasa = \(saldaInicial\) => pendienteDelPlan\(plan, cuotas, motivo, saldaInicial\);/, 'la casa');
+  assert.match(s, /if \(pendienteCasa\) base\.pendiente = pendienteCasa\(pagoId != null\);/, 'la casa, sabiendo si saldó la cuota 0');
+  assert.match(s, /if \(plan && !armoPlan\) base\.pendiente = pendienteDelPlan\(plan, await getPagosByLead\(leadId, crm\), [^\n]+, pagoId != null\);/, 'un CRM agregado');
   const c = sinComentarios(leer('lib/cobros.ts'));
   assert.match(c, /if \(trato\?\.pendiente && trato\.nuevo\) \{\s*await logLeadEvent\(actual\.lead_id, 'Pago registrado', trato\.pendiente, autor\);\s*actual = \(await actualizar\(ws, c\.id, \{ motivo: trato\.pendiente\.slice\(0, 300\) \}\)\) \?\? actual;/);
 });
@@ -244,7 +246,8 @@ test('media 3: el plan que no se arma se dice en el historial y en el cobro, con
 test('bajas 1, 2 y 3: «en curso» no es una falla, una devolución fallida deshace la baja, y la API cobra lo aprobado', () => {
   const c = sinComentarios(leer('lib/cobros.ts'));
   assert.match(c, /if \(!\(e instanceof TratoEnCursoError\)\) \{\s*await actualizar\(ws, c\.id, \{ motivo: `El pago entró pero no pude prepararlo/);
-  assert.match(c, /if \(armado\?\.bajaPorReembolso\) \{\s*const \{ deshacerBajaCliente \} = await import\('\.\/pagos-baja'\);/);
+  // Desde la tercera revisión: los planes que dio de baja ESTE cobro (sea el primero o una cuota), sólo sus cuotas.
+  assert.match(c, /for \(const plan of await planesDadosDeBajaPor\(c\.lead_id, c\.id\)\) \{\s*const \{ deshacerBajaCliente \} = await import\('\.\/pagos-baja'\);\s*const r = await deshacerBajaCliente\(c\.lead_id, NOMBRE_PASARELA\[c\.proveedor\], plan\.pagoEn, \{ soloIds: plan\.cuotasPlan \}\);/);
   const api = sinComentarios(leer('lib/api-mako/areas/cobros.run.ts'));
   assert.match(api, /payload: \{ leadId: lead\.id, productoId: prod\.id, pasarela, montoUsd: enCuotas\?\.primerPagoUsd \?\? prod\.monto_usd \},/);
   assert.match(api, /if \(payload\.montoUsd != null\) \{\s*const ahora = await cobroDelProducto\(Number\(payload\.productoId\)\)\.catch\(\(\) => null\);\s*const cobraria = ahora\?\.primerPagoUsd \?\? null;\s*if \(cobraria == null \|\| Math\.round\(cobraria \* 100\) !== Math\.round\(Number\(payload\.montoUsd\) \* 100\)\) \{\s*return \{ ok: false,/);
@@ -262,13 +265,16 @@ test('un pago ya asentado sin trato no arma uno nuevo (la venta doble)', () => {
 test('el pendiente cuenta las cuotas que YA están: un pago repetido no pide cargar deuda inventada', () => {
   const plan = { cobro_inicial_usd: 333.34, monto_cuota_usd: 333.33, total_cuotas: 2, dia_de_pago: 22 };
   const cuota = (extra: Record<string, unknown> = {}) => ({ pagado: false, monto_usd: '333.33', fecha_esperada: '2026-11-22', baja_at: null, ...extra });
-  assert.match(pendienteDelPlan(plan, [], 'ya era cliente'), /faltan 2 cuotas de US\$ 333\.33 \(ya era cliente\): cárgalas en Pagos/);
-  assert.match(pendienteDelPlan(plan, [cuota()], 'x'), /faltan 1 cuota de US\$ 333\.33 \(x\): cárgala en Pagos/);
-  const repetido = pendienteDelPlan(plan, [cuota(), cuota({ fecha_esperada: '2026-12-22' })], 'x');
-  assert.doesNotMatch(repetido, /faltan/, 'las dos cuotas ya existen: nada que cargar');
-  assert.match(repetido, /ya están cargadas en Pagos .*puede ser un pago repetido/);
-  // Las cobradas, las de baja y las devueltas (sin vencimiento) no son «ya cargadas».
-  assert.match(pendienteDelPlan(plan, [cuota({ pagado: true }), cuota({ baja_at: '2026-10-22' }), cuota({ fecha_esperada: null })], 'x'), /faltan 2 cuotas/);
+  assert.match(pendienteDelPlan(plan, [], 'ya era cliente') ?? '', /faltan 2 cuotas de US\$ 333\.33 \(ya era cliente\): cárgalas en Pagos/);
+  // Con cuotas del monto en el trato, NO se afirma de quién son (tercera revisión): pueden ser de otra compra.
+  const una = pendienteDelPlan(plan, [cuota()], 'x') ?? '';
+  assert.match(una, /hay 1 cuota impaga de US\$ 333\.33: si son de esta compra, faltan 1 cuota; si no, faltan 2 cuotas/);
+  const dos = pendienteDelPlan(plan, [cuota(), cuota({ fecha_esperada: '2026-12-22' })], 'x') ?? '';
+  assert.match(dos, /si son de esta compra, puede ser un pago repetido; si no, faltan 2 cuotas\. Revísalo antes de cargar nada/);
+  // Las cobradas, las de baja y las devueltas (sin vencimiento) no cuentan.
+  assert.match(pendienteDelPlan(plan, [cuota({ pagado: true }), cuota({ baja_at: '2026-10-22' }), cuota({ fecha_esperada: null })], 'x') ?? '', /faltan 2 cuotas de US\$ 333\.33 \(x\): cárgalas/);
+  // Este pago saldó la cuota 0 de un plan que ya estaba: es su inicial, nada que decir (tercera revisión, baja).
+  assert.equal(pendienteDelPlan(plan, [cuota(), cuota()], 'x', true), null);
 });
 
 // Bajas · Roturas: el plazo del lead otra vez sólo con `nuevo`: 1 fallo. El aviso del link anulado sin decirse en el
@@ -283,4 +289,35 @@ test('bajas de la segunda revisión: el plazo llega al lead, el link anulado se 
   assert.match(c, /if \(cuota && d\.moneda === 'USD' && !mismoCentavo\(d\.monto, cuota\.monto_usd\)\) \{/);
   const s = sinComentarios(leer('lib/cobro-etapa-server.ts'));
   assert.match(s, /armoPlan: t\.armoPlan, cuotasPlan: t\.cuotasPlan \};/, 'las cuotas del plan quedan en el cobro');
+});
+
+// ── La tercera revisión de plata (22/10/2026, revision-vincular-cobro-2210-tercera.md): de comportamiento ──────────────
+
+// Roturas: la baja con todas las impagas del trato (sin filtrar por los ids del plan): 1 fallo. Sin el sostén de otro pago
+// del producto: 1 fallo. Sin «cerrar» (un plan sin nada que dar de baja da `baja` vacía o `sostiene`): 1 fallo.
+test('tercera revisión: la baja de un plan devuelto toca SÓLO sus cuotas, otro pago del producto la sostiene, y lo vacío se cierra', () => {
+  const q = (id: number, extra: Partial<{ pagado: boolean; fecha_esperada: string | null; baja_at: string | null }> = {}) =>
+    ({ id, pagado: false, fecha_esperada: '2026-11-22', baja_at: null, ...extra });
+  // Caso A · otra compra en el mismo trato: el plan de A (10, 11, 12; la 10 devuelta) y la compra B (13 cobrada, 14 y 15
+  // cargadas a mano). Devuelto A: se dan de baja la 11 y la 12, NUNCA la 14 ni la 15.
+  const tratoA = [q(10, { fecha_esperada: null }), q(11), q(12), q(13, { pagado: true }), q(14), q(15)];
+  assert.deepEqual(decidirBajaDelPlan({ cuotasPlan: [10, 11, 12], cuotasDelTrato: tratoA, otroPagoDelProducto: false }), { accion: 'baja', ids: [11, 12] });
+  // Caso B · el pago repetido devuelto «al revés»: X armó el plan y se devolvió; Y (el mismo producto) sigue pagado y entró
+  // suelto. Otro cobro pagado del producto sostiene la compra: no se borran los US$666,66.
+  const tratoB = [q(20, { fecha_esperada: null }), q(21), q(22), q(23, { pagado: true })];
+  assert.deepEqual(decidirBajaDelPlan({ cuotasPlan: [20, 21, 22], cuotasDelTrato: tratoB, otroPagoDelProducto: true }), { accion: 'sostiene', por: 'otro-pago' });
+  // Una cuota del plan todavía cobrada también lo sostiene.
+  assert.deepEqual(decidirBajaDelPlan({ cuotasPlan: [20, 21, 22], cuotasDelTrato: [q(20, { fecha_esperada: null }), q(21, { pagado: true }), q(22)], otroPagoDelProducto: false }), { accion: 'sostiene', por: 'cuota' });
+  // Caso C · nada del plan queda por dar de baja (todo devuelto o ya de baja): se cierra, para no volver a pasar por él.
+  assert.deepEqual(decidirBajaDelPlan({ cuotasPlan: [30, 31], cuotasDelTrato: [q(30, { fecha_esperada: null }), q(31, { baja_at: '2026-10-01' }), q(32)], otroPagoDelProducto: false }), { accion: 'cerrar' });
+  // Sin ids (un trato de antes): el lado seguro, no se borra deuda que no se sabe de quién es.
+  assert.deepEqual(decidirBajaDelPlan({ cuotasPlan: [], cuotasDelTrato: [q(40)], otroPagoDelProducto: false }), { accion: 'sostiene', por: 'sin-ids' });
+});
+
+// Roturas: `darDeBajaCliente` sin `soloIds`: 1 fallo. `deshacerBajaCliente` sin `soloIds`: 1 fallo. Lo vacío sin cerrar: 1 fallo.
+test('tercera revisión: la baja y su deshacer aceptan los ids, y un plan sin nada que dar de baja queda cerrado', () => {
+  const b = sinComentarios(leer('lib/pagos-baja.ts'));
+  assert.match(b, /const objetivo = cuotasParaBaja\(await getPagosByLead\(leadId, crm\)\)\.filter\(\(q\) => !opts\.soloIds \|\| opts\.soloIds\.includes\(Number\(q\.id\)\)\);/);
+  assert.match(b, /const deBaja = \(await getPagosByLead\(leadId, crm\)\)\.filter\(esCuotaDeBaja\)\.filter\(\(q\) => !opts\.soloIds \|\| opts\.soloIds\.includes\(Number\(q\.id\)\)\);/);
+  assert.match(sinComentarios(leer('lib/cobros.ts')), /if \(d\.accion === 'cerrar'\) \{ await marcarBajaPorReembolso\(plan\.cobroId, true, null\); continue; \}/);
 });

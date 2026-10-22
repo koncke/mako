@@ -1059,3 +1059,21 @@ escribiéndole a quien ya pagó (no se midió). La regla de la casa es de CRM (l
 **Sin hacer:** la marca `trato.ventaEn` se escribe después de la venta (dos escrituras): un corte de milisegundos entre las
 dos deja el plan sin armar, y lo dice el pendiente. Un plan que el asistente de Ganado reparte con otro centavo en el
 inicial (333,33 en vez de 333,34) ya no lo salda el link del producto: entra como pago nuevo y el pendiente avisa.
+
+### La tercera revisión de plata: decidir con las cuotas del plan y después dar de baja todo el trato (22/10/2026)
+
+- **Angostar la decisión destapó la acción amplia.** La segunda revisión pasó a decidir mirando sólo las cuotas del plan,
+  pero `darDeBajaCliente` seguía dando de baja TODAS las impagas del trato y anulando sus links: devolver el producto A se
+  llevaba US$400 de deuda de la compra B, cargada en la misma casa. Antes, el chequeo amplio (cualquier fila cobrada frenaba)
+  lo tapaba. **La regla:** si la decisión se angosta, la acción se angosta con ella. La baja y su deshacer aceptan los ids
+  (`soloIds`, lib/pagos-baja.ts) y el reembolso pasa SÓLO los del plan.
+- **El pago repetido devuelto «al revés»** (devuelven el que armó el plan y queda el repetido, que entró suelto y no es una
+  cuota del plan) borraba US$666,66 a quien pagó el producto una vez. Otro cobro pagado del mismo producto en ese lead
+  sostiene la compra.
+- **Un plan sin nada que dar de baja quedaba abierto para siempre**, y un reembolso de otra cosa meses después volvía a
+  pasar por él. Ahora se cierra.
+- La decisión es una función pura con test de COMPORTAMIENTO con esos tres casos (`decidirBajaDelPlan`): los tests de antes
+  eran regex sobre la fuente y pasaban igual con el bug.
+- Una devolución fallida deshace la baja que disparó ESE cobro (`trato.bajaPor`), aunque sea la cuota 1 y no el primer pago.
+- El pendiente no afirma de quién son las cuotas del monto que ya están (pueden ser de otra compra), y si el pago saldó la
+  cuota 0 de un plan que ya estaba, no dice nada: decía «puede ser repetido» a un pago legítimo.

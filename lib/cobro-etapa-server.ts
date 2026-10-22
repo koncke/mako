@@ -252,37 +252,59 @@ const tratoGuardado = (t: Record<string, unknown>): TratoDelPago => {
 };
 
 /**
- * Lo que el trato de un cobro dice de su plan: para el reembolso total del primer pago (y su devolución fallida). null = no
- * se armó ninguno. `bajaPorReembolso`: si un reembolso ya lo dio de baja (lo deshace una devolución que falla).
- */
-export async function planArmadoPorElCobro(cobroId: number): Promise<{ pagoEn: number | null; bajaPorReembolso: boolean; cuotasPlan: number[] } | null> {
-  const m = await marcaDelCobro(cobroId);
-  if (m === 'sin-0326' || m.estado !== 'listo' || !m.trato) return null;
-  const t = tratoGuardado(m.trato);
-  return t.armoPlan ? { pagoEn: t.pagoEn, bajaPorReembolso: m.trato.bajaPorReembolso === true, cuotasPlan: t.cuotasPlan } : null;
-}
-
-/**
  * Los planes del lead cuyo primer pago está DEVUELTO y que todavía no se dieron de baja: lo que un reembolso total vuelve a
  * mirar (segunda revisión de plata: devolver primero el primer pago y después la cuota 1 dejaba la cuota 2 como deuda,
  * porque la baja sólo se miraba al devolver el primero). Sin la 0326, ninguno.
  */
-export async function planesDevueltosDelLead(leadId: number): Promise<Array<{ cobroId: number; pagoEn: number | null; cuotasPlan: number[] }>> {
-  const { data, error } = await (await getTenantDb()).from('cobros').select('id, trato').eq('lead_id', leadId).eq('estado', 'reembolsado').eq('trato_estado', 'listo');
+export async function planesDevueltosDelLead(leadId: number): Promise<Array<{ cobroId: number; productoId: number | null; pagoEn: number | null; cuotasPlan: number[] }>> {
+  const { data, error } = await (await getTenantDb()).from('cobros').select('id, producto_id, trato').eq('lead_id', leadId).eq('estado', 'reembolsado').eq('trato_estado', 'listo');
   if (error) {
     if (falta0326(error.message) || /trato/.test(error.message)) return [];
     throw new Error(`No pude leer los planes devueltos del lead ${leadId}: ${error.message}`);
   }
-  return ((data ?? []) as Array<{ id: number; trato: Record<string, unknown> | null }>)
+  return ((data ?? []) as Array<{ id: number; producto_id: number | null; trato: Record<string, unknown> | null }>)
     .filter((f) => f.trato && f.trato.armoPlan === true && f.trato.bajaPorReembolso !== true)
+    .map((f) => {
+      const t = tratoGuardado(f.trato!);
+      return { cobroId: Number(f.id), productoId: f.producto_id == null ? null : Number(f.producto_id), pagoEn: t.pagoEn, cuotasPlan: t.cuotasPlan };
+    });
+}
+
+/**
+ * ¿Hay OTRO cobro pagado del mismo producto para ese lead? (tercera revisión de plata, caso B: el pago repetido devuelto
+ * «al revés»: el negocio devuelve el que armó el plan y deja el repetido, que entró suelto y no es una cuota del plan; sin
+ * esto se borraban US$666,66 de deuda a quien pagó el producto una vez). Tira si no puede leer.
+ */
+export async function otroCobroPagadoDelProducto(leadId: number, productoId: number, menosCobro: number): Promise<boolean> {
+  const { data, error } = await (await getTenantDb()).from('cobros').select('id').eq('lead_id', leadId).eq('producto_id', productoId)
+    .eq('estado', 'pagado').neq('id', menosCobro).limit(1);
+  if (error) throw new Error(`No pude ver si el producto ${productoId} tiene otro pago: ${error.message}`);
+  return (data ?? []).length > 0;
+}
+
+/**
+ * Los planes que dio de baja el reembolso de ESTE cobro (`trato.bajaPor`): lo que deshace su devolución fallida. Puede ser
+ * el plan de otro cobro (la baja la disparó el reembolso de la cuota 1, que tiene su propio cobro).
+ */
+export async function planesDadosDeBajaPor(leadId: number, cobroId: number): Promise<Array<{ cobroId: number; pagoEn: number | null; cuotasPlan: number[] }>> {
+  const { data, error } = await (await getTenantDb()).from('cobros').select('id, trato').eq('lead_id', leadId).eq('trato_estado', 'listo');
+  if (error) {
+    if (falta0326(error.message) || /trato/.test(error.message)) return [];
+    throw new Error(`No pude leer los planes del lead ${leadId}: ${error.message}`);
+  }
+  return ((data ?? []) as Array<{ id: number; trato: Record<string, unknown> | null }>)
+    .filter((f) => f.trato && f.trato.bajaPorReembolso === true && Number(f.trato.bajaPor) === cobroId)
     .map((f) => { const t = tratoGuardado(f.trato!); return { cobroId: Number(f.id), pagoEn: t.pagoEn, cuotasPlan: t.cuotasPlan }; });
 }
 
-/** Anota en el trato del cobro si un reembolso dio de baja su plan (lo lee `planArmadoPorElCobro`). Tira si no puede. */
-export async function marcarBajaPorReembolso(cobroId: number, valor: boolean): Promise<void> {
+/**
+ * Anota en el trato del cobro si su plan quedó cerrado por un reembolso (`bajaPorReembolso`) y QUIÉN lo dio de baja
+ * (`bajaPor`, el cobro reembolsado; null = no había nada que dar de baja). Tira si no puede.
+ */
+export async function marcarBajaPorReembolso(cobroId: number, valor: boolean, bajaPor: number | null = null): Promise<void> {
   const m = await marcaDelCobro(cobroId);
   if (m === 'sin-0326' || !m.trato) return;
-  const { error } = await (await getTenantDb()).from('cobros').update({ trato: { ...m.trato, bajaPorReembolso: valor } }).eq('id', cobroId);
+  const { error } = await (await getTenantDb()).from('cobros').update({ trato: { ...m.trato, bajaPorReembolso: valor, bajaPor: valor ? bajaPor : null } }).eq('id', cobroId);
   if (error) throw new Error(`No pude anotar la baja del plan del cobro ${cobroId}: ${error.message}`);
 }
 
@@ -412,14 +434,16 @@ async function armarTrato(c: Cobro, leadId: number, v: VinculoCobro | null, plan
         ? 'Su trato en ese CRM estaba marcado «sin cobro»: el pago entró igual, sin cambiar la venta.'
         : 'Ya tenía una venta en ese CRM: el pago entró ahí sin armar el plan del producto.';
     }
-    if (plan && !armoPlan) base.pendiente = pendienteDelPlan(plan, await getPagosByLead(leadId, crm), nuestra ? 'ese CRM ya tenía pagos cobrados' : 'ese CRM ya tenía otra venta');
-    return { ...base, pagoEn: crm, pagoId: await cuotaDelPrimerPago(leadId, crm, c.monto_usd), ganaEnCasa: false, montoVenta, armoPlan, cuotasPlan };
+    const pagoId = await cuotaDelPrimerPago(leadId, crm, c.monto_usd);
+    if (plan && !armoPlan) base.pendiente = pendienteDelPlan(plan, await getPagosByLead(leadId, crm), nuestra ? 'ese CRM ya tenía pagos cobrados' : 'ese CRM ya tenía otra venta', pagoId != null);
+    return { ...base, pagoEn: crm, pagoId, ganaEnCasa: false, montoVenta, armoPlan, cuotasPlan };
   }
 
   // LA CASA: como siempre (`ganarLead`), con el precio del producto como venta. Si el cobro armó un plan y la casa no tiene
   // venta ni nada cobrado, se arma su plan (o se completa, si un intento anterior lo dejó a medias) y el pago salda la cuota 0.
   let armoPlan = false;
   let cuotasPlan: number[] = [];
+  let pendienteCasa: ((saldaInicial: boolean) => string | null) | null = null;
   if (plan) {
     const lead = await getLead(leadId);
     const cuotas = await getPagosByLead(leadId);
@@ -430,10 +454,13 @@ async function armarTrato(c: Cobro, leadId: number, v: VinculoCobro | null, plan
     } else {
       // ⚠️ EL PLAN QUE NO SE ARMA SE DICE (revisión de plata, media 3): un cliente que ya ganó y compra otro producto en
       // cuotas pagaba el primero y las demás cuotas no existían en ningún lado (ni Outstanding, ni cobranza, ni aviso).
-      base.pendiente = pendienteDelPlan(plan, cuotas, lead?.estado_lead === 'ganado' ? 'ya era cliente' : 'su CRM principal ya tenía una venta o pagos');
+      const motivo = lead?.estado_lead === 'ganado' ? 'ya era cliente' : 'su CRM principal ya tenía una venta o pagos';
+      pendienteCasa = (saldaInicial) => pendienteDelPlan(plan, cuotas, motivo, saldaInicial);
     }
   }
-  return { ...base, pagoEn: null, pagoId: await cuotaDelPrimerPago(leadId, null, c.monto_usd), ganaEnCasa: true, montoVenta, armoPlan, cuotasPlan };
+  const pagoId = await cuotaDelPrimerPago(leadId, null, c.monto_usd);
+  if (pendienteCasa) base.pendiente = pendienteCasa(pagoId != null);
+  return { ...base, pagoEn: null, pagoId, ganaEnCasa: true, montoVenta, armoPlan, cuotasPlan };
 }
 
 /** Pasa al lead a la etapa del vínculo en ese CRM. Tira si no puede: el que llama lo deja dicho sin deshacer el pago. */

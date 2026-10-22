@@ -240,21 +240,51 @@ export function planDelCobro(
 }
 
 /**
- * Lo que dice el trato cuando el plan de un pago NO se armó (revisión de plata, media 3), contando las cuotas que YA están
- * en ese trato (su segunda revisión): con un pago repetido, o un plan que el closer cargó a mano, «faltan 2 cuotas:
- * cárgalas» llevaba a cargar US$666,66 de deuda inventada. Cuenta las impagas, no dadas de baja y con vencimiento (las
- * devueltas no tienen), del monto de la cuota del plan.
+ * Lo que dice el trato cuando el plan de un pago NO se armó (revisión de plata, media 3). null si este pago saldó la cuota 0
+ * de un plan que ya estaba (`saldaInicial`): el plan existía y éste es su inicial, nada falta (tercera revisión: decía
+ * «puede ser un pago repetido» a un pago legítimo, e invitaba a devolverlo). Si en el trato hay cuotas impagas del monto
+ * de la cuota, NO se afirma de quién son (pueden ser de otra compra): se dice cuántas hay y qué falta en cada caso.
  */
 export function pendienteDelPlan(
   plan: PlanDelProducto,
   cuotas: ReadonlyArray<{ pagado: boolean; monto_usd: number | string; fecha_esperada: string | null; baja_at?: string | null }>,
   motivo: string,
-): string {
+  saldaInicial = false,
+): string | null {
+  if (saldaInicial) return null;
   const n = plan.total_cuotas + 1;
+  const c = plan.total_cuotas;
+  const usd = `US$ ${plan.monto_cuota_usd.toFixed(2)}`;
+  const cuotasDe = (k: number) => `${k} cuota${k === 1 ? '' : 's'}`;
   const ya = cuotas.filter((q) => !q.pagado && !q.baja_at && q.fecha_esperada != null && mismoCentavo(q.monto_usd, plan.monto_cuota_usd)).length;
-  if (ya >= plan.total_cuotas) {
-    return `Entró el primer pago de ${n}, pero sus cuotas ya están cargadas en Pagos (${motivo}): puede ser un pago repetido. Revísalo antes de cargar nada.`;
-  }
-  const faltan = plan.total_cuotas - ya;
-  return `Entró el primer pago de ${n}; faltan ${faltan} cuota${faltan === 1 ? '' : 's'} de US$ ${plan.monto_cuota_usd.toFixed(2)} (${motivo}): cárgala${faltan === 1 ? '' : 's'} en Pagos.`;
+  if (!ya) return `Entró el primer pago de ${n}; faltan ${cuotasDe(c)} de ${usd} (${motivo}): ${c === 1 ? 'cárgala' : 'cárgalas'} en Pagos.`;
+  const siSon = ya >= c ? 'puede ser un pago repetido' : `faltan ${cuotasDe(c - ya)}`;
+  return `Entró el primer pago de ${n} (${motivo}). En Pagos hay ${cuotasDe(ya)} impaga${ya === 1 ? '' : 's'} de ${usd}: si son de esta compra, ${siSon}; si no, faltan ${cuotasDe(c)}. Revísalo antes de cargar nada.`;
+}
+
+/** Una cuota del trato, lo justo para decidir la baja de un plan. */
+export type CuotaParaBajaDelPlan = { id: number; pagado: boolean; fecha_esperada: string | null; baja_at?: string | null };
+
+/**
+ * Qué hacer con el plan de un pago cuyo primer pago se DEVOLVIÓ (lo llama cada reembolso total del lead, lib/cobros.ts).
+ * Puro, con test de comportamiento (tests/cobro-etapa.test.ts: los casos de la tercera revisión de plata):
+ *   · `sostiene`: algo sigue pagando ESTA compra (una cuota del plan cobrada, u otro cobro pagado del mismo producto: el
+ *     pago repetido devuelto «al revés»). No se da de baja nada.
+ *   · `baja`: las cuotas del plan que todavía son deuda, por id. Nunca otra cuota del trato (otra compra).
+ *   · `cerrar`: no queda nada del plan para dar de baja (todo pago y devuelto, o ya de baja). Se marca cerrado, para que un
+ *     reembolso de otra cosa, meses después, no vuelva a pasar por él.
+ * Sin ids (un trato de antes de guardarlos): `sostiene` (el lado seguro: no se borra deuda que no se sabe de quién es).
+ */
+export function decidirBajaDelPlan(p: {
+  cuotasPlan: readonly number[];
+  cuotasDelTrato: readonly CuotaParaBajaDelPlan[];
+  otroPagoDelProducto: boolean;
+}): { accion: 'sostiene'; por: 'cuota' | 'otro-pago' | 'sin-ids' } | { accion: 'baja'; ids: number[] } | { accion: 'cerrar' } {
+  if (p.otroPagoDelProducto) return { accion: 'sostiene', por: 'otro-pago' };
+  if (!p.cuotasPlan.length) return { accion: 'sostiene', por: 'sin-ids' };
+  const ids = new Set(p.cuotasPlan.map(Number));
+  const delPlan = p.cuotasDelTrato.filter((q) => ids.has(Number(q.id)));
+  if (delPlan.some((q) => q.pagado)) return { accion: 'sostiene', por: 'cuota' };
+  const deuda = delPlan.filter((q) => !q.pagado && !q.baja_at && q.fecha_esperada != null).map((q) => Number(q.id));
+  return deuda.length ? { accion: 'baja', ids: deuda } : { accion: 'cerrar' };
 }
