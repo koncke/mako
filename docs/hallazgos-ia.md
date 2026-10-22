@@ -5434,3 +5434,31 @@ TODAS 429 (0 respuestas), OpenRouter 12 llamadas y su modelo gratis caducó tres
   por ninguna puerta.
 - **Sin hacer:** el Plan de un negocio que tiene sólo su PC sigue con Gemini. Con datos de clientes, ahí aplica la
   precisión del Cerebro de arriba (el plan pago).
+
+### Lo que encontró la revisión adversarial de IA15 (22/10/2026), y cómo quedó
+
+- **ALTA — `credWsEstricta` era estricta sólo frente a la base caída.** Una fila que EXISTE y no se descifra (el secreto rotó,
+  la fila se dañó, una migración de cifrado a medias) devolvía `null`. Con eso, la frontera de la puerta 2 no reconocía ni
+  el crédito de Martín ni la copia de la clave de MaKo, y el Plan del ws10 pagaba con el crédito y el de un negocio con la
+  copia pagaba con la de MaKo. Lo reprodujo con filas cifradas para otro ws. Peor aún: con la marca «del negocio», ese
+  gasto salía del de MaKo. Se arregló en dos capas:
+  - `credWsEstricta(…, { ilegibleTira: true })` en la frontera de la IA (la opción no se usa en los webhooks: ahí tirar es
+    otra decisión);
+  - la puerta 2 de una función del Plan pide la decisión del Plan, en «sí» y cierta (`planPuedePagarConSuClave`).
+  **Regla:** una lectura «estricta» tiene que tirar con TODO lo que no pudo leer, también con una fila que no descifra; y
+  una decisión de plata no se toma con la lectura de una sola capa.
+- **MEDIA — con su OpenAI, el Plan pedía 32.000 tokens de salida a gpt-4o-mini** (acepta 16.384) y fallaba siempre en las
+  llamadas grandes, anotado como fallo de SU clave. Ahora `conTechoDeSalida` (lib/ai-cheap-techo.ts) topa por modelo en
+  los tres pedidos de la capa barata.
+- **BAJA, latente — lo que no es del Plan heredaba la decisión del Plan** cuando se llamaba desde adentro de una función
+  del Plan. Ahora el contexto guarda la decisión de afuera (`deAfuera`), y lo que no es del Plan y trae su `feature`
+  vuelve a la puerta.
+- **Los tests no miraban `planConSuClave` caso por caso.** Faltaban la PC sola, la base caída, una clave ilegible y una
+  copia. Ahora están en tests/ia15-frontera.test.ts, con 10 roturas en rojo. Tres de esas roturas quedaron en verde la
+  primera vez: la del valor incierto que se recuerda no se veía porque «sí» y «no» coincidían. Se cubrieron con el ws16,
+  una copia, donde la decisión real y la incierta difieren. **Regla del test:** para ver que un «no pude saber» no se
+  recuerda, el caso tiene que ser uno donde la respuesta incierta y la real sean distintas.
+- **Sin hacer (MEDIA, para Martín):** el crédito se reconoce por su VALOR contra las claves cargadas hoy. Si se borra la
+  fila del crédito en la plataforma, o se rota dejando viva la vieja que tiene el ws10, el Plan del ws10 vuelve a pagar con
+  él. Hace falta una marca que no se borre, por ejemplo las huellas de las claves del crédito guardadas aparte, o una marca
+  «la paga la plataforma» en la fila del ws10.

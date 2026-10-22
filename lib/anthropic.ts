@@ -8,12 +8,12 @@ import 'server-only';
 import { recordUsage, type UsageInfo } from './anthropic-usage';
 import { credWs, credDelCliente, credWsEstricta, wsDelEntorno } from './credenciales';
 import {
-  permisoDeGasto, evaluarClaveDelNegocio, MOTIVO_CLAVE_DEL_NEGOCIO,
+  permisoDeGasto, evaluarClaveDelNegocio, MOTIVO_CLAVE_DEL_NEGOCIO, FEATURES_DEL_PLAN,
   evaluarCreditoDeLaPlataforma, CLAVES_CREDITO_PLATAFORMA, CREDITO_HABILITADO_PARA, MOTIVO_CREDITO_PLATAFORMA, type PermisoClaude,
   type PermisoClaveDelNegocio, CLAVE_MODELO_SU_CLAUDE, modeloDeSuClaude,
 } from './veto-claude';
 import type { ProvName } from './ai-cheap';
-import { conD6bDelPedido, pasaPorLaPuerta, soloSuIA } from './solo-su-ia';
+import { conD6bDelPedido, pasaPorLaPuerta, planPuedePagarConSuClave, soloSuIA } from './solo-su-ia';
 
 // ⛔ ACÁ NO HAY NI `MODEL` NI `ENDPOINT`, y ese es el punto entero del veto.
 //
@@ -115,6 +115,11 @@ async function exigirClaveDeLaPlataforma(key: string, feature?: string): Promise
 export async function permisoDeLaClaveDelNegocio(feature?: string): Promise<{ permiso: PermisoClaveDelNegocio } | { pausa: true } | { noPudeLeer: true } | null> {
   const clave = await credDelCliente('ANTHROPIC_API_KEY').catch(() => null);
   if (!clave) return null;
+  // ⚠️ EL PLAN, SÓLO CON LA DECISIÓN DEL PLAN EN «SÍ» Y CIERTA (revisión adversarial de IA15, 22/10/2026). La cascada prueba
+  // esta puerta en cualquier pedido, decida lo que decida el Plan: con una fila de la plataforma ilegible, la frontera no
+  // reconocía el crédito de Martín ni la copia de la clave de MaKo, y el Plan pagaba con ellas. `planConSuClave` sí los
+  // reconoce (o dice «no pude saber»), y es la que manda.
+  if (FEATURES_DEL_PLAN.includes((feature ?? '').trim()) && !(await planPuedePagarConSuClave())) return null;
   // ⚠️ «NO PUDE LEER» NO ES «NO TIENE» (revisión de IA5/IA12, 22/10/2026). Con `null`, el closing lo leía como «sin su clave»
   // y caía a `chatClaude`, que pagaba con ESA misma clave (`credWs`): Sonnet con thinking sobre la clave de un negocio que
   // eligió Haiku, sin su marca en el gasto, y en el ws10, sobre el crédito de Martín.
@@ -136,7 +141,7 @@ export async function permisoDeLaClaveDelNegocio(feature?: string): Promise<{ pe
     creditosPlataforma = [];
     // Las DOS fuentes, siempre: con el entorno puesto, la fila no se leía, y una clave rotada en la fila (o un entorno que
     // no coincide) dejaba al ws10 elegir Sonnet sobre el crédito de Martín.
-    for (const nombre of CLAVES_CREDITO_PLATAFORMA) creditosPlataforma.push(process.env[nombre]?.trim() || null, await credWsEstricta(nombre, wsSA));
+    for (const nombre of CLAVES_CREDITO_PLATAFORMA) creditosPlataforma.push(process.env[nombre]?.trim() || null, await credWsEstricta(nombre, wsSA, { ilegibleTira: true }));
   } catch { creditosPlataforma = null; }
   const v = evaluarClaveDelNegocio({ feature, clave, clavesPlataforma, pausa, model: modelo, creditosPlataforma });
   if (!v.ok) return pausa ? { pausa: true } : null;
@@ -153,8 +158,8 @@ async function clavesAnthropicDeLaPlataforma(): Promise<Array<string | null | un
     process.env.ANTHROPIC_API_KEY,
     // La fila de la que sale el ENTORNO de esta clave (`wsDelEntorno`). Hasta el 18/10 era la del ws1 (`OWNER_WS`), y
     // así la clave propia que pegara Mauricio se leía como la de la plataforma y nunca contaba como suya.
-    await credWsEstricta('ANTHROPIC_API_KEY', await wsDelEntorno('ANTHROPIC_API_KEY')),
-    await credWsEstricta('ANTHROPIC_API_KEY', await wsSuperAdmin()),
+    await credWsEstricta('ANTHROPIC_API_KEY', await wsDelEntorno('ANTHROPIC_API_KEY'), { ilegibleTira: true }),
+    await credWsEstricta('ANTHROPIC_API_KEY', await wsSuperAdmin(), { ilegibleTira: true }),
   ];
 }
 

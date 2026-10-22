@@ -4653,6 +4653,12 @@ con la clave que paga el negocio (nunca el crédito de Max de la plataforma), si
 (`planConSuClave`, lib/ia-del-negocio.ts). El Plan sigue sin pagar IA de MaKo por ninguna puerta. Lo que gobierna código
 nuevo:
 
+- **La puerta 2 de una función del Plan pide la decisión del Plan, en «sí» y CIERTA** (`planPuedePagarConSuClave`,
+  lib/solo-su-ia.ts). La cascada prueba la puerta 2 en cualquier pedido: sin esto, una frontera que no reconocía el crédito
+  de Martín (una fila de la plataforma ilegible, o el crédito con otro nombre) dejaba pagar al Plan con él.
+- **Una fila que existe y no se descifra también es «no pude leer»** en la frontera de la IA: `credWsEstricta(…, {
+  ilegibleTira: true })`. Sin la opción devuelve `null`, y una copia de la plataforma o el crédito pasaban por del negocio.
+
 - **La clave del negocio se lee con `credDelCliente`, nunca con `credWs`**: `credWs` cae al env de la plataforma
   cuando el workspace es el del dueño, y esa clave pasaría como del negocio.
 - **Se compara contra las TRES copias de la plataforma** (el env, la fila del dueño y la del workspace de la

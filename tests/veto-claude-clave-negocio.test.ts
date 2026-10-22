@@ -126,9 +126,11 @@ test('se compara contra las TRES copias de la plataforma, leídas estrictas', ()
   assert.match(b, /process\.env\.ANTHROPIC_API_KEY/, 'falta el env');
   // La fila de la que sale el entorno de esta clave (`wsDelEntorno`). Hasta el 18/10/2026 era la del ws1 (`OWNER_WS`), y
   // así la clave propia de Mauricio nunca contaba como suya (Martín: «separá el ws1 de las claves de la plataforma»).
-  assert.match(b, /credWsEstricta\('ANTHROPIC_API_KEY', await wsDelEntorno\('ANTHROPIC_API_KEY'\)\)/, 'falta la fila del entorno');
-  assert.doesNotMatch(b, /credWsEstricta\('ANTHROPIC_API_KEY', OWNER_WS\)/, 'la fila del ws1 ya no es la de la plataforma');
-  assert.match(b, /credWsEstricta\('ANTHROPIC_API_KEY', await wsSuperAdmin\(\)\)/, 'falta la fila de la plataforma');
+  // Y una fila que existe y no se descifra TAMBIÉN es «no pude leer» (`ilegibleTira`, revisión adversarial de IA15): con
+  // `null`, una copia o el crédito de Martín pasaban por del negocio.
+  assert.match(b, /credWsEstricta\('ANTHROPIC_API_KEY', await wsDelEntorno\('ANTHROPIC_API_KEY'\), \{ ilegibleTira: true \}\)/, 'falta la fila del entorno (con ilegibleTira)');
+  assert.doesNotMatch(b, /credWsEstricta\('ANTHROPIC_API_KEY', OWNER_WS/, 'la fila del ws1 ya no es la de la plataforma');
+  assert.match(b, /credWsEstricta\('ANTHROPIC_API_KEY', await wsSuperAdmin\(\), \{ ilegibleTira: true \}\)/, 'falta la fila de la plataforma (con ilegibleTira)');
   assert.match(b, /evaluarClaveDelNegocio\(/);
 });
 

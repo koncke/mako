@@ -76,7 +76,7 @@ async function modeloDeSuClaudeEn(ws: number): Promise<{ modelo: EleccionSuClaud
     const wsSA = await wsSuperAdmin();
     // Las dos fuentes, como la puerta 2: con el entorno puesto, la fila no se leía.
     for (const nombre of CLAVES_CREDITO_PLATAFORMA) {
-      for (const c of [process.env[nombre]?.trim(), (await credWsEstricta(nombre, wsSA))?.trim()]) {
+      for (const c of [process.env[nombre]?.trim(), (await credWsEstricta(nombre, wsSA, { ilegibleTira: true }))?.trim()]) {
         if (c && c === clave) return { modelo, soloHaiku: true };
       }
     }

@@ -225,7 +225,8 @@ test('la IA de la plataforma sale de la PLATAFORMA, no del ws1: hidratación, le
   for (const f of ['lib/anthropic.ts', 'lib/integraciones.ts']) {
     const s = sinComentarios(leer(f));
     assert.doesNotMatch(s, /credWsEstricta\([^)]*, OWNER_WS\)/, `${f}: la clave de Claude no se compara con la fila del ws1`);
-    assert.match(s, /await credWsEstricta\((?:'ANTHROPIC_API_KEY'|envBase), await wsDelEntorno\((?:'ANTHROPIC_API_KEY'|envBase)\)\)/, f);
+    // Con `{ ilegibleTira: true }` en la frontera de la IA (revisión adversarial de IA15).
+    assert.match(s, /await credWsEstricta\((?:'ANTHROPIC_API_KEY'|envBase), await wsDelEntorno\((?:'ANTHROPIC_API_KEY'|envBase)\)(?:, \{ ilegibleTira: true \})?\)/, f);
   }
   // La migración: en seco salvo `--aplicar`, aditiva (nunca borra), sin pisar, y sin imprimir un valor.
   const mig = sinComentarios(leer('scripts/ia-del-ws1-a-la-plataforma.mts'));
