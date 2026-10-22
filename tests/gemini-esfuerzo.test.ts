@@ -61,12 +61,14 @@ test('chatCheap: reintenta UNA vez, aprende ese modelo, y lee el error con `leer
   assert.doesNotMatch(src, /\?\.error\?\.message/, 'quedó un lector que no ve el error dentro de un array');
 });
 
-test('el chat de Automations tiene su red de plataforma, y lo de la red no va al mensaje del negocio', () => {
+// AU3 (22/10/2026): lo de la red va al mensaje SÓLO si el negocio no tiene keys propias (qué le pasó a la IA gratis de
+// MaKo); nunca se mezcla con lo de sus keys (tests/ia-aviso-sin-ia-propia.test.ts).
+test('el chat de Automations tiene su red de plataforma, y lo de la red no se mezcla con lo de las keys del negocio', () => {
   const src = sinComentarios(leer('lib/flujo-ia-crear.ts'));
   assert.equal((src.match(/redDePlataforma: true/g) ?? []).length, 2, 'la pasada y la reparación del JSON');
   assert.match(src, /erroresPlataformaOut: p\.erroresRed,/);
   assert.match(src, /erroresPlataformaOut: erroresRed,/);
-  assert.match(src, /return falloDeIA\(errores, hayIA\);/, 'el mensaje habla de las keys del negocio');
+  assert.match(src, /return falloDeIA\(errores, hayIA, erroresRed\);/, 'el mensaje habla de las keys del negocio, y de la red sólo sin ellas');
 });
 
 // ── ROTURAS (15/10/2026) ────────────────────────────────────────────────────────────────────────

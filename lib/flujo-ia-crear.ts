@@ -330,7 +330,10 @@ export async function generar<R extends { avisos: string[] }>(p: {
   const hastaMs = p.hastaMs;
   const quedan = () => hastaMs - Date.now();
   const errores: string[] = [];
-  /** Lo que falló en la RED DE PLATAFORMA (las keys de la agencia): al log, nunca al mensaje del negocio. */
+  /**
+   * Lo que falló en la RED DE PLATAFORMA (las keys de la agencia): al log, y nunca mezclado con las keys del negocio. Sólo
+   * entra al mensaje cuando el negocio no tiene keys propias, para decir qué le pasó a la IA gratis de MaKo (`sinIAPropia`).
+   */
   const erroresRed: string[] = [];
   const motivo = p.motivo?.trim() || 'Crear una automatización con IA';
 
@@ -375,7 +378,8 @@ export async function generar<R extends { avisos: string[] }>(p: {
   if (uno.crudos.length) return { error: 'MaKo escribió el flujo pero se cortó al leerlo. Prueba de nuevo.' };
   console.error('[secuencias/ia] ningún proveedor armó el flujo:', errores.join(' | '), erroresRed.length ? `· red de plataforma: ${erroresRed.join(' | ')}` : '');
   const hayIA = (await Promise.all(provs.map((x) => provsDe(x).catch(() => [])))).some((l) => l.length > 0);
-  return falloDeIA(errores, hayIA);
+  // `erroresRed` sólo cuenta si el negocio no tiene keys propias: dice qué le pasó a la IA gratis de MaKo (AU3).
+  return falloDeIA(errores, hayIA, erroresRed);
 }
 
 // ── Crear: el orden en lib/flujo-ia-crear-core.ts, con las dependencias de verdad ──

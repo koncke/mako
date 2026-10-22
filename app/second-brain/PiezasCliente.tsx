@@ -17,13 +17,21 @@ import { CitaCaja, ContextoWA } from '@/app/admin/operaciones/MensajeWA';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { IconoChat } from '@/app/m/mako/iconos';
 import { caracteres, nombrePegado } from '@/lib/chat-pegado';
-import { ARRANQUES_SECOND_BRAIN } from '@/lib/chat-mako-reglas';
+import { ARRANQUES_SECOND_BRAIN, AVISO_GRUPO } from '@/lib/chat-mako-reglas';
 import type { ChatCliente } from './useChatCliente';
 
 /** El hilo del chat abierto: lo que dijo cada uno, con lo de WhatsApp; vacío, la portada con lo que más se le pide. */
 export function HiloDelCliente({ k }: { k: ChatCliente }) {
+  // El grupo de WhatsApp se lee: sin el menú de un mensaje (no se responde, no se reacciona; se contesta en el grupo).
   return (
-    <ContextoWA.Provider value={k.accionesWA}>
+    <ContextoWA.Provider value={k.esGrupo ? null : k.accionesWA}>
+      {k.esGrupo && k.hayMasDelGrupo && k.cargado && (
+        <div className="co-anteriores">
+          <button type="button" className="co-chip" onClick={() => void k.verAnteriores()} disabled={k.trayendoAnteriores}>
+            {k.trayendoAnteriores ? 'Trayendo…' : 'Ver anteriores'}
+          </button>
+        </div>
+      )}
       {!k.cargado ? null : k.errorCarga ? (
         <div className="co-portada">
           <p className="co-portada__dato">{k.errorCarga}</p>
@@ -31,14 +39,14 @@ export function HiloDelCliente({ k }: { k: ChatCliente }) {
         </div>
       ) : !k.items.length && !k.trabajo ? (
         <div className="co-portada">
-          <Muneco titulo={k.nombreMuneco} animo="despierto" size={76} />
-          <p className="co-portada__nombre">¿En qué te ayudo?</p>
-          {(k.esJefe || k.idTurno == null) && k.idOffer == null && <div className="ch-arranques">
+          <Muneco titulo={k.nombreMuneco} aspecto={k.aspectoMuneco} animo="despierto" size={76} />
+          <p className="co-portada__nombre">{k.esGrupo ? 'Todavía no hay mensajes en el grupo.' : '¿En qué te ayudo?'}</p>
+          {(k.esJefe || k.idTurno == null) && k.idOffer == null && !k.esGrupo && <div className="ch-arranques">
             {ARRANQUES_SECOND_BRAIN.map((a) => <button key={a} type="button" className="co-chip" onClick={() => k.enviar(a)}>{a}</button>)}
           </div>}
         </div>
       ) : (
-        <HiloMako items={k.items} quien={{ nombre: k.nombreMuneco }} ahora={k.ahora} escribiendo={k.enCurso ? { segs: k.segs } : null}
+        <HiloMako items={k.items} quien={{ nombre: k.nombreMuneco, aspecto: k.aspectoMuneco }} ahora={k.ahora} escribiendo={k.enCurso ? { segs: k.segs } : null}
           tarjeta={k.tarjeta} onTarjeta={(x, a) => void k.correrTarjeta(x, a)} onReintentar={k.reintentar} onRecargar={k.recargar}
           onResponder={(t) => k.enviar(t)} onTrabajo={k.alTerminarTrabajo} marcas={k.marcas} />
       )}
@@ -53,6 +61,8 @@ export function HiloDelCliente({ k }: { k: ChatCliente }) {
 export function CajaDelCliente({ k, campo, seguir, movil = false }: {
   k: ChatCliente; campo: RefObject<HTMLTextAreaElement | null>; seguir: () => HTMLElement | null; movil?: boolean;
 }) {
+  // El grupo de WhatsApp de MaKo no se sigue desde acá: en lugar de la caja, dónde se contesta.
+  if (k.esGrupo) return <p className="co-solo-lectura" role="note">{AVISO_GRUPO}</p>;
   return (
     <CajaChat texto={k.texto} onTexto={(v) => { k.setFaltaMic(null); k.setTexto(v); }} onMandar={k.enviarCaja}
       ocupado={k.enCurso} apagado={!k.cargado || !!k.errorCarga} placeholder={`Escribe a ${k.nombre}`} tituloMandar={movil ? undefined : 'Mandar (Enter)'}
@@ -61,7 +71,7 @@ export function CajaDelCliente({ k, campo, seguir, movil = false }: {
       hayAlgoMas={k.pegados.length > 0} onPegar={k.pegarLargo}
       // Sin su Claude o su GPT, el botón para conectarlo, al final de la caja (se abre acá mismo: «Tus cuentas de IA»).
       alFinal={k.iaConectada === false ? (
-        <button type="button" className="co-chip co-conectar-ia" onClick={() => k.setConectando(true)}>Conectar tu Claude</button>
+        <button type="button" className="co-chip co-conectar-ia" onClick={() => k.setConectando(true)}>Conectar tu IA</button>
       ) : null}
       arriba={<>
         {k.cita && <CitaCaja cita={k.cita} onQuitar={() => k.setCita(null)} />}

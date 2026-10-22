@@ -220,7 +220,7 @@ export const DEFS: readonly OperacionDef[] = [
 
   // ── Acciones por chat ──────────────────────────────────────────────────────
   {
-    id: 'proponer_toggle_nutricion', area: 'chatbot', tipo: 'accion', confirmacion: 'chat', tipoPendiente: 'nutricion_toggle',
+    id: 'proponer_toggle_nutricion', aTerceros: true, area: 'chatbot', tipo: 'accion', confirmacion: 'chat', tipoPendiente: 'nutricion_toggle',
     titulo: 'Activar o pausar una secuencia',
     descripcion: 'PROPONE activar o pausar una secuencia de mensajes (deja la acción pendiente de confirmación; no la ejecuta). Activarla hace que el motor empiece a inscribir leads y a mandar pasos; pausarla frena inscripciones y envíos nuevos. Pide antes el secuenciaId con listar_secuencias_nutricion y, si es para activar, revisa estado_canal_whatsapp_chatbot.',
     parametros: [
@@ -391,7 +391,7 @@ export const DEFS: readonly OperacionDef[] = [
   // reversible: false, aunque la fila se pueda cerrar: el primer mensaje puede salir en el acto
   // (la vía rápida de enrolarPorEvento) y un mensaje en el teléfono de alguien no se deshace.
   {
-    id: 'inscribir_lead_secuencia', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
+    id: 'inscribir_lead_secuencia', aTerceros: true, area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Meter un lead en una secuencia',
     descripcion: 'PROPONE inscribir a UN lead en UNA secuencia de mensajes elegida, aunque no cumpla la condición con la que esa secuencia inscribe sola (queda pendiente hasta el «sí»). El primer paso sale con su espera contada desde ahora (o antes de la reunión si está anclado a ella), en el horario de envío y con el tope diario. No duplica: si ya está en esa secuencia en curso, lo dice. Si ya la terminó (completada o sin respuesta), vuelve a arrancar desde el primer paso y le repite los mensajes. No reabre una inscripción cancelada (puede ser una baja), ni la de un lead que está contestando o que atiende una persona. La secuencia tiene que estar activa. Pide antes el leadId (buscar_leads) y el secuenciaId (listar_secuencias_nutricion); para ver dónde está, inscripciones_lead.',
     parametros: [

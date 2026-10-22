@@ -14,7 +14,7 @@ import 'server-only';
 
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { CLAVE_HISTORIAL, leerHistorial, sesionDelArranque, unirConOffer } from '@/lib/onboarding-historial';
-import { getCapaActual, getRolWsEfectivo, getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
+import { getCapaActual, getRolWsEfectivo, getTenantDb, getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
 import { puedeVerKey } from '@/lib/movil-rutas';
 import { leerConversacionOffer, listarSesionesOffer } from '@/lib/offer-sesiones';
 import { urlAudio } from '@/lib/offer-reglas';
@@ -22,11 +22,11 @@ import { TITULO_HILO } from '@/lib/onboarding-arranque';
 import { mensajesDeOffer, offerDelOnboardingCopiada, seEscondeDeOffer } from '@/lib/chat-mako-reglas';
 import { getSetting } from '@/lib/settings';
 import {
-  esChatDelTelefono, getSession, getSessionMessages, listAllSessions, listSessions, listSessionsDePersona,
+  esChatDelTelefono, getSession, getSessionMessages, listAllSessions, listSessions, listSessionsDePersona, temasDeSesiones,
   type ChartMsg, type ChartSession,
 } from '@/lib/chart-chats';
 import { claveVisible, personaDeSesion, prefijoDePersona, puedeUsarSesion, type QuienChatea } from '@/lib/chart-chats-reglas';
-import { TITULO_GRUPO, baseDeLaPersona } from '@/lib/chat-mako-reglas';
+import { TITULO_GRUPO, baseDeLaPersona, origenDeClave, temaDe } from '@/lib/chat-mako-reglas';
 import { getGrupoJidMaKo } from '@/lib/mako-grupo';
 import { hiloDelGrupo } from '@/lib/mako-doer-conv';
 import { chartKeyDePersona, type MensajeChat } from '@/lib/mako-turno-app-reglas';
@@ -39,7 +39,18 @@ export async function quienChateaDelRequest(): Promise<(QuienChatea & { sub: str
   return persona ? { admin: rolWs === 'admin', persona, sub: String(sesion.sub ?? '') } : null;
 }
 
-export type ChatDeAntes = { id: number; titulo: string | null; clave: string; updatedAt: string };
+export type ChatDeAntes = { id: number; titulo: string | null; clave: string; updatedAt: string; origen?: string | null; tema?: string | null };
+
+/** Los chats con su tema (lib/chart-chats.ts → temasDeSesiones): los sin título, para nombrarlos; todos, para distinguir dos
+ *  que se llaman igual. Si no se puede leer, la lista sale igual, sin temas. */
+export async function conTemas(chats: ChatDeAntes[]): Promise<ChatDeAntes[]> {
+  const n = new Map<string, number>();
+  for (const c of chats) if (c.titulo?.trim()) n.set(c.titulo.trim().toLowerCase(), (n.get(c.titulo.trim().toLowerCase()) ?? 0) + 1);
+  const piden = chats.filter((c) => !c.titulo?.trim() || (n.get(c.titulo.trim().toLowerCase()) ?? 0) > 1).map((c) => c.id);
+  if (!piden.length) return chats;
+  const temas = await temasDeSesiones(piden).catch(() => new Map<number, string>());
+  return chats.map((c) => (temas.has(c.id) ? { ...c, tema: temas.get(c.id) } : c));
+}
 
 /** Las claves de los chats de /mako-doer (app/api/mako-doer/route.ts: el admin, la del workspace; los demás, la suya). */
 const clavesDelDoer = (q: QuienChatea & { sub: string }) => (q.admin ? ['mako-doer'] : /^\d+$/.test(q.sub) ? [`mako-doer:u${q.sub}`] : []);
@@ -83,6 +94,38 @@ export async function hiloDeAntes(q: QuienChatea & { sub: string }, id: number):
  */
 export async function claveDeAntes(q: QuienChatea & { sub: string }, id: number): Promise<string | null> {
   return (await sesionDeAntes(q, id))?.chart_key ?? null;
+}
+
+// ── Los chats de las TABS de la persona (22/10/2026, OC4) ──────────────────────────────────────────────────────────────────
+// El chat del CRM y el de la ficha de un lead guardan en chart_sessions con la clave de la persona y un sufijo
+// (`mako-movil:<persona>:crm:<id>`, `:lead:<id>`). El Ops Center listaba por la clave EXACTA (listarSesiones) y «de antes» saca
+// las del teléfono (`mako-movil:%`): esas 68 conversaciones del CRM no se veían en ningún lado. Ahora van en la lista con las de
+// antes, y se SIGUEN igual: la ruta prueba la regla de antes y, si no, ésta (`claveDeTab`).
+// ⚠️ EL PREFIJO LLEVA SU «:»: con `mako-movil:ana` a secas, el LIKE traería también las de `mako-movil:anabel`.
+
+/** Los chats de las tabs de la persona (CRM, la ficha de un lead), con su origen dicho («CRM», «Ficha · Ana»). */
+export async function chatsDeLasTabs(p: { ws: number; chartKey: string }): Promise<ChatDeAntes[]> {
+  return runWithWorkspace(p.ws, async () => {
+    const ss = (await listSessionsDePersona(`${p.chartKey}:`)).filter((s) => origenDeClave(s.chart_key));
+    const leads = [...new Set(ss.map((s) => Number(/:lead:(\d+)$/.exec(s.chart_key)?.[1])).filter((n) => Number.isInteger(n) && n > 0))];
+    const nombres = new Map<number, string>();
+    if (leads.length) {
+      const { data } = await (await getTenantDb()).from('leads').select('id, nombre').in('id', leads.slice(0, 200));
+      for (const l of (data ?? []) as Array<{ id: number; nombre: string | null }>) if (l.nombre?.trim()) nombres.set(l.id, l.nombre.trim());
+    }
+    return ss.map((s) => {
+      const lead = Number(/:lead:(\d+)$/.exec(s.chart_key)?.[1]);
+      const origen = Number.isInteger(lead) && lead > 0 ? `Ficha · ${nombres.get(lead) ?? `lead ${lead}`}` : origenDeClave(s.chart_key);
+      return { id: s.id, titulo: s.titulo, clave: s.chart_key.slice(p.chartKey.length + 1), updatedAt: s.updated_at, origen };
+    });
+  });
+}
+
+/** La clave de un chat de una tab de la persona, para seguirlo (el turno la reconoce como suya). null = no es suyo, o no es de una tab. */
+export async function claveDeTab(p: { ws: number; chartKey: string }, id: number): Promise<string | null> {
+  if (!Number.isInteger(id) || id <= 0) return null;
+  const s = await runWithWorkspace(p.ws, () => getSession(id));
+  return s && s.chart_key.startsWith(`${p.chartKey}:`) && origenDeClave(s.chart_key) ? s.chart_key : null;
 }
 
 // ── Para la API de MaKo: los chats del Second Brain de la persona de ESTE turno ──────────────────────────────────
@@ -154,7 +197,20 @@ export async function hiloDelGrupoMaKo(
 export const PROYECCIONES = [{ origen: 'offer', alcance: 'workspace', tab: 'offer' }] as const;
 export type OrigenDeChat = (typeof PROYECCIONES)[number]['origen'];
 
-export type ChatDeOffer = { id: number; titulo: string; updatedAt: string; origen: 'offer'; alcance: 'workspace' };
+export type ChatDeOffer = { id: number; titulo: string; updatedAt: string; origen: 'offer'; alcance: 'workspace'; tema?: string | null };
+
+/** Lo primero que dijo la persona en cada conversación de Offer (sólo las que se llaman igual: el ws1 tiene dos «Mi oferta»). */
+async function temasDeOffer(ids: readonly number[]): Promise<Map<number, string>> {
+  const out = new Map<number, string>();
+  if (!ids.length) return out;
+  const { data } = await (await getTenantDb()).from('offer_sesiones').select('id, mensajes').in('id', ids.slice(0, 20));
+  for (const r of (data ?? []) as Array<{ id: number; mensajes: unknown }>) {
+    const ms = Array.isArray(r.mensajes) ? (r.mensajes as Array<{ de?: unknown; texto?: unknown }>) : [];
+    const t = temaDe(String(ms.find((m) => m?.de === 'yo' && typeof m.texto === 'string' && m.texto.trim())?.texto ?? ''));
+    if (t) out.set(r.id, t);
+  }
+  return out;
+}
 
 /** El workspace del pedido, si quien pide ve la tab Offer (la puerta de la tab, la misma del teléfono). null = no la ve. */
 async function wsSiVeOffer(): Promise<number | null> {
@@ -174,9 +230,15 @@ export async function chatsDeOffer(): Promise<ChatDeOffer[]> {
   // Para quien no tiene su chat «Onboarding» (el super admin mirando, otro admin), la del onboarding se llama así: trae el
   // arranque entero (`hiloDeOffer`). Martín, 21/10, ws21: «No veo el chat de ONBOARDING tampoco en el ws de Florencia».
   const delOnboarding = sesionDelArranque(arranque);
-  return lista.filter((s) => s.id > 0 && !seEscondeDeOffer(s, copiada)).map((s) => ({
+  const filas = lista.filter((s) => s.id > 0 && !seEscondeDeOffer(s, copiada)).map((s): ChatDeOffer => ({
     id: s.id, titulo: s.id === delOnboarding && !copiada ? TITULO_HILO : s.titulo, updatedAt: s.updatedAt, origen: 'offer', alcance: 'workspace',
   }));
+  // Dos que se llaman igual se distinguen por su tema (lib/chat-mako-reglas.ts → listaDelCliente).
+  const n = new Map<string, number>();
+  for (const f of filas) n.set(f.titulo.trim().toLowerCase(), (n.get(f.titulo.trim().toLowerCase()) ?? 0) + 1);
+  const repetidas = filas.filter((f) => (n.get(f.titulo.trim().toLowerCase()) ?? 0) > 1).map((f) => f.id);
+  const temas = repetidas.length ? await runWithWorkspace(ws, () => temasDeOffer(repetidas)).catch(() => new Map<number, string>()) : new Map<number, string>();
+  return filas.map((f) => (temas.has(f.id) ? { ...f, tema: temas.get(f.id) } : f));
 }
 
 /**

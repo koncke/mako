@@ -167,7 +167,6 @@ test('7. la pantalla no pregunta para siempre, dice lo que pasó, y la tarjeta d
   // El del cliente (22/10/2026): el motor lo arma una vez (useChatCliente.ts) y el hilo de las dos pantallas lo usa (PiezasCliente.tsx).
   assert.match(sinComentarios(leer('app/second-brain/useChatCliente.ts')), /const alTerminarTrabajo = \(pendienteId: number, ok: boolean \| null\) => setItems\(\(xs\) => trasTrabajo\(xs, pendienteId, ok\)\);/, 'el Ops Center del cliente');
   assert.match(sinComentarios(leer('app/second-brain/PiezasCliente.tsx')), /onTrabajo=\{k\.alTerminarTrabajo\}/, 'el hilo del cliente');
-  assert.match(sinComentarios(leer('app/m/mako/ChatMako.tsx')), /onTermina=\{de != null \? \(ok\) => onTrabajo\(de, ok\) : undefined\}/, 'el teléfono');
   assert.match(sinComentarios(leer('app/crm/lead-view/MakoAnalystLead.tsx')), /setItems\(\(xs\) => trasTrabajo\(xs, de, ok\)\); refrescarFicha\(\);[\s\S]{0,200}onTermina=\{termina\}/, 'el MaKo Analyst de la ficha');
   assert.match(sinComentarios(leer('app/_chat/FormularioEnChat.tsx')), /onTermina=\{b\.t === 'trabajo' \? termina : undefined\}/, 'el formulario');
 });

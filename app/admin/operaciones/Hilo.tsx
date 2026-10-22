@@ -31,7 +31,8 @@ import { textoDeRespuesta } from '@/app/admin/runway/decisiones';
 import { Muneco, type Animo } from './Muneco';
 import type { Aspecto } from '@/lib/centro-munecos';
 import { ROTULO_TIPO, hace, pushDelCommit, type PushP } from '@/lib/progreso-reglas';
-import { PreguntaChat, type Responder } from './PreguntaChat';
+import type { Responder } from './PreguntaChat';
+import { textoDeDecision } from '@/lib/centro-preguntas-chat';
 import { TEXTO_SOLO_ADJUNTOS, bloquesDeMensaje } from '@/lib/centro-caja';
 import { AdjuntosDeLaApp, AdjuntosEnBurbuja } from './FotosEnviadas';
 import { MiFoto } from './MiFoto';
@@ -245,17 +246,23 @@ function Turno({ l, t, quien, vivo, extras, wa }: { l: LineaChat; t: TurnoChat; 
 /** Lo de WhatsApp que el hilo necesita para dibujar: las marcas de Martín y la conversación (para encontrar lo citado). */
 type DelHiloWA = { marcas: MarcasChat | null | undefined; lineas: readonly LineaChat[] };
 
-function Linea({ l, pushes, ahora, quien, vivo, onResponder, extras, wa }: { l: LineaChat; pushes: readonly PushP[]; ahora: number; quien: Quien; vivo?: VivoDelHilo; onResponder?: Responder; extras?: ExtrasDelHilo; wa: DelHiloWA }) {
+function Linea({ l, pushes, ahora, quien, vivo, extras, wa }: { l: LineaChat; pushes: readonly PushP[]; ahora: number; quien: Quien; vivo?: VivoDelHilo; extras?: ExtrasDelHilo; wa: DelHiloWA }) {
   if (l.tipo === 'turno') return <Turno l={l} t={l.turno} quien={quien} vivo={vivo} extras={extras} wa={wa} />;
   if (l.tipo === 'pregunta') {
-    // Lo que el chat pregunta: un mensaje suyo, con el formulario de opciones adentro (PreguntaChat.tsx, 17/10/2026).
+    // 22/10/2026, Martín: «Las decisiones deben salir como en Claude, un bloque arriba del chat con las opciones». La pregunta
+    // ABIERTA va arriba de la caja (PreguntasDelChat.tsx), no acá; la que el chat dejó atrás sin respuesta, tampoco (era la
+    // tarjeta con «Ya no espera tu respuesta»). La contestada queda como un mensaje de Martín: «Decisión: …», con la pregunta
+    // citada arriba; si salió y la base todavía no la marcó, «Decisión enviada».
+    const r = l.pregunta.respuesta;
+    if (!r && !l.trabajo) return null;
     return (
-      <div className="co-el co-el--especial">
-        <Muneco titulo={quien.titulo} aspecto={quien.aspecto} animo="despierto" size={26} />
-        <div className="co-el__cuerpo co-el__cuerpo--ancho">
-          <PreguntaChat p={l.pregunta} onResponder={onResponder} enviada={!!l.trabajo} />
-          <p className="co-el__rotulo">{horaAR(l.instante)}</p>
-        </div>
+      <div className="co-yo co-yo--decision">
+        <p className="co-burbuja">
+          <span className="co-burbuja__cita">{l.pregunta.pregunta}</span>
+          {r ? textoDeDecision(l.pregunta, r) : 'Decisión enviada'}
+          <span className="co-burbuja__pie">{horaAR(r ? Date.parse(r.at) : l.instante)}</span>
+        </p>
+        <MiFoto />
       </div>
     );
   }
@@ -313,13 +320,13 @@ function Linea({ l, pushes, ahora, quien, vivo, onResponder, extras, wa }: { l: 
  *  cargan para atrás de a tandas). Medido el 17/10/2026: abrir un chat de 60 respuestas trababa ~0,5 s con la CPU ×4. */
 export const TANDA_HILO = 25;
 
-function HiloSinMemo({ lineas: todas, pushes, ahora, vacio, quien, vivo, onResponder, tareas, onFeedback, yaVisto, onYaVisto, marcas, pasos, mostrar, onVerAnteriores }: {
+function HiloSinMemo({ lineas: todas, pushes, ahora, vacio, quien, vivo, tareas, onFeedback, yaVisto, onYaVisto, marcas, pasos, mostrar, onVerAnteriores }: {
   lineas: readonly LineaChat[]; pushes: readonly PushP[]; ahora: number; vacio: string;
   /** El empleado de este chat: su muñeco va al lado de lo que hizo, y grande si todavía no hay nada. */
   quien: Quien & { animo: Animo; dato?: string | null };
   /** El chat y los Runners: con ellos cada trabajo dice en qué está, y el pie dice «Trabajando…» (17/10/2026). */
   vivo?: VivoDelHilo;
-  /** Contestar una pregunta del chat (useCentro.ts → contestarPregunta). Sin esto, el formulario se ve y no se toca. */
+  /** Ya no lo usa el hilo: las preguntas abiertas se contestan arriba de la caja (PreguntasDelChat.tsx, 22/10/2026). */
   onResponder?: Responder;
   /** Las marcas de Martín en los mensajes (reacciones, destacados, fijados, eliminados para él: lib/centro-mensajes.ts). */
   marcas?: MarcasChat | null;
@@ -356,7 +363,7 @@ function HiloSinMemo({ lineas: todas, pushes, ahora, vacio, quien, vivo, onRespo
       {ocultas > 0 && <button type="button" className="co-anteriores" onClick={onVerAnteriores}>{`Ver ${ocultas} mensajes anteriores`}</button>}
       {items.map((it) => (it.dia
         ? <span key={it.k} className="co-dia">{it.dia}</span>
-        : <Linea key={it.k} l={it.l!} pushes={pushes} ahora={ahora} quien={quien} vivo={vivo} onResponder={onResponder} extras={{ tareas, onFeedback, yaVisto, onYaVisto }} wa={wa} />))}
+        : <Linea key={it.k} l={it.l!} pushes={pushes} ahora={ahora} quien={quien} vivo={vivo} extras={{ tareas, onFeedback, yaVisto, onYaVisto }} wa={wa} />))}
       {/* «Trabajando…» con sus pasos desplegables, UNA pieza para todos los chats (Trabajando.tsx). Con la clave del chat: al
           cambiar de chat arranca cerrada. */}
       {trabaja && <Trabajando key={quien.titulo} titulo={quien.titulo} aspecto={quien.aspecto} pasos={pasos} />}

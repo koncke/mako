@@ -479,6 +479,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const ultimoDeMako = previos.slice(-2).reverse().find((r) => r.role === 'assistant')?.content ?? null;
     const textoClasificar = `${(entrada.pista ?? '').slice(0, 120)}${adjuntos.length ? textoMemoria : textoPersona}`;
     const intencion = clasificarIntencion(textoClasificar, {
+      // Por la app MaKo sólo PROPONE y la persona confirma: ante la duda se actúa, no se anota (D1 = A, lib/mako-intencion.ts).
+      canal: 'app',
       hayMedia: adjuntos.length > 0,
       hayPendientes: vigentes.length > 0,
       hayPendienteDeAgenda: vigentes.some((p) => (ACCIONES_AGENDA as readonly string[]).includes(p.tipo)),
@@ -542,9 +544,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // El system se arma DESPUÉS de las tools: depende de ellas.
     const base = await buildSystemPrompt({ chartKey: 'mako-doer', titulo: titulo ?? 'MaKo', contexto: '', query: textoPersona || textoMemoria, sinNumerosDelNegocio: persona.rol !== 'admin' });
     const tz = tools.length ? await tzDeWorkspace(ws).catch(() => TZ_DEFAULT) : null;
-    const puedeCancelar = permitidas.has('cancelar_accion');
     const ctxPend = vigentes.length
-      ? `\n\nACCIONES ESPERANDO CONFIRMACIÓN EN ESTE CHAT (la más reciente primero):\n${vigentes.map((p) => `- #${p.id}: ${p.resumen}`).join('\n')}\nLa persona las confirma tocando su tarjeta; tú no puedes confirmarlas.${puedeCancelar ? ' Si te dice que no la quiere, usa cancelar_accion con su id.' : ''}`
+      ? `\n\nACCIONES ESPERANDO CONFIRMACIÓN EN ESTE CHAT (la más reciente primero):\n${vigentes.map((p) => `- #${p.id}: ${p.resumen}`).join('\n')}\nLa persona las confirma o las cancela tocando su tarjeta; tú no puedes hacer ninguna de las dos. Si te dice que no la quiere, dile que toque «Cancelar» en la tarjeta.`
       : '';
     const ctxAgenda = agendaAbierta && tools.some((t) => herramientasQueSiguen(agendaAbierta).includes(t.name)) ? contextoAgendaAbierta(agendaAbierta) : '';
     const ctxPuntos = avisoDePuntos(textoPersona);
