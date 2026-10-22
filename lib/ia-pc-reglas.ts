@@ -270,6 +270,14 @@ export function faltanEnElBucket(nombres: readonly string[], version: string = V
   return { faltan: ARCHIVOS_PC.map((a) => `mako-pc-${version}-${a}.gz`).filter((n) => !hay.has(n)), versiones };
 }
 
+/** Lo que dice scripts/ia-pc/verificar-binarios.mts: «0.3.2 completa» o «falta 0.3.2: …» (con lo que no firma). */
+export function informeDeBinarios(nombres: readonly string[], version: string = VERSION_PC, noFirman: readonly string[] = []): { completa: boolean; texto: string } {
+  const { faltan, versiones } = faltanEnElBucket(nombres, version);
+  const mal = [...faltan, ...noFirman.map((n) => `${n} (no firma)`)];
+  if (!mal.length) return { completa: true, texto: `✓ ${version} completa: el instalador puede bajarla.` };
+  return { completa: false, texto: `⛔ falta ${version}: ${mal.join(', ')}. En el bucket hay: ${versiones.join(', ') || 'nada'}. Súbela con scripts/ia-pc/publicar-binarios.mts antes de desplegar.` };
+}
+
 /** La línea que el tutorial le da a copiar. El código va en la URL: es de un uso y vence en 10 minutos. */
 export function lineaDeInstalacion(servidor: string, sistema: SistemaPc, codigo: string): string {
   const url = `${servidor.replace(/\/+$/, '')}/api/ia-pc/instalar?os=${sistema}&codigo=${codigo}`;

@@ -15,9 +15,10 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { ARCHIVOS_PC, VERSION_PC, archivoDelPrograma, faltanEnElBucket } from '../lib/ia-pc-reglas';
+import { ARCHIVOS_PC, VERSION_PC, archivoDelPrograma, faltanEnElBucket, informeDeBinarios } from '../lib/ia-pc-reglas';
 
 const RAIZ = join(__dirname, '..');
 const sinComentarios = (s: string) => s.replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -45,4 +46,34 @@ test('publicar-binarios: mira el bucket en seco, firma lo que sube, y no revient
   const despues = s.slice(s.indexOf("getSupabaseServer().storage"));
   assert.doesNotMatch(despues.replace('setTimeout(() => process.exit(), 10_000).unref();', ''), /process\.exit\(/);
   assert.match(s, /existsSync\(ENV\)/, 'un worktree no trae .env.local: sin --env lo dice');
+});
+
+// IA2 (22/10/2026): que falte el ejecutable no pase callado. Probado rompiéndolo: el instalador sin `registrarError` → «el
+// instalador» en rojo; el informe con la versión fija (VERSION_PC) → «verificar-binarios» en rojo; el script sin firmar
+// lo listado → «verificar-binarios» en rojo.
+
+test('verificar-binarios: dice «falta 0.9.9» con una versión sin ejecutables, y lista y firma como el instalador', () => {
+  const hoy = ['0.2.0', '0.3.0', VERSION_PC].flatMap((v) => ARCHIVOS_PC.map((a) => `mako-pc-${v}-${a}.gz`));
+  const r = informeDeBinarios(hoy, '0.9.9');
+  assert.equal(r.completa, false);
+  assert.match(r.texto, /^⛔ falta 0\.9\.9: mako-pc-0\.9\.9-windows-x64\.gz, mako-pc-0\.9\.9-mac-arm64\.gz, mako-pc-0\.9\.9-mac-x64\.gz\./);
+  assert.deepEqual(informeDeBinarios(hoy), { completa: true, texto: `✓ ${VERSION_PC} completa: el instalador puede bajarla.` });
+  assert.equal(informeDeBinarios(hoy, VERSION_PC, [archivoDelPrograma('mac-x64')]).completa, false, 'listado pero sin firmar no es completo');
+  const s = sinComentarios(readFileSync(join(RAIZ, 'scripts/ia-pc/verificar-binarios.mts'), 'utf8'));
+  assert.match(s, /\.createSignedUrl\(n, 60\)/, 'firma lo listado, como el instalador');
+  assert.doesNotMatch(s, /\.(upload|remove|createBucket|update|move)\(/, 'sólo lee');
+  assert.match(s, /return r\.completa \? 0 : 1;/);
+});
+
+test('el instalador: sin el ejecutable contesta el aviso Y deja la fila en errores_app', () => {
+  const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_ia-pc-instalar-hijo.ts')], {
+    cwd: RAIZ, encoding: 'utf8', timeout: 90_000, stdio: ['ignore', 'pipe', 'ignore'],
+  });
+  const r = JSON.parse(salida.split('@@RESULTADO@@').pop() ?? '{}');
+  assert.equal(r.error, undefined, r.error);
+  assert.equal(r.status, 200, 'con 200: `irm` y `curl -f` no muestran el cuerpo de un 4xx');
+  assert.match(r.cuerpo, /No pude preparar la descarga/);
+  assert.deepEqual(r.firmas, [`/storage/v1/object/sign/ia-pc/${archivoDelPrograma('windows-x64')}`]);
+  assert.equal(r.errores.length, 1, 'la fila que ven el vigía y la Ticketera');
+  assert.equal(r.errores[0].mensaje, `ia-pc: falta el ejecutable ${VERSION_PC} (${archivoDelPrograma('windows-x64')}): Object not found`);
 });
