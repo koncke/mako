@@ -119,7 +119,11 @@ export async function quitarDeProducto(leadId: number, funnelId: number, opts?: 
   if (conPlata != null) {
     const { tratoConPlata } = await import('./pagos');
     if (await tratoConPlata(leadId, conPlata)) {
-      throw new Error(`Tiene una venta o pagos en «${await nombreDeProducto(conPlata)}»: si lo quitas, se mezclan con los de otro CRM. Márcalo como perdido ahí, o quita esos pagos primero.`);
+      // Un texto por caso (segunda revisión del 22/10/2026): quitar un CRM agregado, o quitar la casa cuando el CRM que la
+      // reemplazaría tiene su propia venta (renovó y se quiere sacar de la venta vieja).
+      throw new Error(!p.esCasa
+        ? `Tiene una venta o pagos en «${nombre}»: si lo quitas, se quedan sin su CRM. Si ya no sigue ahí, márcalo como perdido en «${nombre}».`
+        : `«${nombre}» es su CRM principal, y el que tomaría su lugar («${await nombreDeProducto(conPlata)}») tiene su propia venta o pagos: se mezclarían. Déjalo en «${nombre}» y muévelo de etapa ahí.`);
     }
   }
 
@@ -277,9 +281,15 @@ export async function agregarLoteAProducto(leadIds: number[], funnelId: number, 
 export async function quitarLoteDeProducto(leadIds: number[], funnelId: number, porQue: string, opts?: { autor?: string }): Promise<number> {
   const db = await getTenantDb();
   const autor = await autorDelMovimiento(opts?.autor);
+  // ⚠️ Los que tienen PLATA en ese CRM no se quitan (segunda revisión del 22/10/2026, M4): su venta vive en esa fila y sus
+  // pagos llevan ese CRM. Pasa con el Deshacer de «Agregar», si en esos segundos se registró un pago ahí. Se saltean.
+  const { leadsConPlataEn } = await import('./pagos');
+  const conPlata = await leadsConPlataEn(funnelId, leadIds);
+  if (conPlata.size) console.warn(`[lead-funnel] quitar en lote: ${conPlata.size} lead(s) con venta o pagos en el funnel ${funnelId} no se quitan.`);
+  const aQuitar = leadIds.filter((id) => !conPlata.has(Number(id)));
   let n = 0;
-  for (let i = 0; i < leadIds.length; i += 200) {
-    const tanda = leadIds.slice(i, i + 200);
+  for (let i = 0; i < aQuitar.length; i += 200) {
+    const tanda = aQuitar.slice(i, i + 200);
     const { data, error } = await db.from('lead_funnel').delete().eq('funnel_id', funnelId).in('lead_id', tanda).select('lead_id');
     if (error) { console.error('[lead-funnel] quitar en lote falló:', error.message); continue; }
     const ok = ((data ?? []) as Array<{ lead_id: number | string }>).map((r) => Number(r.lead_id));

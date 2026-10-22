@@ -170,7 +170,7 @@ async function autorActual(): Promise<string> {
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd, adIdDeLead } from '@/lib/queries';
 import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, tratosDelLead, leerMarcasDeCobranza, reponerMarcasDeCobranza, type PlanPagos, type Pago } from '@/lib/pagos';
-import type { TratoCrm } from '@/lib/pagos-crm';
+import { cobradoDeLaVenta, faltaDeLaVenta, type TratoCrm } from '@/lib/pagos-crm';
 import { avisoDeConservadas, avisoPlanUniforme, pagosPrevios, planDelAsistente } from '@/lib/pagos-campo';
 import { senalesDeCobroAction } from './[id]/cobros-actions';
 import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
@@ -1553,7 +1553,7 @@ const COLS_FILTRO: string[] = [
   'estado_lead', 'pipeline_stage', 'asistio_j1', 'asistio_j2',
   'fecha_agenda', 'fecha_junta_1', 'fecha_junta_2', 'nutricion_realizada',
   'created_at', 'fecha_cierre', 'fecha_primer_pago',
-  'monto_cierre_usd', 'total_cobrado_usd', 'venta_tipo',
+  'monto_cierre_usd', 'total_cobrado_usd', 'total_cobrado_casa_usd', 'venta_tipo',
   'closer', 'setter',
   'meta_campaign_name', 'utm_campaign', 'origen_lead',
 ];
@@ -1641,7 +1641,8 @@ function pasaFiltros(
     switch (f.dinero) {
       case 'con-monto': if (!(vendido > 0)) return false; break;
       case 'con-cobro': if (!(cobrado > 0)) return false; break;
-      case 'debe': if (!(vendido - cobrado > 0)) return false; break;
+      // Lo que falta de la venta de la CASA (mig 0325): una renovación cobrada no resta de esa venta.
+      case 'debe': if (!((faltaDeLaVenta(l) ?? 0) > 0)) return false; break;
       case 'suscripcion': if (sTxt(l.venta_tipo) !== 'suscripcion') return false; break;
       case 'ganado-sin-monto': if (sTxt(l.estado_lead) !== 'ganado' || vendido > 0) return false; break;
     }
@@ -1658,7 +1659,11 @@ async function traerLeads(columnas: string[]): Promise<FilaLead[]> {
   // Ordenado por id y no por created_at: con empates de timestamp el .range()
   // repite o saltea filas entre páginas (el orden deja de ser estable).
   for (let desde = 0; desde < 200_000; desde += PAGE) {
-    const { data, error } = await db.from('leads').select(sel).order('id', { ascending: true }).range(desde, desde + PAGE - 1);
+    let { data, error } = await db.from('leads').select(sel).order('id', { ascending: true }).range(desde, desde + PAGE - 1);
+    // Sin la 0325 la columna no está: se lee sin ella (lo cobrado de la venta cae a `total_cobrado_usd`, `cobradoDeLaVenta`).
+    if (error && /total_cobrado_casa_usd/.test(error.message)) {
+      ({ data, error } = await db.from('leads').select(sel.split(', ').filter((c) => c !== 'total_cobrado_casa_usd').join(', ')).order('id', { ascending: true }).range(desde, desde + PAGE - 1));
+    }
     if (error) throw new Error(`No se pudieron leer los leads: ${error.message}`);
     const chunk = (data ?? []) as unknown as FilaLead[];
     filas.push(...chunk);
@@ -1708,7 +1713,9 @@ async function leadsFiltrados(f: FiltrosLeads, columnasExtra: string[]): Promise
     if (!pasaFiltros(l, f, key, banda, rango)) continue;
     l['#etapaKey'] = key;
     l['#etapa'] = meta.label ?? key;
-    l['#falta'] = Math.max(0, nNum(l.monto_cierre_usd) - nNum(l.total_cobrado_usd));
+    l['#falta'] = faltaDeLaVenta(l) ?? 0;
+    // «Cobrado USD» va con su «Vendido» y su «Falta»: lo cobrado de la venta de la casa (mig 0325).
+    l['#cobrado'] = cobradoDeLaVenta(l);
     l['#origen'] = origenDeFila(l);
     filas.push(l);
   }

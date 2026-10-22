@@ -2,7 +2,8 @@
 // La revisión adversarial de los pagos por CRM (22/10/2026, punta 05fc52b09, mig 0324): dos altos y seis medios
 // =============================================================================
 // La revisión (Cerebro › Integración) está en la carpeta de notas del Cerebro: revision-cobros-2210.md. Cada test dice el
-// hallazgo, el caso y la rotura con que se lo probó (medido el 22/10/2026: base 9 / 0, cada rotura 8 / 1). Lo puro se EJECUTA;
+// hallazgo, el caso y la rotura con que se lo probó (medido el 22/10/2026: la primera tanda con base 9 / 0 y cada rotura 8 / 1;
+// la segunda, con base 13 / 0, abajo). Lo puro se EJECUTA;
 // lo que vive en el server se lee del fuente, como tests/pagos-crm.test.ts.
 // =============================================================================
 
@@ -10,8 +11,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { cobrosDelTrato, cobrosSinLosDe } from '../lib/pagos-crm';
-import { crmEnVista } from '../app/crm/lead-view/ficha/pagos/trato';
+import { cobradoDeLaVenta, cobrosDelTrato, cobrosSinLosDe, faltaDeLaVenta } from '../lib/pagos-crm';
+import { crmEnVista, sinTratoLeido } from '../app/crm/lead-view/ficha/pagos/trato';
+import { plata, valoresDelLead } from '../lib/variables-del-lead';
+import type { Lead } from '../lib/leads';
 import { cobradoDelLead } from '../lib/cobrado-lead';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -53,7 +56,7 @@ test('A2: la cabecera dice Renovación → la tab es la renovación, aunque el t
   assert.match(hook, /if \(casaCambio\) onCasaCambiada\?\.\(\); else onProductosCambiados\?\.\(\);/);
   assert.match(sinComentarios(leer('app/crm/LeadSheet.tsx')), /onProductosCambiados: releer,/);
   // Sin los tratos leídos, la tab lo dice (no es «sin plan»), y `getLeadFullAction` no los da por vacíos.
-  assert.match(sinComentarios(leer('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx')), /\{ctx\.crm && !ctx\.data\.tratos && <Aviso tono="ambar">No pude leer el plan de/);
+  assert.match(sinComentarios(leer('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx')), /\{sinTrato && <Aviso tono="ambar">No pude leer el plan de/);
   assert.match(sinComentarios(leer('app/crm/actions.ts')), /const tratosP = tratosDelLead\(id\)\.catch\([^\n]*return undefined; \}\);/);
 });
 
@@ -95,7 +98,7 @@ test('M4: no se quita a nadie de un CRM donde tiene plata, ni se borra para siem
   const lf = sinComentarios(leer('lib/lead-funnel.ts'));
   const quitar = cuerpo(lf, 'export async function quitarDeProducto(');
   assert.match(quitar, /const conPlata = !p\.esCasa \? funnelId : aQuienPromover\(productos\)\?\.funnelId \?\? null;/);
-  assert.match(quitar, /if \(await tratoConPlata\(leadId, conPlata\)\) \{\s*throw new Error\(`Tiene una venta o pagos en/);
+  assert.match(quitar, /if \(await tratoConPlata\(leadId, conPlata\)\) \{\s*throw new Error\(!p\.esCasa\s*\? `Tiene una venta o pagos en/);
   // La guarda va ANTES de borrar nada.
   assert.ok(quitar.indexOf('tratoConPlata(') < quitar.indexOf(".delete()"), 'la guarda va antes del borrado');
   const tp = cuerpo(PAGOS, 'export async function tratoConPlata(');
@@ -103,8 +106,9 @@ test('M4: no se quita a nadie de un CRM donde tiene plata, ni se borra para siem
   assert.match(tp, /c\.monto_cierre_usd != null/);
   const fn = sinComentarios(leer('lib/funnels.ts'));
   const borrar = cuerpo(fn, 'export async function eliminarFunnelDefinitivo(');
-  assert.match(borrar, /\.from\('pagos'\)\.select\('id'\)\.eq\('funnel_id', funnelId\)\.limit\(1\)/);
-  assert.ok(borrar.indexOf("from('pagos')") < borrar.indexOf("from('leads').update"), 'la guarda va antes del rescate');
+  // Desde la segunda revisión, la plata de los AGREGADOS de ese CRM (la venta de su casa se va con ellos).
+  assert.match(borrar, /if \(\(await leadsConPlataEn\(funnelId, agregadosAca\.map\(\(r\) => Number\(r\.lead_id\)\)\)\)\.size\) \{/);
+  assert.ok(borrar.indexOf('leadsConPlataEn(funnelId') < borrar.indexOf("from('leads').update"), 'la guarda va antes del rescate');
 });
 
 // M5 · Una mensualidad de Stripe (sin cuota) casaba por monto contra TODOS los CRMs y saldaba la cuota de una renovación.
@@ -134,4 +138,69 @@ test('bajos: los movimientos de la casa sin los de sus renovaciones, el año en 
   const c = cobradoDelLead({ ventaTipo: 'suscripcion', montoCierreUsd: null, suscripcionMontoUsd: 100, suscripcionMeses: 2, fechaCierre: '2025-10-10', pagos: [], cobros: [], hoy: '2026-10-22' });
   assert.match(c.semaforo.texto, /de 2025/);
   assert.match(sinComentarios(leer('app/general/Cobranza.tsx')), /href=\{`\/crm\/\$\{f\.leadId\}\$\{f\.funnelId != null \? `\?funnel=\$\{f\.funnelId\}` : ''\}`\}/);
+});
+
+// =============================================================================
+// La SEGUNDA revisión (punta c1709cb7c): lo que el lead debe se calculaba con la venta de la casa menos lo cobrado en TODOS
+// sus CRMs. Este test prueba el NÚMERO (la revisión: «el del saldo tiene que probar el número de verdad»).
+// =============================================================================
+
+// El caso: venta de la casa US$2.000, pagó 1.000 de esa venta y 500 en una renovación (total cobrado 1.500).
+// Roturas (base 13 / 0): `cobradoDeLaVenta` con `total_cobrado_usd` (la de antes): 12 / 1. `{{lead_saldo}}` con la cuenta vieja: 12 / 1.
+test('2ª · el saldo es la venta de la casa menos lo cobrado de ESA venta: debe 1.000, no 500', () => {
+  const caso = { monto_cierre_usd: 2000, total_cobrado_usd: 1500, total_cobrado_casa_usd: 1000 };
+  assert.equal(faltaDeLaVenta(caso), 1000);
+  assert.equal(cobradoDeLaVenta(caso), 1000);
+  // Sin la 0325 (la columna no vino): lo de antes, nunca un cero inventado.
+  assert.equal(faltaDeLaVenta({ monto_cierre_usd: 2000, total_cobrado_usd: 1500 }), 500);
+  assert.equal(faltaDeLaVenta({ monto_cierre_usd: 2000, total_cobrado_usd: 2500, total_cobrado_casa_usd: 2500 }), 0, 'nunca negativo');
+  assert.equal(faltaDeLaVenta({ monto_cierre_usd: null, total_cobrado_usd: 500 }), null, 'sin venta no hay saldo');
+  // El mensaje al cliente: `{{lead_saldo}}` dice US$1.000.
+  const v = valoresDelLead({ nombre: 'Juan Pérez', ...caso } as unknown as Lead);
+  assert.equal(v.lead_saldo, plata(1000));
+  assert.equal(v.lead_cobrado, plata(1500), '`{{lead_cobrado}}` sigue siendo lo cobrado en total');
+});
+
+// Roturas: el filtro «debe» con `vendido - cobrado`: 12 / 1. `listar_leads` sin `falta_cobrar_usd`: 12 / 1.
+test('2ª · el filtro «Solo los que deben», el export y listar_leads usan lo cobrado de la venta', () => {
+  const acc = sinComentarios(leer('app/crm/actions.ts'));
+  assert.match(acc, /case 'debe': if \(!\(\(faltaDeLaVenta\(l\) \?\? 0\) > 0\)\) return false; break;/);
+  assert.match(acc, /l\['#falta'\] = faltaDeLaVenta\(l\) \?\? 0;\s*l\['#cobrado'\] = cobradoDeLaVenta\(l\);/);
+  assert.match(acc, /'monto_cierre_usd', 'total_cobrado_usd', 'total_cobrado_casa_usd', 'venta_tipo',/);
+  assert.match(sinComentarios(leer('app/crm/leads-exportar.ts')), /\['#cobrado', 'Cobrado USD'\], \['#falta', 'Falta cobrar USD'\]/);
+  const api = sinComentarios(leer('lib/api-mako/areas/crm.run.ts'));
+  assert.match(api, /cobrado_de_la_venta_usd: cobradoDeLaVenta\(conCasa\), falta_cobrar_usd: faltaDeLaVenta\(conCasa\),/);
+});
+
+// Roturas: `sincronizarTotalCobrado` sin `total_cobrado_casa_usd`: 12 / 1. La 0325 sin excluir los agregados: 12 / 1.
+test('2ª · sincronizar escribe lo cobrado de la casa, y la 0325 lo llena con la regla de esDelTrato', () => {
+  const s = cuerpo(PAGOS, 'export async function sincronizarTotalCobrado(');
+  assert.match(s, /const deLaCasa = pagados\.filter\(\(p\) => esDelTrato\(p\.funnel_id, null, agregados\)\)/);
+  assert.match(s, /total_cobrado_casa_usd: deLaCasa > 0 \? deLaCasa : null/);
+  assert.match(s, /if \(error && \/total_cobrado_casa_usd\/\.test\(error\.message\)\)/, 'sin la 0325, escribe lo de siempre');
+  const sql = leer('supabase/migrations/0325_cobrado_de_la_casa.sql');
+  assert.match(sql, /alter table leads add column if not exists total_cobrado_casa_usd numeric\(12, 2\);/);
+  assert.match(sql, /where p\.pagado and not exists \(\s*select 1 from lead_funnel lf/);
+  assert.match(sql, /and lf\.funnel_id <> coalesce\(l2\.funnel_id,/, 'la fila que repite la casa no la saca de la casa');
+});
+
+// Los bajos recomendados. Roturas: `quitarLoteDeProducto` sin la guarda: 12 / 1. La tab con el trato sin leer que deja
+// escribir (`sinTratoLeido` siempre false): 12 / 1.
+test('2ª · el lote y el rescate no pierden la plata de un CRM, y sin el trato leído la tab no escribe', () => {
+  const lf = sinComentarios(leer('lib/lead-funnel.ts'));
+  const lote = cuerpo(lf, 'export async function quitarLoteDeProducto(');
+  assert.match(lote, /const conPlata = await leadsConPlataEn\(funnelId, leadIds\);/);
+  assert.match(lote, /const aQuitar = leadIds\.filter\(\(id\) => !conPlata\.has\(Number\(id\)\)\);/);
+  assert.match(cuerpo(lf, 'export async function quitarDeProducto('), /es su CRM principal, y el que tomaría su lugar/, 'la casa tiene su propio texto');
+  assert.doesNotMatch(lf, /quita esos pagos primero/, 'no se sugiere borrar pagos');
+  const fn = cuerpo(sinComentarios(leer('lib/funnels.ts')), 'export async function eliminarFunnelDefinitivo(');
+  assert.match(fn, /leadsConPlataEn\(funnelId, agregadosAca\.map/, 'frena la plata de los AGREGADOS, no la venta de su casa');
+  assert.match(fn, /leadsConPlataEn\(idNegocio, \[\.\.\.etapaEnNegocio\.keys\(\)\]\)/, 'y la del rescate');
+  assert.ok(fn.indexOf('leadsConPlataEn(idNegocio') < fn.indexOf("from('leads').update"), 'antes de escribir');
+  assert.equal(sinTratoLeido({ crm: { id: 29, nombre: 'Renovación' }, data: {} as never }), true);
+  assert.equal(sinTratoLeido({ crm: { id: 29, nombre: 'Renovación' }, data: { tratos: [] } as never }), false);
+  assert.equal(sinTratoLeido({ crm: null, data: {} as never }), false);
+  const bloques = sinComentarios(leer('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx'));
+  assert.match(bloques, /const editando = props\.editando \|\| sinTrato;/, 'las cuotas');
+  assert.match(bloques, /const editando = personalizando \|\| sinTratoLeido\(ctx\);/, 'la venta');
 });

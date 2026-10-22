@@ -591,12 +591,15 @@ export async function eliminarFunnelDefinitivo(funnelId: number): Promise<{ resc
   // ⚠️ SÓLO SE BORRA LO QUE YA ESTÁ ARCHIVADO. Es el guard en positivo que hace que
   // eliminar de verdad exija DOS decisiones en dos momentos: nada se pierde de un clic.
   if (fila.activo) throw new Error('Primero hay que eliminarlo del tablero; recién después se puede borrar para siempre.');
-  // ⚠️ CON PAGOS NO SE BORRA PARA SIEMPRE (revisión del 22/10/2026, M4, mig 0324): cada pago guarda su CRM, y borrarlo los
-  // dejaba sin él (el FK los pasa a NULL): caían en la casa de cada lead, mezclados con su venta, y dos cuotas del mismo
-  // número chocaban con el índice de la 0324. Archivado, el CRM y su plata siguen ahí.
-  const { data: conPagos, error: ePag } = await supabase.from('pagos').select('id').eq('funnel_id', funnelId).limit(1);
-  if (ePag) throw new Error(`No se pudo revisar si tiene pagos: ${ePag.message}`);
-  if ((conPagos ?? []).length) throw new Error('Tiene pagos registrados: borrarlo para siempre los dejaría sin su CRM. Queda archivado.');
+  // ⚠️ CON LA PLATA DE UN CRM AGREGADO NO SE BORRA PARA SIEMPRE (revisiones del 22/10/2026, M4, mig 0324): la venta de ese
+  // trato vive en la fila de `lead_funnel` (el borrado la cascadea) y sus pagos quedarían sin CRM (el FK los pasa a NULL),
+  // mezclados con la venta de la casa de cada lead. La venta de quienes lo tienen de CASA sí se va con ellos al funnel del
+  // negocio (es la de la fila del lead), como siempre: eso no frena. Archivado, el CRM y su plata siguen ahí.
+  const { leadsConPlataEn } = await import('./pagos');
+  const agregadosAca = await leerTodo<{ lead_id: number | string }>(supabase, 'lead_funnel', 'lead_id', { orden: 'id', filtros: (q) => q.eq('funnel_id', funnelId) });
+  if ((await leadsConPlataEn(funnelId, agregadosAca.map((r) => Number(r.lead_id)))).size) {
+    throw new Error('Hay clientes con una venta o pagos en este CRM: borrarlo para siempre los dejaría sin su CRM. Queda archivado.');
+  }
 
   // El embudo del negocio, que es a donde vuelve su gente. Su id hace falta para las filas
   // de `lead_funnel`; en `leads.funnel_id` se escribe NULL (`casaParaEscribir` del default
@@ -621,6 +624,12 @@ export async function eliminarFunnelDefinitivo(funnelId: number): Promise<{ resc
       if (eF) throw new Error(`No se pudo leer en qué otros funnels está su gente: ${eF.message}`);
       for (const f of (fs ?? []) as Array<{ lead_id: number | string; etapa: string }>) etapaEnNegocio.set(Number(f.lead_id), f.etapa);
     }
+  }
+
+  // El rescate borra la fila del funnel del negocio de quienes vuelven a él (pasa a ser su casa): si ahí tenían una venta o
+  // pagos de un trato propio, se perderían o se mezclarían. Se mira ANTES de escribir nada (segunda revisión del 22/10/2026).
+  if (idNegocio != null && etapaEnNegocio.size && (await leadsConPlataEn(idNegocio, [...etapaEnNegocio.keys()])).size) {
+    throw new Error('Hay clientes de este CRM con una venta o pagos en el funnel principal: volverlos ahí los mezclaría. Queda archivado.');
   }
 
   // ⚠️ EL RESCATE VA PRIMERO. Al revés, si el borrado sale bien y el rescate falla, los

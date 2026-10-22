@@ -864,3 +864,28 @@ trato era la cuota que tocaban. Las reglas que quedan:
 
 **Vive en:** lib/pagos.ts (`casaDelLead`, `tratoDelPago`, `tratoConPlata`) · lib/lead-funnel.ts (`quitarDeProducto`) ·
 lib/funnels.ts (`eliminarFunnelDefinitivo`) · lib/api-mako/areas/crm.run.ts · tests/pagos-crm-revision.test.ts.
+
+### La segunda revisión: lo que el lead debe es la venta de la casa menos lo cobrado de ESA venta (22/10/2026, mig 0325)
+
+- **El síntoma:** la primera revisión pidió que `total_cobrado_usd` volviera a contar todos los CRMs (es la caja de esa
+  persona: el rendimiento de un anuncio la lee). Bien para la caja, pero dio vuelta el error en todo lo que calcula «lo
+  que falta», que restaba esa suma de la venta de la CASA (`monto_cierre_usd`): `{{lead_saldo}}` en los MENSAJES AL
+  CLIENTE, «Falta cobrar USD» del export, el filtro «Solo los que deben» y `listar_leads`. Venta de US$2.000, 1.000
+  pagados y 500 cobrados en una renovación: «te falta pagar US$500» en vez de 1.000.
+- **La regla:** cada saldo compara una venta con lo cobrado de ESA venta. La fila del lead guarda las dos sumas:
+  `total_cobrado_usd` (todos los CRMs, la caja) y `total_cobrado_casa_usd` (mig 0325, la venta de la casa), las dos
+  escritas por `sincronizarTotalCobrado`. El saldo sale de `faltaDeLaVenta` (lib/pagos-crm.ts), y sin la columna cae a lo
+  de antes. El export dice «Cobrado USD» de esa venta, al lado de su «Vendido» y su «Falta».
+- **Lo del diagnóstico obvio:** «total cobrado» parece UN número, y son dos. Arreglar uno (la caja) rompía el otro (el
+  saldo), y viceversa. Antes de cambiar qué suma una columna, hay que listar QUIÉN la resta de qué.
+- **Los bajos de la segunda revisión, hechos:**
+  - Las guardas de M4 tienen un texto por caso: quitar un CRM agregado, o quitar la casa cuando el CRM que la reemplaza
+    tiene su propia venta. Ninguno sugiere borrar pagos.
+  - El borrado definitivo frena sólo la plata de los AGREGADOS de ese CRM y la del funnel del negocio que borraría el
+    rescate. La venta de quienes lo tienen de casa se va con ellos, como siempre.
+  - El borrado en lote (`quitarLoteDeProducto`, el Deshacer de «Agregar») saltea a quien tiene plata en ese CRM.
+  - Con el trato sin leer, la tab avisa y no escribe (`sinTratoLeido`).
+
+**Vive en:** supabase/migrations/0325_cobrado_de_la_casa.sql · lib/pagos-crm.ts (`cobradoDeLaVenta`, `faltaDeLaVenta`) ·
+lib/pagos.ts (`sincronizarTotalCobrado`, `leadsConPlataEn`) · lib/variables-del-lead.ts · app/crm/actions.ts ·
+tests/pagos-crm-revision.test.ts (la segunda tanda prueba el número del saldo).

@@ -152,6 +152,32 @@ export async function tratoDelPago(leadId: number, funnelDelPago: number | strin
 }
 
 /**
+ * De estos leads, los que tienen PLATA en el CRM `crm` (la regla de `tratoConPlata`, de a tandas): una venta o un plan en su
+ * fila de `lead_funnel`, o algún pago con ese `funnel_id`. Lo usan los borrados EN LOTE de una fila de `lead_funnel`
+ * (`quitarLoteDeProducto`, el borrado definitivo de un funnel y su rescate), que la saltean en vez de perderla.
+ */
+export async function leadsConPlataEn(crm: number, leadIds: readonly number[]): Promise<Set<number>> {
+  const out = new Set<number>();
+  const db = await getTenantDb();
+  const ids = [...new Set(leadIds)];
+  for (let i = 0; i < ids.length; i += 200) {
+    const tanda = ids.slice(i, i + 200);
+    const [pg, lf] = await Promise.all([
+      db.from('pagos').select('lead_id').eq('funnel_id', crm).in('lead_id', tanda),
+      db.from('lead_funnel').select('*').eq('funnel_id', crm).in('lead_id', tanda),
+    ]);
+    if (pg.error) throw new Error(`No pude leer los pagos de ese CRM: ${pg.error.message}`);
+    if (lf.error) throw new Error(`No pude leer el plan de ese CRM: ${lf.error.message}`);
+    for (const r of (pg.data ?? []) as Array<{ lead_id: number }>) out.add(Number(r.lead_id));
+    for (const f of (lf.data ?? []) as Array<Record<string, unknown>>) {
+      const c = camposDeFila(f);
+      if (c.monto_cierre_usd != null || c.venta_tipo === 'sin_cobro' || c.cobro_inicial_usd != null || c.monto_cuota_usd != null || c.total_cuotas != null) out.add(Number(f.lead_id));
+    }
+  }
+  return out;
+}
+
+/**
  * ¿El lead tiene PLATA en el trato de ese CRM agregado? Una venta o un plan cargados en su fila de `lead_funnel`, o algún
  * pago con ese `funnel_id`. Quitarlo de ese CRM (o promoverlo a casa) mezclaría esa plata con la de otro trato: lo frenan
  * `quitarDeProducto` (lib/lead-funnel.ts) y el borrado definitivo de un funnel (revisión del 22/10/2026, M4).
@@ -1119,7 +1145,10 @@ export async function cambiarEstadoSuscripcionManual(
  */
 export async function sincronizarTotalCobrado(leadId: number): Promise<void> {
   const supabase = (await getTenantDb());
-  const pagados = (await getPagosByLead(leadId, 'todos')).filter((p) => p.pagado);
+  const [todos, agregados] = await Promise.all([getPagosByLead(leadId, 'todos'), crmsAgregadosDelLead(leadId)]);
+  const pagados = todos.filter((p) => p.pagado);
+  // Y lo cobrado de la venta de la CASA (mig 0325, segunda revisión del 22/10/2026): el saldo se compara con ESTO.
+  const deLaCasa = pagados.filter((p) => esDelTrato(p.funnel_id, null, agregados)).reduce((s, p) => s + Number(p.monto_usd), 0);
 
   const total = pagados.reduce((s, p) => s + Number(p.monto_usd), 0);
   // Primer pago = la fecha_pago más temprana entre los pagados (de cualquier CRM)
@@ -1129,13 +1158,13 @@ export async function sincronizarTotalCobrado(leadId: number): Promise<void> {
     .sort();
   const fechaPrimerPago = fechas[0] ?? null;
 
-  const { error } = await supabase
-    .from('leads')
-    .update({
-      total_cobrado_usd: total > 0 ? total : null,
-      ...(fechaPrimerPago ? { fecha_primer_pago: fechaPrimerPago } : {}),
-    })
-    .eq('id', leadId);
+  const fila = {
+    total_cobrado_usd: total > 0 ? total : null,
+    ...(fechaPrimerPago ? { fecha_primer_pago: fechaPrimerPago } : {}),
+  };
+  let { error } = await supabase.from('leads').update({ ...fila, total_cobrado_casa_usd: deLaCasa > 0 ? deLaCasa : null }).eq('id', leadId);
+  // Sin la 0325 la columna no está: lo de siempre, sin ella (el saldo cae a `total_cobrado_usd`, `cobradoDeLaVenta`).
+  if (error && /total_cobrado_casa_usd/.test(error.message)) ({ error } = await supabase.from('leads').update(fila).eq('id', leadId));
   if (error) throw new Error(`Error sincronizando total_cobrado del lead ${leadId}: ${error.message}`);
 }
 

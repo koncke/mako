@@ -36,6 +36,12 @@ export function crmEnVista(
   return { id, nombre: prod.foto.find((p) => p.id === id)?.nombre ?? '' };
 }
 
+/**
+ * ¿Mira un CRM agregado cuyo trato NO se pudo leer? La tab lo avisa y no ofrece escribir (segunda revisión del 22/10/2026):
+ * armar un plan o cargar el monto sobre un trato que no se vio podía pisar uno que existe.
+ */
+export const sinTratoLeido = (ctx: Pick<CtxFicha, 'crm' | 'data'>): boolean => !!ctx.crm && !ctx.data?.tratos;
+
 export function ctxDelTrato(ctx: CtxFicha): CtxFicha {
   const crm = ctx.crm ?? null;
   if (!crm) return ctx;

@@ -3408,7 +3408,9 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   sin CRM va a la casa (el trigger NO adivina). Sumar los pagos de un lead sin decir el trato mezcla la venta con la
   renovación: así la renovación mostraba «cuota 1, cobrada el 01/04» del primer servicio ([docs/hallazgos-pagos.md](docs/hallazgos-pagos.md)).
   Lo que toca una cuota que YA existe saca el trato de la cuota (`tratoDelPago`), no lo supone; y una pantalla que dice un
-  CRM nunca cae a la casa porque le falte el trato (la revisión del 22/10 encontró las dos).
+  CRM nunca cae a la casa porque le falte el trato (la revisión del 22/10 encontró las dos). Y un SALDO compara una venta
+  con lo cobrado de ESA venta: `faltaDeLaVenta` (venta de la casa − `total_cobrado_casa_usd`, mig 0325), nunca con
+  `total_cobrado_usd`, que es lo cobrado en todos los CRMs (la caja).
 
 # Un flag de visibilidad protege la PANTALLA; la API hay que cerrarla aparte
 

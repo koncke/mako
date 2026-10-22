@@ -126,6 +126,26 @@ export function leadConTrato<L extends LeadDePagos>(lead: L, t: (CamposTrato & {
   };
 }
 
+/**
+ * Lo cobrado de la venta de la CASA (mig 0325, segunda revisión del 22/10/2026): `total_cobrado_casa_usd`; sin la columna
+ * (una base sin la 0325, o una fila que todavía no se sincronizó), `total_cobrado_usd`, que es lo de antes.
+ */
+export function cobradoDeLaVenta(l: { total_cobrado_casa_usd?: unknown; total_cobrado_usd?: unknown }): number {
+  const casa = num(l.total_cobrado_casa_usd);
+  return casa ?? num(l.total_cobrado_usd) ?? 0;
+}
+
+/**
+ * Lo que le falta pagar de la venta de la CASA: su monto de cierre menos lo cobrado de ESA venta, nunca negativo. null sin
+ * monto (sin venta, «falta» no tiene referencia). Lo usan `{{lead_saldo}}` (mensajes al cliente), el filtro «Solo los que
+ * deben», el export y `listar_leads`. ⚠️ Con lo cobrado en TODOS los CRMs, una renovación pagada restaba de la venta.
+ */
+export function faltaDeLaVenta(l: { monto_cierre_usd?: unknown; total_cobrado_casa_usd?: unknown; total_cobrado_usd?: unknown }): number | null {
+  const monto = num(l.monto_cierre_usd);
+  if (monto == null) return null;
+  return Math.max(0, Math.round((monto - cobradoDeLaVenta(l)) * 100) / 100);
+}
+
 /** Los tipos de venta de un CRM agregado: sin suscripción (una mensualidad es de la casa). */
 export const TIPOS_DE_UN_CRM: ReadonlyArray<'unico' | 'sin_cobro'> = ['unico', 'sin_cobro'];
 

@@ -49,7 +49,8 @@ import { listarCobros } from '@/lib/cobros';
 import { NOMBRE_PASARELA, type Pasarela } from '@/lib/cobros-tipos';
 import { centavos, diferenciaPendiente, type RestoDeCobro } from '@/lib/pagos-diferencia';
 import { getResumenLead, linkResumenLead } from '@/lib/lead-resumen';
-import { getWorkspaceActual } from '@/lib/workspace';
+import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
+import { cobradoDeLaVenta, faltaDeLaVenta } from '@/lib/pagos-crm';
 import { getUltimoInsightGenerado, generarInsightLead } from '@/lib/lead-insights';
 import { buildJourney } from '@/lib/journey';
 import { propuestasPendientes, crearPropuesta } from '@/lib/propuestas';
@@ -419,16 +420,28 @@ export const RUNNERS: Runners = {
       const campo = s(input.campo_fecha) ?? 'created_at';
       const limite = n(input.limite) ?? 30;
       const { filas, total_cartera } = await leadsFiltrados({ etapas, banda: s(input.banda), campoFecha: campo, desde: s(input.desde), hasta: s(input.hasta), persona: s(input.persona) });
-      const leads = filas.slice(0, limite).map(({ l, key, label, fecha }) => ({
-        id: l.id, nombre: l.nombre, empresa: l.empresa, etapa: key, etapa_label: label, estado: l.estado_lead,
-        closer: l.closer ?? null, setter: l.setter ?? null, [campo]: fecha,
-        monto_cierre_usd: l.monto_cierre_usd, total_cobrado_usd: l.total_cobrado_usd,
-      }));
+      // Lo cobrado de la VENTA de la casa (mig 0325): `listLeads` no lo trae, se lee para esta página. Sin la columna (o si
+      // falla), cae a lo de siempre (`cobradoDeLaVenta`).
+      const pagina = filas.slice(0, limite);
+      const deLaCasa = new Map<number, unknown>();
+      try {
+        const { data } = await (await getTenantDb()).from('leads').select('id, total_cobrado_casa_usd').in('id', pagina.map(({ l }) => l.id));
+        for (const r of (data ?? []) as Array<{ id: number; total_cobrado_casa_usd: unknown }>) deLaCasa.set(Number(r.id), r.total_cobrado_casa_usd);
+      } catch { /* sin la 0325: lo de siempre */ }
+      const leads = pagina.map(({ l, key, label, fecha }) => {
+        const conCasa = { ...l, total_cobrado_casa_usd: deLaCasa.get(l.id) ?? null };
+        return {
+          id: l.id, nombre: l.nombre, empresa: l.empresa, etapa: key, etapa_label: label, estado: l.estado_lead,
+          closer: l.closer ?? null, setter: l.setter ?? null, [campo]: fecha,
+          monto_cierre_usd: l.monto_cierre_usd, total_cobrado_usd: l.total_cobrado_usd,
+          cobrado_de_la_venta_usd: cobradoDeLaVenta(conCasa), falta_cobrar_usd: faltaDeLaVenta(conCasa),
+        };
+      });
       return json({
         filtro: { etapas: etapas ?? null, banda: s(input.banda) ?? null, campo_fecha: campo, desde: s(input.desde) ?? null, hasta: s(input.hasta) ?? null, persona: s(input.persona) ?? null },
         coinciden: filas.length, devueltos: leads.length, omitidos: filas.length - leads.length, total_cartera,
         ...(campo === 'created_at' ? { nota_fecha: 'created_at se compara por su día en UTC.' } : {}),
-        nota_montos: 'Montos en USD; null = sin cargar, no cero. En suscripciones monto_cierre_usd queda null a propósito.',
+        nota_montos: 'Montos en USD; null = sin cargar, no cero. En suscripciones monto_cierre_usd queda null a propósito. total_cobrado_usd es lo cobrado en TODOS sus CRMs (una renovación incluida); lo que debe es falta_cobrar_usd (la venta de su CRM principal menos lo cobrado de ESA venta).',
         leads,
       });
     },

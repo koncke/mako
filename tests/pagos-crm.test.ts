@@ -161,7 +161,7 @@ test('el server lee y escribe POR CRM: la casa sin los agregados, y lo nuevo de 
   // El plan de un CRM agregado va a su fila de lead_funnel, no a `leads`.
   assert.match(pagos, /from\('lead_funnel'\)\.update\(\{ \.\.\.columnas, updated_at: new Date\(\)\.toISOString\(\) \}\)\.eq\('id', t\.id\)/);
   // Lo cobrado del lead (`total_cobrado_usd`) es lo de TODOS sus CRMs, como antes (revisión del 22/10/2026).
-  assert.match(pagos, /const pagados = \(await getPagosByLead\(leadId, 'todos'\)\)\.filter\(\(p\) => p\.pagado\);/);
+  assert.match(pagos, /const \[todos, agregados\] = await Promise\.all\(\[getPagosByLead\(leadId, 'todos'\), crmsAgregadosDelLead\(leadId\)\]\);\s*const pagados = todos\.filter\(\(p\) => p\.pagado\);/);
 });
 
 // Rotura: `agregarCuotaAction` con el `crm` del navegador sin `crmDelTrato`: 10 / 1.

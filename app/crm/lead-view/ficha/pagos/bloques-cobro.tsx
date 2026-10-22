@@ -34,6 +34,7 @@ import { CobrarConLink } from '@/app/crm/[id]/CobrarConLink';
 import { CobrosDelLead } from '@/app/crm/[id]/CobrosDelLead';
 import type { CtxFicha, PropsBloque } from '../tipos';
 import { refrescarCobros, useCobrosDelLead } from './datos';
+import { sinTratoLeido } from './trato';
 import { useCobrar } from './cobrar';
 import { EnLinea } from './EnLinea';
 import { Aviso, MONO, Semaforo, Tarjeta, TONO_UI, nada } from './piezas';
@@ -79,6 +80,7 @@ const COLOR: Record<'verde' | 'ambar' | 'rojo' | 'gris', string> = { verde: 'var
 
 export function EstadoDeCuenta(props: PropsBloque) {
   const { ctx, diseno, titulo } = props;
+  const bloqueado = props.editando || sinTratoLeido(ctx);
   const { cobrado, leidos } = useCobrado(ctx);
   const cobrar = useCobrar(ctx);
   const leido = estadoDeCuenta({ cobrado, pagos: ctx.data.pagos, ganado: ganado(ctx), hoy: ctx.hoy });
@@ -87,7 +89,7 @@ export function EstadoDeCuenta(props: PropsBloque) {
   // La vista épica (el criterio de General): la prende la TAB y llega en PropsBloque (../tipos.ts).
   const { epico } = props;
   const boton = e.accion && (
-    <Button variant={e.tono === 'rojo' ? 'primary' : 'secondary'} size={epico ? 'lg' : 'md'} disabled={props.editando} onClick={() => e.accion && cobrar.abrir(e.accion)}>{e.accion.boton}</Button>
+    <Button variant={e.tono === 'rojo' ? 'primary' : 'secondary'} size={epico ? 'lg' : 'md'} disabled={bloqueado} onClick={() => e.accion && cobrar.abrir(e.accion)}>{e.accion.boton}</Button>
   );
   // El comprobante del chat con MaKo (la 2.28): se promete leerlo sólo si el botón es cobrar SU cuota (21/10/2026).
   const delChat = cobrar.comprobanteDe(e.accion);
@@ -139,10 +141,13 @@ const renglon: CSSProperties = { display: 'flex', alignItems: 'center', justifyC
 const BORDE: Record<string, string> = { cobrada: 'var(--good)', vencida: 'var(--bad)', 'por-vencer': 'var(--warn-fill)' };
 
 export function Cuotas(props: PropsBloque) {
-  const { ctx, diseno, titulo, editando } = props;
+  const { ctx, diseno, titulo } = props;
   const { lead, data } = ctx;
-  // Mirando un CRM agregado (una renovación, ./trato.ts): estas son SUS cuotas, y lo que se escribe es de su trato.
+  // Mirando un CRM agregado (una renovación, ./trato.ts): estas son SUS cuotas, y lo que se escribe es de su trato. Si ese
+  // trato no se pudo leer, no se escribe nada (`sinTratoLeido`): se ve como si se estuviera personalizando.
   const crm = ctx.crm?.id ?? null;
+  const sinTrato = sinTratoLeido(ctx);
+  const editando = props.editando || sinTrato;
   const cobrar = useCobrar(ctx);
   const { toast, show, clear } = useToast();
   const [, start] = useTransition();
@@ -241,7 +246,7 @@ export function Cuotas(props: PropsBloque) {
           {!becado && <Button variant="secondary" size="sm" onClick={cobrar.registrarPago}>Registrar un pago</Button>}
         </div>
       )}>
-      {ctx.crm && !ctx.data.tratos && <Aviso tono="ambar">No pude leer el plan de {ctx.crm.nombre || 'este CRM'}: recarga la ficha antes de cambiarlo.</Aviso>}
+      {sinTrato && <Aviso tono="ambar">No pude leer el plan de {ctx.crm?.nombre || 'este CRM'}: recarga la ficha para cambiarlo.</Aviso>}
       {lista.length === 0 && !armando && (
         <p style={nada}>{vivas.length ? 'No queda nada por cobrar.' : ctx.crm ? `Sin cuotas en ${ctx.crm.nombre || 'este CRM'}: el plan arranca de cero. Arma el plan o registra lo que pagó.` : 'Sin cuotas. Arma el plan o registra lo que pagó.'}</p>
       )}
@@ -545,8 +550,10 @@ const TIPOS: ReadonlyArray<{ id: VentaTipo; nombre: string }> = [
 const caja: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4, padding: '11px 14px', borderRadius: 12, background: 'var(--surface-2)', border: '1px solid var(--border)', minWidth: 0 };
 const etiqueta: CSSProperties = { fontSize: 12, color: 'var(--dim)' };
 
-export function Venta({ ctx, titulo, diseno, editando }: PropsBloque) {
+export function Venta({ ctx, titulo, diseno, editando: personalizando }: PropsBloque) {
   const { lead } = ctx;
+  // Sin el trato del CRM leído, la venta se ve y no se edita (`sinTratoLeido`).
+  const editando = personalizando || sinTratoLeido(ctx);
   const { toast, show, clear } = useToast();
   const [pending, start] = useTransition();
   const tipo: VentaTipo = (lead.venta_tipo as VentaTipo | null) ?? 'unico';
