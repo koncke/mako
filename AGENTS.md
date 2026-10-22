@@ -1660,6 +1660,11 @@ código nuevo:
     a la derecha» del 18/10. La pieza es `<MakoEnLaTab tab="…" />` (app/_chat/MakoEnLaTab.tsx): lo que se escribe va al chat
     «Cerebro» de la persona, el del Ops Center, con su motor y sus piezas. Ninguna tab abre un chat de MaKo suelto a la derecha.
     Lo propio de la tab entra por la pieza (`arriba`, `aviso`) y el lugar se lo deja con `var(--ancho-panel-mako, 0px)`.
+  - **EL OPS CENTER SÓLO MUESTRA LO QUE ES PARA MARTÍN; LO QUE SE DICEN LOS CHATS ENTRE ELLOS NO SE DIBUJA** (22/10/2026;
+    Martín: «me salen estos textos largos innecesarios en muchos chats... No los quiero»). Se dibuja lo que él escribe y lo
+    que el chat le contesta («Voy a trabajar en…», «Ya está», sus preguntas). Un mensaje de otro chat (`otro`) y el resumen de
+    una compactación no, ni lo nuevo ni lo guardado: la regla es `esParaMartin` (lib/operaciones-reglas.ts) y la aplica
+    `lineasDeConversacion`. Algo nuevo que dibuje turnos pasa por ahí. Lo que tiene que leer Martín se lo dice el chat a él.
   - **LAS CRIATURAS, SIEMPRE VIVAS** (21/10/2026; Martín: «siempre, donde sea que estén deben tener su animación de movimiento,
     y parpadeo»): Muneco.tsx flota y parpadea en cualquier ánimo (dormida, respira), cada una con su desfase (`--mun-desfase`),
     con una animación CSS y nunca un timer; con `prefers-reduced-motion`, quietas. Una criatura nueva usa Muneco o Criatura.
