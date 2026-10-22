@@ -1551,3 +1551,12 @@ editor trae el suyo al abrir el panel. Los chats de cada gráfico siguen siendo 
 
 **Vive en:** app/dashboard/hilo-guardado.ts, PanelEditarMako.tsx, EditorInforme.tsx · lib/hilo-de-tab-reglas.ts ·
 tests/dashboard-hilo-guardado.test.ts, tests/hilo-de-tab.test.ts · *22/10/2026, chat «Chats de las tabs».*
+
+## La hoja Closing dice «Conecta tu Claude» sólo con un «no» seguro (22/10/2026)
+
+- **El aviso lee la MISMA pregunta que el cron** (`conQueAnalizaElClosing`, lib/closing.ts): 'no' = no hay su Claude ni el
+  permiso de la plataforma. Con 'no-se' (la base no contestó) se calla: un «conecta tu Claude» a quien ya lo tiene es
+  mentira, y lo manda a pegar una clave que ya pegó (app/dashboard/aviso-closing.ts).
+- **Se reconoce la hoja por su plantilla, no por su nombre** (`Hoja.plantilla === 'closing'`): una hoja renombrada sigue
+  siendo la Closing, y una copia a mano llamada «Closing» no lo es. Sólo se pregunta si el informe tiene una.
+- El closer mira su hoja en sólo lectura y no abre Integraciones: lee el aviso sin link. Un link compartido no lo muestra.
