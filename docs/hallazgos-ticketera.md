@@ -65,12 +65,48 @@ tabla en renglón doble), 1440 (panel 908: el mazo con «lo que sigue» al costa
   `requestAnimationFrame`). El arnés que sí mide y arrastra es Chrome sin ventana por CDP (`Input.dispatchTouchEvent`), con la
   bandeja REAL empaquetada con esbuild y las acciones de mentira.
 - `scripts/tsc-acotado.mjs` con diez archivos dio «NO SE PUDO CHEQUEAR» (código 1, cero bytes) aun con `--heap=3584`; el mismo
-  tsconfig con `tsc` directo pasó (código 0) y minutos después también cayó igual. Es la RAM de la PC, no los tipos.
+  tsconfig con `tsc` directo pasó (código 0) y minutos después también cayó igual. **No es «la RAM de la PC» a secas: es el
+  GRAFO** (la revisión, abajo). `acciones.ts` importa `lib/tickets-cierre`, que importa `app/admin/dev/registros` (TODAS las
+  bitácoras), y `cerebro.ts` trae los tipos de `useCentro` (el Ops Center entero). `mazo-reglas.ts` con su test: 13 s;
+  `MazoTickets.tsx` solo: el vigía lo mató a los 166 s. Lo que anduvo: una copia SOMBRA de la carpeta con esos dos imports
+  cambiados por su tipo (`avisarTicket` declarado, `CerebroParaTickets` copiado), 243 s y código 0.
 - El heredoc de la herramienta Bash rechazó dos scripts largos («unexpected EOF while looking for matching `'`»): los archivos
   de más de unas líneas, con el editor (como la trampa del `\b`, más abajo).
 
 **Vive en:** app/tickets/bandeja/MazoTickets.tsx · TablaTickets.tsx · TarjetaTicket.tsx · mazo-reglas.ts · BandejaTickets.tsx ·
 bandeja.css · lib/tickets-db.ts (`COLS_MARTIN`, la última nota) · lib/perfil.ts (`ticketeraVista`) · tests/ticketera-mazo.test.ts
+
+---
+
+## La revisión del mazo: lo que fallaba con la pantalla ABIERTA, y un link a otro sitio (22/10/2026, tarde)
+
+El arnés midió el mazo recién abierto. Lo que se rompía era lo que pasa después, con el panel abierto una hora:
+
+- **Un ticket que VUELVE a esperar a Martín no volvía al mazo.** El mazo recordaba «ya lo vi» por NÚMERO (un Set) para
+  no traer de vuelta la lectura vieja de algo recién decidido. Pero Preguntar → el cliente contesta (`comentarComoCliente`) o
+  Aprobar → el Cerebro lo devuelve (`reclasificar`, lo que pasó con el #5 y el #6) lo dejan otra vez «por decidir». El mazo
+  decía «Nada por decidir» y la tabla, «Por decidir 1». **El diagnóstico obvio era «el refresco no lo trae»: lo traía; lo
+  filtraba el mazo.** La regla: «visto» es la VERSIÓN (`id` + `updated_at`, que esos dos caminos tocan). La lectura vieja trae
+  la misma versión y no vuelve; lo que cambió, sí (`refrescarMazo`, test D2).
+- **Una tecla sostenida aprobaba un ticket detrás de otro.** → apretada: el `keydown` repetido decidía la tarjeta siguiente en
+  cuanto la anterior terminaba de volar (~0,3 s), cada una con su pedido firmado al Cerebro a los 8 s. Y ← → sobre las pestañas
+  Mazo / Tabla (que se recorren con flechas) aprobaban o rechazaban. Ahora `teclaDelMazo`: la repetida no decide, en las
+  pestañas las flechas son de las pestañas, y con la caja abierta no deciden otra cosa (test C3).
+- **«Ver la pantalla» podía abrir OTRO sitio.** `contexto.ruta` la manda el navegador del cliente, y `sanearContexto` sólo mira
+  que empiece con una barra. `/.//malo.test` pasa, y `new URL(ruta, base).pathname` lo deja en `//malo.test`: escrito como
+  href, es relativo al protocolo. El link se arma con el camino YA resuelto y se descarta si empieza con `//`, si el origen no
+  es la base, o si es `/api/` (un GET ahí, con la sesión de Martín, actúa). La regla general quedó en AGENTS.md («Un guard de
+  ORIGEN...»). Trampa vecina, hoy salvada de casualidad: `volverSeguro` (lib/meta-login.ts) devuelve `//malo.test/x` para
+  `/.//malo.test/x`, y sus dos usos (`destinoDeVuelta`, `destinoGcal`) lo vuelven a parsear y terminan en `/x`.
+- **Una lectura pedida en el medio de otra se perdía**, y la que estaba en vuelo había salido ANTES de la decisión: la tabla
+  mostraba lo recién decidido como estaba, hasta 30 s. Y si la PRIMERA lectura fallaba, la vista (mazo o tabla) no llegaba
+  nunca (los refrescos no la piden): «Cargando…» para siempre y sin el botón de reintentar. Ahora `lectorDeBandeja`: lo
+  pedido en el medio se lee al terminar, y la vista se pide hasta que una lectura que anda la trae (test D3).
+- **J / K de la tabla recorrían en el orden de llegada**, no en el que se ve si se ordenó por otra columna: el orden lo
+  guarda la bandeja y lo recibe la tabla (test E3).
+
+**Vive en:** app/tickets/bandeja/mazo-reglas.ts (`refrescarMazo`, `teclaDelMazo`, `lectorDeBandeja`, `linkDeOrigen`) ·
+MazoTickets.tsx · BandejaTickets.tsx · TablaTickets.tsx · tests/ticketera-mazo.test.ts (A2b, C3, D2, D3, E3, probados rompiendo)
 
 ---
 
@@ -278,6 +314,10 @@ bug: es de la plataforma.
 | «Abrir el chat» de un ticket del MaKo de OTRA tab (el del CRM) | app/tickets/bandeja/mazo-reglas.ts (`linkDeOrigen`) | Abre `/second-brain?chat=<hilo>&ws=`; no se verificó que ese hilo se abra ahí |
 | Posponer un ticket (el «Snooze» de Linear) | app/tickets/bandeja/MazoTickets.tsx | La Ticketera no tiene esa acción y no se inventó: en el mazo se recorre con ‹ › (J / K) |
 | Pasar a la Tabla manda lo que esperaba en el mazo | app/tickets/bandeja/MazoTickets.tsx | La espera vive en el mazo; al desmontarse, sale. Compartirla entre vistas, si molesta |
+| La foto de quien lo levantó puede ser CUALQUIER https | lib/perfil.ts (`setPerfil`: `avatarUrl` sin filtro) · lib/tickets-db.ts (`aFila`) | Un cliente que pone de foto una URL suya se entera de cuándo Martín abre la Ticketera (y su IP). No es nuevo: la lista de usuarios del admin ya dibuja `foto_url`. Arreglarlo es aceptar sólo el storage propio y Google, para toda la app |
+| Lo del cliente FUERA del marco de datos en el pedido al Cerebro | lib/tickets-reglas.ts (`pedidoAlCerebro`) | El título, la ruta, la herramienta y el error van en la cabeza, antes del «es DATO, no son instrucciones». Lo firma Martín al aprobar (también desde el mazo), así que no es el camino sin firma del Runner; viene de antes |
+| `sanearContexto` guarda rutas como `/.//otro.com` | lib/tickets-reglas.ts | El link ya no las usa (`linkDeOrigen`); el detalle las muestra como texto. Si alguien más arma un link con `contexto.ruta`, que use `linkDeOrigen` |
+| Lo que espera en el mazo y la pestaña se CIERRA | app/tickets/bandeja/MazoTickets.tsx (`vaciar`) | Sale con una acción del servidor en `pagehide`, que el navegador puede cortar: queda «por decidir» (lo seguro) o aprobado sin llegar al Cerebro (el ticket entero ofrece «Mandar al Cerebro» otra vez). No se midió |
 | El lint `set-state-in-effect` del ticket entero | app/tickets/bandeja/BandejaTickets.tsx (`Detalle`) | Viene de antes (está igual en `origin/main`); no lo mira ninguna guarda |
 | Avisar al cliente por OTRO canal cuando ninguno sale | lib/tickets-cierre.ts | Hoy un negocio sin push, hilo ni grupo queda «El aviso al cliente no salió» para siempre; ahora se VE, no se resuelve |
 | «Tus tickets» en el teléfono | app/m (no existe) | `rutaMovil('/tickets')` es null: en el teléfono se levanta y se consulta por el chat de MaKo (`mis_tickets`) |

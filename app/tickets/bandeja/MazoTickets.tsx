@@ -33,7 +33,7 @@ import { anotarDespachoAction, decidirTicketAction } from './acciones';
 import type { CerebroParaTickets } from './cerebro';
 import { CaraTicket, TarjetaTicket } from './TarjetaTicket';
 import {
-  RESPUESTAS_GUARDADAS, VENTANA_DESHACER_MS, accionesDe, ordenDelMazo, refrescarMazo, veredictoGesto,
+  RESPUESTAS_GUARDADAS, VENTANA_DESHACER_MS, accionesDe, ordenDelMazo, refrescarMazo, teclaDelMazo, veredictoGesto, versionesDe,
   type AccionMazo, type Salida,
 } from './mazo-reglas';
 
@@ -61,7 +61,8 @@ export function MazoTickets({ tickets, cerebro, ahora, onCambio, onVerTodo, quie
 }) {
   const [orden, setOrden] = useState<number[]>(() => ordenDelMazo(tickets));
   const [indice, setIndice] = useState(0);
-  const vistos = useRef<Set<number>>(new Set(orden));
+  // La versión de cada ticket en la última lectura: lo que vuelve a esperar a Martín, vuelve al mazo (`refrescarMazo`).
+  const vistos = useRef<Map<number, string>>(versionesDe(tickets));
   const [pendientes, setPendientes] = useState<Pendiente[]>([]);
   const relojes = useRef(new Map<number, number>());
   const [caja, setCaja] = useState<{ id: number; salida: Salida } | null>(null);
@@ -83,12 +84,14 @@ export function MazoTickets({ tickets, cerebro, ahora, onCambio, onVerTodo, quie
   const claveTexto = (id: number, s: Salida) => `${id}:${s}`;
   const textoDe = (id: number, s: Salida) => textos[claveTexto(id, s)] ?? '';
 
-  // Lo que llega al refrescar: al final, sin rearmar (y sin lo que espera salir).
+  // Lo que llega al refrescar: al final, sin rearmar (y sin lo que espera salir). Contra la lectura ANTERIOR, copiada:
+  // React puede correr el `setOrden(fn)` dos veces (StrictMode, un render que se reintenta) y tiene que dar lo mismo.
   useEffect(() => {
     const apartados = new Set(pendientes.map((p) => p.t.id));
+    const antes: ReadonlyMap<number, string> = new Map(vistos.current);
+    for (const t of tickets) vistos.current.set(t.id, t.updated_at);
     setOrden((o) => {
-      const r = refrescarMazo(o, tickets, vistos.current, apartados);
-      for (const id of r) vistos.current.add(id);
+      const r = refrescarMazo(o, tickets, antes, apartados);
       return r.length === o.length && r.every((x, k) => x === o[k]) ? o : r;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -200,25 +203,26 @@ export function MazoTickets({ tickets, cerebro, ahora, onCambio, onVerTodo, quie
     setIndice((x) => (Math.min(x, ids.length - 1) + paso + ids.length) % ids.length);
   }, [ids.length]);
 
-  // Las teclas, en la compu: → aprobar · ← rechazar · ↑ preguntar · ⌫ o Ctrl+Z volver · J/K la siguiente o la anterior.
+  // Las teclas, en la compu (qué hace cada una, y cuándo NO: ./mazo-reglas.ts → `teclaDelMazo`).
+  const cajaAbierta = !!actual && caja?.id === actual.id;
   useEffect(() => {
     if (quieto) return;
     const tecla = (e: KeyboardEvent) => {
-      const el = e.target as HTMLElement | null;
-      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) { if (e.key === 'Escape') setCaja(null); return; }
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); volver(); return; }
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key === 'Backspace') { e.preventDefault(); volver(); return; }
-      if (e.key === 'Escape') { setCaja(null); return; }
-      if (e.key === 'ArrowRight') { e.preventDefault(); decidir('derecha'); }
-      else if (e.key === 'ArrowLeft') { e.preventDefault(); decidir('izquierda'); }
-      else if (e.key === 'ArrowUp') { e.preventDefault(); decidir('arriba'); }
-      else if (e.key === 'j') mover(1);
-      else if (e.key === 'k') mover(-1);
+      const el = e.target instanceof Element ? e.target : null;
+      const enCampo = !!el && ((el as HTMLElement).isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+      const enFlechas = !!el?.closest('[role="tablist"], [role="radiogroup"], [role="listbox"], [role="menu"], [role="slider"]');
+      const a = teclaDelMazo(e, { enCampo, enFlechas, cajaAbierta });
+      if (!a) return;
+      if (a !== 'cerrar' && a !== 'siguiente' && a !== 'anterior') e.preventDefault();
+      if (a === 'volver') volver();
+      else if (a === 'cerrar') setCaja(null);
+      else if (a === 'siguiente') mover(1);
+      else if (a === 'anterior') mover(-1);
+      else if (a !== 'comer') decidir(a);
     };
     window.addEventListener('keydown', tecla);
     return () => window.removeEventListener('keydown', tecla);
-  }, [quieto, decidir, volver, mover]);
+  }, [quieto, cajaAbierta, decidir, volver, mover]);
 
   const hayVuelta = pendientes.length > 0;
   const enCaja = actual && caja?.id === actual.id ? caja.salida : null;

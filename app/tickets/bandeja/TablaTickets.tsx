@@ -11,27 +11,29 @@
 //    compu el Ops Center también puede quedar angosto) cada fila es un renglón doble —la cara, el número y el título; abajo
 //    quién, el negocio y cuándo— y el orden se elige con un selector, porque no hay títulos de columna que tocar.
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { Icon } from '@/app/_components/icons';
 import { PestanasPildora } from '@/app/_ui/TarjetaKanban';
 import { avisoAlCliente } from '@/lib/tickets-aviso';
 import type { FilaTicket } from '@/lib/tickets-db';
 import { CaraTicket, ChipOrigen } from './TarjetaTicket';
 import {
-  COLUMNAS, GRUPOS, ORDEN_INICIAL, ROTULO_ESTADO, enGrupo, estadoObvio, haceCuanto, nombreDe, ordenarTabla, siguienteOrden, tipoCorto,
+  COLUMNAS, GRUPOS, ROTULO_ESTADO, enGrupo, estadoObvio, haceCuanto, nombreDe, ordenarTabla, siguienteOrden, tipoCorto,
   type ColumnaTabla, type Orden,
 } from './mazo-reglas';
 
-export function TablaTickets({ tickets, ahoraLista, grupo, onGrupo, elegido, onAbrir, barra }: {
+export function TablaTickets({ tickets, ahoraLista, grupo, onGrupo, orden, setOrden, elegido, onAbrir, barra }: {
   tickets: readonly FilaTicket[] | null;
   ahoraLista: number;
   grupo: string;
   onGrupo: (g: string) => void;
+  /** El orden lo guarda la bandeja: J / K recorren el ticket abierto en el MISMO orden que se ve. */
+  orden: Orden;
+  setOrden: Dispatch<SetStateAction<Orden>>;
   elegido: number | null;
   onAbrir: (id: number) => void;
   barra: ReactNode;
 }) {
-  const [orden, setOrden] = useState<Orden>(ORDEN_INICIAL);
   const filas = useMemo(() => ordenarTabla((tickets ?? []).filter((t) => enGrupo(t, grupo)), orden), [tickets, grupo, orden]);
   const cuenta = (clave: string) => (tickets ?? []).filter((t) => enGrupo(t, clave)).length;
 

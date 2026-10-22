@@ -19,7 +19,7 @@
 // app/m/operaciones/TicketeraMovil.tsx). Lee sus datos con sus propias acciones (./acciones.ts, con `puedeOperar`): Ops
 // Center no tiene que cargar nada para dibujarla.
 
-import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { Button, ErrorState, Status, Switch, Textarea, Input, type Tono } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { ICONO_VISTA } from '@/app/_ui/iconos-vista';
@@ -37,7 +37,10 @@ import type { CerebroParaTickets } from './cerebro';
 import { MazoTickets } from './MazoTickets';
 import { TablaTickets } from './TablaTickets';
 import { CaraTicket, ChipOrigen } from './TarjetaTicket';
-import { ROTULO_ESTADO, enGrupo, linkDeOrigen, nombreDe, ordenarTabla, textoDeLaPersona, tipoCorto as corto, ORDEN_INICIAL, type VistaBandeja } from './mazo-reglas';
+import {
+  ROTULO_ESTADO, enGrupo, lectorDeBandeja, linkDeOrigen, nombreDe, ordenarTabla, textoDeLaPersona, tipoCorto as corto, ORDEN_INICIAL,
+  type Orden, type VistaBandeja,
+} from './mazo-reglas';
 // ⚠️ Su hoja (./bandeja.css) la importa la PÁGINA (app/second-brain/pagina.tsx), como las del mazo: un import de CSS acá
 // rompería un test que dibuje esto con node.
 
@@ -67,30 +70,22 @@ export function BandejaTickets({ cerebro }: { cerebro: CerebroParaTickets | null
   const [autoArreglo, setAutoArreglo] = useState(true);
   const [vista, setVista] = useState<VistaBandeja | null>(null);
   const [grupo, setGrupo] = useState('decidir');
+  const [ordenDeTabla, setOrdenDeTabla] = useState<Orden>(ORDEN_INICIAL);
   const [elegido, setElegido] = useState<number | null>(null);
   // «Hace cuánto» de los avisos y de las tarjetas: se fija al leer, no al dibujar.
   const [ahoraLista, setAhoraLista] = useState(() => Date.now());
-  const leyendo = useRef(false);
-
-  const cargar = useCallback(async (conVista = false) => {
-    if (leyendo.current && !conVista) return;
-    leyendo.current = true;
-    try {
-      const r = await leerBandejaAction(conVista);
-      if (!r.ok) { setError(r.error); return; }
-      setError(null); setTickets(r.tickets); setAutoArreglo(r.autoArreglo); setAhoraLista(Date.now());
-      if (conVista) setVista((v) => v ?? r.vista);
-    } catch {
-      setError('No pude leer la Ticketera');
-    } finally {
-      leyendo.current = false;
-    }
-  }, []);
+  // Una lectura a la vez, sin perder la que se pide mientras tanto, y la vista hasta que llega (./mazo-reglas.ts).
+  const cargar = useMemo(() => lectorDeBandeja(leerBandejaAction, (r, conVista) => {
+    if (!r) { setError('No pude leer la Ticketera'); return; }
+    if (!r.ok) { setError(r.error); return; }
+    setError(null); setTickets(r.tickets); setAutoArreglo(r.autoArreglo); setAhoraLista(Date.now());
+    if (conVista) setVista((v) => v ?? r.vista);
+  }), []);
   const refrescar = useCallback(() => { void cargar(); }, [cargar]);
 
   // Se refresca sola: cada 30 s con la pestaña a la vista, y en el acto al volver a ella.
   useEffect(() => {
-    void cargar(true);
+    void cargar();
     const t = window.setInterval(() => { if (document.visibilityState === 'visible') void cargar(); }, REFRESCO_MS);
     const volvio = () => { if (document.visibilityState === 'visible') void cargar(); };
     document.addEventListener('visibilitychange', volvio);
@@ -103,21 +98,21 @@ export function BandejaTickets({ cerebro }: { cerebro: CerebroParaTickets | null
     void guardarVistaAction(v).catch(() => undefined);
   };
 
-  // j / k recorren la tabla con el ticket abierto, como en Linear (en el orden de llegada del grupo).
+  // j / k recorren la tabla con el ticket abierto, como en Linear, en el MISMO orden que se ve (el que eligió).
   useEffect(() => {
     if (vista !== 'tabla' || elegido == null) return;
     const tecla = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
       if (e.key !== 'j' && e.key !== 'k') return;
-      const visibles = ordenarTabla((tickets ?? []).filter((t) => enGrupo(t, grupo)), ORDEN_INICIAL);
+      const visibles = ordenarTabla((tickets ?? []).filter((t) => enGrupo(t, grupo)), ordenDeTabla);
       const i = visibles.findIndex((t) => t.id === elegido);
       const sig = visibles[e.key === 'j' ? Math.min(visibles.length - 1, i + 1) : Math.max(0, i - 1)];
       if (sig) setElegido(sig.id);
     };
     window.addEventListener('keydown', tecla);
     return () => window.removeEventListener('keydown', tecla);
-  }, [vista, elegido, tickets, grupo]);
+  }, [vista, elegido, tickets, grupo, ordenDeTabla]);
 
   const cambiarAuto = async (v: boolean) => {
     setAutoArreglo(v);
@@ -125,7 +120,7 @@ export function BandejaTickets({ cerebro }: { cerebro: CerebroParaTickets | null
     if (!r.ok) { setAutoArreglo(!v); setError(r.error); }
   };
 
-  if (error && !tickets) return <ErrorState titulo="No pude abrir la Ticketera" detalle={error} onReintentar={() => void cargar(true)} />;
+  if (error && !tickets) return <ErrorState titulo="No pude abrir la Ticketera" detalle={error} onReintentar={refrescar} />;
 
   const barra = (
     <>
@@ -151,6 +146,7 @@ export function BandejaTickets({ cerebro }: { cerebro: CerebroParaTickets | null
           quieto={elegido != null} barra={barra} onVerTabla={() => elegirVista('tabla')} />
       ) : (
         <TablaTickets tickets={tickets} ahoraLista={ahoraLista} grupo={grupo} onGrupo={(g) => { setGrupo(g); setElegido(null); }}
+          orden={ordenDeTabla} setOrden={setOrdenDeTabla}
           elegido={elegido} onAbrir={setElegido} barra={barra} />
       )}
       {elegido != null && (

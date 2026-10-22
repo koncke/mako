@@ -21,6 +21,12 @@
 //   · `bandeja()` sin `usuarios(foto_url)`                                   → G5 falla
 //   · «Volver» escondido cuando no hay nada (`hidden` en vez de `disabled`)   → G1 falla
 //   (y sin el `&ws=` también cae F1: el link de la tarjeta es el mismo)
+// La revisión (22/10/2026, tarde) sumó A2b, C3, D2 y D3, probados ROMPIENDO cada arreglo:
+//   · `linkDeOrigen` sin mirar el camino ya resuelto (`/.//malo.test` → `//malo.test`), o sin cortar `/api/` → A2b
+//   · `refrescarMazo` con «ya lo vi» por número, sin la versión (lo que vuelve a esperar a Martín no volvía) → D2
+//   · `teclaDelMazo` sin `repeat`, sin las pestañas o sin la caja abierta                                → C3
+//   · `lectorDeBandeja` que descarta lo pedido en el medio, o da la vista por sabida si la lectura falló  → D3
+//   · J / K de la tabla otra vez con `ORDEN_INICIAL` (no el orden que se ve)                             → E3
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -30,10 +36,11 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { FilaTicket } from '../lib/tickets-db';
 import {
-  accionesDe, errorCorto, estadoObvio, linkDeOrigen, nombreDe, ordenDelMazo, ordenarTabla, origenDe, refrescarMazo,
-  siguienteOrden, textoDeLaPersona, veredictoGesto, ORDEN_INICIAL, VENTANA_DESHACER_MS,
+  accionesDe, errorCorto, estadoObvio, lectorDeBandeja, linkDeOrigen, nombreDe, ordenDelMazo, ordenarTabla, origenDe, refrescarMazo,
+  siguienteOrden, teclaDelMazo, textoDeLaPersona, veredictoGesto, versionesDe, ORDEN_INICIAL, VENTANA_DESHACER_MS,
 } from '../app/tickets/bandeja/mazo-reglas';
 import { TarjetaTicket } from '../app/tickets/bandeja/TarjetaTicket';
+import { TablaTickets } from '../app/tickets/bandeja/TablaTickets';
 
 const RAIZ = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n')
@@ -88,6 +95,22 @@ test('A2: el link va a la conversación con MaKo o a la pantalla, ENTRANDO al ne
   assert.equal(linkDeOrigen(ticket({ workspace_id: 0 })), null);
 });
 
+test('A2b: una ruta del cliente que el parser resuelve a OTRO SITIO (`/.//malo.test`) o a la API no da link', () => {
+  // La ruta la manda el navegador del cliente y `sanearContexto` sólo mira la primera barra: estas pasan y se guardan.
+  for (const ruta of ['/.//malo.test/x', '/..//malo.test', '/a/..//malo.test/x?y=1', '/%2e//malo.test', '/\\malo.test/x']) {
+    const l = linkDeOrigen(ticket({ contexto: { ruta, chat: { donde: 'error-navegador' } } }));
+    assert.ok(l === null || (l.href.startsWith('/') && !l.href.startsWith('//')), `${ruta} → ${l?.href}`);
+    if (l) assert.equal(new URL(l.href, 'https://hola-mako.com').host, 'hola-mako.com', `${ruta} → ${l.href}`);
+  }
+  assert.equal(linkDeOrigen(ticket({ contexto: { ruta: '/.//malo.test/x', chat: { donde: 'error-navegador' } } })), null);
+  // Un GET a la API con la sesión de Martín no es «ver la pantalla».
+  assert.equal(linkDeOrigen(ticket({ contexto: { ruta: '/api/perfil?x=1', chat: { donde: 'error-navegador' } } })), null);
+  assert.equal(linkDeOrigen(ticket({ contexto: { ruta: '/crm/../api/x', chat: { donde: 'error-navegador' } } })), null);
+  // Lo normal sigue andando, con sus puntos resueltos.
+  assert.equal(linkDeOrigen(ticket({ contexto: { ruta: '/crm/./leads', chat: { donde: 'error-navegador' } }, workspace_id: 7 }))?.href, '/crm/leads?ws=7');
+  assert.equal(linkDeOrigen(ticket({ contexto: { ruta: '/apis-de-meta', chat: { donde: 'error-navegador' } }, workspace_id: 7 }))?.href, '/apis-de-meta?ws=7');
+});
+
 test('A3: quién: el nombre, o el teléfono / el nombre de WhatsApp; el error en corto; el texto de la persona', () => {
   assert.equal(nombreDe(ticket()), 'Mauricio Bustos Eguia');
   assert.equal(nombreDe(ticket({ usuario_nombre: '', usuario_email: 'whatsapp:5491155550000' })), '+5491155550000');
@@ -135,6 +158,31 @@ test('C2: ARRIBA es pedirle más al cliente; abajo no hace nada', () => {
   assert.equal(g(-60, 0, 150), 'derecha', 'manda el eje más largo');
 });
 
+test('C3: las teclas: una SOSTENIDA no decide otra vez; en las pestañas, las flechas son de las pestañas', () => {
+  const libre = { enCampo: false, enFlechas: false, cajaAbierta: false };
+  assert.equal(teclaDelMazo({ key: 'ArrowRight' }, libre), 'derecha');
+  assert.equal(teclaDelMazo({ key: 'ArrowLeft' }, libre), 'izquierda');
+  assert.equal(teclaDelMazo({ key: 'ArrowUp' }, libre), 'arriba');
+  assert.equal(teclaDelMazo({ key: 'ArrowDown' }, libre), null);
+  // Dejarla apretada: la primera decide, las repetidas no (antes aprobaba un ticket detrás de otro).
+  for (const key of ['ArrowRight', 'ArrowLeft', 'ArrowUp']) assert.equal(teclaDelMazo({ key, repeat: true }, libre), 'comer', key);
+  // El foco en las pestañas Mazo / Tabla: ← → cambian de pestaña, no aprueban.
+  assert.equal(teclaDelMazo({ key: 'ArrowRight' }, { ...libre, enFlechas: true }), null);
+  // Con la caja abierta (lo que lee el cliente) las flechas no deciden otra cosa.
+  assert.equal(teclaDelMazo({ key: 'ArrowRight' }, { ...libre, cajaAbierta: true }), 'comer');
+  // En un campo de texto, las teclas son del texto: sólo Escape (cierra la caja).
+  assert.equal(teclaDelMazo({ key: 'ArrowRight' }, { ...libre, enCampo: true }), null);
+  assert.equal(teclaDelMazo({ key: 'Backspace' }, { ...libre, enCampo: true }), null);
+  assert.equal(teclaDelMazo({ key: 'Escape' }, { ...libre, enCampo: true }), 'cerrar');
+  // Volver y recorrer, como antes.
+  assert.equal(teclaDelMazo({ key: 'Backspace' }, libre), 'volver');
+  assert.equal(teclaDelMazo({ key: 'z', ctrlKey: true }, libre), 'volver');
+  assert.equal(teclaDelMazo({ key: 'Z', metaKey: true }, libre), 'volver');
+  assert.equal(teclaDelMazo({ key: 'ArrowRight', altKey: true }, libre), null);
+  assert.equal(teclaDelMazo({ key: 'j' }, libre), 'siguiente');
+  assert.equal(teclaDelMazo({ key: 'k' }, libre), 'anterior');
+});
+
 // ── D ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
 test('D1: el mazo: lo urgente primero; al refrescar no se rearma, lo nuevo va al final y lo decidido se va', () => {
   const a = ticket({ id: 1, prioridad: 'media', created_at: hace(300) });
@@ -143,14 +191,65 @@ test('D1: el mazo: lo urgente primero; al refrescar no se rearma, lo nuevo va al
   const cerrado = ticket({ id: 4, estado: 'resuelto' });
   assert.deepEqual(ordenDelMazo([a, b, c, cerrado]), [2, 3, 1]);
   const orden = [2, 3, 1];
-  const vistos = new Set(orden);
+  const vistos = versionesDe([a, b, c, cerrado]);
   // Llega uno urgente nuevo y al 3 lo decidió otro: el 3 se va, el nuevo va AL FINAL (aunque sea urgente).
   const nuevo = ticket({ id: 5, prioridad: 'urgente', created_at: hace(1) });
   assert.deepEqual(refrescarMazo(orden, [a, b, ticket({ id: 3, estado: 'rechazado' }), nuevo], vistos, new Set()), [2, 1, 5]);
   // Lo decidido acá que todavía no salió sigue «por decidir» en la base: no vuelve a aparecer.
-  assert.deepEqual(refrescarMazo([1, 3], [a, b, c], new Set([1, 2, 3]), new Set([2])), [1, 3]);
-  // Lo que ya pasó por este mazo no vuelve por refrescar (si falló, la tarjeta vuelve sola adelante).
-  assert.deepEqual(refrescarMazo([], [a], new Set([1]), new Set()), []);
+  assert.deepEqual(refrescarMazo([1, 3], [a, b, c], versionesDe([a, b, c]), new Set([2])), [1, 3]);
+  // La lectura VIEJA de lo que se acaba de decidir acá (salió antes de que la decisión llegara a la base): la misma
+  // versión que ya se vio, no vuelve (si la decisión falló, la tarjeta vuelve sola adelante).
+  assert.deepEqual(refrescarMazo([], [a], versionesDe([a]), new Set()), []);
+});
+
+test('D2: lo que VUELVE a esperar a Martín vuelve al mazo con la pantalla abierta (y la tabla y el mazo dicen lo mismo)', () => {
+  // El #7: Martín le preguntó al cliente desde el mazo. Salió, y la lectura siguiente lo trae esperando al cliente.
+  const pregunto = ticket({ id: 7, estado: 'esperando_decision', updated_at: '2026-10-22T15:00:00.000Z' });
+  const esperaCliente = ticket({ id: 7, estado: 'esperando_cliente', updated_at: '2026-10-22T15:00:09.000Z' });
+  let vistos = versionesDe([pregunto]);
+  let orden = refrescarMazo([], [esperaCliente], vistos, new Set());
+  assert.deepEqual(orden, []);
+  vistos = versionesDe([esperaCliente]);
+  // El cliente contesta (`comentarComoCliente`: vuelve a «por decidir» y toca updated_at).
+  const contesto = ticket({ id: 7, estado: 'esperando_decision', updated_at: '2026-10-22T15:20:00.000Z' });
+  orden = refrescarMazo(orden, [contesto], vistos, new Set());
+  assert.deepEqual(orden, [7], 'volvió al mazo');
+  // Lo mismo si el Cerebro lo devuelve (`reclasificar`), aunque la lectura en el medio no se haya visto nunca.
+  const aprobado = ticket({ id: 8, estado: 'nuevo', updated_at: '2026-10-22T14:00:00.000Z' });
+  const devuelto = ticket({ id: 8, estado: 'esperando_decision', updated_at: '2026-10-22T14:30:00.000Z' });
+  assert.deepEqual(refrescarMazo([], [devuelto], versionesDe([aprobado]), new Set()), [8]);
+  // El mazo cuenta lo mismo que el filtro «Por decidir» de la tabla.
+  const ts = [contesto, devuelto, ticket({ id: 9, estado: 'en_curso' })];
+  assert.equal(refrescarMazo([], ts, versionesDe([pregunto, aprobado]), new Set()).length, ts.filter((t) => t.estado === 'esperando_decision' || t.estado === 'nuevo').length);
+});
+
+test('D3: la lectura de la bandeja no pierde un pedido que llega en el medio, y pide la vista hasta que la trae', async () => {
+  const pedidos: boolean[] = [];
+  const aplicados: Array<[boolean | null, boolean]> = [];
+  const enVuelo: Array<{ res: (r: { ok: boolean }) => void; rej: (e: Error) => void }> = [];
+  const leer = (conVista: boolean) => { pedidos.push(conVista); return new Promise<{ ok: boolean }>((res, rej) => enVuelo.push({ res, rej })); };
+  const cargar = lectorDeBandeja(leer, (r, conVista) => aplicados.push([r ? r.ok : null, conVista]));
+  const tanda = async () => { for (let k = 0; k < 5; k++) await Promise.resolve(); };
+  // La primera falla: la vista no llegó.
+  const uno = cargar();
+  enVuelo.shift()!.res({ ok: false });
+  await uno;
+  // La siguiente (un refresco) la vuelve a pedir; mientras está en vuelo llegan dos pedidos (la decisión, el foco).
+  const dos = cargar();
+  void cargar(); void cargar();
+  assert.equal(pedidos.length, 2, 'una lectura a la vez');
+  enVuelo.shift()!.res({ ok: true });
+  await tanda();
+  assert.equal(pedidos.length, 3, 'lo pedido en el medio se lee al terminar (una sola vez)');
+  enVuelo.shift()!.res({ ok: true });
+  await dos;
+  assert.deepEqual(pedidos, [true, true, false], 'la vista se pide hasta que una lectura que anda la trae');
+  assert.deepEqual(aplicados, [[false, true], [true, true], [true, false]]);
+  // Si se cae la red, se aplica como error (null), no se tira.
+  const tres = cargar();
+  enVuelo.shift()!.rej(new Error('red'));
+  await tres;
+  assert.deepEqual(aplicados.at(-1), [null, false]);
 });
 
 // ── E ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -172,6 +271,26 @@ test('E2: en la tabla, el estado que ya dice el filtro no se repite en cada fila
   assert.equal(estadoObvio('nuevo', 'decidir'), false);
   assert.equal(estadoObvio('arreglado', 'curso'), false);
   assert.equal(estadoObvio('resuelto', 'cerrados'), false);
+});
+
+test('E3: J / K recorren el ticket abierto en el MISMO orden que muestra la tabla (el que eligió, no el de llegada)', () => {
+  const ts = [
+    ticket({ id: 1, created_at: hace(30), negocio: 'Beta' }),
+    ticket({ id: 2, created_at: hace(5), negocio: 'Alfa' }),
+    ticket({ id: 3, created_at: hace(90), negocio: 'Gama' }),
+  ];
+  // La tabla dibuja en el orden que le da la bandeja (no en uno propio).
+  const filas = (orden: { col: 'negocio' | 'cuando'; dir: 'asc' | 'desc' }) => [...renderToStaticMarkup(createElement(TablaTickets, {
+    tickets: ts, ahoraLista: AHORA, grupo: 'decidir', onGrupo: () => {}, orden, setOrden: () => {}, elegido: null, onAbrir: () => {}, barra: null,
+  })).matchAll(/data-ticket="(\d+)"/g)].map((m) => Number(m[1]));
+  assert.deepEqual(filas({ col: 'negocio', dir: 'asc' }), [2, 1, 3]);
+  assert.deepEqual(filas({ col: 'negocio', dir: 'desc' }), [3, 1, 2]);
+  assert.deepEqual(filas({ col: 'cuando', dir: 'asc' }), [3, 1, 2]);
+  // Y J / K usan ESE orden: el mismo estado que recibe la tabla.
+  const src = leer('app/tickets/bandeja/BandejaTickets.tsx');
+  assert.match(src, /const visibles = ordenarTabla\(\(tickets \?\? \[\]\)\.filter\(\(t\) => enGrupo\(t, grupo\)\), ordenDeTabla\);/);
+  assert.match(src, /<TablaTickets [\s\S]*?orden=\{ordenDeTabla\} setOrden=\{setOrdenDeTabla\}/);
+  assert.doesNotMatch(leer('app/tickets/bandeja/TablaTickets.tsx'), /useState<Orden>/, 'la tabla no guarda un orden propio');
 });
 
 // ── F ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -225,7 +344,10 @@ test('G2: una decisión ESPERA antes de salir, y «Volver» la saca de la espera
 test('G3: cada gesto tiene su botón (mouse y accesibilidad) y su tecla', () => {
   const src = leer('app/tickets/bandeja/MazoTickets.tsx');
   for (const s of ['izquierda', 'arriba', 'derecha']) assert.match(src, new RegExp(`<BotonGesto s="${s}"`));
-  for (const k of ['ArrowRight', 'ArrowLeft', 'ArrowUp', 'Backspace']) assert.match(src, new RegExp(`e\\.key === '${k}'`));
+  // Qué hace cada tecla lo prueba C3 (`teclaDelMazo`); acá, que el mazo la escuche y que lo que dice llegue a `decidir`.
+  assert.match(src, /const a = teclaDelMazo\(e, \{ enCampo, enFlechas, cajaAbierta \}\);/);
+  assert.match(src, /else if \(a !== 'comer'\) decidir\(a\);/);
+  assert.match(src, /if \(a === 'volver'\) volver\(\);/);
 });
 
 test('G4: sin «Actualizar»: se refresca sola; el arreglo automático, en el rayo; la vista se recuerda por persona', () => {
@@ -235,6 +357,8 @@ test('G4: sin «Actualizar»: se refresca sola; el arreglo automático, en el ra
   assert.match(src, /function AutoArreglo\(/);
   assert.match(src.slice(src.indexOf('function AutoArreglo(')), /<Switch checked=\{prendido\} onChange=\{onCambio\} label="Arreglar solos los bugs evidentes" \/>/);
   assert.match(src, /void guardarVistaAction\(v\)/);
+  // La lectura no pierde pedidos y pide la vista hasta tenerla (el comportamiento, en D3).
+  assert.match(src, /const cargar = useMemo\(\(\) => lectorDeBandeja\(leerBandejaAction, /);
   assert.match(leer('lib/perfil.ts'), /const TICKETERA_VISTA_KEY = 'ticketeraVista';/);
   assert.match(leer('app/tickets/bandeja/acciones.ts'), /export async function guardarVistaAction\(v: VistaTicketera\)[\s\S]{0,120}if \(!\(await opera\(\)\)\) return/);
 });

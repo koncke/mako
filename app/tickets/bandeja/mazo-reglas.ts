@@ -69,6 +69,11 @@ export function origenDe(t: Pick<FilaTicket, 'canal' | 'contexto'>): Origen {
  * El link a donde nació el ticket, ENTRANDO al negocio del cliente (`?ws=`, el mismo «Inspeccionar» de la ficha: el proxy
  * sólo se lo acepta a un admin). La conversación con MaKo si se sabe cuál (`?chat=` del Second Brain), si no la pantalla.
  * WhatsApp no tiene link: la conversación vive en el teléfono de la persona.
+ *
+ * ⚠️ LA RUTA LA MANDA EL NAVEGADOR DEL CLIENTE (`contexto.ruta`), y `sanearContexto` sólo mira que empiece con UNA barra.
+ *    `/.//otro.com` o `/a/..//otro.com` pasan, y el parser de URL, al resolver el `.` o el `..`, deja el camino en
+ *    `//otro.com`: un link «relativo al protocolo» que abre OTRO SITIO desde la Ticketera de Martín. Se mira el camino YA
+ *    resuelto. Y `/api/` no es una pantalla: un GET ahí, con la sesión de Martín y el `?ws=` del cliente, hace cosas.
  */
 export function linkDeOrigen(t: Pick<FilaTicket, 'canal' | 'contexto' | 'workspace_id'>): { href: string; rotulo: string } | null {
   const ws = Number(t.workspace_id);
@@ -78,7 +83,9 @@ export function linkDeOrigen(t: Pick<FilaTicket, 'canal' | 'contexto' | 'workspa
   if (delChat && /^\d{1,12}$/.test(hilo)) return { href: `/second-brain?chat=${hilo}&ws=${ws}`, rotulo: 'Abrir el chat' };
   const ruta = t.contexto.ruta;
   if (ruta && ruta.startsWith('/') && !ruta.startsWith('//')) {
-    const u = new URL(ruta, 'https://x.invalid');
+    const base = 'https://x.invalid';
+    const u = new URL(ruta, base);
+    if (u.origin !== base || u.pathname.startsWith('//') || /^\/(api|_next)(\/|$)/i.test(u.pathname)) return null;
     u.searchParams.set('ws', String(ws));
     return { href: `${u.pathname}${u.search}`, rotulo: 'Ver la pantalla' };
   }
@@ -202,17 +209,87 @@ export function ordenDelMazo(ts: readonly FilaTicket[]): number[] {
     .map((t) => t.id);
 }
 
+/** Lo que este mazo ya vio de cada ticket: el `updated_at` de la última lectura (la VERSIÓN, no sólo el número). */
+export type VistosMazo = ReadonlyMap<number, string>;
+export const versionesDe = (ts: readonly Pick<FilaTicket, 'id' | 'updated_at'>[]): Map<number, string> => new Map(ts.map((t) => [t.id, t.updated_at]));
+
 /**
  * Lo que llega al refrescar, sobre el mazo que ya se está mirando: el orden NO se rearma (la tarjeta de adelante no
  * cambia sola), se sacan los que ya no esperan una decisión (los decidió otro, o el Cerebro), y lo NUEVO va al final.
- * `vistos` = lo que ya pasó por este mazo; `apartados` = lo decidido acá que todavía no salió (sigue «por decidir» en la
- * base hasta que vence su ventana).
+ * `vistos` = la versión de cada ticket en la lectura ANTERIOR; `apartados` = lo decidido acá que todavía no salió (sigue
+ * «por decidir» en la base hasta que vence su ventana).
+ *
+ * ⚠️ «NUEVO» ES UN TICKET QUE NO ESTABA, O QUE CAMBIÓ: un ticket que ya pasó por este mazo VUELVE si volvió a esperar a
+ *    Martín (el cliente contestó lo que le preguntó, o el Cerebro lo devolvió: `comentarComoCliente` y `reclasificar`
+ *    tocan `updated_at`). Con sólo «ya lo vi» (un Set de números) no volvía nunca con la pantalla abierta: el mazo decía
+ *    «Nada por decidir» y la tabla, «Por decidir 1». Lo que NO vuelve es la lectura vieja de algo que se acaba de decidir
+ *    acá (la pidió el refresco antes de que la decisión llegara a la base): trae la MISMA versión que ya se vio.
  */
-export function refrescarMazo(orden: readonly number[], ts: readonly FilaTicket[], vistos: ReadonlySet<number>, apartados: ReadonlySet<number>): number[] {
+export function refrescarMazo(orden: readonly number[], ts: readonly FilaTicket[], vistos: VistosMazo, apartados: ReadonlySet<number>): number[] {
   const abiertos = new Set(ts.filter(porDecidir).map((t) => t.id));
   const quedan = orden.filter((id) => abiertos.has(id) && !apartados.has(id));
-  const nuevos = ordenDelMazo(ts).filter((id) => !vistos.has(id) && !apartados.has(id) && !quedan.includes(id));
+  const version = versionesDe(ts);
+  const nuevos = ordenDelMazo(ts).filter((id) => vistos.get(id) !== version.get(id) && !apartados.has(id) && !quedan.includes(id));
   return [...quedan, ...nuevos];
+}
+
+// ── Las teclas (en la compu) ──────────────────────────────────────────────────────────────────────────────────────
+export type TeclaMazo = Salida | 'volver' | 'siguiente' | 'anterior' | 'cerrar' | 'comer';
+
+/**
+ * Qué hace una tecla en el mazo: → aprobar · ← rechazar · ↑ preguntar · ⌫ o Ctrl+Z volver · J/K la siguiente o la
+ * anterior · Escape cierra la caja. `comer` = la tecla es del mazo pero no hace nada (se le saca el scroll de la página).
+ * `donde.enCampo`: el foco está en un campo de texto (las teclas son del texto; sólo Escape cierra la caja).
+ * `donde.enFlechas`: el foco está en un control que se recorre con las flechas (las pestañas Mazo / Tabla).
+ *
+ * ⚠️ UNA TECLA SOSTENIDA NO DECIDE OTRA VEZ (`repeat`): dejar apretada → aprobaba un ticket detrás de otro, uno por cada
+ *    vuelo de tarjeta (~0,3 s), cada uno con su pedido firmado al Cerebro a los 8 s.
+ * ⚠️ En las pestañas Mazo / Tabla, ← → cambian de pestaña (el patrón de ARIA), no aprueban el ticket de adelante.
+ * ⚠️ Con la caja abierta (lo que lee el cliente) las flechas no deciden OTRA cosa: la caja tiene su botón.
+ */
+export function teclaDelMazo(
+  e: { key: string; repeat?: boolean; metaKey?: boolean; ctrlKey?: boolean; altKey?: boolean },
+  donde: { enCampo: boolean; enFlechas: boolean; cajaAbierta: boolean },
+): TeclaMazo | null {
+  if (donde.enCampo) return e.key === 'Escape' ? 'cerrar' : null;
+  if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === 'z') return 'volver';
+  if (e.metaKey || e.ctrlKey || e.altKey) return null;
+  if (e.key === 'Escape') return 'cerrar';
+  if (e.key === 'Backspace') return 'volver';
+  if (e.key === 'j') return 'siguiente';
+  if (e.key === 'k') return 'anterior';
+  const salida: Salida | null = e.key === 'ArrowRight' ? 'derecha' : e.key === 'ArrowLeft' ? 'izquierda' : e.key === 'ArrowUp' ? 'arriba' : null;
+  if (!salida || donde.enFlechas) return null;
+  return e.repeat || donde.cajaAbierta ? 'comer' : salida;
+}
+
+/**
+ * La lectura de la bandeja, sin pisarse: se refresca sola (cada 30 s, al volver a la pestaña) y después de cada decisión.
+ * ⚠️ UN PEDIDO QUE LLEGA CON OTRA LECTURA EN VUELO NO SE PIERDE: se lee otra vez al terminar. Antes se descartaba, y la
+ *    lectura en vuelo había salido ANTES de la decisión: la tabla mostraba lo recién decidido como estaba, hasta 30 s.
+ * ⚠️ LA VISTA (mazo o tabla) SE PIDE HASTA QUE UNA LECTURA LA TRAE: si la primera fallaba y la siguiente andaba, la
+ *    bandeja quedaba en «Cargando…» para siempre (los refrescos no la piden) y sin el botón de reintentar.
+ */
+export function lectorDeBandeja<R extends { ok: boolean }>(
+  leer: (conVista: boolean) => Promise<R>,
+  aplicar: (r: R | null, conVista: boolean) => void,
+): () => Promise<void> {
+  let leyendo = false, otraVez = false, vistaSabida = false;
+  return async () => {
+    if (leyendo) { otraVez = true; return; }
+    leyendo = true;
+    try {
+      do {
+        otraVez = false;
+        const conVista = !vistaSabida;
+        const r = await leer(conVista).catch(() => null);
+        if (r?.ok && conVista) vistaSabida = true;
+        aplicar(r, conVista);
+      } while (otraVez);
+    } finally {
+      leyendo = false;
+    }
+  };
 }
 
 // ── La tabla ──────────────────────────────────────────────────────────────────────────────────────────────────────
