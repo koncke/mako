@@ -86,6 +86,20 @@ if [ "$A_MAIN" -eq 1 ]; then
     npm run --silent typecheck
   fi
   TIPOS=$?
+  # ⚠️ RESPALDO POR TANDAS (22/10/2026, INF1): si el tsc entero no consiguió su RAM (99), se chequea TODO el repo en 3 tandas
+  # con el programa entero (scripts/tipos-respaldo-push.mjs, del árbol que se sube). Pasa sólo si las TRES dan 0; una tanda
+  # que no termina es otro 99. Sin esto, con Actions sin minutos y la app de Claude abierta, a main sólo se llegaba con
+  # --no-verify (el tsc entero pide 6,3 GB libres y la PC no pasa de 6,1). docs/hallazgos-infra.md, «Sin minutos de Actions».
+  if [ "$TIPOS" -eq 99 ]; then
+    RESPALDO="scripts/tipos-respaldo-push.mjs"
+    [ -f "$RESPALDO" ] || RESPALDO="$REPO/scripts/tipos-respaldo-push.mjs"
+    if [ -f "$RESPALDO" ]; then
+      echo "[pre-push] El tsc entero no tuvo RAM: chequeo los tipos de TODO el repo en 3 tandas (programa entero)…"
+      node "$RESPALDO"
+      TIPOS=$?
+      [ "$TIPOS" -eq 0 ] && echo "[pre-push] ✓ Tipos OK por tandas (las 3 en 0; no es el tsc entero)."
+    fi
+  fi
   # 99 = «no pude chequear» (sin RAM, o el vigía mató el tsc), NO «hay errores».
   if [ "$TIPOS" -eq 99 ]; then
     echo ""
