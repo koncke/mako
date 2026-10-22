@@ -84,8 +84,9 @@ import { ErrorOfferApi, TOPE, esRechazoDefinitivo, llamarOffer, mensajeDeError, 
 type EstadoGeneracion = { paso: PasoGeneracion; corriendo: boolean; error: string | null };
 const GEN_QUIETA: EstadoGeneracion = { paso: 'diagnostico', corriendo: false, error: null };
 
-/** El ➤ y el ✓ de la barra de grabar del onboarding van en el negro del Ops Center: la barra los pinta con `--good` (el verde). */
-const SIN_VERDE = { '--good': 'var(--ink)' } as CSSProperties;
+/** El ➤ y el ✓ de la barra de grabar del onboarding van en el negro del Ops Center: la barra los pinta con `--good` (el verde),
+ *  y el ícono, con `--sobre-good` (sin él, el ✓ blanco no se veía sobre la tinta clara del modo oscuro). */
+const SIN_VERDE = { '--good': 'var(--ink)', '--sobre-good': 'var(--surface)' } as CSSProperties;
 /** Cada cuánto se relee la conversación mientras el servidor arma la oferta. */
 const RELEER_ARMADO_MS = 4_000;
 
