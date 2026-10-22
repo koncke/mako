@@ -7613,3 +7613,18 @@ eso es una deducción del código, no se midió en Vercel. Pendiente, de ai-chea
   varias veces. Acá tardó 754 s (32 de 32 en verde) y la tanda corta a los 600 s con «un test se colgó», 0 tests y ROJO, que
   además impide que corran las barredoras. Entra en la lista sólo porque nombra `app/crm/actions.ts`. Antes de leerlo como un
   cuelgue, se corre ese archivo solo. Sin hacer: que `tests-afectados` le dé más tiempo, o que ese test no nombre archivos ajenos.
+
+## La fila del candado con 8 chats tarda HORAS: un chequeo por TREN, no por punta (22/10/2026, Cerebro › Integración)
+
+- **Síntoma:** una punta tardaba horas en llegar a `main` aunque el cambio fuera chico. ops-lista estuvo 4 h trabada en la fila
+  del candado, y Martín: «para pushear es un montón de tiempo».
+- **Causa real:** el diagnóstico obvio era «falta RAM», pero el problema es que el mismo chequeo corría dos veces. Cada chat corría su
+  `antes-de-subir` completo (miles de tests) en la fila del candado, con 8 chats y 1-2 GB libres, y después Integración repetía
+  los tests afectados sobre el lote. Lo que traba es la fila del primero: con N chats, N chequeos completos en serie.
+- **La regla (AGENTS.md, «Cómo se sube»):** el chat corre sólo los tests que tocó y el `tsc` acotado de sus archivos («sin
+  tipos» si no hay RAM) y pasa el sha en el acto. Integración corre UN chequeo por tren sobre el lote mergeado (tests
+  afectados, `tsc` acotado, `guardas-push.sh`), devuelve sólo la punta que dé rojo y el tren sale cada 30 min.
+- ⚠️ **Con ~2 GB libres, el `tsc` acotado sólo entra de a UN archivo.** Con dos o tres sale 99 («NO SE PUDO CHEQUEAR, 0 bytes»,
+  el vigía de RAM), y también de a uno mientras corre un subagente. Un 99 no es un verde ni un rojo: se reintenta solo.
+- ⚠️ **Un test suelto se corre con `node --import tsx --test`**, como el `npm test`. Con `--experimental-strip-types` todos
+  fallan con `ERR_MODULE_NOT_FOUND` (los imports del repo van sin extensión) y parece un rojo del código.

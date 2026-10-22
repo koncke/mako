@@ -375,16 +375,30 @@ pushear.** No se suma al hook a propósito: son ~9 segundos más en cada push y 
 de los cambios no los necesita — pero los renombres, sí. (17/10/2026: «acordarse a mano» costó 16
 runs rojos de 90; ahora hay una herramienta que elige los tests sola — ver la sección de abajo.)
 
-# Antes de pasarle una punta a «Cerebro › Integración»: `antes-de-subir` en VERDE, sobre tu rama con `origin/main` mergeado
+# Cómo se sube: la punta pasa en el acto y «Cerebro › Integración» chequea el TREN (desde el 22/10/2026)
 
-**La regla** (17/10/2026; Martín: «asegúrate por todos los medios de que no vuelva a ocurrir nunca más»). Un chat **no le
-pasa una punta a «Cerebro › Integración»** (el que integra y sube) sin haber corrido esto, con el árbol commiteado y `origin/main` mergeado en la rama:
+**La regla de hoy** (22/10/2026; Martín: «Organiza los push y que salgan todos… para pushear es un montón de tiempo, podríamos
+optimizarlo»). Cada punta corría su `antes-de-subir` completo en la fila del candado y después Integración repetía los tests
+afectados: dos chequeos de lo mismo. El primero, con 8 chats y 1-2 GB libres, tardaba HORAS (ops-lista, 4 h en la fila). Ahora:
+1. **El chat de área** corre los tests que escribió o tocó (`node --import tsx --test tests/<…>.test.ts`) y el `tsc` acotado de
+   sus archivos (`node scripts/tsc-acotado.mjs <archivos>`; si la RAM no da, la punta va marcada **«sin tipos»**), con el árbol
+   commiteado y `origin/main` mergeado. Le pasa el sha a Integración EN EL ACTO. No corre `antes-de-subir` ni hace la fila.
+2. **Integración corre UN chequeo por TREN**, sobre el lote ya mergeado: los tests afectados del lote
+   (`scripts/tests-afectados.mjs --base origin/main`), el `tsc` acotado de lo tocado y las guardas (`sh scripts/guardas-push.sh
+   origin`, que es la etapa de guardas de `antes-de-subir`). Si algo da rojo, devuelve SÓLO esa punta y el tren sale sin ella.
+3. **El tren sale cada 30 min** con todo lo que llegó, o antes si trae un cliente roto. No se espera a juntar más.
+4. Integración le pasa el sha al Cerebro y el Cerebro sube en el acto (sin minutos de Actions, con `--no-verify`: ver
+   «Sin minutos de Actions» en docs/hallazgos-infra.md).
+
+Lo que sigue describe `antes-de-subir`: ahora es la herramienta de Integración para el tren (y de un jefe con RAM de sobra que
+quiera adelantarse), no el peaje de cada punta. **La regla anterior** (17/10/2026; Martín: «asegúrate por todos los medios de
+que no vuelva a ocurrir nunca más») pedía, antes de pasar una punta, con el árbol commiteado y `origin/main` mergeado:
 
 ```sh
 node scripts/antes-de-subir.mjs --rapido
 ```
 
-**Es el MÍNIMO OBLIGATORIO** y tarda ~3-4 min en esta PC con 14 chats abiertos (medido sobre una punta de 21 archivos que traía 3
+**Era el mínimo obligatorio** y tardaba ~3-4 min en esta PC con 14 chats abiertos (medido sobre una punta de 21 archivos que traía 3
 rojos reales: 3 min 28 s y los tres salieron; la misma punta tardaba 26 min antes de compartir procesos). Corre las guardas, los
 tests que **nombran o importan DIRECTO** un archivo cambiado, **todas las barredoras** y los **tipos de lo cambiado si entran en RAM
 sin esperar** (20 s; si no, lo dice en la línea y los decide Actions; `--sin-tipos` los apaga); le deja a Actions los importadores a dos
@@ -393,8 +407,8 @@ fueron errores de tipos de archivos cambiados. Sin `--rapido` es el chequeo COMP
 y los tipos de lo cambiado: ~6-7 min, estimado: 4 min 21 s medidos para los tests más las guardas y los tipos); «Cerebro › Integración» lo usa para
 el push a `integracion`, y un jefe con tiempo puede correrlo también.
 
-El jefe le pasa a «Cerebro › Integración» **la última línea**, `VERDE <sha> (rápido: …)`, junto con la punta. Integración compara ese sha con el de la
-punta: **sin la línea, no integra.**
+Hasta el 22/10 el jefe le pasaba a Integración **la última línea**, `VERDE <sha> (rápido: …)`, junto con la punta; desde el tren,
+la punta va sin ella (el chequeo es el del tren).
 Un `ROJO: …` se arregla ANTES de pasarla, no después de que falle Actions (cada rojo allá costó ~15 min y minutos del
 mes: 140 de los 2.000 gratis en dos días). Un exit **99** es «no corrió por falta de RAM», no un rojo del código: cerrá chats
 o esperá. Para ver qué elige sin correr nada: `--listar` (y `--explicar` en `tests-afectados.mjs`).
@@ -1772,12 +1786,11 @@ código nuevo:
     nada escrito... Siempre debe enviar un mensaje tipo "Voy a trabajar en..."»). Lo primero que escribe un chat al
     tomar un pedido es una línea, en palabras de producto, con qué va a hacer y para qué. Recién después arrancan las
     herramientas.
-    **Y ninguna punta llega a «Cerebro › Integración» sin `antes-de-subir` en VERDE** (17/10/2026; Martín: «asegúrate por todos los medios
-    de que no vuelva a ocurrir nunca más»). Antes de pasarle una punta, el jefe corre `node scripts/antes-de-subir.mjs --rapido`
-    (~3-4 min: es el mínimo obligatorio) sobre su rama con `origin/main` mergeado y el árbol commiteado, y le pasa la última línea
-    (`VERDE <sha> (rápido: …)`) junto con la punta:
-    Integración no integra una punta que no la trae. Qué corre y por qué «los tests de tu área» no alcanzaba: la sección
-    «Antes de pasarle una punta a «Cerebro › Integración»» (más arriba, junto al pre-push).
+    **Y la punta va a «Cerebro › Integración» EN EL ACTO, y el chequeo completo es uno por TREN** (22/10/2026; reemplaza el
+    «VERDE obligatorio» del 17/10, porque la fila del candado con 8 chats tardaba horas). El jefe corre los tests que escribió
+    o tocó y el `tsc` acotado de sus archivos («sin tipos» si la RAM no da) y pasa el sha. Integración junta lo que llegó, corre
+    tests afectados, tsc acotado y guardas sobre el lote mergeado, devuelve sólo la punta que dé rojo y el tren sale cada
+    30 min (antes si trae un cliente roto). La sección «Cómo se sube» (más arriba, junto al pre-push) lo detalla.
   - **Cada jefe ES un proyecto del Plan** (16/10/2026; los dos se llaman como la tab). El Centro lee y escribe el Plan
     SÓLO con las operaciones de la API de MaKo (`listar_tareas_plan`, `proponer_tareas_plan`, `proponer_cierre_tareas`)
     aplicadas en el acto con `ctxDelCentro` (lib/centro-plan.ts), por la ruta `/api/centro/plan` y NO por una server
