@@ -1192,6 +1192,12 @@ docs/hallazgos-api-mako.md → «El editor entero del Web Generator»):
   dejaron a `proponer_mover_reunion` fuera de WhatsApp sin cambiar ningún puntaje). La lista de bloques,
   avisos o íconos se valida en la traducción y devuelve `disponibles`. Se mide
   `JSON.stringify(aToolDef(def)).length` y, si la op importa, un test le pone tope.
+- **Una operación nueva se declara AL FINAL de su área, y antes de commitear corre
+  `tests/ops-center-bateria.test.ts`** (22/10/2026, docs/hallazgos-api-mako.md → «Una operación nueva deja AFUERA a
+  otra»). En un empate de relevancia gana la declarada ANTES, y la relevancia genérica de un pedido sobre un lead
+  («cambio etapa mover lead producto») le regala 4 puntos a cualquier id con «cambiar» y «etapa». Declarada a mitad
+  del área, `cambiar_tipo_etapa` dejó sin `editar_contacto_lead` a «cambia el teléfono del lead Juan…» en la app y en
+  WhatsApp. Su descripción tampoco nombra «leads» si la operación no es sobre un lead.
 
 `/api/v1` es la única carpeta que entra a `PUBLICOS` como PREFIJO: toda ella es bearer por
 construcción, y `tests/api-mako-registro.test.ts` enumera en positivo los `route.ts` que puede

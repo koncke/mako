@@ -1910,8 +1910,19 @@ todavía fuera de main.
 - **La regla:** un test que dice «el turno TRAE la herramienta X» tiene que pedir también un MARGEN (que entre entre las
   primeras), no sólo que esté. «Está» pasa mientras X sea la última que entra y se rompe en silencio con la próxima
   operación de la misma área.
+- **Y volvió a pasar el mismo día con otra víctima.** Integración no tomó la tanda: en `tests/ops-center-bateria.test.ts`
+  (main 3/3, la tanda 1/3), «cambia el teléfono del lead Juan a 5491199998888» dejó de traer `editar_contacto_lead` en la
+  app y en WhatsApp. `cambiar_tipo_etapa` sumaba 5 (cambi + etapa en el id, que regala la relevancia genérica, y «leads»
+  en la descripción) contra 4, y con sus 1.072 caracteres no quedaba lugar para los 1.450 de la otra. Arreglar la pista
+  de la ficha había tapado UN síntoma, y la batería encontró el segundo. Lo que lo arregló, probado rompiéndolo:
+  - la descripción sin «leads», que la deja en 4 (empate);
+  - las 4 operaciones nuevas del feedback del 21/10 declaradas al FINAL del área, porque en un empate gana la declarada
+    antes.
+  Cada parte sola deja un canal o los dos en rojo (2/1 y 1/2); juntas, 3/3. La regla quedó en AGENTS.md («Una operación
+  nueva se declara AL FINAL de su área»).
 
 **Vive en:** lib/api-mako/registro.ts (`ordenarPorRelevancia`, `toolsDelRegistro`) · lib/mako-analyst-lead-reglas.ts
-(`PISTA_EDICION_FICHA`) · tests/ficha-editar-con-mako.test.ts
+(`PISTA_EDICION_FICHA`) · lib/api-mako/areas/crm.def.ts (el final del área) · tests/ficha-editar-con-mako.test.ts ·
+tests/ops-center-bateria.test.ts
 *22/10/2026, chat «CRM» (claude3).*
 
