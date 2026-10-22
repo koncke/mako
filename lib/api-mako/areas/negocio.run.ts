@@ -26,7 +26,7 @@ import { getDiagnosticoFase, setDiagnosticoFase } from '@/lib/fase-store';
 import { guardarComoOferta, leerSesion, listarSesionesOffer } from '@/lib/offer-sesiones';
 import { leerFunnels } from '@/lib/funnels';
 import { rotuloDeFunnels, sanearFunnelIds } from '@/lib/funnels-elegidos';
-import { PUNTOS_CONTROL, avisosAfirmables, dimensionLabel } from '@/lib/offer-marco';
+import { AVISO_DIAGNOSTICO_VIEJO, PUNTOS_CONTROL, REHACER_DIAGNOSTICO, avisosAfirmables, dimensionLabel } from '@/lib/offer-marco';
 import { EMAIL_MAKO, linkApp } from '@/lib/app-url';
 import { darDeBajaMiPlan, suscripcionDeMakoDe } from '@/lib/cobros';
 import { esBajaPedida } from '@/lib/cobros-reglas';
@@ -244,17 +244,22 @@ export const RUNNERS: Runners = {
       const c = s.conclusion;
       if (!c) return json({ conversacion, analisis: null, link, nota: 'Esta conversación todavía no tiene una oferta armada.' });
       const p = c.propuesta;
+      // OF1 (22/10/2026): un diagnóstico armado con el embudo de OTRO funnel («solo 2 ventas de 24 asistentes» en el
+      // Sprint de Mauricio) no entra al contexto de nadie: ni el diagnóstico ni sus avisos. La oferta sí: es la que está
+      // guardada en el funnel.
+      const viejo = s.diagnosticoViejo === true;
       return json({
         conversacion,
         version: c.version, fecha: c.at,
-        diagnostico: {
+        ...(viejo ? { diagnostico_no_vigente: `${AVISO_DIAGNOSTICO_VIEJO} No lo uses ni lo cites: el dueño lo rehace con «${REHACER_DIAGNOSTICO}» en la tab Offer.` } : {}),
+        diagnostico: viejo ? null : {
           nota_total: c.calculo.total, lista_para_vender: c.calculo.lista, la_mas_baja: dimensionLabel(c.calculo.cuello),
           tesis: c.diagnostico.tesis, lo_mas_fuerte: c.diagnostico.fuerte,
           cambios: c.diagnostico.cambios.map((x) => ({ que: x.titulo, porque: x.porque })),
           notas: c.diagnostico.dimensiones.map((d) => ({ dimension: dimensionLabel(d.id), nota: d.nota })),
         },
         // Lo guardado pasa por el mismo filtro que el PDF y la pantalla: ningún aviso con un % imposible.
-        avisos: avisosAfirmables(c.calculo.alertas),
+        avisos: viejo ? [] : avisosAfirmables(c.calculo.alertas),
         control_final: (c.calculo.controlFinal ?? []).map((x) => ({ punto: PUNTOS_CONTROL.find((q) => q.punto === x.punto)?.label ?? x.punto, ok: x.ok, porque: x.porque })),
         oferta: {
           nombre: p.nombre, frase: p.frase, para_quien: p.paraQuien.perfil, no_es_para: p.paraQuien.noEs,

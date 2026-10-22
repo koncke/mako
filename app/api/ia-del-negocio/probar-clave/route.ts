@@ -9,6 +9,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { personaDelRequest } from '@/lib/mako-turno-app';
 import { probarSuClave } from '@/lib/su-clave';
+import { limitePorClave } from '@/lib/limite-publico';
 import { PROVS_SU_CLAVE, type ProvSuClave } from '@/lib/su-clave-reglas';
 
 export const dynamic = 'force-dynamic';
@@ -18,6 +19,9 @@ export async function POST(req: NextRequest) {
   const persona = await personaDelRequest();
   if ('error' in persona) return NextResponse.json({ ok: false, error: persona.error }, { status: persona.status });
   if (persona.rol !== 'admin') return NextResponse.json({ ok: false, error: 'Sólo el admin del negocio.' }, { status: 403 });
+  // Un tope por negocio (revisión del lote 1): cada prueba descifra la clave y espera al proveedor hasta 15 s.
+  const frenado = limitePorClave('probar-clave', persona.ws, 10, 10 * 60_000);
+  if (frenado) return frenado;
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return NextResponse.json({ ok: false, error: 'Pedido inválido.' }, { status: 400 }); }
   if (!(PROVS_SU_CLAVE as readonly unknown[]).includes(body?.proveedor)) return NextResponse.json({ ok: false, error: 'Esa clave no está.' }, { status: 400 });

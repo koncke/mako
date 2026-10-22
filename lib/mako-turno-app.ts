@@ -68,7 +68,7 @@ import { adjuntosVisibles, audioDeBloques, leerRef, sanearBloques } from '@/lib/
 import { urlAudio } from '@/lib/offer-reglas';
 import { MAX_BLOQUES_MENSAJE, aGuardar, bloqueDeResultado, bloquesGuardados, type Bloque } from '@/lib/chat-bloques';
 import { archivarPdfsDelChat, archivarPegadosDelChat, borrarAdjuntos, subirAdjuntos, urlFirmadaDeAdjunto } from '@/lib/chat-mako-adjuntos';
-import { partirPegados, recortarMensaje, textoParaTitulo } from '@/lib/chat-pegado';
+import { recortarMensaje, textoParaTitulo, textosParaArchivar } from '@/lib/chat-pegado';
 import { archivoATexto } from '@/lib/archivo-a-texto';
 import { aFila, plano } from '@/lib/bandeja-filas';
 import { descartarPropuesta, getPropuesta, propuestasPendientesDelChat } from '@/lib/propuestas';
@@ -91,8 +91,9 @@ import {
 
 /** La feature registrada del doer (lib/model-catalogo.ts → Gemini). Claude está vetado. */
 const FEATURE = 'mako-doer';
-/** Cuánto texto de la persona entra por mensaje: un chat, no una importación. */
-const TOPE_MENSAJE = 8_000;
+/** Cuánto texto ESCRITO de la persona entra por mensaje (lo pegado tiene el suyo, lib/chat-pegado.ts). Eran 8.000 y Martín
+ *  (18/10): «tiene que dejar mensajes mucho más largos». Lo que pasa de acá se dice y queda entero en El Archivero. */
+const TOPE_MENSAJE = 20_000;
 /** Cuánto de lo leído de los archivos entra al turno. El loop re-manda la conversación en
  *  cada paso: 40.000 caracteres son ~10 páginas, y lo que se corta SE DICE. */
 const TOPE_LECTURA = 40_000;
@@ -383,7 +384,15 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // Desde aquí, el mensaje de la persona es `mensaje`: el crudo no se vuelve a leer.
     const tapado = taparClaves(entrada.mensaje ?? '');
     const mensaje = tapado.texto;
-    const textoPersona = recortarMensaje(mensaje.trim(), TOPE_MENSAJE);
+    // Lo que va ENTERO a El Archivero (#884: cada TEXTO PEGADO largo, y lo escrito que no entra en el tope), ANTES del
+    // corte: el aviso del corte dice si quedó ahí (lib/chat-pegado.ts). Sólo del admin y con `guardarAdjuntos`: el MaKo
+    // Analyst de un lead usa este turno y lo que se pega ahí es del LEAD.
+    // ⛔ D6b: con su propio Claude, El Archivero extrae con SU clave de Claude o SU OpenAI, nunca con la cascada barata
+    // ni con la red gratis de la plataforma (revisión del Cerebro, 21/10/2026: un pegado de 40 leads iba a la Gemini de
+    // la agencia). Sin ninguna de las dos, no se archiva, y se dice.
+    const paraArchivar = persona.rol === 'admin' && entrada.guardarAdjuntos ? textosParaArchivar(mensaje.trim(), TOPE_MENSAJE) : [];
+    const archiva = !paraArchivar.length ? 'no' : negocio.suIA ? await puedeArchivarConSuIA() : 'si';
+    const textoPersona = recortarMensaje(mensaje.trim(), TOPE_MENSAJE, undefined, archiva === 'si');
     const adjuntos = entrada.adjuntos ?? [];
     const avisos: string[] = [];
 
@@ -434,19 +443,14 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       const texto = textos[de];
       return bloque.tipo === 'document' && texto ? [{ i, contenido: adjuntos[de].bytes, nombre: bloque.nombre, mime: bloque.mime, texto }] : [];
     }) : [];
-    // Un TEXTO PEGADO largo del admin, ENTERO (antes del corte del mensaje), también a El Archivero: se guarda solo,
-    // sin pedirlo, como los PDF (#884, lib/chat-mako-adjuntos.ts → archivarPegadosDelChat). Sólo con `guardarAdjuntos`:
-    // el MaKo Analyst de un lead usa este turno y lo que se pega ahí es del LEAD.
-    const pegados = persona.rol === 'admin' && entrada.guardarAdjuntos ? partirPegados(mensaje).pegados : [];
-    if (pdfs.length || pegados.length) {
-      // ⛔ D6b: con su propio Claude, El Archivero extrae con SU clave de Claude o SU OpenAI, nunca con la cascada barata
-      // ni con la red gratis de la plataforma (revisión del Cerebro, 21/10/2026: un pegado de 40 leads iba a la Gemini de
-      // la agencia). Sin ninguna de las dos, no se archiva, y se dice.
-      const archiva = negocio.suIA ? await puedeArchivarConSuIA() : 'si';
-      if (archiva !== 'si') avisos.push(archiva === 'pausa' ? AVISO_ARCHIVERO_EN_PAUSA : AVISO_SIN_ARCHIVERO);
+    // Lo pegado y lo escrito largo del admin, ENTERO (antes del corte del mensaje), también a El Archivero: se guarda
+    // solo, sin pedirlo, como los PDF (#884, lib/chat-mako-adjuntos.ts → archivarPegadosDelChat). Ver `paraArchivar`.
+    if (pdfs.length || paraArchivar.length) {
+      const puede = paraArchivar.length ? archiva : negocio.suIA ? await puedeArchivarConSuIA() : 'si';
+      if (puede !== 'si') avisos.push(puede === 'pausa' ? AVISO_ARCHIVERO_EN_PAUSA : AVISO_SIN_ARCHIVERO);
       else {
         if (pdfs.length && msgId != null) await archivarPdfsDelChat(ws, msgId, inicio, pdfs);
-        if (pegados.length) await archivarPegadosDelChat(ws, inicio, pegados);
+        if (paraArchivar.length) await archivarPegadosDelChat(ws, inicio, paraArchivar);
       }
     }
     let titulo = s.titulo;
@@ -775,10 +779,12 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       aviso = [aviso, delaPc ?? deSuClave?.aviso ?? sinIAEs?.aviso ?? (pcIlegible && negocio.suIA ? AVISO_PC_ILEGIBLE : null) ?? AVISO_NO_PUDE].filter(Boolean).join(' ');
     }
     let conectar = sinIAEs?.conectar ?? (respuesta ? null : deSuClave?.conectar ?? null);
-    // La clave tapada se le dice, con el botón del servicio que se reconoció.
+    // La clave tapada se le dice, con el botón del servicio que se reconoció. ⚠️ ESE BOTÓN GANA (22/10/2026, la prueba de
+    // los chats): sin IA, el botón del «sin IA» (Gemini) se ponía primero, y a quien pegó su clave de OpenAI le abría el de
+    // Gemini. Lo que quiere conectar es lo que pegó; si no se reconoció el servicio, el de siempre.
     if (tapado.tapadas) {
       aviso = [avisoClaveTapada(tapado.servicio), aviso].filter(Boolean).join(' ');
-      conectar = conectar ?? tapado.servicio;
+      conectar = tapado.servicio ?? conectar;
     }
     return { ok: !!respuesta, sesion, mensajes: guardados, aviso, paraLaPersona, propuestas, pantallas, conectar };
   });

@@ -128,6 +128,10 @@ ese día el push del coordinador murió con 240 MB libres. El runner tiene su pr
   tests afectados; ver la sección de abajo; `MAKO_SIN_ANTES_DE_SUBIR=1` lo saltea); a **`main`**
   corre además el `tsc` local completo por el lock, como antes. Así `main` no recibe código sin chequear, venga por donde venga, y pushear directo a
   `main` es el camino de emergencia (si Actions no corre o se acabaron los minutos).
+  **Si ese `tsc` no consigue su RAM (99), el hook chequea TODO el repo en 3 tandas** (`scripts/tipos-respaldo-push.mjs`,
+  programa entero, sin `--raices`) y deja pasar sólo si las TRES dan 0; una tanda que no termina es otro 99 (22/10/2026:
+  el `tsc` entero pide 6,3 GB libres y con la app de Claude abierta la PC no pasa de 6,1). Sale «OK por tandas», no
+  «OK»: la red completa sigue siendo Actions. **`--no-verify` a `main` sólo con el sí de Martín, lote por lote.**
 - ⚠️ **No medido todavía:** cuántos minutos gasta un run, que los tests den verde en Linux
   igual que en Windows (algunos pueden depender de archivos que sólo existen en la notebook),
   y que Vercel despliegue el fast-forward que hace Actions. **El primer run hay que mirarlo.**
@@ -1660,6 +1664,11 @@ código nuevo:
     a la derecha» del 18/10. La pieza es `<MakoEnLaTab tab="…" />` (app/_chat/MakoEnLaTab.tsx): lo que se escribe va al chat
     «Cerebro» de la persona, el del Ops Center, con su motor y sus piezas. Ninguna tab abre un chat de MaKo suelto a la derecha.
     Lo propio de la tab entra por la pieza (`arriba`, `aviso`) y el lugar se lo deja con `var(--ancho-panel-mako, 0px)`.
+  - **EL OPS CENTER SÓLO MUESTRA LO QUE ES PARA MARTÍN; LO QUE SE DICEN LOS CHATS ENTRE ELLOS NO SE DIBUJA** (22/10/2026;
+    Martín: «me salen estos textos largos innecesarios en muchos chats... No los quiero»). Se dibuja lo que él escribe y lo
+    que el chat le contesta («Voy a trabajar en…», «Ya está», sus preguntas). Un mensaje de otro chat (`otro`) y el resumen de
+    una compactación no, ni lo nuevo ni lo guardado: la regla es `esParaMartin` (lib/operaciones-reglas.ts) y la aplica
+    `lineasDeConversacion`. Algo nuevo que dibuje turnos pasa por ahí. Lo que tiene que leer Martín se lo dice el chat a él.
   - **LAS CRIATURAS, SIEMPRE VIVAS** (21/10/2026; Martín: «siempre, donde sea que estén deben tener su animación de movimiento,
     y parpadeo»): Muneco.tsx flota y parpadea en cualquier ánimo (dormida, respira), cada una con su desfase (`--mun-desfase`),
     con una animación CSS y nunca un timer; con `prefers-reduced-motion`, quietas. Una criatura nueva usa Muneco o Criatura.
@@ -2070,6 +2079,22 @@ envíes un mensaje al grupo de MaKo diciendo que se solucionó eso. Con una acla
 - **NO necesita el OK de Martín** (17/10/2026, 10:09: «No necesitas mi aprobacion, manda el mensaje tranquilamente al
   grupo»): lo manda el jefe que arregló, con la herramienta y sus topes. Si el clasificador de permisos de Claude Code
   lo bloquea, se le dice a Martín en una línea, en el chat del jefe, con el comando exacto para que lo apruebe ahí.
+
+# Un cambio en un chat de MaKo pasa su arnés de casos de uso ANTES de pasar la punta
+
+Pasó el 22/10/2026 (docs/hallazgos-chatbot.md, «La prueba de los chats del Cerebro»). «Editar», prendido por defecto en el
+chat de Automations (4de3fe769), rechazaba TODA respuesta: «¿Qué hace esta automatización?» terminaba en «No cambió nada».
+El test fijaba la regla TAL COMO SE ESCRIBIÓ («en Editar, contestar es un error») y sólo probaba la falla que se buscaba (los
+textos pegados de la llamada). El arnés lo veía, y se corrió después del deploy.
+
+- **El arnés va ANTES de pasar el sha a Integración, no después del deploy.** El de Automations:
+  `scripts/probar-chats/automations.mts` (rama `probar-chats-automations`), corrido en un worktree de TU rama, cada caso al
+  menos 2 veces (la IA no es determinista). Un caso cortado por la cuota de IA («No tienes ninguna IA gratis conectada») no
+  mide nada: se repite.
+- **Con los casos que el cambio NO buscaba:** preguntar en el modo nuevo, pedir algo imposible, un pedido ambiguo, una
+  pregunta sobre el flujo. Lo que se cambia para una falla rompe otra cosa que nadie estaba mirando.
+- **El test que fija la regla tal como la escribiste no es una prueba de uso.** Prueba que el código dice lo que pensaste,
+  no que lo que pensaste sirve.
 
 # Leer texto libre con reglas falla en lo obvio: la red es que la persona CONFIRME lo que se entendió
 
@@ -9767,3 +9792,17 @@ En una grilla CSS lo que no recorta no empuja la columna: se dibuja encima de la
 Si la tabla tiene más de cuatro columnas, salen de un ancho MEDIDO con mínimo y prioridad (el molde:
 app/crm/tabla-columnas.ts), no de fracciones fijas, y se mide a 934×639 y 1024×768 contando el texto fuera de su celda
 (tests/_crm-lista-arnes.tsx). Detalle: docs/hallazgos-crm.md.
+
+# Arreglar la regla que arma un documento GUARDADO no arregla lo guardado
+
+Un diagnóstico, un PDF, un resumen o una propuesta que se guarda armado es un documento: cuando se arregla la regla que lo
+arma, lo ya guardado sigue diciendo lo de antes y nadie lo vuelve a armar. El 22/10/2026 la v1 del Sprint de Mauricio
+siguió diciendo «solo 2 ventas de 24 asistentes» después del arreglo, y la API de MaKo se la daba a los chats como contexto
+para prospectar (docs/hallazgos-offer.md, OF1).
+
+- **En el mismo cambio que arregla la regla, se decide qué pasa con lo de antes.** Lo seguro es MARCAR al leer (la vista
+  avisa y ofrece rehacerlo; lo que lee la IA no lo recibe) y no reescribir: se escribe cuando la persona lo rehace. La
+  marca no se guarda en la fila: con el próximo guardado quedaría escrita sola.
+- **La marca se mide contra la base, no sólo contra la fecha del deploy.** Un corte por fecha marca también lo que estaba
+  bien: el ws13 tenía un solo funnel y su diagnóstico de antes decía lo mismo que hoy. Antes de subir, un script de sólo
+  lectura cuenta qué filas se marcan y por qué.

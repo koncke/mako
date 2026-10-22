@@ -42,14 +42,19 @@ function taparEn(v: unknown, cuenta: Tapado): unknown {
 }
 
 /**
- * El mensaje con cada clave tapada en todo lo que escribe una persona (`message`, con sus citas y captions), y cuántas
- * tapó. Una copia: el original no se toca. Nunca tira.
+ * El mensaje con cada clave tapada en TODO lo que trae, salvo `key` (el id y el grupo, que no escribe nadie y deduplican la
+ * cola) y lo binario, y cuántas tapó. Una copia: el original no se toca. Nunca tira.
+ *
+ * ⚠️ TODO EL MENSAJE, NO SÓLO `message` (revisión del lote 1, 22/10/2026). Evolution v2 manda la cita DOS veces: adentro de
+ * `message.…contextInfo` y en `contextInfo.quotedMessage` en el nivel de arriba. Recorriendo sólo `message`, quien citaba el
+ * mensaje con la clave la dejaba entera en `mako_doer_buffer.payload`, y el aviso decía «no la guardé».
  */
-export function taparClavesDelMensaje<T extends { message?: Record<string, unknown> | null }>(m: T): { mensaje: T; tapadas: number; servicio: string | null } {
+export function taparClavesDelMensaje<T extends object>(m: T): { mensaje: T; tapadas: number; servicio: string | null } {
   const cuenta: Tapado = { tapadas: 0, servicio: null };
-  if (!m || typeof m !== 'object' || !m.message || typeof m.message !== 'object') return { mensaje: m, tapadas: 0, servicio: null };
-  const message = taparEn(m.message, cuenta) as Record<string, unknown>;
-  return cuenta.tapadas ? { mensaje: { ...m, message }, ...cuenta } : { mensaje: m, tapadas: 0, servicio: null };
+  if (!m || typeof m !== 'object' || Array.isArray(m)) return { mensaje: m, tapadas: 0, servicio: null };
+  const out: Record<string, unknown> = {};
+  for (const [k, x] of Object.entries(m as Record<string, unknown>)) out[k] = k === 'key' || NO_SE_TOCA.has(k) ? x : taparEn(x, cuenta);
+  return cuenta.tapadas ? { mensaje: out as T, ...cuenta } : { mensaje: m, tapadas: 0, servicio: null };
 }
 
 /** ¿Después de tapar no queda nada que contestar? (el mensaje era sólo la clave). */

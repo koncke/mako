@@ -2223,4 +2223,71 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "22 oct", hora: "06:30", chat: "Automations", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Probar el chat de MaKo de Automations con muchos casos de uso: todo tiene que funcionar",
+    puntos: [
+      "Llegó por el Cerebro: su arnés corrió 36 casos sin pantalla contra producción y dejó 18 fallas con su causa.",
+      "Coordinarlo con lo que ya estaba armado (Discutir / Editar, el goteo) y avisar cuando esté en producción.",
+    ],
+    pedido: "«prueba los chats... Como el chat de MaKo en Automations, todo debe funcionar. Prueba muchos casos de uso»",
+  },
+  {
+    fecha: "22 oct", hora: "12:35", chat: "Automations", cuenta: "claude3",
+    sesion: "local_5acdaea2-2605-48fb-b890-f79e8476faa3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Hecho: el chat de MaKo vuelve a contestar en «Editar», mueve de etapa en el CRM de la automatización y deja tus textos y tus links tal cual",
+    puntos: [
+      "En «Editar» MaKo vuelve a contestar lo que le preguntas, a decir dónde se configura algo (Horario o Límites) y a avisar lo que no se puede. Antes decía «MaKo armó el flujo pero quedó mal: No cambió nada».",
+      "«Si responde, muévelo a Respondió» mueve la tarjeta en el CRM de esa automatización, no en el principal.",
+      "Lo que pegas al crear queda tal cual, con las esperas que escribiste y sin las que nadie pidió.",
+      "El link que escribes se queda en el mensaje, {{empresa}} reemplaza a una variable mal escrita, y una espera se puede meter entre dos mensajes.",
+      "Ya no dice «Cambié» de una tarjeta que no cambió, y un mensaje de más de 2.000 caracteres se avisa en vez de cortarse.",
+      "En producción: deploy de 87365c830 (lo verificó el Cerebro).",
+    ],
+    commits: [
+      { sha: "b2118c397", msg: "Automations · el chat de MaKo con la prueba de los chats del Cerebro: Editar vuelve a contestar lo que vale, «Mover de etapa» en el CRM del CRON, y lo que era código", lineas: 540, archivos: 12 },
+      { sha: "1af6c3bd8", msg: "Automations · la regla que deja la regresión de Editar: un cambio en un chat de MaKo pasa su arnés de casos de uso antes de pasar la punta", lineas: 21, archivos: 2 },
+    ],
+    archivos: [
+      "lib/flujo-ia-intencion.ts — qué vale contestar en «Editar», y las reglas de los textos pegados",
+      "lib/flujo-ia.ts — «Mover de etapa» en el CRM del CRON, el link del dueño, las variables, la espera en el medio",
+      "docs/hallazgos-chatbot.md — «La prueba de los chats del Cerebro»",
+    ],
+    revisar: "/automations",
+  },
+  {
+    fecha: "22 oct", hora: "14:10", chat: "Automations", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "«Sprint · apertura»: sale sola por la línea de Mauricio, se pausa desde Automations y el CRM muestra y frena a los leads que están en ella",
+    puntos: [
+      "Llegó por el Cerebro: la campaña del Sprint empieza el sábado 24/10 con 50 por día.",
+      "Antes, el AU1 del plan: probar que el goteo espacia también si los mensajes quedan para aprobar.",
+      "La activa Mauricio.",
+    ],
+    pedido: "«Sale sola, su línea. Y se puede pausar el envío desde Automations... Y en el CRM debería indicar en la tarjeta o en algún lugar que esos leads están en una automatización activa, y que desde el CRM también se pueda frenar»",
+  },
+  {
+    fecha: "22 oct", hora: "14:45", chat: "Automations", cuenta: "claude3",
+    sesion: "local_5acdaea2-2605-48fb-b890-f79e8476faa3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Hecho: el goteo también espacia lo que queda para aprobar, y «Sprint · apertura» quedó con «Sale sola», pausada",
+    puntos: [
+      "Con los mensajes para aprobar, los 50 de un día ya no aparecen juntos: nacen de a uno cada 5 minutos, como si salieran solos.",
+      "Aprobar uno en Chats respeta el goteo: si salió otro hace menos de 5 minutos, dice en cuántos minutos se puede.",
+      "«Sprint · apertura» tiene «Sale sola» prendido y sale por la línea de Mauricio. Sigue pausada: la activa Mauricio con «Activar», abajo a la derecha del lienzo.",
+      "En producción: deploy de f6bd295e7 (lo verificó Integración).",
+    ],
+    commits: [
+      { sha: "eb96ffc85", msg: "Automations · el goteo también con aprobación: los borradores nacen de a uno y aprobar no los manda juntos (AU1)", lineas: 178, archivos: 6 },
+      { sha: "87e24aa72", msg: "Automations · cosecha del AU1: el goteo con aprobación no espaciaba nada (contaba sólo lo enviado, y aprobar mandaba en el acto)", lineas: 17, archivos: 2 },
+    ],
+    archivos: [
+      "lib/goteo.ts — lo que cuenta para el goteo, y el freno al aprobar",
+      "lib/borrador-camino.ts — la única puerta de envío de un borrador",
+      "docs/hallazgos-chatbot.md — «El goteo con APROBACIÓN no espaciaba nada»",
+    ],
+    revisar: "/automations",
+  },
 ];

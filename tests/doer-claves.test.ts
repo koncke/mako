@@ -97,6 +97,42 @@ test('la entrada real del grupo: sólo la clave avisa y no se encola; con texto 
   for (const x of todo) assert.ok(!x.cuerpo.includes(c) && !x.cuerpo.includes(o), `ninguna clave en lo que sale: ${x.cuerpo.slice(0, 80)}`);
 });
 
+// ── Lo que encontró la revisión del lote 1 (22/10/2026) ──────────────────────────────────────────────────────────────
+test('la cita en el NIVEL DE ARRIBA (Evolution v2) también se tapa: todo el mensaje salvo `key` y lo binario', () => {
+  const m = { key: { remoteJid: 'x@g.us', id: '1' }, message: { conversation: 'ok' }, contextInfo: { quotedMessage: { conversation: CLAUDE } } };
+  const r = taparClavesDelMensaje(m);
+  assert.equal(r.tapadas, 1);
+  assert.ok(!JSON.stringify(r.mensaje).includes(CLAUDE), 'la cita de arriba quedó entera');
+  assert.deepEqual(r.mensaje.key, m.key, '`key` no se toca: deduplica la cola');
+  const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_doer-claves-hijo.ts')], {
+    cwd: RAIZ, encoding: 'utf8', timeout: 90_000, stdio: ['ignore', 'pipe', 'ignore'],
+  });
+  const h = JSON.parse(salida.split('@@RESULTADO@@').pop() ?? '{}');
+  assert.equal(h.error, undefined, h.error);
+  assert.equal(h.colaCitaArriba.length, 1, 'el mensaje que cita se encola');
+  assert.ok(!h.colaCitaArriba[0].includes(h.claves.CLAUDE), 'el payload de la cola trae la cita de arriba tapada');
+  // Las re-entregas no repiten el aviso, y con MaKo apagado no habla.
+  assert.equal(h.avisosEnReentregas, 0, 'una re-entrega repitió el aviso');
+  assert.equal(h.avisosApagado, 0, 'MaKo habló en un grupo donde está apagado');
+  assert.equal(h.apagado.engaged, false);
+});
+
+test('las claves que pasaban enteras: Mistral (32 sin prefijo, con contexto), Apify y DeepSeek', () => {
+  const K = 'aB3dE5fG7hJ9kL1mN2pQ4rS6tU8vW0xY';
+  for (const t of [K, `  ${K}\n`, `mi clave de Mistral: ${K}`, `${K} es la de mistral`, `apify_api_${'Ab1'.repeat(12)}`, `sk-${'0123456789abcdef'.repeat(2)}`]) {
+    assert.ok(taparClavesDelMensaje({ message: { conversation: t } }).tapadas > 0, `no tapó: ${t}`);
+  }
+  // Tapar de más también es un daño: un id de 32 en una frase, minúsculas, 33 caracteres o un slug, NO.
+  for (const t of [`el pedido ${K} llegó`, 'mistral abcdefghijklmnopqrstuvwxyz012345', `mistral ${K}Z`, 'sk-camiseta-oversize-negra-talle-l']) {
+    assert.equal(taparClavesDelMensaje({ message: { conversation: t } }).tapadas, 0, `tapó de más: ${t}`);
+  }
+});
+
+test('el acuse del webhook no loguea una clave (una `AIza…` suelta tiene 39, y el acuse loguea hasta 40)', () => {
+  const ruta = sinComentarios(readFileSync(join(RAIZ, 'app/api/webhooks/evolution/route.ts'), 'utf8'));
+  assert.match(ruta, /acuse «\$\{taparClaves\(texto\)\.texto\}»/);
+});
+
 test('un .txt con una clave adentro también se tapa antes del modelo', () => {
   const doer = sinComentarios(readFileSync(join(RAIZ, 'lib/mako-doer-in.ts'), 'utf8'));
   assert.match(doer, /const contenido = taparClaves\(\(lect\.texto \|\| ''\)\.trim\(\)\)\.texto;/);

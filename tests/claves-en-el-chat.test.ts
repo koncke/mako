@@ -200,6 +200,8 @@ test('una línea gigante no cuelga el tapado (las reglas son lineales)', () => {
       'KEY'.repeat(300000), 'A_'.repeat(500000), 're_'.repeat(300000), 'KEY\\n'.repeat(200000), 'mkoag_'.repeat(150000),
       'KEY_'.repeat(250000), ('KEY_'.repeat(19) + 'X' + ':\\n').repeat(12000), 'sk-'.repeat(350000), 'sk-proj-'.repeat(125000),
       'sk-' + 'A1'.repeat(500000), 'TEST-1111111111-'.repeat(60000),
+      // Las de la revisión del lote 1 (Mistral sin prefijo): espacios, «mistral» repetido y tiradas de 32.
+      ' '.repeat(1000000), 'mistral '.repeat(120000), ('aB3dE5fG7hJ9kL1mN2pQ4rS6tU8vW0xY ').repeat(30000), 'apify_api_'.repeat(100000),
     ];
     for (const t of lineas) {
       const desde = Date.now();
@@ -272,15 +274,16 @@ test('el turno tapa ANTES de guardar, titular, archivar y pensar; el crudo no se
   const tapa = t.indexOf("const tapado = taparClaves(entrada.mensaje ?? '');");
   assert.ok(tapa > 0, 'el turno tapa el mensaje');
   // Rota: `recortarMensaje((entrada.mensaje ?? '')…` de vuelta → este test falla (se guardaría el crudo).
-  assert.match(t, /const mensaje = tapado\.texto;\s*const textoPersona = recortarMensaje\(mensaje\.trim\(\), TOPE_MENSAJE\);/);
+  assert.match(t, /const mensaje = tapado\.texto;[\s\S]{0,900}const textoPersona = recortarMensaje\(mensaje\.trim\(\), TOPE_MENSAJE, undefined, archiva === 'si'\);/);
   assert.equal((t.match(/entrada\.mensaje/g) ?? []).length, 1, 'el crudo se lee UNA vez: para taparlo');
   assert.ok(tapa < t.indexOf("appendMessage(s.id, 'user'"), 'se tapa antes de guardar');
-  assert.match(t, /partirPegados\(mensaje\)/, 'El Archivero recibe lo tapado');
+  assert.match(t, /textosParaArchivar\(mensaje\.trim\(\), TOPE_MENSAJE\)/, 'El Archivero recibe lo tapado');
 });
 
 test('la respuesta dice que la tapó, con el botón «Conectar» de su servicio', () => {
   const t = sinComentarios(leer('lib/mako-turno-app.ts'));
-  // Rota: sin el `conectar` de la clave → este test falla.
-  assert.match(t, /if \(tapado\.tapadas\) \{\s*aviso = \[avisoClaveTapada\(tapado\.servicio\), aviso\]\.filter\(Boolean\)\.join\(' '\);\s*conectar = conectar \?\? tapado\.servicio;\s*\}/);
+  // Rota: sin el `conectar` de la clave → este test falla. Y el de SU servicio gana (22/10/2026, la prueba de los chats: sin
+  // IA, a quien pegó su clave de OpenAI le abría el de Gemini): `conectar ?? tapado.servicio` de vuelta → falla.
+  assert.match(t, /if \(tapado\.tapadas\) \{\s*aviso = \[avisoClaveTapada\(tapado\.servicio\), aviso\]\.filter\(Boolean\)\.join\(' '\);\s*conectar = tapado\.servicio \?\? conectar;\s*\}/);
   assert.match(t, /pantallas, conectar \}/);
 });
