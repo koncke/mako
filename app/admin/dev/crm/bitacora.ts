@@ -2749,7 +2749,7 @@ export const BITACORA: Hito[] = [
       'La cajita junto a la foto dice para qué es, y con uno tildado se ven todas.',
     ],
     commits: [
-      { sha: '3c43c005c', msg: 'CRM (P0 de la llamada con Mauricio, 22/10): traer a TODOS de otro funnel y arrastrar a varios tildados', lineas: , archivos: 6 },
+      { sha: '3c43c005c', msg: 'CRM (P0 de la llamada con Mauricio, 22/10): traer a TODOS de otro funnel y arrastrar a varios tildados', lineas: 325, archivos: 6 },
     ],
     archivos: [
     ],
