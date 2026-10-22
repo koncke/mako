@@ -40,6 +40,7 @@ import { Criatura } from './Criatura';
 import { SaldoMaKo } from './SaldoMaKo';
 import { CampanitaAvisos, ID_PANEL_AVISOS } from './CampanitaAvisos';
 import { InterruptorModo } from './InterruptorModo';
+import { useMakoAbierto } from '@/app/_chat/mako-abierto';
 
 const MONO = "'Geist Mono', monospace";
 export const RAIL = 68;
@@ -459,7 +460,11 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
   const enOpsCenter = pliegaLaBarra(pathname);
   // Y en una ventana chica (21/10/2026, `ANCHO_BARRA_PLEGADA`): la misma regla, plegada por defecto y la flecha la abre.
   const angosta = useVentanaAngosta();
-  const plegadaAca = enOpsCenter || angosta;
+  // Y mientras el panel de MaKo de una tab está abierto (22/10/2026, Martín: «si abro a MaKo, se debería plegar la sidebar
+  // principal, para optimizar espacios. Si antes la tenía desplegada y fija, al cerrar MaKo debe volver a su lugar»): lo marca
+  // la estrella (app/_chat/mako-abierto.ts). Temporal como las otras: al cerrar, `fija` vuelve a ser la guardada.
+  const makoAbierto = useMakoAbierto();
+  const plegadaAca = enOpsCenter || angosta || makoAbierto;
   const [abiertaAca, setAbiertaAca] = useState(false);
   useEffect(() => { setAbiertaAca(false); }, [plegadaAca]);
   const fija = fijaGuardada && (!plegadaAca || abiertaAca);

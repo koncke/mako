@@ -202,7 +202,7 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   { id: 'dashboard', label: 'Dashboard sheets', titulo: 'Dashboard', href: '/m/dashboard', icon: 'graphics', navKey: 'graphics', familia: 'diario' },
   // Sales (CRM está en la barra).
   { id: 'calendario', label: 'Calendar', href: '/m/calendario', icon: 'calendario', navKey: 'calendario', familia: 'sales' },
-  { id: 'automations', label: 'Automations', href: '/m/automations', icon: 'chatbot', navKey: 'setting', familia: 'sales' },
+  { id: 'automations', label: 'Automations', href: '/m/automations', icon: 'flujo', navKey: 'setting', familia: 'sales' },
   // Clients (vino de Customer Success el 17/10/2026). Las páginas de escritorio de Curso y Comunidad piden la capa de
   // `customer-success` (requireCapa) y las keys `cs-curso`/`cs-comunidad` dan lo mismo en las cuatro capas
   // (tests/curso-admin.test.ts y tests/comunidad-nav.test.ts); el rol, como en la sidebar, sólo admin.
