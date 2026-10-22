@@ -4267,3 +4267,14 @@ Martín, 21/10: «Los íconos de "tablero y lista" deberían estar como juntos e
   dos, la galería podría prometer una tarjeta que el tablero no dibuja.
 - **El CRM dejó de usar clases `tk-*` en la barra**: salió de la lista de tests/tarjetas-familia.test.ts que exige montar
   `<EstiloTarjetas />` (si vuelve a usarlas, vuelve a la lista).
+
+## Con la barra de la agencia, TODO `<aside>` toma el alto de la ventana (22/10/2026)
+
+`app/globals.css` tiene `[data-barra-agencia] aside { top: var(--barra-agencia) !important; height: calc(100vh - …)
+!important }` desde el 16/08, para el riel del Sidebar. Pero el selector toma CUALQUIER `<aside>`, y sólo cuando el super
+admin mira un cliente: un panel flotante (`position: absolute`) que sea un `<aside>` queda más alto que su contenedor y lo
+de abajo sale de la vista. Medido en el Dashboard del ws3: «Editar con MaKo» medía 761 px en un lienzo de 612, con la caja
+afuera; sin el atributo, 588. **El cliente no lo ve nunca**, así que en una prueba con su sesión todo se ve bien. Con la
+alerta de voz ya se había acotado al Sidebar (`aside[data-sidebar]`) por lo mismo, el 11/09. **Regla:** un panel flotante
+nuevo es un `<section role="complementary">` o un `<div>`, no un `<aside>`. Sin hacer: acotar también la regla de la barra
+de agencia a `aside[data-sidebar]` (es de esta área; hay que mirar antes qué otro `<aside>` depende de ella).

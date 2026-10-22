@@ -248,7 +248,8 @@ export function PanelAnalista({ hoja, loQueSeVe, onCerrar, vista, onModo }: {
   return (
     // Escape cierra SÓLO con el foco adentro del panel: no es un modal, y la grilla de al lado tiene sus
     // propios Escape. Un desplegable abierto adentro se come el suyo antes (Dropdown corta en captura).
-    <aside className="an" aria-label="AI Analyst" onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onCerrar(); } }}>
+    // Un <section> y no un <aside>: la barra de la agencia le fuerza a todo <aside> el alto de la ventana (app/globals.css).
+    <section role="complementary" className="an" aria-label="AI Analyst" onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onCerrar(); } }}>
       <style>{CSS + CSS_MODOS_MAKO}</style>
       <div className="an-cab">
         <MakoStar size={16} animate={corriendo} />
@@ -403,7 +404,7 @@ export function PanelAnalista({ hoja, loQueSeVe, onCerrar, vista, onModo }: {
           </div>
         )}
       </section>
-    </aside>
+    </section>
   );
 }
 
