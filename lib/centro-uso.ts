@@ -193,16 +193,6 @@ export function textoReinicioPasado(t: number, ahora: number): string {
   return `el ${dia} a las ${hora}`;
 }
 
-/** Desde cuánto de la semana una cuenta se marca «Sin lugar» en el Uso (22/10/2026, Martín: «no puedo ver qué cuentas ya no
- *  me queda espacio»). */
-export const SIN_LUGAR_PCT = 90;
-/**
- * ¿A esta cuenta ya no le queda lugar en la semana? La ÚLTIMA medición de la semana al 90% o más, por vieja que sea (la
- * semana no se vacía sola), salvo que ya haya pasado su reinicio: ahí el lugar volvió y la tarjeta dice «se reinició».
- */
-export const sinLugarEnLaSemana = (u: Pick<UsoDeCuenta, 'semana'>): boolean =>
-  !!u.semana && !u.semana.reinicio && u.semana.ultimo >= SIN_LUGAR_PCT;
-
 /**
  * Lo que la barra de estado de Claude Code le pasa a su comando (stdin), reducido a la cuota (cartero.mjs `uso` la anota
  * con esta misma forma). `resets_at` viene en SEGUNDOS unix. null = esa sesión no trae cuota (una clave de API, o un

@@ -91,6 +91,10 @@ test('3: nunca un número inventado: sin registro, null; sin saber si está vinc
   assert.deepEqual(totalCredito(filas), { gastadoUsd: null, vinculadas: 1, rindeUsd: 200, totalUsd: 800 });
   const ok = resumenCredito({ vinculadas: { claude1: true, claude2: true, claude3: false, claude4: false }, gastos: [fila({ cost_usd: 0.25 })], wsConClave: new Map(), ahora: AHORA });
   assert.deepEqual(totalCredito(ok), { gastadoUsd: 0.25, vinculadas: 2, rindeUsd: 400, totalUsd: 800 });
+  // Con el registro leído pero la clave de una cuenta sin leer: el total tiene un hueco (lo de esa cuenta). Rotura: el total
+  // sin mirar `vinculada == null` → 1 fallo.
+  const hueco = resumenCredito({ vinculadas: { claude1: true, claude2: null, claude3: false, claude4: false }, gastos: [fila({ cost_usd: 0.25 })], wsConClave: new Map(), ahora: AHORA });
+  assert.equal(totalCredito(hueco).gastadoUsd, null, 'una cuenta en «No pude leerlo»: el total no es un dato');
 });
 
 test('4: el ciclo, de cobro a cobro, a la medianoche de Argentina (y los meses cortos)', () => {

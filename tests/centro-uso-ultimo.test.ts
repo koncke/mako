@@ -13,14 +13,15 @@
 // Lo que se fija:
 //   1. la tarjeta vieja muestra el último número de cada ventana, con su barra y su edad al lado, en gris, sin «usado»;
 //   2. una ventana ya reiniciada muestra su último número y «Se reinició … (sin medir desde entonces)»;
-//   3. una semana al 90% o más lleva «Sin lugar», por vieja que sea la medición; ya reiniciada, no;
+//   3. SIN el chip «Sin lugar» (22/10/2026, Martín: «No pongas el chip de "Sin lugar", no necesito eso»): la semana llena se ve
+//      por su número y su barra roja, y la tarjeta no lleva marca aparte;
 //   4. lo que DECIDE con el número (el botón, «Automático») sigue sin usar lo reiniciado ni lo vencido.
 //
 // Probado ROMPIÉNDOLO (22/10/2026), con este archivo, tests/centro-uso.test.ts y tests/centro-ops5.test.ts en verde, una rotura
 // por vez (el script restaura byte a byte y lo comprueba en un finally):
 //   · `Barra` con el ancho y el número de `v.pct` en vez de `v.ultimo` (lo reiniciado vuelve a 0) → 2 fallos (2 y 3);
+//   · el chip «Sin lugar» de vuelta en la tarjeta → 1 fallo (3);
 //   · la edad sólo en la vencida (`u.vencido` en vez de `u.viejo`) → 1 fallo (el desplegable de centro-uso.test.ts);
-//   · `sinLugarEnLaSemana` sin mirar el reinicio → 1 fallo (3); con `>` en vez de `>=` → 1 fallo (3);
 //   · `usoDeCuenta` devolviendo `pct: v.pct` aunque haya pasado el reinicio → 3 fallos (4, y dos de centro-uso.test.ts).
 //   Restaurado: todo en verde.
 
@@ -28,7 +29,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { SIN_LUGAR_PCT, cuentasDeUso, sinLugarEnLaSemana, textoReinicioPasado, usoDeCuenta, usoPrincipal, type Cuota } from '../lib/centro-uso';
+import { cuentasDeUso, textoReinicioPasado, usoDeCuenta, usoPrincipal, type Cuota } from '../lib/centro-uso';
 import { libreDe } from '../lib/centro-cuentas';
 import { ListaUso } from '../app/admin/operaciones/Uso';
 
@@ -66,17 +67,13 @@ test('2: una ventana ya reiniciada muestra su último número y desde cuándo no
   assert.equal(textoReinicioPasado(Date.parse('2026-10-20T09:00:00Z'), AHORA), 'el mar 20 a las 06:00');
 });
 
-test('3: una semana al 90% o más lleva «Sin lugar», aunque la medición sea vieja; ya reiniciada, no', () => {
+test('3: sin el chip «Sin lugar»: la semana al 99% se ve por su número y su barra roja', () => {
   const h = dibujar(LEANDRO_2);
-  assert.match(tarjetas(h)[0], /^Cuenta 4 Sin lugar /);
-  assert.match(h, /co-uso__cuenta co-uso__cuenta--sin-lugar/);
-  const con = (pct: number, reinicia = LEANDRO_2.semana!.reinicia) => sinLugarEnLaSemana(usoDeCuenta({ ...LEANDRO_2, semana: { pct, reinicia } }, AHORA));
-  assert.equal(SIN_LUGAR_PCT, 90);
-  assert.equal(con(90), true);
-  assert.equal(con(89), false);
-  assert.equal(con(99, '2026-10-22T12:00:00Z'), false, 'la semana ya se reinició: volvió el lugar');
+  assert.match(tarjetas(h)[0], /^Cuenta 4 /);
+  assert.doesNotMatch(h, /Sin lugar|sin-lugar/, 'Martín, 22/10: «No pongas el chip de "Sin lugar", no necesito eso»');
+  assert.match(h, /<section class="co-uso__cuenta" aria-label=/, 'la tarjeta sin marca aparte');
+  assert.match(h, /co-uso__lleno--mal" style="width:99%"/);
   const reiniciada = dibujar({ ...LEANDRO_2, semana: { pct: 99, reinicia: '2026-10-22T12:00:00Z' } });
-  assert.doesNotMatch(reiniciada, /Sin lugar|co-uso__cuenta--sin-lugar/);
   assert.match(tarjetas(reiniciada)[0], /Semana 99% · medido hace 14 h Se reinició hoy a las 09:00 \(sin medir desde entonces\)/);
 });
 

@@ -169,11 +169,14 @@ export function resumenCredito(p: {
 }
 
 /**
- * Lo de arriba de la sección: «US$X de US$800 este mes». `gastadoUsd` null si alguna cuenta vinculada no se pudo leer (una
- * suma con un hueco no es un dato). `rindeUsd`: lo que hoy se puede gastar (las vinculadas); `totalUsd`: con las cuatro.
+ * Lo de arriba de la sección: «US$X de US$800 este mes». `gastadoUsd` null si alguna cuenta vinculada no se pudo leer, O si
+ * de alguna no se sabe si está vinculada (su clave no se pudo leer): una suma con un hueco no es un dato (revisión del
+ * 22/10/2026: con una cuenta en «No pude leerlo», el total salía igual, sin lo de esa cuenta). `rindeUsd`: lo que hoy se
+ * puede gastar (las vinculadas); `totalUsd`: con las cuatro.
  */
 export function totalCredito(filas: readonly FilaCredito[]): TotalCredito {
   const vinculadas = filas.filter((f) => f.vinculada === true);
-  const gastadoUsd = vinculadas.some((f) => f.gastadoUsd == null) ? null : redondear(vinculadas.reduce((s, f) => s + (f.gastadoUsd ?? 0), 0));
+  const hueco = filas.some((f) => f.vinculada == null) || vinculadas.some((f) => f.gastadoUsd == null);
+  const gastadoUsd = hueco ? null : redondear(vinculadas.reduce((s, f) => s + (f.gastadoUsd ?? 0), 0));
   return { gastadoUsd, vinculadas: vinculadas.length, rindeUsd: vinculadas.length * CREDITO_MENSUAL_USD, totalUsd: filas.length * CREDITO_MENSUAL_USD };
 }

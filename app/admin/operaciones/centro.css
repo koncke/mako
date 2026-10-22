@@ -991,24 +991,10 @@
 .co-uso__pie { display: flex; gap: 8px; margin-top: 10px; }
 .co-runner__cuenta-cmd { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
 /* El último número nunca se esconde (22/10/2026): una medición vieja va en gris con su edad al lado y la barra de su color
-   pero más tenue; una ventana ya reiniciada, con la barra apagada (--vencida, arriba). Una semana al 90% o más: «Sin lugar». */
+   pero más tenue; una ventana ya reiniciada, con la barra apagada (--vencida, arriba). Sin chip «Sin lugar» (Martín, 22/10). */
 .co-uso__edad { color: var(--faint); }
 .co-uso__ventana--vieja .co-uso__pct, .co-uso__ventana--vencida .co-uso__pct { color: var(--faint); }
 .co-uso__ventana--vieja .co-uso__barra { opacity: .6; }
-.co-uso__cuenta--sin-lugar { box-shadow: inset 0 0 0 1px var(--bad); }
-.co-uso__sin-lugar {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  height: 18px;
-  padding: 0 7px;
-  border-radius: 999px;
-  background: var(--bad-bg);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--bad);
-  white-space: nowrap;
-}
 /* La API (22/10/2026, UsoCredito.tsx): debajo de las cuentas, el crédito de cada plan Max. */
 .co-uso__api { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
 .co-uso__credito { padding: 10px; border-radius: var(--r-md); background: var(--velo-hover); display: flex; flex-direction: column; gap: 6px; }

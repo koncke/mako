@@ -1582,8 +1582,8 @@ código nuevo:
   más de 6 horas no cuenta para el número del botón (`USO_VENCIDO_MS`, lib/centro-uso.ts). Toda cuenta con un número dice
   «Medido hace X». **Y EL ÚLTIMO NÚMERO NUNCA SE ESCONDE** (22/10/2026; Martín: «no debería desaparecer los % de uso que
   tenía la última vez... no puedo ver qué cuentas ya no me queda espacio»): la tarjeta lo dibuja siempre, con su barra; vieja,
-  en gris con su edad al lado y sin «usado»; reiniciada, con «Se reinició … (sin medir desde entonces)»; una semana al 90% o
-  más lleva «Sin lugar». Lo que se DIBUJA sale de `UsoVentana.ultimo`; lo que DECIDE (el botón, «Automático», `libreDe`) sale
+  en gris con su edad al lado y sin «usado»; reiniciada, con «Se reinició … (sin medir desde entonces)». Sin chip «Sin lugar»
+  (Martín: «no necesito eso»). Lo que se DIBUJA sale de `UsoVentana.ultimo`; lo que DECIDE (el botón, «Automático», `libreDe`) sale
   de `pct` y `vencido`, nunca de `ultimo`. Lo fija tests/centro-uso-ultimo.test.ts.
 - **LA API EN EL USO SALE DE LO QUE MAKO REGISTRA, NUNCA DE UN NÚMERO SUPUESTO** (22/10/2026; Martín: «quiero ver también el USO
   de la API... deberían ser 800 usd al mes»): por cuenta, lo gastado del crédito de su plan Max (lib/credito-api.ts), por la marca

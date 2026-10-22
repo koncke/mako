@@ -1586,8 +1586,8 @@ La tarjeta siempre lo dibuja con su barra. Lo que cambia con la edad es CÓMO se
 - al día: «47% usado» y abajo «Medido hace 2 min», como siempre;
 - vieja (más de 30 min): «99% · medido hace 14 h», en gris, sin «usado», con la barra de su color pero más tenue;
 - ya reiniciada: el último número en gris, la barra apagada y «Se reinició ayer a las 22:59 (sin medir desde entonces)».
-Una semana al 90% o más, con su reinicio todavía por delante, lleva «Sin lugar» (`sinLugarEnLaSemana`), por vieja que sea
-la medición: la semana no se vacía sola.
+Hubo también un chip «Sin lugar» para la semana al 90% o más; se fue el mismo día (Martín: «No pongas el chip de "Sin
+lugar", no necesito eso»). La semana llena se ve por su número y su barra roja, que ya no se esconden.
 
 **Regla:** un número que se DIBUJA no se esconde por viejo: se dice su edad. Lo que DECIDE con él (el botón, «Automático»,
 `libreDe`) sigue leyendo `pct`, que es null pasado el reinicio, y `vencido`. Así lo del 17/10 (no leer un dato viejo como de
@@ -1600,6 +1600,9 @@ deberían ser 800 usd al mes...». Debajo de las cuentas del desplegable del Uso
 está la sección «API»: arriba «US$0,25 de US$800 este mes», y por cuenta lo gastado de sus US$200, lo que queda, cuándo se
 renueva, o «Falta vincular» con lo que hay que hacer. Qué deja leer Anthropic y por qué el número sale del registro de MaKo,
 en docs/hallazgos-ia.md («Qué deja leer Anthropic del crédito de los planes Max»).
+
+**El total con un hueco (revisión del 22/10/2026):** con la clave de una cuenta sin leer («No pude leerlo»), el total de
+arriba salía igual, sin lo de esa cuenta. Ahora `totalCredito` da null si de alguna cuenta no se sabe si está vinculada.
 
 **Vive en:** lib/credito-api.ts (las reglas, puro) · lib/credito-api-db.ts (la lectura) · `creditoApiAction` (acciones.ts,
 con la guarda de siempre) · app/admin/operaciones/UsoCredito.tsx · tests/credito-api.test.ts.

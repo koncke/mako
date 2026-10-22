@@ -18,7 +18,8 @@
 //    (antes `Barra` devolvía null y la de 5 horas desaparecía: la cuenta de la app sólo trae la semanal).
 // ⚠️ EL ÚLTIMO NÚMERO NUNCA SE ESCONDE (22/10/2026, Martín: «Cuando no mide hace mucho tiempo no debería desaparecer los % de
 //    uso que tenía la última vez... esa cuenta ya estaba al 99% semanal, y ahora ya no aparece»): una medición vieja se ve
-//    en gris con su edad, una ventana ya reiniciada dice desde cuándo no se mide, y una semana al 90% o más lleva «Sin lugar».
+//    en gris con su edad, y una ventana ya reiniciada dice desde cuándo no se mide. SIN el chip «Sin lugar» (22/10/2026, Martín:
+//    «No pongas el chip de "Sin lugar", no necesito eso»): la semana llena se ve por su número y su barra roja.
 // LA API (22/10/2026, Martín: «En USO de SuperAdmin quiero ver también el USO de la API... deberían ser 800 usd al mes»):
 // debajo de las cuentas, el crédito de API de cada plan Max (UsoCredito.tsx); se pide al abrir el desplegable.
 // ⚠️ Ningún texto pide pegar nada en una terminal: el Runner de una cuenta lo conecta la app sola.
@@ -35,7 +36,7 @@ import { carteroVivo } from '@/lib/operaciones-reglas';
 import { nombreCuenta } from '@/lib/centro-chats';
 import { hace } from '@/lib/progreso-reglas';
 import {
-  SIN_LUGAR_PCT, estadoRunnerUso, sinLugarEnLaSemana, textoReinicio, textoReinicioPasado, usoDeCuenta, usoPrincipal,
+  estadoRunnerUso, textoReinicio, textoReinicioPasado, usoDeCuenta, usoPrincipal,
   type Cuota, type EstadoRunnerUso, type UsoVentana,
 } from '@/lib/centro-uso';
 import { SeccionCredito, type LeerCredito } from './UsoCredito';
@@ -118,7 +119,7 @@ function Barra({ titulo, v, ahora, edad }: { titulo: string; v: UsoVentana | nul
     );
   }
   const lleno = v.ultimo;
-  const tono = v.reinicio ? 'apagado' : lleno >= SIN_LUGAR_PCT ? 'mal' : lleno >= 75 ? 'ojo' : 'bien';
+  const tono = v.reinicio ? 'apagado' : lleno >= 90 ? 'mal' : lleno >= 75 ? 'ojo' : 'bien';
   const vieja = v.reinicio || !!edad;
   return (
     <div className={`co-uso__ventana${v.reinicio ? ' co-uso__ventana--vencida' : edad ? ' co-uso__ventana--vieja' : ''}`}>
@@ -172,10 +173,8 @@ export function ListaUso({ cuentas, ahora, onRenombrar }: { cuentas: readonly Cu
         // en un renglón abajo; vieja (más de 30 min, USO_VIEJO_MS), al lado de cada número, en gris («99% · medido hace 14 h»).
         // Desde el 22/10 nada se apaga por viejo: la tarjeta guarda el último número (lib/centro-uso.ts → USO_VENCIDO_MS).
         const edad = u.medido != null && u.viejo ? `medido ${hace(u.medido, ahora)}` : null;
-        // Sin lugar en la semana (90% o más, y su reinicio todavía no pasó): se ve de un vistazo, aunque la medición sea vieja.
-        const sinLugar = sinLugarEnLaSemana(u);
         return (
-          <section key={k.cuenta} className={`co-uso__cuenta${sinLugar ? ' co-uso__cuenta--sin-lugar' : ''}`} aria-label={nombreCuenta(k.cuenta) ?? k.cuenta}>
+          <section key={k.cuenta} className="co-uso__cuenta" aria-label={nombreCuenta(k.cuenta) ?? k.cuenta}>
             <div className="co-uso__fila">
               <span className="co-uso__quien">
                 <LogoClaude />
@@ -183,7 +182,6 @@ export function ListaUso({ cuentas, ahora, onRenombrar }: { cuentas: readonly Cu
                   <span className="co-uso__linea">
                     <NombreDeCuenta cuenta={k.cuenta} datos={k.titular} onRenombrar={onRenombrar} />
                     {plan && <span className="co-uso__plan">{plan}</span>}
-                    {sinLugar && <span className="co-uso__sin-lugar" title={`La semana va al ${u.semana?.ultimo}%`}>Sin lugar</span>}
                   </span>
                   {k.titular?.email && <span className="co-uso__email">{k.titular.email}</span>}
                 </span>
