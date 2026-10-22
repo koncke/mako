@@ -2233,10 +2233,12 @@ no los recibía (relevo, «SIN HACER» 2). Ahora se suben y se leen en esa conve
   - `pii: true` en la escucha: sin él, el MP3 caía a la red gratis que entrena (docs/hallazgos-ia.md, IA7).
   - El chat es de quien manda la nota ANTES de escucharla.
   - Con una clave dictada, se tapa en el texto y el audio no se guarda.
-  - La nota de un chat que se sigue con `antes` (uno de antes, o de una tab) daba 404 aun recién mandada: la URL lleva
-    `&antes=1` (`vozDeChatDeAntes`) y el GET la resuelve con `personaDelChat`, la regla que deja seguirlo. Para el admin es la
-    de leer el texto: quien lee lo que se entendió puede escuchar la nota, y es a propósito.
-  - **SIN HACER:** `?adjunto=` tiene el mismo hueco en esos chats (una foto o un PDF de un chat de antes no se abre).
+  - Lo guardado de un chat que se SIGUE con `antes` (uno de antes, o el de una tab: el CRM, la ficha de un lead) daba 404
+    aun recién mandado: la nota, y también la foto y el PDF (`?adjunto=`, el mismo hueco desde el 16/10). Ahora el servidor
+    prueba SU chat y, si no, la regla que deja seguirlo (lib/mako-turno-app.ts → `quienAbre`, con `personaDelChat` de la ruta).
+    Para el admin es la de leer el texto: quien lee el mensaje abre su foto o escucha su nota, a propósito.
+  - **Trampa: un `&antes=1` en la URL no protege nada.** La primera versión lo pedía en la URL de la nota, pero lo pone el
+    navegador: la regla tiene que estar en el servidor. Así tampoco hizo falta tocar `ArchivosHilo` ni el estado de cuenta.
 - **Trampa: un 5xx no le dice a la pantalla que no se guardó nada.** `leerRespuesta` (app/m/mako/chat-ui.ts) toma cualquier 5xx
   por «no sé si llegó». Con el 502 de Offer, una nota que ninguna IA pudo escuchar quedaba «incierta» en el hilo en vez de
   volver a la barra. Por eso «ninguna IA pudo» es un **424**, y el 4xx ahora trae su `status`: 413, 415 y 422 tiran la nota, el

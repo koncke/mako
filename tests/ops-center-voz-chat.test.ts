@@ -9,18 +9,19 @@
 //   3. el turno guarda el MP3 con el mensaje (al final: las posiciones de los adjuntos no cambian) y lo devuelve para escucharlo;
 //   4. la pantalla: la nota va a SU motor (Offer o la ruta del chat), y cómo termina decide si vuelve a la barra;
 //   y lo que dejó la revisión de privacidad de Integración (22/10/2026): `pii: true` (nunca a la red gratis que entrena), el chat
-//   es de quien la manda ANTES de escucharla, una clave dictada no deja el audio, y la de un chat que se sigue con `antes` se
-//   escucha con la misma regla que deja seguirlo.
+//   es de quien la manda ANTES de escucharla, y una clave dictada no deja el audio;
+//   5. lo guardado de un chat que se SIGUE con `antes` (uno de antes o el de una tab: el CRM, la ficha de un lead) se abre: la
+//      foto, el PDF y la nota daban 404, aun recién mandados. Con la regla que deja seguirlo, en el servidor (Cerebro, 22/10).
 //
 // Correr: node --import tsx --test tests/ops-center-voz-chat.test.ts
-// PROBADO ROMPIÉNDOLO (base 4/0), ver el pie.
+// PROBADO ROMPIÉNDOLO (base 5/0), ver el pie.
 // =============================================================================
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { bloqueDeVoz, rutaDeAdjunto, rutaDeVozDelChat, sanearBloques, vozDeBloques, vozDeChatDeAntes } from '../lib/chat-mako-bloques';
+import { bloqueDeVoz, rutaDeAdjunto, rutaDeVozDelChat, sanearBloques, vozDeBloques } from '../lib/chat-mako-bloques';
 import { esMp3 } from '../lib/mako-adjuntos';
 import { leerRespuesta } from '../app/m/mako/chat-ui';
 
@@ -41,15 +42,10 @@ test('1. la nota se guarda como un adjunto, por su firma, y se pide por su mensa
   assert.ok(esMp3(new Uint8Array([0xff, 0xfb, 0x90])), 'el primer cuadro, como la arma lamejs');
   assert.ok(!esMp3(new Uint8Array([0x25, 0x50, 0x44, 0x46])), 'un PDF no');
   assert.ok(!esMp3(new Uint8Array([0x1a, 0x45, 0xdf, 0xa3])), 'el webm de Chrome tampoco');
-  // El GET la firma sólo si la conversación es de quien pide (como un adjunto).
+  // El GET la firma sólo si la conversación es de quien pide (como un adjunto: `quienAbre`, test 5).
   const turno = sinComentarios(leer('lib/mako-turno-app.ts'));
-  assert.match(turno, /export async function urlDeVozDelChat\([\s\S]{0,600}?const quien = deOtroChat \? await deOtroChat\(m\.session_id\) : persona;\n\s*if \(!quien \|\| !\(await sesionDe\(quien, m\.session_id\)\)\) return null;\n\s*const v = vozDeBloques\(persona\.ws, m\.bloques\);\n\s*return v \? urlFirmadaDeAdjunto\(v\.path\) : null;/);
-  // La de un chat que se sigue con `antes`: con la MISMA regla que deja seguirlo (personaDelChat), y su URL lo dice.
-  assert.match(sinComentarios(leer('app/api/mako/chat/route.ts')), /if \(sp\.has\('voz'\)\) \{\n\s*const url = await urlDeVozDelChat\(persona, sp\.get\('voz'\), sp\.get\('antes'\) \? \(sesion\) => personaDelChat\(persona, sesion, '1'\) : undefined\);/);
-  assert.equal(vozDeChatDeAntes('/api/mako/chat?voz=812'), '/api/mako/chat?voz=812&antes=1');
-  assert.equal(vozDeChatDeAntes('/api/mako/chat?voz=812&antes=1'), '/api/mako/chat?voz=812&antes=1', 'una sola vez');
-  assert.equal(vozDeChatDeAntes('/api/offer/audio?sesion=3&m=a'), '/api/offer/audio?sesion=3&m=a', 'la de Offer, igual');
-  assert.match(sinComentarios(leer('app/second-brain/useChatCliente.ts')), /const deOtroChat = !!elegido && 'antes' in elegido;\n\s*const conWsDeAudio = useCallback\(\(url: string\) => conWs\(deOtroChat \? vozDeChatDeAntes\(url\) : url, ws\), \[ws, deOtroChat\]\);/);
+  assert.match(turno, /export async function urlDeVozDelChat\([\s\S]{0,500}?if \(!m \|\| !\(await quienAbre\(persona, m\.session_id, deOtroChat\)\)\) return null;\n\s*const v = vozDeBloques\(persona\.ws, m\.bloques\);\n\s*return v \? urlFirmadaDeAdjunto\(v\.path\) : null;/);
+  assert.match(sinComentarios(leer('app/api/mako/chat/route.ts')), /if \(sp\.has\('voz'\)\) \{\n\s*const url = await urlDeVozDelChat\(persona, sp\.get\('voz'\), deOtroChat\);/);
 });
 
 test('2. la ruta la escucha con la IA del negocio ANTES de guardar nada; sin voz 422, sin IA 424', () => {
@@ -101,6 +97,20 @@ test('4. la pantalla: la nota va a SU motor, y cómo termina decide si vuelve a 
   assert.doesNotMatch(motor, /const vozCaja = idOffer/);
 });
 
+test('5. lo guardado de un chat que se sigue con `antes` se abre, con la regla que deja seguirlo (404 si no es suyo)', () => {
+  const turno = sinComentarios(leer('lib/mako-turno-app.ts'));
+  // Primero SU chat; si no, la regla de los chats que se siguen (la de `?sessionId=N&antes=1`), y la sesión otra vez con ESA
+  // persona. Nunca una clave armada a mano.
+  assert.match(turno, /async function quienAbre\(persona: PersonaChat, sesion: number, deOtroChat\?: ReglaDeOtroChat\): Promise<PersonaChat \| null> \{\n\s*if \(await sesionDe\(persona, sesion\)\) return persona;\n\s*const otro = deOtroChat \? await deOtroChat\(sesion\) : null;\n\s*return otro && \(await sesionDe\(otro, sesion\)\) \? otro : null;\n\}/);
+  // El adjunto (la foto, el PDF) y la nota la usan los dos, ANTES de firmar.
+  const adjunto = turno.slice(turno.indexOf('export async function urlDeAdjunto('), turno.indexOf('export async function urlDeVozDelChat('));
+  assert.ok(adjunto.indexOf('quienAbre(persona, m.session_id, deOtroChat)') > 0 && adjunto.indexOf('quienAbre(') < adjunto.indexOf('urlFirmadaDeAdjunto('), 'el adjunto, con la regla');
+  const ruta = sinComentarios(leer('app/api/mako/chat/route.ts'));
+  assert.match(ruta, /const deOtroChat = \(sesion: number\) => personaDelChat\(persona, sesion, '1'\);\n\s*if \(sp\.has\('adjunto'\)\) \{\n\s*const url = await urlDeAdjunto\(persona, sp\.get\('adjunto'\), deOtroChat\);/);
+  // La regla es la de seguir el chat: la de antes, o un chat de una tab de ESTA persona.
+  assert.match(ruta, /const chartKey = \(q \? await claveDeAntes\(q, sessionId\) : null\) \?\? await claveDeTab\(persona, sessionId\);/);
+});
+
 // PROBADO ROMPIÉNDOLO (22/10/2026, base 4/0):
 //   · la nota de otro workspace se firma              → 3/1 (1)
 //   · el GET firma sin mirar de quién es               → 3/1 (1)
@@ -114,5 +124,8 @@ test('4. la pantalla: la nota va a SU motor, y cómo termina decide si vuelve a 
 //   · sin `pii: true`                                  → 3/1 (2)
 //   · escucha antes de mirar de quién es el chat       → 3/1 (2)
 //   · guarda el audio de una clave dictada             → 3/1 (3)
-//   · la nota de un chat de antes sin `&antes=1`       → 3/1 (1)
-//   · el GET de un chat de antes sin su regla          → 3/1 (1)
+// Y lo de los chats que se siguen con `antes` (22/10/2026, base 5/0; reemplaza al `&antes=1` del navegador, que no protegía nada):
+//   · el adjunto sin la regla (sólo el chat propio)    → 4/1 (5)
+//   · la nota sin la regla                             → 4/1 (1)
+//   · la regla sin volver a mirar la sesión            → 4/1 (5)
+//   · el GET del adjunto no le pasa la regla           → 4/1 (5)

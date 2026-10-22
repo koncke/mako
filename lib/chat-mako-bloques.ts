@@ -150,13 +150,6 @@ export function vozDeBloques(ws: number, crudo: unknown): BloqueVoz | null {
 /** El link de una nota de voz guardada, SIN el `?ws=`: es un `<audio src>`, y se lo pone quien lo dibuja (`conWs`). */
 export const rutaDeVozDelChat = (msgId: number): string => `/api/mako/chat?voz=${msgId}`;
 
-/**
- * La de un chat que la persona SIGUE con `antes` (uno «de antes» o el de una tab: el CRM, la ficha de un lead). Sin `&antes=1`
- * el GET la buscaba en el chat propio de la persona y daba 404, también recién mandada (la revisión del 22/10/2026).
- */
-export const vozDeChatDeAntes = (url: string): string =>
-  (url.startsWith('/api/mako/chat?voz=') && !/[?&]antes=/.test(url) ? `${url}&antes=1` : url);
-
 /** Lo que ve la pantalla de los adjuntos de un mensaje (sin el path). */
 export function adjuntosVisibles(msgId: number, bloques: readonly BloqueChat[]): AdjuntoVisible[] {
   return bloques.map((b, i) => ({ ref: `${msgId}:${i}`, nombre: b.nombre, tipo: b.tipo, ...(b.archivero ? { archivero: b.archivero } : {}) }));

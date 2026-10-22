@@ -109,8 +109,11 @@ export async function GET(req: NextRequest) {
       if (!esChatDeMarcas(chat)) return json({ ok: false, error: 'Falta el chat.' }, 400);
       return json({ ok: true, marcas: await leerMarcasDelChat(persona, chat) });
     }
+    // Lo guardado de un chat que la persona SIGUE con `antes` (uno de antes o el de una tab) se abre con la regla que deja
+    // seguirlo, la misma de `?sessionId=N&antes=1` (22/10/2026: la foto, el PDF y la nota de esos chats daban 404).
+    const deOtroChat = (sesion: number) => personaDelChat(persona, sesion, '1');
     if (sp.has('adjunto')) {
-      const url = await urlDeAdjunto(persona, sp.get('adjunto'));
+      const url = await urlDeAdjunto(persona, sp.get('adjunto'), deOtroChat);
       // Se abre en otra pestaña o en un <img>: texto, no JSON.
       if (!url) return new Response('No pude abrir el archivo.', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
       // El link vence a los 300 s: el navegador puede reusar este salto un rato menos que eso.
@@ -118,8 +121,7 @@ export async function GET(req: NextRequest) {
     }
     // La nota de voz de la persona (OC7): un <audio src>, también por su mensaje.
     if (sp.has('voz')) {
-      // La de un chat que se SIGUE con `antes` (uno de antes, o de una tab), con la misma regla que deja seguirlo.
-      const url = await urlDeVozDelChat(persona, sp.get('voz'), sp.get('antes') ? (sesion) => personaDelChat(persona, sesion, '1') : undefined);
+      const url = await urlDeVozDelChat(persona, sp.get('voz'), deOtroChat);
       if (!url) return new Response('No pude abrir la nota de voz.', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
       return new Response(null, { status: 302, headers: { Location: url, 'Cache-Control': 'private, max-age=240' } });
     }

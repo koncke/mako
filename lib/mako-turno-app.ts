@@ -231,36 +231,44 @@ function aMensajeChat(ws: number, m: ChartMsgConBloques): MensajeChat {
   };
 }
 
+/** La regla de un chat que la persona SIGUE con `antes` (uno de antes, o el de una tab): la de la ruta (route.ts → personaDelChat). */
+export type ReglaDeOtroChat = (sesion: number) => Promise<PersonaChat | null>;
+
+/**
+ * ¿Quién puede abrir lo guardado en la conversación `sesion`? La persona, si es SU chat. Si no, la persona con la clave de ese
+ * chat, si la regla que deja SEGUIRLO la deja (`deOtroChat`): un chat de antes o el de una tab (22/10/2026). Para el admin
+ * ésa es la de leer su texto, así que quien lee el mensaje abre su foto o escucha su nota, a propósito. Nunca una clave armada
+ * a mano. null = nadie que pueda.
+ */
+async function quienAbre(persona: PersonaChat, sesion: number, deOtroChat?: ReglaDeOtroChat): Promise<PersonaChat | null> {
+  if (await sesionDe(persona, sesion)) return persona;
+  const otro = deOtroChat ? await deOtroChat(sesion) : null;
+  return otro && (await sesionDe(otro, sesion)) ? otro : null;
+}
+
 /**
  * El link firmado de un adjunto guardado (`ref` = `<id del mensaje>:<n>`), o null. Mira de QUIÉN es la conversación
- * del mensaje ANTES de firmar: los chats son por persona, así que el admin no abre los adjuntos de un closer.
+ * del mensaje ANTES de firmar (`quienAbre`): los chats son por persona, así que el admin no abre los adjuntos de un closer.
+ * ⚠️ Hasta el 22/10/2026 sólo miraba el chat PROPIO: la foto o el PDF de un chat de antes o de una tab daba 404.
  */
-export async function urlDeAdjunto(persona: PersonaChat, ref: unknown): Promise<string | null> {
+export async function urlDeAdjunto(persona: PersonaChat, ref: unknown, deOtroChat?: ReglaDeOtroChat): Promise<string | null> {
   const r = leerRef(ref);
   if (!r) return null;
   return runWithWorkspace(persona.ws, async () => {
     const m = await getMensajeConBloques(r.msgId);
-    if (!m || !(await sesionDe(persona, m.session_id))) return null;
+    if (!m || !(await quienAbre(persona, m.session_id, deOtroChat))) return null;
     const b = sanearBloques(persona.ws, m.bloques)[r.i];
     return b ? urlFirmadaDeAdjunto(b.path) : null;
   });
 }
 
-/**
- * El link firmado de la nota de voz de un mensaje, o null. Como `urlDeAdjunto`: mira de QUIÉN es la conversación antes.
- * `deOtroChat`: un chat que la persona sigue con `antes` (route.ts → personaDelChat), resuelto con la MISMA regla que deja
- * seguirlo. Para el admin, ésa es la de leer su texto: quien lee lo que se entendió puede escuchar la nota (22/10/2026, a
- * propósito). Nunca una clave armada a mano.
- */
-export async function urlDeVozDelChat(persona: PersonaChat, msgId: unknown,
-  deOtroChat?: (sesion: number) => Promise<PersonaChat | null>): Promise<string | null> {
+/** El link firmado de la nota de voz de un mensaje, o null. Como `urlDeAdjunto`: mira de QUIÉN es la conversación antes. */
+export async function urlDeVozDelChat(persona: PersonaChat, msgId: unknown, deOtroChat?: ReglaDeOtroChat): Promise<string | null> {
   const id = typeof msgId === 'string' && /^\d{1,15}$/.test(msgId) ? Number(msgId) : NaN;
   if (!Number.isSafeInteger(id) || id <= 0) return null;
   return runWithWorkspace(persona.ws, async () => {
     const m = await getMensajeConBloques(id);
-    if (!m) return null;
-    const quien = deOtroChat ? await deOtroChat(m.session_id) : persona;
-    if (!quien || !(await sesionDe(quien, m.session_id))) return null;
+    if (!m || !(await quienAbre(persona, m.session_id, deOtroChat))) return null;
     const v = vozDeBloques(persona.ws, m.bloques);
     return v ? urlFirmadaDeAdjunto(v.path) : null;
   });
