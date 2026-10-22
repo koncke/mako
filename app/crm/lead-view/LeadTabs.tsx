@@ -25,6 +25,11 @@
 //    título mismo es el botón. Sin a dónde ir (una sola hoja y sin «Nueva hoja»), no hay ▾.
 // ⚠️ LAS HOJAS YA VISITADAS QUEDAN MONTADAS (ocultas con display:none): cambiar de hoja no descarta estado del
 //    cliente (un insight recién generado, un chat cargado).
+// ⚠️ LAS OTRAS HOJAS, A LA VISTA (22/10/2026). En la llamada con Mauricio (min 10:00) no encontraba «Pagos»: estaba
+//    adentro del «Resumen ▾». Martín: «se puso muy escondido el desplegable de las pestañas, yo voy a hacer de que esté
+//    un poco más visible». El desplegable SIGUE (es el patrón del Dashboard, pedido el 16/10, y donde se crea y se
+//    ordena una hoja); al lado del título van las demás hojas como atajos de un toque, en una línea que se corta con
+//    «…» si no entran. En el teléfono, sólo el desplegable.
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { EditableInline } from '@/app/_components/EditableInline';
@@ -147,6 +152,16 @@ export function LeadTabs({ tabs, initial, onChange, actions, fija, irA, onRenomb
             <h2 className="lt-tit">{activa?.label}{badge}</h2>
           )}
         </div>
+        {/* LOS ATAJOS: las otras hojas, de un toque (22/10/2026). Mismo camino que elegirla en el desplegable. */}
+        {tabs.length > 1 && (
+          <nav className="lt-atajos" aria-label="Otras hojas de la ficha">
+            {tabs.filter((t) => t.key !== activeKey).map((t) => (
+              <button key={t.key} type="button" className="lt-atajo" onClick={() => { setMenu(null); ir(t.key); onChange?.(t.key); }}>
+                {t.label}{t.badge != null && t.badge > 0 ? <span className="lt-badge">{t.badge}</span> : null}
+              </button>
+            ))}
+          </nav>
+        )}
         {actions && <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', flex: 'none' }}>{actions}</div>}
       </div>
       {menu && (
@@ -244,7 +259,11 @@ function MenuHojasFicha({ hojas, activa, onNueva, onIr, onCerrar }: {
 //    sobra: medido en vivo, el flex le daba 94 px a un texto que pide ~105. Los nombres tienen tope (24): no hace falta
 //    partirlos.
 const CSS_HOJAS = `
-.lt-izq { display: flex; align-items: center; gap: 4px; min-width: 0; flex: 1; }
+.lt-izq { display: flex; align-items: center; gap: 4px; min-width: 0; flex: 0 1 auto; }
+.lt-atajos { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 2px; overflow: hidden; mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
+.lt-atajo { flex: none; display: inline-flex; align-items: center; gap: 6px; border: none; background: transparent; padding: 6px 10px; border-radius: 8px; font: inherit; font-family: 'Geist', sans-serif; font-size: 14px; font-weight: 600; color: var(--dim); cursor: pointer; white-space: nowrap; }
+.lt-atajo:hover { background: var(--velo-hover); color: var(--ink); }
+.lt-atajo:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .lt-tit { margin: 0; min-width: 0; display: inline-flex; align-items: center; gap: 6px; font-family: 'Geist', sans-serif; font-size: 19px; font-weight: 650; letter-spacing: -0.015em; line-height: 1.25; color: var(--ink); overflow-wrap: break-word; }
 .lt-tit .edin { padding: 1px 4px; border-radius: 6px; }
 .lt-tit .edin:hover { background: var(--velo-hover); }
@@ -271,6 +290,6 @@ const CSS_HOJAS = `
 @media (hover: none) { .lt-hoja-mas { opacity: 1; } }
 @media (pointer: coarse) { .lt-hoja-op { min-height: var(--touch); } .lt-hoja-mas, .lt-hojas { width: var(--touch); height: var(--touch); } }
 /* En un teléfono no se personaliza la ficha (decisión de b1, ./ficha/ficha-css.ts): sin «Nueva hoja» ni el ⋮ de cada hoja. */
-@media (max-width: 720px) { .lt-tit { font-size: 17px; } .lt-nueva, .lt-hoja-mas { display: none; } }
+@media (max-width: 720px) { .lt-tit { font-size: 17px; } .lt-nueva, .lt-hoja-mas, .lt-atajos { display: none; } }
 @media (prefers-reduced-motion: reduce) { .lt-hoja-mas { transition: none; } }
 `;
