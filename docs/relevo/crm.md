@@ -19,6 +19,13 @@ producto con precio, una casilla por cuenta (Stripe y Mercado Pago a la vez, var
 Cobros (lib/cobro-etapa.ts y app/crm/cobro-etapa-actions.ts, su punta 81c8446e7, la mig 0326 aplicada): el stub se fue
 el 22/10. Sin «Copiar link» hasta que `linkDelVinculoAction` dé el link sin un lead (Cobros avisa).
 
+**22/10, noche, el P0 del sábado (el tablero trabado con 1.050)**: en la misma rama `crm-cobro-ganado-2210`. Cada columna
+dibuja 30 y suma 30 al bajar (app/crm/columna-por-tandas.ts, FinDeColumna.tsx), y el Kanban topea con `maxHeight`
+(`5dc4c17b5` es el mismo arreglo, suelto, desde main). Medido con el arnés (tests/_crm-tablero-medir.mjs, con
+`ARNES_CSS` = la hoja de producción): 1.169 en 8 columnas, de 14.528 nodos y 3,0–3,6 s a 3.280 y 0,4–0,9 s.
+**Sin hacer:** medirlo EN PRODUCCIÓN cuando salga (el arnés va ~7 veces más rápido que el Chrome de Martín): el ws1
+principal y «Sprint 3 días», con `long-animation-frame` (cómo, en docs/hallazgos-crm.md).
+
 **22/10, «está en una automatización» y «Frenar»** (Martín: «en el CRM debería indicar en la tarjeta o en algún lugar
 que esos leads están en una automatización activa, y que desde el CRM también se pueda frenar»): rama `crm-aut-lead-2210` en
 C:/dev/wt-crm-aut (sobre `crm-feedback-2210b`). El chip en la tarjeta, la fila en la ficha rápida, «Frenar automatización»
