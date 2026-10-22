@@ -4691,6 +4691,11 @@ nuevo:
   de Martín (una fila de la plataforma ilegible, o el crédito con otro nombre) dejaba pagar al Plan con él.
 - **Una fila que existe y no se descifra también es «no pude leer»** en la frontera de la IA: `credWsEstricta(…, {
   ilegibleTira: true })`. Sin la opción devuelve `null`, y una copia de la plataforma o el crédito pasaban por del negocio.
+- **Datos de clientes a la red de la plataforma, sólo con `geminiDeLaPlataformaPaga()`** (lib/gemini-pago.ts, IA16). La
+  marca `ia.gemini.plataforma_paga` NO se prende a mano: la prende `scripts/gemini-pago.mts --marcar`, sólo si TODAS las
+  claves de Gemini de la plataforma pasan como pagas (una gratis en la rotación manda datos de clientes a entrenar).
+- **Groq sólo escucha audio** (`PROVS_SOLO_AUDIO`, Martín 22/10/2026: «Groq sólo para las notas de voz»). Una función de
+  texto nueva no lo nombra; el corte de `proveedor` y `deTexto` lo saltean igual.
 
 - **La clave del negocio se lee con `credDelCliente`, nunca con `credWs`**: `credWs` cae al env de la plataforma
   cuando el workspace es el del dueño, y esa clave pasaría como del negocio.

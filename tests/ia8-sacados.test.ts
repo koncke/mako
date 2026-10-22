@@ -42,7 +42,8 @@ test('con las cuentas viejas todavía guardadas, ninguna llamada sale a Cerebras
   }
   // Y no es porque no salió a ningún lado: la cascada sí probó lo que queda.
   assert.ok(out.ws13.foto.red.includes('generativelanguage.googleapis.com'), `ws13 dejó de probar su Gemini: ${out.ws13.foto.red}`);
-  assert.ok(out.ws9.texto.red.includes('api.groq.com'), `la plataforma dejó de probar Groq: ${out.ws9.texto.red}`);
+  // IA16: para texto la plataforma prueba Gemini (Groq sólo escucha audio).
+  assert.ok(out.ws9.texto.red.includes('generativelanguage.googleapis.com'), `la plataforma dejó de probar su Gemini: ${out.ws9.texto.red}`);
 });
 
 test('ninguna cuenta suya se entrega: ni las del negocio ni las de la red de la plataforma', () => {

@@ -25,6 +25,7 @@
 import 'server-only';
 import { recordUsage, recordSttUsage } from '@/lib/anthropic-usage';
 import { conTechoDeSalida } from '@/lib/ai-cheap-techo';
+import { geminiDeLaPlataformaPaga } from '@/lib/gemini-pago';
 import type { ToolDef, ToolRunner, RichMsg, ToolsResult } from '@/lib/anthropic';
 import { createHash } from 'node:crypto';
 import { credDelCliente, credWs, credWsEstricta } from '@/lib/credenciales';
@@ -47,6 +48,13 @@ export type ProvName = 'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral' | '
  * del lienzo (lib/flujo-ia.ts, AU3) dejen de nombrarlos; mientras, `provDe` no entrega ninguna cuenta suya.
  */
 export const PROVS_SACADOS: readonly ProvName[] = ['cerebras', 'mistral', 'openrouter'];
+/**
+ * Los que sólo ESCUCHAN (transcriben audio): Martín, 22/10/2026, textual: «Groq sólo para las notas de voz». Groq sale de
+ * todo lo que es texto (contestar, clasificar, títulos, herramientas, documentos) y se queda en `CASCADA_STT` y en la red de
+ * audio. El corte es UNO, acá: `proveedor` no lo da para texto y las cascadas de texto lo saltean aunque una lista lo nombre.
+ */
+export const PROVS_SOLO_AUDIO: readonly ProvName[] = ['groq'];
+const deTexto = (provs: readonly ProvName[]): ProvName[] => provs.filter((x) => !PROVS_SOLO_AUDIO.includes(x));
 /** `clave` = de QUÉ credencial salió esta key. Con varias cuentas del mismo
  *  proveedor (GEMINI_API_KEY, _2, _3) es lo único que las distingue: sin ese dato,
  *  un reintento «del mismo proveedor» volvía a pegarle a la cuenta ya agotada. */
@@ -277,8 +285,9 @@ export const nroCuenta = (p: Prov): number => Math.max(1, clavesProv(p.nombre).i
  *  está, cae a groq→openai. Gemini SOLO sale si lo pide `pref` explícito: necesita
  *  la key del cliente y no entra en el fallback por default. null si ninguno. */
 async function proveedor(pref?: ProvName, clave?: string, wsKey?: number): Promise<Prov | null> {
-  if (pref) { const p = await provDe(pref, clave, wsKey); if (p) return p; }
-  return (await provDe('groq', undefined, wsKey)) ?? (await provDe('openai', undefined, wsKey));
+  // IA16: Groq no contesta texto (`PROVS_SOLO_AUDIO`), aunque el registro de /modelos-ia lo pida: va el de siempre.
+  if (pref && !PROVS_SOLO_AUDIO.includes(pref)) { const p = await provDe(pref, clave, wsKey); if (p) return p; }
+  return (await provDe('gemini', undefined, wsKey)) ?? (await provDe('openai', undefined, wsKey));
 }
 
 /**
@@ -308,9 +317,12 @@ async function proveedor(pref?: ProvName, clave?: string, wsKey?: number): Promi
  *     respaldo que se vuelve permanente es indistinguible de uno que nunca se usó
  *     — y el que hay que cargar su key nunca se entera.
  */
-export async function provsGratisDePlataforma(): Promise<Array<{ provider: ProvName; clave: string }>> {
+export async function provsGratisDePlataforma(
+  /** IA16: para TEXTO, sólo Gemini (Groq sólo escucha, `PROVS_SOLO_AUDIO`); para AUDIO, Groq y Gemini. */
+  uso: 'texto' | 'audio' = 'texto',
+): Promise<Array<{ provider: ProvName; clave: string }>> {
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
-  if (!d6bDecidida()) return conD6bDelPedido(null, () => provsGratisDePlataforma());
+  if (!d6bDecidida()) return conD6bDelPedido(null, () => provsGratisDePlataforma(uso));
   // ⛔ D6b: un negocio con su IA no usa la red de la plataforma (lib/solo-su-ia.ts).
   if (soloSuIA()) return [];
   const { wsSuperAdmin } = await import('./workspace');
@@ -329,7 +341,7 @@ export async function provsGratisDePlataforma(): Promise<Array<{ provider: ProvN
   //
   // Y además gastaba el presupuesto: el log dice «cortada por tiempo: 7/8 probados», y
   // tres de esos siete intentos eran mistral.
-  for (const prov of ['gemini', 'groq'] as const) {
+  for (const prov of (uso === 'audio' ? ['gemini', 'groq'] : ['gemini']) as ProvName[]) {
     for (const clave of clavesProv(prov)) {
       const k = await credWs(clave, ws).catch(() => null);
       if (k) out.push({ provider: prov, clave });
@@ -356,7 +368,7 @@ export async function sttDisponible(): Promise<boolean> {
 // diferencia de CASCADA_GRATIS, INCLUYE Gemini y lo pone primero: es la IA gratis y
 // generosa que el cliente carga en el onboarding (#4), así que la extracción tiene
 // que poder usarla. Sin esto, un workspace con SOLO key de Gemini extrae vacío.
-export const CASCADA_DOCS: ProvName[] = ['gemini', 'groq', 'openai'];
+export const CASCADA_DOCS: ProvName[] = ['gemini', 'openai'];
 // Modelo CAPAZ por proveedor para EXTRAER de documentos. El default barato de cada
 // uno (ej. Groq gpt-oss-20b) es demasiado chico: con un doc real de +10k chars
 // genera JSON malformado/truncado y devuelve 0 campos (probado: 20b falla, 70b saca
@@ -489,7 +501,8 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
   // cascada al rotar; un caller suelto no la pasa y usa la de siempre.
   const p = await proveedor(opts.provider, opts.clave, opts.wsKey);
   if (!p) throw new Error('Sin proveedor de IA barata (falta GROQ_API_KEY u OPENAI_API_KEY).');
-  const model = opts.model || p.chatModel;
+  // El modelo pedido es del proveedor pedido: si `proveedor` dio otro (Groq ya no contesta texto), el de ése.
+  const model = (opts.provider && opts.provider !== p.nombre ? '' : opts.model) || p.chatModel;
   const pedido: EsfuerzoBarato = opts.esfuerzo ?? 'minimal';
   // Timeout configurable: 30s alcanza para tareas simples, pero una llamada grande
   // (el Perro Guardián puntuando TODO el plan: ~40k input + 8k output) tarda más en
@@ -556,7 +569,7 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
  *  queremos caer en el gasto de Claude. Devuelve el texto de la primera que funcione, o ''. */
 // Orden por default: GRATIS primero (Groq, Cerebras, OpenRouter, Mistral) y OpenAI (barato)
 // al final. Claude NUNCA entra acá. Cada uno se usa solo si tiene su key cargada (si no, se salta).
-export const CASCADA_GRATIS: ProvName[] = ['groq', 'openai'];
+export const CASCADA_GRATIS: ProvName[] = ['gemini', 'openai'];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EL TECHO DE ENTRADA: por qué la cascada mira cuánto pesa el prompt
@@ -663,7 +676,7 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
   // cada caller se acuerde de pasar `provs`— ya se probó: ninguno de los doce se acordó.
   // Con su IA (D6b), la cascada es SU IA aunque el que llama pida otra lista (IA6): una función «que no se degrada»
   // atada a Gemini no corría con nada. Su Claude va primero (arriba); después, su OpenAI.
-  const pedidos = soloSuIA() ? (PROVS_SU_IA as ProvName[]) : opts.provs ?? (pesa > (TECHO_ENTRADA.groq ?? 7_000) ? CASCADA_DOCS : CASCADA_GRATIS);
+  const pedidos = soloSuIA() ? (PROVS_SU_IA as ProvName[]) : deTexto(opts.provs ?? (pesa > (TECHO_ENTRADA.groq ?? 7_000) ? CASCADA_DOCS : CASCADA_GRATIS));
   // Y sacamos de la lista a los que no lo pueden recibir. No es una optimización: cada uno
   // de esos es un viaje de ida y vuelta que termina en 413 y suma segundos a la espera.
   const caben = pedidos.filter((p) => pesa <= (TECHO_ENTRADA[p] ?? Number.MAX_SAFE_INTEGER));
@@ -853,7 +866,9 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
         return '';
       }
       const conPII = opts.pii ?? CATALOGO_MODELOS.some((f) => f.feature === opts.feature && f.pii === true);
-      if (conPII) {
+      // IA16 (22/10/2026): con el Gemini de la plataforma en el plan PAGO —que no entrena—, los datos de clientes SÍ van a
+      // la red (que para texto es sólo ese Gemini). Sin la marca (lib/gemini-pago.ts), como antes.
+      if (conPII && !(await geminiDeLaPlataformaPaga())) {
         opts.erroresPlataformaOut?.push('red gratis salteada: el pedido lleva datos de clientes y el plan gratis entrena con lo que recibe');
         return '';
       }
@@ -1051,8 +1066,12 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
       // Los errores de NUESTRAS keys van aparte: `errores` es lo que termina en el
       // mensaje del cliente, y con los nuestros adentro le echa la culpa a los suyos.
       const erroresPlataforma: string[] = [];
-      const red = await provsGratisDePlataforma().catch(() => []);
-      // Sólo los que MIRAN: la red trae gemini y groq, y groq no tiene visión.
+      // IA16: un documento con datos de clientes (la marca `pii` del catálogo) va a la red sólo con el Gemini de la
+      // plataforma en el plan pago, como el texto. Antes iba al plan gratis, que entrena.
+      const conPII = CATALOGO_MODELOS.some((f) => f.feature === opts.feature && f.pii === true);
+      const red = conPII && !(await geminiDeLaPlataformaPaga()) ? [] : await provsGratisDePlataforma().catch(() => []);
+      if (conPII && !red.length) erroresPlataforma.push('red gratis salteada: el documento lleva datos de clientes y el plan gratis entrena con lo que recibe');
+      // Sólo los que MIRAN (Gemini).
       for (const r of red.filter((x) => VISION_CASCADE.includes(x.provider))) {
         const p = await provDe(r.provider, r.clave, wsSA).catch(() => null);
         if (!p) continue;
@@ -1214,7 +1233,7 @@ export async function chatCheapTools(
   // turno se cubre con OTRO MODELO de la misma key, sin perder los pasos hechos. Antes este
   // camino usaba UN modelo para todo el turno, y el respaldo sólo lo veían los documentos y
   // el audio. Ver lib/ia-rotacion-modelo.ts (el caso de Brigitte, 07/10/2026).
-  const rotacion = crearRotacion(modelosAProbar(p.nombre, opts.model || p.chatModel), { esperaMaxMs: opts.esperaCuotaMaxMs });
+  const rotacion = crearRotacion(modelosAProbar(p.nombre, (opts.provider && opts.provider !== p.nombre ? '' : opts.model) || p.chatModel), { esperaMaxMs: opts.esperaCuotaMaxMs });
   let model = rotacion.modelo || p.chatModel;
   const esGemini = p.nombre === 'gemini';
   const oaiTools = tools.map((t) => {
@@ -1455,7 +1474,7 @@ async function cerrarSinTools(
 // AGENTS.md documenta como cerrado —«Claude es el ÚLTIMO recurso, no el segundo»—
 // vivo en la otra mitad del sistema, y con el error más común de todos: el 429 de
 // Gemini. Todos estos proveedores hacen function-calling.
-export const CASCADA_TOOLS: ProvName[] = ['gemini', 'groq', 'openai'];
+export const CASCADA_TOOLS: ProvName[] = ['gemini', 'openai'];
 
 /**
  * Corre el loop de herramientas por la cascada gratis: cada CUENTA de cada
@@ -1481,7 +1500,7 @@ export async function chatCheapToolsCascade(
 ): Promise<CheapToolsResult | null> {
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
   if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => chatCheapToolsCascade(system, messages, tools, runTool, opts));
-  const pedidos = soloSuIA() ? (PROVS_SU_IA as ProvName[]) : opts.provs ?? CASCADA_TOOLS;
+  const pedidos = soloSuIA() ? (PROVS_SU_IA as ProvName[]) : deTexto(opts.provs ?? CASCADA_TOOLS);
   const orden = await ordenarPorCuota(pedidos.map(String)).catch(() => pedidos.map(String));
   for (const prov of orden as ProvName[]) {
     for (const inst of await provsDe(prov)) {
@@ -1528,7 +1547,10 @@ export type SttOpts = { language?: string; prompt?: string; feature?: string; mo
    */
   pii?: boolean;
   /** Quién escuchó (`groq`, `openai · cuenta 2`…), para que lo guarde quien llama (IA7: la fila de un anuncio dice con qué se transcribió). */
-  alEscuchar?: (quien: string) => void };
+  alEscuchar?: (quien: string) => void;
+  /** No es una nota de voz (el audio de un anuncio): Groq no lo escucha, ni el del negocio ni el de la red (IA16: «Groq sólo
+   *  para las notas de voz»; «la transcripción de anuncios pasa a Gemini»). */
+  sinGroq?: boolean };
 
 // Gemini manda el audio DENTRO del request (inline_data), así que hay un techo de
 // tamaño. Una nota de voz de WhatsApp pesa kilobytes; un audio largo se va a Whisper.
@@ -1717,7 +1739,8 @@ export async function transcribirAudio(base64: string, mime: string, opts?: SttO
   const buf = Buffer.from(base64, 'base64');
   if (!buf.length) return '';
   // Proactivo: los que ya quemaron su cuota de hoy van al final (mismo criterio que el chat).
-  const orden = await ordenarPorCuota(CASCADA_STT.map(String)).catch(() => CASCADA_STT.map(String));
+  const stt = o.sinGroq ? CASCADA_STT.filter((x) => x !== 'groq') : CASCADA_STT;
+  const orden = await ordenarPorCuota(stt.map(String)).catch(() => stt.map(String));
 
   const errores: string[] = [];
   let alguienEscuchó = false; // respondió OK pero sin texto → el audio está vacío, no falló nada
@@ -1755,14 +1778,16 @@ export async function transcribirAudio(base64: string, mime: string, opts?: SttO
   const { wsSuperAdmin, getWorkspaceActual } = await import('./workspace');
   const wsSA = await wsSuperAdmin().catch(() => null);
   const wsActual = await getWorkspaceActual().catch(() => null);
-  // ⛔ CON DATOS DE CLIENTES (`o.pii`, 16/10/2026: la nota de voz de un lead), la red NO: las keys gratis de la agencia
-  // son el plan gratis de Gemini y Groq, y el de Gemini entrena con lo que recibe. Mandar algo a entrenar no se deshace
-  // (AGENTS.md). Para escuchar no hay crédito de Claude que vaya primero: sin las keys del negocio, no se escucha.
-  if (o.pii) {
-    erroresPlataforma.push('red gratis salteada: el audio es de un cliente del negocio y el plan gratis entrena con lo que recibe');
+  // ⛔ CON DATOS DE CLIENTES (`o.pii`, 16/10/2026: la nota de voz de un lead), la red escucha SÓLO con lo que no entrena con
+  // lo que recibe (mandar algo a entrenar no se deshace, AGENTS.md). IA16 (22/10/2026): eso es Groq —que no entrena, y es
+  // lo único para lo que queda: «Groq sólo para las notas de voz»— y el Gemini de la plataforma si está en el plan PAGO
+  // (lib/gemini-pago.ts). Antes, con datos de clientes la red no corría nunca: sin las keys del negocio, no se escuchaba.
+  // Lo que no es una nota de voz (`sinGroq`: el audio de un anuncio) no va a Groq.
+  const paga = o.pii ? await geminiDeLaPlataformaPaga() : true;
   // El super admin ya probó SUS keys en el paso 1: repetirlas es gastar tiempo en lo que ya falló.
-  } else if (wsSA != null && wsActual !== wsSA) {
-    const red = await provsGratisDePlataforma().catch(() => []);
+  if (wsSA != null && wsActual !== wsSA) {
+    const red = (await provsGratisDePlataforma('audio').catch(() => [])).filter((r) => (r.provider === 'groq' ? !o.sinGroq : paga));
+    if (o.pii && !red.length) erroresPlataforma.push('red gratis salteada: el audio es de un cliente del negocio y el plan gratis entrena con lo que recibe');
     const groqPrimero = [...red.filter((r) => r.provider !== 'gemini'), ...red.filter((r) => r.provider === 'gemini')];
     for (const r of groqPrimero) {
       const p = await provDe(r.provider, r.clave, wsSA).catch(() => null);

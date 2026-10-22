@@ -122,7 +122,8 @@ test('la lista de proveedores no cobra nunca, y el pin pago no entra', () => {
   for (const p of ['openai', 'anthropic', 'mistral']) assert.ok(!(PROVS_CREAR_IA as readonly string[]).includes(p), p);
   for (const p of ['openai', 'anthropic']) assert.ok(!(PROVS_GRATIS_PIN as readonly string[]).includes(p), p);
   // IA8 (22/10/2026): OpenRouter, Mistral y Cerebras se sacaron (su modelo gratis caducaba, 429 siempre, 402).
-  assert.deepEqual([...PROVS_CREAR_IA], ['gemini', 'groq']);
+  // IA16: sin Groq, que sólo escucha audio.
+  assert.deepEqual([...PROVS_CREAR_IA], ['gemini']);
   for (const p of ['openrouter', 'mistral', 'cerebras']) assert.ok(!(PROVS_GRATIS_PIN as readonly string[]).includes(p), `${p} volvió al pin`);
   assert.deepEqual(MODELOS_CREAR_IA, {}, 'ningún modelo propio de un proveedor que se sacó');
 });

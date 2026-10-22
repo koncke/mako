@@ -30,7 +30,7 @@ const DOER = sinComentarios(readFileSync(join(RAIZ, 'lib/mako-doer-in.ts'), 'utf
 
 test('1. con su IA, los candidatos del doer son sólo su OpenAI', () => {
   assert.match(DOER, /const suIA = \(await negocioConSuIA\(wsData\)\)\.suIA;/);
-  assert.match(DOER, /const cands = suIA \? \['openai'\] : \[pinL\.provider, 'groq', 'openai'\]/);
+  assert.match(DOER, /const cands = suIA \? \['openai'\] : \[pinL\.provider, 'openai'\]/);
   assert.match(DOER, /const pinL = pin && pin\.provider !== 'anthropic' \? pin : suIA \? \{ provider: 'openai'/, 'con su IA y sin pin barato, el loop corre igual (con su OpenAI)');
 });
 

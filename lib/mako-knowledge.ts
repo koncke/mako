@@ -250,7 +250,7 @@ export async function searchKnowledge(
 
   let qv: number[];
   try {
-    qv = await embed(q);
+    qv = await embed(q, 'consulta');
   } catch (e) {
     // ⚠️ ACÁ HAY FILAS Y NO HAY RESPUESTA: el peor de los dos ceros. Devolver `[]` sin
     // decirlo afirma «este negocio no tiene método cargado» sobre un negocio que tiene 119
@@ -264,6 +264,9 @@ export async function searchKnowledge(
   return sinLoAjeno(data, wsPropio)
     // Sin área pedida, las reservadas quedan afuera del RAG general.
     .filter((r) => (opts.area ? true : !AREAS_RESERVADAS.includes(r.area)))
+    // Sólo los vectores del MISMO modelo (el mismo largo): uno de OpenAI contra uno de Gemini da un coseno sin sentido
+    // (IA16, lib/embeddings.ts). Una fila sin re-embeber no aparece, en vez de aparecer mal.
+    .filter((r) => Array.isArray(r.embedding) && r.embedding.length === qv.length)
     .map((r) => ({ titulo: r.titulo, categoria: r.categoria, cuerpo: r.cuerpo, score: cosine(qv, r.embedding) }))
     .sort((a, b) => b.score - a.score)
     .slice(0, k)

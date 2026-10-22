@@ -227,13 +227,12 @@ test('con PII: la red sólo por el crédito de Claude, y la nota de voz del lead
   const iCorte = ai.indexOf('const conPII = opts.pii ?? CATALOGO_MODELOS.some(');
   const iGratis = ai.indexOf('const otroPrimero = [');
   assert.ok(iCredito > 0 && iCorte > iCredito && iGratis > iCorte, 'el orden: crédito de Claude, corte de PII, keys gratis');
-  // La nota de voz: `pii` en la llamada, y `transcribirAudio` no entra a su red con él.
+  // La nota de voz: `pii` en la llamada, y con él `transcribirAudio` escucha en su red SÓLO con lo que no entrena: Groq
+  // (IA16, Martín 22/10/2026: «Groq sólo para las notas de voz») y el Gemini de la plataforma si está en el plan pago.
   assert.match(bloque(nut, 'async function escucharDelLead('), /motivo: 'Escuchar la nota de voz del lead', pii: true \}\)/);
   const stt = bloque(ai, 'export async function transcribirAudio(');
-  const iPii = stt.indexOf('if (o.pii) {');
-  const iRed = stt.indexOf('const red = await provsGratisDePlataforma()');
-  assert.ok(iPii > 0 && iRed > iPii, 'la red gratis del audio se corta con PII antes de armarse');
-  assert.match(stt, /if \(o\.pii\) \{\n\s*erroresPlataforma\.push\([^\n]*\);\n(\s*\/\/[^\n]*\n)*\s*\} else if \(wsSA != null && wsActual !== wsSA\) \{/);
+  assert.match(stt, /const paga = o\.pii \? await geminiDeLaPlataformaPaga\(\) : true;/, 'con PII, el Gemini de la red sólo si es pago');
+  assert.match(stt, /\(await provsGratisDePlataforma\('audio'\)\.catch\(\(\) => \[\]\)\)\.filter\(\(r\) => \(r\.provider === 'groq' \? !o\.sinGroq : paga\)\)/, 'la red del audio se filtra ANTES de usarla');
 });
 
 test('fraseDelFallo: una frase por causa, para el renglón del aviso', () => {

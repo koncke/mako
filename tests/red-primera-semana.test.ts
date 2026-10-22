@@ -96,7 +96,8 @@ test('Análisis del lead: con red, pero NUNCA por las keys gratis (son datos de 
   const src = sinComentarios(leer('lib/ai-cheap.ts'));
   const red = src.indexOf('if (opts.redDePlataforma) {');
   const credito = src.indexOf('conCreditoDeLaPlataforma(', red);
-  const corte = src.indexOf('if (conPII) {', red);
+  // IA16: con el Gemini de la plataforma en el plan PAGO (no entrena), el corte se abre (lib/gemini-pago.ts).
+  const corte = src.indexOf('if (conPII && !(await geminiDeLaPlataformaPaga())) {', red);
   const gratis = src.indexOf('provsGratisDePlataforma()', red);
   assert.ok(red > 0 && credito > red && corte > credito && gratis > corte,
     'el corte por datos de clientes tiene que ir DESPUÉS del crédito de Claude y ANTES de las keys gratis');

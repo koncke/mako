@@ -43,7 +43,8 @@ import {
 } from './mako-pedidos';
 
 /** Sólo gratis: ni Claude ni OpenAI (que cobra con la key del negocio). El pin de /modelos-ia va primero si es uno de éstos. */
-export const PROVS_PEDIDOS: readonly ProvName[] = ['groq', 'gemini'];
+// IA16 (22/10/2026): sin Groq, que sólo escucha audio (Martín: «Groq sólo para las notas de voz»).
+export const PROVS_PEDIDOS: readonly ProvName[] = ['gemini'];
 
 /** Lo máximo que la persona espera antes de que su mensaje siga (con las reglas, si la IA no llegó). */
 const PLAZO_MS = 7_000;

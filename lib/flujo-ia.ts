@@ -138,12 +138,12 @@ export const FEATURE_CREAR_IA = 'chatbot-crear-ia';
  * Y Groq, el único que contestaba, NO SE PROBABA: el pedido pesaba ~10k tokens (con los 6000 de
  * salida) y `TECHO_ENTRADA.groq` es 7000, así que la cascada lo salteaba antes de preguntarle.
  */
-// IA8 (22/10/2026): sin OpenRouter (su modelo gratis caducó tres veces), Mistral (429 siempre) ni Cerebras (402). Groq se
-// va también (Martín, 22/10), después de que se active el pago de Gemini y se midan las notas de voz.
-export const PROVS_CREAR_IA: readonly ProvName[] = ['gemini', 'groq'];
+// IA8 (22/10/2026): sin OpenRouter (su modelo gratis caducó tres veces), Mistral (429 siempre) ni Cerebras (402). IA16, el
+// mismo día: sin Groq, que sólo escucha audio (Martín: «Groq sólo para las notas de voz»).
+export const PROVS_CREAR_IA: readonly ProvName[] = ['gemini'];
 
 /** Los proveedores GRATIS que el pin de /modelos-ia puede poner primero. Uno pago se ignora. */
-export const PROVS_GRATIS_PIN: readonly ProvName[] = ['gemini', 'groq'];
+export const PROVS_GRATIS_PIN: readonly ProvName[] = ['gemini'];
 
 /** El modelo de cada proveedor para ESTA feature, cuando no es el de siempre. Desde IA8 (sin OpenRouter), ninguno. */
 export const MODELOS_CREAR_IA: Partial<Record<ProvName, string>> = {};

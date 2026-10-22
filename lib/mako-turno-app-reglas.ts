@@ -551,7 +551,8 @@ export function avisoSinIA(delEntorno: boolean, servicio: string = SERVICIO_IA):
  * ésa —para arreglarla, no para pedirle otra—, en este orden: su Claude y su OpenAI primero (la decisión A de Martín:
  * cada negocio conecta la suya), después las gratis. Sin ninguna, su Claude (IA9; el mismo link que manda WhatsApp).
  */
-export const IA_PARA_CONECTAR = ['anthropic', 'openai', 'gemini', 'groq'] as const;
+// IA16: sin Groq: sólo escucha las notas de voz, no es una IA para el chat.
+export const IA_PARA_CONECTAR = ['anthropic', 'openai', 'gemini'] as const;
 /** La credencial base de cada una (lib/integraciones-catalogo.ts): la que se mira en la fila del negocio. */
 export const ENV_DE_IA: Record<(typeof IA_PARA_CONECTAR)[number], string> = {
   anthropic: 'ANTHROPIC_API_KEY', openai: 'OPENAI_API_KEY', gemini: 'GEMINI_API_KEY',

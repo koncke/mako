@@ -5552,3 +5552,50 @@ TODAS 429 (0 respuestas), OpenRouter 12 llamadas y su modelo gratis caducó tres
   fila del crédito en la plataforma, o se rota dejando viva la vieja que tiene el ws10, el Plan del ws10 vuelve a pagar con
   él. Hace falta una marca que no se borre, por ejemplo las huellas de las claves del crédito guardadas aparte, o una marca
   «la paga la plataforma» en la fila del ws10.
+
+## Groq sólo escucha, y el Gemini PAGO de la plataforma como base (IA16, 22/10/2026)
+
+**Las decisiones, textuales** (Martín en el Ops Center, 22/10 16:24):
+- «¿Activo el pago por uso de Gemini?» → «Sí, sin tope».
+- «¿Dejamos Groq sólo para transcribir las notas de voz?» → «Groq sólo para las notas de voz».
+
+**Vive en:**
+- `lib/gemini-pago.ts`: la marca `ia.gemini.plataforma_paga`.
+- `lib/ai-cheap.ts`: `PROVS_SOLO_AUDIO`, `proveedor`, `deTexto`, `provsGratisDePlataforma(uso)`, los cortes por PII y `sinGroq`.
+- `lib/embeddings.ts`.
+- `scripts/gemini-pago.mts`: mide y prende la marca.
+- `scripts/reembeber-conocimiento.mts`.
+- `tests/ia16-gemini-pago.test.ts`.
+
+- **«Groq sólo escucha» es UN corte con tres capas, y el test mira cada una por separado.** Las capas:
+  1. `proveedor` no da Groq para texto, aunque lo pida un pin de /modelos-ia.
+  2. Las cascadas de texto lo sacan aunque una lista lo nombre (`deTexto`).
+  3. La red de la plataforma lo trae sólo para audio.
+
+  La primera tapaba a las otras dos, y dos roturas quedaron en verde. Se separaron mirando que los errores de la cascada
+  no nombren a Groq y qué proveedores trae la red. Groq sigue en `CASCADA_STT` y en la red de audio. El audio de un
+  anuncio (`sinGroq`) no va a Groq, porque «la transcripción de anuncios pasa a Gemini».
+- **Con datos de clientes, la red de la plataforma corre sólo con lo que no entrena.** El texto va sólo al Gemini pago,
+  y la nota de voz a Groq (que no entrena) y al Gemini pago. Antes, con datos de clientes la nota de voz no escuchaba
+  nunca por la red. La red de DOCUMENTOS no tenía ningún corte por datos de clientes: los documentos de un negocio iban al
+  Gemini gratis de la plataforma. Ahora tiene el mismo corte.
+- **La marca se prende después de medir, y sólo si TODAS las claves pasan.** La prueba es una ráfaga de 20 pedidos más
+  rápida que el tope por minuto del plan gratis: un 429 «…FreeTier» es gratis, y un 503 («high demand») no dice nada del
+  plan. Medido el 22/10, antes del pago: las 4 claves de la plataforma dieron GRATIS (18-20 de 20 con el tope). La marca
+  exige que pasen todas, porque la red rota entre todas sus claves y una sola gratis mandaría datos de clientes a entrenar.
+- **Trampa: la clave del entorno no es la facturada.** El `.env.local` de esta PC traía la …YTBA, una gratis y la copia del
+  ws1, mientras que la del ws9 es la …hY2w. En producción no importa, porque la hidratación pisa el entorno con la fila
+  del ws9. Pero un script local que lee `envCred` (el de re-embeber) habría mandado el conocimiento de los negocios al
+  plan gratis. **Regla:** lo que tiene que ir por la clave paga lee la fila del ws9 (`credWsEstricta(…, { ilegibleTira })`),
+  no el entorno.
+- **Un vector de otro modelo se descarta por su largo.** Gemini va a 768 y los de OpenAI eran de 1536. `searchKnowledge`
+  compara sólo los del mismo largo: mientras no se re-embebe, una fila vieja no aparece, en vez de aparecer mal. Los
+  vectores son `jsonb`, así que no hace falta migración. El costo medido son 119 filas y unos 15 mil tokens.
+- **A vigilar:** los Pedidos de los chats eran Groq primero porque es más rápido (1,4 s medido, contra 6-11 s de Gemini),
+  con un plazo de 7 s. Con Gemini, más pedidos van a llegar tarde y van a seguir por las reglas.
+- **SIN hacer hasta que Martín avise que pagó:**
+  1. `scripts/gemini-pago.mts` sin --marcar (tiene que dar PAGA);
+  2. sacar de la plataforma las claves gratis (_2, _3, _4), con backup;
+  3. volver a medir y prender la marca con --marcar;
+  4. `scripts/reembeber-conocimiento.mts --aplicar`;
+  5. recién ahí sube IA16. Si sube antes, Groq sale del texto sin que el Gemini pago lo reemplace.

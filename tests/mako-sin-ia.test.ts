@@ -246,7 +246,8 @@ test('un negocio con SÓLO su Claude: el chat contesta con su clave, y «Conecta
   assert.equal(iaParaConectar(['anthropic']), 'anthropic');
   assert.equal(iaParaConectar(['groq', 'anthropic']), 'anthropic', 'su Claude antes que una gratis');
   assert.equal(iaParaConectar(['gemini', 'openai']), 'openai');
-  assert.equal(iaParaConectar(['groq']), 'groq');
+  // IA16: Groq ya no se ofrece para el chat (sólo escucha las notas de voz): con sólo Groq, se abre la de siempre.
+  assert.equal(iaParaConectar(['groq']), SERVICIO_IA);
   assert.equal(iaParaConectar([]), SERVICIO_IA);
   assert.deepEqual(avisoSinIA(false, 'anthropic'), { aviso: AVISO_SIN_IA, conectar: 'anthropic' });
   assert.equal(avisoSinIA(true, 'anthropic').conectar, null, 'el workspace del entorno, sin botón igual');

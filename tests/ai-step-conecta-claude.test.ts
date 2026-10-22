@@ -20,7 +20,8 @@ const leer = (f: string) => readFileSync(new URL(`../${f}`, import.meta.url), 'u
 test('lo que anota la cascada al saltear la red por datos de clientes se reconoce, y nada más', () => {
   const marcas = [...leer('lib/ai-cheap.ts').matchAll(/push\('(red gratis salteada:[^']*)'\)/g)].map((m) => m[1]);
   // Y desde el 21/10/2026 la de D6b (lib/solo-su-ia.ts: un negocio con su Claude o su GPT no usa la red gratis).
-  assert.equal(marcas.length, 3, 'la respuesta, la nota de voz y D6b');
+  // Y desde IA16 (22/10/2026) la del documento con datos de clientes (la red de documentos tampoco va al plan gratis).
+  assert.equal(marcas.length, 4, 'la respuesta, la nota de voz, D6b y el documento');
   for (const m of marcas) assert.equal(sinRedPorDatos([m]), true, m);
   assert.equal(sinRedPorDatos(['gemini: 429 quota']), false);
   assert.equal(sinRedPorDatos([]), false);

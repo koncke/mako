@@ -350,7 +350,8 @@ Ej: "Con Jesús la R1 se ve floja en el cierre. El análisis completo lo tienes 
  */
 async function contarKeysIA(): Promise<number> {
   let n = 0;
-  for (const prov of ['gemini', 'groq']) {
+  // IA16: Groq ya no contesta texto (sólo escucha las notas de voz): no cuenta como IA del chat.
+  for (const prov of ['gemini']) {
     n += (await clavesCargadas(prov).catch(() => [])).length;
   }
   return n;
@@ -1380,7 +1381,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
              * el que estaba pensado para exactamente este turno. Estuvo inalcanzable
              * desde el 13/08 por el bug de `provsDe`.
              */
-            const cands = suIA ? ['openai'] : [pinL.provider, 'groq', 'openai'].filter((p, i, a) => a.indexOf(p) === i);
+            // IA16: sin Groq (sólo escucha audio); un pin a Groq de /modelos-ia lo saltea `chatCheapTools`.
+            const cands = suIA ? ['openai'] : [pinL.provider, 'openai'].filter((p, i, a) => p !== 'groq' && a.indexOf(p) === i);
             const orden = await ordenarPorCuota(cands).catch(() => cands);
             let ultErr: unknown = null;
             // ⚠️ TODOS los errores, no solo el último. `ultErr` alcanza para tirar,
