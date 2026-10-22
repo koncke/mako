@@ -2809,6 +2809,16 @@ aceptaba la opción exacta: todo esto entraba nuevo.
   - **Con el cierre anotado, el historial se congela**: una pestaña vieja o el arreglo del nombre del ws21 no le suman
     variantes. Pasado el tope no se anota más (antes tiraba lo más viejo: el saludo y el nombre). Y lo que no se
     entiende entero no se pisa (`leerHistorial(…, { estricto: true })`).
+  - ⚠️ **Segunda revisión (22/10): confirmar con el `h` de ANTES de una escritura da falso justo cuando la respuesta
+    escribe lo que se compara.** La respuesta que cierra la fase guarda el diagnóstico, y `hechosConfirmados` corrido
+    después ya no coincidía con `h`: esa respuesta no se anotaba nunca, en ningún onboarding. Ahora se confirma antes de
+    escribir nada y se pasa el resultado.
+  - **El último mensaje de MaKo no siempre es una pregunta abierta.** En el cierre ya tiene su respuesta dibujada
+    («Listo, ya lo cargué.», «Ahora no»), y la regla de «la pregunta que vuelve» lo duplicaba. La pregunta abierta es el
+    último mensaje de la vista, y sólo si es de MaKo. Con el teléfono ya verificado no se manda código, pero la
+    conversación lo dibuja como cargado: se anota igual, con su respuesta.
+  - El test que cuenta es el recorrido entero como lo corre la ruta (`leerRespuesta` en cada etapa, con «Ver otros
+    tipos», «Cambiar número» y «Ahora no»), y no un salto del PDF al final: el salto pasaba con diez preguntas sin respuesta.
 - **La reconstrucción** (scripts/reconstruir-historial-onboarding.mts, en seco por defecto) alcanzó 4 negocios: ws3
   (prueba), 20, 21 y 22, todos terminados. Lo de antes de Offer va justo antes de su primer mensaje. Lo de después va
   antes de que se cerrara el onboarding. Todo lleva la marca `reconstruido`, que en el Ops Center ve sólo el super admin

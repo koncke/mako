@@ -110,7 +110,15 @@ export function conLoNuevo(
   const reconstruido = !!o.reconstruido || (!!o.vivo && completo);
   const claves = previo.map(claveDe);
   const vistos = new Set(claves);
-  const abierta = todo.filter((m) => m.de === 'mako').pop();
+  // La pregunta ABIERTA es el último mensaje de la vista, si es de MaKo. En el cierre lo último ya tiene su respuesta
+  // dibujada («Listo, ya lo cargué.», «Ahora no»): ahí no hay pregunta abierta (segunda revisión, 22/10: se duplicaba).
+  const ultimoDeLaVista = todo[todo.length - 1];
+  const abierta = ultimoDeLaVista?.de === 'mako' ? ultimoDeLaVista : undefined;
+  const respuesta = o.respuesta ? limpio(o.respuesta) : '';
+  // El mismo toque dos veces (dos POST a la vez): lo último anotado ya es esa pregunta con esa respuesta.
+  const [penultimo, ultimoAnotado] = previo.slice(-2);
+  if (respuesta && abierta && ultimoAnotado?.de === 'yo' && ultimoAnotado.texto === respuesta && penultimo
+    && claveDe(penultimo) === claveDe({ id: abierta.id, texto: limpio(abierta.texto) })) return null;
   if (abierta) {
     const k = claveDe({ id: abierta.id, texto: limpio(abierta.texto) });
     if (claves.lastIndexOf(k) >= 0 && claves.lastIndexOf(k) < previo.map((m) => m.de).lastIndexOf('yo')) vistos.delete(k);
@@ -129,8 +137,9 @@ export function conLoNuevo(
   };
   const antes = nuevos(vista.antes);
   const despues = nuevos(vista.despues);
-  const respuesta = o.respuesta ? limpio(o.respuesta) : '';
   if (!antes.length && !despues.length && !respuesta) return null;
+  // Pasado el tope no se anota más, y una tanda que no entra entera no se anota (no quedaría la pregunta sin su respuesta).
+  if (previo.length + antes.length + despues.length + (respuesta ? 1 : 0) > TOPE_MENSAJES) return null;
   const ultimo = previo.reduce((t, m) => Math.max(t, Date.parse(m.at) || 0), 0);
   let t = Math.max(o.ahora, ultimo + 1);
   const marca = reconstruido ? { reconstruido: true as const } : {};
@@ -144,7 +153,7 @@ export function conLoNuevo(
   ];
   // Lo que mandó, tal cual y en vivo (nunca reconstruido): su id no se deduplica, un «Sí» puede contestar dos preguntas.
   if (respuesta) out.push({ id: `yo-${out.length}`, de: 'yo', texto: respuesta, at: new Date(t++).toISOString() });
-  return out.slice(0, TOPE_MENSAJES);
+  return out;
 }
 
 /**

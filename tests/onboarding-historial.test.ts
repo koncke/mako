@@ -16,7 +16,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  CRM_PREGUNTA, CRM_SI, NEGOCIO_CONFIRMAR, NOMBRE_CONFIRMAR, PDF_OPCIONES, VER_OTROS_TIPOS, mensajesDeArranque, mensajesDelHilo,
+  AHORA_NO, CAMBIAR_NUMERO, CODIGO_CARGADO, CRM_PREGUNTA, CRM_SI, NEGOCIO_CONFIRMAR, NOMBRE_CONFIRMAR, PDF_OPCIONES, VER_OTROS_TIPOS,
+  etapaDeArranque, leerRespuesta, mensajesDeArranque, mensajesDelHilo,
   type EstadoArranque, type HechosArranque, type MensajeArranque,
 } from '../lib/onboarding-arranque';
 import {
@@ -78,61 +79,113 @@ test('3. el historial guardado: lo que no se entiende no se pisa', () => {
   assert.equal(sesionDelArranque('no'), null);
 });
 
-test('4. EN VIVO: la respuesta es lo que mandó (también el toque de una confirmación), y MaKo una vez por pregunta', () => {
-  let h: MensajeHistorial[] = [];
+/**
+ * El onboarding de punta a punta COMO LO CORRE LA RUTA (app/api/onboarding/arranque/route.ts): cada respuesta pasa por
+ * `leerRespuesta`; antes de guardarla se anota la vista de antes con lo que mandó (`anotarRespuesta`) y después la vista
+ * nueva (`listo`). El teléfono y el código, con sus acciones propias. Con el onboarding terminado anota sólo el cierre.
+ */
+function recorrer(telefono: 'cambiar' | 'ahora-no') {
+  let e: EstadoArranque = {};
+  let hh: HechosArranque = { ...H };
+  let hist: MensajeHistorial[] = [];
   let t = 1_000;
-  const listo = (e: EstadoArranque, hh: HechosArranque, primero: number | null = null) => {
-    h = conLoNuevo(h, mensajesDeArranque(e, hh), { ahora: (t += 10), primeroDeOffer: primero, vivo: true }) ?? h;
+  let primero: number | null = null;
+  const offer: Array<{ de: 'mako' | 'yo'; texto: string; at: string; adjuntos?: Array<{ nombre: string }> }> = [];
+  const anotar = (v: ReturnType<typeof mensajesDeArranque>, respuesta?: string | null) => {
+    hist = conLoNuevo(hist, v, { ahora: (t += 10), primeroDeOffer: primero, vivo: true, respuesta }) ?? hist;
   };
-  const contesta = (e: EstadoArranque, hh: HechosArranque, r: { texto?: string; opcion?: number }, primero: number | null = null) => {
+  const listo = (cierre = false) => { if (cierre || !hh.terminado) anotar(mensajesDeArranque(e, hh)); };
+  const responder = (r: { texto?: string; opcion?: number }) => {
     const v = mensajesDeArranque(e, hh);
-    h = conLoNuevo(h, v, { ahora: (t += 10), primeroDeOffer: primero, vivo: true, respuesta: loQueContesto(v, r) }) ?? h;
+    const abierta = [...v.antes, ...v.despues].filter((x) => x.de === 'mako').pop();
+    const opcionTexto = r.opcion !== undefined ? abierta?.opciones?.[r.opcion] : undefined;
+    const l = leerRespuesta(e, hh, { ...r, ...(opcionTexto ? { opcionTexto } : {}), pregunta: abierta?.texto });
+    if (!l.ok) throw new Error(`${etapaDeArranque(e, hh)}: ${l.error}`);
+    const nuevo: Record<string, unknown> = { ...e };
+    for (const [k, val] of Object.entries(l.patch)) { if (val === undefined) delete nuevo[k]; else nuevo[k] = val; }
+    if (l.fase) hh = { ...hh, faseGuardada: true, canalNegocio: (l.faseCanal ?? (nuevo.canal as never) ?? null) as never };
+    anotar(v, loQueContesto(v, r));
+    e = nuevo as EstadoArranque;
+    listo();
   };
-  listo({}, H);
-  contesta({}, H, { texto: 'Hola, soy Ana' });
-  const e1: EstadoArranque = { nombrePorConfirmar: { escrito: 'Hola, soy Ana', nombre: 'Ana' } };
-  listo(e1, H);
-  contesta(e1, H, { opcion: 0 });
-  const e2: EstadoArranque = { nombre: 'Ana' };
-  listo(e2, H);
-  contesta(e2, H, { texto: 'mi marca: Acme' });
-  const e3: EstadoArranque = { nombre: 'Ana', negocioPorConfirmar: { escrito: 'mi marca: Acme', nombre: 'Acme' } };
-  listo(e3, H);
-  contesta(e3, H, { opcion: 0 });
-  const e4: EstadoArranque = { nombre: 'Ana', negocio: 'Acme' };
-  listo(e4, H);
-  // La conversación de Offer (va por /api/offer: no pasa por acá), y la pregunta del PDF, que aparece sin un POST del arranque.
-  const offer = [
-    { de: 'mako' as const, texto: '¿Tienes un documento de tu oferta?', at: iso(t + 100) },
-    { de: 'yo' as const, texto: '', at: iso(t + 110), adjuntos: [{ nombre: 'oferta.pdf' }] },
-    { de: 'mako' as const, texto: 'Ya tengo todas las piezas.', at: iso(t + 120) },
-  ];
-  const primero = t + 100;
-  t += 200;
-  const conOferta = { ...H, loQueVende: true };
-  contesta(e4, conOferta, { opcion: 0 }, primero);
-  const fin: EstadoArranque = { ...e4, pdfOk: 'si', ...FASE, crmTipo: 'llamada', origen: 'Instagram', interes: 'ventas', telefono: 'postergado' };
-  const hFin = { ...conOferta, faseGuardada: true, canalNegocio: 'llamadas' as const, terminado: true };
-  listo(fin, hFin, primero);
+  const conAccion = (cambio: Partial<EstadoArranque>, dicho: string) => {
+    anotar(mensajesDeArranque(e, hh), dicho);
+    e = { ...e, ...cambio };
+    listo();
+  };
+  listo(); // 'intro'
+  let telefonos = 0;
+  let codigos = 0;
+  for (let vuelta = 0; vuelta < 60; vuelta++) {
+    const etapa = etapaDeArranque(e, hh);
+    if (etapa === 'nombre') responder(e.nombrePorConfirmar ? { opcion: 0 } : { texto: 'Hola, soy Ana' });
+    else if (etapa === 'negocio') responder(e.negocioPorConfirmar ? { opcion: 0 } : { texto: 'mi marca: Acme' });
+    else if (etapa === 'oferta') {
+      // La conversación de Offer (va por /api/offer, no pasa por acá).
+      primero = t + 100;
+      offer.push({ de: 'mako', texto: '¿Tienes un documento de tu oferta?', at: iso(t + 100) },
+        { de: 'yo', texto: '', at: iso(t + 110), adjuntos: [{ nombre: 'oferta.pdf' }] }, { de: 'mako', texto: 'Ya tengo todas las piezas.', at: iso(t + 120) });
+      t += 200;
+      hh = { ...hh, loQueVende: true };
+    } else if (etapa === 'crm') responder({ opcion: e.crmVerTodos ? 0 : 1 });
+    else if (etapa === 'telefono') {
+      if (telefono === 'ahora-no') responder({ opcion: 0 });
+      else conAccion({ telefono: 'codigo', telefonoNumero: `+54911000000${telefonos}` }, `+54911000000${telefonos++}`);
+    } else if (etapa === 'codigo') {
+      if (codigos++ === 0) responder({ opcion: 0 }); // «Cambiar número»
+      else conAccion({ telefono: 'verificado' }, CODIGO_CARGADO);
+    } else if (etapa === 'cierre') { hh = { ...hh, terminado: true }; listo(true); break; }
+    else responder({ opcion: 0 }); // pdf, fase, origen, interes
+  }
+  // Un POST viejo con todo terminado (el nombre del negocio arreglado después): no suma nada.
+  e = { ...e, negocio: 'Otro nombre' };
+  listo();
+  return { hist, offer, e, hh };
+}
 
-  const yo = h.filter((x) => x.de === 'yo').map((x) => x.texto);
-  assert.deepEqual(yo, ['Hola, soy Ana', NOMBRE_CONFIRMAR[0], 'mi marca: Acme', NEGOCIO_CONFIRMAR[0], PDF_OPCIONES[0]], 'lo que mandó, tal cual');
-  assert.ok(h.every((x) => !x.reconstruido), 'en vivo no lleva la marca');
-  h.forEach((x, i) => { if (x.de === 'yo') assert.equal(h[i - 1]?.de, 'mako', `«${x.texto}» sin su pregunta`); });
-  const textos = h.map((x) => x.texto);
-  assert.ok(textos.indexOf('¿Te llamo «Ana»?') === textos.indexOf(NOMBRE_CONFIRMAR[0]) - 1, 'el toque, debajo de su confirmación');
-  assert.equal(textos.filter((x) => x.startsWith('¡Hola! Soy MaKo')).length, 1, 'el saludo, una vez');
-  assert.equal(h[h.length - 1].id, ID_CIERRE);
+test('4. EN VIVO, el onboarding entero como lo corre la ruta: cada pregunta con su respuesta, tal cual, y una vez', () => {
+  for (const variante of ['cambiar', 'ahora-no'] as const) {
+    const { hist, offer, e, hh } = recorrer(variante);
+    // Con el cierre anotado el historial queda cerrado, lo anote quien lo anote (la copia al chat «Onboarding», otro cierre).
+    assert.equal(conLoNuevo(hist, mensajesDeArranque({ ...e, negocio: 'Otro nombre' }, hh), { ahora: 1e9, vivo: true }), null, `${variante}: congelado`);
+    assert.equal(conLoNuevo(hist, vistaDe([]), { ahora: 1e9, vivo: true, respuesta: 'hola' }), null);
+    const de = (x: MensajeHistorial) => `${x.de}:${x.texto.slice(0, 40)}`;
+    hist.forEach((x, i) => {
+      if (x.de === 'yo') assert.equal(hist[i - 1]?.de, 'mako', `${variante}: «${x.texto}» sin su pregunta`);
+      // Dos de MaKo seguidos: sólo si el primero no pregunta nada (el pase a Offer, la intro de la fase, «lo anoto»).
+      if (x.de === 'mako' && hist[i + 1]?.de === 'mako') assert.ok(['arr-oferta', 'arr-fase', 'arr-pdf-no'].includes(x.id), `${variante}: «${x.texto.slice(0, 50)}» sin respuesta`);
+      if (i > 0) assert.notEqual(de(x), de(hist[i - 1]), `${variante}: «${x.texto.slice(0, 40)}» dos veces seguidas`);
+    });
+    assert.equal(hist[hist.length - 1].id, ID_CIERRE, `${variante}: termina en el cierre`);
+    assert.ok(hist.every((x) => !x.reconstruido), 'en vivo no lleva la marca');
+    const textos = hist.map((x) => x.texto);
+    assert.ok(textos.indexOf(NOMBRE_CONFIRMAR[0]) === textos.indexOf('¿Te llamo «Ana»?') + 1, 'el toque de la confirmación, debajo de ella');
+    assert.ok(textos.includes(NEGOCIO_CONFIRMAR[0]));
+    assert.ok(!textos.includes('Otro nombre') && !textos.some((x) => /Otro nombre/.test(x)), 'el negocio arreglado después no reescribe lo que pasó');
+    const iVer = textos.indexOf(VER_OTROS_TIPOS);
+    assert.ok(iVer > 0 && textos[iVer - 1] === CRM_PREGUNTA && textos[iVer + 1] === CRM_PREGUNTA, 'la pregunta que vuelve, otra vez');
+    if (variante === 'cambiar') {
+      assert.deepEqual(hist.filter((x) => x.de === 'yo' && x.texto.startsWith('+54')).map((x) => x.texto), ['+549110000000', '+549110000001']);
+      assert.equal(textos.filter((x) => x === CAMBIAR_NUMERO).length, 1);
+      assert.equal(textos[textos.length - 2], CODIGO_CARGADO, 'el código cargado, antes del cierre');
+    } else {
+      assert.equal(textos[textos.length - 2], AHORA_NO);
+      assert.equal(textos.filter((x) => x.startsWith('¿A qué WhatsApp')).length, 1, 'en el cierre no se repite la última pregunta');
+    }
+    const unido = unirConOffer(hist, offer).map((x) => x.texto);
+    assert.match(unido[0], /^¡Hola! Soy MaKo/, 'empieza por el saludo, no por la oferta');
+    assert.ok(unido.indexOf('¿Tienes un documento de tu oferta?') > unido.findIndex((x) => /cuéntame qué vendes en Acme/.test(x)));
+    assert.ok(unido.indexOf(PDF_OPCIONES[0]) === unido.findIndex((x) => /PDF con tu oferta/.test(x)) + 1, 'el PDF y su respuesta, después de Offer');
+    assert.ok(unido.findIndex((x) => /PDF con tu oferta/.test(x)) > unido.indexOf('Ya tengo todas las piezas.'));
+  }
+});
 
-  const unido = unirConOffer(h, offer).map((x) => x.texto);
-  assert.match(unido[0], /^¡Hola! Soy MaKo/, 'empieza por el saludo, no por la oferta');
-  assert.ok(unido.indexOf('¿Tienes un documento de tu oferta?') > unido.findIndex((x) => /cuéntame qué vendes en Acme/.test(x)));
-  assert.ok(unido.findIndex((x) => /PDF con tu oferta/.test(x)) > unido.indexOf('Ya tengo todas las piezas.'), 'el PDF, después de Offer');
-  assert.ok(unido.indexOf(PDF_OPCIONES[0]) === unido.findIndex((x) => /PDF con tu oferta/.test(x)) + 1, 'y su respuesta, debajo');
-
-  // Con el cierre anotado no se anota más: un negocio renombrado después (el script del ws21) no reescribe lo que pasó.
-  assert.equal(conLoNuevo(h, mensajesDeArranque({ ...fin, negocio: 'Otro nombre' }, hFin), { ahora: t + 1_000, vivo: true }), null);
-  assert.equal(conLoNuevo(h, vistaDe([]), { ahora: t + 1_000, vivo: true, respuesta: 'hola' }), null);
+test('4b. EN VIVO: el mismo toque dos veces (dos POST a la vez) no duplica pregunta y respuesta', () => {
+  const v = vistaDe([m('arr-negocio-ok', 'mako', '¿Tu negocio se llama «Acme»?', [...NEGOCIO_CONFIRMAR])]);
+  const h1 = conLoNuevo([], v, { ahora: 10, vivo: true })!;
+  const h2 = conLoNuevo(h1, v, { ahora: 20, vivo: true, respuesta: NEGOCIO_CONFIRMAR[0] })!;
+  assert.equal(conLoNuevo(h2, v, { ahora: 30, vivo: true, respuesta: NEGOCIO_CONFIRMAR[0] }), null);
+  assert.deepEqual(h2.map((x) => x.texto), ['¿Tu negocio se llama «Acme»?', NEGOCIO_CONFIRMAR[0]]);
 });
 
 test('5. EN VIVO: la pregunta que vuelve después de una respuesta se anota otra vez («Ver otros tipos»)', () => {
@@ -155,37 +208,47 @@ test('6. EN VIVO sin nada anotado y con respuestas ya dadas (a mitad el día del
   assert.equal(conLoNuevo([], vistaDe([m('arr-nombre', 'mako', 'Hola')]), { ahora: 1, vivo: true })![0].reconstruido, undefined);
 });
 
-test('7. el tope: pasado TOPE_MENSAJES no se anota más, y nunca se descarta lo viejo', () => {
+test('7. el tope: pasado TOPE_MENSAJES no se anota más, una tanda que no entra entera tampoco, y lo viejo queda', () => {
   assert.equal(conLoNuevo(hist(TOPE_MENSAJES), vistaDe([m('n', 'mako', 'nueva')]), { ahora: 1e6 }), null);
-  const casi = conLoNuevo(hist(TOPE_MENSAJES - 1), vistaDe([m('n1', 'mako', 'uno'), m('n2', 'mako', 'dos')]), { ahora: 1e6 })!;
-  assert.equal(casi.length, TOPE_MENSAJES);
-  assert.equal(casi[0].id, 'x-0', 'el principio (el saludo, el nombre) queda');
-  assert.equal(casi[casi.length - 1].texto, 'uno');
+  assert.equal(conLoNuevo(hist(TOPE_MENSAJES - 1), vistaDe([m('n1', 'mako', 'uno')]), { ahora: 1e6, vivo: true, respuesta: 'dos' }), null, 'la pregunta sin su respuesta, no');
+  const justo = conLoNuevo(hist(TOPE_MENSAJES - 2), vistaDe([m('n1', 'mako', 'uno')]), { ahora: 1e6, vivo: true, respuesta: 'dos' })!;
+  assert.equal(justo.length, TOPE_MENSAJES);
+  assert.equal(justo[0].id, 'x-0', 'el principio (el saludo, el nombre) queda');
 });
 
-test('8. el compare-and-set: lo ilegible no se pisa, una carrera vuelve a leer, nada nuevo no escribe', async () => {
-  const conIo = (lecturas: Array<string | null>, gana: boolean[]) => {
+test('8. el compare-and-set: compara contra lo recién leído, lo ilegible no se pisa, una carrera vuelve a leer', async () => {
+  // Una base de mentira con la semántica de `cambiarSettingSi`: escribe sólo si lo guardado sigue siendo `esperado`.
+  const base = (inicial: string | null, otraPestana?: string) => {
+    let guardado = inicial;
+    let primera = true;
     const escrito: string[] = [];
-    let i = 0;
-    let j = 0;
-    return { escrito, io: { leer: async () => lecturas[Math.min(i++, lecturas.length - 1)], cambiar: async (_: string | null, n: string) => { escrito.push(n); return gana[j++] ?? true; } } };
+    const esperados: Array<string | null> = [];
+    return {
+      escrito, esperados, guardado: () => guardado,
+      io: {
+        leer: async () => { const v = guardado; if (primera && otraPestana) { guardado = otraPestana; } primera = false; return v; },
+        cambiar: async (esperado: string | null, nuevo: string) => { esperados.push(esperado); if (guardado !== esperado) return false; guardado = nuevo; escrito.push(nuevo); return true; },
+      },
+    };
   };
   const calc = (p: MensajeHistorial[]) => conLoNuevo(p, vistaDe([m('a', 'mako', 'Hola')]), { ahora: 1_000, vivo: true });
-  const ilegible = conIo(['{roto'], []);
+  const ilegible = base('{roto');
   await assert.rejects(anotarCon(ilegible.io, calc));
   assert.equal(ilegible.escrito.length, 0);
-  const raro = conIo([JSON.stringify({ mensajes: [{ id: 'v2', de: 'sistema', texto: 'x', at: iso(1) }] })], []);
+  const raro = base(JSON.stringify({ mensajes: [{ id: 'v2', de: 'sistema', texto: 'x', at: iso(1) }] }));
   await assert.rejects(anotarCon(raro.io, calc), 'una entrada de una versión más nueva no se borra');
   assert.equal(raro.escrito.length, 0);
-  const otro = JSON.stringify({ mensajes: [{ id: 'b', de: 'mako', texto: 'Otra pestaña', at: iso(500) }] });
-  const carrera = conIo([null, otro], [false, true]);
+  // Otra pestaña escribe entre la lectura y la escritura: se pierde el primer intento, se relee y lo suyo queda.
+  const otra = JSON.stringify({ mensajes: [{ id: 'b', de: 'mako', texto: 'Otra pestaña', at: iso(500) }] });
+  const carrera = base(null, otra);
   assert.equal(await anotarCon(carrera.io, calc), 1);
-  assert.deepEqual(JSON.parse(carrera.escrito[1]).mensajes.map((x: MensajeHistorial) => x.texto), ['Otra pestaña', 'Hola'], 'lo de la otra pestaña queda');
-  const igual = conIo([JSON.stringify({ mensajes: [{ id: 'a', de: 'mako', texto: 'Hola', at: iso(1) }] })], []);
+  assert.deepEqual(carrera.esperados, [null, otra], 'cada intento compara contra lo que acaba de leer');
+  assert.deepEqual(JSON.parse(carrera.guardado()!).mensajes.map((x: MensajeHistorial) => x.texto), ['Otra pestaña', 'Hola']);
+  const igual = base(JSON.stringify({ mensajes: [{ id: 'a', de: 'mako', texto: 'Hola', at: iso(1) }] }));
   assert.equal(await anotarCon(igual.io, calc), 0);
-  assert.equal(igual.escrito.length, 0);
-  const siempre = conIo([null], [false, false, false]);
-  await assert.rejects(anotarCon(siempre.io, calc), /cambió 3 veces/);
+  assert.equal(igual.escrito.length, 0, 'nada nuevo, nada escrito');
+  const siempre = { leer: async () => null, cambiar: async () => false };
+  await assert.rejects(anotarCon(siempre, calc), /cambió 3 veces/);
 });
 
 test('9. Florencia (ws21): terminó el 18/10 sin historial; reconstruido, su conversación empieza por su nombre', () => {
@@ -262,23 +325,29 @@ test('12. el chat «Onboarding» guarda qué mensaje de Offer tiene el audio, y 
 // ── El cableado (regex sobre el código: lo que una función pura no puede mostrar) ─────────────────────────────────────
 test('13. se anota al CONTESTAR (la ruta, con lo que mandó), nunca al mirar, y con las lecturas confirmadas', () => {
   const ruta = leer('app/api/onboarding/arranque/route.ts');
-  assert.match(ruta, /vista: await vistaArranque\(\{ anotar: true \}\) \}\);/);
+  assert.match(ruta, /vista: await vistaArranque\(\{ anotar: o\.cierre \? 'cierre' : true \}\) \}\);/);
+  assert.match(ruta, /return listo\(r\.avisos\.length \? \{ aviso: r\.avisos\.join\(' '\) \} : \{\}, \{ cierre: true \}\);/, 'sólo el cierre anota con todo terminado');
+  // La confirmación, ANTES de escribir nada: la respuesta que cierra la fase guarda el diagnóstico que se compara.
+  const resp = ruta.slice(ruta.indexOf("case 'responder'"), ruta.indexOf("case 'sesion'"));
+  const iConf = resp.indexOf('const confirmado = await hechosConfirmados(h);');
+  assert.ok(iConf > 0 && iConf < resp.indexOf('setDiagnosticoFase(') && iConf < resp.indexOf('guardarEstadoArranque('), 'confirmar antes de escribir');
   const get = ruta.slice(ruta.indexOf('export async function GET'), ruta.indexOf('export async function POST'));
   assert.match(get, /vista: await vistaArranque\(\) \}/, 'el GET no anota');
   assert.match(leer('app/onboarding/page.tsx'), /const vista = await vistaArranque\(\);/, 'la página no anota');
-  assert.match(ruta, /const nuevo = await guardarEstadoArranque\(patch\);\n[\s\S]{0,300}?await anotarRespuesta\(e, h, loQueContesto\(mensajesDeArranque\(e, h\), \{ texto, opcion \}\)\);/, 'después de guardar');
-  assert.match(ruta, /await anotarRespuesta\(e, h, CODIGO_CARGADO\);/, 'el código no se guarda');
-  assert.match(ruta, /await anotarRespuesta\(e, h, `\+\$\{digitos\}`\);/);
+  assert.match(ruta, /const nuevo = await guardarEstadoArranque\(patch\);\n[\s\S]{0,300}?await anotarRespuesta\(e, h, loQueContesto\(mensajesDeArranque\(e, h\), \{ texto, opcion \}\), confirmado\);/, 'después de guardar');
+  assert.match(ruta, /await anotarRespuesta\(e, h, CODIGO_CARGADO, confirmado\);/, 'el código no se guarda');
+  assert.match(ruta, /await anotarRespuesta\(e, h, `\+\$\{digitos\}`, confirmado\);/);
+  assert.match(ruta, /if \(r\.yaVerificado\) await anotarRespuesta\(\{ \.\.\.e, telefono: 'verificado', telefonoNumero: `\+\$\{digitos\}` \}, h, CODIGO_CARGADO, confirmado\);/, 'ya verificado: el código, como cargado');
   const srv = leer('lib/onboarding-arranque-server.ts');
   const vista = srv.slice(srv.indexOf('export async function vistaArranque'));
   assert.match(vista, /try \{ e = parseEstado\(await getSettingEstricto\(CLAVE\)\); estricto = true; \} catch \{ e = \{\}; \}/, 'el estado, estricto');
-  assert.match(vista, /if \(estricto && \(await hechosConfirmados\(h\)\)\) \{/);
+  assert.match(vista, /if \(estricto && \(o\.anotar === 'cierre' \|\| !h\.terminado\) && \(await hechosConfirmados\(h\)\)\) \{/);
   const conf = srv.slice(srv.indexOf('export async function hechosConfirmados'), srv.indexOf('export async function anotarHistorial'));
   for (const lectura of ["getSupabaseServer().from('workspaces').select('capa')", 'getDiagnosticoFaseEstricto()', 'getEstadoOnboardingEstricto()']) {
     assert.ok(conf.includes(lectura), `relee ${lectura}`);
   }
   assert.match(conf, /return modo === h\.modo && capa\.onboarding\.includes\('tabs'\) === h\.conTelefono && \(diag != null\) === h\.faseGuardada\n      && canal === h\.canalNegocio && \(onb\.status === 'done'\) === h\.terminado;/);
-  assert.match(srv.slice(srv.indexOf('export async function anotarRespuesta')), /if \(!\(await hechosConfirmados\(h\)\)\) return;/);
+  assert.match(srv.slice(srv.indexOf('export async function anotarRespuesta')), /if \(!dicho\?\.trim\(\) \|\| !confirmado\) return;/);
   assert.match(srv, /\{ leer: \(\) => getSettingEstricto\(CLAVE_HISTORIAL\), cambiar: \(raw, nuevo\) => cambiarSettingSi\(CLAVE_HISTORIAL, raw, nuevo\) \}/);
   assert.match(leer('lib/fase-store.ts'), /return parseFase\(await getSettingEstricto\(FASE_KEY\)\);/);
 });
@@ -317,18 +386,22 @@ test('16. el script de reconstrucción: en seco por defecto, y no toca un histor
   assert.match(s, /cambiarSettingSi\(CLAVE_HISTORIAL, raw, JSON\.stringify\(\{ mensajes: nuevo \}\)\)/);
 });
 
-// ROTURAS (22/10/2026, con tests/second-brain-offer.test.ts; base 22/0, una por vez y restaurada):
-//   · dedupe por id sin el texto → 21/1 (1) · lo de antes de Offer con la hora de ahora → 20/2 (2, 9)
-//   · leer sin `estricto` (escribir borra lo que no entiende) → 20/2 (3, 8) · Offer antes que el historial → 19/3 (4, 9, 10)
-//   · en vivo, la respuesta sacada de lo dibujado (se pierde el toque) → 21/1 (4) · la pregunta que vuelve no se anota → 21/1 (5)
-//   · a mitad el día del deploy, sin marcar reconstruido → 21/1 (6) · sin congelar con el cierre → 21/1 (4)
-//   · el tope que tira lo viejo → 21/1 (7) · `loQueContesto` con el índice crudo → 20/2 (4, 5)
-//   · el adjunto sin texto se tira → 21/1 (11) · el audio sin texto deja la burbuja vacía → 21/1 (11)
-//   · el aviso «Reconstruido» para cualquiera: en la regla → 21/1 (11) · en el índice → 21/1 (14)
-//   · la ruta no anota lo que dice MaKo → 21/1 (13) · ni lo que mandó la persona → 21/1 (13)
-//   · anotar con el estado tolerante → 21/1 (13) · confirmar los hechos sin mirar la fase → 21/1 (13)
-//   · el historial pegado a CUALQUIER conversación → 21/1 (14) · el chat «Onboarding» sin el historial → 21/1 (15)
-//   · audio: el Ops Center lo tira → 21/1 (11) · el índice pasa el mensaje guardado, con su path → 21/1 (14)
-//     · la copia no lo guarda → 21/1 (12) · el bloque sin validar el id → 21/1 (12) · el insert sin `bloques` → 21/1 (15)
-//     · la lectura del chat no lo da → 21/1 (15)
-//   · el título «Onboarding» también para quien tiene su copia → 21/1 (14) · el script encima de un historial → 21/1 (16)
+// ROTURAS (22/10/2026, con tests/second-brain-offer.test.ts; base 23/0, una por vez y restaurada, arnés romper.mjs):
+//   · dedupe por id sin el texto → 22/1 (1) · lo de antes de Offer con la hora de ahora → 21/2 (2, 9)
+//   · leer sin `estricto` (escribir borra lo que no entiende) → 21/2 (3, 8) · Offer antes que el historial → 20/3 (4, 9, 10)
+//   · en vivo, la respuesta sacada de lo dibujado (se pierde el toque) → 22/1 (4) · la pregunta que vuelve no se anota → 21/2 (4, 5)
+//   · a mitad el día del deploy, sin marcar reconstruido → 22/1 (6) · en vivo nunca marca reconstruido → 22/1 (6)
+//   · sin congelar con el cierre → 22/1 (4) · una tanda que no entra entera en el tope → 22/1 (7)
+//   · en el cierre, la última pregunta (ya contestada) como abierta → 22/1 (4) · el mismo toque dos veces → 22/1 (4b)
+//   · `loQueContesto` con el índice crudo → 21/2 (4, 5)
+//   · el adjunto sin texto se tira → 22/1 (11) · el audio sin texto deja la burbuja vacía → 22/1 (11)
+//   · el aviso «Reconstruido» para cualquiera: en la regla → 22/1 (11) · en el índice → 22/1 (14)
+//   · la ruta no anota lo que dice MaKo → 22/1 (13) · ni lo que mandó la persona → 22/1 (13)
+//   · confirmar los hechos DESPUÉS de escribir (la respuesta que cierra la fase no se anotaba) → 22/1 (13)
+//   · un POST viejo con todo terminado anota → 22/1 (13) · ya verificado, el código sin su respuesta → 22/1 (13)
+//   · anotar con el estado tolerante → 22/1 (13) · confirmar los hechos sin mirar la fase → 22/1 (13)
+//   · el historial pegado a CUALQUIER conversación → 22/1 (14) · el chat «Onboarding» sin el historial → 22/1 (15)
+//   · audio: el Ops Center lo tira → 22/1 (11) · el índice pasa el mensaje guardado, con su path → 22/1 (14)
+//     · la copia no lo guarda → 22/1 (12) · el bloque sin validar el id → 22/1 (12) · el insert sin `bloques` → 22/1 (15)
+//     · la lectura del chat no lo da → 22/1 (15)
+//   · el título «Onboarding» también para quien tiene su copia → 22/1 (14) · el script encima de un historial → 22/1 (16)
