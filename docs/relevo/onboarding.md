@@ -1,5 +1,11 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 22/10/2026 ~00:45 AR — EL NOMBRE EN EL PERFIL, EN PRODUCCIÓN (1166cbdca, run 223)
+
+- El «Hecho» está en la bitácora del Onboarding. La rama onboarding-perfil-negocio se cierra para esta ronda.
+- Para la próxima cuenta: «Empresa» al lado del nombre del negocio (docs/hallazgos-ajustes.md), las preguntas del
+  arranque guardadas de raíz y el script del ws21 (abajo, y en docs/hallazgos-onboarding.md, «Florencia otra vez»).
+
 ## ESTADO AL 22/10/2026 ~00:20 AR — EL NOMBRE DEL NEGOCIO TAMBIÉN EN EL PERFIL: PUNTA PARA EL PRÓXIMO CEREBRO
 
 - Pedido de Martín (captura de /perfil?ws=21): «Ponlo dentro del perfil». Rama `onboarding-perfil-negocio` (desde

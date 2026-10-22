@@ -780,4 +780,26 @@ export const BITACORA: Hito[] = [
       "tests/nombre-negocio.test.ts — probado rompiéndolo (7 de 7)",
     ],
   },
+  {
+    fecha: "22 oct", hora: "00:40", chat: "Onboarding", sesion: "local_0702928b-fa1b-49e2-ac90-85a94053d088", cuenta: "claude4",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Hecho: el nombre del negocio también se cambia desde el perfil",
+    puntos: [
+      "Martín buscó el nombre del negocio de Florencia en «Perfil de Florencia» (/perfil?ws=21) y no estaba: vivía sólo en Configuración › Tu negocio. En producción con 1166cbdca (run 223: 2.211 tests).",
+      "En Información básica, la fila «Nombre del negocio», con el mismo guardado y la misma regla que «Tu negocio». La ve el admin del negocio, y el super admin mirando el cliente; en el teléfono, en la hoja de Información personal de Tu cuenta.",
+      "Lo que NO hizo esta ronda: «Empresa» queda al lado, como estaba; la propuesta de no ofrecerla a quien ve el nombre del negocio está pendiente (docs/hallazgos-ajustes.md).",
+      "DÓNDE SE PRUEBA: en un negocio de prueba (nunca el ws 1), como su admin: /perfil, tocar «Nombre del negocio», cambiarlo y verlo en el encabezado; probar «123» (sin letras). Como alguien del equipo que no es admin, la fila no aparece.",
+    ],
+    revisar: "/perfil?ws=3",
+    commits: [
+      { sha: "c648893", msg: "Perfil: «Nombre del negocio» para quien lo puede cambiar, en la computadora y en el teléfono (Florencia, ws21)", lineas: 129, archivos: 6 },
+      { sha: "1166cbd", msg: "Perfil: lo mínimo que pidió el Cerebro, «Empresa» queda como está y se anota como pendiente", lineas: 61, archivos: 5 },
+    ],
+    archivos: [
+      "app/perfil/InformacionPersonal.tsx — la fila, en la computadora y en la hoja del teléfono",
+      "app/perfil/page.tsx y app/m/cuenta/page.tsx — leen el nombre con `nombreDelNegocioAction`",
+      "lib/nombre-negocio.ts — `muestraNegocio`, quién ve la fila",
+      "tests/nombre-negocio-perfil.test.ts — probado rompiéndolo (6 de 6)",
+    ],
+  },
 ];
