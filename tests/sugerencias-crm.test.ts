@@ -469,7 +469,7 @@ test('el chat: permiso del CRM en el server; en la pantalla, la estrella del Ops
   assert.match(pieza, /if \(!pedido \|\| ultimaVez\.current === pedido\.vez\) return;\n\s*ultimaVez\.current = pedido\.vez;\n\s*setPorMandar\(pedido\);\n\s*setAbierto\(true\);/);
   assert.match(pieza, /if \(!pedido \|\| !k\.esJefe\) return;\n\s*if \(k\.enviar\(pedido\.texto\)\) onMandado\(\);/);
   // Abierta, el tablero le deja el lugar: la pieza publica su ancho y el padding izquierdo de CrmBoard lo lee.
-  assert.match(leer('app/crm/CrmBoard.tsx'), /padding: '16px 44px 60px calc\(44px \+ var\(--ancho-panel-mako, 0px\)\)'/);
+  assert.match(leer('app/crm/CrmBoard.tsx'), /padding: `16px 44px \$\{view === 'kanban' \? ABAJO_KANBAN : 60\}px calc\(44px \+ var\(--ancho-panel-mako, 0px\)\)`/);
   // Nada de next/link: los links con el `?ws=` de la casa.
   assert.ok(!/from 'next\/link'/.test(panel));
 });

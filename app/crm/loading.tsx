@@ -8,8 +8,8 @@
 // un `loading.tsx` el router no tiene con qué reemplazar la pantalla vieja.
 //
 // ⚠️ LAS MEDIDAS SON LAS DE `CrmBoard`, no aproximadas a ojo: el padding
-// `16px 44px 60px` (sin título desde el 12/10/2026), la fila de la barra de 40px y
-// las columnas de 282px con `borderTop: 3px`. Un
+// `16px 44px 4px` y el alto de la pantalla del Kanban (22/10/2026, `ALTO_TABLERO`), la fila de la barra de 40px y
+// las columnas de 304px, del alto del tablero. Un
 // esqueleto más chico o más grande que lo que llega hace un salto que se nota más
 // que un spinner, y entonces cuesta más de lo que ahorra.
 //
@@ -25,7 +25,7 @@ const COLUMNAS = [4, 3, 5, 2, 3];
 
 export default function CargandoCrm() {
   return (
-    <main aria-busy="true" aria-label="Cargando el CRM" style={{ flex: 1, minWidth: 0, padding: '16px 44px 60px', display: 'flex', flexDirection: 'column' }}>
+    <main aria-busy="true" aria-label="Cargando el CRM" style={{ flex: 1, minWidth: 0, padding: '16px 44px 4px', display: 'flex', flexDirection: 'column', height: 'calc(100dvh - var(--barra-agencia, 0px))', minHeight: 0 }}>
       {/* SIN HEADER desde el 12/10/2026 (puntos 22-23): el título «CRM» se fue y la barra sube
           arriba del todo, con 16 de aire y no 34. La barra: funnel · vista · buscar · filtrar
           ····· + Nuevo lead · ⋯ (las bandas viven adentro de «Filtrar»). Desde el segundo feedback
@@ -40,11 +40,11 @@ export default function CargandoCrm() {
         <Skeleton w={40} h={40} radius={10} />
       </div>
 
-      {/* KANBAN — mismas columnas de 282, mismo gap, mismo maxHeight. */}
-      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', paddingBottom: 14 }}>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+      {/* KANBAN — mismas columnas de 304, mismo gap, del alto del tablero. */}
+      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', paddingBottom: 8 }}>
+        <div style={{ display: 'flex', gap: 14, alignItems: 'stretch', height: '100%' }}>
           {COLUMNAS.map((tarjetas, i) => (
-            <div key={i} style={{ flex: 'none', width: 282, background: 'var(--surface)', border: '1px solid var(--border)', borderTop: '3px solid var(--border)', borderRadius: 16, padding: '13px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div key={i} style={{ flex: 'none', width: 304, background: 'var(--fondo-columna)', borderRadius: 26, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                 <Skeleton w={i % 2 ? 96 : 122} h={12} />
                 <Skeleton w={24} h={16} radius={999} />

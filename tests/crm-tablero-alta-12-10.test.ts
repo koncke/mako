@@ -97,9 +97,11 @@ test('sin el título «CRM» con su ícono, y la barra arriba del todo (el esque
   assert.doesNotMatch(b, /<Icon name="crm"/, 'volvió el ícono del título');
   // Desde el 20/10/2026 un lado suma el ancho de la barra de MaKo cuando está abierta (en 0 es el mismo 16 / 44 / 60
   // del esqueleto); desde el 21/10 es el IZQUIERDO (la barra se abre a la izquierda): tests/sugerencias-crm.test.ts.
-  assert.match(b, /<main className="crm-hover" style=\{\{ flex: 1, minWidth: 0, padding: '16px 44px 60px calc\(44px \+ var\(--ancho-panel-mako, 0px\)\)'/);
+  // Desde el 22/10/2026 el Kanban llena la pantalla y su aire de abajo es 4 (la barra del scroll, pegada al borde); la
+  // Lista sigue con 60 (tests/crm-feedback-22-10.test.ts).
+  assert.match(b, /<main className="crm-hover" style=\{\{ flex: 1, minWidth: 0, padding: `16px 44px \$\{view === 'kanban' \? ABAJO_KANBAN : 60\}px calc\(44px \+ var\(--ancho-panel-mako, 0px\)\)`/);
   const l = codigo('app/crm/loading.tsx');
-  assert.match(l, /padding: '16px 44px 60px'/, 'el esqueleto tiene otro aire que el tablero: salta al cargar');
+  assert.match(l, /padding: '16px 44px 4px'/, 'el esqueleto tiene otro aire que el tablero: salta al cargar');
   assert.doesNotMatch(l, /<header/, 'el esqueleto todavía dibuja el header que se fue');
 });
 

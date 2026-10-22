@@ -129,6 +129,7 @@ import { BotonReuniones } from './ReunionesProximas';
 import { AccionesLoteLeads, destinosDeLote, type ManijaLote } from './AccionesLoteLeads';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { FUNNEL_DEL_NEGOCIO, esLote, itemsCrm, opcionesCrm, tituloCrm, type ContextoCrm, type IdOpcionCrm } from './menu-contextual-crm';
+import { alternarColumna, estadoDeColumna, rotuloDeColumna } from './seleccion-columna';
 import { useEtiquetas, type Etiqueta } from '@/app/_components/etiquetas-cliente';
 import { ModalLlevarAPartners } from '@/app/partners/LlevarAPartners';
 import { EstiloTarjetas, FichaRapida, TarjetaDestacada, TarjetaPersona } from '@/app/_ui/TarjetaKanban';
@@ -139,6 +140,17 @@ import { avisoAlQuitarEtapa } from './aviso-quitar-etapa';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
+/**
+ * EL KANBAN LLENA LA PANTALLA (22/10/2026). Martín: «Las columnas siempre el mismo largo... Y podrían ir mucho más abajo»
+ * y «La barra de scroll... podría estar debajo del botón de "A revisar"». Cada columna topeaba en 68vh y medía lo de sus
+ * tarjetas: unas cortas, otras largas, y la barra del scroll horizontal flotando arriba de «A revisar». En la vista
+ * Kanban el <main> mide el alto de la pantalla (menos la barra de agencia, que el <body> ya descuenta), las columnas se
+ * estiran al alto del tablero y la barra del scroll queda en los últimos píxeles: debajo de «A revisar», que va a 20 px
+ * del borde (app/_components/EsquinaAvisos.tsx). En la Lista no: la página scrollea como siempre.
+ */
+const ALTO_TABLERO = 'calc(100dvh - var(--barra-agencia, 0px))';
+/** El aire de abajo del <main> en el Kanban: la barra del scroll, pegada al borde. */
+const ABAJO_KANBAN = 4;
 
 // ── Tipos del view-model (los arma el server en page.tsx) ──
 export type CrmLead = {
@@ -676,8 +688,8 @@ export function CrmBoard({
   };
 
   // Abrir la ficha del lead (preview).
-  const openDetail = (l: CrmLead) => setSelectedId(l.id);
-  const closeDetail = () => setSelectedId(null);
+  const openDetail = (l: CrmLead, foco?: string) => { setFocoFicha(foco); setSelectedId(l.id); };
+  const closeDetail = () => { setSelectedId(null); setFocoFicha(undefined); };
 
   // Transición del grafo que define el movimiento `from → to` (si existe). Lleva
   // la asistencia (R1/R2) que ese paso implica, igual que en "Datos sin marcar".
@@ -2040,9 +2052,8 @@ export function CrmBoard({
   const [plantillas, setPlantillas] = useState<readonly PlantillaTarjetaLead[]>(plantillasTarjeta);
   const [personalizando, setPersonalizando] = useState(false);
   const cerrarPersonalizar = useCallback(() => setPersonalizando(false), []);
-  // «Próximo» arranca PLEGADO y lo abre el ícono del calendario (18/10/2026, Martín, pt 8).
-  const [verProximo, setVerProximo] = useState(false);
-  const hayProxima = juntas.some((x) => !/pas[oó]/i.test(x.when));
+  // La hoja con la que abre la ficha: «Ver detalle» de una reunión la abre en «Reuniones» (22/10/2026).
+  const [focoFicha, setFocoFicha] = useState<string | undefined>(undefined);
 
   // ── Editar las etapas desde la cabecera de su columna ──────────────────────
   // Pedido de Martín (28/09/2026). El menú vive acá y no en /funnel porque es donde se
@@ -2553,6 +2564,9 @@ export function CrmBoard({
 
   const renderColumn = (c: Stage) => {
     const cards = enOrden(filtered.filter((l) => effStage(l) === c.key));
+    // Lo que tilda la casilla del encabezado: lo que se VE en esta columna (con el filtro puesto, lo que el filtro dejó).
+    const idsCol = cards.map((x) => x.id);
+    const colSel = estadoDeColumna(idsCol, selLeads);
     const total = totalesCol.get(c.key) ?? null;
     const bandC = CATEGORY[bandToCategory(c.band)].c;
     // Dónde está esta columna entre las reordenables, y si la marca de destino cae acá.
@@ -2571,11 +2585,13 @@ export function CrmBoard({
            columna. Va en TODAS, no sólo en las reordenables como `data-colprop`: una
            tarjeta se puede soltar en cualquiera. */
         data-colkey={c.key}
+        /* `.mk-col-crm`: al pasar por la columna aparece la casilla de su encabezado (`.mk-sel-columna`, globals.css). */
+        className="mk-col-crm"
         onDragOver={(e) => {
           e.preventDefault();
           if (dragId != null && dragOverCol !== c.key) setDragOverCol(c.key);
-          // El scroller es el hijo con `overflowY`, no la columna: la columna topea
-          // en 68vh y el que desborda es el carril de tarjetas de adentro.
+          // El scroller es el hijo con `overflowY`, no la columna: la columna llega al
+          // fondo del tablero (`ALTO_TABLERO`) y el que desborda es el carril de tarjetas de adentro.
           const carril = (e.currentTarget as HTMLElement).querySelector('[data-carril]') as HTMLElement | null;
           if (!carril) return;
           const d = empujeDeColumna(carril.getBoundingClientRect(), e.clientY);
@@ -2611,7 +2627,7 @@ export function CrmBoard({
         }}
         /* LA COLUMNA DE LA FAMILIA (17/10/2026, prototipo docs/prototipos/coherencia-1710.html): 26 de radio, fondo
            suave y sin bordes duros; la banda la dice el punto del título. Soltar encima la marca con un contorno azul. */
-        style={{ flex: 'none', width: 304, background: dragOverCol === c.key && dragId != null ? 'var(--primary-bg)' : FONDO_COLUMNA, border: 'none', borderRadius: 26, display: 'flex', flexDirection: 'column', minHeight: 'min(68vh, 520px)', maxHeight: '68vh', transition: 'background .15s, box-shadow .15s', boxShadow: dragOverCol === c.key && dragId != null ? 'inset 0 0 0 2px var(--primary)' : 'none', opacity: arrastrandoCol === c.key ? 0.55 : 1, ...marcaCol }}
+        style={{ flex: 'none', width: 304, background: dragOverCol === c.key && dragId != null ? 'var(--primary-bg)' : FONDO_COLUMNA, border: 'none', borderRadius: 26, display: 'flex', flexDirection: 'column', minHeight: 0, transition: 'background .15s, box-shadow .15s', boxShadow: dragOverCol === c.key && dragId != null ? 'inset 0 0 0 2px var(--primary)' : 'none', opacity: arrastrandoCol === c.key ? 0.55 : 1, ...marcaCol }}
       >
         {/* ⚠️ EL CONTADOR VA DESPUÉS DEL TÍTULO, y el lugar de la derecha es para el menú.
             Pedido de Martín: «en el lugar donde hoy está el 14 que estén 3 puntitos para
@@ -2631,6 +2647,20 @@ export function CrmBoard({
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0, flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, flex: 'none' }}>
+            {/* LA CASILLA DE LA COLUMNA (22/10/2026, app/crm/seleccion-columna.ts): tilda lo que SE VE de esta columna. Aparece
+                como la de la tarjeta (`.mk-sel-columna`, globals.css): al pasar por la columna, con algo tildado o marcada.
+                `data-nodrag`: la cabecera arrastra la columna, y agarrar la casilla no puede moverla. */}
+            {colSel.n > 0 && (
+              <input type="checkbox" data-nodrag className="mk-sel-columna"
+                checked={colSel.todos}
+                ref={(el) => { if (el) el.indeterminate = colSel.parcial; }}
+                data-marcada={colSel.marcados > 0 ? '1' : '0'}
+                data-seleccionando={selLeads.size > 0 ? '1' : undefined}
+                onChange={() => setSelLeads((p) => alternarColumna(p, idsCol))}
+                title={rotuloDeColumna(colSel, c.label, hayFiltros)}
+                aria-label={rotuloDeColumna(colSel, c.label, hayFiltros)}
+                style={{ height: 15, cursor: 'pointer', accentColor: 'var(--primary)', flex: 'none' }} />
+            )}
             <span style={{ width: 9, height: 9, flex: 'none', borderRadius: '50%', background: c.dot }} />
             {renombrando === c.key ? (
               /* El nombre se edita EN SU LUGAR. Un modal para cambiar una palabra es un
@@ -2799,7 +2829,7 @@ export function CrmBoard({
             </span>
           )}
         </div>
-        <div data-carril style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
+        <div data-carril style={{ flex: 1, minHeight: 0, padding: 12, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
           {/* ⚠️ ACÁ HUBO UN PLACEHOLDER «＋ Nuevo lead» arriba de cada carril (29/09/2026) y se fue el 21/10/2026 al «⋯» de
               la columna: «Quiero que elimines el botón de "nuevo lead" de donde está en las columnas y lo pongas dentro de
               los 3 puntos de cada columna» (Martín). El alta sigue pasando por el mismo camino que soltar una tarjeta
@@ -2968,6 +2998,40 @@ export function CrmBoard({
     (dis === 'evento' ? leads.find((l) => l.fechaJ1) : dis === 'monto' ? leads.find((l) => (l.ingresoEstimado ?? 0) > 0 || (l.monto ?? 0) > 0) : null)
       ?? muestraTarjeta;
 
+  /**
+   * «TUS REUNIONES» (22/10/2026): el bloque azul de cada reunión cercana, en el pop-up del calendario de la barra
+   * (ReunionesProximas.tsx). Era «Próximo», arriba del tablero y sólo para la próxima (17/10, la tarjeta destacada del
+   * prototipo), y el pop-up viejo para el resto: Martín pidió UNO, igual para todos, con «Ver detalle». El paso cuenta el
+   * CAMINO (las etapas del pipeline): «Paso 1 de 17» contaba la nutrición y las salidas (visto en el ws3 el 18/10). Un
+   * lead en nutrición o salido no tiene paso: no hay barra. En Ganado, la plata es la del helper de la casa
+   * (`montoDeTarjeta`: la mensualidad de una suscripción, «Sin cobro» de un becado).
+   */
+  const bloquesDeReuniones = (cerrar: () => void) => {
+    const camino = stages.filter((s) => (s.band ?? 'pipeline') === 'pipeline');
+    const primera = juntas.findIndex((x) => !/pas[oó]/i.test(x.when));
+    return juntas.map((j, k) => {
+      const l = leads.find((x) => x.id === j.leadId);
+      const etapa = l ? effStage(l) : null;
+      const i = etapa ? camino.findIndex((s) => s.key === etapa) : -1;
+      const plata = !l ? null : etapa === 'ganado' ? montoDeTarjeta(l).texto : plataDeLead({ ganado: false, ingresoEstimado: l.ingresoEstimado });
+      const tel = l?.telefonoNorm;
+      const acciones = [
+        ...(tel ? [{ texto: 'Llamar', href: `tel:+${tel}`, primaria: true }, { texto: 'WhatsApp', href: waDe(tel), externo: true }] : []),
+        // «Ver detalle»: la ficha del lead, abierta en «Reuniones». Cierra el pop-up antes: dos diálogos encimados no.
+        ...(l ? [{ texto: 'Ver detalle', onClick: () => { cerrar(); openDetail(l, 'reuniones'); }, primaria: !tel }] : []),
+      ];
+      return (
+        <TarjetaDestacada key={j.id} ancha
+          sobre={/pas[oó]/i.test(j.when) ? 'Ya pasó' : k === primera ? 'Próximo' : 'Después'}
+          titulo={`Reunión con ${l?.name || j.name}`}
+          bajada={[j.when, plata, j.warn ? `⚠ ${j.warnText}` : null].filter(Boolean).join(' · ')}
+          cara={{ nombre: l?.name || j.name, foto: l?.foto }}
+          avance={i >= 0 ? { pct: ((i + 1) / camino.length) * 100, izq: `Paso ${i + 1} de ${camino.length} · ${camino[i].label}`, der: camino[i + 1] ? `Después: ${camino[i + 1].label}` : undefined } : null}
+          acciones={acciones} />
+      );
+    });
+  };
+
   return (
     // ⚠️ ARRIBA, 16 Y NO 34 (punto 23 del 12/10/2026: «Sube la topbar del todo»). Con el título
     // fuera ya no hay header: la primera fila es la barra, y los 34 px de arriba eran el aire de
@@ -2975,7 +3039,7 @@ export function CrmBoard({
     // El padding IZQUIERDO deja el lugar de la barra de MaKo cuando está abierta (`--ancho-panel-mako`, la prende esa
     // barra): desde el 21/10/2026 se abre a la izquierda («el chat de MaKo en las otras tabs se debe abrir siempre a la
     // izquierda»).
-    <main className="crm-hover" style={{ flex: 1, minWidth: 0, padding: '16px 44px 60px calc(44px + var(--ancho-panel-mako, 0px))', display: 'flex', flexDirection: 'column' }} onContextMenu={alClicDerecho}>
+    <main className="crm-hover" style={{ flex: 1, minWidth: 0, padding: `16px 44px ${view === 'kanban' ? ABAJO_KANBAN : 60}px calc(44px + var(--ancho-panel-mako, 0px))`, display: 'flex', flexDirection: 'column', ...(view === 'kanban' ? { height: ALTO_TABLERO, minHeight: 0 } : {}) }} onContextMenu={alClicDerecho}>
       <CrmToolbarStyles />
       <EstiloTarjetas />
       {/* Conectar Google desde el reagendar abre el modal acá (14/10/2026, «para una integración jamás se debe salir de
@@ -3019,8 +3083,7 @@ export function CrmBoard({
         </>
         {/* Las reuniones cercanas: después de «Filtrar», y sólo si hay alguna (punto 1 del
             segundo feedback del 12/10/2026). En cualquier vista, como lo era la sección. */}
-        <BotonReuniones juntas={juntas} onAbrir={(id) => { const l = leads.find((x) => x.id === id); if (l) openDetail(l); }}
-          onAlternar={hayProxima ? () => setVerProximo((v) => !v) : null} desplegado={verProximo} />
+        <BotonReuniones juntas={juntas} contenido={bloquesDeReuniones} />
         <span className="crm-tb-elastico" style={{ flex: 1 }} />
         {/* El pill del CRM automático vive como renglón del menú de `AccionesHeader` (ver su
             comentario en CrmToolbar). */}
@@ -3134,34 +3197,6 @@ export function CrmBoard({
         </div>
       )}
 
-      {/* «PRÓXIMO» (17/10/2026, la tarjeta destacada del prototipo): la próxima reunión que todavía no pasó, con el paso
-          del recorrido del lead y Llamar / WhatsApp. Azul porque azul = «vos actuás». Sin reunión por delante, no se
-          dibuja: una destacada vacía es ruido. Las reuniones son las mismas del botón «Reuniones» (`juntas`). */}
-      {(() => {
-        if (!verProximo) return null;
-        const j = juntas.find((x) => !/pas[oó]/i.test(x.when));
-        const l = j ? leads.find((x) => x.id === j.leadId) : undefined;
-        if (!j || !l) return null;
-        const etapa = effStage(l);
-        // El paso cuenta el CAMINO (las etapas del pipeline): «Paso 1 de 17» contaba la nutrición y las salidas,
-        // que no son pasos (visto en el ws3 el 18/10). Un lead en nutrición o salido no tiene paso: no hay barra.
-        const camino = stages.filter((s) => (s.band ?? 'pipeline') === 'pipeline');
-        const i = camino.findIndex((s) => s.key === etapa);
-        // En Ganado, el helper de la casa (`montoDeTarjeta`: la mensualidad de una suscripción, «Sin cobro» de un becado).
-        const plata = etapa === 'ganado' ? montoDeTarjeta(l).texto : plataDeLead({ ganado: false, ingresoEstimado: l.ingresoEstimado });
-        return (
-          <div style={{ marginBottom: 14 }}>
-            <TarjetaDestacada ancha sobre="Próximo"
-              titulo={`Reunión con ${l.name || j.name}`}
-              bajada={[j.when, plata].filter(Boolean).join(' · ')}
-              cara={{ nombre: l.name || j.name, foto: l.foto }}
-              avance={i >= 0 ? { pct: ((i + 1) / camino.length) * 100, izq: `Paso ${i + 1} de ${camino.length} · ${camino[i].label}`, der: camino[i + 1] ? `Después: ${camino[i + 1].label}` : undefined } : null}
-              acciones={l.telefonoNorm
-                ? [{ texto: 'Llamar', href: `tel:+${l.telefonoNorm}`, primaria: true }, { texto: 'WhatsApp', href: waDe(l.telefonoNorm), externo: true }]
-                : [{ texto: 'Abrir ficha', onClick: () => openDetail(l), primaria: true }]} />
-          </div>
-        );
-      })()}
       {view === 'kanban' ? (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           {/* ⚠️ CON CERO LEADS SE DIBUJAN LAS COLUMNAS IGUAL, y eso cambió el 28/09/2026.
@@ -3197,13 +3232,15 @@ export function CrmBoard({
                 limpiarDragCol();
                 if (key) soltarCol(key, destino);
               }}
-              style={{ flex: 1, minHeight: 0, overflowX: 'auto', paddingBottom: 14 }}>
-              <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', width: 'max-content' }}>
+              style={{ flex: 1, minHeight: 0, overflowX: 'auto', overflowY: 'hidden', paddingBottom: 8 }}>
+              {/* LAS COLUMNAS, TODAS DEL MISMO ALTO Y HASTA EL FONDO (22/10/2026, ver `ALTO_TABLERO`): la fila estira a
+                  cada columna al alto del tablero, y el que scrollea es el carril de tarjetas de adentro. */}
+              <div style={{ display: 'flex', gap: 14, alignItems: 'stretch', width: 'max-content', height: '100%' }}>
                 {columnasKanban.map((c) => (
                   <Fragment key={c.key}>
                     {renderColumn(c)}
                     {creandoTras === c.key && (
-                      <div role="status" aria-live="polite" style={{ flex: 'none', width: 304, minHeight: 'min(68vh, 520px)', background: FONDO_COLUMNA, borderRadius: 26, padding: '18px 16px', display: 'flex', alignItems: 'flex-start', gap: 10, fontFamily: SANS, fontSize: 14, color: 'var(--dim)' }}>
+                      <div role="status" aria-live="polite" style={{ flex: 'none', width: 304, background: FONDO_COLUMNA, borderRadius: 26, padding: '18px 16px', display: 'flex', alignItems: 'flex-start', gap: 10, fontFamily: SANS, fontSize: 14, color: 'var(--dim)' }}>
                         <Spinner size={15} /> Creando la etapa…
                       </div>
                     )}
@@ -3350,7 +3387,7 @@ export function CrmBoard({
       )}
 
       {selected && (
-        <LeadEditModal leadId={selected.id} seed={{ nombre: selected.name, empresa: selected.company }} onClose={closeDetail} />
+        <LeadEditModal leadId={selected.id} seed={{ nombre: selected.name, empresa: selected.company }} focus={focoFicha} onClose={closeDetail} />
       )}
 
       {/* Importar / exportar: los MISMOS formularios de a una pregunta que el plan. */}
