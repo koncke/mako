@@ -1713,7 +1713,10 @@ código nuevo:
     OF4): lo propio de una pantalla adentro de un mensaje de MaKo (el PDF de Offer, una tarjeta del onboarding) va por su
     hueco `enMensaje` (`arriba` o `abajo` del texto), nunca en un hilo propio. Un archivo que el chat no puede abrir (Offer
     guarda lo leído, no el archivo) va con `sinAbrir`: sin eso la ficha dice «No pude abrir el archivo.». Para dibujar en un
-    test una pantalla que monta la caja (trae .css), el gancho de carga de tests/offer-hilo-unico.test.ts.
+    test una pantalla que monta la caja (trae .css), el gancho de carga de tests/offer-hilo-unico.test.ts. ⚠️ Y si OTRO test
+    importa esa pantalla por valor sin el gancho (mirarlo con `node scripts/tests-afectados.mjs --listar --explicar` y un
+    cambio de sonda en el archivo), las piezas van en un archivo aparte que la pantalla carga con `next/dynamic` (molde:
+    app/web-generator/editor/paneles/ChatAgente.tsx, 22/10/2026) y que la guarda registra como «caja única».
   - **Y UN SOLO ALMACÉN: lo que se habla con MaKo en una tab queda en la base, nunca en el navegador ni en la memoria de la
     pestaña** (22/10/2026; Martín: «¿Todos esos chats regresan y se quedan registrados en Ops Center?»). Un chat de tab sin
     tabla propia guarda en `chart_sessions` con la clave `<tab>:<entidad>` por `/api/hilo-de-tab` (lib/hilo-de-tab-cliente.ts),
