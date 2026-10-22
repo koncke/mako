@@ -946,6 +946,10 @@ lib/lead-funnel.ts (`resincronizarCobrado`) · tests/pagos-crm-tercera.test.ts.
   **La regla:** agregar tiene el espejo del guard de quitar: un lead con pagos de ESE funnel sin estar en él no se agrega
   (`pagosHuerfanosDe`, lib/lead-funnel.ts); en lote, se saltea y cuenta como fallado. Re-etiquetar los pagos a la casa no
   sirve: choca con el índice de la 0324 si la casa nueva ya tiene su cuota 1. Medido: hoy no hay ningún lead así.
+  **Y quien agrega solo tiene que atraparlo** (revisión del 22/10/2026): la reserva de Calendly o Cal.com vinculada a una
+  etapa (lib/agenda-evento-etapa-server.ts) lo dejaba subir, y el lead se quedaba sin el aviso de «agendó», sin sus
+  automatizaciones de reunión y sin el evento de Meta, con un 500 a Cal.com en cada reintento. El optin, Meta, las fuentes
+  y la página de gracias ya lo atrapaban; un pago de «Vincular cobro» cae a la casa (`TienePagosDeEseCrmError`).
 - **Una sincronización que falla no corta a los demás**, y sin pagos no se sincroniza (escribía 0 donde había NULL).
 - `{{lead_cobrado}}` sin venta en la casa es lo pagado en total: no hay saldo con el que sumar. «Solo con dinero cobrado»
   mira lo cobrado de la venta, como la columna «Cobrado USD» del mismo export.
