@@ -1402,13 +1402,15 @@ de super admin y un micrófono falso inyectado en la página):
   iba el selector). El diagnóstico obvio («lo corre el chat nuevo») era el equivocado: `app/offer/page.tsx` mide
   `calc(100dvh - var(--alto-secciones))` y no descuenta `--barra-agencia`, la barra de «Estás viendo el dashboard de…» (50 px)
   o la alerta de la voz de MaKo caída (64 px), que ve también un cliente. La regla global que lo corrige sólo toca un alto en
-  línea que EMPIEZA con `height: 100dvh`. Ahora descuenta las dos (hallazgos-ui.md tiene las otras pantallas con lo mismo).
+  línea que EMPIEZA con `height: 100dvh`. Ahora descuenta las dos, igual que Image Editor y Video Editor, que tenían lo
+  mismo (hallazgos-ui.md, con la guarda que lo hace cumplir en toda pantalla).
+- **El «play» de la barra de grabar era lo único verde** de la caja de Offer: `SIN_VERDE` cambia `--good` (el ✓ y la ➤), y el
+  «play» es `AudioPlay`, que trae `--wa` por defecto. La barra (`BarraGrabacion`) recibe `colorPlay`, y la caja única de MaKo
+  le pasa `--primary`, el de la nota ya mandada en el hilo. WhatsApp y los audios de Automations siguen en verde.
 
 **Sin hacer:**
 - **Verla en un Android de verdad** (/m/offer): la caja del teléfono, la nota de voz con el micrófono y el .zip.
 - **El hilo del teléfono** (app/m/offer/HiloOfferM.tsx) sigue siendo propio: la caja es la única, el hilo no.
-- **El «play» de la barra de grabación sigue verde** en Offer: `SIN_VERDE` cambia `--good` (el ✓ y la ➤), y el «play» es
-  `AudioPlay` con su color por defecto, `--wa` (app/whatsapp/_shared/VoiceRecorder.tsx, la barra de escuchar).
 - **El Ops Center no muestra el PDF ni la nota de voz de MaKo** de una conversación de Offer: `itemsDeOffer` no los trae y
   app/second-brain/PiezasCliente.tsx no pasa `enMensaje`.
 - **La «Transcripción del audio» en el globo del dueño** va con el ícono de documento: ArchivosHilo dibuja todos igual (en
@@ -1419,7 +1421,7 @@ de super admin y un micrófono falso inyectado en la página):
 
 **Vive en:** `app/offer/ChatOffer.tsx` (el hilo y la caja de la tab y el onboarding) · `app/offer/OfferApp.tsx` (`caja`, una para
 los dos) · `app/offer/DocumentoPdf.tsx` · `app/m/offer/ComposerOfferM.tsx` · `app/_chat/HiloMako.tsx` (`enMensaje`) ·
-`app/_chat/ArchivosHilo.tsx` y `app/m/mako/chat-ui.ts` (`sinAbrir`, `nota`) · `tests/offer-hilo-unico.test.ts` (14 roturas, las
-14 cazadas)
+`app/_chat/ArchivosHilo.tsx` y `app/m/mako/chat-ui.ts` (`sinAbrir`, `nota`) · `app/offer/page.tsx` (el alto) ·
+`app/whatsapp/_shared/VoiceRecorder.tsx` (`colorPlay`) · `tests/offer-hilo-unico.test.ts` (17 roturas, las 17 cazadas)
 
 *22/10/2026, chat «Offer» (claude3).*
