@@ -10,7 +10,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { BoardShell } from './board/BoardShell';
-import { useBoard, type ColumnasDelBoard } from './board/useBoard';
+import { useBoard, type ColumnasDelBoard, type TarjetaDelBoard } from './board/useBoard';
 import { repoPlan, apiPlan } from './board/repo-plan';
 import { type BoardTask, type Label, type Repo, type BoardUser, type Hist, type Prio, type Fuente, type Actor, type GuardPatch, type GuardProjPatch, type GuardResult, prioFromScore, clampScore, pidDe, HIST_CAP, scoreFromPrio, uid } from './board/types';
 import type { ClienteRef } from '@/lib/plan-clientes';
@@ -732,9 +732,11 @@ function construirInbox(items: TareaInboxRaw[], existentes: BoardTask[], labels:
   return { tasks, labels: [...labels, ...nuevos] };
 }
 
-export function PlanBoard({ user, tareas, proyectos, deps = [], vacio, vistaInicial, clientes = [], clienteFijo, embebido = false, vistaExtra, onRecargar, soloVista, clienteInicial, accionEnLugarDelMenu, columnas = null }: { user: BoardUser; tareas: BoardTask[]; proyectos: Label[]; deps?: Dep[]; vacio: boolean; vistaInicial?: string;
+export function PlanBoard({ user, tareas, proyectos, deps = [], vacio, vistaInicial, clientes = [], clienteFijo, embebido = false, vistaExtra, onRecargar, soloVista, clienteInicial, accionEnLugarDelMenu, columnas = null, tarjeta = null }: { user: BoardUser; tareas: BoardTask[]; proyectos: Label[]; deps?: Dep[]; vacio: boolean; vistaInicial?: string;
   /** Los nombres de las columnas del negocio y si se pueden cambiar (./board/useBoard.ts). Sólo la página del Plan. */
   columnas?: ColumnasDelBoard;
+  /** La tarjeta de quien mira («Personalizar tarjetas», ./board/useBoard.ts). Sólo las páginas del Plan. */
+  tarjeta?: TarjetaDelBoard;
   /** Sólo esa vista y sin el selector de vistas. Ver `soloVista` en `BoardShell`. */
   soloVista?: 'prioridades';
   /** Va en el lugar del «⋮» con `soloVista`. Ver `accionEnLugarDelMenu` en `BoardShell`. */
@@ -784,7 +786,7 @@ export function PlanBoard({ user, tareas, proyectos, deps = [], vacio, vistaInic
       createLabel: (l) => base.createLabel({ ...l, ...conCliente }),
     }
     : base;
-  const board = useBoard(tareas, proyectos, user, repo, deps, columnas);
+  const board = useBoard(tareas, proyectos, user, repo, deps, columnas, tarjeta);
   // DB vacía → el board todavía no se migró de localStorage: mostramos el botón migrar.
   if (vacio) return <MigrarPlan />;
   // ⚠️ EL SCOPE DE LAS PREFERENCIAS LLEVA EL CLIENTE. Sin esto, el filtro que quedó puesto

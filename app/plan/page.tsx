@@ -12,7 +12,7 @@ import { guardOnboarding, requireCapa } from '@/lib/tab-access';
 import { getUsuarioActual } from '@/lib/auth';
 import { getWorkspaceActual, estaImpersonando, rutaConWs, getRolWsEfectivo } from '@/lib/workspace';
 import { leerColumnasPlan } from '@/lib/plan-columnas-server';
-import { getPerfil } from '@/lib/perfil';
+import { getPerfil, getTarjetaPlan } from '@/lib/perfil';
 import { TodoBoard } from './TodoBoard';
 import { clientesGanadosOVacio } from '@/lib/clientes-ganados';
 import { leerClienteDeUrl } from './board/filtro-cliente';
@@ -102,8 +102,10 @@ export default async function TodoPage({ searchParams }: { searchParams: Promise
   const clientes = await clientesGanadosOVacio();
   // Los nombres de las columnas de ESTE negocio (lib/plan-columnas.ts) y si quien mira los puede cambiar: el admin,
   // como el funnel del CRM. Leídos acá para que el primer HTML ya diga el nombre del negocio, sin parpadeo.
-  const [configColumnas, rol] = await Promise.all([leerColumnasPlan(), getRolWsEfectivo().catch(() => null)]);
+  // La tarjeta de quien mira («Personalizar tarjetas», 21/10/2026): de SU fila, con el HTML, por el mismo camino que las
+  // columnas. `getTarjetaPlan` nunca tira (sin fila propia, la de siempre y sin guardar).
+  const [configColumnas, rol, tarjeta] = await Promise.all([leerColumnasPlan(), getRolWsEfectivo().catch(() => null), getTarjetaPlan()]);
 
   return <TodoBoard tareas={tareas} categorias={categorias} demo={demo} user={user} wsId={wsActual} vistaInicial={typeof vista === 'string' ? vista : undefined} clientes={clientes} clienteInicial={leerClienteDeUrl(cliente)}
-    columnas={demo ? null : { config: configColumnas, editables: rol === 'admin' }} />;
+    columnas={demo ? null : { config: configColumnas, editables: rol === 'admin' }} tarjeta={demo ? null : tarjeta} />;
 }
