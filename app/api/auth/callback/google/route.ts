@@ -138,7 +138,8 @@ export async function GET(req: NextRequest) {
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
   const stateCookie = req.cookies.get('oauth_state')?.value;
-  const next = req.cookies.get('oauth_next')?.value || '/';
+  // Sin la cookie, `destinoSeguro` cae a /inicio, el repartidor. Caía a '/', que es la landing pública: entrar y quedar afuera.
+  const next = req.cookies.get('oauth_next')?.value;
 
   if (!code || !state || !stateCookie || state !== stateCookie) return fail('oauth');
 

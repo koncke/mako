@@ -2145,4 +2145,41 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "21 oct", hora: "22:47", chat: "Automations", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "Probar Automations de punta a punta para la campaña de prospección del Sprint de Mauricio",
+    puntos: [
+      "Llegó por el Cerebro, con el relevamiento de sólo lectura (C:/dev/cerebro-herramientas/automations-mauricio-21-10.md).",
+      "El Sprint de Diseño para la Ejecución Empresarial: 18 al 20/11, USD 270, sprint.mauriciobustos.com.",
+      "El plan: un CRM nuevo de prospección con etapas propias; MaKo manda sólo la apertura (audio o texto) a lo largo de unos días; cuando alguien responde, MaKo le avisa a Mauricio y él sigue a mano desde Chats.",
+    ],
+    pedido: "«que pruebes y valides que todo funcione bien en Automations de punta a punta para que con Mauricio podamos hacer esta estrategia de prospección con todos los contactos que tiene en su CRM que nunca fueron contactados para ofrecerle su nuevo low ticket»",
+  },
+  {
+    fecha: "22 oct", hora: "03:40", chat: "Automations", cuenta: "claude3",
+    sesion: "local_5acdaea2-2605-48fb-b890-f79e8476faa3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Hecho: la campaña de prospección anda desde un CRM nuevo, con «Sale sola» a la vista, el aviso que lleva a la charla y la bienvenida antes que la campaña",
+    puntos: [
+      "Una automatización de un CRM nuevo le escribe a los leads que le sumaste, aunque su CRM principal sea otro. Antes juntaba cero, sin avisar. Las automatizaciones de hoy siguen eligiendo a los mismos.",
+      "«Mover de etapa» mueve la tarjeta en el CRM que elegiste, sin tocar la etapa principal del lead.",
+      "Cada WhatsApp dice si sale solo o queda para aprobar en Chats, y se elige ahí.",
+      "Cuando un lead responde, el aviso al grupo trae el link a su conversación en Chats.",
+      "Un lead que entra por un formulario, una landing o una agenda recibe su bienvenida antes que una campaña, y la campaña le deja lugar en el tope (Configuraciones › Límites lo dice).",
+      "En producción: run 228, deploy de 43b0c2625 (lo verificó Integración).",
+    ],
+    commits: [
+      { sha: "33e425109", msg: "Automations · prospección del Sprint: el CRM nuevo alcanza a sus agregados, «Sale sola» a la vista, el aviso lleva a la charla y lo que entra sale antes que una campaña", lineas: 779, archivos: 22 },
+      { sha: "9df7f9336", msg: "Automations · prospección: lo que frenó la revisión adversarial del motor", lineas: 232, archivos: 12 },
+      { sha: "43b0c2625", msg: "Automations · prospección: la etiqueta también ve a los agregados de su CRM, y la cosecha", lineas: 293, archivos: 12 },
+    ],
+    archivos: [
+      "lib/nutricion-ambito.ts — a quién le escribe un CRM: la casa y los agregados",
+      "lib/nutricion-prioridad.ts — primero lo que entra, y la reserva del tope",
+      "docs/relevo/automations.md — la prueba del ws3 y los pasos con WhatsApp de verdad",
+      "docs/hallazgos-chatbot.md — «La prospección del Sprint»",
+    ],
+    revisar: "/automations",
+  },
 ];
