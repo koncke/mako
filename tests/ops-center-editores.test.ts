@@ -99,7 +99,7 @@ test('5. el de otra persona del equipo se lee acá, sin «Seguir en el editor» 
   assert.match(motor, /const editorPropio = !!deEditor && \(editores \?\? \[\]\)\.some\(\(e\) => e\.tipo === deEditor\.editor && e\.clave === deEditor\.clave && e\.propio\);/);
   const piezas = sinComentarios(leer('app/second-brain/PiezasCliente.tsx'));
   assert.match(piezas, /: <p className="co-solo-lectura" role="note">\{AVISO_EDITOR_AJENO\}<\/p>;/);
-  assert.match(AVISO_EDITOR_AJENO, /de otra persona del equipo: se lee acá/);
+  assert.match(AVISO_EDITOR_AJENO, /de otra persona del equipo: se lee aquí/);
   assert.doesNotMatch(AVISO_EDITOR_AJENO, /se sigue/);
 });
 
