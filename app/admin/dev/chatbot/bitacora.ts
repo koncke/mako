@@ -2258,7 +2258,7 @@ FEEDBACK PROBAR:
     revisar: "/automations",
   },
   {
-    fecha: "22 oct", hora: "14:10", chat: "Automations", cuenta: "claude3",
+    fecha: "22 oct", hora: "11:10", chat: "Automations", cuenta: "claude3",
     actor: "martin", tipo: "prompt",
     titulo: "«Sprint · apertura»: sale sola por la línea de Mauricio, se pausa desde Automations y el CRM muestra y frena a los leads que están en ella",
     puntos: [
@@ -2269,7 +2269,7 @@ FEEDBACK PROBAR:
     pedido: "«Sale sola, su línea. Y se puede pausar el envío desde Automations... Y en el CRM debería indicar en la tarjeta o en algún lugar que esos leads están en una automatización activa, y que desde el CRM también se pueda frenar»",
   },
   {
-    fecha: "22 oct", hora: "14:45", chat: "Automations", cuenta: "claude3",
+    fecha: "22 oct", hora: "11:45", chat: "Automations", cuenta: "claude3",
     sesion: "local_5acdaea2-2605-48fb-b890-f79e8476faa3",
     actor: "claude", tipo: "implementacion",
     titulo: "Hecho: el goteo también espacia lo que queda para aprobar, y «Sprint · apertura» quedó con «Sale sola», pausada",
@@ -2287,6 +2287,38 @@ FEEDBACK PROBAR:
       "lib/goteo.ts — lo que cuenta para el goteo, y el freno al aprobar",
       "lib/borrador-camino.ts — la única puerta de envío de un borrador",
       "docs/hallazgos-chatbot.md — «El goteo con APROBACIÓN no espaciaba nada»",
+    ],
+    revisar: "/automations",
+  },
+  {
+    fecha: "22 oct", hora: "11:50", chat: "Automations", cuenta: "claude3",
+    actor: "martin", tipo: "prompt",
+    titulo: "El chat de MaKo: sin leyendas, lo que mandas se ve al instante, el desenfoque en toda la pantalla y «Cancelar» en la misma línea",
+    puntos: [
+      "Llegó por el Cerebro, con cuatro capturas.",
+      "Va en una punta aparte: no toca lo que MaKo contesta.",
+    ],
+    pedido: "«Elimina los textos innecesarios, como «Hace lo que pides, tal cual.»... Envío un mensaje y no se ve que se envió... debería quedar todo, incluso atrás de la sidebar, todo... Tampoco me gusta que «cancelar» tenga un salto de línea»",
+  },
+  {
+    fecha: "22 oct", hora: "12:30", chat: "Automations", cuenta: "claude3",
+    sesion: "local_5acdaea2-2605-48fb-b890-f79e8476faa3",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Hecho: pausar una automatización se ve y frena todo, y el CRM ya sabe en qué automatización está cada lead",
+    puntos: [
+      "Una automatización pausada lo dice al lado de la tuerca («⏸ Pausada · no sale nada») y en la lista lleva un ⏸ sobre su emoji.",
+      "Pausada, no sale nada: ni lo automático ni lo que espera aprobación. Si apruebas un borrador de una pausada, te avisa que está pausada.",
+      "El CRM puede leer en qué automatización y en qué tarjeta está cada lead, y frenarlo, uno o varios a la vez. El aviso en la tarjeta y el botón los pone el chat del CRM.",
+      "En producción: deploy de bf8c71843 (lo verificó Integración).",
+    ],
+    commits: [
+      { sha: "905c908a2", msg: "Automations · pausar se ve y frena todo, y el CRM sabe en qué automatización está un lead y lo frena (uno o varios)", lineas: 375, archivos: 10 },
+      { sha: "df30736ca", msg: "Automations · hito del AU1 y de «Sprint · apertura» en la bitácora, y el ⏸ de pausada cuenta en la fila de la lista", lineas: 39, archivos: 2 },
+    ],
+    archivos: [
+      "lib/automatizaciones-del-lead.ts — en qué automatización está cada lead, y frenarlo",
+      "lib/borrador-camino.ts — una pausada no deja aprobar",
+      "app/automations/automatizaciones-del-lead-actions.ts — lo que llama el CRM",
     ],
     revisar: "/automations",
   },
