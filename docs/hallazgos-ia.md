@@ -5280,6 +5280,11 @@ cascada de texto, la de herramientas, la visión y el audio) · `app/integracion
   prueba de punta a punta en la PC de Martín con el ws3 (`probar-punta-a-punta.mts --instalador --reinstalar`). El título
   del ticket de la fila sale genérico («Falló la pantalla «Api»», de `tituloDeError` en lib/errores-app-reglas.ts); el
   mensaje sí dice qué falta.
+- **«Descargando MaKo en tu computadora…» para siempre (22/10, la PowerShell de Martín):** era la barra de progreso de
+  `Invoke-WebRequest` en Windows PowerShell 5.1, que se redibuja por cada pedazo que llega. Medido con el mismo archivo de
+  42,7 MB: **58,6 s con la barra contra 4,1 s sin ella**, y eso sin ventana (con ventana, peor). Ahora el script pone
+  `$ProgressPreference = 'SilentlyContinue'` antes de bajar. **Regla:** todo `Invoke-WebRequest` de un script que corre
+  en la PC de un cliente va con la barra apagada.
 
 ## D6b para TODO el negocio: la decisión baja a la PUERTA de la capa de IA (IA6, 22/10/2026)
 
