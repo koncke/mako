@@ -69,7 +69,7 @@
 
 import { after, type NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
-import { adminDeWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
+import { adminDeWorkspaceActual, getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
 import { getSupabaseServer } from '@/lib/supabase';
 import { archivoATexto } from '@/lib/archivo-a-texto';
@@ -81,6 +81,9 @@ import { frenoDeIa } from '@/lib/onboarding-guardia-server';
 import { transcribirAudio, SttSinEscucha, errorDeCascada } from '@/lib/ai-cheap';
 import { bloqueaLaLectura, extraerLanding } from '@/lib/landing-fetch';
 import { leerConLectorExterno } from '@/lib/offer-lector-externo';
+import { usuarioDeUrlInstagram } from '@/lib/instagram-buscar';
+import { noPudeLeerInstagram, textoDelPerfil } from '@/lib/instagram-perfil';
+import { leerPerfilInstagram } from '@/lib/instagram-perfil-server';
 import { esZip, textoDeZip } from '@/lib/offer-zip';
 import { leerFunnels } from '@/lib/funnels';
 import { sanearFunnelIds } from '@/lib/funnels-elegidos';
@@ -91,7 +94,7 @@ import { MARCA_COMPLETAR, faltanDelArranque, faltanMinimas, type ArchiveroDoc, t
 import {
   MAX_DOCS_SESION, NOMBRE_DOC_TEXTO_LARGO, PRINCIPIO_TEXTO_LARGO, TOPE_DOC_ENTERO, repartirTextoLargo, sanearLinksSinLeer, conOpcionesDelArranque, conTopeDelArranque, mensajeDeCierreDelArranque, TOPE_TEXTO_DOC, adjuntoDe, avisoDeLectura, lecturaPorPartes, partirEnPartes, avisosAntesDelDiagnostico, calcularDiagnostico, canalParaElNegocio, cifrasConFuente, cifrasConPorcentaje, conArchivero, conRespuestaInferida,
   diagnosticoConFuentes, diagnosticoFaltante, diagnosticoParaPrompt, docsDeLaConversacion, estadoDiagnostico, faltanTexto, faseDeSetting,
-  conCobroDelPrecio, conCanalDeLaOferta, fundirPiezasDelTurno, preguntaPorOtrasOfertas, estadoDeLaOferta, faseVigenteDe, fuentesDelDueno, linkParaLeer, mensajeDeMako, mensajePdf, mergePiezas, motivoArchivoOffer, planDiagnostico, primerMensaje, primerMensajeFunnel, provisionalDe, recortar,
+  canalQueDijo, conCobroDelPrecio, conCanalDeLaOferta, conLoQueDijoElDueno, fundirPiezasDelTurno, preguntaPorOtrasOfertas, estadoDeLaOferta, faseVigenteDe, fuentesDelDueno, linkParaLeer, mensajeDeMako, mensajePdf, mergePiezas, motivoArchivoOffer, planDiagnostico, primerMensaje, primerMensajeFunnel, provisionalDe, recortar,
   repartirTranscripcion, respuestaDiagnostico, respuestaSinIA, seArchivaDesdeOffer, armadoEnCurso, pasoInicialDelArmado, valoresDeLasPiezas,
   MAX_DOCS_LOTE, leyendoParaVista, mensajeLeyendo, resumenDelLote, credencialEnLaUrl, PIDE_ACCESO,
   type AudioGuardado, type DocumentoGuardado, type MensajeGuardado, type PlanDiagnostico,
@@ -568,6 +571,18 @@ async function leerLink(body: Record<string, unknown>, inicio: number): Promise<
   if (!link.ok) return no(422, link.error);
   const previo = await antesDeLeer(body);
   if (previo) return previo;
+  // Un perfil de Instagram se lee por Business Discovery (la bio, la web y las últimas publicaciones), nunca por la
+  // página (no trae nada sin sesión) ni por el lector de afuera (Instagram lo bloquea). Si no se puede, se dice y se
+  // pide que lo cuente (22/10/2026, Martín: «no estaba buscando bien a los @»; lib/instagram-perfil.ts).
+  const ig = usuarioDeUrlInstagram(link.leida);
+  if (ig) {
+    // LA función de Instagram (la misma del alta de un lead): la Meta del negocio, la de la plataforma y Apify.
+    const perfil = await leerPerfilInstagram(ig, { ws: await getWorkspaceActual() });
+    if (!perfil.ok) return no(422, noPudeLeerInstagram(ig, perfil.motivo));
+    const texto = textoDelPerfil(perfil.perfil);
+    const doc: DocumentoGuardado = { id: randomUUID(), nombre: `Instagram @${ig}`, via: 'web', texto, chars: texto.length, at: new Date().toISOString() };
+    return (await guardarDocumento(body, doc)).res;
+  }
   let pagina: { urlFinal: string; titulo: string; descripcion: string; texto: string; bloqueada: boolean };
   try {
     pagina = await extraerLanding(link.leida, { talCual: true });
@@ -935,7 +950,11 @@ async function responder(p: { sesionId: number; fila: FilaOffer; ctx: ContextoOf
     // Cada pieza con SU fuente (lo de lo cargado en MaKo no es «dicho por el dueño»), y «otras» sólo si MaKo la acababa de
     // preguntar (22/10/2026, prueba de los chats). Con un precio de pago único, el % al firmar ya se sabe (Mauricio).
     const preguntoOtras = preguntaPorOtrasOfertas([...f.mensajes].reverse().find((m) => m.de === 'mako' && !m.leyendo)?.texto ?? '');
-    const fundidas = conCobroDelPrecio(turnoIA ? fundirPiezasDelTurno(f.piezas, turnoIA, { porDefecto: fuente, preguntoOtras }) : f.piezas);
+    // Y lo que el dueño acaba de decir sin vueltas (que no vendió, que no tiene casos, lo que pidió anotar tal cual) lo
+    // anota el código: no depende de que el modelo lo devuelva (segunda prueba de los chats, 22/10/2026).
+    const fundidas = conCobroDelPrecio(conLoQueDijoElDueno(
+      turnoIA ? fundirPiezasDelTurno(f.piezas, turnoIA, { porDefecto: fuente, preguntoOtras }) : f.piezas, u.texto,
+    ));
     // En el onboarding una pieza se pregunta dos veces como mucho, y el que termina es el CÓDIGO (20/10/2026, Florencia).
     const piezas = p.arranque ? conTopeDelArranque(fundidas, f.mensajes, new Date().toISOString()) : fundidas;
     const cierra = !!p.arranque && faltanDelArranque(piezas).length === 0;
@@ -1104,7 +1123,8 @@ async function generarSesion(id: number, inicio: number): Promise<{ ok: true; fi
   // silencio).
   // «Dónde cierras la venta» es el canal de ESTA oferta (su funnel) si se sabe, no el del negocio (22/10/2026: el PDF
   // decía «Llamada de venta» de una oferta que se vende sin llamadas).
-  const fase = conCanalDeLaOferta(faseVigenteDe(ctx), ctx.funnel?.canal ?? null);
+  // Sin canal en el funnel, el que dijo el dueño; y si dijo que no hay llamadas, nunca «Llamada de venta» (segunda prueba).
+  const fase = conCanalDeLaOferta(faseVigenteDe(ctx), ctx.funnel?.canal ?? null, canalQueDijo(fila.mensajes.filter((m) => m.de === 'yo').map((m) => m.texto)));
   const faltante = fase ? null : diagnosticoFaltante(estadoDiagnostico(fila.mensajes, { canal: ctx.canal, yaGuardado: !!ctx.faseGuardada }));
   // Las cifras que SÍ dio el negocio salen de lo que escribió el dueño, sus documentos y lo que tenía cargado
   // (las piezas las suma el parse): toda otra cifra de resultados, de prueba, de bonos o de valor pasa a

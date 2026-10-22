@@ -84,6 +84,32 @@ export function documentoYaArchivado(
 }
 
 /**
+ * De QUIÉN habla un documento, como lo dice la extracción (`habla_de`, lib/onboarding.ts → ARCHIVERO_EXTRACT_TEMPLATE):
+ *  · 'negocio'   — del negocio del cliente sobre SÍ MISMO (su oferta, su cliente ideal, su marca);
+ *  · 'prospecto' — material de venta DEL negocio cuyo tema es un prospecto o cliente puntual (su propuesta «preparada para»
+ *                  alguien, la llamada de venta con él);
+ *  · 'proveedor' — de OTRA empresa que le vende algo al negocio.
+ * Existe por ws13 (22/10/2026): la propuesta de Código Inmobiliario a un prospecto dejó como «qué hace tu negocio» el
+ * negocio del prospecto (docs/hallazgos-offer.md, OF3).
+ */
+export type HablaDe = 'negocio' | 'prospecto' | 'proveedor';
+export const esHablaDe = (v: unknown): v is HablaDe => v === 'negocio' || v === 'prospecto' || v === 'proveedor';
+
+/**
+ * Lo que un documento puede llenar del perfil según de quién habla. Del negocio, todo. De un prospecto, la oferta y el
+ * cliente ideal sí (es SU venta, y el prospecto es su cliente), pero nada de la identidad del negocio (`negocio_*`: sería
+ * la del prospecto). De un proveedor, nada: habla del negocio pero no es DEL negocio. Sin `habla_de` (un modelo que no lo
+ * dijo, un prompt editado en /configuraciones), como antes: todo. Se compara sin espacios ni mayúsculas, y un valor que no
+ * se reconoce («cliente») cuenta como un prospecto: la identidad del negocio no se arriesga (revisión del 22/10/2026, B5).
+ */
+export function camposSegunQuien(campos: Record<string, string>, hablaDe: unknown): Record<string, string> {
+  const q = typeof hablaDe === 'string' ? hablaDe.trim().toLowerCase() : '';
+  if (!q || q === 'negocio') return campos;
+  if (q === 'proveedor') return {};
+  return Object.fromEntries(Object.entries(campos).filter(([k]) => !k.startsWith('negocio_')));
+}
+
+/**
  * Las answers con un documento NUEVO de OFFER sumado, SIN recalcular el brief: sólo LLENA las claves que el perfil del
  * negocio todavía no tiene (ni a mano ni de otro documento). Nunca pisa.
  *
