@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { FONDO_ARRANQUE } from './m/_ui/entrada';
 
 // =============================================================================
 // manifest — la app agregada a la pantalla de inicio se ve como MaKo
@@ -44,9 +45,15 @@ export default function manifest(): MetadataRoute.Manifest {
     display: 'standalone',
     // Claro, como la app (v2, 11/10/2026: «por defecto es white mode»). Es el --bg del tema claro
     // (#F4F6F9, app/globals.css): la pantalla de carga de la app instalada ya no sale oscura.
-    background_color: '#F4F6F9',
+    // ⚠️ Es el fondo del SPLASH de Android y el del primer cuadro de la entrada de MaKo (app/m/_ui/EntradaApp.tsx), que lo
+    // copia: por eso sale de la misma constante.
+    background_color: FONDO_ARRANQUE,
     theme_color: '#F4F6F9',
     lang: 'es',
+    // ⚠️ EL MASKABLE ES EL SPLASH (medido el 22/10/2026 en el Samsung de Martín, docs/hallazgos-mobile.md): Chrome lo elige
+    // para la pantalla de inicio Y para el splash de la app instalada (prefiere el maskable para los dos), y Android lo
+    // recorta con la forma del lanzador. El primer cuadro de la entrada lo dibuja igual (app/m/_ui/entrada.ts): cambiar este
+    // ícono, o sumar otro maskable, cambia el splash y obliga a cambiar ese cuadro. tests/movil-entrada.test.ts lo fija.
     icons: [
       { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
       { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },

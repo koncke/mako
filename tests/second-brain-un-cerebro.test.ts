@@ -161,11 +161,11 @@ test('las puertas: el servidor manda UN cerebro (pantalla, teléfono y grafo viv
   assert.match(v, /const conObra = !!tax\?\.capas\?\.length;/, 'que trae la construcción lo dice el cerebro mismo');
 });
 
-test('el teléfono: UNA foto y UN grafo, sin «Negocio · Construcción»', () => {
+// 22/10/2026: sin la foto del mapa (la portada se fue: el grafo ES la pantalla, tests/second-brain-grafo-movil.test.ts).
+test('el teléfono: UN grafo, sin «Negocio · Construcción»', () => {
   const m = sinComentarios(leer('app/m/second-brain/SecondBrainM.tsx'));
   assert.doesNotMatch(m, /'construccion'|enObra|ConstruccionM|Qué grafo ver/, 'nada que cambie un grafo por otro');
-  assert.equal((m.match(/<MapaChico /g) ?? []).length, 1, 'una sola foto');
-  assert.match(m, /<MapaChico cerebro=\{grafo\} nuevos=\{nuevos\} \/>/);
+  assert.equal((m.match(/<VistaCerebro\s/g) ?? []).length, 1, 'un solo grafo');
   assert.match(m, /<VistaCerebro\s+movil\s+cerebro=\{grafo\}/, 'el grafo entero, el mismo cerebro');
   assert.ok(!existsSync(join(RAIZ, 'app/m/second-brain/ConstruccionM.tsx')), 'la vista aparte de la construcción se fue');
 });

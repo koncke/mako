@@ -26,15 +26,14 @@
 // =============================================================================
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import dynamic from 'next/dynamic';
 import Link, { useRouter } from '@/app/_ui/Link';
 import { useRutaInterna } from '@/app/_components/VistaMovil';
 import { Icon } from '@/app/_components/icons';
 import { MakoLogo } from '@/app/_components/MakoBrand';
 import { Criatura } from '@/app/_components/Criatura';
-// La entrada se carga DIFERIDA: su criatura importa un .css (app/admin/operaciones/criatura.css), y el índice de
-// app/m/_ui lo arrastraría a cada test de node que lo importe (cayó el run 182, tests/m-offer.test.ts).
-const EntradaMako = dynamic(() => import('@/app/onboarding/EntradaMako').then((m) => m.EntradaMako), { ssr: false });
+// La entrada va en el PRIMER HTML (22/10/2026): import de frente, nunca `dynamic(..., { ssr: false })`, que la dejaba para
+// después de hidratar. No importa ningún .css (los tests de node importan el índice de app/m/_ui; cayó el run 182).
+import { EntradaApp } from './EntradaApp';
 import { ATTR_MODO, LS_MODO } from '@/lib/temas-candidatos';
 import { CLAVE_ENTRADA_MOVIL } from './entrada';
 import { HOME_MOVIL, destinoActivo, type IdBarra, type ItemBarra } from '@/lib/movil-rutas';
@@ -138,24 +137,19 @@ export function ShellM({
     return () => document.removeEventListener('visibilitychange', cambio);
   }, [router, marcarCarga]);
 
-  // ── La entrada de MaKo al abrir la app (21/10/2026) ──────────────────────
-  // Martín: «tampoco veo me haya salido la animación de la criatura, la misma del onboarding. Al iniciar la app en
-  // mobile». La MISMA de app/onboarding/EntradaMako.tsx (cae, rebota, saluda y espera el toque), una vez por APERTURA
-  // (sessionStorage: volver del fondo no la repite) y, al tocarla, vuela al Ops Center de la barra. No sale en el
-  // onboarding pendiente (/m/configurar tiene la suya) ni mirando la cuenta de un cliente.
+  // ── La entrada de MaKo al abrir la app (21/10 → 22/10/2026) ──────────────
+  // La criatura de MaKo desde que se toca el ícono hasta que la app está lista (./EntradaApp.tsx), una vez por APERTURA
+  // (sessionStorage: volver del fondo no la repite) y, al irse, vuela al Ops Center de la barra. No sale en el onboarding
+  // pendiente (/m/configurar tiene la suya) ni mirando la cuenta de un cliente.
+  // ⚠️ NACE PRENDIDA, en el server (22/10/2026, Martín: «entre medio, se ve el ops center por unos segundos y luego viene la
+  // animación de la criatura»). Hasta ese día nacía apagada y la prendía un efecto: existía recién después de hidratar, y
+  // hasta ahí se veía el Centro sin hidratar. Si ya salió en esta apertura, el script de antes de pintar del layout
+  // (ARRANQUE_ANTES_DE_PINTAR) la apaga por CSS antes del primer cuadro y EntradaApp avisa el fin al montarse.
   // ⚠️ La marca se pone cuando la entrada TERMINÓ (`finEntrada`), no al montarla (21/10/2026, 22:54, Martín: «Aún no
   // veo la animación»). Puesta al montar, la gastaba un documento que se iba enseguida: la app abría /second-brain, que
   // redirigía al Centro con una navegación dura, y el Centro ya la encontraba marcada (lib/movil-desvio.ts → `entradaMovil`).
-  const [entrada, setEntrada] = useState(false);
-  useEffect(() => {
-    if (cliente || limpia(pathname) === RUTA_CONFIGURAR) return;
-    try {
-      if (sessionStorage.getItem(LS_ENTRADA)) return;
-    } catch { return; /* sin almacenamiento no se sabe si ya salió: mejor no repetirla en cada pantalla */ }
-    setEntrada(true);
-    // Sólo al montar el shell: navegar no la vuelve a pedir.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Sólo al montar el shell: navegar no la vuelve a pedir (el estado inicial no se recalcula).
+  const [entrada, setEntrada] = useState(() => !cliente && limpia(pathname) !== RUTA_CONFIGURAR);
   const finEntrada = useCallback(() => {
     try { sessionStorage.setItem(LS_ENTRADA, '1'); } catch { /* sin almacenamiento: no se repite en esta pantalla igual */ }
     setEntrada(false);
@@ -331,6 +325,11 @@ export function ShellM({
         data-sin-barra={conBarra ? undefined : ''}
         data-trabajo={trabajo ? '' : undefined}
       >
+        {/* La entrada de MaKo va PRIMERA en el HTML (revisión del 22/10/2026): Chrome puede pintar mientras todavía lee el
+            documento, y si la capa venía al final —detrás del Centro entero— el primer cuadro podía ser el Centro. Primera,
+            lo primero que tiene para pintar es la capa. Arriba de todo la pone su z-index, no el orden. */}
+        {entrada && <EntradaApp destino={`[${DESTINO_ENTRADA}]`} onFin={finEntrada} />}
+
         <header className="m-cabecera" ref={cabeceraRef} data-fuera={fuera ? '' : undefined}>
           <div className="m-cabecera__fila">
             <div className="m-cabecera__lado">
@@ -413,8 +412,6 @@ export function ShellM({
         {/* Los sheets se montan acá (portal): fuera del contenido, que se
             mueve al navegar y al tirar para refrescar. */}
         <div id="m-capas" />
-
-        {entrada && <EntradaMako destino={`[${DESTINO_ENTRADA}]`} onFin={finEntrada} />}
 
         <div className="m-toast-capa" aria-live="polite">
           {toast && (

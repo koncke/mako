@@ -50,7 +50,6 @@
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { Button } from '@/app/_ui';
 import { LinkIntegracion } from '@/app/_components/ConectarIntegracion';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { avisarCambioEtiquetas } from '@/app/_components/etiquetas-cliente';
@@ -140,7 +139,12 @@ export type ChatMakoProps = {
  * ⚠️ SIN DEDUPLICAR (17/10/2026): un mensaje repetido trae sus burbujas otra vez. Las de antes se salteaban las «iguales»,
  * y un mensaje mandado dos veces no dejaba ni burbuja ni turno de MaKo: se tragaba.
  */
-type ExtraChat = { id: string; at: string; yo?: string; b?: BurbujaPedido };
+/**
+ * Lo del hilo que vive sólo en esta pantalla: una burbuja de pedidos, o lo que escribió la persona mientras todavía no es un
+ * turno (`yo`). 22/10/2026, Martín: «Envío un mensaje y no se ve que se envió... no se ve mi envío hasta que me responde»: lo
+ * escrito entra al hilo AL INSTANTE, antes de la vuelta por los pedidos; y si no salió, queda con «Reintentar» (`fallido`).
+ */
+type ExtraChat = { id: string; at: string; yo?: string; b?: BurbujaPedido; fallido?: string };
 const PREFIJO_EXTRA = 'pedido:';
 
 /** Lo que dice el campo en el lienzo, y con una pregunta abierta (la respuesta escrita es «Otra cosa»). */
@@ -293,7 +297,7 @@ export function ChatMako(p: ChatMakoProps) {
    * ⚠️ MIENTRAS TRABAJA, EL TECLADO NO LLEGA AL LIENZO (tercera tanda, punto 6). La capa de quien monta se traga los
    * clics, pero un atajo vive en `document` (el deshacer del lienzo, Suprimir sobre una tarjeta): se corta en CAPTURA
    * lo que no nace en el chat ni en un campo de texto. Escape cancela, igual que el botón, y sólo cuando el botón está
-   * (en «Revisando el flujo» el server ya no mira la señal).
+   * (en «Verificando» el server ya no mira la señal).
    */
   const fase = estado.t === 'trabajando' ? estado.fase : null;
   useEffect(() => {
@@ -354,6 +358,13 @@ export function ChatMako(p: ChatMakoProps) {
     const deshacer = (e: { texto: string; link?: string } | null): true | { error: string | null } => {
       setMensajes((ms) => ms.filter((m) => m.id !== yo.id));
       setError(e);
+      // ⚠️ SI NO SALIÓ, QUEDA EN EL HILO CON «Reintentar» (22/10/2026, Cerebro, con lo de Martín: lo escrito se ve al instante;
+      // «si falla, queda marcado con Reintentar»). Antes se borraba del hilo y volvía a la barra. Cancelar no es un fallo: eso
+      // sí vuelve a la barra, como siempre. Una opción tocada (`boton`) sigue viva en su pregunta: se vuelve a tocar.
+      if (e && origen !== 'boton') {
+        ponerExtras((xs) => [...xs, { id: `${PREFIJO_EXTRA}${yo.id}`, at: yo.at, yo: dicho, fallido: e.texto }]);
+        return true;
+      }
       if (origen === 'barra') return { error: null };
       if (origen === 'afuera') setDevolver((d) => ({ texto: dicho, vez: (d?.vez ?? 0) + 1 }));
       return true;
@@ -423,6 +434,12 @@ export function ChatMako(p: ChatMakoProps) {
     if (ronda) { const r = respuestaMako(ronda.pregunta, { texto: t }); return turno(r.texto, r.respuesta, origen); }
     // Ocupado (MaKo trabajando, el chat apagado) o sin automatización: lo de siempre (el turno lo devuelve a la barra).
     if (trabajando || p.deshabilitado || interpretando) return turno(t, null, origen);
+    // LO ESCRITO ENTRA AL HILO YA (22/10/2026, Martín: «no se ve mi envío hasta que me responde»): la vuelta por los pedidos
+    // tarda hasta ~8 s y mientras tanto sólo se veían los tres puntos. Entra como un extra; cuando arranca el turno, el turno
+    // lo pone en el hilo de verdad y el extra se va en el MISMO render (sin parpadeo).
+    const enviado: ExtraChat = { id: `${PREFIJO_EXTRA}${nuevoId('yo')}`, at: new Date().toISOString(), yo: t };
+    ponerExtras((xs) => [...xs, enviado]);
+    const sinEnviado = (xs: ExtraChat[]) => xs.filter((x) => x.id !== enviado.id);
     // LOS PEDIDOS SUELTOS: qué es de ESTA automatización y qué no. Sin respuesta útil, todo es de ésta (cero regresión).
     setInterpretando(true);
     const crudo = await pedirPedidos(cuerpoPedidos(t, p.secuenciaId, p.nombre ?? ''));
@@ -433,17 +450,25 @@ export function ChatMako(p: ChatMakoProps) {
     const i = crea ? paraLienzoVacio(leida, t) : leida;
     const nuevas = burbujasDe(i, p.secuenciaId).filter((b) => b.tipo !== 'crear' || !!p.onCrearOtra);
     const actual = textoActual(i);
-    if (!nuevas.length) return turno(t, null, origen, actual ?? undefined);
+    if (!nuevas.length) { ponerExtras(sinEnviado); return turno(t, null, origen, actual ?? undefined); }
     // Lo escrito queda en el hilo; las burbujas, debajo.
     const base = Date.now();
     const burbujas = nuevas.map((b, k): ExtraChat => ({ id: `${PREFIJO_EXTRA}${nuevoId('mako')}`, at: new Date(base + 1 + k).toISOString(), b }));
     if (!actual) {
-      // Nada de esta automatización: MaKo no trabaja. Lo escrito se ve igual (sólo en esta pantalla).
-      ponerExtras((xs) => [...xs, { id: `${PREFIJO_EXTRA}${nuevoId('yo')}`, at: new Date(base).toISOString(), yo: t }, ...burbujas]);
+      // Nada de esta automatización: MaKo no trabaja. Lo escrito ya está en el hilo (sólo en esta pantalla).
+      ponerExtras((xs) => [...xs, ...burbujas]);
       return true;
     }
-    ponerExtras((xs) => [...xs, ...burbujas]);
+    ponerExtras((xs) => [...sinEnviado(xs), ...burbujas]);
     return turno(t, null, origen, actual);
+  };
+
+  /** «Reintentar» de un mensaje que no salió: se saca del hilo y se manda otra vez, como si se escribiera de nuevo. */
+  const reintentar = (id: string, texto: string) => {
+    if (trabajando || interpretando) return;
+    ponerExtras((xs) => xs.filter((x) => x.id !== id));
+    setError(null);
+    void enviarTexto(texto, 'afuera');
   };
 
   /** Lo que pide un clic en una burbuja: crear por la puerta de «Pídeselo a MaKo», eliminar o recuperar por la de la lista. */
@@ -564,8 +589,17 @@ export function ChatMako(p: ChatMakoProps) {
         vacio={<div style={S.vacio}>{crea ? VACIO_CREAR : VACIO_EDITAR}</div>}
         renderMensaje={(h) => {
           const e = extraPorId.get(String(h.id));
-          if (e) return e.yo !== undefined ? <Mensaje m={{ id: e.id, de: 'yo', texto: e.yo, at: e.at, via: 'app' }} viva={null} ultimo={false} onElegir={elegir} deshabilitado />
-            : e.b ? <BurbujaDePedido b={e.b} at={e.at} onBoton={(boton) => tocarBurbuja(e.id, boton)} deshabilitado={!!p.deshabilitado} /> : null;
+          if (e) return e.yo !== undefined ? (
+            <>
+              <Mensaje m={{ id: e.id, de: 'yo', texto: e.yo, at: e.at, via: 'app' }} viva={null} ultimo={false} onElegir={elegir} deshabilitado />
+              {e.fallido !== undefined && (
+                <div data-yo-fallido="" role="alert" title={e.fallido} style={S.fallido}>
+                  No se envió
+                  <button type="button" onClick={() => reintentar(e.id, e.yo!)} disabled={trabajando || interpretando || !!p.deshabilitado} style={S.reintentar}>Reintentar</button>
+                </div>
+              )}
+            </>
+          ) : e.b ? <BurbujaDePedido b={e.b} at={e.at} onBoton={(boton) => tocarBurbuja(e.id, boton)} deshabilitado={!!p.deshabilitado} /> : null;
           const x = porId.get(String(h.id));
           if (!x) return null;
           const viva = x.i === mensajes.length - 1 && preguntaViva && x.m.pregunta?.id === preguntaViva.id ? preguntaViva : null;
@@ -654,7 +688,7 @@ export function TarjetaPregunta({ pregunta, onElegir, onOtraCosa, deshabilitado 
   );
 }
 
-/** Las fases REALES del server, lo que lleva y Cancelar (menos en «Revisando el flujo»), arriba de la barra. */
+/** Las fases REALES del server, lo que lleva y Cancelar (menos en «Verificando»), arriba de la barra. */
 function FasesIA({ estado, segundos, onCancelar }: {
   estado: Extract<EstadoIA, { t: 'trabajando' }>; segundos: number; onCancelar: () => void;
 }) {
@@ -674,9 +708,9 @@ function FasesIA({ estado, segundos, onCancelar }: {
       {/* ⚠️ EL TOPE SALE DEL TOPE REAL (revisión, 09/10/2026): «75 s · hasta 1 min» se lee como colgado y la persona
           cancela un pedido que iba a terminar. */}
       <span style={{ ...S.dim, marginLeft: 'auto', whiteSpace: 'nowrap' }}>{segundos} s · hasta {Math.round(TOPE_CLIENTE_MS / 60_000)} min</span>
-      {/* ⚠️ SIN «Cancelar» EN «Revisando el flujo» (revisión, 09/10/2026): el server mira la señal una sola vez, antes de
+      {/* ⚠️ SIN «Cancelar» EN «Verificando» (revisión, 09/10/2026): el server mira la señal una sola vez, antes de
           esa fase, y después crea las etiquetas y guarda igual. */}
-      {estado.fase !== 'revision' && <Button variant="tertiary" size="sm" onClick={onCancelar}>Cancelar</Button>}
+      {estado.fase !== 'revision' && <button type="button" onClick={onCancelar} style={S.cancelar}>Cancelar</button>}
     </div>
   );
 }
@@ -898,12 +932,18 @@ const S: Record<string, CSSProperties> = {
   avisos: { margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12.5, color: 'var(--warn)', maxWidth: '92%' },
   opciones: { display: 'flex', flexWrap: 'wrap', gap: 6, maxWidth: '92%' },
   vacio: { margin: 'auto', color: 'var(--faint)', fontSize: 13.5, textAlign: 'center' },
-  fases: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', paddingBottom: 8, fontSize: 13 },
+  // EN UNA SOLA LÍNEA (22/10/2026, Martín: «no me gusta que "cancelar" tenga un salto de línea»): sin `wrap`; si falta lugar,
+  // se achica el rótulo (`rotulo`, con «…»), nunca el tiempo ni Cancelar. Medido en producción: con el botón del kit (82 px)
+  // y el rótulo largo no entraba nada; por eso el rótulo es de una palabra (stream-ia.ts) y Cancelar es un enlace (`cancelar`).
+  fases: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'nowrap', paddingBottom: 8, fontSize: 13, minWidth: 0 },
   puntos: { display: 'inline-flex', gap: 4, flex: 'none' },
   punto: { width: 7, height: 7, borderRadius: 999 },
-  rotulo: { fontWeight: 600, color: 'var(--mako-ink)' },
+  rotulo: { fontWeight: 600, color: 'var(--mako-ink)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
   dim: { fontSize: 12.5, color: 'var(--faint)' },
   error: { margin: '0 0 8px', fontSize: 13, lineHeight: 1.4, color: 'var(--bad)' },
+  fallido: { display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, margin: '2px 4px 6px', fontSize: 12, color: 'var(--bad)' },
+  reintentar: { border: 'none', background: 'none', padding: 0, font: 'inherit', fontWeight: 600, color: 'var(--primary)', cursor: 'pointer' },
+  cancelar: { flex: 'none', border: 'none', background: 'none', padding: '4px 2px', font: 'inherit', fontSize: 12.5, fontWeight: 600, color: 'var(--dim)', cursor: 'pointer' },
   link: { color: 'var(--primary)', fontWeight: 600, textDecoration: 'underline' },
 };
 
@@ -918,7 +958,10 @@ function guardarIntencion(i: IntencionChat): void {
   try { localStorage.setItem(CLAVE_INTENCION, i); } catch { /* sin almacenamiento: vale para esta pantalla */ }
 }
 
-/** Lo que se dice debajo de cada opción (corto: AGENTS.md, el texto dibujado). */
+/**
+ * Lo que hace cada opción. 22/10/2026, Martín: «Elimina los textos innecesarios, como "Hace lo que pides, tal cual." o "Te
+ * contesta y sugiere, sin tocar el lienzo."»: ya no se dibuja al lado del segmento; queda sólo al pasar el cursor (`title`).
+ */
 export const AYUDA_INTENCION: Readonly<Record<IntencionChat, string>> = {
   editar: 'Hace lo que pides, tal cual.',
   discutir: 'Te contesta y sugiere, sin tocar el lienzo.',
@@ -932,7 +975,7 @@ function SelectorIntencion({ valor, onCambio, deshabilitado }: { valor: Intencio
       <div role="radiogroup" aria-label="Qué hace MaKo con lo que escribes" style={{ display: 'inline-flex', padding: 2, borderRadius: 999, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
         {opciones.map((o) => (
           <button key={o.id} type="button" role="radio" aria-checked={valor === o.id} disabled={deshabilitado}
-            onClick={() => onCambio(o.id)}
+            title={AYUDA_INTENCION[o.id]} onClick={() => onCambio(o.id)}
             style={{
               border: 'none', borderRadius: 999, padding: '4px 12px', fontSize: 12.5, fontWeight: 600, cursor: deshabilitado ? 'default' : 'pointer',
               background: valor === o.id ? 'var(--surface)' : 'transparent', color: valor === o.id ? 'var(--ink)' : 'var(--dim)',
@@ -942,7 +985,6 @@ function SelectorIntencion({ valor, onCambio, deshabilitado }: { valor: Intencio
           </button>
         ))}
       </div>
-      <span style={{ fontSize: 12, color: 'var(--faint)', minWidth: 0 }}>{AYUDA_INTENCION[valor]}</span>
     </div>
   );
 }

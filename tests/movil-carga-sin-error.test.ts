@@ -56,14 +56,20 @@ test('el super admin abre la app derecho en el Centro: un 307 desde el borde, si
   assert.match(proxy, /pedidoMovil\(\{ pathname, search: req\.nextUrl\.search, metodo: req\.method\.toUpperCase\(\), telefono, operador \}\)/);
 });
 
+// 22/10/2026: la entrada pasó a EntradaApp, en el primer HTML (tests/movil-entrada.test.ts). La lectura de la marca vive en
+// EntradaApp (al montarse) y en el script de antes de pintar; lo que este test cuida sigue igual: nadie la ESCRIBE al montar.
 test('la marca de «ya salió» de la entrada se pone cuando la entrada TERMINA, no al montarla', () => {
   const shell = sinComentarios(leer('app/m/_ui/ShellM.tsx'));
-  const montar = shell.slice(shell.indexOf('const [entrada, setEntrada] = useState(false);'), shell.indexOf('const finEntrada = useCallback('));
-  assert.match(montar, /if \(sessionStorage\.getItem\(LS_ENTRADA\)\) return;/);
+  const montar = shell.slice(shell.indexOf('const [entrada, setEntrada] = useState('), shell.indexOf('const finEntrada = useCallback('));
+  assert.ok(montar.length > 0, 'no encontré el estado de la entrada en ShellM');
   assert.doesNotMatch(montar, /setItem/, 'puesta al montar, la gasta un documento que se va (la apertura de dos documentos)');
   const fin = shell.slice(shell.indexOf('const finEntrada = useCallback('), shell.indexOf('// ── Toasts'));
   assert.match(fin, /sessionStorage\.setItem\(LS_ENTRADA, '1'\)/);
-  assert.match(shell, /<EntradaMako destino=\{`\[\$\{DESTINO_ENTRADA\}\]`\} onFin=\{finEntrada\} \/>/);
+  assert.match(shell, /<EntradaApp destino=\{`\[\$\{DESTINO_ENTRADA\}\]`\} onFin=\{finEntrada\} \/>/);
+  // La entrada lee la marca y avisa el fin; escribirla es de ShellM, al terminar.
+  const entrada = sinComentarios(leer('app/m/_ui/EntradaApp.tsx'));
+  assert.match(entrada, /sessionStorage\.getItem\(CLAVE_ENTRADA_MOVIL\)/);
+  assert.doesNotMatch(entrada, /setItem/, 'la entrada se marca vista sola, al montarse');
 });
 
 /** Una ventana falsa donde correr el centinela de verdad. `storage: null` = sessionStorage que tira (modo privado). */
