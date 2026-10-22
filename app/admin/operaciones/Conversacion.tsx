@@ -19,6 +19,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { Icon } from '@/app/_components/icons';
 import { PanelDeChat } from './PanelChat';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
+import { preguntasDeLaApp, preguntasParaElBloque } from '@/lib/centro-chats';
 import { historialDelChat, nombreCuenta, textoDeEnvio, trabajaSinEscribir, type CarteroP, type ChatCentro, type Envio, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
 import { Modal } from '@/app/_ui';
 import { SIN_MARCAS, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
@@ -32,6 +33,7 @@ import { Hilo, TANDA_HILO } from './Hilo';
 import type { Responder } from './PreguntaChat';
 import type { PreguntaChat as PreguntaChatT } from '@/lib/centro-preguntas-chat';
 import { Pregunta } from './Pregunta';
+import { PreguntasDeLaApp, PreguntasDelChat } from './PreguntasDelChat';
 import type { AdjuntosDeCaja } from './AdjuntosCaja';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { TareasVinculadas, irAlTurno } from './Avance';
@@ -111,6 +113,8 @@ export function Conversacion({
   onVolver: () => void;
 }) {
   const lineas = lineasDeFuera ?? historialDelChat(chat, pedidos, trabajos, respuestas, turnos, preguntasChat);
+  const bloque = preguntasParaElBloque(lineas);
+  const deLaApp = preguntasDeLaApp(lineas);
   // Lo que dijo el micrófono si no pudo (permiso, transcripción): va en la línea de estado de la caja.
   const [faltaMic, setFaltaMic] = useState<string | null>(null);
   useEffect(() => { setFaltaMic(null); }, [chat.clave]);
@@ -202,6 +206,11 @@ export function Conversacion({
         {/* Lo que el empleado espera de Martín, arriba de la caja, como AskUserQuestion de Claude Code (Pregunta.tsx).
             La que se contesta se va de acá y queda en la conversación. */}
         {preguntas.length > 0 && <Pregunta key={chat.clave} preguntas={preguntas} responder={responder} />}
+        {/* Lo que ESTE chat le pregunta, de a una y como en Claude (22/10/2026, PreguntasDelChat.tsx): las de `cartero preguntar` y
+            los botones del cierre con wrap_up se contestan acá (quedan en el hilo como «Decisión: …»); las de AskUserQuestion se
+            ven, y se contestan en la app de Claude. */}
+        {deLaApp.length > 0 && <PreguntasDeLaApp key={`a-${chat.clave}`} preguntas={deLaApp} />}
+        {onResponder && bloque.length > 0 && <PreguntasDelChat key={`p-${chat.clave}`} preguntas={bloque} onResponder={responderPregunta} />}
         {envio.puede ? (
           <div className="co-caja">
             {/* La caja ÚNICA (app/_chat/CajaChat.tsx, 20/10/2026): la misma en toda la app. Arriba, la cita del mensaje que se
