@@ -984,3 +984,39 @@ Llamada Mau <> Martín del 22/10 (Fathom 195129619, 01:42:50-01:46:05). Mauricio
 `lib/offer-sesiones.ts` (`aFila`) · `lib/offer-ia.ts` · `tests/offer-sprint-mauricio.test.ts` (25 roturas, las 25 cazadas)
 
 *22/10/2026, chat «Offer» (claude3).*
+
+## Un archivo subido en Offer pisaba el perfil del negocio (22/10/2026, P0, cliente roto)
+
+- **Síntoma.** A Mauricio (ws1) su perfil del negocio le quedó con el Sprint: «Sprint de Diseño para la Ejecución
+  Empresarial» como oferta principal, la promesa, lo que incluye y el avatar del Sprint, y otro «qué hace el negocio». Lo
+  leen ~20 features (las automatizaciones, los mensajes de los envíos). Lo encontró la prueba de los chats del Cerebro en
+  el ws3; medido en el ws1: `mako.onboarding.answers` se escribió a las 04:08:26 UTC, cuando subió en Offer el guion y
+  la landing del Sprint (7 claves: `oferta_nombre`, `oferta_promesa`, `oferta_incluye`, `avatar_quien`, `avatar_dolor`,
+  `avatar_deseo`, `negocio_que_hace`). La oferta principal es `desde_brief`, así que «Negocio que Escala» se leía con la
+  promesa del Sprint.
+- **Causa.** Cada archivo del chat de Offer pasa por El Archivero (`registrarDocumentoSinPisar`, decisión del 15/10), y
+  `answersConDocumento` sumaba sus claves al perfil con «el más nuevo gana», como un recálculo del Archivero. El
+  diagnóstico equivocado era de qué es un documento de Offer: describe la oferta que se ANALIZA, no el negocio. Y no
+  alcanzaba con dejar de pisar el perfil: la fila del archivo guardaba todos sus `campos`, y el próximo recálculo del
+  Archivero (`computeEffective`, el más nuevo gana) los volvía a imponer.
+- **Ahora.** Un documento de Offer sólo LLENA lo que el perfil no tiene (ni a mano ni de otro documento), y su fila del
+  Archivero guarda sólo lo que llenó. Lo fija `tests/offer-archivero.test.ts` (con el caso del Sprint).
+- **La restauración del ws1 (autorizada por el Cerebro, 22/10 ~07:55 UTC).** No hay historial de `app_settings`. La fuente
+  de cada clave fue el último valor antes de las 04:05: una edición del dueño a esas claves va a `mako.archivero.manual`
+  («una puerta por campo», lib/api-mako/areas/negocio.helpers.ts), que no cambió desde el 29/07 ni tiene ninguna; el único
+  archivo anterior es el del 29/07 («Avatar_Dolores_Oferta_DOS_v2 (2).pdf»), y la conversación de Offer del 18/10 nació
+  con su promesa y lo que incluye. Se escribió en una transacción con compare-and-set sobre el valor exacto: las 7 claves
+  del perfil y los `campos` de las 4 filas del Sprint sin esas claves. Releído: el resto del perfil igual, un recálculo
+  del Archivero da lo mismo, «Negocio que Escala» se lee con su promesa y el Sprint (oferta 24, su propia fila: no es
+  `desde_brief`) con la suya. Backup, script y foto del después: en las notas del Cerebro,
+  `side-session-notes/local_428051c1-…/restauracion-ws1-2210/`.
+
+**Regla (AGENTS.md):** un documento nuevo nunca pisa un dato que ya tenía el negocio.
+
+**Lo que quedó SIN hacer:** las filas del Sprint conservan `oferta_ticket` (lo tapa el valor manual del dueño). Otros
+negocios que hayan subido archivos en Offer desde el 15/10 pueden tener el perfil pisado igual: no se midió.
+
+**Vive en:** `lib/archivero-registro.ts` (`answersConDocumento`) · `lib/archivero.ts` (`registrarDocumentoSinPisar`) ·
+`tests/offer-archivero.test.ts`
+
+*22/10/2026, chat «Offer» (claude3).*
