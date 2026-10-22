@@ -426,7 +426,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   };
 
   /** Lo escrito en una conversación de Offer va a SU motor (motor-offer.ts). Tocar «Armar mi oferta» la arma, como en la tab. */
-  const mandarAOffer = async (idU: string, mensaje: string) => {
+  const mandarAOffer = async (idU: string, mensaje: string, archivos: readonly ArchivoElegido[] = []) => {
     const s = offerRef.current;
     if (!s) return;
     setTrabajo({ desde: Date.now() });
@@ -438,7 +438,8 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
         if (a.ok) await ponerOffer(a.sesion); else setFaltaMic(a.error);
         return;
       }
-      const r = await turnoOffer(s.id, mensaje, s.mensajes, respuestaDeOffer(s.mensajes, mensaje));
+      // Con los archivos del «+» (OC7): se suben y se leen en ESTA conversación antes del turno, como en la tab.
+      const r = await turnoOffer(s.id, mensaje, s.mensajes, respuestaDeOffer(s.mensajes, mensaje), archivos.map((a) => a.file));
       if (r.sesion && offerRef.current?.id === s.id) await ponerOffer(r.sesion);
       // Con la conversación de vuelta, lo dicho ya quedó guardado: el error va en la línea de estado y no se reintenta.
       if (!r.ok && !r.sesion) marcar(idU, { estado: 'error', error: r.error });
@@ -461,7 +462,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
     envios.current.set(idU, { texto: t, archivos: [...archivos] });
     const locales = archivos.map((a) => ({ nombre: a.file.name, tipo: a.tipo, local: a.url }));
     setItems((xs) => [...xs, { k: 'msg', id: idU, role: 'user', texto: t, at: new Date().toISOString(), estado: 'enviando', ...(locales.length ? { archivos: locales } : {}) }]);
-    if (idOffer != null) void mandarAOffer(idU, t); else void mandar(idU, t, archivos);
+    if (idOffer != null) void mandarAOffer(idU, t, archivos); else void mandar(idU, t, archivos);
     return true;
   };
 
