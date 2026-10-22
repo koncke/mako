@@ -26,7 +26,9 @@ import { nombreCuota } from './pagos-campo';
 import { anularLinksDeCuota } from './cobros';
 import { centavos } from './pagos-diferencia';
 
-export type ResultadoBaja = { ok: true; cuotas: number; usd: number; resumen: string } | { ok: false; error: string };
+/** `ids`: las cuotas que dio de baja ESTA llamada (las de un link vivo no): lo que guarda el reembolso de un plan para que su
+ *  deshacer devuelva sólo ésas y no las que alguien dio de baja a mano (cuarta revisión de plata de «Vincular cobro»). */
+export type ResultadoBaja = { ok: true; cuotas: number; usd: number; resumen: string; ids?: number[] } | { ok: false; error: string };
 
 const usd = (n: number): string => `US$ ${centavos(n).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
 /** «cuota 3 y cuota 4» · «el inicial, cuota 1 y cuota 2». */
@@ -90,7 +92,7 @@ export async function darDeBajaCliente(leadId: number, autor: string, crm: Crm =
   const total = centavos(hechas.reduce((s, q) => s + Number(q.monto_usd), 0));
   const faltaron = objetivo.length - hechas.length;
   await logLeadEvent(leadId, 'Baja del cliente', `Se dio de baja. Quedó sin cobrar ${usd(total)} (${cuales(hechas)}): no es deuda y no se le recuerda. Lo cobrado queda.${faltaron ? ` ${faltaron} cuota(s) no se dieron de baja porque tenían un link que no se pudo anular.` : ''}`, autor);
-  return { ok: true, cuotas: hechas.length, usd: total, resumen: `Se dio de baja: ${usd(total)} sin cobrar dejan de ser deuda.${faltaron ? ` ${faltaron} cuota(s) siguen: tienen un link sin anular.` : ''}` };
+  return { ok: true, cuotas: hechas.length, usd: total, ids: hechas.map((q) => Number(q.id)), resumen: `Se dio de baja: ${usd(total)} sin cobrar dejan de ser deuda.${faltaron ? ` ${faltaron} cuota(s) siguen: tienen un link sin anular.` : ''}` };
 }
 
 /** Deshace la baja: cada cuota vuelve a ser deuda con su vencimiento. Los links anulados no vuelven (se crea otro). */
