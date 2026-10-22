@@ -272,7 +272,27 @@ export type FilaDelCliente = {
 };
 
 type ConTitulo = { id: number; titulo: string | null; updatedAt: string };
+/** Un chat de antes o de una tab: su clave (de ahí sale de dónde viene) o su origen ya dicho por el servidor («Ficha · Ana»). */
+type DeAntes = ConTitulo & { clave?: string; origen?: string | null };
 const ms = (iso: string | null | undefined): number | null => { const t = iso ? Date.parse(iso) : NaN; return Number.isFinite(t) ? t : null; };
+/**
+ * De DÓNDE viene un chat, por su clave (22/10/2026, OC4: «cada chat dice de dónde viene»). Medido ese día en chart_sessions: 68
+ * del CRM (`mako-movil:<persona>:crm:<id>`, que el Ops Center no listaba nunca), los de los gráficos del Dashboard
+ * (`dashboard:…`, `comercial-…`, `marketing-…`), los de un anuncio o una campaña (`ad-detail-…`, `mkt-campaign-…`) y el de las
+ * secuencias de WhatsApp. null = no se sabe (se muestra sólo el título).
+ */
+export function origenDeClave(clave: string | null | undefined): string | null {
+  const k = String(clave ?? '');
+  if (/^mako-movil:[^:]+:crm:\d+$/.test(k)) return 'CRM';
+  if (/^mako-movil:[^:]+:lead:\d+$/.test(k)) return 'Ficha';
+  if (/^(dashboard:|comercial-|marketing-(?!ad-))/.test(k)) return 'Dashboard';
+  if (/^(ad-detail-|mkt-campaign-|marketing-ad-)/.test(k)) return 'Ads';
+  if (/^whatsapp-/.test(k)) return 'Automations';
+  return null;
+}
+/** El título de una fila con su origen adelante («CRM › Seguimiento de Ana»), con la forma «Origen › título» de la casa. */
+export const conOrigen = (origen: string | null | undefined, titulo: string): string => (origen ? `${origen} › ${titulo}` : titulo);
+
 /** La criatura de una conversación de Offer: la del área Offer (lib/centro-munecos.ts → EQUIPO), con su cara por el título. */
 export const criaturaDeOffer = (titulo: string): string => `Offer › ${titulo}`;
 
@@ -280,7 +300,7 @@ export const criaturaDeOffer = (titulo: string): string => `Offer › ${titulo}`
  *  búsqueda no esconde al Cerebro (es la casa). `grupo`: el grupo de WhatsApp de MaKo del negocio, de SÓLO LECTURA y sólo del
  *  admin (22/10/2026, OC3: el lector existía y nadie lo llamaba; lib/chat-mako-indice.ts → grupoDeMaKo, que ya corta al resto). */
 export function listaDelCliente(p: {
-  sesiones: readonly SesionChat[]; offer: readonly ConTitulo[]; antes: readonly ConTitulo[]; busca: string;
+  sesiones: readonly SesionChat[]; offer: readonly ConTitulo[]; antes: readonly DeAntes[]; busca: string;
   grupo?: { titulo: string; ultimoAt: string | null } | null;
 }): FilaDelCliente[] {
   const { jefe, subs } = arbolDelJefe(p.sesiones);
@@ -296,8 +316,11 @@ export function listaDelCliente(p: {
       return { clave: `o${o.id}`, elegido: { offer: o.id }, titulo, criatura: criaturaDeOffer(titulo), actividad: ms(o.updatedAt), origen: 'offer' };
     }),
     ...p.antes.map((a): FilaDelCliente => {
-      const titulo = a.titulo?.trim() || 'Chat de antes';
-      return { clave: `a${a.id}`, elegido: { antes: a.id }, titulo, criatura: titulo, actividad: ms(a.updatedAt), origen: 'antes' };
+      // Con su origen adelante (OC4): «CRM › …», «Dashboard › …», «Ficha · Ana › …». La criatura es la de su área.
+      const origen = a.origen ?? origenDeClave(a.clave);
+      // Sin título, su origen solo («CRM»): medido el 22/10, la mitad de los del CRM no tienen título.
+      const titulo = a.titulo?.trim() ? conOrigen(origen, a.titulo.trim()) : origen ?? 'Chat de antes';
+      return { clave: `a${a.id}`, elegido: { antes: a.id }, titulo, criatura: origen ?? titulo, actividad: ms(a.updatedAt), origen: 'antes' };
     }),
     ...(p.grupo ? [{ clave: 'grupo', elegido: { grupo: true } as const, titulo: p.grupo.titulo, criatura: TITULO_GRUPO, actividad: ms(p.grupo.ultimoAt), origen: 'grupo' as const }] : []),
   ]

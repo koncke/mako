@@ -2067,6 +2067,23 @@ hoja (una hoja sobre otra la cierra). Tres cosas que costaron:
 - **La foto en un mensaje de Offer es la de quien MIRA** (`MiFoto`, /api/perfil): para el dueño es la suya; el super admin que mira
   un cliente ve la propia en lo que escribió el dueño. Offer no guarda quién escribió cada mensaje.
 
+## Cada chat dice de dónde viene, y los del CRM se ven en el Ops Center (22/10/2026, OC4)
+
+La lista del Ops Center del cliente pintaba «de antes» sólo con el título y listaba los chats de la persona por la clave
+EXACTA (`mako-movil:<persona>`): los del CRM (`…:crm:<id>`) y los de la ficha de un lead (`…:lead:<id>`) no salían en ningún
+lado, y «de antes» saca a propósito todo `mako-movil:%`. Código: lib/chat-mako-reglas.ts (`origenDeClave`, `conOrigen`),
+lib/chat-mako-indice.ts (`chatsDeLasTabs`, `claveDeTab`), app/api/mako/chat/route.ts. Test: tests/ops-center-origen.test.ts.
+
+- **Medido en chart_sessions ese día:** 274 sesiones. 185 son el chat de cada persona, 68 son del CRM (TODAS de una persona del
+  ws3, de las pruebas) y ninguna es de la ficha todavía. El resto son de antes: gráficos del Dashboard (`dashboard:…`,
+  `comercial-…`, `marketing-…`), Ads (`ad-detail-…`, `mkt-campaign-…`) y las secuencias de WhatsApp. El origen se saca de
+  esas formas, no de una lista inventada.
+- **Un chat de una tab se sigue IGUAL que uno de antes:** la ruta prueba la regla de antes y, si no, si la clave es de una tab de
+  ESTA persona (`claveDeTab`). La pantalla no cambió de motor: sólo el título, «CRM › …» o «Ficha · Ana › …».
+- **El prefijo lleva su «:»:** `listSessionsDePersona('mako-movil:ana')` es un LIKE `ana%` que traería también a `anabel`.
+- **La mitad no tiene título:** sin él, la fila dice sólo su origen («CRM»), no «CRM › Chat de antes».
+- «Conectar tu Claude» pasó a «Conectar tu IA»: el negocio puede conectar Claude o GPT.
+
 ## MaKo en WhatsApp en el Ops Center: el lector existía y nadie lo llamaba (22/10/2026, OC3)
 
 El grupo de WhatsApp de MaKo de cada negocio (`mako_doer_conv` con el jid de `getGrupoJidMaKo`) tenía su lector desde la tanda

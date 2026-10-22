@@ -137,7 +137,8 @@ test('4. la caja es la ÚNICA y lo escrito va al motor de cada chat', () => {
 test('5. un chat de antes se sigue con la regla de quién lo ve, y el turno corre sobre ESA sesión', () => {
   const r = sinComentarios(leer('app/api/mako/chat/route.ts'));
   const f = r.slice(r.indexOf('async function personaDelChat('), r.indexOf('export async function GET'));
-  assert.match(f, /const q = await quienChateaDelRequest\(\);\s*const chartKey = q \? await claveDeAntes\(q, sessionId\) : null;\s*return chartKey \? \{ \.\.\.persona, chartKey \} : null;/);
+  // Y si no es de antes, uno de una tab de ESTA persona (OC4, 22/10/2026: tests/ops-center-origen.test.ts).
+  assert.match(f, /const q = await quienChateaDelRequest\(\);\s*const chartKey = \(q \? await claveDeAntes\(q, sessionId\) : null\) \?\? await claveDeTab\(persona, sessionId\);\s*return chartKey \? \{ \.\.\.persona, chartKey \} : null;/);
   const post = r.slice(r.indexOf('export async function POST'));
   assert.match(post, /const quien = await personaDelChat\(persona, sessionId, body\.antes\);\s*if \(!quien\) return json\(\{ ok: false, error: 'No encuentro ese chat\.' \}, 404\);/);
   assert.match(post, /await turnoApp\(quien, sessionId, \{ mensaje, contexto/, 'el turno, con la sesión de antes');
@@ -189,7 +190,7 @@ test('7. «Conectar tu Claude» al final de la caja, sólo si la persona todaví
   assert.match(f, /\} catch \{\s*return true;/, 'sin saberlo, no se le pide');
   const caja = sinComentarios(leer('app/_chat/CajaChat.tsx'));
   assert.ok(caja.indexOf('{p.alFinal}') > caja.indexOf('<textarea') && caja.indexOf('{p.alFinal}') < caja.indexOf('<BotonMandar'), 'al final, antes del botón');
-  assert.match(sinComentarios(leer('app/second-brain/PiezasCliente.tsx')), /alFinal=\{k\.iaConectada === false \? \(\s*<button type="button" className="co-chip co-conectar-ia" onClick=\{\(\) => k\.setConectando\(true\)\}>Conectar tu Claude<\/button>/);
+  assert.match(sinComentarios(leer('app/second-brain/PiezasCliente.tsx')), /alFinal=\{k\.iaConectada === false \? \(\s*<button type="button" className="co-chip co-conectar-ia" onClick=\{\(\) => k\.setConectando\(true\)\}>Conectar tu IA<\/button>/);
   // Sólo se pregunta fuera del Ops Center del super admin (`activo`): ahí contesta la IA de la plataforma.
   assert.match(sinComentarios(leer('app/second-brain/useChatCliente.ts')), /useEffect\(\(\) => \{ if \(activo\) mirarSuIA\(\); \}, \[activo, mirarSuIA\]\);/);
   assert.match(sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx')), /<Modal titulo="Tus cuentas de IA" onCerrar=\{\(\) => \{ k\.setConectando\(false\); k\.mirarSuIA\(\); \}\} ancho=\{640\}>\s*<TusCuentasIA sinCabecera \/>/, 'sin salir de la tab');

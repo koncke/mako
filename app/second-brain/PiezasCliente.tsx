@@ -71,7 +71,7 @@ export function CajaDelCliente({ k, campo, seguir, movil = false }: {
       hayAlgoMas={k.pegados.length > 0} onPegar={k.pegarLargo}
       // Sin su Claude o su GPT, el botón para conectarlo, al final de la caja (se abre acá mismo: «Tus cuentas de IA»).
       alFinal={k.iaConectada === false ? (
-        <button type="button" className="co-chip co-conectar-ia" onClick={() => k.setConectando(true)}>Conectar tu Claude</button>
+        <button type="button" className="co-chip co-conectar-ia" onClick={() => k.setConectando(true)}>Conectar tu IA</button>
       ) : null}
       arriba={<>
         {k.cita && <CitaCaja cita={k.cita} onQuitar={() => k.setCita(null)} />}
