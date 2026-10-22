@@ -67,6 +67,8 @@ import { TicketeraCentro } from '@/app/admin/operaciones/TicketeraCentro';
 import { esVistaTicketera, type VistaDeTicketera } from '@/app/tickets/decisiones/reglas';
 import { cerebroDelCentro } from '@/app/tickets/bandeja/cerebro';
 import { useTicketsPorDecidir } from '@/app/tickets/bandeja/usarContador';
+import { useMisTickets } from '@/app/tickets/usarMisTickets';
+import { TicketeraDelCliente } from './TicketeraDelCliente';
 import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operaciones/MensajeWA';
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 import { VolverDelGrafo } from './volver';
@@ -220,6 +222,10 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   }, [qTicketera, ops]);
   // Los tickets de los usuarios que esperan a Martín: el número del botón (17/10/2026, app/tickets/bandeja/).
   const ticketsPorDecidir = useTicketsPorDecidir(ops);
+  // La Ticketera del CLIENTE (22/10/2026, Martín: «Que el Ops Center de clientes sea IGUAL que el de SuperAdmin, que tengan su
+  // ticketera»): sus tickets, con su número (los que esperan su respuesta), en el mismo lugar que la del super admin.
+  const misTickets = useMisTickets(!ops);
+  const [ticketsCliente, setTicketsCliente] = useState(false);
   const abrirTicketera = (v: VistaDeTicketera) => { setNuevoCentro(false); setTicketera(v); setConChat(true); anotarParam('ticketera', v); };
   const cerrarTicketera = () => { setTicketera(null); anotarParam('ticketera', null); };
 
@@ -233,6 +239,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
     if (!k.elegir(e)) return;
     setNuevoCentro(false);
     setConChat(true);
+    setTicketsCliente(false);
     // Con el Mapa abierto, volver a una conversación es volver a la página sin `panel` (lo arma el servidor).
     if (mapa) {
       router.push('id' in e ? `${base}?chat=${e.id}` : 'offer' in e ? `${base}?offer=${e.offer}` : 'antes' in e ? `${base}?antes=${e.antes}`
@@ -303,6 +310,14 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
               {(ticketsPorDecidir ?? 0) > 0 && <span className="co-acceso__n">{ticketsPorDecidir}</span>}
             </button>
           )}
+          {/* La del cliente: el mismo botón, con los suyos (los que esperan su respuesta, en el número). */}
+          {!centro && !misTickets.fueraDelPlan && (
+            <button type="button" className="co-acceso co-acceso--ticketera" aria-pressed={ticketsCliente}
+              onClick={() => { setTicketsCliente((v) => !v); setConChat(true); }}>
+              <Icon name="soporte" size={17} />Ticketera
+              {misTickets.esperanTuRespuesta > 0 && <span className="co-acceso__n">{misTickets.esperanTuRespuesta}</span>}
+            </button>
+          )}
           {centro && (
             <button type="button" className="co-acceso" aria-pressed={mapa != null && !ticketera} onClick={irAlSecondBrain}>
               <Icon name="cerebro" size={17} />Second Brain
@@ -361,6 +376,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
 
       {centro && ticketera ? (
         <TicketeraCentro cerebro={cerebroDelCentro(centro)} onVolver={() => { cerrarTicketera(); setConChat(false); }} />
+      ) : !centro && ticketsCliente ? (
+        <TicketeraDelCliente mis={misTickets} onVolver={() => { setTicketsCliente(false); setConChat(false); }} />
       ) : mapa ? (
         // El grafo trae su cabecera («Second Brain», siempre en oscuro: VistaCerebro.tsx); el «volver» de la ventana
         // angosta le llega por contexto, porque el grafo lo arma el servidor y una función no viaja de ahí (volver.ts).

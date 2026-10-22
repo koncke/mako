@@ -28,6 +28,7 @@ import { useChatCliente } from '@/app/second-brain/useChatCliente';
 import { CajaDelCliente, HiloDelCliente, estadoDelCliente } from '@/app/second-brain/PiezasCliente';
 import { edadCorta, esFilaDe, jefeDelGrupo, type ElegidoChat } from '@/lib/chat-mako-reglas';
 import { aspectoDeChat } from '@/lib/centro-munecos';
+import { useMisTickets } from '@/app/tickets/usarMisTickets';
 import type { SesionChat } from '@/lib/mako-turno-app-reglas';
 
 /** Cuántos chats se ven antes de «Ver todos» (los de ChatsMovil.tsx). */
@@ -51,6 +52,8 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
   const caja = useRef<HTMLTextAreaElement>(null);
   const hilo = useRef<HTMLDivElement>(null);
   const k = useChatCliente({ elegido, setElegido, activo: true, entrarAlCerebro: false, chatInicial, opcionArmar, busca: '', caja, sesionesIniciales });
+  // Su Ticketera: el número de la fila (los que esperan su respuesta).
+  const misTickets = useMisTickets(true);
 
   // Como un chat: abre en lo último. La hoja monta su cuerpo en un portal y lo mide después del primer pintado, así que se baja
   // en el cuadro siguiente (el mismo cuidado que ChatsMovil.tsx).
@@ -88,6 +91,11 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
     <>
       {/* El grafo del negocio, arriba de los chats (como «Second Brain» en el Ops Center del super admin). */}
       {hrefMapa && <ListaM etiqueta="Second Brain"><FilaM navegacion titulo="Second Brain" icono="cerebro" href={hrefMapa} /></ListaM>}
+      {/* Su Ticketera (22/10/2026), como la del Ops Center del super admin en el teléfono: levantar uno y ver los suyos. */}
+      {!misTickets.fueraDelPlan && <ListaM etiqueta="Ticketera">
+        <FilaM navegacion titulo="Ticketera" icono="soporte" href="/m/tickets"
+          segunda={misTickets.esperanTuRespuesta > 0 ? `${misTickets.esperanTuRespuesta} esperan tu respuesta` : 'Tus tickets'} />
+      </ListaM>}
       <SeccionM titulo="Chats">
         <ListaM etiqueta="Chats">
           <FilaM leading={<CirculoNuevo size={40} />} titulo="Nuevo chat" onClick={() => abrir({ virtual: 'nuevo' })} navegacion />
