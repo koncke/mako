@@ -1020,11 +1020,24 @@ Misma llamada (Fathom 195129619) y misma conversación medida (ws1, id 18), más
 - **El selector (O12)** abría «parado en lo elegido» (decisión CRON 4 del Dropdown de la casa): adentro del funnel de la
   conversación abierta. Ahora Offer lo abre en la raíz (`abrirEnLaRaiz`, prop nueva; el resto de la app, igual).
 - **«¿Cuál es el propósito?» (O13):** el mensaje del PDF y el de «Así está bien» lo dicen (`PARA_QUE_SIRVE`).
+- **«Los analizo y te aviso» (O9):** con 3 o más archivos sin leer, la pantalla los sube y manda `leer-lote`; el servidor
+  anota «Estoy leyendo tus N documentos… te aviso cuando termine» (`mensajeLeyendo`, un campo `leyendo` en el mensaje:
+  sin migración), contesta al toque y en un `after()` lee cada uno con la MISMA `leer` de uno por uno (el .zip, las
+  partes, El Archivero), manda el turno con lo que escribió el dueño y recién DESPUÉS saca el «estoy leyendo»: así la
+  pantalla, que relee mientras lo ve, sigue hasta que llega la respuesta. Lo que no se pudo leer queda dicho en su
+  lugar (`resumenDelLote`). Mientras, en esa conversación no entra otro turno (409, salvo el del lote: `delLote`), y el
+  «estoy leyendo» no viaja al modelo. Al terminar, la campanita de escritorio (`crearNotificacion`, link a
+  `/offer?sesion=`). Uno que pasó 15 min se da por cortado («Vuelve a mandarlos»).
+  Dos trampas: `sanearMensajes` es una LISTA BLANCA (sin `leyendo` ahí, la primera escritura lo borraba y la pantalla
+  dejaba de esperar), y un mensaje del dueño sin texto ni adjuntos se descarta: por eso el texto del dueño viaja ADENTRO
+  del «estoy leyendo» y su mensaje lo pega `turno` al final. Y `subir-url` rechazaba el .zip con 415 antes de subirlo
+  (el O8 sin esto no andaba).
 
 **Lo que quedó SIN hacer:**
-- **O9, «los analizo y te aviso»** con muchos documentos: pide leerlos en el servidor (como el armado) con un estado en la
-  fila y un evento de la plataforma nuevo con su fila en el ws 9. Camino de aviso que hay: `emitirEventoDePlataforma`
-  (WhatsApp del grupo, como `oferta_lista`) y la campanita de escritorio (`notificaciones`, lib/campanita.ts).
+- **El aviso de O9 por el WhatsApp del grupo:** no había camino. Pide un evento de la plataforma nuevo (como
+  `oferta_lista`: el catálogo de avisos, lib/disparadores.ts, sus variables) y su fila en el ws 9 con la mudanza. Hoy
+  avisa sólo la campanita.
+- **O9 no se vio en el navegador** ni contra Storage de verdad: el test fija lo puro y el cableado.
 - **O10, el micrófono que no muestra que graba**, vive en app/whatsapp/_shared/ComposerWhatsApp.tsx + VoiceRecorder.tsx
   (compartido con los chats de WhatsApp y el lienzo): no se tocó desde Offer.
 - **No se vio en el navegador** el selector abierto en la raíz ni el chip del .zip; el lector de afuera se probó con curl.
@@ -1035,6 +1048,8 @@ Misma llamada (Fathom 195129619) y misma conversación medida (ws1, id 18), más
 `esZip`, `PARA_QUE_SIRVE`, la garantía en `aplicarReglasPropuesta`) · `lib/offer-ia.ts` (`modelosRed`, el turno) ·
 `lib/offer-lector-externo.ts` · `lib/offer-zip.ts` · `lib/offer-marco.ts` (`loQueMeGusto`) · `app/api/offer/route.ts`
 (`leerLink`, `leer`, `responder`) · `app/components/Dropdown.tsx` (`abrirEnLaRaiz`) · `app/offer/SelectorFunnel.tsx` ·
-`app/offer/OfferApp.tsx`, `ChatOffer.tsx` (el .zip) · `tests/offer-mauricio-p1.test.ts` (24 roturas, las 24 cazadas)
+`app/offer/OfferApp.tsx`, `ChatOffer.tsx` (el .zip, `enviarLote`) · `app/api/offer/route.ts` (`leerLote`,
+`leerLotePorDetras`, el freno en `turno`) · `tests/offer-mauricio-p1.test.ts` (24 roturas, las 24 cazadas) ·
+`tests/offer-lote-documentos.test.ts` (13 roturas, las 13 cazadas)
 
 *22/10/2026, chat «Offer» (claude3).*

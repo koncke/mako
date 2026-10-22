@@ -222,6 +222,15 @@ export type OfferMensaje = {
    * `GET /api/offer/pdf?id=<sesión>&v=<version>` (con el `?ws=` de la pestaña, como el audio).
    */
   pdf?: { version: number };
+  /**
+   * En un mensaje de MaKo: «estoy leyendo tus documentos, te aviso» (22/10/2026, Mauricio, 39:44: con muchos documentos
+   * la pantalla quedaba esperando). Los lee el SERVIDOR (`leer-lote` en app/api/offer/route.ts); mientras está, la
+   * pantalla relee la conversación y no deja mandar otro mensaje en ésta. Al terminar el mensaje se va (o queda como
+   * el resumen de lo que no se pudo leer) y llega la respuesta. `texto` es lo que escribió el dueño con los archivos:
+   * viaja con ellos cuando terminan de leerse. `intento` es el de ESTA lectura (una vieja que termina tarde no toca
+   * otra).
+   */
+  leyendo?: { nombres: string[]; desde: string; intento: string; texto: string };
 };
 
 /** Qué sabe MaKo de cada pieza y de dónde lo sacó. */
@@ -483,6 +492,11 @@ export type OfferSesionVista = {
    * conclusión: el armado sigue aunque la persona cierre la pestaña.
    */
   armando: ArmadoVista | null;
+  /**
+   * Los documentos que el servidor está leyendo (`OfferMensaje.leyendo`, 22/10/2026), o null. `vencido`: pasaron más de
+   * `LECTURA_VENCE_MS` y se da por cortada (se puede volver a mandar).
+   */
+  leyendo: { nombres: string[]; vencido: boolean } | null;
 };
 
 /** El paso del armado de la oferta en el servidor. */

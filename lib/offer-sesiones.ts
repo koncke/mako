@@ -33,7 +33,7 @@ import {
 } from './offer-marco';
 import {
   INTENTOS_CAS, adjuntoDe, conclusionVisible, construirArbol, destinoDeLaOferta, esperaCAS, juntarLigas, ligadaParaVista, mensajeParaVista, ofertaDesdePropuesta, ofertaYaAnotada, primerMensaje,
-  sanearArmado, armadoParaVista, sanearDocumentos, sanearMensajes, sanearPiezas,
+  sanearArmado, armadoParaVista, sanearDocumentos, sanearMensajes, sanearPiezas, leyendoParaVista, TEXTO_LECTURA_CORTADA,
   type ArmadoOffer,
   type DocumentoGuardado, type MensajeGuardado, type SesionParaArbol,
 } from './offer-reglas';
@@ -144,7 +144,9 @@ export function vistaDe(f: FilaOffer, nombres: NombresSesion = {}): OfferSesionV
     id: f.id,
     titulo: f.titulo,
     estado: f.estado,
-    mensajes: f.mensajes.map((m) => mensajeParaVista(f.id, m)),
+    // Un «estoy leyendo» que se cortó deja de prometer el aviso (O9, 22/10/2026).
+    mensajes: f.mensajes.map((m) => mensajeParaVista(f.id, m.leyendo && leyendoParaVista([m], Date.now())?.vencido
+      ? (({ leyendo: _l, ...resto }) => ({ ...resto, texto: TEXTO_LECTURA_CORTADA }))(m) : m)),
     piezas: f.piezas,
     docs: f.documentos.map(adjuntoDe),
     // Lo guardado antes del 17/10/2026 sin los avisos del embudo de entonces (el «43%» sin fuente, tarjeta #888).
@@ -164,6 +166,7 @@ export function vistaDe(f: FilaOffer, nombres: NombresSesion = {}): OfferSesionV
     ligada: ligadaParaVista(f, nombres.ligada),
     guardadaEn: nombres.guardadaEn ?? [],
     armando: armadoParaVista(f.armado, Date.now()),
+    leyendo: leyendoParaVista(f.mensajes, Date.now()),
   };
 }
 

@@ -271,6 +271,8 @@ export function sanearMensajes(raw: unknown): MensajeGuardado[] {
     const respuesta = de === 'yo' ? sanearRespuesta(o.respuesta) : undefined;
     const linksSinLeer = de === 'yo' ? sanearLinksSinLeer(o.linksSinLeer) : [];
     const pdf = de === 'mako' ? sanearPdf(o.pdf) : undefined;
+    // Sin esta línea, «estoy leyendo tus documentos» se perdía en la primera escritura y la pantalla dejaba de esperar.
+    const leyendo = de === 'mako' ? sanearLeyendo(o.leyendo) : undefined;
     // Sin esta línea la selección múltiple se veía al llegar el turno y se perdía al reabrir la conversación.
     const varias = de === 'mako' && !pregunta && opciones.length > 1 && o.varias === true;
     out.push({
@@ -283,9 +285,61 @@ export function sanearMensajes(raw: unknown): MensajeGuardado[] {
       ...(respuesta ? { respuesta } : {}),
       ...(linksSinLeer.length ? { linksSinLeer } : {}),
       ...(pdf ? { pdf } : {}),
+      ...(leyendo ? { leyendo } : {}),
     });
   }
   return out;
+}
+
+function sanearLeyendo(raw: unknown): MensajeGuardado['leyendo'] {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.desde !== 'string' || typeof o.intento !== 'string' || !Array.isArray(o.nombres)) return undefined;
+  const nombres = o.nombres.filter((x): x is string => typeof x === 'string').slice(0, MAX_DOCS_LOTE);
+  return { nombres, desde: o.desde, intento: o.intento, texto: typeof o.texto === 'string' ? o.texto : '' };
+}
+
+// ── Muchos documentos: los lee el servidor y MaKo avisa (22/10/2026, O9) ─────────────────────────────────────────
+// Mauricio (llamada del 22/10, 39:44): «mientras analiza muchos documentos, que diga "los analizo y te aviso cuando
+// termine"» y dejar seguir usando la app. Con 3 o más archivos (`UMBRAL_LOTE`, app/offer/OfferApp.tsx), la pantalla los sube y manda `leer-lote`: el
+// servidor anota este mensaje, los lee en un `after()` (la misma lectura de uno por uno) y al terminar manda el turno
+// con lo que escribió el dueño y avisa en la campanita.
+
+/** Hasta cuántos en un lote (el tope de documentos de una conversación manda igual). */
+export const MAX_DOCS_LOTE = 12;
+/** Una lectura que lleva más que esto se cortó (el `maxDuration` de la ruta es 800 s). */
+export const LECTURA_VENCE_MS = 15 * 60_000;
+
+/** El mensaje de MaKo mientras lee. */
+export function mensajeLeyendo(p: { id: string; at: string; nombres: string[]; texto: string; intento: string }): MensajeGuardado {
+  const n = p.nombres.length;
+  const cuales = p.nombres.slice(0, 4).map((x) => `«${x}»`);
+  const lista = n > 4 ? `${cuales.join(', ')} y ${n - 4} más` : listaConY(cuales);
+  return {
+    id: p.id, de: 'mako', at: p.at,
+    texto: `Estoy leyendo tus ${n} documentos (${lista}). Te aviso cuando termine: mientras, puedes seguir usando MaKo.`,
+    leyendo: { nombres: p.nombres, desde: p.at, intento: p.intento, texto: p.texto },
+  };
+}
+
+/** La lectura en curso de una conversación, como la ve la pantalla: la del último mensaje que la tenga. */
+export function leyendoParaVista(mensajes: ReadonlyArray<Pick<MensajeGuardado, 'leyendo'>>, ahora: number): { nombres: string[]; vencido: boolean } | null {
+  const m = [...mensajes].reverse().find((x) => x.leyendo);
+  if (!m?.leyendo) return null;
+  const desde = Date.parse(m.leyendo.desde);
+  return { nombres: m.leyendo.nombres, vencido: !Number.isFinite(desde) || ahora - desde > LECTURA_VENCE_MS };
+}
+
+/** El texto de un «estoy leyendo» que se cortó: deja de prometer un aviso que no va a llegar. */
+export const TEXTO_LECTURA_CORTADA = 'Se cortó la lectura de tus documentos. Vuelve a mandarlos y los leo de nuevo.';
+
+/** Lo que dice MaKo de los que no pudo leer (queda en lugar del «estoy leyendo»). null si leyó todos. */
+export function resumenDelLote(p: { total: number; leidos: number; errores: string[] }): string | null {
+  if (!p.errores.length) return null;
+  const cuales = p.errores.slice(0, 4).join(' · ');
+  return p.leidos
+    ? `Leí ${p.leidos} de tus ${p.total} documentos. No pude con: ${cuales}. Si los necesitas, mándalos de nuevo.`
+    : `No pude leer tus documentos: ${cuales}. Prueba de nuevo, o pega el texto en el chat.`;
 }
 
 /** Los links que no abrieron, como los manda la pantalla o los guarda la base: sólo http(s), cinco como mucho. */
@@ -2899,10 +2953,12 @@ export const TOPE_DOCS_PROMPT = 24_000;
  * modelo lee como dato.
  */
 /** Lo que el prompt lee de un mensaje: le da igual si es la forma guardada o la de la pantalla. */
-export type MensajeParaPrompt = Pick<OfferMensaje, 'de' | 'texto' | 'adjuntos' | 'linksSinLeer'> & { audio?: unknown };
+export type MensajeParaPrompt = Pick<OfferMensaje, 'de' | 'texto' | 'adjuntos' | 'linksSinLeer' | 'leyendo'> & { audio?: unknown };
 
 export function conversacionParaPrompt(mensajes: MensajeParaPrompt[], max = MAX_MENSAJES_PROMPT): string {
-  const ult = mensajes.slice(-max);
+  // «Estoy leyendo tus documentos» es de la pantalla, no de la conversación: al modelo no le dice nada (O9, 22/10/2026).
+  const visibles = mensajes.filter((m) => !m.leyendo);
+  const ult = visibles.slice(-max);
   const lineas = ult.map((m) => {
     // «por audio»: el texto es una transcripción, y el modelo tiene que poder dudar de una palabra rara.
     const quien = m.de === 'yo' ? (m.audio ? 'DUEÑO (por audio)' : 'DUEÑO') : 'MaKo';
@@ -2915,7 +2971,7 @@ export function conversacionParaPrompt(mensajes: MensajeParaPrompt[], max = MAX_
     // que preguntaba por el precio que estaba en el tramo cortado. Lo de MaKo es corto por construcción.
     return `${quien}${adj}${sinLeer}: ${recortar(cuerpo, m.de === 'yo' ? 12_000 : 2_000)}`;
   });
-  if (mensajes.length > ult.length) lineas.unshift(`(Se omiten los ${mensajes.length - ult.length} mensajes más viejos.)`);
+  if (visibles.length > ult.length) lineas.unshift(`(Se omiten los ${visibles.length - ult.length} mensajes más viejos.)`);
   return lineas.join('\n');
 }
 
