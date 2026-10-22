@@ -325,6 +325,11 @@ export function ShellM({
         data-sin-barra={conBarra ? undefined : ''}
         data-trabajo={trabajo ? '' : undefined}
       >
+        {/* La entrada de MaKo va PRIMERA en el HTML (revisión del 22/10/2026): Chrome puede pintar mientras todavía lee el
+            documento, y si la capa venía al final —detrás del Centro entero— el primer cuadro podía ser el Centro. Primera,
+            lo primero que tiene para pintar es la capa. Arriba de todo la pone su z-index, no el orden. */}
+        {entrada && <EntradaApp destino={`[${DESTINO_ENTRADA}]`} onFin={finEntrada} />}
+
         <header className="m-cabecera" ref={cabeceraRef} data-fuera={fuera ? '' : undefined}>
           <div className="m-cabecera__fila">
             <div className="m-cabecera__lado">
@@ -407,8 +412,6 @@ export function ShellM({
         {/* Los sheets se montan acá (portal): fuera del contenido, que se
             mueve al navegar y al tirar para refrescar. */}
         <div id="m-capas" />
-
-        {entrada && <EntradaApp destino={`[${DESTINO_ENTRADA}]`} onFin={finEntrada} />}
 
         <div className="m-toast-capa" aria-live="polite">
           {toast && (

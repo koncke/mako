@@ -45,9 +45,10 @@ segundos, y recién ahí la animación de la criatura. Martín quiere ver SÓLO 
   del login) se iba en el acto.
 
 **Lo que se hizo:** la entrada es `EntradaApp` (app/m/_ui), dibujada por el server con CSS en línea. ShellM la hace nacer
-prendida. Su primer cuadro es el splash copiado: medido contra la captura en Chromium a 411×882 @2,625, la diferencia
-media es de 1,6/255, ruido de JPEG. Después la baldosa se va y la chispa se vuelve la criatura, que flota y parpadea.
-Cuando React hidrató (su efecto), y nunca antes de 1 s, vuela a su lugar en la barra en 420 ms. Con movimiento reducido
+prendida y la pone PRIMERA en el shell. Su primer cuadro es el splash copiado: medido contra la captura en Chromium a
+411×882 @2,625, la diferencia media es de 1,6/255, ruido de JPEG. Después la baldosa se va y la chispa se vuelve la
+criatura, que flota y parpadea. Cuando React hidrató Y la página terminó de llegar (`paginaLista`, ver la revisión de
+abajo), nunca antes de 1 s y como mucho a los 15 s, vuela a su lugar en la barra en 420 ms. Con movimiento reducido
 queda quieta (sólo fundidos). Sin JavaScript, el CSS la saca a los 15 s. Un script de antes de pintar
 (`ARRANQUE_ANTES_DE_PINTAR`) la apaga si ya salió en esta apertura y corrige el centro en la app instalada. El
 `background_color` del manifest sale de la misma constante que el fondo de la entrada.
@@ -74,9 +75,47 @@ queda quieta (sólo fundidos). Sin JavaScript, el CSS la saca a los 15 s. Un scr
   texto y un `<script>`.
 
 **Vive en:** `app/m/_ui/EntradaApp.tsx` · `app/m/_ui/entrada.ts` (medidas, `ARRANQUE_ANTES_DE_PINTAR`, `trazoForma`) ·
-`app/m/_ui/ShellM.tsx` · `app/m/layout.tsx` · `app/manifest.ts` · test: `tests/movil-entrada.test.ts`
+`app/m/_ui/ShellM.tsx` · `app/m/layout.tsx` · `app/manifest.ts` · tests: `tests/movil-entrada.test.ts`,
+`tests/movil-entrada-salida.test.ts`
 
-*22/10/2026, pedido de Martín desde el Ops Center (claude3).*
+### La revisión adversarial del mismo día: tres agujeros que los tests (regex sobre el fuente) no veían
+
+- **«El efecto corrió = la app está lista» es falso con streaming.** El efecto de EntradaApp corre cuando React hidrata el
+  SHELL. En una ruta con `loading.tsx` —la entrada de los CLIENTES (`/second-brain`, su «Ops Center»), y /crm, /inbox,
+  /plan, /chats… al abrir un aviso— el server manda primero el layout con el esqueleto, el shell hidrata enseguida y la
+  página llega después por el stream. La criatura se iba al segundo y dejaba a la vista el esqueleto a medio cargar: el
+  mismo reclamo de Martín, en el camino de los clientes. En el de Martín (super admin → /m/operaciones, sin `loading.tsx`)
+  no se notaba, por eso pasó. Ahora espera además a `paginaLista`: `readyState` ya no es `'loading'` (el stream cerró) y no
+  queda ningún comentario `<!--$?-->` (borde de Suspense cuyo contenido no llegó) ni `<!--$~-->`. **La trampa del `$~`:**
+  React 19.2 (también el que trae Next 16 en `next/dist/compiled`) JUNTA las revelaciones: `$RC` marca el borde `$~` y lo
+  revela `$RV` en el próximo cuadro o hasta 300 ms después (`$RT+300`; si cae entre los 2,0 y 2,3 s de la navegación, espera
+  a los 2,3 s). Mirar sólo `$?` destapa un esqueleto que ya llegó pero todavía no se ve. Comprobado en Chrome headless
+  (`--dump-dom`): durante el parseo da no-lista, con `$?` y con `$~` también, con `$` lista.
+- **«Está en el HTML del server» no es «es lo primero que se pinta».** La capa venía AL FINAL del shell, detrás del Centro
+  entero (en el SSR de ShellM: la capa en el carácter 1.870, el contenido en el 373). Chrome pinta por tandas mientras lee
+  el documento, y el splash de la WebAPK se va en el primer pintado con contenido: ese cuadro podía ser el Centro. Ahora es
+  el primer hijo de `.m-shell`; arriba la pone su z-index, no el orden.
+- **Un `useEffect` que saca algo ya visto corre DESPUÉS de pintar.** Si ShellM se vuelve a montar navegando (ida y vuelta
+  por /mi-curso, /onboarding: fuera del layout de /m), la entrada nace prendida y la marca de sessionStorage la saca en el
+  efecto, un cuadro tarde: se veía un parpadeo de la baldosa. El script de antes de pintar no ayuda (corre una vez por
+  documento). Al irse, la entrada marca `<html>` con el mismo atributo (`marcarDocumento`) y el CSS la apaga desde el
+  primer cuadro.
+- **Lo que engaña de los tests:** (a) jsdom está en `node_modules` pero NO en package.json y le falta una dependencia
+  (`@asamuzakjp/css-color`): `import 'jsdom'` revienta. No hay DOM para hidratar en node; la salida vive en funciones con el
+  navegador inyectado (`programarSalida`, `paginaLista`, `marcarDocumento`) y se corre con un reloj falso. (b) ShellM SÍ se
+  puede dibujar en node con `renderToString` dándole `AppRouterContext`, `PathnameContext` y `SearchParamsContext`: así se
+  prueba lo que ve el teléfono, no el fuente. (c) Un test escrito como `reloj(MS_MINIMO - 300)` se mueve con la constante:
+  con `MS_MINIMO = 0` seguía verde. El número de la regla va escrito a mano.
+
+**Reglas que suma:** una pantalla que tapa la carga se va cuando la PÁGINA llegó (`paginaLista`), no cuando hidrató su
+componente; lo que tapa va primero en el HTML; lo que «ya se vio» se apaga por CSS desde un atributo de `<html>`, nunca
+sólo en un efecto.
+
+**Sin hacer (revisión):** con el tema OSCURO, ShellM pinta la meta `theme-color` oscura al hidratar mientras la capa clara
+sigue arriba: la barra de estado se oscurece ~1 s antes que la app (`pintarBarraDelSistema`, app/m/_ui/ShellM.tsx). Sin ver
+en el teléfono: ni la salida nueva ni el orden.
+
+*22/10/2026, pedido de Martín desde el Ops Center (claude3); revisión adversarial el mismo día (claude3).*
 
 ## «Siempre que entro me sale el reload» y la entrada de MaKo que nunca se veía (21/10/2026, 22:54, Android de Martín)
 

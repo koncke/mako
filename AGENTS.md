@@ -9558,6 +9558,10 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
   (app/m/_ui) y su primer cuadro COPIA el splash de Android, que es el ícono MASKABLE sobre `background_color`: cambiar
   `public/icon-maskable-512.png` cambia el splash y la pantalla de inicio a la vez, y obliga a medir de nuevo
   `app/m/_ui/entrada.ts` (tests/movil-entrada.test.ts fija su huella). Un script de antes de pintar no lee estilos.
+  Lo que TAPA la carga va PRIMERO en el HTML (Chrome pinta por tandas) y se va cuando la PÁGINA llegó, no cuando hidrató su
+  componente: con un `loading.tsx` el shell hidrata antes de que llegue la página (`paginaLista` en EntradaApp: stream
+  cerrado y sin `<!--$?-->` ni `<!--$~-->`). Lo «ya visto» se apaga por CSS desde un atributo de `<html>`, nunca sólo en un
+  efecto: corre después de pintar (tests/movil-entrada-salida.test.ts).
 
 # La pantalla de entrada se decide en /inicio: un camino nuevo de «entrar» lleva ahí, nunca a una tab
 

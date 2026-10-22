@@ -51,6 +51,8 @@ import { createRequire } from 'node:module';
 import vm from 'node:vm';
 import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
+import { AppRouterContext, type AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime';
+import { PathnameContext, SearchParamsContext } from 'next/dist/shared/lib/hooks-client-context.shared-runtime';
 import manifest from '../app/manifest';
 import {
   ARRANQUE_ANTES_DE_PINTAR, ARTE_ARRANQUE, ATTR_ENTRADA_VISTA, CHISPA_EN_ARTE, CLAVE_ENTRADA_MOVIL, CRIATURA_ARRANQUE,
@@ -79,6 +81,31 @@ test('una sola entrada al abrir la app: la de ShellM, en el primer HTML, y el la
   const entrada = sinComentarios(leer('app/m/_ui/EntradaApp.tsx'));
   assert.doesNotMatch(entrada, /^import .*\.css';$/m);
   assert.doesNotMatch(entrada, /from '@\/app\/admin\/operaciones\/Criatura'|from '@\/app\/_components\/Criatura'/);
+});
+
+// Revisión adversarial del 22/10/2026: el test de arriba lee el fuente; éste DIBUJA ShellM como el server. La capa venía en
+// el HTML, pero AL FINAL, detrás del Centro entero: si Chrome pinta antes de terminar de leer el documento (lo hace, por
+// tandas), el primer cuadro podía ser el Centro. Ahora es lo primero del shell.
+// ROTURAS (scratchpad `romper-revision.mjs`, una por vez, restaurado con sha256; base 38 / 0 con movil-entrada-salida,
+// movil-carga-sin-error y movil-shell): la capa de vuelta al final del shell → 37 / 1 (éste); ShellM con `useState(false)`
+// → 35 / 3 (éste, el 1 y el de movil-shell); sin la guarda de `cliente` → 35 / 3 (los mismos).
+test('ShellM dibujado por el server: la entrada va en el HTML y PRIMERA, antes del encabezado y de la página', async () => {
+  const { ShellM } = await import('../app/m/_ui/ShellM');
+  const nada = () => {};
+  const router: AppRouterInstance = { back: nada, forward: nada, refresh: nada, push: nada, replace: nada, prefetch: nada };
+  const barra = [{ id: 'operaciones', href: '/m/operaciones', label: 'Ops Center', icon: 'star', criatura: true }];
+  const html = (pathname: string, cliente: { nombre: string } | null) => renderToString(
+    createElement(AppRouterContext.Provider, { value: router },
+      createElement(PathnameContext.Provider, { value: pathname },
+        createElement(SearchParamsContext.Provider, { value: new URLSearchParams() as never },
+          createElement(ShellM as never, { barra, badges: {}, usuario: null, cliente }, createElement('p', null, 'EL CENTRO'))))));
+  const centro = html('/admin/operaciones', null);
+  assert.match(centro, /^<div class="m-shell"><div class="ea-capa" role="presentation"/, 'la capa no es lo primero del shell');
+  assert.ok(centro.indexOf('ea-capa') < centro.indexOf('m-cabecera') && centro.indexOf('ea-capa') < centro.indexOf('EL CENTRO'));
+  assert.ok(centro.includes('class="mun mun--despierto"'), 'la criatura no viene en el HTML');
+  // El onboarding pendiente tiene la suya, y mirando la cuenta de un cliente no sale.
+  assert.ok(!html('/m/configurar', null).includes('ea-capa'), 'se pisa con la del onboarding');
+  assert.ok(!html('/admin/operaciones', { nombre: 'Cliente' }).includes('ea-capa'), 'sale mirando a un cliente');
 });
 
 test('la marca de «ya salió» es UNA: la leen ShellM, la entrada y el script de antes de pintar, y la pone el onboarding', () => {
@@ -221,7 +248,8 @@ test('se va cuando la app está lista (después de hidratar), nunca antes de 1 s
   assert.equal(trayecto(null, undefined, capa), null);
   // La salida corre en un EFECTO (después de hidratar), y la marca la pone ShellM al terminar, no la entrada al montarse.
   const src = sinComentarios(leer('app/m/_ui/EntradaApp.tsx'));
-  assert.match(src, /useEffect\(\(\) => \{\n\s*if \(entradaYaVista\(\)\) \{ alFin\.current\(\); return; \}/);
+  // (Cuándo se va, corrido con un reloj falso, en tests/movil-entrada-salida.test.ts.)
+  assert.match(src, /useEffect\(\(\) => \{\s*const terminar = \(\) => \{ marcarDocumento\(document\); alFin\.current\(\); \};\s*if \(entradaYaVista\(\)\) \{ terminar\(\); return; \}/);
   assert.doesNotMatch(src, /sessionStorage\.setItem/);
   assert.match(CSS_ENTRADA_APP, /animation: ea-seguro \.3s ease 15s forwards;/);
   assert.match(CSS_ENTRADA_APP, /@keyframes ea-seguro \{ to \{ opacity: 0; visibility: hidden; \} \}/);

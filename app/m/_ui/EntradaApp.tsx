@@ -11,7 +11,9 @@
 // existía hasta que React hidrataba y bajaba su chunk, y mientras tanto se veía el Centro que mandó el server, quieto y sin
 // hidratar (medido el 22/10, 09:45: el documento tardó 3 s y la primera acción del Centro salió 0,7 s después). Ésta la
 // dibuja el server, con CSS en línea: arranca en el primer pintado, sin esperar JavaScript, y tapa todo hasta que React
-// terminó de hidratar. Recién ahí se va (vuela a su lugar en la barra) con una transición corta.
+// hidrató Y la página terminó de llegar por el stream (`paginaLista`: en las rutas con `loading.tsx` el shell hidrata antes
+// de que llegue la página). Recién ahí se va (vuela a su lugar en la barra) con una transición corta. ShellM la pone PRIMERA
+// en el HTML: si Chrome pinta antes de terminar de leer el documento, lo primero que tiene es la capa.
 //
 // EL PRIMER CUADRO ES EL SPLASH DEL SISTEMA (que no se puede sacar): mismo fondo, la baldosa oscura del ícono maskable con
 // la chispa, mismo lugar y tamaño (app/m/_ui/entrada.ts tiene las medidas y de dónde salen). Después:
@@ -44,6 +46,10 @@ const CHISPITAS = [0, 60, 120, 180, 240, 300];
 
 /** Lo mínimo que se ve la criatura, desde el primer pintado: la entrada entera (nace a los 800 ms) y un parpadeo. */
 export const MS_MINIMO = 1000;
+/** Lo máximo: el CSS la saca solo a esta altura (`ea-seguro`, por si JavaScript no llega) y el efecto deja de esperar. */
+export const MS_SEGURO = 15000;
+/** Cada cuánto se vuelve a mirar si la página terminó de llegar. */
+const MS_SONDEO = 100;
 /** La salida: vuela a su lugar en la barra mientras el fondo se funde. Corta. */
 export const MS_SALIDA = 420;
 const MS_SALIDA_QUIETA = 150;
@@ -56,6 +62,62 @@ export function entradaYaVista(): boolean {
 /** Cuánto falta para que se pueda ir, si la app quedó lista cuando la entrada llevaba `transcurrido` ms en pantalla. */
 export function esperaParaSalir(transcurrido: number): number {
   return Math.max(0, MS_MINIMO - transcurrido);
+}
+
+/**
+ * ¿El server ya mandó la página entera y está a la vista? (revisión del 22/10/2026). Hidratar el SHELL no alcanza: en
+ * una ruta con `loading.tsx` —la entrada de los clientes (/second-brain), /crm, /inbox, /plan…— el server manda primero
+ * el layout (ShellM, esta entrada) con el esqueleto, React lo hidrata enseguida, y la página llega DESPUÉS por el stream.
+ * Con sólo el efecto, la criatura se iba al segundo y quedaba a la vista el esqueleto del Ops Center a medio cargar.
+ * Lista = el documento terminó de llegar (`readyState` ya no es 'loading') y ningún borde de Suspense del server espera
+ * (`<!--$?-->`, su contenido no llegó) ni está por revelarse (`<!--$~-->`: React 19.2 junta las revelaciones y las suelta
+ * hasta 300 ms después).
+ */
+export function paginaLista(doc: Document): boolean {
+  if (doc.readyState === 'loading') return false;
+  const raiz = doc.body ?? doc.documentElement;
+  if (!raiz) return true;
+  const w = doc.createTreeWalker(raiz, 128 /* NodeFilter.SHOW_COMMENT */);
+  for (let n = w.nextNode(); n; n = w.nextNode()) {
+    const d = (n as Comment).data;
+    if (d === '$?' || d === '$~') return false;
+  }
+  return true;
+}
+
+/** Lo que la salida necesita del navegador, inyectable: el test corre `programarSalida` con un reloj falso. */
+export type EntornoSalida = {
+  /** Cuánto lleva la entrada en pantalla (ms). */
+  lleva: () => number;
+  /** ¿La página terminó de llegar y está a la vista? (`paginaLista`) */
+  lista: () => boolean;
+  esperar: (fn: () => void, ms: number) => void;
+  /** Dos cuadros: que el navegador pinte lo que React acaba de hidratar (y lo que el stream acaba de revelar). */
+  dosCuadros: (fn: () => void) => void;
+};
+
+/**
+ * Cuándo destapar: nunca antes de `MS_MINIMO`; después, cuando la página está lista, y como mucho a `MS_SEGURO` (a esa
+ * altura el CSS ya la sacó: no se queda esperando una página que no termina nunca).
+ */
+export function programarSalida(e: EntornoSalida, salir: () => void): void {
+  const intentar = () => {
+    const lleva = e.lleva();
+    const falta = esperaParaSalir(lleva);
+    if (falta > 0) { e.esperar(intentar, falta); return; }
+    if (lleva < MS_SEGURO && !e.lista()) { e.esperar(intentar, MS_SONDEO); return; }
+    e.dosCuadros(salir);
+  };
+  intentar();
+}
+
+/**
+ * La entrada terminó en ESTE documento: se marca <html> como lo hace el script de antes de pintar, así un ShellM que se
+ * vuelve a montar navegando (ida y vuelta por /mi-curso, /onboarding…) la encuentra apagada por CSS desde el primer
+ * cuadro. Sin esto se pintaba un cuadro de la baldosa antes de que el efecto la sacara (el efecto corre después de pintar).
+ */
+export function marcarDocumento(doc: Pick<Document, 'documentElement'>): void {
+  try { doc.documentElement.setAttribute(ATTR_ENTRADA_VISTA, ''); } catch { /* sin DOM */ }
 }
 
 type Caja = { left: number; top: number; width: number; height: number };
@@ -104,10 +166,13 @@ export function EntradaApp({ destino, onFin }: {
   const alFin = useRef(onFin);
   useEffect(() => { alFin.current = onFin; });
 
-  // Este efecto corre cuando React terminó de hidratar lo que tapa (los efectos van de hijos a padres y la entrada es el
-  // último hijo del shell): la app está lista. Antes no hay nada que correr: lo de hasta acá es CSS.
+  // Este efecto corre cuando React hidrató el shell. Antes no hay nada que correr: lo de hasta acá es CSS. Se va cuando,
+  // además, la página terminó de llegar del server y está a la vista (`paginaLista`), nunca antes de 1 s y, como mucho,
+  // a los 15 s (lo mismo que el CSS).
   useEffect(() => {
-    if (entradaYaVista()) { alFin.current(); return; }
+    // Al irse marca el DOCUMENTO (`marcarDocumento`), después avisa a ShellM.
+    const terminar = () => { marcarDocumento(document); alFin.current(); };
+    if (entradaYaVista()) { terminar(); return; }
     let quieta = false;
     try { quieta = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* sin matchMedia: con movimiento */ }
     const timers: number[] = [];
@@ -116,7 +181,7 @@ export function EntradaApp({ destino, onFin }: {
       if (!viva) return;
       const el = capa.current;
       const v = vuelo.current;
-      if (!el || !v) { alFin.current(); return; }
+      if (!el || !v) { terminar(); return; }
       el.setAttribute('data-sale', '');
       const ms = quieta ? MS_SALIDA_QUIETA : MS_SALIDA;
       const t = quieta ? null : trayecto(cuerpo.current?.getBoundingClientRect(), document.querySelector(destino)?.getBoundingClientRect(), v.getBoundingClientRect());
@@ -134,10 +199,14 @@ export function EntradaApp({ destino, onFin }: {
           );
         }
       }
-      timers.push(window.setTimeout(() => alFin.current(), ms + 30));
+      timers.push(window.setTimeout(terminar, ms + 30));
     };
-    // Dos cuadros: que el navegador pinte lo que React acaba de hidratar antes de destaparlo.
-    timers.push(window.setTimeout(() => requestAnimationFrame(() => requestAnimationFrame(salir)), esperaParaSalir(enPantalla(capa.current))));
+    programarSalida({
+      lleva: () => enPantalla(capa.current),
+      lista: () => paginaLista(document),
+      esperar: (fn, ms) => { timers.push(window.setTimeout(() => { if (viva) fn(); }, ms)); },
+      dosCuadros: (fn) => requestAnimationFrame(() => requestAnimationFrame(fn)),
+    }, salir);
     return () => { viva = false; timers.forEach((t) => window.clearTimeout(t)); };
   }, [destino]);
 
@@ -185,7 +254,7 @@ export const CSS_ENTRADA_APP = `
   position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center;
   background-color: ${FONDO_ARRANQUE}; transition: background-color .3s ease;
   --mako: #F2B01E; --criatura-tinta: #22262E; --criatura-rubor: #C0414D;
-  animation: ea-seguro .3s ease 15s forwards;
+  animation: ea-seguro .3s ease ${MS_SEGURO / 1000}s forwards;
 }
 html[${ATTR_ENTRADA_VISTA}] .ea-capa { display: none; }
 .ea-capa[data-sale] { background-color: transparent; pointer-events: none; }
