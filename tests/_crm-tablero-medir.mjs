@@ -89,9 +89,11 @@ for (let vuelta = 0; ; vuelta++) {
     for (const m of noResueltos) SERVER.add(m.startsWith('@') ? m.split('/').slice(0, 2).join('/') : m.split('/')[0]);
   }
 }
+// El envoltorio, como el de la app: el <main> es hijo de un flex en COLUMNA. Con una fila, `flex: 1` no le gana a
+// `height` y el arnés no veía que en producción el tablero medía 21.285 px (22/10/2026).
 writeFileSync(join(SALIDA, 'arnes.html'), `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>tablero</title>
-<style>html,body{margin:0;height:100%}body{background:#f6f7f9;color:#12151b;font-family:system-ui}</style></head>
-<body><div style="display:flex;min-height:100vh"><aside data-sidebar style="width:68px;flex:none;background:#1e2230"></aside><div id="raiz" style="flex:1;min-width:0;display:flex"></div></div>
+<style>*{box-sizing:border-box}html,body{margin:0;height:100%}body{background:#f6f7f9;color:#12151b;font-family:system-ui}</style></head>
+<body><div style="display:flex;min-height:100vh"><aside data-sidebar style="width:68px;flex:none;background:#1e2230"></aside><div id="raiz" style="flex:1;min-width:0;display:flex;flex-direction:column"></div></div>
 <script src="arnes.js"></script></body></html>`);
 
 const CHROME = ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe'].find((p) => existsSync(p));

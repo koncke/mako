@@ -17,7 +17,7 @@ import { etapasDelTablero, mapToCrmLead } from '../app/crm/crm-map';
 import { DEFAULT_PIPELINE, generateFunnel } from '../lib/pipeline';
 import type { FunnelResumen } from '../lib/funnel-fila';
 
-type Medida = { n: number; tarjetasEnDom: number; render: number; clic: number; tildar: number; largas: number; msLargas: number };
+type Medida = { n: number; tarjetasEnDom: number; altoMain: number; altoVentana: number; render: number; clic: number; tildar: number; largas: number; msLargas: number };
 declare global { interface Window { __medida: Medida | { error: string } | null; __largas: number[] } }
 
 const q = new URLSearchParams(location.search);
@@ -82,7 +82,8 @@ async function medir() {
 
   const largas = window.__largas.length;
   const msLargas = Math.round(window.__largas.reduce((a, b) => a + b, 0));
-  window.__medida = { n: N, tarjetasEnDom: document.querySelectorAll('[data-leadcard]').length, render: Math.round(render), clic: Math.round(clic), tildar: Math.round(tildar), largas, msLargas,
+  const main = document.querySelector('main');
+  window.__medida = { n: N, tarjetasEnDom: document.querySelectorAll('[data-leadcard]').length, altoMain: Math.round(main?.getBoundingClientRect().height ?? 0), altoVentana: innerHeight, render: Math.round(render), clic: Math.round(clic), tildar: Math.round(tildar), largas, msLargas,
     ...(errorRender ? { errorRender } : {}), ...(q.get('debug') ? { columnas: [...document.querySelectorAll<HTMLElement>('[data-colkey]')].map((c) => c.dataset.colkey), etapaLead: leads[0]?.stage, derivada: leads[0]?.derivedStage, entrada, texto: document.body.innerText.slice(0, 400) } : {}) } as Medida;
 }
 

@@ -18,6 +18,7 @@
 //   · el rótulo sin «que se ven» con un filtro puesto                                            → 2 / 1
 //   · el bloque azul sin «Ver detalle»                                                           → 2 / 1
 //   · la ficha que no abre en «Reuniones»                                                        → 2 / 1
+//   · el <main> del Kanban sin `maxHeight` (en producción medía 21.285 px: el flex en columna lo estira) → 3 / 1
 //   · el bloque azul del teléfono sin «Ver detalle» (sólo «Abrir ficha» sin teléfono)             → 2 / 1
 // Y el 6 (Instagram, «no estaba buscando bien a los @»), con el archivo en 4 / 0:
 //   · el tablero sin el Instagram entre los campos                                             → 3 / 1
@@ -47,7 +48,9 @@ const columna = () => { const i = BOARD.indexOf('const renderColumn = '); return
 
 test('1 y 2: el Kanban llena la pantalla, las columnas del mismo alto hasta abajo, y la barra del scroll debajo de «A revisar»', () => {
   assert.match(BOARD, /const ALTO_TABLERO = 'calc\(100dvh - var\(--barra-agencia, 0px\)\)';/);
-  assert.match(BOARD, /\.\.\.\(view === 'kanban' \? \{ height: ALTO_TABLERO, minHeight: 0 \} : \{\}\)/, 'el Kanban no mide la pantalla');
+  // Con `maxHeight` también (22/10/2026, medido en producción): el <main> es hijo de un flex en COLUMNA y su `flex: 1` le
+  // gana a `height`; medía 21.285 px y la barra del scroll quedaba fuera de la pantalla.
+  assert.match(BOARD, /\.\.\.\(view === 'kanban' \? \{ height: ALTO_TABLERO, maxHeight: ALTO_TABLERO, minHeight: 0 \} : \{\}\)/, 'el Kanban no mide la pantalla (sin maxHeight, el flex en columna lo estira)');
   // La barra del scroll queda en los últimos píxeles: el aire de abajo, más chico que el de «A revisar» (20 px del borde).
   const abajo = Number(/const ABAJO_KANBAN = (\d+);/.exec(BOARD)?.[1]);
   assert.ok(abajo >= 0 && abajo <= 6, `el Kanban deja ${abajo} px abajo`);
