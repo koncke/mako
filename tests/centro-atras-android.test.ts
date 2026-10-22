@@ -20,12 +20,11 @@ import { fileURLToPath } from 'node:url';
 
 const leer = (r: string) => readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', r), 'utf8').replace(/\r\n/g, '\n');
 
-test('cerrar un chat de Claude Code en el teléfono vuelve a «Tus chats»', () => {
+// Desde el 22/10/2026 la lista ES la pantalla (el Ops Center del cliente en el teléfono, ChatClienteM.tsx, como /m/operaciones):
+// cerrar un chat de Claude Code con el «atrás» deja la lista a la vista, sin reabrir una hoja «Tus chats» que ya no existe.
+test('cerrar un chat de Claude Code en el teléfono vuelve a la lista de chats', () => {
   const sb = leer('app/m/second-brain/SecondBrainCentroM.tsx');
-  assert.match(sb, /<ChatMako \{\.\.\.chat\} reabrirChats=\{reabrir\}/, 'le pide a ChatMako que vuelva a abrir la lista');
-  assert.match(sb, /if \(clave == null && abierto != null\) window\.setTimeout\(\(\) => setReabrir\(\(n\) => n \+ 1\), 350\);/,
-    'sólo al cerrar un chat que estaba abierto, y con demora');
-  assert.match(sb, /parte="hoja" abierto=\{abierto\} onAbierto=\{alAbrir\} \/>/);
-  const mako = leer('app/m/mako/ChatMako.tsx');
-  assert.match(mako, /useEffect\(\(\) => \{ if \(reabrirChats > 0\) setHojaChats\(true\); \}, \[reabrirChats\]\);/);
+  assert.match(sb, /<ChatClienteM \{\.\.\.chat\} masChats=\{\(\) => \(\s*<ChatsMDelCentro centro=\{k\} parte="lista"/, 'la lista de Claude Code va en la pantalla, debajo de los chats');
+  assert.match(sb, /parte="hoja" abierto=\{abierto\} onAbierto=\{setAbierto\} \/>/);
+  assert.doesNotMatch(sb, /reabrir/, 'no hay una hoja de la lista que volver a abrir');
 });

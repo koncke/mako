@@ -31,7 +31,8 @@ const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g,
 const INVENTARIO: Record<string, 'caja única' | `pendiente, ${string}`> = {
   'app/admin/operaciones/Conversacion.tsx': 'caja única',
   'app/m/operaciones/ChatsMovil.tsx': 'caja única',
-  'app/second-brain/ChatSecondBrain.tsx': 'caja única',
+  // El chat del cliente (22/10/2026): su caja vive en PiezasCliente.tsx y la montan la computadora y el teléfono.
+  'app/second-brain/PiezasCliente.tsx': 'caja única',
   'app/m/mako/Composer.tsx': 'pendiente, de Ops Center',
   'app/offer/ChatOffer.tsx': 'pendiente, de Offer',
   'app/m/offer/ComposerOfferM.tsx': 'pendiente, de Offer',

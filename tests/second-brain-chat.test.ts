@@ -71,7 +71,8 @@ test('la ruta del chat: la persona adentro de cada handler, el plazo de un turno
 });
 
 test('la pantalla corta después del techo de la ruta, y manda por la ruta del chat', () => {
-  const src = leer('app/second-brain/ChatSecondBrain.tsx');
+  // El motor del chat del cliente (22/10/2026): la computadora y el teléfono mandan por la MISMA ruta.
+  const src = leer('app/second-brain/useChatCliente.ts');
   assert.match(src, /const RUTA = '\/api\/mako\/chat';/);
   assert.match(src, /const TOPE_MS = 425_000;/);
   assert.ok(!src.includes('/api/m/mako'), 'una sola ruta para la pieza de escritorio');

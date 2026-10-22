@@ -394,6 +394,10 @@ const ALCANZAN = UNIDADES.filter((u) => u.cascada || u.sinCorte);
 
 /** La carpeta de OTRA tab de un archivo de app/ (`app/crm/`, `app/m/crm/`), o null si es del Ops Center o compartido. */
 function carpetaDeOtraTab(f: string): string | null {
+  // El micrófono de la caja única vive con las piezas del super admin, y desde el 22/10/2026 el teléfono del cliente dicta con
+  // él (app/m/second-brain/ChatClienteM.tsx; antes, con el Composer de app/m/mako/): lo que llama (/api/plan-dictado) lo llama el
+  // Ops Center. El resto de app/admin/operaciones/ (las acciones del super admin, con `puedeOperar`) sigue siendo otra tab.
+  if (f === 'app/admin/operaciones/Microfono.tsx') return null;
   const m = f.match(/^app\/(m\/)?([^/]+)\//);
   if (!m) return null;
   if (m[2] === 'api' || m[2].startsWith('_') || (m[1] == null && m[2] === 'm')) return null;

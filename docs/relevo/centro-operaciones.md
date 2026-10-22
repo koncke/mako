@@ -15,12 +15,11 @@ funcionar». Ramas `ops-center-cliente` (tanda 1, worktree `C:/dev/wt-ops-client
 | 5. La caja igual, clic derecho, citar | Caja: la ÚNICA desde la tanda 1. Clic derecho, deslizar, reacciones, destacar, fijar, eliminar y la cita: tanda 2 (marcas por persona en el negocio, lib/chat-mako-marcas-db.ts). Sin «Reenviar» |
 | 6. «Conectar» si no conectó su Claude o GPT | Tanda 2: «Conectar tu Claude» al final de la caja, abre «Tus cuentas de IA» ahí mismo (`?suIA=1`, la misma cuenta del turno) |
 
+**El teléfono (tanda 3, 22/10):** HECHO en la rama de la tanda 2: app/m/second-brain/ChatClienteM.tsx, la lista como pantalla y
+cada chat en su hoja, con el motor de la computadora (app/second-brain/useChatCliente.ts) y sus piezas (PiezasCliente.tsx).
+
 **SIN HACER, en este orden:**
-1. **El teléfono** (/m/second-brain para un cliente = app/m/mako/ChatMako.tsx): sigue con «Tus chats» (sin el Cerebro con la
-   estrella en la fila: el nombre sí cambió) y Offer que lleva a /m/offer. Hay que hacer lo mismo que en la computadora con las
-   piezas del teléfono del super admin (app/m/operaciones/ChatsMovil.tsx: su lista, su hoja con `HiloMako`, y la caja con
-   `fila="m-operaciones-caja__fila"`). ⚠️ El Composer del teléfono tiene tres cosas que la caja única todavía no (hallazgos-
-   operaciones, «Un solo chat»): mirarlas antes de reemplazarlo.
+1. **Borrar app/m/mako/ChatMako.tsx**, que quedó sin quien lo monte, con sus 15 tests (ver el hallazgo).
 2. **Los documentos en una conversación de Offer**: hoy el «+» dice que se pegue el texto o el link. Van por `subir-url` + `leer`
    de Offer (app/offer/offer-api.ts → `subirArchivo`) y viajan como `docIds` en el turno.
 3. **Mirarlo en producción** con Martín: el ws3 como super admin y el ws21 (Florencia), al lado de /admin/operaciones, a 390 px y en

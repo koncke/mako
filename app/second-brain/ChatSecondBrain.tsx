@@ -48,13 +48,16 @@
 //     lib/chat-mako-marcas-db.ts) y la cita arriba de la caja. Sin «Reenviar»: no hay otro chat al que mandárselo firmado;
 //   · si la persona todavía no conectó SU Claude o GPT, al final de la caja va «Conectar tu Claude», que abre «Tus cuentas de
 //     IA» ahí mismo (el modal de /perfil/ia; para una integración jamás se sale de la tab).
+//
+// EL MOTOR DEL CHAT DEL CLIENTE ES UNO (22/10/2026): useChatCliente.ts, el mismo del teléfono (app/m/second-brain/ChatClienteM.tsx),
+// y lo que se ve adentro del panel (el hilo y la caja) es PiezasCliente.tsx. Acá queda la pantalla: la barra, el panel y lo que es
+// sólo del super admin (sus chats de Claude Code, la Ticketera, el Uso).
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ClipboardEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { useRouter, useWs } from '@/app/_ui/Link';
+import { useRouter } from '@/app/_ui/Link';
 import { Modal, Toast, useToast } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
-import { conWs } from '@/lib/ws-tab';
 import { useCentro, type Centro, type DatosCentro } from '@/app/admin/operaciones/useCentro';
 import { claveParaUrl, seguirChat } from '@/lib/centro-chats';
 import { ChatDelCentro, FilaDeChat, ListaCentro, MenusCentro, NuevoChatCentro, PieCentro, RenglonDeFila, buscarChats } from '@/app/admin/operaciones/PiezasCentro';
@@ -64,98 +67,22 @@ import { TicketeraCentro } from '@/app/admin/operaciones/TicketeraCentro';
 import { esVistaTicketera, type VistaDeTicketera } from '@/app/tickets/decisiones/reglas';
 import { cerebroDelCentro } from '@/app/tickets/bandeja/cerebro';
 import { useTicketsPorDecidir } from '@/app/tickets/bandeja/usarContador';
-import { Muneco } from '@/app/admin/operaciones/Muneco';
-import { CajaChat } from '@/app/_chat/CajaChat';
-import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
-import { HiloMako, mensajeWADe } from '@/app/_chat/HiloMako';
-import { BarraFijados, CitaCaja, ContextoWA, InfoMensaje, MenuMensajeWA, type AccionesWA, type MenuAbiertoWA, type MensajeWA } from '@/app/admin/operaciones/MensajeWA';
-import { copiar } from '@/app/admin/operaciones/mandar';
-import { SIN_MARCAS, aplicarMarca, armarConCita, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
+import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operaciones/MensajeWA';
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
-import type { ItemPropuesta } from '@/app/_chat/TarjetaAccion';
-import {
-  archivosDeRespuesta, idLocal, itemsDeOffer, itemsDeRespuesta, itemsDeSesion, conTarjeta, leerRespuesta, respuestaDeOffer, textoTapadoDeRespuesta,
-  problemaDeSeleccion, tipoDeElegido, trasTarjeta, trasTrabajo, type EstadoPropuesta, type ItemHilo, type Leido,
-} from '@/app/m/mako/chat-ui';
-import { achicarImagen } from '@/app/m/mako/subir';
-import { IconoChat } from '@/app/m/mako/iconos';
 import { VolverDelGrafo } from './volver';
-import { abrirOffer, armarOffer, turnoOffer } from './motor-offer';
-import { esOpcionArmar } from '@/app/offer/ayudas';
-import { caracteres, conPegados, esPegadoLargo, nombrePegado } from '@/lib/chat-pegado';
-import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
-import {
-  ARRANQUES_SECOND_BRAIN, SECCION_OFFER, SIN_TITULO, SUBS_VISIBLES, colgarIrA, criaturaDeOffer, edadCorta, esFilaDe,
-  linksDePedidos, listaDelCliente, type ElegidoChat, type IrA,
-} from '@/lib/chat-mako-reglas';
-import type { ChatDeAntes, ChatDeOffer } from '@/lib/chat-mako-indice';
-import type { MensajeChat, PropuestaPantalla, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
-import type { OfferSesionVista } from '@/lib/offer-marco';
+import { useChatCliente } from './useChatCliente';
+import { CajaDelCliente, HiloDelCliente, estadoDelCliente } from './PiezasCliente';
+import { SUBS_VISIBLES, edadCorta, esFilaDe, type ElegidoChat } from '@/lib/chat-mako-reglas';
 import { Recorrido, useRecorrido } from '@/app/_ui/Recorrido';
 import { RECORRIDO_INICIO } from '@/lib/onboarding-arranque';
 import { PASOS_INICIO } from './recorrido-inicio';
 import '@/app/admin/operaciones/centro.css';
 import '@/app/_chat/chat.css';
 
-const RUTA = '/api/mako/chat';
-/** El maxDuration de la ruta es 420 s: el corte del navegador va 5 s después (tests/mako-doer-plazo.test.ts). */
-const TOPE_MS = 425_000;
-/** Lo que tarda en abrir una lista o un hilo antes de decir que no se pudo. */
-const TOPE_LECTURA_MS = 30_000;
-/** «Entender el pedido» (tanda 10): la ruta compartida de los chats, con la IA a 7,5 s (app/api/mako/pedidos). */
-const RUTA_PEDIDOS = '/api/mako/pedidos';
-const TOPE_PEDIDOS_MS = 15_000;
-/** El tope de texto de esa ruta: lo más largo no se le pregunta (contestaría 400). */
-const MAX_TEXTO_PEDIDOS = 4_000;
-/** Mientras Offer arma la oferta por detrás, cada cuánto se relee la conversación (el de la tab, app/offer/OfferApp.tsx). */
-const RELEER_ARMADO_MS = 5_000;
 /** Cuántas filas se ven debajo del Cerebro antes de «Mostrar N más». */
 const FILAS_VISIBLES = SUBS_VISIBLES;
 
-type Abierta = { sesion: SesionChat; mensajes: MensajeChat[]; propuestas: TarjetaPendiente[]; pantallas?: PropuestaPantalla[] };
-type ItemMsg = Extract<ItemHilo, { k: 'msg' }>;
 type Elegido = ElegidoChat;
-/** Un archivo elegido en la caja, antes de mandar. `url` es su vista previa (`blob:`): la usa también la burbuja
- *  mientras sale, y se suelta cuando vuelve guardado o cuando se quita. */
-type ArchivoElegido = { id: string; file: File; tipo: 'image' | 'document'; url: string };
-
-async function pedir<T>(url: string, init: RequestInit = {}): Promise<Leido<T>> {
-  let status = 0; let cuerpo = '';
-  try {
-    const r = await fetch(url, { signal: AbortSignal.timeout(TOPE_LECTURA_MS), ...init });
-    status = r.status; cuerpo = await r.text();
-  } catch { /* red caída o corte por tiempo: status 0 */ }
-  return leerRespuesta<T>(status, cuerpo);
-}
-const postJson = <T,>(cuerpo: Record<string, unknown>) =>
-  pedir<T>(RUTA, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo) });
-/** Un turno o una tarjeta: lo que puede tardar lo que dura la ruta (confirmar replicar_landing corre ~275 s). */
-const postLargo = <T,>(cuerpo: Record<string, unknown>) =>
-  pedir<T>(RUTA, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo), signal: AbortSignal.timeout(TOPE_MS) });
-/** Un turno con archivos: multipart, como el teléfono (el `?ws=` lo pone el `fetch` de la casa, WsFetch). `antes`: un chat
- *  de antes que se sigue (la ruta corre el turno sobre ESA sesión). */
-const postArchivos = <T,>(sessionId: number, mensaje: string, archivos: readonly ArchivoElegido[], antes: boolean) => {
-  const fd = new FormData();
-  fd.append('sessionId', String(sessionId));
-  fd.append('mensaje', mensaje);
-  if (antes) fd.append('antes', '1');
-  for (const a of archivos) fd.append('adjuntos', a.file, a.file.name);
-  return pedir<T>(RUTA, { method: 'POST', body: fd, signal: AbortSignal.timeout(TOPE_MS) });
-};
-
-/**
- * Lo que la persona pidió que se hace en OTRA pantalla: el link para ir (tanda 10, docs/diseno-mako-pedidos.md). Se pide
- * EN PARALELO al turno, y si falla o tarda no hay links y nada más: es un agregado, nunca frena la respuesta.
- * ⚠️ El mensaje NO se parte (lib/chat-mako-reglas.ts → linksDePedidos): MaKo lo contesta entero y esto suma el link.
- */
-async function linksDelPedido(texto: string): Promise<IrA[]> {
-  if (!texto.trim() || texto.length > MAX_TEXTO_PEDIDOS) return [];
-  const l = await pedir<unknown>(RUTA_PEDIDOS, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texto, tab: 'mako' }),
-    signal: AbortSignal.timeout(TOPE_PEDIDOS_MS),
-  });
-  return l.ok ? linksDePedidos(l.datos) : [];
-}
 
 /** Lo elegido, en la URL: `?chat=` una conversación con MaKo, `?offer=` una de Offer, `?antes=` una de antes y `?centro=`
  *  un chat de Claude Code. */
@@ -222,15 +149,12 @@ const centroDeEntrada = (k: Centro): string | null => (k.chats.find((c) => c.ses
 
 function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial = null, opcionArmar = '', centro, centroInicial, ticketeraInicial = null, inicio = 'second-brain', tutorialInicio = false }: Omit<Props, 'centro'> & { centro: Centro | null }) {
   const router = useRouter();
-  const ws = useWs();
   // El tutorial del Ops Center al terminar el onboarding (20/10/2026): se abre solo si lo pide la URL y la persona no lo vio.
   const tutorial = useRecorrido(RECORRIDO_INICIO, { autoabrir: tutorialInicio });
   /** La página en la que se está (/second-brain o /admin/operaciones): los links del Mapa vuelven a ella. */
   const base = usePathname() || '/second-brain';
   /** Ops Center: el super admin, con sus chats de Claude Code (el servidor mandó el Centro). */
   const ops = centro != null;
-  const [sesiones, setSesiones] = useState<SesionChat[] | null>(null);
-  const [errorLista, setErrorLista] = useState<string | null>(null);
   const [elegido, setElegido] = useState<Elegido | null>(() => {
     if (offerInicial != null) return { offer: offerInicial };
     if (antesInicial != null) return { antes: antesInicial };
@@ -248,160 +172,15 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   const [nuevoCentro, setNuevoCentro] = useState(false);
   const [conChat, setConChat] = useState(chatInicial != null || offerInicial != null || antesInicial != null || mapa != null || centroInicial != null || ticketeraInicial != null);
   const [ticketera, setTicketera] = useState<VistaDeTicketera | null>(ticketeraInicial);
-  const [items, setItems] = useState<ItemHilo[]>([]);
-  const [cargado, setCargado] = useState(false);
-  const [errorCarga, setErrorCarga] = useState<string | null>(null);
-  const [texto, setTexto] = useState('');
-  const [faltaMic, setFaltaMic] = useState<string | null>(null);
-  const [trabajo, setTrabajo] = useState<{ desde: number } | null>(null);
-  const [segs, setSegs] = useState(0);
-  const [tarjeta, setTarjeta] = useState<{ id: number; accion: 'confirmar' | 'cancelar' } | null>(null);
   const [busca, setBusca] = useState('');
   const [todas, setTodas] = useState(false);
-  /** Los chats de «Pregúntale a MaKo» (null = todavía no llegaron). Van en la MISMA lista y se siguen (21/10/2026). */
-  const [antes, setAntes] = useState<ChatDeAntes[] | null>(null);
-  /** Las conversaciones de Offer del negocio (20/10/2026, Martín: «el chat de OFFER no está llegando al Ops Center»): una
-   *  proyección de offer_sesiones (lib/chat-mako-indice.ts → chatsDeOffer), con la puerta de la tab. null = todavía no llegó. */
-  const [offer, setOffer] = useState<ChatDeOffer[] | null>(null);
-  /** La conversación de Offer abierta, entera (sus opciones, su diagnóstico, si se está armando): la da el motor de Offer. */
-  const [deOfferAbierta, setDeOfferAbierta] = useState<OfferSesionVista | null>(null);
-  const offerRef = useRef<OfferSesionVista | null>(null);
-  const [ahora, setAhora] = useState(() => Date.now());
-  const ocupadoRef = useRef(false);
-  const sesionRef = useRef<number | null>(null);
-  /** La conversación que se acaba de crear con el primer mensaje: su hilo YA está dibujado, no se recarga. */
-  const recienCreada = useRef<number | null>(null);
-  const envios = useRef(new Map<string, { texto: string; archivos: ArchivoElegido[] }>());
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
-  /** Los archivos elegidos en la caja (el ref los tiene al día para sumar sin esperar un render). */
-  const [elegidos, setElegidos] = useState<ArchivoElegido[]>([]);
-  const elegidosRef = useRef<ArchivoElegido[]>([]);
-  const ponerElegidos = (xs: ArchivoElegido[]) => { elegidosRef.current = xs; setElegidos(xs); };
-  /** Los textos pegados de más de 1.000 caracteres (#864): no van a la caja, van como un documento con el mensaje
-   *  (lib/chat-pegado.ts). El ref los tiene al día, como el de los archivos. */
-  const [pegados, setPegados] = useState<Array<{ id: string; texto: string }>>([]);
-  const pegadosRef = useRef<Array<{ id: string; texto: string }>>([]);
-  const ponerPegados = (xs: Array<{ id: string; texto: string }>) => { pegadosRef.current = xs; setPegados(xs); };
-  /** Lo de WhatsApp del chat abierto: las marcas de la persona, la cita de la caja, el menú de un mensaje y su «Info». */
-  const [marcas, setMarcas] = useState<MarcasChat>(SIN_MARCAS);
-  const [cita, setCita] = useState<Cita | null>(null);
-  const [menuWA, setMenuWA] = useState<MenuAbiertoWA | null>(null);
-  const [infoWA, setInfoWA] = useState<MensajeWA | null>(null);
-  /** ¿Ya conectó su Claude o su GPT? null = todavía no se sabe (el botón no aparece hasta saberlo). */
-  const [iaConectada, setIaConectada] = useState<boolean | null>(null);
-  const [conectando, setConectando] = useState(false);
-
-  useEffect(() => { const t = window.setInterval(() => setAhora(Date.now()), 60_000); return () => window.clearInterval(t); }, []);
-
-  // ── La lista: las conversaciones de esta persona ──
-  const cargarLista = useCallback(async (): Promise<SesionChat[] | null> => {
-    const l = await pedir<{ sesiones: SesionChat[] }>(`${RUTA}?sesiones=1`);
-    if (!l.ok) { setErrorLista(l.reintentable ? l.error : 'No pude cargar tus chats.'); return null; }
-    setErrorLista(null);
-    setSesiones(l.datos.sesiones ?? []);
-    return l.datos.sesiones ?? [];
-  }, []);
-
-  useEffect(() => {
-    let vivo = true;
-    void cargarLista().then((ss) => {
-      if (!vivo || !ss) return;
-      const pedida = chatInicial != null && ss.some((s) => s.id === chatInicial) ? chatInicial : null;
-      const jefe = listaDelCliente({ sesiones: ss, offer: [], antes: [], busca: '' })[0].elegido;
-      // Lo que ya se eligió (el chat de Claude Code de la URL, o un toque antes de que llegara la lista) se queda.
-      // En Ops Center la lista es la de Claude Code: un chat con MaKo se abre sólo si la URL lo pide.
-      setElegido((prev) => prev ?? (pedida != null ? { id: pedida } : ops ? null : jefe));
-    });
-    return () => { vivo = false; };
-  }, [cargarLista, chatInicial, ops]);
-
-  // Las conversaciones de Offer y los chats de antes, una vez (no en Ops Center: ahí la lista es la de Claude Code).
-  const cargarOtros = useCallback(() => {
-    void pedir<{ offer: ChatDeOffer[] }>(`${RUTA}?offer=1`).then((l) => setOffer(l.ok ? l.datos.offer ?? [] : []));
-    void pedir<{ antes: ChatDeAntes[] }>(`${RUTA}?antes=1`).then((l) => setAntes(l.ok ? l.datos.antes ?? [] : []));
-  }, []);
-  useEffect(() => { if (!ops) cargarOtros(); }, [ops, cargarOtros]);
-  const mirarSuIA = useCallback(() => {
-    void pedir<{ conectada: boolean }>(`${RUTA}?suIA=1`).then((l) => setIaConectada(l.ok ? l.datos.conectada !== false : true));
-  }, []);
-  useEffect(() => { if (!ops) mirarSuIA(); }, [ops, mirarSuIA]);
-
-  // ── El hilo de lo elegido ──
+  // El motor de los chats del cliente (useChatCliente.ts), el mismo del teléfono. En Ops Center la lista es la de Claude Code: un
+  // chat con MaKo se abre sólo si la URL lo pide.
+  const k = useChatCliente({ elegido, setElegido, activo: !ops, entrarAlCerebro: !ops, chatInicial, opcionArmar, busca, caja });
+  const { idOffer, idAntes } = k;
   const idElegido = elegido && 'id' in elegido ? elegido.id : null;
-  const idAntes = elegido && 'antes' in elegido ? elegido.antes : null;
-  const idOffer = elegido && 'offer' in elegido ? elegido.offer : null;
-  /** La sesión de chart_sessions a la que va el turno: la conversación con MaKo, o el chat de antes que se sigue. */
-  const idTurno = idElegido ?? idAntes;
-  /** El chat de las marcas (lib/chat-mako-marcas-db.ts): el de la lista. Uno nuevo, todavía ninguno. */
-  const chatDeMarcas = idOffer != null ? `o${idOffer}` : idAntes != null ? `a${idAntes}` : idElegido != null ? `s${idElegido}` : null;
-  useEffect(() => {
-    setMarcas(SIN_MARCAS); setCita(null); setMenuWA(null); setInfoWA(null);
-    if (!chatDeMarcas) return;
-    let vivo = true;
-    void pedir<{ marcas: MarcasChat }>(`${RUTA}?marcas=${chatDeMarcas}`).then((l) => { if (vivo && l.ok) setMarcas(l.datos.marcas ?? SIN_MARCAS); });
-    return () => { vivo = false; };
-  }, [chatDeMarcas]);
-  /** Una marca se ve en el acto y se guarda; si no se pudo guardar, vuelve a como estaba. */
-  const marcar = async (c: CambioMarca) => {
-    if (!chatDeMarcas) return;
-    const antesDeMarcar = marcas;
-    setMarcas(aplicarMarca(antesDeMarcar, c));
-    const l = await postJson<{ marcas: MarcasChat }>({ action: 'marcar', chat: chatDeMarcas, cambio: c });
-    if (l.ok) setMarcas(l.datos.marcas); else { setMarcas(antesDeMarcar); setFaltaMic(l.error); }
-  };
-  const marcarRef = useRef(marcar);
-  useLayoutEffect(() => { marcarRef.current = marcar; });
-  const cargarHilo = useCallback(async (id: number, deAntes: boolean, vigente: () => boolean = () => true) => {
-    setCargado(false); setErrorCarga(null);
-    const l = await pedir<Abierta>(`${RUTA}?sessionId=${id}${deAntes ? '&antes=1' : ''}`);
-    if (!vigente()) return;
-    if (!l.ok) { setErrorCarga(l.reintentable ? l.error : 'No pude abrir el chat.'); setCargado(true); return; }
-    setItems(itemsDeSesion(l.datos.mensajes ?? [], l.datos.propuestas ?? [], l.datos.pantallas ?? []));
-    setCargado(true);
-  }, []);
-
-  /** La URL de un audio de Offer con el `?ws=` del negocio que se mira (un `<audio src>` no pasa por el `fetch` de la casa). */
-  const conWsDeAudio = useCallback((url: string) => conWs(url, ws), [ws]);
-  const ponerOffer = useCallback((s: OfferSesionVista) => {
-    offerRef.current = s;
-    setDeOfferAbierta(s);
-    setItems(itemsDeOffer(s.mensajes, conWsDeAudio));
-  }, [conWsDeAudio]);
-
-  useEffect(() => {
-    if (!elegido) return;
-    sesionRef.current = idTurno;
-    offerRef.current = null;
-    setDeOfferAbierta(null);
-    if (idOffer != null) {
-      // Una conversación de Offer: se abre con SU motor (motor-offer.ts) y se sigue acá.
-      let vivo = true;
-      setCargado(false); setErrorCarga(null);
-      void abrirOffer(idOffer).then((l) => {
-        if (!vivo) return;
-        if (!l.ok) { setErrorCarga(l.error); setCargado(true); return; }
-        ponerOffer(l.sesion);
-        setCargado(true);
-      });
-      return () => { vivo = false; };
-    }
-    if (idTurno == null) { setItems([]); setErrorCarga(null); setCargado(true); return; }
-    if (recienCreada.current === idTurno) { recienCreada.current = null; return; }
-    let vivo = true;
-    void cargarHilo(idTurno, idAntes != null, () => vivo);
-    return () => { vivo = false; };
-  }, [elegido, idTurno, idAntes, idOffer, cargarHilo, ponerOffer]);
-
-  // Mientras Offer arma la oferta por detrás (`armar`), la conversación se relee: la oferta aparece sola, con su PDF.
-  const armandoOffer = idOffer != null && !!deOfferAbierta?.armando?.corriendo;
-  useEffect(() => {
-    if (!armandoOffer || idOffer == null) return;
-    const t = window.setInterval(() => {
-      void abrirOffer(idOffer).then((l) => { if (l.ok && offerRef.current?.id === idOffer) ponerOffer(l.sesion); });
-    }, RELEER_ARMADO_MS);
-    return () => window.clearInterval(t);
-  }, [armandoOffer, idOffer, ponerOffer]);
 
   const claveCentro = elegido && 'centro' in elegido ? elegido.centro : null;
   // ⚠️ EL CHAT ABIERTO SE SIGUE AUNQUE LO RENOMBREN (17/10/2026: renombrarlo dejaba a Martín en un panel vacío). Su clave es
@@ -437,237 +216,26 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   const cerrarTicketera = () => { setTicketera(null); anotarParam('ticketera', null); };
 
   // Como un chat: abre mostrando lo último, y baja cuando llega algo nuevo.
-  useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [items.length, trabajo, idTurno, idOffer]);
+  useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [k.items.length, k.trabajo, k.idTurno, idOffer]);
   // El campo que crece y el scroll que lo acompaña son de la caja única (app/_chat/CajaChat.tsx): le pasa la conversación.
   const seguirHilo = useCallback(() => hilo.current, []);
 
-  const desde = trabajo?.desde ?? null;
-  useEffect(() => {
-    if (desde == null) return;
-    const t = window.setInterval(() => setSegs(Math.floor((Date.now() - desde) / 1000)), 1000);
-    return () => { window.clearInterval(t); setSegs(0); };
-  }, [desde]);
-
-  const recargar = () => {
-    if (ocupadoRef.current) return;
-    if (idOffer != null) { void abrirOffer(idOffer).then((l) => { if (l.ok) ponerOffer(l.sesion); }); return; }
-    if (idTurno != null) void cargarHilo(idTurno, idAntes != null);
-  };
-
-  // ── Lo de WhatsApp en cada mensaje (MensajeWA.tsx, el del super admin) ──
-  const accionesWA = useMemo<AccionesWA>(() => ({
-    abrirMenu: (m, x, y, tactil) => setMenuWA({ m, x, y, tactil }),
-    responder: (m) => { setCita({ de: m.de, texto: m.texto, id: m.id }); window.setTimeout(() => caja.current?.focus(), 0); },
-    reaccionar: (id, emoji) => void marcarRef.current({ tipo: 'reaccion', id, emoji }),
-  }), []);
-  const elegirEnMenu = (m: MensajeWA, id: string) => {
-    setMenuWA(null);
-    if (id.startsWith('reaccion:')) { const e = id.slice('reaccion:'.length); void marcar({ tipo: 'reaccion', id: m.id, emoji: marcas.reacciones[m.id] === e ? null : e }); return; }
-    if (id === 'responder') { accionesWA.responder(m); return; }
-    if (id === 'copiar') { void copiar(m.texto).then((ok) => setFaltaMic(ok ? 'Copiado' : 'No pude copiar')); return; }
-    if (id === 'info') { setInfoWA(m); return; }
-    if (id === 'destacar') { void marcar({ tipo: 'destacar', id: m.id, si: !marcas.destacados.includes(m.id) }); return; }
-    if (id === 'fijar') { void marcar({ tipo: 'fijar', id: m.id, si: !marcas.fijados.includes(m.id) }); return; }
-    if (id === 'eliminar') { void marcar({ tipo: 'ocultar', id: m.id }); if (cita?.id === m.id) setCita(null); }
-  };
-
   // ── Elegir en la barra ──
   const elegir = (e: Elegido) => {
-    if (ocupadoRef.current) return;
+    if (!k.elegir(e)) return;
     setNuevoCentro(false);
     setConChat(true);
-    setFaltaMic(null);
-    for (const a of elegidosRef.current) URL.revokeObjectURL(a.url);
-    ponerElegidos([]);
-    ponerPegados([]);
     // Con el Mapa abierto, volver a una conversación es volver a la página sin `panel` (lo arma el servidor).
     if (mapa) {
       router.push('id' in e ? `${base}?chat=${e.id}` : 'offer' in e ? `${base}?offer=${e.offer}` : 'antes' in e ? `${base}?antes=${e.antes}`
         : 'centro' in e ? `${base}?centro=${encodeURIComponent(e.centro)}` : base);
     }
     if (ticketera) cerrarTicketera();
-    setElegido(e);
-    setTexto('');
-    window.setTimeout(() => caja.current?.focus({ preventScroll: true }), 0);
-  };
-
-  const marcar = (id: string, cambio: Partial<ItemMsg>) =>
-    setItems((xs) => xs.map((x) => (x.id === id && x.k === 'msg' ? { ...x, ...cambio } : x)));
-
-  // ── El turno ──
-  const mandar = async (idU: string, mensaje: string, archivos: readonly ArchivoElegido[]) => {
-    setTrabajo({ desde: Date.now() });
-    const deAntes = idAntes != null;
-    // Arranca ya, junto con el turno (tarda segundos; el turno, decenas).
-    const irA = linksDelPedido(mensaje);
-    try {
-      let sid = sesionRef.current;
-      if (sid == null) {
-        // El primer mensaje crea la conversación (el jefe que todavía no tenía, o un chat nuevo).
-        const n = await postJson<{ sesion: SesionChat }>({ action: 'new' });
-        if (!n.ok) { marcar(idU, { estado: 'error', error: n.reintentable ? n.error : 'No pude crear el chat.' }); return; }
-        sid = n.datos.sesion.id;
-        sesionRef.current = sid;
-        recienCreada.current = sid;
-        setSesiones((ss) => [...(ss ?? []), n.datos.sesion]);
-        setElegido({ id: sid });
-      }
-      const l = archivos.length
-        ? await postArchivos<RespuestaTurno>(sid, mensaje, archivos, deAntes)
-        : await postLargo<RespuestaTurno>({ action: 'send', sessionId: sid, mensaje, ...(deAntes ? { antes: 1 } : {}) });
-      if (!l.ok) { marcar(idU, { estado: l.reintentable ? 'error' : 'incierto', error: l.error }); return; }
-      // Los archivos volvieron guardados: la burbuja pasa a pedirlos por su mensaje y la vista previa se suelta.
-      const guardados = archivosDeRespuesta(l.datos);
-      marcar(idU, { estado: undefined, error: undefined, ...textoTapadoDeRespuesta(l.datos, mensaje), ...(guardados.length ? { archivos: guardados } : {}) });
-      if (guardados.length) { for (const a of archivos) URL.revokeObjectURL(a.url); envios.current.delete(idU); }
-      setItems((xs) => {
-        const vistas = new Set(xs.flatMap((x) => (x.k === 'propuesta' ? [x.t.pendienteId] : [])));
-        return [...xs, ...itemsDeRespuesta(l.datos, vistas)];
-      });
-      // Los links no demoran la respuesta: se cuelgan de ella cuando llegan.
-      void irA.then((links) => { if (links.length) setItems((xs) => colgarIrA(xs, links, idU)); });
-      // El título y la hora de la fila (un chat de antes sube arriba de la lista).
-      if (deAntes) cargarOtros(); else void cargarLista();
-    } finally {
-      ocupadoRef.current = false;
-      setTrabajo(null);
-    }
-  };
-
-  /** Lo escrito en una conversación de Offer va a SU motor (motor-offer.ts). Tocar «Armar mi oferta» la arma, como en la tab. */
-  const mandarAOffer = async (idU: string, mensaje: string) => {
-    const s = offerRef.current;
-    if (!s) return;
-    setTrabajo({ desde: Date.now() });
-    try {
-      const ultimo = s.mensajes[s.mensajes.length - 1];
-      if (ultimo?.de === 'mako' && !ultimo.pregunta && s.puedeConcluir && esOpcionArmar(mensaje, opcionArmar)) {
-        setItems((xs) => xs.filter((x) => x.id !== idU));
-        const a = await armarOffer(s.id);
-        if (a.ok) ponerOffer(a.sesion); else setFaltaMic(a.error);
-        return;
-      }
-      const r = await turnoOffer(s.id, mensaje, s.mensajes, respuestaDeOffer(s.mensajes, mensaje));
-      if (r.sesion && offerRef.current?.id === s.id) ponerOffer(r.sesion);
-      // Con la conversación de vuelta, lo dicho ya quedó guardado: el error va en la línea de estado y no se reintenta.
-      if (!r.ok && !r.sesion) marcar(idU, { estado: 'error', error: r.error });
-      else if (!r.ok) setFaltaMic(r.error);
-      cargarOtros();
-    } finally {
-      ocupadoRef.current = false;
-      setTrabajo(null);
-    }
-  };
-
-  const enviar = (mensaje: string, archivos: readonly ArchivoElegido[] = []): boolean => {
-    const t = mensaje.trim();
-    if ((!t && !archivos.length) || ocupadoRef.current || !cargado || errorCarga) return false;
-    ocupadoRef.current = true;
-    setFaltaMic(null);
-    const idU = idLocal('u');
-    envios.current.set(idU, { texto: t, archivos: [...archivos] });
-    const locales = archivos.map((a) => ({ nombre: a.file.name, tipo: a.tipo, local: a.url }));
-    setItems((xs) => [...xs, { k: 'msg', id: idU, role: 'user', texto: t, at: new Date().toISOString(), estado: 'enviando', ...(locales.length ? { archivos: locales } : {}) }]);
-    if (idOffer != null) void mandarAOffer(idU, t); else void mandar(idU, t, archivos);
-    return true;
-  };
-
-  const enviarCaja = () => {
-    // Con la cita del mensaje que se responde arriba (WhatsApp; lib/centro-mensajes.ts → armarConCita, la del super admin).
-    const t = armarConCita(cita, texto.trim());
-    const pg = pegadosRef.current.map((p) => p.texto);
-    if ((!t && !elegidosRef.current.length && !pg.length) || ocupadoRef.current) return;
-    // La vista previa NO se suelta acá: la burbuja que sale la sigue mostrando hasta que vuelve guardada. Los pegados
-    // salen DENTRO del mensaje, entre sus marcas: el hilo los dibuja como documento y el turno los archiva (#884).
-    if (enviar(conPegados(t, pg), elegidosRef.current)) { setTexto(''); ponerElegidos([]); ponerPegados([]); setCita(null); }
-  };
-
-  // ── Los archivos de la caja: el «+», pegar y arrastrar. Los mismos topes que la ruta (4 archivos, 4 MB). ──
-  const sumarArchivos = async (lista: readonly File[]) => {
-    if (!lista.length) return;
-    setFaltaMic(null);
-    const validos = lista.filter((f) => tipoDeElegido(f) != null);
-    if (validos.length < lista.length) setFaltaMic(ERROR_ADJUNTO.formato);
-    const listos: File[] = [];
-    for (const f of validos) {
-      try { listos.push(await achicarImagen(f)); } catch (e) { setFaltaMic(e instanceof Error ? e.message : 'No pude leer esa imagen.'); }
-    }
-    if (!listos.length) return;
-    const problema = problemaDeSeleccion([...elegidosRef.current.map((a) => a.file.size), ...listos.map((f) => f.size)]);
-    if (problema) { setFaltaMic(problema); return; }
-    ponerElegidos([...elegidosRef.current, ...listos.map((f) => ({
-      id: idLocal('f'), file: f, tipo: tipoDeElegido(f) === 'image' ? 'image' as const : 'document' as const, url: URL.createObjectURL(f),
-    }))]);
-    caja.current?.focus({ preventScroll: true });
-  };
-  const quitarArchivo = (id: string) => {
-    const a = elegidosRef.current.find((x) => x.id === id);
-    if (a) URL.revokeObjectURL(a.url);
-    ponerElegidos(elegidosRef.current.filter((x) => x.id !== id));
-  };
-  /** Las fotos y los PDF de la caja, para la caja única: sólo fotos y PDF (lo que lee /api/mako/chat, lib/mako-adjuntos.ts).
-   *  En una conversación de Offer todavía no: sus documentos van por la lectura de Offer (lo que queda, en el relevo). */
-  const adjuntosCaja: AdjuntosDeCaja = {
-    items: elegidos, puede: idOffer == null && cargado && !errorCarga, onSumar: (fs) => void sumarArchivos(fs), onQuitar: quitarArchivo, accept: ACCEPT_ADJUNTOS_CHAT,
-    onNoPuede: () => setFaltaMic('En esta conversación de Offer, pega el texto o el link en el mensaje.'),
-    onSinImagen: (puedeLeer) => setFaltaMic(puedeLeer ? 'No hay una imagen copiada' : 'Este navegador no deja pegar'),
-  };
-  /** Un texto de más de 1.000 caracteres no entra a la caja: queda como un documento pegado (#864, como Claude). Una imagen
-   *  pegada la toma la caja única (pegar.ts → alPegar). */
-  const pegarLargo = (e: ClipboardEvent<HTMLTextAreaElement>) => {
-    // Una celda de Excel o un párrafo de Word viajan como texto Y como imagen: con texto, manda el texto (la revisión de
-    // caja-voz, 20/10/2026: salir con cualquier archivo dejaba un pegado de 5.000 caracteres crudo en la caja, sin archivarse).
-    if (e.clipboardData.files.length && !Array.from(e.clipboardData.types).includes('text/plain')) return;
-    const pegado = e.clipboardData.getData('text/plain');
-    // En Offer lo largo va entero en el mensaje: su motor lo parte en documentos (app/api/offer/route.ts → repartirTextoLargo).
-    if (idOffer == null && esPegadoLargo(pegado)) { e.preventDefault(); ponerPegados([...pegadosRef.current, { id: idLocal('p'), texto: pegado }]); }
-  };
-
-  /** Sólo lo que NO llegó (un 4xx): se saca y se manda de nuevo. */
-  const reintentar = (id: string) => {
-    const t = envios.current.get(id);
-    if (!t || ocupadoRef.current) return;
-    setItems((xs) => xs.filter((x) => x.id !== id));
-    envios.current.delete(id);
-    enviar(t.texto, t.archivos);
-  };
-
-  // ── Las tarjetas ──
-  /** `r`: lo que contestó la tarjeta (su «Abrir», los avisos y lo que dibuja el resultado: `conTarjeta`). */
-  const alEstado = (pendienteId: number, estado: EstadoPropuesta, nota?: string, r?: ResultadoTarjeta) => {
-    setItems((xs) => conTarjeta(xs, pendienteId, estado, nota, r));
-  };
-  const correrTarjeta = async (x: ItemPropuesta, accion: 'confirmar' | 'cancelar') => {
-    const sid = sesionRef.current;
-    if (tarjeta || sid == null) return;
-    const id = x.t.pendienteId;
-    setTarjeta({ id, accion });
-    if (accion === 'confirmar') alEstado(id, 'aplicando');
-    try {
-      const l = await postLargo<ResultadoTarjeta>({ action: accion, sessionId: sid, pendienteId: id, ...(idAntes != null ? { antes: 1 } : {}) });
-      if (!l.ok) { alEstado(id, 'pendiente', l.reintentable ? l.error : 'No llegó la respuesta. Recarga el chat para ver si se ejecutó.'); return; }
-      const d = trasTarjeta(l.datos, accion);
-      alEstado(id, d.estado ?? 'pendiente', d.frase ?? undefined, l.datos);
-    } finally {
-      setTarjeta(null);
-    }
   };
 
   // ── Lo que se dibuja ──
-  const lista = useMemo(() => listaDelCliente({ sesiones: sesiones ?? [], offer: offer ?? [], antes: antes ?? [], busca }), [sesiones, offer, antes, busca]);
-  const [cerebroFila, ...restoFilas] = lista;
+  const [cerebroFila, ...restoFilas] = k.lista;
   const corte = todas || busca.trim() ? restoFilas : restoFilas.filter((f, i) => i < FILAS_VISIBLES || esFilaDe(f, elegido));
-  /** La fila de lo abierto (un chat nuevo no tiene). */
-  const filaAbierta = elegido ? lista.find((f) => esFilaDe(f, elegido)) ?? null : null;
-  const esJefe = filaAbierta?.clave === 'jefe';
-  const deOffer = idOffer != null ? (offer ?? []).find((o) => o.id === idOffer) ?? null : null;
-  const deAntes = idAntes != null ? (antes ?? []).find((a) => a.id === idAntes) ?? null : null;
-  const nombre = filaAbierta?.titulo
-    ?? (idOffer != null ? deOfferAbierta?.titulo || deOffer?.titulo || SECCION_OFFER : idAntes != null ? deAntes?.titulo?.trim() || 'Chat de antes' : SIN_TITULO);
-  const nombreMuneco = filaAbierta?.criatura ?? (idOffer != null ? criaturaDeOffer(nombre) : nombre);
-  const animo = trabajo || armandoOffer ? 'trabajando' : 'despierto';
-  /** Los mensajes del hilo, para la barra de los fijados. */
-  const mensajesWA = useMemo(() => items.flatMap((x) => (x.k === 'msg' ? [mensajeWADe(x, nombreMuneco)] : [])), [items, nombreMuneco]);
   // El grafo se abre sin soltar el chat que estaba abierto: vuelve a él (17/10/2026: «nunca cambia de chat»).
   const hrefMapa = `${base}?panel=mapa${idElegido ? `&chat=${idElegido}` : urlCentro ? `&centro=${encodeURIComponent(urlCentro)}` : ''}`;
   /** Volver del Mapa a lo que estaba elegido (lo vuelve a armar el servidor). */
@@ -697,46 +265,14 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   const delCentro = useMemo(() => (chatsCentro ? buscarChats(chatsCentro, busca) : []), [chatsCentro, busca]);
 
   /** Una fila de la lista del cliente: la `FilaDeChat` del super admin, con su criatura y, si trabaja, «Trabajando…». */
-  const fila = (f: (typeof lista)[number]) => {
+  const fila = (f: (typeof k.lista)[number]) => {
     const actual = !mapa && esFilaDe(f, elegido);
-    const vivo = actual && (!!trabajo || armandoOffer);
+    const vivo = actual && k.enCurso;
     return (
       <FilaDeChat key={f.clave} titulo={f.titulo} criatura={f.criatura} animo={vivo ? 'trabajando' : 'despierto'} actual={actual}
-        hace={edadCorta(f.actividad, ahora)} previa={vivo ? <RenglonDeFila vivo /> : null} onElegir={() => elegir(f.elegido)} />
+        hace={edadCorta(f.actividad, k.ahora)} previa={vivo ? <RenglonDeFila vivo /> : null} onElegir={() => elegir(f.elegido)} />
     );
   };
-  /** La caja del chat con MaKo (o de Offer, o de antes): la ÚNICA de la app, apagada mientras el chat no cargó. */
-  const caja_ = (
-    <div className="co-caja">
-      {/* La caja ÚNICA (app/_chat/CajaChat.tsx, 20/10/2026): la misma del Ops Center, en toda la app (Martín: «Te pedí
-          que unificaras el chat del Ops Center en todos lados, su diseño y funcionalidades»). Arriba, los textos
-          largos pegados como documento. */}
-      <CajaChat texto={texto} onTexto={(v) => { setFaltaMic(null); setTexto(v); }} onMandar={enviarCaja}
-        ocupado={!!trabajo || armandoOffer} apagado={!cargado || !!errorCarga} placeholder={`Escribe a ${nombre}`} tituloMandar="Mandar (Enter)"
-        enterManda campo={caja} seguir={seguirHilo} onErrorMic={setFaltaMic} adjuntos={adjuntosCaja}
-        hayAlgoMas={pegados.length > 0} onPegar={pegarLargo}
-        // Sin su Claude o su GPT, el botón para conectarlo, al final de la caja (se abre acá mismo: «Tus cuentas de IA»).
-        alFinal={iaConectada === false && !ops ? (
-          <button type="button" className="co-chip co-conectar-ia" onClick={() => setConectando(true)}>Conectar tu Claude</button>
-        ) : null}
-        arriba={<>
-        {cita && <CitaCaja cita={cita} onQuitar={() => setCita(null)} />}
-        {pegados.length > 0 && (
-        <ul className="ch-elegidos" aria-label="Textos pegados">
-          {pegados.map((p) => (
-            <li key={p.id} className="ch-elegido ch-elegido--pegado">
-              <IconoChat nombre="archivo" size={20} />
-              <span className="ch-elegido__nombre" title={nombrePegado(p.texto)}>{`${nombrePegado(p.texto, 24)} · ${caracteres(p.texto)}`}</span>
-              <button type="button" className="ch-elegido__quitar" onClick={() => ponerPegados(pegadosRef.current.filter((x) => x.id !== p.id))} aria-label="Quitar el texto pegado">
-                <Icon name="x" size={14} />
-              </button>
-            </li>
-          ))}
-        </ul>
-        )}
-        </>} />
-    </div>
-  );
 
   return (
     <div className="co" data-con-chat={conChat ? 'true' : 'false'}>
@@ -787,9 +323,9 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
           {listaSB && (<>
           {/* «Nuevo chat» arriba de todos, como el de ChatGPT y Claude (y el del Ops Center del super admin). */}
           <NuevoChatCentro onNuevo={() => elegir({ virtual: 'nuevo' })} actual={!mapa && elegido != null && 'virtual' in elegido && elegido.virtual === 'nuevo'} />
-          {errorLista && <p className="co-lista__vacio">{errorLista}</p>}
+          {k.errorLista && <p className="co-lista__vacio">{k.errorLista}</p>}
           {/* UNA lista (21/10/2026): el Cerebro arriba y todos los demás por actividad, sin secciones ni plegables. */}
-          {sesiones != null && (
+          {k.sesiones != null && (
             <>
               <div className="co-cuenta co-cuenta--cerebro">{fila(cerebroFila)}</div>
               <div className="co-cuenta">
@@ -829,43 +365,24 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
         <section className="co-panel"><p className="co-vacio">{centro?.chats.length ? 'Elige un chat para escribirle.' : 'Conecta un Runner para ver tus chats aquí.'}</p></section>
       ) : (
         // Un chat con MaKo (o de Offer, o de antes): el panel del Ops Center (PanelChat.tsx), con SU motor.
-        <PanelDeChat hilo={hilo} adjuntos={adjuntosCaja}
+        <PanelDeChat hilo={hilo} adjuntos={k.adjuntosCaja}
           // La criatura del chat: el Cerebro es la estrella; uno de Offer, la de Offer (la cabecera del super admin, sin chips).
-          cabecera={{ clave: JSON.stringify(elegido), titulo: nombre, criatura: nombreMuneco, animo, onVolver: () => setConChat(false) }}
+          cabecera={{ clave: JSON.stringify(elegido), titulo: k.nombre, criatura: k.nombreMuneco, animo: k.enCurso ? 'trabajando' : 'despierto', onVolver: () => setConChat(false) }}
           // Los fijados, arriba de la conversación (WhatsApp): tocar va al mensaje.
-          arriba={<BarraFijados marcas={marcas} lineas={[]} mensajes={mensajesWA} titulo={nombre} onSoltar={(id) => void marcar({ tipo: 'fijar', id, si: false })} />}
+          arriba={<BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={k.nombre} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} />}
           despues={<>
-            <MenuMensajeWA abierto={menuWA} marcas={marcas} onCerrar={() => setMenuWA(null)} onElegir={elegirEnMenu} sin={['reenviar']} />
-            {infoWA && <Modal titulo="Info del mensaje" onCerrar={() => setInfoWA(null)} ancho={460}><InfoMensaje m={infoWA} /></Modal>}
+            <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} />
+            {k.infoWA && <Modal titulo="Info del mensaje" onCerrar={() => k.setInfoWA(null)} ancho={460}><InfoMensaje m={k.infoWA} /></Modal>}
           </>}
-          caja={caja_}
-          estado={faltaMic ?? (armandoOffer ? 'MaKo está armando tu oferta. Puede tardar unos minutos.' : '')}>
-          <ContextoWA.Provider value={accionesWA}>
-          {!cargado ? null : errorCarga ? (
-            <div className="co-portada">
-              <p className="co-portada__dato">{errorCarga}</p>
-              <button type="button" className="co-chip" onClick={recargar}>Reintentar</button>
-            </div>
-          ) : !items.length && !trabajo ? (
-            <div className="co-portada">
-              <Muneco titulo={nombreMuneco} animo="despierto" size={76} />
-              <p className="co-portada__nombre">¿En qué te ayudo?</p>
-              {(esJefe || idTurno == null) && idOffer == null && <div className="ch-arranques">
-                {ARRANQUES_SECOND_BRAIN.map((a) => <button key={a} type="button" className="co-chip" onClick={() => enviar(a)}>{a}</button>)}
-              </div>}
-            </div>
-          ) : (
-            <HiloMako items={items} quien={{ nombre: nombreMuneco }} ahora={ahora} escribiendo={trabajo || armandoOffer ? { segs } : null}
-              tarjeta={tarjeta} onTarjeta={(x, a) => void correrTarjeta(x, a)} onReintentar={reintentar} onRecargar={recargar}
-              onResponder={(t) => enviar(t)} onTrabajo={(id, ok) => setItems((xs) => trasTrabajo(xs, id, ok))} marcas={marcas} />
-          )}
-          </ContextoWA.Provider>
+          caja={<div className="co-caja"><CajaDelCliente k={k} campo={caja} seguir={seguirHilo} /></div>}
+          estado={estadoDelCliente(k)}>
+          <HiloDelCliente k={k} />
         </PanelDeChat>
       )}
       {centro && <MenusCentro centro={centro} />}
       {/* «Tus cuentas de IA» ahí mismo (/perfil/ia): conectar su computadora con su Claude o, si es admin, la clave. */}
-      {conectando && (
-        <Modal titulo="Tus cuentas de IA" onCerrar={() => { setConectando(false); mirarSuIA(); }} ancho={640}>
+      {k.conectando && (
+        <Modal titulo="Tus cuentas de IA" onCerrar={() => { k.setConectando(false); k.mirarSuIA(); }} ancho={640}>
           <TusCuentasIA sinCabecera />
         </Modal>
       )}

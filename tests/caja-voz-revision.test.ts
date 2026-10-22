@@ -111,7 +111,8 @@ test('3. la caja del cliente no se apaga mientras MaKo trabaja', () => {
   assert.match(boton, /if \(enviando \|\| \(ocupado && hayQueMandar && !d\.escuchando && !d\.subiendo\)\) return <button type="button" className="co-enviar" disabled aria-label="Mandando">/,
     'mientras trabaja, la flecha espera; el micrófono (y el botón de terminar de dictar) no');
   assert.match(c, /aria-label=\{p\.placeholder\}\s*disabled=\{quieto\}/, 'el <textarea> mira `quieto`, no `ocupado`');
-  assert.match(leer('app/second-brain/ChatSecondBrain.tsx'), /ocupado=\{!!trabajo \|\| armandoOffer\} apagado=\{!cargado \|\| !!errorCarga\}/, 'el chat del cliente usa `ocupado`');
+  // La caja del cliente es la de PiezasCliente.tsx (22/10/2026: la misma en la computadora y el teléfono).
+  assert.match(leer('app/second-brain/PiezasCliente.tsx'), /ocupado=\{k\.enCurso\} apagado=\{!k\.cargado \|\| !!k\.errorCarga\}/, 'el chat del cliente usa `ocupado`');
 });
 
 test('4. el cartero: origen, limpieza, nada lo tumba, la última de cada chat, y la marca no avanza sin su pregunta', async () => {
@@ -148,6 +149,6 @@ test('5. la respuesta con el message, el pegado de Word, y la vuelta que no pudo
   const w = pregunta(ID1, '2026-10-20T21:11:00.000Z', { origen: 'wrap_up' });
   assert.match(textoDeRespuesta(w, [0], null), /\n1\. Commit: Commiteá lo de hoy$/, 'lo que el mismo clic en la app le manda');
   assert.match(textoDeRespuesta({ ...w, origen: undefined }, [0], null), /\n1\. Commit$/, 'en una de `preguntar`, el título como siempre');
-  assert.match(leer('app/second-brain/ChatSecondBrain.tsx'), /if \(e\.clipboardData\.files\.length && !Array\.from\(e\.clipboardData\.types\)\.includes\('text\/plain'\)\) return;/, 'un pegado con texto sigue siendo documento');
+  assert.match(leer('app/second-brain/useChatCliente.ts'), /if \(e\.clipboardData\.files\.length && !Array\.from\(e\.clipboardData\.types\)\.includes\('text\/plain'\)\) return;/, 'un pegado con texto sigue siendo documento');
   assert.match(leer('lib/operaciones.ts'), /try \{ preguntasIds = await guardarPreguntas\(preguntas\); \} catch \(err\) \{ turnosOk = false;/, 'sin guardarlas, la marca no avanza');
 });

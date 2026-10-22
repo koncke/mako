@@ -2047,9 +2047,21 @@ eso debe funcionar». Código: app/second-brain/ChatSecondBrain.tsx, app/admin/o
 CSS compilado. Es el CSS de verdad, sin build y sin escribir nada. ⚠️ Trampa: con `tsx` un `import './x.css'` pasa por el
 `require` de CJS, y un hook de ESM (`module.register`) no lo ataja: hace falta `require.extensions['.css']` en un `--require`.
 
+**El teléfono, el 22/10:** el motor salió a app/second-brain/useChatCliente.ts y lo de adentro del panel (el hilo y la caja) a
+PiezasCliente.tsx; la computadora y el teléfono (app/m/second-brain/ChatClienteM.tsx) los montan. El teléfono es el del super
+admin: la lista es la pantalla y cada chat se abre en una hoja alta, con la Info de un mensaje y «Tus cuentas de IA» ADENTRO de esa
+hoja (una hoja sobre otra la cierra). Tres cosas que costaron:
+- **Un test que lee el fuente como texto no compila nada.** La tanda 2 declaró `marcar` dos veces en el mismo componente (el del
+  hilo y el de las reacciones), y los 49 tests que miran esos archivos pasaron. Lo vio `esbuild` (`node_modules/.bin/esbuild
+  <archivo> --log-level=error`, sin bundle, en un segundo y sin RAM), y un error de tipo de la tanda 1 lo vio recién el tsc
+  acotado. Antes de pasar una punta con componentes nuevos: esbuild por archivo, y el tsc acotado cuando haya RAM.
+- **Mover código de lugar rompe ~20 tests de otras áreas** que lo buscaban por archivo (ChatSecondBrain.tsx): se los apunta al motor
+  o a las piezas, nunca se los borra. d6b-rutas, además, sigue el micrófono: el teléfono dejó de dictar con el Composer de
+  app/m/mako/ y pasó al de la caja única (app/admin/operaciones/Microfono.tsx), que ese test tomaba por «otra tab».
+- `ChatMako.tsx` (el chat viejo del teléfono) quedó SIN quien lo monte: sigue en el repo porque lo leen 15 tests.
+
 **SIN HACER:**
-- **El teléfono** (/m/second-brain → app/m/mako/ChatMako.tsx): sigue con su lista «Tus chats» y su Offer que lleva a /m/offer.
-  Es la misma adaptación con las piezas del teléfono del super admin (app/m/operaciones/ChatsMovil.tsx). El relevo lo detalla.
+- **Borrar app/m/mako/ChatMako.tsx** con lo suyo de esos 15 tests (el Composer queda: lo usa app/chats/VentanaChat.tsx).
 - **Los documentos en una conversación de Offer** (el «+» en Offer dice «pega el texto o el link»): van por `subir-url` y `leer`
   de Offer (app/offer/offer-api.ts → subirArchivo), no por /api/mako/chat.
 - **La foto en un mensaje de Offer es la de quien MIRA** (`MiFoto`, /api/perfil): para el dueño es la suya; el super admin que mira

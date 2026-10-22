@@ -73,7 +73,7 @@ test('3. la API: ?offer=1 y ?offerId=N, detrás de la puerta de MaKo; uno de otr
 // y su «Seguir en Offer» se fueron: cada conversación de Offer es una fila más de la lista (lib/chat-mako-reglas.ts →
 // listaDelCliente, con su test en tests/ops-center-cliente.test.ts) y se SIGUE ahí, con el motor de Offer.
 test('4. la pantalla: cada conversación de Offer es una fila de la lista, y se sigue en el Ops Center con el motor de Offer', () => {
-  const sb = leer('app/second-brain/ChatSecondBrain.tsx');
+  const sb = leer('app/second-brain/useChatCliente.ts');
   assert.match(sb, /listaDelCliente\(\{ sesiones: sesiones \?\? \[\], offer: offer \?\? \[\], antes: antes \?\? \[\], busca \}\)/, 'una fila por conversación, en LA lista');
   assert.match(sb, /void abrirOffer\(idOffer\)\.then\(/, 'se abre con el motor de Offer');
   assert.match(sb, /const r = await turnoOffer\(s\.id, mensaje, s\.mensajes, respuestaDeOffer\(s\.mensajes, mensaje\)\);/, 'lo escrito va a Offer');
