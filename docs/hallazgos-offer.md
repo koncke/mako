@@ -973,7 +973,8 @@ Llamada Mau <> Martín del 22/10 (Fathom 195129619, 01:42:50-01:46:05). Mauricio
 **Lo que quedó SIN hacer:**
 - **La versión 1 de Mauricio sigue diciendo «2 ventas de 24 asistentes»** al leerla: se guardó con `cifrasConFuente`
   (las cifras tenían fuente, la del negocio entero) y lo guardado no se recalcula. «Zoom» sí sale al leer. Para verla
-  bien hay que armar la versión 2 («Pulir la oferta» → «Armar mi oferta»).
+  bien hay que armar la versión 2 («Pulir la oferta» → «Armar mi oferta»). ⚠️ Desde OF1 (más abajo) se marca al leer:
+  la pantalla avisa con «Rehacer el diagnóstico» y la API de MaKo ya no lo entrega.
 - El aviso «Te pagan el 100% al firmar… súbelo entre 250 y 1.000 USD» no tiene sentido en una entrada de pago único de
   270 USD (O4, en la tanda P1).
 - El catálogo de herramientas es una lista: una plataforma que no está ahí (o una fecha, un lugar) pasa si la IA la
@@ -1124,5 +1125,46 @@ negocios que hayan subido archivos en Offer desde el 15/10 pueden tener el perfi
 
 **Vive en:** `lib/archivero-registro.ts` (`answersConDocumento`) · `lib/archivero.ts` (`registrarDocumentoSinPisar`) ·
 `tests/offer-archivero.test.ts`
+
+*22/10/2026, chat «Offer» (claude3).*
+
+## Lo guardado no se recalcula: el diagnóstico de la v1 del Sprint seguía en el contexto de MaKo (22/10/2026, OF1, P0)
+
+Medido por el Cerebro a las 12:44 UTC, después del deploy de O1: la sesión 18 del ws1 (oferta 24 v1, funnel 44) seguía
+guardando «solo 2 ventas de 24 asistentes» y «Tienes 6 ofertas activas en MaKo».
+
+- **Dónde vivía.** En la conclusión guardada (`offer_sesiones.conclusiones`): la tesis y el porqué del primer cambio, y la
+  alerta de foco del cálculo. No en los mensajes del chat ni en la oferta 24 (`ofertas`), que están limpios. La conclusión es
+  un documento: `embudoDeFunnel` arregló lo que se arma DESPUÉS, y lo armado antes nadie lo vuelve a armar. Llegaba a los
+  chats por `ver_analisis_oferta` (lib/api-mako/areas/negocio.run.ts), la lectura con la que MaKo toma la oferta como
+  contexto para prospectar. Medido con `scripts/medir-diagnostico-viejo.mts`: con el código de 87365c830 las dos frases
+  llegan al contexto del ws1; con el arreglo, ninguna.
+- **El diagnóstico obvio («todo lo de antes del deploy está mal») era el equivocado.** Un corte por fecha solo marcaba
+  también al ws13 (Código Inmobiliario, un cliente): tiene UN funnel con todos sus leads, así que su negocio entero ERA su
+  funnel y el diagnóstico de antes dice lo mismo que diría hoy. Decirle «usó datos de otro funnel» habría sido falso. La
+  marca necesita la base: `armadaConElEmbudoViejo` (pura: conversación con funnel y armada antes de las 07:33 UTC del 22/10,
+  el aviso de Integración de que O1 estaba desplegado) y además `hayLeadsFueraDelFunnel` (lib/analisis-negocio.ts, el mismo
+  criterio que `embudoDeFunnel`: el default son los NULL más los suyos). Medido en producción: marca ws1 #18 (todos sus
+  leads son del default, el Sprint no tiene ninguno), ws11 #3 (18 leads de otros funnels) y tres pruebas del ws3; no marca
+  al ws13 #8 ni al ws3 #49 (armada después).
+- **No se escribe nada al leer.** La marca se calcula en `nombresDeSesion` y viaja en la vista (`diagnosticoViejo`), no en la
+  fila: una marca en `conclusiones` se habría guardado sola con el próximo «Armar». Con la marca, la pantalla (computadora y
+  teléfono) dice «Este diagnóstico usó datos de otro funnel.» arriba de la conclusión, con «Rehacer el diagnóstico» (arma
+  una versión nueva, como «Armar mi oferta»), y la API entrega la oferta pero no el diagnóstico ni sus avisos. Si la lectura
+  de los leads falla, no se marca: un aviso en falso le diría a un cliente que su diagnóstico está mal.
+
+**Regla (AGENTS.md):** arreglar la regla que arma un documento guardado no arregla lo guardado; en el mismo cambio se decide
+qué pasa con lo de antes, midiendo en la base cuáles están mal de verdad.
+
+**Lo que quedó SIN hacer:**
+- El PDF descargado de una versión marcada sigue diciendo lo que decía (la pantalla avisa arriba, el archivo no).
+- La v1 de Mauricio sigue igual en la base hasta que alguien toque «Rehacer el diagnóstico». La v2 la arma él (o Martín).
+- La alerta «Tienes N ofertas activas en MaKo» de antes del 22/10 no se marca sola: sólo viaja con un diagnóstico marcado.
+  En producción, la única que la tiene es la sesión 18.
+
+**Vive en:** `lib/offer-reglas.ts` (`armadaConElEmbudoViejo`, `EMBUDO_POR_FUNNEL_DESDE`) · `lib/analisis-negocio.ts`
+(`hayLeadsFueraDelFunnel`) · `lib/offer-sesiones.ts` (`nombresDeSesion`, `vistaDe`) · `lib/api-mako/areas/negocio.run.ts` ·
+`app/offer/Conclusion.tsx` · `app/m/offer/HojasOfferM.tsx` · `scripts/medir-diagnostico-viejo.mts` ·
+`tests/offer-diagnostico-viejo.test.ts` (13 roturas, las 13 cazadas)
 
 *22/10/2026, chat «Offer» (claude3).*

@@ -2443,6 +2443,32 @@ export function conclusionVisible<C extends { diagnostico: DiagnosticoOferta; ca
 
 // ── La oferta provisional y el PDF en el chat (tarjeta «rehacer») ─────────────
 
+// ── Lo guardado no se recalcula: el diagnóstico armado con el embudo de otro funnel (OF1, 22/10/2026) ──
+// Hasta el 22/10/2026 el embudo de una conversación CON funnel era el del negocio entero (`analisisNegocio`): la v1 del
+// Sprint de Mauricio (ws1, sesión 18) quedó guardada con «solo 2 ventas de 24 asistentes», que eran de «Negocio que
+// ESCALA». `embudoDeFunnel` lo arregló hacia adelante, pero una conclusión es un documento guardado y nadie la vuelve a
+// armar: se seguía mostrando y la API de MaKo se la pasaba a los chats como contexto para prospectar. Al leer se MARCA
+// (no se reescribe): la pantalla avisa con «Rehacer el diagnóstico» y la API no la entrega. Se escribe sólo cuando la
+// persona la rehace.
+
+/**
+ * Desde cuándo rige el embudo POR FUNNEL en producción: el aviso de Integración de que 4ddff71d1 (O1-O3) estaba
+ * desplegado llegó a las 07:33:25 UTC del 22/10/2026 (el merge a main fue a las 07:12, y el run 233 arrancó a las 07:17).
+ * Lo armado antes, en una conversación con funnel, usó el CRM entero.
+ */
+export const EMBUDO_POR_FUNNEL_DESDE = '2026-10-22T07:33:00Z';
+
+/**
+ * ¿Esta conclusión se armó con el embudo del negocio entero en una conversación de un funnel? Pura: si el negocio
+ * tenía leads de OTROS funnels (si no, el negocio entero ERA ese funnel y los números están bien: el ws13 tiene uno solo)
+ * lo dice quien lee la base (`nombresDeSesion`). Una conclusión sin fecha es de antes: se la trata como vieja.
+ */
+export function armadaConElEmbudoViejo(c: { at?: unknown } | null | undefined, funnelId: number | null): boolean {
+  if (!c || funnelId == null) return false;
+  const t = typeof c.at === 'string' ? Date.parse(c.at) : NaN;
+  return !Number.isFinite(t) || t < Date.parse(EMBUDO_POR_FUNNEL_DESDE);
+}
+
 export const OPCION_PULIR = 'Pulir la oferta';
 export const OPCION_ASI_ESTA_BIEN = 'Así está bien';
 

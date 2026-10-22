@@ -756,7 +756,8 @@ export function OfferM({ arbolInicial, arbolFallo, sesionInicial, opcionArmar, o
           }} />
       )}
       <HojaOferta abierto={hoja === 'oferta' && !!sesion} onCerrar={() => setHoja(null)} vista={vistaHoja} gen={gen}
-        sesion={sesion} conclusion={conclusion} onReintentar={() => void armar(gen.paso)} onGuardar={guardarOferta} />
+        sesion={sesion} conclusion={conclusion} onReintentar={() => void armar(gen.paso)} onGuardar={guardarOferta}
+        onRehacer={sesion?.puedeConcluir ? () => void armar() : undefined} />
     </div>
   );
 }
