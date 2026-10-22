@@ -10162,6 +10162,15 @@ tests/crm-traer-todos.test.ts
 - **C6 («los tres puntos de "Lead entrante" lo mandaron a otro lado») no se reproduce leyendo el código**: ninguna opción
   del «⋯» de una columna de entrada navega. La que SÍ navega está en el «⋯» de la BARRA: «Buscar prospectos»
   (`href="/crm/prospectos"`), la única de ese menú que no abre un pop-up. Sin confirmar en un navegador.
+  **Confirmado el 22/10 en el Chrome de Martín** (ws3, y el principal y «Sprint 3 días» del ws1): el «⋯» de «Lead
+  entrante» trae «Asignar campañas», «Cambiar el nombre» y «Agregar etapa», todos pop-ups. «Buscar prospectos» saca a
+  /crm/prospectos, y había un segundo salto: «Volver al CRM» iba a /crm pelado, así que desde «Sprint 3 días» devolvía
+  al CRM principal. Ahora el renglón que navega lleva «→», «Buscar prospectos» lleva el CRM (`?funnel=`) y «Volver a
+  «Sprint 3 días»» vuelve a él (tests/crm-llamada-22-10-p1.test.ts, C6).
+- **Sin confirmar: el tablero de «Sprint 3 días» trabó la pestaña** del Chrome de Martín más de dos minutos al abrir
+  (300 tarjetas en «Lead entrante»). Las capturas y los clics por la extensión daban «el renderer no responde», y se
+  repitió al volver a entrar. El ws3 se destrabó al navegar de nuevo. Puede ser el tablero o la extensión: falta medirlo
+  con el Rendimiento de DevTools, o abriéndolo a mano.
 
 **Vive en:** app/crm/CrmBoard.tsx (`confirmManualMeeting`, `opEtapa`), EtapasModal.tsx, CrmToolbar.tsx,
 lead-view/LeadTabs.tsx · tests/crm-llamada-22-10-p1.test.ts

@@ -3151,7 +3151,7 @@ export function CrmBoard({
         <AccionesHeader
           onImportar={() => setImportar(true)} onExportar={() => setExportar(true)} onNuevo={() => setNuevoLead({ etapa: null })}
           onEditarEtapas={() => setEtapasDe({ id: funnelActivo, nombre: nombreDeFunnel(funnelActivo) })}
-          onPersonalizarTarjetas={() => setPersonalizando(true)} />
+          onPersonalizarTarjetas={() => setPersonalizando(true)} funnelActivo={funnelActivo} />
       </div>
 
       {/* ⛔ SIN HEADER DESDE EL 12/10/2026. Era el ícono del CRM y un «CRM» de 46 px a la
