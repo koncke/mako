@@ -28,6 +28,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const RAIZ = join(__dirname, '..');
@@ -63,4 +64,40 @@ test('3. el control: sin su IA (ws13) y la plataforma (ws9) siguen como siempre'
     assert.ok(Number(R[ws].keysDeGemini.valor) >= 1, `${ws}: sus keys de Gemini se entregan`);
     assert.ok(Number(R[ws].redDeLaPlataforma.valor) >= 1, `${ws}: la red de la plataforma se entrega`);
   }
+});
+
+// ── La revisión adversarial de IA6 (22/10/2026) ─────────────────────────────────────────────────────────────────────────
+// Probado rompiéndolo: sin workspace sin guardar la decisión → 4 en rojo (el proceso se colgaba: lo frena el tope de 20 s);
+// el Plan mirado después de «ya decidido» → 4 en rojo; «no pude saber» recordado → 4 en rojo; una función exportada nueva de
+// la capa de IA sin su puerta → 5 en rojo.
+
+test('4. revisión: sin workspace vuelve; el Plan adentro de otro pedido sigue afuera; «no pude saber» no se recuerda', () => {
+  const x = (R as unknown as { extra: { sinWorkspace: string; planAdentro: string[]; conBacheDeLaBase: string[]; despuesDelBache: string[] } }).extra;
+  assert.equal(x.sinWorkspace, 'volvió', 'sin workspace, la puerta se llamaba a sí misma y congelaba el proceso');
+  assert.ok(x.planAdentro.some((h) => /generativelanguage/.test(h)), `el Plan adentro de otro pedido «adentro» tiene que seguir afuera: ${x.planAdentro.join(', ')}`);
+  assert.ok(!x.planAdentro.includes('api.openai.com'), 'la OpenAI del negocio pagó el Plan');
+  assert.deepEqual(x.conBacheDeLaBase.filter((h) => GRATIS.test(h)), [], 'con la base caída, falla cerrada en ESE pedido');
+  assert.ok(x.despuesDelBache.some((h) => /generativelanguage/.test(h)), 'con la base sana, el negocio sin su IA vuelve a su Gemini (no se recordó el «no pude saber»)');
+});
+
+test('5. toda función exportada de la capa de IA pasa por la puerta (o está en la lista, con su porqué)', () => {
+  const SIN_PUERTA: Record<string, string> = {
+    'lib/ai-cheap.ts#chatCheapJson': 'llama a chatCheap, que tiene la suya',
+    'lib/anthropic.ts#permisoDeLaClaveDelNegocio': 'la clave del negocio: nunca una IA gratis',
+    'lib/anthropic.ts#conClaveDelNegocio': 'la clave del negocio: nunca una IA gratis',
+    'lib/anthropic.ts#conCreditoDeLaPlataforma': 'el crédito de Claude de la plataforma, sólo en el onboarding (lo decide Martín): no es una IA gratis',
+  };
+  const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  const faltan: string[] = [];
+  for (const f of ['lib/ai-cheap.ts', 'lib/anthropic.ts']) {
+    const src = sinComentarios(readFileSync(join(RAIZ, f), 'utf8'));
+    for (const m of src.matchAll(/export async function (\w+)/g)) {
+      const clave = `${f}#${m[1]}`;
+      if (SIN_PUERTA[clave]) continue;
+      // La puerta va en las primeras líneas del cuerpo.
+      const cuerpo = src.slice(src.indexOf('{', src.indexOf(')', m.index!) ), m.index! + 6000).split('\n').slice(0, 6).join('\n');
+      if (!/conD6bDelPedido\(/.test(cuerpo) && !/conD6bDelPedido\(/.test(src.slice(m.index!, m.index! + 400))) faltan.push(clave);
+    }
+  }
+  assert.deepEqual(faltan, [], 'estas funciones de la capa de IA no pasan por la puerta de D6b: con un workspace, decidirían sin mirar si el negocio tiene su IA');
 });

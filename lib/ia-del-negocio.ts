@@ -92,6 +92,8 @@ export type IaDelNegocio = {
   suIA: boolean;
   /** Alguien del negocio conectó su computadora: a quien no conectó la suya se le dice dónde. */
   conPc: boolean;
+  /** No se pudo saber (la base no contestó): `suIA` es la falla cerrada. La puerta de D6b no la recuerda (IA6, revisión). */
+  incierto?: true;
 };
 
 export async function negocioConSuIA(ws: number): Promise<IaDelNegocio> {
@@ -102,7 +104,7 @@ export async function negocioConSuIA(ws: number): Promise<IaDelNegocio> {
     return { suIA: await claveDeIAPropia(ws), conPc: false };
   } catch (e) {
     console.error(`[ia-del-negocio] ws=${ws}: no pude saber si tiene su IA, así que va como si la tuviera: ${e instanceof Error ? e.message : String(e)}`);
-    return { suIA: true, conPc: false };
+    return { suIA: true, conPc: false, incierto: true };
   }
 }
 

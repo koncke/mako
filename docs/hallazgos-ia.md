@@ -5251,3 +5251,27 @@ devuelve el modelo) · `tests/closing-su-claude.test.ts` (corre `analyzeMeeting`
 - **Sin hacer:** app/dashboard/PanelAnalista.tsx («Una IA gratis (con Gemini alcanza)») es de TB3, que importa
   `FALTA_TU_IA`: el test lo deja como única excepción hasta entonces. El aviso del lienzo de Automations
   (lib/flujo-ia.ts → `falloDeIA`) es de AU3. Las fichas de Cerebras, Mistral y OpenRouter se van con IA8.
+
+### Lo que encontró la revisión adversarial de IA6 (22/10/2026), y cómo quedó
+
+- **ALTA — sin workspace, la puerta se llamaba a sí misma y CONGELABA el proceso.** Devolvía `fn()` sin guardar la decisión,
+  y `fn` es la misma función pública, que volvía a preguntar «¿decidió alguien?». Un bucle de microtareas: ni un
+  `setTimeout` corría, y el proceso no volvía nunca (una sesión sin negocio, un script, `cookies()` fuera de un pedido).
+  **Regla:** una puerta que re-entra a quien la llamó tiene que GUARDAR la decisión antes de re-entrar, siempre, también la
+  de «afuera». Lo fija el caso «sin workspace vuelve» de tests/d6b-puerta.test.ts (con un tope de 20 s).
+- **MEDIA — el Plan perdía su excepción adentro de otro pedido.** La entrada preguntaba sólo «¿ya decidió alguien?»: un
+  `plan-fathom` corrido adentro de una herramienta del doer (que decidió «adentro») usaba la OpenAI del negocio. Ahora
+  `pasaPorLaPuerta(feature)` también entra si la función es del Plan y alguien decidió «adentro».
+- **MEDIA — «no pude saber» quedaba 60 s.** La falla cerrada de `negocioConSuIA` (la base no contestó) se recordaba: un
+  bache dejaba a un negocio sin su Gemini un minuto en todo. Ahora viene marcada `incierto` y la puerta no la guarda.
+- **BAJA — leer `soloSuIA()` sincrónico DESPUÉS de una cascada da `false`:** la decisión vive adentro de la cascada y no
+  vuelve a quien la llamó. Los dos lectores de afuera (graficos-ia-elemento-server, onboarding) usan `await decidirD6b()`, y
+  `errorDeCascada` tiene su puerta.
+- **Los tests no veían sacar una puerta** (la de `chatCheap` o `chatCheapTools`): la del nivel de abajo tapaba. La guarda 5
+  de tests/d6b-puerta.test.ts exige la puerta en TODA función exportada de lib/ai-cheap.ts y lib/anthropic.ts, con una
+  lista cerrada de excepciones con su porqué.
+- **Para Martín (no es un arreglo):** un negocio que conectó SÓLO su PC tiene «su IA» (D6b), pero lo de fondo (crons,
+  WhatsApp) no puede usar la suscripción (D6a): sin una clave de API, se queda sin IA fuera del Ops Center. Hoy no hay
+  ninguno (0 PC conectadas), pero el tutorial tiene que decir que para lo que corre solo hace falta la clave. Y el crédito de
+  Claude de la plataforma (sólo onboarding) va antes del corte: en el onboarding de un negocio con su Claude que falla, paga
+  Martín.

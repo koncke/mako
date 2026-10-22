@@ -13,7 +13,7 @@ import {
   type PermisoClaveDelNegocio, CLAVE_MODELO_SU_CLAUDE, modeloDeSuClaude,
 } from './veto-claude';
 import type { ProvName } from './ai-cheap';
-import { conD6bDelPedido, d6bDecidida, soloSuIA } from './solo-su-ia';
+import { conD6bDelPedido, pasaPorLaPuerta, soloSuIA } from './solo-su-ia';
 
 // ⛔ ACÁ NO HAY NI `MODEL` NI `ENDPOINT`, y ese es el punto entero del veto.
 //
@@ -291,7 +291,7 @@ export async function chatClaude(
   opts: { model?: string; thinking?: boolean; effort?: Effort; maxTokens?: number; feature?: string; motivo?: string; onUsage?: (u: UsageInfo) => void; hastaMs?: number; sinRespaldoDeModelo?: boolean; redDePlataforma?: boolean; erroresOut?: string[]; erroresPlataformaOut?: string[]; validar?: (t: string) => boolean } = {},
 ): Promise<string> {
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
-  if (!d6bDecidida()) return conD6bDelPedido(opts.feature, () => chatClaude(system, messages, opts));
+  if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => chatClaude(system, messages, opts));
   // Override configurable por feature (tab /modelos-ia). Si el caller NO forzó un
   // modelo y la feature está ruteada a otra IA (Groq/OpenAI/Gemini), delegamos a la
   // capa barata ANTES de exigir la key de Anthropic (un cliente puede tener SOLO
@@ -527,7 +527,7 @@ export async function chatClaudeTools(
   } = {},
 ): Promise<ToolsResult> {
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
-  if (!d6bDecidida()) return conD6bDelPedido(opts.feature, () => chatClaudeTools(system, messages, tools, runTool, opts));
+  if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => chatClaudeTools(system, messages, tools, runTool, opts));
   // Override configurable por feature (tab /modelos-ia). Si el caller NO forzó un
   // modelo y la feature está ruteada a otra IA (Groq/OpenAI/Gemini), corremos el
   // LOOP de tools por chatCheapTools (function-calling OpenAI-compat) ANTES de

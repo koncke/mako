@@ -24,8 +24,13 @@ const pg = crearPostgrest({
   defaults: (_t, f) => ({ id: ++n, created_at: new Date().toISOString(), ...f }),
 });
 let red: string[] = [];
+/** Una tabla cuya lectura falla (un 500 de la base): «no pude saber» no es «no tiene», y tampoco se recuerda. */
+let tablaQueFalla: string | null = null;
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
   const u = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url);
+  if (u.host === 'supa.test' && tablaQueFalla && u.pathname.endsWith(`/${tablaQueFalla}`)) {
+    return new Response(JSON.stringify({ code: '57014', message: 'canceling statement due to statement timeout', details: null, hint: null }), { status: 500, headers: { 'content-type': 'application/json' } });
+  }
   if (u.host === 'supa.test') return pg.responder(u, init);
   red.push(u.host);
   return new Response(JSON.stringify({ error: { message: 'red de mentira' } }), { status: 500, headers: { 'content-type': 'application/json' } });
@@ -68,7 +73,33 @@ async function main() {
       out[`ws${ws}`][nombre] = { red: [...new Set(red)], ...(Array.isArray(valor) ? { valor: valor.length } : typeof valor === 'string' ? { valor: valor.slice(0, 160) } : {}) };
     }
   }
-  process.stdout.write(`@@RESULTADO@@${JSON.stringify(out)}`);
+  // ── Lo que encontró la revisión adversarial (22/10/2026) ──────────────────────────────────────────────────────────────
+  const { conSoloSuIA, olvidarD6b } = await import('../lib/solo-su-ia');
+  const extra: Record<string, unknown> = {};
+  // (a) SIN WORKSPACE la puerta se llamaba a sí misma sin fin y congelaba el proceso: tiene que volver, y rápido.
+  const conTope = <T>(p: Promise<T>, ms: number) => Promise.race([p, new Promise<'colgado'>((r) => setTimeout(() => r('colgado'), ms))]);
+  red = [];
+  extra.sinWorkspace = await conTope(runWithWorkspace(null, async () => {
+    const r: unknown[] = [];
+    for (const f of [() => ai.provsDe('gemini'), () => ai.chatCheap({ system: 's', user: 'x', feature: 'landing-analyst' }).catch(() => 'tiró'), () => chatClaude('s', [{ role: 'user', content: 'x' }], { feature: 'landing-analyst' }).catch(() => 'tiró')]) r.push(await f());
+    return 'volvió';
+  }), 20_000);
+  // (b) EL PLAN ADENTRO DE OTRO PEDIDO que decidió «adentro» (una herramienta del doer): sigue afuera (a Gemini, no a su OpenAI).
+  red = [];
+  await runWithWorkspace(3, () => conSoloSuIA(true, () => ai.chatCheapCascade({ system: 's', user: 'x', feature: 'plan-fathom', provs: ['gemini'] }).catch(() => '')));
+  extra.planAdentro = [...new Set(red)];
+  // (c) «NO PUDE SABER» NO SE RECUERDA: con la tabla de las PC caída, el ws13 (sólo Gemini) falla cerrado ESE pedido; con la
+  // base sana, el siguiente vuelve a su Gemini (antes quedaba 60 s sin IA).
+  olvidarD6b();
+  tablaQueFalla = 'ia_pc_dispositivos';
+  red = [];
+  await runWithWorkspace(13, () => ai.chatCheapCascade({ system: 's', user: 'x', feature: 'landing-analyst', provs: ['gemini'] }).catch(() => ''));
+  extra.conBacheDeLaBase = [...new Set(red)];
+  tablaQueFalla = null;
+  red = [];
+  await runWithWorkspace(13, () => ai.chatCheapCascade({ system: 's', user: 'x', feature: 'landing-analyst', provs: ['gemini'] }).catch(() => ''));
+  extra.despuesDelBache = [...new Set(red)];
+  process.stdout.write(`@@RESULTADO@@${JSON.stringify({ ...out, extra })}`);
 }
 
 main().then(() => process.exit(0), (e) => { process.stdout.write(`@@RESULTADO@@${JSON.stringify({ error: e instanceof Error ? e.stack : String(e) })}`); process.exit(0); });

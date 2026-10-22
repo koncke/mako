@@ -30,7 +30,7 @@ import { credDelCliente, credWs, credWsEstricta } from '@/lib/credenciales';
 import { ordenarCuentas, ordenarPorCuota, anotarRebote429 } from '@/lib/ia-cuotas';
 import { clavesAProbar, clavesDe, sinCopiasDeLaPlataforma } from '@/lib/ia-keys';
 import { clavesCargadas } from '@/lib/ia-keys-ws';
-import { PROVS_SU_IA, conD6bDelPedido, d6bDecidida, proveedorPermitido, soloSuIA } from '@/lib/solo-su-ia';
+import { PROVS_SU_IA, conD6bDelPedido, d6bDecidida, pasaPorLaPuerta, proveedorPermitido, soloSuIA } from '@/lib/solo-su-ia';
 import { mensajeIAFallo, motivoDeErroresCascada } from '@/lib/ia-mensajes';
 import { conSuIASinClave, CON_SU_IA_SIN_VISION } from '@/lib/fallo-ia-texto';
 import { corregirMarca } from '@/lib/mako-gramatica';
@@ -474,7 +474,7 @@ export type EsfuerzoBarato = 'minimal' | 'low' | 'medium' | 'high';
 
 export async function chatCheap(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string; provider?: ProvName; model?: string; clave?: string; timeoutMs?: number; esfuerzo?: EsfuerzoBarato; /** De qué workspace sale la KEY. SOLO lo pasa la red de plataforma; sin esto, la del workspace en curso (el BYOK de siempre). */ wsKey?: number }): Promise<string> {
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
-  if (!d6bDecidida()) return conD6bDelPedido(opts.feature, () => chatCheap(opts));
+  if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => chatCheap(opts));
   // `clave` elige CUÁL cuenta del proveedor (GEMINI_API_KEY vs _2 vs _3). La pone la
   // cascada al rotar; un caller suelto no la pasa y usa la de siempre.
   const p = await proveedor(opts.provider, opts.clave, opts.wsKey);
@@ -636,7 +636,7 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
    */
   alIntentar?: () => void }): Promise<string> {
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
-  if (!d6bDecidida()) return conD6bDelPedido(opts.feature, () => chatCheapCascade(opts));
+  if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => chatCheapCascade(opts));
   const quedan = (): number => (opts.hastaMs ?? Number.POSITIVE_INFINITY) - Date.now();
   const avisar = (): void => { try { opts.alIntentar?.(); } catch { /* el aviso no frena nada */ } };
   // El timeout de UN intento: el de siempre, o lo que queda del plazo si es menos.
@@ -900,6 +900,8 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
  * `tema` va adentro de la frase: 'generar las razones', 'elegir los formatos'…
  */
 export async function errorDeCascada(errores: string[], tema: string): Promise<string> {
+  // La puerta (IA6, revisión): el texto depende de si el negocio corre con SU IA, y quien llama puede no haber decidido.
+  if (!d6bDecidida()) return conD6bDelPedido(null, () => errorDeCascada(errores, tema));
   // ⛔ D6b: con su propio Claude o su GPT, la red y las keys gratis no corren (lib/solo-su-ia.ts). Sin ningún error SUYO
   // es que no tenía con qué (ni su clave de Claude ni su OpenAI): «No hay ninguna IA… con Gemini alcanza» lo mandaba a
   // conectar una IA que no se usaría. Con un error suyo, tiene IA y falló: nunca «no hay ninguna IA».
@@ -976,7 +978,7 @@ function bloquesParaClaude(o: DocOpts): Array<Record<string, unknown>> {
 
 export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; provider: ProvName | 'anthropic' }> {
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
-  if (!d6bDecidida()) return conD6bDelPedido(opts.feature, () => leerDocumentoIA(opts));
+  if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => leerDocumentoIA(opts));
   const errores: string[] = [];
   const sinKey: ProvName[] = [];
 
@@ -1195,7 +1197,7 @@ export async function chatCheapTools(
   } = {},
 ): Promise<CheapToolsResult> {
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
-  if (!d6bDecidida()) return conD6bDelPedido(opts.feature, () => chatCheapTools(system, messages, tools, runTool, opts));
+  if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => chatCheapTools(system, messages, tools, runTool, opts));
   const p = await proveedor(opts.provider, opts.clave, opts.wsKey);
   if (!p) throw new Error('Sin proveedor de IA barata (falta GROQ_API_KEY u OPENAI_API_KEY).');
   // El modelo pedido y atrás sus respaldos (MODELOS_RESPALDO): un 429 o un 503 a mitad del
@@ -1468,7 +1470,7 @@ export async function chatCheapToolsCascade(
   } = {},
 ): Promise<CheapToolsResult | null> {
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
-  if (!d6bDecidida()) return conD6bDelPedido(opts.feature, () => chatCheapToolsCascade(system, messages, tools, runTool, opts));
+  if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => chatCheapToolsCascade(system, messages, tools, runTool, opts));
   const pedidos = soloSuIA() ? (PROVS_SU_IA as ProvName[]) : opts.provs ?? CASCADA_TOOLS;
   const orden = await ordenarPorCuota(pedidos.map(String)).catch(() => pedidos.map(String));
   for (const prov of orden as ProvName[]) {
@@ -1700,7 +1702,7 @@ export class SttSinEscucha extends Error {
  */
 export async function transcribirAudio(base64: string, mime: string, opts?: SttOpts): Promise<string> {
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
-  if (!d6bDecidida()) return conD6bDelPedido(opts?.feature, () => transcribirAudio(base64, mime, opts));
+  if (pasaPorLaPuerta(opts?.feature)) return conD6bDelPedido(opts?.feature, () => transcribirAudio(base64, mime, opts));
   const o = opts ?? {};
   const buf = Buffer.from(base64, 'base64');
   if (!buf.length) return '';

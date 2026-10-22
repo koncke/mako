@@ -75,29 +75,52 @@ const memoria = (g.__d6bPorNegocio ??= new Map());
 export const olvidarD6b = (): void => memoria.clear();
 
 /**
- * LA PUERTA (IA6). Corre `fn` con D6b decidido para el pedido en curso: si ya lo decidió alguien (el turno, una ruta del
- * Ops Center), igual; si no, por el workspace en curso. Afuera: las funciones del Plan, sin workspace, y la plataforma.
- * Falla CERRADA: si no se puede saber, `negocioConSuIA` dice que sí (lib/ia-del-negocio.ts).
+ * La decisión de D6b para el pedido en curso, sin correr nada: la de alguien de afuera si ya decidió; si no, por el
+ * workspace. Afuera: las funciones del Plan (SIEMPRE, también adentro de otro pedido que decidió «adentro»), sin workspace,
+ * y la plataforma. Falla CERRADA: si no se puede saber, `negocioConSuIA` dice que sí — y ESA respuesta no se recuerda.
+ *
+ * Revisión adversarial de IA6 (22/10/2026), lo que la primera versión hacía mal:
+ *   · sin workspace devolvía `fn()` SIN guardar la decisión, y `fn` es la misma función pública, que volvía a entrar a la
+ *     puerta: un bucle de microtareas que CONGELABA el proceso entero (ni un `setTimeout` corría);
+ *   · el Plan se miraba DESPUÉS de «ya decidido»: un `plan-fathom` adentro de una herramienta del doer usaba la OpenAI del
+ *     negocio (el Plan nunca paga IA) o se quedaba sin nada;
+ *   · «no pude saber» quedaba 60 s en la memoria: un bache de la base dejaba a un negocio sin su Gemini un minuto entero.
  */
-export async function conD6bDelPedido<T>(feature: string | null | undefined, fn: () => Promise<T>): Promise<T> {
-  if (d6bDecidida()) return fn();
-  if (esFueraDeD6b(feature)) return conSoloSuIA(false, fn);
+export async function decidirD6b(feature?: string | null): Promise<boolean> {
+  if (esFueraDeD6b(feature)) return false;
+  if (d6bDecidida()) return soloSuIA();
   const { getWorkspaceActual, wsSuperAdmin } = await import('./workspace');
   const ws = await getWorkspaceActual().catch(() => null);
   // Sin workspace no hay negocio: lo interno de la plataforma (y los crons antes de elegir a quién atienden).
-  if (ws == null) return fn();
+  if (ws == null) return false;
   const m = memoria.get(ws);
-  let suIA: boolean;
-  if (m && m.hasta > Date.now()) suIA = m.suIA;
-  else {
-    let plataforma: number | null = null;
-    try { plataforma = await wsSuperAdmin(); } catch { plataforma = null; }
-    if (ws === plataforma) suIA = false;
-    else {
-      const { negocioConSuIA } = await import('./ia-del-negocio');
-      suIA = (await negocioConSuIA(ws)).suIA;
-    }
-    memoria.set(ws, { hasta: Date.now() + MEMORIA_MS, suIA });
+  if (m && m.hasta > Date.now()) return m.suIA;
+  let plataforma: number | null = null;
+  try { plataforma = await wsSuperAdmin(); } catch { plataforma = null; }
+  if (ws === plataforma) {
+    memoria.set(ws, { hasta: Date.now() + MEMORIA_MS, suIA: false });
+    return false;
   }
-  return conSoloSuIA(suIA, fn);
+  const { negocioConSuIA } = await import('./ia-del-negocio');
+  const negocio = await negocioConSuIA(ws);
+  if (!negocio.incierto) memoria.set(ws, { hasta: Date.now() + MEMORIA_MS, suIA: negocio.suIA });
+  return negocio.suIA;
 }
+
+/**
+ * LA PUERTA (IA6). Corre `fn` con D6b decidido para el pedido en curso (`decidirD6b`), y la decisión queda GUARDADA para
+ * todo lo que `fn` llame: la próxima función de la capa de IA ya no vuelve a entrar.
+ */
+export async function conD6bDelPedido<T>(feature: string | null | undefined, fn: () => Promise<T>): Promise<T> {
+  // El Plan siempre afuera, aunque alguien haya decidido «adentro» antes (la regla de Martín).
+  if (esFueraDeD6b(feature)) return conSoloSuIA(false, fn);
+  if (d6bDecidida()) return fn();
+  return conSoloSuIA(await decidirD6b(feature), fn);
+}
+
+/**
+ * ¿Esta llamada tiene que pasar por la puerta? Sí si nadie decidió todavía, y también si alguien decidió «adentro» y la
+ * función es del Plan (revisión de IA6: con sólo `!d6bDecidida()`, un `plan-fathom` adentro de una herramienta del doer
+ * nunca llegaba a su excepción y usaba la OpenAI del negocio).
+ */
+export const pasaPorLaPuerta = (feature?: string | null): boolean => !d6bDecidida() || (soloSuIA() && esFueraDeD6b(feature));
