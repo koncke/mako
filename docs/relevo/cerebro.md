@@ -72,8 +72,12 @@ la última corrida de `integracion` como red (docs/hallazgos-infra.md, «Sin min
 `main` pide 6,3 GB libres y esta PC no pasa de 6,1, así que **`87365c830` salió con `--no-verify`** (22/10, ~09:30): Martín lo
 autorizó para ESE lote, contestando la pregunta a6967bef de Integración desde el Centro. Lo que se había corrido: los tests
 afectados de cada punta, el tsc acotado de lo tocado, las guardas y los tipos de todo el repo en 3 tandas, con 0 errores.
-**Al volver los minutos, re-correr en Actions la corrida de `integracion` de `87365c830`** (o la última que lo contenga). Un
-`--no-verify` vale sólo para el lote que Martín autoriza, nunca para el siguiente.
+**Al volver los minutos, re-correr en Actions la corrida de `integracion` de `87365c830`** (o la última que lo contenga).
+**Desde el 22/10, permiso PERMANENTE de Martín** (escrito por él en el chat del Cerebro): «Si, que avance siempre, no quiero
+limitaciones, me estas sacando tiempo valioso con restricciones». Cada lote que pasó el chequeo local completo (tests afectados,
+tsc acotado y guardas) sube a `main` sin preguntarle. Las 3 tandas de INF1 son la red cuando hay RAM, no una traba. Como el
+permiso llegó por el Cerebro, Integración le pasa el sha verificado y el Cerebro hace el push `--no-verify`. Si Martín se lo
+escribe a Integración en su chat, sube Integración directo. Memoria: `subir-a-main-sin-traba`.
 
 **La llamada del 22/10 con Mauricio:** `docs/feedback-22-10.md` (lo P0 va antes que todo: reunión de validación HOY; los mensajes salen desde el sáb 24/10).
 
