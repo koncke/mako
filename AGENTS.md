@@ -8975,6 +8975,10 @@ dimos. El dueño lo reportó como «es aún más raro».
   donde se audita (el log, las filas de uso, la marca del rebote). Diagnóstico y
   conversación son dos trabajos y no comparten campo.
 - **Lo que escribió la PERSONA se guarda siempre**, pase lo que pase.
+- **El porqué de un turno sin respuesta SÍ se guarda en el hilo, con la marca `porque`** (lib/chat-bloques.ts; el Cerebro,
+  22/10/2026: «nunca un ‹No te pude contestar› cuando sí se sabe por qué»). La marca hace dos cosas: la pantalla lo dibuja
+  como aviso con su botón, y el turno lo saca del historial del modelo (`esPorQueGuardado`). Un cartel nuevo que tenga que
+  quedar en el hilo va con esa marca, nunca como un `assistant` común.
 - **Contá las salidas que escriben un cartel antes de marcarlas**: eran TRES y lejos entre
   sí (el `catch` del modelo, la guarda de «ningún proveedor contestó» y el bloqueo por
   respuesta inválida). El guard busca cualquier línea que use el texto de aviso, así caza
