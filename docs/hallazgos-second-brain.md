@@ -2229,6 +2229,14 @@ no los recibía (relevo, «SIN HACER» 2). Ahora se suben y se leen en esa conve
   en MP3, a /api/mako/chat. La ruta la escucha con la IA del negocio ANTES de guardar nada (`escucharNotaDelChat`, adentro de
   D6b), y lo que se entendió es el mensaje del turno. El MP3 se guarda como un adjunto (`<ws>/chat/<uuid>`, bloque `voz`, al
   FINAL del mensaje para no correr los `<id>:<n>` de los adjuntos) y se escucha por su mensaje (`?voz=<id>`), nunca por su path.
+- **Lo que dejó la revisión de privacidad (Integración):**
+  - `pii: true` en la escucha: sin él, el MP3 caía a la red gratis que entrena (docs/hallazgos-ia.md, IA7).
+  - El chat es de quien manda la nota ANTES de escucharla.
+  - Con una clave dictada, se tapa en el texto y el audio no se guarda.
+  - La nota de un chat que se sigue con `antes` (uno de antes, o de una tab) daba 404 aun recién mandada: la URL lleva
+    `&antes=1` (`vozDeChatDeAntes`) y el GET la resuelve con `personaDelChat`, la regla que deja seguirlo. Para el admin es la
+    de leer el texto: quien lee lo que se entendió puede escuchar la nota, y es a propósito.
+  - **SIN HACER:** `?adjunto=` tiene el mismo hueco en esos chats (una foto o un PDF de un chat de antes no se abre).
 - **Trampa: un 5xx no le dice a la pantalla que no se guardó nada.** `leerRespuesta` (app/m/mako/chat-ui.ts) toma cualquier 5xx
   por «no sé si llegó». Con el 502 de Offer, una nota que ninguna IA pudo escuchar quedaba «incierta» en el hilo en vez de
   volver a la barra. Por eso «ninguna IA pudo» es un **424**, y el 4xx ahora trae su `status`: 413, 415 y 422 tiran la nota, el

@@ -4924,7 +4924,9 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   área marcada sin datos de clientes lleva `datosDeClientes: true`. Una regla que corta de más tampoco está
   bien: si una feature mezcla pedidos con y sin datos de clientes, la marca del catálogo queda como
   default cerrado y quien llama la afina con `pii`, EN POSITIVO (lo que no está revisado la lleva;
-  molde: `CAJAS_SIN_DATOS_DE_CLIENTES`, lib/graficos-ia-elemento.ts).
+  molde: `CAJAS_SIN_DATOS_DE_CLIENTES`, lib/graficos-ia-elemento.ts). **Y el audio:** `transcribirAudio` (lib/ai-cheap.ts)
+  tiene `pii` en false por defecto, así que toda nota de voz de una persona del negocio o de un lead la lleva en `true`
+  (22/10/2026: la del chat del Ops Center salió sin él; docs/hallazgos-ia.md, la entrada de IA7).
 - ⛔ **D6b: UN NEGOCIO CON SU CLAUDE O SU GPT NO MANDA NADA A GEMINI NI A UNA IA O RED GRATIS** (Martín, 21/10/2026). Un
   camino del Ops Center que llama a una IA corre adentro de `conSoloSuIA(negocio.suIA, …)` (lib/solo-su-ia.ts; el turno,
   con `entrarSoloSuIA` después de su primer `await`), con `negocioConSuIA` (lib/ia-del-negocio.ts): por NEGOCIO y

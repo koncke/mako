@@ -7,7 +7,10 @@
 //   2. la ruta la escucha con la IA del NEGOCIO (D6b) ANTES de guardar nada: lo que se entendió es el mensaje del turno. Sin
 //      voz, 422; ninguna IA pudo, 424 (un 4xx: con un 5xx la pantalla no sabría que no se guardó y la nota no volvería);
 //   3. el turno guarda el MP3 con el mensaje (al final: las posiciones de los adjuntos no cambian) y lo devuelve para escucharlo;
-//   4. la pantalla: la nota va a SU motor (Offer o la ruta del chat), y cómo termina decide si vuelve a la barra.
+//   4. la pantalla: la nota va a SU motor (Offer o la ruta del chat), y cómo termina decide si vuelve a la barra;
+//   y lo que dejó la revisión de privacidad de Integración (22/10/2026): `pii: true` (nunca a la red gratis que entrena), el chat
+//   es de quien la manda ANTES de escucharla, una clave dictada no deja el audio, y la de un chat que se sigue con `antes` se
+//   escucha con la misma regla que deja seguirlo.
 //
 // Correr: node --import tsx --test tests/ops-center-voz-chat.test.ts
 // PROBADO ROMPIÉNDOLO (base 4/0), ver el pie.
@@ -17,7 +20,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { bloqueDeVoz, rutaDeAdjunto, rutaDeVozDelChat, sanearBloques, vozDeBloques } from '../lib/chat-mako-bloques';
+import { bloqueDeVoz, rutaDeAdjunto, rutaDeVozDelChat, sanearBloques, vozDeBloques, vozDeChatDeAntes } from '../lib/chat-mako-bloques';
 import { esMp3 } from '../lib/mako-adjuntos';
 import { leerRespuesta } from '../app/m/mako/chat-ui';
 
@@ -40,21 +43,31 @@ test('1. la nota se guarda como un adjunto, por su firma, y se pide por su mensa
   assert.ok(!esMp3(new Uint8Array([0x1a, 0x45, 0xdf, 0xa3])), 'el webm de Chrome tampoco');
   // El GET la firma sólo si la conversación es de quien pide (como un adjunto).
   const turno = sinComentarios(leer('lib/mako-turno-app.ts'));
-  assert.match(turno, /export async function urlDeVozDelChat\([\s\S]{0,400}?if \(!m \|\| !\(await sesionDe\(persona, m\.session_id\)\)\) return null;\n\s*const v = vozDeBloques\(persona\.ws, m\.bloques\);\n\s*return v \? urlFirmadaDeAdjunto\(v\.path\) : null;/);
-  assert.match(sinComentarios(leer('app/api/mako/chat/route.ts')), /if \(sp\.has\('voz'\)\) \{\n\s*const url = await urlDeVozDelChat\(persona, sp\.get\('voz'\)\);/);
+  assert.match(turno, /export async function urlDeVozDelChat\([\s\S]{0,600}?const quien = deOtroChat \? await deOtroChat\(m\.session_id\) : persona;\n\s*if \(!quien \|\| !\(await sesionDe\(quien, m\.session_id\)\)\) return null;\n\s*const v = vozDeBloques\(persona\.ws, m\.bloques\);\n\s*return v \? urlFirmadaDeAdjunto\(v\.path\) : null;/);
+  // La de un chat que se sigue con `antes`: con la MISMA regla que deja seguirlo (personaDelChat), y su URL lo dice.
+  assert.match(sinComentarios(leer('app/api/mako/chat/route.ts')), /if \(sp\.has\('voz'\)\) \{\n\s*const url = await urlDeVozDelChat\(persona, sp\.get\('voz'\), sp\.get\('antes'\) \? \(sesion\) => personaDelChat\(persona, sesion, '1'\) : undefined\);/);
+  assert.equal(vozDeChatDeAntes('/api/mako/chat?voz=812'), '/api/mako/chat?voz=812&antes=1');
+  assert.equal(vozDeChatDeAntes('/api/mako/chat?voz=812&antes=1'), '/api/mako/chat?voz=812&antes=1', 'una sola vez');
+  assert.equal(vozDeChatDeAntes('/api/offer/audio?sesion=3&m=a'), '/api/offer/audio?sesion=3&m=a', 'la de Offer, igual');
+  assert.match(sinComentarios(leer('app/second-brain/useChatCliente.ts')), /const deOtroChat = !!elegido && 'antes' in elegido;\n\s*const conWsDeAudio = useCallback\(\(url: string\) => conWs\(deOtroChat \? vozDeChatDeAntes\(url\) : url, ws\), \[ws, deOtroChat\]\);/);
 });
 
 test('2. la ruta la escucha con la IA del negocio ANTES de guardar nada; sin voz 422, sin IA 424', () => {
   const ruta = sinComentarios(leer('app/api/mako/chat/route.ts'));
   assert.match(ruta, /if \(notaDeVoz && archivos\.length\) return json\(\{ ok: false, error: 'La nota de voz va sola: manda los archivos en otro mensaje\.' \}, 400\);/);
   assert.match(ruta, /if \(bytesDeVoz && !esMp3\(bytesDeVoz\)\) return json\(\{ ok: false, error: '[^']+' \}, 415\);/);
-  assert.match(ruta, /const oido = await escucharNotaDelChat\(quien, bytesDeVoz\);\n\s*if \(!oido\.ok\) return json\(\{ ok: false, error: oido\.error \}, oido\.status\);\n\s*mensaje = \[escrito\.trim\(\), oido\.texto\]\.filter\(Boolean\)\.join\('\\n\\n'\);/);
+  assert.match(ruta, /const oido = await escucharNotaDelChat\(quien, sessionId, bytesDeVoz\);\n\s*if \(!oido\.ok\) return json\(\{ ok: false, error: oido\.error \}, oido\.status\);\n\s*mensaje = \[escrito\.trim\(\), oido\.texto\]\.filter\(Boolean\)\.join\('\\n\\n'\);/);
   assert.ok(ruta.indexOf('escucharNotaDelChat(quien') < ruta.indexOf('await turnoApp(quien'), 'se escucha antes del turno');
   assert.match(ruta, /turnoApp\(quien, sessionId, \{ mensaje, adjuntos: v\.adjuntos, voz, /);
   // Adentro de la decisión del negocio (D6b): «sólo su IA» se prende ANTES de escuchar.
   const turno = sinComentarios(leer('lib/mako-turno-app.ts'));
   const escuchar = turno.slice(turno.indexOf('export async function escucharNotaDelChat('), turno.indexOf("return texto ? { ok: true, texto }"));
   assert.ok(escuchar.indexOf('entrarSoloSuIA(negocio.suIA);') > 0 && escuchar.indexOf('entrarSoloSuIA(negocio.suIA);') < escuchar.indexOf('transcribirAudio('), 'D6b antes de escuchar');
+  // Nunca a la red gratis de la agencia (el Gemini gratis entrena): `pii: true`, como las notas de WhatsApp.
+  assert.match(escuchar, /\{ language: 'es', feature: FEATURE, motivo: 'MaKo: escuchar una nota de voz del chat', pii: true \}\)\)\.trim\(\);/);
+  // El chat es de quien la manda ANTES de escucharla (si no, una nota a un chat ajeno gastaba la IA).
+  assert.match(escuchar, /if \(!\(await sesionDe\(persona, sessionId\)\)\) return \{ ok: false, error: 'No encuentro ese chat\.', status: 404 \};/);
+  assert.ok(escuchar.indexOf('sesionDe(persona, sessionId)') < escuchar.indexOf('transcribirAudio('), 'el dueño, antes');
   assert.match(escuchar, /status: 424 \};/);
   assert.match(turno, /return texto \? \{ ok: true, texto \} : \{ ok: false, error: NOTA_SIN_VOZ, status: 422 \};/);
   // Un 4xx dice su status (la pantalla decide con él), y un 5xx sigue siendo «no sé si llegó».
@@ -67,7 +80,8 @@ test('2. la ruta la escucha con la IA del negocio ANTES de guardar nada; sin voz
 
 test('3. el turno guarda el MP3 con el mensaje (al final) y lo devuelve para escucharlo', () => {
   const turno = sinComentarios(leer('lib/mako-turno-app.ts'));
-  assert.match(turno, /const voz = entrada\.voz && entrada\.guardarAdjuntos \? await subirNotaDeVozDelChat\(ws, entrada\.voz\) : null;\n\s*const aGuardar = voz \? \[\.\.\.bloques, voz\] : bloques;/);
+  // Con una clave DICTADA (tapada en el texto), el audio que la dice no se guarda.
+  assert.match(turno, /const voz = entrada\.voz && entrada\.guardarAdjuntos && !tapado\.tapadas \? await subirNotaDeVozDelChat\(ws, entrada\.voz\) : null;\n\s*const aGuardar = voz \? \[\.\.\.bloques, voz\] : bloques;/);
   assert.match(turno, /msg = await appendMessage\(s\.id, 'user', conDesde\(textoMemoria, desde\), aGuardar\);/);
   assert.match(turno, /await borrarAdjuntos\(aGuardar\.map\(\(b\) => b\.path\)\);/, 'si el mensaje no quedó, su nota tampoco');
   assert.match(turno, /const conArchivos = msg\.conBloques && msg\.id != null \? adjuntosVisibles\(msg\.id, bloques\) : \[\];/, 'los adjuntos, sin la nota');
@@ -96,3 +110,9 @@ test('4. la pantalla: la nota va a SU motor, y cómo termina decide si vuelve a 
 //   · la nota antes de los adjuntos (corre los `<id>:<n>`) → 3/1 (3)
 //   · un 422 vuelve a la barra                         → 3/1 (4)
 //   · la nota sólo en Offer                            → 3/1 (4)
+// Y lo de la revisión de privacidad (22/10/2026, base 4/0):
+//   · sin `pii: true`                                  → 3/1 (2)
+//   · escucha antes de mirar de quién es el chat       → 3/1 (2)
+//   · guarda el audio de una clave dictada             → 3/1 (3)
+//   · la nota de un chat de antes sin `&antes=1`       → 3/1 (1)
+//   · el GET de un chat de antes sin su regla          → 3/1 (1)

@@ -33,6 +33,7 @@ import {
 import { achicarImagen } from '@/app/m/mako/subir';
 import { abrirOffer, armarOffer, turnoOffer, type NotaDeVoz } from './motor-offer';
 import { notaEnMp3 } from './nota-de-voz';
+import { vozDeChatDeAntes } from '@/lib/chat-mako-bloques';
 import { esOpcionArmar } from '@/app/offer/ayudas';
 import { conPegados, esPegadoLargo } from '@/lib/chat-pegado';
 import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
@@ -168,8 +169,10 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   const [deOfferAbierta, setDeOfferAbierta] = useState<OfferSesionVista | null>(null);
   const offerRef = useRef<OfferSesionVista | null>(null);
   const [ahora, setAhora] = useState(() => Date.now());
-  /** La URL de una nota de voz con el `?ws=` del negocio que se mira (un `<audio src>` no pasa por el `fetch` de la casa). */
-  const conWsDeAudio = useCallback((url: string) => conWs(url, ws), [ws]);
+  /** La URL de una nota de voz con el `?ws=` del negocio que se mira (un `<audio src>` no pasa por el `fetch` de la casa). En un
+   *  chat que se sigue con `antes` (uno de antes, o el de una tab), con su `&antes=1`: si no, el GET daba 404. */
+  const deOtroChat = !!elegido && 'antes' in elegido;
+  const conWsDeAudio = useCallback((url: string) => conWs(deOtroChat ? vozDeChatDeAntes(url) : url, ws), [ws, deOtroChat]);
   const ocupadoRef = useRef(false);
   const sesionRef = useRef<number | null>(null);
   /** La conversación que se acaba de crear con el primer mensaje: su hilo YA está dibujado, no se recarga. */

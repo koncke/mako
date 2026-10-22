@@ -118,7 +118,8 @@ export async function GET(req: NextRequest) {
     }
     // La nota de voz de la persona (OC7): un <audio src>, también por su mensaje.
     if (sp.has('voz')) {
-      const url = await urlDeVozDelChat(persona, sp.get('voz'));
+      // La de un chat que se SIGUE con `antes` (uno de antes, o de una tab), con la misma regla que deja seguirlo.
+      const url = await urlDeVozDelChat(persona, sp.get('voz'), sp.get('antes') ? (sesion) => personaDelChat(persona, sesion, '1') : undefined);
       if (!url) return new Response('No pude abrir la nota de voz.', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
       return new Response(null, { status: 302, headers: { Location: url, 'Cache-Control': 'private, max-age=240' } });
     }
@@ -232,7 +233,7 @@ export async function POST(req: NextRequest) {
       // La nota se escucha ANTES del turno: lo que se entendió es el mensaje, y si nadie la pudo escuchar no se guarda nada.
       let mensaje = escrito;
       if (bytesDeVoz) {
-        const oido = await escucharNotaDelChat(quien, bytesDeVoz);
+        const oido = await escucharNotaDelChat(quien, sessionId, bytesDeVoz);
         if (!oido.ok) return json({ ok: false, error: oido.error }, oido.status);
         mensaje = [escrito.trim(), oido.texto].filter(Boolean).join('\n\n');
       }

@@ -5330,6 +5330,12 @@ pelo) · `tests/d6b-rutas.test.ts` (la tabla quedó para lib/transcribe.ts)
   Groq de MaKo los escucha; sin con qué, la fila dice POR QUÉ (`errorDeCascada`), no «whisper: no credits».
 - **Trampa:** `transcribirAudio` no decía quién escuchó; se le sumó `alEscuchar` para que la fila del anuncio lo guarde.
   Y la escucha de la capa de IA no devuelve idioma ni duración (los Whisper de antes sí): esas columnas quedan vacías.
+- **Trampa: el `pii` de `transcribirAudio` es FALSE por defecto** (la revisión de la nota de voz del Ops Center, OC7,
+  22/10/2026). Una llamada nueva sin él, en un negocio sin su Claude ni su GPT cuyas claves no pueden escuchar, manda el
+  audio EN SILENCIO a la red gratis de la agencia (Groq y Gemini; el Gemini gratis entrena), aunque el texto del mismo chat
+  nunca vaya ahí. La nota del chat del Ops Center (lib/mako-turno-app.ts → `escucharNotaDelChat`) salió sin él y la frenó la
+  revisión. **Regla:** toda nota de voz de una persona del negocio o de un lead lleva `pii: true` (como lib/mako-doer-in.ts y
+  el dictado del Plan); sin con qué escuchar, la respuesta dice que conecte la suya (`errorDeCascada`).
 - **Sin hacer:** el caso real (regenerar la transcripción de un anuncio del ws11 o del ws14, que tienen OpenAI) espera el
   deploy. `scripts/backfill-transcripts.ts` y `scripts/test-one.ts` ahora necesitan el server: corren con
   `--conditions=react-server` y adentro de `runWithWorkspace` del negocio. lib/embeddings.ts (los vectores del RAG con la

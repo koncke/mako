@@ -246,13 +246,21 @@ export async function urlDeAdjunto(persona: PersonaChat, ref: unknown): Promise<
   });
 }
 
-/** El link firmado de la nota de voz de un mensaje, o null. Como `urlDeAdjunto`: mira de QUIÉN es la conversación antes. */
-export async function urlDeVozDelChat(persona: PersonaChat, msgId: unknown): Promise<string | null> {
+/**
+ * El link firmado de la nota de voz de un mensaje, o null. Como `urlDeAdjunto`: mira de QUIÉN es la conversación antes.
+ * `deOtroChat`: un chat que la persona sigue con `antes` (route.ts → personaDelChat), resuelto con la MISMA regla que deja
+ * seguirlo. Para el admin, ésa es la de leer su texto: quien lee lo que se entendió puede escuchar la nota (22/10/2026, a
+ * propósito). Nunca una clave armada a mano.
+ */
+export async function urlDeVozDelChat(persona: PersonaChat, msgId: unknown,
+  deOtroChat?: (sesion: number) => Promise<PersonaChat | null>): Promise<string | null> {
   const id = typeof msgId === 'string' && /^\d{1,15}$/.test(msgId) ? Number(msgId) : NaN;
   if (!Number.isSafeInteger(id) || id <= 0) return null;
   return runWithWorkspace(persona.ws, async () => {
     const m = await getMensajeConBloques(id);
-    if (!m || !(await sesionDe(persona, m.session_id))) return null;
+    if (!m) return null;
+    const quien = deOtroChat ? await deOtroChat(m.session_id) : persona;
+    if (!quien || !(await sesionDe(quien, m.session_id))) return null;
     const v = vozDeBloques(persona.ws, m.bloques);
     return v ? urlFirmadaDeAdjunto(v.path) : null;
   });
@@ -268,15 +276,20 @@ export const NOTA_SIN_VOZ = 'Escuché tu audio pero no le entendí nada: grábal
  * voz (no sirve mandar lo mismo). Un 4xx y no un 502: la pantalla toma un 5xx por «no sé si llegó» (app/m/mako/chat-ui.ts →
  * leerRespuesta) y la nota no volvía a la barra. Lo que se entendió es el mensaje del turno (`turnoApp`); el MP3 se guarda con él.
  */
-export async function escucharNotaDelChat(persona: PersonaChat, bytes: Uint8Array):
-  Promise<{ ok: true; texto: string } | { ok: false; error: string; status: 422 | 424 }> {
+export async function escucharNotaDelChat(persona: PersonaChat, sessionId: number, bytes: Uint8Array):
+  Promise<{ ok: true; texto: string } | { ok: false; error: string; status: 404 | 422 | 424 }> {
   return runWithWorkspace(persona.ws, async () => {
+    // El chat es de quien la manda ANTES de escucharla: si no, cada nota a un chat ajeno gastaba la IA y volvía 404 (revisión).
+    if (!(await sesionDe(persona, sessionId))) return { ok: false, error: 'No encuentro ese chat.', status: 404 };
     const negocio = await negocioConSuIA(persona.ws);
     entrarSoloSuIA(negocio.suIA);
     const { transcribirAudio, SttSinEscucha, errorDeCascada } = await import('@/lib/ai-cheap');
     let texto: string;
     try {
-      texto = (await transcribirAudio(Buffer.from(bytes).toString('base64'), 'audio/mpeg', { language: 'es', feature: FEATURE, motivo: 'MaKo: escuchar una nota de voz del chat' })).trim();
+      // ⚠️ `pii: true` (la revisión de Integración, 22/10/2026): sin él, si las claves del negocio no pueden, el MP3 iba a la red
+      // gratis de la agencia (Groq y Gemini, y el Gemini gratis ENTRENA con lo que recibe). En la nota se habla de los leads, y
+      // el texto de este mismo chat nunca va ahí. Como las notas de WhatsApp (lib/mako-doer-in.ts) y el dictado del Plan.
+      texto = (await transcribirAudio(Buffer.from(bytes).toString('base64'), 'audio/mpeg', { language: 'es', feature: FEATURE, motivo: 'MaKo: escuchar una nota de voz del chat', pii: true })).trim();
     } catch (e) {
       const delNegocio = e instanceof SttSinEscucha ? e.errores : [e instanceof Error ? e.message : String(e)];
       console.error('[mako-turno-app] nota de voz:', delNegocio.join(' | ').slice(0, 300));
@@ -485,7 +498,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const subidos = adjuntos.length && entrada.guardarAdjuntos ? await subirAdjuntos(ws, adjuntos) : [];
     const bloques = subidos.map((x) => x.bloque);
     // La nota de voz (OC7), con el mensaje: va AL FINAL, así las posiciones de los adjuntos (`<id>:<n>`) no cambian.
-    const voz = entrada.voz && entrada.guardarAdjuntos ? await subirNotaDeVozDelChat(ws, entrada.voz) : null;
+    // Con una clave DICTADA (tapada en el texto), el audio no se guarda: la dice (la revisión, 22/10/2026).
+    const voz = entrada.voz && entrada.guardarAdjuntos && !tapado.tapadas ? await subirNotaDeVozDelChat(ws, entrada.voz) : null;
     const aGuardar = voz ? [...bloques, voz] : bloques;
     let msg: Awaited<ReturnType<typeof appendMessage>>;
     try {
