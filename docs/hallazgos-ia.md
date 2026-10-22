@@ -5575,6 +5575,15 @@ TODAS 429 (0 respuestas), OpenRouter 12 llamadas y su modelo gratis caducó tres
     `archivoATexto(` sin feature en un archivo del Plan.
 - **Mistral nombrada tapaba parámetros de links** (el `pwd=` de un Zoom junto a «Av. Gabriela Mistral»). Ahora un id pegado a
   un link no cuenta: después de `=`, `/`, `?`, `&`, `#`, o seguido de `.`.
+- **Y el arreglo de los links abrió una regresión** (tercera revisión, el mismo día).
+  - **Qué pasó:** para no tapar el `pwd=<id>.1` de un Zoom, el token pedía que no lo siguiera un punto. Entonces «Mi clave
+    de Mistral es <clave>.», con la clave al final de una oración, pasó entera al modelo y a `chart_chats`.
+  - **El arreglo:** ahora sólo un punto SEGUIDO de algo más es parte de un link. El link ya lo protegen el `=` y la `/` del
+    lookbehind.
+  - **Lo que tampoco agarraba nadie:** `mistral_key=…` en minúscula, porque la regla de .env es sólo de MAYÚSCULAS. Ahora
+    hay una regla para el nombre asignado.
+  - **Regla:** al angostar una regla de tapado para no tapar de más, se vuelve a probar el caso más común (la clave al
+    final de una frase), no sólo el que se quería dejar pasar.
 - **Una fila de IA ilegible en el ws9 apagaría la IA propia de todos los negocios** (por `ilegibleTira`). Se miró antes de
   subir: 22 de 22 filas legibles. El mensaje ya no dice «la base no contestó», que en ese caso era falso.
 ## Groq sólo escucha, y el Gemini PAGO de la plataforma como base (IA16, 22/10/2026)

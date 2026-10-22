@@ -154,7 +154,8 @@ test('la llamada con la clave del negocio se registra con la marca PRIMERO', () 
   const b = cuerpoDelIntento();
   assert.match(b, /recordUsage\([^)]*\[marcaDelGasto\(permiso\), /, 'la marca tiene que ir al principio del motivo');
   // Y la marca es la del negocio, salvo que su clave sea el crédito de Max de la plataforma (revisión del lote 2).
-  assert.match(sinComentarios(leer('lib/anthropic.ts')), /const marcaDelGasto = \(permiso: PermisoClaveDelNegocio\): string =>\s*permiso\.esCredito \? `\$\{MOTIVO_CREDITO_PLATAFORMA\} \(su clave es el crédito\)` : MOTIVO_CLAVE_DEL_NEGOCIO;/);
+  assert.match(sinComentarios(leer('lib/anthropic.ts')), /const marcaDelGasto = \(permiso: PermisoClaveDelNegocio\): string =>\s*permiso\.esCredito \? MOTIVO_CREDITO_SU_CLAVE : MOTIVO_CLAVE_DEL_NEGOCIO;/);
+  assert.match(leer('lib/veto-claude.ts'), /export const MOTIVO_CREDITO_SU_CLAVE = `\$\{MOTIVO_CREDITO_PLATAFORMA\} \(su clave es el crédito\)`;/, 'la marca del crédito tiene que empezar como la del crédito de la plataforma (costos-ia la saca del gasto de MaKo)');
 });
 
 test('el gasto de MaKo (lib/costos-ia.ts) no suma lo que pagó un negocio con su clave', () => {

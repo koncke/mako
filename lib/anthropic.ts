@@ -8,7 +8,7 @@ import 'server-only';
 import { recordUsage, type UsageInfo } from './anthropic-usage';
 import { credWs, credDelCliente, credWsEstricta, wsDelEntorno } from './credenciales';
 import {
-  permisoDeGasto, evaluarClaveDelNegocio, MOTIVO_CLAVE_DEL_NEGOCIO, FEATURES_DEL_PLAN,
+  permisoDeGasto, evaluarClaveDelNegocio, MOTIVO_CLAVE_DEL_NEGOCIO, MOTIVO_CREDITO_SU_CLAVE, FEATURES_DEL_PLAN,
   evaluarCreditoDeLaPlataforma, CLAVES_CREDITO_PLATAFORMA, CREDITO_HABILITADO_PARA, MOTIVO_CREDITO_PLATAFORMA, type PermisoClaude,
   type PermisoClaveDelNegocio, CLAVE_MODELO_SU_CLAUDE, modeloDeSuClaude,
 } from './veto-claude';
@@ -77,7 +77,7 @@ async function esClaveAnthropicDeLaPlataforma(key: string): Promise<boolean | nu
  * (revisión del lote 2 de IA: si no, ese gasto no se veía en ningún lado).
  */
 const marcaDelGasto = (permiso: PermisoClaveDelNegocio): string =>
-  permiso.esCredito ? `${MOTIVO_CREDITO_PLATAFORMA} (su clave es el crédito)` : MOTIVO_CLAVE_DEL_NEGOCIO;
+  permiso.esCredito ? MOTIVO_CREDITO_SU_CLAVE : MOTIVO_CLAVE_DEL_NEGOCIO;
 
 /** Lo que dice una función cuando no se pudo comprobar la clave de Claude del negocio: se reintenta, no se paga otra. */
 // Sin la causa: puede ser la base que no contestó o una fila de la plataforma que no se descifra (revisión del lote 2), y
@@ -167,7 +167,9 @@ export async function permisoDeLaClaveDelNegocio(feature?: string): Promise<{ pe
   // Sin poder leer la marca, «no sé»: el barato y el Plan cerrado.
   try {
     const { leerMarcaDeCredito, esElCreditoMarcado } = await import('@/lib/credito-marca');
-    if (esElCreditoMarcado(clave, await leerMarcaDeCredito()) && creditosPlataforma) creditosPlataforma.push(clave);
+    // Marcada: es crédito, se pudieran leer las filas de la plataforma o no (sin leerlas, `null` decía «no sé» y el gasto se
+    // anotaba como del negocio; la marca SÍ sabe).
+    if (esElCreditoMarcado(clave, await leerMarcaDeCredito())) creditosPlataforma = [...(creditosPlataforma ?? []), clave];
   } catch { creditosPlataforma = null; }
   const v = evaluarClaveDelNegocio({ feature, clave, clavesPlataforma, pausa, model: modelo, creditosPlataforma });
   if (!v.ok) return pausa ? { pausa: true } : null;
