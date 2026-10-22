@@ -123,7 +123,7 @@ export async function conClaveDelNegocio(p: {
   /** Lo que MIRA (IA6): imágenes y PDF como bloques de Claude, antes del texto. Las fotos de un negocio con su IA las lee su
    *  Claude o su OpenAI, nunca Gemini (lib/ai-cheap.ts → `leerDocumentoIA`). */
   bloques?: Array<Record<string, unknown>>;
-}): Promise<{ texto: string } | { error: string } | null> {
+}): Promise<{ texto: string; model?: string } | { error: string } | null> {
   const r = await permisoDeLaClaveDelNegocio(p.feature);
   if (!r) return null;
   // ⚠️ LA PAUSA SE DICE (17/10/2026, docs/hallazgos-graficos.md): con `null`, el negocio que conectó SU Claude quedaba sin
@@ -158,7 +158,7 @@ export async function conClaveDelNegocio(p: {
       .map((c: { text?: string }) => c.text ?? '')
       .join('\n')
       .trim();
-    return texto ? { texto } : { error: 'Claude contestó vacío' };
+    return texto ? { texto, model: permiso.model } : { error: 'Claude contestó vacío' };
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);
     await (await import('./su-clave')).anotarFalloDeSuClave({ proveedor: 'anthropic', error, feature: permiso.feature, modelo: permiso.model });

@@ -5220,3 +5220,21 @@ pelo) · `tests/d6b-rutas.test.ts` (la tabla quedó para lib/transcribe.ts)
   crédito: si la del negocio es una de ésas, o si no se pueden leer, va con Haiku aunque elija Sonnet.
 - **Sin hacer:** el caso de uso (el closing del ws3 con una clave de prueba) espera el deploy y una clave de Martín. Medir el
   gasto del ws10 una semana después (con IA6 TODO su negocio corre con ese crédito, en Haiku).
+
+## El Closing Analyst con el Claude del cliente: su clave primero, y «vetado» no es lo que lee un cliente (IA12, 22/10/2026)
+
+**Vive en:** `lib/closing.ts` (`analyzeMeeting`, `CONECTA_TU_CLAUDE_CLOSING`) · `lib/anthropic.ts` (`conClaveDelNegocio`
+devuelve el modelo) · `tests/closing-su-claude.test.ts` (corre `analyzeMeeting` con el reloj después del 13/11)
+
+- **Por qué:** closing es el único Claude pago de un cliente (123 llamadas, US$13,22 en 30 días, ws9 y ws1), y lo pagaba
+  MaKo: la clave del ws1 es una copia de la de la plataforma, y el permiso de Sonnet para closing vence el 2026-11-13.
+- **Trampa que había:** el camino pago de `chatClaude` usa `credWs`, que para un cliente CON clave propia devuelve SU clave…
+  pero registra el gasto SIN la marca del negocio. Un closing de un negocio con su clave se contaba como gasto de MaKo. Ahora
+  `analyzeMeeting` prueba primero la puerta 2 (su clave, el modelo que eligió en IA5, su marca); si su clave falla se dice
+  («Tu clave de Claude no pudo…») y NO se cae a la de la plataforma.
+- **Regla:** el error del veto es de la plataforma, no del cliente. Vencido el permiso (o una feature fuera de la lista), un
+  cliente lee «Conecta tu Claude para el Closing Analyst»; la pausa a mano de Claude se dice como es. La plataforma (ws9)
+  sigue con su permiso: renovarlo o no es de Martín.
+- **Sin hacer:** el ws1 (Mauricio) sigue analizando con la clave de MaKo hasta el 13/11 (es una copia: la puerta 2 la
+  rechaza). Qué pasa después lo decide Martín (pedido al Cerebro). El caso de uso real (una llamada del ws3 con la clave de
+  prueba) espera el deploy y la clave.

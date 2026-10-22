@@ -27,7 +27,7 @@ import { getSupabaseServer } from './supabase';
 import { leerTodo } from './supabase-paginado';
 import { credWs } from './credenciales';
 import { esInterno, internosDe, SIN_INTERNOS, type Internos } from './closing-internos';
-import { chatClaude } from './anthropic';
+import { chatClaude, conClaveDelNegocio } from './anthropic';
 import { contenidoNoConfiable, getPromptText, renderPrompt } from './prompt-render';
 import { isoToFechaTijuana } from './calendly';
 import {
@@ -280,6 +280,17 @@ function primaryInviteeEmail(m: FathomMeeting, lead: LeadMatch | null, internos:
 // dijera Opus para siempre aunque corriera otra cosa.
 const ANALYSIS_MODEL = 'claude-sonnet-5';
 
+/** Lo que lee un cliente cuando no hay con qué analizar sus llamadas (IA12): su Claude, por clave. */
+export const CONECTA_TU_CLAUDE_CLOSING = 'Conecta tu Claude para el Closing Analyst: pega tu clave de Claude en Tus cuentas de IA (Integraciones).';
+
+/** ¿El pedido es de la plataforma (el super admin)? Lo interno sigue con su permiso; sin poder saberlo, no. */
+async function esLaPlataforma(): Promise<boolean> {
+  try {
+    const { wsSuperAdmin } = await import('./workspace');
+    return (await getWorkspaceActual()) === (await wsSuperAdmin());
+  } catch { return false; }
+}
+
 export const SYSTEM_ANALISIS = `Eres MaKo, analista de cierres de Mauricio Bustos (consultoría/coaching ejecutivo que vende un programa de mentoría a dueños de negocio). Analizas grabaciones de reuniones para evaluar el desempeño del closer.
 
 Tu primera tarea es CLASIFICAR la llamada. Distingue con cuidado:
@@ -481,17 +492,36 @@ export type AnalyzeResult =
 export async function analyzeMeeting(m: FathomMeeting, lead: LeadMatch | null, feedback?: string): Promise<AnalyzeResult> {
   try {
     const system = await getPromptText('closing.analyze.system', SYSTEM_ANALISIS);
+    const user = await buildUserPrompt(m, lead, feedback);
+    // ── PRIMERO, EL CLAUDE DEL NEGOCIO (IA12, 22/10/2026) ──────────────────────────────────────────────────────────────
+    // El closing de un cliente lo pagaba MaKo: 123 llamadas por US$13,22 en 30 días, y la clave del ws1 es una copia de la de
+    // la plataforma. Ahora corre con SU clave (la puerta 2 del veto) y el modelo que eligió en «Tus cuentas de IA» (IA5): lo
+    // paga su cuenta, con su marca en el gasto. Si su clave falla, se dice: con su clave cargada no paga MaKo.
+    const suya = await conClaveDelNegocio({ system, user, maxTokens: 8000, feature: 'closing', motivo: 'Analizar una llamada de venta', timeoutMs: 120_000 });
+    if (suya && 'texto' in suya) return { ok: true, analysis: parseJsonObject(suya.texto) as ClaudeAnalysis, model: suya.model ?? 'claude-haiku-4-5' };
+    if (suya) return { ok: false, error: `Tu clave de Claude no pudo analizar la llamada: ${suya.error}` };
+    // Sin su clave: lo de siempre (el permiso de la plataforma, que vence el 2026-11-13). Vencido, para un cliente no es
+    // «Claude vetado»: es que conecte el suyo.
     // Qué modelo corrió DE VERDAD. `onUsage` es el único que lo sabe: chatClaude
     // resuelve override → catálogo → cascada por dentro y devuelve solo el texto.
     let modelUsado = '';
-    const text = await chatClaude(system, [{ role: 'user', content: await buildUserPrompt(m, lead, feedback) }], {
-      // Sin model hardcodeado: el override de /modelos-ia (feature 'closing') manda.
-      thinking: true,
-      effort: 'high',
-      maxTokens: 8000,
-      feature: 'closing',
-      onUsage: (u) => { modelUsado = u.model; },
-    });
+    let text: string;
+    try {
+      text = await chatClaude(system, [{ role: 'user', content: user }], {
+        // Sin model hardcodeado: el override de /modelos-ia (feature 'closing') manda.
+        thinking: true,
+        effort: 'high',
+        maxTokens: 8000,
+        feature: 'closing',
+        onUsage: (u) => { modelUsado = u.model; },
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      // El permiso de la plataforma vencido (o una feature fuera de la lista): para un cliente, que conecte el suyo. La pausa a
+      // mano de Claude NO: ésa es de la plataforma y se dice como es.
+      if (/Claude vetado — (el permiso de «closing» venció|«closing» no está en la lista blanca)/.test(msg) && !(await esLaPlataforma())) return { ok: false, error: CONECTA_TU_CLAUDE_CLOSING };
+      throw e;
+    }
     const raw = parseJsonObject(text) as ClaudeAnalysis;
     return { ok: true, analysis: raw, model: modelUsado || ANALYSIS_MODEL };
   } catch (err) {
