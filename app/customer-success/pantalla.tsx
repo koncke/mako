@@ -24,7 +24,7 @@
 
 import { requireCapa } from '@/lib/tab-access';
 import { ClientesApp } from './ClientesApp';
-import { getPerfil } from '@/lib/perfil';
+import { getPerfil, getTarjetaClientes } from '@/lib/perfil';
 import { clientesGanados, tableroDeLaCartera, filasDeTodos } from './trabajo';
 import { carteraEnEntrega } from './entrega';
 import { lecturaDeFichas } from './ficha-lectura';
@@ -131,6 +131,11 @@ export async function PantallaClientes({ searchParams }: { searchParams: Promise
   const lecturaContacto = ultimoContactoDeClientes(clientes.map((c) => c.leadId));
   /** EL COBRO DE CADA UNO, para el aviso «Pago rechazado» / «Cuota vencida» de la tarjeta (20/10/2026). Nunca tira. */
   const lecturaCobros = cobrosDeLaCartera(clientes.map((c) => c.leadId));
+  /**
+   * CÓMO VE QUIEN MIRA LA TARJETA DE UN CLIENTE (21/10/2026, «Personalizar tarjetas»): de SU fila (`usuarios.perfil`),
+   * con el HTML, como el CRM (`getCamposTarjetaCrm` en app/crm/page.tsx). Nunca tira: sin fila, la de siempre.
+   */
+  const lecturaTarjeta = getTarjetaClientes();
 
   const tablero = clientes.length
     ? await tableroDeLaCartera(clientes).catch((e) => ({ ok: false as const, error: mensaje(e) }))
@@ -199,6 +204,7 @@ export async function PantallaClientes({ searchParams }: { searchParams: Promise
   const fichas = await lecturaFichas;
   const contactos = await lecturaContacto;
   const cobros = await lecturaCobros;
+  const tarjeta = await lecturaTarjeta;
 
   /**
    * LA FICHA QUE LLEGA ABIERTA: `?cliente=<leadId>`. Se lee ACÁ y no en el navegador, por
@@ -263,6 +269,7 @@ export async function PantallaClientes({ searchParams }: { searchParams: Promise
       curso={curso}
       vistaInicial={vistaInicial}
       productoInicial={productoInicial}
+      tarjeta={tarjeta}
     />
   );
 }

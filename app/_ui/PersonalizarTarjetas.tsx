@@ -29,7 +29,7 @@ export type ResultadoGuardarTarjeta = { ok: true } | { ok: false; error: string 
 
 export function PersonalizarTarjetas<F extends string, C extends string>({
   titulo = 'Personalizar tarjetas', fabrica, propias, forma, campos, catalogo, nombreCampo, guardable, guardar, onCambio, onCerrar,
-  vistaPrevia, sinMuestra, ayudaDatos,
+  vistaPrevia, sinMuestra, ayudaDatos, ordenFijo = false,
 }: {
   titulo?: string;
   /** Las de la casa, la de siempre primero. */
@@ -54,6 +54,12 @@ export function PersonalizarTarjetas<F extends string, C extends string>({
   sinMuestra: string;
   /** Una línea debajo de «Datos, en su orden»: «El nombre va siempre». */
   ayudaDatos?: string;
+  /**
+   * Cada dato tiene SU lugar en la tarjeta y el orden no cambia nada (Clientes, 21/10/2026: la cara, la empresa, la
+   * barra y el chip van donde van). Sin arrastre ni ↑ ↓, y lo que se suma entra en el orden del catálogo: un orden que
+   * no se ve sólo haría que «Completa» dejara de reconocerse. El porqué, en lib/tarjeta-clientes.ts.
+   */
+  ordenFijo?: boolean;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -76,7 +82,7 @@ export function PersonalizarTarjetas<F extends string, C extends string>({
   };
   const elegir = (p: PlantillaTarjeta<F, C>) => { if (!guardando && p.id !== puesta?.id) void aplicar(p.forma, [...p.campos]); };
   const quitarCampo = (c: C) => void aplicar(forma, campos.filter((x) => x !== c));
-  const sumarCampo = (c: C) => void aplicar(forma, [...campos, c]);
+  const sumarCampo = (c: C) => void aplicar(forma, ordenFijo ? catalogo.filter((x) => x === c || campos.includes(x)) : [...campos, c]);
   const moverCampo = (de: number, a: number) => {
     if (a < 0 || a >= campos.length || de === a) return;
     const cs = [...campos];
@@ -156,23 +162,27 @@ export function PersonalizarTarjetas<F extends string, C extends string>({
             {vistaPrevia ? vistaPrevia(forma, campos) : <p style={{ margin: 6, fontSize: 13, color: 'var(--dim)' }}>{sinMuestra}</p>}
           </div>
 
-          <h4 style={{ ...rotulo, marginBottom: 4 }}>Datos, en su orden</h4>
+          <h4 style={{ ...rotulo, marginBottom: 4 }}>{ordenFijo ? 'Datos' : 'Datos, en su orden'}</h4>
           {ayudaDatos ? <p style={{ margin: '0 0 6px', fontSize: 12.5, color: 'var(--dim)' }}>{ayudaDatos}</p> : null}
           <ol style={{ listStyle: 'none', margin: 0, padding: 0 }} aria-label="Los datos que muestra la tarjeta">
             {campos.map((c, i) => (
-              <li key={c} draggable={!guardando} data-campo-tarjeta={c}
+              <li key={c} draggable={!guardando && !ordenFijo} data-campo-tarjeta={c}
                 onDragStart={(e) => { setArrastrado(i); e.dataTransfer.effectAllowed = 'move'; }}
                 onDragOver={(e) => { if (arrastrado != null) e.preventDefault(); }}
                 onDrop={(e) => { e.preventDefault(); if (arrastrado != null) moverCampo(arrastrado, i); setArrastrado(null); }}
                 onDragEnd={() => setArrastrado(null)}
                 style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 6px', borderRadius: 10, marginBottom: 2,
-                  background: arrastrado === i ? 'var(--surface-2)' : 'transparent', cursor: guardando ? 'default' : 'grab' }}>
-                <span aria-hidden style={{ color: 'var(--faint)', fontSize: 14, width: 14, textAlign: 'center', userSelect: 'none' }}>⋮⋮</span>
+                  background: arrastrado === i ? 'var(--surface-2)' : 'transparent', cursor: guardando || ordenFijo ? 'default' : 'grab' }}>
+                <span aria-hidden style={{ color: 'var(--faint)', fontSize: 14, width: 14, textAlign: 'center', userSelect: 'none' }}>{ordenFijo ? '' : '⋮⋮'}</span>
                 <input type="checkbox" checked onChange={() => quitarCampo(c)} disabled={guardando} aria-label={`Sacar ${nombreCampo[c]}`}
                   style={{ width: 16, height: 16, accentColor: 'var(--primary)', cursor: 'pointer', flex: 'none' }} />
                 <span style={{ flex: 1, fontSize: 14, color: 'var(--ink)' }}>{nombreCampo[c]}</span>
-                <button type="button" style={flecha} disabled={guardando || i === 0} onClick={() => moverCampo(i, i - 1)} aria-label={`Subir ${nombreCampo[c]}`}>↑</button>
-                <button type="button" style={flecha} disabled={guardando || i === campos.length - 1} onClick={() => moverCampo(i, i + 1)} aria-label={`Bajar ${nombreCampo[c]}`}>↓</button>
+                {!ordenFijo && (
+                  <>
+                    <button type="button" style={flecha} disabled={guardando || i === 0} onClick={() => moverCampo(i, i - 1)} aria-label={`Subir ${nombreCampo[c]}`}>↑</button>
+                    <button type="button" style={flecha} disabled={guardando || i === campos.length - 1} onClick={() => moverCampo(i, i + 1)} aria-label={`Bajar ${nombreCampo[c]}`}>↓</button>
+                  </>
+                )}
               </li>
             ))}
           </ol>
