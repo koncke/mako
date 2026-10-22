@@ -371,10 +371,10 @@ pushear.** No se suma al hook a propósito: son ~9 segundos más en cada push y 
 de los cambios no los necesita — pero los renombres, sí. (17/10/2026: «acordarse a mano» costó 16
 runs rojos de 90; ahora hay una herramienta que elige los tests sola — ver la sección de abajo.)
 
-# Antes de pasarle una punta al Cerebro: `antes-de-subir` en VERDE, sobre tu rama con `origin/main` mergeado
+# Antes de pasarle una punta a «Cerebro › Integración»: `antes-de-subir` en VERDE, sobre tu rama con `origin/main` mergeado
 
 **La regla** (17/10/2026; Martín: «asegúrate por todos los medios de que no vuelva a ocurrir nunca más»). Un chat **no le
-pasa una punta al Cerebro** sin haber corrido esto, con el árbol commiteado y `origin/main` mergeado en la rama:
+pasa una punta a «Cerebro › Integración»** (el que integra y sube) sin haber corrido esto, con el árbol commiteado y `origin/main` mergeado en la rama:
 
 ```sh
 node scripts/antes-de-subir.mjs --rapido
@@ -386,10 +386,10 @@ tests que **nombran o importan DIRECTO** un archivo cambiado, **todas las barred
 sin esperar** (20 s; si no, lo dice en la línea y los decide Actions; `--sin-tipos` los apaga); le deja a Actions los importadores a dos
 saltos o más (el replay: 19 de los 20 rojos de «Tests» y los 5 de «Tipos»). Los tipos van por defecto porque 3 de los 25 rojos de Actions
 fueron errores de tipos de archivos cambiados. Sin `--rapido` es el chequeo COMPLETO (todos los saltos
-y los tipos de lo cambiado: ~6-7 min, estimado: 4 min 21 s medidos para los tests más las guardas y los tipos); el Cerebro lo usa para
+y los tipos de lo cambiado: ~6-7 min, estimado: 4 min 21 s medidos para los tests más las guardas y los tipos); «Cerebro › Integración» lo usa para
 el push a `integracion`, y un jefe con tiempo puede correrlo también.
 
-El jefe le pasa al Cerebro **la última línea**, `VERDE <sha> (rápido: …)`, junto con la punta. El Cerebro compara ese sha con el de la
+El jefe le pasa a «Cerebro › Integración» **la última línea**, `VERDE <sha> (rápido: …)`, junto con la punta. Integración compara ese sha con el de la
 punta: **sin la línea, no integra.**
 Un `ROJO: …` se arregla ANTES de pasarla, no después de que falle Actions (cada rojo allá costó ~15 min y minutos del
 mes: 140 de los 2.000 gratis en dos días). Un exit **99** es «no corrió por falta de RAM», no un rojo del código: cerrá chats
@@ -1664,9 +1664,14 @@ código nuevo:
     no las veía. Se pasaron acá el 19/10.
     - **El orden lo decide el chat, sin preguntar:** cliente roto > plata y riesgo > lo que traba a Martín > lo que traba
       a otro chat > feature > pulido (el mismo orden de docs/pendientes.md).
+    - **EL CEREBRO SON DOS CHATS** (21/10/2026 noche, pedido de Martín). **«Cerebro»** reparte y habla con Martín: abre los
+      jefes (o le da el visto bueno a Integración para abrirlos) y le pasa a Martín los bullets de lo que llegó a producción.
+      **«Cerebro › Integración»** es el ÚNICO que integra y sube (`integracion` → `main`), en `C:/dev/wt-push-q`, y le
+      reporta al Cerebro, no a Martín. Las puntas («VERDE sin pushear») van a Integración. Donde este documento dice que
+      «el Cerebro» integra, sube o recibe una punta, se lee «Cerebro › Integración».
     - **El Cerebro DELEGA** (Martín, 17/10 ~23:30: «¿por qué no delegás?»). Lo de un área lo hace el jefe que la conoce.
-      El Cerebro reparte de a uno, según la RAM libre (la guardia frena con menos de 2,5 GB) y la cuota, junta las puntas
-      y sube.
+      Se reparte de a uno, según la RAM libre (la guardia frena con menos de 2,5 GB) y la cuota; Integración junta las
+      puntas y sube.
     - **«En producción» es sólo lo desplegado.** Un commit en `integracion`, o con el run verde y el deploy sin «Ready»,
       todavía no lo está. Ni el «Ya está» ni un cierre del Plan salen antes.
     - **Lo que toca plata, seguridad o envíos a clientes pasa una revisión adversarial antes de subir.** La punta llega
@@ -1703,10 +1708,10 @@ código nuevo:
       nube se sube antes a origin: la nube no ve los worktrees de la PC.
     - **AL INICIAR UNA CUENTA NUEVA, PRIMERO ESTO, EN ORDEN** (21/10/2026; Martín: «eso siempre primero al iniciar una nueva
       cuenta»): medir la cuenta (`get_usage`); abrir el Runner, para que el uso salga en el Ops Center y los mensajes
-      lleguen; archivar los chats viejos de esa cuenta; abrir el Cerebro fresco desde `docs/relevo/cerebro.md` («LEER
-      PRIMERO»); y los jefes de a uno, cuando tienen trabajo. Recién después, lo demás.
-    - **AL CEREBRO SE LE ESCRIBE POR NOMBRE** («Cerebro», con ListAgents), no por id (21/10/2026): cada cuenta abre uno nuevo
-      y el id del anterior da «not found». Si un mensaje no se entrega, la punta queda igual arriba de `docs/relevo/<área>.md`
+      lleguen; archivar los chats viejos de esa cuenta; abrir el Cerebro y «Cerebro › Integración» frescos desde
+      `docs/relevo/cerebro.md` («LEER PRIMERO»); y los jefes de a uno, cuando tienen trabajo. Recién después, lo demás.
+    - **A LOS DOS CEREBROS SE LES ESCRIBE POR NOMBRE** («Cerebro» para un pedido o una pregunta, «Cerebro › Integración»
+      para una punta, con ListAgents), no por id (21/10/2026): cada cuenta los abre de nuevo y el id del anterior da «not found». Si un mensaje no se entrega, la punta queda igual arriba de `docs/relevo/<área>.md`
       y en la nota del chat: el Cerebro la lee de ahí, no espera.
     - **A LO SUMO ~8 CHATS ABIERTOS** (21/10/2026; la PC tiene 16 GB). Un jefe con su punta en producción y su relevo
       commiteado se archiva, y se reabre desde `docs/relevo/<área>.md` cuando vuelve a tener trabajo. Lo que es sólo código
@@ -1716,7 +1721,7 @@ código nuevo:
       con su VERDE va al relevo del Cerebro el mismo día, aunque se integre después.
   - **EL «YA ESTÁ» LO DICE CADA CHAT EN EL OPS CENTER, NO EL CEREBRO** (17/10/2026; Martín: «Todos los mensajes de "Ya
     está x cosa" quiero que me los manden los chats del Center... No por aquí... Así puedo verlos y darles feedback...
-    además de ponerlo en Review»). Cuando el Cerebro le avisa a un jefe que su punta llegó a producción, el jefe:
+    además de ponerlo en Review»). Cuando «Cerebro › Integración» le avisa a un jefe que su punta llegó a producción, el jefe:
     - escribe el «Ya está» en SU chat, en palabras de producto y con la ruta donde se prueba: el primer renglón
       («Ya está: …») es el título de la tarjeta y lo demás su detalle. Desde el 17/10/2026 (la C) Review se fue: el
       «Ya está» se dibuja como una tarjeta en la conversación, con «Revisar» en esa ruta (o en la tab de su área),
@@ -1729,12 +1734,12 @@ código nuevo:
     nada escrito... Siempre debe enviar un mensaje tipo "Voy a trabajar en..."»). Lo primero que escribe un chat al
     tomar un pedido es una línea, en palabras de producto, con qué va a hacer y para qué. Recién después arrancan las
     herramientas.
-    **Y ninguna punta llega al Cerebro sin `antes-de-subir` en VERDE** (17/10/2026; Martín: «asegúrate por todos los medios
+    **Y ninguna punta llega a «Cerebro › Integración» sin `antes-de-subir` en VERDE** (17/10/2026; Martín: «asegúrate por todos los medios
     de que no vuelva a ocurrir nunca más»). Antes de pasarle una punta, el jefe corre `node scripts/antes-de-subir.mjs --rapido`
     (~3-4 min: es el mínimo obligatorio) sobre su rama con `origin/main` mergeado y el árbol commiteado, y le pasa la última línea
     (`VERDE <sha> (rápido: …)`) junto con la punta:
-    el Cerebro no integra una punta que no la trae. Qué corre y por qué «los tests de tu área» no alcanzaba: la sección
-    «Antes de pasarle una punta al Cerebro» (más arriba, junto al pre-push).
+    Integración no integra una punta que no la trae. Qué corre y por qué «los tests de tu área» no alcanzaba: la sección
+    «Antes de pasarle una punta a «Cerebro › Integración»» (más arriba, junto al pre-push).
   - **Cada jefe ES un proyecto del Plan** (16/10/2026; los dos se llaman como la tab). El Centro lee y escribe el Plan
     SÓLO con las operaciones de la API de MaKo (`listar_tareas_plan`, `proponer_tareas_plan`, `proponer_cierre_tareas`)
     aplicadas en el acto con `ctxDelCentro` (lib/centro-plan.ts), por la ruta `/api/centro/plan` y NO por una server

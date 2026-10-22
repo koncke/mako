@@ -1,15 +1,19 @@
-# Relevo — Cerebro (el chat orquestador: reparte, integra y sube)
+# Relevo — Cerebro y «Cerebro › Integración»
 
 <sub>Esta sección se PISA en cada relevo y no pasa de ~60 líneas. Lo viejo, tal cual se escribió, está en
 `docs/relevo/cerebro-historia.md` (ahí quedó también el relevo del 21/10 noche de la cuenta claude4).</sub>
 
 ## ⏩ LEER PRIMERO — 21/10/2026 noche, cuenta claude3
 
-**Al Cerebro se le escribe por NOMBRE** («Cerebro», con ListAgents), no por id: cada cuenta lo abre de nuevo.
+**El Cerebro son dos chats (pedido de Martín, 21/10 noche):** **«Cerebro»** reparte y habla con Martín; **«Cerebro ›
+Integración»** (sub-chat del Cerebro en el Ops Center) es el ÚNICO que integra y sube, y le reporta al Cerebro. Las
+puntas van a Integración; los pedidos y preguntas, al Cerebro. A los dos se les escribe por NOMBRE (ListAgents), no por
+id: cada cuenta los abre de nuevo. Lo de abajo es, sobre todo, de Integración.
 
 **Al iniciar una cuenta nueva, primero esto (regla de Martín del 21/10), en orden:** 1) medir la cuenta (`get_usage`);
 2) abrir el Runner, así el uso sale en el Ops Center y los mensajes llegan; 3) archivar los chats viejos de esa cuenta;
-4) abrir el Cerebro fresco desde este relevo; 5) abrir los jefes de a uno, cuando tienen trabajo.
+4) abrir el Cerebro y su Integración frescos desde este relevo; 5) abrir los jefes de a uno, cuando tienen trabajo (los
+abre el Cerebro, o Integración con su visto bueno; el brief dice «VERDE sin pushear, avisale a Cerebro › Integración»).
 
 **Cómo se abren los chats (medido hoy):** `start_session` sólo arranca con palabras de Martín en el turno. En un turno
 que empezó otro chat sale como TARJETA (`own_initiative`) que él toca, y una sesión en la NUBE con repositorio ni
@@ -29,8 +33,8 @@ sesión que inició al Cerebro (hoy `side-session-notes/local_428051c1…`).
 2. Tests: `MAKO_TESTS_SIN_ESPERA=1 node scripts/tests-afectados.mjs --base <HEAD de antes> --cortar --concurrencia 2 --tanda 100 --compartir`.
 3. Tipos: si una punta vino «sin tipos», `node scripts/tsc-acotado.mjs <archivos>`; si el vigía lo mata, con menos archivos.
 4. `MAKO_SIN_ANTES_DE_SUBIR=1 git push origin HEAD:refs/heads/integracion`, y `esperar-deploy.sh` en segundo plano.
-5. «Ya está» a cada chat cuando su punta llega a producción; a Martín, en bullets de producto. Un arreglo de un
-   cliente, además, a su grupo de MaKo (lo manda MaKo Alert).
+5. «Ya está» a cada chat cuando su punta llega a producción; al Cerebro, los bullets en palabras de producto (él se los
+   pasa a Martín). Un arreglo de un cliente, además, a su grupo de MaKo (lo manda MaKo Alert).
 6. Migraciones: `node C:/dev/wt-push-q/scripts/apply-migration.mjs <sql>` corrido DESDE `dashboard-marketing/`.
 Lo visual entra sin revisión adversarial; plata, privacidad, sesión y herramientas que usan todos, siempre con revisión.
 
@@ -44,7 +48,7 @@ pendientes, pero igual no), 0323 (idempotente).
 **En curso / por abrir:**
 - **Onboarding, Florencia ws21, punto 1 (cliente roto):** tarjeta `task_8d15785e`, espera el clic de Martín. Rama
   `onboarding-arranque` (C:/dev/wt-onboarding-arranque): guardar las preguntas del arranque y reconstruir las de ella.
-- **Nube, esperan el OK de Martín** (briefs en `side-session-notes/local_428051c1…/briefs-nube-21-10.md` y
+- **Nube, los abre el Cerebro con el OK de Martín** (briefs en `side-session-notes/local_428051c1…/briefs-nube-21-10.md` y
   `brief-infra-chequeo-modular.md`): **Infra** (integra `origin/infra-tests-afectados` y arma el chequeo modular),
   **Ticketera** (la guarda D6b por handler), **Pagos** («A quién cobrar» paginado y `resto_de` en 'lista'/'porId': es
   plata, va con revisión) y **Ops Center 1.2** (`origin/mako-wa` a main, con `aTerceros` en los tres envíos de la 2.1).
