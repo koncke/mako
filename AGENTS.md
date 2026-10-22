@@ -179,7 +179,12 @@ CON EL REPO:** el 14/10/2026 ya no entraba en 3072 (murió corriendo, con RAM li
 ⚠️ **Y 5120 TAMPOCO** (21/10/2026, run 200 de Actions: exit 134 con 5.082 MB): lo que pide el tsc pasó de >4.083 MB a >5.082 MB en una semana. En Actions el paso «Tipos» corre
 `scripts/tipos-ci.mjs`: el tope se deriva de la RAM del runner (6.144 en el de 7,9 GB), **un OOM sale como `SIN MEMORIA` (exit 98), nunca como errores de tipos**, y cada run deja la
 línea `TIPOS-MEDIDA` con la memoria viva real (`vivo_pct`; un warning desde el 80 %). **Subir el tope otra vez no es el arreglo:** con esos números se decide partir el programa, buscar
-qué infla los tipos o pedir un runner mayor (docs/hallazgos-infra.md → «El paso "Tipos" de Actions se quedó sin memoria»).
+qué infla los tipos o pedir un runner mayor (docs/hallazgos-infra.md → «El paso "Tipos" de Actions se quedó sin memoria»). **El arreglo de fondo en marcha (21/10):** el chequeo repartido en TANDAS
+(`scripts/tipos-por-tandas.mjs`: cada proceso ata el programa entero y chequea un pedazo; `TIPOS_TANDAS=K` en el paso «Tipos»; probado contra el tsc como oráculo, **pero NO es «lo mismo que el tsc» en todos los casos**: el checker cachea algunos errores —TS2589 una instanciación profunda, TS2303 un alias circular— y los atribuye al primer archivo que los dispara; si ese es de OTRA tanda el error se pierde y el paso decía «OK» donde el tsc da exit 2 (repartiendo por nombre; ahora se reparte en el orden del programa y esas dos repros dan error, pero con un ciclo de imports que cruce tandas puede volver a pasar: es «igual salvo ciclos raros», y sólo el tsc entero lo garantiza) y la medición que elige K, UNA vez en Actions
+(`.github/workflows/medir-tipos.yml`, rama `medir-tipos`, `scripts/medir-tipos.mjs`). **Medido (run 39603272529): `TIPOS_TANDAS=4` en el paso «Tipos» de `integracion.yml`** — pico por proceso 3.535 MB (58 % del tope) contra 5.065 del tsc entero, a cambio de ~68 s por run.
+No se sube el tope. ⚠️ Es una prórroga de **semanas**: el piso (el programa atado, 2.406 MB = 47 % del pico) crece con el repo y no se reparte; lo que dura es bajarlo (project references). Cuando el warning del 80 % salte, no se sube K a ciegas: de 3 a 4 tandas el pico bajó sólo 150 MB.
+**DESDE EL 21/10 NOCHE «Tipos» ES SIEMPRE EL TSC ENTERO** (criterio del Cerebro: el paso que frena el push no da un OK falso): `TIPOS_TANDAS=4` es sólo el RESPALDO si el entero muere por memoria, y su OK sale **«OK PARCIAL»** (`parcial=1`, aviso, resumen), nunca limpio; las tandas pierden errores cacheados (en este repo lib/ es un ciclo de 580 archivos partido entre ellas). `TIPOS_SOLO_TANDAS=1` salta el intento del entero (siempre parcial).
+**El respaldo del tsc entero:** `.github/workflows/tipos-respaldo.yml` corre el tsc SIN tandas (con 10 GB de swap) una vez por semana; si da errores de tipos y `integracion` dio verde (o dio «OK PARCIAL»), las tandas perdieron un error: se corrige el código Y se avisa al chat Infra (docs/hallazgos-infra.md → «El checker cachea un error…»).
 El detalle, en [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «El typecheck que
 "salía con 1 sin errores"».
 
@@ -5805,6 +5810,11 @@ El servidor no cambia: lee con `service_role`, que tiene `BYPASSRLS`. Lo fija
 `revoke` en la migración de su **ÚLTIMA creación o en una posterior**: una vista re-creada (`drop` +
 `create`) nace sin lo que se le hizo antes, así que un revoke viejo no la cubre. Desde el 09/10/2026
 no hay lista de excusas (eran las dos de cohortes, y se cerraron).
+
+⚠️ **Y UNA MIGRACIÓN SIN APLICAR NO SE VE si el código la tolera** (21/10/2026, la 0283: `workspaces.mfa_obligatorio_desde`, el 2FA obligatorio, nunca se aplicó y nada se rompió; sólo NO REGÍA).
+`scripts/apply-migration.mjs` ejecuta el archivo y **no deja registro**: no hay tabla de migraciones, así que «¿se aplicó?» se contesta del catálogo, no de la memoria. `scripts/verificar-migraciones-aplicadas.mjs` (sólo lectura;
+correrlo en producción necesita el permiso de Martín) lee las migraciones en orden y lista, por migración, aplicada / a medias / AUSENTE. Una lectura tolerante («si la columna falta, no exige») es una decisión de orden de despliegue,
+no una garantía de que la migración llegó: toda migración que el código lee con esa tolerancia se verifica después de aplicarla. Detalle: docs/hallazgos-infra.md → «Una migración sin aplicar no rompe nada si el código la tolera».
 
 # Lo que está OCULTO se deriva de lo que se DIBUJA, nunca se enumera al lado
 

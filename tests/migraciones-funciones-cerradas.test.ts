@@ -24,6 +24,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ID, ident, partirPrimerNivel, QNAME, sentencias, sinComentarios } from '../scripts/sql-migraciones.mjs';
 
 const DIR = fileURLToPath(new URL('../supabase/migrations/', import.meta.url));
 
@@ -32,74 +33,7 @@ const ABIERTAS = new Map<string, string>([]);
 
 type Migracion = { nombre: string; sql: string };
 
-// El SQL sin comentarios (`--` y de bloque), y sin tocar lo que va entre comillas simples ni entre $$ (el cuerpo de las funciones).
-function sinComentarios(sql: string): string {
-  let out = '';
-  let i = 0;
-  let enStr = false;
-  let enDol: string | null = null;
-  while (i < sql.length) {
-    const c = sql[i];
-    const c2 = sql.slice(i, i + 2);
-    if (enDol) { if (sql.startsWith(enDol, i)) { out += enDol; i += enDol.length; enDol = null; } else { out += c; i++; } continue; }
-    if (enStr) { out += c; if (c === "'" && sql[i + 1] === "'") { out += "'"; i += 2; continue; } if (c === "'") enStr = false; i++; continue; }
-    if (c2 === '--') { while (i < sql.length && sql[i] !== '\n') i++; continue; }
-    if (c2 === '/*') { const j = sql.indexOf('*/', i + 2); i = j < 0 ? sql.length : j + 2; continue; }
-    if (c === "'") { enStr = true; out += c; i++; continue; }
-    if (c === '$') { const m = /^\$[a-zA-Z_]*\$/.exec(sql.slice(i, i + 40)); if (m) { enDol = m[0]; out += m[0]; i += m[0].length; continue; } }
-    out += c; i++;
-  }
-  return out;
-}
-
-/** Parte un SQL (ya sin comentarios) en sentencias por los `;` de primer nivel: no corta dentro de comillas simples, identificadores "…" ni cuerpos $$…$$. */
-function sentencias(sql: string): string[] {
-  const out: string[] = [];
-  let ini = 0;
-  let i = 0;
-  let enStr = false;
-  let enIdent = false;
-  let enDol: string | null = null;
-  while (i < sql.length) {
-    const c = sql[i];
-    if (enDol) { if (sql.startsWith(enDol, i)) { i += enDol.length; enDol = null; } else i++; continue; }
-    if (enStr) { if (c === "'") { if (sql[i + 1] === "'") { i += 2; continue; } enStr = false; } i++; continue; }
-    if (enIdent) { if (c === '"') { if (sql[i + 1] === '"') { i += 2; continue; } enIdent = false; } i++; continue; }
-    if (c === "'") { enStr = true; i++; continue; }
-    if (c === '"') { enIdent = true; i++; continue; }
-    if (c === '$') { const m = /^\$[a-zA-Z_]*\$/.exec(sql.slice(i, i + 40)); if (m) { enDol = m[0]; i += m[0].length; continue; } }
-    if (c === ';') { out.push(sql.slice(ini, i)); ini = i + 1; }
-    i++;
-  }
-  out.push(sql.slice(ini));
-  return out.map((s) => s.trim()).filter(Boolean);
-}
-
-/** Parte `texto` por `sep` en el primer nivel (fuera de paréntesis, corchetes y comillas). */
-function partirPrimerNivel(texto: string, sep: string): string[] {
-  const partes: string[] = [];
-  let prof = 0;
-  let enStr = false;
-  let enIdent = false;
-  let ini = 0;
-  for (let i = 0; i < texto.length; i++) {
-    const c = texto[i];
-    if (enStr) { if (c === "'") enStr = false; continue; }
-    if (enIdent) { if (c === '"') enIdent = false; continue; }
-    if (c === "'") enStr = true;
-    else if (c === '"') enIdent = true;
-    else if (c === '(' || c === '[') prof++;
-    else if (c === ')' || c === ']') prof--;
-    else if (c === sep && prof === 0) { partes.push(texto.slice(ini, i)); ini = i + 1; }
-  }
-  partes.push(texto.slice(ini));
-  return partes.map((p) => p.trim()).filter(Boolean);
-}
-
-// Un identificador (con o sin comillas) y un nombre calificado `esquema.nombre`.
-const ID = '(?:"(?:[^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*)';
-const QNAME = `(?:(${ID})\\s*\\.\\s*)?(${ID})`;
-const ident = (s: string) => (s.startsWith('"') ? s.slice(1, -1).replace(/""/g, '"') : s.toLowerCase());
+// El tokenizador del SQL (sin comentarios, en sentencias, con sus identificadores) es UNA copia, la de scripts/sql-migraciones.mjs: la comparte con scripts/verificar-migraciones-aplicadas.mjs.
 
 const ALIAS: Record<string, string> = {
   int: 'integer', int4: 'integer', int2: 'smallint', int8: 'bigint', bool: 'boolean', float8: 'double precision', float4: 'real', varchar: 'character varying',
