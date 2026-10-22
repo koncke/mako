@@ -128,6 +128,10 @@ ese día el push del coordinador murió con 240 MB libres. El runner tiene su pr
   tests afectados; ver la sección de abajo; `MAKO_SIN_ANTES_DE_SUBIR=1` lo saltea); a **`main`**
   corre además el `tsc` local completo por el lock, como antes. Así `main` no recibe código sin chequear, venga por donde venga, y pushear directo a
   `main` es el camino de emergencia (si Actions no corre o se acabaron los minutos).
+  **Si ese `tsc` no consigue su RAM (99), el hook chequea TODO el repo en 3 tandas** (`scripts/tipos-respaldo-push.mjs`,
+  programa entero, sin `--raices`) y deja pasar sólo si las TRES dan 0; una tanda que no termina es otro 99 (22/10/2026:
+  el `tsc` entero pide 6,3 GB libres y con la app de Claude abierta la PC no pasa de 6,1). Sale «OK por tandas», no
+  «OK»: la red completa sigue siendo Actions. **`--no-verify` a `main` sólo con el sí de Martín, lote por lote.**
 - ⚠️ **No medido todavía:** cuántos minutos gasta un run, que los tests den verde en Linux
   igual que en Windows (algunos pueden depender de archivos que sólo existen en la notebook),
   y que Vercel despliegue el fast-forward que hace Actions. **El primer run hay que mirarlo.**
