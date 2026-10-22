@@ -200,6 +200,11 @@ export const PUBLICOS = [
   '/api/ia-pc/confirmar',
   // El instalador de un comando: lo pide PowerShell o curl, sin sesión. Sólo GET, y no gasta el código.
   '/api/ia-pc/instalar',
+  // Lo que leen Android (`assetlinks.json`, la TWA de Play) y iOS (`apple-app-site-association`, los links universales)
+  // para abrir hola-mako.com en la app de las tiendas (22/10/2026). Son archivos de public/.well-known, sin datos de
+  // nadie: los pide el sistema del teléfono, que no tiene sesión. El matcher de proxy.ts ya los saltea; esto es por si
+  // cambia. No es /api/: sólo se lee (`esPublicaSoloLeer`).
+  '/.well-known',
 ] as const;
 
 /** Los públicos que solo deben responder a LECTURA. El early-return se saltea el

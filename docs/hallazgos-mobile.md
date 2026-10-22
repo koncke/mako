@@ -1789,3 +1789,26 @@ que leen ShellM y el final del onboarding, para que quien termina el onboarding 
 otra. Antes de hacer un pedido de Martín, `git log origin/main --grep` con sus palabras: puede estar hecho.
 
 *21/10/2026, chat «Onboarding» (claude4).*
+
+## `/.well-known` daba 307 a /login: ni la TWA de Play ni los links universales de iOS podían andar (22/10/2026)
+
+Paso 1 del plan de las tiendas (C:/dev/cerebro-herramientas/tiendas-play-appstore.md). Android verifica la TWA leyendo
+`https://hola-mako.com/.well-known/assetlinks.json` e iOS los links universales con `apple-app-site-association`, los dos
+SIN sesión. El matcher de proxy.ts no los eximía y la lista de extensiones no lleva `.json` a propósito (hay endpoints
+`.json` que sí van con sesión): el teléfono recibía la página de login y daba la app por no verificada, sin error.
+
+- **Ahora:** `public/.well-known/` con los dos archivos (vacíos y válidos: `[]` y `{"applinks":{"details":[]}}`), el matcher
+  saltea `\.well-known/`, la ruta está en PUBLICOS por si el matcher cambia (sólo se lee), y next.config le pone
+  `Content-Type: application/json` al de Apple, que va SIN extensión y Next lo serviría como binario.
+- **El punto del matcher va escapado**, como el de `favicon\.ico`: suelto, `/xwell-known/gracias` (un slug válido de
+  hola-mako.site) quedaba fuera del proxy y su landing daba el 404 de la app. tests/well-known-publico.test.ts compila
+  el matcher como Next y lo prueba con slugs parecidos.
+- Se sirve en CUALQUIER host, también en el dominio de una landing de un cliente: no hace daño, porque la app sólo
+  declara hola-mako.com.
+- **Sin hacer:** las huellas reales. Van DOS en `assetlinks.json` (la de subida de Bubblewrap y la de Play App Signing),
+  y la segunda existe recién después del primer AAB: este archivo se toca dos veces. El de Apple lleva el Team ID y el
+  bundle id cuando exista la cuenta. Y medir en producción, ya desplegado: `curl -sI https://hola-mako.com/.well-known/assetlinks.json`
+  tiene que dar 200 `application/json` sin `Location`.
+
+**Vive en:** proxy.ts (`config.matcher`) · lib/rutas-publicas.ts (`PUBLICOS`) · next.config.ts · public/.well-known/ ·
+tests/well-known-publico.test.ts · *22/10/2026, chat «Chats de las tabs», por pedido del Cerebro.*
