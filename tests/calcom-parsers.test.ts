@@ -82,7 +82,7 @@ const RESERVA = {
   eventTypeId: 4242,
   eventTypeSlug: 'llamada-de-auditoria',
   organizer: { name: 'Ana Dueña', email: 'ana@lainmobiliaria.com' },
-  attendees: [{ name: 'Codigo Inmobiliario', email: 'CodigoInmobiliarioIA@gmail.com', timeZone: 'America/Argentina/Buenos_Aires' }],
+  attendees: [{ name: 'Codigo Inmobiliario', email: 'ejemplo.ws13.mako@gmail.com', timeZone: 'America/Argentina/Buenos_Aires' }],
 };
 
 test('⚠️ el lead es QUIEN RESERVÓ, no el dueño del calendario', () => {
@@ -90,7 +90,7 @@ test('⚠️ el lead es QUIEN RESERVÓ, no el dueño del calendario', () => {
   // personas viven en el mismo objeto, y confundirlas crea un lead con los datos del
   // propio negocio — un cliente «agendándose a sí mismo» en cada reserva.
   const r = normalizarReserva(RESERVA)!;
-  assert.equal(r.email, 'codigoinmobiliarioia@gmail.com', 'el mail va en minúsculas: es la clave de dedupe');
+  assert.equal(r.email, 'ejemplo.ws13.mako@gmail.com', 'el mail va en minúsculas: es la clave de dedupe');
   assert.equal(r.nombre, 'Codigo Inmobiliario');
   assert.notEqual(r.email, 'ana@lainmobiliaria.com');
 });

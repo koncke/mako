@@ -416,7 +416,7 @@ deploy de la F, con el script del scratchpad `cerrar-881-850.ts --solo=#850 --ap
 (344c8b515): las cuatro puntas de la mañana (abajo) pasaron los 148 barridos del repo, 1680 tests, 0 fallas.</sub>
 
 **El Cerebro sumó #881 y #850 al punto 2 («Inspeccionar»), en una punta E encima de la misma rama:**
-- **#881 (Martín veía primero el perfil de Mauricio al inspeccionar):** el Sidebar nacía con `useState('Mauricio Bustos')`.
+- **#881 (Martín veía primero el perfil de Mauricio al inspeccionar):** el Sidebar nacía con `useState('Mauricio')`.
   Ahora el primer cuadro lo arma el server: `lib/vista-de-otro.ts` lo pasa el layout al Sidebar y a la barra, y lo usa
   también `/api/auth/me`. Test: tests/inspeccionar-primer-cuadro.test.ts.
 - **#850 (la barra tapa cosas):** la regla de alto no tomaba el estilo como lo escribe el SERVER, y entrar a inspeccionar

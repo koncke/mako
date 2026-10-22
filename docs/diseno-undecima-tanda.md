@@ -296,7 +296,7 @@ Los `updated_at` que el script usa para el compare-and-set (se vuelven a leer al
 salvo una de un Evento de MaKo con `{{mensaje_mako}}` (p. ej. una «Aviso de pago recibido» creada después del
 relevo), que se reescribe en el lugar con la plantilla nueva de su evento.
 
-### ws1 · Mauricio Bustos (cliente)
+### ws1 · Mauricio (cliente)
 
 **#198 «Bienvenida — dejó sus datos y no agendó» · PRENDIDA → se rehace en el lugar, PRENDIDA**
 

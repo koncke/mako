@@ -11,8 +11,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { hayQuePreguntar, identidadPorDefecto, instagramsPara, validarIdentidad, type PaginaOpcion } from '../lib/meta-identidad';
 
-const JOAN: PaginaOpcion = { id: '609876446197646', nombre: 'Joan', puedeAnunciar: true, instagram: { id: '17841457836922256', username: 'joandowd.gm' } };
-const IG_CUENTA_WS13 = [{ id: '17841457836922256', username: 'joandowd.gm' }];
+const JOAN: PaginaOpcion = { id: '609876446197646', nombre: 'Joan', puedeAnunciar: true, instagram: { id: '17841457836922256', username: 'cuenta.ws13.demo' } };
+const IG_CUENTA_WS13 = [{ id: '17841457836922256', username: 'cuenta.ws13.demo' }];
 const AJENA: PaginaOpcion = { id: '770269612845316', nombre: 'Otra', puedeAnunciar: false, instagram: null };
 const MARCA2: PaginaOpcion = { id: '111', nombre: 'Marca 2', puedeAnunciar: true, instagram: { id: '900', username: 'marca2' } };
 

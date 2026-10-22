@@ -459,9 +459,9 @@ test('la cascada respeta el PLAZO del caller y puede no bajar de modelo (lib/ai-
 // ── 3. El prompt no nombra a nadie ───────────────────────────────────────────
 
 test('el prompt NO nombra a Mauricio ni a ningún negocio: corre para todos los clientes', () => {
-  // El del Closing Analyst arranca «Eres MaKo, analista de cierres de Mauricio Bustos…», y a
+  // El del Closing Analyst arranca «Eres MaKo, analista de cierres de Mauricio Ejemplo…», y a
   // cualquier otro cliente le leía sus llamadas con el negocio de otro en la cabeza.
-  const NOMBRES = /mauricio|bustos|leila|mart[ií]n|koncke|c[oó]digo inmobiliario|elevate|paddock|programa via/i;
+  const NOMBRES = /mauricio|Ejemplo|leila|mart[ií]n|koncke|c[oó]digo inmobiliario|elevate|paddock|programa via/i;
   for (const [nombre, t] of [['system', ENTREGA_SYSTEM_TEMPLATE], ['user', ENTREGA_USER_TEMPLATE]] as const) {
     assert.doesNotMatch(t, NOMBRES, `el prompt ${nombre} nombra a alguien`);
     assert.ok(!t.includes('`') && !t.includes('${'), `el prompt ${nombre} trae un backtick o un \${`);
@@ -538,7 +538,7 @@ test('el cron: ronda horaria por workspace con Fathom, dos sesiones, sin colgar 
 //                                                        y «la ficha despliega SÓLO…» (re-saneo)
 //    3. el tope de riesgos ANTES de ordenar            → «los topes…»
 //    4. la cita no encontrada se queda                 → «una paráfrasis no se dibuja como cita…»
-//    5. «…de Mauricio Bustos» en el prompt             → «el prompt NO nombra a Mauricio…»
+//    5. «…de Mauricio Ejemplo» en el prompt             → «el prompt NO nombra a Mauricio…»
 //    6. insights-llamada sin `.eq('category','venta')` → «todo lector… filtra también la categoría»
 //    7. cs-sesion sin `fallback: []`                   → «la IA es la gratis…»
 //    8. ficha-datos con `import { type X }` (valor)    → «el navegador importa SÓLO TIPOS…»

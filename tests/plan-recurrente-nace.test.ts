@@ -120,7 +120,7 @@ test('CON FECHA GANA LA FECHA: el desempate de dos señales que se contradicen',
 });
 
 test('el juez sanea «recurrente» con la MISMA regla, no con la suya', () => {
-  const TRANSCRIPT = '[00:10:00] Mauricio Bustos: la junta de los miercoles no se mueve, es la que sostiene todo el seguimiento';
+  const TRANSCRIPT = '[00:10:00] Mauricio Ejemplo: la junta de los miercoles no se mueve, es la que sostiene todo el seguimiento';
   const NORM = transcriptParaCitas(TRANSCRIPT);
   const vs = sanearVeredictos({
     veredictos: [

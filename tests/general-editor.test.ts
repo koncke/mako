@@ -157,7 +157,7 @@ test('de quién es el informe que pide la API: nunca se elige a ciegas', () => {
 
 test('ningún nombre de un cliente real en las plantillas de General', () => {
   const texto = JSON.stringify([DEFINICIONES_GENERAL, PLANTILLAS_GENERAL.map((p) => [p.nombre, p.linea])]).toLowerCase();
-  for (const nombre of ['Mauricio', 'Bustos', 'Leila', 'Brigitte', 'Leandro', 'Ananda', 'Código Inmobiliario', 'Codigo Inmobiliario', 'Vértice', 'Vertice', 'Martín', 'Koncke']) {
+  for (const nombre of ['Mauricio', 'Ejemplo', 'Leila', 'Brigitte', 'Leandro', 'Ananda', 'Código Inmobiliario', 'Codigo Inmobiliario', 'Vértice', 'Vertice', 'Martín', 'Koncke']) {
     assert.ok(!texto.includes(nombre.toLowerCase()), `una plantilla de General nombra a «${nombre}»`);
   }
 });

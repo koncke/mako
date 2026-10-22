@@ -15,9 +15,10 @@
 //   · mientras la IA trabaja el input se bloquea con «Espera a que la IA termine» (Gamma §8);
 //   · la respuesta es un CAMBIO PROPUESTO con el toggle «Original | Modificado» y se acepta o
 //     se descarta entera; después de aceptar, «Restaurar» la vuelve atrás.
-// Lo que NO se copia: «Abrir archivos» y los chats guardados del agente (Gamma guarda el
-// historial del chat; acá vive en la memoria de la pestaña, como pidió el diseño: no hay tabla
-// para eso), y la búsqueda en la web.
+// Lo que NO se copia: «Abrir archivos», la lista de chats guardados del agente y la búsqueda en la
+// web. La charla de cada landing SÍ se guarda desde el 22/10/2026 (antes vivía sólo en la memoria
+// de la pestaña): cada turno va a la base con la clave `landing:<id>` y se ve en el Ops Center
+// (../hilo-agente.ts, lib/hilo-de-tab-reglas.ts).
 //
 // ADJUNTAR (⊕), desde el 20/10/2026. El 11/10 no se copió a propósito; en el onboarding de Florencia
 // (llamada de Fathom 864249059, 18/10) ella no pudo darle su documento y el PDF «Lo que vendes» al chat
@@ -80,6 +81,9 @@ import {
   CLAVE_CAJA, RUTA_CREAR, alTerminar, alVolver, burbujasDe, cajaParaCrear, cuerpoPedidos, interpretacionDe, pulsar, sinTerminar,
   textoActual, trasNoAbrir, trasPapelera, trasRestaurar, vistaDeBurbuja, type BurbujaPedido, type EfectoPedido,
 } from '../pedidos-chat';
+import { filasDeAgente, mensajesDeFilas, tituloDeLanding } from '../hilo-agente';
+import { guardarEnHiloDeTab, leerHiloDeTab } from '@/lib/hilo-de-tab-cliente';
+import { claveDeLanding } from '@/lib/hilo-de-tab-reglas';
 import { urlFuentes, type Tema } from '@/lib/editor-landing/temas';
 import { htmlDeTarjeta } from '@/lib/editor-landing/render';
 import { CSS_CONTENIDO } from '@/lib/editor-landing/css';
@@ -415,11 +419,13 @@ export function RevisionPropuesta({ propuesta, estado, aviso, onAceptar, onAplic
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// El chat: vive en la memoria de la pestaña, por landing
+// El chat: en la memoria de la pestaña, por landing, y guardado en la base
 // ─────────────────────────────────────────────────────────────────────────────
 // Un store de módulo y no un estado del componente: el panel se colapsa (⇤) y se desmonta, y
 // la respuesta de un pedido largo tiene que caer en el chat aunque el panel no esté abierto
-// cuando llega. Se pierde al recargar la pestaña, como pidió el diseño.
+// cuando llega. Desde el 22/10/2026 cada turno se guarda en la base al terminar (`terminar`), y
+// una landing que la pestaña todavía no trajo trae su charla guardada (`traerHilo`): recargar
+// ya no la pierde.
 
 type Mensaje =
   /** `adjuntos`: los nombres de los archivos que viajaron con el mensaje (se ven como chips en la burbuja). */
@@ -465,6 +471,19 @@ function pulsarEnHilo(docId: number, id: number, boton: string): EfectoPedido | 
   return r.efecto;
 }
 
+/** Las landings cuya charla guardada ya se pidió en esta pestaña (una vez: después, la del store es la verdad). */
+const traidos = new Set<number>();
+/** La charla guardada de una landing, ANTES de lo que se haya escrito mientras llegaba. */
+function traerHilo(docId: number) {
+  if (traidos.has(docId)) return;
+  traidos.add(docId);
+  void leerHiloDeTab(claveDeLanding(docId)).then((filas) => {
+    if (!filas) { traidos.delete(docId); return; }
+    const guardados = mensajesDeFilas(filas).map((m): Mensaje => ({ ...m, id: ++ultimoId }));
+    if (guardados.length) cambiarHilo(docId, (h) => ({ ...h, mensajes: [...guardados, ...h.mensajes] }));
+  });
+}
+
 const suscribir = (f: () => void) => { oyentes.add(f); return () => { oyentes.delete(f); }; };
 function useHilo(docId: number): Hilo {
   return useSyncExternalStore(suscribir, () => hilos.get(docId) ?? HILO_VACIO, () => HILO_VACIO);
@@ -505,18 +524,19 @@ async function pedirEdicion(ctx: CtxEditorLanding, instruccion: string, alcance:
   const todas = tarjetasDelDoc(editor.getJSON());
   const activa = alcance === 'seccion' ? todas.find((t) => idDe(t) === ctx.tarjetaActiva) ?? null : null;
   const enviadas = activa ? [activa] : todas;
-  cambiarHilo(docId, (h) => ({
-    corriendo: true,
-    mensajes: [...h.mensajes, {
-      id: ++ultimoId, de: 'yo', texto: escrito, seccion: activa ? tituloVivo(editor, idDe(activa)) : null,
-      ...(adjuntos.length ? { adjuntos: adjuntos.map((a) => a.nombre) } : {}),
-    }],
-  }));
+  const yo: Mensaje = {
+    id: ++ultimoId, de: 'yo', texto: escrito, seccion: activa ? tituloVivo(editor, idDe(activa)) : null,
+    ...(adjuntos.length ? { adjuntos: adjuntos.map((a) => a.nombre) } : {}),
+  };
+  cambiarHilo(docId, (h) => ({ corriendo: true, mensajes: [...h.mensajes, yo] }));
   const corte = new AbortController();
   cortes.set(docId, corte);
+  const titulo = ctx.titulo;
   const terminar = (...msgs: Mensaje[]) => {
     cortes.delete(docId);
     cambiarHilo(docId, (h) => ({ corriendo: false, mensajes: [...h.mensajes, ...msgs] }));
+    // El turno entero a la base (../hilo-agente.ts): lo pedido y lo que contestó MaKo, sin las burbujas de pedidos.
+    void guardarEnHiloDeTab(claveDeLanding(docId), tituloDeLanding(titulo), filasDeAgente([yo, ...msgs]));
   };
 
   let paraEditar: string | null = texto;
@@ -636,6 +656,8 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
   const router = useRouter();
   const ws = useWs();
   const hilo = useHilo(docId);
+  // Recién recargada (u otra computadora): la charla guardada de esta landing.
+  useEffect(() => { traerHilo(docId); }, [docId]);
   const sugerencias = sugerenciasDe(ctx.config);
   const [texto, setTexto] = useState('');
   // El alcance que eligió la persona, y para qué sección lo eligió.

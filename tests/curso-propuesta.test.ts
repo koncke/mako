@@ -360,7 +360,7 @@ test('el prompt es EDITABLE, no nombra a nadie y pide lo que el código sabe lee
     assert.ok(PROPUESTA_USER_TEMPLATE.includes(`{{${slot}}}`), `falta {{${slot}}}`);
     assert.match(IA, new RegExp(`\\b${slot}\\b[:,]`), `el render no llena {{${slot}}}`);
   }
-  const NOMBRES = /mauricio|bustos|leila|mart[ií]n|koncke|c[oó]digo inmobiliario|elevate/i;
+  const NOMBRES = /mauricio|Ejemplo|leila|mart[ií]n|koncke|c[oó]digo inmobiliario|elevate/i;
   for (const t of [PROPUESTA_SYSTEM_TEMPLATE, PROPUESTA_USER_TEMPLATE]) {
     assert.doesNotMatch(t, NOMBRES);
     assert.ok(!t.includes('`') && !t.includes('${'));

@@ -2165,6 +2165,33 @@ sale «✗ no hay ninguna fila» en una corrida con los dos. Solo, pasa. La marc
 Cerebro); el botón de un negocio sin ninguna IA sigue siendo Gemini, y eso lo decide Martín; la 0316 (`archivero_files.origen`)
 sigue sin aplicar en producción, y cada pegado archivado lo avisa en el log.
 
+## Los documentos del «+» en una conversación de Offer se perdían sin decirlo (22/10/2026, OC7)
+
+En el Ops Center, el «+» de una conversación de Offer juntaba los archivos y el turno salía SÓLO con el texto: `mandarAOffer`
+no los recibía (relevo, «SIN HACER» 2). Ahora se suben y se leen en esa conversación antes del turno, como en la tab
+(app/second-brain/motor-offer.ts → `leerArchivosDeOffer`: subir-url → PUT → `leer`), y viajan como `docIds`.
+
+- **Regla (la de la tab):** si un archivo no se pudo leer, el turno NO sale y el mensaje queda con «Reintentar»; lo ya leído
+  queda anotado por archivo (un `WeakMap` por `File`), así el reintento no lo sube ni lo lee dos veces.
+- **SIN HACER:** la nota de voz de OC7 espera IA7 (la transcripción con la IA del negocio, rama ia15-2210, todavía no en
+  main). Muchos documentos juntos no van por el lote del servidor de la tab (O9, `UMBRAL_LOTE`): se leen uno por uno.
+
+## Las charlas del lienzo de Automations en el Ops Center: la puerta es `setting`, no «automations» (22/10/2026, OC5)
+
+La charla con MaKo de cada automatización vive en app_settings (`automatizacion.chat:<id>`) y nadie la proyectaba (239 chats; el
+ws1 tiene 4, «Sprint · apertura» con 14 mensajes). Ahora el Ops Center las lista como «Automations › <nombre>», agrupadas, y
+las abre de sólo lectura con «Seguir en el lienzo» (lib/chat-mako-indice.ts → `chatsDeAutomations`, `hiloDeAutomatizacion`).
+
+- **Trampa: la clave de la PUERTA no es el nombre de la tab.** `puedeVerKey('automations', 'admin')` da false (medido): la
+  tab Automations se guarda como `setting` (lib/movil-rutas.ts). Con «automations», como decía el plan, la proyección no le
+  mostraba nada a nadie, sin ningún error. **Regla:** `PROYECCIONES[].tab` es la clave de `puedeVerKey`, y se prueba con el
+  admin antes de usarla.
+- **Trampa medida en el plan, cubierta:** el `value` es un STRING JSON, y `value.mensajes` sin parsear da 0 sin error. El
+  índice lista por la clave y lee con `leerChat` (que parsea con `sanearChat`); el test lo fija.
+- **SIN HACER:** se sigue en el lienzo, no en el Ops Center, hasta que AU4 pase el lienzo a las piezas únicas. La URL del Ops
+  Center no abre una charla del lienzo (no hay `?automatizacion=`). Se listan las 60 más recientes del negocio (el ws3, con
+  el arnés de pruebas, tiene más de 200).
+
 ## La lista del cliente: «no hay randomizer» era falso, y «Chat de antes» era un chat sin título (22/10/2026)
 
 Martín, con la captura del ws1: todas las criaturas eran círculos, tres «Chat de antes», dos «Mi oferta», y sin orden.
@@ -2180,6 +2207,9 @@ Martín, con la captura del ws1: todas las criaturas eran círculos, tres «Chat
   (PGRST200). Se usa una lectura de los de la persona para todas, y una por sesión sólo para las que quedan, hasta 20.
 - **Las dos «Mi oferta» del ws1 son del MISMO funnel y la misma base** (funnel 1, base 1). El funnel no las distingue; lo
   primero que dijo la persona sí («sprint.mauriciobustos.com»). Sin tema, se usa la fecha, y si también coincide, un número.
+- **Trampa (el tren 1, 22/10):** tests/d6b-rutas.test.ts fija la tabla «honesta» de lo que la ruta del chat
+  (app/api/mako/chat/route.ts) usa sin IA. `conTemas` entró a la ruta sin entrar a esa tabla, y el tren dio rojo (lo sumó
+  Integración en e115adfbd). Una lectura nueva en esa ruta va a la tabla, y se corre ese test con los tuyos.
 - **Regla:** la lista del cliente se agrupa con `porJefe` y `GruposPorJefe` (app/admin/operaciones/PiezasCentro.tsx), los
   mismos del super admin. Un título nuevo va «Origen › tema»; nunca un nombre fijo que se repite.
 - **SIN HACER:** el teléfono del super admin (app/m/operaciones/ChatsMovil.tsx) no dibuja el nombre de un grupo sin jefe, y el
@@ -2465,3 +2495,19 @@ un runner que tarda 5,5 s (`tests/_trabajos-hijo.ts`).
   mismos nombres, y lo extendió a las propuestas de pantalla (`extra.bloque`). En el turno no se vacía al re-arrancar:
   `dibujar` no repite un bloque igual y anota qué herramienta lo dibujó (con una pregunta, 1.9, se retiran los de las que
   escriben).
+
+## Un chat «de antes» aparecía en la lista y se abría VACÍO (22/10/2026)
+
+Medido en producción (cb7b45568), en el ws3, probando TB1: la fila «Dashboard › Editar con MaKo · Página 1» estaba en la
+lista y al abrirla decía «¿En qué te ayudo?». **El diagnóstico obvio («no se guardó») era el equivocado:** `?antesId=294`
+traía los dos mensajes. El motor (useChatCliente.ts) pide el hilo con `?sessionId=N&antes=1` desde 0ab523fc1, y el GET de
+/api/mako/chat entraba antes a la rama de la LISTA (`if (sp.get('antes') || sp.has('antesId'))`), que con `antes`
+contestaba `{ ok, antes: […] }`: el hilo llegaba sin mensajes y la pantalla no avisaba. Le pasaba a todo chat de antes:
+el CRM, la ficha, los gráficos del Dashboard, Editar con MaKo y el Web Generator.
+
+- **Ahora** esa rama es la lista sólo sin `sessionId`. tests/ops-center-hilo-de-antes.test.ts toma la condición REAL de
+  la rama y la evalúa con los tres pedidos de la pantalla.
+- **Regla:** que una fila aparezca no prueba que su chat se abra: la lista y el hilo son dos pedidos distintos. Un cambio
+  en CÓMO el motor pide el hilo se prueba contra la rama del GET que lo atiende, no sólo contra la lista.
+
+**Vive en:** app/api/mako/chat/route.ts (GET) · app/second-brain/useChatCliente.ts · *22/10/2026, chat «Chats de las tabs».*

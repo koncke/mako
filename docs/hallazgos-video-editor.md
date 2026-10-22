@@ -1699,3 +1699,17 @@ fila, es decir una migración):
 **Lo que quedó SIN hacer:** colgar `extra.bloque` del mensaje de MaKo en el turno y dibujarlo al
 llegar (`itemsDeRespuesta` hoy sólo dibuja bloques al confirmar una tarjeta): es la 1.8 de Ops
 Center 3. Mirarlo de punta a punta en el navegador con las migraciones 0298 a 0302 aplicadas.
+
+## «0 filas en `video_editor_chats`» no era que el chat no guardaba: nadie lo había usado (22/10/2026, TB2)
+
+Misma sospecha y misma respuesta que en el Image Editor (docs/hallazgos-editor-imagen.md): en todo MaKo había 4
+proyectos (ws9 ×2, ws15, ws21) y ninguna charla. En el ws3, un pedido en «Editar con IA» dejó su fila (2 mensajes) y
+recargar la trajo de vuelta. **Lo que sí estaba mal:** abrir el chat volvía a guardar lo que acababa de leer (la versión de 2 →
+3 y el `updated_at`, con los mismos mensajes); ahora `cargarHilo` lo une con `guardar: false`, y lo que la pestaña tenía sin guardar se
+guarda por `sucio`. Abrir el editor con un proyecto vacío bajó la RAM libre de 3,3 a 2,1 GB: con muchos chats abiertos,
+mirarlo se hace con un ojo en la RAM.
+
+Quedó en el ws3, para OC8: el proyecto `99ea7dc3-466b-41d4-b624-73561b291c44` («1022») con su charla (persona u1).
+
+**Vive en:** app/video-editor/_opencut/chat/hilo.ts (`cargarHilo`) · tests/video-editor-chat-hilo.test.ts (13) ·
+*22/10/2026, chat «Chats de las tabs».*

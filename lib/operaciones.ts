@@ -30,6 +30,7 @@ import 'server-only';
 
 import { createHash, createPublicKey, randomBytes, randomUUID, verify } from 'node:crypto';
 import { getSupabaseServer } from './supabase';
+import { AVISO_CLAVE_EN_EL_CENTRO, hayClave } from './claves-en-el-chat';
 import {
   CUENTA_RE, DESTINO_NUEVO, POR_VUELTA, TOMADO_VENCE_MS, UUID_RE, claveIdDe, sanearAbre, estadoDeCierre, leerFirmable, nombresDeAdjuntos, sanearAcuses, sanearChats,
   sanearCierres, sanearClaves, sanearEntregables, sanearTurnos, todosLosChats, type ChatCartero, type Cierre, type EstadoPedido,
@@ -154,6 +155,9 @@ export async function encolarPedido(entrada: {
 }, ahora = Date.now()): Promise<ResultadoEncolar> {
   const l = leerFirmable(entrada.firmado, ahora);
   if (!l.ok) return { ok: false, error: `Vuelve a mandarlo (${l.motivo}).` };
+  // Una clave en el texto no se guarda (22/10/2026): firmado, no se puede tapar, así que no entra. El navegador ya lo frena
+  // (mandar.ts); esto es para una pestaña con la versión de antes.
+  if (hayClave(l.p.texto)) return { ok: false, error: AVISO_CLAVE_EN_EL_CENTRO };
   if (!firmaCoincide(entrada.firmado, entrada.firma, entrada.clavePublica)) {
     return { ok: false, error: 'Vuelve a mandarlo: la firma no coincide con tu Token.' };
   }

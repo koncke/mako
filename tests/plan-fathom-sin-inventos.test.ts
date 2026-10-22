@@ -50,12 +50,12 @@ import { aliasDelDueno, conNombreReal } from '../lib/tarea-dueno';
 // Renglones reales de las dos llamadas (recortados): es lo que la tarjeta puede afirmar.
 const DICHO = fuenteDeDatos([
   '[00:55:05] Martin Carballo: recargar la página directamente. Esta pantalla se rompió, bueno, otro bug, al entrar al editor dice Esta pantalla se rompió al dibujarse.',
-  '[01:38:17] Joan Dowd: Sí, leí solo al principio 40.000 de 64.000 caracteres.',
+  '[01:38:17] Juan Ejemplo: Sí, leí solo al principio 40.000 de 64.000 caracteres.',
   '[01:38:24] Martin Carballo: Esa es otra cosa que la ventana de contexto solamente lee 40.000 caracteres.',
   '[00:42:02] Martin Carballo: tu API key es restringida solo para enviar email. Esto es un error de Maco.',
-  '[00:28:04] Mauricio Bustos Eguia: te pagó 4.000 en lugar de 6.000, para el de 20 mil dólares.',
-  '[00:23:54] Mauricio Bustos Eguia: no sé por qué hay dos Macarios, el de HMO.',
-  '[01:40:02] Mauricio Bustos Eguia: el programa sale nueve mil quinientos, y Joan lo vio.',
+  '[00:28:04] Mauricio Ejemplo Uno: te pagó 4.000 en lugar de 6.000, para el de 20 mil dólares.',
+  '[00:23:54] Mauricio Ejemplo Uno: no sé por qué hay dos Macarios, el de HMO.',
+  '[01:40:02] Mauricio Ejemplo Uno: el programa sale nueve mil quinientos, y Joan lo vio.',
 ].join('\n'));
 const PERMITIDOS = permitidosDe(['Feature: Video Editor', 'Feature: Offer Generator', 'Martin Koncke']);
 

@@ -133,8 +133,15 @@ export function ordenDelPedido(texto: string): string {
  */
 export function pideQuitar(texto: string): boolean {
   const n = norm(texto);
-  return QUITAR_EN_EL_TEXTO.test(n) || /\bde\s+baja\b/.test(n);
+  // DEVOLVER PLATA ES DESHACER UN COBRO (22/10/2026, el rojo de tests/ops-center-bateria.test.ts tras OC1): «devolvele el pago a Carlos»
+  // no trae ningún verbo de quitar, y `reembolsar_cobro` (destructiva por su verbo) no pasaba la puerta. Sólo con su OBJETO (el pago,
+  // la plata, el cobro, «el reembolso»): «devolvele la llamada a Juan» no abre nada.
+  return QUITAR_EN_EL_TEXTO.test(n) || /\bde\s+baja\b/.test(n) || OBJETO_REEMBOLSO.test(n);
 }
+
+/** Devolver plata: «reembolsale», «el reembolso», «devolvele la plata», «hacele la devolución» (sobre el texto sin tildes). Lo usan la
+ *  puerta de las destructivas (`pideQuitar`) y el objeto «reembolso» del clasificador (lib/mako-intencion.ts). */
+export const OBJETO_REEMBOLSO = /\breembols\w*|\bdevolucion(?:es)?\b|\b(?:devolve|devuelve)\w* (?:el|la|su|los|sus) (?:pagos?|cobros?|plata|dinero)\b/;
 
 /**
  * El texto SIN la orden del arranque (y sin el saludo): lo que se pide, para puntuar qué operación es. «borrá la nota» → «la nota».

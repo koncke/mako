@@ -4057,10 +4057,10 @@ Martín, revisión del 16/10 (47:15): «al inspeccionar, muchas veces al entrar 
 Mauricio y luego sale el usuario que se está inspeccionando».
 
 - ⚠️ **El diagnóstico obvio era el equivocado. No era `lib/perfil-sujeto.ts` ni la ficha del cliente:** el Sidebar nacía con
-  `useState('Mauricio Bustos')`, un resto de cuando la app era de una sola cuenta, y con `impersonando = false`. Las
+  `useState('Mauricio')`, un resto de cuando la app era de una sola cuenta, y con `impersonando = false`. Las
   iniciales, sin nombre, caían a «MB». Los dos datos se corregían cuando contestaba `/api/auth/me`. Como se entra a
   inspeccionar con una carga dura (`<a href>` el super admin, `location.href` la agencia), el primer cuadro salía mal en
-  CADA entrada. Y no sólo inspeccionando: **cualquier cliente veía «Mauricio Bustos» abajo a la izquierda** hasta que
+  CADA entrada. Y no sólo inspeccionando: **cualquier cliente veía «Mauricio» abajo a la izquierda** hasta que
   llegaba su nombre. La barra de arriba tenía la misma demora: aparecía después y corría la pantalla 50 px.
 - **El primer cuadro lo arma el server.** `lib/vista-de-otro.ts` dice a quién se mira: el cliente, su nombre, su agencia y la
   salida. El layout se lo pasa al Sidebar (`inicial`) y a la barra, y pone `data-barra-agencia` en `<html>` desde el HTML,

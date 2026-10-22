@@ -4,13 +4,13 @@
 // Martín, revisión del 16/10/2026 (47:15): «al inspeccionar, muchas veces al entrar se bugea y sale primero el usuario
 // de perfil de Mauricio y luego sale el usuario que se está inspeccionando, eso hay que arreglarlo».
 //
-// La causa no estaba en el perfil: el Sidebar nacía con `useState('Mauricio Bustos')` y `impersonando = false`, y la
+// La causa no estaba en el perfil: el Sidebar nacía con `useState('Mauricio Ejemplo')` y `impersonando = false`, y la
 // barra de inspección nacía vacía. Los dos se corregían cuando contestaba `/api/auth/me`. Se entra a inspeccionar con
 // una carga del server (`<a href="/general?ws=N">`), así que el primer cuadro salía mal en CADA entrada. Ahora el layout
 // le pasa a los dos lo que sabe el server (lib/vista-de-otro.ts), y `/api/auth/me` lee lo MISMO.
 //
 // ROTURAS (17/10/2026, arnés `romper-881.js` del scratchpad, junto con barra-inspeccion-alto y lead-cabecera; base 20 / 0,
-// restaurado de memoria): el Sidebar con `useState('Mauricio Bustos')` → 18 / 2 · el Sidebar con `impersonando` en false
+// restaurado de memoria): el Sidebar con `useState('Mauricio Ejemplo')` → 18 / 2 · el Sidebar con `impersonando` en false
 // → 19 / 1 · la barra naciendo vacía → 19 / 1 · el layout sin el atributo en <html> → 19 / 1 · /api/auth/me volviendo
 // a leer el workspace por su cuenta → 19 / 1.
 import { test } from 'node:test';

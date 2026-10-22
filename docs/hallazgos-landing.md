@@ -2305,7 +2305,7 @@ falla si a una pieza le falta su registro.
 
 #### Y dos cosas que cambiaron premisas que veníamos usando
 
-- **`landingvsl.vercel.app` y `v0-joandowd.vercel.app` son la MISMA página**, byte a byte
+- **`landingvsl.vercel.app` y `landing-ws13.vercel.app` son la MISMA página**, byte a byte
   (mismo sha, mismos 8 chunks, mismo `/mako-tracking.js`). No hay que diseñar como si el ws13
   tuviera «una landing de Drive y otra de Wistia», y todo aviso por página le sale duplicado.
 - **En la ficha de cada lead, los eventos de PÁGINA se mostraban como «Siguió mirando el
@@ -4251,7 +4251,7 @@ el aviso del Pixel estaba «al día», así que ninguna pantalla lo decía.
 
 **El diagnóstico obvio era el equivocado.** El server sí le contesta `rec` a cada visita (`app/api/track/vsl/route.ts`,
 muestreo 100) y `r.js` baja con 200. No era el contrato ni la librería: medido con Chrome automático sobre
-`v0-joandowd.vercel.app?mko_test=…` (visita marcada de prueba), el grabador arranca y emite (144 eventos en 20 s) y
+`landing-ws13.vercel.app?mko_test=…` (visita marcada de prueba), el grabador arranca y emite (144 eventos en 20 s) y
 manda tres lotes, y el receptor contesta a los tres `{"ok":false,"ignorado":"sesion invalida"}`.
 
 **Causa.** El sitio (hecho con v0) no pega nuestro código: sirve una COPIA reescrita, `/mako-tracking.js` (con

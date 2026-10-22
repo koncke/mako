@@ -26,7 +26,8 @@ import {
   type ChartMsg, type ChartSession,
 } from '@/lib/chart-chats';
 import { claveVisible, personaDeSesion, prefijoDePersona, puedeUsarSesion, type QuienChatea } from '@/lib/chart-chats-reglas';
-import { TITULO_GRUPO, baseDeLaPersona, origenDeClave, temaDe } from '@/lib/chat-mako-reglas';
+import { TITULO_GRUPO, baseDeLaPersona, mensajesDeAutomatizacion, origenDeClave, temaDe } from '@/lib/chat-mako-reglas';
+import { leerChat as leerChatDeAutomatizacion, listarChats as listarChatsDeAutomations, secuenciaDelWorkspace } from '@/lib/automatizacion-chat-db';
 import { getGrupoJidMaKo } from '@/lib/mako-grupo';
 import { hiloDelGrupo } from '@/lib/mako-doer-conv';
 import { chartKeyDePersona, type MensajeChat } from '@/lib/mako-turno-app-reglas';
@@ -193,8 +194,13 @@ export async function hiloDelGrupoMaKo(
 //    la MISMA puerta que la tab (`puedeVerKey('offer', rol, capa)`); un closer o un setter sin Offer no la ve.
 // ⚠️ Martín, mirando un ws como super admin, ve SUS chats de chart_sessions; lo de Offer, al ser del workspace, sí lo ve.
 
-/** Las proyecciones del índice: de dónde sale cada chat que no vive en chart_sessions, a quién alcanza y su tab. */
-export const PROYECCIONES = [{ origen: 'offer', alcance: 'workspace', tab: 'offer' }] as const;
+/** Las proyecciones del índice: de dónde sale cada chat que no vive en chart_sessions, a quién alcanza y su tab.
+ *  ⚠️ `tab` es la clave de la PUERTA (lib/movil-rutas.ts → puedeVerKey), no el nombre: la de Automations es `setting` (con
+ *  'automations', medido el 22/10, la puerta le dice que no a todos, el admin incluido, y no se listaría nada). */
+export const PROYECCIONES = [
+  { origen: 'offer', alcance: 'workspace', tab: 'offer' },
+  { origen: 'automations', alcance: 'workspace', tab: 'setting' },
+] as const;
 export type OrigenDeChat = (typeof PROYECCIONES)[number]['origen'];
 
 export type ChatDeOffer = { id: number; titulo: string; updatedAt: string; origen: 'offer'; alcance: 'workspace'; tema?: string | null };
@@ -212,15 +218,15 @@ async function temasDeOffer(ids: readonly number[]): Promise<Map<number, string>
   return out;
 }
 
-/** El workspace del pedido, si quien pide ve la tab Offer (la puerta de la tab, la misma del teléfono). null = no la ve. */
-async function wsSiVeOffer(): Promise<number | null> {
+/** El workspace del pedido, si quien pide ve la tab de esa proyección (la puerta de la tab, la misma del teléfono). null = no la ve. */
+async function wsSiVe(tab: (typeof PROYECCIONES)[number]['tab']): Promise<number | null> {
   const [rolWs, ws, capa] = await Promise.all([getRolWsEfectivo(), getWorkspaceActual(), getCapaActual().catch(() => null)]);
-  return rolWs && ws != null && puedeVerKey('offer', rolWs, capa) ? ws : null;
+  return rolWs && ws != null && puedeVerKey(tab, rolWs, capa) ? ws : null;
 }
 
 /** Las conversaciones de Offer del negocio, la más reciente primero. [] = no ve la tab, o no hay. */
 export async function chatsDeOffer(): Promise<ChatDeOffer[]> {
-  const ws = await wsSiVeOffer();
+  const ws = await wsSiVe('offer');
   if (ws == null) return [];
   // La del onboarding, si quien pide ya tiene su chat «Onboarding» (lo copia hiloDelOnboarding), no se lista: saldría dos
   // veces. A los demás (el super admin mirando, otro admin) se les sigue listando, y a ella también si la siguió en Offer
@@ -241,6 +247,37 @@ export async function chatsDeOffer(): Promise<ChatDeOffer[]> {
   return filas.map((f) => (temas.has(f.id) ? { ...f, tema: temas.get(f.id) } : f));
 }
 
+// ── Automations (22/10/2026, OC5) ───────────────────────────────────────────────────────────────────────────────────
+// La charla con MaKo del lienzo de cada automatización vive en app_settings (`automatizacion.chat:<id>`, lib/automatizacion-chat.ts)
+// y nadie la proyectaba. Es por WORKSPACE, con la puerta de la tab (`setting`), y se LEE: se sigue en el lienzo (`rutaDelLienzo`,
+// lib/chat-mako-reglas.ts), que es el que sabe editar la automatización.
+
+export type ChatDeAutomatizacion = { id: number; titulo: string; updatedAt: string; origen: 'automations'; alcance: 'workspace' };
+
+/** Las charlas del lienzo del negocio, la más reciente primero. [] = no ve la tab, no hay, o no se pudo leer. */
+export async function chatsDeAutomations(): Promise<ChatDeAutomatizacion[]> {
+  const ws = await wsSiVe('setting');
+  if (ws == null) return [];
+  const filas = await runWithWorkspace(ws, () => listarChatsDeAutomations(ws)).catch((e) => {
+    console.warn(`[chat-mako-indice] ws=${ws}: no pude listar las charlas de Automations: ${e instanceof Error ? e.message : String(e)}`);
+    return [];
+  });
+  return filas.map((f) => ({ id: f.secuenciaId, titulo: f.nombre, updatedAt: f.updatedAt, origen: 'automations', alcance: 'workspace' }));
+}
+
+/** Una charla del lienzo, para leerla. null = no ve la tab, o la automatización no es de este negocio (no se distingue). */
+export async function hiloDeAutomatizacion(id: number): Promise<{ sesion: ChatDeAutomatizacion; mensajes: MensajeChat[] } | null> {
+  if (!Number.isInteger(id) || id <= 0) return null;
+  const ws = await wsSiVe('setting');
+  if (ws == null || !(await secuenciaDelWorkspace(ws, id))) return null;
+  const [chat, filas] = await Promise.all([leerChatDeAutomatizacion(ws, id), runWithWorkspace(ws, () => listarChatsDeAutomations(ws, 200)).catch(() => [])]);
+  const titulo = filas.find((f) => f.secuenciaId === id)?.nombre ?? `Automatización ${id}`;
+  return {
+    sesion: { id, titulo, updatedAt: chat.mensajes[chat.mensajes.length - 1]?.at ?? '', origen: 'automations', alcance: 'workspace' },
+    mensajes: mensajesDeAutomatizacion(chat.mensajes),
+  };
+}
+
 /**
  * Una conversación de Offer, para leerla en el Ops Center. null = no ve la tab, o no es de este negocio (no se distingue).
  * La del ONBOARDING trae alrededor las preguntas del arranque con sus respuestas (21/10/2026, Florencia, ws21: el super
@@ -249,7 +286,7 @@ export async function chatsDeOffer(): Promise<ChatDeOffer[]> {
  */
 export async function hiloDeOffer(id: number): Promise<{ sesion: ChatDeOffer; mensajes: MensajeChat[] } | null> {
   if (!Number.isInteger(id) || id <= 0) return null;
-  const ws = await wsSiVeOffer();
+  const ws = await wsSiVe('offer');
   if (ws == null) return null;
   const [c, arranque, historial, superAdmin] = await runWithWorkspace(ws, () => Promise.all([
     leerConversacionOffer(id),

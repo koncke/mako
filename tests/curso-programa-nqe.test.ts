@@ -137,7 +137,7 @@ test('nada del guion viejo ni de otros clientes en lo que lee el cliente', () =>
   // Los nombres que el catálogo viejo traía en sus guiones (TEXX, HMO, Baja Teriyaki, Patricia,
   // Esquer) y la gente real del producto. Ya están en el repo: el guard caza LOS CONOCIDOS.
   const REALES = [
-    'Mauricio', 'Mau', 'Bustos', 'Leila', 'Martín', 'Joan', 'Juan Francisco', 'Código Inmobiliario',
+    'Mauricio', 'Mau', 'Ejemplo', 'Leila', 'Martín', 'Joan', 'Juan Francisco', 'Código Inmobiliario',
     'MasteryHaus', 'Vértice', 'AvatarHype', 'HMO', 'Esquer', 'TEXX', 'Baja Teriyaki', 'Patricia',
   ];
   const malos: string[] = [];

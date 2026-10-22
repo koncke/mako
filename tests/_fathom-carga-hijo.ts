@@ -634,11 +634,11 @@ async function main() {
     reset(); sembrarWorkspace('superadmin');
     db.plan_proyectos.push({ workspace_id: WS_DUENO, id: 'pcrm', pid: 'P1', name: 'Feature: CRM', emoji: '🧲', color: '#000', score: 80, detalle: '', historial: [], orden: 1 });
     db.plan_proyectos.push({ workspace_id: WS_DUENO, id: 'pmau', pid: 'P2', name: 'Cliente: Mauricio', emoji: '🤝', color: '#000', score: 50, detalle: '', historial: [], orden: 2 });
-    const mandaDueno = await runWithWorkspace(WS_DUENO, () => rc.proyectoQueManda({ ...cli, leadId: 0, nombre: 'Mauricio Bustos', empresa: 'Mauricio Bustos', via: 'workspace-cliente' }));
+    const mandaDueno = await runWithWorkspace(WS_DUENO, () => rc.proyectoQueManda({ ...cli, leadId: 0, nombre: 'Mauricio Ejemplo', empresa: 'Mauricio Ejemplo', via: 'workspace-cliente' }));
     borrador(WS_DUENO, 'p870d', [
       { titulo: 'Arreglar el guardado de la ficha', detalle: 'No guarda al cambiar de etapa.', proyecto: 'Feature: CRM' },
-      { titulo: 'Revisar el acceso de Mauricio al repo', detalle: 'Pasarlo a lectura.', proyecto: 'Cliente: Mauricio Bustos' },
-    ], { cliente_nombre: 'Mauricio Bustos', cliente_lead_id: null });
+      { titulo: 'Revisar el acceso de Mauricio al repo', detalle: 'Pasarlo a lectura.', proyecto: 'Cliente: Mauricio Ejemplo' },
+    ], { cliente_nombre: 'Mauricio Ejemplo', cliente_lead_id: null });
     await runWithWorkspace(WS_DUENO, () => pp.aplicarPropuestas([{ id: 'p870d' }]));
     const proyDe = (labels: unknown) => ((labels as string[]) ?? []).map((id) => db.plan_proyectos.find((p) => p.id === id)?.name ?? `?${id}`);
     out.dueno870 = {

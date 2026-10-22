@@ -5,11 +5,11 @@
 // ningún invitado externo. Hasta el 14/08/2026 esa lista era la identidad del
 // DUEÑO, hardcodeada, aplicada a todos los workspaces:
 //
-//     INTERNAL_EMAILS  = { martinkoncke@gmail.com, tejadomartin@gmail.com }
-//     INTERNAL_DOMAINS = { elevate.com.mx }
+//     INTERNAL_EMAILS  = { martinkoncke@gmail.com, ejemplo.colaborador.mako@gmail.com }
+//     INTERNAL_DOMAINS = { negocio-uno.com }
 //
 // A otra clienta le descartaba en silencio cualquier llamada con alguien de
-// elevate.com.mx, y su propio dominio no se excluía nunca. Descartar es
+// negocio-uno.com, y su propio dominio no se excluía nunca. Descartar es
 // destructivo y silencioso, así que la condición vive fuera de `server-only`
 // para poder testearla — la regla de la casa.
 // Correr: npm test
@@ -27,8 +27,8 @@ test('LA TRAMPA: un dominio público NUNCA es «mi dominio»', () => {
   assert.equal(dominioPropio('alguien@outlook.com'), null);
   assert.equal(dominioPropio('alguien@prodigy.net.mx'), null, 'un lead real del CRM usa este dominio');
   // Un dominio propio sí.
-  assert.equal(dominioPropio('mbustos@elevate.com.mx'), 'elevate.com.mx');
-  assert.equal(dominioPropio('hola@leilafittipaldi.com'), 'leilafittipaldi.com');
+  assert.equal(dominioPropio('dueno@negocio-uno.com'), 'negocio-uno.com');
+  assert.equal(dominioPropio('hola@marca-ejemplo.com'), 'marca-ejemplo.com');
   assert.equal(dominioPropio(''), null);
   assert.equal(dominioPropio(null), null);
 });
@@ -43,18 +43,18 @@ test('el email SIEMPRE cuenta, aunque su dominio sea público', () => {
 });
 
 test('cada workspace tiene SU gente (el bug que esto cierra)', () => {
-  const mauricio = internosDe(['mbustos@elevate.com.mx']);
-  const leila = internosDe(['hola@leilafittipaldi.com']);
+  const mauricio = internosDe(['dueno@negocio-uno.com']);
+  const leila = internosDe(['hola@marca-ejemplo.com']);
 
-  // Para Leila, alguien de elevate.com.mx es un PROSPECTO, no su equipo.
-  assert.equal(esInterno('contacto@elevate.com.mx', leila), false,
+  // Para Leila, alguien de negocio-uno.com es un PROSPECTO, no su equipo.
+  assert.equal(esInterno('contacto@negocio-uno.com', leila), false,
     'era el bug: se le descartaba la llamada como «interna» y no quedaba rastro');
-  assert.equal(esInterno('contacto@elevate.com.mx', mauricio), true);
+  assert.equal(esInterno('contacto@negocio-uno.com', mauricio), true);
 
   // Y su propio dominio ahora sí se reconoce: sus juntas de equipo dejan de
   // entrar como candidatas a venta y de pagarse a Claude.
-  assert.equal(esInterno('otra@leilafittipaldi.com', leila), true);
-  assert.equal(esInterno('otra@leilafittipaldi.com', mauricio), false);
+  assert.equal(esInterno('otra@marca-ejemplo.com', leila), true);
+  assert.equal(esInterno('otra@marca-ejemplo.com', mauricio), false);
 });
 
 test('el fallback es NADIE, nunca la identidad de otro', () => {
@@ -70,7 +70,7 @@ test('no queda identidad de nadie hardcodeada en closing.ts', () => {
   // los valores viejos, así que se mira el código sin comentarios.
   const src = readFileSync(new URL('../lib/closing.ts', import.meta.url), 'utf8')
     .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-  for (const v of ['martinkoncke@gmail.com', 'tejadomartin@gmail.com', 'elevate.com.mx']) {
+  for (const v of ['martinkoncke@gmail.com', 'ejemplo.colaborador.mako@gmail.com', 'negocio-uno.com']) {
     assert.ok(!src.includes(v), `volvió ${v} al código: eso se le aplica a TODOS los clientes`);
   }
   assert.ok(/internosDelWorkspace/.test(src), 'la identidad tiene que resolverse por workspace');

@@ -19,7 +19,9 @@
 //     (`leerHoja`, por referencia): pisaría lo que la persona tocó en el medio.
 //   · «DESHACER» SÓLO MIENTRAS LA HOJA SIGUE SIENDO LA QUE DEJÓ MaKo (la misma referencia): después de otro cambio,
 //     deshacer el de MaKo borraría también el de la persona. Para eso está el Ctrl+Z del editor.
-//   · EL HILO ES DE LA SESIÓN, por hoja (lo guarda el editor): no se persiste en la etapa 1.
+//   · EL HILO ES POR HOJA y lo tiene el editor (cerrar y abrir el panel no lo pierde). Desde el 22/10/2026 queda en la BASE
+//     (`dashboard:<hoja>`, ./hilo-guardado.ts y /api/hilo-de-tab): cada turno se guarda al terminar, y al abrir el panel
+//     sobre una hoja sin hilo se trae lo guardado. Así sobrevive a recargar y se ve en el Ops Center.
 //
 // LA CARA DEL SECOND BRAIN (17/10/2026, como el chat del CRM en 8db1e3cbc): donde iba el logo de MaKo va el MUÑECO de
 // la tab («Dashboard» o «General», lib/centro-munecos.ts), trabajando mientras piensa, y la caja dicta con el
@@ -38,6 +40,9 @@ import { PLAZO_PEDIDOS_MS, pedirPedidos } from '@/app/web-generator/cliente';
 import { CSS_PANEL_LATERAL } from './PanelAnalista';
 import { TextoConLink } from './NuevaHoja';
 import { CSS_MODOS_MAKO, ModosMako, type ModoMako } from './ModosMako';
+import { filasDeHilo, hiloDeFilas, tituloDeHoja } from './hilo-guardado';
+import { guardarEnHiloDeTab, leerHiloDeTab } from '@/lib/hilo-de-tab-cliente';
+import { claveDeHoja } from '@/lib/hilo-de-tab-reglas';
 import {
   TAB_DEL_INFORME, burbujasDeHoja, interpretacionDe, pulsarHoja, textoActual, trasCrear, vistaDeBurbujaHoja,
   type BotonHoja, type BurbujaHoja,
@@ -133,6 +138,20 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
   }, [texto]);
   // Abrir el panel es para escribir: el foco va a la caja.
   useEffect(() => { campo.current?.focus(); }, []);
+  // Una hoja sin hilo en el editor trae el suyo de la base (recién recargada, u otra computadora). Lo que se haya
+  // escrito mientras llegaba queda DESPUÉS de lo guardado.
+  const hayHilo = hilo.length > 0;
+  useEffect(() => {
+    if (hayHilo) return;
+    const c = new AbortController();
+    void leerHiloDeTab(claveDeHoja(hoja.id), c.signal).then((filas) => {
+      if (c.signal.aborted || !filas?.length) return;
+      const guardado = hiloDeFilas(filas);
+      onHilo((h) => [...guardado, ...h]);
+    });
+    return () => c.abort();
+    // Sólo al cambiar de hoja: una vez que hay hilo, el del editor es la verdad.
+  }, [hoja.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const enviar = async (escrito?: string) => {
     const mensaje = (escrito ?? texto).trim().slice(0, TOPE_PEDIDO_IA);
@@ -147,7 +166,9 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
     const tope = setTimeout(() => c.abort(), TOPE_CLIENTE_MS);
     setDesde(Date.now());
     setAhora(Date.now());
-    const decir = (m: MensajeEdicion) => onHilo((h) => [...h, m]);
+    // Lo de este turno, para guardarlo en la base al terminar (./hilo-guardado.ts): el pedido y lo que contestó MaKo.
+    const delTurno: MensajeEdicion[] = [{ k: 'yo', texto: mensaje }];
+    const decir = (m: MensajeEdicion) => { delTurno.push(m); onHilo((h) => [...h, m]); };
     try {
       // 1 · ENTENDER EL PEDIDO (docs/diseno-mako-pedidos.md, «El punto de enganche»): lo de esta hoja sigue a la
       //     edición de siempre; lo demás —otra hoja, otra tab, crear otra— son burbujas (./pedidos-hoja.ts). Si la ruta
@@ -194,6 +215,8 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
     } finally {
       clearTimeout(tope);
       if (ctrl.current === c) { ctrl.current = null; setDesde(null); }
+      // De la hoja a la que se le pidió (si la persona cambió de hoja mientras tanto, igual es de ésa).
+      void guardarEnHiloDeTab(claveDeHoja(enviada.id), tituloDeHoja(enviada.nombre), filasDeHilo(delTurno));
     }
   };
 

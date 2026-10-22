@@ -7,6 +7,24 @@ del código.
 
 ---
 
+## Una clave pegada en el Ops Center no se puede tapar después: no sale (22/10/2026)
+
+Martín contestó en el bloque de decisiones la pregunta de Apify del Cerebro con «Otra:» y su token pegado (pedido 253f6e11).
+Quedó guardado en tres lugares: `operaciones_pedidos.texto` y `.firmado`, y la respuesta de la pregunta
+(`app_settings` → `operaciones.preguntas.<local>`, en `respuesta.otra`). En el turno que sube el cartero no quedó. Se tapó con
+`apify_api_…(tapada)`, cambiando sólo la clave y escribiendo con comparar-y-escribir. Fuera de la base no apareció en ningún
+texto (el buzón, los transcripts y las notas). Lo que la inutiliza de verdad es generar una nueva.
+
+- **Trampa: lo del Ops Center del super admin sale FIRMADO desde el navegador** (app/admin/operaciones/mandar.ts). El servidor
+  no puede taparlo sin romper la firma, como sí hace el chat del negocio (lib/mako-turno-app.ts → `taparClaves`). Por eso
+  NO SALE: `mandar` la frena antes de firmar, y `encolarPedido` no guarda un pedido que la traiga (una pestaña de antes).
+  La caja y el «Otra» lo dicen apenas aparece, con el botón a /integraciones (app/_chat/AvisoClave.tsx).
+- **Trampa: `taparClaves` no conocía las de Apify** (`apify_api_` + 36). Una regla nueva de clave va en PROPIAS_ANTES de
+  lib/claves-en-el-chat.ts, con el servicio de /integraciones para su botón.
+- Lo que Martín escribe en la app de Claude y sube el cartero se guarda tapado (lib/centro-turnos-db.ts → `guardarTurnos`).
+- **SIN HACER:** el cartero sube el turno sin tapar (lo tapa el servidor al guardarlo); el transcript de la sesión en la PC
+  conserva lo que se pegó en la app de Claude.
+
 ## Un script no le puede escribir a una sesión; un chat sí, menos a sí mismo (15/10/2026)
 
 No hay una vía documentada para que un proceso le mande un mensaje a una sesión de Claude Code. Cada
@@ -1568,6 +1586,63 @@ reinicio). El marcador de cuenta es un dato más, y puede estar mal.
 - **Una cuenta RENOVADA queda sin medir hasta que alguien pase `--renovada`** (B). La renovación la avisa Martín, y el Cerebro corre `medir --renovada`. Mientras tanto, la tarjeta envejece a «Sin medir hace X», que es lo seguro.
 - **Del lado de MaKo, una fila MALA que ya entró bloquea a la buena:** `cuentaDeLaSemana` le cree a la fila que llegó primero. Si vuelve a pasar, se limpia la fila mala (`cuota=null`), como la del 20/10.
 - **Sólo con la ventana de 5 h** (sin semana) no hay huella: `medir` la anota a nombre del marcador. El Runner manda siempre las dos.
+
+## El Uso escondía el 99% de Leandro 2: la medición no se borraba, la apagaba la pantalla (22/10/2026)
+
+**Síntoma.** Martín, con una captura: «Cuando no mide hace mucho tiempo no debería desaparecer los % de uso que tenía la
+última vez... el caso de Leandro 2, esa cuenta ya estaba al 99% semanal, y ahora ya no aparece... no puedo ver qué cuentas
+ya no me queda espacio». La tarjeta de claude4 decía «Sin medir hace 14 h» con las dos barras vacías.
+
+**El diagnóstico obvio era el equivocado.** «Se pisa o se borra la medición vieja» no pasaba: a las 14:47 UTC la fila de
+claude4 en `operaciones_carteros` tenía su cuota entera (5 h: 11%, reinicio 01:59 UTC; semana: 99%, reinicio 27/10 19:59 UTC;
+medida a las 00:44 UTC). `cicloCartero` sólo escribe la cuota cuando llega una nueva. La escondía la PANTALLA, por la regla
+del 17/10 (entrada de arriba): pasadas 6 h (`USO_VENCIDO_MS`), `Barra` dibujaba ancho 0 y «Sin medir hace X». La cuenta 1 sí
+tiene `cuota=null`, pero porque el Cerebro limpió a mano la fila mala del 20/10, no por el código.
+
+**Arreglo** (lib/centro-uso.ts, Uso.tsx): `UsoVentana.ultimo` es lo que dijo la última medición, haya pasado o no el reinicio.
+La tarjeta siempre lo dibuja con su barra. Lo que cambia con la edad es CÓMO se dice:
+- al día: «47% usado» y abajo «Medido hace 2 min», como siempre;
+- vieja (más de 30 min): «99% · medido hace 14 h», en gris, sin «usado», con la barra de su color pero más tenue;
+- ya reiniciada: el último número en gris, la barra apagada y «Se reinició ayer a las 22:59 (sin medir desde entonces)».
+Hubo también un chip «Sin lugar» para la semana al 90% o más; se fue el mismo día (Martín: «No pongas el chip de "Sin
+lugar", no necesito eso»). La semana llena se ve por su número y su barra roja, que ya no se esconden.
+
+**Regla:** un número que se DIBUJA no se esconde por viejo: se dice su edad. Lo que DECIDE con él (el botón, «Automático»,
+`libreDe`) sigue leyendo `pct`, que es null pasado el reinicio, y `vencido`. Así lo del 17/10 (no leer un dato viejo como de
+ahora) se cumple igual, sin esconder el dato. Lo fija tests/centro-uso-ultimo.test.ts, que usa la fila de producción tal cual.
+
+## La API en el Uso: el crédito de cada plan Max, desde lo que MaKo registra (22/10/2026)
+
+**El pedido.** Martín: «En USO de SuperAdmin quiero ver también el USO de la API, que como tenemos 4 cuentas de Claude x20,
+deberían ser 800 usd al mes...». Debajo de las cuentas del desplegable del Uso (y en la hoja «Uso y Runners» del teléfono)
+está la sección «API»: arriba «US$0,25 de US$800 este mes», y por cuenta lo gastado de sus US$200, lo que queda, cuándo se
+renueva, o «Falta vincular» con lo que hay que hacer. Qué deja leer Anthropic y por qué el número sale del registro de MaKo,
+en docs/hallazgos-ia.md («Qué deja leer Anthropic del crédito de los planes Max»).
+
+**El total con un hueco (revisión del 22/10/2026):** con la clave de una cuenta sin leer («No pude leerlo»), el total de
+arriba salía igual, sin lo de esa cuenta. Ahora `totalCredito` da null si de alguna cuenta no se sabe si está vinculada.
+
+**Vive en:** lib/credito-api.ts (las reglas, puro) · lib/credito-api-db.ts (la lectura) · `creditoApiAction` (acciones.ts,
+con la guarda de siempre) · app/admin/operaciones/UsoCredito.tsx · tests/credito-api.test.ts.
+
+**Trampas que se cazaron al escribirlo:**
+- **La función que lee llega NUEVA en cada redibujo.** `useCentro` no memoriza sus funciones y el Centro se refresca cada
+  pocos segundos: con `[leer]` como dependencia del efecto, la sección pediría la lectura del registro en cada refresco. Se
+  pide UNA vez al abrir, con la función del primer dibujo en una ref (el test lo fija).
+- **Los tests del Uso parten el HTML por `<section`** para leer cada cuenta: la sección de la API es un `div role="group"`.
+  Si fuera una `<section>`, se leería como una quinta cuenta.
+- **La pantalla no importa nada del servidor**: lib/credito-api.ts importa lib/veto-claude.ts (la marca del crédito), así que
+  la pantalla toma de ahí sólo los TIPOS. El total llega armado del servidor.
+
+**Lo que quedó SIN hacer:**
+- **El día de cobro de cada plan** no se sabe. El crédito llega con cada cobro del plan, no el 1 del mes. Hoy se mide el mes
+  calendario de Argentina y la fila dice «se renueva con el cobro del plan». Con el día cargado en `CUENTAS_DEL_CREDITO`
+  (lib/credito-api.ts, `diaDeCobro`), la fila dice la fecha y cuenta de cobro a cobro (ya probado).
+- **Las cuentas 3 y 4 no tienen el crédito vinculado** (no hay ANTHROPIC_CREDITO_CUENTA3/4 ni en el `.env.local` ni en la
+  fila del ws9). La 4 puede recién desde el 23/10 (7 días de suscripta).
+- **`scripts/credito-claude-a-plataforma.mts` guarda sólo las claves de `CLAVES_CREDITO_PLATAFORMA` (la 1 y la 2)**, y el
+  onboarding usa sólo esas. Que use también la 3 y la 4 es una decisión de Martín («Yo debo decirte cuando utilizar
+  créditos»). Mientras tanto, si se carga su clave, la sección las ve vinculadas y con US$0 gastado.
 
 ## El menú que se cerraba solo, las fotos que no se veían y lo demás de WhatsApp (17/10/2026, quinto Ops Center)
 

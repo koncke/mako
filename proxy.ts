@@ -492,6 +492,13 @@ function denegarRol(req: NextRequest, pathname: string) {
 //                   `.json` + `.avif`, banderas, formas). NO se exime `video-editor/`:
 //                   el lookahead sacaría del proxy también a la PÁGINA del editor, y
 //                   el proxy es el único que valida el `?ws=` del super admin.
+//   · `.well-known/` — lo que leen Android y iOS para abrir los links de hola-mako.com en la app
+//                   de las tiendas (`assetlinks.json` de la TWA, `apple-app-site-association` de los
+//                   links universales; docs/hallazgos-mobile.md, 22/10/2026). Hasta ese día daban 307 a
+//                   /login y ni la TWA ni los links andaban. El punto va ESCAPADO (`\.well-known/`), como
+//                   el de `favicon\.ico`: suelto, sacaba del proxy `/<cualquier letra>well-known/…`, un slug
+//                   de hola-mako.site. También está en PUBLICOS (lib/rutas-publicas.ts), por si el matcher
+//                   cambia. tests/well-known-publico.test.ts.
 //
 // La lista de extensiones de acá no incluye `.json` —y no conviene que lo haga, hay
 // endpoints que sí tienen que estar gateados—, así que esos archivos entran al
@@ -516,5 +523,5 @@ function denegarRol(req: NextRequest, pathname: string) {
 // segmento es el slug, y `favicon-ico-promo` es uno válido: caía en el 404 de la APP en vez de su
 // landing (revisión de la tanda 4; el test compila el matcher como Next y lo cruza con slugs).
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon\\.ico|cono-tx/|cono-doc/|ve/|.*\\.(?:png|jpe?g|svg|webp|gif|ico|css|js|woff2?|webmanifest)$).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon\\.ico|cono-tx/|cono-doc/|ve/|\\.well-known/|.*\\.(?:png|jpe?g|svg|webp|gif|ico|css|js|woff2?|webmanifest)$).*)'],
 };

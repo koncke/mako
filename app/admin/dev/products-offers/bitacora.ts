@@ -534,6 +534,24 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/offer',
   },
+  {
+    fecha: '22 oct', hora: '16:05', chat: 'Offer', sesion: 'local_4b2d1f57-62a3-4ace-81ec-c5013086bbb8', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: MaKo anota lo que el dueño dice tal cual, lee un @ de Instagram (o dice que no pudo) y un documento de un prospecto no pisa tu negocio, ya en producción',
+    puntos: [
+      'En producción desde e115adfbd (deploy Ready). Es la segunda prueba de los chats, el pedido de Instagram y OF3.',
+      'Lo que el dueño dice con todas las letras («no vendí ninguno», «no tengo casos», «anótalo así») queda como lo dijo. El canal del PDF sale de lo que dijo, los números para completar llevan su nombre y «Armar» no guarda solo.',
+      'Un @ o un link de Instagram se lee con una sola función: la misma para el alta de un lead, el onboarding y Offer. Hoy casi ningún negocio tiene una fuente que conteste, y MaKo lo dice y pide que le cuenten. Un @ puede no ser del dueño (su competencia, un ejemplo).',
+      'Un documento de un prospecto (una propuesta, una llamada) ya no llena «qué hace tu negocio». Pasó en el ws13 y se corrigió.',
+      'Para verlo: Offer › escribir «mi Instagram es @…» y ver que MaKo dice si lo pudo leer.',
+    ],
+    archivos: [
+      'lib/offer-reglas.ts — `conLoQueDijoElDueno`, `conCanalDeLaOferta`, `rotuloDeNumero`',
+      'lib/instagram-perfil-server.ts — `leerPerfilInstagram`: Meta del negocio, la de la plataforma y Apify, con caché por negocio',
+      'lib/archivero-registro.ts — `camposSegunQuien`: el documento dice de quién habla (`habla_de`)',
+      'tests/offer-prueba-chats-2-2210, offer-instagram, instagram-perfil-fuentes y archivero-quien — probados rompiéndolos',
+    ],
+    revisar: '/offer',
+  },
 ];
 
 export const PARTES: Parte[] = [

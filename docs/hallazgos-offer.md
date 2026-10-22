@@ -1328,4 +1328,32 @@ pegó su Instagram y MaKo contestó «vi tu Instagram: ayudas a estudiantes con 
 alta) · `tests/offer-instagram.test.ts` (9 roturas, las 9 cazadas) · `tests/instagram-perfil-fuentes.test.ts` (10 roturas,
 las 10 cazadas)
 
+## Datos reales en el repo: el barrido y la guarda (22/10/2026)
+
+La revisión adversarial de Offer encontró en main el nombre y apellido del prospecto de un cliente, el @ de una clienta y el
+mail del dueño de un negocio, todos en tests. El Cerebro pidió reemplazarlos y barrer el resto.
+
+- **El barrido** (con los mails y nombres de los usuarios de producción, leídos al scratchpad, nunca al repo): 89 archivos
+  de tests/, docs/ y AGENTS.md con mails de dueños y colaboradores (de gmail y de dominio propio), nombres y apellidos de
+  clientes y de un prospecto, el @ de una clienta, el @ y los dominios de landing con el nombre de un dueño, y dos gmail
+  personales que la tabla de usuarios no tenía. Se reemplazaron por inventados del MISMO formato. **La trampa:** el primer
+  mapa cambió un gmail por un dominio propio y rompió el test que prueba que un dominio público nunca es «mi dominio»; y
+  un test compara el mail con una regex (`gmail\.com`), que un reemplazo literal no toca. Los 375 tests que leen un archivo
+  cambiado, en verde.
+- **Lo que quedó, a propósito:** los nombres de pila de los clientes (así se los nombra en todo el repo), los datos de
+  Martín (es quien opera MaKo), los nombres de los negocios, la guarda de las plantillas (necesita los apellidos que
+  prohíbe) y el test de la razón social de la verificación de Meta (compara con el dato real que vive en el código).
+- **Sin hacer, en código (fuera de tests/docs):** datos reales que el código USA o comenta: el mail de un colaborador en
+  `lib/closing.ts` y `app/conocimientos/Compartir.tsx` (la lista de internos), la razón social en el código de la
+  verificación de Meta, nombres en comentarios de `lib/config.ts`, `lib/perfil-sujeto.ts`, `lib/grupos-guardados.ts`,
+  `lib/usuarios.ts` y scripts. Sacarlos del código pide mudar esos datos a la base o a la config de cada negocio.
+- **La historia de git queda igual:** lo que estuvo en main sigue en los commits viejos. Reescribirla rompería las ramas
+  de todos los chats.
+- **La guarda:** `tests/sin-mails-reales.test.ts` compara la huella (sha256) de cada mail de tests/, docs/ y AGENTS.md con
+  las de los usuarios reales (sin Martín) y los dos gmail personales. Probada rompiéndola: un mail real en un doc o en un
+  test (también en mayúscula y con punto final) la hace fallar; uno inventado, no. Un dueño nuevo no está: se suma su
+  huella.
+
+**Vive en:** `tests/sin-mails-reales.test.ts` · AGENTS.md («Nada de datos reales de clientes…»)
+
 *22/10/2026, chat «Offer» (claude3).*

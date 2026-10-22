@@ -79,8 +79,8 @@ test('el verbo «arranque» no pisa la etapa de venta que el pedido nombra', () 
 
 // rotura (sacar `estable` de `contenido`: el JSON crudo) → 1 rojo de 5 (éste).
 test('un «cambiar» que no cambia nada no dice «Cambié»', () => {
-  const base: PasoIA[] = [{ id: 'm1', orden: 1, canal: 'whatsapp', delay_horas: 0, asunto: null, preheader: null, cuerpo: 'Hola {{nombre}}, soy Mauricio Bustos.', template_wa: null, proveedor: 'no_oficial', siguiente: null } as PasoIA];
-  const r = deIAEdicion({ cambiar: [{ id: 'm1', texto: 'Hola {{nombre}}, soy Mauricio Bustos.' }] }, base, ctxDe(), rndDe());
+  const base: PasoIA[] = [{ id: 'm1', orden: 1, canal: 'whatsapp', delay_horas: 0, asunto: null, preheader: null, cuerpo: 'Hola {{nombre}}, soy Mauricio Ejemplo.', template_wa: null, proveedor: 'no_oficial', siguiente: null } as PasoIA];
+  const r = deIAEdicion({ cambiar: [{ id: 'm1', texto: 'Hola {{nombre}}, soy Mauricio Ejemplo.' }] }, base, ctxDe(), rndDe());
   assert.deepEqual(r.cambiadas, [], 'el texto es el mismo');
   const c = deIAEdicion({ cambiar: [{ id: 'm1', texto: 'Hola {{nombre}}, soy Mauricio.' }] }, base, ctxDe(), rndDe());
   assert.deepEqual(c.cambiadas, ['m1'], 'y uno de verdad sí cuenta');
@@ -106,7 +106,7 @@ test('el link que escribió el dueño se queda; el que inventa el modelo, no', (
 test('una espera corta entre dos WhatsApp lo dice el código: la línea espera las horas de «Misma persona»', () => {
   const wa = (id: string, cuerpo: string, siguiente: string | null): PasoIA => ({ id, orden: 0, canal: 'whatsapp', delay_horas: 0, asunto: null, cuerpo, template_wa: null, proveedor: 'no_oficial', siguiente } as PasoIA);
   const base: PasoIA[] = [
-    wa('m1', 'Hola {{nombre}}, soy Mauricio Bustos.', 'e1'),
+    wa('m1', 'Hola {{nombre}}, soy Mauricio Ejemplo.', 'e1'),
     { id: 'e1', orden: 0, canal: 'whatsapp', delay_horas: 0, asunto: null, cuerpo: '', template_wa: null, proveedor: 'no_oficial', nodo: 'esperar', espera: { modo: 'tiempo', minutos: 1440 }, siguiente: 'm2' } as PasoIA,
     wa('m2', '¿Te puedo hacer una pregunta rápida?', null),
   ];
