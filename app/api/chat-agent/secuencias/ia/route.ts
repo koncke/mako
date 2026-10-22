@@ -61,7 +61,7 @@ import { disparadorDeValorIA, valorIADeDisparador, type Disparador } from '@/lib
 import { disparadoresDeSecuencia } from '@/lib/disparadores-canales';
 import { armarContexto, crearNuevas, generar, crearFlujoConIA } from '@/lib/flujo-ia-crear';
 import { esConsulta, deIARespuesta, userDeExplicar, EXPLICAR_IA_SYSTEM_TEMPLATE } from '@/lib/flujo-ia-consulta';
-import { intencionDe, extrasDelUser, vaAExplicar, ERROR_EDITAR_SIN_CAMBIOS } from '@/lib/flujo-ia-intencion';
+import { intencionDe, extrasDelUser, vaAExplicar, errorDeRespuestaEnEditar, charlaConTextos, esPreguntaDirecta } from '@/lib/flujo-ia-intencion';
 import {
   sanearRespuestas, aplicarRespuestas, turnoDelUsuario, mensajeChat, mensajeDePregunta, respuestaDelCron,
 } from '@/lib/flujo-ia-preguntas';
@@ -79,6 +79,8 @@ export const maxDuration = 300;
 
 /** Lo que tiene la cascada para contestar (deja ~60 s para reparar, guardar y cerrar el stream). */
 const PLAZO_MODELO_MS = 220_000;
+/** Lo que MaKo lee de un pedido (lo mismo que llega al prompt: lib/flujo-ia.ts, «EL PEDIDO DEL DUEÑO»). */
+const TOPE_PEDIDO = 2000;
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -120,7 +122,14 @@ export async function POST(req: NextRequest) {
   let body: Body = {};
   try { body = ((await req.json()) ?? {}) as Body; } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
-  const pedido = typeof body.pedido === 'string' ? body.pedido.trim().slice(0, 2000) : '';
+  // ⚠️ UN PEDIDO LARGO NO SE CORTA EN SILENCIO (22/10/2026, la prueba de los chats del Cerebro, 3 de 3): con 8.304 caracteres
+  // (los mensajes y el CRON al final) se cortaba a 2.000 y MaKo armaba OTRA cosa, con mensajes, condiciones y un AI Step
+  // inventados. Lo que no entra se dice, con cuánto entra.
+  const crudo = typeof body.pedido === 'string' ? body.pedido.trim() : '';
+  if (crudo.length > TOPE_PEDIDO) {
+    return Response.json({ ok: false, error: `Tu mensaje tiene ${crudo.length.toLocaleString('es-MX')} caracteres y MaKo lee hasta ${TOPE_PEDIDO.toLocaleString('es-MX')}. Pega sólo los mensajes y lo que quieres que haga, o mándalo en partes.` }, { status: 400 });
+  }
+  const pedido = crudo;
   const modo = body.modo === 'editar' ? 'editar' : body.modo === 'crear' ? 'crear' : null;
   // CREAR sin `secuenciaId` (décima tanda): la fila nace al guardar. Editar siempre lo necesita.
   const sinId = modo === 'crear' && (body.secuenciaId == null || body.secuenciaId === '');
@@ -277,7 +286,7 @@ export async function POST(req: NextRequest) {
         // ⚠️ Y DESDE EL 22/10/2026 LO ELIGE LA PERSONA (lib/flujo-ia-intencion.ts): «Discutir» va siempre acá, «Editar»
         // nunca; sin elegir, lo de antes. En los tres, lo último de la charla viaja (sin eso «como te dije» no existía).
         const extras = extrasDelUser(intencion, historial);
-        if (vaAExplicar(intencion, respuestas.length > 0, esConsulta(pedido))) {
+        if (vaAExplicar(intencion, respuestas.length > 0, esConsulta(pedido), esPreguntaDirecta(pedido))) {
           const system = await getPromptText('chatbot.explicar-ia.system', EXPLICAR_IA_SYSTEM_TEMPLATE);
           const cron = ctx.disparadores.find((x) => x.value === disparadorActual)?.label ?? null;
           const user = [userDeExplicar({ cron, flujo: JSON.stringify(aIA(base, ctx)), pregunta: pedido }), ...extras].join('\n\n');
@@ -298,7 +307,9 @@ export async function POST(req: NextRequest) {
         const traducir = (obj: Record<string, unknown>): { r: ResultadoEdicion; errores: string[] } => {
           const r = deIAEdicion(obj, base, ctx);
           // En «Editar» contestar sin cambiar es un ERROR que el reintento corrige (lo que pasó con Mauricio el 22/10).
-          if (r.respuesta && intencion === 'editar') return { r, errores: [ERROR_EDITAR_SIN_CAMBIOS] };
+          // Salvo lo que vale contestar (una aclaración, dónde se configura, que no se puede: `errorDeRespuestaEnEditar`).
+          const errorRespuesta = r.respuesta && intencion === 'editar' ? errorDeRespuestaEnEditar(pedido, r.respuesta, { esPregunta: esConsulta(pedido), charlaConTextos: charlaConTextos(historial) }) : null;
+          if (errorRespuesta) return { r, errores: [errorRespuesta] };
           // Una respuesta no cambió nada: no hay qué revisar (un borrador con algo roto no la tiene que tumbar).
           return { r, errores: r.respuesta ? [] : erroresEdicion(base, r, ctx) };
         };

@@ -91,10 +91,8 @@ test('el ejemplo del prompt: ninguna guía ofrece días ni horarios', () => {
 // rotura (volver a RX_VARIABLE en limpiarTexto, sin la pasada de llaves sueltas): 1 fallo de 7, cae éste.
 test('limpiarTexto: toda llave que no es una variable conocida se va, y avisa', () => {
   const casos: Array<[string, string]> = [
-    ['Hola {{Nombre del lead}}, ¿cómo estás?', 'Hola, ¿cómo estás?'],
     ['Tu número {{teléfono}} quedó', 'Tu número quedó'],
     ['Paso {{ 1 }} listo', 'Paso listo'],
-    ['Hola {nombre completo}', 'Hola'],
     ['Hola {{nombre}}}', 'Hola {{nombre}}'],
     ['Hola {{nombre', 'Hola nombre'],
   ];
@@ -103,6 +101,18 @@ test('limpiarTexto: toda llave que no es una variable conocida se va, y avisa', 
     assert.equal(r.texto, sale, entra);
     assert.ok(r.quitado.includes('variable') || entra === 'Hola {{nombre}}}', `sin aviso: ${entra}`);
     assert.doesNotMatch(r.texto.replace(/\{\{(nombre|negocio)\}\}/g, ''), /[{}]/, entra);
+  }
+  // 22/10/2026 (la prueba de los chats del Cerebro, variable-inventada 3 de 4): una llave que NOMBRA un dato del lead que existe
+  // con otra forma pasa a la del catálogo (`aliasDeVariable`), y avisa. Borrada dejaba «¿Sigues al frente de?» al lead.
+  const renombradas: Array<[string, string]> = [
+    ['Hola {{Nombre del lead}}, ¿cómo estás?', 'Hola {{nombre}}, ¿cómo estás?'],
+    ['Hola {nombre completo}', 'Hola {{nombre_completo}}'],
+    ['¿Sigues al frente de {{empresa_del_lead}}?', '¿Sigues al frente de {{empresa}}?'],
+  ];
+  for (const [entra, sale] of renombradas) {
+    const r = limpiarTexto(entra);
+    assert.equal(r.texto, sale, entra);
+    assert.deepEqual(r.quitado, ['renombrada'], entra);
   }
   // Las del motor se quedan (y se normalizan a doble llave).
   assert.equal(limpiarTexto('Hola {Nombre} de {{ negocio }}').texto, 'Hola {{nombre}} de {{negocio}}');

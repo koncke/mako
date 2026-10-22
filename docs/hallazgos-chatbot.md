@@ -5817,12 +5817,18 @@ lib/flujo-ia-intencion.ts · app/api/chat-agent/secuencias/ia/route.ts · app/au
 tests/chat-mako-discutir-editar.test.ts. **Sin hacer:** al CREAR, el modelo sigue inventando el texto de una tarjeta de
 audio que la persona dijo que graba ella (el pedido de #289); crear no tiene modo Editar.
 
-### «Esta etapa no existe» NO era un cache
+### «Esta etapa no existe» no era un cache, y TAMPOCO era la etapa: era el CRM
 
 Mauricio creó «Prospección activa» y MaKo dijo «esa etapa no existe»: parecía que el chat veía las etapas viejas. El
-chat guardado lo desmiente: la pregunta del CRON ya ofrecía «Prospección activa» (`venta:44:st0`), y el aviso era
-«Saqué «Mover de etapa»: esa etapa no existe» por «Contactado», que el CRM «Sprint 3 días» no tiene (el pedido venía del
-plan viejo). **Regla:** un aviso de algo que no existe dice CUÁL y DÓNDE (lib/flujo-ia.ts, `resolverAccion`).
+chat guardado lo desmiente: la pregunta del CRON ya ofrecía «Prospección activa» (`venta:44:st0`). **El primer
+diagnóstico (A5, 661146056) también estaba mal:** «era «Contactado», que el CRM «Sprint 3 días» no tiene». La prueba de los
+chats del Cerebro lo midió con una etapa que SÍ existía («movelo a Respondió», 3 de 3) y salía igual: «Mover de etapa»
+(`proponer_cambio_etapa`) no pide CRM, y `resolverAccion` buscaba la etapa SIEMPRE en el CRM principal
+(`resolverProducto(null)`). **Regla:** la etapa de «Mover de etapa» se busca primero en el CRM del CRON, después en el
+principal, después en cualquiera (`crmDeLaEtapa`), y el paso guarda ese CRM en `embudoId`, como el control de etapa del
+lienzo, para que el motor mueva la tarjeta de ESE CRM (`moverEnElCrmDelPaso`). Y un aviso de algo que no existe dice CUÁL
+y DÓNDE. **Lo que enseña:** «una etapa que no existe» se mide con una que SÍ existe antes de culpar al pedido. **Vive en:**
+lib/flujo-ia.ts · test: tests/chat-mako-prueba-de-chats.test.ts.
 
 ### La plantilla de prospección
 
@@ -5856,3 +5862,58 @@ pasos de audio) y Offer (la tab con el composer, el onboarding con la caja únic
 **SIN HACER:** mirarlo en producción en los tres lugares, con un micrófono de verdad (en un teléfono Android, el permiso del
 sistema además del del navegador).
 
+## La prueba de los chats del Cerebro (22/10/2026): 36 casos sin pantalla, y lo que se arregló con ellos
+
+El arnés del Cerebro (rama `probar-chats-automations`, `scripts/probar-chats/automations.mts`, con lo GUARDADO como juez)
+corrió 36 casos contra be4b9189a (18 fallas, causa por causa en `verificacion-automations-be4b9189a.json`). Se volvió a
+correr acá tres veces, con la pantalla de hoy (que manda «Editar» por defecto): **producción 4de3fe769: 12 pasan · con los
+arreglos de editar: 21 · con todos: 20, pero 12 casos cortados por «No tienes ninguna IA gratis conectada»** (Gemini sin
+cuota todo el día y la red de la plataforma agotada al final: ese número no mide el código).
+
+### Editar, prendido por defecto, rechazaba toda respuesta (la regresión la metió 4de3fe769)
+
+**Síntoma:** «¿Qué hace esta automatización?», «que no salgan todos juntos» o «cambiá el mensaje» terminaban en «MaKo armó el
+flujo pero quedó mal: No cambió nada». **Causa:** en Editar, `ERROR_EDITAR_SIN_CAMBIOS` rechazaba CUALQUIER "respuesta", y
+la pantalla arranca en Editar. **Y el arreglo obvio tenía su trampa:** con el bloque de Configuraciones en el prompt, el
+modelo contestó «Configuraciones › Acciones» (no existe) a «que lo llame por teléfono» y «Se configura en Configuraciones ›
+Límites» a «¿A cuántos les va a llegar?». **Regla:** en Editar, una pregunta DIRECTA (`esPreguntaDirecta`: empieza con «¿» o
+termina en «?», sin textos pegados) va al prompt de explicar; y una respuesta vale (`errorDeRespuestaEnEditar`) si no hay
+textos pegados y nombra un lugar REAL (Horario o Límites), dice que no se puede sin delegar («pídemelo», «habría que»), o
+pregunta para aclarar sin que los textos ya estén en la charla. Un lugar que no existe vuelve al modelo con el error que lo
+nombra. **Vive en:** lib/flujo-ia-intencion.ts · app/api/chat-agent/secuencias/ia/route.ts · test:
+tests/chat-mako-discutir-editar.test.ts.
+
+### Lo que era código y no modelo
+
+- **«Cambié» sin ningún cambio:** lo guardado trae `preheader: null` y el parche de un WhatsApp lo borra; `contenido()`
+  comparaba el JSON crudo. Ahora compara la forma estable (sin vacíos, claves ordenadas: `estable`).
+- **«arranque» (el verbo) pisaba el CRON** con la etapa de entrega «Arranque»: si la etapa de venta que eligió el modelo está
+  escrita en el pedido, se respeta, salvo que hable de un cliente («no es lead entrante, es un cliente entrante»).
+- **El link que escribió el dueño se borraba** («que les mande el link https://sprint.mauriciobustos.com/»): se queda si
+  está tal cual en el pedido (`linksDelPedido`); el que inventa el modelo se sigue borrando, y otra ruta del mismo sitio también.
+- **`{{empresa_del_lead}}` se borraba y dejaba «¿Sigues al frente de?» al lead:** una llave que nombra un dato que existe
+  pasa a la del catálogo (`aliasDeVariable`: empresa, apellido, nombre_completo, nombre), con aviso.
+- **Un pedido de 8.304 caracteres se cortaba a 2.000 en silencio** y MaKo armaba otra cosa: ahora la ruta lo rechaza
+  diciendo cuántos tiene y cuántos lee (`TOPE_PEDIDO`).
+- **«Entre el primero y el segundo esperá 2 días» no hacía nada:** un tramo sólo iba a una salida vacía. En la «sig»
+  ocupada de una tarjeta simple, va EN EL MEDIO si termina en una sola punta (como el ＋ en medio de una flecha).
+- **Una espera de 5 minutos entre dos WhatsApp** la retiene «Misma persona» (20 h de fábrica): lo avisa el código
+  (`AVISO_MISMA_PERSONA`), porque el modelo la ponía sin decirlo o culpaba a Meta.
+- **«Avisame por WhatsApp» armaba un WhatsApp al lead:** es «avisar_al_equipo» (regla en `REGLAS_EDITAR`).
+- **Al CREAR con textos pegados** (lo de Mauricio: lienzo vacío y la secuencia con «(esperar 1 día)»), van tal cual, con las
+  esperas que escribió y sin las 20 h de la regla 3 (`REGLAS_PEGADO`, en el `user` de crear sólo si pegó textos).
+- Y el prompt no sabía de Configuraciones (horario, goteo, topes, «Misma persona», el ↶): `LO_QUE_NO_ES_TARJETA`.
+
+**Vive en:** lib/flujo-ia.ts · lib/flujo-ia-intencion.ts · lib/flujo-ia-crear-core.ts · tests:
+tests/chat-mako-prueba-de-chats.test.ts, tests/flujo-ia.test.ts («en el medio»), tests/flujo-ia-arreglos.test.ts (alias).
+
+### Sin hacer
+
+- **«No tienes ninguna IA gratis conectada» miente** cuando las IA gratis están SIN CUOTA (Gemini 429 todo el día, Groq
+  agotado): en la tercera corrida cortó 12 de 36 casos con ese texto. Es del área IA (lib/ai-cheap.ts y su mensaje).
+- **Reordenar** («poné el tercero primero») no es una operación de editar: el modelo devuelve nada y sale «No cambió nada».
+- **«Deshacé eso»** no tiene lo que se borró: el modelo inventa otro texto. Lo honesto hoy es el ↶ (ya está en el prompt);
+  lo de verdad sería pasarle al modelo las tarjetas publicadas que el borrador ya no tiene.
+- **«Cuando entra a la etapa X» con una X que no existe:** el modelo no devuelve ni cambio ni respuesta.
+- **Los turnos tardan 16-76 s** (la regla de Martín es 20 s).
+- **Medir con Gemini:** las tres corridas de hoy contestó Groq. El arnés hay que correrlo otra vez cuando vuelva la cuota.
