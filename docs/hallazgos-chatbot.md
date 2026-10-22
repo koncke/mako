@@ -6015,3 +6015,17 @@ lib/flujo-ia.ts (`falloDeIA`, `sinIAPropia`) · lib/flujo-ia-crear.ts (`generar`
 tests/ia-aviso-sin-ia-propia.test.ts. **Sin hacer:** las otras pantallas que llaman `falloDeIA` (la ficha, los gráficos,
 el «preparar» de la API de MaKo) no le pasan su red. Ven el texto nuevo sin la causa: lib/ficha/ia-generar.ts,
 lib/graficos-ia-*.ts, lib/api-mako/areas/chatbot.run.ts.
+
+## Un flujo que no depende de la IA: el «Si responde» SIN casos y sin `paso_ia` (22/10/2026, #289 del ws1)
+
+**Por qué:** IA16 apaga la red gratis de la plataforma para los negocios, y el ws1 no tiene IA propia. El AI Step de
+«Sprint · apertura» («Que responda: avisarle a Mauricio…») habría dejado de clasificar las respuestas el día de la campaña.
+**Lo que se sabe del motor:** un «Si responde» (`nodo: 'respuesta'`) sin `paso_ia` y con `casos: []` manda TODA respuesta
+por su `si_no`, que el lienzo rotula «Respondió» (`rotuloSiNoDeRespuesta`). `responderConGrafo` llama igual a
+`clasificarEscenario`, pero con la lista vacía vuelve ANTES de llamar a una IA («esta secuencia todavía no tiene casos»).
+O sea: «cualquier respuesta → aviso fijo al grupo → etiqueta» corre sin ninguna IA. **Regla:** cuando un flujo de un
+cliente no puede depender de la IA (sin key propia, o una campaña con fecha), el «Si responde» va sin casos y lo que sigue
+son acciones fijas. Las variables del aviso son `{{nombre_completo}}` y `{{link_chat_lead}}`; `{{lead_escribio}}` es de los
+avisos de eventos de MaKo y en un flujo no está garantizada. Para marcar al que respondió sin tocar las etapas que armó el
+cliente: una etiqueta sin vínculo a etapa (`poner_etiqueta_lead` no lo mueve). **Vive en:** lib/nutricion.ts
+(`responderConGrafo`) · lib/chat-agent-handoff.ts (`clasificarEscenario`) · lib/flujo-grafo.ts (`rotuloSiNoDeRespuesta`).
