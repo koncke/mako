@@ -1,8 +1,9 @@
 'use client';
 
 // La Ticketera adentro del Centro, en el teléfono: `?ticketera=tickets`, LA Ticketera desde el 17/10/2026 (los tickets que
-// levantan los usuarios, la misma bandeja que la computadora, app/tickets/bandeja/BandejaTickets.tsx). Con la lista angosta
-// se vuelve una lista y, al tocar un ticket, el ticket entero (su hoja ya lo hace: bandeja.css, `max-width: 1100px`).
+// levantan los usuarios, la misma bandeja que la computadora, app/tickets/bandeja/BandejaTickets.tsx). Desde el 22/10/2026 es
+// un MAZO para deslizar (o la TABLA, si la eligió: se recuerda en su perfil); el teléfono la DESTILA con los cortes del panel
+// (bandeja.css, container queries), no con otra pantalla.
 // Las rutas de antes (lib/movil-rutas.ts) llegan acá. «Preguntas de los chats» se sacó esa noche (19:31, Martín: «para eso
 // tenemos en cada chat la notif de "Espera tu respuesta"»): se contestan en el chat que las hizo.
 //

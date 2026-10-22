@@ -1,48 +1,53 @@
 'use client';
 
 // =============================================================================
-// La Ticketera de Martín: los tickets de los usuarios, como la bandeja Triage de Linear (17/10/2026)
+// La Ticketera de Martín: los tickets de los usuarios, en MAZO o en TABLA (17/10 y 22/10/2026)
 // =============================================================================
-// Martín: «La ticketera desde ahora será exclusiva para los tickets levantados por los usuarios... y obvio el ticket me
-// tiene que llegar con el reporte de a quién pertenece». Copiado de Linear Triage (docs/diseno-ticketera-usuarios.md §3):
-//   · la lista a la izquierda, en grupos (Por decidir · Esperan al cliente · En curso · Cerrados);
-//   · el detalle a la derecha: DE QUIÉN (negocio, persona, rol, plan), el reporte que juntó el sistema, lo que escribió,
-//     el veredicto del triage CON SU PORQUÉ (y «Corregir»), y el historial;
-//   · las acciones con su atajo: Aprobar 1 · Rechazar 2 · Duplicado 3 · Preguntar 4 · Responder 5.
+// 17/10: Martín: «La ticketera desde ahora será exclusiva para los tickets levantados por los usuarios... y obvio el ticket
+// me tiene que llegar con el reporte de a quién pertenece». El ticket entero se copió de Linear Triage
+// (docs/diseno-ticketera-usuarios.md §3): DE QUIÉN, el reporte, lo que escribió, el veredicto del triage CON SU PORQUÉ (y
+// «Corregir»), el historial, y las acciones con su atajo: Aprobar 1 · Rechazar 2 · Duplicado 3 · Preguntar 4 · Responder 5.
+// 22/10 (desde el teléfono): «La ticketera se ve horrible... vuelva la vista de tarjetas y el desplazamiento tipo tinder...
+// si quiero elegir la vista tabla también». Ahora hay dos vistas, y la que elige se recuerda en SU perfil:
+//   · el MAZO (./MazoTickets.tsx), la de entrada: un ticket por tarjeta, para deslizar, con «Volver»;
+//   · la TABLA (./TablaTickets.tsx): todos, con orden y el filtro por estado (los chips de antes).
+// «Ver todo» en una tarjeta, o una fila de la tabla, abre el ticket entero (`Detalle`, abajo) en una hoja.
+// Sin «Actualizar»: se refresca sola (cada 30 s con la pestaña a la vista, y al volver a ella).
 // «Aprobar» FIRMA en este dispositivo un pedido al chat «Cerebro» con el ticket entero (./cerebro.ts → mandar.ts).
 //
-// ⚠️ Se monta adentro del panel de la Ticketera de Ops Center (app/admin/operaciones/TicketeraCentro.tsx). Lee sus datos
-// con sus propias acciones (./acciones.ts, con `puedeOperar`): Ops Center no tiene que cargar nada para dibujarla.
+// ⚠️ Se monta adentro del panel de la Ticketera de Ops Center (app/admin/operaciones/TicketeraCentro.tsx, y en el teléfono
+// app/m/operaciones/TicketeraMovil.tsx). Lee sus datos con sus propias acciones (./acciones.ts, con `puedeOperar`): Ops
+// Center no tiene que cargar nada para dibujarla.
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
-import { Button, EmptyState, ErrorState, Status, Switch, Tag, Textarea, Input, type Tono } from '@/app/_ui';
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { Button, ErrorState, Status, Switch, Textarea, Input, type Tono } from '@/app/_ui';
+import { Icon } from '@/app/_components/icons';
+import { ICONO_VISTA } from '@/app/_ui/iconos-vista';
 import {
   PRIORIDADES, TIPOS, decisionDeAprobar, pedidoAlCerebro, ROTULO_ESTADO_CLIENTE, estadoParaElCliente,
-  type DecisionTicket, type EstadoTicket, type Prioridad, type TipoTicket,
+  type DecisionTicket, type Prioridad, type TipoTicket,
 } from '@/lib/tickets-reglas';
 import { avisoAlCliente, entregaAlCerebro } from '@/lib/tickets-aviso';
 import type { Evento, FilaTicket } from '@/lib/tickets-db';
 import {
-  anotarDespachoAction, autoArregloAction, cambiarPrioridadAction, corregirTipoAction, decidirTicketAction, leerBandejaAction,
-  verTicketBandejaAction,
+  anotarDespachoAction, autoArregloAction, cambiarPrioridadAction, corregirTipoAction, decidirTicketAction, guardarVistaAction,
+  leerBandejaAction, verTicketBandejaAction,
 } from './acciones';
 import type { CerebroParaTickets } from './cerebro';
+import { MazoTickets } from './MazoTickets';
+import { TablaTickets } from './TablaTickets';
+import { CaraTicket, ChipOrigen } from './TarjetaTicket';
+import {
+  ROTULO_ESTADO, enGrupo, lectorDeBandeja, linkDeOrigen, nombreDe, ordenarTabla, textoDeLaPersona, tipoCorto as corto, ORDEN_INICIAL,
+  type Orden, type VistaBandeja,
+} from './mazo-reglas';
 // ⚠️ Su hoja (./bandeja.css) la importa la PÁGINA (app/second-brain/pagina.tsx), como las del mazo: un import de CSS acá
 // rompería un test que dibuje esto con node.
 
-const GRUPOS: Array<{ clave: string; titulo: string; estados: readonly EstadoTicket[] }> = [
-  { clave: 'decidir', titulo: 'Por decidir', estados: ['nuevo', 'esperando_decision'] },
-  { clave: 'cliente', titulo: 'Esperan al cliente', estados: ['esperando_cliente'] },
-  { clave: 'curso', titulo: 'En curso', estados: ['en_curso', 'arreglado'] },
-  { clave: 'cerrados', titulo: 'Cerrados', estados: ['resuelto', 'rechazado', 'duplicado'] },
-];
-const ROTULO_ESTADO: Record<EstadoTicket, string> = {
-  nuevo: 'Nuevo', esperando_decision: 'Por decidir', esperando_cliente: 'Espera al cliente', en_curso: 'En curso',
-  arreglado: 'Arreglado, sin desplegar', resuelto: 'Resuelto', rechazado: 'Rechazado', duplicado: 'Duplicado',
-};
 const TONO_PRIORIDAD: Record<Prioridad, Tono> = { urgente: 'bad', alta: 'warn', media: 'info', baja: 'neutral' };
 const ROTULO_PRIORIDAD: Record<Prioridad, string> = { urgente: 'Urgente', alta: 'Alta', media: 'Media', baja: 'Baja' };
-const corto = (t: TipoTicket) => TIPOS.find((x) => x.clave === t)?.corto ?? t;
+/** Cada cuánto se vuelve a leer la bandeja con la pestaña a la vista (y siempre al volver a ella). */
+const REFRESCO_MS = 30_000;
 
 const fecha = (iso: string | null) => {
   if (!iso) return '';
@@ -63,39 +68,51 @@ export function BandejaTickets({ cerebro }: { cerebro: CerebroParaTickets | null
   const [tickets, setTickets] = useState<FilaTicket[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [autoArreglo, setAutoArreglo] = useState(true);
+  const [vista, setVista] = useState<VistaBandeja | null>(null);
   const [grupo, setGrupo] = useState('decidir');
+  const [ordenDeTabla, setOrdenDeTabla] = useState<Orden>(ORDEN_INICIAL);
   const [elegido, setElegido] = useState<number | null>(null);
-  const [cargando, startCargar] = useTransition();
-  // «Hace cuánto» de los avisos: se fija al leer, no al dibujar.
+  // «Hace cuánto» de los avisos y de las tarjetas: se fija al leer, no al dibujar.
   const [ahoraLista, setAhoraLista] = useState(() => Date.now());
-
-  const cargar = useCallback(() => startCargar(async () => {
-    const r = await leerBandejaAction();
+  // Una lectura a la vez, sin perder la que se pide mientras tanto, y la vista hasta que llega (./mazo-reglas.ts).
+  const cargar = useMemo(() => lectorDeBandeja(leerBandejaAction, (r, conVista) => {
+    if (!r) { setError('No pude leer la Ticketera'); return; }
     if (!r.ok) { setError(r.error); return; }
     setError(null); setTickets(r.tickets); setAutoArreglo(r.autoArreglo); setAhoraLista(Date.now());
+    if (conVista) setVista((v) => v ?? r.vista);
   }), []);
-  useEffect(() => { cargar(); }, [cargar]);
+  const refrescar = useCallback(() => { void cargar(); }, [cargar]);
 
-  const visibles = useMemo(() => {
-    const g = GRUPOS.find((x) => x.clave === grupo)!;
-    return (tickets ?? []).filter((t) => g.estados.includes(t.estado))
-      .sort((a, b) => PRIORIDADES.indexOf(a.prioridad) - PRIORIDADES.indexOf(b.prioridad) || Date.parse(b.created_at) - Date.parse(a.created_at));
-  }, [tickets, grupo]);
-  const cuenta = (clave: string) => (tickets ?? []).filter((t) => GRUPOS.find((g) => g.clave === clave)!.estados.includes(t.estado)).length;
-
-  // j / k recorren la lista, como en Linear.
+  // Se refresca sola: cada 30 s con la pestaña a la vista, y en el acto al volver a ella.
   useEffect(() => {
+    void cargar();
+    const t = window.setInterval(() => { if (document.visibilityState === 'visible') void cargar(); }, REFRESCO_MS);
+    const volvio = () => { if (document.visibilityState === 'visible') void cargar(); };
+    document.addEventListener('visibilitychange', volvio);
+    window.addEventListener('focus', volvio);
+    return () => { window.clearInterval(t); document.removeEventListener('visibilitychange', volvio); window.removeEventListener('focus', volvio); };
+  }, [cargar]);
+
+  const elegirVista = (v: VistaBandeja) => {
+    setVista(v);
+    void guardarVistaAction(v).catch(() => undefined);
+  };
+
+  // j / k recorren la tabla con el ticket abierto, como en Linear, en el MISMO orden que se ve (el que eligió).
+  useEffect(() => {
+    if (vista !== 'tabla' || elegido == null) return;
     const tecla = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
       if (e.key !== 'j' && e.key !== 'k') return;
+      const visibles = ordenarTabla((tickets ?? []).filter((t) => enGrupo(t, grupo)), ordenDeTabla);
       const i = visibles.findIndex((t) => t.id === elegido);
       const sig = visibles[e.key === 'j' ? Math.min(visibles.length - 1, i + 1) : Math.max(0, i - 1)];
       if (sig) setElegido(sig.id);
     };
     window.addEventListener('keydown', tecla);
     return () => window.removeEventListener('keydown', tecla);
-  }, [visibles, elegido]);
+  }, [vista, elegido, tickets, grupo, ordenDeTabla]);
 
   const cambiarAuto = async (v: boolean) => {
     setAutoArreglo(v);
@@ -103,47 +120,71 @@ export function BandejaTickets({ cerebro }: { cerebro: CerebroParaTickets | null
     if (!r.ok) { setAutoArreglo(!v); setError(r.error); }
   };
 
-  if (error && !tickets) return <ErrorState titulo="No pude abrir la Ticketera" detalle={error} onReintentar={cargar} />;
+  if (error && !tickets) return <ErrorState titulo="No pude abrir la Ticketera" detalle={error} onReintentar={refrescar} />;
+
+  const barra = (
+    <>
+      <div className="tickets-bandeja__vistas" role="tablist" aria-label="Vista">
+        {(['mazo', 'tabla'] as const).map((v) => (
+          <button key={v} type="button" role="tab" aria-selected={vista === v} onClick={() => elegirVista(v)} title={v === 'mazo' ? 'Mazo' : 'Tabla'}>
+            {ICONO_VISTA[v === 'mazo' ? 'tarjetas' : 'tabla'].icono}
+            <span>{v === 'mazo' ? 'Mazo' : 'Tabla'}</span>
+          </button>
+        ))}
+      </div>
+      <AutoArreglo prendido={autoArreglo} onCambio={cambiarAuto} />
+    </>
+  );
+
   return (
     <div className="tickets-bandeja">
-      <div className="tickets-bandeja__barra">
-        <div className="tickets-bandeja__grupos" role="tablist" aria-label="Grupos">
-          {GRUPOS.map((g) => (
-            <button key={g.clave} type="button" role="tab" aria-selected={grupo === g.clave}
-              className={`tickets-bandeja__grupo${grupo === g.clave ? ' is-on' : ''}`} onClick={() => { setGrupo(g.clave); setElegido(null); }}>
-              {g.titulo}<span className="tickets-bandeja__n">{cuenta(g.clave)}</span>
-            </button>
-          ))}
-        </div>
-        <div className="tickets-bandeja__ajustes">
-          <Switch checked={autoArreglo} onChange={cambiarAuto} label="Arreglar solos los bugs evidentes" />
-          <Button variant="tertiary" size="sm" loading={cargando} onClick={cargar}>Actualizar</Button>
-        </div>
-      </div>
       {error && <p className="tickets-bandeja__error" role="alert">{error}</p>}
-      <div className={`tickets-bandeja__cuerpo${elegido ? ' tickets-bandeja__cuerpo--detalle' : ''}`}>
-        <ul className="tickets-bandeja__lista" aria-label="Tickets">
-          {tickets === null ? <li className="tickets-bandeja__vacio">Cargando…</li>
-            : !visibles.length ? <li className="tickets-bandeja__vacio"><EmptyState inline titulo={grupo === 'decidir' ? 'No hay nada por decidir' : 'No hay tickets aquí'} /></li>
-              : visibles.map((t) => (
-                <li key={t.id}>
-                  <button type="button" className={`tickets-bandeja__fila${elegido === t.id ? ' is-on' : ''}`} onClick={() => setElegido(t.id)}>
-                    <span className={`tickets-bandeja__prio tickets-bandeja__prio--${t.prioridad}`} title={ROTULO_PRIORIDAD[t.prioridad]} aria-label={`Prioridad ${ROTULO_PRIORIDAD[t.prioridad]}`} />
-                    <span className="tickets-bandeja__num">#{t.id}</span>
-                    <span className="tickets-bandeja__titulo">{t.titulo}</span>
-                    <Tag>{corto(t.tipo)}</Tag>
-                    <span className="tickets-bandeja__quien">
-                      {t.negocio ?? `ws ${t.workspace_id}`} · {t.usuario_nombre || t.usuario_email}
-                      {avisoAlCliente(t, ahoraLista)?.tono === 'bad' ? ' · ⚠ sin avisar' : ''}
-                    </span>
-                  </button>
-                </li>
-              ))}
-        </ul>
-        {elegido != null && (
-          <Detalle key={elegido} id={elegido} cerebro={cerebro} todos={tickets ?? []} onCerrar={() => setElegido(null)} onCambio={cargar} />
-        )}
-      </div>
+      {tickets === null || vista === null ? (
+        <p className="tickets-bandeja__vacio">Cargando…</p>
+      ) : vista === 'mazo' ? (
+        <MazoTickets tickets={tickets} cerebro={cerebro} ahora={ahoraLista} onCambio={refrescar} onVerTodo={setElegido}
+          quieto={elegido != null} barra={barra} onVerTabla={() => elegirVista('tabla')} />
+      ) : (
+        <TablaTickets tickets={tickets} ahoraLista={ahoraLista} grupo={grupo} onGrupo={(g) => { setGrupo(g); setElegido(null); }}
+          orden={ordenDeTabla} setOrden={setOrdenDeTabla}
+          elegido={elegido} onAbrir={setElegido} barra={barra} />
+      )}
+      {elegido != null && (
+        <div className="tickets-bandeja__hoja" role="presentation" onClick={() => setElegido(null)}>
+          <div className="tickets-bandeja__hoja-caja" role="dialog" aria-modal="true" aria-label={`Ticket #${elegido}`} onClick={(e) => e.stopPropagation()}>
+            <Detalle key={elegido} id={elegido} cerebro={cerebro} todos={tickets ?? []} onCerrar={() => setElegido(null)} onCambio={refrescar} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** «Arreglar solos los bugs evidentes», sin estorbar: un rayo arriba a la derecha que abre el interruptor. Apagado, el
+ *  rayo se ve tachado (AGENTS.md: lo que decide solo se tiene que poder apagar, y se tiene que VER si está apagado). */
+function AutoArreglo({ prendido, onCambio }: { prendido: boolean; onCambio: (v: boolean) => void }) {
+  const [abierto, setAbierto] = useState(false);
+  const caja = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!abierto) return;
+    const fuera = (e: PointerEvent) => { if (!caja.current?.contains(e.target as Node)) setAbierto(false); };
+    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape') setAbierto(false); };
+    window.addEventListener('pointerdown', fuera);
+    window.addEventListener('keydown', tecla);
+    return () => { window.removeEventListener('pointerdown', fuera); window.removeEventListener('keydown', tecla); };
+  }, [abierto]);
+  const titulo = prendido ? 'Arreglo automático prendido' : 'Arreglo automático apagado';
+  return (
+    <div className="tickets-bandeja__auto" ref={caja}>
+      <button type="button" className={`tickets-bandeja__auto-btn${prendido ? ' is-on' : ''}`} aria-expanded={abierto} aria-label={titulo} title={titulo}
+        onClick={() => setAbierto((v) => !v)}>
+        <Icon name="rayo" size={17} />
+      </button>
+      {abierto && (
+        <div className="tickets-bandeja__auto-caja">
+          <Switch checked={prendido} onChange={onCambio} label="Arreglar solos los bugs evidentes" />
+        </div>
+      )}
     </div>
   );
 }
@@ -233,6 +274,7 @@ function Detalle({ id, cerebro, todos, onCerrar, onCambio }: {
 
   if (!t) return <aside className="tickets-bandeja__detalle">{error ?? 'Cargando…'}</aside>;
   const c = t.contexto;
+  const link = linkDeOrigen(t);
   const reporte: Array<[string, string | undefined]> = [
     ['Pantalla', c.ruta], ['Chat', c.chat ? `${c.chat.donde}${c.chat.hilo ? ` · hilo ${c.chat.hilo}` : ''}` : undefined],
     ['Herramienta', c.herramienta], ['Error', c.error], ['No existe', c.noExiste ? 'MaKo vio que la app no lo tiene' : undefined],
@@ -259,14 +301,27 @@ function Detalle({ id, cerebro, todos, onCerrar, onCambio }: {
 
       <section className="tickets-bandeja__bloque">
         <h3>De quién</h3>
-        <p className="tickets-bandeja__quien-grande"><strong>{t.usuario_nombre || t.usuario_email}</strong> · {t.usuario_email}</p>
-        <p className="tickets-bandeja__dato">{t.negocio ?? `Workspace ${t.workspace_id}`} (ws {t.workspace_id}) · {t.rol ?? 'rol ?'} · plan {t.plan ?? '?'} · por {t.canal.replace('_', ' ')} · {fecha(t.created_at)}</p>
+        <div className="tickets-bandeja__de-quien">
+          <CaraTicket t={t} tam={44} />
+          <div>
+            <p className="tickets-bandeja__quien-grande"><strong>{nombreDe(t)}</strong> · {t.usuario_email}</p>
+            <p className="tickets-bandeja__dato">{t.negocio ?? `Workspace ${t.workspace_id}`} (ws {t.workspace_id}) · {t.rol ?? 'rol ?'} · plan {t.plan ?? '?'} · {fecha(t.created_at)}</p>
+          </div>
+        </div>
+        <div className="tickets-bandeja__de-donde">
+          <ChipOrigen t={t} />
+          {link && <a className="tickets-bandeja__pildora tickets-bandeja__pildora--suave" href={link.href} target="_blank" rel="noopener noreferrer">{link.rotulo}<span aria-hidden> ↗</span></a>}
+        </div>
       </section>
 
-      <section className="tickets-bandeja__bloque">
-        <h3>Lo que escribió</h3>
-        <p className="tickets-bandeja__escrito">{t.descripcion || t.titulo}</p>
-      </section>
+      {/* Un ticket automático no lo escribió nadie: su descripción es el aviso fijo para el cliente (lo que importa es el
+          error, en el reporte). Si le había pedido algo a MaKo, eso sí es lo suyo. */}
+      {(t.canal !== 'sistema' || textoDeLaPersona(t)) && (
+        <section className="tickets-bandeja__bloque">
+          <h3>Lo que escribió</h3>
+          <p className="tickets-bandeja__escrito">{t.canal === 'sistema' ? textoDeLaPersona(t) : t.descripcion || t.titulo}</p>
+        </section>
+      )}
 
       <section className="tickets-bandeja__bloque">
         <h3>El reporte que juntó el sistema</h3>

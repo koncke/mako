@@ -131,7 +131,8 @@ test('B5: la bandeja dibuja los dos avisos y marca en la lista el ticket cuyo av
   assert.match(src, /avisoAlCliente\(t, ahora\)/);
   assert.match(src, /entregaAlCerebro\(t, ahora\)/);
   assert.match(src, /aria-label="Avisos"/);
-  assert.match(src, /avisoAlCliente\(t, ahoraLista\)\?\.tono === 'bad' \? ' · ⚠ sin avisar'/, 'la lista lo muestra sin abrir el ticket');
+  // Desde el 22/10 la lista es la TABLA (app/tickets/bandeja/TablaTickets.tsx, tests/ticketera-mazo.test.ts).
+  assert.match(leer('app/tickets/bandeja/TablaTickets.tsx'), /avisoAlCliente\(t, ahoraLista\)\?\.tono === 'bad' \? ' · ⚠ sin avisar'/, 'la tabla lo muestra sin abrir el ticket');
   // La columna que hace falta para el tope de «tomado» se lee: sin ella el Cerebro siempre parecería «sin acuse».
   assert.match(leer('lib/tickets-db.ts'), /aviso_motivo, aviso_at, arreglado_at/);
 });

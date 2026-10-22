@@ -465,6 +465,33 @@ export async function setCamposTarjetaCrm(campos: unknown, diseno?: unknown): Pr
   return { ...limpios, guardado: true };
 }
 
+// ── La vista de la Ticketera, por PERSONA (22/10/2026) ───────────────────────
+// Martín: «vuelva la vista de tarjetas… Luego si quiero elegir la vista tabla también». La que eligió vale en la
+// computadora y en el teléfono (es de la persona, no del navegador). Sin fila propia: el mazo, sin guardar.
+const TICKETERA_VISTA_KEY = 'ticketeraVista';
+export type VistaTicketera = 'mazo' | 'tabla';
+const vistaTicketeraDe = (v: unknown): VistaTicketera => (v === 'tabla' ? 'tabla' : 'mazo');
+
+export async function getVistaTicketera(): Promise<VistaTicketera> {
+  try {
+    const u = await filaPropia();
+    return vistaTicketeraDe(u?.perfil[TICKETERA_VISTA_KEY]);
+  } catch {
+    return 'mazo';
+  }
+}
+
+export async function setVistaTicketera(v: unknown): Promise<{ vista: VistaTicketera; guardado: boolean }> {
+  const vista = vistaTicketeraDe(v);
+  const u = await filaPropia();
+  if (!u) return { vista, guardado: false };
+  const perfil = { ...u.perfil, [TICKETERA_VISTA_KEY]: vista };
+  const { error } = await getSupabaseServer()
+    .from('usuarios').update({ perfil, updated_at: new Date().toISOString() }).eq('id', u.id);
+  if (error) throw new Error(`perfil: ${error.message}`);
+  return { vista, guardado: true };
+}
+
 const PUSH_KEY = 'notifPush';
 
 /** Las preferencias de push de quien está frente al teclado. Sin fila propia: el default de admin. */

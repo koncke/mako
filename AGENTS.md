@@ -7766,6 +7766,14 @@ Va `new URL(u).origin` contra un `Set` congelado, exigiendo `https:`, y con el t
 enumera los cuatro parecidos (`tests/flow-origenes.test.ts` es el molde). Vale para
 cualquier allowlist de host: un webhook, un redirect, una imagen remota, un CORS.
 
+**Y un camino que se vuelve a escribir como `${u.pathname}${u.search}` se mira DESPUÉS de
+resolverlo** (medido el 22/10/2026): `/.//otro.com` y `/a/..//otro.com` pasan
+`startsWith('/') && !startsWith('//')`, y `new URL(x, base).pathname` da `//otro.com`. Como
+href, eso es un link «relativo al protocolo»: abre OTRO sitio. Se rechaza si
+`u.pathname.startsWith('//')` (y si `u.origin` no es la base). Ya mordió en la Ticketera
+(`linkDeOrigen`, tests/ticketera-mazo.test.ts A2b); `volverSeguro` (lib/meta-login.ts) devuelve
+lo mismo y hoy lo salva que sus dos usos lo vuelven a parsear (docs/hallazgos-ticketera.md).
+
 # Un chequeo de sincronia que compara dos COPIAS no ve que las dos se movieron
 
 El repo tiene cinco scripts de la familia «una cosa, un lugar» que copian un modulo a
