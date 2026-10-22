@@ -255,6 +255,20 @@ export const SISTEMAS_PC = ['windows', 'mac'] as const;
 export type SistemaPc = (typeof SISTEMAS_PC)[number];
 /** Los archivos que sube scripts/ia-pc/publicar-binarios.mts al bucket privado `ia-pc` (comprimidos: entran en 50 MB). */
 export const archivoDelPrograma = (archivo: 'windows-x64' | 'mac-arm64' | 'mac-x64'): string => `mako-pc-${VERSION_PC}-${archivo}.gz`;
+export const ARCHIVOS_PC = ['windows-x64', 'mac-arm64', 'mac-x64'] as const;
+
+/**
+ * Qué archivos de ESTA versión faltan en el bucket (IA1/IA2, 22/10/2026). La 0.3.2 se desplegó sin sus ejecutables y el
+ * instalador contestaba «No pude preparar la descarga» con un 200, a todo cliente nuevo, sin que nada lo marcara. Lo usan
+ * publicar-binarios (en seco dice qué falta) y verificar-binarios (lo corre Integración antes de subir un cambio de acá).
+ * Las versiones que están, para decirlo: «hay 0.2.0 y 0.3.0».
+ */
+export function faltanEnElBucket(nombres: readonly string[], version: string = VERSION_PC): { faltan: string[]; versiones: string[] } {
+  const hay = new Set(nombres);
+  const versiones = [...new Set(nombres.map((n) => /^mako-pc-(\d+\.\d+\.\d+)-/.exec(n)?.[1]).filter((v): v is string => !!v))]
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  return { faltan: ARCHIVOS_PC.map((a) => `mako-pc-${version}-${a}.gz`).filter((n) => !hay.has(n)), versiones };
+}
 
 /** La línea que el tutorial le da a copiar. El código va en la URL: es de un uso y vence en 10 minutos. */
 export function lineaDeInstalacion(servidor: string, sistema: SistemaPc, codigo: string): string {
