@@ -31,7 +31,9 @@ test('el onboarding escribe en la caja ÚNICA, y la copia se fue', () => {
 test('con lo del onboarding: la línea de estado, lo que Offer sabe leer, y sin adjuntos con sólo texto', () => {
   const app = sinComentarios(leer('app/offer/OfferApp.tsx'));
   assert.match(app, /adjuntos=\{arranque\.manda \? undefined : adjuntosCaja\} estado=\{estadoVista\}/, 'con sólo texto (el nombre, un código) no se adjunta');
-  assert.match(app, /accept: ACCEPT_IMPORTAR,/, '«Documento» con lo del Ops Center no deja subir el audio ni el video de una llamada');
+  // Lo de Offer (ACCEPT_IMPORTAR) más un .zip (22/10/2026, la carpeta de una landing).
+  assert.match(app, /accept: ACCEPT_OFFER,/, '«Documento» con lo del Ops Center no deja subir el audio ni el video de una llamada');
+  assert.match(app, /const ACCEPT_OFFER = `\$\{ACCEPT_IMPORTAR\},\.zip`;/);
   assert.match(app, /onSinImagen: \(puedeLeer\) => setErrorChat\(/, '«Pegar» sin una imagen copiada no dice nada');
   assert.match(app, /const vistaAdjuntos = !arranque && lista\.items\.length \? \(/, 'en el arranque los archivos van arriba del texto, no en una vista que tapa el chat');
   const chat = sinComentarios(leer('app/offer/ChatOffer.tsx'));

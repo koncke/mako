@@ -64,6 +64,12 @@ estaba en 1,3 GB; quedó en 26): `docs/hallazgos-infra.md`, «Limpiar worktrees�
 («antes salían antes»). Vía rápida para lo chico o urgente; el resto, sólo los tests y tipos de lo afectado; lo que va a
 `main` no puede dar un OK falso, y un chequeo completo nocturno queda de red. Es de Infra.
 
+**⚠️ GitHub Actions SIN MINUTOS desde el 22/10, 07:17 UTC** (plan Free; se reinicia el 1/11). GitHub dice: «The job was not
+started because recent account payments have failed or your spending limit needs to be increased». Mientras tanto se sube
+DIRECTO a `main` (e `integracion` al mismo sha) con el chequeo local completo en verde: tests afectados, tsc acotado,
+guardas y la rotura de lo nuevo. Se juntan puntas y se verifica el Ready. Cuando Martín ponga un medio de pago, se re-corre
+la última corrida de `integracion` como red (docs/hallazgos-infra.md, «Sin minutos de Actions»).
+
 **La llamada del 22/10 con Mauricio:** `docs/feedback-22-10.md` (lo P0 va antes que todo: reunión de validación HOY; los mensajes salen desde el sáb 24/10).
 
 **Espera a Martín:** `resumen-cerebro-21-10.md` en la carpeta del proyecto en OneDrive (2FA, ejecutables 0.3.2, pedido

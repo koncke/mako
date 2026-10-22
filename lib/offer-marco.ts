@@ -222,6 +222,15 @@ export type OfferMensaje = {
    * `GET /api/offer/pdf?id=<sesión>&v=<version>` (con el `?ws=` de la pestaña, como el audio).
    */
   pdf?: { version: number };
+  /**
+   * En un mensaje de MaKo: «estoy leyendo tus documentos, te aviso» (22/10/2026, Mauricio, 39:44: con muchos documentos
+   * la pantalla quedaba esperando). Los lee el SERVIDOR (`leer-lote` en app/api/offer/route.ts); mientras está, la
+   * pantalla relee la conversación y no deja mandar otro mensaje en ésta. Al terminar el mensaje se va (o queda como
+   * el resumen de lo que no se pudo leer) y llega la respuesta. `texto` es lo que escribió el dueño con los archivos:
+   * viaja con ellos cuando terminan de leerse. `intento` es el de ESTA lectura (una vieja que termina tarde no toca
+   * otra).
+   */
+  leyendo?: { nombres: string[]; desde: string; intento: string; texto: string };
 };
 
 /** Qué sabe MaKo de cada pieza y de dónde lo sacó. */
@@ -316,21 +325,20 @@ export const PUNTOS_CONTROL: ReadonlyArray<{ punto: PuntoControl; label: string 
 // «me gustó esto, esto y esto, y esto lo cambiaría y lo haría de tal forma», y aparte «esta es la propuesta que yo te
 // armo». Lo que va en la primera parte lo arman estas dos funciones con lo que YA dejó el diagnóstico: no hay IA nueva.
 
-/** Una nota alta (7 o más) es algo que la oferta ya hace bien; una baja (5 o menos), lo que más conviene subir. */
-const NOTA_FUERTE = 7;
+/** Una nota baja (5 o menos) es lo que más conviene subir. */
 const NOTA_FLOJA = 5;
 
 /**
  * LO QUE ME GUSTÓ de la oferta de hoy: lo que el diagnóstico marcó como fuerte (`fuertes`, o `fuerte` en las
- * conclusiones de antes), las dimensiones con nota alta (con su porqué, que cita al dueño) y los puntos del control
- * final que ya cumple. Sin repetidas y con tope: es una lista para leer, no el diagnóstico entero.
+ * conclusiones de antes) y los puntos del control final que ya cumple. Sin repetidas y con tope: es una lista para
+ * leer, no el diagnóstico entero.
+ * 22/10/2026: ya no suma las dimensiones de nota alta con su porqué. El PDF las lista a todas, con su porqué, justo
+ * arriba en la misma página, y la misma frase salía dos veces (el PDF del Sprint de Mauricio: «está muy rara»).
  */
 export function loQueMeGusto(c: Pick<ConclusionOferta, 'diagnostico' | 'calculo'>, tope = 6): string[] {
   const d = c.diagnostico;
-  const etiqueta = (id: DimensionId) => DIMENSIONES.find((x) => x.id === id)?.label ?? id;
   const out = [
     ...(d.fuertes?.length ? d.fuertes : d.fuerte ? [d.fuerte] : []),
-    ...d.dimensiones.filter((n) => n.nota >= NOTA_FUERTE && n.porque?.trim()).map((n) => `${etiqueta(n.id)}: ${n.porque.trim()}`),
     ...(c.calculo.controlFinal ?? []).filter((x) => x.ok && x.porque?.trim()).map((x) => x.porque.trim()),
   ].map((s) => s.trim()).filter(Boolean);
   return [...new Set(out)].slice(0, tope);
@@ -347,6 +355,9 @@ export function paraSubirCadaParte(c: Pick<ConclusionOferta, 'diagnostico'>, top
     .slice(0, tope)
     .map((n) => ({ label: DIMENSIONES.find((x) => x.id === n.id)?.label ?? n.id, nota: n.nota, mejora: n.mejora.trim() }));
 }
+
+/** Un paso que el modelo ya trae numerado («1. Diagnóstico», «Paso 2: …») sin su número: el PDF y la pantalla los numeran (salía «1. 1.», 22/10/2026). */
+export const sinNumeroDelante = (t: string): string => t.replace(/^\s*(?:paso\s*)?\d+\s*[.):-]\s*/i, '');
 
 export type FaseRuta = { fase: string; objetivo: string; hito: string };
 export type Entregable = { nombre: string; beneficio: string };
@@ -484,6 +495,11 @@ export type OfferSesionVista = {
    * conclusión: el armado sigue aunque la persona cierre la pestaña.
    */
   armando: ArmadoVista | null;
+  /**
+   * Los documentos que el servidor está leyendo (`OfferMensaje.leyendo`, 22/10/2026), o null. `vencido`: pasaron más de
+   * `LECTURA_VENCE_MS` y se da por cortada (se puede volver a mandar).
+   */
+  leyendo: { nombres: string[]; vencido: boolean } | null;
 };
 
 /** El paso del armado de la oferta en el servidor. */

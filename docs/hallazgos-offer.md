@@ -984,3 +984,145 @@ Llamada Mau <> Martín del 22/10 (Fathom 195129619, 01:42:50-01:46:05). Mauricio
 `lib/offer-sesiones.ts` (`aFila`) · `lib/offer-ia.ts` · `tests/offer-sprint-mauricio.test.ts` (25 roturas, las 25 cazadas)
 
 *22/10/2026, chat «Offer» (claude3).*
+
+## Lo demás de la llamada con Mauricio: el saludo, la demora, la landing que no se dejaba leer, el .zip (22/10/2026, P1)
+
+Misma llamada (Fathom 195129619) y misma conversación medida (ws1, id 18), más el Saldo de IA de esa hora.
+
+- **La demora (O6) no era «la IA es lenta».** Mediana de 6 s; 6 de 25 respuestas tardaron 66 a 124 s, por dos causas
+  medidas en `anthropic_usage`: (1) en la red de plataforma, `gemini-flash-latest` salió **4 de 4 veces con 1.996
+  tokens**, el tope del turno: la red no le pasa el nivel de razonamiento (`chatCheapTools`), razonar se come la
+  respuesta, el JSON llega cortado, se descarta y el bucle prueba **el mismo modelo** con la key siguiente (20 a 60 s
+  cada vuelta). Todos sus turnos los terminó contestando flash-lite. (2) Las de 66 s no dejan ninguna fila entre el
+  mensaje y la respuesta: un intento con las keys del ws1 (tiene OpenRouter, con un modelo gratis) esperó sus 60 s
+  enteros. **Ahora** el turno va a flash-lite en la red (`Pedido.modelosRed`) y corta cada intento a los 30 s.
+  Trampa: un intento que muere por timeout no deja rastro en el Saldo de IA; se ve como un HUECO entre filas.
+- **El saludo en cada mensaje (O5)** era la voz del negocio («Hola estimado… espero que estés muy bien… Bendiciones»)
+  aplicada a la charla con el DUEÑO. El primer mensaje lo escribe el código, así que ningún turno de la IA saluda:
+  `sinSaludo` en `parseTurno` (la única entrada del turno), más la regla en los prompts.
+- **«¿Es pago único?» dos veces (O4):** la guía pregunta el precio y después el % al firmar. Con «pago único» en el
+  precio, el cobro se anota solo (`conCobroDelPrecio`). Y el aviso «te pagan el 100% al firmar: súbelo» ya no sale con
+  un pago único: la señal del §6.2 es que el cliente PODÍA pagar en cuotas y no quiso.
+- **La landing «bloqueada» (O7):** desde acá abre con 200; el hosting (cabeceras de SiteGround) frena a los servidores y
+  nuestro User-Agent se declara bot. No se tocó lib/landing-fetch.ts (es de Landing): la ruta de Offer, si la descarga
+  SSRF-segura bloquea (401/403/429) o trae casi nada de texto, pide la página a r.jina.ai (`lib/offer-lector-externo.ts`),
+  que la abre con un navegador desde su red. Medido: trae la landing del Sprint entera (precio, fechas, testimonios).
+  Viaja sólo la URL pública. La baranda «ningún fetch en la ruta» (tests/offer-ia-cableado.test.ts) se respetó.
+- **El .zip (O8):** el navegador no deja elegir una carpeta; un .zip sí. `lib/offer-zip.ts` lo abre con el jszip que
+  ya estaba, lee las páginas con el MISMO extractor de copy de Landing (`copyDeHtml`) y los textos, saltea el resto, y el
+  aviso del documento dice qué leyó. `archivoATexto` no se tocó: es compartido (Archivero, Plan, WhatsApp). La pantalla
+  valida por extensión: importar `esZip` de lib/offer-reglas.ts habría metido 3.000 líneas en el navegador.
+- **El PDF «muy raro» (O11), lo que se pudo ver:** se armaron sus 6 páginas con su conclusión real. El aviso «la garantía
+  que escribió la IA era incondicional: en high ticket…» salía en una entrada SIN garantía porque la regex leyó «no se
+  contempla reembolso **ni** garantía incondicional» como que la tenía; ahora mira la negación y sólo en alto ticket. Y
+  «Lo que me gustó» repetía, en la misma página, las notas de 7 o más con su porqué: ahora son las fortalezas y el
+  control final. También salían «Sistema DOS» (una oferta de prueba del contexto, P0) y Zoom (P0).
+- **El selector (O12)** abría «parado en lo elegido» (decisión CRON 4 del Dropdown de la casa): adentro del funnel de la
+  conversación abierta. Ahora Offer lo abre en la raíz (`abrirEnLaRaiz`, prop nueva; el resto de la app, igual).
+- **«¿Cuál es el propósito?» (O13):** el mensaje del PDF y el de «Así está bien» lo dicen (`PARA_QUE_SIRVE`).
+- **«Los analizo y te aviso» (O9):** con 3 o más archivos sin leer, la pantalla los sube y manda `leer-lote`; el servidor
+  anota «Estoy leyendo tus N documentos… te aviso cuando termine» (`mensajeLeyendo`, un campo `leyendo` en el mensaje:
+  sin migración), contesta al toque y en un `after()` lee cada uno con la MISMA `leer` de uno por uno (el .zip, las
+  partes, El Archivero), manda el turno con lo que escribió el dueño y recién DESPUÉS saca el «estoy leyendo»: así la
+  pantalla, que relee mientras lo ve, sigue hasta que llega la respuesta. Lo que no se pudo leer queda dicho en su
+  lugar (`resumenDelLote`). Mientras, en esa conversación no entra otro turno (409, salvo el del lote: `delLote`), y el
+  «estoy leyendo» no viaja al modelo. Al terminar, la campanita de escritorio (`crearNotificacion`, link a
+  `/offer?sesion=`). Uno que pasó 15 min se da por cortado («Vuelve a mandarlos»).
+  Dos trampas: `sanearMensajes` es una LISTA BLANCA (sin `leyendo` ahí, la primera escritura lo borraba y la pantalla
+  dejaba de esperar), y un mensaje del dueño sin texto ni adjuntos se descarta: por eso el texto del dueño viaja ADENTRO
+  del «estoy leyendo» y su mensaje lo pega `turno` al final. Y `subir-url` rechazaba el .zip con 415 antes de subirlo
+  (el O8 sin esto no andaba).
+
+**Lo que quedó SIN hacer:**
+- **El lector de afuera recibe la URL entera (revisión del Cerebro, 22/10):** si alguien pega un link privado con un token
+  en la URL (un Drive compartido, una página con `?token=` o `?key=`), ese token le llega a r.jina.ai. El arreglo pendiente
+  es no mandarle al lector externo una URL con parámetros que parezcan credenciales (`lib/offer-lector-externo.ts`,
+  `leerConLectorExterno`): sin el lector, queda el mensaje de siempre («copia su texto y pégalo aquí»).
+- **El aviso de O9 por el WhatsApp del grupo:** no había camino. Pide un evento de la plataforma nuevo (como
+  `oferta_lista`: el catálogo de avisos, lib/disparadores.ts, sus variables) y su fila en el ws 9 con la mudanza. Hoy
+  avisa sólo la campanita.
+- **O9 no se vio en el navegador** ni contra Storage de verdad: el test fija lo puro y el cableado.
+- **O10, el micrófono que no muestra que graba**, vive en app/whatsapp/_shared/ComposerWhatsApp.tsx + VoiceRecorder.tsx
+  (compartido con los chats de WhatsApp y el lienzo): no se tocó desde Offer.
+- **No se vio en el navegador** el selector abierto en la raíz ni el chip del .zip; el lector de afuera se probó con curl.
+- Que un fuerte del diagnóstico sea una OBJECIÓN («Ya probé otras capacitaciones y la gente vuelve a lo mismo» salió en
+  «Lo que me gustó») depende del modelo: no hay regla que lo frene.
+
+**Vive en:** `lib/offer-reglas.ts` (`sinSaludo`, `parseTurno`, `esPagoUnico`, `conCobroDelPrecio`, `textoDelLectorExterno`,
+`esZip`, `PARA_QUE_SIRVE`, la garantía en `aplicarReglasPropuesta`) · `lib/offer-ia.ts` (`modelosRed`, el turno) ·
+`lib/offer-lector-externo.ts` · `lib/offer-zip.ts` · `lib/offer-marco.ts` (`loQueMeGusto`) · `app/api/offer/route.ts`
+(`leerLink`, `leer`, `responder`) · `app/components/Dropdown.tsx` (`abrirEnLaRaiz`) · `app/offer/SelectorFunnel.tsx` ·
+`app/offer/OfferApp.tsx`, `ChatOffer.tsx` (el .zip, `enviarLote`) · `app/api/offer/route.ts` (`leerLote`,
+`leerLotePorDetras`, el freno en `turno`) · `tests/offer-mauricio-p1.test.ts` (24 roturas, las 24 cazadas) ·
+`tests/offer-lote-documentos.test.ts` (13 roturas, las 13 cazadas)
+
+*22/10/2026, chat «Offer» (claude3).*
+
+## La prueba de los chats (22/10/2026): el perfil pisado, de dónde sale cada pieza, lo que el turno no sabía
+
+El Cerebro corrió un arnés contra el POST real de /api/offer (ws3, 3 corridas, rama `probar-chats-offer`, worktree
+`C:/dev/wt-probar-offer`, `scripts/probar-chats/offer.mts`) y confirmó 8 fallas, más una para Mauricio.
+
+- **Un archivo subido en Offer pisaba el perfil del negocio, y ya le pasó a Mauricio:** salió aparte, como P0, con la
+  restauración del ws1. Ver «Un archivo subido en Offer pisaba el perfil del negocio», abajo.
+- **De dónde sale cada pieza.** La ruta ponía la fuente del TURNO entero (`'doc'` si traía documentos, si no `'chat'`):
+  lo que el modelo sacaba de lo cargado en MaKo quedaba como dicho por el dueño. Ahora el modelo dice el origen por
+  pieza (`{"valor": …, "de": "contexto" | "documento"}`) y `fundirPiezasDelTurno` las guarda con su fuente. ⚠️ El origen
+  lo declara el modelo: una pieza inventada y marcada «contexto» cuenta como del negocio para `lib/offer-hechos.ts`.
+- **«otras» se anotaba sin que el dueño la contestara** («0» leído de «no vendí ninguno», que es la pregunta de las
+  ventas). Ahora sólo con la respuesta a ESA pregunta (`preguntaPorOtrasOfertas` de la última de MaKo), y «1: sólo esta»
+  no es otra oferta (`ofertasDeclaradas`).
+- **El turno no sabía el estado de la oferta**: «¿ya quedó guardada?» se contestaba que sí. Va en su contexto
+  (`estadoDeLaOferta`), y una regla le pide contestar primero lo que le preguntan.
+- **«[de: chat]» guardado en las piezas:** es la marca que `piezasParaPrompt` pone al lado de cada pieza, copiada de
+  vuelta. Se saca al entrar y al leer (`sinMarcaDeFuente`).
+- **El PDF:** «Dónde cierras la venta» es ahora el canal del funnel de la oferta (`conCanalDeLaOferta`) y el guion del
+  precio es «Cómo decirlo»; un resultado con un número en letras («tu primer cliente en 14 días») es medible; una fecha
+  se mira ENTERA (la que dio el dueño queda, otra pasa entera a «[completar]»: antes «24/10» salía «[completar]/10»); la
+  caja de completar no se queda con un resto; y los pasos ya numerados no salen «1. 1.» (`sinNumeroDelante`, también en
+  la pantalla).
+
+**Lo que quedó SIN hacer:**
+- Las ~90 consultas a la base por turno: en docs/hallazgos-infra.md, no es de Offer.
+- El arnés no se corrió contra esta rama (gasta la cuota diaria de Gemini de la plataforma): los tests fijan lo que decide el código.
+
+**Vive en:** `lib/offer-reglas.ts` (`fundirPiezasDelTurno`, `limpiarPiezas`, `sinMarcaDeFuente`, `estadoDeLaOferta`,
+`conCanalDeLaOferta`, `ofertasDeclaradas`, `resultadoMedible`, `filtrarCifras`, `entradaCompletar`) · `lib/offer-marco.ts`
+(`sinNumeroDelante`) · `lib/offer-pdf.ts` · `lib/offer-ia.ts` (reglas 8, 14 y 20) · `app/api/offer/route.ts` (`responder`,
+`generarSesion`) · `tests/offer-prueba-chats-2210.test.ts` y `tests/offer-archivero.test.ts` (18 roturas, las 18 cazadas)
+
+## Un archivo subido en Offer pisaba el perfil del negocio (22/10/2026, P0, cliente roto)
+
+- **Síntoma.** A Mauricio (ws1) su perfil del negocio le quedó con el Sprint: «Sprint de Diseño para la Ejecución
+  Empresarial» como oferta principal, la promesa, lo que incluye y el avatar del Sprint, y otro «qué hace el negocio». Lo
+  leen ~20 features (las automatizaciones, los mensajes de los envíos). Lo encontró la prueba de los chats del Cerebro en
+  el ws3; medido en el ws1: `mako.onboarding.answers` se escribió a las 04:08:26 UTC, cuando subió en Offer el guion y
+  la landing del Sprint (7 claves: `oferta_nombre`, `oferta_promesa`, `oferta_incluye`, `avatar_quien`, `avatar_dolor`,
+  `avatar_deseo`, `negocio_que_hace`). La oferta principal es `desde_brief`, así que «Negocio que Escala» se leía con la
+  promesa del Sprint.
+- **Causa.** Cada archivo del chat de Offer pasa por El Archivero (`registrarDocumentoSinPisar`, decisión del 15/10), y
+  `answersConDocumento` sumaba sus claves al perfil con «el más nuevo gana», como un recálculo del Archivero. El
+  diagnóstico equivocado era de qué es un documento de Offer: describe la oferta que se ANALIZA, no el negocio. Y no
+  alcanzaba con dejar de pisar el perfil: la fila del archivo guardaba todos sus `campos`, y el próximo recálculo del
+  Archivero (`computeEffective`, el más nuevo gana) los volvía a imponer.
+- **Ahora.** Un documento de Offer sólo LLENA lo que el perfil no tiene (ni a mano ni de otro documento), y su fila del
+  Archivero guarda sólo lo que llenó. Lo fija `tests/offer-archivero.test.ts` (con el caso del Sprint).
+- **La restauración del ws1 (autorizada por el Cerebro, 22/10 ~07:55 UTC).** No hay historial de `app_settings`. La fuente
+  de cada clave fue el último valor antes de las 04:05: una edición del dueño a esas claves va a `mako.archivero.manual`
+  («una puerta por campo», lib/api-mako/areas/negocio.helpers.ts), que no cambió desde el 29/07 ni tiene ninguna; el único
+  archivo anterior es el del 29/07 («Avatar_Dolores_Oferta_DOS_v2 (2).pdf»), y la conversación de Offer del 18/10 nació
+  con su promesa y lo que incluye. Se escribió en una transacción con compare-and-set sobre el valor exacto: las 7 claves
+  del perfil y los `campos` de las 4 filas del Sprint sin esas claves. Releído: el resto del perfil igual, un recálculo
+  del Archivero da lo mismo, «Negocio que Escala» se lee con su promesa y el Sprint (oferta 24, su propia fila: no es
+  `desde_brief`) con la suya. Backup, script y foto del después: en las notas del Cerebro,
+  `side-session-notes/local_428051c1-…/restauracion-ws1-2210/`.
+
+**Regla (AGENTS.md):** un documento nuevo nunca pisa un dato que ya tenía el negocio.
+
+**Lo que quedó SIN hacer:** las filas del Sprint conservan `oferta_ticket` (lo tapa el valor manual del dueño). Otros
+negocios que hayan subido archivos en Offer desde el 15/10 pueden tener el perfil pisado igual: no se midió.
+
+**Vive en:** `lib/archivero-registro.ts` (`answersConDocumento`) · `lib/archivero.ts` (`registrarDocumentoSinPisar`) ·
+`tests/offer-archivero.test.ts`
+
+*22/10/2026, chat «Offer» (claude3).*

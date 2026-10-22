@@ -2826,4 +2826,21 @@ export const BITACORA: Hito[] = [
     archivos: [
     ],
   },
+  {
+    fecha: '22 oct', hora: '04:35', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: la ficha de un lead dice en qué otros CRMs está («También en»), ya en producción',
+    revisar: '/crm',
+    puntos: [
+      'En producción desde el deploy de 59a841e49. Es el C8 de la llamada con Mauricio del 22/10 («de dónde vino» el lead en la R1).',
+      'Abrir un lead que esté en el CRM principal y en el Sprint: al lado del CRM y la etapa dice «También en: Sprint 3 días › Prospección activa».',
+      'Un toque en «Sprint 3 días» cambia la ficha a ese CRM. Un lead que está en un solo CRM no muestra nada.',
+      'El aviso al grupo de MaKo del ws1 NO salió: ya iban 3 avisos de arreglo en 24 h (el tope). Sale junto con el próximo.',
+    ],
+    commits: [
+      { sha: '8d1c1cb51', msg: 'CRM (C8 de la llamada con Mauricio, 22/10): la ficha dice en qué otros CRMs está el lead — «También en: Sprint 3 días › Prospección activa»', lineas: 86, archivos: 3 },
+    ],
+    archivos: [
+    ],
+  },
 ];

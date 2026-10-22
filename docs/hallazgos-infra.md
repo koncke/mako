@@ -7558,3 +7558,38 @@ archivo con menos tests. **Regla:** en un test, todo lo que puede tirar va ADENT
 declara es un rojo. **Medido:** de los 211 archivos que leen el motor de Automations, sólo éste (corridos aislados).
 **Sin hacer:** que `scripts/tests-afectados.mjs` compare, por archivo, los tests que el runner contó contra los `test(` del
 fuente, o que corra aislado todo archivo que en la corrida compartida contó menos de los que declara.
+
+## Sin minutos de Actions, el run sale «failure» y parece un rojo de código (22/10/2026, Cerebro › Integración)
+
+- **Síntoma:** el run 234 de `integracion` terminó `failure` en 3 segundos. El job no tiene pasos, y su log da `BlobNotFound`.
+  Parecía un rojo de tests o de tipos: no lo era.
+- **La causa** está sólo en las anotaciones del check-run (`/repos/<repo>/check-runs/<job id>/annotations`): «The job was not
+  started because recent account payments have failed or your spending limit needs to be increased». El plan es Free (2.000
+  minutos por mes, sin tarjeta) y se acabaron el **22/10/2026 a las 07:17 UTC**: el run 233, que arrancó a esa hora, fue el
+  último que corrió, después de 9 runs verdes de la noche. Se reinicia el 1º de noviembre.
+- **Lo que se hizo mientras tanto (decisión del Cerebro, 22/10):** push directo a `main` con el chequeo local completo en verde
+  (tests afectados, tsc acotado, guardas y la prueba de rotura de lo nuevo), juntando puntas porque cada push es un build de
+  Vercel, con fetch y merge de origin/main antes y el deploy Ready verificado después. `integracion` se empuja al mismo sha
+  para que el fast-forward siga andando. Cuando vuelvan los minutos, se re-corre la última corrida de `integracion`, que es la
+  red de todo lo que subió así.
+- **Lo que deja:** `main` no avanza por `integracion` hasta que haya medio de pago o tope de gasto, o hasta el 1º del mes.
+  Vercel despliega `main` igual, porque no depende de Actions.
+- ⚠️ **El «camino de emergencia» a `main` no entra en esta PC con la app de Claude abierta** (medido el 22/10). El pre-push de
+  un push a `main` corre el tsc COMPLETO por `scripts/typecheck-lock.mjs`, que pide **6,3 GB libres** (el tsc capado a 5.120 MB,
+  más el margen del vigía). Hubo tres intentos:
+  - con espera: se bloqueó esperando 15 minutos, con 5,2 y después 5,8 GB libres;
+  - con `MAKO_TYPECHECK_SIN_ESPERA=1`: el vigía lo mató a los 4.954 MB privados, con 750 MB libres;
+  - con los cinco chats de área archivados y la máquina quieta: el máximo fue 6,0-6,1 GB, así que no llegó tampoco.
+  El chequeo de tipos de todo el repo por tandas (`scripts/tipos-por-tandas.mjs`, 3 tandas, con picos de 3,8 a 4,2 GB) sí entra,
+  pero el hook no lo acepta. Sin Actions, a `main` se llega sólo con un medio de pago en GitHub, o con `--no-verify` autorizado
+  por Martín después de las tandas. Que el hook acepte las tandas como respaldo es trabajo de Infra, y queda Sin hacer.
+- **Regla:** un run que termina en segundos y sin pasos NO se lee como un rojo de código y no se le pasa a ningún chat. Se miran
+  sus anotaciones. Y antes de culpar a un test, se mira cuánto duró el job (`started_at` / `completed_at`).
+
+## Un turno de Offer hace ~90 consultas a la base (22/10/2026, prueba de los chats; no arreglado)
+
+Lo contó la traza del arnés del Cerebro (`scripts/probar-chats/traza-consultas.mts`, rama `probar-chats-offer`): unas 90
+consultas por turno. `credenciales` ×36 (20 desde `provsGratisDePlataforma`, lib/ai-cheap.ts, y 10 desde
+`saldoOpenRouter`, lib/openrouter-saldo.ts), `app_settings` ×15-22, y la sesión se resuelve 8 veces. En una ruta, el
+`cache` de React NO deduplica (sólo dentro de un render de servidor). Con ~97 ms por ida serían 5-9 s por turno en Vercel:
+eso es una deducción del código, no se midió en Vercel. Pendiente, de ai-cheap y de la sesión, no de Offer.

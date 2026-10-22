@@ -122,10 +122,12 @@ test('Offer: subir y leer viven SÓLO en Enviar (leerUno ← leerAdjuntos ← en
   const uno = bloque(app, 'const leerUno = async', 'const enviarVista = async');
   assert.match(uno, /await subirArchivo\(it\.file, mime\)/);
   assert.match(uno, /action: 'leer', sesionId: id, path, nombre: it\.file\.name, mime/);
-  // subirArchivo: el de leerUno y el de la nota de voz (`mandar`). Ninguno más.
-  assert.equal(contar(app, /subirArchivo\(/g), 2);
+  // subirArchivo: el de leerUno, el de la nota de voz (`mandar`) y el del lote (`enviarLote`, O9 22/10/2026: con 3 o más
+  // archivos los sube la pantalla y los lee el servidor). Ninguno más, y el del lote también es en Enviar.
+  assert.equal(contar(app, /subirArchivo\(/g), 3);
+  assert.match(bloque(app, 'const enviarLote = async', 'const agregarArchivos ='), /subidos\.push\(\{ path: await subirArchivo\(it\.file, mime\), nombre: it\.file\.name, mime \}\);/);
   assert.equal(contar(app, /leerUno\(/g), 1, 'leerUno sólo lo llama enviarVista');
-  const enviar = bloque(app, 'const enviarVista = async', 'const agregarArchivos =');
+  const enviar = bloque(app, 'const enviarVista = async', 'const enviarLote = async');
   assert.match(enviar, /leer: \(it\) => leerUno\(it, id, s\.funnelId, e\)/);
   assert.match(enviar, /alEmpezar: \(it\) => \{ if \(e === epoca\.current\) setEstadoVista\(`Leyendo «\$\{it\.file\.name\}»…`\); \}/);
   // Si una lectura falla, NO sale el turno: el return va antes de `mandar(`.
@@ -148,7 +150,8 @@ test('Offer: lo de la v2 no se pierde (el link del texto, el 502 con la sesión,
   // Los topes del navegador, ANTES de subir: que se pueda leer y 25 MB.
   const topes = bloque(app, 'const TOPES_OFFER = {', '};');
   assert.match(topes, /maxBytes: MAX_ARCHIVO_BYTES/);
-  assert.match(topes, /puedeLeerse\(f\.name, f\.type\) \? null : `«\$\{f\.name\}» \$\{porQueNoPuedo\(f\.name\) \|\| 'no se puede leer\.'\}`/);
+  // Un .zip también pasa (la carpeta de una landing, 22/10/2026: lib/offer-zip.ts).
+  assert.match(topes, /puedeLeerse\(f\.name, f\.type\) \|\| ZIP\.test\(f\.name\) \? null : `«\$\{f\.name\}» \$\{porQueNoPuedo\(f\.name\) \|\| 'no se puede leer\.'\}`/);
   // El chip de arriba de la barra y el ✓ de «leído» ya no existen.
   assert.doesNotMatch(sinComentarios(leer('app/offer/ayudas.ts')), /chipDeAdjuntos|AdjuntoEnCurso/);
   assert.doesNotMatch(sinComentarios(leer('app/offer/ChipArchivo.tsx')), /aria-label="Leído"/);

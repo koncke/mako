@@ -28,6 +28,7 @@ test('OfferApp le pasa a la caja la nota de voz de Offer (con la que no salió),
 
 test('la barra de grabar va sin el verde de WhatsApp', () => {
   const app = sinComentarios(leer('app/offer/OfferApp.tsx'));
-  assert.match(app, /const SIN_VERDE = \{ '--good': 'var\(--ink\)' \} as CSSProperties;/);
+  // Y el ícono del ✓ y la ➤ con el color que se lee encima de la tinta (22/10/2026: en oscuro iba blanco sobre casi blanco).
+  assert.match(app, /const SIN_VERDE = \{ '--good': 'var\(--ink\)', '--sobre-good': 'var\(--surface\)' \} as CSSProperties;/);
   assert.match(app, /className="co-caja-wrap" style=\{SIN_VERDE\}/);
 });

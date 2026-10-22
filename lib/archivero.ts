@@ -240,8 +240,8 @@ async function reclamarLugar(origen: string, destino: string): Promise<Lugar> {
  *    queda suelto, tampoco si algo tira (la extracción, el Storage, la base).
  * ⚠️ NO RECALCULA EL BRIEF NI LO PISA. `buildEstado(true)` reescribe las answers con el efectivo de los
  *    archivos y lo manual, y se lleva lo que el wizard guardó por la otra puerta (negocio_objetivo,
- *    negocio_freno, marca_*). Acá se suman SÓLO las claves que trae este documento (`answersConDocumento`),
- *    leyendo estricto antes de escribir.
+ *    negocio_freno, marca_*). Acá se suman SÓLO las claves de este documento que el perfil todavía no tiene
+ *    (`answersConDocumento`, 22/10/2026: nunca pisa), leyendo estricto antes de escribir.
  * ⚠️ El panorama NO se regenera: sería una segunda llamada paga por documento, y lo aprobado es una.
  * NUNCA TIRA: todo fallo vuelve como `{ ok: false, motivo }`, en palabras para el dueño.
  *
@@ -284,9 +284,12 @@ export async function registrarDocumentoSinPisar(ws: number, d: {
       if (ex.sinIA) return { ok: false, motivo: ex.motivoSinIA ? `la IA no pudo leerlo (${ex.motivoSinIA})` : 'la IA no pudo leerlo ahora' };
       // Estrictas ANTES de insertar: si la base no contesta, no queda una fila que el brief no conoce.
       const [manual, previas] = await Promise.all([mapaParaEscribir(MANUAL_KEY), mapaParaEscribir(ANSWERS_KEY)]);
-      await insertFile(ws, { id, nombre, mime: d.mime, tamano, storage_path: destino, razonamiento: ex.razonamiento, campos: ex.campos, origen: 'offer' });
-      conFila = true;
+      // Sólo LLENA lo que el perfil no tiene, y la fila guarda sólo eso (22/10/2026, `answersConDocumento`): un documento
+      // de Offer describe la oferta que se analiza, no el negocio, y con todo en `campos` un recálculo lo volvía a imponer.
       const { siguiente, aportadas } = answersConDocumento(previas, manual, ex.campos);
+      const campos = Object.fromEntries(aportadas.map((k) => [k, ex.campos[k]]));
+      await insertFile(ws, { id, nombre, mime: d.mime, tamano, storage_path: destino, razonamiento: ex.razonamiento, campos, origen: 'offer' });
+      conFila = true;
       if (aportadas.length) {
         try { await saveAnswers(siguiente); } catch (e) {
           console.error(`[archivero:registrar] «${nombre}» quedó guardado pero no pude sumar sus campos al perfil:`, e instanceof Error ? e.message : e);

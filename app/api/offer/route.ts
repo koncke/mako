@@ -79,7 +79,9 @@ import { marcarPasoTab } from '@/lib/tab-onboarding-state';
 import { onboardingPendiente } from '@/lib/onboarding-state';
 import { frenoDeIa } from '@/lib/onboarding-guardia-server';
 import { transcribirAudio, SttSinEscucha, errorDeCascada } from '@/lib/ai-cheap';
-import { extraerLanding } from '@/lib/landing-fetch';
+import { bloqueaLaLectura, extraerLanding } from '@/lib/landing-fetch';
+import { leerConLectorExterno } from '@/lib/offer-lector-externo';
+import { esZip, textoDeZip } from '@/lib/offer-zip';
 import { leerFunnels } from '@/lib/funnels';
 import { sanearFunnelIds } from '@/lib/funnels-elegidos';
 import { listarOfertas } from '@/lib/ofertas';
@@ -89,13 +91,15 @@ import { MARCA_COMPLETAR, faltanDelArranque, faltanMinimas, type ArchiveroDoc, t
 import {
   MAX_DOCS_SESION, NOMBRE_DOC_TEXTO_LARGO, PRINCIPIO_TEXTO_LARGO, TOPE_DOC_ENTERO, repartirTextoLargo, sanearLinksSinLeer, conOpcionesDelArranque, conTopeDelArranque, mensajeDeCierreDelArranque, TOPE_TEXTO_DOC, adjuntoDe, avisoDeLectura, lecturaPorPartes, partirEnPartes, avisosAntesDelDiagnostico, calcularDiagnostico, canalParaElNegocio, cifrasConFuente, cifrasConPorcentaje, conArchivero, conRespuestaInferida,
   diagnosticoConFuentes, diagnosticoFaltante, diagnosticoParaPrompt, docsDeLaConversacion, estadoDiagnostico, faltanTexto, faseDeSetting,
-  faseVigenteDe, fuentesDelDueno, linkParaLeer, mensajeDeMako, mensajePdf, mergePiezas, motivoArchivoOffer, planDiagnostico, primerMensaje, primerMensajeFunnel, provisionalDe, recortar,
+  conCobroDelPrecio, conCanalDeLaOferta, fundirPiezasDelTurno, preguntaPorOtrasOfertas, estadoDeLaOferta, faseVigenteDe, fuentesDelDueno, linkParaLeer, mensajeDeMako, mensajePdf, mergePiezas, motivoArchivoOffer, planDiagnostico, primerMensaje, primerMensajeFunnel, provisionalDe, recortar,
   repartirTranscripcion, respuestaDiagnostico, respuestaSinIA, seArchivaDesdeOffer, armadoEnCurso, pasoInicialDelArmado, valoresDeLasPiezas,
+  MAX_DOCS_LOTE, leyendoParaVista, mensajeLeyendo, resumenDelLote,
   type AudioGuardado, type DocumentoGuardado, type MensajeGuardado, type PlanDiagnostico,
 } from '@/lib/offer-reglas';
 import { contextoOffer, type ContextoOffer } from '@/lib/offer-contexto';
 import { linksDe } from '@/app/offer/ayudas';
 import { avisarOfertaLista } from '@/lib/oferta-lista-server';
+import { crearNotificacion } from '@/lib/notificaciones';
 import { FEATURE_OFFER, diagnosticoOffer, lecturaDeParte, propuestaOffer, turnoOffer } from '@/lib/offer-ia';
 import {
   ConflictoCAS, ErrorOffer, TITULO_DEFAULT, actualizarSesion, arbolOffer, audiosDe, borrarSesion, crearSesion, guardarComoOferta,
@@ -254,7 +258,8 @@ export async function POST(req: NextRequest) {
           const tamano = typeof body.tamano === 'number' ? body.tamano : Number(body.tamano);
           if (!nombre) return no(400, 'Falta el nombre del archivo.');
           if (Number.isFinite(tamano) && tamano > MAX_ARCHIVO_BYTES) return no(413, `«${nombre}» pesa más de 25 MB. Súbelo más liviano o pega el texto en el chat.`);
-          if (!puedeLeerse(nombre, mime)) return no(415, `MaKo no sabe leer «${nombre}». Sube uno de estos formatos: ${formatosLegibles()}.`);
+          // Un .zip también: la carpeta de una landing, que abre 'leer' (lib/offer-zip.ts, 22/10/2026).
+          if (!puedeLeerse(nombre, mime) && !esZip(nombre, mime)) return no(415, `MaKo no sabe leer «${nombre}». Sube uno de estos formatos: ${formatosLegibles()}.`);
           const path = `${ws}/offer/${randomUUID()}`;
           const { data, error } = await getSupabaseServer().storage.from(BUCKET).createSignedUploadUrl(path);
           if (error || !data) {
@@ -266,6 +271,10 @@ export async function POST(req: NextRequest) {
 
         case 'leer':
           return await leer(ws, body, inicio);
+
+        // Muchos documentos de una vez: los lee el servidor y MaKo avisa (O9, 22/10/2026).
+        case 'leer-lote':
+          return await leerLote(ws, body);
 
         // Un binario subido que al final no se usa (el dueño descarta la nota de voz, o cambia de
         // conversación mientras algo sube). Antes 'leer' era lo ÚNICO que borraba, y en esos dos
@@ -428,8 +437,13 @@ async function leer(ws: number, body: Record<string, unknown>, inicio: number): 
     if (error || !data) return no(400, `No encontré «${nombre}» en la subida. Vuelve a subirlo.`);
     const contenido = new Uint8Array(await data.arrayBuffer());
     const file = new File([contenido], nombre, { type: mime || data.type || '' });
+    // Un .zip (la carpeta de una landing, 22/10/2026): sus páginas y textos, sin IA, y el aviso dice qué leyó.
+    const zip = esZip(nombre, file.type) ? await textoDeZip(contenido) : null;
+    if (esZip(nombre, file.type) && !zip) return no(422, `No pude abrir «${nombre}» como .zip. Si es la carpeta de tu landing, comprímela de nuevo o pega el link.`);
     // Con la red: Offer es de la primera semana de un cliente nuevo, que no trae una API (16/10/2026).
-    const lectura = await archivoATexto(file, { feature: 'offer', motivo: `Offer: leer «${nombre}»`, redDePlataforma: true });
+    const lectura: { texto: string; warning?: string; via: string } = zip
+      ? { texto: zip.texto, warning: zip.aviso, via: 'zip' }
+      : await archivoATexto(file, { feature: 'offer', motivo: `Offer: leer «${nombre}»`, redDePlataforma: true });
     const texto = (lectura.texto ?? '').trim();
     if (!texto) return no(422, lectura.warning || `No pude sacar texto de «${nombre}». Si es una foto o un escaneo borroso, prueba con otra versión o pega el texto en el chat.`);
     // Entero (#865): uno que no entra en un pedido se lee por partes, todas, antes de guardarlo.
@@ -554,17 +568,26 @@ async function leerLink(body: Record<string, unknown>, inicio: number): Promise<
   if (!link.ok) return no(422, link.error);
   const previo = await antesDeLeer(body);
   if (previo) return previo;
-  let pagina: Awaited<ReturnType<typeof extraerLanding>>;
+  let pagina: { urlFinal: string; titulo: string; descripcion: string; texto: string; bloqueada: boolean };
   try {
     pagina = await extraerLanding(link.leida, { talCual: true });
   } catch (e) {
-    const cual = link.leida === url.trim() ? '' : ` (${link.leida})`;
-    return no(422, `No pude abrir esa página${cual}: ${msg(e)} Si es privada o pide iniciar sesión, copia su texto y pégalo aquí.`);
+    // Una página que no NOS deja leerla (401/403/429: un antibots que frena a los servidores, como la del Sprint de
+    // Mauricio, 22/10/2026) se pide por el lector de afuera; si tampoco, el mismo mensaje de antes.
+    const otra = bloqueaLaLectura(e) ? await leerConLectorExterno(link.leida) : null;
+    if (!otra) {
+      const cual = link.leida === url.trim() ? '' : ` (${link.leida})`;
+      return no(422, `No pude abrir esa página${cual}: ${msg(e)} Si es privada o pide iniciar sesión, copia su texto y pégalo aquí.`);
+    }
+    pagina = otra;
   }
   // `bloqueada` sólo MIDE que hay poco texto en los titulares, párrafos y botones: el porqué no se sabe,
-  // así que no se afirma uno (AGENTS.md «Un DIAGNÓSTICO escrito de antemano deja de ser cierto sin avisar»).
+  // así que no se afirma uno (AGENTS.md «Un DIAGNÓSTICO escrito de antemano deja de ser cierto sin avisar»). Una página
+  // que se arma con JavaScript es la causa más común: el lector de afuera la abre en un navegador.
   if (pagina.bloqueada || !pagina.texto.trim()) {
-    return no(422, 'Entré a tu página pero casi no encontré texto para leer. Copia el texto de la página y pégalo aquí.');
+    const otra = await leerConLectorExterno(link.leida);
+    if (!otra) return no(422, 'Entré a tu página pero casi no encontré texto para leer. Copia el texto de la página y pégalo aquí.');
+    pagina = otra;
   }
   let host = url;
   try { host = new URL(pagina.urlFinal).host; } catch { /* queda el link tal cual */ }
@@ -580,6 +603,101 @@ async function leerLink(body: Record<string, unknown>, inicio: number): Promise<
     at: new Date().toISOString(),
   };
   return (await guardarDocumento(body, doc)).res;
+}
+
+// ── leer-lote: muchos documentos, los lee el servidor (O9, 22/10/2026) ─────────
+
+/**
+ * «Los analizo y te aviso cuando termine» (Mauricio, llamada del 22/10, 39:44: con muchos documentos la pantalla
+ * quedaba esperando y no se podía hacer otra cosa). La pantalla ya SUBIÓ los archivos; esto anota el mensaje de MaKo
+ * que dice que los está leyendo (`mensajeLeyendo`), contesta al toque y los lee en un `after()` (`leerLotePorDetras`).
+ * Mientras, la pantalla relee la conversación; la persona puede irse a otra tab y volver.
+ */
+async function leerLote(ws: number, body: Record<string, unknown>): Promise<Response> {
+  const sesionId = entero(body.sesionId);
+  if (!sesionId) return no(400, 'Falta la conversación.');
+  // Un texto largo no rebota (20/10/2026, Florencia): viaja con los documentos y `turno` lo pasa a documento.
+  const texto = typeof body.texto === 'string' ? body.texto.trim().slice(0, TOPE_TEXTO_DOC) : '';
+  const crudos = Array.isArray(body.archivos) ? body.archivos : [];
+  const archivos = crudos.map((a) => (a && typeof a === 'object' ? a as Record<string, unknown> : {}))
+    .map((a) => ({ path: cadena(a.path), nombre: cadena(a.nombre).slice(0, 200) || 'documento', mime: cadena(a.mime) }));
+  if (!archivos.length || archivos.length > MAX_DOCS_LOTE) return no(400, `Manda entre 1 y ${MAX_DOCS_LOTE} documentos.`);
+  if (archivos.some((a) => !esPathDeOffer(ws, a.path))) return no(400, 'Uno de los archivos no es de esta cuenta. Vuelve a subirlos.');
+  const docIds = Array.isArray(body.docIds) ? [...new Set(body.docIds.filter((x): x is string => typeof x === 'string' && !!x.trim()))] : [];
+  const intento = randomUUID();
+  const fila = await actualizarSesion(sesionId, (f) => {
+    const enCurso = leyendoParaVista(f.mensajes, Date.now());
+    if (enCurso && !enCurso.vencido) throw new ErrorOffer('Todavía estoy leyendo los documentos de antes. Te aviso cuando termine.', 409);
+    if (f.documentos.length + archivos.length > MAX_DOCS_SESION) throw new ErrorOffer(`Esta conversación ya tiene ${f.documentos.length} documentos y el tope es ${MAX_DOCS_SESION}. Empieza otra para subir más.`, 409);
+    const at = new Date().toISOString();
+    return { mensajes: [...f.mensajes, mensajeLeyendo({ id: randomUUID(), at, nombres: archivos.map((a) => a.nombre), texto, intento })] };
+  });
+  const trabajo = () => runWithWorkspace(ws, () => leerLotePorDetras(ws, sesionId, intento, archivos, docIds));
+  try { after(trabajo); } catch { void trabajo(); }
+  return ok({ sesion: await vistaSesion(fila) });
+}
+
+/** Lo que puede tardar la lectura de un lote antes de dejar de leer los que faltan (el `maxDuration` es 800 s). */
+const PLAZO_LOTE_MS = 600_000;
+
+/**
+ * Lee cada archivo con la MISMA lectura de uno por uno (`leer`: el .zip, las partes de uno largo, El Archivero),
+ * manda el turno con lo que escribió el dueño y los documentos leídos (`turno`, que pega su mensaje y contesta), y
+ * recién después saca el «estoy leyendo»: así la pantalla sigue releyendo hasta que llega la respuesta. Lo que no se
+ * pudo leer queda dicho en lugar del «estoy leyendo». Al terminar, la campanita. Nunca tira.
+ */
+async function leerLotePorDetras(
+  ws: number, sesionId: number, intento: string, archivos: Array<{ path: string; nombre: string; mime: string }>, docIdsPrevios: string[],
+): Promise<void> {
+  const desde = Date.now();
+  const docIds = [...docIdsPrevios];
+  const errores: string[] = [];
+  const storage = getSupabaseServer().storage.from(BUCKET);
+  try {
+    for (const a of archivos) {
+      if (Date.now() - desde > PLAZO_LOTE_MS) {
+        errores.push(`«${a.nombre}» (no me alcanzó el tiempo)`);
+        await storage.remove([a.path]).catch(() => null);
+        continue;
+      }
+      try {
+        const res = await leer(ws, { sesionId, path: a.path, nombre: a.nombre, mime: a.mime }, Date.now());
+        const j = await res.json().catch(() => null) as { ok?: boolean; error?: string; doc?: { id?: string } } | null;
+        if (j?.ok && j.doc?.id) docIds.push(j.doc.id);
+        else errores.push(`«${a.nombre}» (${recortar(j?.error ?? 'no se pudo leer', 160)})`);
+      } catch (e) {
+        errores.push(`«${a.nombre}» (${recortar(msg(e), 160)})`);
+      }
+    }
+    const fila = await leerFila(sesionId);
+    const marca = fila?.mensajes.find((m) => m.leyendo?.intento === intento);
+    if (!fila || !marca?.leyendo) return;
+    const texto = marca.leyendo.texto;
+    const resumen = resumenDelLote({ total: archivos.length, leidos: docIds.length - docIdsPrevios.length, errores });
+    // Con algo que mandar, el turno: el mensaje del dueño con sus documentos y la respuesta de MaKo.
+    if (docIds.length || texto) {
+      const r = await turno(ws, { sesionId, texto, docIds, delLote: intento }, Date.now());
+      if (!r.ok) console.warn(`[offer:lote] el turno de #${sesionId} respondió ${r.status}: lo puede reintentar la pantalla`);
+    }
+    // El «estoy leyendo» se va, o queda como lo que no se pudo leer.
+    await actualizarSesion(sesionId, (f) => {
+      const i = f.mensajes.findIndex((m) => m.leyendo?.intento === intento);
+      if (i < 0) return null;
+      const mensajes = resumen
+        ? f.mensajes.map((m, k) => (k === i ? { id: m.id, de: m.de, at: m.at, texto: resumen } : m))
+        : f.mensajes.filter((_, k) => k !== i);
+      return { mensajes };
+    });
+    const leidos = docIds.length - docIdsPrevios.length;
+    await crearNotificacion({
+      ws, tipo: 'offer_documentos_leidos', severidad: errores.length ? 'warn' : 'ok',
+      titulo: leidos ? 'MaKo terminó de leer tus documentos' : 'MaKo no pudo leer tus documentos',
+      descripcion: `${leidos} de ${archivos.length} en «${fila.titulo}».${errores.length ? ` No pudo con ${errores.length}.` : ''}`,
+      link: `/offer?sesion=${sesionId}`, entityType: 'offer_sesion', entityId: String(sesionId), origen: 'offer:leer-lote',
+    });
+  } catch (e) {
+    console.error(`[offer:lote] la lectura de #${sesionId} se cortó: ${msg(e)}`);
+  }
 }
 
 // ── turno ────────────────────────────────────────────────────────────────────
@@ -668,6 +786,12 @@ async function turno(ws: number, body: Record<string, unknown>, inicio: number):
   const sesionId = id;
   const antes = await leerFila(sesionId);
   if (!antes) return no(404, 'No encontré esa conversación. Puede que la hayan borrado.');
+  // Mientras el servidor lee un lote de documentos, el único turno que entra es el de ESE lote (O9, 22/10/2026): otro
+  // mensaje quedaría antes de los documentos y la respuesta contestaría sin haberlos leído.
+  const leyendo = antes.mensajes.find((m) => m.leyendo)?.leyendo;
+  if (leyendo && !leyendoParaVista(antes.mensajes, Date.now())?.vencido && body.delLote !== leyendo.intento) {
+    return no(409, 'Todavía estoy leyendo tus documentos. Te aviso cuando termine.', { sesion: await vistaSesion(antes) });
+  }
   const ctx = await contextoOffer({ funnelId: antes.funnelId, ofertaBaseId: antes.ofertaBaseId });
   const optsDiag = { canal: ctx.canal, yaGuardado: !!ctx.faseGuardada };
 
@@ -790,7 +914,9 @@ async function responder(p: { sesionId: number; fila: FilaOffer; ctx: ContextoOf
     : planDiagnostico(e, { puedeConcluir: faltanMinimas(fila.piezas).length === 0, mensajesDelDueno: duenos(fila.mensajes), conDocumentosNuevos: p.nuevos.length > 0 });
   const ia = await turnoOffer({
     mensajes: fila.mensajes, piezas: fila.piezas, docs: docsDeLaConversacion(fila.documentos, fila.mensajes, p.nuevos), nuevos: p.nuevos,
-    contexto: ctx.texto, inicio: p.inicio, diagnostico: diagnosticoParaPrompt(plan, e), diagnosticoObligatorio: plan.modo === 'forzar',
+    // Con el estado de ESTA oferta (armada, guardada): «¿ya quedó guardada?» se contestaba que sí sin saberlo (22/10/2026).
+    contexto: [ctx.texto, estadoDeLaOferta(fila)].filter((x) => x.trim()).join('\n\n'),
+    inicio: p.inicio, diagnostico: diagnosticoParaPrompt(plan, e), diagnosticoObligatorio: plan.modo === 'forzar',
     voz: ctx.voz, arranque: p.arranque,
   });
   // Sin IA sólo se sigue si la pregunta que toca es la obligatoria del diagnóstico (sale la original).
@@ -803,7 +929,10 @@ async function responder(p: { sesionId: number; fila: FilaOffer; ctx: ContextoOf
     // Si mientras tanto llegó otra respuesta de MaKo, no se agrega una segunda.
     const u = f.mensajes[f.mensajes.length - 1];
     if (!u || u.de !== 'yo') return null;
-    const fundidas = turnoIA ? mergePiezas(f.piezas, turnoIA.piezas, fuente) : f.piezas;
+    // Cada pieza con SU fuente (lo de lo cargado en MaKo no es «dicho por el dueño»), y «otras» sólo si MaKo la acababa de
+    // preguntar (22/10/2026, prueba de los chats). Con un precio de pago único, el % al firmar ya se sabe (Mauricio).
+    const preguntoOtras = preguntaPorOtrasOfertas([...f.mensajes].reverse().find((m) => m.de === 'mako' && !m.leyendo)?.texto ?? '');
+    const fundidas = conCobroDelPrecio(turnoIA ? fundirPiezasDelTurno(f.piezas, turnoIA, { porDefecto: fuente, preguntoOtras }) : f.piezas);
     // En el onboarding una pieza se pregunta dos veces como mucho, y el que termina es el CÓDIGO (20/10/2026, Florencia).
     const piezas = p.arranque ? conTopeDelArranque(fundidas, f.mensajes, new Date().toISOString()) : fundidas;
     const cierra = !!p.arranque && faltanDelArranque(piezas).length === 0;
@@ -970,7 +1099,9 @@ async function generarSesion(id: number, inicio: number): Promise<{ ok: true; fi
   // gana el guardado en el negocio), releída después de `asegurarFaseGuardada`. Si no hay ninguno porque el
   // dueño armó la oferta con preguntas pendientes, la conclusión lo dice y el PDF también (no se omite en
   // silencio).
-  const fase = faseVigenteDe(ctx);
+  // «Dónde cierras la venta» es el canal de ESTA oferta (su funnel) si se sabe, no el del negocio (22/10/2026: el PDF
+  // decía «Llamada de venta» de una oferta que se vende sin llamadas).
+  const fase = conCanalDeLaOferta(faseVigenteDe(ctx), ctx.funnel?.canal ?? null);
   const faltante = fase ? null : diagnosticoFaltante(estadoDiagnostico(fila.mensajes, { canal: ctx.canal, yaGuardado: !!ctx.faseGuardada }));
   // Las cifras que SÍ dio el negocio salen de lo que escribió el dueño, sus documentos y lo que tenía cargado
   // (las piezas las suma el parse): toda otra cifra de resultados, de prueba, de bonos o de valor pasa a
