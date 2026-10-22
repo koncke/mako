@@ -10166,3 +10166,15 @@ tests/crm-traer-todos.test.ts
 lead-view/LeadTabs.tsx · tests/crm-llamada-22-10-p1.test.ts
 *22/10/2026, chat «CRM» (claude3).*
 
+## C8: «de dónde vino» un lead que pasa del Sprint a la R1 del CRM principal (22/10/2026)
+
+- **No hacía falta un dato nuevo**: un lead del Sprint que llega a la R1 está en los DOS CRMs (su casa, el principal, y
+  una fila en `lead_funnel` del Sprint, mig 0207). El desplegable de funnel de la ficha ya lo sabía (`funnelsDelArbol`),
+  pero sólo dibujaba el que se mira: para enterarse había que abrirlo. Ahora, al lado, «También en: <CRM> › <etapa>».
+- El anuncio por el que entró ya lo decía el bloque «Origen» (`origenDelLead`); la atribución por funnel de un lead que
+  está en varios sigue pendiente (F1 de docs/pedidos-crm.md: lib/lead-funnel.ts, una migración).
+
+**Vive en:** app/crm/lead-view/arbol-funnels.ts (`otrosFunnelsDelLead`), ProductoDelLead.tsx (`FunnelYEtapa`) ·
+tests/crm-ficha-de-donde-vino.test.ts
+*22/10/2026, chat «CRM» (claude3).*
+

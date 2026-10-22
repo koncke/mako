@@ -2855,4 +2855,56 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '22 oct', hora: '04:40', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: traer a todos de otro funnel y arrastrar a varios tildados, ya en producción',
+    revisar: '/crm',
+    puntos: [
+      'En producción desde el run 230 (b9dd7ce1e). Es lo que pidió Martín en la llamada con Mauricio del 22/10 (C1 y C2).',
+      'Cómo lo prueba Mauricio (ws1): en el CRM «Sprint 3 días», «+ Nuevo lead» › «Traer de otro funnel», de «Negocio que ESCALA», etapa Reactivación. Los 300 que ya trajo no aparecen; la casilla de arriba tilda a los 750 que faltan y «Agregar» está siempre a la vista.',
+      'Tildar varias tarjetas y arrastrar una de las tildadas a «Prospección activa»: pregunta y mueve a todas.',
+      'Avisado en el grupo de MaKo del ws1 como «Desarrollador de MaKo».',
+    ],
+    commits: [
+      { sha: '3c43c005c', msg: 'CRM (P0 de la llamada con Mauricio, 22/10): traer a TODOS de otro funnel y arrastrar a varios tildados', lineas: 325, archivos: 6 },
+    ],
+    archivos: [
+    ],
+  },
+  {
+    fecha: '22 oct', hora: '05:05', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: mover sin esperar, «Creando…» al crear una etapa, el menú que tapaba y las hojas de la ficha a la vista, ya en producción',
+    revisar: '/crm',
+    puntos: [
+      'En producción desde el run 231 (be4b9189a). Son los P1 del CRM de la llamada con Mauricio del 22/10 (C3, C4, C5 y C7).',
+      'Mover un lead a «Agenda» con «Ya está agendada»: la tarjeta pasa en el acto.',
+      '«Editar etapas» › «+»: la etapa nueva aparece con «Creando…» hasta que se guarda; lo mismo con «Agregar etapa» del «⋯» de una columna.',
+      'La lista de CRMs › lápiz «Editar»: la lista se cierra y no queda encima del pop-up.',
+      'En la ficha de un lead, «Pagos», «Reuniones» y las demás hojas se ven al lado del título.',
+      'Avisado en el grupo de MaKo del ws1 como «Desarrollador de MaKo». Falta C6: no se pudo reproducir sin el Chrome de Martín.',
+    ],
+    commits: [
+      { sha: '50fbb71df', msg: 'CRM (P1 de la llamada con Mauricio, 22/10): mover sin esperar, «Creando…» al crear una etapa, el menú que tapaba el pop-up y las hojas de la ficha a la vista', lineas: 169, archivos: 6 },
+    ],
+    archivos: [
+    ],
+  },
+  {
+    fecha: '22 oct', hora: '05:30', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La ficha dice en qué otros CRMs está el lead: «También en: Sprint 3 días › Prospección activa»',
+    revisar: '/crm',
+    puntos: [
+      'Es el C8 de la llamada con Mauricio del 22/10: «en la R1 de allá, de alguna manera, marque que el lead vino del webinar».',
+      'Al lado del funnel de la ficha, los otros CRMs donde está el lead, con su etapa; tocarlo muestra su etapa ahí.',
+      'De qué anuncio vino ya lo dice el bloque «Origen».',
+    ],
+    commits: [
+      { sha: '8d1c1cb51', msg: 'CRM (C8 de la llamada con Mauricio, 22/10): la ficha dice en qué otros CRMs está el lead', lineas: 86, archivos: 3 },
+    ],
+    archivos: [
+    ],
+  },
 ];
