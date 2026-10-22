@@ -69,7 +69,9 @@ export type ItemHilo =
   | { k: 'pantalla'; id: string; p: PropuestaPantalla }
   /** `mako` = lo escribió el código para la persona (la agenda); `plataforma` = no pude.
    *  `conectar`: la integración que le falta al negocio (`RespuestaTurno.conectar`): un botón que abre su modal ahí mismo. */
-  | { k: 'aviso'; id: string; texto: string; tono: 'mako' | 'plataforma'; conectar?: string }
+  | { k: 'aviso'; id: string; texto: string; tono: 'mako' | 'plataforma'; conectar?: string;
+      /** El texto para mandar de nuevo: el aviso de un mensaje que quedó sin respuesta (`conSinRespuesta`). */
+      reintentar?: string }
   /** Lo que el chat DIBUJA (lib/chat-bloques.ts, app/_chat/BloqueHilo.tsx): lo creado con su miniatura, el antes y el
    *  después, un trabajo largo, una pregunta con opciones. Lo de MaKo, a la izquierda. */
   /** `respondida`: una pregunta (G1) que la persona ya contestó (su mensaje siguiente), al recargar. */
@@ -141,6 +143,23 @@ const conSusBloques = (m: MensajeChat, i: number, conWs: ConWs = sinWs): ItemHil
 
 /** El hilo de una sesión recién abierta: los mensajes guardados y, al final, lo que espera (las tarjetas y, desde la
  *  1.10, las propuestas de pantalla pendientes de este chat, con su formulario). */
+/**
+ * UN MENSAJE SIN RESPUESTA NO QUEDA MUDO (22/10/2026, el cliente roto del ws1). El «Cerebro» de Mauricio tenía dos mensajes
+ * suyos del 18/10 sin nada debajo: el turno falló (ese día, «anthropic vetado» y nada más) y lo que dice el fallo es un aviso
+ * de la pantalla que NO se guarda, así que al recargar el hilo terminaba en su pregunta, como si MaKo no la hubiera leído. Si
+ * lo último es un mensaje de la persona y ya pasó el techo del turno (`TECHO_TURNO_MS`: la ruta corre hasta 420 s), se dice
+ * que no se contestó, con «Reintentar». Antes de eso no: el turno puede seguir corriendo (otra pestaña, el teléfono).
+ */
+export const SIN_RESPUESTA = 'No te pude contestar esto.';
+export const TECHO_TURNO_MS = 7 * 60_000;
+export function conSinRespuesta(items: readonly ItemHilo[], ahora: number): ItemHilo[] {
+  const ult = items[items.length - 1];
+  if (!ult || ult.k !== 'msg' || ult.role !== 'user' || ult.estado || !ult.at) return [...items];
+  const t = Date.parse(ult.at);
+  if (!Number.isFinite(t) || ahora - t < TECHO_TURNO_MS) return [...items];
+  return [...items, { k: 'aviso', id: `sin-respuesta-${ult.id}`, texto: SIN_RESPUESTA, tono: 'plataforma', reintentar: ult.texto }];
+}
+
 export function itemsDeSesion(mensajes: readonly MensajeChat[], propuestas: readonly TarjetaPendiente[], pantallas: readonly PropuestaPantalla[] = [], conWs: ConWs = sinWs): ItemHilo[] {
   return conRespuestas([
     ...mensajes.flatMap((m, i) => conSusBloques(m, i, conWs)), ...propuestas.map(aPropuesta),
