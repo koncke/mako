@@ -2959,4 +2959,25 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '22 oct', hora: '19:15', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El tablero ya no se traba con miles de leads: cada columna muestra 30 y trae más al bajar',
+    puntos: [
+      'Es lo del sábado: Mauricio abre «Sprint 3 días» con 1.050 leads en «Lead entrante» y mueve 50 por día.',
+      'Cada columna muestra 30 tarjetas y, al bajar, trae 30 más sola (o con «Ver 30 más»). El número de la columna sigue diciendo el total.',
+      'La casilla de la columna tilda a TODOS, también a los que todavía no se ven, y arrastrar a los tildados los mueve a todos.',
+      'Lo que trababa no era una regla ni un error: era la cantidad. Con 1.169 leads el tablero dibujaba 14.528 piezas; ahora 3.280.',
+      'Y en el CRM principal el tablero medía 86.636 px de alto: ahora mide la pantalla, con la barra para moverse de costado abajo.',
+    ],
+    commits: [
+      { sha: 'b0d4ea16b', msg: 'CRM: el Kanban topea con maxHeight, no sólo height', lineas: 21, archivos: 4 },
+      { sha: 'b7116c8bc', msg: 'CRM: 30 tarjetas por columna (eran 60): lo que traba el Chrome de Martín es la cantidad de nodos', lineas: 115, archivos: 7 },
+    ],
+    archivos: [
+      'app/crm/columna-por-tandas.ts · app/crm/FinDeColumna.tsx — la tanda y el final de la columna',
+      'tests/_crm-tablero-medir.mjs — el arnés (con la hoja de producción: ARNES_CSS)',
+    ],
+    revisar: '/crm',
+  },
 ];

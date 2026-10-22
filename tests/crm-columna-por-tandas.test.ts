@@ -7,6 +7,13 @@
 //   · antes (todas dibujadas): 300 → pinta en 934 ms, 1,1 s de tareas largas · 1.050 → 1,13 s, tildar 348 ms, 1,6 s
 //     (en otra corrida, con la máquina más cargada: 2,2 s y 3,6 s);
 //   · después (60 por columna, y 60 más al llegar al fondo): 300 → 98 ms, 264 ms · 1.050 → 161 ms, tildar 32 ms, 480 ms.
+// Y DE 60 A 30 (22/10/2026, noche), con la hoja de estilos de producción en el arnés (ARNES_CSS) y los leads repartidos
+// como en el CRM principal del ws1 (?cols=8, 1.169 leads):
+//   · todas dibujadas: 1.169 tarjetas, 14.528 nodos, pinta en 3,0–3,6 s, recalcular el estilo de todo 189–236 ms;
+//   · 60 por columna: 480 tarjetas, 6.190 nodos, 1,8 s, 102 ms · 30 por columna: 240, 3.280 nodos, 0,4–0,9 s, 48–52 ms.
+//   ⚠️ El arnés MIENTE A LA BAJA: en el Chrome de Martín (producción, ws3, 302 tarjetas y 4.923 nodos) recalcular el
+//   estilo de todo tardó 410 ms (177–759) contra 60 ms del arnés con 3.947: unas 7 veces por nodo. Lo que pesa es la
+//   CANTIDAD DE NODOS, no una regla ni el JS: por eso la tanda chica.
 // Lo que NO puede cambiar: el conteo de la columna, la casilla que tilda a TODOS los de la columna (también los que no
 // se dibujaron) y el orden al soltar miran la columna entera.
 //
@@ -34,13 +41,13 @@ const sinComentarios = (src: string) => src
 const BOARD = sinComentarios(leer('app/crm/CrmBoard.tsx'));
 const columna = () => { const i = BOARD.indexOf('const renderColumn = '); return BOARD.slice(i, BOARD.indexOf('const caminoTarjeta = ', i)); };
 
-test('cuántas se dibujan: una tanda de 60, y las que se pidan; nunca más que las que hay', () => {
-  assert.equal(TANDA_COLUMNA, 60);
-  assert.equal(cuantasDibujar(1050, undefined), 60);
+test('cuántas se dibujan: una tanda de 30, y las que se pidan; nunca más que las que hay', () => {
+  assert.equal(TANDA_COLUMNA, 30);
+  assert.equal(cuantasDibujar(1050, undefined), 30);
   assert.equal(cuantasDibujar(1050, 120), 120);
-  assert.equal(cuantasDibujar(30, undefined), 30);
+  assert.equal(cuantasDibujar(20, undefined), 20);
   assert.equal(cuantasDibujar(0, 180), 0);
-  assert.equal(rotuloVerMas(990), 'Ver 60 más · quedan 990');
+  assert.equal(rotuloVerMas(990), 'Ver 30 más · quedan 990');
   assert.equal(rotuloVerMas(12), 'Ver 12 más · quedan 12');
 });
 

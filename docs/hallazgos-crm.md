@@ -10167,17 +10167,34 @@ tests/crm-traer-todos.test.ts
   /crm/prospectos, y había un segundo salto: «Volver al CRM» iba a /crm pelado, así que desde «Sprint 3 días» devolvía
   al CRM principal. Ahora el renglón que navega lleva «→», «Buscar prospectos» lleva el CRM (`?funnel=`) y «Volver a
   «Sprint 3 días»» vuelve a él (tests/crm-llamada-22-10-p1.test.ts, C6).
-- **Sin confirmar: el tablero de «Sprint 3 días» trabó la pestaña** del Chrome de Martín más de dos minutos al abrir
-  (300 tarjetas en «Lead entrante»). Las capturas y los clics por la extensión daban «el renderer no responde», y se
-  repitió al volver a entrar. El ws3 se destrabó al navegar de nuevo. Puede ser el tablero o la extensión: falta medirlo
-  con el Rendimiento de DevTools, o abriéndolo a mano.
-- **Medido sin el Chrome de Martín (22/10), el tablero NO explica minutos, pero sí escalaba mal.** Con el CrmBoard real
-  en un Chrome sin ventana (tests/_crm-tablero-medir.mjs) y foto y «Datos pendientes» en todas, dibujar TODAS las
-  tarjetas costaba 934 ms con 300 y 1,13 s con 1.050 (hasta 2,2 s y 3,6 s de tareas largas con la máquina cargada), y
-  tildar una, 348 ms. Ahora cada columna dibuja 60 y suma 60 al llegar al fondo (FinDeColumna.tsx): 98 ms con 300 y
-  161 ms con 1.050, y tildar 32 ms. El conteo, la casilla de la columna, mover a los tildados y el orden al soltar
-  siguen mirando la columna entera. **Lo de los minutos sigue sin explicar**: con datos de prueba no aparece, así que es
-  lo que el arnés no tiene (las fotos reales del CDN, la extensión de Chrome) o una máquina más lenta.
+- **El tablero trabado en el Chrome de Martín: lo que pesa son los NODOS, y en ese Chrome cada uno cuesta ~7 veces lo
+  que en el arnés (22/10, noche, medido en producción).** Con `long-animation-frame`, que atribuye el JS de cada cuadro
+  largo: en el ws3 (302 tarjetas, 4.923 nodos) los cuadros de 4 a 7,5 s casi no tenían JS (React redibuja las 302 en
+  100–300 ms). Eran estilo, layout y pintado. Recalcular el estilo de todo (una variable en `<html>`, como
+  `--ancho-panel-mako`) tardó 410 ms (177–759); con el `<main>` escondido, 36 ms. En el arnés, 60 ms con 3.947 nodos.
+  El ws1 principal (1.169 tarjetas, 17.256 nodos, la página de 86.636 px) seguía sin contestar una hora después.
+- **Lo que NO era (descartado midiendo, que era lo obvio):**
+  - el CSS de la app: la hoja de producción en el arnés (`ARNES_CSS`) da 1–2 s, igual que sin ella;
+  - el árbol de accesibilidad: `ARNES_A11Y` y `ARNES_CDP` (lo que prende una extensión) dan igual;
+  - un bucle del tablero: 8 s quieto dan cero tareas largas;
+  - las fotos: 13 en el ws3;
+  - los `<style>` repetidos: hay 5 en toda la página.
+- **El arreglo: 30 tarjetas por columna (eran 60) y el `maxHeight`.** Medido con la hoja de producción y los 1.169
+  repartidos en 8 columnas (`?cols=8`):
+  - todas: 14.528 nodos, 3,0–3,6 s y 189–236 ms el estilo de todo;
+  - 60: 6.190 nodos, 1,8 s y 102 ms;
+  - 30: 3.280 nodos, 0,4–0,9 s y 48–52 ms.
+  «Sprint 3 días», con los 1.050 en una sola columna: 30 tarjetas, 709 nodos, 76–349 ms. El conteo, la casilla de la
+  columna, mover a los tildados y el orden al soltar siguen mirando la columna entera.
+- **`flex: 1` le gana a `height` cuando el padre es un flex en COLUMNA**, como el envoltorio de la app. El `<main>` del
+  Kanban medía 21.285 px en el ws3 y 86.636 en el ws1, y la barra del scroll quedaba fuera de la pantalla. Peor: el
+  observador de las tandas veía siempre el fondo y las cargaba todas. `maxHeight` sí topea. El arnés replica ese
+  envoltorio (`#raiz` en columna) y mide `altoMain` contra `altoVentana`.
+- **Trampas para medir en el Chrome de Martín:**
+  - `long-animation-frame` con `buffered: true` dice de quién es cada cuadro largo; `longtask` no.
+  - Un cuadro de ~1 s con `blockingDuration` 0 no es una traba: el navegador demoró el pintado de una pestaña oculta.
+  - Con la pestaña trabada, la extensión corta a los 45 s (`Runtime.evaluate timed out`).
+  - El foco que da la extensión dispara el `router.refresh` del tablero (uno cada 15 s): medir lo empeora.
 - **Trampas del arnés** (para el próximo que mida una pantalla así):
   - Una acción `'use server'` se cambia por funciones vacías. Lo que sólo existe en el server (módulos de Node, SDKs,
     `next/server`) va como ESM con los nombres que pide quien lo importa. Un CommonJS no sirve: esbuild copia sólo las
@@ -10187,6 +10204,9 @@ tests/crm-traer-todos.test.ts
   - Un clic en la tarjeta abre la ficha completa, que sin base se rompe. Lo que redibuja el tablero sin la ficha es
     «Ver info» (la ficha rápida es estado del tablero).
   - La primera corrida de cada Chrome carga el script: hay que calentar con una corrida chica antes de comparar.
+  - El arnés carga el CSS como vacío (`loader: { '.css': 'empty' }`). Sin `ARNES_CSS`, no ve las reglas globales. Igual, no
+    explican la traba, y el arnés sigue midiendo ~7 veces más rápido que el Chrome de Martín: un número del arnés es una
+    cota de abajo, no lo que va a ver la persona.
 
 **Vive en:** app/crm/CrmBoard.tsx (`confirmManualMeeting`, `opEtapa`), EtapasModal.tsx, CrmToolbar.tsx,
 lead-view/LeadTabs.tsx · tests/crm-llamada-22-10-p1.test.ts
