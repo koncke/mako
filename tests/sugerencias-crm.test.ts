@@ -458,7 +458,8 @@ test('el chat: permiso del CRM en el server; en la pantalla, la estrella del Ops
   // icono de MaKo, se envía lo que sea que envíen al cerebro y ya el cerebro se encarga de repartir»): la pieza de todas
   // las tabs, con lo del CRM arriba del hilo y su número en la estrella. Ni barra, ni estrella, ni chat propios.
   assert.match(panel, /import \{ MakoEnLaTab \} from '@\/app\/_chat\/MakoEnLaTab';/);
-  assert.match(panel, /return <MakoEnLaTab tab="CRM" arriba=\{sugerencias\} aviso=\{n\} pedido=\{pedido\} \/>;/);
+  // Con el lead de la ficha abierta (CR3, 22/10/2026): app/crm/lead-abierto.ts.
+  assert.match(panel, /return <MakoEnLaTab tab="CRM" entidad=\{entidadDelLead\(abierto\)\} arriba=\{sugerencias\} aviso=\{n\} pedido=\{pedido\} \/>;/);
   assert.doesNotMatch(panel, /ChatMakoCrm|hilo=1|<aside\b|<Muneco\b|data-sidebar|--ancho-panel-mako/, 'el CRM volvió a armar su chat, su barra o su estrella');
   assert.ok(!existsSync(join(RAIZ, 'app/crm/mako-crm/ChatMakoCrm.tsx')), 'volvió el chat propio del CRM');
   // «Hacerlo» de una que se revisa con MaKo: al Cerebro, con el CRM nombrado.
@@ -466,7 +467,9 @@ test('el chat: permiso del CRM en el server; en la pantalla, la estrella del Ops
   // La pieza: el pedido abre el panel, sale UNA vez por `vez` (el panel se desmonta al cerrar: lo recuerda la pieza) y sale
   // al Cerebro, no al chat que esté cargando.
   const pieza = sinComentarios(leer('app/_chat/MakoEnLaTab.tsx'));
-  assert.match(pieza, /if \(!pedido \|\| ultimaVez\.current === pedido\.vez\) return;\n\s*ultimaVez\.current = pedido\.vez;\n\s*setPorMandar\(pedido\);\n\s*setAbierto\(true\);/);
+  // `abrir()` desde el 22/10/2026 (CR4): abre, y decide si va encima de un modal de la tab.
+  assert.match(pieza, /if \(!pedido \|\| ultimaVez\.current === pedido\.vez\) return;\n\s*ultimaVez\.current = pedido\.vez;\n\s*setPorMandar\(pedido\);\n\s*abrir\(\);/);
+  assert.match(pieza, /const abrir = useCallback\(\(\) => \{ setSobre\(encimaDeModales && profundidadModales\(\) > 0\); setAbierto\(true\); \}, \[encimaDeModales\]\);/);
   assert.match(pieza, /if \(!pedido \|\| !k\.esJefe\) return;\n\s*if \(k\.enviar\(pedido\.texto\)\) onMandado\(\);/);
   // Abierta, el tablero le deja el lugar: la pieza publica su ancho y el padding izquierdo de CrmBoard lo lee.
   assert.match(leer('app/crm/CrmBoard.tsx'), /padding: `16px 44px \$\{view === 'kanban' \? ABAJO_KANBAN : 60\}px calc\(44px \+ var\(--ancho-panel-mako, 0px\)\)`/);

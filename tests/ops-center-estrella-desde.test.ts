@@ -98,7 +98,8 @@ test('3. el turno la usa y la ruta y el motor la pasan', () => {
   const motor = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
   assert.match(motor, /\.\.\.\(desdeTab \? \{ desde: desdeTab \} : \{\}\)/);
   const estrella = sinComentarios(leer('app/_chat/MakoEnLaTab.tsx'));
-  assert.match(estrella, /export function MakoEnLaTab\(\{ tab, arriba = null, aviso = 0, pedido = null, entidad = null, modo = null, onModo \}/);
+  // Con `encimaDeModales` desde el 22/10/2026 (CR4, chat CRM): el Plan y Clientes abren su tarjeta en un modal.
+  assert.match(estrella, /export function MakoEnLaTab\(\{ tab, arriba = null, aviso = 0, pedido = null, entidad = null, modo = null, onModo, encimaDeModales = false \}/);
   assert.match(estrella, /useChatCliente\(\{[^}]*caja, desde \}\)/);
   assert.match(estrella, /\{onModo && <ModosMako modo=\{modo \?\? 'editar'\} onModo=\{onModo\} \/>\}/, 'el slot de Analizar · Editar');
 });

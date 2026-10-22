@@ -130,7 +130,8 @@ test('3. cada tipo se dibuja', async () => {
 
 test('4. las tres caras del hilo usan la MISMA pieza, y las pantallas suman lo que vuelve de la tarjeta', () => {
   assert.match(sinComentarios(leer('app/_chat/HiloMako.tsx')), /if \(x\.k === 'bloque'\) \{\s*const de = x\.deTarjeta;\s*filas\.push\(<DeMako key=\{x\.id\} quien=\{quien\} ancho><BloqueHilo b=\{x\.b\}/, 'la computadora');
-  assert.match(sinComentarios(leer('app/crm/lead-view/MakoAnalystLead.tsx')), /if \(x\.k === 'bloque'\) \{[\s\S]{0,400}?return <FilaMako><BloqueHilo b=\{x\.b\}/, 'el MaKo Analyst de la ficha');
+  // El de la ficha, con el MISMO hilo desde el 22/10/2026 (CR3).
+  assert.match(sinComentarios(leer('app/crm/lead-view/MakoAnalystLead.tsx')), /<HiloMako key=\{leadId\} items=\{items\} quien=\{QUIEN\}/, 'el MaKo Analyst de la ficha');
   // La pieza no trae CSS propio (así se dibuja en este test); las clases van en la hoja que carga el teléfono.
   assert.doesNotMatch(leer('app/_chat/BloqueHilo.tsx'), /import ['"][^'"]+\.css['"]/);
   assert.match(leer('app/_chat/PegadoHilo.tsx'), /import '\.\/chat\.css';/, 'el teléfono carga la hoja con PegadoHilo');

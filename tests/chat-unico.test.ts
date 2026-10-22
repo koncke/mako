@@ -39,7 +39,8 @@ const INVENTARIO: Record<string, 'caja única' | `pendiente, ${string}`> = {
   'app/offer/ChatOffer.tsx': 'caja única',
   'app/m/offer/ComposerOfferM.tsx': 'caja única',
   'app/automations/ChatMako.tsx': 'pendiente, de Automations',
-  'app/crm/lead-view/MakoAnalystLead.tsx': 'pendiente, de CRM',
+  // El MaKo Analyst de la ficha de un lead (22/10/2026, CR3): el hilo y la caja del Ops Center, con su motor (/api/crm/analyst).
+  'app/crm/lead-view/MakoAnalystLead.tsx': 'caja única',
   // 22/10/2026 (OC2): EditorMako.tsx no es un chat (edita el pedido y las sugerencias del botón de un gráfico) y salió de la
   // lista; el panel «Pídele un cambio a MaKo» del Dashboard y la caja de «Pídeselo a MaKo» no estaban, y la regex no los veía.
   'app/dashboard/PanelEditarMako.tsx': 'pendiente, de Dashboard',

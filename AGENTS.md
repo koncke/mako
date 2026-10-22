@@ -1738,6 +1738,10 @@ código nuevo:
     de la ficha, la automatización del lienzo), y una pantalla que mira sin editar pasa `modo="analizar"`. Las herramientas toman
     la entidad por defecto, y en «analizar» el servidor no deja nada que escriba. Un tipo de entidad nuevo va en `ENTIDADES`,
     con su parámetro.
+    **Y SI LO ABIERTO ES UN MODAL, `encimaDeModales`** (22/10/2026, CR4): la estrella vive en z 55 y la pila de modales
+    arranca en 130, así que con la tarjeta abierta el fondo la tapa y no se puede tocar. El Plan y Clientes lo pasan: la
+    estrella queda encima del modal y el panel entra a la pila como capa `anidada` (la tarjeta se sigue viendo y el Escape
+    cierra sólo el panel). Un parámetro genérico (`id`) no se toma por defecto (`param: null`): «usa ese id» lo dice el system.
   - **EL OPS CENTER SÓLO MUESTRA LO QUE ES PARA MARTÍN; LO QUE SE DICEN LOS CHATS ENTRE ELLOS NO SE DIBUJA** (22/10/2026;
     Martín: «me salen estos textos largos innecesarios en muchos chats... No los quiero»). Se dibuja lo que él escribe y lo
     que el chat le contesta («Voy a trabajar en…», «Ya está», sus preguntas). Un mensaje de otro chat (`otro`) y el resumen de
