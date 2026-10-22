@@ -5782,3 +5782,51 @@ tarjeta que en «Si responde» sale con la cita, o darle `conEscrito` y dejarla 
 En el ws3 (sin línea), con tarjetas de WhatsApp, Publicar y «Probar» abren «Vincular número» (y eso crea la fila
 `mako_ws3` en «conectando», sin escanear). O sea: el simulador, que no manda nada, también necesita el chip. La cohorte
 se midió por script (`leadsDeCohorte` con cada árbol, sólo lectura) en vez del dry-run de una automatización activa.
+
+## La llamada con Mauricio del 22/10/2026: el goteo, «Discutir / Editar» y la etapa que «no existía»
+
+Lo que salió de probar la campaña del Sprint en vivo con Mauricio (Fathom 195129619, 01:51-02:16; la lista en
+C:/dev/cerebro-herramientas/feedback-llamada-mau-22-10.md, A1-A7). El plan cambió: el CRM «Sprint 3 días» (#44 en el
+ws1), los ~1.050 en «Lead entrante», y cada día Mauricio mueve A MANO 50 a «Prospección activa», que dispara la apertura.
+
+### El goteo: lo que frena el goteo tiene que pasar a SU TURNO, o sale de a uno por HORA
+
+**Pedido:** «al pasar 50 a Prospección activa, que no salgan juntos: uno, esperar 4-5 min, el siguiente», configurable
+por automatización (minutos, tope por día, días). **Regla:** un SUB-tope adentro del de la línea (lib/goteo.ts; la
+línea sigue siendo el techo anti-ban del negocio), con los días del horario propio. **La trampa:** el tick de cada
+minuto mira sólo lo que venció hace ≤10 min (`VENTANA_FRESCA_MIN`). Una fila frenada que se deja «vencida» con su hora
+vieja la ve recién la corrida de cada HORA: con 50 inscriptos de una, el goteo de 5 minutos habría mandado uno por hora.
+Lo frenado SÓLO por el goteo pasa a su turno escalonado (`turnoDeGoteo`: el lugar libre más `minutos` por cada una que
+ya está delante); lo frenado por la línea, como siempre. **Vive en:** lib/goteo.ts · lib/nutricion.ts (`usoDelGoteo`,
+`sinLugar`, `quedaFrenada`) · Configuraciones › Límites de cada automatización · test: tests/goteo-automatizacion.test.ts.
+**Para que la línea deje pasar 50 a la campaña:** la campaña usa el día de la línea menos la reserva para lo que entra
+(hasta 10 por día y 1 por hora: tests/primero-lo-que-entra.test.ts) y menos lo que ya mandaron las bienvenidas. Con el
+goteo de 5 min son 12 por hora: la línea pide ≥13 por hora y ~65 por día.
+
+### El chat no obedecía porque no veía la charla (y no porque «no quisiera»)
+
+**Síntoma (el chat guardado de #289):** a «quiero que estos sean los mensajes: …» MaKo contestó «habría que editarlos o
+añadir nuevas tarjetas»; a «hazlo como te lo indiqué», «indícame qué cambios…»; al tercero armó 2 de 4 y borró una
+variable. **Lo obvio era tocar el prompt de editar; lo de verdad:** (1) la primera frase la ruta la mandó a EXPLICAR o el
+modelo contestó en vez de cambiar, y no había forma de pedir «hacelo»; (2) el prompt de editar recibía SÓLO el último
+mensaje: «como te lo indiqué» no tenía a qué referirse, aunque el cliente ya mandaba el `historial`. **Regla:** la
+persona elige Discutir (sólo contesta) o Editar (nunca explica; contestar sin cambiar es un error que el reintento
+corrige; los textos pegados van tal cual); y la charla viaja SIEMPRE (`bloqueDeLaCharla`). Medido en seco con el flujo
+de #289: «hazlo como te lo indique» cambió 1 tarjeta y agregó la otra con el texto tal cual. **Vive en:**
+lib/flujo-ia-intencion.ts · app/api/chat-agent/secuencias/ia/route.ts · app/automations/ChatMako.tsx · test:
+tests/chat-mako-discutir-editar.test.ts. **Sin hacer:** al CREAR, el modelo sigue inventando el texto de una tarjeta de
+audio que la persona dijo que graba ella (el pedido de #289); crear no tiene modo Editar.
+
+### «Esta etapa no existe» NO era un cache
+
+Mauricio creó «Prospección activa» y MaKo dijo «esa etapa no existe»: parecía que el chat veía las etapas viejas. El
+chat guardado lo desmiente: la pregunta del CRON ya ofrecía «Prospección activa» (`venta:44:st0`), y el aviso era
+«Saqué «Mover de etapa»: esa etapa no existe» por «Contactado», que el CRM «Sprint 3 días» no tiene (el pedido venía del
+plan viejo). **Regla:** un aviso de algo que no existe dice CUÁL y DÓNDE (lib/flujo-ia.ts, `resolverAccion`).
+
+### La plantilla de prospección
+
+No había ninguna para «apertura a los que muevo a una etapa». «Prospección: apertura» (lib/plantillas-automatizaciones.ts):
+CRON en la etapa a la que se MUEVE (no la de entrada), «Nunca le escribiste» + «Tiene WhatsApp», una apertura que nace
+para aprobar. Sin AI Step: el test de la galería exige 2+ escenarios a todo AI Step, y el «sólo avisa» sin escenarios no
+pasa; el aviso de quien responde se arma con «Si responde» → «MaKo en WhatsApp».
