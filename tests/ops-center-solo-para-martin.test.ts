@@ -43,7 +43,7 @@ const RUNNER = `<cross-session-message from="local_5cc6190d-8390-4df1-b215-849f5
 Mirá el Ops Center del teléfono.
 
 — Al terminar, dejá el cierre en cuatro renglones:
-node "C:\\Users\\marti\\.claude\\operaciones\\cartero.mjs" cierre ${TRABAJO} --decidido "…" --hecho "…"</cross-session-message>`;
+node "~/.claude/operaciones/cartero.mjs" cierre ${TRABAJO} --decidido "…" --hecho "…"</cross-session-message>`;
 const OTRO_CHAT = `<cross-session-message from="local_1ec5ff9f-ff84-4e3e-bde3-d0d537077ccc" name="Cerebro › Integración">Integración → Cerebro: READY. 87365c830 está EN PRODUCCIÓN: deploy de Vercel Ready; main e integracion = 87365c830. Salió con --no-verify.</cross-session-message>`;
 const COMPACTACION = 'This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.\n\nSummary:\n1. Primary Request and Intent: …';
 const AVISO_SESIONES = '<side-sessions-event>La sesión «CRM» terminó un turno.</side-sessions-event>';
