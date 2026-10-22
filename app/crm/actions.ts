@@ -1637,7 +1637,9 @@ function pasaFiltros(
 
   if (on.has('dinero') && f.dinero !== 'no-importa') {
     const vendido = nNum(l.monto_cierre_usd);
-    const cobrado = nNum(l.total_cobrado_usd);
+    // Lo cobrado de la VENTA, como la columna «Cobrado USD» del mismo export (cuarta revisión, B5): con el total, quien sólo
+    // pagó una renovación pasaba «Solo con dinero cobrado» y salía con Cobrado vacío.
+    const cobrado = cobradoDeLaVentaSiHay(l) ?? 0;
     switch (f.dinero) {
       case 'con-monto': if (!(vendido > 0)) return false; break;
       case 'con-cobro': if (!(cobrado > 0)) return false; break;

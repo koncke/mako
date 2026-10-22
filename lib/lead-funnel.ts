@@ -30,21 +30,48 @@ import { pasaAGanado } from './crm-curso-al-ganar-reglas';
  * Nunca tira: el movimiento ya está hecho, y el próximo pago la vuelve a sincronizar.
  */
 async function resincronizarCobrado(leadIds: readonly number[], funnelId?: number): Promise<void> {
+  let ids = [...new Set(leadIds)];
   try {
-    let ids = [...new Set(leadIds)];
-    if (funnelId != null && ids.length) {
-      const { data, error } = await (await getTenantDb()).from('pagos').select('lead_id').eq('funnel_id', funnelId).in('lead_id', ids);
-      if (error) throw new Error(error.message);
-      ids = [...new Set(((data ?? []) as Array<{ lead_id: number | string }>).map((r) => Number(r.lead_id)))];
-    }
     if (!ids.length) return;
-    // Import dinámico: lib/pagos.ts es pesado y no hace falta para mover de CRM.
-    const { sincronizarTotalCobrado } = await import('./pagos');
-    for (const id of ids) await sincronizarTotalCobrado(id);
+    // Sólo los que tienen pagos (en ese CRM, si se dice): un lead sin pagos no tiene nada que re-sincronizar, y
+    // sincronizarlo escribía casa = 0 donde había NULL (cuarta revisión, B4).
+    let q = (await getTenantDb()).from('pagos').select('lead_id').in('lead_id', ids);
+    if (funnelId != null) q = q.eq('funnel_id', funnelId);
+    const { data, error } = await q;
+    if (error) throw new Error(error.message);
+    ids = [...new Set(((data ?? []) as Array<{ lead_id: number | string }>).map((r) => Number(r.lead_id)))];
   } catch (e) {
-    console.error(`[lead-funnel] no pude re-sincronizar lo cobrado de ${leadIds.length} lead(s):`, e instanceof Error ? e.message : e);
+    console.error(`[lead-funnel] no pude ver a quién re-sincronizar (${leadIds.length} lead(s)):`, e instanceof Error ? e.message : e);
+    return;
+  }
+  if (!ids.length) return;
+  // Import dinámico: lib/pagos.ts es pesado y no hace falta para mover de CRM.
+  const { sincronizarTotalCobrado } = await import('./pagos');
+  // De a uno, cada uno con su catch (cuarta revisión, B1): una falla en el tercero no deja a los siete siguientes viejos.
+  for (const id of ids) {
+    try {
+      await sincronizarTotalCobrado(id);
+    } catch (e) {
+      console.error(`[lead-funnel] no pude re-sincronizar lo cobrado del lead ${id}:`, e instanceof Error ? e.message : e);
+    }
   }
 }
+
+/**
+ * ¿El lead tiene pagos con el funnel de este CRM, sin estar en él? Sólo pasa si se le quitó ESA casa con pagos: los pagos
+ * conservan su funnel y hoy cuentan como de la casa nueva. Volver a agregarlo a ese CRM los movería a ese trato, y el saldo
+ * de la venta saltaría en el acto a la venta entera (cuarta revisión, M1), sin un Deshacer (quitar lo frena por la plata).
+ * Es el espejo del guard de quitar. Tira si no puede leer.
+ */
+async function pagosHuerfanosDe(leadIds: readonly number[], funnelId: number): Promise<Set<number>> {
+  if (!leadIds.length) return new Set();
+  const { data, error } = await (await getTenantDb()).from('pagos').select('lead_id').eq('funnel_id', funnelId).in('lead_id', [...leadIds]);
+  if (error) throw new Error('No se pudieron revisar los pagos del lead: ' + error.message);
+  return new Set(((data ?? []) as Array<{ lead_id: number | string }>).map((r) => Number(r.lead_id)));
+}
+
+export const TIENE_PAGOS_DE_ESE_CRM = (nombre: string) =>
+  `Tiene pagos de su venta principal hechos cuando su CRM era «${nombre}»: si lo vuelves a agregar ahí, esa plata pasaría a ese CRM y su saldo cambiaría. Déjalo donde está.`;
 
 /** Las etapas de un producto (el del negocio por su propio camino: su config vive en la fila default). */
 export async function etapasDeProducto(funnelId: number): Promise<Array<{ key: string; label: string; kind?: string | null; band?: string; dot?: string }>> {
@@ -92,6 +119,7 @@ export async function agregarAProducto(leadId: number, funnelId: number, opts?: 
   if (opts?.etapa != null && !etapas.some((s) => s.key === opts.etapa)) throw new Error('Esa etapa no existe en ese funnel.');
   const etapa = opts?.etapa ?? etapaDeEntrada(etapas);
   if (!etapa) throw new Error('Ese funnel no tiene etapas.');
+  if ((await pagosHuerfanosDe([leadId], funnelId)).size) throw new Error(TIENE_PAGOS_DE_ESE_CRM(await nombreDeProducto(funnelId)));
   const autor = await autorDelMovimiento(opts?.autor);
   const db = await getTenantDb();
   const { error } = await db.from('lead_funnel').upsert(
@@ -285,9 +313,14 @@ export async function agregarLoteAProducto(leadIds: number[], funnelId: number, 
     const { data: filas, error: ef } = await db.from('lead_funnel').select('lead_id').eq('funnel_id', funnelId).in('lead_id', tanda);
     if (ef) { fallaron += tanda.length; continue; }
     const yaFila = new Set(((filas ?? []) as Array<{ lead_id: number | string }>).map((f) => Number(f.lead_id)));
-    const nuevos = ((casas ?? []) as Array<{ id: number | string; funnel_id: number | string | null }>)
+    const candidatos = ((casas ?? []) as Array<{ id: number | string; funnel_id: number | string | null }>)
       .filter((l) => casaReal(l.funnel_id == null ? null : Number(l.funnel_id), defaultId) !== funnelId && !yaFila.has(Number(l.id)))
       .map((l) => Number(l.id));
+    // Los que tienen pagos de una casa vieja que era ESTE CRM se saltean (cuarta revisión, M1): se cuentan como fallados.
+    let huerfanos: Set<number>;
+    try { huerfanos = await pagosHuerfanosDe(candidatos, funnelId); } catch { fallaron += candidatos.length; continue; }
+    fallaron += huerfanos.size;
+    const nuevos = candidatos.filter((id) => !huerfanos.has(id));
     if (!nuevos.length) continue;
     const ahora = new Date().toISOString();
     const { data: ins, error } = await db.from('lead_funnel')

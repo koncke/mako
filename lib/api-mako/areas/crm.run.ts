@@ -420,8 +420,7 @@ export const RUNNERS: Runners = {
       const campo = s(input.campo_fecha) ?? 'created_at';
       const limite = n(input.limite) ?? 30;
       const { filas, total_cartera } = await leadsFiltrados({ etapas, banda: s(input.banda), campoFecha: campo, desde: s(input.desde), hasta: s(input.hasta), persona: s(input.persona) });
-      // Lo cobrado de la VENTA de la casa (mig 0325): `listLeads` no lo trae, se lee para esta página. Sin la columna (o si
-      // falla), cae a lo de siempre (`cobradoDeLaVenta`).
+      // Lo cobrado de la VENTA de la casa (mig 0325), leído para esta página. Si la lectura falla, null y `nota_cobrado`.
       const pagina = filas.slice(0, limite);
       const deLaCasa = new Map<number, unknown>();
       // ⚠️ Supabase no tira: devuelve `error` (tercera revisión, B4). Sin leerla, «falta» caía callado a la cuenta de todos los
@@ -446,6 +445,8 @@ export const RUNNERS: Runners = {
         coinciden: filas.length, devueltos: leads.length, omitidos: filas.length - leads.length, total_cartera,
         ...(campo === 'created_at' ? { nota_fecha: 'created_at se compara por su día en UTC.' } : {}),
         nota_montos: 'Montos en USD; null = sin cargar, no cero. En suscripciones monto_cierre_usd queda null a propósito. total_cobrado_usd es lo cobrado en TODOS sus CRMs (una renovación incluida); lo que debe es falta_cobrar_usd (la venta de su CRM principal menos lo cobrado de ESA venta).',
+        // Cuarta revisión, B3: una lectura que falló no se confunde con «sin venta cargada».
+        ...(sinCasa ? { nota_cobrado: 'No pude leer lo cobrado de la venta: cobrado_de_la_venta_usd y falta_cobrar_usd van en null por eso, no por falta de venta.' } : {}),
         leads,
       });
     },

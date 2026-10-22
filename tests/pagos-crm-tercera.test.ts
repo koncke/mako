@@ -59,7 +59,8 @@ test('B1: agregar, quitar y deshacer re-sincronizan lo cobrado de la casa', () =
   assert.equal(cuerpo('export async function quitarDeProducto(').match(/await resincronizarCobrado\(\[leadId\]\);/g)?.length, 2, 'quitar una fila y quitar la casa');
   assert.match(cuerpo('export async function deshacerQuitar('), /await resincronizarCobrado\(\[d\.leadId\]\);/);
   assert.match(cuerpo('export async function agregarLoteAProducto('), /await resincronizarCobrado\(ok, funnelId\);/);
-  assert.match(f, /\.from\('pagos'\)\.select\('lead_id'\)\.eq\('funnel_id', funnelId\)\.in\('lead_id', ids\)/, 'un lote sólo sincroniza a los que tienen pagos en ese CRM');
+  // Desde la cuarta revisión (B4): sin `funnelId`, sólo los que tienen pagos; con él, los que tienen pagos en ese CRM.
+  assert.match(f, /let q = \(await getTenantDb\(\)\)\.from\('pagos'\)\.select\('lead_id'\)\.in\('lead_id', ids\);\s*if \(funnelId != null\) q = q\.eq\('funnel_id', funnelId\);/, 'un lote sólo sincroniza a los que tienen pagos en ese CRM');
 });
 
 // B3 · Rotura: `funnelDelNegocio` sin mirar `error`: 1 fallo. B4 · Rotura: `listar_leads` sin `sinCasa`: 1 fallo.
