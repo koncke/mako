@@ -322,14 +322,21 @@ export function salidaDelOnboarding(interes: InteresId | undefined): string {
  * nombre: si no, se perdía) y al final la salida (`salidaDelOnboarding`).
  */
 export function mensajesDelHilo(
-  mensajes: ReadonlyArray<{ de: 'mako' | 'yo'; texto: string; adjuntos?: ReadonlyArray<{ nombre: string }> }>, interes: InteresId | undefined,
-): Array<{ role: 'user' | 'assistant'; content: string }> {
-  const out = mensajes.map((m) => ({
-    role: m.de === 'yo' ? 'user' as const : 'assistant' as const,
-    content: (m.texto ?? '').trim() || (m.adjuntos ?? []).map((a) => `Adjunto: ${a.nombre}`).join('\n'),
-  })).filter((m) => m.content);
+  mensajes: ReadonlyArray<{ de: 'mako' | 'yo'; texto: string; adjuntos?: ReadonlyArray<{ nombre: string }>; id?: string; audio?: { secs: number } }>,
+  interes: InteresId | undefined,
+): Array<{ role: 'user' | 'assistant'; content: string; audio?: { mensaje: string; secs: number } }> {
+  // Una respuesta por VOZ lleva cuál mensaje de Offer tiene el audio (21/10/2026, Florencia: se copiaba sólo la
+  // transcripción): el audio no se copia, se reproduce desde la conversación (/api/offer/audio).
+  const out = mensajes.map((m) => {
+    const audio = m.audio && typeof m.id === 'string' && m.id ? { audio: { mensaje: m.id, secs: Math.max(0, Math.round(m.audio.secs || 0)) } } : {};
+    const content = (m.texto ?? '').trim() || (m.adjuntos ?? []).map((a) => `Adjunto: ${a.nombre}`).join('\n') || ('audio' in audio ? NOTA_DE_VOZ : '');
+    return { role: m.de === 'yo' ? 'user' as const : 'assistant' as const, content, ...audio };
+  }).filter((m) => m.content);
   return [...out, { role: 'assistant', content: salidaDelOnboarding(interes) }];
 }
+
+/** El texto de una nota de voz que no trae transcripción. */
+export const NOTA_DE_VOZ = 'Nota de voz';
 
 export function rutaDeEntrada(interes: InteresId | undefined): string {
   return INTERESES.find((i) => i.id === interes)?.ruta ?? '/general';

@@ -2772,15 +2772,51 @@ aceptaba la opción exacta: todo esto entraba nuevo.
 - **Medido en la base (21/10, noche): el ws21 tiene CERO chats en chart_sessions.** Lo único que su Ops Center puede
   mostrar es la proyección de Offer (`hiloDeOffer`), y ésa tiene las 33 filas con las preguntas de MaKo. Lo que falta
   son las preguntas Y las respuestas del arranque (nombre, negocio, fase, cómo llegó, interés, cobro). Además,
-  `mensajesDeOffer` descarta el mensaje del PDF (texto vacío y `adjuntos`), y `mensajesDelHilo` lo escribe como
-  «Adjunto: …»: son dos mapeos del mismo dato.
-- ⚠️ **Trampa para reconstruirlo:** `hechosDelArranque` lee la CAPA y el PERFIL de quien mira. Armado para el super
-  admin, da otro modo («plan» u «oferta») y otro nombre que armado para ella. Una reconstrucción para el Ops Center
-  tiene que leer la capa del negocio, no la de la sesión.
-- **Sin hacer (punto 1 del Cerebro):** guardar cada pregunta del arranque con su respuesta en la sesión de Offer
-  (`de: 'mako'` / `'yo'`, en el mismo lugar que la conversación), mostrarlo en el Ops Center y en el historial del
-  super admin, y para Florencia reconstruirlo desde `onboarding.arranque`, marcado «reconstruido». Vive en
-  lib/onboarding-arranque-server.ts (`mensajesParaElHilo`) y en lib/chat-mako-indice.ts (`hiloDeOffer`).
+  `mensajesDeOffer` descartaba la fila 3, el documento que ella mandó como respuesta (texto vacío y `adjuntos`), y
+  `mensajesDelHilo` lo escribe como «Adjunto: …»: eran dos mapeos del mismo dato.
+
+**Las preguntas del arranque, guardadas (21/10, noche, chat «Onboarding», claude3).**
+- **Medido en pantalla, no supuesto** (Chrome de Martín, `/api/auth/me` = super admin, `/second-brain?ws=21`): la barra
+  muestra «Second Brain» vacío (es el de Martín), «Offer › Mi oferta» y «Antes» sin nada. «Mi oferta»
+  (`/api/mako/chat?offerId=14`) trae 32 mensajes que alternan bien, con todas las preguntas de Offer. ⚠️ **El diagnóstico
+  obvio («la proyección pierde las preguntas» o «dibuja sólo `role: user`») era el equivocado.** Lo que faltaba era otra
+  cosa: el arranque entero, preguntas y respuestas, porque nunca se guardó. La conversación empezaba en «¿Tienes un
+  documento de tu oferta…?». Y el documento que ella mandó no se veía, así que quedaban dos preguntas de MaKo seguidas.
+- **Ahora se guarda como se dibujó**: lib/onboarding-historial.ts anota cada mensaje del arranque la primera vez que la
+  pantalla lo dibuja (por id Y texto: si una respuesta cambia, como el nombre que se confirma, queda lo que escribió y lo
+  confirmado). Se anota en cada respuesta (la ruta, `vistaArranque({ anotar: true })`), nunca al mirar. La lectura es
+  estricta y se escribe con compare-and-set. El Ops Center (`hiloDeOffer`) y el chat «Onboarding»
+  (`mensajesParaElHilo`) lo juntan por hora con la conversación de Offer. Regla general en AGENTS.md («Una conversación
+  que se le mostró a alguien es un HECHO»).
+- ⚠️ **No va en los `mensajes` de Offer**, aunque era lo pedido («en la sesión de Offer»). Esa lista maneja el
+  diagnóstico de Offer: el primer turno (`primero.era`), qué fase ya contestó (`estadoDiagnostico`), el último mensaje y
+  lo que lee el modelo. Y Offer la reescribe entera en cada turno. Una pregunta del arranque ahí adentro Offer la toma
+  como suya. Va en `onboarding.historial`, atada por `sesionId`.
+- ⚠️ **La «trampa» de `hechosDelArranque` era a medias.** `getCapaActual` lee la capa del WORKSPACE que está en contexto
+  (`workspaces.capa`), no la de quien mira. Y el perfil (`nombreCuenta`) no lo usa `mensajesDeArranque`, sólo
+  `leerRespuesta`. Lo que sí hay que mirar al reconstruir es que el ws esté en contexto (`runWithWorkspace`). Además, una
+  lectura que falla y cae a «no» (el diagnóstico, la conversación) cambia lo que se dibuja (`faseCaida`, `sesionCaida`):
+  así no se anota nada.
+- **La reconstrucción** (scripts/reconstruir-historial-onboarding.mts, en seco por defecto) alcanzó 4 negocios: ws3
+  (prueba), 20, 21 y 22, todos terminados. Lo de antes de Offer va justo antes de su primer mensaje. Lo de después va
+  antes de que se cerrara el onboarding. Todo lleva la marca `reconstruido`, que en el Ops Center ve sólo el super admin
+  («Reconstruido: …»). Los textos son los de hoy, no los del día en que pasó. Un negocio que ya tiene historial no se
+  toca, así que se puede volver a correr después del deploy. ⚠️ **Va ANTES del script que arregla el nombre del ws21**,
+  porque ése cambia `onboarding.arranque.negocio`, y armado después diría que ella contestó el nombre nuevo.
+- **«No veo el chat de ONBOARDING» (Martín, 21/10 ~23:00).** El chat «Onboarding» es de la clienta (chart_sessions con su
+  chart_key) y el super admin que mira un ws ve SUS chats, no los de ella. Por eso no aparecía aunque existiera. Ahora la
+  conversación del onboarding se lista con el título «Onboarding» para quien no tiene su copia (`chatsDeOffer`), y trae el
+  arranque entero. A Florencia, el suyo se le crea en su próxima visita al Ops Center, ya desde el historial.
+- **Los audios, medidos (ws21):** 7 de sus 16 respuestas fueron por voz, y los 7 audios están guardados (sesión 14,
+  `mensajes[].audio.path`, y los 7 archivos en archivero/21/offer/). No se perdió ninguno. En el arranque no hay audios
+  que perder: mientras pregunta el arranque el micrófono está apagado (`voz={arranque.manda ? undefined : …}` en
+  app/offer/OfferApp.tsx). Lo que faltaba era MOSTRARLOS: `mensajesDeOffer` pasaba sólo la transcripción, y la copia al
+  chat «Onboarding» guardaba sólo texto. Ahora `MensajeChat.audio = { url, secs }`, con la URL de /api/offer/audio sin el
+  `?ws=` (la pantalla le pone `conWs`). En chart_chats queda `bloques: [{ k: 'audio', sesion, mensaje, secs }]`, sin ruta
+  de Storage: la ruta de Offer la vuelve a buscar con su puerta. El reproductor en la burbuja lo dibuja el chat «Ops
+  Center».
+- **Sin hacer:** en modo 'plan' (sin Offer) el historial se guarda pero ningún hilo del Ops Center se lo muestra al super
+  admin, porque la proyección cuelga de la conversación de Offer. Vive en lib/chat-mako-indice.ts.
 
 **Sin hacer:** «Vendo 20 a 500 dólares» se sigue leyendo como un rango; la confirmación lo muestra y se corrige con un
 toque. Las etiquetas de los tramos dicen «$» sin «USD» (lib/fase-diagnostico.ts): es una decisión de copy, no de este

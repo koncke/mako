@@ -2126,6 +2126,21 @@ activas del disparador. El test ata la regla a lo que decide el motor: `disparaP
 el motor decide con varias.
 Detalle: docs/hallazgos-chatbot.md.
 
+# Una conversación que se le mostró a alguien es un HECHO: se guarda como se dibujó
+
+Lo que el server MIDE (el estado vivo) sirve para decidir qué preguntar ahora. No sirve para contar qué pasó. El
+onboarding armaba sus preguntas y respuestas al vuelo desde el estado (`mensajesDeArranque`) y no las guardaba en ningún
+lado. El 21/10/2026, el Ops Center de Florencia (ws21) empezaba en la mitad de su conversación, y el arreglo del nombre
+de su negocio iba a cambiar lo que ella «contestó».
+
+**La regla:** toda conversación que la persona vio (un chat, un onboarding, una tarjeta con su respuesta) se guarda como
+se dibujó, con su hora, la primera vez que se ve. Lo que la vuelve a mostrar (el Ops Center, una copia, MaKo) lee lo
+guardado y no la rearma del estado de hoy. Lo que se arma después, para quien pasó antes de que se guardara, se marca
+`reconstruido`, y el aviso lo ve sólo el equipo. Y no se mete en la lista de mensajes de OTRA pieza que decide con ella
+(Offer lee sus `mensajes` para saber qué ya preguntó): va aparte, atado por id, y se junta por hora al mostrar. En el
+onboarding: lib/onboarding-historial.ts, tests/onboarding-historial.test.ts y docs/hallazgos-onboarding.md («Las
+preguntas del arranque, guardadas»).
+
 # Tres topes del entorno que no dan error: te dan otra cosa
 
 Los tres se descubrieron el mismo día, los tres escribiendo código nuevo, y los tres

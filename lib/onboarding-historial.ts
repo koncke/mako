@@ -105,15 +105,17 @@ export function conLoNuevo(
 
 /** Un mensaje de la conversación de Offer, lo que hace falta para mostrarlo. */
 type DeOffer = { de: 'mako' | 'yo'; texto: string; at?: string; adjuntos?: ReadonlyArray<{ nombre: string }> };
+/** Un mensaje del arranque, ya junto con la conversación. */
 export type MensajeUnido = DeOffer & { reconstruido?: true };
 
 /**
  * La conversación del onboarding entera: el historial del arranque y la de Offer, juntos por hora. Cada lista conserva su
  * orden (un mensaje de Offer sin hora queda donde estaba, pegado al anterior); a la misma hora, primero el del arranque.
+ * Los de Offer salen TAL CUAL (con su id y su audio, si los traen).
  */
-export function unirConOffer(historial: readonly MensajeHistorial[], offer: readonly DeOffer[]): MensajeUnido[] {
+export function unirConOffer<T extends DeOffer>(historial: readonly MensajeHistorial[], offer: readonly T[]): Array<T | MensajeUnido> {
   const h = historial.map((m, i) => ({ m, i, t: Date.parse(m.at) })).sort((a, b) => a.t - b.t || a.i - b.i);
-  const out: MensajeUnido[] = [];
+  const out: Array<T | MensajeUnido> = [];
   let i = 0;
   let previa = -Infinity;
   for (const m of offer) {

@@ -22,14 +22,21 @@
 //   · `hiloDeOffer` que pega el historial a CUALQUIER conversación (sin `sesionDelArranque`) → 16/1 (9)
 //   · el chat «Onboarding» armado otra vez del estado de hoy (`[...antes, …, ...despues]`) → 16/1 (10)
 //   · el script que reconstruye encima de un historial que ya existe → 16/1 (11)
+// Y el audio (Martín, 21/10 ~23:00: «No se reproducen sus audios, se ponen la transcripción»), base 20/0:
+//   · `mensajesDeOffer` que tira el audio → 19/1 (12) · el índice que pasa el mensaje guardado, con su path → 19/1 (12)
+//   · la copia sin el audio (`mensajesDelHilo`) → 19/1 (13) · el bloque sin validar el id del mensaje → 19/1 (13)
+//   · el insert del chat «Onboarding» sin `bloques` → 19/1 (13) · la lectura del chat sin el audio → 19/1 (13)
+//   · el título «Onboarding» también para quien tiene su copia → 19/1 (14)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { mensajesDeArranque, type EstadoArranque, type HechosArranque, type MensajeArranque } from '../lib/onboarding-arranque';
+import { mensajesDeArranque, mensajesDelHilo, NOTA_DE_VOZ, type EstadoArranque, type HechosArranque, type MensajeArranque } from '../lib/onboarding-arranque';
 import { conLoNuevo, leerHistorial, sesionDelArranque, unirConOffer, type MensajeHistorial } from '../lib/onboarding-historial';
 import { AVISO_RECONSTRUIDO, mensajesDeOffer } from '../lib/chat-mako-reglas';
+import { audioDeBloques, bloqueDeAudio, sanearBloques } from '../lib/chat-mako-bloques';
+import { bloquesGuardados } from '../lib/chat-bloques';
 
 const leer = (r: string) => readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', r), 'utf8').replace(/\r\n/g, '\n');
 const iso = (t: number) => new Date(t).toISOString();
@@ -186,7 +193,7 @@ test('9. el Ops Center pega el historial SÓLO a la conversación del onboarding
   const ind = leer('lib/chat-mako-indice.ts');
   const hilo = ind.slice(ind.indexOf('export async function hiloDeOffer'));
   assert.match(hilo, /runWithWorkspace\(ws, \(\) => Promise\.all\(\[\n    leerConversacionOffer\(id\),\n    getSetting\('onboarding\.arranque'\)\.catch\(\(\) => null\),\n    getSetting\(CLAVE_HISTORIAL\)\.catch\(\(\) => null\),\n    getSesionAdmin\(\)\.catch\(\(\) => null\),\n  \]\)\)/);
-  assert.match(hilo, /const conversacion = sesionDelArranque\(arranque\) === c\.id \? unirConOffer\(leerHistorial\(historial\) \?\? \[\], c\.mensajes\) : c\.mensajes;/);
+  assert.match(hilo, /const conversacion = sesionDelArranque\(arranque\) === c\.id \? unirConOffer\(leerHistorial\(historial\) \?\? \[\], deOffer\) : deOffer;/);
   assert.match(hilo, /mensajes: mensajesDeOffer\(conversacion, \{ avisoReconstruido: !!superAdmin \}\)/);
 });
 
@@ -205,4 +212,44 @@ test('11. el script de reconstrucción: en seco por defecto, y no toca un histor
   assert.match(s, /if \(!APLICAR\) return fila\('se reconstruiría'/);
   assert.match(s, /reconstruido: true \}\);/);
   assert.match(s, /cambiarSettingSi\(CLAVE_HISTORIAL, raw, JSON\.stringify\(\{ mensajes: nuevo \}\)\)/);
+});
+
+test('12. la nota de voz llega al Ops Center como audio, con la transcripción de texto, y sin su ruta de Storage', () => {
+  const ms = mensajesDeOffer([
+    { de: 'yo', texto: 'El 100% logró el éxito.', at: iso(1), audio: { url: '/api/offer/audio?id=14&m=137906e0', secs: 3 } },
+    { de: 'yo', texto: '', at: iso(2), audio: { url: '/api/offer/audio?id=14&m=x', secs: 5 } },
+  ]);
+  assert.deepEqual(ms[0], { role: 'user', content: 'El 100% logró el éxito.', created_at: iso(1), audio: { url: '/api/offer/audio?id=14&m=137906e0', secs: 3 } });
+  assert.equal(ms.length, 2, 'un audio sin transcripción también se ve');
+  const ind = leer('lib/chat-mako-indice.ts');
+  assert.match(ind, /const deOffer = c\.mensajes\.map\(\(\{ audio, \.\.\.m \}\) => \(audio \? \{ \.\.\.m, audio: \{ url: urlAudio\(c\.id, m\.id\), secs: audio\.secs \} \} : m\)\);/,
+    'la URL de la ruta de Offer, que vuelve a mirar la puerta; el path no sale');
+  assert.match(leer('lib/mako-turno-app-reglas.ts'), /audio\?: \{ url: string; secs: number \};/);
+});
+
+test('13. el chat «Onboarding» guarda qué mensaje de Offer tiene el audio, y al leerlo lo vuelve a reproducir', () => {
+  const hilo = mensajesDelHilo([
+    { de: 'mako', texto: '¿Cuánto cobras?' },
+    { de: 'yo', texto: 'Seis cuotas', id: '4ac9f6df-0000-4000-8000-000000000000', audio: { secs: 110.4 } },
+    { de: 'yo', texto: '', id: 'b6caad71-0000-4000-8000-000000000000', audio: { secs: 2 } },
+  ], 'anuncios');
+  assert.deepEqual(hilo[1], { role: 'user', content: 'Seis cuotas', audio: { mensaje: '4ac9f6df-0000-4000-8000-000000000000', secs: 110 } });
+  assert.equal(hilo[2].content, NOTA_DE_VOZ);
+  assert.equal(hilo[0].audio, undefined);
+  // El bloque: sin ruta de Storage, y los otros lectores lo saltean.
+  const b = bloqueDeAudio(14, '4ac9f6df-0000-4000-8000-000000000000', 110);
+  assert.deepEqual(audioDeBloques([b]), b);
+  assert.equal(audioDeBloques([{ k: 'audio', sesion: 14, mensaje: '../21/offer/x' }]), null);
+  assert.equal(audioDeBloques([{ k: 'audio', sesion: '14', mensaje: 'a' }]), null);
+  assert.deepEqual(sanearBloques(21, [b]), []);
+  assert.deepEqual(bloquesGuardados([b]), []);
+  const srv = leer('lib/onboarding-arranque-server.ts');
+  assert.match(srv, /bloques: m\.audio && previo\.sesionId \? \[bloqueDeAudio\(previo\.sesionId, m\.audio\.mensaje, m\.audio\.secs\)\] : null,/);
+  assert.match(leer('lib/mako-turno-app.ts'), /\.\.\.\(audio \? \{ audio: \{ url: urlAudio\(audio\.sesion, audio\.mensaje\), secs: audio\.secs \} \} : \{\}\),/);
+});
+
+test('14. quien no tiene su chat «Onboarding» (el super admin mirando) ve la conversación del onboarding con ese nombre', () => {
+  const ind = leer('lib/chat-mako-indice.ts');
+  assert.match(ind, /titulo: s\.id === delOnboarding && !copiada \? TITULO_HILO : s\.titulo/);
+  assert.match(ind, /const delOnboarding = sesionDelArranque\(arranque\);/);
 });

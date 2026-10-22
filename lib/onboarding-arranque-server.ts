@@ -41,6 +41,7 @@ import { tzDeWorkspace } from './timezone';
 import { NOMBRE_WS_PRUEBA } from './reset-workspace';
 import { faltanDelArranque, type OfferSesionVista, type PiezasSabidas } from './offer-marco';
 import { CLAVE_HISTORIAL, conLoNuevo, leerHistorial, unirConOffer } from './onboarding-historial';
+import { bloqueDeAudio } from './chat-mako-bloques';
 import {
   CLAVE_ENCUESTA, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, TITULO_HILO, decisionDelHilo, contextoDelHilo, cobroDelPrecio, opcionesDeCobro, mensajesDelHilo, pisaElNombreDelPerfil, sinMarca, notaDelPdf,
   type EstadoArranque, type EtapaArranque, type HechosArranque, type MensajeArranque, type ModoArranque,
@@ -83,7 +84,7 @@ export async function guardarEstadoArranque(patch: Partial<EstadoArranque>): Pro
  * pudieron leer, tira y no se escribe nada (AGENTS.md: una lectura que cae al default no decide). Sin esto se guardaba una
  * copia a medias para siempre: sin la conversación de lo que vende, o con «Un gusto, . ¿Cómo se llama tu negocio?».
  */
-async function mensajesParaElHilo(e: EstadoArranque): Promise<Array<{ role: 'user' | 'assistant'; content: string }>> {
+async function mensajesParaElHilo(e: EstadoArranque): Promise<ReturnType<typeof mensajesDelHilo>> {
   const h = await hechosDelArranque(e);
   if (!h.terminado) throw new Error('El onboarding todavía no terminó (o no se pudo leer su estado): no armo el chat.');
   if (e.sesionId && (h.sesionCaida || !h.sesion)) throw new Error('No pude leer la conversación del onboarding: no armo el chat a medias.');
@@ -167,8 +168,10 @@ export async function hiloDelOnboarding(): Promise<number | null> {
       // Cada mensaje con su hora, creciente (cuarta revisión, 21/10): en UN insert todas las filas llevaban el mismo now(),
       // y el chat se lee ordenado sólo por esa hora: los empates salían en el orden físico de la tabla, desordenados.
       const t0 = Date.now() - mensajes.length;
+      // Una respuesta por voz guarda en `bloques` (mig 0305) cuál mensaje de Offer tiene el audio (lib/chat-mako-bloques.ts).
       const { error } = await db.from('chart_chats').insert(mensajes.map((m, i) => ({
         session_id: hilo.id, role: m.role, content: m.content, created_at: new Date(t0 + i).toISOString(),
+        bloques: m.audio && previo.sesionId ? [bloqueDeAudio(previo.sesionId, m.audio.mensaje, m.audio.secs)] : null,
       })));
       if (error) throw new Error(`No pude copiar la conversación del onboarding: ${error.message}`);
       await db.from('chart_sessions').update({ updated_at: new Date().toISOString() }).eq('id', hilo.id);
