@@ -86,3 +86,13 @@ test('el chat: Discutir / Editar encima de la barra (no al crear), arranca en Ed
 // 3. La ruta sin el error de Editar (el modelo contesta y no cambia nada): 1 fallo / 6 pases.
 // 4. La ruta editando sin `extras`: 1 fallo / 6 pases.
 // 5. El chat sin mandar la intención: 1 fallo / 6 pases.
+
+// ── A5: «esta etapa no existe» se leyó como un cache viejo, y era una etapa que ese CRM no tiene ───────────────────
+// Medido en el chat guardado de #289 (ws1): el aviso fue «Saqué «Mover de etapa»: esa etapa no existe», por «Contactado»,
+// que el CRM «Sprint 3 días» no tiene; el catálogo SÍ traía «Prospección activa» recién creada. No era cache.
+test('A5: sacar un «Mover de etapa» dice CUÁL etapa y de QUÉ CRM', () => {
+  const ia = readFileSync(join(__dirname, '..', 'lib/flujo-ia.ts'), 'utf8');
+  assert.match(ia, /return \{ quitar: `Saqué «\$\{def\.titulo\}»: \$\{str\(datos\.etapa\) \? `«\$\{str\(datos\.etapa\)\}»` : 'esa etapa'\} no es una etapa de \$\{en \? `«\$\{en\.nombre\}»` : 'ese CRM'\}` \};/);
+  assert.doesNotMatch(ia, /return \{ quitar: `Saqué «\$\{def\.titulo\}»: esa etapa no existe` \};/);
+});
+// 6. (A5) El aviso de antes («esa etapa no existe», sin cuál ni de qué CRM): 1 fallo / 7 pases.
