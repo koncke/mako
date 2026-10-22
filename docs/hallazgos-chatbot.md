@@ -5948,3 +5948,53 @@ la MISMA vuelta del motor (un tick por minuto, lo frenado a su turno como `queda
 en 4 h 5 min, y con 60, 50 en 24 h. **Vive en:** lib/goteo.ts · lib/nutricion.ts (`usoDelGoteo` y la corrida) ·
 lib/borrador-camino.ts · test: tests/goteo-con-aprobacion.test.ts. **Sin hacer:** aprobar no PROGRAMA el envío para su
 turno (`wa_borradores` no tiene dónde guardarlo; haría falta una columna): dice cuándo, y hay que volver a tocar.
+
+## Lo de la llamada que seguía a medias, con el arnés contra producción (22/10/2026, AU2 del plan del Cerebro)
+
+Medido por el Cerebro contra 87365c830 (el arnés `probar-chats-automations` @ eee20b3ab) y arreglado con tests que usan la
+RESPUESTA DEL MODELO GRABADA (lib/flujo-ia-revision-editar.ts: lo que la ruta hace con cada intento, puro). El modelo de
+verdad lo vuelve a medir el arnés cuando hay cuota.
+
+### «Editalos y agregalos» PISABA, y «Hazlo como te lo indiqué» DUPLICABA
+
+**Síntoma:** con dos WhatsApp, «Los textos que te pasé no están en el flujo. Editalos y agregalos:» + dos textos → el modelo
+CAMBIÓ los dos mensajes que había (2 de 2). Y el segundo turno, con todo hecho, los agregó OTRA vez (#491) o terminó en «No
+cambió nada» (#481). **Causa, tres piezas:** nada distinguía sumar de cambiar; el filtro de copias (`huellas`) sólo corría en
+un cambio de canal; y la respuesta honesta «Ya están en el flujo» la rechazaba MI regla de Editar (`errorDeRespuestaEnEditar`:
+no era pregunta, ni lugar, ni «no se puede»), así que el reintento duplicaba. **Es la segunda vez en el día que una regla de
+Editar bloquea una respuesta buena:** una regla que rechaza respuestas se prueba con las respuestas que SÍ valen. **Regla:**
+pedir SUMAR («agrega», «suma», «añade», aunque diga «edítalos») y cambiar el texto de lo que había vuelve al modelo con el
+error que lo dice (`pideAgregar`, y la regla en `REGLAS_EDITAR`: las dos capas); un WhatsApp idéntico a uno que ya está,
+también (`mensajesCopiados`); y si lo pegado en la charla ya está en el flujo, eso es lo que se contesta (`yaEstaEnElFlujo`).
+
+### La condición «antes del primer mensaje»: el diagnóstico obvio era el equivocado
+
+**Síntoma:** «Antes del primer mensaje, si tiene la etiqueta «Sprint · audio» que siga el flujo; si no, que no le mande nada»
+→ el primer mensaje quedaba DOS veces, sin condición (#535). **Lo obvio:** el camino de consulta (`RX_NADA` lee «que no le
+mande nada» como «no cambies nada»). **Lo de verdad:** con Editar eso ya no pasaba; el lenguaje de editar NO TENÍA DÓNDE
+PONERLA. «despues_de: cron» con el CRON ocupado colgaba EN PARALELO sin aviso; «en el medio» rechazaba una condición (no
+termina en una sola punta); una flecha del tramo a una tarjeta que ya existe se cortaba («Una tarjeta seguía en dos
+lugares»); y «cambiar» el mensaje a condición no cambia de tipo. **Regla:** desde el CRON con «sig», o con el tramo que ya
+sigue en la primera tarjeta, va EN EL MEDIO; el tramo PUEDE seguir en la tarjeta que seguía (`OpcionesArmar.enElMedio`); y
+una condición sola sigue por su primera rama. **Vive en:** lib/flujo-ia.ts (`armar`, `agregarTramos`).
+
+### «Si responde, movelo… y avisame por WhatsApp» se iba a OTRAS tabs
+
+**Síntoma:** dos burbujas «ir» (CRM y WhatsApp), y MaKo no hacía nada. **Causa:** la IA de pedidos lo partió en área crm +
+área whatsapp, y lo que etiqueta la IA es «fuerte» (lib/mako-pedidos.ts, `decidir`). **Regla:** en Automations, con una
+abierta, una orden sobre el flujo («si responde», «cuando entra», «movelo», «avisame», «mandale») es un cambio de lo
+abierto (`esOrdenDelFlujo`): la etapa, el CRM y el WhatsApp son ingredientes del flujo.
+
+### Una etapa que no existe se dice ANTES del modelo
+
+«Que arranque cuando el lead entra a la etapa «Clientes VIP Platino»» → el modelo no devolvía nada y salía «No cambió nada».
+Con la etapa entre comillas que ese CRM no tiene, MaKo contesta sin llamar al modelo, con las etapas que sí tiene, y el CRON
+no se toca (`etapaQueNoExiste`). Sólo entre comillas: un nombre suelto no se sabe dónde termina.
+
+**Vive en:** lib/flujo-ia-revision-editar.ts · lib/flujo-ia.ts · lib/mako-pedidos.ts · app/api/chat-agent/secuencias/ia/route.ts ·
+tests: tests/chat-mako-agregar-y-etapa.test.ts, tests/chat-mako-orden-del-flujo.test.ts.
+
+**Sin hacer (AU2):** «reordená» (no es una operación de editar), «deshacé eso» (el modelo no tiene lo borrado), la tarjeta de
+audio que el modelo inventa al CREAR; el aviso interno «Una tarjeta seguía en dos lugares» le llega a la persona; «Borrá el
+segundo mensaje» deja «1 día» y «2 días» seguidos sin avisar. Y el arnés con IA sobre esta rama: corre cuando vuelve la cuota
+de Gemini (~04:00 ART del 23/10).
