@@ -84,8 +84,11 @@ test('el índice: un chat de otro no existe, «Antes» usa la regla de /mako, y 
   const src = sinComentarios(crudo);
   const hilo = src.slice(src.indexOf('export async function hiloDelSecondBrain('));
   assert.ok(hilo.includes('if (!s || s.chart_key !== t.base) return null;'), 'el chat pedido es de la MISMA persona');
-  const antes = crudo.slice(crudo.indexOf('export async function hiloDeAntes('), crudo.indexOf('// ── Para la API'));
+  // La regla vive en `sesionDeAntes`, y la usan leerlo (`hiloDeAntes`) y seguirlo (`claveDeAntes`, 21/10/2026).
+  const antes = crudo.slice(crudo.indexOf('async function sesionDeAntes('), crudo.indexOf('// ── Para la API'));
   assert.ok(antes.includes('esChatDelTelefono(s.chart_key)') && antes.includes('puedeUsarSesion(s.chart_key, q)'), '«Antes»: la regla de /mako');
+  assert.match(antes, /export async function hiloDeAntes\([\s\S]*?\n  const s = await sesionDeAntes\(q, id\);/, 'leerlo, con la regla');
+  assert.match(antes, /export async function claveDeAntes\([^)]*\)[^{]*\{\s*return \(await sesionDeAntes\(q, id\)\)\?\.chart_key \?\? null;/, 'seguirlo, con la regla');
   const run = sinComentarios(leer('lib/api-mako/areas/mako.run.ts'));
   for (const op of ['listar_chats_mako', 'hilo_chat_mako']) {
     const ini = run.indexOf(`  ${op}: {`);

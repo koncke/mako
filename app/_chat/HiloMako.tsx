@@ -10,13 +10,23 @@
 //
 // ⚠️ LA HORA ES LA DEL NAVEGADOR DE QUIEN MIRA, no la de Argentina: el Centro es de Martín y fija su reloj; este chat
 //    es de cualquier negocio (AGENTS.md, la zona horaria por ubicación).
+//
+// LAS FILAS SON LAS DEL OPS CENTER (21/10/2026, Martín: «Los chats cortados a la mitad, sin la foto de perfil del dueño»): lo de
+// la persona y lo de MaKo se dibujan con `FilaMia` y `FilaDelChat` de app/admin/operaciones/Hilo.tsx, las MISMAS del super
+// admin (el globo con su colita, la foto de quien escribe, la hora, lo de WhatsApp). Medido ese día en el ws1: el hilo iba
+// suelto en `.co-hilo` (display: block) y `.co-yo { align-self: flex-end }` no hacía nada: lo de la persona quedaba a la
+// izquierda, con 760 px de ancho, cortado a la mitad. Quien lo monta lo pone en `.co-hilo__col` (PanelChat.tsx).
 
 import type { ReactNode } from 'react';
 import { Markdown } from '@/app/_components/Markdown';
 import { partirPegados } from '@/lib/chat-pegado';
 import { PegadosHilo, TextoPlegable } from './PegadoHilo';
 import Link from '@/app/_ui/Link';
-import { Muneco } from '@/app/admin/operaciones/Muneco';
+import type { Muneco } from '@/app/admin/operaciones/Muneco';
+import { FilaDelChat, FilaMia } from '@/app/admin/operaciones/Hilo';
+import { Trabajando } from '@/app/admin/operaciones/Trabajando';
+import { AudioPlay } from '@/app/whatsapp/_shared/AudioPlay';
+import type { MarcasChat, MensajeWA } from '@/lib/centro-mensajes';
 import { ERROR_INCIERTO, conRespuestas, textoConArchivos, type ItemHilo } from '@/app/m/mako/chat-ui';
 import { TarjetaAccion, type ItemPropuesta } from './TarjetaAccion';
 import { ArchivosHilo } from './ArchivosHilo';
@@ -44,20 +54,17 @@ function rotuloDia(iso: string, ahora: number): string {
 
 export type Quien = { nombre: string; aspecto?: Parameters<typeof Muneco>[0]['aspecto'] };
 
-/** Lo de MaKo: su muñeco y lo que dijo (o la tarjeta), a la izquierda. */
-function DeMako({ quien, children, rotulo }: { quien: Quien; children: ReactNode; rotulo?: string }) {
-  return (
-    <div className="co-el">
-      <Muneco titulo={quien.nombre} aspecto={quien.aspecto} animo="despierto" size={26} />
-      <div className="co-el__cuerpo">
-        {rotulo && <p className="co-el__rotulo">{rotulo}</p>}
-        {children}
-      </div>
-    </div>
-  );
+/** El id de un mensaje para lo de WhatsApp (lib/centro-mensajes.ts → IdMensaje: `t:` y hasta 64 letras, números o guiones). */
+const idWA = (id: string): string => `t:${id.replace(/[^\w-]/g, '-').slice(-64)}`;
+
+/** Lo de MaKo: su criatura y lo que dijo en su globo, a la izquierda (`ancho`: una tarjeta, sin globo). La fila del Ops Center. */
+function DeMako({ quien, children, hora = null, ancho = false, m = null, marcas }: {
+  quien: Quien; children: ReactNode; hora?: string | null; ancho?: boolean; m?: MensajeWA | null; marcas?: MarcasChat | null;
+}) {
+  return <FilaDelChat m={m} quien={{ titulo: quien.nombre, aspecto: quien.aspecto }} marcas={marcas} hora={hora} ancho={ancho}>{children}</FilaDelChat>;
 }
 
-export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onReintentar, onRecargar, onResponder, onTrabajo }: {
+export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onReintentar, onRecargar, onResponder, onTrabajo, marcas }: {
   items: readonly ItemHilo[];
   /** El chat: su muñeco va al lado de lo que dice MaKo. */
   quien: Quien;
@@ -75,7 +82,14 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
   onResponder?: (texto: string) => boolean;
   /** El trabajo largo de una tarjeta terminó (1.11): la tarjeta pasa a «Hecho» o «Falló» (`trasTrabajo`). */
   onTrabajo?: (pendienteId: number, ok: boolean | null) => void;
+  /** Las marcas de WhatsApp de este chat (reacciones, destacados): con el menú del clic derecho de quien lo monta. */
+  marcas?: MarcasChat | null;
 }) {
+  /** El mensaje, para el menú del clic derecho y el deslizar para responder (sin el contexto de WhatsApp, no hace nada). */
+  const wa = (x: Extract<ItemHilo, { k: 'msg' }>): MensajeWA => ({
+    id: idWA(x.id), texto: x.texto, de: x.role === 'user' ? 'Tú' : quien.nombre, propio: x.role === 'user',
+    instante: x.at ? Date.parse(x.at) || 0 : 0, trabajo: null,
+  });
   const filas: ReactNode[] = [];
   let ultimoDia: string | null = null;
   conRespuestas(items).forEach((x) => {
@@ -90,10 +104,7 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
       const { texto, pegados } = partirPegados(archivos.length ? textoConArchivos(x.texto) : x.texto);
       const pie = <span className="co-burbuja__pie">{x.estado === 'enviando' ? 'Enviando…' : hora(x.at)}</span>;
       filas.push(
-        <div key={x.id} className="co-yo">
-          {archivos.length > 0 && <ArchivosHilo archivos={archivos} />}
-          <PegadosHilo pegados={pegados} />
-          {texto ? <TextoPlegable texto={texto} className="co-burbuja" pie={pie} /> : <p className="ch-pie-suelto">{pie}</p>}
+        <FilaMia key={x.id} m={wa(x)} marcas={marcas} despues={<>
           {x.estado === 'error' && (
             <p className="co-nota co-nota--mal" role="alert">{x.error}{' '}
               <button type="button" className="ch-enlace" onClick={() => onReintentar(x.id)}>Reintentar</button></p>
@@ -102,13 +113,25 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
             <p className="co-nota co-nota--mal" role="alert">{x.error ?? ERROR_INCIERTO}{' '}
               <button type="button" className="ch-enlace" onClick={onRecargar}>Recargar el chat</button></p>
           )}
-        </div>,
+        </>}>
+          {archivos.length > 0 && <ArchivosHilo archivos={archivos} />}
+          <PegadosHilo pegados={pegados} />
+          {/* Una nota de voz se ESCUCHA (21/10/2026): el audio en su globo y, debajo, lo que se entendió, chico (Offer la
+              guarda así: el texto del mensaje es la transcripción). */}
+          {x.voz ? (
+            <div className="co-burbuja ch-voz">
+              <AudioPlay src={x.voz.url} duracion={x.voz.secs} color="var(--primary)" style={{ width: 240 }} />
+              {texto && <span className="ch-voz__texto">{texto}</span>}
+              {pie}
+            </div>
+          ) : texto ? <TextoPlegable texto={texto} className="co-burbuja" pie={pie} /> : <p className="ch-pie-suelto">{pie}</p>}
+        </FilaMia>,
       );
       return;
     }
     if (x.k === 'msg') {
       filas.push(
-        <DeMako key={x.id} quien={quien}>
+        <DeMako key={x.id} quien={quien} hora={hora(x.at) || null} m={wa(x)} marcas={marcas}>
           <div className="ch-md"><Markdown text={x.texto} /></div>
           {/* Lo pedido que se hace en otra pantalla: el link para ir, como el «Ir a …» de los otros chats (tanda 10). */}
           {!!x.irA?.length && (
@@ -126,13 +149,13 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
     }
     if (x.k === 'bloque') {
       const de = x.deTarjeta;
-      filas.push(<DeMako key={x.id} quien={quien}><BloqueHilo b={x.b} onResponder={onResponder} respondida={x.respondida} ocupado={escribiendo != null}
+      filas.push(<DeMako key={x.id} quien={quien} ancho><BloqueHilo b={x.b} onResponder={onResponder} respondida={x.respondida} ocupado={escribiendo != null}
         onTermina={de != null && onTrabajo ? (ok) => onTrabajo(de, ok) : undefined} /></DeMako>);
       return;
     }
     if (x.k === 'pantalla') {
       filas.push(
-        <DeMako key={x.id} quien={quien}>
+        <DeMako key={x.id} quien={quien} ancho>
           <div className="ch-tarjeta">
             <p className="ch-tarjeta__resumen"><strong>{x.p.titulo}</strong></p>
             {/* 1.10: la genérica se confirma ACÁ, con el mismo formulario de su pantalla, que queda como salida secundaria. */}
@@ -148,19 +171,18 @@ export function HiloMako({ items, quien, ahora, escribiendo, tarjeta, onTarjeta,
       return;
     }
     filas.push(
-      <DeMako key={x.id} quien={quien}>
+      <DeMako key={x.id} quien={quien} ancho>
         <TarjetaAccion x={x} enCurso={tarjeta?.id === x.t.pendienteId ? tarjeta.accion : null}
           bloqueada={!!tarjeta && tarjeta.id !== x.t.pendienteId} onCorrer={(a) => onTarjeta(x, a)} />
       </DeMako>,
     );
   });
   if (escribiendo) {
+    // «Trabajando…» con sus tres puntos, la MISMA pieza del Ops Center (Trabajando.tsx). MaKo no manda sus pasos: pasado un
+    // rato, el único «paso» es avisar que puede tardar.
     filas.push(
-      <DeMako key="escribiendo" quien={quien}>
-        <p className="co-el__rotulo" role="status">
-          {'MaKo está escribiendo…'}{escribiendo.segs >= 20 ? ' · puede tardar un par de minutos' : ''}
-        </p>
-      </DeMako>,
+      <Trabajando key="escribiendo" titulo={quien.nombre} aspecto={quien.aspecto}
+        pasos={escribiendo.segs >= 20 ? [{ at: '', texto: 'Puede tardar un par de minutos' }] : []} />,
     );
   }
   return <>{filas}</>;

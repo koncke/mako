@@ -18,7 +18,7 @@
 //   · ChatGPT y Claude — el «⋯» de cada fila con Renombrar y Cambiar su muñeco;
 //   · claude.ai → Configuración → Uso — el desplegable «Uso» (Uso.tsx).
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Button, Field, Input, Modal } from '@/app/_ui';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { Icon } from '@/app/_components/icons';
@@ -39,7 +39,8 @@ import { Conversacion } from './Conversacion';
 import { BotonUso } from './Uso';
 import { cuentasDeUso } from '@/lib/centro-uso';
 import { CirculoNuevo } from './NuevoChat';
-import { Muneco, animoDe } from './Muneco';
+import { Muneco, animoDe, type Animo } from './Muneco';
+import type { Aspecto } from '@/lib/centro-munecos';
 import type { Centro } from './useCentro';
 
 /** «10:52», con el reloj de Argentina (el de Martín). */
@@ -62,6 +63,67 @@ export function SelloCompletado() {
   return <span className="co-sello-ok"><Icon name="check" size={11} />Completado</span>;
 }
 
+/**
+ * UNA fila de la barra, la de todos los Ops Center (21/10/2026): la del super admin (`FilaCentro`, un chat de Claude Code) y la de
+ * cada cliente (app/second-brain/ChatSecondBrain.tsx, sus chats con MaKo y de Offer). La criatura con su ánimo y su globito, el
+ * título, la hora a la derecha y, si hay algo que contar, el segundo renglón. Con `onMenu`, el «⋯» y el clic derecho.
+ */
+export function FilaDeChat({ titulo, texto = titulo, criatura = titulo, aspecto, animo, espera = 0, sub = false, actual, apagada = false, dormida = false,
+  hace, chip, previa, onElegir, onMenu }: {
+  /** El nombre entero (el `title` de la fila y su criatura, si no se dice otra). */
+  titulo: string;
+  /** Lo que se lee en la fila (en un sub-chat, lo de después de «›»). */
+  texto?: string;
+  /** De qué nombre sale la criatura. */
+  criatura?: string;
+  aspecto?: Aspecto | null;
+  animo: Animo;
+  espera?: number;
+  sub?: boolean;
+  actual: boolean;
+  /** Sin a dónde mandarle (un chat de Claude Code sin sesión). */
+  apagada?: boolean;
+  dormida?: boolean;
+  hace: string;
+  chip?: ReactNode;
+  previa?: ReactNode;
+  onElegir: () => void;
+  onMenu?: (x: number, y: number) => void;
+}) {
+  return (
+    <div className={`co-fila-wrap${sub ? ' co-fila-wrap--sub' : ''}`}>
+      <button
+        type="button" title={titulo}
+        className={`co-fila${apagada ? ' co-fila--sin-dir' : ''}${dormida ? ' co-fila--dormida' : ''}`}
+        aria-current={actual ? 'true' : undefined}
+        onClick={onElegir}
+        onContextMenu={onMenu ? (e) => { e.preventDefault(); onMenu(e.clientX, e.clientY); } : undefined}
+      >
+        <Muneco titulo={criatura} aspecto={aspecto} animo={animo} size={sub ? 30 : 38} espera={espera} />
+        <span className="co-fila__cuerpo">
+          <span className="co-fila__l1">
+            <span className="co-fila__titulo">{texto}</span>
+            {chip}
+            <span className="co-fila__hace">{hace}</span>
+          </span>
+          {previa}
+        </span>
+      </button>
+      {onMenu && (
+        <button type="button" className="co-fila__mas" aria-label={`Opciones de ${titulo}`} title="Opciones"
+          onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); onMenu(r.left, r.bottom + 4); }}>
+          <Icon name="mas" size={16} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** El segundo renglón de una fila: «Trabajando…» (latiendo) o «Espera tu respuesta». */
+export const RenglonDeFila = ({ vivo }: { vivo: boolean }) => (
+  <span className={`co-fila__l2 ${vivo ? 'co-fila__l2--vivo' : 'co-fila__l2--espera'}`}>{TEXTO_SEGUNDO_RENGLON[vivo ? 'vivo' : 'espera']}</span>
+);
+
 /** Una fila de la lista: un chat, o un sub-chat (corrido a la derecha, sólo con lo que va después de «›»). */
 export function FilaCentro({ centro: k, c, sub, actual, onElegir }: {
   centro: Centro; c: ChatCentro; sub: boolean; actual: boolean; onElegir: (clave: string) => void;
@@ -72,30 +134,13 @@ export function FilaCentro({ centro: k, c, sub, actual, onElegir }: {
   // Dormido (ojos cerrados y la fila apagada) si no trabaja y no tiene nada para Martín: despierto sólo con un trabajo o un aviso.
   const animo = animoDe(c, k.avisos(c));
   return (
-    <div className={`co-fila-wrap${sub ? ' co-fila-wrap--sub' : ''}`}>
-      <button
-        type="button" title={c.titulo}
-        className={`co-fila${c.sesion ? '' : ' co-fila--sin-dir'}${animo === 'dormido' ? ' co-fila--dormida' : ''}`}
-        aria-current={actual ? 'true' : undefined}
-        onClick={() => onElegir(c.clave)}
-        onContextMenu={(e) => { e.preventDefault(); k.abrirMenu(c.clave, e.clientX, e.clientY); }}
-      >
-        <Muneco titulo={c.titulo} aspecto={elegidoPara(k.munecos, c.titulo)} animo={animo} size={sub ? 30 : 38} espera={k.avisos(c)} />
-        <span className="co-fila__cuerpo">
-          <span className="co-fila__l1">
-            <span className="co-fila__titulo">{sub ? partesDelNombre(c.titulo).sub : c.titulo}</span>
-            {/* Un chat de la nube (lo anota el Runner de la app): se ve, con su marca, y no se le escribe desde acá. */}
-            {c.nube && <span className="co-chip-cuenta">Nube</span>}
-            <span className="co-fila__hace">{edadCorta(c.actividad, k.ahora)}</span>
-          </span>
-          <Previa c={c} espera={espera} sinVer={sinVer} />
-        </span>
-      </button>
-      <button type="button" className="co-fila__mas" aria-label={`Opciones de ${c.titulo}`} title="Opciones"
-        onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); k.abrirMenu(c.clave, r.left, r.bottom + 4); }}>
-        <Icon name="mas" size={16} />
-      </button>
-    </div>
+    <FilaDeChat titulo={c.titulo} texto={sub ? partesDelNombre(c.titulo).sub : c.titulo} aspecto={elegidoPara(k.munecos, c.titulo)}
+      animo={animo} espera={k.avisos(c)} sub={sub} actual={actual} apagada={!c.sesion} dormida={animo === 'dormido'}
+      hace={edadCorta(c.actividad, k.ahora)}
+      // Un chat de la nube (lo anota el Runner de la app): se ve, con su marca, y no se le escribe desde acá.
+      chip={c.nube && <span className="co-chip-cuenta">Nube</span>}
+      previa={<Previa c={c} espera={espera} sinVer={sinVer} />}
+      onElegir={() => onElegir(c.clave)} onMenu={(x, y) => k.abrirMenu(c.clave, x, y)} />
   );
 }
 

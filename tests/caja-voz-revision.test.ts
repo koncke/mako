@@ -111,7 +111,7 @@ test('3. la caja del cliente no se apaga mientras MaKo trabaja', () => {
   assert.match(boton, /if \(enviando \|\| \(ocupado && hayQueMandar && !d\.escuchando && !d\.subiendo\)\) return <button type="button" className="co-enviar" disabled aria-label="Mandando">/,
     'mientras trabaja, la flecha espera; el micrófono (y el botón de terminar de dictar) no');
   assert.match(c, /aria-label=\{p\.placeholder\}\s*disabled=\{quieto\}/, 'el <textarea> mira `quieto`, no `ocupado`');
-  assert.match(leer('app/second-brain/ChatSecondBrain.tsx'), /ocupado=\{!!trabajo\} apagado=\{!cargado \|\| !!errorCarga\}/, 'el chat del cliente usa `ocupado`');
+  assert.match(leer('app/second-brain/ChatSecondBrain.tsx'), /ocupado=\{!!trabajo \|\| armandoOffer\} apagado=\{!cargado \|\| !!errorCarga\}/, 'el chat del cliente usa `ocupado`');
 });
 
 test('4. el cartero: origen, limpieza, nada lo tumba, la última de cada chat, y la marca no avanza sin su pregunta', async () => {

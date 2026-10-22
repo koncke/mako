@@ -29,6 +29,7 @@ import { ELIGE_TU_PREGUNTA, SALTEAR_PREGUNTA, type Abrir, type Bloque } from '@/
 import { respuestasDeElegir } from '@/lib/editor-landing/bloques-web';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 import { CLAVE_TAPADA } from '@/lib/claves-en-el-chat';
+import type { OfferMensaje } from '@/lib/offer-marco';
 
 // ── El hilo ──────────────────────────────────────────────────────────────────
 
@@ -138,6 +139,42 @@ export function itemsDeSesion(mensajes: readonly MensajeChat[], propuestas: read
     ...mensajes.flatMap(conSusBloques), ...propuestas.map(aPropuesta),
     ...pantallas.map((p): ItemHilo => ({ k: 'pantalla', id: `s-${p.escritorio}`, p })),
   ]);
+}
+
+// ── Una conversación de Offer en el Ops Center (21/10/2026) ─────────────────────────────────────────────────────────
+// Martín: «las personas deberían poder continuar lo que quieran siempre desde el Ops Center». Una conversación de Offer se
+// LEE y se SIGUE en el Ops Center con el motor de Offer (/api/offer: 'abrir' y 'turno', app/second-brain/motor-offer.ts),
+// dibujada con el MISMO hilo: lo del dueño a la derecha (su nota de voz como audio, con la transcripción debajo), lo de
+// MaKo a la izquierda y sus opciones como una pregunta que se toca (G1 «rápida»: sin «Elige tú» ni «Saltear»). Como en la
+// tab (app/offer/ChatOffer.tsx), las opciones son sólo las del ÚLTIMO mensaje: las de antes ya no se contestan.
+
+/** El hilo de una conversación de Offer. `conWs` le pega a una URL de audio el `?ws=` de la pestaña (un `<audio src>` no
+ *  pasa por el `fetch` de la casa: lib/offer-marco.ts → `audio`). */
+export function itemsDeOffer(mensajes: readonly OfferMensaje[], conWs: (url: string) => string = (u) => u): ItemHilo[] {
+  const ultimo = mensajes.length - 1;
+  return conRespuestas(mensajes.flatMap((m, i): ItemHilo[] => {
+    if (m.de === 'yo') {
+      return [{
+        k: 'msg', id: `of-${m.id}`, role: 'user', texto: m.texto, at: m.at || null,
+        ...(m.audio?.url ? { voz: { url: conWs(m.audio.url), secs: m.audio.secs } } : {}),
+        ...(m.adjuntos?.length ? { archivos: m.adjuntos.map((a): ArchivoHilo => ({ nombre: a.nombre, tipo: 'document' })) } : {}),
+      }];
+    }
+    const out: ItemHilo[] = [{ k: 'msg', id: `of-${m.id}`, role: 'assistant', texto: m.texto, at: m.at || null }];
+    if (i === ultimo && m.opciones?.length) {
+      out.push({ k: 'bloque', id: `of-${m.id}-op`, b: { t: 'pregunta', pregunta: '', opciones: m.opciones.map((titulo) => ({ titulo })), varias: !!m.varias, rapida: true } });
+    }
+    return out;
+  }));
+}
+
+/** Lo que se manda a Offer al tocar una opción: si es la de una pregunta del DIAGNÓSTICO (el último mensaje de MaKo), su
+ *  índice (`respuesta`), como la tab (app/offer/OfferApp.tsx); si no, el texto y nada más. */
+export function respuestaDeOffer(mensajes: readonly OfferMensaje[], texto: string): { preguntaId: string; idx: number } | null {
+  const ultimo = [...mensajes].reverse().find((m) => m.de === 'mako');
+  if (!ultimo?.pregunta || !ultimo.opciones?.length) return null;
+  const idx = ultimo.opciones.findIndex((o) => igual(o) === igual(texto));
+  return idx >= 0 ? { preguntaId: ultimo.pregunta.id, idx } : null;
 }
 
 type ItemBloque = Extract<ItemHilo, { k: 'bloque' }>;

@@ -11,12 +11,13 @@
 //
 // ⚠️ El borrador de cada chat lo guarda el padre: cambiar de chat no borra lo que se estaba escribiendo.
 //
-// LA CABECERA (17/10/2026, 19:31): la criatura AL LADO del título, a la izquierda, como la foto de WhatsApp. Tocar la criatura
-// deja cambiarla; tocar el título deja renombrarlo EN EL LUGAR (Enter guarda, Escape lo deja como estaba). Sin chips de cuenta
-// ni estado: «esos botones al lado de la criatura NO van, para eso está el "+"» (la cuenta se elige en el «+» de la caja).
+// LA CABECERA, la conversación y la caja abajo son el panel de PanelChat.tsx (21/10/2026): la MISMA pieza que monta el Ops
+// Center de cada cliente con su chat con MaKo. Acá va lo de Claude Code: el hilo de los turnos, la pregunta de la Ticketera
+// arriba de la caja, el Token y los selectores del «+».
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '@/app/_components/icons';
+import { PanelDeChat } from './PanelChat';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
 import { historialDelChat, nombreCuenta, textoDeEnvio, trabajaSinEscribir, type CarteroP, type ChatCentro, type Envio, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
 import { Modal } from '@/app/_ui';
@@ -31,10 +32,10 @@ import { Hilo, TANDA_HILO } from './Hilo';
 import type { Responder } from './PreguntaChat';
 import type { PreguntaChat as PreguntaChatT } from '@/lib/centro-preguntas-chat';
 import { Pregunta } from './Pregunta';
-import { alSoltar, traeArchivos, type AdjuntosDeCaja } from './AdjuntosCaja';
+import type { AdjuntosDeCaja } from './AdjuntosCaja';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { TareasVinculadas, irAlTurno } from './Avance';
-import { Muneco, animoDe } from './Muneco';
+import { animoDe } from './Muneco';
 
 const ESTADO_CHAT: Record<ChatCentro['estado'], string> = { trabajando: 'Trabajando', abierto: 'Abierto', cerrado: 'Cerrado', sin_dato: '' };
 const SIN_PUSHES: PushP[] = [];
@@ -112,8 +113,6 @@ export function Conversacion({
   const lineas = lineasDeFuera ?? historialDelChat(chat, pedidos, trabajos, respuestas, turnos, preguntasChat);
   // Lo que dijo el micrófono si no pudo (permiso, transcripción): va en la línea de estado de la caja.
   const [faltaMic, setFaltaMic] = useState<string | null>(null);
-  /** Se está arrastrando un archivo sobre la conversación: se dibuja dónde soltarlo (18/10/2026). */
-  const [soltando, setSoltando] = useState(false);
   useEffect(() => { setFaltaMic(null); }, [chat.clave]);
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
@@ -127,15 +126,6 @@ export function Conversacion({
 
   const estado = textoDeEnvio(envio);
   const cuenta = nombreCuenta(chat.cuenta);
-  // El título se renombra en el lugar (la cabecera): `editando` es lo que se está escribiendo.
-  const [editando, setEditando] = useState<{ texto: string; error: string | null; mandando: boolean } | null>(null);
-  useEffect(() => { setEditando(null); }, [chat.clave]);
-  const guardarNombre = async () => {
-    if (!editando || !onRenombrar || editando.mandando) return;
-    setEditando({ ...editando, mandando: true, error: null });
-    const mal = await onRenombrar(editando.texto);
-    if (mal) setEditando({ ...editando, mandando: false, error: mal }); else setEditando(null);
-  };
   const meta = chat.viejo && chat.vistoAt != null ? `${ESTADO_CHAT[chat.estado]} ${hace(chat.vistoAt, ahora)}` : ESTADO_CHAT[chat.estado];
   /** Responder sobre un «Ya está»: la caja arranca con «Sobre «…»: » y queda lista para escribir. */
   const responderSobre = (titulo: string) => {
@@ -189,73 +179,26 @@ export function Conversacion({
   };
 
   return (
-    <section className="co-panel" aria-label={`Conversación con ${chat.titulo}`} data-soltando={soltando || undefined}
-      // Arrastrar una imagen o un PDF a la conversación lo adjunta (18/10/2026): sin esto el navegador lo abría en la pestaña.
-      onDragOver={(e) => { if (!traeArchivos(e.dataTransfer)) return; e.preventDefault(); e.dataTransfer.dropEffect = adjuntos?.puede ? 'copy' : 'none'; if (!soltando) setSoltando(true); }}
-      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setSoltando(false); }}
-      onDrop={(e) => { setSoltando(false); alSoltar(e, adjuntos); }}>
-      {soltando && <div className="co-soltar" aria-hidden>{adjuntos?.puede ? 'Suelta para adjuntar' : 'Este chat no recibe archivos'}</div>}
-      <header className="co-cab">
-        <button type="button" className="co-acceso co-cab__volver" style={{ width: 'auto' }} onClick={onVolver} aria-label="Volver a los chats">
-          <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}><Icon name="chevron" size={18} /></span>
-        </button>
-        {onMuneco ? (
-          <button type="button" className="co-cab__muneco" onClick={onMuneco} title="Cambiar su criatura" aria-label={`Cambiar la criatura de ${chat.titulo}`}>
-            <Muneco titulo={chat.titulo} aspecto={aspecto} animo={animo} size={34} espera={espera} />
-          </button>
-        ) : <span className="co-cab__muneco"><Muneco titulo={chat.titulo} aspecto={aspecto} animo={animo} size={34} espera={espera} /></span>}
-        <div className="co-cab__texto">
-          <h1 className="co-cab__titulo" title={chat.titulo}>
-            {editando ? (
-              <input className="co-cab__input" value={editando.texto} maxLength={120} autoFocus disabled={editando.mandando}
-                aria-label={`Nombre de ${chat.titulo}`} enterKeyHint="done"
-                onChange={(e) => setEditando({ ...editando, texto: e.target.value, error: null })}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); void guardarNombre(); }
-                  if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setEditando(null); }
-                }}
-                onBlur={() => { if (!editando.mandando) setEditando(null); }} />
-            ) : onRenombrar ? (
-              <button type="button" className="co-cab__nombre" title="Renombrar" aria-label={`Renombrar ${chat.titulo}`}
-                onClick={() => setEditando({ texto: chat.titulo, error: null, mandando: false })}>{chat.titulo}</button>
-            ) : chat.titulo}
-          </h1>
-          {editando?.error && <span className="co-cab__error" role="alert">{editando.error}</span>}
-        </div>
-        {/* Sin el botón «Plan» desde el 17/10/2026 (la C): el Plan del chat va en cada «Ya está» y en el «+» de la caja. */}
-        {/* Sin «⋯» acá desde el 17/10/2026 (Martín: fuera los tres puntos): Renombrar y la criatura están en la fila de la
-            barra (su «⋯» y el clic derecho), y la criatura también se cambia tocándola acá. */}
-      </header>
-
-      <div className="co-cuerpo">
-      <div className="co-conv">
-      {/* Los fijados, arriba de la conversación (WhatsApp): tocar va al mensaje. */}
-      {wa && <BarraFijados marcas={marcas} lineas={lineas} titulo={chat.titulo} onSoltar={(id) => wa.onMarcar({ tipo: 'fijar', id, si: false })} verTodo={verTodo} />}
-      <div className="co-hilo" ref={hilo}>
-        <div className="co-hilo__col">
-          <ContextoWA.Provider value={wa ? accionesWA : null}>
-            <Hilo lineas={lineas} pushes={pushes ?? SIN_PUSHES} ahora={ahora} vacio="Escríbele abajo para empezar." quien={quien}
-              vivo={vivo} onResponder={onResponder ? responderPregunta : undefined} tareas={tareas} onFeedback={feedback} marcas={wa?.marcas} pasos={pasos}
-              yaVisto={yaVisto} onYaVisto={onYaVisto ? yaVistoCb : undefined}
-              mostrar={cuantos} onVerAnteriores={verTodo} />
-          </ContextoWA.Provider>
-        </div>
-      </div>
-      {wa && <MenuMensajeWA abierto={menuWA} marcas={marcas} onCerrar={() => setMenuWA(null)} onElegir={elegirEnMenu} />}
-      {wa && panelWA && (
-        <Modal titulo={panelWA.tipo === 'info' ? 'Info del mensaje' : 'Reenviar a…'} onCerrar={() => setPanelWA(null)} ancho={460}>
-          {panelWA.tipo === 'info'
-            ? <InfoMensaje m={panelWA.m} />
-            : <ReenviarA chats={wa.chats} origen={chat.clave} enviando={reenviando} onEnviar={async (claves) => {
-              setReenviando(true);
-              const ok = await wa.onReenviar(panelWA.m.texto, claves);
-              setReenviando(false);
-              if (ok) setPanelWA(null);
-            }} />}
-        </Modal>
-      )}
-
-      <div className="co-caja-wrap">
+    <PanelDeChat hilo={hilo} adjuntos={adjuntos}
+      cabecera={{ clave: chat.clave, titulo: chat.titulo, aspecto, animo, espera, onMuneco, onRenombrar, onVolver }}
+      // Los fijados, arriba de la conversación (WhatsApp): tocar va al mensaje.
+      arriba={wa && <BarraFijados marcas={marcas} lineas={lineas} titulo={chat.titulo} onSoltar={(id) => wa.onMarcar({ tipo: 'fijar', id, si: false })} verTodo={verTodo} />}
+      despues={wa && <>
+        <MenuMensajeWA abierto={menuWA} marcas={marcas} onCerrar={() => setMenuWA(null)} onElegir={elegirEnMenu} />
+        {panelWA && (
+          <Modal titulo={panelWA.tipo === 'info' ? 'Info del mensaje' : 'Reenviar a…'} onCerrar={() => setPanelWA(null)} ancho={460}>
+            {panelWA.tipo === 'info'
+              ? <InfoMensaje m={panelWA.m} />
+              : <ReenviarA chats={wa.chats} origen={chat.clave} enviando={reenviando} onEnviar={async (claves) => {
+                setReenviando(true);
+                const ok = await wa.onReenviar(panelWA.m.texto, claves);
+                setReenviando(false);
+                if (ok) setPanelWA(null);
+              }} />}
+          </Modal>
+        )}
+      </>}
+      caja={<>
         {/* Lo que el empleado espera de Martín, arriba de la caja, como AskUserQuestion de Claude Code (Pregunta.tsx).
             La que se contesta se va de acá y queda en la conversación. */}
         {preguntas.length > 0 && <Pregunta key={chat.clave} preguntas={preguntas} responder={responder} />}
@@ -278,10 +221,14 @@ export function Conversacion({
             {envio.por === 'clave_no_aceptada' && <button type="button" className="co-chip" onClick={onCopiarClave}><Icon name="copy" size={14} />Copiar Token</button>}
           </div>
         )}
-        <p className="co-caja__estado" aria-live="polite">{envio.puede ? faltaMic ?? estado ?? resumenEnvio ?? '' : ''}</p>
-      </div>
-      </div>
-      </div>
-    </section>
+      </>}
+      estado={envio.puede ? faltaMic ?? estado ?? resumenEnvio ?? '' : ''}>
+      <ContextoWA.Provider value={wa ? accionesWA : null}>
+        <Hilo lineas={lineas} pushes={pushes ?? SIN_PUSHES} ahora={ahora} vacio="Escríbele abajo para empezar." quien={quien}
+          vivo={vivo} onResponder={onResponder ? responderPregunta : undefined} tareas={tareas} onFeedback={feedback} marcas={wa?.marcas} pasos={pasos}
+          yaVisto={yaVisto} onYaVisto={onYaVisto ? yaVistoCb : undefined}
+          mostrar={cuantos} onVerAnteriores={verTodo} />
+      </ContextoWA.Provider>
+    </PanelDeChat>
   );
 }

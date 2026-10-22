@@ -55,14 +55,31 @@ export async function chatsDeAntes(q: QuienChatea & { sub: string }): Promise<Ch
     .map((s) => ({ id: s.id, titulo: s.titulo, clave: claveVisible(s.chart_key, q), updatedAt: s.updated_at }));
 }
 
-/** Un chat de antes, si es de quien pide (la misma regla de /mako). null = no existe o no es suyo: no se distingue. */
-export async function hiloDeAntes(q: QuienChatea & { sub: string }, id: number): Promise<{ sesion: ChatDeAntes; mensajes: ChartMsg[] } | null> {
+/** La sesión de un chat de antes, si es de quien pide (la misma regla de /mako). null = no existe o no es suyo. */
+async function sesionDeAntes(q: QuienChatea & { sub: string }, id: number): Promise<ChartSession | null> {
   if (!Number.isInteger(id) || id <= 0) return null;
   const s = await getSession(id);
   if (!s || esChatDelTelefono(s.chart_key)) return null;
   const delDoer = clavesDelDoer(q).includes(s.chart_key);
-  if (!delDoer && !puedeUsarSesion(s.chart_key, q)) return null;
+  return delDoer || puedeUsarSesion(s.chart_key, q) ? s : null;
+}
+
+/** Un chat de antes, si es de quien pide (la misma regla de /mako). null = no existe o no es suyo: no se distingue. */
+export async function hiloDeAntes(q: QuienChatea & { sub: string }, id: number): Promise<{ sesion: ChatDeAntes; mensajes: ChartMsg[] } | null> {
+  const s = await sesionDeAntes(q, id);
+  if (!s) return null;
   return { sesion: { id: s.id, titulo: s.titulo, clave: claveVisible(s.chart_key, q), updatedAt: s.updated_at }, mensajes: await getSessionMessages(s.id) };
+}
+
+/**
+ * Un chat de antes se SIGUE en el Ops Center (21/10/2026, Martín: «las personas deberían poder continuar lo que quieran siempre
+ * desde el Ops Center»; hasta ese día era de sólo lectura y se seguía «en uno nuevo»). Lo escrito va al turno de MaKo de
+ * siempre (lib/mako-turno-app.ts → turnoApp), sobre ESA sesión: la ruta le pasa a la persona la clave de la sesión, y el
+ * turno la reconoce como suya (`sesionDe` compara la clave). La regla de quién la ve es la misma de leerla (`sesionDeAntes`):
+ * el admin, las del workspace; los demás, las suyas. null = no existe o no es suyo.
+ */
+export async function claveDeAntes(q: QuienChatea & { sub: string }, id: number): Promise<string | null> {
+  return (await sesionDeAntes(q, id))?.chart_key ?? null;
 }
 
 // ── Para la API de MaKo: los chats del Second Brain de la persona de ESTE turno ──────────────────────────────────

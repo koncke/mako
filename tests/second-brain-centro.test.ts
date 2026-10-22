@@ -91,7 +91,7 @@ test('el Second Brain pide los links EN PARALELO al turno, con la tab de MaKo, y
   const pide = mandar.indexOf('const irA = linksDelPedido(mensaje);');
   assert.ok(pide > 0 && pide < mandar.indexOf('await postArchivos') && pide < mandar.indexOf('await postLargo'), 'arranca antes del turno, sin esperarlo');
   assert.match(mandar, /void irA\.then\(\(links\) => \{ if \(links\.length\) setItems\(\(xs\) => colgarIrA\(xs, links, idU\)\); \}\);/);
-  assert.match(mandar, /mensaje \}\)/, 'el turno lleva el mensaje entero');
+  assert.match(mandar, /\{ action: 'send', sessionId: sid, mensaje, /, 'el turno lleva el mensaje entero');
 });
 
 

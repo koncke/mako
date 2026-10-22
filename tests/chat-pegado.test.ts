@@ -75,7 +75,8 @@ test('#848: el hilo de escritorio y el del teléfono parten el mensaje y pliegan
 
 test('#864: pegar más de 1.000 caracteres deja una ficha, en la computadora y en el teléfono', () => {
   const sb = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
-  assert.match(sb, /if \(esPegadoLargo\(pegado\)\) \{ e\.preventDefault\(\); ponerPegados\(/);
+  // En una conversación de Offer lo largo va entero: su motor lo parte en documentos (21/10/2026, ChatSecondBrain.tsx).
+  assert.match(sb, /if \(idOffer == null && esPegadoLargo\(pegado\)\) \{ e\.preventDefault\(\); ponerPegados\(/);
   assert.match(sb, /if \(enviar\(conPegados\(t, pg\), elegidosRef\.current\)\)/, 'sale con el mensaje, entre marcas');
   const comp = sinComentarios(leer('app/m/mako/Composer.tsx'));
   assert.match(comp, /onPaste=\{\(e\) => \{[\s\S]*?if \(esPegadoLargo\(pegado\)\) \{ e\.preventDefault\(\); setPegados\(/);

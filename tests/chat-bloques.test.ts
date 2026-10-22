@@ -129,7 +129,7 @@ test('3. cada tipo se dibuja', async () => {
 });
 
 test('4. las tres caras del hilo usan la MISMA pieza, y las pantallas suman lo que vuelve de la tarjeta', () => {
-  assert.match(sinComentarios(leer('app/_chat/HiloMako.tsx')), /if \(x\.k === 'bloque'\) \{\s*const de = x\.deTarjeta;\s*filas\.push\(<DeMako key=\{x\.id\} quien=\{quien\}><BloqueHilo b=\{x\.b\}/, 'la computadora');
+  assert.match(sinComentarios(leer('app/_chat/HiloMako.tsx')), /if \(x\.k === 'bloque'\) \{\s*const de = x\.deTarjeta;\s*filas\.push\(<DeMako key=\{x\.id\} quien=\{quien\} ancho><BloqueHilo b=\{x\.b\}/, 'la computadora');
   assert.match(sinComentarios(leer('app/m/mako/ChatMako.tsx')), /if \(x\.k === 'bloque'\) \{\s*const de = x\.deTarjeta;\s*return <li className="m-mako-msg m-mako-msg--mk"><BloqueHilo b=\{x\.b\}/, 'el teléfono');
   assert.match(sinComentarios(leer('app/crm/lead-view/MakoAnalystLead.tsx')), /if \(x\.k === 'bloque'\) \{[\s\S]{0,400}?return <FilaMako><BloqueHilo b=\{x\.b\}/, 'el MaKo Analyst de la ficha');
   // La pieza no trae CSS propio (así se dibuja en este test); las clases van en la hoja que carga el teléfono.

@@ -193,3 +193,9 @@
 .ch-form { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .ch-form__error { color: var(--bad); }
 .ch-form__afuera { align-self: center; font-size: var(--fs-sm); }
+
+/* Una nota de voz en el hilo (21/10/2026): se escucha en su globo y, debajo, lo que se entendió, en chico (Offer la guarda así:
+   el texto del mensaje es la transcripción). El reproductor es el de WhatsApp (app/whatsapp/_shared/AudioPlay.tsx). */
+.ch-voz { display: flex; flex-direction: column; gap: 6px; white-space: normal; }
+.ch-voz__texto { font-size: var(--fs-sm); line-height: 1.45; color: var(--dim); white-space: pre-wrap; overflow-wrap: anywhere; }
+.ch-voz > .co-burbuja__pie { align-self: flex-end; float: none; margin: 0; }
