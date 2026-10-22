@@ -4249,3 +4249,21 @@ mismas reglas en la página de producción, no en un build.
 
 **Vive en:** `app/_components/Sidebar.tsx` (`ANCHO_BARRA_PLEGADA`) · `app/_ui/ajustes.css` · `app/globals.css`
 (`.mk-svc-modal`) · `app/integraciones/IntegracionesBoard.tsx` · test: `tests/ventana-chica.test.ts`
+
+## «Kanban · Lista» y «Personalizar tarjetas»: UNA pieza cada uno para todos los tableros (21/10/2026)
+
+Martín, 21/10: «Los íconos de "tablero y lista" deberían estar como juntos en una sección, y el placeholder del
+"tablero" debe ser "kanban"... Esto en todos lados» y las plantillas de tarjeta «en clientes, plan, etc.».
+
+- **Había TRES selectores de vista** para la misma pregunta: el CRM con dos píldoras `.tk-ptab` sueltas que decían
+  «Tablero», Clientes con su `.bc-toggle` y el Plan con un `VistaToggle` propio que decía «Ver en tarjetas». Por eso
+  «en todos lados» no se cumplía cambiando uno. Ahora es app/_ui/SelectorVista.tsx, con los nombres cortos del
+  catálogo app/_ui/iconos-vista.tsx («Kanban», «Lista»); tests/crm-vista-iconos.test.ts frena una copia nueva
+  (ningún tablero puede volver a dibujar `ICONO_VISTA[` por su cuenta). /admin lo hereda por BarraClientes.
+- **Una miniatura de plantilla no puede ser un `<button>`**: adentro va la tarjeta DE VERDAD, que trae su píldora «Ver
+  info» (otro botón), y un botón dentro de otro no es HTML válido. Es un `div role="radio"` con teclado propio y la
+  tarjeta `inert`: se mira, no se toca. app/_ui/PersonalizarTarjetas.tsx.
+- **La galería dibuja con la función del tablero** (`vistaPrevia(forma, campos)`), no con un dibujo aparte: si fueran
+  dos, la galería podría prometer una tarjeta que el tablero no dibuja.
+- **El CRM dejó de usar clases `tk-*` en la barra**: salió de la lista de tests/tarjetas-familia.test.ts que exige montar
+  `<EstiloTarjetas />` (si vuelve a usarlas, vuelve a la lista).

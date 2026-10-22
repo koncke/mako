@@ -2754,4 +2754,57 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '21 oct', hora: '23:38', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Personalizar tarjetas» con plantillas de estilo, en un pop-up ancho, y las propias',
+    puntos: [
+      'Es la tanda 2 del pedido de Martín de las 23:10.',
+      'El pop-up es mucho más ancho: a la izquierda las plantillas, dibujadas con la tarjeta de verdad; a la derecha cómo queda y los datos en su orden. En el teléfono se apila.',
+      'Ocho plantillas: Completa, Compacta, Sin foto, Monto grande, Próxima reunión, Con avance, Con portada y Sólo el nombre.',
+      '«Guardar como plantilla» crea las propias (hasta 12 por persona); con el mismo nombre se reemplaza.',
+      'MaKo la puede leer y cambiar desde el chat de la app, con el «sí» de la persona.',
+    ],
+    commits: [
+      { sha: 'b3655ae4b', msg: 'CRM (feedback 21/10, tanda 2): «Personalizar tarjetas» con PLANTILLAS de estilo, en un pop-up ancho, y las propias', lineas: 805, archivos: 12 },
+    ],
+    archivos: [
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '21 oct', hora: '23:49', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Tipo de etapa» en los 3 puntos de cada columna',
+    puntos: [
+      'Es la tanda 3 del pedido de Martín de las 23:10.',
+      'Etapa, Reunión o Nutrición, en el «⋯» y en el clic derecho de cada columna. No lo llevan la entrada, Ganado ni las de salida.',
+      'Antes de cambiarlo dice qué pasa: los leads se quedan en la etapa, qué reunión cambia de número, el evento que deja de caer ahí.',
+      'Se deshace con el aviso de abajo. MaKo lo puede proponer (sólo el admin, con «sí»).',
+    ],
+    commits: [
+      { sha: 'a3eaf78f9', msg: 'CRM (feedback 21/10, tanda 3): «Tipo de etapa» en el «⋯» y el clic derecho de cada columna, con lo que pasa antes de cambiarlo', lineas: 510, archivos: 12 },
+    ],
+    archivos: [
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '21 oct', hora: '23:56', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Asignar evento»: crear, editar y conectar la agenda sin salir del CRM',
+    puntos: [
+      'Es la tanda 4 del pedido de Martín de las 23:10.',
+      '«Crear evento» (nombre, duración y agenda) lo crea en Calendly o Cal.com y lo deja asignado a esa etapa.',
+      'El lápiz de cada evento cambia su nombre y su duración.',
+      'Si falta Calendly o Cal.com, «Conectar» abre la conexión ahí mismo.',
+      'Google Calendar todavía no: Google no comparte sus páginas de reserva. Queda la decisión de Martín.',
+    ],
+    commits: [
+      { sha: '7aba75eaf', msg: 'CRM (feedback 21/10, tanda 4): en «Asignar evento» se crea, se edita y se conecta la agenda sin salir del CRM', lineas: 606, archivos: 12 },
+    ],
+    archivos: [
+    ],
+    revisar: '/crm',
+  },
 ];
