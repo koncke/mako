@@ -29,8 +29,8 @@ import { getLead, logLeadEvent, setPipelineStage } from './leads';
 import { getPipelineStagesDeLead } from './funnels';
 import { etapaDeGanado } from './pipeline';
 import { listProductos } from './productos';
-import { TratoEnCursoError, cobroDelProducto, ganarEnElCrm, marcarBajaPorReembolso, planArmadoPorElCobro, prepararTratoDelPago, type TratoDelPago } from './cobro-etapa-server';
-import type { PlanCongelado } from './cobro-etapa';
+import { TratoEnCursoError, cobroDelProducto, ganarEnElCrm, marcarBajaPorReembolso, planArmadoPorElCobro, planesDevueltosDelLead, prepararTratoDelPago, type TratoDelPago } from './cobro-etapa-server';
+import { mismoCentavo, type PlanCongelado } from './cobro-etapa';
 import { getPagosByLead, registrarCobroDeProveedor, desmarcarCobroDeProveedor, remarcarCobroDeProveedor } from './pagos';
 import { hoyEnWorkspace } from './timezone';
 import { capaDef, type CapaId } from './capas';
@@ -362,7 +362,7 @@ export async function crearCobro(ws: number, p: {
     // ⚠️ EL VALOR EN DÓLARES DE UN LINK DE CUOTA ES EL DE LA CUOTA, no uno declarado aparte: al pagarse la marca
     // pagada por su monto (`registrarCobroDeProveedor` exige que coincidan). En dólares, el link cobra exactamente
     // la cuota; en otra moneda, la persona dice cuánto es en esa moneda y la cuota pone los dólares.
-    if (cuota && d.moneda === 'USD' && Math.abs(d.monto - cuota.monto_usd) >= 0.01) {
+    if (cuota && d.moneda === 'USD' && !mismoCentavo(d.monto, cuota.monto_usd)) {
       return { ok: false, error: `El link de esta cuota cobra US$ ${cuota.monto_usd}. Para otro monto, edita la cuota primero.`, faltan: ['monto'] };
     }
 
@@ -549,10 +549,13 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
     //     cobrando pasado el mes 6 (el otro aviso no es `nuevo`). Y el lead que se GANA con este pago lo lleva (su `fecha_cierre` es hoy), así el MRR deja de
     //     contarla cuando se cumple. Hasta este día un producto «6 meses» se cobraba para siempre. Best effort: la plata
     //     ya entró; si falla, queda dicho (en el cobro, o en el log si no se pudo ni leer el plazo).
-    const plazo = actual.tipo === 'suscripcion' && nuevo && !renovacion
+    //     El PLAZO se lee en todo primer pago, no sólo en el `nuevo` (segunda revisión de plata): el otro aviso es el que
+    //     suele ganar al lead, y sin él escribía `suscripcion_meses = null` (el MRR la contaba sin fin). Programarlo en
+    //     Stripe sí, sólo el `nuevo` (es idempotente igual).
+    const plazo = actual.tipo === 'suscripcion' && !renovacion
       ? await plazoDelCobro(actual).catch((e) => { console.error(`[cobros] no pude leer el plazo del cobro ${c.id}:`, e instanceof Error ? e.message : String(e)); return null; })
       : null;
-    if (plazo && actual.proveedor === 'stripe' && actual.proveedor_suscripcion_id) actual = await programarPlazoStripe(actual, plazo);
+    if (plazo && nuevo && actual.proveedor === 'stripe' && actual.proveedor_suscripcion_id) actual = await programarPlazoStripe(actual, plazo);
 
     // 2b. Una suscripción NUEVA de la pasarela sobre un lead que ya era suscripción: la cancelada o con plazo vuelve a
     //     activa y sin fin (`reabrirSuscripcionDelLead`). Va antes de ganar, que no la toca si el lead ya ganó.
@@ -567,9 +570,12 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
       try {
         trato = await prepararTratoDelPago(actual, { renovacion, fecha });
       } catch (e) {
-        // Otro aviso del mismo pago lo está armando: no es una falla y no va al `motivo` (revisión de plata, baja 1).
+        // Otro aviso del mismo pago lo está armando: no es una falla y no va al `motivo` (revisión de plata, baja 1). Si este
+        // es el `nuevo` de un link anulado, su aviso (4b, abajo) se dice ACÁ: el otro aviso no lo dice (segunda revisión).
         if (!(e instanceof TratoEnCursoError)) {
           await actualizar(ws, c.id, { motivo: `El pago entró pero no pude prepararlo en su CRM: ${e instanceof Error ? e.message : String(e)}`.slice(0, 300) });
+        } else if (porLinkAnulado && nuevo) {
+          await logLeadEvent(actual.lead_id, 'Pago por un link anulado', avisoPagoPorLinkAnulado(false), autor);
         }
         throw e;
       }
@@ -922,25 +928,27 @@ export async function aplicarReembolso(c: Cobro, p: { proveedorPagoId: string | 
       // ⚠️ EL PLAN QUE ARMÓ ESTE PAGO (mig 0326, revisión adversarial, media 5): devuelto el primer pago, las cuotas que
       // quedaban de ese plan dejan de ser deuda (de baja, con su historial), en vez de seguir recordándole a quien le
       // devolvieron la plata. Best effort: el reembolso ya está; si falla, queda en el log.
-      if (esElPrimero) {
-        try {
-          const armado = await planArmadoPorElCobro(c.id);
-          if (armado) {
-            // ⚠️ SÓLO SI NADA MÁS SOSTIENE LA COMPRA (revisión de plata, media 2): quien pagó dos veces el mismo producto y
-            // recibe una devolución sigue debiendo las cuotas. Si en ese trato queda otro pago cobrado, no se da de baja:
-            // se dice, y lo decide una persona.
-            const quedan = (await getPagosByLead(c.lead_id, armado.pagoEn)).filter((q) => q.pagado);
-            if (quedan.length) {
-              await logLeadEvent(c.lead_id, 'Pago reembolsado', 'Se devolvió el primer pago del plan, pero en ese CRM quedan otros pagos cobrados: sus cuotas siguen como deuda. Revísalas en Pagos.', NOMBRE_PASARELA[c.proveedor]);
-            } else {
-              const { darDeBajaCliente } = await import('./pagos-baja');
-              const r = await darDeBajaCliente(c.lead_id, NOMBRE_PASARELA[c.proveedor], armado.pagoEn);
-              if (r.ok) await marcarBajaPorReembolso(c.id, true);
+      // En CADA reembolso total del lead, no sólo el del primer pago (segunda revisión de plata): devolver primero el
+      // primer pago y después la cuota 1 dejaba la cuota 2 como deuda.
+      try {
+        for (const plan of await planesDevueltosDelLead(c.lead_id)) {
+          // ⚠️ SÓLO SI NADA DEL PLAN SOSTIENE LA COMPRA (revisión de plata, media 2): quien pagó dos veces el mismo producto
+          // y recibe una devolución sigue debiendo. Se miran SÓLO las cuotas de ese plan (sus ids); sin ids (un trato de
+          // antes), todo lo cobrado del trato.
+          const delTrato = await getPagosByLead(c.lead_id, plan.pagoEn);
+          const sostienen = delTrato.filter((q) => q.pagado && (!plan.cuotasPlan.length || plan.cuotasPlan.includes(Number(q.id))));
+          if (sostienen.length) {
+            if (plan.cobroId === c.id) {
+              await logLeadEvent(c.lead_id, 'Pago reembolsado', 'Se devolvió el primer pago del plan, pero quedan cuotas de ese plan cobradas: las demás siguen como deuda. Si se devuelven también, se dan de baja solas.', NOMBRE_PASARELA[c.proveedor]);
             }
+            continue;
           }
-        } catch (e) {
-          console.error(`[cobros] no pude dar de baja el plan del cobro ${c.id} reembolsado:`, e instanceof Error ? e.message : String(e));
+          const { darDeBajaCliente } = await import('./pagos-baja');
+          const r = await darDeBajaCliente(c.lead_id, NOMBRE_PASARELA[c.proveedor], plan.pagoEn);
+          if (r.ok) await marcarBajaPorReembolso(plan.cobroId, true);
         }
+      } catch (e) {
+        console.error(`[cobros] no pude revisar los planes devueltos del lead ${c.lead_id}:`, e instanceof Error ? e.message : String(e));
       }
       await alCron(c, 'reembolsado');
     }

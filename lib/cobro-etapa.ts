@@ -238,3 +238,23 @@ export function planDelCobro(
   const coincide = mismoCentavo(p.primerPagoUsd, c.monto_usd);
   return coincide ? { plan: p.plan, montoVenta: base.precio } : { plan: null, montoVenta: c.monto_usd };
 }
+
+/**
+ * Lo que dice el trato cuando el plan de un pago NO se armó (revisión de plata, media 3), contando las cuotas que YA están
+ * en ese trato (su segunda revisión): con un pago repetido, o un plan que el closer cargó a mano, «faltan 2 cuotas:
+ * cárgalas» llevaba a cargar US$666,66 de deuda inventada. Cuenta las impagas, no dadas de baja y con vencimiento (las
+ * devueltas no tienen), del monto de la cuota del plan.
+ */
+export function pendienteDelPlan(
+  plan: PlanDelProducto,
+  cuotas: ReadonlyArray<{ pagado: boolean; monto_usd: number | string; fecha_esperada: string | null; baja_at?: string | null }>,
+  motivo: string,
+): string {
+  const n = plan.total_cuotas + 1;
+  const ya = cuotas.filter((q) => !q.pagado && !q.baja_at && q.fecha_esperada != null && mismoCentavo(q.monto_usd, plan.monto_cuota_usd)).length;
+  if (ya >= plan.total_cuotas) {
+    return `Entró el primer pago de ${n}, pero sus cuotas ya están cargadas en Pagos (${motivo}): puede ser un pago repetido. Revísalo antes de cargar nada.`;
+  }
+  const faltan = plan.total_cuotas - ya;
+  return `Entró el primer pago de ${n}; faltan ${faltan} cuota${faltan === 1 ? '' : 's'} de US$ ${plan.monto_cuota_usd.toFixed(2)} (${motivo}): cárgala${faltan === 1 ? '' : 's'} en Pagos.`;
+}

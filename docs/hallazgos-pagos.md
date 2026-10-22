@@ -1041,3 +1041,21 @@ escribiéndole a quien ya pagó (no se midió). La regla de la casa es de CRM (l
 - **Un pago ya asentado sin trato no arma uno nuevo** (un cobro viejo que vuelve a pasar por el cron): era una venta doble.
 - La API de MaKo guarda lo que se aprobó y no cobra otro monto si el producto cambió mientras esperaba. La venta de un
   intento cortado se reconoce por una marca en el cobro (`trato.ventaEn`), no por la fecha (el cron completa otro día).
+
+### La segunda revisión de plata: un aviso que dice «cárgalas» tiene que contar lo que ya está (22/10/2026)
+
+- **«Faltan 2 cuotas: cárgalas en Pagos» aunque ya estuvieran.** Con un pago repetido del mismo producto, o un plan que el
+  closer ya había cargado, quien siguiera el aviso cargaba US$666,66 de deuda inventada. **La regla:** un aviso que pide
+  cargar algo cuenta antes lo que ya está (`pendienteDelPlan`: las impagas, no dadas de baja y con vencimiento, del monto
+  de la cuota). Si ya están, dice «puede ser un pago repetido».
+- **Mover el plazo antes del trato arregló Stripe y agrandó la carrera del lead:** el aviso `nuevo` tarda más (Stripe) y el
+  otro gana el reclamo y el lead, con `suscripcion_meses = null`. El plazo se LEE en todo primer pago; sólo programarlo
+  en Stripe queda atado a `nuevo`. El aviso del link anulado se dice en el corte, porque el otro aviso no lo dice.
+- **El reembolso miraba sólo al devolver el primer pago.** Devolver el primero y después la cuota 1 dejaba la cuota 2 como
+  deuda. Ahora cada reembolso total revisa los planes devueltos del lead (`planesDevueltosDelLead`) y mira SÓLO las cuotas
+  de ese plan (sus ids, en `cobros.trato.cuotasPlan`): una renovación cobrada ya no frena la baja.
+- Quedó un `< 0.01` en el link de una cuota (lib/cobros.ts): al centavo.
+
+**Sin hacer:** la marca `trato.ventaEn` se escribe después de la venta (dos escrituras): un corte de milisegundos entre las
+dos deja el plan sin armar, y lo dice el pendiente. Un plan que el asistente de Ganado reparte con otro centavo en el
+inicial (333,33 en vez de 333,34) ya no lo salda el link del producto: entra como pago nuevo y el pendiente avisa.
