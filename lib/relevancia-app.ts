@@ -251,12 +251,16 @@ export function registroParaLaApp(p: PedidoDeRegistro): ToolDef[] {
   const comun = { vista: p.vista, incluirAcciones: p.conAcciones, sinAviso: true, donde: puerta } as const;
   const nombran = new Set<string>(p.areas);
 
+  // 0. Lo que la persona NOMBRA por una palabra que dicen pocas operaciones («Calendly»), primero (ver `porSuNombre`).
+  const cero = p.areas.length ? porSuNombre(p, puerta) : [];
+  const usados0 = cero.reduce((n, t) => n + tam(t), 0);
+
   // 1. Las áreas que el texto nombra, hasta el 75%.
   const uno = p.areas.length
-    ? toolsDelRegistro({ ...comun, areas: p.areas, excluir: p.excluir, maxChars: Math.floor(p.presupuesto * 0.75), relevanteA: p.relevanteA })
+    ? toolsDelRegistro({ ...comun, areas: p.areas, excluir: new Set([...p.excluir, ...cero.map((t) => t.name)]), maxChars: Math.floor(p.presupuesto * 0.75) - usados0, relevanteA: p.relevanteA })
     : [];
-  const usados1 = uno.reduce((n, t) => n + tam(t), 0);
-  const ya = new Set<string>([...p.excluir, ...uno.map((t) => t.name)]);
+  const usados1 = usados0 + uno.reduce((n, t) => n + tam(t), 0);
+  const ya = new Set<string>([...p.excluir, ...cero.map((t) => t.name), ...uno.map((t) => t.name)]);
 
   // 2. Las otras áreas, sólo lo que puntúa por una raíz al principio de una palabra y no cuesta. Se ordena por ESE puntaje (y, a
   //    igual puntaje, la más corta) y se arma a mano: el orden del registro es por substring y por orden de declaración.
@@ -285,5 +289,44 @@ export function registroParaLaApp(p: PedidoDeRegistro): ToolDef[] {
   const tres = p.areas.length
     ? toolsDelRegistro({ ...comun, areas: p.areas, excluir: ya, maxChars: p.presupuesto - usados1 - usados2, relevanteA: p.relevanteA })
     : [];
-  return [...uno, ...tres, ...dos];
+  return [...cero, ...uno, ...tres, ...dos];
+}
+
+/** El texto en minúsculas y sin tildes, como lo compara el registro. */
+const normalizarTexto = (s: string): string => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+/** Cuántas operaciones del registro pueden llevar una palabra en su id para que nombrarla las señale (≤ 3: «calendly», no «lead»). */
+const RARA = 3;
+/** Margen para lo nombrado por su palabra: una o dos lecturas, nunca el presupuesto de las áreas. */
+export const MARGEN_DE_NOMBRADAS = 1500;
+let palabrasDeIds: Map<string, number> | null = null;
+/** En cuántos ids del registro aparece cada palabra (las partes de `link_agenda_calendly`). Se cuenta una vez. */
+function vecesEnIds(): Map<string, number> {
+  if (palabrasDeIds) return palabrasDeIds;
+  const m = new Map<string, number>();
+  for (const d of REGISTRO) for (const w of new Set(d.id.split('_'))) m.set(w, (m.get(w) ?? 0) + 1);
+  return (palabrasDeIds = m);
+}
+
+/**
+ * Las operaciones de las áreas nombradas cuyo id lleva, ENTERA, una palabra que escribió la persona y que casi ninguna otra lleva.
+ * 22/10/2026 (OC1, al traer main a Ops Center 1.2): en «mandale a Juan el link de Calendly» la pista del clasificador («crear borrador
+ * whatsapp empresa mensaje…») ordena primero las de WhatsApp y Chats, y con las de Chats 2.1 llenaban el 75% antes de llegar a
+ * `link_agenda_calendly`. Darle más peso a lo que escribió la persona reordenaba seis grupos de frases medidas; esto sólo suma lo
+ * que se nombró por su palabra propia, dentro de `MARGEN_DE_NOMBRADAS`, y deja el orden de lo demás como estaba.
+ */
+function porSuNombre(p: PedidoDeRegistro, puerta: (d: OperacionDef) => boolean): ToolDef[] {
+  const veces = vecesEnIds();
+  const dichas = new Set(normalizarTexto(p.texto).split(/[^a-z0-9]+/).filter((w) => w.length >= 5 && (veces.get(w) ?? 0) > 0 && (veces.get(w) ?? 0) <= RARA));
+  if (!dichas.size) return [];
+  const out: ToolDef[] = [];
+  let margen = MARGEN_DE_NOMBRADAS;
+  for (const d of REGISTRO) {
+    if (!p.areas.includes(d.area) || p.excluir.has(d.id) || !visible(d, p.vista) || !puerta(d)) continue;
+    if (!p.conAcciones && d.tipo !== 'lectura') continue;
+    if (!d.id.split('_').some((w) => dichas.has(w))) continue;
+    const t = aToolDef(d);
+    if (tam(t) > margen) continue;
+    margen -= tam(t); out.push(t);
+  }
+  return out;
 }

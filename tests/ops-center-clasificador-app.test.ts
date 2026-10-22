@@ -1139,3 +1139,6 @@ test('completar o abrir de nuevo una tarea llega a cerrarla o reabrirla aunque �
 //     palabras de área (crm, whatsapp, etiqueta, estrategia, equipo, negocio, ads, partners, sabes-del-negocio) y el curso que nombra cs.
 //   Tres filas/líneas sobraban (area-cobros, `ganaAlLead` de cliente-cs y el corte temprano sin raíces) y se borraron.
 //   Dos filas (la de «etiqueta» y la de «fathom») no cayeron al romperlas: no hacían falta y se borraron.
+//   22/10/2026, al traer main (las herramientas de Chats 2.1): «mandale a Juan el link de Calendly» se quedaba sin
+//   `link_agenda_calendly`. Lo nombrado por una palabra de pocas operaciones entra primero (relevancia-app.ts → porSuNombre);
+//   apagarlo da 47/1 (CRM y Chats). Darle el doble a lo que escribió la persona lo arreglaba, pero rompía seis grupos: se descartó.

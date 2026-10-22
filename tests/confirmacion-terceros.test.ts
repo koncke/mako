@@ -83,6 +83,8 @@ test('la puerta es sólo de WhatsApp y sólo de lo que le llega a un tercero', (
 const A_TERCEROS = [
   'proponer_agendar_reunion', 'cancelar_reunion_calendly', 'proponer_agendar_agenda', 'proponer_mover_reunion', 'proponer_cambiar_reunion', 'proponer_cancelar_reunion',
   'invitar_cliente_curso_cs', 'reenviar_invitacion', 'crear_link_pago', 'crear_link_cuota', 'llevar_a_partners', 'mover_lead_en_producto',
+  // Los tres envíos de Chats 2.1 (22/10/2026, al traer main): sólo por la app hoy, pero le llegan al contacto.
+  'enviar_borrador_whatsapp', 'contestar_dm', 'contestar_email_chat',
 ];
 
 test('las acciones que le mandan algo a otra persona están marcadas `aTerceros`, y la marca sólo tiene sentido en una acción de chat', () => {
