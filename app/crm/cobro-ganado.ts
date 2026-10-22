@@ -4,11 +4,11 @@
 // Martín (22/10/2026): «Si conectamos la integración de Stripe y Mercado Pago, deberíamos poder vincular a la etapa GANADO
 // en los 3 puntos, poder elegir el producto, tal como lo hacemos en "Asignar evento"... que pueda tener de MP y de Stripe
 // al mismo tiempo... Y que pueda crear o editar los productos desde allí mismo». El modelo y las acciones son de Cobros
-// (app/crm/cobro-etapa-stub.ts dice dónde viven); el ⋯ de la columna y el modal (CobroDeEtapaModal.tsx), de acá.
+// (lib/cobro-etapa.ts y app/crm/cobro-etapa-actions.ts); el ⋯ de la columna y el modal (CobroDeEtapaModal.tsx), de acá.
 // Puro: lo prueba tests/crm-cobro-ganado.test.ts.
 // =============================================================================
 
-import { MAX_CUOTAS_PRODUCTO, type CuentaPago, type FotoCobroEtapa, type ProductoCobro, type ProductoCobroInput } from './cobro-etapa-stub';
+import { MAX_CUOTAS_PRODUCTO, type CuentaPago, type FotoCobroEtapa, type ProductoCobro, type ProductoCobroInput } from '@/lib/cobro-etapa';
 
 export const NOMBRE_PROVEEDOR_PAGO: Record<CuentaPago['proveedor'], string> = { stripe: 'Stripe', mercadopago: 'Mercado Pago' };
 export const MAX_NOMBRE_PRODUCTO = 80;

@@ -22,7 +22,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { nombreDeCuenta, precioDeProducto, productoDeLoEscrito, productosParaVincular } from '../app/crm/cobro-ganado';
 import { opcionesCrm, OPCION_CRM, type ContextoCrm } from '../app/crm/menu-contextual-crm';
-import type { CuentaPago, FotoCobroEtapa, ProductoCobro } from '../app/crm/cobro-etapa-stub';
+import type { CuentaPago, FotoCobroEtapa, ProductoCobro } from '../lib/cobro-etapa';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');

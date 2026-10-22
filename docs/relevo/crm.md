@@ -15,12 +15,9 @@ Lo que no se deduce del código, en docs/hallazgos-crm.md («El feedback del 21/
 **22/10, «Vincular cobro» en Ganado** (punto 3 del feedback de Martín): rama `crm-cobro-ganado-2210` en
 C:/dev/wt-crm-cobro (sobre `crm-aut-lead-2210`). El ⋯ y el clic derecho de Ganado abren app/crm/CobroDeEtapaModal.tsx:
 producto con precio, una casilla por cuenta (Stripe y Mercado Pago a la vez, varias por proveedor), «+ Producto»
-(catálogo o crear), «Editar» y «Quitar» con Deshacer: tests/crm-cobro-ganado.test.ts. Sin «Copiar link» hasta que
-`linkDelVinculoAction` dé el link sin un lead (Cobros). Las acciones de Cobros están en 823c735ca (rama
-vincular-cobro-2210, sin la mig 0326 aplicada). **Va contra un STUB**
-(app/crm/cobro-etapa-stub.ts) del contrato de Cobros (contrato-cobro-en-ganado.md, notas compartidas). Cuando
-`lib/cobro-etapa.ts` y `app/crm/cobro-etapa-actions.ts` estén en main: los imports de cobro-ganado.ts y
-CobroDeEtapaModal.tsx pasan ahí, se borra el stub, y recién ahí sube. Sin tipos: el tsc acotado dio 99 (RAM).
+(catálogo o crear), «Editar» y «Quitar» con Deshacer: tests/crm-cobro-ganado.test.ts. Con las acciones de verdad de
+Cobros (lib/cobro-etapa.ts y app/crm/cobro-etapa-actions.ts, su punta 81c8446e7, la mig 0326 aplicada): el stub se fue
+el 22/10. Sin «Copiar link» hasta que `linkDelVinculoAction` dé el link sin un lead (Cobros avisa).
 
 **22/10, «está en una automatización» y «Frenar»** (Martín: «en el CRM debería indicar en la tarjeta o en algún lugar
 que esos leads están en una automatización activa, y que desde el CRM también se pueda frenar»): rama `crm-aut-lead-2210` en

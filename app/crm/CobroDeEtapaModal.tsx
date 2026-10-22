@@ -15,7 +15,7 @@
 //   · «+ Producto»: elegir uno del catálogo o crearlo ahí mismo; nace vinculado con todas las cuentas. «Editar» lo cambia
 //     en el lugar. «Quitar» lo desvincula y deja Deshacer.
 //   · Sin cuentas, se conectan AHÍ MISMO (el modal de /integraciones arriba de éste: `BotonIntegracion`).
-// El modelo y las acciones son de Cobros (app/crm/cobro-etapa-stub.ts dice dónde viven); lo que se dice, en
+// El modelo y las acciones son de Cobros (lib/cobro-etapa.ts y app/crm/cobro-etapa-actions.ts); lo que se dice, en
 // app/crm/cobro-ganado.ts.
 // =============================================================================
 
@@ -24,12 +24,11 @@ import { createPortal } from 'react-dom';
 import { Modal, Spinner, Toast, useToast, Button, SANS, MONO } from '@/app/_ui';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
-// ⚠️ STUB hasta que las acciones de Cobros lleguen a main (ver su cabecera): al integrar, este import cambia.
 import {
   leerCobroDeEtapaAction, vincularProductoAEtapaAction, cambiarCuentasDelVinculoAction, desvincularProductoAction,
-  guardarProductoCobroAction, TEXTO_AL_PAGAR,
-  type FotoCobroEtapa, type ProductoCobro, type VinculoCobro,
-} from './cobro-etapa-stub';
+  guardarProductoCobroAction,
+} from './cobro-etapa-actions';
+import { TEXTO_AL_PAGAR, type FotoCobroEtapa, type ProductoCobro, type VinculoCobro } from '@/lib/cobro-etapa';
 import { MAX_NOMBRE_PRODUCTO, NOMBRE_PROVEEDOR_PAGO, nombreDeCuenta, precioDeProducto, productoDeLoEscrito, productosParaVincular } from './cobro-ganado';
 
 const TH: CSSProperties = {
