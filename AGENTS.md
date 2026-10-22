@@ -9807,6 +9807,28 @@ para prospectar (docs/hallazgos-offer.md, OF1).
   bien: el ws13 tenía un solo funnel y su diagnóstico de antes decía lo mismo que hoy. Antes de subir, un script de sólo
   lectura cuenta qué filas se marcan y por qué.
 
+# Lo que devuelve un modelo con un nombre que no existe se mapea o se avisa, nunca se tira callado
+
+El 22/10/2026 MaKo contestó «queda anotada tal cual» y la promesa no quedó en ninguna pieza: el modelo la mandó con la key
+`promesa`, que no existe, y el parseo la descartó sin un log (docs/hallazgos-offer.md, segunda prueba de los chats).
+
+- Al leer el JSON de un modelo, una key desconocida va a la suya por un mapa de alias (con y sin tilde) o sale en el log.
+- Lo que el usuario dice con todas las letras (un número, un «no», un texto entre comillas que pide tal cual) lo anota el
+  CÓDIGO, no depende de que el modelo lo devuelva.
+
+# Un documento que habla DEL negocio pero no es DEL negocio no llena su perfil
+
+El 22/10/2026 una propuesta de Código Inmobiliario A SU PROSPECTO dejó como «qué hace tu negocio» el negocio del prospecto,
+y una lectura apurada la tomó por una propuesta de MaKo (docs/hallazgos-offer.md, OF3).
+
+- La extracción del Archivero dice de QUIÉN es el documento (`habla_de`: negocio, prospecto o proveedor) y el CÓDIGO decide
+  qué llena (`camposSegunQuien`, lib/archivero-registro.ts): de un prospecto, la oferta y el cliente ideal pero nunca la
+  identidad del negocio (`negocio_*`); de un proveedor, nada.
+- Un cambio en un prompt de extracción compartido se prueba con documentos REALES antes de subir
+  (scripts/banco-archivero-quien.mts): tiene que dar bien antes y después.
+- Antes de reparar datos de un cliente se lee quién prepara el documento y para quién («Preparado para…», quién habla en
+  una llamada), no sólo de qué habla.
+
 # Nada de datos reales de clientes ni de terceros en tests/, docs/ y AGENTS.md
 
 Un test, un ejemplo o una cosecha se escriben con datos INVENTADOS del mismo formato: un gmail por un gmail inventado, un
