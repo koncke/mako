@@ -7558,3 +7558,15 @@ archivo con menos tests. **Regla:** en un test, todo lo que puede tirar va ADENT
 declara es un rojo. **Medido:** de los 211 archivos que leen el motor de Automations, sólo éste (corridos aislados).
 **Sin hacer:** que `scripts/tests-afectados.mjs` compare, por archivo, los tests que el runner contó contra los `test(` del
 fuente, o que corra aislado todo archivo que en la corrida compartida contó menos de los que declara.
+
+## Sin minutos de Actions, el run sale «failure» y parece un rojo de código (22/10/2026, Cerebro › Integración)
+
+- **Síntoma:** el run 234 de `integracion` terminó `failure` en 3 segundos. El job no tiene pasos, y su log da `BlobNotFound`.
+  Parecía un rojo de tests o de tipos: no lo era.
+- **La causa** está sólo en las anotaciones del check-run (`/repos/<repo>/check-runs/<job id>/annotations`): «The job was not
+  started because recent account payments have failed or your spending limit needs to be increased». El plan es Free (2.000
+  minutos por mes, sin tarjeta) y se acabaron el 22/10 a la mañana, después de 9 runs verdes de la noche.
+- **Lo que deja:** `main` no avanza por `integracion` hasta que haya medio de pago o tope de gasto, o hasta el 1º del mes.
+  Vercel despliega `main` igual, porque no depende de Actions.
+- **Regla:** un run que termina en segundos y sin pasos NO se lee como un rojo de código y no se le pasa a ningún chat. Se miran
+  sus anotaciones. Y antes de culpar a un test, se mira cuánto duró el job (`started_at` / `completed_at`).
