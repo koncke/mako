@@ -52,7 +52,7 @@ import { valorDisparo } from '@/lib/flujo-conversacion';
 import { ordenarAvisos } from '@/lib/flujo-ia-cliente';
 import { esColumnaInexistente } from '@/lib/nutricion-grafo-motor';
 import {
-  EDITAR_IA_SYSTEM_TEMPLATE, deIAEdicion, erroresEdicion, ordenDeRevelado, conEtiquetasReales, refsSinResolver, disparadorReal,
+  EDITAR_IA_SYSTEM_TEMPLATE, ordenDeRevelado, conEtiquetasReales, refsSinResolver, disparadorReal,
   userDeEditar, leyendoDe, leyendoTexto, aIA,
   type EventoIA, type ResultadoEdicion, type GuardadoIA,
 } from '@/lib/flujo-ia';
@@ -61,7 +61,8 @@ import { disparadorDeValorIA, valorIADeDisparador, type Disparador } from '@/lib
 import { disparadoresDeSecuencia } from '@/lib/disparadores-canales';
 import { armarContexto, crearNuevas, generar, crearFlujoConIA } from '@/lib/flujo-ia-crear';
 import { esConsulta, deIARespuesta, userDeExplicar, EXPLICAR_IA_SYSTEM_TEMPLATE } from '@/lib/flujo-ia-consulta';
-import { intencionDe, extrasDelUser, vaAExplicar, errorDeRespuestaEnEditar, charlaConTextos, esPreguntaDirecta } from '@/lib/flujo-ia-intencion';
+import { intencionDe, extrasDelUser, vaAExplicar, esPreguntaDirecta } from '@/lib/flujo-ia-intencion';
+import { revisarEdicion, etapaQueNoExiste, textoEtapaQueNoExiste } from '@/lib/flujo-ia-revision-editar';
 import {
   sanearRespuestas, aplicarRespuestas, turnoDelUsuario, mensajeChat, mensajeDePregunta, respuestaDelCron,
 } from '@/lib/flujo-ia-preguntas';
@@ -285,6 +286,10 @@ export async function POST(req: NextRequest) {
         // que sólo puede devolver {"respuesta"}; con respuestas a una pregunta de MaKo, es un pedido y sigue abajo.
         // ⚠️ Y DESDE EL 22/10/2026 LO ELIGE LA PERSONA (lib/flujo-ia-intencion.ts): «Discutir» va siempre acá, «Editar»
         // nunca; sin elegir, lo de antes. En los tres, lo último de la charla viaja (sin eso «como te dije» no existía).
+        // UNA ETAPA QUE NO EXISTE se dice ANTES del modelo (22/10/2026, el arnés contra producción: el modelo no devolvía nada y
+        // salía «No cambió nada»). Sin inventarla ni poner otra a escondidas: el CRON no se toca (lib/flujo-ia-revision-editar.ts).
+        const sinEtapa = respuestas.length === 0 ? etapaQueNoExiste(pedido, ctx) : null;
+        if (sinEtapa) { await contestar(textoEtapaQueNoExiste(sinEtapa)); return; }
         const extras = extrasDelUser(intencion, historial);
         if (vaAExplicar(intencion, respuestas.length > 0, esConsulta(pedido), esPreguntaDirecta(pedido))) {
           const system = await getPromptText('chatbot.explicar-ia.system', EXPLICAR_IA_SYSTEM_TEMPLATE);
@@ -304,15 +309,11 @@ export async function POST(req: NextRequest) {
         // Sin slots: lo variable va en el `user` (un override guardado no conoce bloques nuevos).
         const system = await getPromptText('chatbot.editar-ia.system', EDITAR_IA_SYSTEM_TEMPLATE);
         const user = [userDeEditar(ctx, { perfil, voz, pedido: pedidoEditar }, base), ...extras].join('\n\n');
-        const traducir = (obj: Record<string, unknown>): { r: ResultadoEdicion; errores: string[] } => {
-          const r = deIAEdicion(obj, base, ctx);
-          // En «Editar» contestar sin cambiar es un ERROR que el reintento corrige (lo que pasó con Mauricio el 22/10).
-          // Salvo lo que vale contestar (una aclaración, dónde se configura, que no se puede: `errorDeRespuestaEnEditar`).
-          const errorRespuesta = r.respuesta && intencion === 'editar' ? errorDeRespuestaEnEditar(pedido, r.respuesta, { esPregunta: esConsulta(pedido), charlaConTextos: charlaConTextos(historial) }) : null;
-          if (errorRespuesta) return { r, errores: [errorRespuesta] };
-          // Una respuesta no cambió nada: no hay qué revisar (un borrador con algo roto no la tiene que tumbar).
-          return { r, errores: r.respuesta ? [] : erroresEdicion(base, r, ctx) };
-        };
+        // Cada intento del modelo pasa por la misma revisión (lib/flujo-ia-revision-editar.ts, la prueban sus tests con la
+        // respuesta grabada): en «Editar» contestar sin cambiar es un error salvo lo que vale (`errorDeRespuestaEnEditar`);
+        // pedir SUMAR y cambiar lo que había, también; y «hazlo» con lo pedido ya hecho se contesta en vez de «No cambió nada».
+        const traducir = (obj: Record<string, unknown>): { r: ResultadoEdicion; errores: string[] } =>
+          revisarEdicion({ obj, base, ctx, pedido, historial, intencion });
 
         send({ t: 'fase', fase: 'modelo' });
         const g = await generar({

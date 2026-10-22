@@ -33,6 +33,7 @@ export const REGLAS_EDITAR = [
   '- Si pegó textos o te pide un cambio, cambia el flujo (o pregunta lo que falta con "pregunta"). Contesta con "respuesta" SÓLO si es una pregunta sobre el flujo, si lo que pide se configura fuera de las tarjetas (di dónde) o si no se puede hacer (di por qué, en una frase).',
   '- Las 20 horas entre dos WhatsApp (regla 3) son para lo que armas tú: no agregues esperas que no pidió. Si pide otra espera, pon la que pide y di en "resumen" que la línea retiene el segundo mensaje hasta que pasen las horas de «Misma persona» (Configuraciones › Límites).',
   '- «Avísame», «avísame por WhatsApp» o «que me llegue a mí» es la "accion" "avisar_al_equipo" (le llega al grupo de MaKo del negocio), nunca un mensaje al lead.',
+  '- «Agrega», «suma» o «añade» (aunque diga «edítalos y agrégalos») es SUMAR: los textos nuevos van en "agregar", como tarjetas nuevas después del último mensaje, y los mensajes que ya están NO se cambian.',
 ].join('\n');
 
 /**

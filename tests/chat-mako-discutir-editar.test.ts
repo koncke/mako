@@ -76,7 +76,9 @@ test('la ruta: la intención decide explicar o editar, la charla va en los dos, 
   assert.match(ruta, /const extras = extrasDelUser\(intencion, historial\);\n\s+if \(vaAExplicar\(intencion, respuestas\.length > 0, esConsulta\(pedido\), esPreguntaDirecta\(pedido\)\)\) \{/);
   assert.match(ruta, /const user = \[userDeExplicar\(\{[^\n]+\}\), \.\.\.extras\]\.join\('\\n\\n'\);/);
   assert.match(ruta, /const user = \[userDeEditar\(ctx, \{ perfil, voz, pedido: pedidoEditar \}, base\), \.\.\.extras\]\.join\('\\n\\n'\);/);
-  assert.match(ruta, /const errorRespuesta = r\.respuesta && intencion === 'editar' \? errorDeRespuestaEnEditar\(pedido, r\.respuesta, \{ esPregunta: esConsulta\(pedido\), charlaConTextos: charlaConTextos\(historial\) \}\) : null;\n\s+if \(errorRespuesta\) return \{ r, errores: \[errorRespuesta\] \};/);
+  // (22/10/2026: la revisión vive en `revisarEdicion`, lib/flujo-ia-revision-editar.ts.)
+  const rev = readFileSync(join(__dirname, '..', 'lib/flujo-ia-revision-editar.ts'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(rev, /const e = o\.intencion === 'editar' \? errorDeRespuestaEnEditar\(o\.pedido, r\.respuesta, \{ esPregunta: esConsulta\(o\.pedido\), charlaConTextos: charlaConTextos\(o\.historial\) \}\) : null;/);
   assert.ok(ERROR_EDITAR_SIN_CAMBIOS.length > 20);
   // En Editar, una pregunta DIRECTA va a explicar (22/10/2026: «¿A cuántos les va a llegar?» en editar decía «Configuraciones»).
   assert.equal(vaAExplicar('editar', false, true, true), true);

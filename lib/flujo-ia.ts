@@ -1176,6 +1176,11 @@ type OpcionesArmar = {
   est: Estado;
   /** Cuántos caminos en paralelo hay ya (editar): cuenta para `TOPE_HILOS`. */
   hilosPrevios: number;
+  /**
+   * EN EL MEDIO (editar): la tarjeta que seguía donde va el tramo. Una flecha del tramo a ELLA no se corta (es lo que se pidió:
+   * «antes del primer mensaje, una condición que siga el flujo»); a cualquier otra que ya existía, sí.
+   */
+  enElMedio?: string | null;
 };
 
 type Armado = {
@@ -1215,7 +1220,7 @@ function armar(cards: Card[], raices: Raiz[], respuestaTmp: string | null, o: Op
   const avisoUnaVez = (k: string, m: string) => { if (!avisados.has(k)) { avisados.add(k); est.avisos.push(m); } };
   const AVISO_DOS_LUGARES = 'Una tarjeta seguía en dos lugares: la dejé en el primero';
 
-  type Destino = { tipo: 'nada' } | { tipo: 'tarjeta'; tmp: string; extraPar: string[] } | { tipo: 'ocupada' };
+  type Destino = { tipo: 'nada' } | { tipo: 'tarjeta'; tmp: string; extraPar: string[] } | { tipo: 'ocupada' } | { tipo: 'base'; id: string };
 
   /** A dónde lleva una referencia, saltando las tarjetas sacadas. */
   const seguir = (ref: string | null | undefined, hilo: Hilo, visto = new Set<string>()): Destino => {
@@ -1223,8 +1228,8 @@ function armar(cards: Card[], raices: Raiz[], respuestaTmp: string | null, o: Op
     visto.add(ref);
     const n = nodos.get(ref);
     if (!n) {
-      // Una tarjeta que ya existía (editar): ya cuelga de su lugar, no de dos.
-      if (idsBase.has(ref)) return { tipo: 'ocupada' };
+      // Una tarjeta que ya existía (editar): ya cuelga de su lugar, no de dos. Salvo la que seguía donde va el tramo (EN EL MEDIO).
+      if (idsBase.has(ref)) return ref === o.enElMedio ? { tipo: 'base', id: ref } : { tipo: 'ocupada' };
       avisoUnaVez(`no:${ref}`, 'Una tarjeta seguía en otra que no existe: lo corté');
       return { tipo: 'nada' };
     }
@@ -1262,6 +1267,7 @@ function armar(cards: Card[], raices: Raiz[], respuestaTmp: string | null, o: Op
   const unaSalida = (ref: string | null | undefined, hilo: Hilo): { destino: string | null; extraPar: string[] } => {
     const d = seguir(ref, hilo);
     if (d.tipo === 'nada') return { destino: null, extraPar: [] };
+    if (d.tipo === 'base') return { destino: d.id, extraPar: [] };
     if (d.tipo === 'ocupada') { avisoUnaVez('dos-lugares', AVISO_DOS_LUGARES); return { destino: null, extraPar: [] }; }
     reclamar(d.tmp, hilo);
     return { destino: d.tmp, extraPar: d.extraPar };
@@ -1328,7 +1334,8 @@ function armar(cards: Card[], raices: Raiz[], respuestaTmp: string | null, o: Op
   const real = new Map<string, string>();
   const nuevo = (): string => { const id = nuevoId(usados, o.rnd); usados.push({ id }); return id; };
   for (const tmp of orden) real.set(tmp, nuevo());
-  const r = (tmp: string | null) => (tmp ? real.get(tmp) ?? null : null);
+  // La tarjeta de EN EL MEDIO conserva su id (ya existe).
+  const r = (tmp: string | null) => (tmp ? real.get(tmp) ?? (tmp === o.enElMedio ? tmp : null) : null);
 
   const out: PasoIA[] = [];
   for (const tmp of orden) {
@@ -1998,6 +2005,12 @@ function esperaCortaEntreWhatsapp(pasos: readonly PasoIA[], tocadas: ReadonlySet
 
 /** Las tarjetas de UNA salida «sig» (en el grafo): ahí un tramo puede ir EN EL MEDIO (`agregarTramos`). */
 const SALIDA_SIMPLE: ReadonlySet<string> = new Set(['mensaje', 'esperar', 'accion']);
+/** Las flechas que escribió el modelo en unas tarjetas (`apuntaA` de cada una): para ver si ya siguen en una que existe. */
+const refsDeTarjetas = (cards: readonly Card[]): string[] => cards.flatMap(apuntaA);
+/** ¿Una tarjeta ya armada sigue en `id` (por su «sig», un paralelo, una rama o su «Si no»)? */
+function sigueEn(n: PasoIA, id: string): boolean {
+  return n.siguiente === id || (n.paralelos ?? []).includes(id) || (n.ramas ?? []).some((r) => r.siguiente === id) || n.si_no === id;
+}
 /** Las de UNA salida: cambiar de clase las reemplaza en su mismo lugar. */
 const SIMPLES: ReadonlySet<ClaseEditable> = new Set<ClaseEditable>(['mensaje', 'esperar', 'etiqueta', 'accion']);
 
@@ -2486,24 +2499,50 @@ function agregarTramos(pasosIn: PasoIA[], grupos: readonly unknown[], ed: Edicio
     }
     if (lugar.tipo === 'cron') {
       const principal = raicesSalida(pasos)[0] ?? null;
-      if (principal && TOPE_HILOS - 1 - contarParalelos(pasos) <= 0) { est.avisos.push(`Una automatización corre hasta ${TOPE_HILOS} caminos a la vez: no agregué otro`); continue; }
-      const ini = pasos.find((p) => claseDe(p) === 'inicio');
-      if (principal && ini && (ini.paralelos?.length ?? 0) >= TOPE_PARALELOS) { est.avisos.push(`Desde el CRON salen hasta ${1 + TOPE_PARALELOS} caminos: no agregué otro`); continue; }
+      // ⚠️ ANTES DE LO PRIMERO (22/10/2026, el arnés del Cerebro: «antes del primer mensaje, si tiene la etiqueta X que siga el
+      // flujo»): desde el CRON con «sig», o con el tramo que ya sigue en la primera tarjeta, va EN EL MEDIO. Antes colgaba EN
+      // PARALELO, sin aviso, y el primer mensaje quedaba dos veces.
+      if (principal && (salida === 'sig' || salida === 'siguiente' || refsDeTarjetas(sinResp).includes(principal))) enElMedio = principal;
+      else {
+        if (principal && TOPE_HILOS - 1 - contarParalelos(pasos) <= 0) { est.avisos.push(`Una automatización corre hasta ${TOPE_HILOS} caminos a la vez: no agregué otro`); continue; }
+        const ini = pasos.find((p) => claseDe(p) === 'inicio');
+        if (principal && ini && (ini.paralelos?.length ?? 0) >= TOPE_PARALELOS) { est.avisos.push(`Desde el CRON salen hasta ${1 + TOPE_PARALELOS} caminos: no agregué otro`); continue; }
+      }
     }
     if (lugar.tipo === 'par') {
       const p = pasos[indicePorId(pasos, lugar.nodo)];
       if ((p.paralelos?.length ?? 0) >= TOPE_PARALELOS || TOPE_HILOS - 1 - contarParalelos(pasos) <= 0) { est.avisos.push('Esa tarjeta ya abre todos los caminos que puede: no agregué otro'); continue; }
     }
 
-    const hilosPrevios = contarParalelos(pasos) + ((lugar.tipo === 'par' || (lugar.tipo === 'cron' && raicesSalida(pasos).length)) ? 1 : 0);
+    const hilosPrevios = contarParalelos(pasos) + ((lugar.tipo === 'par' || (lugar.tipo === 'cron' && !enElMedio && raicesSalida(pasos).length)) ? 1 : 0);
     est.copias = copias;
-    const armado = armar(sinResp, [{ ref: inicioTmp, hilo }], null, { base: pasos, rnd, est, hilosPrevios });
+    const armado = armar(sinResp, [{ ref: inicioTmp, hilo }], null, { base: pasos, rnd, est, hilosPrevios, enElMedio });
     est.copias = undefined;
     const raiz = armado.raices[0];
     if (!raiz || !armado.nodos.length) { est.avisos.push('Un tramo nuevo quedó vacío: no lo agregué'); continue; }
-    for (const p of armado.nodos) ed.agregadas.add(p.id!);
+    // EN EL MEDIO: lo que seguía va DESPUÉS del tramo. Si el tramo ya sigue en ella, listo; si no, se cuelga de su única punta
+    // libre (una tarjeta simple sin «sig»), o de la primera rama de una condición sola («si tiene X, que siga el flujo»).
+    // Con más de una punta no se adivina: no se agrega.
+    let nodos = armado.nodos;
+    if (enElMedio && !nodos.some((n) => sigueEn(n, enElMedio!))) {
+      const colas = nodos.filter((n) => SALIDA_SIMPLE.has(claseDe(n)) && !n.siguiente);
+      const cond = nodos.length === 1 && claseDe(nodos[0]) === 'condicion' && nodos[0].ramas?.length && !nodos[0].ramas[0].siguiente ? nodos[0] : null;
+      if (colas.length === 1) nodos = nodos.map((n) => (n === colas[0] ? { ...n, siguiente: enElMedio } : n));
+      else if (cond) nodos = [{ ...cond, ramas: cond.ramas!.map((r, k) => (k === 0 ? { ...r, siguiente: enElMedio } : r)) }];
+      else { est.avisos.push('Esa salida ya tiene tarjetas y el tramo nuevo no termina en una sola: no lo agregué'); continue; }
+    }
+    for (const p of nodos) ed.agregadas.add(p.id!);
 
-    if (lugar.tipo === 'cron') {
+    if (lugar.tipo === 'cron' && enElMedio) {
+      // Antes de lo primero: el CRON sigue en el tramo (con el nodo de inicio, su «sig»; sin él, el tramo va primero en la
+      // lista, que es la raíz de la salida: `raicesSalida` toma la primera que nadie apunta).
+      const iIni = pasos.findIndex((p) => claseDe(p) === 'inicio');
+      if (iIni >= 0) {
+        pasos = conectarPuerto(pasos, ID_INICIO, 'sig', raiz);
+        const k = pasos.findIndex((p) => claseDe(p) === 'inicio');
+        pasos = [...pasos.slice(0, k), ...nodos, ...pasos.slice(k)];
+      } else pasos = [...nodos, ...pasos];
+    } else if (lugar.tipo === 'cron') {
       const principal = raicesSalida(pasos)[0] ?? null;
       const iIni = pasos.findIndex((p) => claseDe(p) === 'inicio');
       if (!principal) {
@@ -2532,11 +2571,6 @@ function agregarTramos(pasosIn: PasoIA[], grupos: readonly unknown[], ed: Edicio
       const k = pasos.findIndex((p) => p.id === r);
       pasos = [...pasos.slice(0, k + 1), ...armado.nodos, ...pasos.slice(k + 1)];
     } else {
-      // EN EL MEDIO: el tramo tiene que terminar en UNA punta libre (una tarjeta simple sin «sig»), que es donde se cuelga lo
-      // que seguía. Con más de una (una condición con dos ramas abiertas), no se adivina cuál: no se agrega.
-      const colas = enElMedio ? armado.nodos.filter((n) => SALIDA_SIMPLE.has(claseDe(n)) && !n.siguiente) : [];
-      if (enElMedio && colas.length !== 1) { est.avisos.push('Esa salida ya tiene tarjetas y el tramo nuevo no termina en una sola: no lo agregué'); for (const p of armado.nodos) ed.agregadas.delete(p.id!); continue; }
-      const nodos = enElMedio ? armado.nodos.map((n) => (n === colas[0] ? { ...n, siguiente: enElMedio } : n)) : armado.nodos;
       pasos = conectarPuerto(pasos, lugar.nodo, lugar.tipo === 'par' ? 'par' : lugar.puerto, raiz);
       const k = pasos.findIndex((p) => p.id === lugar!.nodo);
       pasos = [...pasos.slice(0, k + 1), ...nodos, ...pasos.slice(k + 1)];
