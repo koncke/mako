@@ -10171,6 +10171,22 @@ tests/crm-traer-todos.test.ts
   (300 tarjetas en «Lead entrante»). Las capturas y los clics por la extensión daban «el renderer no responde», y se
   repitió al volver a entrar. El ws3 se destrabó al navegar de nuevo. Puede ser el tablero o la extensión: falta medirlo
   con el Rendimiento de DevTools, o abriéndolo a mano.
+- **Medido sin el Chrome de Martín (22/10), el tablero NO explica minutos, pero sí escalaba mal.** Con el CrmBoard real
+  en un Chrome sin ventana (tests/_crm-tablero-medir.mjs) y foto y «Datos pendientes» en todas, dibujar TODAS las
+  tarjetas costaba 934 ms con 300 y 1,13 s con 1.050 (hasta 2,2 s y 3,6 s de tareas largas con la máquina cargada), y
+  tildar una, 348 ms. Ahora cada columna dibuja 60 y suma 60 al llegar al fondo (FinDeColumna.tsx): 98 ms con 300 y
+  161 ms con 1.050, y tildar 32 ms. El conteo, la casilla de la columna, mover a los tildados y el orden al soltar
+  siguen mirando la columna entera. **Lo de los minutos sigue sin explicar**: con datos de prueba no aparece, así que es
+  lo que el arnés no tiene (las fotos reales del CDN, la extensión de Chrome) o una máquina más lenta.
+- **Trampas del arnés** (para el próximo que mida una pantalla así):
+  - Una acción `'use server'` se cambia por funciones vacías. Lo que sólo existe en el server (módulos de Node, SDKs,
+    `next/server`) va como ESM con los nombres que pide quien lo importa. Un CommonJS no sirve: esbuild copia sólo las
+    propiedades propias del Proxy, y `new AsyncLocalStorage()` daba «is not a constructor» al cargar.
+  - Sin `onUncaughtError` en `createRoot`, un error de render desmonta todo en silencio: se mide un tablero vacío
+    («0 tarjetas en 60 ms») y parece rapidísimo.
+  - Un clic en la tarjeta abre la ficha completa, que sin base se rompe. Lo que redibuja el tablero sin la ficha es
+    «Ver info» (la ficha rápida es estado del tablero).
+  - La primera corrida de cada Chrome carga el script: hay que calentar con una corrida chica antes de comparar.
 
 **Vive en:** app/crm/CrmBoard.tsx (`confirmManualMeeting`, `opEtapa`), EtapasModal.tsx, CrmToolbar.tsx,
 lead-view/LeadTabs.tsx · tests/crm-llamada-22-10-p1.test.ts
