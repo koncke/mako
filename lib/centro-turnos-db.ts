@@ -18,6 +18,7 @@ import { ULTIMOS_VENTANA_MS, DESTINO_RE, resumirTurnos, sanearTurnos, unirTurnos
 import { getSupabaseServer } from './supabase';
 import { esYaEsta } from './centro-chats';
 import { superarConTurnos } from './centro-preguntas-chat-db';
+import { hayClave, taparClaves } from './claves-en-el-chat';
 
 const PREFIJO = 'operaciones.turnos.';
 const parsear = (v: string | null): unknown => { try { return v ? JSON.parse(v) : []; } catch { return []; } };
@@ -32,7 +33,9 @@ export async function guardarTurnos(turnos: readonly TurnoChat[]): Promise<numbe
     let n = 0;
     for (const [local, nuevos] of porChat) {
       const antes = sanearTurnos(parsear(await getSettingEstricto(PREFIJO + local)));
-      await setSetting(PREFIJO + local, JSON.stringify(unirTurnos(antes, nuevos)));
+      // Una clave pegada en la app de Claude no queda en el Ops Center (22/10/2026): se guarda tapada.
+      const tapados = nuevos.map((t) => (hayClave(t.texto) ? { ...t, texto: taparClaves(t.texto).texto } : t));
+      await setSetting(PREFIJO + local, JSON.stringify(unirTurnos(antes, tapados)));
       n++;
     }
     // Lo que Martín (u otro chat) dijo después de una pregunta de wrap_up la deja atrás (20/10/2026): no espera más. Si

@@ -23,6 +23,8 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { conFormato } from '@/app/_components/Markdown';
 import { eleccionValida, opcionesEnOrden, resumenDeRespuesta, type PreguntaChat } from '@/lib/centro-preguntas-chat';
 import type { Responder } from './PreguntaChat';
+import { AvisoClave } from '@/app/_chat/AvisoClave';
+import { AVISO_CLAVE_EN_EL_CENTRO, hayClave } from '@/lib/claves-en-el-chat';
 
 type Elegido = { elegidas: number[]; otra: string };
 
@@ -80,6 +82,8 @@ export function PreguntasDelChat({ preguntas, onResponder }: {
     if (!p) return;
     const v = eleccionValida(p, elegidas, texto);
     if (!v.ok) { setError(v.error); return; }
+    // Una clave en «Otra» no sale (22/10/2026, la de Apify): se pega en /integraciones.
+    if (v.otra && hayClave(v.otra)) { setError(AVISO_CLAVE_EN_EL_CENTRO); return; }
     const todo = { ...elegidos, [p.id]: { elegidas: v.elegidas, otra: v.otra ?? '' } };
     setElegidos(todo);
     if (!varias) { void enviar(todo); return; }
@@ -170,6 +174,7 @@ export function PreguntasDelChat({ preguntas, onResponder }: {
               onKeyDown={(e) => { if (e.key === 'Enter' && otra.trim()) { e.preventDefault(); guardar(p.varias ? marcadas : [], otra); } }}
               placeholder="Escribe otra cosa" aria-label="Escribe otra respuesta" />
           </label>
+          {hayClave(otra) && <AvisoClave />}
         </li>
       </ol>
       <div className="co-preg__pie co-preg__pie--chat">
