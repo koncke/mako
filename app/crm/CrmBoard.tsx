@@ -76,6 +76,7 @@ import { CampanasModal } from './CampanasModal';
 import { TipoEtapaModal } from './TipoEtapaModal';
 import { NOMBRE_TIPO_ETAPA, columnaConTipo, tipoDeColumna } from '@/lib/etapa-reunion';
 import { EventosDeEtapaModal } from './EventosDeEtapaModal';
+import { CobroDeEtapaModal } from './CobroDeEtapaModal';
 import { FlechaDerechaIcon, FlechaIzquierdaIcon } from './iconos';
 import { ExportarLeadsModal } from './ExportarLeadsModal';
 import { LeadEditModal } from './LeadEditModal';
@@ -1842,6 +1843,9 @@ export function CrmBoard({
   const [campanasAbierto, setCampanasAbierto] = useState(false);
   // «Asignar evento» de una etapa de reunión (16/10/2026): qué evento de Calendly o Cal.com cae en ella.
   const [eventoDe, setEventoDe] = useState<{ etapa: string; nombre: string } | null>(null);
+  // «Vincular cobro» de Ganado (22/10/2026, app/crm/CobroDeEtapaModal.tsx): qué producto cobra ahí, y por qué cuentas.
+  const [cobroDe, setCobroDe] = useState<{ etapa: string; nombre: string } | null>(null);
+  const cerrarCobro = useCallback(() => setCobroDe(null), []);
   // «Tipo de etapa» de una columna (21/10/2026): Etapa / Reunión / Nutrición, con lo que pasa al cambiarlo (./TipoEtapaModal.tsx).
   const [tipoDe, setTipoDe] = useState<string | null>(null);
   // El nombre que se acaba de escribir en el pop-up de etapas, por embudo, hasta que llegue la lista nueva del
@@ -2467,7 +2471,7 @@ export function CrmBoard({
       return {
         leadId: null, colKey: c.key,
         ctx: {
-          sobre: 'columna', mover: seArrastraCol(c), entrada: c.kind === 'entrada', reunion: c.kind === 'reunion', tipo: columnaConTipo(c),
+          sobre: 'columna', mover: seArrastraCol(c), entrada: c.kind === 'entrada', reunion: c.kind === 'reunion', ganado: c.key === 'ganado', tipo: columnaConTipo(c),
           // La MISMA condición que el renglón del «⋯» (y su test, tests/crm-curso-al-ganar.test.ts).
           curso: cursoAlGanar && terminalEstadoFor(c.key) === 'ganado' ? cursoPrendido : null,
           borrable: colsBorrables.has(c.key),
@@ -2561,6 +2565,7 @@ export function CrmBoard({
       case 'col_derecha': if (c) moverCol(c.key, 1); return;
       case 'col_campanas': setCampanasAbierto(true); return;
       case 'col_evento': if (c) setEventoDe({ etapa: c.key, nombre: c.label }); return;
+      case 'col_cobro': if (c) setCobroDe({ etapa: c.key, nombre: c.label }); return;
       case 'col_tipo': if (c) setTipoDe(c.key); return;
       case 'col_curso_prender': void cambiarCurso(true); return;
       case 'col_curso_apagar': void cambiarCurso(false); return;
@@ -2827,6 +2832,8 @@ export function CrmBoard({
                   // El ícono, desde el 21/10/2026, es el calendario de línea de la casa (`evento`) y no el logo de Meet a color:
                   // «no me gusta que tenga color, un ícono más simple, que se entienda» (Martín).
                   ...(c.kind === 'reunion' ? [{ value: 'evento', label: 'Asignar evento', icono: 'evento' as const }] : []),
+                  // «Vincular cobro» en Ganado (22/10/2026), como «Asignar evento» en las de reunión.
+                  ...(c.key === 'ganado' ? [{ value: 'cobro', label: 'Vincular cobro', icono: 'dinero' as const }] : []),
                   // «En cada columna, a excepción de las que ya sabes que no deberían cambiar, debes poner en los 3 puntos una
                   // opción de "Tipo de etapa"» (Martín, 21/10/2026). Las que no cambian: la entrada, el cierre y las terminales
                   // (`columnaConTipo`, lib/etapa-reunion.ts; el server lo vuelve a mirar en `cambiarTipo`).
@@ -2870,6 +2877,7 @@ export function CrmBoard({
                   if (v === 'nuevo') { setAltaPendiente(null); setNuevoLead({ etapa: c.key }); return; }
                   if (v === 'campanas') { setCampanasAbierto(true); return; }
                   if (v === 'evento') { setEventoDe({ etapa: c.key, nombre: c.label }); return; }
+                  if (v === 'cobro') { setCobroDe({ etapa: c.key, nombre: c.label }); return; }
                   if (v === 'tipo') { setTipoDe(c.key); return; }
                   if (v === 'curso') { void cambiarCurso(!cursoPrendido); return; }
                   if (v === 'renombrar') { setRenombrando(c.key); return; }
@@ -3456,6 +3464,10 @@ export function CrmBoard({
       {eventoDe && (funnelActivo ?? funnels.find((f) => f.esDefault)?.id) != null && (
         <EventosDeEtapaModal funnelId={(funnelActivo ?? funnels.find((f) => f.esDefault)?.id) as number}
           etapa={eventoDe.etapa} etapaNombre={eventoDe.nombre} onCerrar={() => setEventoDe(null)} />
+      )}
+      {cobroDe && (funnelActivo ?? funnels.find((f) => f.esDefault)?.id) != null && (
+        <CobroDeEtapaModal funnelId={(funnelActivo ?? funnels.find((f) => f.esDefault)?.id) as number}
+          etapa={cobroDe.etapa} etapaNombre={cobroDe.nombre} onCerrar={cerrarCobro} />
       )}
       {tipoDe && (() => {
         const col = columnasKanban.find((s) => s.key === tipoDe);

@@ -44,7 +44,7 @@ export type IdOpcionCrm =
   // la selección (las de app/crm/AccionesLoteLeads.tsx)
   | 'lote_etapa' | 'lote_etiqueta' | 'lote_closer' | 'lote_setter' | 'lote_funnel' | 'lote_frenar' | 'lote_limpiar' | 'lote_eliminar'
   // una columna (las del «⋯» de su cabecera; «Nuevo lead» vive ahí desde el 21/10/2026)
-  | 'col_nuevo_lead' | 'col_izquierda' | 'col_derecha' | 'col_campanas' | 'col_evento' | 'col_tipo' | 'col_curso_prender' | 'col_curso_apagar'
+  | 'col_nuevo_lead' | 'col_izquierda' | 'col_derecha' | 'col_campanas' | 'col_evento' | 'col_cobro' | 'col_tipo' | 'col_curso_prender' | 'col_curso_apagar'
   | 'col_renombrar' | 'col_agregar' | 'col_eliminar'
   // el fondo (las del «⋯» de la barra)
   | 'nuevo_lead' | 'importar' | 'exportar' | 'editar_etapas' | 'personalizar_tarjetas';
@@ -85,6 +85,8 @@ export type ContextoCrm =
     entrada: boolean;
     /** Es una etapa de reunión: ahí se asigna el evento de agenda cuyas reservas caen en ella. */
     reunion?: boolean;
+    /** Es Ganado (22/10/2026): ahí se vincula el producto que cobra («Vincular cobro», app/crm/CobroDeEtapaModal.tsx). */
+    ganado?: boolean;
     /** Lleva «Tipo de etapa» (21/10/2026; `columnaConTipo`, lib/etapa-reunion.ts): ni la entrada, ni el cierre, ni las terminales. */
     tipo?: boolean;
     /** La invitación al curso al ganar: `null` = no se ofrece (no es Ganado, o el producto no tiene clases). */
@@ -124,6 +126,7 @@ export function opcionesCrm(c: ContextoCrm): Array<IdOpcionCrm | null> {
       null,
       ...(c.entrada ? ['col_campanas' as const] : []),
       ...(c.reunion ? ['col_evento' as const] : []),
+      ...(c.ganado ? ['col_cobro' as const] : []),
       ...(c.tipo ? ['col_tipo' as const] : []),
       ...(c.curso === null ? [] : [c.curso ? 'col_curso_apagar' as const : 'col_curso_prender' as const]),
       'col_renombrar',
@@ -201,6 +204,7 @@ export const OPCION_CRM: Readonly<Record<IdOpcionCrm, { texto: string; icono: No
   // «Asignar campañas» desde el 16/10/2026, como el «⋯» (que lleva el logo de Meta; acá van sólo los íconos de la casa).
   col_campanas: { texto: 'Asignar campañas', icono: 'anuncio' },
   col_evento: { texto: 'Asignar evento', icono: 'evento' },
+  col_cobro: { texto: 'Vincular cobro', icono: 'dinero' },
   col_tipo: { texto: 'Tipo de etapa', icono: 'etapa' },
   col_curso_prender: { texto: 'Invitar al curso al ganar', icono: 'curso' },
   col_curso_apagar: { texto: 'Dejar de invitar al curso', icono: 'curso' },
