@@ -221,7 +221,7 @@ test('9. lo que una tab le pregunta (las sugerencias del CRM) va en EL bloque: u
   const pieza = sinComentarios(leer('app/_chat/MakoEnLaTab.tsx'));
   assert.match(pieza, /\{preguntas && preguntas\.length > 0 && <BloqueDePreguntas chat=\{`tab:\$\{tab\}`\} deLaTab=\{preguntas\} \/>\}\n\s*<div className="co-caja">/);
   const crm = sinComentarios(leer('app/crm/mako-crm/PanelMakoCrm.tsx'));
-  assert.match(crm, /return <MakoEnLaTab tab="CRM" arriba=\{sugerencias\} preguntas=\{preguntas\} aviso=\{n\} pedido=\{pedido\} \/>;/);
+  assert.match(crm, /return <MakoEnLaTab tab="CRM"[^>]* arriba=\{sugerencias\} preguntas=\{preguntas\} aviso=\{n\} pedido=\{pedido\} \/>;/);
   assert.match(crm, /titulo: 'Hacerlo', recomendada: true, \.\.\.\(s\.tipo === 'link' && s\.href \? \{ href: s\.href \} : \{ onElegir: \(\) => hacer\(s\) \}\)/);
   assert.match(crm, /titulo: 'Ahora no', onElegir: \(\) => void pedirAlServer\('ahora_no', s\)/);
   assert.doesNotMatch(crm, /maxHeight: '42%'|>Hacerlo<\/(Button|ButtonLink)>/, 'la lista suelta, con su scroll, volvió');

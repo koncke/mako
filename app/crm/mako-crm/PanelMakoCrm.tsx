@@ -31,6 +31,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/app/_ui';
 import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
 import type { PreguntaDeLaTab } from '@/app/admin/operaciones/PreguntasDelChat';
+import { entidadDelLead, useLeadAbierto } from '../lead-abierto';
 import { leerRespuesta } from '@/app/m/mako/chat-ui';
 import { pedidoParaElCerebro, type SugerenciaDePantalla } from '@/lib/sugerencias-crm';
 
@@ -58,6 +59,8 @@ export function PanelMakoCrm({ funnelId }: { funnelId: number | null }) {
 }
 
 function PanelDeUnCrm({ funnelId }: { funnelId: number | null }) {
+  // Con la ficha de un lead abierta, la estrella va con ese lead (OC6): el turno lo toma por defecto y el mensaje dice «desde CRM › Ana».
+  const abierto = useLeadAbierto();
   const [sugs, setSugs] = useState<SugerenciaDePantalla[] | null>(null);
   const [calladas, setCalladas] = useState<SugerenciaDePantalla[]>([]);
   const [verCalladas, setVerCalladas] = useState(false);
@@ -169,5 +172,5 @@ function PanelDeUnCrm({ funnelId }: { funnelId: number | null }) {
     </section>
   ) : null;
 
-  return <MakoEnLaTab tab="CRM" arriba={sugerencias} preguntas={preguntas} aviso={n} pedido={pedido} />;
+  return <MakoEnLaTab tab="CRM" entidad={entidadDelLead(abierto)} arriba={sugerencias} preguntas={preguntas} aviso={n} pedido={pedido} />;
 }

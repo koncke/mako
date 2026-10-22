@@ -27,6 +27,7 @@ import { Pagina, Banner, EmptyState, ErrorState, Status, Toast, useToast } from 
 import type { ClienteCruce } from './cruce';
 import { usePrograma, useProgramaEnUrl } from '@/app/clients/programa-url';
 import type { ResumenTrabajo, TableroCartera } from './trabajo';
+import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
 import { FichaCliente } from './FichaCliente';
 import type { TrabajoDeCliente } from './trabajo';
 import type { BoardUser } from '@/app/plan/board/types';
@@ -944,7 +945,8 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, entrega, 
        propio archivo deja escrito, y lo mueve en las TRES a la vez — que es lo que
        hay que cuidar: si una queda en 1180 y las otras no, la pantalla se ve torcida
        y eso no se nota en el diff. /admin sigue con su 1180, porque es otra pantalla. */
-    <Pagina ancho="completo" style={{ '--cartera-max': 'none' } as CSSProperties}>
+    // Con el panel de MaKo abierto (la estrella), la pantalla le deja el lugar a la izquierda.
+    <Pagina ancho="completo" style={{ '--cartera-max': 'none', paddingLeft: 'var(--ancho-panel-mako, 0px)' } as CSSProperties}>
       {/* SIN TÍTULO (18/10/2026, Martín, pt 14): «Clients» ya lo dice la tab de arriba, y el número de clientes con
           él. Queda el aviso de MaKo cuando movió algo, que es lo único que informa. */}
       {mako ? <div style={{ margin: '0 0 12px' }}><span className="cl-mako">{mako}</span></div> : null}
@@ -1142,6 +1144,9 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, entrega, 
         </>
       )}
 
+      {/* MaKo en Clientes (22/10/2026, CR4): la estrella de todas las tabs, con el cliente abierto (un cliente es un lead:
+          las herramientas lo toman por su leadId). Encima de su ficha, que es un modal. */}
+      <MakoEnLaTab tab="Clientes" entidad={abierto ? { tipo: 'lead', id: abierto.leadId, titulo: abierto.nombre || `Cliente ${abierto.leadId}` } : null} encimaDeModales />
       {abierto && (
         <FichaCliente
           key={abierto.leadId}
