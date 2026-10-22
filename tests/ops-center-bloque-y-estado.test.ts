@@ -9,10 +9,12 @@
 //   2. los links se tocan, también los que vienen sin https, y abrir uno no elige la opción;
 //   3. con varias, «‹ Anterior», los puntos y «Siguiente ›»; sin pantalla de resumen: con la última, salen todas;
 //   4. «Espera tu respuesta» sólo con una pregunta; un «Ya está» sin su ✓ dice «Completado» y el hilo va a él;
-//   5. lo que el chat le escribió a OTRO chat va plegado en una línea, «Avance: …».
+//   5. lo que el chat le escribió a OTRO chat va plegado en una línea, «Avance: …»;
+//   6. la criatura de la cabecera cuenta con el MISMO número que la fila (Martín, 22/10, 18:45: la fila del «Cerebro» avisaba y
+//      la criatura de arriba dormía, «No se entiende»): con un «Completado» sin ✓ está despierta en los dos lugares.
 //
 // Correr: node --import tsx --test tests/ops-center-bloque-y-estado.test.ts
-// PROBADO ROMPIÉNDOLO (base 5/0), ver el pie.
+// PROBADO ROMPIÉNDOLO (base 6/0), ver el pie.
 // =============================================================================
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -20,7 +22,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { conDominiosComoLinks } from '../lib/links-texto';
-import { TEXTO_SEGUNDO_RENGLON, lineasDeConversacion, primeraOracion, segundoRenglon, turnosParaOtro, ultimoYaEsta, yaEstaSinVer, type LineaChat } from '../lib/centro-chats';
+import { TEXTO_SEGUNDO_RENGLON, avisosDe, lineasDeConversacion, primeraOracion, segundoRenglon, turnosParaOtro, ultimoYaEsta, yaEstaSinVer, type LineaChat } from '../lib/centro-chats';
+import { animoDe } from '../app/admin/operaciones/Muneco';
 import type { TurnoChat } from '../lib/operaciones-reglas';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -108,6 +111,30 @@ test('5. lo que el chat le escribió a OTRO chat va plegado en una línea («Ava
   assert.match(sinComentarios(leer('app/admin/operaciones/Hilo.tsx')), /\{`Avance: \$\{primeraOracion\(texto\)\}`\}/);
 });
 
+test('6. la criatura de la cabecera y la de la fila salen del MISMO número: con un «Completado» sin ✓, despiertas las dos', () => {
+  const quieto = { estado: 'abierto' as const, viejo: false };
+  // Lo de la captura: ninguna pregunta, un «Completado» sin ver. La fila lo dice; la criatura, despierta.
+  assert.equal(TEXTO_SEGUNDO_RENGLON[segundoRenglon(quieto, 0, true)!], 'Completado');
+  assert.equal(animoDe(quieto, avisosDe(0, true)), 'despierto');
+  // Duerme sólo con la fila en gris (la regla del 17/10).
+  assert.equal(segundoRenglon(quieto, 0, false), null);
+  assert.equal(animoDe(quieto, avisosDe(0, false)), 'dormido');
+  // El número es UNO: `avisos` de useCentro.ts (las esperas con el vigía, más el «Completado» sin ✓)…
+  assert.match(sinComentarios(leer('app/admin/operaciones/useCentro.ts')), /const avisos = useMemo\(\(\) => \(c: ChatCentro\) => avisosDe\(esperaDe\(c, esperasConVigia\), yaSinVer\.has\(c\.clave\)\)/);
+  // …y lo usan la fila y la cabecera, en la computadora…
+  const piezas = sinComentarios(leer('app/admin/operaciones/PiezasCentro.tsx'));
+  assert.match(piezas, /const animo = animoDe\(c, k\.avisos\(c\)\);/, 'la fila');
+  assert.match(piezas, /espera=\{k\.avisos\(chat\)\}\n\s*preguntas=\{preguntasDelChat\(chat,/, 'la conversación');
+  assert.match(sinComentarios(leer('app/admin/operaciones/Conversacion.tsx')), /const animo = animoDe\(chat, espera\);/);
+  // …y en el teléfono (la fila suma lo mismo: `avisosDe(espera, nuevo)` con `nuevo` = `yaSinVer`).
+  const movil = sinComentarios(leer('app/m/operaciones/ChatsMovil.tsx'));
+  assert.match(movil, /const animoAbierto = elegido \? animoDe\(elegido, centro\.avisos\(elegido\)\) : 'despierto';/);
+  assert.match(movil, /<TituloDeChat chat=\{elegido\} aspecto=\{aspectoAbierto\} avisos=\{centro\.avisos\(elegido\)\}/);
+  assert.match(movil, /const animo = animoDe\(c, avisosDe\(espera, nuevo\)\);/);
+  assert.match(movil, /nuevo=\{centro\.yaSinVer\.has\(f\.c\.clave\)\}/);
+  assert.doesNotMatch(movil, /esperaDe\(elegido,/, 'la cabecera del teléfono no cuenta aparte');
+});
+
 // PROBADO ROMPIÉNDOLO (22/10/2026, base 5/0):
 //   · el pie vuelve al fondo blanco                       → 4/1 (1)
 //   · sin recordar el plegado                             → 4/1 (1)
@@ -117,3 +144,8 @@ test('5. lo que el chat le escribió a OTRO chat va plegado en una línea («Ava
 //   · «Completado» vuelve a pedir respuesta               → 4/1 (4)
 //   · el hilo no va al «Ya está»                          → 4/1 (4)
 //   · se pliega el «Ya está» que pidió otro chat          → 4/1 (5)
+// Y el 6 (22/10/2026, base 6/0):
+//   · la cabecera de la computadora con `esperaDe`        → 5/1 (6)
+//   · la criatura del teléfono con `esperaDe`             → 5/1 (6)
+//   · el título del teléfono con `esperaDe`               → 5/1 (6)
+//   · `avisos` sin el «Completado» sin ✓                  → 5/1 (6)

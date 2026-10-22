@@ -27,6 +27,13 @@ un «Ya está» sin su ✓, que la fila dibujaba con el MISMO texto (`TEXTO_SEGU
   Sin pantalla de resumen: «‹ Anterior», los puntos y «Siguiente ›», y con la última salen todas.
 - **Trampa: un link adentro de un `<button>` no se abre** (HTML no lo deja). La opción del bloque es un `div` con rol de botón,
   y tocar el link no elige la opción.
+- **Y la criatura de la cabecera contaba con OTRO número que la fila** (Martín, 22/10, 18:45: la fila del «Cerebro» avisaba y la
+  criatura de arriba dormía, «No se entiende»). La fila usa `k.avisos(c)` (useCentro.ts: las esperas con el vigía y el
+  «Completado» sin ✓). La cabecera recibía `esperaDe(chat, k.esperas)`, sin el «Completado», y lo mismo pasaba con las dos del
+  teléfono (ChatsMovil.tsx). El diagnóstico obvio, «hay una pregunta que no se dibuja», también era el equivocado. **Regla:** la
+  criatura de la cabecera y la de la fila salen de UN número, `avisos`, en la computadora y en el teléfono. Duerme sólo con la
+  fila en gris (la regla del 17/10). **Trampa:** tests/centro-ops7.test.ts fijaba la cabecera del teléfono con `esperaDe`: el test
+  protegía el error.
 - **SIN HACER:** el teléfono no va solo al «Ya está» al abrir el chat (la computadora sí). El plegado se recuerda en el
   navegador de cada dispositivo.
 

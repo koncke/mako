@@ -293,7 +293,9 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
     return c ? k.contestarPregunta(c, p, e, o) : Promise.resolve(null);
   }, []);
   const aspectoAbierto = elegido ? elegidoPara(munecos, elegido.titulo) : null;
-  const animoAbierto = elegido ? animoDe(elegido, esperaDe(elegido, esperas)) : 'despierto';
+  // La criatura de la cabecera, con el MISMO número que su fila (`centro.avisos`, con el «Completado» sin ✓): la de la fila estaba
+  // despierta y ésta dormía (22/10/2026).
+  const animoAbierto = elegido ? animoDe(elegido, centro.avisos(elegido)) : 'despierto';
   const datoAbierto = elegido ? trabajaSinEscribir(elegido, lineas) ?? metaDe(elegido) : '';
   const quien = useMemo(() => ({ titulo: elegido?.titulo ?? '', aspecto: aspectoAbierto, animo: animoAbierto, dato: datoAbierto }), [elegido?.titulo, aspectoAbierto, animoAbierto, datoAbierto]);
   const vivo = useMemo(() => (elegido ? { chat: elegido, carteros } : undefined), [elegido, carteros]);
@@ -420,7 +422,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
           perfil» (eso se cambia en Tu cuenta). */}
       {conHoja && <SheetM abierto={!!elegido} onCerrar={cerrarHoja} snap="alto"
         titulo={eligiendo ? 'Su criatura' : panelWA ? (panelWA.tipo === 'info' ? 'Info del mensaje' : 'Reenviar a…') : elegido ? (
-          <TituloDeChat chat={elegido} aspecto={aspectoAbierto} avisos={esperaDe(elegido, esperas)} renombre={renombre}
+          <TituloDeChat chat={elegido} aspecto={aspectoAbierto} avisos={centro.avisos(elegido)} renombre={renombre}
             onMuneco={esCriaturaDeMako(elegido.titulo) ? undefined : abrirMuneco}
             onRenombrar={elegido.sesiones.length > 0 ? () => setRenombre({ texto: elegido.titulo, error: null, mandando: false }) : undefined}
             onTexto={(texto) => setRenombre((r) => (r ? { ...r, texto, error: null } : r))}

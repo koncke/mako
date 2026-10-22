@@ -249,7 +249,9 @@ export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; c
         chats: k.chats, onReenviar: (texto, claves) => k.reenviar(chat, texto, k.chats.filter((c) => claves.includes(c.clave))),
         onCopiar: (t) => void k.copiarConAviso(t, 'Copiado'),
       }}
-      espera={esperaDe(chat, k.esperas)}
+      // El MISMO número que su fila (`k.avisos`: lo que espera a Martín y su «Completado» sin ✓). Con `esperaDe` la criatura de
+      // la cabecera dormía mientras la fila decía «Completado» (Martín, 22/10/2026: «No se entiende»).
+      espera={k.avisos(chat)}
       preguntas={preguntasDelChat(chat, k.decisiones, k.carteros)}
       respuestas={respuestasDelChat(chat, k.decisiones, k.carteros)}
       responder={k.responderAca}
