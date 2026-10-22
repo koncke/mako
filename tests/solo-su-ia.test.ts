@@ -126,7 +126,9 @@ test('lo prenden los caminos del Ops Center: el turno (con El Archivero y los ar
     assert.ok(dentro.includes(paso), `${paso} corre adentro de «sólo su IA»`);
   }
   assert.match(dentro, /soloSuIA: negocio\.suIA/);
-  assert.match(dentro, /const archiva = negocio\.suIA \? await puedeArchivarConSuIA\(\) : 'si';\s*if \(archiva !== 'si'\) avisos\.push\(/, 'sin con qué, El Archivero no corre y se dice');
+  // Se decide ANTES del corte (el aviso del corte dice si quedó en El Archivero, 22/10/2026), y los PDF solos, después.
+  assert.match(dentro, /const archiva = !paraArchivar\.length \? 'no' : negocio\.suIA \? await puedeArchivarConSuIA\(\) : 'si';/);
+  assert.match(dentro, /const puede = paraArchivar\.length \? archiva : negocio\.suIA \? await puedeArchivarConSuIA\(\) : 'si';\s*if \(puede !== 'si'\) avisos\.push\(/, 'sin con qué, El Archivero no corre y se dice');
   const pedidos = sinComentarios(leer('app/api/mako/pedidos/route.ts'));
   assert.match(pedidos, /conSoloSuIA\(negocio\.suIA, \(\) => interpretarMensaje\(texto, ctx\)\)/);
   assert.match(pedidos, /taparClaves\(body\.texto\)\.texto/, 'una clave pegada se tapa también acá (pieza 1.6)');

@@ -68,7 +68,12 @@ estaba en 1,3 GB; quedó en 26): `docs/hallazgos-infra.md`, «Limpiar worktrees�
 started because recent account payments have failed or your spending limit needs to be increased». Mientras tanto se sube
 DIRECTO a `main` (e `integracion` al mismo sha) con el chequeo local completo en verde: tests afectados, tsc acotado,
 guardas y la rotura de lo nuevo. Se juntan puntas y se verifica el Ready. Cuando Martín ponga un medio de pago, se re-corre
-la última corrida de `integracion` como red (docs/hallazgos-infra.md, «Sin minutos de Actions»).
+la última corrida de `integracion` como red (docs/hallazgos-infra.md, «Sin minutos de Actions»). ⚠️ El hook del push a
+`main` pide 6,3 GB libres y esta PC no pasa de 6,1, así que **`87365c830` salió con `--no-verify`** (22/10, ~09:30): Martín lo
+autorizó para ESE lote, contestando la pregunta a6967bef de Integración desde el Centro. Lo que se había corrido: los tests
+afectados de cada punta, el tsc acotado de lo tocado, las guardas y los tipos de todo el repo en 3 tandas, con 0 errores.
+**Al volver los minutos, re-correr en Actions la corrida de `integracion` de `87365c830`** (o la última que lo contenga). Un
+`--no-verify` vale sólo para el lote que Martín autoriza, nunca para el siguiente.
 
 **La llamada del 22/10 con Mauricio:** `docs/feedback-22-10.md` (lo P0 va antes que todo: reunión de validación HOY; los mensajes salen desde el sáb 24/10).
 

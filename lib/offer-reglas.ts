@@ -1741,6 +1741,45 @@ export function textoDelLectorExterno(raw: string): { titulo: string; url: strin
   return { titulo, url, texto };
 }
 
+// ── El lector de afuera no recibe credenciales (OF2, 22/10/2026) ──────────────
+// Una URL con un token en sus parámetros (un link de vista previa, un acceso firmado, una página privada compartida) le
+// llegaba a r.jina.ai tal cual: un tercero con el acceso del dueño. El lector de afuera es para lo PÚBLICO que nuestro
+// servidor no puede abrir; lo que pide acceso, el dueño lo sube en .zip o pega su texto.
+
+/** Lo que se le dice al dueño en vez de mandar su link afuera. */
+export const PIDE_ACCESO = 'Esa página pide acceso: súbela en .zip o copia su texto y pégalo aquí.';
+
+/** Nombres de parámetro que llevan un acceso: token, key, sig, auth, code, secret, password, session… y las firmas de S3 y GCS. */
+const PARAM_CREDENCIAL = /(?:^|[_.-])(?:token|access|auth|authorization|key|apikey|sig|signature|secret|password|passwd|pwd|pass|session|sessionid|sid|jwt|code|otp|credential|credentials)(?:[_.-]|$)|^x-(?:amz|goog)-/i;
+/**
+ * Los links para COMPARTIR archivos: el acceso va en la ruta (`/d/<id>`, `/s/<código>`), no en un parámetro, y quien
+ * tiene el link abre el archivo. No se mira la ruta de cualquier página: un slug largo con números es una landing.
+ */
+const HOST_DE_COMPARTIR = /(?:^|\.)(?:drive\.google\.com|docs\.google\.com|dropbox\.com|dropboxusercontent\.com|1drv\.ms|onedrive\.live\.com|sharepoint\.com|box\.com|wetransfer\.com|we\.tl)$/i;
+/** Un valor que parece un código: 24 o más caracteres de base64 o hex, con letras y números. */
+const VALOR_CREDENCIAL = /^(?=.*[a-z])(?=.*\d)[a-z0-9_\-.~+/=%]{24,}$/i;
+
+/**
+ * ¿La URL lleva algo con forma de credencial? Devuelve QUÉ (el nombre del parámetro, «usuario y clave» o «un link para
+ * compartir») para el log, nunca el valor; null si no. Mira el usuario y clave del link, si es un link para compartir
+ * archivos (Drive, Dropbox, OneDrive…), los parámetros (por el nombre o por un valor que parece
+ * un código) y el fragmento, que algunos accesos usan (`#access_token=`). Los de SEGUIMIENTO no cuentan: `linkParaLeer`
+ * ya los sacó, y un `fbclid` es largo pero no abre nada.
+ */
+export function credencialEnLaUrl(url: string): string | null {
+  let u: URL;
+  try { u = new URL(url); } catch { return null; }
+  if (u.username || u.password) return 'usuario y clave';
+  if (HOST_DE_COMPARTIR.test(u.hostname)) return 'un link para compartir';
+  const params = [...u.searchParams.entries()];
+  if (u.hash.includes('=')) params.push(...new URLSearchParams(u.hash.slice(1)).entries());
+  for (const [k, v] of params) {
+    if (PARAM_DE_SEGUIMIENTO.test(k)) continue;
+    if (PARAM_CREDENCIAL.test(k) || VALOR_CREDENCIAL.test(v)) return k;
+  }
+  return null;
+}
+
 /**
  * ¿Es un .zip? Por la extensión o el tipo (los navegadores mandan varios). Offer lo abre y lee sus páginas
  * (lib/offer-zip.ts, 22/10/2026: la carpeta de la landing de Mauricio). Vive acá y no allá porque la pantalla también lo
@@ -2442,6 +2481,32 @@ export function conclusionVisible<C extends { diagnostico: DiagnosticoOferta; ca
 }
 
 // ── La oferta provisional y el PDF en el chat (tarjeta «rehacer») ─────────────
+
+// ── Lo guardado no se recalcula: el diagnóstico armado con el embudo de otro funnel (OF1, 22/10/2026) ──
+// Hasta el 22/10/2026 el embudo de una conversación CON funnel era el del negocio entero (`analisisNegocio`): la v1 del
+// Sprint de Mauricio (ws1, sesión 18) quedó guardada con «solo 2 ventas de 24 asistentes», que eran de «Negocio que
+// ESCALA». `embudoDeFunnel` lo arregló hacia adelante, pero una conclusión es un documento guardado y nadie la vuelve a
+// armar: se seguía mostrando y la API de MaKo se la pasaba a los chats como contexto para prospectar. Al leer se MARCA
+// (no se reescribe): la pantalla avisa con «Rehacer el diagnóstico» y la API no la entrega. Se escribe sólo cuando la
+// persona la rehace.
+
+/**
+ * Desde cuándo rige el embudo POR FUNNEL en producción: el aviso de Integración de que 4ddff71d1 (O1-O3) estaba
+ * desplegado llegó a las 07:33:25 UTC del 22/10/2026 (el merge a main fue a las 07:12, y el run 233 arrancó a las 07:17).
+ * Lo armado antes, en una conversación con funnel, usó el CRM entero.
+ */
+export const EMBUDO_POR_FUNNEL_DESDE = '2026-10-22T07:33:00Z';
+
+/**
+ * ¿Esta conclusión se armó con el embudo del negocio entero en una conversación de un funnel? Pura: si el negocio
+ * tenía leads de OTROS funnels (si no, el negocio entero ERA ese funnel y los números están bien: el ws13 tiene uno solo)
+ * lo dice quien lee la base (`nombresDeSesion`). Una conclusión sin fecha es de antes: se la trata como vieja.
+ */
+export function armadaConElEmbudoViejo(c: { at?: unknown } | null | undefined, funnelId: number | null): boolean {
+  if (!c || funnelId == null) return false;
+  const t = typeof c.at === 'string' ? Date.parse(c.at) : NaN;
+  return !Number.isFinite(t) || t < Date.parse(EMBUDO_POR_FUNNEL_DESDE);
+}
 
 export const OPCION_PULIR = 'Pulir la oferta';
 export const OPCION_ASI_ESTA_BIEN = 'Así está bien';

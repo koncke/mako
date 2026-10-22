@@ -1917,7 +1917,8 @@ todavía fuera de main.
   de la ficha había tapado UN síntoma, y la batería encontró el segundo. Lo que lo arregló, probado rompiéndolo:
   - la descripción sin «leads», que la deja en 4 (empate);
   - las 4 operaciones nuevas del feedback del 21/10 declaradas al FINAL del área, porque en un empate gana la declarada
-    antes.
+    antes. Al final, pero ANTES de `armar_tab_ficha`: la misma regla la dejó última el 16/10, y tests/ficha-tabs.test.ts
+    lo fija (el primer VERDE con el arreglo dio ROJO ahí).
   Cada parte sola deja un canal o los dos en rojo (2/1 y 1/2); juntas, 3/3. La regla quedó en AGENTS.md («Una operación
   nueva se declara AL FINAL de su área»).
 

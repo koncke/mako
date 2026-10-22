@@ -5882,6 +5882,11 @@ textos pegados y nombra un lugar REAL (Horario o Límites), dice que no se puede
 pregunta para aclarar sin que los textos ya estén en la charla. Un lugar que no existe vuelve al modelo con el error que lo
 nombra. **Vive en:** lib/flujo-ia-intencion.ts · app/api/chat-agent/secuencias/ia/route.ts · test:
 tests/chat-mako-discutir-editar.test.ts.
+**Cómo se metió, y la regla que queda (AGENTS.md):** el test de 4de3fe769 fijaba la regla tal como se escribió («en Editar,
+contestar es un error») y sólo probaba la falla que se buscaba (los textos pegados de la llamada). Nadie probó una pregunta
+con Editar prendido por defecto, y el arnés, que lo veía, se corrió después del deploy. **Un cambio en un chat de MaKo pasa
+su arnés de casos de uso ANTES de pasar la punta**, con los casos que el cambio no buscaba (preguntar en el modo nuevo,
+imposible, ambiguo). El test que fija la regla tal como la escribiste no cuenta como prueba de uso.
 
 ### Lo que era código y no modelo
 
@@ -5914,6 +5919,32 @@ tests/chat-mako-prueba-de-chats.test.ts, tests/flujo-ia.test.ts («en el medio»
 - **Reordenar** («poné el tercero primero») no es una operación de editar: el modelo devuelve nada y sale «No cambió nada».
 - **«Deshacé eso»** no tiene lo que se borró: el modelo inventa otro texto. Lo honesto hoy es el ↶ (ya está en el prompt);
   lo de verdad sería pasarle al modelo las tarjetas publicadas que el borrador ya no tiene.
-- **«Cuando entra a la etapa X» con una X que no existe:** el modelo no devuelve ni cambio ni respuesta.
+- **«Cuando entra a la etapa X» con una X que no existe:** el modelo no devuelve ni cambio ni respuesta, y sale «No cambió
+  nada» (medido también en producción, 87365c830).
+- **«Editalos y agregalos:» + textos** (el turno 1 del «Hazlo como te lo indiqué»): el modelo PISA los dos mensajes que había
+  en vez de sumar los nuevos, y el turno 2 sale «No cambió nada». Lo de la llamada sigue a medias. Pide una regla en
+  `REGLAS_EDITAR` («agregá / sumá = tarjetas nuevas, no cambies las que están»), que por la regla de AGENTS.md tiene que pasar
+  el arnés ANTES de la punta: hoy no se pudo (sin cuota de IA).
+
+**Medido en producción (87365c830, 22/10 ~12:40, 16 casos de preguntar en Editar, imposible, ambiguo, Configuraciones,
+textos pegados y «Si responde»):** la primera pasada, 9 pasan, y ninguna pregunta en Editar terminó en «No cambió nada»
+(«¿qué recomendás?», «¿a cuántos les llega?», ambiguo, goteo, sábado y domingo, 50 por día, la secuencia pegada); 4 de los 7
+rojos, cortados por la cuota. La segunda pasada, 15 de 16 cortados por «No tienes ninguna IA gratis conectada» (Gemini:
+`GenerateRequestsPerDayPerProjectPerModel-FreeTier`).
 - **Los turnos tardan 16-76 s** (la regla de Martín es 20 s).
 - **Medir con Gemini:** las tres corridas de hoy contestó Groq. El arnés hay que correrlo otra vez cuando vuelva la cuota.
+
+## El goteo con APROBACIÓN no espaciaba nada (22/10/2026, AU1 del plan del Cerebro: #289 nace para aprobar)
+
+**Síntoma (sospecha del relevamiento, confirmada leyendo el código):** con una automatización cuyos WhatsApp nacen para
+aprobar (#289 «Sprint · apertura»: estrategia null y «Sale sola» en false), el goteo de 5 minutos no frenaba nada. **Causa,
+dos puntas:** (1) el goteo contaba sólo los `nutricion_envios` 'enviado', y un borrador no gasta el cupo de la línea, así
+que el barrido dejaba los 50 borradores de una; (2) aprobar (`enviarBorradorPorSuCanal`, la única puerta) mandaba en el
+acto: aprobar diez seguidos eran diez juntos por la línea personal de Mauricio. **Regla:** para el goteo cuenta lo que
+salió Y lo que quedó para aprobar (`cuentaParaElGoteo`, `ESTADOS_DEL_GOTEO`), y aprobar respeta el goteo de su
+automatización (`frenoDelGoteoAlAprobar`: lo aprobado en 24 h por su `enviado_at`; si no hay lugar, no sale y dice en
+cuántos minutos sí; si no puede leer, no sale). **Cómo se probó:** el caso de 50 inscriptos a la vez en los dos modos, con
+la MISMA vuelta del motor (un tick por minuto, lo frenado a su turno como `quedaFrenada`): de a uno cada 5 minutos, los 50
+en 4 h 5 min, y con 60, 50 en 24 h. **Vive en:** lib/goteo.ts · lib/nutricion.ts (`usoDelGoteo` y la corrida) ·
+lib/borrador-camino.ts · test: tests/goteo-con-aprobacion.test.ts. **Sin hacer:** aprobar no PROGRAMA el envío para su
+turno (`wa_borradores` no tiene dónde guardarlo; haría falta una columna): dice cuándo, y hay que volver a tocar.

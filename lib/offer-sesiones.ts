@@ -26,13 +26,14 @@ import { getTenantDb, getWorkspaceActual, getWorkspace } from './workspace';
 import { seedOfertaDesdeBrief, upsertOferta, borrarOferta, listarOfertas, ofertasDeFunnels, ligarOfertaAFunnel, ligarProductoQueCorresponde } from './ofertas';
 import { leerTodo } from './supabase-paginado';
 import { leerFunnels } from './funnels';
+import { hayLeadsFueraDelFunnel } from './analisis-negocio';
 import {
   faltanMinimas,
   type ArbolOffer, type CalculoDiagnostico, type ConclusionOferta, type DiagnosticoOferta, type EstadoSesion,
   type OfferMensaje, type OfferSesionResumen, type OfferSesionVista, type PiezasSabidas,
 } from './offer-marco';
 import {
-  INTENTOS_CAS, adjuntoDe, conclusionVisible, construirArbol, destinoDeLaOferta, esperaCAS, juntarLigas, ligadaParaVista, mensajeParaVista, ofertaDesdePropuesta, ofertaYaAnotada, primerMensaje,
+  INTENTOS_CAS, adjuntoDe, armadaConElEmbudoViejo, conclusionVisible, construirArbol, destinoDeLaOferta, esperaCAS, juntarLigas, ligadaParaVista, mensajeParaVista, ofertaDesdePropuesta, ofertaYaAnotada, primerMensaje,
   sanearArmado, armadoParaVista, sanearDocumentos, sanearMensajes, sanearPiezas, leyendoParaVista, TEXTO_LECTURA_CORTADA,
   type ArmadoOffer,
   type DocumentoGuardado, type MensajeGuardado, type SesionParaArbol,
@@ -132,7 +133,11 @@ function aFila(r: Record<string, unknown>): FilaOffer {
  * Lo que la vista muestra y la fila no guarda (se lee: el funnel o la oferta pueden renombrarse, la liga
  * pudo fallar). `ligada` ausente = true (ver el porqué en `OfferSesionVista.ligada`).
  */
-export type NombresSesion = { funnel?: string; ofertaBase?: string; ligada?: boolean; guardadaEn?: Array<{ id: number; nombre: string }> };
+export type NombresSesion = {
+  funnel?: string; ofertaBase?: string; ligada?: boolean; guardadaEn?: Array<{ id: number; nombre: string }>;
+  /** OF1: la última conclusión usó el embudo del negocio entero y el negocio tenía leads de otros funnels. */
+  diagnosticoViejo?: boolean;
+};
 
 /**
  * Lo que ve la pantalla. `puedeConcluir` lo calcula el código sobre las piezas, nunca el modelo. Sync a
@@ -167,6 +172,7 @@ export function vistaDe(f: FilaOffer, nombres: NombresSesion = {}): OfferSesionV
     guardadaEn: nombres.guardadaEn ?? [],
     armando: armadoParaVista(f.armado, Date.now()),
     leyendo: leyendoParaVista(f.mensajes, Date.now()),
+    ...(nombres.diagnosticoViejo && f.conclusiones.length ? { diagnosticoViejo: true } : {}),
   };
 }
 
@@ -174,7 +180,7 @@ export function vistaDe(f: FilaOffer, nombres: NombresSesion = {}): OfferSesionV
  * Los nombres del funnel y de la oferta analizada, leídos. NUNCA tira: un nombre que no se pudo leer es
  * un rótulo vacío, no una conversación que no abre (el funnel pudo archivarse, la oferta borrarse).
  */
-export async function nombresDeSesion(f: Pick<FilaOffer, 'funnelId' | 'ofertaBaseId' | 'ofertaId'>): Promise<NombresSesion> {
+export async function nombresDeSesion(f: Pick<FilaOffer, 'funnelId' | 'ofertaBaseId' | 'ofertaId'> & Partial<Pick<FilaOffer, 'conclusiones'>>): Promise<NombresSesion> {
   const out: NombresSesion = {};
   await Promise.all([
     // ¿En qué funnels está la oferta guardada? (#895: uno o VARIOS, no sólo el de la conversación). Con eso, la vista
@@ -201,9 +207,16 @@ export async function nombresDeSesion(f: Pick<FilaOffer, 'funnelId' | 'ofertaBas
       })().catch((e) => console.warn('[offer] no pude mirar en qué funnels está la oferta guardada:', e instanceof Error ? e.message : e))
       : null,
     f.funnelId != null
-      ? leerFunnels().then((fs) => {
+      ? leerFunnels().then(async (fs) => {
         const x = (fs ?? []).find((y) => y.id === f.funnelId);
         if (x) out.funnel = (x.producto ?? '').trim() || x.nombre;
+        // OF1 (22/10/2026): la última conclusión, armada con el embudo del negocio entero, ¿mezcló otros funnels? Con
+        // un funnel que ya no está (`leerFunnels` trae los activos), sí: lo armado nunca fue de él. TOLERANTE: si la
+        // lectura falla, no se marca (un aviso en falso le diría a un cliente que su diagnóstico está mal).
+        const ultima = f.conclusiones?.[f.conclusiones.length - 1];
+        if (!armadaConElEmbudoViejo(ultima, f.funnelId)) return;
+        out.diagnosticoViejo = x ? await hayLeadsFueraDelFunnel(x.id, !!x.esDefault)
+          .catch((e) => { console.warn('[offer] no pude mirar si el diagnóstico mezcló otros funnels:', e instanceof Error ? e.message : e); return false; }) : true;
       }).catch((e) => console.warn('[offer] no pude leer el nombre del funnel:', e instanceof Error ? e.message : e))
       : null,
     f.ofertaBaseId != null

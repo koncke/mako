@@ -483,6 +483,26 @@ export type TurnoChat = {
   adjuntos?: AdjuntoTurno[];
 };
 
+// ── El Ops Center sólo muestra lo que es para Martín (22/10/2026) ─────────────────────────────────────────────────────
+// Martín, desde el teléfono y con captura: «me salen estos textos largos innecesarios en muchos chats... No los quiero». En
+// su «Cerebro» se leía entero, como si lo hubiera escrito él, un mensaje de un chat a otro («Integración → Cerebro: READY.
+// 87365c830 está EN PRODUCCIÓN…»), con el nombre del que lo mandó como cita. Medido en la base ese día (71 chats, 1.937
+// turnos): 279 eran mensajes de OTRO chat (`otro`, la coordinación: 195 del Cerebro) y 14 «de Martín» eran el resumen que
+// Claude Code escribe al compactar una conversación («This session is being continued from a previous conversation…»).
+// Ninguno de los dos es para él. Se dibuja lo que escribe Martín y lo que el chat contesta (su «Voy a trabajar en…», su «Ya
+// está», sus preguntas), y un pedido suyo que llega por el Runner (`yo` con `trabajo`).
+// ⚠️ EL `otro` SE SIGUE GUARDANDO: cuenta para que una pregunta quede atrás (lib/centro-preguntas-chat.ts), sólo no se dibuja
+//    (lib/centro-chats.ts → lineasDeConversacion, vistaPrevia). El resumen de la compactación, en cambio, no sirve para nada:
+//    `sanearTurnos` lo saca al subir Y al leer, así que tampoco vuelve lo que ya estaba guardado.
+
+/** El resumen que escribe Claude Code al compactar un chat. Lo sube el cartero como si fuera de Martín, y no lo escribió nadie. */
+export const esResumenDeCompactacion = (texto: string): boolean =>
+  /^\s*This session is being continued from a previous conversation/i.test(texto);
+
+/** ¿Este turno se le muestra a Martín? Lo suyo y lo que el chat le contesta, sí; lo que un chat le dice a otro, no. */
+export const esParaMartin = (t: Pick<TurnoChat, 'rol' | 'texto'>): boolean =>
+  t.rol !== 'otro' && !(t.rol === 'yo' && esResumenDeCompactacion(t.texto));
+
 // ── Lo que Martín adjunta DIRECTO en la app de Claude (20/10/2026, el punto 4 del 18/10; cartero 1.17.0) ──────────────
 // Martín: «cuando envío imágenes por aquí o adjunto cosas también deberían aparecer en el Center». En el transcript, una
 // captura que pegó es un bloque `image` (un PDF, `document`) en base64 dentro de SU mensaje; las de las herramientas van
@@ -528,6 +548,8 @@ export function sanearTurnos(x: unknown): TurnoChat[] {
     if (typeof o.local !== 'string' || !DESTINO_RE.test(o.local)) continue;
     if (typeof o.uuid !== 'string' || !/^[\w-]{8,64}$/.test(o.uuid)) continue;
     if (o.rol !== 'yo' && o.rol !== 'el' && o.rol !== 'otro') continue;
+    // El resumen de una compactación no es de nadie: ni se guarda ni vuelve lo guardado (ver `esParaMartin`).
+    if (o.rol === 'yo' && typeof o.texto === 'string' && esResumenDeCompactacion(o.texto)) continue;
     // Una captura sola, sin texto, también es un mensaje de Martín (20/10/2026).
     const adjuntos = o.rol === 'yo' ? sanearAdjuntosTurno(o.adjuntos, o.local, o.uuid) : [];
     if (typeof o.texto !== 'string' || (!o.texto.trim() && !adjuntos.length)) continue;
