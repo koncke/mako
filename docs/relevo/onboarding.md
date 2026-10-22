@@ -1,5 +1,17 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 22/10/2026 ~03:45 AR — LAS PREGUNTAS DEL ARRANQUE, EN PRODUCCIÓN (99453fec5, run 230)
+
+- El aviso al grupo del ws21 salió (mensaje 3EB019AA269EBCEDA7F945, clave onboarding:historial-ws21). La prueba del script
+  dio deploy Ready, con main b9dd7ce1e conteniendo 99453fec5. A Florencia el chat «Onboarding» se le crea en su próxima
+  visita: el ws21 tiene un admin, así que la decisión es «crear».
+- La reconstrucción en seco después del deploy no encontró a nadie nuevo: los cuatro (ws3, 20, 21 y 22) ya tienen
+  historial.
+- NO se miró en pantalla en producción: la extensión de Chrome no conectaba (Chrome abierto, ninguna extensión
+  conectada). Lo que sí se midió: el mismo código contra la base real arma el hilo del ws21 con 68 mensajes (antes 32),
+  7 con audio, y empieza en el saludo. El primero que abra /second-brain?ws=21 como super admin lo confirma.
+- Encima, en la rama: db56e55cc (el doble toque cruzado) y el «Hecho» en la bitácora. Van con la próxima punta.
+
 ## ESTADO AL 22/10/2026 — LAS PREGUNTAS DEL ARRANQUE, GUARDADAS (rama onboarding-arranque-historial, C:/dev/wt-onboarding-arranque)
 
 - Chat «Onboarding», claude3. Lo pidió el Cerebro como cliente roto: en el Ops Center del ws21 (Florencia) faltaban las
@@ -23,9 +35,10 @@
   «Desarrollador de MaKo» (docs/relevo/mako-en-whatsapp.md). Sin `--enviar` sólo muestra el texto:
   `NODE_OPTIONS=--conditions=react-server npx tsx scripts/avisar-arreglo-al-grupo.mts --ws 21 --clave onboarding:historial-ws21 --commit c07334eff --origen "Onboarding" --texto "Ya quedó arreglado: en tu Ops Center, el chat «Onboarding» muestra tu onboarding completo, con cada pregunta de MaKo y tu respuesta." --enviar`
   Después se anota el «Hecho» en app/admin/dev/onboarding/bitacora.ts.
-- Sigue abierto (detalle en el hallazgo, «Sin hacer»): el reproductor del audio (chat «Ops Center»); el modo 'plan' (sin
-  Offer: el historial se guarda, pero el super admin no lo ve en ningún hilo); el doble toque cruzado; «Empresa» y el
-  script del ws21 (el sí de Martín), como abajo.
+- El reproductor del audio lo hizo el chat «Ops Center» en su rama (ops-center-cliente-t2, con 318b32714 adentro). El
+  doble toque cruzado se arregló después, en una punta aparte encima de 99453fec5.
+- Sigue abierto (detalle en el hallazgo, «Sin hacer»): el modo 'plan' en el Ops Center del super admin (hoy no lo usa
+  ningún cliente activo: ws5 pausado y ws9 de Martín); «Empresa» y el script del ws21 (el sí de Martín), como abajo.
 
 ## ESTADO AL 22/10/2026 ~00:45 AR — EL NOMBRE EN EL PERFIL, EN PRODUCCIÓN (1166cbdca, run 223)
 
