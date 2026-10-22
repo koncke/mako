@@ -2165,6 +2165,20 @@ sale «✗ no hay ninguna fila» en una corrida con los dos. Solo, pasa. La marc
 Cerebro); el botón de un negocio sin ninguna IA sigue siendo Gemini, y eso lo decide Martín; la 0316 (`archivero_files.origen`)
 sigue sin aplicar en producción, y cada pegado archivado lo avisa en el log.
 
+## Los chats del Image Editor y del Video Editor en el Ops Center: son por PERSONA (22/10/2026, OC8)
+
+Cada editor guarda su chat en su tabla (image_editor_chats, video_editor_chats), con una fila por persona y por diseño o
+proyecto. El Ops Center los lista como «Image Editor › <diseño>» y «Video Editor › <proyecto>» y los abre de sólo lectura, con
+«Seguir en el editor» (lib/chat-mako-indice.ts → `chatsDeLosEditores`, `hiloDeEditor`).
+
+- **No es como Offer ni Automations, que son del negocio:** el admin ve los del negocio y los demás sólo los suyos (como «de
+  antes»). La clave de la fila es persona|id, porque dos personas pueden tener un chat del mismo diseño. Las puertas son
+  `image-editor` y `video-editor`.
+- **Lo que midió TB1, arreglado:** la clave `landing:` (el Web Generator) no tenía origen y salía suelta. La de un closer o un
+  setter (`persona:<p>:dashboard:…`) tampoco se reconocía para el admin. `origenDeClave` saca la persona antes de mirar.
+- **Regla, la de d6b-rutas otra vez:** una lectura nueva en la ruta del chat va a su tabla «sin IA» en el mismo commit, y ese
+  test se corre con los propios. Acá lo atajó el test antes de la punta.
+
 ## La estrella dice desde dónde: la tab, la entidad y el modo (22/10/2026, OC6)
 
 La estrella de cada tab (app/_chat/MakoEnLaTab.tsx) mandaba al «Cerebro» sin decir desde dónde: `tab` era sólo el aria-label.

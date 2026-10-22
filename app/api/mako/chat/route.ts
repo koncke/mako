@@ -44,7 +44,7 @@ import { CONTEXTO_SECOND_BRAIN, antesValido } from '@/lib/chat-mako-reglas';
 import { sanearDesde } from '@/lib/chat-desde';
 import { estadoDeTrabajo } from '@/lib/chat-trabajos';
 import { runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
-import { chatsDeAntes, chatsDeAutomations, chatsDeLasTabs, chatsDeOffer, claveDeAntes, conTemas, hiloDeAutomatizacion, claveDeTab, grupoDeMaKo, hiloDeAntes, hiloDeOffer, hiloDelGrupoMaKo, quienChateaDelRequest } from '@/lib/chat-mako-indice';
+import { chatsDeAntes, chatsDeAutomations, chatsDeLasTabs, chatsDeLosEditores, chatsDeOffer, claveDeAntes, conTemas, hiloDeAutomatizacion, hiloDeEditor, claveDeTab, grupoDeMaKo, hiloDeAntes, hiloDeOffer, hiloDelGrupoMaKo, quienChateaDelRequest } from '@/lib/chat-mako-indice';
 import type { PersonaChat } from '@/lib/mako-turno-app';
 import { esChatDeMarcas, leerMarcasDelChat, marcarEnElChat } from '@/lib/chat-mako-marcas-db';
 import { sanearCambio } from '@/lib/centro-mensajes';
@@ -145,6 +145,19 @@ export async function GET(req: NextRequest) {
     if (sp.has('automatizacionId')) {
       const id = enteroDe(sp.get('automatizacionId'));
       const hilo = id == null ? null : await hiloDeAutomatizacion(id);
+      if (!hilo) return json({ ok: false, error: 'No encuentro esa charla.' }, 404);
+      return json({ ok: true, ...hilo });
+    }
+    // Los chats del Image Editor y del Video Editor (22/10/2026, OC8): por persona (el admin, los del negocio), con la puerta de
+    // cada tab. Se LEEN; se siguen en el editor.
+    if (sp.get('editores')) {
+      const q = await quienChateaDelRequest();
+      return json({ ok: true, editores: q ? await chatsDeLosEditores(q) : [] });
+    }
+    if (sp.has('editorClave')) {
+      const q = await quienChateaDelRequest();
+      const tipo = sp.get('editor') === 'video' ? 'video' : sp.get('editor') === 'imagen' ? 'imagen' : null;
+      const hilo = q && tipo ? await hiloDeEditor(q, tipo, String(sp.get('editorClave'))) : null;
       if (!hilo) return json({ ok: false, error: 'No encuentro esa charla.' }, 404);
       return json({ ok: true, ...hilo });
     }
