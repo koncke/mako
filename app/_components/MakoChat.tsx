@@ -5,10 +5,20 @@
 // =============================================================================
 // Sesiones (New Chat + renombrar/pinear/archivar/borrar), gráfico fijo arriba
 // (colapsable) con scroll de mensajes independiente, sugerencias en una línea.
+//
+// CON LAS PIEZAS DEL OPS CENTER (22/10/2026, TB3; Martín: «quiero que todos los chats de MaKo en las tabs sean el del Ops
+// Center»): el hilo es `HiloMako` y la caja es `CajaChat` (app/_chat/), con la estrella de MaKo al lado de lo que contesta.
+// El motor sigue siendo el suyo (/api/chart-insights, o el `endpoint` que le pasen). Lo usan el Ads Manager y Marketing
+// (`ChartIA`) y el Diagnóstico del Web Generator; el Dashboard ya no: sus gráficos le preguntan a la estrella de la tab
+// (app/dashboard/pregunta-grafico.ts).
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import '@/app/admin/operaciones/centro.css';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
-import { MakoLoader } from './MakoLoader';
+import { ASPECTO_MAKO } from '@/lib/centro-munecos';
+import { CajaChat } from '@/app/_chat/CajaChat';
+import { HiloMako } from '@/app/_chat/HiloMako';
+import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import { ChatItemMenu } from './ChatItemMenu';
 
 const MONO = "'Geist Mono', monospace";
@@ -23,38 +33,17 @@ const DEFAULT_SUGERENCIAS = [
   '¿Cómo lo mejoro?',
 ];
 
-type Msg = { role: 'user' | 'assistant'; content: string };
+type Msg = { role: 'user' | 'assistant'; content: string; created_at?: string };
 type Session = { id: number; titulo: string | null; updated_at: string; pinned?: boolean };
 
-function renderInline(text: string, k: string): ReactNode[] {
-  return text.split(/(\*\*[^*]+\*\*)/g).map((p, i) =>
-    /^\*\*[^*]+\*\*$/.test(p) ? <strong key={`${k}-${i}`}>{p.slice(2, -2)}</strong> : <span key={`${k}-${i}`}>{p}</span>,
-  );
-}
-function Markdown({ text }: { text: string }) {
-  const lines = text.split('\n');
-  const blocks: ReactNode[] = [];
-  let bullets: string[] = [];
-  const flush = () => {
-    if (!bullets.length) return;
-    const items = bullets;
-    blocks.push(<ul key={`ul-${blocks.length}`} style={{ margin: '4px 0', paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 3 }}>{items.map((b, i) => <li key={i} style={{ lineHeight: 1.5 }}>{renderInline(b, `li-${blocks.length}-${i}`)}</li>)}</ul>);
-    bullets = [];
-  };
-  lines.forEach((raw, idx) => {
-    const t = raw.trim();
-    if (/^[-*•]\s+/.test(t)) { bullets.push(t.replace(/^[-*•]\s+/, '')); return; }
-    flush();
-    if (t === '') return;
-    if (/^---+$/.test(t)) { blocks.push(<hr key={idx} style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '8px 0' }} />); return; }
-    const h = t.match(/^(#{1,3})\s+(.*)$/);
-    if (h) { const lvl = h[1].length; blocks.push(<div key={idx} style={{ fontWeight: 600, fontSize: lvl === 1 ? 16 : lvl === 2 ? 15 : 14, color: 'var(--ink)', margin: '6px 0 2px' }}>{renderInline(h[2], `h-${idx}`)}</div>); return; }
-    blocks.push(<p key={idx} style={{ margin: '3px 0', lineHeight: 1.55 }}>{renderInline(t, `p-${idx}`)}</p>);
-  });
-  flush();
-  return <>{blocks}</>;
-}
+/** Quien contesta en el hilo: MaKo, con su estrella. */
+const MAKO = { nombre: 'MaKo', aspecto: ASPECTO_MAKO };
+const nada = () => {};
 
+/** Los mensajes de la sesión como filas del hilo (`HiloMako`): sin id en la base, la posición es el id. */
+function itemsDe(messages: readonly Msg[]): ItemHilo[] {
+  return messages.map((m, i) => ({ k: 'msg', id: `c${i}`, role: m.role, texto: m.content, at: m.created_at ?? null }));
+}
 
 export function MakoChat({
   chartKey, titulo, contexto = '', sugerencias = [], chart, initialSessionId, sidebar = false,
@@ -76,6 +65,17 @@ export function MakoChat({
   const [editId, setEditId] = useState<number | null>(null);
   const [editVal, setEditVal] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Mientras MaKo piensa, los segundos (el «Trabajando…» del hilo los usa para avisar que puede tardar).
+  const [desde, setDesde] = useState<number | null>(null);
+  const [ahora, setAhora] = useState(() => Date.now());
+  useEffect(() => {
+    if (!pensando) { setDesde(null); return; }
+    setDesde(Date.now());
+    setAhora(Date.now());
+    const t = setInterval(() => setAhora(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [pensando]);
+  const items = useMemo(() => itemsDe(messages), [messages]);
   // Sugerencias efectivas: las del gráfico, o el set por defecto si no trae.
   const sugs = sugerencias.length ? sugerencias : DEFAULT_SUGERENCIAS;
 
@@ -186,23 +186,18 @@ export function MakoChat({
     <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', flex: 'none', maxHeight: '40vh', overflowY: 'auto' }}>{chart}</div>
   ) : null;
 
+  // El hilo del Ops Center (`.co-hilo` scrollea; la columna centra lo leído).
   const mensajesPane = (
-    <div ref={scrollRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {messages.map((m, i) => (
-        <div key={i} style={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '90%', background: m.role === 'user' ? 'var(--accent-soft)' : 'var(--surface-2)', color: m.role === 'user' ? '#171511' : 'var(--ink)', border: m.role === 'user' ? 'none' : '1px solid var(--border)', borderRadius: 14, padding: '11px 14px', fontSize: 14 }}>
-          {m.role === 'assistant' ? <Markdown text={m.content} /> : <span style={{ whiteSpace: 'pre-wrap' }}>{m.content}</span>}
-        </div>
-      ))}
-      {pensando && (
-        <div style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 11, padding: '2px 0' }}>
-          <MakoLoader width={74} />
-          <span style={{ fontFamily: MONO, fontSize: 12.5, color: 'var(--faint)' }}>está pensando…</span>
-        </div>
-      )}
-      {err && <div style={{ background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '10px 14px', color: 'var(--bad)', fontSize: 13 }}>{err}</div>}
+    <div ref={scrollRef} className="co-hilo" style={{ padding: '16px 20px' }}>
+      <div className="co-hilo__col">
+        <HiloMako items={items} quien={MAKO} ahora={ahora} escribiendo={pensando ? { segs: desde != null ? Math.max(0, Math.round((ahora - desde) / 1000)) : 0 } : null}
+          tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} />
+        {err && <p className="co-nota co-nota--mal" role="alert">{err}</p>}
+      </div>
     </div>
   );
 
+  // La caja única (app/_chat/CajaChat.tsx), con las sugerencias del gráfico arriba en una línea.
   const inputPane = (
     <div style={{ borderTop: '1px solid var(--border)', background: 'var(--surface-2)', flex: 'none' }}>
       {sugs.length > 0 && (
@@ -210,9 +205,11 @@ export function MakoChat({
           {sugs.map((s) => <button key={s} type="button" onClick={() => enviar(s)} disabled={pensando} style={{ flex: 'none', whiteSpace: 'nowrap', padding: '6px 12px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 12.5, cursor: pensando ? 'default' : 'pointer', opacity: pensando ? 0.55 : 1 }}>{s}</button>)}
         </div>
       )}
-      <div style={{ display: 'flex', gap: 10, padding: '12px 20px 14px' }}>
-        <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(); } }} rows={1} placeholder="Pregúntale a MaKo…  (Enter envía · Shift+Enter salto de línea)" disabled={pensando} style={{ flex: 1, padding: '11px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none', resize: 'none', minHeight: 44, maxHeight: 160, lineHeight: 1.4 }} />
-        <button type="button" onClick={() => enviar()} disabled={pensando || !input.trim()} style={{ padding: '11px 18px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: pensando || !input.trim() ? 'default' : 'pointer', opacity: pensando || !input.trim() ? 0.55 : 1 }}>Enviar</button>
+      <div style={{ padding: '12px 20px 14px' }}>
+        <div className="co-caja">
+          <CajaChat texto={input} onTexto={setInput} onMandar={() => { void enviar(); }} ocupado={pensando} apagado={!sessionId}
+            placeholder="Pregúntale a MaKo…" tituloMandar="Enviar" enterManda />
+        </div>
       </div>
     </div>
   );
