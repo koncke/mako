@@ -49,7 +49,7 @@ test('2. la proyección dice su origen y su alcance, corre en el workspace y con
   assert.match(ind, /export const PROYECCIONES = \[\{ origen: 'offer', alcance: 'workspace', tab: 'offer' \}\] as const;/);
   assert.match(ind, /return rolWs && ws != null && puedeVerKey\('offer', rolWs, capa\) \? ws : null;/, 'la MISMA puerta que la tab');
   assert.match(ind, /runWithWorkspace\(ws, \(\) => Promise\.all\(\[listarSesionesOffer\(\)/, 'la lista, dentro del workspace');
-  assert.match(ind, /runWithWorkspace\(ws, \(\) => leerConversacionOffer\(id\)\)/, 'el hilo, dentro del workspace');
+  assert.match(ind, /runWithWorkspace\(ws, \(\) => Promise\.all\(\[\n    leerConversacionOffer\(id\),/, 'el hilo, dentro del workspace');
   // Lo que la puerta deja ver, medido: Offer es de admin; un closer o un setter no la ven.
   assert.equal(puedeVerKey('offer', 'admin', null), true);
   assert.equal(puedeVerKey('offer', 'closer', null), false);

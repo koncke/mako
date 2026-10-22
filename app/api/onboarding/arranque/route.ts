@@ -61,7 +61,8 @@ export async function POST(req: NextRequest) {
   if ('error' in g) return no(g.status, g.error);
   let body: Record<string, unknown>;
   try { body = (await req.json()) as Record<string, unknown>; } catch { return no(400, 'body inválido'); }
-  const listo = async (extra: Record<string, unknown> = {}) => NextResponse.json({ ok: true, ...extra, vista: await vistaArranque() });
+  // Lo que la respuesta dejó dibujado queda en el historial del onboarding (21/10/2026, lib/onboarding-historial.ts).
+  const listo = async (extra: Record<string, unknown> = {}) => NextResponse.json({ ok: true, ...extra, vista: await vistaArranque({ anotar: true }) });
   // Quién escribe, SÓLO para la guardia (la ráfaga por usuario): nunca para los datos del negocio (el contacto de los
   // reportes es el del negocio, ver 'telefono').
   const usuarioGuardia = (await getUsuarioActual().catch(() => null))?.email ?? null;

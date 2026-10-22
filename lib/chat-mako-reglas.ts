@@ -183,11 +183,29 @@ export function estadoDeLoHecho(estado: string, venceAt: string | null, ahora: n
   return 'fallo';
 }
 
+/** Lo que lee el super admin antes de las preguntas del onboarding que se armaron después (lib/onboarding-historial.ts). */
+export const AVISO_RECONSTRUIDO = 'Reconstruido: estas preguntas del onboarding se armaron después, con las respuestas que quedaron guardadas.';
+
 /** Un mensaje de Offer como uno del chat (20/10/2026, lib/chat-mako-indice.ts → hiloDeOffer): 'yo' es la persona, 'mako' es
- *  MaKo; lo vacío no se dibuja. */
-export function mensajesDeOffer(ms: ReadonlyArray<{ de: 'mako' | 'yo'; texto: string; at: string }>): Array<{ role: 'user' | 'assistant'; content: string; created_at?: string }> {
-  return ms.filter((m) => typeof m.texto === 'string' && m.texto.trim())
-    .map((m) => ({ role: m.de === 'yo' ? 'user' : 'assistant', content: m.texto, ...(m.at ? { created_at: m.at } : {}) }));
+ *  MaKo; lo vacío no se dibuja. Un adjunto sin texto dice su nombre, como en el chat «Onboarding» (`mensajesDelHilo`): sin
+ *  esto, el documento que Florencia mandó como respuesta (ws21) no se veía y quedaban dos preguntas de MaKo seguidas.
+ *  Con `avisoReconstruido` (sólo el super admin), cada tramo armado después lleva `AVISO_RECONSTRUIDO` adelante. */
+export function mensajesDeOffer(
+  ms: ReadonlyArray<{ de: 'mako' | 'yo'; texto: string; at?: string; adjuntos?: ReadonlyArray<{ nombre: string }>; reconstruido?: boolean }>,
+  o: { avisoReconstruido?: boolean } = {},
+): Array<{ role: 'user' | 'assistant'; content: string; created_at?: string }> {
+  const out: Array<{ role: 'user' | 'assistant'; content: string; created_at?: string }> = [];
+  let enTramo = false;
+  for (const m of ms) {
+    const texto = typeof m.texto === 'string' && m.texto.trim() ? m.texto : '';
+    const content = texto || (m.adjuntos ?? []).map((a) => `Adjunto: ${a.nombre}`).join('\n');
+    if (!content.trim()) continue;
+    const at = m.at ? { created_at: m.at } : {};
+    if (o.avisoReconstruido && m.reconstruido && !enTramo) out.push({ role: 'assistant', content: AVISO_RECONSTRUIDO, ...at });
+    enTramo = !!m.reconstruido;
+    out.push({ role: m.de === 'yo' ? 'user' : 'assistant', content, ...at });
+  }
+  return out;
 }
 
 /**

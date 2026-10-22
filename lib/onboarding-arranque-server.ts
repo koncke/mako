@@ -40,6 +40,7 @@ import { nombreArchivoLoQueVendes, pdfDeLoQueVendes } from './lo-que-vendes-pdf'
 import { tzDeWorkspace } from './timezone';
 import { NOMBRE_WS_PRUEBA } from './reset-workspace';
 import { faltanDelArranque, type OfferSesionVista, type PiezasSabidas } from './offer-marco';
+import { CLAVE_HISTORIAL, conLoNuevo, leerHistorial, unirConOffer } from './onboarding-historial';
 import {
   CLAVE_ENCUESTA, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, TITULO_HILO, decisionDelHilo, contextoDelHilo, cobroDelPrecio, opcionesDeCobro, mensajesDelHilo, pisaElNombreDelPerfil, sinMarca, notaDelPdf,
   type EstadoArranque, type EtapaArranque, type HechosArranque, type MensajeArranque, type ModoArranque,
@@ -86,8 +87,43 @@ async function mensajesParaElHilo(e: EstadoArranque): Promise<Array<{ role: 'use
   const h = await hechosDelArranque(e);
   if (!h.terminado) throw new Error('El onboarding todavía no terminó (o no se pudo leer su estado): no armo el chat.');
   if (e.sesionId && (h.sesionCaida || !h.sesion)) throw new Error('No pude leer la conversación del onboarding: no armo el chat a medias.');
-  const { antes, despues } = mensajesDeArranque(e, h);
-  return mensajesDelHilo([...antes, ...(h.sesion?.mensajes ?? []), ...despues], e.interes);
+  if (h.faseCaida) throw new Error('No pude leer el diagnóstico del negocio: no armo el chat a medias.');
+  // Del HISTORIAL guardado (21/10/2026): lo que se le preguntó y contestó, con los textos de ese día. Armado del estado de
+  // hoy, un arreglo posterior (el nombre del negocio de Florencia, ws21) cambiaba lo que «contestó». Quien terminó antes de
+  // que se guardara se anota ahora, marcado `reconstruido`. Sin poder leer el historial, no se arma (tira).
+  const vista = mensajesDeArranque(e, h);
+  await anotarHistorial(vista, { primeroDeOffer: primeroDeOffer(h), reconstruidoSiVacio: true });
+  const historial = leerHistorial(await getSettingEstricto(CLAVE_HISTORIAL));
+  if (!historial) throw new Error('No pude leer el historial del onboarding: no armo el chat a medias.');
+  return mensajesDelHilo(unirConOffer(historial, h.sesion?.mensajes ?? []), e.interes);
+}
+
+/** La hora del primer mensaje de la conversación de Offer del onboarding (lo de antes se anota antes de él). */
+const primeroDeOffer = (h: Pick<HechosServer, 'sesion'>): number | null => {
+  const t = Date.parse(h.sesion?.mensajes[0]?.at ?? '');
+  return Number.isFinite(t) ? t : null;
+};
+
+/**
+ * Anota en el historial (lib/onboarding-historial.ts) lo que la pantalla dibuja y todavía no estaba: cada pregunta la
+ * primera vez que se ve, cada respuesta la primera vez que se dibuja. Con compare-and-set (dos pestañas a la vez no se
+ * pisan) y la lectura ESTRICTA: caída, o con algo que no se entiende, no se escribe nada (tira). Devuelve cuántos anotó.
+ * `reconstruidoSiVacio`: si no había nada anotado, lo que se anota ahora se armó después (quien terminó antes del 21/10).
+ */
+export async function anotarHistorial(
+  vista: { antes: readonly MensajeArranque[]; despues: readonly MensajeArranque[] },
+  o: { primeroDeOffer?: number | null; reconstruido?: boolean; reconstruidoSiVacio?: boolean; ahora?: number } = {},
+): Promise<number> {
+  for (let intento = 0; intento < 3; intento++) {
+    const raw = await getSettingEstricto(CLAVE_HISTORIAL);
+    const previo = leerHistorial(raw);
+    if (!previo) throw new Error(`El setting ${CLAVE_HISTORIAL} no se puede leer: no lo piso.`);
+    const reconstruido = !!o.reconstruido || (!!o.reconstruidoSiVacio && previo.length === 0);
+    const nuevo = conLoNuevo(previo, vista, { ahora: o.ahora ?? Date.now(), primeroDeOffer: o.primeroDeOffer, reconstruido });
+    if (!nuevo) return 0;
+    if (await cambiarSettingSi(CLAVE_HISTORIAL, raw, JSON.stringify({ mensajes: nuevo }))) return nuevo.length - previo.length;
+  }
+  throw new Error(`El setting ${CLAVE_HISTORIAL} cambió tres veces mientras lo anotaba.`);
 }
 
 /**
@@ -174,6 +210,9 @@ export type HechosServer = HechosArranque & {
    * pantalla no abre una conversación nueva (rehacer la oferta y dejar la vieja huérfana), avisa y relee.
    */
   sesionCaida: boolean;
+  /** El diagnóstico de fase no se pudo leer (cae a «no guardado» y la conversación se dibuja con la fase abierta): sirve para
+   *  dibujar, nunca para anotar el historial. */
+  faseCaida: boolean;
   estadoOnboarding: OnboardingState;
 };
 
@@ -184,10 +223,11 @@ export async function hechosDelArranque(e: EstadoArranque): Promise<HechosServer
   const pasosCapa = [...capa.onboarding];
   const modo: ModoArranque = pasosCapa.includes('productos') ? 'oferta' : 'plan';
   let sesionCaida = false;
+  let faseCaida = false;
   const [perfil, w, diag, sesion, onb, verif, contacto, meta] = await Promise.all([
     getPerfil().catch(() => null),
     ws != null ? getWorkspace(ws).catch(() => null) : Promise.resolve(null),
-    getDiagnosticoFase().catch(() => null),
+    getDiagnosticoFase().catch(() => { faseCaida = true; return null; }),
     e.sesionId ? leerSesion(e.sesionId).catch(() => { sesionCaida = true; return null; }) : Promise.resolve(null),
     getEstadoOnboarding(),
     ws != null ? getEstadoVerificacionContacto(ws).catch(() => null) : Promise.resolve(null),
@@ -222,6 +262,7 @@ export async function hechosDelArranque(e: EstadoArranque): Promise<HechosServer
     metaConectado: !!meta,
     sesion,
     sesionCaida,
+    faseCaida,
     estadoOnboarding: onb,
   };
 }
@@ -258,7 +299,12 @@ export type VistaArranque = {
   equipo: { ultimasFaltas: string[] } | null;
 };
 
-export async function vistaArranque(): Promise<VistaArranque> {
+/**
+ * `anotar` (la ruta, después de una respuesta que se guardó): lo que se dibuja queda en el historial. Mirar no anota (la
+ * página y el GET: la hora sería la de quien mira). Best-effort, el historial no traba la conversación; y con la
+ * conversación de Offer o el diagnóstico sin leer no se anota, porque lo dibujado puede no ser lo que pasó.
+ */
+export async function vistaArranque(o: { anotar?: boolean } = {}): Promise<VistaArranque> {
   const e = await leerEstadoArranque();
   const [h, guardia, superAdmin] = await Promise.all([
     hechosDelArranque(e),
@@ -267,6 +313,10 @@ export async function vistaArranque(): Promise<VistaArranque> {
     getSesionAdmin().catch(() => null),
   ]);
   const { antes, despues } = mensajesDeArranque(e, h);
+  if (o.anotar && !h.sesionCaida && !h.faseCaida) {
+    await anotarHistorial({ antes, despues }, { primeroDeOffer: primeroDeOffer(h) })
+      .catch((err) => console.error('[arranque] historial:', err instanceof Error ? err.message : err));
+  }
   return {
     modo: h.modo,
     etapa: etapaDeArranque(e, h),
