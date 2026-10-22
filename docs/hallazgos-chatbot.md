@@ -6029,3 +6029,13 @@ son acciones fijas. Las variables del aviso son `{{nombre_completo}}` y `{{link_
 avisos de eventos de MaKo y en un flujo no está garantizada. Para marcar al que respondió sin tocar las etapas que armó el
 cliente: una etiqueta sin vínculo a etapa (`poner_etiqueta_lead` no lo mueve). **Vive en:** lib/nutricion.ts
 (`responderConGrafo`) · lib/chat-agent-handoff.ts (`clasificarEscenario`) · lib/flujo-grafo.ts (`rotuloSiNoDeRespuesta`).
+
+## Probar un aviso en seco: sin `leadNombre`, el renglón del nombre desaparece (22/10/2026, auditoría de #289)
+
+**Síntoma:** resolviendo el aviso de «Sprint · apertura» con `conVariables(texto, { ws, leadId, destino: 'equipo' })`,
+salió sólo «Síguelo a mano desde Chats 👉 …»: el renglón «💬 {{nombre_completo}} respondió…» no estaba. **El
+diagnóstico obvio era el equivocado:** el aviso está bien. **Causa:** `{{nombre_completo}}` no sale de la ficha, sale de
+`leadNombre` del contexto (`fuente: 'nombre'`, lib/variables-aviso.ts), y `textoConDatos` borra entero un renglón cuyo dato
+quedó vacío. La tarjeta real (`textoDelAviso`, lib/api-mako/areas/chatbot.run.ts) sí pasa `leadNombre`, y además le suma
+`valoresVariablesLead`. **Regla:** una prueba en seco de un aviso se resuelve como la tarjeta: con `leadNombre` (o con
+`textoDelAviso`), nunca con `conVariables` pelado. Lo mismo vale para un lead sin nombre de verdad: ese renglón no sale.
