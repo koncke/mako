@@ -54,6 +54,13 @@ están arregladas. El registro de corridas está en [corridas-multiagente.md](co
 - El preflight de Tailwind hace `svg { display: block }`: un ícono **no** se centra con el
   `textAlign: 'center'` del padre — queda pegado a la izquierda mientras los textos de abajo
   sí se centran → [Primitives y sistema visual](#primitives-y-sistema-visual).
+- **Un alto en línea `calc(100dvh - …)` NO descuenta la barra de arriba** (22/10/2026, medido en Offer): la regla global de
+  app/globals.css que resta `--barra-agencia` (la barra de «Estás viendo el dashboard de…», 50 px, o la alerta de la voz de
+  MaKo caída, 64 px, que ve también un cliente) sólo toca un estilo que EMPIEZA con `height: 100dvh`. Con `calc(` la página
+  queda más alta que la ventana, el navegador la corre al enfocar un campo y lo de abajo queda debajo del borde. Offer ya
+  la descuenta (`- var(--barra-agencia, 0px)`, hallazgos-offer.md). **Sin hacer:** lo mismo en app/image-editor/page.tsx,
+  app/image-editor/[diseno]/page.tsx, app/video-editor/page.tsx y app/video-editor/[proyecto]/page.tsx (`calc(100vh -
+  var(--alto-secciones, 0px))`).
 
 ---
 

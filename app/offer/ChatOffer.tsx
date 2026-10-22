@@ -17,7 +17,7 @@
 //     llega por `caja`. Lo adjuntado (el «+», pegar, soltar) va en sus miniaturas, arriba del texto, y se lee recién al mandar
 //     (11/10/2026, «Solo cuando le doy a ENVIAR debería…»), por el camino de Offer (subir-url → PUT → leer, hasta 25 MB, y
 //     el .zip de una carpeta).
-// Las respuestas rápidas siguen siendo las de Offer, arriba de la caja: «Armar mi oferta» en dorado y, con `varias`, marcar
+// Las respuestas rápidas siguen siendo las de Offer, al final del hilo: «Armar mi oferta» en dorado y, con `varias`, marcar
 // y «Enviar (N)». El Ops Center las dibuja como una pregunta del hilo; acá no (se filtra el bloque de `itemsDeOffer`).
 //
 // ⚠️ LA HORA SE PIDE DESPUÉS DE MONTAR (`montado`): sale de la zona horaria de quien la calcula, y el HTML del server la
@@ -204,8 +204,10 @@ export function ChatOffer({
     const idxs = marcadasAhora.includes(idx) ? marcadasAhora.filter((i) => i !== idx) : [...marcadasAhora, idx].sort((a, b) => a - b);
     setMarcadas({ de: ultimo!.id, idxs });
   };
+  // Van AL FINAL DEL HILO, y se desplazan con él (22/10/2026, el caso de uso de OF4 a 390 px): fijas arriba de la caja, cuatro
+  // opciones largas ocupaban 250 px y la conversación quedaba en 240. Así las dibuja también el Ops Center (una pregunta del hilo).
   const rapidas = opciones.length || onReintentar ? (
-    <div className="of-rapidas" style={{ flex: 'none', display: 'flex', flexDirection: 'column', gap: 8, padding: '8px clamp(12px, 3vw, 40px) 0' }}>
+    <div className="of-rapidas" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {onReintentar && (
         <div className="of-reintento" role="status">
           <span>MaKo no contestó tu último mensaje.</span>
@@ -282,11 +284,11 @@ export function ChatOffer({
               <GenerandoEnChat paso={armando.paso} corriendo={armando.corriendo} error={armando.error} onReintentar={armando.onReintentar} />
             </FilaDelChat>
           )}
+          {rapidas}
         </div>
       </div>
       {/* El cartel de soltar del Ops Center (centro.css → .co-soltar). */}
       {encima && <div className="co-soltar" aria-hidden>Suelta para adjuntar</div>}
-      {rapidas}
       {error && <div role="alert" className="of-error">{error}{errorExtra ? <> {errorExtra}</> : null}</div>}
       {/* La caja va POR CONVERSACIÓN (`key`): una grabación a medias no viaja a otra (la grabación guarda el `onAudio` del
           render en que se apretó el micrófono). */}
