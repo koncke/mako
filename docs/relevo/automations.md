@@ -80,6 +80,30 @@ Antes de cada uno, repetir el PASO 0 (`medir-ws3.mts`). Nunca en el ws1; la lín
 5. **PASO 10 a mano:** desde el link del aviso, contestar en /chats con el link del Sprint; MaKo no se mete después.
 6. **Cerrar:** «Chatbot: OFF», archivar #288, desconectar el chip si es prestado.
 
+## 22/10: la llamada con Mauricio cambió el plan
+
+La lista entera (A1-A7, con la cita de Fathom 195129619): C:/dev/cerebro-herramientas/feedback-llamada-mau-22-10.md.
+**El plan nuevo:** Mauricio armó el CRM **«Sprint 3 días» (#44 en el ws1)**: Lead entrante → Prospección activa → Oferta /
+Checkout → Ganado → Grupo de WhatsApp → Webinar. Trae ~1.050 leads a «Lead entrante» y cada día mueve A MANO 50 a
+«Prospección activa»: ESO dispara la apertura (CRON en «Prospección activa», nunca un barrido de «Lead entrante»). Los
+envíos empiezan el sábado 24/10, 50 por día, hasta el 13/11. La secuencia honesta: el .md de la campaña
+(campana-sprint-mauricio.md en la carpeta del proyecto). El «Hola, ya me llegó tu pago…» que se pegó en la llamada NO
+se arma: es un recibo falso.
+
+Lo que quedó en la rama (encima de 9c8f106c0):
+
+1. **A3 — goteo por automatización** (2b5a03115): en Configuraciones › Límites de cada automatización, «Uno cada N
+   minutos» y «Hasta M por día», adentro del tope de la línea (que sigue siendo el techo anti-ban). Lo frenado por el
+   goteo pasa a su turno; por la API de MaKo, `configurar_automatizacion` con `goteoMinutos` / `goteoPorDia`.
+2. **A1/A2 — el chat obedece** (bbbfe38ff): arriba del composer, **Discutir** (sólo contesta) o **Editar** (cambia el
+   flujo; nunca explica; los textos pegados van tal cual). La charla viaja al modelo: «hazlo como te lo indiqué» ya
+   tiene a qué referirse.
+3. **A4 — la plantilla «Prospección: apertura»** y **A5 — el aviso dice qué etapa y de qué CRM** (661146056). A5 no era
+   un cache: «Contactado» no existe en «Sprint 3 días».
+
+**La cuenta de la línea del ws1 para que pasen 50:** reserva para lo que entra (10/día, 1/hora) + las bienvenidas +
+la campaña. Con goteo de 5 min la campaña pide 12 por hora: línea en **65 por día y 15 por hora**.
+
 ## Sin hacer (con dónde vive)
 
 - El pago por el link propio de Stripe no entra a MaKo; con el link de MaKo gana al lead en su casa y la tarjeta del
@@ -95,4 +119,10 @@ Antes de cada uno, repetir el PASO 0 (`medir-ws3.mts`). Nunca en el ws1; la lín
 - Publicar y «Probar» exigen una línea conectada aun para el simulador (app/automations, `ConectarMedio`).
 - La etiqueta en lote corta en 200 sin decirlo antes (app/api/crm/etiquetas/route.ts).
 - Para Mauricio: 1.094 nunca contactados a 40/día son ~28 días; una semana pide ~157/día (el máximo es 150) y subir el
-  tope por hora a 13+. Lo decide Martín (riesgo de ban: hoy la línea le escribe a 13-16 personas por día).
+  tope por hora a 13+. Lo decide Martín (riesgo de ban: hoy la línea le escribe a 13-16 personas por día). 22/10: se
+  decidió 50 por día, moviéndolos a mano (arriba).
+- A7: el link al grupo de WhatsApp después de «Ganado» espera el link que pasa Mauricio.
+- Al CREAR (no al editar), el modelo sigue inventando el texto de una tarjeta de audio que la persona graba ella;
+  crear no tiene «Discutir / Editar» (app/api/chat-agent/secuencias/ia/route.ts, rama `crear`).
+- Los días del goteo son los del horario propio de la automatización; no hay un «sólo estos días» aparte del horario
+  (lib/config-automatizacion.ts).

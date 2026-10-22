@@ -56,6 +56,8 @@ export type PedidoIA = {
   respuestas?: readonly RespuestaMako[];
   /** Galería: el hilo ENTERO (antes de crear vive sólo en el cliente). */
   historial?: readonly MensajeChatMako[];
+  /** «Discutir» o «Editar» (22/10/2026, lib/flujo-ia-intencion.ts). Ausente = lo de antes. */
+  intencion?: 'discutir' | 'editar';
 };
 
 /** Cómo terminó un turno. */
@@ -77,6 +79,7 @@ export function cuerpoIA(p: PedidoIA): Record<string, unknown> {
     ...(p.pasos ? { pasos: p.pasos } : {}),
     ...(p.respuestas?.length ? { respuestas: p.respuestas } : {}),
     ...(p.historial?.length ? { historial: p.historial } : {}),
+    ...(p.intencion ? { intencion: p.intencion } : {}),
   };
 }
 

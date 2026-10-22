@@ -19,7 +19,8 @@ import { getConfigAutomatizacionAction, saveConfigAutomatizacionAction } from '.
 import { Numero } from './LimitesEnvioPanel';
 import { HORARIO_SUGERIDO } from '@/lib/horario-envio';
 import { RANGOS_LIMITES } from '@/lib/limites-envio';
-import { textoDeHorario, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
+import { textoDeHorario, RANGOS_GOTEO, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
+import { textoDeGoteo } from '@/lib/goteo';
 
 const SANS = "'Geist', sans-serif";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 18, fontFamily: SANS };
@@ -153,6 +154,83 @@ export function PersonaDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaI
                 </button>
               )}
             {invalido[f.canal] && <span role="alert" style={{ flexBasis: '100%', fontSize: 12.5, color: 'var(--bad)' }}>{invalido[f.canal]}</span>}
+          </div>
+        );
+      })}
+      {aviso && <span role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{aviso}</span>}
+    </section>
+  );
+}
+
+/**
+ * EL GOTEO DE ESTA AUTOMATIZACIÓN (22/10/2026, la llamada con Mauricio: «envía uno, tal vez espera 4 minutos o 5, envía el
+ * otro»): los minutos entre dos WhatsApp suyos y su tope por día. Es un SUB-tope adentro del de la línea, que va dicho al
+ * lado (lib/goteo.ts). Vacío = sin goteo. Los días de la semana son los de su horario (la otra pestaña).
+ */
+export function GoteoDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaId: number; onSucio?: (s: boolean) => void }) {
+  const { d, error, poner } = useConfig(secuenciaId);
+  const [aviso, setAviso] = useState('');
+  const [enVuelo, setEnVuelo] = useState(false);
+  const [local, setLocal] = useState<Record<string, number | null>>({});
+  const pendiente = useRef<Record<string, number | null>>({});
+  const respiro = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (respiro.current) clearTimeout(respiro.current); }, []);
+  useEffect(() => { onSucio?.(enVuelo); }, [enVuelo, onSucio]);
+  if (!d) return error ? <p role="alert" style={{ fontSize: 13.5, color: 'var(--bad)', fontFamily: SANS }}>{error}</p> : <Spinner />;
+  const off = !d.puedeEditar;
+  // Lo tocado se ve ya y se junta en UN guardado (el mismo molde que «A la misma persona», arriba).
+  const guardar = (cambio: Record<string, number | null>) => {
+    setAviso('');
+    pendiente.current = { ...pendiente.current, ...cambio };
+    setLocal((p) => ({ ...p, ...cambio }));
+    if (respiro.current) clearTimeout(respiro.current);
+    setEnVuelo(true);
+    respiro.current = setTimeout(() => {
+      const goteo = pendiente.current;
+      pendiente.current = {};
+      const soltar = () => setLocal((p) => { const q = { ...p }; for (const [k, v] of Object.entries(goteo)) if (q[k] === v) delete q[k]; return q; });
+      void saveConfigAutomatizacionAction(secuenciaId, { goteo })
+        .then((r) => { setEnVuelo(false); soltar(); if (!r.ok || !r.config) { setAviso(r.error || 'No se pudo guardar.'); return; } poner(r.config); })
+        .catch(() => { setEnVuelo(false); soltar(); setAviso('No se pudo guardar.'); });
+    }, 350);
+  };
+  const valorDe = (campo: 'minutos' | 'dia'): number | undefined => (campo in local ? (local[campo] ?? undefined) : d.config.goteo?.[campo]);
+  const filas = [
+    { campo: 'minutos' as const, rotulo: 'Uno cada', unidad: 'minutos', rango: RANGOS_GOTEO.minutos, sugerido: 5 },
+    { campo: 'dia' as const, rotulo: 'Hasta', unidad: 'por día', rango: RANGOS_GOTEO.dia, sugerido: Math.min(50, d.lineaWa.dia) },
+  ];
+  const actual = { minutos: valorDe('minutos'), dia: valorDe('dia') };
+  return (
+    <section aria-label="Goteo" data-goteo={secuenciaId} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Goteo de sus WhatsApp</div>
+      <div style={{ fontSize: 13, color: 'var(--dim)' }}>
+        {textoDeGoteo(actual)}: {d.lineaWa.dia} por día y {d.lineaWa.hora} por hora para todas.
+      </div>
+      {filas.map((f) => {
+        const v = valorDe(f.campo);
+        return (
+          <div key={f.campo} data-goteo-campo={f.campo} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ flex: '1 1 120px', minWidth: 0, fontSize: 14, color: 'var(--ink)' }}>{f.rotulo}</span>
+            {v === undefined
+              ? !off && (
+                <button type="button" onClick={() => guardar({ [f.campo]: f.sugerido })}
+                  style={{ border: 'none', background: 'transparent', padding: 0, fontFamily: SANS, fontSize: 13, fontWeight: 600, color: 'var(--primary)', cursor: 'pointer' }}>
+                  Poner {f.sugerido} {f.unidad}
+                </button>
+              )
+              : (
+                <>
+                  <Numero valor={v} min={f.rango[0]} max={f.rango[1]} disabled={off} etiqueta={`Goteo · ${f.rotulo} ${f.unidad}`}
+                    onCambio={(n) => guardar({ [f.campo]: n })} onInvalido={(e) => setAviso(e ?? '')} />
+                  <span style={{ flex: '0 0 auto', fontSize: 13, color: 'var(--dim)' }}>{f.unidad}</span>
+                  {!off && (
+                    <button type="button" onClick={() => guardar({ [f.campo]: null })}
+                      style={{ border: 'none', background: 'transparent', padding: 0, fontFamily: SANS, fontSize: 12.5, fontWeight: 600, color: 'var(--primary)', cursor: 'pointer' }}>
+                      Quitar
+                    </button>
+                  )}
+                </>
+              )}
           </div>
         );
       })}

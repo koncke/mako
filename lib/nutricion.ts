@@ -43,6 +43,7 @@ import type { TurnoSim } from '@/lib/setting-simulador';
 import { conversacionAbierta, atiendeAlResponder, charlaPasaAUnaPersona, escritoParaElAviso, type InscCharla, type AudioDelLead } from '@/lib/setter-conversacion';
 import { ambitoDeSecuencia, filtroDeAmbito, agregadosQueEntran, conAgregados, type AmbitoFunnel, type FilaAgregado, type LeadDelAgregado } from '@/lib/nutricion-ambito';
 import { corteEntrada, esEntradaFresca, reservaParaEntradas, cupoDeCampana, HORAS_ENTRADA } from '@/lib/nutricion-prioridad';
+import { frenoDeGoteo, turnoDeGoteo, conEnvio, SIN_USO, type Goteo, type UsoGoteo } from '@/lib/goteo';
 import {
   secuenciasDeEntrega, secuenciasDeEtiqueta, secuenciasQueSeCierran, etapasDe, normalizarEtapas, deLaEtapaYLasDemas,
   TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA,
@@ -3735,6 +3736,27 @@ function partesConDatos(partes: readonly ParteMensaje[], vars: Record<string, st
 //     entre las corridas de esa hora, y no 6 por corrida — con un tick por minuto serían 360 por hora.
 //   · `vencidasDesde`: el tick mira sólo lo que venció desde ese instante (`VENTANA_FRESCA_MIN`,
 //     lib/espera-duracion.ts). Lo más viejo es algo frenado, y lo barre la corrida de cada hora.
+/**
+ * LO QUE SALIÓ DE CADA AUTOMATIZACIÓN CON GOTEO por WhatsApp en las últimas 24 h (lib/goteo.ts): cuántos, el último y el
+ * primero. TIRA si no puede leer: sin saber cuántos salieron, el goteo no puede decir que hay lugar, y la corrida vuelve
+ * en un minuto (como el tope de la línea, `enviosUltimas24h`).
+ */
+async function usoDelGoteo(db: Awaited<ReturnType<typeof getTenantDb>>, ids: readonly number[]): Promise<Map<number, UsoGoteo>> {
+  const filas = await leerTodo<{ id: number; secuencia_id: number | string; created_at: string }>(db, 'nutricion_envios', 'id, secuencia_id, created_at', {
+    orden: 'id',
+    filtros: (q) => q.in('secuencia_id', [...ids]).eq('canal', 'whatsapp').eq('estado', 'enviado').gte('created_at', haceHorasISO(24)) as ConsultaPaginada,
+  });
+  const out = new Map<number, UsoGoteo>();
+  for (const f of filas) {
+    const id = Number(f.secuencia_id);
+    const ms = Date.parse(f.created_at);
+    if (!Number.isFinite(ms)) continue;
+    const u = out.get(id) ?? SIN_USO;
+    out.set(id, { enviados: u.enviados + 1, ultimoMs: Math.max(u.ultimoMs ?? ms, ms), primeroMs: Math.min(u.primeroMs ?? ms, ms) });
+  }
+  return out;
+}
+
 /** El techo de ids del `.in()` de «primero lo que entra»: con más, la cola no se ordena (la reserva sigue). */
 const TOPE_FRESCOS_EN_CONSULTA = 300;
 
@@ -3917,8 +3939,18 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   const cupoCampana = cupoDeCampana({
     cupo, presupuesto, horaTope: limites.wa.hora, enLaHora, reserva: reservaParaEntradas(limites.wa), porHora: !!opts?.cupoPorHora,
   });
-  /** ¿Un MENSAJE a este lead se queda sin lugar en esta corrida? Lo que entra, con el cupo entero; lo demás, con el de campaña. */
-  const sinLugar = (leadId: number): boolean => cupoLleno() || (!frescos.has(leadId) && waEnCorrida >= cupoCampana);
+  // ⚠️ Y EL GOTEO DE CADA AUTOMATIZACIÓN (22/10/2026, lib/goteo.ts): un SUB-tope adentro del de la línea, con sus
+  // minutos entre envíos y su tope por día. Lo que salió de cada una en 24 h, UNA lectura para todas las que tienen goteo.
+  const goteos = new Map<number, Goteo>();
+  for (const [id, c] of configsCorrida) if (c.goteo && (c.goteo.minutos != null || c.goteo.dia != null)) goteos.set(id, c.goteo);
+  const usoGoteo = goteos.size ? await usoDelGoteo(supabase, [...goteos.keys()]) : new Map<number, UsoGoteo>();
+  /** Cuántas filas frenadas por el goteo ya se corrieron a su turno, por automatización, en esta corrida. */
+  const frenadasGoteo = new Map<number, number>();
+  const frenoGoteo = (secId: number) => frenoDeGoteo(goteos.get(secId), usoGoteo.get(secId) ?? SIN_USO, Date.now());
+  /** ¿Lo frena la LÍNEA? Lo que entra, con el cupo entero; lo demás, con el de campaña. */
+  const sinLugarEnLaLinea = (leadId: number): boolean => cupoLleno() || (!frescos.has(leadId) && waEnCorrida >= cupoCampana);
+  /** ¿Un MENSAJE de esta fila se queda sin lugar en esta corrida? La línea, o el goteo de su automatización. */
+  const sinLugar = (insc: { lead_id: number; secuencia_id: number }): boolean => sinLugarEnLaLinea(insc.lead_id) || frenoGoteo(insc.secuencia_id).frena;
   /** ¿Este nodo puede correr con el cupo de WhatsApp lleno? Una acción sí; un email, si queda su tope. */
   const sigueSinCupoWa = (p: PasoSecuencia): boolean => esPasoAccion(p) || (claseDe(p) === 'mensaje' && p.canal === 'email' && !emailLleno());
   /** Y por su lugar en el flujo: lo del carril también (M3 e). */
@@ -4026,6 +4058,22 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
   const aplazarSiTapa = async (insc: FilaCola, sec: Secuencia): Promise<void> => {
     if (!aplazaParaNoTapar(sec.pasos, sanearHilos(insc.hilos), insc.h ?? null)) return;
     await escribir(insc, { proximo_envio_at: new Date(Date.now() + APLAZO_SIN_TAPAR_MS).toISOString() }, { modo: 'fila' });
+  };
+  /**
+   * UNA FILA QUE NO TUVO LUGAR (22/10/2026). Si la frena SÓLO el goteo de su automatización, pasa a su turno
+   * (`turnoDeGoteo`): sin esto quedaba vencida con la hora vieja, el tick (que mira lo vencido hace ≤10 min) no la veía, y
+   * el goteo de 5 minutos salía de a uno por HORA. Si la frena la línea, lo de siempre (`aplazarSiTapa`).
+   */
+  const quedaFrenada = async (insc: FilaCola, sec: Secuencia | undefined): Promise<void> => {
+    const g = goteos.get(insc.secuencia_id);
+    const f = frenoGoteo(insc.secuencia_id);
+    if (g && f.frena && !sinLugarEnLaLinea(insc.lead_id)) {
+      const k = frenadasGoteo.get(insc.secuencia_id) ?? 0;
+      frenadasGoteo.set(insc.secuencia_id, k + 1);
+      await escribir(insc, { proximo_envio_at: new Date(turnoDeGoteo(f.desdeMs, k, g)).toISOString() }, { modo: 'fila' });
+      return;
+    }
+    if (sec) await aplazarSiTapa(insc, sec);
   };
   /** Suelta un toque reclamado que esta corrida no llegó a intentar: vuelve a `fallo:` y se reintenta. */
   const soltarToque = async (c: { clave: string | null; reclamo: string | null } | null): Promise<void> => {
@@ -4356,7 +4404,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       const pasoLeido = sec && idxLeido >= 0 ? sec.pasos[idxLeido] : undefined;
       // Con el cupo de mensajes lleno, un MENSAJE queda para la corrida que viene, sin
       // tocarlo (era un `break`: lo mismo para los mensajes). Una ACCIÓN sigue: no gasta cupo. El carril, también.
-      if (sinLugar(insc.lead_id) && !(pasoLeido && sec && sigueSinCupo(sec.pasos, idxLeido))) { if (sec) await aplazarSiTapa(insc, sec); continue; }
+      if (sinLugar(insc) && !(pasoLeido && sec && sigueSinCupo(sec.pasos, idxLeido))) { await quedaFrenada(insc, sec); continue; }
       if (!sec || !pasoLeido) {
         // Una automatización SIN salida (sólo «Si responde») no tiene nada que mandar por su
         // cuenta: la inscripción queda ACTIVA y sin próximo envío, esperando que el lead
@@ -4475,7 +4523,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         insc.paso_actual = r.idx;
         insc.nodo_actual = idDe(destino, r.idx);
         if (!enSuHora) { res.detalle.push({ lead_id: insc.lead_id, canal: destino.canal, estado: 'saltado', nota: 'espera su hora' }); continue; }
-        if (sinLugar(insc.lead_id) && !sigueSinCupo(sec.pasos, r.idx)) { await aplazarSiTapa(insc, sec); continue; }
+        if (sinLugar(insc) && !sigueSinCupo(sec.pasos, r.idx)) { await quedaFrenada(insc, sec); continue; }
         // Lo que esta corrida no puede mover (fuera del horario) queda en su tarjeta y sale al abrir.
         if (!seMueve(r.idx)) continue;
       } else if (idxLeido !== insc.paso_actual || (insc.nodo_actual != null && insc.nodo_actual !== idDe(pasoLeido, idxLeido))) {
@@ -5306,6 +5354,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       // (no salió), pero frena: si se aprueba ya, son dos mensajes seguidos al mismo lead.
       // (El carril no cuenta para el cupo, M3 e: `cuentaParaElCupo`.)
       if ((estado === 'enviado' || estado === 'simulado') && cuentaParaElCupo({ carril: carril != null })) { if (paso.canal === 'email') emailsEnCorrida += 1; else waEnCorrida += 1; }
+      // El goteo cuenta el WhatsApp que SALIÓ de esta automatización, también en esta corrida (el siguiente espera sus minutos).
+      if (paso.canal === 'whatsapp' && cuentaParaElCupo({ carril: carril != null })) {
+        if (estado === 'enviado' && goteos.has(insc.secuencia_id)) usoGoteo.set(insc.secuencia_id, conEnvio(usoGoteo.get(insc.secuencia_id) ?? SIN_USO, Date.now()));
+      }
       if (estado === 'enviado' || estado === 'simulado' || estado === 'borrador') anotarEnCorrida(enviadoEnCorrida, insc.lead_id, paso.canal);
       res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado, ...(nota ? { nota } : {}) });
     }
