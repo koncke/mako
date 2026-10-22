@@ -1724,6 +1724,8 @@ código nuevo:
     **Lo que se sigue con su motor se prueba también desde la CAJA** (22/10/2026, OC7): la lectura de los documentos de Offer
     existía y el «+» seguía apagado en Offer (`adjuntosCaja.puede`); el test miraba el motor y nadie podía usarla. Una función
     nueva del chat lleva su aserción en la puerta que toca la persona (tests/ops-center-offer-voz.test.ts).
+    Y en /api/mako/chat, un rechazo ANTES de guardar nada es un 4xx (la IA que no pudo escuchar una nota: 424), nunca un 5xx:
+    la pantalla toma un 5xx por «no sé si llegó» (app/m/mako/chat-ui.ts → leerRespuesta) y no devuelve lo mandado.
   - **MaKo EN CADA TAB: la estrella abajo a la izquierda y el panel a la IZQUIERDA, con el Cerebro** (21/10/2026; Martín: «el
     chat de MaKo en las otras tabs se debe abrir siempre a la izquierda» y «los iconos de las criaturas siempre debe ser el
     icono de MaKo, se envía lo que sea que envíen al cerebro y ya el cerebro se encarga de repartir»). Reemplaza el «chat fijo

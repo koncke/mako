@@ -22,7 +22,7 @@ import { getSupabaseServer } from './supabase';
 import { runWithWorkspace } from './workspace';
 import { BUCKET_ADJUNTOS, getMensajeConBloques, setBloques } from './chart-chats';
 import { registrarDocumentoSinPisar, type RegistroArchivero } from './archivero';
-import { conArchivero, rutaDeAdjunto, sanearBloques, type BloqueChat, type EstadoArchivero } from './chat-mako-bloques';
+import { bloqueDeVoz, conArchivero, rutaDeAdjunto, sanearBloques, type BloqueChat, type BloqueVoz, type EstadoArchivero } from './chat-mako-bloques';
 import type { AdjuntoListo } from './mako-adjuntos';
 import { nombrePegado } from './chat-pegado';
 
@@ -50,6 +50,20 @@ export async function subirAdjuntos(ws: number, adjuntos: readonly AdjuntoListo[
     return { bloque: { k: 'adjunto', path, nombre: a.nombre, mime: a.mime, tipo: a.tipo } satisfies BloqueChat, de };
   }));
   return subidos.filter((x): x is { bloque: BloqueChat; de: number } => x != null);
+}
+
+/**
+ * Sube la nota de voz de un mensaje (un MP3) a `<ws>/chat/<uuid>`, como un adjunto (OC7). Si no sube, el turno sigue: lo que
+ * se entendió ya está en el mensaje, sólo que al recargar no se puede volver a escuchar.
+ */
+export async function subirNotaDeVozDelChat(ws: number, voz: { bytes: Uint8Array; secs: number }): Promise<BloqueVoz | null> {
+  const path = rutaDeAdjunto(ws, randomUUID());
+  const { error } = await bucket().upload(path, Buffer.from(voz.bytes), { contentType: 'audio/mpeg', upsert: false });
+  if (error) {
+    console.error(`[chat-mako:voz] no pude guardar la nota de voz: ${error.message}`);
+    return null;
+  }
+  return bloqueDeVoz(path, voz.secs);
 }
 
 /** Borra binarios del chat (los de un mensaje que no los pudo guardar). Nunca tira. */

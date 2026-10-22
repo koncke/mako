@@ -348,8 +348,8 @@ export function itemsDeRespuesta(r: RespuestaTurno, yaVistas: ReadonlySet<number
 
 export type Leido<T> =
   | { ok: true; datos: T }
-  /** `reintentable`: el server lo rechazó ANTES de correr el turno (no se guardó nada) */
-  | { ok: false; error: string; reintentable: boolean };
+  /** `reintentable`: el server lo rechazó ANTES de correr el turno (no se guardó nada); `status`, el de ese 4xx */
+  | { ok: false; error: string; reintentable: boolean; status?: number };
 
 export const ERROR_INCIERTO = 'No sé si llegó. Recarga el chat antes de reintentar.';
 
@@ -364,13 +364,13 @@ export const ERROR_INCIERTO = 'No sé si llegó. Recarga el chat antes de reinte
  * reintenta a ciegas: se recarga el chat y se mira.
  */
 export function leerRespuesta<T>(status: number, texto: string): Leido<T> {
-  if (status === 413) return { ok: false, error: ERROR_ADJUNTO.pesado, reintentable: true };
+  if (status === 413) return { ok: false, error: ERROR_ADJUNTO.pesado, reintentable: true, status };
   let j: unknown = null;
   try { j = JSON.parse(texto); } catch { /* no es JSON */ }
   const obj = j && typeof j === 'object' ? (j as Record<string, unknown>) : null;
   if (status >= 200 && status < 300 && obj) return { ok: true, datos: obj as T };
   if (status >= 400 && status < 500 && obj && typeof obj.error === 'string') {
-    return { ok: false, error: obj.error, reintentable: status !== 408 && status !== 429 };
+    return { ok: false, error: obj.error, reintentable: status !== 408 && status !== 429, status };
   }
   return { ok: false, error: ERROR_INCIERTO, reintentable: false };
 }

@@ -64,10 +64,10 @@ import {
   createSession, getSession, listSessions, getSessionMessages, getSessionMessagesConBloques, getMensajeConBloques, appendMessage,
   renameSession, tituloDesde, type ChartSession, type ChartMsgConBloques,
 } from '@/lib/chart-chats';
-import { adjuntosVisibles, audioDeBloques, leerRef, sanearBloques } from '@/lib/chat-mako-bloques';
+import { adjuntosVisibles, audioDeBloques, leerRef, rutaDeVozDelChat, sanearBloques, vozDeBloques } from '@/lib/chat-mako-bloques';
 import { urlAudio } from '@/lib/offer-reglas';
 import { MAX_BLOQUES_MENSAJE, aGuardar, bloqueDeResultado, bloquesGuardados, type Bloque } from '@/lib/chat-bloques';
-import { archivarPdfsDelChat, archivarPegadosDelChat, borrarAdjuntos, subirAdjuntos, urlFirmadaDeAdjunto } from '@/lib/chat-mako-adjuntos';
+import { archivarPdfsDelChat, archivarPegadosDelChat, borrarAdjuntos, subirAdjuntos, subirNotaDeVozDelChat, urlFirmadaDeAdjunto } from '@/lib/chat-mako-adjuntos';
 import { recortarMensaje, textoParaTitulo, textosParaArchivar } from '@/lib/chat-pegado';
 import { archivoATexto } from '@/lib/archivo-a-texto';
 import { aFila, plano } from '@/lib/bandeja-filas';
@@ -220,11 +220,14 @@ function aMensajeChat(ws: number, m: ChartMsgConBloques): MensajeChat {
   const bloques = sanearBloques(ws, m.bloques);
   const vista = bloquesGuardados(m.bloques);
   const audio = audioDeBloques(m.bloques);
+  const voz = vozDeBloques(ws, m.bloques);
   return {
     role: m.role, content: m.content, created_at: m.created_at,
     ...(bloques.length ? { adjuntos: adjuntosVisibles(m.id, bloques) } : {}), ...(vista.length ? { bloques: vista } : {}),
     // La nota de voz de una respuesta copiada de Offer (el chat «Onboarding»): se reproduce desde la ruta de Offer.
     ...(audio ? { audio: { url: urlAudio(audio.sesion, audio.mensaje), secs: audio.secs } } : {}),
+    // La de la persona en ESTE chat (OC7): se pide por su mensaje (`urlDeVozDelChat`).
+    ...(voz && !audio ? { audio: { url: rutaDeVozDelChat(m.id), secs: voz.secs } } : {}),
   };
 }
 
@@ -240,6 +243,46 @@ export async function urlDeAdjunto(persona: PersonaChat, ref: unknown): Promise<
     if (!m || !(await sesionDe(persona, m.session_id))) return null;
     const b = sanearBloques(persona.ws, m.bloques)[r.i];
     return b ? urlFirmadaDeAdjunto(b.path) : null;
+  });
+}
+
+/** El link firmado de la nota de voz de un mensaje, o null. Como `urlDeAdjunto`: mira de QUIÉN es la conversación antes. */
+export async function urlDeVozDelChat(persona: PersonaChat, msgId: unknown): Promise<string | null> {
+  const id = typeof msgId === 'string' && /^\d{1,15}$/.test(msgId) ? Number(msgId) : NaN;
+  if (!Number.isSafeInteger(id) || id <= 0) return null;
+  return runWithWorkspace(persona.ws, async () => {
+    const m = await getMensajeConBloques(id);
+    if (!m || !(await sesionDe(persona, m.session_id))) return null;
+    const v = vozDeBloques(persona.ws, m.bloques);
+    return v ? urlFirmadaDeAdjunto(v.path) : null;
+  });
+}
+
+/** Lo que se dice cuando se escuchó la nota y no había voz (el de Offer: app/api/offer/route.ts → transcribir). */
+export const NOTA_SIN_VOZ = 'Escuché tu audio pero no le entendí nada: grábalo de nuevo un poco más cerca del micrófono, o escríbemelo.';
+
+/**
+ * LA NOTA DE VOZ DEL CHAT (OC7, 22/10/2026): la escucha la IA del NEGOCIO (D6b, como todo el turno: su OpenAI o su Gemini, nunca
+ * la red de la plataforma con «sólo su IA») ANTES de guardar nada, como Offer: si nadie la puede escuchar, no queda un mensaje
+ * mudo. 424 = ninguna IA pudo (el texto dice cuál y por qué; se reintenta con la misma grabación); 422 = se escuchó y no había
+ * voz (no sirve mandar lo mismo). Un 4xx y no un 502: la pantalla toma un 5xx por «no sé si llegó» (app/m/mako/chat-ui.ts →
+ * leerRespuesta) y la nota no volvía a la barra. Lo que se entendió es el mensaje del turno (`turnoApp`); el MP3 se guarda con él.
+ */
+export async function escucharNotaDelChat(persona: PersonaChat, bytes: Uint8Array):
+  Promise<{ ok: true; texto: string } | { ok: false; error: string; status: 422 | 424 }> {
+  return runWithWorkspace(persona.ws, async () => {
+    const negocio = await negocioConSuIA(persona.ws);
+    entrarSoloSuIA(negocio.suIA);
+    const { transcribirAudio, SttSinEscucha, errorDeCascada } = await import('@/lib/ai-cheap');
+    let texto: string;
+    try {
+      texto = (await transcribirAudio(Buffer.from(bytes).toString('base64'), 'audio/mpeg', { language: 'es', feature: FEATURE, motivo: 'MaKo: escuchar una nota de voz del chat' })).trim();
+    } catch (e) {
+      const delNegocio = e instanceof SttSinEscucha ? e.errores : [e instanceof Error ? e.message : String(e)];
+      console.error('[mako-turno-app] nota de voz:', delNegocio.join(' | ').slice(0, 300));
+      return { ok: false, error: await errorDeCascada(delNegocio, 'escuchar tu audio'), status: 424 };
+    }
+    return texto ? { ok: true, texto } : { ok: false, error: NOTA_SIN_VOZ, status: 422 };
   });
 }
 
@@ -296,6 +339,12 @@ export type EntradaTurnoApp = {
    * del teléfono (las rutas /api/mako/chat y /api/m/mako). Sin esto, el turno de siempre: los lee y no los guarda.
    */
   guardarAdjuntos?: boolean;
+  /**
+   * La nota de voz del mensaje (OC7, 22/10/2026): el MP3 y cuánto dura. Lo que se ENTENDIÓ ya viene en `mensaje`
+   * (`escucharNotaDelChat`, antes del turno); esto es el binario, que se guarda con el mensaje (con `guardarAdjuntos`) para
+   * volver a escucharlo. Va sola: sin archivos.
+   */
+  voz?: { bytes: Uint8Array; secs: number } | null;
   /**
    * El `maxDuration` de la ruta que llama, en ms (300 s si no se dice): lo que se espera a la PC del cliente sale de acá
    * (`esperaDelTurno`). El Analyst del lead tiene 300 s y no 420, y Vercel cortaba sin aviso (revisión del 21/10/2026).
@@ -435,17 +484,21 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     //    lead usa este mismo turno, y su PDF es del LEAD: no va a El Archivero del negocio (revisión del 16/10/2026).
     const subidos = adjuntos.length && entrada.guardarAdjuntos ? await subirAdjuntos(ws, adjuntos) : [];
     const bloques = subidos.map((x) => x.bloque);
+    // La nota de voz (OC7), con el mensaje: va AL FINAL, así las posiciones de los adjuntos (`<id>:<n>`) no cambian.
+    const voz = entrada.voz && entrada.guardarAdjuntos ? await subirNotaDeVozDelChat(ws, entrada.voz) : null;
+    const aGuardar = voz ? [...bloques, voz] : bloques;
     let msg: Awaited<ReturnType<typeof appendMessage>>;
     try {
       // Con su marca de desde dónde (OC6): lo que vuelve en `guardados` va sin ella, así el hilo no lo toma por un texto tapado.
-      msg = await appendMessage(s.id, 'user', conDesde(textoMemoria, desde), bloques);
+      msg = await appendMessage(s.id, 'user', conDesde(textoMemoria, desde), aGuardar);
     } catch (e) {
-      await borrarAdjuntos(bloques.map((b) => b.path)); // el mensaje no quedó: sus binarios tampoco
+      await borrarAdjuntos(aGuardar.map((b) => b.path)); // el mensaje no quedó: sus binarios tampoco
       throw e;
     }
-    if (bloques.length && !msg.conBloques) await borrarAdjuntos(bloques.map((b) => b.path));
+    if (aGuardar.length && !msg.conBloques) await borrarAdjuntos(aGuardar.map((b) => b.path));
     const conArchivos = msg.conBloques && msg.id != null ? adjuntosVisibles(msg.id, bloques) : [];
-    guardados.push({ role: 'user', content: textoMemoria, ...(conArchivos.length ? { adjuntos: conArchivos } : {}) });
+    const conVoz = voz && msg.conBloques && msg.id != null ? { audio: { url: rutaDeVozDelChat(msg.id), secs: voz.secs } } : {};
+    guardados.push({ role: 'user', content: textoMemoria, ...(conArchivos.length ? { adjuntos: conArchivos } : {}), ...conVoz });
     // Un PDF del ADMIN, también a El Archivero, después de responder (lib/chat-mako-adjuntos.ts dice por qué sólo él).
     const msgId = msg.id;
     const pdfs = persona.rol === 'admin' && msg.conBloques && msgId != null ? subidos.flatMap(({ bloque, de }, i) => {
