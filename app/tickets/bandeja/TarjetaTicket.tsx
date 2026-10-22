@@ -1,22 +1,30 @@
 'use client';
 
 // =============================================================================
-// La tarjeta de un ticket: QUIÉN lo levantó (su foto), por DÓNDE, cuándo, qué es y qué dijo (22/10/2026)
+// La tarjeta de un ticket: QUÉ PASÓ, QUIÉN lo levantó y QUÉ HAY QUE HACER, para entenderla en 3 segundos (22/10/2026)
 // =============================================================================
-// Martín: «me falta mejor diseño en las tarjetas, ver quién levantó el ticket con su foto de perfil, por donde lo
-// levantó, etc...». La cara es la de la familia de tarjetas (app/_ui/TarjetaKanban.tsx → CaraTarjeta: la foto, o las
-// iniciales con su color), con la insignia del canal abajo a la derecha, como el CRM marca de dónde vino un lead (y como
-// pide la comunidad de Intercom para su bandeja: el canal al lado del nombre, sin abrir la conversación).
-// La foto es la del perfil de la persona (`usuarios.foto_url`, la misma que muestra /api/perfil y MiFoto en el Ops Center).
+// Martín (22/10, 17:25, con la captura del #5): «la información de la tarjeta se tiene que entender fácil y mucho más
+// rápido... no se entiende ni de qué es el bug, ni qué hay que hacer, ni cómo se originó, o si lo levantó Mauricio o si
+// lo detectó MaKo». De arriba hacia abajo:
+//   1. QUÉ PASÓ, en una frase de producto, y el porqué en corto («MaKo no le pudo contestar a Mauricio en su chat» /
+//      «No tenía una IA para contestarle»);
+//   2. QUIÉN: la foto de la persona («Lo levantó Mauricio desde el chat de MaKo») o el logo de MaKo («Lo detectó MaKo
+//      solo»), con dónde, el negocio si suma, y cuándo;
+//   3. QUÉ HAY QUE HACER, en un renglón, y la nota del Cerebro como «Estado: …» en una línea;
+//   4. el tipo (el de la fila: el último juicio, ./mazo-reglas.ts) y la prioridad si apura;
+//   5. «Detalle», plegado: el error técnico, la nota entera, lo que escribió la persona y los links.
+// Todo eso sale de reglas (./mazo-reglas.ts → `leerTicket`), nunca de una IA.
 //
-// ⚠️ La tarjeta NO decide nada: dibuja. El gesto y los botones viven en ./MazoTickets.tsx; las reglas, en ./mazo-reglas.ts.
-// ⚠️ Texto corto (Martín): sin rótulos que repiten lo obvio. El error se ve como error (letra de código, en rojo); el
-//    canal, con su ícono; la prioridad sólo si apura (Urgente, Alta).
+// ⚠️ La tarjeta NO decide nada: dibuja. El gesto y los botones viven en ./MazoTickets.tsx.
+// ⚠️ NADA DE CÓDIGO A LA VISTA: el error técnico sólo se ve al abrir «Detalle». Y el panel abierto SÍ scrollea
+//    (`touch-action: pan-y`): el dedo vertical ahí es del texto, no del gesto (el mazo no arranca el arrastre sobre él).
 
+import { useState } from 'react';
 import { Icon } from '@/app/_components/icons';
+import { MakoLogo } from '@/app/_components/MakoBrand';
 import { CaraTarjeta } from '@/app/_ui/TarjetaKanban';
 import type { FilaTicket } from '@/lib/tickets-db';
-import { errorCorto, haceCuanto, linkDeOrigen, nombreDe, origenDe, quienDiceLaNota, textoDeLaPersona, tipoCorto } from './mazo-reglas';
+import { haceCuanto, leerTicket, linkDeOrigen, nombreDe, origenDe, quienDiceLaNota, textoDeLaPersona, tipoCorto } from './mazo-reglas';
 
 /** La cara de quien lo levantó, con la insignia de por dónde entró. */
 export function CaraTicket({ t, tam = 48 }: { t: FilaTicket; tam?: number }) {
@@ -45,63 +53,84 @@ export function ChipOrigen({ t }: { t: FilaTicket }) {
   );
 }
 
-export function TarjetaTicket({ t, ahora, onVerTodo, atras = false }: {
-  t: FilaTicket;
-  ahora: number;
-  onVerTodo?: () => void;
-  /** La de atrás del mazo: sólo la cara y el título (asoma, no se lee). */
-  atras?: boolean;
-}) {
+/** Lo plegado en «Detalle»: el error técnico, la nota entera, lo que escribió la persona y los links. */
+export function DetalleDeLaTarjeta({ t, onVerTodo, id }: { t: FilaTicket; onVerTodo?: () => void; id?: string }) {
+  const error = (t.contexto.error ?? '').replace(/\s*\(digest [^)]*\)/g, '').trim();
   const texto = textoDeLaPersona(t);
-  const error = errorCorto(t.contexto.error);
   const link = linkDeOrigen(t);
-  const apura = t.prioridad === 'urgente' || t.prioridad === 'alta';
   return (
-    <div className="tickets-bandeja__carta-cuerpo">
-      <header className="tickets-bandeja__carta-cab">
-        <CaraTicket t={t} tam={52} />
-        <div className="tickets-bandeja__carta-quien">
-          <strong>{nombreDe(t)}</strong>
-          <span className="tickets-bandeja__carta-sub">
-            <span>{t.negocio ?? `Negocio ${t.workspace_id}`}</span>
-            <time dateTime={t.created_at} title={new Date(t.created_at).toLocaleString('es')}>· {haceCuanto(t.created_at, ahora)}</time>
-          </span>
-        </div>
-        <span className="tickets-bandeja__carta-num">#{t.id}</span>
-      </header>
-
-      <div className="tickets-bandeja__carta-chips">
-        <span className={`tickets-bandeja__tipo tickets-bandeja__tipo--${t.tipo}`}>{tipoCorto(t.tipo)}</span>
-        {apura && <span className={`tickets-bandeja__apura tickets-bandeja__apura--${t.prioridad}`}><i aria-hidden />{t.prioridad === 'urgente' ? 'Urgente' : 'Alta'}</span>}
-        <ChipOrigen t={t} />
-      </div>
-
-      <h2 className="tickets-bandeja__carta-titulo">{t.titulo}</h2>
-
-      {!atras && (
-        <div className="tickets-bandeja__carta-medio">
-          {texto && <p className="tickets-bandeja__carta-texto">{texto}</p>}
-          {error && (
-            <p className="tickets-bandeja__carta-error" title={t.contexto.error}>
-              <Icon name="rayo" size={14} /><code>{error}</code>
-            </p>
-          )}
-          {t.nota && (
-            <p className="tickets-bandeja__carta-nota" title={t.nota.texto}>
-              <b>{quienDiceLaNota(t.nota)}</b> {t.nota.texto}
-            </p>
-          )}
-        </div>
-      )}
-
-      {!atras && (link || onVerTodo) && (
-        <footer className="tickets-bandeja__carta-pie">
+    <div className="tickets-bandeja__tecnico" id={id} data-sin-gesto="">
+      {texto && <p className="tickets-bandeja__tecnico-texto">{texto}</p>}
+      {error && <pre className="tickets-bandeja__tecnico-error"><code>{error}</code></pre>}
+      {t.nota && <p className="tickets-bandeja__tecnico-nota"><b>{quienDiceLaNota(t.nota)}</b> {t.nota.texto}</p>}
+      {(link || onVerTodo) && (
+        <div className="tickets-bandeja__tecnico-links">
           {link && (
             <a className="tickets-bandeja__pildora tickets-bandeja__pildora--suave" href={link.href} target="_blank" rel="noopener noreferrer">
               {link.rotulo}<span aria-hidden> ↗</span>
             </a>
           )}
           {onVerTodo && <button type="button" className="tickets-bandeja__pildora" onClick={onVerTodo}>Ver todo</button>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function TarjetaTicket({ t, ahora, onVerTodo, atras = false }: {
+  t: FilaTicket;
+  ahora: number;
+  onVerTodo?: () => void;
+  /** La de atrás del mazo: sólo qué pasó y quién (asoma, no se lee). */
+  atras?: boolean;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const d = leerTicket(t);
+  const apura = t.prioridad === 'urgente' || t.prioridad === 'alta';
+  const sub = [d.donde, d.negocio].filter((x): x is string => !!x);
+  const idDetalle = `ticket-${t.id}-detalle`;
+  return (
+    <div className="tickets-bandeja__carta-cuerpo">
+      <div className="tickets-bandeja__carta-que">
+        <h2 className="tickets-bandeja__carta-titulo">{d.quePaso}</h2>
+        {d.porque && <p className="tickets-bandeja__carta-porque">{d.porque}</p>}
+      </div>
+
+      <div className="tickets-bandeja__carta-de">
+        {d.quien.mako
+          ? <span className="tickets-bandeja__cara tickets-bandeja__cara--mako" title="MaKo"><MakoLogo size={44} animate={false} /></span>
+          : <CaraTicket t={t} tam={44} />}
+        <div className="tickets-bandeja__carta-de-texto">
+          <strong>{d.quien.texto}</strong>
+          <span className="tickets-bandeja__carta-sub">
+            {/* Un solo texto que se corta al final: la pantalla, que va primero, no se pierde por el negocio. */}
+            {sub.length > 0 && <span>{sub.join(' · ')} · </span>}
+            <time dateTime={t.created_at} title={new Date(t.created_at).toLocaleString('es')}>{haceCuanto(t.created_at, ahora)}</time>
+          </span>
+        </div>
+      </div>
+
+      {!atras && (abierto
+        ? <DetalleDeLaTarjeta t={t} onVerTodo={onVerTodo} id={idDetalle} />
+        : (
+          <div className="tickets-bandeja__carta-hacer">
+            <p className="tickets-bandeja__hacer">
+              <span className="tickets-bandeja__hacer-ico" aria-hidden><Icon name="flecha" size={15} /></span>{d.hacer}
+            </p>
+            {d.estado && <p className="tickets-bandeja__estado-linea"><b>Estado:</b> {d.estado}</p>}
+          </div>
+        ))}
+
+      {!atras && (
+        <footer className="tickets-bandeja__carta-pie">
+          <span className={`tickets-bandeja__tipo tickets-bandeja__tipo--${d.tipo}`}>{tipoCorto(d.tipo)}</span>
+          {apura && <span className={`tickets-bandeja__apura tickets-bandeja__apura--${t.prioridad}`}><i aria-hidden />{t.prioridad === 'urgente' ? 'Urgente' : 'Alta'}</span>}
+          <span className="tickets-bandeja__carta-num">#{t.id}</span>
+          <button type="button" className="tickets-bandeja__abrir-detalle" aria-expanded={abierto} aria-controls={abierto ? idDetalle : undefined}
+            onClick={() => setAbierto((v) => !v)}>
+            Detalle
+            <span className={`tickets-bandeja__abrir-detalle-ico${abierto ? ' is-on' : ''}`} aria-hidden><Icon name="chevron" size={15} /></span>
+          </button>
         </footer>
       )}
     </div>

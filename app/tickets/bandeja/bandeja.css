@@ -15,20 +15,9 @@
 .tickets-bandeja__vacio { margin: 0; padding: 24px 8px; color: var(--dim); text-align: center; }
 .tickets-bandeja__kbd { margin-left: 6px; padding: 0 5px; border-radius: 4px; border: 1px solid var(--border); font-size: 11px; color: var(--dim); font-family: inherit; }
 
-/* ── La franja de arriba: «Volver», «1 de N», y a la derecha la vista y el arreglo automático ───────────────────── */
-.tickets-bandeja__franja { display: flex; align-items: center; gap: 8px; min-width: 0; }
+/* ── La franja de arriba: «1 de N», y a la derecha la vista y el arreglo automático (Volver está en la fila de botones) */
+.tickets-bandeja__franja { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 38px; }
 .tickets-bandeja__franja-der { margin-left: auto; display: flex; align-items: center; gap: 6px; flex: none; }
-
-/* «Volver» vive acá y SIEMPRE: apagado cuando no hay nada que deshacer, nunca escondido. */
-.tickets-bandeja__volver-mazo {
-  flex: none; display: inline-flex; align-items: center; gap: 6px;
-  min-height: 38px; padding: 0 13px 0 10px; border: 1.5px solid var(--border); border-radius: 999px;
-  background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; font-weight: 650;
-  cursor: pointer; touch-action: manipulation; transition: border-color 120ms ease, background-color 120ms ease, transform 100ms ease-out;
-}
-.tickets-bandeja__volver-mazo:active { transform: scale(0.97); }
-.tickets-bandeja__volver-mazo:disabled { color: var(--faint); background: transparent; cursor: default; }
-.tickets-bandeja__volver-mazo:disabled svg { opacity: 0.5; }
 
 .tickets-bandeja__cuenta { display: inline-flex; align-items: center; gap: 2px; min-width: 0; font-size: 14px; color: var(--dim); white-space: nowrap; }
 .tickets-bandeja__cuenta b { color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -65,15 +54,17 @@
 /* ── El MAZO ─────────────────────────────────────────────────────────────────────────────────────────────────── */
 .tickets-bandeja__mazo {
   display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 14px;
-  height: clamp(520px, calc(100dvh - 190px), 780px);
+  height: clamp(520px, calc(100dvh - 190px), 660px);
 }
 /* En el teléfono: el alto que queda entre el encabezado y la barra de abajo (o el área segura, si no hay barra). */
 [data-m] .tickets-bandeja__mazo {
   height: calc(100dvh - var(--m-header) - env(safe-area-inset-top, 0px) - var(--m-abajo, 0px) - 40px);
   min-height: 460px;
 }
-.tickets-bandeja__mesa { position: relative; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
-.tickets-bandeja__pila { position: relative; min-height: 0; width: 100%; max-width: 540px; margin: 0 auto; }
+/* ⚠️ LA TARJETA SIEMPRE EN EL CENTRO DEL PANEL, a cualquier ancho (Martín, 22/10: «las tarjetas siempre en el medio»).
+   Nada se corre al costado: lo que sigue es la tarjeta que asoma detrás y el «1 de N» (Tinder). */
+.tickets-bandeja__mesa { position: relative; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
+.tickets-bandeja__pila { position: relative; min-height: 0; width: 100%; max-width: 480px; margin: 0 auto; }
 
 .tickets-bandeja__carta {
   position: absolute; inset: 0; z-index: 2;
@@ -88,14 +79,55 @@
 .tickets-bandeja__carta--escribe, .tickets-bandeja__carta--escribe:active { cursor: default; }
 .tickets-bandeja__carta--atras { z-index: 1; pointer-events: none; box-shadow: none; opacity: 0.7; }
 
-.tickets-bandeja__carta-cuerpo { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 14px; padding: 20px 20px 18px; overflow: hidden; }
-.tickets-bandeja__carta-cab { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; }
-.tickets-bandeja__carta-quien { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.tickets-bandeja__carta-quien strong { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tickets-bandeja__carta-sub { display: flex; gap: 4px; min-width: 0; font-size: 13.5px; color: var(--dim); white-space: nowrap; }
-.tickets-bandeja__carta-sub > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* De arriba hacia abajo: qué pasó · quién · qué hay que hacer · el tipo y «Detalle» (TarjetaTicket.tsx). */
+.tickets-bandeja__carta-cuerpo { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 16px; padding: 22px 20px 16px; overflow: hidden; }
+
+.tickets-bandeja__carta-que { display: flex; flex-direction: column; gap: 6px; flex: none; }
+.tickets-bandeja__carta-titulo {
+  margin: 0; font-size: 25px; line-height: 1.2; font-weight: 700; letter-spacing: -0.02em; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+}
+.tickets-bandeja__carta-porque {
+  margin: 0; font-size: 15.5px; line-height: 1.4; color: var(--dim); overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+}
+
+.tickets-bandeja__carta-de { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: center; flex: none; }
+.tickets-bandeja__carta-de-texto { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tickets-bandeja__carta-de-texto strong { font-size: 15px; font-weight: 650; line-height: 1.3; overflow-wrap: anywhere; }
+.tickets-bandeja__carta-sub { display: flex; min-width: 0; font-size: 13.5px; color: var(--dim); white-space: nowrap; }
+.tickets-bandeja__carta-sub > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: pre; }
 .tickets-bandeja__carta-sub > time { flex: none; }
-.tickets-bandeja__carta-num { align-self: start; font-size: 13px; font-weight: 650; color: var(--faint); font-variant-numeric: tabular-nums; }
+.tickets-bandeja__cara--mako { width: 44px; height: 44px; }
+
+/* Qué hay que hacer: un renglón que se lee primero; la nota del Cerebro, una línea debajo. */
+/* Pegado a quién: qué pasó, quién y qué hacer se leen de una, sin saltar un hueco. */
+.tickets-bandeja__carta-hacer {
+  display: flex; flex-direction: column; gap: 6px; flex: none;
+  padding: 12px 14px; border-radius: 16px; background: var(--surface-2);
+}
+.tickets-bandeja__hacer { margin: 0; display: flex; align-items: center; gap: 9px; font-size: 16.5px; font-weight: 700; line-height: 1.3; }
+.tickets-bandeja__hacer-ico {
+  flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--primary); color: #fff; transform: rotate(90deg);
+}
+.tickets-bandeja__estado-linea {
+  margin: 0; font-size: 14px; line-height: 1.4; color: var(--dim); overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+}
+.tickets-bandeja__estado-linea b { color: var(--ink); font-weight: 650; }
+
+/* El pie: el tipo (chequeado contra el error), la prioridad si apura, el número y «Detalle». */
+.tickets-bandeja__carta-pie { margin-top: auto; display: flex; align-items: center; gap: 6px; min-width: 0; flex: none; }
+.tickets-bandeja__carta-num { font-size: 13px; font-weight: 650; color: var(--faint); font-variant-numeric: tabular-nums; margin-left: 2px; }
+.tickets-bandeja__abrir-detalle {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 10px 0 14px;
+  border: 0; border-radius: 999px; background: transparent; color: var(--dim); font: inherit; font-size: 14px; font-weight: 650;
+  cursor: pointer; touch-action: manipulation;
+}
+.tickets-bandeja__abrir-detalle[aria-expanded="true"] { background: var(--surface-2); color: var(--ink); }
+.tickets-bandeja__abrir-detalle-ico { display: inline-flex; transition: transform 160ms ease-out; }
+.tickets-bandeja__abrir-detalle-ico.is-on { transform: rotate(180deg); }
 
 .tickets-bandeja__carta-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .tickets-bandeja__tipo, .tickets-bandeja__apura, .tickets-bandeja__origen {
@@ -115,36 +147,23 @@
 .tickets-bandeja__origen--whatsapp svg { color: var(--wa); }
 .tickets-bandeja__origen--reportar svg { color: var(--primary); }
 
-.tickets-bandeja__carta-titulo {
-  margin: 0; font-size: 23px; line-height: 1.22; font-weight: 700; letter-spacing: -0.02em; overflow-wrap: anywhere;
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+/* «Detalle», abierto: lo técnico, que se lee y se SELECCIONA, y acá el dedo vertical es del scroll (no del gesto). */
+.tickets-bandeja__tecnico {
+  flex: 1 1 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y;
+  user-select: text; -webkit-user-select: text; cursor: auto;
+  display: flex; flex-direction: column; gap: 10px; padding: 2px 2px 4px;
 }
-/* Lo de en medio se corta (la tarjeta no tiene scroll: el dedo vertical es del gesto); lo entero está en «Ver todo». */
-.tickets-bandeja__carta-medio {
-  flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow: hidden;
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
-  mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
-}
-.tickets-bandeja__carta-texto {
+.tickets-bandeja__tecnico-texto {
   margin: 0; padding: 10px 13px; border-radius: 14px; background: var(--surface-2);
-  font-size: 15.5px; line-height: 1.45; white-space: pre-line; overflow-wrap: anywhere;
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; overflow: hidden; flex: none;
+  font-size: 15px; line-height: 1.45; white-space: pre-line; overflow-wrap: anywhere;
 }
-.tickets-bandeja__carta-error {
-  margin: 0; display: flex; align-items: flex-start; gap: 8px; padding: 9px 12px; border-radius: 12px;
-  background: var(--bad-bg); color: var(--bad); flex: none;
+.tickets-bandeja__tecnico-error {
+  margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); white-space: pre-wrap; overflow-wrap: anywhere;
 }
-.tickets-bandeja__carta-error svg { margin-top: 2px; }
-.tickets-bandeja__carta-error code {
-  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; line-height: 1.45; color: var(--ink);
-  overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden;
-}
-.tickets-bandeja__carta-nota {
-  margin: 0; font-size: 14px; line-height: 1.45; color: var(--dim); overflow-wrap: anywhere;
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; overflow: hidden; flex: none;
-}
-.tickets-bandeja__carta-nota b { color: var(--ink); font-weight: 650; margin-right: 2px; }
-.tickets-bandeja__carta-pie { margin-top: auto; display: flex; flex-wrap: wrap; gap: 8px; padding-top: 2px; }
+.tickets-bandeja__tecnico-error code { font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; line-height: 1.5; color: var(--ink); }
+.tickets-bandeja__tecnico-nota { margin: 0; font-size: 14px; line-height: 1.5; color: var(--dim); overflow-wrap: anywhere; }
+.tickets-bandeja__tecnico-nota b { color: var(--ink); font-weight: 650; margin-right: 2px; }
+.tickets-bandeja__tecnico-links { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 2px; }
 
 .tickets-bandeja__pildora {
   display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 38px; padding: 0 15px;
@@ -236,61 +255,56 @@
 .tickets-bandeja__mazo-vacio h2 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.015em; }
 .tickets-bandeja__mazo-vacio-ico { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; color: var(--good); background: var(--good-bg); }
 
-/* La franja del pulgar: el mismo gesto en botones. ⚠️ OPACA Y ENCIMA: nada de la pila puede taparla (14/10). */
+/* La fila de los botones, centrada debajo de la tarjeta. ⚠️ OPACA Y ENCIMA: nada de la pila puede taparla (14/10).
+   Redondos y del MISMO tamaño, sólo el ícono con su color (Martín, 22/10: «el botón de "hacer" no debería ser diferente
+   a los otros en tamaño... Si pueden tener sus colores. No me gusta que tengan texto»). Lo que hace cada uno, en su
+   `title`. Al pasar el mouse, o al arrastrar la tarjeta hacia su lado (`.is-marcado`), se llena con su color. */
 .tickets-bandeja__pulgar {
-  position: relative; z-index: 5; display: flex; align-items: center; justify-content: center; gap: 14px;
-  padding-top: 2px; background: var(--bg);
+  position: relative; z-index: 5; display: flex; align-items: center; justify-content: center; gap: 18px;
+  padding: 2px 0 4px; background: var(--bg);
 }
 [data-m] .tickets-bandeja__pulgar, .co-ticketera__cuerpo .tickets-bandeja__pulgar { background: transparent; }
 .tickets-bandeja__gesto {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px; font: inherit; font-weight: 700;
-  border: 1.5px solid var(--border); background: var(--surface); color: var(--ink);
+  --c: var(--ink); --sobre-c: #fff;
+  flex: none; width: 60px; height: 60px; padding: 0; border-radius: 50%; display: grid; place-items: center;
+  border: 1.5px solid color-mix(in srgb, var(--c) 30%, var(--border)); background: var(--surface); color: var(--c);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--ink) 9%, transparent);
   cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none;
-  transition: transform 100ms ease-out, background-color 120ms ease, border-color 120ms ease;
+  transition: transform 140ms ease-out, background-color 140ms ease, color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
 }
-.tickets-bandeja__gesto:active { transform: scale(0.95); }
-.tickets-bandeja__gesto:focus-visible, .tickets-bandeja__volver-mazo:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-.tickets-bandeja__gesto--izquierda, .tickets-bandeja__gesto--arriba {
-  flex-direction: column; gap: 2px; width: 66px; height: 66px; border-radius: 50%; font-size: 10.5px; font-weight: 650;
+.tickets-bandeja__gesto--izquierda { --c: var(--bad); }
+.tickets-bandeja__gesto--arriba { --c: var(--primary); }
+.tickets-bandeja__gesto--derecha { --c: var(--good); }
+.tickets-bandeja__gesto--volver { --c: var(--warn); }
+.tickets-bandeja__gesto.is-marcado {
+  background: var(--c); color: var(--sobre-c); border-color: transparent; transform: scale(1.1);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--c) 38%, transparent);
 }
-.tickets-bandeja__gesto--izquierda { color: var(--bad); }
-.tickets-bandeja__gesto--arriba { width: 58px; height: 58px; color: var(--primary-strong); }
-.tickets-bandeja__gesto--izquierda span, .tickets-bandeja__gesto--arriba span { color: var(--ink); }
-.tickets-bandeja__gesto--derecha {
-  flex: 0 1 230px; min-width: 0; height: 66px; padding: 0 22px; border: 0; border-radius: 999px;
-  background: var(--good); color: #fff; font-size: 17px; box-shadow: 0 6px 18px color-mix(in srgb, var(--good) 30%, transparent);
-}
-.tickets-bandeja__gesto span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tickets-bandeja__gesto .tickets-bandeja__kbd { display: none; }
+.tickets-bandeja__gesto:not(:disabled):active { transform: scale(0.94); }
+.tickets-bandeja__gesto:disabled { opacity: 0.4; cursor: default; box-shadow: none; }
+.tickets-bandeja__gesto:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
 @media (hover: hover) and (pointer: fine) {
-  .tickets-bandeja__gesto--derecha .tickets-bandeja__kbd { display: inline; color: inherit; border-color: rgba(255, 255, 255, .5); margin-left: 2px; }
-  .tickets-bandeja__gesto--izquierda:hover, .tickets-bandeja__gesto--arriba:hover { border-color: var(--dim); }
-  .tickets-bandeja__gesto--derecha:hover { filter: brightness(1.05); }
-  .tickets-bandeja__volver-mazo:not(:disabled):hover { border-color: var(--dim); background: var(--surface-2); }
+  .tickets-bandeja__gesto:not(:disabled):hover {
+    background: var(--c); color: var(--sobre-c); border-color: transparent; transform: scale(1.08);
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--c) 38%, transparent);
+  }
   .tickets-bandeja__caja-guardadas button:hover { border-color: var(--primary); }
+  .tickets-bandeja__abrir-detalle:hover { background: var(--surface-2); color: var(--ink); }
 }
 
-/* En la compu, lo que sigue a un costado (como la lista de Linear junto al issue abierto). */
-.tickets-bandeja__siguen { display: none; list-style: none; margin: 0; padding: 0; }
-@container tickets (min-width: 780px) {
-  .tickets-bandeja__mesa { grid-template-columns: minmax(0, 540px) minmax(220px, 300px); justify-content: center; }
-  .tickets-bandeja__pila { margin: 0; }
-  .tickets-bandeja__siguen { display: flex; flex-direction: column; gap: 4px; align-self: start; max-height: 100%; overflow-y: auto; }
-  .tickets-bandeja__siguen button {
-    width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 0; border-radius: 14px;
-    background: transparent; color: var(--ink); font: inherit; font-size: 13.5px; text-align: left; cursor: pointer;
-  }
-  .tickets-bandeja__siguen button:hover { background: var(--surface-2); }
-  .tickets-bandeja__siguen button > span:last-child {
-    min-width: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.35;
-  }
-  .tickets-bandeja__siguen b { color: var(--dim); font-weight: 650; font-variant-numeric: tabular-nums; }
-}
 @container tickets (max-width: 460px) {
   .tickets-bandeja__vistas button { width: 38px; padding: 0; justify-content: center; }
   .tickets-bandeja__vistas button span { display: none; }
-  .tickets-bandeja__carta-cuerpo { padding: 18px 16px 16px; gap: 12px; }
-  .tickets-bandeja__carta-titulo { font-size: 21px; }
+  .tickets-bandeja__carta-cuerpo { padding: 20px 16px 14px; gap: 14px; }
+  .tickets-bandeja__carta-titulo { font-size: 23px; }
+  .tickets-bandeja__pulgar { gap: 16px; }
+  .tickets-bandeja__gesto { width: 58px; height: 58px; }
+}
+/* Un panel MUY angosto (la pantalla de afuera de un plegable): 4 × 58 + 3 × 16 = 280 px ya no entran y la fila se sale
+   por los dos lados. Más chicos y más juntos, los cuatro iguales y al centro. */
+@container tickets (max-width: 300px) {
+  .tickets-bandeja__pulgar { gap: 10px; }
+  .tickets-bandeja__gesto { width: 52px; height: 52px; }
 }
 
 /* ── La TABLA ────────────────────────────────────────────────────────────────────────────────────────────────── */
@@ -460,13 +474,17 @@
   .tickets-bandeja__chip { min-height: var(--touch); }
   .tickets-bandeja__volver { width: var(--touch); height: var(--touch); }
   .tickets-bandeja__cuenta button { width: 36px; height: 36px; }
+  .tickets-bandeja__abrir-detalle { min-height: var(--touch); }
 }
-/* En oscuro, --good, --bad y --primary son CLAROS: el texto blanco encima no se lee (medido en el arnés). */
-[data-tema="oscuro"] .tickets-bandeja__gesto--derecha,
+/* En oscuro, --good, --bad, --primary y --warn son CLAROS: el blanco encima no se lee (medido en el arnés). */
+[data-tema="oscuro"] .tickets-bandeja__gesto { --sobre-c: #11151c; }
+[data-tema="oscuro"] .tickets-bandeja__hacer-ico,
 [data-tema="oscuro"] .tickets-bandeja__caja-mandar,
 [data-tema="oscuro"] .tickets-bandeja__aviso--error { color: #11151c; }
 
 @media (prefers-reduced-motion: reduce) {
   .tickets-bandeja__hoja-caja { animation: none; }
+  .tickets-bandeja__gesto, .tickets-bandeja__abrir-detalle-ico { transition: none; }
+  .tickets-bandeja__gesto.is-marcado { transform: none; }
   .tickets-bandeja__aviso-reloj { animation: none; opacity: 0; }
 }

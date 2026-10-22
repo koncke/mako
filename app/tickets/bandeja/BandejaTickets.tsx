@@ -38,7 +38,7 @@ import { MazoTickets } from './MazoTickets';
 import { TablaTickets } from './TablaTickets';
 import { CaraTicket, ChipOrigen } from './TarjetaTicket';
 import {
-  ROTULO_ESTADO, enGrupo, lectorDeBandeja, linkDeOrigen, nombreDe, ordenarTabla, textoDeLaPersona, tipoCorto as corto, ORDEN_INICIAL,
+  ROTULO_ESTADO, enGrupo, lectorDeBandeja, linkDeOrigen, nombreDe, ordenarTabla, quePaso, textoDeLaPersona, tipoCorto as corto, ORDEN_INICIAL,
   type Orden, type VistaBandeja,
 } from './mazo-reglas';
 // ⚠️ Su hoja (./bandeja.css) la importa la PÁGINA (app/second-brain/pagina.tsx), como las del mazo: un import de CSS acá
@@ -294,7 +294,8 @@ function Detalle({ id, cerebro, todos, onCerrar, onCambio }: {
         <button type="button" className="tickets-bandeja__volver" onClick={onCerrar} aria-label="Cerrar el ticket">←</button>
         <div className="tickets-bandeja__cab-texto">
           <p className="tickets-bandeja__meta">#{t.id} · {corto(t.tipo)}{t.tipo_manual ? ' (corregido)' : ''} · {ROTULO_ESTADO[t.estado]} · el cliente ve «{ROTULO_ESTADO_CLIENTE[estadoParaElCliente(t.estado)]}»</p>
-          <h2 className="tickets-bandeja__h">{t.titulo}</h2>
+          {/* La misma frase que la tarjeta y la tabla; el título que lee el cliente queda en el `title`. */}
+          <h2 className="tickets-bandeja__h" title={t.titulo}>{quePaso(t)}</h2>
         </div>
         <Status tono={TONO_PRIORIDAD[t.prioridad]}>{ROTULO_PRIORIDAD[t.prioridad]}</Status>
       </header>
