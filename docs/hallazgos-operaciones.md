@@ -1987,3 +1987,14 @@ tests/inicio-ops-center.test.ts. La regla para código nuevo, en AGENTS.md («La
 - El teléfono, sin tocar (lo lleva otro chat): «Entrar» de Partners en app/m/partners/PartnersM.tsx sigue yendo a `/general`.
 - `homeDeCapa` (lib/tab-access.ts), el rebote de una tab que el rol no ve, sigue en /crm o /plan: no es la entrada.
 - Nada de esto se miró en un navegador: es un redirect del servidor que pide la sesión de Martín con 2FA.
+
+## La guarda del chat único no veía «Pídele un cambio a MaKo» (22/10/2026, OC2)
+
+tests/chat-unico.test.ts reconoce una pantalla de MaKo por su hilo, su API o una caja que le escribe «a MaKo». La regex pedía el
+verbo PEGADO a «a MaKo» («Pídele a MaKo»), así que el panel del Dashboard («Pídele un cambio a MaKo», PanelEditarMako.tsx) y
+la caja de «Pídeselo a MaKo» (app/web-generator/CajaPedido.tsx, la usan Automations, CRM y Dashboard) no estaban en la lista.
+En cambio sí estaba app/dashboard/EditorMako.tsx, que no es un chat: edita el pedido y las sugerencias del botón de un
+gráfico. Ahora la regex acepta hasta 40 caracteres en el medio y «Pídeselo», la lista tiene las pantallas reales, y el chat
+viejo del teléfono (app/m/mako/ChatMako.tsx con su Composer) se borró. **Una guarda por regex se prueba con el texto real de
+cada pantalla**: el inventario se armó a mano y la regex nunca se corrió contra él.
+

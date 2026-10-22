@@ -2058,10 +2058,11 @@ hoja (una hoja sobre otra la cierra). Tres cosas que costaron:
 - **Mover código de lugar rompe ~20 tests de otras áreas** que lo buscaban por archivo (ChatSecondBrain.tsx): se los apunta al motor
   o a las piezas, nunca se los borra. d6b-rutas, además, sigue el micrófono: el teléfono dejó de dictar con el Composer de
   app/m/mako/ y pasó al de la caja única (app/admin/operaciones/Microfono.tsx), que ese test tomaba por «otra tab».
-- `ChatMako.tsx` (el chat viejo del teléfono) quedó SIN quien lo monte: sigue en el repo porque lo leen 15 tests.
+- `ChatMako.tsx` (el chat viejo del teléfono) quedó SIN quien lo monte. **Se borró el 22/10 (OC2)** con su Composer, y lo suyo
+  de los 15 tests pasó al chat de ahora (ChatClienteM.tsx, PiezasCliente.tsx) o se fue con él. Lo que sigue vivo de app/m/mako/
+  (chat-ui.ts, subir.ts, la capa de adjuntos que usa Offer) conserva sus tests.
 
 **SIN HACER:**
-- **Borrar app/m/mako/ChatMako.tsx** con lo suyo de esos 15 tests (el Composer queda: lo usa app/chats/VentanaChat.tsx).
 - **Los documentos en una conversación de Offer** (el «+» en Offer dice «pega el texto o el link»): van por `subir-url` y `leer`
   de Offer (app/offer/offer-api.ts → subirArchivo), no por /api/mako/chat.
 - **La foto en un mensaje de Offer es la de quien MIRA** (`MiFoto`, /api/perfil): para el dueño es la suya; el super admin que mira

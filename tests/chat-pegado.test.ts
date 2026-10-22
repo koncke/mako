@@ -67,9 +67,6 @@ test('#848: el hilo de escritorio y el del teléfono parten el mensaje y pliegan
   assert.match(hilo, /const \{ texto: conTodo, pegados \} = partirPegados\(/);
   assert.match(hilo, /<PegadosHilo pegados=\{pegados\} \/>/);
   assert.match(hilo, /<TextoPlegable texto=\{texto\} className="co-burbuja" pie=\{pie\} arriba=\{cita\} \/>/);
-  const tel = sinComentarios(leer('app/m/mako/ChatMako.tsx'));
-  assert.match(tel, /const \{ texto: t, pegados \} = partirPegados\(/);
-  assert.match(tel, /<PegadosHilo pegados=\{pegados\} \/>/);
   assert.match(leer('app/_chat/PegadoHilo.tsx'), /^import '\.\/chat\.css';/m, 'la hoja va con la pieza (el teléfono no carga chat.css)');
   assert.match(leer('app/_chat/chat.css'), /\.ch-pegado__cuerpo \{[^}]*max-height: min\(50dvh, 420px\); overflow-y: auto;/, 'el pegado abierto scrollea en su caja');
 });
@@ -80,9 +77,6 @@ test('#864: pegar más de 1.000 caracteres deja una ficha, en la computadora y e
   const sb = sinComentarios(leer('app/second-brain/useChatCliente.ts'));
   assert.match(sb, /if \(idOffer == null && esPegadoLargo\(pegado\)\) \{ e\.preventDefault\(\); ponerPegados\(/);
   assert.match(sb, /if \(enviar\(conPegados\(t, pg\), elegidosRef\.current\)\)/, 'sale con el mensaje, entre marcas');
-  const comp = sinComentarios(leer('app/m/mako/Composer.tsx'));
-  assert.match(comp, /onPaste=\{\(e\) => \{[\s\S]*?if \(esPegadoLargo\(pegado\)\) \{ e\.preventDefault\(\); setPegados\(/);
-  assert.match(comp, /onEnviar\(envioDe\(conPegados\(texto, pegados\), lista\.ref\.current\)\);/);
 });
 
 test('#884: lo pegado se guarda solo en El Archivero, entero, del admin y con guardarAdjuntos', () => {
@@ -108,5 +102,4 @@ test('la caja de escritorio suelta los pegados al cambiar de chat', () => {
 test('la ficha se puede quitar antes de mandar', () => {
   const sb = sinComentarios(leer('app/second-brain/PiezasCliente.tsx'));
   assert.match(sb, /aria-label="Quitar el texto pegado"/);
-  assert.match(sinComentarios(leer('app/m/mako/Composer.tsx')), /aria-label="Quitar el texto pegado"/);
 });

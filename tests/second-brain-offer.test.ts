@@ -89,10 +89,12 @@ test('4. la pantalla: cada conversación de Offer es una fila de la lista, y se 
   }
 });
 
-test('5. en el teléfono, «Tus chats» trae las conversaciones de Offer y lleva a ellas', () => {
-  const m = leer('app/m/mako/ChatMako.tsx');
-  assert.match(m, /const RUTA_OFFER = '\/api\/mako\/chat\?offer=1';/);
-  assert.match(m, /<FilaM key=\{`o\$\{o\.id\}`\} navegacion titulo=\{o\.titulo\} href=\{`\/m\/offer\?sesion=\$\{o\.id\}`\}/);
+// 22/10/2026 (OC2): el chat viejo del teléfono (app/m/mako/ChatMako.tsx) se borró. El de ahora (ChatClienteM.tsx) usa el MISMO
+// motor que la computadora: las conversaciones de Offer están en LA lista y se siguen ahí, sin ir a /m/offer.
+test('5. en el teléfono, las conversaciones de Offer están en LA lista y se siguen ahí', () => {
+  const m = leer('app/m/second-brain/ChatClienteM.tsx');
+  assert.match(m, /useChatCliente\(\{ elegido, setElegido, /);
+  assert.doesNotMatch(m, /\/m\/offer\?sesion=/, 'ya no lleva a /m/offer');
 });
 
 test('6. la conversación del onboarding no sale dos veces (acordado con el chat Onboarding)', () => {

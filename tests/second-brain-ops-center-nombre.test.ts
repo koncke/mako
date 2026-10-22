@@ -45,7 +45,8 @@ test('el botón que abre el grafo se llama «Second Brain», en la computadora y
   assert.ok(i > 0, 'el botón del grafo en la barra');
   assert.match(boton, /size=\{17\} \/>Second Brain\n/);
   assert.ok(!/\/>Mapa/.test(boton), 'nunca «Mapa»');
-  const tel = readFileSync(join(__dirname, '..', 'app/m/mako/ChatMako.tsx'), 'utf8');
+  // El teléfono: el chat del cliente de ahora (ChatClienteM.tsx; el viejo, app/m/mako/ChatMako.tsx, se borró el 22/10/2026).
+  const tel = readFileSync(join(__dirname, '..', 'app/m/second-brain/ChatClienteM.tsx'), 'utf8');
   assert.match(tel, /<FilaM navegacion titulo="Second Brain" icono="cerebro" href=\{hrefMapa\} \/>/);
 });
 
