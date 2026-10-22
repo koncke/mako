@@ -172,7 +172,8 @@ test('los textos de la columna son LOS MISMOS del «⋯», y el «⋯» ya no ll
 // <main> en el árbol de React y su clic derecho sube por el portal). Sin la de los campos → 1 fallo. Sin
 // `data-lead-id` en la fila → 1 fallo. Sin el `onContextMenu` del <main> → 1 fallo.
 test('el clic derecho cuelga de la raíz del tablero, con sus guardas, y las marcas en tarjeta y fila', () => {
-  assert.match(BOARD, /<main className="crm-hover" style=\{\{[^}]*\}\} onContextMenu=\{alClicDerecho\}>/);
+  // El estilo lleva llaves adentro desde el 22/10/2026 (el alto del Kanban, `${view === 'kanban' ? …}`): no `[^}]*`.
+  assert.match(BOARD, /<main className="crm-hover" style=\{\{[^\n]*\}\} onContextMenu=\{alClicDerecho\}>/);
   const fn = BOARD.slice(BOARD.indexOf('const alClicDerecho = '), BOARD.indexOf('const copiarDato = '));
   assert.match(fn, /if \(e\.defaultPrevented \|\| !\(t instanceof Element\)\) return;/);
   assert.match(fn, /t\.closest\('\[role="dialog"\], \[role="menu"\], \[role="listbox"\]'\) \|\| document\.querySelector\('\[aria-modal="true"\]'\)\) return;/);
