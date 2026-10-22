@@ -96,7 +96,8 @@ import { EmojiPicker } from '@/app/whatsapp/EmojiPicker';
 import { useHojasDeFuentes } from '@/app/_cursos/SelectorFuente';
 import { useFocoInicial } from '@/app/customer-success/curso/dialogo-foco';
 import { conWs } from '@/lib/ws-tab';
-import { esHojaClosing, LINK_CONECTAR_CLAUDE } from './aviso-closing';
+import { esHojaClosing, SERVICIO_CLAUDE } from './aviso-closing';
+import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import {
   AREAS, COLS, FUENTES, MAX_ARCHIVADAS, MAX_COMPONENTES, MAX_CONECTORES, MAX_CONTROLES, MAX_HOJAS, MAX_IA_POR_HOJA, MAX_POPUP, TIPOS_ELEMENTO,
   abajoDeTodo, campoDe, efectivoDe, esElemento, esGrafico, hojaVacia, minimoDeComponente, nuevoControlVista, nuevoElemento, nuevoGrafico, nuevoId,
@@ -352,6 +353,8 @@ export function EditorInforme({
   // El informe del primer render: el que vino, más la hoja que pidió el link si no estaba.
   const [arranque] = useState<Tablero>(() => conHojaAgregada(inicial, hojaAgregada));
   const [tablero, setTablero] = useState<Tablero>(arranque);
+  // El aviso «Conecta tu Claude» se va al conectarlo desde su botón (sin recargar la hoja).
+  const [closingConectado, setClosingConectado] = useState(false);
   const tableroRef = useRef(tablero);
   tableroRef.current = tablero;
   const [hojaId, setHojaId] = useState(hojaInicial);
@@ -1452,12 +1455,13 @@ export function EditorInforme({
                 {muestra?.etiqueta && <span className="lk-miga-muestra">Muestra: {muestra.etiqueta}</span>}
               </nav>
             )}
-            {/* La hoja Closing sin con qué analizar las llamadas (IA12, ./aviso-closing.ts): fijo, no un toast que se va. El
-                link sólo para quien puede abrir Integraciones (el closer mira su hoja en sólo lectura). */}
-            {avisoClosing && esHojaClosing(hoja) && !dueno && !enBlanco && !compartido && (
+            {/* La hoja Closing sin con qué analizar las llamadas (IA12, ./aviso-closing.ts): fijo, no un toast que se va. Se
+                conecta con EL modal de /integraciones, sin salir de la hoja; el botón sólo para quien puede conectar (el
+                closer mira su hoja en sólo lectura). */}
+            {avisoClosing && !closingConectado && esHojaClosing(hoja) && !dueno && !enBlanco && !compartido && (
               <div className="lk-aviso-hoja lk-no-arrastrar lk-sin-imprimir" role="status" onClick={(e) => e.stopPropagation()}>
                 <span>{avisoClosing}</span>
-                {!soloLectura && <a href={conWs(LINK_CONECTAR_CLAUDE, ws)}>Conectar Claude</a>}
+                {!soloLectura && <BotonIntegracion servicio={SERVICIO_CLAUDE} className="lk-aviso-hoja__accion" onConectado={() => setClosingConectado(true)}>Conectar Claude</BotonIntegracion>}
               </div>
             )}
             {enBlanco ? (

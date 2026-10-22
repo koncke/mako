@@ -1559,4 +1559,7 @@ tests/dashboard-hilo-guardado.test.ts, tests/hilo-de-tab.test.ts · *22/10/2026,
   mentira, y lo manda a pegar una clave que ya pegó (app/dashboard/aviso-closing.ts).
 - **Se reconoce la hoja por su plantilla, no por su nombre** (`Hoja.plantilla === 'closing'`): una hoja renombrada sigue
   siendo la Closing, y una copia a mano llamada «Closing» no lo es. Sólo se pregunta si el informe tiene una.
-- El closer mira su hoja en sólo lectura y no abre Integraciones: lee el aviso sin link. Un link compartido no lo muestra.
+- **Conectar es con EL modal de /integraciones, sin salir de la hoja** (`BotonIntegracion servicio="anthropic"`). La primera
+  versión tenía un link a /integraciones y la frenó tests/integracion-sin-salir.test.ts: un aviso que conecta algo no
+  manda a otra pantalla. Al conectarlo, el aviso se va sin recargar la hoja.
+- El closer mira su hoja en sólo lectura y no conecta: lee el aviso sin botón. Un link compartido no lo muestra.

@@ -11,7 +11,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { avisoDeClosing, esHojaClosing, LINK_CONECTAR_CLAUDE } from '../app/dashboard/aviso-closing';
+import { avisoDeClosing, esHojaClosing, SERVICIO_CLAUDE } from '../app/dashboard/aviso-closing';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -25,7 +25,7 @@ test('el aviso sale sólo con un «no» seguro, y sólo en la hoja que nació de
   assert.equal(esHojaClosing({ plantilla: 'cobranza' }), false);
   assert.equal(esHojaClosing({ nombre: 'Closing' } as { plantilla?: string }), false, 'renombrada o copiada a mano: la plantilla manda, no el nombre');
   assert.equal(esHojaClosing(null), false);
-  assert.equal(LINK_CONECTAR_CLAUDE, '/integraciones?abrir=anthropic');
+  assert.equal(SERVICIO_CLAUDE, 'anthropic', 'la clave de Claude en el catálogo de integraciones');
 });
 
 // Roturas: la página sin pasar `avisoClosing`: 1 fallo. El lienzo sin `esHojaClosing(hoja)` (el aviso en toda hoja): 1 fallo.
@@ -36,8 +36,9 @@ test('escritorio: la página pregunta con la MISMA función que el cron y el lie
   assert.match(pag, /tablero\.hojas\.some\(\(h\) => esHojaClosing\(h\)\) \|\| esHojaClosing\(agregar\)/, 'sólo se pregunta con una hoja Closing');
   assert.match(pag, /avisoClosing=\{avisoDeClosing\(closing, CONECTA_TU_CLAUDE_CLOSING\)\}/);
   const ed = sinComentarios(leer('app/dashboard/EditorInforme.tsx'));
-  assert.match(ed, /\{avisoClosing && esHojaClosing\(hoja\) && !dueno && !enBlanco && !compartido && \(/);
-  assert.match(ed, /\{!soloLectura && <a href=\{conWs\(LINK_CONECTAR_CLAUDE, ws\)\}>/, 'el closer no abre Integraciones: sin link');
+  assert.match(ed, /\{avisoClosing && !closingConectado && esHojaClosing\(hoja\) && !dueno && !enBlanco && !compartido && \(/);
+  // Se conecta con EL modal de /integraciones, sin salir de la hoja (tests/integracion-sin-salir.test.ts barre los links).
+  assert.match(ed, /\{!soloLectura && <BotonIntegracion servicio=\{SERVICIO_CLAUDE\} [^>]*onConectado=\{\(\) => setClosingConectado\(true\)\}>Conectar Claude<\/BotonIntegracion>\}/, 'el closer no conecta: sin botón');
 });
 
 // Roturas: el teléfono del closer sin el aviso: 1 fallo.

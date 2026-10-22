@@ -11,8 +11,12 @@
 
 export type ConQueClosing = 'su-clave' | 'plataforma' | 'no' | 'no-se';
 
-/** Adónde lleva el aviso: Integraciones, con «Tus cuentas de IA» abierta en Claude. */
-export const LINK_CONECTAR_CLAUDE = '/integraciones?abrir=anthropic';
+/**
+ * La integración que conecta el aviso: Claude, con EL modal de /integraciones abierto en la hoja (`BotonIntegracion`,
+ * app/_components/ConectarIntegracion.tsx). Una integración nunca se conecta saliendo de la tab (Martín, 14/10/2026; lo
+ * barre tests/integracion-sin-salir.test.ts).
+ */
+export const SERVICIO_CLAUDE = 'anthropic';
 
 /** ¿La hoja nació de la plantilla Closing? (`Hoja.plantilla`: el saneo se la pone también a las de antes de v5). */
 export const esHojaClosing = (h: { plantilla?: string } | null | undefined): boolean => h?.plantilla === 'closing';

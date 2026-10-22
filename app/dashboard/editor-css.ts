@@ -128,8 +128,8 @@ export const CSS = `
 .lk-disp { display: inline-flex; align-items: center; gap: 2px; }
 .lk-disp .lk-herr[aria-pressed="true"] { background: var(--velo-hover); color: var(--primary); }
 .lk-aviso-hoja { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; background: var(--warn-bg); color: var(--ink); font-size: 13.5px; line-height: 1.45; }
-.lk-aviso-hoja a { margin-left: auto; color: var(--warn); font-weight: 600; text-decoration: none; white-space: nowrap; }
-.lk-aviso-hoja a:hover { text-decoration: underline; }
+.lk-aviso-hoja__accion { margin-left: auto; padding: 0; border: none; background: none; font: inherit; color: var(--warn); font-weight: 600; cursor: pointer; white-space: nowrap; }
+.lk-aviso-hoja__accion:hover { text-decoration: underline; }
 .lk-vacio { display: grid; place-items: center; gap: 12px; padding: 120px 0; color: var(--dim); font-size: 14px; text-align: center; }
 .lk-vacio p { margin: 0; }
 /* La pila del celular: una tarjeta debajo de la otra, y los NÚMEROS de a dos (un número solo a lo ancho del teléfono es
