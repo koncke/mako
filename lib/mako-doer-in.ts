@@ -127,6 +127,16 @@ export async function gruposDoer(ws: number): Promise<string[]> {
 export async function setGruposDoer(ws: number, jids: string[]): Promise<void> {
   await runWithWorkspace(ws, () => setSetting(KEY_GRUPOS, JSON.stringify([...new Set(jids)])));
 }
+/** ¿Ya se avisó la clave tapada de este mensaje? Recuerda 10 minutos, por proceso (las re-entregas llegan en segundos). */
+const avisosDeClave = ((globalThis as unknown as { __avisosDeClave?: Map<string, number> }).__avisosDeClave ??= new Map<string, number>());
+function avisoYaDado(msgId: string): boolean {
+  if (!msgId) return false;
+  const ahora = Date.now();
+  for (const [k, t] of avisosDeClave) if (ahora - t > 10 * 60_000) avisosDeClave.delete(k);
+  if (avisosDeClave.has(msgId)) return true;
+  avisosDeClave.set(msgId, ahora);
+  return false;
+}
 async function doerActivo(ws: number): Promise<boolean> {
   return runWithWorkspace(ws, async () => (await getSetting(KEY_ACTIVO)) !== 'false');
 }
@@ -466,17 +476,25 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
     return { engaged: false, skip: 'eco de mi propia respuesta' };
   }
 
+  // Si el mensaje era SÓLO la clave, no queda nada que contestar: no se encola.
+  const soloClave = !!tapado?.tapadas && soloLaClave(texto) && !audio && !adjunto;
+  if (!soloClave) {
+    const nuevo = await encolar(jid, { waId: msgId, texto, tieneMedia: !!adjunto, tieneAudio: !!audio, payload: data as unknown });
+    if (!nuevo && msgId) return { engaged: false, skip: 'ya estaba en la cola (re-entrega)' };
+  }
+
   // La clave tapada se le dice YA, con el link a su conexión (WA2). El mensaje con la clave sigue en el grupo (MaKo no borra
-  // lo que manda otro): el aviso le pide que lo borre. Si el mensaje era SÓLO la clave, no queda nada que contestar.
-  if (tapado?.tapadas) {
+  // lo que manda otro): el aviso le pide que lo borre. DESPUÉS de la deduplicación de la cola y sólo con MaKo prendido
+  // (revisión del lote 1): antes, una re-entrega repetía el aviso, y MaKo hablaba en un grupo donde está apagado. El que
+  // era sólo la clave no pasa por la cola: lo deduplica `avisoYaDado` (por proceso; una re-entrega a otra instancia lo
+  // repite, y es un aviso, no una escritura).
+  if (tapado?.tapadas && (await doerActivo(OWNER_WS)) && (!soloClave || !avisoYaDado(msgId))) {
     const aviso = avisoClaveTapadaEnElGrupo(linkApp(`/integraciones${tapado.servicio ? `?abrir=${tapado.servicio}` : ''}`, wsData));
     const env = await enviarAGrupoJid(jid, aviso, 0);
     if (env.ok && env.id) await registrarEnviado(OWNER_WS, jid, env.id);
-    if (soloLaClave(texto) && !audio && !adjunto) return { engaged: true, reply: aviso };
+    if (soloClave) return { engaged: true, reply: aviso };
   }
-
-  const nuevo = await encolar(jid, { waId: msgId, texto, tieneMedia: !!adjunto, tieneAudio: !!audio, payload: data as unknown });
-  if (!nuevo && msgId) return { engaged: false, skip: 'ya estaba en la cola (re-entrega)' };
+  if (soloClave) return { engaged: false, skip: 'sólo una clave (tapada)' };
 
   const quien = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   if (!(await reclamar(jid, quien))) return { engaged: false, skip: 'encolado — ya hay alguien juntando' };

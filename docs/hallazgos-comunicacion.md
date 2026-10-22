@@ -10658,3 +10658,22 @@ estado que /chats y MaKo no ofrezcan reenviar.
   conexión (`/integraciones?abrir=<servicio>`). Un mensaje que era SÓLO la clave no se encola: no queda nada que contestar.
 - **Sin hacer:** una clave DENTRO de una foto o un PDF (van nativos al modelo) y la que se dice en una nota de voz no se
   tapan. La prueba en el grupo de prueba del ws3, con Martín pegando una clave de mentira, espera el deploy.
+
+### Lo que encontró la revisión del lote 1 (Integración, 22/10/2026), y cómo quedó
+
+- **La cita viaja DOS veces, y la segunda estaba afuera de `message`.** Evolution v2 manda la cita adentro de
+  `message.…contextInfo` y TAMBIÉN en `contextInfo.quotedMessage`, en el nivel de arriba del webhook. El primer arreglo
+  recorría sólo `message`: quien citaba el mensaje con la clave la dejaba entera en `mako_doer_buffer.payload`, y el aviso
+  decía «no la guardé». **Regla:** un tapado sobre el payload de un proveedor recorre TODO el payload, salvo los
+  identificadores (`key`, que además deduplica la cola) y lo binario. Nunca se supone en qué campo pone el proveedor lo
+  que escribió una persona.
+- **El aviso salía antes de la deduplicación, y con MaKo apagado.** Una re-entrega de Evolution repetía «Tapé tu clave», y
+  MaKo hablaba en un grupo donde está apagado. Ahora el aviso va después de `encolar`, y sólo con `doerActivo`. El mensaje
+  que es SÓLO la clave no se encola, así que no tiene el dedup del motor: lo frena `avisoYaDado` (una memoria del proceso
+  de 10 minutos). Si una re-entrega cae en otra instancia, el aviso se repite; es un aviso, no una escritura.
+- **Trampa del test: la base de mentira no tenía el índice único de la cola.** Sin `ux_doer_buffer_msg`
+  (supabase/migrations/0113), una re-entrega se encolaba dos veces en el test, y el arreglo del dedup no se podía ver. El
+  hijo ahora declara el índice con `unicos`, igual que la migración. Si un test usa `_postgrest-de-mentira` sobre una tabla
+  cuyo dedup hace el motor, tiene que declarar el índice; si no, el dedup no existe en el test.
+- **El acuse del webhook logueaba el texto crudo de hasta 40 caracteres**, y una clave `AIza…` suelta tiene 39. Ahora se
+  tapa antes del log (app/api/webhooks/evolution/route.ts).

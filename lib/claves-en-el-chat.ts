@@ -58,6 +58,13 @@ const PROPIAS_ANTES: ReglaDeClave[] = [
 ];
 
 /**
+ * Una clave de Mistral: 32 alfanuméricos con mayúscula, minúscula y dígito, sin nada pegado (ni `_`) a los lados. El borde y
+ * el largo exacto se miran PRIMERO (baratos, y fallan enseguida adentro de una tirada larga); las tres clases, después.
+ */
+const TOKEN_MISTRAL = '(?<![A-Za-z0-9_])(?=[A-Za-z0-9]{32}(?![A-Za-z0-9_]))(?=[A-Za-z0-9]{0,31}[a-z])(?=[A-Za-z0-9]{0,31}[A-Z])(?=[A-Za-z0-9]{0,31}[0-9])[A-Za-z0-9]{32}';
+const MISTRAL = '[Mm][Ii][Ss][Tt][Rr][Aa][Ll]';
+
+/**
  * Las que van DESPUÉS de las heredadas: la línea de .env necesita que el valor de una clave ya conocida sea un marcador
  * (`GEMINI_API_KEY=AIza…`), y el `servicio` del botón se lee en este orden.
  */
@@ -82,6 +89,20 @@ const PROPIAS_DESPUES: ReglaDeClave[] = [
   // (Los fixtures de tests/mercadopago-api.test.ts traen un hex corto —12— y NO tienen la forma: esa regla es de aquel
   // archivo, no de este. La Public Key, `APP_USR-` + un UUID, tampoco cae: no es secreta.)
   { nombre: 'mercadopago', re: /\b(?:APP_USR|TEST)-\d{10,}-\d{6}-[A-Fa-f0-9]{32}-\d+/g, con: CLAVE_TAPADA, servicio: 'mercadopago' },
+  // Las que pasaban enteras (revisión del lote 1, 22/10/2026), con su forma:
+  //   · Apify: `apify_api_` + 30+ alfanuméricos (el producto se la pide al cliente para buscar prospectos);
+  //   · DeepSeek: `sk-` + 32 hex en MINÚSCULA. No la cumple la de OpenAI (pide una mayúscula y 40+), ni un slug (lleva guiones);
+  //   · Mistral: 32 alfanuméricos SIN prefijo, con mayúscula, minúscula y dígito. Sin prefijo, la forma sola es la de
+  //     cualquier id: se tapa sólo si «mistral» está a menos de 40 caracteres (antes o después, en la misma línea) o si el
+  //     texto es SÓLO eso (lo que se pega cuando se pega una clave).
+  { nombre: 'apify', re: /\bapify_api_[A-Za-z0-9]{30,}/g, con: CLAVE_TAPADA, servicio: 'apify' },
+  { nombre: 'deepseek', re: /\bsk-[a-f0-9]{32}\b/g, con: CLAVE_TAPADA, servicio: null },
+  // Cada una ARRANCA por algo raro (el principio del texto, la palabra, el borde de la clave), no con un lookbehind en cada
+  // posición: un `(?<=mistral[^\n]{0,40})` probado en cada carácter hacía el tapado 20 veces más lento con una línea gigante,
+  // y un `(?<=^\s*)` era cuadrático con una tirada de espacios.
+  { nombre: 'mistral-sola', re: new RegExp(`^(\\s*)${TOKEN_MISTRAL}(?=\\s*$)`, 'g'), con: `$1${CLAVE_TAPADA}`, servicio: null },
+  { nombre: 'mistral-antes', re: new RegExp(`(${MISTRAL}[^\\n]{0,40}?)${TOKEN_MISTRAL}`, 'g'), con: `$1${CLAVE_TAPADA}`, servicio: null },
+  { nombre: 'mistral-despues', re: new RegExp(`${TOKEN_MISTRAL}([^\\n]{0,40}?${MISTRAL})`, 'g'), con: `${CLAVE_TAPADA}$1`, servicio: null },
   // Una línea de .env: SÓLO al principio de la línea (con su `export` y su sangría) y con el nombre en MAYÚSCULAS, como se
   // pega. El NOMBRE tiene que TERMINAR en KEY, TOKEN, SECRET, PASSWORD, PASS o CREDENTIAL(S), con un sufijo numérico
   // opcional (`GEMINI_API_KEY_2`, que existe): «contiene KEY» se comía `KEYWORDS: zapatillas-running-mujer-ofertas`.

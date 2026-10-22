@@ -194,7 +194,7 @@ const SIN_IA: ReadonlyArray<{ unidad: string; usa: string[]; porque: string }> =
   { unidad: 'app/_components/zona-actions.ts#detectarZonaAction', usa: ['contextoDeAgencia', 'fijarZonaDelNegocio', 'getUsuarioActual', 'getWorkspaceActual', 'inferirZonaDesdeIntegraciones', 'zonaDeUbicacion', 'zonaDelNegocioDetalle'], porque: 'fija la zona horaria del negocio' },
   // «Probar mi clave» de «Tus cuentas de IA» (IA3, 22/10/2026): un pedido que no cobra a SU Claude o SU OpenAI, con su
   // clave y sin datos del negocio (count_tokens de «hola», o la lista de modelos). Ninguna IA gratis.
-  { unidad: 'app/api/ia-del-negocio/probar-clave/route.ts#POST', usa: ['PROVS_SU_CLAVE', 'personaDelRequest', 'probarSuClave'], porque: 'prueba la clave del negocio con un pedido que no cobra (lib/su-clave.ts): ninguna IA gratis' },
+  { unidad: 'app/api/ia-del-negocio/probar-clave/route.ts#POST', usa: ['PROVS_SU_CLAVE', 'limitePorClave', 'personaDelRequest', 'probarSuClave'], porque: 'prueba la clave del negocio con un pedido que no cobra (lib/su-clave.ts): ninguna IA gratis' },
   // Llegó con el merge de main (Pagos en el chat, 2.27): lee la cobranza de la base y la arma, sin IA.
   { unidad: 'app/_chat/bloques/cobranza-actions.ts#leerCobranzaDelHilo', usa: ['TZ_DEFAULT', 'armarCobranza', 'cobrosDeFilas', 'getPorCobrar', 'getRolWsEfectivo', 'getWorkspaceActual', 'hoyEnWorkspace', 'tzDeWorkspace'], porque: 'lee «A quién cobrar» del hilo, de la base' },
 ];

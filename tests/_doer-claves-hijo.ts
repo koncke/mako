@@ -27,6 +27,8 @@ let n = 0;
 const pg = crearPostgrest({
   tablas: ['app_settings', 'workspaces', 'credenciales', 'mako_doer_buffer', 'mako_doer_lock', 'mako_doer_conv', 'mako_doer_enviados', 'anthropic_usage', 'errores_app'],
   defaults: (_t, f) => ({ id: ++n, created_at: new Date().toISOString(), ...f }),
+  // El dedup de re-entregas de Evolution, como en la base (supabase/migrations/0113_mako_doer_buffer.sql).
+  unicos: [{ tabla: 'mako_doer_buffer', columnas: ['grupo_jid', 'wa_message_id'], donde: (f) => f.wa_message_id !== '', nombre: 'ux_doer_buffer_msg' }],
 });
 const red: Array<{ host: string; camino: string; cuerpo: string }> = [];
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
@@ -64,6 +66,25 @@ async function main() {
   out.cola = pg.db.mako_doer_buffer.map((f) => ({ texto: f.texto, payload: JSON.stringify(f.payload) }));
   out.redMixto = red.splice(0);
   out.claves = { CLAUDE, OPENAI };
+
+  // ── Lo que encontró la revisión del lote 1 (22/10/2026) ────────────────────────────────────────────────────────────
+  // 3) Evolution v2 manda la cita TAMBIÉN en el nivel de arriba (`contextInfo.quotedMessage`): ahí también se tapa.
+  await manejarEntranteDoer('mako-voz', {
+    key: { remoteJid: JID, id: 'm3', participant: '5491100000000@s.whatsapp.net' },
+    message: { extendedTextMessage: { text: 'Gracias MaKo, ya la borré', contextInfo: { stanzaId: 'm1' } } },
+    contextInfo: { stanzaId: 'm1', quotedMessage: { conversation: CLAUDE } },
+    pushName: 'Prueba',
+  } as never);
+  out.colaCitaArriba = pg.db.mako_doer_buffer.map((f) => JSON.stringify(f.payload)).filter((p) => p.includes('m3'));
+  red.splice(0);
+  // 4) Las re-entregas (el mismo id otra vez) no repiten el aviso: ni la de sólo la clave, ni la del mensaje con texto.
+  await manejarEntranteDoer('mako-voz', { key: { remoteJid: JID, id: 'm1', participant: '5491100000000@s.whatsapp.net' }, message: { conversation: CLAUDE }, pushName: 'Prueba' });
+  await manejarEntranteDoer('mako-voz', { key: { remoteJid: JID, id: 'm2', participant: '5491100000000@s.whatsapp.net' }, message: { extendedTextMessage: { text: `Hola MaKo, esta es mi clave de OpenAI ${OPENAI} ¿la cargás?` } }, pushName: 'Prueba' });
+  out.avisosEnReentregas = red.splice(0).filter((x) => x.camino.includes('/message/sendText/') && x.cuerpo.includes('Tapé tu clave')).length;
+  // 5) Con MaKo APAGADO en los grupos, la clave se tapa igual pero MaKo no habla.
+  pg.db.app_settings.push({ workspace_id: 1, key: 'mako.doer.activo', value: 'false' });
+  out.apagado = await manejarEntranteDoer('mako-voz', { key: { remoteJid: JID, id: 'm4', participant: '5491100000000@s.whatsapp.net' }, message: { conversation: CLAUDE }, pushName: 'Prueba' });
+  out.avisosApagado = red.splice(0).filter((x) => x.camino.includes('/message/sendText/')).length;
   process.stdout.write(`@@RESULTADO@@${JSON.stringify(out)}`);
 }
 

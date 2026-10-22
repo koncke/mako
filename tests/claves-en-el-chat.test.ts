@@ -199,6 +199,8 @@ test('una línea gigante no cuelga el tapado (las reglas son lineales)', () => {
       'KEY'.repeat(300000), 'A_'.repeat(500000), 're_'.repeat(300000), 'KEY\\n'.repeat(200000), 'mkoag_'.repeat(150000),
       'KEY_'.repeat(250000), ('KEY_'.repeat(19) + 'X' + ':\\n').repeat(12000), 'sk-'.repeat(350000), 'sk-proj-'.repeat(125000),
       'sk-' + 'A1'.repeat(500000), 'TEST-1111111111-'.repeat(60000),
+      // Las de la revisión del lote 1 (Mistral sin prefijo): espacios, «mistral» repetido y tiradas de 32.
+      ' '.repeat(1000000), 'mistral '.repeat(120000), ('aB3dE5fG7hJ9kL1mN2pQ4rS6tU8vW0xY ').repeat(30000), 'apify_api_'.repeat(100000),
     ];
     for (const t of lineas) {
       const desde = Date.now();

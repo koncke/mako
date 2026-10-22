@@ -5150,3 +5150,21 @@ cascada de texto, la de herramientas, la visión y el audio) · `app/integracion
   prueba de punta a punta en la PC de Martín con el ws3 (`probar-punta-a-punta.mts --instalador --reinstalar`). El título
   del ticket de la fila sale genérico («Falló la pantalla «Api»», de `tituloDeError` en lib/errores-app-reglas.ts); el
   mensaje sí dice qué falta.
+
+## Las claves sin prefijo: Mistral se tapa con contexto, y un regex de tapado no mira hacia atrás en cada posición (22/10/2026)
+
+**Vive en:** `lib/claves-en-el-chat.ts` (las reglas del chat de la app, del grupo de WhatsApp y del acuse del webhook) ·
+`tests/doer-claves.test.ts` · `tests/claves-en-el-chat.test.ts` («una línea gigante no cuelga el tapado»)
+
+- **Lo que pasaba entero** (revisión del lote 1): la clave de Mistral (32 alfanuméricos sin prefijo, pegada sin
+  `MISTRAL_API_KEY=`), la de Apify (`apify_api_…`, que el producto le pide al cliente) y la de DeepSeek (`sk-` + 32 hex en
+  minúscula). Llegaban a la cola, a `mako_doer_conv` y al modelo, y el aviso decía «no la guardé».
+- **Una clave sin prefijo es la forma de cualquier id.** Se tapa sólo si tiene mayúscula, minúscula y dígito Y, además,
+  «mistral» está a menos de 40 caracteres en la misma línea (antes o después), o el texto es SÓLO eso. Un id de 32 en una
+  frase («el pedido … llegó») no se toca: el crudo no se guarda, y lo que se come no vuelve.
+- **La primera versión hacía el tapado 20 veces más lento**, y el test de la línea gigante (tope de 2 s por línea) se caía
+  bajo carga. El costo era un `(?<=mistral[^\n]{0,40})` que el motor prueba en CADA carácter (~300 pasos por posición), y
+  un `(?<=^\s*)` cuadrático con una tirada de espacios. **Regla para un regex de tapado:** que arranque por algo raro (la
+  palabra, el principio del texto con `^` sin `m`, el borde exacto de la clave) y capture el contexto en vez de mirarlo
+  hacia atrás. Medido: con la línea gigante peor, de 1489 ms a 120 ms (la base sin las reglas nuevas, 87 ms).
+- **Sin hacer:** Fathom, Panda y Zernio no tienen regla, y su formato no se verificó.

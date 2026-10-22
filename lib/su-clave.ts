@@ -44,10 +44,11 @@ export async function anotarFalloDeSuClave(p: { proveedor: ProvSuClave; error: s
     const k = `${ws}:${p.proveedor}:${motivo}`;
     const antes = ultimos.get(k);
     if (antes != null && Date.now() - antes < CADA_MS) return;
-    ultimos.set(k, Date.now());
     const fila = filaDeFallo(p.proveedor, p.modelo, motivo);
     console.warn(`[su-clave] ws=${ws}: la clave de ${nombreDeSuClave(p.proveedor)} del negocio falló (${motivo})`);
     await recordUsage(p.feature?.trim() || 'su-clave', fila.model, {}, fila.motivo, p.proveedor, undefined, ws);
+    // DESPUÉS de escribirla (revisión del lote 1): marcada antes, una fila que no llegó a la base frenaba la siguiente 5 min.
+    ultimos.set(k, Date.now());
   } catch (e) {
     console.warn(`[su-clave] no pude anotar el fallo: ${e instanceof Error ? e.message : String(e)}`);
   }

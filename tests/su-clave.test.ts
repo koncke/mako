@@ -22,6 +22,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { estadoDeSuClave, filaDeFallo, motivoCorto, textoDeSuClave, MARCA_SU_CLAVE, type FilaUsoClave } from '../lib/su-clave-reglas';
 import { hace } from '../lib/progreso-reglas';
 
@@ -102,4 +103,12 @@ test('las funciones reales: cada fallo de su clave deja su fila, y la tarjeta lo
     assert.doesNotMatch(f.motivo, /sk-|Incorrect|credit balance/, 'nunca la clave ni el texto del proveedor en la fila');
     assert.equal(f.cost, 0);
   }
+});
+
+// Revisión del lote 1 (22/10/2026): cada prueba descifra la clave y espera al proveedor hasta 15 s; sin tope, un admin (o
+// una sesión robada) la podía golpear sin fin.
+test('«Probar mi clave» tiene un tope por negocio', () => {
+  const ruta = readFileSync(join(__dirname, '..', 'app/api/ia-del-negocio/probar-clave/route.ts'), 'utf8');
+  assert.match(ruta, /const frenado = limitePorClave\('probar-clave', persona\.ws, 10, 10 \* 60_000\);\s*if \(frenado\) return frenado;/);
+  assert.ok(ruta.indexOf('limitePorClave(') < ruta.indexOf('probarSuClave(persona.ws'), 'el tope va antes de probar');
 });
