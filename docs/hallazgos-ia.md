@@ -5155,6 +5155,21 @@ Tandas 5 a 7 (misma medición): Offer, Copywriting y Second Brain 24 de 26 y 6 d
 
 **Vive en:** `lib/mako-intencion-app.ts` · `lib/mako-intencion.ts` (`canal`, `buscaEnTodo`, `NOMBRADO`, las reglas 6-quater y el default) · `lib/doer-herramientas.ts` (`buscaEnTodo`) · `lib/mako-turno-app.ts` (`canal: 'app'`) · `lib/relevancia-app.ts` · `tests/ops-center-clasificador-app.test.ts` (48 tests; 107 roturas, cada una con su fallo) · *20/10/2026, sin subagentes.* La segunda revisión (21/10) está en la sección de abajo.
 
+## Ops Center 1.2 en main: «devolvele el pago a Carlos» dejó de llegar a reembolsar_cobro (22/10/2026)
+
+Con OC1 en main (tren 1), tests/ops-center-bateria.test.ts dio `pagos-cuenta` 34/100 con piso 35 en el chat de la APP (WhatsApp
+seguía en 35). El área y la pista estaban bien: el clasificador ve el objeto «reembolso». La frenaba la puerta de las
+destructivas (lib/relevancia-app.ts → `puertaDeDestructivas`): `reembolsar_cobro` es destructiva por su verbo, y la abre sólo un
+pedido de QUITAR (lib/mako-intencion-app.ts → `pideQuitar`). «Devolver» no es un verbo de quitar.
+
+- **Arreglo:** devolver PLATA abre la puerta, con su objeto (`OBJETO_REEMBOLSO`: el pago, la plata, el cobro, «el reembolso»).
+  «Devolvele la llamada» no la abre: «llamada» es sinónimo de reunión y abriría `cancelar_reunion`. La regla del objeto es
+  UNA, en mako-intencion-app.ts, y el clasificador la importa de ahí (al revés armaría un ciclo de imports).
+- **Por qué no lo vio nadie:** la batería pasa en un proceso compartido (`--test-isolation=none`) por el estado que dejan otros
+  tests, y falla SOLA. Los VERDE de OC1 y la tanda del tren dieron verde. **Regla:** al tocar el clasificador o la selección de
+  la app, la batería se corre sola (`node --import tsx --test tests/ops-center-bateria.test.ts`).
+- El piso subió (`ACTUALIZAR_PISO=1`): con OC1 llegan 5 frases más del chat de la app, y quedaron anotadas.
+
 ## Ops Center, pieza 1.2, segunda revisión: la red es la tarjeta, no la regla (21/10/2026)
 
 **Qué pasó.** Con la ronda de reglas del 20/10 ya en la rama, una segunda revisión adversarial (tres lentes; 11 errores confirmados y 3 bajos sin refutar) midió con el turno real de la app lo que esa ronda había dejado. No eran once olvidos: era el mismo error once veces. **Cada regla evitaba una cosa y dejaba afuera, o metía, otra.**
