@@ -4,6 +4,76 @@ Lo que no se deduce leyendo el código. El diseño, con lo que se copió de qui�
 
 ---
 
+## La Ticketera vuelve a ser un MAZO, con TABLA a elección y la cara de quien lo levantó (22/10/2026)
+
+**El síntoma** (Martín, 22/10 13:18, con una captura de su Android): «La ticketera se ve horrible... vuelva la vista de
+tarjetas y el desplazamiento tipo tinder... si quiero elegir la vista tabla también... ver quién levantó el ticket con su foto
+de perfil, por donde lo levantó». La pantalla era una lista plana (`#6 MaKo no pudo «contestarte» · Mauricio Bustos ·
+Mauricio Bustos Eguia · Pedido`), los cuatro chips, el interruptor a todo el ancho y un «Actualizar» suelto.
+
+**Qué se tomó de quién** (búsqueda del 22/10; las ayudas de Superhuman e Intercom no dejan leerse enteras):
+- **Tinder / Bumble**: la tarjeta sigue al dedo con un giro, sale si pasó un umbral (~100 px) o fue un tirón, y si no vuelve
+  con resorte; los botones disparan el MISMO evento que el gesto. Y el «volver»: Bumble lo llamó *Backtrack* para el
+  deslizamiento sin querer, que es exactamente el pedido del 14/10.
+- **Superhuman (teléfono)**: dos gestos (izquierda «Done», derecha «Remind me») y una barra abajo con los mismos dos como
+  botones. De ahí la franja del pulgar con un botón por gesto.
+- **Linear Triage**: Accept / Decline (con comentario) / Duplicate / Snooze, con atajo. Son las acciones que ya tenía la
+  Ticketera: derecha = Aprobar, izquierda = Rechazar, arriba = Preguntar. Snooze NO existe acá y no se inventó.
+- **Front**: cada lado del deslizamiento es una acción configurable, y las respuestas guardadas. De ahí las respuestas
+  guardadas de la caja (`RESPUESTAS_GUARDADAS`): se tocan para llenar, se editan, nunca salen solas.
+- **Help Scout (teléfono)**: tocar la cara abre el perfil y su historial; arriba de la conversación, estado y hora. De ahí
+  «Ver todo» → el ticket entero en una hoja.
+- **Intercom**: una bandeja con todos los canales, y su comunidad pidiendo (julio de 2026) el canal AL LADO del nombre sin
+  abrir la conversación. De ahí la insignia del canal sobre la foto.
+- **Gmail («Deshacer envío»)**: no recoge el mail, lo DEMORA 5 a 30 s. Ver abajo.
+
+**Los diagnósticos obvios que estaban mal:**
+- **«Volver deshace la decisión en la base».** Una decisión no se recoge: Rechazar/Preguntar/Responder le avisan al cliente en
+  el `after()` de la acción, y Aprobar le FIRMA el ticket al Cerebro desde el navegador. La regla (el método de Gmail): cada
+  decisión del mazo ESPERA `VENTANA_DESHACER_MS` (8 s) antes de salir, y «Volver» (arriba, siempre; apagado si no hay nada) la
+  saca de la espera: no llega nada a ningún lado. Si Martín se va de la pantalla (otra pestaña, la tabla, cerrar), lo que
+  esperaba sale en el acto: lo decidió. Medido en el arnés: deslizar → «Aprobado · #5» → Volver a los 1,5 s → a los 10 s,
+  cero llamadas al servidor.
+- **«La foto es MiFoto».** MiFoto es la foto de MARTÍN (`/api/perfil` de quien mira). La de quien lo levantó es
+  `usuarios.foto_url` por el FK `tickets.usuario_id`: `bandeja()` la trae con el embed `usuarios(foto_url)` (sólo https).
+  Medido en producción (22/10, lectura): el embed responde, y el #5 y el #6 traen su foto. Quien escribió por WhatsApp sin
+  usuario no tiene fila: va con iniciales (y la W si es un teléfono).
+- **«Arriba» sobre una tarjeta con scroll.** El dedo vertical lo gana el scroll. La tarjeta NO scrollea (`touch-action:
+  none`): lo largo se corta con un fundido y está entero en «Ver todo». Y `overflow: hidden` sigue siendo un contenedor de
+  scroll para el FOCO (la caja con `autoFocus` puede correr el contenido): la tarjeta va con `overflow: clip`.
+- **«El gesto sin texto manda igual».** Rechazar, Preguntar y Responder los rechaza el servidor sin texto
+  (`motivoDecisionInvalida`). El gesto sin texto abre la caja de «lo que lee el cliente» y la tarjeta vuelve; no se manda nada.
+- **«Lo que escribió» en un ticket automático** es el aviso fijo para el cliente («MaKo lo detectó solo…»): no se muestra como
+  texto de la persona (`textoDeLaPersona`); lo que importa es el error, en corto y en letra de código.
+
+**Por dónde entró** sale del canal y de `contexto.chat.donde` (`origenDe`): Automático (`error-mako` / `-navegador` /
+`-servidor`), Chat de MaKo (`chat_app` / `chat_movil`), Reportar problema (`reportar-problema[-movil]`), WhatsApp y API. El link
+ENTRA al negocio con `?ws=` (el «Inspeccionar» de la ficha; el proxy sólo se lo acepta a un admin): la conversación con MaKo
+(`/second-brain?chat=<hilo>`) si se sabe, si no la pantalla. WhatsApp no tiene link: la conversación vive en el teléfono.
+
+**Los cortes son del PANEL (container queries), no de la ventana.** En la compu, el panel del Ops Center a 1440 tiene ≈870 px
+útiles (1440 − la barra − los chats − el relleno): la tabla va con anchos fijos y el título se parte en dos renglones; debajo de
+720 px de panel cada fila es un renglón doble y el orden se elige con un selector (el teléfono DESTILA, no achica). Medido en
+Chrome sin ventana: 375 (sin scroll horizontal ni vertical; el mazo entra entre la cabecera y la barra), 1024 (panel 492: la
+tabla en renglón doble), 1440 (panel 908: el mazo con «lo que sigue» al costado, la tabla 866 de 868). En oscuro, `--good`,
+`--bad` y `--primary` son CLAROS: el texto blanco encima no se leía (el botón «Hacer»); va con tinta oscura.
+
+**Trampas del entorno:**
+- La animación de salida no termina con la pestaña de fondo (sin cuadros, `onComplete` no llega): la tarjeta quedaba sin
+  salir. La salida tiene un tope de 600 ms.
+- El panel del navegador de Claude oculto tampoco dibuja: capturas que vencen y gestos que no corren (motion va con
+  `requestAnimationFrame`). El arnés que sí mide y arrastra es Chrome sin ventana por CDP (`Input.dispatchTouchEvent`), con la
+  bandeja REAL empaquetada con esbuild y las acciones de mentira.
+- `scripts/tsc-acotado.mjs` con diez archivos dio «NO SE PUDO CHEQUEAR» (código 1, cero bytes) aun con `--heap=3584`; el mismo
+  tsconfig con `tsc` directo pasó (código 0) y minutos después también cayó igual. Es la RAM de la PC, no los tipos.
+- El heredoc de la herramienta Bash rechazó dos scripts largos («unexpected EOF while looking for matching `'`»): los archivos
+  de más de unas líneas, con el editor (como la trampa del `\b`, más abajo).
+
+**Vive en:** app/tickets/bandeja/MazoTickets.tsx · TablaTickets.tsx · TarjetaTicket.tsx · mazo-reglas.ts · BandejaTickets.tsx ·
+bandeja.css · lib/tickets-db.ts (`COLS_MARTIN`, la última nota) · lib/perfil.ts (`ticketeraVista`) · tests/ticketera-mazo.test.ts
+
+---
+
 ## La Ticketera del teléfono era el mazo viejo, y traer la bandeja no alcanzaba (17/10/2026)
 
 **El síntoma**: Martín abría el Ops Center en el teléfono y la fila «Ticketera» seguía llevando al mazo de las preguntas de los
@@ -204,11 +274,15 @@ bug: es de la plataforma.
 
 | Qué | Dónde | Por qué |
 |---|---|---|
-| Ver la bandeja del teléfono en un teléfono real | app/m/operaciones/TicketeraMovil.tsx | Hecha el 17/10 y probada con tests; falta mirarla en pantalla (ws3, super admin) |
+| Ver el mazo y la tabla en el teléfono de Martín (Android) | app/tickets/bandeja/MazoTickets.tsx | 22/10: medido en Chrome sin ventana a 375, 1024 y 1440 con los #5 y #6 reales y datos de prueba; la app no se levantó (`next dev` escribe en producción) |
+| «Abrir el chat» de un ticket del MaKo de OTRA tab (el del CRM) | app/tickets/bandeja/mazo-reglas.ts (`linkDeOrigen`) | Abre `/second-brain?chat=<hilo>&ws=`; no se verificó que ese hilo se abra ahí |
+| Posponer un ticket (el «Snooze» de Linear) | app/tickets/bandeja/MazoTickets.tsx | La Ticketera no tiene esa acción y no se inventó: en el mazo se recorre con ‹ › (J / K) |
+| Pasar a la Tabla manda lo que esperaba en el mazo | app/tickets/bandeja/MazoTickets.tsx | La espera vive en el mazo; al desmontarse, sale. Compartirla entre vistas, si molesta |
+| El lint `set-state-in-effect` del ticket entero | app/tickets/bandeja/BandejaTickets.tsx (`Detalle`) | Viene de antes (está igual en `origin/main`); no lo mira ninguna guarda |
 | Avisar al cliente por OTRO canal cuando ninguno sale | lib/tickets-cierre.ts | Hoy un negocio sin push, hilo ni grupo queda «El aviso al cliente no salió» para siempre; ahora se VE, no se resuelve |
 | «Tus tickets» en el teléfono | app/m (no existe) | `rutaMovil('/tickets')` es null: en el teléfono se levanta y se consulta por el chat de MaKo (`mis_tickets`) |
 | Levantarlo por WhatsApp | lib/mako-doer-in.ts | Es del chat «MaKo en WhatsApp»: el registro ya acepta `actor: 'whatsapp:<teléfono>'` (lo atribuye a la persona del negocio con ese teléfono) y el aviso de vuelta pasa por `sanearSalida` |
 | Adjuntar una captura a mano | app/tickets | El contexto automático cubre el caso del chat |
-| Borrar el mazo de las preguntas de los chats | app/tickets/decisiones, app/admin/runway | Cuando ande el formulario de opciones dentro de cada chat (Ops Center) |
+| Borrar el mazo de las preguntas de los chats | app/tickets/decisiones, app/admin/runway | Cuando ande el formulario de opciones dentro de cada chat (Ops Center). El mazo de los tickets (22/10) no depende de él: tiene sus reglas y su hoja |
 | Lo que no es IA de la fila del ws1 sigue siendo el entorno | lib/credenciales.ts (`wsDelEntorno`) | La IA ya se separó el 18/10 (Martín). Meta, Calendly, Fathom y las settings de plataforma en el ws1 quedan para otra decisión ([hallazgos-integraciones.md](hallazgos-integraciones.md)) |
 | El doer de WhatsApp cuenta las copias como keys del negocio | lib/mako-doer-in.ts (`contarKeysIA`) | Cuenta `clavesCargadas`, con las copias de la plataforma: en el ws1 nunca daría `sin_keys`. Leído en el código, no medido. Es del chat «MaKo en WhatsApp» |
