@@ -26,6 +26,8 @@ import { getTenantDb } from '@/lib/workspace';
 import { listarLineas } from '@/lib/evolution';
 import { lineaPorDefault } from '@/lib/lineas-whatsapp';
 import { enviarBorrador } from '@/lib/evolution-envio';
+import { leerConfigAutomatizacion } from '@/lib/config-automatizacion-db';
+import { frenoAlAprobar, SIN_USO, type UsoGoteo } from '@/lib/goteo';
 
 export type ViaBorrador = 'empresa';
 
@@ -81,11 +83,11 @@ export async function caminosDeEnvio(
   return out;
 }
 
-type BorradorFila = { id: number; estado: string; instance_name: string | null; telefono: string | null };
+type BorradorFila = { id: number; estado: string; instance_name: string | null; telefono: string | null; secuencia_id: number | null };
 
 async function leerBorrador(id: number): Promise<BorradorFila | null> {
   const db = await getTenantDb();
-  const { data } = await db.from('wa_borradores').select('id, estado, instance_name, telefono').eq('id', id).maybeSingle();
+  const { data } = await db.from('wa_borradores').select('id, estado, instance_name, telefono, secuencia_id').eq('id', id).maybeSingle();
   return (data as BorradorFila | null) ?? null;
 }
 
@@ -100,8 +102,47 @@ export async function enviarBorradorPorSuCanal(id: number, porEmail: string): Pr
   // ⚠️ UN CONTACTO BLOQUEADO NO RECIBE NADA, venga de donde venga (revisión del 21/10/2026): /chats deshabilita «Enviar»
   // con el bloqueo, pero /whatsapp y MaKo mandaban el borrador igual. Acá, que es la puerta de los tres.
   if (await estaBloqueadoEstricto(b.telefono)) return { ok: false, error: 'el contacto está bloqueado' };
+  // ⚠️ Y EL GOTEO DE SU AUTOMATIZACIÓN (22/10/2026, AU1): aprobar de a varios no los manda juntos (`frenoDelGoteoAlAprobar`).
+  const freno = await frenoDelGoteoAlAprobar(b.secuencia_id);
+  if (freno) return { ok: false, error: freno };
 
   const camino = (await caminosDeEnvio([{ id: b.id, linea: b.instance_name }])).get(b.id);
   if (camino?.via === 'empresa') return enviarBorrador(id, porEmail);
   return { ok: false, error: camino?.motivo ?? SIN_CANAL.motivo ?? 'No hay por dónde mandarlo.' };
+}
+
+/**
+ * EL GOTEO AL APROBAR (22/10/2026, AU1 del plan del Cerebro). #289 nace para aprobar: el motor deja los borradores de a uno
+ * (lib/goteo.ts, `cuentaParaElGoteo`), pero aprobar los mandaba en el acto, y aprobar diez seguidos eran diez juntos por la
+ * línea de Mauricio. Lo aprobado de una automatización con goteo respeta su goteo: cuenta lo que ya salió de ella en 24 h
+ * (`wa_borradores` enviados, por su `enviado_at`) y, si no hay lugar, no sale y dice cuándo sí. null = sale.
+ * Si no puede leer, NO sale: sin saber qué salió, no puede decir que hay lugar (como el motor, `usoDelGoteo`).
+ */
+export async function frenoDelGoteoAlAprobar(secuenciaId: number | null): Promise<string | null> {
+  if (secuenciaId == null) return null;
+  try {
+    const db = await getTenantDb();
+    // ⚠️ UNA AUTOMATIZACIÓN PAUSADA NO MANDA NADA (22/10/2026, Martín: «se puede pausar el envío desde Automations»): el motor
+    // ya congela su cola (lib/nutricion.ts, `idsDePausadas`), pero un borrador suyo ya escrito se podía aprobar y salía.
+    const { data: sec, error: eSec } = await db.from('nutricion_secuencias').select('nombre, activa').eq('id', secuenciaId).maybeSingle();
+    if (eSec) throw new Error(eSec.message);
+    const fila = sec as { nombre?: unknown; activa?: unknown } | null;
+    const nombre = String(fila?.nombre ?? 'Esta automatización');
+    if (fila && fila.activa !== true) return `«${nombre}» está pausada: no sale nada hasta que la actives en Automations.`;
+    const g = (await leerConfigAutomatizacion(secuenciaId)).goteo;
+    if (!g || (g.minutos == null && g.dia == null)) return null;
+    const desde = new Date(Date.now() - 86_400_000).toISOString();
+    const { data, error } = await db.from('wa_borradores').select('enviado_at')
+      .eq('secuencia_id', secuenciaId).eq('estado', 'enviado').gte('enviado_at', desde).limit(1000);
+    if (error) throw new Error(error.message);
+    let uso: UsoGoteo = SIN_USO;
+    for (const r of (data ?? []) as Array<{ enviado_at: string | null }>) {
+      const ms = Date.parse(String(r.enviado_at ?? ''));
+      if (!Number.isFinite(ms)) continue;
+      uso = { enviados: uso.enviados + 1, ultimoMs: Math.max(uso.ultimoMs ?? ms, ms), primeroMs: Math.min(uso.primeroMs ?? ms, ms) };
+    }
+    return frenoAlAprobar(g, uso, Date.now(), nombre);
+  } catch (e) {
+    return `No pude comprobar el goteo de esta automatización (${e instanceof Error ? e.message : String(e)}): prueba de nuevo en un momento.`;
+  }
 }
