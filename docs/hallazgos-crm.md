@@ -10167,12 +10167,14 @@ tests/crm-traer-todos.test.ts
   /crm/prospectos, y había un segundo salto: «Volver al CRM» iba a /crm pelado, así que desde «Sprint 3 días» devolvía
   al CRM principal. Ahora el renglón que navega lleva «→», «Buscar prospectos» lleva el CRM (`?funnel=`) y «Volver a
   «Sprint 3 días»» vuelve a él (tests/crm-llamada-22-10-p1.test.ts, C6).
-- **El tablero trabado en el Chrome de Martín: lo que pesa son los NODOS, y en ese Chrome cada uno cuesta ~7 veces lo
-  que en el arnés (22/10, noche, medido en producción).** Con `long-animation-frame`, que atribuye el JS de cada cuadro
+- **El tablero trabado en el Chrome de Martín: lo que pesa son los NODOS, y en ese Chrome cada uno cuesta entre 1,5 y 7
+  veces lo que en el arnés, según cuán cargada esté la máquina (22/10, noche, medido en producción).** Con `long-animation-frame`, que atribuye el JS de cada cuadro
   largo: en el ws3 (302 tarjetas, 4.923 nodos) los cuadros de 4 a 7,5 s casi no tenían JS (React redibuja las 302 en
   100–300 ms). Eran estilo, layout y pintado. Recalcular el estilo de todo (una variable en `<html>`, como
   `--ancho-panel-mako`) tardó 410 ms (177–759); con el `<main>` escondido, 36 ms. En el arnés, 60 ms con 3.947 nodos.
   El ws1 principal (1.169 tarjetas, 17.256 nodos, la página de 86.636 px) seguía sin contestar una hora después.
+  A las 20:00, con la máquina más quieta, el mismo tablero del ws3 tardó 95 ms (1,5 veces el arnés): **el multiplicador
+  es la carga de la PC** (siete chats corriendo tests), y por eso el número a bajar es la cantidad de nodos.
 - **Lo que NO era (descartado midiendo, que era lo obvio):**
   - el CSS de la app: la hoja de producción en el arnés (`ARNES_CSS`) da 1–2 s, igual que sin ella;
   - el árbol de accesibilidad: `ARNES_A11Y` y `ARNES_CDP` (lo que prende una extensión) dan igual;
@@ -10195,6 +10197,9 @@ tests/crm-traer-todos.test.ts
   - Un cuadro de ~1 s con `blockingDuration` 0 no es una traba: el navegador demoró el pintado de una pestaña oculta.
   - Con la pestaña trabada, la extensión corta a los 45 s (`Runtime.evaluate timed out`).
   - El foco que da la extensión dispara el `router.refresh` del tablero (uno cada 15 s): medir lo empeora.
+  - Con la ventana minimizada (`innerWidth` e `innerHeight` en 0) no se mide nada: no hay cuadros, y React 19 revela
+    lo que llegó por streaming con `requestAnimationFrame` (`$RV`). La copia queda escondida en `div#S:2`, con un
+    segundo `<main>` y el doble de tarjetas en el DOM.
 - **Trampas del arnés** (para el próximo que mida una pantalla así):
   - Una acción `'use server'` se cambia por funciones vacías. Lo que sólo existe en el server (módulos de Node, SDKs,
     `next/server`) va como ESM con los nombres que pide quien lo importa. Un CommonJS no sirve: esbuild copia sólo las
@@ -10205,8 +10210,8 @@ tests/crm-traer-todos.test.ts
     «Ver info» (la ficha rápida es estado del tablero).
   - La primera corrida de cada Chrome carga el script: hay que calentar con una corrida chica antes de comparar.
   - El arnés carga el CSS como vacío (`loader: { '.css': 'empty' }`). Sin `ARNES_CSS`, no ve las reglas globales. Igual, no
-    explican la traba, y el arnés sigue midiendo ~7 veces más rápido que el Chrome de Martín: un número del arnés es una
-    cota de abajo, no lo que va a ver la persona.
+    explican la traba, y el arnés mide entre 1,5 y 7 veces más rápido que el Chrome de Martín: un número del arnés es
+    una cota de abajo, no lo que va a ver la persona.
 
 **Vive en:** app/crm/CrmBoard.tsx (`confirmManualMeeting`, `opEtapa`), EtapasModal.tsx, CrmToolbar.tsx,
 lead-view/LeadTabs.tsx · tests/crm-llamada-22-10-p1.test.ts
