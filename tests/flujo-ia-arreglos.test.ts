@@ -353,7 +353,8 @@ test('editar: la caja devuelve la foto que mandó y la pantalla la compara antes
 test('al terminar con etiquetas nuevas, la caja avisa a las listas ANTES de entregar el flujo', () => {
   const caja = CHAT();
   assert.match(caja, /import \{ avisarCambioEtiquetas \} from '@\/app\/_components\/etiquetas-cliente';/);
-  const listo = caja.slice(caja.indexOf('const l = fin.listo;'));
+  // (22/10/2026: lo que va al padre lo arma `aplicarListo`, el mismo para el turno y para el que vuelve.)
+  const listo = caja.slice(caja.indexOf('const aplicarListo = ('));
   const aviso = listo.indexOf('if (l.etiquetasNuevas.length) avisarCambioEtiquetas();');
   assert.ok(aviso > 0 && aviso < listo.indexOf('onListoRef.current('), 'el aviso va antes de onListo');
 });

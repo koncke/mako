@@ -150,8 +150,8 @@ test('la caja: el fetch lleva signal con el tope de la ruta + margen, y Cancelar
   const max = Number(/export const maxDuration = (\d+);/.exec(RUTA)?.[1]) * 1000;
   assert.ok(tope > max, `el cliente corta a ${tope} ms y la ruta a ${max} ms`);
   assert.match(src, /setTimeout\(\(\) => c\.abort\(\), TOPE_CLIENTE_MS\)/);
-  // Cancelar corta el pedido en curso (el `AbortController` de `ctrl`).
-  assert.match(src, /const cancelar = (?:useCallback\()?\(\) => \{[^}]*?(?:ctrl\.current\?\.abort\(\)|const c = ctrl\.current;[^}]*c\?\.abort\(\));/);
+  // Cancelar corta el pedido en curso (su `AbortController`; desde el 22/10/2026 el turno vive en TRABAJOS por clave).
+  assert.match(src, /const cancelar = (?:useCallback\()?\(\) => \{[^}]*?(?:ctrl\.current\?\.abort\(\)|const c = ctrl\.current;[^}]*c\?\.abort\(\)|t\.ctrl\.abort\(\));/);
 });
 
 // rotura 11 (un rótulo propio en vez de GRAMATICA.analizando): 1 fallo.
