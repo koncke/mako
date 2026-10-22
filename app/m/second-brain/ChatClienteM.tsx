@@ -26,7 +26,8 @@ import { TEXTO_SEGUNDO_RENGLON, partesDelNombre, porJefe } from '@/lib/centro-ch
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 import { useChatCliente } from '@/app/second-brain/useChatCliente';
 import { CajaDelCliente, HiloDelCliente, estadoDelCliente } from '@/app/second-brain/PiezasCliente';
-import { edadCorta, esFilaDe, type ElegidoChat } from '@/lib/chat-mako-reglas';
+import { edadCorta, esFilaDe, jefeDelGrupo, type ElegidoChat } from '@/lib/chat-mako-reglas';
+import { aspectoDeChat } from '@/lib/centro-munecos';
 import type { SesionChat } from '@/lib/mako-turno-app-reglas';
 
 /** Cuántos chats se ven antes de «Ver todos» (los de ChatsMovil.tsx). */
@@ -71,7 +72,7 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
   /** Una fila: la criatura (la SUYA), el nombre, la edad a la derecha y, si trabaja, «Trabajando…» (las de ChatsMovil.tsx). En su
    *  grupo (`sub`, debajo de su jefe), corrida a la derecha y con «↳» y lo de después de «›», como un sub-chat del super admin. */
   const fila = (f: (typeof k.lista)[number], sub = false) => {
-    const vivo = esFilaDe(f, elegido) && k.enCurso;
+    const vivo = !f.jefeDeGrupo && esFilaDe(f, elegido) && k.enCurso;
     return (
       <FilaM key={f.clave} chevron={false}
         leading={<span className={sub ? 'm-operaciones-sub' : undefined}><Muneco titulo={f.criatura} aspecto={f.aspecto} animo={vivo ? 'trabajando' : 'despierto'} size={sub ? 32 : 40} /></span>}
@@ -91,9 +92,12 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
         <ListaM etiqueta="Chats">
           <FilaM leading={<CirculoNuevo size={40} />} titulo="Nuevo chat" onClick={() => abrir({ virtual: 'nuevo' })} navegacion />
           {cerebro && fila(cerebro)}
-          {/* Agrupados por su origen (22/10/2026), con el agrupado del super admin: un grupo con su jefe lleva los suyos debajo; uno
-              sin jefe («Offer», «Dashboard»), sus chats juntos y con el nombre entero. */}
-          {porJefe(corte).flatMap((g) => (g.chat ? [fila(g.chat), ...g.subs.map((f) => fila(f, true))] : g.subs.map((f) => fila(f))))}
+          {/* Agrupados por su origen (22/10/2026), con el agrupado del super admin: cada grupo con su fila JEFE (la suya, o la de
+              `jefeDelGrupo` si no tiene chat propio: «Offer», «Dashboard») y los suyos debajo, sin títulos de sección. */}
+          {porJefe(corte).flatMap((g) => {
+            const j = g.chat ?? (() => { const v = jefeDelGrupo(g); return v ? { ...v, aspecto: aspectoDeChat(v.clave) } : null; })();
+            return j ? [fila(j), ...g.subs.map((f) => fila(f, true))] : g.subs.map((f) => fila(f));
+          })}
           {!todas && resto.length > corte.length && <FilaM titulo={`Ver los ${resto.length} chats`} onClick={() => setTodas(true)} navegacion />}
         </ListaM>
       </SeccionM>

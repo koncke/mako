@@ -72,7 +72,8 @@ import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 import { VolverDelGrafo } from './volver';
 import { useChatCliente } from './useChatCliente';
 import { CajaDelCliente, HiloDelCliente, estadoDelCliente } from './PiezasCliente';
-import { SUBS_VISIBLES, edadCorta, esFilaDe, type ElegidoChat } from '@/lib/chat-mako-reglas';
+import { SUBS_VISIBLES, edadCorta, esFilaDe, jefeDelGrupo, type ElegidoChat } from '@/lib/chat-mako-reglas';
+import { aspectoDeChat } from '@/lib/centro-munecos';
 import { Recorrido, useRecorrido } from '@/app/_ui/Recorrido';
 import { RECORRIDO_INICIO } from '@/lib/onboarding-arranque';
 import { PASOS_INICIO } from './recorrido-inicio';
@@ -274,7 +275,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   /** Una fila de la lista del cliente: la `FilaDeChat` del super admin, con SU criatura (una por chat: `aspecto`) y, si trabaja,
    *  «Trabajando…». En su grupo (`sub`), corrida a la derecha y sólo con lo de después de «›», como un sub-chat del super admin. */
   const fila = (f: (typeof k.lista)[number], sub = false) => {
-    const actual = !mapa && esFilaDe(f, elegido);
+    // El jefe de un grupo sin chat propio abre el más reciente de los suyos, pero el abierto es ése, no el jefe.
+    const actual = !mapa && !f.jefeDeGrupo && esFilaDe(f, elegido);
     const vivo = actual && k.enCurso;
     return (
       <FilaDeChat key={f.clave} titulo={f.titulo} criatura={f.criatura} aspecto={f.aspecto} animo={vivo ? 'trabajando' : 'despierto'} actual={actual}
@@ -339,7 +341,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
             <>
               <div className="co-cuenta co-cuenta--cerebro">{fila(cerebroFila)}</div>
               <div className="co-cuenta">
-                <GruposPorJefe chats={corte} fila={fila} />
+                {/* Sin títulos de sección (22/10/2026, Martín): el grupo sin chat propio lleva su fila JEFE, con su criatura. */}
+                <GruposPorJefe chats={corte} fila={fila} jefe={(g) => { const j = jefeDelGrupo(g); return j ? { ...j, aspecto: aspectoDeChat(j.clave) } : null; }} />
                 {!todas && !busca.trim() && restoFilas.length > corte.length && (
                   <button type="button" className="co-mas" onClick={() => setTodas(true)}>{`Mostrar ${restoFilas.length - corte.length} más`}</button>
                 )}

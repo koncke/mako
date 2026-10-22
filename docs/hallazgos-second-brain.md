@@ -2077,6 +2077,11 @@ eso debe funcionar». Código: app/second-brain/ChatSecondBrain.tsx, app/admin/o
 - **Seguir un chat de antes sin copiar nada.** El turno de MaKo (lib/mako-turno-app.ts) usa la `chart_key` de la persona SÓLO
   para ver si la sesión es suya (`sesionDe`). La ruta le pasa la persona con la clave de ESA sesión (`personaDelChat`), después
   de mirar la regla de /mako (`claveDeAntes`, la misma de leerlo). No hizo falta ni migrar ni adoptar el chat.
+- **Sin títulos de sección: cada grupo lleva su chat JEFE** (22/10/2026, Martín con captura de /second-brain?chat=40: «que estén los
+  chats JEFES que actúan como las secciones y los chats trabajadores que son los de abajo»). `GruposPorJefe` dibujaba el NOMBRE del
+  grupo (AUTOMATIONS, OFFER, DASHBOARD…) cuando el grupo no tenía chat propio, y el teléfono los dejaba sueltos. Ahora el cliente le
+  pasa `jefe` (lib/chat-mako-reglas.ts → `jefeDelGrupo`): una fila con su criatura que abre el más reciente de los suyos, en la
+  computadora y en el teléfono. El super admin no cambia: sus grupos tienen chat jefe.
 - **Seguir una de Offer es usar SU motor, entero** (/api/offer: `abrir`, `leer-link`, `turno`, `armar`), no la proyección de
   sólo texto: la proyección tira las opciones, los audios y los PDF. Tres cosas de la tab que hay que hacer igual:
   - las opciones son sólo las del ÚLTIMO mensaje (las de antes ya no se contestan: dibujarlas decía «Respondiste: <todo un

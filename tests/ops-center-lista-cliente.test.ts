@@ -95,7 +95,8 @@ test('2. agrupados por su origen con el agrupado del super admin: el grupo sube 
   assert.match(piezas, /export function GruposPorJefe</);
   assert.match(piezas, /\? <GruposPorJefe chats=\{corte\} fila=\{fila\} \/>/, 'la lista del super admin');
   const sb = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
-  assert.match(sb, /<GruposPorJefe chats=\{corte\} fila=\{fila\} \/>/, 'la del cliente');
+  // Con su fila JEFE cuando el grupo no tiene chat propio (22/10/2026: tests/ops-center-cliente-jefes.test.ts).
+  assert.match(sb, /<GruposPorJefe chats=\{corte\} fila=\{fila\} jefe=\{/, 'la del cliente');
   assert.match(sb, /texto=\{sub \? partesDelNombre\(f\.titulo\)\.sub \?\? f\.titulo : f\.titulo\} sub=\{sub\}/);
   assert.doesNotMatch(sb, /co-jefe__nombre/, 'el grupo lo dibuja GruposPorJefe, no una copia');
   assert.match(sinComentarios(leer('app/m/second-brain/ChatClienteM.tsx')), /porJefe\(corte\)\.flatMap/);
