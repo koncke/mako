@@ -6269,3 +6269,45 @@ dos mensajes perdidos.
 
 **Vive en:** `lib/horario-envio.ts` (`acabaDeAbrir`, `proximaApertura`) ·
 `app/api/cron/nutricion-tick/route.ts` · `lib/espera-duracion.ts` (`VENTANA_FRESCA_MIN`) · `vercel.json`
+
+## «518 automatizaciones» (23/10/2026): por qué había tantas sin que nadie lo notara
+
+**Síntoma.** Un simulacro de Automations contó 518 filas en `nutricion_secuencias`, en 14 negocios. Martín:
+«No creo que existan tantas… hoy sólo Mauricio y Leila usan Automations».
+
+**El diagnóstico obvio era el equivocado.** «Las crea el alta de cada negocio» o «las crea MaKo sola». Medido en
+producción, ninguna de las dos:
+- **110 ya estaban ARCHIVADAS.** El conteo leía la tabla entera. Una cuenta de «cuántas hay» tiene que filtrar
+  `archivada_at is null`, y si importa, también `activa`. Vivas había 408; prendidas, 21 fuera del ws3, y 13 de
+  ésas son los avisos de la plataforma del ws9.
+- **370 de las vivas eran del ws3**, todas del 22 y 23/10: «🧪 Prueba chats N/M · …» y «🧪 Arnés …». Los arneses
+  crean una fila por corrida en producción. `scripts/arnes-automatizacion-punta-a-punta.mts` la PAUSABA al
+  terminar pero no la archivaba, y la de «Prueba chats» no vive en el repo. Pausada no se ve en ningún tablero,
+  pero cuenta. Nadie lo notó porque el ws3 no lo mira nadie y ninguna fila estaba prendida.
+- **Los clientes nuevos con «Un Lead Entró»** (ws15/18/19/20/22) las crearon ellos. La clave es
+  `plantilla-lead-entro-*` y aparecen entre 1 h y 5 días después del alta (el ws21 no tiene ninguna). Es un clic
+  en la galería o en la sugerencia del CRM, que crean al primer toque.
+- **Lo que sí sembró el sistema** es de julio y agosto: el ws10 nació con 5 en el mismo segundo que el negocio, el
+  31/07 se sembraron más en los ws9, ws10 y ws11, y el 10/10 la mudanza del recordatorio. Todo eso ya estaba
+  archivado.
+
+**Sin bitácora del origen.** La tabla no guarda quién creó una fila, y `api_llamadas` sólo registra la API
+externa por token, no el chat de la app. El origen se deduce de la clave (`plantilla-*` es la galería,
+`automatizacion-*` es ＋Nueva o Crear con IA, `copia-*` es duplicar), del nombre (🧪) y de `created_at` contra el
+alta del negocio y la ventana de los arneses. Cinco plantillas en un minuto a las 03:32 AR en el ws1 (#577–#581)
+quedaron en DUDA por eso. Si algún día hace falta saberlo, la columna es `creada_por` (persona / chat / script).
+
+**La regla que queda.** `tests/automatizaciones-solo-plantillas.test.ts` tiene tres chequeos:
+- la lista CERRADA de los archivos que insertan en la tabla, cada uno con la persona que lo dispara;
+- que el alta, el onboarding, los cron y los webhooks no llamen a ningún creador;
+- que el arnés archive su fila.
+
+Un arnés que escribe en producción ARCHIVA lo que crea, no sólo lo pausa.
+
+**Sin hacer.**
+- El arnés de «Prueba chats» no está en el repo: quien lo tenga, que archive al terminar.
+- En el ws1, la #228 (el recordatorio de la reunión que Martín pidió prendido el 10/10) está archivada desde el
+  12/10, y la #212 desde el 11/10. Lo tiene que mirar Automations.
+
+**Vive en:** `lib/plantilla-crear.ts` · `lib/setting-secuencias.ts` · `lib/workspace.ts` (`crearWorkspace`: sólo
+el funnel) · `lib/sugerencias-crm-server.ts` · `scripts/arnes-automatizacion-punta-a-punta.mts`
