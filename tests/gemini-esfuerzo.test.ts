@@ -51,7 +51,7 @@ test('chatCheap: reintenta UNA vez, aprende ese modelo, y lee el error con `leer
   const cuerpo = src.slice(i, src.indexOf('\n}\n', i));
   assert.match(cuerpo, /let \{ esfuerzo, aire \} = p\.nombre === 'gemini' \? esfuerzoParaGemini\(model, pedido\) : \{ esfuerzo: pedido, aire: 0 \};/);
   // Con el techo de salida de OpenAI alrededor (lib/ai-cheap-techo.ts, revisión adversarial de IA15): el aire va adentro.
-  assert.match(cuerpo, /max_tokens: conTechoDeSalida\(p, model, \(opts\.maxTokens \?\? 512\) \+ aire\),/);
+  assert.match(cuerpo, /\.\.\.paramsDeSalida\(p, model, \(opts\.maxTokens \?\? 512\) \+ aire, opts\.temperature \?\? 0\.2\),/);
   assert.match(cuerpo, /reasoning_effort: esfuerzo/);
   // UNA vez: un `if`, no un bucle; sólo desde `minimal`, y aprende ESE modelo.
   assert.match(cuerpo, /if \(p\.nombre === 'gemini' && !res\.ok && esfuerzo === 'minimal' && rechazaElEsfuerzo\(res\.status, leerErrorProveedor\(data, res\.status\)\.mensaje\)\) \{\n\s*aprenderSinMinimal\(model\);/);
