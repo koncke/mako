@@ -14,6 +14,9 @@
 // (PanelChat.tsx), el hilo y la caja (app/second-brain/PiezasCliente.tsx). Cada tab la monta con `<MakoEnLaTab tab="CRM" />`.
 // ⚠️ EL PANEL VA PEGADO A LA BARRA DE LA APP (app/_components/Sidebar.tsx, `[data-sidebar]`, 68 o 244 px), no al borde de la
 //    pantalla: se mide al montar y cada vez que la barra cambia de ancho (se fija o se suelta).
+// ⚠️ ABRIRLO PLIEGA LA BARRA (22/10/2026, Martín: «si abro a MaKo, se debería plegar la sidebar principal, para optimizar
+//    espacios. Si antes la tenía desplegada y fija, al cerrar MaKo debe volver a su lugar»): ./mako-abierto.ts. Es un pliegue
+//    temporal, como el del Ops Center: no pisa lo que la persona guardó.
 // ⚠️ EL MOTOR SE MONTA SÓLO CON EL PANEL ABIERTO: una tab que nunca abre a MaKo no le pide nada al servidor.
 // ⚠️ ABIERTO, LA TAB LE DEJA EL LUGAR: el panel publica su ancho en `--ancho-panel-mako` (en <html>) y la tab lo usa de margen
 //    izquierdo (el CRM, en su <main>); cerrado vuelve a 0. Lo que cada tab suma arriba del hilo (las sugerencias del CRM) va
@@ -37,6 +40,7 @@ import { JEFE_SECOND_BRAIN, type ElegidoChat } from '@/lib/chat-mako-reglas';
 import { etiquetaDesde, type Desde, type EntidadChat, type ModoChat } from '@/lib/chat-desde';
 import { ModosMako } from '@/app/dashboard/ModosMako';
 import { BloqueDePreguntas, type PreguntaDeLaTab } from '@/app/admin/operaciones/PreguntasDelChat';
+import { marcarMakoAbierto } from './mako-abierto';
 
 /** El ancho de la barra de la app plegada: lo que se usa hasta medirla (y en el server). */
 const BARRA_PLEGADA = 68;
@@ -98,11 +102,14 @@ export function MakoEnLaTab({ tab, arriba = null, preguntas = null, aviso = 0, p
     abrir();
   }, [pedido]); // eslint-disable-line react-hooks/exhaustive-deps
   const cerrar = useCallback(() => { setAbierto(false); setPorMandar(null); }, []);
-  // Abierto, la tab le deja el lugar (su margen izquierdo lee `--ancho-panel-mako`).
+  // Abierto, la tab le deja el lugar (su margen izquierdo lee `--ancho-panel-mako`), y la barra de la app se pliega a íconos
+  // mientras tanto (./mako-abierto.ts): el panel se pega a su borde, que se mide (`useBordeDeLaBarra`), así que la tab sigue
+  // corriéndose lo que mide el panel. Al cerrar, o al salir de la tab con el panel abierto, la barra vuelve a como estaba.
   useEffect(() => {
     const raiz = document.documentElement.style;
     raiz.setProperty('--ancho-panel-mako', abierto ? `${ANCHO_PANEL}px` : '0px');
-    return () => { raiz.removeProperty('--ancho-panel-mako'); };
+    marcarMakoAbierto(abierto);
+    return () => { raiz.removeProperty('--ancho-panel-mako'); marcarMakoAbierto(false); };
   }, [abierto]);
   return abierto
     ? <PanelDelCerebro tab={tab} izquierda={borde} arriba={arriba} preguntas={preguntas} pedido={porMandar} onMandado={() => setPorMandar(null)} entidad={entidad} modo={modo} onModo={onModo} onCerrar={cerrar} sobre={sobre} />

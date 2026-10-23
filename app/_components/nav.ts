@@ -321,10 +321,10 @@ export const FAMILIAS: NavFamilia[] = [
         { key: 'crm', label: 'CRM', href: '/crm', icon: 'crm', rolesWs: ['closer', 'setter'], match: starts('/crm') },
         { key: 'calendario', label: 'Calendar', href: '/calendario', icon: 'calendario', match: starts('/calendario') },
         {
-          key: 'automatizaciones', label: 'Automations', href: RUTA_AUTOMATIONS, icon: 'chatbot',
+          key: 'automatizaciones', label: 'Automations', href: RUTA_AUTOMATIONS, icon: 'flujo',
           match: (p) => starts(RUTA_AUTOMATIONS)(p) || RUTAS_VIEJAS_AUTOMATIONS.some((r) => starts(r)(p)) || starts('/mensajes')(p),
           secciones: [
-            { key: 'setting', label: 'Automations', seccion: 'Automations', href: RUTA_AUTOMATIONS, icon: 'chatbot', rolesWs: ['setter'], match: (p) => starts(RUTA_AUTOMATIONS)(p) || RUTAS_VIEJAS_AUTOMATIONS.some((r) => starts(r)(p)) },
+            { key: 'setting', label: 'Automations', seccion: 'Automations', href: RUTA_AUTOMATIONS, icon: 'flujo', rolesWs: ['setter'], match: (p) => starts(RUTA_AUTOMATIONS)(p) || RUTAS_VIEJAS_AUTOMATIONS.some((r) => starts(r)(p)) },
             HERRAMIENTAS.mensajes,
           ],
         },
