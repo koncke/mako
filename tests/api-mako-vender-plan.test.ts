@@ -7,14 +7,15 @@
 //   · sólo la plataforma: el gating (soloPlataforma + admin) Y el runner, al proponer y al confirmar;
 //   · el MISMO camino que /admin/cobros (venderPlan, lib/vender-plan.ts), con la venta validada antes del «sí»;
 //   · el link no pasa por el modelo: va a la persona y en datos;
-//   · sin HTTP, y con la marca de plata.
+//   · sin HTTP, confirmado en PANTALLA (lo que mueve plata), con el email y el plan fijos al revisar.
 //
 // Probado rompiéndolo (23/10/2026, este archivo, base 4 / 0), cada rotura → 1 fallo y 3 pases:
 //   · preparar sin preguntar si es la plataforma;
 //   · ejecutar sin preguntar si es la plataforma;
 //   · ejecutar con su propio crearCobro en vez de venderPlan;
 //   · el link en el resumen;
-//   · la def sin soloPlataforma.
+//   · la def sin soloPlataforma;
+//   · la def confirmada por chat en vez de en pantalla.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -39,14 +40,16 @@ const RUNNER = (() => {
 const PREPARAR = RUNNER.slice(0, RUNNER.indexOf('ejecutar:'));
 const EJECUTAR = RUNNER.slice(RUNNER.indexOf('ejecutar:'));
 
-test('la def: sólo la plataforma, sólo el admin, sin HTTP y con la marca de plata', () => {
+test('la def: sólo la plataforma, sólo el admin, sin HTTP, en pantalla y con el email y el plan fijos', () => {
   const d = DEFS.find((x) => x.id === 'vender_plan_mako');
   assert.ok(d && esAccion(d), 'falta vender_plan_mako');
   assert.equal(d.gating?.soloPlataforma, true, 'un admin de cualquier negocio vendería planes de MaKo');
   assert.equal(d.gating?.rolMinimo, 'admin');
   assert.ok(!d.canales.includes('http'), 'vender un plan no sale a un token');
-  assert.equal(d.plata, true);
-  assert.equal(d.confirmacion, 'chat');
+  assert.equal(d.confirmacion, 'pantalla', 'lo que mueve plata se confirma en una pantalla (decisión del Cerebro, 23/10/2026)');
+  for (const p of ['email', 'capa']) {
+    assert.equal(d.parametros.find((x) => x.nombre === p)?.fijoAlRevisar, true, `${p}: el resumen se armó con él; cambiarlo al revisar vende otra cosa a otro`);
+  }
 });
 
 test('el runner vuelve a preguntar si es la plataforma, al proponer y al confirmar', () => {

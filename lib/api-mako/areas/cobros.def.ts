@@ -251,16 +251,17 @@ export const DEFS: readonly OperacionDef[] = [
   // «Vender un plan» de /admin/cobros por el chat del super admin: el MISMO camino que la pantalla (`venderPlan`,
   // lib/vender-plan.ts; Cobros pidió no armar otro). `crear_link_pago` no sirve para esto: exige un producto del catálogo
   // y no pone `altaCapa`, así que al pagarse no se crea la cuenta. Sólo la plataforma (`soloPlataforma` + admin) y sin
-  // HTTP; el workspace sale de `wsSuperAdmin()` adentro del runner, nunca del input. `plata`: el precio lo tipea una
-  // persona y el link cobra eso, así que por WhatsApp se confirma con un «sí» y nada más.
+  // HTTP; el workspace sale de `wsSuperAdmin()` adentro del runner, nunca del input. Se confirma en PANTALLA
+  // (/mako/revisar, decisión del Cerebro del 23/10/2026: lo que mueve plata va con pantalla y admin): el precio lo tipea
+  // una persona y el link cobra eso. El email y el plan quedan fijos al revisar: el resumen se armó con ellos.
   {
-    id: 'vender_plan_mako', plata: true, area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    id: 'vender_plan_mako', area: 'cobros', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
     titulo: 'Vender un plan de MaKo',
-    descripcion: 'Sólo para la plataforma: PROPONE crear el link de pago de un plan de MaKo para una persona (queda pendiente hasta el «sí»), como «Vender un plan» de Cobros. Al pagarlo, se le crea su cuenta de MaKo con ese plan. La busca por su email entre los leads de la plataforma (o la crea); con dos leads del mismo email, no elige. Confirmar sólo crea el link: va en la respuesta, para pasárselo a la persona. Se anula con anular_link_pago.',
+    descripcion: 'Sólo para la plataforma: PROPONE crear el link de pago de un plan de MaKo para una persona (se confirma en una pantalla, donde se puede corregir el monto), como «Vender un plan» de Cobros. Al pagarlo, se le crea su cuenta de MaKo con ese plan. La busca por su email entre los leads de la plataforma (o la crea); con dos leads del mismo email, no elige. Confirmar sólo crea el link: queda en Cobros, para pasárselo a la persona. Se anula con anular_link_pago.',
     escribe: 'crea el lead del comprador en el CRM de la plataforma si no estaba, y el cobro que da de alta la cuenta al pagarse (cobros.alta_capa), con su checkout de Stripe o su preferencia de Mercado Pago',
     parametros: [
-      { nombre: 'capa', rotulo: 'Plan', tipo: 'string', obligatorio: true, enum: CAPAS_VENDIBLES.map((c) => c.id), descripcion: 'el plan que compra.' },
-      { nombre: 'email', rotulo: 'Email', tipo: 'string', obligatorio: true, max: 200, descripcion: 'el email de quien paga: por ahí le llega el acceso.' },
+      { nombre: 'capa', rotulo: 'Plan', tipo: 'string', obligatorio: true, fijoAlRevisar: true, enum: CAPAS_VENDIBLES.map((c) => c.id), descripcion: 'el plan que compra.' },
+      { nombre: 'email', rotulo: 'Email', tipo: 'string', obligatorio: true, fijoAlRevisar: true, max: 200, descripcion: 'el email de quien paga: con él se crea su cuenta.' },
       { nombre: 'nombre', rotulo: 'Nombre', tipo: 'string', obligatorio: true, max: 200, descripcion: 'nombre y apellido de quien paga.' },
       { nombre: 'monto', rotulo: 'Monto', tipo: 'number', obligatorio: true, minimo: 0.01, maximo: 100000000, descripcion: 'cuánto cobra el link, en la moneda.' },
       { nombre: 'tipo', rotulo: 'Tipo', tipo: 'string', obligatorio: true, enum: ['suscripcion', 'unico'], descripcion: 'suscripcion (cobra cada mes) o unico.' },

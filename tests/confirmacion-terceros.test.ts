@@ -100,9 +100,7 @@ const A_TERCEROS = [
 /** Las que MUEVEN PLATA (D2): activar en Meta enciende el gasto, y los montos de una venta o de una cuota. */
 // El cobro de Ganado (23/10/2026): decide si un pago gana el trato y arma su plan de pagos.
 const A_PLATA = ['proponer_estado_campana', 'proponer_estado_conjunto', 'proponer_estado_anuncio', 'editar_cuota', 'editar_venta_lead',
-  'vincular_cobro_etapa', 'cuentas_cobro_etapa', 'desvincular_cobro_etapa',
-  // Vender un plan de MaKo (23/10/2026): el precio lo tipea una persona y el link cobra eso.
-  'vender_plan_mako'];
+  'vincular_cobro_etapa', 'cuentas_cobro_etapa', 'desvincular_cobro_etapa'];
 
 test('lo que mueve plata está marcado `plata` y, por WhatsApp, pasa por la misma puerta: un «sí» y nada más', () => {
   for (const id of A_PLATA) {
