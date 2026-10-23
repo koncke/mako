@@ -172,9 +172,13 @@ test('m. un horario sin `activo` booleano se rechaza; apagado con días vacíos 
 // 22/10/2026 (Martín: «Elimina todo el texto innecesario... Lo mismo en «Horario»»): sin la línea «Como el negocio: …» ni
 // «Sólo para esta automatización: sin horario…». «Horario propio» es una fila con su interruptor; lo del negocio, en su ⓘ.
 // Propio y «Horario de oficina» apagado (manda a cualquier hora) lo dice el interruptor de «Horario de oficina».
-test('m. «Horario propio» es una fila con interruptor y lo del negocio va en su ⓘ, sin texto suelto', () => {
+// ⚠️ 23/10/2026 (P0 de #289): «Horario propio» se fue (apagado volvía al del negocio, 9 a 21, y no salió nada a las 21:47 de
+// Tijuana). UN interruptor, «Horario de oficina»: apagado = a cualquier hora (`activo: false` guardado en la automatización).
+test('m. un solo interruptor, «Horario de oficina», con el horario que vale para esta automatización, sin texto suelto', () => {
   const p = sinComentarios(leer('app/automations/ConfigAutomatizacionPanel.tsx'));
-  assert.match(p, /<FilaOpcion primera nombre="Horario propio" info=\{`Apagado, usa el del negocio: \$\{textoDeHorario\(d\.horarioNegocio\)\}\.`\}/);
+  assert.doesNotMatch(p, /nombre="Horario propio"/);
+  assert.match(p, /leer: async \(\) => \(\{ horario: d\.config\.horario \?\? d\.horarioNegocio \?\? \{ \.\.\.HORARIO_SUGERIDO, activo: false \}/);
+  assert.match(p, /const r = await saveConfigAutomatizacionAction\(secuenciaId, \{ horario: h \}\);/);
   assert.doesNotMatch(p, /Como el negocio|Sólo para esta automatización|data-sin-horario/, 'volvió el texto suelto');
   assert.equal(textoDeHorario(null), 'sin horario: manda a cualquier hora');
 });

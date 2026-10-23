@@ -124,8 +124,9 @@ test('sin descripciones: ni el goteo, ni la misma persona, ni el horario, ni la 
   const auto = fuente('app/automations/ConfigAutomatizacionPanel.tsx');
   for (const viejo of [/Las horas que espera entre dos mensajes/, /prospectando en frío/, /textoDeGoteo/, /Goteo de sus WhatsApp/, /A la misma persona, en esta automatización/, /Sólo para esta automatización/])
     assert.doesNotMatch(auto, viejo, `volvió ${viejo}`);
-  // «Horario propio»: una fila; lo del negocio, en su ⓘ.
-  assert.match(auto, /<FilaOpcion primera nombre="Horario propio" info=\{`Apagado, usa el del negocio: \$\{textoDeHorario\(d\.horarioNegocio\)\}\.`\}/);
+  // ⚠️ 23/10/2026 (P0 de #289): sin «Horario propio» (apagado volvía al del negocio). UN interruptor, «Horario de oficina».
+  assert.doesNotMatch(auto, /nombre="Horario propio"/, 'volvió «Horario propio»');
+  assert.match(auto, /return <HorarioEnvioPanel fuente=\{fuente\} onSucio=\{onSucio\} \/>;/);
   // La línea: sin la línea de uso ni la de «Primero lo que entra» sueltas (van en el ⓘ del grupo), y sin `title` por fila.
   const lim = fuente('app/automations/LimitesEnvioPanel.tsx');
   assert.doesNotMatch(lim, /data-uso|data-prioridad|title=\{f\.ayuda\}/);
