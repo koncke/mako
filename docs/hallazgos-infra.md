@@ -7748,6 +7748,10 @@ los dos lados SOLO agregaron una entrada al final se resuelven borrando las tres
 línea en blanco entre las dos; `unir-filas.cjs` es para el ÍNDICE (`hallazgos.md`), y se verifica con `comm` que ningún título del
 índice se perdió. Con la segunda vuelta (sin Ventas): 6.409 tests de 621 archivos verdes en 13 min con 1,7 GB libres mínimos.
 
+**Segundo tren (mismo día).** (a) Una punta que RECHAZÓ el choque y la rehace su dueño llega como punta nueva que trae a la otra adentro (Planes 630c44b4e con Cobros): se mergea la nueva y no la vieja, y como ya contiene a ac21e6b4b no hay doble merge. (b) El tren se chequea por incrementos: la primera vuelta completa (6.409 tests) quedó verde, la segunda corre `tests-afectados --base <rama del tren anterior>` (936 tests de 77 archivos, 6 min), más guardas y batería; las guardas cortan en la primera que frena y SÓLO frenaron en la segunda vuelta (`tests/calendly-scripts.test.ts` fijaba `C:Program Files
+odejs
+ode.exe` como dato de un argv: PERMITIDOS en `scripts/rutas-windows-en-tests.mjs`, con su motivo). (c) `tsc-acotado` de seis archivos nuevos imprime 8 archivos con errores (opencut, crm.run.ts, mako-turno-app.ts…) y NINGUNO lo toca el tren: se cruza la lista de errores con `git diff --name-only origin/main HEAD` antes de devolver nada.
+
 **Sin hacer:** Planes (`cfcf01abd` + `75e10a6ee`) y Ventas (`0c28ccf39`) vuelven a sus chats; Planes tiene que mergear a Cobros (`ac21e6b4b`) y
 Ventas arreglar la regex de `tests/crm-tarjeta-personalizable.test.ts` ("los chips en el orden de la persona").
 **Vive en:** scripts/tests-afectados.mjs · scripts/guardas-push.sh · tests/crm-tarjeta-personalizable.test.ts · lib/compra-plan.ts
