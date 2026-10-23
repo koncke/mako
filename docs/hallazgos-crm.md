@@ -20,6 +20,16 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## «Esa etapa no existe en el CRM»: `noresp` no está en `data.pipeline` y existe igual (23/10/2026)
+
+**Síntoma:** leyendo `funnels.data.pipeline` del CRM #44 del ws1 («Sprint 3 días») se concluyó que el último paso de la
+#289 («proponer cambio de etapa» a `noresp`) iba a fallar porque la etapa no existía. Martín: «SÍ existe la etapa de "No
+responde"». **La causa del error:** `perdido`, `descal` y `noresp` son etapas FIJAS de salida que `filaAFunnel` coloca
+en CADA lectura (`place(…, 'salidas')`, igual que `ganado` si falta), y no se guardan en el pipeline. **Regla:** las
+etapas de un CRM se leen con la función que las arma (lib/pipeline.ts), nunca del JSON crudo de la fila.
+**Vive en:** lib/pipeline.ts (`TERMINALES` y el armado de `stages`).
+*23/10/2026, chat «Automations» (claude2).*
+
 ## Traer los contactos de un grupo de WhatsApp: una etapa puede mandar sola (23/10/2026)
 
 Martín, en la llamada del 23/10 (min 37:27): «una automatización que te agrega de un grupo de WhatsApp, te pone todos los

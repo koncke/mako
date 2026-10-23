@@ -58,6 +58,7 @@
 | A4 | 01:51:13-01:53:01 | **No hay plantilla de prospección:** «apertura a una lista que muevo a una etapa». Mauricio buscó y no encontró ninguna que sirva. | P1 |
 | A5 | 01:57:58 | **MaKo dijo «esta etapa no existe»** justo después de crear «Prospección activa» en el CRM. ¿El chat ve las etapas viejas (cache)? | P1 |
 | A6 | 02:10:16 | **Martín: «voy a dejar lista la automatización».** Dejarla armada y PAUSADA en el ws1, en el CRM «3D»/Sprint, con disparador «entra a Prospección activa» y la secuencia honesta de `campana-sprint-mauricio.md`, para validarla hoy. El «ya me llegó tu pago» NO se arma (es engañoso). | **P0** |
+| A6 (corrección) | 23/10 | Corregido el 23/10 por Martín: es a propósito, la técnica de levantamuertos (confirmar un pago para después disculparse, sólo para que respondan el primer mensaje). No se marca ni se toca. | |
 | A7 | 14:46-15:41, 02:19:50 | Después de «Ganado»: el link del grupo de WhatsApp (Mauricio lo pasa) y la nutrición en el grupo hasta el evento. Se ve en otra reunión: anotarlo. | P2 |
 
 ## Ops Center (pedido del 21/10 22:54, no de la llamada)

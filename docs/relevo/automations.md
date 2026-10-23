@@ -89,6 +89,7 @@ Checkout → Ganado → Grupo de WhatsApp → Webinar. Trae ~1.050 leads a «Lea
 envíos empiezan el sábado 24/10, 50 por día, hasta el 13/11. La secuencia honesta: el .md de la campaña
 (campana-sprint-mauricio.md en la carpeta del proyecto). El «Hola, ya me llegó tu pago…» que se pegó en la llamada NO
 se arma: es un recibo falso.
+> Corregido el 23/10 por Martín: es a propósito, la técnica de levantamuertos (confirmar un pago para después disculparse, sólo para que respondan el primer mensaje). No se marca ni se toca.
 
 Lo que quedó en la rama (encima de 9c8f106c0):
 
@@ -114,6 +115,7 @@ pase a «Oferta / Checkout» cuando le mande el link». Goteo 5 min / 50 por dí
 `limitesParaGuardar` + `setSetting`), y se releyó contra `grafoDeSecuencia`. Salió: la rama «Tiene Sprint · audio» (el
 audio #1 era la «Bienvenida» de agosto, con un pie inventado) y **un borrador vigente con el recibo falso** («Hola
 {{nombre}}! ya me llegó tu pago, muchas gracias» + «¿Me das tu email para registrarte?»), que era lo que abría el lienzo.
+> Corregido el 23/10 por Martín: es a propósito, la técnica de levantamuertos (confirmar un pago para después disculparse, sólo para que respondan el primer mensaje). No se marca ni se toca.
 Si Mauricio graba el audio del Sprint, la rama se vuelve a armar con su etiqueta. **Falta mirarla en pantalla** cuando
 vuelva la extensión de Chrome.
 
