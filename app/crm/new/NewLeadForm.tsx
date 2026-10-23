@@ -69,6 +69,8 @@ export function NewLeadForm({ enModal }: {
      * el tamaño de la caja que lo contiene. Ausente = no se ofrece.
      */
     onTraer?: () => void;
+    /** Cambiar a «Traer de un grupo de WhatsApp» (23/10/2026). Sólo para el admin del negocio: ausente = no se ofrece. */
+    onTraerGrupo?: () => void;
   };
 } = {}) {
   const [err, setErr] = useState<string | null>(null);
@@ -326,6 +328,12 @@ export function NewLeadForm({ enModal }: {
         {enModal?.onTraer && (
           <button type="button" onClick={enModal.onTraer} style={BTN_TRAER}>
             <IconoMenu nombre="descargar" size={16} /> Traer de otro funnel
+          </button>
+        )}
+        {enModal?.onTraerGrupo && (
+          <button type="button" onClick={enModal.onTraerGrupo}
+            style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>
+            Traer de un grupo de WhatsApp
           </button>
         )}
         {/* Con un borrador guardado, la salida para empezar de cero (si no, sólo se borra

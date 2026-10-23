@@ -1195,6 +1195,32 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
     reversible: true, escribe: 'el tipo de la etapa en el pipeline del funnel (y su banda: Nutrición o el recorrido)',
   },
+  // ── Los contactos de un grupo de WhatsApp, al CRM (23/10/2026, Martín en la llamada: «una automatización que te agrega de un
+  //    grupo de WhatsApp, te pone todos los números y los contactos en tu CRM»). Lo mismo que la pantalla (app/crm/grupo-wa-server.ts).
+  //    Sólo el admin: los números de un grupo son datos personales. ⚠️ SÓLO EN LA APP (la revisión de privacidad, 23/10/2026):
+  //    por WhatsApp el rol es siempre 'admin' (lib/mako-doer-in.ts), así que cualquiera que le escriba a la línea pasaba la
+  //    puerta. Antes del bloque de cobros: ese tiene que quedar último, antes de `armar_tab_ficha` (tests/crm-vincular-22-10).
+  {
+    id: 'grupos_whatsapp', area: 'crm', tipo: 'lectura',
+    titulo: 'Grupos de WhatsApp de la línea',
+    descripcion: 'Los grupos de WhatsApp en los que está una línea del negocio (su id, su nombre y cuántos son), para traer sus contactos al CRM con traer_contactos_de_grupo. Sin `linea`, la de por defecto. Solo el administrador.',
+    parametros: [{ nombre: 'linea', tipo: 'string', max: 80, descripcion: 'la línea de WhatsApp del negocio (su instancia); sin esto, la de por defecto.' }],
+    salida: 'json', canales: ['app'], costo: 'gratis', gating: TAB_ADMIN,
+  },
+  {
+    id: 'traer_contactos_de_grupo', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Traer contactos de un grupo de WhatsApp',
+    descripcion: 'PROPONE traer al CRM a los participantes de un grupo de WhatsApp de la línea (queda pendiente hasta el «sí»). Crea un lead por número nuevo y SUMA a este funnel a los que ya son leads (nunca duplica); a todos les pone la etiqueta de origen (por defecto, el nombre del grupo). No manda ningún mensaje: sólo deja elegir etapas sin automatización activa. Los que WhatsApp no deja ver su número no se traen. El grupo sale de grupos_whatsapp. Solo el administrador.',
+    parametros: [
+      { nombre: 'grupo', tipo: 'string', obligatorio: true, max: 120, descripcion: 'el grupo: su id (de grupos_whatsapp) o su nombre.' },
+      { nombre: 'etapa', tipo: 'string', max: 80, descripcion: 'la etapa del funnel (su clave o su nombre); sin esto, «Tibio» si la hay, si no la primera sin automatización.' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el funnel del CRM (de productos_del_lead o ver_funnel); sin esto, «Prospección» si lo hay, si no el principal.' },
+      { nombre: 'etiqueta', tipo: 'string', max: 40, descripcion: 'la etiqueta de origen («Formación de Jan»); sin esto, el nombre del grupo.' },
+      { nombre: 'linea', tipo: 'string', max: 80, descripcion: 'la línea de WhatsApp del negocio; sin esto, la de por defecto.' },
+    ],
+    canales: ['app'], costo: 'gratis', gating: TAB_ADMIN,
+    reversible: false, escribe: 'crea un lead por cada número nuevo del grupo (o suma al funnel al que ya es lead), con su etiqueta de origen y su historial',
+  },
   // ── «Vincular cobro» por MaKo (22/10/2026) ────────────────────────────────────────
   // `plata: true` en las tres que escriben (revisión del 23/10/2026): deciden si un pago gana el trato y arma su plan de
   // pagos. Por WhatsApp, un «ok, después lo veo» no las confirma: sólo un «sí» (tests/confirmacion-terceros.test.ts).

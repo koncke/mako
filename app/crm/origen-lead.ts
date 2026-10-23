@@ -48,7 +48,9 @@ export type OrigenLeadId =
   // ficha de un lead. Es un origen propio y no `landing` porque nadie llenó un
   // formulario: poner `landing` sería meter una fila inventada entre los leads
   // reales de ese producto, y es justo el tacho que este catálogo vino a cerrar.
-  | 'prueba';        // la creó la prueba del Pixel, para poder ver su grabación
+  | 'prueba'         // la creó la prueba del Pixel, para poder ver su grabación
+  // ⚠️ Y EL DE LOS GRUPOS (23/10/2026), que además de decir de dónde vino MANDA: ver `quedaDondeLoPusieron`.
+  | 'grupo_whatsapp'; // se trajo de un grupo de WhatsApp (app/crm/grupo-wa-server.ts)
 
 export type OrigenLeadDef = {
   id: OrigenLeadId;
@@ -78,7 +80,19 @@ export const ORIGEN_LEAD: Record<OrigenLeadId, OrigenLeadDef> = {
   hotmart: { id: 'hotmart', lista: 'Hotmart' },
   skool: { id: 'skool', lista: 'Skool' },
   prueba: { id: 'prueba', lista: 'Prueba del Pixel' },
+  grupo_whatsapp: { id: 'grupo_whatsapp', lista: 'Grupo de WhatsApp' },
 };
+
+/**
+ * ¿El lead QUEDA DONDE LO PUSIERON? Los traídos de un grupo de WhatsApp, sí (el Cerebro, 23/10/2026, con la regla de
+ * Martín «nada por detrás»): no los mueve el CRM automático (T2 a nutri y T6 a reactivación, lib/crm-auto-plan.ts) ni los
+ * toman los barridos que mandan sin que nadie los cuelgue de nada (`reactivacion_viejo`, `ultimo_intento_antes_noresp`,
+ * lib/nutricion.ts). Nadie los invitó a esa conversación: a un grupo se entra por otra cosa.
+ * Lo que alguien hace A PROPÓSITO sí corre: moverlo a mano, o colgarle una automatización a su etapa o a su etiqueta.
+ */
+export function quedaDondeLoPusieron(origen: string | null | undefined): boolean {
+  return origen === ORIGEN_LEAD.grupo_whatsapp.id;
+}
 
 /**
  * Lo que se dibuja cuando la columna está en NULL.

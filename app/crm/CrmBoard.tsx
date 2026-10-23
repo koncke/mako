@@ -72,6 +72,7 @@ import type { TokenDeshacer } from '@/lib/deshacer-movimiento';
 import { ImportarLeadsModal } from './ImportarLeadsModal';
 import { EtapasModal } from './EtapasModal';
 import { TraerDeOtroProducto } from './TraerDeOtroProducto';
+import { TraerDeGrupoWA } from './TraerDeGrupoWA';
 import { CampanasModal } from './CampanasModal';
 import { TipoEtapaModal } from './TipoEtapaModal';
 import { AVISO_SIN_LUGAR, NOMBRE_TIPO_ETAPA, avisoCambioDeTipo, columnaConTipo, tipoDeColumna, type TipoEtapa } from '@/lib/etapa-reunion';
@@ -1903,7 +1904,7 @@ export function CrmBoard({
    * Las dos viven en el MISMO estado porque son la misma caja: volver de «traer» al alta
    * no puede perder desde qué columna se abrió.
    */
-  const [nuevoLead, setNuevoLead] = useState<{ etapa: string | null; traer?: boolean } | null>(null);
+  const [nuevoLead, setNuevoLead] = useState<{ etapa: string | null; traer?: boolean | 'grupo' } | null>(null);
 
   /**
    * La ficha del lead recién creado desde el placeholder de una columna (punto 27): se abre
@@ -3526,12 +3527,21 @@ export function CrmBoard({
         // `onCerrar` de identidad FIJA (`cerrarAlta`): con una flecha nueva por render del
         // tablero, el Modal le devuelve el foco atrás y el campo pierde la letra (AGENTS.md).
         <Modal
-          titulo={nuevoLead.traer ? 'Traer de otro funnel' : 'Nuevo lead'}
+          titulo={nuevoLead.traer === 'grupo' ? 'Traer de un grupo de WhatsApp' : nuevoLead.traer ? 'Traer de otro funnel' : 'Nuevo lead'}
           ancho={nuevoLead.traer ? 1040 : 560}
           alto={nuevoLead.traer ? "min(88vh, 720px)" : undefined}
           onCerrar={cerrarAlta}
         >
-          {nuevoLead.traer ? (
+          {/* Los contactos de un grupo de WhatsApp (23/10/2026, ./TraerDeGrupoWA.tsx): sólo el admin, que es quien la ve. */}
+          {nuevoLead.traer === 'grupo' ? (
+            <TraerDeGrupoWA
+              productos={funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }))}
+              destino={funnelActivo}
+              onAtras={() => setNuevoLead({ ...nuevoLead, traer: false })}
+              // NO se cierra: se sigue con otro grupo (la base de venta de Martín son varios grupos seguidos).
+              onTraidos={(resumen) => { mostrarAviso(resumen); router.refresh(); }}
+            />
+          ) : nuevoLead.traer ? (
             <TraerDeOtroProducto
               productos={funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }))}
               destino={funnelActivo}
@@ -3551,6 +3561,7 @@ export function CrmBoard({
           <NewLeadForm enModal={{
             funnelId: funnelActivo,
             onTraer: () => setNuevoLead({ ...nuevoLead, traer: true }),
+            ...(puedeCrearCrm ? { onTraerGrupo: () => setNuevoLead({ ...nuevoLead, traer: 'grupo' }) } : {}),
             onCreado: (id) => {
               const etapa = nuevoLead.etapa;
               setNuevoLead(null);

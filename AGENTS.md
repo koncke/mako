@@ -10120,3 +10120,26 @@ hoja del «Diseño editable» se pintaba cruda en hola-mako.com (docs/hallazgos-
 - **Primero `suscripcionDeMakoDe(ws) != null`**: el ws1 y los acuerdos a mano también tienen capa `completo`, y no tienen tope.
   Si la lectura falla, no hay tope.
 - Al llegar: `textoTope(n)` y «Pasar a Pro», sin borrar ni esconder nada.
+
+## Traer leads de a muchos a una ETAPA: sólo a una que no mande nada (23/10/2026)
+
+Un camino que crea o suma leads en lote (un grupo de WhatsApp, una lista) y los deja en una etapa elegida NO puede dejarlos en
+una etapa que mande sola: la que tiene una automatización activa colgada (`etapa_actual`: la inscribe el movimiento y, si no,
+el barrido de la hora a todo lead abierto parado ahí) o una etiqueta vinculada (al caer la recibe, y la etiqueta dispara lo
+suyo). «Un Lead Entró» cuelga de la etapa de ENTRADA: traer 900 ahí es darles la bienvenida a los 900. Se preguntan con
+`etapasQueDisparan` (lib/grupo-wa-reglas.ts), se ofrecen sólo las demás y el servidor rechaza las otras. Lo mismo con la
+etiqueta que se les pone: una que ya tiene una automatización («Etiqueta puesta») no se usa, porque el barrido de la hora
+inscribe a todo lead que la tenga aunque el lote no dispare. Y si toca números de terceros, por la API de MaKo va SÓLO en la
+app (`canales: ['app']`): por WhatsApp el rol es siempre 'admin'. Lo hace cumplir tests/grupo-wa.test.ts; el porqué,
+docs/hallazgos-crm.md.
+
+Y DESPUÉS TAMPOCO: un lead que nadie decidió contactar (el traído de un grupo) nace con su origen propio y
+`quedaDondeLoPusieron` (app/crm/origen-lead.ts) lo deja fuera de lo que mueve o escribe SOLO: el CRM automático (T2, T6) y
+los barridos que toman leads por edad o por estado sin colgar de una etapa ni de una etiqueta. Un barrido nuevo de esos
+tiene que filtrarlo, y el que lea leads con una lista de columnas tiene que traer `origen_lead`: sin la columna llega
+`undefined` y el filtro no filtra.
+
+Y NACE DONDE VA: un lead que no debe recibir nada nace en su etapa final (`createLead({ pipeline_stage })`), nunca en la de
+entrada y movido después. Entre el alta y el movimiento, el barrido de la hora lo inscribe en lo que cuelga de la entrada
+(«Un Lead Entró»), y si el movimiento falla queda ahí. Tampoco a una etapa terminal (`terminalEstadoFor ≠ abierto`): «Ganado»
+lo vuelve venta y cliente de Customer Success, con el onboarding de la entrega.
