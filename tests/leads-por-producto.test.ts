@@ -324,7 +324,8 @@ test('⚠️ lo IMPORTADO nace en el tablero desde donde se importó', () => {
     'la importación volvió a no saber a qué producto van los leads');
   // Y lo ESCRIBE: recibirlo y no pasarlo a `createLead` es el mismo bug con un parámetro más.
   const cuerpo = ac.slice(ac.indexOf('importarLeadsRevisadosAction(filas'));
-  assert.match(cuerpo.slice(0, 4000), /funnel_id: funnelId \?\? null/,
+  // 6000 desde el 23/10/2026: el freno del tope del plan va antes (tests/crm-topes-plan-23-10.test.ts).
+  assert.match(cuerpo.slice(0, 6000), /funnel_id: funnelId \?\? null/,
     'la importación recibe el funnel y no lo escribe');
   const mod = limpio(leer('app/crm/ImportarLeadsModal.tsx'));
   assert.match(mod, /importarLeadsRevisadosAction\(filas, funnelId\)/,

@@ -10445,3 +10445,25 @@ app/crm/campo-inline.ts (`instagramDeLaFicha`) · tests/crm-instagram-meta-22-10
 **Vive en:** app/crm/cobro-ganado.ts (`opcionesDeCobro`, `precioDeStripeTexto`) · app/crm/CobroDeEtapaModal.tsx ·
 lib/api-mako/areas/crm.run.ts (`prepararPrecioDeStripe`, `ejecutarPrecioDeStripe`) · tests/crm-cobro-stripe-23-10.test.ts
 *23/10/2026, chat «CRM» (claude3).*
+
+## Los topes del plan en el CRM: el freno va en las altas A MANO, nunca en `createLead` (23/10/2026)
+
+MaKo Esencial tiene 1 CRM y 2.000 leads (lib/topes-plan.ts, del Cerebro). Lo que no se ve en el código:
+
+- **El lugar obvio era el equivocado.** La tabla dice «se lee en el punto donde se crea la cosa», y para un lead ese punto es
+  `createLead`. Pero `createLead` también la llaman los webhooks (anuncios, reservas, Chats): un freno ahí PIERDE los leads
+  que entran solos. El freno (`frenarAltaPorTope`) va en las altas a mano: el tablero, la conversación de WhatsApp,
+  importar y MaKo. Un test enumera los archivos que lo llaman: uno nuevo se decide a propósito.
+- **La capa no alcanza para saber si hay tope.** El ws1 y los acuerdos a mano también son `completo`. Primero
+  `suscripcionDeMakoDe(ws)`; sin plan cobrado por la pasarela, no hay tope. Y si algo no se puede leer, tampoco: un
+  error nuestro no le corta el trabajo a un cliente.
+- **Importar se frena entero, antes de escribir**, contando las filas que de verdad se crean (`entra`): a medias es
+  peor. Con 1.996 usados entran 4, no 5.
+- **Contar sin traer** (`count: 'exact', head: true`): con `.length`, PostgREST corta en 1.000 y el tope nunca llegaría.
+
+**Sin hacer:** no hay página `/planes` en esta base (`RUTA_PLANES` en app/crm/PasarAPro.tsx, un solo lugar). Cuando un
+webhook pasa el tope sólo avisa el tablero: no sale otra notificación.
+
+**Vive en:** lib/topes-crm.ts · lib/topes-crm-reglas.ts (puro) · app/crm/PasarAPro.tsx · app/crm/actions.ts (`altaDeLead`,
+la de WhatsApp, `importarLeadsRevisadosAction`) · app/crm/nuevo-crm-actions.ts · tests/crm-topes-plan-23-10.test.ts
+*23/10/2026, chat «CRM» (claude3).*

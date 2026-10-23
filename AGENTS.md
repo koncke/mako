@@ -10077,3 +10077,12 @@ por su nombre. El 22/10/2026 había mails de dueños y colaboradores, nombres y 
   ningún mail en claro. Un dueño nuevo: se suma su huella ahí.
 - Una guarda que necesita los nombres que prohíbe (la de las plantillas, tests/editor-landing-presentaciones.test.ts) es la
   excepción, y lo dice.
+
+## Los topes de los planes (lib/topes-plan.ts): dónde va el freno (23/10/2026)
+
+- **El freno va en el alta A MANO, nunca en la función que también llaman los webhooks.** Lo que entra solo (un anuncio,
+  una reserva, un mensaje) no se pierde por un tope: entra, y la pantalla avisa. En el CRM, `createLead` la usan los
+  webhooks: el freno está en `altaDeLead`, la de WhatsApp, importar y MaKo (docs/hallazgos-crm.md, «Los topes del plan»).
+- **Primero `suscripcionDeMakoDe(ws) != null`**: el ws1 y los acuerdos a mano también tienen capa `completo`, y no tienen tope.
+  Si la lectura falla, no hay tope.
+- Al llegar: `textoTope(n)` y «Pasar a Pro», sin borrar ni esconder nada.

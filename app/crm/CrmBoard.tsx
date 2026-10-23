@@ -135,6 +135,7 @@ import { FUNNEL_DEL_NEGOCIO, esLote, itemsCrm, opcionesCrm, tituloCrm, type Cont
 import { alternarColumna, estadoDeColumna, rotuloDeColumna } from './seleccion-columna';
 import { cuantasDibujar, TANDA_COLUMNA } from './columna-por-tandas';
 import { publicarLeadAbierto } from './lead-abierto';
+import { CartelTope } from './PasarAPro';
 import { faltaVincular, type VinculadosDelCrm } from '@/lib/vinculos-de-columnas-reglas';
 import { AVISO_VINCULO } from './menu-contextual-crm';
 import { FinDeColumna } from './FinDeColumna';
@@ -469,6 +470,7 @@ export function CrmBoard({
   plantillasTarjeta = [],
   camposGuardables = false,
   vinculados = null,
+  topeLeads = null,
 }: {
   leads: CrmLead[];
   stages: Stage[];
@@ -530,6 +532,8 @@ export function CrmBoard({
   camposGuardables?: boolean;
   /** Qué etapas de este CRM tienen su evento y si Ganado cobra (22/10/2026): el aviso del «⋯». null = no se sabe, no se avisa. */
   vinculados?: VinculadosDelCrm | null;
+  /** El tope de leads del plan, si el negocio LLEGÓ (23/10/2026, lib/topes-crm.ts): el cartel con «Pasar a Pro». null = no. */
+  topeLeads?: number | null;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -3094,6 +3098,8 @@ export function CrmBoard({
       {/* Conectar Google desde el reagendar abre el modal acá (14/10/2026, «para una integración jamás se debe salir de
           la tab»): el OAuth vuelve a /crm con `?gcal=`, y si falló se vuelve a abrir el modal diciendo qué pasó. */}
       <VueltaDeGoogle />
+      {/* El tope del plan (23/10/2026): un cartel, sin borrar ni esconder nada. Lo que entra solo entró igual. */}
+      {topeLeads != null && <div style={{ flex: 'none' }}><CartelTope tope={topeLeads} /></div>}
 
       {/* LA BARRA — UNA fila: funnel · vista · buscar · filtrar ····· + Nuevo lead · ⋯
           (puntos 22-26 del 12/10/2026). El funnel a la izquierda del todo, con su cubo (24);

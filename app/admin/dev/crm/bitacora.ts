@@ -3143,4 +3143,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '23 oct', hora: '03:30', chat: 'CRM', sesion: 'local_fe3f122b-1c72-4362-91d9-38e1f7e5cb48', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los topes de MaKo Esencial en el CRM: 1 CRM y 2.000 leads',
+    puntos: [
+      'Con MaKo Esencial, al llegar a 2.000 leads el tablero muestra un cartel corto con «Pasar a Pro». No se borra ni se esconde nada.',
+      'Crear un lead a mano, importar o crear un segundo CRM más allá del tope dice lo mismo, con «Pasar a Pro».',
+      'Los leads que entran solos (anuncios, reservas, mensajes) nunca se pierden: entran igual y el tablero avisa.',
+      'Sólo a los negocios que pagan MaKo por la pasarela: Mauricio y los acuerdos a mano no tienen tope.',
+    ],
+    commits: [
+    ],
+    archivos: [
+      'lib/topes-crm.ts — quién tiene tope y el freno de las altas a mano',
+      'app/crm/PasarAPro.tsx — el cartel y «Pasar a Pro»',
+    ],
+    revisar: '/crm',
+  },
 ];
