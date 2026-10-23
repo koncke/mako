@@ -35,7 +35,7 @@ export async function contextoParaReuniones(leadIds: readonly number[]): Promise
       try {
         const { data, error } = await (await getTenantDb()).from('closing_analyses')
           .select('lead_id, call_date, summary, next_step, objections, share_url')
-          .in('lead_id', ids).eq('tipo', 'R1').eq('category', 'venta').eq('status', 'analizada')
+          .in('lead_id', ids).eq('tipo', 'R1').eq('status', 'analizada').eq('category', 'venta')
           .order('call_date', { ascending: false, nullsFirst: false });
         return error ? [] : ((data ?? []) as FilaR1[]);
       } catch { return []; }
