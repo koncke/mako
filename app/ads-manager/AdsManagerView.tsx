@@ -73,7 +73,8 @@ export async function AdsManagerView({
   }
 
   return (
-    <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
+    // El padding IZQUIERDO deja el lugar de la estrella de MaKo abierta (`--ancho-panel-mako`, como en el CRM).
+    <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px calc(44px + var(--ancho-panel-mako, 0px))' }}>
       {perfError && (
         <div style={{ background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)', borderRadius: 12, padding: '12px 16px', marginBottom: 16 }}>
           <span style={{ fontSize: 13.5, color: 'var(--warn)', fontWeight: 600 }}>Sin datos de rendimiento.</span>
