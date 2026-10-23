@@ -35,7 +35,7 @@ if (!existsSync(ENV)) {
 (dotenv.default ?? dotenv).config({ path: ENV, quiet: true });
 const APLICAR = process.argv.includes('--aplicar');
 
-const { VERSION_PC, archivoDelInstalador, archivoDelPrograma, faltanEnElBucket, marcarDeVentana, nombreDelInstalador, subsistemaPe } = await imp('lib/ia-pc-reglas.ts');
+const { VERSION_PC, archivoDelInstalador, archivoDelInstaladorMac, archivoDelPrograma, faltanEnElBucket, infoPlistDeLaAppMac, lanzadorDeLaAppMac, marcarDeVentana, nombreDelInstalador, subsistemaPe } = await imp('lib/ia-pc-reglas.ts');
 const programa = path.join(REPO, 'scripts', 'ia-pc', 'mako-pc.mjs');
 const vPrograma = /export const VERSION = '([^']+)'/.exec(readFileSync(programa, 'utf8'))?.[1];
 if (vPrograma !== VERSION_PC) { console.error(`⛔ el programa dice ${vPrograma} y lib/ia-pc-reglas.ts dice ${VERSION_PC}: tienen que ser iguales.`); process.exit(1); }
@@ -49,6 +49,8 @@ const OBJETIVOS = [
 const dir = mkdtempSync(path.join(tmpdir(), 'mako-pc-binarios-'));
 console.log(`${APLICAR ? 'APLICAR' : 'EN SECO'} · versión ${VERSION_PC} · en ${dir}`);
 const armados: Array<{ nombre: string; datos: Buffer; tipo?: string }> = [];
+/** Los programas sin comprimir, para MaKo.app (la Mac). */
+const crudos: Record<string, Uint8Array> = {};
 for (const o of OBJETIVOS) {
   const salida = path.join(dir, o.salida);
   execFileSync('npx', ['--yes', BUN, 'build', programa, '--compile', `--target=${o.target}`, '--outfile', salida], { stdio: 'inherit', shell: process.platform === 'win32' });
@@ -60,6 +62,7 @@ for (const o of OBJETIVOS) {
     writeFileSync(salida, bytes);
     console.log('  windows-x64: marcado «de ventana» (subsistema 2)');
   }
+  crudos[o.archivo] = bytes;
   const datos = gzipSync(bytes, { level: 9 });
   const nombre = archivoDelPrograma(o.archivo);
   console.log(`  ${nombre}: ${Math.round(statSync(salida).size / 1e6)} MB → ${Math.round(datos.length / 1e6)} MB comprimido`);
@@ -76,6 +79,22 @@ if (subsistemaPe(setup) !== 2) { console.error('⛔ el instalador no es un ejecu
 console.log(`  ${archivoDelInstalador()}: ${Math.round(setup.length / 1e6)} MB (el instalador con asistente)`);
 if (setup.length > 50e6) { console.error(`⛔ ${archivoDelInstalador()} pasa los 50 MB de Supabase`); process.exit(1); }
 armados.push({ nombre: archivoDelInstalador(), datos: setup, tipo: 'application/octet-stream' });
+// MaKo.app para la Mac (0.4.2): un .zip «hecho en Unix» (scripts/ia-pc/zip-unix.mjs) con el lanzador y los dos programas, con
+// sus permisos: sin ellos, el Archive Utility de la Mac la deja sin poder abrirse.
+const { zipConPermisos } = await import(pathToFileURL(path.join(REPO, 'scripts', 'ia-pc', 'zip-unix.mjs')).href);
+const appMac: Buffer = zipConPermisos([
+  { nombre: 'MaKo.app', dir: true },
+  { nombre: 'MaKo.app/Contents', dir: true },
+  { nombre: 'MaKo.app/Contents/Info.plist', datos: infoPlistDeLaAppMac(), modo: 0o644 },
+  { nombre: 'MaKo.app/Contents/MacOS', dir: true },
+  { nombre: 'MaKo.app/Contents/MacOS/MaKo', datos: lanzadorDeLaAppMac(), modo: 0o755 },
+  { nombre: 'MaKo.app/Contents/Resources', dir: true },
+  { nombre: 'MaKo.app/Contents/Resources/mako-pc-arm64', datos: crudos['mac-arm64'], modo: 0o755 },
+  { nombre: 'MaKo.app/Contents/Resources/mako-pc-x64', datos: crudos['mac-x64'], modo: 0o755 },
+]);
+console.log(`  ${archivoDelInstaladorMac()}: ${Math.round(appMac.length / 1e6)} MB (MaKo.app para la Mac)`);
+if (appMac.length > 50e6) { console.error(`⛔ ${archivoDelInstaladorMac()} pasa los 50 MB de Supabase`); process.exit(1); }
+armados.push({ nombre: archivoDelInstaladorMac(), datos: appMac, tipo: 'application/zip' });
 const { getSupabaseServer } = await imp('lib/supabase.ts');
 const storage = getSupabaseServer().storage;
 // Lo que hay hoy en el bucket (sólo lectura): en seco se dice qué falta; al aplicar, qué se reemplaza.

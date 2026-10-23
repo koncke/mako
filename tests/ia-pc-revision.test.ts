@@ -165,7 +165,9 @@ test('«en línea» es una PC con un Claude CON sesión, y el tutorial no dice �
   // Rota: «En la misma ventana escribe claude» → este test falla (no está en el PATH de esa ventana: «no se reconoce»).
   assert.match(ui, /windows: '& "\$env:USERPROFILE\\\\\.local\\\\bin\\\\claude\.exe" auth login'/);
   assert.match(ui, /mac: '~\/\.local\/bin\/claude auth login'/);
-  assert.match(ui, /<Copiar texto=\{LOGIN_CLAUDE\[sistema\]\} \/>/);
+  // Desde la 0.4.2 la línea del login va sólo en los respaldos plegados, con la ruta completa (Windows y Mac).
+  assert.match(ui, /<Copiar texto=\{LOGIN_CLAUDE\.mac\} \/>/);
+  assert.match(ui, /<Copiar texto=\{LOGIN_CLAUDE\.windows\} \/>/);
   assert.doesNotMatch(ui, /escribe <code>claude<\/code>/);
   assert.match(ui, /if \(nueva && nueva\.cuentas\.length\) \{ setLista\(true\); setSinSesion\(null\); setPaso\(5\); return; \}\s*if \(nueva\) \{ setSinSesion\(/);
   assert.match(sinComentarios(leer('app/integraciones/CuentasYDispositivos.tsx')), /yaPaso\(repone, ahora\)/);

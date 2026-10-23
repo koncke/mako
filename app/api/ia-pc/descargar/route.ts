@@ -12,7 +12,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
 import { personaDelRequest } from '@/lib/mako-turno-app';
 import { limitePorIp } from '@/lib/limite-publico';
-import { archivoDelInstalador, nombreDelInstalador, VERSION_PC } from '@/lib/ia-pc-reglas';
+import { archivoDelInstalador, archivoDelInstaladorMac, nombreDelInstalador, nombreDelInstaladorMac, VERSION_PC } from '@/lib/ia-pc-reglas';
 import { registrarError } from '@/lib/errores-app';
 
 export const dynamic = 'force-dynamic';
@@ -25,12 +25,15 @@ export async function GET(req: NextRequest) {
   if (frenado) return frenado;
   const persona = await personaDelRequest();
   if ('error' in persona) return texto(persona.error, persona.status);
-  if (req.nextUrl.searchParams.get('os') !== 'windows') return texto('Por ahora el instalador es para Windows. En la Mac, sigue los pasos de MaKo.', 400);
-  const { data, error } = await getSupabaseServer().storage.from('ia-pc').createSignedUrl(archivoDelInstalador(), 600, { download: nombreDelInstalador() });
+  // Windows: el instalador con asistente; la Mac (0.4.2): MaKo.app en un .zip.
+  const os = req.nextUrl.searchParams.get('os');
+  if (os !== 'windows' && os !== 'mac') return texto('Elige Windows o Mac.', 400);
+  const archivo = os === 'mac' ? archivoDelInstaladorMac() : archivoDelInstalador();
+  const { data, error } = await getSupabaseServer().storage.from('ia-pc').createSignedUrl(archivo, 600, { download: os === 'mac' ? nombreDelInstaladorMac() : nombreDelInstalador() });
   if (!data?.signedUrl) {
     await registrarError({
       origen: 'servidor', nombre: 'IaPcFaltaInstalador', ruta: '/api/ia-pc/descargar',
-      mensaje: `ia-pc: falta el instalador ${VERSION_PC} (${archivoDelInstalador()}): ${error?.message ?? 'sin URL firmada'}`,
+      mensaje: `ia-pc: falta el instalador ${VERSION_PC} (${archivo}): ${error?.message ?? 'sin URL firmada'}`,
     }, null).catch(() => undefined);
     return texto('No pude preparar la descarga. Intenta de nuevo en un rato.', 503);
   }

@@ -252,7 +252,7 @@ export function reponeDelTope(l: { usadoSemana?: number; repone?: string; repone
 // curl, el programa no lleva la marca de «descargado de internet», así que SmartScreen y Gatekeeper no lo frenan.
 
 /** La versión del programa que sirven los instaladores (la misma que `VERSION` de scripts/ia-pc/mako-pc.mjs). */
-export const VERSION_PC = '0.4.1';
+export const VERSION_PC = '0.4.2';
 export const SISTEMAS_PC = ['windows', 'mac'] as const;
 export type SistemaPc = (typeof SISTEMAS_PC)[number];
 /** Los archivos que sube scripts/ia-pc/publicar-binarios.mts al bucket privado `ia-pc` (comprimidos: entran en 50 MB). */
@@ -267,6 +267,58 @@ export const archivoDelInstalador = (version: string = VERSION_PC): string => `m
 export const nombreDelInstalador = (version: string = VERSION_PC): string => `MaKo-Setup-${version}.exe`;
 /** La UNA línea de la página de descarga para el aviso de Windows mientras no esté firmado (Martín, 22/10/2026). */
 export const AVISO_SMARTSCREEN = 'Si Windows dice «protegió su PC»: Más información › Ejecutar de todas formas.';
+/**
+ * MaKo.app para la Mac (0.4.2; Mauricio conectó su MacBook por la Terminal el 23/10 y le costó): un .zip con la app (un .pkg o
+ * un .dmg no se arman en Windows). La app copia el programa de ESA Mac, le pone la firma local y lo abre con `app`
+ * (scripts/ia-pc/mako-pc.mjs → abrirLaApp): toma el código del portapapeles, sin Terminal.
+ */
+export const archivoDelInstaladorMac = (version: string = VERSION_PC): string => `mako-pc-${version}-mac-app.zip`;
+export const nombreDelInstaladorMac = (version: string = VERSION_PC): string => `MaKo-${version}-Mac.zip`;
+/** La UNA línea para cuando macOS frena la app sin firmar (la firma de Apple espera el D-U-N-S). */
+export const AVISO_GATEKEEPER = 'Si macOS dice que no puede comprobarla: Ajustes del Sistema › Privacidad y seguridad › Abrir igualmente.';
+
+/**
+ * El ejecutable de MaKo.app: copia el programa de ESTA Mac (chip de Apple o Intel) a ~/.mako-pc/bin —donde lo busca el
+ * arranque, el mismo de la línea de la Terminal—, le saca la cuarentena, le pone la firma local que pide el chip de Apple (un
+ * ejecutable sin firma no corre ahí) y lo abre con `app`. Un guion: la app no está firmada, y así macOS sólo pregunta por ella.
+ */
+export function lanzadorDeLaAppMac(): string {
+  return [
+    '#!/bin/sh',
+    '# MaKo.app: copia el programa de esta Mac a ~/.mako-pc/bin, con la firma local, y lo abre sin Terminal (0.4.2).',
+    'R="$(cd "$(dirname "$0")/../Resources" && pwd)"',
+    'D="$HOME/.mako-pc/bin"',
+    'mkdir -p "$D"',
+    'if [ "$(uname -m)" = "arm64" ]; then B="$R/mako-pc-arm64"; else B="$R/mako-pc-x64"; fi',
+    'cp -f "$B" "$D/mako-pc.nuevo" && chmod +x "$D/mako-pc.nuevo"',
+    'xattr -d com.apple.quarantine "$D/mako-pc.nuevo" 2>/dev/null || true',
+    'codesign --force --sign - "$D/mako-pc.nuevo" 2>/dev/null || true',
+    'mv -f "$D/mako-pc.nuevo" "$D/mako-pc"',
+    'exec "$D/mako-pc" app',
+    '',
+  ].join('\n');
+}
+
+/** El Info.plist de MaKo.app: sin ícono en el Dock (las ventanas son del sistema). */
+export function infoPlistDeLaAppMac(version: string = VERSION_PC): string {
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
+    '<plist version="1.0"><dict>',
+    '<key>CFBundleName</key><string>MaKo</string>',
+    '<key>CFBundleDisplayName</key><string>MaKo</string>',
+    '<key>CFBundleIdentifier</key><string>com.hola-mako.app</string>',
+    `<key>CFBundleVersion</key><string>${version}</string>`,
+    `<key>CFBundleShortVersionString</key><string>${version}</string>`,
+    '<key>CFBundlePackageType</key><string>APPL</string>',
+    '<key>CFBundleExecutable</key><string>MaKo</string>',
+    '<key>LSMinimumSystemVersion</key><string>11.0</string>',
+    '<key>LSUIElement</key><true/>',
+    '</dict></plist>',
+    '',
+  ].join('\n');
+}
+
 /** Adónde vuelve el instalador al terminar: «Tus cuentas de IA», directo en «Conecta MaKo». */
 export const RUTA_TRAS_INSTALAR = '/perfil/ia?computadora=1';
 
@@ -280,7 +332,7 @@ export function faltanEnElBucket(nombres: readonly string[], version: string = V
   const hay = new Set(nombres);
   const versiones = [...new Set(nombres.map((n) => /^mako-pc-(\d+\.\d+\.\d+)-/.exec(n)?.[1]).filter((v): v is string => !!v))]
     .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  return { faltan: [...ARCHIVOS_PC.map((a) => `mako-pc-${version}-${a}.gz`), archivoDelInstalador(version)].filter((n) => !hay.has(n)), versiones };
+  return { faltan: [...ARCHIVOS_PC.map((a) => `mako-pc-${version}-${a}.gz`), archivoDelInstalador(version), archivoDelInstaladorMac(version)].filter((n) => !hay.has(n)), versiones };
 }
 
 /** Lo que dice scripts/ia-pc/verificar-binarios.mts: «0.3.2 completa» o «falta 0.3.2: …» (con lo que no firma). */

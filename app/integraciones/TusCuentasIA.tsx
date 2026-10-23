@@ -16,7 +16,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { LogoClaude } from '@/app/admin/operaciones/Uso';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { BrandDefs, SvcIcon } from '@/app/_components/ServicioVisual';
-import { AVISO_SMARTSCREEN, TEXTO_CONSENTIMIENTO, VERSION_CONSENTIMIENTO, lineaDeInstalacion, type CuentaPc, type CuentasIA, type SistemaPc } from '@/lib/ia-pc-reglas';
+import { AVISO_GATEKEEPER, AVISO_SMARTSCREEN, TEXTO_CONSENTIMIENTO, VERSION_CONSENTIMIENTO, lineaDeInstalacion, type CuentaPc, type CuentasIA, type SistemaPc } from '@/lib/ia-pc-reglas';
 import { IAS_DEL_CLIENTE, NOMBRE_IA, SERVICIO_DE_CLAVE, comoConectar, notaDeConectar, type IaDelCliente } from '@/lib/conectar-ia-reglas';
 import { CuentasYDispositivos, NuevoDispositivo } from './CuentasYDispositivos';
 import './tus-cuentas-ia.css';
@@ -74,9 +74,10 @@ function Tutorial({ onCerrar, pcsAntes, recargar, pasoInicial = 1 }: { onCerrar:
   const [ahora, setAhora] = useState(() => Date.now());
   // El código se pide recién cuando la persona acepta con un toque cómo funciona (TEXTO_CONSENTIMIENTO).
   const [acepto, setAcepto] = useState(false);
-  // En Windows (0.4.0) son TRES pasos y ninguno abre una terminal: el instalador con asistente pone MaKo y Claude Code, y la
-  // sesión de Claude la inicia el programa en una página local (mako://iniciar-sesion). En la Mac, los cuatro de siempre.
-  const pasos = sistema === 'windows' ? [1, 2, 4] : [1, 2, 3, 4];
+  // TRES pasos y ninguno abre una terminal: en Windows (0.4.0) el instalador con asistente pone MaKo y Claude Code, y la
+  // sesión de Claude la inicia el programa en una página local (mako://iniciar-sesion); en la Mac (0.4.2) MaKo.app hace lo
+  // mismo y toma el código del portapapeles (en la Mac un enlace mako:// no le llega al programa). La terminal, plegada.
+  const pasos = [1, 2, 4];
   const anterior = pasos[pasos.indexOf(paso) - 1];
   const siguiente = pasos[pasos.indexOf(paso) + 1];
   const pedirCodigo = useCallback(async () => {
@@ -139,17 +140,17 @@ function Tutorial({ onCerrar, pcsAntes, recargar, pasoInicial = 1 }: { onCerrar:
       )}
       {paso === 2 && sistema === 'mac' && (
         <>
-          <h3>Instala Claude Code</h3>
-          <p>{DONDE_PEGAR[sistema]} Es Claude Code, no la app de escritorio de Claude. Si ya lo tienes, sigue al próximo paso.</p>
-          <Copiar texto={COMANDO_CLAUDE[sistema]} />
-        </>
-      )}
-      {paso === 3 && (
-        <>
-          <h3>Inicia sesión con tu Claude</h3>
-          <p>En la misma ventana pega esto y aprieta Enter: se abre el navegador para que entres con tu cuenta de Claude.</p>
-          <Copiar texto={LOGIN_CLAUDE[sistema]} />
-          <p className="tci-nota">Es tu cuenta de siempre (Pro o Max). MaKo nunca ve tu contraseña ni tu sesión. Si te lo saltas, MaKo te lo vuelve a pedir al conectarse.</p>
+          <h3>Descarga MaKo</h3>
+          <p>Abre el archivo y después MaKo: instala Claude Code si no lo tienes, sin Terminal.</p>
+          <a className="tci-boton" href="/api/ia-pc/descargar?os=mac">Descargar MaKo para Mac</a>
+          <p className="tci-nota">{AVISO_GATEKEEPER}</p>
+          <p className="tci-nota">Si ya la abriste, sigue al próximo paso.</p>
+          <details className="tci-respaldo">
+            <summary>¿No funciona? Con la Terminal</summary>
+            <p>{DONDE_PEGAR.mac} Es Claude Code, no la app de escritorio de Claude.</p>
+            <Copiar texto={COMANDO_CLAUDE.mac} />
+            <Copiar texto={LOGIN_CLAUDE.mac} />
+          </details>
         </>
       )}
       {paso === 4 && (
@@ -180,8 +181,16 @@ function Tutorial({ onCerrar, pcsAntes, recargar, pasoInicial = 1 }: { onCerrar:
                 </>
               ) : (
                 <>
-                  <p>{DONDE_PEGAR[sistema]} MaKo te dice a qué negocio se conecta y te pregunta si es el tuyo. Después arranca cada vez que prendas la computadora.</p>
-                  {codigo && !vencido && delCodigo !== 'gastado' ? <Copiar texto={lineaDeInstalacion(window.location.origin, sistema, codigo)} /> : !codigo && <p className="tci-nota">{error ?? 'Preparando tu código…'}</p>}
+                  <p>Copia el código y abre MaKo: lo toma solo, te dice a qué negocio se conecta y te pregunta si es el tuyo. Después arranca cada vez que prendas la Mac.</p>
+                  {codigo && !vencido && delCodigo !== 'gastado' ? <Copiar texto={codigo} /> : !codigo && <p className="tci-nota">{error ?? 'Preparando tu código…'}</p>}
+                  <p className="tci-nota">Si no lo encuentra, te lo pide en una ventana: pégalo ahí.</p>
+                  {codigo && !vencido && delCodigo !== 'gastado' && (
+                    <details className="tci-respaldo">
+                      <summary>¿No funciona? Con la Terminal</summary>
+                      <p>{DONDE_PEGAR.mac}</p>
+                      <Copiar texto={lineaDeInstalacion(window.location.origin, 'mac', codigo)} />
+                    </details>
+                  )}
                 </>
               )}
             </>
@@ -205,8 +214,8 @@ function Tutorial({ onCerrar, pcsAntes, recargar, pasoInicial = 1 }: { onCerrar:
           )}
           {sinSesion === 'claude' && (
             <>
-              <p className="tci-nota">{sistema === 'windows' ? 'Tu computadora se conectó, pero no tiene Claude Code: vuelve a abrir el instalador de MaKo, que lo instala.' : 'Tu computadora se conectó, pero no tiene Claude Code instalado.'}</p>
-              <button type="button" className="tci-boton tci-boton--suave" onClick={() => setPaso(2)}>{sistema === 'windows' ? 'Volver a instalar (paso 2)' : 'Instalar Claude Code (paso 2)'}</button>
+              <p className="tci-nota">{sistema === 'windows' ? 'Tu computadora se conectó, pero no tiene Claude Code: vuelve a abrir el instalador de MaKo, que lo instala.' : 'Tu Mac se conectó, pero no tiene Claude Code: vuelve a abrir MaKo, que lo instala.'}</p>
+              <button type="button" className="tci-boton tci-boton--suave" onClick={() => setPaso(2)}>{sistema === 'windows' ? 'Volver a instalar (paso 2)' : 'Volver al paso 2'}</button>
             </>
           )}
           {sinSesion === 'sesion' && (
@@ -223,7 +232,16 @@ function Tutorial({ onCerrar, pcsAntes, recargar, pasoInicial = 1 }: { onCerrar:
                     <Copiar texto={LOGIN_CLAUDE.windows} />
                   </details>
                 </>
-              ) : <button type="button" className="tci-boton tci-boton--suave" onClick={() => setPaso(3)}>Iniciar sesión (paso 3)</button>}
+              ) : (
+                <>
+                  <p className="tci-nota">Vuelve a abrir MaKo: te ofrece iniciar la sesión de Claude en el navegador.</p>
+                  <details className="tci-respaldo">
+                    <summary>¿No funciona? Con la Terminal</summary>
+                    <p>{DONDE_PEGAR.mac}</p>
+                    <Copiar texto={LOGIN_CLAUDE.mac} />
+                  </details>
+                </>
+              )}
             </>
           )}
         </>

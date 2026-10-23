@@ -22,11 +22,12 @@ import {
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
-test('1. Windows: tres pasos sin terminal; la línea de comandos sólo plegada; la Mac como siempre', () => {
+test('1. Windows y Mac: tres pasos sin terminal; la línea de comandos sólo plegada', () => {
   assert.equal(AVISO_SMARTSCREEN, 'Si Windows dice «protegió su PC»: Más información › Ejecutar de todas formas.');
   const ui = sinComentarios(leer('app/integraciones/TusCuentasIA.tsx'));
   const tut = ui.slice(ui.indexOf('function Tutorial('), ui.indexOf('function SusClaves('));
-  assert.match(tut, /const pasos = sistema === 'windows' \? \[1, 2, 4\] : \[1, 2, 3, 4\];/);
+  // Desde la 0.4.2 también la Mac (MaKo.app): tres pasos, y la Terminal plegada.
+  assert.match(tut, /const pasos = \[1, 2, 4\];/);
   // Paso 2: descargar, con la UNA línea del aviso.
   const descargar = tut.slice(tut.indexOf("{paso === 2 && sistema === 'windows' && ("), tut.indexOf("{paso === 2 && sistema === 'mac' && ("));
   assert.match(descargar, /<a className="tci-boton" href="\/api\/ia-pc\/descargar\?os=windows">Descargar MaKo para Windows<\/a>/);
@@ -39,9 +40,10 @@ test('1. Windows: tres pasos sin terminal; la línea de comandos sólo plegada; 
   const fueraDelRespaldo = conectar.replace(respaldo, '');
   assert.doesNotMatch(fueraDelRespaldo, /DONDE_PEGAR|lineaDeInstalacion|COMANDO_CLAUDE|LOGIN_CLAUDE/, 'Windows pide abrir PowerShell fuera del respaldo');
   assert.match(respaldo, /<Copiar texto=\{lineaDeInstalacion\(window\.location\.origin, 'windows', codigo\)\} \/>/);
-  // Lo de la terminal (instalar Claude Code, el login) es SÓLO de la Mac: el paso 2 de la Mac y el 3, que Windows no tiene.
-  assert.equal((tut.match(/COMANDO_CLAUDE\[sistema\]/g) ?? []).length, 1);
-  assert.ok(tut.indexOf('COMANDO_CLAUDE[sistema]') > tut.indexOf("{paso === 2 && sistema === 'mac' && ("));
+  // Lo de la terminal (instalar Claude Code, el login, la línea de conectar) sólo dentro de un respaldo plegado: en Windows
+  // y en la Mac.
+  const sinRespaldos = tut.replace(/<details className="tci-respaldo">[\s\S]*?<\/details>/g, '');
+  assert.doesNotMatch(sinRespaldos, /COMANDO_CLAUDE|LOGIN_CLAUDE|lineaDeInstalacion|DONDE_PEGAR/, 'el tutorial pide abrir una terminal fuera de un respaldo');
   // Sin la sesión de Claude: en Windows, el enlace que la inicia sin terminal.
   assert.match(tut, /<a className="tci-boton" href="mako:\/\/iniciar-sesion">Iniciar sesión en Claude<\/a>/);
   // El aviso del chat sin la sesión de Claude no manda a un paso: en Windows el «paso 3» ya no existe (revisión de la 0.4.0).
@@ -51,14 +53,17 @@ test('1. Windows: tres pasos sin terminal; la línea de comandos sólo plegada; 
 });
 
 test('2. «Descargar» pide la sesión, baja el instalador con su nombre, y si falta lo dice', () => {
-  assert.equal(VERSION_PC, '0.4.1');
-  assert.equal(archivoDelInstalador(), 'mako-pc-0.4.1-windows-setup.exe');
-  assert.equal(nombreDelInstalador(), 'MaKo-Setup-0.4.1.exe');
+  assert.equal(VERSION_PC, '0.4.2');
+  assert.equal(archivoDelInstalador(), 'mako-pc-0.4.2-windows-setup.exe');
+  assert.equal(nombreDelInstalador(), 'MaKo-Setup-0.4.2.exe');
   const r = sinComentarios(leer('app/api/ia-pc/descargar/route.ts'));
   const get = r.slice(r.indexOf('export async function GET('));
   assert.ok(get.indexOf('await personaDelRequest()') > 0 && get.indexOf('await personaDelRequest()') < get.indexOf('createSignedUrl'), 'firma sin mirar la sesión');
   assert.match(get, /if \('error' in persona\) return texto\(persona\.error, persona\.status\);/);
-  assert.match(get, /\.createSignedUrl\(archivoDelInstalador\(\), 600, \{ download: nombreDelInstalador\(\) \}\)/);
+  // Windows, el instalador; la Mac (0.4.2), MaKo.app: cada uno con su nombre.
+  assert.match(get, /const archivo = os === 'mac' \? archivoDelInstaladorMac\(\) : archivoDelInstalador\(\);/);
+  assert.match(get, /\.createSignedUrl\(archivo, 600, \{ download: os === 'mac' \? nombreDelInstaladorMac\(\) : nombreDelInstalador\(\) \}\)/);
+  assert.match(get, /if \(os !== 'windows' && os !== 'mac'\) return texto\(/);
   assert.match(get, /nombre: 'IaPcFaltaInstalador'/, 'que falte el instalador pasa callado');
   assert.match(get, /return NextResponse\.redirect\(data\.signedUrl, 302\);/);
   assert.doesNotMatch(leer('lib/rutas-publicas.ts'), /ia-pc\/descargar/, 'la descarga quedó pública');
