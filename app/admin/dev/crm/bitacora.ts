@@ -3114,6 +3114,7 @@ export const BITACORA: Hito[] = [
       'El cobro de Ganado acepta todas las cuentas conectadas de Stripe y Mercado Pago, no sólo la principal.',
     ],
     commits: [
+      { sha: 'cd0feaab9', msg: '«Vincular evento»: la edición completa del evento, la cuenta al crear, y el cobro de Ganado con todas las cuentas', lineas: 825, archivos: 19 },
     ],
     archivos: [
       'app/crm/EventosDeEtapaModal.tsx — el formulario completo y la cuenta',
