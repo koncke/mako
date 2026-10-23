@@ -21,7 +21,9 @@
 // =============================================================================
 
 import 'server-only';
-import { getTenantDb, getWorkspaceActual } from '../workspace';
+import { revalidateTag } from 'next/cache';
+import { getTenantDb, getWorkspaceActual, wsSuperAdmin } from '../workspace';
+import { TAG_LANDING_MAKO } from './landing-mako';
 import { getSupabaseServer } from '../supabase';
 import { getUsuarioActual } from '../auth';
 import { urlPublicaLanding, urlVistaLanding } from '../app-url';
@@ -29,6 +31,7 @@ import { slugValido, rutaValida } from './doc';
 import { htmlDePagina } from './render';
 import { temaPorId, urlFuentes } from './temas';
 import { CSS_CONTENIDO } from './css';
+import { hojaDeDiseno, tieneEditables } from './html-editable';
 import { TEXTO_PIDE_CONTRASENA, fuentesHtmlLibre, pideContrasena } from './html-libre';
 import { productosDePago } from './pago-landing';
 import {
@@ -109,7 +112,7 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
  * (`productosDePago`): el POST de app/api/landing-generator/pagar no crea un cobro de nada que no
  * esté ahí. La vista previa deja el botón en `#` (el link privado no cobra).
  */
-function armarFoto(f: Pick<FilaDoc, 'id' | 'titulo' | 'contenido' | 'config' | 'version'>, propios: TemaPropio[], publicadoAt: string | null, urlBase: string | null, vista: string | null): FotoPublicada {
+export function armarFoto(f: Pick<FilaDoc, 'id' | 'titulo' | 'contenido' | 'config' | 'version'>, propios: TemaPropio[], publicadoAt: string | null, urlBase: string | null, vista: string | null): FotoPublicada {
   const donde = `${publicadoAt ? 'publicar' : 'vista previa'} #${f.id}`;
   const contenido = limpiarContenido(f.contenido, donde).contenido;
   const config = limpiarConfig(f.config, donde).config;
@@ -123,8 +126,18 @@ function armarFoto(f: Pick<FilaDoc, 'id' | 'titulo' | 'contenido' | 'config' | '
   });
   return {
     v: 1, paginas, css: CSS_CONTENIDO, fuentes: urlFuentes([tema]), config, version: f.version, publicadoAt, htmlLibre: fuentesHtmlLibre(publicables),
+    // «Diseño editable» (html-editable.ts): la base y la hoja del documento, congeladas con el HTML que las usa.
+    ...(tieneEditables(publicables) ? { cssDiseno: hojaDeDiseno(config.diseno?.css ?? '') } : {}),
     ...(publicadoAt !== null ? { pagos: productosDePago(publicables) } : {}),
   };
+}
+
+/**
+ * Las landings de MaKo (las del ws de la plataforma) se sirven también en hola-mako.com (landing-mako.ts), con
+ * caché: publicar, despublicar o pausar una vence esa caché, así el cambio se ve en la portada al momento.
+ */
+async function vencerLandingMako(ws: number): Promise<void> {
+  try { if (ws === await wsSuperAdmin()) revalidateTag(TAG_LANDING_MAKO, { expire: 0 }); } catch { /* vence por TTL (5 min) */ }
 }
 
 async function wsOFalla(): Promise<number | FallaHttp> {
@@ -195,6 +208,7 @@ export async function publicar(idRaw: unknown, versionRaw: unknown, slugRaw: unk
       await marcarPasoTab('landing-writer', 'lg_publicar');
     } catch { /* accesorio a la publicación (el paso es opcional y lo declara el catálogo de la tab) */ }
 
+    await vencerLandingMako(ws);
     const url = urlPublicaLanding(slug);
     console.log(`[editor-landing] publicada #${id} v${version} en ${url} (${foto.paginas.length} página(s))`);
     return { ok: true, url, slug, publicadoAt, version };
@@ -218,6 +232,7 @@ export async function despublicar(idRaw: unknown): Promise<Resultado<'despublica
       .update({ publicado: null, publicado_at: null, publicado_version: null })
       .eq('workspace_id', ws).eq('id', id).select('id');
     if (error) return falla(error.message, 500);
+    if ((data ?? []).length) await vencerLandingMako(ws);
     return (data ?? []).length ? { ok: true } : falla('No existe', 404);
   } catch (e) {
     return falla(msg(e), 500);
@@ -239,6 +254,7 @@ export async function sitioActivo(idRaw: unknown, valor: unknown): Promise<Resul
     const { data, error } = await db.from('landing_docs').update({ sitio_activo: activo })
       .eq('workspace_id', ws).eq('id', id).select('id');
     if (error) return falla(error.message, 500);
+    if ((data ?? []).length) await vencerLandingMako(ws);
     return (data ?? []).length ? { ok: true, sitioActivo: activo } : falla('No existe', 404);
   } catch (e) {
     return falla(msg(e), 500);

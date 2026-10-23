@@ -36,6 +36,7 @@ import type {
   ParamsGeneracion, TemaPropio, VersionResumen,
 } from './api-tipos';
 import { sanearContenido, sanearConfig, excedeTope } from './validar';
+import { sanearEditablesDe } from './html-editable-seguro';
 import { sanearTemaPropio } from './temas';
 import { specADoc } from './spec-a-doc';
 import { soltarDominioDeVercel } from './dominios';
@@ -184,7 +185,9 @@ function aResumen(f: FilaResumen): LandingResumen {
 export function limpiarContenido(raw: unknown, donde: string): { contenido: LandingContenido; descartes: number; grande: boolean } {
   const r = sanearContenido(raw);
   if (r.descartes.length) console.warn(`[editor-landing] ${donde}: el saneo descartó ${r.descartes.length}`, JSON.stringify(r.descartes.slice(0, 12)).slice(0, 2000));
-  return { contenido: r.contenido, descartes: r.descartes.length, grande: excedeTope(r) };
+  // El «Diseño editable» va en la página publicada sin iframe: su HTML lo sanea el server (html-editable-seguro.ts)
+  // en el MISMO paso que el resto, así lo guardado, lo abierto y lo publicado pasan por la misma puerta.
+  return { contenido: sanearEditablesDe(r.contenido), descartes: r.descartes.length, grande: excedeTope(r) };
 }
 
 export function limpiarConfig(raw: unknown, donde: string): { config: ConfigLanding; descartes: number } {
