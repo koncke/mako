@@ -2148,6 +2148,33 @@ corren todos los que aparecen.** Acá fueron unos 300 archivos con `--test-concu
 
 *23/10/2026 · chat «API de MaKo» (claude2) · tests y rotura en el worktree, tsc acotado sin errores propios, sin navegador.*
 
+## Vender un plan de MaKo por el chat: lo que mueve plata se confirma en pantalla (23/10/2026, auditoría P0-8)
+
+`vender_plan_mako` es «Vender un plan» de /admin/cobros por el chat del super admin. `crear_link_pago` no servía: exige un
+producto del catálogo y no pone `altaCapa`, así que al pagarse no se creaba la cuenta. Lo que queda para código nuevo:
+
+- **Lo que mueve plata va con `confirmacion: 'pantalla'`, `rolMinimo: 'admin'` y, si es de la plataforma,
+  `gating.soloPlataforma`; sin `'http'` si cobra.** Lo decidió el Cerebro ese día, corrigiendo la primera versión, que
+  se confirmaba por chat con la marca `plata`. El porqué: el precio lo tipea una persona y el link cobra eso, y en la
+  pantalla se puede corregir antes del «sí».
+- **En pantalla, lo que el resumen nombra como SUJETO va `fijoAlRevisar`**: acá el email y el plan. Corregirlos al
+  revisar le vendería otro plan a otra persona con el resumen que se confirmó. El monto sí se edita: es lo que se revisa.
+- **Un runner no llama server actions**: «Vender un plan» vivía adentro de `venderPlanAction` y se mudó a
+  `lib/vender-plan.ts` (`ventaValida`, `venderPlan`, `leadsDelComprador`). La action quedó con el super admin primero y el
+  `revalidatePath`, y delega. Cobros pidió no armar un segundo camino para crear un cobro con alta de cuenta.
+- **Lo que el camino de la pantalla rechazaría al confirmar, se rechaza en `preparar()`**: el workspace de la plataforma
+  (también en `ejecutar()`), dos leads con el mismo email (no elige uno a ciegas) y la pasarela (ninguna conectada, la
+  pedida no conectada, o dos sin decir cuál). Una pendiente reclamada no vuelve a «pendiente».
+- **El link lo escribe el código**: va a la persona (`paraLaPersona`) y en `datos.url`, que /mako/revisar dibuja como
+  botón. Nunca al resumen que lee el modelo.
+
+**Vive en:** `lib/vender-plan.ts` · `app/admin/cobros/actions.ts` (`venderPlanAction`) · `lib/api-mako/areas/cobros.def.ts` y
+`cobros.run.ts` (`vender_plan_mako`) · `tests/api-mako-vender-plan.test.ts` (6 roturas, cada una 1 fallo) ·
+`tests/admin-cobros.test.ts`
+
+*23/10/2026 · chat «API de MaKo» (claude2) · revisión propia con tres lentes (seguridad, corrección y contrato) en vez
+del Workflow, que la guardia de RAM no dejó correr; no encontró nada que frene.*
+
 ## «Toda capacidad nace en la API» es regla desde el 13/10, y la guarda que la hacía cumplir nunca llegó a main (23/10/2026)
 
 **El síntoma.** La auditoría del 23/10 contó 788 operaciones y **174 acciones de pantalla sin declarar** (14 P0, 85 P1, 75

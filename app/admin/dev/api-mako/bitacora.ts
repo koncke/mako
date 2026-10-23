@@ -387,6 +387,25 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
+    fecha: '23 oct', hora: '18:34', chat: 'API de MaKo', cuenta: 'claude2', sesion: 'local_bf3ab345-bd3e-47db-9345-28bb76ef29cd',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Vender un plan de MaKo por el chat',
+    puntos: [
+      'P0-8: el super admin puede crear desde el chat el link de pago de un plan. Al pagarlo, se crea la cuenta, igual que con «Vender un plan» de Cobros.',
+      'Usa el mismo camino que la pantalla, que se mudó a lib/vender-plan.ts.',
+      'Se confirma en pantalla, con el email y el plan fijos: lo que mueve plata va así, como decidió el Cerebro.',
+    ],
+    commits: [
+      { sha: '91390750', msg: 'API de MaKo: vender un plan de MaKo por el chat del super admin (P0-8 de la auditoría)', lineas: 429, archivos: 8 },
+      { sha: '7fa410a5', msg: 'API de MaKo: vender_plan_mako se confirma en PANTALLA, con el email y el plan fijos al revisar', lineas: 30, archivos: 3 },
+    ],
+    archivos: [
+      'lib/vender-plan.ts — ventaValida, venderPlan y leadsDelComprador',
+      'lib/api-mako/areas/cobros.def.ts + cobros.run.ts — vender_plan_mako',
+      'tests/api-mako-vender-plan.test.ts — probado rompiéndolo',
+    ],
+  },
+  {
     fecha: '23 oct', hora: '—', chat: 'API de MaKo', cuenta: 'claude2', sesion: 'local_bf3ab345-bd3e-47db-9345-28bb76ef29cd',
     actor: 'claude', tipo: 'correccion',
     titulo: 'La guarda de cobertura del 13/10 nunca llegó a main',
