@@ -11,7 +11,7 @@
 // =============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { computadorasAction, creditoApiAction, fotoCentroAction, pushesCentroAction, turnosCentroAction } from '@/app/admin/operaciones/acciones';
+import { computadorasAction, creditoApiAction, fotoCentroAction, pedidosDelChatAction, pushesCentroAction, turnosCentroAction } from '@/app/admin/operaciones/acciones';
 import { leerBandejaAction } from '@/app/tickets/bandeja/acciones';
 import { LECTURAS_CENTRO, type LecturaCentro } from '@/app/admin/operaciones/lectura-centro';
 
@@ -25,6 +25,8 @@ const LEER: Record<LecturaCentro, (req: NextRequest) => Promise<unknown>> = {
   bandeja: (req) => leerBandejaAction(req.nextUrl.searchParams.get('vista') === '1'),
   // Los chats (`l`, repetido) y la dirección del chat (`dir`) para su borrador y sus marcas.
   turnos: (req) => turnosCentroAction(req.nextUrl.searchParams.getAll('l'), req.nextUrl.searchParams.get('dir') ?? undefined),
+  // Los pedidos terminados viejos de un chat (`id`, repetido), al abrirlo.
+  pedidos: (req) => pedidosDelChatAction(req.nextUrl.searchParams.getAll('id')),
 };
 
 export async function GET(req: NextRequest) {

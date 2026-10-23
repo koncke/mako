@@ -22,6 +22,15 @@ antes: la causa del 7 y el arreglo de la caja (sacándole el `0px` al campo: 40 
    de datos.ts y, cuando esto esté en main, el loader del grafo en ChatSecondBrain.tsx.
 4. Un link `/second-brain?ticketera=tickets` en el teléfono del cliente no abre su Ticketera (lib/movil-rutas.ts).
 
+**Ya en producción (c0b47d416), recorrido con el ws10 en la computadora: todo bien.** La Ticketera directo por el link, con la
+estrella y el botón de lista; «Second Brain» desde la Ticketera abre el grafo; Automations con «Pídele un cambio» centrado. Sin
+ver: el teléfono (`/m` sale del user-agent y Chrome no lo cambia) y el Uso del super admin; los mira Martín. Dos detalles chicos:
+cerrar la Ticketera con el ícono de la barra de la app deja el panel en el último chat aunque la URL diga /second-brain.
+
+**Después (punta de los pedidos):** /admin/operaciones ya no manda los 455 pedidos (733 KB) en cada carga, sino 47 (96 KB); lo
+terminado viejo de un chat se trae al abrirlo (docs/hallazgos-operaciones.md, «733 KB de pedidos en cada carga»). Sin mirar en
+pantalla: lo ve Martín abriendo un chat viejo del Centro (su historial tiene que salir entero, como antes).
+
 ## 23/10 mañana (claude1, chat «Centro de Operaciones», `local_5cc6190d…`): las fotos en cualquier dispositivo
 
 Lo tomé por el pedido del Cerebro («si quedó algo abierto de las últimas vueltas, el WhatsApp de verdad, las fotos, el Uso, eso

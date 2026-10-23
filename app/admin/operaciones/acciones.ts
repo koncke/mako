@@ -19,7 +19,8 @@ import {
   cancelarPedido, crearTokenCartero, encolarPedido, leerCarteros, listarPedidos, trabajoDeLaCola,
   type EstadoCarteros, type Pedido,
 } from '@/lib/operaciones';
-import { leerPushes, type LecturaPushes } from '@/lib/progreso';
+import { areasDeProgreso, leerPushes, type LecturaPushes } from '@/lib/progreso';
+import { TOPE_PEDIDOS_POR_LECTURA, pedidosDelCentro, type PedidoP } from '@/lib/progreso-reglas';
 import { leerDecisiones } from '@/lib/admin-decisiones';
 import type { DecisionEspera, YaVistos } from '@/lib/centro-chats';
 import { leerYaVistosDe, marcarYaVistoDe } from '@/lib/centro-ya-vistos-db';
@@ -75,6 +76,20 @@ export async function fotoCentroAction(): Promise<FotoCentro> {
   try {
     const [pedidos, carteros, decisiones, preguntasAbiertas, cuentas, pasos, ultimos, yaVistos] = await Promise.all([listarPedidos(), leerCarteros(), decisionesQueEsperan(), leerAbiertas(), leerCuentasConNombre(), leerPasos(), leerUltimosTurnos(), leerYaVistosDe()]);
     return { ok: true, pedidos, carteros, decisiones, preguntasAbiertas, cuentas, pasos, ultimos, yaVistos };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+/** Los pedidos terminados viejos de UN chat, al abrirlo (23/10/2026): la carga ya no los trae (lib/progreso-reglas.ts →
+ *  pedidosDeLaCarga). Por id, recortados como todos (`pedidosDelCentro`). */
+export async function pedidosDelChatAction(ids: string[]): Promise<{ ok: true; pedidos: PedidoP[] } | { ok: false; error: string }> {
+  const admin = await getSesionAdmin();
+  if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
+  if (!Array.isArray(ids)) return { ok: false, error: 'Faltan los pedidos.' };
+  const pedir = new Set(ids.filter((x): x is string => typeof x === 'string').slice(0, TOPE_PEDIDOS_POR_LECTURA));
+  try {
+    return { ok: true, pedidos: pedidosDelCentro(areasDeProgreso(), Date.now()).filter((p) => pedir.has(p.id)) };
   } catch (e) {
     return { ok: false, error: msg(e) };
   }

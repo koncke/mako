@@ -7,6 +7,23 @@ del código.
 
 ---
 
+## 733 KB de pedidos en cada carga: la historia no se recorta, se trae al abrir su chat (23/10/2026)
+
+- **Síntoma** (medido por Rendimiento): /admin/operaciones mandaba en cada carga los 455 pedidos de todas las fechas, 733 KB.
+  La lista de chats, que es lo que parecía pesado, son 49 KB.
+- **La salida obvia era la equivocada:** bajar `DIAS_HISTORIAL` (3.650 días). Esa ventana la pidió Martín el 16/10 («traer
+  mayor historial»), y la lista la necesita entera para saber qué chats hubo. Lo pesado era otra cosa: mandarle al
+  navegador lo TERMINADO, que sólo se dibuja en la conversación de su chat (`historialDelChat`). El segundo renglón, los
+  «Completado» y «en qué trabaja» salen de los turnos y de lo que está en curso.
+- **Regla:** la lista se arma con todos en el servidor; a la pantalla viaja lo sin terminar y lo terminado de los últimos 2
+  días (`pedidosDeLaCarga`: 47 pedidos, 96 KB), y lo viejo de un chat se pide por GET al abrirlo (`pedidosDelChatAction`,
+  `?que=pedidos`, con la guarda de `puedeOperar`).
+
+**Vive en:** `lib/progreso-reglas.ts` · `app/admin/operaciones/datos.ts` · `app/m/operaciones/page.tsx` · `useCentro.ts` (`mirar`) ·
+`acciones.ts` · `app/api/operaciones/lectura/route.ts` · `tests/centro-pedidos-carga.test.ts`
+
+---
+
 ## La Ticketera del cliente, la barra que «no hace nada», el Uso que salta y la caja con el texto bajo (23/10/2026)
 
 Cuatro pedidos de Martín mirando la vista de un cliente (`/second-brain?chat=40`), medidos en producción con la sesión del ws10.

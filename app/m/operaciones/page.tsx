@@ -29,7 +29,7 @@ import { conWs } from '@/lib/ws-tab';
 import { puedeOperar } from '@/lib/operaciones-reglas';
 import { leerCarteros, listarPedidos } from '@/lib/operaciones';
 import { areasDeProgreso } from '@/lib/progreso';
-import { DIAS_HISTORIAL, pedidosDelCentro } from '@/lib/progreso-reglas';
+import { DIAS_HISTORIAL, pedidosDeLaCarga, pedidosDelCentro } from '@/lib/progreso-reglas';
 import { chatsDeBitacoras } from '@/lib/centro-chats';
 import { leerDecisiones } from '@/lib/admin-decisiones';
 import { leerMunecos } from '@/lib/centro-munecos-db';
@@ -92,7 +92,8 @@ export default async function CentroOperacionesMovil({ searchParams }: { searchP
     preguntasAbiertasIniciales: abiertas,
     cuentasIniciales: cuentas,
     ultimosIniciales: ultimos,
-    pedidos,
+    // Lo terminado viejo se pide al abrir su chat, como en la computadora (pedidosDeLaCarga).
+    pedidos: pedidosDeLaCarga(pedidos, ahora),
     ahora,
     sub: admin.sub,
     responder: responderDecision,
