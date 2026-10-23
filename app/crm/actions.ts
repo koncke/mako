@@ -1990,7 +1990,7 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
     email: String(f?.email ?? '').trim().slice(0, 200),
     telefono: String(f?.telefono ?? '').trim().slice(0, 60),
     empresa: String(f?.empresa ?? '').trim().slice(0, 200),
-    // El @ de Instagram (lo trae la prospección; el CSV no lo lee). Con la MISMA regla que la
+    // El @ de Instagram (lo trae la prospección, y el CSV o la planilla con una columna de Instagram). Con la MISMA regla que la
     // ficha: lo que no es un usuario no viaja, y un link al perfil queda en el usuario.
     instagram: usuarioInstagram(typeof f?.instagram === 'string' ? f.instagram.slice(0, 200) : null) ?? '',
     incluir: f?.incluir === true,

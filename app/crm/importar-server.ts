@@ -26,7 +26,7 @@ import { CASCADA_DOCS, MODELO_DOCS, chatCheapCascade } from '@/lib/ai-cheap';
 import { getTenantDb } from '@/lib/workspace';
 import { leerPorPaginas } from '@/lib/supabase-paginado';
 import {
-  MAX_FILAS_IMPORT, buscarTelefono, clavesDeTelefono, esCsv, esPlanilla, esPlanillaLeible, filasDesdeCsv, filasDesdePlanilla, MENSAJE_PLANILLA, recalcular,
+  MAX_FILAS_IMPORT, buscarTelefono, claveInstagram, clavesDeTelefono, esCsv, esPlanilla, esPlanillaLeible, filasDesdeCsv, filasDesdePlanilla, MENSAJE_PLANILLA, recalcular,
   type FilaImport,
 } from './leads-importar';
 
@@ -123,7 +123,10 @@ export async function indiceContactos(): Promise<IndiceContactos> {
           const { exacta, sufijo } = clavesDeTelefono(r.telefono || r.telefono_normalizado || '');
           if (exacta) anotar(tels, exacta, r.id);
           if (sufijo) anotar(telsSufijo, sufijo, r.id);
-          if (r.instagram?.trim()) anotar(igs, r.instagram.trim().toLowerCase(), r.id);
+          // Con la MISMA llave que las filas del archivo (`claveInstagram`): `createLead` guarda el @ tal
+          // como llega, así que una ficha que alguien escribió «@Ana_Lopez» no se puede quedar sin matchear.
+          const ig = claveInstagram(r.instagram);
+          if (ig) anotar(igs, ig, r.id);
         }
       },
     );
@@ -160,7 +163,7 @@ export async function marcarExistentes(filas: FilaImport[]): Promise<FilaImport[
     // El teléfono lo decide `buscarTelefono` (exacto primero, sufijo después), que vive
     // sin `server-only` en ./leads-importar para que la COMPARACIÓN tenga test.
     const porTel = buscarTelefono({ exactos: tels, sufijos: telsSufijo }, f.telefono);
-    const ig = (f.instagram ?? '').trim().toLowerCase();
+    const ig = claveInstagram(f.instagram);
     const porIg = ig && igs.has(ig) ? igs.get(ig) ?? null : undefined;
     const apuntan = [porEmail, porTel, porIg].filter((v) => v !== undefined);
     const unico = apuntan.length && apuntan.every((v) => v != null && v === apuntan[0])
