@@ -157,6 +157,19 @@ export function tieneLink(p: PasoConPartes): boolean {
   return partesDe(p).some((x) => x.tipo === 'texto' && RE_LINK.test(x.cuerpo));
 }
 
+/**
+ * EL PRIMER LINK de los textos del mensaje (23/10/2026): el que WhatsApp convierte en tarjeta, y el que muestra la tarjeta
+ * con su X en el editor. Un dato que es un link (`{{reunion_link}}`) vale como link. null = no hay.
+ */
+export function primerLink(p: PasoConPartes): string | null {
+  for (const x of partesDe(p)) {
+    if (x.tipo !== 'texto') continue;
+    const m = /(?:https?:\/\/|www\.)[^\s]+|\{\{\s*[a-z_]*link[a-z_]*\s*\}\}/i.exec(x.cuerpo);
+    if (m) return m[0];
+  }
+  return null;
+}
+
 /** Lo que este módulo lee de un paso. El resto viaja intacto. */
 export type PasoConPartes = {
   canal?: string | null;

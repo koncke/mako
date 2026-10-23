@@ -26,10 +26,10 @@ export async function getConfigAutomatizacionAction(secuenciaId: number): Promis
   config: ConfigAutomatizacion;
   /** El horario del negocio (el que vale sin uno propio). null = sin horario. */
   horarioNegocio: HorarioEnvio | null;
-  /** Las horas entre dos mensajes a la misma persona del negocio, por canal. */
-  personaNegocio: { whatsapp: number; email: number };
   /** Los topes de WhatsApp de la LÍNEA (el techo del goteo, lib/goteo.ts). */
   lineaWa: { dia: number; hora: number };
+  /** El tope por día de email de la LÍNEA (el techo del goteo del email). */
+  lineaEmailDia: number;
   zona: string;
   puedeEditar: boolean;
 }> {
@@ -45,15 +45,15 @@ export async function getConfigAutomatizacionAction(secuenciaId: number): Promis
   const limites = limitesVigentes(rawLimites, limitesDeFabrica(process.env));
   return {
     config, horarioNegocio: horarioVigente(rawHorario),
-    personaNegocio: { whatsapp: limites.wa.personaHoras, email: limites.email.personaHoras },
     lineaWa: { dia: limites.wa.dia, hora: limites.wa.hora },
+    lineaEmailDia: limites.email.dia,
     zona, puedeEditar: rol === 'admin',
   };
 }
 
 /**
- * Un cambio: `{ horario }` (`null` = el del negocio), `{ personaHoras: { whatsapp?, email? } }` (`null` = los del negocio)
- * y/o `{ goteo: { minutos?, dia? } }` (`null` = sin goteo).
+ * Un cambio: `{ horario }` (`null` = el del negocio) y/o `{ goteo: { minutos?, dia? } }` y `{ goteoEmail: { minutos?, dia? } }`
+ * (`null` = sin goteo).
  */
 export async function saveConfigAutomatizacionAction(secuenciaId: number, cambio: unknown): Promise<{ ok: boolean; error?: string; config?: ConfigAutomatizacion }> {
   const rol = await requireSesion();

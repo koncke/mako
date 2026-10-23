@@ -3,7 +3,7 @@
 // =============================================================================
 // Lo puro, y el porqué entero, en lib/por-que-no-sale.ts. Acá se lee UNA vez por pedido (un tablero del CRM, la ficha, el
 // lienzo, el historial al inscribirse) con las MISMAS lecturas que el motor: el horario del negocio y el de cada
-// automatización, la zona, el envío de WhatsApp, las líneas, los topes y lo que ya salió, «Misma persona» y el último
+// automatización, la zona, el envío de WhatsApp, las líneas, los topes y lo que ya salió y el último
 // intento que falló. Si algo no se puede leer, no se dice nada (undefined): «no pude leer» no es «nada lo frena», pero
 // tampoco se le inventa un motivo al lead.
 //
@@ -16,7 +16,7 @@ import { getTenantDb, getWorkspaceActual } from './workspace';
 import { getSettingEstricto } from './settings';
 import { KEY_HORARIO_ENVIO, horarioVigente } from './horario-envio';
 import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes } from './limites-envio';
-import { horarioDeLaAutomatizacion, personaHorasDeLaAutomatizacion } from './config-automatizacion';
+import { horarioDeLaAutomatizacion } from './config-automatizacion';
 import { configsDelNegocio } from './config-automatizacion-db';
 import { zonaDelNegocioEstricta } from './timezone';
 import { envioWhatsappHabilitado } from './envio-flags';
@@ -25,7 +25,6 @@ import { leerTodo, type ConsultaPaginada } from './supabase-paginado';
 import { enTandas } from './ids-con-filas';
 import { porQueNoSale, type ContextoDelEnvio } from './por-que-no-sale';
 import { indiceActual, esHiloDelCarril, esTarjetaMako } from './nutricion-grafo-motor';
-import { reunionFuturaMs, type JuntasLead } from './nutricion-reinscripcion';
 import { esperaQueAbra } from './mako-tarjeta';
 import { lineaDelPaso } from './mensaje-partes';
 import { idDe, type PasoGrafo } from './flujo-grafo';
@@ -34,8 +33,6 @@ import type { FilaAutomatizacion, FilaInscripcion, FrenoDeFila } from './automat
 /** Lo de una inscripción que hace falta para su último fallo (`id`: el de la fila de `nutricion_inscripciones`). */
 type ConId = FilaInscripcion & { id?: number | null };
 
-/** Con la reunión a menos de esto, «Misma persona» baja a 3 h (lib/nutricion.ts, `HS_REUNION_CERCA`): no se dice. */
-const HS_REUNION_CERCA = 48;
 
 type Intento = { id: number; inscripcion_id: number | null; nodo_id: string | null; error: string | null; estado: string; created_at: string };
 
@@ -64,35 +61,16 @@ export async function frenosDelNegocio(filas: readonly ConId[], secs: readonly F
     const limites = limitesVigentes(limitesCrudos, limitesDeFabrica(process.env));
     const ctx: ContextoDelEnvio = { ahoraMs, tz, whatsappPrendido: waOn, linea: { dia: limites.wa.dia, usadoDia: uso.waDia, hora: limites.wa.hora, usadoHora: uso.waHora } };
 
-    // El último WhatsApp de cada lead («Misma persona»), su reunión (si está encima, «Misma persona» baja a 3 h) y el último
-    // intento de cada inscripción (un fallo NO avanza: lo que falló sigue siendo la tarjeta en la que está).
+    // El último intento de cada inscripción en 24 h (un fallo NO avanza: lo que falló sigue siendo la tarjeta en la que está).
+    // (Hasta el 23/10/2026 se leía además el último WhatsApp de cada lead y su reunión, para «Misma persona», que se fue.)
     const db = await getTenantDb();
     const leads = [...new Set(vivas.map((f) => Number(f.lead_id)))];
-    const horas = Math.max(0, ...secs.map((s) => personaHorasDeLaAutomatizacion(configs.get(Number(s.id)) ?? {}, limites).whatsapp));
-    const desde = new Date(ahoraMs - Math.max(horas, 24) * 3600_000).toISOString();
-    const ultimoWa = new Map<number, number>();
-    const anotar = (lead: number, ms: number) => { if (Number.isFinite(ms) && ms > (ultimoWa.get(lead) ?? 0)) ultimoWa.set(lead, ms); };
-    const reunionCerca = new Set<number>();
+    const desde = new Date(ahoraMs - 24 * 3600_000).toISOString();
     const intentos: Intento[] = [];
     for (const tanda of enTandas(leads, 200)) {
-      const [nutri, espejo, juntas, envios] = await Promise.all([
-        leerTodo<{ lead_id: number; created_at: string }>(db, 'nutricion_envios', 'id, lead_id, created_at', {
-          orden: 'id', filtros: (q) => q.in('lead_id', tanda).eq('canal', 'whatsapp').in('estado', ['enviado', 'simulado']).gte('created_at', desde) as ConsultaPaginada,
-        }),
-        leerTodo<{ lead_id: number; wa_timestamp: string }>(db, 'wa_mensajes', 'id, lead_id, wa_timestamp', {
-          orden: 'id', filtros: (q) => q.in('lead_id', tanda).eq('from_me', true).gte('wa_timestamp', desde) as ConsultaPaginada,
-        }),
-        leerTodo<{ id: number } & JuntasLead>(db, 'leads', 'id, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at', {
-          orden: 'id', filtros: (q) => q.in('id', tanda) as ConsultaPaginada,
-        }),
-        leerTodo<Intento>(db, 'nutricion_envios', 'id, inscripcion_id, nodo_id, error, estado, created_at', {
-          orden: 'id', filtros: (q) => q.in('lead_id', tanda).gte('created_at', desde) as ConsultaPaginada,
-        }),
-      ]);
-      for (const e of nutri) anotar(Number(e.lead_id), Date.parse(e.created_at));
-      for (const m of espejo) anotar(Number(m.lead_id), Date.parse(m.wa_timestamp));
-      for (const l of juntas) { const ms = reunionFuturaMs(l, ahoraMs); if (ms != null && ms - ahoraMs <= HS_REUNION_CERCA * 3600_000) reunionCerca.add(Number(l.id)); }
-      intentos.push(...envios);
+      intentos.push(...await leerTodo<Intento>(db, 'nutricion_envios', 'id, inscripcion_id, nodo_id, error, estado, created_at', {
+        orden: 'id', filtros: (q) => q.in('lead_id', tanda).gte('created_at', desde) as ConsultaPaginada,
+      }));
     }
     // El ÚLTIMO intento de cada inscripción (por id, el más nuevo primero): si salió después de fallar, ya no está frenada.
     const fallos = new Map<number, { error: string; at: number; nodo: string | null }>();
@@ -122,10 +100,9 @@ export async function frenosDelNegocio(filas: readonly ConId[], secs: readonly F
       return porQueNoSale({
         proximoEnvioAt: f.proximo_envio_at, automatizacionActiva: s.activa === true, canal, hayLinea,
         horario: horarioDeLaAutomatizacion(c, hNeg),
-        mismaPersona: { horas: personaHorasDeLaAutomatizacion(c, limites).whatsapp, ultimoMs: ultimoWa.get(Number(f.lead_id)) ?? null },
         ultimoFallo,
         correFueraDeHorario: carril || makoIgual,
-        sinAntiBan: carril || reunionCerca.has(Number(f.lead_id)),
+        sinAntiBan: carril,
       }, ctx);
     };
   } catch (e) {
