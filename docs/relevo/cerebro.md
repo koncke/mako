@@ -42,23 +42,20 @@ quedó en `integracion` creyendo que Actions lo subía. Después de cada push, `
 el 23/10, entre las 11:56 y las 12:02. Con la ventana arriba del 85 %, ni workflows ni tandas. Lo que está en el disco
 se commitea o se deja escrito antes; a Planes lo cortó con trabajo sin commitear.
 
-**Estado al escribir (23/10, ~13:00 ART, claude2):**
-- `main` = `cd3827f44`, en producción (Vercel Ready a las 12:40): el ws13 vuelve a avisar de cada lead (era medio emoji).
-- **Abiertos:** Cerebro, Runner, Cerebro › Integración, Automations (Opus), Planes, Cobros y Landings (Sonnet).
-- **En el tren de Integración:** Cobros `ac21e6b4b`, Planes `75e10a6ee` (trae bf60e15ef y cfcf01abd), Ops Center
-  `8e11ec65b`, Ventas `0c28ccf39`, Landings `web-diag-2310`, Offer `a5360e43c` y Chats de las tabs `256f46e07`.
-  Automations `701bba4a2` entra cuando re-corra el arnés.
-- **NO van todavía:** CRM `crm-b5-2310` @ `60bd69812` (después del 25/10: 2 rojos y 23 hallazgos; lleva adentro el port
-  `5badeda1a`) e IA16 `ia16-2210` @ `9cd361a5e` (retenida hasta el lunes 26/10: apaga la IA de ws1, ws3, ws21, ws22 y ws4).
-- ⚠️ **El `main` LOCAL del clon compartido** (`136ef8baa`) lleva `72abfb92c` y `d1dc59049`, viejos de Ventas, que chocan
-  con `0c28ccf39`. Ese main no se empuja nunca.
-- **Sin abrir**, porque su punta va en el tren o no tienen trabajo antes del lanzamiento (se reabren desde su relevo):
-  Ventas, Offer, Ops Center, Chats de las tabs, CRM e IA del cliente.
-- **Sin commitear, que no se toca:** `C:/dev/wt-planes-sp` (Calendly con `--ws`), `C:/dev/wt-aut-au2b` (AU2, punto 2) y
-  el arnés del chat de MaKo (en `wt-aut-chat2`, `wt-aut-ui` y `wt-aut-arnes`; fuera de main).
+**Estado al escribir (23/10, ~15:10 ART, claude2):**
+- `main` = `3e8462653`, en producción. Dos trenes del día:
+  - **309c54ef4:** Cobros (el primer cobro real), Planes (/planes sin pasarela, partner en la agenda, Calendly), Ops Center (fotos), Landings (Diagnóstico y carruseles), Offer (Ángulos), Chats de las tabs (grafo), el seguimiento detrás de «No contestó» y este relevo.
+  - **3e8462653:** el anti-ban por automatización, con `misma-persona-propia.mts --aplicar` corrido (510 filas, el antes igual al después), la tarjeta de MaKo sin desplegables, el chat del costado, las 8 tarjetas de la revisión, la limpieza de automatizaciones (374 archivadas) y Ads Manager con la cuenta que lee. Martín verificó la #289.
+- **Próximo tren** (Integración, sin apuro): Ads Manager `4ce368228` («Cuenta Cuenta 2») y Automations `e3253d518` (el null de FlujoLienzo:392).
+- **Abiertos:** Cerebro, Runner, Integración, Automations, Automations › Limpieza, Planes, Cobros, Landings y Ads Manager. Martín pidió NO archivar ninguno todavía.
+- **NO van todavía:** CRM `crm-b5-2310` @ `60bd69812` (después del 25/10) e IA16 `ia16-2210` @ `9cd361a5e` (lunes 26/10).
+- **Ventas** `0c28ccf39` da rojo en `tests/crm-tarjeta-personalizable.test.ts`: queda una tarjeta para reabrir su chat (task_69fc20ed). ⚠️ El `main` LOCAL del clon compartido lleva `72abfb92c`/`d1dc59049` viejos de Ventas: no se empuja nunca.
+- **Sábado 24:** Automations mide la primera hora de la campaña de Mauricio (#289, goteo de 5 min y que «Contestó» corte) y, cuando entre un lead nuevo del ws13 y avise, manda los dos mensajes a su grupo: el aviso de arreglo y los 10 leads sin aviso, nombres escritos por el código.
+- **Mauricio, Ads Manager:** sus campañas de Sergio (ws20), Patricia (ws22) y Florencia (ws21) no existen en las cuentas conectadas: quedaron como borrador o se crearon en otra cuenta. Florencia no conectó Meta. Espera que él diga en qué cuenta las creó.
+- **Decisiones del día que no se re-preguntan:** el «ya me llegó tu pago» de la #289 es a propósito (levantamuertos); una tarjeta no gana controles y cada canal es su tarjeta (AGENTS.md); la vista previa del link vive en Configuraciones porque la pidió Mauricio.
 
 **Espera a Martín, por lo que más duele:**
-1. El QR del WhatsApp de MaKo en `/whatsapp?ws=9`. Está muerto desde el 19/10 y sin él no sale ningún aviso a los grupos.
+1. El QR del WhatsApp de MaKo en `/whatsapp?ws=9`. Está muerto desde el 19/10: es la línea de venta del ws9. Los avisos a los grupos de los clientes salen por la «voz de MaKo», que está viva.
 2. Calendly en `/integraciones?ws=9`: el token de koncke y el nombre del evento de R1. Además, si su Calendly es pago,
    porque el webhook lo pide.
 3. La pasarela en `/integraciones?ws=9` y, con la tanda de Cobros en producción, la prueba de humo de
