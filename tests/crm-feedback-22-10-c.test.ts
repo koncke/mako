@@ -18,6 +18,7 @@
 //   · una hora de OTRO día contada como la de la reunión                                        → 6 / 1
 //   · «Entrar a la reunión» sin link                                                            → 6 / 1
 //   · la tarjeta con «Llamar» de vuelta                                                         → 6 / 1
+//   · la empresa del lead sin sacar el relleno «Sin empresa» (visto en el ws1 después del deploy)  → 6 / 1
 // Correr: node --import tsx --test tests/crm-feedback-22-10-c.test.ts
 // =============================================================================
 
@@ -146,6 +147,8 @@ test('3. la tarjeta: sin «Llamar» ni «WhatsApp», la misma en la computadora 
   const bloques = BOARD.slice(BOARD.indexOf('const bloquesDeReuniones = '), BOARD.indexOf('<main className="crm-hover"'));
   assert.ok(bloques.length > 500, 'no encontré el armado de las reuniones');
   assert.doesNotMatch(bloques, /Llamar|waDe\(|tel:/);
+  // «Sin empresa» es el RELLENO de `mapToCrmLead`, no un dato: la tarjeta decía «R2 · Sin empresa» (visto en el ws1 el 22/10).
+  assert.match(bloques, /empresa: \[l\?\.company, j\.company\]\.find\(\(x\) => x\?\.trim\(\) && x !== 'Sin empresa'\) \?\? null,/);
   assert.match(sinComentarios(leer('app/m/crm/TableroCrm.tsx')), /<ReunionesParaPreparar reuniones=\{\[\{/);
   assert.doesNotMatch(sinComentarios(leer('app/m/crm/TableroCrm.tsx')), /TarjetaDestacada/);
   // La hora y el link, desde la base hasta la tarjeta.
