@@ -165,7 +165,9 @@ export function primerLink(p: PasoConPartes): string | null {
   for (const x of partesDe(p)) {
     if (x.tipo !== 'texto') continue;
     const m = /(?:https?:\/\/|www\.)[^\s]+|\{\{\s*[a-z_]*link[a-z_]*\s*\}\}/i.exec(x.cuerpo);
-    if (m) return m[0];
+    // Sin la puntuación PEGADA al final («mirá https://x.com/a.» o «(www.x.com)»): WhatsApp tampoco la toma como parte del
+    // link. Sin esto, escribir un punto después del link lo «cambiaba» y la tarjeta que se había sacado volvía sola.
+    if (m) return m[0].startsWith('{{') ? m[0] : m[0].replace(/[.,;:!?)\]}'"»]+$/, '');
   }
   return null;
 }

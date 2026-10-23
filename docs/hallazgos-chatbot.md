@@ -204,6 +204,33 @@ tengan algo, grepear quién pregunta «¿tiene algo?». **Y el barrido de las al
 scripts/misma-persona-propia.mts · app/automations/ConfiguracionesBoton.tsx · tests/misma-persona-propia.test.ts.
 *23/10/2026, chat «Automations» (claude2).*
 
+### «Misma persona» se fue entera, y el «apagado» no estaba apagado (23/10/2026, más tarde)
+
+**El pedido:** Martín, «elimina "Misma persona"»; el Cerebro: si la pantalla no la muestra, el motor no la puede seguir
+aplicando (sería una regla escondida). Esto deja sin efecto la entrada de arriba: el «nacer apagada» y el script se fueron
+con ella. **El diagnóstico obvio («ponerla en 0 h para todas») era el equivocado:** una automatización con «Misma persona»
+APAGADA (0 h) igual frenaba 3 h a los leads con una reunión en las próximas 48 h, porque `leadsConEnvioReciente` partía los
+leads en dos ventanas y la de la reunión cercana (`HS_MIN_PREPARACION`) no miraba la configuración. Sacarla de verdad es
+sacar la VENTANA, no bajarla a cero. Queda el freno de la MISMA corrida (`frenadoPorAntiBan` con `enviadoEnCorrida`): dos
+mensajes al mismo lead en el mismo minuto no salen juntos. Eso no es una espera, es no mandar dos veces. Lo que cambió en
+producción: 19 automatizaciones activas tenían 20 h; desde el deploy, manda la espera de cada flujo. **Y «por qué no sale»
+mentía en otra cosa:** daba por libre de los topes de la línea a un lead con la reunión cerca (`sinAntiBan`), y el motor
+nunca lo eximió (`pasaPorAntiBan` sólo saltea el carril). **Regla:** apagar una regla del motor es buscar TODAS las ramas que
+la aplican, no el valor que la configura.
+**El goteo del Email destapó otra:** `sinLugar` no miraba el canal, así que el goteo de WhatsApp frenaba también al email
+de la misma automatización. Ahora cada canal frena con su goteo (`sinLugar(insc, canal)`, `goteoEmail`).
+**La vista previa del link:** se movió dos veces el mismo día, de la tarjeta a Configuraciones y de Configuraciones al
+mensaje. El lugar lo decía el pedido: «donde haya pegado el link». Quedó en el editor del WhatsApp, con su X, que es
+`sin_vista_previa` de ese mensaje. **Una trampa al detectar el link** (`primerLink`): con `\S+` se come la puntuación
+pegada («www.x.com.»), y como la tarjeta vuelve cuando el link cambia, escribir un punto después la hacía volver sola. Se
+recorta como lo hace WhatsApp, y no a los datos `{{…_link}}`.
+**Vive en:** lib/nutricion.ts (la ventana se fue; `goteosEmail`, `sinLugar`, `quedaFrenada`) · lib/config-automatizacion.ts ·
+lib/por-que-no-sale.ts · lib/mensaje-partes.ts (`primerLink`) · app/automations/FlujoLienzo.tsx (`VistaPreviaDelLink`) ·
+app/automations/ConfigAutomatizacionPanel.tsx · app/automations/FilasOpciones.tsx (`debajo`) ·
+tests/punto5-goteo-email-y-vista-link.test.ts. **Sin hacer:** `lib/limites-envio.ts` sigue teniendo `personaHoras` del
+negocio (tipos, rangos), y ya nadie lo lee.
+*23/10/2026, chat «Automations» (claude2).*
+
 ### La entrada es `raizSalida`, nunca `pasos[0]`, y el índice se traduce en UNA puerta [M, motor-10, lienzo-1]
 
 **Síntoma:** tres caras del mismo dato. Una inscripción que nunca avanzó (`paso_actual` 0,

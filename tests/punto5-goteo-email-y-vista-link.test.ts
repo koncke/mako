@@ -230,3 +230,15 @@ test('el editor del WhatsApp: la tarjeta del link con su X, que pone `sin_vista_
   // Sólo en el WhatsApp no oficial.
   assert.match(lienzo, /\{noOficial && <VistaPreviaDelLink paso=\{paso\} cambiar=\{cambiar\} \/>\}/);
 });
+
+test('el link sin la puntuación pegada (como WhatsApp), y Configuraciones lee una sola vez', () => {
+  // Sin esto, escribir un punto después del link lo «cambiaba» y la tarjeta que se había sacado volvía sola (23/10/2026).
+  assert.equal(primerLink({ cuerpo: 'mirá www.neg.com.' } as never), 'www.neg.com');
+  assert.equal(primerLink({ cuerpo: 'ver (https://x.com/a), dale' } as never), 'https://x.com/a');
+  assert.equal(primerLink({ cuerpo: 'https://x.com/a?b=1' } as never), 'https://x.com/a?b=1');
+  const panel = readFileSync(new URL('../app/automations/ConfigAutomatizacionPanel.tsx', import.meta.url), 'utf8');
+  assert.match(panel, /leerUnaVez\(secuenciaId\)/, 'el horario y los canales vuelven a leer cada uno por su lado');
+  // Fuera de `leerUnaVez`, nadie llama a la action directo.
+  const sinLaFuncion = panel.replace(/\r\n/g, '\n').replace(/function leerUnaVez[\s\S]*?\n\}\n/, '');
+  assert.doesNotMatch(sinLaFuncion, /getConfigAutomatizacionAction\(secuenciaId\)/);
+});

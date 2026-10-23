@@ -44,13 +44,28 @@ const SANS = "'Geist', sans-serif";
 
 type Leido = Awaited<ReturnType<typeof getConfigAutomatizacionAction>>;
 
-/** Lo leído, una vez, para las dos pestañas. */
+/**
+ * UNA SOLA LECTURA EN VUELO POR AUTOMATIZACIÓN (23/10/2026, «Rendimiento y loaders»): el horario y lo de cada canal montan
+ * `useConfig` a la vez, y las server actions de Next corren de a UNA por cliente: la segunda esperaba a la primera y se
+ * veían dos ruedas. Las dos esperan la misma promesa.
+ */
+const enVuelo = new Map<number, Promise<Leido>>();
+function leerUnaVez(secuenciaId: number): Promise<Leido> {
+  let p = enVuelo.get(secuenciaId);
+  if (!p) {
+    p = getConfigAutomatizacionAction(secuenciaId).finally(() => enVuelo.delete(secuenciaId));
+    enVuelo.set(secuenciaId, p);
+  }
+  return p;
+}
+
+/** Lo leído, una vez, para las dos partes de la pantalla. */
 function useConfig(secuenciaId: number) {
   const [d, setD] = useState<Leido | null>(null);
   const [error, setError] = useState('');
   useEffect(() => {
     let vivo = true;
-    getConfigAutomatizacionAction(secuenciaId)
+    leerUnaVez(secuenciaId)
       .then((x) => { if (vivo) setD(x); })
       .catch(() => { if (vivo) setError('No pude leer la configuración.'); });
     return () => { vivo = false; };
