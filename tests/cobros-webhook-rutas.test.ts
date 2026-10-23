@@ -56,7 +56,9 @@ for (const [nombre, src] of [['stripe', STRIPE], ['mercadopago', MP]] as const) 
     assert.equal((src.match(new RegExp(`responderFalloDeRuteo\\('${nombre}', err, `, 'g')) ?? []).length, 1, 'el fallo del ruteo y del secreto va por responderFalloDeRuteo');
     const bloque = src.slice(src.indexOf('try {', src.indexOf('let secreto')), src.indexOf(`responderFalloDeRuteo('${nombre}'`));
     assert.match(bloque, /wsPorIdentificadorEstricto\(/, 'el ruteo tiene que estar en el try del clasificador');
-    assert.match(bloque, /credWsEstricta\('(?:STRIPE|MERCADOPAGO)_WEBHOOK_SECRET', ws\)/, 'el secreto tiene que leerse estricto y del ws ruteado, en el mismo try');
+    // Varias cuentas por proveedor (22/10/2026): el secreto es el de LA cuenta del identificador, resuelta en el mismo try.
+    assert.match(bloque, /cuentaDeIdentificador\(ws, '(?:stripe|mercadopago)', /, 'la cuenta del aviso tiene que resolverse en el try del clasificador');
+    assert.match(bloque, /credWsEstricta\(claveDeCuenta\('(?:STRIPE|MERCADOPAGO)_WEBHOOK_SECRET', cuenta\), ws\)/, 'el secreto tiene que leerse estricto y del ws ruteado, en el mismo try');
   });
 
   test(`${nombre}: UNA sola declaración de ws, cortada si es null antes de procesar`, () => {
@@ -111,7 +113,7 @@ test('la relectura de MP exige que el pago lo haya COBRADO la cuenta del negocio
   // en otro comercio podría marcar pagado un cobro.
   assert.match(WEBHOOK, /if \(p\.cobradorId !== cuenta\) return lecturaIgnorada\(/);
   assert.match(WEBHOOK, /if \(s\.cobradorId !== cuenta\) return lecturaIgnorada\(/);
-  assert.match(WEBHOOK, /credPasarela\('MERCADOPAGO_USER_ID', ws\)/);
+  assert.match(WEBHOOK, /credPasarela\(claveDeCuenta\('MERCADOPAGO_USER_ID', cuentaMp\), ws\)/);
 });
 
 test('el cobro se busca SIEMPRE en el workspace ruteado, y la clave se lee sin el entorno', () => {

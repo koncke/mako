@@ -70,6 +70,13 @@ export function crearPostgrest(o: {
           return op === 'gte' ? c >= 0 : op === 'lte' ? c <= 0 : op === 'gt' ? c > 0 : c < 0;
         });
       }
+      // `.or('clave.like.STRIPE_SECRET_KEY*,…')` (22/10/2026, las cuentas de una pasarela): `*` es el `%` de PostgREST.
+      else if (k === 'or' && /^\(.+\)$/.test(v)) {
+        const partes = v.slice(1, -1).split(',').map((p) => { const [col, op, ...r] = p.split('.'); return { col, op, x: r.join('.') }; });
+        if (partes.some((p) => p.op !== 'like' && p.op !== 'eq')) throw new Error(`filtro sin mock: ${k}=${v}`);
+        const re = (x: string) => new RegExp(`^${x.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/_/g, '.').replace(/\*/g, '.*')}$`);
+        out.push((f) => partes.some((p) => (p.op === 'eq' ? String(f[p.col]) === p.x : re(p.x).test(String(f[p.col] ?? '')))));
+      }
       else throw new Error(`filtro sin mock: ${k}=${v}`);
     }
     return out;

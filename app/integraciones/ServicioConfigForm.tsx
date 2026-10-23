@@ -29,6 +29,7 @@ import { useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
 // Puro y sin `server-only` (lib/cobros-tipos.ts): se puede importar desde aquí sin arrastrar nada.
 import { esPasarela } from '@/lib/cobros-tipos';
+import CuentasDePago from './CuentasDePago';
 // ⚠️ `next/dynamic` con ssr:false, NO un import normal: es lo que saca su código
 // del bundle de los demás servicios. Un import estático lo volvería a meter.
 const GithubRepoPicker = dynamic(() => import('./GithubRepoPicker').then((m) => m.GithubRepoPicker), { ssr: false });
@@ -1085,6 +1086,16 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
           </button>
         );
       })()}
+
+      {/* Varias cuentas por proveedor (22/10/2026): la lista con su nombre, y conectar otra. La `key` la vuelve a leer
+          cuando la principal se conecta o se quita arriba. */}
+      {esPasarela(servicio.key) && (
+        <CuentasDePago
+          key={servicio.campos.find((c) => !c.auto && !c.opcional)?.configurado ? 'con-principal' : 'sin-principal'}
+          proveedor={servicio.key}
+          onCambio={() => { cargar(); onGuardado?.(); }}
+        />
+      )}
 
       {/* zIndex 310: el modal de /integraciones va en 300 y el confirm tiene que
           quedar ARRIBA (el default de 120 lo dejaría invisible por debajo). */}

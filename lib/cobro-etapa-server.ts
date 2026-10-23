@@ -43,6 +43,21 @@ const vinculoDeFila = (f: Record<string, unknown>): VinculoCobro => ({
 // Lecturas
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Las cuentas del vínculo de un producto («Vincular cobro»; un producto cobra en UN CRM). `crearCobro` cobra por una de
+ * ellas cuando nadie elige la cuenta: si no, el pago de un producto vinculado sólo a la segunda cuenta de Stripe saldría por
+ * la principal y nunca encontraría su vínculo. [] sin vínculo o sin la 0326; otro error tira (no se cobra a ciegas).
+ */
+export async function cuentasDelVinculoDelProducto(productoId: number): Promise<string[]> {
+  const { data, error } = await (await getTenantDb()).from('cobro_etapa_vinculos').select('cuentas').eq('producto_id', productoId).maybeSingle();
+  if (error) {
+    if (falta0326(error.message)) return [];
+    throw new Error(`No pude leer el vínculo del producto ${productoId}: ${error.message}`);
+  }
+  const cs = (data as { cuentas?: unknown } | null)?.cuentas;
+  return Array.isArray(cs) ? cs.filter((x): x is string => typeof x === 'string') : [];
+}
+
 /** Los vínculos de una etapa de un CRM. Tira si no puede leer (el modal dice el error, no «no hay»). */
 export async function vinculosDeEtapa(funnelId: number, etapa: string): Promise<VinculoCobro[]> {
   const { data, error } = await (await getTenantDb()).from('cobro_etapa_vinculos').select(COLS_VINCULO).eq('funnel_id', funnelId).eq('etapa', etapa).order('id');

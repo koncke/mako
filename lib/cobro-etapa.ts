@@ -59,7 +59,7 @@ export const NOMBRE_PROVEEDOR: Readonly<Record<ProveedorPago, string>> = { strip
 /** El id de la cuenta de siempre de un proveedor: la de las claves sin sufijo. */
 export const cuentaPrincipal = (p: ProveedorPago): string => `${p}:principal`;
 
-/** Las cuentas conectadas hoy: la principal de cada pasarela conectada (`pasarelasConectadas`, lib/cobros.ts). */
+/** La principal de cada pasarela conectada (antes de las varias cuentas; hoy el modal lee `cuentasDePago`). */
 export const cuentasDePasarelas = (conectadas: readonly ProveedorPago[]): CuentaPago[] =>
   conectadas.map((p) => ({ id: cuentaPrincipal(p), proveedor: p, nombre: NOMBRE_PROVEEDOR[p], principal: true }));
 
@@ -80,8 +80,12 @@ export function cuentasValidas(pedidas: readonly unknown[], conectadas: readonly
   return [...new Set(pedidas.filter((x): x is string => proveedorDeCuenta(x) != null && hay.has(x as string)))];
 }
 
-/** La cuenta por la que se cobró un cobro. Hoy cada proveedor tiene una (la principal): el cobro sólo dice el proveedor. */
-export const cuentaDelCobro = (c: { proveedor: ProveedorPago; cuenta?: string | null }): string => c.cuenta || cuentaPrincipal(c.proveedor);
+/**
+ * El id de la cuenta por la que se cobró un cobro. `cobros.cuenta` (mig 0328) guarda el SUFIJO (`c2`; NULL = la
+ * principal), y el vínculo el id (`stripe:c2`): sin armarlo, un pago de la segunda cuenta nunca encontraba su vínculo.
+ */
+export const cuentaDelCobro = (c: { proveedor: ProveedorPago; cuenta?: string | null }): string =>
+  c.cuenta ? `${c.proveedor}:${c.cuenta}` : cuentaPrincipal(c.proveedor);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Los productos

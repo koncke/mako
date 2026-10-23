@@ -3568,6 +3568,18 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   condición, el plan sólo si la venta es la de ese pago, y la cuota 0 se busca por número y monto. El trato se RECLAMA en
   el cobro antes de armarse (`trato_estado`): dos avisos a la vez no arman dos. Y lo que se asienta sale de lo que COBRÓ
   el link (`cobros.plan_producto`, congelado al crearlo), nunca del producto de hoy: se puede haber editado en el medio.
+- **Una pasarela puede tener VARIAS cuentas** (22/10/2026, mig 0328, lib/cuentas-integracion.ts): las claves de una llevan un
+  sufijo (`STRIPE_SECRET_KEY__C2`) y cada cobro anota la suya: el sufijo (`cobros.cuenta`; NULL = la principal) y su id EN
+  EL PROVEEDOR (`cobros.cuenta_ref`), que es lo que la identifica: lo que toca un cobro ya creado la busca con
+  `cuentaVivaDelCobro` (lib/cobros.ts), nunca por el sufijo, que cambia si la cuenta se reconecta. Las claves de UNA
+  cuenta se leen con `credStripeDe` / `credMpDe` (lib/cuentas-pago-server.ts) o `credDelCliente(claveDeCuenta(base, cuenta), ws)`,
+  nunca armando el nombre a mano. Lo que toca un cobro ya creado usa SU cuenta, y un aviso sólo aplica cobros de la cuenta
+  que lo mandó. Una protección o lista que pregunte por una clave de pasarela mira el nombre BASE (`baseDeClave`): por el
+  nombre exacto, la segunda cuenta quedaba afuera sin fallar (sin ruteo, al entorno del ws1). Y una cuenta nueva no reusa
+  un sufijo que nombre un cobro o un vínculo (`proximaCuentaDe`). Y una lectura que DECIDE sobre plata (de qué cuenta es
+  un aviso, qué ruteo se suelta) es ESTRICTA: `credWsEstricta` para tirar si no pudo leer; `credDelCliente` sola da null
+  ante un error, y ese null se lee como «de ninguna». [docs/hallazgos-pagos.md](docs/hallazgos-pagos.md),
+  tests/cuentas-pago.test.ts.
 
 # Un flag de visibilidad protege la PANTALLA; la API hay que cerrarla aparte
 

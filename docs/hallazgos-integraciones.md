@@ -1097,23 +1097,37 @@ fila del ws1 (`soloLasPropias` compara contra las filas de la plataforma) y la p
 
 **Vive en:** lib/ws-tab.ts (`wsDeVuelta`) · app/api/integraciones/meta/callback/ · app/api/integraciones/google-calendar/callback/ · tests/ws-vuelta-oauth.test.ts
 
-## Varias cuentas por pasarela: lo que ya está y la trampa de las claves por NOMBRE (22/10/2026)
+## Varias cuentas por pasarela: una cuenta es un SUFIJO, y todo lo que miraba el nombre exacto la dejaba afuera (22/10/2026)
 
-«Vincular cobro» (docs/hallazgos-pagos.md, mig 0326) nombra cada cuenta con un id estable (`stripe:principal`,
-`mercadopago:principal`). Hoy cada pasarela tiene UNA: la de las claves sin sufijo. Lo que se midió para sumar otra:
+Martín pidió dos cuentas de Stripe, dos de Mercado Pago (y dos de Calendly o Cal). Medido en el ws3: no se podía; hoy
+Stripe y MP sí (la agenda es la fase B, con el CRM). El modelo (lib/cuentas-integracion.ts): las claves de una cuenta
+llevan un sufijo (`STRIPE_SECRET_KEY__C2`; la principal, sin sufijo, como siempre), su nombre es otra clave
+(`STRIPE_ALIAS__C2`) y su id es `stripe:c2`. Lo que mordía, todo callado:
 
-- **Lo que ya sirve:** el aviso de Stripe trae la cuenta en la URL (`?acct=`, `urlAvisoStripe`), y `webhook_routing` ya
-  mapea cada identificador a su negocio (`wsPorIdentificadorEstricto`). Una segunda cuenta es un segundo identificador:
-  rutea sin cambios.
-- **Lo que falta:** las claves se guardan por NOMBRE (`credenciales.clave`). Una segunda cuenta necesita las suyas con un
-  sufijo, el webhook tiene que elegir el secreto de ESA cuenta (hoy lee `STRIPE_WEBHOOK_SECRET` del negocio), y el cobro
-  tiene que guardar por qué cuenta se cobró (`cuentaDelCobro`, lib/cobro-etapa.ts, cae en la principal).
-- **⚠️ La trampa:** las protecciones de las claves de pasarela son listas por nombre EXACTO. `NO_MIGRAR_A_WS` impide que
-  el arranque o «Datos de Mau» copien una clave que cobra a otro negocio, y `CLAVES_DE_PASARELA` impide leerlas del
-  entorno (lib/credenciales.ts; tests/pasarela-sin-env.test.ts barre los nombres). Una clave `STRIPE_SECRET_KEY__otra`
-  queda FUERA de las dos sin que nada falle. **La regla:** la segunda cuenta entra con la pregunta por prefijo
-  (`esClaveDePasarela` mirando el nombre base), no sumando nombres a la lista.
-- Calendly y Cal.com (también pedidos con «varias cuentas») no pasan por esto: son de la agenda, no cobran.
+- **Las protecciones por nombre EXACTO dejaban afuera a la segunda cuenta.** `NO_MIGRAR_A_WS`, `CLAVES_DE_PASARELA`
+  (`aplicarAEnv`: la clave del ws1 iba a `process.env`) y `ROUTING_CREDS`: `guardarCredencial` guardaba
+  `STRIPE_ACCOUNT_ID__C2` SIN reclamar su `acct`, y los avisos de esa cuenta no llegaban a ningún negocio. Ahora todas
+  preguntan por `baseDeClave(clave)`.
+- **Borrar el id de UNA cuenta cortaba los avisos de TODAS.** `eliminarCredencial` llamaba `borrarRoutingDeWs(servicio,
+  ws)`: todas las filas del servicio del negocio. Para Stripe y MP lee el valor antes de borrar y suelta sólo ESE
+  (`soltarIdentificador`). Calendly y Cal siguen con el viejo (su R1 y R2 se vuelven a reclamar después).
+- **Borrar el id de una cuenta que no descifra la dejaba reclamada para siempre:** el valor se lee antes de borrar para
+  soltar SU fila, y una fila ilegible daba null. Ahora se sueltan las filas del servicio que no son de otra cuenta del
+  negocio (`soltarRuteoSinCuenta`) — y si el id de alguna otra no se puede leer (estricta: la base caída tira), NO se
+  suelta nada: soltar de más corta los avisos de una cuenta que cobra, y a un cliente nadie le re-siembra el ruteo.
+- **La tarjeta decía «no conectada» con sólo una cuenta de más** (`integracionConectada` miraba los nombres exactos).
+- **El aviso de MP de una cuenta de más no tenía dónde pegarse** (el recuadro amarillo es de la tarjeta de la principal): va
+  en su fila, con la acción `aviso` de /api/integraciones/cuentas.
+- **La cuenta de un aviso se busca ESTRICTA** (`cuentaDeIdentificador`): con `credDelCliente` sola, la base caída daba
+  «de ninguna cuenta», MP releía con la principal, ignoraba el pago con un 200 y no volvía (MP no reintenta un 200).
+- **`like` en PostgREST: `*` es el `%`, y `_` también es comodín.** `clavesGuardadasConBase` trae `clave.like.STRIPE_SECRET_KEY*`
+  y filtra después por la base exacta: el `like` solo trae de más. tests/_postgrest-de-mentira.ts entiende `or=(…like…)`.
+- **Los barridos fijaban la lectura de la principal letra por letra** (`credDelCliente('STRIPE_SECRET_KEY', ws)`): con la
+  clave armada por `claveDeCuenta(`, un `credWs(claveDeCuenta('STRIPE_…'))` pasaba tests/pasarela-sin-env.test.ts. Su
+  prefijo ahora incluye `claveDeCuenta(`.
 
-**Vive en:** lib/credenciales.ts (`NO_MIGRAR_A_WS`, `CLAVES_DE_PASARELA`) · lib/cobros-conexion.ts · lib/webhook-routing.ts ·
-app/api/webhooks/stripe/route.ts · lib/cobro-etapa.ts (`cuentaPrincipal`, `cuentaDelCobro`).
+**Vive en:** lib/cuentas-integracion.ts (puro) · lib/cuentas-pago-server.ts (`cuentasDePago`, `credStripeDe`, `credMpDe`,
+`cuentaDeIdentificador`, `proximaCuentaDe`) · lib/credenciales.ts · lib/cobros-conexion.ts · app/api/integraciones/cuentas ·
+app/integraciones/CuentasDePago.tsx · tests/cuentas-pago.test.ts. Lo de la plata, en docs/hallazgos-pagos.md.
+**Sin hacer:** la fase B (varias cuentas de Calendly y Cal, y elegirla en «Asignar evento»): lib/agenda-evento-etapa-server.ts
+y la rama de agenda de `eliminarCredencial`, con el CRM.

@@ -106,7 +106,7 @@ test('Stripe: ruteo por ?acct= y secreto estrictos, y el fallo pasa por el clasi
   const src = ruta('stripe');
   assert.ok(!/\bcredWs\(|\bcredDelCliente\(|\benvCred\(/.test(src), 'el secreto de Stripe volvió a leerse con una lectura que traga el error');
   assert.match(src, /wsPorIdentificadorEstricto\('stripe', acct\)/);
-  assert.match(src, /credWsEstricta\('STRIPE_WEBHOOK_SECRET', ws\)/);
+  assert.match(src, /credWsEstricta\(claveDeCuenta\('STRIPE_WEBHOOK_SECRET', cuenta\), ws\)/);
   assert.equal((src.match(/responderFalloDeRuteo\('stripe'/g) ?? []).length, 1, 'el ruteo y el secreto tienen que fallar por el clasificador');
   assert.match(src, /acctDelWebhook\(req\.nextUrl\.searchParams\.get\('acct'\)\)/, 'sin tope de largo, un ?acct= gigante sin firmar anota un fallo por pedido');
 });
@@ -115,7 +115,7 @@ test('Mercado Pago: ruteo por user_id y secreto estrictos, y el fallo pasa por e
   const src = ruta('mercadopago');
   assert.ok(!/\bcredWs\(|\bcredDelCliente\(|\benvCred\(/.test(src), 'el secreto de Mercado Pago volvió a leerse con una lectura que traga el error');
   assert.match(src, /wsPorIdentificadorEstricto\('mercadopago', n\.userId\)/);
-  assert.match(src, /credWsEstricta\('MERCADOPAGO_WEBHOOK_SECRET', ws\)/);
+  assert.match(src, /credWsEstricta\(claveDeCuenta\('MERCADOPAGO_WEBHOOK_SECRET', cuenta\), ws\)/);
   assert.equal((src.match(/responderFalloDeRuteo\('mercadopago'/g) ?? []).length, 1);
 });
 
