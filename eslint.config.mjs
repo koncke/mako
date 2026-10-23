@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Scripts dev-only (exploratorios) — no se lintean.
     "scripts/**",
+    // Las apps de las tiendas (nativo/android, nativo/ios): proyectos aparte, con su propio package.json.
+    "nativo/**",
   ]),
   // Anti-regresión: avisar de variables/imports sin usar (no rompe el build).
   {

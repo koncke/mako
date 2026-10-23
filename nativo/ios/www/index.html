@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MaKo</title>
+<style>
+  /* La pantalla de MaKo sin red (Capacitor `server.errorPath`): los colores de la app, claro y oscuro. */
+  :root { --bg: #F4F6F9; --ink: #12151b; --dim: #5b6472; --primary: #2F6FED; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #22262E; --ink: #ECEFF4; --dim: #A3ABB9; --primary: #6C9BFF; } }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: -apple-system, system-ui, sans-serif; }
+  main { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+    padding: 24px calc(24px + env(safe-area-inset-right)) 24px calc(24px + env(safe-area-inset-left)); text-align: center; box-sizing: border-box; }
+  h1 { margin: 0; font-size: 22px; }
+  p { margin: 0; color: var(--dim); font-size: 16px; line-height: 1.5; max-width: 320px; }
+  button { margin-top: 8px; min-height: 48px; padding: 0 24px; border: 0; border-radius: 999px; background: var(--primary); color: #fff;
+    font: inherit; font-size: 16px; font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Sin conexión</h1>
+  <p>MaKo necesita internet para mostrar tus datos. Cuando vuelva la señal, toca para reintentar.</p>
+  <button type="button" onclick="location.href='https://hola-mako.com/inicio'">Reintentar</button>
+</main>
+</body>
+</html>

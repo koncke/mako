@@ -7,6 +7,42 @@ Corridas del 11/10/2026: la v1 (relevo de 7 agentes + 11 de implementación + 1 
 el diseño v2 a la tarde, y a la noche la implementación v2 (12 agentes + la integración) con el desvío
 de teléfonos PRENDIDO. Lo de la v2 está en su propia sección, más abajo.
 
+## Las apps de las tiendas: cuentas personales, la TWA y Capacitor armados en Windows, sin Mac (23/10/2026)
+
+Martín (23/10, 02:17): «Sí, a mi nombre ahora»: no hay empresa ni D-U-N-S, las dos cuentas son PERSONALES. El plan, con las
+fuentes de ese día: [tiendas-play-appstore.md](tiendas-play-appstore.md); cómo se arma cada app: `nativo/README.md`.
+
+- **Con cuenta personal, el camino crítico es Play, no Apple.** Pide 14 días SEGUIDOS de prueba cerrada con 12 testers antes
+  de dejar pedir producción (era de 20 hasta diciembre de 2024), y quien se baja y vuelve empieza de cero: se juntan 15 o 16.
+- **Trampa de Apple sin aparato de Apple:** el 2FA se prende desde account.apple.com, pero la verificación de identidad va
+  por la app Apple Developer, que sólo corre en iPhone, iPad o Mac, y pide el MISMO aparato para todo el alta. Sin uno: un iPhone
+  prestado de punta a punta, o pedirle otro método a soporte. En Argentina no hay Apple Store online: se paga con una tarjeta
+  que cobre en dólares.
+- **Lo que se ve en la tienda con cuenta personal:** en Play, el nombre legal, el país y el email de desarrollador (va
+  `equipo@hola-mako.com`); la dirección completa sólo si la app cobra. En Apple, el nombre legal es el vendedor, y en la UE la
+  ficha «trader» muestra SU domicilio (T3 sigue abierta).
+- **El diagnóstico obvio era el equivocado: «iOS sin Mac no se puede armar».** `npx cap add ios --packagemanager SPM` corre en
+  Windows: con Swift Package Manager no hace falta CocoaPods, y el proyecto de Xcode sale entero. Lo que sí pide una Mac es
+  COMPILAR (Xcode 26): eso va en Codemagic (`codemagic.yaml`), no en Actions.
+- **Bubblewrap tampoco pide el JDK para generar.** `bubblewrap init` es interactivo y pide el JDK y el SDK de entrada; con
+  `@bubblewrap/core` (`TwaManifest.fromFile` + `TwaGenerator`) el proyecto se genera sin ellos. Trampa: los colores del manifiesto
+  son objetos de la librería `color`, no strings (`themeColorDark.hex is not a function`). La plantilla de la 1.27.0 ya apunta a
+  la API 36.
+- **El micrófono dentro del WebView de iOS no hay que escribirlo:** Capacitor 8 ya concede la captura
+  (`WebViewDelegationHandler.requestMediaCapturePermissionFor` → `.grant`); queda sólo el aviso del sistema, una vez, con el
+  porqué del Info.plist.
+- **El ícono de Apple no sale de agrandar el de la PWA:** `public/icon-512.png` tiene las esquinas transparentes y es de 512.
+  Se redibuja (`scripts/gen-iconos-tiendas.mjs`) con las medidas y los colores leídos de sus píxeles.
+- **`nativo/` va fuera de `tsconfig` y del lint:** son proyectos con su propio `package.json`, y el `**/*.ts` de la raíz los
+  agarraría.
+
+**Vive en:** nativo/ · codemagic.yaml · scripts/gen-iconos-tiendas.mjs · docs/tiendas-play-appstore.md · tests/tiendas-nativo.test.ts
+
+**Lo que quedó sin hacer:** la clave de subida y el primer `.aab` (Gradle pide una ventana de RAM: con 1,5 GB libres no se
+corrió); las dos huellas en `public/.well-known/assetlinks.json`; el Team ID en `apple-app-site-association` (sale de la cuenta);
+la primera corrida de `codemagic.yaml`; y lo de la web para iOS (el modo iOS, guardar y compartir con los plugins, el token de
+APNs al servidor y `lib/push.ts` por APNs, abrir los links universales): tabla en `nativo/README.md`.
+
 ## «Me sigue apareciendo el logo… y entre medio se ve el Ops Center» (22/10/2026, 09:46, Android de Martín, app instalada)
 
 **Síntoma:** al tocar el ícono, el splash con el ícono (baldosa oscura con la estrella), después el Ops Center unos
