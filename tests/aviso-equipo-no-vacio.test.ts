@@ -44,7 +44,7 @@ test('un dato puesto en vacío es un valor: no se reemplaza por «—»', () => 
 });
 
 test('el aviso de la tarjeta MaKo (`textoDelAviso`) usa la red del equipo', () => {
-  const src = readFileSync(new URL('../lib/api-mako/areas/chatbot.run.ts', import.meta.url), 'utf8');
+  const src = readFileSync(new URL('../lib/api-mako/areas/chatbot.run.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   const ini = src.indexOf('async function textoDelAviso(');
   const cuerpo = src.slice(ini, src.indexOf('\n}\n', ini));
   assert.ok(ini > 0 && cuerpo.length < 2_500, 'no encontré textoDelAviso');

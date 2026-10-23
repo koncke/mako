@@ -420,7 +420,7 @@ export const DEFS: readonly OperacionDef[] = [
   // lead tiene su botón (lib/automatizaciones-del-lead.ts). SIN http, como inscribir y sacar; y nunca desde un flujo (un
   // paso que reinicia su propia automatización es un bucle).
   {
-    id: 'empezar_de_nuevo_lead_secuencia', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
+    id: 'empezar_de_nuevo_lead_secuencia', aTerceros: true, area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Empezar de nuevo una secuencia',
     descripcion: 'PROPONE que UN lead vuelva a empezar desde el primer paso UNA secuencia en la que está EN CURSO o en la que contestó (queda pendiente hasta el «sí»). Lo que ya le salió le puede volver a salir. Mover el lead a la etapa de la secuencia NO la reinicia: esto sí. No reabre una inscripción cancelada (puede ser una baja) ni la de un lead que atiende una persona; si no está en esa secuencia, usa inscribir_lead_secuencia. No se usa desde una automatización. Pide antes el leadId (buscar_leads) y el secuenciaId (listar_secuencias_nutricion); para ver dónde está, inscripciones_lead.',
     parametros: [
