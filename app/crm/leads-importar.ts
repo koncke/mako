@@ -22,6 +22,8 @@
 // arrastra nada del server al navegador.
 import { telefonoComparable } from '@/lib/leads-duplicados';
 import { desescaparCeldaCsv } from '@/lib/csv-celda';
+// Qué cuenta como contacto: la MISMA regla que el alta de «Nuevo lead» (el @ incluido).
+import { tieneContacto } from '@/lib/contacto-minimo';
 
 /** Por qué una fila NO se va a importar. Ninguna se esconde: se muestra atenuada. */
 export type MotivoDescarte = 'sin-nombre' | 'sin-contacto' | 'duplicado' | 'repetido-archivo';
@@ -38,6 +40,8 @@ export type MotivoDescarte = 'sin-nombre' | 'sin-contacto' | 'duplicado' | 'repe
  *   · `sin-nombre` → `createLead` tira, el nombre es obligatorio.
  *   · `sin-contacto` → el alta manual lo prohíbe desde siempre, «sin eso el lead es
  *     incontactable», y no hay razón para que el importador sea la puerta de atrás.
+ *     Desde el 23/10/2026 el @ de Instagram cuenta como contacto (`tieneContacto`,
+ *     lib/contacto-minimo.ts): la prospección pasa perfiles que no dan otra cosa.
  *   · `repetido-archivo` → son dos filas del MISMO archivo; el server las frena con
  *     `chocaAcá` haga lo que haga el tilde, así que ofrecerlo sería un control muerto.
  *
@@ -216,6 +220,12 @@ export type FilaImport = {
   email: string;
   telefono: string;
   empresa: string;
+  /**
+   * El usuario de Instagram, sin la @ (`usuarioInstagram`). Lo trae la prospección
+   * (lib/prospectos.ts → `pasarAlCrm`); el CSV y la tabla de revisión no lo leen todavía.
+   * Opcional: ausente = no hay @, que es lo que mandan los otros productores.
+   */
+  instagram?: string;
   /** Lo tilda el usuario. Una fila con motivo nunca se importa, aunque venga en true. */
   incluir: boolean;
   /** Resuelto contra la base al leer el archivo; se recalcula al confirmar. */
@@ -426,20 +436,23 @@ export const esCsv = (nombre: string, mime = ''): boolean =>
 export function recalcular(filas: FilaImport[]): FilaImport[] {
   const emails = new Set<string>();
   const tels = new Set<string>();
+  const igs = new Set<string>();
   return filas.map((f) => {
     const nombre = f.nombre.trim();
     const email = f.email.trim().toLowerCase();
     const tel = soloDigitos(f.telefono);
+    const ig = (f.instagram ?? '').trim().toLowerCase();
     let motivo: MotivoDescarte | null = null;
     if (!nombre) motivo = 'sin-nombre';
-    else if (!email && !tel) motivo = 'sin-contacto';
+    else if (!tieneContacto({ email, telefono: tel, instagram: ig })) motivo = 'sin-contacto';
     else if (f.yaExiste) motivo = 'duplicado';
-    else if ((email && emails.has(email)) || (tel && tels.has(tel))) motivo = 'repetido-archivo';
-    // Solo las que efectivamente van a entrar reservan su email/teléfono: si una
+    else if ((email && emails.has(email)) || (tel && tels.has(tel)) || (ig && igs.has(ig))) motivo = 'repetido-archivo';
+    // Solo las que efectivamente van a entrar reservan su email/teléfono/@: si una
     // fila ya se descarta por otro motivo, no tiene por qué invalidar a la próxima.
     if (!motivo) {
       if (email) emails.add(email);
       if (tel) tels.add(tel);
+      if (ig) igs.add(ig);
     }
     return { ...f, motivo };
   });

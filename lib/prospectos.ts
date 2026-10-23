@@ -213,8 +213,9 @@ export { funnelDeEntrada };
 export type ResultadoPasar = { creados: number; enriquecidos: number; omitidos: number; sinContacto: number; errores: string[] };
 
 /**
- * Pasa los prospectos elegidos al CRM por la puerta del importador. Los que no tienen email ni
- * teléfono no van (la regla del importador: «sin-contacto»), y se cuentan.
+ * Pasa los prospectos elegidos al CRM por la puerta del importador. Los que no tienen ningún canal
+ * (email, teléfono ni @ de Instagram) no van —la regla del importador: «sin-contacto»— y se
+ * cuentan. Con sólo el @, entran: el lead nace con el email y el teléfono vacíos (23/10/2026).
  *
  * ⚠️ UN PROSPECTO QUE YA ESTÁ EN EL CRM NO SE DUPLICA NI SE COMPLETA: el importador vuelve a buscar
  * duplicados en el server, y una fila cuyo «ya existe» la pantalla no mostró entra DESTILDADA
@@ -226,7 +227,7 @@ export type ResultadoPasar = { creados: number; enriquecidos: number; omitidos: 
 export async function pasarAlCrm(
   ids: number[],
   funnelId: number | null,
-  importar: (filas: Array<{ id: string; nombre: string; email: string; telefono: string; empresa: string; incluir: boolean; yaExiste: boolean }>, funnelId?: number | null) => Promise<{ creados: number; enriquecidos: number; omitidos: number; errores: string[]; ids?: Array<{ filaId: string; leadId: number; destino: 'crear' | 'enriquecer' }> }>,
+  importar: (filas: Array<{ id: string; nombre: string; email: string; telefono: string; empresa: string; instagram?: string; incluir: boolean; yaExiste: boolean }>, funnelId?: number | null) => Promise<{ creados: number; enriquecidos: number; omitidos: number; errores: string[]; ids?: Array<{ filaId: string; leadId: number; destino: 'crear' | 'enriquecer' }> }>,
 ): Promise<ResultadoPasar> {
   const limpios = [...new Set(ids.map(Number).filter((n) => Number.isInteger(n) && n > 0))].slice(0, 3000);
   if (!limpios.length) return { creados: 0, enriquecidos: 0, omitidos: 0, sinContacto: 0, errores: ['No elegiste ningún prospecto.'] };
@@ -240,6 +241,9 @@ export async function pasarAlCrm(
 
   const filas = van.map((p) => ({
     id: `p${p.id}`, nombre: p.nombre, email: p.email ?? '', telefono: p.telefono ?? '', empresa: p.empresa ?? '',
+    // El @ viaja siempre que esté: es un canal, y es la llave con la que el importador ve que el
+    // perfil ya está en el CRM (un perfil pasado dos veces no hace dos fichas).
+    instagram: p.instagram ?? '',
     incluir: true, yaExiste: false,
   }));
   const r = await importar(filas, funnelId);

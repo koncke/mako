@@ -102,8 +102,10 @@ test('el tablero arma la tarjeta con UNA función, que también arma la vista pr
   assert.match(f, /compacta: dis === 'compacta'/);
   assert.match(f, /avance: dis === 'avance' && iPaso >= 0/, 'el diseño «Con avance» lleva la barra del paso');
   assert.match(f, /subtitulo: subtituloEnOrden\(csChicos,/, 'la plata y el canal en el orden de la persona (menos lo que va grande)');
-  // Después de los elegidos, el de la automatización (22/10/2026): es un estado y va siempre (tests/crm-automatizacion-lead.test.ts).
-  assert.match(f, /chips: <>\{csChicos\.map\(\(c\) => <Fragment key=\{c\}>\{chip\(c\)\}<\/Fragment>\)\}\{aut && <span [^>]*>\{aut\.texto\}<\/span>\}<\/>/, 'los chips en el orden de la persona');
+  // Después de los elegidos, los estados que van SIEMPRE y no se eligen, en este orden: el de la automatización (22/10/2026,
+  // tests/crm-automatizacion-lead.test.ts) y, si el @ de Instagram es su ÚNICO canal, ese @ (23/10/2026, tests/contacto-instagram.test.ts).
+  // La cola se fija ENTERA, hasta el `</>`: un chip nuevo al final es una decisión y se anota acá, no un `.*` que deje pasar cualquiera.
+  assert.match(f, /chips: <>\{csChicos\.map\(\(c\) => <Fragment key=\{c\}>\{chip\(c\)\}<\/Fragment>\)\}\{aut && <span [^>]*>\{aut\.texto\}<\/span>\}\{soloInstagram\(l\) && <span [^>]*>@\{soloInstagram\(l\)\}<\/span>\}<\/>/, 'los chips en el orden de la persona, y después los estados fijos: la automatización y el @ único');
   // Las formas del 21/10: lo que va GRANDE sale del subtítulo y de los chips (no se dice dos veces).
   assert.match(f, /const enGrande: CampoTarjetaLead \| null = dis === 'monto' \? 'plata' : dis === 'evento' \? 'agenda' : null;/);
   assert.match(f, /portada: dis === 'portada' \? colorDeNombre\(l\.name\) : null,/);
