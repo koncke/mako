@@ -1,81 +1,156 @@
 // =============================================================================
 // LA PRUEBA QUE DECIDE si se publica por Zernio (23/10/2026)
 // =============================================================================
-// Pregunta: un anuncio con creativo NUEVO, creado por Zernio, ¿pasa en una cuenta cuyo dueño NO tiene
-// rol en la app de Meta de Zernio? Si pasa, la app de Zernio está activa y tiene el acceso a anuncios, y
-// el 1885183 de las apps en desarrollo de los clientes se esquiva. Si no, Zernio no sirve para esto.
+// Pregunta: un anuncio con creativo NUEVO, creado por Zernio en una cuenta de AFUERA (cuyo dueño no tiene
+// rol en la app de Meta de Zernio, «Social Media Connector» 712341431446535), ¿pasa? ¿Y qué app firma el
+// post que nace? Si pasa y lo firma Zernio, su app opera cuentas ajenas con creativos nuevos.
 //
-// ⚠️ TIENE QUE SER UN ALTA REAL, EN PAUSA: el `validate_only` de Meta NO ve el 1885183 (medido el 11/09 en
-// ws13: «validate_only sobre adcreatives no ve ninguno»), así que una prueba en seco diría «pasa» siempre.
+// ⚠️ LO QUE ESTA PRUEBA NO DEMUESTRA: la cuenta elegida por Martín es la del ws1 (Mauricio), cuya app propia
+// está PUBLICADA (ahí publicar ya anda 5 de 5). Así que dice si la app de Zernio puede operar una cuenta de
+// afuera, no que se salte el 1885183 de una app EN DESARROLLO: eso sólo se ve con Joan (ws13).
 //
-// Dónde: la cuenta publicitaria de MaKo (act_1426493815659364, negocio de la plataforma), NUNCA la de un
-// cliente (docs/hallazgos-ads.md, «Meta mientras se aprueba la app de MaKo»). Martín no tiene rol en la
-// app de Zernio, así que la cuenta sirve. Con la clave de Zernio de la PLATAFORMA (lib/zernio-ads.ts: es
-// la del negocio de la plataforma).
+// ⚠️ TIENE QUE SER UN ALTA REAL, EN PAUSA DE PUNTA A PUNTA: el `validate_only` de Meta NO ve el 1885183
+// (medido el 11/09 en ws13). Clave de Zernio de la PLATAFORMA: es una prueba de MaKo, no una operación del
+// cliente (OK de Martín por el Cerebro, 23/10). Meta se lee y se BORRA con el token del negocio dueño de la
+// cuenta (`--ws`). No toca nada que ya exista en la cuenta: sólo los ids que crea, guardados en ESTADO.
 //
-// NO SE CORRE SIN EL OK DE MARTÍN. Tres pasos:
-//
-//   1. conectar  → imprime el link de Zernio. Lo abre Martín y acepta BOTÓN POR BOTÓN: portafolio MaKo,
-//                  cuenta publicitaria MaKo, página Hola MaKo. La ventana dice «Zernio».
-//        NODE_OPTIONS="--conditions=react-server" node --import tsx scripts/prueba-zernio-anuncio.mts conectar
-//   2. estado    → dice si la conexión ve la cuenta publicitaria de MaKo. Sólo lectura.
-//        NODE_OPTIONS="--conditions=react-server" node --import tsx scripts/prueba-zernio-anuncio.mts estado
-//   3. crear --si → crea campaña + conjunto + anuncio, TODO EN PAUSA (US$1 por día, nunca se prende).
-//        NODE_OPTIONS="--conditions=react-server" node --import tsx scripts/prueba-zernio-anuncio.mts crear --si
-//
-// Qué leer: «PASÓ» con el id de Meta del anuncio, o el subcode de Meta. 1885183 = la app de Zernio está en
-// desarrollo (no sirve). Al terminar, la campaña se borra a mano en el Administrador de anuncios de MaKo:
-// está en pausa y no gasta. El resultado va a docs/hallazgos-ads.md y, si pasó, se prende
-// `ZERNIO_ANUNCIOS_PROBADO` (lib/zernio-ads-cuerpo.ts).
+// Pasos (NO se corren sin el OK; la conexión la hace Martín en Facebook, botón por botón):
+//   node --import tsx scripts/prueba-zernio-anuncio.mts estado      --ws 1 --cuenta act_564003520636790
+//   node --import tsx scripts/prueba-zernio-anuncio.mts crear --si  --ws 1 --cuenta act_564003520636790 --pagina 282881742134130
+//   node --import tsx scripts/prueba-zernio-anuncio.mts editar --si --ws 1
+//   node --import tsx scripts/prueba-zernio-anuncio.mts borrar --si --ws 1
+//   node --import tsx scripts/prueba-zernio-anuncio.mts desconectar --si
+// (con NODE_OPTIONS="--conditions=react-server", desde el clon que tiene .env.local)
 // =============================================================================
 
 import { config } from 'dotenv';
 import { resolve } from 'node:path';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 
 config({ path: resolve(process.cwd(), '.env.local') });
 
-const CUENTA_MAKO = 'act_1426493815659364';
-const PAGINA_HOLA_MAKO = '1315098941694049';
+const NOMBRE = 'PRUEBA MaKo · Zernio · no activar';
+const ESTADO = 'C:/dev/cerebro-herramientas/prueba-zernio-estado.json';
+const ZB = 'https://zernio.com/api/v1';
+const GRAPH = `https://graph.facebook.com/${process.env.META_API_VERSION || 'v24.0'}`;
 
-const { wsSuperAdmin } = await import('../lib/workspace');
-const { urlConectarAnunciosZernio, conexionAnunciosZernio, claveZernioAnuncios } = await import('../lib/zernio-ads');
-const { subcodeDeZernio, idsDelAnuncioCreado } = await import('../lib/zernio-ads-cuerpo');
-
+const arg = (n: string): string | null => { const i = process.argv.indexOf(`--${n}`); return i > 0 ? process.argv[i + 1] ?? null : null; };
 const paso = process.argv[2];
-const ws = await wsSuperAdmin();
+const si = process.argv.includes('--si');
 
-if (paso === 'conectar') {
-  console.log(await urlConectarAnunciosZernio(ws, 'https://hola-mako.com/ads-manager'));
-} else if (paso === 'estado') {
-  const c = await conexionAnunciosZernio(ws, CUENTA_MAKO);
-  console.log(c ? `Conectada: cuenta de Zernio ${c.accountId} → ${c.adAccountId}` : 'Sin conexión de anuncios que vea la cuenta de MaKo. Corré «conectar» primero.');
-} else if (paso === 'crear' && process.argv.includes('--si')) {
-  const c = await conexionAnunciosZernio(ws, CUENTA_MAKO);
-  if (!c) throw new Error('Sin conexión de anuncios: corré «conectar» y «estado» antes.');
-  const clave = await claveZernioAnuncios(ws);
-  const res = await fetch('https://zernio.com/api/v1/ads/create', {
-    method: 'POST',
-    headers: { authorization: `Bearer ${clave}`, 'content-type': 'application/json', 'Idempotency-Key': `mako-prueba-zernio-${new Date().toISOString().slice(0, 10)}` },
-    body: JSON.stringify({
-      accountId: c.accountId, adAccountId: c.adAccountId,
-      name: 'Prueba MaKo por Zernio (borrar)', goal: 'traffic', status: 'PAUSED',
-      budgetAmount: 1, budgetType: 'daily', countries: ['AR'],
-      headline: 'MaKo', body: 'Prueba de publicación (en pausa, no se entrega).',
-      callToAction: 'LEARN_MORE', linkUrl: 'https://hola-mako.com/',
-      imageUrl: 'https://hola-mako.com/og-mako.jpg', pageId: PAGINA_HOLA_MAKO,
-    }),
-    signal: AbortSignal.timeout(120_000),
-  });
-  const cuerpo: unknown = await res.json().catch(() => null);
-  if (res.ok && (cuerpo as { success?: unknown } | null)?.success !== false) {
-    const { adId } = idsDelAnuncioCreado(cuerpo);
-    console.log(`PASÓ: anuncio ${adId} creado EN PAUSA con creativo nuevo. Borrar la campaña «Prueba MaKo por Zernio (borrar)».`);
-  } else {
-    const sub = subcodeDeZernio(cuerpo);
-    console.log(`NO PASÓ (HTTP ${res.status}, subcode de Meta ${sub ?? '—'}${sub === 1885183 ? ': la app de Zernio está en desarrollo' : ''}).`);
-    // El cuerpo de Zernio no trae secretos (error, type, code, platformError, details).
-    console.log(JSON.stringify(cuerpo, null, 2).slice(0, 2000));
+const { envCred, credWs } = await import('../lib/credenciales');
+const { subcodeDeZernio, idsDelAnuncioCreado } = await import('../lib/zernio-ads-cuerpo');
+const clave = await envCred('ZERNIO_API_KEY');
+if (!clave) throw new Error('Sin la clave de Zernio de la plataforma');
+
+type Estado = { ws: number; cuenta: string; zernioAccountId: string; campaign?: string; adset?: string; ad?: string; zernioAdId?: string | null; creativos: string[]; posts: string[] };
+const leerEstado = (): Estado => JSON.parse(readFileSync(ESTADO, 'utf8')) as Estado;
+const guardar = (e: Estado) => writeFileSync(ESTADO, JSON.stringify(e, null, 2));
+
+async function z(path: string, init?: RequestInit): Promise<{ status: number; body: any }> {
+  const r = await fetch(ZB + path, { ...init, headers: { authorization: `Bearer ${clave}`, 'content-type': 'application/json', ...(init?.headers as Record<string, string> ?? {}) }, signal: AbortSignal.timeout(120_000) });
+  return { status: r.status, body: await r.json().catch(() => null) };
+}
+async function meta(ws: number, path: string, params: Record<string, string> = {}, method = 'GET', tokenClave = 'META_ACCESS_TOKEN'): Promise<any> {
+  const t = await credWs(tokenClave, ws);
+  const u = new URL(`${GRAPH}/${path}`);
+  for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
+  u.searchParams.set('access_token', t ?? '');
+  return fetch(u, { method }).then((r) => r.json()).catch((e) => ({ error: { message: String(e) } }));
+}
+
+/** La conexión metaads (con la clave de la plataforma) que administra la cuenta. */
+async function conexion(cuenta: string): Promise<{ id: string; info: any } | null> {
+  const a = await z('/accounts');
+  for (const c of (a.body?.accounts ?? []).filter((x: any) => x.platform === 'metaads')) {
+    const l = await z(`/ads/accounts?accountId=${c._id}&adAccountId=${cuenta}`);
+    const info = (l.body?.accounts ?? []).find((x: any) => x.id === cuenta);
+    if (info) return { id: c._id, info };
   }
+  return null;
+}
+
+/** Qué app firmó el post de un anuncio, leído en Meta. */
+async function appDelPost(ws: number, adId: string): Promise<{ creativo: string | null; post: string | null; app: string }> {
+  const ad = await meta(ws, adId, { fields: 'creative{id,effective_object_story_id,object_story_id}' });
+  const creativo = ad?.creative?.id ?? null;
+  const post = ad?.creative?.effective_object_story_id ?? ad?.creative?.object_story_id ?? null;
+  if (!post) return { creativo, post, app: `sin post (${JSON.stringify(ad?.error ?? ad).slice(0, 200)})` };
+  const p = await meta(ws, post, { fields: 'application{id,name},is_published' }, 'GET', 'META_PAGE_ACCESS_TOKEN');
+  const app = p?.application ? `${p.application.name} (${p.application.id})` : `no lo dice (${JSON.stringify(p?.error ?? p).slice(0, 200)})`;
+  return { creativo, post, app };
+}
+
+if (paso === 'estado') {
+  const cuenta = arg('cuenta'); if (!cuenta) throw new Error('--cuenta');
+  const c = await conexion(cuenta);
+  console.log(c ? `Conectada en Zernio: ${c.id} → ${cuenta} · moneda ${c.info.currency} · mínimo diario ${c.info.minimumDailyBudget} · facturación ${c.info.billingStatus} · seleccionable ${c.info.selectable}${c.info.unusableReason ? ' · ' + c.info.unusableReason : ''}` : 'Sin conexión de anuncios que vea esa cuenta (falta el OAuth de Facebook).');
+} else if (paso === 'crear' && si) {
+  const ws = Number(arg('ws')); const cuenta = arg('cuenta'); const pagina = arg('pagina');
+  if (!ws || !cuenta || !pagina) throw new Error('--ws --cuenta --pagina');
+  if (existsSync(ESTADO)) throw new Error(`Ya hay una prueba en ${ESTADO}: borrala antes de crear otra.`);
+  const c = await conexion(cuenta); if (!c) throw new Error('Sin conexión de anuncios');
+  const presupuesto = Math.max(1, Math.ceil(Number(c.info.minimumDailyBudget) || 1));
+  const r = await z('/ads/create', {
+    method: 'POST',
+    headers: { 'Idempotency-Key': `mako-prueba-zernio-${cuenta}-${new Date().toISOString().slice(0, 10)}` },
+    body: JSON.stringify({
+      accountId: c.id, adAccountId: cuenta, name: NOMBRE, campaignName: NOMBRE, adSetName: NOMBRE,
+      goal: 'traffic', status: 'PAUSED', campaignStatus: 'PAUSED', adSetStatus: 'PAUSED', adStatus: 'PAUSED',
+      budgetAmount: presupuesto, budgetType: 'daily', countries: ['MX'],
+      headline: 'MaKo', body: 'Prueba de publicación por Zernio (en pausa, no se entrega).',
+      callToAction: 'LEARN_MORE', linkUrl: 'https://hola-mako.com/', imageUrl: 'https://hola-mako.com/og-mako.jpg', pageId: pagina,
+    }),
+  });
+  if (r.status >= 400 || r.body?.success === false) {
+    const sub = subcodeDeZernio(r.body);
+    console.log(`NO PASÓ (HTTP ${r.status}, subcode de Meta ${sub ?? '—'}).`, JSON.stringify(r.body, null, 2).slice(0, 2500));
+    // Lo que Zernio alcanzó a crear, para borrarlo igual.
+    const creados = r.body?.details?.createdObjects;
+    if (creados) console.log('Creado a medias (BORRAR):', JSON.stringify(creados));
+  } else {
+    const { adId, zernioId } = idsDelAnuncioCreado(r.body);
+    const ad = await meta(ws, adId, { fields: 'campaign_id,adset_id,effective_status,configured_status' });
+    const e: Estado = { ws, cuenta, zernioAccountId: c.id, ad: adId, zernioAdId: zernioId, campaign: ad.campaign_id, adset: ad.adset_id, creativos: [], posts: [] };
+    const firma = await appDelPost(ws, adId);
+    if (firma.creativo) e.creativos.push(firma.creativo);
+    if (firma.post) e.posts.push(firma.post);
+    guardar(e);
+    console.log(`PASÓ: campaña ${e.campaign} · conjunto ${e.adset} · anuncio ${adId} (${ad.configured_status}/${ad.effective_status}) · presupuesto ${presupuesto} ${c.info.currency}/día`);
+    console.log(`El post ${firma.post} lo firma: ${firma.app}`);
+  }
+} else if (paso === 'editar' && si) {
+  const e = leerEstado();
+  const r = await z(`/ads/${e.ad}`, { method: 'PUT', body: JSON.stringify({ creative: { body: 'Prueba EDITADA por Zernio (en pausa, no se entrega).' } }) });
+  if (r.status >= 400 || r.body?.success === false) {
+    console.log(`EDITAR NO PASÓ (HTTP ${r.status}, subcode ${subcodeDeZernio(r.body) ?? '—'}).`, JSON.stringify(r.body, null, 2).slice(0, 2000));
+  } else {
+    const firma = await appDelPost(e.ws, e.ad!);
+    if (firma.creativo && !e.creativos.includes(firma.creativo)) e.creativos.push(firma.creativo);
+    if (firma.post && !e.posts.includes(firma.post)) e.posts.push(firma.post);
+    guardar(e);
+    console.log(`EDITAR PASÓ: creativo ahora ${firma.creativo}, post ${firma.post}, lo firma ${firma.app}`);
+  }
+} else if (paso === 'borrar' && si) {
+  const e = leerEstado();
+  const res: string[] = [];
+  // La campaña arrastra conjunto y anuncio; creativos y posts van aparte.
+  for (const id of [e.campaign, ...e.creativos].filter(Boolean) as string[]) res.push(`${id}: ${JSON.stringify(await meta(e.ws, id, {}, 'DELETE'))}`);
+  for (const p of e.posts) res.push(`post ${p}: ${JSON.stringify(await meta(e.ws, p, {}, 'DELETE', 'META_PAGE_ACCESS_TOKEN'))}`);
+  console.log(res.join('\n'));
+  console.log('Confirmación en Meta:');
+  for (const id of [e.campaign, e.adset, e.ad, ...e.creativos].filter(Boolean) as string[]) {
+    const g = await meta(e.ws, id, { fields: 'id,effective_status,status' });
+    console.log(`  ${id}: ${g.error ? `no está (${g.error.code})` : `${g.effective_status ?? g.status ?? 'existe'}`}`);
+  }
+  for (const p of e.posts) { const g = await meta(e.ws, p, { fields: 'id' }, 'GET', 'META_PAGE_ACCESS_TOKEN'); console.log(`  post ${p}: ${g.error ? `no está (${g.error.code})` : 'SIGUE'}`); }
+} else if (paso === 'desconectar' && si) {
+  const e = existsSync(ESTADO) ? leerEstado() : null;
+  const id = e?.zernioAccountId ?? arg('cuenta-zernio');
+  if (!id) throw new Error('--cuenta-zernio');
+  const r = await z(`/accounts/${id}`, { method: 'DELETE' });
+  const a = await z('/accounts');
+  console.log(`DELETE /accounts/${id}: HTTP ${r.status}. Quedan metaads: ${(a.body?.accounts ?? []).filter((x: any) => x.platform === 'metaads').length}`);
 } else {
-  console.log('Uso: conectar | estado | crear --si   (ver la cabecera del archivo)');
+  console.log('Uso: estado | crear --si | editar --si | borrar --si | desconectar --si   (ver la cabecera)');
 }
