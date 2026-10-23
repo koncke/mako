@@ -34,7 +34,9 @@ import { decidirCobro, laCobraLaPasarela, mesesTranscurridos } from '@/lib/cobro
 import { formatoMonto, normalizarMoneda } from '@/lib/pasarela-moneda';
 import { revalidateTag } from 'next/cache';
 import { TAG } from '@/lib/cache';
-import { getTenantDb } from '@/lib/workspace';
+import { getTenantDb, wsSuperAdmin } from '@/lib/workspace';
+import { venderPlan, ventaValida, leadsDelComprador } from '@/lib/vender-plan';
+import { capaDef } from '@/lib/capas';
 import { hoyEnWorkspace } from '@/lib/timezone';
 import { ventaTipoDe, type VentaTipo } from '@/lib/venta-tipo';
 import { esCuotaDeBaja, noEsDeuda } from '@/lib/cobrado-lead';
@@ -619,6 +621,47 @@ export const RUNNERS: Runners = {
       const r = await cambiarEstadoSuscripcionManual(leadId, estado, { hoy, mesesAlCancelar: mesesTranscurridos(lead.fecha_cierre ?? null, hoy), mesesAlReactivar: null, autor: autorDe(ctx) });
       invalidarPagos();
       return { ok: true, resumen: r.cambio ? `Listo: la suscripción quedó ${estado}.` : `Ya estaba ${estado}.`, datos: { estado, mesesAntes: r.mesesAntes } };
+    }),
+  },
+  // «Vender un plan» (23/10/2026, P0-8): ver cobros.def.ts. El MISMO camino que /admin/cobros (`venderPlan`).
+  vender_plan_mako: {
+    preparar: async (input, ctx) => {
+      // El gating `soloPlataforma` ya lo dice; el runner lo vuelve a preguntar (AGENTS.md: «el runner lo vuelve a
+      // preguntar»). Y el workspace del cobro es SIEMPRE el de la plataforma, nunca el que traiga el pedido.
+      const plataforma = await wsSuperAdmin();
+      if (ctx.ws !== plataforma) return { error: 'Vender un plan de MaKo es sólo de la plataforma.' };
+      const val = ventaValida({ capa: s(input.capa) ?? '', email: s(input.email) ?? '', nombre: s(input.nombre) ?? '', monto: n(input.monto) ?? NaN, moneda: s(input.moneda), montoUsd: n(input.montoUsd), tipo: input.tipo === 'suscripcion' ? 'suscripcion' : 'unico', pasarela: esPasarela(input.pasarela) ? input.pasarela : null });
+      if (!val.ok) return { error: val.error };
+      const v = val.venta;
+      // Lo que el camino de la pantalla rechazaría al confirmar, se rechaza antes del «sí»: dos leads con ese email y la
+      // pasarela (sin ninguna conectada no hay link; con dos, hay que decir cuál).
+      let iguales: number;
+      try { iguales = await leadsDelComprador(v.email); } catch { return { error: 'No pude buscar a la persona en el CRM de la plataforma. Intenta de nuevo.' }; }
+      if (iguales > 1) return { error: 'Hay más de un lead con ese email en el CRM de la plataforma: no elijo uno a ciegas. Unifícalos en el CRM y vuelve a pedirlo.' };
+      const conectadas = await pasarelasConectadas(plataforma);
+      if (!conectadas.length) return { error: 'La plataforma no tiene Stripe ni Mercado Pago conectado: se conecta en Integraciones.' };
+      if (v.pasarela && !conectadas.includes(v.pasarela)) return { error: `${NOMBRE_PASARELA[v.pasarela]} no está conectada en la plataforma.` };
+      if (!v.pasarela && conectadas.length > 1) return { error: '¿Por Stripe o por Mercado Pago? La plataforma tiene las dos conectadas.', faltan: ['pasarela'] };
+      const plan = capaDef(v.capa).nombre;
+      const cuanto = v.moneda ? formatoMonto(v.monto, v.moneda) : `${v.monto} en la moneda de la pasarela`;
+      return {
+        payload: { ...v },
+        resumen: `Crear el link de pago del plan «${plan}» para ${v.nombre} (${v.email}): ${cuanto}${v.tipo === 'suscripcion' ? ' por mes' : ', pago único'}${v.pasarela ? ` por ${NOMBRE_PASARELA[v.pasarela]}` : ''}. Al pagarlo se le crea la cuenta y le llega el acceso.`,
+      };
+    },
+    ejecutar: (payload, ctx) => seguro('crear el link del plan', async () => {
+      if (ctx.ws !== (await wsSuperAdmin())) return { ok: false, resumen: 'Vender un plan de MaKo es sólo de la plataforma.' };
+      // `venderPlan` vuelve a validar todo (la capa, el email, el lead del comprador) y resuelve el workspace él mismo.
+      const r = await venderPlan(payload as Parameters<typeof venderPlan>[0], autorDe(ctx));
+      if (!r.ok) return { ok: false, resumen: `No se pudo crear el link: ${r.error}` };
+      // El link lo escribe el código y va a la persona (`paraLaPersona`) y en `datos`, nunca al resumen que lee el modelo:
+      // un dato exacto que pasa por un modelo deja de ser exacto (AGENTS.md).
+      return {
+        ok: true,
+        resumen: `Listo: el link de pago del plan está creado (${formatoMonto(r.monto, r.moneda)}). Pásaselo a la persona: al pagarlo se le crea la cuenta.`,
+        paraLaPersona: `Link de pago: ${r.link}`,
+        datos: { cobroId: r.cobroId, url: r.link, monto: r.monto, moneda: r.moneda },
+      };
     }),
   },
 };
