@@ -17,7 +17,7 @@
 import 'server-only';
 import { getWorkspaceActual, getTenantDb } from '@/lib/workspace';
 import { listarLineas } from '@/lib/evolution';
-import { createLead, LeadDuplicadoError, setPipelineStage } from '@/lib/leads';
+import { createLead, LeadDuplicadoError, logLeadEvent } from '@/lib/leads';
 import { agregarAProducto, etapasDeProducto } from '@/lib/lead-funnel';
 import { idDelFunnelDefault, listarFunnels } from '@/lib/funnels';
 import { secuenciasDeEtiqueta } from '@/lib/nutricion-etapa';
@@ -26,6 +26,7 @@ import { vistasPorDisparador } from '@/lib/disparadores';
 import { crearEtiqueta, listarEtiquetas, ponerEtiquetaLote } from '@/lib/etiquetas';
 import { claveNombre } from '@/lib/etiquetas-reglas';
 import { etapaDeEntrada } from '@/lib/lead-funnel-reglas';
+import { terminalEstadoFor } from '@/lib/pipeline';
 import {
   TOPE_GRUPOS_MS, TOPE_PARTICIPANTES_MS, esJidDeGrupo, etapasQueDisparan, etiquetaDeGrupo, gruposDeChats, gruposDeFetchAll,
   participantesDe, type GrupoWA, type ParticipanteWA,
@@ -121,7 +122,10 @@ export async function etapasParaTraer(funnelId: number): Promise<{ etapas: Array
     secuencias.flatMap((s) => vistasPorDisparador(s)), etiquetas,
     { id: funnelId, esDefault: def != null && funnelId === def }, (id) => defaults.get(id) ?? null,
   );
-  const lista = etapas.map((e) => ({ key: e.key, label: e.label, manda: manda.has(e.key) }));
+  // ⚠️ Y LAS TERMINALES TAMPOCO (la revisión de privacidad, 23/10/2026): con «Ganado» el grupo entero quedaba como venta y como
+  // cliente de Customer Success, y el barrido de la entrega les mandaba el onboarding. Perdido, Descalificado y No responde
+  // escriben su estado (y pueden pedir un motivo). Para la pantalla y el servidor, «manda» es «no se puede usar al traer».
+  const lista = etapas.map((e) => ({ key: e.key, label: e.label, manda: manda.has(e.key) || terminalEstadoFor(e.key) !== 'abierto' }));
   const primera = etapaDeEntrada(etapas);
   const entrada = lista.find((e) => e.key === primera && !e.manda)?.key ?? lista.find((e) => !e.manda)?.key ?? null;
   return { etapas: lista, entrada };
@@ -157,8 +161,7 @@ export async function traerDelGrupo(p: {
   const { etapas } = await etapasParaTraer(p.funnelId);
   const destino = etapas.find((e) => e.key === p.etapa);
   if (!destino) return { ok: false, error: 'Esa etapa no existe en este funnel.' };
-  if (destino.manda) return { ok: false, error: `«${destino.label}» tiene una automatización activa: elige otra etapa.` };
-  const primera = etapaDeEntrada(etapas);
+  if (destino.manda) return { ok: false, error: `«${destino.label}» no se puede usar al traer (tiene una automatización o cierra el trato): elige otra etapa.` };
 
   const idx = await indiceContactos();
   const telIdx = { exactos: idx.tels, sufijos: idx.telsSufijo };
@@ -179,22 +182,21 @@ export async function traerDelGrupo(p: {
         traidos.push(existente);
         continue;
       }
+      // ⚠️ NACE EN LA ETAPA ELEGIDA, nunca en la de entrada y movido después (la revisión de privacidad, 23/10/2026): entre el
+      // alta y el movimiento, el barrido de la hora lo inscribía en «Un Lead Entró», y si el movimiento fallaba quedaba ahí.
+      // La etapa ya se verificó: no manda nada (`destino.manda`) y no es terminal (`etapasParaTraer`).
       const lead = await createLead({
         nombre: x.nombre ?? `+${x.telefono}`, telefono: x.telefono, funnel_id: p.funnelId, origen_lead: ORIGEN_LEAD.grupo_whatsapp.id,
+        pipeline_stage: p.etapa,
       });
       creados++;
       traidos.push(lead.id);
-      // Nace en la etapa de entrada; a otra, por el MISMO camino que la importación de archivos (`setPipelineStage`, auditado).
-      // No inscribe: la etapa elegida no tiene automatización ni etiqueta vinculada (`destino.manda` es false).
-      // Si el movimiento falla, el lead quedó en la de entrada: se lo NOMBRA (la revisión de privacidad, 23/10/2026), para moverlo
-      // a mano y no dejarlo donde lo puede tomar un barrido.
-      if (p.etapa !== primera) {
-        await setPipelineStage(lead.id, p.etapa, { autor: p.autor, requisitos: { omitir: `Traído del grupo de WhatsApp «${p.nombreGrupo}»` } })
-          .catch((e) => { errores.push(`${x.nombre ?? `+${x.telefono}`} quedó en la etapa de entrada: ${msg(e)}`); });
-      }
+      await logLeadEvent(lead.id, 'Traído de un grupo de WhatsApp', `«${p.nombreGrupo}», a «${destino.label}»`, p.autor).catch(() => {});
     } catch (e) {
       if (e instanceof LeadDuplicadoError) { yaEstaban++; continue; }
-      errores.push(`${x.nombre ?? `+${x.telefono}`}: ${msg(e)}`);
+      // A la pantalla, el NOMBRE del que no se pudo y un texto llano; el detalle de la base, sólo al log (sin datos de la persona).
+      console.error('[grupo-wa] no pude traer a un participante:', msg(e));
+      errores.push(x.nombre ?? `+${x.telefono}`);
     }
   }
   const etiqueta = traidos.length ? await etiquetarDelGrupo(traidos, origen, p.autor).catch((e) => { errores.push(`La etiqueta: ${msg(e)}`); return null; }) : null;

@@ -28,6 +28,7 @@ import { getTenantDb } from './workspace';
 import { getSupabaseServer } from './supabase';
 import { leerTodo } from './supabase-paginado';
 import { fetchContactosEvolution } from './evolution';
+import { quedaDondeLoPusieron } from '@/app/crm/origen-lead';
 import { fotosVigentes, leadsParaGuardarFoto } from './contacto-lead';
 import { esRutaAdivinable, rutaDeFotoGuardada, rutaNuevaDeFoto } from './fotos-contacto-ruta';
 
@@ -57,7 +58,7 @@ export async function guardarFotosDelWorkspace(ws: number, tope = 150): Promise<
     leerTodo<{ telefono: string | null; foto_url: string | null }>(db, 'evolution_contactos', 'id, telefono, foto_url', {
       filtros: (q) => q.not('foto_url', 'is', null),
     }).catch(() => []),
-    leerTodo<{ id: number; telefono: string | null; foto_auto_at: string | null; foto_auto_url: string | null }>(db, 'leads', 'id, telefono, foto_auto_at, foto_auto_url', {
+    leerTodo<{ id: number; telefono: string | null; foto_auto_at: string | null; foto_auto_url: string | null; origen_lead: string | null }>(db, 'leads', 'id, telefono, foto_auto_at, foto_auto_url, origen_lead', {
       filtros: (q) => q.not('telefono', 'is', null),
     }),
   ]);
@@ -73,7 +74,9 @@ export async function guardarFotosDelWorkspace(ws: number, tope = 150): Promise<
   const ahora = Date.now();
   const fotos = fotosVigentes(contactos, ahora);
   res.conFotoVigente = fotos.size;
-  const plan = leadsParaGuardarFoto(leads, fotos, ahora);
+  // ⚠️ SIN LOS TRAÍDOS DE UN GRUPO DE WHATSAPP (la revisión de privacidad, 23/10/2026): son personas que nunca le hablaron al
+  // negocio, y esto copiaba su foto de WhatsApp a un bucket público. La ficha la puede pedir en vivo.
+  const plan = leadsParaGuardarFoto(leads.filter((l) => !quedaDondeLoPusieron(l.origen_lead)), fotos, ahora);
   res.aGuardar = plan.length;
 
   const storage = getSupabaseServer().storage.from(BUCKET);

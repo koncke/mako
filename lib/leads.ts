@@ -340,6 +340,12 @@ export type LeadCreateInput = {
   meta_campaign_name?: string | null;
   meta_adset_name?: string | null;
   origen_lead?: string | null;
+  /**
+   * La etapa con la que NACE, en su CRM de casa. Sin esto nace en la de entrada. La usa traer de un grupo de WhatsApp
+   * (app/crm/grupo-wa-server.ts): nacer en la entrada y moverlo después dejaba una ventana en la que el barrido de la hora
+   * lo inscribía en «Un Lead Entró» (la revisión de privacidad del 23/10/2026). Quien la pasa ya verificó que no manda nada.
+   */
+  pipeline_stage?: string | null;
   telefono_normalizado?: string | null;
   visitor_id?: string | null;
   /**
@@ -982,6 +988,8 @@ export async function createLead(input: LeadCreateInput & { permitirDuplicado?: 
       // Lo mismo con de dónde vino: sin esto, un lead de landing es
       // indistinguible de uno cargado a mano.
       origen_lead: input.origen_lead?.trim() || null,
+      // Sólo si vino: un alta que no la pide nace en la de entrada, como siempre.
+      ...(input.pipeline_stage?.trim() ? { pipeline_stage: input.pipeline_stage.trim() } : {}),
       utm_source: input.utm_source?.trim() || null,
       utm_medium: input.utm_medium?.trim() || null,
       utm_campaign: input.utm_campaign?.trim() || null,

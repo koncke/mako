@@ -1126,8 +1126,8 @@ export const RUNNERS: Runners = {
       const { etapas, entrada } = await etapasParaTraer(funnelId);
       const e = String(input.etapa ?? '').trim().toLowerCase();
       const etapa = e ? etapas.find((s) => s.key.toLowerCase() === e || s.label.toLowerCase() === e) : etapas.find((s) => s.key === etapaPorDefecto(etapas, entrada));
-      if (!etapa) return { error: e ? `Ese funnel no tiene la etapa «${String(input.etapa)}».` : 'Todas las etapas de ese funnel tienen una automatización activa: traer no puede escribirle a nadie.' };
-      if (etapa.manda) return { error: `«${etapa.label}» tiene una automatización activa: elige otra etapa (traer no le escribe a nadie).` };
+      if (!etapa) return { error: e ? `Ese funnel no tiene la etapa «${String(input.etapa)}».` : 'Ninguna etapa de ese funnel se puede usar al traer (todas tienen una automatización o cierran el trato).' };
+      if (etapa.manda) return { error: `«${etapa.label}» no se puede usar al traer (tiene una automatización o cierra el trato): elige otra etapa.` };
       const p = await participantesDelGrupo(g.linea, grupo.jid);
       if (!p.ok) return { error: p.error };
       if (!p.participantes.length) return { error: p.sinNumero ? 'WhatsApp no deja ver los números de ese grupo.' : 'Ese grupo no tiene a nadie para traer.' };

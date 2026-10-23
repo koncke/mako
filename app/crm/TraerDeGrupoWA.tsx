@@ -152,7 +152,9 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
       errores.length ? `${miles(errores.length)} no se ${errores.length === 1 ? 'pudo' : 'pudieron'}` : '',
       salteados ? `${miles(salteados)} con un número de dos leads` : '',
     ].filter(Boolean).join(' · ') || 'Nadie para traer';
-    setHecho(`«${grupo.nombre}»: ${resumen}. Elige otro grupo para seguir.`);
+    // Los que no se pudieron, por su NOMBRE (la revisión de privacidad, 23/10/2026): un número sin nombre no se puede buscar.
+    const fallidos = errores.length ? ` No se pudieron: ${errores.slice(0, 5).join(', ')}${errores.length > 5 ? '…' : ''}.` : '';
+    setHecho(`«${grupo.nombre}»: ${resumen}.${fallidos} Elige otro grupo para seguir.`);
     onTraidos(resumen);
     setVuelta((n) => n + 1);
   };
@@ -233,7 +235,7 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
               'No les manda nada.',
               enElCrm ? `${miles(enElCrm)} ya ${enElCrm === 1 ? 'es un lead: no se duplica' : 'son leads: no se duplican'}.` : '',
               sinNumero ? `${miles(sinNumero)} sin número visible.` : '',
-              sinOfrecer ? 'Las etapas con automatización no se ofrecen.' : '',
+              sinOfrecer ? 'Las etapas que mandan algo o cierran el trato no se ofrecen.' : '',
             ].filter(Boolean).join(' ')}
           </span>
         )}
@@ -242,7 +244,7 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
             {productos.length > 1 && <Dropdown value={String(funnel ?? '')} options={opcionesFunnel} onChange={(v) => setFunnel(Number(v))} ariaLabel="A qué funnel" width={200} />}
             {opcionesEtapa.length
               ? <Dropdown value={etapa} options={opcionesEtapa} onChange={setEtapa} ariaLabel="A qué etapa" width={180} />
-              : <span style={{ fontFamily: SANS, fontSize: 13, color: 'var(--bad)' }}>Todas las etapas tienen una automatización.</span>}
+              : <span style={{ fontFamily: SANS, fontSize: 13, color: 'var(--bad)' }}>Ninguna etapa de este funnel se puede usar al traer.</span>}
             <input value={etiqueta} onChange={(e) => setEtiqueta(e.target.value.slice(0, 40))} placeholder="Etiqueta de origen"
               aria-label="Etiqueta de origen" style={{ ...campo, flex: '1 1 180px', minWidth: 150 }} />
           </div>

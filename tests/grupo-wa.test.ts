@@ -138,7 +138,6 @@ test('6. el camino: sólo el admin, la línea y el funnel del negocio, nada que 
   assert.match(server, /if \(destino\.manda\) return \{ ok: false, error:/, 'el server acepta una etapa que manda');
   assert.match(server, /if \(existente === null\) \{ salteados\+\+; continue; \}/, 'un número compartido por dos leads se saltea');
   assert.match(server, /await agregarAProducto\(existente, p\.funnelId, \{ autor: p\.autor, etapa: p\.etapa \}\);[\s\S]{0,400}traidos\.push\(existente\);/, 'el que ya es lead se SUMA (y se etiqueta: dos grupos, dos etiquetas)');
-  assert.match(server, /\.catch\(\(e\) => \{ errores\.push\(\x60[^\n]*quedó en la etapa de entrada/, 'el que no se pudo mover se nombra');
   assert.match(server, /origen_lead: ORIGEN_LEAD\.grupo_whatsapp\.id/, 'nace con su origen: es lo que lo deja quieto (test 7)');
   assert.match(server, /const r = await ponerEtiquetaLote\(ids, id, \{ autor \}\);/, 'la etiqueta en LOTE (no dispara)');
   assert.match(server, /const origen = await etiquetaDeOrigen\([^\n]*\);\n {2}if \(!origen\.ok\) return origen;[\s\S]{0,1200}for \(const \[i, x\] of quienes\.entries\(\)\)/, 'la etiqueta se mira ANTES de traer a nadie');
@@ -206,4 +205,26 @@ test('7. el traído de un grupo QUEDA DONDE LO PUSIERON: ni el CRM automático n
     const rama = nutri.slice(nutri.indexOf(`if (triggerTipo === '${trigger}')`), nutri.indexOf(`if (triggerTipo === '${trigger}')`) + 700);
     assert.match(rama, /'id, origen_lead'[\s\S]*\.filter\(\(r\) => !quedaDondeLoPusieron\(r\.origen_lead\)\)\.map\(\(r\) => r\.id\);/, `${trigger}: toma a los del grupo`);
   }
+});
+
+test('8. la revisión de privacidad del 23/10: nace en su etapa, sin terminales, y sin su foto en el bucket público', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const leer = (r: string) => readFileSync(join(__dirname, '..', r), 'utf8').replace(/\r\n/g, '\n');
+  const server = leer('app/crm/grupo-wa-server.ts');
+  // H1: el lead NACE en la etapa elegida. Nacer en la entrada y moverlo después dejaba una ventana para «Un Lead Entró».
+  assert.match(server, /const lead = await createLead\(\{\n[^\n]*origen_lead: ORIGEN_LEAD\.grupo_whatsapp\.id,\n {8}pipeline_stage: p\.etapa,\n {6}\}\);/);
+  assert.doesNotMatch(server, /setPipelineStage/, 'nada de moverlo después');
+  assert.match(leer('lib/leads.ts'), /\.\.\.\(input\.pipeline_stage\?\.trim\(\) \? \{ pipeline_stage: input\.pipeline_stage\.trim\(\) \} : \{\}\),/, 'createLead escribe la etapa que le piden');
+  assert.match(server, /errores\.push\(x\.nombre \?\? \x60\+\$\{x\.telefono\}\x60\);/, 'el que falló, por su nombre (sin el texto de la base)');
+  assert.match(leer('app/crm/TraerDeGrupoWA.tsx'), /const fallidos = errores\.length \? \x60 No se pudieron: \$\{errores\.slice\(0, 5\)\.join\(', '\)\}/, 'la pantalla los nombra');
+  // H2: las terminales (Ganado, Perdido, Descalificado, No responde) no se ofrecen ni se aceptan.
+  assert.match(server, /manda: manda\.has\(e\.key\) \|\| terminalEstadoFor\(e\.key\) !== 'abierto' \}\)\);/);
+  const { terminalEstadoFor } = await import('../lib/pipeline');
+  for (const k of ['ganado', 'perdido', 'descal', 'noresp']) assert.notEqual(terminalEstadoFor(k), 'abierto', k);
+  assert.equal(terminalEstadoFor('tibio'), 'abierto');
+  // H3: el cron de fotos no copia al bucket público la foto de quien nunca le habló al negocio.
+  const fotos = leer('lib/fotos-contacto.ts');
+  assert.match(fotos, /'id, telefono, foto_auto_at, foto_auto_url, origen_lead'/);
+  assert.match(fotos, /leadsParaGuardarFoto\(leads\.filter\(\(l\) => !quedaDondeLoPusieron\(l\.origen_lead\)\), fotos, ahora\)/);
 });
