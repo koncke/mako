@@ -83,6 +83,9 @@ No se probó con una línea de un cliente (las del ws3 y ws9 están cerradas): l
   (`terminalEstadoFor ≠ abierto`) no se ofrecen ni se aceptan.
 - **H3.** El cron diario de fotos (`lib/fotos-contacto.ts`) copiaba a un bucket público la foto de WhatsApp de cualquier lead
   con teléfono. Ahora también deja afuera a `quedaDondeLoPusieron`.
+- **Y una trampa que los tests de forma no veían (la encontró el tsc de Integración, 4f8b121b1):** `lib/leads` IMPORTA
+  `LeadDuplicadoError` pero no la reexporta. Importada de ahí, sin tipos, llega `undefined`, y `e instanceof LeadDuplicadoError`
+  tira TypeError justo en el camino del duplicado. Se importa de `lib/leads-duplicados`, y el test 8 lo fija.
 - **Sin hacer (bajas, del informe):** H4, los traídos cuentan como «entraron por un canal» en la cola de prioridad
   (`esEntradaFresca`, lib/nutricion-prioridad.ts; el mismo agujero ya existía con `importacion`). H5, sin tope total ni
   confirmación por cantidad. H6, `lineasDelNegocio` sin `esLineaDelWorkspace`. H7, `traer_contactos_de_grupo` se puede usar

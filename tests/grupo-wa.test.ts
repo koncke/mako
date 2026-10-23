@@ -218,6 +218,10 @@ test('8. la revisión de privacidad del 23/10: nace en su etapa, sin terminales,
   // H1: el lead NACE en la etapa elegida. Nacer en la entrada y moverlo después dejaba una ventana para «Un Lead Entró».
   assert.match(server, /const lead = await createLead\(\{\n[^\n]*origen_lead: ORIGEN_LEAD\.grupo_whatsapp\.id,\n {8}pipeline_stage: p\.etapa,\n {6}\}\);/);
   assert.doesNotMatch(server, /setPipelineStage/, 'nada de moverlo después');
+  // ⚠️ lib/leads IMPORTA LeadDuplicadoError pero no la reexporta: importada de ahí llegaba undefined (sin tsc no se ve), y
+  // `e instanceof undefined` tiraba TypeError con cada participante que ya era lead (lo encontró Integración, 4f8b121b1).
+  assert.match(server, /^import \{ LeadDuplicadoError \} from '@\/lib\/leads-duplicados';$/m);
+  assert.doesNotMatch(server, /^import \{[^}]*LeadDuplicadoError[^}]*\} from '@\/lib\/leads';$/m);
   assert.match(leer('lib/leads.ts'), /\.\.\.\(input\.pipeline_stage\?\.trim\(\) \? \{ pipeline_stage: input\.pipeline_stage\.trim\(\) \} : \{\}\),/, 'createLead escribe la etapa que le piden');
   assert.match(server, /errores\.push\(x\.nombre \?\? \x60\+\$\{x\.telefono\}\x60\);/, 'el que falló, por su nombre (sin el texto de la base)');
   assert.match(leer('app/crm/TraerDeGrupoWA.tsx'), /const fallidos = errores\.length \? \x60 No se pudieron: \$\{errores\.slice\(0, 5\)\.join\(', '\)\}/, 'la pantalla los nombra');
