@@ -60,7 +60,9 @@ la (b).
      Apple Developer Support. Tenerlo previsto antes de empezar.
    - Ya aprobada: crear en App Store Connect la **API key** (rol App Manager, la usa Codemagic) y la **clave de APNs (.p8)**
      (la usa `lib/push.ts`), y cargarlas él en `credenciales` del workspace de plataforma. **El chat nunca las ve en texto.**
-   - **Avisarle al chat «IA del cliente»**: la misma cuenta firma el instalador de Mac (Developer ID).
+   - **La misma cuenta firma el instalador de Mac:** el certificado «Developer ID Application» y otra clave de App Store
+     Connect, «MaKo notarización» (acceso Developer), que nunca va a un chat ni a `credenciales`. Los pasos:
+     docs/plan-instalador-escritorio.md › «Firmar la Mac: lo que hace Martín» (del chat «IA del cliente»).
 3. **Codemagic.** Abrir la cuenta con su GitHub. El plan gratis trae 500 minutos de macOS por mes; después, USD 0,095 por minuto.
    Compila el iPhone sin una Mac.
 4. **Los testers.**
