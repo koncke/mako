@@ -784,7 +784,8 @@ export const RUNNERS: Runners = {
       if (!s || !s.pasos.some((p) => p.orden === orden)) return { ok: false, resumen: 'La secuencia o el paso ya no existen.' };
       const esEspera = claseDe(s.pasos.find((p) => p.orden === orden)!) === 'esperar';
       if (esEspera) {
-        await setSecuenciaPasos(id, s.pasos.map((p) => (p.orden === orden ? { ...p, espera: { modo: p.espera?.modo ?? 'tiempo', minutos: Math.round(horas * 60) } } : p)));
+        // `...p.espera`: una «después de» (14/10/2026) conserva de qué fecha cuenta (`de`); sin él se volvía «la reunión».
+        await setSecuenciaPasos(id, s.pasos.map((p) => (p.orden === orden ? { ...p, espera: { ...(p.espera ?? { modo: 'tiempo' as const }), minutos: Math.round(horas * 60) } } : p)));
         return { ok: true, resumen: `La espera del paso ${orden} de «${s.nombre}» ahora es de ${horas} h. Los envíos ya programados no se recalculan.` };
       }
       await setSecuenciaPasos(id, s.pasos.map((p) => (p.orden === orden ? { ...p, delay_horas: horas } : p)));

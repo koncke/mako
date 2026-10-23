@@ -24,8 +24,9 @@ import {
   TOPE_OBJETIVO, TOPE_EJEMPLOS, TOPE_EJEMPLO, TOPE_ESCENARIOS_AI_STEP, MEDIOS_AI_STEP,
   claseDe, idDe, indicePorId, siguienteDe, puertosDe, raizSalida, raizRespuesta, elegirSalida, esPasoIA,
   normalizar, nuevoId, paralelosDeResultado, aristasDeVuelta, padresSinVuelta, llegaTarde,
+  esAnclaDespues,
   type PasoGrafo, type HechosLead, type FilaCondicion, type RamaCondicion, type CasoRespuesta, type Espera, type DestinoIrA,
-  type EjemploCaso, type MedioAIStep,
+  type EjemploCaso, type MedioAIStep, type AnclaDespues,
 } from './flujo-grafo';
 // La libertad de un escenario del AI Step (undécima tanda): la única que escribe `sola` / `no_contesta`.
 import { conLibertad, libertadesPermitidas } from './ai-step-libertad';
@@ -34,7 +35,7 @@ import { condicionPorId, reunionesDeFila, valoresDeFila, TOPE_REUNIONES, type He
 import { parseFechaJunta, reunionFuturaMs, proximaReunion, soloQuedaElCarril, finDeLaReunionMs, type FilaReunion } from './nutricion-reinscripcion';
 // El CARRIL DEL RECORDATORIO (undécima tanda, M3 y M4): la marca y la tolerancia del emisor de hoy, los hilos
 // de una inscripción y la operación de la tarjeta «MaKo en WhatsApp». Los cuatro son puros.
-import { claveDelCarril, TOLERANCIA_MIN, type CualReunion } from './recordatorio-lead';
+import { claveDelCarril, TOLERANCIA_MIN, fechaCoincide, type CualReunion } from './recordatorio-lead';
 import type { Hilo } from './nutricion-hilos';
 import { OP_AVISAR } from './flujo-legado';
 import { claseCompleta } from './curso-bloqueo';
@@ -125,6 +126,12 @@ export type ContextoControl = {
    * fecha—, esa espera cierra SU hilo (`sin_hora`), no la inscripción (M3 g). Ausente = `reunionMs`, lo de antes.
    */
   reunionConHoraMs?: number | null;
+  /**
+   * Las fechas del lead de las que cuenta una espera «después de» (14/10/2026, `fechasDespuesDe`). Las pasa quien llama
+   * sólo si el flujo tiene una (`tieneEsperaDespues`); ausentes, esa espera cierra su hilo (`sin_ancla`): no se inventa
+   * una fecha.
+   */
+  fechasDespues?: FechasDespues | null;
 };
 
 /**
@@ -150,6 +157,12 @@ export type Resolucion = (
    * `reunionConHoraMs` en el contexto: se cierra ESE hilo, no la inscripción (undécima tanda, M3 g).
    */
   | { tipo: 'sin_hora'; via: string[] }
+  /**
+   * Una espera «después de» (14/10/2026) sin la fecha de la que cuenta: el lead no tiene esa reunión (o se canceló), o no
+   * tiene plazo de nutrición. Se cierra ESE hilo, con el motivo (`motivoSinAncla`): esperar «3 h después» de nada no es
+   * esperar.
+   */
+  | { tipo: 'sin_ancla'; motivo: string; via: string[] }
   /** Más de `TOPE_SALTOS` «Ir a» seguidos: un bucle que `validarGrafo` no dejó guardar, hecho a mano. */
   | { tipo: 'tope_saltos'; via: string[] }
 ) & {
@@ -259,6 +272,12 @@ export function resolverControl(pasos: readonly PasoGrafo[], desde: number, ctx:
           idx = j;
           continue;
         }
+      } else if (p.espera?.modo === 'despues_de') {
+        // 14/10/2026: N después de una fecha del lead (la reunión, la 1ª, la 2ª o el plazo de nutrición). Si ya pasó, se
+        // sigue de largo como cualquier espera vencida: al activar una automatización pausada, lo vencido sale enseguida.
+        const desde = anclaDeEspera(ctx.fechasDespues, p.espera.de);
+        if (desde == null) return { tipo: 'sin_ancla', motivo: motivoSinAncla(p.espera.de), via, repartos };
+        objetivo = desde + minutos * 60_000;
       } else {
         objetivo = ctx.ahoraMs + minutos * 60_000;
       }
@@ -606,6 +625,92 @@ export function decidirToqueDelCarril(p: {
   return { tipo: 'enviar', clave, cual: r.cual, inicio, min };
 }
 
+// ── LA ESPERA «DESPUÉS DE» (14/10/2026: el CRM automático pasa a plantillas) ─────────────────────────────────
+// La regla T1 del motor del CRM automático (lib/crm-auto-plan.ts) mira la reunión «N horas después», y la T3 el plazo de
+// la nutrición manual. Como espera visible del flujo: cuenta desde una FECHA DEL LEAD, no desde que entró. NO ES DEL
+// CARRIL: `esEsperaAntes`, `minutosAntesDeReunion` y `esHiloDelCarril` miran sólo `antes_reunion`, así que lo que cuelga
+// de ella sigue las reglas de siempre (anti-ban, horario, topes) y no la tolerancia de 12 min del recordatorio.
+
+/** Las fechas del lead de las que puede contar una espera «después de», en ms. null = no hay (o se canceló). */
+export type FechasDespues = { r1: number | null; r2: number | null; plazo: number | null };
+
+/**
+ * EL FINAL DE UN DÍA (YYYY-MM-DD) EN UNA ZONA: las 23:59:59 de ese día ahí, en ms. Sin una zona válida, el de México
+ * (`finDeLaReunionMs`, la regla de siempre de una fecha sin hora). NaN si no es una fecha. Pura.
+ */
+export function finDelDiaEnZonaMs(fecha: string, tz: string | null | undefined): number {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(fecha ?? '').slice(0, 10));
+  if (!m) return NaN;
+  const dia = `${m[1]}-${m[2]}-${m[3]}`;
+  if (!tz || !zonaValida(tz)) return finDeLaReunionMs(dia);
+  const fmt = new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  // Lo que marca el reloj de la zona menos UTC, en ese instante.
+  const desfase = (ms: number): number => {
+    const v = (t: string) => Number(fmt.formatToParts(new Date(ms)).find((x) => x.type === t)?.value);
+    return Date.UTC(v('year'), v('month') - 1, v('day'), v('hour'), v('minute'), v('second')) - ms;
+  };
+  const reloj = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 23, 59, 59);
+  // Dos vueltas: el desfase de la hora adivinada y el de la que da (el día del cambio de horario no son el mismo).
+  return reloj - desfase(reloj - desfase(reloj));
+}
+
+/**
+ * Una reunión de la ficha como ancla: su HORA; una CANCELADA (la hora quedó y la fecha no, la regla de `lugarDeFicha`),
+ * nada; una FECHA SOLA —o editada a mano sin cambiar la hora (`fechaCoincide`)—, el final de ese día en el negocio, que
+ * es la regla de T1 para los leads sin hora («cuando el día de la reunión ya pasó»).
+ */
+function anclaDeReunion(at: string | null | undefined, fecha: string | null | undefined, tz: string | null | undefined): number | null {
+  if (at && fecha === null) return null;
+  if (at && (fecha == null || fechaCoincide(fecha, at, tz))) {
+    const ms = Date.parse(at);
+    return Number.isFinite(ms) ? ms : null;
+  }
+  if (!fecha) return null;
+  const ms = /^\d{4}-\d{2}-\d{2}$/.test(fecha) ? finDelDiaEnZonaMs(fecha, tz) : Date.parse(fecha);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+/**
+ * Las fechas de la fila del lead para la espera «después de», en la zona del NEGOCIO (`tz`): las dos reuniones
+ * (`anclaDeReunion`) y el final del día del plazo de la nutrición manual (el plazo vence al día siguiente, como T3). Pura.
+ */
+export function fechasDespuesDe(
+  l: (FilaReunion & { nutricion_manual_deadline?: string | null }) | null | undefined,
+  tz?: string | null,
+): FechasDespues {
+  if (!l) return { r1: null, r2: null, plazo: null };
+  const plazo = plazoNutricionDe(l.nutricion_manual_deadline)?.fecha ?? null;
+  const fin = plazo ? finDelDiaEnZonaMs(plazo, tz) : NaN;
+  return {
+    r1: anclaDeReunion(l.junta_1_at, l.fecha_junta_1, tz),
+    r2: anclaDeReunion(l.junta_2_at, l.fecha_junta_2, tz),
+    plazo: Number.isFinite(fin) ? fin : null,
+  };
+}
+
+/**
+ * DE QUÉ INSTANTE CUENTA la espera: la 1ª, la 2ª, el plazo, o «la reunión» = la ÚLTIMA que tiene (la 2ª si tiene fecha,
+ * si no la 1ª: es la que acaba de pasar o la que viene). null = no hay de dónde contar (`sin_ancla`).
+ */
+export function anclaDeEspera(f: FechasDespues | null | undefined, de: AnclaDespues): number | null {
+  if (!f) return null;
+  if (de === 'reunion_1') return f.r1;
+  if (de === 'reunion_2') return f.r2;
+  if (de === 'plazo_nutricion') return f.plazo;
+  const r = [f.r1, f.r2].filter((x): x is number => x != null);
+  return r.length ? Math.max(...r) : null;
+}
+
+/** Por qué se cerró el hilo de una espera «después de» sin su fecha (el rastro de la corrida). */
+export function motivoSinAncla(de: AnclaDespues): string {
+  return de === 'plazo_nutricion' ? 'no tiene plazo de nutrición manual' : 'no tiene esa reunión (o se canceló)';
+}
+
+/** ¿El flujo tiene alguna espera «después de»? (Si no, el motor no calcula las fechas.) */
+export function tieneEsperaDespues(pasos: readonly PasoGrafo[]): boolean {
+  return pasos.some((p) => !!p && claseDe(p) === 'esperar' && p.espera?.modo === 'despues_de');
+}
+
 /**
  * El ESTADO que se escribe en una inscripción que ya está en 'respondio' (M4): sigue en 'respondio'. El motor
  * escribe 'activa' al mover un hilo y 'completada' cuando no queda ninguno; en una fila del lead que contestó,
@@ -752,7 +857,21 @@ export type FilaLeadCatalogo = {
   fecha_junta_1?: string | null; junta_1_at?: string | null; asistio_j1?: boolean | null;
   fecha_junta_2?: string | null; junta_2_at?: string | null; asistio_j2?: boolean | null;
   cerro?: boolean | null; fecha_cierre?: string | null; fecha_confirmacion?: string | null;
+  /** La fecha límite de la nutrición manual (DATE): la condición «Venció su nutrición manual» (14/10/2026). */
+  nutricion_manual_deadline?: string | null;
 };
+
+/**
+ * El plazo de la nutrición manual del bloque `lead`: la fecha y si ya venció en el día del negocio (`hoy`, YYYY-MM-DD).
+ * Es la regla T3 del CRM automático (`deadline < hoy`, lib/crm-auto-plan.ts): el día del plazo todavía no venció. Sin
+ * plazo, null; sin `hoy`, `vencido` null («no sé»). Una fecha que no es una fecha no es un plazo.
+ */
+export function plazoNutricionDe(deadline: string | null | undefined, hoy?: string | null): { fecha: string; vencido: boolean | null } | null {
+  const fecha = typeof deadline === 'string' && /^\d{4}-\d{2}-\d{2}/.test(deadline) ? deadline.slice(0, 10) : null;
+  if (!fecha) return null;
+  const dia = typeof hoy === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(hoy) ? hoy : null;
+  return { fecha, vencido: dia ? fecha < dia : null };
+}
 
 const msJunta = (x: string | null | undefined): number | null => {
   if (!x) return null;
@@ -778,7 +897,7 @@ function lugarDeFicha(at: string | null | undefined, fecha: string | null | unde
  * (`parseFechaJunta`: una fecha sin hora es el mediodía de México) y la próxima con
  * `reunionFuturaMs`, la que usa el ancla «antes de la reunión».
  */
-export function catalogoDeLead(f: FilaLeadCatalogo, ahoraMs: number): NonNullable<HechosCatalogo['lead']> {
+export function catalogoDeLead(f: FilaLeadCatalogo, ahoraMs: number, hoy?: string | null): NonNullable<HechosCatalogo['lead']> {
   return {
     origen: f.origen_lead ?? null,
     estado: f.estado_lead ?? null,
@@ -795,6 +914,8 @@ export function catalogoDeLead(f: FilaLeadCatalogo, ahoraMs: number): NonNullabl
     tieneFechaCierre: !!f.fecha_cierre,
     confirmoCompra: !!f.fecha_confirmacion,
     proximaReunionMs: reunionFuturaMs(f, ahoraMs),
+    // `hoy` es el día del NEGOCIO (lo lee quien arma los hechos); sin él, el plazo se sabe pero no si venció.
+    plazoNutricion: plazoNutricionDe(f.nutricion_manual_deadline, hoy),
   };
 }
 
@@ -1227,6 +1348,10 @@ function sanearEspera(x: unknown): Espera | undefined {
   // Al menos un segundo o nada: sin espera, `validarGrafo` contesta «la espera no dice cuánto».
   if (!(minutos > 0)) return undefined;
   const m = Math.min(minutos, TOPE_ESPERA_MIN);
+  // «Después de» (14/10/2026) conserva de qué fecha cuenta. Un `de` que falta o que no existe cae a «la reunión», la
+  // única que tenía la espera hasta que se sumaron la 1ª, la 2ª y el plazo: sin esto, la espera se volvía «por tiempo»
+  // en el primer guardado y dejaba de mirar la fecha (la quinta puerta de AGENTS.md).
+  if (o.modo === 'despues_de') return { modo: 'despues_de', minutos: m, de: esAnclaDespues(o.de) ? o.de : 'reunion' };
   if (o.modo !== 'antes_reunion') return { modo: 'tiempo', minutos: m };
   // «Si agenda más cerca» (16/10/2026, `llegaTarde`): se guarda sólo lo que NO es lo de fábrica.
   return o.siAgendaCerca === 'sale' ? { modo: 'antes_reunion', minutos: m, siAgendaCerca: 'sale' } : { modo: 'antes_reunion', minutos: m };

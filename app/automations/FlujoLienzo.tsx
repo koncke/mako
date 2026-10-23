@@ -82,6 +82,7 @@ import { datosOfrecidos, type ContextoDatos } from '@/lib/variables-aviso';
 import type { AdjuntoDto } from '@/lib/setting-adjuntos-reglas';
 import {
   claseDe, idDe, indicePorId, borrarNodo, condicionARespuesta, raizRespuesta, esPasoIA, TOPE_CASOS, OPCIONES_SI_AGENDA_CERCA, textoSiAgendaCerca,
+  ANCLAS_DESPUES, esAnclaDespues,
   type Espera, type NombresParaTexto,
 } from '@/lib/flujo-grafo';
 import {
@@ -1530,33 +1531,53 @@ function EditorEspera({ espera, busy, cambiar }: { espera: Espera | undefined; b
   const [preferida, setPreferida] = useState<Unidad | null>(null);
   const unidad = unidadMostrada(seg, preferida);
   const n = seg / SEGUNDOS_DE[unidad];
-  // «Si agenda más cerca» (16/10/2026) se conserva al cambiar el número o la unidad; pasar a «Esperar» lo suelta.
+  // La espera con otro número u otra unidad, SIN perder de qué fecha cuenta («después de», 14/10/2026: su `de`) ni «Si agenda
+  // más cerca» (16/10/2026). Pasar a «Esperar» suelta las dos.
+  const conMinutos = (base: Espera, cuanto: number, u: Unidad): Espera => ({ ...base, minutos: minutosDeSegundos(Math.max(1, Math.round(cuanto)) * SEGUNDOS_DE[u]) });
   const cerca = e.modo === 'antes_reunion' && e.siAgendaCerca === 'sale' ? { siAgendaCerca: 'sale' as const } : {};
-  const poner = (modo: Espera['modo'], cuanto: number, u: Unidad, apilar: boolean) =>
-    cambiar({ espera: { modo, minutos: minutosDeSegundos(Math.max(1, Math.round(cuanto)) * SEGUNDOS_DE[u]), ...(modo === 'antes_reunion' ? cerca : {}) } }, apilar);
+  const poner = (modo: 'tiempo' | 'antes_reunion', cuanto: number, u: Unidad, apilar: boolean) =>
+    cambiar({ espera: conMinutos(modo === 'antes_reunion' ? { modo, minutos: e.minutos, ...cerca } : { modo, minutos: e.minutos }, cuanto, u) }, apilar);
+  const ponerIgual = (cuanto: number, u: Unidad, apilar: boolean) => cambiar({ espera: conMinutos(e, cuanto, u) }, apilar);
   // Un ícono por unidad (general 10: «pon íconos en todos los desplegable»): el cronómetro para lo corto,
   // el reloj para minutos y horas, el calendario para los días.
   const iconoUnidad: Record<Unidad, NombreIconoMenu> = { s: 'cronometro', min: 'reloj', h: 'reloj', dias: 'calendario' };
   const numero = (
     <input type="number" min={1} step={1} value={n} disabled={busy} aria-label="Cuánto"
-      onChange={(ev) => { const v = Number(ev.target.value); if (v > 0) poner(e.modo, v, unidad, false); }}
+      onChange={(ev) => { const v = Number(ev.target.value); if (v > 0) ponerIgual(v, unidad, false); }}
       style={{ ...campoGrande, minHeight: ALTO_PRINCIPAL, width: 104, flex: 'none', textAlign: 'center', fontSize: 22, fontWeight: 700, borderRadius: 13, border: '1.5px solid var(--border-strong)' }} />
   );
   const selUnidad = (
     <div style={{ flex: '1 1 170px', minWidth: 0 }}>
       <Dropdown value={unidad} width="100%" ariaLabel="Unidad" search={false} disabled={busy} variante="principal"
         options={UNIDADES_ESPERA.map((u) => ({ value: u, label: rotuloUnidad(u, n), icono: iconoUnidad[u] }))}
-        onChange={(v) => { const u = v as Unidad; setPreferida(u); poner(e.modo, n, u, true); }} />
+        onChange={(v) => { const u = v as Unidad; setPreferida(u); ponerIgual(n, u, true); }} />
     </div>
   );
   // ⚠️ CUARTA TANDA, PUNTO 9: «En "Delay" lo de "Antes de la reunión" debería ser una CONDITION,
   // dentro de la sección de llamadas» (vive en «Próxima reunión en», lib/condiciones-catalogo.ts). Un
   // DELAY nuevo sólo espera: «Esperar [1] [día]». Uno que YA está anclado a la reunión sigue con su
   // selector, para poder verlo y pasarlo a «Esperar»; el motor lo sigue corriendo igual.
-  if (e.modo === 'tiempo') {
+  //
+  // «DESPUÉS DE» (14/10/2026, el CRM automático pasa a plantillas): «Esperar [3] [h] [después de la reunión]». Cuenta desde
+  // una fecha del lead —la reunión, la 1ª, la 2ª o el plazo de su nutrición manual— y no desde que llega a la tarjeta.
+  // Lo elige el tercer desplegable; «desde ahora» es la espera de siempre.
+  const desde = (
+    <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+      <Dropdown value={e.modo === 'despues_de' ? `despues_de:${e.de}` : 'tiempo'} width="100%" ariaLabel="Desde cuándo" search={false} disabled={busy} variante="principal"
+        options={[
+          { value: 'tiempo', label: 'desde ahora', icono: 'reloj' },
+          ...ANCLAS_DESPUES.map((a) => ({ value: `despues_de:${a.id}`, label: `después de ${a.texto}`, icono: 'calendario' as const })),
+        ]}
+        onChange={(v) => {
+          const de = v.startsWith('despues_de:') ? v.slice('despues_de:'.length) : null;
+          cambiar({ espera: de && esAnclaDespues(de) ? { modo: 'despues_de', minutos: e.minutos, de } : { modo: 'tiempo', minutos: e.minutos } }, true);
+        }} />
+    </div>
+  );
+  if (e.modo === 'tiempo' || e.modo === 'despues_de') {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', minWidth: 0 }}>
-        <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', flex: 'none' }}>Esperar</span>{numero}{selUnidad}
+        <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', flex: 'none' }}>Esperar</span>{numero}{selUnidad}{desde}
       </div>
     );
   }
@@ -1566,7 +1587,7 @@ function EditorEspera({ espera, busy, cambiar }: { espera: Espera | undefined; b
       <div style={{ flex: '1 1 200px', minWidth: 0 }}>
         <Dropdown value={e.modo} width="100%" ariaLabel="Cuándo" search={false} disabled={busy} buttonStyle={botonGrande}
           options={[{ value: 'tiempo', label: 'Esperar', icono: 'reloj' }, { value: 'antes_reunion', label: 'antes de la reunión', icono: 'calendario' }]}
-          onChange={(v) => poner(v as Espera['modo'], n, unidad, true)} />
+          onChange={(v) => poner(v === 'antes_reunion' ? 'antes_reunion' : 'tiempo', n, unidad, true)} />
       </div>
       {/* «SI AGENDA MÁS CERCA» (16/10/2026, Martín: «si está configurado "1 día antes" y se agendó dentro de 3 horas, que
           simplemente no salga»): lo que pasa cuando el lead llega con menos de la mitad (`llegaTarde`). De fábrica, no sale. */}

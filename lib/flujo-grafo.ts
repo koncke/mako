@@ -323,7 +323,26 @@ export type Espera =
    * Hasta N minutos ANTES de la próxima reunión del lead (lo que era `ancla: 'reunion'`). `siAgendaCerca`: qué pasa
    * cuando el lead llega con menos de la mitad de ese tiempo (`llegaTarde`). Ausente = no sale (16/10/2026).
    */
-  | { modo: 'antes_reunion'; minutos: number; siAgendaCerca?: SiAgendaCerca };
+  | { modo: 'antes_reunion'; minutos: number; siAgendaCerca?: SiAgendaCerca }
+  /**
+   * N minutos DESPUÉS de una fecha del lead (14/10/2026: el CRM automático pasa a plantillas). `de` dice cuál: la reunión
+   * (la última que tiene), la 1ª o la 2ª (`junta_1_at` / `junta_2_at`; una fecha sin hora, el final de ese día en la zona
+   * del negocio), o el plazo de su nutrición manual (el final de ese día). NO es del carril del recordatorio: ni la
+   * tolerancia de 12 min, ni fuera del anti-ban o del horario (`esHiloDelCarril` mira sólo `antes_reunion`).
+   */
+  | { modo: 'despues_de'; minutos: number; de: AnclaDespues };
+
+/** De qué fecha del lead cuenta una espera «después de» (`Espera.modo === 'despues_de'`). Los ids se guardan: no se renombran. */
+export type AnclaDespues = 'reunion' | 'reunion_1' | 'reunion_2' | 'plazo_nutricion';
+/** Las anclas, en el orden del desplegable, con cómo se dicen en la tarjeta («3 h después de la reunión»). */
+export const ANCLAS_DESPUES: ReadonlyArray<{ id: AnclaDespues; texto: string }> = [
+  { id: 'reunion', texto: 'la reunión' },
+  { id: 'reunion_1', texto: 'la 1ª reunión' },
+  { id: 'reunion_2', texto: 'la 2ª reunión' },
+  { id: 'plazo_nutricion', texto: 'su plazo de nutrición' },
+];
+/** ¿Es un ancla de las que existen? (Lo que llega de la base o de la API se lee con esto.) */
+export const esAnclaDespues = (x: unknown): x is AnclaDespues => ANCLAS_DESPUES.some((a) => a.id === x);
 
 /**
  * «SI AGENDA MÁS CERCA» (16/10/2026, Martín, textual: «si está configurado "1 día antes" y se agendó dentro de 3 horas,
@@ -2752,5 +2771,6 @@ function horasTexto(h: number): string {
 export function textoEspera(e: Espera | undefined): string {
   if (!e) return 'Esperar';
   const dur = textoDuracion(segundosDeMinutos(e.minutos));
+  if (e.modo === 'despues_de') return `${dur} después de ${ANCLAS_DESPUES.find((a) => a.id === e.de)?.texto ?? 'la reunión'}`;
   return e.modo === 'antes_reunion' ? `${dur} antes de la reunión` : `Esperar ${dur}`;
 }

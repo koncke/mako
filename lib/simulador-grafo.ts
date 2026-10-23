@@ -503,7 +503,11 @@ function correrHilo<P extends PasoGrafo>(pasos: readonly P[], estado: EstadoSim,
         // (16/10/2026: sin esto quedaba en el minuto 0 y salía antes que el «Esperar 5 min» de otro camino). Sin
         // reunión no lo mueve: un número inventado ordenaría los hilos con un dato que no existe.
         const min = Math.max(0, Number(p.espera?.minutos) || 0);
+        // «N después de» una fecha del lead (23/10/2026, el CRM automático a plantillas) lleva el reloj a la reunión MÁS N; del
+        // plazo de nutrición el simulador no sabe nada, así que no lo mueve (la misma regla que una reunión que no hay).
         const reloj = p.espera?.modo === 'tiempo' ? h.reloj + min
+          : p.espera?.modo === 'despues_de'
+            ? (st.reunionMin != null && p.espera.de !== 'plazo_nutricion' ? Math.max(h.reloj, st.reunionMin + min) : h.reloj)
           : st.reunionMin != null ? Math.max(h.reloj, st.reunionMin - min) : h.reloj;
         const tarde = st.reunionMin != null && llegaTarde(p.espera, st.reunionMin - h.reloj);
         const hilos = st.hilos.slice();

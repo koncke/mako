@@ -223,6 +223,12 @@ export type HechosCatalogo = {
     confirmoCompra: boolean;
     /** La próxima reunión FUTURA (`reunionFuturaMs`), o null. */
     proximaReunionMs: number | null;
+    /**
+     * La fecha límite de la nutrición manual (`leads.nutricion_manual_deadline`, YYYY-MM-DD) y si ya venció en el día del
+     * NEGOCIO (`vencido`: la fecha es anterior a hoy, la regla T3 de lib/crm-auto-plan.ts). null = el lead no tiene plazo;
+     * `vencido` null = no se supo qué día es hoy. Ausente = no se leyó (la condición dice «no sé»).
+     */
+    plazoNutricion?: { fecha: string; vencido: boolean | null } | null;
   };
   /** null = el lead no tiene visitante (nunca se lo pudo seguir en la landing). */
   vsl?: { plays: number; maxPct: number | null } | null;
@@ -401,6 +407,21 @@ function enPieEntre(f: FilaCondicion, h: HechosLead): boolean | null {
   const s = lugaresDeFila(f, h);
   if (!s) return null;
   return s.some((x) => x.fechaMs != null && x.asistio == null && x.finMs != null && x.finMs > h.ahoraMs);
+}
+
+/**
+ * «ASISTENCIA SIN MARCAR A LA REUNIÓN» (14/10/2026: el CRM automático pasa a plantillas, la regla T1 de
+ * lib/crm-auto-plan.ts). De las elegidas (sin etapas, la R1 o la R2) mira SÓLO las que YA PASARON (`finMs`: la hora, o el
+ * final del día de una fecha sola) y no se cancelaron (una cancelada no tiene `fechaMs`): alguna sin la asistencia →
+ * «sí»; todas marcadas → «no». Ninguna pasada (todavía no fue, se canceló, no hay) → «no sé»: una reunión de mañana no
+ * está «sin marcar», y la negada («Asistencia marcada») tampoco se cumple ahí.
+ */
+function sinMarcarEntre(f: FilaCondicion, h: HechosLead): boolean | null {
+  const s = lugaresDeFila(f, h);
+  if (!s) return null;
+  const pasadas = s.filter((x) => x.fechaMs != null && x.finMs != null && x.finMs <= h.ahoraMs);
+  if (!pasadas.length) return null;
+  return pasadas.some((x) => x.asistio == null);
 }
 
 /** Los embudos que nombran las filas con etapas de reunión: la fuente `reuniones` lee sólo ésos. */
@@ -587,6 +608,14 @@ export const CONDICIONES: readonly DefCondicion[] = [
       return !ids.length || !m ? null : ids.some((id) => m.has(id));
     },
   },
+  // «VENCIÓ SU NUTRICIÓN MANUAL» (14/10/2026: la regla T3 del CRM automático, lib/crm-auto-plan.ts, como condición visible).
+  // La fecha límite es la que una PERSONA le puso a ESE lead al pasarlo a nutrición manual; vence cuando ya es el día
+  // siguiente en el negocio. Sin plazo, «no sé». No es «una fecha del lead contra hoy» genérica: es la única fecha del lead
+  // que es un PLAZO (las demás son hechos que pasaron, y «hace cuánto» ya lo dice «Llegó hace…»).
+  {
+    id: 'nutricion_vencida', seccion: 'Etapa y pipeline', ambito: 'adquisicion', rotulo: ['Venció su nutrición manual', 'Su nutrición manual no venció'], negable: true, valor: NINGUNO, fuentes: ['lead'],
+    evaluar: (_f, h) => { const l = L(h); return l?.plazoNutricion ? l.plazoNutricion.vencido : null; },
+  },
 
   // ── Agenda y llamadas ──
   { id: 'agendo', seccion: 'Agenda y llamadas', ambito: 'adquisicion', rotulo: ['Agendó', 'No agendó'], negable: true, valor: LEGADO, fuentes: ['lead'] },
@@ -608,6 +637,11 @@ export const CONDICIONES: readonly DefCondicion[] = [
   {
     id: 'reunion_en_pie', reuniones: true, seccion: 'Agenda y llamadas', ambito: 'adquisicion', rotulo: ['Su reunión sigue en pie', 'Su reunión ya pasó o se canceló'], negable: true, valor: NINGUNO, fuentes: ['lead'],
     evaluar: enPieEntre,
+  },
+  // T1 del CRM automático (14/10/2026): la reunión YA PASÓ y nadie marcó si vino. Ver `sinMarcarEntre`.
+  {
+    id: 'asistencia_sin_marcar', reuniones: true, seccion: 'Agenda y llamadas', ambito: 'adquisicion', rotulo: ['Asistencia sin marcar a la reunión', 'Asistencia marcada a la reunión'], negable: true, valor: NINGUNO, fuentes: ['lead'],
+    evaluar: sinMarcarEntre,
   },
   // ⚠️ LAS DE «R1» / «R2» QUEDAN RETIRADAS (cuarta tanda, punto 5: «no tiene sentido diferenciar "R1"
   // de "R2"»). Se siguen evaluando para los flujos que ya las tienen; para lo nuevo están la familia de

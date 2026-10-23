@@ -819,14 +819,15 @@ export function avisoAgendaCerca(e: Espera | undefined, anticipacionMin: number 
 /**
  * CUÁNTOS MINUTOS SE ESPERA JUSTO ANTES DE UNA TARJETA: la espera (por tiempo) que la apunta, sumada a
  * las que vienen pegadas antes de ella (dos esperas seguidas son UNA espera más larga). Con varios
- * padres, el camino que más espera. Una espera «antes de la reunión» no cuenta: depende de la fecha.
+ * padres, el camino que más espera. Una espera «antes de la reunión» o «después de» una fecha del lead no cuenta: depende
+ * de la fecha.
  */
 export function esperaAntesDe(pasos: readonly PasoGrafo[], id: string, vistos: ReadonlySet<string> = new Set()): number {
   let max = 0;
   for (const pa of padresDe(pasos, id)) {
     if (vistos.has(pa.id)) continue;
     const q = nodoPorId(pasos, pa.id);
-    if (!q || claseDe(q) !== 'esperar' || q.espera?.modo === 'antes_reunion') continue;
+    if (!q || claseDe(q) !== 'esperar' || q.espera?.modo !== 'tiempo') continue;
     const m = Math.max(0, Number(q.espera?.minutos) || 0);
     max = Math.max(max, m + esperaAntesDe(pasos, pa.id, new Set([...vistos, id])));
   }

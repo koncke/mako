@@ -87,6 +87,7 @@ import { esperaQueAbra } from '@/lib/mako-tarjeta';
 import { usaEquipoContesto, contestoElEquipo, type TurnoDelGrupo } from '@/lib/equipo-contesto';
 import {
   indiceActual, siguienteIndice, resolverControl, necesitaHechos, alcanzablesDesde, esPrimerPaso, minutosAntesDeReunion,
+  tieneEsperaDespues, fechasDespuesDe,
   saleSolo, siguienteSin, siguienteCon, hechosDeLead, esTablaInexistente, mediaDeAdjunto, camposDelFlujo, pasoDeEntrada,
   condicionDeArriba, condicionSigueLlevando, usaContesto, destinoAlContestar, ramaDeQuienContesto,
   esNodoDeControl, RELLENO_CONTROL, TOPE_SALTOS, esColumnaInexistente, etiquetasQueCuentan, barridoInscribe, irAEstaMisma,
@@ -3187,7 +3188,7 @@ async function hechosDeLeads(
   // Las columnas de la fila: las de siempre, y las del catálogo (origen, reuniones, compra…) sólo
   // si alguna fila las pide — más las respuestas viejas del formulario si se busca en ellas.
   const COLS_BASE = 'id, created_at, telefono, email, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at, fecha_primer_pago, cerro, estado_lead, pipeline_stage, fecha_agenda, asistio_j1, asistio_j2, nutricion_realizada, funnel_id';
-  const COLS_CATALOGO = 'origen_lead, calificado, meta_lead_id, visitor_id, meta_campaign_name, email_opt_out, venta_tipo, fecha_cierre, fecha_confirmacion';
+  const COLS_CATALOGO = 'origen_lead, calificado, meta_lead_id, visitor_id, meta_campaign_name, email_opt_out, venta_tipo, fecha_cierre, fecha_confirmacion, nutricion_manual_deadline';
   const COLS_RESPUESTAS = 'respuesta_facturacion, respuesta_colaboradores, respuesta_objetivo, respuesta_cuando_empezar, respuesta_inversion, respuesta_decisor, meta_field_data';
   const catalogoLead = filas != null;
   const cols = [COLS_BASE, catalogoLead ? COLS_CATALOGO : '', pide('respuestas') ? COLS_RESPUESTAS : ''].filter(Boolean).join(', ');
@@ -3409,7 +3410,10 @@ async function hechosDelCatalogo(
     }
     return m;
   };
-  const leerHoy = async (): Promise<string> => (pide('pagos') ? hoyEnTz(await tzActual()) : '');
+  // El día del NEGOCIO: lo piden las cuotas vencidas y «Venció su nutrición manual» (14/10/2026, la regla T3 del CRM
+  // automático: el plazo vence cuando ya es el día siguiente EN EL NEGOCIO).
+  const pideHoy = pide('pagos') || filas.some((f) => f.campo === 'nutricion_vencida');
+  const leerHoy = async (): Promise<string> => (pideHoy ? hoyEnTz(await tzActual()) : '');
   // Duodécima tanda: la conversación que cuenta por lead y canal, y «¿te sigue?» sobre ésa (sólo a quien
   // escribió). El workspace va EXPLÍCITO a Zernio: es el de la corrida, el mismo que scopea `getTenantDb`.
   const leerSocial = async (): Promise<ConversacionesPorLead | null> => (pide('social') || pide('sigue') ? conversacionesDeLeads(ids) : null);
@@ -3426,7 +3430,7 @@ async function hechosDelCatalogo(
   ]);
 
   return (f, ahoraMs) => {
-    const c: HechosCatalogo = { lead: catalogoDeLead(f, ahoraMs) };
+    const c: HechosCatalogo = { lead: catalogoDeLead(f, ahoraMs, hoy || null) };
     if (reuniones) c.reuniones = reuniones;
     const vid = typeof f.visitor_id === 'string' && f.visitor_id ? f.visitor_id : null;
     if (vsl) {
@@ -4392,12 +4396,13 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       .from('leads')
       // `asistio_j1/j2` y `estado_lead`: la reunión CON HORA del carril (`proximaReunion` estricta) y «sólo a un lead
       // abierto», como el emisor del recordatorio (undécima tanda, M3).
-      .select('id, nombre, telefono, empresa, email, email_opt_out, created_at, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at, asistio_j1, asistio_j2, estado_lead')
+      // `nutricion_manual_deadline`: la espera «después de su plazo de nutrición» (14/10/2026, `fechasDespuesDe`).
+      .select('id, nombre, telefono, empresa, email, email_opt_out, created_at, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at, asistio_j1, asistio_j2, estado_lead, nutricion_manual_deadline')
       .in('id', leadIds);
     const leadMap = new Map(
       ((leadsData ?? []) as Array<{
         id: number; nombre: string | null; telefono: string | null; empresa: string | null; email: string | null; email_opt_out: boolean | null; created_at: string | null;
-        asistio_j1?: boolean | null; asistio_j2?: boolean | null; estado_lead?: string | null;
+        asistio_j1?: boolean | null; asistio_j2?: boolean | null; estado_lead?: string | null; nutricion_manual_deadline?: string | null;
       } & JuntasLead>).map((l) => [l.id, l]),
     );
     // Ventana anti-baneo de 20h resuelta en batch (no 2 counts por lead en el loop). 20/10/2026: con las horas de CADA
@@ -4525,7 +4530,9 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         // Un flujo con carril ancla su DELAY «antes de la reunión» en la reunión CON HORA (M3 a; sin ella y con
         // fecha, `sin_hora` cierra ese hilo, M3 g). Uno sin carril no tiene esa espera: lo de siempre.
         const reunionConHoraMs = tieneCarril(sec.pasos) ? await reunionConHoraDe(lead) : undefined;
-        const r = resolverControl(sec.pasos, idxLeido, { hechos, ahoraMs: Date.now(), reunionMs: reunionFuturaMs(lead), reunionConHoraMs });
+        // Una espera «después de» (14/10/2026) cuenta desde una fecha del lead, en la zona del negocio. Sólo si el flujo la tiene.
+        const fechasDespues = tieneEsperaDespues(sec.pasos) ? fechasDespuesDe(lead, await zonaCarril()) : undefined;
+        const r = resolverControl(sec.pasos, idxLeido, { hechos, ahoraMs: Date.now(), reunionMs: reunionFuturaMs(lead), reunionConHoraMs, fechasDespues });
         const canalCtl = pasoLeido.canal;
         // Las flechas en paralelo que la resolución encontró (de una espera, del inicio o —cuarta
         // tanda, punto 8— del RESULTADO elegido de una condición) arrancan con cualquier desenlace
@@ -4562,6 +4569,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
         if (r.tipo === 'sin_reunion') { await cerrar('la reunión ya pasó', true, 'inscripcion'); continue; }
         // La reunión sólo tiene FECHA: el recordatorio no inventa una hora, y se cierra ESE hilo (M3 g).
         if (r.tipo === 'sin_hora') { await cerrar('la reunión no tiene hora', true); continue; }
+        // Una espera «después de» sin su fecha (no tiene esa reunión, o no tiene plazo): se cierra ESE hilo, con el motivo.
+        if (r.tipo === 'sin_ancla') { await cerrar(r.motivo, true); continue; }
         if (r.tipo === 'tope_saltos') { await cerrar(`el flujo da más de ${TOPE_SALTOS} saltos sin esperar: se cortó`, true, 'inscripcion'); continue; }
         if (r.tipo === 'ir_a_secuencia') {
           // A ESTA MISMA automatización: un bucle (la cierra, la reinicia y al terminar vuelve a
