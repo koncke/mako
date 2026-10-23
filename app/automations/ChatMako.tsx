@@ -62,7 +62,7 @@ import { Ico } from '@/app/web-generator/Ico';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 import { sanearChat, type MensajeChatMako, type PreguntaMako, type RespuestaMako } from '@/lib/automatizacion-chat';
 import type { IntencionChat } from '@/lib/flujo-ia-intencion';
-import { ordenarAvisos, rondaAbierta, respuestaMako, textoDeCreada, ELIGE_TU, OTRA_COSA, type EleccionMako, type RondaMako } from '@/lib/flujo-ia-cliente';
+import { ordenarAvisos, rondaAbierta, respuestaMako, textoDeCreada, lineaDeListo, CIERRE_EDICION, ELIGE_TU, OTRA_COSA, type EleccionMako, type RondaMako } from '@/lib/flujo-ia-cliente';
 import type { PasoGrafo } from '@/lib/flujo-grafo';
 import { useStreamIA, RUTA_IA, TOPE_CLIENTE_MS, TEXTO_FASE, ORDEN_FASES, type EstadoIA, type ListoStreamIA } from './stream-ia';
 import type { FinIA } from './stream-ia';
@@ -462,6 +462,9 @@ export function ChatMako(p: ChatMakoProps) {
       // Crear: lo que armó el server con lo guardado (cuándo sale, a quién y qué manda, 20/10/2026); uno de antes, el corto.
       id: nuevoId('mako'), de: 'mako', texto: l.modo === 'crear' ? (l.texto ?? textoDeCreada(l.nombre)) : textoDeListo(l), at: new Date().toISOString(), via: 'app',
       ...(avisos.length ? { avisos } : {}), ...(l.pregunta ? { pregunta: l.pregunta } : {}),
+      // Las cuentas (para el «✓ Listo» de una línea) y lo pedido que no se hizo (en rojo), como lo guarda la ruta.
+      ...(l.modo === 'editar' && l.cambiadas ? { cambios: { cambiadas: l.cambiadas.length, quitadas: l.quitadas?.length ?? 0, agregadas: l.orden.length } } : {}),
+      ...(l.noHecho?.length ? { noHecho: l.noHecho } : {}),
     }]);
     return true;
   };
@@ -686,14 +689,28 @@ function Mensaje({ m, viva, ultimo, onElegir, deshabilitado }: {
     );
   }
   const preguntaAparte = m.pregunta && m.pregunta.texto.trim() !== m.texto.trim() ? m.pregunta.texto : null;
-  const texto = [m.texto, preguntaAparte].filter((t) => t && t.trim()).join('\n\n');
+  // ⚠️ «LISTO», EN VERDE, Y LO DEMÁS EN GRIS (22/10/2026, Martín: «El mensaje una vez realizada una tarea se tiene que ver
+  // como "Success". Si me ponés un mensaje en rojo abajo y el de arriba no dice algo como "Listo!", parece que no
+  // funcionó»). Un turno que cambió el lienzo sin nada pedido afuera: «✓ Listo» y lo que quedó en UNA línea; el detalle
+  // tarjeta por tarjeta y lo que MaKo acomodó solo, plegados y en gris. En rojo, SÓLO lo pedido que no se hizo (`noHecho`).
+  const listo = lineaDeListo(m);
+  const texto = listo ?? [m.texto, preguntaAparte].filter((t) => t && t.trim()).join('\n\n');
+  const detalle = listo ? m.texto.split('\n').filter((l) => l.trim() && l.trim() !== CIERRE_EDICION) : [];
+  const acomodado = [...detalle, ...(m.avisos ?? [])];
   return (
     <div data-mensaje="mako" style={S.filaMako}>
+      {listo && <span data-listo-mako="" style={S.listo}>✓ Listo</span>}
       <BurbujaHilo saliente={false} autor="MaKo" maxAncho="92%" contenido={{ texto }} hora={horaDe(m.at)} />
-      {m.avisos?.length ? (
-        <ul data-avisos-mako="" style={{ ...S.avisos, ...(ultimo ? null : { opacity: 0.75 }) }}>
-          {m.avisos.map((a, i) => <li key={i}>{a}</li>)}
+      {m.noHecho?.length ? (
+        <ul data-no-hecho-mako="" role="alert" style={S.noHecho}>
+          {m.noHecho.map((a, i) => <li key={i}>{a}</li>)}
         </ul>
+      ) : null}
+      {acomodado.length ? (
+        <details data-avisos-mako="" style={{ ...S.avisos, ...(ultimo ? null : { opacity: 0.75 }) }}>
+          <summary style={S.avisosTitulo}>{listo ? 'Qué cambió' : 'Lo que acomodé'} ({acomodado.length})</summary>
+          <ul style={S.avisosLista}>{acomodado.map((a, i) => <li key={i}>{a}</li>)}</ul>
+        </details>
       ) : null}
       {viva && <TarjetaPregunta pregunta={viva} onElegir={onElegir} deshabilitado={deshabilitado} />}
     </div>
@@ -1002,7 +1019,12 @@ const S: Record<string, CSSProperties> = {
   nombre: { fontSize: 14.5, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.2 },
   estado: { fontSize: 12, lineHeight: 1.3 },
   filaMako: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6, minWidth: 0 },
-  avisos: { margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12.5, color: 'var(--warn)', maxWidth: '92%' },
+  // Lo que MaKo acomodó solo y el detalle de un «Listo»: plegado y en GRIS (22/10/2026: en rojo, sólo lo pedido que no se hizo).
+  avisos: { maxWidth: '92%', fontSize: 12.5, color: 'var(--faint)' },
+  avisosTitulo: { cursor: 'pointer', fontWeight: 600, listStylePosition: 'inside' },
+  avisosLista: { margin: '4px 0 0', paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 2 },
+  listo: { alignSelf: 'flex-start', fontSize: 12.5, fontWeight: 700, color: 'var(--good)' },
+  noHecho: { margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12.5, color: 'var(--bad)', maxWidth: '92%' },
   opciones: { display: 'flex', flexWrap: 'wrap', gap: 6, maxWidth: '92%' },
   vacio: { margin: 'auto', color: 'var(--faint)', fontSize: 13.5, textAlign: 'center' },
   // EN UNA SOLA LÍNEA (22/10/2026, Martín: «no me gusta que "cancelar" tenga un salto de línea»): sin `wrap`; si falta lugar,

@@ -107,7 +107,8 @@ test('ChatMako dibuja la pregunta VIVA: sus botones con los rótulos TAL CUAL, �
 
 test('los avisos van en el mensaje de MaKo, y lo que se dibuja va en tú', () => {
   const html = dibujarChat([yo('y1', 'Cambia WhatsApp por Instagram'), mako('m1', 'Cambié 2', { avisos: ['Saqué el Si responde: por Instagram todavía no contesta'] })], 'editar');
-  assert.match(html, /data-avisos-mako=""[^>]*><li>Saqué el Si responde: por Instagram todavía no contesta<\/li><\/ul>/);
+  // (22/10/2026: lo que MaKo acomodó va plegado y en gris: tests/chat-mako-ramas-y-listo.test.ts.)
+  assert.match(html, /<details data-avisos-mako=""[\s\S]*?<li>Saqué el Si responde: por Instagram todavía no contesta<\/li><\/ul><\/details>/);
   for (const s of [ELIGE_TU, OTRA_COSA, PLACEHOLDER_OTRA, PLACEHOLDER_EDITAR, NO_APLICADO,
     textoDeListo({ orden: ['a'] }), textoDeListo({ orden: ['a', 'b'] }), textoDeListo({ orden: [], disparadores: [{ id: 'd1', trigger_tipo: 'manual' }] as never })]) {
     assert.deepEqual(marcasDeVoseo(s), [], s);
