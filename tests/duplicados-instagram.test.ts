@@ -42,6 +42,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import {
   buscarDuplicados, instagramComparable, patronDeInstagram, textoDuplicado, LeadDuplicadoError,
   type LeadExistente,
@@ -339,6 +340,8 @@ const CONSUMIDORES = [
   'app/crm/actions.ts', 'app/crm/new/NewLeadForm.tsx', 'app/whatsapp/EmpresaInbox.tsx', 'app/crm/lead-view/ficha/resumen/bloques-actions.ts',
   'app/api/track/optin/route.ts', 'lib/optin-aviso.ts', 'lib/api-mako/areas/crm.run.ts', 'lib/api-mako/areas/chats.run.ts',
   'app/crm/grupo-wa-server.ts', 'app/admin/cobros/actions.ts', 'lib/compra-plan.ts', 'lib/editor-landing/pago-landing-server.ts', 'app/customer-success/actions.ts',
+  // El cuerpo de crearClienteAction y de la alta de alumno se mudó acá (23/10/2026, «API de MaKo»): asignan `c.motivo`.
+  'lib/cs-crear-cliente.ts', 'lib/curso-alta-alumno.ts',
 ];
 
 test('ningún consumidor de una Coincidencia ramifica por el LITERAL del motivo', () => {
@@ -365,6 +368,13 @@ test('nadie repite la unión de motivos a mano: se importa MotivoDuplicado', () 
     assert.ok(!copia.test(sinComentarios(leer(`../${f}`))),
       `${f} copia la unión de motivos: con 'instagram' deja de compilar (TS2322). Importa «type MotivoDuplicado» de '@/lib/leads-duplicados' en vez de repetirla`);
   }
+  // ⚠️ Y NO SÓLO LA LISTA DE ARRIBA: el código se muda (el 23/10/2026 el cuerpo de `crearClienteAction` salió de
+  // app/customer-success/actions.ts a dos archivos de lib/ que la lista no nombraba, y la copia se fue con él). Se barre TODO app/ y lib/.
+  const rutas = execFileSync('git', ['ls-files', '-z', '--', 'app', 'lib'], { cwd: new URL('../', import.meta.url), encoding: 'utf8', maxBuffer: 64 << 20 })
+    .split('\0').filter((r) => /\.tsx?$/.test(r) && r !== 'lib/leads-duplicados.ts');
+  assert.ok(rutas.length > 500, `el barrido de app/ y lib/ no vio archivos (${rutas.length})`);
+  const copiadas = rutas.filter((r) => copia.test(sinComentarios(leer(`../${r}`))));
+  assert.deepEqual(copiadas, [], `copian la unión de motivos a mano: ${copiadas.join(', ')}. Importa «type MotivoDuplicado»`);
   // La unión en sí: el orden del tipo es el de concluyencia (el que usa `buscarDuplicados`).
   assert.match(leer('../lib/leads-duplicados.ts'), /export type MotivoDuplicado = 'email' \| 'telefono' \| 'instagram' \| 'nombre';/);
 });

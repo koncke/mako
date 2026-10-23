@@ -251,11 +251,12 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'duplicados_lead', area: 'crm', tipo: 'lectura',
     titulo: 'Contacto ya cargado en el CRM',
-    descripcion: 'Dado un nombre, email o teléfono, qué leads existentes parecen la misma persona y por qué (email, teléfono por sus últimos 10 dígitos, o nombre sin acentos solo cuando no hay email ni teléfono). Úsala antes de proponer_lead para avisar «ya está cargado» con su id. Si la consulta falla devuelve vacío: vacío no garantiza que no exista.',
+    descripcion: 'Dado un nombre, email, teléfono o Instagram, qué leads existentes parecen la misma persona y por qué (email, teléfono por sus últimos 10 dígitos, Instagram, o nombre sin acentos solo cuando no hay email ni teléfono). Úsala antes de proponer_lead para avisar «ya está cargado» con su id. Si la consulta falla devuelve vacío: vacío no garantiza que no exista.',
     parametros: [
       { nombre: 'nombre', tipo: 'string', max: 200, descripcion: 'nombre y apellido.' },
       { nombre: 'email', tipo: 'string', max: 200, descripcion: 'email.' },
       { nombre: 'telefono', tipo: 'string', max: 40, descripcion: 'teléfono en cualquier formato.' },
+      { nombre: 'instagram', tipo: 'string', max: 200, descripcion: 'usuario de Instagram, con o sin @, o el link del perfil.' },
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
@@ -599,11 +600,12 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'proponer_lead', area: 'crm', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/crm/revisar',
     titulo: 'Proponer alta de un lead',
-    descripcion: 'PROPONE dar de alta un contacto en el CRM: deja una propuesta y devuelve el LINK a /crm/revisar/<id>, donde una persona ve los datos, corrige y confirma; recién ahí se crea el lead (avisando duplicados). Úsala cuando pidan agregar a alguien al CRM. Necesita al menos el nombre; el teléfono es lo que después lo cruza con su WhatsApp. Pasa el link tal cual y no pidas confirmación por el chat. Para varios contactos a la vez usa proponer_leads.',
+    descripcion: 'PROPONE dar de alta un contacto en el CRM: deja una propuesta y devuelve el LINK a /crm/revisar/<id>, donde una persona ve los datos, corrige y confirma; recién ahí se crea el lead (avisando duplicados). Úsala cuando pidan agregar a alguien al CRM. Necesita al menos el nombre; el teléfono es lo que después lo cruza con su WhatsApp, y si sólo hay su Instagram, alcanza con el @. Pasa el link tal cual y no pidas confirmación por el chat. Para varios contactos a la vez usa proponer_leads.',
     parametros: [
       { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 200, descripcion: 'nombre y apellido de la persona.' },
       { nombre: 'telefono', tipo: 'string', max: 40, descripcion: 'teléfono, solo dígitos con código de país si lo tienes.' },
       { nombre: 'email', tipo: 'string', max: 200, descripcion: 'email, si lo tienes.' },
+      { nombre: 'instagram', tipo: 'string', max: 200, descripcion: 'su usuario de Instagram (@usuario o el link del perfil), si lo tienes.' },
       { nombre: 'empresa', tipo: 'string', max: 200, descripcion: 'nombre del negocio, si lo dijeron.' },
       { nombre: 'nota', tipo: 'string', max: 1000, descripcion: 'el contexto que dio el dueño en sus palabras; va a la ficha y explica de dónde salió el lead.' },
     ],
@@ -1096,7 +1098,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'proponer_leads', area: 'crm', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/crm/revisar',
     titulo: 'Proponer alta de varios leads',
-    descripcion: 'PROPONE dar de alta un LOTE de contactos (hasta 200) en el CRM: deja UNA propuesta y devuelve el link a /crm/revisar/<id>, donde una persona ve la tabla, corrige, marca duplicados y confirma. Cada contacto necesita nombre y además email o teléfono; los que no traen ninguno de los dos se devuelven en `descartados`. Idempotente por `ref`: reenviar el mismo lote devuelve el mismo link. Para un solo contacto dicho en un chat, usa proponer_lead.',
+    descripcion: 'PROPONE dar de alta un LOTE de contactos (hasta 200) en el CRM: deja UNA propuesta y devuelve el link a /crm/revisar/<id>, donde una persona ve la tabla, corrige, marca duplicados y confirma. Cada contacto necesita nombre y además email, teléfono o Instagram; los que no traen ninguno se devuelven en `descartados`. Idempotente por `ref`: reenviar el mismo lote devuelve el mismo link. Para un solo contacto dicho en un chat, usa proponer_lead.',
     parametros: [
       {
         nombre: 'leads', tipo: 'object[]', obligatorio: true, max: 200, descripcion: 'los contactos del lote.',
@@ -1104,6 +1106,7 @@ export const DEFS: readonly OperacionDef[] = [
           { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 200, descripcion: 'nombre y apellido.' },
           { nombre: 'email', tipo: 'string', max: 200, descripcion: 'email.' },
           { nombre: 'telefono', tipo: 'string', max: 40, descripcion: 'teléfono con código de país.' },
+          { nombre: 'instagram', tipo: 'string', max: 200, descripcion: 'usuario de Instagram (@usuario o el link del perfil).' },
           { nombre: 'empresa', tipo: 'string', max: 200, descripcion: 'empresa.' },
           { nombre: 'utm_source', tipo: 'string', max: 200, descripcion: 'utm_source de origen.' },
           { nombre: 'utm_medium', tipo: 'string', max: 200, descripcion: 'utm_medium de origen.' },
@@ -1220,6 +1223,29 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: ['app'], costo: 'gratis', gating: TAB_ADMIN,
     reversible: false, escribe: 'crea un lead por cada número nuevo del grupo (o suma al funnel al que ya es lead), con su etiqueta de origen y su historial',
+  },
+  // ── «Invitar al curso al ganar» (23/10/2026, P0-4 de la auditoría de la API) ─────────────────────────
+  // El interruptor del «⋯» de la columna Ganado (app/crm/curso-al-ganar-actions.ts): prendido, quien pasa a Ganado en
+  // ese CRM recibe sola la invitación al curso de su producto. Cierra el par venta → acceso sin que nadie invite a mano
+  // («no vender sin entregar»). Al final del área, antes del bloque de cobros (que va pegado a `armar_tab_ficha`), y sin
+  // «lead» ni «etapa» en las descripciones: en un empate de relevancia no le gana el presupuesto a las de antes.
+  {
+    id: 'ver_curso_al_ganar', area: 'crm', tipo: 'lectura',
+    titulo: 'Ver la invitación al ganar',
+    descripcion: 'Por cada CRM del negocio (o sólo el de embudoId): si está prendida «Invitar al curso al ganar», que le manda sola la invitación al curso a quien pasa a Ganado, y si su producto tiene un curso con clases (sin clases no se puede prender). Lo cambia cambiar_curso_al_ganar.',
+    parametros: [{ nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo. Sin él, todos.' }],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
+  },
+  {
+    id: 'cambiar_curso_al_ganar', aTerceros: true, area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Cambiar la invitación al ganar',
+    descripcion: 'PROPONE prender o apagar «Invitar al curso al ganar» en un CRM (queda pendiente hasta el «sí»): prendida, cada persona que pase a Ganado ahí recibe sola la invitación por email al curso de su producto. A los que ya están en Ganado no les llega nada. Prender exige que el producto tenga clases; apagar, nada. Sin embudoId, el CRM principal. Solo el administrador.',
+    parametros: [
+      { nombre: 'prendido', tipo: 'boolean', obligatorio: true, descripcion: 'true la prende; false la apaga.' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo. Sin él, el CRM principal.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'el interruptor «Invitar al curso al ganar» de ese CRM en la configuración del negocio: prendido, cada cliente que pase a Ganado recibe la invitación al curso por email',
   },
   // ── «Vincular cobro» por MaKo (22/10/2026) ────────────────────────────────────────
   // `plata: true` en las tres que escriben (revisión del 23/10/2026): deciden si un pago gana el trato y arma su plan de

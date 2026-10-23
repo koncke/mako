@@ -48,6 +48,16 @@ export async function cambiarCursoAlGanar(funnelId: number, prendido: boolean): 
 }
 
 /**
+ * ¿El embudo tiene un curso al que invitar? = su producto tiene clases. UNA regla para el tablero y para la API de MaKo.
+ * TIRA si no se pudo leer: quien la llama decide si eso es «no se ofrece» (el tablero) o un error (la API).
+ */
+async function tieneCurso(real: number): Promise<boolean> {
+  const producto = (await productoDeFunnel([real])).get(real);
+  if (!producto) return false;
+  return (await clasesDelProducto(producto.id)).length > 0;
+}
+
+/**
  * Lo que el tablero necesita para dibujar la opción en la columna Ganado. `null` = no se ofrece:
  * el producto del embudo no tiene clases (no hay curso al que invitar) o no se pudo leer. Nunca tira.
  */
@@ -55,15 +65,27 @@ export async function estadoCursoAlGanar(funnelId: number | null): Promise<{ pre
   try {
     const real = funnelId ?? (await idDelFunnelDefault());
     if (real == null) return null;
-    const producto = (await productoDeFunnel([real])).get(real);
-    if (!producto) return null;
-    const [clases, prendidos] = await Promise.all([clasesDelProducto(producto.id), embudosQueInvitan()]);
-    if (!clases.length) return null;
+    const [curso, prendidos] = await Promise.all([tieneCurso(real), embudosQueInvitan()]);
+    if (!curso) return null;
     return { prendido: prendidos.includes(real) };
   } catch (e) {
     console.error('[curso-auto] no pude leer si el embudo invita al ganar:', e instanceof Error ? e.message : e);
     return null;
   }
+}
+
+/**
+ * Lo mismo, para quien INFORMA o DECIDE (la API de MaKo, 23/10/2026): TIRA si no se pudo leer, y lee el interruptor
+ * ESTRICTO. Con la lectura de arriba, una base caída se leía «apagado» y MaKo le habría dicho al dueño que no invita
+ * sobre un CRM que sí invita. Y separa «tiene curso» de «está prendido»: un CRM puede quedar prendido después de que
+ * su producto se quedó sin clases, y eso hay que poder decirlo.
+ */
+export async function estadoCursoAlGanarEstricto(funnelId: number): Promise<{ curso: boolean; prendido: boolean }> {
+  const [curso, prendidos] = await Promise.all([
+    tieneCurso(funnelId),
+    getSettingEstricto(CURSO_AL_GANAR_KEY).then(parsearCursoAlGanar),
+  ]);
+  return { curso, prendido: prendidos.includes(funnelId) };
 }
 
 /**

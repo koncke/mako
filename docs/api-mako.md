@@ -29,7 +29,7 @@
 
 - **General** (`general`): `leer_resumen_objetivos` · `ver_trimestre_actual` · `listar_objetivos` · `ver_objetivo_principal` · `ver_tablero_kpis` · `listar_kpis` · `sugerir_kpis` · `listar_fuentes_kpi` · `medir_fuente_kpi` · `ver_capacidad_instalada` · `medir_tramo_r1_r2` · `listar_pendientes_arranque` · `registrar_valor_kpi` · `cerrar_objetivo` · `apagar_kpi` · `guardar_capacidad` · `guardar_objetivo` · `guardar_kpi` · `sembrar_kpis_sugeridos` · `listar_hojas_general` · `crear_hoja_general` · `editar_hoja_general_con_ia` · `agregar_bloque_general` · `configurar_bloque_general`
 - **Plan** (`plan`): `ver_plan` · `listar_tareas_plan` · `ver_tarea_plan` · `ver_proyecto_plan` · `listar_proyectos_plan` · `ver_prioridades_plan` · `ver_repriorizacion_plan` · `listar_tareas_vencidas` · `listar_tareas_paradas` · `listar_tareas_sin_datos` · `buscar_tareas_plan` · `listar_dependencias_plan` · `listar_borradores_plan` · `ver_borrador_plan` · `ver_estado_borrador` · `ver_borrador_de_reunion` · `listar_proyectos_vacios` · `ver_senales_negocio` · `descartar_borrador_plan` · `actualizar_avance_tarea` · `cambiar_fecha_tarea_plan` · `mover_tarea_plan` · `agregar_dependencia_plan` · `quitar_dependencia_plan` · `guardar_termino_glosario` · `proponer_tareas_plan` · `proponer_cierre_tareas` · `cerrar_tareas_plan` · `proponer_ampliar_tareas`
-- **CRM** (`crm`): `buscar_leads` · `ficha_lead` · `reuniones_recientes` · `ver_funnel` · `listar_horarios_reunion` · `listar_leads` · `contar_leads_por_etapa` · `transiciones_desde_etapa` · `requisitos_para_mover` · `faltantes_del_lead` · `reuniones_proximas` · `cobranza_lead` · `tracking_lead` · `journey_lead` · `duplicados_lead` · `propuestas_lead_pendientes` · `confirmaciones_crm_automatico` · `estado_crm_automatico` · `evaluar_crm_automatico` · `link_agenda_calendly` · `link_resumen_lead` · `r2_sin_lead` · `listar_productos` · `listar_etiquetas` · `etiquetas_lead` · `sugerencias_crm` · `volver_a_mostrar_sugerencia` · `ver_ficha_funnel` · `cambiar_ficha_funnel` · `listar_eventos_agenda` · `vincular_evento_etapa` · `desvincular_evento_etapa` · `ver_campanas_funnels` · `asignar_campana_funnels` · `proponer_cambio_etapa` · `proponer_agendar_reunion` · `proponer_lead` · `marcar_asistencia_reunion` · `marcar_calificado` · `agregar_nota_lead` · `asignar_closer_setter` · `mover_a_nutricion_manual` · `marcar_pago_cobrado` · `registrar_pago_suelto` · `ignorar_datos_sin_marcar` · `reactivar_datos_sin_marcar` · `resolver_confirmacion_crm` · `declarar_entradas_funnel` · `tipos_de_crm` · `crear_crm` · `crear_etiqueta` · `editar_etiqueta` · `archivar_etiqueta` · `poner_etiqueta_lead` · `sacar_etiqueta_lead` · `oferta_del_lead` · `asignar_oferta_lead` · `crear_oferta_lead` · `editar_contacto_lead` · `agregar_link_fathom` · `marcar_reunion_manual` · `guardar_plan_pagos` · `guardar_cuotas` · `guardar_deal_details` · `activar_crm_automatico` · `guardar_producto` · `proponer_leads` · `crear_pagina_reserva` · `editar_pagina_reserva` · `cambiar_tipo_etapa` · `ver_cobro_etapa` · `vincular_cobro_etapa` · `cuentas_cobro_etapa` · `desvincular_cobro_etapa` · `armar_tab_ficha`
+- **CRM** (`crm`): `buscar_leads` · `ficha_lead` · `reuniones_recientes` · `ver_funnel` · `listar_horarios_reunion` · `listar_leads` · `contar_leads_por_etapa` · `transiciones_desde_etapa` · `requisitos_para_mover` · `faltantes_del_lead` · `reuniones_proximas` · `cobranza_lead` · `tracking_lead` · `journey_lead` · `duplicados_lead` · `propuestas_lead_pendientes` · `confirmaciones_crm_automatico` · `estado_crm_automatico` · `evaluar_crm_automatico` · `link_agenda_calendly` · `link_resumen_lead` · `r2_sin_lead` · `listar_productos` · `listar_etiquetas` · `etiquetas_lead` · `sugerencias_crm` · `volver_a_mostrar_sugerencia` · `ver_ficha_funnel` · `cambiar_ficha_funnel` · `listar_eventos_agenda` · `vincular_evento_etapa` · `desvincular_evento_etapa` · `ver_campanas_funnels` · `asignar_campana_funnels` · `proponer_cambio_etapa` · `proponer_agendar_reunion` · `proponer_lead` · `marcar_asistencia_reunion` · `marcar_calificado` · `agregar_nota_lead` · `asignar_closer_setter` · `mover_a_nutricion_manual` · `marcar_pago_cobrado` · `registrar_pago_suelto` · `ignorar_datos_sin_marcar` · `reactivar_datos_sin_marcar` · `resolver_confirmacion_crm` · `declarar_entradas_funnel` · `tipos_de_crm` · `crear_crm` · `crear_etiqueta` · `editar_etiqueta` · `archivar_etiqueta` · `poner_etiqueta_lead` · `sacar_etiqueta_lead` · `oferta_del_lead` · `asignar_oferta_lead` · `crear_oferta_lead` · `editar_contacto_lead` · `agregar_link_fathom` · `marcar_reunion_manual` · `guardar_plan_pagos` · `guardar_cuotas` · `guardar_deal_details` · `activar_crm_automatico` · `guardar_producto` · `proponer_leads` · `crear_pagina_reserva` · `editar_pagina_reserva` · `cambiar_tipo_etapa` · `ver_curso_al_ganar` · `cambiar_curso_al_ganar` · `ver_cobro_etapa` · `vincular_cobro_etapa` · `cuentas_cobro_etapa` · `desvincular_cobro_etapa` · `armar_tab_ficha`
 - **Ads (Manager y Analyst)** (`ads`): `listar_campanas_meta` · `ver_estado_meta` · `ver_salud_cuenta_meta` · `listar_conjuntos_meta` · `listar_anuncios_meta` · `listar_anuncios_con_problemas_meta` · `listar_recomendaciones_meta` · `ver_rendimiento_anuncios` · `ver_cuenta_meta` · `listar_publicos_meta` · `buscar_intereses_meta` · `buscar_lugares_meta` · `listar_formularios_meta` · `listar_pixeles_meta` · `listar_eventos_pixel_meta` · `listar_conversiones_meta` · `listar_identidades_meta` · `verificar_ganadores_reusables` · `listar_motivos_venta_llamada` · `ver_publico_conjunto_meta` · `ver_textos_anuncio_meta` · `ver_datos_campana_meta` · `ver_datos_conjunto_meta` · `verificar_aprobacion_meta` · `listar_incidentes_meta` · `ver_base_formulario_meta` · `listar_publicaciones_mako_meta` · `listar_guiones_analizados` · `ver_ficha_guion` · `ver_estado_analisis_guiones` · `ver_cuadrante_retencion` · `ver_perfil_guiones` · `listar_angulos_guion` · `listar_avatares_guion` · `listar_guiones_valorados` · `ver_transcript_anuncio` · `proponer_estado_campana` · `proponer_renombrar_campana` · `proponer_estado_conjunto` · `proponer_estado_anuncio` · `proponer_renombrar_entidad_meta` · `proponer_presupuesto_campana` · `proponer_presupuesto_conjunto` · `proponer_eliminar_entidad_meta` · `proponer_agregar_anuncio` · `proponer_editar_textos_anuncio` · `proponer_editar_publico_conjunto` · `proponer_crear_publico_meta` · `proponer_crear_formulario_meta` · `proponer_sincronizar_guiones` · `proponer_reanalizar_guion` · `proponer_corregir_angulo_guion` · `proponer_corregir_avatar_guion` · `proponer_borrar_guion_valorado` · `proponer_agregar_angulo` · `proponer_editar_angulo` · `proponer_borrar_angulo` · `proponer_agregar_avatar` · `proponer_editar_avatar` · `proponer_borrar_avatar`
 - **WhatsApp** (`whatsapp`): `listar_plantillas_aprobadas` · `listar_borradores_plantilla` · `estado_plantillas_meta` · `variables_plantilla` · `estado_envio_whatsapp` · `listar_etiquetas_whatsapp` · `etapa_inbox_de_lead` · `lead_insiste_con_lo_mismo` · `crear_contacto_chatwoot_lead` · `borrar_borrador_plantilla` · `reconciliar_plantillas` · `crear_borrador_whatsapp_empresa` · `guardar_borrador_plantilla` · `enviar_plantilla_a_meta` · `editar_plantilla_meta` · `borrar_plantilla_meta`
 - **Email** (`email`): `kpis_email` · `listar_secuencias_email` · `ficha_secuencia_email` · `listar_etapas_email` · `listar_triggers_email` · `listar_broadcasts` · `ficha_broadcast` · `listar_segmentos_email` · `contar_segmento_email` · `estado_email` · `remitente_email` · `envio_email_habilitado` · `crear_secuencia_email` · `editar_meta_secuencia_email` · `cancelar_programacion_broadcast` · `verificar_dominio_envio` · `editar_pasos_secuencia_email` · `crear_broadcast` · `editar_broadcast` · `programar_broadcast` · `enviar_broadcast` · `enviar_prueba_broadcast` · `eliminar_broadcast` · `activar_envio_real_email`
@@ -44,7 +44,7 @@
 - **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen`
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `link_configurar_integracion`
 - **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte`
-- **Curso (módulos y clases)** (`curso`): `listar_cursos` · `ver_curso` · `ver_clase_curso` · `crear_modulo_curso` · `renombrar_modulo_curso` · `ordenar_modulos_curso` · `crear_clase_curso` · `editar_clase_curso` · `mover_clase_curso` · `borrar_clase_curso` · `restaurar_clase_curso`
+- **Curso (módulos y clases)** (`curso`): `listar_cursos` · `ver_curso` · `ver_clase_curso` · `crear_modulo_curso` · `renombrar_modulo_curso` · `ordenar_modulos_curso` · `crear_clase_curso` · `editar_clase_curso` · `mover_clase_curso` · `borrar_clase_curso` · `restaurar_clase_curso` · `ver_acceso_curso` · `dar_acceso_curso` · `quitar_curso_del_acceso` · `cortar_acceso_curso` · `habilitar_acceso_curso` · `crear_alumno_curso`
 - **Comunidad** (`comunidad`): `listar_comunidades` · `ver_comunidad` · `estado_onboarding_comunidad` · `listar_posts_comunidad` · `ver_post_comunidad` · `buscar_en_comunidad` · `publicar_post_comunidad` · `editar_post_comunidad` · `borrar_post_comunidad` · `fijar_post_comunidad` · `cerrar_comentarios_post_comunidad` · `seguir_post_comunidad` · `votar_encuesta_comunidad` · `cambiar_like_post_comunidad` · `comentar_post_comunidad` · `editar_comentario_comunidad` · `borrar_comentario_comunidad` · `cambiar_like_comentario_comunidad` · `ver_comentarios_clase_comunidad` · `comentar_clase_comunidad` · `crear_categoria_comunidad` · `editar_categoria_comunidad` · `borrar_categoria_comunidad` · `ordenar_categorias_comunidad` · `nombrar_niveles_comunidad` · `editar_about_comunidad` · `ajustar_comunidad` · `ver_ranking_comunidad` · `listar_miembros_comunidad` · `ver_miembro_comunidad` · `listar_sacados_comunidad` · `sacar_alumno_comunidad` · `admitir_alumno_comunidad` · `ver_calendario_comunidad` · `exportar_evento_ics_comunidad` · `crear_evento_comunidad` · `editar_evento_comunidad` · `borrar_evento_comunidad` · `ver_avisos_comunidad` · `marcar_avisos_leidos_comunidad` · `editar_perfil_comunidad`
 - **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `anticipacion_agenda` · `ver_proximas_recurrentes`
 - **Creaciones de la comunidad (estrellas)** (`creaciones`): `listar_creaciones` · `ver_creacion` · `mis_creaciones` · `dar_estrella` · `quitar_estrella` · `publicar_creacion` · `retirar_creacion` · `usar_creacion`
@@ -1497,7 +1497,7 @@ curl -L \
 
 ## CRM — `crm`
 
-Tab **CRM** (`/crm`). 32 lecturas · 43 acciones.
+Tab **CRM** (`/crm`). 33 lecturas · 44 acciones.
 
 ### `GET /api/v1/crm/busqueda/leads` — Buscar leads por texto
 
@@ -1835,7 +1835,7 @@ curl -L \
 
 ### `GET /api/v1/crm/busqueda/duplicados` — Contacto ya cargado en el CRM
 
-Dado un nombre, email o teléfono, qué leads existentes parecen la misma persona y por qué (email, teléfono por sus últimos 10 dígitos, o nombre sin acentos solo cuando no hay email ni teléfono). Úsala antes de proponer_lead para avisar «ya está cargado» con su id. Si la consulta falla devuelve vacío: vacío no garantiza que no exista.
+Dado un nombre, email, teléfono o Instagram, qué leads existentes parecen la misma persona y por qué (email, teléfono por sus últimos 10 dígitos, Instagram, o nombre sin acentos solo cuando no hay email ni teléfono). Úsala antes de proponer_lead para avisar «ya está cargado» con su id. Si la consulta falla devuelve vacío: vacío no garantiza que no exista.
 
 - **Ruta por operación:** `GET /api/v1/crm/duplicados_lead`
 - **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
@@ -1849,6 +1849,7 @@ Dado un nombre, email o teléfono, qué leads existentes parecen la misma person
 | `nombre` | string | no | nombre y apellido. |
 | `email` | string | no | email. |
 | `telefono` | string | no | teléfono en cualquier formato. |
+| `instagram` | string | no | usuario de Instagram, con o sin @, o el link del perfil. |
 
 ```bash
 curl -L \
@@ -2411,7 +2412,7 @@ curl -L \
 
 ### `POST /api/v1/crm/leads` — Proponer alta de un lead
 
-PROPONE dar de alta un contacto en el CRM: deja una propuesta y devuelve el LINK a /crm/revisar/<id>, donde una persona ve los datos, corrige y confirma; recién ahí se crea el lead (avisando duplicados). Úsala cuando pidan agregar a alguien al CRM. Necesita al menos el nombre; el teléfono es lo que después lo cruza con su WhatsApp. Pasa el link tal cual y no pidas confirmación por el chat. Para varios contactos a la vez usa proponer_leads.
+PROPONE dar de alta un contacto en el CRM: deja una propuesta y devuelve el LINK a /crm/revisar/<id>, donde una persona ve los datos, corrige y confirma; recién ahí se crea el lead (avisando duplicados). Úsala cuando pidan agregar a alguien al CRM. Necesita al menos el nombre; el teléfono es lo que después lo cruza con su WhatsApp, y si sólo hay su Instagram, alcanza con el @. Pasa el link tal cual y no pidas confirmación por el chat. Para varios contactos a la vez usa proponer_leads.
 
 - **Ruta por operación:** `POST /api/v1/crm/proponer_lead`
 - **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
@@ -2428,6 +2429,7 @@ PROPONE dar de alta un contacto en el CRM: deja una propuesta y devuelve el LINK
 | `nombre` | string | sí | nombre y apellido de la persona. |
 | `telefono` | string | no | teléfono, solo dígitos con código de país si lo tienes. |
 | `email` | string | no | email, si lo tienes. |
+| `instagram` | string | no | su usuario de Instagram (@usuario o el link del perfil), si lo tienes. |
 | `empresa` | string | no | nombre del negocio, si lo dijeron. |
 | `nota` | string | no | el contexto que dio el dueño en sus palabras; va a la ficha y explica de dónde salió el lead. |
 
@@ -3356,7 +3358,7 @@ curl -L \
 
 ### `POST /api/v1/crm/importaciones` — Proponer alta de varios leads
 
-PROPONE dar de alta un LOTE de contactos (hasta 200) en el CRM: deja UNA propuesta y devuelve el link a /crm/revisar/<id>, donde una persona ve la tabla, corrige, marca duplicados y confirma. Cada contacto necesita nombre y además email o teléfono; los que no traen ninguno de los dos se devuelven en `descartados`. Idempotente por `ref`: reenviar el mismo lote devuelve el mismo link. Para un solo contacto dicho en un chat, usa proponer_lead.
+PROPONE dar de alta un LOTE de contactos (hasta 200) en el CRM: deja UNA propuesta y devuelve el link a /crm/revisar/<id>, donde una persona ve la tabla, corrige, marca duplicados y confirma. Cada contacto necesita nombre y además email, teléfono o Instagram; los que no traen ninguno se devuelven en `descartados`. Idempotente por `ref`: reenviar el mismo lote devuelve el mismo link. Para un solo contacto dicho en un chat, usa proponer_lead.
 
 - **Ruta por operación:** `POST /api/v1/crm/proponer_leads`
 - **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
@@ -3374,6 +3376,7 @@ PROPONE dar de alta un LOTE de contactos (hasta 200) en el CRM: deja UNA propues
 | `leads.nombre` | string | sí | nombre y apellido. |
 | `leads.email` | string | no | email. |
 | `leads.telefono` | string | no | teléfono con código de país. |
+| `leads.instagram` | string | no | usuario de Instagram (@usuario o el link del perfil). |
 | `leads.empresa` | string | no | empresa. |
 | `leads.utm_source` | string | no | utm_source de origen. |
 | `leads.utm_medium` | string | no | utm_medium de origen. |
@@ -3492,6 +3495,60 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/crm/etapas/ETAPA/tipo" \
   -d '{"tipo":"etapa"}'
+```
+
+### `GET /api/v1/crm/curso-al-ganar` — Ver la invitación al ganar
+
+Por cada CRM del negocio (o sólo el de embudoId): si está prendida «Invitar al curso al ganar», que le manda sola la invitación al curso a quien pasa a Ganado, y si su producto tiene un curso con clases (sin clases no se puede prender). Lo cambia cambiar_curso_al_ganar.
+
+- **Ruta por operación:** `GET /api/v1/crm/ver_curso_al_ganar`
+- **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `embudoId` | number | no | el CRM, por el id de su embudo. Sin él, todos. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/crm/curso-al-ganar"
+```
+
+### `PUT /api/v1/crm/curso-al-ganar` — Cambiar la invitación al ganar
+
+PROPONE prender o apagar «Invitar al curso al ganar» en un CRM (queda pendiente hasta el «sí»): prendida, cada persona que pase a Ganado ahí recibe sola la invitación por email al curso de su producto. A los que ya están en Ganado no les llega nada. Prender exige que el producto tenga clases; apagar, nada. Sin embudoId, el CRM principal. Solo el administrador.
+
+- **Ruta por operación:** `POST /api/v1/crm/cambiar_curso_al_ganar`
+- **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** el interruptor «Invitar al curso al ganar» de ese CRM en la configuración del negocio: prendido, cada cliente que pase a Ganado recibe la invitación al curso por email
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `prendido` | boolean | sí | true la prende; false la apaga. |
+| `embudoId` | number | no | el CRM, por el id de su embudo. Sin él, el CRM principal. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/crm/curso-al-ganar" \
+  -d '{"prendido":true}'
 ```
 
 ### `GET /api/v1/crm/cobro-ganado` — Qué cobra Ganado en un CRM
@@ -14876,7 +14933,7 @@ curl -L \
 
 ## Curso (módulos y clases) — `curso`
 
-Tab **Clients › Classroom** (`/clients/classroom`). 3 lecturas · 8 acciones.
+Tab **Clients › Classroom** (`/clients/classroom`). 4 lecturas · 13 acciones.
 
 ### `GET /api/v1/curso/cursos` — Listar los cursos
 
@@ -15241,6 +15298,185 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/curso/clases/CLASE_ID/restauracion"
+```
+
+### `GET /api/v1/curso/accesos/{leadId}` — Ver el acceso de un cliente
+
+Cómo está el acceso al portal del curso de un lead: si tiene acceso, si está cortado, qué cursos le abre, si se le mandó la invitación y si ya entró (cuántas veces y cuándo fue la última). Sin su email ni su avance. Úsala antes de dar_acceso_curso o quitar_curso_del_acceso. abre_el_portal false con tiene_acceso true = está cortado o el lead ya no está en Ganado: el portal sólo le abre a un cliente ganado.
+
+- **Ruta por operación:** `GET /api/v1/curso/ver_acceso_curso`
+- **Token detallado:** permiso `curso=read` (Solo lectura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead en el CRM (el cliente). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/curso/accesos/LEAD_ID"
+```
+
+### `PUT /api/v1/curso/cursos/{productoId}/accesos/{leadId}` — Dar acceso a un curso
+
+Le abre a un cliente el curso de UN producto y le manda la invitación por email con su link de entrada al portal: el mismo correo que «Invitar» en Customer Success. Se le crea el acceso si no lo tenía, y pasa a abrirle ese curso sin cerrarle los que ya veía. Tiene que ser un cliente GANADO de ese producto (en su kanban de Clientes): a otro lead el portal no le abre, y esto no lo mueve de etapa. Sin email usa el del CRM; si el CRM no tenía ninguno, el que se pasa queda guardado en el lead. Si ya estaba invitado a ese curso o ya entró, no la manda de nuevo, salvo reenviar: true. Con el acceso cortado no lo abre: primero habilitar_acceso_curso. Devuelve si el correo salió.
+
+- **Ruta por operación:** `POST /api/v1/curso/dar_acceso_curso`
+- **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** crea su acceso al portal si no lo tenía, le suma ese curso (curso_accesos.productos), anota la invitación, guarda el email en el lead si no tenía y le manda un email (y opcionalmente un WhatsApp)
+- **Reversible:** no
+- **Costo:** externo
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead en el CRM (el cliente). |
+| `productoId` | number | sí | id del producto cuyo curso se le abre (de listar_cursos). |
+| `email` | string | no | a qué email. Sin esto, el del CRM. |
+| `canales` | string[] (email \\| whatsapp) | no | por dónde: ["email"] (default) o ["email", "whatsapp"]. El WhatsApp sale sólo si salió el correo. |
+| `reenviar` | boolean | no | true = mandarla aunque ya esté invitado a ese curso o ya haya entrado. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/curso/cursos/PRODUCTO_ID/accesos/LEAD_ID"
+```
+
+### `DELETE /api/v1/curso/cursos/{productoId}/accesos/{leadId}` — Sacarle un curso a un cliente
+
+Su acceso deja de abrir el curso de ESE producto: ya no lo ve en su portal. No le corta sus otros cursos, no lo saca del kanban de Clientes y no le avisa; queda en su historial. Si es el único curso que le abre, no se saca con esta operación: cortar_acceso_curso corta el portal entero. Para volver a abrírselo, dar_acceso_curso (que le manda la invitación de nuevo).
+
+- **Ruta por operación:** `POST /api/v1/curso/quitar_curso_del_acceso`
+- **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** saca el producto de los cursos que abre su acceso (curso_accesos.productos) y deja una línea en el historial del lead
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead en el CRM (el cliente). |
+| `productoId` | number | sí | id del producto cuyo curso se le saca (de listar_cursos). |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/curso/cursos/PRODUCTO_ID/accesos/LEAD_ID"
+```
+
+### `PUT /api/v1/curso/accesos/{leadId}/corte` — Cortar el acceso al portal
+
+Corta el acceso de un lead al portal del curso: los links que ya tiene dejan de abrir, con todos sus cursos, y también los de sus líderes de área. No le avisa ni lo saca del kanban de Clientes. habilitar_acceso_curso lo vuelve a abrir con un link NUEVO (sus líderes vuelven desde su ficha). Para sacarle un solo curso, quitar_curso_del_acceso.
+
+- **Ruta por operación:** `POST /api/v1/curso/cortar_acceso_curso`
+- **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** sube la versión de su acceso y lo marca cortado (curso_accesos), y lo mismo con los de sus líderes de área
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead en el CRM (el cliente). |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/curso/accesos/LEAD_ID/corte"
+```
+
+### `DELETE /api/v1/curso/accesos/{leadId}/corte` — Volver a habilitar el acceso
+
+Vuelve a abrir el acceso al portal de un cliente que estaba cortado, con un link NUEVO: el que tenía sigue sin abrir. No le llega nada: para mandárselo, dar_acceso_curso con reenviar: true. Tiene que ser un cliente ganado. Sus líderes de área no vuelven solos (cada uno, desde su ficha).
+
+- **Ruta por operación:** `POST /api/v1/curso/habilitar_acceso_curso`
+- **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** saca la marca de cortado de su acceso (curso_accesos.revocado_at)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | sí | id del lead en el CRM (el cliente). |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/curso/accesos/LEAD_ID/corte"
+```
+
+### `POST /api/v1/curso/cursos/{productoId}/alumnos` — Dar de alta un alumno nuevo
+
+Da de alta a un alumno que NO está en el CRM y le abre el curso de ese producto: lo crea como cliente ganado, lo pone en el kanban de Clientes de ese producto (sólo de ése) y le manda la invitación por email (y por WhatsApp si se pide). Si se parece a alguien que ya está, no lo crea: devuelve el id y por qué choca; con crearIgual: true lo crea igual, y con usarLeadId usa ese (sólo si ya es cliente; si no, se lo pasa a Ganado en el CRM primero). Con sinCobro: true es un becado (la venta no cuenta). Devuelve el leadId.
+
+- **Ruta por operación:** `POST /api/v1/curso/crear_alumno_curso`
+- **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** crea el lead como cliente ganado (o usa uno que ya lo es), lo pone en la entrega de ese producto, crea su acceso al portal con ese curso, anota la invitación y le manda un email (y opcionalmente un WhatsApp)
+- **Reversible:** no
+- **Costo:** externo
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** customer-success
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `productoId` | number | sí | id del producto cuyo curso se toca (de listar_cursos). |
+| `nombre` | string | no | nombre y apellido (hace falta salvo con usarLeadId). |
+| `email` | string | sí | a qué email va la invitación. |
+| `telefono` | string | no | teléfono con código de país (opcional: sin él no sale el WhatsApp). |
+| `empresa` | string | no | empresa, si la hay. |
+| `sinCobro` | boolean | no | true = becado o bonificado: la venta se marca «sin cobro». |
+| `usarLeadId` | number | no | usar este lead (uno que ya es cliente ganado) en vez de crear uno. |
+| `crearIgual` | boolean | no | true = crearlo aunque se parezca a alguien que ya está. |
+| `canales` | string[] (email \\| whatsapp) | no | por dónde va la invitación: ["email"] (default) o ["email", "whatsapp"]. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/curso/cursos/PRODUCTO_ID/alumnos" \
+  -d '{"email":"EMAIL"}'
 ```
 
 ## Comunidad — `comunidad`

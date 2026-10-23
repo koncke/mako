@@ -292,8 +292,10 @@ test('la cartera de Customer Success SÍ lo cuenta, y la ficha lo dice', () => {
 });
 
 test('el alta de Customer Success acepta el flag y lo escribe DESPUÉS de ganarlo', () => {
-  const alta = bloque(fuente('app/customer-success/actions.ts'), 'export async function crearClienteAction(');
-  assert.match(alta, /sinCobro\?: boolean/);
+  // El alta vive en lib/cs-crear-cliente.ts desde el 23/10/2026 (la usan también el alta de un alumno y la API de MaKo);
+  // la action delega con el mismo flag.
+  assert.match(bloque(fuente('app/customer-success/actions.ts'), 'export async function crearClienteAction('), /sinCobro\?: boolean[\s\S]*await crearClienteGanado\(datos, await autorActual\(\)\)/);
+  const alta = bloque(fuente('lib/cs-crear-cliente.ts'), 'export async function crearClienteGanado(');
   const gana = alta.indexOf("updateLead(lead.id, { estado_lead: 'ganado' })");
   const marca = alta.search(/if \(datos\.sinCobro === true\) \{[\s\S]{0,200}update\(\{ venta_tipo: VENTA_SIN_COBRO \}\)/);
   assert.ok(gana > 0 && marca > gana, `orden: ganado ${gana} · sin cobro ${marca}`);
