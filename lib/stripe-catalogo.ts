@@ -51,16 +51,23 @@ export async function preciosDeStripe(ws: number): Promise<{ precios: PrecioDeSt
     }
   }));
   const precios = leidas.flatMap((l) => l.precios)
-    .map((p) => ({ ...p, enMako: productoDeMako(p, catalogo).id }))
+    .map((p) => {
+      // Uno con el mismo nombre que en MaKo cobra otra cosa: se muestra con el conflicto, y no se trae (no se pisa).
+      const m = productoDeMako(p, catalogo);
+      return { ...p, noSe: p.noSe ?? m.conflicto, enMako: m.id };
+    })
     .sort((a, b) => (a.noSe ? 1 : 0) - (b.noSe ? 1 : 0) || a.nombre.localeCompare(b.nombre, 'es'));
   return { precios, errores: leidas.flatMap((l) => (l.aviso ? [l.aviso] : [])) };
 }
 
 /**
  * Trae UN precio de Stripe al catálogo de MaKo: lo vuelve a leer en Stripe con la clave de esa cuenta, y crea el producto,
- * le pone el precio al de MaKo con el mismo nombre, o no toca nada si ya cobra eso. `antes` es el precio que tenía.
+ * le pone el precio al de MaKo con el mismo nombre que no tenía, o no toca nada si ya cobra eso. `antes` es el precio que
+ * tenía. `antesDeEscribir` (el producto de MaKo que se va a tocar, o null si se crea) puede frenarlo con un error ANTES de
+ * escribir: «Vincular cobro» mira ahí que el vínculo se pueda hacer (revisión adversarial: el catálogo quedaba cambiado
+ * para todo el negocio y el vínculo fallaba después).
  */
-export async function importarPrecioDeStripe(ws: number, cuentaId: unknown, precioId: unknown): Promise<
+export async function importarPrecioDeStripe(ws: number, cuentaId: unknown, precioId: unknown, antesDeEscribir?: (productoId: number | null) => Promise<string | null>): Promise<
   { ok: true; producto: ProductoCobro; cambio: 'creado' | 'precio' | 'igual'; antes: number | null; precio: PrecioDeStripe } | { ok: false; error: string }
 > {
   const pc = partirIdDeCuenta(cuentaId);
@@ -77,11 +84,13 @@ export async function importarPrecioDeStripe(ws: number, cuentaId: unknown, prec
   if (leido.noSe) return { ok: false, error: leido.noSe };
   const catalogo = await productosParaCobrar();
   const m = productoDeMako(leido, catalogo);
-  if (m.ambiguo) return { ok: false, error: `Hay varios «${leido.nombre}» en el catálogo con precios distintos: elige uno del catálogo.` };
+  if (m.conflicto) return { ok: false, error: m.conflicto };
   const precio: PrecioDeStripe = { ...leido, enMako: m.id };
   const existente = m.id == null ? null : catalogo.find((x) => x.id === m.id) ?? null;
   const d = importacionDelPrecio(leido, existente);
   if ('error' in d) return { ok: false, error: d.error };
+  const frena = antesDeEscribir ? await antesDeEscribir(existente?.id ?? null) : null;
+  if (frena) return { ok: false, error: frena };
   if (d.accion === 'igual' && existente) return { ok: true, producto: existente, cambio: 'igual', antes: existente.montoUsd, precio };
   const g = await guardarProducto(d.input, d.accion === 'precio' && existente ? existente.id : undefined);
   if (!g.ok) return g;

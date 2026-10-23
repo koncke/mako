@@ -13,12 +13,16 @@
 //     dos meses no se puede traer tal cual.
 //   · UN PRECIO QUE ELIGE QUIEN PAGA (`custom_unit_amount`) o POR ESCALONES (`tiered`) no tiene un monto que copiar.
 //   · EL MISMO NOMBRE ES EL MISMO PRODUCTO: «Sprint 3 días» de MaKo y «sprint 3 días» de Stripe son uno. Traerlo de nuevo
-//     no duplica: le pone el precio de Stripe al de MaKo (nunca duplicar).
+//     no duplica: le pone el precio de Stripe al de MaKo SÓLO SI NO TENÍA (el de Mauricio). Uno que ya cobra OTRA cosa
+//     no se toca (revisión adversarial del 23/10/2026): un mismo producto de Stripe con dos precios (US$600 único y
+//     US$100 por mes) pisaba el vínculo de Ganado y todo link nuevo; uno en cuotas cobraba la cuota de un precio que la
+//     persona no vio. Se dice el conflicto y se cambia en MaKo a mano.
 //
 // Puro: lo importan lib/stripe-catalogo.ts, el pop-up (los tipos) y tests/stripe-catalogo.test.ts.
 // =============================================================================
 
 import type { ProductoCobro, ProductoCobroInput } from './cobro-etapa';
+import { deUnidadMinima, formatoMonto } from './pasarela-moneda';
 
 /** Un precio de Stripe como lo devuelve la API (`GET /v1/prices?expand[]=data.product`), sólo lo que se usa. */
 export type PrecioStripeCrudo = {
@@ -51,9 +55,6 @@ type Json = Record<string, unknown>;
 const obj = (v: unknown): Json => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Json) : {});
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
 
-/** Monedas sin centavos en Stripe (docs.stripe.com/currencies#zero-decimal): su `unit_amount` ya es la unidad. */
-const SIN_DECIMALES = new Set(['BIF', 'CLP', 'DJF', 'GNF', 'JPY', 'KMF', 'KRW', 'MGA', 'PYG', 'RWF', 'UGX', 'VND', 'VUV', 'XAF', 'XOF', 'XPF']);
-
 /** «Sprint 3 días», «sprint 3 dias» y «Sprint  3 días » son el mismo nombre. */
 export function nombreComparable(n: string): string {
   return n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -74,12 +75,15 @@ export function precioDeStripe(c: PrecioStripeCrudo, cuenta: { id: string; nombr
   if (!nombre || prod.active !== true || prod.deleted === true) return null;
   const moneda = (str(c.currency) ?? '').toUpperCase();
   const minima = typeof c.unit_amount === 'number' && Number.isInteger(c.unit_amount) && c.unit_amount >= 0 ? c.unit_amount : null;
-  const monto = minima == null ? 0 : SIN_DECIMALES.has(moneda) ? minima : minima / 100;
+  // La misma conversión que los cobros (lib/pasarela-moneda.ts): monedas sin centavos y las que Stripe pide ×100.
+  const monto = minima == null || !moneda ? 0 : deUnidadMinima(minima, moneda);
   const rec = c.recurring == null ? null : obj(c.recurring);
   const tipo: 'unico' | 'suscripcion' = rec ? 'suscripcion' : 'unico';
   let noSe: string | null = null;
   if (c.custom_unit_amount != null) noSe = 'El monto lo elige quien paga: no hay un precio que traer.';
-  else if (c.billing_scheme === 'tiered' || minima == null) noSe = 'Es un precio por escalones: no hay un precio que traer.';
+  else if (c.billing_scheme === 'tiered') noSe = 'Es un precio por escalones: no hay un precio que traer.';
+  // Con fracción de centavo Stripe manda `unit_amount: null` y el monto en `unit_amount_decimal`.
+  else if (minima == null) noSe = 'El precio tiene fracciones de centavo: MaKo no lo puede cobrar igual.';
   else if (minima === 0) noSe = 'El precio es cero.';
   else if (moneda !== 'USD') noSe = `Está en ${moneda || 'otra moneda'}: el catálogo de MaKo va en dólares.`;
   else if (rec && (rec.interval !== 'month' || Number(rec.interval_count ?? 1) !== 1)) {
@@ -93,33 +97,44 @@ export function precioDeStripe(c: PrecioStripeCrudo, cuenta: { id: string; nombr
   };
 }
 
+const mismoPrecio = (x: ProductoCobro, p: Pick<PrecioDeStripe, 'montoUsd' | 'tipo'>): boolean =>
+  x.tipo === p.tipo && x.montoUsd != null && p.montoUsd != null && Math.round(x.montoUsd * 100) === Math.round(p.montoUsd * 100);
+
+/** «US$600 · pago único», «US$100 por mes»: lo que cobra un producto de MaKo, para decir un conflicto. */
+const loQueCobra = (x: ProductoCobro): string =>
+  x.montoUsd == null ? 'sin precio' : `${formatoMonto(x.montoUsd, 'USD')}${x.tipo === 'suscripcion' ? ' por mes' : ' · pago único'}`;
+
 /**
- * El producto ACTIVO del catálogo de MaKo que es este precio de Stripe, por el nombre. Entre varios con el mismo nombre:
- * el que ya cobra lo mismo, si no el que no tiene precio; si quedan varios con precios distintos, ninguno (no se adivina:
- * `ambiguo`).
+ * El producto ACTIVO del catálogo de MaKo que es este precio de Stripe, por el nombre: el que ya cobra lo mismo, o si no
+ * el que no tiene precio (el de Mauricio). Uno con el mismo nombre que cobra OTRA cosa es un `conflicto`: no se toca y
+ * se dice por qué.
  */
-export function productoDeMako(p: Pick<PrecioDeStripe, 'nombre' | 'montoUsd' | 'tipo'>, catalogo: readonly ProductoCobro[]): { id: number | null; ambiguo: boolean } {
+export function productoDeMako(p: Pick<PrecioDeStripe, 'nombre' | 'montoUsd' | 'tipo'>, catalogo: readonly ProductoCobro[]): { id: number | null; conflicto: string | null } {
   const n = nombreComparable(p.nombre);
   const mismos = catalogo.filter((x) => x.activo && nombreComparable(x.nombre) === n);
-  if (!mismos.length) return { id: null, ambiguo: false };
-  const igual = mismos.find((x) => x.tipo === p.tipo && x.montoUsd != null && p.montoUsd != null && Math.round(x.montoUsd * 100) === Math.round(p.montoUsd * 100));
-  if (igual) return { id: igual.id, ambiguo: false };
+  const igual = mismos.find((x) => mismoPrecio(x, p));
+  if (igual) return { id: igual.id, conflicto: null };
   const sinPrecio = mismos.find((x) => x.montoUsd == null);
-  if (sinPrecio) return { id: sinPrecio.id, ambiguo: false };
-  return mismos.length === 1 ? { id: mismos[0].id, ambiguo: false } : { id: null, ambiguo: true };
+  if (sinPrecio) return { id: sinPrecio.id, conflicto: null };
+  if (!mismos.length) return { id: null, conflicto: null };
+  const cobran = mismos.map(loQueCobra).join(' y ');
+  return { id: null, conflicto: `En MaKo «${mismos[0].nombre}» ya cobra ${cobran}: cámbialo ahí, o renombra uno de los dos.` };
 }
 
 /**
- * Qué hacer al traer un precio: crearlo, ponerle el precio al de MaKo, o nada (ya cobra eso). El nombre del de MaKo se
- * respeta (es como lo llama el negocio); el precio y el tipo vienen de Stripe. Un pago único conserva sus cuotas de
- * MaKo (no se mandan: `patchDeEdicion` no las toca); a una suscripción se le sacan.
+ * Qué hacer al traer un precio: crearlo, nada (ya cobra eso), o ponerle el precio al de MaKo que NO tenía (el nombre del
+ * de MaKo se respeta: es como lo llama el negocio). A ése se le sacan las cuotas: el precio de Stripe se cobra entero, y
+ * con cuotas viejas el link cobraría una parte que la persona no vio. Un producto que ya cobra otra cosa no llega acá
+ * (`productoDeMako` lo devuelve como conflicto), y si llega, es un error: nunca se pisa.
  */
 export function importacionDelPrecio(
   p: Pick<PrecioDeStripe, 'nombre' | 'montoUsd' | 'tipo'>,
   existente: ProductoCobro | null,
 ): { accion: 'crear' | 'precio' | 'igual'; input: ProductoCobroInput } | { error: string } {
   if (p.montoUsd == null) return { error: 'Ese precio no está en dólares: el catálogo de MaKo va en dólares.' };
+  const entero = p.tipo === 'suscripcion' ? {} : { cuotas: null };
   if (!existente) return { accion: 'crear', input: { nombre: p.nombre, tipo: p.tipo, montoUsd: p.montoUsd, ...(p.tipo === 'suscripcion' ? { suscripcionMeses: null } : { cuotas: null }) } };
-  const mismo = existente.tipo === p.tipo && existente.montoUsd != null && Math.round(existente.montoUsd * 100) === Math.round(p.montoUsd * 100);
-  return { accion: mismo ? 'igual' : 'precio', input: { nombre: existente.nombre, tipo: p.tipo, montoUsd: p.montoUsd } };
+  if (mismoPrecio(existente, p)) return { accion: 'igual', input: { nombre: existente.nombre, tipo: p.tipo, montoUsd: p.montoUsd } };
+  if (existente.montoUsd != null) return { error: `En MaKo «${existente.nombre}» ya cobra ${loQueCobra(existente)}: cámbialo ahí, o renombra uno de los dos.` };
+  return { accion: 'precio', input: { nombre: existente.nombre, tipo: p.tipo, montoUsd: p.montoUsd, ...entero } };
 }

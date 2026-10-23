@@ -17,7 +17,9 @@ import { getUsuarioActual } from '@/lib/auth';
 import { exigirSesion } from '@/lib/sesion-accion';
 import { cuentasDePago } from '@/lib/cuentas-pago-server';
 import { type CuentaPago, type FotoCobroEtapa, type ProductoCobro, type ProductoCobroInput, type ResCobro, type VinculoCobro } from '@/lib/cobro-etapa';
-import { cambiarCuentas, desvincular, guardarProducto, productosParaCobrar, vincular, vinculosDeEtapa } from '@/lib/cobro-etapa-server';
+import { cambiarCuentas, desvincular, ganadoDelCrm, guardarProducto, productosParaCobrar, vincular, vinculosDeEtapa, vinculosDelNegocio } from '@/lib/cobro-etapa-server';
+import { listarFunnels } from '@/lib/funnels';
+import { nombreVisible } from '@/lib/lead-funnel-reglas';
 import { importarPrecioDeStripe, preciosDeStripe, type AvisoDeCuentaStripe, type PrecioDeStripe } from '@/lib/stripe-catalogo';
 
 export type { CuentaPago, FotoCobroEtapa, ProductoCobro, ProductoCobroInput, ResCobro, VinculoCobro } from '@/lib/cobro-etapa';
@@ -99,20 +101,44 @@ export async function vincularPrecioDeStripeAction(p: { funnelId: number; etapa:
 > {
   await exigirSesion();
   if (!(await esAdmin())) return { ok: false, error: SOLO_ADMIN };
+  let imp: Awaited<ReturnType<typeof importarPrecioDeStripe>> = { ok: false, error: 'No se pudo traer de Stripe.' };
+  let conectadas: CuentaPago[] = [];
+  const funnelId = Number(p.funnelId);
   try {
-    const imp = await importarPrecioDeStripe(await wsObligatorio(), p.cuenta, p.precio);
+    // LO QUE PUEDE FRENAR EL VÍNCULO, ANTES DE TOCAR EL CATÁLOGO (revisión adversarial del 23/10/2026): el CRM y su
+    // Ganado, las cuentas, y que el producto de MaKo no cobre ya en otro CRM (uno solo). Si no, el producto quedaba
+    // creado o con su precio cambiado para todo el negocio, y el vínculo fallaba después.
+    conectadas = await cuentasConectadas();
+    const g = await ganadoDelCrm(funnelId);
+    if (!g) return { ok: false, error: 'Ese CRM no existe en este negocio.' };
+    if (g.etapa !== String(p.etapa)) return { ok: false, error: 'Un cobro se vincula a la etapa de Ganado.' };
+    imp = await importarPrecioDeStripe(await wsObligatorio(), p.cuenta, p.precio, async (productoId) => {
+      if (productoId == null) return null;
+      const ya = (await vinculosDelNegocio()).find((v) => v.productoId === productoId);
+      if (!ya || ya.funnelId === funnelId) return null;
+      const f = (await listarFunnels()).find((x) => x.id === ya.funnelId);
+      return `Ese producto ya cobra en ${f ? `«${nombreVisible(f)}»` : 'otro CRM'}: quítalo de ahí primero.`;
+    });
     if (!imp.ok) return imp;
-    const pedidas = Array.isArray(p.cuentas) && p.cuentas.length ? p.cuentas : [String(p.cuenta)];
-    const v = await vincular({ funnelId: Number(p.funnelId), etapa: String(p.etapa), productoId: imp.producto.id, cuentas: pedidas }, await cuentasConectadas(), await autorActual());
-    if (imp.cambio !== 'igual' || v.ok) revalidatePath('/crm');
-    if (!v.ok) {
-      const hecho = imp.cambio === 'creado' ? `Traje «${imp.producto.nombre}» al catálogo` : imp.cambio === 'precio' ? `Le puse el precio de Stripe a «${imp.producto.nombre}»` : null;
-      return { ok: false, error: hecho ? `${hecho}, pero no se vinculó: ${v.error}` : v.error, producto: imp.producto };
-    }
-    return { ok: true, producto: imp.producto, vinculo: v.vinculo, cambio: imp.cambio };
   } catch (e) {
     console.error('[cobro-etapa] traer de Stripe:', msg(e));
     return { ok: false, error: `No se pudo traer de Stripe: ${msg(e)}` };
+  }
+  if (!imp.ok) return imp;
+  const traido = imp;
+  if (traido.cambio !== 'igual') revalidatePath('/crm');
+  // Ya está en el catálogo: si vincular se cae, se dice eso (y el modal recibe el producto), no «no se pudo traer».
+  const hecho = traido.cambio === 'creado' ? `Traje «${traido.producto.nombre}» al catálogo` : traido.cambio === 'precio' ? `Le puse el precio de Stripe a «${traido.producto.nombre}»` : null;
+  const noSeVinculo = (error: string) => ({ ok: false as const, error: hecho ? `${hecho}, pero no se vinculó: ${error}` : error, producto: traido.producto });
+  try {
+    const pedidas = Array.isArray(p.cuentas) && p.cuentas.length ? p.cuentas : [String(p.cuenta)];
+    const v = await vincular({ funnelId, etapa: String(p.etapa), productoId: traido.producto.id, cuentas: pedidas }, conectadas, await autorActual());
+    if (!v.ok) return noSeVinculo(v.error);
+    revalidatePath('/crm');
+    return { ok: true, producto: traido.producto, vinculo: v.vinculo, cambio: traido.cambio };
+  } catch (e) {
+    console.error('[cobro-etapa] vincular lo traído de Stripe:', msg(e));
+    return noSeVinculo(msg(e));
   }
 }
 

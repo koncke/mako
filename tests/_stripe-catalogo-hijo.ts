@@ -32,6 +32,8 @@ const PRECIOS: Record<string, Array<Record<string, unknown>>> = {
   ],
   [KEY_B]: [
     { id: 'price_B100', active: true, currency: 'usd', unit_amount: 10000, type: 'one_time', billing_scheme: 'per_unit', product: prod('Mentoría') },
+    // El MISMO producto de Stripe con otro precio (lo normal en Stripe): el de MaKo ya cobra US$100 único, no se pisa.
+    { id: 'price_B50mes', active: true, currency: 'usd', unit_amount: 5000, type: 'recurring', billing_scheme: 'per_unit', recurring: { interval: 'month', interval_count: 1 }, product: prod('Mentoría') },
   ],
 };
 let claveRota: string | null = null;
@@ -94,23 +96,30 @@ async function main() {
   out.lista = lista.precios.map((p) => `${p.nombre}|${p.cuenta}|${p.cuentaNombre}|${p.montoUsd}|${p.tipo}|${p.noSe ? `no: ${p.noSe}` : 'sí'}|${p.enMako}`);
   out.errores = lista.errores;
 
-  const traer = async (cuenta: string, precio: string) => {
-    const r = await en(() => importarPrecioDeStripe(WS, cuenta, precio));
+  const traer = async (cuenta: string, precio: string, antesDeEscribir?: (id: number | null) => Promise<string | null>) => {
+    const r = await en(() => importarPrecioDeStripe(WS, cuenta, precio, antesDeEscribir));
     return r.ok ? `${r.cambio}:${r.producto.id}:${r.producto.nombre}:${r.producto.tipo}:${r.producto.montoUsd}:antes=${r.antes}` : `error: ${r.error}`;
   };
   const cuantos = () => pg.db.productos.length;
 
-  // 2. El de Mauricio: le pone el precio de Stripe al «Sprint 3 días» de MaKo (no crea otro), y otra vez no cambia nada.
+  // 2. Lo que frena el vínculo (ya cobra en otro CRM) frena ANTES de escribir: el catálogo no se toca.
+  const vistos: Array<number | null> = [];
+  out.frenado = await traer('stripe:principal', 'price_A270', async (id) => { vistos.push(id); return 'Ese producto ya cobra en «Otro»: quítalo de ahí primero.'; });
+  out.frenadoVio = vistos;
+  out.frenadoFila = (pg.db.productos.find((f) => f.id === 54) as { monto_usd: unknown }).monto_usd;
+  // 3. El de Mauricio: le pone el precio de Stripe al «Sprint 3 días» de MaKo (no crea otro), y otra vez no cambia nada.
   const antes = cuantos();
   out.sprint = await traer('stripe:principal', 'price_A270');
   out.sprintOtraVez = await traer('stripe:principal', 'price_A270');
   out.sprintFila = (({ nombre, monto_usd, tipo }) => `${nombre}|${monto_usd}|${tipo}`)(pg.db.productos.find((f) => f.id === 54) as never);
   out.creadosPorSprint = cuantos() - antes;
-  // 3. La segunda cuenta, con SU clave; el que ya cobra lo mismo no se toca.
+  // 4. La segunda cuenta, con SU clave; el que ya cobra lo mismo no se toca, y el que cobra OTRA cosa tampoco.
   out.mentoria = await traer('stripe:c2', 'price_B100');
-  // 4. Uno que no está en MaKo se crea; una suscripción mensual va como suscripción.
+  out.mentoriaMensual = await traer('stripe:c2', 'price_B50mes');
+  out.mentoriaFila = (({ monto_usd, tipo }) => `${monto_usd}|${tipo}`)(pg.db.productos.find((f) => f.id === 60) as never);
+  // 5. Uno que no está en MaKo se crea; una suscripción mensual va como suscripción.
   out.membresia = await traer('stripe:principal', 'price_Amensual');
-  // 5. Lo que no se puede: otra moneda, el precio de otra cuenta (404 con su clave), una cuenta que no está, un id raro,
+  // 6. Lo que no se puede: otra moneda, el precio de otra cuenta (404 con su clave), una cuenta que no está, un id raro,
   //    y dos productos de MaKo con el mismo nombre y precios distintos.
   out.mxn = await traer('stripe:principal', 'price_Amxn');
   out.deOtraCuenta = await traer('stripe:c2', 'price_A270');
@@ -118,12 +127,12 @@ async function main() {
   out.idRaro = await traer('stripe:principal', '../v1/charges');
   out.ambiguo = await traer('stripe:principal', 'price_Ataller');
   out.archivado = await traer('stripe:principal', 'price_Aarch');
-  // 6. Una cuenta con la clave rota: se dice con su nombre, y la otra se lista igual.
+  // 7. Una cuenta con la clave rota: se dice con su nombre, y la otra se lista igual.
   claveRota = KEY_B;
   const rota = await en(() => preciosDeStripe(WS));
   out.rota = { cuentas: [...new Set(rota.precios.map((p) => p.cuenta))], errores: rota.errores.map((e) => `${e.cuenta}|${e.cuentaNombre}|${e.error}`) };
   claveRota = null;
-  // 7. Cada lectura va a Stripe (sin caché): «Volver a leer» trae lo recién creado.
+  // 8. Cada lectura va a Stripe (sin caché): «Volver a leer» trae lo recién creado.
   pedidos = [];
   await en(() => preciosDeStripe(WS));
   await en(() => preciosDeStripe(WS));
