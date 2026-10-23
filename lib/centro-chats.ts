@@ -698,6 +698,17 @@ export function yaEstaSinVer(lineas: readonly LineaChat[], visto: number | null 
   return u && !tieneCheck(u.instante, visto) ? u.uuid : null;
 }
 
+/**
+ * Cuántos de los últimos mensajes dibujar para que entre ese turno (el «Ya está» sin su ✓), con `margen` de antes como contexto;
+ * null si no está. Sobre la conversación que dibuja el hilo (`lineasDeConversacion`). Antes se dibujaba TODO el historial para
+ * llegar a él (22/10/2026), y con un chat largo eso era un render de segundos al entrar al Ops Center (23/10/2026).
+ */
+export function tandaHasta(lineas: readonly LineaChat[], uuid: string, margen = 5): number | null {
+  const conv = lineasDeConversacion(lineas);
+  const i = conv.findIndex((l) => l.tipo === 'turno' && l.turno.uuid === uuid);
+  return i < 0 ? null : conv.length - i + margen;
+}
+
 /** ¿El chat espera el ✓ de Martín? Sin saber qué tiene ✓ (`vistos` null, antes de leer), no avisa: nada de parpadeos. */
 export function esperaCheck(ultimo: number | null, vistos: YaVistos | null, clave: string): boolean {
   if (ultimo == null || !vistos || ultimo < YA_VISTOS_DESDE) return false;

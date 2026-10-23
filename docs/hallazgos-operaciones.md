@@ -82,6 +82,49 @@ un «Ya está» sin su ✓, que la fila dibujaba con el MISMO texto (`TEXTO_SEGU
   saltaba a «Cerebro» con la estrella. Sin la fila, `nombre` caía en `SIN_TITULO`. Con `entrarAlCerebro` y nada pedido ni elegido,
   ahora es el Cerebro desde el primer cuadro (useChatCliente.ts → `vaAlCerebro`). Pasaba también al entrar al Ops Center del cliente.
 
+## «Tarda y se traba» al entrar al Ops Center: no era el servidor ni los muñecos, era el historial de TODOS los chats (23/10/2026)
+
+**Síntoma (Martín, feedback 5b):** «al entrar al Ops Center en la computadora tarda, y el diseño se traba uno o dos segundos».
+
+**Lo medido en producción** (`/admin/operaciones`, el 23/10, con `long-animation-frame` y `longtask`): el HTML terminaba a los
+1,3 s y la página estaba cargada a los 1,4 s. Después, React (el scheduler, `MessagePort.onmessage`) trabajaba **~1,9 s
+seguidos**, con tareas de 300 a 620 ms, y volvía cada 2 o 3 s con tareas de 100 a 330 ms: el refresco.
+
+**Los diagnósticos obvios eran los equivocados:**
+- No era el servidor: el HTML llegaba antes de los 1,4 s.
+- No eran los 66 muñecos animados en SVG: con las animaciones pausadas, los cuadros eran igual de lentos.
+- **Trampa de la medición:** en la ventana del grupo de la extensión de Chrome, TODA página pesada va a 1 o 2 fps, también el CRM.
+  Una página vacía va a 134. Ahí la cadencia de cuadros no mide nada; el tiempo de JavaScript sí.
+
+**La causa, medida con los datos de producción en Node** (un arnés que lee lo mismo que `datosDelCentroSiOpera`, sólo lectura):
+- `lineasDe` (useCentro.ts), el historial de los 57 chats de la lista, costaba **247 ms** en cada refresco.
+- De eso, **141 ms** eran `respuestasDelChat` (lib/centro-preguntas.ts). Por cada chat aplanaba los carteros y resolvía la sesión
+  de cada tarjeta contra todos ellos, aunque la sesión de una tarjeta no depende del chat.
+- Ahora la sesión se guarda una vez por par (decisiones, carteros), con un `WeakMap` por identidad: **5 ms**. Sirve igual a
+  `preguntasDelChat`, que se llama por fila.
+- Además, abrir un chat con un «Completado» sin ✓ dibujaba TODO su historial (el `verTodo` del 22/10). Ahora dibuja hasta ese
+  «Ya está» y unos de antes (`tandaHasta`).
+- Los lotes de `leerUltimosTurnos` se leían en serie: 2,2 s en frío. Ahora van en paralelo.
+
+**La entrada:** la criatura de MaKo del teléfono (`EntradaApp`) ahora también está en la computadora (app/second-brain/EntradaOps.tsx).
+Nace y flota sobre el Ops Center hasta que la conversación se dibujó, y vuela a la criatura de la cabecera. Va una vez por
+documento. `.co` pasó a `position: relative`; ningún absoluto de adentro dependía de que no lo fuera.
+
+**Regla:** algo que se calcula por chat no recorre en cada vuelta lo que no depende del chat. Se lo calcula una vez por refresco y
+se lo busca. tests/ops-center-carga.test.ts.
+
+**SIN HACER (lo que encontró la investigación del 23/10, por orden de impacto probable):**
+- `pedidos` viaja entero al navegador: 721 KB, 450 pedidos. Se hidrata con el resto (`DatosCentro`).
+- `listarPedidos` trae `firmado`, y `leerDecisiones` usa `select('*')`.
+- `fotoCentroAction` (cada 8 s) y `pushesCentroAction` (hasta 8 s contra Vercel) son server actions, que Next corre de a una.
+  Abrir otro chat espera detrás.
+- El refresco hace `set` siempre con referencias nuevas: todo `Cuerpo` se vuelve a dibujar aunque nada cambie.
+- El cliente:
+  - `HiloMako` no está memorizado y re-parsea el Markdown de cada mensaje en cada render.
+  - La lista llega en unas 6 respuestas sueltas y salta en cada una.
+  - /second-brain no tiene `loading.tsx`.
+  - `guardOnboarding` corre dos veces (lib/tab-access.ts).
+
 ## Un refresco que falla desarmaba el Ops Center: el `centro` null de una vuelta del servidor (22/10/2026)
 
 El Cerebro, midiéndolo en producción: en cada deploy (cada 30 minutos), durante uno o dos minutos, varios POST a /admin/operaciones
