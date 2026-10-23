@@ -130,7 +130,9 @@ export function faltanEnPaso(
     .map((p) => p.nombre);
 }
 
-export type FilaLead = { nombre: string; email: string | null; telefono: string | null; empresa: string | null };
+/** `instagram`: el usuario de Instagram (23/10/2026). Sin él, un lead con sólo el @ se creaba sin canal. Llega ya normalizado de
+ *  quien propuso; `crearLeadsDePropuesta` lo vuelve a pasar por `usuarioInstagram` (acá no: este módulo no importa valores). */
+export type FilaLead = { nombre: string; email: string | null; telefono: string | null; instagram: string | null; empresa: string | null };
 
 const txt = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
 
@@ -141,7 +143,7 @@ export function filasDeLeads(datos: Record<string, unknown> | null | undefined):
   for (const c of crudas) {
     const nombre = txt(c?.nombre);
     if (!nombre) continue;
-    filas.push({ nombre, email: txt(c.email)?.toLowerCase() ?? null, telefono: txt(c.telefono), empresa: txt(c.empresa) });
+    filas.push({ nombre, email: txt(c.email)?.toLowerCase() ?? null, telefono: txt(c.telefono), instagram: txt(c.instagram), empresa: txt(c.empresa) });
   }
   return filas;
 }

@@ -43,21 +43,17 @@
 import { getTenantDb, adminDeWorkspaceActual } from '@/lib/workspace';
 import { puedeUsarCs } from './puerta';
 import { saneaPortada, saneaIcono, urlDeImagenOk, yPortada } from '@/lib/portadas';
-import { createLead, updateLead, getLead, logLeadChanges, logLeadEvent, type Lead } from '@/lib/leads';
-import { VENTA_SIN_COBRO } from '@/lib/venta-tipo';
+import { getLead, logLeadChanges, type Lead } from '@/lib/leads';
 import { getPagosByLead, type Pago } from '@/lib/pagos';
 import { DEFAULT_STAGES, type Stage } from '@/lib/pipeline';
 import { getUsuarioActual } from '@/lib/auth';
-// La clase vive en su módulo, no en `lib/leads`, que sólo la re-usa.
-import { LeadDuplicadoError } from '@/lib/leads-duplicados';
-import { ORIGEN_LEAD } from '@/app/crm/origen-lead';
 import { revalidatePath } from 'next/cache';
 import { autoasignar } from './trabajo';
 import { abrirCuentaDePartner } from '@/lib/partners';
 import { moverClienteDeEtapa, sacarClienteDeEntrega } from '@/lib/cs-mover-etapa';
+import { quitarClienteDeProducto, volverClienteAProducto } from '@/lib/cs-quitar-producto';
+import { crearClienteGanado } from '@/lib/cs-crear-cliente';
 import { guardarEtapasEntrega, entregaDeProducto } from '@/lib/entrega-servicio';
-import { campoEntrega } from '@/lib/servicio-etapas';
-import { productosDelCliente } from './entrega';
 import { crearProductoConFunnel } from '@/lib/producto-con-funnel';
 import { renombrarProducto, archivarFunnel, getPipelineStagesDeLead } from '@/lib/funnels';
 import type { EtapaEntrega, FaseEntrega } from '@/lib/servicio-etapas';
@@ -160,60 +156,13 @@ export async function crearClienteAction(datos: {
   duplicados?: Array<{ leadId: number; nombre: string; motivo: 'email' | 'telefono' | 'nombre'; texto: string }>;
 }> {
   const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
-  const nombre = (datos.nombre ?? '').trim();
-  if (nombre.length < 2) return { ok: false, error: 'Falta el nombre.' };
-  const email = (datos.email ?? '').trim() || null;
-  const telefono = (datos.telefono ?? '').trim() || null;
-  if (!email && !telefono) {
-    return { ok: false, error: 'Carga un email o un teléfono: sin eso el cliente es incontactable.' };
-  }
-
-  try {
-    // ⚠️ `carga_manual`, el MISMO valor que el alta del CRM, y no uno propio de esta
-    // pantalla: la pregunta que contesta la columna es «¿cómo llegó esta persona?», y
-    // la respuesta —alguien la tipeó— no cambia porque el formulario viva en otra tab.
-    // Un valor por pantalla partiría el filtro de origen del CRM en dos opciones que
-    // significan lo mismo. De dónde se lo cargó es otra pregunta, y la contesta el
-    // historial del lead, no este campo.
-    const lead = await createLead({
-      nombre, empresa: (datos.empresa ?? '').trim() || null, email, telefono,
-      origen_lead: ORIGEN_LEAD.carga_manual.id,
-      permitirDuplicado: datos.permitirDuplicado === true,
-    });
-    // El desenlace va en una segunda escritura porque `createLead` no lo acepta: su
-    // trabajo es dar de alta un lead, y `estado_lead` es del recorrido. `updateLead`
-    // deriva `cerro` solo (lib/leads.ts), así que las dos columnas quedan de acuerdo.
-    await updateLead(lead.id, { estado_lead: 'ganado' });
-    // «Sin cobro» (#747): el tipo de venta va directo porque `updateLead` no escribe
-    // `venta_tipo` —el wizard del CRM hace lo mismo—. Con eso el CRM le da el monto, el
-    // plan y el comprobante por contestados, y las métricas de venta no lo cuentan.
-    // ⚠️ El lead YA existe y ya es ganado: si esto falla, se dice — reintentar el alta
-    // chocaría con su propio duplicado.
-    if (datos.sinCobro === true) {
-      const { error } = await (await getTenantDb()).from('leads').update({ venta_tipo: VENTA_SIN_COBRO }).eq('id', lead.id);
-      if (error) {
-        revalidatePath('/clients');
-        return { ok: false, leadId: lead.id, error: 'Se cargó, pero sin marcar «Sin cobro». Márcalo en el CRM.' };
-      }
-      await logLeadEvent(lead.id, 'Tipo de venta', 'Sin cobro', await autorActual());
-    }
-    revalidatePath('/clients');
-    revalidatePath('/crm');
-    return { ok: true, leadId: lead.id };
-  } catch (e) {
-    // El duplicado tiene su propio error y su propio mensaje: mandar a alguien a cargar
-    // de nuevo a un cliente que YA está es cómo se termina con dos fichas de la misma
-    // persona y ninguna forma de saber cuál es la buena.
-    const msg = e instanceof Error ? e.message : 'No se pudo cargar.';
-    if (e instanceof LeadDuplicadoError) {
-      return {
-        ok: false,
-        error: 'Ya tienes a alguien con ese nombre o contacto en el CRM. Márcalo como ganado ahí y aparece aquí.',
-        duplicados: e.coincidencias.map((c) => ({ leadId: Number(c.lead.id), nombre: (c.lead.nombre ?? '').trim() || 'Sin nombre', motivo: c.motivo, texto: c.texto })),
-      };
-    }
-    return { ok: false, error: msg };
-  }
+  // El alta vive en lib/cs-crear-cliente.ts desde el 23/10/2026 (la usan también el alta de un alumno
+  // desde el curso y la API de MaKo): createLead, ganado y «Sin cobro», con su chequeo de duplicados.
+  const r = await crearClienteGanado(datos, await autorActual());
+  // Con el lead YA creado (lo de «Sin cobro» falló), la cartera igual tiene que mostrarlo.
+  if (r.ok || r.leadId) revalidatePath('/clients');
+  if (r.ok) revalidatePath('/crm');
+  return r;
 }
 
 /**
@@ -509,36 +458,12 @@ export async function quitarDeProductoAction(leadId: number, productoId: number)
   const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
     if (!(await clienteDelWorkspace(leadId))) return { ok: false, error: 'Ese cliente no es tuyo.' };
-    const { productos, casa } = await productosDelCliente(leadId);
-    if (!productos.includes(productoId)) return { ok: false, error: 'No está en ese producto.' };
-    if (productos.length < 2) return { ok: false, error: 'Es su único producto.' };
-
-    const db = await getTenantDb();
-    const { data: fila, error: errFila } = await db.from('cliente_entrega')
-      .select('etapa, etapa_desde').eq('lead_id', leadId).eq('producto_id', productoId).maybeSingle();
-    if (errFila) return { ok: false, error: errFila.message };
-    const previa = fila as { etapa: string; etapa_desde: string } | null;
-    const eraCasa = casa === productoId;
-    const por = await autorActual();
-
-    if (eraCasa) {
-      const { error } = await db.from('cliente_entrega_fuera')
-        .upsert([{ lead_id: leadId, producto_id: productoId, por }],
-          { onConflict: 'workspace_id,lead_id,producto_id', ignoreDuplicates: true });
-      if (error) return { ok: false, error: error.message };
-    }
-    if (previa) {
-      // El borrado de la fila deja SU línea de historial y cierra lo que esa etapa tenía
-      // agendado: es el mismo camino que el deshacer del primer movimiento.
-      const r = await sacarClienteDeEntrega(leadId, productoId, por);
-      if (!r.ok) return { ok: false, error: r.motivo ?? 'No se pudo quitar.' };
-    } else {
-      // Sin fila no hay nada que el choke point registre, y salir de un producto es un hecho:
-      // la línea se escribe acá, con la etapa en la que estaba por regla (la primera).
-      await historialDeProducto(leadId, productoId, 'salio');
-    }
+    // La regla (dos o más productos, la casa contra la fila) vive en lib/cs-quitar-producto.ts desde el
+    // 23/10/2026: la usa también la API de MaKo (quitar_cliente_de_servicio).
+    const r = await quitarClienteDeProducto(leadId, productoId, await autorActual());
+    if (!r.ok) return r;
     revalidatePath('/clients');
-    return { ok: true, eraCasa, etapa: previa?.etapa ?? null, reloj: previa?.etapa_desde ?? null };
+    return r;
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo quitar.' };
   }
@@ -554,43 +479,12 @@ export async function volverAProductoAction(leadId: number, productoId: number, 
   const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
     if (!(await clienteDelWorkspace(leadId))) return { ok: false, error: 'Ese cliente no es tuyo.' };
-    const db = await getTenantDb();
-    const { error } = await db.from('cliente_entrega_fuera').delete().eq('lead_id', leadId).eq('producto_id', productoId);
-    if (error) return { ok: false, error: error.message };
-    if (etapa) {
-      const m = await moverClienteDeEtapa({ leadId, productoId, etapa, relojPrevio: reloj, por: await autorActual() });
-      if (!m.ok) return { ok: false, error: m.motivo ?? 'No se pudo devolver.' };
-    } else {
-      await historialDeProducto(leadId, productoId, 'volvio');
-    }
+    const r = await volverClienteAProducto(leadId, productoId, etapa, reloj, await autorActual());
+    if (!r.ok) return r;
     revalidatePath('/clients');
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo devolver.' };
-  }
-}
-
-/**
- * La línea de historial de entrar o salir de un producto que era su CASA y no tenía fila:
- * el único caso que el choke point no registra, porque no hay fila que mover ni borrar.
- * Mismo formato que el resto («Entrega: <producto>», la etapa de un lado y `null` del otro).
- * No tira: el rastro no puede frenar lo que ya se hizo.
- */
-async function historialDeProducto(leadId: number, productoId: number, que: 'salio' | 'volvio'): Promise<void> {
-  try {
-    const db = await getTenantDb();
-    const { data: prods } = await db.from('productos').select('nombre').eq('id', productoId).limit(1);
-    const nombre = ((prods ?? []) as Array<{ nombre: string }>)[0]?.nombre ?? '';
-    const primera = (await entregaDeProducto(productoId)).etapas[0]?.label ?? null;
-    const { error } = await db.from('lead_audit').insert([{
-      lead_id: leadId, campo: campoEntrega(nombre),
-      valor_anterior: que === 'salio' ? primera : null,
-      valor_nuevo: que === 'salio' ? null : primera,
-      autor: await autorActual(),
-    }]);
-    if (error) console.error(`[cs] no pude registrar en el historial la ${que === 'salio' ? 'salida' : 'vuelta'} del cliente ${leadId}: ${error.message}`);
-  } catch (e) {
-    console.error('[cs] no pude escribir el historial del producto:', e instanceof Error ? e.message : String(e));
   }
 }
 

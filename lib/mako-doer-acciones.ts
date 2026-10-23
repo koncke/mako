@@ -381,6 +381,7 @@ export const MAKO_ACCION_TOOLS: ToolDef[] = [
         nombre: { type: 'string', description: 'nombre y apellido de la persona, como lo diría un humano.' },
         telefono: { type: 'string', description: 'teléfono, solo dígitos con código de país si lo tienes.' },
         email: { type: 'string', description: 'email, si lo tienes.' },
+        instagram: { type: 'string', description: 'su usuario de Instagram (@usuario o el link del perfil), si lo tienes.' },
         empresa: { type: 'string', description: 'nombre del negocio, si lo dijeron.' },
         nota: { type: 'string', description: 'el contexto que dio el dueño en sus palabras (ej. «asistió a la primera sesión»). Va a la ficha: es lo que después explica de dónde salió este lead.' },
       },
@@ -685,15 +686,18 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
         const nota = str(input, 'nota');
         try {
           const { crearPropuesta } = await import('@/lib/propuestas');
+          // El @ de Instagram (23/10/2026): con la regla de la ficha, sin la @. Sin teléfono, es la llave de la persona.
+          const { usuarioInstagram } = await import('@/app/crm/campo-inline');
+          const instagram = usuarioInstagram(str(input, 'instagram'));
           // `ref` = idempotencia. Sin esto, el buffer de WhatsApp (que junta los
           // mensajes que llegan seguidos) o un reintento del webhook dejan DOS
           // tarjetas del mismo lead, y el dueño confirma un duplicado creyendo
           // que son dos personas. La llave es lo que identifica a la persona,
           // no el momento: teléfono si hay, si no el nombre.
-          const ref = `wa:lead:${telefono || nombre.toLowerCase().replace(/\s+/g, '-')}`;
+          const ref = `wa:lead:${telefono || (instagram ? `ig:${instagram}` : nombre.toLowerCase().replace(/\s+/g, '-'))}`;
           const { id, nueva } = await crearPropuesta({
             ws, tipo: 'lead', origen: 'whatsapp', ref,
-            datos: { nombre, telefono: telefono || null, email: email || null, empresa: empresa || null, nota: nota || null },
+            datos: { nombre, telefono: telefono || null, email: email || null, instagram, empresa: empresa || null, nota: nota || null },
             resumen: `${nombre}${empresa ? ` (${empresa})` : ''}${telefono ? ` · ${telefono}` : ''}`,
           });
           const url = linkApp(`/crm/revisar/${id}`, wsEnContexto());

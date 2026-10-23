@@ -664,21 +664,26 @@ test('invitar-actions: «use server», SÓLO funciones async, y cada una abre co
   const src = sinComentarios(leer(ruta));
   // Desde el 09/10/2026 con su `productoId` (puntos 6 y 7 del audio de la noche): el mail nombra sólo ese
   // curso y el acceso abre ése (tests/curso-invitar-reglas.test.ts).
-  assert.equal((src.match(/invitarAlCurso\(\{ ws, leadId, email: correo, autor, reenviar: false(, canales(: canalesDeInvitacion\(datos\.canales\))?)?, productoId \}\)/g) ?? []).length, 2);
+  // ⚠️ Desde el 23/10/2026 el alta de cero vive en lib/curso-alta-alumno.ts (la usa también la API de MaKo): una
+  // invitación queda acá (la de varios) y la otra va allá, con los mismos argumentos.
+  const ALTA = sinComentarios(leer('lib/curso-alta-alumno.ts'));
+  assert.equal((src.match(/invitarAlCurso\(\{ ws, leadId, email: correo, autor, reenviar: false, canales, productoId \}\)/g) ?? []).length, 1);
+  assert.equal((ALTA.match(/invitarAlCurso\(\{ ws: p\.ws, leadId, email: correo, autor, reenviar: false, canales: p\.canales, productoId \}\)/g) ?? []).length, 1);
   assert.doesNotMatch(src, /invitarAlCursoPorEmail|marcarInvitacion|crearUsuario/);
+  assert.doesNotMatch(ALTA, /invitarAlCursoPorEmail|marcarInvitacion|crearUsuario/);
   // El alta de cero pasa por la MISMA alta de la cartera, y entra al kanban por el choke point.
-  assert.match(src, /crearClienteAction\(\{/);
-  assert.match(src, /moverClienteDeEtapa\(\{ leadId, productoId, etapa: null, por: autor \}\)/);
+  assert.match(src, /await darDeAltaAlumno\(\{/);
+  assert.match(ALTA, /crearClienteGanado\(\{/);
+  assert.match(ALTA, /moverClienteDeEtapa\(\{ leadId, productoId, etapa: null, por: autor \}\)/);
   // ⚠️ Revisión del 08/10/2026: y SÓLO en este producto. Nace en el embudo principal, así que su
   // casa es el producto principal: invitado desde el curso de OTRO quedaba en los dos kanbans. Se lo
   // saca de los otros con la misma «Quitar de este producto», y si no se pudo NO se lo invita. Desde el
   // 09/10/2026 la pregunta es la del KANBAN (`productosDelCliente`): `productosDelAlumno` pasó a ser
   // «qué cursos VE» (mig 0232) y a alguien todavía no invitado le diría que no es de ningún producto.
-  const nuevo = bloque(src, 'export async function invitarNuevoAlumnoAction(', 'async function conEstado(');
-  assert.match(nuevo, /if \(enKanban && nuevoCliente\) \{\s*for \(const otro of \(await productosDelCliente\(leadId\)\)\.productos\.filter\(\(x\) => x !== productoId\)\) \{\s*const q = await quitarDeProductoAction\(leadId, otro\);\s*if \(!q\.ok\) \{ soloAca = false;/);
-  const sinOtro = nuevo.indexOf('!soloAca');
-  assert.ok(sinOtro > 0 && sinOtro < nuevo.indexOf('invitarAlCurso('), 'invita sin saber si quedó sólo en este producto');
-  // Uno que YA era cliente sigue en lo suyo: sólo se lo saca de otros si esta action lo hizo cliente.
+  const nuevo = ALTA.slice(ALTA.indexOf('export async function darDeAltaAlumno('));
+  assert.match(nuevo, /if \(enKanban && nuevoCliente\) \{\s*for \(const otro of \(await productosDelCliente\(leadId\)\)\.productos\.filter\(\(x\) => x !== productoId\)\) \{\s*const q = await quitarClienteDeProducto\(leadId, otro, autor\);\s*if \(!q\.ok\) \{ soloAca = false;/);
+  assert.match(nuevo, /const invitacion = enKanban && soloAca\s*\? await invitarAlCurso\(/, 'invita sin saber si quedó sólo en este producto');
+  // Uno que YA era cliente sigue en lo suyo: sólo se lo saca de otros si este alta lo hizo cliente.
   assert.match(nuevo, /nuevoCliente = \(data as \{ estado_lead: string \| null \}\)\.estado_lead !== 'ganado';/);
   // El componente del editor tiene su call site para las dos.
   const comp = sinComentarios(leer('app/customer-success/curso/InvitarAlumnos.tsx'));

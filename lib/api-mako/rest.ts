@@ -116,6 +116,9 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['DELETE', '/crm/cobro-ganado/vinculos/{vinculoId}', 'desvincular_cobro_etapa'],
   // Una campaña o un conjunto de Meta va a uno o varios funnels (#893, 17/10/2026). PUT porque FIJA la lista entera.
   ['GET', '/crm/campanas', 'ver_campanas_funnels'],
+  // «Invitar al curso al ganar» (23/10/2026): el CRM va por `embudoId` (opcional), como /crm/automatizaciones/estado.
+  ['GET', '/crm/curso-al-ganar', 'ver_curso_al_ganar'],
+  ['PUT', '/crm/curso-al-ganar', 'cambiar_curso_al_ganar'],
   ['PUT', '/crm/campanas/funnels', 'asignar_campana_funnels'],
   // Un CRM nuevo por su tipo (14/10/2026): crea el embudo y devuelve su embudoId.
   ['POST', '/crm/embudos', 'crear_crm'],
@@ -599,6 +602,16 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['DELETE', '/curso/clases/{claseId}', 'borrar_clase_curso'],
   ['PUT', '/curso/clases/{claseId}/lugar', 'mover_clase_curso'],
   ['PUT', '/curso/clases/{claseId}/restauracion', 'restaurar_clase_curso'],
+  // Los ACCESOS (23/10/2026): quién abre el curso. Como los colaboradores de un repo de GitHub: PUT le da el curso y le
+  // manda la invitación («Add a repository collaborator»), DELETE se lo saca. El corte es un recurso del acceso: PUT
+  // corta y DELETE lo vuelve a habilitar («Suspend a user» / «Unsuspend a user»).
+  ['GET', '/curso/accesos/{leadId}', 'ver_acceso_curso'],
+  ['PUT', '/curso/cursos/{productoId}/accesos/{leadId}', 'dar_acceso_curso'],
+  ['DELETE', '/curso/cursos/{productoId}/accesos/{leadId}', 'quitar_curso_del_acceso'],
+  ['PUT', '/curso/accesos/{leadId}/corte', 'cortar_acceso_curso'],
+  ['DELETE', '/curso/accesos/{leadId}/corte', 'habilitar_acceso_curso'],
+  // El alumno nuevo (23/10/2026): crea al cliente y le abre ese curso. Devuelve su leadId.
+  ['POST', '/curso/cursos/{productoId}/alumnos', 'crear_alumno_curso'],
   // ── comunidad (17/10/2026: la comunidad de cada producto, por HTTP como el curso) ─────────────────────
   // La comunidad es el recurso del producto (`{productoId}`, de listar_comunidades); sus posts, categorías, miembros y
   // eventos cuelgan de ella. Un post y un comentario se piden por su propio id (`/posts/{postId}`), como el curso con sus

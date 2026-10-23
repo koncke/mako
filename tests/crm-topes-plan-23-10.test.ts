@@ -62,7 +62,10 @@ test('lo que entra solo nunca se pierde: el freno vive en las altas A MANO, no e
   assert.doesNotMatch(leer('lib/leads.ts'), /topes-crm|frenarAltaPorTope/);
   const conFreno = execFileSync('git', ['grep', '--untracked', '-l', 'frenarAltaPorTope', '--', 'app', 'lib'], { cwd: RAIZ, encoding: 'utf8' }).trim().split('\n').sort();
   assert.deepEqual(conFreno, [
-    'app/crm/actions.ts', 'app/crm/nuevo-crm-actions.ts', 'lib/api-mako/areas/chats.run.ts', 'lib/api-mako/areas/crm.run.ts', 'lib/topes-crm.ts',
+    'app/crm/actions.ts', 'app/crm/nuevo-crm-actions.ts', 'lib/api-mako/areas/chats.run.ts', 'lib/api-mako/areas/crm.run.ts',
+    // (23/10/2026) crear_alumno_curso: un alumno nuevo es un lead que se crea a mano por la API, como el alta del CRM.
+    'lib/api-mako/areas/curso.run.ts',
+    'lib/topes-crm.ts',
   ], 'un freno nuevo (o en un webhook) se decide a propósito');
 });
 
