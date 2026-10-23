@@ -111,8 +111,13 @@ const FIJA = 'mk-nav-fija';
 function leerFija(): boolean {
   try { return window.localStorage.getItem(FIJA) !== 'no'; } catch { return true; }
 }
-/** Las pantallas que pliegan la barra al entrar: las del Ops Center, que traen su propia barra de chats (20/10/2026). */
-export const RUTAS_QUE_PLIEGAN: readonly string[] = ['/second-brain', '/admin/operaciones'];
+/**
+ * Las pantallas que pliegan la barra al entrar: las del Ops Center, que traen su propia barra de chats (20/10/2026), y
+ * Automations (23/10/2026; Martín: «al entrar a Automations, por defecto la sidebar principal esté plegada»): su panel
+ * flotante (la lista y el chat con MaKo) y el lienzo necesitan el ancho. Es el mismo mecanismo: «por defecto», la flecha
+ * la abre ahí sin tocar lo guardado, y al salir vuelve lo que la persona tenía.
+ */
+export const RUTAS_QUE_PLIEGAN: readonly string[] = ['/second-brain', '/admin/operaciones', '/automations'];
 export function pliegaLaBarra(pathname: string): boolean {
   return RUTAS_QUE_PLIEGAN.some((r) => pathname === r || pathname.startsWith(r + '/'));
 }

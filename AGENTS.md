@@ -2591,7 +2591,12 @@ distinguir un iPad (manda UA de Macintosh, lib/movil-dispositivo.ts), y lo que v
   (app/globals.css, `aside[data-sidebar]`).
 - **Una columna de navegación NO scrollea nunca** (Martín, 01/07: «La sidebar se puede scrollear, eso NO debe ser
   posible NUNCA»): si no entra, se reorganiza o se pliega. Un `overflow: auto` con la barra escondida no lo arregla:
-  esconde la evidencia.
+  esconde la evidencia. Única excepción pedida (Martín, 23/10: «siempre cuando la sidebar principal esté plegada, no
+  debe aparecer la barra de scroll»): el RAIL plegado (`aside[data-sidebar][data-fija="no"]`) no dibuja la barra
+  (app/_ui/ui.css); abierto y fijo sigue delgada y teñida. No se arregla un menú largo con eso: se reorganiza.
+- **Automations arranca con la sidebar plegada** (23/10): `/automations` está en `RUTAS_QUE_PLIEGAN`
+  (app/_components/Sidebar.tsx), como el Ops Center; la flecha la abre. Su panel flotante (lista y chat con MaKo) mide
+  `MUELLE.listaAncho` (400, lib/lienzo-grafo.ts) y de ese número cuelgan los insets del lienzo.
 - **Lo táctil se decide por capacidad, no por dispositivo**: `@media (pointer: coarse)` para los 44 px de toque, y
   toda interacción que se abre al pasar el cursor (los desplegables de la sidebar) tiene su equivalente al tocar.
 - **Se mira en el ancho y el alto reales de una tablet** (1024×768 y 820×1180), no sólo en un monitor y en 390 px.
