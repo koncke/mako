@@ -2363,6 +2363,9 @@ una entrada nueva que lo llame se suma en tests/ia-pc-nunca-a-leads.test.ts con 
 a sus bytes y antes de subirlo.** «Firmado» es `peFirmado` y `peConMarcaDeTiempo` sobre lo que vuelve, nunca el código de
 salida de CodeSignTool. Las claves de SSL.com van en `%USERPROFILE%\.mako-firma.env`, nunca en el .env.local (OneDrive lo
 sube), en la consola ni en un mensaje de error (tests/ia-pc-firma.test.ts).
+La app de la Mac firmada se arma con `firmarAppMac` (scripts/ia-pc/firmar-mac.mjs): el ejecutable es un Mach-O universal, nunca
+un guion, y nada le pone la firma local. «Firmada» es `problemasParaNotarizar` vacío, mirado ANTES de notarizar. La clave y
+el certificado de Apple van en `%USERPROFILE%\.mako-firma-mac`, nunca en OneDrive (tests/ia-pc-firma-mac.test.ts).
 
 # NINGUNA pantalla se diseña de cero: se COPIA de una app que ya resolvió eso
 
