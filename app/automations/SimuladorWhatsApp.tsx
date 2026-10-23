@@ -870,8 +870,11 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
           lector de pantalla ni para una verificación, que es como un arnés terminó
           clickeando los íconos del menú de la izquierda creyendo que eran secuencias.
           Y lleva su `overflowY` con la barra teñida de la casa: el scroll es del
-          CONTENIDO —sus secuencias—, no de la navegación de la app, así que se ve. */}
-      <aside aria-label={verLista ? 'Tus automatizaciones' : 'Chat con MaKo'} data-sidebar={verLista ? 'lista' : 'chat'} style={{
+          CONTENIDO —sus secuencias—, no de la navegación de la app, así que se ve.
+          ⚠️ NO SE LLAMA `data-sidebar` (23/10/2026): ése es el nombre de la barra de la APP, y app/globals.css le pone
+          `height: 100dvh !important` a todo `aside[data-sidebar]`. Con ese nombre este panel medía la ventana entera desde
+          16 px y se pasaba del piso: la caja de escribir quedaba pegada abajo (Martín: «todo muy pegado al piso»). */}
+      <aside aria-label={verLista ? 'Tus automatizaciones' : 'Chat con MaKo'} data-panel-automations={verLista ? 'lista' : 'chat'} style={{
         position: 'absolute', left: LISTA_HUECO, top: LISTA_HUECO, bottom: LISTA_HUECO, width: LISTA_ANCHO, zIndex: makoTrabajando ? Z_CHAT_ENCIMA : 3,
         display: 'flex', flexDirection: 'column', minHeight: 0,
         background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18,

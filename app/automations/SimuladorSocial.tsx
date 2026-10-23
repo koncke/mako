@@ -24,13 +24,20 @@ const CSS = `
 @media (prefers-reduced-motion: reduce) { .mk-social-msg { animation: none !important; } }
 `;
 
-export function SimuladorSocial({ canal, mensajes, typing, onEnviarTexto, negocio }: {
+export function SimuladorSocial({ canal, mensajes, typing, onEnviarTexto, negocio, placeholder = 'Responde como el lead…', soloLectura = false }: {
   canal: CanalSocial;
   mensajes: HiloMsg[];
   typing: { lado: 'left' | 'right'; autor?: string } | null;
   /** Lo que escribe el lead de prueba: PanelProbar pausa la salida y corre «Si responde». */
   onEnviarTexto: (texto: string) => Promise<boolean>;
   negocio: string;
+  /**
+   * El Ensayo de un AI Step (ModalEnsayoAIStep, revisión de las tarjetas del 23/10/2026, punto 9) lo usa al revés que
+   * «Probar»: ahí la persona contesta como el NEGOCIO y MaKo hace de lead. Por eso la caja dice otra cosa y se cierra
+   * cuando contesta MaKo o el ensayo terminó (lo mismo que `readOnly` en el `ChatHilo` de WhatsApp).
+   */
+  placeholder?: string;
+  soloLectura?: boolean;
 }) {
   const [texto, setTexto] = useState('');
   const fin = useRef<HTMLDivElement | null>(null);
@@ -40,7 +47,7 @@ export function SimuladorSocial({ canal, mensajes, typing, onEnviarTexto, negoci
   const mandar = async (e?: FormEvent) => {
     e?.preventDefault();
     const t = texto.trim();
-    if (!t) return;
+    if (!t || soloLectura) return;
     setTexto('');
     await onEnviarTexto(t);
   };
@@ -80,9 +87,9 @@ export function SimuladorSocial({ canal, mensajes, typing, onEnviarTexto, negoci
         <div ref={fin} />
       </div>
       <form onSubmit={(e) => void mandar(e)} style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 6, margin: '0 10px 10px', padding: '4px 6px 4px 14px', borderRadius: 22, border: '1px solid var(--border-strong)' }}>
-        <input value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Responde como el lead…" aria-label="Responde como el lead"
+        <input value={texto} onChange={(e) => setTexto(e.target.value)} disabled={soloLectura} placeholder={placeholder} aria-label={placeholder.replace(/…$/, '')}
           style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 14, padding: '7px 0' }} />
-        <button type="submit" disabled={!texto.trim()} style={{ flex: 'none', border: 'none', background: 'none', color: canal === 'instagram' ? '#5B51D8' : '#0084FF', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', padding: '6px 8px', opacity: texto.trim() ? 1 : 0.4, fontFamily: 'inherit' }}>Enviar</button>
+        <button type="submit" disabled={soloLectura || !texto.trim()} style={{ flex: 'none', border: 'none', background: 'none', color: canal === 'instagram' ? '#5B51D8' : '#0084FF', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', padding: '6px 8px', opacity: texto.trim() ? 1 : 0.4, fontFamily: 'inherit' }}>Enviar</button>
       </form>
     </div>
   );

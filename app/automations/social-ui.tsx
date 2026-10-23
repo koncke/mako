@@ -77,20 +77,27 @@ export function BurbujaSocial({ canal, saliente = true, children, compacta, line
   return <div style={caja}>{children}</div>;
 }
 
-/** Un archivo adentro de la conversación: la foto, o el nombre del documento con su ícono. */
+/**
+ * Un archivo adentro de la conversación: la foto, o el nombre del documento con su ícono.
+ *
+ * ⚠️ EN LA CARA DE LA TARJETA (`compacta`) VA SIEMPRE EL CHIP, también con una foto (revisión de las tarjetas,
+ * 23/10/2026, punto 2). El alto de la tarjeta se calcula ANTES de pintar con el chip de 34 px (`altoDeLaPrimera`,
+ * lib/flujo-conversacion.ts) y lo que no entra se corta: una foto de hasta 90 px cortaba la tarjeta. Es además lo que
+ * hace la tarjeta de WhatsApp. La foto se ve en el editor y en «Probar».
+ */
 export function ArchivoSocial({ canal, url, mime, nombre, compacta, saliente = true, maxAncho }: { canal: CanalSocial; url: string | null; mime: string | null; nombre: string | null; compacta?: boolean; saliente?: boolean; maxAncho?: string }) {
   const esImagen = (mime ?? '').startsWith('image/');
   const esVideo = (mime ?? '').startsWith('video/');
-  if (url && esImagen) {
+  if (url && esImagen && !compacta) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt={nombre ?? 'imagen'} style={{ maxWidth: compacta ? '100%' : 220, maxHeight: compacta ? 90 : 260, borderRadius: 16, display: 'block', objectFit: 'cover' }} />;
+    return <img src={url} alt={nombre ?? 'imagen'} style={{ maxWidth: 220, maxHeight: 260, borderRadius: 16, display: 'block', objectFit: 'cover' }} />;
   }
   if (url && esVideo && !compacta) return <video src={url} controls style={{ maxWidth: 220, maxHeight: 260, borderRadius: 16, display: 'block' }} />;
   return (
     <BurbujaSocial canal={canal} saliente={saliente} compacta={compacta} maxAncho={maxAncho}>
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
         <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden><path d="M6 2h8l6 6v14H6z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /><path d="M14 2v6h6" fill="none" stroke="currentColor" strokeWidth="1.8" /></svg>
-        {nombre?.trim() || (esVideo ? 'Video' : 'Archivo')}
+        {nombre?.trim() || (esVideo ? 'Video' : esImagen ? 'Imagen' : 'Archivo')}
       </span>
     </BurbujaSocial>
   );

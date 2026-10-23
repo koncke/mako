@@ -114,7 +114,8 @@ test('ENCHUFE: `ejecutarDesdeFlujo` corre una vez por etiqueta (`unaPorEtiqueta`
   const flujo = sinComentarios(leer('lib/api-mako/flujo.ts'));
   const ej = flujo.slice(flujo.indexOf('export async function ejecutarDesdeFlujo('), flujo.indexOf('export async function aplicarEnElActo('));
   assert.ok(ej.length > 0 && ej.length < 2000, `el recorte mide ${ej.length}: está mirando otra cosa`);
-  assert.match(ej, /const tandas = unaPorEtiqueta\(operacion, params\);/);
+  // Los params pasan antes por `sinLoDeFueraDelFlujo` (revisión de las tarjetas, 23/10/2026, punto 4): lo que un flujo no lleva.
+  assert.match(ej, /const tandas = unaPorEtiqueta\(operacion, sinLoDeFueraDelFlujo\(operacion, params\)\);/);
   assert.match(ej, /if \(tandas\.length > 1\) \{\n\s+const rs: ResultadoFlujo\[\] = \[\];\n\s+for \(const p of tandas\) rs\.push\(await ejecutarDesdeFlujo\(operacion, p, opts\)\);\n\s+return juntarPorEtiqueta\(rs\);/);
   // La tanda única (una etiqueta EN LA LISTA) corre con su `etiquetaId`, no con los parámetros crudos.
   assert.match(ej, /paramsDelPaso\(def\.parametros, tandas\[0\],/);

@@ -90,11 +90,13 @@ test('el runner de los EVENTOS duerme en ESE paso hasta que abre, con el context
   assert.match(cuerpo, /apertura === 'ilegible' \? new Date\(Date\.now\(\) \+ REINTENTO_HORARIO_MS\)/, '«no sé» mandaba igual');
 });
 
-test('la pantalla: el control en la tarjeta (sólo con horario), su chip en el lienzo, y la casilla global se fue', () => {
+test('la pantalla: el chip en el lienzo (sin desplegable en la tarjeta desde el 23/10), y la casilla global se fue', () => {
   const panel = sinComentarios(leer('app/configuraciones/HorarioEnvioPanel.tsx'));
   assert.doesNotMatch(panel, /avisosAlEquipo|Los avisos al equipo salen igual/);
   const lienzo = sinComentarios(leer('app/automations/FlujoLienzo.tsx'));
-  assert.match(lienzo, /const campoFuera = oficina\?\.horario \? \(/);
+  // 23/10/2026 (Martín: «no rompas el diseño de las tarjetas»): se elige pidiéndoselo a MaKo (`fueraDeHorario` de la API).
+  assert.doesNotMatch(lienzo, /data-fuera-de-horario|campoFuera/, 'volvió el desplegable «Fuera del horario» a la tarjeta');
+  assert.match(leer('app/automations/FlujoLienzo.tsx'), /title="Fuera del horario de oficina sale cuando abre\. Para que salga igual, pídeselo a MaKo\."/);
   assert.match(lienzo, /\{espera && <ChipEspera nodo=\{n\} texto=\{espera\} \/>\}/);
   assert.match(sinComentarios(leer('lib/api-mako/areas/chatbot.def.ts')), /nombre: 'fueraDeHorario', tipo: 'string', enum: \['espera', 'igual'\]/);
 });

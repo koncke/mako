@@ -234,10 +234,14 @@ test('lo que dice cada fila de la tarjeta CRON', () => {
   assert.equal(textoDeDisparador({ id: 'd1', trigger_tipo: TRIGGER_INSTAGRAM, subtipo: 'historia' }, n), 'El usuario responde a tu historia');
   assert.equal(textoDeDisparador({ id: 'd1', trigger_tipo: TRIGGER_EMAIL_RECIBIDO, subtipo: 'recibido' }, n), 'Recibes un email');
   assert.equal(textoDeDisparador({ id: 'd1', trigger_tipo: 'etapa_actual', etapa: 'a' }, n), 'de siempre: etapa_actual');
+  // La zona del NEGOCIO no se nombra en la tarjeta (revisión de las tarjetas, 23/10/2026, punto 6): cortaba el «A quién».
   assert.equal(textoDeDisparador({ id: 'd1', trigger_tipo: TRIGGER_SOLO_GRUPO, cron: CRON, grupo: true }, n),
-    'Todos los días a las 09:00 de America/Mexico_City · El grupo de MaKo');
+    'Todos los días a las 09:00 · El grupo de MaKo');
   assert.equal(textoDeDisparador({ id: 'd1', trigger_tipo: 'etiqueta_puesta', etiqueta_id: 3, cron: CRON, grupo: true }, n),
-    'Todos los días a las 09:00 de America/Mexico_City · El grupo de MaKo y de siempre: etiqueta_puesta');
+    'Todos los días a las 09:00 · El grupo de MaKo y de siempre: etiqueta_puesta');
+  // La que ELIGIÓ la persona sí: es una decisión suya y no la de siempre.
+  assert.equal(textoDeDisparador({ id: 'd1', trigger_tipo: TRIGGER_SOLO_GRUPO, cron: { ...CRON, tz: 'Europe/Madrid' }, grupo: true }, n),
+    'Todos los días a las 09:00 de Europe/Madrid · El grupo de MaKo');
 });
 
 // ── 7. El Recurrente al grupo: qué sale ─────────────────────────────────────────────────────────

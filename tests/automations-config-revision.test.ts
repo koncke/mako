@@ -115,7 +115,7 @@ test('4. al entrar con automatizaciones, la sidebar es la LISTA (con «＋ Nueva
     secuencias: [sec(1, 'Bienvenida'), sec(2, 'Reactivación')], objetivos: [], etiquetaEtapa: (k: string) => k, negocio: 'Mi negocio',
     rolAdmin: true, audios: [], canalCaido: false, onAudioNuevo: () => {}, onNueva: () => {}, onReload: () => {}, productos: [], disparadores: [], tz: null,
   } as Parameters<typeof SimuladorWhatsApp>[0]));
-  assert.match(html, /<aside aria-label="Tus automatizaciones" data-sidebar="lista"/, 'la sidebar arranca siendo el chat de la primera');
+  assert.match(html, /<aside aria-label="Tus automatizaciones" data-panel-automations="lista"/, 'la sidebar arranca siendo el chat de la primera');
   assert.ok(html.includes('chb-nueva'));
   // Elegir una (un clic, `?sec=`, la recién creada) sigue llevando al chat.
   const lista = sinComentarios(leer('app/automations/SimuladorWhatsApp.tsx'));

@@ -31,7 +31,7 @@ import { REGISTRO, porId, visible } from './registro';
 import { ejecutarOperacion, vistaDe } from './ejecutar';
 import { confirmarPendiente, aplicarPropuestaGenerica } from './acciones';
 import { PREFIJO_FLUJO } from './canal';
-import { paramsDelPaso, pideLead, filasDeLeads } from './flujo-params';
+import { paramsDelPaso, pideLead, filasDeLeads, sinLoDeFueraDelFlujo } from './flujo-params';
 import { AREA_INFO, esAccion, type AccionDef, type Ctx, type Parametro } from './tipos';
 import { getPropuesta, marcarAplicada, guardarResultadoPropuesta } from '@/lib/propuestas';
 import { aplicarPropuesta, getPropuesta as getBorradorPlan } from '@/lib/plan-propuesta';
@@ -139,7 +139,7 @@ export async function ejecutarDesdeFlujo(
   // sin esto, «Agregar Cualificado, Seguimiento y Llamar» agregaba sólo Cualificado, sin un error. Cada
   // tanda pasa por el mismo camino de siempre (y deja su fila); el resultado es UNO, ok sólo si salieron
   // todas, y el resumen dice cada una (`juntarPorEtiqueta`, lib/editor-acciones.ts).
-  const tandas = unaPorEtiqueta(operacion, params);
+  const tandas = unaPorEtiqueta(operacion, sinLoDeFueraDelFlujo(operacion, params));
   if (tandas.length > 1) {
     const rs: ResultadoFlujo[] = [];
     for (const p of tandas) rs.push(await ejecutarDesdeFlujo(operacion, p, opts));

@@ -12,6 +12,20 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Un panel que se llama `data-sidebar` hereda el alto de la barra de la app (23/10/2026)
+
+**Síntoma:** el chat de MaKo al costado del lienzo de Automations tenía la caja de escribir «pegada al piso» (Martín, a 1920
+de ancho). **El diagnóstico obvio («el componente compartido del chat le pone poco margen») era el equivocado:** medido en
+producción (1540×732), el panel flotante tenía `top: 16` y `bottom: 16` y medía 732 (terminaba en 748, 16 px fuera de
+la ventana). Lo estiraba `@supports (height: 100dvh) { aside[data-sidebar] { height: 100dvh !important } }` de
+app/globals.css, que es la regla de la barra de la APP: el panel de Automations se llamaba `data-sidebar="lista|chat"`.
+**Regla:** `data-sidebar` es el nombre de la barra de la app (lo leen globals.css, ui.css con sus colores y MakoEnLaTab).
+Un panel propio usa su propio atributo. Así quedó: `data-panel-automations`. Y la cabecera del chat tenía un margen negativo heredado del
+`ChatHilo` de antes, que tenía relleno: salía 4 px por encima del panel y el hilo le pisaba 4 px abajo. **Medido con los dos
+cambios, en la misma pestaña de producción:** el panel va de 16 a 716 y la cabecera queda entera arriba del hilo. **Vive en:**
+app/automations/SimuladorWhatsApp.tsx · app/automations/ChatMako.tsx (`S.cabecera`) · tests/chat-mako-costado-sin-cortes.test.ts.
+*23/10/2026, chat «Automations» (claude2).*
+
 ## «Reportar a Soporte»: UN botón en todo aviso de error, y el guardián que lo exige (23/10/2026)
 
 Martín (22/10): «en toda la app, SIEMPRE que sale un error, en donde sea, debe aparecer el botón de "Reportar a Soporte" y que

@@ -681,8 +681,8 @@ export function esEventoDeAntes(d: Pick<Disparador, 'trigger_tipo' | 'cron'>): b
  * ⚠️ UN EVENTO DE ANTES ES «PRODUCTO» (décima tanda, CRON 2, 11/10/2026: «al editar el segundo paso no me
  * aparece ningún desplegable... O que no se selecciona los pasos que elegí... Nunca nada debe quedar en una
  * versión vieja»). Era `otro`: la primera pantalla no marcaba ninguna de las seis y el editor lo dibujaba como
- * un texto con «←», sin desplegable. Ahora abre el de Producto con lo puesto en el botón, «(de antes)»
- * (`textoDeDisparador`), y elegir una etapa lo reemplaza. Lo que es de antes lo dice `esEventoDeAntes`.
+ * un texto con «←», sin desplegable. Ahora abre el de Producto con lo puesto en el botón
+ * (`textoDeDisparador`; sin la marca «(de antes)» desde el 23/10/2026), y elegir una etapa lo reemplaza. Lo que es de antes lo dice `esEventoDeAntes`.
  * `otro` queda para el recordatorio de la reunión (su emisor lo dice como es, sin editor) y para el ícono de
  * lo que todavía no se eligió (`iconoDeDisparador`).
  */
@@ -1034,8 +1034,13 @@ export function textoQuien(d: Disparador, n: NombresDeDisparo): string {
 /** LO QUE DICE CADA FILA DE LA TARJETA CRON (una por disparador, la dibuja el lienzo). */
 export function textoDeDisparador(d: Disparador, n: NombresDeDisparo): string {
   if (d.cron) {
+    // LA ZONA SE NOMBRA SÓLO SI LA PERSONA ELIGIÓ UNA (`c.tz`), nunca la del negocio por default (revisión de las
+    // tarjetas, 23/10/2026, punto 6): «Todos los lunes a las 09:00 de America/Tijuana · El grupo de MaKo» no entra en
+    // los 2 renglones de la tarjeta, y el corte se comía el «A quién», que es lo que distingue un Recurrente de otro.
+    // El huso se ve y se cambia en el editor, con su bandera. (`n.tz` sigue siendo la zona con la que corre.)
+    const cuando = textoCron(d.cron, null);
     const quien = textoQuien(d, n);
-    return quien ? `${textoCron(d.cron, n.tz ?? null)} · ${quien}` : textoCron(d.cron, n.tz ?? null);
+    return quien ? `${cuando} · ${quien}` : cuando;
   }
   const t = d.trigger_tipo;
   if (t === 'manual') return TEXTO_SIN_ELEGIR;
@@ -1045,14 +1050,12 @@ export function textoDeDisparador(d: Disparador, n: NombresDeDisparo): string {
     const ev = eventosDe(claseDeDisparador({ trigger_tipo: t, cron: null })).find((e) => e.subtipo === d.subtipo);
     return ev?.label ?? 'Elige el evento';
   }
-  // Un evento de antes se dice como es y se MARCA (décima tanda, CRON 2): en la tarjeta y en el botón del
-  // desplegable de Producto, que es donde se cambia. Hasta que se migre (scripts/migrar-cron-de-antes.mts).
-  if (esEventoDeAntes(d)) return `${n.deSiempre(d)} ${MARCA_DE_ANTES}`;
+  // Un evento de antes se dice como es, SIN marca (revisión de las tarjetas, 23/10/2026, punto 12). «(de antes)» era
+  // un estado interno pegado a la tarjeta, y la undécima tanda ya lo había rechazado: «Fuera (de antes)»
+  // (docs/diseno-undecima-tanda.md; memoria nunca-version-vieja). Medido el 23/10: ninguna automatización viva tiene
+  // uno; sólo aparecería al desarchivar una vieja, y elegir una etapa en el desplegable lo reemplaza.
   return n.deSiempre(d);
 }
-
-/** Lo que se le pega a un evento de antes donde se dice (la tarjeta, el botón del desplegable). */
-export const MARCA_DE_ANTES = '(de antes)';
 
 /** Una opción con valor y rótulo (una etapa de un kanban, un disparador del catálogo). */
 type OpcionNombrada = { value: string; label: string };
