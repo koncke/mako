@@ -173,11 +173,16 @@ test('(3) el primer mensaje es el primero que manda algo, aunque cuelgue de una 
 
 // ── 4. Sale sola y el «saltear» ──────────────────────────────────────────────
 
-test('(4) «sale sola» por tarjeta: `revisar` manda, ausente decide la secuencia', () => {
-  assert.equal(saleSolo({ revisar: true }, true), false);
-  assert.equal(saleSolo({ revisar: false }, false), true);
-  assert.equal(saleSolo({}, true), true);
-  assert.equal(saleSolo({}, false), false);
+// ⚠️ 23/10/2026 (Martín por el Cerebro: «si estoy haciendo una AUTOMATIZACIÓN es OBVIO que debe llegar sola»): un mensaje
+// SALE; sólo lo que escribe la IA (`tipo: 'ia'`) sigue con su `revisar` y, ausente, lo de la secuencia.
+test('(4) un mensaje de una automatización sale solo; lo de la IA sigue su `revisar`', () => {
+  assert.equal(saleSolo({ revisar: true }, true), true);
+  assert.equal(saleSolo({ revisar: true }, false), true);
+  assert.equal(saleSolo({}, false), true);
+  assert.equal(saleSolo({ tipo: 'ia', revisar: true }, true), false);
+  assert.equal(saleSolo({ tipo: 'ia', revisar: false }, false), true);
+  assert.equal(saleSolo({ tipo: 'ia' }, true), true);
+  assert.equal(saleSolo({ tipo: 'ia' }, false), false);
 });
 
 test('(4) saltear el paso que espera respuesta sigue el `siguiente`, no el índice', () => {

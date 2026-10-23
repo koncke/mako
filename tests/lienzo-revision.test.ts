@@ -102,8 +102,9 @@ test('costuras-3: lo que la casilla PINTA es, para cada mensaje, lo contrario de
       for (const id of ids) {
         const pasos = cambiarNodo(base.pasos, id, { revisar } as Partial<PasoParaGrafo>);
         const p = nodoPorId(pasos, id)!;
-        // Lo que el editor pinta (EditorMensajeWhatsApp: `paso.revisar ?? !!revisarHeredado`).
-        const pinta = p.revisar ?? revisarHeredado(pasos, id, envio);
+        // Lo que el editor pinta (EditorMensajeWhatsApp: `paso.revisar ?? !!revisarHeredado`). Desde el 23/10/2026 un mensaje
+        // que no es de la IA sale solo siempre (`saleSolo`): no hay nada que pintar como borrador.
+        const pinta = p.tipo !== 'ia' ? false : (p.revisar ?? revisarHeredado(pasos, id, envio));
         // Lo que el motor hace: el primer «MaKo contesta» de un caso, por `escenariosDeRespuesta`;
         // lo demás (la salida y el resto de la rama), por `saleSolo`.
         const esc = escenariosDeRespuesta(pasos).find((e) => e.siguiente === id && p.tipo === 'ia');

@@ -632,12 +632,14 @@ export function desenlaceEsperaAlCarril(f: { estado: string; proximo_envio_at?: 
 }
 
 /**
- * «Sale sola» POR NODO (punto 6 del pedido: el checkbox de la tarjeta del CRON no se entendía).
- * `revisar: true` = queda como BORRADOR; `false` = sale; ausente = lo que diga la secuencia
- * (`estrategia.envio_automatico`), que es como se comporta todo lo escrito antes del 08/10/2026.
- * La regla dura de siempre sigue arriba de esto: a quien ya pagó le sale igual.
+ * ¿Este mensaje SALE SOLO? (23/10/2026, Martín por el Cerebro: «si estoy haciendo una AUTOMATIZACIÓN es OBVIO que debe
+ * llegar sola».) Un mensaje de una automatización SALE: el interruptor «Sale sola» de la tarjeta se fue, y con él el
+ * BORRADOR escondido (`revisar` ausente heredaba `estrategia.envio_automatico`, que nace apagado: el segundo mensaje de
+ * #289 y los dos de #282 del ws11 quedaban para aprobar sin que nada lo dijera). Lo que escribe la IA (`tipo: 'ia'`, el
+ * «MaKo contesta» de «Si responde») sigue con su regla: su `revisar`, y si no lo tiene, lo de la secuencia.
  */
-export function saleSolo(p: { revisar?: boolean | null }, envioAutomatico: boolean): boolean {
+export function saleSolo(p: { revisar?: boolean | null; tipo?: unknown }, envioAutomatico: boolean): boolean {
+  if (p.tipo !== 'ia') return true;
   if (p.revisar === true) return false;
   if (p.revisar === false) return true;
   return envioAutomatico === true;

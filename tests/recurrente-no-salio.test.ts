@@ -77,8 +77,9 @@ test('(6) ¿quedan para aprobar? La MISMA regla del motor (`saleSolo`), sólo Wh
   for (const revisar of [true, false, undefined] as const) for (const auto of [true, false]) {
     assert.equal(dejaBorradores([msg('a', 'Hola', revisar === undefined ? {} : { revisar })], auto), !saleSolo({ revisar }, auto), `revisar=${revisar} auto=${auto}`);
   }
-  // El #282 de verdad: WhatsApp, sin `revisar`, la automatización sin «sale sola» → borradores.
-  assert.equal(dejaBorradores([msg('n063a54', TEXTO_282)], false), true);
+  // El #282 de verdad: WhatsApp, sin `revisar`, la automatización sin «sale sola». Desde el 23/10/2026 un mensaje de una
+  // automatización SALE (`saleSolo`): ya no deja borradores.
+  assert.equal(dejaBorradores([msg('n063a54', TEXTO_282)], false), false);
   // Un email no es WhatsApp no oficial.
   assert.equal(dejaBorradores([msg('a', 'Hola', { canal: 'email' })], false), false);
   // Una respuesta de «Si responde» tiene su regla propia y no sale al activar.
