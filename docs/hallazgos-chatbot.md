@@ -6728,3 +6728,16 @@ tests/automatizaciones-del-lead-detalle.test.ts. **Sin hacer:** los lotes (table
 (app/m/crm) no pasan la persona; el reinicio de una fila 'activa' no frena un envío que el tick esté mandando en ese
 mismo instante (el compare-and-set es sobre estado y desenlace); el envío no guarda «entregado/leído» del WhatsApp.
 *23/10/2026, chat «Automations» (claude2).*
+
+### Lo que se midió de la #289 y la #198 antes del sábado (23/10/2026, sólo lectura)
+
+**Los 1050 agregados del Sprint entrarían todos** al moverlos a «Prospección activa» (`agregadoEntraPorEvento`: abiertos,
+dentro de los 90 días, ninguno nació con el lead), pero el goteo de la #289 deja salir 50 por día y la línea 65: son unas
+TRES SEMANAS, no un fin de semana. El lote (`moverLeadsDeEtapaAction`) corta en 200 y manda sin la vía rápida. **La #289
+no respeta el horario de oficina:** su configuración trae `horario.activo:false` (guardada el 23/10 a las 20:03), y
+`horarioDeLaAutomatizacion` da null; el «fuera del horario» que vio Martín a las 21:47 era de antes. **Los fallos 184 a
+186 de la #198 no son un bug:** son leads de prueba de Meta («<test lead: dummy data for …>», sin teléfono real, en
+'perdido'); la trampa es otra: sus inscripciones siguen 'activa' y el motor las reintenta cada 24 h (o 4 h) para
+siempre, sumando fallos en el registro de la línea. **Sin hacer:** cerrar la inscripción de un lead sin teléfono válido
+después de N reintentos (lib/nutricion.ts, «lead sin teléfono» ~5177), y no inscribir los «test lead» de Meta.
+*23/10/2026, chat «Automations» (claude2).*
