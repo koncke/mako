@@ -16,6 +16,8 @@
 // («la página libre no envuelve…» y «una sección de Gamma en el medio…»: el diseño sale adentro de
 // section.gm-tarjeta, con el marco de Gamma). Con la base ADELANTE del @import en `hojaDeDiseno`, falla 1 de 10
 // («la hoja publicada lleva el @import…»). Con todo en su lugar,  11 de 11. Con `medioPermitido` aceptando todo, falla 1 de 11 («ningún medio de un diseño apunta a la API…»).
+// Con la pasada única de `</?style` de antes en `cssDisenoLimpio` (en vez de sacar todo `<`), falla 1 de 11 («la hoja del
+// diseño: sin cerrar el <style>…»: `<</style/style><script>` sobrevivía).
 // =============================================================================
 
 import { test } from 'node:test';
@@ -28,6 +30,7 @@ import { CONFIG_DEFAULT, type ConfigLanding } from '../lib/editor-landing/api-ti
 import { CLASE_LIBRE, CSS_BASE_LIBRE, SCRIPT_DISENO, cssDisenoLimpio, hojaDeDiseno, esTarjetaEditable, tieneEditables, textoDeHtmlEditable } from '../lib/editor-landing/html-editable';
 import { armarDocumento } from '../lib/editor-landing/pagina-publica';
 import { sanearContenido, sanearConfig } from '../lib/editor-landing/validar';
+import { sinCierreDeStyle } from '../app/vsl/Landing';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 
@@ -98,7 +101,14 @@ test('el saneo del contenido conserva el diseño y su hoja', () => {
 });
 
 test('la hoja del diseño: sin cerrar el <style>, @import sólo de Google Fonts', () => {
-  assert.equal(cssDisenoLimpio('a{}</style><script>x</script>'), 'a{}><script>x</script>');
+  // REGLA: el CSS del diseño nunca lleva `<`. Sacar `</style` en una pasada se evadía anidando (revisión de
+  // Integración, 23/10/2026): `<</style/style>` dejaba un `</style>` y el `<script>` de después corría en hola-mako.com.
+  for (const sucio of ['a{}</style><script>x</script>', 'a{}<</style/style><script>alert(1)</script>', 'a{}<!--x--><img src=x onerror=y>']) {
+    const limpio = cssDisenoLimpio(sucio);
+    assert.ok(!limpio.includes('<'), limpio);
+  }
+  assert.equal(cssDisenoLimpio('.a > .b{color:red}'), '.a > .b{color:red}', 'el > del selector hijo se queda');
+  assert.equal(sinCierreDeStyle('a{}</STYLE><script>'), 'a{}<\\/style><script>');
   assert.equal(cssDisenoLimpio("@import url('https://evil.tld/x.css');a{}"), 'a{}');
   const g = "@import url('https://fonts.googleapis.com/css2?family=Geist');";
   assert.equal(cssDisenoLimpio(g + 'a{}'), g + 'a{}');

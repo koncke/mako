@@ -131,16 +131,21 @@ const DE_GOOGLE_FONTS = /^@import\s*(?:url\(\s*)?["']?https:\/\/fonts\.googleapi
 /**
  * La hoja propia del documento (`config.diseno.css`), lista para ir adentro de un `<style>`. PURA:
  * no valida CSS (no hay riesgo de script en una hoja en un navegador de hoy), sólo cuida lo que rompe
- * el documento o carga de afuera: sin `</style` ni `<!--` (cerraría la etiqueta), sin NUL, un
- * `@import` sólo de fonts.googleapis.com, y con su tope (`TOPES.cssDiseno`: pasado, queda vacía —
- * recortada quedaría con una regla abierta que se come el resto).
+ * el documento o carga de afuera: SIN NINGÚN `<` (ver abajo), sin `-->`, sin NUL, un `@import` sólo de
+ * fonts.googleapis.com, y con su tope (`TOPES.cssDiseno`: pasado, queda vacía — recortada quedaría con
+ * una regla abierta que se come el resto).
+ *
+ * ⚠️ REGLA: el CSS del diseño nunca lleva `<`. Sacar `</style` en una pasada se evadía anidando
+ * (`<</style/style>` deja un `</style>`, y lo que sigue es HTML: un `<script>` corría en hola-mako.com, donde
+ * la portada pinta esta hoja tal cual — revisión de Integración, 23/10/2026). Una hoja no necesita `<` para
+ * nada; el `>` se queda (selector hijo).
  */
 export function cssDisenoLimpio(raw: unknown): string {
   if (typeof raw !== 'string' || !raw.trim() || raw.length > TOPES.cssDiseno) return '';
   return raw
     .replace(/\u0000/g, '')
-    .replace(/<\/?style/gi, '')
-    .replace(/<!--|-->/g, '')
+    .replace(/</g, '')
+    .replace(/-->/g, '')
     .replace(RE_IMPORT, (todo: string) => (DE_GOOGLE_FONTS.test(todo) ? todo : ''))
     // Un `@import` con otra forma (sin url ni comillas) no se lee: se va.
     .replace(/@import(?![^;]*fonts\.googleapis\.com)[^;]*;?/gi, '')

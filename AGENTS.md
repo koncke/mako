@@ -10082,3 +10082,10 @@ por su nombre. El 22/10/2026 había mails de dueños y colaboradores, nombres y 
   ningún mail en claro. Un dueño nuevo: se suma su huella ahí.
 - Una guarda que necesita los nombres que prohíbe (la de las plantillas, tests/editor-landing-presentaciones.test.ts) es la
   excepción, y lo dice.
+
+# Un filtro de texto peligroso borra el CARÁCTER que lo abre, no la palabra
+
+Sacar `</style` (o `<script`, o `javascript:`) en UNA pasada se evade armándolo con sus pedazos: `<</style/style>` deja un
+`</style>` entero. Lo que va crudo adentro de una etiqueta (el CSS de un `<style>`, un atributo) se limpia sacando el carácter que
+abre lo peligroso (todo `<` en una hoja: no lo necesita) o escapándolo, y se re-escapa al pintarlo. Medido el 23/10/2026: la
+hoja del «Diseño editable» se pintaba cruda en hola-mako.com (docs/hallazgos-editor-landing.md, «el CSS del diseño nunca lleva `<`»).

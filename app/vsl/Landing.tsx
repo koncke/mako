@@ -26,6 +26,11 @@ import { CSS_CAPA, CSS_LANDING, aplicarContenidoLanding } from './landing-conten
  */
 export type DisenoLanding = { html: string; css: string; cssContenido?: string | null; pixelToken?: string | null };
 
+/** Una hoja no puede cerrar su `<style>`: segunda capa sobre `cssDisenoLimpio` (lib/editor-landing/html-editable.ts). */
+export function sinCierreDeStyle(css: string): string {
+  return css.replace(/<\/style/gi, '<\\/style');
+}
+
 /** El visitante del Pixel de MaKo (`nqe_visitor_id`), o null. */
 function visitanteMako(): string | null {
   const m = document.cookie.match(/(?:^|; )nqe_visitor_id=([^;]+)/);
@@ -330,8 +335,9 @@ export default function Landing({ diseno }: { diseno?: DisenoLanding | null }) {
   return (
     <div className="vsl-root" ref={rootRef}>
       <style dangerouslySetInnerHTML={{ __html: diseno ? CSS_CAPA : CSS }} />
-      {diseno && <style dangerouslySetInnerHTML={{ __html: diseno.css }} />}
-      {diseno?.cssContenido && <style dangerouslySetInnerHTML={{ __html: diseno.cssContenido }} />}
+      {/* La hoja viene saneada (sin `<`: cssDisenoLimpio), y igual se re-escapa como en pagina-publica.ts. */}
+      {diseno && <style dangerouslySetInnerHTML={{ __html: sinCierreDeStyle(diseno.css) }} />}
+      {diseno?.cssContenido && <style dangerouslySetInnerHTML={{ __html: sinCierreDeStyle(diseno.cssContenido) }} />}
       {injectedHtml}
       <PieLegal />
     </div>

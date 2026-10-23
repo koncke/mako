@@ -2325,6 +2325,14 @@ cambios de allí y se apliquen. Revisa que no se dañe la landing». Contrato: l
 - **El orden de subida importa.** El editor VIEJO tira un nodo que no conoce y el autoguardado lo borra: los
   documentos se suben DESPUÉS del deploy del bloque, nunca antes.
 
+- **REGLA: el CSS del diseño nunca lleva `<`.** La revisión de Integración (23/10) lo encontró: `cssDisenoLimpio` sacaba
+  `</?style` en UNA pasada y se evadía anidando (`<</style/style>` deja un `</style>`; lo que sigue es HTML y un `<script>`
+  corría en hola-mako.com, donde la portada pinta la hoja tal cual). Ahora se saca TODO `<` (una hoja no lo necesita; el `>`
+  del selector hijo se queda) y la portada re-escapa `</style` como pagina-publica.ts. Un filtro que borra una palabra
+  peligrosa en una pasada se evade armándola con sus pedazos: se borra el CARÁCTER que la abre.
+- **Y la revisión mía (063f3932f): el iframe del editor es del MISMO origen que la app** (para poder editar su DOM): un
+  `<img src="/api/…">` o un url() relativo salía con la cookie de quien abre. Medios sólo https absolutos y nunca /api/.
+
 Lo que quedó SIN hacer:
 - «Editar con IA» no reescribe el texto de un diseño editable: lo conserva entero (`conservar` en ia-bloques.ts).
 - La miniatura de una sección de diseño es un iframe de 640 px de alto (no se sabe su alto antes de dibujarla).
