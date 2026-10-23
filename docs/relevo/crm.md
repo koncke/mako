@@ -19,6 +19,11 @@ fase B, «por cuenta», encima); (2) «Traer de otro funnel» (pedido del Cerebr
 «Se ven 300 de 869», el pie pegado con fondo sólido); (3) la edición completa del evento (lo que deja cada API, en
 docs/hallazgos-integraciones.md) y elegir la cuenta en el pop-up; (4) las capturas del después en el ws3.
 
+**La tanda junta** (vincular + Instagram + agenda rápida + «Traer de otro funnel»): rama `crm-tanda-2310` en
+C:/dev/wt-crm-tanda, punta 44db84a2e, pasada a Integración. **La edición completa del evento y la cuenta en el pop-up**: rama
+`crm-edicion-2310` en C:/dev/wt-crm-edicion, ENCIMA de la de Cobros (`cuentas-2210`, fases A y B de varias cuentas): sale
+con ellos, no antes. Ahí también el cobro de Ganado toma todas las cuentas conectadas (`cuentasDePago`), no sólo la principal.
+
 **Instagram, «Conectar Meta»**: rama `crm-ig-2210` en C:/dev/wt-crm-ig. 4487ac5d6 salió del tren 16 por `fresco` sin tope; la
 punta 18146bffd le pone el tope (una cada 10 minutos por negocio, 20 por día) y no borra la pausa de un límite de Meta.
 

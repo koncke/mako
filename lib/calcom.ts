@@ -593,13 +593,65 @@ export async function crearEventTypeCalcom(apiKey: string, i: { nombre: string; 
   return escribirEventTypeCalcom(apiKey, '/event-types', 'POST', { title: i.nombre, slug: slugCalcom(i.nombre), lengthInMinutes: i.duracionMin });
 }
 
-/** Cambia el nombre o la duración (`PATCH /v2/event-types/{id}`, el mismo cuerpo que crear). */
-export async function editarEventTypeCalcom(apiKey: string, id: string, i: { nombre?: string; duracionMin?: number }): Promise<EventTypeCalcom> {
+/**
+ * Cambia un tipo de evento (`PATCH /v2/event-types/{id}`): el nombre, la duración y, desde el 23/10/2026 (la edición
+ * completa), la descripción y dónde es la reunión (`locations` reemplaza la lista entera).
+ */
+export async function editarEventTypeCalcom(apiKey: string, id: string, i: { nombre?: string; duracionMin?: number; descripcion?: string; locations?: Array<Record<string, unknown>> }): Promise<EventTypeCalcom> {
   if (!/^\d{1,12}$/.test(id.trim())) throw new Error('Ese no es un evento de Cal.com.');
   const cuerpo: Record<string, unknown> = {};
   if (i.nombre != null) cuerpo.title = i.nombre;
   if (i.duracionMin != null) cuerpo.lengthInMinutes = i.duracionMin;
+  if (i.descripcion != null) cuerpo.description = i.descripcion;
+  if (i.locations) cuerpo.locations = i.locations;
   return escribirEventTypeCalcom(apiKey, `/event-types/${id.trim()}`, 'PATCH', cuerpo);
+}
+
+/** Las PREGUNTAS (booking fields) versionan aparte, con la versión nueva: sin ella, Cal.com contesta con la vieja
+ *  (cal.com/docs, «Update booking fields», leído el 23/10/2026). */
+export const VERSION_BOOKING_FIELDS_CALCOM = '2026-06-12';
+
+/** Un 401/403, un no-2xx o un 200 con el error adentro: el mensaje para la persona. */
+async function fallaCalcom(r: Response): Promise<{ ok: true; body: { data?: unknown } | null } | { ok: false; error: string }> {
+  const body = await r.json().catch(() => null) as { status?: unknown; data?: unknown; error?: { message?: unknown } } | null;
+  if (r.status === 401 || r.status === 403) return { ok: false, error: 'Cal.com no aceptó la API key: cópiala de nuevo en Integraciones.' };
+  const motivo = typeof body?.error?.message === 'string' ? body.error.message : null;
+  if (!r.ok || body?.status === 'error') return { ok: false, error: motivo ? `Cal.com: ${motivo}` : `Cal.com respondió ${r.status}.` };
+  return { ok: true, body };
+}
+
+/** Lo que se edita de un tipo de evento además del nombre (23/10/2026): su descripción, dónde y sus preguntas. */
+export async function detalleEventTypeCalcom(apiKey: string, id: string): Promise<{
+  descripcion: string; locations: Array<Record<string, unknown>>; bookingFields: Array<Record<string, unknown>>;
+}> {
+  if (!/^\d{1,12}$/.test(id.trim())) throw new Error('Ese no es un evento de Cal.com.');
+  const r = await fetch(`${CALCOM_API.base}/event-types/${id.trim()}`, {
+    headers: { ...calcomHeaders(apiKey), 'cal-api-version': VERSION_EVENT_TYPES_CALCOM },
+    cache: 'no-store', signal: AbortSignal.timeout(8000),
+  });
+  const f = await fallaCalcom(r);
+  if (!f.ok) throw new Error(f.error);
+  const d = f.body?.data as { description?: unknown; locations?: unknown; bookingFields?: unknown } | undefined;
+  if (!d || typeof d !== 'object') throw new Error('Cal.com no devolvió el evento.');
+  return {
+    descripcion: typeof d.description === 'string' ? d.description.trim() : '',
+    locations: Array.isArray(d.locations) ? d.locations : [],
+    bookingFields: Array.isArray(d.bookingFields) ? d.bookingFields : [],
+  };
+}
+
+/** Cambia preguntas que YA existen, por su slug: el texto, si es obligatoria y si está oculta. Lo que no se nombra queda
+ *  como está. Agregar una nueva no se puede por esta ruta (sólo reemplazando la lista entera, que repone las de sistema). */
+export async function editarPreguntasCalcom(apiKey: string, id: string, preguntas: ReadonlyArray<{ slug: string; label: string; required: boolean; hidden: boolean }>): Promise<void> {
+  if (!/^\d{1,12}$/.test(id.trim())) throw new Error('Ese no es un evento de Cal.com.');
+  if (!preguntas.length) return;
+  const r = await fetch(`${CALCOM_API.base}/event-types/${id.trim()}/booking-fields`, {
+    method: 'PATCH', body: JSON.stringify({ bookingFields: preguntas }),
+    headers: { ...calcomHeaders(apiKey), 'cal-api-version': VERSION_BOOKING_FIELDS_CALCOM },
+    cache: 'no-store', signal: AbortSignal.timeout(10000),
+  });
+  const f = await fallaCalcom(r);
+  if (!f.ok) throw new Error(f.error);
 }
 
 /** Los tipos de evento de la cuenta de esa API key. Tira con el código de Cal.com si no contesta bien. */

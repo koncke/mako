@@ -1177,25 +1177,35 @@ MaKo son del CRM (las firmas ya están); el link de la R1/R2, la anticipación y
 con la principal (la R1/R2 es de la principal); no se detecta la misma cuenta de Calendly conectada dos veces (haría falta
 guardar su `/users/me`).
 
-## Editar un evento de Calendly o Cal.com por API: lo que se puede y lo que no (22/10/2026)
+## Editar un evento de Calendly o Cal.com por API: lo que se puede y lo que no (22-23/10/2026)
 
-Martín pidió «edición COMPLETA del evento» desde el CRM. Esto es lo que dejan las APIs (leído en su documentación el
-22/10/2026; hoy el código edita sólo nombre y duración):
+Martín pidió «edición COMPLETA del evento» desde el CRM. Leído en la documentación de cada una el 22 y el 23/10/2026 (sin
+probar contra una cuenta real: no hay una de prueba). Desde el 23/10 el pop-up y MaKo editan nombre, duración, descripción,
+dónde es la reunión y, en Cal.com, las preguntas que ya existen:
 
 | | Calendly (API v2) | Cal.com (API v2) |
 |---|---|---|
-| Nombre, duración, descripción | `PATCH /event_types/{uuid}` (también `active`, `locations`, `color`, `locale`) | `PATCH /event-types/{id}` (`title`, `slug`, `lengthInMinutes`, `description`, `hidden`, `locations`) |
-| Preguntas del formulario | **No se editan**: `custom_questions` es de lectura | `bookingFields`, que se **reemplaza entero** en el PATCH |
-| Disponibilidad | `GET`/`PATCH /event_type_availability_schedules?event_type=<URI>` | `scheduleId` del evento + `PATCH /schedules/{id}` |
+| Nombre, duración, descripción, dónde | `PATCH /event_types/{uuid}`: `name`, `duration`, **`description`** (`description_plain` es sólo de la respuesta), `locations` (`kind` + `location`). Sólo eventos uno a uno | `PATCH /event-types/{id}`: `title`, `lengthInMinutes`, `description`, `locations` (`type`: integration, address, link, phone, attendeePhone…) |
+| Preguntas | **No se editan** (`custom_questions` es de lectura) | `PATCH /event-types/{id}/booking-fields`, por `slug`: texto, obligatoria, oculta. **Sólo las que existen**: agregar una pide reemplazar la lista entera, que repone las de sistema |
+| Disponibilidad | Dos rutas distintas según la fuente (`/event_type_availability_schedules` y `/event_types/{uuid}/availability_schedules/{id}`), sin la forma de una regla | `scheduleId` + `PATCH /schedules/{id}` |
 | Límite | 500 por minuto (pago), 50 (gratis) | 120 por minuto |
 
-- **Un PATCH que reemplaza todo:** en Calendly, mandar sólo el día que cambió borra las reglas de los demás días. En
-  Cal.com, mandar sólo la pregunta nueva borra las otras. Hay que leer, cambiar y mandar la lista entera.
-- **Cal.com versiona cada endpoint aparte con el header `cal-api-version`:** `2024-06-14` para los tipos de evento
-  (`VERSION_EVENT_TYPES_CALCOM`), `2024-06-11` para los horarios y `2024-08-13` para las reservas. Con la versión
-  equivocada contesta igual, con la forma vieja y sin error (lib/calcom.ts, arriba de `eventTypesDeRespuestaCalcom`).
-- En Calendly, las preguntas se muestran de lectura y se editan en Calendly (un link).
+- **La disponibilidad no se edita desde MaKo:** en las dos, un PATCH reemplaza TODAS las reglas, y en Calendly ni la ruta
+  está clara. El pop-up la manda a la cuenta con un link (`editarAllaDe`), en otra pestaña.
+- **`locations` reemplaza la lista entera.** Con más de una ubicación (o una que no es de las comunes: Meet, Zoom, llamada,
+  en persona, link), el pop-up no deja cambiarla: pisaría las otras (`ubicacionAlla`). MaKo sí, y el «sí» dice que reemplaza.
+- **Cal.com versiona cada endpoint aparte con `cal-api-version`, y CAMBIA:** las preguntas piden `2026-06-12`
+  (`VERSION_BOOKING_FIELDS_CALCOM`); los tipos de evento se leen y escriben con `2024-06-14` (`VERSION_EVENT_TYPES_CALCOM`;
+  su documentación de hoy ya pide `2026-06-12` también para el PATCH), los horarios con `2024-06-11` y las reservas con
+  `2024-08-13`. Con la versión equivocada contesta igual, con la forma vieja y sin error.
+- **Una falla a medias se dice:** en Cal.com el evento y las preguntas son dos pedidos; si el segundo falla, el error dice
+  «Cal.com guardó lo demás, pero no las preguntas».
 
-**Vive en:** lib/calendly-agenda.ts (`editarEventTypeCalendly`) · lib/calcom.ts (`editarEventTypeCalcom`) ·
-lib/agenda-evento-etapa-server.ts (`editarEventoDeAgenda`)
-*22/10/2026, chat «CRM» (claude3).*
+**Sin hacer:** agregar o borrar preguntas en Cal.com; la disponibilidad desde MaKo; pasar los tipos de evento de Cal.com a
+`2026-06-12` (probarlo con una cuenta real antes).
+
+**Vive en:** lib/agenda-evento-detalle.ts (puro: ubicaciones, preguntas, `datosDeDetalle`) · lib/calendly-agenda.ts
+(`editarEventTypeCalendly`, `detalleEventTypeCalendly`) · lib/calcom.ts (`editarEventTypeCalcom`, `detalleEventTypeCalcom`,
+`editarPreguntasCalcom`) · lib/agenda-evento-etapa-server.ts (`detalleDeEventoDeAgenda`, `editarEventoDeAgenda`) ·
+tests/agenda-edicion-completa-23-10.test.ts
+*22-23/10/2026, chat «CRM» (claude3).*
