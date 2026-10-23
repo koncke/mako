@@ -154,7 +154,8 @@ const MODAL = sinComentarios(leer('app/customer-success/curso/InvitarAlCurso.tsx
 
 test('«qué ve el alumno» es UNA función: productosConCasaDelAlumno cruza lo suyo con lo que abre su acceso', () => {
   const f = bloque(DATOS, 'export async function productosConCasaDelAlumno(', 'async function productosQueAbre(');
-  assert.match(f, /productosVisibles\(suyos\.productos, abre\)/);
+  // Desde la mig 0331 la puerta es `productosQueVe` (la venta + lo dado a mano), que usa productosVisibles adentro.
+  assert.match(f, /productosQueVe\(\{ porVenta, deCliente: suyos\.productos, ofrecidos: suyos\.ofrecidos, abre, aMano \}\)/);
   assert.match(f, /productosQueAbre\(leadId\)/);
   // La lista del CLIENTE, y «no pude leer» tira (no es «abre todo»).
   const q = bloque(DATOS, 'async function productosQueAbre(', 'export async function etapaActualDe(');
@@ -241,8 +242,9 @@ test('la invitación a UN producto llega hasta la escritura: el mail, el reclamo
   // `productoId` tiene que seguir llegando, y el permiso viaja al lado, no en su lugar.
   assert.match(NUCLEO, /const cursos = await d\.cursos\(p\.leadId, productoId, cualquierEtapa\);/);
   assert.match(NUCLEO, /if \(cursos === null\) return \{ tipo: 'error'/);
-  assert.match(NUCLEO, /d\.reclamar\(p\.leadId, productoId\)/);
-  assert.match(NUCLEO, /await d\.marcar\(p\.leadId, correo, autor, productoId\);/);
+  // El tercer / quinto argumento es el permiso a mano (mig 0331): sólo cuando hizo falta (`abrir`).
+  assert.match(NUCLEO, /d\.reclamar\(p\.leadId, productoId, abrir\)/);
+  assert.match(NUCLEO, /await d\.marcar\(p\.leadId, correo, autor, productoId, abrir\);/);
   // Con producto, el mail nombra SÓLO ése y sólo si es cliente de ése (la regla del kanban).
   assert.match(NUCLEO, /cualquierEtapa \|\| \(await entrega\.productosDelCliente\(leadId\)\)\.productos\.includes\(productoId\) \? \[productoId\] : null/);
 
@@ -262,7 +264,7 @@ test('la invitación a UN producto llega hasta la escritura: el mail, el reclamo
   const marcar = bloque(DATOS, 'export async function marcarInvitacion(', 'const RECLAMO_MS');
   assert.match(marcar, /if \(area == null && productoId != null\) \{/);
   assert.match(marcar, /productosTrasInvitar\(previo, productoId\)/);
-  assert.match(marcar, /invitando_at: null, \.\.\.productos \}/);
+  assert.match(marcar, /invitando_at: null, \.\.\.productos, \.\.\.aMano \}/);
   // El reclamo por producto: invitado a otro curso no frena; invitado a todos sí.
   const reclamar = bloque(DATOS, 'export async function reclamarInvitacion(', 'export async function soltarInvitacion(');
   assert.match(reclamar, /`productos\.not\.cs\.\{\$\{productoId\}\}`/);
@@ -366,6 +368,8 @@ test('los textos nuevos: cortos y en neutro con TÚ', () => {
     'Revisa tu correo', 'La API key y el remitente.', 'Falló el correo de MaKo', 'Reintenta, o conecta tu correo: API key y remitente.',
     'Guardado. Vuelve a invitar.', 'Sólo aparecen los clientes ganados.', 'Todavía no tiene clientes.', 'Opcional. Sin él, sólo por correo.',
     'Volver a invitar', 'No es cliente de ese producto.', 'El curso todavía no tiene clases.', 'Falta el producto.',
+    // El permiso a mano (mig 0331): cortar y volver a habilitar desde el buscador.
+    'Cortar acceso', 'Acceso cortado', 'Volver a habilitar', 'Deja de abrir todos sus cursos.', 'Habilítalo desde su ficha.',
   ];
   const fuente = COMP + MODAL + ACC + NUCLEO;
   for (const t of textos) {

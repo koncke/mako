@@ -51,7 +51,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
-import { Button, Checkbox, Field, Input, Modal, Spinner, Tabs, TextField } from '@/app/_ui';
+import { Button, Checkbox, Confirm, Field, Input, Modal, Spinner, Tabs, TextField } from '@/app/_ui';
 import { useRouter, useWs } from '@/app/_ui/Link';
 import { emailUtilizable } from '@/lib/agencia-altas';
 import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
@@ -60,10 +60,17 @@ import { clientesSinInvitar, type AccesoDeFila, type ClienteSinInvitar } from '.
 import {
   buscarLeadsParaInvitarAction, invitarClientesAction, invitarLeadDeCualquierEtapaAction,
   invitarNuevoAlumnoAction, opcionesDeInvitarAction, productosDeLosAccesosAction,
+  cortarAccesoDadoAManoAction, habilitarAccesoDadoAManoAction,
 } from './invitar-actions';
 
-/** Una fila del buscador del embudo. La arma el server; acá no se vuelve a calcular nada. */
-type FilaEmbudo = { id: number; nombre: string; segunda: string | null; email: string | null; yaInvitado: boolean };
+/**
+ * Una fila del buscador del embudo. La arma el server (`estadoEnBuscador`); acá no se vuelve a calcular nada.
+ * `conPermiso`: tiene algún curso abierto a mano (mig 0331), y por eso se puede volver a habilitar desde acá.
+ */
+type FilaEmbudo = {
+  id: number; nombre: string; segunda: string | null; email: string | null;
+  estado: 'invitar' | 'invitado' | 'dado-a-mano' | 'cortado'; conPermiso: boolean;
+};
 import { ofreceWhatsapp, tieneTelefono, type CanalInvitacion } from '@/lib/curso-invitar-canales';
 import { useCerrarEstable } from './dialogo-foco';
 import {
@@ -565,6 +572,9 @@ function DelEmbudo({ productoId, ocupado, ocupar, hecho, onListo }: {
   const [emails, setEmails] = useState<Record<number, string>>({});
   const [resultados, setResultados] = useState<Record<number, { enviado: boolean; texto: string }>>({});
   const [correo, setCorreo] = useState<CorreoQueFallo>(null);
+  // Cortar y volver a habilitar un acceso dado a mano (mig 0331): la pregunta antes de cortar, y el link nuevo.
+  const [preguntaCortar, setPreguntaCortar] = useState<FilaEmbudo | null>(null);
+  const [links, setLinks] = useState<Record<number, string>>({});
   const idQ = useId();
 
   // ⚠️ SE BUSCA CON UN RESPIRO Y LA ÚLTIMA GANA. Sin el contador, una respuesta lenta de «mar» pisa a
@@ -607,6 +617,44 @@ function DelEmbudo({ productoId, ocupado, ocupar, hecho, onListo }: {
     onListo?.();
   }
 
+  const conEstado = (id: number, estado: FilaEmbudo['estado']) =>
+    setFilas((xs) => xs?.map((x) => (x.id === id ? { ...x, estado } : x)) ?? xs);
+
+  // El permiso a mano no lo corta pasar a Perdido ni un reembolso (decisión del Cerebro, 23/10/2026): se corta acá.
+  async function cortar(f: FilaEmbudo) {
+    if (ocupado) return;
+    setError('');
+    ocupar(true);
+    try {
+      const r = await cortarAccesoDadoAManoAction(f.id);
+      if (!r.ok) { setError(r.error); return; }
+      conEstado(f.id, 'cortado');
+      hecho();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo cortar.');
+    } finally { ocupar(false); }
+  }
+
+  async function habilitar(f: FilaEmbudo) {
+    if (ocupado) return;
+    setError('');
+    ocupar(true);
+    try {
+      const r = await habilitarAccesoDadoAManoAction(f.id);
+      if (!r.ok) { setError(r.error); return; }
+      conEstado(f.id, 'dado-a-mano');
+      // El link es NUEVO (la versión subió al cortar): el de antes ya no abre.
+      if (r.acceso.link) setLinks((x) => ({ ...x, [f.id]: r.acceso.link as string }));
+      hecho();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo habilitar.');
+    } finally { ocupar(false); }
+  }
+
+  async function copiar(link: string) {
+    try { await navigator.clipboard.writeText(link); } catch { setError('No pude copiar el link.'); }
+  }
+
   return (
     <>
       {/* Qué se busca y dónde: una frase, porque la pestaña sola no dice que acá entra CUALQUIERA. */}
@@ -639,8 +687,27 @@ function DelEmbudo({ productoId, ocupado, ocupar, hecho, onListo }: {
                 </div>
                 {r
                   ? <span className={r.enviado ? 'cu-embudo-ok' : 'cu-embudo-mal'}>{r.texto}</span>
-                  : f.yaInvitado
+                  : f.estado === 'invitado'
                     ? <span className="cu-embudo-ya">Ya invitado</span>
+                  : f.estado === 'dado-a-mano'
+                    ? (
+                      <>
+                        <span className="cu-embudo-ya">Ya invitado</span>
+                        {links[f.id] && (
+                          <Button variant="secondary" onClick={() => void copiar(links[f.id])}>Copiar link</Button>
+                        )}
+                        <Button variant="secondary" disabled={ocupado} onClick={() => setPreguntaCortar(f)}>Cortar acceso</Button>
+                      </>
+                    )
+                  : f.estado === 'cortado'
+                    ? (
+                      <>
+                        <span className="cu-embudo-mal">Acceso cortado</span>
+                        {f.conPermiso && (
+                          <Button variant="secondary" disabled={ocupado} onClick={() => void habilitar(f)}>Volver a habilitar</Button>
+                        )}
+                      </>
+                    )
                     : (
                       <>
                         <Input type="email" value={mail} placeholder="persona@empresa.com"
@@ -654,11 +721,18 @@ function DelEmbudo({ productoId, ocupado, ocupar, hecho, onListo }: {
             );
           })}
           {/* No se trunca en silencio: si hay más, se dice y se dice cómo verlos. */}
-          {hayMas && <p className="cu-vacio">Hay más. Afiná la búsqueda.</p>}
+          {hayMas && <p className="cu-vacio">Hay más. Afina la búsqueda.</p>}
         </div>
       )}
 
       {correo && <CorreoAhiMismo cual={correo} />}
+
+      {preguntaCortar && (
+        <Confirm title="¿Cortar su acceso?" message="Deja de abrir todos sus cursos."
+          confirmLabel="Cortar acceso" cancelLabel="No cortar" tone="danger"
+          onCancel={() => setPreguntaCortar(null)}
+          onConfirm={() => { const f = preguntaCortar; setPreguntaCortar(null); void cortar(f); }} />
+      )}
     </>
   );
 }

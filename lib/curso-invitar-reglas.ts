@@ -34,6 +34,15 @@
 // ⚠️ SUMAR, NUNCA REEMPLAZAR. Invitarlo a un segundo producto le suma ése; nunca le saca el primero.
 // Sacarle un curso es «Quitar de este producto» (la regla del kanban, que `productosVisibles` cruza) o
 // cortar el acceso.
+//
+// ── EL ACCESO DADO A MANO (mig 0331, 23/10/2026) ──────────────────────────────
+// Invitar desde el buscador «en cualquier etapa» levantaba las guardas AL ESCRIBIR (creaba el acceso y mandaba el
+// mail) y no dejaba nada que la puerta de LECTURA reconociera: `resolverAcceso` exige Ganado, así que el link del mail
+// de un lead que no está en Ganado no abría. Desde la 0331 la fila guarda `productos_a_mano`: los productos cuyo curso
+// le abrió una persona. La escribe SÓLO `marcarInvitacion({ aMano: true })` (el buscador, y sólo cuando hizo falta), y
+// abre sólo lo que `productos` también abre: sacarle el curso de `productos` también le saca el permiso.
+// Decisiones del Cerebro (23/10/2026): el permiso sobrevive a Perdido y a un reembolso (lo dio una persona y no lo
+// deshace otro evento: se corta a mano desde el buscador), y estos alumnos no reciben los WhatsApp del curso.
 
 /** Lo que una fila de acceso dice de sus productos. `null` = todos (lo de antes). */
 export type ProductosDelAcceso = readonly number[] | null;
@@ -97,12 +106,77 @@ export function productosTrasQuitar(
  * cruzados con los que abre su acceso. En el orden de `deCliente` (el del catálogo), que es el que
  * dibuja el portal.
  *
- * ⚠️ ES LA ÚNICA PUERTA de «qué cursos ve» (la usa `productosConCasaDelAlumno`, lib/curso-datos.ts, y
- * de ahí el portal, la comunidad del alumno y los mensajes del curso). Una segunda forma de cruzarlos
- * es una pantalla que le muestra un curso que el portal no le abre, o al revés.
+ * ⚠️ ES LA REGLA DE LA VENTA, no la puerta: la puerta de «qué cursos ve» es `productosQueVe` (abajo), que la usa
+ * adentro y le suma lo dado a mano (mig 0331). La llama `productosConCasaDelAlumno` (lib/curso-datos.ts), y de ahí
+ * el portal, la comunidad del alumno y los mensajes del curso. Una segunda forma de cruzarlos es una pantalla que le
+ * muestra un curso que el portal no le abre, o al revés.
  */
 export function productosVisibles(deCliente: readonly number[], abre: ProductosDelAcceso): number[] {
   return abre == null ? [...deCliente] : deCliente.filter((p) => abre.includes(p));
+}
+
+/** `productos_a_mano` → lista. ⚠️ AL REVÉS QUE `productos`: null, ausente o ilegible = NINGUNO. */
+export function saneaAMano(x: unknown): number[] {
+  return saneaProductos(x) ?? [];
+}
+
+/** Lo dado a mano que su acceso TODAVÍA abre: sacarle el curso de `productos` también le saca el permiso. */
+export function aManoVigente(abre: ProductosDelAcceso, aMano: readonly number[]): number[] {
+  return aMano.filter((p) => abreElProducto(abre, p));
+}
+
+/** ¿El permiso abre el portal? `null` = sin fila vigente, o la columna no se pudo leer: NO abre. */
+export function abrePorPermiso(p: { abre: ProductosDelAcceso; aMano: readonly number[] } | null): boolean {
+  return p != null && aManoVigente(p.abre, p.aMano).length > 0;
+}
+
+/** ¿Hizo falta el permiso? Un ganado que ya es cliente de ese producto entra por la venta, sin marca. */
+export function necesitaPermiso(p: { ganado: boolean; esCliente: boolean }): boolean {
+  return !p.ganado || !p.esCliente;
+}
+
+/** La lista a mano tras darle un producto: suma, no repite, tope de la 0331. */
+export function aManoTrasDar(aMano: readonly number[], productoId: number): number[] {
+  const actual = saneaAMano(aMano);
+  if (!idValido(productoId) || actual.includes(productoId)) return actual;
+  return [...actual, productoId].slice(0, MAX_PRODUCTOS);
+}
+
+/**
+ * Qué cursos VE el alumno: LA puerta (la usa `productosConCasaDelAlumno`). `porVenta` falso = no está en Ganado y
+ * tiene algo a mano: ve SÓLO lo dado a mano, nunca su casa ni lo que tuvo cuando era cliente. En el orden del
+ * catálogo (`ofrecidos`), y sólo lo que el negocio todavía ofrece.
+ */
+export function productosQueVe(p: {
+  porVenta: boolean; deCliente: readonly number[]; ofrecidos: readonly number[]; abre: ProductosDelAcceso; aMano: readonly number[];
+}): number[] {
+  const comprados = p.porVenta ? productosVisibles(p.deCliente, p.abre) : [];
+  const dados = aManoVigente(p.abre, p.aMano);
+  if (!dados.length) return comprados; // sin permiso: idéntico a antes de la 0331
+  return p.ofrecidos.filter((x) => comprados.includes(x) || dados.includes(x));
+}
+
+/** ¿El error es que falta la columna de la 0331? (`leerTodo` pierde el código: se mira también el mensaje). */
+export function faltaColumnaAMano(e: { code?: string | null; message?: string | null } | null | undefined): boolean {
+  const msg = e?.message ?? '';
+  return /productos_a_mano/.test(msg) && (e?.code === '42703' || e?.code === 'PGRST204' || /does not exist|schema cache/i.test(msg));
+}
+
+export type EstadoEnBuscador = 'invitar' | 'invitado' | 'dado-a-mano' | 'cortado';
+
+/**
+ * El estado de una fila del buscador, desde ESTE curso. Un invitado SIN permiso abre sólo por la venta: sin Ganado,
+ * su link no abre, así que la fila vuelve a ofrecer «Invitar» (que ahora deja el permiso).
+ */
+export function estadoEnBuscador(p: {
+  acceso: { cortado: boolean; productos: ProductosDelAcceso; invitacionEnviadaAt: string | null } | null | undefined;
+  aMano: readonly number[]; productoId: number; ganado: boolean;
+}): EstadoEnBuscador {
+  const a = p.acceso;
+  if (!a) return 'invitar';
+  if (a.cortado) return 'cortado';
+  if (aManoVigente(a.productos, p.aMano).includes(p.productoId)) return 'dado-a-mano';
+  return invitadoAlProducto(a, p.productoId) && p.ganado ? 'invitado' : 'invitar';
 }
 
 /** Lo que una invitación necesita saber de la fila de acceso que ya existe. */

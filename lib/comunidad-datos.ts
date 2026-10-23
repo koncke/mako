@@ -53,7 +53,7 @@ import { esZonaValida } from './comunidad-eventos';
 import { moduloPermitido, type AlcanceCurso } from './curso-alcance';
 // Qué cursos abre el acceso de un alumno (mig 0232): un miembro de la comunidad de un producto es alguien
 // cuyo acceso ABRE ese producto, no sólo un cliente de él (ver `miembrosDeLaComunidad`).
-import { abreElProducto, saneaProductos } from './curso-invitar-reglas';
+import { abreElProducto, saneaProductos, faltaColumnaAMano } from './curso-invitar-reglas';
 // El ajuste «Comentarios en las clases» (mig 0227): su clave y su saneo son de lib/curso-estilo.ts, puro.
 import { claveDe, sanearAjuste, type Ajuste } from './curso-estilo';
 import type {
@@ -388,12 +388,32 @@ export type Comunidad = { equipo: Map<string, MiembroBase>; alumnos: Map<string,
  * tests/curso-accesos-area.test.ts corta la sentencia en el primer punto y coma, y uno adentro del
  * genérico la dejaba sin el filtro de área a la vista.) */
 type FilaAccesoMiembro = { id: number; lead_id: number; created_at: string; revocado_at: string | null; productos?: unknown };
+/** La fila del acceso con un permiso a mano (mig 0331). Alias por la misma razón que el de arriba. */
+type FilaAccesoAMano = { id: number; lead_id: number };
+
+/**
+ * Los leads a los que una persona les abrió el curso de ESTE producto desde el buscador (mig 0331): son miembros
+ * aunque no estén en Ganado. Sin la columna, ninguno (lo de antes) y un aviso; cualquier otro error tira.
+ */
+async function leadsConCursoAMano(sb: ReturnType<typeof getSupabaseServer>, ws: number, productoId: number): Promise<Set<number>> {
+  try {
+    const filas = await leerTodo<FilaAccesoAMano>(
+      sb, 'curso_accesos', 'id, lead_id',
+      { orden: 'id', eq: { workspace_id: ws }, filtros: (q) => q.is('area', null).is('revocado_at', null).contains('productos_a_mano', [productoId]) },
+    );
+    return new Set(filas.map((f) => Number(f.lead_id)));
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    if (faltaColumnaAMano({ message })) { console.warn('[comunidad] falta productos_a_mano (mig 0331): sin miembros a mano'); return new Set(); }
+    throw e;
+  }
+}
 
 export async function miembrosDeLaComunidad(ws: number, productoId: number): Promise<Comunidad> {
   if ((await getWorkspaceActual()) !== ws) throw new Error('El negocio del pedido no coincide.');
   const sb = getSupabaseServer();
   const { universoDeLaEntrega } = await import('@/app/customer-success/entrega');
-  const [u, usuarios, accesos, baneos] = await Promise.all([
+  const [u, usuarios, accesos, baneos, aMano] = await Promise.all([
     universoDeLaEntrega(),
     sb.from('usuarios').select('id, created_at, estado').eq('workspace_id', ws),
     leerTodo<FilaAccesoMiembro>(
@@ -401,6 +421,7 @@ export async function miembrosDeLaComunidad(ws: number, productoId: number): Pro
       { orden: 'id', eq: { workspace_id: ws }, filtros: (q) => q.is('area', null) },
     ),
     de(ws, 'comunidad_baneos').select('miembro').eq('producto_id', productoId).is('levantado_at', null),
+    leadsConCursoAMano(sb, ws, productoId),
   ]);
   if (usuarios.error) throw new Error(usuarios.error.message);
   if (baneos.error) throw new Error(baneos.error.message);
@@ -423,6 +444,11 @@ export async function miembrosDeLaComunidad(ws: number, productoId: number): Pro
     if (!esDelProducto(leadId, productoId, u.casa, asignacion)) continue;
     const k = claveDeLead(leadId);
     if (baneados.has(k)) continue;
+    alumnos.set(k, { clave: k, desde: vigente.get(leadId) ?? null, leadId });
+  }
+  for (const leadId of aMano) { // el permiso a mano (mig 0331): miembro aunque no esté en Ganado
+    const k = claveDeLead(leadId);
+    if (!vigente.has(leadId) || alumnos.has(k) || baneados.has(k)) continue;
     alumnos.set(k, { clave: k, desde: vigente.get(leadId) ?? null, leadId });
   }
   return { equipo, alumnos };

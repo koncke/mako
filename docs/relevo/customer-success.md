@@ -61,7 +61,10 @@ Se lee en cinco minutos. Medido el 13/10/2026; lo que no se midió, lo dice.
 - **El acceso por producto**: cada alumno ve sólo los cursos a los que se lo invitó.
 - **La invitación** por mail (con el remitente del negocio) y, si se elige, por WhatsApp. Y desde el
   14/10 (901e5cf7, hecho por CURSOS y traspasado acá) una pestaña «Del embudo» que invita a un lead
-  de cualquier etapa: abre el curso, no lo hace cliente ni lo mueve en el kanban.
+  de cualquier etapa: abre el curso, no lo hace cliente ni lo mueve en el kanban. ⚠️ Hasta el 23/10 el
+  link de esa invitación NO abría si el lead no estaba en Ganado. Desde la mig 0331 abre por un permiso
+  a mano, que no corta Perdido ni un reembolso y se corta (o se vuelve a habilitar) desde el mismo
+  buscador. Detalle en docs/hallazgos-customer-success.md (23/10).
 - **24 tipografías** para el curso (eran 7, 901e5cf7), y desde el 14/10 en un desplegable como el de
   Google Docs: la fuente elegida en el botón y la lista alfabética con cada nombre en su letra (0255c855).
 - **Los comentarios son de cada clase** (14/10, 0255c855): se prenden en el «…» de la clase, ya no en el
