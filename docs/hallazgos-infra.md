@@ -7678,3 +7678,22 @@ eso es una deducción del código, no se midió en Vercel. Pendiente, de ai-chea
   b529ff603 rojo, las otras verdes): una corrida por punta, ~1 min cada una.
 - **La regla:** en cada tren, Integración corre la batería SOLA además de la tanda (`node --import tsx --test
   tests/ops-center-bateria.test.ts`). El chat que toque el clasificador o la selección de herramientas, también.
+
+## Merges del tren que «salen limpios» y no compilan, y un deploy que se lee mal (22/10/2026, Cerebro › Integración, trenes 5 a 9)
+
+- ⚠️ **Dos hitos nuevos al final del mismo array de una bitácora se PEGAN en un solo objeto.** Las dos ramas agregaron
+  `{ fecha…, revisar }` al final y git las fundió sin `},` / `{` en el medio: TS1117 (claves repetidas) en
+  app/admin/dev/crm/bitacora.ts. No es un conflicto: el merge «sale bien» y lo frena la guarda de las bitácoras
+  (`scripts/tsc-bitacoras.mjs`, dentro de `guardas-push.sh`). Se arregla insertando el cierre y la apertura. Por eso las
+  guardas se corren DESPUÉS de mergear todo el tren, no sólo en cada punta.
+- ⚠️ **La misma resolución hecha dos veces choca consigo misma.** Ticketera y CRM sumaron funciones al final de lib/perfil.ts;
+  el tren lo resolvió con un orden y CRM, al mergear main en su rama, con el otro. La punta siguiente de CRM chocó contra la
+  resolución del tren. Se deja el orden del tren (las mismas funciones; 0 errores de sintaxis), sin perder nada de lo demás.
+- ⚠️ **`npx vercel ls … | grep Error` da un falso «Error»:** npm imprime `npm warn cleanup [Error: EPERM …]` en la misma
+  salida. El estado del deploy se lee con `grep "●"` (la línea de la tabla); en Git Bash la tabla sale por stderr, así que va
+  con `2>&1`.
+- ⚠️ **Sacar una punta que dio rojo sin volver a correr el tren:** si no comparte archivos de código con las otras (sólo el
+  índice), el árbol de antes del merge de esa punta (`HEAD^` del primer padre) ya está probado: los tests corrieron sobre un
+  superconjunto y el único rojo era de ella. Así salió el tren 7 sin el aviso de Closing.
+- **Un hotfix de cliente roto no espera al tren:** se arma en un worktree aparte (`git worktree add --detach … origin/main`
+  más la junction de node_modules) y se prueba ahí, en paralelo. El tren después mergea main.
