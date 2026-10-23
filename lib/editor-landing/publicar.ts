@@ -24,6 +24,7 @@ import 'server-only';
 import { revalidateTag } from 'next/cache';
 import { getTenantDb, getWorkspaceActual, wsSuperAdmin } from '../workspace';
 import { TAG_LANDING_MAKO } from './landing-mako';
+import { frenoDeTope } from './tope-landings-server';
 import { getSupabaseServer } from '../supabase';
 import { getUsuarioActual } from '../auth';
 import { urlPublicaLanding, urlVistaLanding } from '../app-url';
@@ -172,6 +173,9 @@ export async function publicar(idRaw: unknown, versionRaw: unknown, slugRaw: unk
     // LA FILA, no el body: si lo guardado no es lo que la pantalla cree, no se publica nada.
     if (f.version !== version) return { ok: false, error: 'Hay una versión más nueva', conflicto: true, versionActual: f.version, status: 409 };
     if ((await slugsOcupados([slug], id)).has(slug)) return falla('Esa dirección ya está tomada', 409);
+    // El tope del plan (tope-landings.ts): sólo si esta landing NO está publicada (republicar no suma otra).
+    const freno = await frenoDeTope(ws, 'publicar', !!f.publicado_at);
+    if (freno) return freno;
 
     const propios = await temasPropiosDe(ws);
     const publicadoAt = new Date().toISOString();

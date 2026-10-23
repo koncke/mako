@@ -66,6 +66,14 @@ import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { avisoDeCobro, productosDePago } from '@/lib/editor-landing/pago-landing';
 import { useCobroLanding } from '../nodos/CobroBoton';
 import { useEditorLanding } from '../contexto';
+import Link from '@/app/_ui/Link';
+import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
+
+/** El tope del plan al publicar o conectar un dominio (lib/editor-landing/tope-landings.ts): el cartel lleva «Pasar a Pro». */
+function PasarAPro({ error }: { error: string }) {
+  if (!error.startsWith('Llegaste al tope de tu plan')) return null;
+  return <> <Link href={RUTA_CAMBIAR_PLAN} style={{ fontWeight: 600 }}>Pasar a Pro</Link></>;
+}
 import {
   Campo, CampoImagen, EstilosGmp, FilaAjuste, Giro, Icono, Interruptor, MenuGma, ModalGma, Pestanas, Segmentado,
   cambiarSitio, copiarTexto, pedir, sinAcentos, useConfigViva, useConfirmaGma, useFijo, useRebote,
@@ -538,7 +546,7 @@ function DialogoPublicarAbierto({ onCerrar }: { onCerrar?: () => void }) {
           {publicando ? <Giro chico etiqueta="Publicando" /> : <Icono nombre="subir" tam={14} />}Publicar sitio
         </button>
       </div>
-      {error && <p className="gmp-error" style={{ margin: '-6px 0 12px' }} role="alert">{error}<ReportarASoporte /></p>}
+      {error && <p className="gmp-error" style={{ margin: '-6px 0 12px' }} role="alert">{error}<PasarAPro error={error} /><ReportarASoporte /></p>}
       {avisoCobro && (
         <p className="gmp-error" style={{ margin: '-6px 0 12px' }} role="status">
           {avisoCobro.texto}
@@ -746,7 +754,7 @@ function SeccionDominio({ docId, urlMako, prefijo, publicado, confirmar, avisar 
           </form>
         </Campo>
       )}
-      {error && <p className="gmp-error" role="alert" style={{ marginTop: 8 }}>{error}<ReportarASoporte /></p>}
+      {error && <p className="gmp-error" role="alert" style={{ marginTop: 8 }}>{error}<PasarAPro error={error} /><ReportarASoporte /></p>}
     </>
   );
 }
